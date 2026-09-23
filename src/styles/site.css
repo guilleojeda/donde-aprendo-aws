@@ -322,6 +322,145 @@ button {
   text-align: center;
 }
 
+.contribution-section {
+  padding: 70px 0 80px;
+  background: #f7f7f8;
+}
+
+.contribution-heading {
+  margin-bottom: 38px;
+}
+
+.contribution-heading h2 {
+  margin-top: 0;
+  color: #303030;
+  font-size: 3.4em;
+}
+
+.contribution-heading p {
+  color: rgba(48, 48, 48, 0.8);
+}
+
+.contribution-form {
+  padding: 35px;
+  border: 1px solid #e0e1e5;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(48, 48, 48, 0.05);
+}
+
+.contribution-form__help {
+  margin: 0 0 28px;
+  color: rgba(48, 48, 48, 0.75);
+  line-height: 1.6;
+}
+
+.contribution-form__fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px 20px;
+}
+
+.contribution-form__field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.contribution-form__field--full {
+  grid-column: 1 / -1;
+}
+
+.contribution-form__field label {
+  color: #303030;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.contribution-form__field input,
+.contribution-form__field select,
+.contribution-form__field textarea {
+  width: 100%;
+  border: 1px solid #d8dde6;
+  border-radius: 8px;
+  background: #fff;
+  color: #303030;
+  font-size: 15px;
+  line-height: 1.45;
+  outline-offset: 3px;
+}
+
+.contribution-form__field input,
+.contribution-form__field select {
+  min-height: 46px;
+  padding: 10px 13px;
+}
+
+.contribution-form__field textarea {
+  min-height: 130px;
+  padding: 12px 13px;
+  resize: vertical;
+}
+
+.contribution-form__field input:hover,
+.contribution-form__field select:hover,
+.contribution-form__field textarea:hover {
+  border-color: #a3afc4;
+}
+
+.contribution-form__field input:focus,
+.contribution-form__field select:focus,
+.contribution-form__field textarea:focus {
+  border-color: #303030;
+  outline-color: #303030;
+}
+
+.contribution-form__field input:invalid:not(:placeholder-shown),
+.contribution-form__field textarea:invalid:not(:placeholder-shown),
+.contribution-form__field select:user-invalid {
+  border-color: #a33b3b;
+}
+
+.contribution-form__honeypot {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.contribution-form__submit {
+  margin-top: 28px;
+}
+
+.contribution-form__submit:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.contribution-form__status {
+  padding: 14px 16px;
+  margin: 22px 0 0;
+  border-radius: 8px;
+  line-height: 1.5;
+}
+
+.contribution-form__status[hidden] {
+  display: none;
+}
+
+.contribution-form__status[data-status='success'] {
+  background: #eaf6ed;
+  color: #1f6030;
+}
+
+.contribution-form__status[data-status='error'] {
+  background: #fff0f0;
+  color: #8a2e2e;
+}
+
 .error-page {
   min-height: 55vh;
   padding: 100px 0;

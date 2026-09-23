@@ -12,6 +12,7 @@
     "preview": "astro preview",
     "check": "astro check",
     "test": "node --test tests/*.test.mjs",
+    "package:submission": "node scripts/package-submission.mjs",
     "import:catalog": "node scripts/import-catalog.mjs",
     "publish": "node scripts/publish.mjs"
   },
@@ -26,6 +27,7 @@
   "devDependencies": {
     "@astrojs/check": "0.9.10",
     "@types/node": "24.13.6",
+    "esbuild": "0.28.2",
     "typescript": "5.9.3"
   }
 }

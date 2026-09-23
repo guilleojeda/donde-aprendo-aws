@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Directory catalog and read-only Amplify build access
+Description: Directory catalog, Amplify build access, and deployment artifacts
 Resources:
   Catalog:
     Type: AWS::DynamoDB::Table
@@ -40,6 +40,36 @@ Resources:
                 Action:
                   - dynamodb:Scan
                 Resource: !GetAtt Catalog.Arn
+                Condition:
+                  ForAllValues:StringEquals:
+                    dynamodb:Attributes:
+                      - id
+                      - title
+                      - url
+                      - description
+                      - category
+                      - order
+                      - featured
+                      - published
+                  StringEquals:
+                    dynamodb:Select: SPECIFIC_ATTRIBUTES
+      Tags:
+        - Key: Project
+          Value: donde-aprendo-aws
+  DeploymentArtifacts:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
       Tags:
         - Key: Project
           Value: donde-aprendo-aws
@@ -48,3 +78,5 @@ Outputs:
     Value: !Ref Catalog
   AmplifyBuildRoleArn:
     Value: !GetAtt AmplifyBuildRole.Arn
+  DeploymentArtifactsBucket:
+    Value: !Ref DeploymentArtifacts
