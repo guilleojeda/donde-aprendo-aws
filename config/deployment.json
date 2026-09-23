@@ -3,5 +3,6 @@
   "region": "us-east-1",
   "stackName": "donde-aprendo-aws-directory",
   "tableName": "donde-aprendo-aws-catalog",
-  "branchName": "main"
+  "branchName": "main",
+  "appId": "d33kh9d3cyassq"
 }

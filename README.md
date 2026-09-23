@@ -2,7 +2,7 @@
 
 Static directory built with Astro and hosted on AWS Amplify. DynamoDB owns the resource catalog; site code and blog articles are files in Git. Codex is an editing tool, not a content store.
 
-The current delivery is a directory preview. Blog and contribution links lead to the existing production site while those capabilities are migrated. The preview is not indexed and does not send Google Analytics pageviews. Production analytics will retain `G-3NXS6QFKHZ` when the domain is migrated.
+The directory preview is hosted at https://main.d33kh9d3cyassq.amplifyapp.com/. Blog and contribution links lead to the existing production site while those capabilities are migrated. The preview is not indexed and does not send Google Analytics pageviews. Production analytics will retain `G-3NXS6QFKHZ` when the domain is migrated.
 
 ## Development
 
