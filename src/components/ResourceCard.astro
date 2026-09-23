@@ -1,0 +1,40 @@
+---
+interface Resource {
+  id: string;
+  title: string;
+  url: string;
+  description?: string;
+  category: string;
+  featured?: boolean;
+}
+
+interface Props {
+  resource: Resource;
+  index: number;
+}
+
+const { resource, index } = Astro.props;
+const searchValue = `${resource.title} ${resource.description ?? ''} ${resource.category}`;
+---
+
+<li
+  class="resource-list__item"
+  data-resource-index={index}
+  data-category={resource.category}
+  data-search={searchValue}
+>
+  <article class="resource-card">
+    <a href={resource.url} target="_blank" rel="noopener">
+      <div class="resource-card__title-box">
+        <h3 class="resource-card__title">{resource.title}</h3>
+        <span
+          class:list={['resource-card__star', { 'is-featured': resource.featured }]}
+          aria-label={resource.featured ? 'Contenido destacado' : 'Contenido del directorio'}
+          title={resource.featured ? 'Contenido destacado' : undefined}
+          aria-hidden={resource.featured ? undefined : 'true'}
+        >☆</span>
+      </div>
+      <p class="resource-card__description">{resource.description ?? ''}</p>
+    </a>
+  </article>
+</li>

@@ -1,0 +1,50 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Directory catalog and read-only Amplify build access
+Resources:
+  Catalog:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: donde-aprendo-aws-catalog
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      Tags:
+        - Key: Project
+          Value: donde-aprendo-aws
+  AmplifyBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: Read published directory content during an Amplify static build
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: amplify.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+      Policies:
+        - PolicyName: ReadCatalog
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:Scan
+                Resource: !GetAtt Catalog.Arn
+      Tags:
+        - Key: Project
+          Value: donde-aprendo-aws
+Outputs:
+  CatalogTable:
+    Value: !Ref Catalog
+  AmplifyBuildRoleArn:
+    Value: !GetAtt AmplifyBuildRole.Arn

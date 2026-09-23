@@ -1,0 +1,72 @@
+---
+import ResourceCard from './ResourceCard.astro';
+
+interface Resource {
+  id: string;
+  title: string;
+  url: string;
+  description?: string;
+  category: string;
+  order: number;
+  featured: boolean;
+}
+
+interface Props {
+  resources: Resource[];
+}
+
+const { resources } = Astro.props;
+const categories = [...new Set(resources.map((resource) => resource.category))]
+  .sort((left, right) => left.localeCompare(right, 'es', { sensitivity: 'base' }));
+const searchPlaceholder = `Buscar entre ${resources.length} recursos`;
+---
+
+<main>
+  <section class="directory-section" id="directory" aria-labelledby="directory-title">
+    <div class="site-container directory-section__container">
+      <div class="directory-hero">
+        <h1 id="directory-title">¿Dónde Aprendo AWS?</h1>
+        <p>El más completo directorio de contenido de AWS en Español. Blogs, artículos, videos, y todo tipo de contenido.</p>
+      </div>
+
+      <div class="directory-controls" data-directory-controls>
+        <label class="sr-only" for="resource-search">Buscar recursos</label>
+        <input
+          id="resource-search"
+          class="directory-search"
+          type="search"
+          placeholder={searchPlaceholder}
+          autocomplete="off"
+          spellcheck="false"
+          data-resource-search
+        />
+        <div class="category-list" role="group" aria-label="Filtrar por categoría">
+          {categories.map((category) => (
+            <button class="category-chip" type="button" data-category-filter={category} aria-pressed="false">
+              {category}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {resources.length > 0 ? (
+        <>
+          <p class="directory-result-count" data-result-count aria-live="polite">{resources.length} recursos</p>
+          <ul class="resource-list" data-resource-list>
+            {resources.map((resource, index) => <ResourceCard resource={resource} index={index} />)}
+          </ul>
+          <p class="directory-no-results" data-no-results role="status" hidden>
+            No encontramos recursos con estos filtros.
+          </p>
+          <div class="directory-show-more" data-show-more-wrap>
+            <button class="button button--dark" type="button" data-show-more>Mostrar Todos</button>
+          </div>
+        </>
+      ) : (
+        <p class="directory-empty" role="status">No hay recursos publicados todavía.</p>
+      )}
+    </div>
+  </section>
+</main>
+
+{resources.length > 0 && <script src="../scripts/directory.js"></script>}

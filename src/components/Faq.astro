@@ -1,0 +1,74 @@
+---
+const faqs = [
+  {
+    question: '¿Cómo puedo agregar mi contenido?',
+    answer: 'Puedes agregar cualquier contenido que ayude a alguien a aprender AWS utilizando el enlace «Agrega tu contenido». Puede ser contenido gratuito o pago, puede ser tu blog completo o cada artículo, puede ser escrito, en video, o en cualquier formato. La única condición es que sea en idioma Español. Sólo tienes que llenar el formulario.',
+  },
+  {
+    question: '¿Debo agregar todo mi blog, o cada artículo por separado?',
+    answer: '¡Puedes hacer ambas cosas! Puedes agregar tu blog con categoría Blog, tu canal con categoría Canal de Youtube, y así con cada tipo de recurso. Además, puedes agregar cada artículo, video, episodio, etc por separado, con la categoría del tema del que se trate, por ejemplo Serverless, Containers o Seguridad. De esta manera la gente encontrará más fácil tanto tu blog como cada artículo.',
+  },
+  {
+    question: '¿Por qué debería agregar mi contenido?',
+    answer: 'Dónde Aprendo AWS ayudará a personas interesadas en AWS a encontrar tus artículos, videos o cualquier tipo de contenido más fácilmente, y así te ayudará a tener mayor exposición y tráfico. Además, los enlaces a tu contenido generan backlinks, lo cual mejorará el SEO de tu dominio.',
+  },
+  {
+    question: '¿Es gratis?',
+    answer: 'Sí, es completamente gratis. Nuestro objetivo es ayudar a gente interesada en AWS cuyo idioma es Español a encontrar contenido para aprender AWS en su idioma.',
+  },
+  {
+    question: '¿Puedo agregar contenido pago?',
+    answer: 'Sí. El objetivo es que más personas puedan disfrutar de contenido de calidad y en Español, y eso incluye contenido gratuito y pago.',
+  },
+  {
+    question: '¿Hay alguna forma de destacar mi contenido?',
+    answer: 'Por el momento no. La posición de cada recurso se mantiene según el orden del directorio y cambia cuando se actualiza el listado. Estamos pensando para el futuro algunas opciones, incluyendo la posibilidad de planes pagos. Cuando tomemos una decisión lo anunciaremos.',
+  },
+];
+const contributorUrl = 'https://dondeaprendoaws.com/#cta_form-01-839181';
+---
+
+<section class="faq-section" id="faq" aria-labelledby="faq-title">
+  <div class="site-container site-container--narrow">
+    <div class="section-heading section-heading--light">
+      <h2 id="faq-title">Preguntas frecuentes</h2>
+      <p>Aquí están las respuestas a algunas preguntas frecuentes.</p>
+    </div>
+    <ul class="faq-list">
+      {faqs.map((faq, index) => {
+        const answerId = `faq-answer-${index + 1}`;
+        return (
+          <li class="faq-item">
+            <button class="faq-question" type="button" aria-expanded="false" aria-controls={answerId}>
+              <span>{faq.question}</span>
+              <span class="faq-arrow" aria-hidden="true">⌄</span>
+            </button>
+            <div class="faq-answer" id={answerId} hidden>
+              {index === 0 ? (
+                <p>
+                  Puedes agregar cualquier contenido que ayude a alguien a aprender AWS utilizando el enlace <a href={contributorUrl}>Agrega tu contenido</a>. Puede ser contenido gratuito o pago, puede ser tu blog completo o cada artículo, puede ser escrito, en video, o en cualquier formato. La única condición es que sea en idioma Español. Sólo tienes que llenar el formulario.
+                </p>
+              ) : (
+                <p>{faq.answer}</p>
+              )}
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  </div>
+</section>
+
+<script>
+  document.querySelectorAll('.faq-question').forEach((question) => {
+    question.addEventListener('click', () => {
+      const answerId = question.getAttribute('aria-controls');
+      const answer = answerId ? document.getElementById(answerId) : null;
+      if (!answer) return;
+      const isExpanded = question.getAttribute('aria-expanded') === 'true';
+      question.setAttribute('aria-expanded', String(!isExpanded));
+      answer.hidden = isExpanded;
+      question.closest('.faq-item')?.classList.toggle('is-open', !isExpanded);
+    });
+  });
+</script>

@@ -1,0 +1,19 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import SiteHeader from '../components/SiteHeader.astro';
+import Directory from '../components/Directory.astro';
+import Faq from '../components/Faq.astro';
+import Partner from '../components/Partner.astro';
+import SiteFooter from '../components/SiteFooter.astro';
+import { loadCatalog } from '../lib/catalog.mjs';
+
+const resources = await loadCatalog();
+---
+
+<BaseLayout>
+  <SiteHeader />
+  <Directory resources={resources} />
+  <Faq />
+  <Partner />
+  <SiteFooter />
+</BaseLayout>

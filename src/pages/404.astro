@@ -1,0 +1,15 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import SiteHeader from '../components/SiteHeader.astro';
+---
+
+<BaseLayout title="Página no encontrada | ¿Dónde Aprendo AWS?">
+  <SiteHeader />
+  <main class="error-page">
+    <div class="site-container site-container--small">
+      <h1>Página no encontrada</h1>
+      <p>La página que buscas no existe o fue movida.</p>
+      <a class="button button--dark" href="/">Volver al inicio</a>
+    </div>
+  </main>
+</BaseLayout>

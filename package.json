@@ -1,0 +1,31 @@
+{
+  "name": "donde-aprendo-aws",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "test": "node --test tests/*.test.mjs",
+    "import:catalog": "node scripts/import-catalog.mjs",
+    "publish": "node scripts/publish.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-amplify": "3.1138.0",
+    "@aws-sdk/client-dynamodb": "3.1138.0",
+    "@aws-sdk/client-sts": "3.1138.0",
+    "@aws-sdk/lib-dynamodb": "3.1138.0",
+    "astro": "7.3.4",
+    "csv-parse": "7.0.2"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.10",
+    "@types/node": "24.13.6",
+    "typescript": "5.9.3"
+  }
+}

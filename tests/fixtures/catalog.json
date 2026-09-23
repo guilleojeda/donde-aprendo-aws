@@ -1,0 +1,22 @@
+[
+  {
+    "id": "fixture-featured",
+    "title": "Curso de ejemplo",
+    "url": "https://example.com/curso?utm_source=fixture&lang=es",
+    "description": "Descripción pública de ejemplo.",
+    "category": "Curso",
+    "order": 10,
+    "featured": true,
+    "published": true
+  },
+  {
+    "id": "fixture-unpublished",
+    "title": "No publicado",
+    "url": "https://example.com/private",
+    "description": "No debe llegar al catálogo público.",
+    "category": "Otros",
+    "order": 20,
+    "featured": false,
+    "published": false
+  }
+]
