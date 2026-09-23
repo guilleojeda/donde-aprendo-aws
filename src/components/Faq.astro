@@ -2,11 +2,10 @@
 const faqs = [
   {
     question: '¿Cómo puedo agregar mi contenido?',
-    answer: 'Puedes agregar cualquier contenido que ayude a alguien a aprender AWS utilizando el enlace «Agrega tu contenido». Puede ser contenido gratuito o pago, puede ser tu blog completo o cada artículo, puede ser escrito, en video, o en cualquier formato. La única condición es que sea en idioma Español. Sólo tienes que llenar el formulario.',
   },
   {
     question: '¿Debo agregar todo mi blog, o cada artículo por separado?',
-    answer: '¡Puedes hacer ambas cosas! Puedes agregar tu blog con categoría Blog, tu canal con categoría Canal de Youtube, y así con cada tipo de recurso. Además, puedes agregar cada artículo, video, episodio, etc por separado, con la categoría del tema del que se trate, por ejemplo Serverless, Containers o Seguridad. De esta manera la gente encontrará más fácil tanto tu blog como cada artículo.',
+    answer: '¡Puedes hacer ambas cosas! Puedes agregar tu blog con categoría Blog, tu canal con categoría Canal de YouTube, y así con cada tipo de recurso. Además, puedes agregar cada artículo, video, episodio, etc por separado, con la categoría del tema del que se trate, por ejemplo Serverless, Contenedores o Seguridad. De esta manera la gente encontrará más fácil tanto tu blog como cada artículo.',
   },
   {
     question: '¿Por qué debería agregar mi contenido?',
@@ -25,7 +24,7 @@ const faqs = [
     answer: 'Por el momento no. La posición de cada recurso se mantiene según el orden del directorio y cambia cuando se actualiza el listado. Estamos pensando para el futuro algunas opciones, incluyendo la posibilidad de planes pagos. Cuando tomemos una decisión lo anunciaremos.',
   },
 ];
-const contributorUrl = 'https://dondeaprendoaws.com/#cta_form-01-839181';
+const contributorUrl = '/#cta_form-01-839181';
 ---
 
 <section class="faq-section" id="faq" aria-labelledby="faq-title">
@@ -46,7 +45,7 @@ const contributorUrl = 'https://dondeaprendoaws.com/#cta_form-01-839181';
             <div class="faq-answer" id={answerId} hidden>
               {index === 0 ? (
                 <p>
-                  Puedes agregar cualquier contenido que ayude a alguien a aprender AWS utilizando el enlace <a href={contributorUrl}>Agrega tu contenido</a>. Puede ser contenido gratuito o pago, puede ser tu blog completo o cada artículo, puede ser escrito, en video, o en cualquier formato. La única condición es que sea en idioma Español. Sólo tienes que llenar el formulario.
+                  Puedes agregar cualquier contenido que ayude a alguien a aprender AWS utilizando el enlace <a href={contributorUrl}>Agrega tu contenido</a>. Revisaremos el envío antes de publicarlo. Puede ser contenido gratuito o pago, puede ser tu blog completo o cada artículo, puede ser escrito, en video, o en cualquier formato. La única condición es que sea en idioma Español.
                 </p>
               ) : (
                 <p>{faq.answer}</p>

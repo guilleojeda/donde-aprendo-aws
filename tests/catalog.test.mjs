@@ -121,6 +121,7 @@ test('exhausts paginated scans and sends the continuation key', async () => {
   assert.equal(pages.calls.length, 2);
   assert.deepEqual(pages.calls[1].ExclusiveStartKey, { id: 'page-1' });
   assert.equal(pages.calls[0].TableName, 'catalog');
+  assert.equal(pages.calls[0].Select, 'SPECIFIC_ATTRIBUTES');
   assert.match(pages.calls[0].ProjectionExpression, /published/);
 });
 

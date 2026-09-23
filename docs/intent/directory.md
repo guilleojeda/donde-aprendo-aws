@@ -16,10 +16,12 @@ The build must consume every scan page. Failed or malformed reads stop publicati
 
 The site is a static snapshot. A database edit takes effect after the owner starts a fresh Amplify build and the deployment succeeds. A Git deployment also reads the current catalog. Unpublishing follows the same rule; changing the flag does not instantly erase already-deployed HTML or external caches.
 
-The build reads DynamoDB using a scoped AWS role. Visitors do not receive AWS credentials or access the table. No runtime catalog API, scheduled rebuild, database stream processor, or database-to-Git synchronization is necessary for this workflow.
+Visitors submit the existing six fields through the owned form. The API validates them, conditionally creates a catalog record with `published=false`, and confirms receipt only after DynamoDB accepts the write. Duplicate exact URLs are rejected without changing an existing record. The record also contains private submitter name and email fields for the owner's review. The build's projection excludes those fields even after approval. Newly approved entries default to order zero and appear after the imported records; the owner can edit their order directly.
+
+The build reads DynamoDB using a scoped AWS role that can scan only the public attributes named in its projection. Visitors do not receive AWS credentials or access the table. No runtime catalog API, scheduled rebuild, database stream processor, or database-to-Git synchronization is necessary for this workflow.
 
 ## Preview boundary
 
-The directory preview uses an Amplify default hostname and leaves production DNS unchanged. It is excluded from indexing and production Analytics collection. Its Blog and contribution links lead to the existing production destinations until their replacements are delivered. The preview does not present a nonfunctional submission form or placeholder blog pages.
+The directory preview uses an Amplify default hostname and leaves production DNS unchanged. It is excluded from indexing and production Analytics collection. Its contributor form uses the owned API. Blog still leads to the existing production destination until its replacement is delivered.
 
 The site uses owned styles, scripts, and assets. Unicorn's generic client bundle and SEObot's publishing integration are not part of the replacement. Existing articles remain content to preserve, regardless of the tool originally used to write them.

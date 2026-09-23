@@ -17,6 +17,9 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm test
+      - run: npm run package:submission
+      - run: npm run smoke:submission
       - run: npm run build
         env:
           CATALOG_FIXTURE: tests/fixtures/catalog.json
+          PUBLIC_SUBMISSION_API_URL: https://api.example.invalid/submissions

@@ -1,6 +1,7 @@
 /.work/
 /node_modules/
 /dist/
+/build/
 /.astro/
 .env
 .env.*

@@ -1,0 +1,115 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Contributor submissions into the existing directory catalog
+Parameters:
+  CatalogTableName:
+    Type: String
+  ArtifactBucket:
+    Type: String
+  ArtifactKey:
+    Type: String
+  PreviewOrigin:
+    Type: String
+    Default: https://main.d33kh9d3cyassq.amplifyapp.com
+Resources:
+  SubmissionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/donde-aprendo-aws-submissions
+      RetentionInDays: 14
+  SubmissionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: WritePendingCatalog
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: dynamodb:PutItem
+                Resource: !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${CatalogTableName}
+        - PolicyName: WriteFunctionLogs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !GetAtt SubmissionLogGroup.Arn
+  SubmissionFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: SubmissionLogGroup
+    Properties:
+      FunctionName: donde-aprendo-aws-submissions
+      Runtime: nodejs24.x
+      Handler: index.handler
+      Role: !GetAtt SubmissionRole.Arn
+      Code:
+        S3Bucket: !Ref ArtifactBucket
+        S3Key: !Ref ArtifactKey
+      Environment:
+        Variables:
+          CATALOG_TABLE: !Ref CatalogTableName
+      MemorySize: 128
+      Timeout: 10
+  SubmissionApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: donde-aprendo-aws-submissions
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins:
+          - !Ref PreviewOrigin
+        AllowMethods:
+          - POST
+          - OPTIONS
+        AllowHeaders:
+          - content-type
+        MaxAge: 300
+  SubmissionIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref SubmissionApi
+      IntegrationType: AWS_PROXY
+      IntegrationMethod: POST
+      IntegrationUri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SubmissionFunction.Arn}/invocations
+      PayloadFormatVersion: '2.0'
+  SubmissionRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref SubmissionApi
+      RouteKey: POST /submissions
+      Target: !Join
+        - ''
+        - - integrations/
+          - !Ref SubmissionIntegration
+  SubmissionStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref SubmissionApi
+      StageName: $default
+      AutoDeploy: true
+      DefaultRouteSettings:
+        ThrottlingRateLimit: 5
+        ThrottlingBurstLimit: 10
+  SubmissionInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref SubmissionFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${SubmissionApi}/*/POST/submissions
+Outputs:
+  SubmissionApiId:
+    Value: !Ref SubmissionApi
+  SubmissionEndpoint:
+    Value: !Sub https://${SubmissionApi}.execute-api.${AWS::Region}.amazonaws.com/submissions
+  SubmissionFunctionName:
+    Value: !Ref SubmissionFunction

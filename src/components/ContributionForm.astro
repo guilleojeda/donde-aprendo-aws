@@ -1,0 +1,125 @@
+---
+import { SUBMISSION_CATEGORIES } from '../lib/submission-categories.mjs';
+
+const submissionApiUrl = import.meta.env.PUBLIC_SUBMISSION_API_URL?.trim() ?? '';
+
+if (import.meta.env.PROD && !submissionApiUrl) {
+  throw new Error('PUBLIC_SUBMISSION_API_URL must be set for a production build');
+}
+
+---
+
+<section class="contribution-section" id="cta_form-01-839181" aria-labelledby="contribution-title">
+  <div class="site-container site-container--small">
+    <div class="section-heading contribution-heading">
+      <h2 id="contribution-title">Agregar Mi Contenido</h2>
+      <p>Comparte recursos en Español para ayudar a otras personas a aprender AWS.</p>
+    </div>
+
+    <form
+      class="contribution-form"
+      data-contribution-form
+      data-api-url={submissionApiUrl}
+      aria-describedby="contribution-help contribution-status"
+    >
+      <p id="contribution-help" class="contribution-form__help">
+        Completa los datos de tu contenido. Revisaremos el envío antes de publicarlo.
+      </p>
+
+      <div class="contribution-form__fields">
+        <div class="contribution-form__field">
+          <label for="contribution-email">Tu correo electrónico</label>
+          <input
+            id="contribution-email"
+            name="email"
+            type="email"
+            autocomplete="email"
+            placeholder="tucorreo@tudominio.com"
+            maxlength="254"
+            required
+          />
+        </div>
+
+        <div class="contribution-form__field">
+          <label for="contribution-full-name">Tu nombre completo</label>
+          <input
+            id="contribution-full-name"
+            name="full_name"
+            type="text"
+            autocomplete="name"
+            placeholder="Ingresa tu nombre completo"
+            maxlength="160"
+            required
+          />
+        </div>
+
+        <div class="contribution-form__field contribution-form__field--full">
+          <label for="contribution-title-field">Título o Nombre</label>
+          <input
+            id="contribution-title-field"
+            name="title"
+            type="text"
+            autocomplete="off"
+            placeholder="Por ejemplo: AWS IAM explicado en 5 minutos"
+            maxlength="240"
+            required
+          />
+        </div>
+
+        <div class="contribution-form__field contribution-form__field--full">
+          <label for="contribution-url">URL</label>
+          <input
+            id="contribution-url"
+            name="url"
+            type="url"
+            inputmode="url"
+            autocomplete="url"
+            placeholder="https://tucontenido.tudominio.com"
+            maxlength="2048"
+            required
+          />
+        </div>
+
+        <div class="contribution-form__field contribution-form__field--full">
+          <label for="contribution-text">Descripción</label>
+          <textarea
+            id="contribution-text"
+            name="text"
+            rows="5"
+            placeholder="Por ejemplo: Te explico en 5 minutos cómo funciona AWS IAM y cómo darle permisos a los usuarios que necesiten acceder a tu cuenta de AWS"
+            maxlength="8000"
+            required
+          ></textarea>
+        </div>
+
+        <div class="contribution-form__field contribution-form__field--full">
+          <label for="contribution-category">Categoría</label>
+          <select id="contribution-category" name="Category" required>
+            <option value="">Selecciona una categoría</option>
+            {SUBMISSION_CATEGORIES.map((category) => <option value={category}>{category}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div class="contribution-form__honeypot" aria-hidden="true">
+        <label for="contribution-website">Website</label>
+        <input id="contribution-website" name="website" type="text" tabindex="-1" autocomplete="off" />
+      </div>
+
+      <button class="button button--dark contribution-form__submit" type="submit" data-contribution-submit>
+        Agregar mi contenido
+      </button>
+
+      <p
+        id="contribution-status"
+        class="contribution-form__status"
+        data-contribution-status
+        tabindex="-1"
+        aria-live="polite"
+        hidden
+      ></p>
+    </form>
+  </div>
+</section>
+
+<script src="../scripts/contribution-form.js"></script>
