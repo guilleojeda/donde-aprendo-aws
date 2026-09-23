@@ -752,6 +752,10 @@ button {
     width: min(100% - 30px, 1200px);
   }
 
+  .contribution-form__fields {
+    grid-template-columns: 1fr;
+  }
+
   .directory-hero h1 {
     font-size: 2em;
     line-height: 1.2;
