@@ -91,6 +91,6 @@ The API conditionally creates one record per exact submitted URL. If an owner ed
 
 ## Verification
 
-GitHub Actions runs `npm run check`, `npm test`, Lambda packaging, and an explicitly selected fixture build. Amplify runs the site checks and builds from the live table. A successful fixture build does not prove that AWS access or live catalog publication works; verify the deployed directory, form, and database-change → fresh-build behavior as part of delivery.
+GitHub Actions runs `npm run check`, `npm test`, Lambda packaging, a packaged-handler smoke call against a local DynamoDB stub, and an explicitly selected fixture build. Amplify runs the site checks and builds from the live table. A successful fixture build does not prove that AWS access or live catalog publication works; verify the deployed directory, form, and database-change → fresh-build behavior as part of delivery.
 
 See [directory behavior](docs/intent/directory.md) for the content and publication rules.
