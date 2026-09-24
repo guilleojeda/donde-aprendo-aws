@@ -1,0 +1,60 @@
+---
+import '../../styles/blog.css';
+import { getCollection, render } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import BlogHeader from '../../components/BlogHeader.astro';
+import BlogFooter from '../../components/BlogFooter.astro';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog');
+  return posts.map((post) => ({ params: { slug: post.id }, props: { post } }));
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+const canonical = new URL(`/blog/${post.id}/`, Astro.site ?? Astro.url).href;
+const publishedDate = new Intl.DateTimeFormat('en-GB', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+  timeZone: 'UTC',
+}).format(new Date(`${post.data.publishedAt}T00:00:00Z`));
+---
+
+<BaseLayout
+  title={post.data.title}
+  description={post.data.description}
+  canonical={canonical}
+  image={post.data.ogImage}
+  publishedTimestamp={post.data.publishedTimestamp}
+>
+  <BlogHeader />
+  <main class="blog-article">
+    <header class="blog-article__header">
+      <h1>{post.data.title}</h1>
+      <p class="blog-article__date">Published on {publishedDate}</p>
+    </header>
+    <article class="blog-article__body">
+      <Content />
+    </article>
+    {post.data.related.length > 0 && (
+      <section class="blog-related" aria-labelledby="blog-related-title">
+        <div class="blog-related__header">
+          <h2 id="blog-related-title">Read more</h2>
+          <a href="/blog/" aria-label="Volver al blog" class="blog-related__home">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 11.5 12 4l9 7.5M5.5 10.5V20h13v-9.5M9.5 20v-6h5v6" /></svg>
+          </a>
+        </div>
+        <div class="blog-related__cards">
+          {post.data.related.map((related) => (
+            <a class="blog-related__card" href={related.url}>
+              <img src={related.image} alt={related.imageAlt} loading="lazy" />
+              <h3>{related.title}</h3>
+            </a>
+          ))}
+        </div>
+      </section>
+    )}
+  </main>
+  <BlogFooter />
+</BaseLayout>

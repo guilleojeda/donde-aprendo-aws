@@ -1,8 +1,8 @@
 # ¿Dónde Aprendo AWS?
 
-Static directory built with Astro and hosted on AWS Amplify. DynamoDB owns the resource catalog; site code is in Git. The existing blog stays on the original site until its articles are migrated as Git files. Codex is an editing tool, not a content store.
+Static directory and blog built with Astro and hosted on AWS Amplify. DynamoDB owns the resource catalog; site code and blog articles are files in Git. Codex is an editing tool, not a content store.
 
-The directory preview is hosted at https://main.d33kh9d3cyassq.amplifyapp.com/. Its contribution form stores pending submissions through the owned API; Blog still leads to the original site. The preview is not indexed and does not send Google Analytics pageviews. Production analytics will retain `G-3NXS6QFKHZ` when the domain is migrated.
+The preview is hosted at https://main.d33kh9d3cyassq.amplifyapp.com/. Its contribution form stores pending submissions through the owned API. `/blog/` and its 15 currently listed articles are served locally; older article paths remain on the original site until their archive is migrated. The preview is not indexed and does not send Google Analytics pageviews. Production analytics will retain `G-3NXS6QFKHZ` when the domain is migrated.
 
 ## Development
 
@@ -23,7 +23,15 @@ AWS_REGION=us-east-1 CATALOG_TABLE=donde-aprendo-aws-catalog PUBLIC_SUBMISSION_A
 npm run preview
 ```
 
+After either static build, run `npm run verify:blog` to check the blog routes and owned assets against the captured index fixture. CI and Amplify run this check after their builds.
+
 Do not set `CATALOG_FIXTURE` for an Amplify deployment or combine it with `CATALOG_TABLE`. Never commit credentials, submission contact information, or raw database dumps.
+
+## Blog editing
+
+Edit the article Markdown files in `src/content/blog/` and keep their images in `public/assets/blog/`. Frontmatter controls title, date, description, cover image, related cards, and the current index order. HTML blocks in articles preserve source structures such as figures and tables. See [blog behavior](docs/intent/blog.md) for the content contract.
+
+The blog preview uses the Amplify hostname for absolute social-image URLs. `PUBLIC_SITE_ORIGIN` can override that media origin at production cutover; canonical URLs already point to the original domain paths. Avoid reintroducing Unicorn or SEObot scripts or remote media in article files.
 
 ## AWS setup
 
@@ -93,4 +101,4 @@ The API conditionally creates one record per exact submitted URL. If an owner ed
 
 GitHub Actions runs `npm run check`, `npm test`, Lambda packaging, a packaged-handler smoke call against a local DynamoDB stub, and an explicitly selected fixture build. Amplify runs the site checks and builds from the live table. A successful fixture build does not prove that AWS access or live catalog publication works; verify the deployed directory, form, and database-change → fresh-build behavior as part of delivery.
 
-See [directory behavior](docs/intent/directory.md) for the content and publication rules.
+See [directory behavior](docs/intent/directory.md) and [blog behavior](docs/intent/blog.md) for the content and publication rules.
