@@ -1,0 +1,9 @@
+# Blog content
+
+The blog promotes AWS learning content through the existing article URLs. Articles live as Markdown files in Git under `src/content/blog/`; Codex can edit those files, but it is not the content store. The index displays the 15 articles that appeared on the original `/blog/` page, in their original order. The remaining historical article paths are outside the current preview increment.
+
+Each article keeps its title, publication date, description, canonical URL, useful social metadata, substantive body, images, and links. HTML blocks are allowed inside Markdown when they preserve tables, figures, heading IDs, or other source structure. Necessary article and card images are copied into `public/assets/blog/`, so the rendered pages do not depend on Unicorn or SEObot for scripts or media. Creator and AWS links keep their original destinations and query strings. Links to historical article paths may still open the original domain until those paths are also hosted on the preview; the domain remains live during this period.
+
+To edit an article, change its Markdown file and any local images in the same Git change. Frontmatter supplies the title, description, `publishedAt` date, exact `publishedTimestamp` for structured data, local cover/OG image paths, and optional related cards. `indexOrder` controls the 15-card index and must be unique for indexed articles. A Git deployment builds a new static snapshot; no CMS or SEObot integration updates the site behind Git.
+
+The preview remains excluded from indexing and production Analytics. Its canonical URLs point at the unchanged production domain, while social preview images resolve on the owned Amplify preview. At domain cutover, set `PUBLIC_SITE_ORIGIN=https://dondeaprendoaws.com` for media metadata and enable the intended production indexing and Analytics behavior.

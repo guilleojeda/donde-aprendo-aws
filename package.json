@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
+    "verify:blog": "node scripts/verify-blog.mjs",
     "preview": "astro preview",
     "check": "astro check",
     "test": "node --test tests/*.test.mjs",
