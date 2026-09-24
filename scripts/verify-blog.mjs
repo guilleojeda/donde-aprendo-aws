@@ -21,6 +21,8 @@ const indexUrls = [...index.matchAll(/<a\b[^>]*class="blog-card"[^>]*href="([^"]
   .map((match) => match[1]);
 assert.deepEqual(indexUrls, expected.map(({ slug }) => `/blog/${slug}/`));
 assert.match(index, /<link rel="canonical" href="https:\/\/dondeaprendoaws\.com\/blog\/"/);
+assert.match(index, /<meta name="twitter:url" content="https:\/\/dondeaprendoaws\.com\/blog\/"/);
+assert.doesNotMatch(index, /<meta name="twitter:(?:card|image)"/);
 
 const generated = readdirSync(resolve(dist, 'blog'), { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
@@ -41,6 +43,11 @@ for (const article of expected) {
   assert.match(html, /<article class="blog-article__body">/, `Body missing: ${article.slug}`);
   const ogImage = html.match(/<meta property="og:image" content="([^"]+)"/)?.[1];
   assert.ok(ogImage?.startsWith(`${mediaOrigin}/assets/blog/`), `Owned social image missing: ${article.slug}`);
+  assert.match(html, /<meta name="twitter:card" content="summary_large_image"/);
+  assert.ok(html.includes(`<meta name="twitter:url" content="https://dondeaprendoaws.com/blog/${article.slug}/"`));
+  assert.equal(decode(html.match(/<meta name="twitter:title" content="([^"]*)"/)?.[1] ?? ''), article.title);
+  assert.equal(decode(html.match(/<meta name="twitter:description" content="([^"]*)"/)?.[1] ?? ''), article.description);
+  assert.equal(html.match(/<meta name="twitter:image" content="([^"]+)"/)?.[1], ogImage);
 }
 
 for (const html of allPages) {

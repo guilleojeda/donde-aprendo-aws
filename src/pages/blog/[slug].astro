@@ -14,7 +14,7 @@ const { post } = Astro.props;
 const { Content } = await render(post);
 const canonical = new URL(`/blog/${post.id}/`, Astro.site ?? Astro.url).href;
 const publishedDate = new Intl.DateTimeFormat('en-GB', {
-  day: 'numeric',
+  day: '2-digit',
   month: 'long',
   year: 'numeric',
   timeZone: 'UTC',

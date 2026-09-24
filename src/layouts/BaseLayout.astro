@@ -47,6 +47,11 @@ const articleSchema = publishedTimestamp && canonical && imageUrl
     <meta property="og:description" content={description} />
     {canonical && <meta property="og:url" content={canonical} />}
     {imageUrl && <meta property="og:image" content={imageUrl} />}
+    {imageUrl && <meta name="twitter:card" content="summary_large_image" />}
+    {canonical && <meta name="twitter:title" content={title} />}
+    {canonical && <meta name="twitter:description" content={description} />}
+    {canonical && <meta name="twitter:url" content={canonical} />}
+    {imageUrl && <meta name="twitter:image" content={imageUrl} />}
     {articleSchema && <script type="application/ld+json" set:html={articleSchema} />}
     <link rel="icon" type="image/png" href="/assets/site-favicon.png" sizes="120x120" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
