@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
+import deployment from '../config/deployment.json' with { type: 'json' };
 
 const dist = resolve('dist');
+const mediaOrigin = new URL(process.env.PUBLIC_SITE_ORIGIN || `https://${deployment.branchName}.${deployment.appId}.amplifyapp.com`).origin;
 const expected = JSON.parse(readFileSync('tests/fixtures/blog-index.json', 'utf8'));
 const read = (path) => readFileSync(resolve(dist, path), 'utf8');
 const decode = (value) => value
@@ -37,7 +39,8 @@ for (const article of expected) {
   assert.ok(html.includes(`href="https://dondeaprendoaws.com/blog/${article.slug}/"`), `Canonical mismatch: ${article.slug}`);
   assert.ok(html.includes(`"datePublished":"${article.publishedAt}`), `Publication date missing: ${article.slug}`);
   assert.match(html, /<article class="blog-article__body">/, `Body missing: ${article.slug}`);
-  assert.match(html, /<meta property="og:image" content="https:\/\/main\.d33kh9d3cyassq\.amplifyapp\.com\/assets\/blog\//);
+  const ogImage = html.match(/<meta property="og:image" content="([^"]+)"/)?.[1];
+  assert.ok(ogImage?.startsWith(`${mediaOrigin}/assets/blog/`), `Owned social image missing: ${article.slug}`);
 }
 
 for (const html of allPages) {
