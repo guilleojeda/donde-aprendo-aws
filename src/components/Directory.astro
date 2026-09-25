@@ -1,6 +1,7 @@
 ---
 import ResourceCard from './ResourceCard.astro';
 import { KIND_LABELS, TOPICS } from '../lib/resource-taxonomy.mjs';
+import { COUNTRY_LABELS, LEVEL_LABELS, recentResources, recommendedResources } from '../lib/resource-discovery.mjs';
 
 interface Resource {
   id: string;
@@ -13,6 +14,11 @@ interface Resource {
   kind: string;
   format: string;
   topics: string[];
+  addedAt?: string;
+  country?: string;
+  level?: string;
+  sourceId?: string;
+  communityId?: string;
 }
 
 interface Props {
@@ -20,12 +26,24 @@ interface Props {
 }
 
 const { resources } = Astro.props;
+const kindLabel = (kind: string) => KIND_LABELS[kind as keyof typeof KIND_LABELS] ?? kind;
+const countryLabel = (country: string) => COUNTRY_LABELS[country as keyof typeof COUNTRY_LABELS] ?? country;
+const levelLabel = (level: string) => LEVEL_LABELS[level as keyof typeof LEVEL_LABELS] ?? level;
 const formats = [...new Set(resources.map((resource) => resource.format))]
   .sort((left, right) => left.localeCompare(right, 'es', { sensitivity: 'base' }));
 const topics = TOPICS.filter((topic) => resources.some((resource) => resource.topics.includes(topic)));
 const kindCounts = Object.fromEntries(Object.keys(KIND_LABELS)
   .map((kind) => [kind, resources.filter((resource) => resource.kind === kind).length]));
 const searchPlaceholder = `Buscar entre ${resources.length} recursos`;
+const countries = Object.keys(COUNTRY_LABELS).filter((country) => resources.some((resource) => resource.country === country))
+  .sort((left, right) => countryLabel(left).localeCompare(countryLabel(right), 'es'));
+const levels = Object.keys(LEVEL_LABELS).filter((level) => resources.some((resource) => resource.level === level));
+const recent: Resource[] = recentResources(resources, 4);
+const recentIds = new Set(recent.map((resource) => resource.id));
+const recommended: Resource[] = recommendedResources(resources.filter((resource) => !recentIds.has(resource.id)), 4);
+const resourcesById = new Map(resources.map((resource) => [resource.id, resource]));
+const dateLabel = (date: string) => new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
+  .format(new Date(`${date}T12:00:00Z`));
 ---
 
 <main>
@@ -36,8 +54,62 @@ const searchPlaceholder = `Buscar entre ${resources.length} recursos`;
         <p>Encuentra contenido, sigue a quienes lo crean y conecta con comunidades de AWS en español.</p>
       </div>
 
+      {(recent.length > 0 || recommended.length > 0) && (
+        <div class="directory-discovery">
+          {recent.length > 0 && (
+            <section class="discovery-shelf" aria-labelledby="recent-title">
+              <div class="discovery-shelf__heading">
+                <div>
+                  <h2 id="recent-title">Añadidos recientemente</h2>
+                  <p>Nuevas incorporaciones al directorio.</p>
+                </div>
+                <button type="button" data-discovery-sort="recent">Ordenar por recientes</button>
+              </div>
+              <ul class="discovery-shelf__list">
+                {recent.map((resource) => (
+                  <li>
+                    <a href={`#resource-${resource.id}`} data-resource-jump={resource.id}>
+                      <span class="discovery-shelf__meta">{kindLabel(resource.kind)} · {resource.format}</span>
+                      <strong>{resource.title}</strong>
+                      <time datetime={resource.addedAt}>{dateLabel(resource.addedAt!)}</time>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {recommended.length > 0 && (
+            <section class="discovery-shelf" aria-labelledby="recommended-title">
+              <div class="discovery-shelf__heading">
+                <div>
+                  <h2 id="recommended-title">Recomendados</h2>
+                  <p>Una selección editorial para empezar a explorar.</p>
+                </div>
+                <button type="button" data-discovery-sort="recommended">Priorizar recomendados</button>
+              </div>
+              <ul class="discovery-shelf__list">
+                {recommended.map((resource) => (
+                  <li>
+                    <a href={`#resource-${resource.id}`} data-resource-jump={resource.id}>
+                      <span class="discovery-shelf__meta">{kindLabel(resource.kind)} · {resource.format}</span>
+                      <strong>{resource.title}</strong>
+                      {resource.country && <span>{countryLabel(resource.country)}</span>}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
+      )}
+
+      <h2 class="directory-heading">Explora todos los recursos</h2>
+
       <div class="directory-controls" data-directory-controls>
         <div class="directory-kinds" role="group" aria-label="Qué quieres explorar">
+          <button class="directory-kind" type="button" data-kind-filter="all" aria-pressed="false">
+            Todos <span class="directory-kind__count">{resources.length}</span>
+          </button>
           {Object.entries(KIND_LABELS).map(([kind, label]) => (
             <button class="directory-kind" type="button" data-kind-filter={kind} aria-pressed={kind === 'content'}>
               {label} <span class="directory-kind__count">{kindCounts[kind]}</span>
@@ -69,14 +141,42 @@ const searchPlaceholder = `Buscar entre ${resources.length} recursos`;
               {topics.map((topic) => <option value={topic}>{topic}</option>)}
             </select>
           </div>
+          {countries.length > 0 && (
+            <div class="directory-facet">
+              <label for="resource-country">País de origen</label>
+              <select id="resource-country" data-country-filter>
+                <option value="">Todos los países</option>
+                {countries.map((country) => <option value={country}>{countryLabel(country)}</option>)}
+              </select>
+            </div>
+          )}
+          {levels.length > 0 && (
+            <div class="directory-facet" data-level-field>
+              <label for="resource-level">Nivel</label>
+              <select id="resource-level" data-level-filter>
+                <option value="">Todos los niveles</option>
+                {levels.map((level) => <option value={level}>{levelLabel(level)}</option>)}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
       {resources.length > 0 ? (
         <>
-          <p class="directory-result-count" data-result-count aria-live="polite">{resources.length} recursos</p>
+          <div class="directory-list-heading">
+            <p class="directory-result-count" data-result-count aria-live="polite">{resources.length} recursos</p>
+            <div class="directory-facet directory-facet--sort">
+              <label for="resource-sort">Ordenar por</label>
+              <select id="resource-sort" data-sort-filter>
+                <option value="directory">Orden del directorio</option>
+                <option value="recent">Más recientes</option>
+                <option value="recommended">Recomendados</option>
+              </select>
+            </div>
+          </div>
           <ul class="resource-list" data-resource-list>
-            {resources.map((resource, index) => <ResourceCard resource={resource} index={index} />)}
+            {resources.map((resource, index) => <ResourceCard resource={resource} index={index} source={resourcesById.get(resource.sourceId ?? '')} community={resourcesById.get(resource.communityId ?? '')} />)}
           </ul>
           <p class="directory-no-results" data-no-results role="status" hidden>
             No encontramos recursos con estos filtros.

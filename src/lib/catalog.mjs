@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { classifyLegacyResource, validateTaxonomy } from './resource-taxonomy.mjs';
+import { DISCOVERY_FIELDS, validateDiscoveryMetadata } from './resource-discovery.mjs';
 
 export const DEFAULT_AWS_REGION = 'us-east-1';
 
@@ -28,6 +29,11 @@ const SCAN_EXPRESSION_NAMES = Object.freeze({
   '#kind': 'kind',
   '#format': 'format',
   '#topics': 'topics',
+  '#addedAt': 'addedAt',
+  '#country': 'country',
+  '#level': 'level',
+  '#sourceId': 'sourceId',
+  '#communityId': 'communityId',
 });
 
 /**
@@ -100,7 +106,7 @@ export async function scanCatalogItems(scanPage, tableName) {
     const params = {
       TableName: tableName,
       Select: 'SPECIFIC_ATTRIBUTES',
-      ProjectionExpression: '#id,#title,#url,#description,#category,#order,#featured,#kind,#format,#topics,published',
+      ProjectionExpression: '#id,#title,#url,#description,#category,#order,#featured,#kind,#format,#topics,#addedAt,#country,#level,#sourceId,#communityId,published',
       ExpressionAttributeNames: SCAN_EXPRESSION_NAMES,
     };
     if (exclusiveStartKey !== undefined) {
@@ -190,6 +196,7 @@ export function projectPublicRecord(item, index = 0) {
     order: item.order,
     featured: item.featured,
     ...validateTaxonomy(hasAnyTaxonomy(item) ? item : classifyLegacyResource(item), index),
+    ...Object.fromEntries(DISCOVERY_FIELDS.filter((field) => Object.hasOwn(item, field)).map((field) => [field, item[field]])),
   };
   validatePublicRecord(record, index);
   return record;
@@ -223,6 +230,7 @@ export function validatePublicRecord(record, index = 0) {
     throw new Error(`Catalog record ${index + 1} has an invalid featured flag`);
   }
   validateTaxonomy(record, index);
+  validateDiscoveryMetadata(record, index);
   validateCatalogUrl(record.url, index);
   return record;
 }

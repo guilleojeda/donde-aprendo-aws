@@ -53,6 +53,11 @@ Resources:
                       - kind
                       - format
                       - topics
+                      - addedAt
+                      - country
+                      - level
+                      - sourceId
+                      - communityId
                       - published
                   StringEquals:
                     dynamodb:Select: SPECIFIC_ATTRIBUTES

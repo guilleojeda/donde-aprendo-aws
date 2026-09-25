@@ -1,4 +1,6 @@
 ---
+import { COUNTRY_LABELS, LEVEL_LABELS } from '../lib/resource-discovery.mjs';
+
 interface Resource {
   id: string;
   title: string;
@@ -9,31 +11,50 @@ interface Resource {
   kind: string;
   format: string;
   topics: string[];
+  addedAt?: string;
+  country?: string;
+  level?: string;
+  sourceId?: string;
+  communityId?: string;
 }
 
 interface Props {
   resource: Resource;
   index: number;
+  source?: Resource;
+  community?: Resource;
 }
 
-const { resource, index } = Astro.props;
-const searchValue = `${resource.title} ${resource.description ?? ''} ${resource.category} ${resource.format} ${resource.topics.join(' ')}`;
+const { resource, index, source, community } = Astro.props;
+const countryLabel = (country?: string) => country ? COUNTRY_LABELS[country as keyof typeof COUNTRY_LABELS] ?? country : '';
+const levelLabel = (level?: string) => level ? LEVEL_LABELS[level as keyof typeof LEVEL_LABELS] ?? level : '';
+const searchValue = `${resource.title} ${resource.description ?? ''} ${resource.category} ${resource.format} ${resource.topics.join(' ')} ${countryLabel(resource.country)} ${levelLabel(resource.level)}`;
+const relatedSource = source?.kind === 'source' ? source : undefined;
+const relatedCommunity = community?.kind === 'community' ? community : undefined;
 ---
 
 <li
+  id={`resource-${resource.id}`}
+  tabindex="-1"
   class="resource-list__item"
   data-resource-index={index}
   data-category={resource.category}
   data-kind={resource.kind}
   data-format={resource.format}
   data-topics={resource.topics.join('|')}
+  data-country={resource.country ?? ''}
+  data-level={resource.level ?? ''}
+  data-featured={String(Boolean(resource.featured))}
+  data-added-at={resource.addedAt ?? ''}
   data-search={searchValue}
 >
   <article class="resource-card">
-    <a href={resource.url} target="_blank" rel="noopener">
+    <a class="resource-card__main-link" href={resource.url} target="_blank" rel="noopener noreferrer">
       <div class="resource-card__meta">
         <span class="resource-card__format">{resource.format}</span>
         {resource.topics.slice(0, 2).map((topic) => <span class="resource-card__topic">{topic}</span>)}
+        {resource.country && <span class="resource-card__topic">{countryLabel(resource.country)}</span>}
+        {resource.level && <span class="resource-card__topic">{levelLabel(resource.level)}</span>}
       </div>
       <div class="resource-card__title-box">
         <h3 class="resource-card__title">{resource.title}</h3>
@@ -46,5 +67,11 @@ const searchValue = `${resource.title} ${resource.description ?? ''} ${resource.
       </div>
       <p class="resource-card__description">{resource.description ?? ''}</p>
     </a>
+    {(relatedSource || relatedCommunity) && (
+      <div class="resource-card__related">
+        {relatedSource && <a href={`#resource-${relatedSource.id}`} data-resource-jump={relatedSource.id}>Fuente: {relatedSource.title}</a>}
+        {relatedCommunity && <a href={`#resource-${relatedCommunity.id}`} data-resource-jump={relatedCommunity.id}>Comunidad: {relatedCommunity.title}</a>}
+      </div>
+    )}
   </article>
 </li>

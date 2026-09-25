@@ -37,4 +37,13 @@ for (const kind of ['content', 'source', 'community']) {
 }
 assert.match(directory, /data-format-filter/);
 assert.match(directory, /data-topic-filter/);
+assert.match(directory, /data-country-filter/);
+assert.match(directory, /data-level-filter/);
+assert.match(directory, /data-sort-filter/);
+assert.match(directory, /Añadidos recientemente/);
+assert.match(directory, /Recomendados/);
+const cardIds = new Set([...directory.matchAll(/<li id="resource-([^"]+)"/g)].map((match) => match[1]));
+const jumpIds = [...directory.matchAll(/data-resource-jump="([^"]+)"/g)].map((match) => match[1]);
+assert.ok(jumpIds.length > 0, 'Discovery links must be present.');
+for (const id of jumpIds) assert.ok(cardIds.has(id), `Discovery link has no public target: ${id}`);
 console.log(`Verified ${production ? 'production' : 'preview'} indexing, Analytics tags, and 198 sitemap URLs.`);
