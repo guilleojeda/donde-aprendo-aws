@@ -1,0 +1,218 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Publish approved directory changes through an hourly Amplify build check
+Parameters:
+  CatalogTableName:
+    Type: String
+  AmplifyAppId:
+    Type: String
+  AmplifyBranchName:
+    Type: String
+    Default: main
+  ArtifactBucket:
+    Type: String
+  ArtifactKey:
+    Type: String
+  AlertEmail:
+    Type: String
+    Default: ''
+    Description: Optional email subscription for publication failure alerts; the recipient must confirm it
+Conditions:
+  HasAlertEmail: !Not [!Equals [!Ref AlertEmail, '']]
+Resources:
+  PublicationLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/donde-aprendo-aws-publication
+      RetentionInDays: 14
+  PublicationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ReadPublicCatalog
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: dynamodb:Scan
+                Resource: !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${CatalogTableName}
+                Condition:
+                  ForAllValues:StringEquals:
+                    dynamodb:Attributes:
+                      - id
+                      - title
+                      - url
+                      - description
+                      - category
+                      - order
+                      - featured
+                      - kind
+                      - format
+                      - topics
+                      - addedAt
+                      - country
+                      - level
+                      - sourceId
+                      - communityId
+                      - published
+                  StringEquals:
+                    dynamodb:Select: SPECIFIC_ATTRIBUTES
+        - PolicyName: PublicationState
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:UpdateItem
+                Resource: !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${CatalogTableName}
+                Condition:
+                  ForAllValues:StringEquals:
+                    dynamodb:LeadingKeys:
+                      - __system#publication
+        - PolicyName: AmplifyJobs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - amplify:ListJobs
+                  - amplify:StartJob
+                Resource: !Sub arn:${AWS::Partition}:amplify:${AWS::Region}:${AWS::AccountId}:apps/${AmplifyAppId}/branches/${AmplifyBranchName}
+              - Effect: Allow
+                Action: amplify:GetJob
+                Resource: !Sub arn:${AWS::Partition}:amplify:${AWS::Region}:${AWS::AccountId}:apps/${AmplifyAppId}/branches/${AmplifyBranchName}/jobs/*
+        - PolicyName: WriteFunctionLogs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !GetAtt PublicationLogGroup.Arn
+      Tags:
+        - Key: Project
+          Value: donde-aprendo-aws
+  PublicationFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: PublicationLogGroup
+    Properties:
+      FunctionName: donde-aprendo-aws-publication
+      Runtime: nodejs24.x
+      Handler: index.handler
+      Role: !GetAtt PublicationRole.Arn
+      Code:
+        S3Bucket: !Ref ArtifactBucket
+        S3Key: !Ref ArtifactKey
+      Environment:
+        Variables:
+          CATALOG_TABLE: !Ref CatalogTableName
+          AMPLIFY_APP_ID: !Ref AmplifyAppId
+          AMPLIFY_BRANCH: !Ref AmplifyBranchName
+      MemorySize: 128
+      Timeout: 30
+      ReservedConcurrentExecutions: 1
+      Tags:
+        - Key: Project
+          Value: donde-aprendo-aws
+  PublicationInvokeConfig:
+    Type: AWS::Lambda::EventInvokeConfig
+    Properties:
+      FunctionName: !Ref PublicationFunction
+      Qualifier: $LATEST
+      MaximumRetryAttempts: 0
+  HourlyPublicationRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: donde-aprendo-aws-hourly-publication
+      Description: Check for approved public catalog changes hourly
+      ScheduleExpression: rate(1 hour)
+      State: ENABLED
+      Targets:
+        - Id: PublicationFunction
+          Arn: !GetAtt PublicationFunction.Arn
+  PublicationInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref PublicationFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt HourlyPublicationRule.Arn
+  FailureTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: donde-aprendo-aws-publication-failures
+      Tags:
+        - Key: Project
+          Value: donde-aprendo-aws
+  FailureTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics:
+        - !Ref FailureTopic
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:root
+            Action:
+              - sns:Subscribe
+              - sns:ListSubscriptionsByTopic
+              - sns:GetTopicAttributes
+              - sns:SetTopicAttributes
+              - sns:DeleteTopic
+              - sns:Publish
+            Resource: !Ref FailureTopic
+          - Effect: Allow
+            Principal:
+              Service: cloudwatch.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref FailureTopic
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnEquals:
+                aws:SourceArn: !Sub arn:${AWS::Partition}:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:donde-aprendo-aws-publication-failures
+  FailureSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasAlertEmail
+    DependsOn: FailureTopicPolicy
+    Properties:
+      TopicArn: !Ref FailureTopic
+      Protocol: email
+      Endpoint: !Ref AlertEmail
+  FailureAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: donde-aprendo-aws-publication-failures
+      AlarmDescription: Hourly publication Lambda failed or observed a failed Amplify build
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref PublicationFunction
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref FailureTopic
+Outputs:
+  PublicationFunctionName:
+    Value: !Ref PublicationFunction
+  PublicationRuleName:
+    Value: !Ref HourlyPublicationRule
+  FailureAlarmName:
+    Value: !Ref FailureAlarm
+  FailureTopicArn:
+    Value: !Ref FailureTopic

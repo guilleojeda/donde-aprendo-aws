@@ -19,6 +19,7 @@ jobs:
       - run: npm test
       - run: npm run package:submission
       - run: npm run smoke:submission
+      - run: npm run package:publication
       - run: npm run build
         env:
           CATALOG_FIXTURE: tests/fixtures/catalog.json

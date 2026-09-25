@@ -35,7 +35,7 @@ The production build uses `PUBLIC_SITE_ORIGIN=https://dondeaprendoaws.com` for a
 
 ## Production hosting
 
-The `main` Amplify branch has `PUBLIC_PRODUCTION=true` and `PUBLIC_SITE_ORIGIN=https://dondeaprendoaws.com`. Its build emits indexable pages and a 198-URL sitemap. The single Analytics loader runs only on the apex hostname. Amplify manages the apex and `www` DNS records and certificate; `www` and `main.d33kh9d3cyassq.amplifyapp.com` redirect to the apex, preserving paths. Keep those branch variables and redirects when updating the app. Production changes to the catalog appear after `npm run publish` starts a fresh build.
+The `main` Amplify branch has `PUBLIC_PRODUCTION=true` and `PUBLIC_SITE_ORIGIN=https://dondeaprendoaws.com`. Its build emits indexable pages and a 198-URL sitemap. The single Analytics loader runs only on the apex hostname. Amplify manages the apex and `www` DNS records and certificate; `www` and `main.d33kh9d3cyassq.amplifyapp.com` redirect to the apex, preserving paths. Keep those branch variables and redirects when updating the app. An hourly publication check starts a fresh build when approved public catalog data changes.
 
 The submission stack permits both the apex and default Amplify origins. Preserve its Lambda artifact key and catalog table when updating CORS or code. If a content deployment fails, Amplify keeps the prior deployed revision; inspect the failed job before starting another. Check the custom-domain association, redirects, Route 53 apex/`www` records, and email records before changing hosting. A previous successful Amplify revision can be rebuilt from Git if a new content revision regresses.
 
@@ -89,9 +89,25 @@ The import command accepts the original TSV path and creates each current entry 
 
 Use `npm run import:catalog -- --help` for arguments and a dry run before writing. The command checks the AWS account before writes. Preserve the source file locally; do not commit future private submission exports.
 
-## Publish catalog changes
+## Automatic catalog publication
 
-The form writes new records to `donde-aprendo-aws-catalog` with `published=false`. In the DynamoDB console for account `719535286359`, region `us-east-1`, inspect the pending record and its private `submitterName`/`submitterEmail` fields. Edit public fields as needed, including `kind` (`content`, `source`, or `community`), a compatible `format`, and up to three `topics`. The legacy `category` field remains for compatibility; public filters use the three new fields. If verified, set `country` to a supported two-letter country code, `level` (`inicial`, `intermedio`, or `avanzado`) for learning content, and `sourceId` or `communityId` to the stable ID of a published related card. Set `featured=true` only for an editorial recommendation. On approval, set `addedAt` to the actual approval date in `YYYY-MM-DD` format; leave it absent for older records whose date is unknown. Set `published` to the Boolean `true` to approve, or `false` to hide. Then run:
+The publication stack uses an hourly EventBridge rule and a Node.js 24 Lambda. It reads the same public fields as the site build, hashes only published records, and stores the last successfully deployed hash in the reserved `__system#publication` item of the existing catalog table. Pending submissions and private contact edits do not trigger builds. While an Amplify build is running, the Lambda waits for the next check. A failed job raises a Lambda error and a CloudWatch alarm; the next hourly check retries. The alarm sends email through SNS when an alert address is configured and its subscription is confirmed.
+
+Package the Lambda from the checked-out revision and upload it to the directory stack's private artifacts bucket under its content hash:
+
+```sh
+npm run package:publication
+aws sts get-caller-identity
+aws s3 cp build/publication.zip s3://ARTIFACT_BUCKET/publication/SHA256.zip --region us-east-1
+```
+
+Read `DeploymentArtifactsBucket` from the directory stack and `sha256` from `build/publication.json`. Deploy `infra/publication.yaml` as stack `donde-aprendo-aws-publication` with parameters `CatalogTableName=donde-aprendo-aws-catalog`, `AmplifyAppId=d33kh9d3cyassq`, `ArtifactBucket=ARTIFACT_BUCKET`, `ArtifactKey=publication/SHA256.zip`, and `AlertEmail=ADDRESS` when an address is known. Review a CloudFormation change set before applying future updates. The recipient must confirm the SNS subscription email. Keep the rule, function, and alarm together in this stack; the original catalog table is not replaced.
+
+The scheduler checks hourly, so an approved change normally reaches the site within about an hour plus the Amplify build. The Lambda checks a tracked build on the next invocation before recording its hash as published. It starts no new build when the public hash is unchanged. A Git push also builds the site; this check may make one conservative extra build if Git published a catalog change that its state has not recorded. Build failures leave the previous site available. Inspect the Amplify job and CloudWatch log group `/aws/lambda/donde-aprendo-aws-publication` when the alarm fires. `npm run publish` remains a manual immediate-build command; it does not update the hourly Lambda's recorded hash.
+
+## Moderate catalog changes
+
+The form writes new records to `donde-aprendo-aws-catalog` with `published=false`. In the DynamoDB console for account `719535286359`, region `us-east-1`, inspect the pending record and its private `submitterName`/`submitterEmail` fields. Edit public fields as needed, including `kind` (`content`, `source`, or `community`), a compatible `format`, and up to three `topics`. The legacy `category` field remains for compatibility; public filters use the three new fields. If verified, set `country` to a supported two-letter country code, `level` (`inicial`, `intermedio`, or `avanzado`) for learning content, and `sourceId` or `communityId` to the stable ID of a published related card. Set `featured=true` only for an editorial recommendation. On approval, set `addedAt` to the actual approval date in `YYYY-MM-DD` format; leave it absent for older records whose date is unknown. Set `published` to the Boolean `true` to approve, or `false` to hide. The hourly Lambda publishes the change automatically. To request an immediate build instead, run:
 
 ```sh
 npm run publish
@@ -99,12 +115,12 @@ npm run publish
 
 This starts a **fresh build from Git**, reads the current table, and waits for its deployment. It does not redeploy an old artifact. Changes are visible only after the job succeeds; if a build fails, the previous deployed site remains available. The command prints the job ID so an interrupted wait can be resumed by inspecting that job in Amplify before starting another.
 
-Git pushes to the connected branch also rebuild the site. There is no automatic DynamoDB change trigger or synchronization of resource records into Git.
+Git pushes to the connected branch also rebuild the site. There is no immediate DynamoDB change trigger or synchronization of resource records into Git.
 
 The API conditionally creates one record per exact submitted URL. If an owner edits a record's URL later, its stable ID still represents the originally submitted URL; review possible duplicates when moderating. Contributor contact values remain in DynamoDB and must not be copied into public fields or Git.
 
 ## Verification
 
-GitHub Actions runs `npm run check`, `npm test`, Lambda packaging, a packaged-handler smoke call against a local DynamoDB stub, and an explicitly selected fixture build. Amplify runs the site checks and builds from the live table. A successful fixture build does not prove that AWS access or live catalog publication works; verify the deployed directory, form, and database-change → fresh-build behavior as part of delivery.
+GitHub Actions runs `npm run check`, `npm test`, both Lambda packaging commands, a packaged submission-handler smoke call against a local DynamoDB stub, and an explicitly selected fixture build. Amplify runs the site checks and builds from the live table. A successful fixture build does not prove that AWS access or live catalog publication works; verify the deployed directory, form, and database-change → fresh-build behavior as part of delivery.
 
 See [directory behavior](docs/intent/directory.md) and [blog behavior](docs/intent/blog.md) for the content and publication rules.
