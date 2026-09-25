@@ -1,6 +1,6 @@
 # ¿Dónde Aprendo AWS?
 
-Static directory and blog built with Astro and hosted on AWS Amplify. DynamoDB owns the resource catalog; site code and blog articles are files in Git. Codex is an editing tool, not a content store.
+Static directory, community event agenda, and blog built with Astro and hosted on AWS Amplify. DynamoDB owns the catalog; site code and blog articles are files in Git. Codex is an editing tool, not a content store.
 
 The production site is https://dondeaprendoaws.com/. Its contribution form stores pending submissions through the owned API. `/blog/` retains the original 15-card index, and all 196 inventoried article paths are generated from Git files. The `www` and default Amplify hostnames redirect to the apex. Google Analytics uses the existing `G-3NXS6QFKHZ` property and loads only on the apex.
 
@@ -103,7 +103,7 @@ aws s3 cp build/publication.zip s3://ARTIFACT_BUCKET/publication/SHA256.zip --re
 
 Read `DeploymentArtifactsBucket` from the directory stack and `sha256` from `build/publication.json`. Deploy `infra/publication.yaml` as stack `donde-aprendo-aws-publication` with parameters `CatalogTableName=donde-aprendo-aws-catalog`, `AmplifyAppId=d33kh9d3cyassq`, `ArtifactBucket=ARTIFACT_BUCKET`, `ArtifactKey=publication/SHA256.zip`, and `AlertEmail=ADDRESS` when an address is known. Review a CloudFormation change set before applying future updates. The recipient must confirm the SNS subscription email. Keep the rule, function, and alarm together in this stack; the original catalog table is not replaced.
 
-The scheduler checks hourly, so an approved change normally reaches the site within about an hour plus the Amplify build. The Lambda checks a tracked build on the next invocation before recording its hash as published. It starts no new build when the public hash is unchanged. A Git push also builds the site; this check may make one conservative extra build if Git published a catalog change that its state has not recorded. Build failures leave the previous site available. Inspect the Amplify job and CloudWatch log group `/aws/lambda/donde-aprendo-aws-publication` when the alarm fires. `npm run publish` remains a manual immediate-build command; it does not update the hourly Lambda's recorded hash.
+The scheduler checks hourly, so an approved change normally reaches the site within about an hour plus the Amplify build. It also rebuilds after a published event's end instant; browser code removes the event from the upcoming list immediately while the static snapshot catches up. The Lambda checks a tracked build on the next invocation before recording its hash as published. It starts no new build when the public hash is unchanged. A Git push also builds the site; this check may make one conservative extra build if Git published a catalog change that its state has not recorded. Build failures leave the previous site available. Inspect the Amplify job and CloudWatch log group `/aws/lambda/donde-aprendo-aws-publication` when the alarm fires. `npm run publish` remains a manual immediate-build command; it does not update the hourly Lambda's recorded hash.
 
 ## Moderate catalog changes
 
@@ -118,6 +118,10 @@ This starts a **fresh build from Git**, reads the current table, and waits for i
 Git pushes to the connected branch also rebuild the site. There is no immediate DynamoDB change trigger or synchronization of resource records into Git.
 
 The API conditionally creates one record per exact submitted URL. If an owner edits a record's URL later, its stable ID still represents the originally submitted URL; review possible duplicates when moderating. Contributor contact values remain in DynamoDB and must not be copied into public fields or Git.
+
+## Event agenda editing
+
+Create an event directly in the same DynamoDB table with a unique `id`, `recordType` set to `event`, `title`, `description`, `startsAt`, `endsAt`, `timeZone`, `organizer`, `mode`, and `registrationUrl`. Use full ISO timestamps with an explicit UTC offset for start and end, and an IANA zone such as `America/Asuncion` for display. `endsAt` must be after `startsAt`. Use `mode=online`, `in-person`, or `hybrid`; add `place` for a physical or hybrid event. Keep `published=false` until the details and registration link are verified, then set the Boolean to `true`. Only those public event fields are projected into the site. To connect a new recording, create or edit a published **Aprender** record with `kind=content`, `format=Video` (or its actual format), and `eventId` equal to the event's ID. The recording stays in Aprender when the event ends. The owner currently enters event details in DynamoDB; the public form is for resource submissions.
 
 ## Verification
 

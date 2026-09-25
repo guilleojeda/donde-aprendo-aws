@@ -60,6 +60,15 @@ Resources:
                       - level
                       - sourceId
                       - communityId
+                      - eventId
+                      - recordType
+                      - startsAt
+                      - endsAt
+                      - timeZone
+                      - organizer
+                      - mode
+                      - place
+                      - registrationUrl
                       - published
                   StringEquals:
                     dynamodb:Select: SPECIFIC_ATTRIBUTES

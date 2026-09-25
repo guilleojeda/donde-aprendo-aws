@@ -140,6 +140,8 @@ test('exhausts paginated scans and sends the continuation key', async () => {
   assert.equal(pages.calls[0].TableName, 'catalog');
   assert.equal(pages.calls[0].Select, 'SPECIFIC_ATTRIBUTES');
   assert.match(pages.calls[0].ProjectionExpression, /published/);
+  assert.match(pages.calls[0].ProjectionExpression, /#registrationUrl/);
+  assert.match(pages.calls[0].ProjectionExpression, /#eventId/);
   assert.equal(pages.calls[0].ConsistentRead, true);
 });
 

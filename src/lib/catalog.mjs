@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { classifyLegacyResource, validateTaxonomy } from './resource-taxonomy.mjs';
 import { DISCOVERY_FIELDS, validateDiscoveryMetadata } from './resource-discovery.mjs';
+import { projectPublicEvent } from './events.mjs';
 
 export const DEFAULT_AWS_REGION = 'us-east-1';
 
@@ -34,6 +35,15 @@ const SCAN_EXPRESSION_NAMES = Object.freeze({
   '#level': 'level',
   '#sourceId': 'sourceId',
   '#communityId': 'communityId',
+  '#eventId': 'eventId',
+  '#recordType': 'recordType',
+  '#startsAt': 'startsAt',
+  '#endsAt': 'endsAt',
+  '#timeZone': 'timeZone',
+  '#organizer': 'organizer',
+  '#mode': 'mode',
+  '#place': 'place',
+  '#registrationUrl': 'registrationUrl',
 });
 
 /**
@@ -107,7 +117,7 @@ export async function scanCatalogItems(scanPage, tableName) {
       TableName: tableName,
       Select: 'SPECIFIC_ATTRIBUTES',
       ConsistentRead: true,
-      ProjectionExpression: '#id,#title,#url,#description,#category,#order,#featured,#kind,#format,#topics,#addedAt,#country,#level,#sourceId,#communityId,published',
+      ProjectionExpression: '#id,#title,#url,#description,#category,#order,#featured,#kind,#format,#topics,#addedAt,#country,#level,#sourceId,#communityId,#eventId,#recordType,#startsAt,#endsAt,#timeZone,#organizer,#mode,#place,#registrationUrl,published',
       ExpressionAttributeNames: SCAN_EXPRESSION_NAMES,
     };
     if (exclusiveStartKey !== undefined) {
@@ -182,6 +192,8 @@ export function projectPublishedCatalog(items) {
  * no private or unknown fields, so callers can safely serialize it for HTML.
  */
 export function projectPublicRecord(item, index = 0) {
+  if (item.recordType === 'event') return projectPublicEvent(item, index, validateCatalogUrl);
+  if (item.recordType !== undefined) throw new Error(`Catalog record ${index + 1} has an invalid record type`);
   for (const field of LEGACY_REQUIRED_FIELDS) {
     if (!Object.hasOwn(item, field)) {
       throw new Error(`Catalog record ${index + 1} is missing public field ${field}`);
@@ -258,7 +270,7 @@ export function validateCatalogUrl(url, index = 0) {
 }
 
 export function compareCatalogRecords(left, right) {
-  return right.order - left.order || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
+  return (right.order ?? 0) - (left.order ?? 0) || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
 }
 
 export async function loadFixture(fixturePath) {

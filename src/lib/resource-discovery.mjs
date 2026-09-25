@@ -21,7 +21,7 @@ export const LEVEL_LABELS = Object.freeze({
   avanzado: 'Avanzado',
 });
 
-export const DISCOVERY_FIELDS = Object.freeze(['addedAt', 'country', 'level', 'sourceId', 'communityId']);
+export const DISCOVERY_FIELDS = Object.freeze(['addedAt', 'country', 'level', 'sourceId', 'communityId', 'eventId']);
 const RESOURCE_ID = /^[A-Za-z0-9_-]{1,128}$/u;
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/u;
 
@@ -44,6 +44,9 @@ export function validateDiscoveryMetadata(record, index = 0) {
   }
   if (record.communityId !== undefined && (record.kind === 'community' || !RESOURCE_ID.test(record.communityId) || record.communityId === record.id)) {
     throw new Error(`${label} has an invalid communityId`);
+  }
+  if (record.eventId !== undefined && (record.kind !== 'content' || !RESOURCE_ID.test(record.eventId) || record.eventId === record.id)) {
+    throw new Error(`${label} has an invalid eventId`);
   }
 }
 

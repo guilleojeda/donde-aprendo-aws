@@ -7,13 +7,16 @@ import Faq from '../components/Faq.astro';
 import Partner from '../components/Partner.astro';
 import SiteFooter from '../components/SiteFooter.astro';
 import { loadCatalog } from '../lib/catalog.mjs';
+import type { CatalogEvent, CatalogResource } from '../types/catalog';
 
-const resources = await loadCatalog();
+const catalog = await loadCatalog() as Array<CatalogResource | CatalogEvent>;
+const resources = catalog.filter((record): record is CatalogResource => record.recordType !== 'event');
+const events = catalog.filter((record): record is CatalogEvent => record.recordType === 'event');
 ---
 
 <BaseLayout>
   <SiteHeader />
-  <Directory resources={resources} />
+  <Directory resources={resources} events={events} />
   <ContributionForm />
   <Faq />
   <Partner />
