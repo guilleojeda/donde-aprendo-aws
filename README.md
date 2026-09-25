@@ -2,7 +2,7 @@
 
 Static directory and blog built with Astro and hosted on AWS Amplify. DynamoDB owns the resource catalog; site code and blog articles are files in Git. Codex is an editing tool, not a content store.
 
-The preview is hosted at https://main.d33kh9d3cyassq.amplifyapp.com/. Its contribution form stores pending submissions through the owned API. `/blog/` retains the original 15-card index, and all 196 inventoried article paths are generated from Git files. The preview is not indexed and does not send Google Analytics pageviews. Production analytics will retain `G-3NXS6QFKHZ` when the domain is migrated.
+The preview is hosted at https://main.d33kh9d3cyassq.amplifyapp.com/. Its contribution form stores pending submissions through the owned API. `/blog/` retains the original 15-card index, and all 196 inventoried article paths are generated from Git files. The preview is not indexed and does not send Google Analytics pageviews. Production Analytics uses the existing `G-3NXS6QFKHZ` property and only loads on `dondeaprendoaws.com`.
 
 ## Development
 
@@ -23,7 +23,7 @@ AWS_REGION=us-east-1 CATALOG_TABLE=donde-aprendo-aws-catalog PUBLIC_SUBMISSION_A
 npm run preview
 ```
 
-After either static build, run `npm run verify:blog` to check the 15-card index, all 196 original article routes, and owned assets. CI and Amplify run this check after their builds.
+After either static build, run `npm run verify:blog` and `npm run verify:site` to check the 15-card index, all 196 original article routes, owned assets, sitemap, indexing mode, and Analytics tags. CI tests both preview and production build modes; Amplify checks its active mode after each build.
 
 Do not set `CATALOG_FIXTURE` for an Amplify deployment or combine it with `CATALOG_TABLE`. Never commit credentials, submission contact information, or raw database dumps.
 
@@ -32,6 +32,12 @@ Do not set `CATALOG_FIXTURE` for an Amplify deployment or combine it with `CATAL
 Edit the article Markdown files in `src/content/blog/` and keep their images in `public/assets/blog/`. Frontmatter controls title, date, description, cover image, related cards, and the current index order. HTML blocks in articles preserve source structures such as figures and tables. See [blog behavior](docs/intent/blog.md) for the content contract.
 
 The blog preview uses the Amplify hostname for absolute social-image URLs. `PUBLIC_SITE_ORIGIN` can override that media origin at production cutover; canonical URLs already point to the original domain paths. Avoid reintroducing Unicorn or SEObot scripts or remote media in article files.
+
+## Production cutover
+
+The `main` Amplify branch stays in preview mode until the custom domain is ready. In preview mode, pages carry `noindex` and no Analytics loader is emitted. `robots.txt` permits crawling so search engines can see the `noindex` rule; its sitemap points only at canonical production URLs. Once `dondeaprendoaws.com` is attached to this Amplify app and its DNS serves this site, redirect the default `main.d33kh9d3cyassq.amplifyapp.com` hostname to the apex domain. Then set `PUBLIC_PRODUCTION=true` and `PUBLIC_SITE_ORIGIN=https://dondeaprendoaws.com` on the branch and start a **fresh build**. The production build emits indexable pages and a 198-URL sitemap. The single Analytics loader runs only on the apex hostname. Configure `www` as a redirect to the apex.
+
+Before the DNS change, update the submission stack from `infra/submissions.yaml` so API Gateway allows both the preview and production origins. Preserve the existing Lambda artifact key and catalog table. Check the account, custom-domain certificate and current DNS records, including email records, before modifying Route 53. Verify the production homepage, all original article paths, directory search/categories, a pending form submission, approval/publication, sitemap, indexing headers, Analytics network request, and email DNS before retiring any old hosting. If the cutover fails, restore the prior website DNS records while the prior host remains available; a content-only regression can be rolled back by redeploying a verified Amplify revision. Do not point DNS to an unverified origin.
 
 ## AWS setup
 
