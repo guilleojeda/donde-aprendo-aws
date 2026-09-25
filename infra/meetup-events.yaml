@@ -1,0 +1,146 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Hourly sync of AWS community Meetup events into the approved catalog
+Parameters:
+  CatalogTableName:
+    Type: String
+  ArtifactBucket:
+    Type: String
+  ArtifactKey:
+    Type: String
+  PublicationFunctionName:
+    Type: String
+  FailureTopicArn:
+    Type: String
+Resources:
+  MeetupEventsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/donde-aprendo-aws-meetup-events
+      RetentionInDays: 14
+  MeetupEventsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: SyncCatalogEvents
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: dynamodb:Scan
+                Resource: !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${CatalogTableName}
+                Condition:
+                  ForAllValues:StringEquals:
+                    dynamodb:Attributes:
+                      - id
+                      - title
+                      - url
+                      - country
+                      - kind
+                      - published
+                      - sourceGroupId
+                      - sourceModifiedAt
+                      - autoSync
+                      - organizer
+                  StringEquals:
+                    dynamodb:Select: SPECIFIC_ATTRIBUTES
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                Resource: !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${CatalogTableName}
+                Condition:
+                  ForAllValues:StringLike:
+                    dynamodb:LeadingKeys:
+                      - meetup-event-*
+        - PolicyName: StartPublicationCheck
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${PublicationFunctionName}
+        - PolicyName: WriteFunctionLogs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !GetAtt MeetupEventsLogGroup.Arn
+      Tags:
+        - Key: Project
+          Value: donde-aprendo-aws
+  MeetupEventsFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: MeetupEventsLogGroup
+    Properties:
+      FunctionName: donde-aprendo-aws-meetup-events
+      Runtime: python3.13
+      Handler: index.lambda_handler
+      Role: !GetAtt MeetupEventsRole.Arn
+      Code:
+        S3Bucket: !Ref ArtifactBucket
+        S3Key: !Ref ArtifactKey
+      Environment:
+        Variables:
+          CATALOG_TABLE: !Ref CatalogTableName
+          PUBLICATION_FUNCTION: !Ref PublicationFunctionName
+      MemorySize: 256
+      Timeout: 180
+      Tags:
+        - Key: Project
+          Value: donde-aprendo-aws
+  MeetupEventsInvokeConfig:
+    Type: AWS::Lambda::EventInvokeConfig
+    Properties:
+      FunctionName: !Ref MeetupEventsFunction
+      Qualifier: $LATEST
+      MaximumRetryAttempts: 0
+  HourlyMeetupEventsRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: donde-aprendo-aws-hourly-meetup-events
+      Description: Refresh public AWS community Meetup events each hour
+      ScheduleExpression: rate(1 hour)
+      State: ENABLED
+      Targets:
+        - Id: MeetupEventsFunction
+          Arn: !GetAtt MeetupEventsFunction.Arn
+  MeetupEventsInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref MeetupEventsFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt HourlyMeetupEventsRule.Arn
+  MeetupEventsFailureAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: donde-aprendo-aws-meetup-events-failures
+      AlarmDescription: Hourly Meetup event synchronization failed
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref MeetupEventsFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref FailureTopicArn
+Outputs:
+  MeetupEventsFunctionName:
+    Value: !Ref MeetupEventsFunction
+  MeetupEventsRuleName:
+    Value: !Ref HourlyMeetupEventsRule

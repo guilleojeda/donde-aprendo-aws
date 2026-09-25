@@ -8,7 +8,7 @@ export function projectPublicEvent(item, index, validateUrl) {
   for (const field of EVENT_FIELDS) {
     if (!Object.hasOwn(item, field)) throw new Error(`${label} is missing event field ${field}`);
   }
-  const event = Object.fromEntries(['recordType', ...EVENT_FIELDS, 'place']
+  const event = Object.fromEntries(['recordType', ...EVENT_FIELDS, 'place', 'country']
     .filter((field) => Object.hasOwn(item, field)).map((field) => [field, item[field]]));
   if (event.recordType !== 'event') throw new Error(`${label} has an invalid record type`);
   for (const field of ['id', 'title', 'organizer']) {
@@ -40,6 +40,9 @@ export function projectPublicEvent(item, index, validateUrl) {
   if (event.place !== undefined && (typeof event.place !== 'string' || event.place.trim() !== event.place)) {
     throw new Error(`${label} has an invalid place`);
   }
+  if (event.country !== undefined && !Object.hasOwn(COUNTRY_LABELS, event.country)) {
+    throw new Error(`${label} has an invalid country`);
+  }
   validateUrl(event.registrationUrl, index);
   return event;
 }
@@ -51,6 +54,24 @@ export function upcomingEvents(events, now = new Date()) {
     .sort((left, right) => Date.parse(left.startsAt) - Date.parse(right.startsAt) || left.id.localeCompare(right.id));
 }
 
+/** Show a co-hosted Meetup event once even when groups post separate listings. */
+export function uniqueUpcomingEvents(events, now = new Date()) {
+  const seenUrls = new Set();
+  const seenSessions = new Set();
+  return upcomingEvents(events, now).filter((event) => {
+    const url = new URL(event.registrationUrl);
+    const canonicalUrl = `${url.origin}${url.pathname.replace(/\/$/u, '')}`;
+    const title = event.title.normalize('NFD').replace(/[\u0300-\u036f]/gu, '').toLocaleLowerCase('es')
+      .replace(/[^a-z0-9]+/gu, ' ').trim();
+    const location = event.mode === 'online' ? 'online' : (event.country ?? 'unspecified');
+    const session = `${Date.parse(event.startsAt)}:${title}:${location}`;
+    if (seenUrls.has(canonicalUrl) || seenSessions.has(session)) return false;
+    seenUrls.add(canonicalUrl);
+    seenSessions.add(session);
+    return true;
+  });
+}
+
 export function eventDateLabel(instant, timeZone) {
   return new Intl.DateTimeFormat('es', { day: 'numeric', month: 'long', year: 'numeric', timeZone }).format(new Date(instant));
 }
@@ -59,3 +80,4 @@ export function eventTimeLabel(instant, timeZone) {
   return new Intl.DateTimeFormat('es', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone, timeZoneName: 'short' })
     .format(new Date(instant));
 }
+import { COUNTRY_LABELS } from './resource-discovery.mjs';

@@ -1,11 +1,15 @@
 ---
-import { eventDateLabel, eventTimeLabel, upcomingEvents } from '../lib/events.mjs';
+import { eventDateLabel, eventTimeLabel, uniqueUpcomingEvents } from '../lib/events.mjs';
+import { COUNTRY_LABELS } from '../lib/resource-discovery.mjs';
 import type { CatalogEvent, CatalogResource } from '../types/catalog';
 
 interface Props { events: CatalogEvent[]; resources: CatalogResource[]; }
 
 const { events, resources } = Astro.props;
-const upcoming = upcomingEvents(events) as CatalogEvent[];
+const upcoming = uniqueUpcomingEvents(events) as CatalogEvent[];
+const countryLabel = (country: string) => COUNTRY_LABELS[country as keyof typeof COUNTRY_LABELS] ?? country;
+const eventCountries = Object.keys(COUNTRY_LABELS).filter((country) => upcoming.some((event) => event.country === country))
+  .sort((left, right) => countryLabel(left).localeCompare(countryLabel(right), 'es'));
 const recordingByEvent = new Map(resources.filter((resource) => resource.eventId)
   .map((resource) => [resource.eventId, resource]));
 const pastRecorded = events.filter((event) => Date.parse(event.endsAt) <= Date.now() && recordingByEvent.has(event.id))
@@ -18,13 +22,21 @@ const modeLabel = { online: 'En línea', 'in-person': 'Presencial', hybrid: 'Hí
     <div class="event-agenda__heading">
       <div>
         <h2 id="event-agenda-title">Próximos eventos</h2>
-        <p>Encuentros y charlas de las comunidades AWS en español, ordenados por fecha.</p>
+        <p>Encuentros y charlas de las comunidades AWS de Latinoamérica, ordenados por fecha.</p>
       </div>
     </div>
+    {eventCountries.length > 0 && <div class="event-agenda__filters">
+      <label for="event-country">País del grupo</label>
+      <select id="event-country" data-event-country>
+        <option value="">Todos los países</option>
+        {eventCountries.map((country) => <option value={country}>{countryLabel(country)}</option>)}
+      </select>
+      <span data-event-count aria-live="polite"></span>
+    </div>}
     <ol class="event-agenda__list" data-event-list>
       {upcoming.map((event) => {
         const recording = recordingByEvent.get(event.id);
-        return <li id={`event-${event.id}`} class="event-card" data-event-ends-at={event.endsAt}>
+        return <li id={`event-${event.id}`} class="event-card" data-event-ends-at={event.endsAt} data-country={event.country ?? ''}>
           <article>
             <div class="event-card__date">
               <time datetime={event.startsAt}>{eventDateLabel(event.startsAt, event.timeZone)}</time>
@@ -46,6 +58,7 @@ const modeLabel = { online: 'En línea', 'in-person': 'Presencial', hybrid: 'Hí
         </li>;
       })}
     </ol>
+    {upcoming.length > 12 && <button class="event-agenda__more" type="button" data-event-more hidden>Mostrar más eventos</button>}
     <p class="event-agenda__empty" data-event-empty role="status" hidden={upcoming.length > 0}>
       No hay próximos eventos publicados. Vuelve pronto para ver nuevas fechas.
     </p>

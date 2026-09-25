@@ -1,5 +1,8 @@
 const agenda = document.querySelector('[data-event-list]');
 const empty = document.querySelector('[data-event-empty]');
+const countryFilter = document.querySelector('[data-event-country]');
+const more = document.querySelector('[data-event-more]');
+const count = document.querySelector('[data-event-count]');
 
 if (agenda && empty) {
   const cards = [...agenda.querySelectorAll('[data-event-ends-at]')];
@@ -8,6 +11,7 @@ if (agenda && empty) {
     day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false, timeZoneName: 'short',
   });
   let expiryTimer;
+  let limit = 12;
 
   for (const card of cards) {
     const row = card.querySelector('[data-visitor-time]');
@@ -24,19 +28,26 @@ if (agenda && empty) {
     clearTimeout(expiryTimer);
     const now = Date.now();
     let nextEnd = Infinity;
-    let visible = 0;
+    let matching = 0;
     for (const card of cards) {
       const end = Date.parse(card.dataset.eventEndsAt);
-      card.hidden = end <= now;
-      if (!card.hidden) {
-        visible += 1;
+      const matchesCountry = !countryFilter?.value || card.dataset.country === countryFilter.value;
+      if (end > now) {
         nextEnd = Math.min(nextEnd, end);
       }
+      if (end > now && matchesCountry) {
+        card.hidden = matching >= limit;
+        matching += 1;
+      } else card.hidden = true;
     }
-    empty.hidden = visible > 0;
+    empty.hidden = matching > 0;
+    if (more) more.hidden = matching <= limit;
+    if (count) count.textContent = `${matching} ${matching === 1 ? 'evento' : 'eventos'}`;
     if (Number.isFinite(nextEnd)) expiryTimer = setTimeout(refresh, Math.min(Math.max(nextEnd - now, 1), 2_147_483_647));
   }
 
   refresh();
+  countryFilter?.addEventListener('change', () => { limit = 12; refresh(); });
+  more?.addEventListener('click', () => { limit += 12; refresh(); });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
 }

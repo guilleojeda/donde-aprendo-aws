@@ -18,6 +18,8 @@
     "package:publication": "node scripts/package-publication.mjs",
     "smoke:submission": "node scripts/smoke-submission-package.mjs",
     "import:catalog": "node scripts/import-catalog.mjs",
+    "import:meetup-communities": "node scripts/import-meetup-communities.mjs",
+    "package:meetup-events": "python3 scripts/package-meetup-events.py",
     "publish": "node scripts/publish.mjs"
   },
   "dependencies": {
