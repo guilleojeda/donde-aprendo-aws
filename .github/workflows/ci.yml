@@ -24,3 +24,17 @@ jobs:
           CATALOG_FIXTURE: tests/fixtures/catalog.json
           PUBLIC_SUBMISSION_API_URL: https://api.example.invalid/submissions
       - run: npm run verify:blog
+      - run: npm run verify:site
+      - run: npm run build
+        env:
+          CATALOG_FIXTURE: tests/fixtures/catalog.json
+          PUBLIC_SUBMISSION_API_URL: https://api.example.invalid/submissions
+          PUBLIC_PRODUCTION: 'true'
+          PUBLIC_SITE_ORIGIN: https://dondeaprendoaws.com
+      - run: npm run verify:blog
+        env:
+          PUBLIC_PRODUCTION: 'true'
+          PUBLIC_SITE_ORIGIN: https://dondeaprendoaws.com
+      - run: npm run verify:site
+        env:
+          PUBLIC_PRODUCTION: 'true'

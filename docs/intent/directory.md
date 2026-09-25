@@ -22,6 +22,6 @@ The build reads DynamoDB using a scoped AWS role that can scan only the public a
 
 ## Preview boundary
 
-The directory preview uses an Amplify default hostname and leaves production DNS unchanged. It is excluded from indexing and production Analytics collection. Its contributor form uses the owned API. Blog leads to the local 15-article index; historical article paths remain on the existing production site until their archive is delivered.
+The directory preview uses an Amplify default hostname. Before cutover it is excluded from indexing and production Analytics collection. Its contributor form uses the owned API. Blog leads to the local 15-card index, and all 196 inventoried article paths are generated locally. The production build enables indexing and the sitemap; its Analytics module sends data only when the browser hostname is `dondeaprendoaws.com`.
 
 The site uses owned styles, scripts, and assets. Unicorn's generic client bundle and SEObot's publishing integration are not part of the replacement. Existing articles remain content to preserve, regardless of the tool originally used to write them.

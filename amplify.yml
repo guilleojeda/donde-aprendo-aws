@@ -12,6 +12,7 @@ frontend:
       commands:
         - npm run build
         - npm run verify:blog
+        - npm run verify:site
   artifacts:
     baseDirectory: dist
     files:

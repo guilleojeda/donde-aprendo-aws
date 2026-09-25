@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import deployment from '../config/deployment.json' with { type: 'json' };
 
 const dist = resolve('dist');
+const production = process.env.PUBLIC_PRODUCTION === 'true';
 const mediaOrigin = new URL(process.env.PUBLIC_SITE_ORIGIN || `https://${deployment.branchName}.${deployment.appId}.amplifyapp.com`).origin;
 const expected = JSON.parse(readFileSync('tests/fixtures/blog-index.json', 'utf8'));
 const archive = JSON.parse(readFileSync('tests/fixtures/blog-routes.json', 'utf8'));
@@ -61,11 +62,18 @@ for (const article of archive) {
 }
 
 for (const html of allPages) {
-  assert.match(html, /<meta name="robots" content="noindex, nofollow"/);
+  if (production) {
+    assert.doesNotMatch(html, /<meta name="robots" content="noindex, nofollow"/);
+  } else {
+    assert.match(html, /<meta name="robots" content="noindex, nofollow"/);
+  }
   assert.doesNotMatch(html, /(?:unicornplatform\.com|seobotai\.com|mars-images\.imgix\.net|googletagmanager\.com)/i);
   assert.doesNotMatch(html, /<a\b[^>]*href="\s*javascript:/i);
   assert.doesNotMatch(html, /\son[a-z]+\s*=/i);
   for (const [, attributes] of html.matchAll(/<script\b([^>]*)>/gi)) {
+    if (production && /\bsrc="\/assets\/analytics\.js"/.test(attributes)) {
+      continue;
+    }
     assert.match(attributes, /\btype="application\/ld\+json"/, 'Blog scripts must be inert structured data.');
   }
   for (const [, src] of html.matchAll(/<iframe\b[^>]*\bsrc="([^"]+)"/gi)) {
