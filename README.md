@@ -2,7 +2,7 @@
 
 Static directory and blog built with Astro and hosted on AWS Amplify. DynamoDB owns the resource catalog; site code and blog articles are files in Git. Codex is an editing tool, not a content store.
 
-The preview is hosted at https://main.d33kh9d3cyassq.amplifyapp.com/. Its contribution form stores pending submissions through the owned API. `/blog/` retains the original 15-card index, and all 196 inventoried article paths are generated from Git files. The preview is not indexed and does not send Google Analytics pageviews. Production Analytics uses the existing `G-3NXS6QFKHZ` property and only loads on `dondeaprendoaws.com`.
+The production site is https://dondeaprendoaws.com/. Its contribution form stores pending submissions through the owned API. `/blog/` retains the original 15-card index, and all 196 inventoried article paths are generated from Git files. The `www` and default Amplify hostnames redirect to the apex. Google Analytics uses the existing `G-3NXS6QFKHZ` property and loads only on the apex.
 
 ## Development
 
@@ -23,7 +23,7 @@ AWS_REGION=us-east-1 CATALOG_TABLE=donde-aprendo-aws-catalog PUBLIC_SUBMISSION_A
 npm run preview
 ```
 
-After either static build, run `npm run verify:blog` and `npm run verify:site` to check the 15-card index, all 196 original article routes, owned assets, sitemap, indexing mode, and Analytics tags. CI tests both preview and production build modes; Amplify checks its active mode after each build.
+After either static build, run `npm run verify:blog` and `npm run verify:site` to check the 15-card index, all 196 original article routes, owned assets, sitemap, indexing mode, and Analytics tags. Pass the same `PUBLIC_PRODUCTION` and `PUBLIC_SITE_ORIGIN` values to the verifiers that you used for the build. CI tests both preview and production build modes; Amplify checks its active mode after each build.
 
 Do not set `CATALOG_FIXTURE` for an Amplify deployment or combine it with `CATALOG_TABLE`. Never commit credentials, submission contact information, or raw database dumps.
 
@@ -31,13 +31,13 @@ Do not set `CATALOG_FIXTURE` for an Amplify deployment or combine it with `CATAL
 
 Edit the article Markdown files in `src/content/blog/` and keep their images in `public/assets/blog/`. Frontmatter controls title, date, description, cover image, related cards, and the current index order. HTML blocks in articles preserve source structures such as figures and tables. See [blog behavior](docs/intent/blog.md) for the content contract.
 
-The blog preview uses the Amplify hostname for absolute social-image URLs. `PUBLIC_SITE_ORIGIN` can override that media origin at production cutover; canonical URLs already point to the original domain paths. Avoid reintroducing Unicorn or SEObot scripts or remote media in article files.
+The production build uses `PUBLIC_SITE_ORIGIN=https://dondeaprendoaws.com` for absolute social-image URLs; canonical URLs use the same domain. Avoid reintroducing Unicorn or SEObot scripts or remote media in article files.
 
-## Production cutover
+## Production hosting
 
-The `main` Amplify branch stays in preview mode until the custom domain is ready. In preview mode, pages carry `noindex` and no Analytics loader is emitted. `robots.txt` permits crawling so search engines can see the `noindex` rule; its sitemap points only at canonical production URLs. Once `dondeaprendoaws.com` is attached to this Amplify app and its DNS serves this site, redirect the default `main.d33kh9d3cyassq.amplifyapp.com` hostname to the apex domain. Then set `PUBLIC_PRODUCTION=true` and `PUBLIC_SITE_ORIGIN=https://dondeaprendoaws.com` on the branch and start a **fresh build**. The production build emits indexable pages and a 198-URL sitemap. The single Analytics loader runs only on the apex hostname. Configure `www` as a redirect to the apex.
+The `main` Amplify branch has `PUBLIC_PRODUCTION=true` and `PUBLIC_SITE_ORIGIN=https://dondeaprendoaws.com`. Its build emits indexable pages and a 198-URL sitemap. The single Analytics loader runs only on the apex hostname. Amplify manages the apex and `www` DNS records and certificate; `www` and `main.d33kh9d3cyassq.amplifyapp.com` redirect to the apex, preserving paths. Keep those branch variables and redirects when updating the app. Production changes to the catalog appear after `npm run publish` starts a fresh build.
 
-Before the DNS change, update the submission stack from `infra/submissions.yaml` so API Gateway allows both the preview and production origins. Preserve the existing Lambda artifact key and catalog table. Check the account, custom-domain certificate and current DNS records, including email records, before modifying Route 53. Verify the production homepage, all original article paths, directory search/categories, a pending form submission, approval/publication, sitemap, indexing headers, Analytics network request, and email DNS before retiring any old hosting. If the cutover fails, restore the prior website DNS records while the prior host remains available; a content-only regression can be rolled back by redeploying a verified Amplify revision. Do not point DNS to an unverified origin.
+The submission stack permits both the apex and default Amplify origins. Preserve its Lambda artifact key and catalog table when updating CORS or code. If a content deployment fails, Amplify keeps the prior deployed revision; inspect the failed job before starting another. Check the custom-domain association, redirects, Route 53 apex/`www` records, and email records before changing hosting. A previous successful Amplify revision can be rebuilt from Git if a new content revision regresses.
 
 ## AWS setup
 
