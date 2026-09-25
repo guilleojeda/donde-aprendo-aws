@@ -106,6 +106,7 @@ export async function scanCatalogItems(scanPage, tableName) {
     const params = {
       TableName: tableName,
       Select: 'SPECIFIC_ATTRIBUTES',
+      ConsistentRead: true,
       ProjectionExpression: '#id,#title,#url,#description,#category,#order,#featured,#kind,#format,#topics,#addedAt,#country,#level,#sourceId,#communityId,published',
       ExpressionAttributeNames: SCAN_EXPRESSION_NAMES,
     };

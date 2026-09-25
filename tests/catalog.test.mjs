@@ -140,6 +140,7 @@ test('exhausts paginated scans and sends the continuation key', async () => {
   assert.equal(pages.calls[0].TableName, 'catalog');
   assert.equal(pages.calls[0].Select, 'SPECIFIC_ATTRIBUTES');
   assert.match(pages.calls[0].ProjectionExpression, /published/);
+  assert.equal(pages.calls[0].ConsistentRead, true);
 });
 
 test('fails on a later page instead of returning a partial catalog', async () => {
