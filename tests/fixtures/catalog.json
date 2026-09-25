@@ -8,8 +8,9 @@
     "kind": "source",
     "format": "Canal de YouTube",
     "topics": ["Seguridad"],
+    "country": "AR",
     "order": 9,
-    "featured": false,
+    "featured": true,
     "published": true
   },
   {
@@ -21,6 +22,7 @@
     "kind": "community",
     "format": "User Group",
     "topics": [],
+    "country": "PE",
     "order": 8,
     "featured": false,
     "published": true
@@ -33,6 +35,11 @@
     "category": "Curso",
     "order": 10,
     "featured": true,
+    "addedAt": "2026-09-25",
+    "country": "AR",
+    "level": "inicial",
+    "sourceId": "fixture-source",
+    "communityId": "fixture-community",
     "published": true
   },
   {

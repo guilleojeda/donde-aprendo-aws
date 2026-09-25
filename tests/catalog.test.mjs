@@ -181,6 +181,11 @@ test('uses an explicitly selected fixture and rejects conflicting source config'
         kind: 'content',
         format: 'Curso',
         topics: [],
+        addedAt: '2026-09-25',
+        country: 'AR',
+        level: 'inicial',
+        sourceId: 'fixture-source',
+        communityId: 'fixture-community',
       },
       {
         id: 'fixture-source',
@@ -189,10 +194,11 @@ test('uses an explicitly selected fixture and rejects conflicting source config'
         description: 'Videos sobre seguridad.',
         category: 'Canal de YouTube',
         order: 9,
-        featured: false,
+        featured: true,
         kind: 'source',
         format: 'Canal de YouTube',
         topics: ['Seguridad'],
+        country: 'AR',
       },
       {
         id: 'fixture-community',
@@ -205,6 +211,7 @@ test('uses an explicitly selected fixture and rejects conflicting source config'
         kind: 'community',
         format: 'User Group',
         topics: [],
+        country: 'PE',
       },
     ]);
     assert.throws(
