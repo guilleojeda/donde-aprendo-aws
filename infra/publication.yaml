@@ -192,7 +192,9 @@ Resources:
               StringEquals:
                 aws:SourceAccount: !Ref AWS::AccountId
               ArnEquals:
-                aws:SourceArn: !Sub arn:${AWS::Partition}:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:donde-aprendo-aws-publication-failures
+                aws:SourceArn:
+                  - !Sub arn:${AWS::Partition}:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:donde-aprendo-aws-publication-failures
+                  - !Sub arn:${AWS::Partition}:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:donde-aprendo-aws-meetup-events-failures
   FailureSubscription:
     Type: AWS::SNS::Subscription
     Condition: HasAlertEmail
