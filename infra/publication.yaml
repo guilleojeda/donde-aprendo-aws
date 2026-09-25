@@ -203,7 +203,7 @@ Resources:
         - Name: FunctionName
           Value: !Ref PublicationFunction
       Statistic: Sum
-      Period: 3600
+      Period: 300
       EvaluationPeriods: 1
       Threshold: 1
       ComparisonOperator: GreaterThanOrEqualToThreshold
