@@ -2,7 +2,7 @@
 
 Static directory and blog built with Astro and hosted on AWS Amplify. DynamoDB owns the resource catalog; site code and blog articles are files in Git. Codex is an editing tool, not a content store.
 
-The preview is hosted at https://main.d33kh9d3cyassq.amplifyapp.com/. Its contribution form stores pending submissions through the owned API. `/blog/` and its 15 currently listed articles are served locally; older article paths remain on the original site until their archive is migrated. The preview is not indexed and does not send Google Analytics pageviews. Production analytics will retain `G-3NXS6QFKHZ` when the domain is migrated.
+The preview is hosted at https://main.d33kh9d3cyassq.amplifyapp.com/. Its contribution form stores pending submissions through the owned API. `/blog/` retains the original 15-card index, and all 196 inventoried article paths are generated from Git files. The preview is not indexed and does not send Google Analytics pageviews. Production analytics will retain `G-3NXS6QFKHZ` when the domain is migrated.
 
 ## Development
 
@@ -23,7 +23,7 @@ AWS_REGION=us-east-1 CATALOG_TABLE=donde-aprendo-aws-catalog PUBLIC_SUBMISSION_A
 npm run preview
 ```
 
-After either static build, run `npm run verify:blog` to check the blog routes and owned assets against the captured index fixture. CI and Amplify run this check after their builds.
+After either static build, run `npm run verify:blog` to check the 15-card index, all 196 original article routes, and owned assets. CI and Amplify run this check after their builds.
 
 Do not set `CATALOG_FIXTURE` for an Amplify deployment or combine it with `CATALOG_TABLE`. Never commit credentials, submission contact information, or raw database dumps.
 

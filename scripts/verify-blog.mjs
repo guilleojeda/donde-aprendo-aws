@@ -6,6 +6,7 @@ import deployment from '../config/deployment.json' with { type: 'json' };
 const dist = resolve('dist');
 const mediaOrigin = new URL(process.env.PUBLIC_SITE_ORIGIN || `https://${deployment.branchName}.${deployment.appId}.amplifyapp.com`).origin;
 const expected = JSON.parse(readFileSync('tests/fixtures/blog-index.json', 'utf8'));
+const archive = JSON.parse(readFileSync('tests/fixtures/blog-routes.json', 'utf8'));
 const read = (path) => readFileSync(resolve(dist, path), 'utf8');
 const decode = (value) => value
   .replaceAll('&amp;', '&')
@@ -16,6 +17,8 @@ const decode = (value) => value
   .replaceAll('&gt;', '>');
 
 assert.equal(expected.length, 15, 'Source index fixture must contain 15 articles.');
+assert.equal(archive.length, 196, 'Original sitemap fixture must contain 196 articles.');
+assert.equal(new Set(archive.map(({ slug }) => slug)).size, 196, 'Original article slugs must be unique.');
 const index = read('blog/index.html');
 const indexUrls = [...index.matchAll(/<a\b[^>]*class="blog-card"[^>]*href="([^"]+)"/g)]
   .map((match) => match[1]);
@@ -28,25 +31,32 @@ const generated = readdirSync(resolve(dist, 'blog'), { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
   .map((entry) => entry.name)
   .sort();
-assert.deepEqual(generated, expected.map(({ slug }) => slug).sort());
+assert.deepEqual(generated, archive.map(({ slug }) => slug).sort());
 
 const allPages = [index];
 const assetPaths = new Set();
-for (const article of expected) {
+for (const article of archive) {
   const html = read(`blog/${article.slug}/index.html`);
   allPages.push(html);
   assert.ok(html.includes(`<h1>${article.title}</h1>`), `Title mismatch: ${article.slug}`);
   const description = html.match(/<meta name="description" content="([^"]*)"/);
-  assert.equal(decode(description?.[1] ?? ''), article.description, `Description mismatch: ${article.slug}`);
+  assert.ok(decode(description?.[1] ?? '').length > 0, `Description missing: ${article.slug}`);
+  const indexed = expected.find(({ slug }) => slug === article.slug);
+  if (indexed) {
+    assert.equal(decode(description?.[1] ?? ''), indexed.description, `Description mismatch: ${article.slug}`);
+    assert.ok(html.includes(`"datePublished":"${indexed.publishedAt}`), `Original publication date mismatch: ${article.slug}`);
+  }
   assert.ok(html.includes(`href="https://dondeaprendoaws.com/blog/${article.slug}/"`), `Canonical mismatch: ${article.slug}`);
-  assert.ok(html.includes(`"datePublished":"${article.publishedAt}`), `Publication date missing: ${article.slug}`);
+  assert.match(html, /"datePublished":"\d{4}-\d{2}-\d{2}T/, `Publication date missing: ${article.slug}`);
   assert.match(html, /<article class="blog-article__body">/, `Body missing: ${article.slug}`);
   const ogImage = html.match(/<meta property="og:image" content="([^"]+)"/)?.[1];
   assert.ok(ogImage?.startsWith(`${mediaOrigin}/assets/blog/`), `Owned social image missing: ${article.slug}`);
+  const ogFile = resolve(dist, `.${new URL(ogImage).pathname}`);
+  assert.ok(ogFile.startsWith(`${dist}/`) && existsSync(ogFile), `Social image file missing: ${article.slug}`);
   assert.match(html, /<meta name="twitter:card" content="summary_large_image"/);
   assert.ok(html.includes(`<meta name="twitter:url" content="https://dondeaprendoaws.com/blog/${article.slug}/"`));
   assert.equal(decode(html.match(/<meta name="twitter:title" content="([^"]*)"/)?.[1] ?? ''), article.title);
-  assert.equal(decode(html.match(/<meta name="twitter:description" content="([^"]*)"/)?.[1] ?? ''), article.description);
+  assert.equal(decode(html.match(/<meta name="twitter:description" content="([^"]*)"/)?.[1] ?? ''), decode(description?.[1] ?? ''));
   assert.equal(html.match(/<meta name="twitter:image" content="([^"]+)"/)?.[1], ogImage);
 }
 
@@ -54,9 +64,12 @@ for (const html of allPages) {
   assert.match(html, /<meta name="robots" content="noindex, nofollow"/);
   assert.doesNotMatch(html, /(?:unicornplatform\.com|seobotai\.com|mars-images\.imgix\.net|googletagmanager\.com)/i);
   assert.doesNotMatch(html, /<a\b[^>]*href="\s*javascript:/i);
-  assert.doesNotMatch(html, /<iframe\b|\son[a-z]+\s*=/i);
+  assert.doesNotMatch(html, /\son[a-z]+\s*=/i);
   for (const [, attributes] of html.matchAll(/<script\b([^>]*)>/gi)) {
     assert.match(attributes, /\btype="application\/ld\+json"/, 'Blog scripts must be inert structured data.');
+  }
+  for (const [, src] of html.matchAll(/<iframe\b[^>]*\bsrc="([^"]+)"/gi)) {
+    assert.match(src, /^https:\/\/www\.youtube(?:-nocookie)?\.com\/embed\//, `Unexpected video embed: ${src}`);
   }
   for (const [, src] of html.matchAll(/<img\b[^>]*\bsrc="([^"]+)"/g)) {
     assert.ok(src.startsWith('/assets/blog/'), `Non-local blog image: ${src}`);
@@ -73,4 +86,4 @@ const articleWithoutBodyImages = read('blog/cors-en-websocket-vs-rest-api-gatewa
 const body = articleWithoutBodyImages.match(/<article class="blog-article__body">([\s\S]*?)<\/article>/)?.[1] ?? '';
 assert.doesNotMatch(body, /<img\b/);
 
-console.log(`Verified blog index, ${expected.length} article routes, and ${assetPaths.size} owned images.`);
+console.log(`Verified 15-card blog index, ${archive.length} article routes, and ${assetPaths.size} owned images.`);

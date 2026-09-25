@@ -154,6 +154,16 @@
   margin-inline: auto;
 }
 
+.blog-article__body iframe {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  margin: 24px 0;
+  border: 0;
+}
+
 .blog-article__body figcaption {
   margin-top: 8px;
   color: #777;
