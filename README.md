@@ -91,7 +91,7 @@ Use `npm run import:catalog -- --help` for arguments and a dry run before writin
 
 ## Automatic catalog publication
 
-The publication stack uses an hourly EventBridge rule and a Node.js 24 Lambda. It reads the same public fields as the site build, hashes only published records, and stores the last successfully deployed hash in the reserved `__system#publication` item of the existing catalog table. Pending submissions and private contact edits do not trigger builds. While an Amplify build is running, the Lambda waits for the next check. A failed job raises a Lambda error and a CloudWatch alarm; the next hourly check retries. The alarm sends email through SNS when an alert address is configured and its subscription is confirmed.
+The publication stack uses an hourly EventBridge rule and a Node.js 24 Lambda. It reads the same public fields as the site build, hashes only published records, and stores the last successfully deployed hash in the reserved `__system#publication` item of the existing catalog table. A short conditional lease on that item prevents overlapping Lambda checks. Pending submissions and private contact edits do not trigger builds. While an Amplify build is running, the Lambda waits for the next check. A failed job raises a Lambda error and a CloudWatch alarm; the next hourly check retries. The alarm sends email through SNS when an alert address is configured and its subscription is confirmed.
 
 Package the Lambda from the checked-out revision and upload it to the directory stack's private artifacts bucket under its content hash:
 

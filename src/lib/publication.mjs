@@ -2,6 +2,16 @@ import { createHash } from 'node:crypto';
 
 const FINISHED_JOBS = new Set(['SUCCEED', 'FAILED', 'CANCELLED']);
 
+/** Serialize scheduled and manual invocations with a short DynamoDB lease. */
+export async function withPublicationLock({ acquire, release, run }) {
+  if (!(await acquire())) return { action: 'busy' };
+  try {
+    return await run();
+  } finally {
+    await release();
+  }
+}
+
 /** Hash the exact public catalog projection, independent of scan order. */
 export function fingerprintPublicCatalog(records) {
   if (!Array.isArray(records)) throw new TypeError('Public catalog must be an array');

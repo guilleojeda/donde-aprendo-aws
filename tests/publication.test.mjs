@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { projectPublishedCatalog } from '../src/lib/catalog.mjs';
-import { fingerprintPublicCatalog, synchronizePublication } from '../src/lib/publication.mjs';
+import { fingerprintPublicCatalog, synchronizePublication, withPublicationLock } from '../src/lib/publication.mjs';
 
 function record(overrides = {}) {
   return {
@@ -119,4 +119,30 @@ test('failed build clears pending state and raises an alertable Lambda error', a
   await assert.rejects(() => synchronizePublication(context.dependencies), /job 41 FAILED/);
   assert.deepEqual(context.calls, [['getJob', '41'], ['markFailed', '41', 'FAILED']]);
   assert.equal(context.state().pendingJobId, undefined);
+});
+
+test('a concurrent invocation exits without reading or starting a build', async () => {
+  let ran = false;
+  let released = false;
+  assert.deepEqual(await withPublicationLock({
+    acquire: async () => false,
+    release: async () => { released = true; },
+    run: async () => { ran = true; },
+  }), { action: 'busy' });
+  assert.equal(ran, false);
+  assert.equal(released, false);
+});
+
+test('a lock is released after both success and failure', async () => {
+  let releases = 0;
+  const context = {
+    acquire: async () => true,
+    release: async () => { releases += 1; },
+  };
+  assert.equal(await withPublicationLock({ ...context, run: async () => 'done' }), 'done');
+  await assert.rejects(() => withPublicationLock({
+    ...context,
+    run: async () => { throw new Error('failed'); },
+  }), /failed/);
+  assert.equal(releases, 2);
 });
