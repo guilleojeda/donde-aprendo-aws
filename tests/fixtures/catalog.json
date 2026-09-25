@@ -1,5 +1,31 @@
 [
   {
+    "id": "fixture-source",
+    "title": "Canal de ejemplo",
+    "url": "https://example.com/canal",
+    "description": "Videos sobre seguridad.",
+    "category": "Canal de YouTube",
+    "kind": "source",
+    "format": "Canal de YouTube",
+    "topics": ["Seguridad"],
+    "order": 9,
+    "featured": false,
+    "published": true
+  },
+  {
+    "id": "fixture-community",
+    "title": "Comunidad de ejemplo",
+    "url": "https://example.com/comunidad",
+    "description": "Grupo para aprender AWS.",
+    "category": "Comunidad",
+    "kind": "community",
+    "format": "User Group",
+    "topics": [],
+    "order": 8,
+    "featured": false,
+    "published": true
+  },
+  {
     "id": "fixture-featured",
     "title": "Curso de ejemplo",
     "url": "https://example.com/curso?utm_source=fixture&lang=es",

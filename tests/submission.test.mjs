@@ -58,6 +58,9 @@ test('writes a pending public record with private contact fields and returns 201
     url: BASE_SUBMISSION.url,
     description: BASE_SUBMISSION.text,
     category: BASE_SUBMISSION.Category,
+    kind: 'content',
+    format: 'Curso',
+    topics: [],
     order: 0,
     featured: false,
     published: false,
@@ -68,6 +71,35 @@ test('writes a pending public record with private contact fields and returns 201
   assert.equal(Object.hasOwn(writes[0].Item, 'website'), false);
   assert.equal(Object.hasOwn(writes[0].Item, 'email'), false);
   assert.equal(result.body.includes(BASE_SUBMISSION.email), false);
+});
+
+test('accepts the new kind, format, and topic fields as a pending submission', async () => {
+  const writes = [];
+  const handler = handlerWithWriter(async (params) => { writes.push(params); });
+  const { Category, ...base } = BASE_SUBMISSION;
+  const result = await handler({
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ ...base, kind: 'content', format: 'Video', topics: ['Seguridad', 'Fundamentos'] }),
+  });
+  assert.equal(result.statusCode, 201);
+  assert.equal(writes[0].Item.published, false);
+  assert.equal(writes[0].Item.category, 'Seguridad');
+  assert.deepEqual(writes[0].Item.topics, ['Seguridad', 'Fundamentos']);
+});
+
+test('rejects invalid new taxonomy before writing', async () => {
+  let writes = 0;
+  const handler = handlerWithWriter(async () => { writes += 1; });
+  const { Category, ...base } = BASE_SUBMISSION;
+  for (const taxonomy of [
+    { kind: 'source', format: 'Video', topics: [] },
+    { kind: 'content', format: 'Video', topics: ['Seguridad', 'Seguridad'] },
+    { kind: 'content', format: 'Video', topics: ['Unlisted'] },
+  ]) {
+    const result = await handler({ headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...base, ...taxonomy }) });
+    assert.equal(result.statusCode, 400);
+  }
+  assert.equal(writes, 0);
 });
 
 test('returns 409 for a conditional duplicate without exposing submitted values', async () => {

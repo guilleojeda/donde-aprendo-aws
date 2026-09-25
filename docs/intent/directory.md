@@ -1,12 +1,12 @@
 # Directory behavior
 
-The public directory helps visitors discover other people's AWS learning resources. It preserves titles, descriptions, category labels, and exact outbound URLs, including their query strings. Empty source descriptions remain empty. Search and category controls operate in the browser; all published links are also present in the generated HTML.
+The public directory helps visitors discover other people's AWS learning resources. It preserves titles, descriptions, legacy category values, and exact outbound URLs, including their query strings. Empty source descriptions remain empty. The public interface uses three sections: **Aprender** for individual articles, videos, courses, episodes and tools; **Seguir** for continuing sources such as blogs, channels, podcasts and newsletters; and **Comunidades** for groups and community spaces. Kind, format and up to three topics are separate DynamoDB fields. Search and format/topic controls operate in the browser; all published links are also present in the generated HTML.
 
 ## Content ownership
 
 DynamoDB is the single authoritative catalog. Site templates, assets, and blog article files belong in Git. Approved catalog records are not copied into Git for ongoing editing.
 
-The initial migration creates all 95 supplied entries with the Boolean `published=true`, as directed by the owner. Importing again does not overwrite existing records, their content, or their publication flags. This prevents an old export from undoing later moderation.
+The initial migration created 95 supplied entries with the Boolean `published=true`; 12 more were approved later. The type migration classifies the 107 published records in DynamoDB and changes only `kind`, `format`, and `topics`. The original `category` field remains for compatibility, but it does not control the new directory filters. Legacy records without the new fields are classified at build time so they remain visible during migration; incomplete explicit taxonomy is a build error. Reimporting an old export does not overwrite existing records, their content, or their publication flags.
 
 Only records with a Boolean `published=true` can appear in public output. Missing or false flags are unpublished; malformed publication values must not accidentally expose a submission. Public output is constructed from an explicit allowlist of resource fields, never by serializing a database item that may contain submitter contact details.
 
@@ -16,7 +16,7 @@ The build must consume every scan page. Failed or malformed reads stop publicati
 
 The site is a static snapshot. A database edit takes effect after the owner starts a fresh Amplify build and the deployment succeeds. A Git deployment also reads the current catalog. Unpublishing follows the same rule; changing the flag does not instantly erase already-deployed HTML or external caches.
 
-Visitors submit the existing six fields through the owned form. The API validates them, conditionally creates a catalog record with `published=false`, and confirms receipt only after DynamoDB accepts the write. Duplicate exact URLs are rejected without changing an existing record. The record also contains private submitter name and email fields for the owner's review. The build's projection excludes those fields even after approval. Newly approved entries default to order zero and appear after the imported records; the owner can edit their order directly.
+Visitors submit contact details, title, URL, description, kind, format, and optional topics through the owned form. The API validates them, conditionally creates a catalog record with `published=false`, and confirms receipt only after DynamoDB accepts the write. The API temporarily accepts the old `Category` payload from already-deployed pages. Duplicate exact URLs are rejected without changing an existing record. The record also contains private submitter name and email fields for the owner's review. The build's projection excludes those fields even after approval. Newly approved entries default to order zero and appear after the imported records; the owner can edit their order directly.
 
 The build reads DynamoDB using a scoped AWS role that can scan only the public attributes named in its projection. Visitors do not receive AWS credentials or access the table. No runtime catalog API, scheduled rebuild, database stream processor, or database-to-Git synchronization is necessary for this workflow.
 

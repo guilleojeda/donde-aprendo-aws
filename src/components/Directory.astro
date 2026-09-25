@@ -1,5 +1,6 @@
 ---
 import ResourceCard from './ResourceCard.astro';
+import { KIND_LABELS, TOPICS } from '../lib/resource-taxonomy.mjs';
 
 interface Resource {
   id: string;
@@ -9,6 +10,9 @@ interface Resource {
   category: string;
   order: number;
   featured: boolean;
+  kind: string;
+  format: string;
+  topics: string[];
 }
 
 interface Props {
@@ -16,8 +20,11 @@ interface Props {
 }
 
 const { resources } = Astro.props;
-const categories = [...new Set(resources.map((resource) => resource.category))]
+const formats = [...new Set(resources.map((resource) => resource.format))]
   .sort((left, right) => left.localeCompare(right, 'es', { sensitivity: 'base' }));
+const topics = TOPICS.filter((topic) => resources.some((resource) => resource.topics.includes(topic)));
+const kindCounts = Object.fromEntries(Object.keys(KIND_LABELS)
+  .map((kind) => [kind, resources.filter((resource) => resource.kind === kind).length]));
 const searchPlaceholder = `Buscar entre ${resources.length} recursos`;
 ---
 
@@ -26,10 +33,17 @@ const searchPlaceholder = `Buscar entre ${resources.length} recursos`;
     <div class="site-container directory-section__container">
       <div class="directory-hero">
         <h1 id="directory-title">¿Dónde Aprendo AWS?</h1>
-        <p>El más completo directorio de contenido de AWS en Español. Blogs, artículos, videos, y todo tipo de contenido.</p>
+        <p>Encuentra contenido, sigue a quienes lo crean y conecta con comunidades de AWS en español.</p>
       </div>
 
       <div class="directory-controls" data-directory-controls>
+        <div class="directory-kinds" role="group" aria-label="Qué quieres explorar">
+          {Object.entries(KIND_LABELS).map(([kind, label]) => (
+            <button class="directory-kind" type="button" data-kind-filter={kind} aria-pressed={kind === 'content'}>
+              {label} <span class="directory-kind__count">{kindCounts[kind]}</span>
+            </button>
+          ))}
+        </div>
         <label class="sr-only" for="resource-search">Buscar recursos</label>
         <input
           id="resource-search"
@@ -40,12 +54,21 @@ const searchPlaceholder = `Buscar entre ${resources.length} recursos`;
           spellcheck="false"
           data-resource-search
         />
-        <div class="category-list" role="group" aria-label="Filtrar por categoría">
-          {categories.map((category) => (
-            <button class="category-chip" type="button" data-category-filter={category} aria-pressed="false">
-              {category}
-            </button>
-          ))}
+        <div class="directory-facets">
+          <div class="directory-facet">
+            <label for="resource-format">Formato</label>
+            <select id="resource-format" data-format-filter>
+              <option value="">Todos los formatos</option>
+              {formats.map((format) => <option value={format}>{format}</option>)}
+            </select>
+          </div>
+          <div class="directory-facet">
+            <label for="resource-topic">Tema</label>
+            <select id="resource-topic" data-topic-filter>
+              <option value="">Todos los temas</option>
+              {topics.map((topic) => <option value={topic}>{topic}</option>)}
+            </select>
+          </div>
         </div>
       </div>
 

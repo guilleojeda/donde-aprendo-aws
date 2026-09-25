@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { classifyLegacyResource, validateTaxonomy } from './resource-taxonomy.mjs';
 
 export const DEFAULT_AWS_REGION = 'us-east-1';
 
@@ -10,7 +11,11 @@ const PUBLIC_FIELDS = Object.freeze([
   'category',
   'order',
   'featured',
+  'kind',
+  'format',
+  'topics',
 ]);
+const LEGACY_REQUIRED_FIELDS = PUBLIC_FIELDS.slice(0, 7);
 
 const SCAN_EXPRESSION_NAMES = Object.freeze({
   '#id': 'id',
@@ -20,6 +25,9 @@ const SCAN_EXPRESSION_NAMES = Object.freeze({
   '#category': 'category',
   '#order': 'order',
   '#featured': 'featured',
+  '#kind': 'kind',
+  '#format': 'format',
+  '#topics': 'topics',
 });
 
 /**
@@ -92,7 +100,7 @@ export async function scanCatalogItems(scanPage, tableName) {
     const params = {
       TableName: tableName,
       Select: 'SPECIFIC_ATTRIBUTES',
-      ProjectionExpression: '#id,#title,#url,#description,#category,#order,#featured,published',
+      ProjectionExpression: '#id,#title,#url,#description,#category,#order,#featured,#kind,#format,#topics,published',
       ExpressionAttributeNames: SCAN_EXPRESSION_NAMES,
     };
     if (exclusiveStartKey !== undefined) {
@@ -167,7 +175,7 @@ export function projectPublishedCatalog(items) {
  * no private or unknown fields, so callers can safely serialize it for HTML.
  */
 export function projectPublicRecord(item, index = 0) {
-  for (const field of PUBLIC_FIELDS) {
+  for (const field of LEGACY_REQUIRED_FIELDS) {
     if (!Object.hasOwn(item, field)) {
       throw new Error(`Catalog record ${index + 1} is missing public field ${field}`);
     }
@@ -181,6 +189,7 @@ export function projectPublicRecord(item, index = 0) {
     category: item.category,
     order: item.order,
     featured: item.featured,
+    ...validateTaxonomy(hasAnyTaxonomy(item) ? item : classifyLegacyResource(item), index),
   };
   validatePublicRecord(record, index);
   return record;
@@ -213,8 +222,13 @@ export function validatePublicRecord(record, index = 0) {
   if (typeof record.featured !== 'boolean') {
     throw new Error(`Catalog record ${index + 1} has an invalid featured flag`);
   }
+  validateTaxonomy(record, index);
   validateCatalogUrl(record.url, index);
   return record;
+}
+
+function hasAnyTaxonomy(item) {
+  return ['kind', 'format', 'topics'].some((field) => Object.hasOwn(item, field));
 }
 
 export function validateCatalogUrl(url, index = 0) {

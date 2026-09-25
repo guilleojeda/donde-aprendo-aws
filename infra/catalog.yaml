@@ -50,6 +50,9 @@ Resources:
                       - category
                       - order
                       - featured
+                      - kind
+                      - format
+                      - topics
                       - published
                   StringEquals:
                     dynamodb:Select: SPECIFIC_ATTRIBUTES
