@@ -84,7 +84,9 @@ Resources:
                 Action:
                   - amplify:ListJobs
                   - amplify:StartJob
-                Resource: !Sub arn:${AWS::Partition}:amplify:${AWS::Region}:${AWS::AccountId}:apps/${AmplifyAppId}/branches/${AmplifyBranchName}
+                Resource:
+                  - !Sub arn:${AWS::Partition}:amplify:${AWS::Region}:${AWS::AccountId}:apps/${AmplifyAppId}/branches/${AmplifyBranchName}
+                  - !Sub arn:${AWS::Partition}:amplify:${AWS::Region}:${AWS::AccountId}:apps/${AmplifyAppId}/branches/${AmplifyBranchName}/jobs/*
               - Effect: Allow
                 Action: amplify:GetJob
                 Resource: !Sub arn:${AWS::Partition}:amplify:${AWS::Region}:${AWS::AccountId}:apps/${AmplifyAppId}/branches/${AmplifyBranchName}/jobs/*
