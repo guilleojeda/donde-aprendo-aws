@@ -7,6 +7,7 @@ import {
   validateCatalogUrl,
   validatePublicRecord,
 } from './catalog.mjs';
+import { classifyLegacyResource } from './resource-taxonomy.mjs';
 
 export const TARGET_ACCOUNT_ID = '719535286359';
 
@@ -94,6 +95,7 @@ export function mapTsvRow(row, index = 0) {
     featured: parseFeatured(row.Destacado, index),
     published: true,
   };
+  Object.assign(record, classifyLegacyResource(record));
   validatePublicRecord(record, index);
   return record;
 }
@@ -131,6 +133,9 @@ export async function importCatalog(records, options = {}) {
       category: record.category,
       order: record.order,
       featured: record.featured,
+      ...(record.kind && record.format && record.topics
+        ? { kind: record.kind, format: record.format, topics: record.topics }
+        : classifyLegacyResource(record)),
     };
     validatePublicRecord(publicRecord, index);
     importItems.push({ ...publicRecord, published: true });

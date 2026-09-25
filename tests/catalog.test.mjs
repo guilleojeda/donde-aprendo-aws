@@ -78,6 +78,9 @@ test('projects only published public fields and sorts by descending order', () =
       category: 'Curso',
       order: 20,
       featured: false,
+      kind: 'content',
+      format: 'Curso',
+      topics: [],
     },
     {
       id: 'first',
@@ -87,6 +90,9 @@ test('projects only published public fields and sorts by descending order', () =
       category: 'Curso',
       order: 10,
       featured: false,
+      kind: 'content',
+      format: 'Curso',
+      topics: [],
     },
   ]);
   assert.equal(JSON.stringify(result).includes('private-sentinel'), false);
@@ -101,6 +107,17 @@ test('rejects malformed publication flags instead of coercing strings', () => {
     () => projectPublishedCatalog([record({ published: 1 })]),
     /malformed published flag/,
   );
+});
+
+test('uses explicit public taxonomy and never exposes private submission fields', () => {
+  const result = projectPublishedCatalog([record({
+    kind: 'source', format: 'Newsletter', topics: ['Serverless'],
+    submitterEmail: 'private@example.invalid',
+  })]);
+  assert.deepEqual(result[0].topics, ['Serverless']);
+  assert.equal(result[0].kind, 'source');
+  assert.equal(JSON.stringify(result).includes('private@example.invalid'), false);
+  assert.throws(() => projectPublishedCatalog([record({ kind: 'unknown', format: 'Video', topics: [] })]), /invalid kind/);
 });
 
 test('rejects unsafe URLs and preserves valid query strings', () => {
@@ -161,6 +178,33 @@ test('uses an explicitly selected fixture and rejects conflicting source config'
         category: 'Curso',
         order: 10,
         featured: true,
+        kind: 'content',
+        format: 'Curso',
+        topics: [],
+      },
+      {
+        id: 'fixture-source',
+        title: 'Canal de ejemplo',
+        url: 'https://example.com/canal',
+        description: 'Videos sobre seguridad.',
+        category: 'Canal de YouTube',
+        order: 9,
+        featured: false,
+        kind: 'source',
+        format: 'Canal de YouTube',
+        topics: ['Seguridad'],
+      },
+      {
+        id: 'fixture-community',
+        title: 'Comunidad de ejemplo',
+        url: 'https://example.com/comunidad',
+        description: 'Grupo para aprender AWS.',
+        category: 'Comunidad',
+        order: 8,
+        featured: false,
+        kind: 'community',
+        format: 'User Group',
+        topics: [],
       },
     ]);
     assert.throws(

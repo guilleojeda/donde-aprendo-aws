@@ -91,7 +91,7 @@ Use `npm run import:catalog -- --help` for arguments and a dry run before writin
 
 ## Publish catalog changes
 
-The form writes new records to `donde-aprendo-aws-catalog` with `published=false`. In the DynamoDB console for account `719535286359`, region `us-east-1`, inspect the pending record and its private `submitterName`/`submitterEmail` fields. Edit public fields as needed. Set `published` to the Boolean `true` to approve, or `false` to hide. Then run:
+The form writes new records to `donde-aprendo-aws-catalog` with `published=false`. In the DynamoDB console for account `719535286359`, region `us-east-1`, inspect the pending record and its private `submitterName`/`submitterEmail` fields. Edit public fields as needed, including `kind` (`content`, `source`, or `community`), a compatible `format`, and up to three `topics`. The legacy `category` field remains for compatibility; public filters use the three new fields. Set `published` to the Boolean `true` to approve, or `false` to hide. Then run:
 
 ```sh
 npm run publish

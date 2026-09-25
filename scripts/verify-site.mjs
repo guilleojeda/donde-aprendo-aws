@@ -31,4 +31,10 @@ for (const path of pagePaths) {
 
 const notFound = read('404.html');
 assert.match(notFound, /<meta name="robots" content="noindex, nofollow"/);
+const directory = read('index.html');
+for (const kind of ['content', 'source', 'community']) {
+  assert.match(directory, new RegExp(`data-kind-filter="${kind}"`), `Missing ${kind} directory section`);
+}
+assert.match(directory, /data-format-filter/);
+assert.match(directory, /data-topic-filter/);
 console.log(`Verified ${production ? 'production' : 'preview'} indexing, Analytics tags, and 198 sitemap URLs.`);

@@ -4,6 +4,7 @@ import {
   stableCatalogId,
 } from '../lib/catalog-import.mjs';
 import { SUBMISSION_CATEGORIES } from '../lib/submission-categories.mjs';
+import { classifyLegacyResource, legacyCategoryFor, validateTaxonomy } from '../lib/resource-taxonomy.mjs';
 
 export const MAX_SUBMISSION_BODY_BYTES = 16 * 1024;
 
@@ -14,6 +15,8 @@ export const SUBMISSION_FIELD_LIMITS = Object.freeze({
   url: 2_048,
   text: 8_000,
   Category: 64,
+  kind: 24,
+  format: 64,
 });
 
 const REQUIRED_FIELDS = Object.freeze([
@@ -22,9 +25,8 @@ const REQUIRED_FIELDS = Object.freeze([
   'title',
   'url',
   'text',
-  'Category',
 ]);
-const ACCEPTED_FIELDS = new Set([...REQUIRED_FIELDS, 'website']);
+const ACCEPTED_FIELDS = new Set([...REQUIRED_FIELDS, 'website', 'Category', 'kind', 'format', 'topics']);
 const CATEGORY_SET = new Set(SUBMISSION_CATEGORIES);
 const BASE64_BODY_LIMIT = Math.ceil(MAX_SUBMISSION_BODY_BYTES * 4 / 3) + 4;
 const CONTROL_CHARACTERS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/u;
@@ -60,7 +62,8 @@ export function createSubmissionHandler(options = {}) {
       title: submission.title,
       url: submission.url,
       description: submission.text,
-      category: submission.Category,
+      category: submission.category,
+      ...submission.taxonomy,
       order: 0,
       featured: false,
       published: false,
@@ -131,10 +134,6 @@ function parseSubmissionRequest(event) {
   if (!EMAIL_PATTERN.test(payload.email) || payload.email.includes('..')) {
     throw requestError(400, 'invalid_request');
   }
-  if (!CATEGORY_SET.has(payload.Category)) {
-    throw requestError(400, 'invalid_request');
-  }
-
   try {
     // stableCatalogId calls the shared catalog URL validator. Keeping the URL
     // unchanged here preserves query strings and makes duplicate detection
@@ -142,6 +141,29 @@ function parseSubmissionRequest(event) {
     stableCatalogId(payload.url);
   } catch {
     throw requestError(400, 'invalid_request');
+  }
+
+  let taxonomy;
+  let category;
+  if (Object.hasOwn(payload, 'kind')) {
+    if (Object.hasOwn(payload, 'Category')
+      || typeof payload.kind !== 'string' || payload.kind.length > SUBMISSION_FIELD_LIMITS.kind
+      || typeof payload.format !== 'string' || payload.format.length > SUBMISSION_FIELD_LIMITS.format) {
+      throw requestError(400, 'invalid_request');
+    }
+    try {
+      taxonomy = validateTaxonomy(payload);
+    } catch {
+      throw requestError(400, 'invalid_request');
+    }
+    category = legacyCategoryFor(taxonomy);
+  } else {
+    if (typeof payload.Category !== 'string' || payload.Category.length > SUBMISSION_FIELD_LIMITS.Category
+      || !CATEGORY_SET.has(payload.Category) || Object.hasOwn(payload, 'format') || Object.hasOwn(payload, 'topics')) {
+      throw requestError(400, 'invalid_request');
+    }
+    category = payload.Category;
+    taxonomy = classifyLegacyResource({ title: payload.title, url: payload.url, category });
   }
 
   if (Object.hasOwn(payload, 'website')) {
@@ -153,7 +175,7 @@ function parseSubmissionRequest(event) {
     }
   }
 
-  return payload;
+  return { ...payload, category, taxonomy };
 }
 
 function decodeRequestBody(event) {

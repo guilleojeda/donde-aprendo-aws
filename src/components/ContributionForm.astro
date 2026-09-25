@@ -1,5 +1,5 @@
 ---
-import { SUBMISSION_CATEGORIES } from '../lib/submission-categories.mjs';
+import { FORMATS_BY_KIND, KIND_LABELS, TOPICS } from '../lib/resource-taxonomy.mjs';
 
 const submissionApiUrl = import.meta.env.PUBLIC_SUBMISSION_API_URL?.trim() ?? '';
 
@@ -93,12 +93,31 @@ if (import.meta.env.PROD && !submissionApiUrl) {
         </div>
 
         <div class="contribution-form__field contribution-form__field--full">
-          <label for="contribution-category">Categoría</label>
-          <select id="contribution-category" name="Category" required>
-            <option value="">Selecciona una categoría</option>
-            {SUBMISSION_CATEGORIES.map((category) => <option value={category}>{category}</option>)}
+          <label for="contribution-kind">¿Qué compartes?</label>
+          <select id="contribution-kind" name="kind" data-contribution-kind required>
+            <option value="">Selecciona una opción</option>
+            {Object.entries(KIND_LABELS).map(([kind, label]) => <option value={kind}>{label}</option>)}
           </select>
         </div>
+
+        <div class="contribution-form__field">
+          <label for="contribution-format">Formato</label>
+          <select id="contribution-format" name="format" data-contribution-format required>
+            <option value="">Selecciona un formato</option>
+            {Object.entries(FORMATS_BY_KIND).flatMap(([kind, formats]) => formats.map((format) => (
+              <option value={format} data-format-kind={kind} hidden disabled>{format}</option>
+            )))}
+          </select>
+        </div>
+
+        <fieldset class="contribution-form__topics contribution-form__field--full">
+          <legend>Temas <span>(opcional, hasta tres)</span></legend>
+          <div class="contribution-form__topic-options">
+            {TOPICS.map((topic) => (
+              <label><input type="checkbox" name="topics" value={topic} data-contribution-topic /> {topic}</label>
+            ))}
+          </div>
+        </fieldset>
       </div>
 
       <div class="contribution-form__honeypot" aria-hidden="true">

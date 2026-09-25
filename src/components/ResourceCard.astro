@@ -6,6 +6,9 @@ interface Resource {
   description?: string;
   category: string;
   featured?: boolean;
+  kind: string;
+  format: string;
+  topics: string[];
 }
 
 interface Props {
@@ -14,17 +17,24 @@ interface Props {
 }
 
 const { resource, index } = Astro.props;
-const searchValue = `${resource.title} ${resource.description ?? ''} ${resource.category}`;
+const searchValue = `${resource.title} ${resource.description ?? ''} ${resource.category} ${resource.format} ${resource.topics.join(' ')}`;
 ---
 
 <li
   class="resource-list__item"
   data-resource-index={index}
   data-category={resource.category}
+  data-kind={resource.kind}
+  data-format={resource.format}
+  data-topics={resource.topics.join('|')}
   data-search={searchValue}
 >
   <article class="resource-card">
     <a href={resource.url} target="_blank" rel="noopener">
+      <div class="resource-card__meta">
+        <span class="resource-card__format">{resource.format}</span>
+        {resource.topics.slice(0, 2).map((topic) => <span class="resource-card__topic">{topic}</span>)}
+      </div>
       <div class="resource-card__title-box">
         <h3 class="resource-card__title">{resource.title}</h3>
         <span
