@@ -32,6 +32,9 @@ for (const path of pagePaths) {
 const notFound = read('404.html');
 assert.match(notFound, /<meta name="robots" content="noindex, nofollow"/);
 const directory = read('index.html');
+assert.match(directory, /id="eventos"/, 'Event agenda must be present.');
+assert.match(directory, /data-event-list/, 'Event list must be present.');
+assert.match(directory, /data-event-empty/, 'Event empty state must be present.');
 for (const kind of ['content', 'source', 'community']) {
   assert.match(directory, new RegExp(`data-kind-filter="${kind}"`), `Missing ${kind} directory section`);
 }

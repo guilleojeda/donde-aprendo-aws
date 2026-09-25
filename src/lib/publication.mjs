@@ -12,11 +12,15 @@ export async function withPublicationLock({ acquire, release, run }) {
   }
 }
 
-/** Hash the exact public catalog projection, independent of scan order. */
-export function fingerprintPublicCatalog(records) {
+/** Hash the public projection and the current visibility of dated events. */
+export function fingerprintPublicCatalog(records, now = new Date()) {
   if (!Array.isArray(records)) throw new TypeError('Public catalog must be an array');
+  const timestamp = now instanceof Date ? now.getTime() : new Date(now).getTime();
+  if (!Number.isFinite(timestamp)) throw new Error('Invalid publication reference time');
   const canonical = records
-    .map((record) => Object.fromEntries(Object.entries(record).sort(([left], [right]) => left.localeCompare(right))))
+    .map((record) => Object.fromEntries(Object.entries(record.recordType === 'event'
+      ? { ...record, upcoming: Date.parse(record.endsAt) > timestamp } : record)
+      .sort(([left], [right]) => left.localeCompare(right))))
     .sort((left, right) => left.id.localeCompare(right.id));
   return createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
 }
@@ -34,8 +38,9 @@ export async function synchronizePublication({
   getJob,
   listJobs,
   startJob,
+  now = () => new Date(),
 }) {
-  const hash = fingerprintPublicCatalog(await loadPublicCatalog());
+  const hash = fingerprintPublicCatalog(await loadPublicCatalog(), now());
   const state = (await readState()) ?? {};
   let publishedHash = state.publishedHash;
 

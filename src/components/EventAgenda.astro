@@ -1,0 +1,67 @@
+---
+import { eventDateLabel, eventTimeLabel, upcomingEvents } from '../lib/events.mjs';
+import type { CatalogEvent, CatalogResource } from '../types/catalog';
+
+interface Props { events: CatalogEvent[]; resources: CatalogResource[]; }
+
+const { events, resources } = Astro.props;
+const upcoming = upcomingEvents(events) as CatalogEvent[];
+const recordingByEvent = new Map(resources.filter((resource) => resource.eventId)
+  .map((resource) => [resource.eventId, resource]));
+const pastRecorded = events.filter((event) => Date.parse(event.endsAt) <= Date.now() && recordingByEvent.has(event.id))
+  .sort((left, right) => Date.parse(right.startsAt) - Date.parse(left.startsAt));
+const modeLabel = { online: 'En línea', 'in-person': 'Presencial', hybrid: 'Híbrido' };
+---
+
+<section class="event-agenda" id="eventos" aria-labelledby="event-agenda-title">
+  <div>
+    <div class="event-agenda__heading">
+      <div>
+        <h2 id="event-agenda-title">Próximos eventos</h2>
+        <p>Encuentros y charlas de las comunidades AWS en español, ordenados por fecha.</p>
+      </div>
+    </div>
+    <ol class="event-agenda__list" data-event-list>
+      {upcoming.map((event) => {
+        const recording = recordingByEvent.get(event.id);
+        return <li id={`event-${event.id}`} class="event-card" data-event-ends-at={event.endsAt}>
+          <article>
+            <div class="event-card__date">
+              <time datetime={event.startsAt}>{eventDateLabel(event.startsAt, event.timeZone)}</time>
+              <span>{modeLabel[event.mode]}</span>
+            </div>
+            <h3>{event.title}</h3>
+            <p class="event-card__description">{event.description}</p>
+            <dl class="event-card__details">
+              <div><dt>Horario</dt><dd><time datetime={event.startsAt}>{eventTimeLabel(event.startsAt, event.timeZone)}</time> – <time datetime={event.endsAt}>{eventTimeLabel(event.endsAt, event.timeZone)}</time> · horario del organizador</dd></div>
+              <div data-visitor-time data-starts-at={event.startsAt} data-ends-at={event.endsAt} hidden><dt>En tu zona</dt><dd data-visitor-time-value></dd></div>
+              <div><dt>Organiza</dt><dd>{event.organizer}</dd></div>
+              {event.place && <div><dt>Lugar</dt><dd>{event.place}</dd></div>}
+            </dl>
+            <div class="event-card__links">
+              <a href={event.registrationUrl} target="_blank" rel="noopener noreferrer">Inscribirme <span aria-hidden="true">↗</span></a>
+              {recording && <a href={`#resource-${recording.id}`} data-resource-jump={recording.id}>Ver grabación</a>}
+            </div>
+          </article>
+        </li>;
+      })}
+    </ol>
+    <p class="event-agenda__empty" data-event-empty role="status" hidden={upcoming.length > 0}>
+      No hay próximos eventos publicados. Vuelve pronto para ver nuevas fechas.
+    </p>
+    {pastRecorded.length > 0 && <div class="event-agenda__archive" aria-labelledby="event-archive-title">
+      <h3 id="event-archive-title">Grabaciones de eventos anteriores</h3>
+      <ul>
+        {pastRecorded.map((event) => {
+          const recording = recordingByEvent.get(event.id)!;
+          return <li id={`event-${event.id}`}>
+            <span><time datetime={event.startsAt}>{eventDateLabel(event.startsAt, event.timeZone)}</time> · {event.title}</span>
+            <a href={`#resource-${recording.id}`} data-resource-jump={recording.id}>Ver grabación</a>
+          </li>;
+        })}
+      </ul>
+    </div>}
+  </div>
+</section>
+
+<script src="../scripts/event-agenda.js"></script>

@@ -16,19 +16,23 @@ interface Resource {
   level?: string;
   sourceId?: string;
   communityId?: string;
+  eventId?: string;
 }
+
+interface Event { id: string; title: string; }
 
 interface Props {
   resource: Resource;
   index: number;
   source?: Resource;
   community?: Resource;
+  event?: Event;
 }
 
-const { resource, index, source, community } = Astro.props;
+const { resource, index, source, community, event } = Astro.props;
 const countryLabel = (country?: string) => country ? COUNTRY_LABELS[country as keyof typeof COUNTRY_LABELS] ?? country : '';
 const levelLabel = (level?: string) => level ? LEVEL_LABELS[level as keyof typeof LEVEL_LABELS] ?? level : '';
-const searchValue = `${resource.title} ${resource.description ?? ''} ${resource.category} ${resource.format} ${resource.topics.join(' ')} ${countryLabel(resource.country)} ${levelLabel(resource.level)}`;
+const searchValue = `${resource.title} ${resource.description ?? ''} ${resource.category} ${resource.format} ${resource.topics.join(' ')} ${countryLabel(resource.country)} ${levelLabel(resource.level)} ${event?.title ?? ''}`;
 const relatedSource = source?.kind === 'source' ? source : undefined;
 const relatedCommunity = community?.kind === 'community' ? community : undefined;
 ---
@@ -67,10 +71,11 @@ const relatedCommunity = community?.kind === 'community' ? community : undefined
       </div>
       <p class="resource-card__description">{resource.description ?? ''}</p>
     </a>
-    {(relatedSource || relatedCommunity) && (
+    {(relatedSource || relatedCommunity || event) && (
       <div class="resource-card__related">
         {relatedSource && <a href={`#resource-${relatedSource.id}`} data-resource-jump={relatedSource.id}>Fuente: {relatedSource.title}</a>}
         {relatedCommunity && <a href={`#resource-${relatedCommunity.id}`} data-resource-jump={relatedCommunity.id}>Comunidad: {relatedCommunity.title}</a>}
+        {event && <a href={`#event-${event.id}`}>Grabación de: {event.title}</a>}
       </div>
     )}
   </article>

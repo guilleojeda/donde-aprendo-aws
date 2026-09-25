@@ -1,31 +1,18 @@
 ---
 import ResourceCard from './ResourceCard.astro';
+import EventAgenda from './EventAgenda.astro';
+import type { CatalogEvent, CatalogResource } from '../types/catalog';
 import { KIND_LABELS, TOPICS } from '../lib/resource-taxonomy.mjs';
 import { COUNTRY_LABELS, LEVEL_LABELS, recentResources, recommendedResources } from '../lib/resource-discovery.mjs';
 
-interface Resource {
-  id: string;
-  title: string;
-  url: string;
-  description?: string;
-  category: string;
-  order: number;
-  featured: boolean;
-  kind: string;
-  format: string;
-  topics: string[];
-  addedAt?: string;
-  country?: string;
-  level?: string;
-  sourceId?: string;
-  communityId?: string;
-}
+type Resource = CatalogResource;
 
 interface Props {
   resources: Resource[];
+  events: CatalogEvent[];
 }
 
-const { resources } = Astro.props;
+const { resources, events } = Astro.props;
 const kindLabel = (kind: string) => KIND_LABELS[kind as keyof typeof KIND_LABELS] ?? kind;
 const countryLabel = (country: string) => COUNTRY_LABELS[country as keyof typeof COUNTRY_LABELS] ?? country;
 const levelLabel = (level: string) => LEVEL_LABELS[level as keyof typeof LEVEL_LABELS] ?? level;
@@ -42,6 +29,7 @@ const recent: Resource[] = recentResources(resources, 4);
 const recentIds = new Set(recent.map((resource) => resource.id));
 const recommended: Resource[] = recommendedResources(resources.filter((resource) => !recentIds.has(resource.id)), 4);
 const resourcesById = new Map(resources.map((resource) => [resource.id, resource]));
+const eventsById = new Map(events.map((event) => [event.id, event]));
 const dateLabel = (date: string) => new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
   .format(new Date(`${date}T12:00:00Z`));
 ---
@@ -53,6 +41,8 @@ const dateLabel = (date: string) => new Intl.DateTimeFormat('es', { day: 'numeri
         <h1 id="directory-title">¿Dónde Aprendo AWS?</h1>
         <p>Encuentra contenido, sigue a quienes lo crean y conecta con comunidades de AWS en español.</p>
       </div>
+
+      <EventAgenda events={events} resources={resources} />
 
       {(recent.length > 0 || recommended.length > 0) && (
         <div class="directory-discovery">
@@ -176,7 +166,7 @@ const dateLabel = (date: string) => new Intl.DateTimeFormat('es', { day: 'numeri
             </div>
           </div>
           <ul class="resource-list" data-resource-list>
-            {resources.map((resource, index) => <ResourceCard resource={resource} index={index} source={resourcesById.get(resource.sourceId ?? '')} community={resourcesById.get(resource.communityId ?? '')} />)}
+            {resources.map((resource, index) => <ResourceCard resource={resource} index={index} source={resourcesById.get(resource.sourceId ?? '')} community={resourcesById.get(resource.communityId ?? '')} event={eventsById.get(resource.eventId ?? '')} />)}
           </ul>
           <p class="directory-no-results" data-no-results role="status" hidden>
             No encontramos recursos con estos filtros.
