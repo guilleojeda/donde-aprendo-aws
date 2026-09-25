@@ -10,3 +10,4 @@
 .DS_Store
 /.aws/
 /coverage/
+__pycache__/

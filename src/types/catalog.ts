@@ -29,5 +29,6 @@ export interface CatalogEvent {
   organizer: string;
   mode: 'online' | 'in-person' | 'hybrid';
   place?: string;
+  country?: string;
   registrationUrl: string;
 }

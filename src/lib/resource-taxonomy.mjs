@@ -7,7 +7,7 @@ export const KIND_LABELS = Object.freeze({
 export const FORMATS_BY_KIND = Object.freeze({
   content: Object.freeze(['Artículo', 'Video', 'Curso', 'Episodio de podcast', 'Herramienta', 'Otro']),
   source: Object.freeze(['Blog', 'Canal de YouTube', 'Podcast', 'Newsletter', 'Sitio web', 'Red social']),
-  community: Object.freeze(['User Group', 'Grupo de estudio', 'Comunidad en línea']),
+  community: Object.freeze(['User Group', 'Student Builder Group', 'Grupo de estudio', 'Comunidad en línea']),
 });
 
 export const TOPICS = Object.freeze([

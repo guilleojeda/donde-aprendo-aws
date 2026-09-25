@@ -173,6 +173,38 @@ button {
   font-size: 14px;
 }
 
+.event-agenda__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 20px;
+  color: #4b5261;
+  font-size: 14px;
+}
+
+.event-agenda__filters select {
+  min-height: 36px;
+  padding: 5px 10px;
+  border: 1px solid #b6bfce;
+  border-radius: 6px;
+  background: #fff;
+  color: #263457;
+}
+
+.event-agenda__filters [data-event-count] { margin-left: auto; }
+
+.event-agenda__more {
+  margin-top: 18px;
+  padding: 9px 14px;
+  border: 1px solid #263457;
+  border-radius: 6px;
+  background: #fff;
+  color: #263457;
+  cursor: pointer;
+  font-weight: 700;
+}
+
 .event-agenda__list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

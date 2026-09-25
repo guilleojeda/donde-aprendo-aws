@@ -1,0 +1,2698 @@
+{
+  "sourceDirectories": [
+    "https://www.meetup.com/pro/global-aws-user-group-community/",
+    "https://www.meetup.com/pro/student-builder-groups/"
+  ],
+  "reviewedAt": "2026-09-25",
+  "selection": "Grupos activos de América Latina y el Caribe; se corrigieron los países de Puerto Rico y campus Macul (Chile).",
+  "groups": [
+    {
+      "id": "38516868",
+      "name": "AWS AI User Group Argentina",
+      "url": "https://www.meetup.com/aws-ai-user-group-argentina/",
+      "country": "AR",
+      "type": "User Group"
+    },
+    {
+      "id": "36431225",
+      "name": "AWS Girls Argentina",
+      "url": "https://www.meetup.com/aws-girls-argentina/",
+      "country": "AR",
+      "type": "User Group"
+    },
+    {
+      "id": "37755453",
+      "name": "AWS Security UserGroup Argentina",
+      "url": "https://www.meetup.com/aws-security-usergroup-argentina/",
+      "country": "AR",
+      "type": "User Group"
+    },
+    {
+      "id": "1981781",
+      "name": "AWS User Group Buenos Aires",
+      "url": "https://www.meetup.com/aws-user-group-buenos-aires/",
+      "country": "AR",
+      "type": "User Group"
+    },
+    {
+      "id": "22991535",
+      "name": "AWS User Group Córdoba",
+      "url": "https://www.meetup.com/aws-user-group-cordoba-argentina/",
+      "country": "AR",
+      "type": "User Group"
+    },
+    {
+      "id": "38239488",
+      "name": "AWS Women in Cloud Buenos Aires - Meetup",
+      "url": "https://www.meetup.com/aws-women-in-cloud-buenos-aires-meetup/",
+      "country": "AR",
+      "type": "User Group"
+    },
+    {
+      "id": "36461685",
+      "name": "Patagonia AWS Cloud User Group",
+      "url": "https://www.meetup.com/patagonia-aws-cloud-user-group/",
+      "country": "AR",
+      "type": "User Group"
+    },
+    {
+      "id": "37957952",
+      "name": "AWS Girls Bolivia",
+      "url": "https://www.meetup.com/aws-girls-bolivia/",
+      "country": "BO",
+      "type": "User Group"
+    },
+    {
+      "id": "38547721",
+      "name": "AWS User Group Artificial Intelligence Bolivia",
+      "url": "https://www.meetup.com/aws-user-group-artificial-intelligence-bolivia/",
+      "country": "BO",
+      "type": "User Group"
+    },
+    {
+      "id": "37350012",
+      "name": "AWS User Group Cochabamba",
+      "url": "https://www.meetup.com/aws-user-group-cochabamba/",
+      "country": "BO",
+      "type": "User Group"
+    },
+    {
+      "id": "37180310",
+      "name": "AWS User Group La Paz",
+      "url": "https://www.meetup.com/aws-user-group-la-paz/",
+      "country": "BO",
+      "type": "User Group"
+    },
+    {
+      "id": "37790902",
+      "name": "AWS User Group Santa Cruz de la Sierra",
+      "url": "https://www.meetup.com/user-group-santa-cruz/",
+      "country": "BO",
+      "type": "User Group"
+    },
+    {
+      "id": "38087747",
+      "name": "AWS User Group Sucre",
+      "url": "https://www.meetup.com/aws-user_group-sucre/",
+      "country": "BO",
+      "type": "User Group"
+    },
+    {
+      "id": "32428373",
+      "name": "AWS Curitiba User Group",
+      "url": "https://www.meetup.com/aws-curitiba-user-group/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "38144016",
+      "name": "AWS User Group ABC Paulista",
+      "url": "https://www.meetup.com/aws-user-group-abc-paulista/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "37181862",
+      "name": "AWS User Group Alto Tietê",
+      "url": "https://www.meetup.com/aws-user-group-alto-tiete/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "37973614",
+      "name": "AWS User Group Anápolis",
+      "url": "https://www.meetup.com/aws-user-group-anapolis/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "38500495",
+      "name": "AWS User Group Atibaia - SP",
+      "url": "https://www.meetup.com/aws-user-group-atibaia-sp/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "38197804",
+      "name": "AWS User Group Baixada Santista",
+      "url": "https://www.meetup.com/aws-user-group-baixada-santista/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "32861735",
+      "name": "AWS User Group Belo Horizonte",
+      "url": "https://www.meetup.com/awsusergroupbh/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "37627593",
+      "name": "AWS User Group Belém",
+      "url": "https://www.meetup.com/awsbelem/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "29960643",
+      "name": "AWS User Group Blumenau",
+      "url": "https://www.meetup.com/aws-usergroup-blumenau/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "37066483",
+      "name": "AWS User Group Brasília",
+      "url": "https://www.meetup.com/aws-user-group-brasilia/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "23595050",
+      "name": "AWS User Group Campinas",
+      "url": "https://www.meetup.com/awscampinas/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "38123462",
+      "name": "AWS User Group Cascavel",
+      "url": "https://www.meetup.com/aws-user-group-cascavel/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "38294375",
+      "name": "AWS User Group Castanhal",
+      "url": "https://www.meetup.com/aws-user-group-castanhal/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "31356398",
+      "name": "AWS User Group Ceará",
+      "url": "https://www.meetup.com/aws-users-group-ce/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "37732110",
+      "name": "AWS User Group Circuito das Águas Paulista",
+      "url": "https://www.meetup.com/aws-user-group-circuito-das-aguas-paulista/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "38396044",
+      "name": "AWS User Group Coração do Rio Grande",
+      "url": "https://www.meetup.com/aws-user-group-coracao-do-rio-grande/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "36451338",
+      "name": "AWS User Group Criciúma",
+      "url": "https://www.meetup.com/criciumaops/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "37205025",
+      "name": "AWS User Group Floripa",
+      "url": "https://www.meetup.com/aws-user-group-floripa/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "38487966",
+      "name": "AWS User Group Fortaleza",
+      "url": "https://www.meetup.com/aws-user-group-fortaleza/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "28803241",
+      "name": "AWS User Group Goiânia",
+      "url": "https://www.meetup.com/aws-go/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "35929552",
+      "name": "AWS User Group Interior SP",
+      "url": "https://www.meetup.com/aws-user-group-interior-sp/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "37815535",
+      "name": "AWS User Group Joinville",
+      "url": "https://www.meetup.com/aws-user-group-joinville/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "37777169",
+      "name": "AWS User Group João Pessoa",
+      "url": "https://www.meetup.com/aws-user-group-joao-pessoa/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "37742061",
+      "name": "Aws User Group Maringá",
+      "url": "https://www.meetup.com/meetup-group-hafctguq/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "37793959",
+      "name": "AWS User Group Montes Claros",
+      "url": "https://www.meetup.com/aws-user-group-montes-claros/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "38348069",
+      "name": "AWS User Group Passo Fundo",
+      "url": "https://www.meetup.com/aws-user-group-passo-fundo/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "37755505",
+      "name": "AWS User Group Piauí",
+      "url": "https://www.meetup.com/aws-user-group-piaui/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "36999143",
+      "name": "AWS User Group Recife",
+      "url": "https://www.meetup.com/aws-user-group-recife/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "18758210",
+      "name": "AWS User Group Rio",
+      "url": "https://www.meetup.com/aws-user-group-rio/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "37013707",
+      "name": "AWS User Group Salvador",
+      "url": "https://www.meetup.com/aws-user-group-salvador/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "38440954",
+      "name": "AWS User Group Santa Rita do Sapucaí",
+      "url": "https://www.meetup.com/aws-user-group-santa-rita-do-sapucai/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "37639312",
+      "name": "AWS User Group Sergipe",
+      "url": "https://www.meetup.com/aws-user-group-sergipe/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "38154922",
+      "name": "AWS User Group Seridó e Sabugy",
+      "url": "https://www.meetup.com/aws-user-group-serido-e-sabugy/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "38179309",
+      "name": "AWS User Group Sorocaba",
+      "url": "https://www.meetup.com/aws-user-group-sorocaba/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "38288649",
+      "name": "AWS User Group São Lourenço",
+      "url": "https://www.meetup.com/aws-user-group-sao-lourenco/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "18381135",
+      "name": "AWS User Group São Paulo",
+      "url": "https://www.meetup.com/awsusergroupsp/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "38436967",
+      "name": "AWS User Group São Roque",
+      "url": "https://www.meetup.com/aws-user-group-sao-roque/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "36629117",
+      "name": "AWS User Group Triângulo Mineiro",
+      "url": "https://www.meetup.com/aws-user-group-triangulo-mineiro/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "37313883",
+      "name": "AWS User Group Tubarão",
+      "url": "https://www.meetup.com/tubaraoops/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "38447330",
+      "name": "AWS User Group Tupaciguara",
+      "url": "https://www.meetup.com/aws-user-group-tupaciguara/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "38184668",
+      "name": "AWS User Group Vale do Paraíba",
+      "url": "https://www.meetup.com/aws-user-group-vale-do-paraiba/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "37086228",
+      "name": "AWS UserGroup Foz do Iguaçu",
+      "url": "https://www.meetup.com/aws-usergroup-oeste-e-fronteiras/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "38449161",
+      "name": "AWS Women User Group Goiânia",
+      "url": "https://www.meetup.com/aws-women-user-group-goiania/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "38161060",
+      "name": "Piracicaba-SP",
+      "url": "https://www.meetup.com/piracicaba-sp/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "19492701",
+      "name": "☁ AWS User Group - Rio Grande do Sul ☁",
+      "url": "https://www.meetup.com/aws-ug-rs/",
+      "country": "BR",
+      "type": "User Group"
+    },
+    {
+      "id": "35637353",
+      "name": "AWS Girls Chile Group",
+      "url": "https://www.meetup.com/aws-girls-chile-group/",
+      "country": "CL",
+      "type": "User Group"
+    },
+    {
+      "id": "23015787",
+      "name": "AWS User Group Chile",
+      "url": "https://www.meetup.com/aws-user-group-chile/",
+      "country": "CL",
+      "type": "User Group"
+    },
+    {
+      "id": "38370769",
+      "name": "AI AWS UG Colombia",
+      "url": "https://www.meetup.com/ai-aws-colombia/",
+      "country": "CO",
+      "type": "User Group"
+    },
+    {
+      "id": "37516396",
+      "name": "AWS Barranquilla",
+      "url": "https://www.meetup.com/aws-barranquilla/",
+      "country": "CO",
+      "type": "User Group"
+    },
+    {
+      "id": "38234393",
+      "name": "AWS La Plata Colombia Meetup Group",
+      "url": "https://www.meetup.com/aws-la-plata-colombia-meetup-group/",
+      "country": "CO",
+      "type": "User Group"
+    },
+    {
+      "id": "37875717",
+      "name": "AWS UG Cúcuta",
+      "url": "https://www.meetup.com/aws-ug-cucuta/",
+      "country": "CO",
+      "type": "User Group"
+    },
+    {
+      "id": "38463813",
+      "name": "AWS UG Santa Marta",
+      "url": "https://www.meetup.com/aws-ug-santa-marta/",
+      "country": "CO",
+      "type": "User Group"
+    },
+    {
+      "id": "38192175",
+      "name": "AWS User Group Bucaramanga",
+      "url": "https://www.meetup.com/awsugbga/",
+      "country": "CO",
+      "type": "User Group"
+    },
+    {
+      "id": "36749445",
+      "name": "AWS User Group Manizales",
+      "url": "https://www.meetup.com/aws-user-group-manizales/",
+      "country": "CO",
+      "type": "User Group"
+    },
+    {
+      "id": "28125735",
+      "name": "AWS User Group Medellín",
+      "url": "https://www.meetup.com/awsugmed/",
+      "country": "CO",
+      "type": "User Group"
+    },
+    {
+      "id": "38190499",
+      "name": "AWS USER GROUP MOSQUERA CUNDINAMARCA",
+      "url": "https://www.meetup.com/aws-user-group-tolima-y-cundinamrca/",
+      "country": "CO",
+      "type": "User Group"
+    },
+    {
+      "id": "38173105",
+      "name": "AWS User Group Pasto",
+      "url": "https://www.meetup.com/aws-user-group-pasto/",
+      "country": "CO",
+      "type": "User Group"
+    },
+    {
+      "id": "38244720",
+      "name": "AWS User Group Security Colombia",
+      "url": "https://www.meetup.com/aws-user-group-security-colombia/",
+      "country": "CO",
+      "type": "User Group"
+    },
+    {
+      "id": "38519948",
+      "name": "AWS User Group Serverless Colombia",
+      "url": "https://www.meetup.com/aws-user-group-serverless-colombia/",
+      "country": "CO",
+      "type": "User Group"
+    },
+    {
+      "id": "38090333",
+      "name": "AWS User Group Valle del Cauca",
+      "url": "https://www.meetup.com/aws-user-group-valle-del-cauca/",
+      "country": "CO",
+      "type": "User Group"
+    },
+    {
+      "id": "37771114",
+      "name": "AWS Users Group Neiva",
+      "url": "https://www.meetup.com/aws-users-group-neiva/",
+      "country": "CO",
+      "type": "User Group"
+    },
+    {
+      "id": "35189733",
+      "name": "AWS Women Colombia - User Group",
+      "url": "https://www.meetup.com/aws-women-colombia-user-group/",
+      "country": "CO",
+      "type": "User Group"
+    },
+    {
+      "id": "19641684",
+      "name": "Grupo de usuarios AWS Colombia - Bogotá",
+      "url": "https://www.meetup.com/AWS-Colombia-bogota/",
+      "country": "CO",
+      "type": "User Group"
+    },
+    {
+      "id": "37294709",
+      "name": "AWS User Group San José Costa Rica",
+      "url": "https://www.meetup.com/aws-user-group-san-jose-costa-rica/",
+      "country": "CR",
+      "type": "User Group"
+    },
+    {
+      "id": "38049934",
+      "name": "CreaTicas  AWS User Group",
+      "url": "https://www.meetup.com/chiapa-uk-aws-users-meetup-group/",
+      "country": "CR",
+      "type": "User Group"
+    },
+    {
+      "id": "32298385",
+      "name": "AWS User Group Santo Domingo",
+      "url": "https://www.meetup.com/awsusergroupsantodomingo/",
+      "country": "DO",
+      "type": "User Group"
+    },
+    {
+      "id": "35955655",
+      "name": "AWS User Group  Ecuador",
+      "url": "https://www.meetup.com/aws-ecuador/",
+      "country": "EC",
+      "type": "User Group"
+    },
+    {
+      "id": "38210553",
+      "name": "AWS User Group Manta",
+      "url": "https://www.meetup.com/aws-user-group-manta/",
+      "country": "EC",
+      "type": "User Group"
+    },
+    {
+      "id": "38324607",
+      "name": "AWS User Group Quito",
+      "url": "https://www.meetup.com/aws-user-group-quito/",
+      "country": "EC",
+      "type": "User Group"
+    },
+    {
+      "id": "38349798",
+      "name": "AWS User Group Security Ecuador",
+      "url": "https://www.meetup.com/aws-user-group-security-ecuador/",
+      "country": "EC",
+      "type": "User Group"
+    },
+    {
+      "id": "37115828",
+      "name": "AWS Women Ecuador",
+      "url": "https://www.meetup.com/aws-women-ecuador/",
+      "country": "EC",
+      "type": "User Group"
+    },
+    {
+      "id": "38682221",
+      "name": "AWS AI User Group GuatemaIA",
+      "url": "https://www.meetup.com/aws-ai-user-group-guatemaia/",
+      "country": "GT",
+      "type": "User Group"
+    },
+    {
+      "id": "23081787",
+      "name": "AWS Guatemala",
+      "url": "https://www.meetup.com/aws-guatemala/",
+      "country": "GT",
+      "type": "User Group"
+    },
+    {
+      "id": "37627266",
+      "name": "AWS User Group Chimaltenango",
+      "url": "https://www.meetup.com/aws-chimaltenango/",
+      "country": "GT",
+      "type": "User Group"
+    },
+    {
+      "id": "38569107",
+      "name": "AWS User Group Honduras",
+      "url": "https://www.meetup.com/aws-user-group-honduras/",
+      "country": "HN",
+      "type": "User Group"
+    },
+    {
+      "id": "38607333",
+      "name": "AWS User Group Jamaica",
+      "url": "https://www.meetup.com/kingston-recommender-systems-meetup-group/",
+      "country": "JM",
+      "type": "User Group"
+    },
+    {
+      "id": "38600158",
+      "name": "AWS Tech Girls",
+      "url": "https://www.meetup.com/aws-tech-girls/",
+      "country": "MX",
+      "type": "User Group"
+    },
+    {
+      "id": "36724690",
+      "name": "AWS Tijuana",
+      "url": "https://www.meetup.com/aws-ug-tijuana/",
+      "country": "MX",
+      "type": "User Group"
+    },
+    {
+      "id": "38110421",
+      "name": "AWS UG Morelos",
+      "url": "https://www.meetup.com/aws-ug-morelos/",
+      "country": "MX",
+      "type": "User Group"
+    },
+    {
+      "id": "38670599",
+      "name": "AWS User Group AGS",
+      "url": "https://www.meetup.com/meetup-group-sxogrdde/",
+      "country": "MX",
+      "type": "User Group"
+    },
+    {
+      "id": "38680647",
+      "name": "AWS User Group AWSpectrum",
+      "url": "https://www.meetup.com/aws-user-group-awspectrum/",
+      "country": "MX",
+      "type": "User Group"
+    },
+    {
+      "id": "37793270",
+      "name": "AWS User Group Cancun",
+      "url": "https://www.meetup.com/aws-user-group-cancun/",
+      "country": "MX",
+      "type": "User Group"
+    },
+    {
+      "id": "38480753",
+      "name": "AWS User Group Cardenas",
+      "url": "https://www.meetup.com/aws-ug-cardenas/",
+      "country": "MX",
+      "type": "User Group"
+    },
+    {
+      "id": "38146871",
+      "name": "AWS user group Chihuahua",
+      "url": "https://www.meetup.com/aws-user-group-chihuahua/",
+      "country": "MX",
+      "type": "User Group"
+    },
+    {
+      "id": "38547665",
+      "name": "AWS User Group Ciudad de México",
+      "url": "https://www.meetup.com/awsugcdmx/",
+      "country": "MX",
+      "type": "User Group"
+    },
+    {
+      "id": "38240816",
+      "name": "AWS User Group Colima",
+      "url": "https://www.meetup.com/aws-user-group-colima/",
+      "country": "MX",
+      "type": "User Group"
+    },
+    {
+      "id": "37423217",
+      "name": "AWS User Group Ensenada",
+      "url": "https://www.meetup.com/aws-user-group-ensenada/",
+      "country": "MX",
+      "type": "User Group"
+    },
+    {
+      "id": "37807879",
+      "name": "AWS User Group Hermosillo",
+      "url": "https://www.meetup.com/aws-user-group-hermosillo/",
+      "country": "MX",
+      "type": "User Group"
+    },
+    {
+      "id": "29885341",
+      "name": "AWS User Group Jalisco",
+      "url": "https://www.meetup.com/amazon-web-services-jalisco/",
+      "country": "MX",
+      "type": "User Group"
+    },
+    {
+      "id": "37739735",
+      "name": "AWS User Group León Gto",
+      "url": "https://www.meetup.com/aws-user-group-leon-gto/",
+      "country": "MX",
+      "type": "User Group"
+    },
+    {
+      "id": "37720498",
+      "name": "AWS User Group Mixtli",
+      "url": "https://www.meetup.com/awsugmixtli/",
+      "country": "MX",
+      "type": "User Group"
+    },
+    {
+      "id": "34052486",
+      "name": "AWS User Group Monterrey",
+      "url": "https://www.meetup.com/awsugmty/",
+      "country": "MX",
+      "type": "User Group"
+    },
+    {
+      "id": "38547736",
+      "name": "AWS User Group Oaxaca México",
+      "url": "https://www.meetup.com/aws-user-group-oaxaca-mexico/",
+      "country": "MX",
+      "type": "User Group"
+    },
+    {
+      "id": "37751349",
+      "name": "AWS User Group Orizaba",
+      "url": "https://www.meetup.com/aws-user-group-orizaba/",
+      "country": "MX",
+      "type": "User Group"
+    },
+    {
+      "id": "38400597",
+      "name": "AWS User Group Playa Vicente",
+      "url": "https://www.meetup.com/aws-user-group-playa-vicente/",
+      "country": "MX",
+      "type": "User Group"
+    },
+    {
+      "id": "37880238",
+      "name": "AWS User Group SLP",
+      "url": "https://www.meetup.com/aws-user-group-slp/",
+      "country": "MX",
+      "type": "User Group"
+    },
+    {
+      "id": "38396069",
+      "name": "AWS User Group South Tamaulipas",
+      "url": "https://www.meetup.com/aws-south-tamaulipas-user-group/",
+      "country": "MX",
+      "type": "User Group"
+    },
+    {
+      "id": "37886091",
+      "name": "AWS User Group Tlaxcala FireflyCloud",
+      "url": "https://www.meetup.com/fb83c392-728a-42dc-9a3f-7d351301e452/",
+      "country": "MX",
+      "type": "User Group"
+    },
+    {
+      "id": "37461270",
+      "name": "AWS User Group Tlaxcala | Mxintech",
+      "url": "https://www.meetup.com/aws-user-group-tlaxcala/",
+      "country": "MX",
+      "type": "User Group"
+    },
+    {
+      "id": "38376396",
+      "name": "AWS User Group Tuxtla Gutiérrez",
+      "url": "https://www.meetup.com/aws-user-group-tuxtla-gutierrez/",
+      "country": "MX",
+      "type": "User Group"
+    },
+    {
+      "id": "37295530",
+      "name": "AWS User Group Villahermosa",
+      "url": "https://www.meetup.com/aws-ug-villahermosa/",
+      "country": "MX",
+      "type": "User Group"
+    },
+    {
+      "id": "37559163",
+      "name": "AWS User Group: Ajolotes en la Nube",
+      "url": "https://www.meetup.com/ajolotesenlanube/",
+      "country": "MX",
+      "type": "User Group"
+    },
+    {
+      "id": "38232569",
+      "name": "AWS Users Group Minatitlán",
+      "url": "https://www.meetup.com/aws-users-group-minatitlan/",
+      "country": "MX",
+      "type": "User Group"
+    },
+    {
+      "id": "37652537",
+      "name": "Comunidad AWS Mérida Yucatán",
+      "url": "https://www.meetup.com/comunidad-aws-merida-yucatan/",
+      "country": "MX",
+      "type": "User Group"
+    },
+    {
+      "id": "22667715",
+      "name": "AWS User Group Panamá",
+      "url": "https://www.meetup.com/AWS-User-Group-Panama/",
+      "country": "PA",
+      "type": "User Group"
+    },
+    {
+      "id": "36567423",
+      "name": "AWS Girls Perú",
+      "url": "https://www.meetup.com/aws-girls-peru/",
+      "country": "PE",
+      "type": "User Group"
+    },
+    {
+      "id": "35495980",
+      "name": "AWS Security Users Group LatAm",
+      "url": "https://www.meetup.com/awssecuritylatam/",
+      "country": "PE",
+      "type": "User Group"
+    },
+    {
+      "id": "36431339",
+      "name": "AWS UG Machine Learning Latam",
+      "url": "https://www.meetup.com/aws-ug-machine-learning-latam/",
+      "country": "PE",
+      "type": "User Group"
+    },
+    {
+      "id": "37727329",
+      "name": "AWS UG Trujillo",
+      "url": "https://www.meetup.com/aws-ug-trujillo/",
+      "country": "PE",
+      "type": "User Group"
+    },
+    {
+      "id": "37999600",
+      "name": "AWS User Group Arequipa",
+      "url": "https://www.meetup.com/aws-user-group-arequipa/",
+      "country": "PE",
+      "type": "User Group"
+    },
+    {
+      "id": "38188393",
+      "name": "AWS User Group Chiclayo",
+      "url": "https://www.meetup.com/aws-user-group-chiclayo/",
+      "country": "PE",
+      "type": "User Group"
+    },
+    {
+      "id": "18837078",
+      "name": "AWS User Group Peru",
+      "url": "https://www.meetup.com/awsperu/",
+      "country": "PE",
+      "type": "User Group"
+    },
+    {
+      "id": "38409111",
+      "name": "AWS User Group Piura",
+      "url": "https://www.meetup.com/aws-user-group-piura/",
+      "country": "PE",
+      "type": "User Group"
+    },
+    {
+      "id": "37712872",
+      "name": "AWS User Group Tacna",
+      "url": "https://www.meetup.com/aws-user-group-tacna/",
+      "country": "PE",
+      "type": "User Group"
+    },
+    {
+      "id": "38328979",
+      "name": "AWS User Group: Chaclacayo",
+      "url": "https://www.meetup.com/aws-user-group-chaclacayo/",
+      "country": "PE",
+      "type": "User Group"
+    },
+    {
+      "id": "34833437",
+      "name": "Amazon Web Services Puerto Rico User Group",
+      "url": "https://www.meetup.com/amazon-web-services-puerto-rico-user-group/",
+      "country": "PR",
+      "type": "User Group"
+    },
+    {
+      "id": "38423499",
+      "name": "AWS User Group Canindeyú",
+      "url": "https://www.meetup.com/aws-user-group-canindeyu/",
+      "country": "PY",
+      "type": "User Group"
+    },
+    {
+      "id": "37502677",
+      "name": "AWS User Group Paraguay",
+      "url": "https://www.meetup.com/aws-ug-paraguay/",
+      "country": "PY",
+      "type": "User Group"
+    },
+    {
+      "id": "37644946",
+      "name": "AWS Girls UG Uruguay",
+      "url": "https://www.meetup.com/aws-girls-ug-uy/",
+      "country": "UY",
+      "type": "User Group"
+    },
+    {
+      "id": "36645048",
+      "name": "AWS UG Montevideo",
+      "url": "https://www.meetup.com/aws-ug-montevideo/",
+      "country": "UY",
+      "type": "User Group"
+    },
+    {
+      "id": "28899711",
+      "name": "AWS User Group Caracas",
+      "url": "https://www.meetup.com/aws-user-group-caracas/",
+      "country": "VE",
+      "type": "User Group"
+    },
+    {
+      "id": "38265908",
+      "name": "AWS SBG at Austral University - Pilar Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-austral-university-pilar-campus/",
+      "country": "AR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266286",
+      "name": "AWS SBG at Catholic University of Salta",
+      "url": "https://www.meetup.com/aws-sbg-at-catholic-university-of-salta/",
+      "country": "AR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266066",
+      "name": "AWS SBG at Higher Polytechnic Institute of Cordoba",
+      "url": "https://www.meetup.com/aws-sbg-at-higher-polytechnic-institute-of-cordoba/",
+      "country": "AR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266378",
+      "name": "AWS SBG at National Technologic University Regional Faculty",
+      "url": "https://www.meetup.com/aws-sbg-at-national-technologic-university-regional-faculty/",
+      "country": "AR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38384484",
+      "name": "AWS SBG at National University of Avellaneda",
+      "url": "https://www.meetup.com/aws-sbg-at-national-university-of-avellaneda/",
+      "country": "AR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38265993",
+      "name": "AWS SBG at National University of Cordoba",
+      "url": "https://www.meetup.com/aws-sbg-at-national-university-of-cordoba/",
+      "country": "AR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266341",
+      "name": "AWS SBG at National University of La Plata - North Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-national-university-of-la-plata-north-campus/",
+      "country": "AR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266280",
+      "name": "AWS SBG at Universidad de Buenos Aires",
+      "url": "https://www.meetup.com/aws-sbg-at-universidad-de-buenos-aires/",
+      "country": "AR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266281",
+      "name": "AWS SBG at University of Buenos Aires - Faculty of Eng.",
+      "url": "https://www.meetup.com/aws-sbg-at-university-of-buenos-aires-faculty-of-engineering/",
+      "country": "AR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703544",
+      "name": "AWS SBG at University of the City of Buenos Aires",
+      "url": "https://www.meetup.com/aws-sbg-at-university-of-the-city-of-buenos-aires/",
+      "country": "AR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266289",
+      "name": "AWS SBG at Bolivian Catholic University San Pablo",
+      "url": "https://www.meetup.com/aws-sbg-at-bolivian-catholic-university-san-pablo/",
+      "country": "BO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266362",
+      "name": "AWS SBG at Bolivian Private University  - Santa Cruz Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-bolivian-private-university-santa-cruz-campus/",
+      "country": "BO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38530645",
+      "name": "AWS SBG at Bolivian Private University - Campus Fernando",
+      "url": "https://www.meetup.com/aws-sbg-at-bolivian-private-university-campus-fernando/",
+      "country": "BO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266360",
+      "name": "AWS SBG at Bolivian Private University Cochabamba",
+      "url": "https://www.meetup.com/aws-sbg-at-bolivian-private-university-cochabamba/",
+      "country": "BO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703814",
+      "name": "AWS SBG at Domingo Savio Private University - Tarija Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-domingo-savio-private-university-tarija-campus/",
+      "country": "BO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703555",
+      "name": "AWS SBG at Franz Tamayo Private Univ - La Paz Main Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-franz-tamayo-private-univ-la-paz-main-campus/",
+      "country": "BO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38590095",
+      "name": "AWS SBG at Gabriel Rene Moreno Autonomous Univ- santa cruz",
+      "url": "https://www.meetup.com/aws-sbg-at-gabriel-rene-moreno-autonomous-univ-santa-cruz/",
+      "country": "BO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266297",
+      "name": "AWS SBG at Major University of San Andres",
+      "url": "https://www.meetup.com/aws-sbg-at-major-university-of-san-andres/",
+      "country": "BO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38537208",
+      "name": "AWS SBG at Major University of San Simon - San Simon Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-major-university-of-san-simon-san-simon-campus/",
+      "country": "BO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266318",
+      "name": "AWS SBG at Private University of the Valley - Sucre Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-private-university-of-the-valley-sucre-campus/",
+      "country": "BO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38590384",
+      "name": "AWS SBG de la Universidad Autonoma Juan Misael Saracho-TJA",
+      "url": "https://www.meetup.com/aws-sbg-at-autonomous-univ-juan-misael-saracho-tarija-campus/",
+      "country": "BO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266290",
+      "name": "AWS SBG Universidad Católica Bolivia - Santa Cruz",
+      "url": "https://www.meetup.com/aws-sbg-at-bolivian-catholic-univ-san-pablo-sede-santa-cruz/",
+      "country": "BO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38702542",
+      "name": "AWS SBG at 42 Sao Paulo",
+      "url": "https://www.meetup.com/aws-sbg-at-42-sao-paulo/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703784",
+      "name": "AWS SBG at Acarau Valley State University - Campus da CIDAO",
+      "url": "https://www.meetup.com/aws-sbg-at-acarau-valley-state-university-campus-da-cidao/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703546",
+      "name": "AWS SBG at Adventist Univ Center of Sao Paulo - Hortolandia",
+      "url": "https://www.meetup.com/aws-sbg-at-adventist-univ-center-of-sao-paulo-hortolandia/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703566",
+      "name": "AWS SBG at Afya Maceio University Center",
+      "url": "https://www.meetup.com/aws-sbg-at-afya-maceio-university-center/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266307",
+      "name": "AWS SBG at Alves Faria University Center - Perimetral Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-alves-faria-university-center-perimetral-campus/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38704517",
+      "name": "AWS SBG at Anhanguera University - Betim Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-anhanguera-university-betim-campus/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703550",
+      "name": "AWS SBG at Augusto Motta Univ Center - Bonsucesso Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-augusto-motta-univ-center-bonsucesso-campus/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38589897",
+      "name": "AWS SBG at Brazilian Institute of Capital Markets (IBMEC)",
+      "url": "https://www.meetup.com/aws-sbg-at-brazilian-institute-of-capital-markets-ibmec/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38701252",
+      "name": "AWS SBG at Brazilian University Center - Asa Norte Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-brazilian-university-center-asa-norte-campus/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38531790",
+      "name": "AWS SBG at C.E.S.A.R School",
+      "url": "https://www.meetup.com/aws-sbg-at-cesar-school/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38531784",
+      "name": "AWS SBG at Catholic University of Brasília",
+      "url": "https://www.meetup.com/aws-sbg-at-catholic-university-of-brasilia/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38531786",
+      "name": "AWS SBG at Catholic University of Petropolis",
+      "url": "https://www.meetup.com/aws-sbg-at-catholic-university-of-petropolis/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38265888",
+      "name": "AWS SBG at Dom Bosco Educational Assoc. - Resende Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-dom-bosco-educational-assoc-resende-campus/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38701808",
+      "name": "AWS SBG at Dom Bosco University Center",
+      "url": "https://www.meetup.com/aws-sbg-at-dom-bosco-university-center/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38701792",
+      "name": "AWS SBG at Espirito Santense Univ Center - Campus Vitoria",
+      "url": "https://www.meetup.com/aws-sbg-at-espirito-santense-univ-center-campus-vitoria/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38589872",
+      "name": "AWS SBG at Estacio University - Cabo Frio",
+      "url": "https://www.meetup.com/aws-sbg-at-estacio-university-cabo-frio/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38537216",
+      "name": "AWS SBG at Estacio University - Campo Grande",
+      "url": "https://www.meetup.com/aws-sbg-at-estacio-university-campo-grande/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38589870",
+      "name": "AWS SBG at Estacio University - Estacao Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-estacio-university-estacao-campus/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38589871",
+      "name": "AWS SBG at Estacio University - Salgado Filho",
+      "url": "https://www.meetup.com/aws-sbg-at-estacio-university-salgado-filho/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38550306",
+      "name": "AWS SBG at Estacio University - Sao Luis Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-estacio-university-sao-luis-campus/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38590323",
+      "name": "AWS SBG at ESUP Higher Education School Goiania",
+      "url": "https://www.meetup.com/aws-sbg-at-esup-associated-higher-education-school-goiania/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703481",
+      "name": "AWS SBG at Fametro Univ Center - Carneiro da Cunha Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-fametro-univ-center-carneiro-da-cunha-campus/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38701774",
+      "name": "AWS SBG at Fametro University Center - Sede Main Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-fametro-university-center-sede-main-campus/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703494",
+      "name": "AWS SBG at Fanor Wyden Univ Center - Bezerra de Menezes",
+      "url": "https://www.meetup.com/aws-sbg-at-fanor-wyden-univ-center-bezerra-de-menezes/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38589875",
+      "name": "AWS SBG at Farias Brito University Center - Central Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-farias-brito-university-center-central-campus/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38531064",
+      "name": "AWS SBG at FATEC - Sao Paulo State College of Tech - Santos",
+      "url": "https://www.meetup.com/aws-sbg-at-sao-paulo-state-college-of-technology-fatec/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38530580",
+      "name": "AWS SBG at FATEC - Sao Paulo State College Tech - Araraquara",
+      "url": "https://www.meetup.com/aws-sbgl-fatec-sao-paulo-state-college-tech-araraquara/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38701791",
+      "name": "AWS SBG at Federal Center for Tech Education - Maracana",
+      "url": "https://www.meetup.com/aws-sbg-at-federal-center-for-tech-education-maracana/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38590093",
+      "name": "AWS SBG at Federal Center for Tech Education of Minas Gerais",
+      "url": "https://www.meetup.com/aws-sbg-at-federal-center-tech-education-minas-gerais/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38701779",
+      "name": "AWS SBG at Federal Inst of Edu Sci & Tech of Rio de Janeiro",
+      "url": "https://www.meetup.com/aws-sbg-at-federal-inst-of-edu-sci-tech-of-rio-de-janeiro/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703769",
+      "name": "AWS SBG at Federal Inst of Edu Sci and Tech Ceara - Iguatu",
+      "url": "https://www.meetup.com/aws-sbg-at-federal-inst-of-edu-sci-and-tech-ceara-iguatu/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38701769",
+      "name": "AWS SBG at Federal Inst of Edu Sci Tech Maranhao - Sta Ines",
+      "url": "https://www.meetup.com/aws-sbg-at-federal-inst-of-edu-sci-tech-maranhao-sta-ines/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38701787",
+      "name": "AWS SBG at Federal Rural Uni Semi-Arid Region Pau dos Ferros",
+      "url": "https://www.meetup.com/aws-sbg-at-federal-rural-uni-semi-arid-region-pau-dos-ferros/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703563",
+      "name": "AWS SBG at Federal Univ of Campina Grande - Campina Grande",
+      "url": "https://www.meetup.com/aws-sbg-at-federal-univ-of-campina-grande-campina-grande/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38701790",
+      "name": "AWS SBG at Federal Univ of Mato Grosso do Sul - Tres Lagoas",
+      "url": "https://www.meetup.com/aws-sbg-at-federal-univ-of-mato-grosso-do-sul-tres-lagoas/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703480",
+      "name": "AWS SBG at Federal Univ of Rio de Janeiro - Fundao Island",
+      "url": "https://www.meetup.com/aws-sbg-at-federal-univ-of-rio-de-janeiro-fundao-island/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38537299",
+      "name": "AWS SBG at Federal Univ of Tech Parana - Medianeira Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-federal-univ-of-tech-parana-medianeira-campus/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703770",
+      "name": "AWS SBG at Federal Univ of Vicosa - Rio Paranaiba Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-federal-univ-of-vicosa-rio-paranaiba-campus/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38532066",
+      "name": "AWS SBG at Federal Univ. of Alfenas - Santa Clara Ed. Unit",
+      "url": "https://www.meetup.com/aws-sbg-at-federal-university-of-alfenas-santa-clara-ed-unit/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38531845",
+      "name": "AWS SBG at Federal Univ. of the Southern Frontier - Chapeco",
+      "url": "https://www.meetup.com/aws-sbg-at-federal-university-of-southern-frontier-chapeco/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38384405",
+      "name": "AWS SBG at Federal University of ABC - Santo Andre Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-federal-university-of-abc-santo-andre-campus/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703498",
+      "name": "AWS SBG at Federal University of Alagoas - Campus Arapiraca",
+      "url": "https://www.meetup.com/aws-sbg-at-federal-university-of-alagoas-campus-arapiraca/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38701809",
+      "name": "AWS SBG at Federal University of Bahia - Ondina Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-federal-university-of-bahia-ondina-campus/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38701265",
+      "name": "AWS SBG at Federal University of Itajuba - Itajuba Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-federal-university-of-itajuba-itajuba-campus/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38589877",
+      "name": "AWS SBG at Federal University of Lavras - Sede",
+      "url": "https://www.meetup.com/aws-sbg-at-federal-university-of-lavras-sede/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38550333",
+      "name": "AWS SBG at Federal University of Pará - Guamá Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-federal-university-of-para-guama-campus/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38702528",
+      "name": "AWS SBG at Federal University of Pernambuco - Recife Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-federal-university-of-pernambuco-recife-campus/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38589878",
+      "name": "AWS SBG at Federal University of Santa Catarina",
+      "url": "https://www.meetup.com/aws-sbg-at-federal-univ-of-santa-catarina-florianopolis/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38531853",
+      "name": "AWS SBG at Federal University of Technology",
+      "url": "https://www.meetup.com/aws-sbg-at-federal-university-of-technology/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38701771",
+      "name": "AWS SBG at FIAP Informatics Business Admin - Porto Alegre",
+      "url": "https://www.meetup.com/aws-sbg-at-fiap-informatics-business-admin-porto-alegre/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38589880",
+      "name": "AWS SBG at Fluminense Federal University - Praia Vermelha",
+      "url": "https://www.meetup.com/aws-sbg-at-fluminense-federal-university-praia-vermelha/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703488",
+      "name": "AWS SBG at Grande Dourados University Center",
+      "url": "https://www.meetup.com/aws-sbg-at-grande-dourados-university-center/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38034620",
+      "name": "AWS SBG at IESB Brasilia Inst. of Higher Ed. - South Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-iesb-brasilia-inst-of-higher-ed-south-campus/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38531829",
+      "name": "AWS SBG at IFPA - Federal Institute of Para - Belem Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-ifpa-federal-institute-of-para-belem-campus/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38701807",
+      "name": "AWS SBG at Institute of Technology and Leadership (Inteli)",
+      "url": "https://www.meetup.com/aws-sbg-at-institute-of-technology-and-leadership-inteli/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38701249",
+      "name": "AWS SBG at Integrated Colleges of Bauru",
+      "url": "https://www.meetup.com/aws-sbg-at-integrated-colleges-of-bauru/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703545",
+      "name": "AWS SBG at Mackenzie Presbyterian University - Bauru Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-mackenzie-presbyterian-university-bauru-campus/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266114",
+      "name": "AWS SBG at Maua Inst. of Tech. - Campus Sao Caetano do Sul",
+      "url": "https://www.meetup.com/aws-sbg-at-maua-institute-of-tech-campus-sao-caetano-do-sul/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38589994",
+      "name": "AWS SBG at Nine of July Educational Association - Vergueiro",
+      "url": "https://www.meetup.com/aws-sbg-at-nine-of-july-educational-association-vergueiro/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703483",
+      "name": "AWS SBG at Padre Anchieta Univ Center  - Jundiai Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-padre-anchieta-univ-center-jundiai-campus/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38537295",
+      "name": "AWS SBG at Pontifical Catholic Univ. of Parana - Curitiba",
+      "url": "https://www.meetup.com/aws-sbg-at-pontifical-catholic-university-of-parana-curitiba/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38531537",
+      "name": "AWS SBG at Pontifical Catholic Univ. of Rio Grande do Sul",
+      "url": "https://www.meetup.com/aws-sbg-at-pontifical-catholic-univ-of-rio-grande-do-sul/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266153",
+      "name": "AWS SBG at Pontifical Catholic University of Minas Gerais",
+      "url": "https://www.meetup.com/aws-sbg-at-pontifical-catholic-university-of-minas-gerais/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703496",
+      "name": "AWS SBG at Pontifical Catholic University of Rio de Janeiro",
+      "url": "https://www.meetup.com/aws-sbg-at-pontifical-catholic-university-of-rio-de-janeiro/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38034778",
+      "name": "AWS SBG at PUC-Rio",
+      "url": "https://www.meetup.com/aws-sbg-at-puc-rio/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703505",
+      "name": "AWS SBG at Sao Paulo State Faculty of Tech Sao Sebastiao",
+      "url": "https://www.meetup.com/aws-sbg-at-sao-paulo-state-faculty-of-tech-sao-sebastiao/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703493",
+      "name": "AWS SBG at Sao Paulo Tech School",
+      "url": "https://www.meetup.com/aws-sbg-at-sao-paulo-tech-school/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266239",
+      "name": "AWS SBG at Senac Sao Paulo Univ. Ctr - Lapa Scipiao Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-senac-sao-paulo-univ-center-lapa-scipio-campus/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266240",
+      "name": "AWS SBG at SENAI CIMATEC University",
+      "url": "https://www.meetup.com/aws-sbg-at-senai-cimatec-university/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703410",
+      "name": "AWS SBG at State College Tec Edu Rio de Janeiro - Petropolis",
+      "url": "https://www.meetup.com/aws-sbg-at-state-college-tec-edu-rio-de-janeiro-petropolis/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38530699",
+      "name": "AWS SBG at State University of Campinas - Limeria Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-state-university-of-campinas-limeira-campus/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38530546",
+      "name": "AWS SBG at State University of Ceara - Itaperi Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-state-university-of-ceara-itaperi-campus/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38384481",
+      "name": "AWS SBG at State University of Para - Ananindeua Campus XXII",
+      "url": "https://www.meetup.com/aws-sbg-state-university-of-para-ananindeua-campus-xxii/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38589984",
+      "name": "AWS SBG at State University of Para - Campus XX",
+      "url": "https://www.meetup.com/aws-sbg-at-state-university-of-para-campusxx/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38531870",
+      "name": "AWS SBG at UEG - State University of Goias - Posse",
+      "url": "https://www.meetup.com/aws-sbg-at-ueg-state-university-of-goias-posse/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38530548",
+      "name": "AWS SBG at UEMG - State University of Minas Gerais",
+      "url": "https://www.meetup.com/aws-sbg-uemg-state-university-of-minas-gerais/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38531827",
+      "name": "AWS SBG at UEPB - State University of Paraiba - Campus VII",
+      "url": "https://www.meetup.com/aws-sbg-at-uepb-state-university-of-paraiba-campus-vii/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38531839",
+      "name": "AWS SBG at UFAC - Federal University of Acre",
+      "url": "https://www.meetup.com/aws-sbg-at-ufac-federal-university-of-acre/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38531843",
+      "name": "AWS SBG at UFC - Federal University of Ceara",
+      "url": "https://www.meetup.com/aws-sbg-at-ufc-federal-university-of-ceara/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38531842",
+      "name": "AWS SBG at UFCA - Federal University of Cariri",
+      "url": "https://www.meetup.com/aws-sbg-at-ufca-federal-university-of-cariri/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38532084",
+      "name": "AWS SBG at UFG Federal Univ. of Goiás - Samambaia Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-ufg-federal-univ-of-goias-samambaia-campus/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38531847",
+      "name": "AWS SBG at UFOP - Federal University of Ouro Preto",
+      "url": "https://www.meetup.com/aws-sbg-at-ufop-federal-university-of-ouro-preto/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38531849",
+      "name": "AWS SBG at UFPB - Federal Univ. of Paraiba - Campus I",
+      "url": "https://www.meetup.com/aws-sbg-at-ufpb-federal-univ-of-paraiba-campus-i/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38530697",
+      "name": "AWS SBG at UNB - University of Brasilia - Gama Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-unb-university-of-brasilia-gama-campus/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38034366",
+      "name": "AWS SBG at UNB University of Brasília - Darcy Ribeiro",
+      "url": "https://www.meetup.com/aws-sbg-at-unb-university-of-brasilia-darcy-ribeiro/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38589997",
+      "name": "AWS SBG at UNDF - University of the Federal District",
+      "url": "https://www.meetup.com/aws-sbg-at-university-of-the-federal-district/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38537278",
+      "name": "AWS SBG at UniCesumar - Cesumar Univ. Center - Fortaleza",
+      "url": "https://www.meetup.com/aws-sbg-at-unicesumar-cesumar-univ-center-fortaleza/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266312",
+      "name": "AWS SBG at UNIFAAT University Center",
+      "url": "https://www.meetup.com/aws-sbg-at-unifaat-university-center/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38531074",
+      "name": "AWS SBG at UNIFACS - University of Salvador",
+      "url": "https://www.meetup.com/aws-sbg-at-unifacs-university-of-salvador/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38265992",
+      "name": "AWS SBG at UNIFASAM – South American University Center",
+      "url": "https://www.meetup.com/aws-sbg-unifasam-south-american-university-center/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38537287",
+      "name": "AWS SBG at UNIFAVIP - Ipojuca Valley Univ. Center - Caruaru",
+      "url": "https://www.meetup.com/aws-sbg-at-unifavip-ipojuca-valley-univ-center-caruaru/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38531003",
+      "name": "AWS SBG at UNINASSAU - Mauricio de Nassau College - Gracas",
+      "url": "https://www.meetup.com/aws-sbg-at-uninassau-mauriciode-nassau-college-gracas/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38530684",
+      "name": "AWS SBG at UNINTER Intl. University Center - Campus LAPAD",
+      "url": "https://www.meetup.com/aws-sbg-at-uninter-intl-university-center-campus-lapad/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38589992",
+      "name": "AWS SBG at UniSaoJose - University Center Sao Jose",
+      "url": "https://www.meetup.com/aws-sbg-at-university-center-sao-jose/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38530657",
+      "name": "AWS SBG at UNIT - Tiradentes University",
+      "url": "https://www.meetup.com/aws-sbg-at-unit-tiradentes-university/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38702573",
+      "name": "AWS SBG at Univ of the Joinville Region - Joinville Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-univ-of-the-joinville-region-joinville-campus/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38530751",
+      "name": "AWS SBG at University of Amazonia",
+      "url": "https://www.meetup.com/aws-sbg-at-university-of-amazonia/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38530712",
+      "name": "AWS SBG at University of Embu Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-university-of-embu-campus/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266316",
+      "name": "AWS SBG at University of Itajai Valley",
+      "url": "https://www.meetup.com/aws-sbg-university-of-itajai-valley/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38702565",
+      "name": "AWS SBG at University of Positive - Osorio Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-university-of-positive-osorio-campus/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38702563",
+      "name": "AWS SBG at University of Sao Paulo - Ribeirao Preto Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-university-of-sao-paulo-ribeirao-preto-campus/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38589998",
+      "name": "AWS SBG at UVV - University Vila Velha",
+      "url": "https://www.meetup.com/aws-sbg-at-uvv-university-vila-velha/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38702992",
+      "name": "AWS SBG at Veiga de Almeida University",
+      "url": "https://www.meetup.com/aws-sbg-at-veiga-de-almeida-university/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38704200",
+      "name": "AWS Student Builder Group at Salesian University Center",
+      "url": "https://www.meetup.com/aws-student-builder-group-at-salesian-university-center/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38532115",
+      "name": "AWS Student Builder Group at UEPB - Campina Grande",
+      "url": "https://www.meetup.com/aws-sbg-at-uepb-state-university-of-paraiba-campus-i/",
+      "country": "BR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "37540125",
+      "name": "AWS SBG at DUOC UC - Antonio Varas",
+      "url": "https://www.meetup.com/aws-sbg-at-duoc-uc-antonio-varas-campus/",
+      "country": "CL",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38384402",
+      "name": "AWS SBG at Duoc UC - Plaza Norte",
+      "url": "https://www.meetup.com/aws-sbg-at-duoc-uc-huechuraba-plaza-norte-campus/",
+      "country": "CL",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38034390",
+      "name": "AWS SBG at Duoc UC - Plaza Vespucio",
+      "url": "https://www.meetup.com/aws-sbg-at-duoc-uc-plaza-vespucio/",
+      "country": "CL",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38265973",
+      "name": "AWS SBG at Duoc UC - Santiago - Santiago Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-duoc-uc-santiago-santiago-campus/",
+      "country": "CL",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266706",
+      "name": "AWS SBG at Duoc UC Online",
+      "url": "https://www.meetup.com/aws-sbg-at-duoc-uc-online/",
+      "country": "CL",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703778",
+      "name": "AWS SBG at Federico Santa Maria Technical Univ - Valparaiso",
+      "url": "https://www.meetup.com/aws-sbg-at-federico-santa-maria-technical-univ-valparaiso/",
+      "country": "CL",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38702555",
+      "name": "AWS SBG at INACAP Professional Inst - Santiago Sur Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-inacap-professional-inst-santiago-sur-campus/",
+      "country": "CL",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266061",
+      "name": "AWS SBG at Inacap Professional Institute - Talcahuano Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-inacap-professional-institute-talcahuano-campus/",
+      "country": "CL",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266376",
+      "name": "AWS SBG at Metropolitan Technological Univ.  - Macul Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-metropolitan-technological-univ-macul-campus/",
+      "country": "CL",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38302942",
+      "name": "AWS SBG at Universidad Tecnologica Metropolitana",
+      "url": "https://www.meetup.com/aws-sbg-at-universidad-tecnologica-metropolitana/",
+      "country": "CL",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38034350",
+      "name": "AWS SBG at University of the Andes",
+      "url": "https://www.meetup.com/aws-sbg-at-university-of-the-andes/",
+      "country": "CL",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38531909",
+      "name": "AWS SBG at Valle Grande Private Higher Tech Institute",
+      "url": "https://www.meetup.com/aws-sbg-valle-grande-private-higher-tech-institute/",
+      "country": "CL",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38701240",
+      "name": "AWS SBG at Antonio Jose Camacho Univ Inst - Sede Norte",
+      "url": "https://www.meetup.com/aws-sbg-at-antonio-jose-camacho-univ-inst-sede-norte/",
+      "country": "CO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38530676",
+      "name": "AWS SBG at Central Unit of Valle del Cauca - Sede Principal",
+      "url": "https://www.meetup.com/aws-sbg-at-central-unit-of-valle-del-cauca-sede-principal/",
+      "country": "CO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38701134",
+      "name": "AWS SBG at Colombian Institute of Higher Studies of Incolda",
+      "url": "https://www.meetup.com/aws-sbg-at-colombian-institute-of-higher-studies-of-incolda/",
+      "country": "CO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38701132",
+      "name": "AWS SBG at Colombian School of Engineering Julio Garavito",
+      "url": "https://www.meetup.com/aws-sbg-at-colombian-school-of-engineering-julio-garavito/",
+      "country": "CO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38034743",
+      "name": "AWS SBG at Digital University Institution of Antioquia",
+      "url": "https://www.meetup.com/aws-sbg-at-digital-university-institution-of-antioquia/",
+      "country": "CO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38044062",
+      "name": "AWS SBG at EAN University",
+      "url": "https://www.meetup.com/aws-sbg-at-ean-university/",
+      "country": "CO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38034353",
+      "name": "AWS SBG at Francisco Jose de Caldas District Univ. - Bogota",
+      "url": "https://www.meetup.com/aws-sbg-at-francisco-jose-de-caldas-district-univ-bogota/",
+      "country": "CO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38701138",
+      "name": "AWS SBG at Gran Colombian Polytechnic",
+      "url": "https://www.meetup.com/aws-sbg-at-gran-colombian-polytechnic/",
+      "country": "CO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38530928",
+      "name": "AWS SBG at La Salle University",
+      "url": "https://www.meetup.com/aws-sbg-at-la-salle-university/",
+      "country": "CO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38701100",
+      "name": "AWS SBG at National Open and Distance Univ - Soacha Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-national-open-and-distance-univ-soacha-campus/",
+      "country": "CO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266303",
+      "name": "AWS SBG at National Univ. of Colombia  - El Volador Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-national-university-of-colombia-el-volador-campus/",
+      "country": "CO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266299",
+      "name": "AWS SBG at National University of Colombia  - Bogota Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-national-university-of-colombia-bogota-campus/",
+      "country": "CO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38531042",
+      "name": "AWS SBG at Natl University of Colombia - Manizales Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-national-university-of-colombia-manizales-campus/",
+      "country": "CO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38701120",
+      "name": "AWS SBG at Pedagogical and Tech Univ of Colombia - Tunja",
+      "url": "https://www.meetup.com/aws-sbg-at-pedagogical-and-tech-univ-of-colombia-tunja/",
+      "country": "CO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38531532",
+      "name": "AWS SBG at Pilot Uni of Colombia - Girardot Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-pilot-uni-of-colombia-girardot-campus/",
+      "country": "CO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38701130",
+      "name": "AWS SBG at Pontifical Javeriana University - Bogota Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-pontifical-javeriana-university-bogota-campus/",
+      "country": "CO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38384459",
+      "name": "AWS SBG at Sergio Arboleda University - Bogota Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-sergio-arboleda-university-bogota-campus/",
+      "country": "CO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38701126",
+      "name": "AWS SBG at Surcolombiana Univ - Neiva Sede Central Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-surcolombiana-univ-neiva-sede-central-campus/",
+      "country": "CO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38701135",
+      "name": "AWS SBG at Technological University of Pereira",
+      "url": "https://www.meetup.com/aws-sbg-at-technological-university-of-pereira/",
+      "country": "CO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266311",
+      "name": "AWS SBG at Uniempresarial Business University Foundation BCC",
+      "url": "https://www.meetup.com/aws-sbg-at-uniempresarial-business-university-foundation-bcc/",
+      "country": "CO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38701229",
+      "name": "AWS SBG at Univ of Cartagena - Piedra de Bolivar Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-univ-of-cartagena-piedra-de-bolivar-campus/",
+      "country": "CO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38034346",
+      "name": "AWS SBG at University of Antioquia",
+      "url": "https://www.meetup.com/aws-sbg-at-university-of-antioquia/",
+      "country": "CO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38701143",
+      "name": "AWS SBG at University of La Sabana - Puente del Comun Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-university-of-la-sabana-puente-del-comun-campus/",
+      "country": "CO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38701233",
+      "name": "AWS SBG at University of San Buenaventura - Cali Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-university-of-san-buenaventura-cali-campus/",
+      "country": "CO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38701139",
+      "name": "AWS SBG at University of the North",
+      "url": "https://www.meetup.com/aws-sbg-at-university-of-the-north/",
+      "country": "CO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266319",
+      "name": "AWS SBG at University of the Valle",
+      "url": "https://www.meetup.com/aws-sbg-at-university-of-the-valle/",
+      "country": "CO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38531061",
+      "name": "AWS SBG at USTA - Saint Thomas Aquinas University",
+      "url": "https://www.meetup.com/aws-sbg-at-usta-saint-thomas-aquinas-university/",
+      "country": "CO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38701103",
+      "name": "AWS SBG at National University of Costa Rica - Nicoya Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-national-university-of-costa-rica-nicoya-campus/",
+      "country": "CR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38701133",
+      "name": "AWS SBG at Univ of Costa Rica - Rodrigo Facio Brenes Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-univ-of-costa-rica-rodrigo-facio-brenes-campus/",
+      "country": "CR",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703146",
+      "name": "AWS SBG at Dominican-American University",
+      "url": "https://www.meetup.com/aws-sbg-at-dominican-american-university/",
+      "country": "DO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703794",
+      "name": "AWS SBG at Technological Inst of the Americas - Sede Central",
+      "url": "https://www.meetup.com/aws-sbg-at-technological-inst-of-the-americas-sede-central/",
+      "country": "DO",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703179",
+      "name": "AWS SBG at Agrarian University of Ecuador - Guayaquil Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-agrarian-university-of-ecuador-guayaquil-campus/",
+      "country": "EC",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38531929",
+      "name": "AWS SBG at Bolivarian Uni Higher Inst of Tech - Naval Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-bolivarian-uni-higher-inst-of-tech-naval-campus/",
+      "country": "EC",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703154",
+      "name": "AWS SBG at Central University of Ecuador - Quito Main Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-central-university-of-ecuador-quito-main-campus/",
+      "country": "EC",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38530681",
+      "name": "AWS SBG at Eloy Alfaro Secular University of Manabi",
+      "url": "https://www.meetup.com/aws-sbg-at-universidad-laica-eloy-alfaro-de-manabi/",
+      "country": "EC",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38530425",
+      "name": "AWS SBG at International Univ of Ecuador - Quito Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-international-univ-of-ecuador-quito-campus/",
+      "country": "EC",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703089",
+      "name": "AWS SBG at National Polytechnic School",
+      "url": "https://www.meetup.com/aws-sbg-at-national-polytechnic-school/",
+      "country": "EC",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38531825",
+      "name": "AWS SBG at Polytech College of the Coast - Campus Prosperina",
+      "url": "https://www.meetup.com/aws-sbg-at-polytech-college-of-the-coast-campus-prosperina/",
+      "country": "EC",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38531533",
+      "name": "AWS SBG at Pontifical Cath Univ of Ecuador - Quito Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-pontifical-cath-univ-of-ecuador-quito-campus/",
+      "country": "EC",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703150",
+      "name": "AWS SBG at San Francisco de Quito University",
+      "url": "https://www.meetup.com/aws-sbg-at-san-francisco-de-quito-university/",
+      "country": "EC",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703148",
+      "name": "AWS SBG at State University of Milagro - Milagro Main Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-state-university-of-milagro-milagro-main-campus/",
+      "country": "EC",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703160",
+      "name": "AWS SBG at Technical University of Machal - Campus Matriz",
+      "url": "https://www.meetup.com/aws-sbg-at-technical-university-of-machal-campus-matriz/",
+      "country": "EC",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38530680",
+      "name": "AWS SBG at Univ of the Americas - UDLA Park Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-univ-of-the-americas-udla-park-campus/",
+      "country": "EC",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266284",
+      "name": "AWS SBG at University of Cuenca - Balzay Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-university-of-cuenca-balzay-campus/",
+      "country": "EC",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703171",
+      "name": "AWS SBG at University of Fuerzas Armadas - Online Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-university-of-fuerzas-armadas-online-campus/",
+      "country": "EC",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38034349",
+      "name": "AWS SBG at University of Guayaquil",
+      "url": "https://www.meetup.com/aws-sbg-at-university-of-guayaquil/",
+      "country": "EC",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703159",
+      "name": "AWS SBG at Yachay Tech University",
+      "url": "https://www.meetup.com/aws-sbg-at-yachay-tech-university/",
+      "country": "EC",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38384542",
+      "name": "AWS SBG at Rafael Landivar University - Central Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-rafael-landivar-university-central-campus/",
+      "country": "GT",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266379",
+      "name": "AWS SBG at Univ of the Valley of Guatemala - Central Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-univ-of-the-valley-of-guatemala-central-campus/",
+      "country": "GT",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38034763",
+      "name": "AWS SBG at  National Autonomous University of Mexico",
+      "url": "https://www.meetup.com/aws-sbg-at-national-autonomous-univ-of-mexico-central-campus/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266321",
+      "name": "AWS SBG at Anahuac Mayab University",
+      "url": "https://www.meetup.com/aws-sbg-at-anahuac-mayab-university/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266314",
+      "name": "AWS SBG at Atemajac Valley University - Zapopan Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-atemajac-valley-university-zapopan-campus/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266277",
+      "name": "AWS SBG at Autonomous Univ of Guadalajara - Zapopan Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-autonomous-univ-of-guadalajara-zapopan-campus/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266275",
+      "name": "AWS SBG at Autonomous Univ of Hidalgo State - Tlahuelilpan",
+      "url": "https://www.meetup.com/aws-sbg-at-autonomous-univ-of-hidalgo-state-tlahuelilpan/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38590083",
+      "name": "AWS SBG at Autonomous Univ of Sinaloa-Faculty of Engineering",
+      "url": "https://www.meetup.com/aws-sbg-at-autonomous-univ-sinaloa-faculty-of-engineering/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38589847",
+      "name": "AWS SBG at Autonomous University of Chihuahua",
+      "url": "https://www.meetup.com/aws-sbg-at-autonomous-university-of-chihuahua/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38529341",
+      "name": "AWS SBG at Autonomous University of the State of Mexico",
+      "url": "https://www.meetup.com/aws-sbg-at-autonomous-univ-state-of-mexico-uap-tianguistenco/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38265929",
+      "name": "AWS SBG at Benemerita Universidad Autonoma de Puebla",
+      "url": "https://www.meetup.com/aws-sbg-at-benemerita-universidad-autonoma-de-puebla/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38265940",
+      "name": "AWS SBG at CENTRO - Design, Film and Television",
+      "url": "https://www.meetup.com/aws-sbg-at-centro-design-film-and-television/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703360",
+      "name": "AWS SBG at Chiapas Polytechnic University",
+      "url": "https://www.meetup.com/aws-sbg-at-chiapas-polytechnic-university/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38530599",
+      "name": "AWS SBG at Durango Institute of Technology",
+      "url": "https://www.meetup.com/aws-sbg-at-durango-institute-of-technology/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266070",
+      "name": "AWS SBG at Higher Technological Institute of Atlixco",
+      "url": "https://www.meetup.com/aws-sbg-at-higher-technological-institute-of-atilxco/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38532183",
+      "name": "AWS SBG at Instituto Tecnológico de Ocotlán",
+      "url": "https://www.meetup.com/aws-sbg-at-instituto-tecnologico/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266293",
+      "name": "AWS SBG at Juarez Autonomous University of Tabasco",
+      "url": "https://www.meetup.com/aws-sbg-at-juarez-automomous-university-of-tabasco/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38384432",
+      "name": "AWS SBG at Lázaro Cárdenas Institute of Technology",
+      "url": "https://www.meetup.com/aws-sbg-at-lazaro-cardenas-institute-of-technology/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266325",
+      "name": "AWS SBG at Madero University",
+      "url": "https://www.meetup.com/aws-sbg-at-madero-university/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38531001",
+      "name": "AWS SBG at Matehuala Institute of Technology",
+      "url": "https://www.meetup.com/aws-sbg-at-matehuala-institute-of-technology/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38531007",
+      "name": "AWS SBG at Metropolitan Polytechnic University of Hidalgo",
+      "url": "https://www.meetup.com/aws-sbg-at-metropolitan-polytechnic-university-of-hidalgo/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "36965635",
+      "name": "AWS SBG at Monterrey Institute of Technology & Higher Ed.",
+      "url": "https://www.meetup.com/aws-sbg-at-monterrey-inst-of-technology-and-higher-education/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38540295",
+      "name": "AWS SBG at National Autonomous University of Mexico",
+      "url": "https://www.meetup.com/aws-sbg-national-autonomous-univ-of-mexico-aragon-campus/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38531034",
+      "name": "AWS SBG at National Polytechnic Institute",
+      "url": "https://www.meetup.com/aws-sbg-at-national-polytechnic-institute-upiita-campus/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266065",
+      "name": "AWS SBG at National Polytechnic Institute - Zacatenco Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-national-polytechnic-institute-zacatenco-campus/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38590112",
+      "name": "AWS SBG at National Tech Institute of Mexico - Tepic Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-national-tech-institute-of-mexico-tepic-campus/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38034336",
+      "name": "AWS SBG at National Technological Institute of Mexico",
+      "url": "https://www.meetup.com/aws-sbg-at-national-technological-institute-of-mexico/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38034338",
+      "name": "AWS SBG at Ocotlan Institute of Technology",
+      "url": "https://www.meetup.com/aws-sbg-at-ocotlan-institute-of-technology/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703324",
+      "name": "AWS SBG at ONMEX University",
+      "url": "https://www.meetup.com/aws-sbg-at-onmex-university/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38531522",
+      "name": "AWS SBG at Pachuca Institute of Technology",
+      "url": "https://www.meetup.com/aws-sbg-at-pachuca-institute-of-technology/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38384446",
+      "name": "AWS SBG at Pan-American University - CDMX",
+      "url": "https://www.meetup.com/aws-sbg-at-pan-american-university-cdmx/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266346",
+      "name": "AWS SBG at Polytechnic University of Aguascalientes",
+      "url": "https://www.meetup.com/aws-sbg-at-polytechnic-university-of-aguascalientes/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38385576",
+      "name": "AWS SBG at Polytechnic University of San Luis Potosí",
+      "url": "https://www.meetup.com/aws-sbg-at-polytechnic-university-of-san-luis-potosi/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266069",
+      "name": "AWS SBG at Puebla Institute of Technology",
+      "url": "https://www.meetup.com/aws-sbg-at-puebla-institute-of-technology/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703080",
+      "name": "AWS SBG at Tech Inst of Higher Studies of Jocotitlan",
+      "url": "https://www.meetup.com/aws-sbg-at-tech-inst-of-higher-studies-of-jocotitlan/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703166",
+      "name": "AWS SBG at Technological Institute of Cuautla",
+      "url": "https://www.meetup.com/aws-sbg-at-technological-institute-of-cuautla/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38034361",
+      "name": "AWS SBG at Technological University of Puebla",
+      "url": "https://www.meetup.com/aws-sbg-at-technological-university-of-puebla/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703078",
+      "name": "AWS SBG at TecNM - Technological Institute of Veracruz",
+      "url": "https://www.meetup.com/aws-sbg-at-tecnm-technological-institute-of-veracruz/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38530610",
+      "name": "AWS SBG at Tecnológico Universitario del Valle de Chalco.",
+      "url": "https://www.meetup.com/aws-sbg-at-valle-de-chalco-univ-technological-institute/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703169",
+      "name": "AWS SBG at Uni of Guadalajara - Uni Center Exact Sci and Eng",
+      "url": "https://www.meetup.com/aws-sbg-at-uni-of-guadalajara-uni-center-exact-sci-and-eng/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266347",
+      "name": "AWS SBG at Universidad Popular Autónoma del Estado de Puebla",
+      "url": "https://www.meetup.com/aws-sbg-at-popular-autonomous-univ-of-the-state-of-puebla/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266326",
+      "name": "AWS SBG at Universidad Veracruzana",
+      "url": "https://www.meetup.com/aws-sbg-at-universidad-veracruzana/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "36965629",
+      "name": "AWS SBG at University of Monterrey",
+      "url": "https://www.meetup.com/aws-sbg-at-university-of-monterrey/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "37541181",
+      "name": "AWS SBG at University of Nuevo Leon",
+      "url": "https://www.meetup.com/aws-sbg-at-autonomous-university-of-nuevo-leon/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266323",
+      "name": "AWS SBG at University of Sonora",
+      "url": "https://www.meetup.com/aws-sbg-at-university-of-sonora/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703793",
+      "name": "AWS SBG at University of the Isthmus - Tehuantepec Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-university-of-the-isthmus-tehuantepec-campus/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38034747",
+      "name": "AWS SBG at Villahermosa Institute of Technology",
+      "url": "https://www.meetup.com/aws-sbg-at-villahermosa-institute-of-technology/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38530771",
+      "name": "AWS SBG at Virtual University of the State of Guanajuato",
+      "url": "https://www.meetup.com/aws-sbg-at-virtual-university-of-the-state-of-guanajuato/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38034359",
+      "name": "AWS SBG at Yucatan Polytechnic University",
+      "url": "https://www.meetup.com/aws-sbg-at-yucatan-polytechnic-university/",
+      "country": "MX",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703724",
+      "name": "AWS SBG at Natl Univ of Engineering - Simon Bolivar Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-natl-univ-of-engineering-simon-bolivar-campus/",
+      "country": "NI",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703805",
+      "name": "AWS SBG at Catholic University Santo Toribio De Mogrovejo",
+      "url": "https://www.meetup.com/aws-sbg-at-catholic-university-santo-toribio-de-mogrovejo/",
+      "country": "PE",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266322",
+      "name": "AWS SBG at Continental University - Huancayo Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-continental-university-huancayo-campus/",
+      "country": "PE",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703683",
+      "name": "AWS SBG at National Agrarian University La Molina",
+      "url": "https://www.meetup.com/aws-sbg-at-national-agrarian-university-la-molina/",
+      "country": "PE",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38384545",
+      "name": "AWS SBG at National Technological University Southern Lima",
+      "url": "https://www.meetup.com/aws-sbg-at-national-technological-univ-of-southern-lima/",
+      "country": "PE",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38034773",
+      "name": "AWS SBG at National University of Engineering",
+      "url": "https://www.meetup.com/aws-sbg-at-national-university-of-engineering/",
+      "country": "PE",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266342",
+      "name": "AWS SBG at National University of San Marcos",
+      "url": "https://www.meetup.com/aws-sbg-at-national-university-of-san-marcos/",
+      "country": "PE",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266363",
+      "name": "AWS SBG at Peruvian University of Applied Sciences",
+      "url": "https://www.meetup.com/aws-sbg-at-peruvian-univ-applied-sciences-monterrico-campus/",
+      "country": "PE",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266156",
+      "name": "AWS SBG at Pontifical Catholic University of Peru",
+      "url": "https://www.meetup.com/aws-sbg-at-pontifical-catholic-university-of-peru/",
+      "country": "PE",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38703713",
+      "name": "AWS SBG at Technological Univ of Peru - Chiclayo Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-technological-univ-of-peru-chiclayo-campus/",
+      "country": "PE",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38034363",
+      "name": "AWS SBG at Technological University of Peru",
+      "url": "https://www.meetup.com/aws-sbg-at-technological-university-of-peru/",
+      "country": "PE",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38532149",
+      "name": "AWS SBG at University of Engineering and Tech",
+      "url": "https://www.meetup.com/aws-sbg-at-university-of-engineering-and-tech/",
+      "country": "PE",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "37540162",
+      "name": "AWS SBG at UNSA (Peru)",
+      "url": "https://www.meetup.com/aws-sbg-at-unsa-peru/",
+      "country": "PE",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38266367",
+      "name": "AWS SBG at UPLA",
+      "url": "https://www.meetup.com/aws-sbg-at-upla/",
+      "country": "PE",
+      "type": "Student Builder Group"
+    },
+    {
+      "id": "38384514",
+      "name": "AWS SBG at University of Puerto Rico - Mayaguez Campus",
+      "url": "https://www.meetup.com/aws-sbg-at-university-of-puerto-rico-mayaguez-campus/",
+      "country": "PR",
+      "type": "Student Builder Group"
+    }
+  ]
+}

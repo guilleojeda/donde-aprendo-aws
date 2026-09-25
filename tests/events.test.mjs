@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { projectPublishedCatalog } from '../src/lib/catalog.mjs';
-import { eventDateLabel, eventTimeLabel, upcomingEvents } from '../src/lib/events.mjs';
+import { eventDateLabel, eventTimeLabel, upcomingEvents, uniqueUpcomingEvents } from '../src/lib/events.mjs';
 import { fingerprintPublicCatalog } from '../src/lib/publication.mjs';
 
 const event = (overrides = {}) => ({
@@ -20,6 +20,7 @@ test('projects published event details and excludes private submission data', ()
   assert.equal(visible.registrationUrl, 'https://example.test/register?source=community');
   assert.equal(JSON.stringify(visible).includes('private@example.test'), false);
   assert.equal(Object.hasOwn(visible, 'published'), false);
+  assert.equal(projectPublishedCatalog([event({ country: 'PY' })])[0].country, 'PY');
 });
 
 test('projects a recording event link only when it is an approved content field', () => {
@@ -43,7 +44,17 @@ test('rejects invalid event dates, zones, venues and registration links', () => 
     { timeZone: 'Invalid/Zone' },
     { place: undefined },
     { registrationUrl: 'javascript:alert(1)' },
+    { country: 'XX' },
   ]) assert.throws(() => projectPublishedCatalog([event(changed)]));
+});
+
+test('shows a cross-posted session once while keeping different sessions', () => {
+  const first = event({ id: 'event-manual', title: 'AWS en Acción', registrationUrl: 'https://www.meetup.com/aws-ug/events/123/' });
+  const sameUrl = event({ id: 'meetup-event-123', title: 'AWS en Acción', registrationUrl: 'https://www.meetup.com/aws-ug/events/123/?source=agenda' });
+  const crossPost = event({ id: 'meetup-event-456', title: 'AWS en Acción', registrationUrl: 'https://www.meetup.com/other-ug/events/456/' });
+  const later = event({ id: 'meetup-event-789', title: 'Otra charla', registrationUrl: 'https://www.meetup.com/other-ug/events/789/' });
+  assert.deepEqual(uniqueUpcomingEvents([later, crossPost, sameUrl, first], '2026-10-01T00:00:00Z').map(({ id }) => id),
+    ['event-manual', 'meetup-event-789']);
 });
 
 test('sorts upcoming events by start and removes them after their end instant', () => {
