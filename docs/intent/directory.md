@@ -14,7 +14,7 @@ Optional `sourceId` and `communityId` values point to existing catalog IDs. When
 
 Only records with a Boolean `published=true` can appear in public output. Missing or false flags are unpublished; malformed publication values must not accidentally expose a submission. Public output is constructed from an explicit allowlist of resource fields, never by serializing a database item that may contain submitter contact details.
 
-The build must consume every scan page. Failed or malformed reads stop publication instead of producing a partial or empty catalog. A successful read with no published entries is a valid empty state.
+The build must consume every scan page using strongly consistent reads so an approval completed before the scan begins is visible. Failed or malformed reads stop publication instead of producing a partial or empty catalog. A successful read with no published entries is a valid empty state. DynamoDB scans are not atomic snapshots of edits made during a multi-page read; a later hourly check can republish a changed hash.
 
 ## Publication
 
