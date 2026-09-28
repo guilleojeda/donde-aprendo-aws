@@ -1,0 +1,151 @@
+.search-page {
+  min-height: 65vh;
+  padding-block: 35px 90px;
+}
+
+.search-page__header {
+  max-width: 740px;
+  margin: 0 auto 42px;
+  text-align: center;
+}
+
+.search-page__header h1 {
+  margin: 0 0 12px;
+  color: #303030;
+  font-size: clamp(2rem, 5vw, 3.1rem);
+  line-height: 1.15;
+}
+
+.search-page__header p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.search-form,
+.search-results {
+  width: min(850px, 100%);
+  margin-inline: auto;
+}
+
+.search-form label {
+  display: block;
+  margin-bottom: 10px;
+  font-weight: 700;
+}
+
+.search-form__row {
+  display: flex;
+  gap: 10px;
+}
+
+.search-form input,
+.search-form select {
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid #a5a5a5;
+  border-radius: 5px;
+  background: #fff;
+  color: #303030;
+}
+
+.search-form input {
+  flex: 1;
+}
+
+.search-form select {
+  width: 215px;
+}
+
+.search-form button,
+.search-results__more {
+  padding: 12px 20px;
+  border-radius: 5px;
+  background: #303030;
+  color: #fff;
+  cursor: pointer;
+}
+
+.search-form button:hover,
+.search-form button:focus-visible,
+.search-results__more:hover,
+.search-results__more:focus-visible {
+  background: #555;
+}
+
+.search-results {
+  margin-top: 48px;
+}
+
+.search-results h2 {
+  margin-bottom: 10px;
+  font-size: 1.55rem;
+}
+
+.search-results [role="status"] {
+  min-height: 24px;
+  color: #555;
+}
+
+.search-results ol {
+  display: grid;
+  gap: 12px;
+  margin: 22px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.search-results li a {
+  display: block;
+  padding: 18px 22px;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  text-decoration: none;
+}
+
+.search-results li a:hover,
+.search-results li a:focus-visible {
+  border-color: #777;
+  background: #fafafa;
+}
+
+.search-results li span {
+  display: block;
+  margin-bottom: 8px;
+  color: #666;
+  font-size: 0.85rem;
+}
+
+.search-results li strong {
+  display: block;
+  color: #303030;
+  font-size: 1.15rem;
+  line-height: 1.35;
+}
+
+.search-results li p {
+  margin: 8px 0 0;
+  line-height: 1.5;
+}
+
+.search-results__more[hidden] {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .search-page {
+    padding-block: 20px 65px;
+  }
+
+  .search-form__row {
+    flex-wrap: wrap;
+  }
+
+  .search-form input {
+    flex-basis: 100%;
+  }
+
+  .search-form select {
+    flex: 1;
+    width: auto;
+  }
+}

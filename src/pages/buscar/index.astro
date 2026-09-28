@@ -1,0 +1,49 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import SiteHeader from '../../components/SiteHeader.astro';
+import SiteFooter from '../../components/SiteFooter.astro';
+import '../../styles/search.css';
+---
+
+<BaseLayout
+  title="Buscar contenido AWS | ¿Dónde Aprendo AWS?"
+  description="Buscá en los artículos del blog, recursos, creadores, comunidades y eventos de AWS en español."
+  canonical="https://dondeaprendoaws.com/buscar/"
+>
+  <SiteHeader />
+  <main class="search-page site-container">
+    <header class="search-page__header">
+      <h1>Buscar en todo el sitio</h1>
+      <p>Encontrá artículos del blog, recursos para aprender, creadores, comunidades y eventos.</p>
+    </header>
+
+    <form class="search-form" data-unified-search role="search">
+      <label for="site-query">¿Qué querés aprender?</label>
+      <div class="search-form__row">
+        <input id="site-query" type="search" required maxlength="100" autocomplete="off" placeholder="Por ejemplo: seguridad en S3" />
+        <select id="site-type" aria-label="Tipo de contenido">
+          <option value="">Todo el sitio</option>
+          <option value="article">Artículos del blog</option>
+          <option value="content">Recursos para aprender</option>
+          <option value="source">Creadores y canales</option>
+          <option value="community">Comunidades</option>
+          <option value="event">Eventos</option>
+        </select>
+        <button type="submit">Buscar</button>
+      </div>
+    </form>
+
+    <section class="search-results" aria-labelledby="search-results-title">
+      <h2 id="search-results-title">Resultados</h2>
+      <p data-search-status role="status" aria-live="polite">Escribí una búsqueda para ver resultados.</p>
+      <ol data-search-results></ol>
+      <button class="search-results__more" type="button" data-search-more hidden>Mostrar más resultados</button>
+    </section>
+    <noscript><p>Para usar esta búsqueda necesitás JavaScript. También podés explorar el <a href="/blog/">archivo del blog</a> y los <a href="/aprender/">recursos para aprender</a>.</p></noscript>
+  </main>
+  <SiteFooter />
+</BaseLayout>
+
+<script>
+  import '../../scripts/unified-search.js';
+</script>

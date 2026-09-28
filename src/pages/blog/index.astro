@@ -5,9 +5,14 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import BlogHeader from '../../components/BlogHeader.astro';
 import BlogFooter from '../../components/BlogFooter.astro';
 
-const posts = (await getCollection('blog'))
+const allPosts = await getCollection('blog');
+const posts = allPosts
   .filter((post) => post.data.indexOrder !== undefined)
   .sort((a, b) => a.data.indexOrder! - b.data.indexOrder!);
+const archive = allPosts
+  .filter((post) => post.data.indexOrder === undefined)
+  .sort((a, b) => b.data.publishedAt.localeCompare(a.data.publishedAt) || a.data.title.localeCompare(b.data.title, 'es'));
+const years = [...new Set(archive.map((post) => post.data.publishedAt.slice(0, 4)))];
 
 if (posts.length !== 15 || posts.some((post, index) => post.data.indexOrder !== index + 1)) {
   throw new Error('Blog index requires the 15 source articles in their original order.');
@@ -21,14 +26,35 @@ if (posts.length !== 15 || posts.some((post, index) => post.data.indexOrder !== 
 >
   <BlogHeader />
   <main class="blog-index" aria-label="Artículos del blog">
-    <div class="blog-index__cards">
-      {posts.map((post) => (
-        <a class="blog-card" href={`/blog/${post.id}/`}>
-          <img src={post.data.cover} alt={post.data.coverAlt} loading={post.data.indexOrder === 1 ? 'eager' : 'lazy'} />
-          <h3>{post.data.title}</h3>
-        </a>
+    <header class="blog-index__intro">
+      <h1>Blog de AWS en español</h1>
+      <p>Explorá {allPosts.length} artículos, <a href="#blog-archive-title">andá al archivo</a> o <a href="/buscar/">buscá en todo el sitio</a>.</p>
+    </header>
+    <section aria-labelledby="blog-selected-title">
+      <h2 id="blog-selected-title">Artículos destacados</h2>
+      <div class="blog-index__cards">
+        {posts.map((post) => (
+          <a class="blog-card" href={`/blog/${post.id}/`}>
+            <img src={post.data.cover} alt={post.data.coverAlt} loading={post.data.indexOrder === 1 ? 'eager' : 'lazy'} />
+            <h3>{post.data.title}</h3>
+          </a>
+        ))}
+      </div>
+    </section>
+    <section class="blog-archive" aria-labelledby="blog-archive-title">
+      <h2 id="blog-archive-title">Archivo de artículos</h2>
+      <p>Todos los demás artículos publicados, ordenados por fecha.</p>
+      {years.map((year) => (
+        <div class="blog-archive__year">
+          <h3>{year}</h3>
+          <ul>
+            {archive.filter((post) => post.data.publishedAt.startsWith(year)).map((post) => (
+              <li><a href={`/blog/${post.id}/`}>{post.data.title}</a></li>
+            ))}
+          </ul>
+        </div>
       ))}
-    </div>
+    </section>
   </main>
   <BlogFooter />
 </BaseLayout>

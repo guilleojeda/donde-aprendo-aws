@@ -6,7 +6,7 @@ const production = process.env.PUBLIC_PRODUCTION === 'true';
 const dist = resolve('dist');
 const routes = JSON.parse(readFileSync('tests/fixtures/blog-routes.json', 'utf8'));
 const sections = ['aprender', 'creadores', 'comunidades', 'eventos'];
-const pagePaths = ['index.html', ...sections.map((section) => `${section}/index.html`), 'blog/index.html',
+const pagePaths = ['index.html', ...sections.map((section) => `${section}/index.html`), 'blog/index.html', 'buscar/index.html',
   ...routes.map(({ slug }) => `blog/${slug}/index.html`)];
 const read = (path) => readFileSync(resolve(dist, path), 'utf8');
 
@@ -16,10 +16,11 @@ const expectedLocations = [
   'https://dondeaprendoaws.com/',
   ...sections.map((section) => `https://dondeaprendoaws.com/${section}/`),
   'https://dondeaprendoaws.com/blog/',
+  'https://dondeaprendoaws.com/buscar/',
   ...routes.map(({ slug }) => `https://dondeaprendoaws.com/blog/${slug}/`),
 ].sort();
 assert.deepEqual([...locations].sort(), expectedLocations);
-assert.equal(new Set(locations).size, 202, 'Sitemap URLs must be unique.');
+assert.equal(new Set(locations).size, 203, 'Sitemap URLs must be unique.');
 
 const robots = read('robots.txt');
 assert.equal(robots, 'User-agent: *\nAllow: /\nSitemap: https://dondeaprendoaws.com/sitemap.xml\n');
@@ -39,6 +40,15 @@ for (const section of sections) assert.match(home, new RegExp(`href="/${section}
 assert.match(home, /id="legacy-resource-routes"/);
 assert.doesNotMatch(home, /<li id="resource-/, 'Home should not contain the full directory.');
 assert.doesNotMatch(home, /data-event-list/, 'Home should not contain the full event agenda.');
+const searchPage = read('buscar/index.html');
+assert.match(searchPage, /data-unified-search/);
+assert.match(searchPage, /data-search-status/);
+assert.match(searchPage, /data-search-results/);
+assert.doesNotMatch(searchPage, /name="query"/, 'Search text must not be submitted in a URL.');
+const searchIndex = JSON.parse(read('search-index.json'));
+assert.equal(searchIndex.filter((entry) => entry.type === 'article').length, routes.length);
+assert.ok(searchIndex.every((entry) => /^\/(?:blog|aprender|creadores|comunidades|eventos)\//.test(entry.url)));
+assert.doesNotMatch(JSON.stringify(searchIndex), /submitterEmail|submitterName|contactEmail/);
 
 for (const [section, expectedKind] of [['aprender', 'content'], ['creadores', 'source'], ['comunidades', 'community']]) {
   const directory = read(`${section}/index.html`);
@@ -60,4 +70,4 @@ if (process.env.CATALOG_FIXTURE) {
 const events = read('eventos/index.html');
 assert.match(events, /data-event-list/);
 assert.match(events, /data-event-empty/);
-console.log(`Verified ${production ? 'production' : 'preview'} indexing, Analytics tags, and 202 sitemap URLs.`);
+console.log(`Verified ${production ? 'production' : 'preview'} indexing, unified search, Analytics tags, and 203 sitemap URLs.`);
