@@ -8,6 +8,7 @@ const TYPE_LABELS = Object.freeze({
   source: 'Creador o canal',
   community: 'Comunidad',
   event: 'Evento',
+  path: 'Recorrido de aprendizaje',
 });
 
 export { TYPE_LABELS };
@@ -31,7 +32,7 @@ function markdownHeadings(body = '') {
 }
 
 /** Only public, bounded text is written to the downloadable index. */
-export function buildSearchIndex(posts, catalog) {
+export function buildSearchIndex(posts, catalog, learningPaths = []) {
   const articles = [...posts]
     .sort((a, b) => b.data.publishedAt.localeCompare(a.data.publishedAt) || a.id.localeCompare(b.id))
     .map((post) => ({
@@ -64,7 +65,16 @@ export function buildSearchIndex(posts, catalog) {
         search: [record.category, ...record.topics, record.country, record.level].filter(Boolean).join(' '),
       });
 
-  return [...articles, ...records];
+  const paths = learningPaths.map((path) => ({
+    type: 'path',
+    title: path.title,
+    description: path.intro,
+    url: `/recorridos/#${path.id}`,
+    meta: path.audience,
+    search: '',
+  }));
+
+  return [...paths, ...articles, ...records];
 }
 
 export function aggregateSearchData(query, type, count) {

@@ -49,6 +49,32 @@ button {
   max-width: 900px;
 }
 
+.home-path-callout,
+.learning-path-promo {
+  padding: 15px 20px;
+  border: 1px solid #e4e4e4;
+  border-radius: 8px;
+  line-height: 1.5;
+}
+
+.home-path-callout {
+  margin: 30px 0 45px;
+}
+
+.learning-path-promo {
+  margin-top: 15px;
+}
+
+.learning-path-promo p {
+  margin: 0;
+}
+
+.home-path-callout a,
+.learning-path-promo a {
+  font-weight: 700;
+  text-underline-offset: 2px;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;

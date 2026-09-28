@@ -1,8 +1,8 @@
 # ¿Dónde Aprendo AWS?
 
-Static directory, dedicated learning, creator, community and event pages, blog archive, and unified search built with Astro and hosted on AWS Amplify. DynamoDB owns the catalog; site code and blog articles are files in Git. Codex is an editing tool, not a content store.
+Static directory, dedicated learning, creator, community and event pages, guided learning paths, blog archive, and unified search built with Astro and hosted on AWS Amplify. DynamoDB owns the catalog; site code, learning paths and blog articles are files in Git. Codex is an editing tool, not a content store.
 
-The production site is https://dondeaprendoaws.com/. Its contribution form stores pending submissions through the owned API. `/blog/` retains the original 15 featured cards and links to the other 181 articles in a dated archive. `/buscar/` searches those articles and the approved catalog using a build-generated public index. The `www` and default Amplify hostnames redirect to the apex. Google Analytics uses the existing `G-3NXS6QFKHZ` property and loads only on the apex.
+The production site is https://dondeaprendoaws.com/. Its contribution form stores pending submissions through the owned API. `/blog/` retains the original 15 featured cards and links to the other 181 articles in a dated archive. `/recorridos/` links to existing blog and approved catalog entries in four editorial sequences. `/buscar/` searches those articles, paths and the approved catalog using a build-generated public index. The `www` and default Amplify hostnames redirect to the apex. Google Analytics uses the existing `G-3NXS6QFKHZ` property and loads only on the apex.
 
 ## Development
 
@@ -35,7 +35,7 @@ The production build uses `PUBLIC_SITE_ORIGIN=https://dondeaprendoaws.com` for a
 
 ## Production hosting
 
-The `main` Amplify branch has `PUBLIC_PRODUCTION=true` and `PUBLIC_SITE_ORIGIN=https://dondeaprendoaws.com`. Its build emits indexable pages and a 203-URL sitemap. The single Analytics loader runs only on the apex hostname. Amplify manages the apex and `www` DNS records and certificate; `www` and `main.d33kh9d3cyassq.amplifyapp.com` redirect to the apex, preserving paths. Keep those branch variables and redirects when updating the app. An hourly publication check starts a fresh build when approved public catalog data changes.
+The `main` Amplify branch has `PUBLIC_PRODUCTION=true` and `PUBLIC_SITE_ORIGIN=https://dondeaprendoaws.com`. Its build emits indexable pages and a 204-URL sitemap. The single Analytics loader runs only on the apex hostname. Amplify manages the apex and `www` DNS records and certificate; `www` and `main.d33kh9d3cyassq.amplifyapp.com` redirect to the apex, preserving paths. Keep those branch variables and redirects when updating the app. An hourly publication check starts a fresh build when approved public catalog data changes.
 
 The submission stack permits both the apex and default Amplify origins. Preserve its Lambda artifact key and catalog table when updating CORS or code. If a content deployment fails, Amplify keeps the prior deployed revision; inspect the failed job before starting another. Check the custom-domain association, redirects, Route 53 apex/`www` records, and email records before changing hosting. A previous successful Amplify revision can be rebuilt from Git if a new content revision regresses.
 

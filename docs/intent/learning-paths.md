@@ -1,0 +1,7 @@
+# Guided learning paths
+
+The four paths at `/recorridos/` suggest an order for existing AWS learning material. Each step links to a published catalog card at `/aprender/#resource-<id>` or a blog article at its original route. A short note explains why the step comes next; the site does not copy the source article or video. The page is linked from the main navigation, home and learning directory, and its paths appear in the unified search index.
+
+Edit path titles, introductions, steps and notes in `src/lib/learning-paths.mjs`. Use stable catalog IDs and blog slugs. The build takes blog titles from Git content and resource titles and formats from the same approved DynamoDB snapshot as the directory. A missing blog slug is a build error. A resource that has been unpublished is omitted from its path so the next catalog build does not show a dead internal link. Keep at least two blog steps per path so a path remains useful if its catalog records are withdrawn. Review a path's order whenever a source changes substantially or is removed.
+
+Learning level is editorial guidance, not a certification of difficulty. The directory's optional `level` and `country` values belong to DynamoDB and are set only from the content, author profile or organizing community. `country` describes the creator or group, not the AWS region or the reader's location. Link checks establish that a destination was reachable when tested; they do not prove that old tutorials still reflect current AWS behavior. No permanent verification badge is inferred from an HTTP response.

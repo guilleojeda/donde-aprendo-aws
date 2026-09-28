@@ -13,6 +13,9 @@ const events = catalog.filter((record): record is CatalogEvent => record.recordT
 ---
 <BaseLayout title="Aprender AWS en español | ¿Dónde Aprendo AWS?" description="Artículos, videos, cursos y herramientas en español para aprender AWS." canonical="https://dondeaprendoaws.com/aprender/">
   <SiteHeader />
+  <aside class="learning-path-promo site-container" aria-label="Recorridos de aprendizaje">
+    <p>¿No sabés por dónde empezar? <a href="/recorridos/">Seguí un recorrido de aprendizaje</a> con recursos y artículos en orden.</p>
+  </aside>
   <Directory title="Aprender AWS" intro="Artículos, videos, cursos y herramientas para aprender a tu ritmo." kind="content" resources={resources} allResources={allResources} events={events} />
   <SiteFooter />
 </BaseLayout>
