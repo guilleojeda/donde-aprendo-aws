@@ -51,10 +51,12 @@ for (const [section, expectedKind] of [['aprender', 'content'], ['creadores', 's
     assert.doesNotMatch(directory, new RegExp(`data-kind="${kind}"`), `Unexpected ${kind} in ${section}`);
   }
 }
-const learn = read('aprender/index.html');
-assert.match(learn, /https:\/\/example\.com\/curso\?utm_source=fixture&amp;lang=es/);
-assert.match(learn, /href="\/creadores\/#resource-fixture-source"/);
-assert.match(learn, /href="\/comunidades\/#resource-fixture-community"/);
+if (process.env.CATALOG_FIXTURE) {
+  const learn = read('aprender/index.html');
+  assert.match(learn, /https:\/\/example\.com\/curso\?utm_source=fixture&amp;lang=es/);
+  assert.match(learn, /href="\/creadores\/#resource-fixture-source"/);
+  assert.match(learn, /href="\/comunidades\/#resource-fixture-community"/);
+}
 const events = read('eventos/index.html');
 assert.match(events, /data-event-list/);
 assert.match(events, /data-event-empty/);
