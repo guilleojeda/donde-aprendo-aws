@@ -1,0 +1,57 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import SiteHeader from '../../components/SiteHeader.astro';
+import SiteFooter from '../../components/SiteFooter.astro';
+import { getCollection } from 'astro:content';
+import { loadSiteCatalog } from '../../lib/site-catalog.mjs';
+import { LEARNING_PATHS, resolveLearningPaths } from '../../lib/learning-paths.mjs';
+import type { CatalogEvent, CatalogResource } from '../../types/catalog';
+import '../../styles/learning-paths.css';
+
+const [catalog, posts] = await Promise.all([loadSiteCatalog(), getCollection('blog')]);
+const resources = (catalog as Array<CatalogResource | CatalogEvent>)
+  .filter((record): record is CatalogResource => record.recordType !== 'event');
+interface ResolvedStep { type: string; title: string; href: string; label: string; note: string; }
+interface ResolvedPath { id: string; title: string; audience: string; intro: string; steps: ResolvedStep[]; }
+const paths = resolveLearningPaths(LEARNING_PATHS, resources, posts) as ResolvedPath[];
+---
+
+<BaseLayout
+  title="Recorridos para aprender AWS | ¿Dónde Aprendo AWS?"
+  description="Rutas de aprendizaje en español que conectan artículos y recursos existentes para empezar con AWS, serverless, seguridad e IA generativa."
+  canonical="https://dondeaprendoaws.com/recorridos/"
+>
+  <SiteHeader />
+  <main class="learning-paths site-container">
+    <header class="learning-paths__intro">
+      <h1>Recorridos para aprender AWS</h1>
+      <p>Elegí un tema y avanzá paso a paso con artículos y recursos que ya están en el sitio. Las fichas pueden cambiar cuando sus autores actualizan o retiran contenido.</p>
+    </header>
+
+    <nav class="learning-paths__index" aria-label="Elegir un recorrido">
+      {paths.map((path) => <a href={`#${path.id}`}>
+        <span>{path.audience}</span>
+        <strong>{path.title}</strong>
+        <small>{path.intro}</small>
+      </a>)}
+    </nav>
+
+    {paths.map((path) => <section class="learning-path" id={path.id} aria-labelledby={`${path.id}-title`}>
+      <header>
+        <span>{path.audience}</span>
+        <h2 id={`${path.id}-title`}>{path.title}</h2>
+        <p>{path.intro}</p>
+      </header>
+      <ol>
+        {path.steps.map((step) => <li>
+          <a href={step.href}>
+            <span>{step.label}</span>
+            <strong>{step.title}</strong>
+            <p>{step.note}</p>
+          </a>
+        </li>)}
+      </ol>
+    </section>)}
+  </main>
+  <SiteFooter />
+</BaseLayout>

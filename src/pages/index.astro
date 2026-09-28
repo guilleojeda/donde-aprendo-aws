@@ -56,6 +56,8 @@ const routeData = JSON.stringify(legacyResourceRoutes).replaceAll('<', '\\u003c'
         <a href="/eventos/"><span>Eventos</span><strong>{countLabel(uniqueUpcomingEvents(events).length, 'próximo', 'próximos')}</strong><small>Encuentros y charlas de la comunidad.</small></a>
       </nav>
 
+      <p class="home-path-callout">¿Preferís una guía paso a paso? <a href="/recorridos/">Explorá los recorridos de aprendizaje</a>.</p>
+
       {recommended.length > 0 && <section class="home-shelf" aria-labelledby="home-recommended-title">
         <div class="home-shelf__heading"><div><h2 id="home-recommended-title">Para empezar a explorar</h2><p>Una selección de recursos recomendados.</p></div></div>
         <ul class="home-shelf__grid">
