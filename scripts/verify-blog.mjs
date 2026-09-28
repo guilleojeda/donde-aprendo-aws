@@ -24,6 +24,12 @@ const index = read('blog/index.html');
 const indexUrls = [...index.matchAll(/<a\b[^>]*class="blog-card"[^>]*href="([^"]+)"/g)]
   .map((match) => match[1]);
 assert.deepEqual(indexUrls, expected.map(({ slug }) => `/blog/${slug}/`));
+const archiveHtml = index.match(/<section class="blog-archive"[\s\S]*?<\/section>/)?.[0] ?? '';
+const archiveUrls = [...archiveHtml.matchAll(/<li><a href="(\/blog\/[^\"]+\/)">/g)].map((match) => match[1]);
+const allIndexUrls = [...indexUrls, ...archiveUrls];
+assert.equal(archiveUrls.length, archive.length - expected.length, 'Every non-featured article must be linked in the archive.');
+assert.deepEqual([...allIndexUrls].sort(), archive.map(({ slug }) => `/blog/${slug}/`).sort());
+assert.equal(new Set(allIndexUrls).size, archive.length, 'Blog index must not duplicate article destinations.');
 assert.match(index, /<link rel="canonical" href="https:\/\/dondeaprendoaws\.com\/blog\/"/);
 assert.match(index, /<meta name="twitter:url" content="https:\/\/dondeaprendoaws\.com\/blog\/"/);
 assert.doesNotMatch(index, /<meta name="twitter:(?:card|image)"/);
@@ -94,4 +100,4 @@ const articleWithoutBodyImages = read('blog/cors-en-websocket-vs-rest-api-gatewa
 const body = articleWithoutBodyImages.match(/<article class="blog-article__body">([\s\S]*?)<\/article>/)?.[1] ?? '';
 assert.doesNotMatch(body, /<img\b/);
 
-console.log(`Verified 15-card blog index, ${archive.length} article routes, and ${assetPaths.size} owned images.`);
+console.log(`Verified 15 featured cards, ${archiveUrls.length} archive links, ${archive.length} article routes, and ${assetPaths.size} owned images.`);

@@ -13,7 +13,7 @@ export async function getStaticPaths() {
 const { post } = Astro.props;
 const { Content } = await render(post);
 const canonical = new URL(`/blog/${post.id}/`, Astro.site ?? Astro.url).href;
-const publishedDate = new Intl.DateTimeFormat('en-GB', {
+const publishedDate = new Intl.DateTimeFormat('es-AR', {
   day: '2-digit',
   month: 'long',
   year: 'numeric',
@@ -32,7 +32,7 @@ const publishedDate = new Intl.DateTimeFormat('en-GB', {
   <main class="blog-article">
     <header class="blog-article__header">
       <h1>{post.data.title}</h1>
-      <p class="blog-article__date">Published on {publishedDate}</p>
+      <p class="blog-article__date">Publicado el {publishedDate}</p>
     </header>
     <article class="blog-article__body">
       <Content />
@@ -40,7 +40,7 @@ const publishedDate = new Intl.DateTimeFormat('en-GB', {
     {post.data.related.length > 0 && (
       <section class="blog-related" aria-labelledby="blog-related-title">
         <div class="blog-related__header">
-          <h2 id="blog-related-title">Read more</h2>
+          <h2 id="blog-related-title">Seguí leyendo</h2>
           <a href="/blog/" aria-label="Volver al blog" class="blog-related__home">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 11.5 12 4l9 7.5M5.5 10.5V20h13v-9.5M9.5 20v-6h5v6" /></svg>
           </a>
