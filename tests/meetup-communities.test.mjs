@@ -4,15 +4,16 @@ import { test } from 'node:test';
 import { mapMeetupCommunities } from '../src/lib/meetup-communities.mjs';
 import { importMeetupCommunities } from '../scripts/import-meetup-communities.mjs';
 
-test('reviewed directory maps to 384 approved communities with distinct Meetup links', async () => {
+test('Spanish-language directory maps to 233 approved communities with distinct Meetup links', async () => {
   const directory = JSON.parse(await readFile(new URL('../data/meetup-communities.json', import.meta.url), 'utf8'));
   const records = mapMeetupCommunities(directory);
-  assert.equal(records.length, 384);
-  assert.equal(records.filter((record) => record.format === 'User Group').length, 134);
-  assert.equal(records.filter((record) => record.format === 'Student Builder Group').length, 250);
-  assert.equal(new Set(records.map((record) => record.id)).size, 384);
-  assert.equal(new Set(records.map((record) => record.url)).size, 384);
+  assert.equal(records.length, 233);
+  assert.equal(records.filter((record) => record.format === 'User Group').length, 88);
+  assert.equal(records.filter((record) => record.format === 'Student Builder Group').length, 145);
+  assert.equal(new Set(records.map((record) => record.id)).size, 233);
+  assert.equal(new Set(records.map((record) => record.url)).size, 233);
   assert.ok(records.every((record) => record.published && record.country));
+  assert.ok(records.every((record) => !['BR', 'JM'].includes(record.country)));
   assert.equal(records.find((record) => record.id === 'meetup-34833437').country, 'PR');
   assert.equal(records.find((record) => record.id === 'meetup-38266376').country, 'CL');
 });
