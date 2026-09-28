@@ -61,6 +61,17 @@ class FakeTable:
 
 
 class MeetupEventsTests(unittest.TestCase):
+    def test_live_sync_skips_brazil_and_english_language_group(self):
+        groups = [
+            {'id': 'meetup-1', 'title': 'Brasil', 'url': 'https://www.meetup.com/brasil/',
+             'country': 'BR', 'kind': 'community', 'published': True},
+            {'id': 'meetup-2', 'title': 'Jamaica', 'url': 'https://www.meetup.com/jamaica/',
+             'country': 'JM', 'kind': 'community', 'published': True},
+            {'id': 'meetup-3', 'title': 'Bogotá', 'url': GROUP['url'],
+             'country': 'CO', 'kind': 'community', 'published': True},
+        ]
+        self.assertEqual([group['id'] for group in meetup.load_groups_from_dynamodb(FakeTable(groups))], ['3'])
+
     def test_feed_and_structured_event_map_public_fields(self):
         entries = meetup.parse_feed(ICAL, GROUP)
         self.assertEqual(entries, [{'id': '456', 'url': EVENT_URL, 'modified': '20990101T000000Z'}])

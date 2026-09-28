@@ -196,7 +196,8 @@ def load_groups_from_dynamodb(table):
     while True:
         page = table.scan(**params)
         for item in page['Items']:
-            if item.get('id', '').startswith('meetup-') and item.get('kind') == 'community' and item.get('published') is True:
+            if (item.get('id', '').startswith('meetup-') and item.get('kind') == 'community'
+                    and item.get('published') is True and item.get('country') not in {'BR', 'JM'}):
                 groups.append({'id': item['id'][7:], 'url': item['url'], 'name': item['title'],
                                'country': item['country'], 'timeZone': None})
         if 'LastEvaluatedKey' not in page:

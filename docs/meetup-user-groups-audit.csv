@@ -10,21 +10,21 @@ source_index,meetup_id,name,city,source_country,catalog_country,decision,url,not
 9,38600158,AWS Tech Girls,México City,MX,MX,include,https://www.meetup.com/aws-tech-girls/,
 10,38670599,AWS User Group AGS,Aguascalientes,MX,MX,include,https://www.meetup.com/meetup-group-sxogrdde/,
 11,38606044,AWS San Francisco User Group,San Francisco,US,,exclude,https://www.meetup.com/aws-san-francisco-user-group/,
-12,38440954,AWS User Group Santa Rita do Sapucaí,Santa Rita do Sapucaí,BR,BR,include,https://www.meetup.com/aws-user-group-santa-rita-do-sapucai/,
+12,38440954,AWS User Group Santa Rita do Sapucaí,Santa Rita do Sapucaí,BR,,exclude,https://www.meetup.com/aws-user-group-santa-rita-do-sapucai/,Fuera de alcance: comunidad sin contenido en español.
 13,38639123,AWS User Group - Waterloo,Waterloo,CA,,exclude,https://www.meetup.com/aws-waterloo/,
 14,38631294,AWS UG Women in Tech Islamabad,Islamabad,PK,,exclude,https://www.meetup.com/aws-ug-women-in-tech-islamabad/,
 15,38230570,AWS User Group Laos,Vientiane,LA,,exclude,https://www.meetup.com/aws-user-group-laos/,
 16,10521912,Portland AWS User Group,Portland,US,,exclude,https://www.meetup.com/aws-portland/,
-17,38487966,AWS User Group Fortaleza,Fortaleza,BR,BR,include,https://www.meetup.com/aws-user-group-fortaleza/,
+17,38487966,AWS User Group Fortaleza,Fortaleza,BR,,exclude,https://www.meetup.com/aws-user-group-fortaleza/,Fuera de alcance: comunidad sin contenido en español.
 18,38623338,AWS Twin Cities User Group,Minneapolis,US,,exclude,https://www.meetup.com/aws-twin-cities-user-group/,
 19,11510942,AWS User Group East Bay,Pleasanton,US,,exclude,https://www.meetup.com/awsugeastbay/,
 20,37755453,AWS Security UserGroup Argentina,Buenos Aires,AR,AR,include,https://www.meetup.com/aws-security-usergroup-argentina/,
 21,38575075,AWS User Group Faisalabad,Faisalabad,PK,,exclude,https://www.meetup.com/aws-user-group-faisalabad/,
 22,38547721,AWS User Group Artificial Intelligence Bolivia,Santa Cruz,BO,BO,include,https://www.meetup.com/aws-user-group-artificial-intelligence-bolivia/,
-23,38500495,AWS User Group Atibaia - SP,Atibaia,BR,BR,include,https://www.meetup.com/aws-user-group-atibaia-sp/,
+23,38500495,AWS User Group Atibaia - SP,Atibaia,BR,,exclude,https://www.meetup.com/aws-user-group-atibaia-sp/,Fuera de alcance: comunidad sin contenido en español.
 24,38529970,AWS User Group Niš,Niš,RS,,exclude,https://www.meetup.com/aws-user-group-niš/,
 25,38569107,AWS User Group Honduras,Tegucigalpa,HN,HN,include,https://www.meetup.com/aws-user-group-honduras/,
-26,38607333,AWS User Group Jamaica,Kingston,JM,JM,include,https://www.meetup.com/kingston-recommender-systems-meetup-group/,
+26,38607333,AWS User Group Jamaica,Kingston,JM,,exclude,https://www.meetup.com/kingston-recommender-systems-meetup-group/,Fuera de alcance: comunidad sin contenido en español.
 27,38531530,AWS User Group Bodensee,Friedrichshafen,DE,,exclude,https://www.meetup.com/aws-user-group-bodensee/,
 28,38577984,awsugpg,Penang,MY,,exclude,https://www.meetup.com/aws-user-group-penang/,
 29,38603869,Ibadan AWS Users Meetup Group,Ibadan,NG,,exclude,https://www.meetup.com/ibadan-aws-users-meetup-group/,
@@ -45,13 +45,13 @@ source_index,meetup_id,name,city,source_country,catalog_country,decision,url,not
 44,38409111,AWS User Group Piura,Piura,PE,PE,include,https://www.meetup.com/aws-user-group-piura/,
 45,38516868,AWS AI User Group Argentina,Córdoba,AR,AR,include,https://www.meetup.com/aws-ai-user-group-argentina/,
 46,38423499,AWS User Group Canindeyú,Salto del Guairá,PY,PY,include,https://www.meetup.com/aws-user-group-canindeyu/,
-47,38436967,AWS User Group São Roque,São Paulo,BR,BR,include,https://www.meetup.com/aws-user-group-sao-roque/,
+47,38436967,AWS User Group São Roque,São Paulo,BR,,exclude,https://www.meetup.com/aws-user-group-sao-roque/,Fuera de alcance: comunidad sin contenido en español.
 48,38234393,AWS La Plata Colombia Meetup Group,La Plata,CO,CO,include,https://www.meetup.com/aws-la-plata-colombia-meetup-group/,
-49,38447330,AWS User Group Tupaciguara,Tupaciguara,BR,BR,include,https://www.meetup.com/aws-user-group-tupaciguara/,
-50,38396044,AWS User Group Coração do Rio Grande,Santa Maria,BR,BR,include,https://www.meetup.com/aws-user-group-coracao-do-rio-grande/,
-51,38449161,AWS Women User Group Goiânia,Goiania,BR,BR,include,https://www.meetup.com/aws-women-user-group-goiania/,
-52,38348069,AWS User Group Passo Fundo,Passo Fundo,BR,BR,include,https://www.meetup.com/aws-user-group-passo-fundo/,
-53,37973614,AWS User Group Anápolis,Anápolis,BR,BR,include,https://www.meetup.com/aws-user-group-anapolis/,
+49,38447330,AWS User Group Tupaciguara,Tupaciguara,BR,,exclude,https://www.meetup.com/aws-user-group-tupaciguara/,Fuera de alcance: comunidad sin contenido en español.
+50,38396044,AWS User Group Coração do Rio Grande,Santa Maria,BR,,exclude,https://www.meetup.com/aws-user-group-coracao-do-rio-grande/,Fuera de alcance: comunidad sin contenido en español.
+51,38449161,AWS Women User Group Goiânia,Goiania,BR,,exclude,https://www.meetup.com/aws-women-user-group-goiania/,Fuera de alcance: comunidad sin contenido en español.
+52,38348069,AWS User Group Passo Fundo,Passo Fundo,BR,,exclude,https://www.meetup.com/aws-user-group-passo-fundo/,Fuera de alcance: comunidad sin contenido en español.
+53,37973614,AWS User Group Anápolis,Anápolis,BR,,exclude,https://www.meetup.com/aws-user-group-anapolis/,Fuera de alcance: comunidad sin contenido en español.
 54,38180199,AWS User Group Nagpur,Nagpur,IN,,exclude,https://www.meetup.com/awsugnagpur/,
 55,38240816,AWS User Group Colima,Colima,MX,MX,include,https://www.meetup.com/aws-user-group-colima/,
 56,38480753,AWS User Group Cardenas,Cárdenas,MX,MX,include,https://www.meetup.com/aws-ug-cardenas/,
@@ -60,9 +60,9 @@ source_index,meetup_id,name,city,source_country,catalog_country,decision,url,not
 59,38244720,AWS User Group Security Colombia,Bogotá,CO,CO,include,https://www.meetup.com/aws-user-group-security-colombia/,
 60,38396069,AWS User Group South Tamaulipas,Tampico,MX,MX,include,https://www.meetup.com/aws-south-tamaulipas-user-group/,
 61,38420847,Atlanta AWS User Group,Atlanta,US,,exclude,https://www.meetup.com/atlanta-aws-user-group/,
-62,38294375,AWS User Group Castanhal,Castanhal,BR,BR,include,https://www.meetup.com/aws-user-group-castanhal/,
-63,38179309,AWS User Group Sorocaba,São Paulo,BR,BR,include,https://www.meetup.com/aws-user-group-sorocaba/,
-64,38288649,AWS User Group São Lourenço,São Lourenço,BR,BR,include,https://www.meetup.com/aws-user-group-sao-lourenco/,
+62,38294375,AWS User Group Castanhal,Castanhal,BR,,exclude,https://www.meetup.com/aws-user-group-castanhal/,Fuera de alcance: comunidad sin contenido en español.
+63,38179309,AWS User Group Sorocaba,São Paulo,BR,,exclude,https://www.meetup.com/aws-user-group-sorocaba/,Fuera de alcance: comunidad sin contenido en español.
+64,38288649,AWS User Group São Lourenço,São Lourenço,BR,,exclude,https://www.meetup.com/aws-user-group-sao-lourenco/,Fuera de alcance: comunidad sin contenido en español.
 65,38231215,AWS User Group - Istanbul,Istanbul,TR,,exclude,https://www.meetup.com/meetup-group-qxmdkdal/,
 66,7835502,The Houston Amazon Web Services (AWS) Group,Houston,US,,exclude,https://www.meetup.com/AWS-Houston/,
 67,38349798,AWS User Group Security Ecuador,Guayaquil,EC,EC,include,https://www.meetup.com/aws-user-group-security-ecuador/,
@@ -100,12 +100,12 @@ source_index,meetup_id,name,city,source_country,catalog_country,decision,url,not
 99,38043661,AWS User Group Damascus,Duma,SY,,exclude,https://www.meetup.com/aws-user-group-damascus/,
 100,17762672,Copenhagen AWS User Group,Copenhagen,DK,,exclude,https://www.meetup.com/Copenhagen-AWS-User-Group/,
 101,33011037,Ivano-Frankivsk AWS User Group,Ivano-Frankivs'k,UA,,exclude,https://www.meetup.com/ivano-frankivsk-amazon-web-services-meetup-group/,
-102,38161060,Piracicaba-SP,Piracicaba,BR,BR,include,https://www.meetup.com/piracicaba-sp/,
+102,38161060,Piracicaba-SP,Piracicaba,BR,,exclude,https://www.meetup.com/piracicaba-sp/,Fuera de alcance: comunidad sin contenido en español.
 103,38228340,AWS User Group Bandung,Bandung,ID,,exclude,https://www.meetup.com/aws-user-group-bandung/,
 104,38210553,AWS User Group Manta,Manta,EC,EC,include,https://www.meetup.com/aws-user-group-manta/,
 105,28739866,San Antonio AWS Users,San Antonio,US,,exclude,https://www.meetup.com/san-antonio-aws-users-group/,
 106,38188393,AWS User Group Chiclayo,Chiclayo,PE,PE,include,https://www.meetup.com/aws-user-group-chiclayo/,
-107,38144016,AWS User Group ABC Paulista,São Bernardo do Campo,BR,BR,include,https://www.meetup.com/aws-user-group-abc-paulista/,
+107,38144016,AWS User Group ABC Paulista,São Bernardo do Campo,BR,,exclude,https://www.meetup.com/aws-user-group-abc-paulista/,Fuera de alcance: comunidad sin contenido en español.
 108,37790902,AWS User Group Santa Cruz de la Sierra,Santa Cruz,BO,BO,include,https://www.meetup.com/user-group-santa-cruz/,
 109,38209083,AWS User Group Windhoek,Windhoek,NA,,exclude,https://www.meetup.com/aws-user-group-windhoek/,
 110,38225847,AWS Northern Delaware User Group,Wilmington,US,,exclude,https://www.meetup.com/aws-northern-delaware-user-group/,
@@ -119,10 +119,10 @@ source_index,meetup_id,name,city,source_country,catalog_country,decision,url,not
 118,18551536,AWS User Group Hong Kong,Hong Kong,HK,,exclude,https://www.meetup.com/hong-kong-amazon-aws-user-group/,
 119,37964078,AWS User Group Innlandet (Norway),Hamar,NO,,exclude,https://www.meetup.com/aws-user-group-innlandet-norway/,
 120,38087747,AWS User Group Sucre,Sucre,BO,BO,include,https://www.meetup.com/aws-user_group-sucre/,
-121,38197804,AWS User Group Baixada Santista,Santos,BR,BR,include,https://www.meetup.com/aws-user-group-baixada-santista/,
+121,38197804,AWS User Group Baixada Santista,Santos,BR,,exclude,https://www.meetup.com/aws-user-group-baixada-santista/,Fuera de alcance: comunidad sin contenido en español.
 122,38190499,AWS USER GROUP MOSQUERA CUNDINAMARCA,Mosquera,CO,CO,include,https://www.meetup.com/aws-user-group-tolima-y-cundinamrca/,
-123,37777169,AWS User Group João Pessoa,João Pessoa,BR,BR,include,https://www.meetup.com/aws-user-group-joao-pessoa/,
-124,38184668,AWS User Group Vale do Paraíba,São José dos Campos,BR,BR,include,https://www.meetup.com/aws-user-group-vale-do-paraiba/,
+123,37777169,AWS User Group João Pessoa,João Pessoa,BR,,exclude,https://www.meetup.com/aws-user-group-joao-pessoa/,Fuera de alcance: comunidad sin contenido en español.
+124,38184668,AWS User Group Vale do Paraíba,São José dos Campos,BR,,exclude,https://www.meetup.com/aws-user-group-vale-do-paraiba/,Fuera de alcance: comunidad sin contenido en español.
 125,18646699,AWS Chicago Western Suburbs,Naperville,US,,exclude,https://www.meetup.com/aws_chicago_western_suburbs/,
 126,31734238,Richmond AWS User Group,Richmond,US,,exclude,https://www.meetup.com/rawsugar/,
 127,8108762,Austin AWS Users,Austin,US,,exclude,https://www.meetup.com/austin-aws-users/,
@@ -130,9 +130,9 @@ source_index,meetup_id,name,city,source_country,catalog_country,decision,url,not
 129,38152928,AWS User Group Kharkiv,Kharkiv,UA,,exclude,https://www.meetup.com/aws-user-group-kharkiv/,
 130,38090333,AWS User Group Valle del Cauca,Cali,CO,CO,include,https://www.meetup.com/aws-user-group-valle-del-cauca/,
 131,19641212,AWS Swiss User Group – Geneva,Genève,CH,,exclude,https://www.meetup.com/aws-swiss-user-group-geneva/,
-132,38123462,AWS User Group Cascavel,Cascavel,BR,BR,include,https://www.meetup.com/aws-user-group-cascavel/,
+132,38123462,AWS User Group Cascavel,Cascavel,BR,,exclude,https://www.meetup.com/aws-user-group-cascavel/,Fuera de alcance: comunidad sin contenido en español.
 133,38146871,AWS user group Chihuahua,Chihuahua,MX,MX,include,https://www.meetup.com/aws-user-group-chihuahua/,
-134,38154922,AWS User Group Seridó e Sabugy,Santa Luzia,BR,BR,include,https://www.meetup.com/aws-user-group-serido-e-sabugy/,
+134,38154922,AWS User Group Seridó e Sabugy,Santa Luzia,BR,,exclude,https://www.meetup.com/aws-user-group-serido-e-sabugy/,Fuera de alcance: comunidad sin contenido en español.
 135,37895472,AWS User Group Kanpur,Kanpur,IN,,exclude,https://www.meetup.com/aws-user-group-kanpur/,
 136,32894276,AWS User Group Vilnius,Vilnius,LT,,exclude,https://www.meetup.com/aws-user-group-vilnius-lithuania/,
 137,38101147,AWS Mississauga User Group,Mississauga,CA,,exclude,https://www.meetup.com/aws-mississauga-user-group/,
@@ -146,15 +146,15 @@ source_index,meetup_id,name,city,source_country,catalog_country,decision,url,not
 145,37891503,AWS User Group Baku,Baku,AZ,,exclude,https://www.meetup.com/aws-baku/,
 146,30621468,Surat AWS User Group,Surat,IN,,exclude,https://www.meetup.com/surat-aws-user-group/,
 147,10102802,Amazon Web Services (AWS) Delhi,Delhi,IN,,exclude,https://www.meetup.com/AmazonAWS-Delhi/,
-148,37815535,AWS User Group Joinville,Joinville,BR,BR,include,https://www.meetup.com/aws-user-group-joinville/,
-149,37639312,AWS User Group Sergipe,Aracaju,BR,BR,include,https://www.meetup.com/aws-user-group-sergipe/,
+148,37815535,AWS User Group Joinville,Joinville,BR,,exclude,https://www.meetup.com/aws-user-group-joinville/,Fuera de alcance: comunidad sin contenido en español.
+149,37639312,AWS User Group Sergipe,Aracaju,BR,,exclude,https://www.meetup.com/aws-user-group-sergipe/,Fuera de alcance: comunidad sin contenido en español.
 150,26585775,AWS User Group Mumbai,Mumbai,IN,,exclude,https://www.meetup.com/awsugmum/,
-151,32428373,AWS Curitiba User Group,Curitiba,BR,BR,include,https://www.meetup.com/aws-curitiba-user-group/,
+151,32428373,AWS Curitiba User Group,Curitiba,BR,,exclude,https://www.meetup.com/aws-curitiba-user-group/,Fuera de alcance: comunidad sin contenido en español.
 152,36775479,Miami AWS User Group,Miami,US,,exclude,https://www.meetup.com/aws-miami-user-group/,
 153,37957952,AWS Girls Bolivia,La Paz,BO,BO,include,https://www.meetup.com/aws-girls-bolivia/,
 154,37992902,AWS London ON User Group,London,CA,,exclude,https://www.meetup.com/aws-london-on-user-group/,
 155,37423217,AWS User Group Ensenada,Ensenada,MX,MX,include,https://www.meetup.com/aws-user-group-ensenada/,
-156,37181862,AWS User Group Alto Tietê,Mogi das Cruzes,BR,BR,include,https://www.meetup.com/aws-user-group-alto-tiete/,
+156,37181862,AWS User Group Alto Tietê,Mogi das Cruzes,BR,,exclude,https://www.meetup.com/aws-user-group-alto-tiete/,Fuera de alcance: comunidad sin contenido en español.
 157,37875717,AWS UG Cúcuta,Cúcuta,CO,CO,include,https://www.meetup.com/aws-ug-cucuta/,
 158,37959261,AWS Women's User Group Sweden,Stockholm,SE,,exclude,https://www.meetup.com/aws-womens-user-group-sweden/,
 159,18541179,AWS User Group Turkey,Istanbul,TR,,exclude,https://www.meetup.com/aws-user-group-turkey/,
@@ -188,15 +188,15 @@ source_index,meetup_id,name,city,source_country,catalog_country,decision,url,not
 187,18258892,Cambridge AWS User Group,Cambridge,GB,,exclude,https://www.meetup.com/cambridge-aws-user-group/,
 188,26436332,AWS User Group Davao,Davao,PH,,exclude,https://www.meetup.com/aws-davao/,
 189,27334394,AWS User Group BuildHers+ Philippines,Makati,PH,,exclude,https://www.meetup.com/awsug-buildhers/,
-190,37793959,AWS User Group Montes Claros,Montes Claros,BR,BR,include,https://www.meetup.com/aws-user-group-montes-claros/,
+190,37793959,AWS User Group Montes Claros,Montes Claros,BR,,exclude,https://www.meetup.com/aws-user-group-montes-claros/,Fuera de alcance: comunidad sin contenido en español.
 191,37638188,AWS User Group Bristol,Bristol,GB,,exclude,https://www.meetup.com/aws-user-group-bristol/,
 192,30411973,AWS User Group Padova,Padova,IT,,exclude,https://www.meetup.com/AWS-User-Group-Padova/,
 193,19755876,Bordeaux AWS User Group,Bordeaux,FR,,exclude,https://www.meetup.com/bordeaux-amazon-web-services/,
 194,17458192,AWS User Group Budapest,Budapest,HU,,exclude,https://www.meetup.com/aws-user-group-hungary/,
 195,33113638,AWS User Group - Pavia,Pavia,IT,,exclude,https://www.meetup.com/awsusergrouppavia/,
 196,37800154,AWS User Group Hong Kong Meetup,Hong Kong,HK,,exclude,https://www.meetup.com/aws-user-group-hong-kong-meetup/,
-197,37742061,Aws User Group Maringá,Maringá,BR,BR,include,https://www.meetup.com/meetup-group-hafctguq/,
-198,37755505,AWS User Group Piauí,Teresina,BR,BR,include,https://www.meetup.com/aws-user-group-piaui/,
+197,37742061,Aws User Group Maringá,Maringá,BR,,exclude,https://www.meetup.com/meetup-group-hafctguq/,Fuera de alcance: comunidad sin contenido en español.
+198,37755505,AWS User Group Piauí,Teresina,BR,,exclude,https://www.meetup.com/aws-user-group-piaui/,Fuera de alcance: comunidad sin contenido en español.
 199,37771114,AWS Users Group Neiva,Neiva,CO,CO,include,https://www.meetup.com/aws-users-group-neiva/,
 200,37502677,AWS User Group Paraguay,Asunción,PY,PY,include,https://www.meetup.com/aws-ug-paraguay/,
 201,37273222,AWS Las Palmas User Group,Las Palmas,ES,,exclude,https://www.meetup.com/aws-las-palmas-user-group/,
@@ -206,7 +206,7 @@ source_index,meetup_id,name,city,source_country,catalog_country,decision,url,not
 205,37210739,AWS User Group Venezia,Venezia,IT,,exclude,https://www.meetup.com/aws-user-group-venezia/,
 206,37751349,AWS User Group Orizaba,Orizaba,MX,MX,include,https://www.meetup.com/aws-user-group-orizaba/,
 207,37645372,AWS User Group Białystok,Bialystok,PL,,exclude,https://www.meetup.com/aws-user-group-bialystok/,
-208,37732110,AWS User Group Circuito das Águas Paulista,Águas de Lindóia,BR,BR,include,https://www.meetup.com/aws-user-group-circuito-das-aguas-paulista/,
+208,37732110,AWS User Group Circuito das Águas Paulista,Águas de Lindóia,BR,,exclude,https://www.meetup.com/aws-user-group-circuito-das-aguas-paulista/,Fuera de alcance: comunidad sin contenido en español.
 209,37712872,AWS User Group Tacna,Tacna,PE,PE,include,https://www.meetup.com/aws-user-group-tacna/,
 210,37715287,AWS User Group Women In Tech Nepal,Kathmandu,NP,,exclude,https://www.meetup.com/women-awsugnepal/,
 211,37603519,AWS User Group Women in Tech Lahore,Lahore,PK,,exclude,https://www.meetup.com/aws-user-group-women-in-tech-lahore/,
@@ -219,7 +219,7 @@ source_index,meetup_id,name,city,source_country,catalog_country,decision,url,not
 218,36162653,Cloud Del Norte,El Paso,US,,exclude,https://www.meetup.com/clouddelnorte/,
 219,1788730,Advanced Amazon Web Services (AWS),San Francisco,US,,exclude,https://www.meetup.com/advancedaws/,
 220,32771793,Poitiers AWS User Group,Poitiers,FR,,exclude,https://www.meetup.com/Poitiers-AWS-User-Group/,
-221,37627593,AWS User Group Belém,Belém,BR,BR,include,https://www.meetup.com/awsbelem/,
+221,37627593,AWS User Group Belém,Belém,BR,,exclude,https://www.meetup.com/awsbelem/,Fuera de alcance: comunidad sin contenido en español.
 222,37524358,Aws User Group Castelo Branco & Beira Baixa,Castelo Branco,PT,,exclude,https://www.meetup.com/aws-user-group-castelo-branco/,
 223,19960929,AWS User Group Lisbon,Lisbon,PT,,exclude,https://www.meetup.com/aws-user-group-lisbon/,
 224,37097107,AWS User Group Abidjan,Abidjan,CI,,exclude,https://www.meetup.com/groupe-meetup-abidjan-amazon-web-services/,
@@ -275,9 +275,9 @@ source_index,meetup_id,name,city,source_country,catalog_country,decision,url,not
 274,37295530,AWS User Group Villahermosa,Villahermosa,MX,MX,include,https://www.meetup.com/aws-ug-villahermosa/,
 275,37180310,AWS User Group La Paz,La Paz,BO,BO,include,https://www.meetup.com/aws-user-group-la-paz/,
 276,37011149,AWS User Group Silesia,Katowice,PL,,exclude,https://www.meetup.com/aws-user-group-silesia/,
-277,37205025,AWS User Group Floripa,Florianópolis,BR,BR,include,https://www.meetup.com/aws-user-group-floripa/,
-278,36629117,AWS User Group Triângulo Mineiro,Uberlandia,BR,BR,include,https://www.meetup.com/aws-user-group-triangulo-mineiro/,
-279,37313883,AWS User Group Tubarão,Tubarão,BR,BR,include,https://www.meetup.com/tubaraoops/,
+277,37205025,AWS User Group Floripa,Florianópolis,BR,,exclude,https://www.meetup.com/aws-user-group-floripa/,Fuera de alcance: comunidad sin contenido en español.
+278,36629117,AWS User Group Triângulo Mineiro,Uberlandia,BR,,exclude,https://www.meetup.com/aws-user-group-triangulo-mineiro/,Fuera de alcance: comunidad sin contenido en español.
+279,37313883,AWS User Group Tubarão,Tubarão,BR,,exclude,https://www.meetup.com/tubaraoops/,Fuera de alcance: comunidad sin contenido en español.
 280,19641684,Grupo de usuarios AWS Colombia - Bogotá,Bogotá,CO,CO,include,https://www.meetup.com/AWS-Colombia-bogota/,
 281,37296971,AWS User Group Warsaw,Warsaw,PL,,exclude,https://www.meetup.com/aws-user-group-warsaw/,
 282,37062969,AWS User Group Asturias (Spain),Oviedo,ES,,exclude,https://www.meetup.com/aws-user-group-asturias/,
@@ -291,12 +291,12 @@ source_index,meetup_id,name,city,source_country,catalog_country,decision,url,not
 290,34235692,AWS User Group Palestine,Ramallah,PS,,exclude,https://www.meetup.com/aws-palestine/,
 291,18248454,AWS User Group Stockholm,Stockholm,SE,,exclude,https://www.meetup.com/aws-stockholm/,
 292,36964244,AWS User Group 3City,Gdansk,PL,,exclude,https://www.meetup.com/aws-user-group-3city/,
-293,37086228,AWS UserGroup Foz do Iguaçu,Foz do Iguaçu,BR,BR,include,https://www.meetup.com/aws-usergroup-oeste-e-fronteiras/,
+293,37086228,AWS UserGroup Foz do Iguaçu,Foz do Iguaçu,BR,,exclude,https://www.meetup.com/aws-usergroup-oeste-e-fronteiras/,Fuera de alcance: comunidad sin contenido en español.
 294,34134229,AWS User Group - Cyprus,Lemesos,CY,,exclude,https://www.meetup.com/aws-ug-cyprus/,
 295,36297575,AWS User Group Dakar,Dakar,SN,,exclude,https://www.meetup.com/aws-user-group-dakar/,
 296,36431095,AWS User Group Liberia,Monrovia,LR,,exclude,https://www.meetup.com/aws-liberia/,
-297,36999143,AWS User Group Recife,Recife,BR,BR,include,https://www.meetup.com/aws-user-group-recife/,
-298,37066483,AWS User Group Brasília,Brasília,BR,BR,include,https://www.meetup.com/aws-user-group-brasilia/,
+297,36999143,AWS User Group Recife,Recife,BR,,exclude,https://www.meetup.com/aws-user-group-recife/,Fuera de alcance: comunidad sin contenido en español.
+298,37066483,AWS User Group Brasília,Brasília,BR,,exclude,https://www.meetup.com/aws-user-group-brasilia/,Fuera de alcance: comunidad sin contenido en español.
 299,37066772,AWS User Group Kigali,Kigali,RW,,exclude,https://www.meetup.com/aws-user-group-kigali/,
 300,36818655,AWS UG Maputo,Maputo,MZ,,exclude,https://www.meetup.com/aws-maputo/,
 301,1744630,AWS User Group Seattle | AWSUGSEA,Seattle,US,,exclude,https://www.meetup.com/aws-seattle-officialevents/,
@@ -304,7 +304,7 @@ source_index,meetup_id,name,city,source_country,catalog_country,decision,url,not
 303,13288402,AWS User Group Poland,Poznan,PL,,exclude,https://www.meetup.com/awsugpl/,
 304,12853682,AWS User Group DFW - Dallas Fort Worth,Dallas,US,,exclude,https://www.meetup.com/aws-dallas/,
 305,36938954,AWS User Group Islamabad,Islamabad,PK,,exclude,https://www.meetup.com/aws-user-group-islamabad/,
-306,37013707,AWS User Group Salvador,Salvador,BR,BR,include,https://www.meetup.com/aws-user-group-salvador/,
+306,37013707,AWS User Group Salvador,Salvador,BR,,exclude,https://www.meetup.com/aws-user-group-salvador/,Fuera de alcance: comunidad sin contenido en español.
 307,19091469,Omaha Amazon Web Services Meetup,Elkhorn,US,,exclude,https://www.meetup.com/omaha-amazon-web-services-meetup/,
 308,36307179,BelfAWSt User Group,Belfast,GB,,exclude,https://www.meetup.com/belfawst-meetup/,
 309,13024512,AWS User Group Singapore,Singapore,SG,,exclude,https://www.meetup.com/aws-sg/,
@@ -404,22 +404,22 @@ source_index,meetup_id,name,city,source_country,catalog_country,decision,url,not
 403,29885341,AWS User Group Jalisco,Guadalajara,MX,MX,include,https://www.meetup.com/amazon-web-services-jalisco/,
 404,35955655,AWS User Group  Ecuador,Guayaquil,EC,EC,include,https://www.meetup.com/aws-ecuador/,
 405,1981781,AWS User Group Buenos Aires,Buenos Aires,AR,AR,include,https://www.meetup.com/aws-user-group-buenos-aires/,
-406,19492701,☁ AWS User Group - Rio Grande do Sul ☁,Porto Alegre,BR,BR,include,https://www.meetup.com/aws-ug-rs/,
+406,19492701,☁ AWS User Group - Rio Grande do Sul ☁,Porto Alegre,BR,,exclude,https://www.meetup.com/aws-ug-rs/,Fuera de alcance: comunidad sin contenido en español.
 407,34833437,Amazon Web Services Puerto Rico User Group,San Juan,US,PR,include,https://www.meetup.com/amazon-web-services-puerto-rico-user-group/,Meetup marca US; institución o grupo en Puerto Rico (San Juan/Mayagüez).
-408,28803241,AWS User Group Goiânia,Goiania,BR,BR,include,https://www.meetup.com/aws-go/,
+408,28803241,AWS User Group Goiânia,Goiania,BR,,exclude,https://www.meetup.com/aws-go/,Fuera de alcance: comunidad sin contenido en español.
 409,28125735,AWS User Group Medellín,Medellín,CO,CO,include,https://www.meetup.com/awsugmed/,
-410,29960643,AWS User Group Blumenau,Blumenau,BR,BR,include,https://www.meetup.com/aws-usergroup-blumenau/,
-411,32861735,AWS User Group Belo Horizonte,Belo Horizonte,BR,BR,include,https://www.meetup.com/awsusergroupbh/,
-412,31356398,AWS User Group Ceará,Fortaleza,BR,BR,include,https://www.meetup.com/aws-users-group-ce/,
-413,35929552,AWS User Group Interior SP,Itapetininga,BR,BR,include,https://www.meetup.com/aws-user-group-interior-sp/,
+410,29960643,AWS User Group Blumenau,Blumenau,BR,,exclude,https://www.meetup.com/aws-usergroup-blumenau/,Fuera de alcance: comunidad sin contenido en español.
+411,32861735,AWS User Group Belo Horizonte,Belo Horizonte,BR,,exclude,https://www.meetup.com/awsusergroupbh/,Fuera de alcance: comunidad sin contenido en español.
+412,31356398,AWS User Group Ceará,Fortaleza,BR,,exclude,https://www.meetup.com/aws-users-group-ce/,Fuera de alcance: comunidad sin contenido en español.
+413,35929552,AWS User Group Interior SP,Itapetininga,BR,,exclude,https://www.meetup.com/aws-user-group-interior-sp/,Fuera de alcance: comunidad sin contenido en español.
 414,28899711,AWS User Group Caracas,Caracas,VE,VE,include,https://www.meetup.com/aws-user-group-caracas/,
 415,22667715,AWS User Group Panamá,Panamá,PA,PA,include,https://www.meetup.com/AWS-User-Group-Panama/,
-416,23595050,AWS User Group Campinas,Campinas,BR,BR,include,https://www.meetup.com/awscampinas/,
-417,18758210,AWS User Group Rio,Rio de Janeiro,BR,BR,include,https://www.meetup.com/aws-user-group-rio/,
-418,18381135,AWS User Group São Paulo,São Paulo,BR,BR,include,https://www.meetup.com/awsusergroupsp/,
+416,23595050,AWS User Group Campinas,Campinas,BR,,exclude,https://www.meetup.com/awscampinas/,Fuera de alcance: comunidad sin contenido en español.
+417,18758210,AWS User Group Rio,Rio de Janeiro,BR,,exclude,https://www.meetup.com/aws-user-group-rio/,Fuera de alcance: comunidad sin contenido en español.
+418,18381135,AWS User Group São Paulo,São Paulo,BR,,exclude,https://www.meetup.com/awsusergroupsp/,Fuera de alcance: comunidad sin contenido en español.
 419,35495980,AWS Security Users Group LatAm,Lima,PE,PE,include,https://www.meetup.com/awssecuritylatam/,
 420,36461685,Patagonia AWS Cloud User Group,Neuquén,AR,AR,include,https://www.meetup.com/patagonia-aws-cloud-user-group/,
-421,36451338,AWS User Group Criciúma,Criciúma,BR,BR,include,https://www.meetup.com/criciumaops/,
+421,36451338,AWS User Group Criciúma,Criciúma,BR,,exclude,https://www.meetup.com/criciumaops/,Fuera de alcance: comunidad sin contenido en español.
 422,35637353,AWS Girls Chile Group,Santiago,CL,CL,include,https://www.meetup.com/aws-girls-chile-group/,
 423,22991535,AWS User Group Córdoba,Córdoba,AR,AR,include,https://www.meetup.com/aws-user-group-cordoba-argentina/,
 424,1367428,The bAWSton User Group,Boston,US,,exclude,https://www.meetup.com/The-Boston-Amazon-Web-Services-Meetup-Group/,
