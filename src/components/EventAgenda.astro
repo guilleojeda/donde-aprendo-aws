@@ -1,6 +1,7 @@
 ---
 import { eventDateLabel, eventTimeLabel, uniqueUpcomingEvents } from '../lib/events.mjs';
 import { COUNTRY_LABELS } from '../lib/resource-discovery.mjs';
+import { resourceHref } from '../lib/catalog-routes.mjs';
 import type { CatalogEvent, CatalogResource } from '../types/catalog';
 
 interface Props { events: CatalogEvent[]; resources: CatalogResource[]; }
@@ -36,7 +37,7 @@ const modeLabel = { online: 'En línea', 'in-person': 'Presencial', hybrid: 'Hí
     <ol class="event-agenda__list" data-event-list>
       {upcoming.map((event) => {
         const recording = recordingByEvent.get(event.id);
-        return <li id={`event-${event.id}`} class="event-card" data-event-ends-at={event.endsAt} data-country={event.country ?? ''}>
+        return <li id={`event-${event.id}`} class="event-card" data-event-ends-at={event.endsAt} data-country={event.country ?? ''} tabindex="-1">
           <article>
             <div class="event-card__date">
               <time datetime={event.startsAt}>{eventDateLabel(event.startsAt, event.timeZone)}</time>
@@ -52,7 +53,7 @@ const modeLabel = { online: 'En línea', 'in-person': 'Presencial', hybrid: 'Hí
             </dl>
             <div class="event-card__links">
               <a href={event.registrationUrl} target="_blank" rel="noopener noreferrer">Inscribirme <span aria-hidden="true">↗</span></a>
-              {recording && <a href={`#resource-${recording.id}`} data-resource-jump={recording.id}>Ver grabación</a>}
+              {recording && <a href={resourceHref(recording)}>Ver grabación</a>}
             </div>
           </article>
         </li>;
@@ -69,7 +70,7 @@ const modeLabel = { online: 'En línea', 'in-person': 'Presencial', hybrid: 'Hí
           const recording = recordingByEvent.get(event.id)!;
           return <li id={`event-${event.id}`}>
             <span><time datetime={event.startsAt}>{eventDateLabel(event.startsAt, event.timeZone)}</time> · {event.title}</span>
-            <a href={`#resource-${recording.id}`} data-resource-jump={recording.id}>Ver grabación</a>
+            <a href={resourceHref(recording)}>Ver grabación</a>
           </li>;
         })}
       </ul>

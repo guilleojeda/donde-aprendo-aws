@@ -1,6 +1,6 @@
 export const KIND_LABELS = Object.freeze({
   content: 'Aprender',
-  source: 'Seguir',
+  source: 'Creadores y canales',
   community: 'Comunidades',
 });
 

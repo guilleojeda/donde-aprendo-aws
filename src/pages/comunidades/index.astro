@@ -1,0 +1,18 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import SiteHeader from '../../components/SiteHeader.astro';
+import SiteFooter from '../../components/SiteFooter.astro';
+import Directory from '../../components/Directory.astro';
+import { loadSiteCatalog } from '../../lib/site-catalog.mjs';
+import type { CatalogEvent, CatalogResource } from '../../types/catalog';
+
+const catalog = await loadSiteCatalog() as Array<CatalogResource | CatalogEvent>;
+const allResources = catalog.filter((record): record is CatalogResource => record.recordType !== 'event');
+const resources = allResources.filter((record) => record.kind === 'community');
+const events = catalog.filter((record): record is CatalogEvent => record.recordType === 'event');
+---
+<BaseLayout title="Comunidades AWS de Latinoamérica | ¿Dónde Aprendo AWS?" description="Encontrá AWS User Groups y Student Builder Groups de Latinoamérica." canonical="https://dondeaprendoaws.com/comunidades/">
+  <SiteHeader />
+  <Directory title="Comunidades AWS" intro="Conectá con User Groups, Student Builder Groups y otras comunidades de Latinoamérica." kind="community" resources={resources} allResources={allResources} events={events} />
+  <SiteFooter />
+</BaseLayout>
