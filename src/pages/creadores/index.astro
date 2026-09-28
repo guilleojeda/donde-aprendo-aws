@@ -1,0 +1,18 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import SiteHeader from '../../components/SiteHeader.astro';
+import SiteFooter from '../../components/SiteFooter.astro';
+import Directory from '../../components/Directory.astro';
+import { loadSiteCatalog } from '../../lib/site-catalog.mjs';
+import type { CatalogEvent, CatalogResource } from '../../types/catalog';
+
+const catalog = await loadSiteCatalog() as Array<CatalogResource | CatalogEvent>;
+const allResources = catalog.filter((record): record is CatalogResource => record.recordType !== 'event');
+const resources = allResources.filter((record) => record.kind === 'source');
+const events = catalog.filter((record): record is CatalogEvent => record.recordType === 'event');
+---
+<BaseLayout title="Creadores y canales de AWS | ¿Dónde Aprendo AWS?" description="Blogs, canales, podcasts y newsletters en español sobre AWS." canonical="https://dondeaprendoaws.com/creadores/">
+  <SiteHeader />
+  <Directory title="Creadores y canales" intro="Seguí a quienes comparten conocimientos de AWS en español." kind="source" resources={resources} allResources={allResources} events={events} />
+  <SiteFooter />
+</BaseLayout>

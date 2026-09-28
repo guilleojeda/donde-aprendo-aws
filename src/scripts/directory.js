@@ -1,16 +1,17 @@
 import { filterResources, sortResources } from '../lib/directory-filter.mjs';
+import { parseDirectorySearch, serializeDirectorySearch } from '../lib/directory-url.mjs';
 
-const directory = document.querySelector('[data-directory-controls]');
+const controls = document.querySelector('[data-directory-controls]');
 const list = document.querySelector('[data-resource-list]');
 
-if (directory && list) {
-  const search = directory.querySelector('[data-resource-search]');
-  const kinds = [...directory.querySelectorAll('[data-kind-filter]')];
-  const formatSelect = directory.querySelector('[data-format-filter]');
-  const topicSelect = directory.querySelector('[data-topic-filter]');
-  const countrySelect = directory.querySelector('[data-country-filter]');
-  const levelSelect = directory.querySelector('[data-level-filter]');
-  const levelField = directory.querySelector('[data-level-field]');
+if (controls && list) {
+  const search = controls.querySelector('[data-resource-search]');
+  const selects = {
+    format: controls.querySelector('[data-format-filter]'),
+    topic: controls.querySelector('[data-topic-filter]'),
+    country: controls.querySelector('[data-country-filter]'),
+    level: controls.querySelector('[data-level-filter]'),
+  };
   const sortSelect = document.querySelector('[data-sort-filter]');
   const cards = [...list.querySelectorAll('[data-resource-index]')];
   const records = cards.map((card) => ({
@@ -25,84 +26,63 @@ if (directory && list) {
     search: card.dataset.search || '',
   }));
   const recordsById = new Map(records.map((record) => [record.card.id, record]));
+  const allowed = Object.fromEntries(Object.entries(selects).map(([key, select]) => [
+    key, new Set([...(select?.options ?? [])].map((option) => option.value).filter(Boolean)),
+  ]));
   const noResults = document.querySelector('[data-no-results]');
   const resultCount = document.querySelector('[data-result-count]');
   const showMore = document.querySelector('[data-show-more]');
   const showMoreWrap = document.querySelector('[data-show-more-wrap]');
-  const pageSize = 8;
-  const state = { query: '', kind: 'content', format: '', topic: '', country: '', level: '', sort: 'directory', expanded: false };
+  const pageSize = 12;
+  let state = parseDirectorySearch(location.search, allowed);
+  let limit = pageSize;
 
-  document.documentElement.classList.add('js');
+  const applyControls = () => {
+    if (search) search.value = state.query;
+    for (const [field, select] of Object.entries(selects)) {
+      if (select) select.value = state[field];
+    }
+    if (sortSelect) sortSelect.value = state.sort;
+  };
 
   const update = () => {
     const ordered = sortResources(records, state.sort);
     list.append(...ordered.map(({ card }) => card));
     const matching = filterResources(ordered, state);
-    const visible = new Set((state.expanded ? matching : matching.slice(0, pageSize)).map(({ card }) => card));
-
-    cards.forEach((card) => {
-      const isVisible = visible.has(card);
-      card.hidden = !isVisible;
-      card.setAttribute('aria-hidden', String(!isVisible));
-    });
-
-    kinds.forEach((button) => {
-      const selected = button.dataset.kindFilter === (state.kind || 'all');
-      button.classList.toggle('is-selected', selected);
-      button.setAttribute('aria-pressed', String(selected));
-    });
-
-    const visibleCount = matching.length;
-    if (resultCount) {
-      resultCount.textContent = visibleCount === 1 ? '1 recurso' : `${visibleCount} recursos`;
+    const visible = new Set(matching.slice(0, limit).map(({ card }) => card));
+    for (const card of cards) {
+      card.hidden = !visible.has(card);
+      card.setAttribute('aria-hidden', String(card.hidden));
     }
-    if (noResults) noResults.hidden = visibleCount !== 0;
+    if (resultCount) resultCount.textContent = matching.length === 1 ? '1 recurso' : `${matching.length} recursos`;
+    if (noResults) noResults.hidden = matching.length !== 0;
     if (showMoreWrap && showMore) {
-      showMoreWrap.hidden = visibleCount <= pageSize;
-      showMore.textContent = state.expanded ? 'Mostrar menos' : 'Mostrar Todos';
-      showMore.setAttribute('aria-expanded', String(state.expanded));
-      showMore.disabled = visibleCount === 0;
+      const remaining = matching.length - limit;
+      showMoreWrap.hidden = remaining <= 0;
+      showMore.textContent = `Mostrar ${Math.min(pageSize, Math.max(0, remaining))} más`;
     }
   };
 
-  const updateFacetOptions = () => {
-    for (const [select, field] of [[formatSelect, 'format'], [topicSelect, 'topics'], [countrySelect, 'country'], [levelSelect, 'level']]) {
-      for (const option of select?.options ?? []) {
-        if (!option.value) continue;
-        const available = records.some((record) => (!state.kind || record.kind === state.kind)
-          && (field === 'topics' ? record.topics.includes(option.value) : record[field] === option.value));
-        option.hidden = !available;
-        option.disabled = !available;
-      }
-    }
-    if (levelField) levelField.hidden = Boolean(state.kind && state.kind !== 'content');
+  const writeUrl = (method) => {
+    const query = serializeDirectorySearch(location.search, state);
+    const url = `${location.pathname}${query ? `?${query}` : ''}`;
+    history[method](null, '', url);
   };
 
-  const resetFacets = () => {
-    state.query = '';
-    state.format = '';
-    state.topic = '';
-    state.country = '';
-    state.level = '';
-    if (search) search.value = '';
-    for (const select of [formatSelect, topicSelect, countrySelect, levelSelect]) {
-      if (select) select.value = '';
-    }
-    updateFacetOptions();
-  };
-
-  const clearResourceHash = () => {
-    if (location.hash.startsWith('#resource-')) history.replaceState(null, '', `${location.pathname}${location.search}`);
+  const change = (method = 'pushState') => {
+    limit = pageSize;
+    writeUrl(method);
+    update();
   };
 
   const revealRecord = (id) => {
     const record = recordsById.get(`resource-${id}`);
     if (!record) return;
-    state.kind = record.kind;
-    state.sort = 'directory';
-    state.expanded = true;
-    if (sortSelect) sortSelect.value = 'directory';
-    resetFacets();
+    state = parseDirectorySearch('', allowed);
+    limit = Infinity;
+    applyControls();
+    const query = serializeDirectorySearch(location.search, state);
+    history.replaceState(null, '', `${location.pathname}${query ? `?${query}` : ''}#resource-${id}`);
     update();
     requestAnimationFrame(() => {
       record.card.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -111,89 +91,45 @@ if (directory && list) {
   };
 
   search?.addEventListener('input', () => {
-    clearResourceHash();
     state.query = search.value;
-    state.expanded = false;
-    update();
+    change('replaceState');
   });
-
-  kinds.forEach((button) => {
-    button.addEventListener('click', () => {
-      clearResourceHash();
-      state.kind = button.dataset.kindFilter || 'content';
-      if (state.kind === 'all') state.kind = '';
-      resetFacets();
-      state.expanded = false;
-      update();
+  for (const [field, select] of Object.entries(selects)) {
+    select?.addEventListener('change', () => {
+      state[field] = select.value;
+      change();
     });
-  });
-
-  formatSelect?.addEventListener('change', () => {
-    clearResourceHash();
-    state.format = formatSelect.value;
-    state.expanded = false;
-    update();
-  });
-  topicSelect?.addEventListener('change', () => {
-    clearResourceHash();
-    state.topic = topicSelect.value;
-    state.expanded = false;
-    update();
-  });
-  countrySelect?.addEventListener('change', () => {
-    clearResourceHash();
-    state.country = countrySelect.value;
-    state.expanded = false;
-    update();
-  });
-  levelSelect?.addEventListener('change', () => {
-    clearResourceHash();
-    state.level = levelSelect.value;
-    state.expanded = false;
-    update();
-  });
+  }
   sortSelect?.addEventListener('change', () => {
-    clearResourceHash();
     state.sort = sortSelect.value;
-    state.expanded = false;
+    change();
+  });
+  showMore?.addEventListener('click', () => {
+    limit += pageSize;
     update();
   });
-
-  document.querySelectorAll('[data-discovery-sort]').forEach((button) => {
-    button.addEventListener('click', () => {
-      clearResourceHash();
-      state.kind = '';
-      state.sort = button.dataset.discoverySort || 'directory';
-      state.expanded = false;
-      if (sortSelect) sortSelect.value = state.sort;
-      resetFacets();
-      update();
-      list.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-  });
-
   document.querySelectorAll('[data-resource-jump]').forEach((link) => {
     link.addEventListener('click', (event) => {
+      const url = new URL(link.href);
       const id = link.dataset.resourceJump;
-      if (!id || !recordsById.has(`resource-${id}`)) return;
+      if (url.pathname !== location.pathname || !id || !recordsById.has(`resource-${id}`)) return;
       event.preventDefault();
-      history.pushState(null, '', `#resource-${id}`);
+      history.pushState(null, '', `${location.pathname}${location.search}#resource-${id}`);
       revealRecord(id);
     });
   });
-
   window.addEventListener('hashchange', () => {
     if (location.hash.startsWith('#resource-')) revealRecord(location.hash.slice('#resource-'.length));
   });
-
-  showMore?.addEventListener('click', () => {
-    clearResourceHash();
-    state.expanded = !state.expanded;
+  window.addEventListener('popstate', () => {
+    state = parseDirectorySearch(location.search, allowed);
+    limit = pageSize;
+    applyControls();
     update();
-    if (!state.expanded) list.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (location.hash.startsWith('#resource-')) revealRecord(location.hash.slice('#resource-'.length));
   });
 
-  updateFacetOptions();
+  applyControls();
   update();
   if (location.hash.startsWith('#resource-')) revealRecord(location.hash.slice('#resource-'.length));
 }

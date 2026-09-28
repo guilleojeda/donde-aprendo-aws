@@ -1,22 +1,84 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import SiteHeader from '../components/SiteHeader.astro';
-import Directory from '../components/Directory.astro';
 import ContributionForm from '../components/ContributionForm.astro';
 import Faq from '../components/Faq.astro';
 import Partner from '../components/Partner.astro';
 import SiteFooter from '../components/SiteFooter.astro';
-import { loadCatalog } from '../lib/catalog.mjs';
+import { loadSiteCatalog } from '../lib/site-catalog.mjs';
+import { resourceHref, eventHref, RESOURCE_PATHS } from '../lib/catalog-routes.mjs';
+import { recommendedResources } from '../lib/resource-discovery.mjs';
+import { KIND_LABELS } from '../lib/resource-taxonomy.mjs';
+import { eventDateLabel, uniqueUpcomingEvents } from '../lib/events.mjs';
 import type { CatalogEvent, CatalogResource } from '../types/catalog';
 
-const catalog = await loadCatalog() as Array<CatalogResource | CatalogEvent>;
+const catalog = await loadSiteCatalog() as Array<CatalogResource | CatalogEvent>;
 const resources = catalog.filter((record): record is CatalogResource => record.recordType !== 'event');
 const events = catalog.filter((record): record is CatalogEvent => record.recordType === 'event');
+const recommended = recommendedResources(resources, 4) as CatalogResource[];
+const upcoming = uniqueUpcomingEvents(events).slice(0, 3) as CatalogEvent[];
+const counts = Object.fromEntries(Object.keys(RESOURCE_PATHS).map((kind) => [kind, resources.filter((resource) => resource.kind === kind).length]));
+const countLabel = (count: number, singular: string, plural: string) => `${count} ${count === 1 ? singular : plural}`;
+const legacyResourceRoutes = Object.fromEntries(resources.map((resource) => [resource.id, RESOURCE_PATHS[resource.kind as keyof typeof RESOURCE_PATHS]]));
+const routeData = JSON.stringify(legacyResourceRoutes).replaceAll('<', '\\u003c');
 ---
 
-<BaseLayout>
+<BaseLayout canonical="https://dondeaprendoaws.com/">
   <SiteHeader />
-  <Directory resources={resources} events={events} />
+  <script type="application/json" id="legacy-resource-routes" set:html={routeData} />
+  <script is:inline>
+    const routes = JSON.parse(document.getElementById('legacy-resource-routes').textContent);
+    const redirectLegacyHash = () => {
+      const hash = location.hash;
+      if (hash.startsWith('#resource-')) {
+        const path = routes[hash.slice('#resource-'.length)];
+        if (path) location.replace(`${path}${hash}`);
+      } else if (hash === '#eventos' || hash.startsWith('#event-')) {
+        location.replace(`/eventos/${hash}`);
+      } else if (hash === '#directory') {
+        location.replace('/aprender/');
+      }
+    };
+    window.addEventListener('hashchange', redirectLegacyHash);
+    redirectLegacyHash();
+  </script>
+  <main class="intent-home">
+    <div class="site-container">
+      <div class="directory-hero">
+        <h1>¿Dónde Aprendo AWS?</h1>
+        <p>Encontrá recursos para aprender, personas para seguir y comunidades para participar en AWS.</p>
+      </div>
+
+      <nav class="intent-links" aria-label="Explorar el sitio">
+        <a href="/aprender/"><span>Aprender</span><strong>{countLabel(counts.content, 'recurso', 'recursos')}</strong><small>Artículos, videos, cursos y herramientas.</small></a>
+        <a href="/creadores/"><span>Creadores y canales</span><strong>{countLabel(counts.source, 'fuente', 'fuentes')}</strong><small>Blogs, canales, podcasts y newsletters.</small></a>
+        <a href="/comunidades/"><span>Comunidades</span><strong>{countLabel(counts.community, 'grupo', 'grupos')}</strong><small>User Groups, Student Builder Groups y más.</small></a>
+        <a href="/eventos/"><span>Eventos</span><strong>{countLabel(uniqueUpcomingEvents(events).length, 'próximo', 'próximos')}</strong><small>Encuentros y charlas de la comunidad.</small></a>
+      </nav>
+
+      {recommended.length > 0 && <section class="home-shelf" aria-labelledby="home-recommended-title">
+        <div class="home-shelf__heading"><div><h2 id="home-recommended-title">Para empezar a explorar</h2><p>Una selección de recursos recomendados.</p></div></div>
+        <ul class="home-shelf__grid">
+          {recommended.map((resource) => <li><a href={resourceHref(resource)}>
+            <span>{KIND_LABELS[resource.kind as keyof typeof KIND_LABELS]} · {resource.format}</span>
+            <strong>{resource.title}</strong>
+            <p>{resource.description}</p>
+          </a></li>)}
+        </ul>
+      </section>}
+
+      <section class="home-shelf" aria-labelledby="home-events-title">
+        <div class="home-shelf__heading"><div><h2 id="home-events-title">Próximos eventos</h2><p>Elegí un encuentro para aprender y conectar.</p></div><a href="/eventos/">Ver agenda completa</a></div>
+        {upcoming.length > 0 ? <ol class="home-events">
+          {upcoming.map((event) => <li><a href={eventHref(event)}>
+            <time datetime={event.startsAt}>{eventDateLabel(event.startsAt, event.timeZone)}</time>
+            <strong>{event.title}</strong>
+            <span>{event.organizer}</span>
+          </a></li>)}
+        </ol> : <p>No hay próximos eventos publicados. Volvé pronto para ver nuevas fechas.</p>}
+      </section>
+    </div>
+  </main>
   <ContributionForm />
   <Faq />
   <Partner />

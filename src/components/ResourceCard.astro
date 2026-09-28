@@ -1,5 +1,6 @@
 ---
 import { COUNTRY_LABELS, LEVEL_LABELS } from '../lib/resource-discovery.mjs';
+import { eventHref, resourceHref } from '../lib/catalog-routes.mjs';
 
 interface Resource {
   id: string;
@@ -73,9 +74,9 @@ const relatedCommunity = community?.kind === 'community' ? community : undefined
     </a>
     {(relatedSource || relatedCommunity || event) && (
       <div class="resource-card__related">
-        {relatedSource && <a href={`#resource-${relatedSource.id}`} data-resource-jump={relatedSource.id}>Fuente: {relatedSource.title}</a>}
-        {relatedCommunity && <a href={`#resource-${relatedCommunity.id}`} data-resource-jump={relatedCommunity.id}>Comunidad: {relatedCommunity.title}</a>}
-        {event && <a href={`#event-${event.id}`}>Grabación de: {event.title}</a>}
+        {relatedSource && <a href={resourceHref(relatedSource)} data-resource-jump={relatedSource.id}>Fuente: {relatedSource.title}</a>}
+        {relatedCommunity && <a href={resourceHref(relatedCommunity)} data-resource-jump={relatedCommunity.id}>Comunidad: {relatedCommunity.title}</a>}
+        {event && <a href={eventHref(event)}>Grabación de: {event.title}</a>}
       </div>
     )}
   </article>

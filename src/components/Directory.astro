@@ -1,117 +1,48 @@
 ---
 import ResourceCard from './ResourceCard.astro';
-import EventAgenda from './EventAgenda.astro';
 import type { CatalogEvent, CatalogResource } from '../types/catalog';
-import { KIND_LABELS, TOPICS } from '../lib/resource-taxonomy.mjs';
-import { COUNTRY_LABELS, LEVEL_LABELS, recentResources, recommendedResources } from '../lib/resource-discovery.mjs';
-
-type Resource = CatalogResource;
+import { TOPICS } from '../lib/resource-taxonomy.mjs';
+import { COUNTRY_LABELS, LEVEL_LABELS } from '../lib/resource-discovery.mjs';
 
 interface Props {
-  resources: Resource[];
+  title: string;
+  intro: string;
+  kind: 'content' | 'source' | 'community';
+  resources: CatalogResource[];
+  allResources: CatalogResource[];
   events: CatalogEvent[];
 }
 
-const { resources, events } = Astro.props;
-const kindLabel = (kind: string) => KIND_LABELS[kind as keyof typeof KIND_LABELS] ?? kind;
+const { title, intro, kind, resources, allResources, events } = Astro.props;
 const countryLabel = (country: string) => COUNTRY_LABELS[country as keyof typeof COUNTRY_LABELS] ?? country;
 const levelLabel = (level: string) => LEVEL_LABELS[level as keyof typeof LEVEL_LABELS] ?? level;
 const formats = [...new Set(resources.map((resource) => resource.format))]
   .sort((left, right) => left.localeCompare(right, 'es', { sensitivity: 'base' }));
 const topics = TOPICS.filter((topic) => resources.some((resource) => resource.topics.includes(topic)));
-const kindCounts = Object.fromEntries(Object.keys(KIND_LABELS)
-  .map((kind) => [kind, resources.filter((resource) => resource.kind === kind).length]));
-const searchPlaceholder = `Buscar entre ${resources.length} recursos`;
 const countries = Object.keys(COUNTRY_LABELS).filter((country) => resources.some((resource) => resource.country === country))
   .sort((left, right) => countryLabel(left).localeCompare(countryLabel(right), 'es'));
-const levels = Object.keys(LEVEL_LABELS).filter((level) => resources.some((resource) => resource.level === level));
-const recent: Resource[] = recentResources(resources, 4);
-const recentIds = new Set(recent.map((resource) => resource.id));
-const recommended: Resource[] = recommendedResources(resources.filter((resource) => !recentIds.has(resource.id)), 4);
-const resourcesById = new Map(resources.map((resource) => [resource.id, resource]));
+const levels = kind === 'content'
+  ? Object.keys(LEVEL_LABELS).filter((level) => resources.some((resource) => resource.level === level))
+  : [];
+const resourcesById = new Map(allResources.map((resource) => [resource.id, resource]));
 const eventsById = new Map(events.map((event) => [event.id, event]));
-const dateLabel = (date: string) => new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
-  .format(new Date(`${date}T12:00:00Z`));
 ---
 
 <main>
-  <section class="directory-section" id="directory" aria-labelledby="directory-title">
+  <section class="directory-section" aria-labelledby="directory-title">
     <div class="site-container directory-section__container">
       <div class="directory-hero">
-        <h1 id="directory-title">¿Dónde Aprendo AWS?</h1>
-        <p>Encuentra contenido, sigue a quienes lo crean y conecta con comunidades de AWS de Latinoamérica.</p>
+        <h1 id="directory-title">{title}</h1>
+        <p>{intro}</p>
       </div>
 
-      <EventAgenda events={events} resources={resources} />
-
-      {(recent.length > 0 || recommended.length > 0) && (
-        <div class="directory-discovery">
-          {recent.length > 0 && (
-            <section class="discovery-shelf" aria-labelledby="recent-title">
-              <div class="discovery-shelf__heading">
-                <div>
-                  <h2 id="recent-title">Añadidos recientemente</h2>
-                  <p>Nuevas incorporaciones al directorio.</p>
-                </div>
-                <button type="button" data-discovery-sort="recent">Ordenar por recientes</button>
-              </div>
-              <ul class="discovery-shelf__list">
-                {recent.map((resource) => (
-                  <li>
-                    <a href={`#resource-${resource.id}`} data-resource-jump={resource.id}>
-                      <span class="discovery-shelf__meta">{kindLabel(resource.kind)} · {resource.format}</span>
-                      <strong>{resource.title}</strong>
-                      <time datetime={resource.addedAt}>{dateLabel(resource.addedAt!)}</time>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-          {recommended.length > 0 && (
-            <section class="discovery-shelf" aria-labelledby="recommended-title">
-              <div class="discovery-shelf__heading">
-                <div>
-                  <h2 id="recommended-title">Recomendados</h2>
-                  <p>Una selección editorial para empezar a explorar.</p>
-                </div>
-                <button type="button" data-discovery-sort="recommended">Priorizar recomendados</button>
-              </div>
-              <ul class="discovery-shelf__list">
-                {recommended.map((resource) => (
-                  <li>
-                    <a href={`#resource-${resource.id}`} data-resource-jump={resource.id}>
-                      <span class="discovery-shelf__meta">{kindLabel(resource.kind)} · {resource.format}</span>
-                      <strong>{resource.title}</strong>
-                      {resource.country && <span>{countryLabel(resource.country)}</span>}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-        </div>
-      )}
-
-      <h2 class="directory-heading">Explora todos los recursos</h2>
-
       <div class="directory-controls" data-directory-controls>
-        <div class="directory-kinds" role="group" aria-label="Qué quieres explorar">
-          <button class="directory-kind" type="button" data-kind-filter="all" aria-pressed="false">
-            Todos <span class="directory-kind__count">{resources.length}</span>
-          </button>
-          {Object.entries(KIND_LABELS).map(([kind, label]) => (
-            <button class="directory-kind" type="button" data-kind-filter={kind} aria-pressed={kind === 'content'}>
-              {label} <span class="directory-kind__count">{kindCounts[kind]}</span>
-            </button>
-          ))}
-        </div>
-        <label class="sr-only" for="resource-search">Buscar recursos</label>
+        <label class="sr-only" for="resource-search">Buscar en {title.toLowerCase()}</label>
         <input
           id="resource-search"
           class="directory-search"
           type="search"
-          placeholder={searchPlaceholder}
+          placeholder={`Buscar entre ${resources.length} recursos`}
           autocomplete="off"
           spellcheck="false"
           data-resource-search
@@ -124,60 +55,57 @@ const dateLabel = (date: string) => new Intl.DateTimeFormat('es', { day: 'numeri
               {formats.map((format) => <option value={format}>{format}</option>)}
             </select>
           </div>
-          <div class="directory-facet">
+          {topics.length > 0 && <div class="directory-facet">
             <label for="resource-topic">Tema</label>
             <select id="resource-topic" data-topic-filter>
               <option value="">Todos los temas</option>
               {topics.map((topic) => <option value={topic}>{topic}</option>)}
             </select>
-          </div>
-          {countries.length > 0 && (
-            <div class="directory-facet">
-              <label for="resource-country">País de origen</label>
-              <select id="resource-country" data-country-filter>
-                <option value="">Todos los países</option>
-                {countries.map((country) => <option value={country}>{countryLabel(country)}</option>)}
-              </select>
-            </div>
-          )}
-          {levels.length > 0 && (
-            <div class="directory-facet" data-level-field>
-              <label for="resource-level">Nivel</label>
-              <select id="resource-level" data-level-filter>
-                <option value="">Todos los niveles</option>
-                {levels.map((level) => <option value={level}>{levelLabel(level)}</option>)}
-              </select>
-            </div>
-          )}
+          </div>}
+          {countries.length > 0 && <div class="directory-facet">
+            <label for="resource-country">País de origen</label>
+            <select id="resource-country" data-country-filter>
+              <option value="">Todos los países</option>
+              {countries.map((country) => <option value={country}>{countryLabel(country)}</option>)}
+            </select>
+          </div>}
+          {levels.length > 0 && <div class="directory-facet" data-level-field>
+            <label for="resource-level">Nivel</label>
+            <select id="resource-level" data-level-filter>
+              <option value="">Todos los niveles</option>
+              {levels.map((level) => <option value={level}>{levelLabel(level)}</option>)}
+            </select>
+          </div>}
         </div>
       </div>
 
-      {resources.length > 0 ? (
-        <>
-          <div class="directory-list-heading">
-            <p class="directory-result-count" data-result-count aria-live="polite">{resources.length} recursos</p>
-            <div class="directory-facet directory-facet--sort">
-              <label for="resource-sort">Ordenar por</label>
-              <select id="resource-sort" data-sort-filter>
-                <option value="directory">Orden del directorio</option>
-                <option value="recent">Más recientes</option>
-                <option value="recommended">Recomendados</option>
-              </select>
-            </div>
+      {resources.length > 0 ? <>
+        <h2 class="sr-only">Resultados</h2>
+        <div class="directory-list-heading">
+          <p class="directory-result-count" data-result-count aria-live="polite">{resources.length} recursos</p>
+          <div class="directory-facet directory-facet--sort">
+            <label for="resource-sort">Ordenar por</label>
+            <select id="resource-sort" data-sort-filter>
+              <option value="directory">Orden del directorio</option>
+              <option value="recent">Más recientes</option>
+              <option value="recommended">Recomendados</option>
+            </select>
           </div>
-          <ul class="resource-list" data-resource-list>
-            {resources.map((resource, index) => <ResourceCard resource={resource} index={index} source={resourcesById.get(resource.sourceId ?? '')} community={resourcesById.get(resource.communityId ?? '')} event={eventsById.get(resource.eventId ?? '')} />)}
-          </ul>
-          <p class="directory-no-results" data-no-results role="status" hidden>
-            No encontramos recursos con estos filtros.
-          </p>
-          <div class="directory-show-more" data-show-more-wrap>
-            <button class="button button--dark" type="button" data-show-more>Mostrar Todos</button>
-          </div>
-        </>
-      ) : (
-        <p class="directory-empty" role="status">No hay recursos publicados todavía.</p>
-      )}
+        </div>
+        <ul class="resource-list" data-resource-list>
+          {resources.map((resource, index) => <ResourceCard
+            resource={resource}
+            index={index}
+            source={resourcesById.get(resource.sourceId ?? '')}
+            community={resourcesById.get(resource.communityId ?? '')}
+            event={eventsById.get(resource.eventId ?? '')}
+          />)}
+        </ul>
+        <p class="directory-no-results" data-no-results role="status" hidden>No encontramos recursos con estos filtros.</p>
+        <div class="directory-show-more" data-show-more-wrap hidden>
+          <button class="button button--dark" type="button" data-show-more>Mostrar 12 más</button>
+        </div>
+      </> : <p class="directory-empty" role="status">No hay recursos publicados todavía.</p>}
     </div>
   </section>
 </main>
