@@ -1,10 +1,10 @@
 ---
-title: "Recursos en Español para Certificacion AWS Cloud Practitioner"
-description: "Recursos en español para prepararse y obtener la certificación AWS Cloud Practitioner. Encuentra guías, cursos, consejos y estrategias para aprobar el examen y avanzar en tu carrera en la nube de AWS."
+title: "AWS Cloud Practitioner: recursos en español para preparar la certificación"
+description: "Guía de recursos en español para preparar AWS Certified Cloud Practitioner (CLF-C02): documentación oficial, cursos, comunidades, práctica y datos del examen."
 publishedAt: "2024-01-28"
 publishedTimestamp: "2024-01-28T00:31:55.771Z"
 cover: "/assets/blog/8d4ecab3b218a57acfd77f30.jpg"
-coverAlt: "Thumbnail for: Recursos en Español para Certificacion AWS Cloud Practitioner"
+coverAlt: "AWS Cloud Practitioner: recursos en español para preparar la certificación"
 ogImage: "/assets/blog/8d4ecab3b218a57acfd77f30.jpg"
 related:
   - title: "Configuración de Service Discovery en Amazon ECS"
@@ -21,523 +21,193 @@ related:
     imageAlt: ""
 ---
 
-<p>En esta guía encontrarás una recopilación completa de los mejores recursos en español disponibles para prepararte para la certificación AWS Cloud Practitioner.</p>
+*Revisado el 29 de septiembre de 2026 · Examen CLF-C02*
 
+Preparar AWS Cloud Practitioner resulta más sencillo cuando cada recurso tiene una función: la guía oficial define qué estudiar, un curso te ayuda a entenderlo y las preguntas de práctica muestran qué necesitas repasar.
 
-<p>Desde libros y documentación oficial de AWS traducida, hasta cursos en video, podcasts y consejos para aprobar el examen, aquí está todo lo que necesitas para reforzar tus conocimientos en la nube de AWS y obtener esta certificación tan valiosa para impulsar tu carrera.</p>
+Aquí encontrarás una selección de materiales en español, con especial atención a las comunidades de Latinoamérica. La propuesta es seguir un recorrido principal y acudir a explicaciones complementarias cuando aparezca una duda. Así puedes avanzar sin perderte entre cursos que repiten los mismos temas.
 
+**Para empezar hoy:** descarga la [guía oficial del CLF-C02 en español, en PDF](https://docs.aws.amazon.com/es_es/aws-certification/latest/cloud-practitioner-02/cloud-practitioner-02.pdf), elige un curso o una serie de estudio y reserva tu primera sesión para comprender los beneficios de la nube. Para aprender con la comunidad, tienes las grabaciones del [Cloud Practitioner Challenge de Buenos Aires](https://www.youtube.com/playlist?list=PLMg_LIgq4KWfR3bBVwgayGVuhbDItJzp8) y del [Cloud Practitioner Challenge de Medellín](https://youtube.com/playlist?list=PLhbdvasxz8wwO-b9nlRBYYzY6n5CvSOvj). Puedes seguirlas desde cualquier país.
 
-<h2 id="introducci%C3%B3n-a-la-certificaci%C3%B3n-aws-cloud-practitioner" tabindex="-1">Introducción a la Certificación AWS Cloud Practitioner</h2>
+## Qué necesitas aprender para Cloud Practitioner
 
+AWS Certified Cloud Practitioner acredita conocimientos generales de la nube de AWS. El examen cubre el valor de la nube, la seguridad, los servicios principales y los costos. La programación y la implementación de soluciones quedan fuera de su alcance; puedes empezar a prepararte aunque todavía no sepas desarrollar aplicaciones.
 
-<p>La <a href="https://www.youtube.com/watch?v=XR4yIrSpywc" rel="noopener noreferrer" target="_blank">certificación AWS Cloud Practitioner</a> es ideal para cualquier persona que desee validar sus conocimientos básicos sobre los servicios de AWS.</p>
+La [guía vigente del CLF-C02](https://docs.aws.amazon.com/es_es/aws-certification/latest/cloud-practitioner-02/cloud-practitioner-02.html) distribuye el contenido puntuado así:
 
+| Área | Peso |
+|---|---:|
+| Conceptos de la nube | 24% |
+| Seguridad y cumplimiento | 30% |
+| Tecnología y servicios en la nube | 34% |
+| Facturación, precios y soporte | 12% |
 
-<p>Esta certificación entry-level presenta los conceptos básicos de la nube AWS, incluyendo tecnologías, seguridad, arquitectura, precios y soporte. Es un buen primer paso para comenzar una carrera en la nube o transicionar hacia roles de TI en la nube.</p>
+Ten en cuenta estos porcentajes al organizar el repaso, junto con los temas que más te cuesten. Dedica tiempo a comprender la responsabilidad compartida y los permisos, además de reconocer servicios. En costos, aprende a distinguir necesidades como estimar una solución, investigar un gasto o recibir una alerta de presupuesto.
 
+### Si buscas un PDF en español
 
-<h3 id="objetivos-y-relevancia-de-la-certificaci%C3%B3n-aws-cloud-practitioner" tabindex="-1">Objetivos y Relevancia de la Certificación AWS Cloud Practitioner</h3>
+El PDF oficial enlazado arriba es el punto de partida: contiene los objetivos del examen y referencias a los servicios incluidos. Es una guía del alcance, no un libro que explique todo desde cero.
 
+Marca los objetivos que ya puedes explicar y los que te falta trabajar. Así tendrás una referencia común aunque combines materiales de distintos autores.
 
-<p>Los principales temas cubiertos en el examen de certificación <a href="https://www.wetcom.com/en_US/blog/blog-1/como-preparar-la-certificacion-aws-cloud-practitioner-608" rel="noopener noreferrer" target="_blank"><strong>certificacion aws cloud practitioner</strong></a> incluyen:</p>
+## Recursos para construir una base
 
+### Cloud Practitioner Challenge — AWS User Group Buenos Aires
 
-<ul>
-<li>
-<p>Descripción general de los servicios de AWS: EC2, S3, RDS, etc.</p>
-</li>
-<li>
-<p>Beneficios de la nube y la plataforma AWS</p>
-</li>
-<li>
-<p>Modelos de implementación en la nube (nube pública, privada e híbrida)</p>
-</li>
-<li>
-<p>Conceptos básicos de seguridad y cumplimiento</p>
-</li>
-<li>
-<p>Precios y soporte de AWS</p>
-</li>
-<li>
-<p>Arquitectura de la nube AWS</p>
-</li>
-</ul>
+**Formato:** 13 grabaciones de 2023. **Acceso:** gratuito en YouTube.
 
+El [Cloud Practitioner Challenge de Buenos Aires](https://www.youtube.com/playlist?list=PLMg_LIgq4KWfR3bBVwgayGVuhbDItJzp8) organiza las sesiones por servicios y temas: IAM, VPC, EC2, balanceadores y escalado, almacenamiento, CloudFront y Route 53, bases de datos, serverless, seguridad y facturación.
 
-<p>Obtener esta certificación demuestra que tienes una comprensión de alto nivel sobre estas áreas clave. Te prepara para roles más avanzados en la nube, como administrador de sistemas o desarrollador AWS.</p>
+Es especialmente útil como biblioteca de explicaciones: puedes ir a almacenamiento o bases de datos cuando necesites entender esas categorías. La lista incluye sesiones extensas; elige las que respondan a tus dudas y usa los capítulos o la descripción del video para orientarte cuando estén disponibles.
 
+**Son grabaciones anteriores al CLF-C02.** Aprovéchalas para los fundamentos y contrasta el alcance, los precios y los pasos de consola con la guía y la documentación actuales. Más abajo encontrarás enlaces directos a varias de sus sesiones.
 
-<p>Es ideal para cualquier persona interesada en comenzar una carrera en la informática en la nube. También es útil para gerentes técnicos que desean comprender mejor cómo funciona AWS.</p>
+### Cloud Practitioner Challenge — AWS User Group Medellín
 
+**Formato:** sesiones grabadas de la comunidad, publicadas en 2025. **Acceso:** gratuito en YouTube.
 
-<h3 id="estrategias-de-preparaci%C3%B3n-para-el-examen-de-certificaci%C3%B3n-aws-cloud-practitioner" tabindex="-1">Estrategias de Preparación para el Examen de Certificación AWS Cloud Practitioner</h3>
+El [Cloud Practitioner Challenge de Medellín](https://youtube.com/playlist?list=PLhbdvasxz8wwO-b9nlRBYYzY6n5CvSOvj) ofrece un recorrido por temas como identidad, cómputo, bases de datos, redes, monitoreo y costos. Es una opción para estudiar siguiendo las sesiones de un grupo latinoamericano o para buscar una explicación de un tema específico.
 
+Si eliges la serie como recorrido principal, coteja sus temas con la guía del examen y busca un complemento para los objetivos que queden pendientes. Más abajo encontrarás enlaces a sesiones concretas para orientar el repaso.
 
-<p>Aquí hay algunos consejos para prepararse para la <strong>certificacion de aws</strong>:</p>
+Son grabaciones: las condiciones de una convocatoria, las pantallas de la consola y los precios mencionados pueden haber cambiado. Para el alcance del examen y las condiciones vigentes, toma como referencia la documentación actual de AWS.
 
+### Primera sesión de Cloud Practitioner — AWS User Group Querétaro
 
-<ul>
-<li>
-<p>Lee la <strong>Guía de Certificación Cloud Practitioner</strong> de AWS para entender los objetivos del examen.</p>
-</li>
-<li>
-<p>Completa el curso <strong>AWS Cloud Practitioner Essentials</strong> para obtener una visión general de los servicios y la plataforma de AWS.</p>
-</li>
-<li>
-<p>Utiliza recursos como libros, foros de discusión y el examen de práctica oficial para reforzar tus conocimientos.</p>
-</li>
-<li>
-<p>Practica con exámenes de prueba para familiarizarte con los tipos de preguntas.</p>
-</li>
-<li>
-<p>Espera dedicar al menos 60-80 horas distribuidas en varias semanas para prepararte a fondo.</p>
-</li>
-</ul>
+**Formato:** clase introductoria grabada en 2024. **Acceso:** gratuito en YouTube.
 
+La [primera sesión del curso de Cloud Practitioner de Querétaro](https://www.youtube.com/watch?v=FzWYdmKYxjM) presenta fundamentos de AWS. Puedes usarla como una primera toma de contacto antes de seguir una serie más extensa. El enlace lleva a la sesión inicial; comprueba después en la guía qué temas te quedan por estudiar.
 
-<p>Con una preparación dedicada utilizando múltiples <strong>recursos en español</strong>, tendrás un alto potencial de aprobar la certificación a la primera. ¡Buena suerte!</p>
+### AWS Cloud Practitioner Essentials — AWS Skill Builder
 
+**Formato:** curso digital de AWS. **Acceso:** gratuito; requiere una cuenta de Skill Builder y está disponible en español latinoamericano y de España.
 
-<h2 id="%C2%BFcu%C3%A1nto-cuesta-un-certificado-de-aws%3F" tabindex="-1">¿Cuánto cuesta un certificado de AWS?</h2>
+[AWS Cloud Practitioner Essentials](https://skillbuilder.aws/learn/94T2BEN85A/aws-cloud-practitioner-essentials/8D79F3AVR7) es otra opción para organizar el estudio desde los fundamentos. Su recorrido incluye cómputo, infraestructura global, redes, almacenamiento, bases de datos, seguridad, monitoreo y precios.
 
+Si el enlace abre la versión en inglés, utiliza el selector de idiomas de la ficha. Elige este curso como base si prefieres avanzar dentro de una plataforma de formación; luego puedes complementar los temas difíciles con las sesiones de la comunidad. No hace falta terminar ambos recorridos antes de empezar a practicar.
 
-<p>La certificación AWS Cloud Practitioner cuesta 100 dólares por el examen.</p>
+### Una experiencia de preparación desde Colombia — Andrés Guecha
 
+En [Cómo obtener tu certificación de AWS Cloud Practitioner y no morir en el intento](https://dev.to/andresguecha/arquitectura-medallion-para-procesamiento-de-datos-736), Andrés Guecha cuenta su experiencia después de participar en AWS re/Start y explica cómo organizó la preparación con la guía y las preguntas oficiales.
 
-<p>Las certificaciones de nivel Asociado (Associate), como AWS Certified Solutions Architect, cuestan 150 dólares por examen.</p>
+Es una lectura breve para el momento en que empiezas a buscar más y más material porque todavía no te sientes preparado. Úsala como experiencia personal y como invitación a evaluar lo aprendido; el tiempo y el recorrido de otra persona no determinan los tuyos.
 
+## Sesiones de la comunidad para resolver dudas concretas
 
-<p>Las certificaciones de nivel Profesional (Professional) y Especializado (Specialty), como AWS Certified DevOps Engineer Professional, cuestan 300 dólares por examen.</p>
+Una vez que tengas una visión general, elige el refuerzo según la pregunta que todavía no puedes responder. La siguiente selección combina sesiones de Buenos Aires y Medellín con explicaciones de otros creadores. Cada enlace responde a una necesidad de estudio.
 
+### Conceptos de nube y adopción
 
-<p>Así que dependiendo del tipo y nivel de certificación que elijas, puedes esperar pagar entre 100 y 300 dólares por cada examen de <a href="https://podcast.marcia.dev/" rel="noopener noreferrer" target="_blank">certificación de AWS</a>.</p>
+En [Cómo adoptar la nube exitosamente: AWS CAF](https://cloudiostrategy.com/adoptar-la-nube-aws-caf/), Fernando Paz explica por qué adoptar la nube involucra a las personas, los procesos y la organización, además de la tecnología. Es una lectura de 2022 para complementar el bloque de conceptos y adopción.
 
+Para Cloud Practitioner, concéntrate en reconocer para qué sirve AWS Cloud Adoption Framework y cómo ayuda a preparar una organización para el cambio. No necesitas convertir esa lectura en un ejercicio de diseño de una transformación empresarial completa.
 
-<p>Algunos consejos para reducir el costo:</p>
+### Identidades, permisos y seguridad
 
+Para una introducción breve, Marcia Villalba explica usuarios, roles, grupos y permisos en [Qué es AWS IAM](https://www.youtube.com/watch?v=t51vW-BDwF0), un video de 2021 útil para familiarizarte con ese vocabulario.
 
-<ul>
-<li>
-<p>Aprovecha descuentos y ofertas especiales que AWS ofrece ocasionalmente en sus exámenes de certificación.</p>
-</li>
-<li>
-<p>Usa cupones de preparación de exámenes de terceros si están disponibles.</p>
-</li>
-<li>
-<p>Considera bundles de entrenamiento + examen que pueden salir más económicos.</p>
-</li>
-<li>
-<p>Una vez certificado, puedes solicitar la renovación con descuento cuando caduque tu certificación.</p>
-</li>
-</ul>
+Para profundizar, tienes la [sesión de IAM de Buenos Aires](https://www.youtube.com/watch?v=j01Klr4fBkc) y la [sesión de identidad y seguridad de Medellín](https://www.youtube.com/watch?v=PWcl1vwGCrc), que incluye autenticación y autorización. Elige una según la explicación que necesites; no es necesario ver ambas completas.
 
+Después, intenta explicar qué significa conceder solo los permisos necesarios y por qué comprobar quién es una persona no equivale a decidir qué puede hacer. Completa el repaso con el modelo de responsabilidad compartida: las tareas del cliente cambian según el servicio utilizado. El [dominio oficial de seguridad y cumplimiento](https://docs.aws.amazon.com/es_es/aws-certification/latest/cloud-practitioner-02/cloud-practitioner-02-domain2.html) te permite comprobar qué otros objetivos quedan pendientes.
 
-<h2 id="%C2%BFcu%C3%A1nto-dura-la-certificaci%C3%B3n-aws-cloud-practitioner%3F" tabindex="-1">¿Cuánto dura la certificación AWS Cloud Practitioner?</h2>
+### Cómputo: EC2, Lambda y contenedores
 
+La [sesión de cómputo de Medellín](https://www.youtube.com/watch?v=IhxrEubfIfI) reúne EC2, Lambda y las opciones de contenedores ECS y EKS. Si necesitas detenerte en una máquina virtual y su funcionamiento, consulta la [sesión de EC2 de Buenos Aires](https://www.youtube.com/watch?v=bXtb3YViJLA). Para estudiar cómo responder a cambios de demanda, tienes su [sesión de balanceadores y Auto Scaling](https://www.youtube.com/watch?v=b4_OMyQHXgU).
 
-<p>Esta certificación tiene una validez de 3 años. Antes de que caduque su certificación, puede volver a certificarse si vuelve a realizar el examen más reciente de AWS Certified Cloud Practitioner o si se actualiza a cualquiera de las certificaciones de nivel Associate o Professional de AWS.</p>
+Compara para qué sirve cada opción y, a grandes rasgos, qué responsabilidades conserva el cliente. Busca un ejemplo que justifique elegir una máquina virtual, una función o un servicio de contenedores.
 
+El nivel que necesitas para CLF-C02 es introductorio: identificar los servicios y sus usos. Los detalles de implementación pueden quedar para una práctica posterior.
 
-<p>Es importante tener en cuenta que la certificación AWS Cloud Practitioner es un buen primer paso para iniciarse en el mundo de AWS, pero no es suficiente por sí sola para conseguir trabajo como ingeniero de la nube. Se recomienda complementarla con otras certificaciones más técnicas como AWS Solutions Architect o AWS Developer para demostrar habilidades prácticas en servicios de AWS.</p>
+### Almacenamiento y bases de datos
 
+La [sesión de almacenamiento de Buenos Aires](https://www.youtube.com/watch?v=GqYKhnqDDeI) reúne EBS, EFS y S3. Úsala para distinguir almacenamiento en bloques, archivos y objetos. Anota un caso de uso para cada categoría: asociar el servicio con una necesidad ayuda a recordarlo.
 
-<p>Algunos <strong>recursos útiles para prepararse para renovar la certificación</strong> son:</p>
+La [sesión de bases de datos del mismo challenge](https://www.youtube.com/watch?v=UqvVg1X4WIg) complementa ese repaso. Al contrastarla con la guía actual, comprueba que puedas identificar las diferencias básicas entre bases relacionales, NoSQL y servicios de análisis, y reconocer cuándo AWS administra parte de la operación.
 
+### Redes e infraestructura
 
-<ul>
-<li>
-<p>Libros y guías de estudio como la <a href="https://www.aws.training/Details/Curriculum?id=27076" rel="noopener noreferrer" target="_blank">Guía de preparación para la certificación de AWS Cloud Practitioner</a>.</p>
-</li>
-<li>
-<p>Cursos en línea como los de <a href="https://acloudguru.com/course/aws-certified-cloud-practitioner-espanol" rel="noopener noreferrer" target="_blank">A Cloud Guru</a> o Linux Academy.</p>
-</li>
-<li>
-<p>Exámenes de práctica en la <a href="https://explore.skillbuilder.aws/" rel="noopener noreferrer" target="_blank">AWS Skill Builder</a> para poner a prueba tus conocimientos.</p>
-</li>
-<li>
-<p>Comunidades en línea como /r/AWSCertifications en Reddit para discutir el contenido del examen.</p>
-</li>
-</ul>
+Para las bases de redes, tienes la [sesión de VPC de Buenos Aires](https://www.youtube.com/watch?v=P53OftYxmtI) y la [sesión de redes de Medellín](https://www.youtube.com/watch?v=Fx1VXYbT53I). Si la duda está en DNS o distribución de contenido, ve a [CloudFront y Route 53, del challenge de Buenos Aires](https://www.youtube.com/watch?v=sbsoXDa0G-A).
 
+Para repasar, dibuja una región con dos zonas de disponibilidad y sitúa una aplicación de ejemplo. Después explica dónde encaja una VPC y qué función cumple CloudFront. Mantén separadas las ideas de ubicación geográfica, aislamiento de red y distribución de contenido; compartir un diagrama no las convierte en lo mismo.
 
-<p>En resumen, es buena idea <strong>renovar la certificación cada 2-3 años</strong> para demostrar que tus habilidades se mantienen actualizadas. Combinando la certificación con experiencia práctica en proyectos reales de AWS se puede llegar más lejos en esta industria.</p>
+### Monitoreo y costos
 
+La [sesión de monitoreo y administración de costos de Medellín](https://www.youtube.com/watch?v=2cGwdSTdUqQ) incluye CloudWatch, CloudTrail, AWS Budgets y Cost Explorer.
 
-<h2 id="%C2%BFqu%C3%A9-es-el-aws-cloud-practitioner%3F" tabindex="-1">¿Qué es el AWS Cloud Practitioner?</h2>
+Si prefieres leer, Sheyla Leacock explica CloudWatch, X-Ray y CloudTrail en [Observabilidad en la nube de AWS](https://dev.to/aws-builders/observabilidad-en-la-nube-de-aws-explorando-cloudwatch-x-ray-y-cloudtrail-5d9m). El artículo está en español y ayuda a situar el monitoreo, el rastreo de solicitudes y la auditoría; la charla adicional que enlaza está en inglés.
 
+Practica con necesidades distintas: conocer el comportamiento de una aplicación, investigar acciones realizadas en una cuenta, revisar gastos y recibir alertas de presupuesto. Para completar el bloque, estudia también la función de AWS Pricing Calculator, las modalidades de compra y las opciones de soporte indicadas en el [dominio de facturación, precios y soporte](https://docs.aws.amazon.com/es_es/aws-certification/latest/cloud-practitioner-02/cloud-practitioner-02-domain4.html).
 
-<p>Esta certificación ayuda a que las organizaciones identifiquen y desarrollen talentos con conocimientos esenciales relacionados con la implementación de iniciativas en la nube.</p>
+Estas sesiones son complementos temáticos. Usa la guía oficial para comprobar los objetivos que todavía te falten, incluidos los servicios que no aparecen en esta selección.
 
+## Cómo convertir los recursos en un plan de estudio
 
-<p>La certificación AWS Cloud Practitioner es ideal para cualquier persona que desee validar sus conocimientos básicos sobre AWS y los servicios en la nube.</p>
+### 1. Recorre los fundamentos con una sola base
 
+Elige una base y, a medida que avances, prepara fichas con el problema que resuelve cada servicio y un ejemplo de uso.
 
-<h3 id="beneficios-clave" tabindex="-1">Beneficios clave</h3>
+Una ficha útil podría decir: “Amazon S3 almacena objetos; lo usaría para guardar imágenes de una aplicación”. Después puedes relacionarlo con un servicio de base de datos: las imágenes y los registros de pedidos cumplen funciones diferentes, aunque pertenezcan a la misma aplicación.
 
+### 2. Comprueba lo que entiendes
 
-<ul>
-<li>
-<p>Demuestra comprensión de conceptos básicos de AWS y la nube</p>
-</li>
-<li>
-<p>Valida habilidades para explicar los beneficios del cloud computing</p>
-</li>
-<li>
-<p>Sirve como punto de partida antes de otras certificaciones técnicas de AWS</p>
-</li>
-<li>
-<p>Mejora el perfil profesional en tecnologías cloud</p>
-</li>
-<li>
-<p>Prepara para roles entry-level en AWS y la industria cloud</p>
-</li>
-</ul>
+Dedica una parte del estudio a explicar lo aprendido sin consultar apuntes. Registra las diferencias que todavía te cuestan: región y zona de disponibilidad, autenticación y autorización, métricas y registros de actividad. Esas dudas te indican qué sesión volver a consultar.
 
+### 3. Practica preguntas y revisa las explicaciones
 
-<h3 id="contenidos-del-examen" tabindex="-1">Contenidos del examen</h3>
+El [área oficial de preparación para Cloud Practitioner en Skill Builder](https://skillbuilder.aws/category/exam-prep/cloud-practitioner-foundational-CLF-C02) reúne actividades de preparación y evaluación. Busca la versión en español y comprueba el acceso de cada actividad: Skill Builder combina recursos gratuitos con otros que requieren suscripción.
 
+Como complemento de la comunidad, Joan Amengual presenta [diez preguntas tipo examen CLF-C02 con explicaciones en español](https://www.youtube.com/watch?v=IydkkZO-feI). Pausa antes de conocer la respuesta, elige una opción y anota tu razonamiento; después compáralo con la explicación. Es un ejercicio de práctica del creador, separado del material oficial de AWS.
 
-<p>Los temas que cubre el examen de certificación incluyen:</p>
+Cuando respondas una pregunta, explica por qué elegirías esa opción y por qué descartarías las demás. Si aciertas sin poder explicar el motivo, o solo porque recuerdas una pregunta anterior, marca el concepto para repasarlo.
 
+Prioriza preguntas con explicaciones y referencias. Los bancos que prometen preguntas reales del examen pueden fomentar la memorización y dejarte sin una forma fiable de comprobar lo que entendiste.
 
-<ul>
-<li>
-<p>Introducción a la nube AWS</p>
-</li>
-<li>
-<p>Seguridad y cumplimiento</p>
-</li>
-<li>
-<p>Tecnología de AWS</p>
-</li>
-<li>
-<p>Almacenamiento y bases de datos de AWS</p>
-</li>
-<li>
-<p>Redes de AWS</p>
-</li>
-<li>
-<p>Migración y despliegue en AWS</p>
-</li>
-<li>
-<p>Monitoreo y análisis en AWS</p>
-</li>
-<li>
-<p>Precios y soporte de AWS</p>
-</li>
-</ul>
+### 4. Vuelve a la guía antes de reservar
 
+Revisa los objetivos pendientes y trabaja primero en las lagunas que se repiten. Una señal de progreso es poder resolver preguntas nuevas y explicar tus decisiones, incluso cuando cambia el ejemplo.
 
-<p>Es un examen amplio que valida la comprensión general sobre los productos, servicios y funcionalidades disponibles en la plataforma AWS.</p>
+No hay una cantidad de horas que garantice estar preparado. Si ya trabajas con AWS, quizá necesites reforzar sobre todo costos o soporte; si partes de cero, tendrás que dedicar más tiempo al vocabulario y a relacionar los servicios.
 
+## Practicar sin abrir una cuenta de AWS con tarjeta
 
-<h3 id="preparaci%C3%B3n-recomendada" tabindex="-1">Preparación recomendada</h3>
+Para leer la guía, ver las sesiones y estudiar los conceptos no necesitas una cuenta de AWS donde desplegar recursos.
 
+Si quieres llevar algunas ideas a la práctica, [AWS Educate](https://aws.amazon.com/es/education/awseducate/) ofrece formación y laboratorios gratuitos para principiantes sin tarjeta de crédito. Requiere registro; revisa el idioma de la actividad que elijas.
 
-<p>Para prepararte, te recomendamos:</p>
+La práctica puede ayudarte a reconocer lo que estudias, pero no necesitas construir una aplicación completa para este examen. Si sigues una demostración usando tu propia cuenta de AWS, comprueba las condiciones actuales de uso gratuito y los recursos que debes eliminar al terminar. Que el video sea gratuito no significa que los servicios utilizados lo sean.
 
+## Encuentra una comunidad donde puedas participar
 
-<ul>
-<li>
-<p>Tomar el curso gratuito <a href="https://www.aws.training/Details/Curriculum?id=27076" rel="noopener noreferrer" target="_blank">AWS Cloud Practitioner Essentials</a></p>
-</li>
-<li>
-<p>Leer la <a href="https://d1.awsstatic.com/training-and-certification/docs-cloud-practitioner/AWS-Certified-Cloud-Practitioner_Exam-Guide.pdf" rel="noopener noreferrer" target="_blank">Guía de Certificación Cloud Practitioner</a></p>
-</li>
-<li>
-<p>Practicar con exámenes de prueba como los de AWS Training o <a href="https://explore.skillbuilder.aws/learn" rel="noopener noreferrer" target="_blank">AWS Skills Builder</a></p>
-</li>
-<li>
-<p>Participar en foros como /r/AWSCertifications para discusiones sobre el examen</p>
-</li>
-</ul>
+Busca un grupo cuya ubicación, modalidad y horarios te permitan participar:
 
+- **Si eres estudiante**, explora los [Student Builder Groups del directorio](https://dondeaprendoaws.com/comunidades/?format=Student+Builder+Group). Filtra por tu país y busca tu universidad o una institución cercana. Consulta los requisitos de participación de cada grupo.
+- **Si buscas una comunidad abierta de usuarios**, revisa los [AWS User Groups](https://dondeaprendoaws.com/comunidades/?format=User+Group) de tu ciudad o región.
+- **Si prefieres estudiar a distancia**, consulta la [agenda de eventos](https://dondeaprendoaws.com/eventos/) y filtra por modalidad virtual. Comprueba el idioma, la zona horaria y las condiciones de inscripción.
 
-<p>Con dedicación y estudio constante de estos recursos, estarás listo para aprobar el examen y certificarte como AWS Cloud Practitioner.</p>
+Lleva una duda concreta a esas conversaciones. “Entiendo que RDS administra parte de la base de datos, pero no sé qué responsabilidades conserva el cliente” da a otra persona un punto de partida para ayudarte. Puedes compartir después el recurso que te aclaró la duda, con un enlace al autor original.
 
+## Lo que debes saber antes de rendir
 
-<h2 id="%C2%BFc%C3%B3mo-certificarse-en-aws%3F" tabindex="-1">¿Cómo certificarse en AWS?</h2>
+Según la [ficha oficial de AWS Certified Cloud Practitioner](https://aws.amazon.com/es/certification/certified-cloud-practitioner/):
 
+| Dato | Condición publicada |
+|---|---|
+| Versión del examen | CLF-C02 |
+| Duración | 90 minutos |
+| Preguntas | 65, de opción única o respuesta múltiple |
+| Idioma | Disponible en español de Latinoamérica y de España |
+| Precio base | 100 USD por intento; pueden aplicarse impuestos |
+| Modalidad | Centro Pearson VUE o supervisión en línea |
+| Vigencia de la certificación | 3 años |
 
-<p>AWS Skill Builder es una excelente manera de prepararse para la certificación AWS Cloud Practitioner. Ofrece tres ventajas clave:</p>
+La calificación mínima es **700 en una escala de 100 a 1000**. No equivale a una regla de “70% de respuestas correctas”: AWS utiliza una puntuación escalada. El sistema de calificación está explicado en la [guía del CLF-C02](https://docs.aws.amazon.com/es_es/aws-certification/latest/cloud-practitioner-02/cloud-practitioner-02.html).
 
+Estudiar con materiales gratuitos no incluye automáticamente el pago del examen. Comprueba los [precios y las condiciones de AWS](https://aws.amazon.com/es/certification/policies/before-testing/) al reservar.
 
-<ul>
-<li>Aprendizaje a su propio ritmo</li>
-</ul>
+Si ya tienes la certificación, revisa las [opciones oficiales de recertificación](https://aws.amazon.com/es/certification/recertification/). Entre ellas está AWS Cloud Quest: Recertify Cloud Practitioner, una opción gratuita disponible cuando a la credencial vigente le quedan seis meses o menos. Comprueba los requisitos de la vía que elijas antes de que venza tu certificación.
 
+## Tu próximo paso
 
-<p>Puede completar los cursos de preparación para la certificación a su propio ritmo. Esto le permite adaptar el aprendizaje a su horario y preferencias. Los cursos cubren todos los temas que necesita saber para el examen.</p>
+Abre la guía, elige el primer objetivo que necesitas trabajar y empieza con el recurso correspondiente. Cuando una explicación te ayude, guarda el enlace y el nombre de quien la creó: tendrás a dónde volver y una buena recomendación para otra persona que esté empezando.
 
-
-<ul>
-<li>Práctica con laboratorios</li>
-</ul>
-
-
-<p>Los laboratorios prácticos son esenciales para obtener experiencia con los servicios de AWS. Puede poner en práctica lo aprendido en situaciones reales en el entorno de AWS. Esto desarrolla las habilidades necesarias para aprobar el examen.</p>
-
-
-<ul>
-<li>Exámenes de práctica</li>
-</ul>
-
-
-<p>Los exámenes de práctica simulan las condiciones reales del examen de certificación. Le permiten evaluar sus conocimientos y preparación antes de presentarse al examen real. Identifique sus áreas más débiles para enfocar su estudio.</p>
-
-
-<p>En resumen, AWS Skill Builder, con su combinación de cursos, laboratorios y exámenes de práctica, es la mejor manera de prepararse para obtener la certificación AWS Cloud Practitioner. Le recomendamos completar el plan de aprendizaje para garantizar su éxito.</p>
-
-
-
-
-<h2 id="recursos-en-espa%C3%B1ol-para-la-preparaci%C3%B3n-de-la-certificaci%C3%B3n-aws-cloud-practitioner" tabindex="-1">Recursos en Español para la Preparación de la Certificación AWS Cloud Practitioner</h2>
-
-
-<p>La certificación AWS Cloud Practitioner es ideal para cualquier persona que desee validar sus conocimientos básicos sobre los servicios y la plataforma de AWS. A continuación presentamos una lista de los mejores recursos disponibles en español para prepararse para este examen de certificación:</p>
-
-
-<h3 id="gu%C3%ADa-de-certificaci%C3%B3n-cloud-practitioner-y-documentaci%C3%B3n-oficial-aws" tabindex="-1">Guía de Certificación Cloud Practitioner y Documentación Oficial AWS</h3>
-
-
-<p>Directamente desde el sitio web de AWS puedes acceder a la guía oficial de preparación para la certificación. Incluye una descripción general de los temas cubiertos en el examen y consejos prácticos para estudiar.</p>
-
-
-<p>Además, la documentación técnica de cada servicio AWS está disponible en español, lo que te permite profundizar en cualquier área de interés a través de tutoriales, ejemplos de código y casos de uso reales.</p>
-
-
-<h2 id="claves-para-superar-el-examen-certificaci%C3%B3n-aws-cloud-practitioner" tabindex="-1">Claves para Superar el Examen Certificación AWS Cloud Practitioner</h2>
-
-
-<p>La certificación AWS Cloud Practitioner es un excelente punto de partida para validar tus conocimientos básicos sobre la nube de AWS. A continuación, compartimos algunos consejos prácticos para ayudarte a prepararte y aprobar el examen.</p>
-
-
-<h3 id="entendiendo-la-estructura-del-examen-de-certificaci%C3%B3n-aws-cloud-practitioner" tabindex="-1">Entendiendo la Estructura del Examen de Certificación AWS Cloud Practitioner</h3>
-
-
-<p>El examen consta de 65 preguntas de opción múltiple que debes completar en 90 minutos como máximo. AWS recomienda dedicar al menos 60 minutos para responder todas las preguntas con calma.</p>
-
-
-<p>Es importante administrar bien el tiempo y no quedarse estancado en preguntas difíciles. Puedes marcar las preguntas y volver a ellas más tarde.</p>
-
-
-<h3 id="puntuaci%C3%B3n-y-criterios-de-aprobaci%C3%B3n-del-aws-cloud-practitioner" tabindex="-1">Puntuación y Criterios de Aprobación del AWS Cloud Practitioner</h3>
-
-
-<p>Necesitas obtener una puntuación mínima del 70% para aprobar el examen y recibir la certificación. AWS no aplica penalizaciones por respuestas incorrectas, así que conviene intentar responder todas las preguntas.</p>
-
-
-<h3 id="tipos-de-preguntas-en-el-examen-aws-cloud-practitioner" tabindex="-1">Tipos de Preguntas en el Examen AWS Cloud Practitioner</h3>
-
-
-<p>La mayoría de las preguntas son situacionales y miden tu capacidad de elegir la mejor solución de AWS ante un escenario específico. Otras preguntas son más conceptuales y evalúan tus conocimientos generales de la terminología y los servicios de AWS.</p>
-
-
-<h3 id="estrategias-efectivas-para-el-examen-aws-cloud-practitioner" tabindex="-1">Estrategias Efectivas para el Examen AWS Cloud Practitioner</h3>
-
-
-<ul>
-<li>
-<p>Lee atentamente cada pregunta antes de ver las opciones de respuesta.</p>
-</li>
-<li>
-<p>Elimina las opciones claramente incorrectas y luego analiza cuidadosamente las que quedan.</p>
-</li>
-<li>
-<p>Si no estás seguro de la respuesta, márcala para revisarla después.</p>
-</li>
-<li>
-<p>Gestiona bien el tiempo y no te quedes mucho rato en preguntas difíciles.</p>
-</li>
-<li>
-<p>Confía en lo que has estudiado durante la preparación.</p>
-</li>
-</ul>
-
-
-<p>Con una buena preparación y siguiendo estas recomendaciones, tendrás más posibilidades de aprobar el examen de certificación <strong>AWS Cloud Practitioner</strong> a la primera. ¡Mucha suerte!</p>
-
-
-<h2 id="manteniendo-la-certificaci%C3%B3n-de-aws-vigente" tabindex="-1">Manteniendo la Certificación de AWS Vigente</h2>
-
-
-<h3 id="periodo-de-validez-y-renovaci%C3%B3n-de-la-certificaci%C3%B3n-aws-cloud-practitioner" tabindex="-1">Periodo de Validez y Renovación de la Certificación AWS Cloud Practitioner</h3>
-
-
-<p>La certificación AWS Cloud Practitioner tiene una validez de 3 años. Esto significa que una vez obtenida, es válida por 3 años antes de que necesites renovarla.</p>
-
-
-<p>Por ejemplo, si obtuviste la certificación el 1 de enero de 2023, esta será válida hasta el 31 de diciembre de 2025. Pasada esa fecha, necesitarás renovar tu credencial para mantener tu estatus de certificación vigente.</p>
-
-
-<p>Es importante tener en cuenta las fechas de expiración y renovar la certificación a tiempo para evitar perder tu estatus de certificado AWS Cloud Practitioner.</p>
-
-
-<h3 id="proceso-de-renovaci%C3%B3n-de-la-certificaci%C3%B3n-de-aws" tabindex="-1">Proceso de Renovación de la Certificación de AWS</h3>
-
-
-<p>El proceso para renovar la certificación AWS Cloud Practitioner es sencillo:</p>
-
-
-<ul>
-<li>
-<p>Inscríbete y paga por el examen de renovación en el sitio web de certificación de AWS. El costo del examen de renovación es de $75 USD.</p>
-</li>
-<li>
-<p>Rinde y aprueba el examen de renovación antes de la fecha de expiración de tu certificación actual. El contenido del examen es similar al examen de certificación inicial.</p>
-</li>
-<li>
-<p>Una vez aprobado el examen, tu credencial de AWS Cloud Practitioner será renovada por 3 años adicionales a partir de la fecha de expiración anterior.</p>
-</li>
-</ul>
-
-
-<p>Por ejemplo, si tu certificación expiraba el 31 de diciembre de 2025 y rendiste el examen de renovación el 1 de noviembre de 2025, la nueva fecha de expiración sería el 31 de diciembre de 2028.</p>
-
-
-<h3 id="explorando-certificaciones-aws-avanzadas" tabindex="-1">Explorando Certificaciones AWS Avanzadas</h3>
-
-
-<p>Una vez obtengas la certificación AWS Cloud Practitioner, te recomendamos explorar certificaciones más avanzadas de AWS para continuar desarrollando tus habilidades en la nube.</p>
-
-
-<p>Algunas de las certificaciones recomendadas son:</p>
-
-
-<ul>
-<li>
-<p><strong>AWS Certified Solutions Architect Associate</strong>: para diseñar soluciones de infraestructura escalables y de alto rendimiento en AWS.</p>
-</li>
-<li>
-<p><strong>AWS Certified Developer Associate</strong>: para desarrollar y desplegar aplicaciones seguras y escalables en AWS.</p>
-</li>
-<li>
-<p><strong>AWS Certified SysOps Administrator Associate</strong>: para implementar, administrar y operar cargas de trabajo en AWS.</p>
-</li>
-<li>
-<p><strong>AWS Certified DevOps Engineer Professional</strong>: para implementar prácticas de DevOps y CI/CD en AWS.</p>
-</li>
-</ul>
-
-
-<p>Cada nivel de certificación (Asociado, Profesional, Especializado) valida habilidades más avanzadas en servicios de AWS, por lo que te permitirán destacar aún más en tu carrera.</p>
-
-
-<p>¡Sigue preparándote con recursos como los de Dónde Aprendo AWS para <a href="https://cloudiostrategy.com/adoptar-la-nube-aws-caf/" rel="noopener noreferrer" target="_blank">dominar la nube de AWS</a>!</p>
-
-
-<h2 id="explorando-oportunidades-laborales-con-la-certificaci%C3%B3n-aws-cloud-practitioner" tabindex="-1">Explorando Oportunidades Laborales con la Certificación AWS Cloud Practitioner</h2>
-
-
-<p>La certificación AWS Cloud Practitioner es una excelente manera de iniciar una carrera en la nube. Esta credencial demuestra conocimientos básicos sobre los servicios y la terminología de AWS, lo cual abre puertas a varios roles en el sector.</p>
-
-
-<h3 id="roles-y-perfiles-profesionales-para-certificados-en-aws" tabindex="-1">Roles y Perfiles Profesionales para Certificados en AWS</h3>
-
-
-<p>Algunos roles comunes para los que la certificación AWS Cloud Practitioner es relevante:</p>
-
-
-<ul>
-<li>
-<p><strong>Asociado técnico de soporte de AWS:</strong> Brinda soporte de nivel 1 a clientes de AWS. Resuelve consultas básicas sobre la consola y los servicios.</p>
-</li>
-<li>
-<p><strong>Asociado de ventas de soluciones en la nube</strong>: Promueve servicios de AWS a potenciales clientes. Explica conceptos y beneficios de la nube a nivel introductorio.</p>
-</li>
-<li>
-<p><strong>Administrador junior de sistemas cloud:</strong> Administra recursos y servicios en la nube para proyectos pequeños. Realiza tareas básicas en la consola de AWS.</p>
-</li>
-<li>
-<p><strong>Desarrollador junior backend:</strong> Desarrolla aplicaciones que utilizan servicios de AWS como bases de datos, almacenamiento, etc.</p>
-</li>
-</ul>
-
-
-<h3 id="estrategias-de-b%C3%BAsqueda-de-empleo-en-el-sector-cloud" tabindex="-1">Estrategias de Búsqueda de Empleo en el Sector Cloud</h3>
-
-
-<p>Algunos consejos para encontrar trabajo con la certificación:</p>
-
-
-<ul>
-<li>
-<p>Buscar ofertas en LinkedIn, Computrabajo, Indeed y portales de empleos especializados en tecnología. Utilizar palabras clave como “AWS”, “Cloud”, “DevOps”, etc.</p>
-</li>
-<li>
-<p>Postular a programas de entrenamiento en la nube de AWS, Microsoft y Google. Muchos incluyen colocación laboral.</p>
-</li>
-<li>
-<p>Asistir a meetups y conferencias sobre tecnologías cloud para crear contactos y oportunidades.</p>
-</li>
-<li>
-<p>Armar un portfolio en GitHub con proyectos personales que utilicen servicios de AWS.</p>
-</li>
-</ul>
-
-
-<h2 id="conclusi%C3%B3n%3A-consolidando-el-aprendizaje-y-avanzando-en-la-carrera" tabindex="-1">Conclusión: Consolidando el Aprendizaje y Avanzando en la Carrera</h2>
-
-
-<h3 id="repaso-de-conceptos-clave-para-la-certificaci%C3%B3n-aws-cloud-practitioner" tabindex="-1">Repaso de Conceptos Clave para la Certificación AWS Cloud Practitioner</h3>
-
-
-<p>Para aprobar el examen de certificación AWS Cloud Practitioner, es importante dominar conceptos clave como:</p>
-
-
-<ul>
-<li>
-<p>Tipos de servicios de AWS (IaaS, PaaS, SaaS)</p>
-</li>
-<li>
-<p>Seguridad y cumplimiento en la nube de AWS</p>
-</li>
-<li>
-<p>Almacenamiento y bases de datos en AWS</p>
-</li>
-<li>
-<p>Redes y entrega de contenido en AWS</p>
-</li>
-<li>
-<p>Costos y facturación de AWS</p>
-</li>
-</ul>
-
-
-<p>Revisa estos temas a fondo, practica con exámenes de prueba, y asegúrate de entender cómo se relacionan estos conceptos entre sí dentro de la plataforma de AWS.</p>
-
-
-<h3 id="plan-de-desarrollo-profesional-con-certificaciones-aws" tabindex="-1">Plan de Desarrollo Profesional con Certificaciones AWS</h3>
-
-
-<p>Una vez obtengas la certificación de <strong>certificacion aws cloud practitioner</strong>, puedes continuar expandiendo tus habilidades técnicas y oportunidades profesionales con otras credenciales de AWS:</p>
-
-
-<ul>
-<li>
-<p>Certificación AWS Solutions Architect Associate: enfocada en diseño de arquitecturas escalables y de alta disponibilidad en AWS.</p>
-</li>
-<li>
-<p>Certificación AWS Developer Associate: cubre habilidades de desarrollo y despliegue de aplicaciones en la nube de AWS.</p>
-</li>
-<li>
-<p>Certificación AWS SysOps Administrator Associate: se enfoca en implementación, administración y operaciones en AWS.</p>
-</li>
-</ul>
-
-
-<p>Planea tu ruta de aprendizaje en AWS escogiendo la próxima certificación más relevante para tus metas profesionales.</p>
-
-
-<h3 id="aws-cloud-practitioner-pdf-espa%C3%B1ol" tabindex="-1">AWS Cloud Practitioner PDF Español</h3>
-
-
-<p>Plataformas como <strong>Dónde Aprendo AWS</strong> ofrecen <strong>recursos en español</strong> actualizados sobre tecnologías y servicios de AWS. Suscríbete al blog, revisa los foros de discusión y utiliza la plataforma para seguir desarrollando tus habilidades en la nube. Con dedicación y práctica constante, podrás dominar completamente el uso e implementación de soluciones en AWS, abriendo nuevas oportunidades en tu carrera.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-basica/">Guía Básica para Certificaciones de AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/certificacion-de-aws-preparacion-sin-costo/">Certificación de AWS: Preparación sin Costo</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-de-inicio/">Certificaciones AWS: Por Dónde Empezar</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-preparacion-para-el-examen/">Cómo Prepararte Para un Examen de Certificación de AWS</a></li>
-</ul>
-</p>
+La certificación puede ayudarte a ordenar y demostrar tus fundamentos. Las explicaciones, los proyectos y las personas que descubras mientras estudias te darán una base para seguir aprendiendo después del examen.
