@@ -62,22 +62,34 @@ export function upcomingEvents(events, now = new Date()) {
     .sort((left, right) => Date.parse(left.startsAt) - Date.parse(right.startsAt) || left.id.localeCompare(right.id));
 }
 
-/** Show a co-hosted Meetup event once even when groups post separate listings. */
-export function uniqueUpcomingEvents(events, now = new Date()) {
-  const seenUrls = new Set();
-  const seenSessions = new Set();
-  return upcomingEvents(events, now).filter((event) => {
+/** Group co-hosted listings while keeping the same single representative per event. */
+export function uniqueUpcomingEventGroups(events, now = new Date()) {
+  const groups = [];
+  const groupByUrl = new Map();
+  const groupBySession = new Map();
+  for (const event of upcomingEvents(events, now)) {
     const url = new URL(event.registrationUrl);
     const canonicalUrl = `${url.origin}${url.pathname.replace(/\/$/u, '')}`;
     const title = event.title.normalize('NFD').replace(/[\u0300-\u036f]/gu, '').toLocaleLowerCase('es')
       .replace(/[^a-z0-9]+/gu, ' ').trim();
     const location = event.mode === 'online' ? 'online' : (event.country ?? 'unspecified');
     const session = `${Date.parse(event.startsAt)}:${title}:${location}`;
-    if (seenUrls.has(canonicalUrl) || seenSessions.has(session)) return false;
-    seenUrls.add(canonicalUrl);
-    seenSessions.add(session);
-    return true;
-  });
+    const existingGroup = groupByUrl.get(canonicalUrl) ?? groupBySession.get(session);
+    if (existingGroup) {
+      existingGroup.events.push(event);
+      continue;
+    }
+    const group = { event, events: [event] };
+    groups.push(group);
+    groupByUrl.set(canonicalUrl, group);
+    groupBySession.set(session, group);
+  }
+  return groups;
+}
+
+/** Show a co-hosted Meetup event once even when groups post separate listings. */
+export function uniqueUpcomingEvents(events, now = new Date()) {
+  return uniqueUpcomingEventGroups(events, now).map(({ event }) => event);
 }
 
 export function eventDateLabel(instant, timeZone) {

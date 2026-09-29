@@ -13,6 +13,34 @@ const TYPE_LABELS = Object.freeze({
 
 export { TYPE_LABELS };
 
+const SEARCH_STOP_WORDS = new Set([
+  'a', 'al', 'como', 'con', 'de', 'del', 'e', 'el', 'en', 'es', 'la', 'las', 'lo', 'los',
+  'o', 'para', 'por', 'que', 'un', 'una', 'unas', 'uno', 'unos', 'y',
+]);
+
+const SEARCH_FIELD_WEIGHTS = Object.freeze({
+  title: 10,
+  topics: 8,
+  search: 5,
+  description: 3,
+  meta: 2,
+  metadata: 1,
+});
+
+function searchWords(value = '') {
+  return normalizeSearch(Array.isArray(value) ? value.join(' ') : value)
+    .match(/[\p{L}\p{N}]+/gu) ?? [];
+}
+
+function hasSearchWord(fieldWords, word) {
+  if (fieldWords.has(word)) return true;
+  if (word.length < 4) return false;
+  for (const fieldWord of fieldWords) {
+    if (fieldWord.startsWith(word)) return true;
+  }
+  return false;
+}
+
 function markdownHeadings(body = '') {
   const markdown = [...body.matchAll(/^#{1,6}\s+(.+)$/gm)]
     .map(([, heading]) => heading.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/[\*_`#]/g, '').trim())
@@ -53,7 +81,7 @@ export function buildSearchIndex(posts, catalog, learningPaths = []) {
         description: record.description,
         url: eventHref(record),
         meta: record.organizer,
-        search: [record.place, record.city, record.country].filter(Boolean).join(' '),
+        metadata: [record.place, record.city, record.country].filter(Boolean).join(' '),
         endsAt: record.endsAt,
       }
     : {
@@ -62,7 +90,8 @@ export function buildSearchIndex(posts, catalog, learningPaths = []) {
         description: record.description,
         url: resourceHref(record),
         meta: record.format,
-        search: [record.category, ...record.topics, record.country, record.level].filter(Boolean).join(' '),
+        topics: [record.category, ...record.topics].filter(Boolean),
+        metadata: [record.country, record.level].filter(Boolean).join(' '),
       });
 
   const paths = learningPaths.map((path) => ({
@@ -85,24 +114,30 @@ export function aggregateSearchData(query, type, count) {
   };
 }
 
-/** Every term must occur; title hits rank above descriptions and metadata. */
+/** Every meaningful term must occur; titles, topic tags, and headings lead incidental mentions. */
 export function searchIndex(index, query, type = '', now = Date.now()) {
-  const words = [...new Set(normalizeSearch(query).match(/[\p{L}\p{N}]+/gu) ?? [])];
+  const words = [...new Set(searchWords(query).filter((word) => !SEARCH_STOP_WORDS.has(word)))];
   if (!words.length) return [];
-  return index.map((entry, order) => {
+  const candidates = index.map((entry, order) => {
     if ((type && entry.type !== type) || (entry.type === 'event' && Date.parse(entry.endsAt) <= now)) return null;
-    const title = normalizeSearch(entry.title);
-    const description = normalizeSearch(entry.description);
-    const meta = normalizeSearch(entry.meta);
-    const extra = normalizeSearch(entry.search);
+    const fields = Object.fromEntries(Object.keys(SEARCH_FIELD_WEIGHTS).map((field) => [
+      field,
+      new Set(searchWords(entry[field])),
+    ]));
+    return { entry, order, fields };
+  }).filter(Boolean);
+  const inverseDocumentFrequency = new Map(words.map((word) => {
+    const documentFrequency = candidates.filter(({ fields }) => Object.values(fields)
+      .some((fieldWords) => hasSearchWord(fieldWords, word))).length;
+    return [word, Math.log(1 + (candidates.length - documentFrequency + 0.5) / (documentFrequency + 0.5))];
+  }));
+  return candidates.map(({ entry, order, fields }) => {
     let score = 0;
     for (const word of words) {
-      const weight = title.includes(word) ? 6
-        : description.includes(word) ? 3
-          : meta.includes(word) ? 2
-            : extra.includes(word) ? 1 : 0;
+      const weight = Object.entries(SEARCH_FIELD_WEIGHTS)
+        .find(([field]) => hasSearchWord(fields[field], word))?.[1] ?? 0;
       if (!weight) return null;
-      score += weight;
+      score += weight * inverseDocumentFrequency.get(word);
     }
     return { entry, score, order };
   }).filter(Boolean)

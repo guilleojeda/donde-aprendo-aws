@@ -26,9 +26,8 @@ if (form) {
   }));
 
   const messages = {
-    success: '¡Gracias! Guardamos tu contenido y queda pendiente de revisión.',
     400: 'Revisa los datos del formulario e inténtalo de nuevo.',
-    409: 'Ese enlace ya está registrado en el directorio.',
+    409: 'Ese enlace ya está registrado o tiene un envío pendiente de revisión editorial. No hace falta enviarlo de nuevo.',
     413: 'La información enviada es demasiado larga. Reduce el texto e inténtalo de nuevo.',
     415: 'No pudimos procesar este envío. Inténtalo de nuevo.',
     429: 'Recibimos muchos envíos en poco tiempo. Espera unos minutos e inténtalo de nuevo.',
@@ -41,6 +40,40 @@ if (form) {
     if (!status) return;
     status.textContent = message;
     status.dataset.status = type;
+    status.hidden = false;
+    status.focus();
+  };
+
+  const showReceipt = ({ id, submittedAt } = {}) => {
+    if (!status) return;
+
+    status.replaceChildren();
+    status.append('¡Gracias! Recibimos tu aporte. Quedó pendiente de revisión editorial antes de su posible publicación. ');
+
+    const referenceLabel = document.createElement('strong');
+    referenceLabel.textContent = 'Referencia: ';
+    status.append(referenceLabel);
+
+    const reference = document.createElement('code');
+    reference.textContent = typeof id === 'string' && id.length > 0 ? id : 'no disponible';
+    status.append(reference, document.createTextNode('.'));
+
+    if (typeof submittedAt === 'string' && submittedAt.length > 0) {
+      status.append(document.createTextNode(' Fecha de envío: '));
+      const time = document.createElement('time');
+      time.dateTime = submittedAt;
+      const date = new Date(submittedAt);
+      time.textContent = Number.isNaN(date.getTime())
+        ? submittedAt
+        : `${new Intl.DateTimeFormat('es-AR', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+          timeZone: 'UTC',
+        }).format(date)} UTC`;
+      status.append(time, document.createTextNode('.'));
+    }
+
+    status.dataset.status = 'success';
     status.hidden = false;
     status.focus();
   };
@@ -76,13 +109,14 @@ if (form) {
       });
 
       if (response.status === 201) {
+        const receipt = await response.json().catch(() => ({}));
         form.reset();
         if (formatSelect) {
           for (const option of formatSelect.options) {
             if (option.value) { option.hidden = true; option.disabled = true; }
           }
         }
-        showStatus(messages.success, 'success');
+        showReceipt(receipt);
       } else {
         showStatus(messages[response.status] || messages.unknown, 'error');
       }

@@ -90,7 +90,10 @@ export function createSubmissionHandler(options = {}) {
       return response(500, 'storage_error');
     }
 
-    return response(201, 'created');
+    return response(201, 'created', {
+      id: item.id,
+      submittedAt: item.submittedAt,
+    });
   };
 }
 
@@ -244,11 +247,11 @@ function resolveTableName(configuredTableName) {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 }
 
-function response(statusCode, code) {
+function response(statusCode, code, details = {}) {
   return {
     statusCode,
     headers: { 'content-type': 'application/json; charset=utf-8' },
-    body: JSON.stringify({ ok: statusCode === 201, code }),
+    body: JSON.stringify({ ok: statusCode === 201, code, ...details }),
   };
 }
 

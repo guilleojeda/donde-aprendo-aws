@@ -1,6 +1,7 @@
 ---
 import { COUNTRY_LABELS, LEVEL_LABELS } from '../lib/resource-discovery.mjs';
 import { eventHref, resourceHref } from '../lib/catalog-routes.mjs';
+import ReportLink from './ReportLink.astro';
 
 interface Resource {
   id: string;
@@ -28,9 +29,10 @@ interface Props {
   source?: Resource;
   community?: Resource;
   event?: Event;
+  hasUpcomingCommunityEvents?: boolean;
 }
 
-const { resource, index, source, community, event } = Astro.props;
+const { resource, index, source, community, event, hasUpcomingCommunityEvents = false } = Astro.props;
 const countryLabel = (country?: string) => country ? COUNTRY_LABELS[country as keyof typeof COUNTRY_LABELS] ?? country : '';
 const levelLabel = (level?: string) => level ? LEVEL_LABELS[level as keyof typeof LEVEL_LABELS] ?? level : '';
 const searchValue = `${resource.title} ${resource.description ?? ''} ${resource.category} ${resource.format} ${resource.topics.join(' ')} ${countryLabel(resource.country)} ${levelLabel(resource.level)} ${event?.title ?? ''}`;
@@ -72,12 +74,14 @@ const relatedCommunity = community?.kind === 'community' ? community : undefined
       </div>
       <p class="resource-card__description">{resource.description ?? ''}</p>
     </a>
-    {(relatedSource || relatedCommunity || event) && (
-      <div class="resource-card__related">
+    <div class="resource-card__related">
         {relatedSource && <a href={resourceHref(relatedSource)} data-resource-jump={relatedSource.id}>Fuente: {relatedSource.title}</a>}
         {relatedCommunity && <a href={resourceHref(relatedCommunity)} data-resource-jump={relatedCommunity.id}>Comunidad: {relatedCommunity.title}</a>}
         {event && <a href={eventHref(event)}>Grabación de: {event.title}</a>}
-      </div>
-    )}
+        {resource.kind === 'community' && hasUpcomingCommunityEvents && <a href={`/eventos/?community=${encodeURIComponent(resource.id)}`}>
+          Ver agenda de eventos
+        </a>}
+        <ReportLink title={resource.title} recordId={resource.id} targetUrl={resource.url} />
+    </div>
   </article>
 </li>

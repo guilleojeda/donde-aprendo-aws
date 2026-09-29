@@ -8,12 +8,13 @@ const controls = {
   to: document.querySelector('[data-event-to]'),
   mode: document.querySelector('[data-event-mode]'),
   country: document.querySelector('[data-event-country]'),
+  community: document.querySelector('[data-event-community]'),
   city: document.querySelector('[data-event-city]'),
 };
 const clear = document.querySelector('[data-event-clear]');
 const more = document.querySelector('[data-event-more]');
 const count = document.querySelector('[data-event-count]');
-const emptyFilters = { from: '', to: '', mode: '', country: '', city: '' };
+const emptyFilters = { from: '', to: '', mode: '', country: '', city: '', community: '' };
 
 if (agenda && empty) {
   const cards = [...agenda.querySelectorAll('[data-event-ends-at]')];
@@ -21,7 +22,7 @@ if (agenda && empty) {
   const visitorTime = new Intl.DateTimeFormat('es', {
     day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false, timeZoneName: 'short',
   });
-  const allowed = Object.fromEntries(['mode', 'country', 'city']
+  const allowed = Object.fromEntries(['mode', 'country', 'city', 'community']
     .map((field) => [field, new Set([...(controls[field]?.options ?? [])].map((option) => option.value))]));
   let expiryTimer;
   let limit = 12;
@@ -78,6 +79,7 @@ if (agenda && empty) {
         mode: card.dataset.eventMode,
         country: card.dataset.country,
         city: card.dataset.eventCity,
+        communities: (card.dataset.eventCommunities ?? '').split('|').filter(Boolean),
       };
       const end = Date.parse(event.endsAt);
       if (end > now) {

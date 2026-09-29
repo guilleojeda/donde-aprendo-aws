@@ -133,8 +133,10 @@ if (import.meta.env.PROD && !submissionApiUrl) {
         id="contribution-status"
         class="contribution-form__status"
         data-contribution-status
+        role="status"
         tabindex="-1"
         aria-live="polite"
+        aria-atomic="true"
         hidden
       ></p>
     </form>

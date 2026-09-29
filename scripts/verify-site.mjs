@@ -76,15 +76,20 @@ if (process.env.CATALOG_FIXTURE) {
   assert.match(learn, /https:\/\/example\.com\/curso\?utm_source=fixture&amp;lang=es/);
   assert.match(learn, /href="\/creadores\/#resource-fixture-source"/);
   assert.match(learn, /href="\/comunidades\/#resource-fixture-community"/);
+  const communities = read('comunidades/index.html');
+  assert.match(communities, /href="\/eventos\/\?community=fixture-community"/);
+  assert.match(communities, /mailto:contact@dondeaprendoaws\.com\?subject=[^"\s]+fixture-community/);
 }
 const events = read('eventos/index.html');
 assert.match(events, /data-event-list/);
 assert.match(events, /data-event-empty/);
-for (const field of ['from', 'to', 'mode', 'country', 'city']) assert.match(events, new RegExp(`data-event-${field}`));
+for (const field of ['from', 'to', 'mode', 'country', 'community', 'city']) assert.match(events, new RegExp(`data-event-${field}`));
 if (process.env.CATALOG_FIXTURE) {
   assert.match(events, /data-event-city="PE:Lima"/);
+  assert.match(events, /data-event-communities="fixture-community"/);
   assert.match(events, /href="\/comunidades\/#resource-fixture-community"/);
   assert.match(events, /href="\/eventos\/fixture-event\.ics"/);
+  assert.match(events, /mailto:contact@dondeaprendoaws\.com\?subject=[^"\s]+fixture-event/);
   const calendar = read('eventos/fixture-event.ics');
   assert.match(calendar, /DTSTART:20990101T230000Z\r\nDTEND:20990102T010000Z/);
   assert.match(calendar, /URL:https:\/\/example\.com\/encuentro\?source=fixture/);

@@ -47,7 +47,12 @@ test('writes a pending public record with private contact fields and returns 201
   const result = await handler(request());
 
   assert.equal(result.statusCode, 201);
-  assert.deepEqual(responseBody(result), { ok: true, code: 'created' });
+  assert.deepEqual(responseBody(result), {
+    ok: true,
+    code: 'created',
+    id: 'catalog-0ffc336102cd336f1b209b3f2a90ece0',
+    submittedAt: '2026-09-23T12:34:56.000Z',
+  });
   assert.equal(writes.length, 1);
   assert.equal(writes[0].TableName, 'donde-aprendo-aws-catalog');
   assert.equal(writes[0].ConditionExpression, 'attribute_not_exists(#id)');
@@ -71,6 +76,8 @@ test('writes a pending public record with private contact fields and returns 201
   assert.equal(Object.hasOwn(writes[0].Item, 'website'), false);
   assert.equal(Object.hasOwn(writes[0].Item, 'email'), false);
   assert.equal(result.body.includes(BASE_SUBMISSION.email), false);
+  assert.equal(result.body.includes(BASE_SUBMISSION.full_name), false);
+  assert.equal(result.body.includes(BASE_SUBMISSION.url), false);
 });
 
 test('accepts the new kind, format, and topic fields as a pending submission', async () => {
@@ -115,6 +122,8 @@ test('returns 409 for a conditional duplicate without exposing submitted values'
   assert.deepEqual(responseBody(result), { ok: false, code: 'duplicate' });
   assert.equal(result.body.includes(BASE_SUBMISSION.email), false);
   assert.equal(result.body.includes(BASE_SUBMISSION.full_name), false);
+  assert.equal(Object.hasOwn(responseBody(result), 'id'), false);
+  assert.equal(Object.hasOwn(responseBody(result), 'submittedAt'), false);
 });
 
 test('returns 500 for storage failures without returning the error or private fields', async () => {

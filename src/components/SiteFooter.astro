@@ -1,4 +1,6 @@
 ---
+import ReportLink from './ReportLink.astro';
+
 const resourceLinks = [
   ['AWS for Engineers', 'https://awsforengineers.com/?utm_source=dondeaprendoaws&utm_medium=home'],
   ['Simple AWS', 'https://newsletter.simpleaws.dev?utm_source=dondeaprendoaws&utm_medium=home'],
@@ -28,7 +30,10 @@ const resourceLinks = [
       </div>
     </div>
     <div class="site-footer__bottom">
-      <a href="mailto:contact@dondeaprendoaws.com">Contacto</a>
+      <p>
+        <a href="mailto:contact@dondeaprendoaws.com">Contacto</a>
+        · <ReportLink />. Al elegir este enlace, tu cliente de correo abrirá un mensaje que deberás enviar.
+      </p>
     </div>
   </div>
 </footer>

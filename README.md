@@ -2,7 +2,7 @@
 
 Static directory, dedicated learning, creator, community and event pages, guided learning paths, blog archive, and unified search built with Astro and hosted on AWS Amplify. DynamoDB owns the catalog; site code, learning paths and blog articles are files in Git. Codex is an editing tool, not a content store.
 
-The production site is https://dondeaprendoaws.com/. Its contribution form stores pending submissions through the owned API. `/blog/` retains the original 15 featured cards and links to the other 181 articles in a dated archive. `/recorridos/` links to existing blog and approved catalog entries in four editorial sequences. `/buscar/` searches those articles, paths and the approved catalog using a build-generated public index. The `www` and default Amplify hostnames redirect to the apex. Google Analytics uses the existing `G-3NXS6QFKHZ` property and loads only on the apex.
+The production site is https://dondeaprendoaws.com/. Its contribution form stores pending submissions through the owned API and shows the resulting reference ID and submission date. Resource and event cards include a contextual link to report incorrect data by email. `/blog/` retains the original 15 featured cards and links to the other 181 articles in a dated archive. `/recorridos/` links to existing blog and approved catalog entries in four editorial sequences. `/buscar/` searches those articles, paths and the approved catalog using a build-generated public index. Community cards with upcoming events link to an agenda filtered by that community. The `www` and default Amplify hostnames redirect to the apex. Google Analytics uses the existing `G-3NXS6QFKHZ` property and loads only on the apex.
 
 ## Development
 
@@ -83,6 +83,8 @@ aws cloudformation describe-stacks --region us-east-1 --stack-name donde-aprendo
 
 The `SubmissionEndpoint` output is the value for Amplify's `PUBLIC_SUBMISSION_API_URL`. Do not publish the site with a missing endpoint. On later Lambda code updates, package and upload the new zip under its new hash and redeploy the stack with the new `ArtifactKey`.
 
+On a successful `201` response, the API returns `ok`, `code`, the stored `id`, and `submittedAt`; it does not return contributor contact fields. Deploy the updated Lambda before a site build that expects to show the full receipt.
+
 ## Initial catalog import
 
 The import command accepts the original TSV path and creates each current entry with `published=true`. It uses conditional creation so rerunning it does not overwrite subsequent edits or republish an entry that has been hidden. The TSV is a one-time migration input, not another editable production catalog.
@@ -118,6 +120,8 @@ This starts a **fresh build from Git**, reads the current table, and waits for i
 Git pushes to the connected branch also rebuild the site. There is no immediate DynamoDB change trigger or synchronization of resource records into Git.
 
 The API conditionally creates one record per exact submitted URL. If an owner edits a record's URL later, its stable ID still represents the originally submitted URL; review possible duplicates when moderating. Contributor contact values remain in DynamoDB and must not be copied into public fields or Git.
+
+The report links on resource and event cards open an email draft to `contact@dondeaprendoaws.com` with public context. The visitor must send it. Investigate the referenced ID in DynamoDB, correct the authoritative record, and let the hourly publication check rebuild the site. The generic footer report link asks the sender to include the affected page. For an article report, edit the article in Git and deploy it through the normal branch workflow.
 
 ## Event agenda editing
 
