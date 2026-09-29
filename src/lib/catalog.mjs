@@ -43,6 +43,7 @@ const SCAN_EXPRESSION_NAMES = Object.freeze({
   '#organizer': 'organizer',
   '#mode': 'mode',
   '#place': 'place',
+  '#city': 'city',
   '#registrationUrl': 'registrationUrl',
 });
 
@@ -117,7 +118,7 @@ export async function scanCatalogItems(scanPage, tableName) {
       TableName: tableName,
       Select: 'SPECIFIC_ATTRIBUTES',
       ConsistentRead: true,
-      ProjectionExpression: '#id,#title,#url,#description,#category,#order,#featured,#kind,#format,#topics,#addedAt,#country,#level,#sourceId,#communityId,#eventId,#recordType,#startsAt,#endsAt,#timeZone,#organizer,#mode,#place,#registrationUrl,published',
+      ProjectionExpression: '#id,#title,#url,#description,#category,#order,#featured,#kind,#format,#topics,#addedAt,#country,#level,#sourceId,#communityId,#eventId,#recordType,#startsAt,#endsAt,#timeZone,#organizer,#mode,#place,#city,#registrationUrl,published',
       ExpressionAttributeNames: SCAN_EXPRESSION_NAMES,
     };
     if (exclusiveStartKey !== undefined) {

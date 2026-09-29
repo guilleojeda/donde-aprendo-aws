@@ -53,7 +53,7 @@ export function buildSearchIndex(posts, catalog, learningPaths = []) {
         description: record.description,
         url: eventHref(record),
         meta: record.organizer,
-        search: [record.place, record.country].filter(Boolean).join(' '),
+        search: [record.place, record.city, record.country].filter(Boolean).join(' '),
         endsAt: record.endsAt,
       }
     : {

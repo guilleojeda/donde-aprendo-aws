@@ -172,7 +172,8 @@ test('accepts a valid empty published result', async () => {
 test('uses an explicitly selected fixture and rejects conflicting source config', async () => {
   await withoutEnvironment({ CATALOG_TABLE: undefined }, async () => {
     const fixturePath = resolve('tests/fixtures/catalog.json');
-    assert.deepEqual(await loadCatalog({ fixturePath }), [
+    const fixtureCatalog = await loadCatalog({ fixturePath });
+    assert.deepEqual(fixtureCatalog.filter((item) => item.recordType !== 'event'), [
       {
         id: 'fixture-featured',
         title: 'Curso de ejemplo',
@@ -217,6 +218,8 @@ test('uses an explicitly selected fixture and rejects conflicting source config'
         country: 'PE',
       },
     ]);
+    assert.deepEqual(fixtureCatalog.filter((item) => item.recordType === 'event').map((item) => item.id),
+      ['fixture-event', 'fixture-online-event']);
     assert.throws(
       () => resolveCatalogConfig({ fixturePath, tableName: 'catalog' }),
       /Catalog source conflict/,

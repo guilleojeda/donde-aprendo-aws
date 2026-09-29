@@ -314,17 +314,28 @@ button {
   font-size: 14px;
 }
 
+.event-agenda__filter-area {
+  margin-top: 20px;
+}
+
 .event-agenda__filters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 12px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
   margin-top: 20px;
   color: #4b5261;
   font-size: 14px;
 }
 
-.event-agenda__filters select {
+.event-agenda__filters label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.event-agenda__filters select,
+.event-agenda__filters input {
+  width: 100%;
   min-height: 36px;
   padding: 5px 10px;
   border: 1px solid #b6bfce;
@@ -333,7 +344,32 @@ button {
   color: #263457;
 }
 
-.event-agenda__filters [data-event-count] { margin-left: auto; }
+.event-agenda__filters select:disabled { color: #626875; }
+
+.event-agenda__filter-note {
+  margin: 10px 0;
+  color: #626875;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.event-agenda__filter-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #4b5261;
+  font-size: 13px;
+}
+
+.event-agenda__filter-summary button {
+  padding: 0;
+  background: transparent;
+  color: #263457;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 
 .event-agenda__more {
   margin-top: 18px;
@@ -1120,6 +1156,10 @@ button {
   .resource-list {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+
+  .event-agenda__filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 900px) {
@@ -1181,6 +1221,9 @@ button {
 }
 
 @media (max-width: 500px) {
+  .event-agenda__filters {
+    grid-template-columns: 1fr;
+  }
   .event-agenda { padding: 20px 16px; }
   .event-card { padding: 18px; }
   .event-card__details div { grid-template-columns: 1fr; gap: 2px; }

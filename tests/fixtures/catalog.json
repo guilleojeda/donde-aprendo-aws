@@ -51,5 +51,36 @@
     "order": 20,
     "featured": false,
     "published": false
+  },
+  {
+    "recordType": "event",
+    "id": "fixture-event",
+    "title": "Encuentro AWS en Lima",
+    "description": "Sesión presencial de la comunidad.",
+    "startsAt": "2099-01-01T18:00:00-05:00",
+    "endsAt": "2099-01-01T20:00:00-05:00",
+    "timeZone": "America/Lima",
+    "organizer": "Comunidad de ejemplo",
+    "mode": "in-person",
+    "place": "Auditorio, Lima",
+    "city": "Lima",
+    "country": "PE",
+    "communityId": "fixture-community",
+    "registrationUrl": "https://example.com/encuentro?source=fixture",
+    "published": true
+  },
+  {
+    "recordType": "event",
+    "id": "fixture-online-event",
+    "title": "Charla de AWS en línea",
+    "description": "Sesión virtual de prueba.",
+    "startsAt": "2099-01-02T10:00:00-03:00",
+    "endsAt": "2099-01-02T11:00:00-03:00",
+    "timeZone": "America/Argentina/Buenos_Aires",
+    "organizer": "Grupo de prueba",
+    "mode": "online",
+    "country": "AR",
+    "registrationUrl": "https://example.com/charla?source=fixture",
+    "published": true
   }
 ]

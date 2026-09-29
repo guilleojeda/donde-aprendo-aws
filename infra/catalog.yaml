@@ -66,6 +66,7 @@ Resources:
                       - organizer
                       - mode
                       - place
+                      - city
                       - registrationUrl
                       - published
                   StringEquals:
