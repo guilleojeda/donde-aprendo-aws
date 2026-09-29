@@ -13,3 +13,7 @@ export function resourceHref(resource) {
 export function eventHref(event) {
   return `/eventos/#event-${event.id}`;
 }
+
+export function eventCalendarHref(event) {
+  return `/eventos/${event.id}.ics`;
+}

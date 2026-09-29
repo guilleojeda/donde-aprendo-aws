@@ -8,7 +8,7 @@ export function projectPublicEvent(item, index, validateUrl) {
   for (const field of EVENT_FIELDS) {
     if (!Object.hasOwn(item, field)) throw new Error(`${label} is missing event field ${field}`);
   }
-  const event = Object.fromEntries(['recordType', ...EVENT_FIELDS, 'place', 'country']
+  const event = Object.fromEntries(['recordType', ...EVENT_FIELDS, 'place', 'country', 'city', 'communityId']
     .filter((field) => Object.hasOwn(item, field)).map((field) => [field, item[field]]));
   if (event.recordType !== 'event') throw new Error(`${label} has an invalid record type`);
   for (const field of ['id', 'title', 'organizer']) {
@@ -43,6 +43,14 @@ export function projectPublicEvent(item, index, validateUrl) {
   if (event.country !== undefined && !Object.hasOwn(COUNTRY_LABELS, event.country)) {
     throw new Error(`${label} has an invalid country`);
   }
+  if (event.city !== undefined && (event.mode === 'online' || typeof event.city !== 'string'
+      || !event.city.trim() || event.city.trim() !== event.city || event.city.length > 100
+      || /[\r\n\u0000-\u001f]/u.test(event.city))) {
+    throw new Error(`${label} has an invalid city`);
+  }
+  if (event.communityId !== undefined && !RESOURCE_ID.test(event.communityId)) {
+    throw new Error(`${label} has an invalid communityId`);
+  }
   validateUrl(event.registrationUrl, index);
   return event;
 }
@@ -74,6 +82,14 @@ export function uniqueUpcomingEvents(events, now = new Date()) {
 
 export function eventDateLabel(instant, timeZone) {
   return new Intl.DateTimeFormat('es', { day: 'numeric', month: 'long', year: 'numeric', timeZone }).format(new Date(instant));
+}
+
+/** Calendar date in the stored organizer time zone, independent of the visitor's clock. */
+export function eventLocalDate(instant, timeZone) {
+  const parts = new Intl.DateTimeFormat('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone })
+    .formatToParts(new Date(instant));
+  const get = (type) => parts.find((part) => part.type === type).value;
+  return `${get('year')}-${get('month')}-${get('day')}`;
 }
 
 export function eventTimeLabel(instant, timeZone) {

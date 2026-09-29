@@ -58,6 +58,8 @@ class FakeTable:
             for alias, field in kwargs['ExpressionAttributeNames'].items():
                 if alias.startswith('#f'):
                     item[field] = values[':v' + alias[2:]]
+            if 'REMOVE #oldCity' in kwargs['UpdateExpression']:
+                item.pop('city', None)
 
 
 class MeetupEventsTests(unittest.TestCase):
@@ -80,6 +82,8 @@ class MeetupEventsTests(unittest.TestCase):
         self.assertEqual(record['country'], 'CO')
         self.assertEqual(record['mode'], 'in-person')
         self.assertEqual(record['place'], 'Auditorio, Calle 1')
+        self.assertEqual(record['city'], 'Bogotá')
+        self.assertEqual(record['communityId'], 'meetup-123')
         self.assertTrue(record['published'])
         self.assertTrue(record['autoSync'])
         html = '<script type="application/ld+json">' + json.dumps(PAGE) + '</script>'
@@ -120,6 +124,26 @@ class MeetupEventsTests(unittest.TestCase):
             suppressed = meetup.synchronize(table=table, groups=[dict(GROUP)])
         self.assertEqual(suppressed['changed'], 0)
         self.assertFalse(table.existing['meetup-event-456']['published'])
+
+    def test_existing_event_gets_community_and_verified_city_then_removes_stale_city(self):
+        prior = meetup.map_event(GROUP, meetup.parse_feed(ICAL, GROUP)[0], PAGE)
+        prior.pop('communityId')
+        prior.pop('city')
+        table = FakeTable([prior])
+        with patch.object(meetup, 'timezone_from_feed', return_value=meetup.parse_feed(ICAL, GROUP)), \
+             patch.object(meetup, 'fetch_event_page', return_value=PAGE):
+            result = meetup.synchronize(table=table, groups=[dict(GROUP)])
+        self.assertEqual(result['changed'], 1)
+        self.assertEqual(table.existing['meetup-event-456']['city'], 'Bogotá')
+        self.assertEqual(table.existing['meetup-event-456']['communityId'], 'meetup-123')
+
+        changed = dict(PAGE, location={'@type': 'Place', 'name': 'Pendiente', 'address': {}})
+        entry = dict(meetup.parse_feed(ICAL, GROUP)[0], modified='20990102T000000Z')
+        with patch.object(meetup, 'timezone_from_feed', return_value=[entry]), \
+             patch.object(meetup, 'fetch_event_page', return_value=changed):
+            result = meetup.synchronize(table=table, groups=[dict(GROUP)])
+        self.assertEqual(result['changed'], 1)
+        self.assertNotIn('city', table.existing['meetup-event-456'])
 
 
 if __name__ == '__main__':

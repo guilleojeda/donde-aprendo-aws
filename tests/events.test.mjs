@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { projectPublishedCatalog } from '../src/lib/catalog.mjs';
-import { eventDateLabel, eventTimeLabel, upcomingEvents, uniqueUpcomingEvents } from '../src/lib/events.mjs';
+import { eventDateLabel, eventLocalDate, eventTimeLabel, upcomingEvents, uniqueUpcomingEvents } from '../src/lib/events.mjs';
 import { fingerprintPublicCatalog } from '../src/lib/publication.mjs';
 
 const event = (overrides = {}) => ({
@@ -21,6 +21,10 @@ test('projects published event details and excludes private submission data', ()
   assert.equal(JSON.stringify(visible).includes('private@example.test'), false);
   assert.equal(Object.hasOwn(visible, 'published'), false);
   assert.equal(projectPublishedCatalog([event({ country: 'PY' })])[0].country, 'PY');
+  const [placed] = projectPublishedCatalog([event({ city: 'San Lorenzo', communityId: 'meetup-123', sourceGroupId: 'internal-only' })]);
+  assert.equal(placed.city, 'San Lorenzo');
+  assert.equal(placed.communityId, 'meetup-123');
+  assert.equal(Object.hasOwn(placed, 'sourceGroupId'), false);
 });
 
 test('projects a recording event link only when it is an approved content field', () => {
@@ -45,6 +49,10 @@ test('rejects invalid event dates, zones, venues and registration links', () => 
     { place: undefined },
     { registrationUrl: 'javascript:alert(1)' },
     { country: 'XX' },
+    { city: '  San Lorenzo' },
+    { city: 'Ciudad\nOtra' },
+    { communityId: 'bad id' },
+    { mode: 'online', city: 'San Lorenzo' },
   ]) assert.throws(() => projectPublishedCatalog([event(changed)]));
 });
 
@@ -68,6 +76,7 @@ test('formats the same instant in the event zone and another visitor zone', () =
   assert.match(eventDateLabel('2026-10-17T08:00:00-03:00', 'America/Asuncion'), /17 de octubre de 2026/);
   assert.match(eventTimeLabel('2026-10-17T08:00:00-03:00', 'America/Asuncion'), /08:00/);
   assert.match(eventTimeLabel('2026-10-17T08:00:00-03:00', 'America/Mexico_City'), /05:00/);
+  assert.equal(eventLocalDate('2026-10-17T00:30:00Z', 'America/Mexico_City'), '2026-10-16');
 });
 
 test('hourly publication hash changes at event expiry without a catalog edit', () => {

@@ -155,9 +155,16 @@ def map_event(group, entry, page):
     if isinstance(location, list):
         location = next((item for item in location if item.get('@type') == 'Place'), {})
     address = location.get('address') or {}
+    if not isinstance(address, dict):
+        address = {}
     place = ', '.join(dict.fromkeys(part.strip() for part in [
         location.get('name') or '', address.get('streetAddress') or '',
     ] if isinstance(part, str) and part.strip()))
+    locality = address.get('addressLocality')
+    city = locality.strip() if isinstance(locality, str) else ''
+    if (len(city) > 100 or re.search(r'[\x00-\x1f\x7f]', city)
+            or city.casefold() in {'tbd', 'to be determined', 'por definir', 'online', 'en línea'}):
+        city = ''
     record = {
         'recordType': 'event',
         'id': f'meetup-event-{entry["id"]}',
@@ -170,6 +177,7 @@ def map_event(group, entry, page):
         'mode': mode,
         'registrationUrl': entry['url'],
         'country': group['country'],
+        'communityId': f'meetup-{group["id"]}',
         'published': True,
         'sourceGroupId': f'meetup-{group["id"]}',
         'sourceModifiedAt': entry['modified'],
@@ -177,6 +185,8 @@ def map_event(group, entry, page):
     }
     if mode != 'online':
         record['place'] = place or 'Consulta el lugar en Meetup'
+        if city:
+            record['city'] = city
     return record
 
 
@@ -225,11 +235,12 @@ def fetch_event_page(entry):
 def load_existing_events(table):
     events = {}
     params = {
-        'ProjectionExpression': '#id,#sourceGroupId,#sourceModifiedAt,#published,#autoSync,#country,#organizer',
+        'ProjectionExpression': '#id,#sourceGroupId,#sourceModifiedAt,#published,#autoSync,#country,#organizer,#communityId,#city',
         'Select': 'SPECIFIC_ATTRIBUTES',
         'ExpressionAttributeNames': {
             '#id': 'id', '#sourceGroupId': 'sourceGroupId', '#sourceModifiedAt': 'sourceModifiedAt',
             '#published': 'published', '#autoSync': 'autoSync', '#country': 'country', '#organizer': 'organizer',
+            '#communityId': 'communityId', '#city': 'city',
         },
     }
     while True:
@@ -266,7 +277,11 @@ def update_source_event(table, record, existing):
         values[parameter] = value
         changes.append(f'{alias} = {parameter}')
     try:
-        table.update_item(Key={'id': record['id']}, UpdateExpression='SET ' + ', '.join(changes),
+        expression = 'SET ' + ', '.join(changes)
+        if existing.get('city') and 'city' not in record:
+            names['#oldCity'] = 'city'
+            expression += ' REMOVE #oldCity'
+        table.update_item(Key={'id': record['id']}, UpdateExpression=expression,
                           ConditionExpression='attribute_exists(#id) AND #owner = :owner '
                                               'AND (attribute_not_exists(#sync) OR #sync = :enabled)',
                           ExpressionAttributeNames=names, ExpressionAttributeValues=values)
@@ -328,7 +343,8 @@ def synchronize(table=None, groups=None, dry_run=False):
             if prior and prior.get('autoSync') is False:
                 continue
             if (prior and prior.get('published') is True and prior.get('sourceModifiedAt') == entry['modified']
-                    and prior.get('country') == group['country'] and prior.get('organizer') == group['name']):
+                    and prior.get('country') == group['country'] and prior.get('organizer') == group['name']
+                    and prior.get('communityId') == f'meetup-{group["id"]}'):
                 continue
             pending.append((group, entry, prior))
 

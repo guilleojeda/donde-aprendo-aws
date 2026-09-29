@@ -1,21 +1,27 @@
 ---
-import { eventDateLabel, eventTimeLabel, uniqueUpcomingEvents } from '../lib/events.mjs';
+import { eventDateLabel, eventLocalDate, eventTimeLabel, uniqueUpcomingEvents } from '../lib/events.mjs';
 import { COUNTRY_LABELS } from '../lib/resource-discovery.mjs';
-import { resourceHref } from '../lib/catalog-routes.mjs';
+import { eventCalendarHref, resourceHref } from '../lib/catalog-routes.mjs';
 import type { CatalogEvent, CatalogResource } from '../types/catalog';
 
 interface Props { events: CatalogEvent[]; resources: CatalogResource[]; }
 
 const { events, resources } = Astro.props;
 const upcoming = uniqueUpcomingEvents(events) as CatalogEvent[];
+const modeLabel = { online: 'En línea', 'in-person': 'Presencial', hybrid: 'Híbrido' } as const;
 const countryLabel = (country: string) => COUNTRY_LABELS[country as keyof typeof COUNTRY_LABELS] ?? country;
 const eventCountries = Object.keys(COUNTRY_LABELS).filter((country) => upcoming.some((event) => event.country === country))
   .sort((left, right) => countryLabel(left).localeCompare(countryLabel(right), 'es'));
+const eventCities = [...new Map(upcoming.filter((event) => event.city)
+  .map((event) => [`${event.country ?? ''}:${event.city}`, { key: `${event.country ?? ''}:${event.city}`, city: event.city!, country: event.country }])).values()]
+  .sort((left, right) => left.city.localeCompare(right.city, 'es') || (left.country ?? '').localeCompare(right.country ?? ''));
+const eventModes = (Object.keys(modeLabel) as Array<keyof typeof modeLabel>)
+  .filter((mode) => upcoming.some((event) => event.mode === mode));
+const communityById = new Map(resources.filter((resource) => resource.kind === 'community').map((resource) => [resource.id, resource]));
 const recordingByEvent = new Map(resources.filter((resource) => resource.eventId)
   .map((resource) => [resource.eventId, resource]));
 const pastRecorded = events.filter((event) => Date.parse(event.endsAt) <= Date.now() && recordingByEvent.has(event.id))
   .sort((left, right) => Date.parse(right.startsAt) - Date.parse(left.startsAt));
-const modeLabel = { online: 'En línea', 'in-person': 'Presencial', hybrid: 'Híbrido' };
 ---
 
 <section class="event-agenda" id="eventos" aria-labelledby="event-agenda-title">
@@ -26,18 +32,31 @@ const modeLabel = { online: 'En línea', 'in-person': 'Presencial', hybrid: 'Hí
         <p>Encuentros y charlas de las comunidades AWS de Latinoamérica, ordenados por fecha.</p>
       </div>
     </div>
-    {eventCountries.length > 0 && <div class="event-agenda__filters">
-      <label for="event-country">País del grupo</label>
-      <select id="event-country" data-event-country>
-        <option value="">Todos los países</option>
-        {eventCountries.map((country) => <option value={country}>{countryLabel(country)}</option>)}
-      </select>
-      <span data-event-count aria-live="polite"></span>
+    {upcoming.length > 0 && <div class="event-agenda__filter-area">
+      <div class="event-agenda__filters">
+        <label for="event-from">Desde <input id="event-from" type="date" data-event-from /></label>
+        <label for="event-to">Hasta <input id="event-to" type="date" data-event-to /></label>
+        <label for="event-mode">Modalidad <select id="event-mode" data-event-mode>
+          <option value="">Todas</option>
+          {eventModes.map((mode) => <option value={mode}>{modeLabel[mode]}</option>)}
+        </select></label>
+        <label for="event-country">País del grupo <select id="event-country" data-event-country>
+          <option value="">Todos los países</option>
+          {eventCountries.map((country) => <option value={country}>{countryLabel(country)}</option>)}
+        </select></label>
+        <label for="event-city">Ciudad del evento <select id="event-city" data-event-city disabled={eventCities.length === 0}>
+          <option value="">{eventCities.length ? 'Todas las ciudades' : 'Sin ciudades confirmadas'}</option>
+          {eventCities.map((item) => <option value={item.key}>{item.city}{item.country ? ` · grupo de ${countryLabel(item.country)}` : ''}</option>)}
+        </select></label>
+      </div>
+      <p class="event-agenda__filter-note">Las fechas corresponden al día de inicio en la zona del organizador. La ciudad aparece solo cuando el organizador la indica.</p>
+      <div class="event-agenda__filter-summary"><button type="button" data-event-clear>Limpiar filtros</button><span data-event-count aria-live="polite"></span></div>
     </div>}
     <ol class="event-agenda__list" data-event-list>
       {upcoming.map((event) => {
         const recording = recordingByEvent.get(event.id);
-        return <li id={`event-${event.id}`} class="event-card" data-event-ends-at={event.endsAt} data-country={event.country ?? ''} tabindex="-1">
+        const community = communityById.get(event.communityId ?? '');
+        return <li id={`event-${event.id}`} class="event-card" data-event-id={event.id} data-event-ends-at={event.endsAt} data-event-date={eventLocalDate(event.startsAt, event.timeZone)} data-event-mode={event.mode} data-country={event.country ?? ''} data-event-city={event.city ? `${event.country ?? ''}:${event.city}` : ''} tabindex="-1">
           <article>
             <div class="event-card__date">
               <time datetime={event.startsAt}>{eventDateLabel(event.startsAt, event.timeZone)}</time>
@@ -48,11 +67,13 @@ const modeLabel = { online: 'En línea', 'in-person': 'Presencial', hybrid: 'Hí
             <dl class="event-card__details">
               <div><dt>Horario</dt><dd><time datetime={event.startsAt}>{eventTimeLabel(event.startsAt, event.timeZone)}</time> – <time datetime={event.endsAt}>{eventTimeLabel(event.endsAt, event.timeZone)}</time> · horario del organizador</dd></div>
               <div data-visitor-time data-starts-at={event.startsAt} data-ends-at={event.endsAt} hidden><dt>En tu zona</dt><dd data-visitor-time-value></dd></div>
-              <div><dt>Organiza</dt><dd>{event.organizer}</dd></div>
+              <div><dt>Organiza</dt><dd>{community && event.organizer === community.title ? <a href={resourceHref(community)}>{event.organizer}</a> : event.organizer}</dd></div>
+              {community && event.organizer !== community.title && <div><dt>Comunidad</dt><dd><a href={resourceHref(community)}>{community.title}</a></dd></div>}
               {event.place && <div><dt>Lugar</dt><dd>{event.place}</dd></div>}
             </dl>
             <div class="event-card__links">
-              <a href={event.registrationUrl} target="_blank" rel="noopener noreferrer">Inscribirme <span aria-hidden="true">↗</span></a>
+              <a href={event.registrationUrl} target="_blank" rel="noopener noreferrer" data-event-registration>Inscribirme <span aria-hidden="true">↗</span></a>
+              <a href={eventCalendarHref(event)} download={`${event.id}.ics`}>Agregar al calendario (.ics)</a>
               {recording && <a href={resourceHref(recording)}>Ver grabación</a>}
             </div>
           </article>
