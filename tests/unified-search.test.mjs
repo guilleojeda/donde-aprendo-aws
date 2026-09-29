@@ -28,7 +28,10 @@ test('build index includes all public blog and visible catalog destinations with
     ['event', '/eventos/#event-future-1'],
   ]);
   assert.match(index[0].search, /Políticas de acceso y & permisos/);
+  assert.deepEqual(index[1].topics, ['Formación', 'Certificaciones']);
+  assert.equal(index[1].metadata, 'AR inicial');
   assert.equal(index[2].endsAt, upcoming.endsAt);
+  assert.equal(index[2].metadata, 'Córdoba AR');
   assert.doesNotMatch(JSON.stringify(index), /private@example.com|submitterEmail/);
 });
 
@@ -39,6 +42,41 @@ test('search is accent-insensitive, ranked, scoped and returns no result for mis
   assert.deepEqual(searchIndex(index, 'curso', 'community'), []);
   assert.deepEqual(searchIndex(index, 'no-existe'), []);
   assert.deepEqual(searchIndex(index, 'Encuentro', 'event', Date.parse('2100-01-01T11:00:00-03:00')), []);
+});
+
+test('topic-focused results outrank incidental mentions for realistic Spanish AWS queries', () => {
+  const index = [
+    {
+      type: 'article', title: 'Seguridad en AWS', description: 'Protegé servicios como Amazon S3.',
+      search: 'Gestión de identidades y control de acceso', url: '/generic-security/',
+    },
+    {
+      type: 'article', title: 'Mejores prácticas para Amazon S3', description: 'Protegé objetos y buckets.',
+      search: 'Seguridad y acceso a los datos', url: '/security-s3/',
+    },
+    {
+      type: 'content', title: 'Curso práctico de AWS', description: 'Aprendé fundamentos de la nube.',
+      topics: ['Seguridad', 'Amazon S3'], search: '', url: '/course-security-s3/',
+    },
+    {
+      type: 'article', title: 'AWS S3Storage', description: 'Una herramienta auxiliar.',
+      search: '', url: '/s3storage/',
+    },
+  ];
+
+  const cases = [
+    ['seguridad en S3', ['/course-security-s3/', '/security-s3/', '/generic-security/']],
+    ['mejores prácticas de Amazon S3', ['/security-s3/']],
+    ['seguridad y acceso a Amazon S3', ['/security-s3/', '/generic-security/']],
+  ];
+  for (const [query, expectedUrls] of cases) {
+    assert.deepEqual(searchIndex(index, query).map(({ url }) => url), expectedUrls, query);
+  }
+  assert.deepEqual(searchIndex(index, 'seguridad en S3').map(({ url }) => url),
+    searchIndex(index, 'seguridad S3').map(({ url }) => url));
+  assert.deepEqual(searchIndex(index, 'S3').map(({ url }) => url), [
+    '/security-s3/', '/course-security-s3/', '/generic-security/',
+  ]);
 });
 
 test('analytics payload contains only bounded aggregate values, never the search text', () => {

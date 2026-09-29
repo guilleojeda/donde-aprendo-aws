@@ -33,17 +33,21 @@ test('agenda filters validate URL values, preserve unrelated parameters and matc
     mode: new Set(['', 'online', 'in-person']),
     country: new Set(['', 'CO', 'AR']),
     city: new Set(['', 'CO:Bogotá', 'AR:Córdoba']),
+    community: new Set(['', 'community-co', 'community-ar']),
   };
-  const filters = parseEventAgendaSearch('?utm_source=community&from=2026-10-17&to=2026-10-20&mode=in-person&country=CO&city=CO%3ABogot%C3%A1', allowed);
-  assert.deepEqual(filters, { from: '2026-10-17', to: '2026-10-20', mode: 'in-person', country: 'CO', city: 'CO:Bogotá' });
+  const filters = parseEventAgendaSearch('?utm_source=community&from=2026-10-17&to=2026-10-20&mode=in-person&country=CO&city=CO%3ABogot%C3%A1&community=community-co', allowed);
+  assert.deepEqual(filters, { from: '2026-10-17', to: '2026-10-20', mode: 'in-person', country: 'CO', city: 'CO:Bogotá', community: 'community-co' });
   const saved = serializeEventAgendaSearch('?utm_source=community&country=AR', filters);
   assert.equal(new URLSearchParams(saved).get('utm_source'), 'community');
+  assert.equal(new URLSearchParams(saved).get('community'), 'community-co');
   assert.deepEqual(parseEventAgendaSearch(`?${saved}`, allowed), filters);
-  assert.deepEqual(parseEventAgendaSearch('?from=2026-02-30&mode=unknown&country=AR&city=CO%3ABogot%C3%A1', allowed),
-    { from: '', to: '', mode: '', country: 'AR', city: '' });
-  const card = { endsAt: event.endsAt, localDate: '2026-10-17', mode: 'in-person', country: 'CO', city: 'CO:Bogotá' };
+  assert.deepEqual(parseEventAgendaSearch('?from=2026-02-30&mode=unknown&country=AR&city=CO%3ABogot%C3%A1&community=unknown', allowed),
+    { from: '', to: '', mode: '', country: 'AR', city: '', community: '' });
+  const card = { endsAt: event.endsAt, localDate: '2026-10-17', mode: 'in-person', country: 'CO', city: 'CO:Bogotá', communities: ['community-co', 'community-ar'] };
   assert.equal(eventMatchesFilters(card, filters, Date.parse('2026-10-17T11:00:00Z')), true);
   assert.equal(eventMatchesFilters(card, { ...filters, from: '2026-10-18' }, Date.parse('2026-10-17T11:00:00Z')), false);
+  assert.equal(eventMatchesFilters(card, { ...filters, community: 'community-ar' }, Date.parse('2026-10-17T11:00:00Z')), true);
+  assert.equal(eventMatchesFilters(card, { ...filters, community: 'other-community' }, Date.parse('2026-10-17T11:00:00Z')), false);
   assert.equal(eventMatchesFilters(card, filters, Date.parse('2026-10-17T13:00:00Z')), false);
 });
 

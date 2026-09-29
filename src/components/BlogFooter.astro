@@ -1,3 +1,7 @@
+---
+import ReportLink from './ReportLink.astro';
+---
+
 <footer class="blog-footer">
   <div class="blog-shell blog-footer__inner">
     <p>Dónde Aprendo AWS es el más completo directorio de contenido en Español acerca de AWS.</p>
@@ -9,5 +13,10 @@
       </div>
     </div>
   </div>
-  <a class="blog-footer__contact" href="mailto:contact@dondeaprendoaws.com">Contacto</a>
+  <div class="blog-footer__contact">
+    <p>
+      <a href="mailto:contact@dondeaprendoaws.com">Contacto</a>
+      · <ReportLink />. Al elegir este enlace, tu cliente de correo abrirá un mensaje que deberás enviar.
+    </p>
+  </div>
 </footer>

@@ -320,7 +320,7 @@ button {
 
 .event-agenda__filters {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 10px;
   margin-top: 20px;
   color: #4b5261;
@@ -456,6 +456,17 @@ button {
   color: #263457;
   font-size: 13px;
   font-weight: 700;
+}
+
+.event-card__report {
+  margin: 14px 0 0;
+  font-size: 12px;
+}
+
+.event-card__report a,
+.resource-card__related .report-link {
+  color: #626875;
+  font-weight: 400;
 }
 
 .event-agenda__empty {

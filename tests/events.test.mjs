@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { projectPublishedCatalog } from '../src/lib/catalog.mjs';
-import { eventDateLabel, eventLocalDate, eventTimeLabel, upcomingEvents, uniqueUpcomingEvents } from '../src/lib/events.mjs';
+import { eventDateLabel, eventLocalDate, eventTimeLabel, upcomingEvents, uniqueUpcomingEventGroups, uniqueUpcomingEvents } from '../src/lib/events.mjs';
+import { eventMatchesFilters } from '../src/lib/event-agenda-filter.mjs';
 import { fingerprintPublicCatalog } from '../src/lib/publication.mjs';
 
 const event = (overrides = {}) => ({
@@ -63,6 +64,22 @@ test('shows a cross-posted session once while keeping different sessions', () =>
   const later = event({ id: 'meetup-event-789', title: 'Otra charla', registrationUrl: 'https://www.meetup.com/other-ug/events/789/' });
   assert.deepEqual(uniqueUpcomingEvents([later, crossPost, sameUrl, first], '2026-10-01T00:00:00Z').map(({ id }) => id),
     ['event-manual', 'meetup-event-789']);
+});
+
+test('retains every co-host community when the agenda shows one event card', () => {
+  const first = event({ id: 'event-community-a', communityId: 'community-a' });
+  const crossPost = event({
+    id: 'event-community-b', communityId: 'community-b',
+    registrationUrl: 'https://example.test/other-community-registration',
+  });
+  const [group] = uniqueUpcomingEventGroups([crossPost, first], '2026-10-01T00:00:00Z');
+
+  assert.equal(group.event.id, 'event-community-a');
+  assert.deepEqual(group.events.map(({ communityId }) => communityId), ['community-a', 'community-b']);
+  assert.deepEqual(uniqueUpcomingEvents([crossPost, first], '2026-10-01T00:00:00Z').map(({ id }) => id), ['event-community-a']);
+  const card = { endsAt: group.event.endsAt, communities: group.events.map(({ communityId }) => communityId) };
+  const filters = { from: '', to: '', mode: '', country: '', city: '', community: 'community-b' };
+  assert.equal(eventMatchesFilters(card, filters, Date.parse('2026-10-01T00:00:00Z')), true);
 });
 
 test('sorts upcoming events by start and removes them after their end instant', () => {

@@ -3,6 +3,7 @@ import ResourceCard from './ResourceCard.astro';
 import type { CatalogEvent, CatalogResource } from '../types/catalog';
 import { TOPICS } from '../lib/resource-taxonomy.mjs';
 import { COUNTRY_LABELS, LEVEL_LABELS } from '../lib/resource-discovery.mjs';
+import { uniqueUpcomingEventGroups } from '../lib/events.mjs';
 
 interface Props {
   title: string;
@@ -26,6 +27,12 @@ const levels = kind === 'content'
   : [];
 const resourcesById = new Map(allResources.map((resource) => [resource.id, resource]));
 const eventsById = new Map(events.map((event) => [event.id, event]));
+const communitiesWithUpcomingEvents = new Set<string>();
+for (const group of uniqueUpcomingEventGroups(events)) {
+  for (const event of group.events) {
+    if (event.communityId) communitiesWithUpcomingEvents.add(event.communityId);
+  }
+}
 ---
 
 <main>
@@ -99,6 +106,7 @@ const eventsById = new Map(events.map((event) => [event.id, event]));
             source={resourcesById.get(resource.sourceId ?? '')}
             community={resourcesById.get(resource.communityId ?? '')}
             event={eventsById.get(resource.eventId ?? '')}
+            hasUpcomingCommunityEvents={communitiesWithUpcomingEvents.has(resource.id)}
           />)}
         </ul>
         <p class="directory-no-results" data-no-results role="status" hidden>No encontramos recursos con estos filtros.</p>
