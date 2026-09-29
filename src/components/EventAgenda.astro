@@ -67,7 +67,8 @@ const pastRecorded = events.filter((event) => Date.parse(event.endsAt) <= Date.n
             <dl class="event-card__details">
               <div><dt>Horario</dt><dd><time datetime={event.startsAt}>{eventTimeLabel(event.startsAt, event.timeZone)}</time> – <time datetime={event.endsAt}>{eventTimeLabel(event.endsAt, event.timeZone)}</time> · horario del organizador</dd></div>
               <div data-visitor-time data-starts-at={event.startsAt} data-ends-at={event.endsAt} hidden><dt>En tu zona</dt><dd data-visitor-time-value></dd></div>
-              <div><dt>Organiza</dt><dd>{community ? <a href={resourceHref(community)}>{event.organizer}</a> : event.organizer}</dd></div>
+              <div><dt>Organiza</dt><dd>{community && event.organizer === community.title ? <a href={resourceHref(community)}>{event.organizer}</a> : event.organizer}</dd></div>
+              {community && event.organizer !== community.title && <div><dt>Comunidad</dt><dd><a href={resourceHref(community)}>{community.title}</a></dd></div>}
               {event.place && <div><dt>Lugar</dt><dd>{event.place}</dd></div>}
             </dl>
             <div class="event-card__links">
