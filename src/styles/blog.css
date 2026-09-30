@@ -86,8 +86,16 @@
 .blog-card img {
   display: block;
   width: 100%;
+  height: auto;
   aspect-ratio: 1.84;
   object-fit: cover;
+}
+
+.blog-card picture,
+.blog-related__card picture,
+.blog-article__body picture {
+  display: block;
+  max-width: 100%;
 }
 
 .blog-card h3 {
@@ -318,6 +326,7 @@
 .blog-related__card img {
   display: block;
   width: 100%;
+  height: auto;
   aspect-ratio: 1.8;
   object-fit: cover;
 }

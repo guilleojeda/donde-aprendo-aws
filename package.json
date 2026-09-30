@@ -9,7 +9,8 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "verify:blog": "node scripts/verify-blog.mjs",
+    "verify:blog": "node scripts/verify-blog.mjs && node scripts/verify-responsive-images.mjs",
+    "verify:images": "node scripts/verify-responsive-images.mjs",
     "verify:site": "node scripts/verify-site.mjs",
     "preview": "astro preview",
     "check": "astro check",
@@ -34,6 +35,7 @@
     "@astrojs/check": "0.9.10",
     "@types/node": "24.13.6",
     "esbuild": "0.28.2",
+    "sharp": "0.35.4",
     "typescript": "5.9.3"
   }
 }
