@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
@@ -20,6 +20,7 @@ function images(html) {
 }
 
 const source = '/assets/blog/020c3be0259dc50cecb2155a.png';
+const compressedSource = '/assets/blog/e9f2fc671d3e9516f2345bb7.png';
 
 test('post-render processing preserves image content and emits correctly sized local candidates', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'responsive-images-'));
@@ -35,6 +36,8 @@ test('post-render processing preserves image content and emits correctly sized l
   await mkdir(resolve(outputDir, 'assets'), { recursive: true });
   await copyFile(resolve('public', source.slice(1)), resolve(publicDir, source.slice(1)));
   await copyFile(resolve('public', source.slice(1)), resolve(outputDir, source.slice(1)));
+  await copyFile(resolve('public', compressedSource.slice(1)), resolve(publicDir, compressedSource.slice(1)));
+  await copyFile(resolve('public', compressedSource.slice(1)), resolve(outputDir, compressedSource.slice(1)));
   await copyFile(resolve('public/assets/simple-aws-logo.png'), resolve(publicDir, 'assets/simple-aws-logo.png'));
   await copyFile(resolve('public/assets/simple-aws-logo.png'), resolve(outputDir, 'assets/simple-aws-logo.png'));
 
@@ -42,14 +45,14 @@ test('post-render processing preserves image content and emits correctly sized l
   const articlePath = resolve(outputBlogDir, 'index.html');
   const homePath = resolve(outputDir, 'index.html');
   await writeFile(indexPath, `<main><a class="blog-card" href="/blog/a/"><img src="${source}" alt="Diagrama del artículo"></a><a class="blog-card" href="/blog/b/"><img src="${source}" alt="Otra tarjeta"></a></main><script type="application/ld+json">{"description":"<img src=\\\"${source}\\\">"}</script>`);
-  await writeFile(articlePath, `<article class="blog-article__body"><p><img src="${source}" alt="Imagen del cuerpo"></p></article><section class="blog-related__cards"><a class="blog-related__card"><img src="${source}" alt="Artículo relacionado"></a></section>`);
+  await writeFile(articlePath, `<article class="blog-article__body"><p><img src="${compressedSource}" alt="Imagen del cuerpo"></p></article><section class="blog-related__cards"><a class="blog-related__card"><img src="${source}" alt="Artículo relacionado"></a></section>`);
   await writeFile(homePath, `<a class="partner-logo"><img src="/assets/simple-aws-logo.png" width="130" height="100" alt="Logo simple aws blanco" loading="lazy"></a>`);
 
   t.after(() => rm(root, { recursive: true, force: true }));
   const result = await processResponsiveImages({ outputDir, publicDir });
   assert.equal(result.pages, 3);
   assert.equal(result.images, 5);
-  assert.equal(result.uniqueImages, 2);
+  assert.equal(result.uniqueImages, 3);
 
   const indexHtml = await readFile(indexPath, 'utf8');
   assert.match(indexHtml, /<script type="application\/ld\+json">\{"description":"<img src=/);
@@ -73,6 +76,34 @@ test('post-render processing preserves image content and emits correctly sized l
   assert.equal(articleImages[0].get('sizes'), '(max-width: 710px) calc(100vw - 30px), 680px');
   assert.equal(articleImages[1].get('sizes'), '(max-width: 500px) calc(100vw - 30px), (max-width: 700px) calc((100vw - 50px) / 2), 320px');
   assert.equal(articleImages[0].get('alt'), 'Imagen del cuerpo');
+
+  const compressedBytes = (await stat(resolve(publicDir, compressedSource.slice(1)))).size;
+  const compressedCandidates = articleImages[0].get('srcset').split(',').map((candidate) => {
+    const [url, descriptor] = candidate.trim().split(/\s+/);
+    return { url, width: Number.parseInt(descriptor, 10) };
+  });
+  assert.ok(compressedCandidates.some(({ url, width }) => url === compressedSource && width === 1024), 'The natural-width original must remain available when a resized candidate is removed.');
+  assert.ok(!compressedCandidates.some(({ width }) => width === 960), 'The oversized 960px JPEG should be pruned for this compressed source.');
+  for (const { url } of compressedCandidates) {
+    const file = resolve(outputDir, `.${new URL(url, 'https://site.invalid').pathname}`);
+    assert.ok((await stat(file)).size <= compressedBytes, 'No fallback candidate may exceed the original source bytes.');
+  }
+  const bodyImageOffset = articleHtml.indexOf('alt="Imagen del cuerpo"');
+  const pictureStart = articleHtml.lastIndexOf('<picture class="responsive-image">', bodyImageOffset);
+  const pictureEnd = articleHtml.indexOf('</picture>', bodyImageOffset);
+  const bodyPicture = articleHtml.slice(pictureStart, pictureEnd);
+  const bodyWebp = bodyPicture.match(/<source\b[^>]*srcset="([^"]+)"[^>]*>/)?.[1];
+  if (bodyWebp) {
+    const webpCandidates = bodyWebp.split(',').map((candidate) => {
+      const [url, descriptor] = candidate.trim().split(/\s+/);
+      return { url, width: Number.parseInt(descriptor, 10) };
+    });
+    assert.deepEqual(webpCandidates.map(({ width }) => width), compressedCandidates.map(({ width }) => width));
+    for (const { url } of webpCandidates) {
+      const file = resolve(outputDir, `.${new URL(url, 'https://site.invalid').pathname}`);
+      assert.ok((await stat(file)).size <= compressedBytes, 'No preferred WebP candidate may exceed the original source bytes.');
+    }
+  }
 
   const homeHtml = await readFile(homePath, 'utf8');
   const partner = attributes(images(homeHtml)[0]);
