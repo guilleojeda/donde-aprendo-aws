@@ -5,6 +5,7 @@ publishedAt: "2024-01-28"
 publishedTimestamp: "2024-01-28T00:31:55.771Z"
 cover: "/assets/blog/8d4ecab3b218a57acfd77f30.jpg"
 coverAlt: "AWS Cloud Practitioner: recursos en español para preparar la certificación"
+indexOrder: 1
 ogImage: "/assets/blog/8d4ecab3b218a57acfd77f30.jpg"
 related:
   - title: "Configuración de Service Discovery en Amazon ECS"

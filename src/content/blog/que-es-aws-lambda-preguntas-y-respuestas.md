@@ -6,7 +6,6 @@ publishedTimestamp: "2025-03-31T03:16:05.470000+00:00"
 cover: "/assets/blog/70579f832030c8f349b01339.jpg"
 coverAlt: "Thumbnail for: ¿Qué es AWS Lambda? Preguntas y Respuestas"
 ogImage: "/assets/blog/70579f832030c8f349b01339.jpg"
-indexOrder: 12
 related:
   - title: "Automatización de cumplimiento con AWS Config"
     url: "https://dondeaprendoaws.com/blog/automatizacion-de-cumplimiento-con-aws-config/"

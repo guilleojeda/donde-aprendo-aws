@@ -6,7 +6,6 @@ publishedTimestamp: "2025-05-26T19:44:19.872000+00:00"
 cover: "/assets/blog/8cdc1f9432243e263d1de431.jpg"
 coverAlt: "Thumbnail for: Guía completa para depurar errores CORS en API Gateway"
 ogImage: "/assets/blog/8cdc1f9432243e263d1de431.jpg"
-indexOrder: 7
 related:
   - title: "Introducción a la Inteligencia Artificial en AWS"
     url: "https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/"

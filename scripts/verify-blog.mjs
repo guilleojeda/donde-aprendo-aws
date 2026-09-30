@@ -17,7 +17,7 @@ const decode = (value) => value
   .replaceAll('&lt;', '<')
   .replaceAll('&gt;', '>');
 
-assert.equal(expected.length, 15, 'Source index fixture must contain 15 articles.');
+assert.equal(expected.length, 6, 'Featured index fixture must contain the six selected articles.');
 assert.equal(archive.length, 196, 'Original sitemap fixture must contain 196 articles.');
 assert.equal(new Set(archive.map(({ slug }) => slug)).size, 196, 'Original article slugs must be unique.');
 const index = read('blog/index.html');
@@ -93,11 +93,11 @@ for (const html of allPages) {
   }
 }
 
-const articleWithTable = read(`blog/${expected[0].slug}/index.html`);
+const articleWithTable = read('blog/como-reducir-costos-de-transferencia-intra-region-en-aws/index.html');
 assert.match(articleWithTable, /<table\b/);
 assert.match(articleWithTable, /"@type":"FAQPage"/);
 const articleWithoutBodyImages = read('blog/cors-en-websocket-vs-rest-api-gateway/index.html');
 const body = articleWithoutBodyImages.match(/<article class="blog-article__body">([\s\S]*?)<\/article>/)?.[1] ?? '';
 assert.doesNotMatch(body, /<img\b/);
 
-console.log(`Verified 15 featured cards, ${archiveUrls.length} archive links, ${archive.length} article routes, and ${assetPaths.size} owned images.`);
+console.log(`Verified ${expected.length} featured cards, ${archiveUrls.length} archive links, ${archive.length} article routes, and ${assetPaths.size} owned images.`);

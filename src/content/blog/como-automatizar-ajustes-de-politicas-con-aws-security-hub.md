@@ -6,7 +6,6 @@ publishedTimestamp: "2025-05-05T06:01:04.872000+00:00"
 cover: "/assets/blog/0a51232b23a8b40ad5b29e21.jpg"
 coverAlt: "Thumbnail for: Cómo automatizar ajustes de políticas con AWS Security Hub"
 ogImage: "/assets/blog/0a51232b23a8b40ad5b29e21.jpg"
-indexOrder: 8
 related:
   - title: "Cifrado de datos con AWS KMS: Guía práctica"
     url: "https://dondeaprendoaws.com/blog/cifrado-de-datos-con-aws-kms-guia-practica/"

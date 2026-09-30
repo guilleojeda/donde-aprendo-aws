@@ -6,7 +6,6 @@ publishedTimestamp: "2025-03-17T03:58:59.832000+00:00"
 cover: "/assets/blog/1ddc83af1d16737de7b3fdb8.jpg"
 coverAlt: "Thumbnail for: Correlación de Eventos con Step Functions y CloudWatch"
 ogImage: "/assets/blog/1ddc83af1d16737de7b3fdb8.jpg"
-indexOrder: 14
 related:
   - title: "Monitoreo de contenedores con CloudWatch Logs"
     url: "https://dondeaprendoaws.com/blog/monitoreo-de-contenedores-con-cloudwatch-logs/"

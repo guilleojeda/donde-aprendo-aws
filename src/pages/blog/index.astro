@@ -14,8 +14,8 @@ const archive = allPosts
   .sort((a, b) => b.data.publishedAt.localeCompare(a.data.publishedAt) || a.data.title.localeCompare(b.data.title, 'es'));
 const years = [...new Set(archive.map((post) => post.data.publishedAt.slice(0, 4)))];
 
-if (posts.length !== 15 || posts.some((post, index) => post.data.indexOrder !== index + 1)) {
-  throw new Error('Blog index requires the 15 source articles in their original order.');
+if (posts.some((post, index) => post.data.indexOrder !== index + 1)) {
+  throw new Error('Featured article positions must be unique and consecutive, starting at 1.');
 }
 ---
 

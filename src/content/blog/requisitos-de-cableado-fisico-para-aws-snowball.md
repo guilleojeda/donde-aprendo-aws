@@ -6,7 +6,6 @@ publishedTimestamp: "2025-05-01T03:33:14.998000+00:00"
 cover: "/assets/blog/3b6a26d54c02dfac32acb13b.jpg"
 coverAlt: "Thumbnail for: Requisitos de cableado físico para AWS Snowball"
 ogImage: "/assets/blog/3b6a26d54c02dfac32acb13b.jpg"
-indexOrder: 9
 related:
   - title: "10 Laboratorios Prácticos de AWS para Principiantes"
     url: "https://dondeaprendoaws.com/blog/10-laboratorios-practicos-de-aws-para-principiantes/"

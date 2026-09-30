@@ -5,6 +5,7 @@ publishedAt: "2024-01-27"
 publishedTimestamp: "2024-01-27T00:02:16.502Z"
 cover: "/assets/blog/0d33d48b094b306e8f1fb75f.jpg"
 coverAlt: "Cómo preparar una certificación AWS con recursos gratuitos"
+indexOrder: 3
 ogImage: "/assets/blog/0d33d48b094b306e8f1fb75f.jpg"
 related:
   - title: "AWS Cloud Practitioner: recursos en español para preparar la certificación"
