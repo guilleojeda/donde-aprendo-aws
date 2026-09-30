@@ -6,7 +6,6 @@ publishedTimestamp: "2025-06-02T08:56:16.722000+00:00"
 cover: "/assets/blog/2b59cebb297e58db709a33a5.jpg"
 coverAlt: "Thumbnail for: Monitoreo de contenedores con CloudWatch Logs"
 ogImage: "/assets/blog/2b59cebb297e58db709a33a5.jpg"
-indexOrder: 5
 related:
   - title: "10 Prácticas Recomendadas para Integrar EUC en AWS"
     url: "https://dondeaprendoaws.com/blog/10-practicas-recomendadas-para-integrar-euc-en-aws/"

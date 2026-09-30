@@ -5,6 +5,7 @@ publishedAt: "2024-01-30"
 publishedTimestamp: "2024-01-30T19:24:56.085Z"
 cover: "/assets/blog/2e829a000de9165446203907.jpg"
 coverAlt: "Portada de la guía de AWS para estudiantes y educadores"
+indexOrder: 5
 ogImage: "/assets/blog/2e829a000de9165446203907.jpg"
 related: []
 ---

@@ -6,7 +6,6 @@ publishedTimestamp: "2025-03-27T01:18:04.566000+00:00"
 cover: "/assets/blog/6f0cbd991f1cfe77b09e89dd.jpg"
 coverAlt: "Thumbnail for: Machine Learning para Triage de Alertas en AWS"
 ogImage: "/assets/blog/6f0cbd991f1cfe77b09e89dd.jpg"
-indexOrder: 13
 related:
   - title: "Logs de acceso en ELB: Guía completa"
     url: "https://dondeaprendoaws.com/blog/logs-de-acceso-en-elb-guia-completa/"

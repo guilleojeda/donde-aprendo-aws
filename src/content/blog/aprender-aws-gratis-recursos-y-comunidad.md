@@ -5,6 +5,7 @@ publishedAt: "2024-01-27"
 publishedTimestamp: "2024-01-27T01:37:04.435Z"
 cover: "/assets/blog/c7227ae982494a7ce1620070.jpg"
 coverAlt: "Ilustración de una nube sobre piezas de rompecabezas con símbolos de aprendizaje"
+indexOrder: 6
 ogImage: "/assets/blog/c7227ae982494a7ce1620070.jpg"
 related: []
 ---

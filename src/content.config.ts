@@ -14,7 +14,7 @@ const blog = defineCollection({
     cover: localBlogAsset,
     coverAlt: z.string(),
     ogImage: localBlogAsset,
-    indexOrder: z.number().int().min(1).max(15).optional(),
+    indexOrder: z.number().int().min(1).optional(),
     related: z.array(z.object({
       title: z.string().min(1),
       url: z.url(),

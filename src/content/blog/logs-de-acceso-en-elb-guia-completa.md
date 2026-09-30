@@ -6,7 +6,6 @@ publishedTimestamp: "2025-03-13T03:14:10.062000+00:00"
 cover: "/assets/blog/fe79fa50612b43f06d41c37a.jpg"
 coverAlt: "Thumbnail for: Logs de acceso en ELB: Guía completa"
 ogImage: "/assets/blog/fe79fa50612b43f06d41c37a.jpg"
-indexOrder: 15
 related:
   - title: "Guía completa para depurar errores CORS en API Gateway"
     url: "https://dondeaprendoaws.com/blog/guia-completa-para-depurar-errores-cors-en-api-gateway/"

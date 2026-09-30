@@ -6,7 +6,6 @@ publishedTimestamp: "2025-09-01T05:25:00.432000+00:00"
 cover: "/assets/blog/c306342b2e9d89f2a4308624.jpg"
 coverAlt: "Thumbnail for: CORS en WebSocket vs REST API Gateway"
 ogImage: "/assets/blog/c306342b2e9d89f2a4308624.jpg"
-indexOrder: 4
 related:
   - title: "Integración de AWS App Mesh con EKS: Guía paso a paso"
     url: "https://dondeaprendoaws.com/blog/integracion-de-aws-app-mesh-con-eks-guia-paso-a-paso/"

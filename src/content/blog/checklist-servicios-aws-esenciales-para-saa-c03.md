@@ -6,7 +6,6 @@ publishedTimestamp: "2025-04-03T01:53:13.640000+00:00"
 cover: "/assets/blog/eadb9eb1eb9dfe22a3da22e2.jpg"
 coverAlt: "Thumbnail for: Checklist: Servicios AWS Esenciales para SAA-C03"
 ogImage: "/assets/blog/eadb9eb1eb9dfe22a3da22e2.jpg"
-indexOrder: 11
 related:
   - title: "Concurrencia Aprovisionada: Solución a Cold Starts en AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/concurrencia-aprovisionada-solucion-a-cold-starts-en-aws-lambda/"

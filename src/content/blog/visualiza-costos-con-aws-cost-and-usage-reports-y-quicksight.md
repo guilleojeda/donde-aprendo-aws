@@ -6,7 +6,6 @@ publishedTimestamp: "2025-09-04T02:52:29.834000+00:00"
 cover: "/assets/blog/bcf6fecd181e12cedeeed88a.jpg"
 coverAlt: "Thumbnail for: Visualiza Costos con AWS Cost and Usage Reports y QuickSight"
 ogImage: "/assets/blog/bcf6fecd181e12cedeeed88a.jpg"
-indexOrder: 3
 related:
   - title: "Cómo monitorear SLOs con Amazon CloudWatch"
     url: "https://dondeaprendoaws.com/blog/como-monitorear-slos-con-amazon-cloudwatch/"

@@ -6,7 +6,6 @@ publishedTimestamp: "2025-05-29T06:24:09.015000+00:00"
 cover: "/assets/blog/e9e708a78c62050c9930cce4.jpg"
 coverAlt: "Thumbnail for: Cómo Optimizar la Transferencia de Datos en API Gateway"
 ogImage: "/assets/blog/e9e708a78c62050c9930cce4.jpg"
-indexOrder: 6
 related:
   - title: "Como Configurar y Utilizar AWS Session Manager"
     url: "https://dondeaprendoaws.com/blog/como-configurar-y-utilizar-aws-session-manager/"

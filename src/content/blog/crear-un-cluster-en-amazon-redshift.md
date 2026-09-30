@@ -6,7 +6,6 @@ publishedTimestamp: "2025-04-28T03:36:05.740000+00:00"
 cover: "/assets/blog/2ce2762453f46a717ff15e81.jpg"
 coverAlt: "Thumbnail for: Crear un Cluster en Amazon Redshift"
 ogImage: "/assets/blog/2ce2762453f46a717ff15e81.jpg"
-indexOrder: 10
 related:
   - title: "Patrón Strangler Fig en AWS: Migrar a Microservicios"
     url: "https://dondeaprendoaws.com/blog/patron-strangler-fig-en-aws-migrar-a-microservicios/"

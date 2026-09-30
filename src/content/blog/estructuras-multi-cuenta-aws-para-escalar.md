@@ -6,7 +6,6 @@ publishedTimestamp: "2025-09-08T14:45:28.938000+00:00"
 cover: "/assets/blog/0e9e4bdd57782b78da6d878e.jpg"
 coverAlt: "Thumbnail for: Estructuras multi-cuenta AWS para escalar"
 ogImage: "/assets/blog/0e9e4bdd57782b78da6d878e.jpg"
-indexOrder: 2
 related:
   - title: "10 Consejos de Redes para AWS Outposts"
     url: "https://dondeaprendoaws.com/blog/10-consejos-de-redes-para-aws-outposts/"
