@@ -98,6 +98,7 @@ for (const page of htmlFiles) {
     const src = attributes.get('src');
     const sourceFile = localFile(src, dist);
     const source = await imageDimensions(sourceFile);
+    const sourceBytes = statSync(sourceFile).size;
     assert.ok(attributes.has('alt'), `Image alt attribute is missing: ${src}`);
     assert.equal(Number(attributes.get('width')), source.width, `Wrong intrinsic width: ${src}`);
     assert.equal(Number(attributes.get('height')), source.height, `Wrong intrinsic height: ${src}`);
@@ -130,6 +131,8 @@ for (const page of htmlFiles) {
       assert.deepEqual(fallbackEntries.map(({ width }) => width), [130, 260, 390], 'The fixed-size partner logo should request 1x, 2x, or 3x pixels.');
     }
     for (const entry of fallbackEntries) {
+      const file = localFile(entry.url, dist);
+      assert.ok(statSync(file).size <= sourceBytes, `Fallback candidate must not exceed the original file: ${entry.url}`);
       if (entry.url !== src) {
         assert.ok(entry.url.startsWith('/assets/responsive-images/'), `Unexpected generated image path: ${entry.url}`);
         assert.ok(entry.url.endsWith(`.${sourceExt}`), `Fallback must retain the detected source format: ${entry.url}`);
@@ -160,6 +163,7 @@ for (const page of htmlFiles) {
         const fallbackFile = localFile(fallback.url, dist);
         const webpFile = localFile(webpEntry.url, dist);
         assert.ok(statSync(webpFile).size <= statSync(fallbackFile).size * (1 - webpSavingsThreshold), `WebP variant does not save 10% at ${webpEntry.width}w: ${src}`);
+        assert.ok(statSync(webpFile).size <= sourceBytes, `WebP candidate must not exceed the original file: ${webpEntry.url}`);
       }
       webpSourceCount += 1;
     }
