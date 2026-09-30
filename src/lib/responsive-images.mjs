@@ -4,9 +4,9 @@ import { extname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 
-const candidateWidths = [360, 640, 960, 1280, 1920];
+const candidateWidths = [360, 640, 720, 960, 1280, 1360, 1920];
 const responsiveAssetDirectory = 'assets/responsive-images';
-const imagePipelineVersion = 'responsive-images-v1-q90-webp10';
+const imagePipelineVersion = 'responsive-images-v2-q90-webp10-byte-ceiling';
 const supportedSourcePaths = new Set(['/assets/simple-aws-logo.png']);
 
 const decodeAttribute = (value) => value
