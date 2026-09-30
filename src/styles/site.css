@@ -1,7 +1,7 @@
 :root {
   color: #3d3d3d;
   background: #fff;
-  font-family: 'Fira Sans', Helvetica, sans-serif;
+  font-family: 'Fira Sans', 'Fira Sans Fallback', Helvetica, sans-serif;
   font-synthesis: none;
   line-height: 1.15;
   text-rendering: optimizeLegibility;

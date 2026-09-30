@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { relative, resolve } from 'node:path';
 
 const production = process.env.PUBLIC_PRODUCTION === 'true';
 const dist = resolve('dist');
@@ -9,6 +9,10 @@ const sections = ['aprender', 'creadores', 'comunidades', 'eventos'];
 const pagePaths = ['index.html', ...sections.map((section) => `${section}/index.html`), 'recorridos/index.html', 'blog/index.html', 'buscar/index.html',
   ...routes.map(({ slug }) => `blog/${slug}/index.html`)];
 const read = (path) => readFileSync(resolve(dist, path), 'utf8');
+const filesUnder = (directory) => readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+  const path = resolve(directory, entry.name);
+  return entry.isDirectory() ? filesUnder(path) : [path];
+});
 
 const sitemap = read('sitemap.xml');
 const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
@@ -22,6 +26,41 @@ const expectedLocations = [
 ].sort();
 assert.deepEqual([...locations].sort(), expectedLocations);
 assert.equal(new Set(locations).size, 204, 'Sitemap URLs must be unique.');
+
+const allDistFiles = filesUnder(dist);
+const allHtmlPaths = allDistFiles.filter((path) => path.endsWith('.html')).map((path) => relative(dist, path).replaceAll('\\', '/'));
+assert.equal(allHtmlPaths.length, 205, 'Every public page and the 404 page must be checked.');
+
+const fontCss = allDistFiles.filter((path) => path.endsWith('.css')).map((path) => readFileSync(path, 'utf8')).join('\n');
+assert.doesNotMatch(fontCss, /https?:\/\/fonts\.(?:googleapis|gstatic)\.com/i, 'Built CSS must not depend on Google Fonts.');
+const fontFaceBodies = [...fontCss.matchAll(/@font-face\s*\{([^}]+)\}/gi)].map((match) => match[1]);
+const firaFaces = fontFaceBodies.filter((body) => /font-family\s*:\s*(?:"Fira Sans"|'Fira Sans'|Fira Sans)\s*;/i.test(body));
+assert.equal(firaFaces.length, 21, 'All 21 official Fira Sans Unicode subset faces must be emitted.');
+const fontSubsets = ['cyrillic-ext', 'cyrillic', 'greek-ext', 'greek', 'vietnamese', 'latin-ext', 'latin'];
+const fontSources = read('assets/fonts/fira-sans/SOURCES.md');
+for (const weight of [400, 500, 700]) {
+  for (const subset of fontSubsets) {
+    const asset = `/assets/fonts/fira-sans/${subset}-${weight}.woff2`;
+    const face = firaFaces.find((body) => body.includes(asset));
+    assert.ok(face, `Missing Fira Sans ${subset} ${weight} face.`);
+    assert.match(face, new RegExp(`font-weight\\s*:\\s*${weight}\\s*;`));
+    assert.match(face, /font-display\s*:\s*swap\s*;/);
+    assert.match(face, /unicode-range\s*:/);
+    const font = readFileSync(resolve(dist, asset.slice(1)));
+    assert.equal(font.subarray(0, 4).toString('ascii'), 'wOF2', `WOFF2 signature: ${asset}`);
+    assert.ok(fontSources.includes(`\`${subset}-${weight}.woff2\` — https://fonts.gstatic.com`), `Source URL: ${asset}`);
+  }
+}
+assert.match(read('assets/fonts/fira-sans/OFL.txt'), /SIL OPEN FONT LICENSE Version 1\.1/);
+for (const path of allHtmlPaths) {
+  const html = read(path);
+  assert.doesNotMatch(html, /https?:\/\/fonts\.(?:googleapis|gstatic)\.com/i, `HTML must not depend on Google Fonts: ${path}`);
+  const fontPreloads = [...html.matchAll(/<link\b(?=[^>]*\brel="preload")(?=[^>]*\bas="font")[^>]*>/gi)].map((match) => match[0]);
+  assert.equal(fontPreloads.length, 1, `Exactly one font preload: ${path}`);
+  assert.match(fontPreloads[0], /href="\/assets\/fonts\/fira-sans\/latin-400\.woff2"/);
+  assert.match(fontPreloads[0], /type="font\/woff2"/);
+  assert.match(fontPreloads[0], /\bcrossorigin(?:\s|=|\/|>)/i);
+}
 
 const robots = read('robots.txt');
 assert.equal(robots, 'User-agent: *\nAllow: /\nSitemap: https://dondeaprendoaws.com/sitemap.xml\n');
