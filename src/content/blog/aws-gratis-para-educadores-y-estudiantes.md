@@ -1,441 +1,193 @@
 ---
-title: "AWS gratis para educadores y estudiantes"
-description: "Explora los programas y herramientas gratuitas de AWS para educadores y estudiantes. Descubre cómo aprovechar la tecnología en la nube para mejorar el aprendizaje y la enseñanza."
+title: "AWS gratis para estudiantes y educadores: cómo aprender, practicar y enseñar en español"
+description: "Aprende y enseña AWS con Educate, Academy, Student Rewards y recursos de la comunidad en español. Conoce requisitos, laboratorios y costos antes de empezar."
 publishedAt: "2024-01-30"
 publishedTimestamp: "2024-01-30T19:24:56.085Z"
 cover: "/assets/blog/2e829a000de9165446203907.jpg"
-coverAlt: "Thumbnail for: AWS gratis para educadores y estudiantes"
+coverAlt: "Portada de la guía de AWS para estudiantes y educadores"
 ogImage: "/assets/blog/2e829a000de9165446203907.jpg"
-related:
-  - title: "Cómo integrar Terraform con CI/CD en AWS"
-    url: "https://dondeaprendoaws.com/blog/como-integrar-terraform-con-cicd-en-aws/"
-    image: "/assets/blog/455f2eb1c408f11b2e18115c.jpg"
-    imageAlt: ""
-  - title: "Patrón Strangler Fig en AWS: Migrar a Microservicios"
-    url: "https://dondeaprendoaws.com/blog/patron-strangler-fig-en-aws-migrar-a-microservicios/"
-    image: "/assets/blog/a4bd2fc033fb9605dec915d6.png"
-    imageAlt: ""
-  - title: "Cómo Prepararte Para un Examen de Certificación de AWS"
-    url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-preparacion-para-el-examen/"
-    image: "/assets/blog/4cb1b939d8aa6ff5e1dc2ac1.jpg"
-    imageAlt: ""
+related: []
 ---
 
-<p>Sin duda, la mayoría estará de acuerdo en que <strong>aprovechar la tecnología en la nube de forma gratuita</strong> puede ser muy beneficioso para estudiantes y educadores.</p>
+*Revisado el 30 de septiembre de 2026.*
 
+Puedes empezar a aprender AWS sin tarjeta de crédito y sin pagar un curso. También puedes incorporar prácticas de nube a una clase sin pedir que cada estudiante abra una cuenta personal. La opción adecuada depende de lo que necesitas: una primera experiencia guiada, formación dentro de tu institución o libertad para desarrollar un proyecto propio.
 
-<p>Afortunadamente, con la iniciativa <strong>AWS Gratis para la Comunidad Educativa</strong>, tanto profesores como alumnos pueden acceder a recursos en la nube de AWS sin costo para mejorar el aprendizaje y la enseñanza.</p>
+Esta guía te ayuda a elegir entre esas posibilidades y a encontrar materiales de la comunidad en español. Está pensada para estudiantes y docentes de América Latina: puedes aprovechar las grabaciones y los artículos desde cualquier país, y elegir una comunidad según tus intereses y las condiciones de participación.
 
+## Qué opción te conviene
 
-<p>En este artículo exploraremos <strong>los diversos programas y herramientas gratuitas de AWS</strong> diseñados específicamente para instituciones académicas, desde la Capa Gratis de AWS hasta AWS Educate y AWS Academy, entre otros. Veremos cómo estudiantes y educadores por igual pueden sacar el máximo provecho para fomentar la innovación y prepararse para el futuro digital.</p>
+Antes de registrarte, decide qué quieres hacer. Un curso gratuito, un laboratorio educativo y una cuenta de AWS son recursos diferentes; cada uno resuelve una necesidad.
 
+| Si necesitas… | Empieza por… | Qué debes comprobar |
+|---|---|---|
+| Probar AWS sin tarjeta y con instrucciones | [AWS Educate](https://aws.amazon.com/es/education/awseducate/) | El laboratorio disponible y sus indicaciones de acceso. |
+| Aprender a tu ritmo con cursos oficiales | [AWS Skill Builder](https://aws.amazon.com/es/training/digital/) | Que el recurso sea gratuito y esté en el idioma que necesitas. |
+| Solicitar beneficios como estudiante de educación superior | [Student Rewards](https://builder.aws.com/student-rewards) | Edad, institución y país elegibles, verificación y requisitos de cada recompensa. |
+| Tomar o impartir una materia con laboratorios | [AWS Academy](https://aws.amazon.com/es/training/awsacademy/) | Si tu institución participa y quién coordina el programa. |
+| Crear un proyecto fuera de un laboratorio | [Una cuenta personal de AWS](https://docs.aws.amazon.com/es_es/awsaccountbilling/latest/aboutv2/free-tier-plans.html) | El plan, los servicios disponibles, el saldo de créditos y el costo de lo que desplegarás. |
+| Estudiar con otras personas | [Student Builder Groups](https://dondeaprendoaws.com/comunidades/?format=Student+Builder+Group) | Los requisitos de ingreso y las actividades de cada grupo. |
 
-<h2 id="introducci%C3%B3n%3A-explorando-aws-gratis-para-la-comunidad-educativa" tabindex="-1">Introducción: Explorando AWS Gratis para la Comunidad Educativa</h2>
+**Si estás empezando y todavía no sabes qué construir, una práctica guiada en AWS Educate es un buen primer paso.** Después podrás decidir si necesitas una cuenta propia.
 
+## AWS Educate: empezar con laboratorios sin tarjeta
 
-<p>La nube de AWS ofrece una amplia gama de servicios y herramientas para apoyar la educación tecnológica. En particular, AWS pone a disposición de estudiantes, educadores e instituciones educativas recursos gratuitos y con descuento a través de programas como AWS Educate y AWS Academy. Estos programas eliminan las barreras de costo y complejidad, permitiendo a más personas adquirir habilidades prácticas en tecnologías emergentes como computación en la nube, ciencia de datos, aprendizaje automático e Internet de las Cosas (IoT).</p>
+[AWS Educate](https://aws.amazon.com/es/education/awseducate/) ofrece formación gratuita a tu ritmo y laboratorios para practicar en la consola. Está abierto a personas desde los 13 años, requiere una dirección de correo electrónico y permite comenzar sin tarjeta de crédito. Tampoco necesitas que tu universidad pertenezca a AWS Academy.
 
+Entre sus propuestas introductorias hay prácticas de almacenamiento, cómputo, redes y bases de datos. Elige una según tu interés: guardar archivos, explorar una máquina virtual o comprender cómo se conectan los recursos.
 
-<h3 id="beneficios-de-aws-free-tier-para-el-aprendizaje-en-la-nube" tabindex="-1">Beneficios de AWS Free Tier para el Aprendizaje en la Nube</h3>
+El acceso corresponde al entorno del laboratorio y a sus instrucciones. Si después repites la actividad en una cuenta personal, revisa por separado qué recursos crearás y qué pueden costar.
 
+Para aprovechar la práctica, lleva una pequeña bitácora: anota qué problema resolviste, qué servicio utilizaste y qué parte te costó entender. Puedes ganar insignias digitales en el programa; úsalas para documentar tu aprendizaje y acompáñalas con una explicación de lo que hiciste.
 
-<p>La <strong>capa gratuita (Free Tier)</strong> de AWS ofrece acceso gratuito a ciertos servicios de AWS durante 12 meses. Esto permite a los estudiantes y educadores explorar tecnologías de vanguardia sin costo alguno. Algunos de los servicios más populares incluidos son:</p>
+### Skill Builder para profundizar en un tema
 
+[Skill Builder](https://aws.amazon.com/es/training/digital/) complementa esa primera experiencia con cursos oficiales. Tiene formación gratuita y otras experiencias que requieren suscripción; comprueba la condición y el idioma de cada ficha antes de empezar.
 
-<ul>
-<li>Amazon EC2: Proveedor líder de servicios de computación en la nube que ofrece capacidad informática escalable. Incluye 750 horas al mes de instancias t2.micro Linux, Windows o Unix.</li>
-<li>Amazon S3: Servicio de almacenamiento de objetos con alta durabilidad y disponibilidad. Incluye 5GB de almacenamiento estándar.</li>
-<li>Amazon RDS: Servicio de bases de datos relacionales en la nube. Incluye 750 horas al mes de bases de datos db.t2.micro.</li>
-<li>Otros servicios como Amazon DynamoDB, AWS Lambda, Amazon VPC, etc.</li>
-</ul>
+Para acceder puedes utilizar un [AWS Builder ID](https://docs.aws.amazon.com/es_es/signin/latest/userguide/differences-aws_builder_id.html), una identidad distinta de la cuenta de AWS donde creas recursos y recibes cargos.
 
+Elige un curso para resolver una duda concreta de tu práctica. Por ejemplo, después de almacenar un archivo, estudia cómo se controla su acceso. Esa relación entre explicación y experiencia ayuda más que acumular cursos sin aplicar lo aprendido.
 
-<p>Esto permite a estudiantes y educadores crear aplicaciones y soluciones en la nube reales, obteniendo experiencia práctica en el uso de servicios de AWS <strong>gratis</strong>.</p>
+## Student Rewards: beneficios para estudiantes verificados
 
+Si tienes 18 años o más y estás matriculado en una institución de educación superior elegible, revisa [Student Rewards de AWS Builder Center](https://builder.aws.com/student-rewards). El programa requiere verificar tu condición de estudiante y completar tu perfil; a partir de ahí puedes canjear una suscripción de Skill Builder por 12 meses.
 
-<h3 id="la-iniciativa-aws-educate%3A-un-puente-hacia-la-tecnolog%C3%ADa-en-educaci%C3%B3n" tabindex="-1">La Iniciativa AWS Educate: Un Puente hacia la Tecnología en Educación</h3>
+También ofrece recompensas por reunir insignias de participación en Builder Center:
 
+- **7 insignias:** 10 USD en créditos de AWS.
+- **14 insignias:** otros 20 USD en créditos.
+- **21 insignias:** un voucher de 100 USD que puedes utilizar para el examen de AWS Certified Cloud Practitioner.
 
-<p><strong>AWS Educate</strong> es otra iniciativa clave de AWS para cerrar la brecha de habilidades tecnológicas. Provee a estudiantes y educadores acceso a recursos de aprendizaje en la nube y oportunidades de formación técnica. Algunos beneficios son:</p>
+Estas insignias reconocen acciones como publicar, comentar y participar con continuidad. Algunas exigen rachas de 90 días, así que obtener el voucher requiere participación sostenida. Son distintas de las insignias de formación que puedes obtener en Educate o Skill Builder. Aprovecha esa participación para compartir un proyecto o aportar una respuesta que ayude a otra persona.
 
+La [guía en español de Alejandra Bricio](https://builder.aws.com/content/3IYPWbbLaoeRdEl2zXNHLYjPRBA), responsable de comunidad de AWS para Latinoamérica, explica la verificación, las insignias y el canje paso a paso. Antes de solicitar los beneficios, consulta también las [preguntas frecuentes oficiales](https://builder.aws.com/faq#student-rewards), en inglés: detallan los vencimientos y los países admitidos. Cuba está actualmente excluida del programa.
 
-<ul>
-<li>Laboratorios prácticos y módulos de aprendizaje autoguiados sobre servicios de AWS.</li>
-<li>Exámenes de práctica y preparación para la certificación de AWS.</li>
-<li>Créditos promocionales de AWS para acceder a más recursos en la nube.</li>
-<li>Oportunidades de pasantías y conexiones con empleadores.</li>
-<li>Soporte dedicado de expertos de AWS.</li>
-</ul>
+Puedes empezar con Builder ID sin abrir una cuenta personal de AWS. Para utilizar los créditos en infraestructura sí necesitas una cuenta; revisa las condiciones de su plan antes de intentar aplicarlos.
 
+## AWS Academy: aprender y enseñar dentro de una institución
 
-<p>Con AWS Educate, los estudiantes pueden prepararse para carreras en la economía digital mientras que los educadores pueden enriquecer sus currículos con tecnologías emergentes.</p>
+[AWS Academy](https://aws.amazon.com/es/training/awsacademy/) ofrece un plan de estudios sin costo para instituciones de educación superior participantes. La incorporación comienza en la institución: un responsable presenta la solicitud y, tras su aceptación, se designan los educadores que impartirán los cursos.
 
+Si eres estudiante, pregunta a tu coordinación académica si ya participa y qué cursos ofrece. Tener un correo universitario, por sí solo, no habilita el acceso. Si eres docente, consulta quién administra el programa o revisa cómo puede postularse tu institución.
 
-<h3 id="aws-academy%3A-formaci%C3%B3n-avanzada-para-educadores-y-estudiantes" tabindex="-1">AWS Academy: Formación Avanzada para Educadores y Estudiantes</h3>
+La oferta abarca fundamentos y áreas como desarrollo, arquitectura, seguridad y datos. Su **Learner Lab** permite a educadores habilitados proponer proyectos y seguir la actividad de los estudiantes. Antes de planificar una entrega, confirma los servicios, permisos, presupuesto y duración disponibles en ese entorno.
 
+La página del programa también anuncia acceso a una suscripción de Skill Builder durante 12 meses para estudiantes y educadores participantes. Consulta con el coordinador cómo se activa ese beneficio y qué condiciones corresponden a tu caso.
 
-<p><strong>AWS Academy</strong> consiste en un programa de estudios en la nube más extenso, diseñado en colaboración con instituciones educativas. Ofrece cursos completos y caminos de aprendizaje alineados con roles profesionales en la industria como administrador de sistemas AWS, desarrollador AWS y analista de datos de AWS.</p>
+Los docentes participantes pueden solicitar descuentos del 100% para exámenes de certificación; los beneficios para estudiantes tienen sus propias condiciones. Conviene confirmar el voucher concreto antes de reservar un examen. Los requisitos y beneficios están descritos en las [preguntas frecuentes oficiales de AWS Academy](https://aws.amazon.com/es/training/awsacademy/faq/).
 
+### Si tu proyecto es de investigación
 
-<p>Los cursos combinan módulos en video con laboratorios prácticos y están disponibles en inglés y español. Al completar los cursos, los estudiantes pueden obtener certificaciones de la industria que validan sus habilidades.</p>
+Para una tesis o un trabajo de investigación, también existe [AWS Cloud Credit for Research](https://aws.amazon.com/government-education/research-and-technical-computing/cloud-credit-for-research/), cuya información está en inglés. Acepta propuestas de docentes, investigadores y estudiantes de posgrado de instituciones acreditadas que cumplan sus requisitos. La asignación se evalúa por proyecto y se entrega como crédito promocional: no es un beneficio automático por ser estudiante. Consulta requisitos y plazos antes de incluirlo en el presupuesto de tu investigación.
 
+## Una ruta de aprendizaje con contenido de la comunidad
 
-<p>AWS Academy empodera a los educadores para que puedan preparar mejor a sus estudiantes en tecnologías en demanda.</p>
+Los programas oficiales te dan acceso a formación y práctica. En la comunidad puedes encontrar otras explicaciones, conocer experiencias y discutir tus decisiones. Puedes combinar ambos desde el comienzo.
 
+### 1. Entiende una idea y aplícala
 
-<h3 id="acceso-a-recursos-educativos-en-la-nube-con-aws" tabindex="-1">Acceso a Recursos Educativos en la Nube con AWS</h3>
+Si necesitas una introducción, comienza con la [primera sesión de Cloud Practitioner del AWS User Group Querétaro](https://www.youtube.com/watch?v=FzWYdmKYxjM) o elige lecciones del [curso de AWS para principiantes de Cultura DevOps](https://www.youtube.com/playlist?list=PLdOotbFwzDIgjeTHvCSLiGmKKzTpDsLLI). Son recursos para orientarte; una sesión introductoria no equivale a un curso completo ni a una certificación.
 
+Después, relaciona la explicación con una práctica de Educate. No hace falta conocer todos los servicios para empezar: basta con poder explicar qué problema resuelve el que estás usando.
 
-<p>En resumen, AWS habilita el acceso a la tecnología para estudiantes y educadores a través de su <strong>capa gratuita</strong>, <strong>AWS Educate</strong> y <strong>AWS Academy</strong>. Estos programas eliminan barreras económicas y técnicas, permitiendo adquirir habilidades prácticas en la nube que son esenciales en la economía digital de hoy en día. Tanto individuos como instituciones educativas pueden beneficiarse de estos <strong>recursos educativos en la nube</strong>. ¡Es momento de explorar el poder transformador del aprendizaje basado en la nube!</p>
+Si prefieres una selección ordenada de materiales comunitarios, sigue el recorrido de [Primeros pasos en AWS](https://dondeaprendoaws.com/recorridos/#primeros-pasos). Puedes elegir el siguiente recurso según la duda que te haya dejado el laboratorio.
 
+Para una duda puntual, tienes materiales más específicos:
 
-<h2 id="%C2%BFqu%C3%A9-cosas-son-gratis-en-aws%3F" tabindex="-1">¿Qué cosas son gratis en AWS?</h2>
+- **Identidad y permisos:** [IAM explicado en cinco minutos, por Marcia Villalba](https://www.youtube.com/watch?v=t51vW-BDwF0). Es una introducción conceptual de 2021 a usuarios, roles y permisos; consulta las instrucciones actuales para configurar tu cuenta.
+- **Almacenamiento:** [sesión de almacenamiento del Challenge del AWS User Group Buenos Aires](https://www.youtube.com/watch?v=GqYKhnqDDeI). Úsala para discutir por qué guardar archivos y disponer de un disco para una máquina virtual son necesidades distintas.
+- **Cómputo:** [sesión del Challenge del AWS User Group Medellín](https://www.youtube.com/watch?v=IhxrEubfIfI), que presenta alternativas como máquinas virtuales con EC2, funciones con Lambda y contenedores.
+- **Redes:** [sesión sobre redes privadas virtuales (VPC) del mismo Challenge](https://www.youtube.com/watch?v=Fx1VXYbT53I), para acompañar una práctica de conectividad.
 
+Las grabaciones tienen fechas distintas. Conserva sus explicaciones útiles y comprueba en la documentación vigente los pasos de consola, precios y condiciones antes de reproducir una demostración.
 
-<p>AWS ofrece varios servicios y recursos gratuitos para estudiantes y educadores a través de programas como AWS Educate y AWS Academy. Estos incluyen:</p>
+### 2. Construye algo pequeño que puedas explicar
 
+Un primer proyecto puede consistir en guardar y recuperar un archivo de prueba, ejecutar una función que procese un dato o comprender qué permite acceder a un recurso. El alcance debe ser lo bastante pequeño para que puedas terminarlo, verificarlo y limpiar lo creado.
 
-<h3 id="aws-educate" tabindex="-1">AWS Educate</h3>
+La [guía de diez laboratorios de AWS para principiantes](https://dondeaprendoaws.com/blog/10-laboratorios-practicos-de-aws-para-principiantes/) te ayuda a elegir prácticas y revisar sus costos y limpieza. Para organizar el aprendizaje después de esa primera experiencia, utiliza la [ruta para aprender AWS desde cero](https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/).
 
+Al terminar, intenta responder cuatro preguntas:
 
-<ul>
-<li>Acceso a laboratorios prácticos y contenido educativo en la nube.</li>
-<li>Créditos promocionales de AWS para usar en ciertos servicios.</li>
-<li>Acceso a la capa gratuita de AWS.</li>
-<li>Recursos de formación y certificación.</li>
-</ul>
+1. ¿Qué hace mi solución y cómo comprobé que funciona?
+2. ¿Quién puede acceder a los recursos?
+3. ¿Qué consumo podría generar un cargo?
+4. ¿Qué eliminé y qué quedó pendiente?
 
+Guarda un diagrama sencillo, tus observaciones y las referencias que utilizaste. Esa documentación te permitirá pedir ayuda con precisión y retomar el proyecto sin comenzar de nuevo.
 
-<h3 id="aws-academy" tabindex="-1">AWS Academy</h3>
+Si ya estudias programación, elige una lectura que conecte AWS con lo que sabes:
 
+- **Desarrollo web:** la [entrevista a Marcia Villalba sobre AWS para frontend](https://www.youtube.com/watch?v=-zy7nGPyEKQ) presenta opciones para alojar aplicaciones y trabajar con su backend. Úsala para identificar qué parte de tu aplicación necesita un servicio de nube.
+- **APIs:** compara el [ejemplo con Terraform, Lambda y Python de Jorge Tovar](https://dev.to/aws-builders/creando-un-api-rest-con-infra-como-codigo-terraform-serverless-lambda-python-parte-1-4ha) con la [integración directa de API Gateway y DynamoDB de Andrés Moreno](https://www.andmore.dev/es/blog/build-serverless-api-with-no-lambda/). Dibuja ambos diseños y explica qué trabajo realiza cada componente. Los artículos son de 2023 y 2021; el primero utiliza Python 3.9. Antes de desplegarlos hay que revisar versiones, permisos, acceso a los endpoints y costos.
+- **Un proyecto en equipo:** el [caso de Kiu y Sessionize, contado por Alexandra Fernandez](https://builder.aws.com/content/2s8GaGrxZZPB5KIoOOrlzJsXob2/kiu-y-sessionize-transformando-la-gesti-n-de-eventos-en-aws-user-groups), describe cómo incorporó información de charlas a un asistente para comunidades. Puedes analizar qué necesidad resolvió y cómo una contribución acotada encaja en un sistema mayor. Es una lectura para estudiar un proyecto real; no necesitas reproducir toda su infraestructura para aprender de él.
 
-<ul>
-<li>Cursos y contenido para aprender sobre tecnologías de la nube.</li>
-<li>Acceso a exámenes de certificación.</li>
-<li>Oportunidades laborales y pasantías.</li>
-</ul>
+### 3. Busca compañeros de aprendizaje
 
+En el [directorio de Student Builder Groups](https://dondeaprendoaws.com/comunidades/?format=Student+Builder+Group) puedes buscar grupos vinculados al ámbito estudiantil. Revisa a quién admiten y qué actividades ofrecen: las condiciones pueden variar entre grupos e instituciones.
 
-<p>Además, todos los nuevos usuarios de AWS pueden acceder a la <strong>capa gratuita de AWS</strong>, que incluye:</p>
+Los [User Groups de AWS](https://dondeaprendoaws.com/comunidades/?format=User+Group) son otra vía para encontrar encuentros y conversar con personas que usan AWS en distintos contextos. Para elegir una actividad, consulta la [agenda de eventos](https://dondeaprendoaws.com/eventos/) y comprueba la modalidad, el horario y los requisitos en la convocatoria del organizador.
 
+Puedes empezar participando con una pregunta sobre tu práctica o mostrando un error que investigaste. Incluye qué esperabas que ocurriera y qué probaste; omite contraseñas, claves y datos privados. Esa conversación puede ayudarte a comprender una decisión que en un video parecía evidente.
 
-<ul>
-<li>750 horas al mes de Amazon EC2 t2.micro</li>
-<li>5GB de almacenamiento de Amazon S3</li>
-<li>20,000 solicitudes GET al mes en Amazon DynamoDB</li>
-</ul>
+Para estudiar mediante grabaciones, tienes la [serie Cloud Practitioner de Medellín de 2025](https://youtube.com/playlist?list=PLhbdvasxz8wwO-b9nlRBYYzY6n5CvSOvj) y el [Challenge de Buenos Aires de 2023](https://www.youtube.com/playlist?list=PLMg_LIgq4KWfR3bBVwgayGVuhbDItJzp8). Sus sesiones se pueden seguir desde cualquier país. Si las usas para preparar un examen, contrasta el contenido con su guía oficial actual.
 
+## Cómo llevar estos recursos a una clase
 
-<p>Estos recursos permiten a los estudiantes y educadores explorar AWS y desarrollar habilidades prácticas en la nube sin costo. Con ellos pueden crear proyectos, ejecutar cargas de trabajo y experimentar con distintos servicios para mejorar su aprendizaje.</p>
+Empieza por una habilidad observable: por ejemplo, que los estudiantes puedan explicar quién tiene permiso para leer un archivo y demostrar ese acceso en un laboratorio. A partir de ese objetivo, elige el entorno y los materiales.
 
+Si tu institución dispone de Academy, comprueba primero qué permite su laboratorio. Si no participa, puedes combinar explicaciones comunitarias con las prácticas individuales de Educate y actividades de análisis. Evita que la posibilidad de cursar dependa de disponer de una tarjeta personal.
 
-<p>En resumen, AWS ofrece varias opciones gratuitas que benefician a estudiantes y educadores, facilitando el acceso a tecnologías de vanguardia para la educación.</p>
+Una secuencia sencilla puede tener tres momentos:
 
+| Momento | Material o actividad | Evidencia de aprendizaje |
+|---|---|---|
+| Antes de la clase | El video de IAM de Marcia Villalba y una pregunta: ¿quién debería poder leer un archivo del proyecto? | Una explicación breve de identidad, acción y recurso. |
+| Durante la clase | Una práctica de almacenamiento disponible en el entorno educativo. | Comprobación del resultado y explicación de los permisos utilizados. |
+| Al finalizar | Discusión sobre consumo, recursos creados y cierre de la práctica. | Una bitácora con verificación, limpieza y dudas pendientes. |
 
-<h2 id="%C2%BFcu%C3%A1nto-dura-la-cuenta-gratuita-de-aws%3F" tabindex="-1">¿Cuánto dura la cuenta gratuita de AWS?</h2>
+Puedes acompañar el último momento con la [sesión de costos y monitoreo del Challenge de Medellín](https://www.youtube.com/watch?v=2cGwdSTdUqQ). Permite introducir herramientas como Budgets, CloudWatch y CloudTrail y discutir qué información necesita alguien para operar un proyecto.
 
+Si la clase ya tiene una aplicación funcionando, incorpora la [lectura sobre observabilidad de Sheyla Leacock](https://dev.to/aws-builders/observabilidad-en-la-nube-de-aws-explorando-cloudwatch-x-ray-y-cloudtrail-5d9m). Explica métricas, registros y trazas, y presenta CloudWatch, X-Ray y CloudTrail. Puedes pedir que el grupo distinga dos preguntas: cómo detectar que la aplicación falla y cómo averiguar quién cambió un recurso de la cuenta.
 
-<p>La cuenta gratuita de AWS, también conocida como AWS Free Tier, tiene una duración de 12 meses a partir de la fecha de registro. Durante este período, los nuevos clientes pueden acceder a ciertos servicios de AWS sin costo alguno mientras se mantengan dentro de los límites de uso establecidos.</p>
+Para evaluar, pide que cada estudiante explique una decisión y un problema que resolvió. Una captura de pantalla puede mostrar el resultado, pero la explicación revela si comprende cómo llegó a él. También puedes asignar una pequeña variación de la práctica para comprobar que sabe adaptar lo aprendido.
 
+Antes de asignar un tutorial, pruébalo en el mismo entorno que tendrá el grupo. Revisa versiones, permisos y servicios permitidos; define qué datos de ejemplo se utilizarán y cómo se cerrará la actividad. Si el recurso requiere cambios, prepara esa adaptación antes de enviarlo a los estudiantes.
 
-<p>En concreto, la cuenta gratuita de AWS incluye:</p>
+Para encontrar lecturas según la materia, explora [AWS Español en DEV](https://dev.to/aws-espanol). Si el grupo ya trabaja con aplicaciones, busca ejemplos de serverless en [AndMore Dev](https://www.andmore.dev/es/); para ampliar con experiencias sobre servicios y costos, visita [Gerardo.dev](https://gerardo.dev/). La [biblioteca de recursos de Dónde Aprendo AWS](https://dondeaprendoaws.com/aprender/) permite buscar por tema y nivel. Selecciona una lectura que ayude a cumplir el objetivo de la clase y comparte el enlace original con el nombre de su autor.
 
+## Cuándo abrir una cuenta personal de AWS
 
-<ul>
-<li>750 horas al mes de uso de instancias t2.micro de Amazon EC2 en Linux, RHEL o Windows</li>
-<li>750 horas al mes de uso de instancias t3.micro de Amazon EC2 en Linux, RHEL o Windows</li>
-<li>5 GB de almacenamiento estándar de Amazon S3</li>
-<li>20 GB de Amazon CloudFront</li>
-<li>2 millones de solicitudes de Amazon CloudFront</li>
-<li>30 GB de almacenamiento de bases de datos relacionales de Amazon RDS</li>
-<li>1 millón de solicitudes de Amazon RDS</li>
-<li>125 000 solicitudes al mes de AWS Lambda</li>
-<li>1 TB de procesamiento de datos de entrada y 1 TB de procesamiento de datos de salida al mes en AWS Lambda</li>
-<li>25 creaciones de recursos al mes en Amazon DynamoDB</li>
-<li>10 unidades de escritura al mes, 10 unidades de lectura al mes en DynamoDB</li>
-<li>100 GB de almacenamiento de datos de entrada al mes en Amazon EFS</li>
-<li>2 millones de solicitudes de Amazon API Gateway</li>
-<li>750 horas al mes de AWS Fargate y AWS Batch</li>
-</ul>
+Una cuenta propia tiene sentido cuando necesitas crear algo fuera de las condiciones de un laboratorio y puedes hacerte cargo de su uso. Antes de abrirla, identifica los servicios del proyecto y revisa el [plan de cuenta que elegirás](https://docs.aws.amazon.com/es_es/awsaccountbilling/latest/aboutv2/free-tier-plans.html).
 
+Para clientes nuevos elegibles, la oferta actual entrega **100 USD iniciales en créditos** y permite obtener **hasta 100 USD adicionales** mediante actividades. El **plan gratuito dura hasta seis meses o hasta agotar los créditos**, lo que ocurra primero. Tiene restricciones de acceso a servicios. El plan de pago permite un uso más amplio y puede generar cargos cuando el consumo no esté cubierto.
 
-<p>Una vez que finaliza el período de 12 meses, el uso de estos servicios dejará de ser gratuito y se comenzará a cobrar según las tarifas estándar de AWS.</p>
+Al abrir una cuenta personal de AWS se exige un método de pago válido, incluso si eliges el plan gratuito. Para practicar sin ese requisito, utiliza Educate. Revisa las [condiciones actuales de Free Tier](https://aws.amazon.com/es/free/free-tier-faqs/) en lugar de guiarte por tutoriales que prometen doce meses de instancias gratuitas.
 
+El plan gratuito tampoco admite otros créditos promocionales, como los de Student Rewards. Cambiar a un plan de pago para utilizarlos supone aceptar que el consumo no cubierto puede generar cargos. Puedes aprovechar la formación educativa y decidir más adelante si necesitas ese cambio.
 
-<p>Es importante tener en cuenta que la cuenta gratuita de AWS está pensada para que los nuevos usuarios puedan familiarizarse con la plataforma, no para soportar cargas de trabajo de producción. Si se superan los límites establecidos para cada servicio, se aplicarán los cargos correspondientes.</p>
+Comprueba también qué ocurrirá al finalizar el plan. Según sus condiciones, el plan gratuito vence y la cuenta se cierra; para un proyecto que necesites conservar, prepara la continuidad o exporta lo necesario antes de esa fecha. Algunas acciones, como incorporar la cuenta a AWS Organizations, la convierten automáticamente en una cuenta de pago. Consulta las condiciones antes de integrarla en un entorno institucional.
 
+### Aprende a controlar el uso desde la primera práctica
 
-<p>En resumen, la cuenta gratuita de AWS dura 12 meses y permite el acceso sin costo a recursos limitados de varios servicios de AWS. Es una excelente oportunidad para que los nuevos usuarios exploren las capacidades de la nube de AWS.</p>
+Antes de crear recursos en tu cuenta:
 
+- **Protege el acceso.** Configura MFA y evita trabajar habitualmente con el usuario raíz. Sigue las [recomendaciones oficiales de seguridad de la cuenta](https://docs.aws.amazon.com/es_es/IAM/latest/UserGuide/root-user-best-practices.html).
+- **Decide qué crearás y cuándo lo eliminarás.** Incluye recursos asociados, como almacenamiento, copias o registros; terminar una sesión de trabajo no elimina lo desplegado.
+- **Revisa consumo y avisos.** Consulta créditos y vencimientos, y configura notificaciones apropiadas. [AWS Budgets](https://docs.aws.amazon.com/es_es/cost-management/latest/userguide/budgets-managing-costs.html) ayuda a seguir el gasto; una alerta de presupuesto no es un tope automático y puede llegar después de haberse producido el consumo.
 
-<h2 id="%C2%BFqu%C3%A9-servicio-de-aws-siempre-es-gratuito-para-los-usuarios%3F" tabindex="-1">¿Qué servicio de AWS siempre es gratuito para los usuarios?</h2>
+Trabaja con datos de ejemplo y guarda tus notas fuera del laboratorio. Si una práctica excede los recursos disponibles o necesitas un servicio de pago, reduce el alcance o busca otra actividad antes de desplegarlo.
 
+## Formación gratuita, insignias y certificaciones
 
-<p>AWS Lambda es un excelente ejemplo de un servicio de AWS que es siempre gratuito para los usuarios. Con Lambda, puedes ejecutar código sin necesidad de aprovisionar o administrar servidores.</p>
+Completar un curso, recibir una insignia y aprobar una certificación de AWS son logros diferentes. Las insignias documentan una actividad o aprendizaje; una certificación requiere rendir y aprobar su examen. No presupongas que la inscripción en un programa educativo incluye ese examen sin costo.
 
+Puedes preparar una certificación con materiales gratuitos y consultar si tienes un descuento o voucher aplicable. Confirma sus condiciones antes de reservar. La [guía de preparación gratuita de certificaciones](https://dondeaprendoaws.com/blog/certificacion-aws-gratis-materiales-de-estudio/) explica cómo organizar ese estudio; si eliges Cloud Practitioner, tienes una [selección de recursos en español y la guía oficial del examen](https://dondeaprendoaws.com/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/).
 
-<h3 id="caracter%C3%ADsticas-clave-de-aws-lambda" tabindex="-1">Características clave de AWS Lambda</h3>
+Si todavía estás eligiendo una especialidad, la [reflexión de Nori sobre el trabajo de un arquitecto de soluciones](https://dev.to/norisa/que-es-ser-arquitecto-de-soluciones-y-por-que-certificarme-con-aws-2j8g) puede ayudarte a explorar ese rol. Relaciona decisiones técnicas, necesidades del negocio y comunicación: tres aspectos que puedes practicar al documentar y presentar tus proyectos.
 
+Si buscas una formación más estructurada orientada al empleo, consulta [AWS re/Start](https://aws.amazon.com/es/training/restart/). Es gratuito para sus participantes y funciona mediante cohortes gestionadas por organizaciones colaboradoras. Los requisitos, cupos y horarios dependen de cada organización; revisa las [opciones de postulación disponibles](https://aws.amazon.com/training/restart/how-to-apply/) para tu ubicación. Está orientado principalmente a personas desempleadas o subempleadas, por lo que no sustituye automáticamente una materia universitaria. Completar una formación puede ayudarte a desarrollar habilidades y presentar mejor tu trabajo, pero no garantiza una contratación.
 
-<ul>
-<li><strong>Ejecuciones gratuitas</strong>: AWS Lambda incluye un nivel gratuito que proporciona 1 millón de solicitudes al mes y 400,000 GB-segundos de tiempo de computo al mes.</li>
-<li><strong>Sin servidores</strong>: No necesitas preocuparte por la infraestructura. Lambda se escala automáticamente.</li>
-<li><strong>Solo pagas por lo que usas</strong>: Solo se te cobra por las ejecuciones de función y el tiempo de computo consumido más allá del nivel gratuito.</li>
-<li><strong>Integración con otros servicios</strong>: Lambda se integra fácilmente con otros servicios de AWS como Amazon S3, DynamoDB y API Gateway.</li>
-<li><strong>Varios lenguajes soportados</strong>: Puedes crear funciones Lambda con Node.js, Python, Java, C# y más.</li>
-</ul>
+Para empezar hoy, elige un laboratorio de Educate, acompáñalo con una explicación de la comunidad y registra lo que aprendiste. Después comparte una pregunta o un resultado con un grupo de estudio.
 
-
-<p>En resumen, AWS Lambda es un excelente servicio "serverless" que siempre viene con un nivel gratuito generoso, por lo que los usuarios pueden probarlo sin costo. Esto lo convierte en una opción atractiva para aprender sobre computación en la nube y desarrollar aplicaciones sin preocuparse por la infraestructura.</p>
-
-
-
-
-<h2 id="%C2%BFqu%C3%A9-pasa-si-no-pago-aws%3F" tabindex="-1">¿Qué pasa si no pago AWS?</h2>
-
-
-<p>No hay ninguna repercusión legal si no pagas tu cuenta de AWS. Simplemente, cuando se acabe el periodo de gracia de tu cuenta gratuita o cuando excedas los límites de uso, AWS restringirá el acceso o degradará el servicio de tus recursos en la nube.</p>
-
-
-<p>Específicamente, esto es lo que pasará:</p>
-
-
-<ul>
-<li>Se suspenderá el acceso a tus instancias EC2.</li>
-<li>Tus volúmenes EBS se marcarán para su eliminación.</li>
-<li>Se eliminarán los datos almacenados en S3.</li>
-<li>Se deshabilitará el acceso a otros servicios como RDS, DynamoDB, etc.</li>
-</ul>
-
-
-<p>En resumen, <strong>perderás el control de todos los recursos y datos</strong> asociados a tu cuenta de AWS. Por lo tanto, es muy importante monitorear de cerca el uso para evitar exceder los límites.</p>
-
-
-<p>Algunas opciones que tienes son:</p>
-
-
-<ul>
-<li>Configurar alertas de facturación para recibir notificaciones cuando te acerques a los límites.</li>
-<li>Actualizar a un plan de pago para continuar usando los servicios una vez superada la capa gratuita.</li>
-<li>Eliminar recursos que no estés utilizando para reducir costos.</li>
-</ul>
-
-
-<p>AWS te enviará múltiples avisos antes de suspender tu acceso para que tengas tiempo de tomar acción. Así que estate atento a tus emails y al panel de la consola para evitar sorpresas.</p>
-
-
-<p>En conclusión, no pagar tu cuenta de AWS simplemente resultará en la pérdida de acceso a tus servicios y recursos en la nube. Pero con un poco de planificación y monitoreo, puedes evitarlo fácilmente.</p>
-
-
-<h2 id="aws-educate-para-estudiantes%3A-herramientas-y-recursos" tabindex="-1">AWS Educate para Estudiantes: Herramientas y Recursos</h2>
-
-
-<p>Esta sección detalla los beneficios y recursos gratuitos de AWS para estudiantes interesados en tecnologías de la nube.</p>
-
-
-<h3 id="explorando-la-capa-gratuita-de-aws-para-proyectos-estudiantiles" tabindex="-1">Explorando la Capa Gratuita de AWS para Proyectos Estudiantiles</h3>
-
-
-<p>La capa gratuita de AWS ofrece a los estudiantes acceso gratuito a servicios populares de AWS para sus proyectos y tareas educativas. Algunos de los servicios más utilizados incluyen:</p>
-
-
-<ul>
-<li><strong>Amazon EC2</strong>: Los estudiantes pueden lanzar instancias t2.micro gratuitas para alojar sus aplicaciones y sitios web. Esto les permite obtener experiencia práctica en computación en la nube.</li>
-<li><strong>Amazon S3</strong>: El servicio de almacenamiento en la nube S3 permite a los estudiantes almacenar archivos para sus proyectos sin costo alguno. Pueden almacenar bases de datos, imágenes, y más.</li>
-<li><strong>AWS Lambda</strong>: Esta plataforma serverless permite a los estudiantes ejecutar código sin necesidad de administrar servidores. Es ideal para tareas pequeñas de procesamiento de datos.</li>
-</ul>
-
-
-<p>En resumen, los estudiantes pueden aprovechar por 12 meses estos y otros servicios gratuitos de AWS para enriquecer su aprendizaje y desarrollar proyectos educativos en la nube.</p>
-
-
-<h3 id="iniciativas-como-aws-re%2Fstart-y-su-rol-en-el-aprendizaje" tabindex="-1">Iniciativas como AWS re/Start y su Rol en el Aprendizaje</h3>
-
-
-<p>AWS re/Start es un programa de formación auspiciado por AWS orientado a desarrollar habilidades en la nube y preparar a la fuerza laboral para roles en tecnología.</p>
-
-
-<p>Los estudiantes pueden beneficiarse de este programa de 12 semanas de duración para:</p>
-
-
-<ul>
-<li>Obtener conocimientos técnicos en servicios de AWS como computación, almacenamiento, bases de datos y redes.</li>
-<li>Desarrollar habilidades blandas como trabajo en equipo, comunicación y pensamiento crítico.</li>
-<li>Tener acceso a mentores expertos en la industria de la nube.</li>
-<li>Mejorar su empleabilidad con la preparación adecuada para certificaciones de AWS.</li>
-</ul>
-
-
-<p>Programas como AWS re/Start refuerzan el aprendizaje de los estudiantes con formación práctica y acceso a tecnologías de punta de AWS.</p>
-
-
-<h3 id="certificado-aws-gratis%3A-una-ventaja-competitiva-para-estudiantes" tabindex="-1">Certificado AWS Gratis: Una Ventaja Competitiva para Estudiantes</h3>
-
-
-<p>Los estudiantes pueden inscribirse en el programa AWS Educate y acceder a exámenes de certificación de AWS sin costo. Algunas de las certificaciones disponibles incluyen:</p>
-
-
-<ul>
-<li><strong>AWS Certified Cloud Practitioner</strong>: Certificación ideal para estudiantes que recién comienzan con la nube.</li>
-<li><strong>AWS Certified Developer Associate</strong>: Enfocada en desarrollo de aplicaciones en la nube.</li>
-<li><strong>AWS Certified SysOps Administrator Associate</strong>: Cubre implementación, administración y operaciones en AWS.</li>
-</ul>
-
-
-<p>Obtener estas credenciales mejora el perfil de los estudiantes y les da una ventaja competitiva a la hora de buscar trabajo. Les permite demostrar sus habilidades técnicas en la nube, lo cual es muy valorado en la industria tecnológica actual.</p>
-
-
-<h3 id="aws-deeplens-y-aws-inferentia%3A-aprendizaje-pr%C3%A1ctico-con-ia" tabindex="-1">AWS DeepLens y AWS Inferentia: Aprendizaje Práctico con IA</h3>
-
-
-<p>Los estudiantes pueden acceder de forma gratuita a herramientas de AWS especializadas en inteligencia artificial y machine learning como AWS DeepLens y AWS Inferentia para enriquecer su formación educativa.</p>
-
-
-<p>AWS DeepLens les permite trabajar con una cámara conectada a la nube para desarrollar y entrenar modelos de aprendizaje profundo. Por otro lado, AWS Inferentia es un chip de inferencia de machine learning que pueden usar para crear aplicaciones de IA optimizadas para la nube.</p>
-
-
-<p>Estas herramientas especializadas fomentan un aprendizaje práctico e innovador de tecnologías como el machine learning e inteligencia artificial en la nube de AWS.</p>
-
-
-<p>En conclusión, a través de iniciativas como AWS Educate y recursos como la capa gratuita de AWS, certificaciones sin costo, programas de formación y herramientas de vanguardia, los estudiantes pueden potenciar enormemente sus habilidades técnicas en la nube y mejorar sus oportunidades profesionales en el campo de la tecnología.</p>
-
-
-<h2 id="aws-gratis-para-educadores%3A-fomentando-la-innovaci%C3%B3n-en-la-ense%C3%B1anza" tabindex="-1">AWS Gratis para Educadores: Fomentando la Innovación en la Enseñanza</h2>
-
-
-<p>La nube ofrece grandes oportunidades para transformar la educación. AWS brinda acceso gratuito a recursos en la nube que permiten a los educadores innovar en sus métodos de enseñanza.</p>
-
-
-<h3 id="integrando-aws-en-el-plan-de-estudios%3A-amazon-ec2-y-amazon-rds" tabindex="-1">Integrando AWS en el Plan de Estudios: Amazon EC2 y Amazon RDS</h3>
-
-
-<p>Los educadores pueden aprovechar servicios como Amazon EC2 y Amazon RDS para enseñar sobre computación en la nube y bases de datos. Por ejemplo:</p>
-
-
-<ul>
-<li>Usar instancias EC2 gratuitas para que los estudiantes practiquen configurando y administrando máquinas virtuales.</li>
-<li>Crear bases de datos de ejemplo en RDS para que los alumnos aprendan a consultar y analizar datos.</li>
-<li>Comparar el rendimiento de bases de datos relacionales y no relacionales utilizando DynamoDB.</li>
-</ul>
-
-
-<p>Esto permite que los estudiantes adquieran habilidades prácticas sobre tecnologías esenciales en la industria.</p>
-
-
-<h3 id="aws-educate-para-educadores%3A-creando-un-ecosistema-de-ense%C3%B1anza-en-la-nube" tabindex="-1">AWS Educate para Educadores: Creando un Ecosistema de Enseñanza en la Nube</h3>
-
-
-<p>AWS Educate es una iniciativa que provee contenido y laboratorios en la nube para capacitar educadores en tecnologías como machine learning, IoT, ciberseguridad y más.</p>
-
-
-<p>Los beneficios incluyen:</p>
-
-
-<ul>
-<li>Cursos autoguiados para que los profesores mejoren sus conocimientos.</li>
-<li>Laboratorios prácticos en la nube para diseñar lecciones interactivas.</li>
-<li>Recursos para incorporar la nube en asignaturas de ciencia de datos, programación, etc.</li>
-<li>Un portal para administrar el progreso de los estudiantes.</li>
-</ul>
-
-
-<p>Así los educadores pueden crear un ecosistema de aprendizaje sólido en tecnologías clave.</p>
-
-
-<h3 id="aws-academy%3A-caminos-de-certificaci%C3%B3n-para-profesores" tabindex="-1">AWS Academy: Caminos de Certificación para Profesores</h3>
-
-
-<p>AWS Academy ayuda a los educadores a prepararse para certificaciones oficiales de AWS a través de cursos, laboratorios y exámenes de práctica.</p>
-
-
-<p>Algunos beneficios:</p>
-
-
-<ul>
-<li>Demuestra experticia en tecnologías de nube líderes en la industria.</li>
-<li>Mejora el perfil profesional y las perspectivas laborales.</li>
-<li>Permite diseñar programas de estudio alineados con habilidades demandadas.</li>
-<li>Ayuda a que los estudiantes preparen certificaciones de AWS.</li>
-</ul>
-
-
-<p>Obtener certificaciones abre puertas para evolucionar como educadores y formar profesionales calificados.</p>
-
-
-<h3 id="colaboraci%C3%B3n-y-desarrollo-profesional-con-aws-lake-formation-y-amazon-quicksight" tabindex="-1">Colaboración y Desarrollo Profesional con AWS Lake Formation y Amazon QuickSight</h3>
-
-
-<p>Herramientas de análisis como Lake Formation y QuickSight facilitan que los educadores:</p>
-
-
-<ul>
-<li>Accedan, preparen y combinen datos para investigación.</li>
-<li>Generen insights mediante análisis y visualizaciones.</li>
-<li>Colaboren con colegas analizando resultados.</li>
-<li>Tomen decisiones informadas sobre programas educativos.</li>
-<li>Adquieran habilidades analíticas valiosas.</li>
-</ul>
-
-
-<p>Esto permite un desarrollo profesional continuo y una mejor comprensión de necesidades estudiantiles.</p>
-
-
-<p>AWS ofrece abundantes recursos para que los educadores adopten la nube e innoven en la enseñanza, preparando mejor a los estudiantes para el futuro.</p>
-
-
-<h2 id="conclusi%C3%B3n%3A-maximizando-el-impacto-de-aws-gratis-en-la-educaci%C3%B3n" tabindex="-1">Conclusión: Maximizando el Impacto de AWS Gratis en la Educación</h2>
-
-
-<p>Resumen de los puntos clave sobre cómo educadores y estudiantes pueden beneficiarse de los recursos gratuitos de AWS para mejorar la enseñanza y el aprendizaje en tecnologías de la nube.</p>
-
-
-<h3 id="s%C3%ADntesis-de-aws-free-tier%3A-un-catalizador-para-la-innovaci%C3%B3n-educativa" tabindex="-1">Síntesis de AWS Free Tier: Un Catalizador para la Innovación Educativa</h3>
-
-
-<p>La capa gratuita de AWS (AWS Free Tier) ofrece acceso gratuito a servicios de AWS populares durante 12 meses. Esto permite a los educadores y estudiantes experimentar con tecnologías de la nube sin costo inicial. Algunos de los beneficios clave de AWS Free Tier para la educación incluyen:</p>
-
-
-<ul>
-<li>Acceso gratuito a más de 60 servicios de AWS, incluyendo Amazon EC2, Amazon S3, Amazon RDS y más. Esto permite crear aplicaciones escalables y proyectos educativos innovadores.</li>
-<li>750 horas al mes de Amazon EC2 t2.micro instancias para ejecutar aplicaciones y almacenamiento de 30GB en Amazon S3 para alojar archivos.</li>
-<li>Acceso a bases de datos relacionales y NoSQL como Amazon RDS y Amazon DynamoDB para almacenar datos.</li>
-<li>Uso de servicios de análisis y machine learning como Amazon Athena, Amazon QuickSight y Amazon SageMaker.</li>
-</ul>
-
-
-<p>AWS Free Tier sirve como un catalizador para la innovación educativa al eliminar las barreras de costo iniciales. Permite a estudiantes y educadores experimentar con tecnologías emergentes para mejorar el aprendizaje y la enseñanza.</p>
-
-
-<h3 id="preparando-a-estudiantes-para-el-futuro-con-aws-educate-y-aws-academy" tabindex="-1">Preparando a Estudiantes para el Futuro con AWS Educate y AWS Academy</h3>
-
-
-<p>AWS ofrece programas específicos para apoyar la educación en tecnologías de la nube:</p>
-
-
-<ul>
-<li><strong>AWS Educate</strong>: Proporciona recursos de aprendizaje en la nube y AWS para estudiantes y educadores. Incluye acceso a laboratorios prácticos, contenido de aprendizaje y oportunidades de certificación.</li>
-<li><strong>AWS Academy</strong>: Un programa de entrenamiento en la nube para instituciones educativas. Permite a los educadores enseñar habilidades técnicas en demanda para preparar mejor a los estudiantes para carreras en la nube.</li>
-</ul>
-
-
-<p>Estos programas exponen a los estudiantes a tecnologías emergentes y habilidades técnicas para prepararlos para los trabajos del futuro. Al graduarse con estas habilidades, los estudiantes tendrán una ventaja competitiva en el mercado laboral.</p>
-
-
-<h3 id="la-importancia-de-la-colaboraci%C3%B3n-en-la-comunidad-aws" tabindex="-1">La Importancia de la Colaboración en la Comunidad AWS</h3>
-
-
-<p>La comunidad global de AWS conecta a estudiantes, educadores, desarrolladores e innovadores para colaborar e intercambiar conocimientos. Esto fomenta un ecosistema vibrante que acelera la innovación educativa.</p>
-
-
-<p>Al participar en foros, grupos de usuarios y eventos de la comunidad AWS, los educadores pueden aprender unos de otros y compartir mejores prácticas. Del mismo modo, esta colaboración permite a los estudiantes conectarse con expertos en la industria y futuros empleadores.</p>
-
-
-<p>En conclusión, AWS ofrece recursos gratuitos que catalizan la innovación educativa y preparan mejor a los estudiantes para el futuro. Y su comunidad global conecta a educadores y aprendices para acelerar el intercambio de conocimientos en tecnologías de la nube.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-basica/">Guía Básica para Certificaciones de AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aprender-aws-gratis-recursos-y-comunidad/">Aprender AWS gratis: Recursos y Comunidad</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-de-inicio/">Certificaciones AWS: Guía de Inicio</a></li>
-</ul>
-</p>
+Si enseñas, selecciona una práctica que tus estudiantes puedan realizar con los recursos disponibles y una evidencia que te permita evaluar su comprensión. Desde ahí podrás ampliar el proyecto, incorporar nuevos materiales y conectar a tu grupo con quienes ya están compartiendo conocimiento sobre AWS en español.
