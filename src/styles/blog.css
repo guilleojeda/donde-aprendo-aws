@@ -382,10 +382,23 @@
   display: block;
   padding: 25px 15px;
   border-top: 1px solid #eee;
-  color: #777;
+  color: #4b5261;
   font-size: 13px;
   text-align: center;
   text-decoration: none;
+}
+
+.blog-footer__contact p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.blog-footer__contact a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  padding: 8px;
+  text-underline-offset: 3px;
 }
 
 @media (max-width: 700px) {

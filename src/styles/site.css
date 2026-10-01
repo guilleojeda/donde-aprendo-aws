@@ -453,6 +453,10 @@ button {
 .event-card__details dd { margin: 0; }
 
 .event-card__links a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  padding-block: 8px;
   color: #263457;
   font-size: 13px;
   font-weight: 700;
@@ -629,12 +633,12 @@ button {
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 10px;
   background: transparent;
-  transition: opacity 0.15s ease;
+  transition: border-color 0.15s ease;
 }
 
 .resource-card:hover,
 .resource-card:focus-within {
-  opacity: 0.7;
+  border-color: #263457;
 }
 
 .resource-card__main-link {
@@ -648,8 +652,8 @@ button {
 .resource-card__related {
   display: flex;
   flex-direction: column;
-  gap: 7px;
-  padding: 0 20px 18px;
+  gap: 8px;
+  padding: 8px 20px 18px;
   font-size: 12px;
   line-height: 1.4;
 }
@@ -657,6 +661,30 @@ button {
 .resource-card__related a {
   color: #263457;
   font-weight: 700;
+}
+
+.resource-card__related a,
+.event-card__details a,
+.event-card__report a {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  padding-block: 8px;
+  line-height: 1.5;
+}
+
+.resource-card a:focus-visible,
+.event-card a:focus-visible,
+.site-footer a:focus-visible,
+.blog-footer a:focus-visible {
+  outline: 2px solid #263457;
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+.resource-card .resource-card__main-link:focus-visible {
+  outline-offset: -4px;
+  border-radius: 9px;
 }
 
 .resource-list__item:target .resource-card {
@@ -1097,7 +1125,7 @@ button {
 
 .site-footer__info p {
   margin: 0;
-  color: rgba(61, 61, 61, 0.6);
+  color: #4b5261;
   font-size: 14px;
   line-height: 1.6;
 }
@@ -1119,12 +1147,12 @@ button {
 .site-footer li a {
   font-size: 14px;
   text-decoration: none;
-  transition: opacity 0.2s ease;
 }
 
 .site-footer li a:hover,
 .site-footer li a:focus-visible {
-  opacity: 0.7;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .social-links {
@@ -1157,10 +1185,19 @@ button {
   border-top: 1px solid #d8dde6;
 }
 
+.site-footer__bottom p {
+  margin: 0;
+  line-height: 1.6;
+}
+
 .site-footer__bottom a {
-  color: rgba(61, 61, 61, 0.4);
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  padding: 8px;
+  color: #4b5261;
   font-size: 12px;
-  text-decoration: none;
+  text-underline-offset: 3px;
 }
 
 @media (max-width: 1020px) {
