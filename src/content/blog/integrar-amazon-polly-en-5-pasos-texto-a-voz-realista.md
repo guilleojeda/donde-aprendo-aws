@@ -53,7 +53,9 @@ related:
 <h2 id="paso-3%3A-convertir-texto-a-voz">Paso 3: Convertir texto a voz</h2>
 <h3 id="utilizar-la-api-synthesizespeech">Utilizar la API SynthesizeSpeech</h3>
 <p>Para convertir texto en voz con Amazon Polly, debes utilizar la API SynthesizeSpeech. A continuación, te mostramos un ejemplo de cómo utilizar esta API en Python utilizando el SDK de AWS (<a href="https://boto3.amazonaws.com/v1/documentation/api/latest/index.html">Boto3</a>):</p>
-<pre><code>import boto3
+
+```python
+import boto3
 
 # Crea un cliente de Polly
 polly_client = boto3.client('polly')
@@ -67,7 +69,8 @@ response = polly_client.synthesize_speech(
 # Guarda el audio en un archivo
 with open('output.mp3', 'wb') as file:
     file.write(response['AudioStream'].read())
-</code></pre>
+```
+
 <p>En este ejemplo, creamos un cliente de Polly utilizando Boto3. Luego, llamamos al método <code>synthesize_speech</code> y le pasamos los siguientes parámetros:</p>
 <table><thead><tr><th>Parámetro</th><th>Descripción</th></tr></thead><tbody><tr><td><code>Text</code></td><td>El texto que queremos convertir en voz.</td></tr><tr><td><code>OutputFormat</code></td><td>El formato de audio deseado (en este caso, MP3).</td></tr><tr><td><code>VoiceId</code></td><td>El ID de la voz que queremos utilizar (en este caso, "Joanna").</td></tr></tbody></table>
 <p>La respuesta de la API contiene una secuencia de audio que podemos guardar en un archivo utilizando la clave <code>AudioStream</code>.</p>

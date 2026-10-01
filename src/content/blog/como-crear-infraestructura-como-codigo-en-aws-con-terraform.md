@@ -156,12 +156,14 @@ resource "aws_subnet" "mi_subnet" {
 }
 </code></pre>
 <p><strong>servidor.tf</strong></p>
-<pre><code>resource "aws_instance" "mi_servidor" {
+
+```hcl
+resource "aws_instance" "mi_servidor" {
   ami           = "ami-0c55b159cbfafe1f0"
   instance_type = "t2.micro"
 
   # Para instalar Apache
-  user_data = &lt;&lt;-EOF
+  user_data = <<-EOF
               #!/bin/bash
               yum update -y
               yum install -y httpd
@@ -176,7 +178,8 @@ resource "aws_subnet" "mi_subnet" {
     Name = "Mi servidor web"
   }
 }
-</code></pre>
+```
+
 <h3 id="inicializaci%C3%B3n">Inicialización</h3>
 <p>Una vez que tenemos todo listo, preparamos Terraform con:</p>
 <pre><code>terraform init
@@ -194,14 +197,17 @@ resource "aws_subnet" "mi_subnet" {
 <p>Terraform nos mostrará cómo va creando los recursos en AWS.</p>
 <h3 id="actualizaci%C3%B3n">Actualización</h3>
 <p>Si queremos mejorar nuestro servidor, por ejemplo, cambiarlo a uno más grande, modificamos <code>servidor.tf</code>:</p>
-<pre><code>resource "aws_instance" "mi_servidor" {
+
+```hcl
+resource "aws_instance" "mi_servidor" {
 
   # otras configuraciones...
 
   instance_type = "t2.large" # Cambiamos a una instancia más grande
 
 }
-</code></pre>
+```
+
 <p>Y repetimos el proceso de planificación y aplicación:</p>
 <pre><code>terraform plan # Para revisar los cambios
 terraform apply # Para hacer el cambio
