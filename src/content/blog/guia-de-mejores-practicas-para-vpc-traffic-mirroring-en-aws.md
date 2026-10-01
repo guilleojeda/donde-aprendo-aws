@@ -4,7 +4,7 @@ description: "Descubre cómo implementar VPC Traffic Mirroring en AWS para mejor
 publishedAt: "2024-10-28"
 publishedTimestamp: "2024-10-28T03:11:03.66Z"
 cover: "/assets/blog/06f2f4250afcc07dff4646bf.webp"
-coverAlt: "Thumbnail for: Guía de Mejores Prácticas para VPC Traffic Mirroring en AWS"
+coverAlt: "Pasillo de servidores iluminado por líneas naranjas y azules"
 ogImage: "/assets/blog/06f2f4250afcc07dff4646bf.webp"
 related:
   - title: "Visualiza Costos con AWS Cost and Usage Reports y QuickSight"

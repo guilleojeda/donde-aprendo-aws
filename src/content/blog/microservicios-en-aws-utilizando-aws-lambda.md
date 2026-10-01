@@ -4,7 +4,7 @@ description: "Descubre cómo utilizar AWS Lambda para desarrollar eficientes mic
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T00:50:24.052Z"
 cover: "/assets/blog/7db368f44486be089c66ca22.jpg"
-coverAlt: "Thumbnail for: Microservicios en AWS Utilizando AWS Lambda"
+coverAlt: "Círculos de varios colores conectados por líneas punteadas"
 ogImage: "/assets/blog/7db368f44486be089c66ca22.jpg"
 related:
   - title: "Estructuras multi-cuenta AWS para escalar"

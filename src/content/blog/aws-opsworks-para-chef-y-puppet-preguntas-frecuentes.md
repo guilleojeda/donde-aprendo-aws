@@ -4,7 +4,7 @@ description: "Guía definitiva de AWS OpsWorks para la automatización y gestió
 publishedAt: "2024-05-06"
 publishedTimestamp: "2024-05-06T20:31:06.838Z"
 cover: "/assets/blog/865feccab5c0ad8e72605945.jpg"
-coverAlt: "Thumbnail for: AWS OpsWorks para Chef y Puppet: Preguntas Frecuentes"
+coverAlt: "Nube con engranajes sobre dos pequeñas escenas de construcción"
 ogImage: "/assets/blog/865feccab5c0ad8e72605945.jpg"
 related:
   - title: "7 Errores Comunes con AWS IoT Device SDK para JavaScript"

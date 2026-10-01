@@ -4,7 +4,7 @@ description: "Aprende cómo integrar CloudWatch y EventBridge para automatizar t
 publishedAt: "2024-11-28"
 publishedTimestamp: "2024-11-28T01:51:21.207Z"
 cover: "/assets/blog/382dfac33d6132edaa6b8e63.jpg"
-coverAlt: "Thumbnail for: CloudWatch y EventBridge: Integración"
+coverAlt: "Dos monitores muestran paneles de gráficos sobre un escritorio"
 ogImage: "/assets/blog/382dfac33d6132edaa6b8e63.jpg"
 related:
   - title: "Correlación de Eventos con Step Functions y CloudWatch"

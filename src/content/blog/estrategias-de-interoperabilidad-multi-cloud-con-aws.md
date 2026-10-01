@@ -4,7 +4,7 @@ description: "Descubre cómo AWS potencia la interoperabilidad multi-nube mejora
 publishedAt: "2024-05-04"
 publishedTimestamp: "2024-05-04T01:13:32.772Z"
 cover: "/assets/blog/36e16d8c286c92c9ff8903fc.jpg"
-coverAlt: "Thumbnail for: Estrategias de Interoperabilidad Multi-Cloud con AWS"
+coverAlt: "Nubes de colores conectadas en una línea sobre un fondo claro"
 ogImage: "/assets/blog/36e16d8c286c92c9ff8903fc.jpg"
 related:
   - title: "Guía Completa: Análisis de Costos de Tráfico en AWS"

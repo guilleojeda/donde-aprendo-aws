@@ -4,7 +4,7 @@ description: "Descubre los fundamentos y mejores prácticas para crear y manejar
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T01:55:00.888Z"
 cover: "/assets/blog/898bfede65963403cc64e267.jpg"
-coverAlt: "Thumbnail for: Respaldos y Snapshots en EBS"
+coverAlt: "Nube sobre piezas con símbolos de candados y escudos"
 ogImage: "/assets/blog/898bfede65963403cc64e267.jpg"
 related:
   - title: "7 Estrategias para Mitigar Cold Starts en AWS Lambda"

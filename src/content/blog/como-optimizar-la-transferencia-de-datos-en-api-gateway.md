@@ -4,7 +4,7 @@ description: "Aprende a optimizar la transferencia de datos en API Gateway para 
 publishedAt: "2025-05-29"
 publishedTimestamp: "2025-05-29T06:24:09.015000+00:00"
 cover: "/assets/blog/e9e708a78c62050c9930cce4.jpg"
-coverAlt: "Thumbnail for: Cómo Optimizar la Transferencia de Datos en API Gateway"
+coverAlt: "Líneas curvas y puntos que ascienden sobre un fondo claro"
 ogImage: "/assets/blog/e9e708a78c62050c9930cce4.jpg"
 related:
   - title: "Como Configurar y Utilizar AWS Session Manager"

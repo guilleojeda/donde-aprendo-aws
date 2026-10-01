@@ -4,7 +4,7 @@ description: "Explora las tendencias emergentes en arquitectura en la nube, incl
 publishedAt: "2024-01-27"
 publishedTimestamp: "2024-01-27T23:50:47.33Z"
 cover: "/assets/blog/d781a44da56c41c82eb33501.png"
-coverAlt: "Thumbnail for: Arquitectura en la nube: tendencias emergentes"
+coverAlt: "Nube transparente conectada a cubos y figuras geométricas"
 ogImage: "/assets/blog/d781a44da56c41c82eb33501.png"
 related:
   - title: "SLAs en AWS: Conceptos Legales Clave"

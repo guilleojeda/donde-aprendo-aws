@@ -4,7 +4,7 @@ description: "Descubre cómo los webinars y eventos en AWS Marketplace pueden tr
 publishedAt: "2024-04-28"
 publishedTimestamp: "2024-04-28T22:20:08.853Z"
 cover: "/assets/blog/8f2a908f4bdb73449da17e82.jpg"
-coverAlt: "Thumbnail for: Webinars y Eventos en AWS Marketplace"
+coverAlt: "Nube delineada con un botón de reproducción sobre un diagrama de flujo"
 ogImage: "/assets/blog/8f2a908f4bdb73449da17e82.jpg"
 related:
   - title: "¿Qué son los endpoints de VPC en AWS?"

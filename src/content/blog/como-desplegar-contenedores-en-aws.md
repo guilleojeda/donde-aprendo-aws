@@ -4,7 +4,7 @@ description: "Aprende a desplegar contenedores en AWS, conoce las ventajas, herr
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T00:56:38.087Z"
 cover: "/assets/blog/25f323bf6f07480e77ba86a0.jpg"
-coverAlt: "Thumbnail for: Cómo Desplegar Contenedores en AWS"
+coverAlt: "Nube sobre filas de bloques y contenedores de colores"
 ogImage: "/assets/blog/25f323bf6f07480e77ba86a0.jpg"
 related:
   - title: "5 Lecciones Clave del AWS Public Sector Summit 2024"

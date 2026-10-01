@@ -4,7 +4,7 @@ description: "Descubre las mejores prácticas de AWS para DevOps, desde el marco
 publishedAt: "2024-01-24"
 publishedTimestamp: "2024-01-24T23:31:38.611Z"
 cover: "/assets/blog/87b7131b5cdf72f70b5347bd.jpg"
-coverAlt: "Thumbnail for: Mejores prácticas AWS para DevOps"
+coverAlt: "Nube compuesta por iconos conectados a bloques y nodos inferiores"
 ogImage: "/assets/blog/87b7131b5cdf72f70b5347bd.jpg"
 related:
   - title: "Diferencias: Endpoint de interfaz vs. Endpoint de gateway"

@@ -4,7 +4,7 @@ description: "Consejos clave para optimizar y asegurar tus aplicaciones sin serv
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:26:48.732Z"
 cover: "/assets/blog/020c3be0259dc50cecb2155a.png"
-coverAlt: "Thumbnail for: Mejores Prácticas Para AWS Lambda"
+coverAlt: "Lupa, marcador y engranaje conectados con una nube"
 ogImage: "/assets/blog/020c3be0259dc50cecb2155a.png"
 related:
   - title: "7 Estrategias para Mitigar Cold Starts en AWS Lambda"

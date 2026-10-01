@@ -4,7 +4,7 @@ description: "Aprende a configurar y depurar errores CORS en API Gateway para ga
 publishedAt: "2025-05-26"
 publishedTimestamp: "2025-05-26T19:44:19.872000+00:00"
 cover: "/assets/blog/8cdc1f9432243e263d1de431.jpg"
-coverAlt: "Thumbnail for: Guía completa para depurar errores CORS en API Gateway"
+coverAlt: "Monitor con una interfaz de diagnóstico abierta sobre un escritorio"
 ogImage: "/assets/blog/8cdc1f9432243e263d1de431.jpg"
 related:
   - title: "Introducción a la Inteligencia Artificial en AWS"

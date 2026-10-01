@@ -4,7 +4,7 @@ description: "AWS Config automatiza el cumplimiento en la nube, permitiendo moni
 publishedAt: "2025-01-09"
 publishedTimestamp: "2025-01-09T00:16:49.41Z"
 cover: "/assets/blog/887b167cb63dec6854e043dc.jpg"
-coverAlt: "Thumbnail for: Automatización de cumplimiento con AWS Config"
+coverAlt: "Monitor con panel de gráficos en una oficina con plantas"
 ogImage: "/assets/blog/887b167cb63dec6854e043dc.jpg"
 related:
   - title: "Cómo automatizar ajustes de políticas con AWS Security Hub"

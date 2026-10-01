@@ -4,7 +4,7 @@ description: "Descubre cómo utilizar ElasticSearch en AWS, desde la creación d
 publishedAt: "2024-03-08"
 publishedTimestamp: "2024-03-08T13:19:46.73Z"
 cover: "/assets/blog/17fe006845acd8b3930b23c8.jpg"
-coverAlt: "Thumbnail for: Cómo Utilizar ElasticSearch en AWS"
+coverAlt: "Engranajes naranjas sobre una plataforma blanca rodeada de nubes"
 ogImage: "/assets/blog/17fe006845acd8b3930b23c8.jpg"
 related:
   - title: "AWS Organizations: Estructuras de cuentas y nombres"

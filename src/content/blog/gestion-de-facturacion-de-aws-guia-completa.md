@@ -4,7 +4,7 @@ description: "Descubre cómo gestionar y optimizar tus costos en AWS con estrate
 publishedAt: "2024-10-26"
 publishedTimestamp: "2024-10-26T18:40:19.127Z"
 cover: "/assets/blog/2363e8e50d51d42bcaec6ec4.webp"
-coverAlt: "Thumbnail for: Gestión de Facturación de AWS: Guía Completa"
+coverAlt: "Portátil con un panel de facturación sobre un escritorio"
 ogImage: "/assets/blog/2363e8e50d51d42bcaec6ec4.webp"
 related:
   - title: "10 Estrategias de Optimización de Costos en AWS"

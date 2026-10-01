@@ -4,7 +4,7 @@ description: "Descubre cómo Amazon Aurora revoluciona la gestión de bases de d
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:04:43.715Z"
 cover: "/assets/blog/5c1876ee5b54561eb5f8612a.jpg"
-coverAlt: "Thumbnail for: Base de Datos Global con Amazon Aurora"
+coverAlt: "Globo terráqueo rodeado de nubes y líneas de conexión"
 ogImage: "/assets/blog/5c1876ee5b54561eb5f8612a.jpg"
 related:
   - title: "Cómo Usar AWS Cost Explorer para Tráfico de Red"

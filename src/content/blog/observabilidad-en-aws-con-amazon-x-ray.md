@@ -4,7 +4,7 @@ description: "Descubre cómo Amazon X-Ray en AWS te ayuda a detectar errores, op
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:29:48.795Z"
 cover: "/assets/blog/9c1a2ce4c93fa5462aba7299.jpg"
-coverAlt: "Thumbnail for: Observabilidad en AWS con Amazon X-Ray"
+coverAlt: "Nodo luminoso central conectado a figuras hexagonales sobre un fondo claro"
 ogImage: "/assets/blog/9c1a2ce4c93fa5462aba7299.jpg"
 related:
   - title: "7 Estrategias para Reducir Costos en AWS Fargate"

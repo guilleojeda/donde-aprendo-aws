@@ -4,7 +4,7 @@ description: "Descubre el mundo de Serverless en AWS y aprende sobre sus ventaja
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T02:49:31.55Z"
 cover: "/assets/blog/9f5d99800f4cca1daf83afa2.jpg"
-coverAlt: "Thumbnail for: Introducción a Serverless en AWS"
+coverAlt: "Nube azul rodeada de pequeños cuadros e iconos de colores"
 ogImage: "/assets/blog/9f5d99800f4cca1daf83afa2.jpg"
 related:
   - title: "10 Métricas Clave de DevOps en AWS"

@@ -4,7 +4,7 @@ description: "Explora las estrategias clave de seguridad en la nube de AWS, incl
 publishedAt: "2024-01-28"
 publishedTimestamp: "2024-01-28T01:13:20.58Z"
 cover: "/assets/blog/85153458594dcc202b848554.jpg"
-coverAlt: "Thumbnail for: Seguridad en la nube AWS: Estrategias clave"
+coverAlt: "Nube rosada con un escudo central conectado a candados y otros símbolos"
 ogImage: "/assets/blog/85153458594dcc202b848554.jpg"
 related:
   - title: "Guía Completa: Análisis de Costos de Tráfico en AWS"

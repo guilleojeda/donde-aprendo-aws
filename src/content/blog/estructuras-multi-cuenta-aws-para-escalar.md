@@ -4,7 +4,7 @@ description: "Las estructuras multi-cuenta en AWS optimizan la gestión de recur
 publishedAt: "2025-09-08"
 publishedTimestamp: "2025-09-08T14:45:28.938000+00:00"
 cover: "/assets/blog/0e9e4bdd57782b78da6d878e.jpg"
-coverAlt: "Thumbnail for: Estructuras multi-cuenta AWS para escalar"
+coverAlt: "Nube central rodeada por varias nubes pequeñas y un arco naranja"
 ogImage: "/assets/blog/0e9e4bdd57782b78da6d878e.jpg"
 related:
   - title: "10 Consejos de Redes para AWS Outposts"

@@ -4,7 +4,7 @@ description: "Guía completa sobre los cursos de certificación de AWS, desde pr
 publishedAt: "2024-01-26"
 publishedTimestamp: "2024-01-26T02:57:10.061Z"
 cover: "/assets/blog/35e338eebb5988d204344c86.jpg"
-coverAlt: "Thumbnail for: AWS curso certificado: guía básica"
+coverAlt: "Pirámide de franjas de colores atravesada por un camino en zigzag"
 ogImage: "/assets/blog/35e338eebb5988d204344c86.jpg"
 related:
   - title: "AWS Wavelength: Guía de Escalabilidad y Optimización"

@@ -4,7 +4,7 @@ description: "Descubra cómo implementar y gestionar bases de datos relacionales
 publishedAt: "2024-01-31"
 publishedTimestamp: "2024-01-31T00:42:48.279Z"
 cover: "/assets/blog/a57ee6c77803a35c0e96c332.jpg"
-coverAlt: "Thumbnail for: Bases de datos Relacionales en AWS con Amazon RDS y Amazon Aurora"
+coverAlt: "Nube central con hexágonos y varios iconos de bases de datos alrededor"
 ogImage: "/assets/blog/a57ee6c77803a35c0e96c332.jpg"
 related:
   - title: "Diferencias: Endpoint de interfaz vs. Endpoint de gateway"

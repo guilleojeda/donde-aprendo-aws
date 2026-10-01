@@ -4,7 +4,7 @@ description: "Acreditación para Partners de AWS: cómo obtenerla, mantenerla y 
 publishedAt: "2024-05-17"
 publishedTimestamp: "2024-05-17T00:52:54.211Z"
 cover: "/assets/blog/0d6df5a1297701914debd614.png"
-coverAlt: "Thumbnail for: Guía de Acreditación para Partners de AWS 2024"
+coverAlt: "Nube sobre una red de circuitos, iconos y líneas verticales"
 ogImage: "/assets/blog/0d6df5a1297701914debd614.png"
 related:
   - title: "Crear un Cluster en Amazon Redshift"

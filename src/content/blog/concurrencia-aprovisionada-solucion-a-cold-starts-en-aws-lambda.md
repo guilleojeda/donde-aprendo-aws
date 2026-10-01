@@ -4,7 +4,7 @@ description: "Aprende sobre la concurrencia aprovisionada en AWS Lambda, cómo r
 publishedAt: "2024-05-20"
 publishedTimestamp: "2024-05-20T00:03:01.19Z"
 cover: "/assets/blog/4efa7f16e3c389136cc18ae2.png"
-coverAlt: "Thumbnail for: Concurrencia Aprovisionada: Solución a Cold Starts en AWS Lambda"
+coverAlt: "Nube central rodeada por flechas circulares y pequeños símbolos"
 ogImage: "/assets/blog/4efa7f16e3c389136cc18ae2.png"
 related:
   - title: "CORS en WebSocket vs REST API Gateway"

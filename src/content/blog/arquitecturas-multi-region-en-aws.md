@@ -4,7 +4,7 @@ description: "Implementar una arquitectura multi-región en AWS para mejorar la 
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T00:52:38.092Z"
 cover: "/assets/blog/bafde793116d5b5e38a659da.jpg"
-coverAlt: "Thumbnail for: Arquitecturas Multi-Región en AWS"
+coverAlt: "Globo terráqueo con líneas de conexión y nubes alrededor"
 ogImage: "/assets/blog/bafde793116d5b5e38a659da.jpg"
 related:
   - title: "10 Métricas Clave de DevOps en AWS"

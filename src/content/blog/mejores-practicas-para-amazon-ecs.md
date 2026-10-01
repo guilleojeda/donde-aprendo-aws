@@ -4,7 +4,7 @@ description: "Descubre cómo dominar Amazon ECS para manejar aplicaciones en con
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:33:48.66Z"
 cover: "/assets/blog/826c9a11a84720138c6c6ed3.jpg"
-coverAlt: "Thumbnail for: Mejores Prácticas Para Amazon ECS"
+coverAlt: "Nube conectada a cuatro círculos con símbolos de candado, moneda y engranajes"
 ogImage: "/assets/blog/826c9a11a84720138c6c6ed3.jpg"
 related:
   - title: "Observabilidad en AWS con Amazon X-Ray"

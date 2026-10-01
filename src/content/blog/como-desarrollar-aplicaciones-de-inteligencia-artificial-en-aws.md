@@ -4,7 +4,7 @@ description: "Descubre cómo desarrollar aplicaciones de inteligencia artificial
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T00:01:17.799Z"
 cover: "/assets/blog/ac5297dc259dcbbe8d397c9d.jpg"
-coverAlt: "Thumbnail for: Cómo Desarrollar Aplicaciones de Inteligencia Artificial en AWS"
+coverAlt: "Nube con un cerebro en su interior, rodeada por engranajes y una línea punteada"
 ogImage: "/assets/blog/ac5297dc259dcbbe8d397c9d.jpg"
 related:
   - title: "CORS en WebSocket vs REST API Gateway"

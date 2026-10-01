@@ -4,7 +4,7 @@ description: "Gestiona eficientemente tus cuentas de AWS con mejores prácticas 
 publishedAt: "2025-03-03"
 publishedTimestamp: "2025-03-03T04:59:25.364Z"
 cover: "/assets/blog/bfdfed56910493c9a698fb14.jpg"
-coverAlt: "Thumbnail for: Mejores prácticas para nombres en AWS Organizations"
+coverAlt: "Monitor con una interfaz de administración abierta en un escritorio"
 ogImage: "/assets/blog/bfdfed56910493c9a698fb14.jpg"
 related:
   - title: "¿Qué es AWS Lambda? Preguntas y Respuestas"

@@ -4,7 +4,7 @@ description: "Fundamentos de cloud computing, modelos de servicio, aplicaciones,
 publishedAt: "2024-01-26"
 publishedTimestamp: "2024-01-26T05:05:32.947Z"
 cover: "/assets/blog/9d8403a4cf66ec6c49656be3.jpg"
-coverAlt: "Thumbnail for: Cloud computing en español: fundamentos básicos"
+coverAlt: "Nube de iconos pequeños sobre una plataforma azul"
 ogImage: "/assets/blog/9d8403a4cf66ec6c49656be3.jpg"
 related:
   - title: "Estrategias de Recuperación de Desastres en AWS"

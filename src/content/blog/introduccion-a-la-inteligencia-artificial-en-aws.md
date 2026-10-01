@@ -4,7 +4,7 @@ description: "Descubre cómo AWS facilita el uso de la Inteligencia Artificial c
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:08:46.131Z"
 cover: "/assets/blog/740fd46916e44bd2c61ce62c.png"
-coverAlt: "Thumbnail for: Introducción a la Inteligencia Artificial en AWS"
+coverAlt: "Nube conectada a un ojo, un engranaje y otros símbolos"
 ogImage: "/assets/blog/740fd46916e44bd2c61ce62c.png"
 related:
   - title: "Integración de GuardDuty de AWS para Inteligencia de Amenazas"

@@ -4,7 +4,7 @@ description: "Descubre cómo gestionar múltiples cuentas de AWS de manera efici
 publishedAt: "2024-03-07"
 publishedTimestamp: "2024-03-07T23:44:11.481Z"
 cover: "/assets/blog/f49b26fc90f711fa88bba709.jpg"
-coverAlt: "Thumbnail for: Gestionando Múltiples Cuentas de AWS con AWS Organizations"
+coverAlt: "Árbol con ramas en forma de nube y raíces extendidas"
 ogImage: "/assets/blog/f49b26fc90f711fa88bba709.jpg"
 related:
   - title: "Automatización de cumplimiento con AWS Config"

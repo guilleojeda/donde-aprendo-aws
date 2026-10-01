@@ -4,7 +4,7 @@ description: "Aprende a utilizar AWS Cost Explorer para monitorear y optimizar l
 publishedAt: "2025-01-02"
 publishedTimestamp: "2025-01-02T00:17:31.789Z"
 cover: "/assets/blog/dbdbc8a8b6e306c35e966f8a.jpg"
-coverAlt: "Thumbnail for: Cómo Usar AWS Cost Explorer para Tráfico de Red"
+coverAlt: "Monitor con gráficos de costos en un escritorio junto a plantas"
 ogImage: "/assets/blog/dbdbc8a8b6e306c35e966f8a.jpg"
 related:
   - title: "AWS Wavelength: Guía de Escalabilidad y Optimización"

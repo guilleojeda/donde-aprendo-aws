@@ -4,7 +4,7 @@ description: "Aprende a integrar AWS App Mesh con Amazon EKS para mejorar la com
 publishedAt: "2024-05-11"
 publishedTimestamp: "2024-05-11T01:55:00.323Z"
 cover: "/assets/blog/b6336599f042126db9b5d45c.png"
-coverAlt: "Thumbnail for: Integración de AWS App Mesh con EKS: Guía paso a paso"
+coverAlt: "Nube de contorno estratificado con una trama de hexágonos y conexiones"
 ogImage: "/assets/blog/b6336599f042126db9b5d45c.png"
 related:
   - title: "10 Consejos de Redes para AWS Outposts"

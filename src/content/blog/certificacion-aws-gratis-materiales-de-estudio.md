@@ -4,7 +4,7 @@ description: "Recursos gratuitos y en español para preparar una certificación 
 publishedAt: "2024-01-27"
 publishedTimestamp: "2024-01-27T00:02:16.502Z"
 cover: "/assets/blog/0d33d48b094b306e8f1fb75f.jpg"
-coverAlt: "Cómo preparar una certificación AWS con recursos gratuitos"
+coverAlt: "Manos señalan un libro abierto, una nube y una lupa"
 indexOrder: 3
 ogImage: "/assets/blog/0d33d48b094b306e8f1fb75f.jpg"
 related:

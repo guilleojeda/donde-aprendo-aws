@@ -4,7 +4,7 @@ description: "Descubre los 5 whitepapers esenciales de AWS para preparar y aprob
 publishedAt: "2024-10-26"
 publishedTimestamp: "2024-10-26T18:53:17.718Z"
 cover: "/assets/blog/251a69179cad106c40e9334f.webp"
-coverAlt: "Thumbnail for: 5 Whitepapers de AWS para Aprobar Exámenes"
+coverAlt: "Libros apilados sobre una mesa; los lomos dicen AWS Whitepapers"
 ogImage: "/assets/blog/251a69179cad106c40e9334f.webp"
 related:
   - title: "¿Qué es AWS Lambda? Preguntas y Respuestas"

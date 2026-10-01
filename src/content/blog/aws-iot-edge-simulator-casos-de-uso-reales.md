@@ -4,7 +4,7 @@ description: "Descubre cómo el simulador de dispositivos IoT de AWS mejora las 
 publishedAt: "2024-05-15"
 publishedTimestamp: "2024-05-15T02:46:19.391Z"
 cover: "/assets/blog/7854091f527530189ba482f0.png"
-coverAlt: "Thumbnail for: AWS IoT Edge Simulator: Casos de Uso Reales"
+coverAlt: "Nube conectada por caminos a pequeños dispositivos y objetos"
 ogImage: "/assets/blog/7854091f527530189ba482f0.png"
 related:
   - title: "Cómo automatizar ajustes de políticas con AWS Security Hub"

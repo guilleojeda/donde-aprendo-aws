@@ -4,7 +4,7 @@ description: "Explora los SLAs de AWS, que garantizan alta disponibilidad y esta
 publishedAt: "2025-01-16"
 publishedTimestamp: "2025-01-16T00:20:32.257Z"
 cover: "/assets/blog/6a87e6f6cd6e98298a62ee1a.jpg"
-coverAlt: "Thumbnail for: SLAs en AWS: Conceptos Legales Clave"
+coverAlt: "Centro de datos con una superposición de indicadores y gráficos de SLA"
 ogImage: "/assets/blog/6a87e6f6cd6e98298a62ee1a.jpg"
 related:
   - title: "AWS Lambda y API Gateway: Guía Básica"

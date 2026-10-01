@@ -4,7 +4,7 @@ description: "Obtén respuestas a tus preguntas sobre los cursos y certificacion
 publishedAt: "2024-01-25"
 publishedTimestamp: "2024-01-25T02:32:17.745Z"
 cover: "/assets/blog/39294214939c4754eb0b11e2.png"
-coverAlt: "Thumbnail for: AWS curso certificado: preguntas frecuentes"
+coverAlt: "Nube dorada rodeada por círculos con símbolos de búsqueda, datos y seguridad"
 ogImage: "/assets/blog/39294214939c4754eb0b11e2.png"
 related:
   - title: "10 Preguntas Frecuentes sobre Machine Learning en AWS"

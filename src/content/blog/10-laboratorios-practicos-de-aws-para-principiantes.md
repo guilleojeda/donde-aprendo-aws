@@ -4,7 +4,7 @@ description: "Diez prácticas de AWS con resultados verificables, recursos de la
 publishedAt: "2024-05-18"
 publishedTimestamp: "2024-05-18T00:59:00.192Z"
 cover: "/assets/blog/e9f2fc671d3e9516f2345bb7.png"
-coverAlt: "Diez laboratorios prácticos para comenzar a aprender AWS"
+coverAlt: "Nube central rodeada por círculos con iconos de distintos dispositivos"
 indexOrder: 2
 ogImage: "/assets/blog/e9f2fc671d3e9516f2345bb7.png"
 related: []

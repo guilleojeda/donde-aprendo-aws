@@ -4,7 +4,7 @@ description: "Recursos gratuitos y consejos para prepararte para una certificaci
 publishedAt: "2024-01-28"
 publishedTimestamp: "2024-01-28T23:43:20.471Z"
 cover: "/assets/blog/b85977e8b87b51eadb100d2e.jpg"
-coverAlt: "Thumbnail for: Certificación de AWS: Preparación sin Costo"
+coverAlt: "Camino sinuoso entre montañas con pequeñas señales"
 ogImage: "/assets/blog/b85977e8b87b51eadb100d2e.jpg"
 related:
   - title: "Migración de Datos con AWS Snowmobile: Guía Paso a Paso"

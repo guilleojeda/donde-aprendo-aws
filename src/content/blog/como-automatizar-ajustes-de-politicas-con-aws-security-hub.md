@@ -4,7 +4,7 @@ description: "Automatiza políticas de seguridad en la nube con AWS Security Hub
 publishedAt: "2025-05-05"
 publishedTimestamp: "2025-05-05T06:01:04.872000+00:00"
 cover: "/assets/blog/0a51232b23a8b40ad5b29e21.jpg"
-coverAlt: "Thumbnail for: Cómo automatizar ajustes de políticas con AWS Security Hub"
+coverAlt: "Portátil con una lista de políticas y un gráfico circular en pantalla"
 ogImage: "/assets/blog/0a51232b23a8b40ad5b29e21.jpg"
 related:
   - title: "Cifrado de datos con AWS KMS: Guía práctica"

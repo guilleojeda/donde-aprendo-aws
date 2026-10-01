@@ -4,7 +4,7 @@ description: "Consejos para optimizar el rendimiento, disponibilidad y seguridad
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T04:01:54.467Z"
 cover: "/assets/blog/c147658e3887f6dc27b94b8d.jpg"
-coverAlt: "Thumbnail for: Mejores Prácticas Para Amazon RDS y Aurora"
+coverAlt: "Nubes de colores rodeadas por símbolos de seguridad y herramientas"
 ogImage: "/assets/blog/c147658e3887f6dc27b94b8d.jpg"
 related:
   - title: "Configurar CORS en HTTP API Gateway"

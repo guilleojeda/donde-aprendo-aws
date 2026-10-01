@@ -4,7 +4,7 @@ description: "Descubre cómo AWS ML transforma la agricultura con predicción de
 publishedAt: "2024-05-09"
 publishedTimestamp: "2024-05-09T04:29:13.731Z"
 cover: "/assets/blog/b531b459f1900e0e59a6d476.jpg"
-coverAlt: "Thumbnail for: 10 Casos de Uso de ML de AWS en Agricultura"
+coverAlt: "Collage verde de parcelas agrícolas, nubes e iconos de tecnología"
 ogImage: "/assets/blog/b531b459f1900e0e59a6d476.jpg"
 related:
   - title: "Estrategias de Caché Rentables para Apps Serverless"

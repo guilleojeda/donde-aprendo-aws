@@ -4,7 +4,7 @@ description: "Prepárate para el examen de certificación de AWS con consejos, t
 publishedAt: "2024-01-23"
 publishedTimestamp: "2024-01-23T17:34:37.557Z"
 cover: "/assets/blog/4cb1b939d8aa6ff5e1dc2ac1.jpg"
-coverAlt: "Thumbnail for: Cómo Prepararte Para un Examen de Certificación de AWS"
+coverAlt: "Perfil de una cabeza con una nube, un engranaje y una bombilla en su interior"
 ogImage: "/assets/blog/4cb1b939d8aa6ff5e1dc2ac1.jpg"
 related:
   - title: "Cómo automatizar ajustes de políticas con AWS Security Hub"

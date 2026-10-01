@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
+import deployment from '../config/deployment.json' with { type: 'json' };
 
 const production = process.env.PUBLIC_PRODUCTION === 'true';
+const mediaOrigin = new URL(process.env.PUBLIC_SITE_ORIGIN || `https://${deployment.branchName}.${deployment.appId}.amplifyapp.com`).origin;
 const dist = resolve('dist');
 const routes = JSON.parse(readFileSync('tests/fixtures/blog-routes.json', 'utf8'));
 const sections = ['aprender', 'creadores', 'comunidades', 'eventos'];
@@ -30,6 +32,37 @@ assert.equal(new Set(locations).size, 204, 'Sitemap URLs must be unique.');
 const allDistFiles = filesUnder(dist);
 const allHtmlPaths = allDistFiles.filter((path) => path.endsWith('.html')).map((path) => relative(dist, path).replaceAll('\\', '/'));
 assert.equal(allHtmlPaths.length, 205, 'Every public page and the 404 page must be checked.');
+
+const decode = (value) => value.replaceAll('&amp;', '&').replaceAll('&quot;', '"').replaceAll('&#39;', "'").replaceAll('&#x27;', "'").replaceAll('&lt;', '<').replaceAll('&gt;', '>');
+const defaultSocialImage = readFileSync(resolve(dist, 'assets/site-social.png'));
+assert.deepEqual(defaultSocialImage.subarray(0, 8), Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), 'The default social image must be a PNG.');
+assert.equal(defaultSocialImage.readUInt32BE(16), 1200, 'Default social image width.');
+assert.equal(defaultSocialImage.readUInt32BE(20), 630, 'Default social image height.');
+for (const path of allHtmlPaths) {
+  const html = read(path);
+  const metadata = new Map();
+  for (const [, attributes] of html.matchAll(/<meta\b([^>]*)>/gi)) {
+    const name = attributes.match(/\b(?:property|name)="([^"]+)"/)?.[1];
+    if (!name) continue;
+    assert.ok(!metadata.has(name), `Duplicate metadata ${name}: ${path}`);
+    metadata.set(name, decode(attributes.match(/\bcontent="([^"]*)"/)?.[1] ?? ''));
+  }
+  const article = path.startsWith('blog/') && path !== 'blog/index.html';
+  assert.equal(metadata.get('og:type'), article ? 'article' : 'website', `Open Graph type: ${path}`);
+  assert.equal(metadata.get('og:site_name'), '¿Dónde Aprendo AWS?', `Site identity: ${path}`);
+  assert.equal(metadata.get('twitter:card'), 'summary_large_image', `Social card: ${path}`);
+  assert.equal(metadata.get('og:title'), decode(html.match(/<title>([\s\S]*?)<\/title>/)?.[1] ?? ''), `Open Graph title: ${path}`);
+  assert.equal(metadata.get('og:description'), metadata.get('description'), `Open Graph description: ${path}`);
+  const imageUrl = new URL(metadata.get('og:image'));
+  assert.equal(imageUrl.origin, mediaOrigin, `Owned social image origin: ${path}`);
+  assert.ok(existsSync(resolve(dist, `.${imageUrl.pathname}`)), `Social image file: ${path}`);
+  if (!article) assert.equal(imageUrl.pathname, '/assets/site-social.png', `Default social image: ${path}`);
+  assert.ok(metadata.get('og:image:alt')?.trim(), `Image alternative: ${path}`);
+  assert.doesNotMatch(metadata.get('og:image:alt'), /^Thumbnail for:/, `Descriptive image alternative: ${path}`);
+  assert.equal(metadata.get('twitter:image'), imageUrl.href, `Matching social images: ${path}`);
+  assert.equal(metadata.get('twitter:image:alt'), metadata.get('og:image:alt'), `Matching image alternatives: ${path}`);
+  if (article) assert.match(metadata.get('article:published_time'), /^\d{4}-\d{2}-\d{2}T/, `Article publication time: ${path}`);
+}
 
 const fontCss = allDistFiles.filter((path) => path.endsWith('.css')).map((path) => readFileSync(path, 'utf8')).join('\n');
 assert.doesNotMatch(fontCss, /https?:\/\/fonts\.(?:googleapis|gstatic)\.com/i, 'Built CSS must not depend on Google Fonts.');
@@ -76,6 +109,9 @@ for (const path of pagePaths) {
 const notFound = read('404.html');
 assert.match(notFound, /<meta name="robots" content="noindex, nofollow"/);
 const home = read('index.html');
+assert.match(home, /<title>Dónde Aprendo AWS: recursos y comunidades en español<\/title>/);
+assert.match(home, /Encontrá cursos, videos, creadores y comunidades para aprender AWS en español\. Explorá recorridos de aprendizaje y próximos eventos\./);
+assert.match(read('blog/index.html'), /<title>Guías y tutoriales AWS en español \| Dónde Aprendo AWS<\/title>/);
 for (const section of sections) assert.match(home, new RegExp(`href="/${section}/"`));
 assert.match(home, /id="legacy-resource-routes"/);
 assert.doesNotMatch(home, /<li id="resource-/, 'Home should not contain the full directory.');

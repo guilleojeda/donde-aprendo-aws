@@ -4,7 +4,7 @@ description: "Explora cómo UEBA fortalece la seguridad en AWS, integrándose co
 publishedAt: "2024-04-29"
 publishedTimestamp: "2024-04-29T00:07:13.97Z"
 cover: "/assets/blog/77827c07de64ac355ca01278.jpg"
-coverAlt: "Thumbnail for: Guía de UEBA para la Seguridad de AWS"
+coverAlt: "Nube sobre servidores, enfocada por una gran lupa"
 ogImage: "/assets/blog/77827c07de64ac355ca01278.jpg"
 related:
   - title: "AWS OpsWorks: Automatiza Despliegues con Chef"

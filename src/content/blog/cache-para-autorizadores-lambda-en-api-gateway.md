@@ -4,7 +4,7 @@ description: "Aprende cómo implementar caché en autorizadores Lambda de API Ga
 publishedAt: "2024-11-28"
 publishedTimestamp: "2024-11-28T00:05:44.586Z"
 cover: "/assets/blog/88ec1a2d5d2521db3a61ab5a.jpg"
-coverAlt: "Thumbnail for: Caché para Autorizadores Lambda en API Gateway"
+coverAlt: "Racks de servidores y un monitor con el rótulo API Gateway Cache"
 ogImage: "/assets/blog/88ec1a2d5d2521db3a61ab5a.jpg"
 related:
   - title: "Mejores prácticas para nombres en AWS Organizations"

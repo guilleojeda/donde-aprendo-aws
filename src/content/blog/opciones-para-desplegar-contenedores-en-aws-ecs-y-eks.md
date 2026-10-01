@@ -4,7 +4,7 @@ description: "Descubre las diferencias entre Amazon ECS y Amazon EKS al desplega
 publishedAt: "2024-03-07"
 publishedTimestamp: "2024-03-07T23:41:11.485Z"
 cover: "/assets/blog/fce8d84a0c54b5cb44769316.png"
-coverAlt: "Thumbnail for: Opciones para Desplegar Contenedores en AWS: ECS y EKS"
+coverAlt: "Dos embarcaciones reflejadas sobre el agua, una de ellas con velas"
 ogImage: "/assets/blog/fce8d84a0c54b5cb44769316.png"
 related:
   - title: "Guía de Eventos AWS Educate 2024"

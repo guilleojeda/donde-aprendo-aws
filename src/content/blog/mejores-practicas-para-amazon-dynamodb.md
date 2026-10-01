@@ -4,7 +4,7 @@ description: "Consejos y mejores prácticas para utilizar Amazon DynamoDB de man
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T04:08:02.203Z"
 cover: "/assets/blog/4cce0f893747a12210fe7416.jpg"
-coverAlt: "Thumbnail for: Mejores Prácticas Para Amazon DynamoDB"
+coverAlt: "Cilindro de base de datos dentro de un diagrama con flechas, candado y piezas"
 ogImage: "/assets/blog/4cce0f893747a12210fe7416.jpg"
 related:
   - title: "Visualiza Costos con AWS Cost and Usage Reports y QuickSight"

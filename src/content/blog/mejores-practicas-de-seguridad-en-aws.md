@@ -4,7 +4,7 @@ description: "Conoce las mejores prácticas de seguridad en AWS, desde la gesti�
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:50:54.456Z"
 cover: "/assets/blog/b986394b769bbf12716343e5.jpg"
-coverAlt: "Thumbnail for: Mejores Prácticas de Seguridad en AWS"
+coverAlt: "Nube blanca sobre piezas de rompecabezas dispersas"
 ogImage: "/assets/blog/b986394b769bbf12716343e5.jpg"
 related:
   - title: "Checklist para automatizar cumplimiento en AWS"

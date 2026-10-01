@@ -4,7 +4,7 @@ description: "Aprende a utilizar Lambda Layers en AWS Lambda para reutilizar có
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T02:24:39.563Z"
 cover: "/assets/blog/ab65afd218440c66bc564a0a.jpg"
-coverAlt: "Thumbnail for: Utilizando Lambda Layers en Múltiples Funciones Lambda"
+coverAlt: "Nube sobre varias plataformas apiladas y pequeños diagramas conectados"
 ogImage: "/assets/blog/ab65afd218440c66bc564a0a.jpg"
 related:
   - title: "Mejores Prácticas de Machine Learning en AWS"

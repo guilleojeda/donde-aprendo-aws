@@ -4,7 +4,7 @@ description: "Explora cómo cinco startups exitosas han escalado e innovado util
 publishedAt: "2024-05-13"
 publishedTimestamp: "2024-05-13T02:42:31.872Z"
 cover: "/assets/blog/b94e80f121605caa3d2fcec3.jpg"
-coverAlt: "Thumbnail for: 5 Startups Exitosas en AWS: Casos de Éxito"
+coverAlt: "Engranajes de varios colores sobre un fondo de nubes"
 ogImage: "/assets/blog/b94e80f121605caa3d2fcec3.jpg"
 related:
   - title: "AWS SAM: Guía Básica para Aplicaciones Serverless"

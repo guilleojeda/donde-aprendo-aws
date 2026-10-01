@@ -4,7 +4,7 @@ description: "Descubre cómo AWS Amplify simplifica el desarrollo de aplicacione
 publishedAt: "2024-03-18"
 publishedTimestamp: "2024-03-18T23:13:52.162Z"
 cover: "/assets/blog/ee80202a0fa6a00452e56ba9.jpg"
-coverAlt: "Thumbnail for: ¿Cómo Funciona AWS Amplify?"
+coverAlt: "Tableta conectada a ventanas y nubes mediante líneas"
 ogImage: "/assets/blog/ee80202a0fa6a00452e56ba9.jpg"
 related:
   - title: "Guía de Mejores Prácticas para VPC Traffic Mirroring en AWS"

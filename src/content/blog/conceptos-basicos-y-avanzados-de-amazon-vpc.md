@@ -4,7 +4,7 @@ description: "Descubre los conceptos básicos y avanzados de Amazon VPC, cómo c
 publishedAt: "2024-03-07"
 publishedTimestamp: "2024-03-07T14:04:18.731Z"
 cover: "/assets/blog/12c27432a1ba20e5bffcb7b0.jpg"
-coverAlt: "Thumbnail for: Conceptos Básicos y Avanzados de Amazon VPC"
+coverAlt: "Diagrama de una nube y nodos conectados sobre una superficie reflectante"
 ogImage: "/assets/blog/12c27432a1ba20e5bffcb7b0.jpg"
 related:
   - title: "10 Repositorios de GitHub para Machine Learning en AWS"

@@ -4,7 +4,7 @@ description: "Aprende a optimizar los costos de tráfico en AWS con herramientas
 publishedAt: "2024-12-30"
 publishedTimestamp: "2024-12-30T12:06:07.312Z"
 cover: "/assets/blog/5a1c145030a04aac753625bc.jpg"
-coverAlt: "Thumbnail for: Guía Completa: Análisis de Costos de Tráfico en AWS"
+coverAlt: "Monitor con paneles de costos y gráficos en una oficina con plantas"
 ogImage: "/assets/blog/5a1c145030a04aac753625bc.jpg"
 related:
   - title: "Ingeniería de Caos en AWS con Fault Injection Simulator"

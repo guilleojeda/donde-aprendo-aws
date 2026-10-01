@@ -4,7 +4,7 @@ description: "Aprende a integrar Amazon Polly en tus aplicaciones en 5 pasos y a
 publishedAt: "2024-05-13"
 publishedTimestamp: "2024-05-13T05:08:34.138Z"
 cover: "/assets/blog/35cbdc26cad1c09b7dd2fc81.jpg"
-coverAlt: "Thumbnail for: Integrar Amazon Polly en 5 pasos: Texto a voz realista"
+coverAlt: "Perfil de una cabeza con ondas sonoras y circuitos en su interior"
 ogImage: "/assets/blog/35cbdc26cad1c09b7dd2fc81.jpg"
 related:
   - title: "Correlación de Eventos con Step Functions y CloudWatch"

@@ -4,7 +4,7 @@ description: "Aprende a crear aplicaciones serverless de forma sencilla en AWS u
 publishedAt: "2024-11-27"
 publishedTimestamp: "2024-11-27T02:20:00.277Z"
 cover: "/assets/blog/7007833ab0e2d90f4deb11ec.jpg"
-coverAlt: "Thumbnail for: AWS SAM: Guía Básica para Aplicaciones Serverless"
+coverAlt: "Persona frente a varios monitores con diagramas en una oficina"
 ogImage: "/assets/blog/7007833ab0e2d90f4deb11ec.jpg"
 related:
   - title: "¿Qué es AWS Lambda? Preguntas y Respuestas"

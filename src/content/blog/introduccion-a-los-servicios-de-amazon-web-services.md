@@ -4,7 +4,7 @@ description: "Una guía introductoria a los servicios de Amazon Web Services (AW
 publishedAt: "2024-01-23"
 publishedTimestamp: "2024-01-23T15:42:44.638Z"
 cover: "/assets/blog/e1091b2adcfd9ac3b3889cb0.jpg"
-coverAlt: "Thumbnail for: Introducción a los servicios de Amazon Web Services"
+coverAlt: "Nube con iconos circulares en su interior sobre una superficie clara"
 ogImage: "/assets/blog/e1091b2adcfd9ac3b3889cb0.jpg"
 related:
   - title: "5 Lecciones Clave del AWS Public Sector Summit 2024"

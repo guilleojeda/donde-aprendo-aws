@@ -4,7 +4,7 @@ description: "Descubre 10 estrategias efectivas para optimizar costos en AWS, de
 publishedAt: "2024-05-20"
 publishedTimestamp: "2024-05-20T01:10:01.307Z"
 cover: "/assets/blog/74f152c85b46e1ac5ea004f9.jpg"
-coverAlt: "Thumbnail for: 10 Estrategias de Optimización de Costos en AWS"
+coverAlt: "Icono de nube rodeado por círculos con engranajes, datos y ubicaciones"
 ogImage: "/assets/blog/74f152c85b46e1ac5ea004f9.jpg"
 related:
   - title: "7 Estrategias de Serverless para Startups: Optimiza Costos"

@@ -4,7 +4,7 @@ description: "Descubre los servicios de inteligencia artificial de AWS, sus func
 publishedAt: "2024-03-08"
 publishedTimestamp: "2024-03-08T13:14:38.36Z"
 cover: "/assets/blog/54201ee89ce3b648eb0ec011.jpg"
-coverAlt: "Thumbnail for: Servicios de AWS para Inteligencia Artificial"
+coverAlt: "Libro abierto junto a un cerebro facetado y un gráfico de líneas"
 ogImage: "/assets/blog/54201ee89ce3b648eb0ec011.jpg"
 related:
   - title: "Guía completa para depurar errores CORS en API Gateway"

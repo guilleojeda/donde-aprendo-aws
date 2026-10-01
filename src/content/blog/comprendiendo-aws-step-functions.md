@@ -4,7 +4,7 @@ description: "Comprende AWS Step Functions, una herramienta para coordinar aplic
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:40:56.477Z"
 cover: "/assets/blog/5cccd042a4e55b019d2587c8.png"
-coverAlt: "Thumbnail for: Comprendiendo AWS Step Functions"
+coverAlt: "Recorrido de pasos y bifurcaciones con pequeñas nubes y cubos"
 ogImage: "/assets/blog/5cccd042a4e55b019d2587c8.png"
 related:
   - title: "CORS en WebSocket vs REST API Gateway"

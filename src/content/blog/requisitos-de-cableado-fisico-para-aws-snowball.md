@@ -4,7 +4,7 @@ description: "Configura correctamente el cableado físico para AWS Snowball y op
 publishedAt: "2025-05-01"
 publishedTimestamp: "2025-05-01T03:33:14.998000+00:00"
 cover: "/assets/blog/3b6a26d54c02dfac32acb13b.jpg"
-coverAlt: "Thumbnail for: Requisitos de cableado físico para AWS Snowball"
+coverAlt: "Estuche negro con el logotipo de AWS y cables conectados"
 ogImage: "/assets/blog/3b6a26d54c02dfac32acb13b.jpg"
 related:
   - title: "10 Laboratorios Prácticos de AWS para Principiantes"

@@ -4,7 +4,7 @@ description: "Explora las mejores prácticas para la integración de servicios E
 publishedAt: "2024-05-10"
 publishedTimestamp: "2024-05-10T05:21:18.994Z"
 cover: "/assets/blog/278a42e279f664f5331f81e7.png"
-coverAlt: "Thumbnail for: 10 Prácticas Recomendadas para Integrar EUC en AWS"
+coverAlt: "Nube tridimensional conectada a engranajes y nodos circulares"
 ogImage: "/assets/blog/278a42e279f664f5331f81e7.png"
 related:
   - title: "Estrategias de Correlación de Eventos AWS"

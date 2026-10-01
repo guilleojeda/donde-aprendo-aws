@@ -4,7 +4,7 @@ description: "Descubre las mejores prácticas para aprovechar al máximo Amazon 
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:58:54.462Z"
 cover: "/assets/blog/5db43c07fa6733b870313471.jpg"
-coverAlt: "Thumbnail for: Mejores Prácticas Para Amazon EKS"
+coverAlt: "Tres nubes pequeñas con iconos sobre una plataforma ovalada azul"
 ogImage: "/assets/blog/5db43c07fa6733b870313471.jpg"
 related:
   - title: "Cómo Reducir Costos de Transferencia Intra-Región en AWS"

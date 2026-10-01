@@ -4,7 +4,7 @@ description: "Aprende a crear, configurar y optimizar clústeres en Amazon Redsh
 publishedAt: "2025-04-28"
 publishedTimestamp: "2025-04-28T03:36:05.740000+00:00"
 cover: "/assets/blog/2ce2762453f46a717ff15e81.jpg"
-coverAlt: "Thumbnail for: Crear un Cluster en Amazon Redshift"
+coverAlt: "Texto Crear un clúster en Amazon Redshift sobre una pila de cubos azules"
 ogImage: "/assets/blog/2ce2762453f46a717ff15e81.jpg"
 related:
   - title: "Patrón Strangler Fig en AWS: Migrar a Microservicios"

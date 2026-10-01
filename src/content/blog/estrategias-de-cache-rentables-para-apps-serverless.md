@@ -4,7 +4,7 @@ description: "Descubre cómo implementar estrategias de caché en aplicaciones s
 publishedAt: "2024-10-27"
 publishedTimestamp: "2024-10-27T02:26:14.893Z"
 cover: "/assets/blog/ddae590c4e3ebe901251f97c.webp"
-coverAlt: "Thumbnail for: Estrategias de Caché Rentables para Apps Serverless"
+coverAlt: "Portátil con paneles de código y gráficos junto a plantas"
 ogImage: "/assets/blog/ddae590c4e3ebe901251f97c.webp"
 related:
   - title: "Recursos Personalizados en CloudFormation con Lambda"

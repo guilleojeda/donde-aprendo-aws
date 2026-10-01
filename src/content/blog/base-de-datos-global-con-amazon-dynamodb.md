@@ -4,7 +4,7 @@ description: "Descubre cómo aprovechar las tablas globales de Amazon DynamoDB p
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T02:19:41.967Z"
 cover: "/assets/blog/b74e56b41e26732c7dfc378e.png"
-coverAlt: "Thumbnail for: Base de Datos Global con Amazon DynamoDB"
+coverAlt: "Globo rodeado por iconos amarillos de bases de datos"
 ogImage: "/assets/blog/b74e56b41e26732c7dfc378e.png"
 related:
   - title: "¿Qué son los endpoints de VPC en AWS?"

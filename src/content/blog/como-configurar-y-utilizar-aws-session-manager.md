@@ -4,7 +4,7 @@ description: "Descubre cómo configurar y utilizar AWS Session Manager para mejo
 publishedAt: "2024-03-18"
 publishedTimestamp: "2024-03-18T23:43:17.278Z"
 cover: "/assets/blog/037793a796bc8f08a1cce7d0.png"
-coverAlt: "Thumbnail for: Como Configurar y Utilizar AWS Session Manager"
+coverAlt: "Nube con candado conectada a dos computadoras"
 ogImage: "/assets/blog/037793a796bc8f08a1cce7d0.png"
 related:
   - title: "Configurar AWS para Comunicación en Equipo: 7 Pasos"

@@ -4,7 +4,7 @@ description: "Guía completa para obtener la certificación de AWS de manera gra
 publishedAt: "2024-01-24"
 publishedTimestamp: "2024-01-24T01:43:07.262Z"
 cover: "/assets/blog/50f3a9e16de9a8db356f87d5.jpg"
-coverAlt: "Thumbnail for: Certificaciones AWS: Por Dónde Empezar"
+coverAlt: "Camino que conecta una nube con una bombilla y varios servidores"
 ogImage: "/assets/blog/50f3a9e16de9a8db356f87d5.jpg"
 related:
   - title: "Cómo automatizar ajustes de políticas con AWS Security Hub"

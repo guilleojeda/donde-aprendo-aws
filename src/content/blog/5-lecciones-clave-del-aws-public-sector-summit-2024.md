@@ -4,7 +4,7 @@ description: "Descubre las 5 lecciones clave del AWS Public Sector Summit 2024 p
 publishedAt: "2024-05-07"
 publishedTimestamp: "2024-05-07T04:22:03.004Z"
 cover: "/assets/blog/f4d9080a8f5eea1a871c1a1b.jpg"
-coverAlt: "Thumbnail for: 5 Lecciones Clave del AWS Public Sector Summit 2024"
+coverAlt: "Diagrama de cubos unidos por líneas sobre un fondo azul"
 ogImage: "/assets/blog/f4d9080a8f5eea1a871c1a1b.jpg"
 related:
   - title: "Checklist para automatizar cumplimiento en AWS"

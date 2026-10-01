@@ -4,7 +4,7 @@ description: "Descubre 10 estrategias efectivas para reducir costos de red en AW
 publishedAt: "2024-10-28"
 publishedTimestamp: "2024-10-28T02:48:30.386Z"
 cover: "/assets/blog/732b4db41baecb1699e72d80.webp"
-coverAlt: "Thumbnail for: 10 Estrategias para Optimizar Costos de Red en AWS"
+coverAlt: "Monitor con gráficos sobre un escritorio junto a una planta y una taza"
 ogImage: "/assets/blog/732b4db41baecb1699e72d80.webp"
 related:
   - title: "Cómo Desplegar una Aplicación en Amazon ECS"

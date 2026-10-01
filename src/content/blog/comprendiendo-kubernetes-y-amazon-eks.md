@@ -4,7 +4,7 @@ description: "Amazon EKS es una excelente opción para usar Kubernetes en AWS. D
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:21:48.687Z"
 cover: "/assets/blog/066e0f22ea88769f71d0c039.png"
-coverAlt: "Thumbnail for: Comprendiendo Kubernetes y Amazon EKS"
+coverAlt: "Nube sobre un diagrama de flujo con cuadros y flechas"
 ogImage: "/assets/blog/066e0f22ea88769f71d0c039.png"
 related:
   - title: "Correlación de Eventos con Step Functions y CloudWatch"

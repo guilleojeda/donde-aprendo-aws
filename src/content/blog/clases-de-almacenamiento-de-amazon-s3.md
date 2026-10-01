@@ -4,7 +4,7 @@ description: "Consejos para elegir la clase de almacenamiento adecuada en Amazon
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T01:50:57.327Z"
 cover: "/assets/blog/783a6beb62602d5d128b9c75.jpg"
-coverAlt: "Thumbnail for: Clases de Almacenamiento de Amazon S3"
+coverAlt: "Nube dorada con un candado sobre un gráfico de barras"
 ogImage: "/assets/blog/783a6beb62602d5d128b9c75.jpg"
 related:
   - title: "Pipeline CI/CD con Terraform y AWS CodePipeline"

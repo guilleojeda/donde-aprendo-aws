@@ -4,7 +4,7 @@ description: "Aprende cómo fortalecer tus sistemas en AWS con la ingeniería de
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T01:48:43.97Z"
 cover: "/assets/blog/0a0b1cf017845abee5cf215d.png"
-coverAlt: "Thumbnail for: Ingeniería de Caos en AWS con Fault Injection Simulator"
+coverAlt: "Nube con un escudo y varios rayos bajo ella"
 ogImage: "/assets/blog/0a0b1cf017845abee5cf215d.png"
 related:
   - title: "Servicios de AWS para Frontend"

@@ -4,7 +4,7 @@ description: "Descubre cómo AWS potencia el Machine Learning: desde Amazon Sage
 publishedAt: "2024-05-13"
 publishedTimestamp: "2024-05-13T06:23:36.093Z"
 cover: "/assets/blog/5152d1b598aa9df8aaa8e72c.jpg"
-coverAlt: "Thumbnail for: 10 Preguntas Frecuentes sobre Machine Learning en AWS"
+coverAlt: "Nube delineada junto a iconos de engranajes, candados y gráficos"
 ogImage: "/assets/blog/5152d1b598aa9df8aaa8e72c.jpg"
 related:
   - title: "CORS en WebSocket vs REST API Gateway"

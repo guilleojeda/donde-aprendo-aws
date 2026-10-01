@@ -4,7 +4,7 @@ description: "Aprende a configurar el Service Discovery en Amazon ECS para mejor
 publishedAt: "2024-05-19"
 publishedTimestamp: "2024-05-19T00:02:00.421Z"
 cover: "/assets/blog/06c78ff6dbda05d66c1f63e8.jpg"
-coverAlt: "Thumbnail for: Configuración de Service Discovery en Amazon ECS"
+coverAlt: "Lupa grande frente a una red de nodos y figuras geométricas"
 ogImage: "/assets/blog/06c78ff6dbda05d66c1f63e8.jpg"
 related:
   - title: "Concurrencia Aprovisionada: Solución a Cold Starts en AWS Lambda"

@@ -4,7 +4,7 @@ description: "Descubre cómo escalar DynamoDB con los modos On Demand y Provisio
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T02:56:43.716Z"
 cover: "/assets/blog/ce62e0cc8508d5055bba53b4.png"
-coverAlt: "Thumbnail for: ¿Cómo Escala DynamoDB? Modos On Demand y Provisioned"
+coverAlt: "Balanza con una nube y un rayo en un platillo, y engranajes en el otro"
 ogImage: "/assets/blog/ce62e0cc8508d5055bba53b4.png"
 related:
   - title: "Mejores prácticas para nombres en AWS Organizations"

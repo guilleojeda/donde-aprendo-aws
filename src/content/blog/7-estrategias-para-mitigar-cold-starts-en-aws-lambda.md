@@ -4,7 +4,7 @@ description: "Descubre 7 estrategias efectivas para reducir los cold starts en A
 publishedAt: "2024-05-15"
 publishedTimestamp: "2024-05-15T06:00:17.055Z"
 cover: "/assets/blog/c936f3eb45382355f87b0707.jpg"
-coverAlt: "Thumbnail for: 7 Estrategias para Mitigar Cold Starts en AWS Lambda"
+coverAlt: "Camino sinuoso con símbolos de nube, engranajes y conexiones"
 ogImage: "/assets/blog/c936f3eb45382355f87b0707.jpg"
 related:
   - title: "Recursos Personalizados en CloudFormation con Lambda"

@@ -4,7 +4,7 @@ description: "Entiende las diferencias entre SLA y SLO en AWS para optimizar el 
 publishedAt: "2025-01-20"
 publishedTimestamp: "2025-01-20T00:15:06.029Z"
 cover: "/assets/blog/8281401d50eb83da06a511af.jpg"
-coverAlt: "Thumbnail for: Diferencias Entre SLA y SLO en AWS"
+coverAlt: "Nube con el logotipo de AWS entre dos paneles de gráficos"
 ogImage: "/assets/blog/8281401d50eb83da06a511af.jpg"
 related:
   - title: "Guía de Acreditación para Partners de AWS 2024"

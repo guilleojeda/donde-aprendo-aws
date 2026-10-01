@@ -4,7 +4,7 @@ description: "Descubre cómo utilizar el AWS Free Tier en 2024 para explorar y p
 publishedAt: "2024-04-29"
 publishedTimestamp: "2024-04-29T06:37:00.779Z"
 cover: "/assets/blog/a883588726566bcfe7e00c48.jpg"
-coverAlt: "Thumbnail for: AWS Free Tier: Guía para Principiantes 2024"
+coverAlt: "Flecha ascendente frente a una nube con candado e iconos de fondo"
 ogImage: "/assets/blog/a883588726566bcfe7e00c48.jpg"
 related:
   - title: "AWS IoT Edge Simulator: Casos de Uso Reales"

@@ -4,7 +4,7 @@ description: "Automatiza y optimiza la gestión de alertas de seguridad en AWS c
 publishedAt: "2025-03-27"
 publishedTimestamp: "2025-03-27T01:18:04.566000+00:00"
 cover: "/assets/blog/6f0cbd991f1cfe77b09e89dd.jpg"
-coverAlt: "Thumbnail for: Machine Learning para Triage de Alertas en AWS"
+coverAlt: "Dos personas observan paneles de control; el logotipo de AWS aparece en la pared"
 ogImage: "/assets/blog/6f0cbd991f1cfe77b09e89dd.jpg"
 related:
   - title: "Logs de acceso en ELB: Guía completa"

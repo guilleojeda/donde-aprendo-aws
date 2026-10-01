@@ -4,7 +4,7 @@ description: "Descubre las 10 prácticas esenciales de AWS para mejorar la detec
 publishedAt: "2024-05-11"
 publishedTimestamp: "2024-05-11T05:27:40.366Z"
 cover: "/assets/blog/c03425ae80465af167cf55e5.jpg"
-coverAlt: "Thumbnail for: 10 Mejores Prácticas de AWS para Detección de Amenazas en Tiempo Real"
+coverAlt: "Nube azul formada por piezas de rompecabezas con símbolos de seguridad"
 ogImage: "/assets/blog/c03425ae80465af167cf55e5.jpg"
 related:
   - title: "7 Estrategias para Mitigar Cold Starts en AWS Lambda"

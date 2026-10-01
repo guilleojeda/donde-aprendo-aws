@@ -4,7 +4,7 @@ description: "AWS Lambda es un servicio de computación sin servidor que ejecuta
 publishedAt: "2025-03-31"
 publishedTimestamp: "2025-03-31T03:16:05.470000+00:00"
 cover: "/assets/blog/70579f832030c8f349b01339.jpg"
-coverAlt: "Thumbnail for: ¿Qué es AWS Lambda? Preguntas y Respuestas"
+coverAlt: "Pasillo de servidores con rótulos de AWS y Lambda en los racks"
 ogImage: "/assets/blog/70579f832030c8f349b01339.jpg"
 related:
   - title: "Automatización de cumplimiento con AWS Config"

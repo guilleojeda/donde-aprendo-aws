@@ -4,7 +4,7 @@ description: "Aprende a detectar anomalías en CloudWatch Logs usando machine le
 publishedAt: "2025-01-27"
 publishedTimestamp: "2025-01-27T00:39:09.213Z"
 cover: "/assets/blog/f71d9ec92cdf5041cc6744bc.jpg"
-coverAlt: "Thumbnail for: Detección de anomalías con CloudWatch Logs"
+coverAlt: "Monitor con gráficos y paneles de datos en una oficina oscura"
 ogImage: "/assets/blog/f71d9ec92cdf5041cc6744bc.jpg"
 related:
   - title: "Estructuras multi-cuenta AWS para escalar"

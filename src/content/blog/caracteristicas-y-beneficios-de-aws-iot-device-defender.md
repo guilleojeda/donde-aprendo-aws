@@ -4,7 +4,7 @@ description: "Descubre las ventajas de AWS IoT Device Defender para la protecci�
 publishedAt: "2024-05-06"
 publishedTimestamp: "2024-05-06T14:05:13.37Z"
 cover: "/assets/blog/64ba25d52c7b46f1df3dfd5e.png"
-coverAlt: "Thumbnail for: Características y Beneficios de AWS IoT Device Defender"
+coverAlt: "Escudo con un ojo y una lupa frente a un diagrama técnico"
 ogImage: "/assets/blog/64ba25d52c7b46f1df3dfd5e.png"
 related:
   - title: "7 Errores Comunes con AWS IoT Device SDK para JavaScript"

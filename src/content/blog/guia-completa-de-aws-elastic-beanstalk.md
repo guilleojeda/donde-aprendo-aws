@@ -4,7 +4,7 @@ description: "Descubre la guía completa de AWS Elastic Beanstalk, con informaci
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T02:00:11.488Z"
 cover: "/assets/blog/65446b800cf17cea0992fc7b.jpg"
-coverAlt: "Thumbnail for: Guía Completa de AWS Elastic Beanstalk"
+coverAlt: "Nube de la que descienden líneas hacia una cuadrícula iluminada"
 ogImage: "/assets/blog/65446b800cf17cea0992fc7b.jpg"
 related:
   - title: "Cómo monitorear SLOs con Amazon CloudWatch"

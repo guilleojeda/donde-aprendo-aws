@@ -4,7 +4,7 @@ description: "Descubre los fundamentos esenciales del desarrollo en la nube, des
 publishedAt: "2024-01-25"
 publishedTimestamp: "2024-01-25T03:23:03.64Z"
 cover: "/assets/blog/9257652addf07f39008f550d.jpg"
-coverAlt: "Thumbnail for: Desarrollo en la nube: fundamentos esenciales"
+coverAlt: "Nube conectada a varias terminales y pequeños iconos"
 ogImage: "/assets/blog/9257652addf07f39008f550d.jpg"
 related:
   - title: "Guía Completa: Análisis de Costos de Tráfico en AWS"

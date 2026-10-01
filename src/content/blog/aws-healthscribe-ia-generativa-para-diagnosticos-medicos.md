@@ -4,7 +4,7 @@ description: "Descubre cómo AWS HealthScribe revoluciona la documentación méd
 publishedAt: "2024-05-08"
 publishedTimestamp: "2024-05-08T02:21:01.272Z"
 cover: "/assets/blog/cac2ef4bd724a0e8247e5e35.jpg"
-coverAlt: "Thumbnail for: AWS HealthScribe: IA Generativa para Diagnósticos Médicos"
+coverAlt: "Silueta humana conectada a nodos, con un corazón luminoso en el pecho"
 ogImage: "/assets/blog/cac2ef4bd724a0e8247e5e35.jpg"
 related:
   - title: "Gestión de Facturación de AWS: Guía Completa"

@@ -4,7 +4,7 @@ description: "Explora cómo Amazon ElastiCache mejora el rendimiento de aplicaci
 publishedAt: "2024-05-08"
 publishedTimestamp: "2024-05-08T04:19:02.817Z"
 cover: "/assets/blog/ddce4c2f6e4102cbcd2b90ad.png"
-coverAlt: "Thumbnail for: Guía de Amazon ElastiCache: Almacenamiento en Caché en Memoria"
+coverAlt: "Nube azul rellena de cuadrados verdes sobre franjas azules"
 ogImage: "/assets/blog/ddce4c2f6e4102cbcd2b90ad.png"
 related:
   - title: "Pipeline CI/CD con Terraform y AWS CodePipeline"

@@ -4,7 +4,7 @@ description: "Amazon CloudFront es un servicio de CDN de AWS que ayuda a acelera
 publishedAt: "2024-03-07"
 publishedTimestamp: "2024-03-07T23:58:11.718Z"
 cover: "/assets/blog/63a303953815b71e5babcb84.jpg"
-coverAlt: "Thumbnail for: Amazon CloudFront: Comprendiendo el CDN de AWS"
+coverAlt: "Globo terráqueo conectado radialmente a iconos de dispositivos"
 ogImage: "/assets/blog/63a303953815b71e5babcb84.jpg"
 related:
   - title: "5 Prácticas de Seguridad para Lambda Authorizers"

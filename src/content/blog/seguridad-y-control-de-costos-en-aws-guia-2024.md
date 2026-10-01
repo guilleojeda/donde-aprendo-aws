@@ -4,7 +4,7 @@ description: "Descubre estrategias efectivas para la gestión de costos y la seg
 publishedAt: "2024-05-11"
 publishedTimestamp: "2024-05-11T04:46:00.274Z"
 cover: "/assets/blog/fa1b6e3bfee7c71b39327fcd.jpg"
-coverAlt: "Thumbnail for: Seguridad y Control de Costos en AWS: Guía 2024"
+coverAlt: "Candado junto a un gráfico circular dividido en segmentos"
 ogImage: "/assets/blog/fa1b6e3bfee7c71b39327fcd.jpg"
 related:
   - title: "Logs de acceso en ELB: Guía completa"
