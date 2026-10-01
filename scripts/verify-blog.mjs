@@ -44,9 +44,46 @@ assert.deepEqual(generated, archive.map(({ slug }) => slug).sort());
 
 const allPages = [index];
 const assetPaths = new Set();
+const pathMembership = new Map();
+const learningPage = read('recorridos/index.html');
+for (const [, id, section] of learningPage.matchAll(/<section class="learning-path" id="([^"]+)"[^>]*>([\s\S]*?)<\/section>/g)) {
+  const title = decode(section.match(/<h2\b[^>]*>([\s\S]*?)<\/h2>/)?.[1] ?? '');
+  const steps = [...section.matchAll(/<li>\s*<a href="([^"]+)">\s*<span>[^<]*<\/span>\s*<strong>([^<]+)<\/strong>/g)]
+    .map(([, href, title]) => ({ href: decode(href), title: decode(title) }));
+  assert.ok(title && steps.length >= 2, `Rendered learning path must be readable: ${id}`);
+  steps.forEach((step, position) => {
+    if (!step.href.startsWith('/blog/')) return;
+    const memberships = pathMembership.get(step.href) ?? [];
+    memberships.push({ title, href: `/recorridos/#${id}`, nextStep: steps[position + 1] ?? null });
+    pathMembership.set(step.href, memberships);
+  });
+}
+assert.equal(pathMembership.size, 9, 'Existing paths must identify their nine blog articles.');
 for (const article of archive) {
   const html = read(`blog/${article.slug}/index.html`);
   allPages.push(html);
+  const memberships = pathMembership.get(`/blog/${article.slug}/`) ?? [];
+  const pathNav = html.match(/<nav class="blog-paths"[^>]*>([\s\S]*?)<\/nav>/)?.[1];
+  assert.equal(Boolean(pathNav), memberships.length > 0, `Path membership section: ${article.slug}`);
+  if (pathNav) {
+    const items = [...pathNav.matchAll(/<li>([\s\S]*?)<\/li>/g)].map(([, item]) => item);
+    assert.equal(items.length, memberships.length, `Every path membership is shown: ${article.slug}`);
+    memberships.forEach((membership, position) => {
+      const item = items[position];
+      assert.ok(decode(item).includes(membership.title), `Path identity: ${article.slug}`);
+      assert.equal(item.match(/class="blog-paths__return" href="([^"]+)"/)?.[1], membership.href,
+        `Return to the actual path section: ${article.slug}`);
+      const nextLink = item.match(/class="blog-paths__next" href="([^"]+)"/)?.[1];
+      if (membership.nextStep) {
+        assert.equal(decode(nextLink ?? ''), membership.nextStep.href, `Next rendered path step: ${article.slug}`);
+        assert.ok(decode(item).includes(membership.nextStep.title), `Next step title: ${article.slug}`);
+        assert.doesNotMatch(item, /blog-paths__end/, `Non-final article must offer continuation: ${article.slug}`);
+      } else {
+        assert.equal(nextLink, undefined, `Final article must not invent a next step: ${article.slug}`);
+        assert.match(item, /Llegaste al final de este recorrido\./);
+      }
+    });
+  }
   assert.ok(html.includes(`<h1>${article.title}</h1>`), `Title mismatch: ${article.slug}`);
   const description = html.match(/<meta name="description" content="([^"]*)"/);
   assert.ok(decode(description?.[1] ?? '').length > 0, `Description missing: ${article.slug}`);
@@ -74,6 +111,13 @@ for (const article of archive) {
 }
 
 for (const html of allPages) {
+  for (const menu of ['blog-header__links', 'blog-header__mobile-links']) {
+    const navigation = html.match(new RegExp(`<div class="${menu}">([\\s\\S]*?)<\\/div>`))?.[1] ?? '';
+    const links = [...navigation.matchAll(/<a href="([^"]+)">([^<]+)<\/a>/g)]
+      .map(([, href, text]) => [href, text]);
+    assert.deepEqual(links, [['/', 'Inicio'], ['/aprender/', 'Aprender'], ['/recorridos/', 'Recorridos'],
+      ['/blog/', 'Blog'], ['/buscar/', 'Buscar']], `Complete blog menu: ${menu}`);
+  }
   if (production) {
     assert.doesNotMatch(html, /<meta name="robots" content="noindex, nofollow"/);
   } else {
@@ -126,4 +170,4 @@ for (const { slug, comments } of articlesWithCodeComments) {
   }
 }
 
-console.log(`Verified ${expected.length} featured cards, ${archiveUrls.length} archive links, ${archive.length} article routes, and ${assetPaths.size} owned images.`);
+console.log(`Verified ${expected.length} featured cards, ${archiveUrls.length} archive links, ${archive.length} article routes, ${pathMembership.size} article path continuations, both blog menus, and ${assetPaths.size} owned images.`);

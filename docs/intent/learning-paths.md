@@ -1,5 +1,7 @@
 # Guided learning paths
 
+Blog navigation exposes the learning directory and these paths. Participating articles link back to their path's section and continue to the next resolved step, including catalog cards. These links are derived from the existing editorial sequence rather than a second manually maintained article-to-path list. Final steps identify the end of the path, and articles used by multiple paths offer each continuation.
+
 The four paths at `/recorridos/` suggest an order for existing AWS learning material. Each step links to a published catalog card at `/aprender/#resource-<id>` or a blog article at its original route. A short note explains why the step comes next; the site does not copy the source article or video. The page is linked from the main navigation, home and learning directory, and its paths appear in the unified search index.
 
 Edit path titles, introductions, steps and notes in `src/lib/learning-paths.mjs`. Use stable catalog IDs and blog slugs. The build takes blog titles from Git content and resource titles and formats from the same approved DynamoDB snapshot as the directory. A missing blog slug is a build error. A resource that has been unpublished is omitted from its path so the next catalog build does not show a dead internal link. Keep at least two blog steps per path so a path remains useful if its catalog records are withdrawn. Review a path's order whenever a source changes substantially or is removed.
