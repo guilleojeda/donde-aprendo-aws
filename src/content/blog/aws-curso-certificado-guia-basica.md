@@ -52,7 +52,7 @@ related:
 <h3 id="certificaciones-aws-por-d%C3%B3nde-empezar" tabindex="-1">Certificaciones AWS por dónde empezar</h3>
 
 
-<p>La mayoría de profesionales comienzan su viaje de <a href="https://www.wetcom.com/en_US/blog/blog-1/como-preparar-la-certificacion-aws-cloud-practitioner-608">certificación AWS</a> con la certificación <strong>AWS Certified Cloud Practitioner</strong>. Se trata de una credencial de nivel básico que presenta una visión general de alto nivel de los servicios y la plataforma de AWS.</p>
+<p>La mayoría de profesionales comienzan su viaje de <a href="https://aws.amazon.com/certification/">certificación AWS</a> con la certificación <strong>AWS Certified Cloud Practitioner</strong>. Se trata de una credencial de nivel básico que presenta una visión general de alto nivel de los servicios y la plataforma de AWS.</p>
 
 
 <p>Otras certificaciones populares para empezar incluyen:</p>

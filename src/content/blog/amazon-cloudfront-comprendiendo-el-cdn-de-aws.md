@@ -37,7 +37,7 @@ related:
 <p>Este servicio es ideal tanto para sitios web y aplicaciones que buscan mejorar su velocidad de carga como para aquellos que necesitan distribuir contenido multimedia globalmente. Además, ofrece opciones detalladas para la seguridad y el análisis del tráfico, lo que te permite mantener tu sitio o app protegido y optimizado.</p>
 
 
-<h2 id="el-cdn-de-aws%3A-amazon-cloudfront" tabindex="-1">El <a href="https://es.wikipedia.org/wiki/red_de_distribuci%c3%b3n_de_contenidos" rel="noopener noreferrer" target="_blank">CDN</a> de AWS: Amazon <a href="https://docs.aws.amazon.com/es_es/amazoncloudfront/latest/developerguide/introduction.html" rel="noopener noreferrer" target="_blank">CloudFront</a></h2>
+<h2 id="el-cdn-de-aws%3A-amazon-cloudfront" tabindex="-1">El <a href="https://es.wikipedia.org/wiki/red_de_distribuci%c3%b3n_de_contenidos" rel="noopener noreferrer" target="_blank">CDN</a> de AWS: Amazon <a href="https://docs.aws.amazon.com/es_es/AmazonCloudFront/latest/DeveloperGuide/Introduction.html" rel="noopener noreferrer" target="_blank">CloudFront</a></h2>
 
 
 <p><figure><img alt="CDN" src="/assets/blog/3c8675a752b0da560475f634.jpg"/></figure></p>

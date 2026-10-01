@@ -433,7 +433,7 @@ related:
 
 <ul>
 <li><a href="https://www.amazon.com/stores/page/D3C3BFBB-3A55-43D9-ADF5-3E6B60E36487" rel="noopener noreferrer" target="_blank">Libros sobre machine learning de AWS</a></li>
-<li><a href="https://www.youtube.com/c/AWSTraining" rel="noopener noreferrer" target="_blank">Canal de YouTube de AWS Training</a> con videos educativos</li>
+<li><a href="https://www.youtube.com/@AWSTrainingandCertification" rel="noopener noreferrer" target="_blank">Canal de YouTube de AWS Training</a> con videos educativos</li>
 <li><a href="https://aws.amazon.com/es/blogs/machine-learning/" rel="noopener noreferrer" target="_blank">Blog de AWS sobre machine learning</a> con noticias y ejemplos de cómo otras personas están usando la IA</li>
 </ul>
 

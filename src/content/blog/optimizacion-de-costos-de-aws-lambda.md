@@ -94,7 +94,7 @@ related:
 <h3 id="instalaci%C3%B3n" tabindex="-1">Instalación</h3>
 
 
-<p>Para empezar a usar la herramienta gratuita <a href="https://github.com/iopipe/optimize-lambda-cost" rel="noopener noreferrer" target="_blank">optimize-lambda-cost</a>, que revisa los registros de tus funciones Lambda para darte consejos sobre cómo ahorrar, sigue estos pasos:</p>
+<p>Para empezar a usar la herramienta gratuita optimize-lambda-cost, que revisa los registros de tus funciones Lambda para darte consejos sobre cómo ahorrar, sigue estos pasos:</p>
 
 
 <ul>

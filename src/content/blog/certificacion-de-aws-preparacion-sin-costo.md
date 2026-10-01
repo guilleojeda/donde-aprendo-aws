@@ -109,7 +109,7 @@ related:
 <h2 id="%C2%BFc%C3%B3mo-certificarse-en-aws%3F" tabindex="-1">¿Cómo certificarse en AWS?</h2>
 
 
-<p>La mejor manera de <a href="https://www.wetcom.com/en_US/blog/blog-1/como-preparar-la-certificacion-aws-cloud-practitioner-608">prepararse para la certificación de AWS</a> es utilizando la plataforma gratuita de AWS Skill Builder. Esta plataforma ofrece cursos en línea, laboratorios prácticos y exámenes de práctica para ayudarte a adquirir las habilidades necesarias para aprobar los exámenes de certificación.</p>
+<p>La mejor manera de <a href="https://aws.amazon.com/certification/certification-prep/">prepararse para la certificación de AWS</a> es utilizando la plataforma gratuita de AWS Skill Builder. Esta plataforma ofrece cursos en línea, laboratorios prácticos y exámenes de práctica para ayudarte a adquirir las habilidades necesarias para aprobar los exámenes de certificación.</p>
 
 
 <h3 id="prep%C3%A1rese-para-aws-certification-con-aws-skill-builder" tabindex="-1">PREPÁRESE PARA AWS CERTIFICATION CON AWS SKILL BUILDER</h3>
