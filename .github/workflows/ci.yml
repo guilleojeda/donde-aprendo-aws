@@ -41,3 +41,4 @@ jobs:
       - run: npm run verify:site
         env:
           PUBLIC_PRODUCTION: 'true'
+          PUBLIC_SITE_ORIGIN: https://dondeaprendoaws.com
