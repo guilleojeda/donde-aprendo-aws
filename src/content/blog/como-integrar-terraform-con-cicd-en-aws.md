@@ -433,7 +433,7 @@ artifacts:
 <h3 id="recursos-adicionales" tabindex="-1">Recursos Adicionales</h3>
 
 
-<p>Si buscas aprender más sobre la automatización de infraestructura con AWS, <strong>Dónde Aprendo AWS</strong> ofrece materiales en español enfocados en integraciones de Terraform y CI/CD. Puedes acceder a ellos aquí: <a href="https://dondeaprendoaws.com/modulos-terraform">https://dondeaprendoaws.com/modulos-terraform</a>. Estos recursos complementan la <a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">documentación oficial de AWS</a> con ejemplos prácticos diseñados para usuarios hispanohablantes.</p>
+<p>Si buscas aprender más sobre la automatización de infraestructura con AWS, <strong>Dónde Aprendo AWS</strong> ofrece materiales en español enfocados en integraciones de Terraform y CI/CD. Puedes acceder a ellos aquí: <a href="https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-terraform/">guía de Infraestructura como Código en AWS con Terraform</a>. Estos recursos complementan la <a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">documentación oficial de AWS</a> con ejemplos prácticos diseñados para usuarios hispanohablantes.</p>
 
 
 <p>Además, la comunidad hispanohablante cuenta con varias herramientas útiles:</p>

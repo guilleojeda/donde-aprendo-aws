@@ -29,7 +29,7 @@ related:
 
 <ul>
 <li><strong>Transacciones en DynamoDB</strong>: Permiten ejecutar operaciones de lectura y escritura de forma atómica, garantizando que todos los cambios se realicen o ninguno.</li>
-<li><strong>APIs <a href="https://docs.aws.amazon.com/amazondynamodb/latest/apireference/api_transactwriteitems.html" rel="noopener noreferrer" target="_blank">TransactWriteItems</a> y TransactGetItems</strong>: Facilitan la actualización y recuperación de múltiples ítems en una sola operación.</li>
+<li><strong>APIs <a href="https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_TransactWriteItems.html" rel="noopener noreferrer" target="_blank">TransactWriteItems</a> y TransactGetItems</strong>: Facilitan la actualización y recuperación de múltiples ítems en una sola operación.</li>
 <li><strong>Niveles de aislamiento</strong>: DynamoDB utiliza el nivel de aislamiento serializable para evitar conflictos entre transacciones.</li>
 <li><strong>Gestión de conflictos y capacidad</strong>: Es crucial manejar adecuadamente los conflictos de transacciones y planificar la capacidad para evitar errores y asegurar el rendimiento.</li>
 <li><strong>Prácticas recomendadas</strong>: Incluyen desde la planificación de la capacidad hasta el diseño eficiente de las transacciones y el modelado de datos.</li>
@@ -59,7 +59,7 @@ related:
 <h2 id="funcionamiento-de-las-transacciones-de-amazon-dynamodb" tabindex="-1">Funcionamiento de las <a href="https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/servicequotas.html" rel="noopener noreferrer" target="_blank">Transacciones de Amazon DynamoDB</a></h2>
 
 
-<h3 id="transactwriteitems-api" tabindex="-1"><a href="https://docs.aws.amazon.com/amazondynamodb/latest/apireference/api_transactwriteitems.html" rel="noopener noreferrer" target="_blank">TransactWriteItems</a> API</h3>
+<h3 id="transactwriteitems-api" tabindex="-1"><a href="https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_TransactWriteItems.html" rel="noopener noreferrer" target="_blank">TransactWriteItems</a> API</h3>
 
 
 <p>La API TransactWriteItems te permite hacer varias cosas a la vez con tus datos, como si estuvieras haciendo malabares pero asegurándote de no dejar caer ninguna bola. Imagina que quieres actualizar la información de varios clientes y pedidos al mismo tiempo, esta API te ayuda a hacerlo todo de una sola vez, sin errores.</p>

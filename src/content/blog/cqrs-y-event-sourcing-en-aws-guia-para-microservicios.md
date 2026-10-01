@@ -777,7 +777,7 @@ related:
 
 <ul>
 <li>
-<p><a href="https://docs.aws.amazon.com/es_es/event-driven-architecture-bundles/pdf/event-driven-architecture-bundles.pdf" rel="noopener noreferrer" target="_blank">Documentación oficial de AWS sobre CQRS y Event Sourcing</a></p>
+<p><a href="https://docs.aws.amazon.com/prescriptive-guidance/latest/modernization-data-persistence/enabling-patterns.html" rel="noopener noreferrer" target="_blank">Documentación oficial de AWS sobre CQRS y Event Sourcing</a></p>
 </li>
 <li>
 <p>Tutorial de CQRS y Event Sourcing en AWS</p>

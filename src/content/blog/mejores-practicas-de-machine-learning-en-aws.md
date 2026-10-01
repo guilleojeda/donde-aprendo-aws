@@ -445,7 +445,7 @@ Predicciones --&gt; Aplicaciones publicitarias            |
 
 
 <ul>
-<li><a href="https://aws.amazon.com/es/blogs/aws-en-espanol/" rel="noopener noreferrer" target="_blank">Blog de AWS en español</a> - Aquí encontrarás artículos y guías paso a paso sobre AWS, incluyendo temas de machine learning.</li>
+<li><a href="https://aws.amazon.com/es/blogs/aws-spanish/" rel="noopener noreferrer" target="_blank">Blog de AWS en español</a> - Aquí encontrarás artículos y guías paso a paso sobre AWS, incluyendo temas de machine learning.</li>
 <li><a href="https://aws.amazon.com/es/blogs/machine-learning/" rel="noopener noreferrer" target="_blank">Blog de AWS Machine Learning</a> - Un espacio dedicado a explicar cómo usar los servicios de machine learning de AWS.</li>
 </ul>
 
