@@ -30,6 +30,8 @@ Visitors submit contact details, title, URL, description, kind, format, and opti
 
 Resource and event cards offer a contextual email draft for a broken link or incorrect data. The draft includes only the public title, record ID and destination URL; the visitor must send it from their own mail client. A generic footer link covers pages without a card. This reuses the existing contact mailbox and does not create a second submission or moderation store. Editors investigate these messages and correct the authoritative DynamoDB record, or the versioned article file when the report concerns an article.
 
+Footer text and links remain readable against their background. Resource-card interaction feedback changes the border rather than fading text. Card secondary links and footer contact/report links have at least 44px of target height, with spacing between adjacent card destinations. Keyboard focus is visibly outlined on card and footer links; interaction feedback does not reduce text contrast. These shared styles also cover event report links and the blog's contact footer.
+
 The build reads DynamoDB using a scoped AWS role that can scan only the public attributes named in its projection. The Meetup sync role can read only the group and event fields it needs and can write only `meetup-event-*` keys. Visitors do not receive AWS credentials or access the table. The public catalog has no runtime API, database stream processor, or database-to-Git synchronization.
 
 ## Preview boundary
