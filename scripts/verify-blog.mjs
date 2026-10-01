@@ -100,4 +100,24 @@ const articleWithoutBodyImages = read('blog/cors-en-websocket-vs-rest-api-gatewa
 const body = articleWithoutBodyImages.match(/<article class="blog-article__body">([\s\S]*?)<\/article>/)?.[1] ?? '';
 assert.doesNotMatch(body, /<img\b/);
 
+const articlesWithCodeComments = [
+  {
+    slug: 'como-crear-infraestructura-como-codigo-en-aws-con-terraform',
+    comments: ['# Para instalar Apache', '# otras configuraciones...'],
+  },
+  {
+    slug: 'integrar-amazon-polly-en-5-pasos-texto-a-voz-realista',
+    comments: ['# Crea un cliente de Polly', '# Guarda el audio en un archivo'],
+  },
+];
+for (const { slug, comments } of articlesWithCodeComments) {
+  const html = read(`blog/${slug}/index.html`);
+  assert.equal([...html.matchAll(/<h1\b/gi)].length, 1, `Code comments must not become article headings: ${slug}`);
+  const codeBlocks = [...html.matchAll(/<pre\b[^>]*>\s*<code\b[^>]*>([\s\S]*?)<\/code>\s*<\/pre>/gi)]
+    .map(([, code]) => decode(code.replace(/<[^>]*>/g, '')));
+  for (const comment of comments) {
+    assert.ok(codeBlocks.some((code) => code.includes(comment)), `Code comment missing from its code block: ${slug}: ${comment}`);
+  }
+}
+
 console.log(`Verified ${expected.length} featured cards, ${archiveUrls.length} archive links, ${archive.length} article routes, and ${assetPaths.size} owned images.`);
