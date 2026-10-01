@@ -84,3 +84,20 @@ export function resolveLearningPaths(paths, resources, posts) {
     return { ...path, steps };
   });
 }
+
+/**
+ * Use resolved steps so withdrawn resources cannot become article continuation links.
+ * @param {Array<{ id: string, title: string, steps: Array<{ id: string, type: string, title: string, href: string, label: string }> }>} paths
+ * @param {string} articleId
+ */
+export function articlePathNavigation(paths, articleId) {
+  return paths.flatMap((path) => {
+    const index = path.steps.findIndex((step) => step.type === 'blog' && step.id === articleId);
+    if (index === -1) return [];
+    return [{
+      title: path.title,
+      href: `/recorridos/#${path.id}`,
+      nextStep: path.steps[index + 1] ?? null,
+    }];
+  });
+}

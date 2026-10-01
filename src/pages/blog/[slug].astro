@@ -4,13 +4,22 @@ import { getCollection, render } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import BlogHeader from '../../components/BlogHeader.astro';
 import BlogFooter from '../../components/BlogFooter.astro';
+import { loadSiteCatalog } from '../../lib/site-catalog.mjs';
+import { LEARNING_PATHS, resolveLearningPaths, articlePathNavigation } from '../../lib/learning-paths.mjs';
+import type { CatalogEvent, CatalogResource } from '../../types/catalog';
 
 export async function getStaticPaths() {
-  const posts = await getCollection('blog');
-  return posts.map((post) => ({ params: { slug: post.id }, props: { post } }));
+  const [posts, catalog] = await Promise.all([getCollection('blog'), loadSiteCatalog()]);
+  const resources = (catalog as Array<CatalogResource | CatalogEvent>)
+    .filter((record): record is CatalogResource => record.recordType !== 'event');
+  const paths = resolveLearningPaths(LEARNING_PATHS, resources, posts);
+  return posts.map((post) => ({
+    params: { slug: post.id },
+    props: { post, pathNavigation: articlePathNavigation(paths, post.id) },
+  }));
 }
 
-const { post } = Astro.props;
+const { post, pathNavigation } = Astro.props;
 const { Content } = await render(post);
 const canonical = new URL(`/blog/${post.id}/`, Astro.site ?? Astro.url).href;
 const publishedDate = new Intl.DateTimeFormat('es-AR', {
@@ -38,6 +47,23 @@ const publishedDate = new Intl.DateTimeFormat('es-AR', {
     <article class="blog-article__body">
       <Content />
     </article>
+    {pathNavigation.length > 0 && (
+      <nav class="blog-paths" aria-labelledby="blog-paths-title">
+        <h2 id="blog-paths-title">Continuá tu recorrido</h2>
+        <ul>
+          {pathNavigation.map((path) => <li>
+            <p>Este artículo forma parte de <strong>{path.title}</strong>.</p>
+            <div class="blog-paths__actions">
+              <a class="blog-paths__return" href={path.href} aria-label={`Volver al recorrido: ${path.title}`}>Volver al recorrido</a>
+              {path.nextStep ? <a class="blog-paths__next" href={path.nextStep.href}>
+                <span>Siguiente paso · {path.nextStep.label}</span>
+                <strong>{path.nextStep.title}</strong>
+              </a> : <p class="blog-paths__end">Llegaste al final de este recorrido.</p>}
+            </div>
+          </li>)}
+        </ul>
+      </nav>
+    )}
     {post.data.related.length > 0 && (
       <section class="blog-related" aria-labelledby="blog-related-title">
         <div class="blog-related__header">
