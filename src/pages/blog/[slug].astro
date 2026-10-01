@@ -26,6 +26,7 @@ const publishedDate = new Intl.DateTimeFormat('es-AR', {
   description={post.data.description}
   canonical={canonical}
   image={post.data.ogImage}
+  imageAlt={post.data.ogImageAlt ?? post.data.coverAlt}
   publishedTimestamp={post.data.publishedTimestamp}
 >
   <BlogHeader />

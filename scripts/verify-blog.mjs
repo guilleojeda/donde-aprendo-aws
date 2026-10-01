@@ -32,7 +32,9 @@ assert.deepEqual([...allIndexUrls].sort(), archive.map(({ slug }) => `/blog/${sl
 assert.equal(new Set(allIndexUrls).size, archive.length, 'Blog index must not duplicate article destinations.');
 assert.match(index, /<link rel="canonical" href="https:\/\/dondeaprendoaws\.com\/blog\/"/);
 assert.match(index, /<meta name="twitter:url" content="https:\/\/dondeaprendoaws\.com\/blog\/"/);
-assert.doesNotMatch(index, /<meta name="twitter:(?:card|image)"/);
+assert.match(index, /<meta name="twitter:card" content="summary_large_image"/);
+assert.equal(index.match(/<meta property="og:image" content="([^"]+)"/)?.[1], `${mediaOrigin}/assets/site-social.png`);
+assert.match(index, /<meta property="og:type" content="website"/);
 
 const generated = readdirSync(resolve(dist, 'blog'), { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
@@ -58,6 +60,10 @@ for (const article of archive) {
   assert.match(html, /<article class="blog-article__body">/, `Body missing: ${article.slug}`);
   const ogImage = html.match(/<meta property="og:image" content="([^"]+)"/)?.[1];
   assert.ok(ogImage?.startsWith(`${mediaOrigin}/assets/blog/`), `Owned social image missing: ${article.slug}`);
+  assert.match(html, /<meta property="og:type" content="article"/, `Open Graph article type: ${article.slug}`);
+  const ogImageAlt = decode(html.match(/<meta property="og:image:alt" content="([^"]*)"/)?.[1] ?? '');
+  assert.ok(ogImageAlt.trim(), `Social image alternative missing: ${article.slug}`);
+  assert.doesNotMatch(ogImageAlt, /^Thumbnail for:/, `Social image alternative must describe the image: ${article.slug}`);
   const ogFile = resolve(dist, `.${new URL(ogImage).pathname}`);
   assert.ok(ogFile.startsWith(`${dist}/`) && existsSync(ogFile), `Social image file missing: ${article.slug}`);
   assert.match(html, /<meta name="twitter:card" content="summary_large_image"/);

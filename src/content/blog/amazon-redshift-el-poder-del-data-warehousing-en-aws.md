@@ -4,7 +4,7 @@ description: "Descubre Amazon Redshift, un potente data warehouse en la nube de 
 publishedAt: "2024-01-30"
 publishedTimestamp: "2024-01-30T23:39:37.41Z"
 cover: "/assets/blog/ef6fdc34e15971c1b27833d1.jpg"
-coverAlt: "Thumbnail for: Amazon Redshift: El Poder del Data Warehousing en AWS"
+coverAlt: "Nube formada por cubos iluminados junto a una flecha ascendente"
 ogImage: "/assets/blog/ef6fdc34e15971c1b27833d1.jpg"
 related:
   - title: "Estrategias de Caché Rentables para Apps Serverless"

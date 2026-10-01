@@ -4,7 +4,7 @@ description: "Compartir recursos en arquitecturas serverless multi-tenant ofrece
 publishedAt: "2024-05-18"
 publishedTimestamp: "2024-05-18T01:35:00.225Z"
 cover: "/assets/blog/b4ce26c384455c6314d61ac3.jpg"
-coverAlt: "Thumbnail for: Recursos Compartidos en Arquitecturas Serverless Multi-Tenant"
+coverAlt: "Servidores centrales rodeados por una rueda de nodos de colores"
 ogImage: "/assets/blog/b4ce26c384455c6314d61ac3.jpg"
 related:
   - title: "Crear un Cluster en Amazon Redshift"

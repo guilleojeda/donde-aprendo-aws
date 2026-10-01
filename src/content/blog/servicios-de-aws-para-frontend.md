@@ -4,7 +4,7 @@ description: "Descubre los servicios de AWS para frontend como AWS Amplify, Amaz
 publishedAt: "2024-03-18"
 publishedTimestamp: "2024-03-18T00:56:34.055Z"
 cover: "/assets/blog/31bdf1ca2f3b6c51213246c8.jpg"
-coverAlt: "Thumbnail for: Servicios de AWS para Frontend"
+coverAlt: "Nube sobre franjas onduladas de colores y un camino sinuoso"
 ogImage: "/assets/blog/31bdf1ca2f3b6c51213246c8.jpg"
 related:
   - title: "AWS Wavelength: Guía de Escalabilidad y Optimización"

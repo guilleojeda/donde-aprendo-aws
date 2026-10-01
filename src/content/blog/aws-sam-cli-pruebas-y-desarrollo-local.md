@@ -4,7 +4,7 @@ description: "Aprende a desarrollar y probar aplicaciones serverless localmente 
 publishedAt: "2024-11-27"
 publishedTimestamp: "2024-11-27T00:08:23.504Z"
 cover: "/assets/blog/fa48e5370fe3d3489c8fb4d5.jpg"
-coverAlt: "Thumbnail for: AWS SAM CLI: Pruebas y Desarrollo Local"
+coverAlt: "Manos escribiendo código en un portátil junto a una planta"
 ogImage: "/assets/blog/fa48e5370fe3d3489c8fb4d5.jpg"
 related:
   - title: "Cómo Utilizar Amazon Bedrock"

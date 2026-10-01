@@ -4,7 +4,7 @@ description: "Descubre la guía completa de escalado automático de contenedores
 publishedAt: "2024-05-17"
 publishedTimestamp: "2024-05-17T00:30:54.181Z"
 cover: "/assets/blog/d8c29e3674fe4e59874460c0.jpg"
-coverAlt: "Thumbnail for: Guía completa de escalado automático de contenedores en AWS"
+coverAlt: "Nube oscura con un diagrama jerárquico de cuadros y flechas"
 ogImage: "/assets/blog/d8c29e3674fe4e59874460c0.jpg"
 related:
   - title: "Configurar CORS en HTTP API Gateway"

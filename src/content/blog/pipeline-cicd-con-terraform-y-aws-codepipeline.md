@@ -4,7 +4,7 @@ description: "Automatiza tus despliegues en AWS con un pipeline CI/CD usando Ter
 publishedAt: "2025-02-13"
 publishedTimestamp: "2025-02-13T00:13:18.43Z"
 cover: "/assets/blog/8c8805d819a48bf8b59f25eb.jpg"
-coverAlt: "Thumbnail for: Pipeline CI/CD con Terraform y AWS CodePipeline"
+coverAlt: "Escritorio con dos monitores, código en pantalla y una planta"
 ogImage: "/assets/blog/8c8805d819a48bf8b59f25eb.jpg"
 related:
   - title: "10 Preguntas Frecuentes sobre Machine Learning en AWS"

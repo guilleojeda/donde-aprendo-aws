@@ -4,7 +4,7 @@ description: "Descubre los 10 mejores repositorios de GitHub para implementar Ma
 publishedAt: "2024-10-27"
 publishedTimestamp: "2024-10-27T03:07:38.015Z"
 cover: "/assets/blog/0e7089d339cd0d6e09ee83cd.webp"
-coverAlt: "Thumbnail for: 10 Repositorios de GitHub para Machine Learning en AWS"
+coverAlt: "Portátil abierto con código en pantalla sobre un escritorio junto a libros"
 ogImage: "/assets/blog/0e7089d339cd0d6e09ee83cd.webp"
 related:
   - title: "Acuerdos de Nivel de Servicio AWS: Guía Básica"

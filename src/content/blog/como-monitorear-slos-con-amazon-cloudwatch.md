@@ -4,7 +4,7 @@ description: "Aprende a monitorear objetivos de nivel de servicio (SLOs) con Ama
 publishedAt: "2025-02-24"
 publishedTimestamp: "2025-02-24T06:43:53.013Z"
 cover: "/assets/blog/0919cf4ddfe7647a0c71877c.jpg"
-coverAlt: "Thumbnail for: Cómo monitorear SLOs con Amazon CloudWatch"
+coverAlt: "Monitor de escritorio con un panel de gráficos y medidores"
 ogImage: "/assets/blog/0919cf4ddfe7647a0c71877c.jpg"
 related:
   - title: "Webinars y Eventos en AWS Marketplace"

@@ -4,7 +4,7 @@ description: "Descubre cómo crear APIs serverless usando AWS Lambda y API Gatew
 publishedAt: "2024-05-12"
 publishedTimestamp: "2024-05-12T04:39:19.754Z"
 cover: "/assets/blog/919d108a9faabfb32e4a011d.jpg"
-coverAlt: "Thumbnail for: Guía para Crear APIs Serverless con AWS Lambda y API Gateway"
+coverAlt: "Nube delineada con figuras hexagonales y una flecha ascendente"
 ogImage: "/assets/blog/919d108a9faabfb32e4a011d.jpg"
 related:
   - title: "Estrategias de Correlación de Eventos AWS"

@@ -4,7 +4,7 @@ description: "Descubra las bases de datos en AWS, incluyendo RDS, Aurora, Dynamo
 publishedAt: "2024-01-27"
 publishedTimestamp: "2024-01-27T00:58:59.942Z"
 cover: "/assets/blog/7dd6e4771015e24de4a4bc0d.jpg"
-coverAlt: "Thumbnail for: AWS bases de datos: introducción básica"
+coverAlt: "Panel dividido en cuatro ilustraciones de bases de datos y otros símbolos"
 ogImage: "/assets/blog/7dd6e4771015e24de4a4bc0d.jpg"
 related:
   - title: "Guía completa para depurar errores CORS en API Gateway"

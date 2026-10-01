@@ -4,7 +4,7 @@ description: "Descubre cómo SageMaker Clarify puede ayudarte a detectar y mitig
 publishedAt: "2024-05-17"
 publishedTimestamp: "2024-05-17T01:45:54.229Z"
 cover: "/assets/blog/055e62c5fbddebf94a936e62.jpg"
-coverAlt: "Thumbnail for: Detección de Sesgos en Modelos ML con SageMaker Clarify"
+coverAlt: "Lupa circular muestra un espectro de colores entre iconos de gráficos"
 ogImage: "/assets/blog/055e62c5fbddebf94a936e62.jpg"
 related:
   - title: "CloudWatch y EventBridge: Integración"

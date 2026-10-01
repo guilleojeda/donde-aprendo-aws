@@ -4,7 +4,7 @@ description: "Descubre todo sobre AWS Wavelength, desde su arquitectura hasta su
 publishedAt: "2024-05-19"
 publishedTimestamp: "2024-05-19T00:55:00.331Z"
 cover: "/assets/blog/e73412d95c38ad88b6dc619a.jpg"
-coverAlt: "Thumbnail for: Guía de AWS Wavelength: Zonas y Despliegue"
+coverAlt: "Nodos circulares de varios tamaños sobre un fondo de centro de datos"
 ogImage: "/assets/blog/e73412d95c38ad88b6dc619a.jpg"
 related:
   - title: "AWS DeepLens: Introducción al Aprendizaje Profundo"

@@ -4,7 +4,7 @@ description: "Descubre las estrategias clave de recuperación de desastres en AW
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T02:40:38.528Z"
 cover: "/assets/blog/df6cee7d6c3bd49e97412d95.jpg"
-coverAlt: "Thumbnail for: Estrategias de Recuperación de Desastres en AWS"
+coverAlt: "Nube mitad oscura y mitad clara rodeada de candados y escudos"
 ogImage: "/assets/blog/df6cee7d6c3bd49e97412d95.jpg"
 related:
   - title: "Guía de AWS Wavelength: Zonas y Despliegue"

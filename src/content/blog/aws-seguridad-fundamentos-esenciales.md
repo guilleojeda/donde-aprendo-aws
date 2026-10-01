@@ -4,7 +4,7 @@ description: "Explora los fundamentos de la seguridad en AWS, incluyendo el mode
 publishedAt: "2024-01-23"
 publishedTimestamp: "2024-01-23T17:26:25.234Z"
 cover: "/assets/blog/15bc5fcf943d474b0b00277c.jpg"
-coverAlt: "Thumbnail for: AWS Seguridad: Fundamentos Esenciales"
+coverAlt: "Nube azul formada por piezas de rompecabezas con candados"
 ogImage: "/assets/blog/15bc5fcf943d474b0b00277c.jpg"
 related:
   - title: "Concurrencia Aprovisionada: Solución a Cold Starts en AWS Lambda"

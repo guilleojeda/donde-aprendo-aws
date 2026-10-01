@@ -4,7 +4,7 @@ description: "Empieza a aprender AWS con una práctica gratuita, recursos de com
 publishedAt: "2024-01-26"
 publishedTimestamp: "2024-01-26T04:07:45.093Z"
 cover: "/assets/blog/9eb7bc020e08de9a43291902.jpg"
-coverAlt: "Ilustración de una nube con iconos de aprendizaje y seguridad"
+coverAlt: "Nube central conectada a varios iconos circulares sobre fondo oscuro"
 indexOrder: 4
 ogImage: "/assets/blog/9eb7bc020e08de9a43291902.jpg"
 related: []

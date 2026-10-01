@@ -4,7 +4,7 @@ description: "Aprende cómo sacar el máximo provecho de los eventos de AWS Educ
 publishedAt: "2024-05-18"
 publishedTimestamp: "2024-05-18T00:29:00.242Z"
 cover: "/assets/blog/835302183289e4165c02383b.jpg"
-coverAlt: "Thumbnail for: Guía de Eventos AWS Educate 2024"
+coverAlt: "Diagrama de una nube conectada a iconos de educación, pantallas y edificios"
 ogImage: "/assets/blog/835302183289e4165c02383b.jpg"
 related:
   - title: "Estructuras multi-cuenta AWS para escalar"

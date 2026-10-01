@@ -4,7 +4,7 @@ description: "Consejos y mejores prácticas para mejorar la observabilidad en AW
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:43:53.201Z"
 cover: "/assets/blog/225d18fffd41e9eec388a76e.jpg"
-coverAlt: "Thumbnail for: Mejores Prácticas de Observabilidad en AWS"
+coverAlt: "Nube de la que cuelgan un círculo, un cuadrado, un rombo y un triángulo"
 ogImage: "/assets/blog/225d18fffd41e9eec388a76e.jpg"
 related:
   - title: "Patrón Strangler Fig en AWS: Migrar a Microservicios"

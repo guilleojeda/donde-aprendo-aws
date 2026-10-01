@@ -4,7 +4,7 @@ description: "Aprende a crear Infraestructura como Código en AWS con Terraform.
 publishedAt: "2024-03-18"
 publishedTimestamp: "2024-03-18T00:48:17.194Z"
 cover: "/assets/blog/e70ea85183c2a0917d33154f.png"
-coverAlt: "Thumbnail for: Cómo crear Infraestructura como Código en AWS con Terraform"
+coverAlt: "Nube conectada a una fila de nodos con símbolos de código"
 ogImage: "/assets/blog/e70ea85183c2a0917d33154f.png"
 related:
   - title: "Mejores Prácticas de Seguridad en AWS"

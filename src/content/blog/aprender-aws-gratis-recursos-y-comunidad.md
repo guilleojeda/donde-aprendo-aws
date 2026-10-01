@@ -4,7 +4,7 @@ description: "Aprende AWS gratis en español con cursos, laboratorios y recursos
 publishedAt: "2024-01-27"
 publishedTimestamp: "2024-01-27T01:37:04.435Z"
 cover: "/assets/blog/c7227ae982494a7ce1620070.jpg"
-coverAlt: "Ilustración de una nube sobre piezas de rompecabezas con símbolos de aprendizaje"
+coverAlt: "Nube sobre una mano estilizada y una fila de símbolos de colores"
 indexOrder: 6
 ogImage: "/assets/blog/c7227ae982494a7ce1620070.jpg"
 related: []

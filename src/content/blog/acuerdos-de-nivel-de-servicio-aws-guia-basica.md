@@ -4,7 +4,7 @@ description: "Conoce cómo los Acuerdos de Nivel de Servicio de AWS garantizan d
 publishedAt: "2024-11-27"
 publishedTimestamp: "2024-11-27T01:51:56.354Z"
 cover: "/assets/blog/a1b4827aff914f24a4598ecc.jpg"
-coverAlt: "Thumbnail for: Acuerdos de Nivel de Servicio AWS: Guía Básica"
+coverAlt: "Centro de datos con filas de servidores bajo un cielo nublado"
 ogImage: "/assets/blog/a1b4827aff914f24a4598ecc.jpg"
 related:
   - title: "Recursos Compartidos en Arquitecturas Serverless Multi-Tenant"

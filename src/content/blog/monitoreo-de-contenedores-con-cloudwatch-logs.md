@@ -4,7 +4,7 @@ description: "Aprende a monitorizar contenedores con CloudWatch Logs, centraliza
 publishedAt: "2025-06-02"
 publishedTimestamp: "2025-06-02T08:56:16.722000+00:00"
 cover: "/assets/blog/2b59cebb297e58db709a33a5.jpg"
-coverAlt: "Thumbnail for: Monitoreo de contenedores con CloudWatch Logs"
+coverAlt: "Cubo transparente con gráficos iluminados en una sala de servidores"
 ogImage: "/assets/blog/2b59cebb297e58db709a33a5.jpg"
 related:
   - title: "10 Prácticas Recomendadas para Integrar EUC en AWS"

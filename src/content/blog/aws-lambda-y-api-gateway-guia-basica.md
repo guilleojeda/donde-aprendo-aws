@@ -4,7 +4,7 @@ description: "Aprende a integrar AWS Lambda y API Gateway para crear aplicacione
 publishedAt: "2024-11-28"
 publishedTimestamp: "2024-11-28T01:29:24.642Z"
 cover: "/assets/blog/2aa39fe7ff55b6a37888515e.jpg"
-coverAlt: "Thumbnail for: AWS Lambda y API Gateway: Guía Básica"
+coverAlt: "Portátil en un escritorio con un diagrama técnico en pantalla"
 ogImage: "/assets/blog/2aa39fe7ff55b6a37888515e.jpg"
 related:
   - title: "Estructuras multi-cuenta AWS para escalar"

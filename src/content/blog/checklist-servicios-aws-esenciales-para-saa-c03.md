@@ -4,7 +4,7 @@ description: "Prepárate para el examen SAA-C03 de AWS con una guía completa so
 publishedAt: "2025-04-03"
 publishedTimestamp: "2025-04-03T01:53:13.640000+00:00"
 cover: "/assets/blog/eadb9eb1eb9dfe22a3da22e2.jpg"
-coverAlt: "Thumbnail for: Checklist: Servicios AWS Esenciales para SAA-C03"
+coverAlt: "Mujer usa un portátil en una oficina rodeada de iconos translúcidos"
 ogImage: "/assets/blog/eadb9eb1eb9dfe22a3da22e2.jpg"
 related:
   - title: "Concurrencia Aprovisionada: Solución a Cold Starts en AWS Lambda"

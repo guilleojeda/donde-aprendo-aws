@@ -4,7 +4,7 @@ description: "Configura AWS para la comunicación en equipo en 7 pasos esenciale
 publishedAt: "2024-05-20"
 publishedTimestamp: "2024-05-20T00:27:01.26Z"
 cover: "/assets/blog/f92b3e352f4a3a9565a17d1a.jpg"
-coverAlt: "Thumbnail for: Configurar AWS para Comunicación en Equipo: 7 Pasos"
+coverAlt: "Diagrama organizativo con personas, bases de datos, pantallas y engranajes"
 ogImage: "/assets/blog/f92b3e352f4a3a9565a17d1a.jpg"
 related:
   - title: "Cómo Optimizar la Transferencia de Datos en API Gateway"

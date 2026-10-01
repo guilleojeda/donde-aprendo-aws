@@ -4,7 +4,7 @@ description: "Aprende a cifrar y descifrar datos de forma segura en la nube con 
 publishedAt: "2024-05-16"
 publishedTimestamp: "2024-05-16T14:36:00.762Z"
 cover: "/assets/blog/8879f0457d281038d09e5222.png"
-coverAlt: "Thumbnail for: Cifrado de datos con AWS KMS: Guía práctica"
+coverAlt: "Candado tridimensional dentro de una nube azul"
 ogImage: "/assets/blog/8879f0457d281038d09e5222.png"
 related:
   - title: "Crear un Cluster en Amazon Redshift"

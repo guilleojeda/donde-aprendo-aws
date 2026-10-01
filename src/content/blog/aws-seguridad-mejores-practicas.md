@@ -4,7 +4,7 @@ description: "Descubre las mejores prácticas de seguridad en la nube de AWS, in
 publishedAt: "2024-01-24"
 publishedTimestamp: "2024-01-24T01:20:24.308Z"
 cover: "/assets/blog/58bea5d60c133d57e4a0bdbf.jpg"
-coverAlt: "Thumbnail for: AWS Seguridad: Mejores Prácticas"
+coverAlt: "Nube con escudo y candado sobre un fondo azul lleno de símbolos de seguridad"
 ogImage: "/assets/blog/58bea5d60c133d57e4a0bdbf.jpg"
 related:
   - title: "AWS SAM CLI: Pruebas y Desarrollo Local"

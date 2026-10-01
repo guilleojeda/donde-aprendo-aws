@@ -4,7 +4,7 @@ description: "Prepárate eficazmente para el examen AWS Certified Cloud Practiti
 publishedAt: "2024-05-04"
 publishedTimestamp: "2024-05-04T02:21:52.821Z"
 cover: "/assets/blog/9ee272960332ab17524d1056.jpg"
-coverAlt: "Thumbnail for: Guía de Estudio AWS Certified Cloud Practitioner CLF-C02"
+coverAlt: "Nube rosada con un sobre en el centro y símbolos circulares alrededor"
 ogImage: "/assets/blog/9ee272960332ab17524d1056.jpg"
 related:
   - title: "Checklist: Servicios AWS Esenciales para SAA-C03"

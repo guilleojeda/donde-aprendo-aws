@@ -4,7 +4,7 @@ description: "Aprende cómo configurar CloudWatch Logs en API Gateway para monit
 publishedAt: "2024-04-29"
 publishedTimestamp: "2024-04-29T07:48:00.212Z"
 cover: "/assets/blog/f256f4a211663872e566e67f.jpg"
-coverAlt: "Thumbnail for: Cómo Habilitar CloudWatch Logs en API Gateway: Guía Paso a Paso"
+coverAlt: "Camino de bloques que conduce a una nube con una llave"
 ogImage: "/assets/blog/f256f4a211663872e566e67f.jpg"
 related:
   - title: "Seguridad y Control de Costos en AWS: Guía 2024"

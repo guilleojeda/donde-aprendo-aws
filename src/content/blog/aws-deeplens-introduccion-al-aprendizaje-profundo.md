@@ -4,7 +4,7 @@ description: "Aprende a utilizar AWS DeepLens para proyectos de aprendizaje prof
 publishedAt: "2024-05-04"
 publishedTimestamp: "2024-05-04T13:44:53.053Z"
 cover: "/assets/blog/711eae34c71ed3b53e765f69.jpg"
-coverAlt: "Thumbnail for: AWS DeepLens: Introducción al Aprendizaje Profundo"
+coverAlt: "Círculos concéntricos sobre un circuito electrónico"
 ogImage: "/assets/blog/711eae34c71ed3b53e765f69.jpg"
 related:
   - title: "Requisitos de cableado físico para AWS Snowball"

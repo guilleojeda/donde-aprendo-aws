@@ -4,7 +4,7 @@ description: "Guía detallada para migrar grandes cantidades de datos a AWS de f
 publishedAt: "2024-05-16"
 publishedTimestamp: "2024-05-16T15:02:01.266Z"
 cover: "/assets/blog/3469cfa7d51896eb4b791860.jpg"
-coverAlt: "Thumbnail for: Migración de Datos con AWS Snowmobile: Guía Paso a Paso"
+coverAlt: "Vehículo azul de orugas junto a iconos de datos y nubes"
 ogImage: "/assets/blog/3469cfa7d51896eb4b791860.jpg"
 related:
   - title: "Configurar AWS para Comunicación en Equipo: 7 Pasos"

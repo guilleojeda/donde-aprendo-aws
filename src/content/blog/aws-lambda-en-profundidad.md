@@ -4,7 +4,7 @@ description: "Descubre todo sobre AWS Lambda, desde cómo funciona y cómo usarl
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T02:11:48.464Z"
 cover: "/assets/blog/fc7f86cd5d9d53b7ba70da04.jpg"
-coverAlt: "Thumbnail for: AWS Lambda en Profundidad"
+coverAlt: "Nube blanca en el centro de anillos y figuras geométricas de colores"
 ogImage: "/assets/blog/fc7f86cd5d9d53b7ba70da04.jpg"
 related:
   - title: "Configurar CORS en HTTP API Gateway"

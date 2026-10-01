@@ -4,7 +4,7 @@ description: "Descubre cómo desplegar aplicaciones de manera eficiente, flexibl
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T00:23:23.974Z"
 cover: "/assets/blog/bf2d7e4c78ec347430ffd844.jpg"
-coverAlt: "Thumbnail for: Microservicios en AWS Utilizando Contenedores"
+coverAlt: "Pantalla con una nube y varios bloques debajo"
 ogImage: "/assets/blog/bf2d7e4c78ec347430ffd844.jpg"
 related:
   - title: "Control Plane vs Data Plane en AWS App Mesh"

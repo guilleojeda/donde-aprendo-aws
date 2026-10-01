@@ -4,7 +4,7 @@ description: "Comparación detallada entre Amazon RDS y Amazon Aurora, incluyend
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T01:35:47.279Z"
 cover: "/assets/blog/aa03147d445ee06a398e3780.jpg"
-coverAlt: "Thumbnail for: Tipos de Instancia en Amazon RDS y Amazon Aurora"
+coverAlt: "Dos nubes diferentes sobre platillos separados de una balanza"
 ogImage: "/assets/blog/aa03147d445ee06a398e3780.jpg"
 related:
   - title: "Guía para Implementar Machine Learning con Amazon SageMaker"

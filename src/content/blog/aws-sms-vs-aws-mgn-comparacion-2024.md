@@ -4,7 +4,7 @@ description: "Descubre las diferencias clave entre AWS SMS y AWS MGN para migrac
 publishedAt: "2024-10-28"
 publishedTimestamp: "2024-10-28T02:54:04.742Z"
 cover: "/assets/blog/bd5f26b73ef9b33625d04b90.webp"
-coverAlt: "Thumbnail for: AWS SMS vs AWS MGN: Comparación 2024"
+coverAlt: "Flechas opuestas rotuladas AWS SMS y MGN entre dos paneles"
 ogImage: "/assets/blog/bd5f26b73ef9b33625d04b90.webp"
 related:
   - title: "Políticas de Control de Servicios (SCPs) en AWS"

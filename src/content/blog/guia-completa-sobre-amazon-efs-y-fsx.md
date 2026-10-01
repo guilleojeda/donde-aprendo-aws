@@ -4,7 +4,7 @@ description: "Una guía completa sobre Amazon EFS y FSX, comparando característ
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T01:14:24.835Z"
 cover: "/assets/blog/9018003cbe19f3288dffc90d.jpg"
-coverAlt: "Thumbnail for: Guía Completa sobre Amazon EFS y FSX"
+coverAlt: "Nube dividida en dos con símbolos de documentos, datos y servidores"
 ogImage: "/assets/blog/9018003cbe19f3288dffc90d.jpg"
 related:
   - title: "Checklist: Servicios AWS Esenciales para SAA-C03"

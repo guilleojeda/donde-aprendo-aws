@@ -4,7 +4,7 @@ description: "Descubre cómo implementar arquitecturas dirigidas por eventos en 
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T00:59:24.459Z"
 cover: "/assets/blog/1a0df738c1ab9c313bf60144.jpg"
-coverAlt: "Thumbnail for: Arquitecturas Dirigidas por Eventos en AWS"
+coverAlt: "Manos sostienen una tarjeta con tres bases de datos unidas por flechas"
 ogImage: "/assets/blog/1a0df738c1ab9c313bf60144.jpg"
 related:
   - title: "Automatización de cumplimiento con AWS Config"

@@ -4,7 +4,7 @@ description: "Amazon ECS (Elastic Container Service) es un servicio de AWS que f
 publishedAt: "2024-03-07"
 publishedTimestamp: "2024-03-07T23:14:06.199Z"
 cover: "/assets/blog/b69a84da0455667e2bdf35cc.jpg"
-coverAlt: "Thumbnail for: Comprendiendo Amazon ECS"
+coverAlt: "Barco de carga con contenedores navega bajo varias nubes"
 ogImage: "/assets/blog/b69a84da0455667e2bdf35cc.jpg"
 related:
   - title: "5 Prácticas de Seguridad para Lambda Authorizers"

@@ -4,7 +4,7 @@ description: "Aprende a gestionar eventos en AWS mediante la correlación, optim
 publishedAt: "2024-12-26"
 publishedTimestamp: "2024-12-26T19:07:36.754Z"
 cover: "/assets/blog/b5250ebc33b6dd3702e864e4.jpg"
-coverAlt: "Thumbnail for: Estrategias de Correlación de Eventos AWS"
+coverAlt: "Monitor con un panel de datos y gráficos frente a una ventana"
 ogImage: "/assets/blog/b5250ebc33b6dd3702e864e4.jpg"
 related:
   - title: "Cómo crear Infraestructura como Código en AWS con Terraform"

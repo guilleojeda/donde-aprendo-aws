@@ -4,7 +4,7 @@ description: "Descubre el calendario de AWS Community Day 2024 con eventos alred
 publishedAt: "2024-05-14"
 publishedTimestamp: "2024-05-14T04:11:07.812Z"
 cover: "/assets/blog/8a72720666074692888beb45.png"
-coverAlt: "Thumbnail for: AWS Community Day 2024: Calendario de Eventos"
+coverAlt: "Globo rodeado por iconos de nubes de colores unidos con una línea punteada"
 ogImage: "/assets/blog/8a72720666074692888beb45.png"
 related:
   - title: "10 Prácticas Recomendadas para Integrar EUC en AWS"

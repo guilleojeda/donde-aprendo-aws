@@ -4,7 +4,7 @@ description: "Aprende 7 estrategias efectivas para reducir costos en AWS Fargate
 publishedAt: "2024-11-26"
 publishedTimestamp: "2024-11-26T19:09:41.914Z"
 cover: "/assets/blog/9d9e21deaf95138036c3d24d.jpg"
-coverAlt: "Thumbnail for: 7 Estrategias para Reducir Costos en AWS Fargate"
+coverAlt: "Portátil sobre un escritorio con un panel de gráficos y costos en pantalla"
 ogImage: "/assets/blog/9d9e21deaf95138036c3d24d.jpg"
 related:
   - title: "Guía Completa: Análisis de Costos de Tráfico en AWS"

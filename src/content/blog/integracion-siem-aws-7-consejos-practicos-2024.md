@@ -4,7 +4,7 @@ description: "Descubre cómo mejorar la seguridad y cumplimiento en AWS con la i
 publishedAt: "2024-05-05"
 publishedTimestamp: "2024-05-05T01:12:15.503Z"
 cover: "/assets/blog/0f354446d0c7715526e96a32.jpg"
-coverAlt: "Thumbnail for: Integración SIEM-AWS: 7 Consejos Prácticos [2024]"
+coverAlt: "Nube multicolor de rompecabezas sobre un fondo blanco"
 ogImage: "/assets/blog/0f354446d0c7715526e96a32.jpg"
 related:
   - title: "Guía de Eventos AWS Educate 2024"

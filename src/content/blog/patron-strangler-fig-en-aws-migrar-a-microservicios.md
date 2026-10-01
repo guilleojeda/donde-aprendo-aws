@@ -4,7 +4,7 @@ description: "Descubre cómo migrar de forma segura y gradual aplicaciones monol
 publishedAt: "2024-04-29"
 publishedTimestamp: "2024-04-29T05:31:12.257Z"
 cover: "/assets/blog/a4bd2fc033fb9605dec915d6.png"
-coverAlt: "Thumbnail for: Patrón Strangler Fig en AWS: Migrar a Microservicios"
+coverAlt: "Árbol de nodos con raíces ramificadas y copa en forma de nube"
 ogImage: "/assets/blog/a4bd2fc033fb9605dec915d6.png"
 related:
   - title: "AWS OpsWorks: Automatiza Despliegues con Chef"

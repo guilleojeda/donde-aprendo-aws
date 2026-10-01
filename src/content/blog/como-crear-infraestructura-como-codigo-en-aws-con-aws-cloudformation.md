@@ -4,7 +4,7 @@ description: "Aprende a crear infraestructura como código en AWS con AWS CloudF
 publishedAt: "2024-03-18"
 publishedTimestamp: "2024-03-18T00:54:16.195Z"
 cover: "/assets/blog/7b36649641ff19d02f4e3551.jpg"
-coverAlt: "Thumbnail for: Cómo crear Infraestructura como Código en AWS con AWS CloudFormation"
+coverAlt: "Nube sobre documentos y líneas punteadas que descienden"
 ogImage: "/assets/blog/7b36649641ff19d02f4e3551.jpg"
 related:
   - title: "Cómo Optimizar la Transferencia de Datos en API Gateway"

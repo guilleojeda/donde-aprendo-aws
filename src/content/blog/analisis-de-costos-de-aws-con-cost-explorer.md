@@ -4,7 +4,7 @@ description: "Descubre cómo utilizar AWS Cost Explorer para controlar, predecir
 publishedAt: "2024-03-07"
 publishedTimestamp: "2024-03-07T23:32:10.366Z"
 cover: "/assets/blog/9498b87ad3dae112bf347132.jpg"
-coverAlt: "Thumbnail for: Análisis de Costos de AWS con Cost Explorer"
+coverAlt: "Gráfico de líneas minimalista rodeado de iconos pequeños"
 ogImage: "/assets/blog/9498b87ad3dae112bf347132.jpg"
 related:
   - title: "7 Estrategias de Serverless para Startups: Optimiza Costos"

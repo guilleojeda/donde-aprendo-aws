@@ -4,7 +4,7 @@ description: "Aprende a monitorear y gestionar logs en AWS Step Functions para o
 publishedAt: "2024-11-26"
 publishedTimestamp: "2024-11-26T19:49:41.97Z"
 cover: "/assets/blog/3cdeed308ae19cafa2c58e0d.jpg"
-coverAlt: "Thumbnail for: Monitoreo y Logs de AWS Step Functions: Guía 2024"
+coverAlt: "Monitor con un panel de registros en una oficina junto a una planta"
 ogImage: "/assets/blog/3cdeed308ae19cafa2c58e0d.jpg"
 related:
   - title: "Estructuras multi-cuenta AWS para escalar"

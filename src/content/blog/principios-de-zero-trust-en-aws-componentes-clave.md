@@ -4,7 +4,7 @@ description: "Descubre cómo implementar Zero Trust en AWS, protegiendo identida
 publishedAt: "2024-10-26"
 publishedTimestamp: "2024-10-26T19:07:21.543Z"
 cover: "/assets/blog/3bded967f6dd68d809d0a807.webp"
-coverAlt: "Thumbnail for: Principios de Zero Trust en AWS: Componentes Clave"
+coverAlt: "Portátil con panel de gráficos frente a iconos de seguridad luminosos"
 ogImage: "/assets/blog/3bded967f6dd68d809d0a807.webp"
 related:
   - title: "Guía de AWS Wavelength: Zonas y Despliegue"

@@ -4,7 +4,7 @@ description: "Aprende cómo desplegar una aplicación en Amazon EKS paso a paso.
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:18:48.675Z"
 cover: "/assets/blog/b0397a49b6dcdda375e046d4.jpg"
-coverAlt: "Thumbnail for: Cómo Desplegar una Aplicación en Amazon EKS"
+coverAlt: "Grupo de cubos dentro de una nube tridimensional"
 ogImage: "/assets/blog/b0397a49b6dcdda375e046d4.jpg"
 related:
   - title: "Diferencias: Endpoint de interfaz vs. Endpoint de gateway"

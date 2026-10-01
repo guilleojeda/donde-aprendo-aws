@@ -4,7 +4,7 @@ description: "Ahorra dinero en AWS con Instancias Reservadas y Savings Plans. Co
 publishedAt: "2024-03-07"
 publishedTimestamp: "2024-03-07T14:42:01.539Z"
 cover: "/assets/blog/201da9e2ec2ae649f47566a7.jpg"
-coverAlt: "Thumbnail for: Ahorro de Costos en AWS con Instancias Reservadas y Savings Plans"
+coverAlt: "Dos recipientes metálicos equilibrados sobre una balanza"
 ogImage: "/assets/blog/201da9e2ec2ae649f47566a7.jpg"
 related:
   - title: "10 Repositorios de GitHub para Machine Learning en AWS"

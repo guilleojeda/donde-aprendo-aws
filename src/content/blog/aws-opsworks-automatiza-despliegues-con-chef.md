@@ -4,7 +4,7 @@ description: "Explora cómo AWS OpsWorks con Chef automatiza el despliegue y la 
 publishedAt: "2024-05-10"
 publishedTimestamp: "2024-05-10T07:15:01.296Z"
 cover: "/assets/blog/6b2f0b16a8f28318691c2a8d.jpg"
-coverAlt: "Thumbnail for: AWS OpsWorks: Automatiza Despliegues con Chef"
+coverAlt: "Brazo robótico que coloca una pieza sobre una plataforma bajo una nube de iconos"
 ogImage: "/assets/blog/6b2f0b16a8f28318691c2a8d.jpg"
 related:
   - title: "Mejores Prácticas Para AWS Lambda"

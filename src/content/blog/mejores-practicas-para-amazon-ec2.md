@@ -4,7 +4,7 @@ description: "Consejos y mejores prácticas para optimizar el uso de Amazon EC2,
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:37:49.478Z"
 cover: "/assets/blog/ba08e34938ffab3b828b7b82.jpg"
-coverAlt: "Thumbnail for: Mejores Prácticas Para Amazon EC2"
+coverAlt: "Nube de seguridad con escudo, lupa, engranaje y candado conectados"
 ogImage: "/assets/blog/ba08e34938ffab3b828b7b82.jpg"
 related:
   - title: "5 Startups Exitosas en AWS: Casos de Éxito"

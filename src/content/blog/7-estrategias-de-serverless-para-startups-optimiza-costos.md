@@ -4,7 +4,7 @@ description: "Descubre 7 estrategias serverless para startups y cómo optimizar 
 publishedAt: "2024-05-01"
 publishedTimestamp: "2024-05-01T02:41:51.509Z"
 cover: "/assets/blog/d85eb8d10d11d152a0198dea.jpg"
-coverAlt: "Thumbnail for: 7 Estrategias de Serverless para Startups: Optimiza Costos"
+coverAlt: "Nube tridimensional con piezas de rompecabezas y una escalera ascendente"
 ogImage: "/assets/blog/d85eb8d10d11d152a0198dea.jpg"
 related:
   - title: "Gestión de Facturación de AWS: Guía Completa"

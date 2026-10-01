@@ -4,7 +4,7 @@ description: "Implementa prácticas de seguridad efectivas en Lambda Authorizers
 publishedAt: "2025-01-23"
 publishedTimestamp: "2025-01-23T00:34:06.712Z"
 cover: "/assets/blog/e838de22cc856de64a0d3bdc.jpg"
-coverAlt: "Thumbnail for: 5 Prácticas de Seguridad para Lambda Authorizers"
+coverAlt: "Portátil con código rodeado de iconos luminosos de candados y escudos"
 ogImage: "/assets/blog/e838de22cc856de64a0d3bdc.jpg"
 related:
   - title: "Cómo monitorear SLOs con Amazon CloudWatch"

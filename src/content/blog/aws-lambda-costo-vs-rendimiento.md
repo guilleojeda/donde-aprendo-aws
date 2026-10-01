@@ -4,7 +4,7 @@ description: "Descubre cómo optimizar costos y mejorar el rendimiento en AWS La
 publishedAt: "2024-05-08"
 publishedTimestamp: "2024-05-08T05:33:11.031Z"
 cover: "/assets/blog/e7d2b8371eaa07e84e5400f5.jpg"
-coverAlt: "Thumbnail for: AWS Lambda: Costo vs. Rendimiento"
+coverAlt: "Balanza con dos símbolos de rayo en sus platillos"
 ogImage: "/assets/blog/e7d2b8371eaa07e84e5400f5.jpg"
 related:
   - title: "Detección de anomalías con CloudWatch Logs"

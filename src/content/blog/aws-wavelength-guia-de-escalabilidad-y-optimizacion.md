@@ -4,7 +4,7 @@ description: "Guía de escalabilidad y optimización de AWS Wavelength para desa
 publishedAt: "2024-05-19"
 publishedTimestamp: "2024-05-19T00:37:00.331Z"
 cover: "/assets/blog/fe5d7c13d156814fe29c2d7a.jpg"
-coverAlt: "Thumbnail for: AWS Wavelength: Guía de Escalabilidad y Optimización"
+coverAlt: "Red de nodos y circuitos alrededor de un módulo circular central"
 ogImage: "/assets/blog/fe5d7c13d156814fe29c2d7a.jpg"
 related:
   - title: "Comprendiendo Kubernetes y Amazon EKS"

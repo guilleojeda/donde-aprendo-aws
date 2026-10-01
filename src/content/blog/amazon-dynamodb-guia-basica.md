@@ -4,7 +4,7 @@ description: "Una guía rápida y clara sobre Amazon DynamoDB, un servicio de ba
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T02:31:39.789Z"
 cover: "/assets/blog/a45735d6d45d12223256fbc4.png"
-coverAlt: "Thumbnail for: Amazon DynamoDB: Guía Básica"
+coverAlt: "Silueta de un animal corriendo junto a hexágonos sobre una cuadrícula digital"
 ogImage: "/assets/blog/a45735d6d45d12223256fbc4.png"
 related:
   - title: "AWS SMS vs AWS MGN: Comparación 2024"

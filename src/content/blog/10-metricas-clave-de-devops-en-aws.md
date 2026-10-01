@@ -4,7 +4,7 @@ description: "Descubre las 10 métricas clave de DevOps en AWS para optimizar pr
 publishedAt: "2024-05-12"
 publishedTimestamp: "2024-05-12T01:37:13.938Z"
 cover: "/assets/blog/98aff2370ca15f9967751abc.png"
-coverAlt: "Thumbnail for: 10 Métricas Clave de DevOps en AWS"
+coverAlt: "Medidor con engranajes e iconos integrado en una nube sobre otras nubes"
 ogImage: "/assets/blog/98aff2370ca15f9967751abc.png"
 related:
   - title: "Control Plane vs Data Plane en AWS App Mesh"

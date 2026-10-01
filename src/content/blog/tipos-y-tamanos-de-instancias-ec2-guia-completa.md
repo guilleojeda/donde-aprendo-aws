@@ -4,7 +4,7 @@ description: "Conoce los diferentes tipos y tamaños de instancias EC2 en AWS, c
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T01:12:42.616Z"
 cover: "/assets/blog/c17586bd518131452b0a717a.png"
-coverAlt: "Thumbnail for: Tipos y Tamaños de Instancias EC2: Guía Completa"
+coverAlt: "Composición de bloques geométricos, una forma de nube y un medidor"
 ogImage: "/assets/blog/c17586bd518131452b0a717a.png"
 related:
   - title: "Guía para Implementar Machine Learning con Amazon SageMaker"

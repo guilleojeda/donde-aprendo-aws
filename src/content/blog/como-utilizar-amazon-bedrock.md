@@ -4,7 +4,7 @@ description: "Descubre cómo utilizar Amazon Bedrock para integrar inteligencia 
 publishedAt: "2024-03-18"
 publishedTimestamp: "2024-03-18T23:27:52.315Z"
 cover: "/assets/blog/40a012e9c33f0668e83afad8.png"
-coverAlt: "Thumbnail for: Cómo Utilizar Amazon Bedrock"
+coverAlt: "Montículo rocoso bajo una nube luminosa con conexiones y destellos"
 ogImage: "/assets/blog/40a012e9c33f0668e83afad8.png"
 related:
   - title: "AWS SAM CLI: Pruebas y Desarrollo Local"

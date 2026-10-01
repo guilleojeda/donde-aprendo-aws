@@ -4,7 +4,7 @@ description: "Descubre los 7 errores comunes al usar AWS IoT Device SDK para Jav
 publishedAt: "2024-04-30"
 publishedTimestamp: "2024-04-30T04:58:42.738Z"
 cover: "/assets/blog/fc596e41b0cacbc6f7d02513.jpg"
-coverAlt: "Thumbnail for: 7 Errores Comunes con AWS IoT Device SDK para JavaScript"
+coverAlt: "Nube central rodeada por círculos con símbolos de conexión, herramientas y energía"
 ogImage: "/assets/blog/fc596e41b0cacbc6f7d02513.jpg"
 related:
   - title: "Visualiza Costos con AWS Cost and Usage Reports y QuickSight"

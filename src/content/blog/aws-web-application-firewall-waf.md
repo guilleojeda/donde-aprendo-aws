@@ -4,7 +4,7 @@ description: "Protege tus aplicaciones web en AWS con AWS Web Application Firewa
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T01:28:49.211Z"
 cover: "/assets/blog/f5ae0710f3fb74786f37f833.png"
-coverAlt: "Thumbnail for: AWS Web Application Firewall (WAF)"
+coverAlt: "Escudo compuesto por piezas de rompecabezas con símbolos de protección"
 ogImage: "/assets/blog/f5ae0710f3fb74786f37f833.png"
 related:
   - title: "10 Métricas Clave de DevOps en AWS"

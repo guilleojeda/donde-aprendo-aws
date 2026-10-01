@@ -4,7 +4,7 @@ description: "Descubre cómo las certificaciones de AWS pueden impulsar tu carre
 publishedAt: "2024-05-03"
 publishedTimestamp: "2024-05-03T23:06:27.097Z"
 cover: "/assets/blog/b779f7f567a0e83dd55103f0.jpg"
-coverAlt: "Thumbnail for: 10 Preguntas Frecuentes sobre AWS Training y Certification"
+coverAlt: "Nube pastel rodeada de estrellas de distintos tamaños"
 ogImage: "/assets/blog/b779f7f567a0e83dd55103f0.jpg"
 related:
   - title: "Machine Learning para Triage de Alertas en AWS"

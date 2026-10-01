@@ -4,7 +4,7 @@ description: "Descubre cómo integrar AWS Lambda con CloudFormation para crear r
 publishedAt: "2024-05-15"
 publishedTimestamp: "2024-05-15T04:54:08.82Z"
 cover: "/assets/blog/e66856987698eaa908dfab80.jpg"
-coverAlt: "Thumbnail for: Recursos Personalizados en CloudFormation con Lambda"
+coverAlt: "Nube con una figura violeta y varios iconos pequeños alrededor"
 ogImage: "/assets/blog/e66856987698eaa908dfab80.jpg"
 related:
   - title: "Cómo Optimizar la Transferencia de Datos en API Gateway"

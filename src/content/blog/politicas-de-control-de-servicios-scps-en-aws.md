@@ -4,7 +4,7 @@ description: "Descubra cómo las SCPs en AWS mejoran la seguridad y el cumplimie
 publishedAt: "2024-05-09"
 publishedTimestamp: "2024-05-09T02:00:12.498Z"
 cover: "/assets/blog/ae0015b4c4fa992bfdc8c817.jpg"
-coverAlt: "Thumbnail for: Políticas de Control de Servicios (SCPs) en AWS"
+coverAlt: "Nube azul y blanca con piezas de rompecabezas y un candado central"
 ogImage: "/assets/blog/ae0015b4c4fa992bfdc8c817.jpg"
 related:
   - title: "Monitoreo y Logs de AWS Step Functions: Guía 2024"

@@ -4,7 +4,7 @@ description: "Descubre los 10 consejos esenciales para optimizar redes en AWS Ou
 publishedAt: "2024-05-14"
 publishedTimestamp: "2024-05-14T05:11:03.706Z"
 cover: "/assets/blog/d57b2c7f6d8d4785748ce1c5.png"
-coverAlt: "Thumbnail for: 10 Consejos de Redes para AWS Outposts"
+coverAlt: "Árbol estilizado que brota de un dispositivo con raíces de circuitos"
 ogImage: "/assets/blog/d57b2c7f6d8d4785748ce1c5.png"
 related:
   - title: "CORS en WebSocket vs REST API Gateway"

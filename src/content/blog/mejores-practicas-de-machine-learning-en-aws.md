@@ -4,7 +4,7 @@ description: "Descubre las mejores prácticas de Machine Learning en AWS, servic
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:46:53.199Z"
 cover: "/assets/blog/93b405bec4b3d8ac5255f4ed.png"
-coverAlt: "Thumbnail for: Mejores Prácticas de Machine Learning en AWS"
+coverAlt: "Nube azul acompañada por flechas y ramificaciones de circuito"
 ogImage: "/assets/blog/93b405bec4b3d8ac5255f4ed.png"
 related:
   - title: "10 Repositorios de GitHub para Machine Learning en AWS"

@@ -4,7 +4,7 @@ description: "Automatizar el cumplimiento en AWS es esencial para la seguridad y
 publishedAt: "2025-01-13"
 publishedTimestamp: "2025-01-13T00:14:28.589Z"
 cover: "/assets/blog/a46b50f31e32898c7df40cce.jpg"
-coverAlt: "Thumbnail for: Checklist para automatizar cumplimiento en AWS"
+coverAlt: "Portátil sobre un escritorio con una lista de comprobación abierta"
 ogImage: "/assets/blog/a46b50f31e32898c7df40cce.jpg"
 related:
   - title: "Crear un Cluster en Amazon Redshift"

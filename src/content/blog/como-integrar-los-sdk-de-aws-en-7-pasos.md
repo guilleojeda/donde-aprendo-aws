@@ -4,7 +4,7 @@ description: "Aprende a integrar los SDK de AWS en tu proyecto en 7 pasos claros
 publishedAt: "2024-05-05"
 publishedTimestamp: "2024-05-05T03:40:17.719Z"
 cover: "/assets/blog/056aaf4c9dbb90032443ee34.jpg"
-coverAlt: "Thumbnail for: Cómo integrar los SDK de AWS en 7 pasos"
+coverAlt: "Bloques con símbolos forman un camino sobre un fondo claro"
 ogImage: "/assets/blog/056aaf4c9dbb90032443ee34.jpg"
 related:
   - title: "Comprendiendo AWS Step Functions"

@@ -4,7 +4,7 @@ description: "Aprende a integrar AWS Transfer Family con Amazon EFS para una tra
 publishedAt: "2024-05-05"
 publishedTimestamp: "2024-05-05T05:44:31.414Z"
 cover: "/assets/blog/4f1c44f2f3d79e3f40174550.jpg"
-coverAlt: "Thumbnail for: Cómo Usar AWS Transfer Family con Amazon EFS"
+coverAlt: "Diagrama de flechas que muestran el paso de datos entre dos nubes"
 ogImage: "/assets/blog/4f1c44f2f3d79e3f40174550.jpg"
 related:
   - title: "5 Prácticas de Seguridad para Lambda Authorizers"

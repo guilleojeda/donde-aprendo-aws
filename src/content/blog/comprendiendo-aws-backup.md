@@ -4,7 +4,7 @@ description: "Descubre cómo utilizar AWS Backup para proteger tus datos en la n
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:55:54.461Z"
 cover: "/assets/blog/25448721c535fa1737e8eeba.jpg"
-coverAlt: "Thumbnail for: Comprendiendo AWS Backup"
+coverAlt: "Nube con un escudo y un candado rodeada por anillos tecnológicos"
 ogImage: "/assets/blog/25448721c535fa1737e8eeba.jpg"
 related:
   - title: "¿Qué es AWS Lambda? Preguntas y Respuestas"

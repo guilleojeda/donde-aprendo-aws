@@ -4,7 +4,7 @@ description: "Descubre los servicios esenciales de seguridad de AWS, cómo prote
 publishedAt: "2024-01-25"
 publishedTimestamp: "2024-01-25T01:35:54.384Z"
 cover: "/assets/blog/2ac2bf3abc517088f07fb837.png"
-coverAlt: "Thumbnail for: AWS Seguridad: Servicios Esenciales"
+coverAlt: "Nube tridimensional azul con varios candados grandes"
 ogImage: "/assets/blog/2ac2bf3abc517088f07fb837.png"
 related:
   - title: "Grupos de Estudio AWS en Reddit 2024"

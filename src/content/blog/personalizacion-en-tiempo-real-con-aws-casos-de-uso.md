@@ -4,7 +4,7 @@ description: "Descubre cómo AWS potencia la personalización en tiempo real par
 publishedAt: "2024-04-29"
 publishedTimestamp: "2024-04-29T09:45:01.725Z"
 cover: "/assets/blog/80447419580996138f728ccb.jpg"
-coverAlt: "Thumbnail for: Personalización en tiempo real con AWS: Casos de uso"
+coverAlt: "Silueta geométrica de una persona rodeada de cuadrados y triángulos"
 ogImage: "/assets/blog/80447419580996138f728ccb.jpg"
 related:
   - title: "Control Plane vs Data Plane en AWS App Mesh"

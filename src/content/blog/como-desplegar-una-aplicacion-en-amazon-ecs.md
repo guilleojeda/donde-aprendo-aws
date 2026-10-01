@@ -4,7 +4,7 @@ description: "Aprende cómo desplegar una aplicación en Amazon ECS paso a paso,
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T23:04:00.573Z"
 cover: "/assets/blog/d73cb60565a00d466c3768e1.jpg"
-coverAlt: "Thumbnail for: Cómo Desplegar una Aplicación en Amazon ECS"
+coverAlt: "Cohete que asciende desde una nube junto a cubos y engranajes"
 ogImage: "/assets/blog/d73cb60565a00d466c3768e1.jpg"
 related:
   - title: "Checklist: Servicios AWS Esenciales para SAA-C03"

@@ -4,7 +4,7 @@ description: "Descubre cómo los socios de AWS pueden aprovechar recursos de cap
 publishedAt: "2024-05-09"
 publishedTimestamp: "2024-05-09T02:52:12.467Z"
 cover: "/assets/blog/b495b55f5f4147dccacb4628.jpg"
-coverAlt: "Thumbnail for: Recursos de capacitación para socios de AWS"
+coverAlt: "Fila circular de figuras humanas alrededor de una nube y una persona"
 ogImage: "/assets/blog/b495b55f5f4147dccacb4628.jpg"
 related:
   - title: "AWS Organizations: Estructuras de cuentas y nombres"

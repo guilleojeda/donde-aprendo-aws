@@ -4,7 +4,7 @@ description: "Explore cómo implementar los patrones de diseño CQRS y Event Sou
 publishedAt: "2024-05-14"
 publishedTimestamp: "2024-05-14T02:22:09.107Z"
 cover: "/assets/blog/53f0f04efd58a298eab8c1e1.jpg"
-coverAlt: "Thumbnail for: CQRS y Event Sourcing en AWS: Guía para Microservicios"
+coverAlt: "Nubes y figuras geométricas conectadas alrededor de un símbolo central"
 ogImage: "/assets/blog/53f0f04efd58a298eab8c1e1.jpg"
 related:
   - title: "Integración de GuardDuty de AWS para Inteligencia de Amenazas"

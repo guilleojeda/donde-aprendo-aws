@@ -4,7 +4,7 @@ description: "Aprende a configurar políticas de confianza en AWS para permitir 
 publishedAt: "2024-11-26"
 publishedTimestamp: "2024-11-26T20:13:42.04Z"
 cover: "/assets/blog/6d11bddb1995c82265977259.jpg"
-coverAlt: "Thumbnail for: Políticas de Confianza AWS: Acceso Entre Cuentas"
+coverAlt: "Dos nubes conectadas por circuitos, rotuladas Account A y Account B"
 ogImage: "/assets/blog/6d11bddb1995c82265977259.jpg"
 related:
   - title: "Pipeline CI/CD con Terraform y AWS CodePipeline"

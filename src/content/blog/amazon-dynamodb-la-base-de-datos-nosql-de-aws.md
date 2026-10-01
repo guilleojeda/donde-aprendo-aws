@@ -4,7 +4,7 @@ description: "Descubra todo sobre Amazon DynamoDB, una base de datos NoSQL altam
 publishedAt: "2024-01-31"
 publishedTimestamp: "2024-01-31T00:13:19.305Z"
 cover: "/assets/blog/b55473f49a3eacffcaae0175.jpg"
-coverAlt: "Thumbnail for: Amazon DynamoDB: La Base de Datos NoSQL de AWS"
+coverAlt: "Cilindro de base de datos conectado a varios cilindros más pequeños"
 ogImage: "/assets/blog/b55473f49a3eacffcaae0175.jpg"
 related:
   - title: "Cómo Usar AWS Cost Explorer para Tráfico de Red"

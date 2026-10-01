@@ -4,7 +4,7 @@ description: "Aprende a configurar CORS en API Gateway de AWS para asegurar el a
 publishedAt: "2025-03-10"
 publishedTimestamp: "2025-03-10T05:50:46.65Z"
 cover: "/assets/blog/b7ca17278c2b7e43c95dfeec.jpg"
-coverAlt: "Thumbnail for: Configurar CORS en HTTP API Gateway"
+coverAlt: "Portátil con código en pantalla sobre un escritorio junto a una taza"
 ogImage: "/assets/blog/b7ca17278c2b7e43c95dfeec.jpg"
 related:
   - title: "AWS Lambda y API Gateway: Guía Básica"

@@ -4,7 +4,7 @@ description: "Compara los endpoints de interfaz y gateway en AWS para determinar
 publishedAt: "2025-02-20"
 publishedTimestamp: "2025-02-20T00:10:01.732Z"
 cover: "/assets/blog/3565dcd644c1d6c694694985.jpg"
-coverAlt: "Thumbnail for: Diferencias: Endpoint de interfaz vs. Endpoint de gateway"
+coverAlt: "Dos recorridos curvos rotulados Interface Endpoint y Gateway Performance"
 ogImage: "/assets/blog/3565dcd644c1d6c694694985.jpg"
 related:
   - title: "Guía para Crear APIs Serverless con AWS Lambda y API Gateway"

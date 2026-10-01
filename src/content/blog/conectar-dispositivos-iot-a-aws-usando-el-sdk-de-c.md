@@ -4,7 +4,7 @@ description: "Aprende a conectar dispositivos IoT a AWS con el SDK de C++ para u
 publishedAt: "2024-05-10"
 publishedTimestamp: "2024-05-10T02:52:14.698Z"
 cover: "/assets/blog/066ea33361c58e79e3d5a983.jpg"
-coverAlt: "Thumbnail for: Conectar dispositivos IoT a AWS usando el SDK de C++"
+coverAlt: "Nube delineada sobre una fila de iconos de dispositivos y bombillas"
 ogImage: "/assets/blog/066ea33361c58e79e3d5a983.jpg"
 related:
   - title: "9 Mejores Prácticas de Seguridad para IaC en AWS"

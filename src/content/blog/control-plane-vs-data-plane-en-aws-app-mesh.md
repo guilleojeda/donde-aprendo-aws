@@ -4,7 +4,7 @@ description: "Explora las diferencias entre el plano de control y el plano de da
 publishedAt: "2025-01-06"
 publishedTimestamp: "2025-01-06T00:21:30.764Z"
 cover: "/assets/blog/97233420c8e51dbede977f2c.jpg"
-coverAlt: "Thumbnail for: Control Plane vs Data Plane en AWS App Mesh"
+coverAlt: "Sala oscura con paneles de control y una red de puntos luminosos"
 ogImage: "/assets/blog/97233420c8e51dbede977f2c.jpg"
 related:
   - title: "Correlación de Eventos con Step Functions y CloudWatch"

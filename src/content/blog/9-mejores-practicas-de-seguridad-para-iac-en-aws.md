@@ -4,7 +4,7 @@ description: "Descubre las 9 mejores prácticas de seguridad para IaC en AWS y a
 publishedAt: "2024-05-07"
 publishedTimestamp: "2024-05-07T02:13:47.453Z"
 cover: "/assets/blog/0b84e7609d9a01cdc2449b30.jpg"
-coverAlt: "Thumbnail for: 9 Mejores Prácticas de Seguridad para IaC en AWS"
+coverAlt: "Nube conectada a una red de candados, escudos y otros símbolos de seguridad"
 ogImage: "/assets/blog/0b84e7609d9a01cdc2449b30.jpg"
 related:
   - title: "¿Qué es AWS Lambda? Preguntas y Respuestas"

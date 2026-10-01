@@ -4,7 +4,7 @@ description: "Conoce las claves para lograr alta disponibilidad en AWS, desde la
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T00:31:23.985Z"
 cover: "/assets/blog/1b184fe1242c3e7fb970e984.jpg"
-coverAlt: "Thumbnail for: Arquitecturas de Alta Disponibilidad en AWS"
+coverAlt: "Varias nubes y círculos con un ojo conectados sobre un mapa esquemático"
 ogImage: "/assets/blog/1b184fe1242c3e7fb970e984.jpg"
 related:
   - title: "Mejores prácticas para nombres en AWS Organizations"

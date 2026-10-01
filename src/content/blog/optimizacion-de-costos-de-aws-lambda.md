@@ -4,7 +4,7 @@ description: "Consejos y estrategias para optimizar los costos de AWS Lambda sin
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T01:39:56.043Z"
 cover: "/assets/blog/149aa7de30b1ec6844a9daf3.jpg"
-coverAlt: "Thumbnail for: Optimización de Costos de AWS Lambda"
+coverAlt: "Balanza con una nube en un platillo y una pila triangular en el otro"
 ogImage: "/assets/blog/149aa7de30b1ec6844a9daf3.jpg"
 related:
   - title: "Configuración de Service Discovery en Amazon ECS"

@@ -4,7 +4,7 @@ description: "AWS Lambda es una herramienta poderosa para desarrollar aplicacion
 publishedAt: "2024-03-07"
 publishedTimestamp: "2024-03-07T14:09:19.83Z"
 cover: "/assets/blog/699efcfd9fc0a59df5186b93.png"
-coverAlt: "Thumbnail for: Desarrollando Aplicaciones con AWS Lambda"
+coverAlt: "Nube formada por piezas de rompecabezas sobre una plataforma con nodos"
 ogImage: "/assets/blog/699efcfd9fc0a59df5186b93.png"
 related:
   - title: "AWS IoT Edge Simulator: Casos de Uso Reales"

@@ -4,7 +4,7 @@ description: "Descubre cómo AWS X-Ray mejora el rendimiento de aplicaciones dis
 publishedAt: "2024-05-07"
 publishedTimestamp: "2024-05-07T05:49:02.026Z"
 cover: "/assets/blog/2f81887ad0ca1683bc24fbf1.jpg"
-coverAlt: "Thumbnail for: AWS X-Ray: Herramientas de Depuración y Rastreo Distribuido"
+coverAlt: "Dos nubes conectadas por líneas sobre una malla de nodos"
 ogImage: "/assets/blog/2f81887ad0ca1683bc24fbf1.jpg"
 related:
   - title: "Características y Beneficios de AWS IoT Device Defender"

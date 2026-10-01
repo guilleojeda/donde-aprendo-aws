@@ -4,7 +4,7 @@ description: "Descubre cómo integrar AWS GuardDuty con inteligencia de amenazas
 publishedAt: "2024-04-30"
 publishedTimestamp: "2024-04-30T06:43:18.648Z"
 cover: "/assets/blog/ce55ff284d28beb4aeeeab54.jpg"
-coverAlt: "Thumbnail for: Integración de GuardDuty de AWS para Inteligencia de Amenazas"
+coverAlt: "Escudo formado por piezas de colores junto a una nube"
 ogImage: "/assets/blog/ce55ff284d28beb4aeeeab54.jpg"
 related:
   - title: "5 Whitepapers de AWS para Aprobar Exámenes"

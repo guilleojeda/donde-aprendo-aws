@@ -4,7 +4,7 @@ description: "Descubre cómo manejar transacciones en Amazon DynamoDB, una base 
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T01:07:24.799Z"
 cover: "/assets/blog/92c10f1c21ba45a500fbff08.jpg"
-coverAlt: "Thumbnail for: Transacciones en Amazon DynamoDB"
+coverAlt: "Diagrama de datos con flechas en ambos sentidos, bases de datos y un candado"
 ogImage: "/assets/blog/92c10f1c21ba45a500fbff08.jpg"
 related:
   - title: "SLAs en AWS: Conceptos Legales Clave"

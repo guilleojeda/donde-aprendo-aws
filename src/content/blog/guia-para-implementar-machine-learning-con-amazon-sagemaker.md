@@ -4,7 +4,7 @@ description: "Aprende a implementar Machine Learning en la nube con SageMaker, d
 publishedAt: "2025-03-06"
 publishedTimestamp: "2025-03-06T03:07:26.337Z"
 cover: "/assets/blog/57b9e13953de77f8b6210bc2.jpg"
-coverAlt: "Thumbnail for: Guía para Implementar Machine Learning con Amazon SageMaker"
+coverAlt: "Portátil con gráficos de análisis en una oficina junto a una planta"
 ogImage: "/assets/blog/57b9e13953de77f8b6210bc2.jpg"
 related:
   - title: "10 Mejores Prácticas de AWS para Detección de Amenazas en Tiempo Real"

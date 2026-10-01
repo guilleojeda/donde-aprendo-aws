@@ -4,7 +4,7 @@ description: "Los endpoints de VPC en AWS ofrecen conexiones seguras y privadas 
 publishedAt: "2025-02-17"
 publishedTimestamp: "2025-02-17T00:17:36.99Z"
 cover: "/assets/blog/784749ef7570c8a485edf97b.jpg"
-coverAlt: "Thumbnail for: ¿Qué son los endpoints de VPC en AWS?"
+coverAlt: "Filas de servidores con una trama luminosa de conexiones superpuesta"
 ogImage: "/assets/blog/784749ef7570c8a485edf97b.jpg"
 related:
   - title: "Visualiza Costos con AWS Cost and Usage Reports y QuickSight"

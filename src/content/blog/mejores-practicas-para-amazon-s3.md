@@ -4,7 +4,7 @@ description: "Descubre cómo maximizar Amazon S3 para tus necesidades de almacen
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T04:13:21.58Z"
 cover: "/assets/blog/7dc90730b1402ed9efe1a10b.jpg"
-coverAlt: "Thumbnail for: Mejores Prácticas Para Amazon S3"
+coverAlt: "Candado dentro de una nube delineada, rodeado por escudos y anillos punteados"
 ogImage: "/assets/blog/7dc90730b1402ed9efe1a10b.jpg"
 related:
   - title: "Configurar CORS en HTTP API Gateway"

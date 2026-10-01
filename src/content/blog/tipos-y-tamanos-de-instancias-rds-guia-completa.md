@@ -4,7 +4,7 @@ description: "Descubre todo lo que necesitas saber sobre los tipos y tamaños de
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T00:25:35.456Z"
 cover: "/assets/blog/ad2ff3daa90f3b8701cd3eb8.png"
-coverAlt: "Thumbnail for: Tipos y Tamaños de Instancias RDS: Guía Completa"
+coverAlt: "Nube azul con círculos de colores de distintos tamaños"
 ogImage: "/assets/blog/ad2ff3daa90f3b8701cd3eb8.png"
 related:
   - title: "Detección de Sesgos en Modelos ML con SageMaker Clarify"

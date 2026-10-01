@@ -4,7 +4,7 @@ description: "Guía de inicio rápido para familiarizarse con los fundamentos de
 publishedAt: "2024-01-30"
 publishedTimestamp: "2024-01-30T19:19:55.184Z"
 cover: "/assets/blog/945b48235c5e1f4c1d3cc3ae.jpg"
-coverAlt: "Thumbnail for: AWS Fundamentos: Guía de Inicio Rápido"
+coverAlt: "Nube blanca de la que caen líneas hacia una fila de iconos"
 ogImage: "/assets/blog/945b48235c5e1f4c1d3cc3ae.jpg"
 related:
   - title: "AWS Organizations: Estructuras de cuentas y nombres"
