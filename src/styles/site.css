@@ -179,7 +179,7 @@ button {
 }
 
 .directory-criteria {
-  margin: 0 0 28px;
+  margin: 28px 0 0;
   border: 1px solid #d8dde6;
   border-radius: 10px;
   background: #f7f9fc;
