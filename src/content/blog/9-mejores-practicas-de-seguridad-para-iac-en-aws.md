@@ -1,6 +1,7 @@
 ---
 title: "9 Mejores Prácticas de Seguridad para IaC en AWS"
 description: "Descubre las 9 mejores prácticas de seguridad para IaC en AWS y asegura tus entornos en la nube con políticas y herramientas eficaces."
+author: "guille-ojeda"
 publishedAt: "2024-05-07"
 publishedTimestamp: "2024-05-07T02:13:47.453Z"
 cover: "/assets/blog/0b84e7609d9a01cdc2449b30.jpg"

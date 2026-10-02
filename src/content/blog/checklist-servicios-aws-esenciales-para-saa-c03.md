@@ -1,6 +1,7 @@
 ---
 title: "Checklist: Servicios AWS Esenciales para SAA-C03"
 description: "Prepárate para el examen SAA-C03 de AWS con una guía completa sobre servicios, arquitecturas y estrategias de estudio efectivas."
+author: "guille-ojeda"
 publishedAt: "2025-04-03"
 publishedTimestamp: "2025-04-03T01:53:13.640000+00:00"
 cover: "/assets/blog/eadb9eb1eb9dfe22a3da22e2.jpg"

@@ -1,8 +1,10 @@
 ---
 title: "Base de Datos Global con Amazon Aurora"
 description: "Descubre cómo Amazon Aurora revoluciona la gestión de bases de datos en la nube con características clave como alto rendimiento, escalabilidad y seguridad. Aprende sobre las bases de datos globales y sus beneficios."
+author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:04:43.715Z"
+modifiedTimestamp: "2026-10-01T15:14:05-03:00"
 cover: "/assets/blog/5c1876ee5b54561eb5f8612a.jpg"
 coverAlt: "Globo terráqueo rodeado de nubes y líneas de conexión"
 ogImage: "/assets/blog/5c1876ee5b54561eb5f8612a.jpg"

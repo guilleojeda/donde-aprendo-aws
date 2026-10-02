@@ -1,8 +1,12 @@
 ---
 title: "Certificación AWS gratis: cómo prepararte sin pagar por cursos"
 description: "Recursos gratuitos y en español para preparar una certificación AWS: guías oficiales, preguntas de práctica, contenidos de la comunidad y costos reales del examen."
+author: "guille-ojeda"
 publishedAt: "2024-01-27"
 publishedTimestamp: "2024-01-27T00:02:16.502Z"
+modifiedTimestamp: "2026-09-29T17:29:08-03:00"
+review:
+  date: "2026-09-29"
 cover: "/assets/blog/0d33d48b094b306e8f1fb75f.jpg"
 coverAlt: "Manos señalan un libro abierto, una nube y una lupa"
 indexOrder: 3
@@ -14,7 +18,6 @@ related:
     imageAlt: ""
 ---
 
-*Revisado el 29 de septiembre de 2026*
 
 **Puedes prepararte para una certificación de AWS sin pagar por cursos. El examen, por lo general, sí cuesta dinero.** Son dos gastos distintos. AWS ofrece guías de examen, cursos digitales y conjuntos breves de preguntas gratuitos; las comunidades de habla hispana también comparten clases, explicaciones y grupos de estudio. Nada de eso convierte automáticamente en gratuito el examen supervisado.
 

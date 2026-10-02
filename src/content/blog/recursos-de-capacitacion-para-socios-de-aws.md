@@ -1,8 +1,10 @@
 ---
 title: "Recursos de capacitación para socios de AWS"
 description: "Descubre cómo los socios de AWS pueden aprovechar recursos de capacitación y certificación para mejorar habilidades en la nube y mantener ventaja competitiva."
+author: "guille-ojeda"
 publishedAt: "2024-05-09"
 publishedTimestamp: "2024-05-09T02:52:12.467Z"
+modifiedTimestamp: "2026-10-01T15:14:05-03:00"
 cover: "/assets/blog/b495b55f5f4147dccacb4628.jpg"
 coverAlt: "Fila circular de figuras humanas alrededor de una nube y una persona"
 ogImage: "/assets/blog/b495b55f5f4147dccacb4628.jpg"

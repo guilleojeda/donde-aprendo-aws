@@ -1,6 +1,7 @@
 ---
 title: "Pipeline CI/CD con Terraform y AWS CodePipeline"
 description: "Automatiza tus despliegues en AWS con un pipeline CI/CD usando Terraform y CodePipeline, optimizando seguridad, escalabilidad y eficiencia."
+author: "guille-ojeda"
 publishedAt: "2025-02-13"
 publishedTimestamp: "2025-02-13T00:13:18.43Z"
 cover: "/assets/blog/8c8805d819a48bf8b59f25eb.jpg"

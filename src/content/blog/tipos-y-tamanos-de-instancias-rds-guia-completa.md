@@ -1,6 +1,7 @@
 ---
 title: "Tipos y Tamaños de Instancias RDS: Guía Completa"
 description: "Descubre todo lo que necesitas saber sobre los tipos y tamaños de instancias RDS en esta guía completa. Aprende sobre Amazon RDS, características clave, opciones de almacenamiento, comparación con Aurora y más."
+author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T00:25:35.456Z"
 cover: "/assets/blog/ad2ff3daa90f3b8701cd3eb8.png"

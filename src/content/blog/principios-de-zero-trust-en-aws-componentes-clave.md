@@ -1,6 +1,7 @@
 ---
 title: "Principios de Zero Trust en AWS: Componentes Clave"
 description: "Descubre cómo implementar Zero Trust en AWS, protegiendo identidades, redes y datos con medidas efectivas y herramientas clave."
+author: "guille-ojeda"
 publishedAt: "2024-10-26"
 publishedTimestamp: "2024-10-26T19:07:21.543Z"
 cover: "/assets/blog/3bded967f6dd68d809d0a807.webp"

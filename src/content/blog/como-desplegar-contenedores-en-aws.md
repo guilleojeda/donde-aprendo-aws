@@ -1,6 +1,7 @@
 ---
 title: "Cómo Desplegar Contenedores en AWS"
 description: "Aprende a desplegar contenedores en AWS, conoce las ventajas, herramientas disponibles, casos de uso, comparativa de servicios y estrategias de optimización. Descubre cómo trabajar con contenedores en la nube."
+author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T00:56:38.087Z"
 cover: "/assets/blog/25f323bf6f07480e77ba86a0.jpg"

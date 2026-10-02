@@ -1,0 +1,21 @@
+---
+import { formatBlogDate } from '../lib/blog-metadata.mjs';
+import type { BlogContributor } from '../lib/blog-metadata.mjs';
+
+interface Props {
+  author: BlogContributor;
+  publishedAt: string;
+  publishedTimestamp: string;
+  modifiedTimestamp?: string;
+  review?: { date: string; by?: BlogContributor; note?: string };
+}
+
+const { author, publishedAt, publishedTimestamp, modifiedTimestamp, review } = Astro.props;
+---
+
+<div class="blog-article__metadata" aria-label="Autoría y fechas del artículo">
+  <p>Por {author.url ? <a href={author.url} rel="author">{author.name}</a> : author.name}</p>
+  <p>Publicado el <time datetime={publishedTimestamp}>{formatBlogDate(publishedAt)}</time></p>
+  {modifiedTimestamp && <p>Actualizado el <time datetime={modifiedTimestamp}>{formatBlogDate(modifiedTimestamp.slice(0, 10))}</time></p>}
+  {review && <p>{review.by ? <>Revisado por {review.by.url ? <a href={review.by.url}>{review.by.name}</a> : review.by.name} el </> : 'Revisado el '}<time datetime={review.date}>{formatBlogDate(review.date)}</time>{review.note && <> · {review.note}</>}</p>}
+</div>

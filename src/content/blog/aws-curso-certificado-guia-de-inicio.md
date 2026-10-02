@@ -1,6 +1,7 @@
 ---
 title: "Certificaciones AWS: Por Dónde Empezar"
 description: "Guía completa para obtener la certificación de AWS de manera gratuita, incluyendo requisitos, cursos gratuitos, preparación para el examen y más."
+author: "guille-ojeda"
 publishedAt: "2024-01-24"
 publishedTimestamp: "2024-01-24T01:43:07.262Z"
 cover: "/assets/blog/50f3a9e16de9a8db356f87d5.jpg"

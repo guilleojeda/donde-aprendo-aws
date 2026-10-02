@@ -1,6 +1,7 @@
 ---
 title: "Patrón Strangler Fig en AWS: Migrar a Microservicios"
 description: "Descubre cómo migrar de forma segura y gradual aplicaciones monolíticas a microservicios en AWS con el patrón Strangler Fig, minimizando riesgos y maximizando beneficios."
+author: "guille-ojeda"
 publishedAt: "2024-04-29"
 publishedTimestamp: "2024-04-29T05:31:12.257Z"
 cover: "/assets/blog/a4bd2fc033fb9605dec915d6.png"

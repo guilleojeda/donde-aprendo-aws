@@ -1,6 +1,7 @@
 ---
 title: "AWS Seguridad: Mejores Prácticas"
 description: "Descubre las mejores prácticas de seguridad en la nube de AWS, incluyendo gestión de identidades, cifrado de datos, protección de infraestructura y más. Aprende a maximizar la seguridad de tus aplicaciones y datos en AWS."
+author: "guille-ojeda"
 publishedAt: "2024-01-24"
 publishedTimestamp: "2024-01-24T01:20:24.308Z"
 cover: "/assets/blog/58bea5d60c133d57e4a0bdbf.jpg"

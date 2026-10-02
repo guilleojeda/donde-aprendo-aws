@@ -1,6 +1,7 @@
 ---
 title: "Cómo integrar los SDK de AWS en 7 pasos"
 description: "Aprende a integrar los SDK de AWS en tu proyecto en 7 pasos claros y concisos, desde la configuración del entorno hasta las pruebas y la depuración."
+author: "guille-ojeda"
 publishedAt: "2024-05-05"
 publishedTimestamp: "2024-05-05T03:40:17.719Z"
 cover: "/assets/blog/056aaf4c9dbb90032443ee34.jpg"

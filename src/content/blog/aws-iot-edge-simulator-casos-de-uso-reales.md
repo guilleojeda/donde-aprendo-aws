@@ -1,6 +1,7 @@
 ---
 title: "AWS IoT Edge Simulator: Casos de Uso Reales"
 description: "Descubre cómo el simulador de dispositivos IoT de AWS mejora las pruebas de IoT, reduce costos y tiempo de desarrollo, y valida soluciones antes de la implementación."
+author: "guille-ojeda"
 publishedAt: "2024-05-15"
 publishedTimestamp: "2024-05-15T02:46:19.391Z"
 cover: "/assets/blog/7854091f527530189ba482f0.png"

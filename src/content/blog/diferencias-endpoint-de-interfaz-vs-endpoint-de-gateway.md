@@ -1,6 +1,7 @@
 ---
 title: "Diferencias: Endpoint de interfaz vs. Endpoint de gateway"
 description: "Compara los endpoints de interfaz y gateway en AWS para determinar cuál se adapta mejor a tus necesidades de conectividad y rendimiento."
+author: "guille-ojeda"
 publishedAt: "2025-02-20"
 publishedTimestamp: "2025-02-20T00:10:01.732Z"
 cover: "/assets/blog/3565dcd644c1d6c694694985.jpg"

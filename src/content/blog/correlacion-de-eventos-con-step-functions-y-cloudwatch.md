@@ -1,6 +1,7 @@
 ---
 title: "Correlación de Eventos con Step Functions y CloudWatch"
 description: "Aprende a automatizar flujos de trabajo en AWS utilizando Step Functions y CloudWatch para mejorar la eficiencia y la detección de problemas."
+author: "guille-ojeda"
 publishedAt: "2025-03-17"
 publishedTimestamp: "2025-03-17T03:58:59.832000+00:00"
 cover: "/assets/blog/1ddc83af1d16737de7b3fdb8.jpg"

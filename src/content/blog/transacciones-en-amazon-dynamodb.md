@@ -1,8 +1,10 @@
 ---
 title: "Transacciones en Amazon DynamoDB"
 description: "Descubre cómo manejar transacciones en Amazon DynamoDB, una base de datos NoSQL rápida y flexible. Aprende sobre APIs, niveles de aislamiento, gestión de conflictos y prácticas recomendadas."
+author: "guille-ojeda"
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T01:07:24.799Z"
+modifiedTimestamp: "2026-10-01T15:14:05-03:00"
 cover: "/assets/blog/92c10f1c21ba45a500fbff08.jpg"
 coverAlt: "Diagrama de datos con flechas en ambos sentidos, bases de datos y un candado"
 ogImage: "/assets/blog/92c10f1c21ba45a500fbff08.jpg"

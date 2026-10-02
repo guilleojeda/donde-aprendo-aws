@@ -1,6 +1,7 @@
 ---
 title: "Guía para Crear APIs Serverless con AWS Lambda y API Gateway"
 description: "Descubre cómo crear APIs serverless usando AWS Lambda y API Gateway con esta guía paso a paso que abarca desde la configuración hasta la optimización."
+author: "guille-ojeda"
 publishedAt: "2024-05-12"
 publishedTimestamp: "2024-05-12T04:39:19.754Z"
 cover: "/assets/blog/919d108a9faabfb32e4a011d.jpg"

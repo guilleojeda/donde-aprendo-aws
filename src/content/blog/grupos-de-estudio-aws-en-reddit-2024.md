@@ -1,6 +1,7 @@
 ---
 title: "Grupos de Estudio AWS en Reddit 2024"
 description: "Descubre cómo los grupos de estudio AWS en Reddit pueden ayudarte a prepararte para la certificación AWS con apoyo, networking y estrategias de estudio efectivas."
+author: "guille-ojeda"
 publishedAt: "2024-04-30"
 publishedTimestamp: "2024-04-30T16:36:34.718Z"
 cover: "/assets/blog/5aabd355c99039c456c8249b.jpg"

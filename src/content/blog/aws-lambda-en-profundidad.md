@@ -1,6 +1,7 @@
 ---
 title: "AWS Lambda en Profundidad"
 description: "Descubre todo sobre AWS Lambda, desde cómo funciona y cómo usarlo hasta las mejores prácticas de seguridad y las últimas innovaciones. Aprende a optimizar y monitorear tus funciones Lambda."
+author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T02:11:48.464Z"
 cover: "/assets/blog/fc7f86cd5d9d53b7ba70da04.jpg"

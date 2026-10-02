@@ -1,8 +1,10 @@
 ---
 title: "CQRS y Event Sourcing en AWS: Guía para Microservicios"
 description: "Explore cómo implementar los patrones de diseño CQRS y Event Sourcing para microservicios en AWS, y aprenda a manejar desafíos comunes y mejorar la escalabilidad."
+author: "guille-ojeda"
 publishedAt: "2024-05-14"
 publishedTimestamp: "2024-05-14T02:22:09.107Z"
+modifiedTimestamp: "2026-10-01T15:14:05-03:00"
 cover: "/assets/blog/53f0f04efd58a298eab8c1e1.jpg"
 coverAlt: "Nubes y figuras geométricas conectadas alrededor de un símbolo central"
 ogImage: "/assets/blog/53f0f04efd58a298eab8c1e1.jpg"

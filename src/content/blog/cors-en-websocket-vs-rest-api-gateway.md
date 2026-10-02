@@ -1,6 +1,7 @@
 ---
 title: "CORS en WebSocket vs REST API Gateway"
 description: "Explora las diferencias en la configuración de CORS entre APIs REST y WebSocket en AWS API Gateway y su impacto en la seguridad y rendimiento."
+author: "guille-ojeda"
 publishedAt: "2025-09-01"
 publishedTimestamp: "2025-09-01T05:25:00.432000+00:00"
 cover: "/assets/blog/c306342b2e9d89f2a4308624.jpg"

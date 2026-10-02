@@ -1,6 +1,7 @@
 ---
 title: "10 Repositorios de GitHub para Machine Learning en AWS"
 description: "Descubre los 10 mejores repositorios de GitHub para implementar Machine Learning en AWS, con ejemplos y recursos prácticos para todos los niveles."
+author: "guille-ojeda"
 publishedAt: "2024-10-27"
 publishedTimestamp: "2024-10-27T03:07:38.015Z"
 cover: "/assets/blog/0e7089d339cd0d6e09ee83cd.webp"

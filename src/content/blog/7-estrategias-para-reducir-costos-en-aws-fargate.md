@@ -1,6 +1,7 @@
 ---
 title: "7 Estrategias para Reducir Costos en AWS Fargate"
 description: "Aprende 7 estrategias efectivas para reducir costos en AWS Fargate sin sacrificar rendimiento y maximiza tus ahorros."
+author: "guille-ojeda"
 publishedAt: "2024-11-26"
 publishedTimestamp: "2024-11-26T19:09:41.914Z"
 cover: "/assets/blog/9d9e21deaf95138036c3d24d.jpg"

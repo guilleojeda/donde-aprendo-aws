@@ -1,8 +1,10 @@
 ---
 title: "AWS Community Day 2024: Calendario de Eventos"
 description: "Descubre el calendario de AWS Community Day 2024 con eventos alrededor del mundo para profesionales de la nube. Aprende, conecta y comparte conocimientos."
+author: "guille-ojeda"
 publishedAt: "2024-05-14"
 publishedTimestamp: "2024-05-14T04:11:07.812Z"
+modifiedTimestamp: "2026-10-01T15:14:05-03:00"
 cover: "/assets/blog/8a72720666074692888beb45.png"
 coverAlt: "Globo rodeado por iconos de nubes de colores unidos con una línea punteada"
 ogImage: "/assets/blog/8a72720666074692888beb45.png"

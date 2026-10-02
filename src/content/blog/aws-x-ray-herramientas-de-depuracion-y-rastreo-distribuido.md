@@ -1,6 +1,7 @@
 ---
 title: "AWS X-Ray: Herramientas de Depuración y Rastreo Distribuido"
 description: "Descubre cómo AWS X-Ray mejora el rendimiento de aplicaciones distribuidas a través del análisis de solicitudes y la depuración en la nube."
+author: "guille-ojeda"
 publishedAt: "2024-05-07"
 publishedTimestamp: "2024-05-07T05:49:02.026Z"
 cover: "/assets/blog/2f81887ad0ca1683bc24fbf1.jpg"

@@ -1,6 +1,7 @@
 ---
 title: "¿Qué es AWS Lambda? Preguntas y Respuestas"
 description: "AWS Lambda es un servicio de computación sin servidor que ejecuta código en respuesta a eventos, simplificando el desarrollo y optimizando costos."
+author: "guille-ojeda"
 publishedAt: "2025-03-31"
 publishedTimestamp: "2025-03-31T03:16:05.470000+00:00"
 cover: "/assets/blog/70579f832030c8f349b01339.jpg"

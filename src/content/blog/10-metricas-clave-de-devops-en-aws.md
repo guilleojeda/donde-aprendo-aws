@@ -1,6 +1,7 @@
 ---
 title: "10 Métricas Clave de DevOps en AWS"
 description: "Descubre las 10 métricas clave de DevOps en AWS para optimizar procesos, mejorar la satisfacción del cliente y mantener una ventaja competitiva."
+author: "guille-ojeda"
 publishedAt: "2024-05-12"
 publishedTimestamp: "2024-05-12T01:37:13.938Z"
 cover: "/assets/blog/98aff2370ca15f9967751abc.png"

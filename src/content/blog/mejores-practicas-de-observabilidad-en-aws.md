@@ -1,6 +1,7 @@
 ---
 title: "Mejores Prácticas de Observabilidad en AWS"
 description: "Consejos y mejores prácticas para mejorar la observabilidad en AWS, desde la implementación de monitoreo integral hasta la aplicación de alarmas inteligentes y prácticas de seguridad."
+author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:43:53.201Z"
 cover: "/assets/blog/225d18fffd41e9eec388a76e.jpg"

@@ -1,6 +1,7 @@
 ---
 title: "Integración de GuardDuty de AWS para Inteligencia de Amenazas"
 description: "Descubre cómo integrar AWS GuardDuty con inteligencia de amenazas para mejorar la seguridad en tu entorno AWS. Aprende a configurar y gestionar amenazas eficazmente."
+author: "guille-ojeda"
 publishedAt: "2024-04-30"
 publishedTimestamp: "2024-04-30T06:43:18.648Z"
 cover: "/assets/blog/ce55ff284d28beb4aeeeab54.jpg"

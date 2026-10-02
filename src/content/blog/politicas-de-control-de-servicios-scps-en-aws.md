@@ -1,6 +1,7 @@
 ---
 title: "Políticas de Control de Servicios (SCPs) en AWS"
 description: "Descubra cómo las SCPs en AWS mejoran la seguridad y el cumplimiento mediante la gestión de permisos y el control de accesos en la organización."
+author: "guille-ojeda"
 publishedAt: "2024-05-09"
 publishedTimestamp: "2024-05-09T02:00:12.498Z"
 cover: "/assets/blog/ae0015b4c4fa992bfdc8c817.jpg"

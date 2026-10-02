@@ -1,6 +1,7 @@
 ---
 title: "7 Estrategias de Serverless para Startups: Optimiza Costos"
 description: "Descubre 7 estrategias serverless para startups y cómo optimizar costos con proveedores de servicios, monitoreo de recursos y enfoques multi-nube."
+author: "guille-ojeda"
 publishedAt: "2024-05-01"
 publishedTimestamp: "2024-05-01T02:41:51.509Z"
 cover: "/assets/blog/d85eb8d10d11d152a0198dea.jpg"

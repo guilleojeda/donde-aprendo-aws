@@ -1,6 +1,7 @@
 ---
 title: "10 Prácticas Recomendadas para Integrar EUC en AWS"
 description: "Explora las mejores prácticas para la integración de servicios EUC en AWS y mejora la seguridad, escalabilidad y gestión de aplicaciones en la nube."
+author: "guille-ojeda"
 publishedAt: "2024-05-10"
 publishedTimestamp: "2024-05-10T05:21:18.994Z"
 cover: "/assets/blog/278a42e279f664f5331f81e7.png"

@@ -1,6 +1,7 @@
 ---
 title: "Cómo crear Infraestructura como Código en AWS con Terraform"
 description: "Aprende a crear Infraestructura como Código en AWS con Terraform. Descubre los conceptos básicos, la instalación, la configuración de credenciales y más. Conoce cómo desplegar un servidor web en AWS con ejemplos prácticos."
+author: "guille-ojeda"
 publishedAt: "2024-03-18"
 publishedTimestamp: "2024-03-18T00:48:17.194Z"
 cover: "/assets/blog/e70ea85183c2a0917d33154f.png"

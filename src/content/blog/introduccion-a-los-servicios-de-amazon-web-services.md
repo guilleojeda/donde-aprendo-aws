@@ -1,6 +1,7 @@
 ---
 title: "Introducción a los servicios de Amazon Web Services"
 description: "Una guía introductoria a los servicios de Amazon Web Services (AWS), incluyendo computación en la nube, almacenamiento, bases de datos, redes, analítica, machine learning, seguridad y optimización de costos."
+author: "guille-ojeda"
 publishedAt: "2024-01-23"
 publishedTimestamp: "2024-01-23T15:42:44.638Z"
 cover: "/assets/blog/e1091b2adcfd9ac3b3889cb0.jpg"

@@ -1,6 +1,7 @@
 ---
 title: "Mejores Prácticas Para Amazon EC2"
 description: "Consejos y mejores prácticas para optimizar el uso de Amazon EC2, incluyendo control de acceso, grupos de seguridad, selección de instancias, cifrado de datos, automatización y más."
+author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:37:49.478Z"
 cover: "/assets/blog/ba08e34938ffab3b828b7b82.jpg"

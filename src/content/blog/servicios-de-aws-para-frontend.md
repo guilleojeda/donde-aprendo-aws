@@ -1,6 +1,7 @@
 ---
 title: "Servicios de AWS para Frontend"
 description: "Descubre los servicios de AWS para frontend como AWS Amplify, Amazon S3 y Amazon CloudFront. Compara sus ventajas y desventajas, casos de uso y ejemplos prácticos para elegir el mejor servicio."
+author: "guille-ojeda"
 publishedAt: "2024-03-18"
 publishedTimestamp: "2024-03-18T00:56:34.055Z"
 cover: "/assets/blog/31bdf1ca2f3b6c51213246c8.jpg"

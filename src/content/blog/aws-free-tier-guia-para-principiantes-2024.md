@@ -1,6 +1,7 @@
 ---
 title: "AWS Free Tier: Guía para Principiantes 2024"
 description: "Descubre cómo utilizar el AWS Free Tier en 2024 para explorar y probar servicios de nube de Amazon sin coste. Aprende a evitar cargos y aprovecha al máximo esta oferta."
+author: "guille-ojeda"
 publishedAt: "2024-04-29"
 publishedTimestamp: "2024-04-29T06:37:00.779Z"
 cover: "/assets/blog/a883588726566bcfe7e00c48.jpg"

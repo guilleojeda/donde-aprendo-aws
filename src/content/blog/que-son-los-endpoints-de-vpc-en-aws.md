@@ -1,6 +1,7 @@
 ---
 title: "¿Qué son los endpoints de VPC en AWS?"
 description: "Los endpoints de VPC en AWS ofrecen conexiones seguras y privadas a servicios, optimizando costos y mejorando el rendimiento sin usar Internet público."
+author: "guille-ojeda"
 publishedAt: "2025-02-17"
 publishedTimestamp: "2025-02-17T00:17:36.99Z"
 cover: "/assets/blog/784749ef7570c8a485edf97b.jpg"

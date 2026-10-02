@@ -1,6 +1,7 @@
 ---
 title: "Acuerdos de Nivel de Servicio AWS: Guía Básica"
 description: "Conoce cómo los Acuerdos de Nivel de Servicio de AWS garantizan disponibilidad y rendimiento, y cómo aprovechar sus beneficios."
+author: "guille-ojeda"
 publishedAt: "2024-11-27"
 publishedTimestamp: "2024-11-27T01:51:56.354Z"
 cover: "/assets/blog/a1b4827aff914f24a4598ecc.jpg"

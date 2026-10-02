@@ -1,6 +1,7 @@
 ---
 title: "Ingeniería de Caos en AWS con Fault Injection Simulator"
 description: "Aprende cómo fortalecer tus sistemas en AWS con la ingeniería del caos utilizando AWS Fault Injection Simulator. Descubre los pasos clave y mejores prácticas para mejorar la resiliencia de tus aplicaciones."
+author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T01:48:43.97Z"
 cover: "/assets/blog/0a0b1cf017845abee5cf215d.png"

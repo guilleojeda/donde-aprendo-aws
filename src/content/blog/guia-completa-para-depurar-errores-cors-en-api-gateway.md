@@ -1,6 +1,7 @@
 ---
 title: "Guía completa para depurar errores CORS en API Gateway"
 description: "Aprende a configurar y depurar errores CORS en API Gateway para garantizar el acceso seguro y eficiente a tus APIs."
+author: "guille-ojeda"
 publishedAt: "2025-05-26"
 publishedTimestamp: "2025-05-26T19:44:19.872000+00:00"
 cover: "/assets/blog/8cdc1f9432243e263d1de431.jpg"

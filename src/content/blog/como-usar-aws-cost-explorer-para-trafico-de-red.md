@@ -1,6 +1,7 @@
 ---
 title: "Cómo Usar AWS Cost Explorer para Tráfico de Red"
 description: "Aprende a utilizar AWS Cost Explorer para monitorear y optimizar los costos de tráfico de red, mejorando tu gestión financiera en la nube."
+author: "guille-ojeda"
 publishedAt: "2025-01-02"
 publishedTimestamp: "2025-01-02T00:17:31.789Z"
 cover: "/assets/blog/dbdbc8a8b6e306c35e966f8a.jpg"

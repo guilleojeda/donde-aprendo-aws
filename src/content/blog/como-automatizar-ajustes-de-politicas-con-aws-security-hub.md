@@ -1,6 +1,7 @@
 ---
 title: "Cómo automatizar ajustes de políticas con AWS Security Hub"
 description: "Automatiza políticas de seguridad en la nube con AWS Security Hub para mejorar la respuesta ante amenazas y reducir errores operativos."
+author: "guille-ojeda"
 publishedAt: "2025-05-05"
 publishedTimestamp: "2025-05-05T06:01:04.872000+00:00"
 cover: "/assets/blog/0a51232b23a8b40ad5b29e21.jpg"

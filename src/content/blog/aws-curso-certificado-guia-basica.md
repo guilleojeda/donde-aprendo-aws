@@ -1,8 +1,10 @@
 ---
 title: "AWS curso certificado: guía básica"
 description: "Guía completa sobre los cursos de certificación de AWS, desde principiantes hasta profesionales. Descubre los beneficios, costos y recursos gratuitos para prepararte y aprobar los exámenes."
+author: "guille-ojeda"
 publishedAt: "2024-01-26"
 publishedTimestamp: "2024-01-26T02:57:10.061Z"
+modifiedTimestamp: "2026-10-01T15:14:05-03:00"
 cover: "/assets/blog/35e338eebb5988d204344c86.jpg"
 coverAlt: "Pirámide de franjas de colores atravesada por un camino en zigzag"
 ogImage: "/assets/blog/35e338eebb5988d204344c86.jpg"

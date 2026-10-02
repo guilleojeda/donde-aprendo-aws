@@ -1,6 +1,7 @@
 ---
 title: "Guía de AWS Wavelength: Zonas y Despliegue"
 description: "Descubre todo sobre AWS Wavelength, desde su arquitectura hasta su despliegue y seguridad. Aprende cómo reducir la latencia y mejorar el rendimiento de tus aplicaciones en este servicio de infraestructura de AWS."
+author: "guille-ojeda"
 publishedAt: "2024-05-19"
 publishedTimestamp: "2024-05-19T00:55:00.331Z"
 cover: "/assets/blog/e73412d95c38ad88b6dc619a.jpg"

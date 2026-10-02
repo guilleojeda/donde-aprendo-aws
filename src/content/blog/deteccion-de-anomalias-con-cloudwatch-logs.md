@@ -1,6 +1,7 @@
 ---
 title: "Detección de anomalías con CloudWatch Logs"
 description: "Aprende a detectar anomalías en CloudWatch Logs usando machine learning para mejorar la supervisión y el rendimiento de tus aplicaciones."
+author: "guille-ojeda"
 publishedAt: "2025-01-27"
 publishedTimestamp: "2025-01-27T00:39:09.213Z"
 cover: "/assets/blog/f71d9ec92cdf5041cc6744bc.jpg"

@@ -1,8 +1,10 @@
 ---
 title: "Cómo Desarrollar Aplicaciones de Inteligencia Artificial en AWS"
 description: "Descubre cómo desarrollar aplicaciones de inteligencia artificial en AWS. Aprende los conceptos básicos de IA, configura tu entorno en AWS, explora herramientas clave como Amazon SageMaker y Amazon Lex, y conoce las mejores prácticas para seguridad y optimización de costos."
+author: "guille-ojeda"
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T00:01:17.799Z"
+modifiedTimestamp: "2026-10-01T15:14:05-03:00"
 cover: "/assets/blog/ac5297dc259dcbbe8d397c9d.jpg"
 coverAlt: "Nube con un cerebro en su interior, rodeada por engranajes y una línea punteada"
 ogImage: "/assets/blog/ac5297dc259dcbbe8d397c9d.jpg"

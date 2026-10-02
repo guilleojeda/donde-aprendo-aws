@@ -1,6 +1,7 @@
 ---
 title: "Amazon DynamoDB: Guía Básica"
 description: "Una guía rápida y clara sobre Amazon DynamoDB, un servicio de base de datos de AWS ideal para aplicaciones que requieren rapidez y flexibilidad. Aprende todo sobre sus características, casos de uso, conceptos básicos, cómo empezar, y mejores prácticas."
+author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T02:31:39.789Z"
 cover: "/assets/blog/a45735d6d45d12223256fbc4.png"

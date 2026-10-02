@@ -1,6 +1,7 @@
 ---
 title: "10 Preguntas Frecuentes sobre Machine Learning en AWS"
 description: "Descubre cómo AWS potencia el Machine Learning: desde Amazon SageMaker hasta seguridad y casos de uso reales en diferentes industrias."
+author: "guille-ojeda"
 publishedAt: "2024-05-13"
 publishedTimestamp: "2024-05-13T06:23:36.093Z"
 cover: "/assets/blog/5152d1b598aa9df8aaa8e72c.jpg"

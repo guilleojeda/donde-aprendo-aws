@@ -1,6 +1,7 @@
 ---
 title: "Mejores prácticas AWS para DevOps"
 description: "Descubre las mejores prácticas de AWS para DevOps, desde el marco de trabajo Well-Architected hasta la implementación de servicios específicos de AWS, para acelerar el desarrollo y la entrega de software de manera segura y eficiente."
+author: "guille-ojeda"
 publishedAt: "2024-01-24"
 publishedTimestamp: "2024-01-24T23:31:38.611Z"
 cover: "/assets/blog/87b7131b5cdf72f70b5347bd.jpg"

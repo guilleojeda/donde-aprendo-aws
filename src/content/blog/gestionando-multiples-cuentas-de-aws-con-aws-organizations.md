@@ -1,6 +1,7 @@
 ---
 title: "Gestionando Múltiples Cuentas de AWS con AWS Organizations"
 description: "Descubre cómo gestionar múltiples cuentas de AWS de manera eficiente con AWS Organizations. Aprende a unificar cuentas, implementar políticas de seguridad, optimizar costos, cumplir con regulaciones y expandir sin complicaciones."
+author: "guille-ojeda"
 publishedAt: "2024-03-07"
 publishedTimestamp: "2024-03-07T23:44:11.481Z"
 cover: "/assets/blog/f49b26fc90f711fa88bba709.jpg"

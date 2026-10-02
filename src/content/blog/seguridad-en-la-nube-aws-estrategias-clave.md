@@ -1,6 +1,7 @@
 ---
 title: "Seguridad en la nube AWS: Estrategias clave"
 description: "Explora las estrategias clave de seguridad en la nube de AWS, incluyendo gestión de identidades y accesos, cifrado de datos, monitoreo de amenazas y certificaciones de seguridad. Aprende a proteger tu entorno en la nube con AWS."
+author: "guille-ojeda"
 publishedAt: "2024-01-28"
 publishedTimestamp: "2024-01-28T01:13:20.58Z"
 cover: "/assets/blog/85153458594dcc202b848554.jpg"

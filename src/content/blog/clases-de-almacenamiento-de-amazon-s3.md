@@ -1,6 +1,7 @@
 ---
 title: "Clases de Almacenamiento de Amazon S3"
 description: "Consejos para elegir la clase de almacenamiento adecuada en Amazon S3, optimizar costos y asegurar la disponibilidad y seguridad de tus datos. Descubre las ventajas y desventajas de cada opción."
+author: "guille-ojeda"
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T01:50:57.327Z"
 cover: "/assets/blog/783a6beb62602d5d128b9c75.jpg"

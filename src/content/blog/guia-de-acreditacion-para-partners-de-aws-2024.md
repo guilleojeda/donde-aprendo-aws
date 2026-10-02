@@ -1,6 +1,7 @@
 ---
 title: "Guía de Acreditación para Partners de AWS 2024"
 description: "Acreditación para Partners de AWS: cómo obtenerla, mantenerla y beneficiarse. Descubre las diferentes opciones y beneficios de las acreditaciones de AWS."
+author: "guille-ojeda"
 publishedAt: "2024-05-17"
 publishedTimestamp: "2024-05-17T00:52:54.211Z"
 cover: "/assets/blog/0d6df5a1297701914debd614.png"

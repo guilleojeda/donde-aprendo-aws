@@ -1,6 +1,7 @@
 ---
 title: "Monitoreo de contenedores con CloudWatch Logs"
 description: "Aprende a monitorizar contenedores con CloudWatch Logs, centralizando registros y mejorando la seguridad en entornos contenerizados."
+author: "guille-ojeda"
 publishedAt: "2025-06-02"
 publishedTimestamp: "2025-06-02T08:56:16.722000+00:00"
 cover: "/assets/blog/2b59cebb297e58db709a33a5.jpg"

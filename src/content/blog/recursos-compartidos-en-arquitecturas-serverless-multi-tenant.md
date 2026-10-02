@@ -1,6 +1,7 @@
 ---
 title: "Recursos Compartidos en Arquitecturas Serverless Multi-Tenant"
 description: "Compartir recursos en arquitecturas serverless multi-tenant ofrece beneficios como reducción de costos, escalabilidad y simplificación de la gestión. Aprende las mejores prácticas y estrategias para implementar recursos compartidos de maner"
+author: "guille-ojeda"
 publishedAt: "2024-05-18"
 publishedTimestamp: "2024-05-18T01:35:00.225Z"
 cover: "/assets/blog/b4ce26c384455c6314d61ac3.jpg"

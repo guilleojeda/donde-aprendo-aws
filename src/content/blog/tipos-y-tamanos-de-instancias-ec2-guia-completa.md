@@ -1,6 +1,7 @@
 ---
 title: "Tipos y Tamaños de Instancias EC2: Guía Completa"
 description: "Conoce los diferentes tipos y tamaños de instancias EC2 en AWS, cómo elegir la correcta, la importancia de seleccionarla adecuadamente y consejos prácticos para optimizar su rendimiento y costos."
+author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T01:12:42.616Z"
 cover: "/assets/blog/c17586bd518131452b0a717a.png"

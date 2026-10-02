@@ -1,6 +1,7 @@
 ---
 title: "Machine Learning para Triage de Alertas en AWS"
 description: "Automatiza y optimiza la gestión de alertas de seguridad en AWS con Machine Learning para una respuesta rápida y precisa ante amenazas."
+author: "guille-ojeda"
 publishedAt: "2025-03-27"
 publishedTimestamp: "2025-03-27T01:18:04.566000+00:00"
 cover: "/assets/blog/6f0cbd991f1cfe77b09e89dd.jpg"

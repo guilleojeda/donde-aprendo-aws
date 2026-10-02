@@ -1,6 +1,7 @@
 ---
 title: "Automatización de cumplimiento con AWS Config"
 description: "AWS Config automatiza el cumplimiento en la nube, permitiendo monitorear, corregir y aplicar políticas de manera eficiente y sin intervención manual."
+author: "guille-ojeda"
 publishedAt: "2025-01-09"
 publishedTimestamp: "2025-01-09T00:16:49.41Z"
 cover: "/assets/blog/887b167cb63dec6854e043dc.jpg"

@@ -1,6 +1,7 @@
 ---
 title: "Amazon DynamoDB: La Base de Datos NoSQL de AWS"
 description: "Descubra todo sobre Amazon DynamoDB, una base de datos NoSQL altamente escalable y completamente administrada. Aprenda sobre su rendimiento, escalabilidad, características avanzadas y comparación con MongoDB."
+author: "guille-ojeda"
 publishedAt: "2024-01-31"
 publishedTimestamp: "2024-01-31T00:13:19.305Z"
 cover: "/assets/blog/b55473f49a3eacffcaae0175.jpg"

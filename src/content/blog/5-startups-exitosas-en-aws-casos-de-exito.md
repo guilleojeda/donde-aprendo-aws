@@ -1,6 +1,7 @@
 ---
 title: "5 Startups Exitosas en AWS: Casos de Éxito"
 description: "Explora cómo cinco startups exitosas han escalado e innovado utilizando los servicios de AWS, desde infraestructura en la nube hasta soluciones de inteligencia artificial."
+author: "guille-ojeda"
 publishedAt: "2024-05-13"
 publishedTimestamp: "2024-05-13T02:42:31.872Z"
 cover: "/assets/blog/b94e80f121605caa3d2fcec3.jpg"

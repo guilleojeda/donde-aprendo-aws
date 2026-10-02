@@ -4,6 +4,8 @@ import { getCollection, render } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import BlogHeader from '../../components/BlogHeader.astro';
 import BlogFooter from '../../components/BlogFooter.astro';
+import BlogArticleMetadata from '../../components/BlogArticleMetadata.astro';
+import { BLOG_CONTRIBUTORS } from '../../lib/blog-contributors.mjs';
 import { loadSiteCatalog } from '../../lib/site-catalog.mjs';
 import { LEARNING_PATHS, resolveLearningPaths, articlePathNavigation } from '../../lib/learning-paths.mjs';
 import type { CatalogEvent, CatalogResource } from '../../types/catalog';
@@ -22,12 +24,11 @@ export async function getStaticPaths() {
 const { post, pathNavigation } = Astro.props;
 const { Content } = await render(post);
 const canonical = new URL(`/blog/${post.id}/`, Astro.site ?? Astro.url).href;
-const publishedDate = new Intl.DateTimeFormat('es-AR', {
-  day: '2-digit',
-  month: 'long',
-  year: 'numeric',
-  timeZone: 'UTC',
-}).format(new Date(`${post.data.publishedAt}T00:00:00Z`));
+const author = BLOG_CONTRIBUTORS[post.data.author];
+const review = post.data.review && {
+  ...post.data.review,
+  by: post.data.review.by ? BLOG_CONTRIBUTORS[post.data.review.by] : undefined,
+};
 ---
 
 <BaseLayout
@@ -37,12 +38,20 @@ const publishedDate = new Intl.DateTimeFormat('es-AR', {
   image={post.data.ogImage}
   imageAlt={post.data.ogImageAlt ?? post.data.coverAlt}
   publishedTimestamp={post.data.publishedTimestamp}
+  modifiedTimestamp={post.data.modifiedTimestamp}
+  author={author}
 >
   <BlogHeader />
   <main class="blog-article">
     <header class="blog-article__header">
       <h1>{post.data.title}</h1>
-      <p class="blog-article__date">Publicado el {publishedDate}</p>
+      <BlogArticleMetadata
+        author={author}
+        publishedAt={post.data.publishedAt}
+        publishedTimestamp={post.data.publishedTimestamp}
+        modifiedTimestamp={post.data.modifiedTimestamp}
+        review={review}
+      />
     </header>
     <article class="blog-article__body">
       <Content />

@@ -1,6 +1,7 @@
 ---
 title: "Utilizando Lambda Layers en Múltiples Funciones Lambda"
 description: "Aprende a utilizar Lambda Layers en AWS Lambda para reutilizar código, reducir tamaños de paquetes y gestionar actualizaciones de manera eficiente. Descubre cómo crear, configurar y usar Lambda Layers con ejemplos prácticos."
+author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T02:24:39.563Z"
 cover: "/assets/blog/ab65afd218440c66bc564a0a.jpg"

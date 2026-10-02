@@ -1,6 +1,7 @@
 ---
 title: "Comprendiendo AWS Step Functions"
 description: "Comprende AWS Step Functions, una herramienta para coordinar aplicaciones sin servidor. Visualiza flujos de trabajo, integra servicios de AWS y simplifica la gestión de aplicaciones complejas."
+author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:40:56.477Z"
 cover: "/assets/blog/5cccd042a4e55b019d2587c8.png"

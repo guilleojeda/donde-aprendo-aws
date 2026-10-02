@@ -1,6 +1,7 @@
 ---
 title: "AWS SAM CLI: Pruebas y Desarrollo Local"
 description: "Aprende a desarrollar y probar aplicaciones serverless localmente con AWS SAM CLI, simulando servicios como Lambda y API Gateway."
+author: "guille-ojeda"
 publishedAt: "2024-11-27"
 publishedTimestamp: "2024-11-27T00:08:23.504Z"
 cover: "/assets/blog/fa48e5370fe3d3489c8fb4d5.jpg"

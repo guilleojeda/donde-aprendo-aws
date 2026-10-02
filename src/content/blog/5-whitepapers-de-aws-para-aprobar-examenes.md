@@ -1,6 +1,7 @@
 ---
 title: "5 Whitepapers de AWS para Aprobar Exámenes"
 description: "Descubre los 5 whitepapers esenciales de AWS para preparar y aprobar tus exámenes de certificación de manera efectiva."
+author: "guille-ojeda"
 publishedAt: "2024-10-26"
 publishedTimestamp: "2024-10-26T18:53:17.718Z"
 cover: "/assets/blog/251a69179cad106c40e9334f.webp"

@@ -1,6 +1,7 @@
 ---
 title: "Guía Completa: Análisis de Costos de Tráfico en AWS"
 description: "Aprende a optimizar los costos de tráfico en AWS con herramientas y estrategias efectivas para manejar tu infraestructura de manera eficiente."
+author: "guille-ojeda"
 publishedAt: "2024-12-30"
 publishedTimestamp: "2024-12-30T12:06:07.312Z"
 cover: "/assets/blog/5a1c145030a04aac753625bc.jpg"

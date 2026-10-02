@@ -1,6 +1,7 @@
 ---
 title: "Requisitos de cableado físico para AWS Snowball"
 description: "Configura correctamente el cableado físico para AWS Snowball y optimiza la transferencia de datos con nuestras recomendaciones esenciales."
+author: "guille-ojeda"
 publishedAt: "2025-05-01"
 publishedTimestamp: "2025-05-01T03:33:14.998000+00:00"
 cover: "/assets/blog/3b6a26d54c02dfac32acb13b.jpg"

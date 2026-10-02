@@ -1,6 +1,7 @@
 ---
 title: "10 Estrategias para Optimizar Costos de Red en AWS"
 description: "Descubre 10 estrategias efectivas para reducir costos de red en AWS y optimiza tu factura mensual con prácticas simples y eficientes."
+author: "guille-ojeda"
 publishedAt: "2024-10-28"
 publishedTimestamp: "2024-10-28T02:48:30.386Z"
 cover: "/assets/blog/732b4db41baecb1699e72d80.webp"

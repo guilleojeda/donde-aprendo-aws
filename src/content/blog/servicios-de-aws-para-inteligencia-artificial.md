@@ -1,6 +1,7 @@
 ---
 title: "Servicios de AWS para Inteligencia Artificial"
 description: "Descubre los servicios de inteligencia artificial de AWS, sus funcionalidades, casos de uso, integración y costos. Explora cómo implementar IA con AWS y superar desafíos comunes."
+author: "guille-ojeda"
 publishedAt: "2024-03-08"
 publishedTimestamp: "2024-03-08T13:14:38.36Z"
 cover: "/assets/blog/54201ee89ce3b648eb0ec011.jpg"

@@ -1,8 +1,12 @@
 ---
 title: "AWS gratis para estudiantes y educadores: cómo aprender, practicar y enseñar en español"
 description: "Aprende y enseña AWS con Educate, Academy, Student Rewards y recursos de la comunidad en español. Conoce requisitos, laboratorios y costos antes de empezar."
+author: "guille-ojeda"
 publishedAt: "2024-01-30"
 publishedTimestamp: "2024-01-30T19:24:56.085Z"
+modifiedTimestamp: "2026-09-30T11:36:26-03:00"
+review:
+  date: "2026-09-30"
 cover: "/assets/blog/2e829a000de9165446203907.jpg"
 coverAlt: "Dos puestos con personas frente a una pantalla de aprendizaje con nubes"
 indexOrder: 5
@@ -10,7 +14,6 @@ ogImage: "/assets/blog/2e829a000de9165446203907.jpg"
 related: []
 ---
 
-*Revisado el 30 de septiembre de 2026.*
 
 Puedes empezar a aprender AWS sin tarjeta de crédito y sin pagar un curso. También puedes incorporar prácticas de nube a una clase sin pedir que cada estudiante abra una cuenta personal. La opción adecuada depende de lo que necesitas: una primera experiencia guiada, formación dentro de tu institución o libertad para desarrollar un proyecto propio.
 

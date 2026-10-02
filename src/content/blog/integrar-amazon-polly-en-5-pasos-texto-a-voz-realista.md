@@ -1,6 +1,7 @@
 ---
 title: "Integrar Amazon Polly en 5 pasos: Texto a voz realista"
 description: "Aprende a integrar Amazon Polly en tus aplicaciones en 5 pasos y aprovecha la síntesis de voz realista para mejorar la experiencia de usuario."
+author: "guille-ojeda"
 publishedAt: "2024-05-13"
 publishedTimestamp: "2024-05-13T05:08:34.138Z"
 cover: "/assets/blog/35cbdc26cad1c09b7dd2fc81.jpg"

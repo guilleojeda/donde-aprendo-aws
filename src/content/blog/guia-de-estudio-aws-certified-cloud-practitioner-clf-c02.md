@@ -1,6 +1,7 @@
 ---
 title: "Guía de Estudio AWS Certified Cloud Practitioner CLF-C02"
 description: "Prepárate eficazmente para el examen AWS Certified Cloud Practitioner CLF-C02 con nuestra guía completa de estudio, estrategias y recursos."
+author: "guille-ojeda"
 publishedAt: "2024-05-04"
 publishedTimestamp: "2024-05-04T02:21:52.821Z"
 cover: "/assets/blog/9ee272960332ab17524d1056.jpg"

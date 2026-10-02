@@ -1,6 +1,7 @@
 ---
 title: "CloudWatch y EventBridge: Integración"
 description: "Aprende cómo integrar CloudWatch y EventBridge para automatizar tareas y mejorar el monitoreo en la infraestructura de AWS."
+author: "guille-ojeda"
 publishedAt: "2024-11-28"
 publishedTimestamp: "2024-11-28T01:51:21.207Z"
 cover: "/assets/blog/382dfac33d6132edaa6b8e63.jpg"

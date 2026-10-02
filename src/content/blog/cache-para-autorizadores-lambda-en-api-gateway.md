@@ -1,6 +1,7 @@
 ---
 title: "Caché para Autorizadores Lambda en API Gateway"
 description: "Aprende cómo implementar caché en autorizadores Lambda de API Gateway para mejorar rendimiento, reducir costos y minimizar invocaciones innecesarias."
+author: "guille-ojeda"
 publishedAt: "2024-11-28"
 publishedTimestamp: "2024-11-28T00:05:44.586Z"
 cover: "/assets/blog/88ec1a2d5d2521db3a61ab5a.jpg"

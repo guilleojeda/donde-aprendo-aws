@@ -1,6 +1,7 @@
 ---
 title: "Microservicios en AWS Utilizando Contenedores"
 description: "Descubre cómo desplegar aplicaciones de manera eficiente, flexible y escalable con microservicios en AWS utilizando contenedores. Aprende sobre ECS, EKS, Fargate y más."
+author: "guille-ojeda"
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T00:23:23.974Z"
 cover: "/assets/blog/bf2d7e4c78ec347430ffd844.jpg"

@@ -1,6 +1,7 @@
 ---
 title: "AWS DeepLens: Introducción al Aprendizaje Profundo"
 description: "Aprende a utilizar AWS DeepLens para proyectos de aprendizaje profundo y visión artificial, desde la configuración inicial hasta la optimización de modelos."
+author: "guille-ojeda"
 publishedAt: "2024-05-04"
 publishedTimestamp: "2024-05-04T13:44:53.053Z"
 cover: "/assets/blog/711eae34c71ed3b53e765f69.jpg"

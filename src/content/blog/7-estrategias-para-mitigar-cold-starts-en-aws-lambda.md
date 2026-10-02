@@ -1,6 +1,7 @@
 ---
 title: "7 Estrategias para Mitigar Cold Starts en AWS Lambda"
 description: "Descubre 7 estrategias efectivas para reducir los cold starts en AWS Lambda y optimizar el rendimiento de tus aplicaciones serverless."
+author: "guille-ojeda"
 publishedAt: "2024-05-15"
 publishedTimestamp: "2024-05-15T06:00:17.055Z"
 cover: "/assets/blog/c936f3eb45382355f87b0707.jpg"

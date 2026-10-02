@@ -1,6 +1,7 @@
 ---
 title: "Arquitecturas Multi-Región en AWS"
 description: "Implementar una arquitectura multi-región en AWS para mejorar la disponibilidad y rendimiento de tus aplicaciones. Conoce los beneficios, casos de uso y cómo optimizar costos."
+author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T00:52:38.092Z"
 cover: "/assets/blog/bafde793116d5b5e38a659da.jpg"

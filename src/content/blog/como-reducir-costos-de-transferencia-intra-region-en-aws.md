@@ -1,6 +1,7 @@
 ---
 title: "Cómo Reducir Costos de Transferencia Intra-Región en AWS"
 description: "Optimiza los costos de transferencia de datos intra-región en AWS con estrategias efectivas y herramientas de monitoreo."
+author: "guille-ojeda"
 publishedAt: "2025-09-11"
 publishedTimestamp: "2025-09-11T07:03:09.648000+00:00"
 cover: "/assets/blog/f7f97a6864a4b23d66bec74e.jpg"

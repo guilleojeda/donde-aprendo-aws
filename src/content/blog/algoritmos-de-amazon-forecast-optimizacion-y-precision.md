@@ -1,6 +1,7 @@
 ---
 title: "Algoritmos de Amazon Forecast: Optimización y Precisión"
 description: "Explora cómo los algoritmos de Amazon Forecast como CNN-QR, DeepAR+, Prophet, NPTS, ARIMA y ETS pueden optimizar la precisión en la predicción de series temporales."
+author: "guille-ojeda"
 publishedAt: "2024-05-12"
 publishedTimestamp: "2024-05-12T03:31:14.299Z"
 cover: "/assets/blog/e98930171342594138891bef.jpg"

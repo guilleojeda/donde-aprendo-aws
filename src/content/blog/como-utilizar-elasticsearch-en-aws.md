@@ -1,6 +1,7 @@
 ---
 title: "Cómo Utilizar ElasticSearch en AWS"
 description: "Descubre cómo utilizar ElasticSearch en AWS, desde la creación de un dominio hasta la integración con AWS Glue y OpenSearch. Aprende sobre la configuración, seguridad, monitoreo y solución de problemas."
+author: "guille-ojeda"
 publishedAt: "2024-03-08"
 publishedTimestamp: "2024-03-08T13:19:46.73Z"
 cover: "/assets/blog/17fe006845acd8b3930b23c8.jpg"

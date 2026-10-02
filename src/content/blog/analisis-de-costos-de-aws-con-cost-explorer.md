@@ -1,6 +1,7 @@
 ---
 title: "Análisis de Costos de AWS con Cost Explorer"
 description: "Descubre cómo utilizar AWS Cost Explorer para controlar, predecir y optimizar tus gastos en AWS. Visualiza tus costos, analiza tendencias, recibe pronósticos y alertas, y optimiza tus recursos."
+author: "guille-ojeda"
 publishedAt: "2024-03-07"
 publishedTimestamp: "2024-03-07T23:32:10.366Z"
 cover: "/assets/blog/9498b87ad3dae112bf347132.jpg"

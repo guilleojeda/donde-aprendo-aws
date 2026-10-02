@@ -1,6 +1,7 @@
 ---
 title: "Cómo Habilitar CloudWatch Logs en API Gateway: Guía Paso a Paso"
 description: "Aprende cómo configurar CloudWatch Logs en API Gateway para monitorear y optimizar tus APIs. Sigue esta guía paso a paso desde la creación de roles IAM hasta el análisis de registros."
+author: "guille-ojeda"
 publishedAt: "2024-04-29"
 publishedTimestamp: "2024-04-29T07:48:00.212Z"
 cover: "/assets/blog/f256f4a211663872e566e67f.jpg"

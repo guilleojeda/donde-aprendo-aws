@@ -1,6 +1,7 @@
 ---
 title: "Ahorro de Costos en AWS con Instancias Reservadas y Savings Plans"
 description: "Ahorra dinero en AWS con Instancias Reservadas y Savings Plans. Compara flexibilidad, ahorro potencial, compromisos y aplicabilidad. Descubre cuál opción se adapta mejor a tus necesidades."
+author: "guille-ojeda"
 publishedAt: "2024-03-07"
 publishedTimestamp: "2024-03-07T14:42:01.539Z"
 cover: "/assets/blog/201da9e2ec2ae649f47566a7.jpg"

@@ -1,8 +1,13 @@
 ---
 title: "AWS Cloud Practitioner: recursos en español para preparar la certificación"
 description: "Guía de recursos en español para preparar AWS Certified Cloud Practitioner (CLF-C02): documentación oficial, cursos, comunidades, práctica y datos del examen."
+author: "guille-ojeda"
 publishedAt: "2024-01-28"
 publishedTimestamp: "2024-01-28T00:31:55.771Z"
+modifiedTimestamp: "2026-09-29T16:30:27-03:00"
+review:
+  date: "2026-09-29"
+  note: "Examen CLF-C02"
 cover: "/assets/blog/8d4ecab3b218a57acfd77f30.jpg"
 coverAlt: "Nube delineada rodeada de iconos de reproducción, ubicación y dirección"
 indexOrder: 1
@@ -22,7 +27,6 @@ related:
     imageAlt: ""
 ---
 
-*Revisado el 29 de septiembre de 2026 · Examen CLF-C02*
 
 Preparar AWS Cloud Practitioner resulta más sencillo cuando cada recurso tiene una función: la guía oficial define qué estudiar, un curso te ayuda a entenderlo y las preguntas de práctica muestran qué necesitas repasar.
 

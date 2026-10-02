@@ -1,6 +1,7 @@
 ---
 title: "Estrategias de Correlación de Eventos AWS"
 description: "Aprende a gestionar eventos en AWS mediante la correlación, optimizando la seguridad y el rendimiento de tus sistemas."
+author: "guille-ojeda"
 publishedAt: "2024-12-26"
 publishedTimestamp: "2024-12-26T19:07:36.754Z"
 cover: "/assets/blog/b5250ebc33b6dd3702e864e4.jpg"

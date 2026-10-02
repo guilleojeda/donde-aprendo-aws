@@ -1,6 +1,7 @@
 ---
 title: "Diferencias Entre SLA y SLO en AWS"
 description: "Entiende las diferencias entre SLA y SLO en AWS para optimizar el rendimiento y la confiabilidad de tus servicios en la nube."
+author: "guille-ojeda"
 publishedAt: "2025-01-20"
 publishedTimestamp: "2025-01-20T00:15:06.029Z"
 cover: "/assets/blog/8281401d50eb83da06a511af.jpg"

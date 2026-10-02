@@ -1,6 +1,7 @@
 ---
 title: "Cómo crear Infraestructura como Código en AWS con AWS CloudFormation"
 description: "Aprende a crear infraestructura como código en AWS con AWS CloudFormation. Descubre los beneficios, conceptos básicos, pasos previos necesarios y mejores prácticas para automatizar y gestionar tus recursos en la nube."
+author: "guille-ojeda"
 publishedAt: "2024-03-18"
 publishedTimestamp: "2024-03-18T00:54:16.195Z"
 cover: "/assets/blog/7b36649641ff19d02f4e3551.jpg"

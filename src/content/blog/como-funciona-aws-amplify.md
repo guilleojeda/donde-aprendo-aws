@@ -1,6 +1,7 @@
 ---
 title: "¿Cómo Funciona AWS Amplify?"
 description: "Descubre cómo AWS Amplify simplifica el desarrollo de aplicaciones web y móviles, integrando servicios de AWS de forma segura y eficiente. Aprende sobre sus componentes clave y cómo crear tu primer proyecto."
+author: "guille-ojeda"
 publishedAt: "2024-03-18"
 publishedTimestamp: "2024-03-18T23:13:52.162Z"
 cover: "/assets/blog/ee80202a0fa6a00452e56ba9.jpg"

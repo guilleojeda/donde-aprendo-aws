@@ -1,6 +1,7 @@
 ---
 title: "Comprendiendo Kubernetes y Amazon EKS"
 description: "Amazon EKS es una excelente opción para usar Kubernetes en AWS. Descubre cómo funciona, sus ventajas, cómo implementarlo y cómo gestionar aplicaciones en este servicio."
+author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:21:48.687Z"
 cover: "/assets/blog/066e0f22ea88769f71d0c039.png"

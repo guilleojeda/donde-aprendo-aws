@@ -1,6 +1,7 @@
 ---
 title: "Características y Beneficios de AWS IoT Device Defender"
 description: "Descubre las ventajas de AWS IoT Device Defender para la protección de dispositivos IoT, incluyendo auditorías de seguridad y detección de anomalías."
+author: "guille-ojeda"
 publishedAt: "2024-05-06"
 publishedTimestamp: "2024-05-06T14:05:13.37Z"
 cover: "/assets/blog/64ba25d52c7b46f1df3dfd5e.png"

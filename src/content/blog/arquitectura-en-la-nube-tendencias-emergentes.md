@@ -1,6 +1,7 @@
 ---
 title: "Arquitectura en la nube: tendencias emergentes"
 description: "Explora las tendencias emergentes en arquitectura en la nube, incluyendo la adopción de la nube híbrida, Kubernetes, contenedores, función como servicio (FaaS), integración y entrega continua, y más. Obtén una visión general de los conceptos clave, las innovaciones actuales y recomendaciones prácticas para arquitectos de nube."
+author: "guille-ojeda"
 publishedAt: "2024-01-27"
 publishedTimestamp: "2024-01-27T23:50:47.33Z"
 cover: "/assets/blog/d781a44da56c41c82eb33501.png"
