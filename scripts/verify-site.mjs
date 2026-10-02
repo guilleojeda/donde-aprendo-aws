@@ -18,6 +18,15 @@ const filesUnder = (directory) => readdirSync(directory, { withFileTypes: true }
 
 const sitemap = read('sitemap.xml');
 const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
+const sitemapEntries = [...sitemap.matchAll(/<url>([\s\S]*?)<\/url>/g)].map(([, entry]) => {
+  const locs = [...entry.matchAll(/<loc>([^<]+)<\/loc>/g)];
+  const lastmods = [...entry.matchAll(/<lastmod>([^<]*)<\/lastmod>/g)];
+  assert.equal(locs.length, 1, 'Each sitemap entry must have exactly one location.');
+  assert.ok(lastmods.length <= 1, `Duplicate sitemap lastmod: ${locs[0][1]}`);
+  return [locs[0][1], lastmods[0]?.[1]];
+});
+assert.equal(sitemapEntries.length, locations.length, 'Every sitemap location must belong to a URL entry.');
+const sitemapLastmods = new Map(sitemapEntries);
 const expectedLocations = [
   'https://dondeaprendoaws.com/',
   ...sections.map((section) => `https://dondeaprendoaws.com/${section}/`),
@@ -38,6 +47,7 @@ const defaultSocialImage = readFileSync(resolve(dist, 'assets/site-social.png'))
 assert.deepEqual(defaultSocialImage.subarray(0, 8), Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), 'The default social image must be a PNG.');
 assert.equal(defaultSocialImage.readUInt32BE(16), 1200, 'Default social image width.');
 assert.equal(defaultSocialImage.readUInt32BE(20), 630, 'Default social image height.');
+let sitemapModificationDates = 0;
 for (const path of allHtmlPaths) {
   const html = read(path);
   const metadata = new Map();
@@ -62,6 +72,13 @@ for (const path of allHtmlPaths) {
   assert.equal(metadata.get('twitter:image'), imageUrl.href, `Matching social images: ${path}`);
   assert.equal(metadata.get('twitter:image:alt'), metadata.get('og:image:alt'), `Matching image alternatives: ${path}`);
   if (article) assert.match(metadata.get('article:published_time'), /^\d{4}-\d{2}-\d{2}T/, `Article publication time: ${path}`);
+  if (path !== '404.html') {
+    const canonical = metadata.get('og:url');
+    assert.ok(sitemapLastmods.has(canonical), `Page must be represented in the sitemap: ${path}`);
+    const expectedLastmod = article ? metadata.get('article:modified_time') : undefined;
+    assert.equal(sitemapLastmods.get(canonical), expectedLastmod, `Only declared significant modifications belong in sitemap lastmod: ${path}`);
+    if (expectedLastmod) sitemapModificationDates++;
+  }
 }
 
 const fontCss = allDistFiles.filter((path) => path.endsWith('.css')).map((path) => readFileSync(path, 'utf8')).join('\n');
@@ -169,4 +186,4 @@ if (process.env.CATALOG_FIXTURE) {
   assert.match(calendar, /DTSTART:20990101T230000Z\r\nDTEND:20990102T010000Z/);
   assert.match(calendar, /URL:https:\/\/example\.com\/encuentro\?source=fixture/);
 }
-console.log(`Verified ${production ? 'production' : 'preview'} indexing, learning paths, unified search, Analytics tags, and 204 sitemap URLs.`);
+console.log(`Verified ${production ? 'production' : 'preview'} indexing, learning paths, unified search, Analytics tags, 204 sitemap URLs, and ${sitemapModificationDates} declared sitemap modification dates.`);
