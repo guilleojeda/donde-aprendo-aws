@@ -44,8 +44,6 @@ for (const group of uniqueUpcomingEventGroups(events)) {
         <p>{intro}</p>
       </div>
 
-      <CatalogCriteria />
-
       <div class="directory-controls" data-directory-controls>
         <label class="sr-only" for="resource-search">Buscar en {title.toLowerCase()}</label>
         <input
@@ -117,6 +115,8 @@ for (const group of uniqueUpcomingEventGroups(events)) {
           <button class="button button--dark" type="button" data-show-more>Mostrar 12 más</button>
         </div>
       </> : <p class="directory-empty" role="status">No hay recursos publicados todavía.</p>}
+
+      <CatalogCriteria />
     </div>
   </section>
 </main>
