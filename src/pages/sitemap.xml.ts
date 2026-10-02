@@ -8,7 +8,7 @@ export const GET: APIRoute = async ({ site }) => {
     .map(({ id, data }) => ({ path: `/blog/${id}/`, lastmod: data.modifiedTimestamp }))
     .sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
   const pages: Array<{ path: string; lastmod?: string }> = [
-    ...['/', '/aprender/', '/recorridos/', '/creadores/', '/comunidades/', '/eventos/', '/blog/', '/buscar/']
+    ...['/', '/aprender/', '/recorridos/', '/creadores/', '/comunidades/', '/eventos/', '/blog/']
       .map((path) => ({ path })),
     ...articles,
   ];

@@ -35,7 +35,7 @@ The production build uses `PUBLIC_SITE_ORIGIN=https://dondeaprendoaws.com` for a
 
 ## Production hosting
 
-The `main` Amplify branch has `PUBLIC_PRODUCTION=true` and `PUBLIC_SITE_ORIGIN=https://dondeaprendoaws.com`. Its build emits indexable pages and a 204-URL sitemap. The single Analytics loader runs only on the apex hostname. Amplify manages the apex and `www` DNS records and certificate; `www` and `main.d33kh9d3cyassq.amplifyapp.com` redirect to the apex, preserving paths. Keep those branch variables and redirects when updating the app. An hourly publication check starts a fresh build when approved public catalog data changes.
+The `main` Amplify branch has `PUBLIC_PRODUCTION=true` and `PUBLIC_SITE_ORIGIN=https://dondeaprendoaws.com`. Its build emits indexable content pages and a 203-URL sitemap; the search utility at `/buscar/` is excluded with `noindex, follow`. The single Analytics loader runs only on the apex hostname. Amplify manages the apex and `www` DNS records and certificate; `www` and `main.d33kh9d3cyassq.amplifyapp.com` redirect to the apex, preserving paths. Keep those branch variables and redirects when updating the app. An hourly publication check starts a fresh build when approved public catalog data changes.
 
 The submission stack permits both the apex and default Amplify origins. Preserve its Lambda artifact key and catalog table when updating CORS or code. If a content deployment fails, Amplify keeps the prior deployed revision; inspect the failed job before starting another. Check the custom-domain association, redirects, Route 53 apex/`www` records, and email records before changing hosting. A previous successful Amplify revision can be rebuilt from Git if a new content revision regresses.
 

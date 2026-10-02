@@ -15,6 +15,7 @@ interface Props {
   modifiedTimestamp?: string;
   author?: BlogContributor;
   noindex?: boolean;
+  nofollow?: boolean;
 }
 
 const {
@@ -27,11 +28,15 @@ const {
   modifiedTimestamp,
   author,
   noindex = false,
+  nofollow = false,
 } = Astro.props;
 
 // Preview media must resolve on the owned host before the domain cutover.
 const mediaOrigin = import.meta.env.PUBLIC_SITE_ORIGIN || `https://${deployment.branchName}.${deployment.appId}.amplifyapp.com`;
 const productionBuild = import.meta.env.PUBLIC_PRODUCTION === 'true';
+const robots = !productionBuild || noindex || nofollow
+  ? `${productionBuild && !noindex ? 'index' : 'noindex'}, ${productionBuild && !nofollow ? 'follow' : 'nofollow'}`
+  : undefined;
 const imageUrl = new URL(image || '/assets/site-social.png', mediaOrigin).href;
 const socialImageAlt = image
   ? imageAlt
@@ -58,7 +63,7 @@ const articleSchema = publishedTimestamp && canonical && imageUrl
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
     <meta name="description" content={description} />
-    {(!productionBuild || noindex) && <meta name="robots" content="noindex, nofollow" />}
+    {robots && <meta name="robots" content={robots} />}
     {canonical && <link rel="canonical" href={canonical} />}
     <meta property="og:type" content={publishedTimestamp ? 'article' : 'website'} />
     <meta property="og:site_name" content="¿Dónde Aprendo AWS?" />

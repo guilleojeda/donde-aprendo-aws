@@ -31,12 +31,11 @@ const expectedLocations = [
   'https://dondeaprendoaws.com/',
   ...sections.map((section) => `https://dondeaprendoaws.com/${section}/`),
   'https://dondeaprendoaws.com/blog/',
-  'https://dondeaprendoaws.com/buscar/',
   'https://dondeaprendoaws.com/recorridos/',
   ...routes.map(({ slug }) => `https://dondeaprendoaws.com/blog/${slug}/`),
 ].sort();
 assert.deepEqual([...locations].sort(), expectedLocations);
-assert.equal(new Set(locations).size, 204, 'Sitemap URLs must be unique.');
+assert.equal(new Set(locations).size, 203, 'Sitemap URLs must be unique.');
 
 const allDistFiles = filesUnder(dist);
 const allHtmlPaths = allDistFiles.filter((path) => path.endsWith('.html')).map((path) => relative(dist, path).replaceAll('\\', '/'));
@@ -57,6 +56,10 @@ for (const path of allHtmlPaths) {
     assert.ok(!metadata.has(name), `Duplicate metadata ${name}: ${path}`);
     metadata.set(name, decode(attributes.match(/\bcontent="([^"]*)"/)?.[1] ?? ''));
   }
+  const expectedRobots = !production || path === '404.html'
+    ? 'noindex, nofollow'
+    : path === 'buscar/index.html' ? 'noindex, follow' : undefined;
+  assert.equal(metadata.get('robots'), expectedRobots, `Indexing and link-following mode: ${path}`);
   const article = path.startsWith('blog/') && path !== 'blog/index.html';
   assert.equal(metadata.get('og:type'), article ? 'article' : 'website', `Open Graph type: ${path}`);
   assert.equal(metadata.get('og:site_name'), '¿Dónde Aprendo AWS?', `Site identity: ${path}`);
@@ -72,7 +75,9 @@ for (const path of allHtmlPaths) {
   assert.equal(metadata.get('twitter:image'), imageUrl.href, `Matching social images: ${path}`);
   assert.equal(metadata.get('twitter:image:alt'), metadata.get('og:image:alt'), `Matching image alternatives: ${path}`);
   if (article) assert.match(metadata.get('article:published_time'), /^\d{4}-\d{2}-\d{2}T/, `Article publication time: ${path}`);
-  if (path !== '404.html') {
+  if (path === 'buscar/index.html') {
+    assert.ok(!sitemapLastmods.has(metadata.get('og:url')), 'The search utility must not be in the sitemap.');
+  } else if (path !== '404.html') {
     const canonical = metadata.get('og:url');
     assert.ok(sitemapLastmods.has(canonical), `Page must be represented in the sitemap: ${path}`);
     const expectedLastmod = article ? metadata.get('article:modified_time') : undefined;
@@ -120,7 +125,6 @@ for (const path of pagePaths) {
   const html = read(path);
   const analyticsTags = [...html.matchAll(/<script\b[^>]*\bsrc="\/assets\/analytics\.js"[^>]*>/g)];
   assert.equal(analyticsTags.length, production ? 1 : 0, `Analytics tag count: ${path}`);
-  assert.equal(html.includes('<meta name="robots" content="noindex, nofollow"'), !production, `Indexing mode: ${path}`);
 }
 
 const notFound = read('404.html');
@@ -186,4 +190,4 @@ if (process.env.CATALOG_FIXTURE) {
   assert.match(calendar, /DTSTART:20990101T230000Z\r\nDTEND:20990102T010000Z/);
   assert.match(calendar, /URL:https:\/\/example\.com\/encuentro\?source=fixture/);
 }
-console.log(`Verified ${production ? 'production' : 'preview'} indexing, learning paths, unified search, Analytics tags, 204 sitemap URLs, and ${sitemapModificationDates} declared sitemap modification dates.`);
+console.log(`Verified ${production ? 'production' : 'preview'} indexing, learning paths, unified search, Analytics tags, 203 sitemap URLs, and ${sitemapModificationDates} declared sitemap modification dates.`);
