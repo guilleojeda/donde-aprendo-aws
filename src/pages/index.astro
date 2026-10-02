@@ -2,6 +2,7 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import SiteHeader from '../components/SiteHeader.astro';
 import ContributionForm from '../components/ContributionForm.astro';
+import LearnerGuide from '../components/LearnerGuide.astro';
 import Faq from '../components/Faq.astro';
 import Partner from '../components/Partner.astro';
 import SiteFooter from '../components/SiteFooter.astro';
@@ -57,6 +58,8 @@ const routeData = JSON.stringify(legacyResourceRoutes).replaceAll('<', '\\u003c'
       </nav>
 
       <p class="home-path-callout">¿Preferís una guía paso a paso? <a href="/recorridos/">Explorá los recorridos de aprendizaje</a>.</p>
+
+      <LearnerGuide />
 
       {recommended.length > 0 && <section class="home-shelf" aria-labelledby="home-recommended-title">
         <div class="home-shelf__heading"><div><h2 id="home-recommended-title">Para empezar a explorar</h2><p>Una selección de recursos recomendados.</p></div></div>
