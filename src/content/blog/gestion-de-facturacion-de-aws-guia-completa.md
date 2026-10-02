@@ -1,6 +1,7 @@
 ---
 title: "Gestión de Facturación de AWS: Guía Completa"
 description: "Descubre cómo gestionar y optimizar tus costos en AWS con estrategias efectivas y herramientas clave para ahorrar hasta un 90%."
+author: "guille-ojeda"
 publishedAt: "2024-10-26"
 publishedTimestamp: "2024-10-26T18:40:19.127Z"
 cover: "/assets/blog/2363e8e50d51d42bcaec6ec4.webp"

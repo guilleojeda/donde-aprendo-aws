@@ -1,6 +1,7 @@
 ---
 title: "SLAs en AWS: Conceptos Legales Clave"
 description: "Explora los SLAs de AWS, que garantizan alta disponibilidad y establecen un marco legal para el rendimiento y responsabilidades entre el proveedor y el cliente."
+author: "guille-ojeda"
 publishedAt: "2025-01-16"
 publishedTimestamp: "2025-01-16T00:20:32.257Z"
 cover: "/assets/blog/6a87e6f6cd6e98298a62ee1a.jpg"

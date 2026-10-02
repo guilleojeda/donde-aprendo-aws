@@ -1,6 +1,7 @@
 ---
 title: "AWS Lambda: Costo vs. Rendimiento"
 description: "Descubre cómo optimizar costos y mejorar el rendimiento en AWS Lambda con estrategias eficaces y técnicas de optimización en este artículo detallado."
+author: "guille-ojeda"
 publishedAt: "2024-05-08"
 publishedTimestamp: "2024-05-08T05:33:11.031Z"
 cover: "/assets/blog/e7d2b8371eaa07e84e5400f5.jpg"

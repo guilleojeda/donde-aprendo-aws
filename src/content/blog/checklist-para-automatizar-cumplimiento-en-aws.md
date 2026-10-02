@@ -1,6 +1,7 @@
 ---
 title: "Checklist para automatizar cumplimiento en AWS"
 description: "Automatizar el cumplimiento en AWS es esencial para la seguridad y el cumplimiento normativo, optimizando procesos y reduciendo errores."
+author: "guille-ojeda"
 publishedAt: "2025-01-13"
 publishedTimestamp: "2025-01-13T00:14:28.589Z"
 cover: "/assets/blog/a46b50f31e32898c7df40cce.jpg"

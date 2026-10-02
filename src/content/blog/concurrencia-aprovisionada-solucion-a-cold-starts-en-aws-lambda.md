@@ -1,6 +1,7 @@
 ---
 title: "Concurrencia Aprovisionada: Solución a Cold Starts en AWS Lambda"
 description: "Aprende sobre la concurrencia aprovisionada en AWS Lambda, cómo reduce los &#x27;cold starts&#x27; y mejora la experiencia del usuario. Configuración, monitoreo y optimización incluidos."
+author: "guille-ojeda"
 publishedAt: "2024-05-20"
 publishedTimestamp: "2024-05-20T00:03:01.19Z"
 cover: "/assets/blog/4efa7f16e3c389136cc18ae2.png"

@@ -1,6 +1,7 @@
 ---
 title: "Cómo Utilizar Amazon Bedrock"
 description: "Descubre cómo utilizar Amazon Bedrock para integrar inteligencia artificial avanzada en tus proyectos de manera sencilla y eficiente. Aprende sobre requisitos, inscripción, uso de la API, monitoreo de costos y más."
+author: "guille-ojeda"
 publishedAt: "2024-03-18"
 publishedTimestamp: "2024-03-18T23:27:52.315Z"
 cover: "/assets/blog/40a012e9c33f0668e83afad8.png"

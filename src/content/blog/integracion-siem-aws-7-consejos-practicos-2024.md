@@ -1,6 +1,7 @@
 ---
 title: "Integración SIEM-AWS: 7 Consejos Prácticos [2024]"
 description: "Descubre cómo mejorar la seguridad y cumplimiento en AWS con la integración SIEM. Sigue estos 7 consejos prácticos para proteger tu entorno en la nube."
+author: "guille-ojeda"
 publishedAt: "2024-05-05"
 publishedTimestamp: "2024-05-05T01:12:15.503Z"
 cover: "/assets/blog/0f354446d0c7715526e96a32.jpg"

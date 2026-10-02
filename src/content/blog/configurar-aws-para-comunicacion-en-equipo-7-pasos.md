@@ -1,6 +1,7 @@
 ---
 title: "Configurar AWS para Comunicación en Equipo: 7 Pasos"
 description: "Configura AWS para la comunicación en equipo en 7 pasos esenciales. Crea una cuenta, VPC, instala MySQL y Mattermost, implementa servicios de comunicación, monitorea y optimiza costos."
+author: "guille-ojeda"
 publishedAt: "2024-05-20"
 publishedTimestamp: "2024-05-20T00:27:01.26Z"
 cover: "/assets/blog/f92b3e352f4a3a9565a17d1a.jpg"

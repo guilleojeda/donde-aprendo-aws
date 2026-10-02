@@ -1,6 +1,7 @@
 ---
 title: "Comprendiendo Amazon ECS"
 description: "Amazon ECS (Elastic Container Service) es un servicio de AWS que facilita la gestión de aplicaciones en contenedores Docker. Descubre cómo funciona, sus beneficios y cómo empezar a usarlo."
+author: "guille-ojeda"
 publishedAt: "2024-03-07"
 publishedTimestamp: "2024-03-07T23:14:06.199Z"
 cover: "/assets/blog/b69a84da0455667e2bdf35cc.jpg"

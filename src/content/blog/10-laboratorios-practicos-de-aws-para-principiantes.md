@@ -1,8 +1,12 @@
 ---
 title: "10 Laboratorios Prácticos de AWS para Principiantes"
 description: "Diez prácticas de AWS con resultados verificables, recursos de la comunidad y pasos de limpieza: de un bucket privado en S3 a tu primera API."
+author: "guille-ojeda"
 publishedAt: "2024-05-18"
 publishedTimestamp: "2024-05-18T00:59:00.192Z"
+modifiedTimestamp: "2026-09-29T17:03:04-03:00"
+review:
+  date: "2026-09-29"
 cover: "/assets/blog/e9f2fc671d3e9516f2345bb7.png"
 coverAlt: "Nube central rodeada por círculos con iconos de distintos dispositivos"
 indexOrder: 2
@@ -10,7 +14,6 @@ ogImage: "/assets/blog/e9f2fc671d3e9516f2345bb7.png"
 related: []
 ---
 
-*Revisado el 29 de septiembre de 2026.*
 
 La primera vez que entras en AWS es fácil recorrer menús sin saber si realmente aprendiste algo. En estos diez laboratorios harás lo contrario: cada uno termina con una comprobación concreta. Crearás un archivo privado en S3, lo publicarás a través de CloudFront sin abrir el bucket, ejecutarás una función, leerás sus registros y expondrás una pequeña API. También practicarás permisos, datos, redes y despliegues.
 

@@ -1,6 +1,7 @@
 ---
 title: "Estructuras multi-cuenta AWS para escalar"
 description: "Las estructuras multi-cuenta en AWS optimizan la gestión de recursos, mejoran la seguridad y controlan costes, ideales para empresas en crecimiento."
+author: "guille-ojeda"
 publishedAt: "2025-09-08"
 publishedTimestamp: "2025-09-08T14:45:28.938000+00:00"
 cover: "/assets/blog/0e9e4bdd57782b78da6d878e.jpg"

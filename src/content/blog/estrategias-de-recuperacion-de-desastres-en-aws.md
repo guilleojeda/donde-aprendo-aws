@@ -1,6 +1,7 @@
 ---
 title: "Estrategias de Recuperación de Desastres en AWS"
 description: "Descubre las estrategias clave de recuperación de desastres en AWS, incluyendo RTO, RPO, copias de seguridad, AWS Elastic Disaster Recovery y más. Aprende cómo prepararte eficazmente para cualquier adversidad."
+author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T02:40:38.528Z"
 cover: "/assets/blog/df6cee7d6c3bd49e97412d95.jpg"

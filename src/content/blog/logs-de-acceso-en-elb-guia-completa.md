@@ -1,6 +1,7 @@
 ---
 title: "Logs de acceso en ELB: Guía completa"
 description: "Aprende cómo configurar y analizar los logs de acceso en ELB para mejorar la seguridad y rendimiento de tu infraestructura en AWS."
+author: "guille-ojeda"
 publishedAt: "2025-03-13"
 publishedTimestamp: "2025-03-13T03:14:10.062000+00:00"
 cover: "/assets/blog/fe79fa50612b43f06d41c37a.jpg"

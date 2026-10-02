@@ -1,6 +1,7 @@
 ---
 title: "Personalización en tiempo real con AWS: Casos de uso"
 description: "Descubre cómo AWS potencia la personalización en tiempo real para mejorar la experiencia del cliente y aumentar la conversión con herramientas innovadoras y casos de uso específicos."
+author: "guille-ojeda"
 publishedAt: "2024-04-29"
 publishedTimestamp: "2024-04-29T09:45:01.725Z"
 cover: "/assets/blog/80447419580996138f728ccb.jpg"

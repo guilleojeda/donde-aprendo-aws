@@ -1,6 +1,7 @@
 ---
 title: "Cómo monitorear SLOs con Amazon CloudWatch"
 description: "Aprende a monitorear objetivos de nivel de servicio (SLOs) con Amazon CloudWatch, optimizando la disponibilidad y rendimiento de tus aplicaciones."
+author: "guille-ojeda"
 publishedAt: "2025-02-24"
 publishedTimestamp: "2025-02-24T06:43:53.013Z"
 cover: "/assets/blog/0919cf4ddfe7647a0c71877c.jpg"

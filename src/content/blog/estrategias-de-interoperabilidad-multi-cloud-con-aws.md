@@ -1,6 +1,7 @@
 ---
 title: "Estrategias de Interoperabilidad Multi-Cloud con AWS"
 description: "Descubre cómo AWS potencia la interoperabilidad multi-nube mejorando seguridad, flexibilidad y escalabilidad en operaciones en la nube."
+author: "guille-ojeda"
 publishedAt: "2024-05-04"
 publishedTimestamp: "2024-05-04T01:13:32.772Z"
 cover: "/assets/blog/36e16d8c286c92c9ff8903fc.jpg"

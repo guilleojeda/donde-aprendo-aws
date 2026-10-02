@@ -1,6 +1,7 @@
 ---
 title: "Guía para Implementar Machine Learning con Amazon SageMaker"
 description: "Aprende a implementar Machine Learning en la nube con SageMaker, desde la preparación de datos hasta el despliegue de modelos en producción."
+author: "guille-ojeda"
 publishedAt: "2025-03-06"
 publishedTimestamp: "2025-03-06T03:07:26.337Z"
 cover: "/assets/blog/57b9e13953de77f8b6210bc2.jpg"

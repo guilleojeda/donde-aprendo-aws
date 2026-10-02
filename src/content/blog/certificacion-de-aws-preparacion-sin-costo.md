@@ -1,8 +1,10 @@
 ---
 title: "Certificación de AWS: Preparación sin Costo"
 description: "Recursos gratuitos y consejos para prepararte para una certificación de AWS. Aprende sobre los diferentes tipos de certificaciones, cómo certificarte en AWS, y cómo continuar la educación después de la certificación."
+author: "guille-ojeda"
 publishedAt: "2024-01-28"
 publishedTimestamp: "2024-01-28T23:43:20.471Z"
+modifiedTimestamp: "2026-10-01T15:14:05-03:00"
 cover: "/assets/blog/b85977e8b87b51eadb100d2e.jpg"
 coverAlt: "Camino sinuoso entre montañas con pequeñas señales"
 ogImage: "/assets/blog/b85977e8b87b51eadb100d2e.jpg"

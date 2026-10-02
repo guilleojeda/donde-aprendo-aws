@@ -1,6 +1,7 @@
 ---
 title: "Mejores Prácticas Para Amazon DynamoDB"
 description: "Consejos y mejores prácticas para utilizar Amazon DynamoDB de manera eficiente y segura. Aprende sobre diseño de tablas, ajuste de capacidad, seguridad, índices secundarios y operaciones de lectura/escritura."
+author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T04:08:02.203Z"
 cover: "/assets/blog/4cce0f893747a12210fe7416.jpg"

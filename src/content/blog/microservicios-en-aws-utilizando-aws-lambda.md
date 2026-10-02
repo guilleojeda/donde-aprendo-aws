@@ -1,6 +1,7 @@
 ---
 title: "Microservicios en AWS Utilizando AWS Lambda"
 description: "Descubre cómo utilizar AWS Lambda para desarrollar eficientes microservicios en AWS, desde la configuración y el código hasta la integración, despliegue y monitoreo. Explora las ventajas y conceptos básicos de los microservicios y AWS Lambda."
+author: "guille-ojeda"
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T00:50:24.052Z"
 cover: "/assets/blog/7db368f44486be089c66ca22.jpg"

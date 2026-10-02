@@ -1,6 +1,7 @@
 ---
 title: "Conectar dispositivos IoT a AWS usando el SDK de C++"
 description: "Aprende a conectar dispositivos IoT a AWS con el SDK de C++ para un desarrollo eficiente. Incluye configuración, autenticación y manejo de sombras de cosas."
+author: "guille-ojeda"
 publishedAt: "2024-05-10"
 publishedTimestamp: "2024-05-10T02:52:14.698Z"
 cover: "/assets/blog/066ea33361c58e79e3d5a983.jpg"

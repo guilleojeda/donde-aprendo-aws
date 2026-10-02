@@ -1,6 +1,7 @@
 ---
 title: "Mejores prácticas para nombres en AWS Organizations"
 description: "Gestiona eficientemente tus cuentas de AWS con mejores prácticas de nomenclatura, organización y etiquetado para optimizar recursos y costos."
+author: "guille-ojeda"
 publishedAt: "2025-03-03"
 publishedTimestamp: "2025-03-03T04:59:25.364Z"
 cover: "/assets/blog/bfdfed56910493c9a698fb14.jpg"

@@ -1,6 +1,7 @@
 ---
 title: "Opciones para Desplegar Contenedores en AWS: ECS y EKS"
 description: "Descubre las diferencias entre Amazon ECS y Amazon EKS al desplegar contenedores en AWS. Conoce las ventajas, características y casos de uso de cada servicio para elegir el adecuado para tus proyectos."
+author: "guille-ojeda"
 publishedAt: "2024-03-07"
 publishedTimestamp: "2024-03-07T23:41:11.485Z"
 cover: "/assets/blog/fce8d84a0c54b5cb44769316.png"

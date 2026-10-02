@@ -1,6 +1,7 @@
 ---
 title: "Seguridad y Control de Costos en AWS: Guía 2024"
 description: "Descubre estrategias efectivas para la gestión de costos y la seguridad en AWS con herramientas como AWS Budgets y Cost Anomaly Detection en nuestra guía completa de 2024."
+author: "guille-ojeda"
 publishedAt: "2024-05-11"
 publishedTimestamp: "2024-05-11T04:46:00.274Z"
 cover: "/assets/blog/fa1b6e3bfee7c71b39327fcd.jpg"

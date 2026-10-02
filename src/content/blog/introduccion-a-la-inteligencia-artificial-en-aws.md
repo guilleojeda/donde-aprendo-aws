@@ -1,6 +1,7 @@
 ---
 title: "Introducción a la Inteligencia Artificial en AWS"
 description: "Descubre cómo AWS facilita el uso de la Inteligencia Artificial con servicios accesibles para todos. Aprende sobre Rekognition, SageMaker, aplicaciones prácticas y mejores prácticas en proyectos de IA."
+author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:08:46.131Z"
 cover: "/assets/blog/740fd46916e44bd2c61ce62c.png"

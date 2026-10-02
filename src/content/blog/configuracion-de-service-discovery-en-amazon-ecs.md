@@ -1,6 +1,7 @@
 ---
 title: "Configuración de Service Discovery en Amazon ECS"
 description: "Aprende a configurar el Service Discovery en Amazon ECS para mejorar la escalabilidad y flexibilidad de tus aplicaciones. Sigue los pasos detallados y las mejores prácticas para una implementación efectiva."
+author: "guille-ojeda"
 publishedAt: "2024-05-19"
 publishedTimestamp: "2024-05-19T00:02:00.421Z"
 cover: "/assets/blog/06c78ff6dbda05d66c1f63e8.jpg"

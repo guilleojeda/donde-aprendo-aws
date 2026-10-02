@@ -1,6 +1,7 @@
 ---
 title: "10 Mejores Prácticas de AWS para Detección de Amenazas en Tiempo Real"
 description: "Descubre las 10 prácticas esenciales de AWS para mejorar la detección de amenazas en tiempo real y asegurar tus aplicaciones y datos en la nube."
+author: "guille-ojeda"
 publishedAt: "2024-05-11"
 publishedTimestamp: "2024-05-11T05:27:40.366Z"
 cover: "/assets/blog/c03425ae80465af167cf55e5.jpg"

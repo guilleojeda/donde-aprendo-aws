@@ -1,6 +1,7 @@
 ---
 title: "Visualiza Costos con AWS Cost and Usage Reports y QuickSight"
 description: "Transforma tus datos de costos de AWS en visualizaciones efectivas con Cost and Usage Reports y QuickSight, optimizando así tus gastos en la nube."
+author: "guille-ojeda"
 publishedAt: "2025-09-04"
 publishedTimestamp: "2025-09-04T02:52:29.834000+00:00"
 cover: "/assets/blog/bcf6fecd181e12cedeeed88a.jpg"

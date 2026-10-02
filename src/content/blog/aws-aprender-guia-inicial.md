@@ -1,8 +1,12 @@
 ---
 title: "Aprender AWS desde cero: una ruta práctica con recursos en español"
 description: "Empieza a aprender AWS con una práctica gratuita, recursos de comunidades en español y una ruta para elegir tu siguiente paso sin perder de vista la seguridad y los costos."
+author: "guille-ojeda"
 publishedAt: "2024-01-26"
 publishedTimestamp: "2024-01-26T04:07:45.093Z"
+modifiedTimestamp: "2026-09-29T20:58:37-03:00"
+review:
+  date: "2026-09-29"
 cover: "/assets/blog/9eb7bc020e08de9a43291902.jpg"
 coverAlt: "Nube central conectada a varios iconos circulares sobre fondo oscuro"
 indexOrder: 4
@@ -10,7 +14,6 @@ ogImage: "/assets/blog/9eb7bc020e08de9a43291902.jpg"
 related: []
 ---
 
-*Revisado el 29 de septiembre de 2026.*
 
 Aprender AWS no exige memorizar un catálogo de servicios ni programar desde el primer día. Lo útil es entender qué problema resuelve cada herramienta, hacer una práctica pequeña y encontrar a otras personas con quienes seguir aprendiendo. Puedes empezar sin abrir una cuenta de AWS: hay explicaciones y laboratorios gratuitos que te permiten descubrir si este camino te interesa antes de desplegar recursos por tu cuenta.
 

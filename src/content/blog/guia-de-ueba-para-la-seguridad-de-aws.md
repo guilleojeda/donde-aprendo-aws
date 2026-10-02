@@ -1,6 +1,7 @@
 ---
 title: "Guía de UEBA para la Seguridad de AWS"
 description: "Explora cómo UEBA fortalece la seguridad en AWS, integrándose con herramientas como GuardDuty y SIEM para detección eficaz de amenazas y respuesta a incidentes."
+author: "guille-ojeda"
 publishedAt: "2024-04-29"
 publishedTimestamp: "2024-04-29T00:07:13.97Z"
 cover: "/assets/blog/77827c07de64ac355ca01278.jpg"

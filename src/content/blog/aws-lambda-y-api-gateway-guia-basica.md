@@ -1,6 +1,7 @@
 ---
 title: "AWS Lambda y API Gateway: Guía Básica"
 description: "Aprende a integrar AWS Lambda y API Gateway para crear aplicaciones serverless escalables y eficientes, con una guía paso a paso."
+author: "guille-ojeda"
 publishedAt: "2024-11-28"
 publishedTimestamp: "2024-11-28T01:29:24.642Z"
 cover: "/assets/blog/2aa39fe7ff55b6a37888515e.jpg"

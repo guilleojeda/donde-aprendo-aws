@@ -1,6 +1,7 @@
 ---
 title: "Cómo Desplegar una Aplicación en Amazon EKS"
 description: "Aprende cómo desplegar una aplicación en Amazon EKS paso a paso. Descubre los conceptos básicos de Kubernetes y Amazon EKS, requisitos previos, creación de clúster EKS, despliegue de aplicaciones, gestión del tráfico, escalado y más."
+author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:18:48.675Z"
 cover: "/assets/blog/b0397a49b6dcdda375e046d4.jpg"

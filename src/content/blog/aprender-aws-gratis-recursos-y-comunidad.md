@@ -1,8 +1,12 @@
 ---
 title: "Aprender AWS gratis en español: recursos y comunidades para avanzar"
 description: "Aprende AWS gratis en español con cursos, laboratorios y recursos de la comunidad. Encuentra dónde practicar, cómo cuidar los costos y con quién seguir aprendiendo."
+author: "guille-ojeda"
 publishedAt: "2024-01-27"
 publishedTimestamp: "2024-01-27T01:37:04.435Z"
+modifiedTimestamp: "2026-09-30T12:56:37-03:00"
+review:
+  date: "2026-09-30"
 cover: "/assets/blog/c7227ae982494a7ce1620070.jpg"
 coverAlt: "Nube sobre una mano estilizada y una fila de símbolos de colores"
 indexOrder: 6
@@ -10,7 +14,6 @@ ogImage: "/assets/blog/c7227ae982494a7ce1620070.jpg"
 related: []
 ---
 
-*Revisado el 30 de septiembre de 2026.*
 
 Puedes aprender AWS sin comprar un curso. Hay explicaciones, clases grabadas, laboratorios y comunidades en español que te permiten empezar y seguir profundizando. El desafío es elegir un material adecuado para lo que necesitas hacer y convertirlo en algo que puedas explicar o resolver por tu cuenta.
 

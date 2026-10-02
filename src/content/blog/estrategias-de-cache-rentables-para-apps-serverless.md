@@ -1,6 +1,7 @@
 ---
 title: "Estrategias de Caché Rentables para Apps Serverless"
 description: "Descubre cómo implementar estrategias de caché en aplicaciones serverless para mejorar la velocidad y reducir costos en AWS."
+author: "guille-ojeda"
 publishedAt: "2024-10-27"
 publishedTimestamp: "2024-10-27T02:26:14.893Z"
 cover: "/assets/blog/ddae590c4e3ebe901251f97c.webp"

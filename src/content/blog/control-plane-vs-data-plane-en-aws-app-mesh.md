@@ -1,6 +1,7 @@
 ---
 title: "Control Plane vs Data Plane en AWS App Mesh"
 description: "Explora las diferencias entre el plano de control y el plano de datos en AWS App Mesh, y cómo optimizan el tráfico en arquitecturas de microservicios."
+author: "guille-ojeda"
 publishedAt: "2025-01-06"
 publishedTimestamp: "2025-01-06T00:21:30.764Z"
 cover: "/assets/blog/97233420c8e51dbede977f2c.jpg"

@@ -1,6 +1,7 @@
 ---
 title: "AWS OpsWorks para Chef y Puppet: Preguntas Frecuentes"
 description: "Guía definitiva de AWS OpsWorks para la automatización y gestión de configuración con Chef y Puppet, y cómo planificar la migración tras el fin de vida útil de Puppet Enterprise."
+author: "guille-ojeda"
 publishedAt: "2024-05-06"
 publishedTimestamp: "2024-05-06T20:31:06.838Z"
 cover: "/assets/blog/865feccab5c0ad8e72605945.jpg"

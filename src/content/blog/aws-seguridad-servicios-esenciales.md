@@ -1,6 +1,7 @@
 ---
 title: "AWS Seguridad: Servicios Esenciales"
 description: "Descubre los servicios esenciales de seguridad de AWS, cómo protegen tus datos y aplicaciones en la nube, y las mejores prácticas para fortalecer tu entorno de nube de AWS."
+author: "guille-ojeda"
 publishedAt: "2024-01-25"
 publishedTimestamp: "2024-01-25T01:35:54.384Z"
 cover: "/assets/blog/2ac2bf3abc517088f07fb837.png"

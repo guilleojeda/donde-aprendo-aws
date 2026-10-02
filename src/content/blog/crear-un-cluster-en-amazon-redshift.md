@@ -1,6 +1,7 @@
 ---
 title: "Crear un Cluster en Amazon Redshift"
 description: "Aprende a crear, configurar y optimizar clústeres en Amazon Redshift para un análisis de datos eficiente y seguro."
+author: "guille-ojeda"
 publishedAt: "2025-04-28"
 publishedTimestamp: "2025-04-28T03:36:05.740000+00:00"
 cover: "/assets/blog/2ce2762453f46a717ff15e81.jpg"

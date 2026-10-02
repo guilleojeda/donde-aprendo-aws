@@ -1,6 +1,7 @@
 ---
 title: "Arquitecturas de Alta Disponibilidad en AWS"
 description: "Conoce las claves para lograr alta disponibilidad en AWS, desde la distribución de recursos hasta el monitoreo proactivo. Descubre cómo implementar arquitecturas de alta disponibilidad en la nube."
+author: "guille-ojeda"
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T00:31:23.985Z"
 cover: "/assets/blog/1b184fe1242c3e7fb970e984.jpg"

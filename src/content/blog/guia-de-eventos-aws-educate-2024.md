@@ -1,6 +1,7 @@
 ---
 title: "Guía de Eventos AWS Educate 2024"
 description: "Aprende cómo sacar el máximo provecho de los eventos de AWS Educate para mejorar tus habilidades en la nube, conectar con profesionales y avanzar en tu carrera."
+author: "guille-ojeda"
 publishedAt: "2024-05-18"
 publishedTimestamp: "2024-05-18T00:29:00.242Z"
 cover: "/assets/blog/835302183289e4165c02383b.jpg"

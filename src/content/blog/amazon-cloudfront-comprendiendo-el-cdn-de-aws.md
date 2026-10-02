@@ -1,8 +1,10 @@
 ---
 title: "Amazon CloudFront: Comprendiendo el CDN de AWS"
 description: "Amazon CloudFront es un servicio de CDN de AWS que ayuda a acelerar y asegurar la entrega de contenido en todo el mundo. Descubre sus características, integraciones con otros servicios de AWS y opciones de seguridad."
+author: "guille-ojeda"
 publishedAt: "2024-03-07"
 publishedTimestamp: "2024-03-07T23:58:11.718Z"
+modifiedTimestamp: "2026-10-01T15:14:05-03:00"
 cover: "/assets/blog/63a303953815b71e5babcb84.jpg"
 coverAlt: "Globo terráqueo conectado radialmente a iconos de dispositivos"
 ogImage: "/assets/blog/63a303953815b71e5babcb84.jpg"

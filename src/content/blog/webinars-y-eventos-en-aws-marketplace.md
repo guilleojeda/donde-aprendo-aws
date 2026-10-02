@@ -1,6 +1,7 @@
 ---
 title: "Webinars y Eventos en AWS Marketplace"
 description: "Descubre cómo los webinars y eventos en AWS Marketplace pueden transformar tu negocio con conocimientos expertos y soluciones de software innovadoras."
+author: "guille-ojeda"
 publishedAt: "2024-04-28"
 publishedTimestamp: "2024-04-28T22:20:08.853Z"
 cover: "/assets/blog/8f2a908f4bdb73449da17e82.jpg"

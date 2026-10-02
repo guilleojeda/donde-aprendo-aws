@@ -1,6 +1,7 @@
 ---
 title: "AWS OpsWorks: Automatiza Despliegues con Chef"
 description: "Explora cómo AWS OpsWorks con Chef automatiza el despliegue y la gestión de aplicaciones en la nube, y aprende sobre recetas, capas y mejores prácticas."
+author: "guille-ojeda"
 publishedAt: "2024-05-10"
 publishedTimestamp: "2024-05-10T07:15:01.296Z"
 cover: "/assets/blog/6b2f0b16a8f28318691c2a8d.jpg"

@@ -1,6 +1,7 @@
 ---
 title: "Observabilidad en AWS con Amazon X-Ray"
 description: "Descubre cómo Amazon X-Ray en AWS te ayuda a detectar errores, optimizar el rendimiento y mantener la seguridad en tus aplicaciones en la nube. Aprende su funcionamiento y casos de uso."
+author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:29:48.795Z"
 cover: "/assets/blog/9c1a2ce4c93fa5462aba7299.jpg"

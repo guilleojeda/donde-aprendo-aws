@@ -1,6 +1,7 @@
 ---
 title: "Integración de AWS App Mesh con EKS: Guía paso a paso"
 description: "Aprende a integrar AWS App Mesh con Amazon EKS para mejorar la comunicación entre microservicios, la disponibilidad y la seguridad de tus aplicaciones en la nube."
+author: "guille-ojeda"
 publishedAt: "2024-05-11"
 publishedTimestamp: "2024-05-11T01:55:00.323Z"
 cover: "/assets/blog/b6336599f042126db9b5d45c.png"

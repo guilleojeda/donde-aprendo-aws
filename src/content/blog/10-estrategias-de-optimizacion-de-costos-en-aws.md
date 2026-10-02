@@ -1,6 +1,7 @@
 ---
 title: "10 Estrategias de Optimización de Costos en AWS"
 description: "Descubre 10 estrategias efectivas para optimizar costos en AWS, desde redimensionar instancias EC2 hasta adoptar una arquitectura sin servidor con AWS Lambda. Aprende a reducir tus gastos en la nube."
+author: "guille-ojeda"
 publishedAt: "2024-05-20"
 publishedTimestamp: "2024-05-20T01:10:01.307Z"
 cover: "/assets/blog/74f152c85b46e1ac5ea004f9.jpg"

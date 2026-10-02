@@ -1,6 +1,7 @@
 ---
 title: "Mejores Prácticas Para Amazon EKS"
 description: "Descubre las mejores prácticas para aprovechar al máximo Amazon EKS, desde la facilidad de uso y escalabilidad hasta la optimización de costes y casos de uso comunes. Aprende cómo funciona Amazon EKS y sus componentes clave."
+author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:58:54.462Z"
 cover: "/assets/blog/5db43c07fa6733b870313471.jpg"

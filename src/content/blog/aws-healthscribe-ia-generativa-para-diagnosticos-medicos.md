@@ -1,6 +1,7 @@
 ---
 title: "AWS HealthScribe: IA Generativa para Diagnósticos Médicos"
 description: "Descubre cómo AWS HealthScribe revoluciona la documentación médica con IA generativa, reduciendo tiempos y costos y mejorando diagnósticos."
+author: "guille-ojeda"
 publishedAt: "2024-05-08"
 publishedTimestamp: "2024-05-08T02:21:01.272Z"
 cover: "/assets/blog/cac2ef4bd724a0e8247e5e35.jpg"

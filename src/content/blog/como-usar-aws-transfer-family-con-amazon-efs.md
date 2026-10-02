@@ -1,6 +1,7 @@
 ---
 title: "Cómo Usar AWS Transfer Family con Amazon EFS"
 description: "Aprende a integrar AWS Transfer Family con Amazon EFS para una transferencia de archivos segura y escalable, siguiendo los pasos clave para su configuración y optimización."
+author: "guille-ojeda"
 publishedAt: "2024-05-05"
 publishedTimestamp: "2024-05-05T05:44:31.414Z"
 cover: "/assets/blog/4f1c44f2f3d79e3f40174550.jpg"

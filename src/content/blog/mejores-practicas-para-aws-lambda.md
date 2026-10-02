@@ -1,6 +1,7 @@
 ---
 title: "Mejores Prácticas Para AWS Lambda"
 description: "Consejos clave para optimizar y asegurar tus aplicaciones sin servidor con AWS Lambda. Aprende a simplificar tu código, configurar cuidadosamente y monitorear tu función para un rendimiento óptimo."
+author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:26:48.732Z"
 cover: "/assets/blog/020c3be0259dc50cecb2155a.png"

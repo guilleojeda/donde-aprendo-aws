@@ -1,6 +1,7 @@
 ---
 title: "Base de Datos Global con Amazon DynamoDB"
 description: "Descubre cómo aprovechar las tablas globales de Amazon DynamoDB para tener una base de datos rápida, escalable y segura en todo el mundo. Configuración, replicación, seguridad y procesamiento en tiempo real."
+author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T02:19:41.967Z"
 cover: "/assets/blog/b74e56b41e26732c7dfc378e.png"

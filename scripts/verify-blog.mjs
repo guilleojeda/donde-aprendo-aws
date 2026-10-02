@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { parse as parseYaml } from 'yaml';
+import { BLOG_CONTRIBUTORS } from '../src/lib/blog-contributors.mjs';
+import { createBlogMetadataSchema, contributorStructuredData, formatBlogDate } from '../src/lib/blog-metadata.mjs';
 import deployment from '../config/deployment.json' with { type: 'json' };
 
 const dist = resolve('dist');
@@ -8,6 +11,7 @@ const production = process.env.PUBLIC_PRODUCTION === 'true';
 const mediaOrigin = new URL(process.env.PUBLIC_SITE_ORIGIN || `https://${deployment.branchName}.${deployment.appId}.amplifyapp.com`).origin;
 const expected = JSON.parse(readFileSync('tests/fixtures/blog-index.json', 'utf8'));
 const archive = JSON.parse(readFileSync('tests/fixtures/blog-routes.json', 'utf8'));
+const metadataSchema = createBlogMetadataSchema(BLOG_CONTRIBUTORS);
 const read = (path) => readFileSync(resolve(dist, path), 'utf8');
 const decode = (value) => value
   .replaceAll('&amp;', '&')
@@ -45,6 +49,8 @@ assert.deepEqual(generated, archive.map(({ slug }) => slug).sort());
 const allPages = [index];
 const assetPaths = new Set();
 const pathMembership = new Map();
+let modifiedArticles = 0;
+let reviewedArticles = 0;
 const learningPage = read('recorridos/index.html');
 for (const [, id, section] of learningPage.matchAll(/<section class="learning-path" id="([^"]+)"[^>]*>([\s\S]*?)<\/section>/g)) {
   const title = decode(section.match(/<h2\b[^>]*>([\s\S]*?)<\/h2>/)?.[1] ?? '');
@@ -61,6 +67,52 @@ for (const [, id, section] of learningPage.matchAll(/<section class="learning-pa
 assert.equal(pathMembership.size, 9, 'Existing paths must identify their nine blog articles.');
 for (const article of archive) {
   const html = read(`blog/${article.slug}/index.html`);
+  const source = readFileSync(`src/content/blog/${article.slug}.md`, 'utf8');
+  const frontmatter = source.match(/^---\n([\s\S]*?)\n---\n/)?.[1];
+  assert.ok(frontmatter, `Frontmatter missing: ${article.slug}`);
+  const data = metadataSchema.parse(parseYaml(frontmatter));
+  assert.equal(data.publishedAt, article.publishedAt, `Original publication day changed: ${article.slug}`);
+  assert.equal(data.publishedTimestamp, article.publishedTimestamp, `Original publication timestamp changed: ${article.slug}`);
+  const structuredData = [...html.matchAll(/<script\b[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)]
+    .map(([, json]) => JSON.parse(json));
+  const blogPostings = structuredData.filter((node) => node['@type'] === 'BlogPosting');
+  assert.equal(blogPostings.length, 1, `Exactly one BlogPosting is required: ${article.slug}`);
+  const posting = blogPostings[0];
+  const author = BLOG_CONTRIBUTORS[data.author];
+  assert.deepEqual(posting.author, contributorStructuredData(author), `Confirmed structured author: ${article.slug}`);
+  assert.equal(posting.datePublished, article.publishedTimestamp, `Exact original datePublished: ${article.slug}`);
+  assert.equal(posting.dateModified, data.modifiedTimestamp, `Only declared significant modifications: ${article.slug}`);
+  assert.equal(html.match(/<meta property="article:published_time" content="([^"]+)"/)?.[1], article.publishedTimestamp);
+  assert.equal(html.match(/<meta property="article:modified_time" content="([^"]+)"/)?.[1], data.modifiedTimestamp);
+  const metadata = html.match(/<div class="blog-article__metadata"[^>]*>([\s\S]*?)<\/div>/)?.[1];
+  assert.ok(metadata, `Common article metadata missing: ${article.slug}`);
+  const authorRow = metadata.match(/<p>Por ([\s\S]*?)<\/p>/)?.[1] ?? '';
+  assert.equal(decode(authorRow.replace(/<[^>]*>/g, '')), author.name, `Visible author: ${article.slug}`);
+  assert.equal(decode(authorRow.match(/<a href="([^"]+)" rel="author">/)?.[1] ?? '') || undefined, author.url,
+    `Confirmed author profile: ${article.slug}`);
+  const times = [...metadata.matchAll(/<time datetime="([^"]+)">([^<]+)<\/time>/g)]
+    .map(([, datetime, text]) => [datetime, decode(text)]);
+  const expectedTimes = [[article.publishedTimestamp, formatBlogDate(article.publishedAt)]];
+  assert.match(metadata, /Publicado el <time /);
+  assert.equal(metadata.includes('Actualizado el '), Boolean(data.modifiedTimestamp), `Modification label: ${article.slug}`);
+  if (data.modifiedTimestamp) {
+    modifiedArticles++;
+    expectedTimes.push([data.modifiedTimestamp, formatBlogDate(data.modifiedTimestamp.slice(0, 10))]);
+  }
+  assert.equal(metadata.includes('Revisado '), Boolean(data.review), `Review label: ${article.slug}`);
+  if (data.review) {
+    reviewedArticles++;
+    expectedTimes.push([data.review.date, formatBlogDate(data.review.date)]);
+    const reviewer = data.review.by && BLOG_CONTRIBUTORS[data.review.by];
+    const reviewRow = metadata.match(/<p>(Revisado [\s\S]*?)<\/p>/)?.[1] ?? '';
+    const expectedPrefix = reviewer ? `Revisado por ${reviewer.name} el ` : 'Revisado el ';
+    assert.ok(decode(reviewRow.replace(/<[^>]*>/g, '')).startsWith(expectedPrefix), `Visible review identity: ${article.slug}`);
+    assert.equal(decode(reviewRow.match(/<a href="([^"]+)"/)?.[1] ?? '') || undefined, reviewer?.url,
+      `Confirmed reviewer profile: ${article.slug}`);
+    if (data.review.note) assert.ok(decode(reviewRow).includes(` · ${data.review.note}`), `Review context: ${article.slug}`);
+  }
+  assert.deepEqual(times, expectedTimes, `Semantic and visible dates agree: ${article.slug}`);
+  assert.doesNotMatch(html, /<em>Revisado el (?:29|30) de septiembre de 2026/, `No duplicate manual review: ${article.slug}`);
   allPages.push(html);
   const memberships = pathMembership.get(`/blog/${article.slug}/`) ?? [];
   const pathNav = html.match(/<nav class="blog-paths"[^>]*>([\s\S]*?)<\/nav>/)?.[1];
@@ -170,4 +222,4 @@ for (const { slug, comments } of articlesWithCodeComments) {
   }
 }
 
-console.log(`Verified ${expected.length} featured cards, ${archiveUrls.length} archive links, ${archive.length} article routes, ${pathMembership.size} article path continuations, both blog menus, and ${assetPaths.size} owned images.`);
+console.log(`Verified ${archive.length} confirmed authors and exact original publication dates, ${modifiedArticles} declared modifications, ${reviewedArticles} reviews, ${expected.length} featured cards, ${archiveUrls.length} archive links, ${pathMembership.size} article path continuations, both blog menus, and ${assetPaths.size} owned images.`);

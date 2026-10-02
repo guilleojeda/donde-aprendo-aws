@@ -1,6 +1,7 @@
 ---
 title: "10 Casos de Uso de ML de AWS en Agricultura"
 description: "Descubre cómo AWS ML transforma la agricultura con predicción de cultivos, detección de enfermedades y más para una producción eficiente y sostenible."
+author: "guille-ojeda"
 publishedAt: "2024-05-09"
 publishedTimestamp: "2024-05-09T04:29:13.731Z"
 cover: "/assets/blog/b531b459f1900e0e59a6d476.jpg"

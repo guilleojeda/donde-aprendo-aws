@@ -1,6 +1,7 @@
 ---
 title: "Guía Completa sobre Amazon EFS y FSX"
 description: "Una guía completa sobre Amazon EFS y FSX, comparando características, casos de uso y cómo implementar y administrar estos servicios de almacenamiento en la nube de AWS."
+author: "guille-ojeda"
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T01:14:24.835Z"
 cover: "/assets/blog/9018003cbe19f3288dffc90d.jpg"

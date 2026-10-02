@@ -1,6 +1,7 @@
 ---
 title: "Desarrollando Aplicaciones con AWS Lambda"
 description: "AWS Lambda es una herramienta poderosa para desarrollar aplicaciones escalables sin preocuparse por la infraestructura. Aprende sobre AWS Lambda, ventajas, casos de uso, desarrollo, despliegue, integración con otros servicios de AWS y optimización."
+author: "guille-ojeda"
 publishedAt: "2024-03-07"
 publishedTimestamp: "2024-03-07T14:09:19.83Z"
 cover: "/assets/blog/699efcfd9fc0a59df5186b93.png"

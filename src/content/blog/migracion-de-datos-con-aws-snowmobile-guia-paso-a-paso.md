@@ -1,6 +1,7 @@
 ---
 title: "Migración de Datos con AWS Snowmobile: Guía Paso a Paso"
 description: "Guía detallada para migrar grandes cantidades de datos a AWS de forma rápida, segura y económica utilizando AWS Snowmobile. Incluye preparativos, planificación, proceso de transferencia y seguridad."
+author: "guille-ojeda"
 publishedAt: "2024-05-16"
 publishedTimestamp: "2024-05-16T15:02:01.266Z"
 cover: "/assets/blog/3469cfa7d51896eb4b791860.jpg"

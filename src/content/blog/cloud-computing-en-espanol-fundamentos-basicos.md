@@ -1,6 +1,7 @@
 ---
 title: "Cloud computing en español: fundamentos básicos"
 description: "Fundamentos de cloud computing, modelos de servicio, aplicaciones, ventajas y desventajas, arquitecturas de nubes públicas, privadas e híbridas, implementación de cloud computing con Amazon AWS, mejores prácticas y estrategias, tendencias emergentes y futuro del cloud computing."
+author: "guille-ojeda"
 publishedAt: "2024-01-26"
 publishedTimestamp: "2024-01-26T05:05:32.947Z"
 cover: "/assets/blog/9d8403a4cf66ec6c49656be3.jpg"

@@ -1,6 +1,7 @@
 ---
 title: "Conceptos Básicos y Avanzados de Amazon VPC"
 description: "Descubre los conceptos básicos y avanzados de Amazon VPC, cómo configurar tu red en la nube de AWS, y estrategias de seguridad y ahorro de costos. Aprende todo sobre Amazon VPC en esta guía detallada."
+author: "guille-ojeda"
 publishedAt: "2024-03-07"
 publishedTimestamp: "2024-03-07T14:04:18.731Z"
 cover: "/assets/blog/12c27432a1ba20e5bffcb7b0.jpg"

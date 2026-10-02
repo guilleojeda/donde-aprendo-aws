@@ -1,6 +1,7 @@
 ---
 title: "AWS Organizations: Estructuras de cuentas y nombres"
 description: "Aprende a gestionar eficientemente cuentas en AWS Organizations mediante una estructura clara y un sistema de nombres estandarizado."
+author: "guille-ojeda"
 publishedAt: "2025-02-27"
 publishedTimestamp: "2025-02-27T04:44:08.163Z"
 cover: "/assets/blog/0bc804415b6cb6339123371f.jpg"

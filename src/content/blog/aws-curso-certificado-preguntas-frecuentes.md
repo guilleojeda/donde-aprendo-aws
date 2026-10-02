@@ -1,8 +1,10 @@
 ---
 title: "AWS curso certificado: preguntas frecuentes"
 description: "Obtén respuestas a tus preguntas sobre los cursos y certificaciones de AWS, desde los niveles de certificación hasta cómo prepararte y maximizar el valor de la certificación en tu carrera."
+author: "guille-ojeda"
 publishedAt: "2024-01-25"
 publishedTimestamp: "2024-01-25T02:32:17.745Z"
+modifiedTimestamp: "2026-10-01T15:14:05-03:00"
 cover: "/assets/blog/39294214939c4754eb0b11e2.png"
 coverAlt: "Nube dorada rodeada por círculos con símbolos de búsqueda, datos y seguridad"
 ogImage: "/assets/blog/39294214939c4754eb0b11e2.png"

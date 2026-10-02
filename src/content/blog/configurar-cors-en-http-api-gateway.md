@@ -1,6 +1,7 @@
 ---
 title: "Configurar CORS en HTTP API Gateway"
 description: "Aprende a configurar CORS en API Gateway de AWS para asegurar el acceso a tu API desde diferentes dominios de manera eficiente."
+author: "guille-ojeda"
 publishedAt: "2025-03-10"
 publishedTimestamp: "2025-03-10T05:50:46.65Z"
 cover: "/assets/blog/b7ca17278c2b7e43c95dfeec.jpg"

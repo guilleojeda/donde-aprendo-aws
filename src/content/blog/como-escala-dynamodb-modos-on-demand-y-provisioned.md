@@ -1,6 +1,7 @@
 ---
 title: "¿Cómo Escala DynamoDB? Modos On Demand y Provisioned"
 description: "Descubre cómo escalar DynamoDB con los modos On Demand y Provisioned, considerando tráfico, costos y rendimiento. DynamoDB es una base de datos NoSQL de AWS."
+author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T02:56:43.716Z"
 cover: "/assets/blog/ce62e0cc8508d5055bba53b4.png"

@@ -1,6 +1,7 @@
 ---
 title: "Guía de Amazon ElastiCache: Almacenamiento en Caché en Memoria"
 description: "Explora cómo Amazon ElastiCache mejora el rendimiento de aplicaciones en la nube mediante el almacenamiento en memoria y la reducción de la carga en bases de datos."
+author: "guille-ojeda"
 publishedAt: "2024-05-08"
 publishedTimestamp: "2024-05-08T04:19:02.817Z"
 cover: "/assets/blog/ddce4c2f6e4102cbcd2b90ad.png"

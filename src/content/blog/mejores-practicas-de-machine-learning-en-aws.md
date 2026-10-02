@@ -1,8 +1,10 @@
 ---
 title: "Mejores Prácticas de Machine Learning en AWS"
 description: "Descubre las mejores prácticas de Machine Learning en AWS, servicios disponibles, consejos clave y ejemplos de éxito. Aprende cómo optimizar tus proyectos de ML en AWS."
+author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:46:53.199Z"
+modifiedTimestamp: "2026-10-01T15:14:05-03:00"
 cover: "/assets/blog/93b405bec4b3d8ac5255f4ed.png"
 coverAlt: "Nube azul acompañada por flechas y ramificaciones de circuito"
 ogImage: "/assets/blog/93b405bec4b3d8ac5255f4ed.png"

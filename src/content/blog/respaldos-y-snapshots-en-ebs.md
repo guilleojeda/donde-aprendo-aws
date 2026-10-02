@@ -1,6 +1,7 @@
 ---
 title: "Respaldos y Snapshots en EBS"
 description: "Descubre los fundamentos y mejores prácticas para crear y manejar snapshots en Amazon EBS. Aprende cómo automatizar el proceso, asegurar tus datos con cifrado y recuperar información importante."
+author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T01:55:00.888Z"
 cover: "/assets/blog/898bfede65963403cc64e267.jpg"

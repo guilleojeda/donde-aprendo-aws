@@ -1,6 +1,7 @@
 ---
 title: "Tipos de Instancia en Amazon RDS y Amazon Aurora"
 description: "Comparación detallada entre Amazon RDS y Amazon Aurora, incluyendo tipos de instancia, rendimiento, costos, escalabilidad y más. Descubre cuál es la mejor opción para tu proyecto en la nube."
+author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T01:35:47.279Z"
 cover: "/assets/blog/aa03147d445ee06a398e3780.jpg"

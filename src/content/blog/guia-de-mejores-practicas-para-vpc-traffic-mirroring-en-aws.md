@@ -1,6 +1,7 @@
 ---
 title: "Guía de Mejores Prácticas para VPC Traffic Mirroring en AWS"
 description: "Descubre cómo implementar VPC Traffic Mirroring en AWS para mejorar la seguridad, diagnosticar problemas y optimizar el rendimiento de tu red."
+author: "guille-ojeda"
 publishedAt: "2024-10-28"
 publishedTimestamp: "2024-10-28T03:11:03.66Z"
 cover: "/assets/blog/06f2f4250afcc07dff4646bf.webp"

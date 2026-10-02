@@ -1,6 +1,7 @@
 ---
 title: "AWS Fundamentos: Guía de Inicio Rápido"
 description: "Guía de inicio rápido para familiarizarse con los fundamentos de AWS, incluyendo servicios clave como Amazon EC2, Amazon S3, AWS Lambda, seguridad en la nube y más."
+author: "guille-ojeda"
 publishedAt: "2024-01-30"
 publishedTimestamp: "2024-01-30T19:19:55.184Z"
 cover: "/assets/blog/945b48235c5e1f4c1d3cc3ae.jpg"

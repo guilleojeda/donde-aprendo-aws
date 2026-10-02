@@ -1,6 +1,7 @@
 ---
 title: "Guía Completa de AWS Elastic Beanstalk"
 description: "Descubre la guía completa de AWS Elastic Beanstalk, con información sobre despliegue rápido, escalabilidad automática, alta disponibilidad, casos de uso comunes, administración de entornos, monitoreo, seguridad, precios y más."
+author: "guille-ojeda"
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T02:00:11.488Z"
 cover: "/assets/blog/65446b800cf17cea0992fc7b.jpg"

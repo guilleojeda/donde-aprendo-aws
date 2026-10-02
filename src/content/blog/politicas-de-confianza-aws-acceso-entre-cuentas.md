@@ -1,6 +1,7 @@
 ---
 title: "Políticas de Confianza AWS: Acceso Entre Cuentas"
 description: "Aprende a configurar políticas de confianza en AWS para permitir el acceso seguro entre cuentas y optimizar la colaboración."
+author: "guille-ojeda"
 publishedAt: "2024-11-26"
 publishedTimestamp: "2024-11-26T20:13:42.04Z"
 cover: "/assets/blog/6d11bddb1995c82265977259.jpg"

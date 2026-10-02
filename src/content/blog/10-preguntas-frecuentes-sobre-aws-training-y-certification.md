@@ -1,8 +1,10 @@
 ---
 title: "10 Preguntas Frecuentes sobre AWS Training y Certification"
 description: "Descubre cómo las certificaciones de AWS pueden impulsar tu carrera en TI, con información sobre costos, preparación y beneficios exclusivos de estar certificado."
+author: "guille-ojeda"
 publishedAt: "2024-05-03"
 publishedTimestamp: "2024-05-03T23:06:27.097Z"
+modifiedTimestamp: "2026-10-01T15:14:05-03:00"
 cover: "/assets/blog/b779f7f567a0e83dd55103f0.jpg"
 coverAlt: "Nube pastel rodeada de estrellas de distintos tamaños"
 ogImage: "/assets/blog/b779f7f567a0e83dd55103f0.jpg"

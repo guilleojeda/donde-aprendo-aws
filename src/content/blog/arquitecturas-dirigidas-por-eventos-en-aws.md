@@ -1,6 +1,7 @@
 ---
 title: "Arquitecturas Dirigidas por Eventos en AWS"
 description: "Descubre cómo implementar arquitecturas dirigidas por eventos en AWS para crear sistemas flexibles y escalables. Aprende sobre los beneficios, componentes y mejores prácticas en este completo artículo."
+author: "guille-ojeda"
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T00:59:24.459Z"
 cover: "/assets/blog/1a0df738c1ab9c313bf60144.jpg"

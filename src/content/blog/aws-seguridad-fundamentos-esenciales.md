@@ -1,6 +1,7 @@
 ---
 title: "AWS Seguridad: Fundamentos Esenciales"
 description: "Explora los fundamentos de la seguridad en AWS, incluyendo el modelo de responsabilidad compartida, mejores prácticas, herramientas de seguridad y estrategias comprobadas para proteger recursos en la nube de AWS."
+author: "guille-ojeda"
 publishedAt: "2024-01-23"
 publishedTimestamp: "2024-01-23T17:26:25.234Z"
 cover: "/assets/blog/15bc5fcf943d474b0b00277c.jpg"

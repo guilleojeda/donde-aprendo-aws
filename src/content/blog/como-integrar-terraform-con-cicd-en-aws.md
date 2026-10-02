@@ -1,8 +1,10 @@
 ---
 title: "Cómo integrar Terraform con CI/CD en AWS"
 description: "Aprende a automatizar la gestión de infraestructura en AWS utilizando Terraform y CI/CD con prácticas seguras y eficientes."
+author: "guille-ojeda"
 publishedAt: "2025-02-10"
 publishedTimestamp: "2025-02-10T00:20:47.716Z"
+modifiedTimestamp: "2026-10-01T15:14:05-03:00"
 cover: "/assets/blog/455f2eb1c408f11b2e18115c.jpg"
 coverAlt: "Portátil con código en un escritorio y diagramas en la pared"
 ogImage: "/assets/blog/455f2eb1c408f11b2e18115c.jpg"

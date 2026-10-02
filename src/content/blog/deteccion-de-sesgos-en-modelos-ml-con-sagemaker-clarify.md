@@ -1,6 +1,7 @@
 ---
 title: "Detección de Sesgos en Modelos ML con SageMaker Clarify"
 description: "Descubre cómo SageMaker Clarify puede ayudarte a detectar y mitigar sesgos en modelos de ML. Aprende sobre las mejores prácticas y recursos para desarrollar modelos éticos y confiables."
+author: "guille-ojeda"
 publishedAt: "2024-05-17"
 publishedTimestamp: "2024-05-17T01:45:54.229Z"
 cover: "/assets/blog/055e62c5fbddebf94a936e62.jpg"

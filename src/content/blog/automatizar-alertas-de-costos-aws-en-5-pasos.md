@@ -1,6 +1,7 @@
 ---
 title: "Automatizar Alertas de Costos AWS en 5 Pasos"
 description: "Aprende a configurar alertas automáticas de costos en AWS en solo 5 pasos y evita sorpresas en tus facturas."
+author: "guille-ojeda"
 publishedAt: "2024-10-27"
 publishedTimestamp: "2024-10-27T03:38:07.454Z"
 cover: "/assets/blog/cd540f6b1441905ad2c6859c.webp"

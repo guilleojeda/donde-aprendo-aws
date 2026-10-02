@@ -1,6 +1,7 @@
 ---
 title: "5 Lecciones Clave del AWS Public Sector Summit 2024"
 description: "Descubre las 5 lecciones clave del AWS Public Sector Summit 2024 para la transformación digital y desarrollo de habilidades en la nube en el sector público."
+author: "guille-ojeda"
 publishedAt: "2024-05-07"
 publishedTimestamp: "2024-05-07T04:22:03.004Z"
 cover: "/assets/blog/f4d9080a8f5eea1a871c1a1b.jpg"

@@ -1,6 +1,7 @@
 ---
 title: "AWS SMS vs AWS MGN: Comparación 2024"
 description: "Descubre las diferencias clave entre AWS SMS y AWS MGN para migraciones a la nube en 2024, y cuál es la mejor opción para tus necesidades."
+author: "guille-ojeda"
 publishedAt: "2024-10-28"
 publishedTimestamp: "2024-10-28T02:54:04.742Z"
 cover: "/assets/blog/bd5f26b73ef9b33625d04b90.webp"

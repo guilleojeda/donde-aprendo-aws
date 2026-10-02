@@ -1,6 +1,7 @@
 ---
 title: "Monitoreo y Logs de AWS Step Functions: Guía 2024"
 description: "Aprende a monitorear y gestionar logs en AWS Step Functions para optimizar el rendimiento y detectar problemas rápidamente."
+author: "guille-ojeda"
 publishedAt: "2024-11-26"
 publishedTimestamp: "2024-11-26T19:49:41.97Z"
 cover: "/assets/blog/3cdeed308ae19cafa2c58e0d.jpg"

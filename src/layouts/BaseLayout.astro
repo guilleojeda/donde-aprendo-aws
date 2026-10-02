@@ -2,6 +2,8 @@
 import '../styles/site.css';
 import '../styles/fonts.css';
 import deployment from '../../config/deployment.json';
+import { contributorStructuredData } from '../lib/blog-metadata.mjs';
+import type { BlogContributor } from '../lib/blog-metadata.mjs';
 
 interface Props {
   title?: string;
@@ -10,6 +12,8 @@ interface Props {
   image?: string;
   imageAlt?: string;
   publishedTimestamp?: string;
+  modifiedTimestamp?: string;
+  author?: BlogContributor;
   noindex?: boolean;
 }
 
@@ -20,6 +24,8 @@ const {
   image,
   imageAlt,
   publishedTimestamp,
+  modifiedTimestamp,
+  author,
   noindex = false,
 } = Astro.props;
 
@@ -38,6 +44,8 @@ const articleSchema = publishedTimestamp && canonical && imageUrl
       headline: title,
       description,
       datePublished: publishedTimestamp,
+      dateModified: modifiedTimestamp,
+      author: author ? contributorStructuredData(author) : undefined,
       image: [imageUrl],
       mainEntityOfPage: canonical,
     }).replaceAll('<', '\\u003c')
@@ -60,6 +68,7 @@ const articleSchema = publishedTimestamp && canonical && imageUrl
     <meta property="og:image" content={imageUrl} />
     <meta property="og:image:alt" content={socialImageAlt} />
     {publishedTimestamp && <meta property="article:published_time" content={publishedTimestamp} />}
+    {modifiedTimestamp && <meta property="article:modified_time" content={modifiedTimestamp} />}
     <meta name="twitter:card" content="summary_large_image" />
     {canonical && <meta name="twitter:title" content={title} />}
     {canonical && <meta name="twitter:description" content={description} />}

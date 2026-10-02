@@ -1,6 +1,7 @@
 ---
 title: "Cómo Prepararte Para un Examen de Certificación de AWS"
 description: "Prepárate para el examen de certificación de AWS con consejos, técnicas de estudio, formación gratuita y rutas de certificación. Descubre los beneficios, costos, y recursos clave para el éxito."
+author: "guille-ojeda"
 publishedAt: "2024-01-23"
 publishedTimestamp: "2024-01-23T17:34:37.557Z"
 cover: "/assets/blog/4cb1b939d8aa6ff5e1dc2ac1.jpg"

@@ -1,6 +1,7 @@
 ---
 title: "Cifrado de datos con AWS KMS: Guía práctica"
 description: "Aprende a cifrar y descifrar datos de forma segura en la nube con AWS Key Management Service (KMS). Sigue los pasos detallados y las mejores prácticas para proteger tus datos con AWS KMS."
+author: "guille-ojeda"
 publishedAt: "2024-05-16"
 publishedTimestamp: "2024-05-16T14:36:00.762Z"
 cover: "/assets/blog/8879f0457d281038d09e5222.png"

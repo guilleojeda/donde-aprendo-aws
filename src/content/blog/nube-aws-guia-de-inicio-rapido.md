@@ -1,6 +1,7 @@
 ---
 title: "Nube AWS: Guía de Inicio Rápido"
 description: "Guía de inicio rápido para utilizar la nube de AWS, explorando servicios esenciales, beneficios, casos de uso, modelos de servicio, servicios y más."
+author: "guille-ojeda"
 publishedAt: "2024-01-30"
 publishedTimestamp: "2024-01-30T19:09:51.102Z"
 cover: "/assets/blog/c182a819b0d8523e5365c545.jpg"

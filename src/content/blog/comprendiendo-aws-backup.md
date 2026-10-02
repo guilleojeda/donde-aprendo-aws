@@ -1,6 +1,7 @@
 ---
 title: "Comprendiendo AWS Backup"
 description: "Descubre cómo utilizar AWS Backup para proteger tus datos en la nube de forma automatizada y eficiente. Aprende sobre sus funciones clave y cómo optimizar su uso."
+author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:55:54.461Z"
 cover: "/assets/blog/25448721c535fa1737e8eeba.jpg"

@@ -1,6 +1,7 @@
 ---
 title: "Recursos Personalizados en CloudFormation con Lambda"
 description: "Descubre cómo integrar AWS Lambda con CloudFormation para crear recursos personalizados, superando las limitaciones y optimizando la gestión de infraestructura en la nube."
+author: "guille-ojeda"
 publishedAt: "2024-05-15"
 publishedTimestamp: "2024-05-15T04:54:08.82Z"
 cover: "/assets/blog/e66856987698eaa908dfab80.jpg"

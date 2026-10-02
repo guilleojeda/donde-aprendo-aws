@@ -1,6 +1,7 @@
 ---
 title: "AWS Wavelength: Guía de Escalabilidad y Optimización"
 description: "Guía de escalabilidad y optimización de AWS Wavelength para desarrolladores. Estrategias clave, monitoreo, resolución de problemas y mejores prácticas."
+author: "guille-ojeda"
 publishedAt: "2024-05-19"
 publishedTimestamp: "2024-05-19T00:37:00.331Z"
 cover: "/assets/blog/fe5d7c13d156814fe29c2d7a.jpg"

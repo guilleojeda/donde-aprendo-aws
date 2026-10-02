@@ -1,6 +1,7 @@
 ---
 title: "AWS Web Application Firewall (WAF)"
 description: "Protege tus aplicaciones web en AWS con AWS Web Application Firewall (WAF) y descubre cómo integrarlo con otros servicios de AWS. Aprende sobre sus componentes, casos de uso y mejores prácticas."
+author: "guille-ojeda"
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T01:28:49.211Z"
 cover: "/assets/blog/f5ae0710f3fb74786f37f833.png"

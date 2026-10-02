@@ -1,6 +1,7 @@
 ---
 title: "7 Errores Comunes con AWS IoT Device SDK para JavaScript"
 description: "Descubre los 7 errores comunes al usar AWS IoT Device SDK para JavaScript y sus soluciones para aplicaciones IoT más eficientes y confiables."
+author: "guille-ojeda"
 publishedAt: "2024-04-30"
 publishedTimestamp: "2024-04-30T04:58:42.738Z"
 cover: "/assets/blog/fc596e41b0cacbc6f7d02513.jpg"

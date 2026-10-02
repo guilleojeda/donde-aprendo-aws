@@ -1,8 +1,10 @@
 ---
 title: "Optimización de Costos de AWS Lambda"
 description: "Consejos y estrategias para optimizar los costos de AWS Lambda sin sacrificar el rendimiento. Aprende a ajustar la memoria, el tiempo de ejecución y la concurrencia para reducir gastos."
+author: "guille-ojeda"
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T01:39:56.043Z"
+modifiedTimestamp: "2026-10-01T15:14:05-03:00"
 cover: "/assets/blog/149aa7de30b1ec6844a9daf3.jpg"
 coverAlt: "Balanza con una nube en un platillo y una pila triangular en el otro"
 ogImage: "/assets/blog/149aa7de30b1ec6844a9daf3.jpg"

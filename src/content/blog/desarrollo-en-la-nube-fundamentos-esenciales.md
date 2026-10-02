@@ -1,6 +1,7 @@
 ---
 title: "Desarrollo en la nube: fundamentos esenciales"
 description: "Descubre los fundamentos esenciales del desarrollo en la nube, desde los modelos de servicio y arquitecturas de aplicaciones hasta las mejores prácticas y herramientas populares. Aprende cómo trabajar en la nube, el modelo de desarrollo basado en contenedores y microservicios, y casos de uso comunes para aplicaciones en la nube."
+author: "guille-ojeda"
 publishedAt: "2024-01-25"
 publishedTimestamp: "2024-01-25T03:23:03.64Z"
 cover: "/assets/blog/9257652addf07f39008f550d.jpg"

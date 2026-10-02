@@ -1,6 +1,7 @@
 ---
 title: "Cómo Desplegar una Aplicación en Amazon ECS"
 description: "Aprende cómo desplegar una aplicación en Amazon ECS paso a paso, desde la configuración inicial hasta la administración y escalado. Descubre cómo configurar AWS CLI y tus credenciales, crear un clúster en ECS, definir tareas con imágenes Docker, verificar el funcionamiento de tu aplicación y más."
+author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T23:04:00.573Z"
 cover: "/assets/blog/d73cb60565a00d466c3768e1.jpg"

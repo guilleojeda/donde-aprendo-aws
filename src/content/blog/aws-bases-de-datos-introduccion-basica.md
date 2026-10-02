@@ -1,6 +1,7 @@
 ---
 title: "AWS bases de datos: introducción básica"
 description: "Descubra las bases de datos en AWS, incluyendo RDS, Aurora, DynamoDB y Redshift. Aprenda sobre migraciones, precios y optimización de costos. Encuentre la mejor base de datos para sus necesidades."
+author: "guille-ojeda"
 publishedAt: "2024-01-27"
 publishedTimestamp: "2024-01-27T00:58:59.942Z"
 cover: "/assets/blog/7dd6e4771015e24de4a4bc0d.jpg"

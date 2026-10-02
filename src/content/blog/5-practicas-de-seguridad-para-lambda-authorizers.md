@@ -1,6 +1,7 @@
 ---
 title: "5 Prácticas de Seguridad para Lambda Authorizers"
 description: "Implementa prácticas de seguridad efectivas en Lambda Authorizers para proteger tus APIs en AWS y optimizar su rendimiento."
+author: "guille-ojeda"
 publishedAt: "2025-01-23"
 publishedTimestamp: "2025-01-23T00:34:06.712Z"
 cover: "/assets/blog/e838de22cc856de64a0d3bdc.jpg"

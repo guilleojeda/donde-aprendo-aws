@@ -1,6 +1,7 @@
 ---
 title: "10 Consejos de Redes para AWS Outposts"
 description: "Descubre los 10 consejos esenciales para optimizar redes en AWS Outposts y asegura una implementación eficiente con alta disponibilidad y rendimiento."
+author: "guille-ojeda"
 publishedAt: "2024-05-14"
 publishedTimestamp: "2024-05-14T05:11:03.706Z"
 cover: "/assets/blog/d57b2c7f6d8d4785748ce1c5.png"

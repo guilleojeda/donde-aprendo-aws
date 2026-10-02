@@ -1,6 +1,7 @@
 ---
 title: "Mejores Prácticas Para Amazon S3"
 description: "Descubre cómo maximizar Amazon S3 para tus necesidades de almacenamiento, manteniendo tus datos seguros y optimizando costos. Aprende sobre seguridad, rendimiento, optimización de costos, auditoría y monitorización."
+author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T04:13:21.58Z"
 cover: "/assets/blog/7dc90730b1402ed9efe1a10b.jpg"
