@@ -307,6 +307,40 @@ button {
   font-weight: 700;
 }
 
+.home-learner-guide__questions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px 32px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.home-learner-guide__questions li:last-child {
+  grid-column: 1 / -1;
+}
+
+.home-learner-guide__questions h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+.home-learner-guide__questions p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.home-learner-guide__questions a {
+  color: #263457;
+  text-underline-offset: 3px;
+}
+
+.home-learner-guide__questions a:focus-visible {
+  outline: 2px solid #263457;
+  outline-offset: 3px;
+}
+
 .home-shelf__grid span,
 .home-events time {
   color: #263457;
@@ -1384,6 +1418,7 @@ button {
 @media (max-width: 600px) {
   .intent-links,
   .home-shelf__grid,
+  .home-learner-guide__questions,
   .home-events { grid-template-columns: 1fr; }
 
   .home-shelf__heading { align-items: start; flex-direction: column; gap: 10px; }
