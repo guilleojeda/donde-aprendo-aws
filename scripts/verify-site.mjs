@@ -163,16 +163,42 @@ for (const [section, expectedKind] of [['aprender', 'content'], ['creadores', 's
   assert.match(directory, /data-sort-filter/);
   assert.match(directory, /data-show-more/);
   assert.match(directory, new RegExp(`data-kind="${expectedKind}"`));
+  assert.match(directory, /id="directory-criteria"/);
+  assert.match(directory, /Recomendado/);
+  assert.match(directory, /selección editorial/);
+  assert.match(directory, /Autor o fuente/);
+  assert.match(directory, /Nivel\.<\/strong>/);
+  assert.match(directory, /Agregado al directorio\.<\/strong>/);
+  assert.match(directory, /Enlace comprobado<\/strong>/);
+  assert.match(directory, /Contenido revisado<\/strong>/);
+  assert.doesNotMatch(directory, /Enlace comprobado<\/strong>[^<]*\d{4}/);
+  assert.doesNotMatch(directory, /Contenido revisado<\/strong>[^<]*\d{4}/);
   for (const kind of ['content', 'source', 'community'].filter((kind) => kind !== expectedKind)) {
     assert.doesNotMatch(directory, new RegExp(`data-kind="${kind}"`), `Unexpected ${kind} in ${section}`);
   }
 }
 if (process.env.CATALOG_FIXTURE) {
   const learn = read('aprender/index.html');
+  const creators = read('creadores/index.html');
+  const communities = read('comunidades/index.html');
+  const card = (html, id) => html.match(new RegExp(`<li id="resource-${id}"[\\s\\S]*?<\\/li>`))?.[0] ?? '';
+  const featuredCard = card(learn, 'fixture-featured');
+  const sourceCard = card(creators, 'fixture-source');
+  const communityCard = card(communities, 'fixture-community');
   assert.match(learn, /https:\/\/example\.com\/curso\?utm_source=fixture&amp;lang=es/);
   assert.match(learn, /href="\/creadores\/#resource-fixture-source"/);
   assert.match(learn, /href="\/comunidades\/#resource-fixture-community"/);
-  const communities = read('comunidades/index.html');
+  assert.match(featuredCard, /<time datetime="2026-09-25">25 de septiembre de 2026<\/time>/);
+  assert.match(featuredCard, /Agregado al directorio/);
+  assert.match(featuredCard, /href="#directory-criteria"[^>]*>Recomendado<\/a>/);
+  assert.match(featuredCard, /data-search="[^"]*Canal de ejemplo/);
+  assert.match(featuredCard, /Autor o fuente: Canal de ejemplo/);
+  assert.match(sourceCard, /href="#directory-criteria"[^>]*>Recomendado<\/a>/);
+  assert.doesNotMatch(sourceCard, /<time\b/);
+  assert.doesNotMatch(sourceCard, /Agregado al directorio/);
+  assert.doesNotMatch(communityCard, /<time\b/);
+  assert.doesNotMatch(communityCard, /Agregado al directorio/);
+  assert.doesNotMatch(communityCard, /Recomendado/);
   assert.match(communities, /href="\/eventos\/\?community=fixture-community"/);
   assert.match(communities, /mailto:contact@dondeaprendoaws\.com\?subject=[^"\s]+fixture-community/);
 }

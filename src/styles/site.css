@@ -178,6 +178,45 @@ button {
   line-height: 1.6;
 }
 
+.directory-criteria {
+  margin: 0 0 28px;
+  border: 1px solid #d8dde6;
+  border-radius: 10px;
+  background: #f7f9fc;
+  scroll-margin-top: 24px;
+}
+
+.directory-criteria summary {
+  min-height: 44px;
+  padding: 12px 16px;
+  color: #263457;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.directory-criteria summary:focus-visible {
+  outline: 2px solid #263457;
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.directory-criteria__body {
+  padding: 0 16px 12px;
+  border-top: 1px solid #d8dde6;
+  color: #4b5261;
+  font-size: 14px;
+  line-height: 1.5;
+  scroll-margin-top: 24px;
+}
+
+.directory-criteria__body p {
+  margin: 12px 0 0;
+}
+
+.directory-criteria__body strong {
+  color: #303030;
+}
+
 .intent-home {
   padding: 24px 0 60px;
 }
@@ -730,23 +769,22 @@ button {
   line-height: 1.25;
 }
 
-.resource-card__star {
-  flex: 0 0 auto;
-  color: #ffc107de;
-  font-size: 18px;
-  line-height: 1;
-}
-
-.resource-card__star.is-featured {
-  color: #e1ad00;
-  font-weight: 700;
-}
-
 .resource-card__description {
   margin: 0;
   color: rgba(48, 48, 48, 0.8);
   font-size: 14px;
   line-height: 1.6;
+}
+
+.resource-card__added {
+  margin: 14px 0 0;
+  color: #626875;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.resource-card__added span {
+  font-weight: 700;
 }
 
 .directory-show-more {
