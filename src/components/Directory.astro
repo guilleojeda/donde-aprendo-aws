@@ -1,5 +1,6 @@
 ---
 import ResourceCard from './ResourceCard.astro';
+import CatalogCriteria from './CatalogCriteria.astro';
 import type { CatalogEvent, CatalogResource } from '../types/catalog';
 import { TOPICS } from '../lib/resource-taxonomy.mjs';
 import { COUNTRY_LABELS, LEVEL_LABELS } from '../lib/resource-discovery.mjs';
@@ -42,6 +43,8 @@ for (const group of uniqueUpcomingEventGroups(events)) {
         <h1 id="directory-title">{title}</h1>
         <p>{intro}</p>
       </div>
+
+      <CatalogCriteria />
 
       <div class="directory-controls" data-directory-controls>
         <label class="sr-only" for="resource-search">Buscar en {title.toLowerCase()}</label>
