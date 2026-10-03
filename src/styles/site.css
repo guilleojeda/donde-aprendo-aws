@@ -508,6 +508,71 @@ button {
   padding: 24px 0 60px;
 }
 
+.event-country-communities {
+  margin: 0 0 48px;
+  padding: 28px 0 0;
+  border-top: 1px solid #d8dde6;
+}
+
+.event-country-communities__heading h2 {
+  margin: 0 0 6px;
+  font-size: 22px;
+}
+
+.event-country-communities__heading p {
+  margin: 0;
+  color: #626875;
+  font-size: 14px;
+}
+
+.event-country-communities ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 12px;
+  padding: 0;
+  margin: 18px 0 0;
+  list-style: none;
+}
+
+.event-country-communities li a {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid #d8dde6;
+  border-radius: 9px;
+  background: #fff;
+  color: #263457;
+  text-decoration: none;
+}
+
+.event-country-communities li a:hover {
+  border-color: #a3afc4;
+}
+
+.event-country-communities li a:focus-visible {
+  outline: 2px solid #263457;
+  outline-offset: 3px;
+}
+
+.event-country-communities li span {
+  color: #626875;
+  font-size: 12px;
+}
+
+.event-country-communities li strong {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.event-country-communities li p {
+  margin: 0;
+  color: #4b5261;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .event-agenda {
   margin: 0 0 48px;
   padding: 28px;

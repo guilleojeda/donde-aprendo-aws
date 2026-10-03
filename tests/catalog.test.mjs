@@ -177,7 +177,7 @@ test('uses an explicitly selected fixture and rejects conflicting source config'
     assert.deepEqual(fixtureResources.map(({ id }) => id), [
       'fixture-featured', 'fixture-source', 'fixture-community', 'fixture-community-argentina',
       'fixture-student-argentina', 'fixture-student-colombia', 'fixture-no-country-community',
-      'fixture-community-costa-rica', 'fixture-no-country-reference',
+      'fixture-community-costa-rica', 'fixture-no-country-reference', 'fixture-recording-argentina', 'fixture-recording-costa-rica',
     ]);
     assert.deepEqual(fixtureResources.slice(0, 3), [
       {
@@ -236,9 +236,11 @@ test('uses an explicitly selected fixture and rejects conflicting source config'
       ['fixture-no-country-community', 'community', 'Comunidad en línea', undefined, []],
       ['fixture-community-costa-rica', 'community', 'User Group', 'CR', []],
       ['fixture-no-country-reference', 'content', 'Artículo', undefined, ['Comunidad']],
+      ['fixture-recording-argentina', 'content', 'Video', 'AR', ['Comunidad']],
+      ['fixture-recording-costa-rica', 'content', 'Video', 'CR', ['Comunidad']],
     ]);
     assert.deepEqual(fixtureCatalog.filter((item) => item.recordType === 'event').map((item) => item.id),
-      ['fixture-event', 'fixture-event-colombia', 'fixture-online-event']);
+      ['fixture-event', 'fixture-event-colombia', 'fixture-online-event', 'fixture-past-argentina', 'fixture-past-costa-rica']);
     assert.throws(
       () => resolveCatalogConfig({ fixturePath, tableName: 'catalog' }),
       /Catalog source conflict/,

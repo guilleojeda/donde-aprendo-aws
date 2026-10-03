@@ -3,17 +3,21 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import SiteHeader from '../../components/SiteHeader.astro';
 import SiteFooter from '../../components/SiteFooter.astro';
 import EventAgenda from '../../components/EventAgenda.astro';
+import CountryNavigation from '../../components/CountryNavigation.astro';
 import { loadSiteCatalog } from '../../lib/site-catalog.mjs';
+import { communityCountryPages } from '../../lib/community-country-pages.mjs';
 import type { CatalogEvent, CatalogResource } from '../../types/catalog';
 
 const catalog = await loadSiteCatalog() as Array<CatalogResource | CatalogEvent>;
 const resources = catalog.filter((record): record is CatalogResource => record.recordType !== 'event');
 const events = catalog.filter((record): record is CatalogEvent => record.recordType === 'event');
+const countryPages = communityCountryPages(resources);
 ---
 <BaseLayout title="Eventos AWS en Latinoamérica | ¿Dónde Aprendo AWS?" description="Próximos eventos y encuentros de comunidades AWS de Latinoamérica." canonical="https://dondeaprendoaws.com/eventos/">
   <SiteHeader />
   <main class="event-page site-container">
     <div class="directory-hero"><h1>Eventos AWS</h1><p>Encontrá próximos encuentros de comunidades de Latinoamérica.</p></div>
+    <CountryNavigation pages={countryPages} section="eventos" />
     <EventAgenda events={events} resources={resources} />
   </main>
   <SiteFooter />

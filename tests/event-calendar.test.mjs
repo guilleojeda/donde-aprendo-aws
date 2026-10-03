@@ -43,11 +43,26 @@ test('agenda filters validate URL values, preserve unrelated parameters and matc
   assert.deepEqual(parseEventAgendaSearch(`?${saved}`, allowed), filters);
   assert.deepEqual(parseEventAgendaSearch('?from=2026-02-30&mode=unknown&country=AR&city=CO%3ABogot%C3%A1&community=unknown', allowed),
     { from: '', to: '', mode: '', country: 'AR', city: '', community: '' });
+  const cohostCityAllowed = {
+    ...allowed,
+    city: new Set([...allowed.city, 'PE:Lima']),
+    countriesForCity: new Map([['PE:Lima', new Set(['PE', 'CO'])]]),
+  };
+  assert.deepEqual(parseEventAgendaSearch('?country=CO&city=PE%3ALima', cohostCityAllowed), {
+    from: '', to: '', mode: '', country: 'CO', city: 'PE:Lima', community: '',
+  }, 'The representative city remains valid for an event co-hosted by Colombia.');
+  assert.deepEqual(parseEventAgendaSearch('?country=AR&city=PE%3ALima', cohostCityAllowed), {
+    from: '', to: '', mode: '', country: 'AR', city: '', community: '',
+  }, 'A city from an incompatible country is cleared.');
   const card = { endsAt: event.endsAt, localDate: '2026-10-17', mode: 'in-person', country: 'CO', city: 'CO:Bogotá', communities: ['community-co', 'community-ar'] };
   assert.equal(eventMatchesFilters(card, filters, Date.parse('2026-10-17T11:00:00Z')), true);
   assert.equal(eventMatchesFilters(card, { ...filters, from: '2026-10-18' }, Date.parse('2026-10-17T11:00:00Z')), false);
   assert.equal(eventMatchesFilters(card, { ...filters, community: 'community-ar' }, Date.parse('2026-10-17T11:00:00Z')), true);
   assert.equal(eventMatchesFilters(card, { ...filters, community: 'other-community' }, Date.parse('2026-10-17T11:00:00Z')), false);
+  const cohostedCard = { ...card, country: 'PE', countries: ['PE', 'CO'] };
+  assert.equal(eventMatchesFilters(cohostedCard, { ...filters, country: 'CO' }, Date.parse('2026-10-17T11:00:00Z')), true,
+    'The global country filter includes co-host countries while retaining one representative card.');
+  assert.equal(eventMatchesFilters(cohostedCard, { ...filters, country: 'AR' }, Date.parse('2026-10-17T11:00:00Z')), false);
   assert.equal(eventMatchesFilters(card, filters, Date.parse('2026-10-17T13:00:00Z')), false);
 });
 

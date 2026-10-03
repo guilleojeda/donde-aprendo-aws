@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 import deployment from '../config/deployment.json' with { type: 'json' };
-import { COMMUNITY_COUNTRY_SLUGS } from '../src/lib/community-country-pages.mjs';
+import { COUNTRY_SLUGS } from '../src/lib/community-country-pages.mjs';
 import { COUNTRY_LABELS } from '../src/lib/resource-discovery.mjs';
 
 const production = process.env.PUBLIC_PRODUCTION === 'true';
@@ -30,26 +30,32 @@ assert.equal(sitemapEntries.length, locations.length, 'Every sitemap location mu
 const sitemapLastmods = new Map(sitemapEntries);
 const allDistFiles = filesUnder(dist);
 const allHtmlPaths = allDistFiles.filter((path) => path.endsWith('.html')).map((path) => relative(dist, path).replaceAll('\\', '/'));
-const countryRoutePaths = allHtmlPaths.filter((path) => /^comunidades\/[^/]+\/index\.html$/u.test(path));
-const countryRoutes = countryRoutePaths.map((htmlPath) => {
+const communityCountryRoutePaths = allHtmlPaths.filter((path) => /^comunidades\/[^/]+\/index\.html$/u.test(path));
+const eventCountryRoutePaths = allHtmlPaths.filter((path) => /^eventos\/[^/]+\/index\.html$/u.test(path));
+const routeCountries = (paths, section) => paths.map((htmlPath) => {
   const slug = htmlPath.split('/')[1];
-  const country = Object.entries(COMMUNITY_COUNTRY_SLUGS).find(([, countrySlug]) => countrySlug === slug)?.[0];
+  const country = Object.entries(COUNTRY_SLUGS).find(([, countrySlug]) => countrySlug === slug)?.[0];
   assert.ok(country, `Country route must use a registered slug: ${htmlPath}`);
-  return { country, slug, htmlPath, path: `/comunidades/${slug}/` };
+  return { country, slug, htmlPath, path: `/${section}/${slug}/` };
 });
+const countryRoutes = routeCountries(communityCountryRoutePaths, 'comunidades');
+const eventCountryRoutes = routeCountries(eventCountryRoutePaths, 'eventos');
 const pagePaths = ['index.html', ...sections.map((section) => `${section}/index.html`), 'recorridos/index.html', 'blog/index.html', 'buscar/index.html',
-  ...routes.map(({ slug }) => `blog/${slug}/index.html`), ...countryRoutePaths];
+  ...routes.map(({ slug }) => `blog/${slug}/index.html`), ...communityCountryRoutePaths, ...eventCountryRoutePaths];
 const expectedLocations = [
   'https://dondeaprendoaws.com/',
   ...sections.map((section) => `https://dondeaprendoaws.com/${section}/`),
   ...countryRoutes.map(({ path }) => `https://dondeaprendoaws.com${path}`),
+  ...eventCountryRoutes.map(({ path }) => `https://dondeaprendoaws.com${path}`),
   'https://dondeaprendoaws.com/blog/',
   'https://dondeaprendoaws.com/recorridos/',
   ...routes.map(({ slug }) => `https://dondeaprendoaws.com/blog/${slug}/`),
 ].sort();
 assert.deepEqual([...locations].sort(), expectedLocations);
-assert.equal(new Set(locations).size, 203 + countryRoutes.length, 'Sitemap URLs must be unique.');
-assert.equal(allHtmlPaths.length, 205 + countryRoutes.length, 'Every public page and the 404 page must be checked.');
+assert.deepEqual(eventCountryRoutes.map(({ country }) => country).sort(), countryRoutes.map(({ country }) => country).sort(),
+  'Event country routes match the countries with published communities.');
+assert.equal(new Set(locations).size, 203 + countryRoutes.length + eventCountryRoutes.length, 'Sitemap URLs must be unique.');
+assert.equal(allHtmlPaths.length, 205 + countryRoutes.length + eventCountryRoutes.length, 'Every public page and the 404 page must be checked.');
 
 const decode = (value) => value.replaceAll('&amp;', '&').replaceAll('&quot;', '"').replaceAll('&#39;', "'").replaceAll('&#x27;', "'").replaceAll('&lt;', '<').replaceAll('&gt;', '>');
 const defaultSocialImage = readFileSync(resolve(dist, 'assets/site-social.png'));
@@ -243,6 +249,38 @@ for (const route of countryRoutes) {
   assert.doesNotMatch(countryNav, /<details[^>]*open/, 'The country menu starts collapsed.');
 }
 
+const globalEventCountryNav = read('eventos/index.html').match(/<nav class="community-country-nav"[^>]*>([\s\S]*?)<\/nav>/u)?.[1] ?? '';
+for (const route of eventCountryRoutes) assert.ok(globalEventCountryNav.includes(`href="${route.path}"`), `The global agenda links to ${route.path}.`);
+for (const route of eventCountryRoutes) {
+  const html = read(route.htmlPath);
+  const countryName = COUNTRY_LABELS[route.country];
+  const communitiesForCountry = generalCommunities.filter((card) => card.country === route.country);
+  const summary = html.match(/<section class="event-country-communities"[^>]*>([\s\S]*?)<\/section>/u)?.[1] ?? '';
+  assert.ok(summary, `Country agenda links back to its published communities: ${route.path}`);
+  for (const community of communitiesForCountry) assert.ok(summary.includes(`href="${resourceLinkFor(community.id, route.country)}"`));
+  assert.match(html, /<h1>Eventos AWS en [^<]+<\/h1>/u);
+  assert.match(html, /organizados por comunidades AWS de/u);
+  assert.match(html, /no necesariamente el lugar de cada encuentro/u);
+  assert.match(html, /data-event-list/u);
+  assert.doesNotMatch(html, /\bdata-event-country(?:\s|=)/u, 'A national agenda navigates by country page instead of a country filter.');
+  assert.match(html, /data-event-empty/u, 'The page has an initial empty state for when its events expire.');
+  const breadcrumb = html.match(/<nav class="community-breadcrumb"[^>]*>([\s\S]*?)<\/nav>/u)?.[1] ?? '';
+  assert.match(breadcrumb, />Inicio</u);
+  assert.match(breadcrumb, />Eventos</u);
+  assert.match(breadcrumb, new RegExp(`aria-current="page">${countryName}</`));
+  assert.equal(decode(html.match(/<title>([\s\S]*?)<\/title>/u)?.[1] ?? ''), `Eventos AWS en ${countryName} | ¿Dónde Aprendo AWS?`);
+  assert.equal(html.match(/<link\b(?=[^>]*\brel="canonical")(?=[^>]*\bhref="([^"]+)")[^>]*>/u)?.[1], `https://dondeaprendoaws.com${route.path}`);
+  const description = decode(html.match(/<meta\b(?=[^>]*\bname="description")([^>]*)>/u)?.[1]?.match(/\bcontent="([^"]*)"/u)?.[1] ?? '');
+  assert.match(description, new RegExp(`Eventos AWS de comunidades de ${countryName}`));
+  const countryNav = html.match(/<nav class="community-country-nav"[^>]*>([\s\S]*?)<\/nav>/u)?.[1] ?? '';
+  for (const otherRoute of eventCountryRoutes) assert.ok(countryNav.includes(`href="${otherRoute.path}"`), `Country agenda navigation links to ${otherRoute.path}.`);
+}
+
+function resourceLinkFor(id, country) {
+  const route = countryRoutes.find((item) => item.country === country);
+  return `${route?.path ?? '/comunidades/'}#resource-${id}`;
+}
+
 if (fixtureBuild) {
   const learn = read('aprender/index.html');
   const creators = read('creadores/index.html');
@@ -263,18 +301,19 @@ if (fixtureBuild) {
     ['fixture-community-costa-rica', 'User Group'],
   ]);
   assert.match(read('comunidades/colombia/index.html'), /1 en formato Student Builder Group/);
-  assert.doesNotMatch(read('comunidades/colombia/index.html'), /Ver próximos eventos organizados por comunidades de Colombia/,
-    'A co-host listing does not qualify when another country owns the representative agenda card.');
-  assert.doesNotMatch(read('comunidades/costa-rica/index.html'), /Ver próximos eventos organizados por comunidades de Costa Rica/,
-    'A country with one community and no upcoming events has no country agenda link.');
-  assert.match(read('comunidades/argentina/index.html'), /href="\/eventos\/\?country=AR"[^>]*>Ver próximos eventos organizados por comunidades de Argentina/);
-  assert.match(read('comunidades/peru/index.html'), /href="\/eventos\/\?country=PE"[^>]*>Ver próximos eventos organizados por comunidades de Perú/);
+  assert.match(read('comunidades/colombia/index.html'), /href="\/eventos\/colombia\/"[^>]*>Consultar agenda de eventos organizados por comunidades de Colombia/);
+  assert.match(read('comunidades/costa-rica/index.html'), /href="\/eventos\/costa-rica\/"[^>]*>Consultar agenda de eventos organizados por comunidades de Costa Rica/,
+    'A country with no upcoming events still has a stable agenda destination.');
+  assert.match(read('comunidades/argentina/index.html'), /href="\/eventos\/argentina\/"[^>]*>Consultar agenda de eventos organizados por comunidades de Argentina/);
+  assert.match(read('comunidades/peru/index.html'), /href="\/eventos\/peru\/"[^>]*>Consultar agenda de eventos organizados por comunidades de Perú/);
   assert.match(communities, /id="resource-fixture-student-argentina"/);
   assert.doesNotMatch(communities, /fixture-unpublished-community/);
   assert.match(learn, /https:\/\/example\.com\/curso\?utm_source=fixture&amp;lang=es/);
   assert.match(learn, /href="\/creadores\/#resource-fixture-source"/);
   assert.match(learn, /href="\/comunidades\/peru\/#resource-fixture-community"/);
   assert.match(learn, /href="\/comunidades\/#resource-fixture-no-country-community"/);
+  assert.match(learn, /href="\/eventos\/costa-rica\/#event-fixture-past-costa-rica"/);
+  assert.match(learn, /href="\/eventos\/argentina\/#event-fixture-past-argentina"/);
   assert.equal(searchIndex.find(({ title }) => title === 'Comunidad de ejemplo')?.url, '/comunidades/peru/#resource-fixture-community');
   assert.equal(searchIndex.find(({ title }) => title === 'Comunidad sin país confirmado')?.url, '/comunidades/#resource-fixture-no-country-community');
   assert.match(featuredCard, /<time datetime="2026-09-25">25 de septiembre de 2026<\/time>/);
@@ -289,6 +328,7 @@ if (fixtureBuild) {
   assert.doesNotMatch(communityCard, /Agregado al directorio/);
   assert.doesNotMatch(communityCard, /Recomendado/);
   assert.match(communities, /href="\/eventos\/\?community=fixture-community"/);
+  assert.match(communities, /href="\/eventos\/peru\/"[^>]*>Consultar agenda de Perú/);
   const legacyRoutes = JSON.parse(home.match(/<script type="application\/json" id="legacy-resource-routes">([\s\S]*?)<\/script>/u)?.[1] ?? '{}');
   assert.equal(legacyRoutes['fixture-community'], '/comunidades/', 'Old homepage card hashes still route through the full directory.');
   assert.match(communities, /mailto:contact@dondeaprendoaws\.com\?subject=[^"\s]+fixture-community/);
@@ -301,9 +341,44 @@ if (fixtureBuild) {
   assert.match(events, /data-event-city="PE:Lima"/);
   assert.match(events, /data-event-communities="fixture-community\|fixture-student-colombia"/);
   assert.match(events, /href="\/comunidades\/peru\/#resource-fixture-community"/);
-  assert.doesNotMatch(events, /<option value="CO">Colombia<\/option>/, 'The deduplicated agenda country filter follows its representative event.');
+  assert.match(events, /<option value="CO">Colombia<\/option>/, 'The global agenda filter includes a co-host country.');
+  assert.match(events, /<option value="CR">Costa Rica<\/option>/, 'The global agenda filter keeps published countries with no upcoming events.');
+  assert.match(events, /<option value="PE:Lima" data-event-countries="PE\|CO">/,
+    'Representative city options remain compatible with co-host countries.');
+  const globalEventCards = [...events.matchAll(/<li id="event-fixture-event"[^>]*>/gu)];
+  assert.equal(globalEventCards.length, 1, 'A cross-posted event appears once in the overall agenda.');
+  assert.match(events, /data-event-countries="PE\|CO"/);
+  assert.match(home, /href="\/eventos\/peru\/#event-fixture-event"/);
+  assert.match(home, /href="\/eventos\/argentina\/#event-fixture-online-event"/);
   assert.match(events, /href="\/eventos\/fixture-event\.ics"/);
   assert.match(events, /mailto:contact@dondeaprendoaws\.com\?subject=[^"\s]+fixture-event/);
+  assert.match(read('eventos/peru/index.html'), /id="event-fixture-event"/);
+  assert.match(read('eventos/colombia/index.html'), /id="event-fixture-event"/,
+    'The same co-hosted event appears in each organizer country page.');
+  assert.doesNotMatch(read('eventos/peru/index.html'), /id="event-fixture-online-event"/);
+  assert.doesNotMatch(read('eventos/colombia/index.html'), /id="event-fixture-online-event"/);
+  assert.doesNotMatch(read('eventos/argentina/index.html'), /id="event-fixture-event"/);
+  assert.match(read('eventos/peru/index.html'), /href="\/comunidades\/colombia\/#resource-fixture-student-colombia"/);
+  assert.match(read('eventos/colombia/index.html'), /href="\/comunidades\/colombia\/#resource-fixture-student-colombia"/,
+    'A country agenda card makes its known co-host community visible.');
+  assert.match(read('eventos/argentina/index.html'), /id="event-fixture-online-event"/);
+  for (const [slug, expectedIds] of Object.entries({
+    argentina: ['fixture-online-event'], colombia: ['fixture-event'],
+    'costa-rica': [], peru: ['fixture-event'],
+  })) {
+    const ids = [...read(`eventos/${slug}/index.html`).matchAll(/\bdata-event-id="([^"]+)"/gu)]
+      .map(([, id]) => id);
+    assert.deepEqual(ids, expectedIds, `The initial ${slug} HTML contains exactly its upcoming events.`);
+  }
+  assert.doesNotMatch(read('eventos/costa-rica/index.html'), /id="event-fixture-event"/);
+  assert.match(read('eventos/costa-rica/index.html'), /No hay próximos eventos publicados organizados por comunidades de Costa Rica/);
+  assert.match(read('eventos/costa-rica/index.html'), /href="\/aprender\/#resource-fixture-recording-costa-rica"/);
+  assert.doesNotMatch(read('eventos/costa-rica/index.html'), /href="\/aprender\/#resource-fixture-recording-argentina"/,
+    'A national past-event archive excludes recordings from other organizer countries.');
+  assert.match(read('eventos/argentina/index.html'), /href="\/aprender\/#resource-fixture-recording-argentina"/);
+  assert.doesNotMatch(read('eventos/argentina/index.html'), /href="\/aprender\/#resource-fixture-recording-costa-rica"/);
+  assert.equal(searchIndex.find(({ title }) => title === 'Encuentro AWS en Lima')?.url, '/eventos/peru/#event-fixture-event');
+  assert.equal(searchIndex.find(({ title }) => title === 'Charla de AWS en línea')?.url, '/eventos/argentina/#event-fixture-online-event');
   const calendar = read('eventos/fixture-event.ics');
   assert.match(calendar, /DTSTART:20990101T230000Z\r\nDTEND:20990102T010000Z/);
   assert.match(calendar, /URL:https:\/\/example\.com\/encuentro\?source=fixture/);

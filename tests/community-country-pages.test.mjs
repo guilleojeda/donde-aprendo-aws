@@ -2,19 +2,23 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { COUNTRY_LABELS } from '../src/lib/resource-discovery.mjs';
 import {
-  COMMUNITY_COUNTRY_SLUGS,
+  COUNTRY_SLUGS,
   communityCountryPages,
   communityCountryPath,
+  eventCountryPath,
 } from '../src/lib/community-country-pages.mjs';
 
 test('every supported country has one explicit, readable, stable community slug', () => {
-  assert.deepEqual(Object.keys(COMMUNITY_COUNTRY_SLUGS).sort(), Object.keys(COUNTRY_LABELS).sort());
-  assert.equal(new Set(Object.values(COMMUNITY_COUNTRY_SLUGS)).size, Object.keys(COMMUNITY_COUNTRY_SLUGS).length);
+  assert.deepEqual(Object.keys(COUNTRY_SLUGS).sort(), Object.keys(COUNTRY_LABELS).sort());
+  assert.equal(new Set(Object.values(COUNTRY_SLUGS)).size, Object.keys(COUNTRY_SLUGS).length);
   assert.equal(communityCountryPath('CR'), '/comunidades/costa-rica/');
   assert.equal(communityCountryPath('DO'), '/comunidades/republica-dominicana/');
   assert.equal(communityCountryPath('PR'), '/comunidades/puerto-rico/');
   assert.equal(communityCountryPath('NI'), '/comunidades/nicaragua/');
+  assert.equal(eventCountryPath('CR'), '/eventos/costa-rica/');
+  assert.equal(eventCountryPath('DO'), '/eventos/republica-dominicana/');
   assert.equal(communityCountryPath('ZZ'), undefined);
+  assert.equal(eventCountryPath('ZZ'), undefined);
 });
 
 test('country navigation includes only known-country communities and their counts', () => {

@@ -11,12 +11,16 @@ export function parseEventAgendaSearch(search, allowed) {
   const country = allowed.country.has(query.get('country')) ? query.get('country') : '';
   const city = allowed.city.has(query.get('city')) ? query.get('city') : '';
   const community = allowed.community.has(query.get('community')) ? query.get('community') : '';
+  const countriesForCity = allowed.countriesForCity?.get(city);
+  const cityMatchesCountry = countriesForCity
+    ? countriesForCity.has(country)
+    : city.startsWith(`${country}:`);
   return {
     from: validDate(query.get('from') ?? '') ? query.get('from') : '',
     to: validDate(query.get('to') ?? '') ? query.get('to') : '',
     mode: allowed.mode.has(query.get('mode')) ? query.get('mode') : '',
     country,
-    city: country && city && !city.startsWith(`${country}:`) ? '' : city,
+    city: country && city && !cityMatchesCountry ? '' : city,
     community,
   };
 }
@@ -32,11 +36,12 @@ export function serializeEventAgendaSearch(search, filters) {
 
 export function eventMatchesFilters(event, filters, now = Date.now()) {
   const communities = event.communities ?? (event.community ? [event.community] : []);
+  const countries = event.countries ?? (event.country ? [event.country] : []);
   return Date.parse(event.endsAt) > now
     && (!filters.from || event.localDate >= filters.from)
     && (!filters.to || event.localDate <= filters.to)
     && (!filters.mode || event.mode === filters.mode)
-    && (!filters.country || event.country === filters.country)
+    && (!filters.country || countries.includes(filters.country))
     && (!filters.community || communities.includes(filters.community))
     && (!filters.city || event.city === filters.city);
 }

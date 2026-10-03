@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { getCollection } from 'astro:content';
 import { loadSiteCatalog } from '../lib/site-catalog.mjs';
-import { communityCountryPages } from '../lib/community-country-pages.mjs';
+import { communityCountryPages, eventCountryPath } from '../lib/community-country-pages.mjs';
 import type { CatalogEvent, CatalogResource } from '../types/catalog';
 
 export const GET: APIRoute = async ({ site }) => {
@@ -16,7 +16,10 @@ export const GET: APIRoute = async ({ site }) => {
   const pages: Array<{ path: string; lastmod?: string }> = [
     ...['/', '/aprender/', '/recorridos/', '/creadores/', '/comunidades/', '/eventos/', '/blog/']
       .map((path) => ({ path })),
-    ...communityCountryPages(resources).map(({ path }) => ({ path })),
+    ...communityCountryPages(resources).flatMap(({ country, path }) => [
+      { path },
+      { path: eventCountryPath(country)! },
+    ]),
     ...articles,
   ];
   const urls = pages.map(({ path, lastmod }) =>

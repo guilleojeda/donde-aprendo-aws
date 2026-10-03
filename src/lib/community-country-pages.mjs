@@ -1,7 +1,7 @@
 import { COUNTRY_LABELS } from './resource-discovery.mjs';
 
 /** Stable public slugs for countries supported by the published catalog. */
-export const COMMUNITY_COUNTRY_SLUGS = Object.freeze({
+export const COUNTRY_SLUGS = Object.freeze({
   AR: 'argentina',
   BO: 'bolivia',
   BR: 'brasil',
@@ -25,8 +25,13 @@ export const COMMUNITY_COUNTRY_SLUGS = Object.freeze({
 });
 
 export function communityCountryPath(country) {
-  const slug = COMMUNITY_COUNTRY_SLUGS[country];
+  const slug = COUNTRY_SLUGS[country];
   return slug ? `/comunidades/${slug}/` : undefined;
+}
+
+export function eventCountryPath(country) {
+  const slug = COUNTRY_SLUGS[country];
+  return slug ? `/eventos/${slug}/` : undefined;
 }
 
 export function communityCountryPages(resources) {
@@ -38,7 +43,7 @@ export function communityCountryPages(resources) {
 
   return [...counts].flatMap(([country, count]) => {
     const label = COUNTRY_LABELS[country];
-    const slug = COMMUNITY_COUNTRY_SLUGS[country];
+    const slug = COUNTRY_SLUGS[country];
     const path = communityCountryPath(country);
     return label && slug && path ? [{ country, label, slug, path, count }] : [];
   }).sort((left, right) => left.label.localeCompare(right.label, 'es', { sensitivity: 'base' }));

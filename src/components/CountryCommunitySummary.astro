@@ -1,0 +1,29 @@
+---
+import type { CatalogResource } from '../types/catalog';
+import { resourceHref } from '../lib/catalog-routes.mjs';
+import { COUNTRY_LABELS } from '../lib/resource-discovery.mjs';
+
+interface Props {
+  country: string;
+  communities: CatalogResource[];
+}
+
+const { country, communities } = Astro.props;
+const countryName = COUNTRY_LABELS[country as keyof typeof COUNTRY_LABELS] ?? country;
+---
+
+<section class="event-country-communities" aria-labelledby="event-country-communities-title">
+  <div class="event-country-communities__heading">
+    <h2 id="event-country-communities-title">Comunidades AWS en {countryName}</h2>
+    <p>Conocé las comunidades organizadoras y sus canales de participación.</p>
+  </div>
+  <ul>
+    {communities.map((community) => <li>
+      <a href={resourceHref(community)}>
+        <span>{community.format}</span>
+        <strong>{community.title}</strong>
+        {community.description && <p>{community.description}</p>}
+      </a>
+    </li>)}
+  </ul>
+</section>

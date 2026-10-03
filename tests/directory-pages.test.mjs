@@ -16,6 +16,17 @@ test('section links preserve stable card anchors', () => {
   assert.equal(resourceHref({ id: 'three', kind: 'community' }), '/comunidades/#resource-three');
   assert.equal(resourceHref({ id: 'peru', kind: 'community', country: 'PE' }), '/comunidades/peru/#resource-peru');
   assert.equal(eventHref({ id: 'event-one' }), '/eventos/#event-event-one');
+  const countryPages = [{ country: 'PE' }, { country: 'CO' }];
+  const event = { id: 'cohost', country: 'PE' };
+  assert.equal(eventHref(event, countryPages), '/eventos/peru/#event-cohost');
+  assert.equal(eventHref({ ...event, country: 'MX' }, countryPages), '/eventos/#event-cohost',
+    'A known event country without a generated community page keeps a valid global target.');
+  assert.equal(eventHref({ id: 'from-community', communityId: 'community-pe' }, countryPages, [
+    { id: 'community-pe', kind: 'community', country: 'PE' },
+  ]), '/eventos/peru/#event-from-community', 'A linked published organizer supplies its country when the event omits it.');
+  assert.equal(eventHref({ id: 'event-only', country: 'MX' }, countryPages, [
+    { id: 'event-only-community', kind: 'community', country: 'MX' },
+  ]), '/eventos/#event-event-only', 'An event-only country does not create a national route.');
   assert.throws(() => resourceHref({ id: 'bad', kind: 'unknown' }), /Unknown resource kind/);
 });
 
