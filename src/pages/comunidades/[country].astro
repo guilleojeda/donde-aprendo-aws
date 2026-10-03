@@ -1,0 +1,42 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import SiteHeader from '../../components/SiteHeader.astro';
+import SiteFooter from '../../components/SiteFooter.astro';
+import Directory from '../../components/Directory.astro';
+import { loadSiteCatalog } from '../../lib/site-catalog.mjs';
+import { communityCountryPages, communityCountryPath } from '../../lib/community-country-pages.mjs';
+import { COUNTRY_LABELS } from '../../lib/resource-discovery.mjs';
+import type { CatalogEvent, CatalogResource } from '../../types/catalog';
+
+export async function getStaticPaths() {
+  const catalog = await loadSiteCatalog() as Array<CatalogResource | CatalogEvent>;
+  const communities = catalog.filter((record): record is CatalogResource => record.recordType !== 'event' && record.kind === 'community');
+  return communityCountryPages(communities).map(({ country, slug }) => ({
+    params: { country: slug },
+    props: { country },
+  }));
+}
+
+const { country } = Astro.props;
+const catalog = await loadSiteCatalog() as Array<CatalogResource | CatalogEvent>;
+const allResources = catalog.filter((record): record is CatalogResource => record.recordType !== 'event');
+const resources = allResources.filter((record) => record.kind === 'community' && record.country === country);
+const events = catalog.filter((record): record is CatalogEvent => record.recordType === 'event');
+const countryLabel = COUNTRY_LABELS[country as keyof typeof COUNTRY_LABELS];
+const formats = [...new Set(resources.map((resource) => resource.format))]
+  .sort((left, right) => left.localeCompare(right, 'es', { sensitivity: 'base' }));
+const formatCounts = formats.map((format) => `${resources.filter((resource) => resource.format === format).length} en formato ${format}`);
+const communityWord = resources.length === 1 ? 'comunidad publicada' : 'comunidades publicadas';
+const intro = `Encontrá ${resources.length} ${communityWord} en ${countryLabel}: ${formatCounts.join(', ')}.`;
+const title = `Comunidades AWS en ${countryLabel} | ¿Dónde Aprendo AWS?`;
+const description = `Comunidades AWS publicadas en ${countryLabel}. ${formatCounts.join(', ')}. Consultá sus enlaces, temas y próximos eventos cuando están disponibles.`;
+const path = communityCountryPath(country);
+if (!path) throw new Error(`No community page path found for ${country}`);
+const canonical = new URL(path, 'https://dondeaprendoaws.com').href;
+---
+
+<BaseLayout title={title} description={description} canonical={canonical}>
+  <SiteHeader />
+  <Directory title={`Comunidades AWS en ${countryLabel}`} intro={intro} kind="community" resources={resources} allResources={allResources} events={events} country={country} />
+  <SiteFooter />
+</BaseLayout>

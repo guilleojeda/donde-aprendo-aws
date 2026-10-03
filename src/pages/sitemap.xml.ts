@@ -1,15 +1,22 @@
 import type { APIRoute } from 'astro';
 import { getCollection } from 'astro:content';
+import { loadSiteCatalog } from '../lib/site-catalog.mjs';
+import { communityCountryPages } from '../lib/community-country-pages.mjs';
+import type { CatalogEvent, CatalogResource } from '../types/catalog';
 
 export const GET: APIRoute = async ({ site }) => {
   if (!site) throw new Error('A canonical site URL is required for the sitemap.');
 
-  const articles = (await getCollection('blog'))
+  const [posts, catalog] = await Promise.all([getCollection('blog'), loadSiteCatalog()]);
+  const articles = posts
     .map(({ id, data }) => ({ path: `/blog/${id}/`, lastmod: data.modifiedTimestamp }))
     .sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
+  const resources = (catalog as Array<CatalogEvent | CatalogResource>)
+    .filter((record): record is CatalogResource => record.recordType !== 'event');
   const pages: Array<{ path: string; lastmod?: string }> = [
     ...['/', '/aprender/', '/recorridos/', '/creadores/', '/comunidades/', '/eventos/', '/blog/']
       .map((path) => ({ path })),
+    ...communityCountryPages(resources).map(({ path }) => ({ path })),
     ...articles,
   ];
   const urls = pages.map(({ path, lastmod }) =>

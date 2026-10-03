@@ -5,6 +5,7 @@ import type { CatalogEvent, CatalogResource } from '../types/catalog';
 import { TOPICS } from '../lib/resource-taxonomy.mjs';
 import { COUNTRY_LABELS, LEVEL_LABELS } from '../lib/resource-discovery.mjs';
 import { uniqueUpcomingEventGroups } from '../lib/events.mjs';
+import { communityCountryPages } from '../lib/community-country-pages.mjs';
 
 interface Props {
   title: string;
@@ -13,15 +14,24 @@ interface Props {
   resources: CatalogResource[];
   allResources: CatalogResource[];
   events: CatalogEvent[];
+  country?: string;
 }
 
-const { title, intro, kind, resources, allResources, events } = Astro.props;
+const { title, intro, kind, resources, allResources, events, country } = Astro.props;
 const countryLabel = (country: string) => COUNTRY_LABELS[country as keyof typeof COUNTRY_LABELS] ?? country;
 const levelLabel = (level: string) => LEVEL_LABELS[level as keyof typeof LEVEL_LABELS] ?? level;
+const countryPages = kind === 'community'
+  ? communityCountryPages(allResources)
+  : [];
+const upcomingEventGroups = kind === 'community' ? uniqueUpcomingEventGroups(events) : [];
+const countryHasUpcomingEvents = country
+  ? upcomingEventGroups.some(({ event }) => event.country === country)
+  : false;
 const formats = [...new Set(resources.map((resource) => resource.format))]
   .sort((left, right) => left.localeCompare(right, 'es', { sensitivity: 'base' }));
+const resourceCountNoun = resources.length === 1 ? 'recurso' : 'recursos';
 const topics = TOPICS.filter((topic) => resources.some((resource) => resource.topics.includes(topic)));
-const countries = Object.keys(COUNTRY_LABELS).filter((country) => resources.some((resource) => resource.country === country))
+const countries = country ? [] : Object.keys(COUNTRY_LABELS).filter((country) => resources.some((resource) => resource.country === country))
   .sort((left, right) => countryLabel(left).localeCompare(countryLabel(right), 'es'));
 const levels = kind === 'content'
   ? Object.keys(LEVEL_LABELS).filter((level) => resources.some((resource) => resource.level === level))
@@ -29,7 +39,7 @@ const levels = kind === 'content'
 const resourcesById = new Map(allResources.map((resource) => [resource.id, resource]));
 const eventsById = new Map(events.map((event) => [event.id, event]));
 const communitiesWithUpcomingEvents = new Set<string>();
-for (const group of uniqueUpcomingEventGroups(events)) {
+for (const group of upcomingEventGroups) {
   for (const event of group.events) {
     if (event.communityId) communitiesWithUpcomingEvents.add(event.communityId);
   }
@@ -39,10 +49,29 @@ for (const group of uniqueUpcomingEventGroups(events)) {
 <main>
   <section class="directory-section" aria-labelledby="directory-title">
     <div class="site-container directory-section__container">
+      {country && <nav class="community-breadcrumb" aria-label="Ruta de navegación">
+        <ol>
+          <li><a href="/">Inicio</a></li>
+          <li><a href="/comunidades/">Comunidades</a></li>
+          <li aria-current="page">{countryLabel(country)}</li>
+        </ol>
+      </nav>}
       <div class="directory-hero">
         <h1 id="directory-title">{title}</h1>
         <p>{intro}</p>
+        {country && countryHasUpcomingEvents && <p class="community-country-events">
+          <a href={`/eventos/?country=${encodeURIComponent(country)}`}>Ver próximos eventos organizados por comunidades de {countryLabel(country)}</a>
+        </p>}
       </div>
+
+      {kind === 'community' && countryPages.length > 0 && <nav class="community-country-nav" aria-label="Comunidades por país">
+        <details>
+          <summary>{country ? `Cambiar de país · ${countryLabel(country)}` : `Explorá por país · ${countryPages.length} países`}</summary>
+          <ul>
+            {countryPages.map((page) => <li><a href={page.path} aria-current={page.country === country ? 'page' : undefined}>{page.label} <span>({page.count})</span></a></li>)}
+          </ul>
+        </details>
+      </nav>}
 
       <div class="directory-controls" data-directory-controls>
         <label class="sr-only" for="resource-search">Buscar en {title.toLowerCase()}</label>
@@ -50,7 +79,7 @@ for (const group of uniqueUpcomingEventGroups(events)) {
           id="resource-search"
           class="directory-search"
           type="search"
-          placeholder={`Buscar entre ${resources.length} recursos`}
+          placeholder={`Buscar entre ${resources.length} ${resourceCountNoun}`}
           autocomplete="off"
           spellcheck="false"
           data-resource-search
