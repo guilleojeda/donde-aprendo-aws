@@ -2,15 +2,16 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 import deployment from '../config/deployment.json' with { type: 'json' };
+import { COMMUNITY_COUNTRY_SLUGS } from '../src/lib/community-country-pages.mjs';
+import { COUNTRY_LABELS } from '../src/lib/resource-discovery.mjs';
 
 const production = process.env.PUBLIC_PRODUCTION === 'true';
 const mediaOrigin = new URL(process.env.PUBLIC_SITE_ORIGIN || `https://${deployment.branchName}.${deployment.appId}.amplifyapp.com`).origin;
 const dist = resolve('dist');
 const routes = JSON.parse(readFileSync('tests/fixtures/blog-routes.json', 'utf8'));
 const sections = ['aprender', 'creadores', 'comunidades', 'eventos'];
-const pagePaths = ['index.html', ...sections.map((section) => `${section}/index.html`), 'recorridos/index.html', 'blog/index.html', 'buscar/index.html',
-  ...routes.map(({ slug }) => `blog/${slug}/index.html`)];
 const read = (path) => readFileSync(resolve(dist, path), 'utf8');
+const fixtureBuild = read('comunidades/index.html').includes('id="resource-fixture-community"');
 const filesUnder = (directory) => readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
   const path = resolve(directory, entry.name);
   return entry.isDirectory() ? filesUnder(path) : [path];
@@ -27,19 +28,28 @@ const sitemapEntries = [...sitemap.matchAll(/<url>([\s\S]*?)<\/url>/g)].map(([, 
 });
 assert.equal(sitemapEntries.length, locations.length, 'Every sitemap location must belong to a URL entry.');
 const sitemapLastmods = new Map(sitemapEntries);
+const allDistFiles = filesUnder(dist);
+const allHtmlPaths = allDistFiles.filter((path) => path.endsWith('.html')).map((path) => relative(dist, path).replaceAll('\\', '/'));
+const countryRoutePaths = allHtmlPaths.filter((path) => /^comunidades\/[^/]+\/index\.html$/u.test(path));
+const countryRoutes = countryRoutePaths.map((htmlPath) => {
+  const slug = htmlPath.split('/')[1];
+  const country = Object.entries(COMMUNITY_COUNTRY_SLUGS).find(([, countrySlug]) => countrySlug === slug)?.[0];
+  assert.ok(country, `Country route must use a registered slug: ${htmlPath}`);
+  return { country, slug, htmlPath, path: `/comunidades/${slug}/` };
+});
+const pagePaths = ['index.html', ...sections.map((section) => `${section}/index.html`), 'recorridos/index.html', 'blog/index.html', 'buscar/index.html',
+  ...routes.map(({ slug }) => `blog/${slug}/index.html`), ...countryRoutePaths];
 const expectedLocations = [
   'https://dondeaprendoaws.com/',
   ...sections.map((section) => `https://dondeaprendoaws.com/${section}/`),
+  ...countryRoutes.map(({ path }) => `https://dondeaprendoaws.com${path}`),
   'https://dondeaprendoaws.com/blog/',
   'https://dondeaprendoaws.com/recorridos/',
   ...routes.map(({ slug }) => `https://dondeaprendoaws.com/blog/${slug}/`),
 ].sort();
 assert.deepEqual([...locations].sort(), expectedLocations);
-assert.equal(new Set(locations).size, 203, 'Sitemap URLs must be unique.');
-
-const allDistFiles = filesUnder(dist);
-const allHtmlPaths = allDistFiles.filter((path) => path.endsWith('.html')).map((path) => relative(dist, path).replaceAll('\\', '/'));
-assert.equal(allHtmlPaths.length, 205, 'Every public page and the 404 page must be checked.');
+assert.equal(new Set(locations).size, 203 + countryRoutes.length, 'Sitemap URLs must be unique.');
+assert.equal(allHtmlPaths.length, 205 + countryRoutes.length, 'Every public page and the 404 page must be checked.');
 
 const decode = (value) => value.replaceAll('&amp;', '&').replaceAll('&quot;', '"').replaceAll('&#39;', "'").replaceAll('&#x27;', "'").replaceAll('&lt;', '<').replaceAll('&gt;', '>');
 const defaultSocialImage = readFileSync(resolve(dist, 'assets/site-social.png'));
@@ -177,7 +187,63 @@ for (const [section, expectedKind] of [['aprender', 'content'], ['creadores', 's
     assert.doesNotMatch(directory, new RegExp(`data-kind="${kind}"`), `Unexpected ${kind} in ${section}`);
   }
 }
-if (process.env.CATALOG_FIXTURE) {
+
+const cardData = (html) => [...html.matchAll(/<li\b([^>]*)>/gu)].flatMap(([, attributes]) => {
+  const id = attributes.match(/\bid="resource-([^" ]+)"/u)?.[1];
+  const kind = attributes.match(/\bdata-kind="([^"]*)"/u)?.[1];
+  if (!id || !kind) return [];
+  return [{
+    id,
+    kind,
+    country: attributes.match(/\bdata-country="([^"]*)"/u)?.[1] ?? '',
+    format: attributes.match(/\bdata-format="([^"]*)"/u)?.[1] ?? '',
+    topics: (attributes.match(/\bdata-topics="([^"]*)"/u)?.[1] ?? '').split('|').filter(Boolean),
+  }];
+});
+const generalCommunities = cardData(read('comunidades/index.html')).filter(({ kind }) => kind === 'community');
+const directoryCountries = [...new Set(generalCommunities.map(({ country }) => country).filter(Boolean))].sort();
+if (directoryCountries.length) assert.match(read('comunidades/index.html'), /data-country-filter/, 'The overall directory retains its legacy country filter.');
+else assert.doesNotMatch(read('comunidades/index.html'), /data-country-filter/);
+assert.deepEqual(countryRoutes.map(({ country }) => country).sort(), directoryCountries, 'Country routes exactly match published communities with a country.');
+const globalCountryNav = read('comunidades/index.html').match(/<nav class="community-country-nav"[^>]*>([\s\S]*?)<\/nav>/u)?.[1] ?? '';
+for (const route of countryRoutes) assert.ok(globalCountryNav.includes(`href="${route.path}"`), `The overall directory links to ${route.path}.`);
+for (const route of countryRoutes) {
+  const html = read(route.htmlPath);
+  const countryName = COUNTRY_LABELS[route.country];
+  const expectedCards = generalCommunities.filter((card) => card.country === route.country);
+  const countryCards = cardData(html).filter(({ kind }) => kind === 'community');
+  assert.ok(expectedCards.length > 0, `Generated route must have a published country community: ${route.path}`);
+  assert.deepEqual(countryCards.map(({ id }) => id), expectedCards.map(({ id }) => id), `Initial HTML contains the exact ${countryName} subset.`);
+  assert.ok(countryCards.every(({ country }) => country === route.country), `Country page excludes communities from other countries: ${route.path}`);
+  assert.match(html, /data-resource-search/);
+  assert.match(html, /data-format-filter/);
+  if (expectedCards.some(({ topics }) => topics.length > 0)) assert.match(html, /data-topic-filter/, `${countryName} exposes available topic filters.`);
+  else assert.doesNotMatch(html, /data-topic-filter/, `${countryName} does not show an empty topic filter.`);
+  assert.match(html, /data-sort-filter/);
+  assert.match(html, /data-show-more/);
+  assert.match(html, /id="directory-criteria"/);
+  assert.doesNotMatch(html, /data-country-filter/, 'A country page does not expose a country filter.');
+  assert.match(html, /<nav class="community-breadcrumb" aria-label="Ruta de navegación">/);
+  const breadcrumb = html.match(/<nav class="community-breadcrumb"[^>]*>([\s\S]*?)<\/nav>/u)?.[1] ?? '';
+  assert.match(breadcrumb, />Inicio</);
+  assert.match(breadcrumb, />Comunidades</);
+  assert.match(breadcrumb, new RegExp(`aria-current="page">${countryName}</`));
+  assert.equal(decode(html.match(/<title>([\s\S]*?)<\/title>/u)?.[1] ?? ''), `Comunidades AWS en ${countryName} | ¿Dónde Aprendo AWS?`);
+  assert.equal(html.match(/<link\b(?=[^>]*\brel="canonical")(?=[^>]*\bhref="([^"]+)")[^>]*>/u)?.[1], `https://dondeaprendoaws.com${route.path}`);
+  assert.match(html.match(/<meta\b(?=[^>]*\bname="description")([^>]*)>/u)?.[1] ?? '', new RegExp(countryName));
+  assert.equal(decode(html.match(/<h1 id="directory-title">([\s\S]*?)<\/h1>/u)?.[1] ?? ''), `Comunidades AWS en ${countryName}`);
+  const formatCounts = new Map();
+  for (const { format } of expectedCards) formatCounts.set(format, (formatCounts.get(format) ?? 0) + 1);
+  for (const [format, count] of formatCounts) assert.ok(html.includes(`${count} en formato ${format}`), `Intro gives the ${format} count for ${countryName}.`);
+  const countryNav = html.match(/<nav class="community-country-nav"[^>]*>([\s\S]*?)<\/nav>/u)?.[1] ?? '';
+  assert.ok(countryNav, `Country navigation exists for ${countryName}.`);
+  assert.match(countryNav, new RegExp(`Cambiar de país · ${countryName}`));
+  assert.match(countryNav, new RegExp(`href="${route.path.replaceAll('/', '\\/')}" aria-current="page"`));
+  for (const otherRoute of countryRoutes) assert.ok(countryNav.includes(`href="${otherRoute.path}"`), `Country navigation links to ${otherRoute.path}.`);
+  assert.doesNotMatch(countryNav, /<details[^>]*open/, 'The country menu starts collapsed.');
+}
+
+if (fixtureBuild) {
   const learn = read('aprender/index.html');
   const creators = read('creadores/index.html');
   const communities = read('comunidades/index.html');
@@ -185,9 +251,32 @@ if (process.env.CATALOG_FIXTURE) {
   const featuredCard = card(learn, 'fixture-featured');
   const sourceCard = card(creators, 'fixture-source');
   const communityCard = card(communities, 'fixture-community');
+  assert.deepEqual(countryRoutes.map(({ slug }) => slug).sort(), ['argentina', 'colombia', 'costa-rica', 'peru']);
+  assert.deepEqual(cardData(read('comunidades/argentina/index.html')).map(({ id, format }) => [id, format]), [
+    ['fixture-community-argentina', 'User Group'],
+    ['fixture-student-argentina', 'Student Builder Group'],
+  ]);
+  assert.deepEqual(cardData(read('comunidades/colombia/index.html')).map(({ id, format }) => [id, format]), [
+    ['fixture-student-colombia', 'Student Builder Group'],
+  ]);
+  assert.deepEqual(cardData(read('comunidades/costa-rica/index.html')).map(({ id, format }) => [id, format]), [
+    ['fixture-community-costa-rica', 'User Group'],
+  ]);
+  assert.match(read('comunidades/colombia/index.html'), /1 en formato Student Builder Group/);
+  assert.doesNotMatch(read('comunidades/colombia/index.html'), /Ver próximos eventos organizados por comunidades de Colombia/,
+    'A co-host listing does not qualify when another country owns the representative agenda card.');
+  assert.doesNotMatch(read('comunidades/costa-rica/index.html'), /Ver próximos eventos organizados por comunidades de Costa Rica/,
+    'A country with one community and no upcoming events has no country agenda link.');
+  assert.match(read('comunidades/argentina/index.html'), /href="\/eventos\/\?country=AR"[^>]*>Ver próximos eventos organizados por comunidades de Argentina/);
+  assert.match(read('comunidades/peru/index.html'), /href="\/eventos\/\?country=PE"[^>]*>Ver próximos eventos organizados por comunidades de Perú/);
+  assert.match(communities, /id="resource-fixture-student-argentina"/);
+  assert.doesNotMatch(communities, /fixture-unpublished-community/);
   assert.match(learn, /https:\/\/example\.com\/curso\?utm_source=fixture&amp;lang=es/);
   assert.match(learn, /href="\/creadores\/#resource-fixture-source"/);
-  assert.match(learn, /href="\/comunidades\/#resource-fixture-community"/);
+  assert.match(learn, /href="\/comunidades\/peru\/#resource-fixture-community"/);
+  assert.match(learn, /href="\/comunidades\/#resource-fixture-no-country-community"/);
+  assert.equal(searchIndex.find(({ title }) => title === 'Comunidad de ejemplo')?.url, '/comunidades/peru/#resource-fixture-community');
+  assert.equal(searchIndex.find(({ title }) => title === 'Comunidad sin país confirmado')?.url, '/comunidades/#resource-fixture-no-country-community');
   assert.match(featuredCard, /<time datetime="2026-09-25">25 de septiembre de 2026<\/time>/);
   assert.match(featuredCard, /Agregado al directorio/);
   assert.match(featuredCard, /href="#directory-criteria"[^>]*>Recomendado<\/a>/);
@@ -200,20 +289,23 @@ if (process.env.CATALOG_FIXTURE) {
   assert.doesNotMatch(communityCard, /Agregado al directorio/);
   assert.doesNotMatch(communityCard, /Recomendado/);
   assert.match(communities, /href="\/eventos\/\?community=fixture-community"/);
+  const legacyRoutes = JSON.parse(home.match(/<script type="application\/json" id="legacy-resource-routes">([\s\S]*?)<\/script>/u)?.[1] ?? '{}');
+  assert.equal(legacyRoutes['fixture-community'], '/comunidades/', 'Old homepage card hashes still route through the full directory.');
   assert.match(communities, /mailto:contact@dondeaprendoaws\.com\?subject=[^"\s]+fixture-community/);
 }
 const events = read('eventos/index.html');
 assert.match(events, /data-event-list/);
 assert.match(events, /data-event-empty/);
 for (const field of ['from', 'to', 'mode', 'country', 'community', 'city']) assert.match(events, new RegExp(`data-event-${field}`));
-if (process.env.CATALOG_FIXTURE) {
+if (fixtureBuild) {
   assert.match(events, /data-event-city="PE:Lima"/);
-  assert.match(events, /data-event-communities="fixture-community"/);
-  assert.match(events, /href="\/comunidades\/#resource-fixture-community"/);
+  assert.match(events, /data-event-communities="fixture-community\|fixture-student-colombia"/);
+  assert.match(events, /href="\/comunidades\/peru\/#resource-fixture-community"/);
+  assert.doesNotMatch(events, /<option value="CO">Colombia<\/option>/, 'The deduplicated agenda country filter follows its representative event.');
   assert.match(events, /href="\/eventos\/fixture-event\.ics"/);
   assert.match(events, /mailto:contact@dondeaprendoaws\.com\?subject=[^"\s]+fixture-event/);
   const calendar = read('eventos/fixture-event.ics');
   assert.match(calendar, /DTSTART:20990101T230000Z\r\nDTEND:20990102T010000Z/);
   assert.match(calendar, /URL:https:\/\/example\.com\/encuentro\?source=fixture/);
 }
-console.log(`Verified ${production ? 'production' : 'preview'} indexing, learning paths, unified search, Analytics tags, 203 sitemap URLs, and ${sitemapModificationDates} declared sitemap modification dates.`);
+console.log(`Verified ${production ? 'production' : 'preview'} indexing, learning paths, unified search, Analytics tags, ${locations.length} sitemap URLs, and ${sitemapModificationDates} declared sitemap modification dates.`);

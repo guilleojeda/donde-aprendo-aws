@@ -14,6 +14,7 @@ test('section links preserve stable card anchors', () => {
   assert.equal(resourceHref({ id: 'one', kind: 'content' }), '/aprender/#resource-one');
   assert.equal(resourceHref({ id: 'two', kind: 'source' }), '/creadores/#resource-two');
   assert.equal(resourceHref({ id: 'three', kind: 'community' }), '/comunidades/#resource-three');
+  assert.equal(resourceHref({ id: 'peru', kind: 'community', country: 'PE' }), '/comunidades/peru/#resource-peru');
   assert.equal(eventHref({ id: 'event-one' }), '/eventos/#event-event-one');
   assert.throws(() => resourceHref({ id: 'bad', kind: 'unknown' }), /Unknown resource kind/);
 });
