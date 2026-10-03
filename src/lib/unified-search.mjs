@@ -1,6 +1,7 @@
 import { eventHref, resourceHref } from './catalog-routes.mjs';
 import { normalizeSearch } from './directory-filter.mjs';
 import { uniqueUpcomingEvents } from './events.mjs';
+import { communityCountryPages } from './community-country-pages.mjs';
 
 const TYPE_LABELS = Object.freeze({
   article: 'Artículo del blog',
@@ -73,13 +74,14 @@ export function buildSearchIndex(posts, catalog, learningPaths = []) {
     }));
 
   const visibleEvents = new Set(uniqueUpcomingEvents(catalog.filter((record) => record.recordType === 'event')));
+  const countryPages = communityCountryPages(catalog);
   const records = catalog.filter((record) => record.recordType !== 'event' || visibleEvents.has(record))
     .map((record) => record.recordType === 'event'
     ? {
         type: 'event',
         title: record.title,
         description: record.description,
-        url: eventHref(record),
+        url: eventHref(record, countryPages, catalog),
         meta: record.organizer,
         metadata: [record.place, record.city, record.country].filter(Boolean).join(' '),
         endsAt: record.endsAt,

@@ -1,0 +1,34 @@
+---
+interface CountryPage {
+  country: string;
+  label: string;
+  slug: string;
+  path: string;
+  count: number;
+}
+
+interface Props {
+  pages: CountryPage[];
+  section: 'comunidades' | 'eventos';
+  currentCountry?: string;
+  showCounts?: boolean;
+}
+
+const { pages, section, currentCountry, showCounts = false } = Astro.props;
+const currentLabel = pages.find((page) => page.country === currentCountry)?.label;
+const sectionLabel = section === 'eventos' ? 'eventos' : 'comunidades';
+---
+
+{pages.length > 0 && <nav class="community-country-nav" aria-label={section === 'eventos' ? 'Agendas por país' : 'Comunidades por país'}>
+  <details>
+    <summary>{currentCountry ? `Cambiar de país · ${currentLabel}` : `Explorá ${sectionLabel} por país · ${pages.length} países`}</summary>
+    <ul>
+      {pages.map((page) => {
+        const path = `/${section}/${page.slug}/`;
+        return <li><a href={path} aria-current={page.country === currentCountry ? 'page' : undefined}>
+          {page.label}{showCounts && <span>({page.count})</span>}
+        </a></li>;
+      })}
+    </ul>
+  </details>
+</nav>}

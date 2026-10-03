@@ -8,6 +8,7 @@ import Partner from '../components/Partner.astro';
 import SiteFooter from '../components/SiteFooter.astro';
 import { loadSiteCatalog } from '../lib/site-catalog.mjs';
 import { resourceHref, eventHref, RESOURCE_PATHS } from '../lib/catalog-routes.mjs';
+import { communityCountryPages } from '../lib/community-country-pages.mjs';
 import { recommendedResources } from '../lib/resource-discovery.mjs';
 import { KIND_LABELS } from '../lib/resource-taxonomy.mjs';
 import { eventDateLabel, uniqueUpcomingEvents } from '../lib/events.mjs';
@@ -16,6 +17,7 @@ import type { CatalogEvent, CatalogResource } from '../types/catalog';
 const catalog = await loadSiteCatalog() as Array<CatalogResource | CatalogEvent>;
 const resources = catalog.filter((record): record is CatalogResource => record.recordType !== 'event');
 const events = catalog.filter((record): record is CatalogEvent => record.recordType === 'event');
+const countryPages = communityCountryPages(resources);
 const recommended = recommendedResources(resources, 4) as CatalogResource[];
 const upcoming = uniqueUpcomingEvents(events).slice(0, 3) as CatalogEvent[];
 const counts = Object.fromEntries(Object.keys(RESOURCE_PATHS).map((kind) => [kind, resources.filter((resource) => resource.kind === kind).length]));
@@ -75,7 +77,7 @@ const routeData = JSON.stringify(legacyResourceRoutes).replaceAll('<', '\\u003c'
       <section class="home-shelf" aria-labelledby="home-events-title">
         <div class="home-shelf__heading"><div><h2 id="home-events-title">Próximos eventos</h2><p>Elegí un encuentro para aprender y conectar.</p></div><a href="/eventos/">Ver agenda completa</a></div>
         {upcoming.length > 0 ? <ol class="home-events">
-          {upcoming.map((event) => <li><a href={eventHref(event)}>
+          {upcoming.map((event) => <li><a href={eventHref(event, countryPages, resources)}>
             <time datetime={event.startsAt}>{eventDateLabel(event.startsAt, event.timeZone)}</time>
             <strong>{event.title}</strong>
             <span>{event.organizer}</span>

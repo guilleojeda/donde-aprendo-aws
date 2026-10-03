@@ -22,8 +22,13 @@ if (agenda && empty) {
   const visitorTime = new Intl.DateTimeFormat('es', {
     day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false, timeZoneName: 'short',
   });
-  const allowed = Object.fromEntries(['mode', 'country', 'city', 'community']
+  const allowedFilters = Object.fromEntries(['mode', 'country', 'city', 'community']
     .map((field) => [field, new Set([...(controls[field]?.options ?? [])].map((option) => option.value))]));
+  const countriesForCity = new Map([...(controls.city?.options ?? [])]
+    .filter((option) => option.value)
+    .map((option) => [option.value, new Set(option.dataset.eventCountries?.split('|').filter(Boolean)
+      ?? [option.value.split(':')[0]])]));
+  const allowed = { ...allowedFilters, countriesForCity };
   let expiryTimer;
   let limit = 12;
 
@@ -37,7 +42,8 @@ if (agenda && empty) {
   const updateCityOptions = () => {
     const country = controls.country?.value ?? '';
     for (const option of [...(controls.city?.options ?? [])].slice(1)) {
-      option.disabled = Boolean(country && !option.value.startsWith(`${country}:`));
+      const countries = option.dataset.eventCountries?.split('|').filter(Boolean) ?? [option.value.split(':')[0]];
+      option.disabled = Boolean(country && !countries.includes(country));
       option.hidden = option.disabled;
     }
     if (controls.city?.selectedOptions[0]?.disabled) controls.city.value = '';
@@ -78,6 +84,7 @@ if (agenda && empty) {
         localDate: card.dataset.eventDate,
         mode: card.dataset.eventMode,
         country: card.dataset.country,
+        countries: (card.dataset.eventCountries ?? card.dataset.country ?? '').split('|').filter(Boolean),
         city: card.dataset.eventCity,
         communities: (card.dataset.eventCommunities ?? '').split('|').filter(Boolean),
       };
@@ -93,7 +100,7 @@ if (agenda && empty) {
     }
     empty.hidden = matching > 0;
     empty.textContent = active === 0
-      ? 'No hay próximos eventos publicados. Vuelve pronto para ver nuevas fechas.'
+      ? (empty.dataset.eventNoUpcoming ?? 'No hay próximos eventos publicados. Vuelve pronto para ver nuevas fechas.')
       : 'No hay eventos que coincidan con estos filtros. Probá con otras fechas o lugares.';
     if (more) more.hidden = matching <= limit;
     if (count) count.textContent = `${matching} ${matching === 1 ? 'evento' : 'eventos'}`;

@@ -167,6 +167,38 @@
     "published": true
   },
   {
+    "id": "fixture-recording-costa-rica",
+    "title": "Grabación del encuentro AWS de Costa Rica",
+    "url": "https://example.com/grabacion/costa-rica",
+    "description": "Grabación pública de un encuentro anterior de la comunidad de Costa Rica.",
+    "category": "Grabación de evento",
+    "order": 1,
+    "featured": false,
+    "kind": "content",
+    "format": "Video",
+    "topics": ["Comunidad"],
+    "country": "CR",
+    "communityId": "fixture-community-costa-rica",
+    "eventId": "fixture-past-costa-rica",
+    "published": true
+  },
+  {
+    "id": "fixture-recording-argentina",
+    "title": "Grabación del encuentro AWS de Argentina",
+    "url": "https://example.com/grabacion/argentina",
+    "description": "Grabación pública de un encuentro anterior de la comunidad de Argentina.",
+    "category": "Grabación de evento",
+    "order": 1,
+    "featured": false,
+    "kind": "content",
+    "format": "Video",
+    "topics": ["Comunidad"],
+    "country": "AR",
+    "communityId": "fixture-community-argentina",
+    "eventId": "fixture-past-argentina",
+    "published": true
+  },
+  {
     "recordType": "event",
     "id": "fixture-event-colombia",
     "title": "Encuentro AWS en Lima",
@@ -195,6 +227,36 @@
     "mode": "online",
     "country": "AR",
     "registrationUrl": "https://example.com/charla?source=fixture",
+    "published": true
+  },
+  {
+    "recordType": "event",
+    "id": "fixture-past-costa-rica",
+    "title": "Encuentro pasado de AWS Costa Rica",
+    "description": "Evento ya terminado con grabación pública.",
+    "startsAt": "2025-08-12T18:00:00-06:00",
+    "endsAt": "2025-08-12T20:00:00-06:00",
+    "timeZone": "America/Costa_Rica",
+    "organizer": "AWS User Group Costa Rica",
+    "mode": "online",
+    "country": "CR",
+    "communityId": "fixture-community-costa-rica",
+    "registrationUrl": "https://example.com/evento/pasado-costa-rica",
+    "published": true
+  },
+  {
+    "recordType": "event",
+    "id": "fixture-past-argentina",
+    "title": "Encuentro pasado de AWS Argentina",
+    "description": "Evento ya terminado con grabación pública.",
+    "startsAt": "2025-07-12T18:00:00-03:00",
+    "endsAt": "2025-07-12T20:00:00-03:00",
+    "timeZone": "America/Argentina/Buenos_Aires",
+    "organizer": "AWS User Group Argentina",
+    "mode": "online",
+    "country": "AR",
+    "communityId": "fixture-community-argentina",
+    "registrationUrl": "https://example.com/evento/pasado-argentina",
     "published": true
   }
 ]
