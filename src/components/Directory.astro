@@ -7,6 +7,16 @@ import { TOPICS } from '../lib/resource-taxonomy.mjs';
 import { COUNTRY_LABELS, LEVEL_LABELS } from '../lib/resource-discovery.mjs';
 import { uniqueUpcomingEventGroups } from '../lib/events.mjs';
 import { communityCountryPages, eventCountryPath } from '../lib/community-country-pages.mjs';
+import { sortResources } from '../lib/directory-filter.mjs';
+
+interface ResourceGroup {
+  id: string;
+  label: string;
+  description: string;
+  resourceIds: string[];
+}
+
+type OrderedResource = CatalogResource & { directoryIndex: number; purposeGroupIndex: number };
 
 interface Props {
   title: string;
@@ -19,11 +29,14 @@ interface Props {
   breadcrumb?: { label: string; href?: string }[];
   omittedFacets?: ('format' | 'topic' | 'country' | 'level')[];
   showCountryNavigation?: boolean;
+  defaultSort?: 'recommended' | 'purpose';
+  resourceGroups?: ResourceGroup[];
 }
 
 const {
   title, intro, kind, resources, allResources, events, country,
   breadcrumb, omittedFacets = [], showCountryNavigation = true,
+  defaultSort = 'recommended', resourceGroups = [],
 } = Astro.props;
 const countryLabel = (country: string) => COUNTRY_LABELS[country as keyof typeof COUNTRY_LABELS] ?? country;
 const levelLabel = (level: string) => LEVEL_LABELS[level as keyof typeof LEVEL_LABELS] ?? level;
@@ -43,6 +56,19 @@ const countries = country ? [] : Object.keys(COUNTRY_LABELS).filter((country) =>
 const levels = kind === 'content'
   ? Object.keys(LEVEL_LABELS).filter((level) => resources.some((resource) => resource.level === level))
   : [];
+const availableFacets = [
+  !omitFacet('format') && formats.length > 0,
+  !omitFacet('topic') && topics.length > 0,
+  !omitFacet('country') && countries.length > 0,
+  !omitFacet('level') && levels.length > 0,
+].some(Boolean);
+const groupByResourceId = new Map(resourceGroups.flatMap((group, groupIndex) => group.resourceIds
+  .map((resourceId) => [resourceId, { ...group, groupIndex }] as const)));
+const orderedResources = sortResources(resources.map((resource, directoryIndex) => ({
+  ...resource,
+  directoryIndex,
+  purposeGroupIndex: groupByResourceId.get(resource.id)?.groupIndex ?? Number.MAX_SAFE_INTEGER,
+})), defaultSort) as OrderedResource[];
 const resourcesById = new Map(allResources.map((resource) => [resource.id, resource]));
 const eventsById = new Map(events.map((event) => [event.id, event]));
 const communitiesWithUpcomingEvents = new Set<string>();
@@ -94,36 +120,39 @@ for (const group of upcomingEventGroups) {
           spellcheck="false"
           data-resource-search
         />
-        <div class="directory-facets">
-          {!omitFacet('format') && <div class="directory-facet">
-            <label for="resource-format">Formato</label>
-            <select id="resource-format" data-format-filter>
-              <option value="">Todos los formatos</option>
-              {formats.map((format) => <option value={format}>{format}</option>)}
-            </select>
-          </div>}
-          {!omitFacet('topic') && topics.length > 0 && <div class="directory-facet">
-            <label for="resource-topic">Tema</label>
-            <select id="resource-topic" data-topic-filter>
-              <option value="">Todos los temas</option>
-              {topics.map((topic) => <option value={topic}>{topic}</option>)}
-            </select>
-          </div>}
-          {!omitFacet('country') && countries.length > 0 && <div class="directory-facet">
-            <label for="resource-country">País de origen</label>
-            <select id="resource-country" data-country-filter>
-              <option value="">Todos los países</option>
-              {countries.map((country) => <option value={country}>{countryLabel(country)}</option>)}
-            </select>
-          </div>}
-          {!omitFacet('level') && levels.length > 0 && <div class="directory-facet" data-level-field>
-            <label for="resource-level">Nivel</label>
-            <select id="resource-level" data-level-filter>
-              <option value="">Todos los niveles</option>
-              {levels.map((level) => <option value={level}>{levelLabel(level)}</option>)}
-            </select>
-          </div>}
-        </div>
+        {availableFacets && <details class="directory-filter-disclosure" data-filter-disclosure>
+          <summary>Filtros adicionales</summary>
+          <div class="directory-facets">
+            {!omitFacet('format') && formats.length > 0 && <div class="directory-facet">
+              <label for="resource-format">Formato</label>
+              <select id="resource-format" data-format-filter>
+                <option value="">Todos los formatos</option>
+                {formats.map((format) => <option value={format}>{format}</option>)}
+              </select>
+            </div>}
+            {!omitFacet('topic') && topics.length > 0 && <div class="directory-facet">
+              <label for="resource-topic">Tema</label>
+              <select id="resource-topic" data-topic-filter>
+                <option value="">Todos los temas</option>
+                {topics.map((topic) => <option value={topic}>{topic}</option>)}
+              </select>
+            </div>}
+            {!omitFacet('country') && countries.length > 0 && <div class="directory-facet">
+              <label for="resource-country">País de origen</label>
+              <select id="resource-country" data-country-filter>
+                <option value="">Todos los países</option>
+                {countries.map((country) => <option value={country}>{countryLabel(country)}</option>)}
+              </select>
+            </div>}
+            {!omitFacet('level') && levels.length > 0 && <div class="directory-facet" data-level-field>
+              <label for="resource-level">Nivel</label>
+              <select id="resource-level" data-level-filter>
+                <option value="">Todos los niveles</option>
+                {levels.map((level) => <option value={level}>{levelLabel(level)}</option>)}
+              </select>
+            </div>}
+          </div>
+        </details>}
       </div>
 
       {resources.length > 0 ? <>
@@ -132,24 +161,39 @@ for (const group of upcomingEventGroups) {
           <p class="directory-result-count" data-result-count data-count-singular={countNouns.singular} data-count-plural={countNouns.plural} aria-live="polite">{resources.length} {resourceCountNoun}</p>
           <div class="directory-facet directory-facet--sort">
             <label for="resource-sort">Ordenar por</label>
-            <select id="resource-sort" data-sort-filter>
+            <select id="resource-sort" data-sort-filter data-default-sort={defaultSort}>
+              {defaultSort === 'purpose' && <option value="purpose" selected>Por objetivo de estudio</option>}
               <option value="directory">Orden del directorio</option>
-              <option value="recent">Más recientes</option>
-              <option value="recommended">Recomendados</option>
+              <option value="recent">Agregados recientemente</option>
+              <option value="recommended" selected={defaultSort === 'recommended'}>Recomendados</option>
             </select>
           </div>
         </div>
-        <ul class="resource-list" data-resource-list>
-          {resources.map((resource, index) => <ResourceCard
-            resource={resource}
-            index={index}
-            source={resourcesById.get(resource.sourceId ?? '')}
-            community={resourcesById.get(resource.communityId ?? '')}
-            event={eventsById.get(resource.eventId ?? '')}
-            countryPages={countryPages}
-            catalogResources={allResources}
-            hasUpcomingCommunityEvents={communitiesWithUpcomingEvents.has(resource.id)}
-          />)}
+        <ul class="resource-list" data-resource-list data-resource-groups={resourceGroups.length ? JSON.stringify(resourceGroups) : undefined}>
+          {(() => {
+            let previousGroupId: string | undefined;
+            return orderedResources.map((resource) => {
+              const group = groupByResourceId.get(resource.id);
+              const showHeading = defaultSort === 'purpose' && group && group.id !== previousGroupId;
+              previousGroupId = group?.id;
+              return <>
+                {showHeading && <li class="resource-list__group-heading" data-resource-group-heading>
+                  <h2>{group.label}</h2>
+                  <p>{group.description}</p>
+                </li>}
+                <ResourceCard
+                  resource={resource}
+                  index={resource.directoryIndex}
+                  source={resourcesById.get(resource.sourceId ?? '')}
+                  community={resourcesById.get(resource.communityId ?? '')}
+                  event={eventsById.get(resource.eventId ?? '')}
+                  countryPages={countryPages}
+                  catalogResources={allResources}
+                  hasUpcomingCommunityEvents={communitiesWithUpcomingEvents.has(resource.id)}
+                />
+              </>;
+            });
+          })()}
         </ul>
         <p class="directory-no-results" data-no-results role="status" hidden>No encontramos recursos con estos filtros.</p>
         <div class="directory-show-more" data-show-more-wrap hidden>

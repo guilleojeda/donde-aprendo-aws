@@ -5,9 +5,13 @@ import SiteFooter from '../../components/SiteFooter.astro';
 import Directory from '../../components/Directory.astro';
 import CollectionNavigation from '../../components/CollectionNavigation.astro';
 import CollectionGuide from '../../components/CollectionGuide.astro';
+import PageFactSummary from '../../components/PageFactSummary.astro';
+import PageFaq from '../../components/PageFaq.astro';
 import { loadSiteCatalog } from '../../lib/site-catalog.mjs';
 import { communityCountryPages, communityCountryPath, eventCountryPath } from '../../lib/community-country-pages.mjs';
 import { RESOURCE_COLLECTIONS } from '../../lib/resource-collections.mjs';
+import { communityFactText, communityFormatSummary } from '../../lib/community-page-facts.mjs';
+import { communityFaqItems } from '../../lib/page-faq-content.mjs';
 import { COUNTRY_LABELS } from '../../lib/resource-discovery.mjs';
 import type { CatalogEvent, CatalogResource } from '../../types/catalog';
 
@@ -26,43 +30,26 @@ const allResources = catalog.filter((record): record is CatalogResource => recor
 const resources = allResources.filter((record) => record.kind === 'community' && record.country === country);
 const events = catalog.filter((record): record is CatalogEvent => record.recordType === 'event');
 const countryLabel = COUNTRY_LABELS[country as keyof typeof COUNTRY_LABELS];
-const formats = [...new Set(resources.map((resource) => resource.format))]
-  .sort((left, right) => left.localeCompare(right, 'es', { sensitivity: 'base' }));
-const communityFormatNames: Record<string, [string, string]> = {
-  'User Group': ['AWS User Group', 'AWS User Groups'],
-  'Student Builder Group': ['Student Builder Group', 'Student Builder Groups'],
-  'Grupo de estudio': ['grupo de estudio', 'grupos de estudio'],
-  'Comunidad en línea': ['comunidad en línea', 'comunidades en línea'],
-};
-const formatCounts = formats.map((format) => {
-  const count = resources.filter((resource) => resource.format === format).length;
-  const names = communityFormatNames[format];
-  if (!names) throw new Error(`No community display name is defined for ${format}`);
-  return `${count} ${names[count === 1 ? 0 : 1]}`;
-});
-const formatSummary = formatCounts.length === 1
-  ? formatCounts[0]
-  : `${formatCounts.slice(0, -1).join(', ')} y ${formatCounts.at(-1)}`;
-const intro = `Explorá las comunidades de ${countryLabel}: ${formatSummary}. Revisá sus enlaces para conocer sus canales y cómo participar.`;
+const formatSummary = communityFormatSummary(resources);
+const intro = `Conocé las comunidades AWS de ${countryLabel} y los temas que publican.`;
 const title = `Comunidades AWS en ${countryLabel} | ¿Dónde Aprendo AWS?`;
 const description = `Comunidades AWS en ${countryLabel}: ${formatSummary}. Conocé cada grupo y consultá sus enlaces para participar.`;
 const communityCollections = RESOURCE_COLLECTIONS.filter((collection) => collection.kind === 'community');
 const communityCollectionLinks = communityCollections.map(({ path, label }) => ({ path, label }));
 const guide = {
-  heading: `¿Qué tipo de comunidad AWS buscás en ${countryLabel}?`,
-  body: `Conocé los grupos de ${countryLabel} y abrí sus enlaces para encontrar sus actividades y canales de participación.`,
+  heading: `¿Qué tipos de comunidad AWS hay en ${countryLabel}?`,
+  body: `Usá el filtro Formato para comparar los grupos publicados en ${countryLabel}; cada ficha muestra sus temas y enlaces disponibles.`,
   points: [
-    ...(formats.includes('User Group') ? ['Los AWS User Groups reúnen a personas interesadas en compartir experiencias y aprender sobre AWS.'] : []),
-    ...(formats.includes('Student Builder Group') ? ['Los Student Builder Groups son comunidades para aprender y construir con otros estudiantes.'] : []),
-    `Consultá la agenda de eventos organizados por comunidades de ${countryLabel}.`,
+    ...(resources.some((resource) => resource.format === 'User Group') ? ['Los AWS User Groups reúnen a personas interesadas en compartir experiencias y aprender sobre AWS.'] : []),
+    ...(resources.some((resource) => resource.format === 'Student Builder Group') ? ['Los Student Builder Groups son comunidades para aprender y construir con otros estudiantes.'] : []),
   ],
 };
 const agendaPath = eventCountryPath(country);
 if (!agendaPath) throw new Error(`No event page path found for ${country}`);
 const guideLinks = [
   ...communityCollections.map(({ path, label }) => ({ path, label })),
-  { path: agendaPath, label: `Eventos en ${countryLabel}` },
 ];
+const faqItems = communityFaqItems({ countryName: countryLabel, agendaPath });
 const path = communityCountryPath(country);
 if (!path) throw new Error(`No community page path found for ${country}`);
 const canonical = new URL(path, 'https://dondeaprendoaws.com').href;
@@ -72,10 +59,12 @@ const canonical = new URL(path, 'https://dondeaprendoaws.com').href;
   <SiteHeader />
   <Directory title={`Comunidades AWS en ${countryLabel}`} intro={intro} kind="community" resources={resources} allResources={allResources} events={events} country={country}>
     <div slot="before-filters" class="collection-page__editorial">
+      <PageFactSummary text={communityFactText(resources, countryLabel)} label={`Resumen de comunidades en ${countryLabel}`} />
       <CollectionNavigation links={communityCollectionLinks} label="Tipos de comunidades AWS" />
     </div>
     <div slot="after-results" class="collection-page__after-results">
       <CollectionGuide guide={guide} links={guideLinks} />
+      <PageFaq items={faqItems} id="community-country-faq" />
     </div>
   </Directory>
   <SiteFooter />

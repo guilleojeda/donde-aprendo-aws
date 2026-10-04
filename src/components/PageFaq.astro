@@ -1,0 +1,40 @@
+---
+interface FaqItem {
+  question: string;
+  answer: string;
+  links?: Array<{ label: string; href: string }>;
+}
+
+interface Props {
+  items: FaqItem[];
+  heading?: string;
+  id?: string;
+}
+
+const { items, heading = 'Preguntas frecuentes', id = 'page-faq' } = Astro.props;
+---
+
+{items.length > 0 && <section class="page-faq" aria-labelledby={`${id}-title`}>
+  <h2 id={`${id}-title`}>{heading}</h2>
+  <div class="page-faq__items">
+    {items.map((item) => <div class="page-faq__item">
+      <h3>{item.question}</h3>
+      <p>{item.answer}</p>
+      {(item.links?.length ?? 0) > 0 && <p class="page-faq__links">
+        {(item.links ?? []).map((link) => <a href={link.href}>{link.label}</a>)}
+      </p>}
+    </div>)}
+  </div>
+</section>}
+
+<style>
+  .page-faq { margin-block: 2.5rem; text-align: left; }
+  .page-faq h2 { margin: 0 0 1.25rem; font-size: clamp(1.3rem, 3vw, 1.7rem); }
+  .page-faq__items { display: grid; gap: 1.25rem; }
+  .page-faq__item { border-top: 1px solid #d8dce3; padding-top: 1.25rem; }
+  .page-faq h3 { margin: 0 0 .5rem; font-size: 1.1rem; line-height: 1.45; }
+  .page-faq p { max-width: 76ch; margin: 0; line-height: 1.65; }
+  .page-faq .page-faq__links { display: flex; flex-wrap: wrap; gap: .25rem 1.25rem; margin-top: .5rem; }
+  .page-faq a { display: inline-flex; align-items: center; min-height: 44px; text-decoration: underline; text-underline-offset: .15em; }
+  .page-faq a:focus-visible { outline: 2px solid #263457; outline-offset: 3px; }
+</style>

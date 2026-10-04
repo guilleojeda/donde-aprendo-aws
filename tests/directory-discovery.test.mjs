@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { projectPublishedCatalog } from '../src/lib/catalog.mjs';
-import { filterResources, sortResources } from '../src/lib/directory-filter.mjs';
+import { directoryListEntries, filterResources, sortResources } from '../src/lib/directory-filter.mjs';
 import { recentResources, recommendedResources } from '../src/lib/resource-discovery.mjs';
 
 function record(overrides = {}) {
@@ -33,6 +33,54 @@ test('recent selection excludes entries without a known date and recommendation 
   assert.deepEqual(recentResources([old, earlier, recent]).map(({ id }) => id), ['recent', 'earlier']);
   assert.deepEqual(recommendedResources([old, earlier, recent]).map(({ id }) => id), ['recent', 'old']);
   assert.deepEqual(sortResources([old, earlier, recent], 'recent').map(({ id }) => id), ['recent', 'earlier', 'old']);
+});
+
+test('explicit directory order stays stable while recommendations and recent sort use their own fields', () => {
+  const records = [
+    { id: 'group-b-featured', directoryIndex: 2, purposeGroupIndex: 1, featured: true, addedAt: '2026-09-01' },
+    { id: 'group-a-unfeatured', directoryIndex: 0, purposeGroupIndex: 0, featured: false, addedAt: '2026-04-10' },
+    { id: 'group-a-featured', directoryIndex: 1, purposeGroupIndex: 0, featured: true },
+  ];
+  assert.deepEqual(sortResources(records, 'directory').map(({ id }) => id), [
+    'group-a-unfeatured', 'group-a-featured', 'group-b-featured',
+  ]);
+  assert.deepEqual(sortResources(records, 'recommended').map(({ id }) => id), [
+    'group-b-featured', 'group-a-featured', 'group-a-unfeatured',
+  ]);
+  assert.deepEqual(sortResources(records, 'recent').map(({ id }) => id), [
+    'group-b-featured', 'group-a-unfeatured', 'group-a-featured',
+  ]);
+  assert.deepEqual(sortResources(records, 'purpose').map(({ id }) => id), [
+    'group-a-featured', 'group-a-unfeatured', 'group-b-featured',
+  ]);
+});
+
+test('filtered and paginated views retain every resource node and headings only for visible groups', () => {
+  const records = Array.from({ length: 13 }, (_, index) => ({
+    id: `resource-${index}`,
+    purposeGroupId: index < 10 ? 'foundations' : index < 12 ? 'exam-prep' : 'experiences',
+    purposeGroupIndex: index < 10 ? 0 : index < 12 ? 1 : 2,
+    purposeGroupLabel: index < 10 ? 'Fundamentos' : index < 12 ? 'Preparar un examen' : 'Experiencias',
+    purposeGroupDescription: 'Orientación',
+    topics: [index === 12 ? 'Experiencias' : 'Certificaciones'],
+  }));
+  const ordered = sortResources(records, 'purpose');
+  const matching = filterResources(ordered, { query: '', topic: '' });
+  const firstPage = matching.slice(0, 12);
+  const pageEntries = directoryListEntries(ordered, firstPage, 'purpose');
+  const pageResources = pageEntries.filter(({ type }) => type === 'resource');
+  assert.deepEqual(pageResources.map(({ resource }) => resource.id), ordered.map(({ id }) => id));
+  assert.equal(pageResources.filter(({ visible }) => visible).length, 12);
+  assert.deepEqual(pageEntries.filter(({ type }) => type === 'heading').map(({ id }) => id), ['foundations', 'exam-prep']);
+
+  const expandedEntries = directoryListEntries(ordered, matching.slice(0, 24), 'purpose');
+  assert.equal(expandedEntries.filter(({ type, visible }) => type === 'resource' && visible).length, 13);
+
+  const filtered = filterResources(ordered, { topic: 'Experiencias' });
+  const filteredEntries = directoryListEntries(ordered, filtered, 'purpose');
+  assert.deepEqual(filteredEntries.filter(({ type }) => type === 'resource').map(({ resource }) => resource.id), ordered.map(({ id }) => id));
+  assert.deepEqual(filteredEntries.filter(({ type, visible }) => type === 'resource' && visible).map(({ resource }) => resource.id), ['resource-12']);
+  assert.deepEqual(filteredEntries.filter(({ type }) => type === 'heading').map(({ id }) => id), ['experiences']);
 });
 
 test('country and level combine with existing filters', () => {

@@ -3,7 +3,8 @@ import { eventDateLabel, eventLocalDate, eventTimeLabel, uniqueUpcomingEventGrou
 import { COUNTRY_LABELS } from '../lib/resource-discovery.mjs';
 import { eventCalendarHref, resourceHref } from '../lib/catalog-routes.mjs';
 import { communityCountryPages } from '../lib/community-country-pages.mjs';
-import { eventGroupsForModes } from '../lib/event-collections.mjs';
+import { eventGroupCountries, eventGroupsForAgenda, organizerCountry } from '../lib/event-agenda-groups.mjs';
+import { eventAgendaSummaryText } from '../lib/event-agenda-summary.mjs';
 import ReportLink from './ReportLink.astro';
 import type { CatalogEvent, CatalogResource } from '../types/catalog';
 
@@ -11,28 +12,23 @@ interface Props { events: CatalogEvent[]; resources: CatalogResource[]; country?
 
 const { events, resources, country, modes } = Astro.props;
 const communityById = new Map(resources.filter((resource) => resource.kind === 'community').map((resource) => [resource.id, resource]));
-const organizerCountry = (event: CatalogEvent) => event.country ?? communityById.get(event.communityId ?? '')?.country;
-const upcomingGroups = uniqueUpcomingEventGroups(events) as Array<{ event: CatalogEvent; events: CatalogEvent[] }>;
-const modeScopedGroups = eventGroupsForModes(upcomingGroups, modes) as typeof upcomingGroups;
-const eventCountriesByGroup = (group: { event: CatalogEvent; events: CatalogEvent[] }) => [...new Set(
-  group.events.map(organizerCountry).filter((value): value is string => Boolean(value)),
-)];
+const renderTime = new Date();
+const upcomingGroups = uniqueUpcomingEventGroups(events, renderTime) as Array<{ event: CatalogEvent; events: CatalogEvent[] }>;
+const eventCountriesByGroup = (group: { event: CatalogEvent; events: CatalogEvent[] }) => eventGroupCountries(group, communityById);
 const countryLabel = (country: string) => COUNTRY_LABELS[country as keyof typeof COUNTRY_LABELS] ?? country;
 const countryPages = communityCountryPages(resources) as Array<{ country: string }>;
 const allOrganizerCountries = new Set<string>(countryPages.map((page) => page.country));
 for (const group of upcomingGroups) for (const organizerCountryCode of eventCountriesByGroup(group)) allOrganizerCountries.add(organizerCountryCode);
 const eventCountries = [...allOrganizerCountries]
   .sort((left, right) => countryLabel(left).localeCompare(countryLabel(right), 'es'));
-const agendaGroups = country
-  ? modeScopedGroups.filter((group) => eventCountriesByGroup(group).includes(country))
-  : modeScopedGroups;
+const agendaGroups = eventGroupsForAgenda(upcomingGroups, { communityById, country, modes }) as typeof upcomingGroups;
 const upcoming = agendaGroups.map(({ event }) => event);
 const modeLabel = { online: 'En línea', 'in-person': 'Presencial', hybrid: 'Híbrido' } as const;
 const cityOptions = new Map<string, { key: string; city: string; country?: string; organizerCountries: Set<string> }>();
 for (const group of agendaGroups) {
   const event = group.event;
   if (!event.city) continue;
-  const countryCode = organizerCountry(event) ?? '';
+  const countryCode = organizerCountry(event, communityById) ?? '';
   const key = `${countryCode}:${event.city}`;
   const option = cityOptions.get(key) ?? { key, city: event.city, country: countryCode || undefined, organizerCountries: new Set<string>() };
   for (const code of eventCountriesByGroup(group)) option.organizerCountries.add(code);
@@ -63,14 +59,19 @@ const countryName = country ? countryLabel(country) : undefined;
 const eventModePhrase = modes?.length === 1 && modes[0] === 'online'
   ? 'en línea'
   : modes?.includes('in-person') && modes.includes('hybrid') ? 'presenciales o híbridos' : undefined;
-const emptyMessage = countryName
+const eventFactsIntro = countryName
+  ? `En la agenda de ${countryName} hay`
+  : eventModePhrase ? `En la agenda de eventos ${eventModePhrase} hay` : 'En la agenda de eventos AWS hay';
+const emptyFacts = countryName
   ? `No hay próximos eventos publicados organizados por comunidades de ${countryName}.`
   : eventModePhrase
-    ? `No hay próximos eventos ${eventModePhrase} publicados. Volvé a consultar esta agenda más adelante.`
-  : 'No hay próximos eventos publicados. Volvé pronto para ver nuevas fechas.';
+    ? `No hay próximos eventos ${eventModePhrase} publicados.`
+  : 'No hay próximos eventos publicados en esta agenda.';
+const emptyHint = 'Volvé a consultar esta agenda para ver nuevas fechas.';
+const eventFactsText = eventAgendaSummaryText(upcoming, renderTime, { intro: eventFactsIntro, emptyMessage: emptyFacts });
 const pastRecorded = events.filter((event) => Date.parse(event.endsAt) <= Date.now()
   && (!modes || modes.includes(event.mode))
-  && (!country || organizerCountry(event) === country)
+  && (!country || organizerCountry(event, communityById) === country)
   && recordingsByEvent.has(event.id))
   .sort((left, right) => Date.parse(right.startsAt) - Date.parse(left.startsAt));
 ---
@@ -87,6 +88,7 @@ const pastRecorded = events.filter((event) => Date.parse(event.endsAt) <= Date.n
             : 'Encuentros y charlas de comunidades AWS de Latinoamérica, ordenados por fecha.'}</p>
       </div>
     </div>
+    <p class="event-agenda__facts" data-event-summary data-event-summary-intro={eventFactsIntro} data-event-summary-empty={emptyFacts} aria-live="polite">{eventFactsText}</p>
     {(upcoming.length > 0 || (!country && eventCountries.length > 0)) && <div class="event-agenda__filter-area">
       <div class="event-agenda__filters">
         <label for="event-from">Desde <input id="event-from" type="date" data-event-from /></label>
@@ -123,7 +125,7 @@ const pastRecorded = events.filter((event) => Date.parse(event.endsAt) <= Date.n
           const name = community?.title ?? cohost.organizer;
           return [community?.id ?? name, { community, name }] as const;
         })).values()];
-        return <li id={`event-${event.id}`} class="event-card" data-event-id={event.id} data-event-ends-at={event.endsAt} data-event-date={eventLocalDate(event.startsAt, event.timeZone)} data-event-mode={event.mode} data-country={organizerCountry(event) ?? ''} data-event-countries={eventCountries.join('|')} data-event-communities={communitiesByEventId.get(event.id)?.join('|') ?? ''} data-event-city={event.city ? `${organizerCountry(event) ?? ''}:${event.city}` : ''} tabindex="-1">
+        return <li id={`event-${event.id}`} class="event-card" data-event-id={event.id} data-event-starts-at={event.startsAt} data-event-ends-at={event.endsAt} data-event-time-zone={event.timeZone} data-event-date={eventLocalDate(event.startsAt, event.timeZone)} data-event-mode={event.mode} data-country={organizerCountry(event, communityById) ?? ''} data-event-countries={eventCountries.join('|')} data-event-communities={communitiesByEventId.get(event.id)?.join('|') ?? ''} data-event-city={event.city ? `${organizerCountry(event, communityById) ?? ''}:${event.city}` : ''} tabindex="-1">
           <article>
             <div class="event-card__date">
               <time datetime={event.startsAt}>{eventDateLabel(event.startsAt, event.timeZone)}</time>
@@ -150,8 +152,8 @@ const pastRecorded = events.filter((event) => Date.parse(event.endsAt) <= Date.n
       })}
     </ol>
     {upcoming.length > 12 && <button class="event-agenda__more" type="button" data-event-more hidden>Mostrar más eventos</button>}
-    <p class="event-agenda__empty" data-event-empty data-event-no-upcoming={emptyMessage} role="status" hidden={upcoming.length > 0}>
-      {emptyMessage}
+    <p class="event-agenda__empty" data-event-empty data-event-no-upcoming={emptyHint} role="status" hidden={upcoming.length > 0}>
+      {emptyHint}
     </p>
     {pastRecorded.length > 0 && <div class="event-agenda__archive" aria-labelledby="event-archive-title">
       <h3 id="event-archive-title">Grabaciones de eventos anteriores</h3>
@@ -169,3 +171,15 @@ const pastRecorded = events.filter((event) => Date.parse(event.endsAt) <= Date.n
 </section>
 
 <script src="../scripts/event-agenda.js"></script>
+
+<style>
+  .event-agenda__facts {
+    margin: 12px 0 0;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: #edf1f8;
+    color: #303b51;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+</style>

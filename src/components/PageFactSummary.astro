@@ -1,0 +1,24 @@
+---
+interface Props {
+  text: string;
+  label?: string;
+}
+
+const { text, label = 'Datos de esta página' } = Astro.props;
+---
+
+<section class="page-fact-summary" aria-label={label}>
+  <p>{text}</p>
+</section>
+
+<style>
+  .page-fact-summary {
+    margin-block: 1.25rem;
+    padding: 1rem 1.25rem;
+    border-inline-start: 3px solid #e87722;
+    border-radius: 0 .5rem .5rem 0;
+    background: #f7f9fc;
+    color: #263457;
+  }
+  .page-fact-summary p { max-width: 80ch; margin: 0; line-height: 1.65; }
+</style>

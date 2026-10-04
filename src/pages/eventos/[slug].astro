@@ -6,9 +6,13 @@ import EventAgenda from '../../components/EventAgenda.astro';
 import CountryNavigation from '../../components/CountryNavigation.astro';
 import CollectionNavigation from '../../components/CollectionNavigation.astro';
 import CountryCommunitySummary from '../../components/CountryCommunitySummary.astro';
+import PageFactSummary from '../../components/PageFactSummary.astro';
+import PageFaq from '../../components/PageFaq.astro';
 import { loadSiteCatalog } from '../../lib/site-catalog.mjs';
 import { communityCountryPages, eventCountryPath } from '../../lib/community-country-pages.mjs';
 import { EVENT_COLLECTIONS } from '../../lib/event-collections.mjs';
+import { communityFactText } from '../../lib/community-page-facts.mjs';
+import { eventFaqItems } from '../../lib/page-faq-content.mjs';
 import { COUNTRY_LABELS } from '../../lib/resource-discovery.mjs';
 import type { CatalogEvent, CatalogResource } from '../../types/catalog';
 
@@ -57,6 +61,7 @@ const collectionLinks = [
     path: collectionPath, label,
   })),
 ];
+const faqItems = eventFaqItems({ countryName, collectionKey });
 ---
 
 <BaseLayout title={title} description={description} canonical={canonical}>
@@ -75,8 +80,10 @@ const collectionLinks = [
     </div>
     <CountryNavigation pages={countryPages} section="eventos" currentCountry={country} />
     <CollectionNavigation links={collectionLinks} currentPath={collection?.path} label="Colecciones de eventos" />
+    {country && <PageFactSummary text={communityFactText(communities, countryName)} label={`Comunidades organizadoras en ${countryName}`} />}
     <EventAgenda events={events} resources={resources} country={country} modes={collectionModes} />
     {country && <CountryCommunitySummary country={country} communities={communities} />}
+    <PageFaq items={faqItems} id={country ? 'event-country-faq' : `event-${collectionKey}-faq`} />
   </main>
   <SiteFooter />
 </BaseLayout>
