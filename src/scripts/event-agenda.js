@@ -3,13 +3,14 @@ import { trackRegistrationClick } from '../lib/event-analytics.mjs';
 
 const agenda = document.querySelector('[data-event-list]');
 const empty = document.querySelector('[data-event-empty]');
+const filterFields = document.querySelector('.event-agenda__filters');
 const controls = {
-  from: document.querySelector('[data-event-from]'),
-  to: document.querySelector('[data-event-to]'),
-  mode: document.querySelector('[data-event-mode]'),
-  country: document.querySelector('[data-event-country]'),
-  community: document.querySelector('[data-event-community]'),
-  city: document.querySelector('[data-event-city]'),
+  from: filterFields?.querySelector('[data-event-from]'),
+  to: filterFields?.querySelector('[data-event-to]'),
+  mode: filterFields?.querySelector('[data-event-mode]'),
+  country: filterFields?.querySelector('[data-event-country]'),
+  community: filterFields?.querySelector('[data-event-community]'),
+  city: filterFields?.querySelector('[data-event-city]'),
 };
 const clear = document.querySelector('[data-event-clear]');
 const more = document.querySelector('[data-event-more]');
@@ -101,7 +102,7 @@ if (agenda && empty) {
     empty.hidden = matching > 0;
     empty.textContent = active === 0
       ? (empty.dataset.eventNoUpcoming ?? 'No hay próximos eventos publicados. Vuelve pronto para ver nuevas fechas.')
-      : 'No hay eventos que coincidan con estos filtros. Probá con otras fechas o lugares.';
+      : 'No hay eventos que coincidan con estos filtros. Probá con otras fechas o limpiá los filtros.';
     if (more) more.hidden = matching <= limit;
     if (count) count.textContent = `${matching} ${matching === 1 ? 'evento' : 'eventos'}`;
     if (Number.isFinite(nextEnd)) expiryTimer = setTimeout(refresh, Math.min(Math.max(nextEnd - now, 1), 2_147_483_647));

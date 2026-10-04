@@ -4,9 +4,11 @@ import { resourceHref } from './catalog-routes.mjs';
 export const LEARNING_PATHS = Object.freeze([
   {
     id: 'primeros-pasos',
-    title: 'Primeros pasos en AWS',
-    audience: 'Para empezar',
-    intro: 'Entendé la nube, cuidá tu cuenta y elegí una forma de seguir aprendiendo.',
+    title: 'Ruta para aprender AWS desde cero',
+    seoTitle: 'Ruta para aprender AWS desde cero | ¿Dónde Aprendo AWS?',
+    seoDescription: 'Una ruta para conocer qué ofrece AWS, revisar conceptos básicos, proteger tu cuenta y elegir materiales para seguir aprendiendo.',
+    audience: 'Para empezar desde cero',
+    intro: 'Empezá por qué ofrece AWS, recorré conceptos básicos, protegé tu cuenta y elegí cómo seguir aprendiendo.',
     steps: [
       { type: 'resource', id: 'catalog-f8a1bdedb229541186365e6bf325ed7f', note: 'Empezá con una explicación breve de qué ofrece AWS.' },
       { type: 'blog', id: 'aws-fundamentos-guia-de-inicio-rapido', note: 'Ordená los conceptos y servicios fundamentales.' },
@@ -18,9 +20,11 @@ export const LEARNING_PATHS = Object.freeze([
   },
   {
     id: 'serverless',
-    title: 'De Lambda a una aplicación serverless',
-    audience: 'Con fundamentos de AWS',
-    intro: 'Pasá de las funciones a una API y conocé la orquestación de tareas.',
+    title: 'Ruta serverless en AWS: Lambda, API Gateway y Step Functions',
+    seoTitle: 'Ruta serverless en AWS: Lambda, API Gateway y Step Functions | ¿Dónde Aprendo AWS?',
+    seoDescription: 'Una secuencia para aprender serverless en AWS: conectá una función Lambda con API Gateway y conocé la coordinación con Step Functions.',
+    audience: 'Para quienes ya conocen los fundamentos de AWS',
+    intro: 'Con una base de AWS, conectá una función Lambda con API Gateway y avanzá a flujos coordinados con Step Functions.',
     steps: [
       { type: 'blog', id: 'que-es-aws-lambda-preguntas-y-respuestas', note: 'Repasá el modelo de ejecución de Lambda.' },
       { type: 'blog', id: 'aws-lambda-y-api-gateway-guia-basica', note: 'Conectá una función a una API.' },
@@ -31,9 +35,11 @@ export const LEARNING_PATHS = Object.freeze([
   },
   {
     id: 'seguridad',
-    title: 'Fundamentos de seguridad en AWS',
-    audience: 'Para empezar',
-    intro: 'Construí una base de identidad, protección y detección antes de profundizar.',
+    title: 'Ruta de seguridad en AWS para principiantes',
+    seoTitle: 'Ruta de seguridad en AWS para principiantes | ¿Dónde Aprendo AWS?',
+    seoDescription: 'Empezá con el modelo de responsabilidad compartida y avanzá por IAM, protección de la cuenta, seguridad web y detección de amenazas.',
+    audience: 'Para empezar con seguridad en la nube',
+    intro: 'Empezá por el modelo de responsabilidad compartida y avanzá por identidad, protección de cuenta, aplicaciones y detección.',
     steps: [
       { type: 'blog', id: 'aws-seguridad-fundamentos-esenciales', note: 'Ubicá los controles principales de seguridad.' },
       { type: 'resource', id: 'catalog-08facfe178c25c04cfb53fb1e179894a', note: 'Aprendé la base de identidad y permisos.' },
@@ -45,9 +51,11 @@ export const LEARNING_PATHS = Object.freeze([
   },
   {
     id: 'ia-generativa',
-    title: 'IA generativa con AWS',
-    audience: 'Con fundamentos de desarrollo',
-    intro: 'Recorré los conceptos y después compará aplicaciones y patrones de agentes.',
+    title: 'Ruta de IA generativa en AWS: Amazon Bedrock y agentes',
+    seoTitle: 'Ruta de IA generativa en AWS: Amazon Bedrock y agentes | ¿Dónde Aprendo AWS?',
+    seoDescription: 'Conocé el panorama de IA en AWS, revisá decisiones de aplicaciones y explorá ejemplos con Amazon Bedrock y agentes.',
+    audience: 'Para desarrolladores con fundamentos',
+    intro: 'Partí del panorama de IA en AWS, revisá decisiones de aplicación y seguí con ejemplos de Amazon Bedrock y agentes.',
     steps: [
       { type: 'blog', id: 'introduccion-a-la-inteligencia-artificial-en-aws', note: 'Empezá por el panorama de servicios de IA.' },
       { type: 'blog', id: 'como-desarrollar-aplicaciones-de-inteligencia-artificial-en-aws', note: 'Revisá las decisiones para crear una aplicación.' },
@@ -85,6 +93,11 @@ export function resolveLearningPaths(paths, resources, posts) {
   });
 }
 
+/** Canonical detail URL for a learning path. */
+export function learningPathHref(pathId) {
+  return `/recorridos/${pathId}/`;
+}
+
 /**
  * Use resolved steps so withdrawn resources cannot become article continuation links.
  * @param {Array<{ id: string, title: string, steps: Array<{ id: string, type: string, title: string, href: string, label: string }> }>} paths
@@ -96,7 +109,7 @@ export function articlePathNavigation(paths, articleId) {
     if (index === -1) return [];
     return [{
       title: path.title,
-      href: `/recorridos/#${path.id}`,
+      href: learningPathHref(path.id),
       nextStep: path.steps[index + 1] ?? null,
     }];
   });

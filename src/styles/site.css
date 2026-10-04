@@ -363,6 +363,55 @@ button {
   padding: 24px 0 60px;
 }
 
+.directory-hero .hero-eyebrow {
+  margin-top: 20px;
+  color: #263457;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+
+.intent-home .directory-hero {
+  max-width: 860px;
+}
+
+.home-topic-nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin: 26px 0 10px;
+  line-height: 1.5;
+}
+
+.home-topic-nav > span {
+  color: #626875;
+  margin-right: 4px;
+}
+
+.home-topic-nav a {
+  padding: 10px 14px;
+  border: 1px solid #d8dde6;
+  border-radius: 24px;
+  color: #263457;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.home-topic-nav a:hover,
+.home-topic-nav a:focus-visible {
+  border-color: #263457;
+  background: #f2f5fa;
+}
+
+.site-footer__info .site-footer__explore {
+  margin-top: 20px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
 .intent-links,
 .home-shelf__grid {
   display: grid;
@@ -806,7 +855,7 @@ button {
 
 .directory-facets {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
   gap: 15px;
 }
 
@@ -1583,7 +1632,7 @@ button {
   }
 
   .directory-facets {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .directory-show-more .button {
@@ -1633,4 +1682,10 @@ button {
   .intent-links a,
   .home-shelf__grid a,
   .home-events a { padding: 18px; }
+}
+
+@media (max-width: 360px) {
+  .directory-facets {
+    grid-template-columns: 1fr;
+  }
 }

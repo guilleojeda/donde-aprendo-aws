@@ -54,7 +54,7 @@ if (controls && list) {
       card.hidden = !visible.has(card);
       card.setAttribute('aria-hidden', String(card.hidden));
     }
-    if (resultCount) resultCount.textContent = matching.length === 1 ? '1 recurso' : `${matching.length} recursos`;
+    if (resultCount) resultCount.textContent = `${matching.length} ${matching.length === 1 ? resultCount.dataset.countSingular : resultCount.dataset.countPlural}`;
     if (noResults) noResults.hidden = matching.length !== 0;
     if (showMoreWrap && showMore) {
       const remaining = matching.length - limit;

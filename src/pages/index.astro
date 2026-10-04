@@ -26,7 +26,7 @@ const legacyResourceRoutes = Object.fromEntries(resources.map((resource) => [res
 const routeData = JSON.stringify(legacyResourceRoutes).replaceAll('<', '\\u003c');
 ---
 
-<BaseLayout canonical="https://dondeaprendoaws.com/">
+<BaseLayout title="Dónde aprender AWS en español | ¿Dónde Aprendo AWS?" description="Elegí cómo aprender AWS en español: cursos, videos, tutoriales, rutas de aprendizaje, comunidades y próximos eventos en Latinoamérica." canonical="https://dondeaprendoaws.com/">
   <SiteHeader />
   <script type="application/json" id="legacy-resource-routes" set:html={routeData} />
   <script is:inline>
@@ -48,8 +48,9 @@ const routeData = JSON.stringify(legacyResourceRoutes).replaceAll('<', '\\u003c'
   <main class="intent-home">
     <div class="site-container">
       <div class="directory-hero">
-        <h1>¿Dónde Aprendo AWS?</h1>
-        <p>Encontrá recursos para aprender, personas para seguir y comunidades para participar en AWS.</p>
+        <p class="hero-eyebrow">Aprendé a tu ritmo, con la comunidad</p>
+        <h1>Dónde aprender AWS en español</h1>
+        <p>Encontrá cursos, videos y tutoriales para aprender Amazon Web Services (AWS). Elegí una ruta paso a paso, seguí a quienes enseñan y conectá con comunidades y eventos de Latinoamérica.</p>
       </div>
 
       <nav class="intent-links" aria-label="Explorar el sitio">
@@ -59,7 +60,15 @@ const routeData = JSON.stringify(legacyResourceRoutes).replaceAll('<', '\\u003c'
         <a href="/eventos/"><span>Eventos</span><strong>{countLabel(uniqueUpcomingEvents(events).length, 'próximo', 'próximos')}</strong><small>Encuentros y charlas de la comunidad.</small></a>
       </nav>
 
-      <p class="home-path-callout">¿Preferís una guía paso a paso? <a href="/recorridos/">Explorá los recorridos de aprendizaje</a>.</p>
+      <p class="home-path-callout">¿Estás empezando desde cero? <a href="/recorridos/primeros-pasos/">Seguí la ruta de primeros pasos en AWS</a>.</p>
+
+      <nav class="home-topic-nav" aria-label="Aprender AWS por tema">
+        <span>¿Tenés un objetivo?</span>
+        <a href="/aprender/certificaciones/">Preparar una certificación</a>
+        <a href="/aprender/serverless/">Crear con serverless</a>
+        <a href="/aprender/seguridad/">Aprender seguridad</a>
+        <a href="/aprender/ia-generativa/">Explorar IA generativa</a>
+      </nav>
 
       <LearnerGuide />
 

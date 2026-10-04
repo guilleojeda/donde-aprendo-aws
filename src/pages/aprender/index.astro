@@ -3,6 +3,9 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import SiteHeader from '../../components/SiteHeader.astro';
 import SiteFooter from '../../components/SiteFooter.astro';
 import Directory from '../../components/Directory.astro';
+import CollectionNavigation from '../../components/CollectionNavigation.astro';
+import CollectionGuide from '../../components/CollectionGuide.astro';
+import { RESOURCE_COLLECTIONS } from '../../lib/resource-collections.mjs';
 import { loadSiteCatalog } from '../../lib/site-catalog.mjs';
 import type { CatalogEvent, CatalogResource } from '../../types/catalog';
 
@@ -10,12 +13,33 @@ const catalog = await loadSiteCatalog() as Array<CatalogResource | CatalogEvent>
 const allResources = catalog.filter((record): record is CatalogResource => record.recordType !== 'event');
 const resources = allResources.filter((record) => record.kind === 'content');
 const events = catalog.filter((record): record is CatalogEvent => record.recordType === 'event');
+const collectionLinks = RESOURCE_COLLECTIONS.filter((collection) => collection.kind === 'content')
+  .map(({ path, label }) => ({ path, label }));
+const guide = {
+  heading: 'Elegí cómo querés aprender AWS',
+  body: 'Podés empezar con un curso, resolver una duda con un tutorial o profundizar leyendo una guía. Si todavía no tenés un tema, los recorridos proponen un orden para empezar.',
+  points: [
+    'Filtrá los recursos por formato, tema y nivel para acercarte a lo que necesitás.',
+    'Revisá el destino, la fecha y los requisitos de cada publicación antes de seguir sus pasos.',
+    'El catálogo enlaza material de terceros; las condiciones y la vigencia dependen de cada autor.',
+  ],
+};
 ---
-<BaseLayout title="Aprender AWS en español | ¿Dónde Aprendo AWS?" description="Artículos, videos, cursos y herramientas en español para aprender AWS." canonical="https://dondeaprendoaws.com/aprender/">
+<BaseLayout title="Recursos para aprender AWS en español | ¿Dónde Aprendo AWS?" description="Explorá cursos, videos, artículos y recursos en español para aprender AWS por formato, tema y nivel." canonical="https://dondeaprendoaws.com/aprender/">
   <SiteHeader />
   <aside class="learning-path-promo site-container" aria-label="Recorridos de aprendizaje">
     <p>¿No sabés por dónde empezar? <a href="/recorridos/">Seguí un recorrido de aprendizaje</a> con recursos y artículos en orden.</p>
   </aside>
-  <Directory title="Aprender AWS" intro="Artículos, videos, cursos y herramientas para aprender a tu ritmo." kind="content" resources={resources} allResources={allResources} events={events} />
+  <Directory title="Recursos para aprender AWS en español" intro="Encontrá cursos, videos y artículos para estudiar AWS a tu ritmo. Explorá por formato, tema o nivel, y elegí recursos de acuerdo con lo que querés aprender o construir." kind="content" resources={resources} allResources={allResources} events={events}>
+    <div slot="before-filters" class="collection-page__editorial">
+      <CollectionNavigation links={collectionLinks} />
+    </div>
+    <div slot="after-results" class="collection-page__after-results">
+      <CollectionGuide guide={guide} links={[]} />
+      <p class="collection-page__catalog-note">
+        Para seguir una secuencia, <a href="/recorridos/">explorá los recorridos de aprendizaje</a>. Cada recorrido conecta artículos y recursos existentes.
+      </p>
+    </div>
+  </Directory>
   <SiteFooter />
 </BaseLayout>

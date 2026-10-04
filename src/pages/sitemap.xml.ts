@@ -3,6 +3,9 @@ import { getCollection } from 'astro:content';
 import { loadSiteCatalog } from '../lib/site-catalog.mjs';
 import { communityCountryPages, eventCountryPath } from '../lib/community-country-pages.mjs';
 import type { CatalogEvent, CatalogResource } from '../types/catalog';
+import { RESOURCE_COLLECTIONS } from '../lib/resource-collections.mjs';
+import { EVENT_COLLECTIONS } from '../lib/event-collections.mjs';
+import { LEARNING_PATHS, learningPathHref } from '../lib/learning-paths.mjs';
 
 export const GET: APIRoute = async ({ site }) => {
   if (!site) throw new Error('A canonical site URL is required for the sitemap.');
@@ -16,6 +19,8 @@ export const GET: APIRoute = async ({ site }) => {
   const pages: Array<{ path: string; lastmod?: string }> = [
     ...['/', '/aprender/', '/recorridos/', '/creadores/', '/comunidades/', '/eventos/', '/blog/']
       .map((path) => ({ path })),
+    ...[...RESOURCE_COLLECTIONS, ...Object.values(EVENT_COLLECTIONS)].map(({ path }) => ({ path })),
+    ...LEARNING_PATHS.map(({ id }) => ({ path: learningPathHref(id) })),
     ...communityCountryPages(resources).flatMap(({ country, path }) => [
       { path },
       { path: eventCountryPath(country)! },

@@ -1,0 +1,28 @@
+---
+import '../styles/collections.css';
+
+interface CollectionLink {
+  path: string;
+  label: string;
+  description?: string;
+}
+
+interface Props {
+  links: CollectionLink[];
+  currentPath?: string;
+  label?: string;
+}
+
+const { links, currentPath, label = 'Explorar por formato o tema' } = Astro.props;
+---
+
+{links.length > 0 && <nav class="collection-navigation" aria-label={label}>
+  <ul>
+    {links.map((link) => <li>
+      <a href={link.path} aria-current={link.path === currentPath ? 'page' : undefined}>
+        <span>{link.label}</span>
+        {link.description && <small>{link.description}</small>}
+      </a>
+    </li>)}
+  </ul>
+</nav>}

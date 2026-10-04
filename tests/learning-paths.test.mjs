@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { LEARNING_PATHS, resolveLearningPaths, articlePathNavigation } from '../src/lib/learning-paths.mjs';
+import { LEARNING_PATHS, resolveLearningPaths, articlePathNavigation, learningPathHref } from '../src/lib/learning-paths.mjs';
 import { buildSearchIndex, searchIndex } from '../src/lib/unified-search.mjs';
 
 const posts = LEARNING_PATHS.flatMap((path) => path.steps)
@@ -33,14 +33,20 @@ test('withdrawn catalog entries disappear without breaking a path or the build',
 test('learning paths appear as searchable internal destinations', () => {
   const index = buildSearchIndex(uniquePosts, [], LEARNING_PATHS);
   assert.equal(index.filter((entry) => entry.type === 'path').length, 4);
-  assert.equal(searchIndex(index, 'serverless', 'path')[0].url, '/recorridos/#serverless');
+  assert.equal(searchIndex(index, 'serverless', 'path')[0].url, '/recorridos/serverless/');
+});
+
+test('each learning path has a stable dedicated detail URL', () => {
+  for (const path of LEARNING_PATHS) {
+    assert.equal(learningPathHref(path.id), `/recorridos/${path.id}/`);
+  }
 });
 
 test('article continuation follows the next available published step', () => {
   const complete = resolveLearningPaths(LEARNING_PATHS, uniqueResources, uniquePosts);
   const current = 'aws-fundamentos-guia-de-inicio-rapido';
   const [navigation] = articlePathNavigation(complete, current);
-  assert.equal(navigation.href, '/recorridos/#primeros-pasos');
+  assert.equal(navigation.href, '/recorridos/primeros-pasos/');
   assert.equal(navigation.nextStep.href, '/aprender/#resource-catalog-08facfe178c25c04cfb53fb1e179894a');
 
   const withdrawn = resolveLearningPaths(LEARNING_PATHS, [], uniquePosts);
@@ -51,7 +57,7 @@ test('article continuation follows the next available published step', () => {
 test('final articles have a return link without a fabricated next step', () => {
   const paths = resolveLearningPaths(LEARNING_PATHS, uniqueResources, uniquePosts);
   const [navigation] = articlePathNavigation(paths, 'aprender-aws-gratis-recursos-y-comunidad');
-  assert.equal(navigation.href, '/recorridos/#primeros-pasos');
+  assert.equal(navigation.href, '/recorridos/primeros-pasos/');
   assert.equal(navigation.nextStep, null);
   assert.deepEqual(articlePathNavigation(paths, 'article-outside-the-paths'), []);
 });
@@ -62,5 +68,5 @@ test('an article can offer continuation in each path it belongs to', () => {
   const navigation = articlePathNavigation([...paths, { ...first, id: 'another-path', title: 'Another path' }],
     'aws-fundamentos-guia-de-inicio-rapido');
   assert.deepEqual(navigation.map((entry) => entry.href),
-    ['/recorridos/#primeros-pasos', '/recorridos/#another-path']);
+    ['/recorridos/primeros-pasos/', '/recorridos/another-path/']);
 });

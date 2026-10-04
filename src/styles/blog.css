@@ -80,6 +80,34 @@
   line-height: 1.5;
 }
 
+.blog-index__routes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 24px;
+  line-height: 1.5;
+}
+
+.blog-index__routes span {
+  width: 100%;
+  color: #626875;
+}
+
+.blog-index__routes a {
+  padding: 10px 16px;
+  border: 1px solid #d8dde6;
+  border-radius: 24px;
+  color: #263457;
+  text-decoration: none;
+}
+
+.blog-index__routes a:hover,
+.blog-index__routes a:focus-visible {
+  border-color: #263457;
+  background: #f2f5fa;
+}
+
 .blog-index section > h2 {
   margin-bottom: 25px;
   color: #303030;

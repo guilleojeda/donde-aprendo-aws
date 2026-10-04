@@ -1,0 +1,16 @@
+---
+import ResourceCollection from '../../components/ResourceCollection.astro';
+import { RESOURCE_COLLECTIONS } from '../../lib/resource-collections.mjs';
+
+export function getStaticPaths() {
+  const collections = RESOURCE_COLLECTIONS.filter((collection) => collection.kind === 'source');
+  return collections.map((collection) => ({
+    params: { collection: collection.path.split('/').filter(Boolean).at(-1) },
+    props: { path: collection.path },
+  }));
+}
+
+const { path } = Astro.props;
+---
+
+<ResourceCollection path={path} />
