@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { LEARNING_PATHS, resolveLearningPaths, articlePathNavigation, learningPathHref } from '../src/lib/learning-paths.mjs';
 import { buildSearchIndex, searchIndex } from '../src/lib/unified-search.mjs';
@@ -40,6 +41,18 @@ test('each learning path has a stable dedicated detail URL', () => {
   for (const path of LEARNING_PATHS) {
     assert.equal(learningPathHref(path.id), `/recorridos/${path.id}/`);
   }
+});
+
+test('thematic paths end with their matching collection and route-selector links', () => {
+  const collections = Object.fromEntries(LEARNING_PATHS.map((path) => [path.id, path.relatedCollection]));
+  assert.deepEqual(collections, {
+    'primeros-pasos': { href: '/aprender/', label: 'Explorá todos los recursos para aprender AWS' },
+    serverless: { href: '/aprender/serverless/', label: 'Explorá más recursos de serverless' },
+    seguridad: { href: '/aprender/seguridad/', label: 'Explorá más recursos de seguridad en AWS' },
+    'ia-generativa': { href: '/aprender/ia-generativa/', label: 'Explorá más recursos de IA generativa en AWS' },
+  });
+  const detailTemplate = readFileSync(new URL('../src/pages/recorridos/[slug].astro', import.meta.url), 'utf8');
+  assert.match(detailTemplate, /href=\{path\.relatedCollection\.href\}[\s\S]*href="\/recorridos\/">Elegí otra ruta/);
 });
 
 test('article continuation follows the next available published step', () => {

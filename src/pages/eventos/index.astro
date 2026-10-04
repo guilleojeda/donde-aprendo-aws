@@ -5,9 +5,11 @@ import SiteFooter from '../../components/SiteFooter.astro';
 import EventAgenda from '../../components/EventAgenda.astro';
 import CountryNavigation from '../../components/CountryNavigation.astro';
 import CollectionNavigation from '../../components/CollectionNavigation.astro';
+import PageFaq from '../../components/PageFaq.astro';
 import { loadSiteCatalog } from '../../lib/site-catalog.mjs';
 import { communityCountryPages } from '../../lib/community-country-pages.mjs';
 import { EVENT_COLLECTIONS } from '../../lib/event-collections.mjs';
+import { eventFaqItems } from '../../lib/page-faq-content.mjs';
 import type { CatalogEvent, CatalogResource } from '../../types/catalog';
 
 const catalog = await loadSiteCatalog() as Array<CatalogResource | CatalogEvent>;
@@ -17,6 +19,7 @@ const countryPages = communityCountryPages(resources);
 const collectionLinks = [
   ...Object.values(EVENT_COLLECTIONS).map(({ path, label }) => ({ path, label })),
 ];
+const faqItems = eventFaqItems();
 ---
 <BaseLayout title="Eventos AWS en Latinoamérica | ¿Dónde Aprendo AWS?" description="Encontrá eventos online, presenciales e híbridos organizados por comunidades AWS de Latinoamérica. Consultá fechas, horarios y enlaces de inscripción." canonical="https://dondeaprendoaws.com/eventos/">
   <SiteHeader />
@@ -25,6 +28,7 @@ const collectionLinks = [
     <CountryNavigation pages={countryPages} section="eventos" />
     <CollectionNavigation links={collectionLinks} label="Colecciones de eventos" />
     <EventAgenda events={events} resources={resources} />
+    <PageFaq items={faqItems} id="event-page-faq" />
   </main>
   <SiteFooter />
 </BaseLayout>

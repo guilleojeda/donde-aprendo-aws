@@ -16,6 +16,25 @@ export const RESOURCE_COLLECTIONS = Object.freeze([
       ],
       links: ['/aprender/videos/', '/aprender/certificaciones/', '/recorridos/'],
     },
+    faq: {
+      id: 'cursos-faq',
+      heading: 'Dudas sobre los cursos de AWS',
+      items: [
+        {
+          question: '¿Hay cursos de AWS gratis?',
+          answer: 'Algunos cursos permiten acceder al material sin costo y otros tienen condiciones distintas. Confirmá el precio y la inscripción en la página de cada curso; las prácticas que usan servicios de AWS también pueden generar cargos.',
+        },
+        {
+          question: '¿Un curso de AWS me da una certificación?',
+          answer: 'No por sí solo. Un curso puede ayudarte a estudiar, pero una certificación AWS se obtiene aprobando el examen correspondiente. Revisá los requisitos oficiales vigentes para ese examen.',
+          links: [{ label: 'Explorar recursos para certificaciones', href: '/aprender/certificaciones/' }, { label: 'Ver AWS Certification', href: 'https://aws.amazon.com/certification/' }],
+        },
+        {
+          question: '¿Cuánto dura un curso de AWS?',
+          answer: 'La duración depende del curso y no está informada en todos los recursos. Consultá el programa o la serie enlazada para ver cuántas clases tiene y cuánto tiempo recomienda dedicarle.',
+        },
+      ],
+    },
   },
   {
     id: 'videos', path: '/aprender/videos/', kind: 'content', label: 'Videos',
@@ -54,18 +73,34 @@ export const RESOURCE_COLLECTIONS = Object.freeze([
   {
     id: 'certificaciones', path: '/aprender/certificaciones/', kind: 'content', label: 'Certificaciones',
     title: 'Certificaciones AWS: recursos para estudiar en español',
-    description: 'Explorá recursos en español para preparar certificaciones AWS y elegí por examen, nivel y objetivo de estudio.',
-    intro: 'Encontrá cursos, guías y otros materiales para preparar certificaciones AWS en español. Primero identificá el examen y su guía oficial vigente; después elegí recursos que cubran sus dominios.',
+    description: 'Recursos en español sobre Cloud Practitioner, experiencias de certificación y orientación para elegir o agendar un examen AWS.',
+    intro: 'Encontrá materiales de Cloud Practitioner, experiencias con otras certificaciones y orientación general para elegir o agendar un examen. La colección refleja los recursos publicados, no cubre todos los exámenes.',
     selector: { topic: 'Certificaciones' },
     guide: {
-      heading: 'Por dónde empezar a estudiar',
-      body: 'Elegí el examen según tu experiencia e interés. La página de cada certificación de AWS explica el público recomendado y publica la guía del examen que sirve para ordenar el estudio.',
+      heading: 'Elegí cómo estudiar para el examen',
+      body: 'Partí del rol que te interesa y de la experiencia que ya tenés. La guía oficial de cada examen permite comparar sus objetivos y los servicios que evalúa.',
       points: [
-        'Comprobá que el material nombre la versión del examen que vas a rendir.',
-        'Usá cursos para ordenar el estudio y simulacros para detectar los temas que necesitás repasar.',
-        'Si estás empezando, buscá los recursos de Cloud Practitioner; para otros objetivos, comprobá el examen al que se dedica cada material.',
+        'Revisá el propósito y el nivel del examen antes de elegir material.',
+        'Usá cursos para ordenar el estudio y relatos de experiencia para conocer cómo prepararon otras personas.',
+        'Confirmá que el contenido y los pasos para agendar sigan vigentes en la página oficial.',
       ],
       links: ['/aprender/cursos/', '/aprender/videos/', '/aprender/'],
+    },
+    faq: {
+      id: 'certificaciones-faq',
+      heading: 'Dudas sobre las certificaciones AWS',
+      items: [
+        {
+          question: '¿Esta colección prepara para todas las certificaciones AWS?',
+          answer: 'No. La selección se concentra en Cloud Practitioner y ofrece experiencias y orientación sobre otros exámenes. Consultá la guía oficial para confirmar el temario y la versión.',
+          links: [{ label: 'Ver las guías oficiales de examen', href: 'https://docs.aws.amazon.com/aws-certification/latest/examguides/' }],
+        },
+        {
+          question: '¿Dónde confirmo el idioma y cómo agendo el examen?',
+          answer: 'La disponibilidad de idiomas, horarios y modalidades depende de cada examen y lugar. Consultá las opciones oficiales vigentes antes de reservar.',
+          links: [{ label: 'Consultar opciones y agendar un examen', href: 'https://aws.amazon.com/certification/certification-prep/testing/' }],
+        },
+      ],
     },
   },
   {
@@ -80,10 +115,11 @@ export const RESOURCE_COLLECTIONS = Object.freeze([
       points: [
         'Los ejemplos de despliegue ayudan a conectar el código con la infraestructura de una aplicación.',
         'Filtrá por formato para elegir entre una lectura, un video o una serie de clases.',
-        'La ruta serverless organiza una secuencia de artículos y recursos; esta página permite explorar el catálogo.',
+        'Buscá ejemplos que conecten los componentes que querés integrar.',
       ],
-      links: ['/recorridos/serverless/', '/aprender/cursos/', '/aprender/'],
+      links: ['/aprender/cursos/', '/aprender/'],
     },
+    earlyRoute: { path: '/recorridos/serverless/', label: 'Seguí la ruta serverless', text: '¿Preferís aprender paso a paso?' },
   },
   {
     id: 'seguridad', path: '/aprender/seguridad/', kind: 'content', label: 'Seguridad',
@@ -97,10 +133,11 @@ export const RESOURCE_COLLECTIONS = Object.freeze([
       points: [
         'Para estudiar acceso y permisos, empezá por los recursos de AWS IAM.',
         'Después explorá protección de aplicaciones y detección de amenazas según lo que necesites aprender.',
-        'La ruta de seguridad conecta algunos recursos del catálogo en una secuencia de estudio.',
+        'Combiná explicaciones con prácticas que se adapten a lo que necesitás proteger.',
       ],
-      links: ['/recorridos/seguridad/', '/aprender/cursos/', '/aprender/'],
+      links: ['/aprender/cursos/', '/aprender/'],
     },
+    earlyRoute: { path: '/recorridos/seguridad/', label: 'Seguí la ruta de seguridad', text: '¿Preferís aprender paso a paso?' },
   },
   {
     id: 'ia-generativa', path: '/aprender/ia-generativa/', kind: 'content', label: 'IA generativa',
@@ -114,10 +151,11 @@ export const RESOURCE_COLLECTIONS = Object.freeze([
       points: [
         'Los ejemplos con Amazon Bedrock muestran cómo integrar modelos en una aplicación.',
         'Para construir agentes, explorá el curso y los patrones que usan Strands Agents y Bedrock AgentCore.',
-        'La ruta de IA generativa ordena parte de estos recursos junto con artículos introductorios.',
+        'Elegí una explicación de acuerdo con el servicio o patrón que quieras probar.',
       ],
-      links: ['/recorridos/ia-generativa/', '/aprender/cursos/', '/aprender/'],
+      links: ['/aprender/cursos/', '/aprender/'],
     },
+    earlyRoute: { path: '/recorridos/ia-generativa/', label: 'Seguí la ruta de IA generativa', text: '¿Preferís aprender paso a paso?' },
   },
   {
     id: 'youtube', path: '/creadores/youtube/', kind: 'source', label: 'Canales de YouTube',
@@ -199,9 +237,20 @@ export const RESOURCE_COLLECTIONS = Object.freeze([
       points: [
         'Buscá un grupo por país y abrí sus canales para conocer sus encuentros y cómo participar.',
         'Las condiciones para asistir, participar o proponer una charla dependen de cada comunidad.',
-        'Si estudiás, también podés buscar Student Builder Groups y AWS Cloud Clubs.',
+        'Si estudiás, también podés buscar Student Builder Groups.',
       ],
       links: ['/comunidades/estudiantes/', '/comunidades/'],
+    },
+    faq: {
+      id: 'user-groups-faq',
+      heading: 'Dudas sobre los AWS User Groups',
+      items: [
+        {
+          question: '¿La agenda muestra todos los eventos de los grupos?',
+          answer: 'No necesariamente. La agenda muestra los eventos de los grupos publicados en ¿Dónde Aprendo AWS?; revisá también sus enlaces para conocer otras actividades y confirmar fechas o inscripción.',
+          links: [{ label: 'Ver la agenda de eventos AWS', href: '/eventos/' }],
+        },
+      ],
     },
   },
   {
@@ -212,7 +261,7 @@ export const RESOURCE_COLLECTIONS = Object.freeze([
     selector: { format: 'Student Builder Group' },
     guide: {
       heading: 'Cómo encontrar una comunidad estudiantil',
-      body: 'AWS Student Builder Groups continúa la iniciativa AWS Cloud Clubs. Elegí tu país y buscá grupos de universidades o comunidades estudiantiles. En sus canales podés conocer las actividades y cómo participar.',
+      body: 'Elegí tu país y buscá grupos de universidades o comunidades estudiantiles. En sus canales podés conocer las actividades y cómo participar.',
       points: [
         'La organización y la frecuencia de reuniones varían entre grupos.',
         'Usá los enlaces publicados para verificar si aceptan integrantes y qué actividades tienen previstas.',
@@ -220,12 +269,46 @@ export const RESOURCE_COLLECTIONS = Object.freeze([
       ],
       links: ['/comunidades/user-groups/', '/comunidades/'],
     },
+    faq: {
+      id: 'student-builder-groups-faq',
+      heading: 'Dudas sobre los Student Builder Groups',
+      items: [
+        {
+          question: '¿Qué relación tienen Student Builder Groups y AWS Cloud Clubs?',
+          answer: 'AWS Student Builder Groups es el programa antes conocido como AWS Cloud Clubs. Consultá la página oficial para conocer sus requisitos y cómo participar.',
+          links: [{ label: 'Conocer el programa oficial', href: 'https://builder.aws.com/community/student-builder-groups' }],
+        },
+        {
+          question: '¿Puedo crear un grupo si todavía no hay uno en mi universidad?',
+          answer: 'AWS invita a iniciar un grupo cuando todavía no existe uno en el campus. Consultá la página oficial para revisar los requisitos y los pasos vigentes para postularte.',
+          links: [{ label: 'Consultar cómo iniciar un grupo', href: 'https://builder.aws.com/community/student-builder-groups' }],
+        },
+      ],
+    },
   },
+]);
+
+const CERTIFICATION_PURPOSES = Object.freeze([
+  { id: 'cloud-practitioner', label: 'Preparación para Cloud Practitioner', description: 'Cursos, series y relatos enfocados en AWS Cloud Practitioner.' },
+  { id: 'exam-preparation', label: 'Preparación y agenda del examen', description: 'Estrategias generales para estudiar o encontrar y agendar un examen.' },
+  { id: 'experiences', label: 'Experiencias y elección', description: 'Relatos personales y orientación para evaluar una certificación.' },
+  { id: 'study-community', label: 'Estudio en comunidad', description: 'Recursos para preparar certificaciones junto a otras personas.' },
+  { id: 'other-certification-resources', label: 'Otros recursos de certificación', description: 'Otros materiales relacionados; consultá su título y descripción para conocer el alcance.' },
 ]);
 
 const collectionByPath = new Map(RESOURCE_COLLECTIONS.map((collection) => [collection.path, collection]));
 export function lookupResourceCollection(path) {
   return collectionByPath.get(path);
+}
+
+/** Group certification resources from their existing public title and description only. */
+export function groupCertificationResources(resources) {
+  const groups = new Map(CERTIFICATION_PURPOSES.map((purpose) => [purpose.id, { ...purpose, resources: [] }]));
+  for (const resource of resources) {
+    const purpose = certificationPurpose(resource);
+    groups.get(purpose).resources.push(resource);
+  }
+  return [...groups.values()].filter(({ resources: groupResources }) => groupResources.length > 0);
 }
 
 /** Return only records that belong to this collection's fixed editorial scope. */
@@ -253,4 +336,21 @@ export function isGenerativeAIResource(resource) {
     .replace(/[\u0300-\u036f]/gu, '')
     .toLocaleLowerCase('en');
   return /\b(?:ia generativa|ia generativo|generative ai|generative ia|generative artificial intelligence|gen\s*ai|amazon bedrock|bedrock|strands(?: agents)?|agentcore)\b/u.test(searchable);
+}
+
+function certificationPurpose(resource) {
+  const text = [resource?.title, resource?.description]
+    .filter(Boolean)
+    .join(' ')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/gu, '')
+    .toLocaleLowerCase('es');
+  if (/\b(?:cloud practitioner|clf-?c0?2)\b/u.test(text)) return 'cloud-practitioner';
+  if (/\b(?:grupo de estudio|study group|estudio en comunidad)\b/u.test(text)) return 'study-community';
+  if (/\b(?:experien\w*|journey|vale la pena|por que certific\w*|arquitecto)\b/u.test(text)) return 'experiences';
+  if (/\b(?:examen(?:es)?|exam(?:s)?|simulacro|agend\w*|schedule\w*|prepar\w*)\b/u.test(text)
+    || /\bestrateg\w*.{0,40}\b(?:certific|examen)\w*|\b(?:certific|examen)\w*.{0,40}\bestrateg\w*/u.test(text)) {
+    return 'exam-preparation';
+  }
+  return 'other-certification-resources';
 }

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { eventHref, resourceHref } from '../src/lib/catalog-routes.mjs';
-import { parseDirectorySearch, serializeDirectorySearch } from '../src/lib/directory-url.mjs';
+import { parseDirectorySearch, resetDirectorySearchForReveal, serializeDirectorySearch } from '../src/lib/directory-url.mjs';
 
 const allowed = {
   format: new Set(['Video', 'Artículo']),
@@ -34,7 +34,8 @@ test('directory filters round-trip through shareable URLs without losing unrelat
   const original = '?utm_source=community&q=Cómo%20usar%20IAM&format=Video&topic=Seguridad&country=AR&level=inicial&sort=recent';
   const parsed = parseDirectorySearch(original, allowed);
   assert.deepEqual(parsed, {
-    query: 'Cómo usar IAM', format: 'Video', topic: 'Seguridad', country: 'AR', level: 'inicial', sort: 'recent',
+    query: 'Cómo usar IAM', format: 'Video', topic: 'Seguridad', country: 'AR', level: 'inicial',
+    sort: 'recent', sortExplicit: true, defaultSort: 'recommended',
   });
   const saved = serializeDirectorySearch(original, parsed);
   assert.equal(new URLSearchParams(saved).get('utm_source'), 'community');
@@ -43,6 +44,50 @@ test('directory filters round-trip through shareable URLs without losing unrelat
 
 test('unsupported URL facets are ignored instead of hiding valid results', () => {
   assert.deepEqual(parseDirectorySearch('?format=Libro&country=BR&sort=unknown', allowed), {
-    query: '', format: '', topic: '', country: '', level: '', sort: 'directory',
+    query: '', format: '', topic: '', country: '', level: '', sort: 'recommended',
+    sortExplicit: false, defaultSort: 'recommended',
   });
+});
+
+test('default sort favors recommendations while explicit directory order survives URL changes', () => {
+  const recommended = parseDirectorySearch('', allowed);
+  assert.equal(recommended.sort, 'recommended');
+  assert.equal(recommended.sortExplicit, false);
+  assert.equal(serializeDirectorySearch('', recommended), '');
+
+  const directory = parseDirectorySearch('?sort=directory&format=Video', allowed);
+  assert.equal(directory.sort, 'directory');
+  assert.equal(directory.sortExplicit, true);
+  directory.query = 'Lambda';
+  const saved = serializeDirectorySearch('?utm_source=test&sort=directory&format=Video', directory);
+  assert.equal(new URLSearchParams(saved).get('sort'), 'directory');
+  assert.equal(new URLSearchParams(saved).get('format'), 'Video');
+  assert.equal(new URLSearchParams(saved).get('q'), 'Lambda');
+  assert.equal(new URLSearchParams(saved).get('utm_source'), 'test');
+});
+
+test('certification purpose is an optional default sort, and explicit sort modes remain shareable', () => {
+  const implicitPurpose = parseDirectorySearch('', allowed, 'purpose');
+  assert.equal(implicitPurpose.sort, 'purpose');
+  assert.equal(implicitPurpose.sortExplicit, false);
+  assert.equal(serializeDirectorySearch('', implicitPurpose), '');
+
+  const explicitPurpose = parseDirectorySearch('?sort=purpose', allowed, 'purpose');
+  assert.equal(explicitPurpose.sort, 'purpose');
+  assert.equal(explicitPurpose.sortExplicit, true);
+  assert.equal(serializeDirectorySearch('', explicitPurpose), 'sort=purpose');
+
+  const invalidPurpose = parseDirectorySearch('?sort=purpose', allowed, 'recommended');
+  assert.equal(invalidPurpose.sort, 'recommended');
+  assert.equal(invalidPurpose.sortExplicit, false);
+});
+
+test('hash reveal clears filters and query while keeping the selected sort', () => {
+  const filtered = parseDirectorySearch('?q=IAM&format=Video&topic=Seguridad&country=AR&level=inicial&sort=directory', allowed);
+  const revealed = resetDirectorySearchForReveal(filtered, allowed);
+  assert.deepEqual(revealed, {
+    query: '', format: '', topic: '', country: '', level: '',
+    sort: 'directory', sortExplicit: true, defaultSort: 'recommended',
+  });
+  assert.equal(serializeDirectorySearch('?utm_source=guide', revealed), 'utm_source=guide&sort=directory');
 });

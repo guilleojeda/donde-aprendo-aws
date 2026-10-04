@@ -4,7 +4,9 @@ import { relative, resolve } from 'node:path';
 import deployment from '../config/deployment.json' with { type: 'json' };
 import { COUNTRY_SLUGS } from '../src/lib/community-country-pages.mjs';
 import { COUNTRY_LABELS } from '../src/lib/resource-discovery.mjs';
-import { RESOURCE_COLLECTIONS, resourceCollectionResources } from '../src/lib/resource-collections.mjs';
+import { RESOURCE_COLLECTIONS, resourceCollectionResources, groupCertificationResources } from '../src/lib/resource-collections.mjs';
+import { sortResources } from '../src/lib/directory-filter.mjs';
+import { communityFaqItems, eventFaqItems } from '../src/lib/page-faq-content.mjs';
 import { EVENT_COLLECTIONS } from '../src/lib/event-collections.mjs';
 import { LEARNING_PATHS, learningPathHref } from '../src/lib/learning-paths.mjs';
 
@@ -171,6 +173,7 @@ for (const id of ['primeros-pasos', 'serverless', 'seguridad', 'ia-generativa'])
   assert.match(detail, /<ol>/u);
   assert.ok([...detail.matchAll(/class="learning-path-detail__step"/gu)].length >= 2, `${id} has a usable sequence.`);
   assert.ok(detail.includes(`href="https://dondeaprendoaws.com${learningPathHref(id)}"`));
+  assert.ok(detail.includes(`href="${LEARNING_PATHS.find((path) => path.id === id).relatedCollection.href}"`), `${id} links to its matching resource collection.`);
 }
 assert.match(read('recorridos/primeros-pasos/index.html'), /href="\/blog\/aws-fundamentos-guia-de-inicio-rapido\/"/);
 const learningMain = learning.match(/<main class="learning-paths[^>]*">([\s\S]*?)<\/main>/)?.[1] ?? '';
@@ -222,14 +225,43 @@ const cardData = (html) => [...html.matchAll(/<li\b([^>]*)>([\s\S]*?)<\/li>/gu)]
     country: attributes.match(/\bdata-country="([^"]*)"/u)?.[1] ?? '',
     format: attributes.match(/\bdata-format="([^"]*)"/u)?.[1] ?? '',
     topics: (attributes.match(/\bdata-topics="([^"]*)"/u)?.[1] ?? '').split('|').filter(Boolean),
+    featured: attributes.match(/\bdata-featured="([^"]*)"/u)?.[1] === 'true',
+    addedAt: attributes.match(/\bdata-added-at="([^"]*)"/u)?.[1] ?? '',
+    directoryIndex: Number(attributes.match(/\bdata-resource-index="([^"]*)"/u)?.[1]),
   }];
 });
+const verifyFaq = (html, items, page) => {
+  assert.match(html, /class="page-faq"/u, `Visible FAQ section: ${page}`);
+  const text = decode(html);
+  for (const { question, answer, links = [] } of items) {
+    assert.ok(text.includes(question), `FAQ question appears in static HTML: ${page}: ${question}`);
+    assert.ok(text.includes(answer), `FAQ answer appears in static HTML: ${page}: ${question}`);
+    for (const { href } of links) assert.ok(text.includes(`href="${href}"`), `FAQ source or destination link: ${page}: ${href}`);
+  }
+  assert.doesNotMatch(html, /"@type"\s*:\s*"FAQPage"/u, `The visible questions do not claim FAQ rich-result support: ${page}`);
+};
 const generalCommunities = cardData(read('comunidades/index.html')).filter(({ kind }) => kind === 'community');
 const globalCards = [...cardData(read('aprender/index.html')), ...cardData(read('creadores/index.html')), ...generalCommunities];
 for (const collection of RESOURCE_COLLECTIONS) {
   const html = read(`${collection.path.slice(1)}index.html`);
-  const expected = resourceCollectionResources(collection, globalCards).map(({ id }) => id);
+  const scopedCards = resourceCollectionResources(collection, sortResources(globalCards, 'directory'));
+  const purposeGroups = collection.id === 'certificaciones' ? groupCertificationResources(scopedCards) : [];
+  const expected = (collection.id === 'certificaciones'
+    ? purposeGroups.flatMap(({ resources }) => sortResources(resources, 'purpose'))
+    : sortResources(scopedCards, 'recommended')).map(({ id }) => id);
   assert.deepEqual(cardData(html).map(({ id }) => id), expected, `Exact initial HTML subset: ${collection.path}`);
+  assert.equal(new Set(expected).size, expected.length, `Every collection resource appears once: ${collection.path}`);
+  if (collection.id === 'certificaciones') {
+    assert.equal([...html.matchAll(/\bdata-resource-group-heading(?:\s|>)/gu)].length, purposeGroups.length, 'Certification purposes have one contiguous heading each.');
+    if (expected.length) assert.match(html, /value="purpose" selected/u, 'Certifications initially group materials by study purpose.');
+  }
+  if (collection.earlyRoute) {
+    const callout = html.indexOf('class="collection-route-callout"');
+    const controls = html.indexOf('data-directory-controls');
+    assert.ok(callout >= 0 && callout < controls, `The learning route is offered before filters: ${collection.path}`);
+    assert.ok(html.includes(`href="${collection.earlyRoute.path}"`));
+  }
+  if (collection.faq) verifyFaq(html, collection.faq.items, collection.path);
   assert.equal(decode(html.match(/<h1 id="directory-title">([^<]+)<\/h1>/u)?.[1] ?? ''), collection.title);
   assert.ok(html.includes(`href="https://dondeaprendoaws.com${collection.path}"`));
   assert.match(html, /id="collection-guide"/u, `Specific guidance: ${collection.path}`);
@@ -238,6 +270,8 @@ for (const collection of RESOURCE_COLLECTIONS) {
   if (collection.selector.topic) assert.doesNotMatch(html, /data-topic-filter/u, 'A fixed-topic collection does not repeat its topic filter.');
   if (expected.length) assert.match(html, /data-resource-search/u);
 }
+verifyFaq(read('comunidades/index.html'), communityFaqItems(), '/comunidades/');
+verifyFaq(read('eventos/index.html'), eventFaqItems(), '/eventos/');
 const globalEventAttributes = [...read('eventos/index.html').matchAll(/<li\b([^>]*)\bdata-event-id="([^"]+)"([^>]*)>/gu)]
   .map(([, before, id, after]) => ({ id, mode: `${before}${after}`.match(/data-event-mode="([^"]+)"/u)?.[1] }));
 for (const collection of Object.values(EVENT_COLLECTIONS)) {
@@ -247,6 +281,7 @@ for (const collection of Object.values(EVENT_COLLECTIONS)) {
   assert.deepEqual(actual, expected, `Exact fixed-mode SSR subset: ${collection.path}`);
   assert.ok(html.includes(`href="https://dondeaprendoaws.com${collection.path}"`));
   assert.match(html, /data-event-empty/u);
+  verifyFaq(html, eventFaqItems({ collectionKey: collection.path.includes('/online/') ? 'online' : 'presenciales' }), collection.path);
   for (const route of countryRoutes) assert.ok(searchIndex.some((entry) => entry.url === `/eventos/${route.slug}/`));
 }
 const directoryCountries = [...new Set(generalCommunities.map(({ country }) => country).filter(Boolean))].sort();
@@ -258,6 +293,7 @@ for (const route of countryRoutes) assert.ok(globalCountryNav.includes(`href="${
 for (const route of countryRoutes) {
   const html = read(route.htmlPath);
   const countryName = COUNTRY_LABELS[route.country];
+  verifyFaq(html, communityFaqItems({ countryName, agendaPath: `/eventos/${route.slug}/` }), route.path);
   const expectedCards = generalCommunities.filter((card) => card.country === route.country);
   const countryCards = cardData(html).filter(({ kind }) => kind === 'community');
   assert.ok(expectedCards.length > 0, `Generated route must have a published country community: ${route.path}`);
@@ -302,6 +338,7 @@ for (const route of eventCountryRoutes) assert.ok(globalEventCountryNav.includes
 for (const route of eventCountryRoutes) {
   const html = read(route.htmlPath);
   const countryName = COUNTRY_LABELS[route.country];
+  verifyFaq(html, eventFaqItems({ countryName }), route.path);
   const communitiesForCountry = generalCommunities.filter((card) => card.country === route.country);
   const summary = html.match(/<section class="event-country-communities"[^>]*>([\s\S]*?)<\/section>/u)?.[1] ?? '';
   assert.ok(summary, `Country agenda links back to its published communities: ${route.path}`);
@@ -388,9 +425,9 @@ if (fixtureBuild) {
   assert.match(events, /data-event-city="PE:Lima"/);
   assert.match(events, /data-event-communities="fixture-community\|fixture-student-colombia"/);
   assert.match(events, /href="\/comunidades\/peru\/#resource-fixture-community"/);
-  assert.match(events, /<option value="CO">Colombia<\/option>/, 'The global agenda filter includes a co-host country.');
-  assert.match(events, /<option value="CR">Costa Rica<\/option>/, 'The global agenda filter keeps published countries with no upcoming events.');
-  assert.match(events, /<option value="PE:Lima" data-event-countries="PE\|CO">/,
+  assert.match(events, /<option value="CO"[^>]*>Colombia<\/option>/, 'The global agenda filter includes a co-host country.');
+  assert.match(events, /<option value="CR"[^>]*>Costa Rica<\/option>/, 'The global agenda filter keeps published countries with no upcoming events.');
+  assert.match(events, /<option value="PE:Lima" data-event-countries="PE\|CO"[^>]*>/,
     'Representative city options remain compatible with co-host countries.');
   const globalEventCards = [...events.matchAll(/<li id="event-fixture-event"[^>]*>/gu)];
   assert.equal(globalEventCards.length, 1, 'A cross-posted event appears once in the overall agenda.');

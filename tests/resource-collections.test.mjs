@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   RESOURCE_COLLECTIONS,
+  groupCertificationResources,
   isGenerativeAIResource,
   lookupResourceCollection,
   resourceCollectionResources,
@@ -74,4 +75,47 @@ test('unknown collections and empty catalog inputs produce no records', () => {
   assert.deepEqual(resourceCollectionResources(undefined, [{ id: 'x' }]), []);
   assert.deepEqual(resourceCollectionResources(collection, []), []);
   assert.deepEqual(resourceCollectionResources(collection, undefined), []);
+});
+
+test('certification resources form a complete, unique purpose grouping from title and description', () => {
+  const records = [
+    { id: 'cloud-course', title: 'Curso AWS Cloud Practitioner', description: 'Preparación inicial.' },
+    { id: 'cloud-series', title: 'Cómo preparar el examen CLF-C02', description: 'Serie de estudio.' },
+    { id: 'schedule', title: 'Cómo hacer las certificaciones de AWS en español', description: 'Cómo agendar el examen.' },
+    { id: 'strategy', title: 'Aprueba tu examen de AWS', description: 'Estrategias según cada certificación.' },
+    { id: 'experience', title: 'Mi experiencia Developer Associate', description: 'Consejos sobre certificarme.' },
+    { id: 'architect', title: 'Qué es ser Arquitecto de soluciones y por qué certificarse como AWS Solutions Architect', description: 'Alinear la tecnología con la estrategia de la organización.' },
+    { id: 'journey', title: 'Mi Cloud Journey', description: '¿Vale la pena obtener una certificación?' },
+    { id: 'study-group', title: 'Grupo de estudio AWS Girls Perú', description: 'Preparar certificaciones en comunidad.' },
+    { id: 'fallback-id-is-ignored', title: 'Certificación AWS', description: 'Panorama general sin más detalle.' },
+  ];
+  const groups = groupCertificationResources(records);
+  const groupedIds = groups.flatMap(({ resources: groupResources }) => groupResources.map(({ id }) => id));
+
+  assert.deepEqual(groupedIds.toSorted(), records.map(({ id }) => id).toSorted());
+  assert.equal(new Set(groupedIds).size, records.length, 'every resource appears exactly once');
+  assert.deepEqual(groups.map(({ id }) => id), [
+    'cloud-practitioner', 'exam-preparation', 'experiences', 'study-community', 'other-certification-resources',
+  ]);
+  assert.deepEqual(groups[0].resources.map(({ id }) => id), ['cloud-course', 'cloud-series']);
+  assert.deepEqual(groups[1].resources.map(({ id }) => id), ['schedule', 'strategy']);
+  assert.deepEqual(groups[2].resources.map(({ id }) => id), ['experience', 'architect', 'journey']);
+  assert.deepEqual(groups[3].resources.map(({ id }) => id), ['study-group']);
+  assert.deepEqual(groups[4].resources.map(({ id }) => id), ['fallback-id-is-ignored']);
+});
+
+test('selected collection pages expose only their useful FAQ and early route guidance', () => {
+  const byPath = new Map(RESOURCE_COLLECTIONS.map((collection) => [collection.path, collection]));
+  for (const path of ['/aprender/cursos/', '/aprender/certificaciones/', '/comunidades/user-groups/', '/comunidades/estudiantes/']) {
+    assert.ok(byPath.get(path)?.faq?.items.length, `${path} has its planned FAQ content`);
+  }
+  for (const [path, expectedRoute] of [
+    ['/aprender/serverless/', '/recorridos/serverless/'],
+    ['/aprender/seguridad/', '/recorridos/seguridad/'],
+    ['/aprender/ia-generativa/', '/recorridos/ia-generativa/'],
+  ]) {
+    const collection = byPath.get(path);
+    assert.equal(collection?.earlyRoute?.path, expectedRoute);
+    assert.equal(collection?.guide.links.includes(expectedRoute), false, 'the route is linked once before the filters');
+  }
 });

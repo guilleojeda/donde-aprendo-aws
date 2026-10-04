@@ -9,6 +9,7 @@ export const LEARNING_PATHS = Object.freeze([
     seoDescription: 'Una ruta para conocer qué ofrece AWS, revisar conceptos básicos, proteger tu cuenta y elegir materiales para seguir aprendiendo.',
     audience: 'Para empezar desde cero',
     intro: 'Empezá por qué ofrece AWS, recorré conceptos básicos, protegé tu cuenta y elegí cómo seguir aprendiendo.',
+    relatedCollection: { href: '/aprender/', label: 'Explorá todos los recursos para aprender AWS' },
     steps: [
       { type: 'resource', id: 'catalog-f8a1bdedb229541186365e6bf325ed7f', note: 'Empezá con una explicación breve de qué ofrece AWS.' },
       { type: 'blog', id: 'aws-fundamentos-guia-de-inicio-rapido', note: 'Ordená los conceptos y servicios fundamentales.' },
@@ -25,6 +26,7 @@ export const LEARNING_PATHS = Object.freeze([
     seoDescription: 'Una secuencia para aprender serverless en AWS: conectá una función Lambda con API Gateway y conocé la coordinación con Step Functions.',
     audience: 'Para quienes ya conocen los fundamentos de AWS',
     intro: 'Con una base de AWS, conectá una función Lambda con API Gateway y avanzá a flujos coordinados con Step Functions.',
+    relatedCollection: { href: '/aprender/serverless/', label: 'Explorá más recursos de serverless' },
     steps: [
       { type: 'blog', id: 'que-es-aws-lambda-preguntas-y-respuestas', note: 'Repasá el modelo de ejecución de Lambda.' },
       { type: 'blog', id: 'aws-lambda-y-api-gateway-guia-basica', note: 'Conectá una función a una API.' },
@@ -40,6 +42,7 @@ export const LEARNING_PATHS = Object.freeze([
     seoDescription: 'Empezá con el modelo de responsabilidad compartida y avanzá por IAM, protección de la cuenta, seguridad web y detección de amenazas.',
     audience: 'Para empezar con seguridad en la nube',
     intro: 'Empezá por el modelo de responsabilidad compartida y avanzá por identidad, protección de cuenta, aplicaciones y detección.',
+    relatedCollection: { href: '/aprender/seguridad/', label: 'Explorá más recursos de seguridad en AWS' },
     steps: [
       { type: 'blog', id: 'aws-seguridad-fundamentos-esenciales', note: 'Ubicá los controles principales de seguridad.' },
       { type: 'resource', id: 'catalog-08facfe178c25c04cfb53fb1e179894a', note: 'Aprendé la base de identidad y permisos.' },
@@ -56,6 +59,7 @@ export const LEARNING_PATHS = Object.freeze([
     seoDescription: 'Conocé el panorama de IA en AWS, revisá decisiones de aplicaciones y explorá ejemplos con Amazon Bedrock y agentes.',
     audience: 'Para desarrolladores con fundamentos',
     intro: 'Partí del panorama de IA en AWS, revisá decisiones de aplicación y seguí con ejemplos de Amazon Bedrock y agentes.',
+    relatedCollection: { href: '/aprender/ia-generativa/', label: 'Explorá más recursos de IA generativa en AWS' },
     steps: [
       { type: 'blog', id: 'introduccion-a-la-inteligencia-artificial-en-aws', note: 'Empezá por el panorama de servicios de IA.' },
       { type: 'blog', id: 'como-desarrollar-aplicaciones-de-inteligencia-artificial-en-aws', note: 'Revisá las decisiones para crear una aplicación.' },

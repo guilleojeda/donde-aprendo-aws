@@ -1,5 +1,5 @@
-import { filterResources, sortResources } from '../lib/directory-filter.mjs';
-import { parseDirectorySearch, serializeDirectorySearch } from '../lib/directory-url.mjs';
+import { directoryListEntries, filterResources, sortResources } from '../lib/directory-filter.mjs';
+import { parseDirectorySearch, resetDirectorySearchForReveal, serializeDirectorySearch } from '../lib/directory-url.mjs';
 
 const controls = document.querySelector('[data-directory-controls]');
 const list = document.querySelector('[data-resource-list]');
@@ -13,9 +13,19 @@ if (controls && list) {
     level: controls.querySelector('[data-level-filter]'),
   };
   const sortSelect = document.querySelector('[data-sort-filter]');
+  const defaultSort = sortSelect?.dataset.defaultSort ?? 'recommended';
   const cards = [...list.querySelectorAll('[data-resource-index]')];
+  let collectionGroups = [];
+  try {
+    collectionGroups = JSON.parse(list.dataset.resourceGroups || '[]');
+  } catch {
+    collectionGroups = [];
+  }
+  const groupByResourceId = new Map(collectionGroups.flatMap((group, groupIndex) => group.resourceIds
+    .map((id) => [id, { ...group, groupIndex }])));
   const records = cards.map((card) => ({
     card,
+    directoryIndex: Number(card.dataset.resourceIndex),
     kind: card.dataset.kind,
     format: card.dataset.format,
     topics: (card.dataset.topics || '').split('|').filter(Boolean),
@@ -24,6 +34,10 @@ if (controls && list) {
     addedAt: card.dataset.addedAt || '',
     featured: card.dataset.featured === 'true',
     search: card.dataset.search || '',
+    purposeGroupId: groupByResourceId.get(card.id.replace(/^resource-/u, ''))?.id,
+    purposeGroupIndex: groupByResourceId.get(card.id.replace(/^resource-/u, ''))?.groupIndex,
+    purposeGroupLabel: groupByResourceId.get(card.id.replace(/^resource-/u, ''))?.label,
+    purposeGroupDescription: groupByResourceId.get(card.id.replace(/^resource-/u, ''))?.description,
   }));
   const recordsById = new Map(records.map((record) => [record.card.id, record]));
   const allowed = Object.fromEntries(Object.entries(selects).map(([key, select]) => [
@@ -34,7 +48,7 @@ if (controls && list) {
   const showMore = document.querySelector('[data-show-more]');
   const showMoreWrap = document.querySelector('[data-show-more-wrap]');
   const pageSize = 12;
-  let state = parseDirectorySearch(location.search, allowed);
+  let state = parseDirectorySearch(location.search, allowed, defaultSort);
   let limit = pageSize;
 
   const applyControls = () => {
@@ -43,17 +57,44 @@ if (controls && list) {
       if (select) select.value = state[field];
     }
     if (sortSelect) sortSelect.value = state.sort;
+    if (controls.querySelector('[data-filter-disclosure]')
+      && (state.format || state.topic || state.country || state.level)) {
+      controls.querySelector('[data-filter-disclosure]').open = true;
+    }
   };
 
   const update = () => {
     const ordered = sortResources(records, state.sort);
-    list.append(...ordered.map(({ card }) => card));
     const matching = filterResources(ordered, state);
-    const visible = new Set(matching.slice(0, limit).map(({ card }) => card));
-    for (const card of cards) {
-      card.hidden = !visible.has(card);
-      card.setAttribute('aria-hidden', String(card.hidden));
+    const visible = matching.slice(0, limit);
+    const fragment = document.createDocumentFragment();
+    for (const entry of directoryListEntries(ordered, visible, state.sort)) {
+      if (entry.type === 'heading') {
+        const heading = document.createElement('li');
+        heading.className = 'resource-list__group-heading';
+        heading.dataset.resourceGroupHeading = '';
+        const title = document.createElement('h2');
+        title.textContent = entry.label;
+        heading.append(title);
+        if (entry.description) {
+          const description = document.createElement('p');
+          description.textContent = entry.description;
+          heading.append(description);
+        }
+        fragment.append(heading);
+        continue;
+      }
+      const { resource: record, visible: isVisible } = entry;
+      if (isVisible) {
+        record.card.hidden = false;
+        record.card.setAttribute('aria-hidden', 'false');
+      } else {
+        record.card.hidden = true;
+        record.card.setAttribute('aria-hidden', 'true');
+      }
+      fragment.append(record.card);
     }
+    list.replaceChildren(fragment);
     if (resultCount) resultCount.textContent = `${matching.length} ${matching.length === 1 ? resultCount.dataset.countSingular : resultCount.dataset.countPlural}`;
     if (noResults) noResults.hidden = matching.length !== 0;
     if (showMoreWrap && showMore) {
@@ -78,7 +119,7 @@ if (controls && list) {
   const revealRecord = (id) => {
     const record = recordsById.get(`resource-${id}`);
     if (!record) return;
-    state = parseDirectorySearch('', allowed);
+    state = resetDirectorySearchForReveal(state, allowed, defaultSort);
     limit = Infinity;
     applyControls();
     const query = serializeDirectorySearch(location.search, state);
@@ -102,6 +143,7 @@ if (controls && list) {
   }
   sortSelect?.addEventListener('change', () => {
     state.sort = sortSelect.value;
+    state.sortExplicit = true;
     change();
   });
   showMore?.addEventListener('click', () => {
@@ -122,7 +164,7 @@ if (controls && list) {
     if (location.hash.startsWith('#resource-')) revealRecord(location.hash.slice('#resource-'.length));
   });
   window.addEventListener('popstate', () => {
-    state = parseDirectorySearch(location.search, allowed);
+    state = parseDirectorySearch(location.search, allowed, defaultSort);
     limit = pageSize;
     applyControls();
     update();

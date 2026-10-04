@@ -23,6 +23,7 @@ interface ResolvedPath {
   seoDescription: string;
   audience: string;
   intro: string;
+  relatedCollection: { href: string; label: string };
   steps: ResolvedStep[];
 }
 
@@ -86,8 +87,8 @@ const { path } = Astro.props as { path: ResolvedPath };
       </ol>
     </section>
 
-    <nav class="learning-path-detail__related" aria-label="Más opciones para aprender">
-      <a href="/aprender/">Explorá todos los recursos para aprender AWS</a>
+    <nav class="learning-path-detail__related" aria-label="Seguí explorando">
+      <a href={path.relatedCollection.href}>{path.relatedCollection.label}</a>
       <a href="/recorridos/">Elegí otra ruta</a>
     </nav>
   </main>

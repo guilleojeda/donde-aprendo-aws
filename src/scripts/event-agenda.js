@@ -1,5 +1,6 @@
 import { eventMatchesFilters, parseEventAgendaSearch, serializeEventAgendaSearch } from '../lib/event-agenda-filter.mjs';
 import { trackRegistrationClick } from '../lib/event-analytics.mjs';
+import { eventAgendaSummaryText, nextEventAgendaTransition } from '../lib/event-agenda-summary.mjs';
 
 const agenda = document.querySelector('[data-event-list]');
 const empty = document.querySelector('[data-event-empty]');
@@ -15,6 +16,7 @@ const controls = {
 const clear = document.querySelector('[data-event-clear]');
 const more = document.querySelector('[data-event-more]');
 const count = document.querySelector('[data-event-count]');
+const factSummary = document.querySelector('[data-event-summary]');
 const emptyFilters = { from: '', to: '', mode: '', country: '', city: '', community: '' };
 
 if (agenda && empty) {
@@ -49,6 +51,13 @@ if (agenda && empty) {
     }
     if (controls.city?.selectedOptions[0]?.disabled) controls.city.value = '';
   };
+  const updateFactSummary = (events, now) => {
+    if (!factSummary) return;
+    factSummary.textContent = eventAgendaSummaryText(events, now, {
+      intro: factSummary.dataset.eventSummaryIntro ?? 'En la agenda de eventos AWS hay',
+      emptyMessage: factSummary.dataset.eventSummaryEmpty ?? 'No hay próximos eventos publicados en esta agenda.',
+    });
+  };
   const readUrl = () => {
     setFilters(parseEventAgendaSearch(location.search, allowed));
     updateCityOptions();
@@ -75,25 +84,26 @@ if (agenda && empty) {
   function refresh() {
     clearTimeout(expiryTimer);
     const now = Date.now();
+    const events = cards.map((card) => ({
+      id: card.dataset.eventId,
+      startsAt: card.dataset.eventStartsAt,
+      endsAt: card.dataset.eventEndsAt,
+      timeZone: card.dataset.eventTimeZone,
+      localDate: card.dataset.eventDate,
+      mode: card.dataset.eventMode,
+      country: card.dataset.country,
+      countries: (card.dataset.eventCountries ?? card.dataset.country ?? '').split('|').filter(Boolean),
+      city: card.dataset.eventCity,
+      communities: (card.dataset.eventCommunities ?? '').split('|').filter(Boolean),
+    }));
+    updateFactSummary(events, now);
     const filters = currentFilters();
-    let nextEnd = Infinity;
     let matching = 0;
     let active = 0;
-    for (const card of cards) {
-      const event = {
-        endsAt: card.dataset.eventEndsAt,
-        localDate: card.dataset.eventDate,
-        mode: card.dataset.eventMode,
-        country: card.dataset.country,
-        countries: (card.dataset.eventCountries ?? card.dataset.country ?? '').split('|').filter(Boolean),
-        city: card.dataset.eventCity,
-        communities: (card.dataset.eventCommunities ?? '').split('|').filter(Boolean),
-      };
+    for (const [index, card] of cards.entries()) {
+      const event = events[index];
       const end = Date.parse(event.endsAt);
-      if (end > now) {
-        active += 1;
-        nextEnd = Math.min(nextEnd, end);
-      }
+      if (end > now) active += 1;
       if (eventMatchesFilters(event, filters, now)) {
         card.hidden = matching >= limit;
         matching += 1;
@@ -105,7 +115,8 @@ if (agenda && empty) {
       : 'No hay eventos que coincidan con estos filtros. Probá con otras fechas o limpiá los filtros.';
     if (more) more.hidden = matching <= limit;
     if (count) count.textContent = `${matching} ${matching === 1 ? 'evento' : 'eventos'}`;
-    if (Number.isFinite(nextEnd)) expiryTimer = setTimeout(refresh, Math.min(Math.max(nextEnd - now, 1), 2_147_483_647));
+    const nextTransition = nextEventAgendaTransition(events, now);
+    if (nextTransition !== null) expiryTimer = setTimeout(refresh, Math.min(Math.max(nextTransition - now, 1), 2_147_483_647));
   }
 
   const revealEventHash = () => {

@@ -22,6 +22,7 @@ export function landingSearchPages(resources) {
   ].map((page) => ({
     ...page,
     title: page.title.split(' | ')[0],
-    search: [page.search, page.intro, page.guide?.heading, page.guide?.body].filter(Boolean).join(' '),
+    search: [page.search, page.intro, page.guide?.heading, page.guide?.body,
+      ...(page.faq?.items ?? []).flatMap(({ question, answer }) => [question, answer])].filter(Boolean).join(' '),
   }));
 }
