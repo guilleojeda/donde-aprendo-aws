@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { aggregateSearchData, buildSearchIndex, searchIndex } from '../src/lib/unified-search.mjs';
+import { landingSearchPages } from '../src/lib/landing-search.mjs';
 
 const posts = [{
   id: 'seguridad-de-s3',
@@ -83,4 +84,20 @@ test('analytics payload contains only bounded aggregate values, never the search
   const payload = aggregateSearchData('secreto personal', 'article', 0);
   assert.deepEqual(payload, { content_type: 'article', query_length_bucket: '10-24', result_bucket: '0' });
   assert.doesNotMatch(JSON.stringify(payload), /secreto|personal/);
+});
+
+test('route and collection destinations remain discoverable without inheriting individual event expiry', () => {
+  const index = buildSearchIndex([], [], [{ id: 'primeros-pasos', title: 'Aprender AWS desde cero', intro: 'Paso a paso', audience: 'Para empezar' }], [
+    { path: '/eventos/argentina/', title: 'Eventos AWS en Argentina', description: 'Meetups y charlas', label: 'Agenda por país', search: 'AR', submitterEmail: 'private@example.com' },
+    { path: '/aprender/cursos/', title: 'Cursos AWS en español', description: 'Clases y cursos', label: 'Cursos' },
+  ]);
+  assert.equal(index[0].url, '/recorridos/primeros-pasos/');
+  assert.equal(searchIndex(index, 'eventos AWS Argentina', '', Date.parse('2200-01-01'))[0].url, '/eventos/argentina/');
+  assert.equal(searchIndex(index, 'cursos AWS', 'collection')[0].url, '/aprender/cursos/');
+  assert.doesNotMatch(JSON.stringify(index), /submitterEmail|private@example.com/);
+});
+
+test('a former program name finds the current student community collection', () => {
+  const index = buildSearchIndex([], [], [], landingSearchPages([]));
+  assert.equal(searchIndex(index, 'AWS Cloud Clubs', 'collection')[0].url, '/comunidades/estudiantes/');
 });

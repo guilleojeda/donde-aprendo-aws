@@ -1,0 +1,88 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import SiteHeader from './SiteHeader.astro';
+import SiteFooter from './SiteFooter.astro';
+import Directory from './Directory.astro';
+import CollectionNavigation from './CollectionNavigation.astro';
+import CollectionGuide from './CollectionGuide.astro';
+import { loadSiteCatalog } from '../lib/site-catalog.mjs';
+import { RESOURCE_COLLECTIONS, lookupResourceCollection, resourceCollectionResources } from '../lib/resource-collections.mjs';
+import type { CatalogEvent, CatalogResource } from '../types/catalog';
+
+interface Collection {
+  id: string;
+  path: string;
+  kind: 'content' | 'source' | 'community';
+  label: string;
+  title: string;
+  description: string;
+  intro: string;
+  guide: { heading: string; body: string; points: string[]; links: string[] };
+  selector: { format?: string; topic?: string; generativeAI?: boolean };
+}
+
+interface Props {
+  path: string;
+}
+
+const { path } = Astro.props;
+const collection = lookupResourceCollection(path) as Collection | undefined;
+if (!collection) throw new Error(`Unknown resource collection: ${path}`);
+const catalog = await loadSiteCatalog() as Array<CatalogResource | CatalogEvent>;
+const allResources = catalog.filter((record): record is CatalogResource => record.recordType !== 'event');
+const events = catalog.filter((record): record is CatalogEvent => record.recordType === 'event');
+const resources = resourceCollectionResources(collection, allResources);
+const siblingLinks = RESOURCE_COLLECTIONS.filter((candidate) => candidate.kind === collection.kind)
+  .map((candidate) => ({ path: candidate.path, label: candidate.label }));
+const guideLinks = collection.guide.links.map((path) => {
+  const matchingCollection = RESOURCE_COLLECTIONS.find((candidate) => candidate.path === path);
+  const knownLabels: Record<string, string> = {
+    '/aprender/': 'Biblioteca completa',
+    '/creadores/': 'Todos los creadores',
+    '/comunidades/': 'Todas las comunidades',
+    '/blog/': 'Guías del blog',
+    '/recorridos/': 'Recorridos de aprendizaje',
+    '/recorridos/serverless/': 'Ruta serverless',
+    '/recorridos/seguridad/': 'Ruta de seguridad',
+    '/recorridos/ia-generativa/': 'Ruta de IA generativa',
+  };
+  return { path, label: matchingCollection?.label ?? knownLabels[path] ?? 'Explorar recursos' };
+});
+const parentPath = collection.kind === 'content' ? '/aprender/' : collection.kind === 'source' ? '/creadores/' : '/comunidades/';
+const parentLabel = collection.kind === 'content' ? 'Aprender AWS' : collection.kind === 'source' ? 'Creadores y canales' : 'Comunidades AWS';
+const breadcrumb = [
+  { label: 'Inicio', href: '/' },
+  { label: parentLabel, href: parentPath },
+  { label: collection.label },
+];
+const omittedFacets: ('format' | 'topic')[] = [];
+if (collection.selector.format) omittedFacets.push('format');
+if (collection.selector.topic) omittedFacets.push('topic');
+const canonical = `https://dondeaprendoaws.com${collection.path}`;
+---
+
+<BaseLayout title={`${collection.title} | ¿Dónde Aprendo AWS?`} description={collection.description} canonical={canonical}>
+  <SiteHeader />
+  <Directory
+    title={collection.title}
+    intro={collection.intro}
+    kind={collection.kind}
+    resources={resources}
+    allResources={allResources}
+    events={events}
+    breadcrumb={breadcrumb}
+    omittedFacets={omittedFacets}
+    showCountryNavigation={false}
+  >
+    <div slot="before-filters" class="collection-page__editorial">
+      <CollectionNavigation links={siblingLinks} currentPath={collection.path} />
+    </div>
+    <div slot="after-results" class="collection-page__after-results">
+      <CollectionGuide guide={collection.guide} links={guideLinks} />
+      <p class="collection-page__catalog-note">
+        <a href={parentPath}>{collection.kind === 'content' ? 'Ver todos los recursos' : collection.kind === 'source' ? 'Ver todos los creadores y canales' : 'Ver todas las comunidades'}</a>
+      </p>
+    </div>
+  </Directory>
+  <SiteFooter />
+</BaseLayout>

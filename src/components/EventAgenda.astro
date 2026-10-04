@@ -3,15 +3,17 @@ import { eventDateLabel, eventLocalDate, eventTimeLabel, uniqueUpcomingEventGrou
 import { COUNTRY_LABELS } from '../lib/resource-discovery.mjs';
 import { eventCalendarHref, resourceHref } from '../lib/catalog-routes.mjs';
 import { communityCountryPages } from '../lib/community-country-pages.mjs';
+import { eventGroupsForModes } from '../lib/event-collections.mjs';
 import ReportLink from './ReportLink.astro';
 import type { CatalogEvent, CatalogResource } from '../types/catalog';
 
-interface Props { events: CatalogEvent[]; resources: CatalogResource[]; country?: string; }
+interface Props { events: CatalogEvent[]; resources: CatalogResource[]; country?: string; modes?: readonly CatalogEvent['mode'][]; }
 
-const { events, resources, country } = Astro.props;
+const { events, resources, country, modes } = Astro.props;
 const communityById = new Map(resources.filter((resource) => resource.kind === 'community').map((resource) => [resource.id, resource]));
 const organizerCountry = (event: CatalogEvent) => event.country ?? communityById.get(event.communityId ?? '')?.country;
 const upcomingGroups = uniqueUpcomingEventGroups(events) as Array<{ event: CatalogEvent; events: CatalogEvent[] }>;
+const modeScopedGroups = eventGroupsForModes(upcomingGroups, modes) as typeof upcomingGroups;
 const eventCountriesByGroup = (group: { event: CatalogEvent; events: CatalogEvent[] }) => [...new Set(
   group.events.map(organizerCountry).filter((value): value is string => Boolean(value)),
 )];
@@ -22,8 +24,8 @@ for (const group of upcomingGroups) for (const organizerCountryCode of eventCoun
 const eventCountries = [...allOrganizerCountries]
   .sort((left, right) => countryLabel(left).localeCompare(countryLabel(right), 'es'));
 const agendaGroups = country
-  ? upcomingGroups.filter((group) => eventCountriesByGroup(group).includes(country))
-  : upcomingGroups;
+  ? modeScopedGroups.filter((group) => eventCountriesByGroup(group).includes(country))
+  : modeScopedGroups;
 const upcoming = agendaGroups.map(({ event }) => event);
 const modeLabel = { online: 'En línea', 'in-person': 'Presencial', hybrid: 'Híbrido' } as const;
 const cityOptions = new Map<string, { key: string; city: string; country?: string; organizerCountries: Set<string> }>();
@@ -58,10 +60,16 @@ for (const recording of resources.filter((resource) => resource.eventId)) {
 const recordingForGroup = (group: { event: CatalogEvent; events: CatalogEvent[] }) =>
   group.events.flatMap((event) => recordingsByEvent.get(event.id) ?? [])[0];
 const countryName = country ? countryLabel(country) : undefined;
+const eventModePhrase = modes?.length === 1 && modes[0] === 'online'
+  ? 'en línea'
+  : modes?.includes('in-person') && modes.includes('hybrid') ? 'presenciales o híbridos' : undefined;
 const emptyMessage = countryName
   ? `No hay próximos eventos publicados organizados por comunidades de ${countryName}.`
-  : 'No hay próximos eventos publicados. Vuelve pronto para ver nuevas fechas.';
+  : eventModePhrase
+    ? `No hay próximos eventos ${eventModePhrase} publicados. Volvé a consultar esta agenda más adelante.`
+  : 'No hay próximos eventos publicados. Volvé pronto para ver nuevas fechas.';
 const pastRecorded = events.filter((event) => Date.parse(event.endsAt) <= Date.now()
+  && (!modes || modes.includes(event.mode))
   && (!country || organizerCountry(event) === country)
   && recordingsByEvent.has(event.id))
   .sort((left, right) => Date.parse(right.startsAt) - Date.parse(left.startsAt));
@@ -72,17 +80,21 @@ const pastRecorded = events.filter((event) => Date.parse(event.endsAt) <= Date.n
     <div class="event-agenda__heading">
       <div>
         <h2 id="event-agenda-title">Próximos eventos</h2>
-        <p>{countryName ? `Encuentros organizados por comunidades de ${countryName}, ordenados por fecha.` : 'Encuentros y charlas de las comunidades AWS de Latinoamérica, ordenados por fecha.'}</p>
+        <p>{countryName
+          ? `Encuentros organizados por comunidades de ${countryName}, ordenados por fecha.`
+          : eventModePhrase
+            ? `Eventos AWS ${eventModePhrase} organizados por comunidades de Latinoamérica, ordenados por fecha.`
+            : 'Encuentros y charlas de comunidades AWS de Latinoamérica, ordenados por fecha.'}</p>
       </div>
     </div>
     {(upcoming.length > 0 || (!country && eventCountries.length > 0)) && <div class="event-agenda__filter-area">
       <div class="event-agenda__filters">
         <label for="event-from">Desde <input id="event-from" type="date" data-event-from /></label>
         <label for="event-to">Hasta <input id="event-to" type="date" data-event-to /></label>
-        <label for="event-mode">Modalidad <select id="event-mode" data-event-mode>
+        {modes?.length !== 1 && <label for="event-mode">Modalidad <select id="event-mode" data-event-mode>
           <option value="">Todas</option>
           {eventModes.map((mode) => <option value={mode}>{modeLabel[mode]}</option>)}
-        </select></label>
+        </select></label>}
         {!country && <label for="event-country">País de la comunidad organizadora <select id="event-country" data-event-country>
           <option value="">Todos los países</option>
           {eventCountries.map((code) => <option value={code}>{countryLabel(code)}</option>)}
@@ -91,14 +103,14 @@ const pastRecorded = events.filter((event) => Date.parse(event.endsAt) <= Date.n
           <option value="">Todas las comunidades</option>
           {eventCommunities.map(([id, title]) => <option value={id}>{title}</option>)}
         </select></label>
-        <label for="event-city">Ciudad del evento <select id="event-city" data-event-city disabled={eventCities.length === 0}>
+        {!(modes?.length === 1 && modes[0] === 'online') && <label for="event-city">Ciudad del evento <select id="event-city" data-event-city disabled={eventCities.length === 0}>
           <option value="">{eventCities.length ? 'Todas las ciudades' : 'Sin ciudades confirmadas'}</option>
           {eventCities.map((item) => <option value={item.key} data-event-countries={item.organizerCountries.join('|')}>
             {item.city}{item.organizerCountries.length ? ` · grupos de ${item.organizerCountries.map(countryLabel).join(' y ')}` : ''}
           </option>)}
-        </select></label>
+        </select></label>}
       </div>
-      <p class="event-agenda__filter-note">Las fechas corresponden al día de inicio en la zona del organizador. La ciudad aparece solo cuando el organizador la indica.</p>
+      <p class="event-agenda__filter-note">Las fechas corresponden al día de inicio en la zona del organizador.</p>
       <div class="event-agenda__filter-summary"><button type="button" data-event-clear>Limpiar filtros</button><span data-event-count aria-live="polite"></span></div>
     </div>}
     <ol class="event-agenda__list" data-event-list>

@@ -4,6 +4,9 @@ import { relative, resolve } from 'node:path';
 import deployment from '../config/deployment.json' with { type: 'json' };
 import { COUNTRY_SLUGS } from '../src/lib/community-country-pages.mjs';
 import { COUNTRY_LABELS } from '../src/lib/resource-discovery.mjs';
+import { RESOURCE_COLLECTIONS, resourceCollectionResources } from '../src/lib/resource-collections.mjs';
+import { EVENT_COLLECTIONS } from '../src/lib/event-collections.mjs';
+import { LEARNING_PATHS, learningPathHref } from '../src/lib/learning-paths.mjs';
 
 const production = process.env.PUBLIC_PRODUCTION === 'true';
 const mediaOrigin = new URL(process.env.PUBLIC_SITE_ORIGIN || `https://${deployment.branchName}.${deployment.appId}.amplifyapp.com`).origin;
@@ -30,8 +33,12 @@ assert.equal(sitemapEntries.length, locations.length, 'Every sitemap location mu
 const sitemapLastmods = new Map(sitemapEntries);
 const allDistFiles = filesUnder(dist);
 const allHtmlPaths = allDistFiles.filter((path) => path.endsWith('.html')).map((path) => relative(dist, path).replaceAll('\\', '/'));
-const communityCountryRoutePaths = allHtmlPaths.filter((path) => /^comunidades\/[^/]+\/index\.html$/u.test(path));
-const eventCountryRoutePaths = allHtmlPaths.filter((path) => /^eventos\/[^/]+\/index\.html$/u.test(path));
+const collections = [...RESOURCE_COLLECTIONS, ...Object.values(EVENT_COLLECTIONS)];
+const collectionHtmlPaths = collections.map(({ path }) => `${path.slice(1)}index.html`);
+const learningDetailPaths = LEARNING_PATHS.map(({ id }) => `${learningPathHref(id).slice(1)}index.html`);
+const isCountryRoute = (path, section) => new RegExp(`^${section}/[^/]+/index\\.html$`, 'u').test(path) && !collectionHtmlPaths.includes(path);
+const communityCountryRoutePaths = allHtmlPaths.filter((path) => isCountryRoute(path, 'comunidades'));
+const eventCountryRoutePaths = allHtmlPaths.filter((path) => isCountryRoute(path, 'eventos'));
 const routeCountries = (paths, section) => paths.map((htmlPath) => {
   const slug = htmlPath.split('/')[1];
   const country = Object.entries(COUNTRY_SLUGS).find(([, countrySlug]) => countrySlug === slug)?.[0];
@@ -41,7 +48,7 @@ const routeCountries = (paths, section) => paths.map((htmlPath) => {
 const countryRoutes = routeCountries(communityCountryRoutePaths, 'comunidades');
 const eventCountryRoutes = routeCountries(eventCountryRoutePaths, 'eventos');
 const pagePaths = ['index.html', ...sections.map((section) => `${section}/index.html`), 'recorridos/index.html', 'blog/index.html', 'buscar/index.html',
-  ...routes.map(({ slug }) => `blog/${slug}/index.html`), ...communityCountryRoutePaths, ...eventCountryRoutePaths];
+  ...routes.map(({ slug }) => `blog/${slug}/index.html`), ...communityCountryRoutePaths, ...eventCountryRoutePaths, ...collectionHtmlPaths, ...learningDetailPaths];
 const expectedLocations = [
   'https://dondeaprendoaws.com/',
   ...sections.map((section) => `https://dondeaprendoaws.com/${section}/`),
@@ -49,13 +56,15 @@ const expectedLocations = [
   ...eventCountryRoutes.map(({ path }) => `https://dondeaprendoaws.com${path}`),
   'https://dondeaprendoaws.com/blog/',
   'https://dondeaprendoaws.com/recorridos/',
+  ...collections.map(({ path }) => `https://dondeaprendoaws.com${path}`),
+  ...LEARNING_PATHS.map(({ id }) => `https://dondeaprendoaws.com${learningPathHref(id)}`),
   ...routes.map(({ slug }) => `https://dondeaprendoaws.com/blog/${slug}/`),
 ].sort();
 assert.deepEqual([...locations].sort(), expectedLocations);
 assert.deepEqual(eventCountryRoutes.map(({ country }) => country).sort(), countryRoutes.map(({ country }) => country).sort(),
   'Event country routes match the countries with published communities.');
-assert.equal(new Set(locations).size, 203 + countryRoutes.length + eventCountryRoutes.length, 'Sitemap URLs must be unique.');
-assert.equal(allHtmlPaths.length, 205 + countryRoutes.length + eventCountryRoutes.length, 'Every public page and the 404 page must be checked.');
+assert.equal(new Set(locations).size, expectedLocations.length, 'Sitemap URLs must be unique.');
+assert.deepEqual([...allHtmlPaths].sort(), [...pagePaths, '404.html'].sort(), 'Every generated HTML page must be checked, with no unexpected event detail routes.');
 
 const decode = (value) => value.replaceAll('&amp;', '&').replaceAll('&quot;', '"').replaceAll('&#39;', "'").replaceAll('&#x27;', "'").replaceAll('&lt;', '<').replaceAll('&gt;', '>');
 const defaultSocialImage = readFileSync(resolve(dist, 'assets/site-social.png'));
@@ -146,8 +155,8 @@ for (const path of pagePaths) {
 const notFound = read('404.html');
 assert.match(notFound, /<meta name="robots" content="noindex, nofollow"/);
 const home = read('index.html');
-assert.match(home, /<title>Dónde Aprendo AWS: recursos y comunidades en español<\/title>/);
-assert.match(home, /Encontrá cursos, videos, creadores y comunidades para aprender AWS en español\. Explorá recorridos de aprendizaje y próximos eventos\./);
+assert.match(home, /<title>Dónde aprender AWS en español \| ¿Dónde Aprendo AWS\?<\/title>/);
+assert.match(home, /Elegí cómo aprender AWS en español: cursos, videos, tutoriales, rutas de aprendizaje, comunidades y próximos eventos en Latinoamérica\./);
 assert.match(read('blog/index.html'), /<title>Guías y tutoriales AWS en español \| Dónde Aprendo AWS<\/title>/);
 for (const section of sections) assert.match(home, new RegExp(`href="/${section}/"`));
 assert.match(home, /id="legacy-resource-routes"/);
@@ -157,8 +166,13 @@ assert.match(home, /href="\/recorridos\/"/);
 const learning = read('recorridos/index.html');
 for (const id of ['primeros-pasos', 'serverless', 'seguridad', 'ia-generativa']) {
   assert.match(learning, new RegExp(`id="${id}"`));
+  assert.ok(learning.includes(`href="${learningPathHref(id)}"`));
+  const detail = read(`recorridos/${id}/index.html`);
+  assert.match(detail, /<ol>/u);
+  assert.ok([...detail.matchAll(/class="learning-path-detail__step"/gu)].length >= 2, `${id} has a usable sequence.`);
+  assert.ok(detail.includes(`href="https://dondeaprendoaws.com${learningPathHref(id)}"`));
 }
-assert.match(learning, /href="\/blog\/aws-fundamentos-guia-de-inicio-rapido\/"/);
+assert.match(read('recorridos/primeros-pasos/index.html'), /href="\/blog\/aws-fundamentos-guia-de-inicio-rapido\/"/);
 const learningMain = learning.match(/<main class="learning-paths[^>]*">([\s\S]*?)<\/main>/)?.[1] ?? '';
 assert.doesNotMatch(learningMain, /href="https?:\/\//, 'Learning paths should point to existing internal destinations.');
 const searchPage = read('buscar/index.html');
@@ -169,6 +183,8 @@ assert.doesNotMatch(searchPage, /name="query"/, 'Search text must not be submitt
 const searchIndex = JSON.parse(read('search-index.json'));
 assert.equal(searchIndex.filter((entry) => entry.type === 'article').length, routes.length);
 assert.equal(searchIndex.filter((entry) => entry.type === 'path').length, 4);
+for (const { id } of LEARNING_PATHS) assert.ok(searchIndex.some((entry) => entry.type === 'path' && entry.url === learningPathHref(id)));
+for (const { path } of collections) assert.ok(searchIndex.some((entry) => entry.type === 'collection' && entry.url === path), `Collection discoverability: ${path}`);
 assert.ok(searchIndex.every((entry) => /^\/(?:blog|aprender|recorridos|creadores|comunidades|eventos)\//.test(entry.url)));
 assert.doesNotMatch(JSON.stringify(searchIndex), /submitterEmail|submitterName|contactEmail/);
 
@@ -194,19 +210,45 @@ for (const [section, expectedKind] of [['aprender', 'content'], ['creadores', 's
   }
 }
 
-const cardData = (html) => [...html.matchAll(/<li\b([^>]*)>/gu)].flatMap(([, attributes]) => {
+const cardData = (html) => [...html.matchAll(/<li\b([^>]*)>([\s\S]*?)<\/li>/gu)].flatMap(([, attributes, body]) => {
   const id = attributes.match(/\bid="resource-([^" ]+)"/u)?.[1];
   const kind = attributes.match(/\bdata-kind="([^"]*)"/u)?.[1];
   if (!id || !kind) return [];
   return [{
     id,
     kind,
+    title: decode(body.match(/<h3\b[^>]*>([\s\S]*?)<\/h3>/u)?.[1] ?? ''),
+    description: decode(body.match(/<p class="resource-card__description">([\s\S]*?)<\/p>/u)?.[1] ?? ''),
     country: attributes.match(/\bdata-country="([^"]*)"/u)?.[1] ?? '',
     format: attributes.match(/\bdata-format="([^"]*)"/u)?.[1] ?? '',
     topics: (attributes.match(/\bdata-topics="([^"]*)"/u)?.[1] ?? '').split('|').filter(Boolean),
   }];
 });
 const generalCommunities = cardData(read('comunidades/index.html')).filter(({ kind }) => kind === 'community');
+const globalCards = [...cardData(read('aprender/index.html')), ...cardData(read('creadores/index.html')), ...generalCommunities];
+for (const collection of RESOURCE_COLLECTIONS) {
+  const html = read(`${collection.path.slice(1)}index.html`);
+  const expected = resourceCollectionResources(collection, globalCards).map(({ id }) => id);
+  assert.deepEqual(cardData(html).map(({ id }) => id), expected, `Exact initial HTML subset: ${collection.path}`);
+  assert.equal(decode(html.match(/<h1 id="directory-title">([^<]+)<\/h1>/u)?.[1] ?? ''), collection.title);
+  assert.ok(html.includes(`href="https://dondeaprendoaws.com${collection.path}"`));
+  assert.match(html, /id="collection-guide"/u, `Specific guidance: ${collection.path}`);
+  assert.match(html, /class="community-breadcrumb"/u);
+  if (collection.selector.format) assert.doesNotMatch(html, /data-format-filter/u, 'A fixed-format collection does not repeat its format filter.');
+  if (collection.selector.topic) assert.doesNotMatch(html, /data-topic-filter/u, 'A fixed-topic collection does not repeat its topic filter.');
+  if (expected.length) assert.match(html, /data-resource-search/u);
+}
+const globalEventAttributes = [...read('eventos/index.html').matchAll(/<li\b([^>]*)\bdata-event-id="([^"]+)"([^>]*)>/gu)]
+  .map(([, before, id, after]) => ({ id, mode: `${before}${after}`.match(/data-event-mode="([^"]+)"/u)?.[1] }));
+for (const collection of Object.values(EVENT_COLLECTIONS)) {
+  const html = read(`${collection.path.slice(1)}index.html`);
+  const expected = globalEventAttributes.filter(({ mode }) => collection.modes.includes(mode)).map(({ id }) => id);
+  const actual = [...html.matchAll(/data-event-id="([^"]+)"/gu)].map(([, id]) => id);
+  assert.deepEqual(actual, expected, `Exact fixed-mode SSR subset: ${collection.path}`);
+  assert.ok(html.includes(`href="https://dondeaprendoaws.com${collection.path}"`));
+  assert.match(html, /data-event-empty/u);
+  for (const route of countryRoutes) assert.ok(searchIndex.some((entry) => entry.url === `/eventos/${route.slug}/`));
+}
 const directoryCountries = [...new Set(generalCommunities.map(({ country }) => country).filter(Boolean))].sort();
 if (directoryCountries.length) assert.match(read('comunidades/index.html'), /data-country-filter/, 'The overall directory retains its legacy country filter.');
 else assert.doesNotMatch(read('comunidades/index.html'), /data-country-filter/);
@@ -240,7 +282,13 @@ for (const route of countryRoutes) {
   assert.equal(decode(html.match(/<h1 id="directory-title">([\s\S]*?)<\/h1>/u)?.[1] ?? ''), `Comunidades AWS en ${countryName}`);
   const formatCounts = new Map();
   for (const { format } of expectedCards) formatCounts.set(format, (formatCounts.get(format) ?? 0) + 1);
-  for (const [format, count] of formatCounts) assert.ok(html.includes(`${count} en formato ${format}`), `Intro gives the ${format} count for ${countryName}.`);
+  const countLabels = {
+    'User Group': ['AWS User Group', 'AWS User Groups'],
+    'Student Builder Group': ['Student Builder Group', 'Student Builder Groups'],
+    'Grupo de estudio': ['grupo de estudio', 'grupos de estudio'],
+    'Comunidad en línea': ['comunidad en línea', 'comunidades en línea'],
+  };
+  for (const [format, count] of formatCounts) assert.ok(html.includes(`${count} ${countLabels[format]?.[count === 1 ? 0 : 1] ?? format}`), `Intro gives the actual ${format} count for ${countryName}.`);
   const countryNav = html.match(/<nav class="community-country-nav"[^>]*>([\s\S]*?)<\/nav>/u)?.[1] ?? '';
   assert.ok(countryNav, `Country navigation exists for ${countryName}.`);
   assert.match(countryNav, new RegExp(`Cambiar de país · ${countryName}`));
@@ -259,8 +307,7 @@ for (const route of eventCountryRoutes) {
   assert.ok(summary, `Country agenda links back to its published communities: ${route.path}`);
   for (const community of communitiesForCountry) assert.ok(summary.includes(`href="${resourceLinkFor(community.id, route.country)}"`));
   assert.match(html, /<h1>Eventos AWS en [^<]+<\/h1>/u);
-  assert.match(html, /organizados por comunidades AWS de/u);
-  assert.match(html, /no necesariamente el lugar de cada encuentro/u);
+  assert.doesNotMatch(html, /no necesariamente el lugar de cada encuentro|99[.,]99/u);
   assert.match(html, /data-event-list/u);
   assert.doesNotMatch(html, /\bdata-event-country(?:\s|=)/u, 'A national agenda navigates by country page instead of a country filter.');
   assert.match(html, /data-event-empty/u, 'The page has an initial empty state for when its events expire.');
@@ -271,7 +318,7 @@ for (const route of eventCountryRoutes) {
   assert.equal(decode(html.match(/<title>([\s\S]*?)<\/title>/u)?.[1] ?? ''), `Eventos AWS en ${countryName} | ¿Dónde Aprendo AWS?`);
   assert.equal(html.match(/<link\b(?=[^>]*\brel="canonical")(?=[^>]*\bhref="([^"]+)")[^>]*>/u)?.[1], `https://dondeaprendoaws.com${route.path}`);
   const description = decode(html.match(/<meta\b(?=[^>]*\bname="description")([^>]*)>/u)?.[1]?.match(/\bcontent="([^"]*)"/u)?.[1] ?? '');
-  assert.match(description, new RegExp(`Eventos AWS de comunidades de ${countryName}`));
+  assert.match(description, new RegExp(`Eventos AWS en ${countryName}`));
   const countryNav = html.match(/<nav class="community-country-nav"[^>]*>([\s\S]*?)<\/nav>/u)?.[1] ?? '';
   for (const otherRoute of eventCountryRoutes) assert.ok(countryNav.includes(`href="${otherRoute.path}"`), `Country agenda navigation links to ${otherRoute.path}.`);
 }
@@ -300,7 +347,7 @@ if (fixtureBuild) {
   assert.deepEqual(cardData(read('comunidades/costa-rica/index.html')).map(({ id, format }) => [id, format]), [
     ['fixture-community-costa-rica', 'User Group'],
   ]);
-  assert.match(read('comunidades/colombia/index.html'), /1 en formato Student Builder Group/);
+  assert.match(read('comunidades/colombia/index.html'), /1 Student Builder Group/);
   assert.match(read('comunidades/colombia/index.html'), /href="\/eventos\/colombia\/"[^>]*>Consultar agenda de eventos organizados por comunidades de Colombia/);
   assert.match(read('comunidades/costa-rica/index.html'), /href="\/eventos\/costa-rica\/"[^>]*>Consultar agenda de eventos organizados por comunidades de Costa Rica/,
     'A country with no upcoming events still has a stable agenda destination.');

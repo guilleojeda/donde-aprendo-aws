@@ -2,6 +2,7 @@ import { eventHref, resourceHref } from './catalog-routes.mjs';
 import { normalizeSearch } from './directory-filter.mjs';
 import { uniqueUpcomingEvents } from './events.mjs';
 import { communityCountryPages } from './community-country-pages.mjs';
+import { learningPathHref } from './learning-paths.mjs';
 
 const TYPE_LABELS = Object.freeze({
   article: 'Artículo del blog',
@@ -10,6 +11,7 @@ const TYPE_LABELS = Object.freeze({
   community: 'Comunidad',
   event: 'Evento',
   path: 'Recorrido de aprendizaje',
+  collection: 'Colección del directorio',
 });
 
 export { TYPE_LABELS };
@@ -61,7 +63,7 @@ function markdownHeadings(body = '') {
 }
 
 /** Only public, bounded text is written to the downloadable index. */
-export function buildSearchIndex(posts, catalog, learningPaths = []) {
+export function buildSearchIndex(posts, catalog, learningPaths = [], landingPages = []) {
   const articles = [...posts]
     .sort((a, b) => b.data.publishedAt.localeCompare(a.data.publishedAt) || a.id.localeCompare(b.id))
     .map((post) => ({
@@ -100,12 +102,21 @@ export function buildSearchIndex(posts, catalog, learningPaths = []) {
     type: 'path',
     title: path.title,
     description: path.intro,
-    url: `/recorridos/#${path.id}`,
+    url: learningPathHref(path.id),
     meta: path.audience,
     search: '',
   }));
 
-  return [...paths, ...articles, ...records];
+  const collections = landingPages.map((page) => ({
+    type: 'collection',
+    title: page.title,
+    description: page.description,
+    url: page.path,
+    meta: page.label,
+    search: page.search ?? '',
+  }));
+
+  return [...paths, ...collections, ...articles, ...records];
 }
 
 export function aggregateSearchData(query, type, count) {

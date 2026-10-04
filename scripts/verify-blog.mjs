@@ -5,6 +5,7 @@ import { parse as parseYaml } from 'yaml';
 import { BLOG_CONTRIBUTORS } from '../src/lib/blog-contributors.mjs';
 import { createBlogMetadataSchema, contributorStructuredData, formatBlogDate } from '../src/lib/blog-metadata.mjs';
 import deployment from '../config/deployment.json' with { type: 'json' };
+import { LEARNING_PATHS, learningPathHref } from '../src/lib/learning-paths.mjs';
 
 const dist = resolve('dist');
 const production = process.env.PUBLIC_PRODUCTION === 'true';
@@ -51,16 +52,17 @@ const assetPaths = new Set();
 const pathMembership = new Map();
 let modifiedArticles = 0;
 let reviewedArticles = 0;
-const learningPage = read('recorridos/index.html');
-for (const [, id, section] of learningPage.matchAll(/<section class="learning-path" id="([^"]+)"[^>]*>([\s\S]*?)<\/section>/g)) {
-  const title = decode(section.match(/<h2\b[^>]*>([\s\S]*?)<\/h2>/)?.[1] ?? '');
-  const steps = [...section.matchAll(/<li>\s*<a href="([^"]+)">\s*<span>[^<]*<\/span>\s*<strong>([^<]+)<\/strong>/g)]
+for (const { id } of LEARNING_PATHS) {
+  const detail = read(`recorridos/${id}/index.html`);
+  const title = decode(detail.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/)?.[1] ?? '');
+  const section = detail.match(/<section class="learning-path-detail__steps"[\s\S]*?<\/section>/u)?.[0] ?? '';
+  const steps = [...section.matchAll(/<a class="learning-path-detail__step" href="([^"]+)">[\s\S]*?<strong>([^<]+)<\/strong>/g)]
     .map(([, href, title]) => ({ href: decode(href), title: decode(title) }));
   assert.ok(title && steps.length >= 2, `Rendered learning path must be readable: ${id}`);
   steps.forEach((step, position) => {
     if (!step.href.startsWith('/blog/')) return;
     const memberships = pathMembership.get(step.href) ?? [];
-    memberships.push({ title, href: `/recorridos/#${id}`, nextStep: steps[position + 1] ?? null });
+    memberships.push({ title, href: learningPathHref(id), nextStep: steps[position + 1] ?? null });
     pathMembership.set(step.href, memberships);
   });
 }
@@ -167,7 +169,7 @@ for (const html of allPages) {
     const navigation = html.match(new RegExp(`<div class="${menu}">([\\s\\S]*?)<\\/div>`))?.[1] ?? '';
     const links = [...navigation.matchAll(/<a href="([^"]+)">([^<]+)<\/a>/g)]
       .map(([, href, text]) => [href, text]);
-    assert.deepEqual(links, [['/', 'Inicio'], ['/aprender/', 'Aprender'], ['/recorridos/', 'Recorridos'],
+    assert.deepEqual(links, [['/', 'Inicio'], ['/aprender/', 'Aprender'], ['/recorridos/', 'Rutas'],
       ['/blog/', 'Blog'], ['/buscar/', 'Buscar']], `Complete blog menu: ${menu}`);
   }
   if (production) {

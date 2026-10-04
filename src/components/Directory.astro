@@ -16,17 +16,27 @@ interface Props {
   allResources: CatalogResource[];
   events: CatalogEvent[];
   country?: string;
+  breadcrumb?: { label: string; href?: string }[];
+  omittedFacets?: ('format' | 'topic' | 'country' | 'level')[];
+  showCountryNavigation?: boolean;
 }
 
-const { title, intro, kind, resources, allResources, events, country } = Astro.props;
+const {
+  title, intro, kind, resources, allResources, events, country,
+  breadcrumb, omittedFacets = [], showCountryNavigation = true,
+} = Astro.props;
 const countryLabel = (country: string) => COUNTRY_LABELS[country as keyof typeof COUNTRY_LABELS] ?? country;
 const levelLabel = (level: string) => LEVEL_LABELS[level as keyof typeof LEVEL_LABELS] ?? level;
 const countryPages = communityCountryPages(allResources);
 const agendaPath = country ? eventCountryPath(country) : undefined;
 const upcomingEventGroups = kind === 'community' ? uniqueUpcomingEventGroups(events) : [];
+const omitFacet = (facet: 'format' | 'topic' | 'country' | 'level') => omittedFacets.includes(facet);
 const formats = [...new Set(resources.map((resource) => resource.format))]
   .sort((left, right) => left.localeCompare(right, 'es', { sensitivity: 'base' }));
-const resourceCountNoun = resources.length === 1 ? 'recurso' : 'recursos';
+const countNouns = kind === 'community'
+  ? { singular: 'comunidad', plural: 'comunidades' }
+  : kind === 'source' ? { singular: 'fuente', plural: 'fuentes' } : { singular: 'recurso', plural: 'recursos' };
+const resourceCountNoun = resources.length === 1 ? countNouns.singular : countNouns.plural;
 const topics = TOPICS.filter((topic) => resources.some((resource) => resource.topics.includes(topic)));
 const countries = country ? [] : Object.keys(COUNTRY_LABELS).filter((country) => resources.some((resource) => resource.country === country))
   .sort((left, right) => countryLabel(left).localeCompare(countryLabel(right), 'es'));
@@ -46,7 +56,15 @@ for (const group of upcomingEventGroups) {
 <main>
   <section class="directory-section" aria-labelledby="directory-title">
     <div class="site-container directory-section__container">
-      {country && <nav class="community-breadcrumb" aria-label="Ruta de navegación">
+      {breadcrumb?.length ? <nav class="community-breadcrumb" aria-label="Ruta de navegación">
+        <ol>
+          {breadcrumb.map((item, index) => <li>
+            {item.href && index < breadcrumb.length - 1
+              ? <a href={item.href}>{item.label}</a>
+              : <span aria-current="page">{item.label}</span>}
+          </li>)}
+        </ol>
+      </nav> : country && <nav class="community-breadcrumb" aria-label="Ruta de navegación">
         <ol>
           <li><a href="/">Inicio</a></li>
           <li><a href="/comunidades/">Comunidades</a></li>
@@ -61,10 +79,12 @@ for (const group of upcomingEventGroups) {
         </p>}
       </div>
 
-      {kind === 'community' && <CountryNavigation pages={countryPages} section="comunidades" currentCountry={country} showCounts />}
+      {kind === 'community' && showCountryNavigation && <CountryNavigation pages={countryPages} section="comunidades" currentCountry={country} showCounts />}
+
+      <slot name="before-filters" />
 
       <div class="directory-controls" data-directory-controls>
-        <label class="sr-only" for="resource-search">Buscar en {title.toLowerCase()}</label>
+        <label class="sr-only" for="resource-search">Buscar en {title}</label>
         <input
           id="resource-search"
           class="directory-search"
@@ -75,28 +95,28 @@ for (const group of upcomingEventGroups) {
           data-resource-search
         />
         <div class="directory-facets">
-          <div class="directory-facet">
+          {!omitFacet('format') && <div class="directory-facet">
             <label for="resource-format">Formato</label>
             <select id="resource-format" data-format-filter>
               <option value="">Todos los formatos</option>
               {formats.map((format) => <option value={format}>{format}</option>)}
             </select>
-          </div>
-          {topics.length > 0 && <div class="directory-facet">
+          </div>}
+          {!omitFacet('topic') && topics.length > 0 && <div class="directory-facet">
             <label for="resource-topic">Tema</label>
             <select id="resource-topic" data-topic-filter>
               <option value="">Todos los temas</option>
               {topics.map((topic) => <option value={topic}>{topic}</option>)}
             </select>
           </div>}
-          {countries.length > 0 && <div class="directory-facet">
+          {!omitFacet('country') && countries.length > 0 && <div class="directory-facet">
             <label for="resource-country">País de origen</label>
             <select id="resource-country" data-country-filter>
               <option value="">Todos los países</option>
               {countries.map((country) => <option value={country}>{countryLabel(country)}</option>)}
             </select>
           </div>}
-          {levels.length > 0 && <div class="directory-facet" data-level-field>
+          {!omitFacet('level') && levels.length > 0 && <div class="directory-facet" data-level-field>
             <label for="resource-level">Nivel</label>
             <select id="resource-level" data-level-filter>
               <option value="">Todos los niveles</option>
@@ -109,7 +129,7 @@ for (const group of upcomingEventGroups) {
       {resources.length > 0 ? <>
         <h2 class="sr-only">Resultados</h2>
         <div class="directory-list-heading">
-          <p class="directory-result-count" data-result-count aria-live="polite">{resources.length} recursos</p>
+          <p class="directory-result-count" data-result-count data-count-singular={countNouns.singular} data-count-plural={countNouns.plural} aria-live="polite">{resources.length} {resourceCountNoun}</p>
           <div class="directory-facet directory-facet--sort">
             <label for="resource-sort">Ordenar por</label>
             <select id="resource-sort" data-sort-filter>
@@ -136,6 +156,8 @@ for (const group of upcomingEventGroups) {
           <button class="button button--dark" type="button" data-show-more>Mostrar 12 más</button>
         </div>
       </> : <p class="directory-empty" role="status">No hay recursos publicados todavía.</p>}
+
+      <slot name="after-results" />
 
       <CatalogCriteria />
     </div>

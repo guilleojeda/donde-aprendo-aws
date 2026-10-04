@@ -1,0 +1,82 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import SiteHeader from '../../components/SiteHeader.astro';
+import SiteFooter from '../../components/SiteFooter.astro';
+import EventAgenda from '../../components/EventAgenda.astro';
+import CountryNavigation from '../../components/CountryNavigation.astro';
+import CollectionNavigation from '../../components/CollectionNavigation.astro';
+import CountryCommunitySummary from '../../components/CountryCommunitySummary.astro';
+import { loadSiteCatalog } from '../../lib/site-catalog.mjs';
+import { communityCountryPages, eventCountryPath } from '../../lib/community-country-pages.mjs';
+import { EVENT_COLLECTIONS } from '../../lib/event-collections.mjs';
+import { COUNTRY_LABELS } from '../../lib/resource-discovery.mjs';
+import type { CatalogEvent, CatalogResource } from '../../types/catalog';
+
+export async function getStaticPaths() {
+  const catalog = await loadSiteCatalog() as Array<CatalogResource | CatalogEvent>;
+  const communities = catalog.filter((record): record is CatalogResource => record.recordType !== 'event' && record.kind === 'community');
+  const countryPages = communityCountryPages(communities);
+  const collectionPages = Object.entries(EVENT_COLLECTIONS).map(([collectionKey, collection]) => ({
+    params: { slug: collection.path.split('/').filter(Boolean).at(-1)! },
+    props: { pageType: 'collection', collectionKey },
+  }));
+  const countryRoutes = countryPages.map(({ country, slug }) => ({
+    params: { slug },
+    props: { pageType: 'country', country },
+  }));
+  const routeSlugs = [...countryRoutes, ...collectionPages].map(({ params }) => params.slug);
+  if (new Set(routeSlugs).size !== routeSlugs.length) throw new Error('Event collection slug conflicts with a country page.');
+  return [...countryRoutes, ...collectionPages];
+}
+
+const { pageType, country, collectionKey } = Astro.props as {
+  pageType: 'country' | 'collection';
+  country?: string;
+  collectionKey?: keyof typeof EVENT_COLLECTIONS;
+};
+const collection = collectionKey ? EVENT_COLLECTIONS[collectionKey] : undefined;
+const catalog = await loadSiteCatalog() as Array<CatalogResource | CatalogEvent>;
+const resources = catalog.filter((record): record is CatalogResource => record.recordType !== 'event');
+const communities = resources.filter((resource) => resource.kind === 'community' && resource.country === country);
+const events = catalog.filter((record): record is CatalogEvent => record.recordType === 'event');
+const countryPages = communityCountryPages(resources);
+const countryName = country ? COUNTRY_LABELS[country as keyof typeof COUNTRY_LABELS] : undefined;
+const path = collection?.path ?? (country ? eventCountryPath(country) : undefined);
+if (!path || (pageType === 'country' && (!countryName || communities.length === 0)) || (pageType === 'collection' && !collection)) {
+  throw new Error(`No event page is available for ${country ?? collectionKey ?? 'unknown route'}`);
+}
+const title = collection?.title ?? `Eventos AWS en ${countryName} | ¿Dónde Aprendo AWS?`;
+const description = collection?.description ?? `Eventos AWS en ${countryName}, organizados por comunidades de ese país. Encontrá encuentros en línea, presenciales e híbridos y consultá fechas, horarios e inscripción.`;
+const canonical = new URL(path, 'https://dondeaprendoaws.com').href;
+const heading = collection ? collection.label : `Eventos AWS en ${countryName}`;
+const intro = collection?.intro ?? `Consultá próximos eventos organizados por comunidades AWS de ${countryName}: modalidad, fechas, horarios e inscripción.`;
+const collectionModes = collection?.modes as readonly CatalogEvent['mode'][] | undefined;
+const collectionLinks = [
+  { path: '/eventos/', label: 'Todos los eventos' },
+  ...Object.values(EVENT_COLLECTIONS).map(({ path: collectionPath, label }) => ({
+    path: collectionPath, label,
+  })),
+];
+---
+
+<BaseLayout title={title} description={description} canonical={canonical}>
+  <SiteHeader />
+  <main class="event-country-page site-container">
+    <nav class="community-breadcrumb" aria-label="Ruta de navegación">
+      <ol>
+        <li><a href="/">Inicio</a></li>
+        <li><a href="/eventos/">Eventos</a></li>
+        <li aria-current="page">{collection?.label ?? countryName}</li>
+      </ol>
+    </nav>
+    <div class="directory-hero">
+      <h1>{heading}</h1>
+      <p>{intro}</p>
+    </div>
+    <CountryNavigation pages={countryPages} section="eventos" currentCountry={country} />
+    <CollectionNavigation links={collectionLinks} currentPath={collection?.path} label="Colecciones de eventos" />
+    <EventAgenda events={events} resources={resources} country={country} modes={collectionModes} />
+    {country && <CountryCommunitySummary country={country} communities={communities} />}
+  </main>
+  <SiteFooter />
+</BaseLayout>

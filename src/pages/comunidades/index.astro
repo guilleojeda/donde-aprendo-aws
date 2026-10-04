@@ -3,6 +3,9 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import SiteHeader from '../../components/SiteHeader.astro';
 import SiteFooter from '../../components/SiteFooter.astro';
 import Directory from '../../components/Directory.astro';
+import CollectionNavigation from '../../components/CollectionNavigation.astro';
+import CollectionGuide from '../../components/CollectionGuide.astro';
+import { RESOURCE_COLLECTIONS } from '../../lib/resource-collections.mjs';
 import { loadSiteCatalog } from '../../lib/site-catalog.mjs';
 import type { CatalogEvent, CatalogResource } from '../../types/catalog';
 
@@ -10,9 +13,31 @@ const catalog = await loadSiteCatalog() as Array<CatalogResource | CatalogEvent>
 const allResources = catalog.filter((record): record is CatalogResource => record.recordType !== 'event');
 const resources = allResources.filter((record) => record.kind === 'community');
 const events = catalog.filter((record): record is CatalogEvent => record.recordType === 'event');
+const communityCollections = RESOURCE_COLLECTIONS.filter((collection) => collection.kind === 'community');
+const communityCollectionLinks = communityCollections.map(({ path, label }) => ({ path, label }));
+const guide = {
+  heading: '¿Cómo elegir una comunidad AWS?',
+  body: 'Empezá por el tipo de grupo o el país que te resulte más útil. Cada comunidad mantiene sus propios canales, actividades y formas de participar; abrí sus enlaces para conocerlas.',
+  points: [
+    'Los AWS User Groups reúnen a personas interesadas en compartir experiencias y aprender sobre AWS.',
+    'Los Student Builder Groups son espacios de comunidad orientados a estudiantes.',
+    'La agenda enlaza eventos publicados por comunidades AWS, en línea, presenciales e híbridos.',
+  ],
+};
+const guideLinks = [
+  ...communityCollections.map(({ path, label }) => ({ path, label })),
+  { path: '/eventos/', label: 'Agenda de eventos AWS' },
+];
 ---
-<BaseLayout title="Comunidades AWS de Latinoamérica | ¿Dónde Aprendo AWS?" description="Encontrá AWS User Groups y Student Builder Groups de Latinoamérica." canonical="https://dondeaprendoaws.com/comunidades/">
+<BaseLayout title="Comunidades AWS en Latinoamérica | ¿Dónde Aprendo AWS?" description="Explorá comunidades AWS en Latinoamérica por país y tipo de grupo. Conocé AWS User Groups y Student Builder Groups, y consultá sus enlaces para participar." canonical="https://dondeaprendoaws.com/comunidades/">
   <SiteHeader />
-  <Directory title="Comunidades AWS" intro="Conectá con User Groups, Student Builder Groups y otras comunidades de Latinoamérica." kind="community" resources={resources} allResources={allResources} events={events} />
+  <Directory title="Comunidades AWS en Latinoamérica" intro="Encontrá comunidades AWS por país y tipo de grupo. Explorá AWS User Groups y Student Builder Groups, y visitá los enlaces de cada comunidad para conocer sus canales y actividades." kind="community" resources={resources} allResources={allResources} events={events}>
+    <div slot="before-filters" class="collection-page__editorial">
+      <CollectionNavigation links={communityCollectionLinks} label="Tipos de comunidades AWS" />
+    </div>
+    <div slot="after-results" class="collection-page__after-results">
+      <CollectionGuide guide={guide} links={guideLinks} />
+    </div>
+  </Directory>
   <SiteFooter />
 </BaseLayout>

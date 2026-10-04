@@ -1,0 +1,36 @@
+---
+import '../styles/collections.css';
+
+interface Guide {
+  heading: string;
+  body: string;
+  points: string[];
+}
+
+interface GuideLink {
+  path: string;
+  label: string;
+}
+
+interface Props {
+  guide: Guide;
+  links?: GuideLink[];
+}
+
+const { guide, links = [] } = Astro.props;
+---
+
+<section id="collection-guide" class="collection-guide" aria-labelledby="collection-guide-title">
+  <div class="collection-guide__copy">
+    <p class="collection-guide__eyebrow">Orientación</p>
+    <h2 id="collection-guide-title">{guide.heading}</h2>
+    <p>{guide.body}</p>
+  </div>
+  <ul class="collection-guide__points">
+    {guide.points.map((point) => <li>{point}</li>)}
+  </ul>
+  {links.length > 0 && <nav class="collection-guide__links" aria-label="Seguir explorando">
+    <span>Seguir explorando</span>
+    {links.map((link) => <a href={link.path}>{link.label}<span aria-hidden="true"> →</span></a>)}
+  </nav>}
+</section>

@@ -27,8 +27,15 @@ if (posts.some((post, index) => post.data.indexOrder !== index + 1)) {
   <BlogHeader />
   <main class="blog-index" aria-label="Artículos del blog">
     <header class="blog-index__intro">
-      <h1>Blog de AWS en español</h1>
-      <p>Explorá {allPosts.length} artículos, <a href="#blog-archive-title">andá al archivo</a> o <a href="/buscar/">buscá en todo el sitio</a>.</p>
+      <h1>Guías y tutoriales AWS en español</h1>
+      <p>El blog de Dónde Aprendo AWS reúne {allPosts.length} artículos sobre Amazon Web Services. Elegí una lectura destacada, <a href="#blog-archive-title">explorá el archivo por año</a> o <a href="/buscar/">buscá un tema</a>.</p>
+      <nav class="blog-index__routes" aria-label="Leer con una ruta de aprendizaje">
+        <span>¿Querés leer en orden?</span>
+        <a href="/recorridos/primeros-pasos/">Primeros pasos</a>
+        <a href="/recorridos/serverless/">Serverless</a>
+        <a href="/recorridos/seguridad/">Seguridad</a>
+        <a href="/recorridos/ia-generativa/">IA generativa</a>
+      </nav>
     </header>
     <section aria-labelledby="blog-selected-title">
       <h2 id="blog-selected-title">Artículos destacados</h2>
