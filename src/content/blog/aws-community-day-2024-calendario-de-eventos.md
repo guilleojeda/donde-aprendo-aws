@@ -1,87 +1,72 @@
 ---
-title: "AWS Community Day 2024: Calendario de Eventos"
-description: "Descubre el calendario de AWS Community Day 2024 con eventos alrededor del mundo para profesionales de la nube. Aprende, conecta y comparte conocimientos."
+title: "AWS Community Days: qué son y cómo participar"
+description: "Qué ocurre en un AWS Community Day, cómo encontrar eventos en español y cómo participar en persona o en línea. Fechas confirmadas al 4 de octubre de 2026."
 author: "guille-ojeda"
 publishedAt: "2024-05-14"
 publishedTimestamp: "2024-05-14T04:11:07.812Z"
-modifiedTimestamp: "2026-10-01T15:14:05-03:00"
+modifiedTimestamp: "2026-10-05T00:34:04-03:00"
+review:
+  date: "2026-10-05"
 cover: "/assets/blog/8a72720666074692888beb45.png"
 coverAlt: "Globo rodeado por iconos de nubes de colores unidos con una línea punteada"
 ogImage: "/assets/blog/8a72720666074692888beb45.png"
 related:
-  - title: "10 Prácticas Recomendadas para Integrar EUC en AWS"
-    url: "https://dondeaprendoaws.com/blog/10-practicas-recomendadas-para-integrar-euc-en-aws/"
-    image: "/assets/blog/278a42e279f664f5331f81e7.png"
-    imageAlt: ""
-  - title: "Recursos de capacitación para socios de AWS"
-    url: "https://dondeaprendoaws.com/blog/recursos-de-capacitacion-para-socios-de-aws/"
-    image: "/assets/blog/b495b55f5f4147dccacb4628.jpg"
-    imageAlt: ""
-  - title: "Mejores Prácticas Para Amazon EKS"
-    url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-eks/"
-    image: "/assets/blog/5db43c07fa6733b870313471.jpg"
-    imageAlt: ""
+  - title: "Aprender AWS gratis en español: recursos y comunidades para avanzar"
+    url: "https://dondeaprendoaws.com/blog/aprender-aws-gratis-recursos-y-comunidad/"
+    image: "/assets/blog/c7227ae982494a7ce1620070.jpg"
+    imageAlt: "Nube sobre una mano estilizada y una fila de símbolos de colores"
 ---
 
-<p><a href="https://aws.amazon.com/">AWS</a> Community Days son eventos gratuitos de un día completo organizados por y para la comunidad de usuarios de <a href="https://aws.amazon.com/">AWS</a>. Estos eventos ofrecen una plataforma para networking, aprender y compartir conocimientos sobre la <a href="https://dondeaprendoaws.com/blog/cloud-computing-en-espanol-fundamentos-basicos/">computación en la nube</a> con <a href="https://aws.amazon.com/">AWS</a>.</p>
-<p>En 2024, se celebrarán varios AWS Community Days en diferentes ubicaciones alrededor del mundo. A continuación, se presenta un calendario con los detalles de los eventos confirmados:</p>
-<table><thead><tr><th>Evento</th><th>Fecha</th><th>Lugar</th><th>Oradores principales</th></tr></thead><tbody><tr><td>AWS Community Day Ahmedabad</td><td>20 de enero de 2024</td><td>Shree Shakti Convention Centre</td><td>Ridhima Kapoor, Suman Debnath</td></tr><tr><td>AWS Community Day Bengaluru</td><td>23 de marzo de 2024</td><td><a href="https://www.amazon.jobs/en/locations/bangalore-india">Amazon Development Center</a>, Bengaluru</td><td>Shafraz Rahim</td></tr><tr><td>AWS Community Day Nordics</td><td>Mayo de 2024</td><td><a href="https://es.wikipedia.org/wiki/Copenhague">Copenhague</a></td><td>Martin Qvist, Luciano Mammino</td></tr><tr><td>AWS Community Day Arabia Saudita</td><td>11 de mayo de 2024</td><td><a href="https://thegarage.sa/">THE GARAGE</a>, Riyadh, KSA</td><td>Por determinar</td></tr><tr><td>AWS Community Day Nueva York</td><td>28 de agosto de 2024</td><td>Por determinar</td><td>Por determinar</td></tr><tr><td>AWS Community Day Nueva Zelanda</td><td>Por determinar</td><td>Por determinar</td><td>Por determinar</td></tr><tr><td>AWS Community Day Nepal</td><td>21 de abril de 2024</td><td><a href="https://sunway.edu.np/">Sunway College</a>, Maitidevi, Kathmandu</td><td>Anjani Phuyal, Bishow Prajapati, Anmol Dhungana</td></tr></tbody></table>
-<p>En estos eventos, podrás disfrutar de sesiones inspiradoras sobre las últimas tendencias y <a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">mejores prácticas en AWS</a>, aprender de expertos en la nube, networking con otros profesionales y compartir conocimientos y experiencias.</p>
-<p>¡No te pierdas esta oportunidad de conectarte con la <a href="https://dondeaprendoaws.com/blog/aprender-aws-gratis-recursos-y-comunidad/">comunidad de AWS</a>! Marca tus calendarios y planifica tu asistencia.</p>
-<h2 id="related-video-from-youtube">Related video from YouTube</h2>
-<div><iframe allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen="" height="315" loading="lazy" src="https://www.youtube.com/embed/J2_R_qsTjpE" title="Video de YouTube" width="560"></iframe></div>
-<h2 id="acerca-de-aws-community-day-2024">Acerca de <a href="https://aws.amazon.com/">AWS</a> Community Day 2024</h2>
-<p><img alt="AWS" src="/assets/blog/2ebe3cf8e7ae57e98d3af846.jpg"/></p>
-<p>AWS Community Days son conferencias lideradas por la comunidad que ofrecen una plataforma para que los usuarios de AWS compartan conocimientos, experiencias y mejores prácticas. Estos eventos están diseñados para conectar a la comunidad de AWS, permitiendo a los asistentes aprender de expertos, compartir conocimientos y networking con otros profesionales de la nube.</p>
-<p>En 2024, se celebrarán varios AWS Community Days en diferentes ubicaciones alrededor del mundo. A continuación, presentamos un calendario de eventos para ayudar a los profesionales de la computación en la nube de habla hispana a planificar su asistencia.</p>
-<p><strong>¿Qué esperar de AWS Community Day 2024?</strong></p>
-<ul><li>Conferencias lideradas por la comunidad</li><li>Compartir conocimientos y experiencias con expertos en la nube</li><li>Networking con otros profesionales de la nube</li><li>Aprender sobre las últimas tendencias y tecnologías en la nube</li></ul>
-<p><strong>¿Por qué asistir a AWS Community Day 2024?</strong></p>
-<ul><li>Aprender de expertos en la nube</li><li>Conectar con otros profesionales de la nube</li><li>Compartir conocimientos y experiencias</li><li>Mantenerse actualizado sobre las últimas tendencias y tecnologías en la nube</li></ul>
-<h2 id="1.-aws-community-day-ahmedabad-2024">1. AWS Community Day Ahmedabad 2024</h2>
-<p>El AWS Community Day Ahmedabad 2024 se llevó a cabo el 20 de enero de 2024 en el Shree Shakti Convention Centre. El evento contó con oradores principales, incluyendo expertos en AWS y líderes de la industria.</p>
-<p><strong>Detalles del evento</strong></p>
-<table><thead><tr><th>Fecha</th><th>Lugar</th><th>Oradores principales</th></tr></thead><tbody><tr><td>20 de enero de 2024</td><td>Shree Shakti Convention Centre</td><td>Ridhima Kapoor, Suman Debnath</td></tr></tbody></table>
-<p>Los asistentes disfrutaron de sesiones inspiradoras sobre las últimas tendencias y innovaciones en AWS. El registro fue rápido y eficiente, y los asistentes recibieron un pase de entrada con una banda de la comunidad AWS y obsequios de llegada.</p>
-<p>Si te perdiste este evento, no te preocupes. A continuación, te presentamos un calendario de eventos de AWS Community Day 2024 en diferentes ubicaciones alrededor del mundo. ¡Planifica tu asistencia hoy mismo!</p>
-<h2 id="2.-aws-community-day-bengaluru-2024">2. AWS Community Day Bengaluru 2024</h2>
-<p>El AWS Community Day Bengaluru 2024 es un evento destacado para entusiastas, profesionales y empresas que buscan aprovechar al máximo el potencial de la computación en la nube. Únete a nosotros el <strong>23 de marzo de 2024 en el Amazon Development Center, Bengaluru</strong>, para un día lleno de conocimientos, colaboración e inspiración.</p>
-<p><strong>Detalles del evento</strong></p>
-<table><thead><tr><th>Fecha</th><th>Lugar</th><th>Oradores principales</th></tr></thead><tbody><tr><td>23 de marzo de 2024</td><td>Amazon Development Center, Bengaluru</td><td>Shafraz Rahim</td></tr></tbody></table>
-<p>En este evento, podrás disfrutar de sesiones inspiradoras sobre las últimas tendencias y innovaciones en AWS. Algunos de los temas que se abordarán son:</p>
-<ul><li>Un taller práctico sobre modelos de lenguaje grandes</li><li>Una charla principal sobre "Consejos esenciales para aumentar la productividad de los desarrolladores en un mundo en constante cambio"</li></ul>
-<p>¡No te pierdas esta oportunidad de aprender de los expertos y conectarte con la comunidad de AWS!</p>
-<h2 id="3.-aws-community-day-nordics-2024">3. AWS Community Day Nordics 2024</h2>
-<p>El AWS Community Day Nordics 2024 es un evento gratuito de un día completo donde los usuarios de AWS se reúnen para networking, aprender y obtener inspiración. El evento es organizado por y para la comunidad, y ofrece una plataforma para explorar la educación en la nube y compartir las mejores prácticas para implementar aplicaciones en AWS.</p>
-<p><strong>Detalles del evento</strong></p>
-<table><thead><tr><th>Fecha</th><th>Lugar</th><th>Oradores principales</th></tr></thead><tbody><tr><td>Mayo de 2024</td><td>Copenhague</td><td>Martin Qvist, Luciano Mammino</td></tr></tbody></table>
-<p>En este evento, podrás disfrutar de sesiones inspiradoras sobre las últimas tendencias y innovaciones en AWS. Algunos de los temas que se abordarán son:</p>
-<ul><li>La presentación de Martin Qvist sobre su experiencia con AWS</li><li>La charla de Luciano Mammino sobre el impacto de Rust en la computación sin servidor</li></ul>
-<p>¡No te pierdas esta oportunidad de aprender de los expertos y conectarte con la comunidad de AWS!</p>
-<h2 id="4.-aws-community-day-arabia-saudita-2024">4. AWS Community Day Arabia Saudita 2024</h2>
-<p>El AWS Community Day Arabia Saudita 2024 es un evento gratuito de un día completo donde los usuarios de AWS se reúnen para networking, aprender y obtener inspiración. El evento es organizado por y para la comunidad, y ofrece una plataforma para explorar la educación en la nube y compartir las mejores prácticas para implementar aplicaciones en AWS.</p>
-<p><strong>Detalles del evento</strong></p>
-<table><thead><tr><th>Fecha</th><th>Lugar</th><th>Oradores principales</th></tr></thead><tbody><tr><td>11 de mayo de 2024</td><td>THE GARAGE, Riyadh, KSA</td><td></td></tr></tbody></table>
-<p>En este evento, podrás disfrutar de sesiones inspiradoras sobre las últimas tendencias y innovaciones en AWS. ¡No te pierdas esta oportunidad de aprender de los expertos y conectarte con la comunidad de AWS!</p>
-<h2 id="5.-aws-community-day-nueva-york-2024">5. AWS Community Day Nueva York 2024</h2>
-<p>El AWS Community Day Nueva York 2024 es un evento gratuito de un día completo donde los usuarios de AWS se reúnen para networking, aprender y obtener inspiración. El evento es organizado por y para la comunidad, y ofrece una plataforma para explorar la educación en la nube y compartir las mejores prácticas para implementar aplicaciones en AWS.</p>
-<p><strong>Detalles del evento</strong></p>
-<table><thead><tr><th>Fecha</th><th>Lugar</th><th>Oradores principales</th></tr></thead><tbody><tr><td>28 de agosto de 2024</td><td>Por determinar</td><td></td></tr></tbody></table>
-<p>En este evento, podrás disfrutar de sesiones inspiradoras sobre las últimas tendencias y innovaciones en AWS. ¡No te pierdas esta oportunidad de aprender de los expertos y conectarte con la comunidad de AWS!</p>
-<h2 id="6.-aws-community-day-nueva-zelanda-2024">6. AWS Community Day Nueva Zelanda 2024</h2>
-<p>El AWS Community Day Nueva Zelanda 2024 es un evento gratuito de un día completo donde los usuarios de AWS se reúnen para networking, aprender y obtener inspiración. El evento es organizado por y para la comunidad, y ofrece una plataforma para explorar la educación en la nube y compartir las mejores prácticas para implementar aplicaciones en AWS.</p>
-<p><strong>Detalles del evento</strong></p>
-<table><thead><tr><th>Fecha</th><th>Lugar</th><th>Oradores principales</th></tr></thead><tbody><tr><td>Por determinar</td><td>Por determinar</td><td></td></tr></tbody></table>
-<p>En este evento, podrás disfrutar de sesiones inspiradoras sobre las últimas tendencias y innovaciones en AWS. ¡No te pierdas esta oportunidad de aprender de los expertos y conectarte con la comunidad de AWS!</p>
-<h2 id="7.-aws-community-day-nepal-2024">7. AWS Community Day Nepal 2024</h2>
-<p>El AWS Community Day Nepal 2024 es un evento gratuito de un día completo donde los usuarios de AWS se reúnen para networking, aprender y obtener inspiración. El evento es organizado por y para la comunidad, y ofrece una plataforma para explorar la educación en la nube y compartir las mejores prácticas para implementar aplicaciones en AWS.</p>
-<p><strong>Detalles del evento</strong></p>
-<table><thead><tr><th>Fecha</th><th>Lugar</th><th>Oradores principales</th></tr></thead><tbody><tr><td>21 de abril de 2024</td><td>Sunway College, Maitidevi, Kathmandu</td><td>Anjani Phuyal, Bishow Prajapati, Anmol Dhungana, entre otros</td></tr></tbody></table>
-<p>En este evento, podrás disfrutar de sesiones inspiradoras sobre las últimas tendencias y innovaciones en AWS. ¡No te pierdas esta oportunidad de aprender de los expertos y conectarte con la comunidad de AWS!</p>
-<h2 id="resumen-de-los-eventos-de-aws-community-day-2024">Resumen de los eventos de AWS Community Day 2024</h2>
-<p>El calendario de AWS Community Day 2024 ofrece una lista completa de eventos para profesionales de computación en la nube hispanohablantes para aprender, networking y compartir conocimientos con expertos y entusiastas de AWS. Marca tus calendarios y planifica tu asistencia según sea necesario.</p>
-<p>A continuación, se presentan los detalles de los eventos de AWS Community Day 2024:</p>
-<table><thead><tr><th>Evento</th><th>Fecha</th><th>Lugar</th><th>Oradores principales</th></tr></thead><tbody><tr><td>AWS Community Day Ahmedabad 2024</td><td>20 de enero de 2024</td><td>Shree Shakti Convention Centre</td><td>Ridhima Kapoor, Suman Debnath, entre otros</td></tr><tr><td>AWS Community Day Bengaluru 2024</td><td>23 de marzo de 2024</td><td>Amazon Development Center, Bengaluru</td><td>Por determinar</td></tr><tr><td>AWS Community Day Nordics 2024</td><td>25 de abril de 2024</td><td>Por determinar</td><td>Por determinar</td></tr><tr><td>AWS Community Day Arabia Saudita 2024</td><td>28 de mayo de 2024</td><td>Por determinar</td><td>Por determinar</td></tr><tr><td>AWS Community Day Nueva York 2024</td><td>30 de junio de 2024</td><td>Por determinar</td><td>Por determinar</td></tr><tr><td>AWS Community Day Nueva Zelanda 2024</td><td>25 de julio de 2024</td><td>Por determinar</td><td>Por determinar</td></tr><tr><td>AWS Community Day Nepal 2024</td><td>21 de abril de 2024</td><td>Sunway College, Maitidevi, Kathmandu</td><td>Anjani Phuyal, Bishow Prajapati, Anmol Dhungana, entre otros</td></tr></tbody></table>
-<p>No te pierdas esta oportunidad de conectarte con la comunidad de AWS y aprender de los expertos en la nube. ¡Registra tu asistencia hoy mismo!</p>
-<h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/webinars-y-eventos-en-aws-marketplace/">Webinars y Eventos en AWS Marketplace</a></li><li><a href="https://dondeaprendoaws.com/blog/aprender-aws-gratis-recursos-y-comunidad/">Aprender AWS gratis: Recursos y Comunidad</a></li><li><a href="https://dondeaprendoaws.com/blog/5-lecciones-clave-del-aws-public-sector-summit-2024/">5 Lecciones Clave del AWS Public Sector Summit 2024</a></li><li><a href="https://dondeaprendoaws.com/blog/nube-aws-guia-de-inicio-rapido/">Nube AWS: Guía de Inicio Rápido</a></li></ul>
+Un AWS Community Day es una conferencia organizada por líderes de una comunidad local de AWS. Suele reunir charlas técnicas, talleres y laboratorios para aprender de otras personas que construyen y operan con AWS. AWS puede apoyar como uno de varios patrocinadores, pero la comunidad anfitriona define la agenda y la logística.
+
+La fecha, el formato, el precio y el registro cambian según cada edición. Estos son algunos eventos que seguían próximos al **4 de octubre de 2026**; confirma los detalles en la página del organizador antes de inscribirte o viajar.
+
+En una pantalla pequeña, desliza la tabla hacia los lados para ver todas las columnas.
+
+| Evento | Fecha, modalidad y lugar | Entrada y registro |
+|---|---|---|
+| [AWS Community Day Guatemala 2026](https://www.awscommunitygt.com/) | 10 de octubre, desde las 08:00 hora local (GMT-6). Presencial en la Universidad Rafael Landívar, zona 16, Ciudad de Guatemala. | La página ofrece registro público sin costo. |
+| [AWS Community Day Paraguay 2026](https://www.awscommunitydayparaguay.com/) | 17 de octubre, 08:00–18:00 (GMT-3). Presencial en el Servicio Nacional de Promoción Profesional (SNPP), San Lorenzo. | Entrada gratuita, registro obligatorio y cupos limitados. [Reserva tu entrada sin costo](https://www.awscommunitydayparaguay.com/register) en la página oficial. |
+| [AWS Community Day Panamá — Security & Data Edition](https://www.meetup.com/aws-user-group-panama/) | 14 de noviembre, desde las 08:00 (GMT-5). La ficha de AWS User Group Panamá aún no informa sede ni modalidad. | La ficha decía “Save the Date”; todavía no publicaba el precio ni el registro para asistentes. |
+
+Para descubrir ediciones de la región, empieza por la [agenda de eventos AWS en Latinoamérica](/eventos/) y consulta también la [página global de AWS Community Days](https://aws.amazon.com/events/community-day/), que reúne anuncios de distintas ciudades y enlaces a eventos pasados. Antes de inscribirte o viajar, confirma los datos en la página de la comunidad organizadora.
+
+## En qué se diferencia de un Summit o un meetup
+
+| Formato | Quién lo organiza y qué puedes esperar |
+|---|---|
+| **AWS Community Day** | Líderes de comunidades AWS locales organizan una conferencia para compartir charlas, talleres y experiencias entre pares. Cada edición define sus temas, tamaño, precio y modalidad. |
+| **AWS Summit** | Es un evento de AWS, con agenda y actividades del equipo de AWS, sus clientes y socios. Consulta la [agenda de AWS Summits](https://aws.amazon.com/events/summits/) para conocer las ediciones y condiciones de cada ciudad. |
+| **AWS User Group meetup** | Es un encuentro de un grupo local, a menudo más frecuente y de menor duración; puede ser presencial o virtual. El [directorio global de AWS User Groups](https://builder.aws.com/community/user-groups) permite buscar un grupo por ubicación y consultar cómo participar. |
+
+El nombre Community Day no garantiza que todas las entradas sean gratuitas ni que haya transmisión. AWS describe el costo como gratuito o de bajo costo según la ciudad; revisa la ficha de cada edición. Guatemala y Paraguay publicaban registro sin costo para las fechas de la tabla. Panamá todavía no había informado el precio.
+
+## Student Community Days próximos
+
+Los [AWS Student Builder Groups](https://builder.aws.com/community/student-builder-groups) organizan actividades estudiantiles en campus y comunidades locales. Un Student Community Day reúne varias charlas y talleres; no es un meetup ordinario. Las condiciones de acceso, la transmisión y el precio dependen de cada edición. Estas convocatorias seguían próximas al 4 de octubre de 2026:
+
+| Evento y comunidad | Fecha y sede | Modalidad, entrada y registro |
+|---|---|---|
+| [Student Community Day Bolivia 2026](https://studentcommunity.day/), organizado por grupos estudiantiles AWS de Bolivia, como el [AWS SBG de UCB San Pablo](https://www.meetup.com/aws-sbg-at-bolivian-catholic-university-san-pablo/) y el [AWS SBG de UPB Cochabamba](https://www.meetup.com/aws-sbg-at-bolivian-private-university-cochabamba/) | 10 de octubre, 08:00–18:00 hora local según la agenda oficial. Universidad Privada Boliviana (UPB), Av. Juan Pablo II, Colcapirhua, Cochabamba. | Híbrido: la [agenda oficial](https://bolivia.studentcommunity.day/agenda) ofrece streams en español e inglés. Entrada gratuita, con cupos limitados; [reserva presencial en Luma](https://luma.com/r65j1ukn). Confirma allí el acceso virtual. |
+| [AWS Student Community Day Chile 2026](https://www.meetup.com/aws-sbg-at-duoc-uc-santiago-santiago-campus/events/316186346/) · [AWS SBG en Duoc UC Santiago](https://www.meetup.com/aws-sbg-at-duoc-uc-santiago-santiago-campus/) | 24 de octubre, 08:30–17:00 CLST. Duoc UC, sede Maipú, Av. Esquina Blanca 501, Santiago. | Híbrido: habrá charlas y talleres presenciales y un track en línea para participantes del país o la región. La ficha no publica precio; consulta el registro en Meetup. |
+| [AWS Student Community Day CDMX — IPN](https://www.meetup.com/aws-sbg-at-national-polytechnic-institute-zacatenco-campus/events/316389437/) · [AWS SBG en el IPN Zacatenco](https://www.meetup.com/aws-sbg-at-national-polytechnic-institute-zacatenco-campus/) | 4 de noviembre, 10:00–17:30 CST. Centro Histórico y Cultural “Juan de Dios Bátiz”, Manuel Carpio, Miguel Hidalgo, Ciudad de México. | Presencial. La ficha anuncia registro abierto, talleres técnicos, hackathon y revisión de CV; no publica precio. |
+| [AWS SBG Student Community Day Cuenca 2026](https://www.meetup.com/aws-sbg-at-university-of-cuenca-balzay-campus/events/316780926/) · [AWS SBG de la Universidad de Cuenca](https://www.meetup.com/aws-sbg-at-university-of-cuenca-balzay-campus/) | 14 de noviembre, 09:00–14:00 ECT. Campus Balzay, Universidad de Cuenca, Cuenca. | Presencial. Entrada gratuita, registro requerido y cupos limitados; reserva en la ficha del evento. |
+| [AWS Student Community Day CDMX — Universidad Panamericana](https://www.meetup.com/aws-sbg-at-pan-american-university-cdmx/events/316597030/) · [AWS SBG de la Universidad Panamericana](https://www.meetup.com/aws-sbg-at-pan-american-university-cdmx/) | 14 de noviembre. La cabecera anuncia 09:00–14:00 CST y la descripción, 10:00–17:00 h. Esta última anuncia Universidad Panamericana, campus Ciudad de México, pero Meetup aún muestra “Needs a location”. | Presencial según la descripción; entrada libre y cupo limitado. Confirma el horario y la sede en la ficha antes de asistir. |
+
+No asumas que debes pertenecer al campus para participar: algunas convocatorias aceptan estudiantes de otras instituciones, profesionales o entusiastas, pero depende de cada edición. Si estás en otro país, prioriza las que confirman un track en línea. Revisa los requisitos y el registro con la comunidad organizadora.
+
+## Cómo prepararte si es tu primer evento
+
+1. **Elige un tema, no todas las charlas.** Mira la agenda y guarda una o dos sesiones relacionadas con lo que estudias o construyes. El nivel cambia entre charlas; busca las marcadas como introductorias si estás empezando.
+2. **Comprueba las condiciones.** Confirma ciudad, sede, modalidad, idioma, horario local, costo y registro. Para un taller práctico, revisa si necesitas llevar laptop o preparar una cuenta de AWS.
+3. **Llega con una pregunta sencilla.** Puedes presentarte como alguien que está aprendiendo y preguntar qué conviene estudiar después, qué problema resuelve una herramienta o dónde encontrar la grabación. No necesitas una certificación para asistir a un evento abierto.
+4. **Si participas a distancia, revisa el acceso antes de la hora.** Comprueba el enlace de transmisión, zona horaria, idioma y cómo se envían preguntas. Algunas ediciones no tienen stream; los User Groups también organizan meetups virtuales durante el año.
+5. **Si quieres contribuir, busca la convocatoria de speakers o voluntarios.** Los organizadores publican sus fechas y requisitos. Una experiencia breve de un proyecto o un problema que resolviste puede ser útil para otras personas.
+
+Para encontrar actividades virtuales en la región, usa la [agenda de eventos en línea](/eventos/online/). Si prefieres seguir participando entre conferencias, el [directorio de comunidades AWS por país y tipo de grupo](/comunidades/) reúne grupos locales, comunidades temáticas y Student Builder Groups. Antes de unirte, revisa en la página de cada grupo sus requisitos y canales de participación.
+
+## Grabaciones y comunidades para seguir después
+
+Si una edición ya pasó, sus charlas pueden seguir siendo útiles. La lista de [sesiones de AWS Community Day Colombia 2025](https://www.youtube.com/playlist?list=PLhbdvasxz8wywytLcbMr9_MhYM5RLhleS) reúne grabaciones publicadas por AWS User Group Medellín. También puedes ver las [dos salas virtuales del AWS Community Day Bolivia del 29 de agosto de 2026](https://www.youtube.com/watch?v=Bspz7TSmiao) ([segunda sala](https://www.youtube.com/watch?v=vxgsOC7QRI0)) y una [grabación de AWS Community Day Chile 2026](https://www.youtube.com/watch?v=KZTxw1uamz4), cuya edición presencial fue el 30 de mayo. Para otra opción regional, la [transmisión de una sala de AWS Community Day Panamá 2026 — General Edition](https://www.youtube.com/watch?v=Rg0T482vL1U) fue publicada por AWS User Group Panamá para la edición del 23 de mayo; es distinta del Security & Data Edition previsto para noviembre.
+
+Para otros temas y encuentros de la comunidad, el [archivo de eventos de AWS Women Colombia](https://awswomencolombia.com/page/eventos) reúne charlas y sesiones en español. Es un archivo de esa comunidad, no un calendario de próximos Community Days. Estas selecciones son grabaciones de ediciones pasadas; confirma la fecha y la inscripción con los organizadores cuando busques un evento futuro.

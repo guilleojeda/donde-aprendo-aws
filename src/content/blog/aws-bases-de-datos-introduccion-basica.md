@@ -1,525 +1,121 @@
 ---
-title: "AWS bases de datos: introducción básica"
-description: "Descubra las bases de datos en AWS, incluyendo RDS, Aurora, DynamoDB y Redshift. Aprenda sobre migraciones, precios y optimización de costos. Encuentre la mejor base de datos para sus necesidades."
+title: "¿Qué base de datos elegir en AWS? RDS, Aurora y DynamoDB"
+description: "Compara Amazon RDS, Aurora y DynamoDB según tus datos, consultas, disponibilidad, respaldos, seguridad y costo."
 author: "guille-ojeda"
 publishedAt: "2024-01-27"
 publishedTimestamp: "2024-01-27T00:58:59.942Z"
+modifiedTimestamp: "2026-10-05T00:34:04-03:00"
+review:
+  date: "2026-10-05"
 cover: "/assets/blog/7dd6e4771015e24de4a4bc0d.jpg"
 coverAlt: "Panel dividido en cuatro ilustraciones de bases de datos y otros símbolos"
 ogImage: "/assets/blog/7dd6e4771015e24de4a4bc0d.jpg"
-related:
-  - title: "Guía completa para depurar errores CORS en API Gateway"
-    url: "https://dondeaprendoaws.com/blog/guia-completa-para-depurar-errores-cors-en-api-gateway/"
-    image: "/assets/blog/8cdc1f9432243e263d1de431.jpg"
-    imageAlt: ""
-  - title: "Recursos Personalizados en CloudFormation con Lambda"
-    url: "https://dondeaprendoaws.com/blog/recursos-personalizados-en-cloudformation-con-lambda/"
-    image: "/assets/blog/e66856987698eaa908dfab80.jpg"
-    imageAlt: ""
-  - title: "Comprendiendo AWS Step Functions"
-    url: "https://dondeaprendoaws.com/blog/comprendiendo-aws-step-functions/"
-    image: "/assets/blog/5cccd042a4e55b019d2587c8.png"
-    imageAlt: ""
+related: []
 ---
 
-<p>Seguramente muchos estarán de acuerdo en que <strong>entender</strong> las distintas opciones de bases de datos en AWS puede resultar abrumador para los principiantes.</p>
+La elección depende de cómo tu aplicación organiza y consulta los datos. **Empieza por Amazon RDS** si necesitas SQL, relaciones entre tablas y consultas variadas. **Compara RDS con Amazon Aurora** si tu motor es compatible con MySQL o PostgreSQL y necesitas evaluar su arquitectura y opciones de operación. **Elige Amazon DynamoDB** cuando tus consultas se ajustan a claves y patrones de acceso definidos. Para análisis de grandes conjuntos de datos, considera Amazon Redshift; para acelerar lecturas repetidas, Amazon ElastiCache puede complementar una base de datos duradera.
 
+No hay una opción que sea siempre la más rápida o la más barata. Esta guía compara los usos habituales, los costos que debes estimar y las decisiones de disponibilidad, recuperación y seguridad que conviene tomar antes de poner datos en producción. Para revisar también otras opciones de AWS, consulta la [guía oficial para elegir un servicio de base de datos](https://docs.aws.amazon.com/decision-guides/latest/decision-guides/databases-on-aws-how-to-choose.html).
 
-<p>En este artículo, exploraremos los conceptos básicos de las bases de datos en AWS de una manera fácil de entender, <strong>incluyendo tipos, usos y cómo empezar para los novatos</strong>.</p>
+## RDS, Aurora, DynamoDB, Redshift y ElastiCache: comparación rápida
 
+En una pantalla pequeña, desliza la tabla hacia los lados para ver todas las columnas.
 
-<p>Veremos una introducción a las bases de datos relacionales y no relacionales en AWS, el servicio de migración de bases de datos, consideraciones de precios de AWS RDS y comparaciones entre las opciones más populares como Amazon RDS, Aurora, DynamoDB y Redshift.</p>
+| Servicio | Elígelo cuando… | Ejemplo | Qué revisar primero |
+|---|---|---|---|
+| [Amazon RDS](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Welcome.html) | Necesitas una base relacional administrada y SQL. | Pedidos, clientes e inventario que se consultan con relaciones entre tablas. | Motor, versión, consultas, transacciones y despliegue de alta disponibilidad. |
+| [Amazon Aurora](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/CHAP_AuroraOverview.html) | Tu aplicación usa PostgreSQL o MySQL y la edición compatible de Aurora satisface sus requisitos. | Una aplicación relacional que requiere evaluar el modelo de clúster y sus opciones de réplica. | Compatibilidad de versiones y funciones, arquitectura, Región y costo total. |
+| [Amazon DynamoDB](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Introduction.html) | Tus lecturas y escrituras siguen patrones conocidos por clave y quieres un modelo NoSQL administrado. | Sesiones, carritos o preferencias consultadas por el identificador de usuario. | Claves, índices, tamaño de los elementos, tráfico y modo de capacidad. |
+| [Amazon Redshift](https://docs.aws.amazon.com/redshift/latest/mgmt/welcome.html) | Quieres consultar datos históricos o combinados para analítica e informes. | Informes de ventas que agregan millones de operaciones. | Volumen, frecuencia de consulta, latencia esperada y costo de cómputo y almacenamiento. |
+| [Amazon ElastiCache](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/WhatIs.html) | Quieres guardar en memoria resultados consultados con frecuencia para reducir lecturas a otra base de datos. | Catálogo o configuración que muchas solicitudes vuelven a leer. | Qué datos se pueden regenerar, expiración y coherencia de la caché. |
 
+Redshift y ElastiCache resuelven problemas distintos de una base transaccional de la aplicación. Redshift está orientado al análisis de datos; ElastiCache suele actuar como una capa de caché y no como la fuente principal de verdad de un pedido o una cuenta.
 
-<h2 id="introducci%C3%B3n-a-las-bases-de-datos-de-aws" tabindex="-1">Introducción a las bases de datos de AWS</h2>
+## SQL o NoSQL: empieza por las consultas de tu aplicación
 
+Una base relacional organiza datos en tablas, con filas, columnas y relaciones. SQL permite filtrar y combinar esas tablas, y el motor ofrece operaciones transaccionales de acuerdo con sus capacidades y configuración. Este modelo suele encajar cuando los datos tienen relaciones importantes —por ejemplo, un pedido pertenece a un cliente y contiene varios productos— o cuando necesitas consultas que pueden cambiar con el producto.
 
-<p>Las bases de datos son un componente esencial de la mayoría de las aplicaciones y sitios web. AWS ofrece una amplia gama de servicios de bases de datos para satisfacer diferentes casos de uso, desde bases de datos relacionales tradicionales hasta alternativas no relacionales altamente escalables.</p>
+Una base NoSQL como DynamoDB modela los datos de otra manera. DynamoDB admite estructuras de clave-valor y documentos, y sus consultas se diseñan alrededor de claves e índices. No ofrece `JOIN` de SQL. Por eso conviene definir primero qué preguntas hará la aplicación y después diseñar las claves y los índices que permitan responderlas. La [guía oficial de modelado de datos para DynamoDB](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/data-modeling.html) explica este enfoque.
 
+Por ejemplo, una tienda puede guardar pedidos e inventario en RDS si necesita relacionar entidades y consultar combinaciones variadas. Puede usar DynamoDB para guardar el carrito asociado a un `userId` si las operaciones principales son obtenerlo y actualizarlo por esa clave. Una aplicación puede combinar más de un servicio, pero cada almacén adicional agrega decisiones de consistencia, monitoreo y costo; no es un requisito para empezar.
 
-<h3 id="explorando-las-bases-de-datos-relacionales-de-aws" tabindex="-1">Explorando las bases de datos relacionales de AWS</h3>
+## Amazon RDS o Aurora: ¿cuál conviene para una base relacional?
 
+Amazon RDS es un servicio administrado donde eliges un motor relacional, como PostgreSQL, MySQL, MariaDB, Microsoft SQL Server, Oracle Database o IBM Db2. AWS gestiona tareas de infraestructura y operación del servicio, mientras que el equipo de la aplicación sigue siendo responsable, entre otras cosas, del diseño de datos, las consultas, los permisos y la configuración elegida.
 
-<p>Amazon Relational Database Service (Amazon RDS) facilita configurar, operar y escalar bases de datos relacionales en la nube. Ofrece compatibilidad con motores populares como PostgreSQL, MySQL, MariaDB, Oracle Database y SQL Server.</p>
+Aurora es una familia de motores relacionales administrados por AWS, compatible con ediciones de MySQL y PostgreSQL. Se opera mediante las interfaces de Amazon RDS y organiza sus recursos como clústeres. En un clúster, una instancia escritora procesa lecturas y escrituras; las instancias lectoras opcionales sirven lecturas desde el mismo volumen de datos.
 
+Ese volumen compartido es independiente de las instancias de cómputo y se distribuye entre tres zonas de disponibilidad. Por eso, agregar una instancia lectora no requiere copiar de nuevo todos los datos. Un lector también puede absorber consultas de lectura y ser un destino para la conmutación por error. AWS describe el modelo en la guía de [clústeres de Aurora](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Aurora.Overview.html), el [almacenamiento compartido de Aurora](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Aurora.Overview.StorageReliability.html) y la [replicación del clúster](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Aurora.Replication.html).
 
-<p>Amazon Aurora es una base de datos relacional compatible con MySQL y PostgreSQL, con un rendimiento hasta 5 veces mejor que las bases de datos tradicionales. Combina la velocidad y la disponibilidad de bases de datos de alto rendimiento con la simplicidad y el bajo costo de bases de datos open source.</p>
+**El almacenamiento distribuido no equivale a tener una instancia lectora lista.** Si solo hay una instancia escritora y falla, el clúster puede quedar sin servicio mientras AWS la recupera. La disponibilidad para la aplicación también depende de cómo restablece sus conexiones y reintenta las operaciones.
 
+Esa diferencia permite decidir: RDS te deja elegir entre varios motores relacionales; Aurora puede ser una alternativa si ya trabajas con MySQL o PostgreSQL y quieres evaluar su volumen compartido, réplicas lectoras y comportamiento de clúster. Compara la edición compatible, la cantidad de instancias que vas a ejecutar y el costo de esa arquitectura con la configuración de RDS que ya conoces. Esa compatibilidad no significa que cada versión, extensión o comportamiento del motor original sea idéntico: antes de migrar, comprueba las [versiones y funciones compatibles de Aurora](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Aurora.VersionPolicy.html).
 
-<h3 id="descubriendo-las-bases-de-datos-no-relacionales-de-aws" tabindex="-1">Descubriendo las bases de datos no relacionales de AWS</h3>
+Una forma práctica de decidir:
 
+- Si ya usas un motor soportado por RDS y quieres moverlo a un servicio administrado con cambios acotados, empieza por comparar ese motor en RDS.
+- Si tu aplicación usa MySQL o PostgreSQL y necesitas evaluar el almacenamiento de clúster, la réplica o las opciones propias de Aurora, compáralo con la edición compatible de Aurora.
+- Si no tienes mediciones que muestren un límite o una necesidad concreta, no elijas Aurora solo por afirmaciones generales de que siempre supera a RDS. Prueba la carga y compara el costo y la operación de ambas opciones.
 
-<p>Amazon DynamoDB es una base de datos NoSQL altamente escalable y con un rendimiento de milisegundos de latencia a cualquier escala. Es ideal para aplicaciones móviles, web, juegos, publicidad, IoT y más.</p>
+RDS y Aurora tienen motores, capacidades, versiones y modelos de precio distintos. La decisión se toma con los requisitos de tu aplicación, no con una cifra genérica de rendimiento.
 
+## ¿Cuándo tiene sentido DynamoDB?
 
-<p>Amazon DocumentDB es compatible con MongoDB y proporciona escalabilidad y disponibilidad con capacidad de replicación entre varias zonas de disponibilidad.</p>
+DynamoDB es una base de datos NoSQL administrada para modelos de clave-valor y documentos. Puede encajar bien cuando la aplicación conoce las claves con las que va a leer y escribir. Una sesión identificada por `sessionId`, por ejemplo, tiene un patrón sencillo: buscar, actualizar y vencer los datos de esa sesión.
 
+Antes de elegirlo, escribe las consultas que la aplicación necesita hacer. Define qué clave identifica cada elemento, qué consultas requieren un índice y cómo se distribuyen las lecturas y escrituras. Si el producto depende de combinaciones ad hoc entre varias entidades, filtros que cambian o relaciones complejas, evalúa primero una base relacional. DynamoDB admite transacciones para operaciones que cumplan sus condiciones, pero eso no lo convierte en una base SQL ni elimina la necesidad de modelar las consultas por adelantado.
 
-<p>Amazon Keyspaces es una base de datos NoSQL compatible con Apache Cassandra, optimizada para la nube y con escalabilidad, disponibilidad y seguridad integradas.</p>
+DynamoDB ofrece modos de capacidad bajo demanda y aprovisionada. La [documentación de AWS sobre capacidad de lectura y escritura](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/capacity-mode.html) describe cómo se administran y facturan esos modos. El modo bajo demanda evita estimar de antemano una tasa fija de lectura y escritura; el aprovisionado requiere declarar capacidad y se cobra por la capacidad configurada. Ninguno garantiza por sí solo que la factura sea pequeña: el tamaño de los elementos, las operaciones, los índices y otras funciones también importan.
 
+## Disponibilidad, copias de seguridad y seguridad
 
-<h3 id="aws-database-migration-service%3A-facilitando-la-transici%C3%B3n" tabindex="-1">AWS Database Migration Service: Facilitando la transición</h3>
+Elegir el motor es solo una parte de la decisión. Define por separado cuánto tiempo de interrupción y pérdida de datos tolera tu aplicación, quién puede conectarse y cómo vas a recuperar información borrada o dañada.
 
+En RDS, una configuración Multi-AZ puede proporcionar conmutación por error entre zonas de disponibilidad. Las réplicas de lectura y las copias de seguridad cumplen funciones distintas: una réplica puede apoyar lecturas o recuperación según el diseño, mientras que un respaldo sirve para restaurar una versión anterior. Revisa qué ofrece el motor y despliegue elegidos en la [documentación de alta disponibilidad de RDS](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.MultiAZ.html).
 
-<p>El servicio de migración de bases de datos de AWS (AWS DMS) permite migrar bases de datos hacia y desde AWS de forma sencilla y segura. Admite las bases de datos más populares como Oracle, SQL Server, PostgreSQL, MySQL y MongoDB. AWS DMS se puede usar para consolidar bases de datos, moverlas a la nube o cambiar el motor de base de datos subyacente.</p>
+Configura una política de respaldo y prueba la restauración. RDS permite definir la retención de copias automatizadas y recuperar a un punto en el tiempo dentro del período disponible; DynamoDB tiene copias bajo demanda y recuperación a un punto en el tiempo que se configuran y facturan según sus condiciones. Una copia existente no demuestra que la aplicación pueda restaurarla correctamente. Consulta la documentación de [copias y recuperación de RDS](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_WorkingWithAutomatedBackups.html) y de [recuperación a un punto en el tiempo de DynamoDB](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Point-in-time-recovery.html).
 
+Para RDS, limita el acceso de red a los componentes que necesitan conectarse; suele convenir usar subredes privadas y reglas de grupo de seguridad acotadas. Revisa autenticación, cifrado en tránsito y cifrado en reposo. Para DynamoDB, controla el acceso a tablas mediante IAM y las políticas aplicables, y decide cómo proteger las copias de seguridad. Una subred privada de RDS no es el mecanismo de acceso a una tabla DynamoDB. La guía de [seguridad de RDS](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.html) y la guía de [seguridad de DynamoDB](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/security.html) describen controles propios de cada servicio.
 
-<h3 id="entendiendo-aws-rds-pricing" tabindex="-1">Entendiendo AWS RDS Pricing</h3>
+## Cómo estimar el costo de una base de datos en AWS
 
+Compara el costo de una carga de trabajo concreta, con la Región y configuración que piensas usar. En RDS o Aurora considera el motor, cómputo, almacenamiento, entrada/salida, respaldos, transferencia y opciones como Multi-AZ o réplicas. En DynamoDB considera lecturas y escrituras, tamaño de los elementos, índices, almacenamiento, copias de seguridad y el modo de capacidad. Otros servicios y opciones pueden agregar conceptos a la factura.
 
-<p>Los precios de AWS RDS varían según la instancia de base de datos, el motor, la capacidad de almacenamiento aprovisionada y algunos otros factores. Se cobra por horas de uso de la instancia RDS y por GB/mes de almacenamiento aprovisionado. Opciones como replicación entre zonas, copias de seguridad automatizadas y lecturas de réplicas tienen costos adicionales. Conocer estos detalles ayuda a estimar y optimizar costos.</p>
+Consulta los [precios actuales de Amazon RDS y Aurora](https://aws.amazon.com/rds/pricing/) y los [precios actuales de DynamoDB](https://aws.amazon.com/dynamodb/pricing/). Los importes dependen de la Región, el motor, el uso y la configuración; vuelve a calcularlos antes de desplegar. No hay un servicio que sea siempre el más barato, y una opción de capacidad flexible no es una garantía de gasto bajo. Si administras una cuenta de AWS, una alerta de presupuesto puede ayudarte a detectar cambios de gasto; la [guía de alertas de costos de AWS](/blog/automatizar-alertas-de-costos-aws-en-5-pasos/) explica ese seguimiento.
 
+## Un recorrido simple para aprender y probar
 
-<h2 id="%C2%BFqu%C3%A9-es-base-de-datos-aws%3F" tabindex="-1">¿Qué es base de datos AWS?</h2>
+1. Escribe tres o cuatro consultas que tu aplicación necesita hacer y cuántos datos espera guardar.
+2. Decide si las relaciones, transacciones y consultas variadas apuntan a SQL, o si las operaciones conocidas por clave hacen viable NoSQL.
+3. Compara las versiones compatibles, la disponibilidad, los respaldos, la seguridad y el costo en la Región elegida.
+4. Prueba con datos no sensibles y una carga representativa; verifica también que puedas restaurar un respaldo.
 
+Si quieres practicar una consulta por clave sin empezar por una aplicación completa, el [laboratorio de diez ejercicios de AWS para principiantes](/blog/10-laboratorios-practicos-de-aws-para-principiantes/) incluye una práctica para guardar dos notas en DynamoDB, consultarlas y revisar los costos y la limpieza de recursos.
 
-<p>Las <a href="https://cloudiostrategy.com/blog-aws-espanol/">bases de datos en la nube de AWS</a> incluyen una amplia selección de bases de datos personalizadas para cualquier empresa. Las bases de datos de AWS admiten todas las tareas de administración de bases de datos, como el aprovisionamiento de servidores, las revisiones, la configuración y las copias de seguridad.</p>
+Para ver cómo se diseña un acceso por claves, mira la [grabación del AWS User Group Córdoba sobre modelado de datos en DynamoDB](https://www.youtube.com/watch?v=7Xk0MKt69Is). La charla es de 2023 y recorre un ejemplo de comercio electrónico; sus conceptos sirven para estudiar el modelo, mientras que la documentación oficial enlazada arriba es la referencia para funciones actuales.
 
+Si prefieres escuchar una comparación general, el [episodio 6 de Charlas Técnicas de AWS, «Cómo elegir la base de datos correcta para tu aplicación»](https://podcast.marcia.dev/932377/episodes/4850999-6-como-elegir-la-base-de-datos-correcta-para-tu-aplicacion) recorre RDS, Aurora, DynamoDB, Redshift y otros modelos. Se publicó en agosto de 2020; úsalo para conocer criterios y verifica los servicios y opciones actuales en la documentación oficial enlazada en esta guía.
 
-<p>AWS ofrece varios tipos de bases de datos en la nube para satisfacer diferentes necesidades, incluyendo:</p>
+Si prefieres practicar fuera de una cuenta de AWS, la [guía de Rossana Suárez para una aplicación con Docker y DynamoDB Local](https://blog.295devops.com/de-lo-local-se-aprende-desplegando-tu-primera-app-con-docker-y-dynamodb-local) muestra un ejemplo que corre localmente. DynamoDB Local permite explorar operaciones de desarrollo, pero no reproduce por sí solo las características, precios ni condiciones operativas del servicio administrado.
 
+Al revisar esta guía el **4 de octubre de 2026**, había un taller presencial de Amazon RDS anunciado en Atlixco, México, para el **29 de octubre de 2026, de 12:00 a 14:00, hora de Ciudad de México**. Lo organiza AWS Student Builder Group at Higher Technological Institute of Atlixco y enseña a crear y conectar una base SQL. [Consulta los detalles e inscripción en Meetup](https://www.meetup.com/aws-sbg-at-higher-technological-institute-of-atilxco/events/316823085/); confirma allí la disponibilidad, los requisitos y cualquier cambio antes de asistir. Es presencial y local, no una sesión virtual.
 
-<ul>
-<li>
-<p><strong>Bases de datos relacionales:</strong> como Amazon RDS para bases de datos populares como MySQL, PostgreSQL, Oracle y SQL Server. Estas bases de datos relacionales se ejecutan en máquinas virtuales aisladas con almacenamiento SSD.</p>
-</li>
-<li>
-<p><strong>Bases de datos NoSQL:</strong> como Amazon DynamoDB para datos no relacionales, Amazon ElastiCache para caché en memoria y Amazon Redshift para almacenamiento de datos y análisis. Estas bases de datos escalan horizontalmente para manejar grandes volúmenes de datos.</p>
-</li>
-<li>
-<p><strong>Bases de datos de documentos:</strong> como Amazon DocumentDB para datos JSON y Amazon Keyspaces para datos NoSQL.</p>
-</li>
-<li>
-<p><strong>Bases de datos de grafos:</strong> como Amazon Neptune para almacenar relaciones entre datos.</p>
-</li>
-<li>
-<p><strong>Bases de datos de series temporales:</strong> como Amazon Timestream para datos de series temporales de gran volumen.</p>
-</li>
-</ul>
+Si buscas dónde preguntar o seguir aprendiendo después de practicar, consulta el [directorio de AWS User Groups de Builder Center](https://builder.aws.com/community/user-groups) para encontrar un grupo local o virtual. En Argentina, el [AWS User Group Córdoba en Meetup](https://www.meetup.com/aws-user-group-cordoba-argentina/) publica encuentros y espacios para compartir experiencias; revisa su agenda y las condiciones de cada actividad.
 
+## Preguntas frecuentes sobre bases de datos en AWS
 
-<p>La ventaja principal de usar <strong>bases de datos de AWS</strong> es que se pueden aprovisionar rápidamente sin tener que adquirir hardware y se pueden escalar hacia arriba o hacia abajo según sea necesario. AWS se encarga de la administración, el mantenimiento y las actualizaciones del software de base de datos.</p>
+### ¿Qué diferencia hay entre RDS y DynamoDB?
 
+RDS aloja motores relacionales que usan SQL; encaja con tablas relacionadas y consultas variadas. DynamoDB usa un modelo NoSQL de clave-valor y documentos; encaja cuando la aplicación conoce de antemano los patrones de acceso por clave. El modelo de datos y las consultas suelen ser la diferencia decisiva.
 
-<h2 id="%C2%BFqu%C3%A9-tipo-de-base-de-datos-usa-aws%3F" tabindex="-1">¿Qué tipo de base de datos usa AWS?</h2>
+### ¿Amazon Aurora es lo mismo que Amazon RDS?
 
+Aurora es una familia de motores relacionales administrados y compatibles con MySQL y PostgreSQL, operada mediante las interfaces de RDS. Tiene versiones, funciones, arquitectura y precios propios. Comprueba la compatibilidad antes de tratarla como reemplazo directo de otro motor.
 
-<p>AWS ofrece una amplia variedad de opciones de bases de datos para satisfacer diferentes casos de uso. Algunos de los principales tipos de bases de datos en AWS incluyen:</p>
+### ¿Cuál es la base de datos más barata de AWS?
 
+No existe una respuesta universal. Estima el costo con tu Región, motor, cantidad de datos, lecturas y escrituras, almacenamiento, respaldo, disponibilidad y transferencia. Después compara el cálculo con una prueba de carga representativa.
 
-<h3 id="bases-de-datos-relacionales" tabindex="-1">Bases de datos relacionales</h3>
+### ¿Redshift reemplaza a RDS para una aplicación web?
 
-
-<p>Las bases de datos relacionales como <strong>Amazon RDS</strong> y <strong>Amazon Aurora</strong> son ideales para aplicaciones que requieren integridad transaccional y consistencia de datos. AWS admite motores de bases de datos relacionales populares como MySQL, PostgreSQL, Oracle y SQL Server.</p>
-
-
-<h3 id="bases-de-datos-de-documentos" tabindex="-1">Bases de datos de documentos</h3>
-
-
-<p>Las bases de datos de documentos como <strong>Amazon DocumentDB</strong> y <strong>Amazon DynamoDB</strong> son útiles para datos no estructurados como documentos JSON. Proporcionan flexibilidad de esquema y escalabilidad.</p>
-
-
-<h3 id="bases-de-datos-en-memoria" tabindex="-1">Bases de datos en memoria</h3>
-
-
-<p><strong>Amazon ElastiCache</strong> y <strong>Amazon MemoryDB</strong> son bases de datos en memoria de alto rendimiento optimizadas para cargas de trabajo que requieren baja latencia y alto rendimiento.</p>
-
-
-<h3 id="bases-de-datos-de-series-de-tiempo" tabindex="-1">Bases de datos de series de tiempo</h3>
-
-
-<p><strong>Amazon Timestream</strong> está diseñada específicamente para almacenar y analizar series de tiempo de IoT y aplicaciones industriales a escala.</p>
-
-
-<h3 id="bases-de-datos-de-gr%C3%A1ficos" tabindex="-1">Bases de datos de gráficos</h3>
-
-
-<p><strong>Amazon Neptune</strong> es una base de datos de gráficos totalmente administrada para construir aplicaciones con altas relaciones de datos.</p>
-
-
-<p>AWS también ofrece servicios para migrar bases de datos existentes a la nube y administrar todos los tipos de bases de datos, como <strong>AWS Database Migration Service</strong> y <strong>Amazon RDS</strong>.</p>
-
-
-<p>La amplia gama de opciones de bases de datos en AWS permite a los desarrolladores elegir la tecnología más adecuada para sus necesidades específicas.</p>
-
-
-<h2 id="%C2%BFqu%C3%A9-aplicaciones-usan-aws%3F" tabindex="-1">¿Qué aplicaciones usan AWS?</h2>
-
-
-<p>AWS ofrece una amplia gama de servicios en la nube que permiten alojar todo tipo de aplicaciones. Algunos de los servicios de AWS más populares para hospedar aplicaciones incluyen:</p>
-
-
-<ul>
-<li>
-<p><strong>Amazon Elastic Compute Cloud (Amazon EC2)</strong>: Permite alquilar capacidad de cómputo en la nube para ejecutar aplicaciones. Es ideal para aplicaciones que requieren escalabilidad y flexibilidad.</p>
-</li>
-<li>
-<p><strong>Amazon Simple Storage Service (Amazon S3)</strong>: Almacenamiento de objetos altamente escalable y seguro para almacenar contenido de aplicaciones como imágenes, videos, etc.</p>
-</li>
-<li>
-<p><strong>Amazon Relational Database Service (Amazon RDS)</strong>: Facilita la configuración y operación de bases de datos relacionales en la nube. Útil para aplicaciones que requieren bases de datos SQL.</p>
-</li>
-<li>
-<p><strong>Amazon CloudFront</strong>: Red de entrega de contenido que acelera la distribución de contenido estático y dinámico de aplicaciones web.</p>
-</li>
-<li>
-<p><strong>Amazon Simple Queue Service (Amazon SQS)</strong>: Permite desacoplar y escalar microservicios, distribuir tareas asíncronas y crear colas de mensajes.</p>
-</li>
-</ul>
-
-
-<p>En resumen, desde aplicaciones web básicas hasta complejas aplicaciones empresariales, AWS proporciona los servicios necesarios para alojar virtualmente cualquier tipo de aplicación en la nube de manera flexible, escalable y segura.</p>
-
-
-<h2 id="%C2%BFqu%C3%A9-bases-de-datos-son-gratuitas%3F" tabindex="-1">¿Qué bases de datos son gratuitas?</h2>
-
-
-<p>Hay varias opciones de bases de datos gratuitas que pueden ser útiles para proyectos personales o pequeñas empresas:</p>
-
-
-<h3 id="dbforge-studio-for-sql-server" tabindex="-1">DbForge Studio for SQL Server</h3>
-
-
-<p>DbForge Studio es un IDE de SQL Server gratuito que permite crear y administrar bases de datos, escribir consultas SQL, importar y exportar datos, entre otras funciones. Es una buena opción para usar con SQL Server Express.</p>
-
-
-<h3 id="dbvisualizer" tabindex="-1">DbVisualizer</h3>
-
-
-<p>DbVisualizer es una herramienta de administración de bases de datos multiplataforma y gratuita. Permite conectarse a bases de datos como MySQL, PostgreSQL, SQLite, SQL Server y Oracle. Ofrece características como la ejecución de scripts SQL y la visualización de datos.</p>
-
-
-<h3 id="formaloo" tabindex="-1">Formaloo</h3>
-
-
-<p>Formaloo es un software de modelado de bases de datos gratuito. Permite diseñar bases de datos relacionales, generar scripts SQL, importar desde Excel y otras funciones. Es liviano y fácil de usar.</p>
-
-
-<h3 id="microsoft-sql-server-express-edition" tabindex="-1">Microsoft SQL Server Express Edition</h3>
-
-
-<p>La edición Express de SQL Server es la versión gratuita de Microsoft SQL Server. Tiene algunas limitaciones de recursos pero es totalmente funcional. Es una muy buena opción para proyectos pequeños y medianos.</p>
-
-
-<h3 id="mongodb-community-edition" tabindex="-1">MongoDB Community Edition</h3>
-
-
-<p>MongoDB es una base de datos NoSQL muy popular. Su edición comunitaria es de código abierto y gratuita. Ofrece alta escalabilidad y flexibilidad a un costo inicial nulo. Es ideal para aplicaciones modernas que manejan grandes volúmenes de datos.</p>
-
-
-<h2 id="comparando-opciones-populares-de-bases-de-datos-de-aws" tabindex="-1">Comparando opciones populares de bases de datos de AWS</h2>
-
-
-<p>Análisis lado a lado de Amazon RDS, Amazon Aurora, Amazon DynamoDB y Amazon Redshift en términos de características, casos de uso, escalabilidad, rendimiento, disponibilidad y costo.</p>
-
-
-<h3 id="amazon-rds-vs-amazon-aurora%3A-una-comparativa-detallada" tabindex="-1">Amazon RDS vs Amazon Aurora: Una comparativa detallada</h3>
-
-
-<p>Amazon RDS y Amazon Aurora son dos servicios de bases de datos relacionales populares de AWS. Ambos son compatibles con los motores de bases de datos MySQL y PostgreSQL.</p>
-
-
-<p>Algunas diferencias clave:</p>
-
-
-<ul>
-<li>
-<p><strong>Rendimiento</strong>: Aurora es hasta 5 veces más rápido que RDS en operaciones de lectura/escritura. Usa SSD de alto rendimiento y arquitectura optimizada.</p>
-</li>
-<li>
-<p><strong>Escalabilidad</strong>: Aurora permite escalar el almacenamiento hasta 128 TB sin downtime. RDS está limitado a 16 TB.</p>
-</li>
-<li>
-<p><strong>Disponibilidad</strong>: Aurora replica los datos en 3 zonas de disponibilidad por defecto. RDS requiere configurar la replicación manualmente.</p>
-</li>
-<li>
-<p><strong>Costo</strong>: Para cargas de trabajo intensivas, Aurora tiene un costo hasta un 90% menor que RDS. Sin embargo, RDS puede ser más económico para casos de uso livianos.</p>
-</li>
-</ul>
-
-
-<p>En resumen, Aurora supera a RDS en rendimiento y escalabilidad. Es ideal para aplicaciones críticas que requieren alto throughput. RDS sigue siendo una opción sólida y rentable para muchos casos de uso.</p>
-
-
-<h3 id="amazon-dynamodb-frente-a-otras-bases-de-datos-nosql" tabindex="-1">Amazon DynamoDB frente a otras bases de datos NoSQL</h3>
-
-
-<p>DynamoDB es un servicio de base de datos NoSQL totalmente administrado. Otras opciones NoSQL en AWS incluyen DocumentDB y Keyspaces.</p>
-
-
-<p>Algunas diferencias:</p>
-
-
-<ul>
-<li>
-<p><strong>Modelo de datos</strong>: DynamoDB usa pares key-value. DocumentDB usa documentos JSON. Keyspaces se basa en el modelo de datos de Apache Cassandra.</p>
-</li>
-<li>
-<p><strong>Rendimiento</strong>: DynamoDB ofrece un rendimiento predecible y consistente con capacidad de escalar casi ilimitadamente.</p>
-</li>
-<li>
-<p><strong>Precios</strong>: DynamoDB tiene precios por solicitud. DocumentDB y Keyspaces cobran por capacidad aprovisionada.</p>
-</li>
-<li>
-<p><strong>Compatibilidad con ACID</strong>: DynamoDB y QLDB soportan transacciones ACID. Las otras no tienen esta capacidad integrada.</p>
-</li>
-</ul>
-
-
-<p>En resumen, DynamoDB destaca en rendimiento, escalabilidad y capacidad transaccional. DocumentDB y Keyspaces son alternativas viables para cargas de trabajo específicas.</p>
-
-
-<h3 id="amazon-redshift%3A-el-poder-del-data-warehousing-en-aws" tabindex="-1">Amazon Redshift: El poder del data warehousing en AWS</h3>
-
-
-<p>Amazon Redshift es el servicio de data warehousing de AWS. Permite ejecutar consultas complejas sobre vastos conjuntos de datos estructurados y semiestructurados.</p>
-
-
-<p>Algunos puntos clave de Redshift:</p>
-
-
-<ul>
-<li>Almacena exabytes de datos estructurados en columnas usando compresión avanzada.</li>
-<li>Entrega aumentos de rendimiento 10x frente a otras soluciones gracias a su arquitectura masivamente paralela.</li>
-<li>Se integra fácilmente con herramientas de BI y visualización de datos como Quicksight.</li>
-<li>Es escalable y puede crecer para acomodar grandes volúmenes de datos entrantes.</li>
-<li>Es rentable en comparación con soluciones on-premise.</li>
-</ul>
-
-
-<p>En resumen, Redshift es la opción ideal para analytics y reporting sobre conjuntos de datos masivos en AWS. Superando soluciones tradicionales en rendimiento y escala.</p>
-
-
-<h2 id="migrando-bases-de-datos-existentes-a-aws" tabindex="-1">Migrando bases de datos existentes a AWS</h2>
-
-
-<p>La migración de bases de datos existentes a AWS puede parecer una tarea abrumadora, pero con la ayuda adecuada, puede realizarse sin problemas. AWS ofrece varios servicios diseñados específicamente para facilitar las migraciones de bases de datos, incluido el AWS Database Migration Service (DMS).</p>
-
-
-<h3 id="utilizando-aws-database-migration-service-para-una-transici%C3%B3n-sin-problemas" tabindex="-1">Utilizando AWS Database Migration Service para una transición sin problemas</h3>
-
-
-<p>El AWS Database Migration Service (DMS) está diseñado para migrar bases de datos de forma rápida y segura a AWS. Con DMS, puede migrar bases de datos desde plataformas on-premise o de otros proveedores de cloud a servicios de bases de datos de AWS como Amazon RDS, Amazon DynamoDB y Amazon Redshift.</p>
-
-
-<p>DMS replica los datos existentes en la base de datos de origen de forma continua, minimizando el tiempo de inactividad de la aplicación durante la migración. También convierte automáticamente el esquema de la base de datos para que coincida con el motor de destino. Esto facilita en gran medida el proceso de migración.</p>
-
-
-<p>Una vez que se completa la migración inicial, DMS también puede replicar continuamente los cambios en los datos de origen para mantener sincronizadas la base de datos de origen y de destino. Esto permite realizar una migración gradual sin interrupciones significativas.</p>
-
-
-<h3 id="estrategias-de-migraci%C3%B3n-para-diferentes-bases-de-datos-en-aws" tabindex="-1">Estrategias de migración para diferentes bases de datos en AWS</h3>
-
-
-<p>Además de DMS, AWS ofrece servicios de migración específicos para varios tipos de bases de datos:</p>
-
-
-<ul>
-<li>
-<p><strong>SQL Server</strong>: AWS Schema Conversion Tool (SCT) analiza las bases de datos de SQL Server y recomienda optimizaciones para Amazon RDS. También convierte objetos de base de datos como tablas, vistas e índices para usarlos en Amazon RDS para SQL Server.</p>
-</li>
-<li>
-<p><strong>Oracle</strong>: AWS SCT y DMS admiten la migración de bases de datos de Oracle a Amazon RDS para Oracle o Amazon Aurora. Para migraciones grandes y complejas, AWS Database Migration Service puede migrar de forma eficiente las bases de datos de Oracle mediante replicación continua.</p>
-</li>
-<li>
-<p><strong>PostgreSQL y MySQL</strong>: AWS DMS ofrece una migración sin problemas para estas bases de datos populares de código abierto. También es compatible con sus variantes como MariaDB. La migración se puede realizar entre instancias on-premise y Amazon RDS u otros servicios de bases de datos de AWS.</p>
-</li>
-</ul>
-
-
-<h3 id="optimizando-costos-con-aws-rds-pricing-post-migraci%C3%B3n" tabindex="-1">Optimizando costos con AWS RDS Pricing post-migración</h3>
-
-
-<p>Después de migrar a AWS, hay varias formas de continuar optimizando los costos de sus bases de datos:</p>
-
-
-<ul>
-<li>
-<p>Elegir el tipo de instancia Amazon RDS adecuada en función de los requisitos de CPU, memoria y E/S. Las instancias más optimizadas pueden reducir los costos en un 40-60%.</p>
-</li>
-<li>
-<p>Utilizar Amazon Aurora en lugar de bases de datos comerciales como SQL Server y Oracle puede reducir los costos en más de un 90%. Aurora también escala automáticamente para adaptarse a las cargas de trabajo cambiantes.</p>
-</li>
-<li>
-<p>Monitorear el uso y establecer alarmas para detectar capacidad ociosa. Redimensionar o detener las instancias RDS cuando no se necesiten puede generar grandes ahorros.</p>
-</li>
-<li>
-<p>Utilizar Reserved Instances para obtener descuentos significativos sobre el precio a demanda estándar.</p>
-</li>
-</ul>
-
-
-<p>Con una cuidadosa planificación y estas opciones de optimización de costos, migrar bases de datos a AWS puede reducir drásticamente los gastos operativos. Los servicios de migración de AWS facilitan la transición sin problemas, mientras que los servicios de bases de datos administradas permiten optimizar los costos a largo plazo.</p>
-
-
-<h2 id="maximizando-el-rendimiento-y-la-escalabilidad-con-aws-aurora-y-dynamodb" tabindex="-1">Maximizando el rendimiento y la escalabilidad con AWS Aurora y DynamoDB</h2>
-
-
-<h3 id="amazon-aurora%3A-escalabilidad-y-rendimiento-para-bases-de-datos-relacionales" tabindex="-1">Amazon Aurora: Escalabilidad y rendimiento para bases de datos relacionales</h3>
-
-
-<p>Amazon Aurora es una base de datos relacional compatible con MySQL y PostgreSQL, diseñada para ofrecer un alto rendimiento y escalabilidad. Algunas de sus características clave son:</p>
-
-
-<ul>
-<li>
-<p>Escalabilidad automática sin downtime: Aurora puede escalar automáticamente el almacenamiento y los recursos de procesamiento según sea necesario, sin downtime de la aplicación. Esto es útil para aplicaciones con requisitos cambiantes.</p>
-</li>
-<li>
-<p>Alta disponibilidad integrada: Aurora está altamente disponible de forma nativa. Los volúmenes de datos se replican 6 veces entre 3 zonas de disponibilidad. Si ocurre una falla, Aurora conmutará automáticamente a una réplica en buen estado sin pérdida de datos.</p>
-</li>
-<li>
-<p>Rendimiento mejorado: Aurora utiliza SSD de alto rendimiento y optimizaciones avanzadas de software para ofrecer hasta 5 veces mejor rendimiento que MySQL en hardware estándar. Es ideal para cargas transaccionales intensivas.</p>
-</li>
-</ul>
-
-
-<p>En resumen, <strong>Aurora aws bases de datos</strong> ofrece escalabilidad automática, alta disponibilidad y alto rendimiento para aplicaciones críticas que requieren una base de datos relacional.</p>
-
-
-<h3 id="amazon-dynamodb%3A-alto-rendimiento-para-bases-de-datos-nosql" tabindex="-1">Amazon DynamoDB: Alto rendimiento para bases de datos NoSQL</h3>
-
-
-<p>Amazon DynamoDB es una base de datos NoSQL totalmente administrada que ofrece rendimiento predecible en cualquier escala. Sus capacidades incluyen:</p>
-
-
-<ul>
-<li>
-<p>Escalabilidad casi ilimitada: DynamoDB puede escalar sin límites de almacenamiento y rendimiento provisionado para manejar picos de tráfico extremo.</p>
-</li>
-<li>
-<p>Baja latencia y rendimiento consistente: DynamoDB ofrece latencias de un solo dígito en milisegundos para lecturas y escrituras, incluso con cargas pesadas.</p>
-</li>
-<li>
-<p>Alta disponibilidad integrada: Los datos se replican en múltiples zonas de disponibilidad. Las fallas se manejan automáticamente sin pérdida de datos.</p>
-</li>
-</ul>
-
-
-<p>En resumen, <strong>DynamoDB aws bases de datos no relacionales</strong> es ideal para aplicaciones web, móviles y de juegos que necesitan escalar rápidamente con un rendimiento predecible.</p>
-
-
-<h3 id="integraci%C3%B3n-de-aws-lambda-para-automatizaci%C3%B3n-y-eficiencia" tabindex="-1">Integración de AWS Lambda para automatización y eficiencia</h3>
-
-
-<p>AWS Lambda permite ejecutar código sin aprovisionar o administrar servidores. Se puede usar para automatizar tareas administrativas en bases de datos como:</p>
-
-
-<ul>
-<li>Procesamiento por lotes y ETL de datos</li>
-<li>Backups y restauración automáticos</li>
-<li>Rotación automática de credenciales</li>
-<li>Notificaciones y monitoreo de eventos</li>
-</ul>
-
-
-<p>Esto mejora la eficiencia operativa, la confiabilidad y la seguridad de las <strong>bases de datos en AWS</strong>. Solo se paga por el tiempo de procesamiento utilizado por Lambda.</p>
-
-
-<h3 id="seguridad-y-aislamiento-con-amazon-vpc-para-bases-de-datos" tabindex="-1">Seguridad y aislamiento con Amazon VPC para bases de datos</h3>
-
-
-<p>Amazon VPC permite aprovisionar una nube privada virtual con recursos aislados y seguros. Las características relevantes para bases de datos son:</p>
-
-
-<ul>
-<li>Grupos de seguridad para control de acceso a nivel de red</li>
-<li>Subredes privadas para bases de datos backend no accesibles públicamente</li>
-<li>Acceso solo dentro de la VPC para mayor seguridad</li>
-<li>Conectividad de sitio a sitio VPN para acceder a bases de datos desde la red local</li>
-</ul>
-
-
-<p>En resumen, Amazon VPC mejora la <strong>seguridad y el aislamiento de las bases de datos</strong> en AWS al permitir redes virtuales privadas y aisladas.</p>
-
-
-<h2 id="conclusi%C3%B3n%3A-sintetizando-las-bases-de-datos-en-aws" tabindex="-1">Conclusión: Sintetizando las bases de datos en AWS</h2>
-
-
-<h3 id="selecci%C3%B3n-del-servicio-de-bases-de-datos-de-aws-adecuado" tabindex="-1">Selección del servicio de bases de datos de AWS adecuado</h3>
-
-
-<p>Al seleccionar el <a href="https://podcast.marcia.dev/">servicio de bases de datos de AWS</a> más apropiado, es importante considerar sus necesidades específicas en términos de rendimiento, escalabilidad, durabilidad y costo.</p>
-
-
-<p>Algunos consejos clave:</p>
-
-
-<ul>
-<li>
-<p>Si necesita una base de datos relacional tradicional, <strong>Amazon RDS</strong> ofrece una amplia variedad de opciones como MySQL, PostgreSQL, SQL Server y Oracle. <strong>Amazon Aurora</strong> proporciona un rendimiento aún mayor.</p>
-</li>
-<li>
-<p>Para cargas de trabajo NoSQL, <strong>DynamoDB</strong> es altamente escalable con un modelo de precios de pago por uso. <strong>Amazon DocumentDB</strong> es una buena opción compatible con MongoDB.</p>
-</li>
-<li>
-<p><strong>Amazon Redshift</strong> es ideal para almacenamiento y análisis de grandes conjuntos de datos, con un modelo de precios basado en los recursos informáticos y de almacenamiento que aprovisione.</p>
-</li>
-<li>
-<p>Herramientas como <strong>AWS Database Migration Service</strong> facilitan la migración de bases de datos existentes a la nube de AWS.</p>
-</li>
-</ul>
-
-
-<p>En definitiva, comprender sus requisitos y elegir el servicio adecuado le permitirá aprovechar los beneficios de las bases de datos de AWS de la manera más efectiva.</p>
-
-
-<h3 id="consideraciones-finales-sobre-aws-rds-pricing-y-costos" tabindex="-1">Consideraciones finales sobre AWS RDS Pricing y costos</h3>
-
-
-<p>A la hora de gestionar los costos de las bases de datos de AWS, existen varias estrategias clave:</p>
-
-
-<ul>
-<li>
-<p>Elegir la opción de implementación más económica en función de sus necesidades, como instancias reservadas frente a bajo demanda.</p>
-</li>
-<li>
-<p>Monitorear y ajustar la capacidad para coincidir con los requisitos reales mediante escalado automático. Esto optimiza los costos de recursos.</p>
-</li>
-<li>
-<p>Considerar el almacenamiento aprovisionado y optimizar con compresión u opciones de almacenamiento más económicas cuando sea posible.</p>
-</li>
-<li>
-<p>Analizar los informes detallados de uso y costos disponibles en AWS para identificar oportunidades de ahorro.</p>
-</li>
-</ul>
-
-
-<p>En resumen, con una cuidadosa planificación y monitoreo continuo, puede ejecutar bases de datos de AWS de forma rentable y responsable.</p>
-
-
-<h3 id="la-importancia-de-una-estrategia-de-migraci%C3%B3n-efectiva" tabindex="-1">La importancia de una estrategia de migración efectiva</h3>
-
-
-<p>Migrar bases de datos existentes a AWS conlleva desafíos técnicos y de negocio significativos. Por ello, es clave desarrollar una estrategia integral que aborde:</p>
-
-
-<ul>
-<li>
-<p>Evaluación de la preparación de las aplicaciones y mapeo de dependencias.</p>
-</li>
-<li>
-<p>Selección de las herramientas de migración más apropiadas como <strong>AWS Database Migration Service</strong>.</p>
-</li>
-<li>
-<p>Planificación minuciosa de las actividades para minimizar el tiempo de inactividad.</p>
-</li>
-<li>
-<p>Pruebas exhaustivas posteriores a la migración.</p>
-</li>
-<li>
-<p>Estrategia de devolución en caso de que algo falle.</p>
-</li>
-</ul>
-
-
-<p>Con una buena preparación y ejecución, puede migrar bases de datos a AWS y aprovechar innovaciones como escalado automático, alta disponibilidad, mayor rendimiento y funcionalidades avanzadas. Esto le permite centrarse en innovar en lugar de gestionar infraestructura.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/">Introducción a los servicios de Amazon Web Services</a></li>
-</ul>
-</p>
+No suelen resolver el mismo problema. RDS es una opción para datos operativos y transacciones de una aplicación; Redshift es un almacén de datos para análisis e informes. La elección depende de si tu consulta atiende una operación del producto o analiza conjuntos de datos para obtener métricas.
