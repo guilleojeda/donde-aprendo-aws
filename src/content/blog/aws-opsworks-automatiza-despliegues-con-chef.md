@@ -1,467 +1,80 @@
 ---
-title: "AWS OpsWorks: automatiza despliegues con Chef"
-description: "Explora cómo AWS OpsWorks con Chef automatiza el despliegue y la gestión de aplicaciones en la nube, y aprende sobre recetas, capas y mejores prácticas."
+title: "AWS OpsWorks Stacks: flujo histórico de despliegue con Chef y cómo reemplazarlo"
+description: "Revisa cómo se relacionaban stacks, capas, instancias EC2 y eventos de Chef en AWS OpsWorks Stacks, ya retirado, y qué servicios actuales cubren cada parte."
 author: "guille-ojeda"
 publishedAt: "2024-05-10"
 publishedTimestamp: "2024-05-10T07:15:01.296Z"
+modifiedTimestamp: "2026-10-05T13:23:09-03:00"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Mejores prácticas para AWS Lambda"
-    url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/"
-  - title: "Mejores prácticas AWS para DevOps"
-    url: "https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/"
-  - title: "Introducción a los servicios de Amazon Web Services"
-    url: "https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/"
+  - title: "AWS OpsWorks retirado: alternativas para Chef y Puppet"
+    url: "https://dondeaprendoaws.com/blog/aws-opsworks-para-chef-y-puppet-preguntas-frecuentes/"
+  - title: "Seguridad de IaC en AWS: 9 controles para Terraform y CloudFormation"
+    url: "https://dondeaprendoaws.com/blog/9-mejores-practicas-de-seguridad-para-iac-en-aws/"
 
 ---
 
-<p><a href="https://aws.amazon.com/opsworks/" rel="noopener noreferrer" target="_blank">AWS OpsWorks</a> es un servicio de administración de aplicaciones que te permite automatizar el despliegue y la configuración de aplicaciones en la nube utilizando <a href="https://www.chef.io/" rel="noopener noreferrer" target="_blank">Chef</a>, una plataforma de automatización que trata la <a href="https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-aws-cloudformation/">infraestructura como código</a>.</p>
-
-
-<p><strong>Principales Características:</strong></p>
-
-
-<ul>
-<li>Organiza las aplicaciones en capas configurables</li>
-<li>Utiliza cookbooks de Chef para automatizar la configuración y el despliegue</li>
-<li>Permite desplegar aplicaciones desde repositorios <a href="https://git-scm.com/" rel="noopener noreferrer" target="_blank">Git</a>, <a href="https://en.wikipedia.org/wiki/Amazon_S3" rel="noopener noreferrer" target="_blank">Amazon S3</a> o archivos locales</li>
-<li>Administra instancias y capas con capacidades de auto-escalado y auto-sanación</li>
-<li>Soporta configuración como código para mantener la consistencia en diferentes entornos</li>
-</ul>
+AWS OpsWorks Stacks ya está retirado. Este artículo reconstruye su flujo histórico para que puedas reconocer qué hacían las stacks, las capas y las recetas de Chef; no es una guía para crear o administrar una stack nueva. Para comprobar el estado de Stacks, Chef Automate y Puppet Enterprise y las alternativas para cada variante, consulta las [preguntas frecuentes sobre el cierre de OpsWorks](/blog/aws-opsworks-para-chef-y-puppet-preguntas-frecuentes/).
 
+## Cómo se organizaba AWS OpsWorks Stacks
 
-<p><strong>Requisitos Clave:</strong></p>
+OpsWorks Stacks agrupaba recursos de una aplicación y asociaba recetas de Chef con instancias EC2. Los nombres se parecen a conceptos de otros servicios, pero este modelo pertenecía a OpsWorks:
 
+| Elemento histórico | Función dentro de OpsWorks Stacks |
+|---|---|
+| Stack | Contenedor lógico para recursos relacionados y valores comunes, como región y sistema operativo. |
+| Layer (capa) | Grupo de instancias con una función, por ejemplo servir una aplicación o alojar una base de datos. Las recetas configuraban paquetes, servicios y despliegues de esa función. |
+| Instance (instancia) | Recurso de cómputo, normalmente una instancia EC2, asociado a una o más capas. El agente de OpsWorks ejecutaba sus recetas en respuesta a eventos. |
+| App (aplicación) | Referencia al tipo de aplicación y a su repositorio, con los datos necesarios para distribuirla en las instancias objetivo. |
+| Cookbook y recipe | Código de Chef que instalaba o configuraba software y realizaba tareas del ciclo de vida. Una recipe podía asignarse a una capa y a uno o más eventos. |
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Requisito</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Cuenta de AWS</td>
-<td>Tener una cuenta de AWS configurada correctamente</td>
-</tr>
-<tr>
-<td>Conocimiento de Chef</td>
-<td>Entender cómo funciona Chef y tratar la infraestructura como código</td>
-</tr>
-<tr>
-<td>Consistencia</td>
-<td>Mantener la consistencia en la aplicación y el código de cookbook</td>
-</tr>
-<tr>
-<td>Despliegues sin interrupciones</td>
-<td>Asegurar que los despliegues no interrumpan el funcionamiento del sitio</td>
-</tr>
-<tr>
-<td>Cookbooks y recetas</td>
-<td>Entender cómo funcionan las cookbooks y recetas en Chef</td>
-</tr>
-</tbody>
-</table></figure>
+El [anuncio original de OpsWorks de AWS](https://aws.amazon.com/blogs/aws/aws-opsworks-flexible-application-management-in-the-cloud/), de 2013, muestra la relación entre stacks, capas, aplicaciones e instancias. Sus pantallas y procedimientos pertenecen al servicio retirado; sirven para interpretar una arquitectura antigua.
 
+## Qué ocurría durante el ciclo de vida
 
-<p><strong>Proceso de Despliegue:</strong></p>
+Una capa podía asignar recetas distintas a estos cinco eventos:
 
+| Evento de OpsWorks | Cuándo se ejecutaba | Ejemplo de responsabilidad |
+|---|---|---|
+| Setup | Después de que una instancia nueva terminara de iniciar. | Instalar y configurar el servidor web. |
+| Configure | Cuando una instancia entraba o salía del estado en línea; las recetas se ejecutaban en las instancias del stack. | Actualizar la configuración del balanceador para reconocer una instancia nueva. |
+| Deploy | Al desplegar una aplicación. | Obtener los archivos de la aplicación y reiniciar un proceso relacionado. |
+| Undeploy | Al retirar una aplicación de las instancias. | Quitar la versión desplegada o limpiar sus archivos. |
+| Shutdown | Al detener una instancia. | Ejecutar tareas previstas antes de apagarla. |
 
-<ol>
-<li>Crear una aplicación en AWS OpsWorks</li>
-<li>Especificar el repositorio con el código de la aplicación</li>
-<li>Desplegar la aplicación en las instancias configuradas</li>
-</ol>
+AWS documentó cómo [asignar recetas a los cinco eventos del ciclo de vida](https://aws.amazon.com/blogs/devops/using-opsworks-to-configure-ec2-instances/) y cómo [Configure reaccionaba a cambios en las instancias](https://aws.amazon.com/blogs/devops/quickly-explore-the-chef-environment-in-aws-opsworks/). Son publicaciones históricas de 2014 y 2016. El contenido de las recetas dependía de cada organización: OpsWorks coordinaba eventos y capas, mientras que el cookbook definía muchas de las acciones.
 
+## Cómo reemplazar el flujo sin buscar una copia exacta
 
-<p>AWS OpsWorks te brinda una solución completa para automatizar el despliegue y la <a href="https://dondeaprendoaws.com/blog/desarrollo-en-la-nube-fundamentos-esenciales/">administración de aplicaciones en la nube</a>, aprovechando la potencia de Chef y la escalabilidad de AWS.</p>
+AWS no ofrece un nuevo OpsWorks Stacks. Conviene separar el resultado que antes concentraba el servicio y asignar cada parte a una herramienta vigente:
 
+| Necesidad que cubría el flujo antiguo | Opción actual posible | Límite que conviene considerar |
+|---|---|---|
+| Declarar los recursos de infraestructura | CloudFormation u otra herramienta de IaC. | Las plantillas describen recursos; no convierten automáticamente las recetas de Chef en configuración declarativa. |
+| Definir la configuración de lanzamiento y mantener capacidad EC2 | Plantilla de lanzamiento y grupo de Amazon EC2 Auto Scaling. | Debes decidir capacidad, políticas, redes, almacenamiento y cómo probar cambios; no hay una capa de OpsWorks que se transforme sola en un grupo. |
+| Ejecutar recetas Chef en hosts Linux | Systems Manager State Manager con el documento <code>AWS-ApplyChefRecipes</code>. | Requiere nodos Linux administrados por Systems Manager; AWS declara que no es compatible con macOS. Su rango 11–18 no incluye el LTS actual de Chef, 19.x, así que no se recomienda como base de un entorno nuevo que requiera una versión mantenida. Las recetas deben ser compatibles y no necesitar Chef Server. No reemplaza toda la plataforma Chef Automate. |
+| Publicar una revisión de la aplicación en EC2 | AWS CodeDeploy para despliegues en EC2. | CodeDeploy maneja la revisión de la aplicación; no reproduce automáticamente las recetas de Setup, Configure, Undeploy o Shutdown. |
+| Revisar y administrar stacks de CloudFormation | Systems Manager Application Manager. | Gestiona stacks de CloudFormation; no restaura la consola ni el ciclo de vida de OpsWorks. |
 
-<h2 id="related-video-from-youtube" tabindex="-1">Related video from YouTube</h2>
+Las fuentes actuales para evaluar estas piezas son la documentación de [Application Manager y CloudFormation](https://docs.aws.amazon.com/systems-manager/latest/userguide/application-manager-working-stacks-overview.html), las [plantillas de lanzamiento de EC2 Auto Scaling](https://docs.aws.amazon.com/autoscaling/ec2/userguide/launch-templates.html), las [asociaciones de State Manager que ejecutan recetas Chef](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-state-manager-chef.html) y la [descripción de CodeDeploy](https://docs.aws.amazon.com/codedeploy/latest/userguide/welcome.html). Cada fuente define su propio alcance y requisitos.
 
+El rango de Chef 11 a 18 que aparece en AWS describe la integración que documenta AWS, no cuáles conviene usar hoy. La [tabla de versiones de Chef](https://docs.chef.io/versions/) marca Chef Infra Client 19.x como LTS, 18.x como obsoleto y las versiones anteriores a 18 como EOL. Como AWS-ApplyChefRecipes no incluye el LTS 19.x, no se recomienda como base para un entorno nuevo que requiera un cliente mantenido. Comprueba también las [plataformas compatibles de Chef](https://docs.chef.io/platforms/): la compatibilidad de una recipe depende tanto del cliente como del sistema operativo.
 
-<iframe allowfullscreen="" loading="lazy" src="https://www.youtube.com/embed/1cPFBVVtU0A" title="Video de YouTube"></iframe>
-<h2 id="requisitos-para-despliegues-automatizados" tabindex="-1">Requisitos para despliegues automatizados</h2>
+Antes de reconstruir el entorno, inventaría los recursos que aún existen en EC2 y otros servicios, los archivos de configuración y cookbooks conservados, las fuentes de aplicación y las dependencias externas. Después decide cuáles acciones de cada receta siguen haciendo falta y en qué momento deben correr. Una nueva plantilla o pipeline debe revisarse con el alcance y los permisos correspondientes; esta guía de [controles para IaC en Terraform y CloudFormation](/blog/9-mejores-practicas-de-seguridad-para-iac-en-aws/) ayuda a revisar ese tipo de cambios.
 
+AWS publicó en 2023 una [guía de migración de OpsWorks Stacks a Systems Manager](https://aws.amazon.com/blogs/mt/migrate-your-aws-opsworks-stacks-to-aws-systems-manager/) cuyo script leía capas y generaba una plantilla de CloudFormation. El servicio está retirado: trata ese script como referencia histórica, pues depende de consultar OpsWorks. Reconstruye con servicios vigentes a partir del inventario y los archivos conservados; revisa los cambios y prueba las recetas antes de usarlas en un entorno activo.
 
-<p>Para automatizar despliegues con AWS OpsWorks, es importante cumplir con ciertos requisitos fundamentales. A continuación, se presentan los requisitos clave para automatizar despliegues con AWS OpsWorks:</p>
+## Grabación histórica sobre OpsWorks
 
+El catálogo incluye esta charla de AWS Girls Perú, publicada el 7 de noviembre de 2021, sobre CloudFormation, Systems Manager y OpsWorks. Es material de archivo para entender el contexto de esas herramientas. Sus pantallas, menús y pasos de OpsWorks son históricos: no los uses para crear un servicio retirado. Para procedimientos actuales, consulta la documentación oficial enlazada arriba.
 
-<h3 id="requisitos-clave" tabindex="-1">Requisitos clave</h3>
+<figure>
+  <iframe allowfullscreen="" loading="lazy" src="https://www.youtube-nocookie.com/embed/FCcAJYnlsPs" title="Charla histórica sobre CloudFormation, Systems Manager y AWS OpsWorks — AWS Girls"></iframe>
+  <figcaption><a href="https://www.youtube.com/watch?v=FCcAJYnlsPs" rel="noopener noreferrer" target="_blank">Abrir la charla en YouTube</a>. Grabación de AWS Girls publicada el 7 de noviembre de 2021. Úsala como contexto histórico y verifica las tareas actuales en la documentación de AWS.</figcaption>
+</figure>
 
+## Comunidad y recursos
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Requisito</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Cuenta de AWS configurada correctamente</td>
-<td>Debes tener una cuenta de AWS configurada correctamente para utilizar AWS OpsWorks.</td>
-</tr>
-<tr>
-<td>Entendimiento de Chef</td>
-<td>Debes entender cómo funciona Chef y cómo tratar la infraestructura como código.</td>
-</tr>
-<tr>
-<td>Consistencia en la aplicación y el código de cookbook</td>
-<td>Debes mantener la consistencia en la aplicación y el código de cookbook en todas las instancias de producción.</td>
-</tr>
-<tr>
-<td>Despliegue de actualizaciones sin interrupciones</td>
-<td>Debes asegurarte de que el despliegue de actualizaciones no interrumpa el funcionamiento del sitio, incluso si algo sale mal.</td>
-</tr>
-<tr>
-<td>Entendimiento de cookbooks y recetas en Chef</td>
-<td>Debes entender cómo funcionan las cookbooks y las recetas en Chef, así como cómo manejar las dependencias de cookbook.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>En resumen, para automatizar despliegues con AWS OpsWorks, debes cumplir con estos requisitos clave. Esto te permitirá crear y gestionar cookbooks y recetas de manera efectiva, lo que es esencial para automatizar despliegues con AWS OpsWorks.</p>
-
-
-<h2 id="configuraci%C3%B3n-de-aws-opsworks-para-chef" tabindex="-1">Configuración de <a href="https://aws.amazon.com/opsworks/" rel="noopener noreferrer" target="_blank">AWS OpsWorks</a> para <a href="https://www.chef.io/" rel="noopener noreferrer" target="_blank">Chef</a></h2>
-
-
-<p><figure><img alt="AWS OpsWorks" src="/assets/blog/d0e6d0c36ca13b63651a59f0.jpg"/></figure></p>
-
-
-<p>Para configurar AWS OpsWorks para Chef, es importante seguir los siguientes pasos.</p>
-
-
-<h3 id="regiones-compatibles-y-configuraci%C3%B3n-de-vpc" tabindex="-1">Regiones compatibles y configuración de VPC</h3>
-
-
-<p><a href="https://dondeaprendoaws.com/blog/aws-opsworks-para-chef-y-puppet-preguntas-frecuentes/">AWS OpsWorks for Chef automate</a> es compatible con varias regiones de AWS. Para configurar una VPC para el servidor de Chef, debes seguir los siguientes pasos:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Paso</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1. <strong>Nombre y región</strong></td>
-<td>Elija un nombre descriptivo para la pila y seleccione la región de AWS adecuada.</td>
-</tr>
-<tr>
-<td>2. <strong>Sistema operativo predeterminado</strong></td>
-<td>Especifique el sistema operativo predeterminado para las instancias, que puede ser Linux o Windows Server.</td>
-</tr>
-<tr>
-<td>3. <strong>Versión de Chef</strong></td>
-<td>Selecciona la versión de Chef que deseas utilizar, que puede ser Chef 11 o Chef 12.</td>
-</tr>
-<tr>
-<td>4. <strong>Configuración de Chef</strong></td>
-<td>Determina si deseas utilizar cookbooks personalizados o gestionados por Chef.</td>
-</tr>
-<tr>
-<td>5. <strong>Permisos</strong></td>
-<td>Revisa los permisos necesarios para que OpsWorks pueda realizar funciones necesarias.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Una vez que completes estos pasos, OpsWorks provisionará la pila y la hará disponible en el dashboard para agregar capas, instancias, aplicaciones y más.</p>
-
-
-<h3 id="dominio-personalizado-y-ssl-(opcional)" tabindex="-1">Dominio personalizado y SSL (opcional)</h3>
-
-
-<p>Si deseas utilizar un dominio personalizado y conexiones seguras con un certificado SSL, puedes configurarlos de la siguiente manera:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Paso</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1. <strong>Registro de dominio</strong></td>
-<td>Registra un dominio personalizado que deseas utilizar para tu aplicación.</td>
-</tr>
-<tr>
-<td>2. <strong>Certificado SSL</strong></td>
-<td>Obtenga un certificado SSL para el dominio personalizado.</td>
-</tr>
-<tr>
-<td>3. <strong>Configuración de OpsWorks</strong></td>
-<td>Configura OpsWorks para utilizar el dominio personalizado y el certificado SSL.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Ten en cuenta que esta configuración es opcional y solo necesaria si deseas utilizar un dominio personalizado y conexiones seguras.</p>
-
-
-<h2 id="administraci%C3%B3n-de-recetas-y-cookbooks-de-chef" tabindex="-1">Administración de recetas y cookbooks de Chef</h2>
-
-
-<p>En AWS OpsWorks, los cookbooks y recetas son fundamentales para la configuración y el despliegue de aplicaciones. En esta sección, exploraremos cómo crear y administrar cookbooks y recetas en AWS OpsWorks, incluyendo la gestión de dependencias con herramientas como <a href="https://github.com/berkshelf/berkshelf" rel="noopener noreferrer" target="_blank">Berkshelf</a>.</p>
-
-
-<h3 id="entendiendo-cookbooks-y-recetas" tabindex="-1">Entendiendo cookbooks y recetas</h3>
-
-
-<p>En Chef, un cookbook es una colección de recetas que definen la configuración deseada de un sistema. Las recetas son instrucciones escritas en <a href="https://www.ruby-lang.org/" rel="noopener noreferrer" target="_blank">Ruby</a> que especifican los recursos que se deben configurar, como paquetes de software, archivos de configuración y servicios. Los cookbooks se utilizan para implementar la configuración de un sistema de manera repetible y escalable.</p>
-
-
-<h3 id="manejo-de-dependencias-de-cookbooks" tabindex="-1">Manejo de dependencias de cookbooks</h3>
-
-
-<p>Berkshelf es una herramienta popular para administrar dependencias de cookbooks en un entorno de Chef. Con Berkshelf, puedes especificar las dependencias de un cookbook en un archivo llamado <code class="inline-code">Berksfile</code>. Luego, Berkshelf se encarga de resolver las dependencias y descargar los cookbooks necesarios.</p>
-
-
-<p><strong>Ejemplo de archivo <code class="inline-code">Berksfile</code></strong></p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Dependencia</th>
-<th>Versión</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>java</td>
-<td>~&gt; 1.50.0</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Para instalar las dependencias, ejecuta el comando <code class="inline-code">berks install</code>. De esta manera, puedes administrar fácilmente las dependencias de tus cookbooks y asegurarte de que tengas la versión correcta de cada cookbook en tu entorno de desarrollo.</p>
-
-
-<h2 id="desplegar-aplicaciones-con-aws-opsworks" tabindex="-1">Desplegar aplicaciones con AWS OpsWorks</h2>
-
-
-<p>Desplegar aplicaciones con AWS OpsWorks implica crear una aplicación, configurar sus ajustes y desplegarla en instancias en AWS OpsWorks. A continuación, se presenta una guía paso a paso sobre cómo hacerlo:</p>
-
-
-<h3 id="proceso-de-despliegue-de-aplicaciones" tabindex="-1">Proceso de despliegue de aplicaciones</h3>
-
-
-<p>Para desplegar una aplicación, debes crear una aplicación en AWS OpsWorks y especificar el repositorio donde se almacena el código de la aplicación. Puedes utilizar un repositorio Git, un bucket de Amazon S3 o un archivo local. Una vez que hayas creado la aplicación, puedes desplegarla en tus instancias.</p>
-
-
-<p>A continuación, se muestra un ejemplo de cómo crear una aplicación en AWS OpsWorks:</p>
-
-
-<p>1. <strong>Crear aplicación</strong>: Inicia sesión en la consola de AWS OpsWorks y navega a la pestaña <strong>Aplicaciones</strong>. 2. <strong>Ingrese información</strong>: Ingresa la información requerida, como el nombre de la aplicación, el tipo de repositorio y la URL del repositorio. 3. <strong>Crear aplicación</strong>: Haz clic en <strong>Crear aplicación</strong> para crear la aplicación.</p>
-
-
-<h3 id="administrar-comandos-de-despliegue" tabindex="-1">Administrar comandos de despliegue</h3>
-
-
-<p>AWS OpsWorks proporciona varios comandos de despliegue que te permiten administrar tus despliegues de aplicaciones. A continuación, se presentan algunos de los comandos de despliegue que puedes utilizar:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Comando</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Desplegar</strong></td>
-<td>Desplega la aplicación en las instancias especificadas.</td>
-</tr>
-<tr>
-<td><strong>Undeploy</strong></td>
-<td>Quita la aplicación de las instancias especificadas.</td>
-</tr>
-<tr>
-<td><strong>Revertir</strong></td>
-<td>Revierte la aplicación a una versión anterior.</td>
-</tr>
-<tr>
-<td><strong>Administración de servidores</strong></td>
-<td>Te permite administrar tus instancias, como iniciar o detenerlas.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Puedes utilizar estos comandos de despliegue para administrar tus despliegues de aplicaciones y asegurarte de que tu aplicación esté funcionando correctamente.</p>
-
-
-<p>Nota: Antes de desplegar tu aplicación, asegúrate de que hayas configurado tus instancias correctamente y tengas las dependencias necesarias instaladas.</p>
-
-
-<h2 id="administraci%C3%B3n-de-instancias-y-capas" tabindex="-1">Administración de instancias y capas</h2>
-
-
-<p>En este apartado, exploraremos cómo administrar instancias y capas en AWS OpsWorks, incluyendo la configuración de ajustes, grupos de seguridad y características de automatización.</p>
-
-
-<h3 id="crear-y-configurar-capas" tabindex="-1">Crear y configurar capas</h3>
-
-
-<p>Para crear una capa en AWS OpsWorks, sigue estos pasos:</p>
-
-
-<ol>
-<li>Inicia sesión en la consola de AWS OpsWorks y navega a la pestaña <strong>Capas</strong>.</li>
-<li>Haz clic en <strong>Agregar capa</strong> y selecciona el tipo de capa que deseas crear (por ejemplo, una capa de aplicación o una capa de base de datos).</li>
-<li>Configura los ajustes de la capa, como el nombre, la descripción y los recursos asociados.</li>
-<li>Asigna una plantilla de configuración a la capa, que define la configuración de las instancias que se crearán en la capa.</li>
-<li>Haz clic en <strong>Crear capa</strong> para crear la capa.</li>
-</ol>
-
-
-<p>Una vez creada la capa, puedes agregar instancias a la capa y configurarlas según sea necesario. Puedes asignar múltiples capas a una instancia, lo que te permite crear un entorno de aplicación complejo con varias capas.</p>
-
-
-<h3 id="administraci%C3%B3n-de-instancias-y-auto-escalado" tabindex="-1">Administración de instancias y auto-escalado</h3>
-
-
-<p>AWS OpsWorks te permite administrar tus instancias de manera eficiente, incluyendo la capacidad de auto-escalar y auto-sanar. Puedes configurar las instancias para que se inician o detengan automáticamente según sea necesario, lo que te ayuda a ahorrar recursos y reducir costos.</p>
-
-
-<p><strong>Configuración de Auto-Escalado</strong></p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Condición</th>
-<th>Acción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Carga de trabajo alta</td>
-<td>Crear instancia adicional</td>
-</tr>
-<tr>
-<td>Carga de trabajo baja</td>
-<td>Detener instancia innecesaria</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Además, AWS OpsWorks te permite configurar la auto-sanación, que te permite detectar y reemplazar instancias que no están funcionando correctamente. Esto te ayuda a mantener tus aplicaciones en línea y reducir el tiempo de inactividad.</p>
-
-
-<p>En resumen, la administración de instancias y capas en AWS OpsWorks te permite crear un entorno de aplicación escalable y confiable, con la capacidad de auto-escalar y auto-sanar para asegurarte de que tus aplicaciones estén siempre disponibles.</p>
-
-
-<h2 id="mejores-pr%C3%A1cticas-y-soluci%C3%B3n-de-problemas" tabindex="-1">Mejores prácticas y solución de problemas</h2>
-
-
-<h3 id="configuraci%C3%B3n-como-c%C3%B3digo" tabindex="-1">Configuración como código</h3>
-
-
-<p>La configuración como código es una práctica recomendada al utilizar AWS OpsWorks con Chef. Al definir configuraciones como código, puedes versionar y mantener la consistencia en entornos diferentes. Esto te permite rastrear cambios y revertirlos si es necesario.</p>
-
-
-<p>Por ejemplo, puedes definir una configuración de capa como código utilizando un archivo de configuración de Chef, como <code class="inline-code">layer.json</code>. Este archivo contiene la configuración de la capa, incluyendo los recursos asociados y los ajustes de configuración.</p>
-
-
-<h3 id="automatizaci%C3%B3n-y-escalado" tabindex="-1">Automatización y escalado</h3>
-
-
-<p>La automatización es clave para escalar operaciones y administrar aplicaciones complejas con AWS OpsWorks. Al automatizar tareas repetitivas y procesos, puedes reducir el riesgo de errores humanos y mejorar la eficiencia.</p>
-
-
-<p>Por ejemplo, puedes automatizar la creación de instancias y la configuración de capas utilizando scripts de Chef. Estos scripts pueden ejecutarse automáticamente cuando se crea una nueva instancia o se actualiza una capa.</p>
-
-
-<h3 id="soluci%C3%B3n-de-problemas-de-despliegue" tabindex="-1">Solución de problemas de despliegue</h3>
-
-
-<p>Durante el despliegue de aplicaciones con AWS OpsWorks, es común encontrar problemas de configuración o errores de implementación. Para solucionar estos problemas, es importante tener una estrategia de solución de problemas efectiva.</p>
-
-
-<p><strong>Paso 1: Identificar el problema</strong></p>
-
-
-<p>Primero, debes identificar el problema y determinar su causa raíz.</p>
-
-
-<p><strong>Paso 2: Recopilar información</strong></p>
-
-
-<p>Recopila información relevante sobre el problema, como registros de errores y configuraciones de la capa.</p>
-
-
-<p><strong>Paso 3: Solucionar el problema</strong></p>
-
-
-<p>Soluciona el problema utilizando la información recopilada. Si es necesario, puedes consultar la documentación de AWS OpsWorks o buscar ayuda en línea.</p>
-
-
-<p><strong>Paso 4: Probar la solución</strong></p>
-
-
-<p>Prueba la solución para asegurarte de que el problema esté resuelto.</p>
-
-
-<h2 id="conclusi%C3%B3n" tabindex="-1">Conclusión</h2>
-
-
-<p>En resumen, AWS OpsWorks es una herramienta poderosa para automatizar despliegues con Chef, lo que permite a los desarrolladores y administradores de sistemas crear, implementar y administrar aplicaciones complejas de manera eficiente y escalable.</p>
-
-
-<h3 id="ventajas-de-utilizar-aws-opsworks" tabindex="-1">Ventajas de utilizar AWS OpsWorks</h3>
-
-
-<ul>
-<li>Configuración como código: define la configuración de la capa como código, lo que te permite versionar y mantener la consistencia en entornos diferentes.</li>
-<li>Automatización y escalado: automatiza tareas repetitivas y procesos, lo que reduce el riesgo de errores humanos y mejora la eficiencia.</li>
-<li>Solución de problemas: identifica y resuelve problemas de configuración o errores de implementación de manera efectiva.</li>
-</ul>
-
-
-<h3 id="recomendaciones-finales" tabindex="-1">Recomendaciones finales</h3>
-
-
-<p>Si estás interesado en aprender más sobre AWS OpsWorks y cómo puede ayudar a mejorar tu flujo de trabajo de desarrollo y administración de aplicaciones, te recomendamos explorar la documentación de AWS y los recursos en línea disponibles.</p>
-
-
-<p>Recuerda que la automatización y la escalabilidad son clave para administrar aplicaciones complejas de manera eficiente, y AWS OpsWorks es una herramienta valiosa para lograr ese objetivo.</p>
-
-
-<h2 id="preguntas-frecuentes" tabindex="-1">Preguntas frecuentes</h2>
-
-
-<h3 id="%C2%BFqu%C3%A9-es-una-receta-en-opsworks%3F" tabindex="-1">¿Qué es una receta en OpsWorks?</h3>
-
-
-<p>Una receta en OpsWorks es un conjunto de instrucciones que se ejecutan en una instancia para configurar y personalizar la capa. Cada receta se compone de recursos que definen el estado deseado del sistema.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-servicio-de-opsworks-utiliza-recetas-de-chef%3F" tabindex="-1">¿Qué servicio de OpsWorks utiliza recetas de Chef?</h3>
-
-
-<p>AWS OpsWorks Stacks utiliza cookbooks de Chef para automatizar tareas como la instalación y configuración de paquetes y la implementación de aplicaciones.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/">Cómo desplegar contenedores en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-opsworks-para-chef-y-puppet-preguntas-frecuentes/">AWS OpsWorks para Chef y Puppet: preguntas frecuentes</a></li><li><a href="https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-aws-cloudformation/">Cómo crear infraestructura como código en AWS con AWS CloudFormation</a></li>
-</ul>
-</p>
+Si estás reconstruyendo una solución, puedes contrastar el enfoque con la comunidad general del [AWS User Group Perú](https://awsugperu.cloud/), que publica sus espacios, recursos y agenda, o revisar el [directorio de eventos de AWS en español](/eventos/) para encontrar charlas vigentes. Estas comunidades sirven para conversar con otras personas; no reemplazan el soporte técnico de AWS ni son un canal de administración de OpsWorks.

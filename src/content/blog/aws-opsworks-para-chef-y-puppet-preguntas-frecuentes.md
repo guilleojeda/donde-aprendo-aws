@@ -1,89 +1,59 @@
 ---
-title: "AWS OpsWorks para Chef y Puppet: preguntas frecuentes"
-description: "Guía definitiva de AWS OpsWorks para la automatización y gestión de configuración con Chef y Puppet, y cómo planificar la migración tras el fin de vida útil de Puppet Enterprise."
+title: "AWS OpsWorks retirado: alternativas para Chef y Puppet"
+description: "AWS OpsWorks está retirado. Entiende qué pasó con Stacks, Chef Automate y Puppet Enterprise y qué herramientas actuales pueden cubrir cada función."
 author: "guille-ojeda"
 publishedAt: "2024-05-06"
 publishedTimestamp: "2024-05-06T20:31:06.838Z"
+modifiedTimestamp: "2026-10-05T13:23:09-03:00"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "7 errores comunes con AWS IoT Device SDK para JavaScript"
-    url: "https://dondeaprendoaws.com/blog/7-errores-comunes-con-aws-iot-device-sdk-para-javascript/"
-  - title: "Comprendiendo Kubernetes y Amazon EKS"
-    url: "https://dondeaprendoaws.com/blog/comprendiendo-kubernetes-y-amazon-eks/"
-  - title: "Mejores prácticas AWS para DevOps"
-    url: "https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/"
+  - title: "AWS OpsWorks Stacks: flujo histórico de despliegue con Chef y cómo reemplazarlo"
+    url: "https://dondeaprendoaws.com/blog/aws-opsworks-automatiza-despliegues-con-chef/"
+  - title: "Seguridad de IaC en AWS: 9 controles para Terraform y CloudFormation"
+    url: "https://dondeaprendoaws.com/blog/9-mejores-practicas-de-seguridad-para-iac-en-aws/"
 
 ---
 
-<p><a href="https://aws.amazon.com/opsworks/">AWS OpsWorks</a> es un servicio de administración de configuración que ofrece instancias administradas de las plataformas de automatización de <a href="https://www.chef.io/">Chef</a> y <a href="https://www.puppet.com/">Puppet</a>. Estas plataformas utilizan código para automatizar la configuración de servidores en Amazon Elastic Compute Cloud (EC2) o implementaciones locales.</p>
-<p><a href="https://aws.amazon.com/">AWS</a> OpsWorks ofrece dos servicios:</p>
-<table><thead><tr><th>Servicio</th><th>Características</th></tr></thead><tbody><tr><td>AWS OpsWorks for Chef Automate</td><td>Automatización de tareas, visibilidad en la configuración de servidores</td></tr><tr><td>AWS OpsWorks for <a href="https://www.puppet.com/products/puppet-enterprise">Puppet Enterprise</a></td><td>Gestión de nodos, automatización de tareas a gran escala</td></tr></tbody></table>
-<p>AWS OpsWorks para Puppet Enterprise llegó al final de su vida útil el 31 de marzo de 2024. Los clientes actuales deben migrar sus cargas de trabajo a otras soluciones como Amazon EC2, la versión de código abierto de Puppet o soluciones de automatización de configuración alternativas.</p>
-<h3 id="comparaci%C3%B3n-r%C3%A1pida">Comparación rápida</h3>
-<table><thead><tr><th>Característica</th><th>AWS OpsWorks for Chef Automate</th><th>AWS OpsWorks for Puppet Enterprise</th></tr></thead><tbody><tr><td>Enfoque</td><td>Automatización de tareas y visibilidad en la configuración de servidores</td><td>Gestión de nodos y automatización de tareas a gran escala</td></tr><tr><td>Ideal para</td><td>Entornos que requieren automatización de tareas y visibilidad</td><td>Entornos que requieren gestión de nodos y automatización a gran escala</td></tr><tr><td>Estado</td><td>Disponible</td><td>Fin de vida útil el 31 de marzo de 2024</td></tr></tbody></table>
-<h2 id="entendiendo-los-servicios-de-aws-opsworks">Entendiendo los servicios de <a href="https://aws.amazon.com/opsworks/">AWS OpsWorks</a></h2>
-<p><img alt="AWS OpsWorks" src="/assets/blog/d0e6d0c36ca13b63651a59f0.jpg"/></p>
-<p>AWS OpsWorks ofrece dos servicios: AWS OpsWorks for Chef Automate y AWS OpsWorks for Puppet Enterprise. A continuación, se presentará una visión general de cada servicio y sus características clave.</p>
-<h3 id="%C2%BFqu%C3%A9-son-los-servicios-de-aws-opsworks%3F">¿Qué son los servicios de <a href="https://aws.amazon.com/">AWS</a> OpsWorks?</h3>
-<p><img alt="AWS" src="/assets/blog/2ebe3cf8e7ae57e98d3af846.jpg"/></p>
-<p>AWS OpsWorks es un servicio de administración de configuración que permite a los desarrolladores y administradores de sistemas automatizar la configuración de servidores en Amazon Elastic Compute Cloud (EC2) o implementaciones locales. Los servicios de AWS OpsWorks se basan en las plataformas de automatización de Chef y Puppet, que utilizan código para administrar la configuración de servidores.</p>
-<h3 id="caracter%C3%ADsticas-de-los-servicios-de-aws-opsworks">Características de los servicios de AWS OpsWorks</h3>
-<table><thead><tr><th>Servicio</th><th>Características</th></tr></thead><tbody><tr><td>AWS OpsWorks for Chef Automate</td><td>Automatización de tareas, visibilidad en la configuración de servidores</td></tr><tr><td>AWS OpsWorks for Puppet Enterprise</td><td>Gestión de nodos, automatización de tareas a gran escala</td></tr></tbody></table>
-<p>Ambos servicios ofrecen beneficios como la automatización de tareas, la escalabilidad y la seguridad, lo que permite a los desarrolladores y administradores de sistemas centrarse en la creación de aplicaciones y servicios en lugar de administrar la infraestructura subyacente.</p>
-<h3 id="chef-automate-vs.-puppet-enterprise"><a href="https://www.chef.io/">Chef</a> Automate vs. <a href="https://www.puppet.com/products/puppet-enterprise">Puppet Enterprise</a></h3>
-<p><img alt="Chef" src="/assets/blog/35d5df3432c951a88afbdf1a.jpg"/></p>
-<p>AWS OpsWorks for Chef Automate y AWS OpsWorks for Puppet Enterprise comparten objetivos similares, pero tienen enfoques y características diferentes.</p>
-<ul><li><strong>AWS OpsWorks for Chef Automate</strong>: Ideal para entornos que requieren una automatización de tareas y visibilidad en la configuración de servidores.</li><li><strong>AWS OpsWorks for Puppet Enterprise</strong>: Más adecuado para entornos que requieren una gestión de nodos y automatización de tareas a gran escala.</li></ul>
-<p>En resumen, AWS OpsWorks for Chef Automate se centra en la automatización de tareas y la visibilidad en la configuración de servidores, mientras que AWS OpsWorks for Puppet Enterprise se enfoca en la gestión de nodos y la automatización de tareas a gran escala.</p>
-<h2 id="fin-de-vida-%C3%BAtil-de-aws-opsworks-para-puppet-enterprise">Fin de vida útil de AWS OpsWorks para <a href="https://www.puppet.com/">Puppet</a> Enterprise</h2>
-<p><img alt="Puppet" src="/assets/blog/f769cabaacf834241300b58a.jpg"/></p>
-<p>AWS OpsWorks para Puppet Enterprise llegó al final de su vida útil el 31 de marzo de 2024 y ya no está disponible para nuevos y existentes clientes. Es importante que los clientes actuales migren sus cargas de trabajo a otras soluciones lo antes posible.</p>
-<h3 id="impacto-en-los-clientes-actuales">Impacto en los clientes actuales</h3>
-<p>A partir del 31 de marzo de 2024, los clientes actuales no podrán administrar sus servidores mediante la consola o la API de OpsWorks. En ese momento, dejaremos de realizar cualquier función de administración continua de sus servidores, como las copias de seguridad o el mantenimiento.</p>
-<p><strong>Consecuencias</strong></p>
-<ul><li>No se podrán administrar servidores mediante la consola o la API de OpsWorks.</li><li>No se realizarán copias de seguridad ni mantenimiento de los servidores.</li></ul>
-<h3 id="pasos-para-los-usuarios-de-puppet-enterprise">Pasos para los usuarios de Puppet enterprise</h3>
-<p>Para asegurar una transición suave, se recomienda a los clientes actuales que migren sus servidores de Puppet Enterprise existentes a Amazon Elastic Compute Cloud (Amazon EC2) o a otras soluciones de automatización de configuración.</p>
-<p><strong>Opciones de migración</strong></p>
-<table><thead><tr><th>Opción</th><th>Descripción</th></tr></thead><tbody><tr><td>Migrar a <a href="https://en.wikipedia.org/wiki/Puppet_(software)">Open Source Puppet</a></td><td>Migrar a la versión de código abierto de Puppet</td></tr><tr><td>Migrar a Puppet Enterprise</td><td>Migrar a la versión empresarial de Puppet</td></tr><tr><td>Otras soluciones de automatización de configuración</td><td>Migrar a otras soluciones que se ajusten a las necesidades específicas</td></tr></tbody></table>
-<p>Es importante evaluar cuidadosamente las opciones de migración y planificar con anticipación para minimizar el impacto en su negocio.</p>
-<h2 id="soluci%C3%B3n-de-problemas-en-aws-opsworks-services">Solución de problemas en AWS OpsWorks services</h2>
-<p>Solucionar problemas en AWS OpsWorks es un proceso crucial para identificar y resolver problemas que surgen al utilizar AWS OpsWorks para Chef Automate y Puppet Enterprise. En esta sección, se presentan estrategias y soluciones para problemas comunes que los usuarios pueden enfrentar.</p>
-<h3 id="estrategias-de-soluci%C3%B3n-de-problemas">Estrategias de solución de problemas</h3>
-<p>Al enfrentar un problema con AWS OpsWorks, es importante seguir un enfoque sistemático para identificar y resolver el problema. A continuación, se presentan algunas estrategias de solución de problemas que pueden ser útiles:</p>
-<ul><li><strong>Verificar los mensajes de error</strong>: Los mensajes de error pueden proporcionar información valiosa sobre el problema que se está enfrentando. Verificar los registros de errores en la consola de AWS OpsWorks o en los archivos de registro del servidor.</li><li><strong>Revisar la configuración</strong>: Verificar la configuración del servidor y los servicios relacionados para asegurarse de que estén configurados correctamente.</li><li><strong>Probar soluciones simples</strong>: Antes de profundizar en soluciones más complejas, probar soluciones simples como reiniciar el servidor o verificar la conexión de red.</li></ul>
-<h3 id="problemas-comunes-y-soluciones">Problemas comunes y soluciones</h3>
-<p>A continuación, se presentan algunos problemas comunes que los usuarios pueden enfrentar al utilizar AWS OpsWorks y sus soluciones:</p>
-<table><thead><tr><th>Problema</th><th>Solución</th></tr></thead><tbody><tr><td><strong>El servidor está en un estado de conexión perdida</strong></td><td>Verificar los permisos del rol de servicio y del perfil de instancia, y luego reiniciar la instancia del servidor.</td></tr><tr><td><strong>Un nodo administrado aparece en la columna "Missing" en el panel de Chef Automate</strong></td><td>Verificar si el nodo está en línea y ejecutar el comando <code>knife node show</code> para verificar la configuración del nodo.</td></tr><tr><td><strong>No se puede crear un vault en el servidor de Chef Automate; el comando <code>knife vault</code> falla con errores</strong></td><td>Agregar el usuario pivotal a la organización predeterminada y luego ejecutar el comando <code>knife opc</code> para crear el vault.</td></tr></tbody></table>
-<p>Esperamos que estas estrategias y soluciones de solución de problemas hayan sido útiles para resolver problemas comunes con AWS OpsWorks. Si necesita más ayuda, no dude en consultar la documentación de AWS OpsWorks o contactar con el soporte de AWS.</p>
-<h2 id="obtener-ayuda-con-aws-opsworks">Obtener ayuda con AWS OpsWorks</h2>
-<p>Obtener ayuda con AWS OpsWorks es fundamental para aprovechar al máximo sus características y resolver cualquier problema que surja. A continuación, se presentan las opciones de soporte técnico y recursos adicionales para obtener ayuda y documentación para los servicios de AWS OpsWorks.</p>
-<h3 id="soporte-de-aws-opsworks">Soporte de AWS OpsWorks</h3>
-<p>AWS ofrece varios servicios de soporte para ambos, Chef Automate y Puppet Enterprise. Puede acceder a los foros de la comunidad de AWS, donde puede buscar respuestas a preguntas frecuentes y obtener ayuda de otros usuarios de AWS OpsWorks. También puede contactar con el soporte de AWS a través de AWS re:Post o mediante el soporte premium de AWS.</p>
-<h3 id="recursos-de-aprendizaje">Recursos de aprendizaje</h3>
-<p>Además del soporte técnico, AWS ofrece una variedad de recursos educativos y comunitarios para ayudar a los usuarios a mejorar sus habilidades en AWS OpsWorks. Puede acceder a tutoriales, guías y foros de la comunidad de AWS, donde puede encontrar información valiosa y consejos prácticos de otros usuarios y expertos en la materia.</p>
-<h4 id="recursos-disponibles">Recursos disponibles</h4>
-<table><thead><tr><th>Recurso</th><th>Descripción</th></tr></thead><tbody><tr><td>Foros de la comunidad de AWS</td><td>Buscar respuestas a preguntas frecuentes y obtener ayuda de otros usuarios de AWS OpsWorks</td></tr><tr><td>Tutoriales y guías</td><td>Aprender a utilizar AWS OpsWorks con tutoriales y guías prácticos</td></tr><tr><td>Documentación de AWS OpsWorks</td><td>Obtener más información sobre las características y funcionalidades de los servicios de AWS OpsWorks</td></tr></tbody></table>
-<p>Esperamos que estas opciones de soporte y recursos adicionales hayan sido útiles para obtener ayuda y documentación para los servicios de AWS OpsWorks. Si necesita más ayuda, no dude en consultar la documentación de AWS OpsWorks o contactar con el soporte de AWS.</p>
-<h2 id="resumen">Resumen</h2>
-<p>En resumen, AWS OpsWorks para Chef Automate y Puppet Enterprise son servicios de configuración y automatización de infraestructura que ofrecen una amplia gama de características y beneficios para administrar y configurar servidores en la nube y en entornos locales. Es fundamental entender las diferencias y similitudes entre estos servicios, así como las opciones de soporte y recursos educativos disponibles.</p>
-<p><strong>Características clave</strong></p>
-<ul><li>Automatización de tareas y visibilidad en la configuración de servidores con AWS OpsWorks for Chef Automate</li><li>Gestión de nodos y automatización de tareas a gran escala con AWS OpsWorks for Puppet Enterprise</li></ul>
-<p><strong>Importancia de la migración</strong></p>
-<ul><li>AWS OpsWorks para Puppet Enterprise llegó al final de su vida útil el 31 de marzo de 2024</li><li>Es importante planificar la migración a otras opciones de configuración y automatización de infraestructura</li></ul>
-<p><strong>Recursos adicionales</strong></p>
-<ul><li>Foros de la comunidad de AWS</li><li>Tutoriales y guías</li><li>Documentación de AWS OpsWorks</li></ul>
-<p>Esperamos que esta información haya sido útil para entender los servicios de AWS OpsWorks y planificar la migración a otras opciones de configuración y automatización de infraestructura.</p>
-<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
-<h3 id="%C2%BFcu%C3%A1l-es-el-equivalente-de-aws-de-puppet%3F">¿Cuál es el equivalente de AWS de Puppet?</h3>
-<p>AWS OpsWorks ofrece una forma de utilizar Puppet Enterprise sin necesidad de operar sus propios sistemas de gestión de configuración. Esto significa que puede acceder a todas las características de Puppet Enterprise a través de la consola de Puppet.</p>
-<h3 id="%C2%BFcu%C3%A1l-es-la-diferencia-entre-aws-opsworks-y-chef%3F">¿Cuál es la diferencia entre AWS OpsWorks y Chef?</h3>
-<p>AWS OpsWorks para Chef Automate y AWS OpsWorks Stacks son dos ofertas diferentes. La primera utiliza Chef Automate para automatizar la configuración de servidores, mientras que la segunda utiliza una forma simplificada de Chef para administrar la configuración de servidores.</p>
-<h3 id="%C2%BFqu%C3%A9-hace-amazon-opsworks%3F">¿Qué hace Amazon OpsWorks?</h3>
-<p>AWS OpsWorks es un servicio de gestión de configuración que utiliza Chef y Puppet para automatizar la configuración de servidores en Amazon EC2 o entornos de computación locales.</p>
-<h3 id="%C2%BFcu%C3%A1l-es-la-diferencia-entre-chef-y-opswork%3F">¿Cuál es la diferencia entre Chef y opswork?</h3>
-<table><thead><tr><th>Característica</th><th>Chef</th><th>AWS OpsWorks</th></tr></thead><tbody><tr><td>Automatización de implementación</td><td>Herramienta de código abierto</td><td>Servicio de gestión de configuración completamente administrado</td></tr><tr><td>Flexibilidad</td><td>Mayor flexibilidad en términos de automatización de implementación</td><td>Simplifica la gestión de Chef al manejar la infraestructura</td></tr></tbody></table>
-<h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/estrategias-de-recuperacion-de-desastres-en-aws/">Estrategias de recuperación de desastres en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-aws-cloudformation/">Cómo crear infraestructura como código en AWS con AWS CloudFormation</a></li><li><a href="https://dondeaprendoaws.com/blog/comprendiendo-aws-backup/">Comprendiendo AWS Backup</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li></ul>
+AWS OpsWorks ya no está disponible. AWS clasifica OpsWorks, OpsWorks Stacks, OpsWorks for Chef Automate y OpsWorks for Puppet Enterprise como servicios en cierre completo: ya no forman parte de su cartera ni están disponibles o tienen soporte. Por eso, las instrucciones antiguas para crear una pila, un servidor o un Puppet master de OpsWorks no sirven para iniciar un entorno nuevo.
+
+La [tabla de servicios retirados de AWS](https://docs.aws.amazon.com/general/latest/gr/full_shutdown_services.html) enumera las cuatro entradas con fecha 1 de mayo de 2024. Un [anuncio de AWS sobre la retirada de recursos de OpsWorks Stacks](https://aws.amazon.com/blogs/mt/seamlessly-off-board-from-aws-opsworks-stacks-by-detaching-resources/), publicado el 11 de abril de 2024, había indicado el 26 de mayo de 2024 como fin de vida de Stacks. Las fuentes no explican esa diferencia; ambas fechas ya pasaron y el listado actual confirma que el servicio está retirado.
+
+## Preguntas frecuentes sobre AWS OpsWorks
+
+### ¿Sigue disponible AWS OpsWorks para clientes nuevos o existentes?
+
+No. AWS indica que OpsWorks está en cierre completo y ya no se ofrece ni tiene soporte. Esto abarca las variantes de Stacks, Chef Automate y Puppet Enterprise. La documentación que aún describe cómo crear servidores, capas o recursos es histórica; no la sigas como una guía de alta actual.
+
+### ¿Qué fecha de fin de vida útil debo tomar como válida?
+
+Para comprobar el estado actual, consulta la tabla de servicios retirados de AWS. Si documentas la historia de una migración, conserva la fuente junto a la fecha: el anuncio de abril de 2024 sobre Stacks y el listado general publican fechas distintas. Ninguna de ellas permite usar hoy el servicio.
+
+### ¿Qué pasó con las instancias EC2 que administraba OpsWorks Stacks?
+
+El anuncio de retirada de recursos de abril de 2024 describía cómo desasociar instancias de Stacks y conservarlas en EC2 para administrarlas con otras herramientas. Era un procedimiento previo al cierre, no una operación que puedas iniciar hoy sobre OpsWorks. Revisa por separado qué instancias siguen en tu cuenta, sus aplicaciones, los datos y las copias de seguridad. Una instancia encendida no conserva por sí sola el mantenimiento ni la coordinación de recetas que hacía OpsWorks.
+
+### ¿Qué servicio de AWS reemplaza OpsWorks?
+
+No hay un reemplazo idéntico para todas las variantes. La elección depende de qué función necesitas conservar: configuración del sistema, aprovisionamiento de infraestructura, capacidad de EC2, lanzamiento de versiones de una aplicación o una plataforma de administración de Chef o Puppet.
+
+Para **OpsWorks Stacks**, AWS publicó en 2023 una [guía de migración a Systems Manager con CloudFormation](https://aws.amazon.com/blogs/mt/migrate-your-aws-opsworks-stacks-to-aws-systems-manager/). Su script leía información de las capas y generaba una plantilla inicial. Como requiere consultar OpsWorks y el servicio está retirado, úsala como referencia histórica. Parte de las plantillas, exportaciones, inventario, cookbooks y datos que hayas conservado para reconstruir los recursos con herramientas vigentes.
+
+Para **recetas de Chef**, AWS Systems Manager State Manager incluye el documento <code>AWS-ApplyChefRecipes</code>, que ejecuta recetas en nodos Linux administrados por Systems Manager; AWS indica que no es compatible con macOS. La guía enumera Chef 11 a 18 como versiones que el documento puede instalar. Ese rango describe una integración heredada de AWS, no el estado de soporte de cada versión ni una recomendación para entornos nuevos. La [tabla vigente de Chef](https://docs.chef.io/versions/) marca Chef Infra Client 19.x como LTS, 18.x como obsoleto y las versiones anteriores a 18 como EOL; como AWS-ApplyChefRecipes no incluye el LTS 19.x, no se recomienda como base para un entorno nuevo que requiera una versión mantenida. Además, verifica que el sistema operativo figure entre las [plataformas compatibles de Chef](https://docs.chef.io/platforms/). Las recetas deben funcionar sin Chef Server y AWS no ofrece soporte oficial para cookbooks de Chef Supermarket. Es una opción acotada para cargas que mantienen versiones compatibles, no un reemplazo completo de Chef Automate. Lee las [condiciones de AWS-ApplyChefRecipes](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-state-manager-chef.html) antes de adaptar cookbooks.
+
+Para **Chef Automate**, Chef conserva una guía de migración desde OpsWorks a Chef SaaS que exige que OpsWorks siga ejecutando Chef Automate 2.0. Como AWS ya retiró el servicio, esa guía no confirma que una cuenta sin acceso al servidor pueda completar hoy ese recorrido. Si conservas copias de seguridad, consulta con Chef qué opciones admite en tu caso antes de tratar esa ruta como disponible. Revisa los [requisitos publicados por Chef](https://docs.chef.io/saas/opsworks_migration/).
+
+Para **Puppet Enterprise**, Puppet documenta una AMI para AWS Marketplace con licencia propia. Esa opción requiere evaluar operación, soporte y licencia con Puppet; no migra por sí sola los datos o la configuración de OpsWorks. Consulta la [integración actual de Puppet con AWS](https://www.puppet.com/integrations/aws). Systems Manager State Manager no ejecuta manifiestos Puppet por el solo hecho de ser una alternativa a OpsWorks: confirma que cada herramienta elegida cubra el trabajo concreto.
+
+Si el objetivo es reconstruir recursos, una plantilla de infraestructura como código y un servicio de despliegue resuelven partes distintas. Esta guía del sitio explica [controles de seguridad para IaC en Terraform y CloudFormation](/blog/9-mejores-practicas-de-seguridad-para-iac-en-aws/). Para entender el flujo histórico de capas, recetas y despliegues de Stacks, continúa con [cómo funcionaba OpsWorks Stacks y qué piezas reemplazar](/blog/aws-opsworks-automatiza-despliegues-con-chef/).
+
+### ¿Puedo seguir tutoriales antiguos para crear una pila de OpsWorks?
+
+No. El servicio está retirado y sus consolas, API y CLI ya no están disponibles. Los documentos antiguos todavía pueden explicar cómo funcionaba una carga existente, pero no son instrucciones para alta o administración actuales. La guía de [flujo histórico de OpsWorks Stacks](https://dondeaprendoaws.com/blog/aws-opsworks-automatiza-despliegues-con-chef/) separa esos conceptos de sus alternativas actuales.
+
+Para escuchar una charla que reúne los temas de OpsWorks, Systems Manager y CloudFormation, puedes abrir esta [grabación histórica de AWS Girls, publicada el 7 de noviembre de 2021](https://www.youtube.com/watch?v=FCcAJYnlsPs). Es anterior al cierre de OpsWorks y sirve como archivo, no como tutorial vigente.
+
+## Preguntas técnicas y comunidad
+
+Para dudas sobre servicios vigentes de AWS, [AWS re:Post](https://repost.aws/) reúne preguntas técnicas y respuestas de la comunidad. Para compartir el proceso de migración con otras personas y consultar charlas o grupos locales, visita el [AWS User Group Perú](https://awsugperu.cloud/), que mantiene un directorio de comunidades y una agenda. Es una comunidad general de AWS, no un canal de soporte específico para OpsWorks.

@@ -203,7 +203,7 @@ for (const article of archive) {
       }
     });
   }
-  assert.ok(html.includes(`<h1>${article.title}</h1>`), `Title mismatch: ${article.slug}`);
+  assert.equal(decode(html.match(/<h1>([\s\S]*?)<\/h1>/)?.[1] ?? ''), sourceData.title, `Title matches current frontmatter: ${article.slug}`);
   const description = html.match(/<meta name="description" content="([^"]*)"/);
   assert.ok(decode(description?.[1] ?? '').length > 0, `Description missing: ${article.slug}`);
   const indexed = expected.find(({ slug }) => slug === article.slug);
@@ -232,7 +232,7 @@ for (const article of archive) {
   assert.ok(ogFile.startsWith(`${dist}/`) && existsSync(ogFile), `Social image file missing: ${article.slug}`);
   assert.match(html, /<meta name="twitter:card" content="summary_large_image"/);
   assert.ok(html.includes(`<meta name="twitter:url" content="https://dondeaprendoaws.com/blog/${article.slug}/"`));
-  assert.equal(decode(html.match(/<meta name="twitter:title" content="([^"]*)"/)?.[1] ?? ''), article.title);
+  assert.equal(decode(html.match(/<meta name="twitter:title" content="([^"]*)"/)?.[1] ?? ''), sourceData.title);
   assert.equal(decode(html.match(/<meta name="twitter:description" content="([^"]*)"/)?.[1] ?? ''), decode(description?.[1] ?? ''));
   assert.equal(html.match(/<meta name="twitter:image" content="([^"]+)"/)?.[1], ogImage);
   assert.equal(decode(html.match(/<meta name="twitter:image:alt" content="([^"]*)"/)?.[1] ?? ''), expectedSocialAlt);
