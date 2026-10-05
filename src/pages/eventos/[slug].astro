@@ -50,10 +50,10 @@ if (!path || (pageType === 'country' && (!countryName || communities.length === 
   throw new Error(`No event page is available for ${country ?? collectionKey ?? 'unknown route'}`);
 }
 const title = collection?.title ?? `Eventos AWS en ${countryName} | ¿Dónde Aprendo AWS?`;
-const description = collection?.description ?? `Eventos AWS en ${countryName}, organizados por comunidades de ese país. Encontrá encuentros en línea, presenciales e híbridos y consultá fechas, horarios e inscripción.`;
+const description = collection?.description ?? `Eventos AWS en ${countryName}, organizados por comunidades de ese país. Encuentra encuentros en línea, presenciales e híbridos y consulta fechas, horarios e inscripción.`;
 const canonical = new URL(path, 'https://dondeaprendoaws.com').href;
 const heading = collection ? collection.label : `Eventos AWS en ${countryName}`;
-const intro = collection?.intro ?? `Consultá próximos eventos organizados por comunidades AWS de ${countryName}: modalidad, fechas, horarios e inscripción.`;
+const intro = collection?.intro ?? `Consulta próximos eventos organizados por comunidades AWS de ${countryName}: modalidad, fechas, horarios e inscripción.`;
 const collectionModes = collection?.modes as readonly CatalogEvent['mode'][] | undefined;
 const collectionLinks = [
   { path: '/eventos/', label: 'Todos los eventos' },
@@ -66,7 +66,7 @@ const faqItems = eventFaqItems({ countryName, collectionKey });
 
 <BaseLayout title={title} description={description} canonical={canonical}>
   <SiteHeader />
-  <main class="event-country-page event-page--agenda site-container">
+  <main id="contenido" tabindex="-1" class="event-country-page event-page--agenda site-container">
     <nav class="community-breadcrumb" aria-label="Ruta de navegación">
       <ol>
         <li><a href="/">Inicio</a></li>
@@ -74,10 +74,10 @@ const faqItems = eventFaqItems({ countryName, collectionKey });
         <li aria-current="page">{collection?.label ?? countryName}</li>
       </ol>
     </nav>
-    <div class="directory-hero">
+    <header class="directory-hero">
       <h1>{heading}</h1>
       <p>{intro}</p>
-    </div>
+    </header>
     <CountryNavigation pages={countryPages} section="eventos" currentCountry={country} />
     <CollectionNavigation links={collectionLinks} currentPath={collection?.path} label="Colecciones de eventos" />
     <EventAgenda events={events} resources={resources} country={country} modes={collectionModes} />

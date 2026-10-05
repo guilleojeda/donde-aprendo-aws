@@ -4,7 +4,10 @@ const contributorUrl = '/#cta_form-01-839181';
 
 <header class="site-header">
   <nav class="site-nav site-container" aria-label="Navegación principal">
-    <a class="site-nav__brand" href="/" aria-label="Inicio: ¿Dónde Aprendo AWS?">¿Dónde Aprendo AWS?</a>
+    <a class="site-nav__brand" href="/" aria-label="Inicio: ¿Dónde Aprendo AWS?">
+      <img src="/assets/site-logo.svg" alt="" width="34" height="40" />
+      <span>¿Dónde Aprendo AWS?</span>
+    </a>
 
     <button
       class="site-nav__toggle"
@@ -25,31 +28,62 @@ const contributorUrl = '/#cta_form-01-839181';
       <a href="/eventos/">Eventos</a>
       <a href="/blog/">Blog</a>
       <a href="/buscar/">Buscar</a>
-      <a class="site-nav__cta" href={contributorUrl}>Sumá un recurso</a>
+      <a class="site-nav__cta" href={contributorUrl}>Comparte un recurso</a>
     </div>
   </nav>
 </header>
 
 <script>
-  const toggle = document.querySelector('.site-nav__toggle');
-  const menu = document.querySelector('#site-menu');
+  const toggle = document.querySelector<HTMLButtonElement>('.site-nav__toggle');
+  const menu = document.querySelector<HTMLDivElement>('#site-menu');
 
   if (toggle && menu) {
+    const closeMenu = (restoreFocus = false) => {
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.setAttribute('aria-label', 'Abrir menú');
+      menu.classList.remove('is-open');
+      document.body.classList.remove('menu-is-open');
+      if (restoreFocus) toggle.focus();
+    };
+
     toggle.addEventListener('click', () => {
       const isOpen = toggle.getAttribute('aria-expanded') === 'true';
-      toggle.setAttribute('aria-expanded', String(!isOpen));
-      toggle.setAttribute('aria-label', isOpen ? 'Abrir menú' : 'Cerrar menú');
-      menu.classList.toggle('is-open', !isOpen);
-      document.body.classList.toggle('menu-is-open', !isOpen);
+      if (isOpen) {
+        closeMenu();
+      } else {
+        toggle.setAttribute('aria-expanded', 'true');
+        toggle.setAttribute('aria-label', 'Cerrar menú');
+        menu.classList.add('is-open');
+        document.body.classList.add('menu-is-open');
+      }
     });
 
     menu.querySelectorAll('a').forEach((link) => {
       link.addEventListener('click', () => {
-        toggle.setAttribute('aria-expanded', 'false');
-        toggle.setAttribute('aria-label', 'Abrir menú');
-        menu.classList.remove('is-open');
-        document.body.classList.remove('menu-is-open');
+        closeMenu();
       });
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (toggle.getAttribute('aria-expanded') !== 'true') return;
+      if (event.key === 'Escape') {
+        closeMenu(true);
+        return;
+      }
+      if (event.key !== 'Tab') return;
+
+      const focusable = [toggle, ...menu.querySelectorAll<HTMLAnchorElement>('a[href]')];
+      const activeIndex = focusable.indexOf(document.activeElement as HTMLButtonElement | HTMLAnchorElement);
+      if (activeIndex === -1) {
+        event.preventDefault();
+        toggle.focus();
+      } else if (event.shiftKey && activeIndex === 0) {
+        event.preventDefault();
+        focusable[focusable.length - 1]?.focus();
+      } else if (!event.shiftKey && activeIndex === focusable.length - 1) {
+        event.preventDefault();
+        toggle.focus();
+      }
     });
   }
 </script>

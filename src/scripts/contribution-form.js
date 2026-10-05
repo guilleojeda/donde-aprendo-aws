@@ -7,6 +7,52 @@ if (form) {
   const kindSelect = form.querySelector('[data-contribution-kind]');
   const formatSelect = form.querySelector('[data-contribution-format]');
   const topicBoxes = [...form.querySelectorAll('[data-contribution-topic]')];
+  const fieldError = (field) => [...form.querySelectorAll('[data-contribution-error]')]
+    .find((error) => error.id === `${field.id}-error`);
+  const fieldMessage = (field) => {
+    if (field.validity?.valueMissing) {
+      return field.tagName?.toLowerCase() === 'select' ? 'Selecciona una opción.' : 'Completa este campo.';
+    }
+    if (field.validity?.typeMismatch) {
+      if (field.type === 'email') return 'Escribe un correo electrónico válido.';
+      if (field.type === 'url') return 'Escribe una URL válida.';
+    }
+    return 'Revisa este campo.';
+  };
+  const setFieldError = (field, visible) => {
+    const error = fieldError(field);
+    if (!error) return;
+
+    const describedBy = (field.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean);
+    if (visible) {
+      error.textContent = fieldMessage(field);
+      error.hidden = false;
+      field.setAttribute('aria-invalid', 'true');
+      if (!describedBy.includes(error.id)) describedBy.push(error.id);
+      field.setAttribute('aria-describedby', describedBy.join(' '));
+      return;
+    }
+
+    error.textContent = '';
+    error.hidden = true;
+    field.removeAttribute('aria-invalid');
+    const remainingDescriptions = describedBy.filter((id) => id !== error.id);
+    if (remainingDescriptions.length) field.setAttribute('aria-describedby', remainingDescriptions.join(' '));
+    else field.removeAttribute('aria-describedby');
+  };
+  const updateVisibleFieldError = (event) => {
+    const field = event.target;
+    const error = field?.id ? fieldError(field) : null;
+    if (!error || error.hidden || !field.validity) return;
+    setFieldError(field, !field.validity.valid);
+  };
+
+  form.addEventListener('invalid', (event) => {
+    const field = event.target;
+    if (field?.id && fieldError(field)) setFieldError(field, true);
+  }, true);
+  form.addEventListener('input', updateVisibleFieldError);
+  form.addEventListener('change', updateVisibleFieldError);
 
   kindSelect?.addEventListener('change', () => {
     if (formatSelect) {
@@ -125,7 +171,7 @@ if (form) {
     } finally {
       submitButton.disabled = false;
       submitButton.removeAttribute('aria-busy');
-      submitButton.textContent = 'Agregar mi contenido';
+      submitButton.textContent = 'Enviar para revisión';
     }
   });
 }

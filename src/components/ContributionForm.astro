@@ -12,8 +12,8 @@ if (import.meta.env.PROD && !submissionApiUrl) {
 <section class="contribution-section" id="cta_form-01-839181" aria-labelledby="contribution-title">
   <div class="site-container site-container--small">
     <div class="section-heading contribution-heading">
-      <h2 id="contribution-title">Agregar Mi Contenido</h2>
-      <p>Comparte recursos en Español para ayudar a otras personas a aprender AWS.</p>
+      <h2 id="contribution-title">Comparte un recurso</h2>
+      <p>Comparte recursos en español para ayudar a otras personas a aprender AWS.</p>
     </div>
 
     <form
@@ -36,8 +36,10 @@ if (import.meta.env.PROD && !submissionApiUrl) {
             autocomplete="email"
             placeholder="tucorreo@tudominio.com"
             maxlength="254"
+            aria-describedby="contribution-help contribution-email-error"
             required
           />
+          <span class="contribution-form__error" id="contribution-email-error" data-contribution-error hidden></span>
         </div>
 
         <div class="contribution-form__field">
@@ -47,14 +49,16 @@ if (import.meta.env.PROD && !submissionApiUrl) {
             name="full_name"
             type="text"
             autocomplete="name"
-            placeholder="Ingresa tu nombre completo"
+            placeholder="Escribe tu nombre completo"
             maxlength="160"
+            aria-describedby="contribution-help contribution-full-name-error"
             required
           />
+          <span class="contribution-form__error" id="contribution-full-name-error" data-contribution-error hidden></span>
         </div>
 
         <div class="contribution-form__field contribution-form__field--full">
-          <label for="contribution-title-field">Título o Nombre</label>
+          <label for="contribution-title-field">Título o nombre</label>
           <input
             id="contribution-title-field"
             name="title"
@@ -62,8 +66,10 @@ if (import.meta.env.PROD && !submissionApiUrl) {
             autocomplete="off"
             placeholder="Por ejemplo: AWS IAM explicado en 5 minutos"
             maxlength="240"
+            aria-describedby="contribution-help contribution-title-field-error"
             required
           />
+          <span class="contribution-form__error" id="contribution-title-field-error" data-contribution-error hidden></span>
         </div>
 
         <div class="contribution-form__field contribution-form__field--full">
@@ -76,8 +82,10 @@ if (import.meta.env.PROD && !submissionApiUrl) {
             autocomplete="url"
             placeholder="https://tucontenido.tudominio.com"
             maxlength="2048"
+            aria-describedby="contribution-help contribution-url-error"
             required
           />
+          <span class="contribution-form__error" id="contribution-url-error" data-contribution-error hidden></span>
         </div>
 
         <div class="contribution-form__field contribution-form__field--full">
@@ -88,26 +96,30 @@ if (import.meta.env.PROD && !submissionApiUrl) {
             rows="5"
             placeholder="Por ejemplo: Te explico en 5 minutos cómo funciona AWS IAM y cómo darle permisos a los usuarios que necesiten acceder a tu cuenta de AWS"
             maxlength="8000"
+            aria-describedby="contribution-help contribution-text-error"
             required
           ></textarea>
+          <span class="contribution-form__error" id="contribution-text-error" data-contribution-error hidden></span>
         </div>
 
         <div class="contribution-form__field contribution-form__field--full">
           <label for="contribution-kind">¿Qué compartes?</label>
-          <select id="contribution-kind" name="kind" data-contribution-kind required>
+          <select id="contribution-kind" name="kind" data-contribution-kind aria-describedby="contribution-help contribution-kind-error" required>
             <option value="">Selecciona una opción</option>
             {Object.entries(KIND_LABELS).map(([kind, label]) => <option value={kind}>{label}</option>)}
           </select>
+          <span class="contribution-form__error" id="contribution-kind-error" data-contribution-error hidden></span>
         </div>
 
         <div class="contribution-form__field">
           <label for="contribution-format">Formato</label>
-          <select id="contribution-format" name="format" data-contribution-format required>
+          <select id="contribution-format" name="format" data-contribution-format aria-describedby="contribution-help contribution-format-error" required>
             <option value="">Selecciona un formato</option>
             {Object.entries(FORMATS_BY_KIND).flatMap(([kind, formats]) => formats.map((format) => (
               <option value={format} data-format-kind={kind} hidden disabled>{format}</option>
             )))}
           </select>
+          <span class="contribution-form__error" id="contribution-format-error" data-contribution-error hidden></span>
         </div>
 
         <fieldset class="contribution-form__topics contribution-form__field--full">
@@ -121,12 +133,12 @@ if (import.meta.env.PROD && !submissionApiUrl) {
       </div>
 
       <div class="contribution-form__honeypot" aria-hidden="true">
-        <label for="contribution-website">Website</label>
+        <label for="contribution-website">Sitio web</label>
         <input id="contribution-website" name="website" type="text" tabindex="-1" autocomplete="off" />
       </div>
 
       <button class="button button--dark contribution-form__submit" type="submit" data-contribution-submit>
-        Agregar mi contenido
+        Enviar para revisión
       </button>
 
       <p

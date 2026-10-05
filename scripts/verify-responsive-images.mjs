@@ -97,6 +97,12 @@ for (const page of htmlFiles) {
     const attributes = getAttributes(tag);
     const src = attributes.get('src');
     const sourceFile = localFile(src, dist);
+    if (/^\/assets\/site-logo(?:-(?:mono|white))?\.svg$/.test(src)) {
+      assert.ok(attributes.has('alt'), `Brand image alt is missing: ${src}`);
+      assert.ok(Number(attributes.get('width')) > 0 && Number(attributes.get('height')) > 0, `Brand dimensions missing: ${src}`);
+      assert.match(readFileSync(sourceFile, 'utf8'), /viewBox="[^"]+"/, `Scalable brand viewBox missing: ${src}`);
+      continue;
+    }
     const source = await imageDimensions(sourceFile);
     const sourceBytes = statSync(sourceFile).size;
     assert.ok(attributes.has('alt'), `Image alt attribute is missing: ${src}`);
@@ -115,8 +121,6 @@ for (const page of htmlFiles) {
       else assert.match(attributes.get('sizes'), /^\(max-width: 500px\)/);
     } else if (pagePath.startsWith('blog/')) {
       assert.match(attributes.get('sizes'), /^\(max-width: (?:500|710)px\)/, `Unexpected article image size hint: ${src}`);
-    } else if (src === '/assets/simple-aws-logo.png') {
-      assert.equal(attributes.get('sizes'), '130px');
     }
 
     const sourceExt = source.format === 'jpeg' ? 'jpg' : source.format;
@@ -126,10 +130,6 @@ for (const page of htmlFiles) {
       label: `${pagePath} ${src}`,
       format: source.format,
     });
-    if (src === '/assets/simple-aws-logo.png') {
-      assert.equal(attributes.get('sizes'), '130px');
-      assert.deepEqual(fallbackEntries.map(({ width }) => width), [130, 260, 390], 'The fixed-size partner logo should request 1x, 2x, or 3x pixels.');
-    }
     for (const entry of fallbackEntries) {
       const file = localFile(entry.url, dist);
       assert.ok(statSync(file).size <= sourceBytes, `Fallback candidate must not exceed the original file: ${entry.url}`);

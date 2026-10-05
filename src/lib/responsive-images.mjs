@@ -7,7 +7,6 @@ import sharp from 'sharp';
 const candidateWidths = [360, 640, 720, 960, 1280, 1360, 1920];
 const responsiveAssetDirectory = 'assets/responsive-images';
 const imagePipelineVersion = 'responsive-images-v2-q90-webp10-byte-ceiling';
-const supportedSourcePaths = new Set(['/assets/simple-aws-logo.png']);
 
 const decodeAttribute = (value) => value
   .replaceAll('&amp;', '&')
@@ -53,7 +52,7 @@ function sourcePathFor(src, publicDir) {
 }
 
 function isManagedImage(src) {
-  return src.startsWith('/assets/blog/') || supportedSourcePaths.has(src);
+  return src.startsWith('/assets/blog/');
 }
 
 async function listHtmlFiles(directory) {
@@ -86,15 +85,12 @@ function imageSizesFor({ pageKind, firstImage, html, offset }) {
     return '(max-width: 710px) calc(100vw - 30px), 680px';
   }
 
-  if (anchor.includes('class="partner-logo"')) return '130px';
   return '100vw';
 }
 
-function outputWidths(width, src) {
-  const isPartnerLogo = src === '/assets/simple-aws-logo.png';
-  const targets = isPartnerLogo ? [130, 260, 390] : candidateWidths;
-  const widths = targets.filter((candidate) => candidate < width);
-  if (width <= targets.at(-1) || !isPartnerLogo) widths.push(width);
+function outputWidths(width) {
+  const widths = candidateWidths.filter((candidate) => candidate < width);
+  widths.push(width);
   return [...new Set(widths)].sort((a, b) => a - b);
 }
 
@@ -132,7 +128,7 @@ async function createVariants(src, publicDir, outputDir) {
   } else if (detectedFormat === 'png') {
     webpEncoder = (pipeline) => pipeline.webp({ lossless: true, effort: 4 });
   }
-  const fallbackWidths = outputWidths(width, src);
+  const fallbackWidths = outputWidths(width);
   let fallbackVariants = [];
   for (const variantWidth of fallbackWidths) {
     let fallbackBuffer;
@@ -157,11 +153,6 @@ async function createVariants(src, publicDir, outputDir) {
   }
 
   fallbackVariants = fallbackVariants.filter(({ bytes }) => bytes <= sourceStat.size);
-  if (src === '/assets/simple-aws-logo.png'
-    && !fallbackVariants.some((variant) => variant.width === width)
-    && fallbackVariants.length < fallbackWidths.length) {
-    fallbackVariants.push({ width, url: src, buffer: null, bytes: sourceStat.size });
-  }
   fallbackVariants.sort((a, b) => a.width - b.width);
 
   for (const variant of fallbackVariants) {

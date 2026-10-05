@@ -3,7 +3,7 @@ export function communityFaqItems({ countryName, agendaPath = '/eventos/' } = {}
   if (!countryName) return [
     {
       question: '¿Cómo me sumo a una comunidad AWS?',
-      answer: 'Abrí la ficha del grupo y seguí los enlaces que publica para conocer sus canales y cómo participar.',
+      answer: 'Abre la ficha del grupo y sigue los enlaces que publica para conocer sus canales y cómo participar.',
     },
     {
       question: '¿Dónde encuentro próximos eventos de AWS?',
@@ -14,7 +14,7 @@ export function communityFaqItems({ countryName, agendaPath = '/eventos/' } = {}
   return [
     {
       question: `¿Cómo me sumo a una comunidad AWS en ${countryName}?`,
-      answer: 'Abrí la ficha del grupo y seguí los enlaces que publica para conocer sus canales y cómo participar.',
+      answer: 'Abre la ficha del grupo y sigue los enlaces que publica para conocer sus canales y cómo participar.',
     },
     {
       question: `¿Dónde encuentro los próximos eventos de las comunidades de ${countryName}?`,
@@ -28,7 +28,7 @@ export function eventFaqItems({ countryName, collectionKey } = {}) {
   if (countryName) return [
     {
       question: `¿Cómo me inscribo a un evento en ${countryName}?`,
-      answer: 'Usá el enlace Inscribirme de la ficha; la inscripción y sus condiciones se gestionan desde la página del organizador.',
+      answer: 'Usa el enlace Inscribirme de la ficha; la inscripción y sus condiciones se gestionan desde la página del organizador.',
     },
     {
       question: '¿En qué zona horaria se muestran los horarios?',
@@ -36,13 +36,13 @@ export function eventFaqItems({ countryName, collectionKey } = {}) {
     },
     {
       question: '¿Puedo guardar un evento en mi calendario?',
-      answer: 'Descargá el archivo .ics de la ficha. Si el organizador actualiza los datos, consultá la página de inscripción.',
+      answer: 'Descarga el archivo .ics de la ficha. Si el organizador actualiza los datos, consulta la página de inscripción.',
     },
   ];
   if (collectionKey === 'online') return [
     {
       question: '¿Cómo recibo el acceso a un evento en línea?',
-      answer: 'Abrí Inscribirme en la ficha para consultar el registro y las instrucciones que publique su organizador.',
+      answer: 'Abre Inscribirme en la ficha para consultar el registro y las instrucciones que publique su organizador.',
     },
     {
       question: '¿En qué zona horaria se muestran los horarios?',
@@ -50,27 +50,27 @@ export function eventFaqItems({ countryName, collectionKey } = {}) {
     },
     {
       question: '¿Puedo guardar la fecha en mi calendario?',
-      answer: 'Sí. Descargá el archivo .ics de la ficha y revisá la página de inscripción si el organizador anuncia cambios.',
+      answer: 'Sí. Descarga el archivo .ics de la ficha y revisa la página de inscripción si el organizador anuncia cambios.',
     },
   ];
   if (collectionKey === 'presenciales') return [
     {
       question: '¿Dónde consulto el lugar del encuentro?',
-      answer: 'Revisá el campo Lugar de cada ficha; la modalidad indica si el encuentro es presencial o híbrido.',
+      answer: 'Revisa el campo Lugar de cada ficha; la modalidad indica si el encuentro es presencial o híbrido.',
     },
     {
       question: '¿Cómo me inscribo?',
-      answer: 'Usá Inscribirme en la ficha para abrir el registro y revisar las indicaciones del organizador.',
+      answer: 'Usa Inscribirme en la ficha para abrir el registro y revisar las indicaciones del organizador.',
     },
     {
       question: '¿Puedo guardar la fecha en mi calendario?',
-      answer: 'Descargá el archivo .ics de la ficha y consultá la página de inscripción si el organizador publica cambios.',
+      answer: 'Descarga el archivo .ics de la ficha y consulta la página de inscripción si el organizador publica cambios.',
     },
   ];
   return [
     {
       question: '¿Cómo me inscribo a un evento?',
-      answer: 'Usá el enlace Inscribirme de la ficha para abrir la página de registro del organizador.',
+      answer: 'Usa el enlace Inscribirme de la ficha para abrir la página de registro del organizador.',
     },
     {
       question: '¿En qué zona horaria se muestran los horarios?',
@@ -78,7 +78,7 @@ export function eventFaqItems({ countryName, collectionKey } = {}) {
     },
     {
       question: '¿Puedo guardar un evento en mi calendario?',
-      answer: 'Sí. Descargá el archivo .ics de la ficha y consultá luego la página de inscripción por si el organizador publica cambios.',
+      answer: 'Sí. Descarga el archivo .ics de la ficha y consulta luego la página de inscripción por si el organizador publica cambios.',
     },
   ];
 }

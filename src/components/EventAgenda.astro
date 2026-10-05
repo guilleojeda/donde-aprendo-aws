@@ -67,7 +67,7 @@ const emptyFacts = countryName
   : eventModePhrase
     ? `No hay próximos eventos ${eventModePhrase} publicados.`
   : 'No hay próximos eventos publicados en esta agenda.';
-const emptyHint = 'Volvé a consultar esta agenda para ver nuevas fechas.';
+const emptyHint = 'Vuelve a consultar esta agenda para ver nuevas fechas.';
 const eventFactsText = eventAgendaSummaryText(upcoming, renderTime, { intro: eventFactsIntro, emptyMessage: emptyFacts });
 const pastRecorded = events.filter((event) => Date.parse(event.endsAt) <= Date.now()
   && (!modes || modes.includes(event.mode))

@@ -16,25 +16,25 @@ const events = catalog.filter((record): record is CatalogEvent => record.recordT
 const collectionLinks = RESOURCE_COLLECTIONS.filter((collection) => collection.kind === 'source')
   .map(({ path, label }) => ({ path, label }));
 const guide = {
-  heading: 'Elegí a quién y cómo seguir',
-  body: 'Canales y autores comparten AWS con formatos y enfoques distintos. Explorá las publicaciones y elegí las fuentes que coincidan con los temas que seguís y el tiempo que querés dedicar.',
+  heading: 'Elige a quién seguir y cómo hacerlo',
+  body: 'Canales y autores comparten AWS con formatos y enfoques distintos. Explora las publicaciones y elige las fuentes que coincidan con los temas que sigues y el tiempo que quieres dedicar.',
   points: [
-    'Los canales reúnen videos; los blogs publican guías y artículos; los podcasts ofrecen episodios de audio.',
-    'Las newsletters llevan una selección de novedades y lecturas al correo.',
-    'Para encontrar una explicación concreta, consultá también los cursos, videos y artículos del catálogo.',
+    'Los canales reúnen videos; los blogs publican guías y artículos; los pódcast ofrecen episodios de audio.',
+    'Los boletines llevan una selección de novedades y lecturas a tu correo.',
+    'Para encontrar una explicación concreta, consulta también los cursos, videos y artículos del catálogo.',
   ],
 };
 ---
-<BaseLayout title="Creadores, canales y blogs para aprender AWS en español | ¿Dónde Aprendo AWS?" description="Encontrá creadores, canales, blogs, podcasts y newsletters para seguir AWS en español." canonical="https://dondeaprendoaws.com/creadores/">
+<BaseLayout title="Creadores, canales y blogs para aprender AWS en español | ¿Dónde Aprendo AWS?" description="Encuentra creadores, canales, blogs, pódcast y boletines para seguir AWS en español." canonical="https://dondeaprendoaws.com/creadores/">
   <SiteHeader />
-  <Directory title="Creadores y canales de AWS en español" intro="Encontrá personas y publicaciones que comparten conocimientos de AWS en español. Explorá canales, blogs, podcasts y newsletters para seguir los temas y formatos que te interesan." kind="source" resources={resources} allResources={allResources} events={events}>
+  <Directory title="Creadores y canales de AWS en español" intro="Encuentra personas y publicaciones que comparten conocimientos de AWS en español. Explora canales, blogs, pódcast y boletines para seguir los temas y formatos que te interesan." kind="source" resources={resources} allResources={allResources} events={events}>
     <div slot="before-filters" class="collection-page__editorial">
       <CollectionNavigation links={collectionLinks} />
     </div>
     <div slot="after-results" class="collection-page__after-results">
       <CollectionGuide guide={guide} links={[]} />
       <p class="collection-page__catalog-note">
-        Para estudiar con materiales concretos, <a href="/aprender/">explorá la biblioteca de cursos, videos y artículos</a>.
+        Para estudiar con materiales concretos, <a href="/aprender/">explora la biblioteca de cursos, videos y artículos</a>.
       </p>
     </div>
   </Directory>

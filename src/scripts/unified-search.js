@@ -52,7 +52,7 @@ form?.addEventListener('submit', async (event) => {
   const version = ++searchVersion;
   const query = queryInput.value.trim();
   if (!query) {
-    status.textContent = 'Escribí una búsqueda para ver resultados.';
+    status.textContent = 'Escribe una búsqueda para ver resultados.';
     return;
   }
   const type = typeSelect.value;
@@ -66,13 +66,13 @@ form?.addEventListener('submit', async (event) => {
     shown = 0;
     status.textContent = matches.length
       ? `${matches.length} ${matches.length === 1 ? 'resultado' : 'resultados'}.`
-      : 'No encontramos resultados. Probá con otras palabras o elegí «Todo el sitio».';
+      : 'No encontramos resultados. Prueba con otras palabras o elige «Todo el sitio».';
     showNextPage();
     recordAggregateSearch(query, type, matches.length);
   } catch {
     if (version !== searchVersion) return;
     indexPromise = undefined;
-    status.textContent = 'La búsqueda no está disponible en este momento. Intentá de nuevo.';
+    status.textContent = 'La búsqueda no está disponible en este momento. Intenta de nuevo.';
   }
 });
 

@@ -203,10 +203,10 @@ test('selected collection pages expose only their useful FAQ and early route gui
   assert.ok(courseQuestions.includes('¿Cómo encuentro cursos de AWS para mi nivel?'));
   assert.equal(courseQuestions.some((question) => /cuánto dura/i.test(question)), false);
   const levelFaq = byPath.get('/aprender/cursos/').faq.items.find(({ question }) => question === '¿Cómo encuentro cursos de AWS para mi nivel?');
-  assert.equal(levelFaq.answer, 'Abrí Filtros adicionales y elegí el nivel que buscás. Si estás empezando, podés elegir Inicial. Cuando una ficha no indique nivel, consultá su descripción y el programa del proveedor antes de decidir.');
+  assert.equal(levelFaq.answer, 'Abre Filtros adicionales y elige el nivel que buscas. Si estás empezando, puedes elegir Inicial. Cuando una ficha no indique nivel, consulta su descripción y el programa del proveedor antes de decidir.');
   assert.doesNotMatch(levelFaq.answer, /cuenta|duraci[oó]n|cargos|precio/iu);
   assert.equal(byPath.get('/aprender/certificaciones/').intro,
-    'Encontrá materiales de preparación, sesiones de estudio y experiencias sobre distintas certificaciones AWS. Elegí un examen o explorá los recursos generales.');
+    'Encuentra materiales de preparación, sesiones de estudio y experiencias sobre distintas certificaciones AWS. Elige un examen o explora los recursos generales.');
   assert.ok(groupCertificationResources([{ id: 'x', title: 'Solutions Architect' }])
     .find(({ id }) => id === 'solutions-architect').description.includes('conocer el examen al que corresponde'));
   for (const [path, expectedRoute] of [

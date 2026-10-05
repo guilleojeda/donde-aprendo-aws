@@ -31,14 +31,14 @@ const resources = allResources.filter((record) => record.kind === 'community' &&
 const events = catalog.filter((record): record is CatalogEvent => record.recordType === 'event');
 const countryLabel = COUNTRY_LABELS[country as keyof typeof COUNTRY_LABELS];
 const formatSummary = communityFormatSummary(resources);
-const intro = `Conocé las comunidades AWS de ${countryLabel} y los temas que publican.`;
+const intro = `Conoce las comunidades AWS de ${countryLabel} y los temas que publican.`;
 const title = `Comunidades AWS en ${countryLabel} | ¿Dónde Aprendo AWS?`;
-const description = `Comunidades AWS en ${countryLabel}: ${formatSummary}. Conocé cada grupo y consultá sus enlaces para participar.`;
+const description = `Comunidades AWS en ${countryLabel}: ${formatSummary}. Conoce cada grupo y consulta sus enlaces para participar.`;
 const communityCollections = RESOURCE_COLLECTIONS.filter((collection) => collection.kind === 'community');
 const communityCollectionLinks = communityCollections.map(({ path, label }) => ({ path, label }));
 const guide = {
   heading: `¿Qué tipos de comunidad AWS hay en ${countryLabel}?`,
-  body: `Usá el filtro Formato para comparar los grupos publicados en ${countryLabel}; cada ficha muestra sus temas y enlaces disponibles.`,
+  body: `Usa el filtro Formato para comparar los grupos publicados en ${countryLabel}; cada ficha muestra sus temas y enlaces disponibles.`,
   points: [
     ...(resources.some((resource) => resource.format === 'User Group') ? ['Los AWS User Groups reúnen a personas interesadas en compartir experiencias y aprender sobre AWS.'] : []),
     ...(resources.some((resource) => resource.format === 'Student Builder Group') ? ['Los Student Builder Groups son comunidades para aprender y construir con otros estudiantes.'] : []),
