@@ -1,490 +1,131 @@
 ---
-title: "Cifrado de datos con AWS KMS: guía práctica"
-description: "Aprende a cifrar y descifrar datos de forma segura en la nube con AWS Key Management Service (KMS). Sigue los pasos detallados y las mejores prácticas para proteger tus datos con AWS KMS."
+title: "Cómo cifrar datos con AWS KMS: claves de datos y S3"
+description: "Aprende cuándo usar AWS KMS, cómo funciona el cifrado de sobre y qué permisos requiere SSE-KMS en S3. Revisa el límite de 4 KiB, la rotación y AccessDenied."
 author: "guille-ojeda"
 publishedAt: "2024-05-16"
 publishedTimestamp: "2024-05-16T14:36:00.762Z"
+modifiedTimestamp: "2026-10-05T20:34:07-03:00"
+review:
+  date: "2026-10-05"
 cover: "/assets/blog/editorial-seguridad.png"
 coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-seguridad.png"
 related:
-  - title: "Crear un cluster en Amazon Redshift"
-    url: "https://dondeaprendoaws.com/blog/crear-un-cluster-en-amazon-redshift/"
-  - title: "10 preguntas frecuentes sobre machine learning en AWS"
-    url: "https://dondeaprendoaws.com/blog/10-preguntas-frecuentes-sobre-machine-learning-en-aws/"
-  - title: "Mejores prácticas para Amazon EKS"
-    url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-eks/"
-
+  - title: "Seguridad en AWS para principiantes: fundamentos y responsabilidad compartida"
+    url: "https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/"
+  - title: "Automatizar el cumplimiento en AWS: controles, evidencia y remediación"
+    url: "https://dondeaprendoaws.com/blog/checklist-para-automatizar-cumplimiento-en-aws/"
 ---
 
-<p><a href="https://aws.amazon.com/kms/" rel="noopener noreferrer" target="_blank">AWS Key Management Service</a> (KMS) es un servicio administrado de AWS que permite cifrar y descifrar datos de forma segura en la nube. Esta guía práctica te enseñará cómo configurar y utilizar AWS KMS para proteger tus datos, siguiendo estos pasos:</p>
-
-
-<ol>
-<li>
-<p><strong>Configurar AWS KMS</strong></p>
-<ul>
-<li>
-<p>Crear una Clave Maestra del Cliente (CMK)</p>
-</li>
-<li>
-<p>Configurar políticas de clave para controlar el acceso</p>
-</li>
-<li>
-<p>Entender el contexto de cifrado</p>
-</li>
-</ul>
-</li>
-<li>
-<p><strong>Cifrar datos con AWS KMS</strong></p>
-<ul>
-<li>
-<p>Utilizar la <a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">consola de AWS</a></p>
-</li>
-<li>
-<p>Cifrar datos con código (ejemplos en Python y CLI)</p>
-</li>
-</ul>
-</li>
-<li>
-<p><strong>Descifrar datos con AWS KMS</strong></p>
-<ul>
-<li>
-<p>Utilizar la Consola de AWS</p>
-</li>
-<li>
-<p>Descifrar datos con código (ejemplos en Python y CLI)</p>
-</li>
-</ul>
-</li>
-<li>
-<p><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/"><strong>Mejores prácticas</strong></a></p>
-<ul>
-<li>
-<p>Gestión de claves</p>
-</li>
-<li>
-<p><a href="https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/">prácticas de seguridad</a></p>
-</li>
-<li>
-<p>Optimización del rendimiento</p>
-</li>
-<li>
-<p>Monitoreo y auditoría</p>
-</li>
-</ul>
-</li>
-</ol>
+AWS Key Management Service (AWS KMS) administra claves criptográficas y controla quién puede usarlas. No es un almacén para subir archivos: para cifrar grandes cantidades de datos, KMS suele proteger una **clave de datos** que cifra el contenido. Ese patrón se llama **cifrado de sobre** (*envelope encryption*).
 
+La ruta depende de dónde viven los datos:
 
-<p>Con AWS KMS, puedes cifrar y descifrar datos de forma sencilla y segura, cumpliendo con estándares de seguridad como <a href="https://en.wikipedia.org/wiki/Payment_Card_Industry_Data_Security_Standard" rel="noopener noreferrer" target="_blank">PCI-DSS</a>, <a href="https://en.wikipedia.org/wiki/Health_Insurance_Portability_and_Accountability_Act" rel="noopener noreferrer" target="_blank">HIPAA/HITECH</a> y <a href="https://en.wikipedia.org/wiki/General_Data_Protection_Regulation" rel="noopener noreferrer" target="_blank">GDPR</a>. Sigue las mejores prácticas para proteger tus claves y datos cifrados.</p>
+- **Objetos en Amazon S3:** configura cifrado del lado del servidor con AWS KMS (SSE-KMS); S3 gestiona el cifrado de cada objeto.
+- **Datos de una aplicación:** para contenido de más de 4 KiB, usa cifrado de sobre con el AWS Encryption SDK o una biblioteca criptográfica apropiada; KMS genera y protege las claves de datos.
+- **Un valor pequeño:** la operación `Encrypt` de KMS admite hasta 4.096 bytes con una clave simétrica. No es una operación para cifrar archivos completos.
+- **Contraseñas, tokens y credenciales:** guárdalos en AWS Secrets Manager. KMS protege claves; no administra el ciclo de vida ni la recuperación de un secreto de aplicación.
 
+## Cómo se relacionan una clave KMS y una clave de datos
 
-<h2 id="related-video-from-youtube" tabindex="-1">Related video from YouTube</h2>
+Una **clave KMS** es un recurso lógico que KMS administra. El material de una clave simétrica y la parte privada de una asimétrica permanecen protegidos por KMS; sí puedes obtener la parte pública de una clave asimétrica. Una **clave de datos** es una clave simétrica que puede salir de KMS para cifrar contenido fuera del servicio.
 
+En el cifrado de sobre, el flujo habitual es:
 
-<iframe allowfullscreen="" loading="lazy" src="https://www.youtube.com/embed/f3APF1dP8w0" title="Video de YouTube"></iframe>
-<h2 id="setting-up-aws-kms" tabindex="-1">Setting up <a href="https://aws.amazon.com/kms/" rel="noopener noreferrer" target="_blank">AWS KMS</a></h2>
+1. La aplicación solicita a KMS una clave de datos y especifica la clave KMS que la protegerá.
+2. KMS devuelve una copia en texto claro para usar en memoria y otra copia cifrada bajo la clave KMS.
+3. La aplicación cifra el contenido con la copia en texto claro y la elimina de memoria tan pronto como termina de usarla.
+4. La aplicación guarda el contenido cifrado junto con la clave de datos cifrada. Para descifrar, envía esa clave de datos cifrada a KMS y usa la copia en texto claro que recibe para recuperar el contenido.
 
+KMS genera, cifra y descifra claves de datos, pero no las guarda ni cifra por sí mismo el contenido con ellas. La aplicación debe proteger la clave en texto claro y eliminarla de memoria cuando ya no la necesite. El [AWS Encryption SDK](https://docs.aws.amazon.com/encryption-sdk/latest/developer-guide/introduction.html) implementa este patrón y ayuda a evitar errores al administrar metadatos y materiales criptográficos.
 
-<p><figure><img alt="AWS KMS" src="/assets/blog/80d600fcce31a9aa372404ae.jpg"/></figure></p>
+## Cuándo llamar directamente a `Encrypt`
 
+La operación [Encrypt de AWS KMS](https://docs.aws.amazon.com/kms/latest/APIReference/API_Encrypt.html) acepta hasta **4.096 bytes de texto claro con una clave simétrica**. Las claves asimétricas tienen límites distintos, definidos por el algoritmo y el tamaño de clave; suelen ser menores. Por eso, `Encrypt` sirve para cantidades pequeñas y puntuales, no para videos, documentos ni cargas de archivos.
 
-<h3 id="crear-una-clave-administrada-por-el-cliente" tabindex="-1">Crear una clave administrada por el cliente</h3>
+El resultado de la operación es texto cifrado que tu aplicación aún debe guardar en algún lugar. Si el dato es una contraseña o un token que necesitas recuperar y rotar, utiliza un gestor de secretos como [AWS Secrets Manager](https://docs.aws.amazon.com/secretsmanager/latest/userguide/). Si es contenido de aplicación, usa una biblioteca que aplique cifrado de sobre y tenga un formato de mensaje definido.
 
+## Cifrar objetos de S3 con SSE-KMS
 
-<p>Para usar AWS KMS, primero debes crear una clave administrada por el cliente (CMK). Puedes hacerlo desde la Consola de administración de AWS o usando las API de AWS KMS.</p>
+Amazon S3 cifra las nuevas cargas de objetos en reposo con SSE-S3 de forma predeterminada. Si necesitas controlar permisos de una clave KMS, auditar su uso o permitir acceso entre cuentas, puedes configurar SSE-KMS. S3 y KMS aplican el cifrado de sobre por ti: S3 cifra el objeto con una clave de datos y guarda esa clave cifrada como metadato del objeto. No necesitas enviar el contenido del objeto a `kms:Encrypt`.
 
+La clave KMS para SSE-KMS debe ser **simétrica** y estar en la misma Región que el bucket. Si no eliges una clave administrada por el cliente, S3 usa la clave administrada por AWS `aws/s3` para SSE-KMS. Para compartir objetos cifrados entre cuentas necesitas una clave administrada por el cliente y permisos en ambas cuentas.
 
-<p><strong>Crear una clave administrada por el cliente mediante la Consola de administración de AWS</strong></p>
+Además de los permisos de S3, el principal que accede al objeto necesita permisos KMS en la clave:
 
+En móvil, desliza las tablas hacia los lados para ver todas las columnas.
 
-<ol>
-<li>
-<p>Inicia sesión en la Consola de administración de AWS y ve a la página de AWS KMS.</p>
-</li>
-<li>
-<p>Haz clic en "Crear clave" y selecciona "Clave administrada por el cliente".</p>
-</li>
-<li>
-<p>Elige el tipo de clave (simétrica o asimétrica).</p>
-</li>
-<li>
-<p>Proporciona un nombre y una descripción para la clave.</p>
-</li>
-<li>
-<p>Selecciona la región donde deseas crear la clave.</p>
-</li>
-<li>
-<p>Haz clic en "Crear clave".</p>
-</li>
-</ol>
+| Operación de S3 | Permiso de S3 | Permiso KMS requerido |
+| --- | --- | --- |
+| Cargar un objeto con SSE-KMS | `s3:PutObject` | `kms:GenerateDataKey` |
+| Descargar un objeto con SSE-KMS | `s3:GetObject` | `kms:Decrypt` |
+| Carga multipart con SSE-KMS | Permisos de S3 para la carga multipart | `kms:GenerateDataKey` y `kms:Decrypt` |
 
+Consulta la guía actual de [cifrado SSE-KMS en Amazon S3](https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingKMSEncryption.html) para las condiciones del servicio y la configuración del bucket. Cambiar el cifrado predeterminado afecta nuevas cargas; no vuelve a cifrar los objetos que ya existen.
 
-<p><strong>Crear una clave administrada por el cliente mediante las API de AWS KMS</strong></p>
+**S3 Bucket Keys** pueden reducir las solicitudes que S3 envía a KMS. Ten en cuenta que cambian el contexto de cifrado que S3 presenta a KMS: sin Bucket Key puede incluir el ARN del objeto; con Bucket Key usa el ARN del bucket. Si una política de IAM o de la clave compara el ARN del objeto, revisa esa condición antes de habilitarlas. AWS detalla el cambio en la documentación de [S3 Bucket Keys](https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucket-key.html).
 
+## Tipo de clave, responsable y rotación
 
-<p>Puedes usar las API de AWS KMS para crear una clave administrada por el cliente. Debes proporcionar el tipo de clave, el nombre y la descripción.</p>
+El tipo criptográfico y quién administra la clave son decisiones distintas. Para cifrar datos en una aplicación o proteger objetos de S3, normalmente se usa una clave simétrica. KMS también ofrece claves asimétricas para operaciones con pares público/privado y claves HMAC para generar o verificar códigos de autenticación; una clave HMAC no cifra datos. S3 SSE-KMS admite solo claves simétricas.
 
+| Clase de clave KMS | Quién la controla | Qué considerar |
+| --- | --- | --- |
+| **Administrada por AWS** | El servicio de AWS que la crea; existe en tu cuenta. | Puedes ver metadatos y uso, pero no cambiar su política ni administrar su rotación. KMS las rota cada año. En S3, `aws/s3` pertenece a esta clase. |
+| **Administrada por el cliente** | Tu cuenta crea y administra la clave. | Controlas su política, permisos, deshabilitación y eliminación programada. La rotación automática es opcional para claves simétricas con material generado por KMS; el periodo predeterminado es anual. |
+| **Propiedad de AWS** | AWS la mantiene en una cuenta de AWS, fuera de tu cuenta. | El servicio decide cómo usarla y rotarla. No puedes ver ni administrar la política de la clave. |
 
-<p>Una vez creada la clave, anota el ARN de la clave para futuras operaciones.</p>
+Rotar una clave KMS **no vuelve a cifrar el contenido ni rota las claves de datos**. Cuando KMS rota automáticamente una clave compatible, conserva el material anterior para descifrar el texto cifrado que se creó con esa versión. Revisa las condiciones de cada tipo en [la documentación de rotación de AWS KMS](https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html) y la comparación de [claves administradas por AWS, por el cliente y propiedad de AWS](https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html).
 
+La rotación automática solo está disponible para ciertos tipos de claves simétricas. Las claves asimétricas y HMAC requieren un plan de rotación manual, normalmente con una clave nueva; conserva la anterior mientras haya datos o firmas que dependan de ella.
 
-<h3 id="configurar-pol%C3%ADticas-de-clave" tabindex="-1">Configurar políticas de clave</h3>
+## Políticas, contexto de cifrado y acceso denegado
 
+Cada clave KMS tiene una **política de clave**. Puedes autorizar el uso directamente en esa política o permitir que las políticas de IAM concedan acceso. Un `Allow` de IAM no basta si la política de clave no habilita ese mecanismo. Las concesiones (*grants*) son otra vía para dar permisos, a menudo temporales o usados por servicios de AWS. En acceso entre cuentas, la política de clave debe confiar en la otra cuenta y la identidad que llama necesita también una política de IAM. Revisa [cómo funcionan las políticas de clave, IAM y las concesiones](https://docs.aws.amazon.com/kms/latest/developerguide/control-access.html) antes de redactar una política propia.
 
-<p>Después de crear una clave administrada por el cliente, debes configurar políticas de clave para controlar quién puede usar la clave y cómo se puede usar.</p>
+El **contexto de cifrado** es un conjunto opcional de pares clave-valor, disponible en operaciones criptográficas con claves simétricas, que aporta contexto y queda ligado al texto cifrado. Para descifrar, presenta el mismo contexto, con sus claves, valores y mayúsculas/minúsculas. No es secreto ni está cifrado: puede aparecer en texto claro en CloudTrail. Usa identificadores no sensibles y nunca incluyas contraseñas, tokens, datos personales ni secretos allí. Consulta [las reglas del contexto de cifrado](https://docs.aws.amazon.com/kms/latest/developerguide/encrypt_context.html).
 
+Si recibes `AccessDenied`, revisa la ruta en este orden:
 
-<p><strong>Crear una política de clave</strong></p>
+1. Confirma qué identidad y cuenta ejecutan la solicitud.
+2. Comprueba el ARN y la Región de la clave, además de su estado. Una clave deshabilitada o pendiente de eliminación no puede usarse para operaciones criptográficas.
+3. Verifica permisos de S3 y KMS para la operación concreta: una lectura de SSE-KMS necesita `kms:Decrypt`; una carga simple necesita `kms:GenerateDataKey`.
+4. Evalúa la política de clave, las políticas de IAM y las concesiones. Busca también una denegación explícita o restricciones en límites de permisos, políticas de AWS Organizations o políticas del endpoint de VPC.
+5. Si hay condiciones sobre el contexto, `kms:ViaService` o el recurso, confirma que coincidan con la solicitud real. En S3, considera el cambio de ARN cuando usas Bucket Keys.
 
+Estos comandos inspeccionan la identidad, el estado de la clave y el cifrado de un objeto. Sustituye los valores de ejemplo por una clave, un bucket y un objeto existentes en tu cuenta y Región:
 
-<p>Puedes crear una política de clave desde la Consola de administración de AWS o usando las API de AWS KMS.</p>
+```sh
+KEY_ARN='arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab'
+KEY_REGION='us-east-1'
+BUCKET='mi-bucket'
+BUCKET_REGION='us-east-1'
+OBJECT_KEY='ruta/objeto.txt'
 
+aws sts get-caller-identity \
+  --query '{Account:Account,Arn:Arn}' --output table
 
-<p><strong>Ejemplo de política de clave</strong></p>
+aws kms describe-key \
+  --key-id "$KEY_ARN" --region "$KEY_REGION" \
+  --query 'KeyMetadata.{State:KeyState,Manager:KeyManager,Usage:KeyUsage}' \
+  --output table
 
+aws s3api head-object \
+  --bucket "$BUCKET" --key "$OBJECT_KEY" --region "$BUCKET_REGION" \
+  --query '{Encryption:ServerSideEncryption,KMSKey:SSEKMSKeyId,BucketKeyEnabled:BucketKeyEnabled}' \
+  --output json
+```
 
-<p>La siguiente política permite a un usuario específico cifrar y descifrar datos:</p>
+Son solicitudes de lectura: no crean ni cambian recursos y no requieren limpieza. Necesitas AWS CLI configurada y permisos para consultar esos recursos. `head-object` es una solicitud de lectura de S3 y puede generar cargos de solicitudes según la tarifa vigente. Para investigar un error, consulta los [eventos de AWS KMS en CloudTrail](https://docs.aws.amazon.com/kms/latest/developerguide/logging-using-cloudtrail.html): algunas solicitudes denegadas se registran; cuando se rechaza una solicitud entre cuentas, el evento queda en la cuenta que la realizó. También puedes consultar la guía de [diagnóstico de permisos de AWS KMS](https://docs.aws.amazon.com/kms/latest/developerguide/policy-evaluation.html). Si usas KMS como parte de un control de auditoría, continúa con [la guía para automatizar controles, evidencia y remediación en AWS](/blog/checklist-para-automatizar-cumplimiento-en-aws/).
 
+## Deshabilitar o programar la eliminación
 
-<pre><code>{
-  "Version": "2012-10-17",
-  "Id": "key-policy-1",
-  "Statement": [
-    {
-      "Sid": "Enable IAM User Permissions",
-      "Effect": "Allow",
-      "Principal": {
-        "AWS": "arn:aws:iam::123456789012:user/username"
-      },
-      "Action": [
-        "kms:Encrypt",
-        "kms:Decrypt"
-      ],
-      "Resource": "*"
-    }
-  ]
-}
-</code></pre>
+Deshabilitar una clave administrada por el cliente es reversible, pero interrumpe las operaciones criptográficas que la necesiten. S3 puede conservar el objeto cifrado y fallar cuando intente volver a descifrar su clave de datos. Para eliminar una clave, KMS exige un periodo de espera de 7 a 30 días. Durante ese periodo la clave queda inutilizable y puedes cancelar la eliminación; cuando vence, AWS elimina la clave de forma permanente. Si esa clave protegía claves de datos que no puedes recuperar de otra manera, perderla puede dejar los datos inaccesibles. Antes de deshabilitarla o programar su eliminación, inventaría sus usos y comprueba que existe una ruta de recuperación. Consulta [deshabilitar claves](https://docs.aws.amazon.com/kms/latest/developerguide/enabling-keys.html) y [programar su eliminación](https://docs.aws.amazon.com/kms/latest/developerguide/deleting-keys.html).
 
+## Recursos y comunidad para seguir
 
-<h3 id="entender-el-contexto-de-cifrado" tabindex="-1">Entender el contexto de cifrado</h3>
+Para repasar criptografía simétrica, asimétrica y AWS KMS, consulta las [diapositivas de “Dominando AWS KMS” del AWS Community Day Perú 2024](https://es.slideshare.net/slideshow/dominando-aws-kms-desde-cifrado-bsico-hasta-firma-avanzada-aws-community-day-2024/267436804). Como grabación complementaria, [AWS Women Colombia explica AWS KMS junto con Secrets Manager y Certificate Manager](https://www.youtube.com/watch?v=7_iTHjodvYo). Son materiales de comunidad; úsalos para conceptos y contrasta cualquier paso operativo con la documentación actual.
 
+Si quieres conversar sobre seguridad cloud, visita la página de [AWS User Group Security Ecuador en Meetup](https://www.meetup.com/aws-user-group-security-ecuador/) y comprueba allí sus actividades y requisitos de participación. Si buscas un grupo en otro país, explora el [directorio de comunidades AWS en Latinoamérica](/comunidades/). La [agenda de eventos AWS en Latinoamérica](/eventos/) reúne convocatorias de comunidades; fechas, modalidad, cupos y condiciones pueden cambiar, así que confirma los detalles con quien organiza cada evento.
 
-<p>El contexto de cifrado es información adicional usada para cifrar y descifrar datos. AWS KMS lo utiliza para autenticar la integridad de los datos cifrados.</p>
-
-
-<p><strong>Ejemplo de contexto de cifrado</strong></p>
-
-
-<p>El siguiente es un ejemplo de contexto de cifrado para un objeto en <a href="https://aws.amazon.com/s3/" rel="noopener noreferrer" target="_blank">Amazon S3</a>:</p>
-
-
-<pre><code>{
-  "aws:s3:arn": "arn:aws:s3:::my-bucket/my-object"
-}
-</code></pre>
-
-
-<p>Puedes proporcionar un contexto de cifrado adicional usando el encabezado <code class="inline-code">x-amz-server-side-encryption-context</code> en una solicitud de cifrado.</p>
-
-
-<p>Para resumir, configurar AWS KMS implica:</p>
-
-
-<ul>
-<li>
-<p>Crear una clave administrada por el cliente</p>
-</li>
-<li>
-<p>Configurar políticas de clave</p>
-</li>
-<li>
-<p>Entender el contexto de cifrado</p>
-</li>
-</ul>
-
-
-<p>Estos pasos son clave para proteger tus datos en la nube.</p>
-
-
-<h2 id="cifrado-de-datos-con-aws-kms" tabindex="-1">Cifrado de datos con AWS KMS</h2>
-
-
-<h3 id="usando-la-consola-de-aws" tabindex="-1">Usando la consola de AWS</h3>
-
-
-<ol>
-<li>
-<p>Inicia sesión en la Consola de Administración de AWS y ve a AWS Key Management Service (KMS).</p>
-</li>
-<li>
-<p>En el panel de navegación, selecciona la clave administrada por el cliente que deseas usar.</p>
-</li>
-<li>
-<p>Haz clic en la pestaña "Cifrar" y selecciona "Cifrar datos".</p>
-</li>
-<li>
-<p>Ingresa los datos que deseas cifrar o selecciona un archivo.</p>
-</li>
-<li>
-<p>Opcionalmente, agrega un contexto de cifrado.</p>
-</li>
-<li>
-<p>Haz clic en "Cifrar datos".</p>
-</li>
-<li>
-<p>Copia y guarda el texto cifrado de manera segura.</p>
-</li>
-</ol>
-
-
-<h3 id="cifrado-de-datos-con-c%C3%B3digo" tabindex="-1">Cifrado de datos con código</h3>
-
-
-<p>AWS KMS ofrece SDKs para varios lenguajes de programación. Aquí hay un ejemplo en Python:</p>
-
-
-<pre><code class="language-python">import boto3
-
-# Crear un cliente de AWS KMS
-kms_client = boto3.client('kms')
-
-# Especificar la clave de KMS a utilizar
-key_id = 'arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab'
-
-# Datos a cifrar
-plaintext = b'Datos confidenciales'
-
-# Cifrar los datos
-response = kms_client.encrypt(
-    KeyId=key_id,
-    Plaintext=plaintext
-)
-
-# El texto cifrado está en la respuesta
-ciphertext = response['CiphertextBlob']
-</code></pre>
-
-
-<p>Este código crea un cliente de AWS KMS, especifica la clave, define los datos a cifrar y llama al método <code class="inline-code">encrypt</code> para cifrarlos. El texto cifrado se devuelve en la respuesta.</p>
-
-
-<h3 id="cifrado-con-la-cli-de-aws" tabindex="-1">Cifrado con la CLI de AWS</h3>
-
-
-<p>Puedes usar la AWS Command Line Interface (CLI) para cifrar datos con AWS KMS. Aquí hay un ejemplo:</p>
-
-
-<pre><code>aws kms encrypt \
-    --key-id arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab \
-    --plaintext "Datos confidenciales" \
-    --output text \
-    --query CiphertextBlob
-</code></pre>
-
-
-<p>Este comando usa la clave de KMS especificada para cifrar el texto "Datos confidenciales". El resultado es el texto cifrado en formato base64, que puedes guardar y usar posteriormente para descifrar los datos.</p>
-
-
-<p>Al cifrar datos con AWS KMS, sigue las mejores prácticas de seguridad, como usar políticas de clave adecuadas, proteger tus claves y datos cifrados, y monitorear el uso de las claves.</p>
-
-
-
-
-<h2 id="decrypting-data-with-aws-kms" tabindex="-1">Decrypting data with AWS KMS</h2>
-
-
-<h3 id="using-the-aws-console" tabindex="-1">Using the AWS Console</h3>
-
-
-<ol>
-<li>
-<p>Inicia sesión en la Consola de Administración de AWS y ve a AWS Key Management Service (KMS).</p>
-</li>
-<li>
-<p>En el panel de navegación, selecciona la clave que usaste para cifrar los datos.</p>
-</li>
-<li>
-<p>Haz clic en la pestaña "Descifrar" y selecciona "Descifrar datos".</p>
-</li>
-<li>
-<p>Ingresa el texto cifrado o selecciona el archivo cifrado.</p>
-</li>
-<li>
-<p>Si utilizaste un contexto de cifrado, ingrésalo también.</p>
-</li>
-<li>
-<p>Haz clic en "Descifrar datos".</p>
-</li>
-<li>
-<p>Copia y guarda el texto descifrado de manera segura.</p>
-</li>
-</ol>
-
-
-<h3 id="decrypting-data-with-code" tabindex="-1">Decrypting data with code</h3>
-
-
-<p>Para descifrar datos con AWS KMS mediante código, puedes utilizar los SDKs de AWS para diferentes lenguajes de programación. Aquí hay un ejemplo en Python:</p>
-
-
-<pre><code class="language-python">import boto3
-
-# Crear un cliente de AWS KMS
-kms_client = boto3.client('kms')
-
-# Texto cifrado
-ciphertext = b'...' # Reemplaza con tu texto cifrado
-
-# Descifrar los datos
-response = kms_client.decrypt(
-    CiphertextBlob=ciphertext
-)
-
-# El texto descifrado está en la respuesta
-plaintext = response['Plaintext']
-</code></pre>
-
-
-<p>Este código crea un cliente de AWS KMS, define el texto cifrado y llama al método <code class="inline-code">decrypt</code> para descifrarlo. El texto descifrado se devuelve en la respuesta.</p>
-
-
-<h3 id="decrypting-with-the-aws-cli" tabindex="-1">Decrypting with the AWS CLI</h3>
-
-
-<p>Puedes usar la AWS Command Line Interface (CLI) para descifrar datos con AWS KMS. Aquí hay un ejemplo:</p>
-
-
-<pre><code>aws kms decrypt \
-    --ciphertext-blob fileb://archivo_cifrado.bin \
-    --output text \
-    --query Plaintext | base64 --decode &gt; archivo_descifrado.txt
-</code></pre>
-
-
-<p>Este comando utiliza la clave de KMS especificada para descifrar los datos contenidos en el archivo <code class="inline-code">archivo_cifrado.bin</code>. El resultado es el texto descifrado, que se guarda en el archivo <code class="inline-code">archivo_descifrado.txt</code>.</p>
-
-
-<p>Al descifrar datos con AWS KMS, sigue las mejores prácticas de seguridad, como utilizar políticas de clave adecuadas, proteger tus claves y datos cifrados, y monitorear el uso de las claves.</p>
-
-
-<h2 id="best-practices-for-aws-kms" tabindex="-1">Best practices for AWS KMS</h2>
-
-
-<h3 id="key-management-tips" tabindex="-1">Key management tips</h3>
-
-
-<p>Para administrar claves de manera segura, sigue estas prácticas:</p>
-
-
-<ul>
-<li>
-<p><strong>Rotación de claves</strong>: Cambia las claves regularmente para mejorar la seguridad.</p>
-</li>
-<li>
-<p><strong>Etiquetado</strong>: Añade metadatos como propietario, fecha de creación y propósito para facilitar la gestión.</p>
-</li>
-<li>
-<p><strong>Monitoreo</strong>: Vigila el uso de las claves para detectar actividades inusuales.</p>
-</li>
-</ul>
-
-
-<h3 id="security-practices" tabindex="-1">Security practices</h3>
-
-
-<p>Para proteger tus claves y datos cifrados:</p>
-
-
-<ul>
-<li>
-<p><strong>Roles de IAM y políticas</strong>: Controla quién puede acceder a las claves y datos.</p>
-</li>
-<li>
-<p><strong>Protección de datos</strong>: Usa cifrado tanto en tránsito como en reposo para evitar pérdidas o robos.</p>
-</li>
-</ul>
-
-
-<h3 id="optimizing-performance" tabindex="-1">Optimizing performance</h3>
-
-
-<p>Para mejorar el rendimiento del cifrado y descifrado:</p>
-
-
-<ul>
-<li>
-<p><strong>Algoritmo adecuado</strong>: Elige el algoritmo de cifrado que mejor se adapte a tus necesidades.</p>
-</li>
-<li>
-<p><strong>Configuración de la clave</strong>: Ajusta la configuración según sea necesario.</p>
-</li>
-<li>
-<p><strong>Técnicas de optimización</strong>: Utiliza caching y paralelización para acelerar las operaciones.</p>
-</li>
-</ul>
-
-
-<h3 id="monitoring-and-auditing" tabindex="-1">Monitoring and auditing</h3>
-
-
-<p>Para monitorear y auditar el uso de claves KMS, utiliza:</p>
-
-
-<ul>
-<li>
-<p><a href="https://aws.amazon.com/cloudtrail/" rel="noopener noreferrer" target="_blank"><strong>AWS CloudTrail</strong></a>: Registra todas las actividades relacionadas con las claves.</p>
-</li>
-<li>
-<p><a href="https://aws.amazon.com/cloudwatch/" rel="noopener noreferrer" target="_blank"><strong>Amazon CloudWatch</strong></a>: Monitorea el uso y configura alertas para detectar anomalías.</p>
-</li>
-</ul>
-
-
-<p>Estas herramientas te ayudarán a mantener un control detallado sobre el uso de tus claves y a detectar posibles problemas de seguridad.</p>
-
-
-<h2 id="conclusion" tabindex="-1">Conclusion</h2>
-
-
-<h3 id="puntos-clave" tabindex="-1">Puntos clave</h3>
-
-
-<p>Hemos cubierto los conceptos básicos de AWS KMS, incluyendo su configuración, el cifrado y descifrado de datos, y las mejores prácticas para mantener la seguridad de tus claves y datos. AWS KMS es una herramienta útil para proteger tus datos en la nube, pero es crucial seguir las prácticas de seguridad adecuadas para evitar vulnerabilidades.</p>
-
-
-<h3 id="pr%C3%B3ximos-pasos" tabindex="-1">Próximos pasos</h3>
-
-
-<p>Ahora que has completado esta guía, te sugerimos que profundices en las características avanzadas de AWS KMS y cómo aplicarlas en tus proyectos. Consulta la documentación de AWS para obtener más detalles sobre el uso de AWS KMS para proteger tus datos en la nube. Además, explora otros servicios de AWS que se integran con AWS KMS, como Amazon S3 y <a href="https://aws.amazon.com/rds/" rel="noopener noreferrer" target="_blank">Amazon RDS</a>, para mejorar aún más la seguridad de tus datos.</p>
-
-
-<h2 id="faqs" tabindex="-1">FAQs</h2>
-
-
-<h3 id="%C2%BFc%C3%B3mo-cifrar-datos-utilizando-aws-kms%3F" tabindex="-1">¿Cómo cifrar datos utilizando AWS KMS?</h3>
-
-
-<p>Para cifrar datos con AWS KMS, usa el cmdlet <code class="inline-code">Invoke-KMSEncrypt</code>. Devuelve el texto cifrado como un objeto <code class="inline-code">MemoryStream</code> (System.IO.MemoryStream).</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-es-un-contexto-de-cifrado%3F" tabindex="-1">¿Qué es un contexto de cifrado?</h3>
-
-
-<p>Un contexto de cifrado es un conjunto de pares clave-valor que añade información adicional sobre los datos. No está cifrado y se usa para autenticar los datos. Debes usar el mismo contexto tanto para cifrar como para descifrar, de lo contrario, el descifrado fallará.</p>
-
-
-<h3 id="%C2%BFc%C3%B3mo-se-utiliza-el-contexto-de-cifrado-en-aws-kms%3F" tabindex="-1">¿Cómo se utiliza el contexto de cifrado en AWS KMS?</h3>
-
-
-<p>Puedes añadir un contexto de cifrado usando el encabezado <code class="inline-code">x-amz-server-side-encryption-context</code> en una solicitud <code class="inline-code">s3:PutObject</code>. No incluyas información sensible. Amazon S3 almacena este contexto junto con el contexto predeterminado de <code class="inline-code">aws:s3:arn</code>.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/respaldos-y-snapshots-en-ebs/">Respaldos y snapshots en EBS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS seguridad: fundamentos esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/comprendiendo-aws-backup/">Comprendiendo AWS Backup</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores prácticas de seguridad en AWS</a></li>
-</ul>
-</p>
+Para ampliar el contexto de identidad, datos y responsabilidad compartida, continúa con la guía de [seguridad en AWS para principiantes](/blog/aws-seguridad-fundamentos-esenciales/).
