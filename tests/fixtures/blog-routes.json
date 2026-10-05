@@ -151,7 +151,7 @@
   },
   {
     "slug": "5-practicas-de-seguridad-para-lambda-authorizers",
-    "title": "5 Prácticas de Seguridad para Lambda Authorizers",
+    "title": "Lambda authorizers: seguridad, JWT y caché en API Gateway",
     "publishedAt": "2025-01-23",
     "publishedTimestamp": "2025-01-23T00:34:06.712Z"
   },
@@ -283,7 +283,7 @@
   },
   {
     "slug": "10-repositorios-de-github-para-machine-learning-en-aws",
-    "title": "10 Repositorios de GitHub para Machine Learning en AWS",
+    "title": "10 repositorios de GitHub para aprender Machine Learning en AWS",
     "publishedAt": "2024-10-27",
     "publishedTimestamp": "2024-10-27T03:07:38.015Z"
   },
@@ -301,7 +301,7 @@
   },
   {
     "slug": "5-whitepapers-de-aws-para-aprobar-examenes",
-    "title": "5 Whitepapers de AWS para Aprobar Exámenes",
+    "title": "Whitepapers y guías AWS para estudiar certificaciones y arquitectura",
     "publishedAt": "2024-10-26",
     "publishedTimestamp": "2024-10-26T18:53:17.718Z"
   },
@@ -445,7 +445,7 @@
   },
   {
     "slug": "5-startups-exitosas-en-aws-casos-de-exito",
-    "title": "5 Startups Exitosas en AWS: Casos de Éxito",
+    "title": "5 casos de startups en AWS: arquitectura y lecciones prácticas",
     "publishedAt": "2024-05-13",
     "publishedTimestamp": "2024-05-13T02:42:31.872Z"
   },
@@ -547,7 +547,7 @@
   },
   {
     "slug": "5-lecciones-clave-del-aws-public-sector-summit-2024",
-    "title": "5 Lecciones Clave del AWS Public Sector Summit 2024",
+    "title": "AWS Public Sector Summit 2024: 5 lecciones y recursos",
     "publishedAt": "2024-05-07",
     "publishedTimestamp": "2024-05-07T04:22:03.004Z"
   },
