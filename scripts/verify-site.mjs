@@ -4,7 +4,7 @@ import { relative, resolve } from 'node:path';
 import deployment from '../config/deployment.json' with { type: 'json' };
 import { COUNTRY_SLUGS } from '../src/lib/community-country-pages.mjs';
 import { COUNTRY_LABELS } from '../src/lib/resource-discovery.mjs';
-import { RESOURCE_COLLECTIONS, resourceCollectionResources, groupCertificationResources } from '../src/lib/resource-collections.mjs';
+import { RESOURCE_COLLECTIONS, resourceCollectionResources, groupCertificationResources, resolveResourceCollectionFaq } from '../src/lib/resource-collections.mjs';
 import { sortResources } from '../src/lib/directory-filter.mjs';
 import { communityFaqItems, eventFaqItems } from '../src/lib/page-faq-content.mjs';
 import { EVENT_COLLECTIONS } from '../src/lib/event-collections.mjs';
@@ -217,9 +217,11 @@ const cardData = (html) => [...html.matchAll(/<li\b([^>]*)>([\s\S]*?)<\/li>/gu)]
   const id = attributes.match(/\bid="resource-([^" ]+)"/u)?.[1];
   const kind = attributes.match(/\bdata-kind="([^"]*)"/u)?.[1];
   if (!id || !kind) return [];
+  const mainLink = body.match(/<a\b[^>]*class="resource-card__main-link"[^>]*>/u)?.[0] ?? '';
   return [{
     id,
     kind,
+    url: decode(mainLink.match(/\bhref="([^"]*)"/u)?.[1] ?? ''),
     title: decode(body.match(/<h3\b[^>]*>([\s\S]*?)<\/h3>/u)?.[1] ?? ''),
     description: decode(body.match(/<p class="resource-card__description">([\s\S]*?)<\/p>/u)?.[1] ?? ''),
     country: attributes.match(/\bdata-country="([^"]*)"/u)?.[1] ?? '',
@@ -252,7 +254,23 @@ for (const collection of RESOURCE_COLLECTIONS) {
   assert.deepEqual(cardData(html).map(({ id }) => id), expected, `Exact initial HTML subset: ${collection.path}`);
   assert.equal(new Set(expected).size, expected.length, `Every collection resource appears once: ${collection.path}`);
   if (collection.id === 'certificaciones') {
-    assert.equal([...html.matchAll(/\bdata-resource-group-heading(?:\s|>)/gu)].length, purposeGroups.length, 'Certification purposes have one contiguous heading each.');
+    const visiblePurposeGroups = purposeGroups.filter(({ resources: groupResources }) => groupResources.length > 0);
+    assert.equal([...html.matchAll(/\bdata-resource-group-heading(?:\s|>)/gu)].length, visiblePurposeGroups.length, 'Certification purposes have one contiguous heading each.');
+    const groupSelect = html.match(/<select\b[^>]*\bdata-group-filter[^>]*>([\s\S]*?)<\/select>/u)?.[1];
+    const expectedOptions = purposeGroups.filter(({ filterResources }) => filterResources.length > 0)
+      .map(({ id, label }) => ({ id, label }));
+    if (expectedOptions.length) {
+      assert.ok(groupSelect, 'Certification purpose filtering remains visible outside secondary filters.');
+      const groupControlIndex = html.indexOf('data-group-filter');
+      const secondaryFiltersIndex = html.indexOf('data-filter-disclosure');
+      assert.ok(groupControlIndex >= 0 && (secondaryFiltersIndex < 0 || groupControlIndex < secondaryFiltersIndex), 'The exam selector stays outside secondary filters.');
+      const actualOptions = [...groupSelect.matchAll(/<option value="([^"]*)">([^<]*)<\/option>/gu)]
+        .filter(([, id]) => id)
+        .map(([, id, label]) => ({ id, label: decode(label) }));
+      assert.deepEqual(actualOptions, expectedOptions, 'Exam options include mixed-only filter groups without adding result headings.');
+    } else {
+      assert.equal(groupSelect, undefined, 'Empty certification catalogs omit both group options and the selector.');
+    }
     if (expected.length) assert.match(html, /value="purpose" selected/u, 'Certifications initially group materials by study purpose.');
   }
   if (collection.earlyRoute) {
@@ -261,7 +279,7 @@ for (const collection of RESOURCE_COLLECTIONS) {
     assert.ok(callout >= 0 && callout < controls, `The learning route is offered before filters: ${collection.path}`);
     assert.ok(html.includes(`href="${collection.earlyRoute.path}"`));
   }
-  if (collection.faq) verifyFaq(html, collection.faq.items, collection.path);
+  if (collection.faq) verifyFaq(html, resolveResourceCollectionFaq(collection, globalCards), collection.path);
   assert.equal(decode(html.match(/<h1 id="directory-title">([^<]+)<\/h1>/u)?.[1] ?? ''), collection.title);
   assert.ok(html.includes(`href="https://dondeaprendoaws.com${collection.path}"`));
   assert.match(html, /id="collection-guide"/u, `Specific guidance: ${collection.path}`);
@@ -269,6 +287,14 @@ for (const collection of RESOURCE_COLLECTIONS) {
   if (collection.selector.format) assert.doesNotMatch(html, /data-format-filter/u, 'A fixed-format collection does not repeat its format filter.');
   if (collection.selector.topic) assert.doesNotMatch(html, /data-topic-filter/u, 'A fixed-topic collection does not repeat its topic filter.');
   if (expected.length) assert.match(html, /data-resource-search/u);
+}
+const courseCollection = RESOURCE_COLLECTIONS.find(({ id }) => id === 'cursos');
+const resolvedCourseFaq = resolveResourceCollectionFaq(courseCollection, globalCards);
+const courseCollectionIndex = searchIndex.find(({ type, url }) => type === 'collection' && url === courseCollection.path);
+assert.ok(courseCollectionIndex, 'Courses collection is searchable.');
+for (const { question, answer } of resolvedCourseFaq) {
+  assert.ok(courseCollectionIndex.search.includes(question), `Search indexes the resolved course FAQ question: ${question}`);
+  assert.ok(courseCollectionIndex.search.includes(answer), `Search indexes the resolved course FAQ answer: ${question}`);
 }
 verifyFaq(read('comunidades/index.html'), communityFaqItems(), '/comunidades/');
 verifyFaq(read('eventos/index.html'), eventFaqItems(), '/eventos/');

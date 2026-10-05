@@ -81,38 +81,41 @@ const pastRecorded = events.filter((event) => Date.parse(event.endsAt) <= Date.n
     <div class="event-agenda__heading">
       <div>
         <h2 id="event-agenda-title">Próximos eventos</h2>
-        <p>{countryName
-          ? `Encuentros organizados por comunidades de ${countryName}, ordenados por fecha.`
-          : eventModePhrase
-            ? `Eventos AWS ${eventModePhrase} organizados por comunidades de Latinoamérica, ordenados por fecha.`
-            : 'Encuentros y charlas de comunidades AWS de Latinoamérica, ordenados por fecha.'}</p>
+        <p>Ordenados por fecha de inicio.</p>
       </div>
     </div>
     <p class="event-agenda__facts" data-event-summary data-event-summary-intro={eventFactsIntro} data-event-summary-empty={emptyFacts} aria-live="polite">{eventFactsText}</p>
     {(upcoming.length > 0 || (!country && eventCountries.length > 0)) && <div class="event-agenda__filter-area">
       <div class="event-agenda__filters">
-        <label for="event-from">Desde <input id="event-from" type="date" data-event-from /></label>
-        <label for="event-to">Hasta <input id="event-to" type="date" data-event-to /></label>
-        {modes?.length !== 1 && <label for="event-mode">Modalidad <select id="event-mode" data-event-mode>
-          <option value="">Todas</option>
-          {eventModes.map((mode) => <option value={mode}>{modeLabel[mode]}</option>)}
-        </select></label>}
-        {!country && <label for="event-country">País de la comunidad organizadora <select id="event-country" data-event-country>
-          <option value="">Todos los países</option>
-          {eventCountries.map((code) => <option value={code}>{countryLabel(code)}</option>)}
-        </select></label>}
-        <label for="event-community">Comunidad <select id="event-community" data-event-community>
-          <option value="">Todas las comunidades</option>
-          {eventCommunities.map(([id, title]) => <option value={id}>{title}</option>)}
-        </select></label>
-        {!(modes?.length === 1 && modes[0] === 'online') && <label for="event-city">Ciudad del evento <select id="event-city" data-event-city disabled={eventCities.length === 0}>
-          <option value="">{eventCities.length ? 'Todas las ciudades' : 'Sin ciudades confirmadas'}</option>
-          {eventCities.map((item) => <option value={item.key} data-event-countries={item.organizerCountries.join('|')}>
-            {item.city}{item.organizerCountries.length ? ` · grupos de ${item.organizerCountries.map(countryLabel).join(' y ')}` : ''}
-          </option>)}
-        </select></label>}
+        <div class="event-agenda__date-filters">
+          <label for="event-from">Desde <input id="event-from" type="date" data-event-from /></label>
+          <label for="event-to">Hasta <input id="event-to" type="date" data-event-to /></label>
+        </div>
+        <details class="event-agenda__secondary-filters" data-event-secondary-disclosure open>
+          <summary><span data-event-secondary-label>Más filtros</span></summary>
+          <div class="event-agenda__secondary-fields">
+            {modes?.length !== 1 && <label for="event-mode">Modalidad <select id="event-mode" data-event-mode>
+              <option value="">Todas</option>
+              {eventModes.map((mode) => <option value={mode}>{modeLabel[mode]}</option>)}
+            </select></label>}
+            {!country && <label for="event-country">País de la comunidad organizadora <select id="event-country" data-event-country>
+              <option value="">Todos los países</option>
+              {eventCountries.map((code) => <option value={code}>{countryLabel(code)}</option>)}
+            </select></label>}
+            <label for="event-community">Comunidad <select id="event-community" data-event-community>
+              <option value="">Todas las comunidades</option>
+              {eventCommunities.map(([id, title]) => <option value={id}>{title}</option>)}
+            </select></label>
+            {!(modes?.length === 1 && modes[0] === 'online') && <label for="event-city">Ciudad del evento <select id="event-city" data-event-city disabled={eventCities.length === 0}>
+              <option value="">{eventCities.length ? 'Todas las ciudades' : 'Sin ciudades confirmadas'}</option>
+              {eventCities.map((item) => <option value={item.key} data-event-countries={item.organizerCountries.join('|')}>
+                {item.city}{item.organizerCountries.length ? ` · grupos de ${item.organizerCountries.map(countryLabel).join(' y ')}` : ''}
+              </option>)}
+            </select></label>}
+          </div>
+        </details>
       </div>
-      <p class="event-agenda__filter-note">Las fechas corresponden al día de inicio en la zona del organizador.</p>
+      <p class="event-agenda__filter-note">Fechas de inicio en la zona del organizador.</p>
       <div class="event-agenda__filter-summary"><button type="button" data-event-clear>Limpiar filtros</button><span data-event-count aria-live="polite"></span></div>
     </div>}
     <ol class="event-agenda__list" data-event-list>
@@ -181,5 +184,119 @@ const pastRecorded = events.filter((event) => Date.parse(event.endsAt) <= Date.n
     color: #303b51;
     font-size: 14px;
     line-height: 1.55;
+  }
+
+  .event-agenda__filters {
+    grid-template-columns: 1fr;
+  }
+
+  .event-agenda__date-filters,
+  .event-agenda__secondary-fields {
+    display: grid;
+    gap: 10px;
+  }
+
+  .event-agenda__date-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .event-agenda__date-filters input {
+    min-width: 0;
+  }
+
+  .event-agenda__secondary-fields {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-top: 10px;
+  }
+
+  .event-agenda__secondary-filters summary {
+    display: none;
+  }
+
+  .event-agenda__secondary-filters:not([open]) > .event-agenda__secondary-fields {
+    display: none;
+  }
+
+  @media (max-width: 640px) {
+    :global(.event-page--agenda .directory-hero) {
+      margin: 0 auto 14px;
+      text-align: left;
+    }
+
+    :global(.event-page--agenda .directory-hero h1) {
+      margin: 12px 0 6px;
+      font-size: 1.875em;
+      line-height: 1.16;
+    }
+
+    :global(.event-page--agenda .directory-hero p) {
+      max-width: 100%;
+      font-size: 1em;
+      line-height: 1.45;
+    }
+
+    :global(.event-page--agenda .community-breadcrumb) {
+      margin: 4px 0 10px;
+      font-size: 12px;
+    }
+
+    :global(.event-page--agenda .community-country-nav) {
+      margin: 0 auto 8px;
+    }
+
+    :global(.event-page--agenda .collection-navigation ul) {
+      gap: 6px;
+    }
+
+    :global(.event-page--agenda .collection-navigation a) {
+      gap: 0;
+      padding: 8px 12px;
+    }
+
+    .event-agenda__secondary-filters summary {
+      display: flex;
+      min-height: 44px;
+      align-items: center;
+      width: fit-content;
+      padding: 4px 10px;
+      border: 1px solid #b6bfce;
+      border-radius: 6px;
+      background: #fff;
+      color: #263457;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .event-agenda__secondary-filters summary:focus-visible {
+      outline: 2px solid #263457;
+      outline-offset: 2px;
+    }
+
+    .event-agenda__secondary-fields {
+      grid-template-columns: 1fr;
+      margin-top: 10px;
+    }
+
+    .event-agenda__date-filters input {
+      font-size: 13px;
+    }
+
+    :global(.event-page--agenda) {
+      padding-top: 12px;
+    }
+
+    .event-agenda {
+      padding: 18px 14px;
+    }
+
+    .event-agenda__filter-area {
+      margin-top: 12px;
+    }
+  }
+
+  @media (max-width: 359px) {
+    .event-agenda__date-filters {
+      grid-template-columns: 1fr;
+    }
   }
 </style>

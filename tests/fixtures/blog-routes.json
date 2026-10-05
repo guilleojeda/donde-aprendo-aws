@@ -151,7 +151,7 @@
   },
   {
     "slug": "5-practicas-de-seguridad-para-lambda-authorizers",
-    "title": "5 Prácticas de Seguridad para Lambda Authorizers",
+    "title": "Lambda authorizers: seguridad, JWT y caché en API Gateway",
     "publishedAt": "2025-01-23",
     "publishedTimestamp": "2025-01-23T00:34:06.712Z"
   },
@@ -271,7 +271,7 @@
   },
   {
     "slug": "10-estrategias-para-optimizar-costos-de-red-en-aws",
-    "title": "10 Estrategias para Optimizar Costos de Red en AWS",
+    "title": "Costos de red en AWS: 10 estrategias para reducir la factura",
     "publishedAt": "2024-10-28",
     "publishedTimestamp": "2024-10-28T02:48:30.386Z"
   },
@@ -283,7 +283,7 @@
   },
   {
     "slug": "10-repositorios-de-github-para-machine-learning-en-aws",
-    "title": "10 Repositorios de GitHub para Machine Learning en AWS",
+    "title": "10 repositorios de GitHub para aprender Machine Learning en AWS",
     "publishedAt": "2024-10-27",
     "publishedTimestamp": "2024-10-27T03:07:38.015Z"
   },
@@ -301,7 +301,7 @@
   },
   {
     "slug": "5-whitepapers-de-aws-para-aprobar-examenes",
-    "title": "5 Whitepapers de AWS para Aprobar Exámenes",
+    "title": "Whitepapers y guías AWS para estudiar certificaciones y arquitectura",
     "publishedAt": "2024-10-26",
     "publishedTimestamp": "2024-10-26T18:53:17.718Z"
   },
@@ -313,7 +313,7 @@
   },
   {
     "slug": "10-estrategias-de-optimizacion-de-costos-en-aws",
-    "title": "10 Estrategias de Optimización de Costos en AWS",
+    "title": "Cómo reducir costos en AWS: 10 estrategias para optimizar tu factura",
     "publishedAt": "2024-05-20",
     "publishedTimestamp": "2024-05-20T01:10:01.307Z"
   },
@@ -355,7 +355,7 @@
   },
   {
     "slug": "10-laboratorios-practicos-de-aws-para-principiantes",
-    "title": "10 Laboratorios Prácticos de AWS para Principiantes",
+    "title": "10 laboratorios de AWS para principiantes: guía paso a paso",
     "publishedAt": "2024-05-18",
     "publishedTimestamp": "2024-05-18T00:59:00.192Z"
   },
@@ -415,7 +415,7 @@
   },
   {
     "slug": "10-consejos-de-redes-para-aws-outposts",
-    "title": "10 Consejos de Redes para AWS Outposts",
+    "title": "Redes en AWS Outposts: service link, BGP y gateway local",
     "publishedAt": "2024-05-14",
     "publishedTimestamp": "2024-05-14T05:11:03.706Z"
   },
@@ -433,7 +433,7 @@
   },
   {
     "slug": "10-preguntas-frecuentes-sobre-machine-learning-en-aws",
-    "title": "10 Preguntas Frecuentes sobre Machine Learning en AWS",
+    "title": "Machine Learning en AWS: cómo empezar y qué servicio elegir",
     "publishedAt": "2024-05-13",
     "publishedTimestamp": "2024-05-13T06:23:36.093Z"
   },
@@ -445,7 +445,7 @@
   },
   {
     "slug": "5-startups-exitosas-en-aws-casos-de-exito",
-    "title": "5 Startups Exitosas en AWS: Casos de Éxito",
+    "title": "5 casos de startups en AWS: arquitectura y lecciones prácticas",
     "publishedAt": "2024-05-13",
     "publishedTimestamp": "2024-05-13T02:42:31.872Z"
   },
@@ -463,13 +463,13 @@
   },
   {
     "slug": "10-metricas-clave-de-devops-en-aws",
-    "title": "10 Métricas Clave de DevOps en AWS",
+    "title": "Métricas DevOps en AWS: DORA, fiabilidad y costos",
     "publishedAt": "2024-05-12",
     "publishedTimestamp": "2024-05-12T01:37:13.938Z"
   },
   {
     "slug": "10-mejores-practicas-de-aws-para-deteccion-de-amenazas-en-tiempo-real",
-    "title": "10 Mejores Prácticas de AWS para Detección de Amenazas en Tiempo Real",
+    "title": "Detección de amenazas en AWS: GuardDuty, CloudTrail y alertas",
     "publishedAt": "2024-05-11",
     "publishedTimestamp": "2024-05-11T05:27:40.366Z"
   },
@@ -493,7 +493,7 @@
   },
   {
     "slug": "10-practicas-recomendadas-para-integrar-euc-en-aws",
-    "title": "10 Prácticas Recomendadas para Integrar EUC en AWS",
+    "title": "EUC en AWS: escritorios virtuales y streaming de aplicaciones",
     "publishedAt": "2024-05-10",
     "publishedTimestamp": "2024-05-10T05:21:18.994Z"
   },
@@ -505,7 +505,7 @@
   },
   {
     "slug": "10-casos-de-uso-de-ml-de-aws-en-agricultura",
-    "title": "10 Casos de Uso de ML de AWS en Agricultura",
+    "title": "Machine learning en agricultura: 8 casos de uso y servicios de AWS",
     "publishedAt": "2024-05-09",
     "publishedTimestamp": "2024-05-09T04:29:13.731Z"
   },
@@ -547,7 +547,7 @@
   },
   {
     "slug": "5-lecciones-clave-del-aws-public-sector-summit-2024",
-    "title": "5 Lecciones Clave del AWS Public Sector Summit 2024",
+    "title": "AWS Public Sector Summit 2024: 5 lecciones y recursos",
     "publishedAt": "2024-05-07",
     "publishedTimestamp": "2024-05-07T04:22:03.004Z"
   },
@@ -607,7 +607,7 @@
   },
   {
     "slug": "10-preguntas-frecuentes-sobre-aws-training-y-certification",
-    "title": "10 Preguntas Frecuentes sobre AWS Training y Certification",
+    "title": "AWS Training y Certification: preguntas sobre cursos y exámenes",
     "publishedAt": "2024-05-03",
     "publishedTimestamp": "2024-05-03T23:06:27.097Z"
   },

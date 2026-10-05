@@ -1,138 +1,145 @@
 ---
-title: "5 Prácticas de Seguridad para Lambda Authorizers"
-description: "Implementa prácticas de seguridad efectivas en Lambda Authorizers para proteger tus APIs en AWS y optimizar su rendimiento."
+title: "Lambda authorizers: seguridad, JWT y caché en API Gateway"
+description: "Guía para elegir entre API REST y HTTP, validar JWT, limitar el caché de autorización y diagnosticar errores 401, 403 y 500 sin filtrar tokens."
 author: "guille-ojeda"
 publishedAt: "2025-01-23"
 publishedTimestamp: "2025-01-23T00:34:06.712Z"
+modifiedTimestamp: "2026-10-04T21:31:45-03:00"
 cover: "/assets/blog/e838de22cc856de64a0d3bdc.jpg"
 coverAlt: "Portátil con código rodeado de iconos luminosos de candados y escudos"
 ogImage: "/assets/blog/e838de22cc856de64a0d3bdc.jpg"
-related:
-  - title: "Cómo monitorear SLOs con Amazon CloudWatch"
-    url: "https://dondeaprendoaws.com/blog/como-monitorear-slos-con-amazon-cloudwatch/"
-    image: "/assets/blog/0919cf4ddfe7647a0c71877c.jpg"
-    imageAlt: ""
-  - title: "Arquitecturas de Alta Disponibilidad en AWS"
-    url: "https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/"
-    image: "/assets/blog/1b184fe1242c3e7fb970e984.jpg"
-    imageAlt: ""
-  - title: "AWS gratis para educadores y estudiantes"
-    url: "https://dondeaprendoaws.com/blog/aws-gratis-para-educadores-y-estudiantes/"
-    image: "/assets/blog/2e829a000de9165446203907.jpg"
-    imageAlt: ""
+related: []
+review:
+  date: "2026-10-04"
 ---
 
-<p><strong>¿Cómo proteger tus APIs en AWS con Lambda Authorizers?</strong> Aquí tienes las 5 claves:</p>
-<ol><li><strong>Autenticación sólida</strong>: Valida tokens JWT con firma, expiración y claims seguros. Usa herramientas como <a href="https://docs.aws.amazon.com/secretsmanager/">AWS Secrets Manager</a> para proteger claves.</li><li><strong>Mínimo privilegio</strong>: Configura políticas IAM específicas, evita permisos globales (<code>*</code>) y revisa accesos regularmente.</li><li><strong>Errores seguros</strong>: Ofrece mensajes genéricos al cliente, registra detalles en el servidor y monitorea con <a href="https://docs.aws.amazon.com/cloudwatch/">CloudWatch</a>.</li><li><strong>Optimización del caché</strong>: Configura un TTL equilibrado (300 segundos recomendado) y evita almacenar datos sensibles.</li><li><strong>Monitoreo constante</strong>: Usa CloudWatch, <a href="https://docs.aws.amazon.com/cloudtrail/">CloudTrail</a> y <a href="https://docs.aws.amazon.com/xray/latest/devguide/aws-xray.html">X-Ray</a> para detectar amenazas y auditar actividades.</li></ol>
-<p>Estas prácticas combinan seguridad y eficiencia para proteger tus APIs desde el primer momento.</p>
-<h2 id="1-usa-autenticacion-solida">1. Usa autenticación sólida</h2>
-<p>Para garantizar la seguridad en tus aplicaciones, implementa <strong>JSON Web Tokens (JWT)</strong> como estándar para validar tokens. Asegúrate de incluir varias capas de validación, como:</p>
-<ul><li>La estructura del token.</li><li>La firma criptográfica.</li><li>La fecha de expiración.</li><li>Claims específicos (por ejemplo, <em>issuer</em> y <em>audience</em>).</li></ul>
-<p>Aquí tienes un ejemplo práctico de cómo hacerlo de manera segura en Node.js:</p>
-<pre><code>const jwt = require('jsonwebtoken');
+Si tu API necesita reglas de autenticación propias, un **Lambda authorizer** puede decidir qué solicitudes pasan a API Gateway. Para aceptar JWT estándar en una **HTTP API**, empieza por evaluar el authorizer JWT integrado: API Gateway valida la firma y los claims configurados sin invocar una función Lambda en cada solicitud. Usa Lambda cuando necesites lógica que esa opción no cubre. En ambos casos, el tipo de API, el formato de respuesta y el caché determinan qué significa una autorización válida.
 
-exports.handler = async (event) =&gt; {
-  try {
-    const token = event.authorizationToken.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+## Primero identifica el tipo de API
 
-    // Validación adicional de claims
-    if (!decoded.iss || decoded.iss !== 'https://mi-servicio.com') {
-      throw new Error('Issuer inválido');
-    }
+API Gateway REST y HTTP no comparten un único formato de authorizer:
 
-    return generatePolicy(decoded.sub, 'Allow', event.methodArn);
-  } catch (error) {
-    console.error('Fallo en validación:', error);
-    return generatePolicy('user', 'Deny', event.methodArn);
-  }
-};
-</code></pre>
-<p><strong>Puntos clave a evitar:</strong></p>
-<ul><li>No almacenes secretos en el código fuente.</li><li>No omitas la verificación de la expiración del token.</li><li>Evita mensajes de error demasiado específicos que puedan revelar información sensible.</li></ul>
-<p>Este enfoque también complementa la práctica de aplicar permisos mínimos, ya que limita el acceso a recursos de autenticación. Considera agregar autenticación multifactor (MFA) para una capa extra de seguridad.</p>
-<p>Para gestionar secretos de forma segura, utiliza herramientas como <strong>AWS Secrets Manager</strong>, que te permiten:</p>
-<ul><li>Rotar claves automáticamente.</li><li>Mantener un registro de auditoría.</li><li>Administrar permisos de acceso detallados.</li></ul>
-<h2 id="2-aplica-el-principio-de-minimo-privilegio">2. Aplica el principio de mínimo privilegio</h2>
-<p>El principio de mínimo privilegio implica otorgar solo los permisos estrictamente necesarios para cada función específica. Esto complementa una autenticación sólida al reducir el impacto si las credenciales llegan a ser comprometidas.</p>
-<p>Al crear políticas IAM, es clave establecer restricciones precisas. Por ejemplo:</p>
-<pre><code>{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Action": [
-                "dynamodb:GetItem"
-            ],
-            "Resource": "arn:aws:dynamodb:region:account-id:table/users-table"
-        }
-    ]
-}
-</code></pre>
-<p>Este fragmento de política IAM permite únicamente la lectura de una tabla específica en <a href="https://docs.aws.amazon.com/dynamodb/">DynamoDB</a>, eliminando permisos innecesarios que podrían exponer datos o servicios.</p>
-<table><thead><tr><th>Acción</th><th>Riesgo</th><th>Solución</th></tr></thead><tbody><tr><td>Usar <code>AWSLambdaBasicExecutionRole</code></td><td>Incluye permisos excesivos</td><td>Crear roles personalizados específicos</td></tr><tr><td>Otorgar permisos con <code>*</code></td><td>Expone a posibles vulnerabilidades</td><td>Definir recursos y acciones específicas</td></tr><tr><td>Mantener permisos de desarrollo en producción</td><td>Aumenta riesgos de seguridad</td><td>Separar roles para cada ambiente</td></tr></tbody></table>
-<p>Para gestionar los permisos de manera eficiente:</p>
-<ul><li><strong><a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/what-is-access-analyzer.html">IAM Access Analyzer</a></strong>: Ayuda a identificar permisos que no se están utilizando.</li><li><strong><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/">Alertas en CloudWatch</a></strong>: Notifica sobre cambios en políticas que podrían ser riesgosos.</li></ul>
-<p>Es importante revisar los permisos después de cada actualización en el authorizer o cualquier cambio en las APIs protegidas. Esto asegura que los accesos estén siempre bajo control.</p>
-<h2 id="3-manejo-seguro-de-errores">3. Manejo Seguro de Errores</h2>
-<p>El manejo de errores de forma segura ayuda a prevenir la exposición de información sensible al implementar:</p>
-<ul><li><strong>Mensajes genéricos para el cliente</strong>, evitando detalles técnicos.</li><li><strong>Registros detallados en el servidor</strong>, útiles para diagnóstico interno.</li><li><strong>Monitoreo constante y alertas</strong> para identificar patrones sospechosos.</li></ul>
-<p>Una herramienta clave para esto es <strong>CloudWatch</strong>, que permite registrar información detallada mientras se asegura que las respuestas hacia el cliente sean simples y uniformes. Aquí tienes un ejemplo práctico:</p>
-<pre><code>exports.handler = async (event) =&gt; {
-    try {
-        // Lógica de autorización
-        if (!isValid) {
-            console.log(`Error detallado: Token expirado ${tokenDetails}`); // Log interno
-            return generatePolicy('deny', 'Autenticación fallida');
-        }
-    } catch (error) {
-        console.error(`ID de correlación: ${correlationId}, Error: ${error}`);
-        return generatePolicy('deny', 'Error de autorización');
-    }
-};
-</code></pre>
-<p>Es importante que este enfoque se extienda al manejo de errores para evitar ataques como los de tiempo (timing attacks). Usar IDs de correlación en los registros es una práctica recomendada, ya que permite rastrear errores internos mientras se presentan respuestas genéricas al cliente. Esto facilita la depuración sin comprometer la seguridad.</p>
-<p>Para reforzar aún más la seguridad, considera estos pasos:</p>
-<ul><li><strong>Validar todas las entradas</strong> antes de procesarlas.</li><li><strong><a href="https://dondeaprendoaws.com/blog/automatizar-alertas-de-costos-aws-en-5-pasos/">Configurar alertas en CloudWatch</a></strong> para detectar actividades inusuales.</li></ul>
-<p>Estas estrategias no solo protegen el sistema, sino que también aseguran la capacidad de diagnosticar y solucionar problemas de manera eficiente. Además, un manejo adecuado de errores complementa otras prácticas, como el uso eficiente de caché, que se analizará en la siguiente sección.</p>
-<h2 id="4-optimizar-el-uso-de-cache">4. Optimizar el Uso de Caché</h2>
-<p>Configurar correctamente el caché en Lambda Authorizers ayuda a proteger tu API mientras mejora su rendimiento. El parámetro <code>authorizerResultTtlInSeconds</code> es clave para este equilibrio:</p>
-<pre><code>{
-  "name": "mi-autorizador",
-  "type": "TOKEN",
-  "authorizerUri": "arn:aws:apigateway:us-west-2:lambda:path/2015-03-31/functions/arn:aws:lambda:us-west-2:123456789012:function:mi-funcion-autorizador/invocations",
-  "authorizerResultTtlInSeconds": 300
-}
-</code></pre>
-<p>Este ajuste de caché complementa el manejo seguro de errores y reduce la exposición a ataques sin perder trazabilidad.</p>
-<h3 id="puntos-clave-para-configurar-el-cache">Puntos Clave para Configurar el Caché</h3>
-<table><thead><tr><th>Aspecto</th><th>Configuración Recomendable</th><th>Razón</th></tr></thead><tbody><tr><td>Tiempo de vida del caché</td><td>300 segundos (5 minutos)</td><td>Balance entre rendimiento y seguridad</td></tr><tr><td>Claves de Caché</td><td>Basadas en parámetros únicos como accountId, API ID, token</td><td>Evita accesos no autorizados</td></tr><tr><td>Información crítica (como permisos)</td><td>No almacenar en caché</td><td>Protege datos sensibles</td></tr></tbody></table>
-<p>Asegúrate de alinear la configuración del caché con las políticas de seguridad, especialmente el principio de mínimo privilegio.</p>
-<h3 id="recomendaciones-adicionales">Recomendaciones Adicionales</h3>
-<ul><li><strong>Mecanismo de invalidación de caché</strong>: Útil para revocar accesos de manera inmediata.</li><li><strong>Bypass temporal del caché</strong>: Usa headers personalizados para desactivar el caché en casos excepcionales donde se requiera validación completa.</li><li><strong><a href="https://dondeaprendoaws.com/blog/como-habilitar-cloudwatch-logs-en-api-gateway-guia-paso-a-paso/">Monitoreo en CloudWatch</a></strong>: Analiza métricas de uso para ajustar el TTL según los patrones reales y mantener un equilibrio entre seguridad y experiencia del usuario.</li></ul>
-<p>Estas prácticas aseguran que el caché funcione como una herramienta eficiente sin comprometer la seguridad de tu API.</p>
-<h2 id="5-monitorear-y-auditar-regularmente">5. Monitorear y Auditar Regularmente</h2>
-<p>Además de optimizar el uso de caché, el monitoreo constante es clave para identificar amenazas en tiempo real y garantizar un buen desempeño.</p>
-<p>AWS ofrece varias herramientas útiles para este propósito:</p>
-<table><thead><tr><th>Servicio</th><th>Función Principal</th><th>Métricas Clave</th></tr></thead><tbody><tr><td><strong>CloudWatch</strong></td><td>Recolección de métricas y logs</td><td>Errores por segundo, tiempo de respuesta, consumo de recursos</td></tr><tr><td><strong>CloudTrail</strong></td><td>Registro de actividades en la API</td><td>Cambios en configuraciones, accesos</td></tr><tr><td><strong>X-Ray</strong></td><td>Análisis y depuración</td><td>Trazas de solicitudes, tiempos de respuesta</td></tr></tbody></table>
-<p>Configura alertas para identificar actividades fuera de lo común. Por ejemplo:</p>
-<pre><code>{
-  "alarmName": "AutorizadorErrorRate",
-  "metric": "Errors",
-  "threshold": 5,
-  "evaluationPeriods": 5,
-  "period": 300
-}
-</code></pre>
-<p>En el registro, enfócate en estos puntos:</p>
-<ul><li><strong>Decisiones de autorización</strong>: Registra solicitudes permitidas y denegadas.</li><li><strong>Parámetros de entrada</strong>: Guarda los datos utilizados para tomar decisiones.</li><li><strong>Mensajes de error</strong>: Incluye información detallada para facilitar la solución de problemas.</li><li><strong>Direcciones IP</strong>: Identifica el origen geográfico de las solicitudes.</li></ul>
-<h3 id="consejos-para-una-auditoria-efectiva">Consejos para una Auditoría Efectiva</h3>
-<ul><li><strong>Revisiones periódicas de código</strong>: Evalúa posibles vulnerabilidades y asegúrate de seguir buenas prácticas.</li></ul>
-<p>Estas acciones refuerzan la seguridad y eficiencia de los authorizers, complementando medidas como la autenticación sólida y el principio de privilegio mínimo.</p>
-<h2 id="conclusion">Conclusión</h2>
-<p>Aplicar estas cinco prácticas de manera conjunta - desde una autenticación sólida hasta un monitoreo constante - ayuda a construir una protección completa para tus APIs. Configurar Lambda Authorizers de manera segura requiere un enfoque que contemple varios aspectos clave. Las prácticas mencionadas funcionan como un sistema de defensa interconectado para las APIs en AWS, logrando mejores resultados con implementaciones consistentes y actualizaciones regulares.</p>
-<p>Puntos clave para mantener la <a href="https://dondeaprendoaws.com/blog/aws-lambda-en-profundidad/">seguridad en Lambda Authorizers</a>:</p>
-<ul><li><strong>Autenticación sólida</strong> con validación exhaustiva de tokens.</li><li><strong>Aplicación del principio de mínimo privilegio</strong> para limitar accesos innecesarios.</li><li><strong>Manejo seguro de errores</strong> para evitar fugas de información sensible.</li><li><strong>Gestión eficiente del caché</strong> para equilibrar rendimiento y seguridad.</li><li><strong>Monitoreo y auditoría constantes</strong> para detectar y responder a posibles amenazas.</li></ul>
-<p>La clave está en la consistencia y en ajustar estas prácticas conforme evolucionen tus APIs. Si quieres aprender más sobre este tema, puedes consultar recursos prácticos en <em>Dónde Aprendo AWS</em>, donde la comunidad hispanohablante comparte experiencias sobre cómo implementar autorizadores seguros.</p>
-<h2 id="publicaciones-de-blog-relacionadas">Publicaciones de blog relacionadas</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/">Mejores Prácticas Para AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores Prácticas de Seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/9-mejores-practicas-de-seguridad-para-iac-en-aws/">9 Mejores Prácticas de Seguridad para IaC en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/cache-para-autorizadores-lambda-en-api-gateway/">Caché para Autorizadores Lambda en API Gateway</a></li></ul>
+| API | Opciones de authorizer | Respuesta que espera API Gateway |
+| --- | --- | --- |
+| REST API | Lambda `TOKEN` recibe un token de una cabecera; `REQUEST` recibe parámetros de la solicitud y variables de contexto. | Una política IAM con `principalId` y `policyDocument`. |
+| HTTP API | Un authorizer JWT integrado valida JWT de un proveedor OIDC/OAuth. Si hace falta Lambda, el tipo es `REQUEST`; se configura el formato de payload `1.0` o `2.0`. | `1.0` devuelve una política IAM. `2.0` admite una política o una respuesta simple `{ "isAuthorized": true/false }` si habilitas esa opción. |
+
+El authorizer JWT integrado es una función de **HTTP API**, no un Lambda authorizer. Si lo eliges, configura un proveedor de identidad, `issuer` y `audience` reales. API Gateway comprueba la firma con las claves publicadas por el issuer y valida `iss`, `aud` (o `client_id` si no hay `aud`), `exp` y, cuando aparecen, `nbf` e `iat`. También puede exigir scopes en una ruta. AWS advierte que no existe una forma estándar de distinguir un access token de un ID token: exige scopes o un issuer/audience que identifique los tokens de acceso de tu proveedor. [Referencia: authorizers JWT para HTTP API](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-jwt-authorizer.html).
+
+Por ejemplo, este comando crea un authorizer JWT para una HTTP API. Sustituye el issuer, el audience, el ID de API y el scope por los valores emitidos y configurados en tu entorno:
+
+```bash
+aws apigatewayv2 create-authorizer \
+  --api-id "$API_ID" \
+  --name orders-jwt \
+  --authorizer-type JWT \
+  --identity-source '$request.header.Authorization' \
+  --jwt-configuration 'Audience=orders-app,Issuer=https://issuer.example'
+```
+
+Este ejemplo presupone una **HTTP API y una ruta ya creadas**, AWS CLI configurada con permisos para modificar esa API y los valores reales de tu proveedor de identidad. `API_ID` identifica el API; el resultado de `create-authorizer` devuelve el `AUTHORIZER_ID`. Asígnalo a una ruta existente; añade un scope solo si el token y la ruta usan ese permiso:
+
+```bash
+aws apigatewayv2 update-route \
+  --api-id "$API_ID" \
+  --route-id "$ROUTE_ID" \
+  --authorization-type JWT \
+  --authorizer-id "$AUTHORIZER_ID" \
+  --authorization-scopes orders/read
+```
+
+Si la etapa tiene `AutoDeploy` desactivado, publica el cambio creando un deployment para esa etapa:
+
+```bash
+aws apigatewayv2 create-deployment \
+  --api-id "$API_ID" \
+  --stage-name "$STAGE"
+```
+
+La documentación de AWS detalla [cómo crear el authorizer y asociarlo a una ruta](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-jwt-authorizer.html), y [cómo se despliegan los cambios de una HTTP API](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-stages.html). El authorizer JWT integrado admite algoritmos RSA; API Gateway puede conservar una clave pública en caché hasta dos horas, así que durante una rotación mantén un período en que las claves anterior y nueva sigan siendo válidas.
+
+## Cinco controles que sí cambian el resultado
+
+### 1. Valida identidad y permisos, no solo la forma del token
+
+Un JWT decodificado no es un JWT verificado. Si implementas la validación dentro de Lambda, usa una biblioteca mantenida y verifica la firma con claves confiables del proveedor. Comprueba issuer, audience y expiración; valida scopes o permisos requeridos para la ruta. No aceptes un algoritmo o una clave elegidos por datos no confiables del propio token.
+
+Prefiere el authorizer JWT de HTTP API cuando cubra el flujo de identidad. Si REST API o una regla propia requiere Lambda, implementa únicamente la validación que falte y prueba rechazos, expiración, claims incorrectos y rotación de claves. Envía tokens portadores en la cabecera `Authorization`, no en la URL: además de exponerlos en registros o historiales, un JWT largo en la ruta puede superar límites de longitud de los ARN usados en políticas de REST API. [Formato de respuesta y límites de authorizers REST](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-lambda-authorizer-output.html).
+
+### 2. Separa el permiso para invocar de los permisos de la función
+
+Hay dos decisiones IAM distintas:
+
+- API Gateway debe tener permiso para **invocar** la función authorizer. Concédelo mediante una política basada en recursos de Lambda o un rol que API Gateway pueda asumir; restringe el origen al API y al authorizer que correspondan.
+- El rol de ejecución de Lambda determina qué servicios puede usar el código del authorizer. Si solo valida un JWT localmente, no necesita permiso para leer secretos, tablas u otros recursos. Si consulta un secreto o almacén de sesiones, concede únicamente las acciones y el ARN necesarios.
+
+No confundas el rol de ejecución con el permiso de invocación. `AWSLambdaBasicExecutionRole` da a la función los permisos básicos para escribir logs en CloudWatch; [su política](https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AWSLambdaBasicExecutionRole.html) no concede lectura de secretos ni acceso a datos. Tampoco añadas permisos amplios de Secrets Manager para guardar un token estático compartido: eso crea otra credencial que distribuir y proteger. AWS explica cómo [otorgar acceso a una función mediante políticas basadas en recursos](https://docs.aws.amazon.com/lambda/latest/dg/permissions-function-services.html).
+
+### 3. Haz que la política y la clave de caché describan el mismo alcance
+
+En una REST API, `TOKEN` usa como clave el token de la cabecera configurada. `REQUEST` puede combinar fuentes de identidad —por ejemplo, la cabecera y variables de contexto como método y ruta—; si el caché está activo, todas deben estar presentes y participan en la clave. La función devuelve una política IAM con `principalId` y recursos `execute-api:Invoke` permitidos.
+
+En una HTTP API con Lambda, las fuentes de identidad también forman la clave. Una respuesta simple `isAuthorized: true` almacenada se aplica a todas las rutas que comparten esos valores. Si los permisos cambian por ruta, añade `$context.routeKey` como fuente de identidad o devuelve una política IAM que limite los recursos. En REST, la política almacenada también debe cubrir solo los métodos y recursos que el mismo conjunto de identidad puede usar; una política demasiado estrecha puede permitir la primera solicitud y causar `403` en otra ruta durante el TTL. AWS describe [las fuentes de identidad y el caché de HTTP API](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-lambda-authorizer.html) y [las políticas de salida de REST API](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-lambda-authorizer-output.html).
+
+No hay un TTL universalmente seguro. REST API usa 300 segundos si no se configura otro valor y permite hasta 3600; HTTP API Lambda permite `authorizerResultTtlInSeconds` de 0 a 3600. Un TTL de cero desactiva el caché. Elige el valor según cuánto tiempo puede seguir vigente una decisión después de que cambien los permisos: API Gateway no vuelve a ejecutar el authorizer mientras usa el resultado almacenado, de modo que una autorización en caché puede sobrevivir a una revocación o a la expiración del token hasta que venza ese resultado. Si necesitas comprobar revocaciones en cada solicitud, desactiva el caché.
+
+Para una intervención operativa, AWS permite vaciar todas las entradas de authorizer de una etapa. Hazlo con cuidado: invalida decisiones de todos los clientes de esa etapa y puede aumentar las invocaciones a Lambda. No equivale a revocar un único token.
+
+```bash
+# REST API
+aws apigateway flush-stage-authorizers-cache \
+  --rest-api-id "$REST_API_ID" \
+  --stage-name "$STAGE"
+
+# HTTP API con Lambda authorizer
+aws apigatewayv2 reset-authorizers-cache \
+  --api-id "$HTTP_API_ID" \
+  --stage-name "$STAGE"
+```
+
+`Cache-Control: max-age=0` se refiere a invalidar una entrada de la **caché de respuestas de integración** de REST API cuando el cliente tiene permiso. No es un bypass ni una invalidación del resultado de un Lambda authorizer. [AWS documenta por separado el vaciado del caché de authorizers REST](https://docs.aws.amazon.com/apigateway/latest/api/API_FlushStageAuthorizersCache.html), el [reinicio del caché de authorizers HTTP](https://docs.aws.amazon.com/apigatewayv2/latest/api-reference/apis-apiid-stages-stagename-cache-authorizers.html) y la [caché de respuestas de API](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-caching.html).
+
+### 4. Distingue credenciales inválidas de fallos del authorizer
+
+| Respuesta | REST API con Lambda authorizer | HTTP API con Lambda authorizer |
+| --- | --- | --- |
+| `401 Unauthorized` | Una fuente `REQUEST` requerida pero ausente devuelve 401 antes de invocar Lambda cuando el caché está activo. Para `TOKEN`, el authorizer puede devolver la respuesta/error especial `Unauthorized` para el caso no autenticado. | Una fuente de identidad configurada pero ausente devuelve 401 sin invocar Lambda. AWS también documenta la respuesta `{"errorMessage":"Unauthorized"}` para devolver 401 si no configuras identity sources. |
+| `403 Forbidden` | Una política IAM `Deny` o que no concede el método y recurso solicitados rechaza la llamada. | Una política IAM `Deny` o una respuesta simple `isAuthorized: false` deniega la ruta; el resultado cacheado puede denegar otras rutas que compartan identidad. |
+| `500 Internal Server Error` | Un error del authorizer que no sea la respuesta especial `Unauthorized`, un fallo de invocación o una salida inválida indica que la autorización no pudo completarse. | API Gateway no puede invocar Lambda, la función falla o devuelve un formato inválido. |
+
+En una REST API, el authorizer devuelve una política y `principalId`. En HTTP API Lambda, el payload `1.0` devuelve política; `2.0` devuelve política o respuesta simple. No mezcles una respuesta simple con un authorizer o payload que espera política IAM. Un `401` o `403` puede tener otras causas de configuración en la API, así que usa los logs para confirmar el origen. [AWS documenta los formatos HTTP, identity sources y errores de invocación](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-lambda-authorizer.html).
+
+### 5. Registra la decisión sin registrar la credencial
+
+Activa access logs de API Gateway y los logs necesarios de Lambda en CloudWatch. Registra el ID de solicitud, ruta, resultado (permitir, denegar o error), latencia y un identificador de principal que no sea un secreto. No registres la cabecera `Authorization`, el JWT, secretos, el evento completo ni claims personales que no necesites. Un token escrito en un log puede seguir sirviendo como credencial mientras sea válido.
+
+Para investigar fallos, REST API dispone de variables específicas como `$context.authorizer.error`, `$context.authorizer.status` y `$context.authorizer.latency`. HTTP API ofrece `$context.authorizer.error`, `$context.requestId`, `$context.status` y `$context.responseLatency`; mide la duración de la función con métricas o logs de Lambda. Inclúyelas solo en un formato de logs controlado y evita guardar campos sensibles de la solicitud. [Variables de logging para REST](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-variables-for-access-logging.html) y [para HTTP API](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-logging-variables.html).
+
+## Preguntas frecuentes
+
+### ¿300 segundos es el TTL recomendado?
+
+No. En REST API es el valor predeterminado cuando no se especifica otro, no una recomendación para todas las aplicaciones. Ajusta el TTL a la ventana de revocación tolerable y al tiempo de vida de las credenciales. Usa cero si cada solicitud debe volver a consultar el estado de autorización.
+
+### ¿Puedo invalidar un solo resultado del caché de authorizers?
+
+Los comandos documentados para REST y HTTP vacían todas las entradas de la etapa indicada. Si necesitas revocación inmediata de una identidad sin afectar a otras, no dependas de una entrada cacheada: desactiva el caché o diseña la autorización para comprobar el estado actualizado en cada solicitud.
+
+### ¿Qué contenido conviene pasar en `context`?
+
+Solo datos mínimos y no secretos que la integración necesite, como un identificador interno de principal o tenant y permisos ya calculados. El contexto puede llegar a la integración y a los logs; no lo uses para devolver tokens ni credenciales.
+
+## Sigue aprendiendo y participa
+
+Si recién estás aprendiendo AWS, esta [guía inicial de AWS](/blog/aws-aprender-guia-inicial/) repasa IAM, MFA y credenciales temporales antes de entrar a los authorizers. Como complemento práctico, el [repositorio aws-iam-security-lab](https://github.com/JonasCC8/aws-iam-security-lab) describe un ejercicio con MFA y una política acotada a un bucket de S3; practica IAM general, no implementa ni prueba Lambda authorizers.
+
+Para conversar sobre controles de acceso y seguridad en AWS, el [AWS Security Users Group LatAm](https://www.meetup.com/awssecuritylatam/) conecta a personas hispanohablantes, y el [canal regional @AWSSecurityLATAM](https://www.youtube.com/@AWSSecurityLATAM) publica grabaciones sobre seguridad, respuesta a incidentes y cumplimiento.
+
+La comunidad [AWS Women Colombia](https://awswomencolombia.com/) comparte charlas técnicas en español; puedes explorar su [archivo de eventos y grabaciones](https://awswomencolombia.com/page/eventos) y su [canal de YouTube](https://www.youtube.com/channel/UCdpHSMDDwo4_d_u3mSU41Mw), que incluye sesiones de seguridad.
+
+### Eventos anunciados al 4 de octubre de 2026
+
+- El [AWS & Cloud Native Security Night de AWS User Group Security Ecuador](https://www.meetup.com/aws-user-group-security-ecuador/events/316815633/) figura para el 23 de octubre, de 17:00 a 20:00 GMT-5, presencial en Guayaquil. Su ficha anuncia seguridad de Kubernetes e imágenes de contenedores, entrada gratuita y cupos limitados; no es una sesión sobre API Gateway, pero permite conocer a una comunidad enfocada en seguridad de AWS.
+- El [AWS Community Day Panamá — Security & Data Edition 2026](https://www.meetup.com/aws-user-group-panama/events/316732293/) figura para el 14 de noviembre, de 08:00 a 13:00 GMT-5, presencial. La ubicación aún se indica como pendiente de confirmar en Meetup; revisa allí lugar, cupos y condiciones antes de planificar el viaje.
+
+Las agendas y condiciones pueden cambiar. Consulta la ficha del organizador y la [agenda de próximos eventos AWS](/eventos/) para ver qué sigue después de esas fechas; también puedes encontrar un grupo por país en el [directorio de comunidades](/comunidades/) o canales técnicos en el [directorio de creadores](/creadores/).

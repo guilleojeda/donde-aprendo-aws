@@ -1,129 +1,80 @@
 ---
-title: "10 Preguntas Frecuentes sobre AWS Training y Certification"
-description: "Descubre cómo las certificaciones de AWS pueden impulsar tu carrera en TI, con información sobre costos, preparación y beneficios exclusivos de estar certificado."
+title: "AWS Training y Certification: preguntas sobre cursos y exámenes"
+description: "Qué diferencia un curso, una insignia y una certificación de AWS; dónde aprender, cómo elegir examen y qué revisar sobre idioma, precio y renovación."
 author: "guille-ojeda"
 publishedAt: "2024-05-03"
 publishedTimestamp: "2024-05-03T23:06:27.097Z"
-modifiedTimestamp: "2026-10-01T15:14:05-03:00"
+modifiedTimestamp: "2026-10-04T21:44:34-03:00"
 cover: "/assets/blog/b779f7f567a0e83dd55103f0.jpg"
 coverAlt: "Nube pastel rodeada de estrellas de distintos tamaños"
 ogImage: "/assets/blog/b779f7f567a0e83dd55103f0.jpg"
-related:
-  - title: "Machine Learning para Triage de Alertas en AWS"
-    url: "https://dondeaprendoaws.com/blog/machine-learning-para-triage-de-alertas-en-aws/"
-    image: "/assets/blog/6f0cbd991f1cfe77b09e89dd.jpg"
-    imageAlt: ""
-  - title: "Cómo Utilizar Amazon Bedrock"
-    url: "https://dondeaprendoaws.com/blog/como-utilizar-amazon-bedrock/"
-    image: "/assets/blog/40a012e9c33f0668e83afad8.png"
-    imageAlt: ""
-  - title: "Cómo Desplegar una Aplicación en Amazon EKS"
-    url: "https://dondeaprendoaws.com/blog/como-desplegar-una-aplicacion-en-amazon-eks/"
-    image: "/assets/blog/b0397a49b6dcdda375e046d4.jpg"
-    imageAlt: ""
+related: []
 ---
 
-<p><a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-basica/">AWS Training y Certification</a> es un programa de capacitación y certificación ofrecido por <a href="https://aws.amazon.com/">Amazon Web Services</a> (AWS) que ayuda a los profesionales de TI a desarrollar <a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">habilidades y conocimientos especializados en la nube de AWS</a>. El programa ofrece varias certificaciones que validan las habilidades y el conocimiento de los profesionales en áreas específicas.</p>
-<h2 id="beneficios-clave">Beneficios Clave</h2>
-<ul><li><strong>Mejora la Credibilidad y Reconocimiento</strong>: Las certificaciones de AWS son un indicador confiable de las habilidades técnicas en la computación en la nube, reconocidas por empleadores, colegas y clientes.</li><li><strong>Mejora las Oportunidades Laborales</strong>: La demanda de profesionales de la nube con habilidades en AWS está en constante aumento, lo que aumenta las posibilidades de ser contratado para roles relacionados con la nube.</li><li><strong>Acceso a Beneficios Exclusivos</strong>: Los profesionales certificados en AWS tienen acceso a descuentos en exámenes y eventos, comunidades globales y oportunidades de networking.</li></ul>
-<h2 id="tipos-de-certificaciones">Tipos de Certificaciones</h2>
-<table><thead><tr><th>Tipo</th><th>Certificaciones</th></tr></thead><tbody><tr><td>Fundamentales</td><td><a href="https://aws.amazon.com/certification/certified-cloud-practitioner/">AWS Certified Cloud Practitioner</a></td></tr><tr><td>Asociadas</td><td><a href="https://aws.amazon.com/es/certification/certified-solutions-architect-associate/">AWS Certified</a> <a href="https://dev.to/saemp21/que-es-ser-arquitecto-de-soluciones-y-por-que-certificarme-con-aws-2j8g">Solutions Architect</a> - Associate, <a href="https://aws.amazon.com/certification/certified-sysops-admin-associate/">AWS Certified SysOps Administrator</a> - Associate, <a href="https://aws.amazon.com/es/certification/certified-developer-associate/">AWS Certified Developer</a> - Associate</td></tr><tr><td>Profesionales</td><td>AWS Certified Solutions Architect - Professional, <a href="https://aws.amazon.com/es/certification/certified-devops-engineer-professional/">AWS Certified DevOps Engineer</a> - Professional</td></tr><tr><td>Especializadas</td><td><a href="https://www.techtarget.com/searchaws/definition/AWS-certification">AWS Certified Big Data</a> - Specialty, <a href="https://aws.amazon.com/certification/certified-advanced-networking-specialty/">AWS Certified Advanced Networking</a> - Specialty, <a href="https://aws.amazon.com/certification/certified-security-specialty/">AWS Certified Security</a> - Specialty</td></tr></tbody></table>
-<h2 id="preparaci%C3%B3n-y-costos">Preparación y Costos</h2>
-<ul><li><strong>Preparación</strong>: AWS recomienda tener conocimientos fundamentales de computación en la nube, servicios de AWS y experiencia práctica. Además, ofrece recursos oficiales como cursos de capacitación, prácticas de examen y documentos técnicos.</li><li><strong>Costos</strong>: Los costos de los exámenes de certificación varían según el tipo, desde $100 USD para certificaciones fundamentales hasta $300 USD para certificaciones profesionales y especializadas.</li></ul>
-<h2 id="mantener-y-renovar-certificaciones">Mantener y Renovar Certificaciones</h2>
-<p>AWS requiere renovar las certificaciones cada tres años para mantener la validez. Ofrece recursos como cursos de actualización, eventos de capacitación y exámenes de renovación para ayudar a los profesionales a mantener y renovar sus certificaciones.</p>
-<h2 id="ventajas-de-la-certificaci%C3%B3n-de-aws">Ventajas de la Certificación de <a href="https://aws.amazon.com/">AWS</a></h2>
-<p><img alt="AWS" src="/assets/blog/2ebe3cf8e7ae57e98d3af846.jpg"/></p>
-<h3 id="mejora-de-la-credibilidad-y-reconocimiento">Mejora de la Credibilidad y Reconocimiento</h3>
-<p>La certificación de AWS es un indicador confiable de las habilidades y conocimientos técnicos de un individuo en el campo de la computación en la nube. Los empleadores, colegas y clientes reconocen el valor de la certificación de AWS y pueden verla como una garantía de la expertise de un individuo en el diseño, implementación y operación de aplicaciones y infraestructuras en la plataforma de AWS.</p>
-<h3 id="mejora-de-las-oportunidades-laborales">Mejora de las Oportunidades Laborales</h3>
-<p>La demanda de profesionales de la nube con habilidades en AWS está en constante aumento. Obtener una certificación de AWS puede mejorar las oportunidades laborales de un individuo y aumentar sus posibilidades de ser contratado para roles relacionados con la nube.</p>
-<h3 id="acceso-a-beneficios-exclusivos">Acceso a Beneficios Exclusivos</h3>
-<p>Los <a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-preparacion-para-el-examen/">profesionales certificados en AWS</a> también tienen acceso a beneficios exclusivos, como:</p>
-<table><thead><tr><th>Beneficio</th><th>Descripción</th></tr></thead><tbody><tr><td>Descuentos en exámenes y eventos</td><td>Acceso a descuentos en exámenes y eventos de AWS</td></tr><tr><td><a href="https://dondeaprendoaws.com/blog/certificacion-de-aws-preparacion-sin-costo/">Acceso a la comunidad global de profesionales certificados en AWS</a></td><td>Conecta con otros expertos en la nube</td></tr><tr><td>Oportunidades de networking</td><td>Conecta con otros profesionales de la nube</td></tr></tbody></table>
-<p>Estos beneficios pueden ser valiosos para los profesionales que buscan avanzar en sus carreras y mantenerse actualizados con las últimas tendencias y tecnologías en la nube de AWS.</p>
-<h2 id="tipos-de-certificaciones-de-aws">Tipos de Certificaciones de AWS</h2>
-<p>AWS ofrece varias certificaciones para diferentes roles y niveles de experiencia en la nube. A continuación, se presentan los tipos de certificaciones que se ofrecen:</p>
-<h3 id="certificaciones-fundamentales">Certificaciones Fundamentales</h3>
-<table><thead><tr><th>Certificación</th><th>Descripción</th></tr></thead><tbody><tr><td><strong>AWS Certified Cloud Practitioner</strong></td><td>Demuestra <a href="https://dondeaprendoaws.com/blog/desarrollo-en-la-nube-fundamentos-esenciales/">conocimientos fundamentales sobre la tecnología de la nube</a> de AWS y es ideal para aquellos que están empezando a trabajar con la nube.</td></tr></tbody></table>
-<h3 id="certificaciones-asociadas">Certificaciones Asociadas</h3>
-<table><thead><tr><th>Certificación</th><th>Descripción</th></tr></thead><tbody><tr><td><strong>AWS Certified Solutions Architect - Associate</strong></td><td>Valida las habilidades para diseñar y implementar aplicaciones en la nube de AWS.</td></tr><tr><td><strong>AWS Certified SysOps Administrator - Associate</strong></td><td>Demuestra la capacidad para operar, administrar y implementar soluciones de alta disponibilidad en la nube de AWS.</td></tr><tr><td><strong>AWS Certified Developer - Associate</strong></td><td>Valida las habilidades para desarrollar aplicaciones en la nube de AWS.</td></tr></tbody></table>
-<h3 id="certificaciones-profesionales">Certificaciones Profesionales</h3>
-<table><thead><tr><th>Certificación</th><th>Descripción</th></tr></thead><tbody><tr><td><strong>AWS Certified Solutions Architect - Professional</strong></td><td>Valida las habilidades avanzadas para diseñar y implementar aplicaciones en la nube de AWS.</td></tr><tr><td><strong>AWS Certified DevOps Engineer - Professional</strong></td><td>Demuestra la capacidad para implementar y administrar prácticas de DevOps en la nube de AWS.</td></tr></tbody></table>
-<h3 id="certificaciones-especializadas">Certificaciones Especializadas</h3>
-<table><thead><tr><th>Certificación</th><th>Descripción</th></tr></thead><tbody><tr><td><strong>AWS Certified Big Data - Specialty</strong></td><td>Valida las habilidades para diseñar y implementar soluciones de big data en la nube de AWS.</td></tr><tr><td><strong>AWS Certified Advanced Networking - Specialty</strong></td><td>Demuestra la capacidad para diseñar y implementar soluciones de networking avanzadas en la nube de AWS.</td></tr><tr><td><strong>AWS Certified Security - Specialty</strong></td><td>Valida las habilidades para diseñar y implementar soluciones de seguridad en la nube de AWS.</td></tr></tbody></table>
-<p>Es importante elegir la certificación que mejor se adapte a tus necesidades y objetivos.</p>
-<h2 id="requisitos-previos-para-las-certificaciones-de-aws">Requisitos previos para las certificaciones de AWS</h2>
-<p>Antes de intentar obtener una certificación de AWS, es esencial evaluar tu preparación evaluando tu experiencia y conocimientos en computación en la nube, servicios de AWS y roles de trabajo específicos. Aunque no hay requisitos previos formales para las <a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-preguntas-frecuentes/">certificaciones de AWS</a>, tener una sólida base en las siguientes áreas puede mejorar significativamente tus posibilidades de éxito:</p>
-<h3 id="conocimientos-fundamentales">Conocimientos fundamentales</h3>
-<ul><li><strong>Conceptos de computación en la nube</strong>: Entender las diferencias entre Infrastructure as a Service (IaaS), Platform as a Service (PaaS) y Software as a Service (SaaS) es crucial.</li><li><strong>Servicios de AWS</strong>: Familiaridad con los servicios de AWS core como Amazon EC2, Amazon S3, <a href="https://dondeaprendoaws.com/blog/bases-de-datos-relacionales-en-aws-con-amazon-rds-y-amazon-aurora/">Amazon RDS</a>, Amazon VPC y AWS Identity and Access Management (IAM) es esencial.</li><li><strong>Conocimientos específicos del rol de trabajo</strong>: Dependiendo de la certificación que estás buscando, es posible que necesites experiencia en diseño y despliegue de aplicaciones, operación y administración de sistemas o desarrollo de soluciones en la nube.</li><li><strong>Experiencia práctica</strong>: AWS recomienda tener experiencia práctica con los servicios de AWS y crear soluciones en un contexto real. Puedes configurar una cuenta de <a href="https://dondeaprendoaws.com/blog/aws-free-tier-guia-para-principiantes-2024/">AWS Free Tier</a> para obtener experiencia práctica.</li></ul>
-<p>Además, AWS proporciona rutas de aprendizaje recomendadas y recursos para ayudarte a prepararte para cada certificación. Es esencial revisar el contenido del examen y determinar qué necesitas aprender para prepararte para el examen.</p>
-<p>Al evaluar tus conocimientos y experiencia en estas áreas, puedes identificar brechas y enfocarte en adquirir las habilidades necesarias para aumentar tus posibilidades de aprobar los exámenes de certificación de AWS.</p>
-<h2 id="c%C3%B3mo-prepararte-para-los-ex%C3%A1menes-de-certificaci%C3%B3n-de-aws">Cómo Prepararte para los Exámenes de Certificación de AWS</h2>
-<p>Para aprobar los <a href="https://dondeaprendoaws.com/blog/certificacion-aws-gratis-materiales-de-estudio/">exámenes de certificación de AWS</a>, es fundamental tener una estrategia de estudio efectiva y utilizar los recursos adecuados. A continuación, te presentamos algunos consejos y recomendaciones para ayudarte a prepararte para los exámenes de certificación de AWS:</p>
-<h3 id="entiende-el-contenido-del-examen">Entiende el Contenido del Examen</h3>
-<p>Antes de comenzar a estudiar, asegúrate de entender el contenido del examen que deseas aprobar. AWS proporciona guías de examen detalladas que describen los temas y habilidades que se evalúan en cada examen.</p>
-<h3 id="utiliza-recursos-oficiales-de-aws">Utiliza Recursos Oficiales de AWS</h3>
-<p>AWS ofrece una variedad de recursos oficiales para ayudarte a prepararte para los exámenes de certificación, incluyendo cursos de capacitación, prácticas de examen y documentos técnicos.</p>
-<h3 id="crea-un-plan-de-estudio">Crea un Plan de Estudio</h3>
-<p>Crea un plan de estudio detallado que te ayude a organizar tu tiempo y enfocarte en los temas más importantes. Establece metas y fechas límite para cada tema y asegúrate de dejar tiempo para repasar y practicar.</p>
-<h3 id="practica-con-ejercicios-y-simulaciones">Practica con Ejercicios y Simulaciones</h3>
-<p>La práctica es la mejor manera de prepararte para los exámenes de certificación de AWS. Utiliza ejercicios y simulaciones para probar tus habilidades y conocimientos en diferentes áreas.</p>
-<h3 id="aprovecha-los-recursos-en-l%C3%ADnea">Aprovecha los Recursos en Línea</h3>
-<p>Existen muchos recursos en línea que pueden ayudarte a prepararte para los exámenes de certificación de AWS, incluyendo cursos en línea, blogs y comunidades de desarrollo.</p>
-<h3 id="obtenga-experiencia-pr%C3%A1ctica">Obtenga Experiencia Práctica</h3>
-<p>La experiencia práctica es esencial para aprobar los exámenes de certificación de AWS. Crea un entorno de práctica en AWS y experimenta con diferentes servicios y características para obtener experiencia práctica.</p>
-<p>Recuerda que la preparación para los exámenes de certificación de AWS requiere tiempo y esfuerzo. Asegúrate de ser paciente y persistente, y no dudes en buscar ayuda si lo necesitas.</p>
-<table><thead><tr><th><strong>Recurso</strong></th><th><strong>Descripción</strong></th></tr></thead><tbody><tr><td>Guías de examen</td><td>Detallan los temas y habilidades que se evalúan en cada examen</td></tr><tr><td>Cursos de capacitación</td><td>Proporcionan conocimientos y habilidades en diferentes áreas de AWS</td></tr><tr><td>Prácticas de examen</td><td>Ayudan a probar tus habilidades y conocimientos en diferentes áreas</td></tr><tr><td>Documentos técnicos</td><td>Proporcionan información detallada sobre los servicios y características de AWS</td></tr><tr><td>Recursos en línea</td><td>Incluyen cursos en línea, blogs y comunidades de desarrollo</td></tr><tr><td>Entorno de práctica</td><td>Permite experimentar con diferentes servicios y características de AWS</td></tr></tbody></table>
-<h2 id="costos-de-los-ex%C3%A1menes-de-certificaci%C3%B3n-de-aws">Costos de los Exámenes de Certificación de AWS</h2>
-<p>Los costos de los exámenes de certificación de AWS varían según el tipo de certificación y el nivel de habilidad. A continuación, se presentan los costos actuales para cada tipo de examen de certificación de AWS:</p>
-<table><thead><tr><th><strong>Tipo de Certificación</strong></th><th><strong>Costo del Examen</strong></th></tr></thead><tbody><tr><td>Fundacional</td><td>$100 USD</td></tr><tr><td>Asociado</td><td>$150 USD</td></tr><tr><td>Profesional</td><td>$300 USD</td></tr><tr><td>Especializado</td><td>$300 USD</td></tr></tbody></table>
-<p>Es importante tener en cuenta que estos costos pueden variar según la región y el proveedor de pruebas. Además, AWS ofrece descuentos y promociones especiales para estudiantes, profesionales en desarrollo y otras categorías.</p>
-<p>Invertir en una certificación de AWS puede tener un impacto significativo en tu carrera y salario. Según un estudio, los profesionales certificados en AWS pueden ganar un 25% más que los no certificados.</p>
-<h2 id="programar-y-realizar-ex%C3%A1menes-de-aws">Programar y Realizar Exámenes de AWS</h2>
-<p>Para programar un examen de certificación de AWS, debes crear una cuenta en el <a href="https://dondeaprendoaws.com/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/">portal de Capacitación y Certificación de AWS</a> y seguir el proceso de registro. Puedes elegir entre varios centros de pruebas y horarios que se adapten a tus necesidades. AWS ofrece various formatos de exámenes, incluyendo exámenes en línea con supervisión, que te permiten realizar el examen desde la comodidad de tu hogar o oficina.</p>
-<p>Es esencial prepararte bien para el examen estudiando los servicios y tecnologías de AWS relevantes, practicando con preguntas de muestra y revisando el formato y contenido del examen. También puedes aprovechar los recursos gratuitos de AWS, como la página de <a href="https://aws.amazon.com/certification/certification-prep/">Preparación para Exámenes de Certificación de AWS</a>, que proporciona guías de estudio, exámenes de práctica y otros materiales para ayudarte a prepararte.</p>
-<h3 id="reintentar-ex%C3%A1menes-de-certificaci%C3%B3n-de-aws">Reintentar Exámenes de Certificación de AWS</h3>
-<p>Si no apruebas un examen de certificación de AWS, puedes reintentarlo después de un período de espera de 14 días. Puedes intentar el examen hasta un máximo de tres veces dentro de un período de 12 meses. Después del tercer intento, deberás esperar 12 meses antes de poder reintentar el examen nuevamente.</p>
-<h3 id="recibir-resultados-de-ex%C3%A1menes-de-aws">Recibir Resultados de Exámenes de AWS</h3>
-<p>Después de realizar el examen, recibirás tus resultados dentro de 5-7 días hábiles. Si apruebas, se te otorgará una insignia digital que puedes compartir en redes sociales, tu currículum o perfiles en línea. También recibirás un correo electrónico con instrucciones sobre cómo acceder a tu insignia digital y certificado.</p>
-<p>AWS utiliza un sistema de credenciales digitales para emitir certificaciones, lo que te permite compartir fácilmente tus credenciales con empleadores, clientes o otros. Puedes acceder a tu insignia digital y certificado a través del portal de <a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-de-inicio/">Certificación de AWS</a>, donde también puedes ver tu historial de certificación y seguir tu progreso.</p>
-<p>Recuerda mantener tu certificación actualizada renovándola cada tres años. AWS ofrece varios recursos para ayudarte a mantener tu certificación, incluyendo cursos en línea, exámenes de práctica y guías de estudio.</p>
-<h2 id="verificar-el-estado-de-certificaci%C3%B3n-de-aws">Verificar el Estado de Certificación de AWS</h2>
-<p>Verificar el estado de certificación de AWS es un paso crucial tanto para los individuos certificados como para los empleadores. AWS proporciona insignias digitales y números de verificación únicos para facilitar este proceso.</p>
-<h3 id="insignias-digitales">Insignias Digitales</h3>
-<p>AWS Certification ofrece insignias digitales como beneficio de obtener una certificación de AWS. Estas insignias se pueden compartir en redes sociales, currículums o perfiles en línea, lo que facilita mostrar el estado de certificación. Las insignias digitales se proporcionan a través de la plataforma <a href="https://info.credly.com/">Acclaim</a> de Credly, ofreciendo opciones de reconocimiento y verificación flexibles.</p>
-<h3 id="proceso-de-verificaci%C3%B3n">Proceso de Verificación</h3>
-<p>Los empleadores o otros pueden verificar el estado de certificación de AWS de un individuo visitando el sitio web de AWS Certification y ingresando el número de verificación único proporcionado con la insignia digital. Esto garantiza que la certificación sea auténtica y actualizada.</p>
-<table><thead><tr><th><strong>Recurso</strong></th><th><strong>Descripción</strong></th></tr></thead><tbody><tr><td>Insignias digitales</td><td>Compartir el estado de certificación en redes sociales, currículums o perfiles en línea</td></tr><tr><td>Número de verificación único</td><td>Verificar la autenticidad y actualización de la certificación</td></tr></tbody></table>
-<p>Al utilizar insignias digitales y números de verificación únicos, AWS facilita la verificación del estado de certificación, brindando una forma conveniente y confiable de demostrar su expertise y habilidades en servicios y tecnologías de AWS.</p>
-<h2 id="mantener-y-renovar-certificaciones-de-aws">Mantener y Renovar Certificaciones de AWS</h2>
-<p>Es importante mantener y renovar las certificaciones de AWS para demostrar su expertise y habilidades en servicios y tecnologías de AWS. AWS ofrece varias opciones para mantener y renovar las certificaciones, lo que garantiza que los profesionales sigan siendo actualizados y competentes en el uso de las tecnologías de AWS.</p>
-<h3 id="requisitos-de-renovaci%C3%B3n">Requisitos de Renovación</h3>
-<p>Para mantener las certificaciones, es necesario cumplir con los requisitos de renovación establecidos por AWS. Esto puede incluir:</p>
-<ul><li>Realizar cursos de actualización</li><li>Participar en eventos de capacitación</li><li>Realizar exámenes de renovación</li></ul>
-<p>Es importante verificar los requisitos de renovación específicos para cada certificación, ya que pueden variar.</p>
-<h3 id="recursos-para-mantener-y-renovar-certificaciones">Recursos para Mantener y Renovar Certificaciones</h3>
-<p>AWS ofrece recursos y herramientas para ayudar a los profesionales a mantener y renovar sus certificaciones. Algunos de estos recursos incluyen:</p>
-<table><thead><tr><th><strong>Recurso</strong></th><th><strong>Descripción</strong></th></tr></thead><tbody><tr><td>Cursos de actualización</td><td>Actualizar conocimientos y habilidades en servicios y tecnologías de AWS</td></tr><tr><td>Eventos de capacitación</td><td>Participar en eventos de capacitación y networking para mantenerse actualizado</td></tr><tr><td>Exámenes de renovación</td><td>Realizar exámenes de renovación para demostrar competencia y expertise</td></tr></tbody></table>
-<p>Al mantener y renovar las certificaciones de AWS, los profesionales pueden demostrar su compromiso con la excelencia y su capacidad para adaptarse a los cambios tecnológicos. Esto puede tener un impacto positivo en su carrera y en la confianza de los empleadores y clientes en sus habilidades y expertise.</p>
-<h2 id="avanzar-en-tu-carrera-con-la-capacitaci%C3%B3n-de-aws">Avanzar en tu carrera con la capacitación de AWS</h2>
-<p>La capacitación y certificación de AWS son fundamentales para avanzar en la carrera de los profesionales de TI. Al invertir en la capacitación y certificación de AWS, los profesionales pueden demostrar su compromiso con la excelencia y mejorar sus habilidades y conocimientos en servicios y tecnologías de AWS.</p>
-<h3 id="beneficios-de-la-capacitaci%C3%B3n-y-certificaci%C3%B3n-de-aws">Beneficios de la capacitación y certificación de AWS</h3>
-<p>La capacitación y certificación de AWS ofrecen varios beneficios, incluyendo:</p>
-<ul><li>Mayor visibilidad y preferencia por parte de los empleadores</li><li>Oportunidades de avance en la carrera y aumento salarial</li><li>Acceso a una comunidad global de profesionales certificados</li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Desarrollo de habilidades y conocimientos especializados en servicios y tecnologías de AWS</a></li><li>Mayor confianza y credibilidad en el mercado laboral</li></ul>
-<h3 id="mantener-y-renovar-certificaciones-de-aws-1">Mantener y renovar certificaciones de AWS</h3>
-<p>Es importante mantener y renovar las certificaciones de AWS para demostrar el compromiso con la excelencia y mejorar las habilidades y conocimientos en servicios y tecnologías de AWS. AWS ofrece recursos y herramientas para ayudar a los profesionales a mantener y renovar sus certificaciones.</p>
-<table><thead><tr><th><strong>Recurso</strong></th><th><strong>Descripción</strong></th></tr></thead><tbody><tr><td>Cursos de actualización</td><td>Actualizar conocimientos y habilidades en servicios y tecnologías de AWS</td></tr><tr><td>Eventos de capacitación</td><td>Participar en eventos de capacitación y networking para mantenerse actualizado</td></tr><tr><td>Exámenes de renovación</td><td>Realizar exámenes de renovación para demostrar competencia y expertise</td></tr></tbody></table>
-<p>Al mantener y renovar las certificaciones de AWS, los profesionales pueden demostrar su compromiso con la excelencia y mejorar sus habilidades y conocimientos en servicios y tecnologías de AWS. Esto puede tener un impacto positivo en su carrera y en la confianza de los empleadores y clientes en sus habilidades y expertise.</p>
-<h2 id="preguntas-frecuentes">Preguntas Frecuentes</h2>
-<h3 id="%C2%BFcu%C3%A1l-es-el-prop%C3%B3sito-de-un-certificado-de-aws%3F">¿Cuál es el propósito de un certificado de AWS?</h3>
-<p>Un certificado de AWS demuestra la experticia en la nube y mejora la confianza en áreas relacionadas con servicios en la nube.</p>
-<h3 id="%C2%BFqu%C3%A9-beneficios-ofrece-la-certificaci%C3%B3n-de-aws%3F">¿Qué beneficios ofrece la certificación de AWS?</h3>
-<p>La certificación de AWS ofrece varios beneficios, como:</p>
-<table><thead><tr><th>Beneficio</th><th>Descripción</th></tr></thead><tbody><tr><td>Mejora la credibilidad</td><td>Demuestra la experticia en la nube</td></tr><tr><td>Mejora las perspectivas laborales</td><td>Incrementa las oportunidades de empleo</td></tr><tr><td>Acceso a una comunidad de profesionales</td><td>Conecta con otros expertos en la nube</td></tr></tbody></table>
-<h3 id="%C2%BFcu%C3%A1l-es-el-mejor-curso-para-aprender-aws%3F">¿Cuál es el mejor curso para aprender AWS?</h3>
-<p>Entre los cursos más populares para aprender AWS se encuentran:</p>
-<table><thead><tr><th>Curso</th><th>Descripción</th></tr></thead><tbody><tr><td>AWS Fundamentals</td><td>Introducción a los servicios de AWS</td></tr><tr><td>AWS Cloud Solutions Architect</td><td>Diseño de soluciones en la nube</td></tr><tr><td>DevOps on AWS</td><td>Desarrollo y operación de aplicaciones en la nube</td></tr><tr><td>AWS Cloud Technology Consultant</td><td>Consultoría en tecnologías de la nube</td></tr><tr><td>AWS Cloud Technical Essentials</td><td>Fundamentos técnicos de la nube</td></tr></tbody></table>
-<h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-basica/">Guía Básica para Certificaciones de AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/certificacion-aws-gratis-materiales-de-estudio/">Certificación AWS gratis: Materiales de estudio</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-preguntas-frecuentes/">Certificationes AWS: preguntas frecuentes</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-de-inicio/">Certificaciones AWS: Por Dónde Empezar</a></li></ul>
+AWS Training y Certification agrupa dos caminos relacionados: aprender a usar AWS y validar conocimientos mediante una certificación. Un curso, una insignia de formación y una AWS Certification acreditan cosas distintas. Estas respuestas te ayudan a elegir qué estudiar, comprobar las condiciones del examen y encontrar espacios para aprender con otras personas.
+
+## ¿Qué diferencia hay entre un curso, una insignia y una AWS Certification?
+
+Un curso enseña un tema; quien lo ofrece puede emitir una constancia de finalización si sus condiciones lo contemplan. Algunos contenidos de AWS también permiten obtener una insignia digital de formación, que registra un aprendizaje o una evaluación concreta y se puede compartir. La [página de insignias de AWS Training](https://aws.amazon.com/es/training/badges/) explica cuáles actividades las ofrecen y cómo reclamarlas.
+
+Una **AWS Certification** es una credencial distinta: se obtiene al aprobar el examen supervisado de esa certificación. Completar un curso o compartir una insignia no equivale a haber aprobado ese examen. Si una academia anuncia un «certificado AWS», revisa quién lo emite y qué demuestra.
+
+## ¿Un curso de AWS me certifica al terminar?
+
+No. Un curso puede prepararte y, según la oferta, incluir un cupón o asistencia para reservar. Pero completarlo no equivale a aprobar el examen correspondiente, que sí debes rendir para conseguir la certificación. AWS recomienda la formación, pero no la exige. Un curso, una asistencia o una insignia tampoco garantizan aprobar ni conseguir un empleo.
+
+## ¿Qué certificación conviene según mi objetivo?
+
+Empieza por el trabajo que quieres hacer, no por una lista antigua de cursos. Si necesitas entender los conceptos generales de nube, una certificación de nivel fundamental puede servirte. Si buscas demostrar habilidades para una función técnica —por ejemplo, arquitectura, desarrollo, operaciones o datos—, compara esa función con los dominios y la experiencia recomendada en la [guía del examen vigente](https://docs.aws.amazon.com/aws-certification/latest/examguides/). Las certificaciones avanzadas o de especialidad tienen sentido cuando coinciden con el área en que ya quieres profundizar.
+
+AWS organiza sus credenciales actuales en categorías de negocio, fundamentales, asociadas, profesionales y de especialidad. Consulta el [catálogo de AWS Certification](https://aws.amazon.com/es/certification/) y abre la guía de la opción que se acerque a tu objetivo. No tienes que aprobar primero Cloud Practitioner ni completar un curso: AWS no exige requisitos previos específicos para sus certificaciones, aunque sí recomienda conocimientos y experiencia acordes con cada examen. Si tu interés es IA o machine learning, lee también nuestras [preguntas frecuentes sobre Machine Learning en AWS](/blog/10-preguntas-frecuentes-sobre-machine-learning-en-aws/) para explorar el tema técnico; no es una ruta de certificación. La certificación valida lo que evalúa ese examen; no sustituye la práctica ni garantiza una contratación.
+
+Si estás comparando opciones de IA, el [AWS User Group Mixtli de Puebla](https://awsugmixtli.com/) publica sesiones comunitarias como [AWS Certification Challenge #1: Fundamentos de IA y Machine Learning](https://www.youtube.com/watch?v=4WRBFQDJmmA) y [la sesión #4 sobre IA responsable, gobernanza y seguridad](https://www.youtube.com/watch?v=VvS_Zp9Bq5U). Son grabaciones de la comunidad para conversar sobre esos temas; no sustituyen la guía oficial ni confirman por sí solas que el temario esté actualizado.
+
+## ¿Cuánto dura un curso y dónde puedo empezar a aprender?
+
+No hay una duración común para todas las capacitaciones. Los cursos a ritmo propio, las clases en vivo y los programas de terceros tienen horarios y cargas distintas; revisa la ficha y las condiciones de cada uno.
+
+[AWS Skill Builder](https://aws.amazon.com/es/training/digital/) reúne cursos digitales a ritmo propio y rutas de aprendizaje. Para certificaciones, la [página oficial de preparación de exámenes](https://aws.amazon.com/es/certification/certification-prep/) distingue los conjuntos de preguntas y cursos gratuitos de los exámenes de práctica completos y laboratorios que requieren suscripción. Revisa la ficha de cada actividad antes de organizar tu estudio.
+
+[AWS Educate](https://aws.amazon.com/es/education/awseducate/) ofrece cursos iniciales y laboratorios prácticos gratuitos; su página indica que no hace falta una tarjeta de crédito para acceder a los laboratorios listados. La inscripción y las edades permitidas pueden depender del país, así que consulta los [términos actuales para estudiantes de AWS](https://aws.amazon.com/es/legal/learner-terms-conditions/) si aplican a tu caso.
+
+Si quieres organizar tus primeros pasos, sigue la [ruta para aprender AWS desde cero](/blog/aws-aprender-guia-inicial/). Para estudiar con otras personas, [AWS Girls Perú](https://awsgirlsperu.com/) publica rutas de certificación y grupos de estudio; revisa allí los recursos y las convocatorias actuales. Para ejemplos concretos de estudio gratuito y sus límites, consulta nuestra [guía para preparar una certificación sin pagar por cursos](/blog/certificacion-aws-gratis-materiales-de-estudio/).
+
+## ¿La formación gratuita incluye laboratorios y el examen gratis?
+
+No necesariamente. Skill Builder y AWS Educate publican actividades gratuitas, pero no todos sus laboratorios o exámenes de práctica tienen las mismas condiciones. Y el costo de rendir la certificación se cobra aparte. Si practicas en una cuenta propia de AWS, los servicios que crees pueden generar cargos; la oferta de formación no convierte todo uso de la nube en gratuito.
+
+## ¿Puedo estudiar y rendir el examen en español?
+
+Depende del curso y de la certificación. La página de [AWS Certified Cloud Practitioner](https://aws.amazon.com/es/certification/certified-cloud-practitioner/) lista español de América Latina y español de España entre los idiomas de ese examen. No supongas que otro examen tendrá las mismas opciones: consulta la sección de idiomas de su página y confirma qué modalidad y horario de supervisión están disponibles al reservar. Algunos materiales de estudio también pueden estar solo en inglés.
+
+## ¿Cómo sé si el examen o el curso siguen vigentes?
+
+Comprueba el código y la versión del examen en el catálogo y en su guía oficial antes de comprar una capacitación o seguir una grabación. AWS actualiza exámenes y también retira credenciales: por ejemplo, la antigua certificación Big Data – Specialty dejó de ofrecerse y su reemplazo, Data Analytics – Specialty, también se retiró. La [guía actual de exámenes](https://docs.aws.amazon.com/aws-certification/latest/examguides/) y el historial oficial de [lanzamientos y retiros](https://aws.amazon.com/blogs/training-and-certification/aws-certification-retirements-and-launches/) permiten distinguir una grabación útil para entender conceptos de un temario todavía vigente.
+
+## ¿Necesito experiencia o una certificación previa para inscribirme?
+
+AWS indica que no exige certificaciones ni cursos previos específicos. Sí recomienda experiencia práctica relacionada con los objetivos del examen; la guía de cada credencial explica qué conocimientos y profundidad espera. Antes de pagar, revisa también las [políticas para rendir](https://aws.amazon.com/es/certification/policies/before-testing/): el país donde se ofrece el examen, la identificación aceptada y las reglas del proveedor pueden afectar la inscripción.
+
+## ¿Cuánto cuesta un examen y cómo se reserva?
+
+La tarifa oficial publicada en dólares estadounidenses es de **USD 100** para exámenes de negocio o fundamentales, **USD 150** para asociados y **USD 300** para profesionales o de especialidad. Pueden aplicarse impuestos, y AWS publica precios en moneda local para algunos mercados. Confirma el importe final en la reserva: la tarifa del examen y el precio de una formación son conceptos distintos; una oferta puede incluir un cupón o asistencia para reservar solo si lo indica y detalla sus condiciones. Cualquier descuento también tiene requisitos propios. La [página de preguntas frecuentes de AWS Certification](https://aws.amazon.com/es/certification/faqs/) mantiene los precios y reglas vigentes.
+
+Para programarlo, crea o abre tu cuenta de AWS Certification y elige una fecha con Pearson VUE, en un centro de evaluación o con supervisión en línea según disponibilidad. AWS indica que se puede pagar con tarjeta de crédito o con un cupón; las tarjetas aceptadas, los centros disponibles, los requisitos de identificación y las opciones de supervisión dependen de la reserva. Consulta las [opciones de examen y programación](https://aws.amazon.com/es/certification/certification-prep/testing/) antes de elegir fecha.
+
+## ¿Cuándo recibo el resultado y puedo volver a rendir?
+
+La mayoría de los exámenes no muestra el resultado aprobado/no aprobado al terminar. AWS indica que el informe detallado aparece en el historial de examen de tu cuenta dentro de los **cinco días hábiles**. Si no apruebas, puedes volver a intentarlo después de **14 días calendario**; no hay un máximo de intentos, pero cada nueva reserva requiere pagar la tarifa completa. Confirma siempre la [política actual de AWS](https://aws.amazon.com/es/certification/faqs/) antes de programar otro intento.
+
+## ¿Por cuánto tiempo vale una AWS Certification y cómo se renueva?
+
+La validez general es de **tres años**. Las formas de mantenerla dependen de la credencial: pueden incluir aprobar una versión vigente del examen, aprobar otro examen de nivel superior o, para algunas certificaciones, completar actividades de formación y laboratorios en AWS Skill Builder para extenderla un año. Esta última opción requiere que la certificación siga activa, que venza dentro de 90 días y tener una suscripción activa a Skill Builder. Cloud Practitioner también tiene una ruta de recertificación en AWS Cloud Quest; AWS indica que puede completarse cuando falten hasta seis meses para el vencimiento y que extiende la credencial tres años. La [tabla vigente de recertificación de AWS](https://aws.amazon.com/es/certification/recertification/) detalla qué opciones aplican a cada credencial y sus costos o requisitos.
+
+## ¿Dónde encuentro grupos de estudio, canales y eventos AWS?
+
+Un grupo puede ayudarte a contrastar respuestas, sostener el estudio y conocer experiencias de otras personas. Explora los [AWS User Groups de Latinoamérica](/comunidades/user-groups/) o, si estudias, los [Student Builder Groups](/comunidades/estudiantes/) para encontrar opciones por país.
+
+Algunas comunidades publican actividades y recursos propios: el [AWS User Group Perú](https://awsugperu.cloud/) reúne grupos de estudio, actividades y recursos; [AWS Women in Cloud Buenos Aires](https://awswomenincloudba.com.ar/) ofrece grupos de estudio, mentoría y encuentros; y [AWS User Group Ecuador](https://www.awsugecuador.com/) comparte meetups y retos de certificación. Para explorar grabaciones y artículos de comunidades, visita [AWS Women Colombia](https://awswomencolombia.com/) o conoce las actividades del [AWS User Group Mixtli de Puebla](https://awsugmixtli.com/).
+
+La [agenda de eventos AWS en Latinoamérica](/eventos/) muestra encuentros próximos y sus datos publicados de fecha, modalidad y organizador. Las fechas, los cupos y las condiciones de inscripción pueden cambiar; confirma los detalles en la convocatoria del organizador.

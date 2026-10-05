@@ -66,7 +66,7 @@ const faqItems = eventFaqItems({ countryName, collectionKey });
 
 <BaseLayout title={title} description={description} canonical={canonical}>
   <SiteHeader />
-  <main class="event-country-page site-container">
+  <main class="event-country-page event-page--agenda site-container">
     <nav class="community-breadcrumb" aria-label="Ruta de navegación">
       <ol>
         <li><a href="/">Inicio</a></li>
@@ -80,8 +80,8 @@ const faqItems = eventFaqItems({ countryName, collectionKey });
     </div>
     <CountryNavigation pages={countryPages} section="eventos" currentCountry={country} />
     <CollectionNavigation links={collectionLinks} currentPath={collection?.path} label="Colecciones de eventos" />
-    {country && <PageFactSummary text={communityFactText(communities, countryName)} label={`Comunidades organizadoras en ${countryName}`} />}
     <EventAgenda events={events} resources={resources} country={country} modes={collectionModes} />
+    {country && <PageFactSummary text={communityFactText(communities, countryName)} label={`Comunidades organizadoras en ${countryName}`} />}
     {country && <CountryCommunitySummary country={country} communities={communities} />}
     <PageFaq items={faqItems} id={country ? 'event-country-faq' : `event-${collectionKey}-faq`} />
   </main>

@@ -2,10 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   RESOURCE_COLLECTIONS,
+  detectCertificationExams,
+  findFreeCourseExample,
   groupCertificationResources,
   isGenerativeAIResource,
   lookupResourceCollection,
   resourceCollectionResources,
+  resolveResourceCollectionFaq,
 } from '../src/lib/resource-collections.mjs';
 
 test('registry exposes each approved collection route once', () => {
@@ -77,17 +80,25 @@ test('unknown collections and empty catalog inputs produce no records', () => {
   assert.deepEqual(resourceCollectionResources(collection, undefined), []);
 });
 
-test('certification resources form a complete, unique purpose grouping from title and description', () => {
+test('certification groups use explicit title-first exam names and include mixed records in each exam filter', () => {
   const records = [
-    { id: 'cloud-course', title: 'Curso AWS Cloud Practitioner', description: 'Preparación inicial.' },
-    { id: 'cloud-series', title: 'Cómo preparar el examen CLF-C02', description: 'Serie de estudio.' },
-    { id: 'schedule', title: 'Cómo hacer las certificaciones de AWS en español', description: 'Cómo agendar el examen.' },
-    { id: 'strategy', title: 'Aprueba tu examen de AWS', description: 'Estrategias según cada certificación.' },
-    { id: 'experience', title: 'Mi experiencia Developer Associate', description: 'Consejos sobre certificarme.' },
-    { id: 'architect', title: 'Qué es ser Arquitecto de soluciones y por qué certificarse como AWS Solutions Architect', description: 'Alinear la tecnología con la estrategia de la organización.' },
-    { id: 'journey', title: 'Mi Cloud Journey', description: '¿Vale la pena obtener una certificación?' },
+    { id: 'cloud', title: 'Curso AWS Cloud Practitioner', description: 'AI Practitioner también aparece aquí, pero el título manda.' },
+    { id: 'ai', title: 'Cómo preparar AIF-C01', description: 'AWS Cloud Practitioner' },
+    { id: 'solutions', title: 'AWS Certified Solutions Architect Professional' },
+    { id: 'solution-alias', title: 'Solution Architect Certified: AWS IAM' },
+    { id: 'developer', title: 'Certificación AWS', description: 'AWS Certified Developer – Associate (DVA-C02).' },
+    { id: 'sysops', title: 'AWS SysOps Certified Challenge' },
+    { id: 'business', title: 'AWS Certified AI Business Strategist' },
+    { id: 'networking', title: 'Advanced Networking Specialty (ANS-C01)' },
+    { id: 'mixed', title: 'Cloud Practitioner y AI Practitioner: dos exámenes AWS' },
+    { id: 'preparation', title: 'Cómo preparar el examen de AWS' },
+    { id: 'experience', title: 'Mi experiencia: ¿vale la pena certificarme?' },
     { id: 'study-group', title: 'Grupo de estudio AWS Girls Perú', description: 'Preparar certificaciones en comunidad.' },
-    { id: 'fallback-id-is-ignored', title: 'Certificación AWS', description: 'Panorama general sin más detalle.' },
+    { id: 'other', title: 'Certificación AWS', description: 'Panorama general sin más detalle.' },
+    { id: 'false-service', title: 'Diseño de soluciones con AWS Architect', description: 'El modelo practitioner de SageMaker.' },
+    { id: 'false-network', title: 'Arquitectura de red avanzada en AWS', description: 'Certificación de redes.' },
+    { id: 'false-prefix', title: 'Hardcloud Practitioner: una tecnología de AWS' },
+    { id: 'false-suffix', title: 'Cloud Practitionerish: análisis de texto' },
   ];
   const groups = groupCertificationResources(records);
   const groupedIds = groups.flatMap(({ resources: groupResources }) => groupResources.map(({ id }) => id));
@@ -95,13 +106,92 @@ test('certification resources form a complete, unique purpose grouping from titl
   assert.deepEqual(groupedIds.toSorted(), records.map(({ id }) => id).toSorted());
   assert.equal(new Set(groupedIds).size, records.length, 'every resource appears exactly once');
   assert.deepEqual(groups.map(({ id }) => id), [
-    'cloud-practitioner', 'exam-preparation', 'experiences', 'study-community', 'other-certification-resources',
+    'cloud-practitioner', 'ai-practitioner', 'solutions-architect', 'developer-associate', 'sysops',
+    'ai-business-strategist', 'advanced-networking', 'multiple-exams', 'exam-preparation', 'experiences',
+    'study-community', 'other-certification-resources',
   ]);
-  assert.deepEqual(groups[0].resources.map(({ id }) => id), ['cloud-course', 'cloud-series']);
-  assert.deepEqual(groups[1].resources.map(({ id }) => id), ['schedule', 'strategy']);
-  assert.deepEqual(groups[2].resources.map(({ id }) => id), ['experience', 'architect', 'journey']);
-  assert.deepEqual(groups[3].resources.map(({ id }) => id), ['study-group']);
-  assert.deepEqual(groups[4].resources.map(({ id }) => id), ['fallback-id-is-ignored']);
+  assert.deepEqual(groups[0].resources.map(({ id }) => id), ['cloud']);
+  assert.deepEqual(groups[1].resources.map(({ id }) => id), ['ai']);
+  assert.deepEqual(groups[2].resources.map(({ id }) => id), ['solutions', 'solution-alias']);
+  assert.deepEqual(groups[3].resources.map(({ id }) => id), ['developer']);
+  assert.deepEqual(groups[7].resources.map(({ id }) => id), ['mixed']);
+  assert.deepEqual(groups[0].filterResources.map(({ id }) => id), ['cloud', 'mixed']);
+  assert.deepEqual(groups[1].filterResources.map(({ id }) => id), ['ai', 'mixed']);
+  assert.deepEqual(groups[2].filterResources.map(({ id }) => id), ['solutions', 'solution-alias']);
+  assert.deepEqual(groups[8].resources.map(({ id }) => id), ['preparation']);
+  assert.deepEqual(groups[9].resources.map(({ id }) => id), ['experience']);
+  assert.deepEqual(groups[10].resources.map(({ id }) => id), ['study-group']);
+  assert.deepEqual(groups[11].resources.map(({ id }) => id), ['other', 'false-service', 'false-network', 'false-prefix', 'false-suffix']);
+  assert.deepEqual(detectCertificationExams(records.find(({ id }) => id === 'cloud')), ['cloud-practitioner']);
+  assert.deepEqual(detectCertificationExams(records.find(({ id }) => id === 'developer')), ['developer-associate']);
+  assert.deepEqual(detectCertificationExams(records.find(({ id }) => id === 'false-service')), []);
+  assert.deepEqual(detectCertificationExams(records.find(({ id }) => id === 'false-network')), []);
+  assert.deepEqual(detectCertificationExams(records.find(({ id }) => id === 'false-prefix')), []);
+  assert.deepEqual(detectCertificationExams(records.find(({ id }) => id === 'false-suffix')), []);
+  for (const [title, expectedGroup] of [
+    ['CLF-C02', 'cloud-practitioner'],
+    ['AIF-C01', 'ai-practitioner'],
+    ['Ruta SAA-C03', 'solutions-architect'],
+    ['DVA-C02', 'developer-associate'],
+    ['SOA-C02', 'sysops'],
+    ['AIB-C01', 'ai-business-strategist'],
+    ['ANS-C01', 'advanced-networking'],
+  ]) {
+    assert.deepEqual(detectCertificationExams({ title }), [expectedGroup]);
+  }
+});
+
+test('free-course example comes only from the current matching published course record', () => {
+  const unrelated = { id: 'unrelated', kind: 'content', format: 'Curso', title: 'Curso gratis', url: 'https://example.com/course' };
+  const example = {
+    id: 'mixtli-challenge', kind: 'content', format: 'Curso',
+    title: 'Reto de estudio — AWS User Group Mixtli',
+    url: 'https://awsugmixtli.com/certification-challenge',
+  };
+  assert.equal(findFreeCourseExample([unrelated, example]), example);
+  assert.equal(findFreeCourseExample([{ ...example, url: 'https://awsugmixtli.com/certification-challenge/?utm_source=course' }]).id, 'mixtli-challenge');
+  assert.equal(findFreeCourseExample([unrelated]), undefined);
+  assert.equal(findFreeCourseExample(undefined), undefined);
+  assert.equal(findFreeCourseExample([{ ...example, url: 'https://awsugmixtli.com/another-course' }]), undefined);
+  assert.equal(findFreeCourseExample([{ ...example, url: 'https://not-mixtli.example/certification-challenge' }]), undefined);
+});
+
+test('resolved course FAQ uses a published free-study example only when its primary source record exists', () => {
+  const collection = lookupResourceCollection('/aprender/cursos/');
+  const example = {
+    id: 'mixtli-challenge', kind: 'content', format: 'Curso',
+    title: 'AWS Certification Challenge 2026 — AWS User Group Mixtli',
+    url: 'https://awsugmixtli.com/certification-challenge',
+  };
+  const unrelated = { id: 'other-course', kind: 'content', format: 'Curso', title: 'Todo sobre AWS Lambda', url: 'https://example.com/course' };
+  const fallbackFaq = resolveResourceCollectionFaq(collection, [unrelated]);
+  const resolvedFaq = resolveResourceCollectionFaq(collection, [example]);
+
+  assert.equal(fallbackFaq[0].question, '¿Cómo compruebo si un curso de AWS es gratis?');
+  assert.match(fallbackFaq[0].answer, /página del proveedor antes de inscribirte/u);
+  assert.deepEqual(fallbackFaq[0].links ?? [], []);
+  assert.equal(resolvedFaq[0].question, '¿Hay cursos de AWS gratis?');
+  assert.match(resolvedFaq[0].answer, /materiales de estudio gratuitos/u);
+  assert.match(resolvedFaq[0].answer, /AWS Certification Challenge 2026/u);
+  assert.deepEqual(resolvedFaq[0].links, [{
+    label: `Ver la ficha de ${example.title}`,
+    href: '/aprender/#resource-mixtli-challenge',
+  }]);
+  assert.deepEqual(resolvedFaq.slice(1), fallbackFaq.slice(1));
+});
+
+test('a mixed-only exam group remains available as a filter without a visible result group', () => {
+  const groups = groupCertificationResources([{
+    id: 'mixed-sysops-business',
+    title: 'SysOps Administrator y AI Business Strategist',
+  }]);
+  const sysops = groups.find(({ id }) => id === 'sysops');
+  const multiExam = groups.find(({ id }) => id === 'multiple-exams');
+
+  assert.deepEqual(sysops.resources, []);
+  assert.deepEqual(sysops.filterResources.map(({ id }) => id), ['mixed-sysops-business']);
+  assert.deepEqual(multiExam.resources.map(({ id }) => id), ['mixed-sysops-business']);
+  assert.deepEqual(multiExam.filterResources.map(({ id }) => id), ['mixed-sysops-business']);
 });
 
 test('selected collection pages expose only their useful FAQ and early route guidance', () => {
@@ -109,6 +199,16 @@ test('selected collection pages expose only their useful FAQ and early route gui
   for (const path of ['/aprender/cursos/', '/aprender/certificaciones/', '/comunidades/user-groups/', '/comunidades/estudiantes/']) {
     assert.ok(byPath.get(path)?.faq?.items.length, `${path} has its planned FAQ content`);
   }
+  const courseQuestions = byPath.get('/aprender/cursos/').faq.items.map(({ question }) => question);
+  assert.ok(courseQuestions.includes('¿Cómo encuentro cursos de AWS para mi nivel?'));
+  assert.equal(courseQuestions.some((question) => /cuánto dura/i.test(question)), false);
+  const levelFaq = byPath.get('/aprender/cursos/').faq.items.find(({ question }) => question === '¿Cómo encuentro cursos de AWS para mi nivel?');
+  assert.equal(levelFaq.answer, 'Abrí Filtros adicionales y elegí el nivel que buscás. Si estás empezando, podés elegir Inicial. Cuando una ficha no indique nivel, consultá su descripción y el programa del proveedor antes de decidir.');
+  assert.doesNotMatch(levelFaq.answer, /cuenta|duraci[oó]n|cargos|precio/iu);
+  assert.equal(byPath.get('/aprender/certificaciones/').intro,
+    'Encontrá materiales de preparación, sesiones de estudio y experiencias sobre distintas certificaciones AWS. Elegí un examen o explorá los recursos generales.');
+  assert.ok(groupCertificationResources([{ id: 'x', title: 'Solutions Architect' }])
+    .find(({ id }) => id === 'solutions-architect').description.includes('conocer el examen al que corresponde'));
   for (const [path, expectedRoute] of [
     ['/aprender/serverless/', '/recorridos/serverless/'],
     ['/aprender/seguridad/', '/recorridos/seguridad/'],

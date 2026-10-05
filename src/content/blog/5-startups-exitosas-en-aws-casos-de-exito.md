@@ -1,102 +1,120 @@
 ---
-title: "5 Startups Exitosas en AWS: Casos de Éxito"
-description: "Explora cómo cinco startups exitosas han escalado e innovado utilizando los servicios de AWS, desde infraestructura en la nube hasta soluciones de inteligencia artificial."
+title: "5 casos de startups en AWS: arquitectura y lecciones prácticas"
+description: "Aprende de Epistemix, CreditVidya, STIGMA, Ramp y Ava Labs: decisiones de SaaS, datos, IA y contenedores, con fuentes y recursos en español."
 author: "guille-ojeda"
 publishedAt: "2024-05-13"
 publishedTimestamp: "2024-05-13T02:42:31.872Z"
+modifiedTimestamp: "2026-10-04T21:31:45-03:00"
+review:
+  date: "2026-10-04"
 cover: "/assets/blog/b94e80f121605caa3d2fcec3.jpg"
 coverAlt: "Engranajes de varios colores sobre un fondo de nubes"
 ogImage: "/assets/blog/b94e80f121605caa3d2fcec3.jpg"
-related:
-  - title: "AWS SAM: Guía Básica para Aplicaciones Serverless"
-    url: "https://dondeaprendoaws.com/blog/aws-sam-guia-basica-para-aplicaciones-serverless/"
-    image: "/assets/blog/7007833ab0e2d90f4deb11ec.jpg"
-    imageAlt: ""
-  - title: "Guía de AWS Wavelength: Zonas y Despliegue"
-    url: "https://dondeaprendoaws.com/blog/guia-de-aws-wavelength-zonas-y-despliegue/"
-    image: "/assets/blog/e73412d95c38ad88b6dc619a.jpg"
-    imageAlt: ""
-  - title: "Arquitecturas Multi-Región en AWS"
-    url: "https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/"
-    image: "/assets/blog/bafde793116d5b5e38a659da.jpg"
-    imageAlt: ""
+related: []
 ---
 
-<p><a href="https://aws.amazon.com/">AWS</a> es la plataforma de computación en la nube líder para startups, ofreciendo servicios escalables, seguros y rentables que impulsan el crecimiento e innovación. Este artículo explora cinco casos de éxito de startups que aprovecharon el poder de <a href="https://aws.amazon.com/">AWS</a>:</p>
-<table><thead><tr><th>Startup</th><th>Desafío</th><th>Solución AWS</th><th>Resultados Clave</th></tr></thead><tbody><tr><td><a href="https://www.epistemix.com/">Epistemix</a></td><td>Necesitaba infraestructura escalable y segura para simulaciones complejas</td><td><a href="https://aws.amazon.com/ec2/">Amazon EC2</a>, <a href="https://aws.amazon.com/lambda/">AWS Lambda</a></td><td>Mejor experiencia de usuario, mayor impacto</td></tr><tr><td><a href="https://www.creditvidya.com/">CreditVidya</a></td><td>Ampliar el acceso financiero para poblaciones desatendidas</td><td><a href="https://aws.amazon.com/s3/">Amazon S3</a>, <a href="https://aws.amazon.com/dynamodb/">Amazon DynamoDB</a>, <a href="https://aws.amazon.com/emr/">Amazon EMR</a></td><td>Procesamiento de 100.000 solicitudes diarias, reducción de costos del 99%</td></tr><tr><td><a href="https://www.instagram.com/thestigma.app/?hl=es">STIGMA</a></td><td>Brindar apoyo a la salud mental escalable y accesible</td><td><a href="https://aws.amazon.com/startups/accelerators">AWS Impact Accelerator</a>, Inteligencia Artificial</td><td>Mayor capacidad para compartir mensajes de esperanza, mejor experiencia de usuario</td></tr><tr><td><a href="https://en.wikipedia.org/wiki/S%27More_(dating_app)">S'more</a></td><td>Mejorar la seguridad y autenticidad en el dating en línea</td><td><a href="https://aws.amazon.com/rekognition/">Amazon Rekognition</a></td><td>Verificación automática de usuarios, detección de contenido prohibido</td></tr><tr><td><a href="https://www.avalabs.org/">Ava Labs</a></td><td>Abordar los desafíos de escalabilidad en blockchain</td><td><a href="https://aws.amazon.com/managed-blockchain/">Amazon Managed Blockchain</a></td><td>Infraestructura de blockchain escalable, adopción mainstream en diversas industrias</td></tr></tbody></table>
-<p>AWS ofrece escalabilidad, flexibilidad, seguridad y costos reducidos, permitiendo a las startups centrarse en la innovación y el crecimiento. Estas cinco empresas son ejemplos del éxito que se puede lograr aprovechando los servicios de AWS.</p>
-<h2 id="related-video-from-youtube">Related video from YouTube</h2>
-<div><iframe allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen="" height="315" loading="lazy" src="https://www.youtube.com/embed/Hz8GJGSGa70" title="Video de YouTube" width="560"></iframe></div>
-<h2 id="estudio-de-caso-1%3A-epistemix---simulaciones-para-mejores-decisiones">Estudio de Caso 1: <a href="https://www.epistemix.com/">Epistemix</a> - Simulaciones para Mejores Decisiones</h2>
-<p><img alt="Epistemix" src="/assets/blog/7d4180eb43444009c3f4faf4.jpg"/></p>
-<p>Epistemix es una startup que se especializa en simulaciones para ayudar a los tomadores de decisiones a tomar decisiones informadas en campos como la salud pública y otros sectores. Para lograr esto, necesitaban una infraestructura escalable y segura que pudiera manejar grandes cantidades de datos y cálculos complejos.</p>
-<h3 id="desaf%C3%ADos-que-enfrent%C3%B3-epistemix">Desafíos que enfrentó Epistemix</h3>
-<p>Epistemix enfrentó varios desafíos al principio, como la necesidad de alta potencia computacional y recursos escalables. Su plataforma ya era robusta, pero necesitaban hacerla más accesible y fácil de usar para los científicos de datos y otras organizaciones.</p>
-<h3 id="servicios-de-aws-utilizados">Servicios de <a href="https://aws.amazon.com/">AWS</a> utilizados</h3>
-<p><img alt="AWS" src="/assets/blog/2ebe3cf8e7ae57e98d3af846.jpg"/></p>
-<p>Para superar estos desafíos, Epistemix se asoció con AWS y utilizó servicios como Amazon EC2 y AWS Lambda. Estos servicios les permitieron crear una infraestructura escalable y segura que pudiera manejar grandes cantidades de datos y cálculos complejos.</p>
-<h3 id="historia-de-%C3%A9xito">Historia de Éxito</h3>
-<p>Gracias a la asociación con AWS, Epistemix logró crear una mejor experiencia de onboarding para sus usuarios y mejorar la eficiencia y la toma de decisiones. "Al confiar en la expertise del AWS SaaS Factory, hemos podido crear una mejor experiencia de onboarding para nuestros usuarios. Y a través de esa mejor experiencia de onboarding, esperamos crecer el impacto que nuestra empresa puede tener", dice Cordier.</p>
-<table><thead><tr><th>Servicio de AWS</th><th>Descripción</th></tr></thead><tbody><tr><td>Amazon EC2</td><td>Proporciona capacidad computacional escalable y segura</td></tr><tr><td>AWS Lambda</td><td>Permite ejecutar código sin administrar servidores</td></tr></tbody></table>
-<h2 id="estudio-de-caso-2%3A-creditvidya---ampliaci%C3%B3n-del-acceso-financiero">Estudio de Caso 2: <a href="https://www.creditvidya.com/">CreditVidya</a> - Ampliación del Acceso Financiero</h2>
-<p><img alt="CreditVidya" src="/assets/blog/8a9e433bd23a3d6c8a92fbc4.jpg"/></p>
-<h3 id="desaf%C3%ADos-de-puntuaci%C3%B3n-de-cr%C3%A9dito">Desafíos de Puntuación de Crédito</h3>
-<p>CreditVidya, una startup india, se enfrentó al desafío de proporcionar puntuaciones de crédito para poblaciones desatendidas en India. Tradicionalmente, las instituciones financieras se han negado a prestar a estos ciudadanos, ya que carecen de historial crediticio y garantías. Además, el procesamiento de préstamos, que promedia unos $290 por solicitante, ha sido demasiado costoso.</p>
-<h3 id="aws-para-el-crecimiento">AWS para el Crecimiento</h3>
-<p>Para superar estos desafíos, CreditVidya se asoció con AWS y utilizó servicios como Amazon S3, Amazon DynamoDB y Amazon Elastic MapReduce. Estos servicios les permitieron crear una infraestructura escalable y segura que pudiera manejar grandes cantidades de datos y cálculos complejos.</p>
-<h3 id="impacto-en-la-inclusi%C3%B3n-financiera">Impacto en la Inclusión Financiera</h3>
-<p>El aumento de la inclusión financiera de CreditVidya ha tenido un impacto significativo en la sociedad y la economía. A continuación, se presentan algunos resultados clave:</p>
-<table><thead><tr><th>Resultado</th><th>Descripción</th></tr></thead><tbody><tr><td>Procesamiento de solicitudes de préstamo</td><td>100,000 solicitudes diarias</td></tr><tr><td>Reducción de costos de procesamiento de préstamos</td><td>De $2 a menos de un centavo</td></tr><tr><td>Aumento de la tasa de aprobación de préstamos</td><td>25%</td></tr><tr><td>Disminución de la tasa de morosidad</td><td>33%</td></tr></tbody></table>
-<p>Además, CreditVidya espera expandir sus servicios a otras partes del mundo, incluyendo Asia Sudoriental, para abordar el problema de los 3 mil millones de personas que carecen de acceso a crédito formal.</p>
-<h2 id="estudio-de-caso-3%3A-stigma---escalabilidad-del-apoyo-a-la-salud-mental">Estudio de Caso 3: <a href="https://www.instagram.com/thestigma.app/?hl=es">STIGMA</a> - Escalabilidad del Apoyo a la Salud Mental</h2>
-<p><img alt="STIGMA" src="/assets/blog/21074dc8fcf603819953f141.jpg"/></p>
-<h3 id="desaf%C3%ADos-del-apoyo-a-la-salud-mental">Desafíos del Apoyo a la Salud Mental</h3>
-<p>STIGMA, una aplicación de salud mental, se enfrentó al desafío de proporcionar apoyo accesible y escalable a sus usuarios. La plataforma necesitaba una infraestructura segura y escalable para manejar el crecimiento de su base de usuarios y brindar una experiencia de usuario satisfactoria.</p>
-<h3 id="asistencia-del-acelerador-de-impacto-de-aws">Asistencia del Acelerador de Impacto de AWS</h3>
-<p>Para superar estos desafíos, STIGMA se unió al programa de AWS Impact Accelerator, que les brindó asistencia técnica y empresarial para escalar su plataforma. El equipo de STIGMA trabajó con expertos en inteligencia artificial de AWS para incorporar inteligencia artificial en su plataforma.</p>
-<h3 id="crecimiento-del-impacto-social">Crecimiento del Impacto Social</h3>
-<p>Gracias a la asistencia del AWS Impact Accelerator, STIGMA pudo escalar su capacidad para compartir mensajes de esperanza y brindar apoyo mental a más personas. La plataforma ahora puede manejar un mayor volumen de usuarios y brindar una experiencia de usuario más satisfactoria.</p>
-<p><strong>Resultados clave</strong></p>
-<table><thead><tr><th>Resultado</th><th>Descripción</th></tr></thead><tbody><tr><td>Mayor capacidad para compartir mensajes de esperanza</td><td>STIGMA puede manejar un mayor volumen de usuarios y brindar una experiencia de usuario más satisfactoria</td></tr><tr><td>Mejora en la experiencia del usuario</td><td>La plataforma puede brindar una experiencia de usuario más satisfactoria</td></tr><tr><td>Impacto social positivo</td><td>STIGMA ha proporcionado un espacio seguro y anónimo para que las personas compartan sus experiencias y se conecten con otros que enfrentan desafíos similares</td></tr></tbody></table>
-<h2 id="estudio-de-caso-4%3A-s'more---citas-seguras-con-tecnolog%C3%ADa-de-reconocimiento">Estudio de Caso 4: <a href="https://en.wikipedia.org/wiki/S%27More_(dating_app)">S'more</a> - Citas Seguras con Tecnología de Reconocimiento</h2>
-<p><img alt="S'more" src="/assets/blog/0f4a1b0b12d9644dd7a841de.jpg"/></p>
-<h3 id="desaf%C3%ADos-del-dating-en-l%C3%ADnea">Desafíos del Dating en Línea</h3>
-<p>El dating en línea ha crecido en popularidad, pero también ha llevado a un aumento en la cantidad de perfiles falsos y "catfishers" que buscan aprovecharse de los usuarios. Esto ha llevado a una pérdida de confianza en las plataformas de dating en línea y una mayor necesidad de seguridad y autenticidad en estas plataformas.</p>
-<h3 id="tecnolog%C3%ADa-de-reconocimiento-de-aws">Tecnología de Reconocimiento de AWS</h3>
-<p>Para abordar estos desafíos, S'more se asoció con AWS para implementar su tecnología de reconocimiento facial, Amazon Rekognition. Esta tecnología permite a S'more verificar automáticamente a los usuarios cuando cambian sus fotos de perfil, y también puede detectar contenido prohibido en las fotos de perfil.</p>
-<h3 id="beneficios-de-la-tecnolog%C3%ADa-de-reconocimiento">Beneficios de la Tecnología de Reconocimiento</h3>
-<table><thead><tr><th>Beneficio</th><th>Descripción</th></tr></thead><tbody><tr><td>Verificación automática de usuarios</td><td>S'more puede verificar automáticamente a los usuarios cuando cambian sus fotos de perfil</td></tr><tr><td>Detección de contenido prohibido</td><td>La tecnología de reconocimiento puede detectar contenido prohibido en las fotos de perfil</td></tr></tbody></table>
-<p>Adam Cohen-Aslatei, fundador y CEO de S'more, dijo: "<em>Queremos crear un entorno de dating más seguro y auténtico para nuestros usuarios. La tecnología de AWS nos permite hacerlo posible.</em>"</p>
-<h3 id="resultados">Resultados</h3>
-<p>Gracias a la implementación de la tecnología de reconocimiento de AWS, S'more ha podido crear un entorno de dating más seguro y auténtico para sus usuarios. La plataforma ha visto un aumento en la confianza de los usuarios y una mayor satisfacción con la experiencia de dating en línea.</p>
-<table><thead><tr><th>Resultado</th><th>Descripción</th></tr></thead><tbody><tr><td>Mayor seguridad para los usuarios</td><td>S'more puede verificar automáticamente a los usuarios y detectar contenido prohibido en las fotos de perfil</td></tr><tr><td>Mayor confianza de los usuarios</td><td>La plataforma ha visto un aumento en la confianza de los usuarios en la experiencia de dating en línea</td></tr><tr><td>Mejora en la experiencia del usuario</td><td>S'more ha podido crear un entorno de dating más seguro y auténtico para sus usuarios</td></tr></tbody></table>
-<h2 id="estudio-de-caso-5%3A-ava-labs---innovaci%C3%B3n-en-blockchain">Estudio de Caso 5: <a href="https://www.avalabs.org/">Ava Labs</a> - Innovación en Blockchain</h2>
-<p><img alt="Ava Labs" src="/assets/blog/51096378492d41a8fddd246d.jpg"/></p>
-<p>Ava Labs, una startup enfocada en innovación en blockchain, ha logrado aprovechar con éxito los servicios de AWS para fomentar el crecimiento de blockchains específicas de aplicaciones dentro del ecosistema <a href="https://en.wikipedia.org/wiki/Avalanche_(blockchain_platform)">Avalanche</a>. En este estudio de caso, exploraremos los desafíos que enfrentó Ava Labs, los servicios de AWS que respaldaron su innovación y su camino hacia la adopción mainstream.</p>
-<h3 id="desaf%C3%ADos-en-el-desarrollo-de-blockchain">Desafíos en el Desarrollo de Blockchain</h3>
-<p>Desarrollar una infraestructura de blockchain escalable y segura es una tarea compleja. Ava Labs buscó abordar los problemas de escalabilidad que aquejan a muchas plataformas de blockchain, lo que impide su adopción generalizada. La startup pretendía crear un ecosistema de blockchain más flexible y eficiente, permitiendo a los desarrolladores construir aplicaciones descentralizadas (dApps) con facilidad.</p>
-<h3 id="aws-y-soluciones-de-blockchain">AWS y Soluciones de Blockchain</h3>
-<p>Para superar los desafíos de escalabilidad, Ava Labs recurrió a AWS, utilizando su servicio de blockchain administrado, Amazon Managed Blockchain. Esto permitió a Ava Labs centrarse en desarrollar su infraestructura de blockchain sin preocuparse por las tareas de administración y mantenimiento subyacentes. Además, Ava Labs aprovechó la infraestructura global de AWS para implementar sus nodos de blockchain, garantizando alta disponibilidad y baja latencia.</p>
-<h3 id="adopci%C3%B3n-mainstream-y-crecimiento">Adopción Mainstream y Crecimiento</h3>
-<p>La asociación de Ava Labs con AWS ha sido fundamental en su camino hacia la adopción mainstream. La startup ha logrado un crecimiento significativo, con su plataforma de blockchain siendo utilizada por diversas industrias, incluyendo finanzas, atención médica y gestión de la cadena de suministro. El éxito de Ava Labs se puede atribuir a su capacidad para proporcionar una infraestructura de blockchain escalable, segura y eficiente, gracias a su colaboración con AWS.</p>
-<table><thead><tr><th>Logro</th><th>Descripción</th></tr></thead><tbody><tr><td>Infraestructura de Blockchain Escalable</td><td>Ava Labs ha desarrollado una infraestructura de blockchain escalable, permitiendo a los desarrolladores construir dApps con facilidad</td></tr><tr><td>Adopción Mainstream</td><td>La plataforma de blockchain de Ava Labs ha sido adoptada por diversas industrias, incluyendo finanzas, atención médica y gestión de la cadena de suministro</td></tr><tr><td>Ecosistema de Blockchain Eficiente</td><td>La asociación de Ava Labs con AWS ha permitido la creación de un ecosistema de blockchain más eficiente, reduciendo la latencia y aumentando el rendimiento</td></tr></tbody></table>
-<p>Al aprovechar los servicios de AWS, Ava Labs ha podido superar los desafíos de escalabilidad asociados con el desarrollo de blockchain, logrando la adopción mainstream y el crecimiento en el proceso.</p>
-<h2 id="conclusi%C3%B3n%3A-aws-para-el-%C3%A9xito-de-las-startups">Conclusión: AWS para el Éxito de las Startups</h2>
-<p>En este artículo, hemos explorado cinco casos de éxito de startups que han utilizado los servicios de AWS para impulsar su crecimiento y innovación. Desde Epistemix hasta Ava Labs, hemos visto cómo estas empresas han aprovechado las ventajas de la nube de AWS para superar desafíos y alcanzar el éxito.</p>
-<h3 id="ventajas-de-utilizar-aws-para-las-startups">Ventajas de utilizar AWS para las startups</h3>
-<p>AWS ofrece varias ventajas para las startups que buscan escalar rápidamente y de manera eficiente. A continuación, se presentan algunas de las ventajas clave:</p>
-<table><thead><tr><th>Ventaja</th><th>Descripción</th></tr></thead><tbody><tr><td>Escalabilidad</td><td>AWS permite a las startups escalar rápidamente y de manera eficiente, sin tener que preocuparse por la infraestructura subyacente.</td></tr><tr><td>Costos reducidos</td><td>AWS ofrece un modelo de pago por uso, lo que significa que las startups solo pagan por los recursos que utilizan.</td></tr><tr><td>Flexibilidad</td><td>AWS ofrece una amplia gama de servicios y herramientas que se pueden personalizar para satisfacer las necesidades específicas de cada startup.</td></tr><tr><td>Seguridad</td><td>AWS ofrece una infraestructura segura y confiable, lo que permite a las startups proteger sus datos y aplicaciones.</td></tr></tbody></table>
-<p>En conclusión, AWS es una elección ideal para las startups que buscan impulsar su crecimiento y innovación. Con su plataforma escalable, flexible y segura, AWS ofrece una base sólida para que las startups puedan desarrollar y lanzar productos y servicios innovadores.</p>
-<h2 id="recursos-adicionales">Recursos Adicionales</h2>
-<p>Para aquellos que desean profundizar en los casos de éxito de startups que han utilizado AWS, ofrecemos los siguientes recursos adicionales.</p>
-<h3 id="estudios-de-caso-completos">Estudios de Caso Completos</h3>
-<p>Puedes acceder a los estudios de caso completos de cada una de las startups mencionadas en este artículo, donde se detallan sus desafíos, soluciones y resultados utilizando AWS.</p>
-<h3 id="aws-para-startups">AWS para Startups</h3>
-<p>AWS ofrece una variedad de programas y recursos diseñados específicamente para startups, incluyendo AWS Activate y el AWS Partner Network. Estos programas te brindan acceso a herramientas, mentoría y apoyo para ayudarte a lanzar y escalar tu startup con éxito.</p>
-<table><thead><tr><th>Recurso</th><th>Descripción</th></tr></thead><tbody><tr><td>Estudios de Caso Completos</td><td>Accede a los estudios de caso completos de startups que han utilizado AWS</td></tr><tr><td>AWS Activate</td><td>Programa de AWS diseñado para startups, que ofrece herramientas y recursos para ayudarte a lanzar y escalar tu startup</td></tr><tr><td>AWS Partner Network</td><td>Red de socios de AWS que te brinda acceso a mentoría y apoyo para ayudarte a lanzar y escalar tu startup</td></tr></tbody></table>
-<h2 id="preguntas-frecuentes">Preguntas Frecuentes</h2>
-<h3 id="%C2%BFqu%C3%A9-empresas-comenzaron-en-aws%3F">¿Qué empresas comenzaron en AWS?</h3>
-<p>Empresas como Airbnb, Stripe, Lyft y Slack ejecutan su infraestructura en la nube de Amazon Web Services (AWS). Estas empresas han podido crecer y innovar rápidamente y han cambiado el mundo aprovechando nuestra tecnología.</p>
-<table><thead><tr><th>Empresa</th><th>Descripción</th></tr></thead><tbody><tr><td>Airbnb</td><td>Una plataforma de alojamiento en línea que conecta a viajeros con anfitriones en todo el mundo.</td></tr><tr><td>Stripe</td><td>Una plataforma de pago en línea que permite a los negocios aceptar pagos en línea de manera segura y confiable.</td></tr><tr><td>Lyft</td><td>Una aplicación de transporte que conecta a pasajeros con conductores en tiempo real.</td></tr><tr><td>Slack</td><td>Una plataforma de comunicación en equipo que permite a los miembros del equipo colaborar y compartir información de manera efectiva.</td></tr></tbody></table>
-<h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/personalizacion-en-tiempo-real-con-aws-casos-de-uso/">Personalización en tiempo real con AWS: Casos de uso</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-machine-learning-en-aws/">Mejores Prácticas de Machine Learning en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/">Arquitecturas Multi-Región en AWS</a></li></ul>
+**Epistemix, CreditVidya, STIGMA, Ramp y Ava Labs ofrecen cinco casos para aprender cómo una startup puede usar AWS.** Cada uno responde a una pregunta distinta: cómo incorporar clientes a un SaaS, organizar datos para machine learning, introducir IA con revisión humana, ejecutar contenedores sin administrar sus servidores y crear infraestructura bajo demanda.
+
+Son casos históricos publicados entre 2021 y 2023, con una experiencia técnica de CreditVidya que abarca 2017–2020. Describen las decisiones de ese momento; no certifican la arquitectura actual de las empresas ni que sigan en etapa de startup. Tampoco demuestran que AWS haya causado su éxito comercial. Lo útil es entender el problema, la decisión y la evidencia antes de llevar una idea a tu proyecto.
+
+| Caso | Qué está documentado | Qué puedes estudiar |
+| --- | --- | --- |
+| Epistemix | Trabajo con AWS SaaS Factory para mejorar la incorporación de usuarios | Cómo entregar un producto SaaS a clientes externos |
+| CreditVidya | Plataforma Medhas de AI/ML en AWS y un data lake descrito por su responsable técnico | Separar almacenamiento, transformación y consulta |
+| STIGMA | Mensajes generados con IA y revisados por personas antes de publicarse | Dónde colocar la revisión humana |
+| Ramp | ALB, ECS con Fargate, Aurora y ElastiCache | Qué trabajo operativo delegan los servicios administrados |
+| Ava Labs | Uso de EC2 e instancias aprovisionadas dinámicamente para nodos y redes | Automatizar la creación de entornos |
+
+## 1. Epistemix: un SaaS necesita algo más que capacidad de cómputo
+
+Epistemix desarrolló una plataforma de simulaciones basadas en agentes y poblaciones sintéticas. Su desafío era ponerla en manos de científicos de datos externos: el software funcionaba, pero la experiencia de uso necesitaba mejorar. En el [caso publicado por AWS en diciembre de 2022](https://startups.aws.com/learn/saas-founder-series-epistemix-on-how-software-simulations-can-create-more-empathetic-decision-making), John Cordier explica que AWS SaaS Factory ayudó a mejorar la incorporación de usuarios al producto.
+
+El resultado descrito es cualitativo. La fuente no ofrece una medición de latencia, ahorro o crecimiento atribuible a esa mejora, ni identifica EC2 o Lambda como componentes de la solución.
+
+**Lección para tu proyecto:** dibuja el recorrido desde el registro hasta el primer resultado útil. Anota qué necesita una persona nueva, qué pasos dependen de soporte y cómo comprobarías que el recorrido mejora. Es una propuesta de práctica, no una reconstrucción de la arquitectura de Epistemix.
+
+Para profundizar en SaaS, la [SaaS Lens de AWS Well-Architected](https://docs.aws.amazon.com/wellarchitected/latest/saas-lens/saas-lens.html) ofrece una revisión específica de aplicaciones con varios clientes. Para una conversación en español sobre la etapa inicial del negocio, mira [«De Cero a Startup, superando curvas con AWS», en Charlas Técnicas](https://www.youtube.com/watch?v=cWFiPg0SAA0). Uno examina diseño; el otro aporta contexto de emprendimiento.
+
+## 2. CreditVidya: aprender ML también exige aprender a organizar datos
+
+El [ebook de AWS sobre machine learning en servicios financieros, de 2021](https://d1.awsstatic.com/psc-digital/2021/gc-400/mining-insights-fsi-/AWS_Mining_Intelligent_Insights_with_Machine_Learning_Financial_Services_eBook.pdf) describe Medhas, la plataforma de CreditVidya, que utilizaba datos de pagos, comportamiento financiero y dispositivos para evaluar solicitudes de crédito. El caso aparece en la página 6.
+
+Una fuente técnica más detallada es [el relato de Nilesh Bhosale, publicado en marzo de 2023](https://medium.com/@nileshxbhosale/9-things-you-need-to-know-about-building-datalake-b180832b21f), basado en su trabajo al frente del equipo de ingeniería de datos entre 2017 y 2020. Describe S3 como almacenamiento, Glue y EMR para transformaciones con Spark, Athena para consultas y Lambda para coordinar eventos. Reporta una ingesta superior a 100 GB diarios de datos sin comprimir; esa cifra corresponde a su experiencia histórica.
+
+**Lección para tu proyecto:** sigue el camino de un dato desde su llegada hasta la consulta que lo utiliza. Guardarlo no basta: necesitas entender su esquema, calidad y permisos. Practica con datos ficticios y un conjunto pequeño antes de intentar reproducir una plataforma financiera.
+
+La [guía de Carlos Fernando Chicata sobre patrones de calidad de datos en AWS](https://builder.aws.com/content/38FHhvbpTgp8u2kbHBCHumOR1tK/es-implementando-patrones-de-calidad-de-datos-en-aws-una-guia-tecnica-general) ayuda a decidir cómo validar datos y qué hacer con los que no pasan los controles. Es una continuación de ingeniería de datos, no un curso para construir un modelo de riesgo crediticio.
+
+Si tu siguiente objetivo es entrenar y evaluar un modelo, la [selección de repositorios para aprender ML en AWS](/blog/10-repositorios-de-github-para-machine-learning-en-aws/) distingue fundamentos, ejemplos de SageMaker AI y MLOps. Elige por esa tarea y revisa sus requisitos; conocer la arquitectura de un data lake no prueba la calidad de un modelo.
+
+## 3. STIGMA: la revisión humana forma parte de la función de IA
+
+STIGMA era una aplicación de mensajería asincrónica sobre experiencias de salud mental. En el [caso de AWS del 18 de septiembre de 2023](https://aws.amazon.com/blogs/startups/how-stigma-scaled-their-hope-delivery-app-with-the-aws-impact-accelerator/), la empresa cuenta su participación en la cohorte para fundadores latinos de AWS Impact Accelerator.
+
+El equipo lanzó una función de mensajes de esperanza generados con IA mientras los miembros esperaban una respuesta humana. Los mensajes se identificaban como generados por IA y pasaban por moderadores humanos antes de publicarse. La publicación documenta ese lanzamiento y sus controles, pero no detalla qué servicio AWS ejecutaba los modelos ni ofrece mediciones de capacidad o latencia.
+
+**Lección para tu proyecto:** define qué salida puede publicarse automáticamente, cuál debe revisarse y cómo verá el usuario esa distinción. En este caso, la revisión previa era una decisión del producto, no un detalle añadido después del modelo.
+
+Para estudiar una aplicación de IA en español con componentes identificados, lee [cómo Alexandra Fernández integró Kiu con Sessionize](https://community.aws/content/2s8GaGrxZZPB5KIoOOrlzJsXob2/kiu-y-sessionize-transformando-la-gesti-n-de-eventos-en-aws-user-groups). Describe Bedrock, Lambda, DynamoDB y la integración con WhatsApp para consultar información de eventos. Es otro proyecto, de la comunidad: te permite examinar un flujo concreto sin suponer que reproduce STIGMA.
+
+## 4. Ramp: serverless también puede significar contenedores
+
+El [caso de Ramp publicado por AWS en febrero de 2023](https://startups.aws.com/learn/building-serverless-on-aws-to-scale-ramps-fast-growing-finance-automation-platform) describe una plataforma de automatización financiera. Su tráfico llegaba a un Application Load Balancer; los servidores web se ejecutaban en ECS con Fargate. La arquitectura incluía Aurora y ElastiCache para Redis.
+
+Sus responsables de infraestructura destacaban el menor trabajo de administración de servidores y la facilidad para crear y retirar entornos de prueba. También describían una configuración de recuperación en otra región para el componente que autorizaba transacciones de tarjetas. Son testimonios y decisiones técnicas; el artículo no ofrece un porcentaje medido de mejora de productividad.
+
+**Lección para tu proyecto:** compara el trabajo que conservarías al ejecutar tu aplicación en una máquina virtual con el que delegarías al usar contenedores administrados. La necesidad de recuperación de un autorizador de tarjetas tampoco convierte varias regiones en un requisito para cualquier producto mínimo viable.
+
+Puedes continuar con el [workshop de ECS de Rossana Suarez](https://github.com/roxsross/workshop-ecs), que incluye una aplicación de ejemplo, pasos para ECS y un entorno local con Docker. Cuando ya comprendas un despliegue, su [laboratorio de despliegues canary en ECS](https://github.com/roxsross/aws-ecs-canary-in-action) añade una práctica de actualización gradual y una versión local sin cuenta AWS. Los repositorios son públicos; ejecutarlos en AWS requiere una cuenta, permisos y revisar los costos de los recursos que crean.
+
+Para ampliar las opciones de diseño, Lucas Vera Toro explica [tres patrones serverless sin Lambda de su charla en el Community Day Colombia 2025](https://blog.lucasdev.info/aws-community-day-colombia-2025-lecciones-de-mi-charla-lambdaless-serverless-sin-lambda). Sirve para reconocer integraciones directas entre servicios antes de agregar una función que solo los conecte.
+
+## 5. Ava Labs: distingue la plataforma de blockchain de la infraestructura
+
+En el [caso de Ava Labs publicado en enero de 2023](https://startups.aws.com/learn/building-application-specific-blockchains-with-aws-on-avalanche), AWS describe el uso de EC2 para Avalanche y el aprovisionamiento dinámico de instancias para crear nodos, redes de prueba y blockchains específicas de aplicaciones, llamadas *Subnets* en esa publicación.
+
+La fuente también describe el lanzamiento de nodos validadores desde AWS Marketplace. Eso no demuestra que Avalanche utilizara Amazon Managed Blockchain: alojar nodos en EC2 y usar un servicio administrado de blockchain son decisiones diferentes.
+
+**Lección para tu proyecto:** separa el software de dominio de los recursos que lo ejecutan. Un ejercicio útil es explicar qué se automatiza al crear un entorno y qué sigue siendo responsabilidad del equipo. No necesitas desplegar un nodo ni adquirir activos digitales para aprender esa distinción.
+
+## Cómo convertir los casos en una práctica útil
+
+Elige el caso que se parezca a tu problema y escribe tres cosas: qué comportamiento necesitas, qué decisión quieres probar y qué resultado demostraría que funciona. Por ejemplo:
+
+- **SaaS:** una persona nueva puede llegar a su primer resultado sin intervención del equipo. Observa pasos y errores del recorrido.
+- **Datos:** una transformación rechaza un registro inválido y conserva uno válido. Comprueba ambos resultados antes de agregar más volumen.
+- **Aplicación:** un despliegue permite identificar errores y volver a una versión anterior. Comprueba el comportamiento, no solo que el contenedor arrancó.
+
+Son ejercicios propuestos a partir de las lecciones, no resultados reportados por las empresas. Si te faltan fundamentos, empieza por [la ruta para aprender AWS desde cero](/blog/aws-aprender-guia-inicial/). Si quieres una primera práctica en cuenta propia, [los diez laboratorios para principiantes](/blog/10-laboratorios-practicos-de-aws-para-principiantes/) incluyen resultados comprobables y limpieza; los ejercicios de S3, Lambda y registros son buenas bases para entender estos casos.
+
+### Evalúa los costos de tu carga, no los de otra empresa
+
+Un porcentaje de ahorro de un caso no estima tu factura. Para tu prueba, registra región, volumen de solicitudes, almacenamiento, tiempo de cómputo y transferencias. Incluye los componentes que permanezcan activos entre pruebas y el trabajo de operación.
+
+La [sesión de AWS Women Colombia sobre Pricing Calculator](https://www.youtube.com/watch?v=e_oVCKBMnkA) muestra un ejercicio de estimación. La [conversación de Charlas Técnicas sobre FinOps](https://www.youtube.com/watch?v=3XJEQebQEYU) aporta contexto para relacionar consumo con valor. La [sesión de monitoreo y gestión de recursos del AWS User Group Medellín](https://www.youtube.com/watch?v=2cGwdSTdUqQ) ayuda a distinguir Budgets, Cost Explorer y CloudWatch. Úsalas como explicaciones grabadas; introduce los precios y condiciones actuales en [AWS Pricing Calculator](https://calculator.aws/) antes de desplegar.
+
+## Continúa con comunidades y conversaciones en español
+
+Para el contexto de negocio, [«Mundo Startup en AWS» de Charlas Técnicas](https://www.youtube.com/watch?v=atS80I2Mqts) conversa con una integrante del equipo de startups de AWS en Chile sobre las primeras etapas. Para otra voz de la comunidad, [«Construyendo una Startup en AWS» de AWS Women Colombia](https://www.youtube.com/watch?v=4BYhdeDD4Mo) ofrece una sesión dedicada al tema. El [archivo de Charlas Técnicas](https://podcast.marcia.dev/) permite seguir otras conversaciones de cloud y tecnología; no equivale a una ruta de laboratorio.
+
+Si quieres contrastar tu diagrama o llevar una duda:
+
+- [AWS Women Colombia](https://awswomencolombia.com/) reúne artículos y enlaces a sus eventos. Puedes empezar por los materiales públicos y consultar las condiciones del encuentro al que quieras asistir.
+- [AWS User Group Serverless Colombia](https://www.meetup.com/aws-user-group-serverless-colombia/) organiza encuentros sobre desarrollo serverless. Lleva una pregunta sobre un flujo concreto, como qué ocurre si falla un consumidor de una cola.
+- [AWS User Group Buenos Aires](https://www.meetup.com/aws-user-group-buenos-aires/) ofrece encuentros de la comunidad y enlaza su canal de grabaciones. Es una opción local si estás cerca; revisa modalidad y agenda para cada actividad.
+
+Al revisar esta guía el **4 de octubre de 2026**, el catálogo incluía dos encuentros en línea relacionados: [«EC2 vs Lambda», de Tlaxcala FireflyCloud, el 16 de octubre de 2026](https://www.meetup.com/fb83c392-728a-42dc-9a3f-7d351301e452/events/315728721/), para comparar alternativas de cómputo, y [«El Combo Indestructible de AWS: SQS + Lambda», de Serverless Colombia, el 20 de octubre de 2026](https://www.meetup.com/aws-user-group-serverless-colombia/events/316770520/), sobre tolerancia a errores. Las fichas indican que el enlace de conexión es visible para asistentes. Confirma inscripción, horario y cambios con los organizadores; cuando hayan pasado, consulta la [agenda de eventos](/eventos/) y los [grupos por país](/comunidades/).
+
+## Preguntas frecuentes
+
+### ¿AWS es siempre la mejor opción para una startup?
+
+Estos casos no permiten afirmarlo. Evalúa tu carga, los conocimientos del equipo, las necesidades de datos y la operación que puedes sostener. Una arquitectura útil para un autorizador de tarjetas o una plataforma de simulaciones puede añadir trabajo innecesario a tu primer producto.
+
+### ¿AWS Activate financia cualquier proyecto?
+
+[AWS Activate Credits](https://aws.amazon.com/startups/credits/) requiere cumplir condiciones y presentar una solicitud. A la fecha de revisión, AWS indicaba, entre otros criterios, etapa anterior a Series B, fundación en los últimos diez años y una cuenta AWS en plan pago. Las modalidades Founders y Portfolio tienen condiciones distintas; Portfolio requiere el identificador de un Activate Provider. Consulta la página vigente para importes, elegibilidad y términos. Un caso antiguo no garantiza los mismos beneficios hoy.
+
+### ¿Necesito copiar una arquitectura completa para aprender de un caso?
+
+No. Empieza por una decisión comprobable: el recorrido de un usuario, una transformación de datos o un despliegue pequeño. Después busca el recurso que responda a tu siguiente duda en [Aprender AWS](/aprender/) o visita a los autores del [directorio de creadores](/creadores/). La meta es poder explicar por qué elegiste cada componente y qué evidencia tienes de que cumple su función.
