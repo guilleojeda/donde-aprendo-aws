@@ -1,574 +1,117 @@
 ---
-title: "10 Casos de Uso de ML de AWS en Agricultura"
-description: "Descubre cómo AWS ML transforma la agricultura con predicción de cultivos, detección de enfermedades y más para una producción eficiente y sostenible."
+title: "Machine learning en agricultura: 8 casos de uso y servicios de AWS"
+description: "Conoce ocho aplicaciones de ML en agricultura, qué datos requieren, cómo evaluar sus modelos y qué servicios de AWS pueden apoyar cada etapa."
 author: "guille-ojeda"
 publishedAt: "2024-05-09"
 publishedTimestamp: "2024-05-09T04:29:13.731Z"
+modifiedTimestamp: "2026-10-04T21:26:34-03:00"
 cover: "/assets/blog/b531b459f1900e0e59a6d476.jpg"
 coverAlt: "Collage verde de parcelas agrícolas, nubes e iconos de tecnología"
 ogImage: "/assets/blog/b531b459f1900e0e59a6d476.jpg"
 related:
-  - title: "Estrategias de Caché Rentables para Apps Serverless"
-    url: "https://dondeaprendoaws.com/blog/estrategias-de-cache-rentables-para-apps-serverless/"
-    image: "/assets/blog/ddae590c4e3ebe901251f97c.webp"
-    imageAlt: ""
-  - title: "Amazon DynamoDB: Guía Básica"
-    url: "https://dondeaprendoaws.com/blog/amazon-dynamodb-guia-basica/"
-    image: "/assets/blog/a45735d6d45d12223256fbc4.png"
-    imageAlt: ""
-  - title: "Opciones para Desplegar Contenedores en AWS: ECS y EKS"
-    url: "https://dondeaprendoaws.com/blog/opciones-para-desplegar-contenedores-en-aws-ecs-y-eks/"
-    image: "/assets/blog/fce8d84a0c54b5cb44769316.png"
-    imageAlt: ""
+  - title: "Guía para Implementar Machine Learning con Amazon SageMaker"
+    url: "https://dondeaprendoaws.com/blog/guia-para-implementar-machine-learning-con-amazon-sagemaker/"
+    image: "/assets/blog/57b9e13953de77f8b6210bc2.jpg"
+    imageAlt: "Portátil con gráficos de análisis en una oficina junto a una planta"
 ---
 
-<p>El uso de Machine Learning (ML) de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> en la agricultura ha revolucionado la forma en que los agricultores y empresas agrícolas monitorean y gestionan sus cultivos. La implementación de ML de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> ofrece varias ventajas:</p>
+El machine learning (ML) puede ayudar a estimar rendimientos, anticipar condiciones locales y detectar patrones en imágenes o sensores. Para que esas predicciones sirvan en una operación agrícola hacen falta datos observados en campo, resultados medibles y pruebas que representen otras parcelas y temporadas. AWS ofrece servicios para almacenar y preparar esos datos, entrenar modelos y entregar predicciones; no aporta por defecto un modelo agronómico listo ni garantiza ahorros o mayor precisión.
 
+Los ocho casos de abajo son ideas de proyecto, no resultados prometidos. En la sección de ejemplos documentados separo tres historias de clientes publicadas por AWS.
 
-<ul>
-<li><strong>Mejora en la toma de decisiones</strong>: Analiza grandes cantidades de datos para proporcionar insights valiosos sobre el cuidado de los cultivos.</li>
-<li><strong>Reducción de costos</strong>: Ayuda a reducir los costos de producción y mantenimiento.</li>
-<li><strong>Producción más sostenible</strong>: Contribuye a una producción más respetuosa con el medio ambiente.</li>
-</ul>
+Si estás empezando con el tema, puedes repasar los conceptos en [Machine Learning de Cero a Hero](https://www.youtube.com/watch?v=0kia26HQxs0), grabación de AWS User Group Buenos Aires del 9 de mayo de 2024. Para ver un ejemplo de SageMaker dirigido a desarrolladores, el [AWS UG Peru Conference 16](https://www.youtube.com/watch?v=4IAJOSCwWOo) tiene una sesión del 24 de marzo de 2021; algunas pantallas y nombres de servicios pueden haber cambiado, así que usa la documentación actual para implementarlo.
 
+## 8 casos de uso de machine learning en agricultura
 
-<p>Algunos casos de uso de ML de AWS en la agricultura incluyen:</p>
+### 1. Estimar el rendimiento por lote
 
+Un modelo puede estimar toneladas por hectárea antes de la cosecha para apoyar la planificación de almacenamiento y transporte. Como entradas puede usar rendimientos medidos en ciclos anteriores, superficie, fechas de siembra y cosecha, variedad, manejo, suelo e historial meteorológico. Los registros deben usar unidades consistentes y corresponder al mismo lote que luego se mide.
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Caso de Uso</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Predicción de rendimientos de cultivos</td>
-<td>Permite predecir con mayor precisión los rendimientos de cultivos mediante el análisis de datos.</td>
-</tr>
-<tr>
-<td>Detección de enfermedades en cultivos</td>
-<td>Detecta enfermedades en las plantas de manera temprana y precisa utilizando visión por computadora y modelado predictivo.</td>
-</tr>
-<tr>
-<td>Análisis de datos geoespaciales</td>
-<td>Facilita el análisis de datos geoespaciales para la agricultura de precisión, evaluación de riesgos y monitoreo del cambio climático.</td>
-</tr>
-<tr>
-<td>Gestión de ganado</td>
-<td>Monitoriza y analiza la salud del ganado para tomar decisiones informadas y reducir pérdidas.</td>
-</tr>
-<tr>
-<td>Predicción del clima</td>
-<td>Mejora la precisión de las predicciones climáticas para una mejor planificación de la siembra, riego y cosecha.</td>
-</tr>
-<tr>
-<td>Análisis de nutrientes del suelo</td>
-<td>Analiza grandes cantidades de datos de suelo para identificar patrones y tendencias en las necesidades de nutrientes.</td>
-</tr>
-<tr>
-<td>Optimización de cadenas de suministro</td>
-<td>Optimiza la logística y gestión de la oferta en la cadena de suministro agrícola.</td>
-</tr>
-<tr>
-<td>Robótica agrícola</td>
-<td>Automatiza tareas y optimiza procesos utilizando robots agrícolas con ML.</td>
-</tr>
-<tr>
-<td>Automatización de invernaderos</td>
-<td>Monitorea y optimiza las condiciones de crecimiento de las plantas en invernaderos de manera remota y en tiempo real.</td>
-</tr>
-<tr>
-<td>Drones en la agricultura</td>
-<td>Utiliza drones equipados con sensores y cámaras para monitorear el estado de los cultivos y el suelo.</td>
-</tr>
-</tbody>
-</table></figure>
+Reserva temporadas o campos completos para la prueba. Compara el error absoluto medio (MAE) o la raíz del error cuadrático medio (RMSE) con una referencia sencilla, como el promedio histórico de la zona, y separa los resultados por cultivo y región. Un buen promedio general puede ocultar errores altos en una variedad o temporada concreta.
 
+### 2. Pronosticar el microclima de una zona
 
-<p>En resumen, la implementación de ML de AWS en la agricultura ha demostrado ser un paso importante hacia una producción más eficiente y sostenible.</p>
+Una predicción de temperatura, lluvia, humedad o viento a escala de lote puede servir para organizar recorridas y tareas. Se pueden combinar lecturas de estaciones cercanas, radares, pronósticos existentes y observaciones de sensores propios. La ubicación, la hora, la unidad y la calibración de cada sensor son parte del dato, no detalles secundarios.
 
+Evalúa por fecha futura, compara cada horizonte con el pronóstico que ya se usa y mide los errores por variable y estación. Para lluvia, además del error numérico, comprueba si el modelo distingue de forma útil los eventos que importan para la operación. No infieras que un pronóstico más preciso en un conjunto de prueba producirá por sí solo más rendimiento.
 
-<h2 id="predicci%C3%B3n-de-rendimientos-de-cultivos" tabindex="-1">Predicción de Rendimientos de Cultivos</h2>
+### 3. Seguir la humedad del suelo y anticipar desvíos
 
+Con sensores de humedad, lluvia, temperatura, tipo de suelo y etapa del cultivo se puede pronosticar cómo cambiará la humedad del suelo o marcar mediciones anómalas. El objetivo puede ser priorizar qué lotes revisar; la salida del modelo no debe presentarse como una instrucción universal de riego.
 
-<p>La predicción de rendimientos de cultivos es crucial en la agricultura, ya que permite a los agricultores tomar decisiones informadas sobre la gestión de sus cultivos y recursos. El uso de <a href="https://dondeaprendoaws.com/blog/como-desarrollar-aplicaciones-de-inteligencia-artificial-en-aws/">Machine Learning (ML) de AWS</a> ha mejorado significativamente esta área, permitiendo la predicción precisa de rendimientos de cultivos mediante el análisis de grandes cantidades de datos.</p>
+Valida el pronóstico con lecturas posteriores que no se usaron para entrenar. Mide el error por profundidad, tipo de suelo y ubicación, y revisa qué proporción de alertas resulta útil para la persona que recorre el campo. Si hay sensores nuevos o se mueven, vuelve a comprobar la calibración.
 
+Para familiarizarte con la comunicación de sensores, la grabación de 2024 [Introducción al IoT en AWS con IoT Core y el ESP8266](https://www.youtube.com/watch?v=ilMHiOXCZns) muestra un ejemplo de hardware concreto. La publica AWS UG Ecuador; el [grupo](https://www.meetup.com/aws-ecuador/) comparte sus actividades actuales.
 
-<h3 id="sistema-de-monitoreo-de-cultivos-eosda" tabindex="-1">Sistema de Monitoreo de Cultivos <a href="https://eos.com/" rel="noopener noreferrer" target="_blank">EOSDA</a></h3>
+### 4. Priorizar la revisión de plagas o enfermedades en plantas
 
+Un clasificador de imágenes puede ordenar fotos de hojas, frutos o trampas para que una persona experta revise primero las señales más probables. El conjunto de entrenamiento necesita etiquetas verificadas, además de cultivo, variedad, etapa de crecimiento, fecha y contexto de captura. Las imágenes de laboratorio suelen ser distintas a las fotos reales tomadas con polvo, sombras o teléfonos diferentes.
 
-<p><figure><img alt="EOSDA" src="/assets/blog/ef53c4b59016cc8fd14e996d.jpg"/></figure></p>
+Mide precisión y sensibilidad (recall) por clase, con atención a los falsos negativos, y prueba en fotos de otros campos y temporadas. Presenta la salida como una señal para revisión: una clasificación de imagen no confirma un diagnóstico ni indica qué producto aplicar. Las recomendaciones de tratamiento quedan a cargo de especialistas y de las normas locales.
 
+Como material técnico complementario, AWS User Group Paraguay publicó en mayo de 2024 una sesión sobre [redes neuronales con TensorFlow en SageMaker](https://www.youtube.com/watch?v=yzAd3XLWjLU). Es un ejemplo de modelado, no un modelo agrícola validado.
 
-<p>EOSDA, una empresa de tecnología agrícola, utiliza AWS ML para proporcionar servicios de monitoreo de cultivos basados en satélites. Su sistema de monitoreo de cultivos utiliza imágenes satelitales y datos climáticos para predecir los rendimientos de cultivos y detectar posibles problemas en las plantas.</p>
+### 5. Analizar imágenes satelitales o de drones
 
+Las series de imágenes pueden ayudar a clasificar coberturas, localizar cambios o señalar zonas que conviene inspeccionar. Para entrenar y evaluar hacen falta límites de parcelas, fechas y resolución conocidos, junto con observaciones de campo que sirvan como referencia. También hay que registrar nubes, sombras, sensor y derechos de uso de las imágenes.
 
-<p><strong>Ventajas del sistema de monitoreo de cultivos EOSDA</strong></p>
+Separa parcelas o regiones completas entre entrenamiento y prueba; dividir píxeles vecinos al azar puede hacer que la evaluación parezca mejor de lo que sería en un lugar nuevo. Según la tarea, mide precisión por clase, intersección sobre unión (IoU) o error en el área calculada. SageMaker geospatial aparece en documentación antigua, pero AWS informa que sus capacidades geoespaciales ya no están abiertas a nuevos clientes; más abajo detallo esa limitación.
 
+### 6. Detectar condiciones fuera de rango en invernaderos
 
-<ul>
-<li>Mayor precisión en la predicción de rendimientos de cultivos</li>
-<li>Mejora en la gestión de recursos y reducción de costos</li>
-<li>Información valiosa sobre el estado de las plantas y el clima</li>
-<li>Ayuda a los agricultores a tomar decisiones informadas sobre la aplicación de fertilizantes y pesticidas</li>
-</ul>
+Las series de temperatura, humedad, luz, CO₂ y estado de equipos pueden alimentar un modelo que anticipe desvíos o detecte patrones distintos de los ciclos normales. Conviene incluir el sector, el cultivo y su etapa, porque los rangos y patrones cambian entre configuraciones.
 
+Prueba el sistema en ciclos posteriores y mide falsas alarmas, eventos no detectados y tiempo de anticipación. Al principio, usa las alertas para que el equipo revise las condiciones. No conectes una predicción directamente al control de equipos sin validación técnica y salvaguardas propias del proceso.
 
-<p>En resumen, la predicción de rendimientos de cultivos es un área en la que el uso de AWS ML ha demostrado ser particularmente efectivo, permitiendo a los agricultores tomar decisiones informadas y optimizar la gestión de sus cultivos y recursos.</p>
+### 7. Señalar cambios de actividad en ganado
 
+Los registros de collares, identificadores, básculas o sensores ambientales pueden servir para encontrar cambios de actividad o patrones que ameriten observación. Para evaluar el modelo se necesitan registros revisados por personal con conocimiento del establecimiento, identificadores coherentes y datos de distintas estaciones y condiciones de alojamiento.
 
-<h2 id="detecci%C3%B3n-de-enfermedades-en-cultivos-con-ml" tabindex="-1">Detección de Enfermedades en Cultivos con ML</h2>
+Comprueba alertas y omisiones en animales y períodos que no aparecieron durante el entrenamiento. El uso razonable es priorizar una observación humana: el modelo no ofrece diagnóstico veterinario ni tratamiento.
 
+### 8. Pronosticar volúmenes para cosecha y logística
 
-<p>La detección temprana de enfermedades en cultivos es crucial para la agricultura, ya que permite a los agricultores tomar medidas preventivas y reducir pérdidas. La visión por computadora y el modelado predictivo de Machine Learning (ML) de AWS han demostrado ser herramientas efectivas para detectar enfermedades en cultivos de manera temprana.</p>
+Un productor o cooperativa puede estimar el volumen que recibirá, almacenará o despachará combinando cosechas históricas, pedidos, inventario, calendario, estado de cultivos y demoras logísticas. El resultado puede ayudar a preparar capacidad; depende de que los datos de producción y pedidos representen la operación real.
 
+Reserva períodos completos para probar el pronóstico y compáralo con el método actual. Además de MAE o un error porcentual adecuado al volumen, sigue las consecuencias operativas que importan —por ejemplo, faltantes o excedentes— antes de atribuir ahorros al modelo.
 
-<h3 id="xarvio-digital-farming-solutions" tabindex="-1"><a href="https://www.xarvio.com/" rel="noopener noreferrer" target="_blank">xarvio</a> Digital Farming Solutions</h3>
+## Qué datos y pruebas necesita un proyecto de ML agrícola
 
+Empieza definiendo la predicción concreta: qué valor o evento se estima, para qué parcela o unidad, con cuánta anticipación y qué decisión humana podría informar. Después verifica que exista una observación confiable del resultado real. Sin etiquetas o mediciones de referencia, no se puede saber si el modelo aprendió la señal que interesa.
 
-<p><figure><img alt="xarvio" src="/assets/blog/f4b17f018c7b8a02e6371771.jpg"/></figure></p>
+Separa datos por tiempo y por unidad agrícola. Para imágenes, no repartas al azar fotos de una misma planta o parcela entre entrenamiento y prueba; para sensores, evita que registros casi idénticos del mismo ciclo aparezcan en ambos grupos. Una evaluación útil reserva otra temporada, lote o establecimiento y compara el modelo con una referencia que ya se utiliza.
 
+Elige métricas según la tarea: MAE o RMSE para estimaciones numéricas; precisión, sensibilidad (recall) y falsos negativos para clasificación; y métricas por evento y horizonte para pronósticos. Revisa los resultados por cultivo, región, tipo de suelo y estación, no solo el promedio. En una prueba piloto, registra también si las personas usuarias pudieron actuar con la predicción y qué costos operativos aparecieron. Una métrica de modelo por sí sola no demuestra impacto en la cosecha.
 
-<p>xarvio, una empresa de agricultura digital, utiliza las capacidades geoespaciales de <a href="https://aws.amazon.com/sagemaker/" rel="noopener noreferrer" target="_blank">Amazon SageMaker</a> para acelerar el desarrollo y la implementación de modelos de ML para la detección de enfermedades y el monitoreo de la salud de los cultivos. Esto permite a los agricultores identificar problemas potenciales antes de que se conviertan en una amenaza para la cosecha.</p>
+## Qué servicios de AWS pueden apoyar el flujo
 
+| Servicio | Para qué puede servir |
+| --- | --- |
+| [Amazon S3](https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html) | Guardar imágenes, archivos geográficos, series de sensores, etiquetas y artefactos de modelos. |
+| [AWS IoT Core](https://docs.aws.amazon.com/iot/latest/developerguide/what-is-aws-iot.html) | Conectar dispositivos compatibles y recibir sus mensajes, por ejemplo lecturas de sensores de campo. No entrena el modelo. |
+| [AWS IoT Greengrass](https://docs.aws.amazon.com/greengrass/v2/developerguide/perform-machine-learning-inference.html) | Ejecutar inferencias localmente en dispositivos de campo con modelos entrenados en la nube, cuando la conectividad o la latencia lo requieran. |
+| [AWS Glue](https://docs.aws.amazon.com/glue/latest/dg/components-key-concepts.html) | Catalogar metadatos y ejecutar transformaciones cuando hay que combinar o preparar fuentes; sus tablas describen los datos, no los almacenan. |
+| [Amazon Athena](https://docs.aws.amazon.com/athena/latest/ug/what-is.html) | Consultar datos tabulares que ya estén en S3 para explorar su calidad y estructura. |
+| [Amazon SageMaker AI](https://docs.aws.amazon.com/sagemaker/latest/dg/ex1-train-model.html) | Entrenar y probar modelos propios. Para entregar predicciones, permite usar una opción de inferencia según el patrón de uso; [Batch Transform](https://docs.aws.amazon.com/sagemaker/latest/dg/batch-transform.html) procesa lotes sin mantener un endpoint persistente. |
 
-<p><strong>Ventajas de la detección de enfermedades en cultivos con ML de AWS</strong></p>
+Estos servicios son piezas de una arquitectura, no una solución agrícola empaquetada. En particular, [las capacidades geoespaciales de SageMaker ya no están abiertas a nuevos clientes](https://docs.aws.amazon.com/sagemaker/latest/dg/geospatial.html); la documentación también las limita a Studio Classic y a la región de Oregon. Para un proyecto nuevo con imágenes satelitales, verifica las herramientas geoespaciales y las fuentes de imagen disponibles para tu región, y diseña el procesamiento como una integración propia antes de elegir servicios.
 
+Como referencia conceptual, AWS publicó su [arquitectura Smart Farm](https://docs.aws.amazon.com/es_es/reference-architecture-diagrams/latest/smart-farm-on-aws/smart-farm-on-aws.html) en 2022. Incluye sensores, inferencia en el borde y análisis con servicios como S3, Glue, Athena y SageMaker AI; verifica cada servicio y su disponibilidad en la documentación actual antes de reutilizar el diseño.
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventaja</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Mayor precisión</td>
-<td>La detección de enfermedades es más precisa y oportuna</td>
-</tr>
-<tr>
-<td>Reducción de costos</td>
-<td>Se reducen los costos y pérdidas asociados con la enfermedad</td>
-</tr>
-<tr>
-<td>Mejora en la gestión de recursos</td>
-<td>Los agricultores pueden tomar decisiones informadas sobre la gestión de recursos</td>
-</tr>
-<tr>
-<td>Reducción del uso de pesticidas y fertilizantes</td>
-<td>Se reduce el uso de pesticidas y fertilizantes, lo que beneficia el medio ambiente</td>
-</tr>
-</tbody>
-</table></figure>
+Para repasar el flujo general de SageMaker, puedes leer la [guía de Vicente G. Guzmán](https://vicenteguzman.com/aws/2024-08-27-sagemaker-ml-aws/), publicada en agosto de 2024, y la [guía interna de implementación con SageMaker](/blog/guia-para-implementar-machine-learning-con-amazon-sagemaker/). Ambas sirven como orientación; para nombres, interfaces y opciones vigentes, consulta la documentación oficial enlazada en esta sección.
 
+El modo de inferencia también depende de la operación: una predicción diaria para cientos de lotes puede procesarse como lote; una aplicación que necesita responder a cada solicitud puede requerir un endpoint. Mide latencia, volumen y costo con tus datos antes de mantener recursos activos.
 
-<p>En resumen, la detección de enfermedades en cultivos con ML de AWS es una herramienta poderosa para los agricultores, permitiéndoles tomar medidas preventivas y reducir pérdidas.</p>
+## Ejemplos de agricultura documentados por AWS
 
+AWS describe a [Sencrop](https://aws.amazon.com/solutions/case-studies/sencrop-case-study/) como una empresa que usa ML para crear pronósticos meteorológicos localizados. Su caso publicado menciona datos de radar, pronósticos y casi 40.000 sensores de campo; indica que procesa datos con Amazon EMR y los almacena en Amazon Aurora. Esto muestra una aplicación real de datos y ML, pero no prueba que la misma arquitectura o resultados sirvan para otra región o cultivo.
 
-<h2 id="an%C3%A1lisis-de-datos-geoespaciales-para-la-agricultura-de-precisi%C3%B3n" tabindex="-1">Análisis de datos geoespaciales para la agricultura de precisión</h2>
+En la historia de [xFarm Technologies](https://aws.amazon.com/solutions/case-studies/aws-pioneers-project/xfarm/), AWS relata usos de IA para revisar fotos de cultivos, observar insectos y anticipar señales de enfermedad a partir de sensores y datos satelitales. La página no identifica los servicios específicos detrás de esos modelos, así que no atribuyo el caso a SageMaker ni a otro servicio concreto.
 
+En un caso coescrito con [Aigen](https://aws.amazon.com/blogs/architecture/how-aigen-transformed-agricultural-robotics-for-sustainable-farming-with-amazon-sagemaker-ai/), AWS describe una plataforma de robots agrícolas con visión por computadora y modelos para dispositivos de campo. El flujo publicado usa AWS IoT Core y Amazon S3 para los datos, revisión humana de etiquetas y Amazon SageMaker AI para entrenar modelos. Es una arquitectura de ese cliente, no un resultado que se pueda esperar sin datos y evaluación propios.
 
-<h3 id="an%C3%A1lisis-geoespacial-con-sagemaker" tabindex="-1">Análisis geoespacial con SageMaker</h3>
+## Recursos y comunidades para continuar
 
+Para entender por qué la preparación y la calidad de datos condicionan el modelo, puedes escuchar [Análisis de datos para machine learning](https://www.youtube.com/watch?v=62s0OxI8SZw), una grabación de *Charlas Técnicas de AWS* publicada el 24 de mayo de 2021. Incluye referencias a herramientas de ese momento; consulta la documentación actual antes de seguir pasos de servicio o interfaz. El [AWS Meetup #47: ML Day con SageMaker, MLOps e IoT](https://www.youtube.com/watch?v=NVEbOgBTNSk) es una grabación de AWS User Group Peru del 28 de septiembre de 2020; puede servir para conceptos, pero no para copiar una configuración actual.
 
-<p>La agricultura de precisión se beneficia de la análisis de datos geoespaciales, lo que permite a los agricultores evaluar riesgos, monitorear el cambio climático y desarrollar estrategias empresariales informadas. Amazon SageMaker ofrece capacidades geoespaciales integradas para el análisis de datos, lo que facilita la creación, el entrenamiento y la implementación de modelos de Machine Learning (ML) para la agricultura.</p>
-
-
-<p>Con SageMaker, los científicos de datos y los ingenieros de ML pueden acceder a orígenes de datos geoespaciales, operaciones de procesamiento específicas y modelos de ML preentrenados, lo que les permite ejecutar ML para el análisis geoespacial con mayor rapidez y a escala.</p>
-
-
-<p><strong>Ventajas del análisis geoespacial con SageMaker</strong></p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventaja</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Mayor precisión</td>
-<td>El análisis geoespacial es más preciso y oportuno</td>
-</tr>
-<tr>
-<td>Reducción de costos</td>
-<td>Se reducen los costos y pérdidas asociados con la toma de decisiones informadas</td>
-</tr>
-<tr>
-<td>Mejora en la gestión de recursos</td>
-<td>Los agricultores pueden tomar decisiones informadas sobre la gestión de recursos</td>
-</tr>
-<tr>
-<td>Reducción del uso de pesticidas y fertilizantes</td>
-<td>Se reduce el uso de pesticidas y fertilizantes, lo que beneficia el medio ambiente</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>En resumen, el análisis geoespacial con SageMaker es una herramienta poderosa para los agricultores, permitiéndoles tomar decisiones informadas y reducir pérdidas.</p>
-
-
-<h2 id="gesti%C3%B3n-de-ganado-con-ml" tabindex="-1">Gestión de Ganado con ML</h2>
-
-
-<p>La gestión de ganado es un aspecto crucial en la agricultura, y el uso de Machine Learning (ML) puede mejorar significativamente la eficiencia y la precisión en este proceso. La monitorización y el análisis de la salud del ganado pueden ayudar a los agricultores a tomar decisiones informadas y reducir pérdidas.</p>
-
-
-<h3 id="colaboraci%C3%B3n-entre-aws-y-ever.ag" tabindex="-1">Colaboración entre <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> y <a href="https://www.ever.ag/" rel="noopener noreferrer" target="_blank">Ever.Ag</a></h3>
-
-
-<p><figure><img alt="AWS" src="/assets/blog/2ebe3cf8e7ae57e98d3af846.jpg"/></figure></p>
-
-
-<p>Ever.Ag, una empresa de tecnología agrícola, utiliza la <a href="https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/">inteligencia artificial generativa de AWS en la plataforma SageMaker</a> para la monitorización del ganado y el análisis de la salud de los cultivos. Esta colaboración promueve prácticas agrícolas más inteligentes y sostenibles.</p>
-
-
-<p><strong>Ventajas de la gestión de ganado con ML</strong></p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventaja</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Mejora en la detección de enfermedades</td>
-<td>El análisis de ML puede detectar enfermedades en el ganado de manera más precisa y oportuna</td>
-</tr>
-<tr>
-<td>Reducción de costos</td>
-<td>Se reducen los costos asociados con la toma de decisiones informadas</td>
-</tr>
-<tr>
-<td>Mejora en la gestión de recursos</td>
-<td>Los agricultores pueden tomar decisiones informadas sobre la gestión de recursos</td>
-</tr>
-<tr>
-<td>Reducción del uso de medicamentos y vacunas</td>
-<td>Se reduce el uso de medicamentos y vacunas, lo que beneficia el medio ambiente</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>En resumen, la gestión de ganado con ML es una herramienta poderosa para los agricultores, permitiéndoles tomar decisiones informadas y reducir pérdidas.</p>
-
-
-<h2 id="predicci%C3%B3n-del-clima-para-la-agricultura" tabindex="-1">Predicción del Clima para la Agricultura</h2>
-
-
-<p>La predicción del clima es fundamental en la agricultura, ya que los agricultores necesitan tomar decisiones informadas sobre la siembra, el riego y la cosecha. La precisión en la predicción del clima puede significar la diferencia entre una cosecha exitosa y una pérdida total.</p>
-
-
-<h3 id="uso-de-aws-ml-para-la-predicci%C3%B3n-del-clima" tabindex="-1">Uso de AWS ML para la Predicción del Clima</h3>
-
-
-<p>Las empresas como Ever.Ag emplean tecnologías de AWS ML para mejorar la predicción del clima y el modelado de crecimiento de cultivos. Esto permite a los agricultores predecir con mayor precisión las condiciones climáticas y tomar decisiones informadas sobre la gestión de sus cultivos.</p>
-
-
-<p>La predicción del clima con AWS ML se basa en el análisis de grandes cantidades de datos, incluyendo datos de satélite, estaciones meteorológicas y sensores IoT. Esto permite identificar patrones y tendencias en los datos climáticos y hacer predicciones más precisas.</p>
-
-
-<p><strong>Ventajas de la Predicción del Clima con AWS ML</strong></p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventaja</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Mayor precisión</td>
-<td>La predicción del clima es más precisa y oportuna</td>
-</tr>
-<tr>
-<td>Reducción de pérdidas</td>
-<td>Se reducen las pérdidas en la agricultura debido a la toma de decisiones informadas</td>
-</tr>
-<tr>
-<td>Mejora en la gestión de recursos</td>
-<td>Los agricultores pueden tomar decisiones informadas sobre la gestión de recursos</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>La implementación de AWS ML en la predicción del clima ha demostrado ser efectiva en la mejora de la precisión de las predicciones climáticas y en la reducción de pérdidas en la agricultura. Los agricultores pueden utilizar estas predicciones para tomar decisiones informadas sobre la siembra, el riego y la cosecha, lo que puede llevar a una mayor productividad y rentabilidad en la agricultura.</p>
-
-
-<h2 id="an%C3%A1lisis-de-nutrientes-del-suelo" tabindex="-1">Análisis de Nutrientes del Suelo</h2>
-
-
-<p>El análisis de nutrientes del suelo es fundamental en la agricultura, ya que los nutrientes del suelo afectan directamente la salud y el crecimiento de las plantas. La falta de nutrientes esenciales puede llevar a una disminución en la producción y la calidad de los cultivos. La <a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-machine-learning-en-aws/">tecnología de Machine Learning (ML) de AWS</a> puede ayudar a los agricultores a analizar y comprender mejor los nutrientes del suelo, lo que les permite tomar decisiones informadas sobre la fertilización y el manejo del suelo.</p>
-
-
-<p>La ML de AWS puede analizar grandes cantidades de datos de suelo, incluyendo datos de satélite, sensores IoT y datos de laboratorio. Esto permite identificar patrones y tendencias en los datos de suelo, lo que ayuda a los agricultores a predecir con mayor precisión las necesidades de nutrientes de sus cultivos.</p>
-
-
-<h3 id="ventajas-del-an%C3%A1lisis-de-nutrientes-del-suelo-con-aws-ml" tabindex="-1">Ventajas del Análisis de Nutrientes del Suelo con AWS ML</h3>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventaja</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Mayor precisión</strong></td>
-<td>La ML de AWS analiza grandes cantidades de datos de suelo con mayor precisión que los métodos tradicionales</td>
-</tr>
-<tr>
-<td><strong>Reducción de costos</strong></td>
-<td>La ML de AWS ayuda a los agricultores a reducir los costos de fertilizantes y pesticidas</td>
-</tr>
-<tr>
-<td><strong>Mejora en la salud del suelo</strong></td>
-<td>La ML de AWS ayuda a los agricultores a identificar áreas de suelo que requieren atención especial, lo que les permite tomar medidas para mejorar la salud del suelo</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>En resumen, la ML de AWS es una herramienta valiosa para los agricultores que buscan mejorar la salud del suelo y reducir los costos de fertilizantes y pesticidas. Al analizar grandes cantidades de datos de suelo, la ML de AWS ayuda a los agricultores a tomar decisiones informadas sobre la fertilización y el manejo del suelo, lo que puede llevar a una mayor productividad y rentabilidad en la agricultura.</p>
-
-
-<h2 id="optimizaci%C3%B3n-de-cadenas-de-suministro-agr%C3%ADcolas" tabindex="-1">Optimización de Cadenas de Suministro Agrícolas</h2>
-
-
-<p>La cadena de suministro agrícola es un proceso complejo que implica la producción, procesamiento, almacenamiento, transporte y distribución de productos agrícolas. La optimización de esta cadena es crucial para garantizar la eficiencia, reducir costos y mejorar la calidad de los productos. La tecnología de Machine Learning (ML) de AWS puede ayudar a los agricultores y empresas agrícolas a optimizar sus cadenas de suministro, mejorando la logística y la gestión de la oferta.</p>
-
-
-<h3 id="compeer-financial-y-bushel-wallet" tabindex="-1"><a href="https://www.compeer.com/" rel="noopener noreferrer" target="_blank">Compeer Financial</a> y <a href="https://bushelpowered.com/" rel="noopener noreferrer" target="_blank">Bushel</a> Wallet</h3>
-
-
-<p><figure><img alt="Compeer Financial" src="/assets/blog/145fd85a5df7c47c7d107997.jpg"/></figure></p>
-
-
-<p>Compeer Financial, una empresa de servicios financieros agrícolas, colaboró con Bushel, una plataforma de gestión de líneas de crédito, para integrar la tecnología de ML de AWS en su software de gestión de líneas de crédito, Bushel Wallet. Esta colaboración permitió a los agricultores y empresas agrícolas gestionar digitalmente sus líneas de crédito de manera más eficiente, reducir costos y mejorar la toma de decisiones.</p>
-
-
-<p>La ML de AWS analizó grandes cantidades de datos de la cadena de suministro, identificando patrones y tendencias que ayudaron a los agricultores a predecir la demanda y planificar la producción. La integración de la ML de AWS en la plataforma de Bushel Wallet permitió a los agricultores:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th><strong>Ventaja</strong></th>
-<th><strong>Descripción</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Mejora en la precisión de la predicción de la demanda</strong></td>
-<td>La ML de AWS analizó datos históricos y en tiempo real para identificar patrones y tendencias en la demanda.</td>
-</tr>
-<tr>
-<td><strong>Reducción de costos</strong></td>
-<td>La ML de AWS ayudó a los agricultores a identificar oportunidades para reducir costos en la cadena de suministro.</td>
-</tr>
-<tr>
-<td><strong>Mejora en la toma de decisiones</strong></td>
-<td>La ML de AWS proporcionó a los agricultores información precisa y oportuna para tomar decisiones informadas sobre la producción, la gestión de la oferta y la logística.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>En resumen, la ML de AWS es una herramienta valiosa para optimizar la cadena de suministro agrícola, mejorar la logística y la gestión de la oferta, y reducir costos. La colaboración entre Compeer Financial y Bushel es un ejemplo de cómo la tecnología de ML de AWS puede ayudar a los agricultores y empresas agrícolas a mejorar su eficiencia y reducir costos.</p>
-
-
-<h2 id="rob%C3%B3tica-agr%C3%ADcola-con-ml-de-aws" tabindex="-1">Robótica Agrícola con ML de AWS</h2>
-
-
-<p>La robótica agrícola es un área en constante evolución, y la tecnología de Machine Learning (ML) de AWS está revolucionando la forma en que los agricultores y empresas agrícolas automatizan tareas y optimizan sus procesos. La ML de AWS permite a los robots agrícolas aprender de los datos y mejorar su desempeño con el tiempo, lo que conduce a una mayor eficiencia y reducción de costos.</p>
-
-
-<h3 id="an%C3%A1lisis-de-datos-de-agco-con-kinesis" tabindex="-1">Análisis de datos de <a href="https://www.agcocorp.com/" rel="noopener noreferrer" target="_blank">AGCO</a> con Kinesis</h3>
-
-
-<p><figure><img alt="AGCO" src="/assets/blog/d01423d7d3e3fd448a6074df.jpg"/></figure></p>
-
-
-<p>AGCO, una empresa líder en la industria agrícola, utiliza los servicios de AWS, como Amazon Kinesis, para mejorar la recopilación y procesamiento de datos en el monitoreo de máquinas agrícolas. Esta integración permite a AGCO reducir costos y mejorar la retención de datos, lo que a su vez conduce a una toma de decisiones más informada y una mayor eficiencia en la producción agrícola.</p>
-
-
-<p>La ML de AWS analiza grandes cantidades de datos de los sensores y sistemas de AGCO, identificando patrones y tendencias que ayudan a los agricultores a predecir la demanda y planificar la producción. La integración de la ML de AWS en la plataforma de AGCO permite a los agricultores:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th><strong>Ventaja</strong></th>
-<th><strong>Descripción</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Mejora en la precisión de la predicción</strong></td>
-<td>La ML de AWS analiza datos históricos y en tiempo real para identificar patrones y tendencias en la demanda.</td>
-</tr>
-<tr>
-<td><strong>Reducción de costos</strong></td>
-<td>La ML de AWS ayuda a los agricultores a identificar oportunidades para reducir costos en la cadena de suministro.</td>
-</tr>
-<tr>
-<td><strong>Mejora en la toma de decisiones</strong></td>
-<td>La ML de AWS proporciona a los agricultores información precisa y oportuna para tomar decisiones informadas sobre la producción, la gestión de la oferta y la logística.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>En resumen, la ML de AWS es una herramienta valiosa para avanzar en la robótica agrícola, automatizar tareas y optimizar procesos. La colaboración entre AGCO y AWS es un ejemplo de cómo la tecnología de ML de AWS puede ayudar a los agricultores y empresas agrícolas a mejorar su eficiencia y reducir costos.</p>
-
-
-<h2 id="automatizaci%C3%B3n-de-invernaderos" tabindex="-1">Automatización de Invernaderos</h2>
-
-
-<p>La automatización de invernaderos es un área en constante evolución, y la tecnología de Machine Learning (ML) de AWS está revolucionando la forma en que los agricultores y empresas agrícolas optimizan las condiciones para el crecimiento de las plantas.</p>
-
-
-<p>Un ejemplo de esto es la colaboración entre <a href="https://30mhz.com/" rel="noopener noreferrer" target="_blank">30MHz</a> y Amazon Web Services (AWS) para desarrollar aplicaciones de aprendizaje automático para invernaderos autónomos. Esta colaboración ha permitido a los agricultores monitorear y optimizar las condiciones de crecimiento de las plantas de manera remota y en tiempo real, lo que ha llevado a una mayor producción y reducción de costos.</p>
-
-
-<p>Otro ejemplo es el caso de <a href="https://www.yanmar.com/" rel="noopener noreferrer" target="_blank">Yanmar</a>, que utiliza la ML de AWS para detectar y reconocer los diferentes estados de crecimiento de las plantas en sus invernaderos. Esto permite a los agricultores ajustar las condiciones de crecimiento, como la temperatura y la humedad, para maximizar la producción y reducir los riesgos.</p>
-
-
-<p>La automatización de invernaderos con ML de AWS también permite a los agricultores reducir el consumo de recursos naturales, como el agua y la energía, lo que conduce a una producción más sostenible y respetuosa con el medio ambiente.</p>
-
-
-<h3 id="ventajas-de-la-automatizaci%C3%B3n-de-invernaderos-con-ml-de-aws" tabindex="-1">Ventajas de la Automatización de Invernaderos con ML de AWS</h3>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th><strong>Ventaja</strong></th>
-<th><strong>Descripción</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Mejora en la eficiencia</strong></td>
-<td>La ML de AWS permite a los sistemas de invernaderos aprender de los datos y mejorar su desempeño con el tiempo.</td>
-</tr>
-<tr>
-<td><strong>Reducción de costos</strong></td>
-<td>La automatización de invernaderos con ML de AWS reduce los costos de producción y mantenimiento.</td>
-</tr>
-<tr>
-<td><strong>Producción más sostenible</strong></td>
-<td>La ML de AWS permite a los agricultores reducir el consumo de recursos naturales y producir de manera más respetuosa con el medio ambiente.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>En resumen, la automatización de invernaderos con ML de AWS es una herramienta valiosa para los agricultores y empresas agrícolas que buscan optimizar las condiciones de crecimiento de las plantas, reducir costos y producir de manera más sostenible.</p>
-
-
-<h2 id="drones-en-la-agricultura-con-ml-de-aws" tabindex="-1">Drones en la Agricultura con ML de AWS</h2>
-
-
-<p>La tecnología de Machine Learning (ML) de AWS está revolucionando la forma en que los agricultores y empresas agrícolas monitorean y gestionan sus cultivos. Una de las formas más innovadoras en que se está utilizando la ML de AWS es a través de drones equipados con sensores y cámaras que recopilan datos sobre el estado de los cultivos y el suelo.</p>
-
-
-<h3 id="monitoreo-de-cultivos-con-drones" tabindex="-1">Monitoreo de Cultivos con Drones</h3>
-
-
-<p>Los drones equipados con ML de AWS pueden realizar tareas como la evaluación de la salud de los cultivos, la aplicación de pesticidas y fertilizantes de manera dirigida y el mapeo de campos. Esto permite a los agricultores tomar decisiones informadas sobre el cuidado de sus cultivos y optimizar sus procesos de producción.</p>
-
-
-<p><strong>Ventajas del Monitoreo de Cultivos con Drones</strong></p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th><strong>Ventaja</strong></th>
-<th><strong>Descripción</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Mejora en la eficiencia</strong></td>
-<td>Los drones equipados con ML de AWS pueden recopilar datos de manera rápida y precisa.</td>
-</tr>
-<tr>
-<td><strong>Reducción de costos</strong></td>
-<td>La automatización de tareas con drones reduce los costos de producción y mantenimiento.</td>
-</tr>
-<tr>
-<td><strong>Producción más sostenible</strong></td>
-<td>La ML de AWS permite a los agricultores reducir el consumo de recursos naturales y producir de manera más respetuosa con el medio ambiente.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Un ejemplo de esto es la startup malasia <a href="https://aerodyne.group/" rel="noopener noreferrer" target="_blank">Aerodyne</a>, que ha desarrollado una plataforma de servicios de drones llamada DRONOS, que utiliza la ML de AWS para analizar datos recopilados por drones y proporcionar insights valiosos a los agricultores. Esta plataforma ha permitido a los agricultores aumentar la productividad de sus cultivos hasta un 67%.</p>
-
-
-<p>En resumen, la combinación de drones y ML de AWS es una herramienta poderosa para los agricultores y empresas agrícolas que buscan mejorar la eficiencia y la productividad en la producción de cultivos.</p>
-
-
-<h2 id="el-impacto-de-aws-ml-en-la-agricultura" tabindex="-1">El Impacto de AWS ML en la Agricultura</h2>
-
-
-<p>La implementación de Machine Learning (ML) de AWS en la agricultura ha cambiado la forma en que los agricultores y empresas agrícolas monitorean y gestionan sus cultivos. La ML de AWS ha demostrado ser una herramienta efectiva para aumentar la eficiencia y la productividad en la producción de cultivos.</p>
-
-
-<h3 id="ventajas-de-la-ml-de-aws-en-la-agricultura" tabindex="-1">Ventajas de la ML de AWS en la Agricultura</h3>
-
-
-<p>La ML de AWS ofrece varias ventajas para los agricultores y empresas agrícolas, incluyendo:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventaja</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Mejora en la toma de decisiones</strong></td>
-<td>La ML de AWS analiza grandes cantidades de datos para proporcionar insights valiosos sobre el cuidado de los cultivos.</td>
-</tr>
-<tr>
-<td><strong>Reducción de costos</strong></td>
-<td>La ML de AWS ayuda a reducir los costos de producción y mantenimiento.</td>
-</tr>
-<tr>
-<td><strong>Producción más sostenible</strong></td>
-<td>La ML de AWS contribuye a una producción más sostenible y respetuosa con el medio ambiente.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>En resumen, la implementación de ML de AWS en la agricultura ha demostrado ser un paso importante hacia una producción más eficiente y sostenible.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/">Introducción a la Inteligencia Artificial en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/como-desarrollar-aplicaciones-de-inteligencia-artificial-en-aws/">Cómo Desarrollar Aplicaciones de Inteligencia Artificial en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/personalizacion-en-tiempo-real-con-aws-casos-de-uso/">Personalización en tiempo real con AWS: Casos de uso</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-machine-learning-en-aws/">Mejores Prácticas de Machine Learning en AWS</a></li>
-</ul>
-</p>
+Para conversar sobre decisiones de ML e infraestructura, consulta [AWS UG Machine Learning Latam](https://www.meetup.com/aws-ug-machine-learning-latam/), con sede en Lima; el [AWS User Group Buenos Aires](https://www.meetup.com/aws-user-group-buenos-aires/), un grupo general de AWS; y [AWS User Group Peru](https://www.meetup.com/awsperu/), organizador de dos grabaciones de ML mencionadas arriba. Revisa sus páginas para conocer sus actividades y alcance actuales. También puedes buscar grupos de otros países en el [directorio de comunidades AWS](/comunidades/) y encuentros vigentes en la [agenda de eventos](/eventos/).
