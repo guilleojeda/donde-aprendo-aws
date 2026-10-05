@@ -1,633 +1,156 @@
 ---
-title: "Arquitectura en la nube: tendencias emergentes"
-description: "Explora las tendencias emergentes en arquitectura en la nube, incluyendo la adopción de la nube híbrida, Kubernetes, contenedores, función como servicio (FaaS), integración y entrega continua, y más. Obtén una visión general de los conceptos clave, las innovaciones actuales y recomendaciones prácticas para arquitectos de nube."
+title: "Arquitectura AWS: cómo elegir diseño y servicios"
+description: "Aprende a diseñar una arquitectura en AWS según disponibilidad, latencia, datos, carga y operación. Compara Lambda, contenedores y multi-región."
 author: "guille-ojeda"
 publishedAt: "2024-01-27"
 publishedTimestamp: "2024-01-27T23:50:47.33Z"
+modifiedTimestamp: "2026-10-05T00:29:42-03:00"
+review:
+  date: "2026-10-05"
 cover: "/assets/blog/d781a44da56c41c82eb33501.png"
 coverAlt: "Nube transparente conectada a cubos y figuras geométricas"
 ogImage: "/assets/blog/d781a44da56c41c82eb33501.png"
 related:
-  - title: "SLAs en AWS: Conceptos Legales Clave"
-    url: "https://dondeaprendoaws.com/blog/slas-en-aws-conceptos-legales-clave/"
-    image: "/assets/blog/6a87e6f6cd6e98298a62ee1a.jpg"
+  - title: "Alta disponibilidad en AWS: arquitectura Multi-AZ para una app web"
+    url: "https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/"
+    image: "/assets/blog/1b184fe1242c3e7fb970e984.jpg"
     imageAlt: ""
-  - title: "10 Prácticas Recomendadas para Integrar EUC en AWS"
-    url: "https://dondeaprendoaws.com/blog/10-practicas-recomendadas-para-integrar-euc-en-aws/"
-    image: "/assets/blog/278a42e279f664f5331f81e7.png"
+  - title: "Arquitectura dirigida por eventos en AWS: servicios, ejemplo y decisiones"
+    url: "https://dondeaprendoaws.com/blog/arquitecturas-dirigidas-por-eventos-en-aws/"
+    image: "/assets/blog/1a0df738c1ab9c313bf60144.jpg"
     imageAlt: ""
-  - title: "AWS curso certificado: guía básica"
-    url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-basica/"
-    image: "/assets/blog/35e338eebb5988d204344c86.jpg"
+  - title: "Arquitectura multi-región en AWS: cuándo conviene"
+    url: "https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/"
+    image: "/assets/blog/bafde793116d5b5e38a659da.jpg"
+    imageAlt: ""
+  - title: "AWS Config: reglas de cumplimiento y remediación segura"
+    url: "https://dondeaprendoaws.com/blog/automatizacion-de-cumplimiento-con-aws-config/"
+    image: "/assets/blog/887b167cb63dec6854e043dc.jpg"
     imageAlt: ""
 ---
 
-<p>Seguramente muchos estarán de acuerdo en que mantenerse al día con las últimas tendencias en arquitectura en la nube puede ser un desafío.</p>
+<p>Para diseñar una arquitectura en AWS, empieza por lo que el sistema debe hacer y las condiciones con las que debe cumplir. A partir de ahí, compara opciones de cómputo, datos, integración y recuperación. No hay un patrón que sea el mejor para todas las cargas: el <a href="https://docs.aws.amazon.com/wellarchitected/latest/framework/welcome.html">AWS Well-Architected Framework</a> ayuda a sopesar las decisiones. Sus <a href="https://docs.aws.amazon.com/wellarchitected/latest/framework/the-pillars-of-the-framework.html">seis pilares</a> son excelencia operativa, seguridad, confiabilidad, eficiencia del rendimiento, optimización de costos y sostenibilidad.</p>
 
+<p>Para conocer esos pilares en formato de charla, puedes seguir <a href="https://www.youtube.com/watch?v=9LjRkS80ihI">La Amenaza del Nivel 100: AWS Well-Architected Framework</a>, del canal <a href="https://www.youtube.com/@awswomencolombia">AWS Women Colombia</a>.</p>
 
-<p>En este artículo, exploraremos las tendencias emergentes que están moldeando el futuro de la computación en la nube, incluyendo la adopción de la nube híbrida, Kubernetes y contenedores, función como servicio (FaaS), integración y entrega continua, y más.</p>
+<h2 id="definir-requisitos-de-arquitectura">Define los requisitos antes de elegir servicios</h2>
 
-
-<p>Obtendrá una visión general de los conceptos clave, las innovaciones actuales, y recomendaciones prácticas para arquitectos de nube que buscan mantener sus habilidades relevantes en esta era de rápida transformación digital.</p>
-
-
-<h2 id="introducci%C3%B3n-a-la-arquitectura-en-la-nube" tabindex="-1">Introducción a la arquitectura en la nube</h2>
-
-
-<p>La <a href="https://cloudiostrategy.com/adoptar-la-nube-aws-caf/">arquitectura en la nube</a> es un componente clave para aprovechar los beneficios de la computación en la nube. Permite diseñar soluciones escalables, flexibles y seguras en entornos de nube pública, privada o híbrida.</p>
-
-
-<p>En este artículo exploraremos algunas tendencias emergentes en arquitectura en la nube que están transformando el panorama tecnológico actual.</p>
-
-
-<h3 id="el-concepto-de-cloud-computing-y-arquitectura-en-la-nube" tabindex="-1">El concepto de cloud computing y arquitectura en la nube</h3>
-
-
-<p>La arquitectura en la nube se refiere al diseño e implementación de aplicaciones y servicios utilizando recursos de computación en la nube. Incluye aspectos como:</p>
-
-
-<ul>
-<li>Selección de servicios de nube (IaaS, PaaS, SaaS)</li>
-<li>Diseño de aplicaciones nativas en la nube</li>
-<li>Escalabilidad y elasticidad</li>
-<li>Alta disponibilidad y tolerancia a fallos</li>
-<li>Seguridad y cumplimiento normativo</li>
-</ul>
-
-
-<p>Los <em>cloud architects</em> son los encargados de diseñar soluciones óptimas en la nube, eligiendo los servicios y modelos de implementación (pública, privada, híbrida) más adecuados para las necesidades del negocio.</p>
-
-
-<h3 id="el-papel-del-arquitecto-de-nube-en-la-transformaci%C3%B3n-digital" tabindex="-1">El papel del arquitecto de nube en la transformación digital</h3>
-
-
-<p>Los arquitectos de nube tienen un rol central en la transformación digital de las organizaciones, ya que son los encargados de:</p>
-
-
-<ul>
-<li>Evaluar qué cargas de trabajo migrar a la nube</li>
-<li>Diseñar arquitecturas escalables y flexibles</li>
-<li>Integrar soluciones de nube con sistemas on-premise</li>
-<li>Optimizar costos y rendimiento en entornos de nube</li>
-<li>Asesorar sobre mejores prácticas en la nube</li>
-</ul>
-
-
-<p>Su experiencia es clave para que las empresas puedan innovar más rápido, reducir costos de infraestructura y lograr una mayor agilidad operativa.</p>
-
-
-<h3 id="visi%C3%B3n-general-de-servicios-de-nube%3A-iaas%2C-paas%2C-y-saas" tabindex="-1">Visión general de servicios de nube: IaaS, PaaS, y SaaS</h3>
-
-
-<p>Existen 3 modelos principales de servicios de computación en la nube:</p>
-
-
-<ul>
-<li><strong>IaaS:</strong> Infraestructura como Servicio, provee recursos básicos como servidores, almacenamiento y redes.</li>
-<li><strong>PaaS:</strong> Plataforma como Servicio, entrega un entorno de desarrollo e implementación de aplicaciones.</li>
-<li><strong>SaaS:</strong> Software como Servicio, entrega aplicaciones en la nube completamente funcionales.</li>
-</ul>
-
-
-<p>Los arquitectos de nube combinan estos servicios para crear soluciones integrales y optimizadas para cargas de trabajo específicas (sitios web, aplicaciones móviles, análisis de big data, etc).</p>
-
-
-<h2 id="%C2%BFqu%C3%A9-es-la-arquitectura-en-la-nube%3F" tabindex="-1">¿Qué es la arquitectura en la nube?</h2>
-
-
-<p>La arquitectura en la nube se refiere al diseño y organización de componentes y servicios en la nube para construir sistemas escalables y flexibles.</p>
-
-
-<p>Incluye aspectos como:</p>
-
-
-<ul>
-<li>Cómo se conectan los diferentes servicios en la nube entre sí y con sistemas locales</li>
-<li>Cómo se implementan las aplicaciones en la nube</li>
-<li>Cómo se almacenan, procesan y protegen los datos</li>
-</ul>
-
-
-<p>Algunos conceptos clave en la arquitectura en la nube son:</p>
-
-
-<ul>
-<li><strong>Infraestructura como servicio (IaaS)</strong>: proporciona recursos básicos como CPU, almacenamiento y redes para construir sistemas personalizados.</li>
-<li><strong>Plataforma como servicio (PaaS)</strong>: ofrece un entorno listo para implementar aplicaciones sin gestionar la infraestructura subyacente.</li>
-<li><strong>Función como servicio (FaaS)</strong>: permite ejecutar código sin provisionar servidores, utilizando un modelo de pago por uso.</li>
-</ul>
-
-
-<p>Un <strong>arquitecto de nube</strong> diseña, implementa y gestiona la infraestructura y plataformas en la nube, optimizándolas para las necesidades del negocio. Debe tener conocimientos sobre tecnologías como virtualización, contenedores, redes y seguridad en la nube.</p>
-
-
-<p>La arquitectura en la nube permite crear sistemas escalables de forma flexible y rentable. Es crucial para aprovechar las ventajas del cloud computing.</p>
-
-
-<h2 id="%C2%BFque-estudiar-para-ser-arquitecto-de-nube%3F" tabindex="-1">¿Que estudiar para ser arquitecto de nube?</h2>
-
-
-<p>Para convertirse en arquitecto de nube, se recomienda tener una sólida base en las siguientes áreas:</p>
-
-
-<h3 id="inform%C3%A1tica-y-tecnolog%C3%ADa" tabindex="-1">Informática y tecnología</h3>
-
-
-<ul>
-<li>Ingeniería de software</li>
-<li>Desarrollo de aplicaciones</li>
-<li>Bases de datos relacionales y no relacionales</li>
-<li>Redes y seguridad informática</li>
-<li>Sistemas operativos como Linux y Windows</li>
-</ul>
-
-
-<h3 id="la-nube" tabindex="-1">La nube</h3>
-
-
-<ul>
-<li>Conceptos básicos de computación en la nube</li>
-<li>Conocimiento de proveedores de nube como AWS, Azure y Google Cloud</li>
-<li>Servicios de nube como IaaS, PaaS y SaaS</li>
-</ul>
-
-
-<h3 id="habilidades-t%C3%A9cnicas" tabindex="-1">Habilidades técnicas</h3>
-
-
-<ul>
-<li>Scripting y automatización</li>
-<li>Contenedores como Docker y Kubernetes</li>
-<li>Infraestructura como código (Terraform, CloudFormation)</li>
-<li>CI/CD y DevOps</li>
-</ul>
-
-
-<h3 id="habilidades-blandas" tabindex="-1">Habilidades blandas</h3>
-
-
-<ul>
-<li>Resolución de problemas complejos</li>
-<li>Pensamiento crítico</li>
-<li>Comunicación efectiva</li>
-<li>Trabajo en equipo</li>
-</ul>
-
-
-<p>Idealmente, se recomienda tener una licenciatura en Ciencias de la Computación o carreras afines. También hay bootcamps y cursos especializados para aprender sobre arquitectura en la nube.</p>
-
-
-<p>La certificación más relevante es la de Arquitecto de Soluciones de AWS. Otras certificaciones útiles son las de Azure y Google Cloud.</p>
-
-
-<p>En resumen, se necesita una combinación de conocimientos técnicos en computación en la nube, habilidades para diseñar soluciones complejas y habilidades interpersonales para trabajar con diversos equipos. El campo está en constante evolución, por lo que se requiere actualización continua.</p>
-
-
-<h2 id="%C2%BFcu%C3%A1nto-gana-un-arquitecto-en-la-nube%3F" tabindex="-1">¿Cuánto gana un arquitecto en la nube?</h2>
-
-
-<p>Según un estudio de sueldos realizado en 2021 por la Asociación Española para la Calidad (AEC), los arquitectos en la nube son unos de los perfiles más demandados y mejor pagados en el sector tecnológico.</p>
-
-
-<p>Los datos indican que:</p>
-
-
-<ul>
-<li>Los profesionales junior, con entre 1 y 3 años de experiencia, tienen un sueldo medio de entre 25.000 y 35.000 euros anuales.</li>
-<li>Los profesionales con entre 3 y 7 años de experiencia rondaban los 45.000 euros durante ese año.</li>
-<li>Por su parte, los profesionales con más de 15 años de experiencia facturaban como mínimo por su trabajo 70.000 euros.</li>
-</ul>
-
-
-<p>El aumento en la demanda de servicios en la nube ha llevado a las empresas a buscar perfiles especializados en arquitectura en la nube. Esto se refleja en los atractivos salarios que pueden llegar a percibir estos profesionales.</p>
-
-
-<p>Sin embargo, convertirse en un arquitecto en la nube exitoso requiere de años de experiencia y una constante actualización de conocimientos. Dominar conceptos como computación en la nube, DevOps, CI/CD o la integración entre plataformas en la nube son claves para triunfar.</p>
-
-
-<p>En resumen, aunque la curva salarial es ascendente, llegar a la cima lleva tiempo y esfuerzo. Pero para aquellos que logran especializarse en arquitectura en la nube los beneficios económicos pueden ser sustanciosos.</p>
-
-
-<h2 id="%C2%BFqu%C3%A9-es-el-dise%C3%B1o-en-la-nube%3F" tabindex="-1">¿Qué es el diseño en la nube?</h2>
-
-
-<p>El diseño en la nube se refiere a la arquitectura y estructura de una solución de computación en la nube. Incluye aspectos como:</p>
-
-
-<ul>
-<li>Infraestructura y componentes subyacentes: hardware, virtualización, redes, almacenamiento, etc.</li>
-<li>Aplicaciones, servicios y funcionalidades disponibles.</li>
-<li>Cómo se comunican e integran todos estos elementos.</li>
-</ul>
-
-
-<p>Una buena arquitectura en la nube debe ser:</p>
-
-
-<ul>
-<li><strong>Escalable</strong>: permitir aumentar o disminuir recursos fácilmente según la demanda.</li>
-<li><strong>Elástica</strong>: aprovisionar y liberar recursos automáticamente.</li>
-<li><strong>Tolerante a fallos</strong>: tener redundancia y conmutación automática ante fallos.</li>
-<li><strong>Segura</strong>: incorporar medidas de seguridad en todos los niveles.</li>
-<li><strong>Eficiente</strong>: optimizar el uso de recursos y reducir costos.</li>
-<li><strong>Flexible</strong>: adaptarse fácilmente a nuevos requisitos de negocio.</li>
-</ul>
-
-
-<p>Existen patrones y mejores prácticas para crear arquitecturas sólidas en la nube. Algunos ejemplos son:</p>
-
-
-<ul>
-<li>Arquitectura en capas: separar componentes en capas lógicas (presentación, lógica de negocios, datos, etc).</li>
-<li>Arquitectura de microservicios: descomponer en servicios independientes y escalables.</li>
-<li>Infraestructura como código: automatizar el aprovisionamiento de recursos con código.</li>
-</ul>
-
-
-<p>Un buen diseño en la nube permite aprovechar al máximo los beneficios de la computación en la nube, como escalabilidad, disponibilidad y agilidad.</p>
-
-
-<h2 id="fundamentos-de-la-arquitectura-en-la-nube" tabindex="-1">Fundamentos de la arquitectura en la nube</h2>
-
-
-<p>La arquitectura en la nube se basa en algunos componentes clave que permiten prestar servicios de computación a través de Internet. Entender estos elementos básicos es esencial para diseñar soluciones en la nube efectivas.</p>
-
-
-<h3 id="componentes-clave-de-la-infraestructura-de-nube" tabindex="-1">Componentes clave de la infraestructura de nube</h3>
-
-
-<p>Los principales componentes de la arquitectura en la nube son:</p>
-
-
-<ul>
-<li><strong>Almacenamiento:</strong> los proveedores de nube ofrecen diferentes tipos de almacenamiento como discos, archivos, blobs, etc. Esto permite a las aplicaciones guardar datos y estado.</li>
-<li><strong>Computación:</strong> la capacidad de procesamiento que se puede escalar horizontal y verticalmente según se necesite. Incluye máquinas virtuales, contenedores, funciones sin servidor, etc.</li>
-<li><strong>Redes:</strong> conecta los distintos recursos en la nube y permite el tráfico entre ellos, así como el acceso desde Internet.</li>
-</ul>
-
-
-<p>Estos elementos conforman la <strong>infraestructura como servicio (IaaS)</strong> que es la base para construir soluciones en la nube.</p>
-
-
-<h3 id="opciones-de-almacenamiento-en-la-nube-y-su-importancia" tabindex="-1">Opciones de almacenamiento en la nube y su importancia</h3>
-
-
-<p>Existen principalmente tres tipos de almacenamiento en la nube:</p>
-
-
-<ul>
-<li><strong>Objetos:</strong> para guardar archivos como imágenes, videos, backups, etc. Servicios como Amazon S3 o Azure Blob Storage.</li>
-<li><strong>Archivos:</strong> sistemas de archivos network-attached para cargas de trabajo comunes. AWS EFS o Azure Files son ejemplos.</li>
-<li><strong>Bloques:</strong> volúmenes de bajo nivel para máquinas virtuales. Amazon EBS o Azure Managed Disks son alternativas.</li>
-</ul>
-
-
-<p>Elegir el almacenamiento adecuado es crucial por razones de rendimiento, escalabilidad y costos. Por ejemplo, las bases de datos suelen usar volúmenes de bloques.</p>
-
-
-<h3 id="integraci%C3%B3n-de-datos-y-aplicaciones-en-la-nube" tabindex="-1">Integración de datos y aplicaciones en la nube</h3>
-
-
-<p>La integración en la nube permite que diferentes servicios y aplicaciones compartan datos y se comuniquen entre sí. Algunas formas comunes de lograr esto son:</p>
-
-
-<ul>
-<li><strong>Colas de mensajes:</strong> para intercambiar datos asíncronamente entre aplicaciones usando una cola, como Amazon SQS o Azure Queue Storage.</li>
-<li><strong>Event Grid:</strong> para la comunicación de eventos entre servicios y aplicaciones serverless.</li>
-<li><strong>API Gateway:</strong> para exponer API REST que puedan ser consumidas por clientes.</li>
-</ul>
-
-
-<p>La integración ágil es clave en la arquitectura de nube moderna.</p>
-
-
-<h3 id="interfaces-de-programaci%C3%B3n-de-aplicaciones-(apis)-en-la-arquitectura-de-nube" tabindex="-1">Interfaces de programación de aplicaciones (APIs) en la arquitectura de nube</h3>
-
-
-<p>Las APIs juegan un papel central en la computación en la nube al permitir que los servicios se conecten e integren de forma flexible.</p>
-
-
-<p>Por ejemplo, las APIs REST permiten acceder a funcionalidades de almacenamiento, bases de datos, machine learning, etc. Esto posibilita desarrollar aplicaciones escalables y portable entre nubes.</p>
-
-
-<p>Herramientas como API Gateway administran todo el ciclo de vida de las API de forma segura, escalable y confiable.</p>
-
-
-<p>En resumen, las APIs impulsan la agilidad y la <a href="https://open.spotify.com/show/7mJ0lfxBPOPpp8tWXHEjAC?si=0b579f79c45f4184">innovación en la nube</a>.</p>
-
-
-<h2 id="arquitecturas-de-nube-espec%C3%ADficas%3A-gcp%2C-aws%2C-y-azure" tabindex="-1">Arquitecturas de nube específicas: GCP, AWS, y Azure</h2>
-
-
-<p>La arquitectura de la nube varía según el proveedor. Los tres principales son AWS, GCP y Azure, cada uno con fortalezas únicas. Entender sus diferencias es clave para elegir la plataforma adecuada.</p>
-
-
-<h3 id="arquitectura-aws%3A-servicios-y-mejores-pr%C3%A1cticas" tabindex="-1">Arquitectura AWS: Servicios y mejores prácticas</h3>
-
-
-<p>La arquitectura de AWS se basa en regiones y zonas de disponibilidad. Cada región consta de varias zonas aisladas entre sí. Algunas buenas prácticas son:</p>
-
-
-<ul>
-<li>Distribuir recursos críticos en varias zonas para mayor resiliencia.</li>
-<li>Usar grupos de auto-escalado y balanceo de carga para escalabilidad.</li>
-<li>Aplicar el principio de mínimo privilegio en permisos.</li>
-<li>Monitorear con CloudWatch e integrar logs con otros servicios.</li>
-<li>Automatizar despliegues con CloudFormation.</li>
-</ul>
-
-
-<p>AWS ofrece gran variedad de servicios como EC2, S3, RDS, ECS, Lambda, etc. Su fortaleza es la madurez y liderazgo en IaaS/PaaS.</p>
-
-
-<h3 id="arquitectura-gcp%3A-innovaciones-y-soluciones" tabindex="-1">Arquitectura GCP: Innovaciones y soluciones</h3>
-
-
-<p>GCP se enfoca en contenedores, big data, machine learning e IoT. Sus innovaciones incluyen:</p>
-
-
-<ul>
-<li>Kubernetes Engine para orquestación de contenedores.</li>
-<li>Cloud Functions para serverless.</li>
-<li>Cloud Machine Learning Engine para modelos de ML.</li>
-<li>Cloud IoT Core para dispositivos IoT.</li>
-</ul>
-
-
-<p>GCP utiliza zonas y regiones para alta disponibilidad. Sus mejores prácticas son similares a AWS.</p>
-
-
-<h3 id="comparaci%C3%B3n-de-servicios-de-nube%3A-aws-vs-gcp-vs-azure" tabindex="-1">Comparación de servicios de nube: AWS vs GCP vs Azure</h3>
-
+<p>Escribe qué resultado espera el usuario y cómo sabrás que funciona. Esa breve lista evita empezar por el servicio de moda y te ayuda a explicar por qué una opción encaja mejor que otra.</p>
 
 <table>
 <thead>
 <tr>
-<th>Servicio</th>
-<th>AWS</th>
-<th>GCP</th>
-<th>Azure</th>
+<th>Pregunta</th>
+<th>Qué cambia en el diseño</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Cómputo</td>
-<td>EC2</td>
-<td>Compute Engine</td>
-<td>Virtual Machines</td>
+<td>¿Qué parte debe responder en el momento y qué puede procesarse después?</td>
+<td>Separa el camino que espera el usuario de los trabajos que pueden ejecutarse en segundo plano.</td>
 </tr>
 <tr>
-<td>Contenedores</td>
-<td>ECS/EKS</td>
-<td>GKE</td>
-<td>AKS</td>
+<td>¿Cuánto tiempo puede estar fuera el sistema y cuántos datos se podrían perder?</td>
+<td>Define el tiempo máximo para restaurar el servicio (RTO) y cuánto tiempo de datos desde el último punto de recuperación se puede perder (RPO), antes de decidir redundancia, copias y recuperación ante desastres. La <a href="https://docs.aws.amazon.com/wellarchitected/latest/reliability-pillar/rel_planning_for_recovery_objective_defined_recovery.html">guía de confiabilidad de AWS explica estos objetivos</a>.</td>
 </tr>
 <tr>
-<td>Serverless</td>
-<td>Lambda</td>
-<td>Cloud Functions</td>
-<td>Azure Functions</td>
+<td>¿Cuándo y desde dónde llega la carga?</td>
+<td>Un flujo irregular o con picos puede justificar colas y escalado automático; usuarios lejanos pueden cambiar la ubicación de cómputo o contenido.</td>
 </tr>
 <tr>
-<td>Almacenamiento</td>
-<td>S3</td>
-<td>Cloud Storage</td>
-<td>Blob Storage</td>
+<td>¿Qué datos maneja y dónde pueden almacenarse?</td>
+<td>La residencia, sensibilidad, consistencia y retención de los datos limitan las regiones y los servicios posibles.</td>
 </tr>
 <tr>
-<td>Bases de datos</td>
-<td>RDS</td>
-<td>Cloud SQL</td>
-<td>SQL Database</td>
+<td>¿Quién operará la solución y qué sabe mantener el equipo?</td>
+<td>Compara el tiempo de operación que requiere cada alternativa con la experiencia y guardias disponibles.</td>
 </tr>
 <tr>
-<td>Machine Learning</td>
-<td>SageMaker</td>
-<td>Cloud ML Engine</td>
-<td>Azure ML Studio</td>
+<td>¿Qué límites de seguridad, cumplimiento y presupuesto hay?</td>
+<td>Incluye identidad, permisos, cifrado, auditoría y seguimiento de consumo desde el diseño.</td>
 </tr>
 </tbody>
 </table>
 
+<p>El contexto importa: AWS describe el Well-Architected Framework como una forma de entender ventajas y desventajas de las decisiones, no como una receta única. Sus pilares permiten hacer explícitos los compromisos, por ejemplo, cuánto esfuerzo operativo o gasto adicional se acepta para cumplir un objetivo de recuperación.</p>
 
-<p>En resumen, AWS lidera en adopción y servicios. GCP destaca en innovación. Azure es fuerte en entornos Microsoft. La elección depende de necesidades específicas.</p>
+<h2 id="red-y-comunidad">Diseña la red con el contexto de uso</h2>
 
+<p>La latencia hacia usuarios, los enlaces con centros de datos y la segmentación del tráfico ayudan a decidir subredes, rutas y conexiones. La región más cercana no siempre es una elección válida si los datos deben permanecer en otra ubicación; evalúa ambas condiciones. Para seguir una charla de diseño de redes, mira <a href="https://www.youtube.com/watch?v=v4AG4qwEQg0">AWS Networking - Diseña tu red en la nube de forma eficiente</a>, del canal <a href="https://www.youtube.com/@awsugguatemala">AWS User Group Guatemala</a>. El <a href="https://www.meetup.com/aws-user-group-networking-colombia/">AWS User Group Networking Colombia</a> comparte encuentros técnicos sobre conectividad híbrida, redes entre cuentas y diseño de redes AWS. Para aprender los fundamentos de VPC, <a href="https://www.meetup.com/aws-sbg-at-francisco-jose-de-caldas-district-univ-bogota/events/316674045/">AWS Student Builder Group at Universidad Distrital</a> tendrá una sesión virtual el 21 de octubre, de 18:00 a 20:00 en horario de Colombia.</p>
 
-<h2 id="tendencias-actuales-en-arquitectura-de-nube" tabindex="-1">Tendencias actuales en arquitectura de nube</h2>
+<h2 id="elegir-computo-y-patrones">Elige el modelo de cómputo según la carga</h2>
 
-
-<p>La arquitectura en la nube está evolucionando rápidamente para satisfacer las cambiantes necesidades empresariales. Algunas de las principales tendencias que están transformando el panorama de la arquitectura en la nube incluyen:</p>
-
-
-<h3 id="adopci%C3%B3n-de-la-nube-h%C3%ADbrida-y-estrategias-multicloud" tabindex="-1">Adopción de la nube híbrida y estrategias multicloud</h3>
-
-
-<p>Cada vez más empresas están adoptando enfoques de nube híbrida, combinando nubes públicas y privadas, para obtener mayor flexibilidad y control. También está creciendo la adopción de <a href="https://cloudiostrategy.com/blog-aws-espanol/">estrategias multicloud</a>, utilizando múltiples proveedores de nube pública.</p>
-
-
-<p>Esto presenta desafíos para los arquitectos en la nube, quienes deben diseñar sistemas que funcionen sin problemas en todos estos entornos. Se requiere una mayor estandarización y portabilidad entre nubes.</p>
-
-
-<h3 id="kubernetes-y-la-organizaci%C3%B3n-en-contenedores" tabindex="-1">Kubernetes y la organización en contenedores</h3>
-
-
-<p>Kubernetes se ha convertido en el estándar de facto para la orquestación de contenedores. Los arquitectos en la nube están adoptando enfoques basados en contenedores y Kubernetes para construir aplicaciones portables y escalables.</p>
-
-
-<p>Esto introduce conceptos como infraestructura inmutable, integración continua y entrega continua (CI/CD) y la necesidad de tratar los contenedores como una unidad de computación fundamental.</p>
-
-
-<h3 id="funci%C3%B3n-como-servicio-(faas)-y-la-evoluci%C3%B3n-hacia-la-inform%C3%A1tica-sin-servidor" tabindex="-1">Función como servicio (FaaS) y la evolución hacia la informática sin servidor</h3>
-
-
-<p>El paradigma de "serverless" y tecnologías como funciones como servicio (FaaS) están ganando popularidad rápidamente debido a su escalabilidad y eficiencia.</p>
-
-
-<p>Los arquitectos en la nube están adoptando estos enfoques para crear sistemas altamente escalables y sin estado. Esto está llevando a una evolución de arquitecturas orientadas a servicios (SOA) tradicionales hacia arquitecturas basadas en eventos y sin servidor.</p>
-
-
-<h3 id="integraci%C3%B3n-continua-y-entrega-continua-(ci%2Fcd)-en-la-nube" tabindex="-1">Integración continua y entrega continua (CI/CD) en la nube</h3>
-
-
-<p>Las prácticas de DevOps como la integración continua, la entrega continua y la implementación continua (CI/CD) se están convirtiendo en componentes centrales de la arquitectura moderna en la nube.</p>
-
-
-<p>Los arquitectos en la nube deben diseñar sus sistemas teniendo en cuenta CI/CD desde el principio. Conceptos como infraestructura como código y pipelines de CI/CD nativos de la nube se están volviendo esenciales.</p>
-
-
-<p>En resumen, estas son algunas de las tendencias clave que están dando forma al futuro de la arquitectura en la nube. Los arquitectos en la nube deben mantenerse al día con estas tecnologías emergentes para entregar soluciones escalables, flexibles y futuristas.</p>
-
-
-<h2 id="arquitectura-de-nube-y-seguridad-de-ti" tabindex="-1">Arquitectura de nube y seguridad de TI</h2>
-
-
-<p>La seguridad es un aspecto crítico en la arquitectura de nube moderna. Con la adopción masiva de la nube, surgen nuevos desafíos y oportunidades para proteger los datos y aplicaciones en estos entornos dinámicos.</p>
-
-
-<h3 id="principios-de-cloud-security-y-su-aplicaci%C3%B3n-pr%C3%A1ctica" tabindex="-1">Principios de Cloud Security y su aplicación práctica</h3>
-
-
-<p>Los principales principios de seguridad en la nube incluyen:</p>
-
+<p>Una vez claros los requisitos, compara primero el modelo de ejecución. AWS mantiene <a href="https://docs.aws.amazon.com/decision-guides/latest/decision-guides/choosing-aws-compute-service.html">una guía para elegir cómputo</a>, una <a href="https://docs.aws.amazon.com/decision-guides/latest/decision-guides/choosing-aws-container-service.html">guía de servicios para contenedores</a> y otras <a href="https://docs.aws.amazon.com/decision-guides/latest/decision-guides/choosing-aws-serverless-service.html">guías para evaluar servicios serverless</a>; úsalas para contrastar tus requisitos y validar los límites actuales de cada servicio.</p>
 
 <ul>
-<li>
-<p><strong>Responsabilidad compartida</strong>: Tanto el proveedor de nube como el cliente son responsables de asegurar la nube. El proveedor se encarga de la seguridad de la nube y el cliente de securizar sus datos y aplicaciones.</p>
-</li>
-<li>
-<p><strong>Defensa en profundidad</strong>: Se deben implementar múltiples capas de seguridad como firewalls, detección de intrusos, cifrado, etc.</p>
-</li>
-<li>
-<p><strong>Seguridad por diseño</strong>: La seguridad debe estar integrada en todas las fases del ciclo de vida de la aplicación.</p>
-</li>
-<li>
-<p><strong>Principio de mínimo privilegio</strong>: Limitar el acceso a los recursos estrictamente necesarios.</p>
-</li>
-<li>
-<p><strong>Cifrado</strong>: Los datos sensibles deben estar cifrados tanto en tránsito como en reposo.</p>
-</li>
+<li><strong>Lambda:</strong> evalúala para funciones activadas por eventos o solicitudes, especialmente cuando el trabajo puede ejecutarse en unidades acotadas y el volumen varía. Reduce tareas de gestión de servidores, pero tienes que diseñar los reintentos, límites de concurrencia, observabilidad y efectos duplicados.</li>
+<li><strong>Contenedores con ECS y Fargate:</strong> pueden encajar cuando necesitas empaquetar una aplicación con sus dependencias, ejecutar un servicio de larga duración o conservar un entorno de ejecución propio sin administrar servidores EC2. Aun así, el equipo prepara imágenes, tareas, despliegues y monitoreo. Para practicar una estrategia de despliegue gradual, el repositorio <a href="https://github.com/roxsross/aws-ecs-canary-in-action">ECS Canary in Action</a> tiene un recorrido local con Docker Compose y una ruta separada que crea recursos en AWS con Terraform. En Córdoba, el encuentro <a href="https://www.meetup.com/aws-sbg-at-national-technologic-university-regional-faculty/events/316821666/">AWS Gaming Lab: ECS, CI/CD y la magia de Terraform</a> será presencial en UTN Facultad Regional Córdoba el 10 de octubre, de 12:00 a 14:00.</li>
+<li><strong>Contenedores con EKS:</strong> considera Kubernetes cuando sus APIs, herramientas o prácticas ya son una necesidad concreta del equipo. El plano de control administrado no elimina las decisiones sobre clústeres, red, seguridad y operación.</li>
+<li><strong>EC2:</strong> conserva el control del sistema operativo y de la instancia. Puede ser adecuado para software heredado, agentes o configuraciones de host que no encajan en una opción más administrada; ese control también implica mantener y actualizar más componentes.</li>
 </ul>
 
+<p>No es obligatorio que toda una aplicación use el mismo modelo. Por ejemplo, una API podría tener un servicio de larga duración y enviar a Lambda las tareas de procesamiento que se activan por eventos. Combinar modelos puede ser más claro que forzar una única tecnología, siempre que cada frontera tenga una razón y alguien pueda operarla.</p>
 
-<p>La aplicación práctica de estos principios permite crear arquitecturas seguras en la nube.</p>
+<p>Para comparar dos modelos de cómputo con otros participantes, el <a href="https://www.meetup.com/fb83c392-728a-42dc-9a3f-7d351301e452/events/315728721/">16 de octubre habrá una sesión en línea «EC2 vs Lambda»</a> de AWS User Group Tlaxcala FireflyCloud, de 16:00 a 17:00 en horario de Ciudad de México.</p>
 
+<h2 id="ejemplo-procesamiento-asincrono">Ejemplo: procesar imágenes sin bloquear la solicitud</h2>
 
-<h3 id="gesti%C3%B3n-de-la-seguridad-en-entornos-de-nube-h%C3%ADbrida-y-multicloud" tabindex="-1">Gestión de la seguridad en entornos de nube híbrida y multicloud</h3>
+<p>Imagina una aplicación que recibe imágenes y crea versiones reducidas. Si la persona que sube el archivo no necesita esperar el resultado, puedes separar la carga de archivos del procesamiento:</p>
 
+<pre><code>S3 de entrada
+   ↓
+SQS → Lambda → S3 de salida
+         ↘ DynamoDB
+           (estado opcional)</code></pre>
 
-<p>La gestión de la seguridad en nubes híbridas y multicloud es compleja debido a la diversidad de plataformas y localizaciones. Algunas estrategias útiles son:</p>
+<p>La aplicación deja el archivo en S3 y confirma que recibió la solicitud. Una <a href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-how-to-event-types-and-destinations.html">notificación de S3 puede enviar el evento a SQS</a>; un mapeo de origen de eventos permite que <a href="https://docs.aws.amazon.com/lambda/latest/dg/with-sqs.html">Lambda consuma mensajes de esa cola</a>, genere las imágenes y guarde el resultado. La interfaz puede mostrar que el trabajo está pendiente y consultar su estado.</p>
 
+<p>Esta elección tiene condiciones concretas:</p>
 
 <ul>
-<li>Usar una <strong>plataforma de gestión centralizada</strong> para obtener visibilidad unificada de amenazas.</li>
-<li>Implementar <strong>políticas y controles consistentes</strong> en todas las nubes.</li>
-<li>Habilitar la <strong>integración</strong> entre soluciones de seguridad locales y en la nube.</li>
-<li><strong>Automatizar</strong> tareas de seguridad mediante DevSecOps.</li>
-<li>Realizar <strong>evaluaciones regulares</strong> de vulnerabilidades y cumplimiento.</li>
+<li>Usa el procesamiento directo si la respuesta necesita incluir el resultado y el tiempo de trabajo cabe en el camino síncrono. Usa una cola cuando el usuario pueda recibir una confirmación antes de terminar el trabajo.</li>
+<li>Los mensajes de una cola estándar pueden procesarse más de una vez. La guía de AWS para <a href="https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/standard-queues-at-least-once-delivery.html">entrega al menos una vez en SQS</a> recomienda consumidores idempotentes para que un mensaje repetido no cause cambios o notificaciones duplicados.</li>
+<li>Define qué hacer con fallos repetidos: reintentos y, si configuras la cola para ello, una <a href="https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-dead-letter-queues.html">cola de mensajes fallidos (DLQ)</a> que permita al equipo investigar trabajos atascados.</li>
+<li>Separa los archivos originales de los resultados —por ejemplo, con buckets o prefijos distintos— para evitar que una función vuelva a activar el evento que ella misma genera; <a href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-how-to-event-types-and-destinations.html">S3 documenta este riesgo de ciclos de notificación</a>.</li>
 </ul>
 
+<p>Si varias aplicaciones deben recibir y filtrar eventos, compara también EventBridge. La guía de AWS para <a href="https://docs.aws.amazon.com/wellarchitected/latest/serverless-applications-lens/event-driven-architectures.html">arquitecturas orientadas a eventos</a> explica el papel de colas, temas y buses de eventos. La forma apropiada depende de si necesitas retener trabajo, enviar un evento a varios consumidores o dirigirlo según reglas. Para profundizar en patrones EDA, sigue <a href="https://dondeaprendoaws.com/blog/arquitecturas-dirigidas-por-eventos-en-aws/">Arquitecturas Dirigidas por Eventos en AWS</a> y la grabación <a href="https://www.youtube.com/watch?v=TkU1RS5Fw1o">Introducción a arquitecturas orientadas a eventos y Amazon EventBridge</a>, de <a href="https://www.youtube.com/@marcia_">Marcia en Desplegando Cloud</a>. El <a href="https://www.meetup.com/aws-user-group-serverless-colombia/">AWS User Group Serverless Colombia</a> también reúne encuentros sobre este espacio técnico. Allí habrá una sesión en línea sobre <a href="https://www.meetup.com/aws-user-group-serverless-colombia/events/316770520/">SQS y Lambda</a> el 20 de octubre, de 19:00 a 21:00 en horario de Colombia.</p>
 
-<h3 id="clasificaci%C3%B3n-de-datos-y-estrategias-de-protecci%C3%B3n-en-la-nube" tabindex="-1">Clasificación de datos y estrategias de protección en la nube</h3>
+<h2 id="disponibilidad-y-recuperacion">Ajusta la resiliencia a la recuperación requerida</h2>
 
+<p>Decide primero qué interrupciones estás dispuesto a aceptar y cuánto tiempo puede tomar recuperar el servicio. Para una carga de producción, la <a href="https://docs.aws.amazon.com/wellarchitected/latest/reliability-pillar/rel_fault_isolation_multiaz_region_system.html">guía de confiabilidad de AWS recomienda distribuir recursos entre al menos dos zonas de disponibilidad</a>. Revisa también cómo replica o recupera datos el servicio elegido: tener cómputo en más de una zona no basta si el estado que necesita la aplicación depende de una sola.</p>
 
-<p>Es clave clasificar los datos por niveles de sensibilidad y definir controles apropiados de acceso, cifrado y monitorización para cada nivel. Otras estrategias efectivas son:</p>
+<p>Una segunda región es útil cuando el objetivo de negocio exige recuperar la carga ante una interrupción regional y las reglas de residencia de datos lo permiten. También requiere duplicar y operar recursos, configurar replicación y ensayar la conmutación. Si varias zonas de una región cumplen los objetivos acordados, una arquitectura multi-región puede añadir complejidad y costo sin resolver una necesidad real. AWS recomienda decidir entre multi-AZ y multi-región a partir de requisitos de resiliencia y recuperación. Para ampliar la comparación, continúa con <a href="https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/">Arquitecturas de Alta Disponibilidad en AWS</a> y <a href="https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/">Arquitecturas Multi-Región en AWS</a>.</p>
 
+<p>La replicación ayuda a mantener datos disponibles en otra ubicación; no sustituye las copias de seguridad. AWS recomienda <a href="https://docs.aws.amazon.com/wellarchitected/latest/framework/rel_planning_for_recovery_disaster_recovery.html">respaldar incluso los datos replicados</a> y probar una restauración para cubrir borrados, cambios incorrectos u otros incidentes que también podrían propagarse a una réplica. Para contrastar el diseño con la comunidad, puedes ver <a href="https://www.youtube.com/watch?v=sEr65Cgskkc">Diseñando arquitecturas resilientes en AWS</a>, del canal <a href="https://www.youtube.com/@awsugecuador4610">AWS UG Ecuador</a>.</p>
+
+<p>Si trabajas desde Argentina, el <a href="https://www.meetup.com/aws-user-group-cordoba-argentina/">AWS User Group Córdoba</a> presenta un espacio local para compartir experiencias sobre AWS y computación en la nube.</p>
+
+<h2 id="tendencias-con-criterio">Tendencias que conviene evaluar con criterio</h2>
 
 <ul>
-<li>Aislar datos sensibles en <strong>entornos dedicados</strong></li>
-<li>Implementar <strong>prevención de pérdida de datos</strong></li>
-<li>Auditar regularmente los <strong>permisos y accesos</strong></li>
-<li>Usar <strong>cifrado homomórfico</strong> para operaciones sobre datos cifrados</li>
+<li><strong>Servicios administrados y serverless:</strong> delegan parte de la gestión de servidores y capacidad. Aportan valor cuando el equipo prioriza operar menos infraestructura y el modelo de ejecución cubre la carga. Evalúa también límites, reintentos, dependencia del proveedor y monitoreo.</li>
+<li><strong>Procesamiento dirigido por eventos:</strong> permite que productores y consumidores avancen a ritmos distintos. Funciona bien cuando los pasos son asíncronos o independientes; exige manejar retrasos, duplicados, orden y diagnóstico distribuido.</li>
+<li><strong>Contenedores y Kubernetes:</strong> estandarizan el empaquetado de aplicaciones. Kubernetes sirve cuando el equipo necesita ese ecosistema; adoptarlo por popularidad suma una plataforma que también hay que mantener.</li>
+<li><strong>Infraestructura definida como código:</strong> ayuda a revisar y repetir cambios de infraestructura. En CloudFormation, por ejemplo, un <a href="https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-changesets.html">conjunto de cambios (change set) muestra recursos que podrían agregarse, modificarse o reemplazarse</a> antes de ejecutarlo; no garantiza que la actualización vaya a completarse. Si también necesitas evaluar la configuración y el cumplimiento, continúa con <a href="https://dondeaprendoaws.com/blog/automatizacion-de-cumplimiento-con-aws-config/">Automatización de cumplimiento con AWS Config</a>. Para encontrar una conversación práctica de gobierno en AWS, consulta la ficha de <a href="https://www.meetup.com/aws-user-group-security-ecuador/events/316680020/">Compliance as Code en AWS: de la política a la acción automática</a> y confirma allí la fecha y modalidad actuales.</li>
+<li><strong>Diseños híbridos, de borde o multi-región:</strong> resuelven necesidades de latencia, residencia de datos o recuperación geográfica. Incorpóralos cuando los requisitos indiquen dónde debe procesarse o recuperarse la carga.</li>
 </ul>
 
+<p>Estas opciones no son objetivos por sí mismos. Para compararlas, registra el requisito que resuelven, la operación que agregan y cómo vas a comprobar el resultado.</p>
 
-<p>La correcta clasificación y protección de datos en la nube reduce el riesgo de brechas de seguridad.</p>
+<h2 id="validar-la-decision">Valida la decisión antes de ampliarla</h2>
 
+<ol>
+<li>Escribe los requisitos que no se pueden negociar y los que sí admiten un compromiso.</li>
+<li>Dibuja el flujo de solicitudes y datos, incluyendo fallos, reintentos, permisos y puntos de recuperación.</li>
+<li>Compara dos diseños viables y anota por qué elegiste uno, qué asumiste y qué costo operativo aceptas.</li>
+<li>Implementa una parte acotada en un entorno de prueba. Mide latencia y consumo con la carga esperada, y verifica qué pasa cuando una dependencia falla.</li>
+<li>Ensaya restauración o conmutación según los objetivos de recuperación; compara el resultado medido con el RTO y RPO definidos.</li>
+<li>Automatiza los cambios de infraestructura y revisa qué recursos se crearían, modificarían o eliminarían antes de aplicarlos.</li>
+</ol>
 
-<h2 id="el-futuro-de-la-arquitectura-en-la-nube" tabindex="-1">El futuro de la arquitectura en la nube</h2>
+<p>Vuelve a revisar la arquitectura cuando cambien el volumen, los datos, las reglas de residencia o el equipo que la opera. Un diagrama es útil si ayuda a comprobar esos supuestos; no reemplaza las pruebas del sistema en ejecución.</p>
 
+<h2 id="ejercicio-de-arquitectura">Practica la arquitectura en comunidad</h2>
 
-<p>La arquitectura en la nube está evolucionando rápidamente para satisfacer las crecientes demandas de las empresas modernas. Aquí hay tres tendencias emergentes que probablemente moldearán el futuro de la arquitectura en la nube en los próximos años:</p>
-
-
-<h3 id="la-integraci%C3%B3n-del-aprendizaje-autom%C3%A1tico-en-la-arquitectura-de-nube" tabindex="-1">La integración del aprendizaje automático en la arquitectura de nube</h3>
-
-
-<p>Se espera que la inteligencia artificial (IA) y el aprendizaje automático (ML) se integren cada vez más en las arquitecturas en la nube. Las capacidades de IA y ML pueden mejorar en gran medida la eficiencia, escalabilidad y rendimiento de las aplicaciones y servicios en la nube.</p>
-
-
-<p>Por ejemplo, el aprendizaje automático se puede usar para optimizar la asignación de recursos en la nube, predecir demandas de capacidad y escalar recursos de forma proactiva. También se puede usar para mejorar la seguridad, detectar anomalías y proteger contra amenazas emergentes.</p>
-
-
-<p>Es probable que los servicios de IA y ML administrados, como Amazon SageMaker y Azure Machine Learning, se vuelvan ubicuos en las arquitecturas en la nube en el futuro.</p>
-
-
-<h3 id="computaci%C3%B3n-cu%C3%A1ntica-como-el-pr%C3%B3ximo-horizonte" tabindex="-1">Computación cuántica como el próximo horizonte</h3>
-
-
-<p>Aunque la computación cuántica aún está en las primeras etapas de desarrollo, eventualmente podría tener un profundo impacto en la potencia de procesamiento en la nube. Tanto Amazon como Microsoft ya ofrecen servicios experimentales de computación cuántica en la nube.</p>
-
-
-<p>Se espera que la computación cuántica mejore drásticamente el rendimiento en áreas como la optimización, el aprendizaje automático y la simulación de sistemas químicos o físicos complejos. Esto podría abrir nuevas posibilidades para aplicaciones empresariales innovadoras hosted en la nube.</p>
-
-
-<p>Sin embargo, debido a las complejidades técnicas, la adopción generalizada de la computación cuántica en la nube probablemente esté a una década de distancia o más. Pero sin duda alguna, este será un área de innovación emocionante en el largo plazo.</p>
-
-
-<h3 id="el-surgimiento-de-iot-y-su-influencia-en-la-arquitectura-de-nube" tabindex="-1">El surgimiento de IoT y su influencia en la arquitectura de nube</h3>
-
-
-<p>La Internet de las Cosas (IoT) está impulsando enormes cantidades de datos generados por sensores y dispositivos conectados. Se espera que para 2025 haya más de 75 mil millones de dispositivos IoT.</p>
-
-
-<p>Esta explosión de datos y dispositivos IoT requerirá arquitecturas escalables y flexibles en la nube. Conceptos como informática periférica (edge computing) serán esenciales para reducir la latencia, manejar grandes volúmenes de datos en tiempo real y habilitar el procesamiento de datos cercano a la fuente.</p>
-
-
-<p>También veremos arquitecturas de nube más distribuidas geográficamente para admitir aplicaciones globales de IoT. Y los marcos de aplicaciones sin servidor como AWS Lambda se volverán más comunes para la computación ligera y escalable requerida por muchos casos de uso de IoT.</p>
-
-
-<h2 id="conclusi%C3%B3n%3A-resumen-de-tendencias-emergentes-en-arquitectura-en-la-nube" tabindex="-1">Conclusión: Resumen de tendencias emergentes en arquitectura en la nube</h2>
-
-
-<h3 id="s%C3%ADntesis-de-las-tendencias-clave" tabindex="-1">Síntesis de las tendencias clave</h3>
-
-
-<p>La arquitectura en la nube está evolucionando rápidamente para adaptarse a las nuevas demandas y necesidades. Algunas de las tendencias clave que están surgiendo incluyen:</p>
-
-
-<ul>
-<li>
-<p>Adopción de enfoques de múltiples nubes y nubes híbridas: Las organizaciones están adoptando estrategias de múltiples proveedores de nube para evitar dependencias y aprovechar las fortalezas de diferentes plataformas en la nube. La arquitectura de nube híbrida también está ganando popularidad.</p>
-</li>
-<li>
-<p>Mayor énfasis en la portabilidad y la interoperabilidad: Para facilitar la implementación de aplicaciones a través de múltiples nubes, los arquitectos en la nube están poniendo más énfasis en la portabilidad y la interoperabilidad de las aplicaciones y los datos.</p>
-</li>
-<li>
-<p>Uso de contenedores y Kubernetes: Los contenedores y orquestadores como Kubernetes se están convirtiendo en componentes centrales de la arquitectura en la nube moderna para permitir implementaciones consistentes y escalables.</p>
-</li>
-<li>
-<p>Serverless computing: El cómputo sin servidor está emergiendo como un paradigma atractivo para crear aplicaciones altamente escalables y rentables. Esto está impulsando nuevos patrones arquitectónicos.</p>
-</li>
-<li>
-<p>Mayor énfasis en DevOps y CI/CD: La integración continua, la entrega continua y las prácticas de DevOps se están integrando más estrechamente en la arquitectura en la nube para acelerar los ciclos de desarrollo de software.</p>
-</li>
-</ul>
-
-
-<h3 id="recomendaciones-para-arquitectos-de-nube" tabindex="-1">Recomendaciones para arquitectos de nube</h3>
-
-
-<p>Para adaptarse a estas tendencias emergentes, los arquitectos en la nube deberían:</p>
-
-
-<ul>
-<li>
-<p>Adoptar un enfoque de múltiples nubes y evitar dependencias de proveedores únicos.</p>
-</li>
-<li>
-<p>Diseñar aplicaciones nativas en la nube portables y sin estado.</p>
-</li>
-<li>
-<p>Aprovechar contenedores, Kubernetes y tecnologías de infraestructura como código.</p>
-</li>
-<li>
-<p>Evaluar cómo el cómputo sin servidor puede beneficiar las arquitecturas.</p>
-</li>
-<li>
-<p>Integrar prácticas ágiles de DevOps en sus flujos de trabajo.</p>
-</li>
-<li>
-<p>Mantenerse actualizados con las últimas tecnologías y tendencias en constante evolución.</p>
-</li>
-</ul>
-
-
-<p>Al adoptar estas recomendaciones, los arquitectos de nube podrán crear soluciones escalables, flexibles y preparadas para el futuro.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/desarrollo-en-la-nube-fundamentos-esenciales/">Desarrollo en la nube: fundamentos esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/">Introducción a los servicios de Amazon Web Services</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/cloud-computing-en-espanol-fundamentos-basicos/">Cloud computing en español: fundamentos básicos</a></li>
-</ul>
-</p>
+<p>Para poner a prueba el diseño con un reto compartido, el <a href="https://www.meetup.com/aws-user-group-awspectrum/events/316830690/">26 de octubre de 2026 habrá una AWSpectrum Architecture Arena</a> presencial en FARO Cosmos, Ciudad de México, de 16:00 a 18:30. Consulta la página del evento para ver inscripción y disponibilidad.</p>
