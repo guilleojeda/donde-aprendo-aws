@@ -105,6 +105,7 @@ if (controls && list) {
       showMoreWrap.hidden = remaining <= 0;
       showMore.textContent = `Mostrar ${Math.min(pageSize, Math.max(0, remaining))} más`;
     }
+    return matching;
   };
 
   const writeUrl = (method) => {
@@ -150,8 +151,10 @@ if (controls && list) {
     change();
   });
   showMore?.addEventListener('click', () => {
+    const previousLimit = limit;
     limit += pageSize;
-    update();
+    const matching = update();
+    matching[previousLimit]?.card.focus();
   });
   document.querySelectorAll('[data-resource-jump]').forEach((link) => {
     link.addEventListener('click', (event) => {
