@@ -1,434 +1,103 @@
 ---
-title: "AWS Organizations: estructuras de cuentas y nombres"
-description: "Aprende a gestionar eficientemente cuentas en AWS Organizations mediante una estructura clara y un sistema de nombres estandarizado."
+title: "AWS Organizations: estructura de cuentas, OUs y nombres"
+description: "Aprende a organizar cuentas y OUs en AWS Organizations según los controles que necesitan, y a elegir nombres claros sin confundirlos con permisos o identificadores."
 author: "guille-ojeda"
 publishedAt: "2025-02-27"
 publishedTimestamp: "2025-02-27T04:44:08.163Z"
+modifiedTimestamp: "2026-10-05T13:23:09-03:00"
 cover: "/assets/blog/editorial-fundamentos.png"
 coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
 ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
-  - title: "Estructuras multi-cuenta AWS para escalar"
-    url: "https://dondeaprendoaws.com/blog/estructuras-multi-cuenta-aws-para-escalar/"
-  - title: "Acuerdos de nivel de servicio AWS: guía básica"
-    url: "https://dondeaprendoaws.com/blog/acuerdos-de-nivel-de-servicio-aws-guia-basica/"
-  - title: "AWS curso certificado: guía básica"
-    url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-basica/"
-
+  - title: "AWS Config: reglas de cumplimiento y remediación segura"
+    url: "https://dondeaprendoaws.com/blog/automatizacion-de-cumplimiento-con-aws-config/"
 ---
 
-<p><strong><a href="https://docs.aws.amazon.com/organizations/latest/userguide/orgs_introduction.html" rel="noopener noreferrer" target="_blank">AWS Organizations</a></strong> es una herramienta clave para gestionar múltiples cuentas de AWS desde un único lugar. Ofrece control centralizado sobre seguridad, costes y administración, ideal para empresas que necesitan escalar en la nube. Aquí tienes los puntos principales que debes saber para estructurar y nombrar tus cuentas de forma eficiente:</p>
+[AWS Organizations](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_introduction.html) reúne varias cuentas de AWS bajo una administración común. Te permite organizarlas y aplicar políticas a grupos de cuentas, pero no impone una estructura única. El diseño depende de qué cargas necesitan límites separados y qué equipos deben compartir controles.
 
+Una **cuenta de AWS** puede separar recursos, responsabilidades y costos de una carga de trabajo. Una **unidad organizativa (OU)** agrupa cuentas para administrarlas como una unidad. La cuenta de administración de la organización gobierna esa jerarquía; las demás son cuentas miembro. No confundas la *raíz de Organizations* —el contenedor superior— con el *usuario raíz* de una cuenta.
 
-<ul>
-<li><strong>Gestión centralizada</strong>: Organiza cuentas en Unidades Organizativas (OUs) y aplica políticas globales.</li>
-<li><strong>Control de seguridad</strong>: Usa Service Control Policies (SCPs) para limitar permisos y proteger recursos.</li>
-<li><strong>Facturación unificada</strong>: Consolida los gastos de todas las cuentas bajo un único método de pago.</li>
-<li><strong>Nombres estandarizados</strong>: Define un esquema uniforme que incluya propósito, entorno y aplicación para identificar cuentas fácilmente.</li>
-<li><strong>Etiquetado eficiente</strong>: Aplica etiquetas clave-valor para organizar recursos y controlar costes.</li>
-</ul>
+## Diseña las OUs según controles compartidos
 
+Empieza por identificar diferencias reales en seguridad, operación, requisitos de cumplimiento o responsables. Agrupa en una OU las cuentas que necesitan un conjunto parecido de controles. AWS recomienda basar las OUs en funciones o controles comunes, en vez de copiar el organigrama de la empresa. También aconseja empezar con pocas OUs y ampliarlas cuando aparezca una necesidad concreta. Consulta las [buenas prácticas para OUs](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_ous_best_practices.html) y los [principios para una estrategia de varias cuentas](https://docs.aws.amazon.com/whitepapers/latest/organizing-your-aws-environment/design-principles-for-your-multi-account-strategy.html).
 
-<p><strong>¿Por qué es importante?</strong> Una estructura bien diseñada y un sistema de nombres claro facilitan la administración, mejoran la seguridad y optimizan los costes en tu organización de AWS.</p>
+Por ejemplo, una organización podría usar una estructura como esta:
 
+```text
+Raíz de Organizations
+├── Cuenta de administración
+├── OU Security
+│   └── Cuenta security-audit
+└── OU Workloads
+    ├── OU Nonproduction
+    │   └── Cuenta pagos-dev
+    └── OU Production
+        └── Cuenta pagos-prod
+```
 
-<h2 class="sb h2-sbb-cls" id="estructuracion-de-cuentas" tabindex="-1">Estructuración de cuentas</h2>
+Es un punto de partida ilustrativo, no una lista de OUs obligatorias. El diagrama distingue los contenedores `OU` de las cuentas que agrupan; `security-audit`, `pagos-dev` y `pagos-prod` son ejemplos, no nombres ni cuentas que debas crear. Una OU de `Production` y otra de `Nonproduction` pueden servir cuando las cargas requieren políticas distintas; si no hay una diferencia operativa que mantener, no hace falta crear esos niveles. La cuenta de administración se dibuja en la raíz para distinguir su función de las cuentas miembro del ejemplo.
 
+Las políticas asociadas a una OU se heredan por las cuentas que contiene y sus OUs descendientes. Por eso, revisa qué cuentas quedarían bajo el alcance antes de ampliar un control. Las OUs agrupan cuentas; su nombre por sí solo no aplica controles.
 
-<p>Con los fundamentos de AWS Organizations definidos, es hora de configurar estructuras de cuentas que permitan una gestión eficiente, mejor seguridad y control de costes.</p>
+Como otra referencia visual, [AWS Organizations Landing Zone](https://dcastillogi.com/arquitecturas/aws-organizations-landing-zone) presenta un ejemplo de separación por propósito, registros y controles. Compáralo con tus propios responsables y requisitos; es una arquitectura de referencia, no una topología obligatoria.
 
+### Qué controla una SCP y qué no
 
-<h3 id="diseno-de-la-jerarquia-de-cuentas" tabindex="-1">Diseño de la jerarquía de cuentas</h3>
+Una Service Control Policy (SCP) define el máximo de permisos disponibles para usuarios y roles IAM en cuentas miembro. **No concede permisos**: la política IAM o de recurso correspondiente también debe permitir la acción. Las SCP pueden restringir las cuentas miembro, incluido su usuario raíz, pero **no afectan a la cuenta de administración**. Tampoco restringen los roles vinculados a servicios (*service-linked roles*), que AWS usa para determinadas integraciones. Además, solo están disponibles cuando la organización tiene habilitadas todas las funciones; el modo limitado a facturación consolidada no habilita SCP. Revisa la [guía oficial de SCP](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps.html) antes de diseñar estos límites.
 
+La cuenta de administración puede manejar la organización, sus políticas y la facturación. AWS recomienda limitar quién accede a ella y mantener allí solo los recursos que necesiten esas tareas, ya que las SCP no la restringen. La guía de [buenas prácticas para la cuenta de administración](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html) explica estos cuidados. No uses el nombre de una cuenta ni una OU como sustituto de una política de acceso.
 
-<p>La jerarquía de cuentas debe basarse en funcionalidad y control. Esto asegura una base sólida que permita escalar y adaptarse a nuevas necesidades.</p>
+Para una experiencia técnica de auditoría, [este artículo sobre credenciales IAM en una AWS Organization](https://roadtocloudsec.la/posts/encontre-access-key-2018-activa-produccion-python-boto3) explica cómo detectar claves antiguas y revisar MFA entre cuentas. Lee los ejemplos como material de estudio; revisa permisos y alcance antes de adaptar código a tu entorno.
 
+## Distingue gobierno, acceso e identidad
 
-<p>Tipos de cuentas recomendados:</p>
+Organizations tiene dos conjuntos de funciones. **Facturación consolidada** centraliza el pago y la vista de costos de las cuentas de una organización. **Todas las funciones**, habilitadas por defecto al crear una organización, incluye esa facturación y permite usar políticas de Organizations e integraciones con otros servicios. Si solo necesitas la factura consolidada, ese conjunto limitado no equivale a habilitar los controles de gobierno. La documentación explica [los conjuntos de funciones](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_org_support-all-features.html) y [cómo funciona la facturación consolidada](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/consolidated-billing.html). La consolidación facilita ver los cargos por cuenta; no presupone un ahorro para cada organización o servicio.
 
+Para centralizar el acceso de las personas a varias cuentas, puedes usar **AWS IAM Identity Center** y asignar conjuntos de permisos a usuarios o grupos. Cumple una función distinta de las SCP: Identity Center determina qué acceso asignar a una persona; las SCP fijan un límite máximo para las acciones disponibles en cuentas miembro. AWS recomienda una instancia de organización para el acceso a varias cuentas; si ya tienes Organizations, comprueba que estén habilitadas todas las funciones. Consulta cómo se relaciona [IAM Identity Center con Organizations](https://docs.aws.amazon.com/singlesignon/latest/userguide/identity-center-and-orgs.html).
 
-<ul>
-<li><strong>Cuenta raíz</strong>: Exclusiva para la gestión de la organización.</li>
-<li><strong>Cuentas de soporte</strong>: Para seguridad, redes, servicios compartidos, registros y copias de seguridad.</li>
-<li><strong>Cuentas de workload</strong>: Organizadas por ambiente (desarrollo, pruebas, producción).</li>
-</ul>
+**AWS Control Tower** es otra capa opcional. Usa Organizations para configurar y gobernar una landing zone con controles predefinidos y aprovisionamiento de cuentas; no es otro nombre para Organizations ni es un requisito para crear OUs o gestionar cuentas. Puede incorporarse a una organización existente, aunque la configuración y el alcance de sus controles tienen requisitos propios. Consulta [cómo se integra Control Tower con Organizations](https://docs.aws.amazon.com/organizations/latest/userguide/services-that-can-integrate-CTower.html) y [cómo planificar una landing zone](https://docs.aws.amazon.com/controltower/latest/userguide/planning-your-deployment.html) antes de elegir esa opción.
 
+Como explicación en español, el episodio [AWS Control Tower: gestión de cuentas en organizaciones](https://www.youtube.com/watch?v=a9YX34w9jDE) de Charlas Técnicas de AWS recorre landing zones y administración de cuentas. Es una grabación de 2022; úsala para entender conceptos y confirma los procedimientos actuales en la guía oficial.
 
-<p>Esta segmentación facilita la aplicación de políticas y el cumplimiento de normas establecidas.</p>
+## Elige nombres que ayuden a las personas
 
+El nombre de una cuenta sirve para reconocerla en la consola y en informes. AWS lo distingue del alias de IAM y del correo del usuario raíz, y permite actualizarlo. Como punto de partida, sugiere combinar organización, propósito y entorno; adapta ese patrón a lo que el equipo realmente necesita leer. Evita incluir datos personales o información sensible. La guía para [actualizar el nombre de una cuenta](https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-update-acct-name.html) describe sus usos y condiciones.
 
-<h3 id="trabajo-con-unidades-organizativas" tabindex="-1">Trabajo con unidades organizativas</h3>
+Un formato posible es `<servicio>-<entorno>` o `<función>-<servicio>-<entorno>`:
 
+| Nombre de ejemplo | Qué permite reconocer |
+| --- | --- |
+| `pagos-prod` | La carga de pagos en producción |
+| `pagos-dev` | El entorno de desarrollo de pagos |
+| `security-audit` | Una cuenta dedicada a tareas de auditoría de seguridad |
+| `network-shared` | Servicios de red compartidos |
 
-<p>Una vez diseñada la jerarquía, utiliza Unidades Organizativas (OUs) para agrupar cuentas y aplicar políticas de forma centralizada. Las OUs permiten organizar cuentas según controles y funcionalidades comunes.</p>
+No todas las organizaciones necesitan incluir todos esos componentes ni separar cada entorno en una cuenta. Acuerda abreviaturas, uso de mayúsculas y separadores; documenta quién es responsable y revisa la convención cuando cambie la estructura. Una cuenta llamada `prod` no se vuelve segura por ese nombre: los accesos y límites efectivos dependen de IAM, de las políticas de recursos y, en cuentas miembro, de las políticas de Organizations que correspondan.
 
+Para automatizaciones y políticas, identifica las cuentas y recursos con sus **IDs y ARN**, no con el nombre visible. El ID de cuenta de AWS es un número de 12 dígitos que identifica la cuenta. Un ARN identifica un recurso concreto; su formato varía por servicio y muchos ARN incluyen el ID de la cuenta propietaria. Consulta la documentación de [identificadores de cuenta](https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-identifiers.html) y del [formato de ARN](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html).
 
-<p>Estructura básica sugerida:</p>
+Para dar el siguiente paso y evaluar la configuración de los recursos dentro de tus cuentas, lee [AWS Config: reglas de cumplimiento y remediación segura](/blog/automatizacion-de-cumplimiento-con-aws-config/). Explica cómo distinguir una regla de evaluación de una corrección automática y cómo revisar su alcance antes de activarla.
 
+## Preguntas frecuentes
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Nivel de OU</th>
-<th>Propósito</th>
-<th>Características</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Fundacional</td>
-<td>Infraestructura y seguridad</td>
-<td>Control centralizado de políticas esenciales</td>
-</tr>
-<tr>
-<td>Sandbox</td>
-<td>Desarrollo y experimentación</td>
-<td>Permisos restringidos, presupuestos limitados</td>
-</tr>
-<tr>
-<td>Workloads</td>
-<td>Cargas de trabajo productivas</td>
-<td>Separación por ambiente y función</td>
-</tr>
-</tbody>
-</table></figure>
+### ¿Todas las organizaciones necesitan las mismas OUs?
 
+No. Usa OUs cuando varias cuentas compartan una función o controles que quieras administrar juntas. Los ejemplos de esta guía son opciones, no una topología requerida.
 
-<blockquote>
-<p>"Las cuentas de AWS son límites naturales para permisos, seguridad, costes y cargas de trabajo." </p>
-</blockquote>
+### ¿Las SCP dan permisos a una persona?
 
+No. Limitan el máximo de permisos disponibles en cuentas miembro; una política IAM o de recurso todavía debe conceder el acceso.
 
-<p><strong>Consejos para optimizar las OUs:</strong></p>
+### ¿Necesito Control Tower para usar AWS Organizations?
 
+No. Organizations sirve para reunir y administrar cuentas. Control Tower puede añadir una landing zone y controles predefinidos cuando ese enfoque encaje con tus necesidades.
 
-<ol>
-<li><strong>Aplicación de políticas</strong>: Aplica políticas a nivel de OU en lugar de hacerlo cuenta por cuenta.</li>
-<li><strong>Agrupación estratégica</strong>: Coloca cuentas con necesidades similares bajo una misma OU.</li>
-<li><strong>Pruebas de cambios</strong>: Antes de aplicar cambios globales, prueba las políticas en entornos no productivos.</li>
-</ol>
+### ¿El nombre de una cuenta puede reemplazar su ID?
 
+No. El nombre ayuda a una persona a reconocerla y puede cambiar. Usa el ID de 12 dígitos para identificar la cuenta y el ARN cuando necesites referirte a un recurso de AWS.
 
-<p>Una estructura bien planificada asegura un control efectivo sobre seguridad y costes, mientras simplifica la gestión del entorno empresarial.</p>
+## Conecta con comunidades AWS
 
+[AWS Women Colombia](https://awswomencolombia.com/) comparte actividades y recursos de su comunidad; su [canal de YouTube](https://www.youtube.com/channel/UCdpHSMDDwo4_d_u3mSU41Mw) reúne grabaciones para continuar aprendiendo sobre AWS. Para sesiones centradas en seguridad de AWS, [AWS User Group Security Ecuador en Meetup](https://www.meetup.com/aws-user-group-security-ecuador/) reúne a profesionales y entusiastas y publica encuentros sobre AWS Security. Consulta allí las fechas, la modalidad y las condiciones de inscripción de cada sesión.
 
-<h2 class="sb h2-sbb-cls" id="estandares-de-nombres-para-cuentas" tabindex="-1">Estándares de nombres para cuentas</h2>
-
-
-<p>Una vez definida la estructura de cuentas, es importante establecer convenciones de nombres claras para facilitar la administración y el control.</p>
-
-
-<h3 id="ventajas-de-usar-nombres-estandarizados" tabindex="-1">Ventajas de usar nombres estandarizados</h3>
-
-
-<p>Definir un sistema uniforme para nombrar las cuentas de AWS ayuda a mantener un entorno más organizado y funcional. Un esquema de nombres bien pensado permite identificar rápidamente el propósito, entorno y función de cada cuenta. Algunas de las principales ventajas incluyen:</p>
-
-
-<ul>
-<li><strong>Identificación rápida</strong>: Facilita reconocer el propósito y entorno de una cuenta al instante.</li>
-<li><strong>Gestión más sencilla</strong>: Mejora la administración y el control de accesos.</li>
-<li><strong>Menos errores</strong>: Disminuye las confusiones al asignar recursos.</li>
-<li><strong>Crecimiento ordenado</strong>: Permite escalar manteniendo la coherencia.</li>
-</ul>
-
-
-<p>Estos puntos son clave para crear un sistema de nombres efectivo y claro.</p>
-
-
-<h3 id="elementos-clave-en-la-estructura-de-nombres" tabindex="-1">Elementos clave en la estructura de nombres</h3>
-
-
-<p>Siguiendo la segmentación de cuentas definida, la estructura de nombres debe reflejar la jerarquía organizativa y mantener un patrón uniforme. Se recomienda incluir los siguientes elementos:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th><strong>Elemento</strong></th>
-<th><strong>Descripción</strong></th>
-<th><strong>Ejemplo</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Propósito principal</td>
-<td>Indica el propósito general de la cuenta</td>
-<td>Workloads, Security</td>
-</tr>
-<tr>
-<td>Identificador específico</td>
-<td>Código del proyecto o aplicación</td>
-<td>fooA, fooB</td>
-</tr>
-<tr>
-<td>Entorno</td>
-<td>Define el entorno (desarrollo, pruebas, prod.)</td>
-<td>Dev, Test, Prod</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Además, la dirección de correo asociada debe seguir la misma lógica. Por ejemplo, una cuenta llamada "WorkloadsFooADev" podría usar el correo: <code class="inline-code">Workloads+fooA+dev@dominio.com</code>.</p>
-
-
-<h3 id="ejemplos-practicos-de-nomenclatura" tabindex="-1">Ejemplos prácticos de nomenclatura</h3>
-
-
-<p>Con la estructura definida, aquí tienes ejemplos de cómo implementar nombres estandarizados. Para una empresa ficticia como "AnyCompany", se pueden usar etiquetas complementarias como:</p>
-
-
-<ul>
-<li><strong>anycompany:cost-center</strong>: Para identificar el código del centro de costes.</li>
-<li><strong>anycompany:environment-type</strong>: Para especificar si el entorno es de desarrollo, pruebas o producción.</li>
-<li><strong>anycompany:application-id</strong>: Para asociar recursos con una aplicación concreta.</li>
-</ul>
-
-
-<p>Es importante recordar que las etiquetas no pueden comenzar con "aws:", ya que este prefijo está reservado para AWS. Para mantener consistencia, usa minúsculas y separa las palabras con guiones en las etiquetas.</p>
-
-
-<p>En el caso de <a href="https://dondeaprendoaws.com/blog/tipos-y-tamanos-de-instancias-ec2-guia-completa/">instancias EC2</a>, aplica un formato como:<br/>
-<code class="inline-code">ec2-RegionCode-AvailabilityZoneCode-EnvironmentCode-ApplicationCode</code>.<br/>
-Este esquema asegura que los recursos sean fáciles de identificar y estén alineados con la estructura organizativa general.</p>
-
-
-
-
-<h2 class="sb h2-sbb-cls" id="guia-de-etiquetado-de-cuentas" tabindex="-1">Guía de etiquetado de cuentas</h2>
-
-
-<p>El <a href="https://dondeaprendoaws.com/blog/gestionando-multiples-cuentas-de-aws-con-aws-organizations/">etiquetado en AWS Organizations</a> es clave para gestionar recursos y controlar costes. Aquí te mostramos cómo establecer una estrategia de etiquetado clara y funcional.</p>
-
-
-<h3 id="reglas-de-estructura-para-etiquetas" tabindex="-1">Reglas de estructura para etiquetas</h3>
-
-
-<p>Las etiquetas deben seguir un patrón uniforme que facilite la organización y el seguimiento de los recursos. Estas etiquetas funcionan como pares clave-valor y deben respetar estas reglas básicas:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Componente</th>
-<th>Regla</th>
-<th>Ejemplo</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Clave</td>
-<td>Distingue entre mayúsculas y minúsculas</td>
-<td>CostCenter</td>
-</tr>
-<tr>
-<td>Valor</td>
-<td>Opcional y también distingue entre mayúsculas y minúsculas</td>
-<td>EMEA-ES-PROD</td>
-</tr>
-<tr>
-<td>Prefijo</td>
-<td>"aws:" está reservado exclusivamente para AWS</td>
-<td>user:department</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Para mantener un etiquetado eficaz:</p>
-
-
-<ul>
-<li>Crea una taxonomía clara que abarque todas las unidades de negocio.</li>
-<li>Usa un formato uniforme para valores similares.</li>
-<li>Evita incluir información sensible o confidencial en las etiquetas.</li>
-</ul>
-
-
-<h3 id="etiquetas-para-facturacion-y-acceso" tabindex="-1">Etiquetas para facturación y acceso</h3>
-
-
-<p>Una vez definida la estructura de las etiquetas, es esencial aplicarlas correctamente para un mejor control en facturación y acceso. AWS clasifica las etiquetas en dos categorías principales:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Tipo de Etiqueta</th>
-<th>Descripción</th>
-<th>Uso Recomendado</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Generadas por AWS</td>
-<td>Llevan el prefijo "aws:"</td>
-<td>Seguimiento automático de recursos</td>
-</tr>
-<tr>
-<td>Definidas por usuario</td>
-<td>Llevan el prefijo "user"</td>
-<td>Organización personalizada</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Para gestionar los costes de manera eficiente, sigue estos pasos:</p>
-
-
-<ul>
-<li><strong>Activa las etiquetas de asignación</strong>: Configúralas en la consola de <a href="https://dondeaprendoaws.com/blog/gestion-de-facturacion-de-aws-guia-completa/">facturación y administración de costes</a> para vincular recursos con centros de coste.</li>
-<li><strong>Utiliza <a href="https://docs.aws.amazon.com/config/" rel="noopener noreferrer" target="_blank">AWS Config</a></strong>: Aplica reglas para garantizar que los recursos cumplan con las etiquetas requeridas.</li>
-<li><strong>Emplea Tag Editor</strong>: Encuentra y corrige recursos que no tengan etiquetas asignadas.</li>
-</ul>
-
-
-<p>Por ejemplo, puedes configurar políticas de etiquetas para evitar gastos innecesarios. Si alguien intenta crear una <a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ec2/">instancia EC2</a> sin incluir la etiqueta obligatoria "CostCenter", el sistema bloqueará la operación. Esto asegura que todos los recursos estén correctamente clasificados desde el principio.</p>
-
-
-<p>Ten en cuenta que las etiquetas pueden tardar hasta 24 horas en reflejarse en la consola de Facturación y Administración de Costes. Por eso, es importante planificar con suficiente tiempo la implementación de nuevas etiquetas.</p>
-
-
-<p>Aplicar estas prácticas de etiquetado de manera adecuada sentará una base sólida para gestionar los recursos de forma eficiente en futuras etapas de administración de cuentas.</p>
-
-
-<h2 class="sb h2-sbb-cls" id="pasos-de-gestion-de-cuentas" tabindex="-1">Pasos de gestión de cuentas</h2>
-
-
-<p>La gestión de cuentas implica supervisar su ciclo de vida, desde la creación inicial hasta su eliminación, garantizando un control adecuado y evitando gastos innecesarios.</p>
-
-
-<h3 id="configuracion-de-nuevas-cuentas" tabindex="-1">Configuración de nuevas cuentas</h3>
-
-
-<p>Siga estos pasos para configurar una cuenta correctamente:</p>
-
-
-<ul>
-<li>La información de contacto se copia automáticamente desde la cuenta de administración principal.</li>
-<li>Se crea el rol IAM <strong>"OrganizationAccountAccessRole"</strong> en la cuenta miembro para facilitar el control centralizado.</li>
-<li>Se genera el rol <strong>"AWSServiceRoleForOrganizations"</strong> para integrar servicios de AWS de manera eficiente.</li>
-</ul>
-
-
-<p><strong>Aspectos clave a tener en cuenta</strong>:</p>
-
-
-<ul>
-<li>Las cuentas solo pueden crearse en la raíz de la organización.</li>
-<li>Es obligatorio usar un correo electrónico único que no esté vinculado a otras cuentas de AWS.</li>
-<li>Durante la creación, puede añadir hasta 50 etiquetas para una mejor organización.</li>
-</ul>
-
-
-<p>Después de configurar una cuenta, es igualmente importante gestionar su desactivación cuando ya no sea necesaria.</p>
-
-
-<h3 id="proceso-de-limpieza-de-cuentas" tabindex="-1">Proceso de limpieza de cuentas</h3>
-
-
-<p>Para evitar costos innecesarios, asegúrese de realizar una limpieza adecuada de las cuentas que ya no se utilizan. Este proceso consta de tres fases principales:</p>
-
-
-<p>1. <strong>Preparación previa</strong></p>
-
-
-<p>Antes de eliminar una cuenta, confirme que tiene toda la información y configuraciones necesarias para operar de forma independiente. Esto incluye el plan de soporte, datos de contacto actualizados y un método de pago válido.</p>
-
-
-<p>2. <strong>Gestión de recursos activos</strong></p>
-
-
-<p>Una vez revisada la información, elimine los recursos activos utilizando la consola de <strong>AWS Management</strong> para cada servicio. Para identificar las regiones con servicios activos, consulte la consola de <strong>Facturación y Administración de Costes</strong>.</p>
-
-
-<p>3. <strong>Proceso de eliminación</strong></p>
-
-
-<p>Cuando una cuenta se elimina, entra en estado "suspendido" durante 90 días. Pasado este período, se elimina de forma permanente, perdiendo acceso a datos históricos de costes, etiquetas, políticas organizacionales y acuerdos.</p>
-
-
-<p>Para entornos de desarrollo y pruebas, puede usar <strong><a href="https://github.com/ekristen/aws-nuke" rel="noopener noreferrer" target="_blank">AWS-NUKE</a></strong> para automatizar la limpieza de recursos. Asegúrese de ejecutar siempre el modo <em>DRY RUN</em> antes de proceder, para evitar eliminaciones accidentales.</p>
-
-
-<h2 class="sb h2-sbb-cls" id="resumen-y-recursos" tabindex="-1">Resumen y recursos</h2>
-
-
-<h3 id="revision-de-puntos-principales" tabindex="-1">Revisión de puntos principales</h3>
-
-
-<p>Configurar AWS Organizations requiere entender cómo estructurar cuentas y establecer convenciones de nombres adecuadas. Algunos puntos clave incluyen:</p>
-
-
-<ul>
-<li><strong>Gestión centralizada</strong>: Administrar las cuentas de AWS desde un solo lugar garantiza operaciones consistentes y una separación eficiente de las cargas de trabajo según sus objetivos.</li>
-<li><strong>Aislamiento de entornos</strong>: Usar Unidades Organizativas (OUs) específicas para cada entorno mejora la seguridad y el control.</li>
-</ul>
-
-
-<p>Para optimizar la estructura, ten en cuenta lo siguiente:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Aspecto</th>
-<th>Ventaja Principal</th>
-<th>Implementación Sugerida</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Seguridad</strong></td>
-<td>Separación clara entre entornos</td>
-<td>Uso de OUs específicas</td>
-</tr>
-<tr>
-<td><strong>Facturación</strong></td>
-<td>Mayor visibilidad de costos</td>
-<td>Etiquetas unificadas</td>
-</tr>
-<tr>
-<td><strong>Gestión</strong></td>
-<td>Administración más sencilla</td>
-<td>Convenciones de nombres estándar</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="recursos-adicionales" tabindex="-1">Recursos adicionales</h3>
-
-
-<p>Si quieres profundizar más en estos temas, aquí tienes algunas fuentes útiles:</p>
-
-
-<ol>
-<li>
-<strong>Documentación Oficial</strong><br/>
-La <a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-basica/">guía oficial de AWS Organizations</a> ofrece información detallada sobre configuración y administración.
-</li>
-<li>
-<strong>Recursos en español</strong><br/>
-Visita <a href="https://dondeaprendoaws.com">Dónde Aprendo AWS</a> para explicaciones completas sobre AWS Organizations en español.
-</li>
-<li>
-<strong><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">mejores prácticas</a></strong><br/>
-Explora el artículo "Best Practices for Organizational Units with AWS Organizations" en el Centro de Conocimiento de AWS.
-</li>
-</ol>
-
-
-<p><strong>Herramientas Clave</strong>:</p>
-
-
-<ul>
-<li><strong>AWS CLI Reference</strong>: Ideal para gestionar AWS mediante comandos.</li>
-<li><strong>AWS Account Management Reference Guide</strong>: Una guía completa para la administración de cuentas.</li>
-<li><strong><a href="https://aws.amazon.com/training/digital/" rel="noopener noreferrer" target="_blank">AWS Skill Builder</a></strong>: Plataforma de formación digital para mejorar tus habilidades.</li>
-</ul>
-
-
-<h2>Publicaciones de blog relacionadas</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/gestionando-multiples-cuentas-de-aws-con-aws-organizations/">Gestionando múltiples cuentas de AWS con AWS Organizations</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores prácticas de seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/politicas-de-confianza-aws-acceso-entre-cuentas/">Políticas de confianza AWS: acceso entre cuentas</a></li><li><a href="https://dondeaprendoaws.com/blog/checklist-para-automatizar-cumplimiento-en-aws/">Checklist para automatizar cumplimiento en AWS</a></li></ul>
+Si buscas otras opciones, el [directorio de comunidades AWS](https://dondeaprendoaws.com/comunidades/) permite explorar grupos por país y tipo; el [directorio de creadores](https://dondeaprendoaws.com/creadores/) reúne canales y blogs; y la [agenda de eventos comunitarios](https://dondeaprendoaws.com/eventos/) muestra fechas, modalidad y enlaces de inscripción vigentes.
