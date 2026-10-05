@@ -9,7 +9,7 @@ cover: "/assets/blog/201da9e2ec2ae649f47566a7.jpg"
 coverAlt: "Dos recipientes metálicos equilibrados sobre una balanza"
 ogImage: "/assets/blog/201da9e2ec2ae649f47566a7.jpg"
 related:
-  - title: "Análisis de Costos de AWS con Cost Explorer"
+  - title: "Cómo usar AWS Cost Explorer: filtros y costos que no aparecen"
     url: "https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/"
     image: "/assets/blog/9498b87ad3dae112bf347132.jpg"
     imageAlt: "Gráfico de líneas minimalista rodeado de iconos pequeños"
