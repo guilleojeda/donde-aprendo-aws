@@ -1,4 +1,4 @@
-import { RESOURCE_COLLECTIONS } from './resource-collections.mjs';
+import { RESOURCE_COLLECTIONS, resolveResourceCollectionFaq } from './resource-collections.mjs';
 import { EVENT_COLLECTIONS } from './event-collections.mjs';
 import { communityCountryPages, eventCountryPath } from './community-country-pages.mjs';
 import { COUNTRY_LABELS } from './resource-discovery.mjs';
@@ -19,10 +19,13 @@ export function landingSearchPages(resources) {
         { path: eventCountryPath(country), title: `Eventos AWS en ${name}`, description: `Consultá próximos eventos, meetups y charlas de AWS en ${name}, con fechas, horarios e inscripción.`, label: 'Agenda por país', search: country },
       ];
     }),
-  ].map((page) => ({
-    ...page,
-    title: page.title.split(' | ')[0],
-    search: [page.search, page.intro, page.guide?.heading, page.guide?.body,
-      ...(page.faq?.items ?? []).flatMap(({ question, answer }) => [question, answer])].filter(Boolean).join(' '),
-  }));
+  ].map((page) => {
+    const faqItems = resolveResourceCollectionFaq(page, resources);
+    return {
+      ...page,
+      title: page.title.split(' | ')[0],
+      search: [page.search, page.intro, page.guide?.heading, page.guide?.body,
+        ...faqItems.flatMap(({ question, answer }) => [question, answer])].filter(Boolean).join(' '),
+    };
+  });
 }

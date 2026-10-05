@@ -1,4 +1,4 @@
-import { directoryListEntries, filterResources, sortResources } from '../lib/directory-filter.mjs';
+import { directoryGroupMembership, directoryListEntries, filterResources, sortResources } from '../lib/directory-filter.mjs';
 import { parseDirectorySearch, resetDirectorySearchForReveal, serializeDirectorySearch } from '../lib/directory-url.mjs';
 
 const controls = document.querySelector('[data-directory-controls]');
@@ -11,6 +11,7 @@ if (controls && list) {
     topic: controls.querySelector('[data-topic-filter]'),
     country: controls.querySelector('[data-country-filter]'),
     level: controls.querySelector('[data-level-filter]'),
+    group: controls.querySelector('[data-group-filter]'),
   };
   const sortSelect = document.querySelector('[data-sort-filter]');
   const defaultSort = sortSelect?.dataset.defaultSort ?? 'recommended';
@@ -23,6 +24,7 @@ if (controls && list) {
   }
   const groupByResourceId = new Map(collectionGroups.flatMap((group, groupIndex) => group.resourceIds
     .map((id) => [id, { ...group, groupIndex }])));
+  const groupMembership = directoryGroupMembership(collectionGroups);
   const records = cards.map((card) => ({
     card,
     directoryIndex: Number(card.dataset.resourceIndex),
@@ -38,6 +40,7 @@ if (controls && list) {
     purposeGroupIndex: groupByResourceId.get(card.id.replace(/^resource-/u, ''))?.groupIndex,
     purposeGroupLabel: groupByResourceId.get(card.id.replace(/^resource-/u, ''))?.label,
     purposeGroupDescription: groupByResourceId.get(card.id.replace(/^resource-/u, ''))?.description,
+    groupIds: groupMembership.get(card.id.replace(/^resource-/u, '')) ?? [],
   }));
   const recordsById = new Map(records.map((record) => [record.card.id, record]));
   const allowed = Object.fromEntries(Object.entries(selects).map(([key, select]) => [

@@ -1,4 +1,6 @@
 /** Editorial collection pages over the published catalog. Content stays in the catalog. */
+import { resourceHref } from './catalog-routes.mjs';
+
 export const RESOURCE_COLLECTIONS = Object.freeze([
   {
     id: 'cursos', path: '/aprender/cursos/', kind: 'content', label: 'Cursos',
@@ -21,8 +23,9 @@ export const RESOURCE_COLLECTIONS = Object.freeze([
       heading: 'Dudas sobre los cursos de AWS',
       items: [
         {
+          id: 'free-course-access',
           question: '¿Hay cursos de AWS gratis?',
-          answer: 'Algunos cursos permiten acceder al material sin costo y otros tienen condiciones distintas. Confirmá el precio y la inscripción en la página de cada curso; las prácticas que usan servicios de AWS también pueden generar cargos.',
+          answer: 'El precio y las condiciones de acceso dependen de cada proveedor. Confirmá la información en la página del curso antes de inscribirte; las prácticas que usan servicios de AWS también pueden generar cargos.',
         },
         {
           question: '¿Un curso de AWS me da una certificación?',
@@ -30,8 +33,8 @@ export const RESOURCE_COLLECTIONS = Object.freeze([
           links: [{ label: 'Explorar recursos para certificaciones', href: '/aprender/certificaciones/' }, { label: 'Ver AWS Certification', href: 'https://aws.amazon.com/certification/' }],
         },
         {
-          question: '¿Cuánto dura un curso de AWS?',
-          answer: 'La duración depende del curso y no está informada en todos los recursos. Consultá el programa o la serie enlazada para ver cuántas clases tiene y cuánto tiempo recomienda dedicarle.',
+          question: '¿Cómo encuentro cursos de AWS para mi nivel?',
+          answer: 'Abrí Filtros adicionales y elegí el nivel que buscás. Si estás empezando, podés elegir Inicial. Cuando una ficha no indique nivel, consultá su descripción y el programa del proveedor antes de decidir.',
         },
       ],
     },
@@ -73,8 +76,8 @@ export const RESOURCE_COLLECTIONS = Object.freeze([
   {
     id: 'certificaciones', path: '/aprender/certificaciones/', kind: 'content', label: 'Certificaciones',
     title: 'Certificaciones AWS: recursos para estudiar en español',
-    description: 'Recursos en español sobre Cloud Practitioner, experiencias de certificación y orientación para elegir o agendar un examen AWS.',
-    intro: 'Encontrá materiales de Cloud Practitioner, experiencias con otras certificaciones y orientación general para elegir o agendar un examen. La colección refleja los recursos publicados, no cubre todos los exámenes.',
+    description: 'Recursos de preparación, sesiones de estudio, experiencias y orientación en español sobre distintas certificaciones AWS.',
+    intro: 'Encontrá materiales de preparación, sesiones de estudio y experiencias sobre distintas certificaciones AWS. Elegí un examen o explorá los recursos generales.',
     selector: { topic: 'Certificaciones' },
     guide: {
       heading: 'Elegí cómo estudiar para el examen',
@@ -92,7 +95,7 @@ export const RESOURCE_COLLECTIONS = Object.freeze([
       items: [
         {
           question: '¿Esta colección prepara para todas las certificaciones AWS?',
-          answer: 'No. La selección se concentra en Cloud Practitioner y ofrece experiencias y orientación sobre otros exámenes. Consultá la guía oficial para confirmar el temario y la versión.',
+          answer: 'No. Reúne los recursos publicados sobre distintas certificaciones y temas generales de preparación. Consultá la guía oficial del examen que te interesa para confirmar su temario y versión.',
           links: [{ label: 'Ver las guías oficiales de examen', href: 'https://docs.aws.amazon.com/aws-certification/latest/examguides/' }],
         },
         {
@@ -289,11 +292,28 @@ export const RESOURCE_COLLECTIONS = Object.freeze([
 ]);
 
 const CERTIFICATION_PURPOSES = Object.freeze([
-  { id: 'cloud-practitioner', label: 'Preparación para Cloud Practitioner', description: 'Cursos, series y relatos enfocados en AWS Cloud Practitioner.' },
-  { id: 'exam-preparation', label: 'Preparación y agenda del examen', description: 'Estrategias generales para estudiar o encontrar y agendar un examen.' },
+  { id: 'cloud-practitioner', label: 'Cloud Practitioner', description: 'Materiales de estudio y experiencias sobre Cloud Practitioner.' },
+  { id: 'ai-practitioner', label: 'AI Practitioner', description: 'Materiales de estudio y experiencias sobre AI Practitioner.' },
+  { id: 'solutions-architect', label: 'Solutions Architect', description: 'Recursos sobre Solutions Architect. Revisá cada ficha para conocer el examen al que corresponde.' },
+  { id: 'developer-associate', label: 'Developer Associate', description: 'Recursos sobre Developer Associate.' },
+  { id: 'sysops', label: 'SysOps', description: 'Recursos sobre SysOps Administrator.' },
+  { id: 'ai-business-strategist', label: 'AI Business Strategist', description: 'Recursos sobre AI Business Strategist.' },
+  { id: 'advanced-networking', label: 'Advanced Networking', description: 'Recursos sobre Advanced Networking.' },
+  { id: 'multiple-exams', label: 'Varios exámenes', description: 'Materiales que abarcan distintas certificaciones AWS.' },
+  { id: 'exam-preparation', label: 'Preparación general', description: 'Estrategias generales para estudiar o encontrar y agendar un examen.' },
   { id: 'experiences', label: 'Experiencias y elección', description: 'Relatos personales y orientación para evaluar una certificación.' },
   { id: 'study-community', label: 'Estudio en comunidad', description: 'Recursos para preparar certificaciones junto a otras personas.' },
-  { id: 'other-certification-resources', label: 'Otros recursos de certificación', description: 'Otros materiales relacionados; consultá su título y descripción para conocer el alcance.' },
+  { id: 'other-certification-resources', label: 'Otros recursos', description: 'Otros materiales relacionados; consultá su título y descripción para conocer el alcance.' },
+]);
+
+const CERTIFICATION_EXAMS = Object.freeze([
+  { id: 'cloud-practitioner', patterns: [/\b(?:aws\s+certified\s+)?cloud\s+practitioner\b/u, /\bclf-?c0?2\b/u] },
+  { id: 'ai-practitioner', patterns: [/\b(?:aws\s+certified\s+)?ai\s+practitioner\b/u, /\baif-?c0?1\b/u] },
+  { id: 'solutions-architect', patterns: [/\b(?:aws\s+certified\s+)?solutions?\s+architect\b/u, /\b(?:saa-?c03|sap-?c02)\b/u] },
+  { id: 'developer-associate', patterns: [/\b(?:aws\s+certified\s+)?developer\s*(?:[-–—]\s*)?associate\b/u, /\bdva-?c0?2\b/u] },
+  { id: 'sysops', patterns: [/\b(?:aws\s+certified\s+)?sysops(?:\s+administrator)?\b/u, /\bsoa-?c0?2\b/u] },
+  { id: 'ai-business-strategist', patterns: [/\b(?:aws\s+certified\s+)?ai\s+business\s+strategist\b/u, /\baib-?c0?1\b/u] },
+  { id: 'advanced-networking', patterns: [/\b(?:aws\s+certified\s+)?advanced\s+networking\b/u, /\bans-?c0?1\b/u] },
 ]);
 
 const collectionByPath = new Map(RESOURCE_COLLECTIONS.map((collection) => [collection.path, collection]));
@@ -303,12 +323,55 @@ export function lookupResourceCollection(path) {
 
 /** Group certification resources from their existing public title and description only. */
 export function groupCertificationResources(resources) {
-  const groups = new Map(CERTIFICATION_PURPOSES.map((purpose) => [purpose.id, { ...purpose, resources: [] }]));
+  const groups = new Map(CERTIFICATION_PURPOSES.map((purpose) => [purpose.id, { ...purpose, resources: [], filterResources: [] }]));
   for (const resource of resources) {
-    const purpose = certificationPurpose(resource);
-    groups.get(purpose).resources.push(resource);
+    const exams = detectCertificationExams(resource);
+    const groupIds = exams.length > 1 ? ['multiple-exams'] : exams.length === 1 ? exams : [certificationPurpose(resource)];
+    for (const groupId of groupIds) groups.get(groupId).resources.push(resource);
+    const filterGroupIds = [...new Set([...groupIds, ...exams])];
+    for (const groupId of filterGroupIds) groups.get(groupId).filterResources.push(resource);
   }
-  return [...groups.values()].filter(({ resources: groupResources }) => groupResources.length > 0);
+  return [...groups.values()].filter(({ resources: groupResources, filterResources }) => groupResources.length > 0 || filterResources.length > 0);
+}
+
+/** Detect only explicit public exam names and codes; the title takes precedence over description. */
+export function detectCertificationExams(resource) {
+  const normalize = (value) => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/gu, '').toLocaleLowerCase('en');
+  const title = normalize(resource?.title);
+  const titleMatches = matchesCertificationExams(title);
+  return titleMatches.length ? titleMatches : matchesCertificationExams(normalize(resource?.description));
+}
+
+/** Find the current catalog course whose provider page documents free study materials. */
+export function findFreeCourseExample(resources) {
+  if (!Array.isArray(resources)) return undefined;
+  return resources.find((resource) => resource.kind === 'content'
+    && resource.format === 'Curso'
+    && isFreeStudyMaterialsPage(resource.url));
+}
+
+/** Resolve visible FAQ copy and links from the current published collection records. */
+export function resolveResourceCollectionFaq(collection, resources = []) {
+  if (!collection?.faq?.items) return [];
+  const items = collection.faq.items;
+  const freeCourseExample = collection.id === 'cursos'
+    ? findFreeCourseExample(resourceCollectionResources(collection, resources))
+    : undefined;
+  return items.map((item) => {
+    if (collection.id !== 'cursos' || item.id !== 'free-course-access') return item;
+    if (!freeCourseExample) {
+      return {
+        ...item,
+        question: '¿Cómo compruebo si un curso de AWS es gratis?',
+        answer: 'La ficha del directorio no siempre indica el precio o las condiciones de acceso. Confirmá esos datos en la página del proveedor antes de inscribirte; las prácticas que usan servicios de AWS también pueden generar cargos.',
+      };
+    }
+    return {
+      ...item,
+      answer: 'Sí. AWS User Group Mixtli comparte materiales de estudio gratuitos en su AWS Certification Challenge 2026. Podés consultarlos desde la ficha del reto. Revisá las condiciones de cada recurso; las prácticas que usan servicios de AWS pueden generar cargos.',
+      links: [{ label: `Ver la ficha de ${freeCourseExample.title}`, href: resourceHref(freeCourseExample) }],
+    };
+  });
 }
 
 /** Return only records that belong to this collection's fixed editorial scope. */
@@ -345,12 +408,25 @@ function certificationPurpose(resource) {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/gu, '')
     .toLocaleLowerCase('es');
-  if (/\b(?:cloud practitioner|clf-?c0?2)\b/u.test(text)) return 'cloud-practitioner';
   if (/\b(?:grupo de estudio|study group|estudio en comunidad)\b/u.test(text)) return 'study-community';
-  if (/\b(?:experien\w*|journey|vale la pena|por que certific\w*|arquitecto)\b/u.test(text)) return 'experiences';
+  if (/\b(?:experien\w*|journey|vale la pena|por que certific\w*)\b/u.test(text)) return 'experiences';
   if (/\b(?:examen(?:es)?|exam(?:s)?|simulacro|agend\w*|schedule\w*|prepar\w*)\b/u.test(text)
     || /\bestrateg\w*.{0,40}\b(?:certific|examen)\w*|\b(?:certific|examen)\w*.{0,40}\bestrateg\w*/u.test(text)) {
     return 'exam-preparation';
   }
   return 'other-certification-resources';
+}
+
+function matchesCertificationExams(text) {
+  return CERTIFICATION_EXAMS.filter(({ patterns }) => patterns.some((pattern) => pattern.test(text)))
+    .map(({ id }) => id);
+}
+
+function isFreeStudyMaterialsPage(value) {
+  try {
+    const url = new URL(value);
+    return url.hostname === 'awsugmixtli.com' && url.pathname.replace(/\/+$/u, '') === '/certification-challenge';
+  } catch {
+    return false;
+  }
 }

@@ -1,10 +1,19 @@
-import { eventMatchesFilters, parseEventAgendaSearch, serializeEventAgendaSearch } from '../lib/event-agenda-filter.mjs';
+import {
+  eventMatchesFilters,
+  parseEventAgendaSearch,
+  secondaryEventAgendaFilterCount,
+  serializeEventAgendaSearch,
+  shouldOpenEventAgendaSecondaryFilters,
+} from '../lib/event-agenda-filter.mjs';
 import { trackRegistrationClick } from '../lib/event-analytics.mjs';
 import { eventAgendaSummaryText, nextEventAgendaTransition } from '../lib/event-agenda-summary.mjs';
 
 const agenda = document.querySelector('[data-event-list]');
 const empty = document.querySelector('[data-event-empty]');
 const filterFields = document.querySelector('.event-agenda__filters');
+const secondaryDisclosure = document.querySelector('[data-event-secondary-disclosure]');
+const secondaryDisclosureLabel = document.querySelector('[data-event-secondary-label]');
+const mobileDisclosure = window.matchMedia('(max-width: 640px)');
 const controls = {
   from: filterFields?.querySelector('[data-event-from]'),
   to: filterFields?.querySelector('[data-event-to]'),
@@ -51,6 +60,20 @@ if (agenda && empty) {
     }
     if (controls.city?.selectedOptions[0]?.disabled) controls.city.value = '';
   };
+  const syncSecondaryDisclosure = (followViewport = false) => {
+    const active = secondaryEventAgendaFilterCount(currentFilters());
+    if (secondaryDisclosureLabel) {
+      secondaryDisclosureLabel.textContent = active
+        ? `Más filtros (${active} ${active === 1 ? 'activo' : 'activos'})`
+        : 'Más filtros';
+    }
+    if (secondaryDisclosure) {
+      if (active > 0) secondaryDisclosure.open = true;
+      else if (followViewport) {
+        secondaryDisclosure.open = shouldOpenEventAgendaSecondaryFilters(currentFilters(), mobileDisclosure.matches);
+      }
+    }
+  };
   const updateFactSummary = (events, now) => {
     if (!factSummary) return;
     factSummary.textContent = eventAgendaSummaryText(events, now, {
@@ -61,6 +84,7 @@ if (agenda && empty) {
   const readUrl = () => {
     setFilters(parseEventAgendaSearch(location.search, allowed));
     updateCityOptions();
+    syncSecondaryDisclosure(true);
   };
   const writeUrl = (method = 'pushState', keepHash = false) => {
     const query = serializeEventAgendaSearch(location.search, currentFilters());
@@ -125,6 +149,7 @@ if (agenda && empty) {
     if (!card || Date.parse(card.dataset.eventEndsAt) <= Date.now()) return;
     setFilters(emptyFilters);
     updateCityOptions();
+    syncSecondaryDisclosure(true);
     writeUrl('replaceState', true);
     limit = Math.max(limit, cards.indexOf(card) + 1);
     refresh();
@@ -141,6 +166,7 @@ if (agenda && empty) {
     control?.addEventListener('change', () => {
       if (control === controls.country) updateCityOptions();
       limit = 12;
+      syncSecondaryDisclosure();
       writeUrl();
       refresh();
     });
@@ -149,11 +175,13 @@ if (agenda && empty) {
     setFilters(emptyFilters);
     updateCityOptions();
     limit = 12;
+    syncSecondaryDisclosure();
     writeUrl();
     refresh();
   });
   more?.addEventListener('click', () => { limit += 12; refresh(); });
   window.addEventListener('hashchange', revealEventHash);
   window.addEventListener('popstate', () => { limit = 12; readUrl(); refresh(); revealEventHash(); });
+  mobileDisclosure.addEventListener('change', () => syncSecondaryDisclosure(true));
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
 }

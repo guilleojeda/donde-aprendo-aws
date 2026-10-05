@@ -7,7 +7,7 @@ import CollectionNavigation from './CollectionNavigation.astro';
 import CollectionGuide from './CollectionGuide.astro';
 import PageFaq from './PageFaq.astro';
 import { loadSiteCatalog } from '../lib/site-catalog.mjs';
-import { RESOURCE_COLLECTIONS, groupCertificationResources, lookupResourceCollection, resourceCollectionResources } from '../lib/resource-collections.mjs';
+import { RESOURCE_COLLECTIONS, groupCertificationResources, lookupResourceCollection, resourceCollectionResources, resolveResourceCollectionFaq } from '../lib/resource-collections.mjs';
 import type { CatalogEvent, CatalogResource } from '../types/catalog';
 
 interface Collection {
@@ -36,10 +36,18 @@ const allResources = catalog.filter((record): record is CatalogResource => recor
 const events = catalog.filter((record): record is CatalogEvent => record.recordType === 'event');
 const resources = resourceCollectionResources(collection, allResources);
 const resourceGroups = collection.id === 'certificaciones'
-  ? groupCertificationResources(resources).map(({ id, label, description, resources: groupResources }) => ({
-    id, label, description, resourceIds: groupResources.map(({ id }) => id),
-  }))
+  ? groupCertificationResources(resources).map(({ id, label, description, resources: groupResources, filterResources }) => {
+    const resourceIds = groupResources.map(({ id }) => id);
+    const filterResourceIds = filterResources.map(({ id }) => id);
+    const hasDifferentFilterMembership = filterResourceIds.length !== resourceIds.length
+      || filterResourceIds.some((resourceId, index) => resourceId !== resourceIds[index]);
+    return {
+      id, label, description, resourceIds,
+      ...(hasDifferentFilterMembership ? { filterResourceIds } : {}),
+    };
+  })
   : [];
+const faqItems = resolveResourceCollectionFaq(collection, allResources);
 const siblingLinks = RESOURCE_COLLECTIONS.filter((candidate) => candidate.kind === collection.kind)
   .map((candidate) => ({ path: candidate.path, label: candidate.label }));
 const guideLinks = collection.guide.links.map((path) => {
@@ -93,7 +101,7 @@ const canonical = `https://dondeaprendoaws.com${collection.path}`;
     </div>
     <div slot="after-results" class="collection-page__after-results">
       <CollectionGuide guide={collection.guide} links={guideLinks} />
-      {collection.faq && <PageFaq items={collection.faq.items} heading={collection.faq.heading} id={collection.faq.id} />}
+      {collection.faq && <PageFaq items={faqItems} heading={collection.faq.heading} id={collection.faq.id} />}
       <p class="collection-page__catalog-note">
         <a href={parentPath}>{collection.kind === 'content' ? 'Ver todos los recursos' : collection.kind === 'source' ? 'Ver todos los creadores y canales' : 'Ver todas las comunidades'}</a>
       </p>
