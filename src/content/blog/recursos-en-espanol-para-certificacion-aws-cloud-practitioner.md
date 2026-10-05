@@ -1,38 +1,38 @@
 ---
-title: "AWS Cloud Practitioner: recursos en español para preparar la certificación"
-description: "Guía de recursos en español para preparar AWS Certified Cloud Practitioner (CLF-C02): documentación oficial, cursos, comunidades, práctica y datos del examen."
+title: "AWS Cloud Practitioner (CLF-C02): cómo preparar el examen en español"
+description: "Qué estudiar para AWS Certified Cloud Practitioner (CLF-C02): dominios oficiales, cursos, práctica y comunidades en español, costo y opciones para rendir."
 author: "guille-ojeda"
 publishedAt: "2024-01-28"
 publishedTimestamp: "2024-01-28T00:31:55.771Z"
-modifiedTimestamp: "2026-09-29T16:30:27-03:00"
+modifiedTimestamp: "2026-10-05T00:34:04-03:00"
 review:
-  date: "2026-09-29"
-  note: "Examen CLF-C02"
+  date: "2026-10-05"
+  note: "Versión del examen y recursos revisados: CLF-C02."
 cover: "/assets/blog/8d4ecab3b218a57acfd77f30.jpg"
 coverAlt: "Nube delineada rodeada de iconos de reproducción, ubicación y dirección"
 indexOrder: 1
 ogImage: "/assets/blog/8d4ecab3b218a57acfd77f30.jpg"
 related:
-  - title: "Configuración de Service Discovery en Amazon ECS"
-    url: "https://dondeaprendoaws.com/blog/configuracion-de-service-discovery-en-amazon-ecs/"
-    image: "/assets/blog/06c78ff6dbda05d66c1f63e8.jpg"
-    imageAlt: ""
-  - title: "Servicios de AWS para Inteligencia Artificial"
-    url: "https://dondeaprendoaws.com/blog/servicios-de-aws-para-inteligencia-artificial/"
-    image: "/assets/blog/54201ee89ce3b648eb0ec011.jpg"
-    imageAlt: ""
-  - title: "Mejores prácticas AWS para DevOps"
-    url: "https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/"
-    image: "/assets/blog/87b7131b5cdf72f70b5347bd.jpg"
-    imageAlt: ""
+  - title: "Curso AWS con certificado: qué obtienes y cómo elegir"
+    url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-basica/"
+    image: "/assets/blog/35e338eebb5988d204344c86.jpg"
+    imageAlt: "Pirámide de franjas de colores atravesada por un camino en zigzag"
+  - title: "Alertas de costos en AWS: configura AWS Budgets"
+    url: "https://dondeaprendoaws.com/blog/automatizar-alertas-de-costos-aws-en-5-pasos/"
+    image: "/assets/blog/cd540f6b1441905ad2c6859c.webp"
+    imageAlt: "Pantalla sobre un escritorio con gráficos y paneles de colores"
+  - title: "¿Qué base de datos elegir en AWS? RDS, Aurora y DynamoDB"
+    url: "https://dondeaprendoaws.com/blog/aws-bases-de-datos-introduccion-basica/"
+    image: "/assets/blog/7dd6e4771015e24de4a4bc0d.jpg"
+    imageAlt: "Panel dividido en cuatro ilustraciones de bases de datos y otros símbolos"
 ---
 
 
-Preparar AWS Cloud Practitioner resulta más sencillo cuando cada recurso tiene una función: la guía oficial define qué estudiar, un curso te ayuda a entenderlo y las preguntas de práctica muestran qué necesitas repasar.
+La guía oficial del **AWS Certified Cloud Practitioner (CLF-C02)** define qué estudiar; un curso puede ayudarte a entenderlo y las preguntas de práctica muestran qué conviene repasar. A la fecha de esta revisión, AWS sigue publicando CLF-C02 como la versión vigente del examen.
 
-Aquí encontrarás una selección de materiales en español, con especial atención a las comunidades de Latinoamérica. La propuesta es seguir un recorrido principal y acudir a explicaciones complementarias cuando aparezca una duda. Así puedes avanzar sin perderte entre cursos que repiten los mismos temas.
+No necesitas completar un curso ni tener experiencia laboral previa para presentar el examen. AWS recomienda conocimientos y experiencia acordes con los objetivos, pero no establece requisitos previos para obtener sus certificaciones. Aquí encontrarás recursos en español y una forma de combinarlos sin estudiar cada curso ni cada grabación disponibles.
 
-**Para empezar hoy:** descarga la [guía oficial del CLF-C02 en español, en PDF](https://docs.aws.amazon.com/es_es/aws-certification/latest/cloud-practitioner-02/cloud-practitioner-02.pdf), elige un curso o una serie de estudio y reserva tu primera sesión para comprender los beneficios de la nube. Para aprender con la comunidad, tienes las grabaciones del [Cloud Practitioner Challenge de Buenos Aires](https://www.youtube.com/playlist?list=PLMg_LIgq4KWfR3bBVwgayGVuhbDItJzp8) y del [Cloud Practitioner Challenge de Medellín](https://youtube.com/playlist?list=PLhbdvasxz8wwO-b9nlRBYYzY6n5CvSOvj). Puedes seguirlas desde cualquier país.
+**Para empezar hoy:** descarga la [guía oficial del CLF-C02 en español, en PDF](https://docs.aws.amazon.com/es_es/aws-certification/latest/cloud-practitioner-02/cloud-practitioner-02.pdf) y marca los temas que todavía no puedes explicar. Puedes seguir el curso autoguiado oficial o estudiar con las [grabaciones del Cloud Practitioner Challenge de AWS User Group Medellín](https://www.youtube.com/playlist?list=PLhbdvasxz8wwO-b9nlRBYYzY6n5CvSOvj). Si estás comparando cursos y certificados de finalización, consulta también esta [guía para elegir un curso de AWS](https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-basica/).
 
 ## Qué necesitas aprender para Cloud Practitioner
 
@@ -85,17 +85,19 @@ La [primera sesión del curso de Cloud Practitioner de Querétaro](https://www.y
 
 ### AWS Cloud Practitioner Essentials — AWS Skill Builder
 
-**Formato:** curso digital de AWS. **Acceso:** gratuito; requiere una cuenta de Skill Builder y está disponible en español latinoamericano y de España.
+**Formato:** curso digital autoguiado de AWS. **Acceso:** gratuito con una cuenta de Skill Builder; AWS publica versiones en español latinoamericano y de España.
 
-[AWS Cloud Practitioner Essentials](https://skillbuilder.aws/learn/94T2BEN85A/aws-cloud-practitioner-essentials/8D79F3AVR7) es otra opción para organizar el estudio desde los fundamentos. Su recorrido incluye cómputo, infraestructura global, redes, almacenamiento, bases de datos, seguridad, monitoreo y precios.
+[AWS Cloud Practitioner Essentials](https://aws.amazon.com/es/training/course-descriptions/cloud-practitioner-essentials/) ofrece una introducción a los conceptos y servicios generales de AWS, seguridad, arquitectura, precios y soporte. La ficha oficial lo presenta como una opción gratuita que ayuda a prepararse para el examen.
 
-Si el enlace abre la versión en inglés, utiliza el selector de idiomas de la ficha. Elige este curso como base si prefieres avanzar dentro de una plataforma de formación; luego puedes complementar los temas difíciles con las sesiones de la comunidad. No hace falta terminar ambos recorridos antes de empezar a practicar.
+En Skill Builder, elige la versión en español que te resulte más cómoda. Este curso es una base posible, no un requisito para rendir ni una credencial de AWS Certification al completarlo.
 
-### Una experiencia de preparación desde Colombia — Andrés Guecha
+### Grupo de estudio “Transformando en la nube” — AWS User Group Guatemala
 
-En [Cómo obtener tu certificación de AWS Cloud Practitioner y no morir en el intento](https://dev.to/andresguecha/arquitectura-medallion-para-procesamiento-de-datos-736), Andrés Guecha cuenta su experiencia después de participar en AWS re/Start y explica cómo organizó la preparación con la guía y las preguntas oficiales.
+La [sesión inicial del grupo de estudio](https://www.youtube.com/watch?v=un88skd68eA) presenta la ruta y los fundamentos de Cloud Practitioner. El catálogo también reúne sesiones sobre migración, economía de AWS, seguridad, servicios y redes. Son grabaciones de la comunidad: contrasta los nombres, el alcance y las condiciones actuales con la guía oficial antes de tomar apuntes como referencia definitiva.
 
-Es una lectura breve para el momento en que empiezas a buscar más y más material porque todavía no te sientes preparado. Úsala como experiencia personal y como invitación a evaluar lo aprendido; el tiempo y el recorrido de otra persona no determinan los tuyos.
+### Guía comunitaria de preparación — Roxs
+
+La [guía de estudio de Roxs para CLF-C02](https://github.com/roxsross/aws-cloud-practitioner-complete-guide) organiza conceptos, dominios y un plan de repaso. El repositorio indica que se actualizó en septiembre de 2025; úsalo como apoyo y confirma cualquier dato cambiante en la guía oficial.
 
 ## Sesiones de la comunidad para resolver dudas concretas
 
@@ -127,7 +129,7 @@ El nivel que necesitas para CLF-C02 es introductorio: identificar los servicios 
 
 La [sesión de almacenamiento de Buenos Aires](https://www.youtube.com/watch?v=GqYKhnqDDeI) reúne EBS, EFS y S3. Úsala para distinguir almacenamiento en bloques, archivos y objetos. Anota un caso de uso para cada categoría: asociar el servicio con una necesidad ayuda a recordarlo.
 
-La [sesión de bases de datos del mismo challenge](https://www.youtube.com/watch?v=UqvVg1X4WIg) complementa ese repaso. Al contrastarla con la guía actual, comprueba que puedas identificar las diferencias básicas entre bases relacionales, NoSQL y servicios de análisis, y reconocer cuándo AWS administra parte de la operación.
+La [sesión de bases de datos del mismo challenge](https://www.youtube.com/watch?v=UqvVg1X4WIg) complementa ese repaso. Al contrastarla con la guía actual, comprueba que puedas identificar las diferencias básicas entre bases relacionales, NoSQL y servicios de análisis, y reconocer cuándo AWS administra parte de la operación. Para profundizar después, consulta esta [introducción a RDS, Aurora y DynamoDB](/blog/aws-bases-de-datos-introduccion-basica/).
 
 ### Redes e infraestructura
 
@@ -141,7 +143,7 @@ La [sesión de monitoreo y administración de costos de Medellín](https://www.y
 
 Si prefieres leer, Sheyla Leacock explica CloudWatch, X-Ray y CloudTrail en [Observabilidad en la nube de AWS](https://dev.to/aws-builders/observabilidad-en-la-nube-de-aws-explorando-cloudwatch-x-ray-y-cloudtrail-5d9m). El artículo está en español y ayuda a situar el monitoreo, el rastreo de solicitudes y la auditoría; la charla adicional que enlaza está en inglés.
 
-Practica con necesidades distintas: conocer el comportamiento de una aplicación, investigar acciones realizadas en una cuenta, revisar gastos y recibir alertas de presupuesto. Para completar el bloque, estudia también la función de AWS Pricing Calculator, las modalidades de compra y las opciones de soporte indicadas en el [dominio de facturación, precios y soporte](https://docs.aws.amazon.com/es_es/aws-certification/latest/cloud-practitioner-02/cloud-practitioner-02-domain4.html).
+Practica con necesidades distintas: conocer el comportamiento de una aplicación, investigar acciones realizadas en una cuenta, revisar gastos y recibir alertas de presupuesto. Para entender cómo configurar una alerta con AWS Budgets, puedes seguir esta [guía de presupuestos y notificaciones](/blog/automatizar-alertas-de-costos-aws-en-5-pasos/). Para completar el dominio, estudia también la función de AWS Pricing Calculator, las modalidades de compra y las opciones de soporte indicadas en el [dominio de facturación, precios y soporte](https://docs.aws.amazon.com/es_es/aws-certification/latest/cloud-practitioner-02/cloud-practitioner-02-domain4.html).
 
 Estas sesiones son complementos temáticos. Usa la guía oficial para comprobar los objetivos que todavía te falten, incluidos los servicios que no aparecen en esta selección.
 
@@ -160,6 +162,8 @@ Dedica una parte del estudio a explicar lo aprendido sin consultar apuntes. Regi
 ### 3. Practica preguntas y revisa las explicaciones
 
 El [área oficial de preparación para Cloud Practitioner en Skill Builder](https://skillbuilder.aws/category/exam-prep/cloud-practitioner-foundational-CLF-C02) reúne actividades de preparación y evaluación. Busca la versión en español y comprueba el acceso de cada actividad: Skill Builder combina recursos gratuitos con otros que requieren suscripción.
+
+Como práctica independiente en español latinoamericano, [CloudPrep: AWS en práctica](https://github.com/thomassr30/cloudprep-clf-es) presenta preguntas originales con explicaciones y referencias. Su autor declara que no es material de AWS ni incluye preguntas filtradas; el banco se revisó el 19 de septiembre de 2026. Contrasta las respuestas con las fuentes oficiales y no conviertas el porcentaje de un simulacro en una predicción de la puntuación escalada de AWS.
 
 Como complemento de la comunidad, Joan Amengual presenta [diez preguntas tipo examen CLF-C02 con explicaciones en español](https://www.youtube.com/watch?v=IydkkZO-feI). Pausa antes de conocer la respuesta, elige una opción y anota tu razonamiento; después compáralo con la explicación. Es un ejercicio de práctica del creador, separado del material oficial de AWS.
 
@@ -185,9 +189,11 @@ La práctica puede ayudarte a reconocer lo que estudias, pero no necesitas const
 
 Busca un grupo cuya ubicación, modalidad y horarios te permitan participar:
 
-- **Si eres estudiante**, explora los [Student Builder Groups del directorio](https://dondeaprendoaws.com/comunidades/?format=Student+Builder+Group). Filtra por tu país y busca tu universidad o una institución cercana. Consulta los requisitos de participación de cada grupo.
-- **Si buscas una comunidad abierta de usuarios**, revisa los [AWS User Groups](https://dondeaprendoaws.com/comunidades/?format=User+Group) de tu ciudad o región.
+- **Si eres estudiante**, explora los [Student Builder Groups del directorio](https://dondeaprendoaws.com/comunidades/estudiantes/). Busca tu universidad o una institución cercana y consulta los requisitos de participación de cada grupo.
+- **Si buscas una comunidad abierta de usuarios**, revisa los [AWS User Groups](https://dondeaprendoaws.com/comunidades/user-groups/) de tu ciudad o región.
 - **Si prefieres estudiar a distancia**, consulta la [agenda de eventos](https://dondeaprendoaws.com/eventos/) y filtra por modalidad virtual. Comprueba el idioma, la zona horaria y las condiciones de inscripción.
+
+También puedes ir directamente a comunidades que publican recursos para estudiar AWS: el [AWS User Group Buenos Aires](https://www.meetup.com/aws-user-group-buenos-aires/), el [AWS User Group Córdoba](https://www.meetup.com/aws-user-group-cordoba-argentina/) y el [AWS User Group Medellín](https://www.meetup.com/awsugmed/). Para grabaciones, visita los canales de YouTube de [AWS UG Buenos Aires](https://www.youtube.com/@awsugbsas), [AWS UG Medellín](https://www.youtube.com/@awsugmed) y [AWS User Group Guatemala](https://www.youtube.com/@awsugguatemala). Revisa en cada comunidad las próximas reuniones, el idioma y las condiciones para participar.
 
 Lleva una duda concreta a esas conversaciones. “Entiendo que RDS administra parte de la base de datos, pero no sé qué responsabilidades conserva el cliente” da a otra persona un punto de partida para ayudarte. Puedes compartir después el recurso que te aclaró la duda, con un enlace al autor original.
 
@@ -199,17 +205,19 @@ Según la [ficha oficial de AWS Certified Cloud Practitioner](https://aws.amazon
 |---|---|
 | Versión del examen | CLF-C02 |
 | Duración | 90 minutos |
-| Preguntas | 65, de opción única o respuesta múltiple |
+| Preguntas | 65: 50 cuentan para el puntaje y 15 no tienen puntaje; opción única o respuesta múltiple |
 | Idioma | Disponible en español de Latinoamérica y de España |
 | Precio base | 100 USD por intento; pueden aplicarse impuestos |
 | Modalidad | Centro Pearson VUE o supervisión en línea |
 | Vigencia de la certificación | 3 años |
 
-La calificación mínima es **700 en una escala de 100 a 1000**. No equivale a una regla de “70% de respuestas correctas”: AWS utiliza una puntuación escalada. El sistema de calificación está explicado en la [guía del CLF-C02](https://docs.aws.amazon.com/es_es/aws-certification/latest/cloud-practitioner-02/cloud-practitioner-02.html).
+La calificación mínima es **700 en una escala de 100 a 1000**. No equivale a una regla de “70% de respuestas correctas”: AWS utiliza una puntuación escalada. La guía explica el sistema de calificación y aclara que solo necesitas aprobar el puntaje total, no cada dominio por separado.
+
+Aunque AWS ofrece supervisión en línea, las citas disponibles dependen del idioma y el horario. La página de inscripción publica actualmente franjas específicas para Español (América Latina); revisa las opciones en Pearson VUE antes de pagar, sobre todo si quieres rendir en español de España.
 
 Estudiar con materiales gratuitos no incluye automáticamente el pago del examen. Comprueba los [precios y las condiciones de AWS](https://aws.amazon.com/es/certification/policies/before-testing/) al reservar.
 
-Si ya tienes la certificación, revisa las [opciones oficiales de recertificación](https://aws.amazon.com/es/certification/recertification/). Entre ellas está AWS Cloud Quest: Recertify Cloud Practitioner, una opción gratuita disponible cuando a la credencial vigente le quedan seis meses o menos. Comprueba los requisitos de la vía que elijas antes de que venza tu certificación.
+La certificación tiene una vigencia de **tres años**. Si ya la tienes, consulta las [opciones oficiales vigentes de renovación y mantenimiento](https://aws.amazon.com/certification/recertification/) y sus requisitos antes de que venza.
 
 ## Tu próximo paso
 
