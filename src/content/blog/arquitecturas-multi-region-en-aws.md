@@ -4,7 +4,7 @@ description: "Compara Multi-AZ y Multi-Region, define RTO y RPO, y evalúa repli
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T00:52:38.092Z"
-modifiedTimestamp: "2026-10-05T00:15:04-03:00"
+modifiedTimestamp: "2026-10-05T00:26:22-03:00"
 review:
   date: "2026-10-05"
 cover: "/assets/blog/bafde793116d5b5e38a659da.jpg"
@@ -19,7 +19,7 @@ related:
 
 Una arquitectura multi-región en AWS tiene sentido cuando una aplicación debe recuperarse de una interrupción regional, sus objetivos de recuperación no se alcanzan en una sola región o necesita atender usuarios desde varias ubicaciones. Si el riesgo que quieres cubrir es la falla de una zona de disponibilidad, una arquitectura Multi-AZ puede ser suficiente y más simple de operar.
 
-Tener recursos en dos regiones no garantiza por sí solo continuidad, baja latencia, cero pérdida de datos ni cumplimiento normativo. Debes duplicar y probar la aplicación, definir cómo se replican sus datos y decidir qué hacer con el tráfico y las escrituras durante una interrupción. La guía de [fundamentos multi-región de AWS](https://docs.aws.amazon.com/prescriptive-guidance/latest/aws-multi-region-fundamentals/introduction.html) recomienda evaluar primero si una región con varias zonas puede cubrir las necesidades de la carga.
+Tener recursos en dos regiones no garantiza por sí solo continuidad, baja latencia, cero pérdida de datos ni cumplimiento normativo. Debes duplicar y probar la aplicación, definir cómo se replican sus datos y decidir qué hacer con el tráfico y las escrituras durante una interrupción. La guía de [AWS sobre resiliencia en una sola región](https://docs.aws.amazon.com/prescriptive-guidance/latest/aws-multi-region-fundamentals/single-region-resilience.html) recomienda evaluar primero si una región con varias zonas puede cubrir las necesidades de la carga.
 
 ## Multi-AZ y multi-región resuelven fallas distintas
 
