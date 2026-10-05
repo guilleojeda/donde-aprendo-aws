@@ -1,246 +1,169 @@
 ---
-title: "Amazon DynamoDB: Guía Básica"
-description: "Una guía rápida y clara sobre Amazon DynamoDB, un servicio de base de datos de AWS ideal para aplicaciones que requieren rapidez y flexibilidad. Aprende todo sobre sus características, casos de uso, conceptos básicos, cómo empezar, y mejores prácticas."
+title: "Amazon DynamoDB para principiantes: claves y consultas"
+description: "Aprendé qué es DynamoDB, cómo elegir claves e índices y cuándo usar Query o Scan. Practicá con AWS CLI y DynamoDB Local sin crear recursos en AWS."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T02:31:39.789Z"
+modifiedTimestamp: "2026-10-05T00:15:07-03:00"
 cover: "/assets/blog/a45735d6d45d12223256fbc4.png"
 coverAlt: "Silueta de un animal corriendo junto a hexágonos sobre una cuadrícula digital"
 ogImage: "/assets/blog/a45735d6d45d12223256fbc4.png"
-related:
-  - title: "AWS SMS vs AWS MGN: Comparación 2024"
-    url: "https://dondeaprendoaws.com/blog/aws-sms-vs-aws-mgn-comparacion-2024/"
-    image: "/assets/blog/bd5f26b73ef9b33625d04b90.webp"
-    imageAlt: ""
-  - title: "Integración SIEM-AWS: 7 Consejos Prácticos [2024]"
-    url: "https://dondeaprendoaws.com/blog/integracion-siem-aws-7-consejos-practicos-2024/"
-    image: "/assets/blog/0f354446d0c7715526e96a32.jpg"
-    imageAlt: ""
-  - title: "Comprendiendo AWS Step Functions"
-    url: "https://dondeaprendoaws.com/blog/comprendiendo-aws-step-functions/"
-    image: "/assets/blog/5cccd042a4e55b019d2587c8.png"
-    imageAlt: ""
+related: []
 ---
 
-<p>Si buscas una guía rápida y clara sobre <strong>Amazon DynamoDB</strong>, estás en el lugar correcto. Este servicio de base de datos de AWS es ideal para aplicaciones que necesitan rapidez y flexibilidad, permitiéndote manejar datos a gran escala sin preocuparte por el mantenimiento técnico. Aquí te resumimos todo lo que necesitas saber:</p>
+Amazon DynamoDB es una base de datos NoSQL administrada por AWS. Para usarla bien, primero hay que pensar qué consultas hará la aplicación y luego elegir las claves que las resuelvan. En esta guía vas a modelar una tabla pequeña de pedidos, consultarla y probar sus operaciones en una instancia local.
 
+## Qué es DynamoDB y cuándo conviene
 
-<ul>
-<li><strong>¿Qué es Amazon DynamoDB?</strong> Un servicio de base de datos no relacional que gestiona tus datos con alta eficiencia.</li>
-<li><strong>Características clave:</strong> Manejo por parte de AWS, alta disponibilidad, escalabilidad automática, seguridad de los datos y pago por uso.</li>
-<li><strong>Casos de uso:</strong> Ideal para aplicaciones móviles, web, juegos, y más.</li>
-<li><strong>Conceptos básicos:</strong> Tablas para almacenar datos, elementos como registros individuales, y atributos que serían las características de estos registros.</li>
-<li><strong>Cómo empezar:</strong> Configura tu cuenta AWS, crea tablas, y realiza operaciones CRUD (crear, leer, actualizar, borrar) con facilidad.</li>
-<li><strong>Mejores prácticas:</strong> Diseña tus tablas eficientemente, optimiza costos y mejora el rendimiento de consultas.</li>
-</ul>
+DynamoDB almacena datos en tablas; cada tabla reúne elementos (ítems) compuestos por atributos. Es una base de datos NoSQL de clave-valor y documentos: los atributos de dos ítems pueden variar, pero la clave primaria de la tabla debe estar definida. AWS administra la infraestructura del servicio; el diseño de los datos y las consultas sigue siendo responsabilidad de quien construye la aplicación. La [documentación de componentes de DynamoDB](https://docs.aws.amazon.com/es_es/amazondynamodb/latest/developerguide/HowItWorks.CoreComponents.html) explica estas piezas y cómo se identifican los ítems.
 
+Puede ser una buena opción cuando conocés las consultas principales de antemano y necesitás obtener ítems por su clave con rendimiento predecible. Si la aplicación depende de joins, filtros arbitrarios o reportes que cambian continuamente, una base de datos relacional puede resultar más natural. NoSQL no significa que no haya que diseñar un esquema: significa que conviene diseñarlo alrededor de los accesos que necesitás. AWS explica ese proceso en su guía para [modelar datos y patrones de acceso](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/data-modeling.html).
 
-<p>Amazon DynamoDB es perfecto para proyectos que requieren gestionar grandes volúmenes de datos de forma rápida y eficiente. Si perteneces a una empresa que necesita escalabilidad y rendimiento, DynamoDB podría ser la solución que buscas.</p>
+Si buscás más material en español, el [directorio de creadores, canales, blogs y podcasts](/creadores/) permite explorar fuentes por tema, incluidos Datos y Serverless.
 
+## Clave de partición y clave de ordenación
 
-<h3 id="caracter%C3%ADsticas-clave-de-dynamodb" tabindex="-1">Características clave de DynamoDB</h3>
+Una tabla puede usar una clave primaria simple o una compuesta:
 
+- **Clave de partición** (*partition key*): identifica un grupo de ítems y ayuda a distribuirlos. Elegí un atributo con valores diversos y evitá concentrar todo el tráfico en un único valor.
+- **Clave de ordenación** (*sort key*, opcional): ordena los ítems dentro del grupo y permite consultar un rango o un prefijo de valores.
 
-<ul>
-<li>AWS lo maneja por ti</li>
-<li>Siempre disponible y seguro</li>
-<li>Se ajusta automáticamente para manejar más o menos datos</li>
-<li>No necesitas decidir cómo organizar tus datos desde el inicio</li>
-<li>Tus datos están seguros y protegidos</li>
-<li>Solo pagas por lo que usas</li>
-</ul>
+Tomemos una aplicación que necesita listar los pedidos de cada cliente y los pedidos de un mes. Podemos definir `clienteId` como clave de partición y `fechaPedido` como clave de ordenación. El valor de `fechaPedido` combina una fecha ISO 8601 en UTC con el identificador del pedido, para que dos pedidos del mismo cliente no choquen si tienen la misma hora.
 
+| clienteId (partición) | fechaPedido (ordenación) | estado | total |
+| --- | --- | --- | ---: |
+| `cliente-42` | `2026-10-03T14:30:00Z#ped-9001` | enviado | 79.90 |
+| `cliente-42` | `2026-10-04T18:30:00Z#ped-9002` | preparando | 24.00 |
+| `cliente-77` | `2026-10-04T10:00:00Z#ped-9003` | enviado | 18.00 |
 
-<h3 id="casos-de-uso-comunes" tabindex="-1">Casos de uso comunes</h3>
+La clave primaria completa es la combinación de `clienteId` y `fechaPedido`. Los dos primeros pedidos comparten la clave de partición y se distinguen por su clave de ordenación. Al guardar las fechas con el mismo formato UTC, los valores se ordenan cronológicamente como texto.
 
+Antes de crear una tabla para producción, anotá cada consulta que la aplicación necesita. Si también necesitás encontrar pedidos por `estado` entre todos los clientes, la tabla del ejemplo no alcanza: podrías crear un índice secundario global (GSI) cuya clave de partición sea `estado` y cuya clave de ordenación sea `fechaPedido`. Un índice mantiene otra vista de los datos, por lo que agrega almacenamiento y trabajo de escritura. No lo agregues sin un patrón de acceso que lo necesite.
 
-<ul>
-<li>Apps para celulares y páginas web</li>
-<li>Manejar datos al instante</li>
-<li>Guardar información de usuarios</li>
-<li>Juegos y apps sociales</li>
-<li>Campañas de publicidad y marketing</li>
-</ul>
+Para profundizar en otro patrón, [Brenda Galicia explica el diseño de una sola tabla en DynamoDB](https://dev.to/bardengalicia/simplicidad-y-eficiencia-desmitificando-el-diseno-de-una-sola-tabla-en-amazon-dynamodb-8oc). Es una opción que podés evaluar según las consultas de tu aplicación; no es un requisito para todas las tablas.
 
+## Query y Scan: consultar por clave o recorrer la tabla
 
-<h2 id="conceptos-b%C3%A1sicos-de-dynamodb" tabindex="-1">Conceptos básicos de DynamoDB</h2>
+`GetItem` recupera un ítem cuando conocés todos los valores de su clave primaria. `Query` recupera ítems que comparten un valor de clave de partición y, si hay clave de ordenación, admite una condición sobre ella. Para el ejemplo, `Query` puede traer los pedidos de `cliente-42` cuyo valor de `fechaPedido` empieza con `2026-10-`.
 
+`Scan` recorre todos los ítems de una tabla o un índice. Puede ser útil para una comprobación ocasional sobre una tabla chica, pero no sustituye una consulta diseñada para el uso normal de la aplicación. Un filtro de `Query` o `Scan` se aplica después de leer la página: elimina elementos de la respuesta, pero no reduce la capacidad consumida por los ítems evaluados. Una operación `Query` o `Scan` devuelve hasta 1 MB y puede requerir paginación. Consultá la referencia de AWS sobre [Query](https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_Query.html) y [Scan](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Scan.html) antes de diseñar consultas frecuentes.
 
-<p>Vamos a simplificar algunos términos clave de DynamoDB para que sean más fáciles de entender.</p>
+Los índices secundarios resuelven otros patrones de consulta. Un GSI puede tener una clave de partición y una de ordenación distintas de las de la tabla. Un índice secundario local (LSI) comparte la clave de partición de la tabla y cambia la de ordenación; solo podés definirlo al crear la tabla. En el ejemplo, `estado` tiene pocos valores posibles y un GSI con esa clave puede concentrar lecturas y escrituras en pocos valores de clave. El modelo es didáctico: antes de llevarlo a producción, revisá la distribución de lecturas y escrituras y elegí una clave acorde a la carga.
 
+| Lectura | Consistencia fuerte disponible |
+| --- | --- |
+| Tabla | Sí, si la solicitás; por defecto es eventual. |
+| LSI | Sí, si la solicitás. |
+| GSI | No; solo admite lectura eventual. |
 
-<h3 id="tablas%2C-elementos-y-atributos" tabindex="-1">Tablas, elementos y atributos</h3>
+La [guía de índices secundarios](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/SecondaryIndexes.html) detalla además su capacidad y sus atributos proyectados. Las tablas globales actuales tienen dos modos de consistencia: MREC, con replicación eventual y predeterminado, y MRSC, con consistencia fuerte entre regiones compatibles y mayor latencia de escritura. MRSC no admite TTL ni LSI; revisá la [guía vigente de tablas globales](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/V2globaltables_HowItWorks.html) antes de elegir una arquitectura multirregión.
 
+## Capacidad, límites y costos
 
-<p>Piensa en las tablas como grandes cajas donde guardas tus cosas (datos). Dentro de estas cajas, tienes cosas individuales llamadas elementos, y cada cosa tiene características específicas, conocidas como atributos.</p>
+DynamoDB ofrece dos modos de capacidad de lectura y escritura:
 
+| Modo | Cómo se cobra | Cuándo evaluarlo |
+| --- | --- | --- |
+| Bajo demanda (*on-demand*) | Por las unidades de solicitud de lectura y escritura utilizadas. | Cuando el tráfico es nuevo o difícil de prever. |
+| Aprovisionado (*provisioned*) | Por la capacidad de lectura y escritura configurada, por hora. El autoescalado puede ajustar esa capacidad. | Cuando el tráfico es estable y se puede estimar. |
 
-<p>Por dar un ejemplo, si tienes una caja llamada 'usuarios', cada elemento sería un usuario diferente, y los atributos serían detalles como <code class="inline-code">id</code>, <code class="inline-code">nombre</code>, <code class="inline-code">apellido</code>, <code class="inline-code">edad</code>, etc.</p>
+Ningún modo garantiza por sí solo el menor costo. El total también depende del tamaño y la frecuencia de las lecturas y escrituras, los índices, el almacenamiento, la clase de tabla, la región, los respaldos y la replicación. Compará la carga real con la [página de precios de DynamoDB](https://aws.amazon.com/dynamodb/pricing/) y sus condiciones actuales; AWS resume cuándo usar cada modo en su guía de [capacidad bajo demanda y aprovisionada](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/capacity-mode.html).
 
+AWS también ofrece Database Savings Plans para DynamoDB. La página de precios publica descuentos de hasta 18% para throughput bajo demanda y hasta 12% para throughput aprovisionado, sujetos a un compromiso de uso elegible medido en USD por hora durante un año. El porcentaje máximo no es un descuento garantizado sobre toda la factura: el uso que supera el compromiso no recibe el descuento del plan y se factura según las tarifas del modo de capacidad elegido. El descuento de Database Savings Plans tampoco se combina con capacidad reservada de DynamoDB para el mismo uso. Revisá las [condiciones y tarifas de Database Savings Plans](https://aws.amazon.com/savingsplans/database-pricing/) y la [guía sobre compromisos y descuentos en AWS](/blog/ahorro-de-costos-en-aws-con-instancias-reservadas-y-savings-plans/) antes de estimar un ahorro.
 
-<h3 id="claves-primarias-y-secundarias" tabindex="-1">Claves primarias y secundarias</h3>
+Cada ítem de DynamoDB admite hasta **400 KB**, incluidos los nombres y valores de sus atributos. Para imágenes u otros archivos grandes, guardá el objeto en Amazon S3 y conservá en el ítem una referencia; AWS describe este [patrón para datos grandes](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-use-s3-too.html). El límite completo está en la lista de [cuotas y restricciones de DynamoDB](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Constraints.html).
 
+### TTL y respaldos
 
-<p>Las claves primarias son como etiquetas únicas para cada cosa en tu caja, asegurándose de que no haya dos cosas iguales. Pueden ser simples (una etiqueta) o compuestas (dos etiquetas).</p>
+Time to Live (TTL) sirve para marcar ítems que ya no deberían conservarse, como sesiones o datos temporales. El atributo de vencimiento debe ser un número con una fecha Unix en segundos. DynamoDB borra el ítem en segundo plano —normalmente dentro de unos días—, así que un elemento vencido puede seguir apareciendo en lecturas mientras espera ser eliminado. Si la aplicación debe dejar de usarlo en el instante del vencimiento, comprobá esa fecha en la lectura; no dependas de TTL como borrado inmediato. Consultá la documentación de [TTL y los ítems vencidos](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/TTL.html).
 
+TTL no es un respaldo. La recuperación a un momento dado (PITR) mantiene respaldos continuos cuando se habilita, con una ventana configurable de hasta 35 días. Una restauración crea una tabla nueva. Revisá [PITR](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Point-in-time-recovery.html), [cómo se restaura una tabla](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-pitr-recovery-table-restore.html) y sus cargos antes de depender de esta protección.
 
-<p>Las claves secundarias son como índices extras que te ayudan a encontrar cosas rápidamente basándote en otras características, no solo en la etiqueta principal.</p>
+## Practicá con AWS CLI sin crear recursos en AWS
 
+Podés probar el modelo anterior con DynamoDB Local. El ejercicio usa Docker, AWS CLI, credenciales ficticias y un endpoint en tu máquina; cada comando de AWS CLI apunta expresamente a `localhost`. No quites `--endpoint-url` ni reemplaces las credenciales locales en este ejemplo.
 
-<p>Es crucial pensar bien en estas claves desde el principio para hacer más fácil encontrar y organizar tus cosas después.</p>
+Iniciá el contenedor local:
 
+```bash
+docker run --rm -d --name dynamodb-local-tutorial \
+  -p 127.0.0.1:8000:8000 amazon/dynamodb-local
+```
 
-<h3 id="tipos-de-datos-compatibles" tabindex="-1">Tipos de datos compatibles</h3>
+En esa misma terminal, configurá valores locales ficticios para AWS CLI:
 
+```bash
+export AWS_ACCESS_KEY_ID=local
+export AWS_SECRET_ACCESS_KEY=local
+export AWS_DEFAULT_REGION=us-east-1
+```
 
-<p>DynamoDB puede manejar diferentes tipos de datos, desde textos y números hasta listas y documentos complejos (como un mini archivo dentro de otro).</p>
+Creá la tabla. `PAY_PER_REQUEST` define el modo de capacidad de la tabla local; el endpoint mantiene las llamadas en DynamoDB Local.
 
-
-<p>Esto significa que puedes guardar casi cualquier cosa, desde simples números hasta documentos completos con mucha información. También puedes guardar conjuntos de cosas, como una lista de amigos, o incluso archivos como imágenes.</p>
-
-
-<p>Esta variedad te permite ser muy flexible al decidir cómo quieres organizar y guardar tus datos para diferentes necesidades.</p>
-
-
-<h2 id="empezando-con-dynamodb" tabindex="-1">Empezando con DynamoDB</h2>
-
-
-<p>Esta parte te guía sobre cómo poner en marcha DynamoDB y hacer operaciones básicas como crear, leer, actualizar y borrar datos (CRUD).</p>
-
-
-<h3 id="configuraci%C3%B3n-inicial-de-dynamodb" tabindex="-1">Configuración inicial de DynamoDB</h3>
-
-
-<ul>
-<li>Primero, necesitas una cuenta de AWS y crear un usuario IAM con los permisos necesarios para usar DynamoDB.</li>
-<li>Después, instala y configura la AWS CLI en tu computadora. Esto te permite manejar DynamoDB usando comandos.</li>
-<li>También es buena idea instalar el AWS SDK para el lenguaje de programación que prefieras (como Python, Java o JavaScript). Esto hace más fácil trabajar con DynamoDB desde tus aplicaciones.</li>
-</ul>
-
-
-<h3 id="creaci%C3%B3n-de-tablas-y-carga-de-datos" tabindex="-1">Creación de tablas y carga de datos</h3>
-
-
-<ul>
-<li>Puedes usar la AWS Management Console o la AWS CLI para crear una tabla en DynamoDB. Debes definir una clave principal y, si quieres, algunos índices secundarios.</li>
-<li>La clave principal es única para cada elemento en tu tabla, y los índices secundarios te ayudan a hacer búsquedas eficientes por otros atributos.</li>
-<li>Para meter datos en tu tabla, puedes usar el comando <code class="inline-code">PutItem</code> para añadir elementos uno por uno, o <code class="inline-code">BatchWriteItem</code> para añadir varios a la vez.</li>
-</ul>
-
-
-<h3 id="lectura-y-manipulaci%C3%B3n-de-datos" tabindex="-1">Lectura y manipulación de datos</h3>
-
-
-<ul>
-<li>Usa <code class="inline-code">GetItem</code> para leer un elemento específico con su clave principal.</li>
-<li>Para leer varios elementos, <code class="inline-code">Query</code> es útil si tienes el valor de una clave principal o de un índice secundario.</li>
-<li><code class="inline-code">Scan</code> te permite ver todos los elementos de una tabla, aunque no es tan rápido como <code class="inline-code">Query</code>.</li>
-<li>Si necesitas cambiar o quitar elementos, puedes usar <code class="inline-code">UpdateItem</code> y <code class="inline-code">DeleteItem</code>, respectivamente.</li>
-</ul>
-
-
-<h2 id="mejores-pr%C3%A1cticas-con-dynamodb" tabindex="-1">Mejores prácticas con DynamoDB</h2>
-
-
-<p>Esta sección te dará consejos para hacer tus tablas más eficientes, ahorrar dinero y mejorar el rendimiento.</p>
-
-
-<h3 id="dise%C3%B1o-eficiente-de-tablas" tabindex="-1">Diseño eficiente de tablas</h3>
-
-
-<ul>
-<li>Escoge bien tu clave primaria</li>
-<li>Añade índices secundarios si los necesitas</li>
-<li>Distribuye los datos de manera uniforme</li>
-</ul>
-
-
-<p>Cuando creas tus tablas en DynamoDB, es crucial seleccionar una clave primaria que te permita acceder a tus datos rápidamente para lo que necesites hacer.</p>
-
-
-<p>Si necesitas hacer búsquedas por otros atributos, añadir índices secundarios puede ser una gran ayuda. Esto hace que ciertas búsquedas sean más rápidas.</p>
-
-
-<p>También es importante que tus datos estén repartidos de manera uniforme para evitar sobrecargas en partes específicas de tu base de datos. Esto se consigue con una clave primaria que tenga muchos valores únicos.</p>
-
-
-<h3 id="estrategias-para-optimizar-costos" tabindex="-1">Estrategias para optimizar costos</h3>
-
-
-<ul>
-<li>Calcula bien cuánta capacidad necesitas</li>
-<li>Activa el escalado automático</li>
-<li>Usa TTL para eliminar datos viejos</li>
-<li>Comprime los datos grandes</li>
-</ul>
-
-
-<p>Para no gastar de más, calcula bien cuánta capacidad de lectura y escritura vas a usar y ajusta tus necesidades. El escalado automático puede ayudarte a ajustar la capacidad según lo que necesites en cada momento.</p>
-
-
-<p>Configurar TTL en tus datos para que se borren solos después de un tiempo puede ahorrarte dinero en almacenar datos que ya no necesitas.</p>
-
-
-<p>Comprimir datos grandes también puede ayudarte a usar menos capacidad y, por lo tanto, a ahorrar.</p>
-
-
-<h3 id="optimizaci%C3%B3n-de-consultas" tabindex="-1">Optimización de consultas</h3>
-
-
-<ul>
-<li>Divide los resultados grandes en partes</li>
-<li>Haz consultas en paralelo con PartiQL</li>
-<li>Considera usar DynamoDB Accelerator (DAX)</li>
-</ul>
-
-
-<p>Si tus consultas devuelven muchos datos, es mejor dividir los resultados para no usar toda tu capacidad de una vez.</p>
-
-
-<p>Para consultas complejas, puedes hacerlas en paralelo con PartiQL. Esto ayuda a que las respuestas lleguen más rápido distribuyendo el trabajo.</p>
-
-
-<p>Finalmente, DAX puede actuar como una memoria caché para tus consultas, reduciendo el tiempo de espera y mejorando el rendimiento general.</p>
-
-
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
-
-
-<h3 id="%C2%BFqu%C3%A9-tipo-de-base-de-datos-es-amazon-dynamodb%3F" tabindex="-1">¿Qué tipo de base de datos es Amazon DynamoDB?</h3>
-
-
-<p>Amazon DynamoDB es una base de datos que no sigue un esquema fijo y te permite guardar y buscar información de manera muy flexible. Es perfecta para aplicaciones que necesitan manejar mucha información rápidamente y sin problemas de espacio.</p>
-
-
-<h3 id="%C2%BFcu%C3%A1ndo-usar-dynamodb%3F" tabindex="-1">¿Cuándo usar DynamoDB?</h3>
-
-
-<p>Es ideal para proyectos que:</p>
-
-
-<ul>
-<li>Necesitan trabajar muy rápido con los datos.</li>
-<li>Crecen mucho y necesitan ajustarse fácilmente a más usuarios o información.</li>
-<li>Guardan datos que cambian mucho o no siguen un patrón fijo.</li>
-<li>Quieren simplificar el manejo de la base de datos dejando que Amazon se ocupe de la mayoría de las tareas técnicas.</li>
-</ul>
-
-
-<h3 id="%C2%BFqu%C3%A9-es-una-clave-principal-en-amazon-dynamodb%3F" tabindex="-1">¿Qué es una clave principal en Amazon DynamoDB?</h3>
-
-
-<p>Imagina que cada pieza de información que guardas es un libro en una biblioteca. La clave principal sería como el código único que identifica a cada libro, asegurando que puedes encontrar exactamente lo que buscas sin confusión.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-empresas-utilizan-dynamodb%3F" tabindex="-1">¿Qué empresas utilizan DynamoDB?</h3>
-
-
-<p>Empresas grandes y conocidas como Lyft, Airbnb, Redfin, Samsung y Capital One usan DynamoDB para manejar muchísimos datos de manera eficiente. Esto demuestra que es una herramienta confiable para proyectos importantes.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/amazon-dynamodb-la-base-de-datos-nosql-de-aws/">Amazon DynamoDB: La Base de Datos NoSQL de AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-bases-de-datos-introduccion-basica/">Bases de Datos en AWS: introducción básica</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS Fundamentos: Guía de Inicio Rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/bases-de-datos-relacionales-en-aws-con-amazon-rds-y-amazon-aurora/">Bases de datos Relacionales en AWS con Amazon RDS y Amazon Aurora</a></li>
-</ul>
-</p>
+```bash
+aws dynamodb create-table \
+  --table-name Pedidos \
+  --attribute-definitions \
+    AttributeName=clienteId,AttributeType=S \
+    AttributeName=fechaPedido,AttributeType=S \
+  --key-schema \
+    AttributeName=clienteId,KeyType=HASH \
+    AttributeName=fechaPedido,KeyType=RANGE \
+  --billing-mode PAY_PER_REQUEST \
+  --endpoint-url http://localhost:8000
+```
+
+Agregá dos pedidos del mismo cliente:
+
+```bash
+aws dynamodb put-item \
+  --table-name Pedidos \
+  --item '{
+    "clienteId": {"S": "cliente-42"},
+    "fechaPedido": {"S": "2026-10-03T14:30:00Z#ped-9001"},
+    "estado": {"S": "enviado"},
+    "total": {"N": "79.90"}
+  }' \
+  --endpoint-url http://localhost:8000
+
+aws dynamodb put-item \
+  --table-name Pedidos \
+  --item '{
+    "clienteId": {"S": "cliente-42"},
+    "fechaPedido": {"S": "2026-10-04T18:30:00Z#ped-9002"},
+    "estado": {"S": "preparando"},
+    "total": {"N": "24.00"}
+  }' \
+  --endpoint-url http://localhost:8000
+```
+
+Consultá los pedidos del cliente para octubre. La condición usa la clave de partición y un prefijo de la clave de ordenación:
+
+```bash
+aws dynamodb query \
+  --table-name Pedidos \
+  --key-condition-expression \
+    'clienteId = :c AND begins_with(fechaPedido, :mes)' \
+  --expression-attribute-values '{
+    ":c": {"S": "cliente-42"},
+    ":mes": {"S": "2026-10-"}
+  }' \
+  --endpoint-url http://localhost:8000
+```
+
+Para borrar la tabla local y apagar el contenedor:
+
+```bash
+aws dynamodb delete-table \
+  --table-name Pedidos \
+  --endpoint-url http://localhost:8000
+docker stop dynamodb-local-tutorial
+```
+
+AWS ofrece [DynamoDB Local](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.html) para desarrollar y probar aplicaciones sin acceder al servicio web de DynamoDB. Esta práctica sirve para entender el modelo y el comando `Query`; no verifica cuotas, latencia, permisos IAM, costos ni replicación de una tabla real.
+
+## Seguí aprendiendo con otras personas
+
+Para ver DynamoDB en un producto serverless de comunidad, [Kiu y Sessionize: gestión de eventos en AWS User Groups](https://builder.aws.com/content/2s8GaGrxZZPB5KIoOOrlzJsXob2/kiu-y-sessionize-transformando-la-gesti-n-de-eventos-en-aws-user-groups) cuenta cómo un asistente para eventos integra DynamoDB con Lambda y Amazon Bedrock. Es un caso de arquitectura, no un tutorial de inicio.
+
+También podés conocer el grupo [AWS User Group Serverless Colombia](https://www.meetup.com/aws-user-group-serverless-colombia/) y consultar sus encuentros, explorar **comunidades AWS por país y tipo de grupo** en el [directorio de comunidades](/comunidades/), o buscar **próximas charlas** en la [agenda de eventos](/eventos/). Para seguir canales, blogs y podcasts en español, visitá el [directorio de creadores](/creadores/); cada página enlaza sus destinos para que elijas el formato que te sirva.

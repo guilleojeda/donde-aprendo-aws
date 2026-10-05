@@ -229,7 +229,7 @@
   },
   {
     "slug": "acuerdos-de-nivel-de-servicio-aws-guia-basica",
-    "title": "Acuerdos de Nivel de Servicio AWS: Guía Básica",
+    "title": "SLA de AWS: cómo se mide la disponibilidad y cuándo aplican créditos",
     "publishedAt": "2024-11-27",
     "publishedTimestamp": "2024-11-27T01:51:56.354Z"
   },
@@ -457,7 +457,7 @@
   },
   {
     "slug": "algoritmos-de-amazon-forecast-optimizacion-y-precision",
-    "title": "Algoritmos de Amazon Forecast: Optimización y Precisión",
+    "title": "Amazon Forecast: algoritmos, métricas y acceso actual",
     "publishedAt": "2024-05-12",
     "publishedTimestamp": "2024-05-12T03:31:14.299Z"
   },
@@ -901,7 +901,7 @@
   },
   {
     "slug": "amazon-dynamodb-guia-basica",
-    "title": "Amazon DynamoDB: Guía Básica",
+    "title": "Amazon DynamoDB para principiantes: claves y consultas",
     "publishedAt": "2024-03-09",
     "publishedTimestamp": "2024-03-09T02:31:39.789Z"
   },
@@ -979,7 +979,7 @@
   },
   {
     "slug": "amazon-cloudfront-comprendiendo-el-cdn-de-aws",
-    "title": "Amazon CloudFront: Comprendiendo el CDN de AWS",
+    "title": "Amazon CloudFront: qué es, cómo funciona y cómo configurarlo",
     "publishedAt": "2024-03-07",
     "publishedTimestamp": "2024-03-07T23:58:11.718Z"
   },
@@ -1009,7 +1009,7 @@
   },
   {
     "slug": "ahorro-de-costos-en-aws-con-instancias-reservadas-y-savings-plans",
-    "title": "Ahorro de Costos en AWS con Instancias Reservadas y Savings Plans",
+    "title": "Instancias Reservadas o Savings Plans en AWS: diferencias y riesgos",
     "publishedAt": "2024-03-07",
     "publishedTimestamp": "2024-03-07T14:42:01.539Z"
   },
