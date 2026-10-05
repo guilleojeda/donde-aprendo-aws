@@ -4,7 +4,7 @@ description: "Diseñá una aplicación web con ALB, EC2 Auto Scaling y RDS Multi
 author: "guille-ojeda"
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T00:31:23.985Z"
-modifiedTimestamp: "2026-10-05T00:15:04-03:00"
+modifiedTimestamp: "2026-10-05T00:29:42-03:00"
 review:
   date: "2026-10-05"
 cover: "/assets/blog/1b184fe1242c3e7fb970e984.jpg"
@@ -31,15 +31,17 @@ Este es un patrón conceptual para un sitio web con una base de datos relacional
 
 ```text
 Región de AWS
-Usuarios ──> ALB en subredes de AZ A y AZ B ──> Grupo de destino
-                                                    │
-                                    Grupo de Auto Scaling (EC2)
-                                      ├─ Instancias en AZ A
-                                      └─ Instancias en AZ B
+Usuarios → ALB (AZ A y B)
+              ↓
+Grupo EC2 Auto Scaling
+├─ Instancias en AZ A
+└─ Instancias en AZ B
 
-Aplicación ──> Endpoint DNS de RDS ──> Instancia RDS Multi-AZ
-                                           ├─ Principal en AZ A
-                                           └─ Espera síncrona en AZ B
+Aplicación → Endpoint DNS de RDS
+                    ↓
+RDS Multi-AZ (instancia de BD)
+├─ Principal en AZ A
+└─ Espera síncrona en AZ B
 ```
 
 La distribución exacta depende de la configuración y del servicio. El grupo de Auto Scaling debe incluir subredes de ambas AZ; definí capacidad mínima y deseada para que las instancias que queden puedan atender la carga durante una falla. La escala automática puede reponer o agregar capacidad, pero una instancia nueva necesita tiempo para iniciar, pasar sus health checks y quedar lista. [La integración entre Elastic Load Balancing y Auto Scaling](https://docs.aws.amazon.com/autoscaling/ec2/userguide/autoscaling-load-balancer.html) describe el registro automático de instancias y la opción de usar métricas del balanceador para escalar. Para profundizar en el patrón web, abrí la grabación [“Creando infra para una app con alta disponibilidad en AWS”](https://www.youtube.com/watch?v=ikLx0i2aexY), de [Mexico in Tech](https://www.youtube.com/@MexicoinTech). Para repasar balanceo y ajuste de instancias, consultá la sesión de [AWS UG Buenos Aires](https://www.youtube.com/@awsugbsas) titulada [AWS UG BS AS: AWS CLOUD PRACTITIONER CHALLENGE Sesión 4 "AWS Elastic Load Balancers y Auto Scaling"](https://www.youtube.com/watch?v=b4_OMyQHXgU).

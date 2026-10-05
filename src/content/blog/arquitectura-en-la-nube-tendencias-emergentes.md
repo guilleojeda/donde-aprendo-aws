@@ -4,7 +4,7 @@ description: "Aprende a diseñar una arquitectura en AWS según disponibilidad, 
 author: "guille-ojeda"
 publishedAt: "2024-01-27"
 publishedTimestamp: "2024-01-27T23:50:47.33Z"
-modifiedTimestamp: "2026-10-05T00:15:04-03:00"
+modifiedTimestamp: "2026-10-05T00:29:42-03:00"
 review:
   date: "2026-10-05"
 cover: "/assets/blog/d781a44da56c41c82eb33501.png"
@@ -97,8 +97,11 @@ related:
 
 <p>Imagina una aplicación que recibe imágenes y crea versiones reducidas. Si la persona que sube el archivo no necesita esperar el resultado, puedes separar la carga de archivos del procesamiento:</p>
 
-<pre><code>Amazon S3 → Amazon SQS → AWS Lambda → S3 de salida
-                                  ↘ DynamoDB, si hace falta guardar estado o metadatos</code></pre>
+<pre><code>S3 de entrada
+   ↓
+SQS → Lambda → S3 de salida
+         ↘ DynamoDB
+           (estado opcional)</code></pre>
 
 <p>La aplicación deja el archivo en S3 y confirma que recibió la solicitud. Una <a href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-how-to-event-types-and-destinations.html">notificación de S3 puede enviar el evento a SQS</a>; un mapeo de origen de eventos permite que <a href="https://docs.aws.amazon.com/lambda/latest/dg/with-sqs.html">Lambda consuma mensajes de esa cola</a>, genere las imágenes y guarde el resultado. La interfaz puede mostrar que el trabajo está pendiente y consultar su estado.</p>
 
@@ -148,6 +151,6 @@ related:
 
 <p>Vuelve a revisar la arquitectura cuando cambien el volumen, los datos, las reglas de residencia o el equipo que la opera. Un diagrama es útil si ayuda a comprobar esos supuestos; no reemplaza las pruebas del sistema en ejecución.</p>
 
-<h2 id="ejercicio-de-arquitectura">Practica la decisión en equipo</h2>
+<h2 id="ejercicio-de-arquitectura">Practica la arquitectura en comunidad</h2>
 
 <p>Para poner a prueba el diseño con un reto compartido, el <a href="https://www.meetup.com/aws-user-group-awspectrum/events/316830690/">26 de octubre de 2026 habrá una AWSpectrum Architecture Arena</a> presencial en FARO Cosmos, Ciudad de México, de 16:00 a 18:30. Consulta la página del evento para ver inscripción y disponibilidad.</p>
