@@ -2341,8 +2341,16 @@ input:not([type='checkbox']):not([type='radio']):not([type='submit']):not([type=
 }
 
 .contribution-form__help {
-  margin-bottom: 24px;
+  margin-bottom: 12px;
   font-size: 15px;
+}
+
+.contribution-form__privacy,
+.contribution-form__noscript {
+  margin: 0 0 24px;
+  color: var(--color-text);
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 .contribution-form__field label,
