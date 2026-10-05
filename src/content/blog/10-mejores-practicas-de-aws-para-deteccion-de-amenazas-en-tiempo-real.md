@@ -1,138 +1,138 @@
 ---
-title: "10 Mejores Prácticas de AWS para Detección de Amenazas en Tiempo Real"
-description: "Descubre las 10 prácticas esenciales de AWS para mejorar la detección de amenazas en tiempo real y asegurar tus aplicaciones y datos en la nube."
+title: "Detección de amenazas en AWS: GuardDuty, CloudTrail y alertas"
+description: "Combina GuardDuty, CloudTrail, CloudWatch y Security Hub para detectar e investigar amenazas en AWS, validar las alertas y resolver la ausencia de hallazgos."
 author: "guille-ojeda"
 publishedAt: "2024-05-11"
 publishedTimestamp: "2024-05-11T05:27:40.366Z"
+modifiedTimestamp: "2026-10-04T21:44:34-03:00"
 cover: "/assets/blog/c03425ae80465af167cf55e5.jpg"
 coverAlt: "Nube azul formada por piezas de rompecabezas con símbolos de seguridad"
 ogImage: "/assets/blog/c03425ae80465af167cf55e5.jpg"
-related:
-  - title: "7 Estrategias para Mitigar Cold Starts en AWS Lambda"
-    url: "https://dondeaprendoaws.com/blog/7-estrategias-para-mitigar-cold-starts-en-aws-lambda/"
-    image: "/assets/blog/c936f3eb45382355f87b0707.jpg"
-    imageAlt: ""
-  - title: "Microservicios en AWS Utilizando Contenedores"
-    url: "https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-contenedores/"
-    image: "/assets/blog/bf2d7e4c78ec347430ffd844.jpg"
-    imageAlt: ""
-  - title: "Amazon DynamoDB: La Base de Datos NoSQL de AWS"
-    url: "https://dondeaprendoaws.com/blog/amazon-dynamodb-la-base-de-datos-nosql-de-aws/"
-    image: "/assets/blog/b55473f49a3eacffcaae0175.jpg"
-    imageAlt: ""
+related: []
 ---
 
-<p>La detección de amenazas en tiempo real es crucial para proteger sus datos y aplicaciones en la nube. AWS ofrece una amplia gama de servicios y herramientas para ayudarlo a identificar y responder a actividades maliciosas de manera efectiva. Estas son las 10 mejores prácticas:</p>
-<ol><li><strong>Habilitar <a href="https://aws.amazon.com/guardduty/">Amazon GuardDuty</a></strong> para monitorear continuamente su entorno de AWS y detectar amenazas utilizando machine learning.</li><li><strong>Utilizar <a href="https://aws.amazon.com/security-hub/">AWS Security Hub</a></strong> para obtener una vista centralizada de las alertas de seguridad y automatizar la respuesta a incidentes.</li><li><strong>Implementar <a href="https://aws.amazon.com/inspector/">Amazon Inspector</a></strong> para escanear vulnerabilidades de software y exposición de red no deseada.</li><li><strong>Utilizar <a href="https://aws.amazon.com/cloudwatch/">Amazon CloudWatch</a></strong> para analizar registros en tiempo real y detectar anomalías.</li><li><strong>Aplicar el principio de mínimo privilegio con AWS IAM</strong> para controlar y restringir los permisos de acceso.</li><li><strong>Monitorear la actividad de la API con <a href="https://aws.amazon.com/cloudtrail/">AWS CloudTrail</a></strong> para registrar y auditar todas las solicitudes de API.</li><li><strong>Integrar servicios de AWS con herramientas de seguridad de terceros</strong> para ampliar la visibilidad y detección de amenazas.</li><li><strong>Automatizar la remediación y respuesta</strong> a incidentes de seguridad utilizando <a href="https://aws.amazon.com/lambda/">AWS Lambda</a>, <a href="https://aws.amazon.com/step-functions/">AWS Step Functions</a> y <a href="https://aws.amazon.com/systems-manager/">AWS Systems Manager</a>.</li><li><strong>Realizar auditorías de seguridad y pruebas de penetración regulares</strong> para identificar vulnerabilidades y debilidades.</li><li><strong>Mantenerse informado sobre las mejores prácticas de <a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">seguridad de AWS</a></strong> y actualizar continuamente su programa de seguridad.</li></ol>
-<p>Al seguir estas prácticas, podrá mejorar la seguridad de su entorno de AWS y proteger sus datos y aplicaciones contra ataques y violaciones de seguridad.</p>
-<h2 id="related-video-from-youtube">Related video from YouTube</h2>
-<div><iframe allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen="" height="315" loading="lazy" src="https://www.youtube.com/embed/w8dKW7o3O8U" title="Video de YouTube" width="560"></iframe></div>
-<h2 id="1.-habilitar-amazon-guardduty-para-la-detecci%C3%B3n-de-amenazas-inteligentes">1. Habilitar <a href="https://aws.amazon.com/guardduty/">Amazon GuardDuty</a> para la Detección de Amenazas Inteligentes</h2>
-<p><img alt="Amazon GuardDuty" src="/assets/blog/13fd3ebe3a52c8ac783327b0.jpg"/></p>
-<p>Amazon GuardDuty es un servicio de detección de amenazas que monitorea continuamente su entorno de AWS en busca de actividad malintencionada y comportamientos no autorizados. GuardDuty utiliza algoritmos de machine learning y feeds de inteligencia de amenazas para identificar patrones de comportamiento anómalos y detectar posibles amenazas.</p>
-<p><strong>Ventajas de habilitar GuardDuty</strong></p>
-<ul><li>Detección de amenazas en tiempo real</li><li>Análisis de patrones de comportamiento</li><li>Integración con otros servicios de AWS</li></ul>
-<p><strong>Pasos para habilitar GuardDuty</strong></p>
-<p>1. Inicie sesión en la consola de AWS y navegue hasta el servicio GuardDuty. 2. Seleccione la región en la que desea habilitar GuardDuty. 3. Haga clic en "Habilitar GuardDuty" y siga las instrucciones para configurar el servicio.</p>
-<p>Al habilitar GuardDuty, puede mejorar la seguridad de su entorno de AWS y detectar posibles amenazas antes de que se conviertan en incidentes de seguridad.</p>
-<h2 id="2.-utilice-aws-security-hub-para-alertas-de-seguridad-centralizadas">2. Utilice <a href="https://aws.amazon.com/security-hub/">AWS Security Hub</a> para Alertas de Seguridad Centralizadas</h2>
-<p><img alt="AWS Security Hub" src="/assets/blog/555daec2d56d53470dc0a44d.jpg"/></p>
-<p><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">AWS Security</a> Hub es un servicio de <a href="https://dondeaprendoaws.com/blog/seguridad-en-la-nube-aws-estrategias-clave/">gestión de postura de seguridad en la nube</a> que le permite evaluar y mejorar la seguridad de sus recursos de AWS. Security Hub agrega y normaliza los hallazgos de seguridad de varios servicios de AWS, como Amazon GuardDuty, Amazon Inspector y Amazon Macie, y los presenta en una vista unificada.</p>
-<p><strong>Ventajas de utilizar Security Hub</strong></p>
-<table><thead><tr><th>Ventaja</th><th>Descripción</th></tr></thead><tbody><tr><td>Vista unificada de la seguridad</td><td>Presenta los hallazgos de seguridad en una sola vista</td></tr><tr><td>Detección de amenazas en tiempo real</td><td>Detecta posibles amenazas antes de que se conviertan en incidentes de seguridad</td></tr><tr><td>Automatización de la respuesta</td><td>Automatiza la respuesta a incidentes de seguridad</td></tr></tbody></table>
-<p><strong>Cómo funciona Security Hub</strong></p>
-<p>Security Hub recopila hallazgos de seguridad de varios servicios de AWS y los presenta en una vista unificada. Esto le permite identificar rápidamente los problemas de seguridad y tomar medidas para abordarlos. Security Hub también se integra con otros servicios de AWS, como AWS Lambda y AWS CloudWatch, para automatizar la respuesta a incidentes de seguridad.</p>
-<p><strong>Pasos para habilitar Security Hub</strong></p>
-<p>1. Inicie sesión en la consola de AWS y navegue hasta el servicio Security Hub. 2. Seleccione la región en la que desea habilitar Security Hub. 3. Haga clic en "Habilitar Security Hub" y siga las instrucciones para configurar el servicio.</p>
-<p>Al habilitar Security Hub, puede mejorar la seguridad de sus recursos de AWS y detectar posibles amenazas antes de que se conviertan en incidentes de seguridad.</p>
-<h2 id="3.-utilice-amazon-inspector-para-la-gesti%C3%B3n-de-vulnerabilidades-automatizadas">3. Utilice <a href="https://aws.amazon.com/inspector/">Amazon Inspector</a> para la Gestión de Vulnerabilidades Automatizadas</h2>
-<p><img alt="Amazon Inspector" src="/assets/blog/5278f8c9a025908bacabf57c.jpg"/></p>
-<p>Amazon Inspector es un servicio de gestión de vulnerabilidades automatizadas que escanea continuamente los recursos de AWS para detectar vulnerabilidades de software y exposición de red no intencionada. Con Amazon Inspector, puede identificar y priorizar las vulnerabilidades más críticas para remediarlas de manera eficiente.</p>
-<p><strong>Ventajas de utilizar Amazon Inspector</strong></p>
-<table><thead><tr><th>Ventaja</th><th>Descripción</th></tr></thead><tbody><tr><td>Detección de vulnerabilidades automatizada</td><td>Identifica vulnerabilidades de software y exposición de red no intencionada en tiempo real</td></tr><tr><td>Priorización de vulnerabilidades</td><td>Calcula un puntaje de riesgo contextualizado para cada vulnerabilidad para priorizar la remediation</td></tr><tr><td><a href="https://dondeaprendoaws.com/blog/como-configurar-y-utilizar-aws-session-manager/">Integración con AWS Systems Manager Agent</a></td><td>Utiliza el agente de AWS Systems Manager para recopilar inventario de software y configuraciones de instancias de EC2</td></tr></tbody></table>
-<p><strong>Cómo funciona Amazon Inspector</strong></p>
-<p>Amazon Inspector utiliza el agente de AWS Systems Manager para recopilar inventario de software y configuraciones de instancias de EC2. Luego, analiza esta información para identificar vulnerabilidades de software y exposición de red no intencionada. Amazon Inspector también se integra con AWS Security Hub y Amazon EventBridge para automatizar la respuesta a incidentes de seguridad.</p>
-<p><strong>Pasos para habilitar Amazon Inspector</strong></p>
-<p>1. Inicie sesión en la consola de AWS y navegue hasta el servicio Amazon Inspector. 2. Seleccione la región en la que desea habilitar Amazon Inspector. 3. Haga clic en "Habilitar Amazon Inspector" y siga las instrucciones para configurar el servicio.</p>
-<p>Al habilitar Amazon Inspector, puede mejorar la seguridad de sus recursos de AWS y detectar vulnerabilidades antes de que se conviertan en incidentes de seguridad.</p>
-<h2 id="4.-implemente-amazon-cloudwatch-para-an%C3%A1lisis-de-registros-en-tiempo-real">4. Implemente <a href="https://aws.amazon.com/cloudwatch/">Amazon CloudWatch</a> para Análisis de Registros en Tiempo Real</h2>
-<p><img alt="Amazon CloudWatch" src="/assets/blog/af6613064a74b982792aeda9.jpg"/></p>
-<p>La detección de amenazas en tiempo real es crucial para la seguridad de sus recursos de AWS. Amazon CloudWatch es un servicio de monitoreo y registro que le permite recopilar y analizar logs de sus recursos de AWS en tiempo real. Con CloudWatch, puede detectar anomalías y patrones sospechosos en sus logs, lo que le permite responder rápidamente a incidentes de seguridad.</p>
-<p><strong>Ventajas de utilizar Amazon CloudWatch</strong></p>
-<table><thead><tr><th>Ventaja</th><th>Descripción</th></tr></thead><tbody><tr><td>Análisis de logs en tiempo real</td><td>Recopila y analiza logs de sus recursos de AWS en tiempo real</td></tr><tr><td>Detección de anomalías</td><td>Detecta anomalías y patrones sospechosos en sus logs</td></tr><tr><td>Respuesta rápida a incidentes</td><td>Le permite responder rápidamente a incidentes de seguridad</td></tr></tbody></table>
-<p><strong>Cómo funciona Amazon CloudWatch</strong></p>
-<p>Amazon CloudWatch recopila logs de sus recursos de AWS, como instancias de EC2, funciones Lambda y API Gateway. Luego, analiza estos logs para detectar anomalías y patrones sospechosos. CloudWatch también se integra con otros servicios de AWS, como AWS Security Hub y Amazon Inspector, para proporcionar una visión completa de la seguridad de sus recursos de AWS.</p>
-<p><strong>Pasos para habilitar Amazon CloudWatch</strong></p>
-<p>1. Inicie sesión en la consola de AWS y navegue hasta el servicio Amazon CloudWatch. 2. Seleccione la región en la que desea habilitar Amazon CloudWatch. 3. Haga clic en "Habilitar Amazon CloudWatch" y siga las instrucciones para configurar el servicio.</p>
-<p>Al habilitar Amazon CloudWatch, puede mejorar la seguridad de sus recursos de AWS y detectar anomalías y patrones sospechosos en tiempo real.</p>
-<h2 id="5.-aplicar-acceso-de-m%C3%ADnimo-privilegio-con-aws-identity-and-access-management-(iam)">5. Aplicar Acceso de Mínimo Privilegio con AWS Identity and Access Management (IAM)</h2>
-<p>El principio de mínimo privilegio es fundamental para garantizar la <a href="https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/">seguridad en AWS</a>. AWS Identity and Access Management (IAM) te permite aplicar este principio al controlar y restringir los permisos que se otorgan a usuarios, grupos y roles. Siguiendo las mejores prácticas de IAM, puedes minimizar el riesgo de acceso no autorizado y reducir la superficie de ataque.</p>
-<h3 id="ventajas-de-utilizar-roles-de-iam">Ventajas de utilizar roles de IAM</h3>
-<table><thead><tr><th>Ventaja</th><th>Descripción</th></tr></thead><tbody><tr><td>Seguridad mejorada</td><td>Reduce el riesgo de exposición de credenciales</td></tr><tr><td>Flexibilidad</td><td>Permite delegar permisos de forma segura a usuarios, aplicaciones o servicios de AWS</td></tr><tr><td>Facilita la rotación de claves</td><td>Reduce la complejidad de la gestión de claves</td></tr></tbody></table>
-<h3 id="pasos-para-implementar-el-principio-de-m%C3%ADnimo-privilegio">Pasos para implementar el principio de mínimo privilegio</h3>
-<p>1. <strong>Utiliza roles de IAM en lugar de claves de acceso</strong> 2. <strong>Implementa el principio de mínimo privilegio</strong>: otorga solo los permisos necesarios para que los usuarios, grupos o roles puedan realizar sus tareas. 3. <strong>Utiliza grupos de IAM para una gestión más sencilla</strong>: crea grupos de IAM y asigna políticas a esos grupos para administrar los permisos de manera más eficiente y consistente. 4. <strong>Implementa la autenticación multifactor (MFA)</strong>: requiere que los usuarios proporcionen un código de autenticación adicional además de sus credenciales regulares. 5. <strong>Revisa y elimina permisos no utilizados</strong>: periódicamente, revisa los permisos otorgados a usuarios, grupos y roles de IAM y elimina los permisos que ya no sean necesarios.</p>
-<p>Al seguir estas mejores prácticas de IAM, podrás aplicar el principio de mínimo privilegio y mejorar la seguridad de tus recursos en AWS, reduciendo el riesgo de acceso no autorizado y minimizando el impacto de posibles incidentes de seguridad.</p>
-<h2 id="6.-monitoree-la-actividad-de-la-api-con-aws-cloudtrail">6. Monitoree la actividad de la API con <a href="https://aws.amazon.com/cloudtrail/">AWS CloudTrail</a></h2>
-<p><img alt="AWS CloudTrail" src="/assets/blog/2f6f1f4094ac0f825f89f302.jpg"/></p>
-<p>AWS CloudTrail es un servicio de AWS que proporciona visibilidad en la actividad de la API en su cuenta de AWS. Permite registrar y monitorear todas las solicitudes de API realizadas en su cuenta, lo que facilita la detección de amenazas y la respuesta a incidentes de seguridad.</p>
-<h3 id="ventajas-de-utilizar-aws-cloudtrail">Ventajas de utilizar AWS CloudTrail</h3>
-<table><thead><tr><th>Ventaja</th><th>Descripción</th></tr></thead><tbody><tr><td>Visibilidad en la actividad de la API</td><td>Registra todas las solicitudes de API realizadas en su cuenta de AWS</td></tr><tr><td>Detección de amenazas</td><td>Identifica patrones de actividad sospechosos y alerta a los administradores de seguridad</td></tr><tr><td>Cumplimiento con normas</td><td>Ayuda a cumplir con los requisitos de seguridad y cumplimiento de normas</td></tr></tbody></table>
-<h3 id="pasos-para-implementar-aws-cloudtrail">Pasos para implementar AWS CloudTrail</h3>
-<p>1. <strong>Habilite CloudTrail en su cuenta de AWS</strong>: vaya a la consola de AWS y habilite CloudTrail para comenzar a registrar la actividad de la API. 2. <strong>Configure la recopilación de eventos</strong>: seleccione los eventos que desea recopilar, como las solicitudes de API, los cambios en los recursos y los errores de autenticación. 3. <strong>Establezca alertas y notificaciones</strong>: configure alertas y notificaciones para informar a los administradores de seguridad de actividad sospechosa o incidentes de seguridad. 4. <strong>Analice los registros de CloudTrail</strong>: utilice herramientas de análisis de registros para identificar patrones de actividad sospechosos y responder a incidentes de seguridad.</p>
-<p>Al implementar AWS CloudTrail, podrá mejorar la visibilidad en la actividad de la API, detectar amenazas y responder a incidentes de seguridad de manera efectiva.</p>
-<h2 id="7.-integre-servicios-de-aws-con-herramientas-de-seguridad-de-terceros">7. Integre Servicios de AWS con Herramientas de Seguridad de Terceros</h2>
-<p>La <a href="https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/">integración de servicios de AWS</a> con herramientas de seguridad de terceros es crucial para mejorar la detección de amenazas en tiempo real. AWS Security Hub es un servicio que permite integrar fácilmente herramientas de seguridad de terceros para obtener una visión completa de la seguridad de su entorno de AWS.</p>
-<h3 id="ventajas-de-la-integraci%C3%B3n">Ventajas de la Integración</h3>
-<table><thead><tr><th>Ventaja</th><th>Descripción</th></tr></thead><tbody><tr><td>Visibilidad Ampliada</td><td>Obtenga una visión completa de la seguridad de su entorno de AWS mediante la <a href="https://dondeaprendoaws.com/blog/integracion-de-guardduty-de-aws-para-inteligencia-de-amenazas/">integración de herramientas de seguridad</a> de terceros.</td></tr><tr><td>Detección de Amenazas Mejorada</td><td>Identifique patrones de actividad sospechosos y amenazas mediante la integración de herramientas de seguridad de terceros.</td></tr><tr><td>Automatización de la Respuesta</td><td>Automatice la respuesta a incidentes de seguridad mediante la integración de herramientas de seguridad de terceros.</td></tr></tbody></table>
-<h3 id="pasos-para-integrar-servicios-de-aws-con-herramientas-de-seguridad-de-terceros">Pasos para Integrar Servicios de AWS con Herramientas de Seguridad de Terceros</h3>
-<p>1. <strong>Seleccione las Herramientas de Seguridad Adecuadas</strong>: seleccione las herramientas de seguridad de terceros que se alinean con sus necesidades de seguridad y cumplan con los requisitos de su entorno de AWS. 2. <strong>Configure la Integración</strong>: configure la integración de las herramientas de seguridad de terceros con AWS Security Hub. 3. <strong>Establezca Alertas y Notificaciones</strong>: configure alertas y notificaciones para informar a los administradores de seguridad de actividad sospechosa o incidentes de seguridad. 4. <strong>Analice los Registros de Seguridad</strong>: utilice herramientas de análisis de registros para identificar patrones de actividad sospechosos y responder a incidentes de seguridad.</p>
-<p>Al integrar servicios de AWS con herramientas de seguridad de terceros, podrá mejorar la visibilidad en la seguridad de su entorno de AWS, detectar amenazas de manera efectiva y responder a incidentes de seguridad de manera automatizada.</p>
-<h2 id="8.-automatice-la-remediation-y-respuesta">8. Automatice la Remediation y Respuesta</h2>
-<p>La automatización de la respuesta y remediation es crucial para reducir el tiempo de respuesta a incidentes de seguridad y minimizar el impacto de las amenazas. AWS ofrece varias formas de automatizar la respuesta y remediation, incluyendo la utilización de AWS Lambda, AWS Step Functions y AWS Systems Manager.</p>
-<h3 id="ventajas-de-la-automatizaci%C3%B3n">Ventajas de la Automatización</h3>
-<table><thead><tr><th>Ventaja</th><th>Descripción</th></tr></thead><tbody><tr><td>Reducción del Tiempo de Respuesta</td><td>La automatización reduce el tiempo de respuesta a incidentes de seguridad.</td></tr><tr><td>Mejora de la Eficiencia</td><td>La automatización reduce la carga de trabajo de los administradores de seguridad.</td></tr><tr><td>Mayor Consistencia</td><td>La automatización garantiza que se sigan los procedimientos de seguridad establecidos.</td></tr></tbody></table>
-<h3 id="pasos-para-automatizar">Pasos para Automatizar</h3>
-<p>1. <strong>Seleccione las Herramientas</strong>: seleccione las herramientas de automatización adecuadas para su entorno de AWS. 2. <strong>Configure la Automatización</strong>: configure la automatización de la respuesta y remediation utilizando las herramientas seleccionadas. 3. <strong>Establezca Alertas y Notificaciones</strong>: configure alertas y notificaciones para informar a los administradores de seguridad de actividad sospechosa o incidentes de seguridad. 4. <strong>Analice los Registros de Seguridad</strong>: utilice herramientas de análisis de registros para identificar patrones de actividad sospechosos y responder a incidentes de seguridad.</p>
-<p>Al automatizar la respuesta y remediation, podrá reducir el tiempo de respuesta a incidentes de seguridad, mejorar la eficiencia y reducir la posibilidad de errores humanos.</p>
-<h2 id="9.-realice-auditor%C3%ADas-de-seguridad-y-pruebas-de-penetraci%C3%B3n-regulares">9. Realice Auditorías de Seguridad y Pruebas de Penetración Regulares</h2>
-<p>La realización de auditorías de seguridad y pruebas de penetración regulares es fundamental para garantizar la seguridad de su entorno de AWS. Estas actividades permiten identificar vulnerabilidades y debilidades en su configuración de seguridad, lo que puede ayudar a prevenir ataques y violaciones de seguridad.</p>
-<h3 id="importancia-de-las-auditor%C3%ADas-de-seguridad">Importancia de las Auditorías de Seguridad</h3>
-<p>Las auditorías de seguridad son fundamentales para evaluar la eficacia de las medidas de seguridad implementadas en su entorno de AWS. Estas auditorías permiten identificar brechas de seguridad, vulnerabilidades y debilidades en la configuración de seguridad.</p>
-<h3 id="pasos-para-realizar-una-auditor%C3%ADa-de-seguridad">Pasos para Realizar una Auditoría de Seguridad</h3>
-<p>1. <strong>Defina Objetivos</strong>: defina los objetivos de la auditoría de seguridad, como identificar vulnerabilidades o cumplir con los requisitos de cumplimiento. 2. <strong>Prepare los Recursos</strong>: prepare los recursos necesarios para la auditoría, como acceso a los sistemas y datos. 3. <strong>Realice la Auditoría</strong>: realice la auditoría de seguridad, utilizando herramientas y técnicas adecuadas. 4. <strong>Análise los Resultados</strong>: analice los resultados de la auditoría y identifique las vulnerabilidades y debilidades. 5. <strong>Implemente Remedios</strong>: implemente remedios para las vulnerabilidades y debilidades identificadas.</p>
-<h3 id="importancia-de-las-pruebas-de-penetraci%C3%B3n">Importancia de las Pruebas de Penetración</h3>
-<p>Las pruebas de penetración son fundamentales para evaluar la resistencia de su entorno de AWS a ataques y violaciones de seguridad. Estas pruebas permiten identificar vulnerabilidades y debilidades en la configuración de seguridad.</p>
-<h3 id="ventajas-de-la-automatizaci%C3%B3n-1">Ventajas de la Automatización</h3>
-<table><thead><tr><th>Ventaja</th><th>Descripción</th></tr></thead><tbody><tr><td>Reducción del Tiempo de Respuesta</td><td>La automatización reduce el tiempo de respuesta a incidentes de seguridad.</td></tr><tr><td>Mejora de la Eficiencia</td><td>La automatización reduce la carga de trabajo de los administradores de seguridad.</td></tr><tr><td>Mayor Consistencia</td><td>La automatización garantiza que se sigan los procedimientos de seguridad establecidos.</td></tr></tbody></table>
-<p>Al realizar auditorías de seguridad y pruebas de penetración regulares, podrá identificar vulnerabilidades y debilidades en su configuración de seguridad, lo que puede ayudar a prevenir ataques y violaciones de seguridad.</p>
-<h2 id="10.-mant%C3%A9ngase-informado-sobre-las-mejores-pr%C3%A1cticas-de-seguridad-de-aws">10. Manténgase Informado sobre las Mejores Prácticas de Seguridad de AWS</h2>
-<p>La detección de amenazas en tiempo real es crucial para la seguridad de su entorno de AWS. Sin embargo, la seguridad es un campo en constante evolución, y es fundamental mantenerse informado sobre las <a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">mejores prácticas de seguridad de AWS</a>.</p>
-<h3 id="importancia-de-la-informaci%C3%B3n-actualizada">Importancia de la Información Actualizada</h3>
-<p>La información actualizada es fundamental para mantener la seguridad de su entorno de AWS. Las vulnerabilidades y debilidades en la configuración de seguridad pueden ser explotadas por los atacantes, lo que puede llevar a violaciones de seguridad y pérdida de datos.</p>
-<h3 id="fuentes-de-informaci%C3%B3n-confiables">Fuentes de Información Confiables</h3>
-<p>Para mantenerse informado sobre las <a href="https://dondeaprendoaws.com/blog/9-mejores-practicas-de-seguridad-para-iac-en-aws/">mejores prácticas de seguridad</a> de AWS, es importante utilizar fuentes de información confiables, como:</p>
-<table><thead><tr><th>Fuente de Información</th><th>Descripción</th></tr></thead><tbody><tr><td>Blog de seguridad de AWS</td><td>Información actualizada sobre las mejores prácticas de seguridad de AWS</td></tr><tr><td>Documentación de AWS</td><td>Documentación oficial de AWS sobre seguridad</td></tr><tr><td>Recursos de seguridad de AWS</td><td>Recursos de seguridad de AWS, como AWS Security Hub y AWS IAM</td></tr><tr><td>Expertos en seguridad de AWS</td><td>Expertos en seguridad de AWS y la comunidad de <a href="https://dev.to/aws-builders/estrategia-de-seguridad-en-la-nube-de-aws-por-donde-empezar-55mp">seguridad en la nube</a></td></tr></tbody></table>
-<h3 id="implemente-un-programa-de-seguridad-continuo">Implemente un Programa de Seguridad Continuo</h3>
-<p>Implemente un programa de seguridad continuo que incluya la evaluación regular de las configuraciones de seguridad, la identificación de vulnerabilidades y debilidades, y la implementación de remedios para mitigar los riesgos.</p>
-<p>Al mantenerse informado sobre las mejores prácticas de seguridad de AWS y implementar un programa de seguridad continuo, podrá garantizar la seguridad de su entorno de AWS y proteger sus datos y aplicaciones contra ataques y violaciones de seguridad.</p>
-<h2 id="conclusi%C3%B3n">Conclusión</h2>
-<p>En resumen, la detección de amenazas en tiempo real es fundamental para la seguridad de su entorno de AWS. Al seguir las 10 mejores prácticas de AWS para detección de amenazas en tiempo real, podrá proteger sus datos y aplicaciones contra ataques y violaciones de seguridad.</p>
-<p><strong>Importancia de la Seguridad en la Nube</strong></p>
-<p>La seguridad en la nube es una responsabilidad compartida entre AWS y usted como usuario. Es fundamental mantenerse informado sobre las mejores prácticas de seguridad de AWS y implementar un programa de seguridad continuo que incluya la evaluación regular de las configuraciones de seguridad, la identificación de vulnerabilidades y debilidades, y la implementación de remedios para mitigar los riesgos.</p>
-<p><strong>Recapitulación</strong></p>
-<p>En este artículo, hemos explorado las 10 mejores prácticas de AWS para detección de amenazas en tiempo real. Esperamos que estas prácticas hayan sido de ayuda para mejorar la seguridad de su entorno de AWS.</p>
-<p><strong>Siguiente Paso</strong></p>
-<p>Implemente un programa de seguridad continuo que incluya la evaluación regular de las configuraciones de seguridad, la identificación de vulnerabilidades y debilidades, y la implementación de remedios para mitigar los riesgos. Manténgase informado sobre las mejores prácticas de seguridad de AWS y trabaje con AWS para garantizar la seguridad y confiabilidad de su entorno de AWS.</p>
-<h2 id="preguntas-frecuentes">Preguntas Frecuentes</h2>
-<h3 id="%C2%BFcu%C3%A1l-es-el-servicio-de-aws-para-detecci%C3%B3n-de-amenazas%3F">¿Cuál es el servicio de AWS para detección de amenazas?</h3>
-<p>Amazon GuardDuty es un servicio de detección de amenazas que monitorea continuamente sus cuentas y cargas de trabajo de AWS en busca de actividad malintencionada y entrega hallazgos de seguridad detallados para visibilidad y remediación.</p>
-<h3 id="%C2%BFpor-qu%C3%A9-es-importante-la-detecci%C3%B3n-de-amenazas-en-tiempo-real%3F">¿Por qué es importante la detección de amenazas en tiempo real?</h3>
-<p>La detección de amenazas en tiempo real es crucial para proteger sus datos y aplicaciones contra ataques y violaciones de seguridad. Permite identificar y responder rápidamente a incidentes de seguridad, minimizando el impacto y reduciendo el riesgo de pérdida de datos.</p>
-<h3 id="%C2%BFc%C3%B3mo-puedo-mejorar-la-seguridad-de-mi-entorno-de-aws%3F">¿Cómo puedo mejorar la seguridad de mi entorno de AWS?</h3>
-<p>Puede mejorar la seguridad de su entorno de AWS siguiendo las 10 mejores prácticas de AWS para detección de amenazas en tiempo real, como habilitar Amazon GuardDuty, utilizar AWS Security Hub, implementar el principio de mínimo privilegio con AWS IAM y automatizar la respuesta y remediation.</p>
-<h3 id="%C2%BFqu%C3%A9-recursos-de-seguridad-ofrece-aws%3F">¿Qué recursos de seguridad ofrece AWS?</h3>
-<p>AWS ofrece una amplia gama de recursos de seguridad, incluyendo Amazon GuardDuty, AWS Security Hub, AWS IAM, AWS CloudWatch y AWS CloudTrail. Estos recursos le permiten detectar y responder a amenazas, así como cumplir con los requisitos de seguridad y cumplimiento.</p>
-<h3 id="%C2%BFc%C3%B3mo-puedo-mantenerme-informado-sobre-las-mejores-pr%C3%A1cticas-de-seguridad-de-aws%3F">¿Cómo puedo mantenerme informado sobre las mejores prácticas de seguridad de AWS?</h3>
-<p>Puede mantenerse informado sobre las mejores prácticas de seguridad de AWS siguiendo el blog de seguridad de AWS, leyendo la documentación de AWS sobre seguridad y participando en la comunidad de seguridad en la nube.</p>
-<h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS Seguridad: Fundamentos Esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores Prácticas de Seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/9-mejores-practicas-de-seguridad-para-iac-en-aws/">9 Mejores Prácticas de Seguridad para IaC en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">Seguridad en AWS: Servicios Esenciales</a></li></ul>
+Para detectar actividad sospechosa en AWS, habilita **Amazon GuardDuty** en las cuentas y regiones que necesitas vigilar, define cómo recibir sus hallazgos y comprueba que esa ruta de alertas funciona. **AWS CloudTrail** aporta evidencia de actividad de la cuenta; **Amazon CloudWatch** analiza los logs y las métricas que hayas configurado. **AWS Security Hub** y **AWS Security Hub CSPM** ayudan a priorizar hallazgos y evaluar la postura, con funciones distintas.
+
+“Tiempo real” no significa que toda actividad produzca una alerta instantánea. GuardDuty envía un hallazgo nuevo a Amazon EventBridge en tiempo casi real cuando lo genera; AWS documenta que GuardDuty suele enviarlo a Security Hub CSPM dentro de cinco minutos. Esos tiempos describen el envío después de crear el hallazgo, no una garantía desde el inicio de una actividad hasta que alguien la investiga. [Documentación de GuardDuty sobre EventBridge](https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_findings_eventbridge.html) y [su integración con Security Hub CSPM](https://docs.aws.amazon.com/guardduty/latest/ug/securityhub-integration.html).
+
+## Qué hace cada servicio
+
+- **Detectar actividad sospechosa:** [Amazon GuardDuty](https://docs.aws.amazon.com/guardduty/latest/ug/what-is-guardduty.html). Analiza fuentes como eventos de administración de CloudTrail, tráfico de red y consultas DNS. Los planes de protección amplían los tipos de carga y actividad observados.
+- **Investigar acciones de cuenta:** [AWS CloudTrail](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/view-cloudtrail-events.html). Permite consultar eventos de administración recientes por región. Para retener y centralizar actividad, configura un trail y selecciona los tipos de eventos necesarios.
+- **Vigilar logs y métricas propios:** [Amazon CloudWatch](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/WhatIsCloudWatchLogs.html). Busca datos enviados a CloudWatch Logs y activa alarmas según métricas o filtros que configures. No recibe automáticamente todos los logs de todas tus aplicaciones.
+- **Revisar postura y priorizar hallazgos:** [AWS Security Hub CSPM](https://docs.aws.amazon.com/securityhub/latest/userguide/what-is-securityhub.html) y [AWS Security Hub](https://docs.aws.amazon.com/securityhub/latest/userguide/what-are-securityhub-services.html). CSPM ejecuta controles de seguridad y consolida hallazgos. AWS Security Hub agrega contexto, ayuda a priorizar exposiciones y ofrece flujos de respuesta. Comprueba qué servicios y planes están habilitados en tu cuenta.
+
+## GuardDuty detecta amenazas; los planes determinan parte de la cobertura
+
+GuardDuty empieza a analizar fuentes fundamentales cuando lo habilitas: eventos de administración de CloudTrail, VPC Flow Logs de instancias EC2 y consultas DNS de Route 53 Resolver. Para estas fuentes, GuardDuty recibe un flujo independiente. No necesitas configurar un trail de CloudTrail o tus propios VPC Flow Logs para que GuardDuty analice esos datos, y esa integración no cambia la configuración de logging de tu cuenta. [AWS describe las fuentes fundamentales y las condiciones de DNS](https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_data-sources.html).
+
+Esto no equivale a guardar todos los logs en tu cuenta ni a inspeccionar cada paquete, solicitud de aplicación o evento de datos. La cobertura adicional —por ejemplo, para actividad de S3, EKS, RDS, Lambda o eventos de runtime— depende de las funciones y planes de protección disponibles y habilitados. Revisa la lista vigente de [funciones de GuardDuty](https://docs.aws.amazon.com/guardduty/latest/ug/what-is-guardduty.html) por cuenta y región. AWS recomienda habilitar GuardDuty en todas las regiones disponibles; valida también las cuentas miembro si usas AWS Organizations.
+
+Al activar GuardDuty por primera vez en una región, AWS inicia una prueba de 30 días y habilita algunos planes de protección por defecto, pero no todos. Revisa qué quedó activo y qué incluye la prueba en la [guía vigente de precios y prueba gratuita de GuardDuty](https://docs.aws.amazon.com/guardduty/latest/ug/guardduty-pricing.html); el uso que continúe después del periodo puede generar cargos.
+
+Los hallazgos describen actividad potencialmente maliciosa que el servicio reconoció dentro de ese alcance. La ausencia de un hallazgo no demuestra por sí sola que no haya actividad sospechosa: puede faltar cobertura para esa cuenta, región, carga de trabajo o tipo de evento.
+
+Para ver una charla en español sobre cómo conectar GuardDuty con un SIEM, consulta la grabación [“Amazon GuardDuty integrado con SIEM”](https://www.youtube.com/watch?v=CQUICC2h0Oc), publicada por AWS User Group CreaTicas.
+
+## CloudTrail sirve para reconstruir actividad, con límites claros
+
+CloudTrail Event history ofrece hasta 90 días de eventos de administración por cuenta y región, sin cargo adicional. No es un archivo completo de todo lo que ocurre en tus aplicaciones: Event history no muestra eventos de datos, eventos de Insights ni eventos de actividad de red, y no agrega la actividad de toda una organización.
+
+Para conservar actividad durante más tiempo o analizar eventos de datos, configura un trail de CloudTrail con un destino de almacenamiento y selecciona los tipos de eventos necesarios. Los trails registran eventos de administración por defecto; los eventos de datos e Insights requieren configuración aparte y pueden generar cargos. CloudTrail Lake dejó de admitir nuevos clientes el 31 de mayo de 2026; los clientes existentes pueden seguir usando el servicio. Consulta el aviso oficial de [disponibilidad de CloudTrail Lake](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-lake-service-availability-change.html), además de [los límites de Event history](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/view-cloudtrail-events.html) y [la configuración de eventos de administración](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-management-events-with-cloudtrail.html). Por eso, ante una API que no aparece, verifica primero la región y el tipo de evento; una llamada a la API de un servicio y una acción sobre un objeto S3, por ejemplo, no necesariamente pertenecen a la misma categoría.
+
+GuardDuty analiza su propio flujo de eventos de administración de CloudTrail, independientemente de los trails configurados por el cliente. Crear un trail sigue siendo útil para tu auditoría, retención e investigación, pero no es un requisito para que GuardDuty analice su fuente fundamental de eventos de administración.
+
+Como repaso general de observabilidad, el canal de AWS Women Colombia publica una charla titulada [“La Amenaza del Nivel 100: Amazon CloudWatch, AWS CloudTrail, AWS X-Ray y AWS Config”](https://www.youtube.com/watch?v=TfBZFzGokQM). Usa la documentación enlazada en esta guía para verificar el alcance y la configuración actuales de cada servicio.
+
+## CloudWatch analiza los logs que le envías
+
+CloudWatch Logs puede recibir logs de algunos servicios de AWS automáticamente. Para otros servicios, sistemas o aplicaciones, debes configurar la entrega, un agente o una integración. Después puedes buscar eventos, crear filtros que generen métricas y configurar alarmas sobre esas métricas. Una alarma solo puede avisar sobre la señal y la condición que definiste; CloudWatch no clasifica por sí solo todos los logs como ataques. Revisa [cómo se envían logs a CloudWatch](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/Working-with-log-groups-and-streams.html) y [cómo funcionan las alarmas](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Alarms.html).
+
+Usa CloudWatch para señales operativas y registros que no cubre GuardDuty, como errores o patrones específicos de una aplicación. Evita llamar “detección de amenazas” a una alarma sin definir qué dato recibe, qué condición evalúa y quién investiga cuando se activa.
+
+Si quieres repasar alarmas de CloudWatch con un ejemplo en español, Marcia Villalba publicó la grabación [“Observabilidad de tus aplicaciones de nube - CLOUDWATCH ALARMS”](https://www.youtube.com/watch?v=uS0QE0NeqpA).
+
+## Security Hub y Security Hub CSPM no son sinónimos en la documentación actual
+
+AWS documenta **AWS Security Hub CSPM** y **AWS Security Hub** como servicios complementarios. Security Hub CSPM compara recursos con prácticas recomendadas y estándares, genera hallazgos de controles e ingiere hallazgos compatibles de GuardDuty y otros productos. La mayoría de sus controles requiere que AWS Config registre los recursos pertinentes; además, CSPM solo procesa en las regiones donde está habilitado y no incorpora retroactivamente hallazgos anteriores. [Descripción y requisitos de Security Hub CSPM](https://docs.aws.amazon.com/securityhub/latest/userguide/what-is-securityhub.html).
+
+**AWS Security Hub** ofrece una experiencia más amplia para correlacionar y priorizar riesgos y organizar la respuesta. Según el plan vigente, puede incluir CSPM y capacidades de Threat Analytics impulsadas por GuardDuty. Revisa la [comparación de ambos servicios](https://docs.aws.amazon.com/securityhub/latest/userguide/what-are-securityhub-services.html) y los [planes y precios actuales de AWS Security Hub](https://aws.amazon.com/security-hub/pricing/) antes de asumir qué capacidades o cargos corresponden a tu cuenta.
+
+**Amazon Inspector** tiene otra función: administra vulnerabilidades de software y exposición de red en recursos compatibles. Un CVE o una ruta de red abierta necesita remediación, pero no demuestra que un atacante la esté explotando. Úsalo para reducir debilidades y complementa sus resultados con detección de actividad como GuardDuty. [Qué analiza Amazon Inspector](https://docs.aws.amazon.com/inspector/latest/user/what-is-inspector.html).
+
+## Prevención, detección, investigación y respuesta
+
+- **Prevención:** limita permisos con IAM, usa roles y aplica mínimo privilegio para reducir accesos y el impacto de credenciales comprometidas. Repasa identidades, roles y permisos con el video [“Qué es AWS IAM? - Explicado en 5 minutos”](https://www.youtube.com/watch?v=t51vW-BDwF0), publicado por Marcia Villalba; usa las [buenas prácticas oficiales de IAM](https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html) para definir permisos de producción.
+- **Detección:** usa GuardDuty para los tipos de actividad que cubren sus fuentes y planes; define señales de CloudWatch para logs y métricas adicionales.
+- **Investigación:** empieza por el hallazgo y el recurso afectados. Correlaciona su fecha, identidad y actividad de API con CloudTrail; consulta logs de carga de trabajo en CloudWatch si están habilitados. El hallazgo orienta la investigación, no reemplaza la evidencia de esos sistemas. Para relacionar el impacto con señales de fiabilidad, costos o cambios de despliegue, consulta [Métricas DevOps en AWS](https://dondeaprendoaws.com/blog/10-metricas-clave-de-devops-en-aws/); esas medidas operativas ayudan a poner el incidente en contexto, pero no demuestran por sí mismas una intrusión.
+- **Respuesta:** usa Amazon EventBridge para enrutar hallazgos a un destino como Amazon SNS, un sistema de tickets o un flujo de automatización. Security Hub también ofrece gestión de flujos de respuesta. Prueba cualquier acción que cambie recursos o accesos antes de automatizarla y conserva aprobación humana cuando el impacto operativo lo justifique. [Procesamiento de hallazgos de GuardDuty con EventBridge](https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_findings_eventbridge.html).
+
+## Cómo comprobar que la alerta llega
+
+Puedes validar la ruta sin generar tráfico malicioso ni desplegar recursos de prueba:
+
+1. Hazlo en una cuenta de prueba o asegúrate de que el destino de EventBridge no dispare una acción correctiva real. Selecciona un detector de GuardDuty y una región donde esté habilitado. El ID del detector aparece en **GuardDuty > Settings**. Si lo consultas con `ListDetectors`, esa operación requiere el permiso IAM `guardduty:ListDetectors` ([referencia de autorización de GuardDuty](https://docs.aws.amazon.com/service-authorization/latest/reference/list_guardduty.html)).
+2. La llamada de muestra requiere `guardduty:CreateSampleFindings`. La referencia IAM no define un tipo de recurso para limitar esa acción a un detector específico, así que concede solo esa acción a la identidad de prueba y retírala cuando termines. Con AWS CLI autorizado, genera un único hallazgo de muestra. Sustituye ambos valores entre comillas por el ID del detector y la región correctos:
+
+   ```bash
+   aws guardduty create-sample-findings \
+     --detector-id "REEMPLAZAR_CON_ID_DEL_DETECTOR" \
+     --finding-types "Backdoor:EC2/DenialOfService.Tcp" \
+     --region "REEMPLAZAR_CON_REGION"
+   ```
+
+3. Confirma que el hallazgo marcado como `[SAMPLE]` aparece en GuardDuty. Si usas EventBridge, revisa que la regla coincida con eventos `GuardDuty Finding` y que el destino de prueba reciba el evento. El patrón básico documentado por AWS es:
+
+   ```json
+   {
+     "source": ["aws.guardduty"],
+     "detail-type": ["GuardDuty Finding"]
+   }
+   ```
+
+4. Si habilitaste GuardDuty y Security Hub CSPM en la misma cuenta y región, comprueba si el hallazgo aparece en CSPM; AWS indica que suele enviarse en cinco minutos. Al terminar, archiva el hallazgo de muestra para no confundirlo con uno real.
+
+La muestra comprueba el formato y la ruta de distribución de un hallazgo. No prueba que GuardDuty haya observado o detectado una actividad real. [AWS explica qué contienen y qué no prueban los hallazgos de muestra](https://docs.aws.amazon.com/guardduty/latest/ug/sample_findings.html).
+
+## Si no aparecen hallazgos o alertas
+
+| Síntoma | Qué revisar |
+| --- | --- |
+| No aparece un hallazgo en GuardDuty | Cuenta, región, estado del detector y plan de protección que cubre esa carga o tipo de evento. Un plan ausente no se sustituye con una regla de EventBridge. |
+| Hay hallazgo en GuardDuty, pero no llega al destino | Regla de EventBridge, patrón `source`/`detail-type`, bus, región y permisos del destino. Prueba el trayecto con una muestra en un destino controlado. |
+| GuardDuty muestra el hallazgo, pero no aparece en Security Hub CSPM | Confirma que ambos servicios están habilitados en la misma cuenta y región, que CSPM se habilitó antes del hallazgo y que no filtraste o archivaste el resultado. Revisa AWS Config si falta un hallazgo de control de postura. |
+| No encuentras una API en CloudTrail | Busca en la región correcta y distingue evento de administración de evento de datos. Event history solo contiene los eventos de administración recientes; configura selectores para eventos de datos que necesites conservar. |
+| Faltan logs de una aplicación en CloudWatch | Comprueba que el servicio o agente realmente los envía al grupo de logs esperado y que permisos, región y retención sean correctos. Las alarmas solo evalúan los datos recibidos y la condición configurada. |
+
+## Costos: estima la cobertura antes de habilitarla
+
+No hay un precio único para “monitorear AWS”. GuardDuty cobra según los logs, eventos, cargas o datos analizados, la región y los planes activos; al habilitarlo por primera vez en una región, algunos planes se activan por defecto y tienen una prueba de 30 días. Si habilitas AWS Security Hub, la facturación de las capacidades incluidas en sus planes se consolida en Security Hub; las capacidades de GuardDuty que no estén incluidas conservan su facturación independiente. CloudTrail Event history de administración tiene una vista gratuita de 90 días, mientras que categorías de eventos adicionales, copias, almacenamiento o análisis pueden tener cargos. CloudWatch puede cobrar por ingesta y retención de logs, consultas y alarmas. AWS Security Hub usa planes y unidades de recursos, y sus complementos no se incluyen en la prueba gratuita de Essentials; además, los controles de CSPM pueden requerir uso de AWS Config.
+
+Antes de habilitar la cobertura, compara el alcance y precio en las páginas oficiales de [GuardDuty](https://aws.amazon.com/guardduty/pricing/), [CloudTrail](https://aws.amazon.com/cloudtrail/pricing/), [CloudWatch](https://aws.amazon.com/cloudwatch/pricing/) y [Security Hub](https://aws.amazon.com/security-hub/pricing/). Estima por cuenta y región y revisa AWS Billing después de activar el servicio; una prueba gratuita no implica que todas las fuentes, integraciones o servicios relacionados sean gratuitos.
+
+## Comunidades para conversar y practicar
+
+- **[AWS Security Users Group LatAm](https://www.meetup.com/awssecuritylatam/):** grupo regional que comparte contenido de seguridad en AWS en español; útil para intercambiar experiencias con personas de otros países.
+- **[AWS Security UserGroup Argentina](https://www.meetup.com/aws-security-usergroup-argentina/):** espacio local dedicado a seguridad cloud con AWS, para conectar con usuarios y revisar si hay actividades publicadas en Argentina.
+- **[AWS User Group Security Ecuador](https://www.meetup.com/aws-user-group-security-ecuador/):** comunidad centrada en seguridad de AWS; su página publica charlas y encuentros online o presenciales.
+- **[AWS User Group Córdoba](https://www.meetup.com/aws-user-group-cordoba-argentina/):** grupo general de AWS para aprender y compartir experiencias; no necesitas que una comunidad esté especializada en seguridad para consultar dudas o practicar servicios.
+
+La disponibilidad de intercambios y encuentros cambia; revisa cada página para saber si tiene actividades vigentes y confirmar modalidad y cupos. Estos grupos son comunidades independientes y no canales de soporte oficial de AWS.
+
+## Preguntas frecuentes
+
+### ¿GuardDuty registra todas las llamadas a la API?
+
+No. GuardDuty analiza las fuentes y funciones habilitadas que AWS documenta; CloudTrail también tiene categorías de eventos y límites de retención. Para conservar registros y auditar actividad, configura CloudTrail con los selectores y el destino que requiere tu caso.
+
+### ¿CloudWatch detecta amenazas automáticamente?
+
+CloudWatch puede analizar logs y métricas y activar alarmas sobre condiciones que configuras. La aplicación, servicio o agente debe enviar los datos necesarios, y la regla debe representar una señal que quieras vigilar.
+
+### ¿Amazon Inspector detecta ataques activos?
+
+Inspector identifica vulnerabilidades de software y exposición de red en recursos compatibles. Sus hallazgos sirven para gestionar y corregir debilidades; por sí solos no indican que un ataque esté ocurriendo.
+
+### ¿Un hallazgo de muestra confirma que la detección funciona?
+
+Confirma que puedes ver un hallazgo sintético y comprobar su distribución hacia EventBridge o Security Hub CSPM. No reproduce una actividad maliciosa ni prueba la cobertura de detección para tus recursos.

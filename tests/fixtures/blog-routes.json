@@ -433,7 +433,7 @@
   },
   {
     "slug": "10-preguntas-frecuentes-sobre-machine-learning-en-aws",
-    "title": "10 Preguntas Frecuentes sobre Machine Learning en AWS",
+    "title": "Machine Learning en AWS: cómo empezar y qué servicio elegir",
     "publishedAt": "2024-05-13",
     "publishedTimestamp": "2024-05-13T06:23:36.093Z"
   },
@@ -463,13 +463,13 @@
   },
   {
     "slug": "10-metricas-clave-de-devops-en-aws",
-    "title": "10 Métricas Clave de DevOps en AWS",
+    "title": "Métricas DevOps en AWS: DORA, fiabilidad y costos",
     "publishedAt": "2024-05-12",
     "publishedTimestamp": "2024-05-12T01:37:13.938Z"
   },
   {
     "slug": "10-mejores-practicas-de-aws-para-deteccion-de-amenazas-en-tiempo-real",
-    "title": "10 Mejores Prácticas de AWS para Detección de Amenazas en Tiempo Real",
+    "title": "Detección de amenazas en AWS: GuardDuty, CloudTrail y alertas",
     "publishedAt": "2024-05-11",
     "publishedTimestamp": "2024-05-11T05:27:40.366Z"
   },
@@ -493,7 +493,7 @@
   },
   {
     "slug": "10-practicas-recomendadas-para-integrar-euc-en-aws",
-    "title": "10 Prácticas Recomendadas para Integrar EUC en AWS",
+    "title": "EUC en AWS: escritorios virtuales y streaming de aplicaciones",
     "publishedAt": "2024-05-10",
     "publishedTimestamp": "2024-05-10T05:21:18.994Z"
   },
@@ -607,7 +607,7 @@
   },
   {
     "slug": "10-preguntas-frecuentes-sobre-aws-training-y-certification",
-    "title": "10 Preguntas Frecuentes sobre AWS Training y Certification",
+    "title": "AWS Training y Certification: preguntas sobre cursos y exámenes",
     "publishedAt": "2024-05-03",
     "publishedTimestamp": "2024-05-03T23:06:27.097Z"
   },
