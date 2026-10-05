@@ -299,8 +299,8 @@ assert.doesNotMatch(body, /<img\b/);
 
 const articlesWithCodeComments = [
   {
-    slug: 'como-crear-infraestructura-como-codigo-en-aws-con-terraform',
-    comments: ['# Para instalar Apache', '# otras configuraciones...'],
+    slug: 'como-crear-infraestructura-como-codigo-en-aws-con-aws-cloudformation',
+    comments: ['# Las propiedades del bucket van aquí.'],
   },
   {
     slug: 'integrar-amazon-polly-en-5-pasos-texto-a-voz-realista',
