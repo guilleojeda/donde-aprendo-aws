@@ -1,171 +1,124 @@
 ---
-title: "7 Estrategias para Reducir Costos en AWS Fargate"
-description: "Aprende 7 estrategias efectivas para reducir costos en AWS Fargate sin sacrificar rendimiento y maximiza tus ahorros."
+title: "Cómo reducir costos en AWS Fargate con ECS: guía práctica"
+description: "Reduce costos de Amazon ECS con Fargate al ajustar CPU y memoria, escalar tareas y comparar Spot y ARM64. Revisa también NAT, balanceadores, logs y transferencia de datos."
 author: "guille-ojeda"
 publishedAt: "2024-11-26"
 publishedTimestamp: "2024-11-26T19:09:41.914Z"
+modifiedTimestamp: "2026-10-04T22:31:52-03:00"
+review:
+  date: "2026-10-04"
 cover: "/assets/blog/9d9e21deaf95138036c3d24d.jpg"
 coverAlt: "Portátil sobre un escritorio con un panel de gráficos y costos en pantalla"
 ogImage: "/assets/blog/9d9e21deaf95138036c3d24d.jpg"
-related:
-  - title: "Guía Completa: Análisis de Costos de Tráfico en AWS"
-    url: "https://dondeaprendoaws.com/blog/guia-completa-analisis-de-costos-de-trafico-en-aws/"
-    image: "/assets/blog/5a1c145030a04aac753625bc.jpg"
-    imageAlt: ""
-  - title: "Arquitecturas Dirigidas por Eventos en AWS"
-    url: "https://dondeaprendoaws.com/blog/arquitecturas-dirigidas-por-eventos-en-aws/"
-    image: "/assets/blog/1a0df738c1ab9c313bf60144.jpg"
-    imageAlt: ""
-  - title: "Nube AWS: Guía de Inicio Rápido"
-    url: "https://dondeaprendoaws.com/blog/nube-aws-guia-de-inicio-rapido/"
-    image: "/assets/blog/c182a819b0d8523e5365c545.jpg"
-    imageAlt: ""
+related: []
 ---
 
-<p>¿Quieres reducir tus costos en <a href="https://aws.amazon.com/fargate/">AWS Fargate</a> sin sacrificar rendimiento? Aquí tienes <strong>7 estrategias clave</strong> para ahorrar hasta un 70% en tus facturas:</p>
-<ul><li><strong>Ajusta recursos con precisión</strong>: Usa solo la CPU y memoria que realmente necesitas.</li><li><strong>Aprovecha Fargate Spot</strong>: Reduce costos con esta opción de capacidad flexible.</li><li><strong>Configura Auto Scaling</strong>: Escala automáticamente según la demanda real.</li><li><strong>Contrata <a href="https://docs.aws.amazon.com/savingsplans/">AWS Savings Plans</a></strong>: Ahorra hasta un 72% comprometiéndote con un uso fijo.</li><li><strong>Monitorea tus gastos</strong>: Usa herramientas como <a href="https://aws.amazon.com/aws-cost-management/aws-cost-explorer/">AWS Cost Explorer</a> y etiquetas.</li><li><strong>Migra a Graviton</strong>: Reduce costos de procesamiento hasta un 40%.</li><li><strong>Optimiza la colocación de tareas</strong>: Distribuye cargas de trabajo eficientemente.</li></ul>
-<p><strong>Ejemplo rápido de ahorro:</strong> Una tarea con 2 vCPU y 4 GB RAM cuesta $1.13 en On-demand, pero solo $0.34 con Fargate Spot. ¡Eso es un ahorro del 70%!</p>
-<p>El truco está en combinar estas tácticas según tus necesidades. Sigue leyendo para descubrir cómo aplicarlas y maximizar tus ahorros en AWS Fargate.</p>
-<h2 id="video-relacionado-de-youtube">Video relacionado de YouTube</h2>
-<div><iframe allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen="" height="315" loading="lazy" src="https://www.youtube-nocookie.com/embed/pS3zfPmMjs4" title="Video de YouTube" width="560"></iframe></div>
-<h2 id="1.-aws-fargate-pricing-b%C3%A1sicos">1. <a href="https://aws.amazon.com/fargate/">AWS Fargate</a> Pricing Básicos</h2>
-<p><img alt="AWS Fargate" src="/assets/blog/0d15d7bb385b4c3a24715cea.jpg"/></p>
-<p>AWS Fargate usa un modelo de precios simple: pagas por <strong>vCPU</strong> y <strong>memoria</strong> que consumes. Nada más. Es como pagar la luz - solo lo que gastas.</p>
-<h3 id="%C2%BFc%C3%B3mo-se-calculan-los-costos%3F">¿Cómo se calculan los costos?</h3>
-<p>Los precios tienen dos partes: vCPU y memoria. En US East (Norte de Virginia):</p>
-<p><strong>On-demand</strong>:</p>
-<ul><li>vCPU: $0.04656 por hora</li><li>Memoria: $0.00511 por GB/hora</li></ul>
-<p><strong>Fargate Spot</strong> (más barato pero con menos garantías):</p>
-<ul><li>vCPU: $0.013968 por hora</li><li>Memoria: $0.001533 por GB/hora</li></ul>
-<p>Los precios cambian según la región, así que revisa siempre la <a href="https://aws.amazon.com/fargate/pricing/">página oficial de precios de AWS</a>.</p>
-<h3 id="veamos-un-ejemplo-real">Veamos un ejemplo real</h3>
-<p>Imagina que necesitas correr una tarea por 10 horas con <strong>2 vCPU y 4 GB de memoria</strong> en US East:</p>
-<p><strong>Con On-demand</strong>:</p>
-<ul><li>vCPU: 2 × $0.04656 × 10 = <strong>$0.9312</strong></li><li>Memoria: 4 × $0.00511 × 10 = <strong>$0.2044</strong></li><li>Total: <strong>$1.1356</strong></li></ul>
-<p><strong>Con Fargate Spot</strong>:</p>
-<ul><li>vCPU: 2 × $0.013968 × 10 = <strong>$0.27936</strong></li><li>Memoria: 4 × $0.001533 × 10 = <strong>$0.06132</strong></li><li>Total: <strong>$0.34068</strong></li></ul>
-<p>¡Mira la diferencia! Spot te ahorra casi 70%.</p>
-<h3 id="tips-para-controlar-tus-costos">Tips para controlar tus costos</h3>
-<p><strong>No desperdicies recursos</strong>. AWS te da herramientas para mantener tus gastos bajo control:</p>
-<ul><li><strong>AWS Cost Explorer</strong>: Te muestra dónde va tu dinero</li><li><strong><a href="https://aws.amazon.com/aws-cost-management/aws-budgets/">AWS Budgets</a></strong>: Te avisa antes de que tu factura se dispare</li><li><strong><a href="https://docs.aws.amazon.com/compute-optimizer/latest/ug/what-is-compute-optimizer.html">AWS Compute Optimizer</a></strong>: Te dice si estás usando más recursos de los que necesitas</li><li><strong>Etiquetas</strong>: Marca tus recursos para saber qué proyecto gasta qué</li></ul>
-<p>El truco está en usar solo lo que necesitas. ¿Tu app necesita realmente 4GB de memoria? ¿Podrías usar Spot en vez de On-demand? Estas preguntas te pueden ahorrar mucho dinero.</p>
-<h2 id="2.-optimizaci%C3%B3n-de-la-asignaci%C3%B3n-de-recursos">2. Optimización de la Asignación de Recursos</h2>
-<p>Reducir costos y mantener el rendimiento de tus aplicaciones en AWS Fargate depende de una correcta asignación de recursos. Veamos cómo lograrlo mediante el monitoreo y ajuste de recursos.</p>
-<h3 id="monitoreo-del-uso-de-recursos">Monitoreo del Uso de Recursos</h3>
-<p>AWS Compute Optimizer te ayuda a tomar decisiones basadas en datos sobre tus recursos. Los datos muestran que puedes ahorrar hasta un 52% al ajustar tareas que usan más recursos de los necesarios.</p>
-<p>Para empezar a recibir estas recomendaciones, activa el servicio con:</p>
-<pre><code>aws compute-optimizer update-enrollment-status --status Active
-</code></pre>
-<h3 id="ajuste-de-definiciones-de-tareas">Ajuste de Definiciones de Tareas</h3>
-<p><strong>AWS CloudWatch</strong> te muestra exactamente cómo tus aplicaciones usan los recursos. Con estos datos, puedes tomar decisiones informadas sobre la CPU y memoria que realmente necesitas.</p>
-<p>Aquí hay un ejemplo práctico de cómo los ajustes afectan los costos:</p>
-<table><thead><tr><th><strong>Configuración</strong></th><th><strong>Costo por hora</strong></th></tr></thead><tbody><tr><td>2 vCPUs + 4 GB RAM</td><td>$0.03042532</td></tr><tr><td>1 vCPU + 2 GB RAM</td><td>$0.01521266</td></tr></tbody></table>
-<p>Como puedes ver, reducir los recursos a la mitad cuando no los necesitas puede dividir tus costos por dos. <strong>Lo importante es basarte en datos reales</strong>, no en suposiciones.</p>
-<p>Usa CloudWatch para revisar el uso de recursos regularmente. Las aplicaciones cambian con el tiempo, y tus configuraciones deberían adaptarse a estos cambios.</p>
-<p>El próximo paso es ver cómo usar instancias Fargate Spot para reducir aún más tus costos.</p>
-<h2 id="3.-uso-de-instancias-fargate-spot">3. Uso de Instancias Fargate Spot</h2>
-<h3 id="ventajas-de-fargate-spot">Ventajas de Fargate Spot</h3>
-<p>¿Buscas reducir tus costos en AWS? Fargate Spot puede recortar tu factura hasta un 70% comparado con las tarifas estándar. Esta opción usa la capacidad extra de AWS y funciona genial para tareas que no son críticas, como procesar datos, probar software o hacer análisis que pueden pausarse sin problema.</p>
-<p><strong>Dos puntos clave que hacen brillar a Fargate Spot:</strong></p>
-<ul><li>Pagas mucho menos por tus cargas de trabajo flexibles</li><li>Ajustas recursos según necesites, sin atarte a costos fijos</li></ul>
-<h3 id="introducci%C3%B3n-a-fargate-spot">Introducción a Fargate Spot</h3>
-<p>Piensa en Fargate Spot como un recurso flexible para tareas que no son de vida o muerte. Por ejemplo, una empresa que hace pruebas de software puede ahorrar una buena cantidad de dinero moviendo sus simulaciones a Fargate Spot. Es como tener un trabajador temporal que hace el mismo trabajo por menos dinero, pero que puede necesitar un descanso de vez en cuando.</p>
-<h3 id="desventajas-de-fargate-spot">Desventajas de Fargate Spot</h3>
-<p>Antes de lanzarte a usar Fargate Spot, ten en cuenta estas limitaciones:</p>
-<p><strong>Posibles interrupciones</strong>: AWS puede pedirte sus recursos de vuelta con solo 2 minutos de aviso. Para protegerte, necesitas un plan B - como reintentos automáticos o usar colas de mensajes.</p>
-<p><strong>Sin garantías de servicio</strong>: A diferencia de las instancias normales, aquí no hay promesas de disponibilidad. No es lo mejor si necesitas que tu app funcione sin parar.</p>
-<p>¿Cómo sacarle el máximo provecho? Mira bien qué tareas puedes mover a Fargate Spot. Las que pueden aguantar pausas son perfectas para ahorrar, mientras que las críticas mejor déjalas en servicios más estables. En la siguiente sección, veremos cómo combinar esto con escalado automático para obtener mejores resultados.</p>
-<h2 id="4.-configuraci%C3%B3n-de-auto-scaling">4. Configuración de Auto Scaling</h2>
-<p>El auto-scaling en AWS Fargate te ayuda a pagar solo por lo que necesitas. ¿Cómo? Ajustando automáticamente tus recursos según la demanda real de tu aplicación.</p>
-<h3 id="crear-pol%C3%ADticas-de-auto-scaling">Crear Políticas de Auto Scaling</h3>
-<p>Para que tus tareas se ajusten automáticamente, necesitas configurar el auto-scaling correctamente. Aquí te explico paso a paso:</p>
-<p>1. <strong>Definir métricas de escalado</strong></p>
-<p>Las métricas son como termómetros que miden el rendimiento de tu aplicación. Las más comunes son:</p>
-<ul><li><strong>CPU</strong>: Mide qué tan ocupados están tus procesadores</li><li><strong>Memoria</strong>: Controla cuánta RAM estás usando</li><li><strong>Carga</strong>: Cuenta las peticiones que recibe tu app</li></ul>
-<p>Configura estas métricas en <strong>AWS CloudWatch</strong> - es como el panel de control que te avisa cuándo escalar.</p>
-<p>2. <strong>Configurar políticas de escalado</strong></p>
-<p>AWS te da tres opciones principales:</p>
-<ul><li>Target Tracking: Como un termostato, mantiene tus métricas en un punto fijo</li><li>Step Scaling: Sube o baja recursos por escalones</li><li>Scheduled Scaling: Programa cambios para momentos específicos</li></ul>
-<p>3. <strong>Implementar el auto-scaling</strong></p>
-<p>Es tan simple como marcar tu servicio ECS como "escalable" - puedes hacerlo desde la consola de ECS o con AWS CLI.</p>
-<p>4. <strong>Monitorear y ajustar</strong></p>
-<p>Usa <strong>AWS Compute Optimizer</strong> para vigilar y afinar tu configuración. Es como tener un mecánico que revisa constantemente el motor de tu auto.</p>
-<h3 id="ejemplo%3A-auto-scaling-con-aws-cloudwatch">Ejemplo: Auto Scaling con <a href="https://docs.aws.amazon.com/cloudwatch/">AWS CloudWatch</a></h3>
-<p><img alt="AWS CloudWatch" src="/assets/blog/ef8880b6b6afeaa43311f2f4.jpg"/></p>
-<p>Imagina esto: configuras tu app para que escale cuando la CPU llegue al 70%. Si tu app se sobrecarga, el sistema añade más recursos automáticamente. Y cuando baja la demanda (digamos, menos del 50%), reduce recursos para ahorrar dinero.</p>
-<p><strong>Consejo extra</strong>: Combina auto-scaling con Fargate Spot para tareas no críticas. Es como comprar boletos de avión en oferta - mismo destino, mejor precio. Y si quieres ahorrar aún más, echa un vistazo a los AWS Savings Plans.</p>
-<p>¿Un ejemplo real? Una tienda online ajustó su auto-scaling para el Black Friday. Cuando llegó la avalancha de compradores, sus sistemas se adaptaron sin problemas, manteniendo la tienda abierta y los costos bajo control.</p>
-<h2 id="5.-usar-aws-savings-plans">5. Usar <a href="https://docs.aws.amazon.com/savingsplans/">AWS Savings Plans</a></h2>
-<p><img alt="AWS Savings Plans" src="/assets/blog/c3eaaf3bc01c23946bc2815e.jpg"/></p>
-<p>Los <strong>AWS Savings Plans</strong> te permiten reducir los costos en AWS Fargate al comprometerte con un uso fijo de recursos por uno o tres años. ¿El beneficio? Puedes ahorrar hasta un <strong>72% comparado con los precios bajo demanda</strong>. Es como comprar al por mayor - mientras más te comprometes, más ahorras.</p>
-<h3 id="%C2%BFc%C3%B3mo-funcionan-los-aws-savings-plans%3F">¿Cómo funcionan los AWS Savings Plans?</h3>
-<p>AWS ofrece dos tipos principales de planes:</p>
-<p><strong>Compute Savings Plans</strong>: Son como un pase VIP para servicios de cómputo. Cubren Fargate, EC2 y Lambda - perfecto si sabes cuánto poder de cómputo necesitarás.</p>
-<p><strong><a href="https://dondeaprendoaws.com/blog/ahorro-de-costos-en-aws-con-instancias-reservadas-y-savings-plans/">EC2 Instance Savings Plans</a></strong>: Son más específicos, solo para instancias EC2. Es como reservar una habitación de hotel exactamente del tipo que necesitas.</p>
-<p>Imagina que tu app recibe tráfico constante durante el día. Un Compute Savings Plan es como tener un contrato fijo de electricidad - sabes lo que vas a usar y pagas menos por ello.</p>
-<h3 id="combinar-savings-plans-con-spot-instances">Combinar Savings Plans con Spot Instances</h3>
-<p>Es como tener un plan de telefonía fijo para tus necesidades básicas y usar prepago para extras. Los Savings Plans manejan tu carga base, mientras las Spot Instances cubren los picos y tareas flexibles.</p>
-<p><strong>¿Cómo aplicarlo en la práctica?</strong> Piensa en una tienda online: usa Savings Plans para el tráfico regular de compradores y Spot Instances para procesar pedidos en masa durante la noche. Es una combinación que ahorra dinero y mantiene todo funcionando sin problemas.</p>
-<h3 id="mejores-pr%C3%A1cticas-para-sacarle-jugo-a-aws-savings-plans">Mejores prácticas para sacarle jugo a AWS Savings Plans</h3>
-<p><strong>Primero, conoce tus números</strong>: Revisa cómo usas AWS antes de comprometerte. Es como revisar tus facturas de luz antes de elegir una tarifa fija.</p>
-<p><strong>Elige el plan que mejor te calce</strong>: No todos los planes son iguales. Analiza si necesitas flexibilidad (Compute Savings Plan) o algo más específico (EC2 Instance Plan).</p>
-<p><strong>Mantén un ojo en todo</strong>: Usa <strong>AWS Cost Explorer</strong> para ver si estás aprovechando al máximo tu plan. Si ves que algo no funciona, ajusta tu estrategia.</p>
-<p>Esta combinación de Savings Plans con Spot Instances puede reducir significativamente tus costos en AWS Fargate. Es como tener un plan de ahorro inteligente: usas las ofertas a largo plazo para lo que sabes que necesitarás, y las ofertas puntuales para todo lo demás.</p>
-<h2 id="6.-seguimiento-y-gesti%C3%B3n-de-costos">6. Seguimiento y Gestión de Costos</h2>
-<p>El control de costos en AWS Fargate puede marcar la diferencia entre un presupuesto equilibrado y gastos descontrolados. Con las herramientas correctas y un enfoque práctico, puedes mantener tus gastos bajo control y maximizar el valor de tu inversión.</p>
-<h3 id="usar-aws-cost-explorer">Usar <a href="https://aws.amazon.com/aws-cost-management/aws-cost-explorer/">AWS Cost Explorer</a></h3>
-<p><img alt="AWS Cost Explorer" src="/assets/blog/703ab52f647421de1e04c2c4.jpg"/></p>
-<p><strong>AWS Cost Explorer</strong> te ayuda a ver exactamente dónde va tu dinero. Es como tener una lupa sobre tus gastos en la nube. ¿Lo mejor? Puedes tomar decisiones basadas en datos reales, no en suposiciones.</p>
-<p>Por ejemplo, una startup de comercio electrónico usó AWS Cost Explorer para examinar sus gastos y descubrió algo sorprendente: el 25% de sus costos se iba en CPU mal configurada. Con algunos ajustes, cortaron sus gastos en un 18% en solo dos meses.</p>
-<p>Las características que hacen destacar a Cost Explorer son:</p>
-<ul><li><strong>Patrones de uso</strong>: Detecta si estás gastando de más en momentos de baja actividad. Imagina descubrir que el 60% de tus costos ocurren cuando menos los necesitas.</li><li><strong>Alertas y predicciones</strong>: Configura límites de presupuesto y recibe avisos antes de que los gastos se salgan de control.</li></ul>
-<h3 id="aplicar-etiquetado-de-recursos">Aplicar Etiquetado de Recursos</h3>
-<p>El etiquetado es como poner nombre a tus gastos. Puedes configurarlo desde la consola de AWS o usando AWS CLI. Lo importante es hacerlo desde el principio - es más fácil etiquetar recursos cuando los creas que intentar organizarlos después.</p>
-<p>Un caso que lo demuestra: una empresa de software empezó a etiquetar sus recursos por entornos (desarrollo, pruebas, producción). ¿El resultado? Encontraron que su entorno de pruebas estaba sobredimensionado y, al ajustarlo, ahorraron un 22%.</p>
-<p><strong>AWS Cost Explorer</strong> te permite filtrar por estas etiquetas, así que puedes ver exactamente cuánto gasta cada proyecto o departamento. Es como tener una radiografía de tus costos en la nube.</p>
-<p>La clave está en ser consistente con tu sistema de etiquetado y asegurarte de que todos los recursos nuevos sigan el mismo estándar desde el primer día.</p>
-<h2 id="7.-cambiar-a-instancias-graviton">7. Cambiar a Instancias Graviton</h2>
-<p>¿Buscas reducir costos en AWS Fargate? Los procesadores <a href="https://aws.amazon.com/ec2/graviton/">AWS Graviton</a>, con su arquitectura ARM, pueden ser la respuesta.</p>
-<p><strong>¿Por qué considerar Graviton?</strong> Simple: te permite ahorrar hasta un 40% comparado con instancias x86. Y lo mejor es que no tienes que sacrificar el rendimiento de tus <a href="https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/">aplicaciones contenedorizadas</a>.</p>
-<p>Veamos lo que Graviton pone sobre la mesa:</p>
-<ul><li><strong>Ahorras dinero:</strong> Hasta un 40% menos en costos que las instancias x86</li><li><strong>Alto rendimiento:</strong> Perfecto para microservicios, procesamiento de datos y apps web</li><li><strong>Funciona con casi todo:</strong> La mayoría de los contenedores corren sin problemas</li></ul>
-<p>¿Necesitas pruebas? Mira el caso de <a href="https://www.clearscale.com/">ClearScale</a>: ayudaron a un cliente a migrar a Graviton y ¡BAM! 30% menos en costos operativos, manteniendo el mismo rendimiento.</p>
-<p><strong>¿Listo para dar el salto?</strong> Aquí está lo que debes hacer:</p>
-<ol><li>Revisa si tus apps son compatibles</li><li>Haz pruebas primero con cargas no críticas</li><li>Usa Amazon CloudWatch para monitorear el rendimiento</li></ol>
-<p>La mayoría de los contenedores modernos funcionan bien con Graviton, pero siempre es bueno revisar las dependencias específicas de tus aplicaciones.</p>
-<p>Este cambio no solo te ayuda a gastar menos - también te prepara para el futuro de la <a href="https://dondeaprendoaws.com/blog/cloud-computing-en-espanol-fundamentos-basicos/">computación en la nube</a>. Con una migración bien planeada, tus apps pueden rendir al máximo mientras ahorras dinero.</p>
-<p>Y recuerda: Graviton es solo una pieza del rompecabezas. También debes pensar en cómo distribuyes tus tareas para sacar el máximo provecho de Fargate.</p>
-<h2 id="8.-optimizaci%C3%B3n-de-la-colocaci%C3%B3n-de-tareas">8. Optimización de la Colocación de Tareas</h2>
-<p>La forma en que distribuyes tus tareas en AWS Fargate puede tener un gran impacto en tus costos y rendimiento. Veamos cómo sacar el máximo provecho de esta característica.</p>
-<h3 id="estrategias-de-colocaci%C3%B3n-de-tareas">Estrategias de Colocación de Tareas</h3>
-<p>AWS Fargate te ofrece dos enfoques principales para distribuir tus tareas:</p>
-<ul><li><strong>Agrupamiento (Bin Packing)</strong>: Concentra las tareas para usar menos instancias y reducir costos</li><li><strong>Distribución (Spread)</strong>: Reparte las tareas entre varias zonas para mantener tu aplicación funcionando incluso si una zona falla</li></ul>
-<p>También puedes crear reglas específicas para controlar exactamente dónde se ejecutan tus tareas, ya sea en ciertas instancias o zonas particulares.</p>
-<h3 id="beneficios-de-la-optimizaci%C3%B3n">Beneficios de la Optimización</h3>
-<p>Cuando colocas tus tareas de manera inteligente, obtienes dos ventajas principales:</p>
-<ol><li>Aprovechas mejor los recursos que ya estás pagando</li><li>Tu aplicación se mantiene funcionando incluso si hay problemas en alguna zona</li></ol>
-<p>Por ejemplo, si distribuyes tus tareas entre tres zonas de disponibilidad, tu aplicación seguirá funcionando aunque una zona completa deje de responder.</p>
-<h3 id="implementaci%C3%B3n-de-estrategias">Implementación de Estrategias</h3>
-<p>En <a href="https://aws.amazon.com/ecs/">Amazon ECS</a>, puedes usar comandos como <code>memberOf</code> para especificar dónde quieres que se ejecuten tus tareas. Si combinas esto con <code>distinctInstance</code>, tus tareas se distribuirán de forma más equilibrada entre tus recursos.</p>
-<h3 id="monitoreo-y-ajuste">Monitoreo y Ajuste</h3>
-<p>Para saber si tus estrategias están funcionando, mantén un ojo en AWS Cost Explorer y CloudWatch. Estos servicios te mostrarán si estás ahorrando dinero y si tus recursos se están usando eficientemente.</p>
-<p><strong>Consejo extra</strong>: Para ahorrar aún más, prueba Fargate Spot en las tareas que no sean críticas. Podrías reducir tus costos hasta en un 70%.</p>
-<h2 id="conclusi%C3%B3n">Conclusión</h2>
-<p>¿Quieres reducir los costos de tus aplicaciones en AWS Fargate? Es más simple de lo que parece.</p>
-<p>Todo comienza por entender cómo AWS Fargate cobra por sus servicios. <strong>El precio se basa en dos factores principales</strong>: el uso de vCPU y memoria por hora. Con esta información, puedes tomar mejores decisiones sobre tus recursos. AWS Compute Optimizer te ayuda a detectar cuando estás pagando por más recursos de los que necesitas.</p>
-<p>¿Sabías que puedes ahorrar hasta un 70% usando Fargate Spot? Esta opción es perfecta para tareas que no son críticas y pueden tolerar interrupciones. Pero ojo: asegúrate de evaluar si tus aplicaciones pueden manejar estas pausas.</p>
-<p>El autoescalado es tu mejor amigo para manejar costos. <strong>AWS Auto Scaling</strong> junto con <strong>CloudWatch</strong> ajusta automáticamente tus recursos según la demanda real. Es como tener un termostato que regula la temperatura - solo usas lo que necesitas, cuando lo necesitas.</p>
-<p>Para equipos con cargas de trabajo predecibles, los <strong>AWS Savings Plans</strong> son oro puro - pueden recortar tus costos hasta un <strong>52%</strong>. Y si los combinas con Fargate Spot, los ahorros son aún mayores.</p>
-<p>No te olvides de AWS Cost Explorer - es como tu contador personal que te muestra exactamente dónde va tu dinero en la nube.</p>
-<p>¿Buscas un ahorro extra? Las instancias <strong>Graviton</strong> pueden reducir tus costos hasta un 40% manteniendo el mismo nivel de rendimiento.</p>
-<p>El truco está en mezclar estas opciones según tus necesidades específicas. Es como armar un rompecabezas donde cada pieza contribuye a maximizar tus ahorros.</p>
-<p>Para más consejos y trucos sobre AWS en español, visita <strong>Dónde Aprendo AWS</strong> (https://dondeaprendoaws.com), tu recurso de confianza para <a href="https://dondeaprendoaws.com/blog/como-utilizar-elasticsearch-en-aws/">dominar AWS</a> en tu idioma.</p>
-<h2 id="aprende-m%C3%A1s-en-d%C3%B3nde-aprendo-aws">Aprende Más en <a href="https://dondeaprendoaws.com/">Dónde Aprendo AWS</a></h2>
-<p><img alt="Dónde Aprendo AWS" src="/assets/blog/0b106b2a88b767bcf792b81e.jpg"/></p>
-<p>¿Buscas más información sobre AWS? El blog <strong><a href="https://dondeaprendoaws.com/">Dónde Aprendo AWS</a></strong> es tu aliado perfecto. Aquí encontrarás artículos en español que te ayudarán a dominar AWS, desde lo básico hasta lo más técnico.</p>
-<p>Lo que hace especial a este blog es su conexión con la comunidad hispanohablante de AWS. No solo aprenderás, sino que también podrás conectar con otros profesionales que comparten tus intereses.</p>
-<p>El blog cubre temas clave como:</p>
-<ul><li><strong>Lo básico de AWS</strong>: Perfecto si estás dando tus primeros pasos</li><li><strong>Tips para ahorrar dinero</strong>: Incluyendo consejos específicos para AWS Fargate</li><li><strong>Historias reales</strong>: Mira cómo otras empresas usan AWS en el mundo real</li></ul>
-<p>Si quieres poner en práctica las estrategias de ahorro que hemos visto, <strong>Dónde Aprendo AWS</strong> te dará las herramientas y el conocimiento que necesitas. Es como tener un <a href="https://dondeaprendoaws.com/blog/">mentor de AWS en español</a>, disponible cuando lo necesites.</p>
-<h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/optimizacion-de-costos-de-aws-lambda/">Optimización de Costos de AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/7-estrategias-de-serverless-para-startups-optimiza-costos/">7 Estrategias de Serverless para Startups: Optimiza Costos</a></li><li><a href="https://dondeaprendoaws.com/blog/10-estrategias-de-optimizacion-de-costos-en-aws/">10 Estrategias de Optimización de Costos en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/10-estrategias-para-optimizar-costos-de-red-en-aws/">10 Estrategias para Optimizar Costos de Red en AWS</a></li></ul>
+Para reducir costos en AWS Fargate con Amazon ECS, revisa dos cosas primero: el tamaño de cada tarea y cuántas tareas permanecen activas cuando baja la demanda. Fargate factura la CPU y la memoria aprovisionadas, aunque la aplicación use menos. También cuenta el tiempo desde que empieza la descarga de la imagen del contenedor y hay cargos separados por red, balanceadores, logs e imágenes.
+
+El orden práctico es medir el costo actual, ajustar recursos con datos de uso, escalar el número de tareas y probar Spot o ARM64 solo si el trabajo tolera sus condiciones. No hay un porcentaje de ahorro que se aplique a todas las cargas.
+
+## Cómo calcula AWS el costo de Fargate
+
+El precio de cada tarea o pod considera la CPU, la memoria, el sistema operativo, la arquitectura y el almacenamiento efímero configurados. Las tarifas dependen de la región. Fargate redondea la duración facturable al segundo, con un mínimo de un minuto para Linux y cinco minutos para Windows. El reloj empieza cuando comienza la descarga de la imagen y termina cuando se detiene la tarea o el pod.
+
+Las tareas y los pods reciben 20 GiB de almacenamiento efímero por defecto. AWS cobra el almacenamiento adicional que configures por encima de esos 20 GiB. La imagen descargada también ocupa parte de ese espacio.
+
+- **Amazon ECS Fargate:** Linux/x86-64, Linux/ARM64 y Windows/x86-64. Fargate Spot está disponible para Linux/x86-64 y Linux/ARM64.
+- **Amazon EKS Fargate:** Linux/x86-64; EKS no admite Fargate Spot.
+
+En ECS, ARM64 requiere Linux y Fargate platform version 1.4.0 o posterior. Los tamaños admitidos de CPU y memoria son combinaciones específicas; confirma la combinación y la disponibilidad de la región antes de cambiar una definición de tareas. [AWS detalla esas combinaciones y límites para Fargate](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/fargate-tasks-services.html), y [la guía de EKS confirma que Fargate Spot no está disponible en EKS](https://docs.aws.amazon.com/eks/latest/userguide/fargate.html).
+
+### Un cálculo que puedes repetir
+
+La página de precios de AWS muestra un ejemplo con cinco tareas Linux/x86 en N. Virginia, cada una con 1 vCPU, 2 GiB de memoria y 30 GiB de almacenamiento efímero, durante 10 minutos al día por 30 días. Para estimar ese caso, usa las tarifas actuales de la región:
+
+Para cada segundo facturable, suma la tarifa de 1 vCPU, 2 GiB de memoria y 10 GiB de almacenamiento adicional (30 menos los 20 GiB incluidos). Luego multiplica esa tarifa por 5 tareas, 30 días y 600 segundos por día.
+
+La duración supone que los 600 segundos van desde el inicio de la descarga de la imagen hasta el final de la tarea. No incluye NAT, balanceadores, logs, ECR ni transferencia de datos. Consulta el ejemplo vigente en [precios de AWS Fargate](https://aws.amazon.com/fargate/pricing/) y reemplaza región, sistema operativo y arquitectura en la [AWS Pricing Calculator](https://calculator.aws/).
+
+## Siete formas de bajar el costo sin adivinar
+
+### 1. Ajusta CPU y memoria con métricas de tu carga
+
+Empieza con métricas de CPU y memoria del servicio, y observa picos, no solo promedios. Después de modificar una definición de tareas, compara latencia, errores, reinicios y uso máximo durante una prueba representativa. Un tamaño menor puede bajar el cargo de Fargate, pero quedarse corto puede provocar errores o reducir el rendimiento.
+
+[AWS Compute Optimizer ofrece recomendaciones de tamaño para servicios ECS sobre Fargate](https://docs.aws.amazon.com/compute-optimizer/latest/ug/view-ecs-recommendations.html). Para generarlas, necesita al menos 24 horas de métricas de uso dentro de los 14 días anteriores; la primera recomendación puede tardar hasta 24 horas. Tómala como una hipótesis para probar, no como un cambio automático.
+
+### 2. Escala el número de tareas según el trabajo pendiente
+
+Configura [Amazon ECS Service Auto Scaling con Application Auto Scaling](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-auto-scaling.html). Las políticas pueden ajustar el número deseado de tareas según CPU, memoria o métricas de solicitudes; el escalado programado ayuda cuando la demanda tiene horarios previsibles. Define mínimos y máximos que respeten los límites de disponibilidad y capacidad de la aplicación.
+
+Un servicio ECS puede tener mínimo cero. En un worker que procesa una cola, esto puede evitar tareas ociosas, siempre que una nueva carga pueda esperar a que aparezca una tarea y que la métrica permita escalar desde cero. Application Auto Scaling necesita recibir un punto de datos de demanda antes de iniciar ese escalado. Para una API interactiva, conserva al menos una tarea si necesitas responder sin esperar el arranque y el registro de un destino. Si apagas las tareas, un Application Load Balancer que siga activo mantiene sus propios cargos.
+
+Como referencia de arquitectura, [Backend Escalable con Contenedores](https://www.alfredo-dominguez.dev/arquitecturas/02-scalable-backend/) muestra un servicio ECS/Fargate que escala según CPU, detrás de un ALB, con RDS PostgreSQL en una subred privada. Sirve para entender las dependencias de una API con tráfico variable; el ALB, RDS y la observabilidad tienen cargos propios, y el ejemplo no es una cotización para tu carga.
+
+### 3. Usa Fargate Spot solo para trabajos que puedan interrumpirse
+
+AWS anuncia Fargate Spot con descuentos de hasta el 70% sobre el precio regular de Fargate, pero el descuento real varía y no reduce en esa proporción la factura completa. Spot usa capacidad sobrante; puede no haber capacidad disponible y AWS puede recuperar la capacidad con dos minutos de aviso. ECS no reemplaza automáticamente una tarea Spot por una tarea bajo demanda.
+
+Prueba Spot para procesamiento por lotes, workers con reintentos o entornos no productivos. Diseña el trabajo para tolerar interrupciones —por ejemplo, que sea idempotente o pueda guardar un checkpoint— y mantén capacidad bajo demanda para la base de producción que deba seguir disponible. [La guía de capacidad de ECS explica los proveedores Fargate y Fargate Spot y sus interrupciones](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/fargate-capacity-providers.html).
+
+### 4. Evalúa ARM64 con una imagen compatible y una prueba de carga
+
+ECS Fargate permite ejecutar cargas Linux en procesadores AWS Graviton con arquitectura ARM64. Declara esa arquitectura en la definición de tareas y comprueba que la imagen incluya binarios y bibliotecas compatibles; puedes publicar una imagen ARM64 o un manifiesto multi-arquitectura. La migración no garantiza menor costo ni el mismo rendimiento: ejecuta las pruebas con tráfico y dependencias representativas, y compara la tarifa de la región y los resultados de la aplicación.
+
+Consulta las [condiciones de ECS para tareas ARM64](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-arm64.html), incluida la versión mínima de Fargate. ARM64 no está disponible en Fargate para Windows ni para EKS.
+
+Como introducción conceptual en español, [Cómo comenzar a trabajar con AWS Graviton](https://dev.to/aws-espanol/como-comenzar-a-trabajar-con-aws-graviton-la-pregunta-del-millon-1m6h), publicado en 2023, explica ARM y el uso de imágenes multi-arquitectura. Está centrado en EC2 e incluye familias, precios y una promoción gratuita de 2023 que ya no debes tomar como vigentes; para Fargate, usa la matriz de compatibilidad actual de AWS enlazada arriba.
+
+### 5. Reserva Savings Plans para una base estable
+
+Un [Compute Savings Plan](https://docs.aws.amazon.com/savingsplans/latest/userguide/sp-ris.html) puede cubrir las dimensiones de vCPU y memoria de uso elegible de Fargate en ECS o EKS a cambio de un compromiso de gasto por hora durante uno o tres años. No reserva capacidad, no se aplica al uso de Spot ni cubre cargos de licencia de Windows. Tampoco descuenta servicios asociados como ALB, NAT Gateway o CloudWatch.
+
+Revisa primero el historial de uso elegible y estima un compromiso que puedas sostener incluso si cambia la demanda. Considera el plan para una base estable bajo demanda; deja fuera los picos y las cargas Spot. El descuento exacto depende del plan y de la tarifa aplicable, no de un porcentaje fijo para toda la cuenta.
+
+### 6. Reduce el tiempo facturable de las tareas cortas
+
+En tareas breves, el tiempo de descarga de la imagen forma parte del intervalo facturable. Revisa el tamaño de las imágenes, elimina dependencias que no se usan y mide los tiempos de aprovisionamiento y descarga en el ciclo de vida de ECS. Una imagen más liviana puede acelerar el arranque; el efecto en el costo depende de cuánto reduzca la duración facturable completa de la tarea.
+
+Las imágenes guardadas también generan almacenamiento y, según la ubicación y el tráfico, transferencia en Amazon ECR. Define una política para retirar versiones que ya no necesitas y vuelve a estimar el costo antes de cambiar la ruta de descarga. [La documentación de ECR describe sus cargos de almacenamiento y transferencia](https://aws.amazon.com/ecr/pricing/).
+
+Para trabajos que corren solo algunas veces, este [caso de auditoría semanal con EventBridge y una tarea Fargate](https://roadtocloudsec.la/posts/iam-audit-v3-fargate-eventbridge-terraform-automatizacion) ilustra un proceso que dura minutos y termina, en vez de dejar un servicio esperando entre ejecuciones. El artículo no ofrece un cálculo reproducible para otras cuentas: EventBridge, S3, logs, red y cada ejecución pueden tener cargos propios.
+
+### 7. Mide el costo de cada tarea junto con los servicios que la rodean
+
+Usa [AWS Cost Explorer](https://aws.amazon.com/aws-cost-management/aws-cost-explorer/) para revisar costos y uso por período, servicio y región. Si agrupas por etiquetas, primero [activa esas etiquetas como etiquetas de asignación de costos](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/custom-tags.html) en Billing and Cost Management. [AWS Budgets](https://aws.amazon.com/aws-cost-management/aws-budgets/) permite fijar un presupuesto y recibir avisos; el aviso por sí solo no detiene recursos ni cargos. Las acciones de presupuesto son opcionales, deben configurarse aparte y su alcance depende de la acción elegida ([documentación de AWS Budgets Actions](https://docs.aws.amazon.com/cost-management/latest/userguide/budgets-controls.html)).
+
+Para analizar el costo y el uso por tarea, habilita datos divididos de costos de ECS en un Cost and Usage Report. El informe puede incluir CPU y memoria reales por tarea, pero esa telemetría **no cambia la facturación de Fargate**, que sigue basándose en los recursos aprovisionados. Esos datos divididos están en CUR/Data Exports, no en Cost Explorer; [AWS explica cómo habilitarlos y leerlos](https://docs.aws.amazon.com/cur/latest/userguide/enabling-split-cost-allocation-data.html).
+
+Revisa además los cargos fuera de Fargate:
+
+- **NAT Gateway y transferencia:** cuenta sus horas, los datos procesados y el tráfico entre zonas o hacia Internet. Compara rutas por NAT con endpoints privados; cada opción tiene condiciones y cargos propios. Consulta [precios de VPC](https://aws.amazon.com/vpc/pricing/).
+- **Application Load Balancer:** revisa las horas activo, unidades de capacidad (LCU) y transferencia. Puede seguir facturando aunque el servicio ECS escale a cero. Consulta [precios de Elastic Load Balancing](https://aws.amazon.com/elasticloadbalancing/pricing/).
+- **CloudWatch:** revisa el volumen de logs, la retención y las métricas habilitadas. Consulta [precios de CloudWatch](https://aws.amazon.com/cloudwatch/pricing/).
+- **Amazon ECR:** revisa imágenes almacenadas y transferencia aplicable. Consulta [precios de ECR](https://aws.amazon.com/ecr/pricing/).
+
+Compara el costo por solicitud atendida o trabajo completado antes y después del cambio, junto con latencia, errores y disponibilidad. Así puedes ver si bajó el costo total sin trasladarlo a otra línea ni degradar el servicio.
+
+## Recursos para seguir y practicar
+
+- El video [AWS Pricing Calculator paso a paso](https://www.youtube.com/watch?v=e_oVCKBMnkA), de AWS Women Colombia y publicado en febrero de 2026, muestra un ejercicio general de la calculadora; no cotiza una arquitectura Fargate concreta.
+- El [video de Roxs sobre ECS con Terraform y GitHub Actions](https://www.youtube.com/watch?v=Ivtza36jJxA), del [canal 295DevOps](https://www.youtube.com/@295devops), presenta un demo Flask/Fargate/DynamoDB.
+- El [repositorio de práctica de Roxs](https://github.com/roxsross/roxs-aws-ecs-demo) incluye una ruta local con Docker Compose y DynamoDB Local que no requiere credenciales AWS reales. Su modo AWS lista ECS/Fargate, ALB, ECR, DynamoDB, CloudWatch y VPC, que pueden generar cargos; revisa los requisitos y cómo borrar los recursos antes de desplegar. El README alterna referencias a Flask y FastAPI, así que verifica el código actual antes de seguir cada paso.
+- La sesión [Del Container al Serverless: El Viaje de ECS y Fargate](https://www.youtube.com/watch?v=KsNBnuENO10), publicada en 2025 por el [AWS User Group Guatemala](https://www.youtube.com/@awsugguatemala), sirve como introducción a contenedores y Fargate; no es una guía de precios vigente. Para seguir a Roxs, consulta también el [Blog by Roxs](https://blog.295devops.com/), con artículos de AWS y DevOps en español.
+- Si estás comparando tareas de contenedor con funciones que se ejecutan por eventos, consulta también nuestra guía sobre [costos de arquitecturas serverless para startups](https://dondeaprendoaws.com/blog/7-estrategias-de-serverless-para-startups-optimiza-costos/).
+
+Para encontrar grupos locales, el [AWS Student Builder Group de la UTN Facultad Regional Córdoba](https://www.meetup.com/aws-sbg-at-national-technologic-university-regional-faculty/) es una comunidad estudiantil centrada en aprender AWS mediante proyectos prácticos. Al revisar la ficha y la agenda el 4 de octubre de 2026, figuraba el encuentro presencial [AWS Gaming Lab: ECS, CI/CD y la magia de Terraform](https://www.meetup.com/aws-sbg-at-national-technologic-university-regional-faculty/events/316821666/) para el 10 de octubre de 2026, de 12:00 a 14:00 (hora de Argentina), en UTN FRC. La actividad recorre una infraestructura ECS y su automatización con Terraform; no se presenta como una sesión de optimización de costos. Consulta la ficha para inscripción y cambios; si la fecha ya pasó, revisa la [agenda de eventos de comunidades AWS](https://dondeaprendoaws.com/eventos/) o el [directorio de comunidades por país](https://dondeaprendoaws.com/comunidades/) para encontrar otras opciones.
+
+## Preguntas frecuentes
+
+### ¿Fargate cobra solo la CPU y memoria que usa el proceso?
+
+No. Cobra por la CPU y memoria aprovisionadas para la tarea o el pod durante el tiempo facturable. El uso real sirve para dimensionar mejor, pero no reemplaza la base de facturación.
+
+### ¿Puedo usar Fargate Spot en EKS?
+
+No. Fargate Spot está disponible para tareas Linux de Amazon ECS; Amazon EKS no admite Fargate Spot.
+
+### ¿Un Compute Savings Plan cubre tareas Spot o toda la factura?
+
+No. Puede cubrir uso elegible de Fargate bajo demanda, pero no Spot ni servicios relacionados como NAT, ALB, ECR o CloudWatch.
+
+### ¿Escalar el servicio ECS a cero elimina todos los cargos?
+
+No. Detiene las tareas del servicio, pero recursos que sigan activos —como un ALB, NAT Gateway, almacenamiento de imágenes o logs— pueden continuar facturando.

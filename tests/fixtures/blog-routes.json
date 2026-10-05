@@ -253,7 +253,7 @@
   },
   {
     "slug": "7-estrategias-para-reducir-costos-en-aws-fargate",
-    "title": "7 Estrategias para Reducir Costos en AWS Fargate",
+    "title": "Cómo reducir costos en AWS Fargate con ECS: guía práctica",
     "publishedAt": "2024-11-26",
     "publishedTimestamp": "2024-11-26T19:09:41.914Z"
   },
@@ -397,7 +397,7 @@
   },
   {
     "slug": "7-estrategias-para-mitigar-cold-starts-en-aws-lambda",
-    "title": "7 Estrategias para Mitigar Cold Starts en AWS Lambda",
+    "title": "Cold starts en AWS Lambda: cómo medirlos y reducir su impacto",
     "publishedAt": "2024-05-15",
     "publishedTimestamp": "2024-05-15T06:00:17.055Z"
   },
@@ -553,7 +553,7 @@
   },
   {
     "slug": "9-mejores-practicas-de-seguridad-para-iac-en-aws",
-    "title": "9 Mejores Prácticas de Seguridad para IaC en AWS",
+    "title": "Seguridad de IaC en AWS: 9 controles para Terraform y CloudFormation",
     "publishedAt": "2024-05-07",
     "publishedTimestamp": "2024-05-07T02:13:47.453Z"
   },
@@ -613,7 +613,7 @@
   },
   {
     "slug": "7-estrategias-de-serverless-para-startups-optimiza-costos",
-    "title": "7 Estrategias de Serverless para Startups: Optimiza Costos",
+    "title": "Serverless en AWS para startups: cuándo usar Lambda o Fargate y cómo estimar costos",
     "publishedAt": "2024-05-01",
     "publishedTimestamp": "2024-05-01T02:41:51.509Z"
   },
@@ -631,7 +631,7 @@
   },
   {
     "slug": "7-errores-comunes-con-aws-iot-device-sdk-para-javascript",
-    "title": "7 Errores Comunes con AWS IoT Device SDK para JavaScript",
+    "title": "AWS IoT Device SDK para JavaScript: 7 errores comunes y cómo resolverlos",
     "publishedAt": "2024-04-30",
     "publishedTimestamp": "2024-04-30T04:58:42.738Z"
   },

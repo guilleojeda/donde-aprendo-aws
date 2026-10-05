@@ -1,98 +1,112 @@
 ---
-title: "7 Errores Comunes con AWS IoT Device SDK para JavaScript"
-description: "Descubre los 7 errores comunes al usar AWS IoT Device SDK para JavaScript y sus soluciones para aplicaciones IoT más eficientes y confiables."
+title: "AWS IoT Device SDK para JavaScript: 7 errores comunes y cómo resolverlos"
+description: "Soluciona errores de runtime, autenticación, permisos, clientId, QoS y reloj al conectar JavaScript con AWS IoT Core."
 author: "guille-ojeda"
 publishedAt: "2024-04-30"
 publishedTimestamp: "2024-04-30T04:58:42.738Z"
+modifiedTimestamp: "2026-10-04T22:31:52-03:00"
+review:
+  date: "2026-10-04"
 cover: "/assets/blog/fc596e41b0cacbc6f7d02513.jpg"
 coverAlt: "Nube central rodeada por círculos con símbolos de conexión, herramientas y energía"
 ogImage: "/assets/blog/fc596e41b0cacbc6f7d02513.jpg"
-related:
-  - title: "Visualiza Costos con AWS Cost and Usage Reports y QuickSight"
-    url: "https://dondeaprendoaws.com/blog/visualiza-costos-con-aws-cost-and-usage-reports-y-quicksight/"
-    image: "/assets/blog/bcf6fecd181e12cedeeed88a.jpg"
-    imageAlt: ""
-  - title: "Logs de acceso en ELB: Guía completa"
-    url: "https://dondeaprendoaws.com/blog/logs-de-acceso-en-elb-guia-completa/"
-    image: "/assets/blog/fe79fa50612b43f06d41c37a.jpg"
-    imageAlt: ""
-  - title: "Cloud computing en español: fundamentos básicos"
-    url: "https://dondeaprendoaws.com/blog/cloud-computing-en-espanol-fundamentos-basicos/"
-    image: "/assets/blog/9d8403a4cf66ec6c49656be3.jpg"
-    imageAlt: ""
+related: []
 ---
 
-<p>Al desarrollar aplicaciones IoT con el SDK de <a href="https://aws.amazon.com/">AWS</a> IoT Device para JavaScript, es común enfrentar diversos errores. A continuación, se presentan los 7 errores más comunes y sus soluciones:</p>
-<ol><li><p><strong>Problemas de Conexión WebSocket</strong></p><ul><li>Identificar caídas de conexión revisando la configuración de autenticación del dispositivo</li><li>Implementar estrategias de manejo de errores: detección, reintento y notificación al usuario</li></ul></li><li><p><strong>Módulos Faltantes en <a href="https://legacy.reactjs.org/">ReactJS</a></strong></p><ul><li>Instalar módulos necesarios como 'fs' y 'tls' utilizando npm o yarn</li><li>Utilizar polyfills para proporcionar implementaciones de módulos faltantes</li><li>Verificar la configuración del proyecto y las rutas de los módulos</li></ul></li><li><p><strong>Problemas de Acuse de Recibo Manual <a href="https://en.wikipedia.org/wiki/MQTT">MQTT</a></strong></p><ul><li>Utilizar una función de publicación y una función de callback separada</li><li>Asegurarse de que la función de callback se llame después del procesamiento correcto</li><li>Implementar un mecanismo de reintento en caso de no recibir el acuse de recibo</li></ul></li><li><p><strong>Errores de Reconexión 'ClientId'</strong></p><ul><li>Verificar que el componente de autenticación del dispositivo cliente tenga una política de autorización correcta</li><li>Configurar correctamente el 'ClientId' utilizando un identificador único y registrarlo en el componente de autenticación</li></ul></li><li><p><strong>Fallos Silenciosos de Conexión WebSocket</strong></p><ul><li>Monitorear el estado de la conexión y utilizar mecanismos de pulso</li><li>Implementar un mecanismo de reintento y notificar al usuario en caso de fallo</li></ul></li><li><p><strong>Sincronización del Reloj y Conexiones MQTT</strong></p><ul><li>Sincronizar el reloj del sistema con un servidor <a href="https://en.wikipedia.org/wiki/Network_Time_Protocol">NTP</a> o con la hora del servidor MQTT</li><li>Verificar regularmente la configuración del reloj del sistema</li></ul></li><li><p><strong>Problemas de Compatibilidad con Navegadores</strong></p><ul><li>Utilizar el SDK de JavaScript de AWS para aplicaciones frontend basadas en navegador</li><li>Probar en múltiples navegadores y seguir las mejores prácticas de desarrollo</li></ul></li></ol>
-<p>Al comprender y solucionar estos errores comunes, podrás desarrollar aplicaciones IoT más confiables y eficientes con el SDK de AWS IoT Device para JavaScript.</p>
-<h2 id="problemas-de-conexi%C3%B3n-websocket">Problemas de Conexión WebSocket</h2>
-<p>Cuando se trabaja con el SDK de dispositivo IoT de AWS para JavaScript, es común experimentar problemas de conexión WebSocket. Estos problemas pueden afectar la comunicación entre el dispositivo IoT y el servicio de AWS IoT, lo que puede llevar a errores y retrasos en la aplicación.</p>
-<h3 id="identificar-ca%C3%ADdas-de-conexi%C3%B3n">Identificar Caídas de Conexión</h3>
-<p>Una de las razones más comunes por las que se producen problemas de conexión WebSocket es la falta de permisos en la configuración del componente de autenticación del dispositivo. Por ejemplo, si el componente de autenticación del dispositivo no define una política de autorización del dispositivo que conceda permiso al dispositivo para conectarse, se producirá un error de protocolo MQTT (AWS_ERROR_MQTT_PROTOCOL_ERROR).</p>
-<p>Para identificar los problemas de conexión WebSocket, es importante revisar la configuración del componente de autenticación del dispositivo y asegurarse de que se hayan concedido los permisos necesarios para la conexión.</p>
-<h3 id="manejar-errores-de-conexi%C3%B3n">Manejar Errores de Conexión</h3>
-<p>Para manejar errores de conexión WebSocket de manera efectiva, es importante implementar estrategias de manejo de errores robustas. Esto puede incluir:</p>
-<ul><li>Detección de errores de conexión</li><li>Reintento de la conexión</li><li>Notificación de errores al usuario</li></ul>
-<p><strong>Estrategias de Manejo de Errores</strong></p>
-<table><thead><tr><th>Estrategia</th><th>Descripción</th></tr></thead><tbody><tr><td>Detección de errores de conexión</td><td>Revisar la configuración del componente de autenticación del dispositivo y asegurarse de que se hayan concedido los permisos necesarios para la conexión.</td></tr><tr><td>Reintento de la conexión</td><td>Implementar un sistema de reintento de conexión para asegurarse de que el dispositivo IoT se pueda reconnectar al servicio de AWS IoT en caso de un error de conexión.</td></tr><tr><td>Notificación de errores al usuario</td><td>Mostrar un mensaje de error en la aplicación o enviar una notificación push al usuario para que pueda tomar medidas para resolver el problema.</td></tr></tbody></table>
-<p>Al implementar estrategias de manejo de errores robustas, los desarrolladores pueden asegurarse de que su aplicación IoT sea más confiable y eficiente, incluso en caso de problemas de conexión WebSocket.</p>
-<h2 id="m%C3%B3dulos-faltantes-en-reactjs">Módulos Faltantes en <a href="https://legacy.reactjs.org/">ReactJS</a></h2>
-<p><img alt="ReactJS" src="/assets/blog/da41162702d61e181ed23bb2.jpg"/></p>
-<h3 id="m%C3%B3dulos-comunes-que-faltan">Módulos Comunes que Faltan</h3>
-<p>Cuando se utiliza el SDK de dispositivo IoT de AWS con ReactJS, es común encontrar problemas de módulos faltantes. Algunos de los módulos más comunes que faltan son 'fs' y 'tls'. Estos módulos son necesarios para la comunicación entre el dispositivo IoT y el servicio de AWS IoT.</p>
-<h3 id="ejemplos-de-errores">Ejemplos de Errores</h3>
-<p>A continuación, se presentan algunos ejemplos de errores que pueden surgir cuando falta un módulo:</p>
-<ul><li><code>ERROR in./~/aws-iot-device-sdk/common/lib/tls-reader.js Module not found: Error: Cannot resolve module 'fs' in /Users/xxxxx/react/aws-iot/node_modules/aws-iot-device-sdk/common/lib @./~/aws-iot-device-sdk/common/lib/tls-reader.js 17:16-29</code></li><li><code>ERROR in./~/aws-iot-device-sdk/device/lib/tls.js Module not found: Error: Cannot resolve module 'tls' in /Users/xxxx/react/aws-iot/node_modules/aws-iot-device-sdk/device/lib @./~/aws-iot-device-sdk/device/lib/tls.js 17:10-24</code></li></ul>
-<h3 id="soluciones-para-resolver-los-problemas-de-m%C3%B3dulos">Soluciones para Resolver los Problemas de Módulos</h3>
-<p>Para resolver los problemas de módulos faltantes, se pueden utilizar las siguientes soluciones:</p>
-<table><thead><tr><th>Solución</th><th>Descripción</th></tr></thead><tbody><tr><td>Instalar módulos</td><td>Instalar los módulos necesarios utilizando npm o yarn. Por ejemplo, para instalar el módulo 'fs', se puede ejecutar el comando <code>npm install fs</code>.</td></tr><tr><td>Utilizar polyfills</td><td>Utilizar un polyfill para proporcionar una implementación del módulo faltante. Por ejemplo, se puede utilizar el polyfill 'browserify-fs' para proporcionar una implementación del módulo 'fs' en el navegador.</td></tr><tr><td>Verificar la configuración del proyecto</td><td>Asegurarse de que la configuración del proyecto esté correcta y que se hayan configurado correctamente las rutas de los módulos.</td></tr></tbody></table>
-<p>Es importante asegurarse de que se hayan instalado todos los módulos necesarios para la aplicación y que la configuración del proyecto esté correcta para evitar problemas de módulos faltantes.</p>
-<h2 id="problemas-de-acuse-de-recibo-manual-mqtt">Problemas de Acuse de Recibo Manual <a href="https://en.wikipedia.org/wiki/MQTT">MQTT</a></h2>
-<p><img alt="MQTT" src="/assets/blog/f6c0ceacae77dcc2ccf9cb28.jpg"/></p>
-<h3 id="entendiendo-la-necesidad-de-acuse-de-recibo">Entendiendo la Necesidad de Acuse de Recibo</h3>
-<p>Cuando se trabaja con protocolos MQTT, es importante comprender la necesidad de acuses de recibo manuales. Un acuse de recibo manual es una forma de confirmar que un mensaje ha sido recibido y procesado correctamente por el dispositivo IoT. Sin embargo, muchos desarrolladores no entienden la importancia de los acuses de recibo manuales y cómo implementarlos correctamente.</p>
-<h3 id="implementando-acuses-de-recibo-correctamente">Implementando Acuses de Recibo Correctamente</h3>
-<p>Para implementar correctamente los acuses de recibo manuales, es importante seguir los siguientes pasos:</p>
-<table><thead><tr><th>Paso</th><th>Descripción</th></tr></thead><tbody><tr><td>Utilizar una función de publicación y una función de callback separada</td><td>Permite manejar el procesamiento y el acuse de recibo de los mensajes de manera independiente.</td></tr><tr><td>Asegurarse de que la función de callback sea llamada solo después de que el mensaje haya sido procesado correctamente</td><td>Garantiza que el acuse de recibo sea enviado solo después de que el mensaje haya sido procesado correctamente.</td></tr><tr><td>Implementar un mecanismo de reintento en caso de que el acuse de recibo no sea recibido dentro de un plazo determinado</td><td>Asegura que los mensajes sean reenviados en caso de que el acuse de recibo no sea recibido dentro de un plazo determinado.</td></tr></tbody></table>
-<p>Es importante tener en cuenta que la implementación de acuses de recibo manuales requiere una comprensión profunda de cómo funciona el protocolo MQTT y cómo interactúa con el SDK de dispositivo IoT de AWS.</p>
-<h2 id="errores-de-reconexi%C3%B3n-'clientid'">Errores de Reconexión 'ClientId'</h2>
-<h3 id="el-error-de-'clientid'-inv%C3%A1lido">El Error de 'ClientId' Inválido</h3>
-<p>Al trabajar con el SDK de dispositivo IoT de AWS para JavaScript, es posible que encuentre errores relacionados con el 'ClientId' durante los intentos de reconexión MQTT. Uno de los errores comunes es el error de 'ClientId' inválido, que ocurre cuando el componente de autenticación del dispositivo cliente no define una política de autorización del dispositivo cliente que otorgue permiso al dispositivo cliente para conectarse.</p>
-<p>Para solucionar este error, verifique que la configuración del componente de autenticación del dispositivo cliente incluya:</p>
-<table><thead><tr><th>Verificación</th><th>Descripción</th></tr></thead><tbody><tr><td>Un grupo de dispositivos que coincida con el dispositivo cliente</td><td>Asegura que el dispositivo cliente esté autorizado para conectarse.</td></tr><tr><td>Una política de autorización del dispositivo cliente para ese grupo de dispositivos que otorgue permiso para la conexión MQTT</td><td>Garantiza que el dispositivo cliente tenga permiso para conectarse.</td></tr></tbody></table>
-<p>Para obtener más información sobre cómo implementar y configurar el componente de autenticación del dispositivo cliente, consulte la documentación de AWS sobre configuración de cloud discovery y autenticación del dispositivo cliente.</p>
-<h3 id="configuraci%C3%B3n-correcta-de-'clientid'">Configuración Correcta de 'ClientId'</h3>
-<p>Para evitar errores de 'ClientId' durante la reestablecimiento de la sesión MQTT, asegúrese de configurar correctamente el 'ClientId' siguiendo estas mejores prácticas:</p>
-<table><thead><tr><th>Mejora Práctica</th><th>Descripción</th></tr></thead><tbody><tr><td>Utilice un 'ClientId' único para cada dispositivo</td><td>Evita conflictos y asegura la identificación correcta del dispositivo.</td></tr><tr><td>Configure el 'ClientId' en el componente de autenticación del dispositivo cliente</td><td>Asegura que el 'ClientId' esté registrado y autorizado correctamente.</td></tr><tr><td>Verifique el formato y la sintaxis del 'ClientId'</td><td>Evita errores debido a un formato o sintaxis incorrectos.</td></tr></tbody></table>
-<p>Al seguir estas guías, puede asegurarse de configurar correctamente el 'ClientId' y evitar errores durante los intentos de reconexión MQTT.</p>
-<h2 id="fallos-silenciosos-de-conexi%C3%B3n-websocket">Fallos Silenciosos de Conexión WebSocket</h2>
-<h3 id="detecci%C3%B3n-de-fallos-silenciosos">Detección de Fallos Silenciosos</h3>
-<p>Cuando se trabaja con el SDK de dispositivo IoT de AWS para JavaScript, es esencial identificar fallos de conexión WebSocket que no desencadenen eventos de error. Estos fallos silenciosos pueden ocurrir debido a varias razones, como formatos de URL presignados incorrectos o problemas de autenticación. Para detectar fallos silenciosos, puede implementar las siguientes técnicas:</p>
-<table><thead><tr><th><strong>Técnica</strong></th><th><strong>Descripción</strong></th></tr></thead><tbody><tr><td>Monitorear estado de conexión</td><td>Utilice el evento <code>onclose</code> para rastrear el estado de la conexión y detectar cuando se cierra inesperadamente.</td></tr><tr><td>Implementar un mecanismo de pulso</td><td>Envíe solicitudes de ping periódicas al servidor para asegurarse de que la conexión esté activa. Si el servidor no responde, puede indicar un fallo silencioso.</td></tr><tr><td>Registrar intentos de conexión</td><td>Mantenga un registro de intentos de conexión y errores para identificar patrones o anomalías que puedan indicar fallos silenciosos.</td></tr></tbody></table>
-<h3 id="establecer-manejo-de-errores">Establecer Manejo de Errores</h3>
-<p>Para manejar y recuperarse de fallos silenciosos de conexión WebSocket, es crucial establecer mecanismos de manejo de errores. A continuación, se presentan algunas estrategias para considerar:</p>
-<table><thead><tr><th><strong>Estrategia</strong></th><th><strong>Descripción</strong></th></tr></thead><tbody><tr><td>Implementar un mecanismo de reintento</td><td>Intente reconnectarse al servidor después de un fallo silencioso, con un retraso razonable entre reintentos.</td></tr><tr><td>Utilizar retroalimentación exponencial</td><td>Aumente el retraso entre reintentos para evitar sobrecargar el servidor con intentos de conexión repetidos.</td></tr><tr><td>Notificar al usuario</td><td>Informe al usuario del fallo de conexión y proporcione opciones para reintentar o cancelar la operación.</td></tr></tbody></table>
-<p>Al detectar fallos silenciosos y establecer mecanismos de manejo de errores, puede asegurarse de una conexión WebSocket más robusta y confiable para sus aplicaciones IoT.</p>
-<h2 id="sincronizaci%C3%B3n-del-reloj-y-conexiones-mqtt">Sincronización del Reloj y Conexiones MQTT</h2>
-<h3 id="problemas-de-conexi%C3%B3n-relacionados-con-el-tiempo">Problemas de Conexión Relacionados con el Tiempo</h3>
-<p>Al trabajar con el SDK de dispositivo IoT de AWS para JavaScript, es importante considerar la sincronización del reloj del sistema y su impacto en la conectividad MQTT. Los errores de sincronización del reloj pueden provocar problemas de conexión MQTT, lo que puede afectar negativamente el funcionamiento de sus aplicaciones IoT.</p>
-<p>Un error común es la configuración incorrecta del reloj del sistema, lo que puede hacer que el dispositivo IoT no se pueda conectar al servidor MQTT. Esto se debe a que el servidor MQTT utiliza la hora del sistema para autenticar y autorizar las conexiones. Si el reloj del sistema no está sincronizado correctamente, el servidor MQTT puede rechazar la conexión.</p>
-<h3 id="sincronizar-el-reloj-del-sistema">Sincronizar el Reloj del Sistema</h3>
-<p>Para evitar problemas de conexión MQTT debido a la sincronización del reloj, es importante asegurarse de que el reloj del sistema esté configurado correctamente. A continuación, se presentan algunas estrategias para sincronizar el reloj del sistema:</p>
-<table><thead><tr><th><strong>Estrategia</strong></th><th><strong>Descripción</strong></th></tr></thead><tbody><tr><td>Utilizar un servidor NTP</td><td>Configure el reloj del sistema para sincronizar con un servidor NTP (Network Time Protocol) para asegurarse de que la hora del sistema sea precisa.</td></tr><tr><td>Utilizar la hora del servidor MQTT</td><td>Configure el reloj del sistema para sincronizar con la hora del servidor MQTT para asegurarse de que la hora del sistema sea consistente con la hora del servidor.</td></tr><tr><td>Verificar la configuración del reloj</td><td>Verifique regularmente la configuración del reloj del sistema para asegurarse de que esté configurado correctamente y sincronizado con la hora precisa.</td></tr></tbody></table>
-<p>Al sincronizar el reloj del sistema correctamente, puede asegurarse de que sus aplicaciones IoT se conecten correctamente al servidor MQTT y funcionen sin problemas.</p>
-<h2 id="problemas-de-compatibilidad-con-navegadores">Problemas de Compatibilidad con Navegadores</h2>
-<h3 id="identificar-problemas-de-navegador">Identificar Problemas de Navegador</h3>
-<p>Al trabajar con el SDK de dispositivo IoT de AWS para JavaScript, es esencial considerar los problemas de compatibilidad con navegadores que pueden afectar el funcionamiento de sus aplicaciones IoT. Diferentes navegadores tienen niveles de soporte variables para el SDK, lo que puede generar errores y inconsistencias.</p>
-<p>Por ejemplo, el SDK de dispositivo IoT de AWS está destinado a ser utilizado en dispositivos IoT, y para aplicaciones frontend basadas en navegador, se debe utilizar el SDK de JavaScript de AWS en su lugar. Esto se establece en la documentación del <code>aws-iot-device-sdk</code>. Por lo tanto, es crucial identificar los problemas específicos del navegador que pueden afectar el funcionamiento del SDK.</p>
-<h3 id="asegurar-soporte-entre-navegadores">Asegurar Soporte entre Navegadores</h3>
-<p>Para asegurarse de que sus aplicaciones IoT funcionen correctamente en diferentes navegadores, es esencial adoptar prácticas que garanticen soporte entre navegadores. A continuación, se presentan algunas estrategias para ayudarle a lograr esto:</p>
-<table><thead><tr><th><strong>Estrategia</strong></th><th><strong>Descripción</strong></th></tr></thead><tbody><tr><td>Utilizar el SDK de JavaScript de AWS</td><td>Utilice el SDK de JavaScript de AWS para aplicaciones frontend basadas en navegador para asegurarse de la compatibilidad con diferentes navegadores.</td></tr><tr><td>Probar en múltiples navegadores</td><td>Pruebe sus aplicaciones IoT en múltiples navegadores para identificar y resolver problemas específicos del navegador.</td></tr><tr><td>Seguir las mejores prácticas</td><td>Siga las mejores prácticas para desarrollar aplicaciones IoT con el SDK de dispositivo IoT de AWS para asegurarse de la compatibilidad y consistencia en diferentes navegadores.</td></tr></tbody></table>
-<p>Al identificar problemas específicos del navegador y adoptar prácticas que garanticen soporte entre navegadores, puede asegurarse de que sus aplicaciones IoT funcionen correctamente y de manera consistente en diferentes navegadores.</p>
-<h2 id="conclusi%C3%B3n">Conclusión</h2>
-<p>En este artículo, hemos explorado 7 errores comunes que los desarrolladores pueden enfrentar al utilizar el SDK de dispositivo IoT de AWS para JavaScript. Desde problemas de conexión WebSocket hasta errores de reconexión 'ClientId', hemos visto cómo identificar y resolver estos problemas es crucial para el desarrollo efectivo de aplicaciones IoT.</p>
-<p><strong>Recapitulación</strong></p>
-<ul><li>Identificar y resolver problemas de conexión WebSocket</li><li>Manejar errores de conexión efectivamente</li><li>Instalar módulos necesarios para la aplicación</li><li>Implementar acuses de recibo manuales correctamente</li><li>Configurar correctamente el 'ClientId'</li><li>Detectar fallos silenciosos de conexión WebSocket</li><li>Sincronizar el reloj del sistema correctamente</li><li>Asegurar soporte entre navegadores</li></ul>
-<p>Al seguir estas estrategias, puede asegurarse de que sus aplicaciones IoT funcionen correctamente y de manera consistente en diferentes entornos.</p>
-<h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS Fundamentos: Guía de Inicio Rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-aws-lambda/">Microservicios en AWS Utilizando AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/">Mejores Prácticas Para AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/nube-aws-guia-de-inicio-rapido/">Nube AWS: Guía de Inicio Rápido</a></li></ul>
+Si ves `Can't resolve 'fs'` al importar `aws-iot-device-sdk` en React, no instales `fs`: ese módulo pertenece a Node.js y no da acceso al sistema de archivos desde el navegador. Primero identifica qué SDK estás usando, dónde se ejecuta y a qué broker se conecta. Después revisa autenticación, política IoT, `clientId`, QoS y hora del sistema.
+
+## 1. Instalar una dependencia de Node.js para usarla como código de navegador
+
+`aws-iot-device-sdk` es la versión 1 del SDK. Su entrada habitual está pensada para Node.js; la documentación también conserva ejemplos de empaquetado para navegador con Browserify o webpack. AWS indica que esta versión ya no recibe nuevas funciones y que solo tendrá actualizaciones de seguridad.
+
+La versión 2 se distribuye como `aws-iot-device-sdk-v2` y cuenta con API para Node.js y para navegador. El paquete usa la API de Node.js por defecto: cambiar de versión por sí solo no resuelve una importación incorrecta. Para una aplicación web, selecciona la [API de navegador del SDK v2](https://aws.github.io/aws-iot-device-sdk-js-v2/browser/index.html), configura la entrada que indica la guía de migración y usa MQTT sobre WebSocket Secure (WSS). El SDK de navegador documenta autenticación SigV4 o personalizada; no incluyas claves de acceso permanentes, certificados ni claves privadas en el código que entregas al navegador.
+
+Para una aplicación que corre en Node.js, el paquete v2 se instala desde la carpeta del proyecto:
+
+```sh
+# Requiere Node.js en una versión admitida por el SDK.
+npm install aws-iot-device-sdk-v2
+```
+
+Instalar `fs`, `tls` o un polyfill no cambia el entorno de ejecución. El [repositorio del SDK v1](https://github.com/aws/aws-iot-device-sdk-js), el [repositorio del SDK v2](https://github.com/aws/aws-iot-device-sdk-js-v2) y su [guía de migración, incluida la configuración de navegador](https://github.com/aws/aws-iot-device-sdk-js-v2/blob/main/documents/MIGRATION_GUIDE.md) describen las diferencias. El AWS SDK para JavaScript permite invocar APIs de AWS; no convierte el paquete de dispositivo en un cliente MQTT de navegador.
+
+## 2. Confundir AWS IoT Core con el broker local de Greengrass
+
+AWS IoT Core ofrece un broker MQTT en la nube. AWS IoT Greengrass puede habilitar comunicación MQTT local entre dispositivos cliente y un dispositivo Core. Para esa conexión local se configuran, entre otros componentes, `Client device auth` y un broker local; el componente `MQTT bridge` es opcional y retransmite los mensajes que selecciones hacia o desde IoT Core.
+
+Confirma el destino configurado por tu aplicación: el endpoint de IoT Core o la dirección del dispositivo Greengrass. Sus certificados, autorización y rutas de mensajes tienen configuraciones distintas. Si esperas que un mensaje local llegue a la nube, revisa también el mapeo del bridge. Consulta la guía de AWS para [interactuar con dispositivos locales de Greengrass](https://docs.aws.amazon.com/greengrass/v2/developerguide/interact-with-local-iot-devices.html) y la [autenticación de dispositivos cliente](https://docs.aws.amazon.com/greengrass/v2/developerguide/device-auth.html).
+
+Como introducción práctica a IoT Core, el [AWS User Group Ecuador tiene una grabación sobre IoT Core y ESP8266](https://www.youtube.com/watch?v=ilMHiOXCZns). Es un ejemplo de IoT con hardware, no un tutorial del SDK para JavaScript.
+
+## 3. Usar credenciales que no corresponden al transporte
+
+El SDK y el tipo de conexión determinan cómo se autentica el cliente. Una configuración TLS con certificado de dispositivo no sirve como configuración de navegador, y un cliente WSS debe firmar o autorizar la conexión con el mecanismo que configuraste.
+
+| Conexión a AWS IoT Core | Puerto habitual | Autenticación |
+|---|---:|---|
+| MQTT sobre TLS desde Node.js o un dispositivo | `8883` | Certificado X.509 del cliente y su clave privada |
+| MQTT sobre WSS desde navegador | `443` | SigV4 con credenciales temporales o autenticación personalizada, según la configuración |
+
+Si usas SigV4 en una aplicación web, entrega credenciales temporales y limitadas mediante un proveedor de identidad apropiado, como Amazon Cognito. Nunca empaquetes una clave secreta de IAM ni la clave privada del certificado en el frontend. AWS también permite MQTT con X.509 en el puerto `443` cuando el cliente configura ALPN; verifica ese requisito antes de cambiar el puerto. La documentación de [protocolos de AWS IoT Core](https://docs.aws.amazon.com/iot/latest/developerguide/protocols.html) y la [guía del SDK v2 para MQTT 5](https://github.com/aws/aws-iot-device-sdk-js-v2/blob/main/documents/MQTT5_Userguide.md) detallan los tipos de conexión.
+
+## 4. Aplicar la política que corresponde a la autenticación
+
+Antes de editar permisos, identifica cómo se autentica el cliente. Con MQTT sobre TLS y certificado X.509, AWS IoT Core evalúa una política IoT asociada al certificado. Con MQTT sobre WSS y SigV4, la autorización depende de la identidad: una identidad IAM o federada usa una política IAM; una identidad Cognito autenticada necesita tanto una política IAM en el rol del identity pool como una política IoT asociada a esa identidad Cognito. Para una identidad Cognito no autenticada, AWS documenta permisos IAM en el rol del identity pool y recomienda limitar sus recursos. Si configuraste un authorizer personalizado, revisa la política que implementa ese authorizer.
+
+Por eso, una app web con WSS no se diagnostica como un dispositivo X.509: no busques adjuntar una política al certificado si esa conexión no usa certificado. AWS resume los tipos de identidad y políticas en su [tabla de autorización de IoT Core](https://docs.aws.amazon.com/iot/latest/developerguide/iot-authorization.html) y detalla los [permisos para identidades Cognito](https://docs.aws.amazon.com/iot/latest/developerguide/cog-iot-policies.html).
+
+Cuando el flujo usa una política AWS IoT Core —X.509 o la capa IoT de Cognito autenticado— cada operación MQTT debe apuntar al tipo de recurso correspondiente:
+
+| Acción | Recurso de la política | Autoriza |
+|---|---|---|
+| `iot:Connect` | `client/<clientId>` | Conectar con ese ID |
+| `iot:Publish` y `iot:Receive` | `topic/<topic>` | Publicar o recibir en ese topic |
+| `iot:Subscribe` | `topicfilter/<filtro>` | Enviar una suscripción con ese filtro |
+
+Una conexión requiere `iot:Connect`; después, cada operación necesita su propio permiso. Suscribirse no concede por sí solo permiso para recibir mensajes. En las políticas de AWS IoT, `*` y `?` son comodines de política; `+` y `#` son comodines MQTT y no tienen ese significado dentro del ARN. Revisa los [detalles de las acciones de política](https://docs.aws.amazon.com/iot/latest/developerguide/iot-policy-actions.html) y los [ejemplos de políticas de publicación y suscripción](https://docs.aws.amazon.com/iot/latest/developerguide/pub-sub-policy.html).
+
+Si también administras permisos y credenciales temporales en pipelines de infraestructura, consulta esta [guía de controles de seguridad para IaC en AWS](https://dondeaprendoaws.com/blog/9-mejores-practicas-de-seguridad-para-iac-en-aws/). Sus ejemplos son de IaC y complementan el tema de IAM, pero no sustituyen las políticas IoT de esta sección.
+
+## 5. Reutilizar un `clientId` o usar uno que la política no permite
+
+Un `clientId` identifica una conexión MQTT. AWS IoT Core mantiene una sola conexión activa por combinación de cuenta, región e ID: si otro cliente conecta con el mismo ID, el broker desconecta la conexión anterior. Una política también puede restringir `iot:Connect` a un ARN como `client/device-17`; el ID enviado por el cliente tiene que coincidir con esa autorización.
+
+Asigna una identidad estable a cada dispositivo y evita que dos procesos activos compartan el mismo ID. Para pruebas en paralelo, usa IDs distintos y permite los IDs de prueba en la política que corresponda al mecanismo de autenticación. Si usas variables de política asociadas a una cosa (Thing), configura el `clientId` según esa relación. La guía de [buenas prácticas de seguridad de AWS IoT Core](https://docs.aws.amazon.com/iot/latest/developerguide/security-best-practices.html) explica los conflictos y cómo detectarlos en los logs de CloudWatch.
+
+## 6. Interpretar QoS 1 como confirmación de que la aplicación procesó el mensaje
+
+AWS IoT Core admite QoS 0 y QoS 1; no admite QoS 2. QoS 1 permite entrega “al menos una vez”: el emisor reintenta hasta recibir `PUBACK` del broker y el mensaje puede llegar más de una vez. Ese acuse MQTT confirma el paso de protocolo entre cliente y broker; por sí solo no confirma que otro dispositivo ejecutó una orden o guardó su resultado.
+
+Si quien publica necesita saber que un dispositivo aplicó una orden, define una respuesta de aplicación —por ejemplo, un mensaje en un topic de confirmaciones con el mismo `messageId`— y envíala después de completar el trabajo. Haz idempotente el procesamiento para tolerar duplicados. El cliente MQTT 5 del SDK v2 también permite controlar manualmente cuándo el receptor envía el `PUBACK` de un mensaje QoS 1, por ejemplo, después de persistirlo. Ese acuse sigue siendo parte del protocolo MQTT; no sustituye la respuesta de negocio al emisor. AWS explica los [niveles QoS de MQTT](https://docs.aws.amazon.com/iot/latest/developerguide/mqtt.html) y el SDK documenta el [acuse de publicación manual](https://github.com/aws/aws-iot-device-sdk-js-v2/blob/main/documents/MQTT5_Userguide.md#manual-publish-acknowledgement).
+
+Para ver un ejemplo de un sensor que publica por MQTT, puedes revisar este [artículo de IoT y Generative AI](https://dev.to/aws-espanol/integracion-iot-y-generative-ai-como-crear-una-app-que-cuenta-chistes-basados-en-la-temperatura-522) y su [código para ESP8266 y sensor DHT22](https://github.com/fernandosilvot/App-IoT_GenAI). Ese proyecto sirve para practicar IoT; no usa el SDK de dispositivo para JavaScript.
+
+## 7. Ignorar la hora del dispositivo
+
+La hora incorrecta puede interrumpir el establecimiento de una conexión segura. En TLS, el cliente comprueba las fechas de validez del certificado del servidor; con SigV4, la solicitud WebSocket incluye una fecha firmada en UTC y la firma puede fallar si la hora no coincide. AWS recomienda sincronizar el reloj del dispositivo con NTP antes de conectar y advierte que la desviación tolerable depende de la operación. Consulta las [buenas prácticas de hora y TLS para IoT Core](https://docs.aws.amazon.com/iot/latest/developerguide/security-best-practices.html) y los [campos de fecha en solicitudes SigV4](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_sigv-signing-elements.html). Configura una fuente de hora confiable para el dispositivo.
+
+## Qué revisar cuando sigue sin conectar
+
+1. Confirma que el endpoint corresponde a la cuenta y región correctas. Para MQTT con certificado, usa un certificado de esa misma región.
+2. Con MQTT/TLS X.509, comprueba que el certificado esté activo y que su política IoT permita el `clientId`. Con WSS/SigV4, revisa la firma y los permisos IAM; si es Cognito autenticado, comprueba además la política IoT adjunta a la identidad. Para Cognito no autenticado, revisa el rol IAM limitado.
+3. Si conecta pero falla el tráfico, compara los topics y filtros con los permisos de datos de la política aplicable: IAM para IAM/federación y Cognito no autenticado; política IoT para X.509 y Cognito autenticado.
+4. Registra los eventos del SDK antes de configurar reintentos. En v1 puedes observar `error`, `offline` y `reconnect`; el cliente MQTT 5 de v2 emite `attemptingConnect`, `connectionFailure` y `disconnection`. El v2 vuelve a intentar la conexión mientras el cliente siga iniciado. Si el broker deniega una operación, corrige la política para autorizar la acción y el recurso necesarios.
+
+AWS proporciona documentación y ejemplos técnicos para [conectar un dispositivo a IoT Core](https://docs.aws.amazon.com/iot/latest/developerguide/iot-connect-devices.html). Para ver ideas de práctica con dispositivos, MQTT y servicios de AWS, puedes seguir con estos recursos en español. Son ejemplos y charlas de IoT; no son guías específicas de solución de errores del SDK JavaScript.
+
+### Prácticas y ejemplos con dispositivos
+
+- [Primeros pasos con IoT en AWS y una demostración con microcontroladores](https://www.youtube.com/watch?v=pq3HK8zrF14) y [monitoreo IoT con Alexa, Raspberry Pi y sensores](https://www.youtube.com/watch?v=-lYaBFheUdI), videos del AWS User Group Perú.
+- [Rastreo GPS vehicular en tiempo real](https://www.alfredo-dominguez.dev/arquitecturas/05-gps-vehicle-tracking/) y la página del [proyecto de seguimiento GPS](https://www.alfredo-dominguez.dev/proyectos/gps-vehicle-tracking/).
+- [Cómo IoT Core despertó mis ganas de ser Maker otra vez](https://builder.aws.com/content/3JkzKadLy6UgcIARkhZwqutiVs3/cmo-io-t-core-despert-mis-ganas-de-ser-maker-otra-vez), artículo de AWS Builder Center.
+
+### Charlas y podcasts
+
+- [LAWS of Cloud: IoT industrial en AWS con Raúl Hugo](https://www.youtube.com/watch?v=61nuGOSj1Co) y [AWS Meetup #47: SageMaker, MLOps e IoT](https://www.youtube.com/watch?v=NVEbOgBTNSk), grabaciones del AWS User Group Perú.
+- [Qué es IoT y cómo empezar en AWS](https://www.youtube.com/watch?v=_1Ryarag_pE) y [Transformando Food Tech con IoT](https://www.youtube.com/watch?v=qN6tBUJfNcI), episodios de Charlas Técnicas de AWS en el canal de Marcia Villalba.
+
+## Comunidades y eventos
+
+Si quieres conversar sobre AWS con otras personas, consulta las actividades de [AWS User Group Perú](https://awsugperu.cloud/) o [AWS User Group Ecuador](https://www.awsugecuador.com/). Son comunidades generales de AWS; sus páginas muestran cómo seguir sus eventos y actividades, sin presentarlas como grupos especializados en este SDK.
+
+La [agenda de eventos AWS en Latinoamérica](https://dondeaprendoaws.com/eventos/) se actualiza con encuentros de las comunidades y permite revisar modalidad, país, fecha e inscripción. Confirma la fecha y las condiciones en cada ficha antes de participar.

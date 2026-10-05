@@ -1,612 +1,129 @@
 ---
-title: "9 Mejores Prácticas de Seguridad para IaC en AWS"
-description: "Descubre las 9 mejores prácticas de seguridad para IaC en AWS y asegura tus entornos en la nube con políticas y herramientas eficaces."
+title: "Seguridad de IaC en AWS: 9 controles para Terraform y CloudFormation"
+description: "Protege IaC en AWS con controles para secretos, estado de Terraform, OIDC, IAM, CloudFormation Guard y revisión de cambios en CDK y SAM."
 author: "guille-ojeda"
 publishedAt: "2024-05-07"
 publishedTimestamp: "2024-05-07T02:13:47.453Z"
+modifiedTimestamp: "2026-10-04T22:31:52-03:00"
+review:
+  date: "2026-10-04"
 cover: "/assets/blog/0b84e7609d9a01cdc2449b30.jpg"
 coverAlt: "Nube conectada a una red de candados, escudos y otros símbolos de seguridad"
 ogImage: "/assets/blog/0b84e7609d9a01cdc2449b30.jpg"
-related:
-  - title: "¿Qué es AWS Lambda? Preguntas y Respuestas"
-    url: "https://dondeaprendoaws.com/blog/que-es-aws-lambda-preguntas-y-respuestas/"
-    image: "/assets/blog/70579f832030c8f349b01339.jpg"
-    imageAlt: ""
-  - title: "7 Estrategias para Mitigar Cold Starts en AWS Lambda"
-    url: "https://dondeaprendoaws.com/blog/7-estrategias-para-mitigar-cold-starts-en-aws-lambda/"
-    image: "/assets/blog/c936f3eb45382355f87b0707.jpg"
-    imageAlt: ""
-  - title: "Mejores Prácticas Para Amazon EC2"
-    url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ec2/"
-    image: "/assets/blog/ba08e34938ffab3b828b7b82.jpg"
-    imageAlt: ""
+related: []
 ---
 
-<p>Proteger la <a href="https://dondeaprendoaws.com/blog/cloud-computing-en-espanol-fundamentos-basicos/">infraestructura en la nube</a> es fundamental. Estas 9 prácticas de seguridad para Infrastructure as Code (IaC) en <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> garantizan entornos seguros y conformes:</p>
+Al proteger infraestructura como código (IaC) en AWS, conviene cubrir todo el flujo: cambios revisables, políticas que sí se ejecutan, credenciales temporales, permisos mínimos, estado protegido y una revisión humana antes de aplicar. Terraform, CloudFormation, AWS CDK y AWS SAM necesitan controles acordes con lo que cada herramienta genera.
 
+Un `terraform plan` o un *change set* de CloudFormation ayuda a previsualizar acciones, pero no ejecuta por sí solo un análisis de seguridad ni garantiza que el despliegue termine correctamente. Combínalos con validaciones y reglas explícitas. Si buscas una introducción a la definición de recursos, puedes empezar por nuestras guías de [Terraform](https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-terraform/) y [CloudFormation](https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-aws-cloudformation/).
 
-<ol>
-<li><strong>Implementar sistemas de control de versiones</strong>: Permite rastrear cambios, colaborar eficientemente y restringir accesos.</li>
-<li><strong>Utilizar herramientas de análisis de código estático</strong>: Identifica vulnerabilidades y errores en el código antes de implementarlo.</li>
-<li><strong>Habilitar la supervisión continua y registro de eventos</strong>: Detecta problemas potenciales y proporciona visibilidad detallada.</li>
-<li><strong>Implementar Código de Política (PaC)</strong>: Automatiza la implementación consistente de políticas en todos los entornos.</li>
-<li><strong>Aplicar el principio de acceso de menor privilegio</strong>: Reduce el riesgo de acceso no autorizado y minimiza el daño en caso de brecha.</li>
-<li><strong>Utilizar autenticación y autorización fuertes</strong>: Verifica identidades, controla accesos y protege contra ataques.</li>
-<li><strong>Actualizar y parchear regularmente el código IaC</strong>: Reduce la exposición a vulnerabilidades y ataques cibernéticos.</li>
-<li><strong>Implementar capacitación en seguridad y plantillas</strong>: Mejora la conciencia de seguridad y reduce errores.</li>
-<li><strong>Realizar revisiones y auditorías de seguridad regulares</strong>: Identifica vulnerabilidades y asegura el cumplimiento de políticas.</li>
-</ol>
+## 1. Versiona la infraestructura y revisa sus dependencias
 
+Guarda las plantillas, módulos propios y configuración del pipeline en un repositorio. Pide revisión por *pull request* para cambios que puedan abrir acceso de red, ampliar permisos IAM, exponer datos o reemplazar recursos. Protege las ramas de despliegue y conserva quién aprobó cada cambio.
 
-<p>Al seguir estas prácticas, los profesionales de la nube pueden garantizar entornos de AWS seguros, estables y conformes.</p>
+En Terraform, incluye `.terraform.lock.hcl` en el repositorio. Terraform lo actualiza al inicializar proveedores; revisa los cambios antes de aceptar una nueva versión. Ese archivo fija versiones de proveedores, no de módulos remotos, así que declara y revisa también la versión de cada módulo externo. [HashiCorp explica el archivo de dependencias y su revisión](https://developer.hashicorp.com/terraform/language/files/dependency-lock).
 
+No subas a Git el estado, los archivos de plan guardados, variables con credenciales ni salidas de CI que puedan contener valores sensibles.
 
-<h2 id="1.-implementar-sistemas-de-control-de-versiones" tabindex="-1">1. Implementar sistemas de control de versiones</h2>
+## 2. Valida el código y las reglas de seguridad en CI
 
+Ejecuta validaciones antes de dar credenciales de despliegue al pipeline. [`terraform validate`](https://developer.hashicorp.com/terraform/cli/commands/validate) comprueba sintaxis y consistencia interna; no verifica si una configuración satisface tus políticas de seguridad ni consulta los recursos remotos. Para un análisis de seguridad, usa un escáner que entienda el formato y las reglas que quieres revisar. Por ejemplo, [Checkov documenta soporte para Terraform, planes de Terraform, CloudFormation y SAM](https://github.com/bridgecrewio/checkov); configura sus reglas, revisa sus hallazgos y confirma que cubran el resultado que vas a desplegar.
 
-<p>La implementación de sistemas de control de versiones (VCS) es fundamental para la <a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">seguridad de la IaC en AWS</a>. Un VCS permite a los equipos de desarrollo y operaciones colaborar de manera eficiente, rastrear cambios y revertir a versiones anteriores en caso de errores.</p>
+Para CloudFormation, [cfn-lint](https://github.com/aws-cloudformation/cfn-lint) revisa estructura y propiedades de las plantillas. [CloudFormation Guard](https://docs.aws.amazon.com/cfn-guard/latest/ug/what-is-guard.html) evalúa datos JSON o YAML frente a las reglas que escribes: sirve para expresar controles como “no permitir un bucket sin cifrado”, pero no valida por sí mismo la sintaxis completa de CloudFormation. Ejecuta `cfn-guard validate` en el pipeline y prueba las reglas con casos que deben pasar y fallar.
 
+Revisa también el artefacto generado. `cdk synth` produce una plantilla de CloudFormation a partir de una aplicación CDK; AWS SAM extiende CloudFormation y transforma su plantilla al desplegar. Comprueba que las políticas cubran las plantillas sintetizadas o transformadas que corresponden a tu flujo. La [guía de síntesis de CDK](https://docs.aws.amazon.com/cdk/v2/guide/configure-synth.html) y la [descripción de cómo funciona SAM](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/what-is-sam-overview.html) detallan esas salidas.
 
-<p><strong>Ventajas de la implementación de VCS</strong></p>
+## 3. Mantén los valores secretos fuera del código y de los artefactos
 
+No escribas contraseñas, claves de API o tokens literales en plantillas, archivos `.tfvars`, salidas, registros ni planes guardados. En CloudFormation, guarda secretos en Secrets Manager o parámetros `SecureString` de Systems Manager y usa una referencia dinámica en propiedades compatibles. Limita quién puede leerlos. Una referencia dinámica evita incluir el valor en la plantilla, aunque el servicio de destino puede conservar o mostrar el valor que recibe; revisa cada integración. Además, cambiar un secreto no siempre hace que CloudFormation vuelva a leerlo hasta que actualices el recurso que lo consume. Consulta la guía de AWS sobre [referencias dinámicas](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/dynamic-references.html).
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventaja</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Eficiencia</td>
-<td>Los VCS permiten a los desarrolladores trabajar en paralelo en diferentes partes de la infraestructura, lo que reduce el tiempo de desarrollo y mejora la colaboración.</td>
-</tr>
-<tr>
-<td>Rastreo de cambios</td>
-<td>Los VCS permiten rastrear todos los cambios realizados en la infraestructura, lo que facilita la identificación de errores y la reversión a versiones anteriores.</td>
-</tr>
-<tr>
-<td>Seguridad</td>
-<td>Los VCS permiten establecer permisos y acceso restringido a la infraestructura, lo que reduce el riesgo de acceso no autorizado.</td>
-</tr>
-</tbody>
-</table></figure>
+En Terraform, `sensitive = true` oculta ciertos valores en la salida normal de la CLI, pero **no cifra ni elimina el valor del estado o del plan**. Quien pueda leer esos archivos podría acceder al secreto; las opciones `-json` y `-raw` de `terraform output` también pueden mostrarlo. Protege el estado y los artefactos, evita imprimir valores en CI y no publiques planes guardados. Para algunos datos temporales, `ephemeral` y argumentos de escritura única pueden evitar que Terraform los persista; su uso depende de la versión y del soporte del proveedor. [HashiCorp detalla estas diferencias](https://developer.hashicorp.com/terraform/language/manage-sensitive-data).
 
+## 4. Usa identidad federada y credenciales temporales para CI
 
-<p><strong>Prácticas recomendadas para la implementación de VCS</strong></p>
+Si GitHub Actions despliega en AWS, configura OIDC para intercambiar el token del trabajo por credenciales temporales de AWS. Así evitas guardar claves de acceso de larga duración como secretos del repositorio. Otorga `id-token: write` solo al trabajo que solicita el token y limita la relación de confianza del rol a un `aud` y un `sub` concretos.
 
+Este fragmento muestra una confianza para una rama específica. Sustituye cada marcador y ajusta `sub` al formato que emite tu repositorio:
 
-<p>1. <strong>Modularizar el código</strong>: Divida su infraestructura en módulos lógicos para facilitar la colaboración y la gestión de cambios.</p>
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Principal": {
+      "Federated": "arn:aws:iam::<AWS_ACCOUNT_ID>:oidc-provider/token.actions.githubusercontent.com"
+    },
+    "Action": "sts:AssumeRoleWithWebIdentity",
+    "Condition": {
+      "StringEquals": {
+        "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+        "token.actions.githubusercontent.com:sub": "repo:<ORG>/<REPO>:ref:refs/heads/<BRANCH>"
+      }
+    }
+  }]
+}
+```
 
+No reemplaces el `sub` por un comodín que permita a cualquier repositorio asumir el rol. Si el trabajo usa un entorno de GitHub, la forma de `sub` cambia; aplica también las reglas de protección del entorno. GitHub indica que los repositorios creados después del 15 de julio de 2026, o que habilitaron un formato de `sub` con identificadores inmutables, incluyen identificadores de organización y repositorio en `sub`; verifica el formato real antes de configurar la confianza. Consulta las guías de [GitHub para OIDC con AWS](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-aws) y de [IAM sobre proveedores OIDC](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-idp_oidc.html).
 
-<p>2. <strong>Establecer una convención de nomenclatura</strong>: Defina y documente una convención de nomenclatura para recursos, variables y módulos para mantener la claridad y la consistencia en el código.</p>
+## 5. Separa la lectura del plan del permiso para desplegar
 
+Diseña un rol para preparar y revisar cambios con solo los permisos de lectura que requiera el proveedor y el acceso necesario al estado y su bloqueo. Asigna los permisos de creación, modificación y eliminación a una identidad de despliegue aparte, limitada a las cuentas, recursos y acciones que administre.
 
-<p>3. <strong>Documentar el código</strong>: Agregue comentarios y documentación al código para explicar su propósito y funcionamiento.</p>
+Cuando CloudFormation use un rol de servicio, limita su política a los recursos que las plantillas necesitan. Restringe [`iam:PassRole`](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_passrole.html) a ese rol concreto y permite que solo CloudFormation lo asuma. Un rol de servicio asociado a un stack se usa en sus operaciones posteriores, por lo que ampliar ese rol también amplía las acciones que los usuarios autorizados a operar el stack pueden solicitar. AWS explica este alcance en su guía de [roles de servicio de CloudFormation](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-servicerole.html).
 
+## 6. Protege y bloquea el estado remoto de Terraform
 
-<p>4. <strong>Pinning de versiones</strong>: Especifique versiones exactas o mínimas para proveedores y módulos para evitar problemas de compatibilidad.</p>
+El estado describe los recursos administrados y puede contener datos sensibles. Evita depender de un archivo local compartido o de control de versiones para coordinar un equipo. El backend S3 puede cifrar el estado en reposo y admite bloqueo nativo mediante `use_lockfile`. Este fragmento es solo una configuración de backend: el bucket debe existir, ser privado, tener permisos limitados y contar con versionado de objetos para facilitar la recuperación.
 
+```hcl
+terraform {
+  required_version = ">= 1.10.0"
 
-<p>Al implementar un VCS, puede asegurarse de que su infraestructura en la nube sea segura, escalable y fácil de mantener.</p>
+  backend "s3" {
+    bucket       = "<BUCKET_EXISTENTE>"
+    key          = "equipo/app/produccion.tfstate"
+    region       = "<REGION>"
+    encrypt      = true
+    use_lockfile = true
+  }
+}
+```
 
+Hay dos archivos con “lock” que cumplen funciones distintas: `.terraform.lock.hcl` registra versiones de proveedores; el backend S3 crea un archivo `.tflock` para coordinar operaciones sobre el estado. Limita por IAM el acceso al objeto de estado y al objeto de bloqueo. El bloqueo con DynamoDB está marcado como obsoleto en la documentación actual de Terraform; si aún tienes clientes antiguos, planifica una migración compatible antes de retirar la tabla. Revisa la [configuración del backend S3](https://developer.hashicorp.com/terraform/language/backend/s3) y las [prácticas de seguridad del estado](https://developer.hashicorp.com/terraform/language/manage-sensitive-data).
 
-<h2 id="2.-utilice-herramientas-de-an%C3%A1lisis-de-c%C3%B3digo-est%C3%A1tico" tabindex="-1">2. Utilice herramientas de análisis de código estático</h2>
+## 7. Revisa las acciones propuestas antes de aplicarlas
 
+Abre el plan o el *change set* y revisa qué recursos se crearán, cambiarán, eliminarán o reemplazarán. Comprueba en particular políticas IAM, exposición pública de red, cifrado, acceso a datos y cambios destructivos. Para producción, define quién puede aprobar la aplicación y qué políticas deben pasar antes.
 
-<p>La implementación de herramientas de análisis de código estático es fundamental para la seguridad de la IaC en AWS. Estas herramientas permiten identificar vulnerabilidades y errores en el código antes de su implementación, lo que reduce el riesgo de ataques y mejora la seguridad general de la infraestructura.</p>
+Estos artefactos son una vista de los cambios propuestos, no un escáner de seguridad automático. CloudFormation advierte que un *change set* no garantiza que una actualización tenga éxito: algunas condiciones de ejecución solo aparecen al operar el recurso. Un plan especulativo de Terraform también puede quedar desactualizado si cambia la infraestructura; vuelve a generar y revisar el plan que se aplicará. Consulta la documentación de [change sets de CloudFormation](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-changesets.html) y de [`terraform plan`](https://developer.hashicorp.com/terraform/cli/commands/plan).
 
+## 8. Distingue las reglas de CI de los controles durante una operación
 
-<p><strong>Ventajas del análisis de código estático</strong></p>
+Una regla de Guard que se ejecuta en CI solo afecta a los archivos que el pipeline le entrega. No se activa automáticamente en cada cambio de AWS. Si necesitas que CloudFormation avise o bloquee operaciones que incumplan reglas, registra [CloudFormation Guard Hooks](https://docs.aws.amazon.com/cloudformation-cli/latest/hooks-userguide/guard-hooks-write-rules.html) para los tipos de recursos y operaciones que quieras controlar.
 
+Un Hook aplica el control configurado durante operaciones de CloudFormation o Cloud Control API; no sustituye las validaciones del pipeline, no cubre recursos u operaciones que no se incluyeron y no detecta cambios manuales hechos después. AWS describe por separado el [alcance de Guard en CLI](https://docs.aws.amazon.com/cfn-guard/latest/ug/what-is-guard.html) y su [uso en Hooks](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cloudformation-guard.html).
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventaja</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Identificación temprana de vulnerabilidades</td>
-<td>El análisis de código estático permite identificar vulnerabilidades y errores en el código antes de su implementación.</td>
-</tr>
-<tr>
-<td>Mejora de la seguridad</td>
-<td>El análisis de código estático ayuda a identificar y remediar vulnerabilidades, lo que mejora la seguridad general de la infraestructura.</td>
-</tr>
-<tr>
-<td>Reducción de costos</td>
-<td>El análisis de código estático reduce los costos asociados con la corrección de errores y vulnerabilidades después de la implementación.</td>
-</tr>
-</tbody>
-</table></figure>
+Para ver CloudFormation Hooks en una charla, revisa [CloudFormation Hooks: validación proactiva para una nube segura](https://www.youtube.com/watch?v=2JZOW4p7Yfk).
 
+## 9. Detecta drift y decide cómo reconciliarlo
 
-<p><strong>Herramientas de análisis de código estático</strong></p>
+Las personas o automatizaciones pueden cambiar recursos fuera del flujo de IaC. En Terraform, `terraform plan -refresh-only` propone diferencias para recursos registrados en el estado y atributos que el proveedor puede leer; no modifica AWS. Revisa la salida y decide si actualizas el código para aceptar el cambio o vuelves a aplicar la configuración deseada. Si después confirmas `terraform apply -refresh-only`, Terraform actualiza su estado sin cambiar los recursos remotos.
 
+CloudFormation también puede detectar drift de stacks, pero su alcance depende de los tipos de recurso y propiedades que admiten detección; solo compara las propiedades que se establecieron en plantilla o parámetros. Los stacks anidados requieren una revisión independiente. No interpretes un resultado limpio como una comprobación universal de todos los recursos de la cuenta. Consulta la guía de [drift de Terraform](https://developer.hashicorp.com/terraform/tutorials/state/resource-drift) y la de [detección de drift en CloudFormation](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-stack-drift.html).
 
-<p>Existen varias herramientas de análisis de código estático disponibles, incluyendo:</p>
+Para un ejemplo de automatización de seguridad con Terraform y Python, consulta la charla [PocketSOC en NERDflix](https://www.nerdearla.com/nerdflix/WWt4EO2TCQ4/).
 
+## Recursos y comunidades en español
 
-<ul>
-<li><a href="https://www.checkov.io/" rel="noopener noreferrer" target="_blank">Checkov</a></li>
-<li><a href="https://github.com/terraform-linters/tflint" rel="noopener noreferrer" target="_blank">TFLint</a></li>
-<li><a href="https://github.com/stelligent/cfn_nag" rel="noopener noreferrer" target="_blank">cfn-nag</a></li>
-</ul>
+Si estás comparando herramientas, la grabación de [CDK frente a Terraform de AWS Girls Chile](https://www.youtube.com/watch?v=rpLKcZvXGq0) ofrece contexto de IaC, aunque no es una guía de controles de seguridad. Para aprender una base de SAM y CloudFormation con un ejemplo de API, consulta el artículo de la comunidad [Cómo crear un API REST con CloudFormation o SAM](https://dev.to/cecamilo/iac-como-crear-un-api-rest-con-cloudformation-o-sam-6n5).
 
+Puedes seguir las [grabaciones del canal AWS Security Users Group LatAm](https://www.youtube.com/@AWSSecurityLATAM) y participar en [AWS Security UserGroup Argentina](https://www.meetup.com/aws-security-usergroup-argentina/), un grupo independiente que comparte contenido de seguridad de AWS en español. Revisa el perfil del grupo para conocer sus actividades vigentes.
 
-<p><strong>Prácticas recomendadas para la implementación de herramientas de análisis de código estático</strong></p>
+La agenda consultada el 4 de octubre de 2026 mostraba estos eventos futuros; confirma fecha, modalidad, disponibilidad y condiciones de inscripción en Meetup:
 
+- [AWS Gaming Lab: ECS, CI/CD y la magia de Terraform](https://www.meetup.com/aws-sbg-at-national-technologic-university-regional-faculty/events/316821666/) — presencial en Córdoba, 10 de octubre de 2026, de 12:00 a 14:00 ART. Es una charla local sobre Terraform y despliegues.
+- [Compliance as Code en AWS: de la política a la acción automática](https://www.meetup.com/aws-user-group-security-ecuador/events/316680020/) — en línea, 20 de octubre de 2026, de 19:00 a 20:00 GMT-5.
+- [Shift-left con IA: Checkov y AWS Security Agent cuidando tu rama main](https://www.meetup.com/aws-sbg-at-universidad-laica-eloy-alfaro-de-manabi/events/316827722/) — en línea, 21 de octubre de 2026, de 19:00 a 21:00 GMT-5. El título describe el tema de la charla; consulta la página del evento para conocer el contenido y las condiciones actuales.
 
-<p>1. <strong>Integrar herramientas de análisis de código estático en el pipeline de desarrollo</strong>: Integre herramientas de análisis de código estático en el pipeline de desarrollo para identificar vulnerabilidades y errores en el código antes de su implementación.</p>
-
-
-<p>2. <strong>Realizar análisis de código estático regularmente</strong>: Realice análisis de código estático regularmente para identificar vulnerabilidades y errores en el código y remediarlos antes de su implementación.</p>
-
-
-<p>3. <strong>Documentar los resultados del análisis de código estático</strong>: Documente los resultados del análisis de código estático para mantener un registro de las vulnerabilidades y errores identificados y remediarlos.</p>
-
-
-<p>Al implementar herramientas de análisis de código estático, puede asegurarse de que su infraestructura en la nube sea segura y escalable.</p>
-
-
-<h2 id="3.-habilitar-la-supervisi%C3%B3n-continua-y-el-registro-de-eventos" tabindex="-1">3. Habilitar la Supervisión Continua y el Registro de Eventos</h2>
-
-
-<p>La supervisión continua y el registro de eventos son fundamentales para garantizar la seguridad y el rendimiento de la infraestructura en la nube. La supervisión continua permite detectar problemas potenciales antes de que afecten la disponibilidad del sistema, mientras que el registro de eventos proporciona una visibilidad detallada de las actividades del sistema.</p>
-
-
-<p><strong>Ventajas de la supervisión continua y el registro de eventos</strong></p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventaja</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Detección temprana de problemas</td>
-<td>Identifica problemas potenciales antes de que afecten la disponibilidad del sistema.</td>
-</tr>
-<tr>
-<td>Mejora de la seguridad y el rendimiento</td>
-<td>Mejora la seguridad y el rendimiento del sistema al identificar y resolver problemas rápidamente.</td>
-</tr>
-<tr>
-<td>Mayor visibilidad y transparencia</td>
-<td>Proporciona una visibilidad detallada de las actividades del sistema, lo que mejora la visibilidad y la transparencia.</td>
-</tr>
-<tr>
-<td>Reducción de los tiempos de respuesta y resolución de incidentes</td>
-<td>Reduce los tiempos de respuesta y resolución de incidentes al identificar problemas rápidamente.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p><strong>Herramientas de supervisión y registro de eventos</strong></p>
-
-
-<ul>
-<li><a href="https://aws.amazon.com/cloudwatch/" rel="noopener noreferrer" target="_blank">AWS CloudWatch</a></li>
-<li><a href="https://aws.amazon.com/cloudtrail/" rel="noopener noreferrer" target="_blank">AWS CloudTrail</a></li>
-<li><a href="https://www.loggly.com/" rel="noopener noreferrer" target="_blank">Loggly</a></li>
-<li>Checkov</li>
-</ul>
-
-
-<p><strong>Prácticas recomendadas para la implementación de la supervisión continua y el registro de eventos</strong></p>
-
-
-<p>1. <strong>Integrar herramientas de supervisión y registro de eventos en el pipeline de desarrollo</strong>: Integre herramientas de supervisión y registro de eventos en el pipeline de desarrollo para identificar problemas potenciales antes de su implementación.</p>
-
-
-<p>2. <strong>Realizar análisis de registro de eventos regularmente</strong>: Realice análisis de registro de eventos regularmente para identificar patrones y tendencias que puedan indicar problemas potenciales.</p>
-
-
-<p>3. <strong>Documentar los resultados del análisis de registro de eventos</strong>: Documente los resultados del análisis de registro de eventos para mantener un registro de las actividades del sistema y mejorar la visibilidad y la transparencia.</p>
-
-
-<p>Al implementar la supervisión continua y el registro de eventos, puede asegurarse de que su infraestructura en la nube sea segura, escalable y eficiente.</p>
-
-
-<h2 id="4.-implementar-c%C3%B3digo-de-pol%C3%ADtica-(pac)" tabindex="-1">4. Implementar Código de Política (PaC)</h2>
-
-
-<p>La implementación de Código de Política (PaC) es una práctica esencial para garantizar la seguridad y el cumplimiento en la infraestructura en la nube. PaC se refiere a la escritura de políticas en código para asegurar la implementación consistente de políticas en todos los entornos.</p>
-
-
-<p><strong>Ventajas de PaC</strong></p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventaja</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Automatización de la implementación de políticas</td>
-<td>PaC automatiza la implementación de políticas, lo que reduce el riesgo de errores humanos.</td>
-</tr>
-<tr>
-<td>Mayor consistencia y estandarización</td>
-<td>PaC garantiza la consistencia y estandarización en la aplicación de políticas en todos los entornos.</td>
-</tr>
-<tr>
-<td>Mejora de la seguridad y el cumplimiento</td>
-<td>PaC mejora la seguridad y el cumplimiento al asegurar que las políticas se implementen de manera efectiva.</td>
-</tr>
-<tr>
-<td>Facilita la auditoría y el seguimiento de políticas</td>
-<td>PaC facilita la auditoría y el seguimiento de políticas, lo que mejora la visibilidad y la transparencia.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p><strong>Herramientas de PaC</strong></p>
-
-
-<ul>
-<li>Open Policy Agent (OPA)</li>
-<li><a href="https://www.hashicorp.com/sentinel" rel="noopener noreferrer" target="_blank">Hashicorp's Sentinel</a></li>
-<li>AWS Cloud Development Kit (CDK)</li>
-</ul>
-
-
-<p><strong>Prácticas recomendadas para la implementación de PaC</strong></p>
-
-
-<p>1. <strong>Definir políticas claras y concisas</strong>: Defina políticas claras y concisas que se puedan implementar de manera efectiva.</p>
-
-
-<p>2. <strong>Utilizar herramientas de PaC</strong>: Utilice herramientas de PaC para automatizar la implementación de políticas y mejorar la consistencia.</p>
-
-
-<p>3. <strong>Realizar análisis de políticas regularmente</strong>: Realice análisis de políticas regularmente para identificar oportunidades de mejora y asegurar el cumplimiento.</p>
-
-
-<p>Al implementar PaC, puede asegurarse de que su infraestructura en la nube sea segura, escalable y cumplida con los estándares de seguridad y cumplimiento.</p>
-
-
-<h2 id="5.-aplicar-el-principio-de-acceso-de-menor-privilegio" tabindex="-1">5. Aplicar el Principio de Acceso de Menor Privilegio</h2>
-
-
-<p>La implementación del principio de acceso de menor privilegio es fundamental para garantizar la <a href="https://dondeaprendoaws.com/blog/seguridad-en-la-nube-aws-estrategias-clave/">seguridad de la infraestructura en la nube</a>. Este enfoque garantiza que los usuarios y sistemas tengan solo los permisos necesarios para realizar sus tareas, lo que reduce el riesgo de acceso no autorizado y minimiza el daño en caso de una brecha de seguridad.</p>
-
-
-<p><strong>Ventajas del acceso de menor privilegio</strong></p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventaja</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Reducción del riesgo de acceso no autorizado</td>
-<td>El acceso de menor privilegio reduce la superficie de ataque, lo que hace que sea más difícil para los atacantes obtener acceso no autorizado.</td>
-</tr>
-<tr>
-<td>Minimización del daño en caso de brecha</td>
-<td>Si se produce una brecha de seguridad, el acceso de menor privilegio limita el daño que se puede causar.</td>
-</tr>
-<tr>
-<td>Mejora de la seguridad y el cumplimiento</td>
-<td>El acceso de menor privilegio mejora la seguridad y el cumplimiento al garantizar que solo se otorguen permisos necesarios.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p><strong>Herramientas para implementar el acceso de menor privilegio</strong></p>
-
-
-<ul>
-<li>AWS Identity and Access Management (IAM)</li>
-<li>AWS CloudFormation</li>
-<li>Open Policy Agent (OPA)</li>
-</ul>
-
-
-<p><strong>Prácticas recomendadas para implementar el acceso de menor privilegio</strong></p>
-
-
-<p>1. <strong>Definir roles y permisos claros</strong>: Defina roles y permisos claros y concisos que se puedan implementar de manera efectiva.</p>
-
-
-<p>2. <strong>Utilizar herramientas de IAM</strong>: Utilice herramientas de IAM para automatizar la implementación de permisos y mejorar la consistencia.</p>
-
-
-<p>3. <strong>Revisar y actualizar permisos regularmente</strong>: Revise y actualice permisos regularmente para asegurarse de que se ajusten a las necesidades cambiantes de la organización.</p>
-
-
-<p>Al implementar el acceso de menor privilegio, puede asegurarse de que su infraestructura en la nube sea segura, escalable y cumplida con los estándares de seguridad y cumplimiento.</p>
-
-
-<h2 id="6.-utilice-autenticaci%C3%B3n-y-autorizaci%C3%B3n-fuertes" tabindex="-1">6. Utilice Autenticación y Autorización Fuertes</h2>
-
-
-<p>La autenticación y autorización fuertes son fundamentales para garantizar la seguridad de la infraestructura en la nube. La autenticación verifica la identidad de los usuarios y sistemas, mientras que la autorización determina qué acciones pueden realizar una vez autenticados.</p>
-
-
-<p><strong>Ventajas de la autenticación y autorización fuertes</strong></p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventaja</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Reducción del riesgo de acceso no autorizado</td>
-<td>La autenticación y autorización fuertes reducen la posibilidad de acceso no autorizado a la infraestructura en la nube.</td>
-</tr>
-<tr>
-<td>Protección contra ataques</td>
-<td>La autenticación y autorización fuertes protegen contra ataques de fuerza bruta y phishing.</td>
-</tr>
-<tr>
-<td>Control de acceso granular</td>
-<td>La autenticación y autorización fuertes permiten un control de acceso granular y flexible.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p><strong>Herramientas para implementar la autenticación y autorización fuertes</strong></p>
-
-
-<ul>
-<li>AWS Identity and Access Management (IAM)</li>
-<li><a href="https://www.strongdm.com/" rel="noopener noreferrer" target="_blank">StrongDM</a></li>
-<li><a href="https://www.okta.com/workforce-identity/" rel="noopener noreferrer" target="_blank">Okta's Workforce Identity</a> solution</li>
-</ul>
-
-
-<p><strong>Prácticas recomendadas para implementar la autenticación y autorización fuertes</strong></p>
-
-
-<p>1. <strong>Implementar políticas de autenticación seguras</strong>: Establezca políticas de autenticación seguras que incluyan la verificación de dos factores (2FA) y la rotación de contraseñas.</p>
-
-
-<p>2. <strong>Utilizar roles y permisos</strong>: Utilice roles y permisos para controlar el acceso a los recursos en la nube.</p>
-
-
-<p>3. <strong>Revisar y actualizar permisos regularmente</strong>: Revise y actualice permisos regularmente para asegurarse de que se ajusten a las necesidades cambiantes de la organización.</p>
-
-
-<p>Al implementar la autenticación y autorización fuertes, puede asegurarse de que su infraestructura en la nube sea segura y escalable.</p>
-
-
-<h2 id="7.-actualizar-y-parchear-regularmente-el-c%C3%B3digo-iac" tabindex="-1">7. Actualizar y parchear regularmente el código IaC</h2>
-
-
-<p>La actualización y parcheo regular del código IaC es crucial para mantener la seguridad y estabilidad de la infraestructura en la nube. Los parches de seguridad y las actualizaciones de código IaC garantizan que los sistemas estén protegidos contra vulnerabilidades y ataques cibernéticos.</p>
-
-
-<p><strong>Ventajas de la actualización y parcheo regular</strong></p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventaja</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Mejora la seguridad</td>
-<td>Los parches de seguridad y las actualizaciones de código IaC reducen la exposición a vulnerabilidades y ataques cibernéticos.</td>
-</tr>
-<tr>
-<td>Reduce el riesgo de downtime</td>
-<td>La actualización y parcheo regular minimizan el riesgo de downtime y pérdida de productividad.</td>
-</tr>
-<tr>
-<td>Mejora la estabilidad</td>
-<td>La actualización y parcheo regular garantizan que los sistemas estén estables y funcionen correctamente.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p><strong>Herramientas para implementar la actualización y parcheo regular</strong></p>
-
-
-<ul>
-<li><a href="https://aws.amazon.com/codepipeline/" rel="noopener noreferrer" target="_blank">AWS CodePipeline</a></li>
-<li><a href="https://aws.amazon.com/codecommit/" rel="noopener noreferrer" target="_blank">AWS CodeCommit</a></li>
-<li><a href="https://aws.amazon.com/codebuild/" rel="noopener noreferrer" target="_blank">AWS CodeBuild</a></li>
-</ul>
-
-
-<p><strong>Prácticas recomendadas para implementar la actualización y parcheo regular</strong></p>
-
-
-<p>1. <strong>Automatizar el proceso de actualización y parcheo</strong>: Utilice herramientas de automatización para implementar un proceso de actualización y parcheo regular.</p>
-
-
-<p>2. <strong>Revisar y probar parches regularmente</strong>: Revise y pruebe parches regularmente para asegurarse de que sean seguros y estables.</p>
-
-
-<p>3. <strong>Documentar procesos y procedimientos</strong>: Documente procesos y procedimientos para garantizar que todos los miembros del equipo estén alineados y sigan las mismas prácticas.</p>
-
-
-<p>Al implementar la actualización y parcheo regular de código IaC, puede asegurarse de que su infraestructura en la nube sea segura y estable.</p>
-
-
-<h2 id="8.-implementar-capacitaci%C3%B3n-en-seguridad-y-plantillas" tabindex="-1">8. Implementar Capacitación en Seguridad y Plantillas</h2>
-
-
-<p>La implementación de capacitación en seguridad y plantillas es crucial para garantizar que los miembros del equipo entiendan las mejores prácticas de seguridad para la <a href="https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-aws-cloudformation/">infraestructura como código</a> (IaC) en AWS. Esto ayuda a reducir el riesgo de errores de configuración y vulnerabilidades de seguridad.</p>
-
-
-<p><strong>Ventajas de la capacitación en seguridad y plantillas</strong></p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventaja</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Mejora la conciencia de seguridad</td>
-<td>La capacitación en seguridad y plantillas mejora la conciencia de seguridad entre los miembros del equipo.</td>
-</tr>
-<tr>
-<td>Reducir el riesgo de errores</td>
-<td>La capacitación en seguridad y plantillas reduce el riesgo de errores de configuración y vulnerabilidades de seguridad.</td>
-</tr>
-<tr>
-<td>Asegura la alineación con políticas de seguridad</td>
-<td>La capacitación en seguridad y plantillas asegura que los miembros del equipo estén alineados con las políticas de seguridad de la organización.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p><strong>Herramientas para implementar la capacitación en seguridad y plantillas</strong></p>
-
-
-<ul>
-<li>Marco de Arquitectura Well-Architected de AWS</li>
-<li>Centro de Seguridad de AWS</li>
-<li><a href="https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/">Analizador de Acceso de IAM de AWS</a></li>
-</ul>
-
-
-<p><strong>Prácticas recomendadas para implementar la capacitación en seguridad y plantillas</strong></p>
-
-
-<p>1. <strong>Desarrollar un programa de capacitación en seguridad</strong>: Desarrolle un programa de capacitación en seguridad que abarque las <a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">mejores prácticas de seguridad para IaC</a> en AWS.</p>
-
-
-<p>2. <strong>Crear plantillas de seguridad</strong>: Cree plantillas de seguridad que incluyan las configuraciones de seguridad recomendadas para los recursos de AWS.</p>
-
-
-<p>3. <strong>Revisar y actualizar regularmente</strong>: Revise y actualice regularmente las plantillas de seguridad para asegurarse de que estén actualizadas y seguras.</p>
-
-
-<p>Al implementar la capacitación en seguridad y plantillas, puede asegurarse de que su equipo esté preparado para implementar las mejores prácticas de <a href="https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/">seguridad para IaC en AWS</a>.</p>
-
-
-<h2 id="9.-realizar-revisiones-y-auditor%C3%ADas-de-seguridad-regulares" tabindex="-1">9. Realizar Revisiones y Auditorías de Seguridad Regulares</h2>
-
-
-<p>La realización de revisiones y auditorías de seguridad regulares es crucial para garantizar que su infraestructura como código (IaC) en AWS esté segura y cumpla con las políticas de seguridad de la organización.</p>
-
-
-<p><strong>Ventajas de las revisiones y auditorías de seguridad</strong></p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventaja</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Identifica vulnerabilidades</td>
-<td>Las revisiones y auditorías de seguridad identifican vulnerabilidades y debilidades en la configuración de la infraestructura.</td>
-</tr>
-<tr>
-<td>Mejora la seguridad</td>
-<td>Las revisiones y auditorías de seguridad mejoran la seguridad de la infraestructura al abordar las vulnerabilidades y debilidades identificadas.</td>
-</tr>
-<tr>
-<td>Cumple con políticas de seguridad</td>
-<td>Las revisiones y auditorías de seguridad aseguran que la infraestructura cumpla con las políticas de seguridad de la organización.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p><strong>Herramientas para realizar revisiones y auditorías de seguridad</strong></p>
-
-
-<ul>
-<li>AWS CloudTrail</li>
-<li>AWS Config</li>
-<li><a href="https://aws.amazon.com/security-hub/" rel="noopener noreferrer" target="_blank">AWS Security Hub</a></li>
-</ul>
-
-
-<p><strong>Prácticas recomendadas para realizar revisiones y auditorías de seguridad</strong></p>
-
-
-<p>1. <strong>Establecer un programa de revisiones y auditorías</strong>: Establezca un programa de revisiones y auditorías que abarque todas las áreas de la infraestructura.</p>
-
-
-<p>2. <strong>Realizar revisiones y auditorías regulares</strong>: Realice revisiones y auditorías regulares para asegurarse de que la infraestructura esté segura y cumpla con las políticas de seguridad.</p>
-
-
-<p>3. <strong>Implementar medidas correctivas</strong>: Implemente medidas correctivas para abordar las vulnerabilidades y debilidades identificadas durante las revisiones y auditorías.</p>
-
-
-<p>Al realizar revisiones y auditorías de seguridad regulares, puede asegurarse de que su infraestructura como código en AWS esté segura y cumpla con las políticas de seguridad de la organización.</p>
-
-
-<h2 id="conclusi%C3%B3n" tabindex="-1">Conclusión</h2>
-
-
-<p>En resumen, implementar las 9 <a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">mejores prácticas de seguridad para IaC en AWS</a> es crucial para garantizar la seguridad y cumplimiento de las políticas de seguridad de la organización. Al integrar estas prácticas en los flujos de trabajo de IaC, los administradores de sistemas y profesionales de la nube pueden mantener entornos de AWS seguros y cumplir con los requisitos de seguridad y cumplimiento.</p>
-
-
-<p><strong>Ventajas de implementar prácticas de seguridad</strong></p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventaja</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Reducir el riesgo de violaciones de seguridad</td>
-<td>Implementar prácticas de seguridad reduce el riesgo de violaciones de seguridad y protege la infraestructura en la nube.</td>
-</tr>
-<tr>
-<td>Mejorar la eficiencia</td>
-<td>La implementación de prácticas de seguridad mejora la eficiencia al reducir el tiempo y los recursos necesarios para abordar problemas de seguridad.</td>
-</tr>
-<tr>
-<td>Cumplir con los requisitos de seguridad y cumplimiento</td>
-<td>La implementación de prácticas de seguridad ayuda a cumplir con los requisitos de seguridad y cumplimiento, lo que puede ser beneficioso para la reputación y el negocio.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Al seguir estas prácticas recomendadas, los profesionales de la nube pueden garantizar la seguridad y cumplimiento de sus entornos de AWS. La <a href="https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-terraform/">seguridad de la infraestructura como código en AWS</a> depende de la implementación de prácticas de seguridad sólidas y la adopción de una cultura de seguridad en toda la organización.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">Seguridad en AWS: Servicios Esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS Seguridad: Fundamentos Esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores Prácticas de Seguridad en AWS</a></li>
-</ul>
-</p>
+Si estas fechas ya pasaron, consulta la [agenda vigente de eventos de comunidades AWS](https://dondeaprendoaws.com/eventos/) para encontrar otros encuentros y sus enlaces de inscripción.
