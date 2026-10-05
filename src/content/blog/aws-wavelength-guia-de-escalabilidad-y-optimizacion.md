@@ -1,478 +1,107 @@
 ---
-title: "AWS Wavelength: guía de escalabilidad y optimización"
-description: "Guía de escalabilidad y optimización de AWS Wavelength para desarrolladores. Estrategias clave, monitoreo, resolución de problemas y mejores prácticas."
+title: "Qué es AWS Wavelength y cuándo conviene usarlo"
+description: "Qué es AWS Wavelength, cuándo aporta valor y cómo comprobar cobertura, conectividad, escalado, latencia y costos antes de desplegar."
 author: "guille-ojeda"
 publishedAt: "2024-05-19"
 publishedTimestamp: "2024-05-19T00:37:00.331Z"
+modifiedTimestamp: "2026-10-05T12:46:00-03:00"
 cover: "/assets/blog/editorial-fundamentos.png"
 coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
 ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
-  - title: "Comprendiendo Kubernetes y Amazon EKS"
-    url: "https://dondeaprendoaws.com/blog/comprendiendo-kubernetes-y-amazon-eks/"
-  - title: "Ingeniería de caos en AWS con fault injection simulator"
-    url: "https://dondeaprendoaws.com/blog/ingenieria-de-caos-en-aws-con-fault-injection-simulator/"
-  - title: "Arquitecturas multi-región en AWS"
-    url: "https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/"
-
+  - title: "Seguridad en AWS para principiantes: fundamentos y responsabilidad compartida"
+    url: "https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/"
+  - title: "Conceptos básicos y avanzados de Amazon VPC"
+    url: "https://dondeaprendoaws.com/blog/conceptos-basicos-y-avanzados-de-amazon-vpc/"
 ---
 
-<p><a href="https://aws.amazon.com/wavelength/" rel="noopener noreferrer" target="_blank"><strong>AWS Wavelength</strong></a> es un servicio que permite a los desarrolladores crear aplicaciones con latencia ultra baja para dispositivos 5G, extendiendo la <a href="https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/">infraestructura y servicios de AWS</a> a las redes 5G. Su principal beneficio es llevar el poder de AWS al borde de la red, permitiendo casos de uso que requieren respuestas en tiempo real.</p>
-
-
-<p>Esta guía cubre las estrategias clave para <strong>escalar</strong> y <strong>optimizar</strong> los despliegues de AWS Wavelength:</p>
-
-
-<h2 id="related-video-from-youtube" tabindex="-1">Related video from YouTube</h2>
-
-
-<iframe allowfullscreen="" loading="lazy" src="https://www.youtube.com/embed/KZX5FcsDfUQ" title="Video de YouTube"></iframe>
-<h3 id="escalabilidad" tabindex="-1">Escalabilidad</h3>
-
-
-<ul>
-<li>
-<p><strong>Infraestructura</strong>: Usar <a href="https://aws.amazon.com/autoscaling/" rel="noopener noreferrer" target="_blank">AWS Auto Scaling</a>, Elastic Load Balancing y zonas de Wavelength</p>
-</li>
-<li>
-<p><strong>Aplicaciones</strong>: Diseñar con microservicios y arquitecturas sin servidor</p>
-</li>
-<li>
-<p><strong>Datos</strong>: Utilizar <a href="https://aws.amazon.com/s3/" rel="noopener noreferrer" target="_blank">Amazon S3</a>, <a href="https://aws.amazon.com/dynamodb/" rel="noopener noreferrer" target="_blank">DynamoDB</a> y Kinesis</p>
-</li>
-</ul>
+**[AWS Wavelength](https://docs.aws.amazon.com/wavelength/latest/developerguide/what-is-wavelength.html)** coloca recursos de cómputo y almacenamiento de AWS dentro de redes de operadores móviles. Extiende una VPC de una región de AWS hasta una *Wavelength Zone* para ejecutar allí la parte de una aplicación que necesita responder cerca de dispositivos conectados a la red del operador. Conviene evaluarlo cuando acercar ese procesamiento puede mejorar una métrica concreta de latencia o ancho de banda local; no es una garantía de respuesta instantánea ni un reemplazo de una región.
 
+La diferencia clave está en la ubicación: la Wavelength Zone se administra desde una región principal y se conecta a ella. Puedes conservar en la región los datos persistentes, las funciones compartidas y los componentes que toleran más latencia, mientras ejecutas en el borde solo el tramo sensible al tiempo.
 
-<h3 id="optimizaci%C3%B3n" tabindex="-1">Optimización</h3>
+## Cuándo tiene sentido usar AWS Wavelength
 
+Wavelength puede ser una opción para procesamiento de video en vivo, realidad aumentada, analítica inmediata de dispositivos móviles o aplicaciones industriales conectadas por una red móvil. En estos escenarios, reducir saltos de red entre el dispositivo y el cómputo puede ser útil si una prueba con usuarios reales confirma una mejora que importa al producto.
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Área</th>
-<th>Estrategias</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Rendimiento</strong></td>
-<td>Caché (ElastiCache, CloudFront), optimización de entrega de contenido (Global Accelerator), acceso seguro (PrivateLink)</td>
-</tr>
-<tr>
-<td><strong>Costos</strong></td>
-<td>Auto Scaling, Spot Instances, S3 Intelligent-Tiering, Cost Explorer, Savings Plans</td>
-</tr>
-<tr>
-<td><strong>Seguridad</strong></td>
-<td>IAM, Secrets Manager, Security Hub, Network Firewall</td>
-</tr>
-<tr>
-<td><strong>Operaciones</strong></td>
-<td>CloudFormation (IaC), CloudTrail, CloudWatch, Systems Manager</td>
-</tr>
-</tbody>
-</table></figure>
+Por ejemplo, una aplicación de asistencia visual puede enviar un fotograma desde un teléfono a una instancia EC2 en una Wavelength Zone cercana. Allí, un servicio de inferencia identifica un objeto y devuelve una indicación al teléfono. La región principal puede alojar el sitio de administración, distribuir versiones del modelo y guardar resultados. Así, solo la ida y vuelta interactiva depende del cómputo cercano; el diseño no requiere copiar toda la plataforma al borde.
 
+Antes de avanzar, responde estas preguntas:
 
-<h3 id="monitoreo-y-resoluci%C3%B3n-de-problemas" tabindex="-1">Monitoreo y resolución de problemas</h3>
+- ¿Los usuarios o dispositivos están en una ciudad y una red móvil donde AWS ofrece una zona de Wavelength?
+- ¿La aplicación necesita que el cómputo esté cerca del dispositivo, o bastaría con una región, una caché u otra opción de edge?
+- ¿La mejora medida cumple un objetivo de latencia o experiencia que compense el precio y la operación adicionales?
+- ¿Los tipos de instancia, almacenamiento, servicios y cuotas disponibles en esa zona alcanzan para la carga?
 
+Si el tráfico no llega desde una red móvil participante, si el requisito es distribuir contenido estático a escala global o si la aplicación tolera bien la latencia regional, compara primero con la región, una CDN o las demás opciones de edge. La página de [ubicaciones de AWS Wavelength](https://aws.amazon.com/wavelength/locations/) cambia con la disponibilidad; verifica la ciudad, el operador y la región principal antes de diseñar. También consulta con el operador qué plan móvil y condiciones de acceso aplican.
 
-<ul>
-<li>
-<p><strong>CloudWatch</strong>: Métricas, logs y alarmas</p>
-</li>
-<li>
-<p><strong>X-Ray</strong>: Análisis de trazas de solicitudes</p>
-</li>
-<li>
-<p><strong>CloudTrail</strong>: Registro y auditoría de llamadas API</p>
-</li>
-<li>
-<p><strong>Config</strong>: Análisis de configuración de recursos</p>
-</li>
-</ul>
+## Cómo se conectan la región, la VPC y la zona de Wavelength
 
+Una Wavelength Zone es una extensión lógica de una región de AWS, no una región independiente. Creas en la región una VPC y una subred asociada a la zona. La puerta de enlace de carrier conecta esa subred con la red del operador. Para que un dispositivo móvil llegue a una instancia, se asocia a su interfaz una dirección IP de carrier, que la puerta de enlace traduce mediante NAT.
 
-<p>Siguiendo las mejores prácticas de diseño, selección de instancias, uso de caché, monitoreo, seguridad y optimización de costos, podrás aprovechar al máximo AWS Wavelength para tus aplicaciones de baja latencia.</p>
+Una dirección IP de carrier no debe tratarse como un punto público abierto. La puerta de enlace conecta la zona con la red móvil y permite tráfico saliente, pero las reglas de ingreso desde fuera de esa red dependen del operador y del tipo de conectividad. AWS documenta excepciones de multiacceso: por ejemplo, Orange admite ingreso desde fuera de su red, mientras que Verizon no; ambos admiten algunos otros flujos. Comprueba la matriz vigente de [Multi-access AWS Wavelength](https://docs.aws.amazon.com/wavelength/latest/developerguide/multi-access.html) para tu operador y zona. El acceso móvil también depende de la ubicación y la red compatibles. La puerta de enlace de carrier usa IPv4; revisa las [consideraciones de red, EC2, EBS y cuotas](https://docs.aws.amazon.com/wavelength/latest/developerguide/wavelength-quotas.html) para las limitaciones vigentes.
 
+Si quieres repasar VPC, subredes, tablas de rutas y grupos de seguridad antes de preparar una prueba, consulta esta guía de [conceptos básicos de Amazon VPC](/blog/conceptos-basicos-y-avanzados-de-amazon-vpc/). Para Wavelength, sigue además la documentación de [cómo funciona la conectividad](https://docs.aws.amazon.com/wavelength/latest/developerguide/how-wavelengths-work.html), que explica la relación entre las rutas, la puerta de enlace de carrier y la dirección IP de carrier.
 
-<h2 id="prerequisites" tabindex="-1">Prerequisites</h2>
+## Despliegue y prueba de conectividad
 
+El recorrido inicial es corto, aunque algunos pasos dependen de la zona y del operador elegidos:
 
-<p>Para empezar a usar AWS Wavelength, necesitas cumplir con ciertos requisitos. Aquí están los mínimos necesarios:</p>
+1. **Confirma la ubicación y los límites.** Selecciona una ciudad y un operador disponibles. Comprueba en la cuenta qué zona puedes habilitar, cuáles son las cuotas y si los tipos de instancia, volúmenes y servicios necesarios están disponibles allí. Los servicios que funcionan en una región no están todos disponibles en cada Wavelength Zone.
+2. **Habilita la zona en la región principal.** Antes de crear recursos, activa la Wavelength Zone para la cuenta y región correspondientes.
+3. **Extiende la VPC.** Crea una subred en la zona y configura la puerta de enlace de carrier y una tabla de rutas para esa subred. Revisa las rutas y las reglas de grupos de seguridad y ACL de red para permitir solo el tráfico que tu aplicación necesita.
+4. **Lanza una instancia de prueba.** Asigna una dirección IP de carrier y ejecuta un servicio mínimo. Puedes mantener en una subred regional una instancia de control con la misma versión de la aplicación.
+5. **Prueba desde el lugar correcto.** Primero comprueba la conectividad entre la región y la instancia de borde. Luego prueba desde un teléfono o equipo conectado a la red móvil participante, con Wi-Fi desactivado, hacia la dirección de carrier. Una solicitud HTTPS de la aplicación valida más que un ping aislado: verifica también respuesta, errores y registros.
 
+Que EC2 esté cerca del dispositivo no cambia tus responsabilidades sobre el sistema operativo, los permisos o los datos. Los [fundamentos de seguridad en AWS](https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/) te ayudan a distinguir esos controles antes de exponer el servicio de prueba.
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Requisito</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Acceso a una zona de Wavelength</strong></td>
-<td>Debes tener acceso a una zona de AWS Wavelength en una región que lo admita.</td>
-</tr>
-<tr>
-<td><strong>Zona de DNS pública</strong></td>
-<td>Necesitas una zona de DNS pública en Route 53 o en otro proveedor de DNS.</td>
-</tr>
-<tr>
-<td><strong>Bucket de Amazon S3</strong></td>
-<td>Debes tener un bucket de Amazon S3 para almacenar archivos y datos.</td>
-</tr>
-<tr>
-<td><strong>Par de claves de</strong> <a href="https://aws.amazon.com/ec2/" rel="noopener noreferrer" target="_blank"><strong>Amazon EC2</strong></a></td>
-<td>Necesitas un par de claves de Amazon EC2 para conectarte a las instancias.</td>
-</tr>
-</tbody>
-</table></figure>
+La guía oficial para [empezar con AWS Wavelength](https://docs.aws.amazon.com/wavelength/latest/developerguide/get-started-wavelength.html) cubre la activación, la VPC, la subred, la puerta de enlace, el lanzamiento de EC2 y las pruebas iniciales. Si publicas la aplicación para otros usuarios, define por separado cómo atenderás a clientes que lleguen desde internet o desde otra red móvil.
 
+## Cómo medir si la menor distancia mejora tu aplicación
 
-<p>Además, es útil tener conocimientos básicos de AWS y computación en el borde, así como experiencia con Kubernetes y orquestación de contenedores si usas <a href="https://aws.amazon.com/eks/" rel="noopener noreferrer" target="_blank">Amazon EKS</a>.</p>
+Wavelength busca acercar el cómputo al dispositivo, pero la latencia total también depende del teléfono, la señal, la red y el operador, la ruta, las colas y el tiempo que tarda el código en procesar cada solicitud. El resultado puede variar por ciudad, hora y carga. No asumas que 5G implica automáticamente menos de 10 ms.
 
+Compara la misma operación con la aplicación en la región y en la Wavelength Zone, usando dispositivos reales de la red objetivo y una carga representativa. Repite las mediciones en las ubicaciones y horarios relevantes. Registra percentiles de latencia de extremo a extremo —por ejemplo p50, p95 y p99—, errores y, para tráfico interactivo, variación de latencia y pérdida de paquetes. Mide el tiempo de red por separado del tiempo de procesamiento para saber qué cambió. Un ping ayuda a revisar conectividad y recorrido, pero no representa por sí solo la experiencia de la aplicación.
 
-<p>Cumplir con estos requisitos asegura que la implementación de AWS Wavelength sea exitosa y puedas aprovechar sus ventajas.</p>
+AWS describe una comparación con transacciones TCP de solicitud y respuesta desde un dispositivo móvil hacia una instancia regional y otra de Wavelength. La reducción observada cambia según la zona y el operador; el valor útil es el de tu propia carga y tus usuarios. Consulta el método de [medición de latencia entre Wavelength y una región](https://aws.amazon.com/blogs/industries/lower-access-latency-for-your-apps-with-aws-wavelength-and-our-telco-partners/) como referencia para armar una prueba comparable.
 
+## Escalabilidad y disponibilidad
 
-<h2 id="scaling-aws-wavelength" tabindex="-1">Scaling <a href="https://aws.amazon.com/wavelength/" rel="noopener noreferrer" target="_blank">AWS Wavelength</a></h2>
+La documentación actual incluye Amazon EC2 Auto Scaling entre los servicios que pueden usarse con Wavelength. Un grupo de escalado puede mantener la capacidad deseada y ajustar instancias según una política y métricas de CloudWatch; dimensiona límites y señales con el comportamiento observado de la aplicación. El escalado de EC2 agrega capacidad de cómputo: por sí solo no determina a qué zona llega cada dispositivo ni garantiza que el operador tenga más capacidad de red.
 
+El balanceador también requiere comprobar la zona concreta. AWS Application Load Balancer está disponible solo en algunas Wavelength Zones; Network Load Balancer no está admitido allí y el balanceo entre varias Wavelength Zones no está admitido. Revisa la sección actual de [balanceo y arquitectura para Wavelength](https://docs.aws.amazon.com/wavelength/latest/developerguide/architecture.html) antes de asumir que una topología regional se puede copiar tal cual.
 
-<p><figure><img alt="AWS Wavelength" src="/assets/blog/b5ed01b40bb6923a76c3d3c5.jpg"/></figure></p>
+Además, instancias en dos Wavelength Zones distintas dentro de una misma VPC no pueden comunicarse directamente. Para comunicación entre zonas, la guía de AWS indica usar VPC separadas y conectarlas mediante Transit Gateway. Evalúa esa complejidad solo cuando el caso de uso la necesite. Para disponibilidad, conserva los datos persistentes en la región y diseña una ruta de respaldo en una zona de disponibilidad distinta de la zona principal; define cómo dirigirás a los clientes a esa ruta si falla el borde. AWS resume este enfoque de región como núcleo y zonas de edge como extensiones en su guía de [resiliencia para Wavelength](https://docs.aws.amazon.com/wavelength/latest/developerguide/disaster-recovery-resiliency.html).
 
+## Costos y ajustes operativos
 
-<p>La escalabilidad es clave para aplicaciones con alto rendimiento y disponibilidad. AWS Wavelength ofrece varias formas de escalar tus aplicaciones según las necesidades de los usuarios.</p>
+No extrapoles el precio de una instancia regional. EC2 y otros recursos de Wavelength pueden tener tarifas distintas a las de la región principal; la página de precios indica que las instancias EC2 se ofrecen bajo demanda en Wavelength y que pueden aplicarse Instance Savings Plans. Por eso, Spot no es una opción de compra para esas instancias. Estima por separado cómputo, almacenamiento, transferencia de datos entre la zona y la región, balanceo si está disponible, registros y operación del entorno. Consulta los precios vigentes en [AWS Wavelength](https://aws.amazon.com/wavelength/pricing/) y prepara una estimación por ubicación antes de comprometer capacidad.
 
+Para controlar el gasto, acerca al borde solo la parte sensible a la latencia, reduce llamadas sincrónicas innecesarias a servicios en la región y conserva allí lo que requiere persistencia o se comparte entre zonas. Etiqueta los recursos de prueba y producción por aplicación y ubicación, revisa consumo y transferencia en los informes de costos, y define una alerta de presupuesto. En operación, combina métricas de EC2 y CloudWatch con métricas de la aplicación: latencia por ruta, solicitudes fallidas, instancias saludables y saturación. Así puedes distinguir una falta de capacidad de un problema de cobertura, ruta o procesamiento.
 
-<h3 id="infrastructure-scaling" tabindex="-1">Infrastructure scaling</h3>
+Si necesitas una introducción en español a métricas, registros y trazas, el recurso [Observabilidad en la nube de AWS: CloudWatch, X-Ray y CloudTrail](https://dev.to/aws-builders/observabilidad-en-la-nube-de-aws-explorando-cloudwatch-x-ray-y-cloudtrail-5d9m) explica estas herramientas de forma general; úsalo para preparar instrumentación y diagnóstico, y consulta la documentación de Wavelength para límites propios de la zona.
 
+Si haces una prueba con recursos reales, calcula el costo antes de lanzarla y fija cuándo termina. Al finalizar, verifica en EC2 y VPC que se hayan eliminado las instancias, los volúmenes o snapshots que ya no necesites, las direcciones IP de carrier y el balanceador y los recursos de red que dependan de ellos. Después revisa los cargos cuando la información de facturación esté disponible.
 
-<p>Para escalar la infraestructura en AWS Wavelength, puedes usar:</p>
+## Recursos y comunidad
 
+Para comparar alternativas antes de desplegar, el episodio en español [Diferentes opciones de edge computing en AWS](https://www.youtube.com/watch?v=ii7Ve7WjbOI) presenta Wavelength junto con otras opciones. Se publicó en 2021: úsalo para orientarte en los conceptos y confirma disponibilidad, límites y precios en la documentación actual de AWS.
 
-<ul>
-<li>
-<p><strong>AWS Auto Scaling</strong>: Ajusta el número de instancias según la demanda.</p>
-</li>
-<li>
-<p><a href="https://aws.amazon.com/elasticloadbalancing/" rel="noopener noreferrer" target="_blank"><strong>AWS Elastic Load Balancing</strong></a>: Distribuye el tráfico entre varias instancias.</p>
-</li>
-<li>
-<p><strong>Zonas de Wavelength</strong>: Distribuye geográficamente tus aplicaciones para reducir la latencia.</p>
-</li>
-</ul>
+Si quieres conversar sobre diseño de VPC y conectividad, puedes seguir al [AWS User Group Networking Colombia](https://www.meetup.com/aws-user-group-networking-colombia/). Al revisar esta guía también figuraba una sesión virtual de [Amazon VPC Essentials: Fundamentos de Networking](https://www.meetup.com/aws-sbg-at-francisco-jose-de-caldas-district-univ-bogota/events/316674045/) para el 21 de octubre de 2026, organizada por un Student Builder Group de Bogotá. Es una sesión sobre fundamentos de VPC, no un taller específico de Wavelength; verifica cupos y horario en el registro. Para encontrar próximas actividades y otros grupos, consulta la [agenda de eventos en línea](/eventos/online/) y el [directorio de comunidades AWS](/comunidades/).
 
+## Preguntas frecuentes
 
-<p>Ejemplo: Crea una zona de Wavelength en una región específica y usa AWS Auto Scaling para manejar el tráfico.</p>
+### ¿AWS Wavelength reduce siempre la latencia?
 
+No hay un valor garantizado para toda aplicación, ciudad y operador. La ubicación puede acortar el recorrido de red, pero mide con usuarios y solicitudes reales, y compara la respuesta completa con la alternativa regional.
 
-<h3 id="application-scaling" tabindex="-1">Application scaling</h3>
+### ¿Cualquier teléfono 5G puede conectarse a una Wavelength Zone?
 
+Tener 5G no basta. El acceso depende de la zona, el operador y el tipo de conexión admitido, incluidas las excepciones de multiacceso. Verifica cobertura, plan y condiciones con el operador. AWS también describe tráfico móvil 4G/LTE en su documentación, pero el acceso disponible depende del despliegue concreto.
 
-<p>Para escalar tus aplicaciones, considera:</p>
+### ¿La dirección IP de carrier es una IP pública para cualquier usuario de internet?
 
+No siempre. El acceso depende del operador, la zona y el tipo de conexión: AWS documenta ingreso desde fuera de la red del operador para algunos socios y lo restringe para otros. Revisa la matriz de multiacceso y prueba desde la red que utilizarán tus clientes antes de diseñar una entrada pública.
 
-<ul>
-<li>
-<p><strong>Microservicios</strong>: Diseña aplicaciones que puedan escalar individualmente.</p>
-</li>
-<li>
-<p><strong>Arquitecturas sin servidor</strong>: Usa <a href="https://aws.amazon.com/lambda/" rel="noopener noreferrer" target="_blank">AWS Lambda</a> y <a href="https://aws.amazon.com/fargate/" rel="noopener noreferrer" target="_blank">AWS Fargate</a> para escalar el cómputo según sea necesario.</p>
-</li>
-</ul>
+### ¿Puedo usar cualquier servicio de AWS en Wavelength?
 
-
-<p>Ejemplo: Crea una aplicación que use AWS Lambda para procesar solicitudes y AWS Fargate para escalar el cómputo.</p>
-
-
-<h3 id="data-scaling" tabindex="-1">Data scaling</h3>
-
-
-<p>Para escalar los datos, puedes usar:</p>
-
-
-<ul>
-<li>
-<p><strong>Amazon S3</strong>: Almacena objetos a gran escala.</p>
-</li>
-<li>
-<p><a href="https://dondeaprendoaws.com/blog/amazon-dynamodb-la-base-de-datos-nosql-de-aws/"><strong>Amazon DynamoDB</strong></a>: Bases de datos NoSQL escalables.</p>
-</li>
-<li>
-<p><a href="https://aws.amazon.com/kinesis/" rel="noopener noreferrer" target="_blank"><strong>Amazon Kinesis</strong></a>: Streaming de datos en tiempo real.</p>
-</li>
-</ul>
-
-
-<p>Ejemplo: Crea una aplicación que use Amazon S3 para almacenar archivos de usuario y Amazon DynamoDB para metadatos.</p>
-
-
-<p>AWS Wavelength ofrece varias formas de escalar tus aplicaciones para satisfacer las necesidades de los usuarios. Puedes escalar la infraestructura, las aplicaciones y los datos usando las herramientas y servicios de AWS.</p>
-
-
-<h2 id="optimizaci%C3%B3n-de-aws-wavelength" tabindex="-1">Optimización de AWS Wavelength</h2>
-
-
-<p>Optimizar AWS Wavelength es clave para asegurar un alto rendimiento, eficiencia en costos, seguridad y eficiencia operativa. Aquí hay algunas estrategias para optimizar tus despliegues de AWS Wavelength:</p>
-
-
-<h3 id="optimizaci%C3%B3n-del-rendimiento" tabindex="-1">Optimización del rendimiento</h3>
-
-
-<p>Para mejorar el rendimiento, considera implementar estrategias de caché con <a href="https://aws.amazon.com/elasticache/" rel="noopener noreferrer" target="_blank">Amazon ElastiCache</a>, usar <a href="https://aws.amazon.com/global-accelerator/" rel="noopener noreferrer" target="_blank">AWS Global Accelerator</a> para la entrega de contenido optimizada, utilizar <a href="https://aws.amazon.com/cloudfront/" rel="noopener noreferrer" target="_blank">Amazon CloudFront</a> para la distribución y caché de contenido, e implementar <a href="https://aws.amazon.com/privatelink/" rel="noopener noreferrer" target="_blank">AWS PrivateLink</a> para acceso seguro y optimizado a servicios. Estas estrategias pueden reducir la latencia y mejorar la experiencia del usuario.</p>
-
-
-<p>Ejemplo: Usa Amazon ElastiCache para almacenar en caché datos frecuentemente accedidos, reduciendo la latencia y mejorando el rendimiento de tu aplicación. Además, AWS Global Accelerator puede optimizar la entrega de contenido al enrutar el tráfico por el camino más óptimo, resultando en cargas de página más rápidas.</p>
-
-
-<h3 id="optimizaci%C3%B3n-de-costos" tabindex="-1">Optimización de costos</h3>
-
-
-<p>Para optimizar costos, considera usar AWS Auto Scaling y <a href="https://aws.amazon.com/ec2/spot/" rel="noopener noreferrer" target="_blank">AWS Spot Instances</a> para ahorrar, implementar <a href="https://aws.amazon.com/s3/storage-classes/intelligent-tiering/" rel="noopener noreferrer" target="_blank">Amazon S3 Intelligent-Tiering</a> para almacenamiento económico, utilizar <a href="https://aws.amazon.com/aws-cost-management/aws-cost-explorer/" rel="noopener noreferrer" target="_blank">AWS Cost Explorer</a> y AWS Budgets para monitoreo y optimización de costos, e implementar <a href="https://aws.amazon.com/savingsplans/" rel="noopener noreferrer" target="_blank">AWS Savings Plans</a> y AWS Reserved Instances para ahorros a largo plazo.</p>
-
-
-<p>Ejemplo: Usa AWS Auto Scaling para ajustar el número de instancias según la demanda, reduciendo costos en periodos de baja utilización. Además, AWS Spot Instances pueden ofrecer ahorros significativos al permitirte pujar por instancias EC2 no utilizadas.</p>
-
-
-<h3 id="optimizaci%C3%B3n-de-seguridad" tabindex="-1">Optimización de seguridad</h3>
-
-
-<p>Para asegurar tu despliegue de AWS Wavelength, considera implementar AWS Identity and Access Management (IAM) para control de acceso, usar <a href="https://aws.amazon.com/secrets-manager/" rel="noopener noreferrer" target="_blank">AWS Secrets Manager</a> para almacenamiento seguro de secretos, utilizar <a href="https://aws.amazon.com/security-hub/" rel="noopener noreferrer" target="_blank">AWS Security Hub</a> para monitoreo de seguridad, e implementar <a href="https://aws.amazon.com/network-firewall/" rel="noopener noreferrer" target="_blank">AWS Network Firewall</a> para seguridad de red e inspección de tráfico.</p>
-
-
-<p>Ejemplo: Usa AWS IAM para controlar el acceso a tus recursos, asegurando que solo usuarios autorizados tengan acceso a datos y recursos sensibles. Además, AWS Secrets Manager puede ayudarte a almacenar y gestionar de forma segura datos sensibles como credenciales de bases de datos y claves API.</p>
-
-
-<h3 id="optimizaci%C3%B3n-operativa" tabindex="-1">Optimización operativa</h3>
-
-
-<p>Para asegurar el funcionamiento fluido de tu despliegue de AWS Wavelength, considera usar <a href="https://aws.amazon.com/cloudformation/" rel="noopener noreferrer" target="_blank">AWS CloudFormation</a> para infraestructura como código (IaC), implementar AWS CloudTrail para auditoría y registro, utilizar Amazon CloudWatch para monitoreo y observabilidad, e integrar con <a href="https://aws.amazon.com/systems-manager/" rel="noopener noreferrer" target="_blank">AWS Systems Manager</a> para gestión centralizada y automatización.</p>
-
-
-<p>Ejemplo: Usa AWS CloudFormation para gestionar tu infraestructura como código, facilitando la versión, seguimiento y reproducción de tu infraestructura. Además, AWS CloudTrail puede ayudarte a rastrear y monitorear llamadas API, proporcionando información valiosa sobre el uso y la seguridad de AWS.</p>
-
-
-
-
-<h2 id="monitoring-and-troubleshooting" tabindex="-1">Monitoring and troubleshooting</h2>
-
-
-<p>Para asegurar el buen funcionamiento de tus despliegues de AWS Wavelength, es importante implementar estrategias de monitoreo y resolución de problemas. Aquí te presentamos algunas herramientas y técnicas clave.</p>
-
-
-<h3 id="monitoreo-con-amazon-cloudwatch" tabindex="-1">Monitoreo con <a href="https://aws.amazon.com/cloudwatch/" rel="noopener noreferrer" target="_blank">Amazon CloudWatch</a></h3>
-
-
-<p><figure><img alt="Amazon CloudWatch" src="/assets/blog/af6613064a74b982792aeda9.jpg"/></figure></p>
-
-
-<p>Amazon CloudWatch es un servicio de monitoreo y registro de AWS. Permite recopilar y analizar métricas de rendimiento y logs de tus aplicaciones. Con CloudWatch, puedes crear alarmas personalizadas para recibir notificaciones cuando haya problemas de rendimiento o errores.</p>
-
-
-<h3 id="an%C3%A1lisis-de-trazas-con-aws-x-ray" tabindex="-1">Análisis de trazas con <a href="https://aws.amazon.com/xray/" rel="noopener noreferrer" target="_blank">AWS X-Ray</a></h3>
-
-
-<p><figure><img alt="AWS X-Ray" src="/assets/blog/0602324681861f885dc45224.jpg"/></figure></p>
-
-
-<p>AWS X-Ray es un servicio que permite analizar y depurar aplicaciones distribuidas. Con X-Ray, puedes recopilar y analizar trazas de solicitudes para identificar problemas de rendimiento y errores.</p>
-
-
-<h3 id="registro-y-auditor%C3%ADa-con-aws-cloudtrail" tabindex="-1">Registro y auditoría con <a href="https://aws.amazon.com/cloudtrail/" rel="noopener noreferrer" target="_blank">AWS CloudTrail</a></h3>
-
-
-<p><figure><img alt="AWS CloudTrail" src="/assets/blog/2f6f1f4094ac0f825f89f302.jpg"/></figure></p>
-
-
-<p>AWS CloudTrail es un servicio de registro y auditoría que recopila y analiza llamadas API y eventos de seguridad en tu cuenta de AWS. Con CloudTrail, puedes identificar problemas de seguridad y errores de configuración.</p>
-
-
-<h3 id="configuraci%C3%B3n-de-recursos-con-aws-config" tabindex="-1">Configuración de recursos con <a href="https://aws.amazon.com/config/" rel="noopener noreferrer" target="_blank">AWS Config</a></h3>
-
-
-<p><figure><img alt="AWS Config" src="/assets/blog/f2503d2aec4e75d93ddd6b9b.jpg"/></figure></p>
-
-
-<p>AWS Config es un servicio que recopila y analiza la configuración de tus recursos de AWS. Con Config, puedes identificar problemas de configuración y errores en tu aplicación.</p>
-
-
-<h4 id="ejemplo-de-uso" tabindex="-1">Ejemplo de uso</h4>
-
-
-<p>Si experimentas problemas de rendimiento en tu aplicación:</p>
-
-
-<ol>
-<li>
-<p>Usa <strong>CloudWatch</strong> para recopilar métricas de rendimiento y logs.</p>
-</li>
-<li>
-<p>Usa <strong>X-Ray</strong> para analizar trazas de solicitudes y encontrar el origen del problema.</p>
-</li>
-<li>
-<p>Usa <strong>CloudTrail</strong> para auditar llamadas API y eventos de seguridad relacionados.</p>
-</li>
-</ol>
-
-
-<h3 id="resumen-de-herramientas" tabindex="-1">Resumen de herramientas</h3>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Herramienta</th>
-<th>Función</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>CloudWatch</strong></td>
-<td>Monitoreo y registro de métricas y logs</td>
-</tr>
-<tr>
-<td><strong>X-Ray</strong></td>
-<td>Análisis y depuración de trazas de solicitudes</td>
-</tr>
-<tr>
-<td><strong>CloudTrail</strong></td>
-<td>Registro y auditoría de llamadas API</td>
-</tr>
-<tr>
-<td><strong>Config</strong></td>
-<td>Análisis de configuración de recursos</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Implementar estas estrategias de monitoreo y resolución de problemas te ayudará a mantener tus despliegues de AWS Wavelength funcionando de manera eficiente.</p>
-
-
-<h2 id="best-practices" tabindex="-1">Best practices</h2>
-
-
-<p>Para asegurar la escalabilidad y optimización de tus despliegues de AWS Wavelength, es importante seguir las mejores prácticas recomendadas por AWS y la comunidad de desarrolladores. A continuación, se presentan algunas de las mejores prácticas para diferentes aspectos de AWS Wavelength.</p>
-
-
-<h3 id="dise%C3%B1o-de-la-arquitectura" tabindex="-1">Diseño de la arquitectura</h3>
-
-
-<ul>
-<li>
-<p>Diseña tu arquitectura para que sea escalable y flexible, utilizando patrones de diseño como el patrón de microservicios.</p>
-</li>
-<li>
-<p>Utiliza servicios de AWS como Amazon API Gateway, <a href="https://dondeaprendoaws.com/blog/desarrollando-aplicaciones-con-aws-lambda/">Amazon Lambda</a> y Amazon Elastic Container Service (ECS) para crear una arquitectura sin servidor y escalable.</p>
-</li>
-</ul>
-
-
-<h3 id="selecci%C3%B3n-de-instancias" tabindex="-1">Selección de instancias</h3>
-
-
-<ul>
-<li>
-<p>Selecciona instancias que se ajusten a tus necesidades de rendimiento y capacidad, considerando factores como el tipo de instancia, el tamaño de la instancia y la zona de disponibilidad.</p>
-</li>
-<li>
-<p>Utiliza instancias spot para reducir costos y mejorar la eficiencia.</p>
-</li>
-</ul>
-
-
-<h3 id="uso-de-caching" tabindex="-1">Uso de caching</h3>
-
-
-<ul>
-<li>
-<p>Utiliza caching para reducir la carga en tus recursos y mejorar el rendimiento, utilizando servicios como Amazon ElastiCache y Amazon CloudFront.</p>
-</li>
-<li>
-<p>Utiliza caching en la capa de aplicación y en la capa de datos para maximizar el beneficio.</p>
-</li>
-</ul>
-
-
-<h3 id="monitoreo-y-registro" tabindex="-1">Monitoreo y registro</h3>
-
-
-<ul>
-<li>
-<p>Utiliza herramientas de monitoreo como Amazon CloudWatch y AWS X-Ray para supervisar y depurar tus aplicaciones.</p>
-</li>
-<li>
-<p>Utiliza registro para auditar y analizar tus operaciones, utilizando servicios como AWS CloudTrail y AWS Config.</p>
-</li>
-</ul>
-
-
-<h3 id="seguridad" tabindex="-1">Seguridad</h3>
-
-
-<ul>
-<li>
-<p>Implementa medidas de seguridad como autenticación y autorización, utilizando servicios como AWS Identity and Access Management (IAM) y Amazon Cognito.</p>
-</li>
-<li>
-<p>Utiliza cifrado para proteger tus datos en tránsito y en reposo, utilizando servicios como AWS Key Management Service (KMS) y Amazon S3.</p>
-</li>
-</ul>
-
-
-<h3 id="optimizaci%C3%B3n-de-costos-1" tabindex="-1">Optimización de costos</h3>
-
-
-<ul>
-<li>
-<p>Utiliza herramientas de optimización de costos como AWS Cost Explorer y AWS Cost and Usage Reports para analizar y reducir tus costos.</p>
-</li>
-<li>
-<p>Utiliza instancias spot y reserved instances para reducir costos y mejorar la eficiencia.</p>
-</li>
-</ul>
-
-
-<p>Siguiendo estas mejores prácticas, podrás asegurar que tus despliegues de AWS Wavelength sean escalables, seguros y eficientes en términos de costos.</p>
-
-
-<h2 id="conclusi%C3%B3n" tabindex="-1">Conclusión</h2>
-
-
-<p>En resumen, la <a href="https://dev.to/aws-espanol/como-optimizar-las-cargas-ipv4-en-aws-y-ademas-generar-ahorro-de-costes-45e1" rel="noopener noreferrer" target="_blank">escalabilidad y optimización de AWS Wavelength</a> son claves para aprovechar al máximo esta tecnología. Siguiendo las estrategias y mejores prácticas descritas en este artículo, podrás asegurar que tus despliegues de AWS Wavelength sean escalables, seguros y eficientes en términos de costos.</p>
-
-
-<p>Recuerda que la clave para una implementación exitosa de AWS Wavelength es comprender las necesidades específicas de tu aplicación y elegir la infraestructura adecuada para satisfacerlas. Al mismo tiempo, es importante monitorear y ajustar constantemente tus despliegues para asegurar que se ajusten a tus necesidades cambiantes.</p>
-
-
-<p>Continúa aprendiendo sobre AWS Wavelength para aprovechar al máximo sus beneficios y mejorar tus habilidades en la nube. Con la práctica y la experiencia, podrás desarrollar aplicaciones más escalables, seguras y eficientes que satisfagan las necesidades de tus usuarios.</p>
-
-
-<h2 id="faqs" tabindex="-1">FAQs</h2>
-
-
-<h3 id="%C2%BFqu%C3%A9-es-la-escalabilidad-de-aws%3F" tabindex="-1">¿Qué es la escalabilidad de AWS?</h3>
-
-
-<p>La escalabilidad es la capacidad de tu solución para crecer y adaptarse a medida que cambian tus necesidades. Esto asegura que tu aplicación pueda manejar un aumento en la demanda y mantener un buen rendimiento.</p>
-
-
-<h3 id="%C2%BFpara-qu%C3%A9-se-usa-aws-wavelength%3F" tabindex="-1">¿Para qué se usa AWS Wavelength?</h3>
-
-
-<p>AWS Wavelength se usa para entregar aplicaciones con latencia ultrabaja a dispositivos 5G. Extiende la infraestructura y servicios de AWS a redes 5G, permitiendo a los desarrolladores crear aplicaciones que requieren respuestas en tiempo real y baja latencia.</p>
-
-
-<h3 id="%C2%BFcu%C3%A1l-es-el-principal-beneficio-de-usar-aws-wavelength%3F" tabindex="-1">¿Cuál es el principal beneficio de usar AWS Wavelength?</h3>
-
-
-<p>El principal beneficio de usar AWS Wavelength es que lleva el poder de AWS al borde de la red, permitiendo casos de uso que requieren respuestas en tiempo real. El procesamiento en el borde de la red ayuda a evitar la transmisión de grandes volúmenes de datos y descarga el procesamiento de los dispositivos móviles.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/">arquitecturas de alta disponibilidad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/optimizacion-de-costos-de-aws-lambda/">Optimización de costos de AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/">Mejores prácticas para AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/">arquitecturas multi-región en AWS</a></li>
-</ul>
-</p>
+No. EC2, EBS, VPC y algunos servicios de administración están documentados para Wavelength, mientras que otros servicios, tipos de instancia y balanceadores dependen de la zona. Revisa la disponibilidad y las cuotas de la ubicación antes de diseñar.
