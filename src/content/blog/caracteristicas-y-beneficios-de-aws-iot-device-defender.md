@@ -1,585 +1,203 @@
 ---
-title: "Características y beneficios de AWS IoT Device Defender"
-description: "Descubre las ventajas de AWS IoT Device Defender para la protección de dispositivos IoT, incluyendo auditorías de seguridad y detección de anomalías."
+title: "AWS IoT Device Defender: Audit, Detect y mitigación"
+description: "Entiende qué revisa AWS IoT Device Defender Audit, cómo funcionan Rules y ML Detect para clientes existentes, qué métricas y permisos intervienen y qué sigue disponible para clientes nuevos."
 author: "guille-ojeda"
 publishedAt: "2024-05-06"
 publishedTimestamp: "2024-05-06T14:05:13.37Z"
+modifiedTimestamp: "2026-10-05T20:31:27-03:00"
+review:
+  date: "2026-10-05"
 cover: "/assets/blog/editorial-seguridad.png"
 coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-seguridad.png"
 related:
-  - title: "7 errores comunes con AWS IoT Device SDK para JavaScript"
+  - title: "AWS IoT Device SDK para JavaScript: 7 errores comunes y cómo resolverlos"
     url: "https://dondeaprendoaws.com/blog/7-errores-comunes-con-aws-iot-device-sdk-para-javascript/"
-  - title: "Cómo habilitar CloudWatch Logs en API Gateway: guía paso a paso"
-    url: "https://dondeaprendoaws.com/blog/como-habilitar-cloudwatch-logs-en-api-gateway-guia-paso-a-paso/"
-  - title: "AWS seguridad: fundamentos esenciales"
+  - title: "Cómo simular dispositivos IoT en AWS: MQTT, ejemplos y límites"
+    url: "https://dondeaprendoaws.com/blog/aws-iot-edge-simulator-casos-de-uso-reales/"
+  - title: "Seguridad en AWS para principiantes: fundamentos y responsabilidad compartida"
     url: "https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/"
-
+  - title: "Servicios de seguridad de AWS: cuál usar para cada problema"
+    url: "https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/"
 ---
 
-<p><a href="https://aws.amazon.com/es/iot-device-defender/" rel="noopener noreferrer" target="_blank">AWS IoT Device Defender</a> es un servicio de seguridad de IoT que protege sus dispositivos IoT mediante:</p>
-
-
-<ul>
-<li>
-<p>Auditoría de configuración para verificar el cumplimiento de <a href="https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/">prácticas de seguridad</a></p>
-</li>
-<li>
-<p>Monitoreo continuo para detectar comportamientos anómalos</p>
-</li>
-<li>
-<p>Acciones de mitigación integradas para resolver problemas de seguridad</p>
-</li>
-</ul>
-
-
-<p><strong>Ventajas Clave:</strong></p>
+**AWS IoT Device Defender ayuda a revisar la configuración de una flota IoT y, cuando la cuenta tiene acceso a Detect, a identificar comportamientos anómalos.** Sus dos capacidades no hacen lo mismo: **Audit** ejecuta comprobaciones predefinidas sobre certificados, políticas y configuración; **Detect** compara métricas de comportamiento con perfiles de seguridad. Desde el **31 de agosto de 2026**, AWS indica que Detect (Rules Detect y ML Detect) ya no está disponible para clientes nuevos y permanece en mantenimiento para clientes existentes. Audit sigue disponible.
 
+Esta distinción importa si estás diseñando una flota hoy. Puedes aprender y usar Audit sin asumir que Detect se puede activar en una cuenta nueva. Tampoco es un antivirus, un firewall para el dispositivo ni una certificación automática de cumplimiento: encuentra señales y ofrece acciones configurables; tu equipo debe investigar, corregir y verificar el resultado.
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventaja</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Auditoría de seguridad</td>
-<td>Detecta vulnerabilidades en dispositivos IoT</td>
-</tr>
-<tr>
-<td>Detección de anomalías</td>
-<td>Identifica comportamientos inusuales en dispositivos</td>
-</tr>
-<tr>
-<td>Acciones de mitigación</td>
-<td>Proporciona recomendaciones para resolver problemas</td>
-</tr>
-</tbody>
-</table></figure>
+## Qué capacidad necesitas
 
+| Necesidad | AWS IoT Device Defender | Resultado y límite |
+| --- | --- | --- |
+| Revisar certificados, políticas y ajustes de IoT | **Audit** | Hallazgos de comprobaciones predefinidas, bajo demanda o programadas. No audita cualquier aplicación ni sustituye una revisión de arquitectura. |
+| Vigilar cambios anómalos en conexiones, mensajes o tráfico | **Detect** | Perfiles con comportamientos basados en reglas o ML, métricas cloud-side y device-side. Solo clientes existentes de Detect pueden continuar usándolo. |
+| Avisar a un equipo | Audit y Detect | Consola, métricas de Amazon CloudWatch y, según la configuración, Amazon SNS. SNS necesita un rol y permisos correctos. |
+| Reducir el riesgo después de un hallazgo | Acciones de mitigación | Se definen y se ejecutan sobre hallazgos o alarmas; pueden desactivar certificados o mover cosas a un grupo. No corrigen la causa ni tienen rollback automático. |
+| Procesar el mensaje de un sensor | AWS IoT Core | MQTT, certificados o credenciales de la conexión y reglas de IoT. Device Defender observa o evalúa señales; no reemplaza al broker. |
 
-<p><a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> IoT Device Defender se destaca por su capacidad para proteger dispositivos IoT con recursos limitados y vulnerables a ataques cibernéticos. Al utilizar este servicio, las empresas pueden identificar y abordar proactivamente problemas de seguridad, protegiendo así sus dispositivos y datos.</p>
+La [guía oficial de AWS IoT Device Defender](https://docs.aws.amazon.com/iot-device-defender/latest/devguide/what-is-device-defender.html) resume la relación entre estas piezas. Para comprender la responsabilidad de identidad, permisos y datos en la nube, consulta también los [fundamentos de seguridad en AWS](https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/).
 
+## Audit: comprobar la configuración de la flota
 
-<p><strong>Comparación con Otros</strong> <a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/"><strong>Servicios de seguridad de IoT</strong></a><strong>:</strong></p>
+Audit revisa ajustes de la cuenta y de los dispositivos frente a comprobaciones de seguridad de AWS IoT. Puedes ejecutar una auditoría bajo demanda o crear una programación diaria, semanal, quincenal o mensual. Las comprobaciones deben estar habilitadas en la cuenta y la recopilación puede tardar antes de que aparezcan resultados.
 
+Entre las comprobaciones actuales se encuentran:
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Servicio</th>
-<th>Auditoría de Seguridad</th>
-<th>Detección de Anomalías</th>
-<th>Acciones de Mitigación</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>AWS IoT Device Defender</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-</tr>
-<tr>
-<td><a href="https://www.microsoft.com/en-us/security/business/endpoint-security/microsoft-defender-iot" rel="noopener noreferrer" target="_blank">Microsoft Defender for IoT</a></td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-</tr>
-<tr>
-<td><a href="https://cloud.google.com/iot-core" rel="noopener noreferrer" target="_blank">Google Cloud IoT Core</a></td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-</tr>
-<tr>
-<td><a href="https://azure.microsoft.com/en-us/products/iot-hub" rel="noopener noreferrer" target="_blank">Azure IoT Hub</a></td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-</tr>
-<tr>
-<td><a href="https://www.armis.com/es/" rel="noopener noreferrer" target="_blank">Armis</a></td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-</tr>
-</tbody>
-</table></figure>
+- certificados de dispositivo compartidos, revocados, próximos a vencer o con problemas de calidad de clave;
+- certificados de autoridad certificadora revocados o próximos a vencer;
+- políticas de AWS IoT demasiado permisivas o potencialmente mal configuradas;
+- roles de Amazon Cognito y alias de rol con permisos excesivos;
+- identificadores MQTT en conflicto;
+- registros de AWS IoT deshabilitados.
 
+La lista completa cambia con el servicio y está en [Audit checks](https://docs.aws.amazon.com/iot-device-defender/latest/devguide/device-defender-audit-checks.html). Un hallazgo significa que una comprobación encontró una condición que debes revisar; no demuestra por sí solo que un dispositivo haya sido comprometido. Del mismo modo, un resultado conforme solo cubre la comprobación y el alcance que se evaluaron.
 
-<p>En resumen, AWS IoT Device Defender es una solución integral de seguridad de IoT que ayuda a proteger sus dispositivos y datos mediante la auditoría, el monitoreo y la respuesta a problemas de seguridad.</p>
+Audit puede publicar los hallazgos no conformes en un tema de SNS. Para ello, la configuración de la cuenta necesita un rol que permita a AWS IoT Device Defender leer los recursos de IoT y otro rol o permisos adecuados para publicar en el tema. La [guía de Audit](https://docs.aws.amazon.com/iot-device-defender/latest/devguide/audit-tutorial.html) muestra el flujo en consola. El rol de notificación debe confiar en `iot.amazonaws.com` y permitir `sns:Publish` sobre el tema elegido; la persona que lo configura puede necesitar `iam:PassRole`.
 
+### Audit no es una certificación
 
-<h2 id="1.-aws-iot-device-defender" tabindex="-1">1. <a href="https://aws.amazon.com/es/iot-device-defender/" rel="noopener noreferrer" target="_blank">AWS IoT Device Defender</a></h2>
+Las comprobaciones ayudan a encontrar desviaciones de prácticas de seguridad de IoT, pero no certifican ISO 27001, una norma sectorial ni el cumplimiento de tu aplicación. Un programa de cumplimiento necesita definir controles, alcance, evidencia, responsables y revisión humana. Device Defender puede aportar una señal dentro de ese proceso.
 
+## Detect: perfiles, reglas, ML y disponibilidad actual
 
-<p><figure><img alt="AWS IoT Device Defender" src="/assets/blog/443976944ac5e6dbcaa1bc94.jpg"/></figure></p>
+Detect crea un **Security Profile**, lo vincula a todos los dispositivos, a los registrados, a los no registrados o a un grupo de cosas, y evalúa los comportamientos que definas. Un comportamiento tiene una métrica y una condición: por ejemplo, más de cierto número de fallos de autorización en una ventana de tiempo.
 
+AWS distingue dos tipos de comportamiento:
 
-<h3 id="auditor%C3%ADa-de-seguridad" tabindex="-1">Auditoría de seguridad</h3>
+| Tipo | Cómo establece lo esperado | Qué debes saber |
+| --- | --- | --- |
+| **Rules Detect** | Tú defines un valor, un conjunto de valores o un umbral estadístico y la cantidad de puntos consecutivos que activa o limpia una alarma. | Es explícito y fácil de explicar, pero los umbrales deben representar el funcionamiento normal de ese grupo de dispositivos. |
+| **ML Detect** | Un modelo aprende patrones históricos y calcula anomalías para las métricas compatibles. | Requiere datos suficientes y grupos con comportamientos comparables. No es una detección universal de malware. |
 
+Para ML Detect, AWS documenta una fase inicial de hasta 14 días y un mínimo de 25.000 puntos por métrica en los 14 días anteriores para construir el modelo; después lo actualiza con datos recientes si sigue teniendo suficientes datos. Una flota que mezcla sensores domésticos y dispositivos industriales puede necesitar perfiles separados para no mezclar patrones normales distintos. Revisa los [conceptos de Detect](https://docs.aws.amazon.com/iot-device-defender/latest/devguide/detect-concepts.html) y las [limitaciones de ML Detect](https://docs.aws.amazon.com/iot-device-defender/latest/devguide/dd-detect-ml.html).
 
-<p>AWS IoT Device Defender ofrece una auditoría de seguridad para evaluar la configuración de los dispositivos IoT y detectar vulnerabilidades potenciales. Esta función verifica que los dispositivos se adhieran a las prácticas de seguridad recomendadas de AWS IoT.</p>
+### Métricas cloud-side, device-side y `clientId`
 
+Las métricas de Detect proceden de dos fuentes documentadas. **Cloud-side** son señales que AWS IoT observa en la interacción con el broker, como mensajes enviados o recibidos, tamaño de mensaje, intentos de conexión, desconexiones y fallos de autorización. **Device-side** son datos que un agente recoge en el dispositivo, como bytes y paquetes, conexiones TCP establecidas, puertos TCP o UDP en escucha y direcciones de destino.
 
-<h3 id="detecci%C3%B3n-de-anomal%C3%ADas" tabindex="-1">Detección de anomalías</h3>
+El `clientId` no es una tercera fuente de métricas. Es el identificador de la sesión MQTT y puede usarse para atribuir datos, restringir un comportamiento con la variable `${iot:ClientId}` en una dimensión o mantener la identidad estable de un dispositivo no registrado. Si un dispositivo no registrado cambia de identificador, se rompe la continuidad y sus métricas o violaciones pueden atribuirse a otra identidad; usa un valor consistente durante su vida. La documentación de [dimensiones de perfiles](https://docs.aws.amazon.com/iot-device-defender/latest/devguide/scoping-security-behavior.html) explica ese alcance.
 
+Puedes usar Detect solo con métricas cloud-side. Para las device-side puedes usar un SDK IoT versión 2, el [AWS IoT Device Client](https://github.com/awslabs/aws-iot-device-client) u otra implementación que recoja los datos y publique el formato documentado en AWS IoT. El Device Client es una implementación de referencia en C++ para dispositivos Linux y también cubre otras capacidades de IoT Device Management.
 
-<p>El servicio también proporciona detección de anomalías para identificar comportamientos inusuales en los dispositivos IoT. Esta función utiliza machine learning y análisis de datos para detectar patrones anómalos en la comunicación de los dispositivos.</p>
+### Cómo se relacionan MQTT, el SDK y los permisos
 
+Publicar la telemetría de tu aplicación en un topic no convierte automáticamente esos datos en métricas device-side de Device Defender. Hay dos recorridos diferentes:
 
-<h3 id="acciones-de-mitigaci%C3%B3n" tabindex="-1">Acciones de mitigación</h3>
+1. El dispositivo se conecta a AWS IoT Core y publica su telemetría normal en los topics de tu aplicación.
+2. El agente o SDK recoge métricas del sistema y las publica en el topic reservado de Device Defender, por ejemplo `$aws/things/Thing-1/defender/metrics/json`.
 
+En ambos casos necesitas una identidad y autorización válidas. Con MQTT sobre TLS, AWS IoT Core suele autenticar el cliente mediante un certificado X.509 activo, registrado y asociado a una política IoT. Con MQTT sobre WebSocket Secure (WSS), la conexión usa SigV4 y puede utilizar credenciales temporales de IAM o una identidad de Amazon Cognito. La [tabla de autorización de IoT Core](https://docs.aws.amazon.com/iot/latest/developerguide/iot-authorization.html) y la [guía de protocolos](https://docs.aws.amazon.com/iot/latest/developerguide/protocols.html) muestran las combinaciones.
 
-<p>AWS IoT Device Defender ofrece acciones de mitigación integradas para ayudar a resolver problemas de seguridad. Estas acciones permiten a los clientes investigar y abordar problemas de seguridad de manera efectiva.</p>
+La política no se resume en “puede usar IoT”. Una conexión necesita `iot:Connect`; publicar necesita `iot:Publish`; suscribirse necesita `iot:Subscribe`, y recibir mensajes necesita `iot:Receive`. Los recursos también cambian: `client/<clientId>` para conectar, `topic/<topic>` para publicar o recibir y `topicfilter/<filtro>` para suscribirse. Consulta los [ejemplos de publicación y suscripción](https://docs.aws.amazon.com/iot/latest/developerguide/pub-sub-policy.html). No compartas claves privadas ni claves de acceso permanentes en el firmware o en un navegador.
 
+Para publicar métricas device-side, la configuración del agente de AWS IoT Device Client debe habilitar `device-defender` y usar un intervalo de al menos **300 segundos**; intervalos menores pueden sufrir limitación. El topic reservado solo admite las operaciones documentadas y el nombre de la cosa debe cumplir los límites de formato. La [especificación de métricas device-side](https://docs.aws.amazon.com/iot-device-defender/latest/devguide/detect-device-side-metrics.html) incluye el formato del reporte, los topics aceptados y los ejemplos.
 
-<h3 id="integraci%C3%B3n-de-servicios" tabindex="-1">Integración de servicios</h3>
+## Alertas y acciones de mitigación
 
+Una alarma no equivale a una corrección. Puedes observar resultados en la consola y en CloudWatch; Audit puede enviar hallazgos y Detect, para clientes que ya lo tienen, puede enviar alarmas a SNS. La configuración de SNS requiere un rol de confianza `iot.amazonaws.com` con `sns:Publish` sobre el topic. Si el flujo usa una identidad que configura el rol, también debe poder pasarlo con `iam:PassRole`. Un tema sin suscripción o una política incorrecta puede hacer que la alerta exista en SNS sin llegar a una persona.
 
-<p>El servicio se integra con otros servicios de AWS, como AWS IoT Core, Amazon CloudWatch y Amazon SNS, lo que permite una visibilidad completa de los dispositivos IoT y una respuesta rápida a problemas de seguridad.</p>
+Device Defender ofrece acciones predefinidas que se configuran antes de ejecutar una tarea. Según el tipo de hallazgo pueden:
 
+- publicar el hallazgo en SNS;
+- marcar un certificado de dispositivo o de CA como inactivo;
+- cambiar la versión de una política IoT;
+- añadir cosas a un grupo previsto para cuarentena;
+- habilitar el registro de IoT.
 
-<h3 id="cumplimiento-con-normas" tabindex="-1">Cumplimiento con normas</h3>
+Para Detect, la acción documentada de mitigación es añadir dispositivos a un grupo de cosas. Pertenecer al grupo no aísla un dispositivo por sí solo: el grupo debe tener políticas, reglas o un procedimiento operativo que aplique la cuarentena, y el rol de la acción debe poder modificar la membresía. Registra qué cosa se añadió, qué política efectiva restringe su acceso y cómo se recupera. Para Audit, el conjunto depende de cada comprobación; no todas admiten las mismas acciones. Puedes aplicar una tarea a todos los hallazgos de una auditoría o a una selección. Desactivar un certificado o reemplazar una política puede dejar dispositivos sin conexión, y AWS no ofrece un rollback automático de las acciones aplicadas. Primero investiga, limita el alcance y prueba la recuperación. La [tabla oficial de acciones de mitigación](https://docs.aws.amazon.com/iot-device-defender/latest/devguide/dd-mitigation-actions.html) detalla estas condiciones.
 
+Una acción también puede reducir el riesgo sin resolver la causa: por ejemplo, añadir un dispositivo a un grupo de cuarentena no arregla el firmware, la credencial copiada o la política que permitió el problema, y tampoco lo aísla mientras no exista un control efectivo asociado al grupo. Documenta la corrección y verifica que el dispositivo vuelve a comportarse como esperas.
 
-<p>AWS IoT Device Defender cumple con varias normas y regulaciones de seguridad, como la norma de seguridad de la información <a href="https://en.wikipedia.org/wiki/ISO/IEC_27001" rel="noopener noreferrer" target="_blank">ISO 27001</a>.</p>
+## Práctica de solo lectura: revisar Audit sin crear recursos
 
+Esta práctica sirve para comprobar el estado de una cuenta de laboratorio o de una cuenta sobre la que ya tienes permiso. No inicia auditorías, no crea roles, no publica mensajes y no cambia la configuración.
 
-<h4 id="caracter%C3%ADsticas-de-aws-iot-device-defender" tabindex="-1">Características de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> IoT Device Defender</h4>
+1. Elige la Región donde administras AWS IoT y confirma que la identidad usada para la CLI pertenece a la cuenta correcta.
+2. Ejecuta la consulta de configuración de Audit:
 
+```bash
+AWS_REGION=us-east-1
+aws sts get-caller-identity --region "$AWS_REGION"
+aws iot describe-account-audit-configuration --region "$AWS_REGION"
+```
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Característica</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Auditoría de seguridad</td>
-<td>Evalúa la configuración de los dispositivos IoT y detecta vulnerabilidades potenciales</td>
-</tr>
-<tr>
-<td>Detección de anomalías</td>
-<td>Identifica comportamientos inusuales en los dispositivos IoT</td>
-</tr>
-<tr>
-<td>Acciones de mitigación</td>
-<td>Proporciona acciones para resolver problemas de seguridad</td>
-</tr>
-<tr>
-<td>Integración de servicios</td>
-<td>Se integra con otros servicios de AWS para una visibilidad completa de los dispositivos IoT</td>
-</tr>
-<tr>
-<td>Cumplimiento con normas</td>
-<td>Cumple con varias normas y regulaciones de seguridad</td>
-</tr>
-</tbody>
-</table></figure>
+3. En `auditCheckConfigurations`, anota qué comprobaciones están habilitadas. Revisa `roleArn` y, si aparece una configuración de notificaciones, confirma el tema y el rol sin modificar nada.
+4. Si tu cuenta ya tenía Detect, enumera sus perfiles para reconocer qué está realmente configurado:
 
+```bash
+aws iot list-security-profiles --region "$AWS_REGION"
+```
 
-<h2 id="2.-otros-servicios-de-seguridad-de-iot" tabindex="-1">2. Otros servicios de seguridad de IoT</h2>
+Un error `AccessDenied` demuestra que la identidad no puede hacer esa consulta; no demuestra que Audit o Detect estén deshabilitados. Si no aparecen perfiles, puede que no existan en esa Región o que la cuenta sea nueva y Detect no esté disponible. Compara la salida con la [referencia de permisos de Device Defender](https://docs.aws.amazon.com/iot-device-defender/latest/devguide/security_iam_id-based-policy-examples.html). Para practicar MQTT sin hardware, sigue la guía de [simulación de dispositivos IoT con AWS IoT Core](https://dondeaprendoaws.com/blog/aws-iot-edge-simulator-casos-de-uso-reales/), que separa la publicación de prueba del envío de métricas device-side.
 
+## Troubleshooting: por qué no aparece lo que esperas
 
-<h3 id="servicios-de-seguridad-de-iot-alternativos" tabindex="-1">Servicios de seguridad de IoT alternativos</h3>
+### Audit no muestra resultados
 
+Comprueba la Región, la cuenta y que haya comprobaciones habilitadas. Después de habilitar una comprobación, AWS puede tardar en recopilar datos, especialmente en cuentas con muchos recursos. Revisa el rol de Audit y el historial de tareas; una política que permite abrir la consola no necesariamente permite listar certificados, políticas y cosas.
 
-<p>Existen otros servicios de seguridad de IoT que ofrecen características y beneficios similares a AWS IoT Device Defender. A continuación, se presentan algunos de los servicios de seguridad de IoT más populares:</p>
+### No llega la notificación de Audit
 
+Revisa que SNS esté habilitado en la configuración de Audit, que el rol confíe en `iot.amazonaws.com`, que permita `sns:Publish` sobre el ARN correcto y que el tema tenga una suscripción confirmada. Comprueba CloudWatch y la métrica `MisconfiguredDeviceDefenderNotification` de AWS IoT si sospechas de una configuración incorrecta.
 
-<h4 id="comparaci%C3%B3n-de-servicios-de-seguridad-de-iot" tabindex="-1">Comparación de servicios de seguridad de IoT</h4>
+### No hay métricas o alarmas de Detect
 
+Primero confirma que la cuenta ya era cliente de Detect. En una cuenta nueva después del 31 de agosto de 2026 no podrás activar Rules Detect o ML Detect como antes. En una cuenta existente, revisa que el Security Profile esté asociado al objetivo correcto, que el comportamiento use una métrica compatible y que los datos lleguen en la Región del perfil.
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Servicio</th>
-<th>Características</th>
-<th>Beneficios</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Google Cloud IoT Core</td>
-<td>Auditoría de seguridad, detección de anomalías</td>
-<td>Protege dispositivos IoT contra ataques cibernéticos</td>
-</tr>
-<tr>
-<td>Microsoft Defender for IoT</td>
-<td>Detección de anomalías, análisis de riesgos, respuesta a incidentes</td>
-<td>Ofrece una visibilidad completa de los dispositivos IoT</td>
-</tr>
-<tr>
-<td>Azure IoT Hub</td>
-<td>Comunicación segura, autenticación y autorización</td>
-<td>Protege la comunicación entre dispositivos IoT y la nube</td>
-</tr>
-<tr>
-<td>Azure Sphere</td>
-<td>Autenticación y autorización, cifrado de datos, detección de anomalías</td>
-<td>Protege dispositivos IoT en la periferia</td>
-</tr>
-</tbody>
-</table></figure>
+Si esperabas datos del sistema del dispositivo, confirma que el agente está activo, que el reporte cumple el formato, que el topic reservado es exacto y que la política permite publicar. Para dispositivos no registrados, conserva el mismo `clientId` o nombre de cosa. Un reporte cada menos de 300 segundos puede ser limitado; un reporte mal formado puede ser rechazado.
 
+### Hay demasiadas alarmas o ninguna
 
-<p>Cada servicio de seguridad de IoT tiene sus propias fortalezas y debilidades. Al elegir un servicio, es importante considerar las necesidades específicas de su organización y elegir el servicio que mejor se adapte a sus necesidades.</p>
+En Rules Detect compara el umbral y la ventana con datos normales del grupo. En ML Detect separa flotas con comportamientos distintos y comprueba que haya datos suficientes para entrenar. Una ausencia de hallazgos no prueba que el dispositivo sea seguro: solo indica que no se observó una violación de los comportamientos y el alcance configurados.
 
+### La conexión MQTT falla después de cambiar permisos
 
-<p>Es importante destacar que la seguridad de los dispositivos IoT es crucial para proteger contra ataques cibernéticos y mantener la integridad de los datos. Al elegir un servicio de seguridad de IoT, es importante considerar las características y beneficios que se ofrecen y elegir el servicio que mejor se adapte a las necesidades de su organización.</p>
+Distingue el transporte y la identidad. Un cliente X.509 necesita un certificado activo y una política IoT asociada; WSS con SigV4 necesita permisos IAM y, según el flujo de Cognito, la combinación de política IAM y política IoT correspondiente. Verifica `iot:Connect`, el `clientId`, el ARN de `topic` o `topicfilter`, la Región y la hora del dispositivo. El artículo sobre [siete errores comunes del SDK de AWS IoT para JavaScript](https://dondeaprendoaws.com/blog/7-errores-comunes-con-aws-iot-device-sdk-para-javascript/) reúne diagnósticos para certificados, WSS, permisos, `clientId`, QoS y reloj.
 
+## Precio, Regiones y límites que conviene revisar
 
-<h2 id="comparaci%C3%B3n-de-aws-iot-device-defender-con-competidores" tabindex="-1">Comparación de AWS IoT Device Defender con competidores</h2>
+Device Defender no tiene una tarifa única que cubra todo. AWS factura **Audit** por el número de principales de dispositivo activos durante el mes y factura **Detect** por los puntos de datos monitorizados según el tipo de detección. SNS, conectividad y otros servicios pueden sumar cargos. La [página de precios de AWS IoT Device Defender](https://aws.amazon.com/iot-device-defender/pricing/) contiene las tarifas y condiciones actuales; no presupuestes una prueba como gratuita sin revisar la Región, el Free Tier aplicable y la fecha de tu cuenta.
 
+La disponibilidad es regional. Consulta los [endpoints y cuotas de AWS IoT Device Defender](https://docs.aws.amazon.com/general/latest/gr/iot_device_defender.html) antes de diseñar el despliegue. Entre los límites publicados se encuentran cinco auditorías programadas por cuenta, 90 días de retención de hallazgos de Audit, un intervalo mínimo de 300 segundos para reportes device-side y retenciones limitadas para métricas y violaciones de Detect. Los límites y su posibilidad de ajuste dependen del recurso; no conviertas estos valores en una promesa de capacidad de producción.
 
-<p>AWS IoT Device Defender es solo uno de los muchos servicios de seguridad de IoT disponibles en el mercado. Al considerar la seguridad de sus dispositivos IoT, es importante evaluar las <a href="https://dondeaprendoaws.com/blog/integracion-de-guardduty-de-aws-para-inteligencia-de-amenazas/">características y beneficios de AWS IoT Device Defender</a> en comparación con otros servicios de seguridad de IoT.</p>
+## Recursos, comunidades y eventos para continuar
 
+Para situar Device Defender frente a IAM, CloudTrail, Config y GuardDuty, consulta [Servicios de seguridad de AWS](https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/). Sus ejemplos son de seguridad general y complementan esta guía.
 
-<h3 id="criterios-de-comparaci%C3%B3n" tabindex="-1">Criterios de comparación</h3>
+El catálogo público reúne ejemplos y charlas en español que pueden complementar esta guía:
 
+- [Cómo armé un Pit Wall con AWS IoT Core](https://dev.to/alvarongg/como-arme-un-pit-wall-con-aws-iot-core-y-por-que-este-patron-sirve-para-cualquier-industria-4lo1) muestra identidad por dispositivo, reglas de IoT y procesamiento con un caso de telemetría. Es un artículo de arquitectura de IoT Core, no una guía de Device Defender.
+- [Monitoreo de dispositivos IoT en tiempo real en AWS](https://www.youtube.com/watch?v=-lYaBFheUdI), del AWS User Group Perú, enseña un ejemplo con Alexa, Raspberry Pi y sensores. Sirve para visualizar el recorrido de datos, no para asumir que el hardware ya envía métricas device-side.
+- [Introducción al IoT en AWS con IoT Core y ESP8266](https://www.youtube.com/watch?v=ilMHiOXCZns), del AWS User Group Ecuador, sirve como material de inicio para conexión y dispositivos. Contrasta la configuración del video con la documentación actual de certificados y políticas.
 
-<p>A continuación, se presentan los criterios clave para comparar AWS IoT Device Defender con otros servicios de seguridad de IoT:</p>
+Para conversar sobre seguridad y encontrar próximos encuentros, puedes visitar [AWS Security Users Group LatAm](https://www.meetup.com/awssecuritylatam/), una comunidad hispanohablante centrada en seguridad cloud; [AWS User Group Perú](https://awsugperu.cloud/), que reúne User Groups, Cloud Clubs, talleres y actividades; y [AWS User Group Ecuador](https://www.awsugecuador.com/), con meetups, talleres y enlaces a comunidades del país. Son comunidades independientes: revisa en cada página la actividad vigente, el idioma, la modalidad y las condiciones de participación.
 
+En el snapshot público revisado el **5 de octubre de 2026**, la [agenda de eventos de Dónde Aprendo AWS](https://dondeaprendoaws.com/eventos/) incluía estos encuentros relacionados con seguridad:
 
-<ul>
-<li>
-<p><strong>Auditoría de Seguridad</strong>: ¿Cuáles son las capacidades de auditoría de seguridad del servicio? ¿Puede detectar vulnerabilidades y violaciones de seguridad?</p>
-</li>
-<li>
-<p><strong>Detección de Anomalías</strong>: ¿Cómo detecta el servicio anomalías en el tráfico de red y el comportamiento de los dispositivos IoT?</p>
-</li>
-<li>
-<p><strong>Acciones de Mitigación</strong>: ¿Qué acciones de mitigación ofrece el servicio en caso de detectar una violación de seguridad?</p>
-</li>
-<li>
-<p><strong>Integración de Servicios</strong>: ¿Cómo se integra el servicio con otros servicios de IoT y sistemas de seguridad?</p>
-</li>
-<li>
-<p><strong>Soporte de Cumplimiento</strong>: ¿Qué soporte ofrece el servicio para cumplir con los estándares de seguridad y regulaciones de la industria?</p>
-</li>
-</ul>
+- [Compliance as Code en AWS: de la política a la acción automática](https://www.meetup.com/aws-user-group-security-ecuador/events/316680020/), online, **20 de octubre de 2026 a las 19:00 (UTC−5)**, organizado por AWS User Group Security Ecuador.
+- [AWS & Cloud Native Security Night](https://www.meetup.com/aws-user-group-security-ecuador/events/316815633/), presencial en Guayaquil, **23 de octubre de 2026 de 17:00 a 20:00 (UTC−5)**.
+- [AWS Community Day Panamá: Security & Data Edition 2026](https://www.meetup.com/aws-user-group-panama/events/316732293/), presencial en Panamá, **14 de noviembre de 2026**.
 
+La agenda es una instantánea: confirma en la ficha del organizador la fecha, el lugar, los cupos, el registro y cualquier requisito antes de desplazarte o reservar tiempo.
 
-<h3 id="comparaci%C3%B3n-de-servicios-de-seguridad-de-iot-1" tabindex="-1">Comparación de servicios de seguridad de IoT</h3>
+## Preguntas frecuentes
 
+### ¿AWS IoT Device Defender protege el firmware o bloquea un ataque?
 
-<p>A continuación, se presenta una comparación detallada de AWS IoT Device Defender con otros servicios de seguridad de IoT:</p>
+No por sí solo. Audit revisa configuraciones y Detect identifica desviaciones en las métricas que tiene disponibles. La respuesta puede incluir una acción configurada, pero debes investigar el firmware, las credenciales, la política, la red y la causa del comportamiento.
 
+### ¿Audit y Detect son dos nombres para la misma función?
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Servicio</th>
-<th>Auditoría de Seguridad</th>
-<th>Detección de Anomalías</th>
-<th>Acciones de Mitigación</th>
-<th>Integración de Servicios</th>
-<th>Soporte de Cumplimiento</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>AWS IoT Device Defender</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-</tr>
-<tr>
-<td>Microsoft Defender for IoT</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-</tr>
-<tr>
-<td>Google Cloud IoT Core</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-</tr>
-<tr>
-<td>Azure IoT Hub</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-</tr>
-<tr>
-<td>Armis</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Es importante evaluar cuidadosamente las características y beneficios de cada servicio de seguridad de IoT antes de tomar una decisión.</p>
-
-
-
-
-<h2 id="ventajas-y-desventajas-de-aws-iot-device-defender" tabindex="-1">Ventajas y desventajas de AWS IoT Device Defender</h2>
-
-
-<p>AWS IoT Device Defender es un servicio de seguridad de IoT que ofrece una variedad de características y beneficios para proteger sus dispositivos IoT. Sin embargo, como cualquier otro servicio de seguridad, también tiene sus pros y contras. A continuación, se presentan las ventajas y desventajas de AWS IoT Device Defender en comparación con otros servicios de seguridad de IoT.</p>
-
-
-<h3 id="ventajas" tabindex="-1">Ventajas</h3>
-
-
-<ul>
-<li>
-<p><strong>Auditoría de seguridad</strong>: AWS IoT Device Defender ofrece una auditoría de seguridad exhaustiva que detecta vulnerabilidades y violaciones de seguridad en sus dispositivos IoT.</p>
-</li>
-<li>
-<p><strong>Detección de anomalías</strong>: El servicio utiliza modelos de aprendizaje automático para detectar anomalías en el tráfico de red y el comportamiento de los dispositivos IoT.</p>
-</li>
-<li>
-<p><strong>Acciones de mitigación</strong>: AWS IoT Device Defender ofrece acciones de mitigación integradas para responder rápidamente a las violaciones de seguridad.</p>
-</li>
-<li>
-<p><strong>Integración de servicios</strong>: El servicio se integra con otros servicios de IoT y sistemas de seguridad, lo que facilita la gestión de la seguridad de sus dispositivos IoT.</p>
-</li>
-<li>
-<p><strong>Soporte de cumplimiento</strong>: AWS IoT Device Defender ofrece soporte para cumplir con los estándares de seguridad y regulaciones de la industria.</p>
-</li>
-</ul>
-
-
-<h3 id="desventajas" tabindex="-1">Desventajas</h3>
-
-
-<ul>
-<li>
-<p><strong>Costo</strong>: AWS IoT Device Defender puede ser costoso, especialmente para pequeñas y medianas empresas.</p>
-</li>
-<li>
-<p><strong>Complejidad</strong>: El servicio puede ser complejo de implementar y configurar, especialmente para aquellos sin experiencia en seguridad de IoT.</p>
-</li>
-<li>
-<p><strong>Dependencia de la nube</strong>: AWS IoT Device Defender depende de la nube de Amazon, lo que puede ser un problema para aquellos que prefieren soluciones de seguridad locales.</p>
-</li>
-</ul>
-
-
-<h3 id="comparaci%C3%B3n-de-ventajas-y-desventajas" tabindex="-1">Comparación de ventajas y desventajas</h3>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventaja/Desventaja</th>
-<th>AWS IoT Device Defender</th>
-<th>Microsoft Defender for IoT</th>
-<th>Google Cloud IoT Core</th>
-<th>Azure IoT Hub</th>
-<th>Armis</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Auditoría de seguridad</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-</tr>
-<tr>
-<td>Detección de anomalías</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-</tr>
-<tr>
-<td>Acciones de mitigación</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-</tr>
-<tr>
-<td>Integración de servicios</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-</tr>
-<tr>
-<td>Soporte de cumplimiento</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-</tr>
-<tr>
-<td>Costo</td>
-<td>❌</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-</tr>
-<tr>
-<td>Complejidad</td>
-<td>❌</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-</tr>
-<tr>
-<td>Dependencia de la nube</td>
-<td>❌</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-</tr>
-</tbody>
-</table></figure>
+No. Audit usa comprobaciones predefinidas sobre configuración e identidades. Detect usa Security Profiles y comportamientos basados en métricas. “Regla” en Rules Detect es un umbral de comportamiento; una regla de AWS IoT Core es otra cosa: procesa mensajes y ejecuta acciones.
 
+### ¿Puedo activar Detect en una cuenta nueva?
 
-<p>En resumen, AWS IoT Device Defender es un servicio de seguridad de IoT robusto que ofrece una variedad de características y beneficios para proteger sus dispositivos IoT. Sin embargo, también tiene sus desventajas, como el costo y la complejidad. Al evaluar los pros y contras de AWS IoT Device Defender, es importante considerar las necesidades específicas de su empresa y compararlas con otras opciones de seguridad de IoT disponibles en el mercado.</p>
+AWS indica que Detect dejó de estar disponible para clientes nuevos a partir del 31 de agosto de 2026. Los clientes existentes pueden continuar en mantenimiento. Para una cuenta nueva, revisa la [alternativa autogestionada de detección de anomalías de AWS](https://docs.aws.amazon.com/iot-device-defender/latest/devguide/dd-detect-availability-change.html) y calcula el costo operativo de desplegarla: no es el mismo servicio administrado y no incluye automáticamente las acciones de mitigación de Device Defender.
 
+### ¿Necesito un certificado para publicar métricas?
 
-<h2 id="casos-de-uso-y-historias-de-%C3%A9xito-en-el-mundo-real" tabindex="-1">Casos de uso y historias de éxito en el mundo real</h2>
+Necesitas una conexión autenticada y autorizada en AWS IoT. MQTT sobre TLS normalmente usa un certificado X.509 activo y una política IoT; WSS usa SigV4 con IAM o Cognito, según el flujo. En ambos casos, autoriza el topic reservado y el `clientId` que corresponda. No coloques claves privadas o claves permanentes en código distribuido.
 
+### ¿Una alarma ejecuta la mitigación automáticamente?
 
-<p>AWS IoT Device Defender ha demostrado ser efectivo en various scenarios de seguridad de IoT. A continuación, se presentan algunos ejemplos de casos de uso y historias de éxito:</p>
-
-
-<h3 id="detecci%C3%B3n-de-anomal%C3%ADas-en-dispositivos-iot" tabindex="-1">Detección de anomalías en dispositivos IoT</h3>
-
-
-<p>Una empresa de servicios de agua utilizó AWS IoT Device Defender para detectar anomalías en sus dispositivos de medición de agua. El servicio detectó un aumento anómalo en el tráfico de red hacia uno de los dispositivos, lo que indicaba una posible violación de seguridad. La empresa pudo investigar y responder rápidamente a la violación, evitando un posible ataque de ransomware.</p>
-
-
-<h3 id="mejora-de-la-seguridad-en-la-industria-manufacturera" tabindex="-1">Mejora de la seguridad en la industria manufacturera</h3>
-
-
-<p>Una empresa manufacturera utilizó AWS IoT Device Defender para mejorar la seguridad de sus dispositivos IoT en la planta de producción. El servicio detectó vulnerabilidades de seguridad en los dispositivos y proporcionó recomendaciones para remediarlas. La empresa pudo implementar medidas de seguridad adicionales y reducir el riesgo de violaciones de seguridad.</p>
-
-
-<h3 id="protecci%C3%B3n-de-dispositivos-iot-en-entornos-remotos" tabindex="-1">Protección de dispositivos IoT en entornos remotos</h3>
-
-
-<p>Una empresa de servicios de energía utilizó AWS IoT Device Defender para proteger sus dispositivos IoT en entornos remotos. El servicio detectó un intento de acceso no autorizado a uno de los dispositivos, lo que permitió a la empresa tomar medidas para bloquear el acceso y proteger sus activos.</p>
-
-
-<h3 id="mejora-de-la-eficiencia-operativa" tabindex="-1">Mejora de la eficiencia operativa</h3>
-
-
-<p>Una empresa de servicios de transporte utilizó AWS IoT Device Defender para mejorar la eficiencia operativa de sus dispositivos IoT. El servicio detectó patrones de comportamiento anómalos en los dispositivos y proporcionó recomendaciones para optimizar su funcionamiento. La empresa pudo reducir los costos de mantenimiento y mejorar la eficiencia de sus operaciones.</p>
-
-
-<p>En resumen, AWS IoT Device Defender ha demostrado ser una herramienta valiosa para proteger dispositivos IoT en various scenarios de seguridad. Su capacidad para detectar anomalías y vulnerabilidades de seguridad, así como su integración con otros servicios de AWS, lo convierten en una solución ideal para empresas que buscan mejorar la seguridad y eficiencia de sus dispositivos IoT.</p>
-
-
-<h2 id="conclusi%C3%B3n" tabindex="-1">Conclusión</h2>
-
-
-<p>En resumen, AWS IoT Device Defender se destaca por sus características y beneficios únicos para proteger dispositivos IoT. Su capacidad para auditar, detectar anomalías y recomendar acciones de mitigación lo convierten en una herramienta valiosa para empresas que buscan mejorar la seguridad y eficiencia de sus dispositivos IoT.</p>
-
-
-<p><strong>Ventajas de AWS IoT Device Defender</strong></p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventaja</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Auditoría de seguridad</td>
-<td>Detecta vulnerabilidades de seguridad en dispositivos IoT</td>
-</tr>
-<tr>
-<td>Detección de anomalías</td>
-<td>Identifica comportamientos inusuales en dispositivos IoT</td>
-</tr>
-<tr>
-<td>Acciones de mitigación</td>
-<td>Proporciona recomendaciones para resolver problemas de seguridad</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>En un mundo donde la seguridad de IoT es cada vez más crítica, AWS IoT Device Defender es una herramienta esencial para cualquier empresa que busque proteger sus dispositivos IoT y garantizar la integridad de sus operaciones.</p>
-
-
-<h2 id="preguntas-frecuentes" tabindex="-1">Preguntas frecuentes</h2>
-
-
-<h3 id="%C2%BFqu%C3%A9-es-aws-iot-device-defender%3F" tabindex="-1">¿Qué es AWS IoT Device Defender?</h3>
-
-
-<p>AWS IoT Device Defender es un servicio de seguridad de IoT que ayuda a proteger dispositivos IoT detectando vulnerabilidades y anomalías en la configuración de seguridad.</p>
-
-
-<h3 id="%C2%BFc%C3%B3mo-funciona-aws-iot-device-defender%3F" tabindex="-1">¿Cómo funciona AWS IoT Device Defender?</h3>
-
-
-<p>AWS IoT Device Defender monitorea y analiza métricas de seguridad de dispositivos IoT para detectar comportamientos anómalos y vulnerabilidades. Si se detecta una anomalía, el servicio activa una alarma para que los administradores puedan tomar medidas.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-m%C3%A9tricas-de-dispositivo-recopila-iot-device-defender%3F" tabindex="-1">¿Qué métricas de dispositivo recopila IoT Device Defender?</h3>
-
-
-<p>IoT Device Defender recopila métricas de seguridad de alta valor de dispositivos conectados, como conteos de fallos de autorización, conteos de mensajes enviados y paquetes fuera.</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Métricas de dispositivo</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Conteos de fallos de autorización</td>
-<td>Número de intentos de acceso no autorizados a un dispositivo</td>
-</tr>
-<tr>
-<td>Conteos de mensajes enviados</td>
-<td>Número de mensajes enviados por un dispositivo</td>
-</tr>
-<tr>
-<td>Paquetes fuera</td>
-<td>Número de paquetes que no se ajustan a los patrones de tráfico normales</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">seguridad en AWS: servicios esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores prácticas de seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS seguridad: fundamentos esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/guia-de-ueba-para-la-seguridad-de-aws/">Guía de UEBA para la seguridad de AWS</a></li>
-</ul>
-</p>
+Solo si has configurado el flujo y ejecutas una acción compatible sobre el hallazgo o alarma. La acción puede afectar la conectividad y no sustituye la corrección de fondo. Prueba el impacto en un grupo controlado y conserva un procedimiento manual para recuperar el servicio.
