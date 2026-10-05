@@ -1,135 +1,124 @@
 ---
-title: "Algoritmos de Amazon Forecast: Optimización y Precisión"
-description: "Explora cómo los algoritmos de Amazon Forecast como CNN-QR, DeepAR+, Prophet, NPTS, ARIMA y ETS pueden optimizar la precisión en la predicción de series temporales."
+title: "Amazon Forecast: algoritmos, métricas y acceso actual"
+description: "Amazon Forecast ya no acepta clientes nuevos. Para cuentas existentes: AutoPredictor, algoritmos, métricas, backtesting temporal, límites y costos."
 author: "guille-ojeda"
 publishedAt: "2024-05-12"
 publishedTimestamp: "2024-05-12T03:31:14.299Z"
+modifiedTimestamp: "2026-10-05T00:15:07-03:00"
 cover: "/assets/blog/e98930171342594138891bef.jpg"
 coverAlt: "Diagrama circular con un indicador central y pequeños gráficos alrededor"
 ogImage: "/assets/blog/e98930171342594138891bef.jpg"
 related:
-  - title: "Correlación de Eventos con Step Functions y CloudWatch"
-    url: "https://dondeaprendoaws.com/blog/correlacion-de-eventos-con-step-functions-y-cloudwatch/"
-    image: "/assets/blog/1ddc83af1d16737de7b3fdb8.jpg"
-    imageAlt: ""
-  - title: "Configurar CORS en HTTP API Gateway"
-    url: "https://dondeaprendoaws.com/blog/configurar-cors-en-http-api-gateway/"
-    image: "/assets/blog/b7ca17278c2b7e43c95dfeec.jpg"
-    imageAlt: ""
-  - title: "Pipeline CI/CD con Terraform y AWS CodePipeline"
-    url: "https://dondeaprendoaws.com/blog/pipeline-cicd-con-terraform-y-aws-codepipeline/"
-    image: "/assets/blog/8c8805d819a48bf8b59f25eb.jpg"
+  - title: "10 repositorios de GitHub para aprender Machine Learning en AWS"
+    url: "https://dondeaprendoaws.com/blog/10-repositorios-de-github-para-machine-learning-en-aws/"
+    image: "/assets/blog/0e7089d339cd0d6e09ee83cd.webp"
     imageAlt: ""
 ---
 
-<p><a href="https://aws.amazon.com/forecast/">Amazon Forecast</a> es un servicio de pronóstico de series temporales que utiliza el aprendizaje automático para producir predicciones precisas. Ofrece varios algoritmos, cada uno con sus propias ventajas y desventajas:</p>
-<table><thead><tr><th>Algoritmo</th><th>Ventajas</th><th>Desventajas</th></tr></thead><tbody><tr><td><a href="https://www.mdpi.com/1999-4893/16/3/160">CNN-QR</a></td><td>Adecuado para grandes conjuntos de datos y series de tiempo relacionadas</td><td>Requiere grandes cantidades de memoria y GPU</td></tr><tr><td>DeepAR+</td><td>Adecuado para grandes conjuntos de datos y series de tiempo relacionadas</td><td>Requiere grandes cantidades de memoria y GPU, puede sobreajustarse</td></tr><tr><td><a href="http://facebook.github.io/prophet/">Prophet</a></td><td>Adecuado para series de tiempo con estacionalidad y tendencias no lineales, fácil de interpretar</td><td>No es adecuado para series de tiempo con patrones complejos</td></tr><tr><td><a href="https://docs.aws.amazon.com/forecast/latest/dg/aws-forecast-recipe-npts.html">NPTS</a></td><td>Adecuado para series de tiempo esparcidas o intermitentes, escalable y rápido</td><td>No es adecuado para series de tiempo con estacionalidad o tendencias no lineales</td></tr><tr><td><a href="https://en.wikipedia.org/wiki/Autoregressive_integrated_moving_average">ARIMA</a></td><td>Adecuado para series de tiempo con estacionalidad y tendencias lineales, fácil de interpretar</td><td>No es adecuado para series de tiempo con patrones complejos</td></tr><tr><td><a href="https://docs.aws.amazon.com/forecast/latest/dg/aws-forecast-recipe-ets.html">ETS</a></td><td>Adecuado para series de tiempo con estacionalidad y tendencias no lineales, fácil de interpretar</td><td>No es adecuado para series de tiempo con patrones complejos</td></tr></tbody></table>
-<p>La elección del algoritmo adecuado depende de las características de los datos y las necesidades del proyecto. Amazon Forecast también permite optimizar la precisión de las predicciones mediante la selección de métricas de precisión adecuadas y el ajuste de hiperparámetros.</p>
-<h2 id="related-video-from-youtube">Related video from YouTube</h2>
-<div><iframe allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen="" height="315" loading="lazy" src="https://www.youtube.com/embed/DDkCWhDtKGY" title="Video de YouTube" width="560"></iframe></div>
-<h2 id="1.-cnn-qr">1. <a href="https://www.mdpi.com/1999-4893/16/3/160">CNN-QR</a></h2>
-<p><img alt="CNN-QR" src="/assets/blog/15ea6e47dba30c01f81068e5.jpg"/></p>
-<h3 id="intensidad-computacional">Intensidad computacional</h3>
-<p>El algoritmo CNN-QR es una red neuronal convolucional que procesa series temporales de manera eficiente. Aunque su intensidad computacional depende del tamaño del conjunto de datos y la complejidad de las series temporales, su arquitectura jerárquica lo hace más rápido que otros algoritmos de aprendizaje automático.</p>
-<h3 id="caracter%C3%ADsticas">Características</h3>
-<p>El algoritmo CNN-QR tiene varias características útiles:</p>
-<ul><li><strong>Acepta series temporales relacionadas y metadatos</strong>: puede manejar series temporales que dependen de variables adicionales.</li><li><strong>Optimización de hiperparámetros</strong>: permite ajustar los parámetros del modelo para mejorar su precisión.</li></ul>
-<h3 id="ventajas">Ventajas</h3>
-<p>El algoritmo CNN-QR ofrece varias ventajas:</p>
-<table><thead><tr><th>Ventaja</th><th>Descripción</th></tr></thead><tbody><tr><td>Eficiencia computacional</td><td>Procesa series temporales de manera rápida y eficiente</td></tr><tr><td>Manejo de series temporales relacionadas</td><td>Puede manejar series temporales que dependen de variables adicionales</td></tr><tr><td>Optimización de hiperparámetros</td><td>Permite ajustar los parámetros del modelo para mejorar su precisión</td></tr></tbody></table>
-<h2 id="2.-deepar%2B">2. DeepAR+</h2>
-<h3 id="intensidad-computacional-1">Intensidad computacional</h3>
-<p>DeepAR+ es un algoritmo de redes neuronales recurrentes (RNN) que requiere una mayor intensidad computacional en comparación con otros algoritmos. Sin embargo, su capacidad para manejar conjuntos de datos grandes y series temporales complejas justifica este mayor costo computacional.</p>
-<h3 id="caracter%C3%ADsticas-1">Características</h3>
-<p>DeepAR+ tiene varias características útiles:</p>
-<ul><li><strong>Acepta series temporales relacionadas y metadatos</strong>: puede manejar series temporales que dependen de variables adicionales.</li><li><strong>Adecuado para conjuntos de datos dispersos</strong>: es especialmente útil para conjuntos de datos dispersos o intermitentes.</li></ul>
-<h3 id="capacidades-de-optimizaci%C3%B3n-de-hiperpar%C3%A1metros">Capacidades de optimización de hiperparámetros</h3>
-<p>DeepAR+ ofrece varios hiperparámetros que permiten ajustar y optimizar el modelo para obtener mejores resultados. Algunos de los hiperparámetros clave se presentan en la siguiente tabla:</p>
-<table><thead><tr><th>Hiperparámetro</th><th>Descripción</th></tr></thead><tbody><tr><td><strong>context_length</strong></td><td>Controla cuánto puede ver la red hacia el pasado.</td></tr><tr><td><strong>ForecastHorizon</strong></td><td>Determina cuán lejos en el futuro se pueden hacer predicciones.</td></tr><tr><td><strong>num_cells</strong> y <strong>num_layers</strong></td><td>Controlan la arquitectura de la RNN.</td></tr><tr><td><strong>learning_rate</strong></td><td>Ajusta la tasa de aprendizaje durante el entrenamiento.</td></tr></tbody></table>
-<p>La optimización adecuada de estos hiperparámetros es crucial para obtener predicciones precisas con DeepAR+.</p>
-<h2 id="3.-prophet">3. <a href="http://facebook.github.io/prophet/">Prophet</a></h2>
-<p><img alt="Prophet" src="/assets/blog/90b6154070c306058a5dc5ca.jpg"/></p>
-<h3 id="intensidad-computacional-2">Intensidad computacional</h3>
-<p>Prophet es un algoritmo de serie temporal basado en un modelo aditivo que maneja efectos de tendencia, estacionalidad y festividades de manera eficiente. A diferencia de otros algoritmos, Prophet no requiere una gran intensidad computacional, lo que lo hace más accesible y escalable.</p>
-<h3 id="caracter%C3%ADsticas-2">Características</h3>
-<p>Prophet tiene varias características útiles:</p>
-<ul><li><strong>Modela tendencias y estacionalidades</strong>: Prophet puede manejar tendencias no lineales y estacionalidades complejas.</li><li><strong>Acepta festividades y eventos</strong>: permite especificar fechas específicas que pueden afectar la serie temporal, como festividades o eventos importantes.</li><li><strong>Robusto a datos perdidos o outliers</strong>: Prophet puede manejar datos perdidos o outliers sin afectar la precisión de las predicciones.</li></ul>
-<h3 id="hiperpar%C3%A1metros-clave">Hiperparámetros clave</h3>
-<p>Prophet ofrece varios hiperparámetros que permiten ajustar y optimizar el modelo para obtener mejores resultados. Algunos de los hiperparámetros clave se presentan en la siguiente tabla:</p>
-<table><thead><tr><th>Hiperparámetro</th><th>Descripción</th></tr></thead><tbody><tr><td><strong>changepoint_prior_scale</strong></td><td>Controla la flexibilidad de la tendencia.</td></tr><tr><td><strong>seasonality_prior_scale</strong></td><td>Controla la flexibilidad de la estacionalidad.</td></tr><tr><td><strong>holidays_prior_scale</strong></td><td>Controla la flexibilidad de los efectos de festividades.</td></tr></tbody></table>
-<p>La optimización adecuada de estos hiperparámetros es crucial para obtener predicciones precisas con Prophet.</p>
-<h2 id="4.-npts">4. <a href="https://docs.aws.amazon.com/forecast/latest/dg/aws-forecast-recipe-npts.html">NPTS</a></h2>
-<p><img alt="NPTS" src="/assets/blog/ee27906cb68c9f9c226bc07e.jpg"/></p>
-<h3 id="intensidad-computacional-3">Intensidad computacional</h3>
-<p>NPTS es un algoritmo de serie temporal no paramétrico que utiliza un índice de tiempo fijo y muestras de observaciones pasadas. Al igual que Prophet, NPTS no requiere una gran intensidad computacional, lo que lo hace más accesible y escalable.</p>
-<h3 id="adecuado-para-conjuntos-de-datos-dispersos">Adecuado para conjuntos de datos dispersos</h3>
-<p>NPTS es especialmente útil cuando el conjunto de datos es disperso (o contiene muchos ceros) y bursty. Por ejemplo, la predicción de la demanda de artículos individuales donde la serie temporal tiene muchos conteos bajos.</p>
-<h3 id="variantes-de-npts">Variantes de NPTS</h3>
-<p>Amazon Forecast ofrece variantes de NPTS que difieren en qué observaciones pasadas se muestran y cómo se muestran. Estas variantes incluyen:</p>
-<table><thead><tr><th>Variante</th><th>Descripción</th></tr></thead><tbody><tr><td>NPTS</td><td>Utiliza un índice de tiempo fijo y muestras de observaciones pasadas.</td></tr><tr><td>NPTS estacional</td><td>Ajusta la tendencia y la estacionalidad en la serie temporal.</td></tr><tr><td>Pronosticador climatológico</td><td>Utiliza un enfoque climatológico para hacer predicciones.</td></tr><tr><td>Pronosticador climatológico estacional</td><td>Combina el enfoque climatológico con la estacionalidad.</td></tr></tbody></table>
-<h3 id="optimizaci%C3%B3n-de-hiperpar%C3%A1metros">Optimización de hiperparámetros</h3>
-<p>La optimización adecuada de los hiperparámetros es crucial para obtener predicciones precisas con NPTS. Algunos de los hiperparámetros clave incluyen:</p>
-<table><thead><tr><th>Hiperparámetro</th><th>Descripción</th></tr></thead><tbody><tr><td><code>exp_kernel_weights</code></td><td>Controla la importancia de las observaciones pasadas.</td></tr><tr><td><code>kernel_type</code></td><td>Selecciona el tipo de kernel utilizado en el algoritmo.</td></tr><tr><td><code>use_seasonal_model</code></td><td>Habilita o deshabilita el uso de un modelo estacional.</td></tr></tbody></table>
-<h2 id="5.-arima">5. <a href="https://en.wikipedia.org/wiki/Autoregressive_integrated_moving_average">ARIMA</a></h2>
-<p><img alt="ARIMA" src="/assets/blog/5ba90390cb1024bede5a6f9e.jpg"/></p>
-<h3 id="descripci%C3%B3n-general">Descripción general</h3>
-<p>ARIMA (Autoregresivo Integrado Medio Móvil) es un algoritmo estadístico comúnmente utilizado para la predicción de series temporales. Es especialmente útil para conjuntos de datos simples con menos de 100 series temporales.</p>
-<h3 id="intensidad-computacional-4">Intensidad computacional</h3>
-<p>ARIMA no requiere una gran intensidad computacional, lo que lo hace más accesible y escalable.</p>
-<h3 id="adecuado-para-conjuntos-de-datos-no-estacionarios">Adecuado para conjuntos de datos no estacionarios</h3>
-<p>ARIMA es especialmente útil cuando se trabaja con series temporales no estacionarias, ya que utiliza diferenciación para convertir una serie temporal no estacionaria en una estacionaria, y luego predice valores futuros a partir de datos históricos.</p>
-<h3 id="ventajas-1">Ventajas</h3>
-<ul><li>Solo requiere datos históricos de la serie temporal para generalizar la predicción.</li><li>Se desempeña bien en predicciones a corto plazo.</li><li>Modela series temporales no estacionarias.</li></ul>
-<h2 id="6.-ets">6. <a href="https://docs.aws.amazon.com/forecast/latest/dg/aws-forecast-recipe-ets.html">ETS</a></h2>
-<p><img alt="ETS" src="/assets/blog/13e24d9f04187cf50075fa83.jpg"/></p>
-<h3 id="descripci%C3%B3n-general-1">Descripción general</h3>
-<p>El algoritmo de Suavizado Exponencial (ETS) es un método estadístico comúnmente utilizado para la predicción de series temporales. Amazon Forecast utiliza la función <code>ets</code> del paquete <code>forecast</code> de la Red de Archivo de R (CRAN) para implementar este algoritmo.</p>
-<h3 id="intensidad-computacional-5">Intensidad computacional</h3>
-<p>La intensidad computacional del algoritmo ETS es moderada, lo que lo hace adecuado para conjuntos de datos de tamaño medio.</p>
-<h3 id="adecuado-para-conjuntos-de-datos-no-estacionarios-1">Adecuado para conjuntos de datos no estacionarios</h3>
-<p>ETS es especialmente útil cuando se trabaja con series temporales no estacionarias, ya que utiliza técnicas de suavizado exponencial para modelar patrones y tendencias en los datos.</p>
-<h3 id="capacidades-de-optimizaci%C3%B3n-de-hiperpar%C3%A1metros-1">Capacidades de optimización de hiperparámetros</h3>
-<p>El algoritmo ETS ofrece capacidades de optimización de hiperparámetros, lo que permite ajustar los parámetros del modelo para mejorar la precisión de las predicciones.</p>
-<h4 id="hiperpar%C3%A1metros-clave-1">Hiperparámetros clave</h4>
-<table><thead><tr><th>Hiperparámetro</th><th>Descripción</th></tr></thead><tbody><tr><td><code>alpha</code></td><td>Controla la tasa de suavizado exponencial.</td></tr><tr><td><code>beta</code></td><td>Controla la tasa de suavizado exponencial para la tendencia.</td></tr><tr><td><code>gamma</code></td><td>Controla la tasa de suavizado exponencial para la estacionalidad.</td></tr></tbody></table>
-<p>La optimización adecuada de estos hiperparámetros es crucial para obtener predicciones precisas con ETS.</p>
-<h2 id="selecci%C3%B3n-del-algoritmo-adecuado">Selección del Algoritmo Adecuado</h2>
-<p>La elección del algoritmo adecuado es crucial para la precisión y eficacia de las predicciones en Amazon Forecast. Cada algoritmo tiene sus propias fortalezas y debilidades, y es importante comprender cuándo utilizar cada uno.</p>
-<h3 id="consideraciones-clave">Consideraciones Clave</h3>
-<ul><li><strong>Tamaño del conjunto de datos</strong>: Algunos algoritmos funcionan mejor con conjuntos de datos grandes, mientras que otros son más adecuados para conjuntos de datos pequeños y medianos.</li><li><strong>Tipo de serie temporal</strong>: Algunos algoritmos son más adecuados para series temporales con patrones estacionales, mientras que otros son más adecuados para series temporales no estacionarias.</li><li><strong>Nivel de complejidad</strong>: Algunos algoritmos requieren un mayor nivel de complejidad y recursos computacionales, mientras que otros son más sencillos y fáciles de implementar.</li></ul>
-<h3 id="criterios-para-elegir-el-algoritmo-adecuado">Criterios para Elegir el Algoritmo Adecuado</h3>
-<table><thead><tr><th>Criterio</th><th>Descripción</th></tr></thead><tbody><tr><td>Análisis de la serie temporal</td><td>Analizar la serie temporal y entender sus patrones y tendencias</td></tr><tr><td>Pruebas y evaluación</td><td>Probar diferentes algoritmos y evaluar su desempeño utilizando métricas de evaluación relevantes</td></tr><tr><td>Consideraciones empresariales</td><td>Considerar las necesidades empresariales y los objetivos de la predicción</td></tr></tbody></table>
-<p>En resumen, elegir el algoritmo adecuado es un proceso que requiere considerar varios factores. Al entender las fortalezas y debilidades de cada algoritmo, los usuarios de Amazon Forecast pueden elegir el algoritmo que mejor se adapte a sus necesidades y objetivos.</p>
-<h2 id="mejora-de-la-precisi%C3%B3n-de-las-predicciones">Mejora de la precisión de las predicciones</h2>
-<p>Para mejorar la precisión de las predicciones en Amazon Forecast, es fundamental elegir las métricas de precisión adecuadas y ajustar los hiperparámetros de manera efectiva. A continuación, se presentan estrategias para seleccionar las métricas de precisión adecuadas y ajustar los hiperparámetros para optimizar el rendimiento de los algoritmos de Forecast.</p>
-<h3 id="selecci%C3%B3n-de-m%C3%A9tricas-de-precisi%C3%B3n">Selección de métricas de precisión</h3>
-<p>Amazon Forecast ofrece varias métricas de precisión, como RMSE, wQL, MAPE, MASE y WAPE. Cada métrica tiene sus propias ventajas y desventajas. Es importante comprender cuándo utilizar cada una.</p>
-<table><thead><tr><th>Métrica</th><th>Descripción</th></tr></thead><tbody><tr><td>RMSE</td><td>Error cuadrático medio</td></tr><tr><td>wQL</td><td>Error cuadrático medio ponderado</td></tr><tr><td>MAPE</td><td>Error porcentual medio absoluto</td></tr><tr><td>MASE</td><td>Error medio absoluto escalado</td></tr><tr><td>WAPE</td><td>Error porcentual medio absoluto ponderado</td></tr></tbody></table>
-<h3 id="ajuste-de-hiperpar%C3%A1metros">Ajuste de hiperparámetros</h3>
-<p>El ajuste de hiperparámetros es crucial para optimizar el rendimiento de los algoritmos de Forecast. Los hiperparámetros son parámetros que se establecen antes de entrenar un modelo y que afectan su comportamiento.</p>
-<h3 id="ventajas-de-la-optimizaci%C3%B3n-de-la-precisi%C3%B3n">Ventajas de la optimización de la precisión</h3>
-<p>La optimización de la precisión en Amazon Forecast ofrece varias ventajas:</p>
-<ul><li><strong>Mejora de la precisión</strong>: Al elegir las métricas de precisión adecuadas y ajustar los hiperparámetros de manera efectiva, es posible mejorar significativamente la precisión de las predicciones.</li><li><strong>Reducción de costos</strong>: Al mejorar la precisión de las predicciones, es posible reducir costos asociados con la producción y el almacenamiento de inventarios.</li><li><strong>Mejora de la toma de decisiones</strong>: Al tener predicciones más precisas, es posible tomar decisiones más informadas y mejorar la eficiencia operativa.</li></ul>
-<p>En resumen, la optimización de la precisión en Amazon Forecast es crucial para mejorar la precisión de las predicciones y reducir costos. Al elegir las métricas de precisión adecuadas y ajustar los hiperparámetros de manera efectiva, es posible mejorar significativamente el rendimiento de los algoritmos de Forecast.</p>
-<h2 id="ventajas-y-desventajas-de-los-algoritmos">Ventajas y desventajas de los algoritmos</h2>
-<p>A continuación, se presentan las ventajas y desventajas de cada algoritmo de Amazon Forecast, lo que ayudará a los usuarios a elegir el algoritmo más adecuado para sus necesidades.</p>
-<h3 id="ventajas-y-desventajas">Ventajas y desventajas</h3>
-<table><thead><tr><th>Algoritmo</th><th>Ventajas</th><th>Desventajas</th></tr></thead><tbody><tr><td>CNN-QR</td><td>Adecuado para grandes conjuntos de datos, maneja metadatos de elementos y series de tiempo relacionadas</td><td>Requiere grandes cantidades de memoria y GPU, puede ser difícil de interpretar</td></tr><tr><td>DeepAR+</td><td>Adecuado para grandes conjuntos de datos, maneja metadatos de elementos y series de tiempo relacionadas</td><td>Requiere grandes cantidades de memoria y GPU, puede ser difícil de interpretar, puede sobreajustarse</td></tr><tr><td>Prophet</td><td>Adecuado para series de tiempo con estacionalidad y tendencias no lineales, fácil de interpretar</td><td>No es adecuado para series de tiempo con patrones complejos, puede requerir ajustes manuales</td></tr><tr><td>NPTS</td><td>Adecuado para series de tiempo esparcidas o intermitentes, escalable y rápido</td><td>No es adecuado para series de tiempo con estacionalidad o tendencias no lineales</td></tr><tr><td>ARIMA</td><td>Adecuado para series de tiempo con estacionalidad y tendencias lineales, fácil de interpretar</td><td>No es adecuado para series de tiempo con patrones complejos, puede requerir ajustes manuales</td></tr><tr><td>ETS</td><td>Adecuado para series de tiempo con estacionalidad y tendencias no lineales, fácil de interpretar</td><td>No es adecuado para series de tiempo con patrones complejos, puede requerir ajustes manuales</td></tr></tbody></table>
-<p>En resumen, cada algoritmo de Amazon Forecast tiene sus propias ventajas y desventajas. Al elegir el algoritmo adecuado, es importante considerar las características de los datos y las necesidades específicas del proyecto.</p>
-<h2 id="puntos-clave">Puntos clave</h2>
-<p>En resumen, la elección del algoritmo adecuado en Amazon Forecast es crucial para lograr una precisión óptima en la predicción. Cada algoritmo tiene sus propias ventajas y desventajas, y es importante considerar las características de los datos y las necesidades específicas del proyecto al seleccionar el algoritmo adecuado.</p>
-<h3 id="algoritmos-de-amazon-forecast">Algoritmos de <a href="https://aws.amazon.com/forecast/">Amazon Forecast</a></h3>
-<p><img alt="Amazon Forecast" src="/assets/blog/f90352a98a205f6a149fb511.jpg"/></p>
-<p>A continuación, se presentan los algoritmos de Amazon Forecast y sus características clave:</p>
-<table><thead><tr><th>Algoritmo</th><th>Ventajas</th><th>Desventajas</th></tr></thead><tbody><tr><td>CNN-QR</td><td>Adecuado para grandes conjuntos de datos y series de tiempo relacionadas</td><td>Requiere grandes cantidades de memoria y GPU</td></tr><tr><td>DeepAR+</td><td>Adecuado para grandes conjuntos de datos y series de tiempo relacionadas</td><td>Requiere grandes cantidades de memoria y GPU, puede sobreajustarse</td></tr><tr><td>Prophet</td><td>Adecuado para series de tiempo con estacionalidad y tendencias no lineales, fácil de interpretar</td><td>No es adecuado para series de tiempo con patrones complejos</td></tr><tr><td>NPTS</td><td>Adecuado para series de tiempo esparcidas o intermitentes, escalable y rápido</td><td>No es adecuado para series de tiempo con estacionalidad o tendencias no lineales</td></tr><tr><td>ARIMA</td><td>Adecuado para series de tiempo con estacionalidad y tendencias lineales, fácil de interpretar</td><td>No es adecuado para series de tiempo con patrones complejos</td></tr><tr><td>ETS</td><td>Adecuado para series de tiempo con estacionalidad y tendencias no lineales, fácil de interpretar</td><td>No es adecuado para series de tiempo con patrones complejos</td></tr></tbody></table>
-<p>En última instancia, la elección del algoritmo adecuado dependerá de las características específicas de los datos y las necesidades del proyecto. Al considerar cuidadosamente las ventajas y desventajas de cada algoritmo, es posible lograr una precisión óptima en la predicción y tomar decisiones informadas.</p>
-<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
-<h3 id="%C2%BFcu%C3%A1l-es-el-algoritmo-predictivo-de-amazon%3F">¿Cuál es el algoritmo predictivo de Amazon?</h3>
-<p>Un predictor de Amazon Forecast utiliza un algoritmo para entrenar un modelo con conjuntos de datos de series de tiempo. El modelo entrenado se utiliza luego para generar métricas y predicciones.</p>
-<h3 id="%C2%BFqu%C3%A9-algoritmo-utiliza-amazon-forecast%3F">¿Qué algoritmo utiliza Amazon Forecast?</h3>
-<p>Amazon Forecast utiliza varios algoritmos, incluyendo CNN-QR, DeepAR+, Prophet, NPTS, ARIMA y ETS. Cada algoritmo tiene sus propias ventajas y desventajas, y se selecciona según las características de los datos y las necesidades del proyecto.</p>
-<h4 id="algoritmos-de-amazon-forecast-1">Algoritmos de Amazon Forecast</h4>
-<table><thead><tr><th>Algoritmo</th><th>Descripción</th></tr></thead><tbody><tr><td>CNN-QR</td><td>Adecuado para grandes conjuntos de datos y series de tiempo relacionadas</td></tr><tr><td>DeepAR+</td><td>Adecuado para grandes conjuntos de datos y series de tiempo relacionadas</td></tr><tr><td>Prophet</td><td>Adecuado para series de tiempo con estacionalidad y tendencias no lineales</td></tr><tr><td>NPTS</td><td>Adecuado para series de tiempo esparcidas o intermitentes</td></tr><tr><td>ARIMA</td><td>Adecuado para series de tiempo con estacionalidad y tendencias lineales</td></tr><tr><td>ETS</td><td>Adecuado para series de tiempo con estacionalidad y tendencias no lineales</td></tr></tbody></table>
-<p>Esperamos que esta información sea útil. Si tiene más preguntas, no dude en hacérselas.</p>
-<h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-machine-learning-en-aws/">Mejores Prácticas de Machine Learning en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/como-desarrollar-aplicaciones-de-inteligencia-artificial-en-aws/">Cómo Desarrollar Aplicaciones de Inteligencia Artificial en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/">Introducción a la Inteligencia Artificial en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/personalizacion-en-tiempo-real-con-aws-casos-de-uso/">Personalización en tiempo real con AWS: Casos de uso</a></li></ul>
+Amazon Forecast **ya no acepta clientes nuevos**: AWS cerró el acceso el 29 de julio de 2024. Sus documentos actuales indican que los clientes existentes pueden continuar usando el servicio. Si tu cuenta ya lo tenía habilitado, la opción predeterminada y preferida para crear predictores es **AutoPredictor**; si estás empezando con AWS, puedes aprender pronósticos y validar modelos con datos locales, pero este artículo no te habilita Forecast ni promete una migración automática. Para situar los conceptos, puedes empezar con la grabación [Machine Learning de Cero a Hero](https://www.youtube.com/watch?v=0kia26HQxs0), del AWS User Group Buenos Aires. [AWS explica el cierre y sus recursos de transición](https://aws.amazon.com/blogs/machine-learning/transition-your-amazon-forecast-usage-to-amazon-sagemaker-canvas/) y la [API actual de AutoPredictor conserva el aviso de acceso](https://docs.aws.amazon.com/forecast/latest/dg/API_CreateAutoPredictor.html).
+
+El anuncio de AWS también dice que continuará con mejoras de seguridad, disponibilidad y rendimiento, aunque no planea añadir funciones nuevas a Forecast. Por eso conviene distinguir lo que sigue vigente para cuentas habilitadas de lo que puede practicar alguien desde cero.
+
+## AutoPredictor y el predictor heredado
+
+AWS recomienda **AutoPredictor** para crear un predictor. Aplica una combinación de algoritmos a cada serie temporal. AWS indica que, en general, estos predictores obtienen más precisión que los predictores heredados con AutoML o selección manual; es una comparación general, no una garantía para tus datos. [La guía de entrenamiento explica la diferencia y cómo actualizar un predictor](https://docs.aws.amazon.com/forecast/latest/dg/howitworks-predictor.html).
+
+La operación heredada [CreatePredictor](https://docs.aws.amazon.com/forecast/latest/dg/API_CreatePredictor.html) funciona de dos formas: AutoML elige un algoritmo para todo el conjunto, o eliges manualmente un solo algoritmo para todas las series. El catálogo técnico de AWS documenta seis algoritmos para esa selección manual:
+
+| Algoritmo | Perfil descrito por AWS |
+| --- | --- |
+| CNN-QR | Red convolucional; se orienta a conjuntos con muchas series. |
+| DeepAR+ | Red recurrente para conjuntos con muchas series relacionadas. |
+| Prophet | Modelo aditivo útil con estacionalidad marcada y varias temporadas históricas. |
+| NPTS | Pronosticador probabilístico de referencia para series escasas o intermitentes; incluye variantes estacionales. |
+| ARIMA | Método estadístico pensado especialmente para conjuntos sencillos con menos de 100 series. |
+| ETS | Suavizado exponencial para conjuntos sencillos y patrones estacionales. |
+
+Estas descripciones resumen la [documentación de algoritmos de Forecast](https://docs.aws.amazon.com/forecast/latest/dg/aws-forecast-choosing-recipes.html). No son una comparación universal de precisión ni significan que debas escoger uno al crear un AutoPredictor.
+
+Si ya tienes un predictor heredado, AWS documenta una **actualización explícita** a AutoPredictor. La actualización conserva la configuración pertinente y crea otro predictor con un ARN distinto; el predictor original sigue activo para que compares sus métricas. No es una conversión automática ni una migración a otro servicio.
+
+## Datos y validación: evita mirar el futuro
+
+Forecast necesita un grupo de datos con una serie temporal objetivo: identificador de elemento, fecha y valor que quieres pronosticar, según el dominio y esquema elegidos. Puedes sumar series relacionadas y metadatos de elementos; la guía de [conjuntos de datos](https://docs.aws.amazon.com/forecast/latest/dg/howitworks-datasets-groups.html) describe los formatos y campos requeridos. Los archivos se importan desde Amazon S3 y se necesita un rol que permita a Forecast acceder a esos datos.
+
+La serie relacionada puede incluir datos históricos o valores futuros **que realmente conozcas cuando emites el pronóstico**, por ejemplo, precios o promociones ya planificadas. No uses como dato futuro el resultado observado después de la fecha de predicción. AWS permite series relacionadas que se extienden hasta el horizonte, pero prohíbe incluir en ellas el valor objetivo; también documenta qué algoritmos heredados aceptan cada tipo de variable en [series temporales relacionadas](https://docs.aws.amazon.com/forecast/latest/dg/related-time-series-datasets.html). Para oír una introducción en español al manejo de estos datos, consulta la grabación [Bases de datos de series temporales](https://www.youtube.com/watch?v=3gB8dIGAJRI), de Charlas Técnicas de AWS.
+
+Para medir el desempeño, respeta el orden temporal. Forecast hace backtesting: entrena con el pasado y compara el pronóstico con un tramo posterior. En la sección de predictores heredados, AWS documenta una ventana de prueba del mismo largo que el horizonte por defecto y permite configurar de una a cinco ventanas. Esa guía no debe trasladarse sin más a AutoPredictor: la [API actual de CreateAutoPredictor](https://docs.aws.amazon.com/forecast/latest/dg/API_CreateAutoPredictor.html) no documenta el parámetro heredado EvaluationParameters. Más ventanas históricas ayudan a comparar estabilidad, pero no corrigen una fuga creada al preparar variables con información futura. Para una práctica propia, [TimeSeriesSplit de scikit-learn](https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.TimeSeriesSplit.html) genera cortes en orden temporal y permite dejar un intervalo de separación cuando el caso lo necesita. Si buscas un ejemplo en español, el repositorio [Modelos fundacionales para series de tiempo](https://github.com/sebassaras02/AWS_Community_Day_Ecuador_2026) muestra una demo de Chronos 2 con datos meteorológicos de Cuenca. [Chronos](https://github.com/amazon-science/chronos-forecasting) es un proyecto de modelos de series temporales de Amazon, separado de Forecast: revisa el README, las dependencias y los directorios de infraestructura antes de ejecutar el demo; no convierte ni migra predictores.
+
+Antes de comparar modelos:
+
+- Ordena las filas por fecha e identificador; verifica frecuencia, duplicados, faltantes y unidades.
+- Separa entrenamiento y prueba por fecha, con un horizonte parecido al de la decisión real. No mezcles fechas al azar.
+- Ajusta imputaciones, escalas y transformaciones usando solo el tramo de entrenamiento.
+- Incluye una variable futura únicamente si habría estado disponible en la fecha de emisión.
+- Compara con una referencia sencilla, como el último valor o el valor de la temporada anterior, en las mismas fechas y horizonte.
+
+Una división temporal reduce el riesgo de entrenar con datos posteriores a la prueba, pero no evita por sí sola otras fugas. Por ejemplo, calcular una media móvil con valores que incluyen fechas futuras antes de dividir los datos sigue contaminando la evaluación.
+
+## Qué métrica responde a tu decisión
+
+La [documentación de precisión de AWS](https://docs.aws.amazon.com/forecast/latest/dg/metrics.html) define las métricas y sus fórmulas. En general, un valor menor es mejor, pero cada métrica responde a una pregunta distinta. Forecast calcula RMSE, WAPE, MAPE y MASE con el pronóstico medio; el error cuantílico ponderado se calcula para cada cuantil solicitado.
+
+| Métrica | Cuándo sirve y qué tener en cuenta |
+| --- | --- |
+| **wQL** (pérdida cuantílica ponderada) | Evalúa un cuantil y penaliza de forma distinta quedarse corto o pasarse. P90 asigna más peso a subestimar que a sobreestimar. |
+| **Average wQL** | Promedia los wQL de los cuantiles seleccionados. Compara resultados con el mismo conjunto de cuantiles. |
+| **WAPE** (error porcentual absoluto ponderado) | Resume el error absoluto respecto del total observado; las series de mayor volumen pesan más. Si el total observado se aproxima a cero, Forecast devuelve el error absoluto sin ponderar. |
+| **RMSE** (raíz del error cuadrático medio) | Conserva la unidad de la variable y penaliza con fuerza los errores grandes. |
+| **MAPE** (error porcentual absoluto medio) | Expresa el error como porcentaje punto a punto. Su fórmula divide por el valor observado; no es adecuada cuando hay ceros o valores cercanos a cero. |
+| **MASE** (error absoluto escalado) | Escala el error frente a una referencia estacional; el período de escala depende de la frecuencia. Es útil al comparar series de escalas distintas. |
+
+Forecast genera P10, P50 y P90 de forma predeterminada. P10 es un valor que el observado debería quedar por debajo alrededor del 10 % de las veces; P90, alrededor del 90 %. El rango P10–P90 representa cuantiles nominales del 80 %, no una cobertura garantizada: comprueba cuántos valores reales quedaron dentro del rango en las ventanas de backtest. El [catálogo de tipos de pronóstico](https://docs.aws.amazon.com/forecast/latest/dg/metrics.html) permite consultar los cuantiles admitidos y la opción de pronóstico medio.
+
+No existe una métrica que sea “la precisión” para todos los usos. Si el faltante de inventario cuesta más que el excedente, evalúa cuantiles altos; si una desviación extrema es especialmente cara, observa RMSE; si necesitas comparar series pequeñas y grandes, revisa MASE y también los resultados por serie. Elige la métrica de optimización según el costo de error que importa, y confirma que el modelo supera una referencia sencilla en los mismos backtests.
+
+### Cálculo pequeño en Python
+
+Este ejemplo usa solo la biblioteca estándar y una serie de valores positivos. Sirve para comprobar RMSE y WAPE; no muestra cómo entrenar un modelo.
+
+    from math import sqrt
+
+    reales = [10, 12, 14, 16]
+    pronostico = [9, 13, 12, 18]
+
+    rmse = sqrt(sum((y - p) ** 2 for y, p in zip(reales, pronostico)) / len(reales))
+    wape = 100 * sum(abs(y - p) for y, p in zip(reales, pronostico)) / sum(reales)
+
+    print(f"RMSE: {rmse:.2f}; WAPE: {wape:.2f}%")
+
+El resultado es RMSE 1,58 y WAPE 11,54 %. WAPE puede resultar indefinido cuando el total observado es cero o casi cero; MAPE también pierde sentido en puntos cuyo valor observado es cero.
+
+## Requisitos, límites y costos
+
+Para crear un predictor necesitas una cuenta con acceso vigente a Forecast, un grupo de datos con frecuencia e intervalo definidos, un horizonte de predicción y datos legibles desde S3. Los datos relacionados no se agregan a otra frecuencia, así que su granularidad debe coincidir con la del pronóstico. Confirma los detalles en la [guía de importación](https://docs.aws.amazon.com/forecast/latest/dg/howitworks-datasets-groups.html) antes de estructurar archivos para una cuenta existente.
+
+Los límites de horizonte dependen de la operación. Para un **AutoPredictor nuevo**, la API fija el máximo en el menor valor entre 500 pasos y un cuarto de la longitud de la serie objetivo; para volver a entrenar un AutoPredictor, el límite es el menor entre 500 y un tercio de esa longitud. Las reglas de la API heredada son distintas. El máximo de cinco ventanas corresponde a la cuota de CreatePredictor; no lo des por hecho para AutoPredictor, cuya API no documenta el parámetro heredado para configurarlas. Consulta las [cuotas y límites por API y Región](https://docs.aws.amazon.com/forecast/latest/dg/limits.html) y la referencia de [CreateAutoPredictor](https://docs.aws.amazon.com/forecast/latest/dg/API_CreateAutoPredictor.html) para tu operación concreta.
+
+AWS factura cuatro componentes: datos importados, horas de infraestructura de entrenamiento, puntos de pronóstico y explicaciones. Al 5 de octubre de 2026, la página de [precios de Forecast](https://aws.amazon.com/forecast/pricing/) muestra 0,088 USD por GB importado y 0,24 USD por hora de infraestructura. El número de puntos se calcula por serie temporal × fechas futuras × cuantiles; las tarifas por volumen cambian por nivel y las explicaciones tienen un cargo aparte. El entrenamiento puede consumir más horas facturables que el tiempo que ves en el reloj, porque AWS ejecuta instancias en paralelo. Consulta el precio vigente y sus niveles completos antes de estimar un trabajo.
+
+Como referencia, el ejemplo publicado por AWS calcula **101,16 USD** para importar 5 GB, usar tres horas de entrenamiento y generar 50.000 puntos de pronóstico con un cuantil y un paso futuro. Ese ejemplo muestra que el volumen de pronósticos puede pesar más que la importación, y no incluye otros servicios que pudiera usar tu flujo. AWS también anuncia, durante los dos primeros meses, hasta 100.000 puntos de pronóstico y 10 horas de entrenamiento al mes, además de 10 GB de almacenamiento; esa capa gratuita no abre Forecast a clientes nuevos.
+
+## Comunidades y recursos para continuar
+
+Para conversar y practicar, [AWS UG Machine Learning Latam](https://www.meetup.com/es-es/aws-ug-machine-learning-latam/) publica su actividad en Meetup; revisa las fechas y condiciones del próximo encuentro. [AWS re:Post en español](https://repost.aws/es) permite buscar y publicar preguntas técnicas en español con la comunidad de AWS; las respuestas dependen de la comunidad y no equivalen a soporte garantizado. También puedes buscar grupos en el directorio de [comunidades AWS](/comunidades/), revisar la [agenda de eventos](/eventos/) y explorar los [canales y creadores](/creadores/).
+
+Si necesitas evaluar una opción administrada de AWS para un caso que usaba Forecast, AWS documenta recursos para pasar a SageMaker Canvas. Esa guía transforma el conjunto de datos de Forecast a otro formato y describe un flujo distinto; lee sus [pasos de transición y requisitos](https://aws.amazon.com/blogs/machine-learning/transition-your-amazon-forecast-usage-to-amazon-sagemaker-canvas/). No es una migración automática ni una equivalencia de API. Comprueba acceso, Región, datos y costos del flujo que vayas a evaluar.
+
+## Preguntas frecuentes
+
+### ¿Puedo empezar a usar Amazon Forecast con una cuenta nueva?
+
+No. AWS cerró el acceso a nuevos clientes el 29 de julio de 2024. Los clientes existentes pueden continuar usando Forecast, según la [nota de AWS](https://aws.amazon.com/blogs/machine-learning/transition-your-amazon-forecast-usage-to-amazon-sagemaker-canvas/).
+
+### ¿Debo crear un AutoPredictor o conservar un predictor heredado?
+
+Para crear predictores, AWS recomienda AutoPredictor. Los predictores heredados continúan disponibles para clientes con acceso, y AWS ofrece una operación explícita para actualizar uno a AutoPredictor y comparar resultados. No asumas que esa actualización migra datos, integraciones o aplicaciones.
+
+### ¿Qué métrica de precisión debo elegir?
+
+Depende de qué error tiene costo en tu caso. wQL permite dar más peso a quedarse corto o pasarse al evaluar un cuantil; RMSE destaca errores grandes; MASE escala frente a una referencia estacional. Compara con el mismo horizonte y las mismas ventanas de backtest.
+
+### ¿El rango P10–P90 garantiza que el valor real estará dentro?
+
+No. Es un rango construido con dos cuantiles. Mide su cobertura empírica en los backtests y segmentos donde usarás el pronóstico antes de tratarlo como un intervalo fiable.
