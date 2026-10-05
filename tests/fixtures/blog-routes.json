@@ -175,7 +175,7 @@
   },
   {
     "slug": "automatizacion-de-cumplimiento-con-aws-config",
-    "title": "Automatización de cumplimiento con AWS Config",
+    "title": "AWS Config: reglas de cumplimiento y remediación segura",
     "publishedAt": "2025-01-09",
     "publishedTimestamp": "2025-01-09T00:16:49.41Z"
   },
@@ -709,7 +709,7 @@
   },
   {
     "slug": "arquitecturas-dirigidas-por-eventos-en-aws",
-    "title": "Arquitecturas Dirigidas por Eventos en AWS",
+    "title": "Arquitectura dirigida por eventos en AWS: servicios, ejemplo y decisiones",
     "publishedAt": "2024-03-19",
     "publishedTimestamp": "2024-03-19T00:59:24.459Z"
   },
@@ -721,7 +721,7 @@
   },
   {
     "slug": "arquitecturas-de-alta-disponibilidad-en-aws",
-    "title": "Arquitecturas de Alta Disponibilidad en AWS",
+    "title": "Alta disponibilidad en AWS: arquitectura Multi-AZ para una app web",
     "publishedAt": "2024-03-19",
     "publishedTimestamp": "2024-03-19T00:31:23.985Z"
   },
@@ -955,7 +955,7 @@
   },
   {
     "slug": "arquitecturas-multi-region-en-aws",
-    "title": "Arquitecturas Multi-Región en AWS",
+    "title": "Arquitectura multi-región en AWS: cuándo conviene",
     "publishedAt": "2024-03-09",
     "publishedTimestamp": "2024-03-09T00:52:38.092Z"
   },
@@ -1081,7 +1081,7 @@
   },
   {
     "slug": "arquitectura-en-la-nube-tendencias-emergentes",
-    "title": "Arquitectura en la nube: tendencias emergentes",
+    "title": "Arquitectura AWS: cómo elegir diseño y servicios",
     "publishedAt": "2024-01-27",
     "publishedTimestamp": "2024-01-27T23:50:47.33Z"
   },
