@@ -265,7 +265,7 @@
   },
   {
     "slug": "aws-sms-vs-aws-mgn-comparacion-2024",
-    "title": "AWS SMS vs AWS MGN: comparación 2024",
+    "title": "AWS SMS vs. AWS MGN: diferencias y migración de servidores",
     "publishedAt": "2024-10-28",
     "publishedTimestamp": "2024-10-28T02:54:04.742Z"
   },
@@ -337,7 +337,7 @@
   },
   {
     "slug": "aws-wavelength-guia-de-escalabilidad-y-optimizacion",
-    "title": "AWS Wavelength: guía de escalabilidad y optimización",
+    "title": "Qué es AWS Wavelength y cuándo conviene usarlo",
     "publishedAt": "2024-05-19",
     "publishedTimestamp": "2024-05-19T00:37:00.331Z"
   },
@@ -1135,7 +1135,7 @@
   },
   {
     "slug": "aws-seguridad-servicios-esenciales",
-    "title": "AWS seguridad: servicios esenciales",
+    "title": "Servicios de seguridad de AWS: cuál usar para cada problema",
     "publishedAt": "2024-01-25",
     "publishedTimestamp": "2024-01-25T01:35:54.384Z"
   },
@@ -1153,7 +1153,7 @@
   },
   {
     "slug": "aws-seguridad-mejores-practicas",
-    "title": "AWS seguridad: mejores prácticas",
+    "title": "Mejores prácticas de seguridad en AWS: checklist y cómo verificarlas",
     "publishedAt": "2024-01-24",
     "publishedTimestamp": "2024-01-24T01:20:24.308Z"
   },
@@ -1165,7 +1165,7 @@
   },
   {
     "slug": "aws-seguridad-fundamentos-esenciales",
-    "title": "AWS seguridad: fundamentos esenciales",
+    "title": "Seguridad en AWS para principiantes: fundamentos y responsabilidad compartida",
     "publishedAt": "2024-01-23",
     "publishedTimestamp": "2024-01-23T17:26:25.234Z"
   },

@@ -1,583 +1,127 @@
 ---
-title: "AWS seguridad: servicios esenciales"
-description: "Descubre los servicios esenciales de seguridad de AWS, cómo protegen tus datos y aplicaciones en la nube, y las mejores prácticas para fortalecer tu entorno de nube de AWS."
+title: "Servicios de seguridad de AWS: cuál usar para cada problema"
+description: "Compara IAM, CloudTrail, Config, GuardDuty, Inspector, Macie, WAF y Shield. Distingue Security Hub de Security Hub CSPM y elige servicios según el riesgo y el costo."
 author: "guille-ojeda"
 publishedAt: "2024-01-25"
 publishedTimestamp: "2024-01-25T01:35:54.384Z"
+modifiedTimestamp: "2026-10-05T12:46:00-03:00"
 cover: "/assets/blog/editorial-seguridad.png"
 coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-seguridad.png"
 related:
-  - title: "Grupos de estudio AWS en reddit 2024"
-    url: "https://dondeaprendoaws.com/blog/grupos-de-estudio-aws-en-reddit-2024/"
-  - title: "Observabilidad en AWS con Amazon X-Ray"
-    url: "https://dondeaprendoaws.com/blog/observabilidad-en-aws-con-amazon-x-ray/"
-  - title: "Amazon DynamoDB: la base de datos NoSQL de AWS"
-    url: "https://dondeaprendoaws.com/blog/amazon-dynamodb-la-base-de-datos-nosql-de-aws/"
-
+  - title: "Seguridad en AWS para principiantes: fundamentos y responsabilidad compartida"
+    url: "https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/"
+  - title: "Mejores prácticas de seguridad en AWS: checklist y cómo verificarlas"
+    url: "https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/"
 ---
 
-<p>Casi todos estarán de acuerdo en que gestionar efectivamente la <strong>seguridad</strong> en la nube es un desafío.</p>
+**Elige los servicios de seguridad de AWS por la pregunta que necesitas responder.** IAM controla acceso; CloudTrail registra actividad; Config sigue configuraciones; GuardDuty detecta amenazas; Inspector busca vulnerabilidades; Macie descubre datos sensibles en S3. Security Hub ayuda a reunir y priorizar señales, mientras que Security Hub CSPM evalúa la postura de seguridad mediante controles.
 
+Se complementan, pero activar uno no cubre las funciones de los demás. Esta guía te ayuda a decidir cuál investigar y qué limitaciones comprobar antes de habilitarlo.
 
-<p>Afortunadamente, AWS ofrece una amplia gama de poderosos servicios de seguridad que pueden ayudar a proteger tus cargas de trabajo en la nube.</p>
+## Mapa rápido: problema, servicio y límite
 
+| Necesitas… | Servicio o función | Límite que debes recordar |
+| --- | --- | --- |
+| Dar acceso a personas y aplicaciones | IAM e IAM Identity Center | Autenticar una identidad no determina todos sus permisos |
+| Averiguar quién cambió un recurso | AWS CloudTrail | El historial automático no contiene todos los tipos de eventos |
+| Saber cómo cambió su configuración | AWS Config | Solo registra recursos y alcance configurados y compatibles |
+| Detectar actividad sospechosa | Amazon GuardDuty | Un hallazgo requiere evaluación y respuesta |
+| Encontrar software vulnerable | Amazon Inspector | Debes comprobar los recursos elegibles y su cobertura |
+| Localizar información sensible en S3 | Amazon Macie | El resultado depende de objetos analizables e identificadores utilizados |
+| Evaluar configuraciones contra controles | AWS Security Hub CSPM | Muchos controles necesitan AWS Config |
+| Correlacionar señales y priorizar riesgos | AWS Security Hub | Necesita las fuentes habilitadas y su cobertura |
+| Filtrar solicitudes web | AWS WAF | Las reglas no reemplazan la seguridad de tu código |
+| Mitigar ataques DDoS | AWS Shield | Standard y Advanced tienen condiciones y capacidades distintas |
 
-<p>En este artículo, exploraremos los servicios de seguridad esenciales de AWS, como <em>AWS Identity and Access Management (IAM)</em> y <em>AWS Security Hub</em>. Veremos cómo pueden ayudarte a mejorar la <strong>seguridad</strong>, el <strong>cumplimiento</strong> y la <strong>gobernanza</strong> en tu entorno de AWS.</p>
+Si aún no puedes identificar tus responsabilidades sobre una aplicación, empieza por los [fundamentos de seguridad en AWS](https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/). Para una explicación comunitaria en video de varios servicios de la tabla, puedes consultar la [sesión de AWS Girls sobre WAF, Shield, GuardDuty, Inspector, KMS, SSM, Macie y ACM](https://www.youtube.com/watch?v=o1JTHULtQxc). Las grabaciones anteriores pueden mostrar otros nombres o interfaces; contrasta la configuración con las guías actuales.
 
+## Identidades y permisos: IAM, Identity Center y Access Analyzer
 
-<h2 id="introducci%C3%B3n-a-la-seguridad-en-aws" tabindex="-1">Introducción a la seguridad en AWS</h2>
+**IAM** define permisos para acceder a recursos de AWS. **IAM Identity Center**, antes llamado AWS Single Sign-On, administra el acceso de personas a cuentas y aplicaciones. AWS recomienda acceso federado y credenciales temporales para las personas, y roles para las cargas de trabajo. Consulta las [prácticas de IAM](https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html) y la [introducción a IAM Identity Center](https://docs.aws.amazon.com/singlesignon/latest/userguide/what-is.html).
 
+Por ejemplo, una función Lambda que lee archivos de S3 debe utilizar su rol de ejecución con los permisos necesarios, en lugar de una clave permanente guardada en el código. Para usuarios finales de tu propia aplicación, la autenticación de clientes es otra necesidad; no la confundas con el acceso del equipo a la consola de AWS.
 
-<p>La seguridad es una prioridad clave al migrar cargas de trabajo a la nube de AWS. Aunque AWS proporciona una amplia gama de controles y funciones de seguridad, las organizaciones deben tomar medidas proactivas para proteger sus aplicaciones y datos.</p>
+**IAM Access Analyzer** ayuda a validar políticas y analizar acceso a recursos compatibles. Úsalo para revisar una política o investigar una exposición; no es un escáner general de vulnerabilidades ni una comprobación universal de MFA. La [guía de validación de políticas](https://docs.aws.amazon.com/IAM/latest/UserGuide/access-analyzer-policy-validation.html) explica una de sus funciones.
 
+## Datos y secretos: KMS, Secrets Manager y Certificate Manager
 
-<h3 id="la-importancia-de-la-seguridad-en-la-nube-de-aws" tabindex="-1">La importancia de la seguridad en la nube de AWS</h3>
+Estos servicios resuelven tres necesidades diferentes:
 
+- [AWS KMS](https://docs.aws.amazon.com/kms/latest/developerguide/overview.html) administra claves para operaciones de cifrado y firma. Necesitas definir quién puede usarlas y administrarlas.
+- [AWS Secrets Manager](https://docs.aws.amazon.com/secretsmanager/latest/userguide/intro.html) almacena y permite recuperar secretos de aplicaciones, como contraseñas de bases de datos. La rotación requiere una configuración compatible.
+- [AWS Certificate Manager (ACM)](https://docs.aws.amazon.com/acm/latest/userguide/acm-overview.html) administra certificados SSL/TLS para sitios y aplicaciones. Un certificado no configura por sí solo todas las conexiones para utilizar HTTPS.
 
-<p>Al adoptar la nube, surgen nuevos desafíos y riesgos de seguridad que las organizaciones deben abordar. Algunos puntos clave:</p>
+Ejemplo: una aplicación puede usar un certificado de ACM en su balanceador, recuperar una contraseña desde Secrets Manager y utilizar una clave KMS para cifrar datos. Ninguno de esos pasos corrige una política de lectura demasiado amplia. El acceso y el cifrado son controles que debes revisar por separado.
 
+## Evidencia de actividad y configuración: CloudTrail frente a Config
 
-<ul>
-<li>La nube permite aprovisionar recursos rápidamente y a escala. Esto puede exponer accidentalmente datos confidenciales si no se tienen los controles adecuados.</li>
-<li>Los entornos de nube son dinámicos y cambian constantemente. Las organizaciones deben monitorear y auditar regularmente la configuración de seguridad.</li>
-<li>Con múltiples usuarios y aplicaciones accediendo a los recursos, se vuelve esencial la gestión de identidades y accesos.</li>
-</ul>
+**CloudTrail responde «¿quién hizo qué y cuándo?»** Registra eventos de actividad. El historial automático conserva 90 días de eventos de administración por Región. Para un registro continuo y otros tipos de eventos, configura un trail o una opción compatible; selecciona los eventos de datos cuando los necesites. AWS explica las diferencias en [cómo funciona CloudTrail](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/how-cloudtrail-works.html).
 
+**Config responde «¿qué configuración tenía el recurso y cómo cambió?»** Registra el estado de recursos compatibles y permite evaluarlo mediante reglas. Debes configurar el alcance del registro, los tipos de recursos y la frecuencia; no asumas que inventaría automáticamente todo el entorno. Consulta [qué hace AWS Config](https://docs.aws.amazon.com/config/latest/developerguide/WhatIsConfig.html) y [cómo selecciona y registra recursos](https://docs.aws.amazon.com/config/latest/developerguide/select-resources.html).
 
-<p>Para mitigar estos riesgos, AWS ofrece una amplia gama de servicios de seguridad. Adoptar las mejores prácticas recomendadas también es clave.</p>
+Para investigar un security group abierto a internet, CloudTrail puede mostrar la llamada que añadió una regla. Config puede mostrar la evolución de la configuración, si registraba ese recurso. Sus evidencias ayudan a reconstruir el caso, pero requieren cobertura previa y una conservación adecuada.
 
+Config factura elementos de configuración y evaluaciones según su modalidad; almacenamiento y otros servicios pueden sumar cargos. Revisa los [precios de AWS Config](https://aws.amazon.com/config/pricing/) antes de habilitar registro amplio, especialmente si creas y eliminas muchos recursos temporales.
 
-<h3 id="visi%C3%B3n-general-de-los-servicios-de-seguridad-de-aws" tabindex="-1">Visión general de los servicios de seguridad de AWS</h3>
+## Amenazas, vulnerabilidades y datos sensibles: tres preguntas distintas
 
+### GuardDuty: ¿hay indicios de actividad maliciosa?
 
-<p>AWS proporciona servicios de seguridad en varias categorías:</p>
+[Amazon GuardDuty](https://docs.aws.amazon.com/guardduty/latest/ug/what-is-guardduty.html) analiza señales para identificar amenazas, como posibles credenciales comprometidas o actividad de minería no autorizada. Sus fuentes fundamentales incluyen eventos de administración de CloudTrail, flujos de red y DNS; no necesitas crear tu propio trail ni activar VPC Flow Logs para que GuardDuty analice esas fuentes.
 
+Los planes de protección amplían el alcance a determinados servicios y tipos de actividad. Comprueba cuáles están activos, en qué cuentas y Regiones y con qué costo. **Un hallazgo de GuardDuty no bloquea automáticamente al atacante.** Una respuesta necesita un procedimiento o un flujo configurado.
 
-<ul>
-<li><strong>Gestión de identidades y accesos:</strong> AWS Identity and Access Management (IAM) permite controlar quién autentica y autoriza el acceso a recursos y aplicaciones.</li>
-<li><strong>Protección de infraestructura:</strong> AWS Shield protege contra ataques DDoS. Amazon Inspector escanea entornos en busca de vulnerabilidades.</li>
-<li><strong>Detección de amenazas:</strong> AWS GuardDuty monitorea activamente comportamientos maliciosos. Amazon Macie utiliza machine learning para detectar y proteger datos confidenciales.</li>
-<li><strong>Cumplimiento:</strong> AWS Audit Manager y AWS Security Hub centralizan la gestión de compliance y seguridad en toda la infraestructura de AWS.</li>
-</ul>
+Para seguir esa idea, tienes la [presentación de Gerardo Castro sobre detección y respuesta con GuardDuty](https://speakerdeck.com/gerardokaztro/como-detectar-y-responder-amenazas-con-aws-guardduty) y la [charla de CreaTicas sobre integración de GuardDuty con un SIEM](https://www.youtube.com/watch?v=CQUICC2h0Oc). Son materiales para estudiar integración y respuesta; verifica los pasos vigentes antes de desplegar.
 
+### Inspector: ¿qué software vulnerable o exposición puedo corregir?
 
-<p>Integrando estos y otros servicios de seguridad, las organizaciones pueden crear una postura de seguridad sólida en la nube de AWS.</p>
+[Amazon Inspector](https://docs.aws.amazon.com/inspector/latest/user/what-is-inspector.html) descubre y examina recursos compatibles, incluidos instancias EC2, imágenes de contenedor en ECR y funciones Lambda. Genera hallazgos de vulnerabilidades de software y, para EC2, de exposición de red no deseada.
 
+No equivale a probar cualquier aplicación en ejecución ni a auditar todas las bases de datos RDS. Su cobertura depende del recurso y del modo de análisis. Revisa los recursos cubiertos y los que no se pueden examinar: «sin hallazgos» y «sin escanear» son situaciones diferentes. La [introducción breve a Inspector de Tech with Sheyla](https://www.youtube.com/watch?v=ulMDyiJUM80) sirve para reconocer el servicio antes de estudiar sus requisitos.
 
-<h2 id="%C2%BFqu%C3%A9-seguridad-tiene-aws%3F" tabindex="-1">¿Qué seguridad tiene AWS?</h2>
+### Macie: ¿dónde guardo datos sensibles en S3?
 
+[Amazon Macie](https://docs.aws.amazon.com/macie/latest/user/what-is-macie.html) inventaría buckets de propósito general de S3, revisa riesgos de seguridad y acceso, y descubre información sensible mediante identificadores administrados o personalizados. Puedes estudiar la [sesión de AWS Women Colombia dedicada a Macie](https://www.youtube.com/watch?v=kI55YRrcTjk).
 
-<p>AWS ofrece una amplia gama de servicios de seguridad para proteger sus aplicaciones y datos en la nube. Algunos de los servicios de seguridad más importantes incluyen:</p>
+Es útil para investigar si determinados objetos contienen datos personales o credenciales. La cobertura depende de los objetos analizables, permisos y criterios de detección; el descubrimiento automático utiliza muestreo. Encontrar datos sensibles no los cifra, borra ni vuelve privados automáticamente. La detección de actividad de acceso sospechosa corresponde a otras señales, como GuardDuty S3 Protection.
 
+## Security Hub y Security Hub CSPM: qué cambia entre los nombres
 
-<h3 id="aws-identity-and-access-management-(iam)" tabindex="-1">AWS Identity and Access Management (IAM)</h3>
+La documentación actual distingue dos servicios complementarios:
 
+- **Security Hub CSPM** evalúa la postura de seguridad: ejecuta controles contra prácticas y estándares, y reúne hallazgos. La mayoría de sus controles necesita AWS Config registrando los recursos correspondientes.
+- **Security Hub** ofrece una experiencia unificada para correlacionar señales de postura, vulnerabilidades, amenazas y datos sensibles, y priorizar los riesgos con contexto. Recibe señales de CSPM, Inspector, GuardDuty y Macie, entre otras fuentes.
 
-<p>IAM permite controlar quién autenticado puede acceder a los recursos de AWS. Puede crear usuarios y grupos, asignar permisos granulares y habilitar la autenticación multifactor para mayor seguridad.</p>
+AWS explica la relación en [qué son Security Hub y Security Hub CSPM](https://docs.aws.amazon.com/securityhub/latest/userguide/what-are-securityhub-services.html). Si una guía antigua llama «Security Hub» al panel de controles y estándares, consulta la [guía actual de CSPM](https://docs.aws.amazon.com/securityhub/latest/userguide/what-is-securityhub.html); para la experiencia unificada, consulta la [introducción a Security Hub](https://docs.aws.amazon.com/securityhub/latest/userguide/what-is-securityhub-v2.html).
 
+Ejemplo: una vulnerabilidad crítica tiene una prioridad distinta si afecta un recurso expuesto a internet con acceso a datos sensibles. La correlación ayuda a decidir qué atender primero, pero no amplía mágicamente la cobertura de los servicios que producen las señales.
 
-<h3 id="aws-shield" tabindex="-1">AWS Shield</h3>
+Los flujos automatizados requieren configuración y permisos. Actualizar la severidad o el estado de un hallazgo no es lo mismo que corregir un recurso. Define la acción, prueba su impacto y confirma el resultado antes de automatizar aislamiento o cambios de acceso.
 
+## Tráfico web y DDoS: WAF frente a Shield
 
-<p>AWS Shield es un servicio gestionado de DDoS que protege sus aplicaciones de ataques por denegación de servicio distribuido. AWS Shield estándar está habilitado de forma predeterminada en todas las cuentas de AWS.</p>
+[AWS WAF](https://docs.aws.amazon.com/waf/latest/developerguide/waf-chapter.html) inspecciona solicitudes HTTP(S) hacia recursos compatibles y aplica reglas, por ejemplo para patrones de inyección SQL, IPs o tasas de solicitudes. Necesitas asociar la protección al recurso y ajustar las reglas para tu aplicación. No corrige una vulnerabilidad en el código ni funciona como escáner de puertos.
 
+[Shield Standard](https://docs.aws.amazon.com/waf/latest/developerguide/ddos-standard-summary.html) proporciona automáticamente protección sin cargo adicional contra ataques DDoS comunes de red y transporte. [Shield Advanced](https://docs.aws.amazon.com/waf/latest/developerguide/ddos-advanced-summary.html) requiere una suscripción y registrar recursos para obtener protecciones adicionales; sus capacidades dependen de la arquitectura y configuración. No lo habilites como si fuera un ajuste gratuito de una cuenta de aprendizaje.
 
-<h3 id="aws-security-hub" tabindex="-1">AWS Security Hub</h3>
+WAF y Shield son servicios diferentes. Puedes necesitarlos juntos para una aplicación pública, según sus riesgos, sin que eso elimine los controles de acceso ni las medidas de disponibilidad.
 
+## Organización, investigación y auditoría: cuándo ampliar el conjunto
 
-<p>Security Hub proporciona una vista unificada de las alertas de seguridad y el cumplimiento de múltiples servicios de AWS. Lo ayuda a identificar problemas de seguridad y tomar medidas.</p>
+Para varias cuentas, **AWS Organizations** y sus [políticas de control de servicios (SCP)](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps.html) permiten establecer límites de permisos. Una SCP no concede permisos; limita lo que las identidades de las cuentas afectadas pueden recibir. [AWS Firewall Manager](https://docs.aws.amazon.com/waf/latest/developerguide/fms-chapter.html) administra políticas de protección de manera centralizada cuando necesitas aplicarlas a varios recursos y cuentas.
 
+Para investigar señales, [Amazon Detective](https://docs.aws.amazon.com/detective/latest/userguide/what-is-detective.html) facilita analizar actividad y relaciones. Para trabajar con evidencia de controles, [AWS Audit Manager](https://docs.aws.amazon.com/audit-manager/latest/userguide/what-is.html) ayuda a recopilarla; [AWS Artifact](https://docs.aws.amazon.com/artifact/latest/ug/what-is-aws-artifact.html) permite consultar informes y acuerdos de AWS. Ninguno certifica automáticamente el cumplimiento de tu aplicación.
 
-<p>En resumen, AWS ofrece una amplia gama de controles y funciones de seguridad integrados para ayudarlo a proteger sus cargas de trabajo en la nube. Pero usted sigue siendo responsable de configurar apropiadamente estos servicios de seguridad según sus necesidades.</p>
+No necesitas adoptar todo este conjunto para aprender. Elige primero una necesidad concreta, comprueba compatibilidad y costos, y determina quién revisará la evidencia generada. El [checklist de seguridad con comprobaciones](https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/) te ayuda a verificar esos controles.
 
+## Dónde seguir aprendiendo y conversar sobre los servicios
 
-<h2 id="%C2%BFqu%C3%A9-es-aws-y-en-qu%C3%A9-consiste%3F" tabindex="-1">¿Qué es AWS y en qué consiste?</h2>
+Además de las sesiones enlazadas junto a cada servicio, puedes seguir estas fuentes:
 
+- [AWS Security Users Group LatAm en YouTube](https://www.youtube.com/@AWSSecurityLATAM): grabaciones en español para profundizar en seguridad, investigación y respuesta.
+- [AWS User Group Security Ecuador](https://www.awssecurityecuador.com/): materiales y encuentros para conversar sobre IAM, GuardDuty, CloudTrail y controles preventivos. Su [AWS & Cloud Native Security Night](https://www.meetup.com/aws-user-group-security-ecuador/events/316815633/) está anunciado para el **23 de octubre de 2026, de 17:00 a 20:00 de Ecuador (UTC−5), en Guayaquil**, con foco en contenedores y seguridad. El organizador indica entrada gratuita con cupos limitados; revisa el registro y lugar antes de asistir.
+- [AWS User Group CreaTicas](https://www.meetup.com/chiapa-uk-aws-users-meetup-group/): comunidad de Costa Rica que organiza sesiones técnicas, incluida seguridad, para seguir aprendiendo con otras personas.
+- [AWS User Group Panamá](https://www.meetup.com/aws-user-group-panama/): comunidad generalista para estudiar AWS y consultar actividades. Puedes llevar dudas sobre cómo encajan los controles de seguridad en una arquitectura completa.
 
-<p>AWS (Amazon Web Services) es la plataforma líder de servicios en la nube que ofrece una amplia gama de soluciones escalables y flexibles para computación, almacenamiento, bases de datos, análisis, machine learning, Internet of Things (IoT) y más.</p>
-
-
-<p>Con AWS, las empresas pueden migrar cargas de trabajo existentes, implementar aplicaciones nuevas y escalar rápidamente sin tener que invertir en infraestructura física. Algunos beneficios clave de AWS incluyen:</p>
-
-
-<ul>
-<li>
-<p><strong>Rentabilidad</strong>: Solo se paga por los recursos que se consumen, lo que permite optimizar costos.</p>
-</li>
-<li>
-<p><strong>Escalabilidad</strong>: Se pueden aprovisionar y liberar recursos bajo demanda para escalar de forma elástica.</p>
-</li>
-<li>
-<p><strong>Seguridad</strong>: AWS cumple con una amplia gama de estándares de cumplimiento y seguridad.</p>
-</li>
-<li>
-<p><strong>Innovación</strong>: AWS lanza servicios nuevos constantemente, lo que permite innovar rápidamente.</p>
-</li>
-<li>
-<p><strong>Flexibilidad</strong>: AWS provee herramientas y servicios para prácticamente cualquier caso de uso, desde sitios web hasta aplicaciones móviles, big data y más.</p>
-</li>
-</ul>
-
-
-<p>En resumen, con AWS las organizaciones pueden acelerar su transformación digital y enfocarse en innovar sin preocupaciones de infraestructura. Esta flexibilidad y agilidad es lo que ha convertido a AWS en el líder del mercado de cloud computing.</p>
-
-
-<h2 id="%C2%BFqu%C3%A9-hace-security-hub-aws%3F" tabindex="-1">¿Qué hace Security Hub AWS?</h2>
-
-
-<p>AWS Security Hub es un servicio de administración centralizada que ayuda a monitorear la postura de seguridad en múltiples cuentas de AWS y aplicaciones. Proporciona visibilidad sobre la configuración de seguridad y el cumplimiento de estándares en todos los servicios de AWS.</p>
-
-
-<p>Algunas de las funciones clave de Security Hub son:</p>
-
-
-<ul>
-<li>
-<p><strong>Integración con otros servicios de seguridad de AWS</strong>: Security Hub se integra con Amazon GuardDuty, Amazon Inspector, Amazon Macie, AWS IAM Access Analyzer, AWS Firewall Manager y más. Esto permite centralizar las alertas de seguridad y los hallazgos de conformidad.</p>
-</li>
-<li>
-<p><strong>Panel unificado</strong>: Muestra información de seguridad de múltiples fuentes en un solo lugar. Los dashboards e informes personalizables permiten analizar tendencias y tomar decisiones informadas.</p>
-</li>
-<li>
-<p><strong>Estándares de seguridad y conformidad</strong>: Compara la configuración de la cuenta con prácticas recomendadas establecidas en estándares como CIS AWS Foundations Benchmark o PCI DSS.</p>
-</li>
-<li>
-<p><strong>Corrección y remediación automatizadas</strong>: Puede configurar Security Hub para tomar medidas automatizadas cuando se detectan problemas. Por ejemplo, para detener instancias EC2 o impedir el acceso a buckets de S3 no seguros.</p>
-</li>
-</ul>
-
-
-<p>En resumen, AWS Security Hub actúa como una capa de observación que conecta múltiples servicios de seguridad, lo que simplifica el monitoreo y la respuesta ante amenazas en entornos de nube complejos.</p>
-
-
-<h2 id="%C2%BFqu%C3%A9-tan-bueno-es-aws%3F" tabindex="-1">¿Qué tan bueno es AWS?</h2>
-
-
-<p>AWS ofrece una plataforma en la nube altamente segura y confiable, con múltiples certificaciones y auditorías de seguridad reconocidas en la industria:</p>
-
-
-<ul>
-<li>Cumple con el estándar <strong>PCI DSS nivel 1</strong> para el procesamiento seguro de datos de tarjetas de pago</li>
-<li>Está certificado en la norma <strong>ISO 27001</strong> de seguridad de la información</li>
-<li>Cumple con los requisitos de seguridad <strong>FISMA Moderate</strong> del gobierno de EE.UU.</li>
-<li>Cuenta con la autorización <strong>FedRAMP</strong> para servicios cloud del sector público</li>
-<li>Cumple con los estándares <strong>HIPAA</strong> para el manejo de información médica</li>
-<li>Tiene auditorías <strong>SOC 1</strong> sobre el control interno de sus centros de datos</li>
-<li>Publica informes de auditoría <strong>SOC 2</strong> sobre la seguridad, disponibilidad y confidencialidad de sus servicios</li>
-</ul>
-
-
-<p>Estas certificaciones y auditorías externas demuestran que AWS implementa sólidos controles de seguridad física, lógica y de cumplimiento normativo.</p>
-
-
-<p>Los clientes de AWS se benefician de esta robusta infraestructura de seguridad, ya que les permite crear aplicaciones y servicios seguros sobre una plataforma confiable.</p>
-
-
-<h2 id="gesti%C3%B3n-de-identidad-y-acceso-en-aws" tabindex="-1">Gestión de identidad y acceso en AWS</h2>
-
-
-<p>AWS Identity and Access Management (IAM) es un servicio clave para gestionar el acceso a los recursos y servicios de AWS. Con IAM se pueden crear usuarios, grupos y roles con permisos específicos según el principio de mínimo privilegio.</p>
-
-
-<h3 id="fundamentos-de-aws-identity-and-access-management-(iam)" tabindex="-1">Fundamentos de AWS Identity and Access Management (IAM)</h3>
-
-
-<p>IAM permite:</p>
-
-
-<ul>
-<li>Crear y administrar usuarios y sus credenciales de acceso</li>
-<li>Agrupar usuarios y aplicar políticas comunes</li>
-<li>Definir roles con permisos para recursos de AWS</li>
-<li>Generar claves de acceso para aplicaciones que necesiten acceder a AWS</li>
-</ul>
-
-
-<p>Algunos beneficios clave de utilizar IAM son:</p>
-
-
-<ul>
-<li><strong>Seguridad</strong>: Asignar solo los permisos estrictamente necesarios a cada usuario o aplicación.</li>
-<li><strong>Facilidad de uso</strong>: Administrar centralizadamente identidades y credenciales.</li>
-<li><strong>Cumplimiento</strong>: Demostrar control de acceso fine-grained.</li>
-</ul>
-
-
-<h3 id="implementaci%C3%B3n-de-autenticaci%C3%B3n-multifactor-(mfa)-en-aws" tabindex="-1">Implementación de autenticación multifactor (MFA) en AWS</h3>
-
-
-<p>La autenticación multifactor (MFA) fortalece la seguridad al requerir dos métodos para autenticar usuarios de IAM:</p>
-
-
-<ul>
-<li>Algo que saben (contraseña)</li>
-<li>Algo que tienen (dispositivo MFA)</li>
-</ul>
-
-
-<p>Para habilitar MFA:</p>
-
-
-<ol>
-<li>Activar MFA en la cuenta de AWS.</li>
-<li>Configurar un dispositivo MFA virtual o físico para los usuarios.</li>
-<li>Activar MFA en las políticas de IAM requeridas.</li>
-</ol>
-
-
-<p>MFA protege contra accesos no autorizados en caso de robo de credenciales.</p>
-
-
-<h3 id="centralizaci%C3%B3n-del-acceso-con-aws-single-sign-on-(sso)" tabindex="-1">Centralización del acceso con AWS Single Sign-On (SSO)</h3>
-
-
-<p>AWS SSO permite:</p>
-
-
-<ul>
-<li>Administrar centralizadamente el acceso a múltiples cuentas y aplicaciones de AWS.</li>
-<li>Implementar flujos de trabajo de aprobación para roles con privilegios.</li>
-<li>Integrar con proveedores de identidad corporativos.</li>
-<li>Habilitar MFA para fortalecer la seguridad.</li>
-</ul>
-
-
-<p>SSO aumenta la productividad al eliminar la necesidad de iniciar sesión en cada cuenta por separado.</p>
-
-
-<h3 id="an%C3%A1lisis-de-pol%C3%ADticas-con-aws-iam-access-analyzer" tabindex="-1">Análisis de políticas con AWS IAM Access Analyzer</h3>
-
-
-<p>AWS IAM Access Analyzer permite:</p>
-
-
-<ul>
-<li>Detectar políticas de acceso sobrepermisivas.</li>
-<li>Identificar recursos compartidos públicamente sin restricciones.</li>
-<li>Recibir recomendaciones para mejorar las políticas de IAM.</li>
-</ul>
-
-
-<p>El análisis regular de políticas garantiza el cumplimiento de buenas prácticas de seguridad en el acceso a recursos de AWS.</p>
-
-
-<h2 id="detecci%C3%B3n-y-monitoreo-de-amenazas-con-aws" tabindex="-1">Detección y monitoreo de amenazas con AWS</h2>
-
-
-<p>AWS ofrece varios servicios de seguridad que permiten la detección y monitoreo proactivo de amenazas en tus recursos y aplicaciones en la nube. Estos servicios utilizan técnicas avanzadas como machine learning e inteligencia artificial para analizar el tráfico de red, los registros de actividad y los metadatos en busca de actividades sospechosas.</p>
-
-
-<h3 id="inteligencia-contra-amenazas-con-amazon-guardduty" tabindex="-1">Inteligencia contra amenazas con Amazon GuardDuty</h3>
-
-
-<p>GuardDuty es un servicio de detección de amenazas que monitorea continuamente tu cuenta de AWS en busca de actividad maliciosa o no autorizada. Funciona analizando los registros de VPC Flow Logs, AWS CloudTrail y DNS Logs en busca de anomalías.</p>
-
-
-<p>Algunas de las amenazas que GuardDuty puede detectar incluyen:</p>
-
-
-<ul>
-<li>Acceso no autorizado a cuentas de AWS</li>
-<li>Comunicaciones salientes sospechosas</li>
-<li>Minería de criptomonedas maliciosa</li>
-</ul>
-
-
-<p>GuardDuty utiliza técnicas de machine learning para generar una línea base de actividad normal y identificar desviaciones que podrían indicar un compromiso de seguridad. Esto permite una detección más rápida y precisa de amenazas.</p>
-
-
-<p>Una vez que GuardDuty detecta una amenaza potencial, genera alertas en tiempo real que se envían a AWS CloudWatch Events. Esto permite tomar acciones inmediatas, como bloquear direcciones IP sospechosas utilizando AWS WAF.</p>
-
-
-<h3 id="evaluaci%C3%B3n-de-vulnerabilidades-con-amazon-inspector" tabindex="-1">Evaluación de vulnerabilidades con Amazon Inspector</h3>
-
-
-<p>Amazon Inspector es un servicio de evaluación de vulnerabilidades que analiza tus aplicaciones en ejecución en busca de problemas de seguridad y exposiciones. Funciona ejecutando agentes en tus instancias EC2 que realizan escaneos completos en busca de vulnerabilidades conocidas.</p>
-
-
-<p>Algunos de los checks que Inspector puede realizar incluyen:</p>
-
-
-<ul>
-<li>Vulnerabilidades en el sistema operativo</li>
-<li>Configuraciones de seguridad incorrectas</li>
-<li>Puertos abiertos y accesos no protegidos</li>
-<li>Software vulnerable o desactualizado</li>
-</ul>
-
-
-<p>Inspector compara tus configuraciones e instalaciones de software contra una base de datos actualizada de vulnerabilidades conocidas y prácticas recomendadas. Luego, genera un informe detallado con pasos de remediación para solucionar cualquier problema detectado.</p>
-
-
-<p>Esto permite reforzar proactivamente la seguridad de tus aplicaciones y prevenir posibles ataques antes de que ocurran.</p>
-
-
-<h3 id="protecci%C3%B3n-de-datos-sensibles-con-amazon-macie" tabindex="-1">Protección de datos sensibles con Amazon Macie</h3>
-
-
-<p>Amazon Macie es un servicio de seguridad de datos que utiliza machine learning para descubrir, clasificar y proteger datos sensibles almacenados en Amazon S3. Funciona analizando los patrones de acceso y los metadatos en busca de información como datos personales, financieros o de salud.</p>
-
-
-<p>Macie puede detectar y alertar sobre actividades riesgosas como:</p>
-
-
-<ul>
-<li>Acceso anómalo a buckets de S3</li>
-<li>Pérdida de datos o filtraciones accidentales</li>
-<li>Políticas de acceso muy permisivas</li>
-</ul>
-
-
-<p>Una vez que Macie descubre datos delicados, puede asignarles clasificaciones de confidencialidad como "financiero", "personal" o "secreto". Esto permite aplicar controles de seguridad específicos, como cifrado o políticas de acceso más restrictivas para proteger mejor los datos.</p>
-
-
-<p>De esta manera, Macie agrega una capa adicional de protección de datos y prevención de filtraciones para la información almacenada en S3.</p>
-
-
-<p>En conjunto, estos servicios de AWS permiten robustecer la seguridad mediante la detección temprana, el monitoreo continuo y la respuesta automatizada ante una amplia variedad de amenazas y vectores de ataque en el entorno de nube.</p>
-
-
-<h2 id="defensa-contra-ataques-y-amenazas-en-aws" tabindex="-1">Defensa contra ataques y amenazas en AWS</h2>
-
-
-<h3 id="mitigaci%C3%B3n-de-ddos-con-aws-shield-y-aws-shield-advanced" tabindex="-1">Mitigación de DDoS con AWS Shield y AWS Shield Advanced</h3>
-
-
-<p>AWS Shield proporciona protección automática contra ataques DDoS comunes que pueden afectar la disponibilidad de aplicaciones en AWS. Este servicio está disponible para todos los clientes de AWS sin costo adicional.</p>
-
-
-<p>Para protección adicional contra ataques DDoS más sofisticados y de mayor escala, AWS ofrece <strong>AWS Shield Advanced</strong>. Este servicio utiliza técnicas inteligentes de monitoreo y mitigación para minimizar la interrupción de aplicaciones durante un ataque DDoS. Algunas de las capacidades clave de AWS Shield Advanced incluyen:</p>
-
-
-<ul>
-<li>Detección y mitigación siempre activas de amenazas</li>
-<li>Acceso a un equipo de Respuesta ante Emergencias DDoS las 24 horas</li>
-<li>Protección contra ataques de red y aplicación</li>
-<li>Visibilidad en tiempo real del tráfico y patrones de ataque</li>
-</ul>
-
-
-<p>Shield Advanced se integra con otros servicios como Amazon CloudFront y Elastic Load Balancing para brindar una sólida primera línea de defensa.</p>
-
-
-<h3 id="configuraci%C3%B3n-de-aws-web-application-firewall-(waf)" tabindex="-1">Configuración de AWS Web Application Firewall (WAF)</h3>
-
-
-<p>AWS WAF permite crear reglas personalizadas para permitir o bloquear solicitudes web en función de condiciones como direcciones IP, encabezados HTTP, cadenas de consulta y más. Esto permite proteger aplicaciones de ataques comunes como inyección SQL, XSS, escaneos de puertos, etc.</p>
-
-
-<p>Algunos pasos clave para configurar WAF son:</p>
-
-
-<ul>
-<li>Elegir recursos para asociar con WAF, como CloudFront o ALB</li>
-<li>Crear reglas de permiso/bloqueo en base a patrones de tráfico</li>
-<li>Establecer acciones por defecto en caso de que no se cumpla ninguna regla</li>
-<li>Habilitar registro para análisis e investigación forense</li>
-</ul>
-
-
-<p>WAF se integra con AWS Firewall Manager para aplicar políticas WAF consistentes en toda la organización.</p>
-
-
-<h3 id="gesti%C3%B3n-centralizada-de-firewall-con-aws-firewall-manager" tabindex="-1">Gestión centralizada de firewall con AWS Firewall Manager</h3>
-
-
-<p>AWS Firewall Manager proporciona administración centralizada de reglas de firewall y otros controles de seguridad de red en toda la organización.</p>
-
-
-<p>Con Firewall Manager se pueden:</p>
-
-
-<ul>
-<li>Aplicar y hacer cumplir políticas WAF coherentes</li>
-<li>Administrar reglas de Security Groups en todas las cuentas y VPCs</li>
-<li>Gestionar AWS Network Firewall y AWS Shield Advanced</li>
-<li>Obtener visibilidad through AWS Audit Manager</li>
-</ul>
-
-
-<p>Esto asegura que los assets críticos estén protegidos de acuerdo a las políticas de seguridad establecidas por la organización.</p>
-
-
-<h3 id="aislamiento-y-control-de-red-con-amazon-virtual-private-cloud-(amazon-vpc)" tabindex="-1">Aislamiento y control de red con Amazon Virtual Private Cloud (Amazon VPC)</h3>
-
-
-<p>Amazon VPC permite crear redes virtuales aisladas y definir reglas de acceso granulares entre recursos y aplicaciones dentro de AWS.</p>
-
-
-<p>Algunas buenas prácticas con Amazon VPC son:</p>
-
-
-<ul>
-<li>Utilizar subredes privadas para los recursos backend</li>
-<li>Habilitar security groups con el mínimo acceso necesario</li>
-<li>Usar NAT Gateway y VPC Endpoints para permitir acceso saliente</li>
-<li>Integrar con AWS Network Firewall para filtrar tráfico entre VPCs</li>
-</ul>
-
-
-<p>El correcto aislamiento y segmentación de red es crítico para limitar el impacto en caso de que un recurso sea comprometido.</p>
-
-
-<h2 id="cumplimiento-y-gobernanza-de-seguridad-en-aws" tabindex="-1">Cumplimiento y gobernanza de seguridad en AWS</h2>
-
-
-<p>AWS ofrece varios servicios para ayudar a las organizaciones a cumplir con regulaciones de seguridad y privacidad de datos.</p>
-
-
-<h3 id="gesti%C3%B3n-de-auditor%C3%ADas-y-cumplimiento-con-aws-audit-manager" tabindex="-1">Gestión de auditorías y cumplimiento con AWS Audit Manager</h3>
-
-
-<p>AWS Audit Manager permite automatizar el seguimiento y la gestión de auditorías de seguridad y cumplimiento. Las principales características incluyen:</p>
-
-
-<ul>
-<li>Recopilación automatizada de evidencias a partir de más de 30 servicios de AWS.</li>
-<li>Generación de informes en tiempo real sobre el estado de cumplimiento.</li>
-<li>Workflow para asignar y administrar tareas relacionadas con auditorías.</li>
-</ul>
-
-
-<p>Esto simplifica en gran medida el proceso de demostrar el cumplimiento ante auditores y reguladores.</p>
-
-
-<h3 id="estrategias-de-cumplimiento-con-aws-cumplimiento" tabindex="-1">Estrategias de cumplimiento con AWS cumplimiento</h3>
-
-
-<p>AWS cumplimiento ofrece una biblioteca de controles, reglamentos y mejores prácticas predefinidos para construir programas de cumplimiento en la nube. Algunos puntos clave:</p>
-
-
-<ul>
-<li>Más de 100 marcos de trabajo de cumplimiento integrados.</li>
-<li>Guías paso a paso para implementar controles de seguridad.</li>
-<li>Evaluaciones continuas para validar la postura de seguridad.</li>
-</ul>
-
-
-<p>Siguiendo las recomendaciones de AWS cumplimiento se puede demostrar el cumplimiento de manera más eficiente.</p>
-
-
-<h3 id="seguridad-y-privacidad-de-datos-con-amazon-s3-y-macie" tabindex="-1">Seguridad y privacidad de datos con Amazon S3 y Macie</h3>
-
-
-<p>Para proteger datos confidenciales almacenados en Amazon S3 se recomienda:</p>
-
-
-<ul>
-<li>Habilitar el cifrado en reposo para los buckets de S3.</li>
-<li>Definir políticas detalladas de control de acceso basadas en IAM.</li>
-<li>Activar registros de acceso para auditoría.</li>
-</ul>
-
-
-<p>Amazon Macie puede monitorear automáticamente los buckets de S3 para detectar y alertar sobre posibles filtraciones de datos confidenciales.</p>
-
-
-<p>Integrando todas estas capas de seguridad y privacidad se garantiza la protección de los datos en la nube.</p>
-
-
-<h2 id="monitoreo%2C-an%C3%A1lisis-y-respuesta-a-incidentes-en-aws" tabindex="-1">Monitoreo, análisis y respuesta a incidentes en AWS</h2>
-
-
-<p>AWS ofrece varios servicios para mejorar la seguridad y el cumplimiento en la nube. Algunos servicios clave para el monitoreo, análisis y respuesta a incidentes de seguridad incluyen:</p>
-
-
-<h3 id="consolidaci%C3%B3n-de-alertas-de-seguridad-con-aws-security-hub" tabindex="-1">Consolidación de alertas de seguridad con AWS Security Hub</h3>
-
-
-<p>AWS Security Hub agrega y prioriza alertas de seguridad e información de múltiples servicios de AWS y socios. Esto permite:</p>
-
-
-<ul>
-<li>Tener una vista centralizada de las alertas de seguridad y el estado de cumplimiento en toda la infraestructura de AWS.</li>
-<li>Identificar rápidamente los problemas que requieren atención prioritaria.</li>
-<li>Realizar análisis de seguridad y obtener recomendaciones prescriptivas.</li>
-</ul>
-
-
-<p>Security Hub se integra con muchos servicios de AWS, como Amazon GuardDuty, Amazon Inspector y AWS Config. También es compatible con soluciones de seguridad de terceros.</p>
-
-
-<h3 id="investigaci%C3%B3n-de-incidentes-con-amazon-detective" tabindex="-1">Investigación de incidentes con Amazon Detective</h3>
-
-
-<p>Amazon Detective facilita las investigaciones de seguridad al recopilar y analizar registros de actividad de la cuenta de AWS. Sus capacidades incluyen:</p>
-
-
-<ul>
-<li><strong>Análisis visual:</strong> Detective crea gráficos de relaciones entre diferentes recursos de AWS para identificar issues.</li>
-<li><strong>Aprendizaje automático:</strong> Detective utiliza técnicas de machine learning para detectar actividades inusuales que podrían indicar un problema de seguridad.</li>
-<li><strong>Integración con otros servicios:</strong> Detective se puede conectar a logs de VPC Flow Logs, AWS CloudTrail y Amazon GuardDuty para enriquecer la investigación.</li>
-</ul>
-
-
-<p>Con estas capacidades, Detective ayuda a acelerar el tiempo de respuesta ante incidentes de seguridad.</p>
-
-
-<h3 id="automatizaci%C3%B3n-de-respuestas-a-incidentes-con-aws" tabindex="-1">Automatización de respuestas a incidentes con AWS</h3>
-
-
-<p>AWS permite configurar respuestas automatizadas ante ciertos eventos de seguridad, como:</p>
-
-
-<ul>
-<li><strong>Cuarentena de recursos:</strong> Aislar instancias EC2 o cuentas de usuario cuando se detecta actividad maliciosa.</li>
-<li><strong>Escalado de casos:</strong> Crear tickets de soporte o notificar a equipos de seguridad cuando se identifican threats.</li>
-<li><strong>Mitigación de ataques:</strong> Habilitar protección WAF o bloquear direcciones IP cuando se detectan ataques.</li>
-</ul>
-
-
-<p>La automatización de respuestas puede reducir el tiempo de reacción y el impacto de los incidentes de seguridad.</p>
-
-
-<p>En resumen, AWS Security Hub, Amazon Detective y otras herramientas de AWS facilitan la vigilancia, detección, investigación y respuesta a posibles amenazas de seguridad en entornos de nube.</p>
-
-
-<h2 id="conclusi%C3%B3n%3A-fortaleciendo-la-seguridad-en-aws" tabindex="-1">Conclusión: fortaleciendo la seguridad en AWS</h2>
-
-
-<p>La seguridad es fundamental para operar de manera efectiva en la nube de AWS. Afortunadamente, AWS ofrece una amplia gama de servicios de seguridad que pueden ayudar a proteger sus aplicaciones y datos.</p>
-
-
-<h3 id="recapitulaci%C3%B3n-de-servicios-de-seguridad-esenciales-de-aws" tabindex="-1">Recapitulación de servicios de seguridad esenciales de AWS</h3>
-
-
-<p>AWS ofrece servicios de seguridad esenciales como:</p>
-
-
-<ul>
-<li><strong>AWS Identity and Access Management (IAM)</strong> para controlar quién puede acceder a qué recursos. IAM permite manejar permisos y roles.</li>
-<li><strong>AWS Shield</strong> para mitigar ataques DDoS. Shield protege contra ataques a la capa de red y transporte.</li>
-<li><strong>AWS Web Application Firewall (WAF)</strong> filtra el tráfico malicioso hacia el contenido web. WAF protege contra inyección SQL y otros ataques comunes.</li>
-</ul>
-
-
-<p>Otros servicios de seguridad incluyen AWS Security Hub, Amazon GuardDuty, Amazon Inspector, AWS Encryption services, y más.</p>
-
-
-<h3 id="mejores-pr%C3%A1cticas-para-una-estrategia-de-seguridad-integral-en-aws" tabindex="-1">Mejores prácticas para una estrategia de seguridad integral en AWS</h3>
-
-
-<p>Algunas mejores prácticas para mejorar la <a href="https://www.andmore.dev/es/blog/stop-using-aws-root-user/">seguridad en AWS</a> incluyen:</p>
-
-
-<ul>
-<li>Activar la <strong>autenticación multifactor (MFA)</strong> para evitar el acceso no autorizado a cuentas.</li>
-<li>Monitorear la actividad y acceso con <strong>AWS CloudTrail</strong>.</li>
-<li>Escanear recursos para vulnerabilidades con <strong>Amazon Inspector</strong>.</li>
-<li>Agregar firewalls como <strong>AWS WAF</strong> para filtrar tráfico malicioso.</li>
-<li>Centralizar la gestión de seguridad con <strong>AWS Security Hub</strong>.</li>
-</ul>
-
-
-<p>Siguiendo estas mejores prácticas y aprovechando los servicios de seguridad de AWS se puede lograr un entorno de nube seguro y confiable.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/">seguridad en AWS: mejores prácticas</a></li>
-</ul>
-</p>
+Para practicar, utiliza una cuenta de laboratorio, datos ficticios y permisos acotados. Revisa precios y condiciones de prueba antes de activar un servicio. Al terminar, elimina los recursos creados y revisa servicios, almacenamiento de registros y suscripciones que puedan seguir generando cargos.
