@@ -1,12 +1,12 @@
 ---
-title: "AWS gratis para estudiantes y educadores: cómo aprender, practicar y enseñar en español"
-description: "Aprende y enseña AWS con Educate, Academy, Student Rewards y recursos de la comunidad en español. Conoce requisitos, laboratorios y costos antes de empezar."
+title: "AWS gratis para estudiantes y docentes: cursos y laboratorios"
+description: "Elige entre AWS Educate, Academy y Student Rewards. Compara requisitos, laboratorios, créditos y recursos en español para aprender o enseñar AWS."
 author: "guille-ojeda"
 publishedAt: "2024-01-30"
 publishedTimestamp: "2024-01-30T19:24:56.085Z"
-modifiedTimestamp: "2026-09-30T11:36:26-03:00"
+modifiedTimestamp: "2026-10-05T12:59:21-03:00"
 review:
-  date: "2026-09-30"
+  date: "2026-10-05"
 cover: "/assets/blog/editorial-fundamentos.png"
 coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
 indexOrder: 5
@@ -14,184 +14,150 @@ ogImage: "/assets/blog/editorial-fundamentos.png"
 related: []
 ---
 
+**Puedes aprender AWS gratis y practicar sin abrir una cuenta personal ni proporcionar una tarjeta: empieza con AWS Educate.** Si estudias en una institución de educación superior, también puedes revisar Student Rewards y preguntar si tu institución participa en AWS Academy. Si eres docente, Academy permite organizar formación y laboratorios a través de tu institución.
 
-Puedes empezar a aprender AWS sin tarjeta de crédito y sin pagar un curso. También puedes incorporar prácticas de nube a una clase sin pedir que cada estudiante abra una cuenta personal. La opción adecuada depende de lo que necesitas: una primera experiencia guiada, formación dentro de tu institución o libertad para desarrollar un proyecto propio.
+Acceder a un curso, trabajar en un laboratorio educativo, recibir créditos para infraestructura y aprobar una certificación son cosas distintas. Esta guía explica qué opción elegir, cómo empezar y con qué recursos y comunidades en español acompañar el aprendizaje.
 
-Esta guía te ayuda a elegir entre esas posibilidades y a encontrar materiales de la comunidad en español. Está pensada para estudiantes y docentes de América Latina: puedes aprovechar las grabaciones y los artículos desde cualquier país, y elegir una comunidad según tus intereses y las condiciones de participación.
+## Qué programa te conviene
 
-## Qué opción te conviene
+- **Una primera práctica sin tarjeta ni cuenta personal de AWS:** [AWS Educate](https://aws.amazon.com/es/education/awseducate/). El registro requiere correo electrónico y está disponible desde los 13 años.
+- **Cursos oficiales a tu ritmo:** [AWS Skill Builder](https://aws.amazon.com/es/training/digital/). Revisa el idioma y si la actividad es gratuita o requiere suscripción.
+- **Beneficios para estudiantes de educación superior:** [Student Rewards](https://builder.aws.com/student-rewards). Necesitas verificar que eres estudiante elegible y completar tu perfil en Builder Center.
+- **Impartir o cursar una materia con laboratorios:** [AWS Academy](https://aws.amazon.com/es/training/awsacademy/). La institución debe participar y habilitar el acceso.
+- **Compañeros, proyectos y encuentros:** [Student Builder Groups](https://dondeaprendoaws.com/comunidades/?format=Student+Builder+Group). Consulta las condiciones y actividades del grupo.
 
-Antes de registrarte, decide qué quieres hacer. Un curso gratuito, un laboratorio educativo y una cuenta de AWS son recursos diferentes; cada uno resuelve una necesidad.
+Una cuenta personal de AWS es otra opción para proyectos propios, con planes y condiciones de uso. No es un requisito para comenzar con Educate ni para crear un Builder ID.
 
-| Si necesitas… | Empieza por… | Qué debes comprobar |
-|---|---|---|
-| Probar AWS sin tarjeta y con instrucciones | [AWS Educate](https://aws.amazon.com/es/education/awseducate/) | El laboratorio disponible y sus indicaciones de acceso. |
-| Aprender a tu ritmo con cursos oficiales | [AWS Skill Builder](https://aws.amazon.com/es/training/digital/) | Que el recurso sea gratuito y esté en el idioma que necesitas. |
-| Solicitar beneficios como estudiante de educación superior | [Student Rewards](https://builder.aws.com/student-rewards) | Edad, institución y país elegibles, verificación y requisitos de cada recompensa. |
-| Tomar o impartir una materia con laboratorios | [AWS Academy](https://aws.amazon.com/es/training/awsacademy/) | Si tu institución participa y quién coordina el programa. |
-| Crear un proyecto fuera de un laboratorio | [Una cuenta personal de AWS](https://docs.aws.amazon.com/es_es/awsaccountbilling/latest/aboutv2/free-tier-plans.html) | El plan, los servicios disponibles, el saldo de créditos y el costo de lo que desplegarás. |
-| Estudiar con otras personas | [Student Builder Groups](https://dondeaprendoaws.com/comunidades/?format=Student+Builder+Group) | Los requisitos de ingreso y las actividades de cada grupo. |
+## AWS Educate: tu primera práctica sin tarjeta
 
-**Si estás empezando y todavía no sabes qué construir, una práctica guiada en AWS Educate es un buen primer paso.** Después podrás decidir si necesitas una cuenta propia.
+[AWS Educate](https://aws.amazon.com/es/education/awseducate/) ofrece formación autodirigida y laboratorios gratuitos en la consola de AWS. Está abierto a personas desde los 13 años, requiere correo electrónico y no exige tarjeta de crédito. Tampoco necesitas pertenecer a una institución de Academy.
 
-## AWS Educate: empezar con laboratorios sin tarjeta
+Para empezar:
 
-[AWS Educate](https://aws.amazon.com/es/education/awseducate/) ofrece formación gratuita a tu ritmo y laboratorios para practicar en la consola. Está abierto a personas desde los 13 años, requiere una dirección de correo electrónico y permite comenzar sin tarjeta de crédito. Tampoco necesitas que tu universidad pertenezca a AWS Academy.
+1. Regístrate desde la página oficial y busca **Getting Started with Storage**. AWS lo presenta como una práctica de almacenamiento y alojamiento de un sitio estático con Amazon S3.
+2. Sigue las instrucciones dentro del entorno educativo. Comprueba qué creaste y cómo se accede a ello; publicar una página y guardar un archivo privado persiguen objetivos diferentes.
+3. Anota el resultado, una decisión que entendiste y una pregunta pendiente. Guarda tus notas fuera del laboratorio y sigue sus indicaciones de cierre.
 
-Entre sus propuestas introductorias hay prácticas de almacenamiento, cómputo, redes y bases de datos. Elige una según tu interés: guardar archivos, explorar una máquina virtual o comprender cómo se conectan los recursos.
+También hay actividades introductorias de cómputo, redes y bases de datos. Elige la que responda a una necesidad concreta, en lugar de intentar completar todas antes de practicar.
 
-El acceso corresponde al entorno del laboratorio y a sus instrucciones. Si después repites la actividad en una cuenta personal, revisa por separado qué recursos crearás y qué pueden costar.
+Para entender el almacenamiento antes de entrar al laboratorio, mira la [sesión del AWS User Group Buenos Aires sobre S3, EBS y EFS](https://www.youtube.com/watch?v=GqYKhnqDDeI). Es una grabación de 2023: sirve para comparar objetos, discos y sistemas de archivos; usa las instrucciones actuales de Educate para la práctica.
 
-Para aprovechar la práctica, lleva una pequeña bitácora: anota qué problema resolviste, qué servicio utilizaste y qué parte te costó entender. Puedes ganar insignias digitales en el programa; úsalas para documentar tu aprendizaje y acompáñalas con una explicación de lo que hiciste.
+Si todavía no distingues los servicios y los permisos, consulta los [fundamentos de AWS con ejemplos sencillos](/blog/aws-fundamentos-guia-de-inicio-rapido/). Para practicar después en una cuenta propia, la [guía de diez laboratorios para principiantes](/blog/10-laboratorios-practicos-de-aws-para-principiantes/) describe resultados comprobables y limpieza. Revisa primero las condiciones de esa cuenta: las prácticas fuera del laboratorio educativo tienen su propio consumo.
 
-### Skill builder para profundizar en un tema
+## Skill Builder y Student Rewards: cursos y beneficios estudiantiles
 
-[Skill Builder](https://aws.amazon.com/es/training/digital/) complementa esa primera experiencia con cursos oficiales. Tiene formación gratuita y otras experiencias que requieren suscripción; comprueba la condición y el idioma de cada ficha antes de empezar.
+[Skill Builder](https://aws.amazon.com/es/training/digital/) reúne formación oficial, preparación de exámenes y experiencias prácticas. Hay contenido gratuito y actividades que requieren suscripción. Comprueba el idioma, los requisitos y el acceso de la ficha que elijas.
 
-Para acceder puedes utilizar un [AWS Builder ID](https://docs.aws.amazon.com/es_es/signin/latest/userguide/differences-aws_builder_id.html), una identidad distinta de la cuenta de AWS donde creas recursos y recibes cargos.
+El [AWS Builder ID](https://docs.aws.amazon.com/es_es/signin/latest/userguide/differences-aws_builder_id.html) que utilizas para estos servicios es distinto de la cuenta de AWS donde despliegas infraestructura y recibes cargos.
 
-Elige un curso para resolver una duda concreta de tu práctica. Por ejemplo, después de almacenar un archivo, estudia cómo se controla su acceso. Esa relación entre explicación y experiencia ayuda más que acumular cursos sin aplicar lo aprendido.
+### Qué ofrece Student Rewards y cómo solicitarlo
 
-## Student Rewards: beneficios para estudiantes verificados
+Según el [anuncio oficial de Student Rewards](https://builder.aws.com/content/3I1qkUtKhwU6K1VaGkfYRwtbz3o), pueden participar estudiantes de **18 años o más** matriculados en instituciones de educación superior acreditadas, sujetos a verificación y a los términos aplicables.
 
-Si tienes 18 años o más y estás matriculado en una institución de educación superior elegible, revisa [Student Rewards de AWS Builder Center](https://builder.aws.com/student-rewards). El programa requiere verificar tu condición de estudiante y completar tu perfil; a partir de ahí puedes canjear una suscripción de Skill Builder por 12 meses.
+Entra a [Student Rewards](https://builder.aws.com/student-rewards) con tu Builder ID y completa la verificación mediante SheerID. Después completa el perfil de Builder Center: foto e información en la sección de presentación. La verificación y el perfil habilitan el beneficio inicial de **12 meses de Skill Builder**; sigue el procedimiento de canje que muestre tu cuenta.
 
-También ofrece recompensas por reunir insignias de participación en Builder Center:
+Las recompensas adicionales dependen de las insignias de **participación en Builder Center**:
 
 - **7 insignias:** 10 USD en créditos de AWS.
 - **14 insignias:** otros 20 USD en créditos.
-- **21 insignias:** un voucher de 100 USD que puedes utilizar para el examen de AWS Certified Cloud Practitioner.
+- **21 insignias:** un voucher de 100 USD para una certificación de nivel **Foundational**.
 
-Estas insignias reconocen acciones como publicar, comentar y participar con continuidad. Algunas exigen rachas de 90 días, así que obtener el voucher requiere participación sostenida. Son distintas de las insignias de formación que puedes obtener en Educate o Skill Builder. Aprovecha esa participación para compartir un proyecto o aportar una respuesta que ayude a otra persona.
+No se trata de completar 21 cursos. Estas insignias reconocen acciones como publicar, comentar y mantener la participación; no equivalen a insignias de aprendizaje ni a una certificación. Consulta sus criterios en tu perfil y revisa la vigencia y los exámenes admitidos por el voucher antes de reservar.
 
-La [guía en español de Alejandra Bricio](https://builder.aws.com/content/3IYPWbbLaoeRdEl2zXNHLYjPRBA), responsable de comunidad de AWS para Latinoamérica, explica la verificación, las insignias y el canje paso a paso. Antes de solicitar los beneficios, consulta también las [preguntas frecuentes oficiales](https://builder.aws.com/faq#student-rewards), en inglés: detallan los vencimientos y los países admitidos. Cuba está actualmente excluida del programa.
+La [guía de Ricardo Vallejo Sánchez para aprovechar Skill Builder como estudiante](https://builder.aws.com/content/3JKaJIoFfIcpExgx08VyU5aKoVH/aws-skill-builder-para-estudiantes-cmo-aprovechar-meses-de-aprendizaje-y-beneficios) propone pasar de los fundamentos a proyectos documentados. Úsala para escoger qué harás durante el período de acceso, sin convertir su calendario orientativo en una duración obligatoria.
 
-Puedes empezar con Builder ID sin abrir una cuenta personal de AWS. Para utilizar los créditos en infraestructura sí necesitas una cuenta; revisa las condiciones de su plan antes de intentar aplicarlos.
+La [guía en español de Alejandra Bricio sobre Student Rewards](https://builder.aws.com/content/3IYPWbbLaoeRdEl2zXNHLYjPRBA) acompaña el registro y el canje. Para las condiciones de tu caso, consulta el programa y sus [preguntas frecuentes oficiales](https://builder.aws.com/faq#student-rewards). No presupongas elegibilidad por tener un correo universitario: debe completarse la verificación.
 
-## AWS Academy: aprender y enseñar dentro de una institución
+Los 12 meses de Skill Builder cuentan desde el canje del cupón. El voucher sirve para Cloud Practitioner o AI Practitioner y puede canjearse durante un máximo de seis meses desde que lo solicitas. Las condiciones excluyen algunos países y regiones, entre ellos Cuba; consulta la lista oficial antes de iniciar la verificación.
 
-[AWS Academy](https://aws.amazon.com/es/training/awsacademy/) ofrece un plan de estudios sin costo para instituciones de educación superior participantes. La incorporación comienza en la institución: un responsable presenta la solicitud y, tras su aceptación, se designan los educadores que impartirán los cursos.
+**Los créditos de Student Rewards no pueden aplicarse al plan Free de una cuenta personal**, que no admite otros créditos promocionales. La [comparación oficial de planes](https://docs.aws.amazon.com/us_en/awsaccountbilling/latest/aboutv2/free-tier-plans.html) explica esta restricción. Pasar a Paid permite usar créditos elegibles, pero también puede generar cargos por consumo no cubierto. Puedes aprovechar los cursos sin hacer ese cambio.
 
-Si eres estudiante, pregunta a tu coordinación académica si ya participa y qué cursos ofrece. Tener un correo universitario, por sí solo, no habilita el acceso. Si eres docente, consulta quién administra el programa o revisa cómo puede postularse tu institución.
+## AWS Academy: cómo acceder como estudiante o docente
 
-La oferta abarca fundamentos y áreas como desarrollo, arquitectura, seguridad y datos. Su **Learner Lab** permite a educadores habilitados proponer proyectos y seguir la actividad de los estudiantes. Antes de planificar una entrega, confirma los servicios, permisos, presupuesto y duración disponibles en ese entorno.
+[AWS Academy](https://aws.amazon.com/es/training/awsacademy/) proporciona formación y laboratorios a través de instituciones de educación superior participantes. La afiliación empieza en la institución; el responsable del programa designa a los docentes y organiza la formación.
 
-La página del programa también anuncia acceso a una suscripción de Skill Builder durante 12 meses para estudiantes y educadores participantes. Consulta con el coordinador cómo se activa ese beneficio y qué condiciones corresponden a tu caso.
+- **Si eres estudiante:** pregunta a la coordinación académica si participa, qué cursos tiene activos y cómo incorporarte. Un correo institucional por sí solo no abre un Learner Lab.
+- **Si eres docente:** consulta al responsable de Academy o revisa cómo puede solicitar la incorporación tu institución. Tras la aceptación, hay un proceso de preparación para educadores.
 
-Los docentes participantes pueden solicitar descuentos del 100% para exámenes de certificación; los beneficios para estudiantes tienen sus propias condiciones. Conviene confirmar el voucher concreto antes de reservar un examen. Los requisitos y beneficios están descritos en las [preguntas frecuentes oficiales de AWS Academy](https://aws.amazon.com/es/training/awsacademy/faq/).
+El **Learner Lab** permite a docentes habilitados invitar estudiantes, asignar proyectos y revisar su actividad. Antes de planificar una práctica, comprueba los servicios permitidos, los permisos, el presupuesto y la duración del entorno concreto. No asumas que funciona como una cuenta personal con acceso irrestricto.
 
-### Si tu proyecto es de investigación
+Academy anuncia 12 meses de acceso a Skill Builder para estudiantes y educadores participantes. Sus [preguntas frecuentes](https://aws.amazon.com/es/training/awsacademy/faq/) también describen beneficios de examen para docentes y mecanismos de descuento para estudiantes. Confirma con el coordinador qué voucher está disponible, su valor y su vencimiento; terminar una materia no implica recibir automáticamente una certificación.
 
-Para una tesis o un trabajo de investigación, también existe [AWS Cloud Credit for Research](https://aws.amazon.com/government-education/research-and-technical-computing/cloud-credit-for-research/), cuya información está en inglés. Acepta propuestas de docentes, investigadores y estudiantes de posgrado de instituciones acreditadas que cumplan sus requisitos. La asignación se evalúa por proyecto y se entrega como crédito promocional: no es un beneficio automático por ser estudiante. Consulta requisitos y plazos antes de incluirlo en el presupuesto de tu investigación.
+### Una clase que conecte explicación, práctica y evaluación
 
-## Una ruta de aprendizaje con contenido de la comunidad
+Define primero un resultado observable. Por ejemplo: que el estudiante pueda explicar quién tiene permiso para leer un archivo y demostrar ese acceso en el entorno disponible.
 
-Los programas oficiales te dan acceso a formación y práctica. En la comunidad puedes encontrar otras explicaciones, conocer experiencias y discutir tus decisiones. Puedes combinar ambos desde el comienzo.
+1. **Antes de la clase:** ver [IAM explicado en cinco minutos por Marcia Villalba](https://www.youtube.com/watch?v=t51vW-BDwF0) y plantear quién debería leer el archivo. Evalúa si distinguen identidad, acción y recurso.
+2. **Durante la clase:** resolver una práctica de almacenamiento habilitada por el programa. Pide el resultado, los permisos utilizados y la explicación de una decisión.
+3. **Al cerrar:** revisar recursos creados, consumo y cierre del laboratorio. Pide una bitácora de comprobación, limpieza y dudas pendientes.
 
-### 1. Entiende una idea y aplícala
+El video de IAM es de 2021 y presenta conceptos. Para configurar el acceso, sigue las instrucciones vigentes del laboratorio. Puedes acompañar el cierre con la [sesión de costos y monitoreo del AWS User Group Medellín](https://www.youtube.com/watch?v=2cGwdSTdUqQ): ayuda a distinguir Budgets, Cost Explorer, CloudWatch y CloudTrail.
 
-Si necesitas una introducción, comienza con la [primera sesión de Cloud Practitioner del AWS User Group Querétaro](https://www.youtube.com/watch?v=FzWYdmKYxjM) o elige lecciones del [curso de AWS para principiantes de Cultura DevOps](https://www.youtube.com/playlist?list=PLdOotbFwzDIgjeTHvCSLiGmKKzTpDsLLI). Son recursos para orientarte; una sesión introductoria no equivale a un curso completo ni a una certificación.
+Para una materia más avanzada, el [repositorio de tecnologías cloud de Juan Carlos Trejos Iglesias](https://github.com/jctrejosi/cloud-technologies) muestra una organización universitaria de proyectos con CloudFormation, Jenkins y Docker. Sirve para estudiar cómo se documenta y divide una entrega. Antes de asignar sus despliegues, revisa versiones, permisos, costos y compatibilidad con tu laboratorio.
 
-Después, relaciona la explicación con una práctica de Educate. No hace falta conocer todos los servicios para empezar: basta con poder explicar qué problema resuelve el que estás usando.
+Si los estudiantes ya tienen una aplicación, la [explicación de observabilidad de Sheyla Leacock](https://dev.to/aws-builders/observabilidad-en-la-nube-de-aws-explorando-cloudwatch-x-ray-y-cloudtrail-5d9m) permite trabajar con métricas, logs y trazas. Pide que distingan cómo detectar un fallo de aplicación y cómo investigar quién modificó un recurso.
 
-Si prefieres una selección ordenada de materiales comunitarios, sigue el recorrido de [primeros pasos en AWS](https://dondeaprendoaws.com/recorridos/#primeros-pasos). Puedes elegir el siguiente recurso según la duda que te haya dejado el laboratorio.
+Evalúa una explicación, una comprobación y una pequeña variación del ejercicio. Así puedes distinguir seguir instrucciones de entender cómo adaptar lo aprendido. Prueba previamente los materiales en el mismo entorno que utilizará la clase.
 
-Para una duda puntual, tienes materiales más específicos:
+### Si necesitas infraestructura para investigación
 
-- **Identidad y permisos:** [IAM explicado en cinco minutos, por Marcia Villalba](https://www.youtube.com/watch?v=t51vW-BDwF0). Es una introducción conceptual de 2021 a usuarios, roles y permisos; consulta las instrucciones actuales para configurar tu cuenta.
-- **Almacenamiento:** [sesión de almacenamiento del Challenge del AWS User Group Buenos Aires](https://www.youtube.com/watch?v=GqYKhnqDDeI). Úsala para discutir por qué guardar archivos y disponer de un disco para una máquina virtual son necesidades distintas.
-- **Cómputo:** [sesión del Challenge del AWS User Group Medellín](https://www.youtube.com/watch?v=IhxrEubfIfI), que presenta alternativas como máquinas virtuales con EC2, funciones con Lambda y contenedores.
-- **Redes:** [sesión sobre redes privadas virtuales (VPC) del mismo Challenge](https://www.youtube.com/watch?v=Fx1VXYbT53I), para acompañar una práctica de conectividad.
+Para una tesis o investigación elegible, revisa [AWS Cloud Credit for Research](https://aws.amazon.com/government-education/research-and-technical-computing/cloud-credit-for-research/). Acepta propuestas de docentes e investigadores a tiempo completo y de estudiantes de posgrado de instituciones de investigación acreditadas. La asignación se evalúa por proyecto; no es un crédito automático por ser estudiante. AWS indica revisiones habituales de 90 a 120 días: considera ese plazo antes de comprometer recursos en tu planificación.
 
-Las grabaciones tienen fechas distintas. Conserva sus explicaciones útiles y comprueba en la documentación vigente los pasos de consola, precios y condiciones antes de reproducir una demostración.
+## Sigue aprendiendo con comunidades en español
 
-### 2. Construye algo pequeño que puedas explicar
+Una comunidad puede ayudarte a entender un error, encontrar compañeros o presentar tu proyecto. No hace falta esperar a aprobar una certificación para acercarte.
 
-Un primer proyecto puede consistir en guardar y recuperar un archivo de prueba, ejecutar una función que procese un dato o comprender qué permite acceder a un recurso. El alcance debe ser lo bastante pequeño para que puedas terminarlo, verificarlo y limpiar lo creado.
+### Grabaciones y lecturas para acompañar tus prácticas
 
-La [guía de diez laboratorios de AWS para principiantes](https://dondeaprendoaws.com/blog/10-laboratorios-practicos-de-aws-para-principiantes/) te ayuda a elegir prácticas y revisar sus costos y limpieza. Para organizar el aprendizaje después de esa primera experiencia, utiliza la [ruta para aprender AWS desde cero](https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/).
+- [Curso de AWS para principiantes de Cultura DevOps](https://www.youtube.com/playlist?list=PLdOotbFwzDIgjeTHvCSLiGmKKzTpDsLLI): explicaciones para repasar conceptos antes de una práctica.
+- [Cloud Practitioner Challenge del AWS User Group Medellín](https://youtube.com/playlist?list=PLhbdvasxz8wwO-b9nlRBYYzY6n5CvSOvj): sesiones de 2025 para organizar el estudio con una secuencia de temas.
+- [Challenge del AWS User Group Buenos Aires](https://www.youtube.com/playlist?list=PLMg_LIgq4KWfR3bBVwgayGVuhbDItJzp8): archivo de 2023 para comparar explicaciones y discutir decisiones técnicas.
+- [Grabaciones de AWS Women Colombia](https://awswomencolombia.com/page/eventos): charlas y encuentros para ampliar un tema o conocer experiencias de otras personas.
+- [AWS Español en DEV](https://dev.to/aws-espanol): artículos de distintos autores para elegir una lectura relacionada con la materia o el proyecto.
 
-Al terminar, intenta responder cuatro preguntas:
+Las grabaciones se pueden seguir desde otros países. Si preparas un examen, contrasta su temario con la guía vigente; si reproduces una demostración, verifica sus pasos y versiones. Para Cloud Practitioner, la [guía de preparación CLF-C02 en español](/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/) selecciona materiales y distingue lo que cubren.
 
-1. ¿Qué hace mi solución y cómo comprobé que funciona?
-2. ¿Quién puede acceder a los recursos?
-3. ¿Qué consumo podría generar un cargo?
-4. ¿Qué eliminé y qué quedó pendiente?
+### Grupos y encuentros para compartir lo que construyes
 
-Guarda un diagrama sencillo, tus observaciones y las referencias que utilizaste. Esa documentación te permitirá pedir ayuda con precisión y retomar el proyecto sin comenzar de nuevo.
+En el [directorio de Student Builder Groups](https://dondeaprendoaws.com/comunidades/?format=Student+Builder+Group) puedes buscar por país. Estos son algunos destinos para conocer sus actividades:
 
-Si ya estudias programación, elige una lectura que conecte AWS con lo que sabes:
+- [Student Builder Group de la Universidad del Valle](https://www.meetup.com/aws-sbg-at-university-of-the-valle/), en Colombia: consulta sus encuentros y retos de estudio. Algunas cohortes tienen selección previa y cupos cerrados; confirma a qué actividad puedes incorporarte.
+- [Student Builder Group de la Universidad Distrital](https://linktr.ee/aws.ud), en Colombia: reúne sus canales de contacto y recursos para estudiantes.
+- [Student Builder Groups de Bolivia](https://sbgbo.com): mapa de capítulos para localizar una comunidad universitaria y sus enlaces de contacto.
+- [Student Builder Group de la Universidad Nacional de Córdoba](https://www.meetup.com/aws-sbg-at-national-university-of-cordoba/), en Argentina: publica encuentros y actividades estudiantiles. Su [Student Community Day del 7 de noviembre de 2026](https://www.meetup.com/aws-sbg-at-national-university-of-cordoba/events/316848908/) anuncia charlas iniciales y talleres en FaMAF, con entrada gratuita y cupos limitados. Comprueba la convocatoria y el registro antes de asistir.
 
-- **Desarrollo web:** la [entrevista a Marcia Villalba sobre AWS para frontend](https://www.youtube.com/watch?v=-zy7nGPyEKQ) presenta opciones para alojar aplicaciones y trabajar con su backend. Úsala para identificar qué parte de tu aplicación necesita un servicio de nube.
-- **APIs:** compara el [ejemplo con Terraform, Lambda y Python de Jorge Tovar](https://dev.to/aws-builders/creando-un-api-rest-con-infra-como-codigo-terraform-serverless-lambda-python-parte-1-4ha) con la [integración directa de API Gateway y DynamoDB de Andrés Moreno](https://www.andmore.dev/es/blog/build-serverless-api-with-no-lambda/). Dibuja ambos diseños y explica qué trabajo realiza cada componente. Los artículos son de 2023 y 2021; el primero utiliza Python 3.9. Antes de desplegarlos hay que revisar versiones, permisos, acceso a los endpoints y costos.
-- **Un proyecto en equipo:** el [caso de Kiu y Sessionize, contado por Alexandra Fernandez](https://builder.aws.com/content/2s8GaGrxZZPB5KIoOOrlzJsXob2/kiu-y-sessionize-transformando-la-gesti-n-de-eventos-en-aws-user-groups), describe cómo incorporó información de charlas a un asistente para comunidades. Puedes analizar qué necesidad resolvió y cómo una contribución acotada encaja en un sistema mayor. Es una lectura para estudiar un proyecto real; no necesitas reproducir toda su infraestructura para aprender de él.
+También puedes participar en un User Group general. El [AWS User Group Buenos Aires](https://www.meetup.com/aws-user-group-buenos-aires/) y el [AWS User Group Medellín](https://www.meetup.com/awsugmed/) publican encuentros para seguir aprendiendo fuera del ámbito de una materia. Explora la [agenda de eventos de comunidades](https://dondeaprendoaws.com/eventos/) para consultar fechas, modalidades y condiciones actualizadas.
 
-### 3. Busca compañeros de aprendizaje
+Para pedir ayuda, cuenta qué esperabas, qué ocurrió, el servicio y la región, y qué probaste. Comparte el mensaje de error sin claves, tokens ni datos privados. Para presentar un proyecto, incluye un diagrama sencillo y explica una decisión: esa conversación puede enseñarte más que mostrar solamente una captura final.
 
-En el [directorio de Student Builder Groups](https://dondeaprendoaws.com/comunidades/?format=Student+Builder+Group) puedes buscar grupos vinculados al ámbito estudiantil. Revisa a quién admiten y qué actividades ofrecen: las condiciones pueden variar entre grupos e instituciones.
+## Cuándo necesitas una cuenta personal de AWS
 
-Los [user groups de AWS](https://dondeaprendoaws.com/comunidades/?format=User+Group) son otra vía para encontrar encuentros y conversar con personas que usan AWS en distintos contextos. Para elegir una actividad, consulta la [Agenda de eventos](https://dondeaprendoaws.com/eventos/) y comprueba la modalidad, el horario y los requisitos en la convocatoria del organizador.
+Una cuenta propia tiene sentido cuando tu proyecto requiere servicios, permisos o continuidad que el laboratorio no ofrece. Antes de abrirla, revisa el [Free Tier actual y sus planes](/blog/aws-free-tier-guia-para-principiantes-2024/). Para cuentas nuevas elegibles, el plan Free termina a los seis meses o al agotarse los créditos; el plan Paid puede facturar consumo no cubierto. No supongas que cualquier tutorial de 2024 conserva sus condiciones de gratuidad.
 
-Puedes empezar participando con una pregunta sobre tu práctica o mostrando un error que investigaste. Incluye qué esperabas que ocurriera y qué probaste; omite contraseñas, claves y datos privados. Esa conversación puede ayudarte a comprender una decisión que en un video parecía evidente.
+Sigue las verificaciones que AWS muestre durante el registro: en la ruta actual la mayoría de los clientes no necesita introducir un método de pago, pero AWS puede solicitarlo para verificar la cuenta. Educate evita tener que abrir esa cuenta personal para comenzar.
 
-Para estudiar mediante grabaciones, tienes la [serie Cloud Practitioner de Medellín de 2025](https://youtube.com/playlist?list=PLhbdvasxz8wwO-b9nlRBYYzY6n5CvSOvj) y el [Challenge de Buenos Aires de 2023](https://www.youtube.com/playlist?list=PLMg_LIgq4KWfR3bBVwgayGVuhbDItJzp8). Sus sesiones se pueden seguir desde cualquier país. Si las usas para preparar un examen, contrasta el contenido con su guía oficial actual.
+Si decides usarla, protege el usuario raíz con MFA y sigue las [buenas prácticas oficiales para la cuenta raíz](https://docs.aws.amazon.com/es_es/IAM/latest/UserGuide/root-user-best-practices.html). Revisa créditos y vencimientos, define qué eliminarás después de cada práctica y configura avisos de [AWS Budgets](https://docs.aws.amazon.com/es_es/cost-management/latest/userguide/budgets-managing-costs.html). Un aviso no es un tope automático de gasto.
 
-## Cómo llevar estos recursos a una clase
+## Preguntas frecuentes
 
-Empieza por una habilidad observable: por ejemplo, que los estudiantes puedan explicar quién tiene permiso para leer un archivo y demostrar ese acceso en un laboratorio. A partir de ese objetivo, elige el entorno y los materiales.
+### ¿Necesito ser universitario para usar AWS Educate?
 
-Si tu institución dispone de Academy, comprueba primero qué permite su laboratorio. Si no participa, puedes combinar explicaciones comunitarias con las prácticas individuales de Educate y actividades de análisis. Evita que la posibilidad de cursar dependa de disponer de una tarjeta personal.
+No. Educate está abierto a personas desde los 13 años y no depende de una institución de Academy. Student Rewards sí requiere verificar una matrícula elegible en educación superior.
 
-Una secuencia sencilla puede tener tres momentos:
+### ¿Por qué recibo AccessDenied en un Learner Lab?
 
-| Momento | Material o actividad | Evidencia de aprendizaje |
-|---|---|---|
-| Antes de la clase | El video de IAM de Marcia Villalba y una pregunta: ¿quién debería poder leer un archivo del proyecto? | Una explicación breve de identidad, acción y recurso. |
-| Durante la clase | Una práctica de almacenamiento disponible en el entorno educativo. | Comprobación del resultado y explicación de los permisos utilizados. |
-| Al finalizar | Discusión sobre consumo, recursos creados y cierre de la práctica. | Una bitácora con verificación, limpieza y dudas pendientes. |
+Puede ser una restricción del entorno o falta de permisos para la acción. Comprueba las instrucciones, la vigencia de tu sesión, el servicio y la región; después consulta al docente con el error concreto. No intentes sustituir el laboratorio por una cuenta de pago sin revisar antes si el ejercicio puede resolverse con los recursos autorizados.
 
-Puedes acompañar el último momento con la [sesión de costos y monitoreo del Challenge de Medellín](https://www.youtube.com/watch?v=2cGwdSTdUqQ). Permite introducir herramientas como Budgets, CloudWatch y CloudTrail y discutir qué información necesita alguien para operar un proyecto.
+### ¿Qué hago si no aparece mi beneficio de Student Rewards?
 
-Si la clase ya tiene una aplicación funcionando, incorpora la [lectura sobre observabilidad de Sheyla Leacock](https://dev.to/aws-builders/observabilidad-en-la-nube-de-aws-explorando-cloudwatch-x-ray-y-cloudtrail-5d9m). Explica métricas, registros y trazas, y presenta CloudWatch, X-Ray y CloudTrail. Puedes pedir que el grupo distinga dos preguntas: cómo detectar que la aplicación falla y cómo averiguar quién cambió un recurso de la cuenta.
+Comprueba que la verificación terminó, que completaste el perfil requerido y que estás usando el mismo Builder ID. Revisa la sección de recompensas y sus instrucciones de canje. AWS indica que los créditos y el código de examen pueden tardar hasta ocho días hábiles; para el voucher, el plazo empieza al elegir **Claim voucher**. Si ya transcurrió ese plazo, consulta a soporte con el beneficio y el error concreto.
 
-Para evaluar, pide que cada estudiante explique una decisión y un problema que resolvió. Una captura de pantalla puede mostrar el resultado, pero la explicación revela si comprende cómo llegó a él. También puedes asignar una pequeña variación de la práctica para comprobar que sabe adaptar lo aprendido.
+Si falla el canje de Skill Builder porque utilizaste una cuenta de AWS en plan Free, la FAQ oficial recomienda repetir el checkout con la opción **sin cuenta de AWS**. No necesitas pasar tu cuenta de infraestructura a Paid para recibir la formación.
 
-Antes de asignar un tutorial, pruébalo en el mismo entorno que tendrá el grupo. Revisa versiones, permisos y servicios permitidos; define qué datos de ejemplo se utilizarán y cómo se cerrará la actividad. Si el recurso requiere cambios, prepara esa adaptación antes de enviarlo a los estudiantes.
+### ¿Un curso, una insignia o un voucher me hacen AWS Certified?
 
-Para encontrar lecturas según la materia, explora [AWS Español en DEV](https://dev.to/aws-espanol). Si el grupo ya trabaja con aplicaciones, busca ejemplos de serverless en [AndMore Dev](https://www.andmore.dev/es/); para ampliar con experiencias sobre servicios y costos, visita [Gerardo.dev](https://gerardo.dev/). La [biblioteca de recursos de Dónde Aprendo AWS](https://dondeaprendoaws.com/aprender/) permite buscar por tema y nivel. Selecciona una lectura que ayude a cumplir el objetivo de la clase y comparte el enlace original con el nombre de su autor.
+No. Una certificación exige aprobar el examen oficial. El voucher cubre un importe o descuento bajo determinadas condiciones; no acredita conocimientos por sí mismo. La guía sobre [cómo comprobar un certificado o una insignia de AWS](/blog/aws-curso-certificado-preguntas-frecuentes/) explica qué credencial recibes y cómo verificarla.
 
-## Cuándo abrir una cuenta personal de AWS
+### ¿Cómo enseño AWS si mi institución no participa en Academy?
 
-Una cuenta propia tiene sentido cuando necesitas crear algo fuera de las condiciones de un laboratorio y puedes hacerte cargo de su uso. Antes de abrirla, identifica los servicios del proyecto y revisa el [plan de cuenta que elegirás](https://docs.aws.amazon.com/es_es/awsaccountbilling/latest/aboutv2/free-tier-plans.html).
-
-Para clientes nuevos elegibles, la oferta actual entrega **100 USD iniciales en créditos** y permite obtener **hasta 100 USD adicionales** mediante actividades. El **plan gratuito dura hasta seis meses o hasta agotar los créditos**, lo que ocurra primero. Tiene restricciones de acceso a servicios. El plan de pago permite un uso más amplio y puede generar cargos cuando el consumo no esté cubierto.
-
-Al abrir una cuenta personal de AWS se exige un método de pago válido, incluso si eliges el plan gratuito. Para practicar sin ese requisito, utiliza Educate. Revisa las [condiciones actuales de Free Tier](https://aws.amazon.com/es/free/free-tier-faqs/) en lugar de guiarte por tutoriales que prometen doce meses de instancias gratuitas.
-
-El plan gratuito tampoco admite otros créditos promocionales, como los de Student Rewards. Cambiar a un plan de pago para utilizarlos supone aceptar que el consumo no cubierto puede generar cargos. Puedes aprovechar la formación educativa y decidir más adelante si necesitas ese cambio.
-
-Comprueba también qué ocurrirá al finalizar el plan. Según sus condiciones, el plan gratuito vence y la cuenta se cierra; para un proyecto que necesites conservar, prepara la continuidad o exporta lo necesario antes de esa fecha. Algunas acciones, como incorporar la cuenta a AWS Organizations, la convierten automáticamente en una cuenta de pago. Consulta las condiciones antes de integrarla en un entorno institucional.
-
-### Aprende a controlar el uso desde la primera práctica
-
-Antes de crear recursos en tu cuenta:
-
-- **Protege el acceso.** Configura MFA y evita trabajar habitualmente con el usuario raíz. Sigue las [recomendaciones oficiales de seguridad de la cuenta](https://docs.aws.amazon.com/es_es/IAM/latest/UserGuide/root-user-best-practices.html).
-- **Decide qué crearás y cuándo lo eliminarás.** Incluye recursos asociados, como almacenamiento, copias o registros; terminar una sesión de trabajo no elimina lo desplegado.
-- **Revisa consumo y avisos.** Consulta créditos y vencimientos, y configura notificaciones apropiadas. [AWS Budgets](https://docs.aws.amazon.com/es_es/cost-management/latest/userguide/budgets-managing-costs.html) ayuda a seguir el gasto; una alerta de presupuesto no es un tope automático y puede llegar después de haberse producido el consumo.
-
-Trabaja con datos de ejemplo y guarda tus notas fuera del laboratorio. Si una práctica excede los recursos disponibles o necesitas un servicio de pago, reduce el alcance o busca otra actividad antes de desplegarlo.
-
-## Formación gratuita, insignias y certificaciones
-
-Completar un curso, recibir una insignia y aprobar una certificación de AWS son logros diferentes. Las insignias documentan una actividad o aprendizaje; una certificación requiere rendir y aprobar su examen. No presupongas que la inscripción en un programa educativo incluye ese examen sin costo.
-
-Puedes preparar una certificación con materiales gratuitos y consultar si tienes un descuento o voucher aplicable. Confirma sus condiciones antes de reservar. La [guía de preparación gratuita de certificaciones](https://dondeaprendoaws.com/blog/certificacion-aws-gratis-materiales-de-estudio/) explica cómo organizar ese estudio; si eliges Cloud Practitioner, tienes una [selección de recursos en español y la guía oficial del examen](https://dondeaprendoaws.com/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/).
-
-Si todavía estás eligiendo una especialidad, la [reflexión de Nori sobre el trabajo de un arquitecto de soluciones](https://dev.to/norisa/que-es-ser-arquitecto-de-soluciones-y-por-que-certificarme-con-aws-2j8g) puede ayudarte a explorar ese rol. Relaciona decisiones técnicas, necesidades del negocio y comunicación: tres aspectos que puedes practicar al documentar y presentar tus proyectos.
-
-Si buscas una formación más estructurada orientada al empleo, consulta [AWS re/Start](https://aws.amazon.com/es/training/restart/). Es gratuito para sus participantes y funciona mediante cohortes gestionadas por organizaciones colaboradoras. Los requisitos, cupos y horarios dependen de cada organización; revisa las [opciones de postulación disponibles](https://aws.amazon.com/training/restart/how-to-apply/) para tu ubicación. Está orientado principalmente a personas desempleadas o subempleadas, por lo que no sustituye automáticamente una materia universitaria. Completar una formación puede ayudarte a desarrollar habilidades y presentar mejor tu trabajo, pero no garantiza una contratación.
-
-Para empezar hoy, elige un laboratorio de Educate, acompáñalo con una explicación de la comunidad y registra lo que aprendiste. Después comparte una pregunta o un resultado con un grupo de estudio.
-
-Si enseñas, selecciona una práctica que tus estudiantes puedan realizar con los recursos disponibles y una evidencia que te permita evaluar su comprensión. Desde ahí podrás ampliar el proyecto, incorporar nuevos materiales y conectar a tu grupo con quienes ya están compartiendo conocimiento sobre AWS en español.
+Puedes combinar formación de Educate, materiales comunitarios y ejercicios de análisis con una evidencia de aprendizaje concreta. Cada estudiante debe usar el acceso permitido por el programa; no conviertas una cuenta personal o una tarjeta en un requisito implícito para cursar. Si necesitas proyectos institucionales más amplios, consulta la incorporación a Academy.
