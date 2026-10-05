@@ -1,368 +1,163 @@
 ---
-title: "AWS IoT Edge Simulator: casos de uso reales"
-description: "Descubre cómo el simulador de dispositivos IoT de AWS mejora las pruebas de IoT, reduce costos y tiempo de desarrollo, y valida soluciones antes de la implementación."
+title: "Cómo simular dispositivos IoT en AWS: MQTT, ejemplos y límites"
+description: "Prueba mensajes de sensores con AWS IoT Core sin comprar hardware. Conoce el retiro de IoT Device Simulator, sus diferencias con Greengrass, permisos, costos y recursos en español."
 author: "guille-ojeda"
 publishedAt: "2024-05-15"
 publishedTimestamp: "2024-05-15T02:46:19.391Z"
+modifiedTimestamp: "2026-10-05T14:54:05-03:00"
 cover: "/assets/blog/editorial-practica.png"
 coverAlt: "Un cuaderno abierto con una secuencia de estaciones y un camino azul con punto naranja."
 ogImage: "/assets/blog/editorial-practica.png"
 related:
-  - title: "Cómo automatizar ajustes de políticas con AWS Security Hub"
-    url: "https://dondeaprendoaws.com/blog/como-automatizar-ajustes-de-politicas-con-aws-security-hub/"
-  - title: "Guía completa: análisis de costos de tráfico en AWS"
-    url: "https://dondeaprendoaws.com/blog/guia-completa-analisis-de-costos-de-trafico-en-aws/"
-  - title: "CloudWatch y EventBridge: integración"
-    url: "https://dondeaprendoaws.com/blog/cloudwatch-y-eventbridge-integracion/"
-
+  - title: "AWS IoT Device SDK para JavaScript: 7 errores comunes y cómo resolverlos"
+    url: "https://dondeaprendoaws.com/blog/7-errores-comunes-con-aws-iot-device-sdk-para-javascript/"
+  - title: "10 laboratorios de AWS para principiantes: guía paso a paso"
+    url: "https://dondeaprendoaws.com/blog/10-laboratorios-practicos-de-aws-para-principiantes/"
 ---
 
-<p>El simulador de dispositivos IoT de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> es una herramienta poderosa que permite a los profesionales de TI probar y validar soluciones de IoT de manera eficiente, reduciendo costos y tiempo de desarrollo. Con esta herramienta, es posible:</p>
+Puedes simular mensajes de sensores sin comprar hardware usando el **cliente MQTT de prueba de AWS IoT Core**. Para ejecutar un cliente que se comporte como un dispositivo conectado, también puedes usar tu computadora con un AWS IoT Device SDK. Son dos prácticas distintas: publicar datos desde la consola prueba el intercambio de mensajes; ejecutar el SDK permite probar además la conexión y la identidad del cliente.
 
+Si llegaste buscando **“AWS IoT Edge Simulator”**, el nombre de la antigua solución era **IoT Device Simulator**. AWS la retiró: su [documentación indica que ya no está disponible](https://docs.aws.amazon.com/solutions/latest/iot-device-simulator/solution-overview.html). No necesitas desplegar esa solución para aprender MQTT ni para comenzar a probar una aplicación IoT.
 
-<ul>
-<li>
-<p><strong>Simular dispositivos IoT a gran escala</strong> e integrarlos con servicios de AWS como <a href="https://aws.amazon.com/lambda/" rel="noopener noreferrer" target="_blank">AWS Lambda</a> y <a href="https://aws.amazon.com/iot-core/" rel="noopener noreferrer" target="_blank">AWS IoT Core</a>.</p>
-</li>
-<li>
-<p><strong>Probar la infraestructura de IoT</strong> simulando un gran volumen de tráfico de dispositivos para evaluar la escalabilidad y el rendimiento.</p>
-</li>
-<li>
-<p><strong>Validar la lógica de aplicación</strong> replicando comportamientos de dispositivos y escenarios de interacción diversificados.</p>
-</li>
-<li>
-<p><strong>Generar datos sintéticos</strong> para el desarrollo y entrenamiento de modelos de aprendizaje automático para IoT.</p>
-</li>
-<li>
-<p><strong>Validar soluciones de IoT antes de la implementación</strong> identificando posibles problemas y asegurando una implementación fluida.</p>
-</li>
-</ul>
+## IoT Device Simulator, IoT Core y Greengrass: qué hace cada uno
 
+| Herramienta | Para qué sirve | Qué debes distinguir |
+|---|---|---|
+| IoT Device Simulator | Generaba datos de dispositivos definidos mediante una interfaz web, para pruebas | Era una solución que desplegabas en tu cuenta; fue retirada |
+| AWS IoT Core | Conecta clientes con el broker MQTT en la nube y ofrece reglas para procesar mensajes | Es el servicio al que publica tu cliente; no simula por sí solo un sensor físico |
+| AWS IoT Device SDK | Permite desarrollar un cliente que se conecta, publica y recibe mensajes | Puedes ejecutarlo en una computadora con datos inventados para practicar |
+| AWS IoT Greengrass V2 | Ejecuta componentes y procesa datos localmente en un dispositivo | El procesamiento *edge* ocurre en ese entorno local, no por publicar un JSON en la nube |
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Uso</th>
-<th>Beneficios</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Simulación de dispositivos</td>
-<td>Pruebas y depuración sin hardware físico. Reducción de costos.</td>
-</tr>
-<tr>
-<td>Simulación de tráfico</td>
-<td>Identificar cuellos de botella y optimizar la infraestructura.</td>
-</tr>
-<tr>
-<td>Simulación de lógica de aplicación</td>
-<td>Crear aplicaciones más resilientes y tolerantes a errores.</td>
-</tr>
-<tr>
-<td>Generación de datos sintéticos</td>
-<td>Acelerar el desarrollo de modelos de aprendizaje automático.</td>
-</tr>
-<tr>
-<td>Validación de soluciones</td>
-<td>Reducir riesgos de implementación y garantizar el funcionamiento correcto.</td>
-</tr>
-</tbody>
-</table></figure>
+El [repositorio oficial de IoT Device Simulator](https://github.com/aws-solutions/iot-device-simulator) anuncia su deprecación desde el **29 de enero de 2025** y fue archivado al día siguiente. Su [último cambio de versión documentado es 3.0.9, del 29 de octubre de 2024](https://github.com/aws-solutions/iot-device-simulator/blob/main/CHANGELOG.md). El código sigue visible, pero el proyecto no recibe nuevas funciones ni actualizaciones; su README tampoco recomienda usarlo en producción.
 
+Un tutorial antiguo puede mostrar Fargate, mientras otro muestra Step Functions y Lambda: la versión 3 cambió la arquitectura y no admitía actualizar directamente desde versiones anteriores. No trates esas instrucciones ni sus estimaciones de costos como una receta actual. Si ya tienes una instalación, revisa su versión, dependencias y recursos antes de mantenerla o retirarla.
 
-<p>El simulador de dispositivos IoT de AWS es una herramienta esencial para cualquier profesional de TI que busque desarrollar soluciones de IoT innovadoras y eficaces.</p>
+Para trabajo local, consulta [qué hace Greengrass V2](https://docs.aws.amazon.com/greengrass/v2/developerguide/what-is-iot-greengrass.html). En pruebas industriales con OPC UA existe un [componente específico que genera datos para SiteWise Edge](https://docs.aws.amazon.com/greengrass/v2/developerguide/iotsitewise-opcua-data-source-simulator-component.html); requiere un dispositivo Greengrass y sus dependencias. Es una práctica más especializada que el ejercicio de MQTT que sigue.
 
+## Primera práctica: publica lecturas de un sensor desde la consola
 
-<h2 id="related-video-from-youtube" tabindex="-1">Related video from YouTube</h2>
+La meta es observar dos mensajes en un mismo topic y reconocer sus campos. No vas a crear una flota, ejecutar firmware ni medir capacidad de producción.
 
+### Antes de empezar
 
-<iframe allowfullscreen="" loading="lazy" src="https://www.youtube.com/embed/7-u3n8-2sng" title="Video de YouTube"></iframe>
-<h2 id="%C2%BFqu%C3%A9-es-el-aws-iot-edge-simulator%3F" tabindex="-1">¿Qué es el <a href="https://aws.amazon.com/solutions/implementations/iot-device-simulator/" rel="noopener noreferrer" target="_blank">AWS IoT Edge Simulator</a>?</h2>
+Usa una cuenta de aprendizaje autorizada y una identidad IAM o federada con acceso a IoT Core. El cliente de consola utiliza tu sesión: **no necesitas crear un Thing ni descargar un certificado para esta práctica**. El acceso a la consola no garantiza permiso para publicar y recibir.
 
+Quien administra tus permisos debe autorizar `iot:Connect`, `iot:Publish`, `iot:Subscribe` e `iot:Receive` para el cliente y los topics de prueba, además de los permisos de consulta que necesita la consola, como `iot:DescribeEndpoint`. Limita los recursos a esta práctica. AWS distingue `client/<clientId>`, `topic/<topic>` y `topicfilter/<filtro>` en sus [acciones de política](https://docs.aws.amazon.com/iot/latest/developerguide/iot-policy-actions.html) y [ejemplos de publicación y suscripción](https://docs.aws.amazon.com/iot/latest/developerguide/pub-sub-policy.html).
 
-<p><figure><img alt="AWS IoT Edge Simulator" src="/assets/blog/37fcd697a55643c22e71fb98.jpg"/></figure></p>
+La identidad IAM de consola y un dispositivo con certificado no comparten automáticamente los mismos permisos: consulta la [tabla de autorización de IoT Core](https://docs.aws.amazon.com/iot/latest/developerguide/iot-authorization.html). Un cliente X.509 necesita una política IoT asociada a su certificado.
 
+Selecciona una Región y anótala. Trabaja con datos ficticios y revisa los [precios de IoT Core](https://aws.amazon.com/iot-core/pricing/) antes de abrir conexiones o publicar. El ejercicio usa mensajes pequeños, pero no promete un costo cero.
 
-<p>El AWS IoT Edge Simulator es una herramienta poderosa que permite a los profesionales de TI simular dispositivos IoT y probar infraestructuras sin la necesidad de hardware físico. Esto les permite desarrollar y probar soluciones IoT de manera eficiente, reducir costos y acelerar el proceso de desarrollo.</p>
+### Publica y observa
 
+1. Abre **AWS IoT Core → Test → MQTT test client**.
+2. En **Subscribe to a topic**, escribe `aprendizaje/sensores/temperatura` y elige **Subscribe**.
+3. En **Publish to a topic**, usa exactamente ese topic. Mantén desactivada la opción de mensaje retenido (*retain*) y publica este JSON:
 
-<h3 id="simulaci%C3%B3n-de-dispositivos-iot" tabindex="-1">Simulación de dispositivos IoT</h3>
+```json
+{
+  "deviceId": "sensor-demo-01",
+  "sequence": 1,
+  "temperatureC": 22.5,
+  "synthetic": true
+}
+```
 
+4. Comprueba que aparezca el mensaje en la suscripción. Cambia `sequence` a `2` y `temperatureC` a `31.0`; publica de nuevo.
+5. Confirma que puedas distinguir ambas lecturas por su secuencia y temperatura.
 
-<p>El AWS IoT Edge Device Simulator puede simular dispositivos IoT a gran escala y se integra con servicios de AWS como AWS Lambda y AWS IoT Core. Esto permite a los desarrolladores probar y depurar sus aplicaciones IoT de manera efectiva, sin la necesidad de dispositivos físicos.</p>
+La [guía oficial del cliente MQTT](https://docs.aws.amazon.com/iot/latest/developerguide/view-mqtt-messages.html) documenta este flujo. Los topics distinguen mayúsculas y minúsculas. Un topic de publicación es un nombre concreto; los comodines `+` y `#` se usan en filtros de suscripción. Puedes probar el filtro `aprendizaje/sensores/+` para observar otros sensores de ese nivel. La [guía de topics MQTT](https://docs.aws.amazon.com/iot/latest/developerguide/topics.html) explica esos filtros.
 
+**Qué comprobaste:** el cliente pudo publicar y recibir esos datos en el broker. Que el JSON contenga `deviceId` no autentica a ese dispositivo; es un campo que inventaste. Tampoco demuestra que una base de datos guardó la lectura ni que una alarma reaccionó. Para probar esos resultados necesitas añadir y observar el procesamiento correspondiente.
 
-<h3 id="ventajas-del-uso-de-simuladores" tabindex="-1">Ventajas del uso de simuladores</h3>
+**Al terminar:** elimina las suscripciones de prueba y cierra el cliente para cortar la conexión. Sin *retain*, certificados, reglas ni otros recursos añadidos, esta práctica no deja un recurso de topic que debas borrar. Si activaste *retain*, elimina el mensaje retenido siguiendo la [documentación de mensajes retenidos](https://docs.aws.amazon.com/iot/latest/developerguide/mqtt.html#mqtt-retain).
 
+Para acompañar los conceptos con una explicación en español, tienes [qué es IoT y cómo empezar en AWS, de Charlas Técnicas](https://www.youtube.com/watch?v=_1Ryarag_pE) y [primeros pasos con IoT y una demo con microcontroladores, del AWS User Group Perú](https://www.youtube.com/watch?v=pq3HK8zrF14). Son grabaciones: contrasta sus pantallas y requisitos con la documentación actual.
 
-<p>El uso de simuladores como el AWS IoT Edge Simulator ofrece varias ventajas, como:</p>
+## Segundo paso: usa tu computadora como dispositivo
 
+Cuando quieras probar autenticación y reconexiones de un cliente, sigue el [tutorial oficial para usar Windows, Linux o macOS como dispositivo IoT](https://docs.aws.amazon.com/iot/latest/developerguide/using-laptop-as-device.html). Instala Git, Python y el SDK v2 compatible con tu entorno; configura el endpoint de tu cuenta y Región, certificado activo, clave privada, CA y política IoT. El ejemplo `pubsub.py` publica y recibe mensajes.
 
-<ul>
-<li>
-<p><strong>Reducción de costos</strong>: No es necesario invertir en hardware físico para probar y desarrollar soluciones IoT.</p>
-</li>
-<li>
-<p><strong>Escalabilidad</strong>: Los simuladores permiten probar y depurar aplicaciones IoT a gran escala.</p>
-</li>
-<li>
-<p><strong>Conveniencia</strong>: Los simuladores permiten a los desarrolladores probar y depurar sus aplicaciones IoT de manera rápida y eficiente.</p>
-</li>
-</ul>
+Usa permisos que correspondan a su `clientId` y topic, y conserva la clave privada fuera del repositorio y de capturas compartidas. Si ejecutas dos clientes, asigna IDs diferentes: con el mismo ID, uno puede desconectar al otro. AWS documenta ese [conflicto de identificadores MQTT](https://docs.aws.amazon.com/iot-device-defender/latest/devguide/audit-chk-conflicting-client-ids.html).
 
+Después puedes modificar el generador para emitir lecturas como las del ejercicio, con una cantidad y duración finitas. Escribir varios `deviceId` en una sola conexión permite probar datos de varios sensores, pero no equivale a probar varias conexiones ni sus permisos individuales.
 
-<p>Además, los simuladores permiten a los desarrolladores probar escenarios de prueba complejos y reproducibles, lo que ayuda a identificar y solucionar problemas de manera efectiva.</p>
+Al terminar, detén el programa y elimina solo sus recursos de prueba: desvincula el certificado del Thing y de sus políticas; desactiva y elimina el certificado, y después elimina el Thing y las políticas que no compartas con otros clientes. Borra las copias locales de la clave privada que ya no necesites. La [guía de limpieza de recursos IoT](https://docs.aws.amazon.com/iot/latest/developerguide/iot-dc-cleanup.html) explica esas dependencias y cómo eliminar versiones de política adicionales. Si extendiste el ejercicio, revisa también reglas, destinos de almacenamiento y logs creados.
 
+Si prefieres JavaScript, la guía sobre [errores del AWS IoT Device SDK para JavaScript](/blog/7-errores-comunes-con-aws-iot-device-sdk-para-javascript/) distingue Node.js, navegador, X.509 y WebSocket, y ayuda a diagnosticar permisos y desconexiones.
 
-<h2 id="pruebas-de-infraestructura-con-tr%C3%A1fico-simulado" tabindex="-1">Pruebas de infraestructura con tráfico simulado</h2>
+## Casos de uso: qué puedes comprobar con datos simulados
 
+### Telemetría, paneles y alertas
 
-<p>La simulación de tráfico es una forma efectiva de probar la infraestructura de IoT antes de implementarla en producción. El AWS IoT Edge Simulator permite a los profesionales de TI simular un gran volumen de tráfico de dispositivos para evaluar la escalabilidad y el rendimiento de las infraestructuras de IoT.</p>
+Una secuencia controlada permite probar cómo responde tu aplicación a una temperatura normal, una lectura fuera de rango o un campo ausente. Define el resultado esperado antes de enviar: por ejemplo, mostrar la última lectura válida y rechazar un valor sin unidad. El broker transporta mensajes; la validación del esquema y la lógica de alertas pertenecen a tu aplicación.
 
+Para ver proyectos de la comunidad, revisa el [Pit Wall de Álvaro García con IoT Core](https://dev.to/alvarongg/como-arme-un-pit-wall-con-aws-iot-core-y-por-que-este-patron-sirve-para-cualquier-industria-4lo1), que conecta telemetría de un simulador de carreras con procesamiento y almacenamiento. Úsalo para estudiar el flujo y el manejo de fragmentos; confirma las garantías de entrega y los permisos en AWS antes de adaptar código. Su [perfil en DEV](https://dev.to/alvarongg) reúne otras publicaciones para continuar.
 
-<h3 id="identificaci%C3%B3n-de-problemas-de-rendimiento" tabindex="-1">Identificación de problemas de rendimiento</h3>
+El [monitoreo con Alexa, Raspberry Pi y sensores del AWS User Group Perú](https://www.youtube.com/watch?v=-lYaBFheUdI) muestra otra aplicación de lecturas IoT. La [introducción con IoT Core y ESP8266 del AWS User Group Ecuador](https://www.youtube.com/watch?v=ilMHiOXCZns) permite pasar del mensaje ficticio al hardware. Ambos requieren contrastar las versiones y pasos de sus grabaciones. Para otro ejemplo con hardware, [Ángel Pineda cuenta su proyecto de monitoreo ambiental con ESP32 e IoT Core](https://builder.aws.com/content/3JkzKadLy6UgcIARkhZwqutiVs3/cmo-io-t-core-despert-mis-ganas-de-ser-maker-otra-vez). Es un relato de una prueba de concepto; sus referencias a Free Tier no aseguran que tu proyecto sea gratuito.
 
+### Ubicación y comandos de vehículos
 
-<p>Al simular tráfico en la infraestructura de IoT, es posible identificar problemas de rendimiento potenciales antes de que afecten la producción. Por ejemplo, se puede simular un gran número de dispositivos enviando datos a la nube para evaluar cómo se maneja el tráfico y cómo se escalan los recursos.</p>
+Puedes generar puntos GPS ficticios para probar el recorrido de una lectura hacia un mapa, o respuestas a comandos para verificar estados de éxito y timeout. No conectes esa prueba a actuadores reales.
 
+La [arquitectura de rastreo GPS de Alfredo Dominguez](https://www.alfredo-dominguez.dev/arquitecturas/05-gps-vehicle-tracking/) describe IoT Core, Lambda, DynamoDB y Amazon Location Service; la [documentación del proyecto de seguimiento de vehículos](https://www.alfredo-dominguez.dev/proyectos/gps-vehicle-tracking/) muestra la aplicación que consume esos datos. Son referencias para estudiar la integración, no una estimación de costos ni una garantía de capacidad para tu flota. Su [sitio de arquitecturas y proyectos](https://www.alfredo-dominguez.dev/) ofrece más ejemplos relacionados.
 
-<p><strong>Ventajas de la simulación de tráfico</strong></p>
+### Integraciones y datos sintéticos
 
+Un caso histórico documentado es **BioInsyte**: Logiksavvy Innovations y AWS ProServe usaron IoT Device Simulator en una prueba de concepto con datos biométricos simulados. El [artículo de AWS sobre ese proyecto](https://aws.amazon.com/blogs/publicsector/designing-biometric-iomt-solution-support-health-equity-aws-proserve/) explica la integración con datos clínicos y visualización. Es evidencia de aquel uso del simulador, no una recomendación de desplegar hoy la solución retirada ni una validación clínica.
 
-<ul>
-<li>
-<p>Identificar cuellos de botella y optimizar la infraestructura para mejorar el rendimiento y la escalabilidad</p>
-</li>
-<li>
-<p>Probar y depurar aplicaciones IoT en diferentes escenarios de prueba</p>
-</li>
-<li>
-<p>Evaluar cómo se comporta la infraestructura en condiciones adversas, como límites de paquetes, demoras y duplicados</p>
-</li>
-</ul>
+Para una práctica con hardware e IA generativa, Fernando Silva T explica una [app que genera chistes según la temperatura](https://dev.to/aws-espanol/integracion-iot-y-generative-ai-como-crear-una-app-que-cuenta-chistes-basados-en-la-temperatura-522), con [código para ESP8266 y DHT22](https://github.com/fernandosilvot/App-IoT_GenAI). Requiere hardware, cuenta AWS y uso de IoT Core, Lambda y Bedrock. El ejemplo muestra políticas amplias de demostración: restringe acciones y recursos antes de adaptarlo. Puedes seguir sus otros ejemplos en el [perfil de Fernando Silva T](https://dev.to/fernandosilvot).
 
+Generar números aleatorios no demuestra que un modelo funcione con sensores reales. Para evaluar anomalías necesitas datos y fallos representativos, y una prueba separada con datos reales. El [AWS ML Day del AWS User Group Perú](https://www.youtube.com/watch?v=NVEbOgBTNSk) reúne introducciones a IoT, SageMaker y MLOps para explorar esa conexión, sin sustituir la validación del modelo.
 
-<p>De esta manera, la simulación de tráfico permite a los desarrolladores probar y depurar sus aplicaciones IoT de manera efectiva, sin la necesidad de dispositivos físicos.</p>
+## Escala y costos: cuenta mensajes, conexiones y destinos
 
+Antes de simular una flota, define cuántos clientes estarán conectados, cada cuánto publican, cuánto dura la prueba y cuánto pesa cada mensaje. Por ejemplo, **100 sensores × 1 mensaje cada 10 segundos × 10 minutos = 6.000 publicaciones**. Es un cálculo de carga inventado para planificar, no un resultado medido ni un límite del servicio.
 
-<h2 id="pruebas-de-l%C3%B3gica-de-aplicaci%C3%B3n-con-simulaciones" tabindex="-1">Pruebas de lógica de aplicación con simulaciones</h2>
+A esa carga se suman las entregas a suscriptores, minutos de conexión y, si los usas, operaciones de sombras, reglas y acciones. IoT Core mide mensajes en bloques de 5 KB: un mensaje de 8 KB cuenta como dos unidades. Lambda, DynamoDB, S3, Location, CloudWatch y cualquier servidor que genere tráfico tienen sus propios cargos. Calcula con la [tarifa de tu Región y los ejemplos de facturación de IoT Core](https://aws.amazon.com/iot-core/pricing/); no extrapoles el costo del broker al proyecto completo.
 
+Un simulador también puede convertirse en el cuello de botella. Aumenta la carga gradualmente y observa tanto al generador como al receptor. Revisa las [cuotas de IoT Core para conexiones, publicación y tamaño de mensajes](https://docs.aws.amazon.com/general/latest/gr/iot-core.html), además de las cuotas de cada destino. Una prueba que publica datos de mil sensores desde una conexión no demuestra que mil dispositivos puedan conectarse al mismo tiempo.
 
-<p>La simulación es una herramienta valiosa para probar la lógica de aplicación de los sistemas IoT, ya que permite replicar comportamientos de dispositivos y escenarios de interacción diversificados. Al simular diferentes escenarios, los desarrolladores pueden evaluar cómo se comporta la aplicación en diferentes condiciones y identificar posibles problemas de rendimiento o errores.</p>
+Si todavía necesitas practicar permisos, almacenamiento y limpieza de recursos, los [laboratorios de AWS para principiantes](/blog/10-laboratorios-practicos-de-aws-para-principiantes/) permiten trabajar esas piezas antes de combinarlas en una solución IoT.
 
+## Si no llegan mensajes: revisa el tramo que falla
 
-<h3 id="creaci%C3%B3n-de-aplicaciones-resilientes" tabindex="-1">Creación de aplicaciones resilientes</h3>
+| Síntoma | Qué comprobar |
+|---|---|
+| No aparece la publicación en consola | Misma cuenta y Región, suscripción anterior al envío, topic exacto y permiso de recepción |
+| Conecta, pero no publica o no recibe | Acciones `Publish`, `Subscribe` y `Receive`, con sus respectivos recursos de política |
+| El SDK no logra conectarse | Endpoint, red, certificado activo y registrado, clave correspondiente, CA y autorización de `clientId` |
+| Los clientes se desconectan entre sí | Que no compartan el mismo `clientId` |
+| Ves mensajes repetidos | Suscripciones superpuestas y uso de QoS 1; procesa con un identificador de mensaje para tolerar duplicados |
+| El broker recibe, pero tu aplicación no actúa | Regla y filtro, permisos de la acción, errores del destino y validación del payload |
 
+La [guía de diagnóstico de conectividad de AWS](https://docs.aws.amazon.com/iot/latest/developerguide/diagnosing-connectivity-issues.html) explica las comprobaciones de certificado y autorización. IoT Core admite QoS 0 y 1; **un acuse MQTT no confirma por sí solo que tu aplicación guardó un dato o ejecutó una orden**. Consulta las [garantías y límites de MQTT en IoT Core](https://docs.aws.amazon.com/iot/latest/developerguide/mqtt.html) y verifica el resultado en el destino que estés probando.
 
-<p>Al utilizar escenarios de simulación diversificados, los desarrolladores pueden crear aplicaciones IoT más resistentes y tolerantes a errores. Por ejemplo, pueden simular dispositivos que envían datos incorrectos o que se comportan de manera anómala, lo que les permite evaluar cómo se manejan estos casos en la aplicación.</p>
+## Continúa con comunidades y recursos en español
 
+Lleva a la comunidad un ejemplo pequeño: topic, payload ficticio, resultado esperado y error observado. Oculta claves, certificados y datos personales. No hace falta que el grupo esté especializado en IoT para conversar sobre IAM, costos o procesamiento de eventos.
 
-<p><strong>Ventajas de la simulación</strong></p>
+- [AWS User Group Perú](https://awsugperu.cloud/) reúne grupos locales, talleres y recursos; sus grabaciones enlazadas arriba ofrecen varios puntos de entrada a IoT. También puedes consultar la [agenda y materiales del AWS Community Day Perú](https://awscommunityday.pe/), comprobando a qué edición corresponden.
+- [AWS User Group Ecuador](https://www.awsugecuador.com/) publica encuentros y canales para participar. Su [canal de YouTube](https://www.youtube.com/channel/UCgzEFlDd-KR0BL5rlOVY7KQ) conserva charlas como la práctica con ESP8266.
+- [AWS User Group Security Ecuador](https://www.awssecurityecuador.com/) ofrece encuentros y grabaciones sobre seguridad. Es una continuación útil cuando tu duda está en permisos o protección de la infraestructura.
+- [Charlas Técnicas de AWS](https://podcast.marcia.dev/) tiene un archivo de conversaciones en español. Además de la introducción a IoT, el episodio [Transformando Food Tech con IoT](https://www.youtube.com/watch?v=qN6tBUJfNcI) permite explorar un contexto de negocio; la charla [Industrial IoT con Raúl Hugo](https://www.youtube.com/watch?v=61nuGOSj1Co) del grupo peruano amplía el enfoque industrial.
 
+Encuentra otros grupos por ubicación en el [directorio de comunidades AWS](/comunidades/) y revisa la [agenda de próximos eventos](/eventos/) para elegir un encuentro de arquitectura, seguridad o datos. Verifica inscripción, modalidad y horario en el organizador; la agenda cambia y una grabación no representa un evento próximo.
 
-<ul>
-<li>
-<p>Identificar y abordar posibles problemas antes de que afecten la producción</p>
-</li>
-<li>
-<p>Probar y depurar aplicaciones IoT de manera efectiva, sin la necesidad de dispositivos físicos</p>
-</li>
-<li>
-<p>Reducir costos y tiempo de desarrollo</p>
-</li>
-<li>
-<p>Centrarse en crear aplicaciones más robustas y escalables</p>
-</li>
-</ul>
+## Preguntas frecuentes
 
+### ¿IoT Device Simulator sigue disponible?
 
-<p>La simulación también permite a los desarrolladores probar y depurar sus aplicaciones IoT de manera efectiva, sin la necesidad de dispositivos físicos. Esto reduce los costos y el tiempo de desarrollo, y permite a los desarrolladores centrarse en crear aplicaciones más robustas y escalables.</p>
+AWS retiró la solución y archivó el repositorio en enero de 2025. Conserva valor como referencia histórica, pero para empezar ahora puedes usar el cliente MQTT de consola o el SDK en tu computadora.
 
+### ¿Puedo practicar sin un sensor físico?
 
-<h2 id="generaci%C3%B3n-de-datos-para-el-aprendizaje-autom%C3%A1tico" tabindex="-1">Generación de datos para el aprendizaje automático</h2>
+Sí. La consola permite publicar mensajes ficticios, y un SDK puede ejecutarse en una computadora. Para la práctica en tu cuenta necesitas acceso a AWS y permisos; no necesitas un microcontrolador.
 
+### ¿Esto prueba procesamiento edge o firmware?
 
-<p>La simulación de dispositivos IoT es fundamental para generar conjuntos de datos sintéticos que ayuden en el desarrollo y entrenamiento de modelos de aprendizaje automático para IoT. Con la capacidad de simular diferentes comportamientos de dispositivos y escenarios de interacción, los desarrolladores pueden generar grandes cantidades de datos que no estarían disponibles de otra manera.</p>
+El ejercicio de consola prueba mensajes en la nube. Para evaluar edge, ejecuta el componente real en el entorno Greengrass que quieres comprobar. Para evaluar firmware, usa el cliente o dispositivo correspondiente y prueba su transporte, autenticación y comportamiento; los datos ficticios no validan precisión del sensor, consumo eléctrico ni una red física.
 
+### ¿Los datos simulados garantizan que el sistema funcionará en producción?
 
-<h3 id="acelerar-el-desarrollo-de-modelos-de-aprendizaje-autom%C3%A1tico" tabindex="-1">Acelerar el desarrollo de modelos de aprendizaje automático</h3>
-
-
-<p>La simulación de datos es especialmente útil cuando se tiene acceso limitado a grandes volúmenes de datos reales de alta calidad o cuando la recopilación de estos datos es costosa o difícil. Al utilizar el simulador de dispositivos IoT, los desarrolladores pueden generar conjuntos de datos sintéticos que se ajusten a sus necesidades específicas, lo que les permite iterar y refinar sus modelos de aprendizaje automático de manera más rápida y eficiente.</p>
-
-
-<p><strong>Ventajas de la simulación de datos</strong></p>
-
-
-<ul>
-<li>
-<p>Generar grandes cantidades de datos sintéticos que no estarían disponibles de otra manera</p>
-</li>
-<li>
-<p>Iterar y refinar modelos de aprendizaje automático de manera más rápida y eficiente</p>
-</li>
-<li>
-<p>Identificar y abordar posibles problemas antes de que afecten la producción</p>
-</li>
-<li>
-<p>Reducir costos y tiempo de desarrollo</p>
-</li>
-</ul>
-
-
-<p>Además, la simulación de datos permite a los desarrolladores probar y depurar sus modelos de aprendizaje automático de manera efectiva, sin la necesidad de dispositivos físicos. Esto reduce los costos y el tiempo de desarrollo, y permite a los desarrolladores centrarse en crear modelos más robustos y escalables.</p>
-
-
-
-
-<h2 id="validaci%C3%B3n-de-soluciones-de-iot-antes-de-la-implementaci%C3%B3n" tabindex="-1">Validación de soluciones de IoT antes de la implementación</h2>
-
-
-<p>La validación de soluciones de IoT antes de la implementación es crucial para garantizar que funcionen correctamente y sin errores en producción. El simulador de dispositivos IoT de AWS ofrece una forma efectiva de probar y validar la arquitectura y el rendimiento de las soluciones de IoT antes de la implementación real.</p>
-
-
-<h3 id="reducci%C3%B3n-de-riesgos-de-implementaci%C3%B3n" tabindex="-1">Reducción de riesgos de implementación</h3>
-
-
-<p>Al simular y probar los aspectos de la arquitectura de IoT, los profesionales de TI pueden identificar posibles problemas y asegurarse de que la implementación sea fluida y sin errores. Esto reduce los riesgos de implementación y permite a los equipos de desarrollo concentrarse en crear soluciones más robustas y escalables.</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventajas</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Identificar problemas</td>
-<td>Identificar posibles problemas y asegurarse de que la implementación sea fluida y sin errores.</td>
-</tr>
-<tr>
-<td>Reducir riesgos</td>
-<td>Reducir los riesgos de implementación y permitir a los equipos de desarrollo concentrarse en crear soluciones más robustas y escalables.</td>
-</tr>
-<tr>
-<td>Iterar y refinar</td>
-<td>Iterar y refinar soluciones de IoT de manera más rápida y eficiente, lo que reduce el tiempo y los costos de desarrollo.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Al utilizar el simulador de dispositivos IoT de AWS, los profesionales de TI pueden validar sus soluciones de IoT antes de la implementación, lo que reduce los riesgos de implementación y garantiza que las soluciones funcionen correctamente en producción.</p>
-
-
-<h2 id="simulaci%C3%B3n-de-computaci%C3%B3n-en-el-borde-para-casos-de-uso-industriales" tabindex="-1">Simulación de computación en el borde para casos de uso industriales</h2>
-
-
-<p>El simulador de dispositivos IoT de AWS permite a los profesionales de TI simular escenarios de computación en el borde para análisis en tiempo real en entornos industriales. Al simular la computación en el borde, los usuarios pueden probar y validar la arquitectura y el rendimiento de las soluciones de IoT antes de la implementación real.</p>
-
-
-<h3 id="mejora-de-operaciones-industriales" tabindex="-1">Mejora de operaciones industriales</h3>
-
-
-<p>La simulación de análisis y procesamiento en el borde puede beneficiar a las industrias de varias maneras. Al reducir la latencia y las necesidades de ancho de banda, las industrias pueden tomar decisiones en tiempo real y mejorar la eficiencia de sus operaciones.</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Industria</th>
-<th>Beneficios</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Manufactura</td>
-<td>Mejora la eficiencia de la producción al permitir la toma de decisiones en tiempo real sobre la calidad del producto y la programación de la producción.</td>
-</tr>
-<tr>
-<td>Energía</td>
-<td>Mejora la eficiencia de la generación y distribución de energía al permitir la toma de decisiones en tiempo real sobre la producción y el consumo de energía.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>En resumen, la simulación de computación en el borde es una herramienta poderosa para las industrias que buscan mejorar la eficiencia de sus operaciones y tomar decisiones en tiempo real. Al utilizar el simulador de dispositivos IoT de AWS, los profesionales de TI pueden probar y validar la arquitectura y el rendimiento de las soluciones de IoT antes de la implementación real, lo que reduce los riesgos de implementación y garantiza que las soluciones funcionen correctamente en producción.</p>
-
-
-<h2 id="simulaci%C3%B3n-de-infraestructuras-de-ciudad-inteligente" tabindex="-1">Simulación de infraestructuras de ciudad inteligente</h2>
-
-
-<p>La simulación de infraestructuras de ciudad inteligente es un uso común del simulador de dispositivos IoT de AWS. Los planificadores urbanos y especialistas en IoT pueden utilizar esta herramienta para simular aplicaciones de IoT para la gestión urbana, lo que les permite probar y validar la arquitectura y el rendimiento de las soluciones de IoT antes de la implementación real.</p>
-
-
-<h3 id="optimizaci%C3%B3n-de-operaciones-urbanas" tabindex="-1">Optimización de operaciones urbanas</h3>
-
-
-<p>La simulación de datos es fundamental para optimizar la gestión del tráfico, la distribución de energía y los sistemas de gestión de residuos dentro de las iniciativas de ciudad inteligente.</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Sistema</th>
-<th>Beneficios</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Gestión del tráfico</td>
-<td>Reducción de los tiempos de viaje y mejora de la seguridad vial.</td>
-</tr>
-<tr>
-<td>Distribución de energía</td>
-<td>Reducción del consumo de energía y mejora de la eficiencia de la generación y distribución de energía.</td>
-</tr>
-<tr>
-<td>Gestión de residuos</td>
-<td>Reducción de los residuos y mejora de la eficiencia de la recogida y tratamiento de residuos.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Al simular el tráfico en tiempo real, los planificadores urbanos pueden identificar problemas de congestión y desarrollar estrategias para reducir los tiempos de viaje y mejorar la seguridad vial. De igual manera, la simulación de la distribución de energía puede ayudar a identificar oportunidades para reducir el consumo de energía y mejorar la eficiencia de la generación y distribución de energía.</p>
-
-
-<p>En resumen, la simulación de infraestructuras de ciudad inteligente es una herramienta poderosa para los planificadores urbanos y especialistas en IoT que buscan mejorar la eficiencia y la sostenibilidad de las ciudades. Al utilizar el simulador de dispositivos IoT de AWS, los profesionales de TI pueden probar y validar la arquitectura y el rendimiento de las soluciones de IoT antes de la implementación real, lo que reduce los riesgos de implementación y garantiza que las soluciones funcionen correctamente en producción.</p>
-
-
-<h2 id="conclusi%C3%B3n" tabindex="-1">Conclusión</h2>
-
-
-<p>En resumen, el simulador de dispositivos IoT de AWS es una herramienta poderosa para los profesionales de TI que buscan acelerar la innovación en el desarrollo de IoT. Con su capacidad para simular dispositivos, infraestructuras y aplicaciones IoT, el simulador de dispositivos IoT de AWS permite a los desarrolladores probar y validar sus soluciones de IoT de manera rápida y segura.</p>
-
-
-<h3 id="ventajas-del-simulador-de-dispositivos-iot-de-aws" tabindex="-1">Ventajas del simulador de dispositivos IoT de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a></h3>
-
-
-<ul>
-<li>
-<p>Identificar y resolver problemas de rendimiento y escalabilidad</p>
-</li>
-<li>
-<p>Reducir los riesgos de implementación</p>
-</li>
-<li>
-<p>Mejorar la eficiencia de las soluciones de IoT</p>
-</li>
-<li>
-<p>Generar datos para el aprendizaje automático</p>
-</li>
-</ul>
-
-
-<p>En última instancia, el simulador de dispositivos IoT de AWS es una herramienta esencial para cualquier profesional de TI que busque desarrollar soluciones de IoT innovadoras y eficaces.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/ingenieria-de-caos-en-aws-con-fault-injection-simulator/">Ingeniería de caos en AWS con fault injection simulator</a></li><li><a href="https://dondeaprendoaws.com/blog/observabilidad-en-aws-con-amazon-x-ray/">Observabilidad en AWS con Amazon X-Ray</a></li><li><a href="https://dondeaprendoaws.com/blog/personalizacion-en-tiempo-real-con-aws-casos-de-uso/">Personalización en tiempo real con AWS: casos de uso</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/">Introducción a la inteligencia artificial en AWS</a></li>
-</ul>
-</p>
+Ayudan a comprobar escenarios definidos. Completa después las pruebas con dispositivos, redes y datos representativos de tu entorno. Conserva por separado qué observaste en el broker, en el procesamiento y en el dispositivo: cada resultado responde una pregunta distinta.

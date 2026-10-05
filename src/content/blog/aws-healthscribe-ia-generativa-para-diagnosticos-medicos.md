@@ -1,472 +1,168 @@
 ---
-title: "AWS HealthScribe: IA generativa para diagnósticos médicos"
-description: "Descubre cómo AWS HealthScribe revoluciona la documentación médica con IA generativa, reduciendo tiempos y costos y mejorando diagnósticos."
+title: "AWS HealthScribe: notas clínicas, idiomas, precios y API"
+description: "Aprende qué hace AWS HealthScribe, cómo integrar su API y cuánto cuesta. Conoce sus idiomas, límites, revisión humana y requisitos de privacidad."
 author: "guille-ojeda"
 publishedAt: "2024-05-08"
 publishedTimestamp: "2024-05-08T02:21:01.272Z"
+modifiedTimestamp: "2026-10-05T14:54:05-03:00"
 cover: "/assets/blog/editorial-datos-ia.png"
 coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
-  - title: "Gestión de facturación de AWS: guía completa"
-    url: "https://dondeaprendoaws.com/blog/gestion-de-facturacion-de-aws-guia-completa/"
-  - title: "Detección de sesgos en modelos ML con SageMaker Clarify"
-    url: "https://dondeaprendoaws.com/blog/deteccion-de-sesgos-en-modelos-ml-con-sagemaker-clarify/"
-  - title: "Servicios de AWS para inteligencia artificial"
-    url: "https://dondeaprendoaws.com/blog/servicios-de-aws-para-inteligencia-artificial/"
-
+  - title: "AWS Lambda: cómo funciona, invocaciones y concurrencia"
+    url: "https://dondeaprendoaws.com/blog/aws-lambda-en-profundidad/"
 ---
 
-<p>Precisos</p>
+**AWS HealthScribe transforma conversaciones entre pacientes y profesionales de la salud en transcripciones y borradores de notas clínicas.** Combina reconocimiento de voz e IA generativa para ayudar a documentar una consulta. Está pensado para que proveedores de software integren esa capacidad en sus aplicaciones.
 
+No diagnostica enfermedades ni sustituye el criterio clínico. AWS indica que sus resultados deben revisarse por profesionales médicos capacitados antes de utilizarlos en la atención de pacientes. Una nota puede documentar la evaluación que expresó el profesional; eso no significa que el servicio haya realizado esa evaluación. Consulta el alcance en la [guía de AWS HealthScribe](https://docs.aws.amazon.com/transcribe/latest/dg/health-scribe.html).
 
-<p><a href="https://aws.amazon.com/healthscribe/" rel="noopener noreferrer" target="_blank">AWS HealthScribe</a> es un servicio de inteligencia artificial (IA) generativa que utiliza el reconocimiento de voz y el procesamiento de lenguaje natural para transcribir conversaciones entre pacientes y médicos, y generar notas clínicas preliminares precisas y detalladas. Esto permite a los profesionales de la salud:</p>
+Si estás evaluando una integración, empieza por tres preguntas: ¿el audio está en un idioma admitido?, ¿dónde puedes procesar los datos?, ¿cómo revisará y aprobará el profesional cada borrador?
 
+## Qué entrega AWS HealthScribe
 
-<ul>
-<li>
-<p><strong>Reducir el tiempo de documentación:</strong> Al automatizar la creación de notas clínicas, AWS HealthScribe ahorra hasta un 50% del tiempo dedicado a la documentación.</p>
-</li>
-<li>
-<p><strong>Mejorar la precisión de los diagnósticos:</strong> La IA generativa identifica patrones y anomalías en los datos del paciente que pueden pasar desapercibidos, lo que conduce a diagnósticos más precisos.</p>
-</li>
-<li>
-<p><strong>Reducir los costos de documentación:</strong> Los hospitales y clínicas pueden reducir los costos de documentación en un 25% o más al disminuir la necesidad de contratar escribas médicos adicionales.</p>
-</li>
-<li>
-<p><strong>Mejorar la calidad de la atención médica:</strong> Al ahorrar tiempo y recursos, los profesionales de la salud pueden dedicarse más a la atención al paciente.</p>
-</li>
-</ul>
+El resultado tiene dos partes que tu aplicación debe presentar de forma útil:
 
+| Archivo | Contenido | Uso en la aplicación |
+| --- | --- | --- |
+| Transcripción JSON | Conversación por turnos, marcas de tiempo, roles de los participantes, secciones del diálogo y entidades clínicas mencionadas | Permitir revisar quién dijo qué y localizar el fragmento de la consulta |
+| Documentación clínica JSON | Resúmenes organizados por una plantilla de nota y referencias a la transcripción | Mostrar un borrador editable y su evidencia antes de aprobarlo |
 
-<p>AWS HealthScribe cumple con los estándares de seguridad y privacidad más estrictos, como la norma <a href="https://en.wikipedia.org/wiki/Health_Insurance_Portability_and_Accountability_Act" rel="noopener noreferrer" target="_blank">HIPAA</a>, y utiliza tecnologías de cifrado avanzadas para proteger los datos de los pacientes.</p>
+Las entidades pueden incluir medicamentos, condiciones y tratamientos **mencionados en la conversación**. No son hallazgos nuevos obtenidos de análisis clínicos. La [estructura de la transcripción](https://docs.aws.amazon.com/transcribe/latest/dg/health-scribe-transcript.html) explica los campos y roles.
 
+La plantilla predeterminada es `HISTORY_AND_PHYSICAL`, con secciones como motivo de consulta, historia de la enfermedad actual, evaluación y plan. También hay formatos como `DAP`, `BH_SOAP` y `PH_SOAP`. Cada oración del resumen incluye `EvidenceLinks` hacia los `SegmentId` relevantes de la transcripción. Estos enlaces facilitan contrastar el texto; no garantizan que sea correcto. Consulta las [plantillas y el archivo de documentación clínica](https://docs.aws.amazon.com/transcribe/latest/dg/health-scribe-insights.html).
 
-<h3 id="caracter%C3%ADsticas-clave-de-aws-healthscribe" tabindex="-1">Características clave de <a href="https://aws.amazon.com/healthscribe/" rel="noopener noreferrer" target="_blank">AWS HealthScribe</a></h3>
+## Idiomas, regiones y especialidades: comprueba el encaje primero
 
+Según la documentación técnica consultada en octubre de 2026, HealthScribe admite **inglés de Estados Unidos (`en-US`)** y está disponible en **US East (N. Virginia), `us-east-1`**. Una página de AWS traducida al español no implica que el servicio procese consultas en español.
 
-<p><figure><img alt="AWS HealthScribe" src="/assets/blog/23b9c8a0711653a73ee93f84.jpg"/></figure></p>
+La guía enumera especialidades como atención primaria, ortopedia, cardiología, pediatría, psiquiatría y cirugía, entre otras. Revisa la [lista completa de especialidades y requisitos](https://docs.aws.amazon.com/transcribe/latest/dg/health-scribe.html) para tu caso. La compatibilidad declarada no establece una precisión universal para todas las consultas de esa especialidad.
 
+Puede haber diferencias entre páginas de AWS: el [FAQ comercial](https://aws.amazon.com/healthscribe/faqs/) todavía describe procesamiento por lotes y optimización para medicina general y ortopedia, mientras la guía técnica documenta streaming y una lista más amplia. Para implementar, contrasta la guía y las referencias de las API que vas a utilizar.
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Característica</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Resumen de conversaciones clínicas</td>
-<td>Condensa conversaciones médicas en notas clínicas claras y concisas</td>
-</tr>
-<tr>
-<td>Transcripción precisa con reconocimiento de voz</td>
-<td>Transcribe conversaciones médicas con precisión</td>
-</tr>
-<tr>
-<td>Organización del diálogo clínico</td>
-<td>Organiza el diálogo clínico en secciones relevantes</td>
-</tr>
-<tr>
-<td>Mapeo de evidencia para IA confiable</td>
-<td>Garantiza la credibilidad de la documentación generada por IA</td>
-</tr>
-<tr>
-<td>Extracción de terminología médica</td>
-<td>Identifica y organiza términos médicos de conversaciones habladas</td>
-</tr>
-</tbody>
-</table></figure>
+**Si necesitas documentación clínica en español**, revisa por separado [Amazon Connect Health y su documentación ambiental](https://docs.aws.amazon.com/connecthealth/latest/userguide/ambient-documentation.html). Esa documentación declara español e inglés de Estados Unidos, y AWS recomienda explorar el producto desde su [página de HealthScribe](https://aws.amazon.com/healthscribe/). Es otro producto: tiene sus propias API, regiones, condiciones y precios. No transfieras sus capacidades a HealthScribe.
 
+## Cómo integrar la API con archivos en S3
 
-<p>En resumen, AWS HealthScribe es una herramienta innovadora que utiliza la IA generativa para mejorar la eficiencia y precisión en la atención médica, al tiempo que reduce los costos y mejora la calidad de la atención al paciente.</p>
+El flujo por lotes analiza una grabación terminada. Tu aplicación inicia el trabajo, consulta su estado y recupera los dos archivos JSON. La [guía para iniciar un trabajo](https://docs.aws.amazon.com/transcribe/latest/dg/starting-health-scribe-job.html) ofrece ejemplos con AWS CLI y SDK; también indica que la consola no admite actualmente estos trabajos.
 
+Antes de enviar la solicitud, prepara:
 
-<h2 id="desaf%C3%ADos-en-la-atenci%C3%B3n-m%C3%A9dica-con-ia" tabindex="-1">Desafíos en la atención médica con IA</h2>
+- Una versión actualizada de AWS CLI o un SDK que admita los parámetros de HealthScribe utilizados en el ejemplo.
+- Una grabación de prueba en inglés, sin datos reales de pacientes. AWS recomienda audio sin pérdida, como WAV o FLAC, con codificación PCM de 16 bits y frecuencia de muestreo de al menos 16.000 Hz.
+- El archivo en un bucket de S3 en `us-east-1`. El [bucket de entrada debe estar en la región de la solicitud](https://docs.aws.amazon.com/transcribe/latest/APIReference/API_Media.html).
+- Un bucket de salida privado y un rol IAM para que el servicio lea la entrada y escriba los resultados.
+- Permisos para que tu identidad invoque las operaciones necesarias. Confirma además las condiciones de acceso del servicio para tu cuenta; el FAQ describe una solicitud de acceso.
 
+### Ejemplo de solicitud para dos hablantes
 
-<p>La implementación de la inteligencia artificial (IA) en el sector de la atención médica enfrenta varios desafíos. A continuación, se presentan algunos de los obstáculos más comunes que impiden una mayor adopción de la IA en la atención médica.</p>
+Este ejemplo corresponde a una grabación con dos hablantes en un canal compartido. Guárdalo como `healthscribe-demo.json` y reemplaza los buckets y el ARN por tus recursos de prueba:
 
+```json
+{
+  "MedicalScribeJobName": "demo-consulta-001",
+  "Media": {
+    "MediaFileUri": "s3://tu-bucket-entrada/demo-consulta.wav"
+  },
+  "OutputBucketName": "tu-bucket-salida",
+  "DataAccessRoleArn": "arn:aws:iam::111122223333:role/HealthScribeDemoRole",
+  "Settings": {
+    "ShowSpeakerLabels": true,
+    "MaxSpeakerLabels": 2,
+    "ChannelIdentification": false,
+    "ClinicalNoteGenerationSettings": {
+      "NoteTemplate": "HISTORY_AND_PHYSICAL"
+    }
+  }
+}
+```
 
-<h3 id="errores-de-diagn%C3%B3stico-y-documentaci%C3%B3n-cl%C3%ADnica" tabindex="-1">Errores de diagnóstico y documentación clínica</h3>
+Inicia el trabajo con AWS CLI:
 
+```bash
+aws transcribe start-medical-scribe-job \
+  --region us-east-1 \
+  --cli-input-json file://healthscribe-demo.json
+```
 
-<p>La documentación clínica es un proceso fundamental en la atención médica, ya que registra información importante sobre los pacientes, como diagnósticos, tratamientos y resultados. Sin embargo, la documentación clínica manual puede ser un proceso lento y laborioso, lo que puede distraer a los médicos de la atención al paciente. Además, los errores de diagnóstico pueden tener consecuencias graves para la salud de los pacientes.</p>
+`DataAccessRoleArn` identifica el rol que usará HealthScribe, distinto de la identidad que ejecuta el comando. Su política de confianza debe permitir que `transcribe.amazonaws.com` lo asuma; necesita acceso a la entrada, la salida y las claves KMS que correspondan. Consulta los [parámetros y permisos de StartMedicalScribeJob](https://docs.aws.amazon.com/transcribe/latest/APIReference/API_StartMedicalScribeJob.html).
 
+La identidad que inicia el trabajo también necesita `iam:PassRole` para entregar ese rol al servicio, además de los permisos de Transcribe. Limita ese permiso al ARN del rol aprobado: no concede al servicio acceso a S3 por sí solo. La [guía de IAM sobre cómo pasar roles](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_passrole.html) explica la separación entre permisos de la identidad, permisos del rol y su política de confianza.
 
-<h3 id="falta-de-datos-de-alta-calidad-y-interoperabilidad" tabindex="-1">Falta de datos de alta calidad y interoperabilidad</h3>
+Debes activar exactamente una opción: `ShowSpeakerLabels` o `ChannelIdentification`. Si activas la primera, incluye `MaxSpeakerLabels`; si cada participante tiene un canal independiente y usas la segunda, configura `ChannelDefinitions`. No actives ambas. La [referencia de MedicalScribeSettings](https://docs.aws.amazon.com/transcribe/latest/APIReference/API_MedicalScribeSettings.html) detalla esas reglas.
 
+Consulta el estado con el mismo nombre:
 
-<p>La falta de datos de alta calidad y la interoperabilidad entre los sistemas de información de la atención médica son otros obstáculos importantes para la adopción de la IA en este sector. La IA requiere grandes cantidades de datos precisos y consistentes para funcionar correctamente.</p>
+```bash
+aws transcribe get-medical-scribe-job \
+  --region us-east-1 \
+  --medical-scribe-job-name demo-consulta-001
+```
 
+Una respuesta a la solicitud inicial no significa que la nota ya esté lista. Cuando `MedicalScribeJobStatus` sea `COMPLETED`, recupera `TranscriptFileUri` y `ClinicalDocumentUri` desde `MedicalScribeOutput`. Si es `FAILED`, lee `FailureReason`. Ese comportamiento está documentado en [GetMedicalScribeJob](https://docs.aws.amazon.com/transcribe/latest/APIReference/API_GetMedicalScribeJob.html).
 
-<h3 id="preocupaciones-%C3%A9ticas-y-de-seguridad" tabindex="-1">Preocupaciones éticas y de seguridad</h3>
+Si integras el flujo con Lambda, utiliza una invocación corta para iniciar el trabajo y consulta el estado en otro paso. Evita mantener una función esperando todo el procesamiento. La guía [AWS Lambda: cómo funciona, invocaciones y concurrencia](https://dondeaprendoaws.com/blog/aws-lambda-en-profundidad/) te ayuda a entender esa separación. Para aprender a coordinar pasos y esperas, mira [Serverless 101: AWS Step Functions](https://www.youtube.com/watch?v=-jDodchUccw), de Marcia Villalba; es una introducción general a la orquestación, no una integración clínica terminada.
 
+### Limpieza de la prueba
 
-<p>La IA en la atención médica también plantea preocupaciones éticas y de seguridad, como la privacidad de los pacientes y la seguridad de los datos. Es fundamental garantizar que los sistemas de IA sean seguros y éticos para proteger la confidencialidad de los pacientes y evitar cualquier daño potencial.</p>
+Cuando termines, elimina el registro del trabajo con [DeleteMedicalScribeJob](https://docs.aws.amazon.com/transcribe/latest/APIReference/API_DeleteMedicalScribeJob.html) y elimina por separado el audio y los resultados de prueba en S3. En buckets con versionado, borrar sin un identificador de versión puede dejar versiones anteriores: revisa la [eliminación de objetos y versiones](https://docs.aws.amazon.com/AmazonS3/latest/userguide/DeletingObjects.html). Retira también el [rol de prueba y sus políticas](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_manage_delete.html) si los creaste exclusivamente para este ejercicio. Borra solo recursos propios que ya no necesites; conserva los que compartas con otros flujos.
 
+## Streaming: transcripción durante la consulta, nota al finalizar
 
-<h3 id="necesidad-de-capacitaci%C3%B3n-y-educaci%C3%B3n" tabindex="-1">Necesidad de capacitación y educación</h3>
+HealthScribe también ofrece `StartMedicalScribeStream`, mediante un canal bidireccional HTTP/2. La aplicación recibe transcripción en tiempo real; los archivos de transcripción y nota clínica se generan después de finalizar la sesión y procesar su contenido.
 
+Primero envías `MedicalScribeConfigurationEvent`, luego el audio y, para iniciar el análisis final, `MedicalScribeSessionControlEvent` con `Type: END_OF_SESSION`. Cerrar el flujo sin ese evento pausa la sesión. El rol de acceso para este flujo utiliza el principal `transcribe.streaming.amazonaws.com`.
 
-<p>Finalmente, la adopción de la IA en la atención médica requiere capacitación y educación adecuadas para los profesionales de la salud. Es fundamental que los médicos y otros profesionales de la salud entiendan cómo funcionan los sistemas de IA y cómo pueden utilizarlos de manera efectiva para mejorar la atención médica.</p>
+La guía establece un máximo de dos horas de audio por sesión y permite reanudarla dentro de las cinco horas desde su creación. También distingue el soporte de SDK: Boto3 no es la opción para este streaming. Consulta el [flujo y los requisitos de HealthScribe streaming](https://docs.aws.amazon.com/transcribe/latest/dg/health-scribe-streaming.html) antes de elegir el cliente.
 
+## Revisión humana, privacidad y elegibilidad HIPAA
 
-<h4 id="desaf%C3%ADos-en-la-atenci%C3%B3n-m%C3%A9dica-con-ia-1" tabindex="-1">Desafíos en la atención médica con IA</h4>
+Diseña la pantalla de revisión como parte del producto. Un ejemplo ficticio: si el paciente dice *“I am not taking that medication”*, una nota que afirme que lo está tomando cambia el sentido clínico. El profesional debe poder abrir la evidencia, detectar el error, corregirlo y aprobar la versión final.
 
+Evalúa errores de transcripción, omisiones, afirmaciones sin respaldo y tiempo necesario para corregir la nota. Incluye muestras con ruido, acentos, interrupciones y nombres de medicamentos relevantes para tu uso. La [ficha de uso responsable de HealthScribe](https://docs.aws.amazon.com/ai/responsible-ai/aws-healthscribe/overview.html) explica estos factores y la necesidad de evaluar el servicio con contenido representativo. No hay un porcentaje de ahorro que puedas trasladar automáticamente a tu organización.
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Desafío</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Errores de diagnóstico y documentación clínica</td>
-<td>La documentación clínica manual puede ser lenta y laboriosa, lo que puede distraer a los médicos de la atención al paciente.</td>
-</tr>
-<tr>
-<td>Falta de datos de alta calidad y interoperabilidad</td>
-<td>La IA requiere grandes cantidades de datos precisos y consistentes para funcionar correctamente.</td>
-</tr>
-<tr>
-<td>Preocupaciones éticas y de seguridad</td>
-<td>La IA en la atención médica plantea preocupaciones éticas y de seguridad, como la privacidad de los pacientes y la seguridad de los datos.</td>
-</tr>
-<tr>
-<td>Necesidad de capacitación y educación</td>
-<td>La adopción de la IA en la atención médica requiere capacitación y educación adecuadas para los profesionales de la salud.</td>
-</tr>
-</tbody>
-</table></figure>
+**HealthScribe es elegible para HIPAA; utilizarlo no hace que una aplicación cumpla automáticamente esa normativa.** Cuando HIPAA sea aplicable, AWS describe el acuerdo BAA y la obligación de utilizar servicios elegibles para procesar, almacenar o transmitir información de salud protegida. Revisa las [condiciones de HIPAA en AWS](https://aws.amazon.com/compliance/hipaa-compliance/) junto con quienes gestionan privacidad y cumplimiento en tu organización. La elegibilidad tampoco resuelve por sí sola las reglas de grabación o protección de datos que correspondan en tu país.
 
+AWS declara que HealthScribe cifra los datos en tránsito y en reposo y no utiliza el contenido procesado para entrenar sus modelos. Su [FAQ de privacidad](https://aws.amazon.com/healthscribe/faqs/) indica que elimina los datos del servicio después de entregar el resultado. Eso no borra las grabaciones ni los resultados que conserves en tus buckets: tú defines sus permisos, retención y eliminación.
 
-<p>En resumen, la adopción de la IA en la atención médica enfrenta varios desafíos. Sin embargo, con la solución adecuada, como AWS HealthScribe, es posible superar estos obstáculos y mejorar la atención médica.</p>
+Puedes especificar una clave administrada por el cliente para añadir una capa de cifrado; revisa los permisos y costos de KMS en la [guía de cifrado de HealthScribe](https://docs.aws.amazon.com/transcribe/latest/dg/health-scribe-encryption.html). Evita incluir datos sensibles en nombres, etiquetas o contextos de cifrado que puedan aparecer en registros.
 
+Si necesitas bases para implementar esos controles, empieza con [qué es AWS IAM](https://www.youtube.com/watch?v=t51vW-BDwF0), de Marcia Villalba, y las [diapositivas de Mario Inga sobre AWS KMS](https://es.slideshare.net/slideshow/dominando-aws-kms-desde-cifrado-bsico-hasta-firma-avanzada-aws-community-day-2024/267436804), del AWS Community Day Perú 2024. Para el contexto de IA generativa, la [charla de Gerardo Castro sobre protección de datos con Bedrock](https://www.nerdearla.com/nerdflix/dDtL7OXTNnQ/) es una grabación de Nerdearla 2024 sobre acceso, cifrado y privacidad; no certifica una implementación de HealthScribe.
 
-<h2 id="%C2%BFqu%C3%A9-es-aws-healthscribe%3F" tabindex="-1">¿Qué es AWS HealthScribe?</h2>
+## Cuánto cuesta AWS HealthScribe
 
+La [página de precios](https://aws.amazon.com/healthscribe/pricing/) consultada en octubre de 2026 publica **USD 0,001667 por segundo de audio**, aproximadamente USD 0,10 por minuto, con facturación en incrementos de un segundo y un mínimo de 15 segundos por solicitud.
 
-<p>AWS HealthScribe es un servicio de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">Amazon Web Services</a> (AWS) que utiliza inteligencia artificial generativa para mejorar la documentación clínica y los procesos diagnósticos en la atención médica. Este servicio se centra en automatizar la creación de notas clínicas preliminares a partir de conversaciones entre pacientes y médicos, lo que puede ahorrar tiempo y reducir la carga administrativa para los profesionales de la salud.</p>
+Por ejemplo, 100 grabaciones de 20 minutos suman 2.000 minutos: el procesamiento costaría aproximadamente **USD 200**, antes de beneficios aplicables, impuestos y otros servicios. Presupuesta también almacenamiento y solicitudes de S3, KMS si usas claves propias y los componentes de tu aplicación.
 
+La página anuncia hasta 300 minutos mensuales gratuitos durante los primeros dos meses. Comprueba la elegibilidad y las condiciones vigentes para tu cuenta antes de asumir que una prueba no tendrá costo. El costo de procesar audio tampoco equivale al ahorro operativo: debes contar la revisión y corrección del borrador.
 
-<h3 id="caracter%C3%ADsticas-de-aws-healthscribe" tabindex="-1">Características de AWS HealthScribe</h3>
+## Preguntas y problemas frecuentes
 
+### ¿HealthScribe es lo mismo que Amazon Transcribe Medical?
 
-<ul>
-<li>Utiliza reconocimiento de voz y procesamiento de lenguaje natural para analizar las conversaciones y generar notas clínicas precisas y detalladas.</li>
-<li>Se basa en la tecnología de <a href="https://aws.amazon.com/bedrock/" rel="noopener noreferrer" target="_blank">Amazon Bedrock</a>, que proporciona una plataforma de aprendizaje automático escalable y segura para el desarrollo de modelos de lenguaje.</li>
-<li>Permite a los proveedores de atención médica crear aplicaciones clínicas que automatizan la documentación clínica, lo que puede mejorar la precisión y la eficiencia en la atención médica.</li>
-</ul>
+No. [Amazon Transcribe Medical](https://docs.aws.amazon.com/transcribe/latest/dg/transcribe-medical.html) se centra en transcribir voz médica, como dictados y conversaciones. HealthScribe añade documentación clínica generada y vínculos de evidencia. Si solo necesitas transcribir, compara ese alcance antes de elegir.
 
+### ¿Por qué aparece ConflictException?
 
-<h3 id="beneficios-de-aws-healthscribe" tabindex="-1">Beneficios de AWS HealthScribe</h3>
+El nombre del trabajo ya existe en la cuenta. Usa un nombre único para una consulta nueva; si estás comprobando una solicitud anterior, consulta ese trabajo antes de crear otro. La [referencia de StartMedicalScribeJob](https://docs.aws.amazon.com/transcribe/latest/APIReference/API_StartMedicalScribeJob.html) documenta el conflicto.
 
+### ¿Qué reviso si el trabajo falla o no encuentro la salida?
 
-<ul>
-<li>Reducir el tiempo de documentación y la carga administrativa para los profesionales de la salud.</li>
-<li>Mejorar la precisión y la eficiencia en la atención médica.</li>
-<li>Ayudar a reducir los errores de diagnóstico y mejorar la calidad de la atención médica en general.</li>
-</ul>
+Consulta primero `FailureReason`. Comprueba la región y la URI del objeto de entrada, el nombre del bucket de salida —sin prefijo `s3://`—, los permisos del rol y las claves KMS. Ante un error de acceso al iniciar la solicitud, revisa también `iam:PassRole` en la identidad que la envía. Revisa la configuración de hablantes y canales. Si el trabajo está en curso, todavía no tienes un resultado final; utiliza [GetMedicalScribeJob](https://docs.aws.amazon.com/transcribe/latest/APIReference/API_GetMedicalScribeJob.html) para distinguirlo de un fallo.
 
+### ¿Una transcripción correcta garantiza una buena nota?
 
-<h2 id="mejora-de-los-diagn%C3%B3sticos-con-aws-healthscribe" tabindex="-1">Mejora de los diagnósticos con AWS HealthScribe</h2>
+No. La nota puede omitir información o resumirla mal aunque las palabras se hayan reconocido correctamente. Evalúa transcripción y resumen por separado, y conserva la revisión profesional antes de finalizar la documentación.
 
+## Continúa aprendiendo con la comunidad
 
-<p>AWS HealthScribe es una herramienta innovadora que utiliza inteligencia artificial generativa para mejorar la precisión y eficiencia en la atención médica. Al automatizar la creación de notas clínicas preliminares a partir de conversaciones entre pacientes y médicos, AWS HealthScribe puede ayudar a reducir errores de diagnóstico y mejorar la calidad de la atención médica en general.</p>
+Para ver una explicación en español del caso de uso, mira [La IA a tu servicio: mejorando la salud con AWS HealthScribe](https://www.youtube.com/watch?v=6kYEhGvrzNw), de Julissa Rodriguez, publicada por AWS Girls Argentina. Es una **grabación del AWS Community Day Argentina 2024**, no un evento futuro. Contrasta sus ejemplos históricos con la documentación actual de idiomas, API y condiciones.
 
+Después puedes continuar según la duda que estés resolviendo:
 
-<h3 id="diagn%C3%B3sticos-precisos-con-ia-generativa" tabindex="-1">Diagnósticos precisos con IA generativa</h3>
+- [AWS Girls Argentina](https://www.meetup.com/aws-girls-argentina/) conecta a mujeres que quieren aprender y compartir conocimientos de AWS; su perfil publica encuentros y vías para participar.
+- [AWS UG Machine Learning Latam](https://www.meetup.com/aws-ug-machine-learning-latam/) reúne personas interesadas en difundir aprendizaje de machine learning en Latinoamérica. Es un lugar para llevar preguntas sobre evaluación de modelos y resultados.
+- [AWS Security Users Group LatAm](https://www.meetup.com/awssecuritylatam/) comparte seguridad de AWS para usuarios hispanohablantes. Puedes consultar su actividad y las [grabaciones de su canal](https://www.youtube.com/@AWSSecurityLATAM) para profundizar en permisos, cifrado y controles.
 
-
-<p>La inteligencia artificial generativa en AWS HealthScribe permite una comprensión más detallada de los datos del paciente. Al analizar conversaciones entre pacientes y médicos, AWS HealthScribe puede identificar patrones y anomalías que pueden pasar desapercibidos para los profesionales de la salud.</p>
-
-
-<h3 id="simplificaci%C3%B3n-de-la-documentaci%C3%B3n-cl%C3%ADnica" tabindex="-1">Simplificación de la documentación clínica</h3>
-
-
-<p>Además de mejorar la precisión de los diagnósticos, AWS HealthScribe también puede ayudar a reducir la carga administrativa para los profesionales de la salud. Al automatizar la creación de notas clínicas, AWS HealthScribe puede ahorrar tiempo y recursos que pueden ser utilizados para atender a más pacientes y mejorar la calidad de la atención médica.</p>
-
-
-<h4 id="ventajas-de-aws-healthscribe" tabindex="-1">Ventajas de AWS HealthScribe</h4>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventaja</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Diagnósticos más precisos</td>
-<td>Identifica patrones y anomalías en los datos del paciente</td>
-</tr>
-<tr>
-<td>Reducción de la carga administrativa</td>
-<td>Ahorra tiempo y recursos para los profesionales de la salud</td>
-</tr>
-<tr>
-<td>Mejora de la calidad de la atención médica</td>
-<td>Permite a los profesionales de la salud atender a más pacientes y mejorar la calidad de la atención médica</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h2 id="caracter%C3%ADsticas-de-aws-healthscribe-1" tabindex="-1">Características de AWS HealthScribe</h2>
-
-
-<p>AWS HealthScribe ofrece varias características innovadoras que lo convierten en una herramienta valiosa para la atención médica. A continuación, se presentan algunas de las características clave de AWS HealthScribe.</p>
-
-
-<h3 id="resumen-de-conversaciones-cl%C3%ADnicas" tabindex="-1">Resumen de conversaciones clínicas</h3>
-
-
-<p>AWS HealthScribe puede condensar conversaciones médicas en notas clínicas claras y concisas. Esto permite a los profesionales de la salud acceder rápidamente a la información importante y reducir el tiempo que se pasa en la documentación.</p>
-
-
-<h3 id="transcripci%C3%B3n-precisa-con-reconocimiento-de-voz" tabindex="-1">Transcripción precisa con reconocimiento de voz</h3>
-
-
-<p>AWS HealthScribe utiliza tecnología de reconocimiento de voz avanzada para transcribir conversaciones médicas con precisión.</p>
-
-
-<h3 id="organizaci%C3%B3n-del-di%C3%A1logo-cl%C3%ADnico" tabindex="-1">Organización del diálogo clínico</h3>
-
-
-<p>AWS HealthScribe organiza el diálogo clínico en secciones relevantes para la atención médica. Esto facilita la búsqueda y el acceso a la información importante y reduce el tiempo que se pasa revisando la documentación.</p>
-
-
-<h3 id="mapeo-de-evidencia-para-ia-confiable" tabindex="-1">Mapeo de evidencia para IA confiable</h3>
-
-
-<p>AWS HealthScribe utiliza mapeo de evidencia para garantizar la credibilidad de la documentación generada por IA.</p>
-
-
-<h3 id="extracci%C3%B3n-de-terminolog%C3%ADa-m%C3%A9dica" tabindex="-1">Extracción de terminología médica</h3>
-
-
-<p>AWS HealthScribe puede identificar y organizar términos médicos de conversaciones habladas.</p>
-
-
-<h4 id="caracter%C3%ADsticas-de-aws-healthscribe-2" tabindex="-1">Características de AWS HealthScribe</h4>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Característica</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Resumen de Conversaciones Clínicas</td>
-<td>Condensa conversaciones médicas en notas clínicas claras y concisas</td>
-</tr>
-<tr>
-<td>Transcripción Precisa con Reconocimiento de Voz</td>
-<td>Transcribe conversaciones médicas con precisión utilizando tecnología de reconocimiento de voz avanzada</td>
-</tr>
-<tr>
-<td>Organización del Diálogo Clínico</td>
-<td>Organiza el diálogo clínico en secciones relevantes para la atención médica</td>
-</tr>
-<tr>
-<td>Mapeo de Evidencia para IA Confiable</td>
-<td>Garantiza la credibilidad de la documentación generada por IA</td>
-</tr>
-<tr>
-<td>Extracción de Terminología Médica</td>
-<td>Identifica y organiza términos médicos de conversaciones habladas</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Estas características, entre otras, convierten a AWS HealthScribe en una herramienta valiosa para la atención médica. Al automatizar la documentación clínica y mejorar la precisión, AWS HealthScribe puede ayudar a reducir errores y mejorar la calidad de la atención médica en general.</p>
-
-
-<h2 id="seguridad-y-cumplimiento" tabindex="-1">Seguridad y cumplimiento</h2>
-
-
-<p>AWS HealthScribe es un servicio que cumple con la norma HIPAA y se compromete a proteger la privacidad de los datos de los pacientes y a cumplir con los estándares regulatorios de la atención médica.</p>
-
-
-<h3 id="protecci%C3%B3n-de-datos" tabindex="-1">Protección de datos</h3>
-
-
-<p>AWS HealthScribe utiliza tecnologías de cifrado avanzadas para proteger los datos en tránsito y en reposo. Además, no retiene los datos de los clientes después de cumplir con la solicitud.</p>
-
-
-<h3 id="controles-de-acceso" tabindex="-1">Controles de acceso</h3>
-
-
-<p>AWS HealthScribe ofrece controles de acceso robustos para garantizar que solo los usuarios autorizados tengan acceso a los datos de los pacientes. Los usuarios pueden utilizar <a href="https://aws.amazon.com/iam/" rel="noopener noreferrer" target="_blank">AWS Identity and Access Management</a> (IAM) para controlar quién tiene acceso a los recursos de AWS HealthScribe y qué acciones pueden realizar.</p>
-
-
-<h3 id="cumplimiento-con-normas" tabindex="-1">Cumplimiento con normas</h3>
-
-
-<p>AWS HealthScribe cumple con los estándares de seguridad y privacidad más estrictos, incluyendo la norma HIPAA, para garantizar la confidencialidad, integridad y disponibilidad de los datos de los pacientes.</p>
-
-
-<h4 id="caracter%C3%ADsticas-de-seguridad" tabindex="-1">Características de seguridad</h4>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Característica</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Cifrado avanzado</td>
-<td>Protege los datos en tránsito y en reposo</td>
-</tr>
-<tr>
-<td>Controles de acceso</td>
-<td>Garantiza que solo los usuarios autorizados tengan acceso a los datos de los pacientes</td>
-</tr>
-<tr>
-<td>Cumplimiento con normas</td>
-<td>Cumple con los estándares de seguridad y privacidad más estrictos, incluyendo la norma HIPAA</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>En resumen, AWS HealthScribe se compromete a proteger la privacidad y seguridad de los datos de los pacientes, y a cumplir con los estándares regulatorios de la atención médica.</p>
-
-
-<h2 id="beneficios-en-el-mundo-real" tabindex="-1">Beneficios en el mundo real</h2>
-
-
-<p>En la práctica, AWS HealthScribe ha demostrado ser una herramienta valiosa para mejorar la eficiencia y reducir costos en la documentación médica. A continuación, se presentan algunos ejemplos de cómo AWS HealthScribe ha beneficiado a los profesionales de la salud y a los pacientes.</p>
-
-
-<h3 id="mejora-de-la-eficiencia-para-los-escribas-m%C3%A9dicos" tabindex="-1">Mejora de la eficiencia para los escribas médicos</h3>
-
-
-<p>Uno de los principales beneficios de AWS HealthScribe es la capacidad de mejorar la eficiencia de los escribas médicos. Al automatizar la documentación, los escribas médicos pueden dedicar más tiempo a tareas más importantes, como brindar atención al paciente y realizar tareas administrativas.</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Beneficio</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Ahorro de tiempo</td>
-<td>Los escribas médicos pueden ahorrar hasta 50% de tiempo en la documentación</td>
-</tr>
-<tr>
-<td>Mejora de la atención al paciente</td>
-<td>Los escribas médicos pueden dedicar más tiempo a la atención al paciente</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Por ejemplo, un hospital de atención primaria utilizó AWS HealthScribe para automatizar la documentación de sus pacientes. Después de implementar la solución, el hospital encontró que los escribas médicos podían completar la documentación en un 30% menos de tiempo, lo que les permitió dedicar más tiempo a la atención al paciente.</p>
-
-
-<h3 id="reducci%C3%B3n-de-costos-de-documentaci%C3%B3n" tabindex="-1">Reducción de costos de documentación</h3>
-
-
-<p>Otro beneficio importante de AWS HealthScribe es la reducción de costos en la documentación. Al automatizar la documentación, los hospitales y clínicas pueden reducir significativamente los costos asociados con la contratación de escribas médicos y la gestión de la documentación.</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Beneficio</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Reducción de costos</td>
-<td>Los hospitales y clínicas pueden reducir los costos de documentación en un 25% o más</td>
-</tr>
-<tr>
-<td>Mejora de la eficiencia</td>
-<td>La automatización de la documentación reduce la necesidad de contratar escribas médicos adicionales</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>En resumen, AWS HealthScribe ha demostrado ser una herramienta valiosa para mejorar la eficiencia y reducir costos en la documentación médica. Al automatizar la documentación, los profesionales de la salud pueden dedicar más tiempo a la atención al paciente y reducir los costos asociados con la gestión de la documentación.</p>
-
-
-<h2 id="el-futuro-de-la-ia-en-la-atenci%C3%B3n-m%C3%A9dica" tabindex="-1">El futuro de la IA en la atención médica</h2>
-
-
-<p>La inteligencia artificial (IA) está revolucionando la atención médica. Con la capacidad de mejorar la precisión y la eficiencia en la documentación clínica, la IA puede cambiar la forma en que se brinda atención médica. AWS HealthScribe es solo el comienzo de esta revolución.</p>
-
-
-<h3 id="mejora-de-la-precisi%C3%B3n-en-el-diagn%C3%B3stico" tabindex="-1">Mejora de la precisión en el diagnóstico</h3>
-
-
-<p>En el futuro, la IA puede ayudar a los profesionales de la salud a diagnosticar enfermedades de manera más precisa y rápida. Esto permitirá un tratamiento más eficaz y personalizado.</p>
-
-
-<h3 id="reducci%C3%B3n-de-costos" tabindex="-1">Reducción de costos</h3>
-
-
-<p>La IA también puede reducir los costos de la atención médica al automatizar tareas administrativas y reducir el tiempo de documentación.</p>
-
-
-<h3 id="mejora-de-la-experiencia-del-paciente" tabindex="-1">Mejora de la experiencia del paciente</h3>
-
-
-<p>La IA puede mejorar la experiencia del paciente al proporcionar acceso a información médica precisa y actualizada. Esto permitirá a los pacientes tomar decisiones informadas sobre su atención médica.</p>
-
-
-<h4 id="ventajas-de-la-ia-en-la-atenci%C3%B3n-m%C3%A9dica" tabindex="-1">Ventajas de la IA en la atención médica</h4>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventaja</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Mejora de la precisión en el diagnóstico</td>
-<td>Diagnósticos más precisos y rápidos</td>
-</tr>
-<tr>
-<td>Reducción de costos</td>
-<td>Reducción de los costos de la atención médica</td>
-</tr>
-<tr>
-<td>Mejora de la experiencia del paciente</td>
-<td>Acceso a información médica precisa y actualizada</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>En resumen, el futuro de la IA en la atención médica es emocionante y prometedor. AWS HealthScribe es solo el comienzo de esta revolución, y su impacto en la atención médica será significativo.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/como-desarrollar-aplicaciones-de-inteligencia-artificial-en-aws/">Cómo desarrollar aplicaciones de inteligencia artificial en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-machine-learning-en-aws/">Mejores prácticas de machine learning en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/">arquitecturas multi-región en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/">Introducción a la inteligencia artificial en AWS</a></li>
-</ul>
-</p>
+Lleva una pregunta concreta y ejemplos sintéticos: por ejemplo, cómo separar permisos de entrada y salida o cómo mostrar evidencia junto al borrador. No compartas grabaciones ni historias clínicas de pacientes en espacios públicos. En el directorio de [comunidades AWS](/comunidades/) puedes encontrar otros grupos, y en [eventos](/eventos/) consultar las actividades publicadas para seguir aprendiendo.

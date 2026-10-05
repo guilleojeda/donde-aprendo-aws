@@ -1,128 +1,123 @@
 ---
-title: "AWS Lambda en profundidad"
-description: "Descubre todo sobre AWS Lambda, desde cómo funciona y cómo usarlo hasta las mejores prácticas de seguridad y las últimas innovaciones. Aprende a optimizar y monitorear tus funciones Lambda."
+title: "AWS Lambda: cómo funciona, invocaciones y concurrencia"
+description: "Entiende el ciclo de vida de AWS Lambda, eventos, reintentos, concurrencia y límites. Aprende a diagnosticar fallos y continúa con recursos en español."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T02:11:48.464Z"
+modifiedTimestamp: "2026-10-05T14:54:05-03:00"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Configurar CORS en HTTP API Gateway"
-    url: "https://dondeaprendoaws.com/blog/configurar-cors-en-http-api-gateway/"
-  - title: "Ahorro de costos en AWS con instancias reservadas y Savings Plans"
-    url: "https://dondeaprendoaws.com/blog/ahorro-de-costos-en-aws-con-instancias-reservadas-y-savings-plans/"
-  - title: "AWS seguridad: mejores prácticas"
-    url: "https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/"
-
+  - title: "AWS Lambda y API Gateway: crea una HTTP API paso a paso"
+    url: "https://dondeaprendoaws.com/blog/aws-lambda-y-api-gateway-guia-basica/"
+  - title: "AWS Lambda: cómo medir costo y rendimiento"
+    url: "https://dondeaprendoaws.com/blog/aws-lambda-costo-vs-rendimiento/"
 ---
 
-<p>AWS Lambda te permite desplegar aplicaciones y servicios sin preocuparte por los servidores. Aquí te comparto una guía completa para entender y aprovechar AWS Lambda al máximo:</p>
-<ul><li><strong>AWS Lambda</strong>: Ejecuta código en respuesta a eventos sin gestionar servidores.</li><li><strong>Lenguajes soportados</strong>: Incluye Node.js, Python, Java, C#, y Go.</li><li><strong>Integración con AWS</strong>: Se conecta fácilmente con otros servicios como S3, DynamoDB, y API Gateway.</li><li><strong>Pago por uso</strong>: Solo pagas por el tiempo de ejecución de tu código.</li><li><strong>Sin servidores</strong>: Centra tu atención en el código, no en la infraestructura.</li></ul>
-<h3 id="primeros-pasos">Primeros pasos</h3>
-<ul><li>Crea una cuenta en AWS.</li><li>Accede a la consola de Lambda.</li><li>Elige un lenguaje y escribe tu función.</li><li>Define un evento disparador.</li><li>Prueba y despliega tu función.</li></ul>
-<h3 id="optimizaci%C3%B3n-y-monitoreo">Optimización y monitoreo</h3>
-<ul><li><strong>Rendimiento</strong>: Optimiza el tamaño del código y elige el lenguaje adecuado.</li><li><strong>Monitoreo</strong>: Usa CloudWatch y AWS X-Ray para supervisar el funcionamiento.</li></ul>
-<h3 id="seguridad">Seguridad</h3>
-<ul><li>Implementa prácticas de seguridad como el uso de roles de IAM y la encriptación de datos.</li></ul>
-<h3 id="%C2%BFqu%C3%A9-es-aws-lambda%3F">¿Qué es AWS Lambda?</h3>
-<p>AWS Lambda es un servicio que te permite correr código sin necesitar tus propios servidores. Imagina que puedes hacer que tu código trabaje por ti solo cuando lo necesitas, y lo mejor, solo pagas por el tiempo que realmente se usa.</p>
-<p>Lo que debes saber:</p>
-<ul><li>Puede empezar a trabajar automáticamente cuando algo sucede, como cuando alguien visita tu página o cuando cambian datos.</li><li>Funciona con varios lenguajes de programación como Node.js, Python, Java, C# y Go.</li><li>Se lleva bien con otros servicios de AWS, facilitando guardar datos o enviar alertas.</li><li>Ajusta automáticamente cuánto poder de computación necesita, sin que tengas que hacer nada.</li><li>Solo pagas por el tiempo en que tu código está corriendo.</li></ul>
-<p>En pocas palabras, con Lambda, te enfocas en tu código y te olvidas de los servidores.</p>
-<h3 id="%C2%BFc%C3%B3mo-funciona-aws-lambda%3F">¿Cómo funciona AWS Lambda?</h3>
-<p>De forma sencilla, Lambda funciona así:</p>
-<ul><li>Subes tu código a Lambda como una "función".</li><li>La función espera quietita hasta que algo la activa.</li><li>Cuando eso pasa, Lambda se pone en marcha y corre tu función automáticamente.</li><li>La función hace su trabajo con los datos que recibe y luego termina.</li><li>Lambda se encarga de cerrar todo cuando la función ha terminado.</li></ul>
-<p>Lambda puede manejar muchas solicitudes a la vez, ajustándose automáticamente. Solo se paga por el tiempo que tu código está activo.</p>
-<h3 id="ventajas-de-usar-aws-lambda">Ventajas de usar AWS Lambda</h3>
-<p>Algunas ventajas de usar Lambda son:</p>
-<ul><li><strong>Sin preocupaciones de servidores</strong>: Olvídate de comprar, mantener o actualizar servidores. Lambda lo hace por ti.</li><li><strong>Siempre disponible</strong>: Lambda está diseñado para no fallar, está siempre listo para trabajar.</li><li><strong>Se ajusta solo</strong>: No importa si tienes muchas o pocas solicitudes, Lambda se adapta.</li><li><strong>Fácil de combinar</strong>: Funciona bien con otros servicios de AWS, haciendo más fácil armar proyectos.</li><li><strong>Costos bajos</strong>: Con un modelo de pago por uso y una capa gratuita, puedes ahorrar mucho.</li></ul>
-<p>En resumen, Lambda te ayuda a enfocarte en crear y mejorar tu código, sin las complicaciones de los servidores.</p>
-<h2 id="configuraci%C3%B3n-y-despliegue-de-aws-lambda">Configuración y despliegue de AWS Lambda</h2>
-<h3 id="primeros-pasos-con-aws-lambda">Primeros pasos con AWS Lambda</h3>
-<p>Para empezar con AWS Lambda, solo sigue estos pasos simples:</p>
-<ul><li>Si no tienes una, crea una cuenta en AWS.</li><li>Ve a la parte de Lambda en la consola de AWS.</li><li>Puedes empezar una función Lambda desde cero o elegir una plantilla.</li><li>Elige el lenguaje en el que vas a programar (como Node.js, Python, Java, etc).</li><li>Escribe el código de tu función directamente en la página web.</li><li>Define qué va a hacer que tu función se active (por ejemplo, que se active cuando alguien sube un archivo a S3).</li><li>Antes de seguir, prueba tu función para asegurarte de que funciona bien.</li><li>Si todo va bien, ¡ya estás listo para usar tu función Lambda!</li></ul>
-<p>Al principio puede parecer un poco complicado, pero AWS tiene guías muy claras y aprenderás rápido. Pronto estarás haciendo funciones Lambda útiles.</p>
-<h3 id="despliegue-de-funciones">Despliegue de funciones</h3>
-<p>Hay varias maneras de poner en marcha tus funciones Lambda:</p>
-<ul><li><strong>Consola de AWS:</strong> Es fácil de usar para crear, probar y cambiar tus funciones. Ideal para empezar.</li><li><strong>AWS CLI:</strong> Para los que prefieren usar la línea de comandos. Bueno para cuando ya tienes todo listo para subir.</li><li><strong>AWS SAM:</strong> Aquí usas un archivo YAML para decirle a AWS cómo quieres que sea tu función. Es bastante usado.</li><li><strong>AWS CloudFormation:</strong> Te permite describir y subir tu función y todo lo que necesita usando código.</li><li><strong>Terraform:</strong> Otra herramienta para manejar tu infraestructura como código, incluyendo funciones Lambda.</li></ul>
-<p><strong>Mejores prácticas</strong></p>
-<p>Cuando subas tus funciones Lambda, es bueno:</p>
-<ul><li>Usar control de versiones (como Git) para manejar los cambios en tu código.</li><li>Hacer pruebas automáticas para asegurarte de que todo funciona bien.</li><li>Poder subir y quitar cambios rápidamente usando código.</li><li>Mantener separados los ambientes de desarrollo, pruebas y producción.</li><li>Seguir las métricas de tus funciones, como cuánto tardan, errores y cuántas veces se usan.</li><li>Controlar el acceso a recursos usando roles de IAM.</li></ul>
-<p>Siguiendo estos consejos, podrás subir tus funciones Lambda de manera segura y eficiente.</p>
-<h2 id="aws-lambda-en-acci%C3%B3n">AWS Lambda en acción</h2>
-<h3 id="casos-de-uso">Casos de uso</h3>
-<p>AWS Lambda se puede usar para muchas cosas diferentes. Aquí tienes algunos ejemplos:</p>
-<ul><li><strong>Procesamiento de datos</strong>: Es perfecto para organizar, cambiar y analizar datos. Puedes hacer que trabaje con servicios como S3, DynamoDB o Kinesis para que empiece a procesar apenas lleguen datos nuevos.</li><li><strong>APIs y backends</strong>: Puedes usar Lambda para crear APIs y backends que se ajustan automáticamente según la demanda. Usando API Gateway, puedes crear APIs sin preocuparte por servidores.</li><li><strong>Procesamiento de streams</strong>: Úsalo para trabajar con flujos de datos de Kinesis o DynamoDB Streams y analizar esos datos al momento.</li><li><strong>Chatbots</strong>: Con Lambda, puedes hacer chatbots que responden a eventos. Se puede conectar con servicios como Amazon Lex o Amazon Connect.</li><li><strong>IoT</strong>: Permite que tus dispositivos IoT llamen a funciones sin servidores para procesar datos o tomar acciones basadas en eventos específicos.</li><li><strong>Operaciones DevOps</strong>: Usa Lambda para automatizar tareas de DevOps como pruebas, integración y despliegue.</li></ul>
-<p>Hay muchas más posibilidades, y la lista sigue creciendo a medida que AWS añade más servicios compatibles con Lambda.</p>
-<h3 id="integraciones">Integraciones</h3>
-<p>Lo bueno de AWS Lambda es que se lleva bien con muchos otros servicios de AWS, lo que te permite hacer mucho más.</p>
-<p>Algunas integraciones usuales son:</p>
-<ul><li><strong>Amazon API Gateway</strong>: Te ayuda a crear y manejar APIs fácilmente, sin tener que lidiar con servidores. API Gateway dirige las solicitudes a tus funciones Lambda.</li><li><strong>Amazon S3</strong>: Puedes hacer que Lambda se active cuando se suben archivos a S3, lo que es útil para procesar datos o cambiar formato de archivos.</li><li><strong>Amazon DynamoDB</strong>: Conecta con los eventos de DynamoDB Streams para que Lambda procese cambios en tus tablas en tiempo real.</li><li><strong>AWS Step Functions</strong>: Te permite organizar funciones Lambda en flujos de trabajo visuales. Es genial para procesos ETL, comercio electrónico, IoT y más.</li><li><strong>Amazon Kinesis</strong>: Con Lambda, puedes manejar y analizar grandes cantidades de datos en tiempo real, provenientes de muchas fuentes.</li><li><strong>Amazon SNS</strong>: Llama a funciones Lambda en respuesta a mensajes de SNS para enviar notificaciones, SMS, emails y más.</li></ul>
-<p>La lista de servicios compatibles es larga e incluye desde bases de datos como Amazon Aurora sin servidor hasta servicios de aprendizaje automático como SageMaker. ¡Tienes un montón de opciones para explorar!</p>
-<h2 id="arquitectura-de-aws-lambda">Arquitectura de AWS Lambda</h2>
-<h3 id="%C2%BFc%C3%B3mo-funciona-a-bajo-nivel-lambda%3F">¿Cómo funciona a bajo nivel Lambda?</h3>
-<p>AWS Lambda guarda tu código en sus servidores, esperando a que algo lo active, como por ejemplo, un cambio en un archivo o una solicitud de una página web. Cuando esto pasa, AWS Lambda prepara una especie de cajita, llamada contenedor, donde tu código puede correr. Este contenedor tiene todo lo necesario para que tu código funcione bien.</p>
-<p>Después de que tu código hace su trabajo, Lambda se encarga de cerrar el contenedor y no usar más recursos. Solo pagas por el tiempo que tu código estuvo activo. Si hay otra tarea, Lambda abre un nuevo contenedor y así sucesivamente, pudiendo manejar muchas tareas al mismo tiempo.</p>
-<p>En pocas palabras, con Lambda, tú solo te preocupas por tu código. AWS se encarga de darle un lugar para correr, manejar cuántos recursos usar y hacer que todo funcione rápido y sin problemas.</p>
-<h3 id="manejo-de-cold-starts">Manejo de cold starts</h3>
-<p>A veces, cuando tu función Lambda no se ha usado por un rato, puede tardar un poco en empezar. Esto se llama un "cold start". Pero hay maneras de hacer que esto no sea un problema:</p>
-<ul><li>Trata de mantener tu función simple, sin cosas que no necesitas. Esto ayuda a que arranque más rápido.</li><li>Guarda información que no cambia mucho, como conexiones a bases de datos, para no tener que cargarla cada vez.</li><li>Escoge un lenguaje de programación que sea rápido de arrancar, como .NET Core o Node.js.</li><li>Usa "capas" para separar tu código de lo básico que necesita para correr. Esto también ayuda a que arranque más rápido.</li><li>Puedes configurar algo llamado "provisioned concurrency" para tener contenedores listos y esperando.</li><li>Otra idea es enviar señales pequeñas a tu función de vez en cuando para mantenerla activa.</li></ul>
-<p>Con estas estrategias, puedes hacer que el tiempo de espera por un cold start sea muy corto, manteniendo tu aplicación rápida incluso cuando recién empieza a correr después de estar inactiva.</p>
-<h2 id="seguridad-en-aws-lambda">Seguridad en AWS Lambda</h2>
-<h3 id="mejores-pr%C3%A1cticas-de-seguridad">Mejores prácticas de seguridad</h3>
-<p>Para mantener tus funciones Lambda seguras, es buena idea seguir estos consejos:</p>
-<ul><li>Utiliza roles de IAM para determinar a qué recursos puede acceder tu función. Dale solo los permisos que realmente necesita.</li><li>Revisa bien todo lo que entra a tu función para evitar que te metan código malicioso.</li><li>Si manejas información delicada, asegúrate de encriptarla usando AWS KMS o similares. No dejes contraseñas o claves de API a la vista.</li><li>Para más seguridad, pon tus funciones en sus propias VPCs, así controlas mejor el acceso.</li><li>Activa CloudWatch Logs para tener un registro de lo que hacen tus funciones y poder revisarlo.</li><li>Considera usar WAF para bloquear solicitudes peligrosas antes de que lleguen a tus funciones Lambda a través de API Gateway.</li><li>No te olvides de hacer chequeos de seguridad regularmente para encontrar y solucionar posibles problemas.</li></ul>
-<p>Siguiendo estos consejos, tus aplicaciones sin servidores estarán más protegidas.</p>
-<h3 id="herramientas-de-seguridad-lambda">Herramientas de seguridad Lambda</h3>
-<p>AWS tiene herramientas que te ayudan a cuidar la seguridad de tus funciones Lambda:</p>
-<ul><li><strong>AWS Config</strong>: Te avisa si hay cambios en tus configuraciones que pueden ser un riesgo.</li><li><strong>AWS Security Hub</strong>: Es como un centro de control de seguridad que junta información de diferentes fuentes.</li><li><strong>Amazon GuardDuty</strong>: Está siempre revisando tu cuenta en busca de cosas raras que puedan ser señales de alerta.</li><li><strong>AWS Lambda Insights</strong>: Una extensión de CloudWatch que te da más detalles para entender y solucionar problemas en tus funciones.</li><li><strong>AWS X-Ray</strong>: Te ayuda a seguir las solicitudes a través de tus servicios y encontrar dónde están los problemas o demoras.</li><li><strong>AWS Shield</strong>: Protege tus aplicaciones de ataques DDoS automáticamente, incluyendo las que usan Lambda y API Gateway.</li></ul>
-<p>Con estas herramientas, puedes tener un mejor control y reacción ante problemas de seguridad en tus aplicaciones sin servidores.</p>
-<h2 id="optimizaci%C3%B3n-y-monitoreo-1">Optimización y monitoreo</h2>
-<h3 id="optimizaci%C3%B3n-del-rendimiento">Optimización del rendimiento</h3>
-<p>Para que tus funciones de AWS Lambda funcionen mejor y más rápido, intenta lo siguiente:</p>
-<ul><li><strong>Reduce el tamaño de tu código</strong>: Si tienes menos código y dependencias, tu función se iniciará más rápido. Quita lo que no necesites.</li><li><strong>Escoge el mejor lenguaje para tu caso</strong>: Algunos lenguajes de programación, como Node.js o Python, pueden ser más rápidos para ciertas tareas. Elige el que mejor se ajuste.</li><li><strong>Organiza tu código con capas</strong>: Esto ayuda a que solo se descargue lo nuevo o lo que cambia, haciendo que todo sea más rápido.</li><li><strong>Activa contenedores que siempre estén listos</strong>: Esto se llama concurrencia aprovisionada y significa que tienes contenedores esperando, así no tienes que esperar a que se preparen.</li><li><strong>Guarda información que no cambia</strong>: Si tu función se conecta a bases de datos o servicios, intenta mantener esa conexión abierta para usarla de nuevo.</li><li><strong>Mira cómo va todo</strong>: Con herramientas como CloudWatch, puedes ver cuánto tardan tus funciones, si hay errores y cómo se están usando los recursos. Usa esa información para hacer mejoras.</li></ul>
-<h3 id="monitoreo-y-registro">Monitoreo y registro</h3>
-<p>Para mantener un ojo en cómo funcionan tus servicios sin servidores, puedes usar:</p>
-<ul><li><strong>CloudWatch Logs</strong>: Aquí puedes ver qué hace tu función, si hay errores y otros detalles importantes para solucionar problemas.</li><li><strong>CloudWatch Metrics</strong>: Te da información en tiempo real sobre cuántas veces se usa tu función, cuánto tarda, errores y más.</li><li><strong>AWS X-Ray</strong>: Te ayuda a entender mejor cómo funciona tu aplicación, mostrando qué pasa con las solicitudes a través de diferentes servicios.</li><li><strong>Amazon CloudWatch Lambda Insights</strong>: Te da más detalles sobre el rendimiento de tus funciones y los errores que puedan tener.</li><li><strong>Tableros personalizados</strong>: Puedes crear tus propios paneles en CloudWatch para tener toda la información importante en un solo lugar.</li></ul>
-<p>No olvides configurar alarmas para que te avisen si algo necesita tu atención. Así podrás arreglar problemas de rendimiento o errores rápidamente.</p>
-<h2 id="extensiones-y-herramientas-de-desarrollo">Extensiones y herramientas de desarrollo</h2>
-<h3 id="extensiones-de-aws-lambda">Extensiones de AWS Lambda</h3>
-<p>AWS Lambda ofrece algunas herramientas extra que te ayudan a hacer más cosas:</p>
-<p><strong>AWS Lambda Powertools</strong> - Es un conjunto de herramientas para que escribir y manejar tus funciones Lambda sea más fácil. Incluye ayuda para registrar lo que pasa en tus funciones, medir cómo van, y asegurarte de que los datos que reciben son correctos.</p>
-<p><strong>AWS Lambda Layers</strong> - Te permite compartir código o librerías entre varias funciones sin tener que copiarlas en cada una. Es como tener una caja de herramientas compartida.</p>
-<p><strong>AWS Lambda Extensions API</strong> - Es una manera de conectar herramientas externas directamente con tus funciones Lambda para ayudarte a solucionar problemas, seguir lo que hacen y ajustar cómo trabajan.</p>
-<p><strong>AWS Lambda Insights</strong> - Es un extra de CloudWatch que te muestra en detalle cómo están funcionando tus funciones Lambda, ofreciéndote información sobre el uso, errores y más.</p>
-<p><strong>AWS Lambda Container Image Support</strong> - Te permite usar imágenes de Docker para crear tus funciones Lambda. Esto es útil si ya tienes aplicaciones en Docker y quieres llevarlas a Lambda.</p>
-<h3 id="herramientas-de-desarrollo">Herramientas de desarrollo</h3>
-<p>Hay varias herramientas que hacen más fácil trabajar con funciones Lambda:</p>
-<ul><li>AWS SAM CLI - Una herramienta de línea de comandos para construir, probar e implementar aplicaciones sin servidores usando AWS SAM.</li><li>AWS Toolkit - Un conjunto de complementos para programas como VSCode, IntelliJ y Eclipse que te ayudan a desarrollar aplicaciones sin servidores.</li><li>AWS CDK - Te permite definir tu infraestructura de AWS con código, usando lenguajes como TypeScript, Python y Java.</li><li>Serverless Framework - Un marco de trabajo de código abierto para construir aplicaciones sin servidores en AWS Lambda.</li><li>SAM Local - Te permite probar y solucionar problemas de tus aplicaciones sin servidores localmente antes de subirlas a Lambda.</li></ul>
-<p>Además, AWS Lambda ofrece SDKs para varios lenguajes de programación como JavaScript, Python, Java, Go, C# y Ruby, lo que te permite conectar fácilmente tus funciones con otros servicios de AWS.</p>
-<p>Con todas estas herramientas, desarrollar aplicaciones sin servidores en AWS Lambda puede ser mucho más rápido y sencillo.</p>
-<h2 id="futuro-de-aws-lambda">Futuro de AWS Lambda</h2>
-<h3 id="innovaciones-recientes">Innovaciones recientes</h3>
-<p>AWS Lambda ha mejorado mucho últimamente. Aquí tienes algunas novedades:</p>
-<ul><li><strong>Soporte para contenedores</strong>: Ahora puedes usar contenedores Docker con tus funciones Lambda. Esto es genial si ya tienes apps en Docker y quieres pasarlas a Lambda.</li><li><strong>Funciones de inicio rápido</strong>: AWS Lambda puede mantener tus funciones listas para que respondan más rápido, reduciendo el tiempo que tardan en empezar.</li><li><strong>Capacidad extendida</strong>: Ahora puedes usar hasta 10 GB de RAM y 6 vCPUs con Lambda, lo que te permite hacer cosas más complejas.</li><li><strong>Integración con Grafana</strong>: Puedes ver cómo van tus funciones Lambda usando Grafana, junto con datos de otros servicios.</li><li><strong>Compatibilidad con Ruby</strong>: Ahora también puedes escribir tus funciones Lambda en Ruby.</li><li><strong>Soporte para Amazon Linux 2</strong>: Las funciones Lambda usan Amazon Linux 2, que es más seguro y está más actualizado.</li><li><strong>AWS Lambda Powertools</strong>: Son herramientas que te ayudan a desarrollar, solucionar problemas y manejar tus funciones Lambda más fácilmente.</li></ul>
-<p>Estas mejoras hacen que Lambda sea aún más útil para diferentes proyectos.</p>
-<h3 id="hacia-d%C3%B3nde-se-dirige-aws-lambda">Hacia dónde se dirige AWS Lambda</h3>
-<p>Se espera que AWS Lambda mejore en varios aspectos:</p>
-<ul><li><strong>Tiempos de inicio más rápidos</strong>: Trabajan para que las funciones empiecen casi al instante.</li><li><strong>Más integración con otros servicios</strong>: Quieren que sea más fácil usar Lambda con otros servicios de AWS para bases de datos, almacenamiento y redes.</li><li><strong>Soporte para más lenguajes</strong>: Planean agregar soporte para otros lenguajes de programación como Rust, Haskell y Swift.</li><li><strong>Optimización automática</strong>: Podrían usar aprendizaje automático para ajustar los recursos y configuraciones de tus funciones automáticamente.</li><li><strong>Facturación por solicitud</strong>: Están considerando un nuevo modelo de facturación que se base en el número de solicitudes, no en el consumo de recursos.</li><li><strong>Entornos consistentes</strong>: Quieren que puedas tener entornos de Lambda iguales en diferentes regiones para que todo funcione sin problemas.</li><li><strong>Ejecución de funciones más prolongada</strong>: Buscan permitir que las funciones se ejecuten por más tiempo, no solo unos minutos.</li></ul>
-<p>Con estos cambios, AWS Lambda quiere seguir siendo una de las mejores opciones para crear aplicaciones sin servidores en la nube.</p>
-<h2 id="conclusi%C3%B3n">Conclusión</h2>
-<p>AWS Lambda es una herramienta que nos ayuda a crear aplicaciones sin tener que preocuparnos por los servidores. A lo largo de esta guía, hemos visto desde lo más básico hasta cómo sacarle el máximo provecho, pasando por su funcionamiento, ejemplos de uso, cómo se lleva con otros servicios de AWS, su estructura, cómo mantenerla segura, cómo mejorarla y cómo mantener todo bajo control.</p>
-<p>Los puntos principales que hemos cubierto son:</p>
-<ul><li>Con Lambda, puedes hacer que tu código se ejecute en la nube sin tener que manejar tú mismo los servidores. Solo pagas por el tiempo que tu código está activo.</li><li>Funciona bien con muchos otros servicios de AWS, como DynamoDB, S3 y API Gateway.</li><li>Puede manejar desde pocas solicitudes al día hasta millones en segundos.</li><li>Tiene una oferta gratuita para que puedas probarlo sin gastar.</li><li>Hay varias maneras de trabajar con Lambda, como usar la consola de AWS, AWS SAM y Terraform.</li><li>Sirve para muchas cosas, como procesar datos, crear APIs, hacer chatbots, conectar con dispositivos IoT y más.</li><li>Ofrece buenas opciones de seguridad y herramientas para que puedas ver qué está pasando con tus funciones y arreglar problemas.</li><li>AWS Lambda sigue mejorando, añadiendo nuevas funciones y haciéndolo más fácil y rápido de usar.</li></ul>
-<p>En pocas palabras, AWS Lambda te quita la carga de pensar en servidores. Te da una manera flexible, que puede crecer según lo necesites y que no cuesta mucho, para hacer aplicaciones modernas basadas en eventos y sin servidores. Es una herramienta esencial para cualquier persona que desarrolle aplicaciones en la nube.</p>
-<h2 id="preguntas-relacionadas">Preguntas relacionadas</h2>
-<h3 id="%C2%BFqu%C3%A9-es-aws-lambda-y-para-qu%C3%A9-se-usa%3F">¿Qué es AWS Lambda y para qué se usa?</h3>
-<p>AWS Lambda es un servicio que te permite ejecutar código para diferentes tipos de aplicaciones o servicios sin que tengas que preocuparte por los servidores. Esto quiere decir que no necesitas configurar o mantener servidores físicos para que tu código funcione.</p>
-<p>Con Lambda, solo pagas por el tiempo que tu código está corriendo. Si tu código no se está ejecutando, no pagas nada. Esto es ideal para tareas que no necesitan correr todo el tiempo, como responder a acciones específicas (por ejemplo, cuando alguien hace clic en tu página web o cuando se actualizan datos).</p>
-<p>Lambda soporta varios lenguajes de programación, como Node.js, Python, Java y C#, y se integra bien con otros servicios de AWS. Esto lo hace perfecto para crear aplicaciones sin servidores, APIs, procesar información de dispositivos IoT, análisis de datos, y más.</p>
-<h3 id="%C2%BFc%C3%B3mo-probar-un-lambda%3F">¿Cómo probar un Lambda?</h3>
-<p>Para probar una función Lambda desde la consola de AWS:</p>
-<ul><li>Ve a la sección de Funciones en la consola de Lambda.</li><li>Selecciona el nombre de la función que quieres probar.</li><li>Haz clic en la pestaña "Test".</li><li>En "Evento de prueba", elige "Crear evento nuevo" o "Editar evento guardado", y luego selecciona el evento que quieres usar.</li><li>Pulsa "Test" para ejecutar la función.</li></ul>
-<p>También puedes probar una función Lambda de otras maneras:</p>
-<ul><li>Usando la línea de comandos con AWS CLI</li><li>Con herramientas como SAM CLI o Serverless Framework para correrla localmente</li><li>Configurando un desencadenante (trigger) para que se ejecute con un evento real</li><li>Revisando los registros y métricas en CloudWatch</li></ul>
-<p>Probar tus funciones Lambda mientras las desarrollas te ayuda a encontrar y solucionar problemas antes de que estén en vivo.</p>
-<h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS fundamentos: guía de inicio rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/utilizando-lambda-layers-en-multiples-funciones-lambda/">Utilizando Lambda layers en múltiples funciones Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a serverless en AWS</a></li></ul>
+AWS Lambda ejecuta tu código en respuesta a eventos y administra la infraestructura donde corre. Para usarlo bien necesitas entender **qué recibe tu función, quién la invoca, cómo se repiten los intentos y cuántas ejecuciones pueden coincidir**. El escalado automático no elimina los límites ni vuelve infalibles tus dependencias.
+
+Esta guía explica las funciones con el modo de cómputo predeterminado de Lambda. Si quieres construir una API, continúa con [Lambda y API Gateway paso a paso](https://dondeaprendoaws.com/blog/aws-lambda-y-api-gateway-guia-basica/); para elegir memoria y comparar configuraciones, usa la guía de [costo y rendimiento](https://dondeaprendoaws.com/blog/aws-lambda-costo-vs-rendimiento/).
+
+## Qué hace Lambda y qué sigue siendo tu responsabilidad
+
+Una función combina código, runtime, configuración y un rol de ejecución. El **handler** es el punto de entrada: recibe un evento y un contexto, realiza una tarea y devuelve un resultado o un error. AWS administra los servidores; tú defines la lógica, permisos, dependencias, tiempos de espera y comportamiento ante fallos. La [guía del modelo de programación](https://docs.aws.amazon.com/lambda/latest/dg/foundation-progmodel.html) describe ese contrato.
+
+Lambda encaja en tareas como transformar un archivo al llegar a S3, responder una consulta HTTP o procesar mensajes de una cola. Una invocación breve también puede iniciar un trabajo batch en otro servicio y guardar su identificador. Consulta el estado en una ejecución posterior o coordina el flujo con un servicio adecuado; mantener la función esperando consume tiempo y puede terminar en un timeout.
+
+Antes de añadir una función que solo reenvía datos, revisa las integraciones directas disponibles. [Llamar APIs desde Step Functions con SAM, de Andres Moreno](https://www.andmore.dev/es/blog/http-invoke-with-sam/), muestra una alternativa concreta a una Lambda intermediaria. No todos los pasos de una aplicación serverless necesitan código propio.
+
+## El entorno de ejecución puede reutilizarse
+
+El [ciclo de vida del entorno de Lambda](https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtime-environment.html) incluye inicialización, invocación y apagado:
+
+1. **Init:** se prepara el runtime y se ejecuta la inicialización de tu código, como cargar librerías o crear clientes.
+2. **Invoke:** corre el handler con el evento recibido.
+3. **Reutilización o apagado:** Lambda puede conservar y congelar el entorno para otra llamada, o retirarlo.
+
+La preparación de un entorno nuevo produce un **cold start** y agrega latencia. Una llamada posterior puede aprovechar un entorno ya inicializado, pero no tienes garantía de recibir el mismo. Un aumento del tráfico también puede requerir entornos nuevos aunque la función se haya invocado recientemente.
+
+Puedes crear clientes reutilizables fuera del handler, comprobando conexiones caducadas. Mantén los datos de cada usuario dentro de la invocación: una variable global con información de la solicitud anterior puede contaminar la siguiente. `/tmp` sirve como almacenamiento temporal y caché local; no es una base de datos ni un lugar confiable para conservar el estado de la aplicación.
+
+Las capas permiten compartir dependencias, pero no hacen que una función arranque más rápido por sí solas. [Empaquetar con esbuild en lugar de capas](https://www.andmore.dev/es/blog/layerless-esbuild-lambda/), también de Andres Moreno, compara una forma de distribuir código compartido. Evalúa tamaño, dependencias y mantenimiento con tu proyecto, sin convertir una técnica de empaquetado en una promesa de rendimiento.
+
+## Sincronía, asincronía y fuentes de eventos
+
+El contenido de `event` depende de quien invoca la función. No existe un único JSON universal para HTTP, S3 y SQS. Estas tres formas de entrega también tienen comportamientos diferentes:
+
+| Forma de invocación | Ejemplo | Qué ocurre con el resultado y los fallos |
+| --- | --- | --- |
+| Síncrona | API Gateway o una llamada directa con respuesta | El invocador espera el resultado. Debes revisar cómo ese cliente o servicio maneja los errores y reintentos. |
+| Asíncrona | Notificación de S3 | Lambda acepta el evento en una cola interna y lo procesa después. Aceptado no significa completado. |
+| Mapeo de fuente de eventos | SQS, Kinesis o DynamoDB Streams | Lambda lee mensajes o registros y los entrega al handler. Los lotes, reintentos y orden dependen de la fuente. |
+
+La [documentación de invocaciones](https://docs.aws.amazon.com/lambda/latest/dg/lambda-invocation.html) y la de [comportamiento de reintentos](https://docs.aws.amazon.com/lambda/latest/dg/invocation-retries.html) son el punto de partida para elegir el contrato correcto. API Gateway no vuelve a invocar automáticamente una función que falló: devuelve el error al cliente, según la [guía de errores de esa integración](https://docs.aws.amazon.com/lambda/latest/dg/services-apigateway-errors.html).
+
+### Reintentos y duplicados no son lo mismo
+
+En la [invocación asíncrona](https://docs.aws.amazon.com/lambda/latest/dg/invocation-async-error-handling.html), un error de la función genera dos intentos adicionales de forma predeterminada. Los errores de capacidad o del servicio siguen otra política. Puedes ajustar antigüedad y reintentos, y capturar invocaciones fallidas con destinos o eventos descartados con una cola de mensajes no procesados. Incluso una ejecución exitosa puede recibir un evento repetido.
+
+Por eso, diseña tareas **idempotentes**: repetir la misma operación no debe duplicar su efecto. Por ejemplo, usa el identificador estable del pedido para registrar de manera persistente si ya se procesó, con una escritura condicional o transacción. Un conjunto guardado en la memoria de una Lambda no protege frente a otros entornos ni frente a su reemplazo.
+
+Con [SQS y Lambda](https://docs.aws.amazon.com/lambda/latest/dg/with-sqs.html), el handler recibe un lote. Si falla y no configuras respuestas parciales, pueden repetirse mensajes que ya procesaste correctamente. Revisa el timeout de visibilidad, la política de redrive y el procesamiento parcial del lote; no copies la configuración de reintentos asíncronos de Lambda a esta integración.
+
+Para ver un diseño completo, [Procesamiento serverless orientado a eventos, de Alfredo Domínguez](https://www.alfredo-dominguez.dev/arquitecturas/03-event-driven-serverless/), ofrece un ejemplo de arquitectura. La grabación [Lambda y Amazon EventBridge con Diana Alfaro](https://www.youtube.com/watch?v=cmBR1BxFSj0) es otra entrada en español a los eventos; contrasta los pasos de consola de cualquier grabación con la documentación vigente.
+
+## Cómo escala Lambda y qué significa concurrencia
+
+La **concurrencia** cuenta las invocaciones en curso. En el modo predeterminado, cada entorno atiende una invocación a la vez; el servicio añade entornos para atender llamadas simultáneas. Una estimación inicial es:
+
+```text
+concurrencia media ≈ solicitudes por segundo × duración media en segundos
+100 solicitudes/s × 0,2 s = 20 ejecuciones simultáneas
+```
+
+Es una estimación de capacidad, no una garantía sobre picos. La [guía de escalado](https://docs.aws.amazon.com/lambda/latest/dg/lambda-concurrency.html) explica también los límites de solicitudes por segundo y la velocidad de crecimiento. Una ráfaga, una base de datos lenta o una cuota compartida pueden producir throttling aunque el promedio parezca bajo.
+
+| Configuración | Para qué sirve | Qué debes tener en cuenta |
+| --- | --- | --- |
+| Concurrencia sin reservar | Comparte la capacidad disponible de la cuenta y región | Otras funciones pueden consumirla. |
+| Concurrencia reservada | Aparta capacidad para una función y establece su máximo | No prepara entornos ni elimina cold starts. Configurarla no añade un cargo propio. |
+| Concurrencia aprovisionada | Mantiene una cantidad de entornos inicializados | Tiene costo adicional y se configura sobre una versión o alias. |
+
+La [concurrencia reservada](https://docs.aws.amazon.com/lambda/latest/dg/configuration-concurrency.html) puede ayudar a proteger una base de datos de demasiadas conexiones, siempre que valores también los mensajes pendientes o solicitudes rechazadas. Con [concurrencia aprovisionada](https://docs.aws.amazon.com/lambda/latest/dg/provisioned-concurrency.html), la integración debe invocar la versión o alias configurado; el tráfico excedente puede usar capacidad bajo demanda y tener cold starts.
+
+## Límites que conviene comprobar antes de diseñar
+
+Para el modo predeterminado, la [tabla de cuotas de Lambda](https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-limits.html) documenta una duración máxima por invocación de 900 segundos, memoria de 128 a 10.240 MB y `/tmp` de 512 a 10.240 MB. La cuota general publicada de concurrencia es 1.000 por cuenta y región, pero las cuentas nuevas pueden comenzar con valores menores: consulta **Service Quotas** en tu cuenta.
+
+Los límites del servicio que llama a Lambda también importan. Una API HTTP puede agotar su tiempo de integración mucho antes que la función. Para archivos grandes suele ser mejor enviar una referencia de S3 y procesar el objeto que intentar meterlo completo en el evento.
+
+No extrapoles esta tabla a todos los productos de Lambda. [Lambda Managed Instances](https://docs.aws.amazon.com/lambda/latest/dg/lambda-managed-instances.html) tiene un modelo de capacidad distinto y admite hasta 90 minutos en determinados tipos de invocación. Las [funciones durables](https://docs.aws.amazon.com/lambda/latest/dg/durable-functions.html) permiten flujos con pasos y esperas persistidos; la duración de ese flujo no equivale al tiempo de una invocación individual. Revisa también los límites específicos de una respuesta en streaming antes de aplicarle los de una respuesta buffered.
+
+## Permisos, red y observabilidad
+
+Separa dos preguntas: **¿qué puede hacer el código?** y **¿quién puede invocar la función?** El rol de ejecución responde la primera; las políticas aplicables a los invocadores y al recurso responden la segunda. La [guía de permisos de Lambda](https://docs.aws.amazon.com/lambda/latest/dg/lambda-permissions.html) explica esta separación. Un permiso para leer una tabla no concede a API Gateway permiso para llamar a la función.
+
+Conecta Lambda a una VPC cuando necesite alcanzar recursos privados. No es un requisito universal de seguridad. Una función en una subred pública no obtiene automáticamente una IP pública; para salida a internet revisa rutas y el mecanismo de egreso en la [guía de conectividad VPC](https://docs.aws.amazon.com/lambda/latest/dg/configuration-vpc-internet.html).
+
+Para diagnosticar problemas, combina logs con métricas: `Errors`, `Throttles`, `Duration` y `ConcurrentExecutions`. En sistemas asíncronos observa además la edad y el descarte de eventos o los indicadores de la fuente. Las [métricas de Lambda](https://docs.aws.amazon.com/lambda/latest/dg/monitoring-metrics-types.html) describen qué cuenta cada señal. Un HTTP 400 que tu handler devuelve como respuesta válida no es automáticamente un error de ejecución de Lambda.
+
+Registra identificadores y resultados sin volcar secretos o cuerpos sensibles. [Búfer de logs con Lambda Powertools](https://www.andmore.dev/es/blog/log-buffering/) muestra una herramienta concreta para gestionar logs; el artículo de Diana Alfaro sobre [ejecuciones concurrentes y CloudWatch](https://blog.alfalfita.cloud/identificando-ejecuciones-concurrentes-de-lambdas-sobre-una-cuenta-con-amazon-cloudwatch) ayuda a explorar la señal de concurrencia.
+
+## Continúa aprendiendo con creadores y comunidades
+
+Si necesitas reforzar la base, tienes [Fundamentos de AWS Lambda: cómo se ejecuta tu código](https://builder.aws.com/content/3FoaikPUMJDyJPdt0qHQ6igjiDm/fundamentos-de-aws-lambda-cmo-se-ejecuta-tu-cdigo-sin-servidores) y el curso [Todo sobre AWS Lambda, de Marcia Villalba](https://join.desplegando.cloud/curso/todo-sobre-lambda/?utm_campaign=link&utm_content=lambda&utm_medium=link&utm_source=marciadev). Revisa acceso y condiciones del curso antes de inscribirte. Para seguir cambios del servicio, [Desplegando.cloud](https://desplegando.substack.com/) publica noticias y recursos en español. [AndMore Dev](https://www.andmore.dev/es/) y [Alfalfita, el blog de Diana Alfaro](https://blog.alfalfita.cloud/), reúnen más ejemplos técnicos.
+
+Lleva una pregunta concreta a [AWS User Group Serverless Colombia](https://www.meetup.com/aws-user-group-serverless-colombia/): comparte tipo de evento, modo de invocación, error e identificadores sin datos privados. Su encuentro online [El Combo Indestructible de AWS: SQS + Lambda](https://www.meetup.com/aws-user-group-serverless-colombia/events/316770520/) está anunciado para el **20 de octubre de 2026, de 19:00 a 21:00 GMT-5**; comprueba en el enlace si mantiene fecha e inscripción. Después de esa fecha, consulta las nuevas actividades del grupo.
+
+También puedes aprender acompañado en [AWS Women Colombia](https://awswomencolombia.com/), [AWS User Group Buenos Aires](https://www.meetup.com/aws-user-group-buenos-aires/) o [AWS User Group Ciudad de México](https://awsugcdmx.com/). Sus sitios permiten conocer actividades y formas de participar; una comunidad general de AWS también es útil para conversar sobre IAM, redes y observabilidad alrededor de Lambda.
+
+## Preguntas frecuentes
+
+### ¿Serverless significa que no hay servidores?
+
+Hay infraestructura de cómputo, pero AWS administra su operación. Tu aplicación sigue necesitando código seguro, límites, recuperación ante fallos y observabilidad.
+
+### ¿El estado global se comparte entre todas las invocaciones?
+
+No. Puede persistir dentro de un entorno reutilizado, pero no se comparte de manera confiable con otros. Conserva el estado importante en un almacenamiento externo.
+
+### ¿Debo usar concurrencia aprovisionada desde el principio?
+
+Primero mide la latencia que percibe tu usuario y comprueba si la inicialización explica el problema. La capacidad preparada tiene costo y no acelera una consulta lenta a una dependencia. La siguiente guía de la serie te permite practicar el contrato HTTP; la de costo y rendimiento te ayuda a evaluar los ajustes.
