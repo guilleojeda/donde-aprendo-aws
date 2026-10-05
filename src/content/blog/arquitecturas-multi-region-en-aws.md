@@ -7,14 +7,13 @@ publishedTimestamp: "2024-03-09T00:52:38.092Z"
 modifiedTimestamp: "2026-10-05T00:26:22-03:00"
 review:
   date: "2026-10-05"
-cover: "/assets/blog/bafde793116d5b5e38a659da.jpg"
-coverAlt: "Globo terráqueo con líneas de conexión y nubes alrededor"
-ogImage: "/assets/blog/bafde793116d5b5e38a659da.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Alta disponibilidad en AWS: arquitectura Multi-AZ para una app web"
     url: "https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/"
-    image: "/assets/blog/1b184fe1242c3e7fb970e984.jpg"
-    imageAlt: "Varias nubes y círculos con un ojo conectados sobre un mapa esquemático"
+
 ---
 
 Una arquitectura multi-región en AWS tiene sentido cuando una aplicación debe recuperarse de una interrupción regional, sus objetivos de recuperación no se alcanzan en una sola región o necesita atender usuarios desde varias ubicaciones. Si el riesgo que quieres cubrir es la falla de una zona de disponibilidad, una arquitectura Multi-AZ puede ser suficiente y más simple de operar.

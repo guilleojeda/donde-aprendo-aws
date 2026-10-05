@@ -1,25 +1,20 @@
 ---
-title: "Mejores Prácticas Para Amazon S3"
+title: "Mejores prácticas para Amazon S3"
 description: "Descubre cómo maximizar Amazon S3 para tus necesidades de almacenamiento, manteniendo tus datos seguros y optimizando costos. Aprende sobre seguridad, rendimiento, optimización de costos, auditoría y monitorización."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T04:13:21.58Z"
-cover: "/assets/blog/7dc90730b1402ed9efe1a10b.jpg"
-coverAlt: "Candado dentro de una nube delineada, rodeado por escudos y anillos punteados"
-ogImage: "/assets/blog/7dc90730b1402ed9efe1a10b.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "Configurar CORS en HTTP API Gateway"
     url: "https://dondeaprendoaws.com/blog/configurar-cors-en-http-api-gateway/"
-    image: "/assets/blog/b7ca17278c2b7e43c95dfeec.jpg"
-    imageAlt: ""
-  - title: "10 Estrategias de Optimización de Costos en AWS"
+  - title: "10 estrategias de optimización de costos en AWS"
     url: "https://dondeaprendoaws.com/blog/10-estrategias-de-optimizacion-de-costos-en-aws/"
-    image: "/assets/blog/74f152c85b46e1ac5ea004f9.jpg"
-    imageAlt: ""
-  - title: "10 Laboratorios Prácticos de AWS para Principiantes"
+  - title: "10 laboratorios prácticos de AWS para principiantes"
     url: "https://dondeaprendoaws.com/blog/10-laboratorios-practicos-de-aws-para-principiantes/"
-    image: "/assets/blog/e9f2fc671d3e9516f2345bb7.png"
-    imageAlt: ""
+
 ---
 
 <p>Descubre cómo maximizar Amazon S3 para tus necesidades de almacenamiento, manteniendo tus datos seguros y optimizando costos:</p>
@@ -160,7 +155,7 @@ related:
 
 
 
-<h2 id="auditor%C3%ADa-y-monitoreo-de-amazon-s3" tabindex="-1">Auditoría y Monitoreo de Amazon S3</h2>
+<h2 id="auditor%C3%ADa-y-monitoreo-de-amazon-s3" tabindex="-1">Auditoría y monitoreo de Amazon S3</h2>
 
 
 <h3 id="integraci%C3%B3n-con-cloudtrail" tabindex="-1">Integración con CloudTrail</h3>
@@ -219,7 +214,7 @@ related:
 <p>Sí, hasta cierto punto. Cada mes puedes enviar hasta 100 GB de datos desde S3 a internet sin pagar nada. Mover datos entre servicios de AWS en el mismo lugar tampoco cuesta. Solo pagas si envías más de 100 GB fuera de AWS.</p>
 
 
-<h3 id="%C2%BFqu%C3%A9-es-eso-de-s3-intelligent-tiering%3F" tabindex="-1">¿Qué es eso de S3 Intelligent Tiering?</h3>
+<h3 id="%C2%BFqu%C3%A9-es-eso-de-s3-intelligent-tiering%3F" tabindex="-1">¿Qué es eso de S3 intelligent tiering?</h3>
 
 
 <p>Es una forma inteligente de S3 para ayudarte a gastar menos. Mueve tus datos automáticamente a diferentes lugares según cuánto los usas. Así no tienes que complicarte pensando dónde guardar cada cosa para ahorrar.</p>
@@ -234,6 +229,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/">Seguridad en AWS: Mejores Prácticas</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS Seguridad: Fundamentos Esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS Fundamentos: Guía de Inicio Rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores Prácticas de Seguridad en AWS</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/">seguridad en AWS: mejores prácticas</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS seguridad: fundamentos esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS fundamentos: guía de inicio rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores prácticas de seguridad en AWS</a></li>
 </ul>
 </p>

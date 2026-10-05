@@ -4,22 +4,17 @@ description: "Descubre la guía completa de escalado automático de contenedores
 author: "guille-ojeda"
 publishedAt: "2024-05-17"
 publishedTimestamp: "2024-05-17T00:30:54.181Z"
-cover: "/assets/blog/d8c29e3674fe4e59874460c0.jpg"
-coverAlt: "Nube oscura con un diagrama jerárquico de cuadros y flechas"
-ogImage: "/assets/blog/d8c29e3674fe4e59874460c0.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Configurar CORS en HTTP API Gateway"
     url: "https://dondeaprendoaws.com/blog/configurar-cors-en-http-api-gateway/"
-    image: "/assets/blog/b7ca17278c2b7e43c95dfeec.jpg"
-    imageAlt: ""
-  - title: "Análisis de Costos de AWS con Cost Explorer"
+  - title: "Análisis de costos de AWS con Cost Explorer"
     url: "https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/"
-    image: "/assets/blog/9498b87ad3dae112bf347132.jpg"
-    imageAlt: ""
-  - title: "Cómo Prepararte Para un Examen de Certificación de AWS"
+  - title: "Cómo prepararte para un examen de certificación de AWS"
     url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-preparacion-para-el-examen/"
-    image: "/assets/blog/4cb1b939d8aa6ff5e1dc2ac1.jpg"
-    imageAlt: ""
+
 ---
 
 <p>El <a href="https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/">escalado automático de contenedores</a> en <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> permite ajustar automáticamente la cantidad de recursos asignados a una aplicación según la demanda. Esto mejora el rendimiento, reduce costos y aumenta la fiabilidad. <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> ofrece varias opciones de escalado automático, como <a href="https://aws.amazon.com/autoscaling/" rel="noopener noreferrer" target="_blank">AWS Auto Scaling</a>, ECS Service Auto Scaling y Kubernetes Horizontal Pod Autoscaler.</p>
@@ -168,16 +163,16 @@ related:
 <p>En las siguientes secciones, veremos en detalle cada una de estas opciones y cómo usarlas para implementar estrategias de <a href="https://dondeaprendoaws.com/blog/como-escala-dynamodb-modos-on-demand-y-provisioned/">escalado automático en AWS</a>.</p>
 
 
-<h2 id="t%C3%A9rminos-y-conceptos-clave" tabindex="-1">Términos y Conceptos Clave</h2>
+<h2 id="t%C3%A9rminos-y-conceptos-clave" tabindex="-1">Términos y conceptos clave</h2>
 
 
-<h3 id="orquestaci%C3%B3n-de-contenedores" tabindex="-1">Orquestación de Contenedores</h3>
+<h3 id="orquestaci%C3%B3n-de-contenedores" tabindex="-1">Orquestación de contenedores</h3>
 
 
 <p>El escalado automático de contenedores se basa en la orquestación de contenedores, que es el proceso de automatizar la gestión del ciclo de vida de las aplicaciones contenerizadas. Esto incluye la creación, escalado, monitoreo y eliminación de contenedores en un clúster. En AWS, servicios como Amazon Elastic Container Service (ECS) y Amazon Elastic Container Service for Kubernetes (EKS) ofrecen orquestación de contenedores para gestionar aplicaciones contenerizadas.</p>
 
 
-<h3 id="equilibrio-de-carga" tabindex="-1">Equilibrio de Carga</h3>
+<h3 id="equilibrio-de-carga" tabindex="-1">Equilibrio de carga</h3>
 
 
 <p>El equilibrio de carga es crucial en el escalado automático de contenedores. Se refiere a distribuir el tráfico de red entre múltiples contenedores para asegurar alta disponibilidad y escalabilidad de las aplicaciones. En AWS, servicios como <a href="https://aws.amazon.com/elasticloadbalancing/" rel="noopener noreferrer" target="_blank">Elastic Load Balancer</a> (ELB) y <a href="https://aws.amazon.com/elasticloadbalancing/application-load-balancer/" rel="noopener noreferrer" target="_blank">Application Load Balancer</a> (ALB) ofrecen equilibrio de carga para distribuir el tráfico de red entre múltiples contenedores.</p>
@@ -219,13 +214,13 @@ related:
 <p>Entender estos términos es importante para implementar estrategias de escalado automático efectivas en AWS.</p>
 
 
-<h2 id="estrategias-de-escalado-autom%C3%A1tico" tabindex="-1">Estrategias de Escalado Automático</h2>
+<h2 id="estrategias-de-escalado-autom%C3%A1tico" tabindex="-1">Estrategias de escalado automático</h2>
 
 
 <p>El <a href="https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-contenedores/">escalado automático de contenedores en AWS</a> ofrece varias estrategias para ajustarse a las necesidades cambiantes de las aplicaciones. A continuación, se presentan algunas de las estrategias más comunes y sus pros y contras.</p>
 
 
-<h3 id="escalado-basado-en-uso-de-cpu" tabindex="-1">Escalado Basado en Uso de CPU</h3>
+<h3 id="escalado-basado-en-uso-de-cpu" tabindex="-1">Escalado basado en uso de CPU</h3>
 
 
 <p>Esta estrategia ajusta el número de instancias de contenedores según la carga de trabajo actual.</p>
@@ -251,7 +246,7 @@ related:
 </table></figure>
 
 
-<h3 id="escalado-basado-en-uso-de-memoria" tabindex="-1">Escalado Basado en Uso de Memoria</h3>
+<h3 id="escalado-basado-en-uso-de-memoria" tabindex="-1">Escalado basado en uso de memoria</h3>
 
 
 <p>Ajusta el número de instancias de contenedores según la cantidad de memoria disponible.</p>
@@ -277,7 +272,7 @@ related:
 </table></figure>
 
 
-<h3 id="escalado-basado-en-m%C3%A9tricas-personalizadas" tabindex="-1">Escalado Basado en Métricas Personalizadas</h3>
+<h3 id="escalado-basado-en-m%C3%A9tricas-personalizadas" tabindex="-1">Escalado basado en métricas personalizadas</h3>
 
 
 <p>Ajusta el número de instancias de contenedores según métricas específicas de la aplicación.</p>
@@ -306,7 +301,7 @@ related:
 <p>Cada estrategia tiene sus pros y contras. Es importante elegir la que mejor se ajuste a las necesidades de la aplicación y la carga de trabajo.</p>
 
 
-<h2 id="configuring-auto-scaling-in-aws" tabindex="-1">Configuring Auto-Scaling in AWS</h2>
+<h2 id="configuring-auto-scaling-in-aws" tabindex="-1">Configuring auto-scaling in AWS</h2>
 
 
 <p>Configurar el escalado automático en AWS es importante para que las aplicaciones funcionen de manera eficiente. Aquí te mostramos cómo hacerlo con diferentes servicios de AWS.</p>
@@ -340,7 +335,7 @@ related:
 </ol>
 
 
-<h3 id="configuraci%C3%B3n-de-eks-(kubernetes)-auto-scaling" tabindex="-1">Configuración de EKS (Kubernetes) Auto Scaling</h3>
+<h3 id="configuraci%C3%B3n-de-eks-(kubernetes)-auto-scaling" tabindex="-1">Configuración de EKS (Kubernetes) auto scaling</h3>
 
 
 <p>Para configurar el escalado automático en un clúster EKS, sigue estos pasos:</p>
@@ -404,13 +399,13 @@ related:
 
 
 
-<h2 id="optimizaci%C3%B3n-del-escalado-autom%C3%A1tico" tabindex="-1">Optimización del Escalado Automático</h2>
+<h2 id="optimizaci%C3%B3n-del-escalado-autom%C3%A1tico" tabindex="-1">Optimización del escalado automático</h2>
 
 
 <p>Optimizar el escalado automático es clave para que tu aplicación funcione de manera eficiente y económica en AWS. Aquí tienes algunas prácticas recomendadas y consejos para mejorar el rendimiento y la eficiencia de costos del escalado automático.</p>
 
 
-<h3 id="elecci%C3%B3n-de-m%C3%A9tricas-de-escalado" tabindex="-1">Elección de Métricas de Escalado</h3>
+<h3 id="elecci%C3%B3n-de-m%C3%A9tricas-de-escalado" tabindex="-1">Elección de métricas de escalado</h3>
 
 
 <p>Elegir las métricas de escalado correctas es esencial para que tu aplicación se escale adecuadamente. Debes seleccionar métricas que sean relevantes para la carga de trabajo y el uso de recursos de tu aplicación. Por ejemplo, si tu aplicación consume mucho CPU, puedes usar la utilización de CPU como métrica de escalado. Si consume mucha memoria, usa la utilización de memoria.</p>
@@ -419,7 +414,7 @@ related:
 <p>También puedes usar métricas personalizadas para escalar tu aplicación según necesidades específicas del negocio, como el número de solicitudes, el tiempo de respuesta o las tasas de error.</p>
 
 
-<h3 id="pruebas-de-carga-y-monitoreo" tabindex="-1">Pruebas de Carga y Monitoreo</h3>
+<h3 id="pruebas-de-carga-y-monitoreo" tabindex="-1">Pruebas de carga y monitoreo</h3>
 
 
 <p>Las pruebas de carga y el monitoreo continuo del rendimiento son esenciales para asegurar que tu aplicación pueda manejar el aumento de tráfico y escalar correctamente. Puedes usar herramientas como <a href="https://aws.amazon.com/cloudwatch/" rel="noopener noreferrer" target="_blank">AWS CloudWatch</a>, <a href="https://aws.amazon.com/xray/" rel="noopener noreferrer" target="_blank">AWS X-Ray</a> y herramientas de terceros como <a href="https://newrelic.com/" rel="noopener noreferrer" target="_blank">New Relic</a> o <a href="https://www.datadoghq.com/" rel="noopener noreferrer" target="_blank">Datadog</a> para monitorear el rendimiento de tu aplicación e identificar cuellos de botella.</p>
@@ -428,7 +423,7 @@ related:
 <p>Las pruebas de carga te ayudan a identificar la capacidad máxima de tu aplicación y aseguran que pueda manejar el aumento de tráfico sin tiempo de inactividad o degradación del rendimiento. Puedes usar herramientas como <a href="https://jmeter.apache.org/" rel="noopener noreferrer" target="_blank">Apache JMeter</a> o <a href="https://gatling.io/" rel="noopener noreferrer" target="_blank">Gatling</a> para realizar pruebas de carga.</p>
 
 
-<h3 id="gesti%C3%B3n-de-eventos-de-escalado" tabindex="-1">Gestión de Eventos de Escalado</h3>
+<h3 id="gesti%C3%B3n-de-eventos-de-escalado" tabindex="-1">Gestión de eventos de escalado</h3>
 
 
 <p>Gestionar los eventos de escalado es crucial para asegurar que tu aplicación se escale correctamente y de manera eficiente. Puedes implementar periodos de enfriamiento para evitar escalados rápidos y reducir costos. Además, puedes usar políticas de escalado para controlar el proceso de escalado y asegurar que tu aplicación se escale según condiciones específicas.</p>
@@ -437,7 +432,7 @@ related:
 <p>Por ejemplo, puedes usar una política de escalado para escalar tu aplicación basada en la utilización de CPU. Si la utilización de CPU supera un cierto umbral, la política de escalado puede desencadenar un evento de escalado para agregar más instancias.</p>
 
 
-<h3 id="gesti%C3%B3n-de-costos" tabindex="-1">Gestión de Costos</h3>
+<h3 id="gesti%C3%B3n-de-costos" tabindex="-1">Gestión de costos</h3>
 
 
 <p>La gestión de costos es esencial para asegurar que tu aplicación funcione de manera económica en AWS. Puedes usar técnicas de optimización de costos como el dimensionamiento correcto, instancias reservadas e instancias spot para reducir costos.</p>
@@ -470,13 +465,13 @@ related:
 <p>Además, puedes usar herramientas de estimación de costos como <a href="https://aws.amazon.com/aws-cost-management/aws-cost-explorer/" rel="noopener noreferrer" target="_blank">AWS Cost Explorer</a> o herramientas de terceros como <a href="https://www.parkmycloud.com/" rel="noopener noreferrer" target="_blank">ParkMyCloud</a> para estimar costos e identificar áreas para la optimización de costos.</p>
 
 
-<h2 id="troubleshooting-and-monitoring" tabindex="-1">Troubleshooting and Monitoring</h2>
+<h2 id="troubleshooting-and-monitoring" tabindex="-1">Troubleshooting and monitoring</h2>
 
 
 <p>En este artículo, hemos cubierto los conceptos básicos del escalado automático en AWS y hemos proporcionado consejos para optimizar el rendimiento y la eficiencia de costos. Sin embargo, es importante recordar que el escalado automático no siempre funciona como se espera, y es posible que debas solucionar problemas y monitorear el rendimiento de tu aplicación.</p>
 
 
-<h3 id="problemas-comunes-de-escalado-autom%C3%A1tico" tabindex="-1">Problemas Comunes de Escalado Automático</h3>
+<h3 id="problemas-comunes-de-escalado-autom%C3%A1tico" tabindex="-1">Problemas comunes de escalado automático</h3>
 
 
 <p>A continuación, se presentan algunos problemas comunes al configurar el escalado automático en AWS:</p>
@@ -509,7 +504,7 @@ related:
 <p>Para solucionar estos problemas, revisa la configuración de escalado automático, verifica las métricas de escalado y monitorea el rendimiento de tu aplicación.</p>
 
 
-<h3 id="uso-de-cloudwatch-para-monitoreo" tabindex="-1">Uso de CloudWatch para Monitoreo</h3>
+<h3 id="uso-de-cloudwatch-para-monitoreo" tabindex="-1">Uso de CloudWatch para monitoreo</h3>
 
 
 <p>AWS CloudWatch es una herramienta de monitoreo que te permite supervisar el rendimiento de tu aplicación y los recursos de AWS. Puedes utilizar CloudWatch para:</p>
@@ -528,7 +523,7 @@ related:
 </ul>
 
 
-<h3 id="depuraci%C3%B3n-de-pol%C3%ADticas-de-escalado" tabindex="-1">Depuración de Políticas de Escalado</h3>
+<h3 id="depuraci%C3%B3n-de-pol%C3%ADticas-de-escalado" tabindex="-1">Depuración de políticas de escalado</h3>
 
 
 <p>Para depurar políticas de escalado, debes:</p>
@@ -555,25 +550,25 @@ related:
 <p>Siguiendo estos consejos, podrás solucionar problemas comunes de escalado automático y monitorear el rendimiento de tu aplicación para asegurarte de que se escale correctamente y de manera eficiente.</p>
 
 
-<h2 id="ejemplos-en-el-mundo-real" tabindex="-1">Ejemplos en el Mundo Real</h2>
+<h2 id="ejemplos-en-el-mundo-real" tabindex="-1">Ejemplos en el mundo real</h2>
 
 
 <p>En este artículo, hemos cubierto los conceptos básicos del escalado automático en AWS y hemos proporcionado consejos para optimizar el rendimiento y la eficiencia de costos. A continuación, presentamos algunos ejemplos en el mundo real de implementaciones de escalado automático en AWS para ilustrar aplicaciones prácticas y beneficios.</p>
 
 
-<h3 id="aplicaci%C3%B3n-de-comercio-electr%C3%B3nico" tabindex="-1">Aplicación de Comercio Electrónico</h3>
+<h3 id="aplicaci%C3%B3n-de-comercio-electr%C3%B3nico" tabindex="-1">Aplicación de comercio electrónico</h3>
 
 
 <p>Un ejemplo de aplicación de comercio electrónico que utiliza el escalado automático es una tienda en línea que experimenta un aumento significativo en el tráfico durante las fiestas navideñas. Para manejar este aumento de tráfico, la tienda en línea configura un grupo de escalado automático que se basa en la utilización de la CPU y la memoria. Cuando el tráfico aumenta, el grupo de escalado automático agrega instancias adicionales para manejar la carga adicional. De esta manera, la tienda en línea puede manejar el aumento de tráfico sin afectar el rendimiento de la aplicación.</p>
 
 
-<h3 id="servicio-de-transmisi%C3%B3n-de-medios" tabindex="-1">Servicio de Transmisión de Medios</h3>
+<h3 id="servicio-de-transmisi%C3%B3n-de-medios" tabindex="-1">Servicio de transmisión de medios</h3>
 
 
 <p>Otro ejemplo es un servicio de transmisión de medios que utiliza el escalado automático para manejar la variable carga de usuarios. El servicio de transmisión de medios configura un grupo de escalado automático que se basa en la cantidad de usuarios conectados y el ancho de banda utilizado. Cuando la cantidad de usuarios conectados aumenta, el grupo de escalado automático agrega instancias adicionales para manejar la carga adicional. De esta manera, el servicio de transmisión de medios puede manejar la variable carga de usuarios sin afectar el rendimiento de la aplicación.</p>
 
 
-<h3 id="tuber%C3%ADa-de-procesamiento-de-datos" tabindex="-1">Tubería de Procesamiento de Datos</h3>
+<h3 id="tuber%C3%ADa-de-procesamiento-de-datos" tabindex="-1">Tubería de procesamiento de datos</h3>
 
 
 <p>Un tercer ejemplo es una tubería de procesamiento de datos que utiliza el escalado automático para manejar grandes volúmenes de datos. La tubería de procesamiento de datos configura un grupo de escalado automático que se basa en la cantidad de datos que se procesan y el tiempo de procesamiento. Cuando la cantidad de datos que se procesan aumenta, el grupo de escalado automático agrega instancias adicionales para manejar la carga adicional. De esta manera, la tubería de procesamiento de datos puede manejar grandes volúmenes de datos de manera eficiente.</p>
@@ -585,7 +580,7 @@ related:
 <h2 id="conclusion" tabindex="-1">Conclusion</h2>
 
 
-<h3 id="puntos-clave" tabindex="-1">Puntos Clave</h3>
+<h3 id="puntos-clave" tabindex="-1">Puntos clave</h3>
 
 
 <p>En este artículo, hemos cubierto los conceptos básicos del escalado automático en AWS y cómo optimizar el rendimiento y la eficiencia de costos. Algunos puntos clave son:</p>
@@ -607,7 +602,7 @@ related:
 </ul>
 
 
-<h3 id="pr%C3%B3ximos-pasos" tabindex="-1">Próximos Pasos</h3>
+<h3 id="pr%C3%B3ximos-pasos" tabindex="-1">Próximos pasos</h3>
 
 
 <p>Ahora que conoces el escalado automático en AWS, aquí hay algunos pasos siguientes:</p>
@@ -667,6 +662,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-contenedores/">Microservicios en AWS Utilizando Contenedores</a></li><li><a href="https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/">Cómo Desplegar Contenedores en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ecs/">Mejores Prácticas Para Amazon ECS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-machine-learning-en-aws/">Mejores Prácticas de Machine Learning en AWS</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-contenedores/">Microservicios en AWS utilizando contenedores</a></li><li><a href="https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/">Cómo desplegar contenedores en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ecs/">Mejores prácticas para Amazon ECS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-machine-learning-en-aws/">Mejores prácticas de machine learning en AWS</a></li>
 </ul>
 </p>

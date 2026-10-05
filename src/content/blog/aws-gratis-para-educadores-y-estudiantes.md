@@ -7,10 +7,10 @@ publishedTimestamp: "2024-01-30T19:24:56.085Z"
 modifiedTimestamp: "2026-09-30T11:36:26-03:00"
 review:
   date: "2026-09-30"
-cover: "/assets/blog/2e829a000de9165446203907.jpg"
-coverAlt: "Dos puestos con personas frente a una pantalla de aprendizaje con nubes"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
 indexOrder: 5
-ogImage: "/assets/blog/2e829a000de9165446203907.jpg"
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related: []
 ---
 
@@ -44,7 +44,7 @@ El acceso corresponde al entorno del laboratorio y a sus instrucciones. Si despu
 
 Para aprovechar la práctica, lleva una pequeña bitácora: anota qué problema resolviste, qué servicio utilizaste y qué parte te costó entender. Puedes ganar insignias digitales en el programa; úsalas para documentar tu aprendizaje y acompáñalas con una explicación de lo que hiciste.
 
-### Skill Builder para profundizar en un tema
+### Skill builder para profundizar en un tema
 
 [Skill Builder](https://aws.amazon.com/es/training/digital/) complementa esa primera experiencia con cursos oficiales. Tiene formación gratuita y otras experiencias que requieren suscripción; comprueba la condición y el idioma de cada ficha antes de empezar.
 
@@ -94,7 +94,7 @@ Si necesitas una introducción, comienza con la [primera sesión de Cloud Practi
 
 Después, relaciona la explicación con una práctica de Educate. No hace falta conocer todos los servicios para empezar: basta con poder explicar qué problema resuelve el que estás usando.
 
-Si prefieres una selección ordenada de materiales comunitarios, sigue el recorrido de [Primeros pasos en AWS](https://dondeaprendoaws.com/recorridos/#primeros-pasos). Puedes elegir el siguiente recurso según la duda que te haya dejado el laboratorio.
+Si prefieres una selección ordenada de materiales comunitarios, sigue el recorrido de [primeros pasos en AWS](https://dondeaprendoaws.com/recorridos/#primeros-pasos). Puedes elegir el siguiente recurso según la duda que te haya dejado el laboratorio.
 
 Para una duda puntual, tienes materiales más específicos:
 
@@ -130,7 +130,7 @@ Si ya estudias programación, elige una lectura que conecte AWS con lo que sabes
 
 En el [directorio de Student Builder Groups](https://dondeaprendoaws.com/comunidades/?format=Student+Builder+Group) puedes buscar grupos vinculados al ámbito estudiantil. Revisa a quién admiten y qué actividades ofrecen: las condiciones pueden variar entre grupos e instituciones.
 
-Los [User Groups de AWS](https://dondeaprendoaws.com/comunidades/?format=User+Group) son otra vía para encontrar encuentros y conversar con personas que usan AWS en distintos contextos. Para elegir una actividad, consulta la [agenda de eventos](https://dondeaprendoaws.com/eventos/) y comprueba la modalidad, el horario y los requisitos en la convocatoria del organizador.
+Los [user groups de AWS](https://dondeaprendoaws.com/comunidades/?format=User+Group) son otra vía para encontrar encuentros y conversar con personas que usan AWS en distintos contextos. Para elegir una actividad, consulta la [Agenda de eventos](https://dondeaprendoaws.com/eventos/) y comprueba la modalidad, el horario y los requisitos en la convocatoria del organizador.
 
 Puedes empezar participando con una pregunta sobre tu práctica o mostrando un error que investigaste. Incluye qué esperabas que ocurriera y qué probaste; omite contraseñas, claves y datos privados. Esa conversación puede ayudarte a comprender una decisión que en un video parecía evidente.
 

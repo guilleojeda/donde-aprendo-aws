@@ -7,6 +7,8 @@ import sharp from 'sharp';
 const candidateWidths = [360, 640, 720, 960, 1280, 1360, 1920];
 const responsiveAssetDirectory = 'assets/responsive-images';
 const imagePipelineVersion = 'responsive-images-v2-q90-webp10-byte-ceiling';
+const blogCardSizes = '(max-width: 600px) calc(100vw - 48px), (max-width: 900px) calc((100vw - 72px) / 2), (max-width: 1232px) calc((100vw - 96px) / 3), 379px';
+const blogArticleBodySizes = '(max-width: 600px) calc(100vw - 32px), (max-width: 728px) calc(100vw - 48px), 680px';
 
 const decodeAttribute = (value) => value
   .replaceAll('&amp;', '&')
@@ -65,24 +67,20 @@ async function listHtmlFiles(directory) {
   return files.flat();
 }
 
-function imageSizesFor({ pageKind, firstImage, html, offset }) {
+function imageSizesFor({ pageKind, html, offset }) {
   const anchorStart = html.lastIndexOf('<a ', offset);
   const anchorEnd = html.lastIndexOf('</a>', offset);
   const anchor = anchorStart > anchorEnd ? html.slice(anchorStart, offset) : '';
 
-  if (pageKind === 'blog-index') {
-    if (anchor.includes('class="blog-card"')) {
-      return firstImage
-        ? '(max-width: 700px) calc(100vw - 30px), (max-width: 880px) calc(66.667vw - 26.667px), 560px'
-        : '(max-width: 500px) calc(100vw - 30px), (max-width: 700px) calc((100vw - 50px) / 2), (max-width: 880px) calc((100vw - 70px) / 3), 270px';
-    }
+  if (pageKind === 'blog-index' && anchor.includes('class="blog-card"')) {
+    return blogCardSizes;
   }
 
   if (pageKind === 'blog-article') {
     if (anchor.includes('class="blog-related__card"')) {
-      return '(max-width: 500px) calc(100vw - 30px), (max-width: 700px) calc((100vw - 50px) / 2), 320px';
+      return blogCardSizes;
     }
-    return '(max-width: 710px) calc(100vw - 30px), 680px';
+    return blogArticleBodySizes;
   }
 
   return '100vw';
@@ -216,7 +214,6 @@ async function rewriteImageTag(tag, options) {
   const eager = options.pageKind === 'blog-index' && firstImage;
   const sizes = imageSizesFor({
     pageKind: options.pageKind,
-    firstImage,
     html: options.html,
     offset: options.offset,
   });

@@ -1,25 +1,20 @@
 ---
-title: "¿Cómo Escala DynamoDB? Modos On Demand y Provisioned"
+title: "¿Cómo escala DynamoDB? modos on demand y provisioned"
 description: "Descubre cómo escalar DynamoDB con los modos On Demand y Provisioned, considerando tráfico, costos y rendimiento. DynamoDB es una base de datos NoSQL de AWS."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T02:56:43.716Z"
-cover: "/assets/blog/ce62e0cc8508d5055bba53b4.png"
-coverAlt: "Balanza con una nube y un rayo en un platillo, y engranajes en el otro"
-ogImage: "/assets/blog/ce62e0cc8508d5055bba53b4.png"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "Mejores prácticas para nombres en AWS Organizations"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-nombres-en-aws-organizations/"
-    image: "/assets/blog/bfdfed56910493c9a698fb14.jpg"
-    imageAlt: ""
-  - title: "Guía de Acreditación para Partners de AWS 2024"
+  - title: "Guía de acreditación para Partners de AWS 2024"
     url: "https://dondeaprendoaws.com/blog/guia-de-acreditacion-para-partners-de-aws-2024/"
-    image: "/assets/blog/0d6df5a1297701914debd614.png"
-    imageAlt: ""
-  - title: "Utilizando Lambda Layers en Múltiples Funciones Lambda"
+  - title: "Utilizando Lambda layers en múltiples funciones Lambda"
     url: "https://dondeaprendoaws.com/blog/utilizando-lambda-layers-en-multiples-funciones-lambda/"
-    image: "/assets/blog/ab65afd218440c66bc564a0a.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Si estás considerando usar DynamoDB para tu aplicación, es crucial entender cómo escalarla adecuadamente. DynamoDB ofrece dos modos principales de escalado: <strong>On Demand</strong> y <strong>Provisioned</strong>. Aquí te doy un resumen rápido para ayudarte a elegir el mejor camino:</p>
@@ -41,7 +36,7 @@ related:
 </ul>
 
 
-<h2 id="comparaci%C3%B3n-r%C3%A1pida" tabindex="-1">Comparación Rápida</h2>
+<h2 id="comparaci%C3%B3n-r%C3%A1pida" tabindex="-1">Comparación rápida</h2>
 
 
 <figure class="table"><table>
@@ -103,7 +98,7 @@ related:
 <p>En pocas palabras, DynamoDB te ayuda a hacer aplicaciones grandes sin complicarte mucho.</p>
 
 
-<h3 id="claves-de-partici%C3%B3n-y-ordenaci%C3%B3n" tabindex="-1">Claves de Partición y Ordenación</h3>
+<h3 id="claves-de-partici%C3%B3n-y-ordenaci%C3%B3n" tabindex="-1">Claves de partición y ordenación</h3>
 
 
 <p>En DynamoDB, guardas información en ítems. Cada ítem necesita una clave única que puede ser:</p>
@@ -118,7 +113,7 @@ related:
 <p>La clave de partición ayuda a organizar y encontrar tus datos rápido. Elegir bien estas claves es importante para que todo funcione bien.</p>
 
 
-<h3 id="replicaci%C3%B3n-y-consistencia-de-datos" tabindex="-1">Replicación y Consistencia de Datos</h3>
+<h3 id="replicaci%C3%B3n-y-consistencia-de-datos" tabindex="-1">Replicación y consistencia de datos</h3>
 
 
 <p>DynamoDB guarda tus datos en varios lugares al mismo tiempo para que no los pierdas si hay un problema. Esto se hace automáticamente.</p>
@@ -136,7 +131,7 @@ related:
 </ul>
 
 
-<h2 id="modo-on-demand" tabindex="-1">Modo On Demand</h2>
+<h2 id="modo-on-demand" tabindex="-1">Modo on demand</h2>
 
 
 <p>El modo On Demand de DynamoDB es como tener un taxi que se agranda automáticamente cuando más amigos se suben. No tienes que decirle cuánto espacio necesitas; él lo figura por sí solo.</p>
@@ -160,7 +155,7 @@ related:
 <p>Al principio, las tablas en el modo On Demand empiezan un poco lentas, pero se ponen más rápidas a medida que más gente las usa. Si sabes que va a haber mucha actividad, puedes hacer una especie de ensayo general con tráfico falso para que la tabla esté lista y rápida cuando realmente la necesites.</p>
 
 
-<h2 id="modo-provisioned" tabindex="-1">Modo Provisioned</h2>
+<h2 id="modo-provisioned" tabindex="-1">Modo provisioned</h2>
 
 
 <p>El modo Provisioned de DynamoDB es como decirle de antemano a DynamoDB cuánto vas a necesitar para leer y escribir datos en tu aplicación. Tú decides cuántas 'unidades' de lectura y escritura quieres tener listas para usar.</p>
@@ -198,7 +193,7 @@ related:
 
 
 
-<h2 id="comparaci%C3%B3n-entre-modos" tabindex="-1">Comparación entre Modos</h2>
+<h2 id="comparaci%C3%B3n-entre-modos" tabindex="-1">Comparación entre modos</h2>
 
 
 <figure class="table"><table>
@@ -257,13 +252,13 @@ related:
 <p>La decisión depende de lo que necesites y de si prefieres ahorrar dinero o tener más simplicidad. DynamoDB te permite cambiar entre estos modos cuando lo necesites.</p>
 
 
-<h2 id="consideraciones-para-elegir-el-modo" tabindex="-1">Consideraciones para Elegir el Modo</h2>
+<h2 id="consideraciones-para-elegir-el-modo" tabindex="-1">Consideraciones para elegir el modo</h2>
 
 
 <p>Al decidir si usar On Demand o Provisioned en DynamoDB, piensa en estos puntos importantes:</p>
 
 
-<h3 id="predicibilidad-del-tr%C3%A1fico" tabindex="-1">Predicibilidad del Tráfico</h3>
+<h3 id="predicibilidad-del-tr%C3%A1fico" tabindex="-1">Predicibilidad del tráfico</h3>
 
 
 <ul>
@@ -272,7 +267,7 @@ related:
 </ul>
 
 
-<h3 id="flexibilidad-de-costos-vs.-previsibilidad-de-costos" tabindex="-1">Flexibilidad de Costos vs. Previsibilidad de Costos</h3>
+<h3 id="flexibilidad-de-costos-vs.-previsibilidad-de-costos" tabindex="-1">Flexibilidad de costos vs. Previsibilidad de costos</h3>
 
 
 <ul>
@@ -281,7 +276,7 @@ related:
 </ul>
 
 
-<h3 id="requisitos-de-rendimiento" tabindex="-1">Requisitos de Rendimiento</h3>
+<h3 id="requisitos-de-rendimiento" tabindex="-1">Requisitos de rendimiento</h3>
 
 
 <ul>
@@ -290,7 +285,7 @@ related:
 </ul>
 
 
-<h3 id="facilidad-de-administraci%C3%B3n" tabindex="-1">Facilidad de Administración</h3>
+<h3 id="facilidad-de-administraci%C3%B3n" tabindex="-1">Facilidad de administración</h3>
 
 
 <ul>
@@ -334,7 +329,7 @@ related:
 <p>Si configuras bien desde el inicio y sigues de cerca tu uso con las métricas de CloudWatch, podrás hacer que DynamoDB trabaje a tu favor y ayudarte a crecer tu aplicación sin problemas.</p>
 
 
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas Relacionadas</h2>
+<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
 
 
 <h3 id="%C2%BFqu%C3%A9-tipo-de-base-de-datos-es-dynamodb%3F" tabindex="-1">¿Qué tipo de base de datos es DynamoDB?</h3>
@@ -375,7 +370,7 @@ for (Map&lt;String, AttributeValue&gt; item : resultados) {
 </code></pre>
 
 
-<h3 id="%C2%BFpara-qu%C3%A9-se-usa-la-clave-de-ordenaci%C3%B3n-en-dynamodb%3F" tabindex="-1">¿Para qué se usa la Clave de Ordenación en DynamoDB?</h3>
+<h3 id="%C2%BFpara-qu%C3%A9-se-usa-la-clave-de-ordenaci%C3%B3n-en-dynamodb%3F" tabindex="-1">¿Para qué se usa la clave de ordenación en DynamoDB?</h3>
 
 
 <p>La Clave de Ordenación te ayuda a organizar y buscar datos de manera más eficiente en DynamoDB, especialmente cuando tienes muchos datos con la misma Clave de Partición.</p>
@@ -399,6 +394,6 @@ for (Map&lt;String, AttributeValue&gt; item : resultados) {
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/amazon-dynamodb-la-base-de-datos-nosql-de-aws/">Amazon DynamoDB: La Base de Datos NoSQL de AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/amazon-dynamodb-guia-basica/">Amazon DynamoDB: Guía Básica</a></li><li><a href="https://dondeaprendoaws.com/blog/base-de-datos-global-con-amazon-dynamodb/">Base de Datos Global con Amazon DynamoDB</a></li><li><a href="https://dondeaprendoaws.com/blog/bases-de-datos-relacionales-en-aws-con-amazon-rds-y-amazon-aurora/">Bases de datos Relacionales en AWS con Amazon RDS y Amazon Aurora</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/amazon-dynamodb-la-base-de-datos-nosql-de-aws/">Amazon DynamoDB: la base de datos NoSQL de AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/amazon-dynamodb-guia-basica/">Amazon DynamoDB: guía básica</a></li><li><a href="https://dondeaprendoaws.com/blog/base-de-datos-global-con-amazon-dynamodb/">Base de datos global con Amazon DynamoDB</a></li><li><a href="https://dondeaprendoaws.com/blog/bases-de-datos-relacionales-en-aws-con-amazon-rds-y-amazon-aurora/">Bases de datos relacionales en AWS con Amazon RDS y Amazon Aurora</a></li>
 </ul>
 </p>

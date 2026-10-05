@@ -7,6 +7,12 @@ const assets = path.join(root, 'public', 'assets');
 const exports = [
   { source: 'site-favicon.svg', destination: 'site-favicon.png', width: 120, height: 120 },
   { source: 'site-social.svg', destination: 'site-social.png', width: 1200, height: 630 },
+  ...['fundamentos', 'certificacion', 'practica', 'serverless-desarrollo', 'seguridad', 'datos-ia'].map((family) => ({
+    source: `editorial/${family}.svg`,
+    destination: `blog/editorial-${family}.png`,
+    width: 1200,
+    height: 630,
+  })),
 ];
 
 for (const asset of exports) {

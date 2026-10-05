@@ -1,25 +1,20 @@
 ---
-title: "AWS X-Ray: Herramientas de Depuración y Rastreo Distribuido"
+title: "AWS X-Ray: herramientas de depuración y rastreo distribuido"
 description: "Descubre cómo AWS X-Ray mejora el rendimiento de aplicaciones distribuidas a través del análisis de solicitudes y la depuración en la nube."
 author: "guille-ojeda"
 publishedAt: "2024-05-07"
 publishedTimestamp: "2024-05-07T05:49:02.026Z"
-cover: "/assets/blog/2f81887ad0ca1683bc24fbf1.jpg"
-coverAlt: "Dos nubes conectadas por líneas sobre una malla de nodos"
-ogImage: "/assets/blog/2f81887ad0ca1683bc24fbf1.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Características y Beneficios de AWS IoT Device Defender"
+  - title: "Características y beneficios de AWS IoT Device Defender"
     url: "https://dondeaprendoaws.com/blog/caracteristicas-y-beneficios-de-aws-iot-device-defender/"
-    image: "/assets/blog/64ba25d52c7b46f1df3dfd5e.png"
-    imageAlt: ""
-  - title: "Patrón Strangler Fig en AWS: Migrar a Microservicios"
+  - title: "Patrón Strangler Fig en AWS: migrar a microservicios"
     url: "https://dondeaprendoaws.com/blog/patron-strangler-fig-en-aws-migrar-a-microservicios/"
-    image: "/assets/blog/a4bd2fc033fb9605dec915d6.png"
-    imageAlt: ""
-  - title: "Servicios de AWS para Inteligencia Artificial"
+  - title: "Servicios de AWS para inteligencia artificial"
     url: "https://dondeaprendoaws.com/blog/servicios-de-aws-para-inteligencia-artificial/"
-    image: "/assets/blog/54201ee89ce3b648eb0ec011.jpg"
-    imageAlt: ""
+
 ---
 
 <p><a href="https://aws.amazon.com/xray/">AWS X-Ray</a> es una herramienta de análisis y depuración de <a href="https://dondeaprendoaws.com/blog/cloud-computing-en-espanol-fundamentos-basicos/">aplicaciones distribuidas en la nube</a>. Permite rastrear solicitudes, identificar cuellos de botella y resolver problemas de rendimiento en <a href="https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-contenedores/">aplicaciones basadas en microservicios</a>. Algunas de sus características clave son:</p>
@@ -30,13 +25,13 @@ related:
 <h2 id="t%C3%A9rminos-clave-en-aws-x-ray">Términos clave en <a href="https://aws.amazon.com/xray/">AWS X-Ray</a></h2>
 <p><img alt="AWS X-Ray" src="/assets/blog/0602324681861f885dc45224.jpg"/></p>
 <p>En AWS X-Ray, existen varios términos clave que debes entender para aprovechar al máximo sus características de depuración y rastreo distribuido. A continuación, se presentan algunos de los términos más importantes:</p>
-<h3 id="segmentos-(segments)">Segmentos (Segments)</h3>
+<h3 id="segmentos-(segments)">Segmentos (segments)</h3>
 <p>Un segmento es una unidad básica de datos que se recopila en AWS X-Ray. Representa una solicitud o una transacción que se realiza en tu aplicación.</p>
-<h3 id="subsegmentos-(subsegments)">Subsegmentos (Subsegments)</h3>
+<h3 id="subsegmentos-(subsegments)">Subsegmentos (subsegments)</h3>
 <p>Un subsegmento es una parte de un segmento que se utiliza para recopilar información detallada sobre una solicitud específica.</p>
-<h3 id="rastreo-(tracing)">Rastreo (Tracing)</h3>
+<h3 id="rastreo-(tracing)">Rastreo (tracing)</h3>
 <p>El rastreo es el proceso de recopilar información sobre las solicitudes y las transacciones que se realizan en tu aplicación.</p>
-<h3 id="muestreo-(sampling)">Muestreo (Sampling)</h3>
+<h3 id="muestreo-(sampling)">Muestreo (sampling)</h3>
 <p>El muestreo es un proceso que se utiliza en AWS X-Ray para recopilar información sobre las solicitudes y las transacciones.</p>
 <table><thead><tr><th>Término</th><th>Descripción</th></tr></thead><tbody><tr><td>Segmento</td><td>Unidad básica de datos que representa una solicitud o transacción</td></tr><tr><td>Subsegmento</td><td>Parte de un segmento que recopila información detallada sobre una solicitud específica</td></tr><tr><td>Rastreo</td><td>Proceso de recopilar información sobre solicitudes y transacciones</td></tr><tr><td>Muestreo</td><td>Proceso de recopilar información sobre solicitudes y transacciones para reducir la cantidad de datos</td></tr></tbody></table>
 <p>En resumen, los segmentos, subsegmentos, rastreo y muestreo son términos clave en AWS X-Ray que te permiten recopilar información detallada sobre las solicitudes y las transacciones en tu aplicación y identificar problemas y errores de rendimiento.</p>
@@ -132,9 +127,9 @@ app.use(AWSXRay.express.openSegment('MyApp'));
 <table><thead><tr><th><strong>Recomendación</strong></th><th><strong>Descripción</strong></th></tr></thead><tbody><tr><td>Trabajar con proveedores de código de terceros</td><td>Trabajar con proveedores de código de terceros para asegurarse de que se instrumenten sus bibliotecas y frameworks para recopilar datos de traza compatibles con AWS X-Ray</td></tr><tr><td>Verificar la instrumentación de código de terceros</td><td>Verificar la instrumentación de código de terceros para asegurarse de que se recopilen datos de traza relevantes</td></tr></tbody></table>
 <h3 id="optimizaci%C3%B3n-de-x-ray">Optimización de X-Ray</h3>
 <p>Para optimizar el rendimiento de AWS X-Ray, debe asegurarse de que se configuren correctamente las reglas de muestreo y la instrumentación personalizada.</p>
-<table><thead><tr><th><strong>Recomendación</strong></th><th><strong>Descripción</strong></th></tr></thead><tbody><tr><td>Configurar reglas de muestreo eficientes</td><td>Configurar reglas de muestreo que se ajusten a las necesidades específicas de su aplicación y minimicen la sobrecarga de datos</td></tr><tr><td><a href="https://dondeaprendoaws.com/blog/observabilidad-en-aws-con-amazon-x-ray/">Utilizar recursos de AWS X-Ray de manera eficiente</a></td><td>Utilizar recursos de AWS X-Ray de manera eficiente para minimizar el impacto en el rendimiento de su aplicación</td></tr><tr><td>Monitorear y ajustar la configuración de X-Ray</td><td>Monitorear y ajustar la configuración de X-Ray para asegurarse de que se esté recopilando la cantidad adecuada de datos de traza</td></tr></tbody></table>
+<table><thead><tr><th><strong>Recomendación</strong></th><th><strong>Descripción</strong></th></tr></thead><tbody><tr><td>Configurar reglas de muestreo eficientes</td><td>Configurar reglas de muestreo que se ajusten a las necesidades específicas de su aplicación y minimicen la sobrecarga de datos</td></tr><tr><td><a href="https://dondeaprendoaws.com/blog/observabilidad-en-aws-con-amazon-x-ray/">utilizar recursos de AWS X-Ray de manera eficiente</a></td><td>Utilizar recursos de AWS X-Ray de manera eficiente para minimizar el impacto en el rendimiento de su aplicación</td></tr><tr><td>Monitorear y ajustar la configuración de X-Ray</td><td>Monitorear y ajustar la configuración de X-Ray para asegurarse de que se esté recopilando la cantidad adecuada de datos de traza</td></tr></tbody></table>
 <p>En resumen, siguiendo estas mejores prácticas puede asegurarse de que AWS X-Ray se configure y utilice de manera efectiva para depurar y rastrear su aplicación distribuida.</p>
-<h2 id="costos-y-consideraciones-de-x-ray">Costos y Consideraciones de X-Ray</h2>
+<h2 id="costos-y-consideraciones-de-x-ray">Costos y consideraciones de X-Ray</h2>
 <p>Al utilizar AWS X-Ray, es importante considerar los costos asociados con la recopilación y el análisis de trazas. Afortunadamente, AWS X-Ray ofrece un modelo de precios flexible que se adapta a las necesidades específicas de su aplicación.</p>
 <h3 id="modelo-de-precios">Modelo de precios</h3>
 <p>El modelo de precios de AWS X-Ray se basa en el número de trazas grabadas, recuperadas y analizadas. El primer 100,000 trazas grabadas cada mes son gratuitas, y luego se cobran $0.000005 por traza grabada adicional. Del mismo modo, el primer 1,000,000 trazas recuperadas o analizadas cada mes son gratuitas, y luego se cobran $0.000005 por traza recuperada o analizada adicional.</p>
@@ -144,11 +139,11 @@ app.use(AWSXRay.express.openSegment('MyApp'));
 <p>Al presupuestar para AWS X-Ray, es importante considerar el número de trazas que se esperan grabar, recuperar y analizar cada mes. También es importante considerar la frecuencia de muestreo y la cantidad de datos de traza que se necesitan para depurar y rastrear su aplicación.</p>
 <table><thead><tr><th><strong>Recomendación</strong></th><th><strong>Descripción</strong></th></tr></thead><tbody><tr><td>Establecer un presupuesto para AWS X-Ray</td><td>Establecer un presupuesto para AWS X-Ray basado en el número de trazas que se esperan grabar, recuperar y analizar cada mes</td></tr><tr><td>Monitorear y ajustar el gasto</td><td>Monitorear y ajustar el gasto en AWS X-Ray según sea necesario para asegurarse de que se esté dentro del presupuesto</td></tr><tr><td>Utilizar la capa gratuita</td><td>Utilizar la capa gratuita de AWS X-Ray para reducir costos y mejorar la eficiencia</td></tr></tbody></table>
 <p>En resumen, AWS X-Ray ofrece un modelo de precios flexible que se adapta a las necesidades específicas de su aplicación. Al considerar los costos asociados con la recopilación y el análisis de trazas, puede presupuestar y planificar de manera efectiva para utilizar AWS X-Ray de manera eficiente y rentable.</p>
-<h2 id="x-ray-en-acci%C3%B3n">X-Ray en Acción</h2>
+<h2 id="x-ray-en-acci%C3%B3n">X-Ray en acción</h2>
 <p>En este apartado, exploraremos ejemplos prácticos y estudios de casos donde AWS X-Ray ha sido fundamental para resolver problemas de rendimiento y proporcionar insights para la optimización.</p>
-<h3 id="identificar-problemas-de-rendimiento">Identificar Problemas de Rendimiento</h3>
+<h3 id="identificar-problemas-de-rendimiento">Identificar problemas de rendimiento</h3>
 <p>Un ejemplo común es cuando se necesita depurar una aplicación distribuida que tiene problemas de rendimiento. Con AWS X-Ray, podemos rastrear las solicitudes de usuario y analizar la latencia, los errores y la respuesta de cada servicio involucrado. Esto nos permite identificar rápidamente los cuellos de botella y optimizar la aplicación para mejorar el rendimiento.</p>
-<h3 id="analizar-la-dependencia-entre-servicios">Analizar la Dependencia entre Servicios</h3>
+<h3 id="analizar-la-dependencia-entre-servicios">Analizar la dependencia entre servicios</h3>
 <p>Otro ejemplo es cuando se necesita analizar la dependencia entre servicios en una aplicación distribuida. AWS X-Ray nos permite crear un mapa de servicio que muestra la relación entre los servicios y cómo se comunican entre sí. Esto nos permite identificar los servicios que están causando problemas y optimizar la comunicación entre ellos.</p>
 <h3 id="beneficios-de-x-ray">Beneficios de X-Ray</h3>
 <table><thead><tr><th><strong>Beneficio</strong></th><th><strong>Descripción</strong></th></tr></thead><tbody><tr><td>Identificar cuellos de botella</td><td>Identificar rápidamente los cuellos de botella en la aplicación y optimizar para mejorar el rendimiento</td></tr><tr><td>Analizar la dependencia entre servicios</td><td>Analizar la relación entre los servicios y cómo se comunican entre sí para identificar los problemas de rendimiento</td></tr><tr><td>Mejora del rendimiento</td><td>Mejora del rendimiento de la aplicación mediante la identificación y resolución de problemas de rendimiento</td></tr></tbody></table>
@@ -161,7 +156,7 @@ app.use(AWSXRay.express.openSegment('MyApp'));
 <p>En este artículo, hemos explorado las características y beneficios clave de AWS X-Ray. También hemos visto ejemplos prácticos de cómo AWS X-Ray puede ser utilizado para resolver problemas de rendimiento y proporcionar insights para la optimización.</p>
 <p>En última instancia, la incorporación de AWS X-Ray en los flujos de trabajo de la nube moderna es crucial para garantizar la fiabilidad, escalabilidad y rendimiento de las aplicaciones distribuidas. Al entender cómo funciona AWS X-Ray y cómo puede ser utilizado para mejorar la aplicación, los desarrolladores y los equipos de operaciones pueden trabajar juntos para crear aplicaciones más eficientes y escalables que satisfacen las necesidades de los usuarios.</p>
 <p>Esperamos que este artículo haya proporcionado una visión clara y concisa de las capacidades y beneficios de AWS X-Ray, y que haya inspirado a los lectores a explorar más a fondo cómo esta herramienta puede ayudar a mejorar sus aplicaciones distribuidas en la nube.</p>
-<h2 id="preguntas-frecuentes">Preguntas Frecuentes</h2>
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
 <h3 id="%C2%BFqu%C3%A9-es-x-ray-en-amazon%3F">¿Qué es X-Ray en <a href="https://www.amazon.com/">Amazon</a>?</h3>
 <p><img alt="Amazon" src="/assets/blog/abbe4a67c0929c632517e1ea.jpg"/></p>
 <p>AWS X-Ray es una herramienta que proporciona una visión detallada de cómo se ejecutan las solicitudes en su aplicación, permitiendo identificar y solucionar problemas de rendimiento y errores.</p>
@@ -170,4 +165,4 @@ app.use(AWSXRay.express.openSegment('MyApp'));
 <h4 id="caracter%C3%ADsticas-clave-de-aws-x-ray">Características clave de AWS X-Ray</h4>
 <table><thead><tr><th>Característica</th><th>Descripción</th></tr></thead><tbody><tr><td>Análisis de solicitudes</td><td>X-Ray proporciona una visión detallada de cómo se ejecutan las solicitudes en su aplicación</td></tr><tr><td>Identificación de problemas</td><td>X-Ray ayuda a identificar la causa raíz de los problemas de rendimiento y errores</td></tr><tr><td>Depuración de aplicaciones</td><td>X-Ray permite depurar aplicaciones distribuidas en producción</td></tr><tr><td>Soporte para microservicios</td><td>X-Ray es compatible con aplicaciones construidas utilizando una arquitectura de microservicios</td></tr></tbody></table>
 <h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/observabilidad-en-aws-con-amazon-x-ray/">Observabilidad en AWS con Amazon X-Ray</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/">Mejores Prácticas de Observabilidad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/">Arquitecturas Multi-Región en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li></ul>
+<ul><li><a href="https://dondeaprendoaws.com/blog/observabilidad-en-aws-con-amazon-x-ray/">Observabilidad en AWS con Amazon X-Ray</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/">Mejores prácticas de observabilidad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/">arquitecturas multi-región en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li></ul>

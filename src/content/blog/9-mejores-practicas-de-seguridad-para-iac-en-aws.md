@@ -7,9 +7,9 @@ publishedTimestamp: "2024-05-07T02:13:47.453Z"
 modifiedTimestamp: "2026-10-04T22:31:52-03:00"
 review:
   date: "2026-10-04"
-cover: "/assets/blog/0b84e7609d9a01cdc2449b30.jpg"
-coverAlt: "Nube conectada a una red de candados, escudos y otros símbolos de seguridad"
-ogImage: "/assets/blog/0b84e7609d9a01cdc2449b30.jpg"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related: []
 ---
 
@@ -126,4 +126,4 @@ La agenda consultada el 4 de octubre de 2026 mostraba estos eventos futuros; con
 - [Compliance as Code en AWS: de la política a la acción automática](https://www.meetup.com/aws-user-group-security-ecuador/events/316680020/) — en línea, 20 de octubre de 2026, de 19:00 a 20:00 GMT-5.
 - [Shift-left con IA: Checkov y AWS Security Agent cuidando tu rama main](https://www.meetup.com/aws-sbg-at-universidad-laica-eloy-alfaro-de-manabi/events/316827722/) — en línea, 21 de octubre de 2026, de 19:00 a 21:00 GMT-5. El título describe el tema de la charla; consulta la página del evento para conocer el contenido y las condiciones actuales.
 
-Si estas fechas ya pasaron, consulta la [agenda vigente de eventos de comunidades AWS](https://dondeaprendoaws.com/eventos/) para encontrar otros encuentros y sus enlaces de inscripción.
+Si estas fechas ya pasaron, consulta la [Agenda vigente de eventos de comunidades AWS](https://dondeaprendoaws.com/eventos/) para encontrar otros encuentros y sus enlaces de inscripción.

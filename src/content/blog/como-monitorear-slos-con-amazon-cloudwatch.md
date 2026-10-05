@@ -4,22 +4,17 @@ description: "Aprende a monitorear objetivos de nivel de servicio (SLOs) con Ama
 author: "guille-ojeda"
 publishedAt: "2025-02-24"
 publishedTimestamp: "2025-02-24T06:43:53.013Z"
-cover: "/assets/blog/0919cf4ddfe7647a0c71877c.jpg"
-coverAlt: "Monitor de escritorio con un panel de gráficos y medidores"
-ogImage: "/assets/blog/0919cf4ddfe7647a0c71877c.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Webinars y Eventos en AWS Marketplace"
+  - title: "Webinars y eventos en AWS Marketplace"
     url: "https://dondeaprendoaws.com/blog/webinars-y-eventos-en-aws-marketplace/"
-    image: "/assets/blog/8f2a908f4bdb73449da17e82.jpg"
-    imageAlt: ""
-  - title: "Ahorro de Costos en AWS con Instancias Reservadas y Savings Plans"
+  - title: "Ahorro de costos en AWS con instancias reservadas y Savings Plans"
     url: "https://dondeaprendoaws.com/blog/ahorro-de-costos-en-aws-con-instancias-reservadas-y-savings-plans/"
-    image: "/assets/blog/201da9e2ec2ae649f47566a7.jpg"
-    imageAlt: ""
-  - title: "Cómo Prepararte Para un Examen de Certificación de AWS"
+  - title: "Cómo prepararte para un examen de certificación de AWS"
     url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-preparacion-para-el-examen/"
-    image: "/assets/blog/4cb1b939d8aa6ff5e1dc2ac1.jpg"
-    imageAlt: ""
+
 ---
 
 <p><strong>¿Por qué usar CloudWatch para SLOs?</strong><br/>
@@ -76,13 +71,13 @@ related:
 <p><strong>Conclusión:</strong> CloudWatch simplifica el monitoreo de SLOs al automatizar métricas, alertas y análisis, ayudándote a mantener la confiabilidad de tus servicios.</p>
 
 
-<h2 class="sb h2-sbb-cls" id="configuracion-de-cloudwatch-para-el-monitoreo-de-slos" tabindex="-1">Configuración de CloudWatch para el Monitoreo de SLOs</h2>
+<h2 class="sb h2-sbb-cls" id="configuracion-de-cloudwatch-para-el-monitoreo-de-slos" tabindex="-1">Configuración de CloudWatch para el monitoreo de SLOs</h2>
 
 
 <p>Aquí te mostramos cómo configurar CloudWatch para supervisar tus SLOs de manera eficiente.</p>
 
 
-<h3 id="creacion-de-tu-primer-dashboard" tabindex="-1">Creación de tu Primer Dashboard</h3>
+<h3 id="creacion-de-tu-primer-dashboard" tabindex="-1">Creación de tu primer dashboard</h3>
 
 
 <p>Diseña un dashboard personalizado para seguir de cerca las métricas clave de tus SLOs.</p>
@@ -132,7 +127,7 @@ related:
 </ul>
 
 
-<h3 id="configuracion-de-metricas" tabindex="-1">Configuración de Métricas</h3>
+<h3 id="configuracion-de-metricas" tabindex="-1">Configuración de métricas</h3>
 
 
 <p>Una vez creado el dashboard, necesitas configurar las métricas que alimentarán tus SLOs. Application Signals recopila automáticamente datos sobre latencia y disponibilidad .</p>
@@ -141,7 +136,7 @@ related:
 <p>Para métricas de latencia en SLOs basados en solicitudes, usa estadísticas de <em>Trimmed count</em> (TC). Si tu umbral es de 9 ms con un operador "menor que" (&lt;), el umbral TC se calcula como (:threshold - 1) .</p>
 
 
-<h3 id="configuracion-de-alertas" tabindex="-1">Configuración de Alertas</h3>
+<h3 id="configuracion-de-alertas" tabindex="-1">Configuración de alertas</h3>
 
 
 <p>Después de definir las métricas, configura alertas para supervisar el consumo del error budget.</p>
@@ -153,13 +148,13 @@ related:
 <p>Usa alarmas compuestas para combinar ventanas cortas (para detectar picos) y ventanas largas (para degradaciones). Además, configura <a href="https://aws.amazon.com/sns/" rel="noopener noreferrer" target="_blank">Amazon SNS</a> para recibir notificaciones rápidas .</p>
 
 
-<h2 class="sb h2-sbb-cls" id="funciones-avanzadas-para-monitorear-slos" tabindex="-1">Funciones Avanzadas para Monitorear SLOs</h2>
+<h2 class="sb h2-sbb-cls" id="funciones-avanzadas-para-monitorear-slos" tabindex="-1">Funciones avanzadas para monitorear SLOs</h2>
 
 
 <p>CloudWatch ofrece herramientas potentes para gestionar y monitorear SLOs en entornos complejos de AWS.</p>
 
 
-<h3 id="monitoreo-multi-cuenta" tabindex="-1">Monitoreo Multi-Cuenta</h3>
+<h3 id="monitoreo-multi-cuenta" tabindex="-1">Monitoreo multi-cuenta</h3>
 
 
 <p>CloudWatch facilita la centralización de datos de observabilidad a través de múltiples cuentas AWS. Este sistema se organiza en dos tipos de cuentas:</p>
@@ -200,7 +195,7 @@ related:
 <p>Un punto clave: el monitoreo multi-cuenta en CloudWatch no tiene costo adicional para logs y métricas, y la primera copia de trazas es gratuita . Esto se complementa con herramientas avanzadas que proporcionan una visión completa del rendimiento.</p>
 
 
-<h3 id="herramientas-de-analisis-detallado" tabindex="-1">Herramientas de Análisis Detallado</h3>
+<h3 id="herramientas-de-analisis-detallado" tabindex="-1">Herramientas de análisis detallado</h3>
 
 
 <p>CloudWatch incluye funciones específicas para analizar el rendimiento de los SLOs.</p>
@@ -253,13 +248,13 @@ related:
 
 
 
-<h2 class="sb h2-sbb-cls" id="mejores-practicas-para-monitorear-slos" tabindex="-1">Mejores Prácticas para Monitorear SLOs</h2>
+<h2 class="sb h2-sbb-cls" id="mejores-practicas-para-monitorear-slos" tabindex="-1">Mejores prácticas para monitorear SLOs</h2>
 
 
 <p>Monitorear SLOs de manera efectiva requiere un enfoque estratégico y un mantenimiento constante. Aquí te mostramos cómo sacar el máximo provecho de tu <a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/">configuración en CloudWatch</a>.</p>
 
 
-<h3 id="mantenimiento-de-metricas-y-alarmas" tabindex="-1">Mantenimiento de Métricas y Alarmas</h3>
+<h3 id="mantenimiento-de-metricas-y-alarmas" tabindex="-1">Mantenimiento de métricas y alarmas</h3>
 
 
 <p>CloudWatch almacena el historial de alarmas durante 30 días, lo que facilita el análisis del rendimiento. Para mejorar la precisión de tus métricas:</p>
@@ -296,7 +291,7 @@ related:
 <p>Es crucial manejar los datos faltantes según el tipo de métrica. Por ejemplo, para métricas de disponibilidad, usar la opción <code class="inline-code">missing</code> cambiará el estado de la alarma a <code class="inline-code">INSUFFICIENT_DATA</code> si no hay datos disponibles.</p>
 
 
-<h3 id="integracion-con-servicios-aws" tabindex="-1">Integración con Servicios AWS</h3>
+<h3 id="integracion-con-servicios-aws" tabindex="-1">Integración con servicios AWS</h3>
 
 
 <p>Después de ajustar métricas y alarmas, puedes ampliar tu monitoreo integrándolo con otros servicios de AWS. Por ejemplo, Lambda envía automáticamente logs al grupo <code class="inline-code">/aws/lambda/&lt;function name&gt;</code> en CloudWatch, facilitando el seguimiento.</p>
@@ -308,7 +303,7 @@ related:
 <p>Además, Amazon SNS recopila métricas automáticamente cada minuto, lo que permite monitorear mensajes publicados, notificaciones entregadas y errores .</p>
 
 
-<h3 id="gestion-de-alertas" tabindex="-1">Gestión de Alertas</h3>
+<h3 id="gestion-de-alertas" tabindex="-1">Gestión de alertas</h3>
 
 
 <p>Una vez configuradas las métricas y alarmas, gestionar las notificaciones es clave para responder rápidamente. CloudWatch ofrece herramientas útiles para este propósito:</p>
@@ -323,7 +318,7 @@ related:
 <p>Configura ventanas de supresión durante mantenimientos y aplica filtros para priorizar notificaciones críticas. Esto permite que tu equipo se enfoque en los problemas más urgentes y relevantes.</p>
 
 
-<h2 class="sb h2-sbb-cls" id="recursos-de-aprendizaje" tabindex="-1">Recursos de Aprendizaje</h2>
+<h2 class="sb h2-sbb-cls" id="recursos-de-aprendizaje" tabindex="-1">Recursos de aprendizaje</h2>
 
 
 <p>Amplía tus conocimientos sobre SLOs con CloudWatch utilizando estas fuentes especializadas. Estos recursos te ayudarán a configurar y trabajar con SLOs de manera efectiva.</p>
@@ -346,7 +341,7 @@ related:
 <tbody>
 <tr>
 <td>Principiante</td>
-<td><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">Conceptos básicos de CloudWatch</a></td>
+<td><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">conceptos básicos de CloudWatch</a></td>
 <td>Explicaciones claras y en español</td>
 </tr>
 <tr>
@@ -369,7 +364,7 @@ related:
 <p>Además, AWS ofrece recursos oficiales que complementan esta información para quienes deseen profundizar aún más.</p>
 
 
-<h3 id="recursos-oficiales-de-aws" tabindex="-1">Recursos Oficiales de AWS</h3>
+<h3 id="recursos-oficiales-de-aws" tabindex="-1">Recursos oficiales de AWS</h3>
 
 
 <p><strong><a href="https://skillbuilder.aws/" rel="noopener noreferrer" target="_blank">AWS Skill Builder</a></strong> es otra excelente opción, con planes gratuitos y de pago (por ejemplo, $29 mensuales o $449 anuales) .</p>
@@ -400,7 +395,7 @@ related:
 <p>Después de analizar las capacidades de CloudWatch, aquí tienes un resumen de los puntos clave para implementar SLOs y mantener la confiabilidad de tus aplicaciones.</p>
 
 
-<h3 id="revision-de-puntos-principales" tabindex="-1">Revisión de Puntos Principales</h3>
+<h3 id="revision-de-puntos-principales" tabindex="-1">Revisión de puntos principales</h3>
 
 
 <p>CloudWatch Application Signals ha cambiado las reglas del juego en el monitoreo de SLOs al ofrecer herramientas completas. Algunos aspectos destacados incluyen:</p>
@@ -433,7 +428,7 @@ related:
 <p>Con esto en mente, puedes usar estos elementos como base para construir un sistema de monitoreo eficaz.</p>
 
 
-<h3 id="guia-de-implementacion" tabindex="-1">Guía de Implementación</h3>
+<h3 id="guia-de-implementacion" tabindex="-1">Guía de implementación</h3>
 
 
 <p>Aquí tienes algunos pasos esenciales para implementar SLOs de manera efectiva:</p>
@@ -467,4 +462,4 @@ related:
 
 
 <h2>Publicaciones de blog relacionadas</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/">Mejores Prácticas de Observabilidad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/acuerdos-de-nivel-de-servicio-aws-guia-basica/">Acuerdos de Nivel de Servicio AWS: Guía Básica</a></li><li><a href="https://dondeaprendoaws.com/blog/slas-en-aws-conceptos-legales-clave/">SLAs en AWS: Conceptos Legales Clave</a></li><li><a href="https://dondeaprendoaws.com/blog/diferencias-entre-sla-y-slo-en-aws/">Diferencias Entre SLA y SLO en AWS</a></li></ul>
+<ul><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/">Mejores prácticas de observabilidad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/acuerdos-de-nivel-de-servicio-aws-guia-basica/">acuerdos de nivel de servicio AWS: guía básica</a></li><li><a href="https://dondeaprendoaws.com/blog/slas-en-aws-conceptos-legales-clave/">SLAs en AWS: conceptos legales clave</a></li><li><a href="https://dondeaprendoaws.com/blog/diferencias-entre-sla-y-slo-en-aws/">Diferencias entre SLA y SLO en AWS</a></li></ul>

@@ -1,25 +1,20 @@
 ---
-title: "Patrón Strangler Fig en AWS: Migrar a Microservicios"
+title: "Patrón Strangler Fig en AWS: migrar a microservicios"
 description: "Descubre cómo migrar de forma segura y gradual aplicaciones monolíticas a microservicios en AWS con el patrón Strangler Fig, minimizando riesgos y maximizando beneficios."
 author: "guille-ojeda"
 publishedAt: "2024-04-29"
 publishedTimestamp: "2024-04-29T05:31:12.257Z"
-cover: "/assets/blog/a4bd2fc033fb9605dec915d6.png"
-coverAlt: "Árbol de nodos con raíces ramificadas y copa en forma de nube"
-ogImage: "/assets/blog/a4bd2fc033fb9605dec915d6.png"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "AWS OpsWorks: Automatiza Despliegues con Chef"
+  - title: "AWS OpsWorks: automatiza despliegues con Chef"
     url: "https://dondeaprendoaws.com/blog/aws-opsworks-automatiza-despliegues-con-chef/"
-    image: "/assets/blog/6b2f0b16a8f28318691c2a8d.jpg"
-    imageAlt: ""
   - title: "Cómo integrar los SDK de AWS en 7 pasos"
     url: "https://dondeaprendoaws.com/blog/como-integrar-los-sdk-de-aws-en-7-pasos/"
-    image: "/assets/blog/056aaf4c9dbb90032443ee34.jpg"
-    imageAlt: ""
-  - title: "Clases de Almacenamiento de Amazon S3"
+  - title: "Clases de almacenamiento de Amazon S3"
     url: "https://dondeaprendoaws.com/blog/clases-de-almacenamiento-de-amazon-s3/"
-    image: "/assets/blog/783a6beb62602d5d128b9c75.jpg"
-    imageAlt: ""
+
 ---
 
 <p>de Forma Gradual y Segura</p>
@@ -65,25 +60,25 @@ related:
 <p>Al adoptar este enfoque, las organizaciones pueden modernizar sus aplicaciones legacy de manera segura y controlada, aprovechando al máximo los beneficios de la migración a microservicios en AWS.</p>
 
 
-<h2 id="el-patr%C3%B3n-de-strangler-fig-explicado" tabindex="-1">El Patrón de Strangler Fig Explicado</h2>
+<h2 id="el-patr%C3%B3n-de-strangler-fig-explicado" tabindex="-1">El patrón de Strangler Fig explicado</h2>
 
 
 <p>El patrón de Strangler Fig es una solución efectiva para migrar aplicaciones monolíticas a microservicios en AWS, inspirada en la naturaleza y su aplicación metafórica en el desarrollo de software.</p>
 
 
-<h3 id="inspiraci%C3%B3n-en-la-naturaleza-para-el-patr%C3%B3n" tabindex="-1">Inspiración en la Naturaleza para el Patrón</h3>
+<h3 id="inspiraci%C3%B3n-en-la-naturaleza-para-el-patr%C3%B3n" tabindex="-1">Inspiración en la naturaleza para el patrón</h3>
 
 
 <p>El patrón de Strangler Fig se inspira en la higuera estranguladora, un tipo de árbol que crece envolviendo a otro árbol, gradualmente estrangulándolo hasta que muere. De manera similar, el patrón de Strangler Fig permite reemplazar gradualmente los componentes monolíticos con microservicios, sin interrumpir el funcionamiento del sistema.</p>
 
 
-<h3 id="migraci%C3%B3n-incremental-con-strangler-fig" tabindex="-1">Migración Incremental con Strangler Fig</h3>
+<h3 id="migraci%C3%B3n-incremental-con-strangler-fig" tabindex="-1">Migración incremental con Strangler Fig</h3>
 
 
 <p>La implementación del patrón de Strangler Fig en AWS implica un proceso de migración incremental, en el que se identifican los componentes monolíticos que se deben reemplazar y se crean nuevos microservicios que los reemplazan gradualmente. Este enfoque permite reducir los riesgos asociados con la migración y garantizar la continuidad del negocio.</p>
 
 
-<h4 id="proceso-de-migraci%C3%B3n" tabindex="-1">Proceso de Migración</h4>
+<h4 id="proceso-de-migraci%C3%B3n" tabindex="-1">Proceso de migración</h4>
 
 
 <p>El proceso de migración se puede dividir en tres pasos clave:</p>
@@ -116,7 +111,7 @@ related:
 <p>Este enfoque incremental permite una migración segura y controlada, minimizando los riesgos y garantizando la continuidad del negocio.</p>
 
 
-<h2 id="implementaci%C3%B3n-del-patr%C3%B3n-strangler-fig-en-aws" tabindex="-1">Implementación del Patrón Strangler Fig en <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a></h2>
+<h2 id="implementaci%C3%B3n-del-patr%C3%B3n-strangler-fig-en-aws" tabindex="-1">Implementación del patrón Strangler Fig en <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a></h2>
 
 
 <p><figure><img alt="AWS" src="/assets/blog/2ebe3cf8e7ae57e98d3af846.jpg"/></figure></p>
@@ -125,7 +120,7 @@ related:
 <p>Para implementar el patrón de Strangler Fig en AWS, es fundamental utilizar una variedad de servicios de AWS que faciliten el proceso de migración. A continuación, se presentan los servicios clave y cómo se utilizan en el proceso de migración.</p>
 
 
-<h3 id="servicios-de-aws-para-la-migraci%C3%B3n-de-strangler-fig" tabindex="-1">Servicios de AWS para la Migración de Strangler Fig</h3>
+<h3 id="servicios-de-aws-para-la-migraci%C3%B3n-de-strangler-fig" tabindex="-1">Servicios de AWS para la migración de Strangler Fig</h3>
 
 
 <p>AWS ofrece una variedad de servicios que pueden ayudar a facilitar la migración de aplicaciones monolíticas a microservicios. Algunos de los servicios clave incluyen:</p>
@@ -155,7 +150,7 @@ related:
 </table></figure>
 
 
-<h3 id="pruebas-y-monitoreo-durante-la-migraci%C3%B3n" tabindex="-1">Pruebas y Monitoreo durante la Migración</h3>
+<h3 id="pruebas-y-monitoreo-durante-la-migraci%C3%B3n" tabindex="-1">Pruebas y monitoreo durante la migración</h3>
 
 
 <p>Es fundamental realizar pruebas exhaustivas y monitorear en tiempo real durante la implementación del patrón de Strangler Fig para garantizar la integridad y el rendimiento del sistema. Esto puede incluir:</p>
@@ -171,13 +166,13 @@ related:
 <p>Al implementar el patrón de Strangler Fig en AWS, es importante recordar que la migración es un proceso incremental que requiere planificación y ejecución cuidadosas. Sin embargo, con la ayuda de los servicios de AWS y una estrategia de migración bien planeada, es posible lograr una migración exitosa y minimizar los riesgos asociados con la migración.</p>
 
 
-<h2 id="ventajas-y-desventajas-del-patr%C3%B3n-strangler-fig" tabindex="-1">Ventajas y Desventajas del Patrón Strangler Fig</h2>
+<h2 id="ventajas-y-desventajas-del-patr%C3%B3n-strangler-fig" tabindex="-1">Ventajas y desventajas del patrón Strangler Fig</h2>
 
 
 <p>El patrón de Strangler Fig es una estrategia efectiva para migrar aplicaciones monolíticas a microservicios en AWS. Sin embargo, es importante considerar los pros y contras de este enfoque antes de implementarlo.</p>
 
 
-<h3 id="tabla-de-ventajas-y-desventajas-del-patr%C3%B3n-strangler-fig" tabindex="-1">Tabla de Ventajas y Desventajas del Patrón Strangler Fig</h3>
+<h3 id="tabla-de-ventajas-y-desventajas-del-patr%C3%B3n-strangler-fig" tabindex="-1">Tabla de ventajas y desventajas del patrón Strangler Fig</h3>
 
 
 <figure class="table"><table>
@@ -219,10 +214,10 @@ related:
 <p>Es importante tener en cuenta que cada organización es única y que los pros y contras del patrón de Strangler Fig pueden variar según las necesidades y objetivos específicos de cada empresa. Al evaluar los pros y contras, es fundamental considerar los beneficios a largo plazo y los costos asociados con la implementación de este patrón.</p>
 
 
-<h2 id="mejores-pr%C3%A1cticas-para-una-migraci%C3%B3n-exitosa" tabindex="-1">Mejores Prácticas para una Migración Exitosa</h2>
+<h2 id="mejores-pr%C3%A1cticas-para-una-migraci%C3%B3n-exitosa" tabindex="-1">Mejores prácticas para una migración exitosa</h2>
 
 
-<h3 id="planificaci%C3%B3n-y-hoja-de-ruta-para-la-migraci%C3%B3n" tabindex="-1">Planificación y Hoja de Ruta para la Migración</h3>
+<h3 id="planificaci%C3%B3n-y-hoja-de-ruta-para-la-migraci%C3%B3n" tabindex="-1">Planificación y hoja de ruta para la migración</h3>
 
 
 <p>Para asegurar una migración exitosa, es fundamental planificar cuidadosamente cada paso del proceso. A continuación, se presentan algunas mejores prácticas para considerar:</p>
@@ -243,7 +238,7 @@ related:
 <p>5. <strong>Establecer métricas y KPIs</strong>: Defina métricas y KPIs para monitorear el progreso de la migración y medir su éxito.</p>
 
 
-<h3 id="comunicaci%C3%B3n-y-gesti%C3%B3n-del-cambio" tabindex="-1">Comunicación y Gestión del Cambio</h3>
+<h3 id="comunicaci%C3%B3n-y-gesti%C3%B3n-del-cambio" tabindex="-1">Comunicación y gestión del cambio</h3>
 
 
 <p>La migración a microservicios implica cambios significativos en la forma de trabajar y en la cultura organizacional. Es crucial involucrar a todas las partes interesadas y comunicar de manera efectiva para garantizar una transición fluida.</p>
@@ -264,13 +259,13 @@ related:
 <p>5. <strong>Celebrar los logros</strong>: Reconozca y celebre los hitos alcanzados durante la migración para mantener la motivación y el compromiso de los equipos involucrados.</p>
 
 
-<h2 id="conclusi%C3%B3n%3A-beneficios-de-la-migraci%C3%B3n-gradual" tabindex="-1">Conclusión: Beneficios de la Migración Gradual</h2>
+<h2 id="conclusi%C3%B3n%3A-beneficios-de-la-migraci%C3%B3n-gradual" tabindex="-1">Conclusión: beneficios de la migración gradual</h2>
 
 
 <p>En resumen, la adopción del patrón Strangler Fig para la migración a microservicios en AWS ofrece varios beneficios clave. Estos beneficios incluyen:</p>
 
 
-<h3 id="ventajas-de-la-migraci%C3%B3n-gradual" tabindex="-1">Ventajas de la Migración Gradual</h3>
+<h3 id="ventajas-de-la-migraci%C3%B3n-gradual" tabindex="-1">Ventajas de la migración gradual</h3>
 
 
 <ul>
@@ -310,10 +305,10 @@ related:
 <p>En última instancia, la clave para una migración exitosa es adoptar un enfoque gradual y bien planificado, que permita a las organizaciones aprovechar al máximo los beneficios de la migración a microservicios en AWS.</p>
 
 
-<h2 id="preguntas-frecuentes" tabindex="-1">Preguntas Frecuentes</h2>
+<h2 id="preguntas-frecuentes" tabindex="-1">Preguntas frecuentes</h2>
 
 
-<h3 id="%C2%BFc%C3%B3mo-se-implementa-el-patr%C3%B3n-strangler%3F" tabindex="-1">¿Cómo se implementa el patrón Strangler?</h3>
+<h3 id="%C2%BFc%C3%B3mo-se-implementa-el-patr%C3%B3n-strangler%3F" tabindex="-1">¿Cómo se implementa el patrón strangler?</h3>
 
 
 <p>Para implementar el patrón Strangler, siga estos pasos:</p>
@@ -333,7 +328,7 @@ related:
 <p>Este patrón implica moverse a microservicios mediante la extracción gradual de características y la creación de una nueva aplicación alrededor del sistema existente. Las características en la aplicación monolítica se reemplazan gradualmente por microservicios, y los usuarios de la aplicación pueden utilizar las características migradas progresivamente.</p>
 
 
-<h4 id="ventajas-del-patr%C3%B3n-strangler" tabindex="-1">Ventajas del patrón Strangler</h4>
+<h4 id="ventajas-del-patr%C3%B3n-strangler" tabindex="-1">Ventajas del patrón strangler</h4>
 
 
 <figure class="table"><table>
@@ -363,6 +358,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-contenedores/">Microservicios en AWS Utilizando Contenedores</a></li><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/">Arquitecturas Multi-Región en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-aws-lambda/">Microservicios en AWS Utilizando AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-dirigidas-por-eventos-en-aws/">Arquitecturas Dirigidas por Eventos en AWS</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-contenedores/">Microservicios en AWS utilizando contenedores</a></li><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/">arquitecturas multi-región en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-aws-lambda/">Microservicios en AWS utilizando AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-dirigidas-por-eventos-en-aws/">arquitecturas dirigidas por eventos en AWS</a></li>
 </ul>
 </p>

@@ -5,20 +5,17 @@ author: "guille-ojeda"
 publishedAt: "2024-10-26"
 publishedTimestamp: "2024-10-26T18:53:17.718Z"
 modifiedTimestamp: "2026-10-04T21:31:45-03:00"
-cover: "/assets/blog/251a69179cad106c40e9334f.webp"
-coverAlt: "Libros apilados sobre una mesa; los lomos dicen AWS Whitepapers"
-ogImage: "/assets/blog/251a69179cad106c40e9334f.webp"
+cover: "/assets/blog/editorial-certificacion.png"
+coverAlt: "Tres tarjetas de estudio con apuntes y hitos sobre un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-certificacion.png"
 review:
   date: "2026-10-04"
 related:
   - title: "Certificación AWS gratis: cómo prepararte sin pagar por cursos"
     url: "https://dondeaprendoaws.com/blog/certificacion-aws-gratis-materiales-de-estudio/"
-    image: "/assets/blog/0d33d48b094b306e8f1fb75f.jpg"
-    imageAlt: ""
   - title: "AWS Cloud Practitioner: recursos en español para preparar la certificación"
     url: "https://dondeaprendoaws.com/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/"
-    image: "/assets/blog/8d4ecab3b218a57acfd77f30.jpg"
-    imageAlt: ""
+
 ---
 
 Si buscas whitepapers de AWS para preparar una certificación, empieza por la **guía oficial del examen que quieres rendir**. Los whitepapers explican principios y decisiones de arquitectura; no son un temario completo, un simulacro ni una promesa de aprobación. Para Solutions Architect – Associate, el documento más directamente relacionado es AWS Well-Architected. Para Cloud Practitioner, usa primero la guía CLF-C02 y recurre a los documentos de contexto solo para aclarar sus objetivos.
@@ -81,7 +78,7 @@ Para estudiar CLF-C02 con una serie comunitaria, el [AWS Cloud Practitioner Chal
 
 Si buscas conversación sobre arquitectura, el perfil del [AWS User Group Querétaro](https://www.meetup.com/es-es/amazon-web-services-queretaro/) describe talleres sobre diseño de nube, alta disponibilidad, datos y desarrollo. El [AWS User Group Mixtli](https://www.meetup.com/awsugmixtli/) en Cholula, Puebla, publica charlas y talleres sobre arquitectura, seguridad, costos y otros temas de AWS. Las condiciones de entrada, el formato y las fechas dependen de cada convocatoria.
 
-También puedes explorar el [directorio de AWS User Groups y Student Builder Groups](https://dondeaprendoaws.com/comunidades/) para encontrar una comunidad por país o institución, y la [agenda de eventos AWS en Latinoamérica](https://dondeaprendoaws.com/eventos/) para comparar encuentros presenciales, híbridos y en línea. Las convocatorias de estudio sobre Well-Architected y preparación de examen varían en fechas y cupos; confirma idioma, modalidad, requisitos y disponibilidad en la página del organizador antes de participar. Una grabación, curso o grupo de estudio puede acompañar tu preparación, pero no sustituye la guía oficial.
+También puedes explorar el [directorio de AWS User Groups y Student Builder Groups](https://dondeaprendoaws.com/comunidades/) para encontrar una comunidad por país o institución, y la [Agenda de eventos AWS en Latinoamérica](https://dondeaprendoaws.com/eventos/) para comparar encuentros presenciales, híbridos y en línea. Las convocatorias de estudio sobre Well-Architected y preparación de examen varían en fechas y cupos; confirma idioma, modalidad, requisitos y disponibilidad en la página del organizador antes de participar. Una grabación, curso o grupo de estudio puede acompañar tu preparación, pero no sustituye la guía oficial.
 
 ## Preguntas frecuentes
 
@@ -89,7 +86,7 @@ También puedes explorar el [directorio de AWS User Groups y Student Builder Gro
 
 No hay una cantidad universal. La guía oficial del examen define por dónde empezar. Para SAA-C03, prioriza los objetivos de arquitectura y usa Well-Architected para profundizar; para CLF-C02, relaciona cada lectura con sus dominios y objetivos. Elige documentos según las dudas que encuentres.
 
-### ¿Well-Architected tiene cinco o seis pilares?
+### ¿Well-architected tiene cinco o seis pilares?
 
 El marco actual describe seis pilares, incluida sostenibilidad. Si encuentras un resumen de cinco, comprueba la fecha y contrástalo con la documentación actual.
 

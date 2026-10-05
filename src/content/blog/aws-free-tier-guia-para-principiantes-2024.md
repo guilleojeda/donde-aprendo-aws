@@ -1,25 +1,20 @@
 ---
-title: "AWS Free Tier: Guía para Principiantes 2024"
+title: "AWS Free Tier: guía para principiantes 2024"
 description: "Descubre cómo utilizar el AWS Free Tier en 2024 para explorar y probar servicios de nube de Amazon sin coste. Aprende a evitar cargos y aprovecha al máximo esta oferta."
 author: "guille-ojeda"
 publishedAt: "2024-04-29"
 publishedTimestamp: "2024-04-29T06:37:00.779Z"
-cover: "/assets/blog/a883588726566bcfe7e00c48.jpg"
-coverAlt: "Flecha ascendente frente a una nube con candado e iconos de fondo"
-ogImage: "/assets/blog/a883588726566bcfe7e00c48.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
-  - title: "AWS IoT Edge Simulator: Casos de Uso Reales"
+  - title: "AWS IoT Edge Simulator: casos de uso reales"
     url: "https://dondeaprendoaws.com/blog/aws-iot-edge-simulator-casos-de-uso-reales/"
-    image: "/assets/blog/7854091f527530189ba482f0.png"
-    imageAlt: ""
-  - title: "Arquitecturas Dirigidas por Eventos en AWS"
+  - title: "Arquitecturas dirigidas por eventos en AWS"
     url: "https://dondeaprendoaws.com/blog/arquitecturas-dirigidas-por-eventos-en-aws/"
-    image: "/assets/blog/1a0df738c1ab9c313bf60144.jpg"
-    imageAlt: ""
-  - title: "Base de Datos Global con Amazon DynamoDB"
+  - title: "Base de datos global con Amazon DynamoDB"
     url: "https://dondeaprendoaws.com/blog/base-de-datos-global-con-amazon-dynamodb/"
-    image: "/assets/blog/b74e56b41e26732c7dfc378e.png"
-    imageAlt: ""
+
 ---
 
 <p>El <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> Free Tier es un programa gratuito de Amazon Web Services que te permite explorar y probar una amplia variedad de servicios en la nube sin costo alguno. Ofrece tres tipos de ofertas:</p>
@@ -385,10 +380,10 @@ related:
 </table></figure>
 
 
-<h2 id="preferencias-de-cookies-en-aws" tabindex="-1">Preferencias de Cookies en AWS</h2>
+<h2 id="preferencias-de-cookies-en-aws" tabindex="-1">Preferencias de cookies en AWS</h2>
 
 
-<h3 id="tipos-de-cookies" tabindex="-1">Tipos de Cookies</h3>
+<h3 id="tipos-de-cookies" tabindex="-1">Tipos de cookies</h3>
 
 
 <p>Cuando utiliza los servicios de AWS, podemos utilizar diferentes tipos de cookies para mejorar su experiencia. Estos incluyen:</p>
@@ -414,7 +409,7 @@ related:
 </table></figure>
 
 
-<h3 id="guardar-configuraci%C3%B3n-de-cookies" tabindex="-1">Guardar Configuración de Cookies</h3>
+<h3 id="guardar-configuraci%C3%B3n-de-cookies" tabindex="-1">Guardar configuración de cookies</h3>
 
 
 <p>Si tiene problemas para guardar sus preferencias de cookies, asegúrese de que su navegador esté configurado para aceptar cookies. Si el problema persiste, póngase en contacto con nuestro soporte técnico para obtener ayuda adicional.</p>
@@ -484,25 +479,25 @@ related:
 <h2 id="preguntas-frecuentes" tabindex="-1">Preguntas frecuentes</h2>
 
 
-<h3 id="%C2%BFqu%C3%A9-obtengo-con-una-cuenta-de-aws-free-tier%3F" tabindex="-1">¿Qué obtengo con una cuenta de AWS free tier?</h3>
+<h3 id="%C2%BFqu%C3%A9-obtengo-con-una-cuenta-de-aws-free-tier%3F" tabindex="-1">¿Qué obtengo con una cuenta de AWS Free Tier?</h3>
 
 
 <p>Obtienes la capacidad de explorar y probar los servicios de AWS sin cargo hasta límites específicos para cada servicio. La capa gratuita se compone de tres tipos de ofertas diferentes: 12 meses gratis, siempre gratis y pruebas gratuitas a corto plazo.</p>
 
 
-<h3 id="%C2%BFqu%C3%A9-sucede-despu%C3%A9s-de-12-meses-de-aws-free-tier%3F" tabindex="-1">¿Qué sucede después de 12 meses de AWS free tier?</h3>
+<h3 id="%C2%BFqu%C3%A9-sucede-despu%C3%A9s-de-12-meses-de-aws-free-tier%3F" tabindex="-1">¿Qué sucede después de 12 meses de AWS Free Tier?</h3>
 
 
 <p>Cuando tu término de uso gratuito de 12 meses expire, o si el uso de tu aplicación excede los límites, simplemente pagas las tarifas estándar de pago por uso para cada servicio. Las ofertas siempre gratuitas no expiran y están disponibles para todos los clientes de AWS.</p>
 
 
-<h3 id="%C2%BFcu%C3%A1l-es-la-diferencia-entre-aws-free-tier-profesional-y-personal%3F" tabindex="-1">¿Cuál es la diferencia entre AWS free tier profesional y personal?</h3>
+<h3 id="%C2%BFcu%C3%A1l-es-la-diferencia-entre-aws-free-tier-profesional-y-personal%3F" tabindex="-1">¿Cuál es la diferencia entre AWS Free Tier profesional y personal?</h3>
 
 
 <p>La cuenta profesional es para empresas o uso empresarial, mientras que la cuenta personal es para aprender y experimentar con los servicios de AWS.</p>
 
 
-<h3 id="%C2%BFes-aws-free-tier-gratuito-de-por-vida%3F" tabindex="-1">¿Es AWS free tier gratuito de por vida?</h3>
+<h3 id="%C2%BFes-aws-free-tier-gratuito-de-por-vida%3F" tabindex="-1">¿Es AWS Free Tier gratuito de por vida?</h3>
 
 
 <p>No, la capa gratuita de AWS se aplica a tu uso mensual. Expira el primer día de cada mes y no se acumula.</p>
@@ -538,6 +533,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS Fundamentos: Guía de Inicio Rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-gratis-para-educadores-y-estudiantes/">AWS gratis para educadores y estudiantes</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/">Introducción a los servicios de Amazon Web Services</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS fundamentos: guía de inicio rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-gratis-para-educadores-y-estudiantes/">AWS gratis para educadores y estudiantes</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/">Introducción a los servicios de Amazon Web Services</a></li>
 </ul>
 </p>

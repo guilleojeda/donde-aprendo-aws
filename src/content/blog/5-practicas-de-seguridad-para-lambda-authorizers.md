@@ -5,9 +5,9 @@ author: "guille-ojeda"
 publishedAt: "2025-01-23"
 publishedTimestamp: "2025-01-23T00:34:06.712Z"
 modifiedTimestamp: "2026-10-04T21:31:45-03:00"
-cover: "/assets/blog/e838de22cc856de64a0d3bdc.jpg"
-coverAlt: "Portátil con código rodeado de iconos luminosos de candados y escudos"
-ogImage: "/assets/blog/e838de22cc856de64a0d3bdc.jpg"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related: []
 review:
   date: "2026-10-04"
@@ -142,4 +142,4 @@ La comunidad [AWS Women Colombia](https://awswomencolombia.com/) comparte charla
 - El [AWS & Cloud Native Security Night de AWS User Group Security Ecuador](https://www.meetup.com/aws-user-group-security-ecuador/events/316815633/) figura para el 23 de octubre, de 17:00 a 20:00 GMT-5, presencial en Guayaquil. Su ficha anuncia seguridad de Kubernetes e imágenes de contenedores, entrada gratuita y cupos limitados; no es una sesión sobre API Gateway, pero permite conocer a una comunidad enfocada en seguridad de AWS.
 - El [AWS Community Day Panamá — Security & Data Edition 2026](https://www.meetup.com/aws-user-group-panama/events/316732293/) figura para el 14 de noviembre, de 08:00 a 13:00 GMT-5, presencial. La ubicación aún se indica como pendiente de confirmar en Meetup; revisa allí lugar, cupos y condiciones antes de planificar el viaje.
 
-Las agendas y condiciones pueden cambiar. Consulta la ficha del organizador y la [agenda de próximos eventos AWS](/eventos/) para ver qué sigue después de esas fechas; también puedes encontrar un grupo por país en el [directorio de comunidades](/comunidades/) o canales técnicos en el [directorio de creadores](/creadores/).
+Las agendas y condiciones pueden cambiar. Consulta la ficha del organizador y la [Agenda de próximos eventos AWS](/eventos/) para ver qué sigue después de esas fechas; también puedes encontrar un grupo por país en el [directorio de comunidades](/comunidades/) o canales técnicos en el [directorio de creadores](/creadores/).

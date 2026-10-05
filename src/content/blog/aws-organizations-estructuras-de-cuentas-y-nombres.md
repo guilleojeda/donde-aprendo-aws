@@ -1,25 +1,20 @@
 ---
-title: "AWS Organizations: Estructuras de cuentas y nombres"
+title: "AWS Organizations: estructuras de cuentas y nombres"
 description: "Aprende a gestionar eficientemente cuentas en AWS Organizations mediante una estructura clara y un sistema de nombres estandarizado."
 author: "guille-ojeda"
 publishedAt: "2025-02-27"
 publishedTimestamp: "2025-02-27T04:44:08.163Z"
-cover: "/assets/blog/0bc804415b6cb6339123371f.jpg"
-coverAlt: "Portátil con una consola de texto abierta junto a una estantería"
-ogImage: "/assets/blog/0bc804415b6cb6339123371f.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Estructuras multi-cuenta AWS para escalar"
     url: "https://dondeaprendoaws.com/blog/estructuras-multi-cuenta-aws-para-escalar/"
-    image: "/assets/blog/0e9e4bdd57782b78da6d878e.jpg"
-    imageAlt: ""
-  - title: "Acuerdos de Nivel de Servicio AWS: Guía Básica"
+  - title: "Acuerdos de nivel de servicio AWS: guía básica"
     url: "https://dondeaprendoaws.com/blog/acuerdos-de-nivel-de-servicio-aws-guia-basica/"
-    image: "/assets/blog/a1b4827aff914f24a4598ecc.jpg"
-    imageAlt: ""
   - title: "AWS curso certificado: guía básica"
     url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-basica/"
-    image: "/assets/blog/35e338eebb5988d204344c86.jpg"
-    imageAlt: ""
+
 ---
 
 <p><strong><a href="https://docs.aws.amazon.com/organizations/latest/userguide/orgs_introduction.html" rel="noopener noreferrer" target="_blank">AWS Organizations</a></strong> es una herramienta clave para gestionar múltiples cuentas de AWS desde un único lugar. Ofrece control centralizado sobre seguridad, costes y administración, ideal para empresas que necesitan escalar en la nube. Aquí tienes los puntos principales que debes saber para estructurar y nombrar tus cuentas de forma eficiente:</p>
@@ -62,7 +57,7 @@ related:
 <p>Esta segmentación facilita la aplicación de políticas y el cumplimiento de normas establecidas.</p>
 
 
-<h3 id="trabajo-con-unidades-organizativas" tabindex="-1">Trabajo con Unidades Organizativas</h3>
+<h3 id="trabajo-con-unidades-organizativas" tabindex="-1">Trabajo con unidades organizativas</h3>
 
 
 <p>Una vez diseñada la jerarquía, utiliza Unidades Organizativas (OUs) para agrupar cuentas y aplicar políticas de forma centralizada. Las OUs permiten organizar cuentas según controles y funcionalidades comunes.</p>
@@ -117,7 +112,7 @@ related:
 <p>Una estructura bien planificada asegura un control efectivo sobre seguridad y costes, mientras simplifica la gestión del entorno empresarial.</p>
 
 
-<h2 class="sb h2-sbb-cls" id="estandares-de-nombres-para-cuentas" tabindex="-1">Estándares de Nombres para Cuentas</h2>
+<h2 class="sb h2-sbb-cls" id="estandares-de-nombres-para-cuentas" tabindex="-1">Estándares de nombres para cuentas</h2>
 
 
 <p>Una vez definida la estructura de cuentas, es importante establecer convenciones de nombres claras para facilitar la administración y el control.</p>
@@ -200,13 +195,13 @@ Este esquema asegura que los recursos sean fáciles de identificar y estén alin
 
 
 
-<h2 class="sb h2-sbb-cls" id="guia-de-etiquetado-de-cuentas" tabindex="-1">Guía de Etiquetado de Cuentas</h2>
+<h2 class="sb h2-sbb-cls" id="guia-de-etiquetado-de-cuentas" tabindex="-1">Guía de etiquetado de cuentas</h2>
 
 
 <p>El <a href="https://dondeaprendoaws.com/blog/gestionando-multiples-cuentas-de-aws-con-aws-organizations/">etiquetado en AWS Organizations</a> es clave para gestionar recursos y controlar costes. Aquí te mostramos cómo establecer una estrategia de etiquetado clara y funcional.</p>
 
 
-<h3 id="reglas-de-estructura-para-etiquetas" tabindex="-1">Reglas de Estructura para Etiquetas</h3>
+<h3 id="reglas-de-estructura-para-etiquetas" tabindex="-1">Reglas de estructura para etiquetas</h3>
 
 
 <p>Las etiquetas deben seguir un patrón uniforme que facilite la organización y el seguimiento de los recursos. Estas etiquetas funcionan como pares clave-valor y deben respetar estas reglas básicas:</p>
@@ -250,7 +245,7 @@ Este esquema asegura que los recursos sean fáciles de identificar y estén alin
 </ul>
 
 
-<h3 id="etiquetas-para-facturacion-y-acceso" tabindex="-1">Etiquetas para Facturación y Acceso</h3>
+<h3 id="etiquetas-para-facturacion-y-acceso" tabindex="-1">Etiquetas para facturación y acceso</h3>
 
 
 <p>Una vez definida la estructura de las etiquetas, es esencial aplicarlas correctamente para un mejor control en facturación y acceso. AWS clasifica las etiquetas en dos categorías principales:</p>
@@ -283,7 +278,7 @@ Este esquema asegura que los recursos sean fáciles de identificar y estén alin
 
 
 <ul>
-<li><strong>Activa las etiquetas de asignación</strong>: Configúralas en la consola de <a href="https://dondeaprendoaws.com/blog/gestion-de-facturacion-de-aws-guia-completa/">Facturación y Administración de Costes</a> para vincular recursos con centros de coste.</li>
+<li><strong>Activa las etiquetas de asignación</strong>: Configúralas en la consola de <a href="https://dondeaprendoaws.com/blog/gestion-de-facturacion-de-aws-guia-completa/">facturación y administración de costes</a> para vincular recursos con centros de coste.</li>
 <li><strong>Utiliza <a href="https://docs.aws.amazon.com/config/" rel="noopener noreferrer" target="_blank">AWS Config</a></strong>: Aplica reglas para garantizar que los recursos cumplan con las etiquetas requeridas.</li>
 <li><strong>Emplea Tag Editor</strong>: Encuentra y corrige recursos que no tengan etiquetas asignadas.</li>
 </ul>
@@ -298,13 +293,13 @@ Este esquema asegura que los recursos sean fáciles de identificar y estén alin
 <p>Aplicar estas prácticas de etiquetado de manera adecuada sentará una base sólida para gestionar los recursos de forma eficiente en futuras etapas de administración de cuentas.</p>
 
 
-<h2 class="sb h2-sbb-cls" id="pasos-de-gestion-de-cuentas" tabindex="-1">Pasos de Gestión de Cuentas</h2>
+<h2 class="sb h2-sbb-cls" id="pasos-de-gestion-de-cuentas" tabindex="-1">Pasos de gestión de cuentas</h2>
 
 
 <p>La gestión de cuentas implica supervisar su ciclo de vida, desde la creación inicial hasta su eliminación, garantizando un control adecuado y evitando gastos innecesarios.</p>
 
 
-<h3 id="configuracion-de-nuevas-cuentas" tabindex="-1">Configuración de Nuevas Cuentas</h3>
+<h3 id="configuracion-de-nuevas-cuentas" tabindex="-1">Configuración de nuevas cuentas</h3>
 
 
 <p>Siga estos pasos para configurar una cuenta correctamente:</p>
@@ -330,7 +325,7 @@ Este esquema asegura que los recursos sean fáciles de identificar y estén alin
 <p>Después de configurar una cuenta, es igualmente importante gestionar su desactivación cuando ya no sea necesaria.</p>
 
 
-<h3 id="proceso-de-limpieza-de-cuentas" tabindex="-1">Proceso de Limpieza de Cuentas</h3>
+<h3 id="proceso-de-limpieza-de-cuentas" tabindex="-1">Proceso de limpieza de cuentas</h3>
 
 
 <p>Para evitar costos innecesarios, asegúrese de realizar una limpieza adecuada de las cuentas que ya no se utilizan. Este proceso consta de tres fases principales:</p>
@@ -357,10 +352,10 @@ Este esquema asegura que los recursos sean fáciles de identificar y estén alin
 <p>Para entornos de desarrollo y pruebas, puede usar <strong><a href="https://github.com/ekristen/aws-nuke" rel="noopener noreferrer" target="_blank">AWS-NUKE</a></strong> para automatizar la limpieza de recursos. Asegúrese de ejecutar siempre el modo <em>DRY RUN</em> antes de proceder, para evitar eliminaciones accidentales.</p>
 
 
-<h2 class="sb h2-sbb-cls" id="resumen-y-recursos" tabindex="-1">Resumen y Recursos</h2>
+<h2 class="sb h2-sbb-cls" id="resumen-y-recursos" tabindex="-1">Resumen y recursos</h2>
 
 
-<h3 id="revision-de-puntos-principales" tabindex="-1">Revisión de Puntos Principales</h3>
+<h3 id="revision-de-puntos-principales" tabindex="-1">Revisión de puntos principales</h3>
 
 
 <p>Configurar AWS Organizations requiere entender cómo estructurar cuentas y establecer convenciones de nombres adecuadas. Algunos puntos clave incluyen:</p>
@@ -403,7 +398,7 @@ Este esquema asegura que los recursos sean fáciles de identificar y estén alin
 </table></figure>
 
 
-<h3 id="recursos-adicionales" tabindex="-1">Recursos Adicionales</h3>
+<h3 id="recursos-adicionales" tabindex="-1">Recursos adicionales</h3>
 
 
 <p>Si quieres profundizar más en estos temas, aquí tienes algunas fuentes útiles:</p>
@@ -415,11 +410,11 @@ Este esquema asegura que los recursos sean fáciles de identificar y estén alin
 La <a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-basica/">guía oficial de AWS Organizations</a> ofrece información detallada sobre configuración y administración.
 </li>
 <li>
-<strong>Recursos en Español</strong><br/>
+<strong>Recursos en español</strong><br/>
 Visita <a href="https://dondeaprendoaws.com">Dónde Aprendo AWS</a> para explicaciones completas sobre AWS Organizations en español.
 </li>
 <li>
-<strong><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores Prácticas</a></strong><br/>
+<strong><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">mejores prácticas</a></strong><br/>
 Explora el artículo "Best Practices for Organizational Units with AWS Organizations" en el Centro de Conocimiento de AWS.
 </li>
 </ol>
@@ -436,4 +431,4 @@ Explora el artículo "Best Practices for Organizational Units with AWS Organizat
 
 
 <h2>Publicaciones de blog relacionadas</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/gestionando-multiples-cuentas-de-aws-con-aws-organizations/">Gestionando Múltiples Cuentas de AWS con AWS Organizations</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores Prácticas de Seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/politicas-de-confianza-aws-acceso-entre-cuentas/">Políticas de Confianza AWS: Acceso Entre Cuentas</a></li><li><a href="https://dondeaprendoaws.com/blog/checklist-para-automatizar-cumplimiento-en-aws/">Checklist para automatizar cumplimiento en AWS</a></li></ul>
+<ul><li><a href="https://dondeaprendoaws.com/blog/gestionando-multiples-cuentas-de-aws-con-aws-organizations/">Gestionando múltiples cuentas de AWS con AWS Organizations</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores prácticas de seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/politicas-de-confianza-aws-acceso-entre-cuentas/">Políticas de confianza AWS: acceso entre cuentas</a></li><li><a href="https://dondeaprendoaws.com/blog/checklist-para-automatizar-cumplimiento-en-aws/">Checklist para automatizar cumplimiento en AWS</a></li></ul>

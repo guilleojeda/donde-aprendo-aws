@@ -1,25 +1,20 @@
 ---
-title: "Mejores Prácticas Para AWS Lambda"
+title: "Mejores prácticas para AWS Lambda"
 description: "Consejos clave para optimizar y asegurar tus aplicaciones sin servidor con AWS Lambda. Aprende a simplificar tu código, configurar cuidadosamente y monitorear tu función para un rendimiento óptimo."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:26:48.732Z"
-cover: "/assets/blog/020c3be0259dc50cecb2155a.png"
-coverAlt: "Lupa, marcador y engranaje conectados con una nube"
-ogImage: "/assets/blog/020c3be0259dc50cecb2155a.png"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "7 Estrategias para Mitigar Cold Starts en AWS Lambda"
+  - title: "7 estrategias para mitigar cold starts en AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/7-estrategias-para-mitigar-cold-starts-en-aws-lambda/"
-    image: "/assets/blog/c936f3eb45382355f87b0707.jpg"
-    imageAlt: ""
-  - title: "Utilizando Lambda Layers en Múltiples Funciones Lambda"
+  - title: "Utilizando Lambda layers en múltiples funciones Lambda"
     url: "https://dondeaprendoaws.com/blog/utilizando-lambda-layers-en-multiples-funciones-lambda/"
-    image: "/assets/blog/ab65afd218440c66bc564a0a.jpg"
-    imageAlt: ""
-  - title: "Ingeniería de Caos en AWS con Fault Injection Simulator"
+  - title: "Ingeniería de caos en AWS con fault injection simulator"
     url: "https://dondeaprendoaws.com/blog/ingenieria-de-caos-en-aws-con-fault-injection-simulator/"
-    image: "/assets/blog/0a0b1cf017845abee5cf215d.png"
-    imageAlt: ""
+
 ---
 
 <p>Para lograr el máximo rendimiento y seguridad en tus aplicaciones sin servidor con AWS Lambda, sigue estas estrategias clave:</p>
@@ -37,7 +32,7 @@ related:
 <p>AWS Lambda es ideal para aplicaciones que requieren alta adaptabilidad y eficiencia sin la carga de manejar servidores. Soporta varios lenguajes de programación como Java, Go, PowerShell, Node.js, C#, Python, y Ruby, ofreciendo flexibilidad para tus proyectos. Emplea estas mejores prácticas para aprovechar al máximo las capacidades de AWS Lambda, mejorando la seguridad, rendimiento y eficiencia de tus aplicaciones.</p>
 
 
-<h2 id="c%C3%B3mo-mejorar-tus-funciones-lambda" tabindex="-1">Cómo Mejorar Tus Funciones Lambda</h2>
+<h2 id="c%C3%B3mo-mejorar-tus-funciones-lambda" tabindex="-1">Cómo mejorar tus funciones Lambda</h2>
 
 
 <p>Consejos para hacer tu código de función Lambda más eficiente y fácil de manejar.</p>
@@ -90,7 +85,7 @@ function miFuncion(event) {
 </ul>
 
 
-<h2 id="configuraci%C3%B3n-de-la-funci%C3%B3n" tabindex="-1">Configuración de la Función</h2>
+<h2 id="configuraci%C3%B3n-de-la-funci%C3%B3n" tabindex="-1">Configuración de la función</h2>
 
 
 <p>Aquí te damos unos consejos para que tu función Lambda funcione mejor y te cueste menos.</p>
@@ -123,7 +118,7 @@ function miFuncion(event) {
 <p>Revisa bien qué recursos necesita tu función y limita los permisos solo a eso. También es buena idea revisar de vez en cuando los permisos para quitar los que ya no se usan. Entre más limitados sean los permisos, más segura será tu función.</p>
 
 
-<h2 id="m%C3%A9tricas%2C-monitoreo-y-alarmas" tabindex="-1">Métricas, Monitoreo y Alarmas</h2>
+<h2 id="m%C3%A9tricas%2C-monitoreo-y-alarmas" tabindex="-1">Métricas, monitoreo y alarmas</h2>
 
 
 <p>Es muy importante mantener un ojo en cómo van las cosas con tus funciones Lambda para asegurarte de que todo funcione bien y para encontrar problemas antes de que se hagan grandes.</p>
@@ -208,7 +203,7 @@ function miFuncion(event) {
 <p>Si sigues estos consejos desde el comienzo, tus aplicaciones serverless estarán mucho más seguras.</p>
 
 
-<h2 id="optimizaci%C3%B3n-de-rendimiento" tabindex="-1">Optimización de Rendimiento</h2>
+<h2 id="optimizaci%C3%B3n-de-rendimiento" tabindex="-1">Optimización de rendimiento</h2>
 
 
 <h3 id="restablecer-siempre-las-conexiones-de-red-con-lambda-snapstart" tabindex="-1">Restablecer siempre las conexiones de red con Lambda SnapStart</h3>
@@ -272,7 +267,7 @@ function miFuncion(event) {
 <p>Al enfocarte en estos puntos desde el diseño y la implementación, te aseguras de aprovechar al máximo Lambda y evitas complicaciones futuras.</p>
 
 
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas Relacionadas</h2>
+<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
 
 
 <h3 id="%C2%BFcu%C3%A1ndo-usar-lambda%3F" tabindex="-1">¿Cuándo usar Lambda?</h3>
@@ -329,6 +324,6 @@ function miFuncion(event) {
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a Serverless en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-lambda-en-profundidad/">AWS Lambda en Profundidad</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores Prácticas de Seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ec2/">Mejores Prácticas Para Amazon EC2</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a serverless en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-lambda-en-profundidad/">AWS Lambda en profundidad</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores prácticas de seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ec2/">Mejores prácticas para Amazon EC2</a></li>
 </ul>
 </p>

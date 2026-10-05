@@ -8,14 +8,13 @@ modifiedTimestamp: "2026-10-05T00:34:04-03:00"
 review:
   date: "2026-10-05"
   note: "Distinción entre cursos, insignias de aprendizaje y certificación AWS; enlaces revisados."
-cover: "/assets/blog/35e338eebb5988d204344c86.jpg"
-coverAlt: "Pirámide de franjas de colores atravesada por un camino en zigzag"
-ogImage: "/assets/blog/35e338eebb5988d204344c86.jpg"
+cover: "/assets/blog/editorial-certificacion.png"
+coverAlt: "Tres tarjetas de estudio con apuntes y hitos sobre un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-certificacion.png"
 related:
   - title: "AWS Cloud Practitioner (CLF-C02): cómo preparar el examen en español"
     url: "https://dondeaprendoaws.com/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/"
-    image: "/assets/blog/8d4ecab3b218a57acfd77f30.jpg"
-    imageAlt: "Nube delineada rodeada de iconos de reproducción, ubicación y dirección"
+
 ---
 
 Un curso de AWS te ayuda a aprender; terminarlo **no te convierte automáticamente en AWS Certified**. Una plataforma o un proveedor puede entregar su propio certificado de finalización. AWS Certification es otra credencial: se obtiene al aprobar el examen oficial correspondiente.
@@ -83,7 +82,7 @@ Un curso puede darte un orden; los grupos ayudan a comparar explicaciones, resol
 
 Las páginas de estas comunidades no fijan las mismas condiciones para todos sus cursos y encuentros. Antes de asistir, verifica idioma, modalidad, horario, cupos, requisitos y costo en la actividad concreta.
 
-La [agenda de eventos AWS en Latinoamérica](/eventos/) muestra encuentros en línea, presenciales e híbridos con su fecha, horario, organización y enlace de inscripción. Abre cada evento para confirmar idioma, cupos, precio y requisitos: esas condiciones las define quien organiza la actividad.
+La [Agenda de eventos AWS en Latinoamérica](/eventos/) muestra encuentros en línea, presenciales e híbridos con su fecha, horario, organización y enlace de inscripción. Abre cada evento para confirmar idioma, cupos, precio y requisitos: esas condiciones las define quien organiza la actividad.
 
 Si tu objetivo concreto es preparar Cloud Practitioner, aquí tienes una [guía del examen CLF-C02 en español](/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/) con los dominios oficiales, recursos de práctica y sesiones de grupos latinoamericanos.
 

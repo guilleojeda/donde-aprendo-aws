@@ -1,25 +1,20 @@
 ---
-title: "Bases de datos Relacionales en AWS con Amazon RDS y Amazon Aurora"
+title: "Bases de datos relacionales en AWS con Amazon RDS y Amazon Aurora"
 description: "Descubra cómo implementar y gestionar bases de datos relacionales en la nube de AWS con Amazon RDS y Amazon Aurora. Aprenda sobre rendimiento, escalabilidad, seguridad y costos."
 author: "guille-ojeda"
 publishedAt: "2024-01-31"
 publishedTimestamp: "2024-01-31T00:42:48.279Z"
-cover: "/assets/blog/a57ee6c77803a35c0e96c332.jpg"
-coverAlt: "Nube central con hexágonos y varios iconos de bases de datos alrededor"
-ogImage: "/assets/blog/a57ee6c77803a35c0e96c332.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
-  - title: "Diferencias: Endpoint de interfaz vs. Endpoint de gateway"
+  - title: "Diferencias: endpoint de interfaz vs. endpoint de gateway"
     url: "https://dondeaprendoaws.com/blog/diferencias-endpoint-de-interfaz-vs-endpoint-de-gateway/"
-    image: "/assets/blog/3565dcd644c1d6c694694985.jpg"
-    imageAlt: ""
-  - title: "SLAs en AWS: Conceptos Legales Clave"
+  - title: "SLAs en AWS: conceptos legales clave"
     url: "https://dondeaprendoaws.com/blog/slas-en-aws-conceptos-legales-clave/"
-    image: "/assets/blog/6a87e6f6cd6e98298a62ee1a.jpg"
-    imageAlt: ""
-  - title: "Cómo Prepararte Para un Examen de Certificación de AWS"
+  - title: "Cómo prepararte para un examen de certificación de AWS"
     url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-preparacion-para-el-examen/"
-    image: "/assets/blog/4cb1b939d8aa6ff5e1dc2ac1.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Existe una forma sencilla de implementar bases de datos relacionales escalables y de alto rendimiento en AWS gracias a servicios como Amazon RDS y Amazon Aurora.</p>
@@ -28,13 +23,13 @@ related:
 <p>En este artículo exploraremos en detalle estos servicios, sus diferencias, ventajas, casos de uso, mejores prácticas y más. Aprenderemos cómo sacar el máximo provecho a las bases de datos relacionales en la nube de AWS.</p>
 
 
-<h2 id="introducci%C3%B3n-a-las-bases-de-datos-relacionales-en-aws" tabindex="-1">Introducción a las Bases de Datos Relacionales en AWS</h2>
+<h2 id="introducci%C3%B3n-a-las-bases-de-datos-relacionales-en-aws" tabindex="-1">Introducción a las bases de datos relacionales en AWS</h2>
 
 
 <p>Las bases de datos relacionales son uno de los tipos de bases de datos más utilizados para almacenar datos estructurados. AWS ofrece dos servicios populares para implementar bases de datos relacionales en la nube: Amazon Relational Database Service (Amazon RDS) y Amazon Aurora.</p>
 
 
-<h3 id="conceptos-fundamentales-de-las-bases-de-datos-relacionales" tabindex="-1">Conceptos Fundamentales de las Bases de Datos Relacionales</h3>
+<h3 id="conceptos-fundamentales-de-las-bases-de-datos-relacionales" tabindex="-1">Conceptos fundamentales de las bases de datos relacionales</h3>
 
 
 <p>Las bases de datos relacionales organizan la información en tablas que se relacionan entre sí. Cada tabla tiene columnas y filas que forman registros únicos. Las claves primarias identifican de forma única cada registro. Las claves foráneas crean relaciones entre las tablas.</p>
@@ -43,7 +38,7 @@ related:
 <p>Algunos motores de bases de datos relacionales populares son PostgreSQL, MySQL, MariaDB, SQL Server y Oracle Database. Todos ellos tienen capacidades similares de almacenamiento estructurado y consultas SQL.</p>
 
 
-<h3 id="amazon-rds%3A-un-servicio-para-bases-de-datos-sql-en-aws" tabindex="-1">Amazon RDS: Un Servicio para Bases de Datos SQL en AWS</h3>
+<h3 id="amazon-rds%3A-un-servicio-para-bases-de-datos-sql-en-aws" tabindex="-1">Amazon RDS: un servicio para bases de datos SQL en AWS</h3>
 
 
 <p>Amazon RDS facilita la configuración y operación de bases de datos relacionales en la nube. Proporciona alta disponibilidad con despliegues Multi-AZ. También permite escalar fácilmente el almacenamiento y los recursos de cómputo.</p>
@@ -55,7 +50,7 @@ related:
 <p>RDS es un servicio totalmente administrado, por lo que AWS se encarga de las tareas de administración de bases de datos como actualizaciones, monitorización y parches.</p>
 
 
-<h3 id="diversidad-de-motores-de-bases-de-datos-en-amazon-rds" tabindex="-1">Diversidad de Motores de Bases de Datos en Amazon RDS</h3>
+<h3 id="diversidad-de-motores-de-bases-de-datos-en-amazon-rds" tabindex="-1">Diversidad de motores de bases de datos en Amazon RDS</h3>
 
 
 <p>RDS es compatible con múltiples motores de bases de datos, incluyendo:</p>
@@ -73,7 +68,7 @@ related:
 <p>Esto permite migrar bases de datos existentes a AWS o implementar las que mejor se adapten a cada caso de uso.</p>
 
 
-<h3 id="aws-rds-pricing%3A-entendiendo-los-costos-de-rds" tabindex="-1">AWS RDS Pricing: Entendiendo los Costos de RDS</h3>
+<h3 id="aws-rds-pricing%3A-entendiendo-los-costos-de-rds" tabindex="-1">AWS RDS pricing: entendiendo los costos de RDS</h3>
 
 
 <p>RDS tiene un modelo de precios de "pago por uso" basado en:</p>
@@ -163,13 +158,13 @@ related:
 <p>Amazon Relational Database Service (Amazon RDS) es un servicio de bases de datos relacionales en la nube de AWS. Facilita la configuración, operación y escalabilidad de bases de datos relacionales populares como MySQL, MariaDB, PostgreSQL, Oracle y SQL Server.</p>
 
 
-<h2 id="amazon-aurora%3A-innovaci%C3%B3n-y-escalado-en-bases-de-datos-relacionales" tabindex="-1">Amazon Aurora: Innovación y Escalado en Bases de Datos Relacionales</h2>
+<h2 id="amazon-aurora%3A-innovaci%C3%B3n-y-escalado-en-bases-de-datos-relacionales" tabindex="-1">Amazon Aurora: innovación y escalado en bases de datos relacionales</h2>
 
 
 <p>Amazon Aurora es una base de datos relacional desarrollada por AWS que ofrece un alto rendimiento y escalabilidad. Presenta varias ventajas:</p>
 
 
-<h3 id="arquitectura-de-amazon-aurora%3A-rendimiento-y-escalado" tabindex="-1">Arquitectura de Amazon Aurora: Rendimiento y Escalado</h3>
+<h3 id="arquitectura-de-amazon-aurora%3A-rendimiento-y-escalado" tabindex="-1">Arquitectura de Amazon Aurora: rendimiento y escalado</h3>
 
 
 <p>La arquitectura de Amazon Aurora está optimizada para entornos en la nube. Al separar el almacenamiento y el procesamiento, Aurora puede escalar ambos de forma independiente según las necesidades.</p>
@@ -181,7 +176,7 @@ related:
 <p>Otras optimizaciones como el uso de SSD, caché en memoria y tecnologías como AWS Auto Scaling también contribuyen a su alto rendimiento.</p>
 
 
-<h3 id="amazon-aurora-postgresql-y-mysql%3A-flexibilidad-y-compatibilidad" tabindex="-1">Amazon Aurora PostgreSQL y MySQL: Flexibilidad y Compatibilidad</h3>
+<h3 id="amazon-aurora-postgresql-y-mysql%3A-flexibilidad-y-compatibilidad" tabindex="-1">Amazon Aurora PostgreSQL y MySQL: flexibilidad y compatibilidad</h3>
 
 
 <p>Amazon Aurora es compatible con PostgreSQL y MySQL, lo que permite migrar aplicaciones existentes fácilmente.</p>
@@ -205,7 +200,7 @@ related:
 <p>Otras opciones como pausar o detener las bases de datos cuando no se usan, o el uso de capacidad reservada, también ayudan a reducir costos.</p>
 
 
-<h3 id="r%C3%A9plicas-de-lectura-y-alta-disponibilidad-en-amazon-aurora" tabindex="-1">Réplicas de Lectura y Alta Disponibilidad en Amazon Aurora</h3>
+<h3 id="r%C3%A9plicas-de-lectura-y-alta-disponibilidad-en-amazon-aurora" tabindex="-1">Réplicas de lectura y alta disponibilidad en Amazon Aurora</h3>
 
 
 <p>Amazon Aurora permite hasta 15 réplicas de lectura, mejorando el rendimiento para cargas de trabajo intensivas de solo lectura.</p>
@@ -217,13 +212,13 @@ related:
 <p>Esto minimiza el impacto de eventos como fallos de zona o de hardware, sin pérdida de datos ni tiempo de inactividad visible para las aplicaciones.</p>
 
 
-<h2 id="comparativa-detallada%3A-amazon-aurora-vs-rds" tabindex="-1">Comparativa Detallada: Amazon Aurora vs RDS</h2>
+<h2 id="comparativa-detallada%3A-amazon-aurora-vs-rds" tabindex="-1">Comparativa detallada: Amazon Aurora vs RDS</h2>
 
 
 <p>Amazon Relational Database Service (RDS) y Amazon Aurora son dos servicios de bases de datos relacionales populares de AWS. Ambos facilitan la configuración, operación y escalado de bases de datos en la nube, pero tienen algunas diferencias clave:</p>
 
 
-<h3 id="rendimiento-y-escalabilidad%3A-rds-vs-aurora" tabindex="-1">Rendimiento y Escalabilidad: RDS vs Aurora</h3>
+<h3 id="rendimiento-y-escalabilidad%3A-rds-vs-aurora" tabindex="-1">Rendimiento y escalabilidad: RDS vs Aurora</h3>
 
 
 <ul>
@@ -233,7 +228,7 @@ related:
 </ul>
 
 
-<h3 id="conmutaci%C3%B3n-por-error-(failover)-y-durabilidad-de-datos" tabindex="-1">Conmutación por Error (Failover) y Durabilidad de Datos</h3>
+<h3 id="conmutaci%C3%B3n-por-error-(failover)-y-durabilidad-de-datos" tabindex="-1">Conmutación por error (failover) y durabilidad de datos</h3>
 
 
 <ul>
@@ -243,7 +238,7 @@ related:
 </ul>
 
 
-<h3 id="comparaci%C3%B3n-de-seguridad%3A-cifrado-y-protecci%C3%B3n-de-datos" tabindex="-1">Comparación de Seguridad: Cifrado y Protección de Datos</h3>
+<h3 id="comparaci%C3%B3n-de-seguridad%3A-cifrado-y-protecci%C3%B3n-de-datos" tabindex="-1">Comparación de seguridad: cifrado y protección de datos</h3>
 
 
 <ul>
@@ -257,19 +252,19 @@ related:
 <p>En resumen, Aurora proporciona mejor rendimiento, escalabilidad, disponibilidad y seguridad de datos que RDS, pero tiene un costo más alto. La elección depende de los requisitos específicos de cada aplicación.</p>
 
 
-<h2 id="gesti%C3%B3n-y-personalizaci%C3%B3n-de-amazon-rds-y-aurora" tabindex="-1">Gestión y Personalización de Amazon RDS y Aurora</h2>
+<h2 id="gesti%C3%B3n-y-personalizaci%C3%B3n-de-amazon-rds-y-aurora" tabindex="-1">Gestión y personalización de Amazon RDS y Aurora</h2>
 
 
 <p>Amazon RDS y Amazon Aurora ofrecen varias opciones para personalizar y administrar tus bases de datos relacionales en la nube.</p>
 
 
-<h3 id="mejorando-la-performance-de-rds-con-rds-proxy" tabindex="-1">Mejorando la performance de RDS con RDS Proxy</h3>
+<h3 id="mejorando-la-performance-de-rds-con-rds-proxy" tabindex="-1">Mejorando la performance de RDS con RDS proxy</h3>
 
 
 <p>RDS Proxy gestiona y escala las conexiones a tus bases de datos RDS, manteniendo un pool de conexiones listas para que tu aplicación las reutilice, en lugar de tener que abrir una nueva conexión cada vez que tu aplicación necesita conectarse a la base de datos. De esta manera se reduce el tiempo de iniciar una nueva conexión, mejorando el rendimiento.</p>
 
 
-<h3 id="replicaci%C3%B3n-y-r%C3%A9plicas-de-lectura-en-amazon-rds" tabindex="-1">Replicación y Réplicas de Lectura en Amazon RDS</h3>
+<h3 id="replicaci%C3%B3n-y-r%C3%A9plicas-de-lectura-en-amazon-rds" tabindex="-1">Replicación y réplicas de lectura en Amazon RDS</h3>
 
 
 <p>Puedes replicar tus bases de datos RDS entre zonas de disponibilidad para alta disponibilidad. Las réplicas de lectura proveen escalabilidad para cargas de solo lectura.</p>
@@ -282,7 +277,7 @@ related:
 </ul>
 
 
-<h3 id="seguridad-de-rds%3A-mejores-pr%C3%A1cticas-y-configuraciones" tabindex="-1">Seguridad de RDS: Mejores Prácticas y Configuraciones</h3>
+<h3 id="seguridad-de-rds%3A-mejores-pr%C3%A1cticas-y-configuraciones" tabindex="-1">Seguridad de RDS: mejores prácticas y configuraciones</h3>
 
 
 <p>Es importante implementar seguridad sólida en tus bases de datos RDS:</p>
@@ -296,7 +291,7 @@ related:
 </ul>
 
 
-<h3 id="rds-en-outposts%3A-bases-de-datos-relacionales-en-la-nube-h%C3%ADbrida" tabindex="-1">RDS en Outposts: Bases de Datos Relacionales en la Nube Híbrida</h3>
+<h3 id="rds-en-outposts%3A-bases-de-datos-relacionales-en-la-nube-h%C3%ADbrida" tabindex="-1">RDS en Outposts: bases de datos relacionales en la nube híbrida</h3>
 
 
 <p>AWS Outposts permite ejecutar RDS para bases de datos locales, con la misma API y herramientas de AWS.</p>
@@ -309,10 +304,10 @@ related:
 </ul>
 
 
-<h2 id="conclusi%C3%B3n-y-recomendaciones-finales" tabindex="-1">Conclusión y Recomendaciones Finales</h2>
+<h2 id="conclusi%C3%B3n-y-recomendaciones-finales" tabindex="-1">Conclusión y recomendaciones finales</h2>
 
 
-<h3 id="resumen-de-las-principales-diferencias-entre-amazon-rds-y-aurora" tabindex="-1">Resumen de las Principales Diferencias entre Amazon RDS y Aurora</h3>
+<h3 id="resumen-de-las-principales-diferencias-entre-amazon-rds-y-aurora" tabindex="-1">Resumen de las principales diferencias entre Amazon RDS y Aurora</h3>
 
 
 <p>Amazon RDS y Aurora son dos servicios de bases de datos relacionales en la nube de AWS. Algunas de sus principales diferencias incluyen:</p>
@@ -326,7 +321,7 @@ related:
 </ul>
 
 
-<h3 id="claves-para-elegir-la-base-de-datos-relacional-adecuada-en-aws" tabindex="-1">Claves para Elegir la Base de Datos Relacional Adecuada en AWS</h3>
+<h3 id="claves-para-elegir-la-base-de-datos-relacional-adecuada-en-aws" tabindex="-1">Claves para elegir la base de datos relacional adecuada en AWS</h3>
 
 
 <p>Al elegir entre RDS y Aurora, se debe considerar:</p>
@@ -343,7 +338,7 @@ related:
 <p>En general, Aurora es mejor para cargas de trabajo intensivas que requieren escalabilidad y disponibilidad. RDS es ideal para casos de uso más livianos con presupuestos limitados.</p>
 
 
-<h3 id="recursos-y-documentaci%C3%B3n-para-profundizar-en-rds-y-aurora" tabindex="-1">Recursos y Documentación para Profundizar en RDS y Aurora</h3>
+<h3 id="recursos-y-documentaci%C3%B3n-para-profundizar-en-rds-y-aurora" tabindex="-1">Recursos y documentación para profundizar en RDS y Aurora</h3>
 
 
 <ul>
@@ -358,6 +353,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-bases-de-datos-introduccion-basica/">Bases de Datos en AWS: introducción básica</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS Fundamentos: Guía de Inicio Rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/amazon-redshift-el-poder-del-data-warehousing-en-aws/">Amazon Redshift: El poder del data warehousing en AWS</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/aws-bases-de-datos-introduccion-basica/">bases de datos en AWS: introducción básica</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS fundamentos: guía de inicio rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/amazon-redshift-el-poder-del-data-warehousing-en-aws/">Amazon Redshift: el poder del data warehousing en AWS</a></li>
 </ul>
 </p>

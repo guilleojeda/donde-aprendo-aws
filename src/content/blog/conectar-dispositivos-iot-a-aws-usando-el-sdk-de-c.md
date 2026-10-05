@@ -4,22 +4,17 @@ description: "Aprende a conectar dispositivos IoT a AWS con el SDK de C++ para u
 author: "guille-ojeda"
 publishedAt: "2024-05-10"
 publishedTimestamp: "2024-05-10T02:52:14.698Z"
-cover: "/assets/blog/066ea33361c58e79e3d5a983.jpg"
-coverAlt: "Nube delineada sobre una fila de iconos de dispositivos y bombillas"
-ogImage: "/assets/blog/066ea33361c58e79e3d5a983.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "9 Mejores Prácticas de Seguridad para IaC en AWS"
+  - title: "9 mejores prácticas de seguridad para IaC en AWS"
     url: "https://dondeaprendoaws.com/blog/9-mejores-practicas-de-seguridad-para-iac-en-aws/"
-    image: "/assets/blog/0b84e7609d9a01cdc2449b30.jpg"
-    imageAlt: ""
-  - title: "Servicios de AWS para Inteligencia Artificial"
+  - title: "Servicios de AWS para inteligencia artificial"
     url: "https://dondeaprendoaws.com/blog/servicios-de-aws-para-inteligencia-artificial/"
-    image: "/assets/blog/54201ee89ce3b648eb0ec011.jpg"
-    imageAlt: ""
-  - title: "Aprender AWS gratis: Recursos y Comunidad"
+  - title: "Aprender AWS gratis: recursos y comunidad"
     url: "https://dondeaprendoaws.com/blog/aprender-aws-gratis-recursos-y-comunidad/"
-    image: "/assets/blog/c7227ae982494a7ce1620070.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Para conectar dispositivos IoT a <a href="https://aws.amazon.com/">AWS</a> utilizando el SDK de C++, sigue estos pasos:</p>
@@ -151,4 +146,4 @@ p_client-&gt;SetJobCallback(&amp;callback);
 <p>Para compilar el SDK en AWS, sigue estos pasos:</p>
 <table><thead><tr><th>Paso</th><th>Descripción</th></tr></thead><tbody><tr><td>1</td><td>Instala CMake (versión mínima 3.13) y las herramientas de compilación relevantes para tu plataforma.</td></tr><tr><td>2</td><td>En una ventana de comandos, navega a una carpeta donde desees almacenar el SDK.</td></tr><tr><td>3</td><td>Genera los archivos de compilación ejecutando <code>cmake.</code>.</td></tr><tr><td>4</td><td>Compila el SDK utilizando los archivos de compilación generados.</td></tr></tbody></table>
 <h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/7-errores-comunes-con-aws-iot-device-sdk-para-javascript/">7 Errores Comunes con AWS IoT Device SDK para JavaScript</a></li><li><a href="https://dondeaprendoaws.com/blog/como-integrar-los-sdk-de-aws-en-7-pasos/">Cómo integrar los SDK de AWS en 7 pasos</a></li><li><a href="https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-aws-lambda/">Microservicios en AWS Utilizando AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/">Introducción a la Inteligencia Artificial en AWS</a></li></ul>
+<ul><li><a href="https://dondeaprendoaws.com/blog/7-errores-comunes-con-aws-iot-device-sdk-para-javascript/">7 errores comunes con AWS IoT Device SDK para JavaScript</a></li><li><a href="https://dondeaprendoaws.com/blog/como-integrar-los-sdk-de-aws-en-7-pasos/">Cómo integrar los SDK de AWS en 7 pasos</a></li><li><a href="https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-aws-lambda/">Microservicios en AWS utilizando AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/">Introducción a la inteligencia artificial en AWS</a></li></ul>

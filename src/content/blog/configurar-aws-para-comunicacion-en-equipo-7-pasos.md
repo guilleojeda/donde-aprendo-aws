@@ -1,25 +1,20 @@
 ---
-title: "Configurar AWS para Comunicación en Equipo: 7 Pasos"
+title: "Configurar AWS para comunicación en equipo: 7 pasos"
 description: "Configura AWS para la comunicación en equipo en 7 pasos esenciales. Crea una cuenta, VPC, instala MySQL y Mattermost, implementa servicios de comunicación, monitorea y optimiza costos."
 author: "guille-ojeda"
 publishedAt: "2024-05-20"
 publishedTimestamp: "2024-05-20T00:27:01.26Z"
-cover: "/assets/blog/f92b3e352f4a3a9565a17d1a.jpg"
-coverAlt: "Diagrama organizativo con personas, bases de datos, pantallas y engranajes"
-ogImage: "/assets/blog/f92b3e352f4a3a9565a17d1a.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
-  - title: "Cómo Optimizar la Transferencia de Datos en API Gateway"
+  - title: "Cómo optimizar la transferencia de datos en API Gateway"
     url: "https://dondeaprendoaws.com/blog/como-optimizar-la-transferencia-de-datos-en-api-gateway/"
-    image: "/assets/blog/e9e708a78c62050c9930cce4.jpg"
-    imageAlt: ""
-  - title: "AWS SAM: Guía Básica para Aplicaciones Serverless"
+  - title: "AWS SAM: guía básica para aplicaciones serverless"
     url: "https://dondeaprendoaws.com/blog/aws-sam-guia-basica-para-aplicaciones-serverless/"
-    image: "/assets/blog/7007833ab0e2d90f4deb11ec.jpg"
-    imageAlt: ""
-  - title: "AWS SAM CLI: Pruebas y Desarrollo Local"
+  - title: "AWS SAM CLI: pruebas y desarrollo local"
     url: "https://dondeaprendoaws.com/blog/aws-sam-cli-pruebas-y-desarrollo-local/"
-    image: "/assets/blog/fa48e5370fe3d3489c8fb4d5.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Esenciales</p>
@@ -30,7 +25,7 @@ related:
 
 <ol>
 <li>
-<p><strong>Crear una</strong> <a href="https://dondeaprendoaws.com/blog/aws-gratis-para-educadores-y-estudiantes/"><strong>cuenta de AWS</strong></a>: Configura una cuenta de AWS, establece permisos de usuario y administra los costos para comenzar.</p>
+<p><strong>Crear una</strong> <a href="https://dondeaprendoaws.com/blog/aws-gratis-para-educadores-y-estudiantes/"><strong>Cuenta de AWS</strong></a>: Configura una cuenta de AWS, establece permisos de usuario y administra los costos para comenzar.</p>
 </li>
 <li>
 <p><strong>Diseñar una VPC personalizada</strong>: Planifica y crea una VPC con subredes públicas y privadas, tablas de rutas, NAT Gateway y grupos de seguridad para alojar tus servicios de comunicación de manera segura.</p>
@@ -159,7 +154,7 @@ related:
 </ol>
 
 
-<h2 id="1.-configurar-una-cuenta-de-aws" tabindex="-1">1. Configurar una Cuenta de AWS</h2>
+<h2 id="1.-configurar-una-cuenta-de-aws" tabindex="-1">1. Configurar una cuenta de AWS</h2>
 
 
 <h3 id="crear-la-cuenta-de-aws" tabindex="-1">Crear la cuenta de AWS</h3>
@@ -228,7 +223,7 @@ related:
 <p>Al seguir estos pasos, habrá configurado su cuenta de AWS para la comunicación en equipo y estará listo para configurar su VPC en el próximo paso.</p>
 
 
-<h2 id="2.-dise%C3%B1ar-la-vpc-para-comunicaci%C3%B3n" tabindex="-1">2. Diseñar la VPC para Comunicación</h2>
+<h2 id="2.-dise%C3%B1ar-la-vpc-para-comunicaci%C3%B3n" tabindex="-1">2. Diseñar la VPC para comunicación</h2>
 
 
 <p>Diseñar una VPC personalizada con subredes públicas y privadas es clave para alojar servicios de comunicación de manera segura. En esta sección, te guiaremos en el proceso de planificar y configurar una VPC para comunicación.</p>
@@ -243,7 +238,7 @@ related:
 <p>También, considera el uso de Zonas de Disponibilidad (AZs) para alta disponibilidad. Cada AZ necesita su propia subred. Aunque no planees usar múltiples AZs al principio, esto puede cambiar a medida que escales. Deja espacio en tu rango CIDR para futuras AZs.</p>
 
 
-<h3 id="creaci%C3%B3n-de-subredes" tabindex="-1">Creación de Subredes</h3>
+<h3 id="creaci%C3%B3n-de-subredes" tabindex="-1">Creación de subredes</h3>
 
 
 <p>Para crear subredes, decide el rango IP para cada una usando notación CIDR. Por ejemplo, para una subred con 256 direcciones IP disponibles, usa <code class="inline-code">10.0.1.0/24</code>.</p>
@@ -252,7 +247,7 @@ related:
 <p>Crea subredes públicas y privadas. Las subredes públicas serán para recursos accesibles desde internet, mientras que las privadas serán para recursos que no necesitan ser accesibles desde internet.</p>
 
 
-<h3 id="configuraci%C3%B3n-de-tablas-de-rutas" tabindex="-1">Configuración de Tablas de Rutas</h3>
+<h3 id="configuraci%C3%B3n-de-tablas-de-rutas" tabindex="-1">Configuración de tablas de rutas</h3>
 
 
 <p>Las tablas de rutas se usan para dirigir el tráfico entre subredes. Configura tablas de rutas para cada subred. Crea una tabla de rutas para cada subred y añade rutas según sea necesario.</p>
@@ -264,7 +259,7 @@ related:
 <p>Un NAT gateway permite que las instancias en una subred privada accedan a internet. Para configurarlo, crea un NAT gateway en la subred pública y configúralo para permitir tráfico desde la subred privada.</p>
 
 
-<h3 id="grupos-de-seguridad-de-la-vpc" tabindex="-1">Grupos de Seguridad de la VPC</h3>
+<h3 id="grupos-de-seguridad-de-la-vpc" tabindex="-1">Grupos de seguridad de la VPC</h3>
 
 
 <p>Los grupos de seguridad de la VPC controlan el tráfico de entrada y salida. Configura grupos de seguridad para controlar el tráfico entre subredes. Crea grupos de seguridad para cada subred y configúralos según tus necesidades.</p>
@@ -308,10 +303,10 @@ related:
 <p><figure><img alt="MySQL" src="/assets/blog/9d0d1f2729374d0968653145.jpg"/></figure></p>
 
 
-<h3 id="lanzar-la-instancia-de-base-de-datos" tabindex="-1">Lanzar la Instancia de Base de Datos</h3>
+<h3 id="lanzar-la-instancia-de-base-de-datos" tabindex="-1">Lanzar la instancia de base de datos</h3>
 
 
-<p>Para lanzar una instancia de base de datos, ve a la Consola de <a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">Administración de AWS</a> y selecciona el panel de VPC. Crea una nueva instancia con una imagen de Ubuntu, asegurándote de que se lance en la subred privada. Elige un tipo de instancia que cumpla con tus requisitos de rendimiento y configura los detalles de la instancia.</p>
+<p>Para lanzar una instancia de base de datos, ve a la Consola de <a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">administración de AWS</a> y selecciona el panel de VPC. Crea una nueva instancia con una imagen de Ubuntu, asegurándote de que se lance en la subred privada. Elige un tipo de instancia que cumpla con tus requisitos de rendimiento y configura los detalles de la instancia.</p>
 
 
 <h3 id="instalar-mysql" tabindex="-1">Instalar MySQL</h3>
@@ -348,13 +343,13 @@ sudo apt install mysql-server
 <p>Esto permitirá que MySQL escuche en todas las interfaces de red disponibles.</p>
 
 
-<h3 id="seguridad-de-la-base-de-datos" tabindex="-1">Seguridad de la Base de Datos</h3>
+<h3 id="seguridad-de-la-base-de-datos" tabindex="-1">Seguridad de la base de datos</h3>
 
 
 <p>Para asegurar la instancia de MySQL, crea un grupo de seguridad que permita tráfico entrante en el puerto 3306 desde la subred privada. También, crea un rol IAM que permita a la instancia acceder a la base de datos MySQL.</p>
 
 
-<h3 id="probar-la-conexi%C3%B3n-a-mysql" tabindex="-1">Probar la Conexión a MySQL</h3>
+<h3 id="probar-la-conexi%C3%B3n-a-mysql" tabindex="-1">Probar la conexión a MySQL</h3>
 
 
 <p>Para probar la conexión a MySQL, usa el siguiente comando:</p>
@@ -375,7 +370,7 @@ sudo apt install mysql-server
 <p><figure><img alt="Mattermost" src="/assets/blog/30b93d47cfb952dee03d0a09.jpg"/></figure></p>
 
 
-<h3 id="lanzar-la-instancia-de-aplicaci%C3%B3n" tabindex="-1">Lanzar la Instancia de Aplicación</h3>
+<h3 id="lanzar-la-instancia-de-aplicaci%C3%B3n" tabindex="-1">Lanzar la instancia de aplicación</h3>
 
 
 <p>Para lanzar una instancia de aplicación para Mattermost, sigue estos pasos:</p>
@@ -397,7 +392,7 @@ sudo apt install mysql-server
 </ol>
 
 
-<h3 id="instalar-mattermost" tabindex="-1">Instalar Mattermost</h3>
+<h3 id="instalar-mattermost" tabindex="-1">Instalar mattermost</h3>
 
 
 <p>Para instalar Mattermost en la instancia, conéctate a la instancia usando SSH y ejecuta los siguientes comandos:</p>
@@ -411,7 +406,7 @@ tar -xvzf mattermost-X.X.X-linux-amd64.tar.gz
 <p>Estos comandos descargarán e instalarán el paquete de Mattermost.</p>
 
 
-<h3 id="configurar-mattermost" tabindex="-1">Configurar Mattermost</h3>
+<h3 id="configurar-mattermost" tabindex="-1">Configurar mattermost</h3>
 
 
 <p>Después de instalar Mattermost, configúralo para conectarse a la base de datos MySQL. Edita el archivo de configuración de Mattermost con el siguiente comando:</p>
@@ -431,19 +426,19 @@ tar -xvzf mattermost-X.X.X-linux-amd64.tar.gz
 <p>Reemplaza <code class="inline-code">&lt;private-ip-address&gt;</code> con la dirección IP privada de la instancia de base de datos y <code class="inline-code">&lt;mmuser&gt;</code> y <code class="inline-code">&lt;password&gt;</code> con las credenciales de la base de datos.</p>
 
 
-<h3 id="configuraci%C3%B3n-del-grupo-de-seguridad" tabindex="-1">Configuración del Grupo de Seguridad</h3>
+<h3 id="configuraci%C3%B3n-del-grupo-de-seguridad" tabindex="-1">Configuración del grupo de seguridad</h3>
 
 
 <p>Para asegurar la instancia de Mattermost, crea un grupo de seguridad que permita tráfico entrante en los puertos 80 y 443 desde la subred pública.</p>
 
 
-<h3 id="probar-mattermost" tabindex="-1">Probar Mattermost</h3>
+<h3 id="probar-mattermost" tabindex="-1">Probar mattermost</h3>
 
 
 <p>Para probar Mattermost, accede a la instancia usando la dirección IP pública en un navegador web. Debe aparecer la pantalla de inicio de sesión de Mattermost.</p>
 
 
-<h2 id="5.-servicios-de-comunicaci%C3%B3n-adicionales" tabindex="-1">5. Servicios de Comunicación Adicionales</h2>
+<h2 id="5.-servicios-de-comunicaci%C3%B3n-adicionales" tabindex="-1">5. Servicios de comunicación adicionales</h2>
 
 
 <h3 id="amazon-chime-para-reuniones" tabindex="-1"><a href="https://aws.amazon.com/chime/" rel="noopener noreferrer" target="_blank">Amazon Chime</a> para Reuniones</h3>
@@ -521,7 +516,7 @@ tar -xvzf mattermost-X.X.X-linux-amd64.tar.gz
 </ol>
 
 
-<h3 id="acceso-a-archivos-desde-cualquier-lugar" tabindex="-1">Acceso a Archivos desde Cualquier Lugar</h3>
+<h3 id="acceso-a-archivos-desde-cualquier-lugar" tabindex="-1">Acceso a archivos desde cualquier lugar</h3>
 
 
 <p>Con AWS, puedes acceder a tus archivos desde cualquier lugar y dispositivo. Usa Amazon WorkDocs para acceder y compartir archivos en la nube. También puedes usar Amazon S3 para almacenar y acceder a tus archivos.</p>
@@ -543,7 +538,7 @@ tar -xvzf mattermost-X.X.X-linux-amd64.tar.gz
 </ol>
 
 
-<h2 id="6.-monitoreo-y-gesti%C3%B3n-de-aws" tabindex="-1">6. Monitoreo y Gestión de AWS</h2>
+<h2 id="6.-monitoreo-y-gesti%C3%B3n-de-aws" tabindex="-1">6. Monitoreo y gestión de AWS</h2>
 
 
 <h3 id="configuraci%C3%B3n-de-cloudwatch" tabindex="-1">Configuración de <a href="https://aws.amazon.com/cloudwatch/" rel="noopener noreferrer" target="_blank">CloudWatch</a></h3>
@@ -602,7 +597,7 @@ tar -xvzf mattermost-X.X.X-linux-amd64.tar.gz
 </ul>
 
 
-<h3 id="alarmas-y-notificaciones" tabindex="-1">Alarmas y Notificaciones</h3>
+<h3 id="alarmas-y-notificaciones" tabindex="-1">Alarmas y notificaciones</h3>
 
 
 <p>Las alarmas y notificaciones te permiten recibir alertas cuando se producen eventos específicos en tus recursos de AWS. Para configurarlas:</p>
@@ -627,7 +622,7 @@ tar -xvzf mattermost-X.X.X-linux-amd64.tar.gz
 </ul>
 
 
-<h3 id="mantenimiento-y-actualizaciones" tabindex="-1">Mantenimiento y Actualizaciones</h3>
+<h3 id="mantenimiento-y-actualizaciones" tabindex="-1">Mantenimiento y actualizaciones</h3>
 
 
 <p>Es importante mantener tus instancias y servicios de AWS actualizados. Para programar tareas de mantenimiento y actualizaciones:</p>
@@ -652,10 +647,10 @@ tar -xvzf mattermost-X.X.X-linux-amd64.tar.gz
 </ul>
 
 
-<h2 id="7.-optimizaci%C3%B3n-de-costos-y-escalabilidad" tabindex="-1">7. Optimización de Costos y Escalabilidad</h2>
+<h2 id="7.-optimizaci%C3%B3n-de-costos-y-escalabilidad" tabindex="-1">7. Optimización de costos y escalabilidad</h2>
 
 
-<h3 id="herramientas-de-gesti%C3%B3n-de-costos" tabindex="-1">Herramientas de Gestión de Costos</h3>
+<h3 id="herramientas-de-gesti%C3%B3n-de-costos" tabindex="-1">Herramientas de gestión de costos</h3>
 
 
 <p>Para optimizar los costos en AWS, usa herramientas como Cost Explorer y Budgets. Estas herramientas te ayudan a analizar tus gastos, identificar oportunidades de ahorro y establecer límites de gasto.</p>
@@ -671,7 +666,7 @@ tar -xvzf mattermost-X.X.X-linux-amd64.tar.gz
 </ul>
 
 
-<h3 id="selecci%C3%B3n-de-tipos-de-instancia" tabindex="-1">Selección de Tipos de Instancia</h3>
+<h3 id="selecci%C3%B3n-de-tipos-de-instancia" tabindex="-1">Selección de tipos de instancia</h3>
 
 
 <p>Elegir el tipo de instancia adecuado es clave para ahorrar costos. Selecciona instancias que se ajusten a tus necesidades de computación y memoria. Considera la frecuencia de uso y la duración para evitar gastos innecesarios.</p>
@@ -699,13 +694,13 @@ tar -xvzf mattermost-X.X.X-linux-amd64.tar.gz
 </ol>
 
 
-<h3 id="soluciones-sin-servidor" tabindex="-1">Soluciones Sin Servidor</h3>
+<h3 id="soluciones-sin-servidor" tabindex="-1">Soluciones sin servidor</h3>
 
 
 <p>Las soluciones sin servidor, como AWS Lambda, te permiten ejecutar código sin administrar servidores. Esto ahorra costos al no pagar por recursos no utilizados y escala automáticamente según la demanda.</p>
 
 
-<h3 id="optimizaci%C3%B3n-de-costos-de-almacenamiento" tabindex="-1">Optimización de Costos de Almacenamiento</h3>
+<h3 id="optimizaci%C3%B3n-de-costos-de-almacenamiento" tabindex="-1">Optimización de costos de almacenamiento</h3>
 
 
 <p>Para optimizar los costos de almacenamiento en AWS, usa servicios como Amazon S3 y Amazon EBS de manera eficiente. Considera la frecuencia de acceso y la cantidad de datos almacenados.</p>
@@ -734,13 +729,13 @@ tar -xvzf mattermost-X.X.X-linux-amd64.tar.gz
 <h2 id="conclusion" tabindex="-1">Conclusion</h2>
 
 
-<h3 id="puntos-clave" tabindex="-1">Puntos Clave</h3>
+<h3 id="puntos-clave" tabindex="-1">Puntos clave</h3>
 
 
 <p>En este artículo, hemos cubierto los 7 pasos para configurar AWS para la comunicación en equipo. Desde la creación de una cuenta de AWS hasta la optimización de costos y escalabilidad, hemos visto las <a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">mejores prácticas</a> y herramientas para mejorar la colaboración y la productividad en su equipo.</p>
 
 
-<h3 id="recursos-adicionales" tabindex="-1">Recursos Adicionales</h3>
+<h3 id="recursos-adicionales" tabindex="-1">Recursos adicionales</h3>
 
 
 <p>Para seguir aprendiendo sobre la <a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">configuración de AWS</a> para la comunicación en equipo, recomendamos consultar los siguientes recursos:</p>
@@ -759,7 +754,7 @@ tar -xvzf mattermost-X.X.X-linux-amd64.tar.gz
 </ul>
 
 
-<h3 id="comparta-su-opini%C3%B3n" tabindex="-1">Comparta su Opinión</h3>
+<h3 id="comparta-su-opini%C3%B3n" tabindex="-1">Comparta su opinión</h3>
 
 
 <p>¿Le ha sido útil este artículo? ¿Tiene alguna pregunta o comentario sobre la configuración de AWS para la comunicación en equipo? ¡Comparta sus experiencias y comentarios en la sección de abajo!</p>
@@ -768,6 +763,6 @@ tar -xvzf mattermost-X.X.X-linux-amd64.tar.gz
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/nube-aws-guia-de-inicio-rapido/">Nube AWS: Guía de Inicio Rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS Fundamentos: Guía de Inicio Rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ec2/">Mejores Prácticas Para Amazon EC2</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/nube-aws-guia-de-inicio-rapido/">Nube AWS: guía de inicio rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS fundamentos: guía de inicio rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ec2/">Mejores prácticas para Amazon EC2</a></li>
 </ul>
 </p>

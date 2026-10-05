@@ -1,25 +1,20 @@
 ---
-title: "Guía de Mejores Prácticas para VPC Traffic Mirroring en AWS"
+title: "Guía de mejores prácticas para VPC traffic mirroring en AWS"
 description: "Descubre cómo implementar VPC Traffic Mirroring en AWS para mejorar la seguridad, diagnosticar problemas y optimizar el rendimiento de tu red."
 author: "guille-ojeda"
 publishedAt: "2024-10-28"
 publishedTimestamp: "2024-10-28T03:11:03.66Z"
-cover: "/assets/blog/06f2f4250afcc07dff4646bf.webp"
-coverAlt: "Pasillo de servidores iluminado por líneas naranjas y azules"
-ogImage: "/assets/blog/06f2f4250afcc07dff4646bf.webp"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related:
-  - title: "Visualiza Costos con AWS Cost and Usage Reports y QuickSight"
+  - title: "Visualiza costos con AWS Cost and Usage Reports y QuickSight"
     url: "https://dondeaprendoaws.com/blog/visualiza-costos-con-aws-cost-and-usage-reports-y-quicksight/"
-    image: "/assets/blog/bcf6fecd181e12cedeeed88a.jpg"
-    imageAlt: ""
   - title: "Cómo integrar Terraform con CI/CD en AWS"
     url: "https://dondeaprendoaws.com/blog/como-integrar-terraform-con-cicd-en-aws/"
-    image: "/assets/blog/455f2eb1c408f11b2e18115c.jpg"
-    imageAlt: ""
-  - title: "10 Estrategias para Optimizar Costos de Red en AWS"
+  - title: "10 estrategias para optimizar costos de red en AWS"
     url: "https://dondeaprendoaws.com/blog/10-estrategias-para-optimizar-costos-de-red-en-aws/"
-    image: "/assets/blog/732b4db41baecb1699e72d80.webp"
-    imageAlt: ""
+
 ---
 
 <p>VPC Traffic Mirroring es una función de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> que copia el tráfico de red para análisis de seguridad y resolución de problemas. Es como tener una cámara de seguridad para tu red.</p>
@@ -109,7 +104,7 @@ related:
 
 
 <iframe allowfullscreen="" loading="lazy" src="https://www.youtube-nocookie.com/embed/CdeTV4UST64" title="Video de YouTube"></iframe>
-<h2 class="sb" id="%C2%BFqu%C3%A9-es-traffic-mirroring%3F" tabindex="-1">¿Qué es Traffic Mirroring?</h2>
+<h2 class="sb" id="%C2%BFqu%C3%A9-es-traffic-mirroring%3F" tabindex="-1">¿Qué es traffic mirroring?</h2>
 
 
 <p>Traffic Mirroring hace una copia EXACTA de tu tráfico de red en VPC. ¿Por qué es esto importante? Porque puedes analizar todo lo que pasa en tu red sin tocar el tráfico original.</p>
@@ -146,7 +141,7 @@ related:
 </table></figure>
 
 
-<h2 class="sb" id="%C2%BFcu%C3%A1ndo-necesitas-traffic-mirroring%3F" tabindex="-1">¿Cuándo necesitas Traffic Mirroring?</h2>
+<h2 class="sb" id="%C2%BFcu%C3%A1ndo-necesitas-traffic-mirroring%3F" tabindex="-1">¿Cuándo necesitas traffic mirroring?</h2>
 
 
 <p>Hay 3 momentos clave:</p>
@@ -203,13 +198,13 @@ related:
 <p>¿La diferencia con VPC Flow Logs? Traffic Mirroring te da TODO el contenido del paquete, no solo los metadatos. Es como tener una grabación completa vs solo un resumen.</p>
 
 
-<h2 class="sb" id="partes-principales-de-traffic-mirroring" tabindex="-1">Partes Principales de Traffic Mirroring</h2>
+<h2 class="sb" id="partes-principales-de-traffic-mirroring" tabindex="-1">Partes principales de traffic mirroring</h2>
 
 
 <p>Traffic Mirroring necesita 5 elementos básicos para funcionar. Veamos cada uno:</p>
 
 
-<h3 id="or%C3%ADgenes-de-tr%C3%A1fico" tabindex="-1">Orígenes de Tráfico</h3>
+<h3 id="or%C3%ADgenes-de-tr%C3%A1fico" tabindex="-1">Orígenes de tráfico</h3>
 
 
 <p>El origen es una ENI (interfaz de red elástica) de EC2 que genera el tráfico a copiar.</p>
@@ -239,7 +234,7 @@ related:
 </table></figure>
 
 
-<h3 id="destinos-de-tr%C3%A1fico" tabindex="-1">Destinos de Tráfico</h3>
+<h3 id="destinos-de-tr%C3%A1fico" tabindex="-1">Destinos de tráfico</h3>
 
 
 <p>El destino es donde llega la copia del tráfico. Hay varias opciones:</p>
@@ -273,7 +268,7 @@ related:
 </table></figure>
 
 
-<h3 id="filtros-de-tr%C3%A1fico" tabindex="-1">Filtros de Tráfico</h3>
+<h3 id="filtros-de-tr%C3%A1fico" tabindex="-1">Filtros de tráfico</h3>
 
 
 <p>Sin filtros configurados, NO se copia nada. Los filtros dicen qué tráfico copiar:</p>
@@ -311,7 +306,7 @@ related:
 </table></figure>
 
 
-<h3 id="sesiones-de-mirroring" tabindex="-1">Sesiones de Mirroring</h3>
+<h3 id="sesiones-de-mirroring" tabindex="-1">Sesiones de mirroring</h3>
 
 
 <p>Una sesión conecta 3 elementos:</p>
@@ -344,10 +339,10 @@ related:
 <p><strong>OJO</strong>: El tráfico copiado cuenta para los límites de ancho de banda. Por ejemplo: copiar de 10G a 1G puede saturar la red.</p>
 
 
-<h2 class="sb" id="gu%C3%ADas-de-configuraci%C3%B3n" tabindex="-1">Guías de Configuración</h2>
+<h2 class="sb" id="gu%C3%ADas-de-configuraci%C3%B3n" tabindex="-1">Guías de configuración</h2>
 
 
-<h3 id="planificaci%C3%B3n-de-la-configuraci%C3%B3n" tabindex="-1">Planificación de la Configuración</h3>
+<h3 id="planificaci%C3%B3n-de-la-configuraci%C3%B3n" tabindex="-1">Planificación de la configuración</h3>
 
 
 <p>Para empezar con Traffic Mirroring, necesitas estos componentes básicos:</p>
@@ -385,7 +380,7 @@ related:
 </table></figure>
 
 
-<h3 id="configuraci%C3%B3n-de-seguridad" tabindex="-1">Configuración de Seguridad</h3>
+<h3 id="configuraci%C3%B3n-de-seguridad" tabindex="-1">Configuración de seguridad</h3>
 
 
 <p>Aquí están los puntos de seguridad que DEBES configurar:</p>
@@ -427,7 +422,7 @@ sudo tcpdump -nnni eth0 udp port 4789
 </code></pre>
 
 
-<h3 id="configuraci%C3%B3n-de-rendimiento" tabindex="-1">Configuración de Rendimiento</h3>
+<h3 id="configuraci%C3%B3n-de-rendimiento" tabindex="-1">Configuración de rendimiento</h3>
 
 
 <p>Estos son los números que importan:</p>
@@ -480,10 +475,10 @@ sudo tcpdump -nnni eth0 udp port 4789
 <p>Monitorea y ajusta según el uso. Así evitarás sorpresas en costos y rendimiento.</p>
 
 
-<h2 class="sb" id="opciones-de-configuraci%C3%B3n-avanzada" tabindex="-1">Opciones de Configuración Avanzada</h2>
+<h2 class="sb" id="opciones-de-configuraci%C3%B3n-avanzada" tabindex="-1">Opciones de configuración avanzada</h2>
 
 
-<h3 id="configuraci%C3%B3n-multi-cuenta" tabindex="-1">Configuración Multi-Cuenta</h3>
+<h3 id="configuraci%C3%B3n-multi-cuenta" tabindex="-1">Configuración multi-cuenta</h3>
 
 
 <p>¿Necesitas monitorear tráfico entre cuentas AWS? Así funciona:</p>
@@ -529,7 +524,7 @@ aws ec2 create-traffic-mirror-session \
 </code></pre>
 
 
-<h3 id="configuraci%C3%B3n-multi-regi%C3%B3n" tabindex="-1">Configuración Multi-Región</h3>
+<h3 id="configuraci%C3%B3n-multi-regi%C3%B3n" tabindex="-1">Configuración multi-región</h3>
 
 
 <p>Para monitorear entre regiones AWS necesitas:</p>
@@ -610,7 +605,7 @@ sudo tcpdump -i any 'udp port 4789' -nn
 </code></pre>
 
 
-<h2 class="sb" id="revisiones-y-actualizaciones-del-sistema" tabindex="-1">Revisiones y Actualizaciones del Sistema</h2>
+<h2 class="sb" id="revisiones-y-actualizaciones-del-sistema" tabindex="-1">Revisiones y actualizaciones del sistema</h2>
 
 
 <p><a href="https://aws.amazon.com/cloudwatch/" rel="noopener noreferrer" target="_blank">CloudWatch</a> es la herramienta que necesitas para ver qué pasa con tu tráfico espejado. Veamos lo básico:</p>
@@ -658,7 +653,7 @@ sudo tcpdump -i any 'udp port 4789' -nn
 </ul>
 
 
-<h2 class="sb" id="%C2%BFproblemas%3F-aqu%C3%AD-las-soluciones" tabindex="-1">¿Problemas? Aquí las Soluciones</h2>
+<h2 class="sb" id="%C2%BFproblemas%3F-aqu%C3%AD-las-soluciones" tabindex="-1">¿Problemas? Aquí las soluciones</h2>
 
 
 <figure class="table"><table>
@@ -682,7 +677,7 @@ sudo tcpdump -i any 'udp port 4789' -nn
 </tr>
 <tr>
 <td>Se pierden paquetes</td>
-<td><a href="https://dondeaprendoaws.com/blog/10-metricas-clave-de-devops-en-aws/">Métricas CloudWatch</a></td>
+<td><a href="https://dondeaprendoaws.com/blog/10-metricas-clave-de-devops-en-aws/">métricas CloudWatch</a></td>
 <td>Baja el MTU a menos de 8500</td>
 </tr>
 <tr>
@@ -706,7 +701,7 @@ aws ec2 describe-vpc-endpoints \
 </code></pre>
 
 
-<h2 class="sb" id="instancias-que-puedes-usar" tabindex="-1">Instancias que Puedes Usar</h2>
+<h2 class="sb" id="instancias-que-puedes-usar" tabindex="-1">Instancias que puedes usar</h2>
 
 
 <figure class="table"><table>
@@ -744,10 +739,10 @@ aws ec2 describe-vpc-endpoints \
 <p><strong>OJO</strong>: No funciona en T2, C3, R3, I2 ni en versiones más viejas.</p>
 
 
-<h2 class="sb" id="l%C3%ADmites-del-sistema" tabindex="-1">Límites del Sistema</h2>
+<h2 class="sb" id="l%C3%ADmites-del-sistema" tabindex="-1">Límites del sistema</h2>
 
 
-<h3 id="l%C3%ADmites-t%C3%A9cnicos" tabindex="-1">Límites Técnicos</h3>
+<h3 id="l%C3%ADmites-t%C3%A9cnicos" tabindex="-1">Límites técnicos</h3>
 
 
 <p>VPC Traffic Mirroring tiene límites específicos por cuenta y región:</p>
@@ -826,7 +821,7 @@ aws ec2 describe-vpc-endpoints \
 </ul>
 
 
-<h3 id="control-de-costos" tabindex="-1">Control de Costos</h3>
+<h3 id="control-de-costos" tabindex="-1">Control de costos</h3>
 
 
 <p>El tráfico espejado DUPLICA el consumo de ancho de banda. Si tienes 1 Gbps de tráfico bidireccional, necesitarás manejar 4 Gbps en total.</p>
@@ -855,10 +850,10 @@ aws ec2 describe-vpc-endpoints \
 </ul>
 
 
-<h2 class="sb" id="configuraci%C3%B3n-de-herramientas-de-seguridad" tabindex="-1">Configuración de Herramientas de Seguridad</h2>
+<h2 class="sb" id="configuraci%C3%B3n-de-herramientas-de-seguridad" tabindex="-1">Configuración de herramientas de seguridad</h2>
 
 
-<h3 id="configuraci%C3%B3n-del-sistema-de-seguridad" tabindex="-1">Configuración del Sistema de Seguridad</h3>
+<h3 id="configuraci%C3%B3n-del-sistema-de-seguridad" tabindex="-1">Configuración del sistema de seguridad</h3>
 
 
 <p>Para poner en marcha VPC Traffic Mirroring, necesitas estos componentes básicos:</p>
@@ -911,7 +906,7 @@ aws ec2 describe-vpc-endpoints \
 </ul>
 
 
-<h3 id="an%C3%A1lisis-del-tr%C3%A1fico" tabindex="-1">Análisis del Tráfico</h3>
+<h3 id="an%C3%A1lisis-del-tr%C3%A1fico" tabindex="-1">Análisis del tráfico</h3>
 
 
 <p>Estas son las herramientas principales para ver el tráfico:</p>
@@ -965,7 +960,7 @@ aws ec2 describe-vpc-endpoints \
 </ul>
 
 
-<h2 class="sb" id="reglas-y-registros" tabindex="-1">Reglas y Registros</h2>
+<h2 class="sb" id="reglas-y-registros" tabindex="-1">Reglas y registros</h2>
 
 
 <p>AWS ofrece controles específicos para VPC Traffic Mirroring que facilitan el cumplimiento normativo:</p>
@@ -1089,10 +1084,10 @@ aws ec2 describe-vpc-endpoints \
 <p><strong>Sobre los costos</strong>: Los cargos siguen hasta eliminar todas las sesiones. Ten en cuenta costos extra si usas gateways o balanceadores.</p>
 
 
-<h2 class="sb" id="mejoras-del-sistema" tabindex="-1">Mejoras del Sistema</h2>
+<h2 class="sb" id="mejoras-del-sistema" tabindex="-1">Mejoras del sistema</h2>
 
 
-<h3 id="uso-de-recursos" tabindex="-1">Uso de Recursos</h3>
+<h3 id="uso-de-recursos" tabindex="-1">Uso de recursos</h3>
 
 
 <p>El VPC Traffic Mirroring necesita una configuración específica para funcionar mejor. Aquí te muestro cómo:</p>
@@ -1142,7 +1137,7 @@ aws ec2 describe-vpc-endpoints \
 </ul>
 
 
-<h3 id="reducci%C3%B3n-de-costos" tabindex="-1">Reducción de Costos</h3>
+<h3 id="reducci%C3%B3n-de-costos" tabindex="-1">Reducción de costos</h3>
 
 
 <figure class="table"><table>
@@ -1233,10 +1228,10 @@ aws ec2 describe-vpc-endpoints \
 </ul>
 
 
-<h2 class="sb" id="preguntas-frecuentes" tabindex="-1">Preguntas Frecuentes</h2>
+<h2 class="sb" id="preguntas-frecuentes" tabindex="-1">Preguntas frecuentes</h2>
 
 
-<h3 id="%C2%BFqu%C3%A9-instancias-soportan-traffic-mirroring-en-aws%3F" tabindex="-1">¿Qué instancias soportan Traffic Mirroring en <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a>?</h3>
+<h3 id="%C2%BFqu%C3%A9-instancias-soportan-traffic-mirroring-en-aws%3F" tabindex="-1">¿Qué instancias soportan traffic mirroring en <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a>?</h3>
 
 
 <p><figure><img alt="AWS" src="/assets/blog/2ebe3cf8e7ae57e98d3af846.jpg"/></figure></p>
@@ -1317,7 +1312,7 @@ aws ec2 describe-vpc-endpoints \
 </table></figure>
 
 
-<h3 id="%C2%BFqu%C3%A9-es-traffic-mirroring-en-vpc%3F" tabindex="-1">¿Qué es Traffic Mirroring en VPC?</h3>
+<h3 id="%C2%BFqu%C3%A9-es-traffic-mirroring-en-vpc%3F" tabindex="-1">¿Qué es traffic mirroring en VPC?</h3>
 
 
 <p>Traffic Mirroring copia el tráfico de red de interfaces elásticas tipo 'interface'.</p>
@@ -1350,7 +1345,7 @@ aws ec2 describe-vpc-endpoints \
 </table></figure>
 
 
-<h3 id="%C2%BFqu%C3%A9-es-traffic-mirroring-en-aws%3F" tabindex="-1">¿Qué es Traffic Mirroring en AWS?</h3>
+<h3 id="%C2%BFqu%C3%A9-es-traffic-mirroring-en-aws%3F" tabindex="-1">¿Qué es traffic mirroring en AWS?</h3>
 
 
 <p>Traffic Mirroring te permite:</p>
@@ -1370,6 +1365,6 @@ aws ec2 describe-vpc-endpoints \
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/conceptos-basicos-y-avanzados-de-amazon-vpc/">Conceptos Básicos y Avanzados de Amazon VPC</a></li><li><a href="https://dondeaprendoaws.com/blog/observabilidad-en-aws-con-amazon-x-ray/">Observabilidad en AWS con Amazon X-Ray</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores Prácticas de Seguridad en AWS</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/conceptos-basicos-y-avanzados-de-amazon-vpc/">Conceptos básicos y avanzados de Amazon VPC</a></li><li><a href="https://dondeaprendoaws.com/blog/observabilidad-en-aws-con-amazon-x-ray/">Observabilidad en AWS con Amazon X-Ray</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores prácticas de seguridad en AWS</a></li>
 </ul>
 </p>

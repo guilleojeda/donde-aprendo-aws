@@ -1,25 +1,20 @@
 ---
-title: "Desarrollando Aplicaciones con AWS Lambda"
+title: "Desarrollando aplicaciones con AWS Lambda"
 description: "AWS Lambda es una herramienta poderosa para desarrollar aplicaciones escalables sin preocuparse por la infraestructura. Aprende sobre AWS Lambda, ventajas, casos de uso, desarrollo, despliegue, integración con otros servicios de AWS y optimización."
 author: "guille-ojeda"
 publishedAt: "2024-03-07"
 publishedTimestamp: "2024-03-07T14:09:19.83Z"
-cover: "/assets/blog/699efcfd9fc0a59df5186b93.png"
-coverAlt: "Nube formada por piezas de rompecabezas sobre una plataforma con nodos"
-ogImage: "/assets/blog/699efcfd9fc0a59df5186b93.png"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "AWS IoT Edge Simulator: Casos de Uso Reales"
+  - title: "AWS IoT Edge Simulator: casos de uso reales"
     url: "https://dondeaprendoaws.com/blog/aws-iot-edge-simulator-casos-de-uso-reales/"
-    image: "/assets/blog/7854091f527530189ba482f0.png"
-    imageAlt: ""
-  - title: "AWS Fundamentos: Guía de Inicio Rápido"
+  - title: "AWS fundamentos: guía de inicio rápido"
     url: "https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/"
-    image: "/assets/blog/945b48235c5e1f4c1d3cc3ae.jpg"
-    imageAlt: ""
   - title: "AWS curso certificado: preguntas frecuentes"
     url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-preguntas-frecuentes/"
-    image: "/assets/blog/39294214939c4754eb0b11e2.png"
-    imageAlt: ""
+
 ---
 
 <p>AWS Lambda es una potente herramienta que te permite crear aplicaciones escalables sin preocuparte por la infraestructura. Aquí te damos un resumen de lo que aprenderás en este artículo:</p>
@@ -80,7 +75,7 @@ related:
 <p>En pocas palabras, Lambda te ayuda a crear aplicaciones que pueden crecer y cambiar fácilmente, sin que te preocupes por los detalles técnicos de los servidores.</p>
 
 
-<h2 id="preparaci%C3%B3n-del-entorno-de-desarrollo" tabindex="-1">Preparación del Entorno de Desarrollo</h2>
+<h2 id="preparaci%C3%B3n-del-entorno-de-desarrollo" tabindex="-1">Preparación del entorno de desarrollo</h2>
 
 
 <p>Antes de meternos de lleno en el desarrollo de aplicaciones usando AWS Lambda, necesitamos asegurarnos de tener todo listo. Aquí te explicamos paso a paso lo que tienes que hacer:</p>
@@ -132,7 +127,7 @@ related:
 <p>Con estas herramientas listas, ya estás preparado para empezar a crear y probar tus propias funciones Lambda.</p>
 
 
-<h2 id="creaci%C3%B3n-de-tu-primera-funci%C3%B3n-lambda" tabindex="-1">Creación de tu Primera Función Lambda</h2>
+<h2 id="creaci%C3%B3n-de-tu-primera-funci%C3%B3n-lambda" tabindex="-1">Creación de tu primera función Lambda</h2>
 
 
 <p>Para empezar con una función Lambda en AWS, solo sigue estos pasos sencillos:</p>
@@ -178,7 +173,7 @@ related:
 <p>En pocas palabras, Lambda hace que no tengas que preocuparte por la parte técnica de los servidores. Te permite concentrarte en el código y en cómo mejorar tus aplicaciones.</p>
 
 
-<h2 id="integraci%C3%B3n-con-otros-servicios-de-aws" tabindex="-1">Integración con Otros Servicios de AWS</h2>
+<h2 id="integraci%C3%B3n-con-otros-servicios-de-aws" tabindex="-1">Integración con otros servicios de AWS</h2>
 
 
 <p>AWS Lambda funciona muy bien con otros servicios de AWS como Amazon S3, Amazon DynamoDB y Amazon API Gateway. Esto te permite armar aplicaciones más completas sin necesidad de preocuparte por los servidores.</p>
@@ -207,7 +202,7 @@ related:
 
 
 
-<h2 id="administraci%C3%B3n-y-despliegue-con-aws-sam-y-cloudformation" tabindex="-1">Administración y Despliegue con AWS SAM y CloudFormation</h2>
+<h2 id="administraci%C3%B3n-y-despliegue-con-aws-sam-y-cloudformation" tabindex="-1">Administración y despliegue con AWS SAM y CloudFormation</h2>
 
 
 <p>AWS Serverless Application Model (SAM) y AWS CloudFormation son dos herramientas que te ayudan a manejar y poner en marcha aplicaciones que no necesitan servidores, como las que usan AWS Lambda.</p>
@@ -292,7 +287,7 @@ Resources:
 <p>Con solo usar <code class="inline-code">sam deploy</code>, esta plantilla creará una función Lambda y la conectará a una dirección web para que la puedas usar.</p>
 
 
-<h3 id="optimizaciones-y-consejos" tabindex="-1">Optimizaciones y Consejos</h3>
+<h3 id="optimizaciones-y-consejos" tabindex="-1">Optimizaciones y consejos</h3>
 
 
 <p>Aquí van algunos consejos para que tus aplicaciones sin servidores sean mejores:</p>
@@ -311,7 +306,7 @@ Resources:
 <p>Usar estas herramientas juntas te ayudará a crear aplicaciones Lambda que son fuertes, pueden crecer fácilmente y son simples de manejar.</p>
 
 
-<h2 id="optimizaci%C3%B3n-y-mejores-pr%C3%A1cticas" tabindex="-1">Optimización y Mejores Prácticas</h2>
+<h2 id="optimizaci%C3%B3n-y-mejores-pr%C3%A1cticas" tabindex="-1">Optimización y mejores prácticas</h2>
 
 
 <p>Para que tus aplicaciones serverless en AWS Lambda funcionen mejor y gasten menos, te recomendamos seguir estos consejos:</p>
@@ -352,13 +347,13 @@ Resources:
 <p>Siguiendo estos pasos, podrás hacer que tus aplicaciones en AWS Lambda sean más eficientes, gasten menos y sean más fáciles de mantener.</p>
 
 
-<h2 id="ejemplo-pr%C3%A1ctico%3A-desarrollando-una-aplicaci%C3%B3n-completa-con-aws-lambda" tabindex="-1">Ejemplo Práctico: Desarrollando una Aplicación Completa con AWS Lambda</h2>
+<h2 id="ejemplo-pr%C3%A1ctico%3A-desarrollando-una-aplicaci%C3%B3n-completa-con-aws-lambda" tabindex="-1">Ejemplo práctico: desarrollando una aplicación completa con AWS Lambda</h2>
 
 
 <p>En esta parte, te mostraremos cómo crear una aplicación completa sin servidores usando AWS Lambda y otros servicios de AWS.</p>
 
 
-<h3 id="descripci%C3%B3n-de-la-aplicaci%C3%B3n" tabindex="-1">Descripción de la Aplicación</h3>
+<h3 id="descripci%C3%B3n-de-la-aplicaci%C3%B3n" tabindex="-1">Descripción de la aplicación</h3>
 
 
 <p>Vamos a hacer una aplicación sencilla para manejar tareas. Esta aplicación permitirá a los usuarios ver sus tareas, añadir nuevas y eliminar las que ya no necesiten. Usaremos:</p>
@@ -373,7 +368,7 @@ Resources:
 </ul>
 
 
-<h3 id="preparaci%C3%B3n-del-entorno" tabindex="-1">Preparación del Entorno</h3>
+<h3 id="preparaci%C3%B3n-del-entorno" tabindex="-1">Preparación del entorno</h3>
 
 
 <p>Antes de empezar, necesitamos preparar nuestro espacio de trabajo con lo siguiente:</p>
@@ -388,7 +383,7 @@ Resources:
 </ul>
 
 
-<h3 id="desarrollo-del-backend" tabindex="-1">Desarrollo del Backend</h3>
+<h3 id="desarrollo-del-backend" tabindex="-1">Desarrollo del backend</h3>
 
 
 <p>Primero, vamos a armar el backend con funciones Lambda que harán cosas como:</p>
@@ -408,7 +403,7 @@ Resources:
 <p>Probaremos estas funciones en nuestra máquina con SAM CLI antes de subirlas a AWS.</p>
 
 
-<h3 id="desarrollo-del-frontend" tabindex="-1">Desarrollo del Frontend</h3>
+<h3 id="desarrollo-del-frontend" tabindex="-1">Desarrollo del frontend</h3>
 
 
 <p>Para el frontend, haremos una aplicación con React. Esta tendrá pantallas para:</p>
@@ -424,7 +419,7 @@ Resources:
 <p>El frontend usará las funciones Lambda a través de API Gateway para trabajar con las tareas.</p>
 
 
-<h3 id="despliegue-automatizado" tabindex="-1">Despliegue Automatizado</h3>
+<h3 id="despliegue-automatizado" tabindex="-1">Despliegue automatizado</h3>
 
 
 <p>Para poner todo en línea de forma automática, usaremos CloudFormation. Esto nos permite describir cómo queremos que sea nuestra infraestructura (como las funciones Lambda, las tablas de DynamoDB, y más) con un archivo de texto. Luego, con solo un comando (<code class="inline-code">sam deploy</code>), AWS creará todo por nosotros.</p>
@@ -457,6 +452,6 @@ Resources:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS Fundamentos: Guía de Inicio Rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/desarrollo-en-la-nube-fundamentos-esenciales/">Desarrollo en la nube: fundamentos esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/nube-aws-guia-de-inicio-rapido/">Nube AWS: Guía de Inicio Rápido</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS fundamentos: guía de inicio rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/desarrollo-en-la-nube-fundamentos-esenciales/">Desarrollo en la nube: fundamentos esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/nube-aws-guia-de-inicio-rapido/">Nube AWS: guía de inicio rápido</a></li>
 </ul>
 </p>

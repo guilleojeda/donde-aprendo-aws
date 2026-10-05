@@ -1,25 +1,20 @@
 ---
-title: "Respaldos y Snapshots en EBS"
+title: "Respaldos y snapshots en EBS"
 description: "Descubre los fundamentos y mejores prácticas para crear y manejar snapshots en Amazon EBS. Aprende cómo automatizar el proceso, asegurar tus datos con cifrado y recuperar información importante."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T01:55:00.888Z"
-cover: "/assets/blog/898bfede65963403cc64e267.jpg"
-coverAlt: "Nube sobre piezas con símbolos de candados y escudos"
-ogImage: "/assets/blog/898bfede65963403cc64e267.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
-  - title: "7 Estrategias para Mitigar Cold Starts en AWS Lambda"
+  - title: "7 estrategias para mitigar cold starts en AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/7-estrategias-para-mitigar-cold-starts-en-aws-lambda/"
-    image: "/assets/blog/c936f3eb45382355f87b0707.jpg"
-    imageAlt: ""
-  - title: "10 Consejos de Redes para AWS Outposts"
+  - title: "10 consejos de redes para AWS Outposts"
     url: "https://dondeaprendoaws.com/blog/10-consejos-de-redes-para-aws-outposts/"
-    image: "/assets/blog/d57b2c7f6d8d4785748ce1c5.png"
-    imageAlt: ""
-  - title: "Tipos de Instancia en Amazon RDS y Amazon Aurora"
+  - title: "Tipos de instancia en Amazon RDS y Amazon Aurora"
     url: "https://dondeaprendoaws.com/blog/tipos-de-instancia-en-amazon-rds-y-amazon-aurora/"
-    image: "/assets/blog/aa03147d445ee06a398e3780.jpg"
-    imageAlt: ""
+
 ---
 
 <p>En esta guía, descubrirás los fundamentos y mejores prácticas para crear y manejar <em>snapshots</em> en Amazon EBS, asegurando la seguridad y disponibilidad de tus datos en la nube. Aquí te presento un resumen de lo más importante:</p>
@@ -56,7 +51,7 @@ related:
 <p>En pocas palabras, EBS te da un espacio seguro y rápido en la nube para tus datos.</p>
 
 
-<h3 id="%C2%BFqu%C3%A9-son-los-snapshots%3F" tabindex="-1">¿Qué son los Snapshots?</h3>
+<h3 id="%C2%BFqu%C3%A9-son-los-snapshots%3F" tabindex="-1">¿Qué son los snapshots?</h3>
 
 
 <p>Los snapshots de EBS son como fotos que capturan cómo están tus datos en un momento específico. Estas fotos se guardan en Amazon S3 y solo se toman de los datos que han cambiado desde la última vez, lo que ayuda a ahorrar espacio y dinero.</p>
@@ -75,7 +70,7 @@ related:
 <p>En resumen, los snapshots son una manera eficiente de mantener seguros tus datos, permitiéndote recuperarlos fácilmente si algo sucede.</p>
 
 
-<h2 id="creaci%C3%B3n-de-snapshots" tabindex="-1">Creación de Snapshots</h2>
+<h2 id="creaci%C3%B3n-de-snapshots" tabindex="-1">Creación de snapshots</h2>
 
 
 <p>Para hacer un snapshot de tus datos en Amazon EBS, aquí te mostramos cómo hacerlo paso a paso, ya sea usando la web de AWS, la línea de comandos (CLI) o la API:</p>
@@ -136,13 +131,13 @@ related:
 <p>Hacer snapshots, ya sea a mano o automáticamente con herramientas como Amazon Data Lifecycle Manager, es fundamental para cuidar tus datos en Amazon EBS.</p>
 
 
-<h2 id="gesti%C3%B3n-de-snapshots" tabindex="-1">Gestión de Snapshots</h2>
+<h2 id="gesti%C3%B3n-de-snapshots" tabindex="-1">Gestión de snapshots</h2>
 
 
 <p>Una vez que tienes tus snapshots, es clave saber cómo cuidarlos para que tus datos estén siempre seguros.</p>
 
 
-<h3 id="visualizaci%C3%B3n-de-snapshots" tabindex="-1">Visualización de Snapshots</h3>
+<h3 id="visualizaci%C3%B3n-de-snapshots" tabindex="-1">Visualización de snapshots</h3>
 
 
 <p>Para checar tus snapshots existentes, puedes usar la consola de AWS, la CLI o la API:</p>
@@ -182,7 +177,7 @@ related:
 <p>Con la API, la orden es <code class="inline-code">DescribeSnapshots</code> y solo tienes que poner el ID del snapshot que te interesa.</p>
 
 
-<h3 id="copiar-snapshots" tabindex="-1">Copiar Snapshots</h3>
+<h3 id="copiar-snapshots" tabindex="-1">Copiar snapshots</h3>
 
 
 <p>Si necesitas mover un snapshot a otra región, quizás para tener copias en diferentes lugares, sigue estos pasos:</p>
@@ -213,7 +208,7 @@ related:
 <p>La orden aquí es <code class="inline-code">CopySnapshot</code>, asegúrate de especificar el ID del snapshot y a qué región lo quieres enviar.</p>
 
 
-<h3 id="compartir-snapshots" tabindex="-1">Compartir Snapshots</h3>
+<h3 id="compartir-snapshots" tabindex="-1">Compartir snapshots</h3>
 
 
 <p>Si quieres compartir un snapshot con otra cuenta de AWS, aquí te decimos cómo:</p>
@@ -243,7 +238,7 @@ related:
 <p>La orden es <code class="inline-code">ModifySnapshotAttribute</code>. Solo tienes que dar el ID del snapshot y la cuenta con la que lo quieres compartir.</p>
 
 
-<h3 id="eliminar-snapshots" tabindex="-1">Eliminar Snapshots</h3>
+<h3 id="eliminar-snapshots" tabindex="-1">Eliminar snapshots</h3>
 
 
 <p>Si tienes snapshots que ya no necesitas, así los puedes borrar:</p>
@@ -284,7 +279,7 @@ related:
 <p>Siempre es buena idea asegurarte de que puedes restaurar datos desde un snapshot antes de deshacerte de los antiguos.</p>
 
 
-<h2 id="automatizaci%C3%B3n-de-snapshots" tabindex="-1">Automatización de Snapshots</h2>
+<h2 id="automatizaci%C3%B3n-de-snapshots" tabindex="-1">Automatización de snapshots</h2>
 
 
 <p>Usar AWS Data Lifecycle Manager (DLM) te ayuda a manejar automáticamente la creación, guardado y borrado de snapshots de EBS. Esto significa que puedes hacer que todo el proceso de cuidado de tus snapshots se maneje solo, siguiendo reglas que tú defines.</p>
@@ -341,7 +336,7 @@ related:
 <p>En pocas palabras, AWS Data Lifecycle Manager te permite automatizar el cuidado de tus snapshots de EBS de manera fácil y según tus necesidades, lo que te ayuda a trabajar mejor, cumplir con las reglas de seguridad y controlar tus gastos.</p>
 
 
-<h2 id="recuperaci%C3%B3n-de-datos-desde-snapshots" tabindex="-1">Recuperación de Datos desde Snapshots</h2>
+<h2 id="recuperaci%C3%B3n-de-datos-desde-snapshots" tabindex="-1">Recuperación de datos desde snapshots</h2>
 
 
 <p>Si necesitas traer de vuelta tus datos de un snapshot de EBS, sigue estos pasos sencillos:</p>
@@ -374,7 +369,7 @@ related:
 
 
 
-<h2 id="seguridad-y-cifrado" tabindex="-1">Seguridad y Cifrado</h2>
+<h2 id="seguridad-y-cifrado" tabindex="-1">Seguridad y cifrado</h2>
 
 
 <p>Mantener tus datos seguros es super importante cuando usas snapshots de EBS. Aquí te contamos cómo se hace para que tus datos estén protegidos.</p>
@@ -420,13 +415,13 @@ related:
 <p>En resumen, los snapshots de EBS vienen con una buena protección automática, pero siempre es buena idea agregar un poco más de seguridad por tu cuenta.</p>
 
 
-<h2 id="casos-de-uso-de-snapshots" tabindex="-1">Casos de Uso de Snapshots</h2>
+<h2 id="casos-de-uso-de-snapshots" tabindex="-1">Casos de uso de snapshots</h2>
 
 
 <p>Los snapshots en EBS son super útiles en varias situaciones típicas:</p>
 
 
-<h3 id="copias-de-seguridad" tabindex="-1">Copias de Seguridad</h3>
+<h3 id="copias-de-seguridad" tabindex="-1">Copias de seguridad</h3>
 
 
 <p>Los snapshots son una manera fácil y segura de guardar una copia de tus datos en los volúmenes de EBS. Al hacer snapshots con frecuencia, puedes estar tranquilo de tener un respaldo por si algo sale mal.</p>
@@ -442,7 +437,7 @@ related:
 </ul>
 
 
-<h3 id="recuperaci%C3%B3n-ante-desastres" tabindex="-1">Recuperación ante Desastres</h3>
+<h3 id="recuperaci%C3%B3n-ante-desastres" tabindex="-1">Recuperación ante desastres</h3>
 
 
 <p>Los snapshots te ayudan a mover tus datos entre diferentes áreas de AWS, lo cual es clave para recuperarte de desastres. Puedes:</p>
@@ -520,6 +515,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/estrategias-de-recuperacion-de-desastres-en-aws/">Estrategias de Recuperación de Desastres en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS Fundamentos: Guía de Inicio Rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS Seguridad: Fundamentos Esenciales</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/estrategias-de-recuperacion-de-desastres-en-aws/">Estrategias de recuperación de desastres en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS fundamentos: guía de inicio rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS seguridad: fundamentos esenciales</a></li>
 </ul>
 </p>

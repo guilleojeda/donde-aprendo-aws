@@ -8,9 +8,9 @@ modifiedTimestamp: "2026-10-04T21:31:45-03:00"
 review:
   date: "2026-10-04"
   note: "Retrospectiva del evento de Washington, DC de junio de 2024 y revisión de recursos"
-cover: "/assets/blog/f4d9080a8f5eea1a871c1a1b.jpg"
-coverAlt: "Diagrama de cubos unidos por líneas sobre un fondo azul"
-ogImage: "/assets/blog/f4d9080a8f5eea1a871c1a1b.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related: []
 ---
 
@@ -94,7 +94,7 @@ Lleva una pregunta concreta: «¿Cómo compruebo que un asistente responde solo 
 
 ## Eventos para pasar de la lectura a la conversación
 
-La [agenda de eventos de la comunidad](https://dondeaprendoaws.com/eventos/) permite buscar próximos encuentros; el [filtro de eventos en línea](https://dondeaprendoaws.com/eventos/?mode=online) ayuda si quieres participar desde otro país. Para conferencias organizadas por AWS, consulta el [calendario oficial de eventos](https://aws.amazon.com/events/).
+La [Agenda de eventos de la comunidad](https://dondeaprendoaws.com/eventos/) permite buscar próximos encuentros; el [filtro de eventos en línea](https://dondeaprendoaws.com/eventos/?mode=online) ayuda si quieres participar desde otro país. Para conferencias organizadas por AWS, consulta el [calendario oficial de eventos](https://aws.amazon.com/events/).
 
 Al revisar esta guía el **4 de octubre de 2026**, las siguientes convocatorias estaban anunciadas por sus organizadores:
 

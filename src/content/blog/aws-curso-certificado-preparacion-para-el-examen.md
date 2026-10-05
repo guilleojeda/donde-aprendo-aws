@@ -1,25 +1,20 @@
 ---
-title: "Cómo Prepararte Para un Examen de Certificación de AWS"
+title: "Cómo prepararte para un examen de certificación de AWS"
 description: "Prepárate para el examen de certificación de AWS con consejos, técnicas de estudio, formación gratuita y rutas de certificación. Descubre los beneficios, costos, y recursos clave para el éxito."
 author: "guille-ojeda"
 publishedAt: "2024-01-23"
 publishedTimestamp: "2024-01-23T17:34:37.557Z"
-cover: "/assets/blog/4cb1b939d8aa6ff5e1dc2ac1.jpg"
-coverAlt: "Perfil de una cabeza con una nube, un engranaje y una bombilla en su interior"
-ogImage: "/assets/blog/4cb1b939d8aa6ff5e1dc2ac1.jpg"
+cover: "/assets/blog/editorial-certificacion.png"
+coverAlt: "Tres tarjetas de estudio con apuntes y hitos sobre un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-certificacion.png"
 related:
   - title: "Cómo automatizar ajustes de políticas con AWS Security Hub"
     url: "https://dondeaprendoaws.com/blog/como-automatizar-ajustes-de-politicas-con-aws-security-hub/"
-    image: "/assets/blog/0a51232b23a8b40ad5b29e21.jpg"
-    imageAlt: ""
-  - title: "Estrategias de Caché Rentables para Apps Serverless"
+  - title: "Estrategias de caché rentables para apps serverless"
     url: "https://dondeaprendoaws.com/blog/estrategias-de-cache-rentables-para-apps-serverless/"
-    image: "/assets/blog/ddae590c4e3ebe901251f97c.webp"
-    imageAlt: ""
-  - title: "Amazon DynamoDB: Guía Básica"
+  - title: "Amazon DynamoDB: guía básica"
     url: "https://dondeaprendoaws.com/blog/amazon-dynamodb-guia-basica/"
-    image: "/assets/blog/a45735d6d45d12223256fbc4.png"
-    imageAlt: ""
+
 ---
 
 <p>Sin duda, la mayoría estará de acuerdo en que <strong>prepararse adecuadamente para los exámenes de certificación de AWS puede resultar todo un desafío</strong>.</p>
@@ -75,7 +70,7 @@ related:
 <p>La inversión en una certificación AWS vale la pena para impulsar tu carrera en la nube.</p>
 
 
-<h3 id="certificaci%C3%B3n-aws%3A-precio-e-inversi%C3%B3n-en-tu-futuro" tabindex="-1">Certificación AWS: Precio e inversión en tu futuro</h3>
+<h3 id="certificaci%C3%B3n-aws%3A-precio-e-inversi%C3%B3n-en-tu-futuro" tabindex="-1">Certificación AWS: precio e inversión en tu futuro</h3>
 
 
 <p>Los exámenes de certificación de AWS tienen un precio que va desde los $100 hasta los $300 USD aproximadamente. AWS a veces ofrece descuentos en los exámenes.</p>
@@ -109,7 +104,7 @@ related:
 <p>La mejor manera de certificarse en AWS es a través de AWS Skill Builder. Esta plataforma ofrece cursos de preparación para los exámenes de certificación de AWS diseñados para enseñarle los conceptos y habilidades necesarios para aprobar los exámenes.</p>
 
 
-<h3 id="prep%C3%A1rese-para-certificaciones-aws-con-aws-skill-builder" tabindex="-1">PREPÁRESE PARA CERTIFICACIONES AWS CON AWS SKILL BUILDER</h3>
+<h3 id="prep%C3%A1rese-para-certificaciones-aws-con-aws-skill-builder" tabindex="-1">PREPÁRESE PARA CERTIFICACIONES AWS CON AWS Skill Builder</h3>
 
 
 <ul>
@@ -145,7 +140,7 @@ related:
 </ul>
 
 
-<h3 id="aws-certified-solutions-architect-%E2%80%93-associate" tabindex="-1">AWS Certified Solutions Architect – Associate</h3>
+<h3 id="aws-certified-solutions-architect-%E2%80%93-associate" tabindex="-1">AWS Certified Solutions Architect – associate</h3>
 
 
 <ul>
@@ -155,7 +150,7 @@ related:
 </ul>
 
 
-<h3 id="aws-certified-sysops-administrator-%E2%80%93-associate" tabindex="-1">AWS Certified SysOps Administrator – Associate</h3>
+<h3 id="aws-certified-sysops-administrator-%E2%80%93-associate" tabindex="-1">AWS Certified SysOps Administrator – associate</h3>
 
 
 <ul>
@@ -165,7 +160,7 @@ related:
 </ul>
 
 
-<h3 id="aws-certified-developer-%E2%80%93-associate" tabindex="-1">AWS Certified Developer – Associate</h3>
+<h3 id="aws-certified-developer-%E2%80%93-associate" tabindex="-1">AWS Certified Developer – associate</h3>
 
 
 <ul>
@@ -186,7 +181,7 @@ related:
 <p>Esta sección cubre consejos y recursos clave para prepararse para aprobar los exámenes de certificación de AWS.</p>
 
 
-<h3 id="gu%C3%ADa-de-estudio-aws%3A-creando-un-plan-efectivo" tabindex="-1">Guía de estudio AWS: Creando un plan efectivo</h3>
+<h3 id="gu%C3%ADa-de-estudio-aws%3A-creando-un-plan-efectivo" tabindex="-1">Guía de estudio AWS: creando un plan efectivo</h3>
 
 
 <p>Para crear un plan de estudio efectivo para la certificación de AWS, se recomienda:</p>
@@ -256,7 +251,7 @@ related:
 <p>Un análisis detallado de las diferentes rutas de certificación ofrecidas por AWS y cómo elegir la más adecuada según tus objetivos.</p>
 
 
-<h3 id="aws-certified-cloud-practitioner%3A-el-primer-paso" tabindex="-1">AWS Certified Cloud Practitioner: El primer paso</h3>
+<h3 id="aws-certified-cloud-practitioner%3A-el-primer-paso" tabindex="-1">AWS Certified Cloud Practitioner: el primer paso</h3>
 
 
 <p>La certificación <strong>AWS Certified Cloud Practitioner</strong> está diseñada para quienes se están iniciando en el mundo de la computación en la nube. Es recomendable tanto para personas técnicas sin experiencia en la nube como para personas no técnicas que necesiten certificar sus conocimientos de nube.</p>
@@ -288,7 +283,7 @@ related:
 <p>Con la certificación <strong>AWS Certified Cloud Practitioner</strong>, podrás validar tus conocimientos generales de la nube, dándole una mayor impronta a tu perfil profesional.</p>
 
 
-<h3 id="aws-certified-developer---associate%3A-un-camino-para-desarrolladores" tabindex="-1">AWS Certified Developer - Associate: Un camino para desarrolladores</h3>
+<h3 id="aws-certified-developer---associate%3A-un-camino-para-desarrolladores" tabindex="-1">AWS Certified Developer - associate: un camino para desarrolladores</h3>
 
 
 <p>La certificación <strong>AWS Certified Developer - Associate</strong> está diseñada específicamente para desarrolladores que desean demostrar sus habilidades para crear y mantener aplicaciones en la nube de AWS.</p>
@@ -320,7 +315,7 @@ related:
 <p>Con la certificación <strong>AWS Certified Developer</strong>, podrás validar tus habilidades técnicas en desarrollo en la nube, mejorando tu perfil profesional.</p>
 
 
-<h3 id="aws-certified-solutions-architect---associate%3A-construyendo-la-arquitectura-ideal" tabindex="-1">AWS Certified Solutions Architect - Associate: Construyendo la arquitectura ideal</h3>
+<h3 id="aws-certified-solutions-architect---associate%3A-construyendo-la-arquitectura-ideal" tabindex="-1">AWS Certified Solutions Architect - associate: construyendo la arquitectura ideal</h3>
 
 
 <p>La certificación <strong>AWS Certified Solutions Architect - Associate</strong> valida la capacidad para diseñar sistemas en la nube escalables y de alto rendimiento en AWS.</p>
@@ -351,7 +346,7 @@ related:
 <p>Con la credencial de <strong>AWS Certified Solutions Architect Associate</strong> demostrarás tus habilidades para diseñar infraestructura escalable y segura en la nube de AWS.</p>
 
 
-<h3 id="aws-certified-sysops-administrator---associate%3A-operaciones-en-la-nube" tabindex="-1">AWS Certified SysOps Administrator - Associate: Operaciones en la nube</h3>
+<h3 id="aws-certified-sysops-administrator---associate%3A-operaciones-en-la-nube" tabindex="-1">AWS Certified SysOps Administrator - associate: operaciones en la nube</h3>
 
 
 <p>La certificación <strong>AWS Certified SysOps Administrator - Associate</strong> se enfoca en validar habilidades para administrar aplicaciones y sistemas en AWS.</p>
@@ -382,7 +377,7 @@ related:
 <p>La certificación <strong>AWS Certified SysOps Administrator</strong> valida tus competencias en administración de sistemas en la nube de AWS.</p>
 
 
-<h3 id="aws-certified-security---specialty%3A-asegurando-la-nube" tabindex="-1">AWS Certified Security - Specialty: Asegurando la nube</h3>
+<h3 id="aws-certified-security---specialty%3A-asegurando-la-nube" tabindex="-1">AWS Certified Security - Specialty: asegurando la nube</h3>
 
 
 <p>La certificación <strong>AWS Certified Security - Specialty</strong> está diseñada para profesionales enfocados en seguridad y cumplimiento en AWS.</p>
@@ -419,7 +414,7 @@ related:
 <p>La preparación para la certificación de AWS va más allá de solo estudiar para el examen. Complementar tu plan de estudio con recursos adicionales puede enriquecer tu aprendizaje y desarrollo de habilidades en la nube. Aquí hay algunas opciones recomendadas:</p>
 
 
-<h3 id="formaci%C3%B3n-t%C3%A9cnica-y-certificaci%C3%B3n-aws%3A-ampliando-habilidades" tabindex="-1">Formación técnica y certificación AWS: Ampliando habilidades</h3>
+<h3 id="formaci%C3%B3n-t%C3%A9cnica-y-certificaci%C3%B3n-aws%3A-ampliando-habilidades" tabindex="-1">Formación técnica y certificación AWS: ampliando habilidades</h3>
 
 
 <p>Los cursos de formación técnica de AWS profundizan en servicios y temas específicos de la nube. Al complementarlos con tu preparación para la certificación, puedes:</p>
@@ -435,7 +430,7 @@ related:
 <p>Esto puede marcar una gran diferencia para aprobar el examen y también para desempeñarte mejor en proyectos reales de AWS.</p>
 
 
-<h3 id="formaci%C3%B3n-presencial-aws%3A-aprendizaje-interactivo" tabindex="-1">Formación presencial AWS: Aprendizaje interactivo</h3>
+<h3 id="formaci%C3%B3n-presencial-aws%3A-aprendizaje-interactivo" tabindex="-1">Formación presencial AWS: aprendizaje interactivo</h3>
 
 
 <p>Las academias y socios de capacitación autorizados de AWS ofrecen formación presencial y en vivo. Sus beneficios incluyen:</p>
@@ -451,7 +446,7 @@ related:
 <p>Aunque conlleva una inversión extra, muchos la consideran invaluable para afianzar conocimientos y estar mejor preparados para la certificación y el trabajo en la nube.</p>
 
 
-<h3 id="cursos-de-skill-builder-aws%3A-aprendizaje-autodirigido" tabindex="-1">Cursos de Skill Builder AWS: Aprendizaje autodirigido</h3>
+<h3 id="cursos-de-skill-builder-aws%3A-aprendizaje-autodirigido" tabindex="-1">Cursos de skill builder AWS: aprendizaje autodirigido</h3>
 
 
 <p>La plataforma Skill Builder de AWS ofrece cursos en línea para desarrollar habilidades en la nube. Sus ventajas:</p>
@@ -467,7 +462,7 @@ related:
 <p>Ideal para aprender en profundidad temas puntuales que te interesen o en los que detectes carencias mediante los exámenes de práctica.</p>
 
 
-<h3 id="aws-educate%3A-iniciativas-para-estudiantes-y-educadores" tabindex="-1">AWS Educate: Iniciativas para estudiantes y educadores</h3>
+<h3 id="aws-educate%3A-iniciativas-para-estudiantes-y-educadores" tabindex="-1">AWS Educate: iniciativas para estudiantes y educadores</h3>
 
 
 <p>AWS Educate es una iniciativa global que provee contenidos en la nube y recursos de AWS para estudiantes y educadores. Sus opciones:</p>
@@ -563,7 +558,7 @@ related:
 <p>Mantener la calma, respirar y pensar con claridad es fundamental para tener un buen desempeño el día del examen. ¡Tú puedes!</p>
 
 
-<h2 id="conclusi%C3%B3n%3A-resumen-de-la-preparaci%C3%B3n-para-la-certificaci%C3%B3n-de-aws" tabindex="-1">Conclusión: Resumen de la preparación para la certificación de AWS</h2>
+<h2 id="conclusi%C3%B3n%3A-resumen-de-la-preparaci%C3%B3n-para-la-certificaci%C3%B3n-de-aws" tabindex="-1">Conclusión: resumen de la preparación para la certificación de AWS</h2>
 
 
 <h3 id="repaso-de-los-pasos-clave-para-la-certificaci%C3%B3n" tabindex="-1">Repaso de los pasos clave para la certificación</h3>
@@ -606,6 +601,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/">Introducción a los servicios de Amazon Web Services</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/">Seguridad en AWS: Mejores Prácticas</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">Seguridad en AWS: Servicios Esenciales</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/">Introducción a los servicios de Amazon Web Services</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/">seguridad en AWS: mejores prácticas</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">seguridad en AWS: servicios esenciales</a></li>
 </ul>
 </p>

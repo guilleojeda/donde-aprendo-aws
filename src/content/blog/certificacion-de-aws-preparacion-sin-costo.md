@@ -1,26 +1,21 @@
 ---
-title: "Certificación de AWS: Preparación sin Costo"
+title: "Certificación de AWS: preparación sin costo"
 description: "Recursos gratuitos y consejos para prepararte para una certificación de AWS. Aprende sobre los diferentes tipos de certificaciones, cómo certificarte en AWS, y cómo continuar la educación después de la certificación."
 author: "guille-ojeda"
 publishedAt: "2024-01-28"
 publishedTimestamp: "2024-01-28T23:43:20.471Z"
 modifiedTimestamp: "2026-10-01T15:14:05-03:00"
-cover: "/assets/blog/b85977e8b87b51eadb100d2e.jpg"
-coverAlt: "Camino sinuoso entre montañas con pequeñas señales"
-ogImage: "/assets/blog/b85977e8b87b51eadb100d2e.jpg"
+cover: "/assets/blog/editorial-certificacion.png"
+coverAlt: "Tres tarjetas de estudio con apuntes y hitos sobre un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-certificacion.png"
 related:
-  - title: "Migración de Datos con AWS Snowmobile: Guía Paso a Paso"
+  - title: "Migración de datos con AWS Snowmobile: guía paso a paso"
     url: "https://dondeaprendoaws.com/blog/migracion-de-datos-con-aws-snowmobile-guia-paso-a-paso/"
-    image: "/assets/blog/3469cfa7d51896eb4b791860.jpg"
-    imageAlt: ""
-  - title: "Estrategias de Recuperación de Desastres en AWS"
+  - title: "Estrategias de recuperación de desastres en AWS"
     url: "https://dondeaprendoaws.com/blog/estrategias-de-recuperacion-de-desastres-en-aws/"
-    image: "/assets/blog/df6cee7d6c3bd49e97412d95.jpg"
-    imageAlt: ""
   - title: "AWS curso certificado: preguntas frecuentes"
     url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-preguntas-frecuentes/"
-    image: "/assets/blog/39294214939c4754eb0b11e2.png"
-    imageAlt: ""
+
 ---
 
 <p>Seguramente muchos coincidirán en que:</p>
@@ -35,7 +30,7 @@ related:
 <p>En esta guía, exploraremos en detalle estos recursos gratuitos, como el <strong>curso <em>Cloud Practitioner Essentials</em> de AWS</strong> y la <strong>comunidad en línea de AWS</strong>, así como los pasos recomendados para prepararte para una certificación de AWS de forma autodidacta y sin costo.</p>
 
 
-<h2 id="introducci%C3%B3n-a-la-certificaci%C3%B3n-de-aws" tabindex="-1">Introducción a la Certificación de AWS</h2>
+<h2 id="introducci%C3%B3n-a-la-certificaci%C3%B3n-de-aws" tabindex="-1">Introducción a la certificación de AWS</h2>
 
 
 <p>La <a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-de-inicio/">certificación de AWS</a> es una excelente manera de validar tus habilidades técnicas en la nube de AWS y mejorar tus oportunidades profesionales. Con la creciente adopción de la nube, las <a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-basica/">certificaciones de AWS</a> son muy valoradas en el mercado laboral.</p>
@@ -44,7 +39,7 @@ related:
 <p>Aunque las certificaciones tienen un costo de examen, existen muchos recursos gratuitos para prepararte sin necesidad de pagar por cursos de pago. Esta guía te mostrará cómo aprovechar esos recursos para certificarte en AWS de forma gratuita.</p>
 
 
-<h3 id="objetivos-de-la-gu%C3%ADa-para-la-certificaci%C3%B3n-aws-gratis" tabindex="-1">Objetivos de la guía para la Certificación AWS Gratis</h3>
+<h3 id="objetivos-de-la-gu%C3%ADa-para-la-certificaci%C3%B3n-aws-gratis" tabindex="-1">Objetivos de la guía para la certificación AWS gratis</h3>
 
 
 <p>El objetivo principal de esta guía es:</p>
@@ -114,7 +109,7 @@ related:
 <p>La mejor manera de <a href="https://aws.amazon.com/certification/certification-prep/">prepararse para la certificación de AWS</a> es utilizando la plataforma gratuita de AWS Skill Builder. Esta plataforma ofrece cursos en línea, laboratorios prácticos y exámenes de práctica para ayudarte a adquirir las habilidades necesarias para aprobar los exámenes de certificación.</p>
 
 
-<h3 id="prep%C3%A1rese-para-aws-certification-con-aws-skill-builder" tabindex="-1">PREPÁRESE PARA AWS CERTIFICATION CON AWS SKILL BUILDER</h3>
+<h3 id="prep%C3%A1rese-para-aws-certification-con-aws-skill-builder" tabindex="-1">PREPÁRESE PARA AWS Certification CON AWS Skill Builder</h3>
 
 
 <ul>
@@ -196,13 +191,13 @@ related:
 <p>En resumen, AWS permite a organizaciones de todo tipo implementar aplicaciones y servicios de forma rápida, segura y rentable. Es ideal para startups, empresas y organizaciones gubernamentales o sin fines de lucro. Al adoptar AWS, las compañías pueden enfocarse más en la innovación en lugar de gestionar infraestructura de TI.</p>
 
 
-<h2 id="comprendiendo-las-certificaciones-aws%3A-por-d%C3%B3nde-empezar" tabindex="-1">Comprendiendo las Certificaciones AWS: Por Dónde Empezar</h2>
+<h2 id="comprendiendo-las-certificaciones-aws%3A-por-d%C3%B3nde-empezar" tabindex="-1">Comprendiendo las certificaciones AWS: por dónde empezar</h2>
 
 
 <p>Repasaremos los diferentes tipos de certificaciones disponibles, sus requisitos y los trabajos a los que pueden conducir para establecer expectativas realistas.</p>
 
 
-<h3 id="tipos-de-certificaciones-de-aws-y-sus-diferencias" tabindex="-1">Tipos de certificaciones de AWS y sus Diferencias</h3>
+<h3 id="tipos-de-certificaciones-de-aws-y-sus-diferencias" tabindex="-1">Tipos de certificaciones de AWS y sus diferencias</h3>
 
 
 <p>AWS ofrece cuatro niveles principales de certificación:</p>
@@ -219,7 +214,7 @@ related:
 <p>La certificación más accesible para empezar es <a href="https://dondeaprendoaws.com/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/">AWS Cloud Practitioner</a> de nivel Foundational. Sirve para familiarizarse con los conceptos básicos antes de pasar a las certificaciones más avanzadas.</p>
 
 
-<h3 id="requisitos-y-renovaci%C3%B3n-de-las-certificaciones-aws" tabindex="-1">Requisitos y Renovación de las Certificaciones AWS</h3>
+<h3 id="requisitos-y-renovaci%C3%B3n-de-las-certificaciones-aws" tabindex="-1">Requisitos y renovación de las certificaciones AWS</h3>
 
 
 <p>Cada tipo de certificación tiene requisitos diferentes de experiencia previa con AWS:</p>
@@ -236,7 +231,7 @@ related:
 <p>Además, las certificaciones de AWS tienen una vigencia de 2-3 años. Luego de ese período es necesario rendir un examen de renovación para mantener la certificación activa. Esto asegura que los profesionales certificados estén actualizados con los constantes cambios en los servicios de AWS.</p>
 
 
-<h3 id="oportunidades-laborales-tras-la-certificaci%C3%B3n-aws" tabindex="-1">Oportunidades Laborales tras la Certificación AWS</h3>
+<h3 id="oportunidades-laborales-tras-la-certificaci%C3%B3n-aws" tabindex="-1">Oportunidades laborales tras la certificación AWS</h3>
 
 
 <p>Obtener una o más certificaciones de AWS puede aumentar significativamente las posibilidades de conseguir trabajo en roles relacionados con la administración de servicios en la nube.</p>
@@ -257,13 +252,13 @@ related:
 <p>En promedio, tener una certificación de AWS puede significar un <strong>incremento salarial de 26%</strong>. Así que invertir tiempo en preparase para rendir los exámenes puede ser muy redituable para avanzar profesionalmente.</p>
 
 
-<h2 id="preparaci%C3%B3n-sin-costo-para-la-certificaci%C3%B3n-aws-cloud-practitioner" tabindex="-1">Preparación sin Costo para la Certificación AWS Cloud Practitioner</h2>
+<h2 id="preparaci%C3%B3n-sin-costo-para-la-certificaci%C3%B3n-aws-cloud-practitioner" tabindex="-1">Preparación sin costo para la certificación AWS Cloud Practitioner</h2>
 
 
 <p>Esta entrada nivel no tiene requisitos y es ideal para introducirse en la nube de AWS. Repasaremos cómo prepararse paso a paso sin costo.</p>
 
 
-<h3 id="recursos-gratuitos-para-la-certificaci%C3%B3n-aws" tabindex="-1">Recursos Gratuitos para la Certificación AWS</h3>
+<h3 id="recursos-gratuitos-para-la-certificaci%C3%B3n-aws" tabindex="-1">Recursos gratuitos para la certificación AWS</h3>
 
 
 <p>Hay muchos recursos excelentes como <a href="https://www.aws.training/LearningLibrary" rel="noopener noreferrer" target="_blank">AWS Skill Builder</a> para estudiar conceptos clave gratis, a tu ritmo. Puedes aprender sobre temas como seguridad, almacenamiento, bases de datos y más sin costo.</p>
@@ -272,7 +267,7 @@ related:
 <p>Otra opción es <a href="https://aws.amazon.com/training/" rel="noopener noreferrer" target="_blank">AWS Training and Certification</a> que ofrece cursos en video, laboratorios prácticos y exámenes de práctica para prepararte. También puedes unirte a la comunidad de <a href="https://www.facebook.com/groups/awslatam/" rel="noopener noreferrer" target="_blank">AWS Latinoamérica</a> en Facebook para hacer preguntas y aprender de otros profesionales.</p>
 
 
-<h3 id="curso-aws-gratis%3A-cloud-practitioner-essentials" tabindex="-1">Curso AWS Gratis: Cloud Practitioner Essentials</h3>
+<h3 id="curso-aws-gratis%3A-cloud-practitioner-essentials" tabindex="-1">Curso AWS gratis: Cloud Practitioner essentials</h3>
 
 
 <p>Plataformas como Udemy, <a href="https://www.youtube.com/" rel="noopener noreferrer" target="_blank">YouTube</a> y <a href="https://es.khanacademy.org/" rel="noopener noreferrer" target="_blank">Khan Academy</a> ofrecen <strong><a href="https://dondeaprendoaws.com/blog/cloud-computing-en-espanol-fundamentos-basicos/">cursos y videos educativos de alta calidad para aprender sobre computación en la nube</a></strong>.</p>
@@ -292,7 +287,7 @@ related:
 <p>Revisa la descripción del curso antes de inscribirte para asegurarte que cubra el temario de certificación.</p>
 
 
-<h3 id="comunidad-de-aws-en-l%C3%ADnea-y-m%C3%A9todos-de-autoaprendizaje" tabindex="-1">Comunidad de AWS en línea y Métodos de Autoaprendizaje</h3>
+<h3 id="comunidad-de-aws-en-l%C3%ADnea-y-m%C3%A9todos-de-autoaprendizaje" tabindex="-1">Comunidad de AWS en línea y métodos de autoaprendizaje</h3>
 
 
 <p>Además de los cursos formales, puedes aprender por tu cuenta con libros, <a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">documentación oficial de AWS</a> y proyectos prácticos. Grupos como <a href="https://www.facebook.com/groups/awslatam/" rel="noopener noreferrer" target="_blank">AWS Latinoamérica</a> en Facebook e Instagram son ideales para hacer preguntas y aprender de otros profesionales.</p>
@@ -311,7 +306,7 @@ related:
 <p>Con constancia y dedicación puedes prepararte sin costo extra.</p>
 
 
-<h3 id="preguntas-examen-aws-cloud-practitioner%3A-examen-de-pr%C3%A1ctica-oficial" tabindex="-1">Preguntas Examen AWS Cloud Practitioner: Examen de Práctica Oficial</h3>
+<h3 id="preguntas-examen-aws-cloud-practitioner%3A-examen-de-pr%C3%A1ctica-oficial" tabindex="-1">Preguntas examen AWS Cloud Practitioner: examen de práctica oficial</h3>
 
 
 <p>AWS ofrece un <a href="https://www.aws.training/certification?src=prerollpage-contextuallearning" rel="noopener noreferrer" target="_blank">examen de práctica</a> que simula el real para poner a prueba tus conocimientos. Familiarízate con los tipos de pregunta como:</p>
@@ -330,13 +325,13 @@ related:
 <p>Con dedicación y estos recursos gratuitos puedes aprobar el examen de certificación sin costo. Sigue estudiando y ¡mucha suerte!</p>
 
 
-<h2 id="ganando-experiencia-pr%C3%A1ctica-para-la-certificaci%C3%B3n-aws-developer" tabindex="-1">Ganando Experiencia Práctica para la Certificación AWS Developer</h2>
+<h2 id="ganando-experiencia-pr%C3%A1ctica-para-la-certificaci%C3%B3n-aws-developer" tabindex="-1">Ganando experiencia práctica para la certificación AWS developer</h2>
 
 
 <p>Además de estudiar, te recomendamos ganar experiencia práctica en AWS para estar mejor preparado para los exámenes y el trabajo.</p>
 
 
-<h3 id="aws-educate-para-la-capacitaci%C3%B3n-en-la-nube-aws" tabindex="-1">AWS Educate para la Capacitación en la Nube AWS</h3>
+<h3 id="aws-educate-para-la-capacitaci%C3%B3n-en-la-nube-aws" tabindex="-1">AWS Educate para la capacitación en la nube AWS</h3>
 
 
 <p>AWS Educate es un programa de AWS que proporciona acceso a la nube de AWS sin costo para estudiantes y educadores. Al registrarte, obtienes acceso a servicios de AWS como EC2, S3 y más para crear proyectos y practicar lo que estás aprendiendo.</p>
@@ -359,7 +354,7 @@ related:
 <p>Es una excelente manera de prepararte para los exámenes de certificación y también para tu carrera en la nube.</p>
 
 
-<h3 id="cuentas-gratuitas-de-aws-y-autoestudio" tabindex="-1">Cuentas Gratuitas de AWS y Autoestudio</h3>
+<h3 id="cuentas-gratuitas-de-aws-y-autoestudio" tabindex="-1">Cuentas gratuitas de AWS y autoestudio</h3>
 
 
 <p>Otra opción es registrarte para una <a href="https://aws.amazon.com/free/" rel="noopener noreferrer" target="_blank">cuenta gratuita de AWS</a>. Tienes acceso gratuito por 12 meses a varios servicios populares de AWS con ciertos límites de uso.</p>
@@ -393,7 +388,7 @@ related:
 <p>Con dedicación es posible prepararte para la certificación usando solo recursos gratuitos de AWS.</p>
 
 
-<h3 id="ruta-de-aprendizaje-para-la-certificaci%C3%B3n-aws-certified-developer---associate" tabindex="-1">Ruta de Aprendizaje para la Certificación AWS Certified Developer - Associate</h3>
+<h3 id="ruta-de-aprendizaje-para-la-certificaci%C3%B3n-aws-certified-developer---associate" tabindex="-1">Ruta de aprendizaje para la certificación AWS Certified Developer - associate</h3>
 
 
 <p>Una vez que sientas que tienes los conocimientos y habilidades técnicas necesarias, puedes registrarte para el examen de <a href="https://aws.amazon.com/certification/certified-developer-associate/" rel="noopener noreferrer" target="_blank">AWS Certified Developer</a>.</p>
@@ -416,13 +411,13 @@ related:
 <p>Con los recursos correctos y dedicación, puedes prepararte para esta certificación sin costo. ¡Éxitos!</p>
 
 
-<h2 id="continuando-la-educaci%C3%B3n-despu%C3%A9s-de-la-certificaci%C3%B3n-aws" tabindex="-1">Continuando la Educación después de la Certificación AWS</h2>
+<h2 id="continuando-la-educaci%C3%B3n-despu%C3%A9s-de-la-certificaci%C3%B3n-aws" tabindex="-1">Continuando la educación después de la certificación AWS</h2>
 
 
 <p>Una vez certificado, es importante mantener tus habilidades actualizadas. Te damos tips para seguir creciendo profesionalmente.</p>
 
 
-<h3 id="renovaci%C3%B3n-y-recertificaci%C3%B3n%3A-manteniendo-tu-certificaci%C3%B3n-aws-al-d%C3%ADa" tabindex="-1">Renovación y Recertificación: Manteniendo tu Certificación AWS al Día</h3>
+<h3 id="renovaci%C3%B3n-y-recertificaci%C3%B3n%3A-manteniendo-tu-certificaci%C3%B3n-aws-al-d%C3%ADa" tabindex="-1">Renovación y recertificación: manteniendo tu certificación AWS al día</h3>
 
 
 <p>Las certificaciones de AWS tienen una vigencia de 2-3 años, después de los cuales debes renovar tu certificación para demostrar que sigues actualizado con los últimos desarrollos de AWS.</p>
@@ -440,7 +435,7 @@ related:
 <p>Es recomendable combinar ambos métodos - rendir el examen nuevamente y obtener créditos CE regularmente. Esto asegura que tus conocimientos técnicos se mantengan actualizados y demuestra un compromiso continuo con el aprendizaje y la mejora profesional.</p>
 
 
-<h3 id="aprendizaje-continuo-con-aws-technical-essentials-y-aws-well-architected-framework" tabindex="-1">Aprendizaje Continuo con AWS Technical Essentials y AWS Well-Architected Framework</h3>
+<h3 id="aprendizaje-continuo-con-aws-technical-essentials-y-aws-well-architected-framework" tabindex="-1">Aprendizaje continuo con AWS Technical Essentials y AWS Well-Architected Framework</h3>
 
 
 <p>Existen varias opciones para continuar expandiendo tus habilidades en AWS después de obtener una certificación inicial:</p>
@@ -456,7 +451,7 @@ related:
 <p>Combinar teoría y práctica es la mejor manera de dominar completamente cualquier tecnología y mantener tus habilidades actualizadas a lo largo del tiempo.</p>
 
 
-<h3 id="construyendo-una-red-profesional-con-la-comunidad-de-aws-certified" tabindex="-1">Construyendo una Red Profesional con la Comunidad de AWS Certified</h3>
+<h3 id="construyendo-una-red-profesional-con-la-comunidad-de-aws-certified" tabindex="-1">Construyendo una red profesional con la comunidad de AWS Certified</h3>
 
 
 <p>Ser parte de la <a href="https://dondeaprendoaws.com/blog/aprender-aws-gratis-recursos-y-comunidad/">comunidad de AWS Certified</a> te permite conectar con otros profesionales que comparten tus intereses:</p>
@@ -472,13 +467,13 @@ related:
 <p>Cultivar estas conexiones profesionales te ayudará a estar al día con las últimas <a href="https://dondeaprendoaws.com/blog/arquitectura-en-la-nube-tendencias-emergentes/">tendencias en tecnología cloud</a> y puede abrir puertas a nuevas oportunidades laborales.</p>
 
 
-<h2 id="conclusi%C3%B3n%3A-tu-ruta-hacia-la-certificaci%C3%B3n-aws-sin-inversi%C3%B3n" tabindex="-1">Conclusión: Tu Ruta hacia la Certificación AWS sin Inversión</h2>
+<h2 id="conclusi%C3%B3n%3A-tu-ruta-hacia-la-certificaci%C3%B3n-aws-sin-inversi%C3%B3n" tabindex="-1">Conclusión: tu ruta hacia la certificación AWS sin inversión</h2>
 
 
 <p>En resumen, esta guía detalló recursos gratuitos para prepararte para una certificación de AWS y consejos para tener éxito. ¡Ahora depende de ti empezar!</p>
 
 
-<h3 id="resumen-de-la-preparaci%C3%B3n-para-certificaci%C3%B3n-aws-y-gu%C3%ADa-de-estudio" tabindex="-1">Resumen de la Preparación para Certificación AWS y Guía de Estudio</h3>
+<h3 id="resumen-de-la-preparaci%C3%B3n-para-certificaci%C3%B3n-aws-y-gu%C3%ADa-de-estudio" tabindex="-1">Resumen de la preparación para certificación AWS y guía de estudio</h3>
 
 
 <p>La certificación <strong>AWS Cloud Practitioner</strong> es ideal para comenzar tu viaje en la nube de AWS. Ofrece una visión general de los servicios y conceptos clave.</p>
@@ -501,7 +496,7 @@ related:
 <p>Una vez certificado, puedes continuar hacia otras certificaciones como <strong>AWS Certified Developer</strong> o <strong>AWS Certified SysOps Administrator</strong>.</p>
 
 
-<h3 id="pr%C3%B3ximos-pasos%3A-implementando-la-formaci%C3%B3n-digital-y-presencial-aws" tabindex="-1">Próximos Pasos: Implementando la Formación Digital y Presencial AWS</h3>
+<h3 id="pr%C3%B3ximos-pasos%3A-implementando-la-formaci%C3%B3n-digital-y-presencial-aws" tabindex="-1">Próximos pasos: implementando la formación digital y presencial AWS</h3>
 
 
 <p>Ahora que conoces los recursos disponibles, es momento de crear un <strong>plan de preparación</strong>. Estima cuántas horas por semana dedicarás al estudio y establece metas.</p>
@@ -519,6 +514,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-basica/">Guía Básica para Certificaciones de AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-preparacion-para-el-examen/">Cómo Prepararte Para un Examen de Certificación de AWS</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-basica/">guía básica para certificaciones de AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-preparacion-para-el-examen/">Cómo prepararte para un examen de certificación de AWS</a></li>
 </ul>
 </p>

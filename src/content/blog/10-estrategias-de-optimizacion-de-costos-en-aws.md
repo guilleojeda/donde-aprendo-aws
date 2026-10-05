@@ -5,14 +5,13 @@ author: "guille-ojeda"
 publishedAt: "2024-05-20"
 publishedTimestamp: "2024-05-20T01:10:01.307Z"
 modifiedTimestamp: "2026-10-04T21:26:34-03:00"
-cover: "/assets/blog/74f152c85b46e1ac5ea004f9.jpg"
-coverAlt: "Icono de nube rodeado por círculos con engranajes, datos y ubicaciones"
-ogImage: "/assets/blog/74f152c85b46e1ac5ea004f9.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Costos de red en AWS: 10 estrategias para reducir la factura"
     url: "https://dondeaprendoaws.com/blog/10-estrategias-para-optimizar-costos-de-red-en-aws/"
-    image: "/assets/blog/732b4db41baecb1699e72d80.webp"
-    imageAlt: "Monitor con gráficos sobre un escritorio junto a una planta y una taza"
+
 ---
 
 Para reducir costos en AWS, primero identifica qué cargas generan el gasto y quién puede actuar sobre ellas. Después elimina capacidad ociosa, ajusta recursos y retención, y evalúa descuentos por compromiso cuando el uso sea estable. Mide el costo total y el costo por unidad de trabajo junto con el rendimiento: una factura menor no sirve si rompe la disponibilidad o hace más lenta la aplicación.
@@ -71,7 +70,7 @@ Los Savings Plans requieren comprometer un gasto de cómputo por hora durante un
 
 No tomes el valor máximo “hasta” de una página de precios como ahorro esperado. Usa las recomendaciones de Cost Explorer y la [AWS Pricing Calculator](https://calculator.aws/) para modelar tu propio patrón, y vuelve a revisar cobertura y utilización después de cualquier cambio importante.
 
-## 9. Reserva Spot para trabajos que toleren interrupciones
+## 9. Reserva spot para trabajos que toleren interrupciones
 
 Las instancias Spot usan capacidad EC2 sobrante y pueden interrumpirse cuando AWS necesite recuperarla. Cuando emite una notificación para detener o terminar una instancia, EC2 avisa dos minutos antes; la emisión se hace bajo mejor esfuerzo y una instancia puede interrumpirse antes de que llegue el aviso. Con hibernación, el proceso empieza de inmediato y no hay aviso con dos minutos de anticipación. La capacidad tampoco está garantizada. Por eso, Spot encaja mejor en procesos flexibles, tolerantes a fallos y que puedan reanudarse, como lotes, renderizado o pruebas distribuidas.
 
@@ -98,7 +97,7 @@ Al 4 de octubre de 2026, la agenda pública muestra estos encuentros en línea. 
 - [EC2 vs Lambda](https://www.meetup.com/fb83c392-728a-42dc-9a3f-7d351301e452/events/315728721/), organizado por AWS User Group Tlaxcala FireflyCloud: 16 de octubre de 2026, de 16:00 a 17:00, hora de Ciudad de México. La sesión compara EC2 y Lambda, incluidos sus costos.
 - [#CertOps: Clase 9 — Manejo de Cuentas, Facturación y Soporte](https://www.meetup.com/aws-sbg-at-national-autonomous-univ-of-mexico-central-campus/events/316827297/), del AWS Student Builder Group de la Universidad Nacional Autónoma de México: 17 de octubre de 2026, de 12:00 a 14:00, hora de Ciudad de México. La agenda incluye costos y facturación.
 
-Consulta la [agenda de eventos AWS en Latinoamérica](https://dondeaprendoaws.com/eventos/) para ver otras fechas publicadas. La agenda reúne eventos cargados en el directorio; confirma los detalles con la comunidad organizadora.
+Consulta la [Agenda de eventos AWS en Latinoamérica](https://dondeaprendoaws.com/eventos/) para ver otras fechas publicadas. La agenda reúne eventos cargados en el directorio; confirma los detalles con la comunidad organizadora.
 
 ## Preguntas frecuentes
 
@@ -118,6 +117,6 @@ Primero ajusta capacidad y elimina uso innecesario. Luego comprueba que la deman
 
 No. Savings Plans comprometen un gasto horario para uso de cómputo elegible. Las Reserved Instances de EC2 ofrecen descuentos para uso que coincida con sus atributos; las zonales también reservan capacidad, mientras que las regionales no.
 
-### ¿Lambda o Spot siempre cuestan menos que EC2 bajo demanda?
+### ¿Lambda o spot siempre cuestan menos que EC2 bajo demanda?
 
 No. Lambda cobra solicitudes y duración, y algunas funciones de capacidad agregan cargos; Spot puede interrumpirse y no garantiza disponibilidad. Compara el costo total del workload, su patrón de uso y los requisitos de continuidad antes de elegir.

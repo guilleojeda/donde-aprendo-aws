@@ -5,14 +5,13 @@ author: "guille-ojeda"
 publishedAt: "2024-03-07"
 publishedTimestamp: "2024-03-07T23:58:11.718Z"
 modifiedTimestamp: "2026-10-05T00:15:07-03:00"
-cover: "/assets/blog/63a303953815b71e5babcb84.jpg"
-coverAlt: "Globo terráqueo conectado radialmente a iconos de dispositivos"
-ogImage: "/assets/blog/63a303953815b71e5babcb84.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Costos de red en AWS: 10 estrategias para reducir la factura"
     url: "https://dondeaprendoaws.com/blog/10-estrategias-para-optimizar-costos-de-red-en-aws/"
-    image: "/assets/blog/732b4db41baecb1699e72d80.webp"
-    imageAlt: "Monitor con gráficos sobre un escritorio junto a una planta y una taza"
+
 ---
 
 Amazon CloudFront es el servicio de red de entrega de contenido (CDN) de AWS. Recibe solicitudes en puntos de presencia distribuidos, responde desde una copia vigente cuando puede y consulta el origen cuando necesita el objeto. Esto puede reducir la latencia y las solicitudes que llegan al origen; no vuelve automáticamente más rápida cualquier aplicación ni hace privado su origen. [AWS explica el recorrido de una solicitud y el uso de cachés regionales en la guía de CloudFront](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/HowCloudFrontWorks.html).
@@ -96,7 +95,7 @@ Si ya no necesitas la práctica, primero deshabilita la distribución y espera a
 
 ## Recursos y comunidad para seguir aprendiendo
 
-El [AWS User Group Panamá publicó una grabación titulada “Static Web usando Vue.js, S3, CloudFront, WAF, AWS CI/CD”](https://www.youtube.com/watch?v=Y6PScTDqAsU). También puedes recorrer [su canal de YouTube](https://www.youtube.com/channel/UCjr_J7Xva8QsHP31JfzYsYA), consultar la [comunidad en Panamá](/comunidades/panama/#resource-meetup-22667715) y revisar [sus eventos próximos](/eventos/?community=meetup-22667715). Para encontrar otras charlas, talleres y grupos, visita el [directorio general de comunidades AWS](/comunidades/) y la [agenda de eventos AWS](/eventos/).
+El [AWS User Group Panamá publicó una grabación titulada “Static Web usando Vue.js, S3, CloudFront, WAF, AWS CI/CD”](https://www.youtube.com/watch?v=Y6PScTDqAsU). También puedes recorrer [su canal de YouTube](https://www.youtube.com/channel/UCjr_J7Xva8QsHP31JfzYsYA), consultar la [comunidad en Panamá](/comunidades/panama/#resource-meetup-22667715) y revisar [sus eventos próximos](/eventos/?community=meetup-22667715). Para encontrar otras charlas, talleres y grupos, visita el [directorio general de comunidades AWS](/comunidades/) y la [Agenda de eventos AWS](/eventos/).
 
 Como siguiente paso, puedes buscar la charla de Carlos Cortez [“🔥 El verdadero Edge: Cloudfront Functions! - 📢 Al día con AWS Ep 16 con Carlos Cortez”](https://www.youtube.com/watch?v=Dfd6aCSVwUE), identificada en el catálogo como contenido sobre funciones en el edge. El [canal de Carlos Cortez](https://www.youtube.com/@carloscortezcloud) reúne sus grabaciones.
 

@@ -1,31 +1,26 @@
 ---
-title: "Cómo crear Infraestructura como Código en AWS con Terraform"
+title: "Cómo crear infraestructura como código en AWS con Terraform"
 description: "Aprende a crear Infraestructura como Código en AWS con Terraform. Descubre los conceptos básicos, la instalación, la configuración de credenciales y más. Conoce cómo desplegar un servidor web en AWS con ejemplos prácticos."
 author: "guille-ojeda"
 publishedAt: "2024-03-18"
 publishedTimestamp: "2024-03-18T00:48:17.194Z"
-cover: "/assets/blog/e70ea85183c2a0917d33154f.png"
-coverAlt: "Nube conectada a una fila de nodos con símbolos de código"
-ogImage: "/assets/blog/e70ea85183c2a0917d33154f.png"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Mejores Prácticas de Seguridad en AWS"
+  - title: "Mejores prácticas de seguridad en AWS"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/"
-    image: "/assets/blog/b986394b769bbf12716343e5.jpg"
-    imageAlt: ""
-  - title: "AWS Fundamentos: Guía de Inicio Rápido"
+  - title: "AWS fundamentos: guía de inicio rápido"
     url: "https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/"
-    image: "/assets/blog/945b48235c5e1f4c1d3cc3ae.jpg"
-    imageAlt: ""
-  - title: "AWS Seguridad: Mejores Prácticas"
+  - title: "AWS seguridad: mejores prácticas"
     url: "https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/"
-    image: "/assets/blog/58bea5d60c133d57e4a0bdbf.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Crear infraestructura en AWS con Terraform te permite gestionar tus recursos en la nube de manera eficiente y automatizada. Terraform utiliza la Infraestructura como Código (IaC) para facilitar la creación, actualización y mantenimiento de tus sistemas. Aquí te mostraremos cómo empezar, desde los conceptos básicos hasta consejos avanzados:</p>
 <ul><li><strong>Conceptos Básicos</strong>: <a href="https://www.terraform.io/intro/">Terraform</a> te permite versionar tu infraestructura, desplegarla rápidamente y garantizar su consistencia.</li><li><strong>Preparación</strong>: Necesitarás conocimientos básicos en nube, AWS, programación y manejo de sistemas. Además, es esencial tener una cuenta de AWS y AWS CLI instalado.</li><li><strong>Instalación de Terraform</strong>: Disponible para Linux, Windows y macOS. Te enseñamos cómo instalarlo en cada sistema operativo.</li><li><strong>Configuración de Credenciales de AWS</strong>: Cómo usar IAM para crear un usuario para Terraform y configurar sus credenciales.</li><li><strong>Archivos de Configuración</strong>: Crea archivos <code>.tf</code> usando el lenguaje HCL para describir tu infraestructura.</li><li><strong>Flujo de Trabajo de Terraform</strong>: Pasos básicos para desplegar tu infraestructura: <code>terraform init</code>, <code>terraform plan</code>, <code>terraform apply</code> y <code>terraform destroy</code>.</li><li><strong>Módulos en Terraform</strong>: Aprovecha los módulos para reutilizar configuraciones comunes.</li><li><strong>Manejo del Estado de Terraform</strong>: Importancia de gestionar correctamente el estado de Terraform para evitar inconsistencias.</li><li><strong>Consejos y Mejores Prácticas</strong>: Recomendaciones para estructurar tus archivos, seguridad y más.</li><li><strong>Recursos Adicionales</strong>: Dónde aprender más sobre Terraform y profundizar tus conocimientos.</li></ul>
 <p>Con estos pasos y consejos, estarás listo para comenzar a usar Terraform para gestionar tu infraestructura en AWS de manera eficaz y eficiente.</p>
-<h3 id="conocimientos-b%C3%A1sicos">Conocimientos Básicos</h3>
+<h3 id="conocimientos-b%C3%A1sicos">Conocimientos básicos</h3>
 <p>Es útil saber algo sobre:</p>
 <ul><li><strong>La nube y AWS</strong>: Entender qué es una VPC, subnets, security groups, etc., te ayudará mucho.</li><li><strong>Programación</strong>: No necesitas ser un experto, pero si sabes algo de Python, Go o Ruby, te será más fácil agarrarle el truco a Terraform.</li><li><strong>Manejo de sistemas Linux y Windows</strong>: Cosas como instalar programas y manejar servicios te serán útiles.</li></ul>
 <p>No te preocupes si no eres un experto en estos temas. Con tener una idea general ya estás bien para empezar.</p>
@@ -47,7 +42,7 @@ related:
 <h2 id="c%C3%B3mo-instalar-terraform">Cómo instalar Terraform</h2>
 <h3 id="en-linux">En Linux</h3>
 <p>Si usas Linux, como Ubuntu, Debian o CentOS, lo mejor es usar el administrador de paquetes propio de tu sistema.</p>
-<h4 id="ubuntu-%2F-debian">Ubuntu / Debian</h4>
+<h4 id="ubuntu-%2F-debian">Ubuntu / debian</h4>
 <p>Para instalar Terraform, simplemente abre la terminal y escribe:</p>
 <pre><code>sudo apt update
 sudo apt install terraform
@@ -62,7 +57,7 @@ sudo yum install terraform
 unzip terraform_X.X.X_linux_amd64.zip
 sudo mv terraform /usr/local/bin/
 </code></pre>
-<h3 id="en-windows">En Windows</h3>
+<h3 id="en-windows">En windows</h3>
 <p>Para los que usan Windows, la opción más fácil es usar Chocolatey:</p>
 <pre><code>choco install terraform
 </code></pre>
@@ -140,7 +135,7 @@ aws_secret_access_key = TU_SECRET_KEY
 <p>Finalmente, cuando ya no necesitas los recursos que Terraform creó, puedes usar <code>terraform destroy</code>. Este comando elimina todo lo que Terraform había configurado, dejando limpio tu espacio en AWS.</p>
 <p>Es útil para cuando estás experimentando o terminaste un proyecto y no quieres dejar cosas sin usar que te podrían costar dinero.</p>
 <p>En resumen, Terraform te ayuda a gestionar tu infraestructura en AWS de una manera organizada, paso a paso, desde la preparación hasta la limpieza final.</p>
-<h2 id="ejemplo%3A-desplegando-un-servidor-web-en-aws">Ejemplo: Desplegando un servidor web en AWS</h2>
+<h2 id="ejemplo%3A-desplegando-un-servidor-web-en-aws">Ejemplo: desplegando un servidor web en AWS</h2>
 <h3 id="archivos-de-configuraci%C3%B3n">Archivos de configuración</h3>
 <p>Para poner en marcha un servidor web en AWS usando Terraform, primero debemos definir qué queremos construir en unos archivos de texto llamados archivos de configuración.</p>
 <p>Vamos a necesitar varios recursos como:</p>
@@ -329,7 +324,7 @@ resource "aws_security_group" "this" {
 <p>Aquí van algunos tips para mantener tus proyectos seguros:</p>
 <ul><li>Evita poner contraseñas directamente en los archivos. Mejor usa variables de entorno o los secretos de AWS.</li><li>Dale a tus recursos solo los permisos que realmente necesiten para funcionar.</li><li>Si puedes, encripta los discos y volúmenes para proteger los datos.</li><li>Prefiere usar roles y políticas de IAM antes que claves de acceso directas.</li></ul>
 <p>Siguiendo estos pasos, minimizarás los riesgos de que alguien no autorizado acceda a tu infraestructura o de que se filtren datos sensibles.</p>
-<h2 id="preguntas-relacionadas">Preguntas Relacionadas</h2>
+<h2 id="preguntas-relacionadas">Preguntas relacionadas</h2>
 <h3 id="%C2%BFqu%C3%A9-es-aws-terraform%3F">¿Qué es AWS Terraform?</h3>
 <p>Terraform es una herramienta que te permite manejar tu infraestructura de tecnología con archivos de texto. Imagina que puedes escribir en un documento cómo quieres que sea tu sistema en la nube, y Terraform lo hace realidad. Funciona con AWS (Amazon Web Services) y otros proveedores de nube, permitiéndote hacer cambios de manera segura y colaborar con tu equipo.</p>
 <h3 id="%C2%BFc%C3%B3mo-sabe-terraform-lo-que-tiene-que-hacer-con-mi-infraestructura%3F">¿Cómo sabe Terraform lo que tiene que hacer con mi infraestructura?</h3>
@@ -347,4 +342,4 @@ resource "aws_security_group" "this" {
 <ul><li>Divide tu configuración en módulos que puedas usar más de una vez.</li><li>Usa nombres claros y descriptivos para todo.</li><li>Solo usa las variables necesarias y no más.</li><li>Comparte información importante usando salidas.</li><li>Usa fuentes de datos para obtener detalles de la infraestructura existente.</li><li>Trata de no usar scripts personalizados a menos que sea absolutamente necesario.</li><li>Mantén cualquier script adicional bien organizado y separado.</li></ul>
 <p>Siguiendo estos pasos, te aseguras de que tu configuración sea fácil de manejar, entender y compartir con otros.</p>
 <h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS Fundamentos: Guía de Inicio Rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-aws-cloudformation/">Cómo crear Infraestructura como Código en AWS con AWS CloudFormation</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a Serverless en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Aprender AWS: guía inicial</a></li></ul>
+<ul><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS fundamentos: guía de inicio rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-aws-cloudformation/">Cómo crear infraestructura como código en AWS con AWS CloudFormation</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a serverless en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li></ul>

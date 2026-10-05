@@ -7,26 +7,19 @@ publishedTimestamp: "2024-01-27T23:50:47.33Z"
 modifiedTimestamp: "2026-10-05T00:29:42-03:00"
 review:
   date: "2026-10-05"
-cover: "/assets/blog/d781a44da56c41c82eb33501.png"
-coverAlt: "Nube transparente conectada a cubos y figuras geométricas"
-ogImage: "/assets/blog/d781a44da56c41c82eb33501.png"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Alta disponibilidad en AWS: arquitectura Multi-AZ para una app web"
     url: "https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/"
-    image: "/assets/blog/1b184fe1242c3e7fb970e984.jpg"
-    imageAlt: ""
   - title: "Arquitectura dirigida por eventos en AWS: servicios, ejemplo y decisiones"
     url: "https://dondeaprendoaws.com/blog/arquitecturas-dirigidas-por-eventos-en-aws/"
-    image: "/assets/blog/1a0df738c1ab9c313bf60144.jpg"
-    imageAlt: ""
   - title: "Arquitectura multi-región en AWS: cuándo conviene"
     url: "https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/"
-    image: "/assets/blog/bafde793116d5b5e38a659da.jpg"
-    imageAlt: ""
   - title: "AWS Config: reglas de cumplimiento y remediación segura"
     url: "https://dondeaprendoaws.com/blog/automatizacion-de-cumplimiento-con-aws-config/"
-    image: "/assets/blog/887b167cb63dec6854e043dc.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Para diseñar una arquitectura en AWS, empieza por lo que el sistema debe hacer y las condiciones con las que debe cumplir. A partir de ahí, compara opciones de cómputo, datos, integración y recuperación. No hay un patrón que sea el mejor para todas las cargas: el <a href="https://docs.aws.amazon.com/wellarchitected/latest/framework/welcome.html">AWS Well-Architected Framework</a> ayuda a sopesar las decisiones. Sus <a href="https://docs.aws.amazon.com/wellarchitected/latest/framework/the-pillars-of-the-framework.html">seis pilares</a> son excelencia operativa, seguridad, confiabilidad, eficiencia del rendimiento, optimización de costos y sostenibilidad.</p>
@@ -114,13 +107,13 @@ SQS → Lambda → S3 de salida
 <li>Separa los archivos originales de los resultados —por ejemplo, con buckets o prefijos distintos— para evitar que una función vuelva a activar el evento que ella misma genera; <a href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-how-to-event-types-and-destinations.html">S3 documenta este riesgo de ciclos de notificación</a>.</li>
 </ul>
 
-<p>Si varias aplicaciones deben recibir y filtrar eventos, compara también EventBridge. La guía de AWS para <a href="https://docs.aws.amazon.com/wellarchitected/latest/serverless-applications-lens/event-driven-architectures.html">arquitecturas orientadas a eventos</a> explica el papel de colas, temas y buses de eventos. La forma apropiada depende de si necesitas retener trabajo, enviar un evento a varios consumidores o dirigirlo según reglas. Para profundizar en patrones EDA, sigue <a href="https://dondeaprendoaws.com/blog/arquitecturas-dirigidas-por-eventos-en-aws/">Arquitecturas Dirigidas por Eventos en AWS</a> y la grabación <a href="https://www.youtube.com/watch?v=TkU1RS5Fw1o">Introducción a arquitecturas orientadas a eventos y Amazon EventBridge</a>, de <a href="https://www.youtube.com/@marcia_">Marcia en Desplegando Cloud</a>. El <a href="https://www.meetup.com/aws-user-group-serverless-colombia/">AWS User Group Serverless Colombia</a> también reúne encuentros sobre este espacio técnico. Allí habrá una sesión en línea sobre <a href="https://www.meetup.com/aws-user-group-serverless-colombia/events/316770520/">SQS y Lambda</a> el 20 de octubre, de 19:00 a 21:00 en horario de Colombia.</p>
+<p>Si varias aplicaciones deben recibir y filtrar eventos, compara también EventBridge. La guía de AWS para <a href="https://docs.aws.amazon.com/wellarchitected/latest/serverless-applications-lens/event-driven-architectures.html">arquitecturas orientadas a eventos</a> explica el papel de colas, temas y buses de eventos. La forma apropiada depende de si necesitas retener trabajo, enviar un evento a varios consumidores o dirigirlo según reglas. Para profundizar en patrones EDA, sigue <a href="https://dondeaprendoaws.com/blog/arquitecturas-dirigidas-por-eventos-en-aws/">arquitecturas dirigidas por eventos en AWS</a> y la grabación <a href="https://www.youtube.com/watch?v=TkU1RS5Fw1o">Introducción a arquitecturas orientadas a eventos y Amazon EventBridge</a>, de <a href="https://www.youtube.com/@marcia_">Marcia en Desplegando Cloud</a>. El <a href="https://www.meetup.com/aws-user-group-serverless-colombia/">AWS User Group Serverless Colombia</a> también reúne encuentros sobre este espacio técnico. Allí habrá una sesión en línea sobre <a href="https://www.meetup.com/aws-user-group-serverless-colombia/events/316770520/">SQS y Lambda</a> el 20 de octubre, de 19:00 a 21:00 en horario de Colombia.</p>
 
 <h2 id="disponibilidad-y-recuperacion">Ajusta la resiliencia a la recuperación requerida</h2>
 
 <p>Decide primero qué interrupciones estás dispuesto a aceptar y cuánto tiempo puede tomar recuperar el servicio. Para una carga de producción, la <a href="https://docs.aws.amazon.com/wellarchitected/latest/reliability-pillar/rel_fault_isolation_multiaz_region_system.html">guía de confiabilidad de AWS recomienda distribuir recursos entre al menos dos zonas de disponibilidad</a>. Revisa también cómo replica o recupera datos el servicio elegido: tener cómputo en más de una zona no basta si el estado que necesita la aplicación depende de una sola.</p>
 
-<p>Una segunda región es útil cuando el objetivo de negocio exige recuperar la carga ante una interrupción regional y las reglas de residencia de datos lo permiten. También requiere duplicar y operar recursos, configurar replicación y ensayar la conmutación. Si varias zonas de una región cumplen los objetivos acordados, una arquitectura multi-región puede añadir complejidad y costo sin resolver una necesidad real. AWS recomienda decidir entre multi-AZ y multi-región a partir de requisitos de resiliencia y recuperación. Para ampliar la comparación, continúa con <a href="https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/">Arquitecturas de Alta Disponibilidad en AWS</a> y <a href="https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/">Arquitecturas Multi-Región en AWS</a>.</p>
+<p>Una segunda región es útil cuando el objetivo de negocio exige recuperar la carga ante una interrupción regional y las reglas de residencia de datos lo permiten. También requiere duplicar y operar recursos, configurar replicación y ensayar la conmutación. Si varias zonas de una región cumplen los objetivos acordados, una arquitectura multi-región puede añadir complejidad y costo sin resolver una necesidad real. AWS recomienda decidir entre multi-AZ y multi-región a partir de requisitos de resiliencia y recuperación. Para ampliar la comparación, continúa con <a href="https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/">arquitecturas de alta disponibilidad en AWS</a> y <a href="https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/">arquitecturas multi-región en AWS</a>.</p>
 
 <p>La replicación ayuda a mantener datos disponibles en otra ubicación; no sustituye las copias de seguridad. AWS recomienda <a href="https://docs.aws.amazon.com/wellarchitected/latest/framework/rel_planning_for_recovery_disaster_recovery.html">respaldar incluso los datos replicados</a> y probar una restauración para cubrir borrados, cambios incorrectos u otros incidentes que también podrían propagarse a una réplica. Para contrastar el diseño con la comunidad, puedes ver <a href="https://www.youtube.com/watch?v=sEr65Cgskkc">Diseñando arquitecturas resilientes en AWS</a>, del canal <a href="https://www.youtube.com/@awsugecuador4610">AWS UG Ecuador</a>.</p>
 
@@ -132,7 +125,7 @@ SQS → Lambda → S3 de salida
 <li><strong>Servicios administrados y serverless:</strong> delegan parte de la gestión de servidores y capacidad. Aportan valor cuando el equipo prioriza operar menos infraestructura y el modelo de ejecución cubre la carga. Evalúa también límites, reintentos, dependencia del proveedor y monitoreo.</li>
 <li><strong>Procesamiento dirigido por eventos:</strong> permite que productores y consumidores avancen a ritmos distintos. Funciona bien cuando los pasos son asíncronos o independientes; exige manejar retrasos, duplicados, orden y diagnóstico distribuido.</li>
 <li><strong>Contenedores y Kubernetes:</strong> estandarizan el empaquetado de aplicaciones. Kubernetes sirve cuando el equipo necesita ese ecosistema; adoptarlo por popularidad suma una plataforma que también hay que mantener.</li>
-<li><strong>Infraestructura definida como código:</strong> ayuda a revisar y repetir cambios de infraestructura. En CloudFormation, por ejemplo, un <a href="https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-changesets.html">conjunto de cambios (change set) muestra recursos que podrían agregarse, modificarse o reemplazarse</a> antes de ejecutarlo; no garantiza que la actualización vaya a completarse. Si también necesitas evaluar la configuración y el cumplimiento, continúa con <a href="https://dondeaprendoaws.com/blog/automatizacion-de-cumplimiento-con-aws-config/">Automatización de cumplimiento con AWS Config</a>. Para encontrar una conversación práctica de gobierno en AWS, consulta la ficha de <a href="https://www.meetup.com/aws-user-group-security-ecuador/events/316680020/">Compliance as Code en AWS: de la política a la acción automática</a> y confirma allí la fecha y modalidad actuales.</li>
+<li><strong>Infraestructura definida como código:</strong> ayuda a revisar y repetir cambios de infraestructura. En CloudFormation, por ejemplo, un <a href="https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-changesets.html">conjunto de cambios (change set) muestra recursos que podrían agregarse, modificarse o reemplazarse</a> antes de ejecutarlo; no garantiza que la actualización vaya a completarse. Si también necesitas evaluar la configuración y el cumplimiento, continúa con <a href="https://dondeaprendoaws.com/blog/automatizacion-de-cumplimiento-con-aws-config/">automatización de cumplimiento con AWS Config</a>. Para encontrar una conversación práctica de gobierno en AWS, consulta la ficha de <a href="https://www.meetup.com/aws-user-group-security-ecuador/events/316680020/">Compliance as Code en AWS: de la política a la acción automática</a> y confirma allí la fecha y modalidad actuales.</li>
 <li><strong>Diseños híbridos, de borde o multi-región:</strong> resuelven necesidades de latencia, residencia de datos o recuperación geográfica. Incorpóralos cuando los requisitos indiquen dónde debe procesarse o recuperarse la carga.</li>
 </ul>
 

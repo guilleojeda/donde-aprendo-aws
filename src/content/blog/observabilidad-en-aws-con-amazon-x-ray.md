@@ -4,22 +4,17 @@ description: "Descubre cómo Amazon X-Ray en AWS te ayuda a detectar errores, op
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:29:48.795Z"
-cover: "/assets/blog/9c1a2ce4c93fa5462aba7299.jpg"
-coverAlt: "Nodo luminoso central conectado a figuras hexagonales sobre un fondo claro"
-ogImage: "/assets/blog/9c1a2ce4c93fa5462aba7299.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "7 Estrategias para Reducir Costos en AWS Fargate"
+  - title: "7 estrategias para reducir costos en AWS Fargate"
     url: "https://dondeaprendoaws.com/blog/7-estrategias-para-reducir-costos-en-aws-fargate/"
-    image: "/assets/blog/9d9e21deaf95138036c3d24d.jpg"
-    imageAlt: ""
-  - title: "Estrategias de Caché Rentables para Apps Serverless"
+  - title: "Estrategias de caché rentables para apps serverless"
     url: "https://dondeaprendoaws.com/blog/estrategias-de-cache-rentables-para-apps-serverless/"
-    image: "/assets/blog/ddae590c4e3ebe901251f97c.webp"
-    imageAlt: ""
-  - title: "Guía de Amazon ElastiCache: Almacenamiento en Caché en Memoria"
+  - title: "Guía de Amazon ElastiCache: almacenamiento en caché en memoria"
     url: "https://dondeaprendoaws.com/blog/guia-de-amazon-elasticache-almacenamiento-en-cache-en-memoria/"
-    image: "/assets/blog/ddce4c2f6e4102cbcd2b90ad.png"
-    imageAlt: ""
+
 ---
 
 <p>Si buscas entender y mejorar tus aplicaciones en AWS, <strong>Amazon X-Ray</strong> es tu aliado clave. Este servicio te permite:</p>
@@ -205,6 +200,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/">Análisis de Costos de AWS con Cost Explorer</a></li><li><a href="https://dondeaprendoaws.com/blog/como-utilizar-elasticsearch-en-aws/">Cómo Utilizar ElasticSearch en AWS</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/">análisis de costos de AWS con Cost Explorer</a></li><li><a href="https://dondeaprendoaws.com/blog/como-utilizar-elasticsearch-en-aws/">Cómo utilizar Elasticsearch en AWS</a></li>
 </ul>
 </p>

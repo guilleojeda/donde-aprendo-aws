@@ -1,25 +1,20 @@
 ---
-title: "¿Cómo Funciona AWS Amplify?"
+title: "¿Cómo funciona AWS Amplify?"
 description: "Descubre cómo AWS Amplify simplifica el desarrollo de aplicaciones web y móviles, integrando servicios de AWS de forma segura y eficiente. Aprende sobre sus componentes clave y cómo crear tu primer proyecto."
 author: "guille-ojeda"
 publishedAt: "2024-03-18"
 publishedTimestamp: "2024-03-18T23:13:52.162Z"
-cover: "/assets/blog/ee80202a0fa6a00452e56ba9.jpg"
-coverAlt: "Tableta conectada a ventanas y nubes mediante líneas"
-ogImage: "/assets/blog/ee80202a0fa6a00452e56ba9.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Guía de Mejores Prácticas para VPC Traffic Mirroring en AWS"
+  - title: "Guía de mejores prácticas para VPC traffic mirroring en AWS"
     url: "https://dondeaprendoaws.com/blog/guia-de-mejores-practicas-para-vpc-traffic-mirroring-en-aws/"
-    image: "/assets/blog/06f2f4250afcc07dff4646bf.webp"
-    imageAlt: ""
-  - title: "Seguridad y Control de Costos en AWS: Guía 2024"
+  - title: "Seguridad y control de costos en AWS: guía 2024"
     url: "https://dondeaprendoaws.com/blog/seguridad-y-control-de-costos-en-aws-guia-2024/"
-    image: "/assets/blog/fa1b6e3bfee7c71b39327fcd.jpg"
-    imageAlt: ""
-  - title: "Cómo crear Infraestructura como Código en AWS con Terraform"
+  - title: "Cómo crear infraestructura como código en AWS con Terraform"
     url: "https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-terraform/"
-    image: "/assets/blog/e70ea85183c2a0917d33154f.png"
-    imageAlt: ""
+
 ---
 
 <p>AWS Amplify facilita enormemente el desarrollo de aplicaciones web y móviles, permitiendo a los desarrolladores concentrarse en la experiencia del usuario mientras maneja el backend de forma segura y eficiente. Aquí te resumimos lo esencial sobre cómo funciona AWS Amplify:</p>
@@ -79,10 +74,10 @@ related:
 <p>Juntas, estas partes ayudan a desarrollar, lanzar y manejar aplicaciones completas de manera rápida y fácil. AWS Amplify se encarga de lo complicado del backend, permitiendo que los desarrolladores se enfoquen en crear experiencias buenas e interesantes para los usuarios.</p>
 
 
-<h2 id="ii.-configuraci%C3%B3n-inicial" tabindex="-1">II. Configuración Inicial</h2>
+<h2 id="ii.-configuraci%C3%B3n-inicial" tabindex="-1">II. Configuración inicial</h2>
 
 
-<h3 id="requisitos-previos" tabindex="-1">Requisitos Previos</h3>
+<h3 id="requisitos-previos" tabindex="-1">Requisitos previos</h3>
 
 
 <p>Antes de meterte de lleno en AWS Amplify, hay algunas cosas que necesitas tener listas:</p>
@@ -96,7 +91,7 @@ related:
 </ul>
 
 
-<h3 id="instalaci%C3%B3n-y-configuraci%C3%B3n-de-aws-amplify-cli" tabindex="-1">Instalación y Configuración de <a href="https://aws.amazon.com/es/" rel="noopener noreferrer" target="_blank">AWS</a> Amplify CLI</h3>
+<h3 id="instalaci%C3%B3n-y-configuraci%C3%B3n-de-aws-amplify-cli" tabindex="-1">Instalación y configuración de <a href="https://aws.amazon.com/es/" rel="noopener noreferrer" target="_blank">AWS</a> Amplify CLI</h3>
 
 
 <p><figure><img alt="AWS" src="/assets/blog/aa506f32b21ee3a0a16d5ac5.jpg"/></figure></p>
@@ -150,10 +145,10 @@ related:
 <p>¡Y ya está! Con esto tienes AWS Amplify CLI listo para usarse en tus proyectos. Si quieres saber más de lo que puedes hacer con esta herramienta, la documentación oficial es un buen lugar para empezar.</p>
 
 
-<h2 id="iii.-creando-tu-primer-proyecto-con-aws-amplify" tabindex="-1">III. Creando tu Primer Proyecto con AWS Amplify</h2>
+<h2 id="iii.-creando-tu-primer-proyecto-con-aws-amplify" tabindex="-1">III. Creando tu primer proyecto con AWS Amplify</h2>
 
 
-<h3 id="configuraci%C3%B3n-del-entorno-de-desarrollo" tabindex="-1">Configuración del Entorno de Desarrollo</h3>
+<h3 id="configuraci%C3%B3n-del-entorno-de-desarrollo" tabindex="-1">Configuración del entorno de desarrollo</h3>
 
 
 <p>Antes de empezar a usar AWS Amplify para desarrollar, necesitas preparar tu computadora. Esto significa:</p>
@@ -171,7 +166,7 @@ related:
 <p>Estas herramientas son esenciales para trabajar en tu proyecto.</p>
 
 
-<h3 id="iniciando-un-nuevo-proyecto" tabindex="-1">Iniciando un Nuevo Proyecto</h3>
+<h3 id="iniciando-un-nuevo-proyecto" tabindex="-1">Iniciando un nuevo proyecto</h3>
 
 
 <p>Para empezar un proyecto nuevo con Amplify, sigue estos pasos:</p>
@@ -187,7 +182,7 @@ related:
 <p>Con estos pasos, ya tienes lo básico para comenzar a trabajar en tu app con Amplify.</p>
 
 
-<h3 id="conexi%C3%B3n-con-servicios-de-aws" tabindex="-1">Conexión con Servicios de AWS</h3>
+<h3 id="conexi%C3%B3n-con-servicios-de-aws" tabindex="-1">Conexión con servicios de AWS</h3>
 
 
 <p>Durante el desarrollo de tu aplicación, puedes conectarla a diferentes servicios de AWS. Esto se hace con comandos en el CLI de Amplify.</p>
@@ -210,10 +205,10 @@ related:
 <p>Usando estos comandos, puedes agregar fácilmente funciones importantes a tu app usando AWS. Para más detalles sobre qué más puedes hacer, revisa la <a href="https://docs.amplify.aws/" rel="noopener noreferrer" target="_blank">documentación de Amplify</a>.</p>
 
 
-<h2 id="iv.-desarrollo-de-aplicaciones-con-aws-amplify" tabindex="-1">IV. Desarrollo de Aplicaciones con AWS Amplify</h2>
+<h2 id="iv.-desarrollo-de-aplicaciones-con-aws-amplify" tabindex="-1">IV. Desarrollo de aplicaciones con AWS Amplify</h2>
 
 
-<h3 id="construcci%C3%B3n-de-frontend-y-backend" tabindex="-1">Construcción de Frontend y Backend</h3>
+<h3 id="construcci%C3%B3n-de-frontend-y-backend" tabindex="-1">Construcción de frontend y backend</h3>
 
 
 <p>AWS Amplify te ayuda mucho al crear las partes visible e invisible de tus aplicaciones web y móviles.</p>
@@ -228,7 +223,7 @@ related:
 <p>Esto hace que desarrollar tu app sea más sencillo, ya que puedes enfocarte en lo que realmente importa: cómo funciona y cómo se ve.</p>
 
 
-<h3 id="integraci%C3%B3n-de-autenticaci%C3%B3n-y-almacenamiento-de-datos" tabindex="-1">Integración de Autenticación y Almacenamiento de Datos</h3>
+<h3 id="integraci%C3%B3n-de-autenticaci%C3%B3n-y-almacenamiento-de-datos" tabindex="-1">Integración de autenticación y almacenamiento de datos</h3>
 
 
 <p>Dos cosas muy importantes en las apps de hoy son el inicio de sesión y guardar datos de forma segura. Con Amplify, hacer esto es muy fácil.</p>
@@ -243,10 +238,10 @@ related:
 <p>Con estas herramientas, crear apps completas y que puedan crecer sin problemas es mucho más fácil. AWS Amplify se encarga de los detalles complicados por ti.</p>
 
 
-<h2 id="v.-despliegue-y-gesti%C3%B3n" tabindex="-1">V. Despliegue y Gestión</h2>
+<h2 id="v.-despliegue-y-gesti%C3%B3n" tabindex="-1">V. Despliegue y gestión</h2>
 
 
-<h3 id="ci%2Fcd-y-alojamiento" tabindex="-1">CI/CD y Alojamiento</h3>
+<h3 id="ci%2Fcd-y-alojamiento" tabindex="-1">CI/CD y alojamiento</h3>
 
 
 <p>AWS Amplify hace que sea bastante sencillo publicar tu aplicación en internet y mantenerla actualizada.</p>
@@ -258,7 +253,7 @@ related:
 <p>Si conectas tu código fuente con Amplify, puedes hacer que cada vez que cambies algo y lo subas, Amplify automáticamente actualice tu aplicación en la web. Esto es genial porque te permite hacer cambios y verlos en vivo rápidamente, sin tener que hacer todo a mano.</p>
 
 
-<h3 id="escalar-y-monitorizar-aplicaciones" tabindex="-1">Escalar y Monitorizar Aplicaciones</h3>
+<h3 id="escalar-y-monitorizar-aplicaciones" tabindex="-1">Escalar y monitorizar aplicaciones</h3>
 
 
 <p>Cuando tu aplicación empieza a tener más usuarios, es importante que pueda manejar esa mayor cantidad de gente sin problemas. También es crucial poder ver cómo está funcionando tu aplicación para solucionar cualquier problema que surja.</p>
@@ -276,10 +271,10 @@ related:
 <p>En resumen, con AWS Amplify, publicar, actualizar, hacer crecer y mantener un ojo en tu aplicación es mucho más fácil.</p>
 
 
-<h2 id="vi.-mejores-pr%C3%A1cticas-y-consejos" tabindex="-1">VI. Mejores Prácticas y Consejos</h2>
+<h2 id="vi.-mejores-pr%C3%A1cticas-y-consejos" tabindex="-1">VI. Mejores prácticas y consejos</h2>
 
 
-<h3 id="optimizaci%C3%B3n-de-rendimiento" tabindex="-1">Optimización de Rendimiento</h3>
+<h3 id="optimizaci%C3%B3n-de-rendimiento" tabindex="-1">Optimización de rendimiento</h3>
 
 
 <p>Para que tu aplicación creada con AWS Amplify funcione más rápido, aquí tienes algunos consejos:</p>
@@ -335,6 +330,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/amazon-cloudfront-comprendiendo-el-cdn-de-aws/">Amazon CloudFront: Comprendiendo el CDN de AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/servicios-de-aws-para-frontend/">Servicios de AWS para Frontend</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a Serverless en AWS</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/amazon-cloudfront-comprendiendo-el-cdn-de-aws/">Amazon CloudFront: comprendiendo el CDN de AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/servicios-de-aws-para-frontend/">Servicios de AWS para frontend</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a serverless en AWS</a></li>
 </ul>
 </p>

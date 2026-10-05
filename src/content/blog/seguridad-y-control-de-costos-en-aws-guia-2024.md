@@ -1,25 +1,20 @@
 ---
-title: "Seguridad y Control de Costos en AWS: Guía 2024"
+title: "Seguridad y control de costos en AWS: guía 2024"
 description: "Descubre estrategias efectivas para la gestión de costos y la seguridad en AWS con herramientas como AWS Budgets y Cost Anomaly Detection en nuestra guía completa de 2024."
 author: "guille-ojeda"
 publishedAt: "2024-05-11"
 publishedTimestamp: "2024-05-11T04:46:00.274Z"
-cover: "/assets/blog/fa1b6e3bfee7c71b39327fcd.jpg"
-coverAlt: "Candado junto a un gráfico circular dividido en segmentos"
-ogImage: "/assets/blog/fa1b6e3bfee7c71b39327fcd.jpg"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related:
-  - title: "Logs de acceso en ELB: Guía completa"
+  - title: "Logs de acceso en ELB: guía completa"
     url: "https://dondeaprendoaws.com/blog/logs-de-acceso-en-elb-guia-completa/"
-    image: "/assets/blog/fe79fa50612b43f06d41c37a.jpg"
-    imageAlt: ""
-  - title: "Concurrencia Aprovisionada: Solución a Cold Starts en AWS Lambda"
+  - title: "Concurrencia aprovisionada: solución a cold starts en AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/concurrencia-aprovisionada-solucion-a-cold-starts-en-aws-lambda/"
-    image: "/assets/blog/4efa7f16e3c389136cc18ae2.png"
-    imageAlt: ""
-  - title: "Características y Beneficios de AWS IoT Device Defender"
+  - title: "Características y beneficios de AWS IoT Device Defender"
     url: "https://dondeaprendoaws.com/blog/caracteristicas-y-beneficios-de-aws-iot-device-defender/"
-    image: "/assets/blog/64ba25d52c7b46f1df3dfd5e.png"
-    imageAlt: ""
+
 ---
 
 <p>AWS ofrece herramientas y servicios clave para gestionar costos y seguridad en la nube:</p>
@@ -203,13 +198,13 @@ related:
 <p>Al implementar controles de costos en AWS, es importante mantener un equilibrio entre la optimización de costos y la disponibilidad y rendimiento de tus aplicaciones. Utiliza las herramientas y funciones de AWS de manera inteligente para lograr tus objetivos de negocio sin comprometer la seguridad o la calidad del servicio.</p>
 
 
-<h2 id="controles-de-uso-para-la-gesti%C3%B3n-de-costos" tabindex="-1">Controles de Uso para la Gestión de Costos</h2>
+<h2 id="controles-de-uso-para-la-gesti%C3%B3n-de-costos" tabindex="-1">Controles de uso para la gestión de costos</h2>
 
 
 <p>Describe estrategias para aplicar controles de uso en AWS para optimizar gastos, involucrando acceso de usuario, límites de servicio y roles.</p>
 
 
-<h3 id="uso-de-pol%C3%ADticas-de-iam-y-roles" tabindex="-1">Uso de Políticas de <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/introduction.html" rel="noopener noreferrer" target="_blank">IAM</a> y Roles</h3>
+<h3 id="uso-de-pol%C3%ADticas-de-iam-y-roles" tabindex="-1">Uso de políticas de <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/introduction.html" rel="noopener noreferrer" target="_blank">IAM</a> y Roles</h3>
 
 
 <p><figure><img alt="IAM" src="/assets/blog/32f316943ddb6bd02a24d6b2.jpg"/></figure></p>
@@ -233,7 +228,7 @@ related:
 <p>1. <strong>Identificar los recursos críticos</strong>: Determina qué recursos son más importantes para tu negocio y establece políticas para controlar el acceso a ellos. 2. <strong>Definir las acciones permitidas</strong>: Establece qué acciones pueden realizar los usuarios y roles en los recursos definidos. 3. <strong>Establecer condiciones</strong>: Define las condiciones bajo las cuales se permiten las acciones, como la región, el horario o el estado del recurso.</p>
 
 
-<h3 id="establecer-l%C3%ADmites-de-servicio" tabindex="-1">Establecer Límites de Servicio</h3>
+<h3 id="establecer-l%C3%ADmites-de-servicio" tabindex="-1">Establecer límites de servicio</h3>
 
 
 <p>Otra forma de controlar los gastos en AWS es establecer límites de servicio para los recursos. De esta manera, se evita la asignación de recursos innecesarios y se reduce el riesgo de gastos excesivos.</p>
@@ -257,13 +252,13 @@ related:
 <p>Al implementar controles de uso en AWS, es importante encontrar un equilibrio entre la optimización de costos y la disponibilidad y rendimiento de tus aplicaciones. Utiliza las herramientas y funciones de AWS de manera inteligente para lograr tus objetivos de negocio sin comprometer la seguridad o la calidad del servicio.</p>
 
 
-<h2 id="seguridad-en-la-gesti%C3%B3n-de-costos-en-aws" tabindex="-1">Seguridad en la Gestión de Costos en AWS</h2>
+<h2 id="seguridad-en-la-gesti%C3%B3n-de-costos-en-aws" tabindex="-1">Seguridad en la gestión de costos en AWS</h2>
 
 
 <p>La seguridad es fundamental en la <a href="https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/">gestión de costos en AWS</a>. Es importante implementar prácticas de seguridad robustas para proteger los recursos y datos en la nube, ya que la mala configuración o el acceso no autorizado pueden generar gastos innecesarios y comprometer la integridad de los datos.</p>
 
 
-<h3 id="protecci%C3%B3n-de-datos-y-iam-para-la-gesti%C3%B3n-de-costos" tabindex="-1">Protección de Datos y IAM para la Gestión de Costos</h3>
+<h3 id="protecci%C3%B3n-de-datos-y-iam-para-la-gesti%C3%B3n-de-costos" tabindex="-1">Protección de datos y IAM para la gestión de costos</h3>
 
 
 <p>La protección de datos y la gestión de identidades y acceso (IAM) son fundamentales para una gestión de costos segura y eficiente en AWS. IAM permite definir quién tiene acceso a qué recursos y bajo qué condiciones, lo que ayuda a reducir el riesgo de gastos innecesarios y a proteger los datos contra el acceso no autorizado.</p>
@@ -278,7 +273,7 @@ related:
 </ul>
 
 
-<h3 id="detecci%C3%B3n-de-anomal%C3%ADas-de-costos-en-aws" tabindex="-1">Detección de Anomalías de Costos en AWS</h3>
+<h3 id="detecci%C3%B3n-de-anomal%C3%ADas-de-costos-en-aws" tabindex="-1">Detección de anomalías de costos en AWS</h3>
 
 
 <p>AWS Cost Anomaly Detection es una herramienta que ayuda a identificar gastos atípicos que pueden indicar problemas de seguridad o ineficiencias en la configuración de los recursos. Esta herramienta utiliza algoritmos de aprendizaje automático para analizar los patrones de gasto y detectar anomalías, lo que permite tomar medidas correctivas para reducir los costos y mejorar la seguridad.</p>
@@ -293,13 +288,13 @@ related:
 </ul>
 
 
-<h2 id="optimizaci%C3%B3n-de-costos-de-aws-con-seguridad" tabindex="-1">Optimización de Costos de AWS con Seguridad</h2>
+<h2 id="optimizaci%C3%B3n-de-costos-de-aws-con-seguridad" tabindex="-1">Optimización de costos de AWS con seguridad</h2>
 
 
 <p>La <a href="https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/">optimización de costos de AWS con seguridad</a> es crucial para asegurarse de que su organización no esté gastando demasiado en recursos en la nube mientras mantiene la seguridad y integridad de sus datos. En esta sección, exploraremos tres estrategias clave para optimizar costos de AWS con seguridad: administrar recursos no utilizados, utilizar instancias reservadas y planes de ahorro, y automatización y escalabilidad.</p>
 
 
-<h3 id="administrar-recursos-no-utilizados" tabindex="-1">Administrar Recursos No Utilizados</h3>
+<h3 id="administrar-recursos-no-utilizados" tabindex="-1">Administrar recursos no utilizados</h3>
 
 
 <p>Administrar recursos no utilizados es un paso esencial para optimizar costos de AWS. Los recursos no utilizados no solo desperdician dinero, sino que también plantean un riesgo de seguridad si no se configuran o monitorean adecuadamente. Para administrar recursos no utilizados, puede utilizar herramientas de AWS como AWS Cost Explorer y <a href="https://aws.amazon.com/cloudtrail/" rel="noopener noreferrer" target="_blank">AWS CloudTrail</a> para identificar recursos inactivos y luego terminar o redimensionarlos según sea necesario.</p>
@@ -315,7 +310,7 @@ related:
 </ul>
 
 
-<h3 id="utilizar-instancias-reservadas-y-planes-de-ahorro" tabindex="-1">Utilizar Instancias Reservadas y Planes de Ahorro</h3>
+<h3 id="utilizar-instancias-reservadas-y-planes-de-ahorro" tabindex="-1">Utilizar instancias reservadas y planes de ahorro</h3>
 
 
 <p>Utilizar instancias reservadas y planes de ahorro es otra forma efectiva de optimizar costos de AWS. Las instancias reservadas y planes de ahorro le permiten comprometerse a utilizar una cantidad determinada de recursos durante un período especificado, lo que puede resultar en ahorros significativos.</p>
@@ -348,7 +343,7 @@ related:
 </table></figure>
 
 
-<h3 id="automatizaci%C3%B3n-y-escalabilidad" tabindex="-1">Automatización y Escalabilidad</h3>
+<h3 id="automatizaci%C3%B3n-y-escalabilidad" tabindex="-1">Automatización y escalabilidad</h3>
 
 
 <p>La automatización y escalabilidad son componentes críticos de la optimización de costos de AWS con seguridad. Al automatizar tareas rutinarias y escalar recursos hacia arriba o hacia abajo según sea necesario, puede reducir el desperdicio, mejorar la utilización de recursos y mejorar la seguridad. AWS proporciona una variedad de herramientas y servicios de automatización, como <a href="https://aws.amazon.com/lambda/" rel="noopener noreferrer" target="_blank">AWS Lambda</a> y <a href="https://aws.amazon.com/cloudformation/" rel="noopener noreferrer" target="_blank">AWS CloudFormation</a>, que pueden ayudar a automatizar y escalar sus recursos.</p>
@@ -407,7 +402,7 @@ related:
 <p>En resumen, la clave para mantener un equilibrio óptimo entre costos y seguridad en AWS es ser consciente de los costos y riesgos asociados con la nube y implementar estrategias efectivas para reducir costos y mejorar la seguridad.</p>
 
 
-<h2 id="preguntas-frecuentes" tabindex="-1">Preguntas Frecuentes</h2>
+<h2 id="preguntas-frecuentes" tabindex="-1">Preguntas frecuentes</h2>
 
 
 <h3 id="%C2%BFcu%C3%A1l-es-el-servicio-clave-para-la-optimizaci%C3%B3n-de-costos-en-aws%3F" tabindex="-1">¿Cuál es el servicio clave para la optimización de costos en AWS?</h3>
@@ -458,6 +453,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">Seguridad en AWS: Servicios Esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/">Análisis de Costos de AWS con Cost Explorer</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores Prácticas de Seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS Seguridad: Fundamentos Esenciales</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">seguridad en AWS: servicios esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/">análisis de costos de AWS con Cost Explorer</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores prácticas de seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS seguridad: fundamentos esenciales</a></li>
 </ul>
 </p>

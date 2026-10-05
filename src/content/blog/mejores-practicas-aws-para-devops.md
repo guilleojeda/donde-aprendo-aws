@@ -4,22 +4,17 @@ description: "Descubre las mejores prácticas de AWS para DevOps, desde el marco
 author: "guille-ojeda"
 publishedAt: "2024-01-24"
 publishedTimestamp: "2024-01-24T23:31:38.611Z"
-cover: "/assets/blog/87b7131b5cdf72f70b5347bd.jpg"
-coverAlt: "Nube compuesta por iconos conectados a bloques y nodos inferiores"
-ogImage: "/assets/blog/87b7131b5cdf72f70b5347bd.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Diferencias: Endpoint de interfaz vs. Endpoint de gateway"
+  - title: "Diferencias: endpoint de interfaz vs. endpoint de gateway"
     url: "https://dondeaprendoaws.com/blog/diferencias-endpoint-de-interfaz-vs-endpoint-de-gateway/"
-    image: "/assets/blog/3565dcd644c1d6c694694985.jpg"
-    imageAlt: ""
-  - title: "Principios de Zero Trust en AWS: Componentes Clave"
+  - title: "Principios de Zero Trust en AWS: componentes clave"
     url: "https://dondeaprendoaws.com/blog/principios-de-zero-trust-en-aws-componentes-clave/"
-    image: "/assets/blog/3bded967f6dd68d809d0a807.webp"
-    imageAlt: ""
-  - title: "5 Whitepapers de AWS para Aprobar Exámenes"
+  - title: "5 whitepapers de AWS para aprobar exámenes"
     url: "https://dondeaprendoaws.com/blog/5-whitepapers-de-aws-para-aprobar-examenes/"
-    image: "/assets/blog/251a69179cad106c40e9334f.webp"
-    imageAlt: ""
+
 ---
 
 <p>Cualquier desarrollador o equipo de DevOps estaría de acuerdo en que <strong>integrar AWS al flujo de trabajo de DevOps</strong> puede ser un desafío.</p>
@@ -31,7 +26,7 @@ related:
 <p>Cubriremos temas como la infraestructura como código con AWS CloudFormation, la integración y entrega continua con Code Suite, el monitoreo proactivo con CloudWatch y X-Ray, y la seguridad y cumplimiento normativo al implementar estas mejores prácticas. Al final, veremos cómo integrar todo en una cultura DevOps madura mediante mejora continua, feedback y certificaciones de AWS.</p>
 
 
-<h2 id="introducci%C3%B3n-a-las-mejores-pr%C3%A1cticas-de-aws-para-devops" tabindex="-1">Introducción a las Mejores Prácticas de AWS para DevOps</h2>
+<h2 id="introducci%C3%B3n-a-las-mejores-pr%C3%A1cticas-de-aws-para-devops" tabindex="-1">Introducción a las mejores prácticas de AWS para DevOps</h2>
 
 
 <p>El AWS Well-Architected Framework proporciona una guía de prácticas recomendadas para diseñar y operar cargas de trabajo seguras, de alto rendimiento, resilientes y eficientes en la nube. Adoptar estas prácticas puede acelerar los ciclos de DevOps al permitir la entrega continua y la integración/implementación continuas.</p>
@@ -61,7 +56,7 @@ related:
 <p>La herramienta Well-Architected de AWS ayuda a los equipos a evaluar sus cargas de trabajo en la nube en función de estos pilares. Los informes generados se pueden usar para identificar brechas y oportunidades de mejora.</p>
 
 
-<h3 id="la-sinergia-entre-aws-security-best-practices-y-devops" tabindex="-1">La sinergia entre AWS Security best practices y DevOps</h3>
+<h3 id="la-sinergia-entre-aws-security-best-practices-y-devops" tabindex="-1">La sinergia entre AWS Security Best Practices y DevOps</h3>
 
 
 <p>Las prácticas recomendadas de seguridad de AWS, como el principio de privilegios mínimos, el acceso basado en roles y la rotación automática de credenciales, se alinean estrechamente con los objetivos de DevOps de entrega rápida y continua.</p>
@@ -97,13 +92,13 @@ related:
 <p>Seguiremos profundizando en estas y otras prácticas recomendadas a lo largo de este artículo.</p>
 
 
-<h2 id="provisionamiento-y-gesti%C3%B3n-de-infraestructura-con-aws-cloudformation" tabindex="-1">Provisionamiento y Gestión de Infraestructura con AWS CloudFormation</h2>
+<h2 id="provisionamiento-y-gesti%C3%B3n-de-infraestructura-con-aws-cloudformation" tabindex="-1">Provisionamiento y gestión de infraestructura con AWS CloudFormation</h2>
 
 
 <p>AWS CloudFormation permite aprovisionar y administrar infraestructura de AWS de forma rápida, confiable y escalable. Algunos consejos clave:</p>
 
 
-<h3 id="automatizaci%C3%B3n-de-infraestructura-como-c%C3%B3digo-con-aws-cloudformation" tabindex="-1">Automatización de Infraestructura como Código con AWS CloudFormation</h3>
+<h3 id="automatizaci%C3%B3n-de-infraestructura-como-c%C3%B3digo-con-aws-cloudformation" tabindex="-1">Automatización de infraestructura como código con AWS CloudFormation</h3>
 
 
 <p>AWS CloudFormation permite modelar y aprovisionar recursos de AWS con archivos de plantilla declarativos. Esto se conoce como "Infraestructura como Código" y presenta varios beneficios:</p>
@@ -128,7 +123,7 @@ related:
 </ul>
 
 
-<h3 id="orquestaci%C3%B3n-de-despliegues-con-aws-codepipeline-y-aws-codedeploy" tabindex="-1">Orquestación de Despliegues con AWS CodePipeline y AWS CodeDeploy</h3>
+<h3 id="orquestaci%C3%B3n-de-despliegues-con-aws-codepipeline-y-aws-codedeploy" tabindex="-1">Orquestación de despliegues con AWS CodePipeline y AWS CodeDeploy</h3>
 
 
 <p>AWS CodePipeline y AWS CodeDeploy automatizan el proceso de lanzar actualizaciones de aplicaciones.</p>
@@ -149,7 +144,7 @@ related:
 <p>CodeDeploy permite coordinar implementaciones "blue/green" sin downtime. También facilita rollbacks automáticos ante errores.</p>
 
 
-<h3 id="gesti%C3%B3n-de-configuraciones-con-aws-opsworks-y-aws-config" tabindex="-1">Gestión de Configuraciones con AWS OpsWorks y AWS Config</h3>
+<h3 id="gesti%C3%B3n-de-configuraciones-con-aws-opsworks-y-aws-config" tabindex="-1">Gestión de configuraciones con AWS OpsWorks y AWS Config</h3>
 
 
 <p>AWS OpsWorks permite administrar configuraciones de servidores, como instalación de paquetes o manejo de usuarios.</p>
@@ -168,7 +163,7 @@ related:
 </ul>
 
 
-<h3 id="implementaci%C3%B3n-de-aws-service-catalog-para-la-gobernanza-de-infraestructura" tabindex="-1">Implementación de AWS Service Catalog para la Gobernanza de Infraestructura</h3>
+<h3 id="implementaci%C3%B3n-de-aws-service-catalog-para-la-gobernanza-de-infraestructura" tabindex="-1">Implementación de AWS Service Catalog para la gobernanza de infraestructura</h3>
 
 
 <p>AWS Service Catalog permite crear un catálogo de productos de infraestructura aprobados en la organización.</p>
@@ -189,13 +184,13 @@ related:
 <p>De esta forma se obtienen los beneficios de auto-servicio manteniendo control y visibilidad.</p>
 
 
-<h2 id="desarrollo-y-despliegue-de-aplicaciones-con-aws-code-suite-y-contenedores" tabindex="-1">Desarrollo y Despliegue de Aplicaciones con AWS Code Suite y Contenedores</h2>
+<h2 id="desarrollo-y-despliegue-de-aplicaciones-con-aws-code-suite-y-contenedores" tabindex="-1">Desarrollo y despliegue de aplicaciones con AWS Code Suite y contenedores</h2>
 
 
 <p>La suite de herramientas de AWS Code permite agilizar el desarrollo y despliegue de aplicaciones en la nube. Al combinar estas herramientas con contenedores, se pueden construir aplicaciones escalables y portables de forma rápida y sencilla.</p>
 
 
-<h3 id="integraci%C3%B3n-continua-con-aws-codebuild-y-aws-codecommit" tabindex="-1">Integración Continua con AWS CodeBuild y AWS CodeCommit</h3>
+<h3 id="integraci%C3%B3n-continua-con-aws-codebuild-y-aws-codecommit" tabindex="-1">Integración continua con AWS CodeBuild y AWS CodeCommit</h3>
 
 
 <p>La integración continua es esencial en el desarrollo moderno de software. AWS CodeBuild y AWS CodeCommit facilitan esta práctica en la nube de AWS.</p>
@@ -207,7 +202,7 @@ related:
 <p>Esta combinación permite detectar problemas tempranamente, acelerar los ciclos de entrega y mejorar la calidad del software. Al configurar webhooks, los desarrolladores pueden trigger builds automáticamente cuando se sube código nuevo.</p>
 
 
-<h3 id="despliegue-de-microservicios-con-amazon-eks-y-aws-fargate" tabindex="-1">Despliegue de Microservicios con Amazon EKS y AWS Fargate</h3>
+<h3 id="despliegue-de-microservicios-con-amazon-eks-y-aws-fargate" tabindex="-1">Despliegue de microservicios con Amazon EKS y AWS Fargate</h3>
 
 
 <p>Los microservicios permiten descomponer aplicaciones en componentes independientes. Esto aumenta la escalabilidad y velocidad de entrega.</p>
@@ -231,7 +226,7 @@ related:
 <p>Esto reduce drásticamente el trabajo de configurar y administrar infraestructura para APIs. Los desarrolladores solo deben preocuparse de definir la lógica de negocio.</p>
 
 
-<h3 id="desarrollo-colaborativo-con-aws-cloud9" tabindex="-1">Desarrollo Colaborativo con AWS Cloud9</h3>
+<h3 id="desarrollo-colaborativo-con-aws-cloud9" tabindex="-1">Desarrollo colaborativo con AWS Cloud9</h3>
 
 
 <p>AWS Cloud9 provee un IDE en la nube para escribir, ejecutar y debuggear código. Permite colaboración en tiempo real entre desarrolladores al compartir ambientes de desarrollo.</p>
@@ -249,13 +244,13 @@ related:
 
 
 
-<h2 id="operaciones%2C-monitoreo-y-an%C3%A1lisis-con-aws-cloudwatch-y-aws-x-ray" tabindex="-1">Operaciones, Monitoreo y Análisis con AWS CloudWatch y AWS X-Ray</h2>
+<h2 id="operaciones%2C-monitoreo-y-an%C3%A1lisis-con-aws-cloudwatch-y-aws-x-ray" tabindex="-1">Operaciones, monitoreo y análisis con AWS CloudWatch y AWS X-Ray</h2>
 
 
 <p>AWS ofrece varias herramientas para monitorear, analizar y operar aplicaciones y servicios en la nube de forma eficiente. Dos servicios clave son Amazon CloudWatch y AWS X-Ray.</p>
 
 
-<h3 id="monitoreo-proactivo-con-amazon-cloudwatch-y-aws-x-ray" tabindex="-1">Monitoreo Proactivo con Amazon CloudWatch y AWS X-Ray</h3>
+<h3 id="monitoreo-proactivo-con-amazon-cloudwatch-y-aws-x-ray" tabindex="-1">Monitoreo proactivo con Amazon CloudWatch y AWS X-Ray</h3>
 
 
 <p>Amazon CloudWatch permite monitorear métricas, logs y eventos de los recursos de AWS. Con CloudWatch se pueden crear dashboards personalizados, establecer alarmas y automatizar acciones.</p>
@@ -267,7 +262,7 @@ related:
 <p>Al combinar CloudWatch y X-Ray se puede implementar un monitoreo proactivo y detallado. Por ejemplo, se pueden configurar alarmas en CloudWatch que se activen cuando X-Ray detecte latencias altas en algunos servicios.</p>
 
 
-<h3 id="automatizaci%C3%B3n-de-respuestas-con-aws-step-functions-y-cloudwatch-events" tabindex="-1">Automatización de Respuestas con AWS Step Functions y CloudWatch Events</h3>
+<h3 id="automatizaci%C3%B3n-de-respuestas-con-aws-step-functions-y-cloudwatch-events" tabindex="-1">Automatización de respuestas con AWS Step Functions y CloudWatch Events</h3>
 
 
 <p>AWS Step Functions permite coordinar componentes de aplicaciones serverless en workflows. Step Functions se integra con CloudWatch Events para activar workflows automáticamente ante ciertos eventos.</p>
@@ -276,7 +271,7 @@ related:
 <p>Por ejemplo, se puede crear un workflow en Step Functions para escalar autoscaling groups en respuesta a alarmas de CloudWatch. Esto permite automatizar flujos de trabajo complejos.</p>
 
 
-<h3 id="auditor%C3%ADa-y-cumplimiento-con-aws-cloudtrail-y-aws-config" tabindex="-1">Auditoría y Cumplimiento con AWS CloudTrail y AWS Config</h3>
+<h3 id="auditor%C3%ADa-y-cumplimiento-con-aws-cloudtrail-y-aws-config" tabindex="-1">Auditoría y cumplimiento con AWS CloudTrail y AWS Config</h3>
 
 
 <p>AWS CloudTrail registra llamadas a la API de AWS y AWS Config permite evaluar recursos contra reglas de seguridad y compliance.</p>
@@ -285,7 +280,7 @@ related:
 <p>Al combinar CloudTrail y Config se puede auditar el acceso y los cambios en los recursos para cumplir con estándares como PCI, SOC y ISO. Por ejemplo, se puede detectar cambios no autorizados en grupos de seguridad.</p>
 
 
-<h3 id="an%C3%A1lisis-de-logs-con-amazon-cloudwatch-logs-y-amazon-elasticsearch-service" tabindex="-1">Análisis de Logs con Amazon CloudWatch Logs y Amazon Elasticsearch Service</h3>
+<h3 id="an%C3%A1lisis-de-logs-con-amazon-cloudwatch-logs-y-amazon-elasticsearch-service" tabindex="-1">Análisis de logs con Amazon CloudWatch Logs y Amazon Elasticsearch Service</h3>
 
 
 <p>Amazon CloudWatch Logs almacena y monitorea logs de aplicaciones y servicios de AWS.</p>
@@ -297,13 +292,13 @@ related:
 <p>La integración nativa entre CloudWatch Logs y Elasticsearch facilita el análisis en tiempo real de logs a escala.</p>
 
 
-<h2 id="seguridad-y-conformidad-en-aws%3A-implementando-las-mejores-pr%C3%A1cticas" tabindex="-1">Seguridad y Conformidad en AWS: Implementando las Mejores Prácticas</h2>
+<h2 id="seguridad-y-conformidad-en-aws%3A-implementando-las-mejores-pr%C3%A1cticas" tabindex="-1">Seguridad y conformidad en AWS: implementando las mejores prácticas</h2>
 
 
 <p>Consejos para proteger infraestructura, datos y aplicaciones en la nube.</p>
 
 
-<h3 id="autenticaci%C3%B3n-y-autorizaci%C3%B3n-con-aws-iam-y-aws-iam-identity-center" tabindex="-1">Autenticación y Autorización con AWS IAM y AWS IAM Identity Center</h3>
+<h3 id="autenticaci%C3%B3n-y-autorizaci%C3%B3n-con-aws-iam-y-aws-iam-identity-center" tabindex="-1">Autenticación y autorización con AWS IAM y AWS IAM Identity Center</h3>
 
 
 <p>Implementación de controles de acceso robustos con AWS IAM y AWS IAM Identity Center.</p>
@@ -324,7 +319,7 @@ related:
 <p>Esto refuerza la <strong>seguridad en la nube</strong> y el cumplimiento de estándares como PCI DSS, HIPAA o SOC.</p>
 
 
-<h3 id="protecci%C3%B3n-contra-amenazas-con-aws-shield-y-aws-waf" tabindex="-1">Protección contra Amenazas con AWS Shield y AWS WAF</h3>
+<h3 id="protecci%C3%B3n-contra-amenazas-con-aws-shield-y-aws-waf" tabindex="-1">Protección contra amenazas con AWS Shield y AWS WAF</h3>
 
 
 <p>Defensa contra amenazas y ataques DDoS con AWS Shield y AWS WAF.</p>
@@ -353,7 +348,7 @@ related:
 <p>Esto aumenta la <strong>postura de seguridad</strong> frente a amenazas externas.</p>
 
 
-<h3 id="gesti%C3%B3n-de-secretos-y-certificados-con-aws-secrets-manager-y-aws-certificate-manager" tabindex="-1">Gestión de Secretos y Certificados con AWS Secrets Manager y AWS Certificate Manager</h3>
+<h3 id="gesti%C3%B3n-de-secretos-y-certificados-con-aws-secrets-manager-y-aws-certificate-manager" tabindex="-1">Gestión de secretos y certificados con AWS Secrets Manager y AWS Certificate Manager</h3>
 
 
 <p>Manejo seguro de secretos y certificados utilizando AWS Secrets Manager y AWS Certificate Manager.</p>
@@ -382,7 +377,7 @@ related:
 <p>Esto mejora la <strong>seguridad de conexiones</strong> y reduce costos operativos.</p>
 
 
-<h3 id="cumplimiento-y-an%C3%A1lisis-de-seguridad-con-aws-security-hub-y-amazon-guardduty" tabindex="-1">Cumplimiento y Análisis de Seguridad con AWS Security Hub y Amazon GuardDuty</h3>
+<h3 id="cumplimiento-y-an%C3%A1lisis-de-seguridad-con-aws-security-hub-y-amazon-guardduty" tabindex="-1">Cumplimiento y análisis de seguridad con AWS Security Hub y Amazon GuardDuty</h3>
 
 
 <p>Centralización de la gestión de seguridad y análisis de amenazas con AWS Security Hub y Amazon GuardDuty.</p>
@@ -411,7 +406,7 @@ related:
 <p>Esto aumenta la <strong>visibilidad sobre amenazas</strong> y facilita auditorías.</p>
 
 
-<h2 id="conclusi%C3%B3n%3A-integrando-las-mejores-pr%C3%A1cticas-de-aws-en-la-cultura-devops" tabindex="-1">Conclusión: Integrando las Mejores Prácticas de AWS en la Cultura DevOps</h2>
+<h2 id="conclusi%C3%B3n%3A-integrando-las-mejores-pr%C3%A1cticas-de-aws-en-la-cultura-devops" tabindex="-1">Conclusión: integrando las mejores prácticas de AWS en la cultura DevOps</h2>
 
 
 <p>Resumen de las mejores prácticas presentadas y próximos pasos para adoptar DevOps en AWS.</p>
@@ -432,7 +427,7 @@ related:
 <p>Ambas herramientas deben ejecutarse periódicamente como parte del proceso DevOps. Sus resultados permiten identificar oportunidades de mejora y optimización.</p>
 
 
-<h3 id="planificaci%C3%B3n-estrat%C3%A9gica-con-aws-cloud-adoption-framework" tabindex="-1">Planificación Estratégica con AWS Cloud Adoption Framework</h3>
+<h3 id="planificaci%C3%B3n-estrat%C3%A9gica-con-aws-cloud-adoption-framework" tabindex="-1">Planificación estratégica con AWS Cloud Adoption Framework</h3>
 
 
 <p>El AWS Cloud Adoption Framework (AWS CAF) ofrece una guía detallada para desarrollar una estrategia de adopción de la nube.</p>
@@ -456,7 +451,7 @@ related:
 <p>Seguir el AWS CAF asegura que los equipos de DevOps aprovechen todo el potencial de la nube de AWS.</p>
 
 
-<h3 id="capacitaci%C3%B3n-y-certificaci%C3%B3n-en-aws" tabindex="-1">Capacitación y Certificación en AWS</h3>
+<h3 id="capacitaci%C3%B3n-y-certificaci%C3%B3n-en-aws" tabindex="-1">Capacitación y certificación en AWS</h3>
 
 
 <p>La capacitación y certificación en tecnologías de AWS son esenciales para que los equipos de DevOps manejen adecuadamente los servicios en la nube.</p>
@@ -471,7 +466,7 @@ related:
 <p>Mantener al día las competencias garantiza que los procesos y herramientas de AWS se utilicen de acuerdo con las mejores prácticas.</p>
 
 
-<h3 id="aplicar-mejoras-continuas-y-feedback-con-aws" tabindex="-1">Aplicar Mejoras Continuas y Feedback con AWS</h3>
+<h3 id="aplicar-mejoras-continuas-y-feedback-con-aws" tabindex="-1">Aplicar mejoras continuas y feedback con AWS</h3>
 
 
 <p>La esencia de DevOps es la mejora continua a través de ciclos de feedback rápidos.</p>
@@ -489,6 +484,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">Seguridad en AWS: Servicios Esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/desarrollo-en-la-nube-fundamentos-esenciales/">Desarrollo en la nube: fundamentos esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/">Seguridad en AWS: Mejores Prácticas</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS Seguridad: Fundamentos Esenciales</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">seguridad en AWS: servicios esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/desarrollo-en-la-nube-fundamentos-esenciales/">Desarrollo en la nube: fundamentos esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/">seguridad en AWS: mejores prácticas</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS seguridad: fundamentos esenciales</a></li>
 </ul>
 </p>

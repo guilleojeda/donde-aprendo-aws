@@ -1,25 +1,20 @@
 ---
-title: "Tipos y Tamaños de Instancias RDS: Guía Completa"
+title: "Tipos y tamaños de instancias RDS: guía completa"
 description: "Descubre todo lo que necesitas saber sobre los tipos y tamaños de instancias RDS en esta guía completa. Aprende sobre Amazon RDS, características clave, opciones de almacenamiento, comparación con Aurora y más."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T00:25:35.456Z"
-cover: "/assets/blog/ad2ff3daa90f3b8701cd3eb8.png"
-coverAlt: "Nube azul con círculos de colores de distintos tamaños"
-ogImage: "/assets/blog/ad2ff3daa90f3b8701cd3eb8.png"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
-  - title: "Detección de Sesgos en Modelos ML con SageMaker Clarify"
+  - title: "Detección de sesgos en modelos ML con SageMaker Clarify"
     url: "https://dondeaprendoaws.com/blog/deteccion-de-sesgos-en-modelos-ml-con-sagemaker-clarify/"
-    image: "/assets/blog/055e62c5fbddebf94a936e62.jpg"
-    imageAlt: ""
-  - title: "Cifrado de datos con AWS KMS: Guía práctica"
+  - title: "Cifrado de datos con AWS KMS: guía práctica"
     url: "https://dondeaprendoaws.com/blog/cifrado-de-datos-con-aws-kms-guia-practica/"
-    image: "/assets/blog/8879f0457d281038d09e5222.png"
-    imageAlt: ""
-  - title: "Cómo Utilizar ElasticSearch en AWS"
+  - title: "Cómo utilizar Elasticsearch en AWS"
     url: "https://dondeaprendoaws.com/blog/como-utilizar-elasticsearch-en-aws/"
-    image: "/assets/blog/17fe006845acd8b3930b23c8.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Si estás buscando el tipo y tamaño de instancia RDS adecuado para tu proyecto, este artículo es para ti. Aquí encontrarás todo lo que necesitas saber sobre Amazon RDS, desde conceptos básicos hasta consejos para elegir la mejor opción para tu aplicación. Vamos a desglosarlo de manera simple:</p>
@@ -35,14 +30,14 @@ related:
 <h2 id="tipos-de-instancias-rds"><a href="https://aws.amazon.com/es/rds/instance-types/">Tipos de Instancias RDS</a></h2>
 <p><img alt="Tipos de Instancias RDS" src="/assets/blog/91cafa14c4079de7a4e4d066.jpg"/></p>
 <p>Amazon RDS te ofrece dos grandes grupos de instancias: las que son para uso general y las que están optimizadas para usar mucha memoria. Cada tipo se crea pensando en necesidades diferentes.</p>
-<h3 id="uso-general">Uso General</h3>
+<h3 id="uso-general">Uso general</h3>
 <p>Las instancias de uso general tienen un equilibrio entre CPU, memoria y capacidad de procesamiento, lo que las hace adecuadas para la mayoría de las bases de datos. Si no tienes necesidades muy específicas, estas podrían ser una buena opción.</p>
 <p>Aquí tienes algunos ejemplos:</p>
 <ul><li><strong>T4g</strong>: Usan un tipo de procesador llamado Arm Graviton2, que ayuda a que el costo sea más bajo.</li><li><strong>T3</strong>: Aumentan su rendimiento automáticamente cuando es necesario.</li><li><strong>T2</strong>: Son económicas y ofrecen recursos básicos.</li><li><strong>M7g</strong>: Utilizan procesadores AMD EPYC de última generación.</li><li><strong>M6i</strong>: Vienen con los más recientes procesadores Intel Ice Lake.</li><li><strong>M6g</strong>: También usan el procesador Arm Graviton2.</li><li><strong>M5</strong>: Tienen un buen equilibrio de recursos con procesadores Intel Skylake.</li><li><strong>M5d</strong>: Además, incluyen un tipo de almacenamiento rápido llamado NVMe SSD.</li><li><strong>M4</strong>: Son una opción genérica con una buena relación calidad-precio.</li></ul>
-<h3 id="optimizadas-para-memoria">Optimizadas para Memoria</h3>
+<h3 id="optimizadas-para-memoria">Optimizadas para memoria</h3>
 <p>Estas instancias están pensadas para bases de datos que necesitan mucha memoria RAM. Veamos algunos ejemplos:</p>
 <ul><li><strong>R7g</strong>: Son las más nuevas y usan procesadores AWS Graviton3, que ofrecen mucha más memoria.</li><li><strong>R6i</strong>: Basadas en los procesadores Intel Ice Lake de última generación, mejoran el rendimiento.</li><li><strong>R6g</strong>: Utilizan el procesador personalizado Arm Graviton2 de AWS.</li><li><strong>R5</strong>: Pueden tener hasta 768GiB de RAM y usan procesadores Intel Skylake.</li><li><strong>R5b</strong>: Son especiales para bases de datos que funcionan en memoria y son más baratas por la cantidad de RAM que ofrecen.</li><li><strong>R5d</strong>: Incluyen almacenamiento NVMe SSD de hasta 3,6TB.</li><li><strong>R4</strong>: Son de alto rendimiento para tareas que usan mucha memoria.</li><li><strong>X2iedn</strong>: Usan la nueva generación de procesadores Intel Ice Lake.</li><li><strong>X2idn</strong>: Son similares a las X2iedn, pero con menos memoria por cada vCPU.</li><li><strong>X2g</strong>: Con procesadores Graviton2, se enfocan en ofrecer alto rendimiento a bajo costo.</li><li><strong>X1e</strong>: Tienen mucha memoria a un precio accesible.</li><li><strong>X1</strong>: Son parecidas a las X1e, pero sin almacenamiento local.</li><li><strong>Z1d</strong>: Ofrecen la mayor frecuencia de procesador disponible, ideal para software que cobra por núcleo.</li></ul>
-<h2 id="caracter%C3%ADsticas-de-las-instancias-rds">Características de las Instancias RDS</h2>
+<h2 id="caracter%C3%ADsticas-de-las-instancias-rds">Características de las instancias RDS</h2>
 <p>Amazon RDS ofrece varias características adicionales para ayudar a implementar, administrar y escalar las cargas de trabajo de bases de datos.</p>
 <h3 id="cr%C3%A9ditos-cpu-(t3%2C-t2)">Créditos CPU (T3, T2)</h3>
 <p>Las instancias como T3 y T2 te permiten empezar con un nivel básico de capacidad de procesamiento y aumentarlo si es necesario. Si no están muy ocupadas, acumulan "créditos" que pueden usar cuando hay más trabajo. Esto significa que para muchas tareas no tendrás que pagar extra.</p>
@@ -54,7 +49,7 @@ related:
 <p>Estas instancias aseguran una conexión directa y rápida entre RDS y el sistema de almacenamiento EBS, lo que es muy útil para trabajos que requieren mucha actividad de disco.</p>
 <h3 id="redes-mejoradas">Redes mejoradas</h3>
 <p>Proporcionan una conexión a internet más rápida y con menos retrasos. RDS activa esta opción automáticamente en los tipos de instancias que lo soportan.</p>
-<h2 id="tipos-de-almacenamiento-en-amazon-rds">Tipos de Almacenamiento en Amazon RDS</h2>
+<h2 id="tipos-de-almacenamiento-en-amazon-rds">Tipos de almacenamiento en Amazon RDS</h2>
 <p>Amazon RDS te ofrece tres tipos principales de almacenamiento:</p>
 <ul><li><strong>SSD de uso general (gp2 y gp3)</strong></li><li><strong>SSD de IOPS aprovisionadas (io1)</strong></li><li><strong>Magnético</strong></li></ul>
 <p>Cada uno tiene sus propias ventajas, dependiendo de lo que necesitas para tu base de datos.</p>
@@ -66,7 +61,7 @@ related:
 <p>Varios aspectos pueden influir en cómo de rápido y eficiente es tu almacenamiento en Amazon RDS:</p>
 <ul><li><strong>Tipo de instancia</strong>: Las instancias más fuertes mejoran el rendimiento.</li><li><strong>Actividades del sistema</strong>: Acciones como restaurar datos o crear copias pueden bajar temporalmente el rendimiento.</li><li><strong>Carga de trabajo</strong>: Consultas o transacciones complejas piden más del almacenamiento.</li><li><strong>Tipo y tamaño de almacenamiento</strong>: Los SSD y el almacenamiento con IOPS aprovisionadas suelen ser más rápidos.</li></ul>
 <p>Es clave observar cómo va el rendimiento para identificar y resolver problemas, ajustando los recursos según sea necesario.</p>
-<h2 id="seleccionando-el-tama%C3%B1o-y-tipo-de-instancia-rds">Seleccionando el Tamaño y Tipo de Instancia RDS</h2>
+<h2 id="seleccionando-el-tama%C3%B1o-y-tipo-de-instancia-rds">Seleccionando el tamaño y tipo de instancia RDS</h2>
 <h3 id="especificaciones-recomendadas">Especificaciones recomendadas</h3>
 <p>Cuando busques la instancia RDS perfecta, piensa en cuánta fuerza (CPU), memoria, espacio (almacenamiento) y velocidad de conexión (rendimiento de red) necesitas para tu proyecto. Aquí van unos consejos:</p>
 <p><strong>Entornos de desarrollo</strong></p>
@@ -79,13 +74,13 @@ related:
 <p>Cuando tu aplicación esté lista para el mundo real y esperes mucho tráfico, elige instancias fuertes:</p>
 <ul><li><strong>CPU</strong>: 8+ núcleos virtuales</li><li><strong>Memoria</strong>: 32+ GiB</li><li><strong>Almacenamiento</strong>: SSD de IOPS aprovisionadas, con suficiente espacio</li><li><strong>Rendimiento de red</strong>: Alto, idealmente 10 Gigabit</li><li><strong>Ejemplos de tipos de instancias</strong>: m5.2xlarge, m5.4xlarge, r5.large, r5.xlarge</li></ul>
 <p>Recuerda revisar cómo van tus recursos y cambiar el tamaño de tus instancias RDS si es necesario. Las instancias más grandes pueden manejar mejor los momentos de mucho trabajo.</p>
-<h2 id="optimizaciones-para-rds-y-mejoras-recientes">Optimizaciones Para RDS y Mejoras Recientes</h2>
-<h3 id="instancias-r6a-mejoradas-para-ebs">Instancias R6a mejoradas para EBS</h3>
+<h2 id="optimizaciones-para-rds-y-mejoras-recientes">Optimizaciones para RDS y mejoras recientes</h2>
+<h3 id="instancias-r6a-mejoradas-para-ebs">Instancias r6a mejoradas para EBS</h3>
 <p>Las instancias R6a usan procesadores AMD EPYC de última generación y tecnología Nitro de AWS. Las últimas actualizaciones han hecho que estas instancias sean aún mejores, ofreciendo:</p>
 <ul><li><strong>60% más de IOPS</strong> para la versión más grande (32xlarge)</li><li><strong>50% más de IOPS</strong> para los otros tamaños de R6a</li><li><strong>50% más de ancho de banda</strong> para conectar con EBS en versiones hasta 32xlarge</li></ul>
 <p>Por ejemplo, ahora las versiones desde large hasta 4xlarge pueden llegar a <strong>10 Gbps</strong> de velocidad y <strong>40.000 IOPS</strong>. Esto significa que pueden trabajar más rápido y manejar más datos a la vez, ideal para tareas que necesitan mucho almacenamiento.</p>
 <p>Lo mejor es que estas <a href="https://mariadb.com/kb/en/changes-improvements-in-mariadb-1011/">mejoras</a> no tienen costo adicional. Si ya tienes instancias R6a, solo necesitas pararlas y volverlas a iniciar para aprovechar estas ventajas.</p>
-<h3 id="aurora-i%2Fo-optimized">Aurora I/O-Optimized</h3>
+<h3 id="aurora-i%2Fo-optimized">Aurora I/o-optimized</h3>
 <p>Aurora I/O-Optimized es una opción para quienes usan Aurora y necesitan mucho manejo de datos (E/S). Esta configuración ofrece:</p>
 <ul><li>Mejores costos para el rendimiento que ofrece</li><li>Precios más fáciles de entender</li><li>Posibilidad de ahorrar hasta un 40% si los gastos de manejo de datos son altos</li></ul>
 <p>Con Aurora I/O-Optimized, solo pagas por el espacio y las instancias que usas, sin cargos extra por el manejo de datos. Esto hace más sencillo calcular cuánto vas a gastar.</p>
@@ -114,7 +109,7 @@ related:
 <p>Cuando necesitas decidir qué tipo y tamaño de instancia RDS es mejor para tu base de datos, piensa en lo siguiente:</p>
 <ul><li><strong>Para qué vas a usar la base de datos</strong>: ¿Es para crear cosas nuevas, hacer pruebas o ya es para usar de verdad? Esto te ayudará a saber cuánto poder necesitas.</li><li><strong>Cuánto trabajo va a tener</strong>: Piensa en cuántas cosas tiene que hacer tu base de datos, como cuántas personas la van a usar y cuánto tráfico esperas. Esto te ayuda a elegir el tamaño adecuado.</li><li><strong>Qué tan rápido necesitas que sea</strong>: Dependiendo de si necesitas que tu base de datos sea muy rápida o maneje mucha información al mismo tiempo, esto puede influir en tu elección.</li><li><strong>Cuánto puedes gastar</strong>: Las opciones más grandes y con más funciones son más caras. Considera opciones más económicas si tienes un presupuesto limitado.</li><li><strong>Pensando en el futuro</strong>: Elige una opción que te permita crecer fácilmente sin tener que hacer muchos cambios si en el futuro necesitas más capacidad.</li><li><strong>Si necesitas que esté siempre disponible</strong>: Para evitar problemas si algo falla, piensa en usar opciones que tengan copias en diferentes lugares.</li><li><strong>Mantener tus datos seguros</strong>: Asegúrate de que tus datos estén protegidos, tanto cuando están guardados como cuando los estás usando.</li></ul>
 <p>Es importante que revises cómo va todo regularmente, para que puedas ajustar las cosas según sea necesario. Si estás entre elegir RDS o Aurora, recuerda que Aurora puede manejar más carga de trabajo y crecer más fácilmente, pero RDS podría ser mejor si prefieres trabajar con sistemas de bases de datos más tradicionales.</p>
-<h2 id="preguntas-relacionadas">Preguntas Relacionadas</h2>
+<h2 id="preguntas-relacionadas">Preguntas relacionadas</h2>
 <h3 id="%C2%BFqu%C3%A9-es-una-instancia-rds%3F">¿Qué es una instancia RDS?</h3>
 <p>RDS es un servicio de AWS que hace más fácil usar bases de datos en la nube. AWS se ocupa de las tareas complicadas como hacer copias de seguridad, actualizar sistemas, aumentar el tamaño y hacer copias de tu base de datos. Esto significa que tú solo tienes que preocuparte por usar la base de datos.</p>
 <p>Puedes tener una base de datos lista, como MySQL, PostgreSQL, Oracle, entre otros, en solo unos minutos y comenzar a trabajar con ella de inmediato.</p>
@@ -126,4 +121,4 @@ related:
 <h3 id="%C2%BFqu%C3%A9-es-rds-multi-az%3F">¿Qué es RDS Multi-AZ?</h3>
 <p>RDS Multi-AZ te permite tener una copia de tu base de datos en otra área para que, si hay un problema en el área principal, RDS pueda cambiar a la copia rápidamente. Esto ayuda a que tu base de datos esté disponible todo el tiempo y sea más segura. RDS se encarga de hacer las copias automáticamente.</p>
 <h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/bases-de-datos-relacionales-en-aws-con-amazon-rds-y-amazon-aurora/">Bases de datos Relacionales en AWS con Amazon RDS y Amazon Aurora</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-bases-de-datos-introduccion-basica/">Bases de Datos en AWS: introducción básica</a></li><li><a href="https://dondeaprendoaws.com/blog/amazon-redshift-el-poder-del-data-warehousing-en-aws/">Amazon Redshift: El Poder del Data Warehousing en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Aprender AWS: guía inicial</a></li></ul>
+<ul><li><a href="https://dondeaprendoaws.com/blog/bases-de-datos-relacionales-en-aws-con-amazon-rds-y-amazon-aurora/">Bases de datos relacionales en AWS con Amazon RDS y Amazon Aurora</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-bases-de-datos-introduccion-basica/">bases de datos en AWS: introducción básica</a></li><li><a href="https://dondeaprendoaws.com/blog/amazon-redshift-el-poder-del-data-warehousing-en-aws/">Amazon Redshift: el poder del data warehousing en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li></ul>

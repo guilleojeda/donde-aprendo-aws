@@ -1,25 +1,20 @@
 ---
-title: "Personalización en tiempo real con AWS: Casos de uso"
+title: "Personalización en tiempo real con AWS: casos de uso"
 description: "Descubre cómo AWS potencia la personalización en tiempo real para mejorar la experiencia del cliente y aumentar la conversión con herramientas innovadoras y casos de uso específicos."
 author: "guille-ojeda"
 publishedAt: "2024-04-29"
 publishedTimestamp: "2024-04-29T09:45:01.725Z"
-cover: "/assets/blog/80447419580996138f728ccb.jpg"
-coverAlt: "Silueta geométrica de una persona rodeada de cuadrados y triángulos"
-ogImage: "/assets/blog/80447419580996138f728ccb.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
-  - title: "Control Plane vs Data Plane en AWS App Mesh"
+  - title: "Control plane vs data plane en AWS App Mesh"
     url: "https://dondeaprendoaws.com/blog/control-plane-vs-data-plane-en-aws-app-mesh/"
-    image: "/assets/blog/97233420c8e51dbede977f2c.jpg"
-    imageAlt: ""
-  - title: "Mejores Prácticas Para AWS Lambda"
+  - title: "Mejores prácticas para AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/"
-    image: "/assets/blog/020c3be0259dc50cecb2155a.png"
-    imageAlt: ""
-  - title: "Arquitecturas Multi-Región en AWS"
+  - title: "Arquitecturas multi-región en AWS"
     url: "https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/"
-    image: "/assets/blog/bafde793116d5b5e38a659da.jpg"
-    imageAlt: ""
+
 ---
 
 <p>La personalización en tiempo real permite ofrecer contenido y experiencias personalizadas a cada usuario en tiempo real, utilizando datos y tecnología. <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> ofrece herramientas como:</p>
@@ -324,6 +319,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/servicios-de-aws-para-frontend/">Servicios de AWS para Frontend</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/">Introducción a la Inteligencia Artificial en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-machine-learning-en-aws/">Mejores Prácticas de Machine Learning en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/">Arquitecturas Multi-Región en AWS</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/servicios-de-aws-para-frontend/">Servicios de AWS para frontend</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/">Introducción a la inteligencia artificial en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-machine-learning-en-aws/">Mejores prácticas de machine learning en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/">arquitecturas multi-región en AWS</a></li>
 </ul>
 </p>

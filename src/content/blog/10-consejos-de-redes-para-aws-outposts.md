@@ -5,14 +5,13 @@ author: "guille-ojeda"
 publishedAt: "2024-05-14"
 publishedTimestamp: "2024-05-14T05:11:03.706Z"
 modifiedTimestamp: "2026-10-04T21:26:34-03:00"
-cover: "/assets/blog/d57b2c7f6d8d4785748ce1c5.png"
-coverAlt: "Árbol estilizado que brota de un dispositivo con raíces de circuitos"
-ogImage: "/assets/blog/d57b2c7f6d8d4785748ce1c5.png"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
-  - title: "Conceptos Básicos y Avanzados de Amazon VPC"
+  - title: "Conceptos básicos y avanzados de Amazon VPC"
     url: "https://dondeaprendoaws.com/blog/conceptos-basicos-y-avanzados-de-amazon-vpc/"
-    image: "/assets/blog/12c27432a1ba20e5bffcb7b0.jpg"
-    imageAlt: "Diagrama de una nube y nodos conectados sobre una superficie reflectante"
+
 ---
 
 La red de AWS Outposts depende primero del **factor de forma**. En un rack, el *service link* comunica el Outpost con su región de AWS y un **gateway local** conecta las subredes del Outpost con la red del sitio. En un servidor, el *service link* también llega a la región, pero la conexión con la LAN se hace mediante una **interfaz de red local (LNI)**. Son rutas y controles diferentes; por eso, no hay una configuración única que sirva para todos los Outposts.
@@ -37,7 +36,7 @@ La guía siguiente explica qué hace cada ruta, qué papel cumple BGP y qué rev
 
 Consulta [cómo se conecta un rack de primera generación](https://docs.aws.amazon.com/outposts/latest/userguide/local-rack.html), [los requisitos de red de racks de segunda generación](https://docs.aws.amazon.com/outposts/latest/network-userguide/outposts-rack2ndgen-requirements.html) y [cómo se conecta un servidor](https://docs.aws.amazon.com/outposts/latest/server-userguide/local-server.html) antes de trasladar una recomendación de un factor de forma al otro. Las velocidades, cantidades de puertos y requisitos físicos dependen del modelo y la generación.
 
-## 2. Qué hace el service link
+## 2. Qué hace el Service Link
 
 El *service link* es una conexión lógica cifrada entre el Outpost y su región principal. Lleva tráfico de administración —como monitoreo y actualizaciones— y tráfico entre el Outpost y las VPC asociadas, incluido tráfico de datos de clientes. No es una ruta genérica para llegar a la LAN local.
 
@@ -61,7 +60,7 @@ Para practicar esos fundamentos con grabaciones de comunidades, puedes seguir [A
 
 Si el diseño conecta varias cuentas, la presentación de AWS User Group Perú [“AWS Transit Gateway en estrategias de multi cuentas”](https://www.youtube.com/watch?v=W4jdwSYDz4k) sirve para repasar ese patrón. Es una grabación de 2020: úsala para conceptos y contrasta los procedimientos con la documentación actual.
 
-## 4. Planifica el service link con los límites documentados
+## 4. Planifica el Service Link con los límites documentados
 
 AWS publica requisitos distintos para racks y servidores. Como referencia, ambas guías piden **MTU de 1500 bytes entre el Outpost y los endpoints del service link**. Por el encapsulamiento, el tráfico entre una instancia de Outposts y otra de la región tiene una MTU de 1300 bytes. Comprueba el camino completo y no confundas la MTU del transporte con la MTU de ese tráfico entre instancias.
 
@@ -81,7 +80,7 @@ Para revisar direccionamiento IP, AWS Women Colombia publicó [“Networking en 
 
 No existe un diseño universal de BGP, CIDR, VLAN o rutas. Parte del diagrama de red, de los prefijos que ya usa la empresa, de la política de seguridad y de las dependencias locales y regionales; luego valida los parámetros exactos con la guía de instalación correspondiente.
 
-## 5. Qué ocurre si se interrumpe el service link
+## 5. Qué ocurre si se interrumpe el Service Link
 
 La pérdida del *service link* no equivale a apagar todo el Outpost, pero tampoco garantiza que todas las aplicaciones sigan funcionando. Mientras dura una interrupción, las operaciones quedan limitadas a la actividad local. AWS indica que las instancias EC2, los volúmenes EBS y el gateway local del rack continúan funcionando y se pueden alcanzar desde la red local. En servidores, las instancias, el almacenamiento local y el tráfico LNI también pueden continuar accesibles localmente. Las aplicaciones que dependen de recursos de la región sí pueden verse afectadas.
 
@@ -108,7 +107,7 @@ CloudTrail ayuda a revisar cambios de configuración y llamadas a la API; no mue
 
 ## Preguntas frecuentes sobre redes en AWS Outposts
 
-### ¿El service link conecta las instancias con mi red local?
+### ¿El Service Link conecta las instancias con mi red local?
 
 No es la ruta local de propósito general. En un rack, esa función corresponde al gateway local. En un servidor, corresponde a la LNI. El *service link* comunica el Outpost con su región y también lleva tráfico entre el Outpost y las VPC asociadas.
 
@@ -122,4 +121,4 @@ Las instancias y los caminos locales pueden seguir activos, pero las operaciones
 
 ## Comunidades para seguir conversando
 
-Para compartir un diagrama o plantear dudas sobre redes AWS, puedes explorar [AWS User Group Perú](https://awsugperu.cloud/), [AWS User Group Panamá](https://www.meetup.com/aws-user-group-panama/), [AWS User Group Medellín](https://www.meetup.com/awsugmed/) y los grupos de [Córdoba](https://www.meetup.com/aws-user-group-cordoba-argentina/) y [Buenos Aires](https://www.meetup.com/aws-user-group-buenos-aires/). Son comunidades generales de AWS, no grupos dedicados exclusivamente a Outposts. Medellín publica además un canal de Slack en su página de Meetup. La [agenda de eventos de Dónde Aprendo AWS](https://dondeaprendoaws.com/eventos/) reúne actividades vigentes y enlaza a las páginas de inscripción de sus organizadores; revisa allí la fecha, modalidad y condiciones actuales.
+Para compartir un diagrama o plantear dudas sobre redes AWS, puedes explorar [AWS User Group Perú](https://awsugperu.cloud/), [AWS User Group Panamá](https://www.meetup.com/aws-user-group-panama/), [AWS User Group Medellín](https://www.meetup.com/awsugmed/) y los grupos de [Córdoba](https://www.meetup.com/aws-user-group-cordoba-argentina/) y [Buenos Aires](https://www.meetup.com/aws-user-group-buenos-aires/). Son comunidades generales de AWS, no grupos dedicados exclusivamente a Outposts. Medellín publica además un canal de Slack en su página de Meetup. La [Agenda de eventos de Dónde Aprendo AWS](https://dondeaprendoaws.com/eventos/) reúne actividades vigentes y enlaza a las páginas de inscripción de sus organizadores; revisa allí la fecha, modalidad y condiciones actuales.

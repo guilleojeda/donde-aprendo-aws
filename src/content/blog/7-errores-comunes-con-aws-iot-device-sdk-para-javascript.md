@@ -7,9 +7,9 @@ publishedTimestamp: "2024-04-30T04:58:42.738Z"
 modifiedTimestamp: "2026-10-04T22:31:52-03:00"
 review:
   date: "2026-10-04"
-cover: "/assets/blog/fc596e41b0cacbc6f7d02513.jpg"
-coverAlt: "Nube central rodeada por círculos con símbolos de conexión, herramientas y energía"
-ogImage: "/assets/blog/fc596e41b0cacbc6f7d02513.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related: []
 ---
 
@@ -109,4 +109,4 @@ AWS proporciona documentación y ejemplos técnicos para [conectar un dispositiv
 
 Si quieres conversar sobre AWS con otras personas, consulta las actividades de [AWS User Group Perú](https://awsugperu.cloud/) o [AWS User Group Ecuador](https://www.awsugecuador.com/). Son comunidades generales de AWS; sus páginas muestran cómo seguir sus eventos y actividades, sin presentarlas como grupos especializados en este SDK.
 
-La [agenda de eventos AWS en Latinoamérica](https://dondeaprendoaws.com/eventos/) se actualiza con encuentros de las comunidades y permite revisar modalidad, país, fecha e inscripción. Confirma la fecha y las condiciones en cada ficha antes de participar.
+La [Agenda de eventos AWS en Latinoamérica](https://dondeaprendoaws.com/eventos/) se actualiza con encuentros de las comunidades y permite revisar modalidad, país, fecha e inscripción. Confirma la fecha y las condiciones en cada ficha antes de participar.

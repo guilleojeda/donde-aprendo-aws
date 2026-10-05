@@ -1,25 +1,20 @@
 ---
-title: "Cómo Habilitar CloudWatch Logs en API Gateway: Guía Paso a Paso"
+title: "Cómo habilitar CloudWatch Logs en API Gateway: guía paso a paso"
 description: "Aprende cómo configurar CloudWatch Logs en API Gateway para monitorear y optimizar tus APIs. Sigue esta guía paso a paso desde la creación de roles IAM hasta el análisis de registros."
 author: "guille-ojeda"
 publishedAt: "2024-04-29"
 publishedTimestamp: "2024-04-29T07:48:00.212Z"
-cover: "/assets/blog/f256f4a211663872e566e67f.jpg"
-coverAlt: "Camino de bloques que conduce a una nube con una llave"
-ogImage: "/assets/blog/f256f4a211663872e566e67f.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Seguridad y Control de Costos en AWS: Guía 2024"
+  - title: "Seguridad y control de costos en AWS: guía 2024"
     url: "https://dondeaprendoaws.com/blog/seguridad-y-control-de-costos-en-aws-guia-2024/"
-    image: "/assets/blog/fa1b6e3bfee7c71b39327fcd.jpg"
-    imageAlt: ""
-  - title: "Mejores Prácticas Para Amazon ECS"
+  - title: "Mejores prácticas para Amazon ECS"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ecs/"
-    image: "/assets/blog/826c9a11a84720138c6c6ed3.jpg"
-    imageAlt: ""
-  - title: "AWS Seguridad: Fundamentos Esenciales"
+  - title: "AWS seguridad: fundamentos esenciales"
     url: "https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/"
-    image: "/assets/blog/15bc5fcf943d474b0b00277c.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Configurar <a href="https://aws.amazon.com/cloudwatch/" rel="noopener noreferrer" target="_blank">CloudWatch</a> Logs para <a href="https://aws.amazon.com/api-gateway/" rel="noopener noreferrer" target="_blank">API Gateway</a> es crucial para monitorear y depurar APIs REST y WebSocket. Esta guía te enseña cómo habilitar CloudWatch Logs, desde crear un rol de IAM hasta configurar formatos de registro de acceso.</p>
@@ -135,7 +130,7 @@ related:
 <p><figure><img alt="API Gateway" src="/assets/blog/ad213751f1e388f278f0d764.jpg"/></figure></p>
 
 
-<h3 id="crear-un-rol-de-iam-para-registro" tabindex="-1">Crear un Rol de IAM para Registro</h3>
+<h3 id="crear-un-rol-de-iam-para-registro" tabindex="-1">Crear un rol de IAM para registro</h3>
 
 
 <p>Para habilitar CloudWatch Logs en API Gateway, debes crear un rol de IAM que tenga los permisos necesarios para escribir registros en CloudWatch. Sigue estos pasos para crear un rol de IAM para registro:</p>
@@ -144,7 +139,7 @@ related:
 <p>1. Inicia sesión en la consola de AWS y ve a la página de IAM. 2. Haz clic en "Roles" en el panel de navegación y luego haz clic en "Crear rol". 3. Selecciona "API Gateway" como el servicio que utilizará el rol. 4. Asigna los permisos necesarios para escribir registros en CloudWatch. Puedes hacer esto agregando la política de IAM "AmazonAPIGatewayPushToCloudWatchLogs" al rol. 5. Guarda el rol y anota el ARN del rol.</p>
 
 
-<h3 id="asociar-el-rol-de-iam-con-api-gateway" tabindex="-1">Asociar el Rol de IAM con API Gateway</h3>
+<h3 id="asociar-el-rol-de-iam-con-api-gateway" tabindex="-1">Asociar el rol de IAM con API Gateway</h3>
 
 
 <p>Una vez que hayas creado el rol de IAM, debes asociarlo con tu API Gateway. Sigue estos pasos para asociar el rol de IAM con API Gateway:</p>
@@ -153,7 +148,7 @@ related:
 <p>1. Ve a la página de API Gateway, selecciona tu API y luego ve a la pestaña "Settings". 2. En la sección "CloudWatch log role ARN", ingresa el ARN del rol de IAM que creaste. 3. Guarda los cambios.</p>
 
 
-<h3 id="habilitar-registro-de-ejecuci%C3%B3n-para-etapas-de-api" tabindex="-1">Habilitar Registro de Ejecución para Etapas de API</h3>
+<h3 id="habilitar-registro-de-ejecuci%C3%B3n-para-etapas-de-api" tabindex="-1">Habilitar registro de ejecución para etapas de API</h3>
 
 
 <p>Una vez que hayas asociado el rol de IAM con API Gateway, puedes habilitar el registro de ejecución para tus etapas de API. Sigue estos pasos para habilitar el registro de ejecución:</p>
@@ -187,7 +182,7 @@ related:
 </table></figure>
 
 
-<h3 id="configurar-formatos-de-registro-de-acceso" tabindex="-1">Configurar Formatos de Registro de Acceso</h3>
+<h3 id="configurar-formatos-de-registro-de-acceso" tabindex="-1">Configurar formatos de registro de acceso</h3>
 
 
 <p>Finalmente, puedes configurar los formatos de registro de acceso para tus API. Sigue estos pasos para configurar los formatos de registro de acceso:</p>
@@ -224,13 +219,13 @@ related:
 <p>Con estos pasos, habrás habilitado CloudWatch Logs para tu API Gateway y podrás ver los registros de ejecución y acceso en la consola de CloudWatch.</p>
 
 
-<h2 id="probar-la-integraci%C3%B3n-de-registros-de-cloudwatch" tabindex="-1">Probar la Integración de Registros de CloudWatch</h2>
+<h2 id="probar-la-integraci%C3%B3n-de-registros-de-cloudwatch" tabindex="-1">Probar la integración de registros de CloudWatch</h2>
 
 
 <p>Después de configurar la integración de registros de CloudWatch, es importante probar que funcione correctamente.</p>
 
 
-<h3 id="enviar-solicitudes-de-prueba-a-su-api" tabindex="-1">Enviar Solicitudes de Prueba a Su API</h3>
+<h3 id="enviar-solicitudes-de-prueba-a-su-api" tabindex="-1">Enviar solicitudes de prueba a su API</h3>
 
 
 <p>Para probar la integración de registros de CloudWatch, debe enviar solicitudes de prueba a su API. Puede utilizar herramientas como <a href="https://www.postman.com/" rel="noopener noreferrer" target="_blank">Postman</a> o <a href="https://curl.se/" rel="noopener noreferrer" target="_blank">cURL</a> para enviar solicitudes a su API. Asegúrese de incluir headers y parámetros relevantes en su solicitud.</p>
@@ -239,7 +234,7 @@ related:
 <p>Una vez que haya enviado la solicitud, espere unos minutos para que los registros se generen en CloudWatch. Luego, vaya a la consola de CloudWatch y busque los registros de su API. Debe ver los registros de ejecución y acceso en la consola de CloudWatch.</p>
 
 
-<h3 id="ver-registros-en-la-consola-de-cloudwatch" tabindex="-1">Ver Registros en la Consola de CloudWatch</h3>
+<h3 id="ver-registros-en-la-consola-de-cloudwatch" tabindex="-1">Ver registros en la consola de CloudWatch</h3>
 
 
 <p>Para ver los registros en la consola de CloudWatch, siga estos pasos:</p>
@@ -283,13 +278,13 @@ related:
 <p>Con estos pasos, podrá probar la integración de registros de CloudWatch y asegurarse de que se estén generando correctamente.</p>
 
 
-<h2 id="solucionar-problemas-de-registro" tabindex="-1">Solucionar Problemas de Registro</h2>
+<h2 id="solucionar-problemas-de-registro" tabindex="-1">Solucionar problemas de registro</h2>
 
 
 <p>Presenta problemas de registro comunes y sus soluciones, asegurando un proceso de configuración suave.</p>
 
 
-<h3 id="corregir-errores-de-permiso" tabindex="-1">Corregir Errores de Permiso</h3>
+<h3 id="corregir-errores-de-permiso" tabindex="-1">Corregir errores de permiso</h3>
 
 
 <p>Discute cómo resolver errores de roles y políticas de IAM que pueden obstaculizar el registro.</p>
@@ -301,7 +296,7 @@ related:
 <p>Además, asegúrese de que el rol de IAM esté activado para todas las regiones de AWS donde desee habilitar registros de CloudWatch. Puede hacer esto verificando la configuración del rol de IAM en la consola de AWS Management.</p>
 
 
-<h3 id="corregir-errores-de-formato-de-registro" tabindex="-1">Corregir Errores de Formato de Registro</h3>
+<h3 id="corregir-errores-de-formato-de-registro" tabindex="-1">Corregir errores de formato de registro</h3>
 
 
 <p>Ofrece consejos sobre el uso correcto de variables de formato de registro y soluciona problemas relacionados con el formato.</p>
@@ -313,7 +308,7 @@ related:
 <p>Si encuentra problemas con formatos de registro, verifique los registros de API Gateway para errores y solucione según sea necesario. También puede probar sus formatos de registro utilizando la consola de API Gateway o una herramienta como Postman.</p>
 
 
-<h3 id="abordar-la-falta-de-datos-de-registro" tabindex="-1">Abordar la Falta de Datos de Registro</h3>
+<h3 id="abordar-la-falta-de-datos-de-registro" tabindex="-1">Abordar la falta de datos de registro</h3>
 
 
 <p>Explora las causas potenciales de la falta de registros y estrategias para asegurarse de que los registros se capturen completamente.</p>
@@ -328,13 +323,13 @@ related:
 <p>Al solucionar estos problemas comunes, puede asegurarse de que sus registros de CloudWatch estén configurados correctamente y capturen los datos requeridos.</p>
 
 
-<h2 id="utilizar-cloudwatch-insights-para-an%C3%A1lisis-de-registros" tabindex="-1">Utilizar CloudWatch Insights para Análisis de Registros</h2>
+<h2 id="utilizar-cloudwatch-insights-para-an%C3%A1lisis-de-registros" tabindex="-1">Utilizar CloudWatch Insights para análisis de registros</h2>
 
 
 <p>Utilizar CloudWatch Insights es una forma efectiva de analizar los registros de su API y mejorar su rendimiento.</p>
 
 
-<h3 id="crear-consultas-en-cloudwatch-insights" tabindex="-1">Crear Consultas en CloudWatch Insights</h3>
+<h3 id="crear-consultas-en-cloudwatch-insights" tabindex="-1">Crear consultas en CloudWatch Insights</h3>
 
 
 <p>Para crear consultas en CloudWatch Insights, siga estos pasos:</p>
@@ -356,7 +351,7 @@ related:
 </code></pre>
 
 
-<h3 id="analizar-registros-para-optimizar-la-api" tabindex="-1">Analizar Registros para Optimizar la API</h3>
+<h3 id="analizar-registros-para-optimizar-la-api" tabindex="-1">Analizar registros para optimizar la API</h3>
 
 
 <p>Al analizar los registros en CloudWatch Insights, puede identificar patrones y tendencias que pueden ayudar a mejorar el rendimiento de su API. Por ejemplo, puede:</p>
@@ -400,7 +395,7 @@ related:
 </table></figure>
 
 
-<h2 id="conclusi%C3%B3n%3A-registros-de-cloudwatch-para-la-gesti%C3%B3n-de-api" tabindex="-1">Conclusión: Registros de CloudWatch para la Gestión de API</h2>
+<h2 id="conclusi%C3%B3n%3A-registros-de-cloudwatch-para-la-gesti%C3%B3n-de-api" tabindex="-1">Conclusión: registros de CloudWatch para la gestión de API</h2>
 
 
 <p>En resumen, habilitar registros de CloudWatch en API Gateway es un paso crucial para mantener APIs de alta performance y seguridad. En esta guía, hemos cubierto los pasos detallados para configurar registros de CloudWatch, desde la creación de un rol de IAM hasta la configuración de formatos de registro de acceso. También hemos explorado las ventajas de utilizar CloudWatch Insights para analizar los registros y mejorar el rendimiento de la API.</p>
@@ -440,7 +435,7 @@ related:
 <p>Al habilitar registros de CloudWatch, puede identificar patrones y tendencias en los registros, optimizar los endpoints lentos, reducir errores y ajustar la capacidad de su API para manejar picos de tráfico. Siguiendo los pasos detallados en esta guía, puede asegurarse de que su API esté funcionando de manera óptima y segura.</p>
 
 
-<h2 id="preguntas-frecuentes" tabindex="-1">Preguntas Frecuentes</h2>
+<h2 id="preguntas-frecuentes" tabindex="-1">Preguntas frecuentes</h2>
 
 
 <h3 id="%C2%BFc%C3%B3mo-obtengo-registros-de-aws-api-gateway%3F" tabindex="-1">¿Cómo obtengo registros de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> API Gateway?</h3>
@@ -501,6 +496,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/">Mejores Prácticas de Observabilidad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/observabilidad-en-aws-con-amazon-x-ray/">Observabilidad en AWS con Amazon X-Ray</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores Prácticas de Seguridad en AWS</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/">Mejores prácticas de observabilidad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/observabilidad-en-aws-con-amazon-x-ray/">Observabilidad en AWS con Amazon X-Ray</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores prácticas de seguridad en AWS</a></li>
 </ul>
 </p>

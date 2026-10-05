@@ -2,8 +2,8 @@
 import '../../styles/blog.css';
 import { getCollection } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import BlogHeader from '../../components/BlogHeader.astro';
-import BlogFooter from '../../components/BlogFooter.astro';
+import SiteHeader from '../../components/SiteHeader.astro';
+import SiteFooter from '../../components/SiteFooter.astro';
 
 const allPosts = await getCollection('blog');
 const posts = allPosts
@@ -21,16 +21,16 @@ if (posts.some((post, index) => post.data.indexOrder !== index + 1)) {
 
 <BaseLayout
   title="Guías y tutoriales AWS en español | Dónde Aprendo AWS"
-  description="Explorá guías, tutoriales y recursos de AWS en español sobre fundamentos, certificaciones, arquitectura, seguridad y desarrollo."
+  description="Explora guías, tutoriales y recursos de AWS en español sobre fundamentos, certificaciones, arquitectura, seguridad y desarrollo."
   canonical="https://dondeaprendoaws.com/blog/"
 >
-  <BlogHeader />
+  <SiteHeader />
   <main id="contenido" tabindex="-1" class="blog-index" aria-label="Artículos del blog">
     <header class="blog-index__intro">
       <h1>Guías y tutoriales AWS en español</h1>
-      <p>El blog de Dónde Aprendo AWS reúne {allPosts.length} artículos sobre Amazon Web Services. Elegí una lectura destacada, <a href="#blog-archive-title">explorá el archivo por año</a> o <a href="/buscar/">buscá un tema</a>.</p>
+      <p>El blog de Dónde Aprendo AWS reúne {allPosts.length} artículos sobre Amazon Web Services. Elige una lectura destacada, <a href="#blog-archive-title">explora el archivo por año</a> o <a href="/buscar/">busca un tema</a>.</p>
       <nav class="blog-index__routes" aria-label="Leer con una ruta de aprendizaje">
-        <span>¿Querés leer en orden?</span>
+        <span>¿Quieres leer en orden?</span>
         <a href="/recorridos/primeros-pasos/">Primeros pasos</a>
         <a href="/recorridos/serverless/">Serverless</a>
         <a href="/recorridos/seguridad/">Seguridad</a>
@@ -63,5 +63,5 @@ if (posts.some((post, index) => post.data.indexOrder !== index + 1)) {
       ))}
     </section>
   </main>
-  <BlogFooter />
+  <SiteFooter />
 </BaseLayout>

@@ -4,28 +4,23 @@ description: "Fundamentos de cloud computing, modelos de servicio, aplicaciones,
 author: "guille-ojeda"
 publishedAt: "2024-01-26"
 publishedTimestamp: "2024-01-26T05:05:32.947Z"
-cover: "/assets/blog/9d8403a4cf66ec6c49656be3.jpg"
-coverAlt: "Nube de iconos pequeños sobre una plataforma azul"
-ogImage: "/assets/blog/9d8403a4cf66ec6c49656be3.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
-  - title: "Estrategias de Recuperación de Desastres en AWS"
+  - title: "Estrategias de recuperación de desastres en AWS"
     url: "https://dondeaprendoaws.com/blog/estrategias-de-recuperacion-de-desastres-en-aws/"
-    image: "/assets/blog/df6cee7d6c3bd49e97412d95.jpg"
-    imageAlt: ""
-  - title: "Bases de datos Relacionales en AWS con Amazon RDS y Amazon Aurora"
+  - title: "Bases de datos relacionales en AWS con Amazon RDS y Amazon Aurora"
     url: "https://dondeaprendoaws.com/blog/bases-de-datos-relacionales-en-aws-con-amazon-rds-y-amazon-aurora/"
-    image: "/assets/blog/a57ee6c77803a35c0e96c332.jpg"
-    imageAlt: ""
-  - title: "AWS Seguridad: Fundamentos Esenciales"
+  - title: "AWS seguridad: fundamentos esenciales"
     url: "https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/"
-    image: "/assets/blog/15bc5fcf943d474b0b00277c.jpg"
-    imageAlt: ""
+
 ---
 
 <p>En este artículo, explicaremos los fundamentos básicos de cloud computing de una manera clara y concisa. Aprenderás sobre los diferentes modelos de servicio en la nube como IaaS, PaaS y SaaS, las distintas arquitecturas de nubes públicas, privadas e híbridas, ejemplos de implementación en AWS y mucho más.</p>
 
 
-<h2 id="introducci%C3%B3n-a-la-computaci%C3%B3n-en-la-nube%3A-fundamentos-y-aplicaciones" tabindex="-1">Introducción a la computación en la nube: Fundamentos y aplicaciones</h2>
+<h2 id="introducci%C3%B3n-a-la-computaci%C3%B3n-en-la-nube%3A-fundamentos-y-aplicaciones" tabindex="-1">Introducción a la computación en la nube: fundamentos y aplicaciones</h2>
 
 
 <p>La computación en la nube, o cloud computing, se ha convertido en una parte integral de la tecnología en la actualidad. Permite acceder a recursos informáticos como almacenamiento, procesamiento y software a través de internet en lugar de tenerlos instalados localmente. Esto ofrece grandes ventajas de escalabilidad, eficiencia y ahorro de costos.</p>
@@ -86,7 +81,7 @@ related:
 </ul>
 
 
-<h3 id="c%C3%B3mo-funciona-el-cloud-computing%3A-una-mirada-a-la-tecnolog%C3%ADa-subyacente" tabindex="-1">Cómo funciona el cloud computing: Una mirada a la tecnología subyacente</h3>
+<h3 id="c%C3%B3mo-funciona-el-cloud-computing%3A-una-mirada-a-la-tecnolog%C3%ADa-subyacente" tabindex="-1">Cómo funciona el cloud computing: una mirada a la tecnología subyacente</h3>
 
 
 <p>La computación en la nube se basa en la <strong>virtualización</strong>, que permite simular hardware y ejecutar múltiples máquinas virtuales en un mismo servidor físico. Esto maximiza la utilización de recursos.</p>
@@ -182,7 +177,7 @@ related:
 <p>La computación en la nube ofrece tres modelos de servicio principales para satisfacer diferentes necesidades empresariales:</p>
 
 
-<h3 id="infraestructura-como-servicio-(iaas)%3A-flexibilidad-y-control-del-hardware" tabindex="-1">Infraestructura como servicio (IaaS): Flexibilidad y control del hardware</h3>
+<h3 id="infraestructura-como-servicio-(iaas)%3A-flexibilidad-y-control-del-hardware" tabindex="-1">Infraestructura como servicio (IaaS): flexibilidad y control del hardware</h3>
 
 
 <p>IaaS permite a las empresas alquilar infraestructura de TI como servidores, máquinas virtuales, almacenamiento y redes. En lugar de invertir en hardware, las empresas pueden escalar estos recursos según sea necesario.</p>
@@ -201,7 +196,7 @@ related:
 <p>Los principales proveedores de IaaS incluyen Amazon Web Services (AWS), Microsoft Azure y Google Cloud Platform. AWS ofrece servicios populares como EC2 para computación en la nube y S3 para almacenamiento de objetos.</p>
 
 
-<h3 id="plataforma-como-servicio-(paas)%3A-desarrollo-e-implementaci%C3%B3n-simplificados" tabindex="-1">Plataforma como servicio (PaaS): Desarrollo e implementación simplificados</h3>
+<h3 id="plataforma-como-servicio-(paas)%3A-desarrollo-e-implementaci%C3%B3n-simplificados" tabindex="-1">Plataforma como servicio (PaaS): desarrollo e implementación simplificados</h3>
 
 
 <p>PaaS proporciona un entorno para desarrollar, probar e implementar aplicaciones en la nube sin tener que administrar la infraestructura subyacente.</p>
@@ -220,7 +215,7 @@ related:
 <p>Ejemplos populares de PaaS incluyen Google App Engine, Red Hat OpenShift y Cloud Foundry. Estas plataformas admiten varios lenguajes de programación y marcos de aplicaciones.</p>
 
 
-<h3 id="software-como-servicio-(saas)%3A-aplicaciones-accesibles-a-trav%C3%A9s-de-la-nube" tabindex="-1">Software como servicio (SaaS): Aplicaciones accesibles a través de la nube</h3>
+<h3 id="software-como-servicio-(saas)%3A-aplicaciones-accesibles-a-trav%C3%A9s-de-la-nube" tabindex="-1">Software como servicio (SaaS): aplicaciones accesibles a través de la nube</h3>
 
 
 <p>SaaS entrega software basado en la nube que se ejecuta en la infraestructura del proveedor y se accede a través de Internet. No es necesario descargar o instalar aplicaciones en dispositivos individuales.</p>
@@ -244,13 +239,13 @@ related:
 
 
 
-<h2 id="arquitecturas-de-cloud-computing%3A-nubes-p%C3%BAblicas%2C-privadas-e-h%C3%ADbridas" tabindex="-1">Arquitecturas de cloud computing: Nubes públicas, privadas e híbridas</h2>
+<h2 id="arquitecturas-de-cloud-computing%3A-nubes-p%C3%BAblicas%2C-privadas-e-h%C3%ADbridas" tabindex="-1">Arquitecturas de cloud computing: nubes públicas, privadas e híbridas</h2>
 
 
 <p>Se detallan las diferentes configuraciones de nubes y cómo estas afectan la escalabilidad, la elasticidad y la seguridad de las soluciones de cloud computing.</p>
 
 
-<h3 id="nubes-p%C3%BAblicas%3A-acceso-amplio-y-recursos-compartidos" tabindex="-1">Nubes públicas: Acceso amplio y recursos compartidos</h3>
+<h3 id="nubes-p%C3%BAblicas%3A-acceso-amplio-y-recursos-compartidos" tabindex="-1">Nubes públicas: acceso amplio y recursos compartidos</h3>
 
 
 <p>Las <strong>nubes públicas</strong> ofrecen recursos informáticos alojados en data centers de proveedores como Amazon Web Services (AWS), Microsoft Azure o Google Cloud Platform. Estos recursos, como servidores, almacenamiento y redes, se ponen a disposición de múltiples inquilinos a través de internet.</p>
@@ -269,7 +264,7 @@ related:
 <p>Las nubes públicas son ideales para <strong>aplicaciones web</strong>, <strong>mobile</strong> y trabajo en la nube colaborativo. Sin embargo, al compartir la infraestructura con otros inquilinos, pueden presentar riesgos de seguridad y privacidad de datos.</p>
 
 
-<h3 id="nubes-privadas-y-nube-privada-virtual-(vpn)%3A-seguridad-y-control-exclusivo" tabindex="-1">Nubes privadas y nube privada virtual (VPN): Seguridad y control exclusivo</h3>
+<h3 id="nubes-privadas-y-nube-privada-virtual-(vpn)%3A-seguridad-y-control-exclusivo" tabindex="-1">Nubes privadas y nube privada virtual (VPN): seguridad y control exclusivo</h3>
 
 
 <p>Las <strong>nubes privadas</strong> son infraestructuras cloud administradas por la propia organización o un proveedor externo, pero de uso exclusivo interno. Típicamente se alojan en el centro de datos local o en una instalación dedicada fuera de las instalaciones.</p>
@@ -291,7 +286,7 @@ related:
 <p>Las nubes privadas son ideales para organizaciones con aplicaciones críticas, datos sensibles o sujetas a estrictos requisitos de cumplimiento.</p>
 
 
-<h3 id="nubes-h%C3%ADbridas%3A-combinando-lo-mejor-de-ambos-mundos" tabindex="-1">Nubes híbridas: Combinando lo mejor de ambos mundos</h3>
+<h3 id="nubes-h%C3%ADbridas%3A-combinando-lo-mejor-de-ambos-mundos" tabindex="-1">Nubes híbridas: combinando lo mejor de ambos mundos</h3>
 
 
 <p>Una <strong>nube híbrida</strong> integra infraestructuras de nubes privadas y públicas, permitiendo a las empresas ser flexibles en cómo despliegan sus aplicaciones. Por ejemplo, se pueden alojar aplicaciones sensibles en la nube privada, mientras se escalan aplicaciones web en la nube pública.</p>
@@ -316,7 +311,7 @@ related:
 <p>Amazon Web Services (AWS) ofrece una amplia gama de servicios de cloud computing que permiten a las organizaciones migrar sus cargas de trabajo a la nube. Algunos de los servicios más populares de AWS incluyen:</p>
 
 
-<h3 id="ec2-y-la-virtualizaci%C3%B3n-en-aws%3A-pilares-de-la-computaci%C3%B3n-distribuida" tabindex="-1">EC2 y la virtualización en AWS: Pilares de la computación distribuida</h3>
+<h3 id="ec2-y-la-virtualizaci%C3%B3n-en-aws%3A-pilares-de-la-computaci%C3%B3n-distribuida" tabindex="-1">EC2 y la virtualización en AWS: pilares de la computación distribuida</h3>
 
 
 <p>Amazon Elastic Compute Cloud (Amazon EC2) proporciona capacidad informática escalable en la nube. Permite a los usuarios alquilar máquinas virtuales (EC2 instances) y gestionar clústers de máquinas virtuales para desplegar aplicaciones.</p>
@@ -372,7 +367,7 @@ related:
 <p>Estos servicios de bases de datos en la nube permiten a los desarrolladores centrarse en crear aplicaciones en lugar de gestionar infraestructura. Proporcionan escalabilidad y flexibilidad para manejar grandes volúmenes de datos.</p>
 
 
-<h3 id="red-hat-y-openshift-en-el-ecosistema-aws" tabindex="-1">Red Hat y OpenShift en el ecosistema AWS</h3>
+<h3 id="red-hat-y-openshift-en-el-ecosistema-aws" tabindex="-1">Red hat y OpenShift en el ecosistema AWS</h3>
 
 
 <p>AWS y Red Hat han establecido una estrecha colaboración para permitir a los clientes crear, ejecutar y gestionar aplicaciones en la nube híbrida.</p>
@@ -401,7 +396,7 @@ related:
 </ul>
 
 
-<h3 id="seguridad-de-la-nube%3A-mejores-pr%C3%A1cticas-y-herramientas" tabindex="-1">Seguridad de la nube: Mejores prácticas y herramientas</h3>
+<h3 id="seguridad-de-la-nube%3A-mejores-pr%C3%A1cticas-y-herramientas" tabindex="-1">Seguridad de la nube: mejores prácticas y herramientas</h3>
 
 
 <ul>
@@ -441,7 +436,7 @@ related:
 <p>Por ejemplo, los servicios de visión artificial basados en la nube ahora pueden clasificar imágenes y detectar objetos con una precisión comparable a la de los humanos. Del mismo modo, el procesamiento del lenguaje natural basado en la nube permite traducir texto entre idiomas, analizar opiniones y sentimientos, y mucho más. Estas innovaciones están transformando industrias como la atención médica, la fabricación, la logística y el comercio minorista.</p>
 
 
-<h3 id="iot-y-big-data%3A-impulsores-de-innovaci%C3%B3n-en-la-nube" tabindex="-1">IoT y big data: Impulsores de innovación en la nube</h3>
+<h3 id="iot-y-big-data%3A-impulsores-de-innovaci%C3%B3n-en-la-nube" tabindex="-1">IoT y big data: impulsores de innovación en la nube</h3>
 
 
 <p>La Internet de las Cosas (IoT) y el big data están impulsando enormes innovaciones habilitadas por la nube. Los sensores IoT ahora recopilan cantidades masivas de datos en tiempo real sobre todo, desde la eficiencia energética de los edificios hasta los patrones del tráfico vehicular. La nube proporciona la escalabilidad necesaria para ingerir, almacenar, procesar y analizar estos grandes conjuntos de datos.</p>
@@ -450,7 +445,7 @@ related:
 <p>Por ejemplo, las ciudades inteligentes aprovechan IoT y big data en la nube para optimizar la gestión del tráfico, mejorar los servicios públicos y aumentar la eficiencia operativa. Del mismo modo, las empresas utilizan análisis de big data en la nube para obtener información valiosa sobre las preferencias y el comportamiento de los clientes.</p>
 
 
-<h3 id="devops-y-devsecops%3A-integraci%C3%B3n-y-entrega-continuas-en-la-nube" tabindex="-1">DevOps y DevSecOps: Integración y entrega continuas en la nube</h3>
+<h3 id="devops-y-devsecops%3A-integraci%C3%B3n-y-entrega-continuas-en-la-nube" tabindex="-1">DevOps y DevSecOps: integración y entrega continuas en la nube</h3>
 
 
 <p>Las prácticas de DevOps permiten a los equipos de desarrollo e operaciones colaborar estrechamente para acelerar el ciclo de entrega de aplicaciones. La nube actúa como un habilitador clave de DevOps, proporcionando infraestructura programable y servicios administrados que simplifican enormemente la implementación, prueba y lanzamiento de aplicaciones.</p>
@@ -462,7 +457,7 @@ related:
 <p>En resumen, las tendencias como la IA, IoT, big data, DevOps y DevSecOps están impulsando una nueva ola de innovación en la computación en la nube. A medida que la nube continúe evolucionando, esperamos ver aún más aplicaciones transformadoras que aprovechen su escala, agilidad y flexibilidad.</p>
 
 
-<h2 id="conclusi%C3%B3n%3A-resumen-y-reflexiones-finales" tabindex="-1">Conclusión: Resumen y reflexiones finales</h2>
+<h2 id="conclusi%C3%B3n%3A-resumen-y-reflexiones-finales" tabindex="-1">Conclusión: resumen y reflexiones finales</h2>
 
 
 <h3 id="recapitulaci%C3%B3n-de-los-fundamentos-de-cloud-computing" tabindex="-1">Recapitulación de los fundamentos de cloud computing</h3>
@@ -504,6 +499,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/desarrollo-en-la-nube-fundamentos-esenciales/">Desarrollo en la nube: fundamentos esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/">Introducción a los servicios de Amazon Web Services</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS Seguridad: Fundamentos Esenciales</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/desarrollo-en-la-nube-fundamentos-esenciales/">Desarrollo en la nube: fundamentos esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/">Introducción a los servicios de Amazon Web Services</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS seguridad: fundamentos esenciales</a></li>
 </ul>
 </p>

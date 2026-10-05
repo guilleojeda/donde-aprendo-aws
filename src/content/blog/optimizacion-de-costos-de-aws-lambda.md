@@ -1,26 +1,21 @@
 ---
-title: "Optimización de Costos de AWS Lambda"
+title: "Optimización de costos de AWS Lambda"
 description: "Consejos y estrategias para optimizar los costos de AWS Lambda sin sacrificar el rendimiento. Aprende a ajustar la memoria, el tiempo de ejecución y la concurrencia para reducir gastos."
 author: "guille-ojeda"
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T01:39:56.043Z"
 modifiedTimestamp: "2026-10-01T15:14:05-03:00"
-cover: "/assets/blog/149aa7de30b1ec6844a9daf3.jpg"
-coverAlt: "Balanza con una nube en un platillo y una pila triangular en el otro"
-ogImage: "/assets/blog/149aa7de30b1ec6844a9daf3.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Configuración de Service Discovery en Amazon ECS"
+  - title: "Configuración de service discovery en Amazon ECS"
     url: "https://dondeaprendoaws.com/blog/configuracion-de-service-discovery-en-amazon-ecs/"
-    image: "/assets/blog/06c78ff6dbda05d66c1f63e8.jpg"
-    imageAlt: ""
-  - title: "Tipos y Tamaños de Instancias EC2: Guía Completa"
+  - title: "Tipos y tamaños de instancias EC2: guía completa"
     url: "https://dondeaprendoaws.com/blog/tipos-y-tamanos-de-instancias-ec2-guia-completa/"
-    image: "/assets/blog/c17586bd518131452b0a717a.png"
-    imageAlt: ""
-  - title: "Certificación AWS gratis: Materiales de estudio"
+  - title: "Certificación AWS gratis: materiales de estudio"
     url: "https://dondeaprendoaws.com/blog/certificacion-aws-gratis-materiales-de-estudio/"
-    image: "/assets/blog/0d33d48b094b306e8f1fb75f.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Si quieres reducir tus gastos en AWS Lambda sin sacrificar el rendimiento, estás en el lugar correcto. Aquí te presento un resumen de estrategias efectivas para optimizar costos:</p>
@@ -37,7 +32,7 @@ related:
 <p>Con estos consejos, puedes encontrar el balance perfecto entre costo y rendimiento para tus funciones Lambda, aprovechando al máximo el cómputo sin servidores de AWS.</p>
 
 
-<h3 id="memoria-asignada" tabindex="-1">Memoria Asignada</h3>
+<h3 id="memoria-asignada" tabindex="-1">Memoria asignada</h3>
 
 
 <p>Cuando usas AWS Lambda, le das a tu función una cantidad específica de memoria RAM. Esto es como decirle cuánto espacio tiene para trabajar. Si le das más memoria, tu función puede trabajar más rápido. Pero, esto también significa que pagarás más, porque AWS Lambda cobra según la memoria que uses y el tiempo que tu función esté en marcha.</p>
@@ -49,7 +44,7 @@ related:
 <p>AWS sugiere empezar con poca memoria, como 128MB o 256MB, y ver cómo funciona. Si notas que necesita más, puedes aumentarla poco a poco.</p>
 
 
-<h3 id="tiempo-de-ejecuci%C3%B3n" tabindex="-1">Tiempo de Ejecución</h3>
+<h3 id="tiempo-de-ejecuci%C3%B3n" tabindex="-1">Tiempo de ejecución</h3>
 
 
 <p>El tiempo de ejecución es el límite de tiempo que tu función puede estar activa en una sola vez. Si se pasa de este tiempo, AWS la detiene automáticamente.</p>
@@ -67,7 +62,7 @@ related:
 <p>Ajustar bien la memoria y el tiempo de ejecución te ayuda a controlar tus gastos en Lambda, asegurando que no pagas de más sin perder rendimiento.</p>
 
 
-<h2 id="evaluaci%C3%B3n-del-rendimiento-actual" tabindex="-1">Evaluación del Rendimiento Actual</h2>
+<h2 id="evaluaci%C3%B3n-del-rendimiento-actual" tabindex="-1">Evaluación del rendimiento actual</h2>
 
 
 <p>Para entender cómo están funcionando tus funciones Lambda y cuánto te están costando, es buena idea mirar los registros de CloudWatch. Estos registros te muestran cómo se comporta tu función cuando la usas en el mundo real.</p>
@@ -90,7 +85,7 @@ related:
 <p>Siguiendo estos pasos, podrás tener una idea clara de cómo se están comportando tus funciones Lambda. Con esta información, puedes experimentar con diferentes configuraciones para mejorar el rendimiento y reducir los costos.</p>
 
 
-<h2 id="herramientas-y-estrategias-para-la-optimizaci%C3%B3n" tabindex="-1">Herramientas y Estrategias para la Optimización</h2>
+<h2 id="herramientas-y-estrategias-para-la-optimizaci%C3%B3n" tabindex="-1">Herramientas y estrategias para la optimización</h2>
 
 
 <h3 id="instalaci%C3%B3n" tabindex="-1">Instalación</h3>
@@ -156,13 +151,13 @@ Sugerencia para el percentil 75: 1536 MB
 <p>Experimentando con diferentes ajustes y viendo estas métricas, puedes encontrar un buen equilibrio entre lo que gastas y cómo funciona tu función.</p>
 
 
-<h2 id="ajustes-pr%C3%A1cticos-de-configuraci%C3%B3n" tabindex="-1">Ajustes Prácticos de Configuración</h2>
+<h2 id="ajustes-pr%C3%A1cticos-de-configuraci%C3%B3n" tabindex="-1">Ajustes prácticos de configuración</h2>
 
 
 <p>Para que tus funciones de AWS Lambda te cuesten menos y trabajen mejor, hay algunos cambios sencillos que puedes hacer. Estos trucos te ayudan a mejorar cómo funcionan tus tareas y a gastar menos al mismo tiempo.</p>
 
 
-<h3 id="aumento-de-memoria" tabindex="-1">Aumento de Memoria</h3>
+<h3 id="aumento-de-memoria" tabindex="-1">Aumento de memoria</h3>
 
 
 <p>Una manera muy eficaz de hacer que Lambda funcione mejor es darle más memoria a tus tareas. Si aumentas la memoria, tus tareas se pueden hacer más rápido y, por lo tanto, AWS te cobra menos tiempo.</p>
@@ -194,7 +189,7 @@ Sugerencia para el percentil 75: 1536 MB
 <p>Y si aumentamos la memoria a 2048MB, el costo por cada millón de tareas solo sube un poco, pero la velocidad mejora mucho.</p>
 
 
-<h3 id="ajuste-de-tiempo-de-ejecuci%C3%B3n" tabindex="-1">Ajuste de Tiempo de Ejecución</h3>
+<h3 id="ajuste-de-tiempo-de-ejecuci%C3%B3n" tabindex="-1">Ajuste de tiempo de ejecución</h3>
 
 
 <p>Reducir el tiempo máximo que puede durar una tarea también puede ayudarte a ahorrar. Si notas que tus tareas casi nunca usan todo el tiempo que les das, puedes bajar ese límite sin problemas.</p>
@@ -215,7 +210,7 @@ Sugerencia para el percentil 75: 1536 MB
 <p>Con estos ajustes y revisando cómo van tus tareas en CloudWatch Logs, puedes encontrar la mejor manera de configurar tus funciones Lambda para que sean eficientes y no gasten de más.</p>
 
 
-<h2 id="casos-de-uso-y-ejemplos-reales" tabindex="-1">Casos de Uso y Ejemplos Reales</h2>
+<h2 id="casos-de-uso-y-ejemplos-reales" tabindex="-1">Casos de uso y ejemplos reales</h2>
 
 
 <p>La optimización de costos de AWS Lambda puede ser muy efectiva en ciertos casos de uso comunes:</p>
@@ -292,6 +287,6 @@ Sugerencia para el percentil 75: 1536 MB
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/utilizando-lambda-layers-en-multiples-funciones-lambda/">Utilizando Lambda Layers en Múltiples Funciones Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a Serverless en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ec2/">Mejores Prácticas Para Amazon EC2</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/">Mejores Prácticas Para AWS Lambda</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/utilizando-lambda-layers-en-multiples-funciones-lambda/">Utilizando Lambda layers en múltiples funciones Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a serverless en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ec2/">Mejores prácticas para Amazon EC2</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/">Mejores prácticas para AWS Lambda</a></li>
 </ul>
 </p>

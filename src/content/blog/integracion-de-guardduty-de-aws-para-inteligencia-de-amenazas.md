@@ -1,25 +1,20 @@
 ---
-title: "Integración de GuardDuty de AWS para Inteligencia de Amenazas"
+title: "Integración de GuardDuty de AWS para inteligencia de amenazas"
 description: "Descubre cómo integrar AWS GuardDuty con inteligencia de amenazas para mejorar la seguridad en tu entorno AWS. Aprende a configurar y gestionar amenazas eficazmente."
 author: "guille-ojeda"
 publishedAt: "2024-04-30"
 publishedTimestamp: "2024-04-30T06:43:18.648Z"
-cover: "/assets/blog/ce55ff284d28beb4aeeeab54.jpg"
-coverAlt: "Escudo formado por piezas de colores junto a una nube"
-ogImage: "/assets/blog/ce55ff284d28beb4aeeeab54.jpg"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related:
-  - title: "5 Whitepapers de AWS para Aprobar Exámenes"
+  - title: "5 whitepapers de AWS para aprobar exámenes"
     url: "https://dondeaprendoaws.com/blog/5-whitepapers-de-aws-para-aprobar-examenes/"
-    image: "/assets/blog/251a69179cad106c40e9334f.webp"
-    imageAlt: ""
   - title: "Transacciones en Amazon DynamoDB"
     url: "https://dondeaprendoaws.com/blog/transacciones-en-amazon-dynamodb/"
-    image: "/assets/blog/92c10f1c21ba45a500fbff08.jpg"
-    imageAlt: ""
-  - title: "AWS Lambda en Profundidad"
+  - title: "AWS Lambda en profundidad"
     url: "https://dondeaprendoaws.com/blog/aws-lambda-en-profundidad/"
-    image: "/assets/blog/fc7f86cd5d9d53b7ba70da04.jpg"
-    imageAlt: ""
+
 ---
 
 <p><a href="https://aws.amazon.com/guardduty/" rel="noopener noreferrer" target="_blank">AWS GuardDuty</a> es un servicio de detección de amenazas que utiliza inteligencia de amenazas para identificar y priorizar posibles amenazas en tu entorno de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a>. Integrar feeds de inteligencia de amenazas en GuardDuty mejora las capacidades de detección de amenazas y reduce falsos positivos.</p>
@@ -193,7 +188,7 @@ related:
 <p>Al cumplir con estos requisitos, podrás configurar GuardDuty para detectar y responder a amenazas de seguridad en tu entorno de AWS.</p>
 
 
-<h2 id="1.-habilitar-y-configurar-aws-guardduty" tabindex="-1">1. Habilitar y Configurar <a href="https://aws.amazon.com/guardduty/" rel="noopener noreferrer" target="_blank">AWS GuardDuty</a></h2>
+<h2 id="1.-habilitar-y-configurar-aws-guardduty" tabindex="-1">1. Habilitar y configurar <a href="https://aws.amazon.com/guardduty/" rel="noopener noreferrer" target="_blank">AWS GuardDuty</a></h2>
 
 
 <p><figure><img alt="AWS GuardDuty" src="/assets/blog/13fd3ebe3a52c8ac783327b0.jpg"/></figure></p>
@@ -262,19 +257,19 @@ related:
 <p>Al seguir estos pasos, podrás habilitar y configurar GuardDuty para detectar y responder a amenazas de seguridad en tu entorno de AWS.</p>
 
 
-<h2 id="2.-agregar-fuentes-de-inteligencia-de-amenazas-a-guardduty" tabindex="-1">2. Agregar Fuentes de Inteligencia de Amenazas a GuardDuty</h2>
+<h2 id="2.-agregar-fuentes-de-inteligencia-de-amenazas-a-guardduty" tabindex="-1">2. Agregar fuentes de inteligencia de amenazas a GuardDuty</h2>
 
 
 <p>Para mejorar las capacidades de detección de GuardDuty, es posible integrar fuentes de inteligencia de amenazas externas, como CrowdStrike y Proofpoint. Estas fuentes proporcionan información valiosa sobre direcciones IP maliciosas y otros indicadores de compromiso que pueden ayudar a GuardDuty a detectar y responder a amenazas de seguridad.</p>
 
 
-<h3 id="agregando-ips-maliciosas-a-la-lista-de-amenazas-de-guardduty" tabindex="-1">Agregando IPs Maliciosas a la Lista de Amenazas de GuardDuty</h3>
+<h3 id="agregando-ips-maliciosas-a-la-lista-de-amenazas-de-guardduty" tabindex="-1">Agregando IPs maliciosas a la lista de amenazas de GuardDuty</h3>
 
 
 <p>Puede agregar direcciones IP maliciosas a la lista de amenazas de GuardDuty para que el servicio alerte ante accesos desde esas IPs. También puede agregar indicadores de compromiso de servicios de inteligencia de amenazas contratados.</p>
 
 
-<h3 id="integraci%C3%B3n-con-fuentes-de-inteligencia-de-amenazas" tabindex="-1">Integración con Fuentes de Inteligencia de Amenazas</h3>
+<h3 id="integraci%C3%B3n-con-fuentes-de-inteligencia-de-amenazas" tabindex="-1">Integración con fuentes de inteligencia de amenazas</h3>
 
 
 <p>Para integrar fuentes de inteligencia de amenazas con GuardDuty, debe seguir los siguientes pasos:</p>
@@ -307,7 +302,7 @@ related:
 <p>Al agregar fuentes de inteligencia de amenazas a GuardDuty, puede mejorar la detección de amenazas y reducir el riesgo de ataques de seguridad en su entorno de AWS.</p>
 
 
-<h2 id="3.-administrar-ips-confiables-y-listas-de-amenazas" tabindex="-1">3. Administrar IPs Confiables y Listas de Amenazas</h2>
+<h2 id="3.-administrar-ips-confiables-y-listas-de-amenazas" tabindex="-1">3. Administrar IPs confiables y listas de amenazas</h2>
 
 
 <p>Para mejorar la eficacia de GuardDuty en la detección de amenazas, es importante administrar adecuadamente las listas de IPs confiables y listas de amenazas. Estas listas permiten a GuardDuty distinguir entre tráfico seguro y tráfico malicioso.</p>
@@ -390,7 +385,7 @@ related:
 <p>Al administrar adecuadamente las listas de IPs confiables y listas de amenazas, puede mejorar la eficacia de GuardDuty en la detección de amenazas y reducir el riesgo de ataques de seguridad en su entorno de AWS.</p>
 
 
-<h2 id="4.-automatizar-actualizaciones-de-inteligencia-de-amenazas" tabindex="-1">4. Automatizar Actualizaciones de Inteligencia de Amenazas</h2>
+<h2 id="4.-automatizar-actualizaciones-de-inteligencia-de-amenazas" tabindex="-1">4. Automatizar actualizaciones de inteligencia de amenazas</h2>
 
 
 <p>Para mantener sus listas de IPs confiables y listas de amenazas actualizadas, es importante automatizar el proceso de actualización de inteligencia de amenazas. Esto puede lograrse utilizando servicios de AWS como <a href="https://aws.amazon.com/cloudformation/" rel="noopener noreferrer" target="_blank">CloudFormation</a> y Lambda.</p>
@@ -434,13 +429,13 @@ related:
 <p>Al automatizar la actualización de inteligencia de amenazas, puede minimizar los esfuerzos manuales y asegurarse de que su entorno de AWS esté siempre protegido contra las últimas amenazas.</p>
 
 
-<h2 id="5.-verificar-la-integraci%C3%B3n-y-probar" tabindex="-1">5. Verificar la Integración y Probar</h2>
+<h2 id="5.-verificar-la-integraci%C3%B3n-y-probar" tabindex="-1">5. Verificar la integración y probar</h2>
 
 
 <p>Para asegurarse de que la integración de los feeds de inteligencia de amenazas con GuardDuty sea exitosa, es importante generar y examinar hallazgos de muestra. Esto le permitirá verificar que la configuración de GuardDuty esté funcionando correctamente y detectando las amenazas de manera efectiva.</p>
 
 
-<h3 id="generar-hallazgos-de-muestra" tabindex="-1">Generar Hallazgos de Muestra</h3>
+<h3 id="generar-hallazgos-de-muestra" tabindex="-1">Generar hallazgos de muestra</h3>
 
 
 <p>Puede generar hallazgos de muestra utilizando la función de simulación de ataques de GuardDuty. Esta función le permite simular ataques contra su entorno de AWS, lo que activará las reglas de detección de GuardDuty y generará hallazgos.</p>
@@ -449,7 +444,7 @@ related:
 <p>Una vez que haya generado los hallazgos de muestra, puede examinarlos en la consola de GuardDuty para asegurarse de que se estén detectando las amenazas correctamente. Asegúrese de revisar los detalles de cada hallazgo, como la fuente de la amenaza, el tipo de ataque y la gravedad del riesgo.</p>
 
 
-<h3 id="examinar-los-hallazgos" tabindex="-1">Examinar los Hallazgos</h3>
+<h3 id="examinar-los-hallazgos" tabindex="-1">Examinar los hallazgos</h3>
 
 
 <p>Al examinar los hallazgos, asegúrese de verificar que los feeds de inteligencia de amenazas estén funcionando correctamente y proporcionando información precisa sobre las amenazas. También es importante revisar la configuración de GuardDuty para asegurarse de que esté ajustada correctamente para detectar las amenazas relevantes para su entorno de AWS.</p>
@@ -513,7 +508,7 @@ related:
 <p>Esperamos que este artículo le haya proporcionado la guía y los consejos necesarios para integrar GuardDuty con inteligencia de amenazas de manera efectiva. ¡Si tiene alguna pregunta o necesita más ayuda, no dude en preguntar!</p>
 
 
-<h2 id="recursos-y-preguntas-frecuentes" tabindex="-1">Recursos y Preguntas Frecuentes</h2>
+<h2 id="recursos-y-preguntas-frecuentes" tabindex="-1">Recursos y preguntas frecuentes</h2>
 
 
 <p>A continuación, se presentan algunos recursos adicionales y preguntas frecuentes relacionadas con la integración de GuardDuty de AWS con inteligencia de amenazas.</p>
@@ -564,7 +559,7 @@ related:
 <p>Esperamos que estos recursos adicionales y preguntas frecuentes le hayan sido útiles. ¡Si tiene alguna otra pregunta o necesita más ayuda, no dude en preguntar!</p>
 
 
-<h2 id="preguntas-frecuentes-1" tabindex="-1">Preguntas Frecuentes</h2>
+<h2 id="preguntas-frecuentes-1" tabindex="-1">Preguntas frecuentes</h2>
 
 
 <h3 id="%C2%BFqu%C3%A9-fuentes-de-datos-utiliza-amazon-guardduty-para-analizar-y-detectar-amenazas%3F-1" tabindex="-1">¿Qué fuentes de datos utiliza Amazon GuardDuty para analizar y detectar amenazas?</h3>
@@ -613,6 +608,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores Prácticas de Seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS Seguridad: Fundamentos Esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">Seguridad en AWS: Servicios Esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/seguridad-en-la-nube-aws-estrategias-clave/">Seguridad en la nube AWS: Estrategias clave</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores prácticas de seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS seguridad: fundamentos esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">seguridad en AWS: servicios esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/seguridad-en-la-nube-aws-estrategias-clave/">Seguridad en la nube AWS: estrategias clave</a></li>
 </ul>
 </p>

@@ -5,9 +5,9 @@ author: "guille-ojeda"
 publishedAt: "2024-05-12"
 publishedTimestamp: "2024-05-12T01:37:13.938Z"
 modifiedTimestamp: "2026-10-04T21:44:34-03:00"
-cover: "/assets/blog/98aff2370ca15f9967751abc.png"
-coverAlt: "Medidor con engranajes e iconos integrado en una nube sobre otras nubes"
-ogImage: "/assets/blog/98aff2370ca15f9967751abc.png"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related: []
 ---
 
@@ -64,7 +64,7 @@ Estas señales ayudan a decidir si la entrega sostiene las necesidades del produ
 - **Utilización y saturación:** observa la métrica apropiada al recurso y servicio. En EC2, [`CPUUtilization` es un porcentaje](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/viewing_metrics_with_cloudwatch.html); la memoria del sistema operativo requiere configurar el [agente de CloudWatch](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/metrics-collected-by-CloudWatch-agent.html). Informa el p95 por servicio o grupo homogéneo y compáralo con latencia, tráfico o cola. Un porcentaje de CPU alto no demuestra por sí solo que una aplicación sea eficiente, y promediar instancias de tamaños distintos puede ocultar saturación.
 - **Duración y fallos de CI:** [CodeBuild](https://docs.aws.amazon.com/codebuild/latest/userguide/cloudwatch_metrics-codebuild.html) publica, entre otras, `BuildDuration` (fase `BUILD`), `QueuedDuration`, `FailedBuilds` y `SucceededBuilds`; [CodePipeline](https://docs.aws.amazon.com/codepipeline/latest/userguide/metrics-dimensions.html) publica `PipelineDuration` y `FailedPipelineExecutions`. Sirven para investigar el flujo de compilación y orquestación, no sustituyen el tiempo commit-a-producción ni la tasa de fallos de cambios. AWS aclara que un reintento de una acción fallida puede contarse como otra ejecución fallida de CodePipeline.
 
-En costos, asigna los cargos al servicio con etiquetas de asignación activadas o una estructura de cuentas coherente. Revisa qué proporción del gasto queda sin asignar: un costo por transacción aparentemente bajo puede ser solo una cobertura incompleta. La documentación de AWS explica cómo [organizar costos con etiquetas de asignación](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/cost-alloc-tags.html). Como lectura complementaria en español, consulta [Análisis de costos de AWS con Cost Explorer](https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/).
+En costos, asigna los cargos al servicio con etiquetas de asignación activadas o una estructura de cuentas coherente. Revisa qué proporción del gasto queda sin asignar: un costo por transacción aparentemente bajo puede ser solo una cobertura incompleta. La documentación de AWS explica cómo [organizar costos con etiquetas de asignación](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/cost-alloc-tags.html). Como lectura complementaria en español, consulta [análisis de costos de AWS con Cost Explorer](https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/).
 
 Para una introducción general a métricas, registros y trazas con servicios AWS, lee [Observabilidad en la Nube de AWS: CloudWatch, X-Ray y CloudTrail](https://dev.to/aws-builders/observabilidad-en-la-nube-de-aws-explorando-cloudwatch-x-ray-y-cloudtrail-5d9m), de Sheyla Leacock. Ese repaso ayuda a ubicar las señales operativas; no define las fórmulas DORA.
 

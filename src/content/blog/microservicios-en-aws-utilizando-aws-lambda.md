@@ -1,25 +1,20 @@
 ---
-title: "Microservicios en AWS Utilizando AWS Lambda"
+title: "Microservicios en AWS utilizando AWS Lambda"
 description: "Descubre cómo utilizar AWS Lambda para desarrollar eficientes microservicios en AWS, desde la configuración y el código hasta la integración, despliegue y monitoreo. Explora las ventajas y conceptos básicos de los microservicios y AWS Lambda."
 author: "guille-ojeda"
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T00:50:24.052Z"
-cover: "/assets/blog/7db368f44486be089c66ca22.jpg"
-coverAlt: "Círculos de varios colores conectados por líneas punteadas"
-ogImage: "/assets/blog/7db368f44486be089c66ca22.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Estructuras multi-cuenta AWS para escalar"
     url: "https://dondeaprendoaws.com/blog/estructuras-multi-cuenta-aws-para-escalar/"
-    image: "/assets/blog/0e9e4bdd57782b78da6d878e.jpg"
-    imageAlt: ""
-  - title: "CloudWatch y EventBridge: Integración"
+  - title: "CloudWatch y EventBridge: integración"
     url: "https://dondeaprendoaws.com/blog/cloudwatch-y-eventbridge-integracion/"
-    image: "/assets/blog/382dfac33d6132edaa6b8e63.jpg"
-    imageAlt: ""
-  - title: "Integrar Amazon Polly en 5 pasos: Texto a voz realista"
+  - title: "Integrar Amazon Polly en 5 pasos: texto a voz realista"
     url: "https://dondeaprendoaws.com/blog/integrar-amazon-polly-en-5-pasos-texto-a-voz-realista/"
-    image: "/assets/blog/35cbdc26cad1c09b7dd2fc81.jpg"
-    imageAlt: ""
+
 ---
 
 <p>AWS Lambda es una poderosa herramienta que te permite ejecutar código sin preocuparte por los servidores, pagando solo por el tiempo de ejecución. Ideal para microservicios, ofrece escalabilidad, alta disponibilidad y un enfoque en la lógica de negocio. Este artículo explora cómo usar AWS Lambda para desarrollar microservicios eficientes, desde la configuración y el código hasta la integración, el despliegue y el monitoreo. Descubre cómo puedes beneficiarte de AWS Lambda en diferentes casos de uso, desde el procesamiento de datos hasta el backend de aplicaciones móviles.</p>
@@ -440,16 +435,16 @@ related:
 <p>En pocas palabras, AWS Lambda te ayuda a crear aplicaciones que son fáciles de manejar, rápidas de mejorar y no cuestan mucho mantener. Esto significa que puedes concentrarte en hacer tu aplicación mejor en lugar de preocuparte por la infraestructura.</p>
 
 
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas Relacionadas</h2>
+<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
 
 
-<h4 id="%C2%BFqu%C3%A9-es-un-microservicio-aws%3F" tabindex="-1">¿Qué es un Microservicio AWS?</h4>
+<h4 id="%C2%BFqu%C3%A9-es-un-microservicio-aws%3F" tabindex="-1">¿Qué es un microservicio AWS?</h4>
 
 
 <p>Los <a href="https://d1.awsstatic.com/whitepapers/microservices-on-aws.pdf" rel="noopener noreferrer" target="_blank">microservicios en AWS</a> son pequeñas partes de programas que funcionan por su cuenta usando AWS Lambda. Cada uno hace una tarea específica y habla con otros servicios usando algo parecido a un sistema de mensajería. Esto te permite mejorar o arreglar partes de tu programa sin tener que tocar el resto.</p>
 
 
-<h4 id="%C2%BFqu%C3%A9-es-una-funci%C3%B3n-lambda-en-aws%3F" tabindex="-1">¿Qué es una función lambda en AWS?</h4>
+<h4 id="%C2%BFqu%C3%A9-es-una-funci%C3%B3n-lambda-en-aws%3F" tabindex="-1">¿Qué es una función Lambda en AWS?</h4>
 
 
 <p>Una función Lambda en AWS es un código que se ejecuta en internet sin necesidad de tener un servidor propio. Solo pagas por el tiempo que tu código está activo. Esto es muy práctico para los microservicios.</p>
@@ -484,6 +479,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/optimizacion-de-costos-de-aws-lambda/">Optimización de Costos de AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a Serverless en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-contenedores/">Microservicios en AWS Utilizando Contenedores</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/">Mejores Prácticas Para AWS Lambda</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/optimizacion-de-costos-de-aws-lambda/">Optimización de costos de AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a serverless en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-contenedores/">Microservicios en AWS utilizando contenedores</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/">Mejores prácticas para AWS Lambda</a></li>
 </ul>
 </p>

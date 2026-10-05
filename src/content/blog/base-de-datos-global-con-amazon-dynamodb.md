@@ -1,25 +1,20 @@
 ---
-title: "Base de Datos Global con Amazon DynamoDB"
+title: "Base de datos global con Amazon DynamoDB"
 description: "Descubre cómo aprovechar las tablas globales de Amazon DynamoDB para tener una base de datos rápida, escalable y segura en todo el mundo. Configuración, replicación, seguridad y procesamiento en tiempo real."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T02:19:41.967Z"
-cover: "/assets/blog/b74e56b41e26732c7dfc378e.png"
-coverAlt: "Globo rodeado por iconos amarillos de bases de datos"
-ogImage: "/assets/blog/b74e56b41e26732c7dfc378e.png"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "¿Qué son los endpoints de VPC en AWS?"
     url: "https://dondeaprendoaws.com/blog/que-son-los-endpoints-de-vpc-en-aws/"
-    image: "/assets/blog/784749ef7570c8a485edf97b.jpg"
-    imageAlt: ""
-  - title: "10 Estrategias de Optimización de Costos en AWS"
+  - title: "10 estrategias de optimización de costos en AWS"
     url: "https://dondeaprendoaws.com/blog/10-estrategias-de-optimizacion-de-costos-en-aws/"
-    image: "/assets/blog/74f152c85b46e1ac5ea004f9.jpg"
-    imageAlt: ""
-  - title: "¿Cómo Escala DynamoDB? Modos On Demand y Provisioned"
+  - title: "¿Cómo escala DynamoDB? modos on demand y provisioned"
     url: "https://dondeaprendoaws.com/blog/como-escala-dynamodb-modos-on-demand-y-provisioned/"
-    image: "/assets/blog/ce62e0cc8508d5055bba53b4.png"
-    imageAlt: ""
+
 ---
 
 <p>Si buscas hacer que tu aplicación funcione rápidamente alrededor del mundo, las tablas globales de Amazon DynamoDB son tu solución. Aquí te explicamos de forma sencilla cómo aprovecharlas:</p>
@@ -337,6 +332,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/amazon-dynamodb-la-base-de-datos-nosql-de-aws/">Amazon DynamoDB: La Base de Datos NoSQL de AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/amazon-dynamodb-guia-basica/">Amazon DynamoDB: Guía Básica</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-bases-de-datos-introduccion-basica/">Bases de Datos en AWS: introducción básica</a></li><li><a href="https://dondeaprendoaws.com/blog/bases-de-datos-relacionales-en-aws-con-amazon-rds-y-amazon-aurora/">Bases de datos Relacionales en AWS con Amazon RDS y Amazon Aurora</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/amazon-dynamodb-la-base-de-datos-nosql-de-aws/">Amazon DynamoDB: la base de datos NoSQL de AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/amazon-dynamodb-guia-basica/">Amazon DynamoDB: guía básica</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-bases-de-datos-introduccion-basica/">bases de datos en AWS: introducción básica</a></li><li><a href="https://dondeaprendoaws.com/blog/bases-de-datos-relacionales-en-aws-con-amazon-rds-y-amazon-aurora/">Bases de datos relacionales en AWS con Amazon RDS y Amazon Aurora</a></li>
 </ul>
 </p>

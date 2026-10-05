@@ -1,25 +1,20 @@
 ---
-title: "Cómo Desplegar una Aplicación en Amazon EKS"
+title: "Cómo desplegar una aplicación en Amazon EKS"
 description: "Aprende cómo desplegar una aplicación en Amazon EKS paso a paso. Descubre los conceptos básicos de Kubernetes y Amazon EKS, requisitos previos, creación de clúster EKS, despliegue de aplicaciones, gestión del tráfico, escalado y más."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:18:48.675Z"
-cover: "/assets/blog/b0397a49b6dcdda375e046d4.jpg"
-coverAlt: "Grupo de cubos dentro de una nube tridimensional"
-ogImage: "/assets/blog/b0397a49b6dcdda375e046d4.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Diferencias: Endpoint de interfaz vs. Endpoint de gateway"
+  - title: "Diferencias: endpoint de interfaz vs. endpoint de gateway"
     url: "https://dondeaprendoaws.com/blog/diferencias-endpoint-de-interfaz-vs-endpoint-de-gateway/"
-    image: "/assets/blog/3565dcd644c1d6c694694985.jpg"
-    imageAlt: ""
-  - title: "Diferencias Entre SLA y SLO en AWS"
+  - title: "Diferencias entre SLA y SLO en AWS"
     url: "https://dondeaprendoaws.com/blog/diferencias-entre-sla-y-slo-en-aws/"
-    image: "/assets/blog/8281401d50eb83da06a511af.jpg"
-    imageAlt: ""
-  - title: "Servicios de AWS para Frontend"
+  - title: "Servicios de AWS para frontend"
     url: "https://dondeaprendoaws.com/blog/servicios-de-aws-para-frontend/"
-    image: "/assets/blog/31bdf1ca2f3b6c51213246c8.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Si estás buscando cómo desplegar una aplicación en Amazon EKS, has llegado al lugar indicado. Este artículo te guiará paso a paso para que logres poner en marcha tu aplicación usando Kubernetes en la nube de Amazon. Aquí encontrarás todo lo que necesitas saber, desde los conceptos básicos de Kubernetes y Amazon EKS, hasta cómo crear un clúster de EKS y desplegar tu aplicación. A continuación, te resumo los puntos clave:</p>
@@ -57,7 +52,7 @@ related:
 <h3 id="eksctl"><a href="https://eksctl.io/">eksctl</a></h3>
 <p><img alt="eksctl" src="/assets/blog/cde11b7c19ca616e625405fa.jpg"/></p>
 <p>eksctl es una herramienta creada por AWS que hace mucho más fácil crear y manejar clústers de EKS. Si vas a desplegar tu aplicación pero aún no tienes un clúster, te recomendamos usar eksctl para armar uno con un comando sencillo.</p>
-<h2 id="paso-1---preparar-aws-cli-y-eksctl">Paso 1 - Preparar <a href="https://docs.aws.amazon.com/cli/latest/userguide/installing.html">AWS CLI</a> y eksctl</h2>
+<h2 id="paso-1---preparar-aws-cli-y-eksctl">Paso 1 - preparar <a href="https://docs.aws.amazon.com/cli/latest/userguide/installing.html">AWS CLI</a> y eksctl</h2>
 <p><img alt="AWS CLI" src="/assets/blog/a78e890bb8564194e0ff5561.jpg"/></p>
 <h3 id="configurar-aws-cli">Configurar AWS CLI</h3>
 <p>Para empezar con AWS CLI, haz lo siguiente:</p>
@@ -67,7 +62,7 @@ related:
 <p>Para instalar eksctl:</p>
 <ul><li>Ve a la <a href="https://github.com/weaveworks/eksctl/releases">página donde están las versiones de eksctl</a> y descarga la que corresponda a tu sistema operativo.</li><li>Saca el archivo que descargaste en una carpeta que tu computadora reconozca para ejecutar programas.</li><li>Para verificar que se instaló bien, escribe <code>eksctl version</code> en la terminal.</li></ul>
 <p>Listo, con eksctl instalado y AWS CLI listo, puedes empezar a trabajar en desplegar tu aplicación en Amazon EKS.</p>
-<h2 id="paso-2---crear-un-cl%C3%BAster-eks">Paso 2 - Crear un clúster EKS</h2>
+<h2 id="paso-2---crear-un-cl%C3%BAster-eks">Paso 2 - crear un clúster EKS</h2>
 <p>Para crear un clúster en Amazon EKS, vamos a seguir unos pasos sencillos con la ayuda de una herramienta llamada eksctl:</p>
 <h3 id="definir-configuraci%C3%B3n-del-cl%C3%BAster">Definir configuración del clúster</h3>
 <p>Primero, vamos a decidir cómo queremos que sea nuestro clúster EKS. Esto incluye cosas como:</p>
@@ -99,7 +94,7 @@ related:
 <pre><code>kubectl cluster-info
 </code></pre>
 <p>Con estos comandos podemos confirmar que nuestro clúster de EKS está preparado para nuestras aplicaciones.</p>
-<h2 id="paso-3---c%C3%B3mo-desplegar-tu-aplicaci%C3%B3n-de-ejemplo">Paso 3 - Cómo Desplegar tu Aplicación de Ejemplo</h2>
+<h2 id="paso-3---c%C3%B3mo-desplegar-tu-aplicaci%C3%B3n-de-ejemplo">Paso 3 - cómo desplegar tu aplicación de ejemplo</h2>
 <h3 id="definir-los-archivos-de-configuraci%C3%B3n">Definir los archivos de configuración</h3>
 <p>Para poner tu aplicación a funcionar en nuestro clúster de EKS, necesitamos preparar unos archivos en formato YAML. Estos archivos son como las instrucciones que le dicen a Kubernetes qué hacer, cómo arrancar tu aplicación y cómo hacerla accesible.</p>
 <p>Hablando de manera simple, necesitarás dos tipos de archivos:</p>
@@ -197,7 +192,7 @@ aws ec2 describe-instances
 <p>Amazon EKS es un servicio que te permite usar Kubernetes, una herramienta para manejar aplicaciones en contenedores, de manera fácil en AWS. Con EKS, puedes hacer que tus aplicaciones sean más fiables y escalables sin tener que preocuparte por los detalles técnicos de Kubernetes.</p>
 <h3 id="%C2%BFqu%C3%A9-servicio-se-utiliza-para-ejecutar-aplicaciones-en-contenedores-en-aws%3F">¿Qué servicio se utiliza para ejecutar aplicaciones en contenedores en AWS?</h3>
 <p>Para correr aplicaciones en contenedores en AWS, el servicio principal es Amazon Elastic Container Service (Amazon ECS). ECS te ayuda a manejar tus contenedores, permitiéndote iniciar, detener y escalarlos fácilmente. AWS Fargate es otra opción que permite correr contenedores sin tener que gestionar servidores.</p>
-<h3 id="%C2%BFqu%C3%A9-es-ingress-en-aws%3F">¿Qué es Ingress en AWS?</h3>
+<h3 id="%C2%BFqu%C3%A9-es-ingress-en-aws%3F">¿Qué es ingress en AWS?</h3>
 <p>Ingress es una manera de hacer que las aplicaciones que corren en Kubernetes estén disponibles en internet de forma segura y eficiente. AWS tiene una herramienta llamada AWS Load Balancer Controller que ayuda a manejar los balanceadores de carga para el tráfico de Ingress, asegurando que tu aplicación sea fiable y pueda manejar bien el tráfico.</p>
 <h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/opciones-para-desplegar-contenedores-en-aws-ecs-y-eks/">Opciones para Desplegar Contenedores en AWS: ECS y EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/">Cómo Desplegar Contenedores en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-eks/">Mejores Prácticas Para Amazon EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ecs/">Mejores Prácticas Para Amazon ECS</a></li></ul>
+<ul><li><a href="https://dondeaprendoaws.com/blog/opciones-para-desplegar-contenedores-en-aws-ecs-y-eks/">Opciones para desplegar contenedores en AWS: ECS y EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/">Cómo desplegar contenedores en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-eks/">Mejores prácticas para Amazon EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ecs/">Mejores prácticas para Amazon ECS</a></li></ul>

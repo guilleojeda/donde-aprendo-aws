@@ -7,9 +7,9 @@ publishedTimestamp: "2024-01-31T00:13:19.305Z"
 modifiedTimestamp: "2026-10-05T00:04:02-03:00"
 review:
   date: "2026-10-05"
-cover: "/assets/blog/b55473f49a3eacffcaae0175.jpg"
-coverAlt: "Cilindro de base de datos conectado a varios cilindros más pequeños"
-ogImage: "/assets/blog/b55473f49a3eacffcaae0175.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related: []
 ---
 
@@ -96,4 +96,4 @@ Una decisión útil empieza con una lista concreta: qué elementos se leen, cuá
 
 Para practicar el concepto de clave primaria en una cuenta de AWS, el [séptimo laboratorio de esta guía de diez prácticas](/blog/10-laboratorios-practicos-de-aws-para-principiantes/) crea una tabla pequeña y recupera un elemento por su clave. Allí también se explican los permisos, posibles costos y la limpieza de recursos.
 
-Para escuchar una conversación sobre modelado, mira la [grabación del meetup #18 del AWS User Group Córdoba](https://www.youtube.com/watch?v=7Xk0MKt69Is), que incluye una sesión sobre diseño de datos en DynamoDB. El [grupo de AWS en Córdoba](https://www.meetup.com/aws-user-group-cordoba-argentina/) es una comunidad más amplia para compartir experiencias sobre AWS y nube; desde su perfil puedes consultar sus actividades. También puedes explorar [comunidades AWS por país](/comunidades/) y revisar la [agenda de eventos](/eventos/) para encontrar otras charlas y encuentros.
+Para escuchar una conversación sobre modelado, mira la [grabación del meetup #18 del AWS User Group Córdoba](https://www.youtube.com/watch?v=7Xk0MKt69Is), que incluye una sesión sobre diseño de datos en DynamoDB. El [grupo de AWS en Córdoba](https://www.meetup.com/aws-user-group-cordoba-argentina/) es una comunidad más amplia para compartir experiencias sobre AWS y nube; desde su perfil puedes consultar sus actividades. También puedes explorar [comunidades AWS por país](/comunidades/) y revisar la [Agenda de eventos](/eventos/) para encontrar otras charlas y encuentros.

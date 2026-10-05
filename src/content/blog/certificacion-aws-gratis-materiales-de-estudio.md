@@ -7,15 +7,14 @@ publishedTimestamp: "2024-01-27T00:02:16.502Z"
 modifiedTimestamp: "2026-09-29T17:29:08-03:00"
 review:
   date: "2026-09-29"
-cover: "/assets/blog/0d33d48b094b306e8f1fb75f.jpg"
-coverAlt: "Manos señalan un libro abierto, una nube y una lupa"
+cover: "/assets/blog/editorial-certificacion.png"
+coverAlt: "Tres tarjetas de estudio con apuntes y hitos sobre un camino azul con un punto naranja."
 indexOrder: 3
-ogImage: "/assets/blog/0d33d48b094b306e8f1fb75f.jpg"
+ogImage: "/assets/blog/editorial-certificacion.png"
 related:
   - title: "AWS Cloud Practitioner: recursos en español para preparar la certificación"
     url: "https://dondeaprendoaws.com/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/"
-    image: "/assets/blog/8d4ecab3b218a57acfd77f30.jpg"
-    imageAlt: ""
+
 ---
 
 
@@ -97,7 +96,7 @@ Para Cloud Practitioner, una buena práctica puede ser explicar un escenario sin
 
 ## Estudia con otras personas sin depender de una ciudad
 
-Un grupo te sirve para plantear una pregunta que no logras resolver, contrastar una explicación y sostener la constancia. Busca un [AWS User Group](https://dondeaprendoaws.com/comunidades/?format=User+Group) o, si estudias con pares en un entorno académico, explora los [Student Builder Groups](https://dondeaprendoaws.com/comunidades/?format=Student+Builder+Group). La [agenda de eventos](https://dondeaprendoaws.com/eventos/) permite encontrar sesiones próximas. Comprueba el formato y el idioma de cada encuentro antes de inscribirte.
+Un grupo te sirve para plantear una pregunta que no logras resolver, contrastar una explicación y sostener la constancia. Busca un [AWS User Group](https://dondeaprendoaws.com/comunidades/?format=User+Group) o, si estudias con pares en un entorno académico, explora los [Student Builder Groups](https://dondeaprendoaws.com/comunidades/?format=Student+Builder+Group). La [Agenda de eventos](https://dondeaprendoaws.com/eventos/) permite encontrar sesiones próximas. Comprueba el formato y el idioma de cada encuentro antes de inscribirte.
 
 Los Challenges de Buenos Aires y Medellín enlazados arriba son **grabaciones abiertas a cualquier lector**. Puedes aprovecharlas aunque vivas en otro país. Para seguir descubriendo autores sobre tu tema, tienes el [directorio de creadores](https://dondeaprendoaws.com/creadores/) y el [catálogo de contenidos](https://dondeaprendoaws.com/aprender/). Elige artículos o sesiones que respondan a un objetivo de tu guía; no necesitas suscribirte a todos los canales de una vez.
 

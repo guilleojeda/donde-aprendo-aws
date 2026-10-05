@@ -1,25 +1,20 @@
 ---
-title: "Mejores Prácticas Para Amazon EKS"
+title: "Mejores prácticas para Amazon EKS"
 description: "Descubre las mejores prácticas para aprovechar al máximo Amazon EKS, desde la facilidad de uso y escalabilidad hasta la optimización de costes y casos de uso comunes. Aprende cómo funciona Amazon EKS y sus componentes clave."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:58:54.462Z"
-cover: "/assets/blog/5db43c07fa6733b870313471.jpg"
-coverAlt: "Tres nubes pequeñas con iconos sobre una plataforma ovalada azul"
-ogImage: "/assets/blog/5db43c07fa6733b870313471.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Cómo Reducir Costos de Transferencia Intra-Región en AWS"
+  - title: "Cómo reducir costos de transferencia intra-región en AWS"
     url: "https://dondeaprendoaws.com/blog/como-reducir-costos-de-transferencia-intra-region-en-aws/"
-    image: "/assets/blog/f7f97a6864a4b23d66bec74e.jpg"
-    imageAlt: ""
-  - title: "5 Startups Exitosas en AWS: Casos de Éxito"
+  - title: "5 startups exitosas en AWS: casos de éxito"
     url: "https://dondeaprendoaws.com/blog/5-startups-exitosas-en-aws-casos-de-exito/"
-    image: "/assets/blog/b94e80f121605caa3d2fcec3.jpg"
-    imageAlt: ""
-  - title: "Guía de Estudio AWS Certified Cloud Practitioner CLF-C02"
+  - title: "Guía de estudio AWS Certified Cloud Practitioner CLF-C02"
     url: "https://dondeaprendoaws.com/blog/guia-de-estudio-aws-certified-cloud-practitioner-clf-c02/"
-    image: "/assets/blog/9ee272960332ab17524d1056.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Si estás buscando simplificar la gestión de aplicaciones en contenedores con Kubernetes, Amazon EKS es tu solución. Aquí te dejo las claves para entender y aprovechar al máximo este servicio:</p>
@@ -277,7 +272,7 @@ related:
 </ul>
 
 
-<h3 id="procesamiento-de-machine-learning" tabindex="-1">Procesamiento de Machine Learning</h3>
+<h3 id="procesamiento-de-machine-learning" tabindex="-1">Procesamiento de machine learning</h3>
 
 
 <p>EKS es perfecto para trabajar con aprendizaje automático, desde entrenar modelos hasta hacerlos disponibles para otros como servicios.</p>
@@ -332,7 +327,7 @@ related:
 <p>En resumen, si buscas una manera sencilla, escalable y segura de manejar aplicaciones en contenedores, Amazon EKS es una opción muy buena a considerar.</p>
 
 
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas Relacionadas</h2>
+<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
 
 
 <h3 id="%C2%BFqu%C3%A9-es-el-eks-en-aws%3F" tabindex="-1">¿Qué es el EKS en AWS?</h3>
@@ -344,6 +339,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/opciones-para-desplegar-contenedores-en-aws-ecs-y-eks/">Opciones para Desplegar Contenedores en AWS: ECS y EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/">Cómo Desplegar Contenedores en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/opciones-para-desplegar-contenedores-en-aws-ecs-y-eks/">Opciones para desplegar contenedores en AWS: ECS y EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/">Cómo desplegar contenedores en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li>
 </ul>
 </p>

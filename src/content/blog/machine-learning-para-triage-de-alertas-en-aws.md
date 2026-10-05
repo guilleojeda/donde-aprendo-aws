@@ -1,25 +1,20 @@
 ---
-title: "Machine Learning para Triage de Alertas en AWS"
+title: "Machine learning para triage de alertas en AWS"
 description: "Automatiza y optimiza la gestión de alertas de seguridad en AWS con Machine Learning para una respuesta rápida y precisa ante amenazas."
 author: "guille-ojeda"
 publishedAt: "2025-03-27"
 publishedTimestamp: "2025-03-27T01:18:04.566000+00:00"
-cover: "/assets/blog/6f0cbd991f1cfe77b09e89dd.jpg"
-coverAlt: "Dos personas observan paneles de control; el logotipo de AWS aparece en la pared"
-ogImage: "/assets/blog/6f0cbd991f1cfe77b09e89dd.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
-  - title: "Logs de acceso en ELB: Guía completa"
+  - title: "Logs de acceso en ELB: guía completa"
     url: "https://dondeaprendoaws.com/blog/logs-de-acceso-en-elb-guia-completa/"
-    image: "/assets/blog/fe79fa50612b43f06d41c37a.jpg"
-    imageAlt: "Thumbnail for: Logs de acceso en ELB: Guía completa"
   - title: "Pipeline CI/CD con Terraform y AWS CodePipeline"
     url: "https://dondeaprendoaws.com/blog/pipeline-cicd-con-terraform-y-aws-codepipeline/"
-    image: "/assets/blog/8c8805d819a48bf8b59f25eb.jpg"
-    imageAlt: "Thumbnail for: Pipeline CI/CD con Terraform y AWS CodePipeline"
-  - title: "AWS Community Day 2024: Calendario de Eventos"
+  - title: "AWS Community Day 2024: calendario de eventos"
     url: "https://dondeaprendoaws.com/blog/aws-community-day-2024-calendario-de-eventos/"
-    image: "/assets/blog/8a72720666074692888beb45.png"
-    imageAlt: "Thumbnail for: AWS Community Day 2024: Calendario de Eventos"
+
 ---
 
 <p><strong>¿Cómo gestionar alertas de <a href="https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/">seguridad en AWS</a> sin perder tiempo ni precisión?</strong> El <strong>Machine Learning (ML)</strong> permite automatizar y optimizar el proceso de clasificación de alertas, superando los problemas de los métodos manuales como la sobrecarga de alertas, fatiga del analista y tiempos de respuesta lentos. Con ML puedes:</p>
@@ -43,9 +38,9 @@ related:
 <li>Integra el sistema con servicios de seguridad de AWS como GuardDuty y Security Hub.</li>
 </ol>
 <p><strong>Conclusión</strong>: Con ML, puedes transformar la gestión de alertas en un sistema eficiente, escalable y preciso, combinando automatización con supervisión humana para maximizar la seguridad en la nube.</p>
-<h2 class="sb h2-sbb-cls" id="fundamentos-de-machine-learning-para-el-triage-de-alertas" tabindex="-1">Fundamentos de Machine Learning para el Triage de Alertas</h2>
+<h2 class="sb h2-sbb-cls" id="fundamentos-de-machine-learning-para-el-triage-de-alertas" tabindex="-1">Fundamentos de machine learning para el triage de alertas</h2>
 <p>En el ámbito de la respuesta a incidentes, el uso de Machine Learning para gestionar el triage de alertas en AWS ofrece un enfoque práctico y eficiente.</p>
-<h3 id="algoritmos-de-machine-learning-para-alertas-de-seguridad" tabindex="-1">Algoritmos de Machine Learning para Alertas de Seguridad</h3>
+<h3 id="algoritmos-de-machine-learning-para-alertas-de-seguridad" tabindex="-1">Algoritmos de machine learning para alertas de seguridad</h3>
 <p>Existen dos tipos principales de algoritmos que se utilizan en este contexto:</p>
 <ul>
 <li>
@@ -65,7 +60,7 @@ related:
 </ul>
 </li>
 </ul>
-<h3 id="preparacion-de-datos-de-alertas" tabindex="-1">Preparación de Datos de Alertas</h3>
+<h3 id="preparacion-de-datos-de-alertas" tabindex="-1">Preparación de datos de alertas</h3>
 <p>Para que el modelo funcione correctamente, los datos deben pasar por un proceso de preparación que incluye:</p>
 <ul>
 <li><strong>Normalización</strong>: Ajusta marcas temporales, unifica formatos de direcciones IP y códigos de error.</li>
@@ -73,7 +68,7 @@ related:
 <li><strong>Limpieza</strong>: Elimina duplicados, corrige valores atípicos y gestiona datos incompletos o inconsistentes.</li>
 </ul>
 <p>Una vez que los datos están listos, el modelo puede ser entrenado y evaluado.</p>
-<h3 id="medicion-del-rendimiento" tabindex="-1">Medición del Rendimiento</h3>
+<h3 id="medicion-del-rendimiento" tabindex="-1">Medición del rendimiento</h3>
 <p>El rendimiento del modelo se mide con métricas clave como:</p>
 <ul>
 <li><strong>Precisión</strong>: Proporción de alertas correctamente clasificadas.</li>
@@ -82,8 +77,8 @@ related:
 <li><strong>Tiempo de respuesta</strong>: Rapidez con la que el sistema procesa y clasifica las alertas.</li>
 </ul>
 <p>Es fundamental establecer umbrales claros y realizar ajustes continuos basados en el feedback de los analistas. Este enfoque asegura un equilibrio entre la detección de amenazas y la reducción de falsos positivos, mejorando la eficiencia del sistema.</p>
-<h2 class="sb h2-sbb-cls" id="configuracion-del-triage-de-alertas-con-ml-en-aws" tabindex="-1">Configuración del Triage de Alertas con ML en AWS</h2>
-<h3 id="herramientas-aws-ml-necesarias" tabindex="-1">Herramientas AWS ML Necesarias</h3>
+<h2 class="sb h2-sbb-cls" id="configuracion-del-triage-de-alertas-con-ml-en-aws" tabindex="-1">Configuración del triage de alertas con ML en AWS</h2>
+<h3 id="herramientas-aws-ml-necesarias" tabindex="-1">Herramientas AWS ML necesarias</h3>
 <p>Para configurar el triage de alertas con aprendizaje automático en AWS, necesitarás los siguientes servicios:</p>
 <ul>
 <li><strong>Amazon SageMaker</strong>: para crear y desplegar modelos de aprendizaje automático.</li>
@@ -91,7 +86,7 @@ related:
 <li><strong>AWS Lambda</strong>: para ejecutar procesos sin servidor y activar inferencias.</li>
 <li><strong><a href="https://aws.amazon.com/eventbridge/" rel="nofollow noopener noreferrer" target="_blank">Amazon EventBridge</a></strong>: para gestionar eventos y programar reentrenamientos.</li>
 </ul>
-<h3 id="integracion-con-servicios-de-seguridad-aws" tabindex="-1">Integración con Servicios de Seguridad AWS</h3>
+<h3 id="integracion-con-servicios-de-seguridad-aws" tabindex="-1">Integración con servicios de seguridad AWS</h3>
 <p>Configurar la integración con los servicios de seguridad nativos de AWS requiere algunos pasos clave:</p>
 <ul>
 <li>
@@ -112,7 +107,7 @@ related:
 </li>
 </ul>
 <p>Estos ajustes garantizan que el sistema funcione correctamente con la infraestructura de seguridad de AWS.</p>
-<h3 id="pipeline-de-procesamiento-de-alertas" tabindex="-1">Pipeline de Procesamiento de Alertas</h3>
+<h3 id="pipeline-de-procesamiento-de-alertas" tabindex="-1">Pipeline de procesamiento de alertas</h3>
 <p>El pipeline automatiza el proceso desde la recolección de datos hasta la clasificación de alertas.</p>
 <ol>
 <li>
@@ -143,8 +138,8 @@ La clasificación automatizada se realiza mediante:
 </li>
 </ol>
 <p>Además, se debe incorporar retroalimentación continua basada en los resultados obtenidos y la validación por parte de los analistas.</p>
-<h2 class="sb h2-sbb-cls" id="directrices-para-el-triage-de-alertas-con-ml" tabindex="-1">Directrices para el Triage de Alertas con ML</h2>
-<h3 id="actualizaciones-y-entrenamiento-del-modelo" tabindex="-1">Actualizaciones y Entrenamiento del Modelo</h3>
+<h2 class="sb h2-sbb-cls" id="directrices-para-el-triage-de-alertas-con-ml" tabindex="-1">Directrices para el triage de alertas con ML</h2>
+<h3 id="actualizaciones-y-entrenamiento-del-modelo" tabindex="-1">Actualizaciones y entrenamiento del modelo</h3>
 <p>Mantener los modelos en buen estado es esencial para un triage efectivo. Aquí tienes algunos pasos clave para lograrlo:</p>
 <ul>
 <li><strong>Reentrenamiento periódico</strong>: Actualiza los modelos cada mes utilizando datos de alertas validadas más recientes.</li>
@@ -152,7 +147,7 @@ La clasificación automatizada se realiza mediante:
 <li><strong>Ajuste de hiperparámetros</strong>: Ajusta regularmente los parámetros del modelo para reflejar cambios en los patrones de amenazas.</li>
 <li><strong>Conjunto de datos</strong>: Asegúrate de trabajar con un conjunto de datos equilibrado que incluya todas las alertas relevantes.</li>
 </ul>
-<h3 id="gestion-de-errores" tabindex="-1">Gestión de Errores</h3>
+<h3 id="gestion-de-errores" tabindex="-1">Gestión de errores</h3>
 <p>Clasificar y gestionar los errores según su impacto ayuda a priorizar las acciones necesarias:</p>
 <figure class="table"><table>
 <thead>
@@ -180,7 +175,7 @@ La clasificación automatizada se realiza mediante:
 </tr>
 </tbody>
 </table></figure>
-<h3 id="sistema-de-retroalimentacion" tabindex="-1">Sistema de Retroalimentación</h3>
+<h3 id="sistema-de-retroalimentacion" tabindex="-1">Sistema de retroalimentación</h3>
 <p>Implementar un sistema de retroalimentación es fundamental para mejorar continuamente. Los analistas de seguridad pueden:</p>
 <ul>
 <li>Señalar clasificaciones incorrectas.</li>
@@ -188,7 +183,7 @@ La clasificación automatizada se realiza mediante:
 <li>Sugerir ajustes en las reglas de clasificación.</li>
 </ul>
 <p>Este proceso asegura que la automatización funcione en armonía con la supervisión humana.</p>
-<h3 id="colaboracion-entre-humanos-y-ml" tabindex="-1">Colaboración entre Humanos y ML</h3>
+<h3 id="colaboracion-entre-humanos-y-ml" tabindex="-1">Colaboración entre humanos y ML</h3>
 <p>Combinar la experiencia humana con las capacidades de los modelos de ML maximiza la eficacia del triage:</p>
 <ul>
 <li><strong>Revisión humana estratégica</strong>: Los analistas se enfocan en alertas críticas y casos ambiguos.</li>
@@ -202,8 +197,8 @@ La clasificación automatizada se realiza mediante:
 <li>Realiza evaluaciones regulares del rendimiento del sistema.</li>
 </ul>
 <p>El objetivo es encontrar un equilibrio entre la eficiencia que aporta la automatización y la experiencia que ofrecen los analistas de seguridad.</p>
-<h2 class="sb h2-sbb-cls" id="ejemplos-de-aplicacion" tabindex="-1">Ejemplos de Aplicación</h2>
-<h3 id="ejemplos-de-deteccion-de-amenazas" tabindex="-1">Ejemplos de Detección de Amenazas</h3>
+<h2 class="sb h2-sbb-cls" id="ejemplos-de-aplicacion" tabindex="-1">Ejemplos de aplicación</h2>
+<h3 id="ejemplos-de-deteccion-de-amenazas" tabindex="-1">Ejemplos de detección de amenazas</h3>
 <p>En AWS, el uso de aprendizaje automático (ML) para el triage de alertas ha demostrado ser muy útil para identificar amenazas complejas. Aquí tienes algunos casos prácticos de su implementación:</p>
 <p><strong>Detección de accesos no autorizados</strong>:</p>
 <ul>
@@ -239,7 +234,7 @@ La clasificación automatizada se realiza mediante:
 </tbody>
 </table></figure>
 <p>Esta configuración permite detectar amenazas de forma más rápida y establecer una base sólida para evaluar vulnerabilidades.</p>
-<h3 id="clasificacion-de-vulnerabilidades" tabindex="-1">Clasificación de Vulnerabilidades</h3>
+<h3 id="clasificacion-de-vulnerabilidades" tabindex="-1">Clasificación de vulnerabilidades</h3>
 <p>El sistema de clasificación de vulnerabilidades utiliza ML para analizar y priorizar las vulnerabilidades detectadas, considerando:</p>
 <ul>
 <li><strong>Importancia del recurso</strong>: Basado en su criticidad.</li>
@@ -248,7 +243,7 @@ La clasificación automatizada se realiza mediante:
 </ul>
 <p>Para lograrlo, se puede implementar un pipeline de datos con <a href="https://aws.amazon.com/inspector/" rel="nofollow noopener noreferrer" target="_blank">Amazon Inspector</a>, un modelo de ML entrenado con datos históricos y un sistema automatizado de puntuación para asignar prioridades.</p>
 <p>Una vez que las vulnerabilidades están priorizadas, se pueden correlacionar múltiples alertas para identificar patrones de ataque más complejos.</p>
-<h3 id="analisis-de-eventos-de-seguridad" tabindex="-1">Análisis de Eventos de Seguridad</h3>
+<h3 id="analisis-de-eventos-de-seguridad" tabindex="-1">Análisis de eventos de seguridad</h3>
 <p>El análisis de eventos de seguridad mediante ML permite correlacionar alertas y detectar patrones de ataque avanzados. Este sistema:</p>
 <ul>
 <li>Agrupa automáticamente eventos relacionados.</li>
@@ -283,9 +278,9 @@ La clasificación automatizada se realiza mediante:
 </tbody>
 </table></figure>
 <p>Este diseño permite gestionar miles de eventos por segundo, destacando las amenazas que requieren atención inmediata del equipo de seguridad.</p>
-<h2 class="sb h2-sbb-cls" id="seguridad-y-cumplimiento-normativo" tabindex="-1">Seguridad y Cumplimiento Normativo</h2>
+<h2 class="sb h2-sbb-cls" id="seguridad-y-cumplimiento-normativo" tabindex="-1">Seguridad y cumplimiento normativo</h2>
 <p>El éxito del triage automatizado no solo depende de la tecnología utilizada, sino también de mantener altos estándares de protección y cumplimiento. Una vez optimizado el triage de alertas con aprendizaje automático (ML), es esencial asegurar que tanto la integridad como la conformidad se mantengan a lo largo de todo el proceso.</p>
-<h3 id="seguridad-de-los-datos-de-entrenamiento" tabindex="-1">Seguridad de los Datos de Entrenamiento</h3>
+<h3 id="seguridad-de-los-datos-de-entrenamiento" tabindex="-1">Seguridad de los datos de entrenamiento</h3>
 <p>Proteger los datos sensibles utilizados para entrenar los modelos de ML es clave. En AWS, se emplean varias capas de seguridad para garantizarlo:</p>
 <figure class="table"><table>
 <thead>
@@ -320,7 +315,7 @@ La clasificación automatizada se realiza mediante:
 <li><strong><a href="https://aws.amazon.com/config/" rel="nofollow noopener noreferrer" target="_blank">AWS Config</a></strong>: Supervisa cambios en la configuración de seguridad.</li>
 </ul>
 <p>Estas prácticas refuerzan la protección de los datos y permiten un control detallado durante el procesamiento de alertas.</p>
-<h3 id="seguimiento-del-proceso-de-alertas" tabindex="-1">Seguimiento del Proceso de Alertas</h3>
+<h3 id="seguimiento-del-proceso-de-alertas" tabindex="-1">Seguimiento del proceso de alertas</h3>
 <p>La seguridad se complementa con un monitoreo riguroso del flujo de trabajo en el triage de alertas.</p>
 <p><strong>Sistema de Registro Central:</strong></p>
 <ul>
@@ -334,7 +329,7 @@ La clasificación automatizada se realiza mediante:
 <li>Se capturan metadatos como la marca temporal, el nivel de severidad y el contexto.</li>
 <li>Se garantiza la trazabilidad completa del proceso de triage.</li>
 </ul>
-<h3 id="requisitos-de-cumplimiento-normativo" tabindex="-1">Requisitos de Cumplimiento Normativo</h3>
+<h3 id="requisitos-de-cumplimiento-normativo" tabindex="-1">Requisitos de cumplimiento normativo</h3>
 <p>Además de proteger los datos y procesos, es obligatorio cumplir con las leyes y regulaciones aplicables. La implementación del triage de alertas con ML debe alinearse con estándares legales y regulatorios, como:</p>
 <ul>
 <li><strong>Protección de datos personales</strong>: Cumplir con normativas como el RGPD mediante medidas como cifrado y controles de acceso estrictos.</li>
@@ -348,7 +343,7 @@ La clasificación automatizada se realiza mediante:
 <li>Mantener registros detallados de las evaluaciones de riesgo.</li>
 </ul>
 <p>Finalmente, configurar <strong><a href="https://aws.amazon.com/audit-manager/" rel="nofollow noopener noreferrer" target="_blank">AWS Audit Manager</a></strong> puede facilitar evaluaciones continuas del cumplimiento normativo y generar informes automáticos que respalden la conformidad con las regulaciones aplicables. Esto asegura un control constante y una respuesta rápida ante auditorías.</p>
-<h2 class="sb h2-sbb-cls" id="resumen-y-pasos-de-implementacion" tabindex="-1">Resumen y Pasos de Implementación</h2>
+<h2 class="sb h2-sbb-cls" id="resumen-y-pasos-de-implementacion" tabindex="-1">Resumen y pasos de implementación</h2>
 <p>Para poner en marcha el triage de alertas con ML en AWS, sigue este plan organizado:</p>
 <figure class="table"><table>
 <thead>
@@ -410,4 +405,4 @@ La clasificación automatizada se realiza mediante:
 </li>
 </ol>
 <p>Es recomendable revisar y ajustar el sistema cada 30 días para asegurar que mantiene al menos un 95% de precisión en la clasificación de alertas críticas. Además, la integración con el equipo de seguridad debe incluir procesos claros de escalamiento y límites bien definidos para las decisiones automatizadas, equilibrando la automatización con la supervisión humana.</p>
-<h2>Related posts</h2><ul><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/">Introducción a la Inteligencia Artificial en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-machine-learning-en-aws/">Mejores Prácticas de Machine Learning en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/10-preguntas-frecuentes-sobre-machine-learning-en-aws/">10 Preguntas Frecuentes sobre Machine Learning en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/estrategias-de-correlacion-de-eventos-aws/">Estrategias de Correlación de Eventos AWS</a></li></ul>
+<h2>Related posts</h2><ul><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/">Introducción a la inteligencia artificial en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-machine-learning-en-aws/">Mejores prácticas de machine learning en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/10-preguntas-frecuentes-sobre-machine-learning-en-aws/">10 preguntas frecuentes sobre machine learning en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/estrategias-de-correlacion-de-eventos-aws/">Estrategias de correlación de eventos AWS</a></li></ul>

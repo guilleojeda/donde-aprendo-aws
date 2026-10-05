@@ -1,25 +1,20 @@
 ---
-title: "Integrar Amazon Polly en 5 pasos: Texto a voz realista"
+title: "Integrar Amazon Polly en 5 pasos: texto a voz realista"
 description: "Aprende a integrar Amazon Polly en tus aplicaciones en 5 pasos y aprovecha la síntesis de voz realista para mejorar la experiencia de usuario."
 author: "guille-ojeda"
 publishedAt: "2024-05-13"
 publishedTimestamp: "2024-05-13T05:08:34.138Z"
-cover: "/assets/blog/35cbdc26cad1c09b7dd2fc81.jpg"
-coverAlt: "Perfil de una cabeza con ondas sonoras y circuitos en su interior"
-ogImage: "/assets/blog/35cbdc26cad1c09b7dd2fc81.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Correlación de Eventos con Step Functions y CloudWatch"
+  - title: "Correlación de eventos con Step Functions y CloudWatch"
     url: "https://dondeaprendoaws.com/blog/correlacion-de-eventos-con-step-functions-y-cloudwatch/"
-    image: "/assets/blog/1ddc83af1d16737de7b3fdb8.jpg"
-    imageAlt: ""
-  - title: "9 Mejores Prácticas de Seguridad para IaC en AWS"
+  - title: "9 mejores prácticas de seguridad para IaC en AWS"
     url: "https://dondeaprendoaws.com/blog/9-mejores-practicas-de-seguridad-para-iac-en-aws/"
-    image: "/assets/blog/0b84e7609d9a01cdc2449b30.jpg"
-    imageAlt: ""
-  - title: "Clases de Almacenamiento de Amazon S3"
+  - title: "Clases de almacenamiento de Amazon S3"
     url: "https://dondeaprendoaws.com/blog/clases-de-almacenamiento-de-amazon-s3/"
-    image: "/assets/blog/783a6beb62602d5d128b9c75.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Convierte fácilmente texto en voz realista con <a href="https://aws.amazon.com/polly/">Amazon Polly</a>, un servicio de síntesis de voz con tecnología de aprendizaje automático avanzada. Sigue estos 5 sencillos pasos:</p>
@@ -28,7 +23,7 @@ related:
 <p>Integra Amazon Polly en tus aplicaciones y aprovecha las voces realistas y naturales para mejorar la experiencia del usuario.</p>
 <h2 id="related-video-from-youtube">Related video from YouTube</h2>
 <div><iframe allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen="" height="315" loading="lazy" src="https://www.youtube.com/embed/XUd5M_mQaA0" title="Video de YouTube" width="560"></iframe></div>
-<h2 id="paso-1%3A-configuraci%C3%B3n-de-amazon-polly">Paso 1: Configuración de <a href="https://aws.amazon.com/polly/">Amazon Polly</a></h2>
+<h2 id="paso-1%3A-configuraci%C3%B3n-de-amazon-polly">Paso 1: configuración de <a href="https://aws.amazon.com/polly/">Amazon Polly</a></h2>
 <p><img alt="Amazon Polly" src="/assets/blog/8ae6ca4b881d2aa981fb8a8e.jpg"/></p>
 <p>Para empezar a utilizar Amazon Polly, debes configurar el servicio correctamente. En este paso, crearemos una cuenta de AWS y configuraremos Amazon Polly para que esté listo para su uso.</p>
 <h3 id="crear-una-cuenta-de-aws">Crear una cuenta de <a href="https://aws.amazon.com/">AWS</a></h3>
@@ -40,7 +35,7 @@ related:
 <p>Amazon Polly ofrece una variedad de voces y lenguajes para que puedas personalizar la experiencia de voz de tus usuarios. Para seleccionar la voz y el lenguaje adecuados para tu proyecto, sigue estos pasos:</p>
 <table><thead><tr><th>Paso</th><th>Acción</th></tr></thead><tbody><tr><td>1</td><td>Inicia sesión en la consola de AWS y navega hasta la página de Amazon Polly.</td></tr><tr><td>2</td><td>Haz clic en "Crear un proyecto de voz" y selecciona el lenguaje y la voz que deseas utilizar.</td></tr><tr><td>3</td><td>Selecciona la voz que mejor se adapte a tus necesidades.</td></tr></tbody></table>
 <p>Una vez que hayas seleccionado la voz y el lenguaje, puedes empezar a utilizar Amazon Polly para convertir texto en voz. En el siguiente paso, exploraremos cómo preparar el texto para la conversión.</p>
-<h2 id="paso-2%3A-preparar-el-texto-para-la-conversi%C3%B3n">Paso 2: Preparar el texto para la conversión</h2>
+<h2 id="paso-2%3A-preparar-el-texto-para-la-conversi%C3%B3n">Paso 2: preparar el texto para la conversión</h2>
 <p>Para convertir texto en voz con Amazon Polly, es importante preparar el texto de manera adecuada. En este paso, exploraremos las mejores prácticas para formatear el texto y utilizar las etiquetas de lenguaje de marcado de síntesis de voz (SSML) para personalizar la salida de voz.</p>
 <h3 id="formato-de-entrada-de-texto">Formato de entrada de texto</h3>
 <p>Antes de convertir el texto en voz, debes asegurarte de que el texto esté en un formato adecuado. Amazon Polly admite texto plano y texto con etiquetas SSML. El texto plano es el formato más común y se utiliza para la mayoría de las conversiones de texto a voz. Sin embargo, si deseas personalizar la salida de voz con pausas, énfasis o modulación del tono de voz, debes utilizar etiquetas SSML.</p>
@@ -51,7 +46,7 @@ related:
 <table><thead><tr><th>Etiqueta SSML</th><th>Descripción</th></tr></thead><tbody><tr><td><code>&lt;break time="1s"&gt;</code></td><td>Agrega una pausa de 1 segundo</td></tr><tr><td><code>&lt;emphasis level="strong"&gt;</code></td><td>Enfatiza una palabra o frase</td></tr><tr><td><code>&lt;prosody rate="slow"&gt;</code></td><td>Modula el tono de voz para que sea más lento</td></tr></tbody></table>
 <p>Recuerda que las etiquetas SSML deben estar bien formateadas y deben seguir las reglas de sintaxis de SSML. Puedes encontrar más información sobre las etiquetas SSML admitidas por Amazon Polly en la documentación de Amazon Polly.</p>
 <p>Una vez que hayas preparado el texto, puedes proceder a convertirlo en voz con Amazon Polly. En el próximo paso, exploraremos cómo utilizar la API de Amazon Polly para convertir texto en voz.</p>
-<h2 id="paso-3%3A-convertir-texto-a-voz">Paso 3: Convertir texto a voz</h2>
+<h2 id="paso-3%3A-convertir-texto-a-voz">Paso 3: convertir texto a voz</h2>
 <h3 id="utilizar-la-api-synthesizespeech">Utilizar la API SynthesizeSpeech</h3>
 <p>Para convertir texto en voz con Amazon Polly, debes utilizar la API SynthesizeSpeech. A continuación, te mostramos un ejemplo de cómo utilizar esta API en Python utilizando el SDK de AWS (<a href="https://boto3.amazonaws.com/v1/documentation/api/latest/index.html">Boto3</a>):</p>
 
@@ -79,7 +74,7 @@ with open('output.mp3', 'wb') as file:
 <p>Después de llamar a la API SynthesizeSpeech, Amazon Polly devolverá una secuencia de audio en el formato especificado. Puedes manejar esta secuencia de audio de varias maneras:</p>
 <ul><li><strong>Guardar en un archivo</strong>: Como se muestra en el ejemplo anterior, puedes guardar la secuencia de audio en un archivo utilizando un manejador de archivos. Esto te permite reproducir el audio más tarde o integrarlo en otras aplicaciones.</li><li><strong>Reproducir en tiempo real</strong>: En lugar de guardar el audio en un archivo, puedes reproducirlo en tiempo real. Por ejemplo, en una aplicación web, puedes utilizar la API de Web Audio para reproducir el audio directamente en el navegador.</li><li><strong>Transmitir a un servicio de terceros</strong>: Puedes transmitir la secuencia de audio a un servicio de terceros, como un servicio de transcripción de voz a texto o un servicio de análisis de audio.</li><li><strong>Integrar con otros servicios de AWS</strong>: Amazon Polly se puede integrar con otros servicios de AWS, como <a href="https://aws.amazon.com/s3/">Amazon S3</a> o <a href="https://aws.amazon.com/transcribe/">Amazon Transcribe</a>. Por ejemplo, puedes guardar el audio en un bucket de S3 o utilizar <a href="https://aws.amazon.com/transcribe/">Amazon Transcribe</a> para transcribir el audio a texto.</li></ul>
 <p>Recuerda que Amazon Polly te cobrará por el texto que sintetices. Por lo tanto, es recomendable optimizar el uso del servicio y cachear el audio cuando sea posible para evitar costos innecesarios.</p>
-<h2 id="paso-4%3A-almacenar-y-utilizar-la-salida-de-voz">Paso 4: Almacenar y utilizar la salida de voz</h2>
+<h2 id="paso-4%3A-almacenar-y-utilizar-la-salida-de-voz">Paso 4: almacenar y utilizar la salida de voz</h2>
 <p>Después de crear voz realista con Amazon Polly, es importante saber cómo guardarla para uso futuro o incrustarla en aplicaciones utilizando servicios de AWS como Amazon S3.</p>
 <h3 id="guardar-la-salida-de-audio">Guardar la salida de audio</h3>
 <p>Para guardar el audio generado por Amazon Polly, debes elegir el formato de archivo adecuado. Amazon Polly admite varios formatos de archivo, como MP3, Ogg Vorbis y PCM. Puedes seleccionar el formato que mejor se adapte a tus necesidades.</p>
@@ -106,7 +101,7 @@ with open('output.mp3', 'wb') as file:
 &lt;/audio&gt;
 </code></pre>
 <p>Recuerda que debes asegurarte de que el reproductor de audio sea compatible con el formato de archivo que hayas seleccionado.</p>
-<h2 id="paso-5%3A-integrar-amazon-polly">Paso 5: Integrar Amazon Polly</h2>
+<h2 id="paso-5%3A-integrar-amazon-polly">Paso 5: integrar Amazon Polly</h2>
 <h3 id="utilizar-sdks-de-aws">Utilizar SDKs de AWS</h3>
 <p>Puedes integrar fácilmente Amazon Polly en tus aplicaciones utilizando los SDKs de AWS. Estos SDKs están disponibles para una variedad de lenguajes de programación, como Java, Python, Node.js,.NET, Ruby, Go, PHP y C++. Esto te permite aprovechar las capacidades de Amazon Polly directamente desde tu código.</p>
 <p>Por ejemplo, con el SDK de Python para Boto3, puedes utilizar la función <code>synthesize_speech</code> para convertir texto en voz:</p>
@@ -128,7 +123,7 @@ with open('output.mp3', 'wb') as file:
 <p>Amazon Polly se puede integrar en una variedad de aplicaciones y casos de uso, como:</p>
 <table><thead><tr><th>Caso de uso</th><th>Descripción</th></tr></thead><tbody><tr><td><strong>Aplicaciones de aprendizaje electrónico</strong></td><td>Convierte contenido de texto en audio realista para mejorar la experiencia de aprendizaje.</td></tr><tr><td><strong>Asistentes virtuales y chatbots</strong></td><td>Utiliza las voces naturales de Amazon Polly para proporcionar respuestas de voz en tus asistentes virtuales o chatbots.</td></tr><tr><td><strong>Aplicaciones de accesibilidad</strong></td><td>Facilita el acceso a contenido digital para personas con discapacidades visuales o dificultades de lectura al convertir el texto en audio.</td></tr><tr><td><strong>Sistemas de respuesta de voz interactiva (IVR)</strong></td><td>Mejora la experiencia de los clientes en tus sistemas de IVR al utilizar voces realistas y naturales para los mensajes y menús de voz.</td></tr><tr><td><strong>Contenido multimedia</strong></td><td>Agrega narración de voz a tus videos, podcasts, presentaciones o cualquier otro contenido multimedia para mejorar la experiencia del usuario.</td></tr></tbody></table>
 <p>Al integrar Amazon Polly en tus aplicaciones, puedes aprovechar las voces realistas y naturales para mejorar la interacción con los usuarios, facilitar el acceso al contenido y crear experiencias más atractivas y envolventes.</p>
-<h2 id="conclusi%C3%B3n%3A-puntos-clave-y-mejores-pr%C3%A1cticas">Conclusión: Puntos clave y mejores prácticas</h2>
+<h2 id="conclusi%C3%B3n%3A-puntos-clave-y-mejores-pr%C3%A1cticas">Conclusión: puntos clave y mejores prácticas</h2>
 <h3 id="resumen-de-los-pasos">Resumen de los pasos</h3>
 <p>1. <strong>Configurar Amazon Polly</strong></p>
 <p>Crea una cuenta de AWS y selecciona la voz y el idioma adecuados para tu aplicación. Amazon Polly ofrece una variedad de voces realistas en múltiples idiomas.</p>
@@ -150,4 +145,4 @@ with open('output.mp3', 'wb') as file:
 <p>Las voces de formato largo de Amazon Polly se desarrollan con una tecnología de síntesis de voz avanzada. Estas voces están diseñadas para ser utilizadas en contenidos más largos, como artículos de noticias, materiales de capacitación o videos de marketing. Ofrecen una calidad de voz mejorada con una entonación y expresión más naturales.</p>
 <table><thead><tr><th>Característica</th><th>Descripción</th></tr></thead><tbody><tr><td><strong>Calidad de voz</strong></td><td>Las voces de formato largo ofrecen una calidad de voz mejorada con una entonación y expresión más naturales.</td></tr><tr><td><strong>Uso</strong></td><td>Estas voces están diseñadas para ser utilizadas en contenidos más largos, como artículos de noticias, materiales de capacitación o videos de marketing.</td></tr></tbody></table>
 <h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/como-desarrollar-aplicaciones-de-inteligencia-artificial-en-aws/">Cómo Desarrollar Aplicaciones de Inteligencia Artificial en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/personalizacion-en-tiempo-real-con-aws-casos-de-uso/">Personalización en tiempo real con AWS: Casos de uso</a></li><li><a href="https://dondeaprendoaws.com/blog/servicios-de-aws-para-inteligencia-artificial/">Servicios de AWS para Inteligencia Artificial</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/">Introducción a la Inteligencia Artificial en AWS</a></li></ul>
+<ul><li><a href="https://dondeaprendoaws.com/blog/como-desarrollar-aplicaciones-de-inteligencia-artificial-en-aws/">Cómo desarrollar aplicaciones de inteligencia artificial en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/personalizacion-en-tiempo-real-con-aws-casos-de-uso/">Personalización en tiempo real con AWS: casos de uso</a></li><li><a href="https://dondeaprendoaws.com/blog/servicios-de-aws-para-inteligencia-artificial/">Servicios de AWS para inteligencia artificial</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/">Introducción a la inteligencia artificial en AWS</a></li></ul>

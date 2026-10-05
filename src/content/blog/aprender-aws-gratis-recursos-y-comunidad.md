@@ -7,10 +7,10 @@ publishedTimestamp: "2024-01-27T01:37:04.435Z"
 modifiedTimestamp: "2026-10-05T00:04:02-03:00"
 review:
   date: "2026-10-05"
-cover: "/assets/blog/c7227ae982494a7ce1620070.jpg"
-coverAlt: "Nube sobre una mano estilizada y una fila de símbolos de colores"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
 indexOrder: 6
-ogImage: "/assets/blog/c7227ae982494a7ce1620070.jpg"
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related: []
 ---
 
@@ -121,7 +121,7 @@ Estas actividades publicadas para **octubre de 2026** permiten dar un siguiente 
 - **[AWS Community Day Paraguay 2026](https://www.awscommunitydayparaguay.com/), 17 de octubre, San Lorenzo:** el organizador anuncia entrada gratuita con registro y cupos limitados, charlas en español y talleres. La agenda incluye “AWS Sin Mapa: tu ruta para empezar en la nube sin perderte”. Revisa los requisitos de la sesión que elijas; asistir a una charla no implica disponer de un laboratorio o una cuenta de práctica.
 - **[Amazon VPC Essentials](https://www.meetup.com/aws-sbg-at-francisco-jose-de-caldas-district-univ-bogota/events/316674045/), 21 de octubre, en línea:** de 18:00 a 20:00, hora de Bogotá (UTC−5), con fundamentos de subredes, rutas y conexiones. Requiere inscripción y tiene cupos limitados; la página no indica precio. El enlace virtual es visible para asistentes.
 
-Si esas fechas ya pasaron, consulta la [agenda de próximos eventos](/eventos/) y su [filtro de actividades en línea](/eventos/?mode=online). El [directorio de comunidades](/comunidades/) y los [Student Builder Groups](/comunidades/?format=Student+Builder+Group) permiten encontrar otros grupos por país. Confirma idioma, nivel, costo, horario y requisitos con el organizador antes de registrarte.
+Si esas fechas ya pasaron, consulta la [Agenda de próximos eventos](/eventos/) y su [filtro de actividades en línea](/eventos/?mode=online). El [directorio de comunidades](/comunidades/) y los [Student Builder Groups](/comunidades/?format=Student+Builder+Group) permiten encontrar otros grupos por país. Confirma idioma, nivel, costo, horario y requisitos con el organizador antes de registrarte.
 
 Para estudiar en grupo, elijan una pregunta y un material. Después comparen sus explicaciones o resultados. Una sesión sobre IAM puede terminar con un diagrama de identidades y permisos; una de datos, con una explicación de cuándo usar DynamoDB o Redshift. No necesitan compartir una contraseña ni desplegar un proyecto complejo para aprender juntos.
 

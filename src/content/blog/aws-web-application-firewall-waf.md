@@ -4,22 +4,17 @@ description: "Protege tus aplicaciones web en AWS con AWS Web Application Firewa
 author: "guille-ojeda"
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T01:28:49.211Z"
-cover: "/assets/blog/f5ae0710f3fb74786f37f833.png"
-coverAlt: "Escudo compuesto por piezas de rompecabezas con símbolos de protección"
-ogImage: "/assets/blog/f5ae0710f3fb74786f37f833.png"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related:
-  - title: "10 Métricas Clave de DevOps en AWS"
+  - title: "10 métricas clave de DevOps en AWS"
     url: "https://dondeaprendoaws.com/blog/10-metricas-clave-de-devops-en-aws/"
-    image: "/assets/blog/98aff2370ca15f9967751abc.png"
-    imageAlt: ""
-  - title: "Microservicios en AWS Utilizando Contenedores"
+  - title: "Microservicios en AWS utilizando contenedores"
     url: "https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-contenedores/"
-    image: "/assets/blog/bf2d7e4c78ec347430ffd844.jpg"
-    imageAlt: ""
-  - title: "Recursos en Español para Certificacion AWS Cloud Practitioner"
+  - title: "Recursos en español para certificacion AWS Cloud Practitioner"
     url: "https://dondeaprendoaws.com/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/"
-    image: "/assets/blog/8d4ecab3b218a57acfd77f30.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Si buscas proteger tus aplicaciones web en AWS de ataques y bots maliciosos, AWS WAF es tu solución. Este firewall de aplicaciones web te permite controlar el acceso a tus aplicaciones mediante reglas personalizables, ofreciendo protección contra ataques comunes como inyecciones SQL y XSS. Además, se integra perfectamente con otros servicios de AWS, como CloudFront y API Gateway, para brindarte una seguridad completa. Aquí te doy un resumen de lo más importante:</p>
@@ -290,13 +285,13 @@ related:
 <p>Una guía simple para proteger tu aplicación web con AWS WAF:</p>
 
 
-<h3 id="1.-crear-una-web-acl" tabindex="-1">1. Crear una Web ACL</h3>
+<h3 id="1.-crear-una-web-acl" tabindex="-1">1. Crear una web ACL</h3>
 
 
 <p>Primero, necesitas crear una Web ACL en AWS WAF. Esto es como hacer una lista de reglas que decides aplicar para proteger tu sitio. Puedes elegir reglas que AWS ya tiene preparadas, como protección contra problemas comunes de seguridad.</p>
 
 
-<h2 id="ejemplo-de-c%C3%B3mo-crear-una-web-acl" tabindex="-1">Ejemplo de cómo crear una Web ACL</h2>
+<h2 id="ejemplo-de-c%C3%B3mo-crear-una-web-acl" tabindex="-1">Ejemplo de cómo crear una web ACL</h2>
 
 
 <ul>
@@ -308,7 +303,7 @@ related:
 </ul>
 
 
-<h3 id="2.-asociar-la-web-acl-a-un-alb" tabindex="-1">2. Asociar la Web ACL a un ALB</h3>
+<h3 id="2.-asociar-la-web-acl-a-un-alb" tabindex="-1">2. Asociar la web ACL a un ALB</h3>
 
 
 <p>Después de crear la Web ACL, necesitas conectarla con tu equilibrador de carga (ALB). Esto hace que el tráfico hacia tu aplicación pase por las reglas que has establecido, ayudando a mantenerla segura.</p>
@@ -383,7 +378,7 @@ Siguiendo estos pasos, puedes configurar AWS WAF para que proteja tu aplicación
 <p>Sí, AWS WAF es un tipo de firewall diseñado específicamente para aplicaciones web. Su trabajo es revisar las solicitudes que se hacen a tu aplicación web y decidir cuáles permitir y cuáles bloquear, basándose en las reglas que hayas establecido.</p>
 
 
-<h3 id="%C2%BFes-aws-waf-un-firewall-de-capa-7%3F" tabindex="-1">¿Es AWS WAF un firewall de Capa 7?</h3>
+<h3 id="%C2%BFes-aws-waf-un-firewall-de-capa-7%3F" tabindex="-1">¿Es AWS WAF un firewall de capa 7?</h3>
 
 
 <p>Sí, AWS WAF funciona en la capa 7 del modelo OSI, que es la capa de aplicación. Esto significa que se enfoca en el tráfico HTTP(S) que va hacia y viene de tu aplicación web, ayudándote a protegerla contra ataques específicos que ocurren en esta capa.</p>
@@ -404,6 +399,6 @@ Siguiendo estos pasos, puedes configurar AWS WAF para que proteja tu aplicación
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/">Arquitecturas de Alta Disponibilidad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/">Seguridad en AWS: Mejores Prácticas</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores Prácticas de Seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">Seguridad en AWS: Servicios Esenciales</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/">arquitecturas de alta disponibilidad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/">seguridad en AWS: mejores prácticas</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores prácticas de seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">seguridad en AWS: servicios esenciales</a></li>
 </ul>
 </p>

@@ -7,9 +7,9 @@ publishedTimestamp: "2024-05-15T06:00:17.055Z"
 modifiedTimestamp: "2026-10-04T22:31:52-03:00"
 review:
   date: "2026-10-04"
-cover: "/assets/blog/c936f3eb45382355f87b0707.jpg"
-coverAlt: "Camino sinuoso con símbolos de nube, engranajes y conexiones"
-ogImage: "/assets/blog/c936f3eb45382355f87b0707.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related: []
 ---
 
@@ -33,7 +33,7 @@ Lambda puede terminar entornos por mantenimiento, fallos o cambios de demanda; n
 
 Consulta el [ciclo de vida del entorno de ejecución de Lambda](https://docs.aws.amazon.com/es_es/lambda/latest/dg/lambda-runtime-environment.html) para ver los detalles de `Init`, `Invoke`, `Restore` y los reinicios.
 
-## Cómo medirlos sin confundir Init con latencia de usuario
+## Cómo medirlos sin confundir init con latencia de usuario
 
 Con el formato de logs de texto habitual, los registros `REPORT` pueden incluir `Init Duration`. En CloudWatch, abre **Logs Insights**, selecciona el grupo de logs de la función —por defecto, `/aws/lambda/nombre-de-la-función`— y el intervalo de tiempo que quieres analizar. Esta consulta agrupa por intervalos de cinco minutos el porcentaje de líneas `REPORT` que contienen una duración de inicialización visible y la duración media reportada:
 
@@ -109,7 +109,7 @@ Al revisar la agenda el 4 de octubre de 2026, figuraban estas sesiones virtuales
 - **EC2 vs Lambda**, viernes 16 de octubre de 2026, de 16:00 a 17:00 (GMT-6, hora del organizador): compara ventajas, costos y escenarios de ambos servicios. Revisa la [ficha e inscripción en Meetup](https://www.meetup.com/fb83c392-728a-42dc-9a3f-7d351301e452/events/315728721/).
 - **El Combo Indestructible de AWS: SQS + Lambda**, martes 20 de octubre de 2026, de 19:00 a 21:00 (COT, hora de Colombia): sesión virtual de acceso libre sobre resiliencia y escalabilidad; la ficha indica que el enlace se muestra a asistentes. Consulta la [ficha e inscripción en Meetup](https://www.meetup.com/aws-user-group-serverless-colombia/events/316770520/).
 
-Comprueba fecha, horario, cupos y modalidad en cada ficha antes de inscribirte, o busca otras actividades en la [agenda de eventos AWS](https://dondeaprendoaws.com/eventos/).
+Comprueba fecha, horario, cupos y modalidad en cada ficha antes de inscribirte, o busca otras actividades en la [Agenda de eventos AWS](https://dondeaprendoaws.com/eventos/).
 
 ## Preguntas frecuentes
 

@@ -4,22 +4,17 @@ description: "Descubre cómo utilizar AWS Backup para proteger tus datos en la n
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:55:54.461Z"
-cover: "/assets/blog/25448721c535fa1737e8eeba.jpg"
-coverAlt: "Nube con un escudo y un candado rodeada por anillos tecnológicos"
-ogImage: "/assets/blog/25448721c535fa1737e8eeba.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
-  - title: "¿Qué es AWS Lambda? Preguntas y Respuestas"
+  - title: "¿Qué es AWS Lambda? preguntas y respuestas"
     url: "https://dondeaprendoaws.com/blog/que-es-aws-lambda-preguntas-y-respuestas/"
-    image: "/assets/blog/70579f832030c8f349b01339.jpg"
-    imageAlt: ""
-  - title: "7 Estrategias para Reducir Costos en AWS Fargate"
+  - title: "7 estrategias para reducir costos en AWS Fargate"
     url: "https://dondeaprendoaws.com/blog/7-estrategias-para-reducir-costos-en-aws-fargate/"
-    image: "/assets/blog/9d9e21deaf95138036c3d24d.jpg"
-    imageAlt: ""
-  - title: "AWS Fundamentos: Guía de Inicio Rápido"
+  - title: "AWS fundamentos: guía de inicio rápido"
     url: "https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/"
-    image: "/assets/blog/945b48235c5e1f4c1d3cc3ae.jpg"
-    imageAlt: ""
+
 ---
 
 <p>AWS Backup es una herramienta esencial para asegurar tus datos en la nube, permitiéndote automatizar, organizar y proteger tus copias de seguridad de manera eficiente. Aquí están las claves que necesitas saber:</p>
@@ -409,7 +404,7 @@ related:
 <p>AWS Backup es un servicio de AWS que te ayuda a guardar y organizar tus copias de seguridad en la nube de manera automática. Esto incluye hacer copias de cosas como tus máquinas virtuales, bases de datos y archivos. Además, AWS Backup te permite proteger tus copias con cifrado, guardarlas por mucho tiempo y recuperarlas rápidamente si algo sale mal.</p>
 
 
-<h3 id="%C2%BFc%C3%B3mo-se-utiliza-un-backup%3F" tabindex="-1">¿Cómo se utiliza un backup?</h3>
+<h3 id="%C2%BFc%C3%B3mo-se-utiliza-un-backup%3F" tabindex="-1">¿Cómo se utiliza un Backup?</h3>
 
 
 <p>Un backup, o copia de seguridad, es como tener un respaldo de tus datos importantes en otro lugar seguro. Si pierdes tus datos originales por cualquier razón, como un error técnico o un virus, puedes recuperarlos desde esta copia de seguridad. Usos comunes incluyen:</p>
@@ -446,6 +441,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-s3/">Mejores Prácticas Para Amazon S3</a></li><li><a href="https://dondeaprendoaws.com/blog/respaldos-y-snapshots-en-ebs/">Respaldos y Snapshots en EBS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores Prácticas de Seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/estrategias-de-recuperacion-de-desastres-en-aws/">Estrategias de Recuperación de Desastres en AWS</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-s3/">Mejores prácticas para Amazon S3</a></li><li><a href="https://dondeaprendoaws.com/blog/respaldos-y-snapshots-en-ebs/">Respaldos y snapshots en EBS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores prácticas de seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/estrategias-de-recuperacion-de-desastres-en-aws/">Estrategias de recuperación de desastres en AWS</a></li>
 </ul>
 </p>

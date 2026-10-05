@@ -7,9 +7,9 @@ publishedTimestamp: "2025-01-09T00:16:49.41Z"
 modifiedTimestamp: "2026-10-05T00:15:04-03:00"
 review:
   date: "2026-10-05"
-cover: "/assets/blog/887b167cb63dec6854e043dc.jpg"
-coverAlt: "Monitor con panel de gráficos en una oficina con plantas"
-ogImage: "/assets/blog/887b167cb63dec6854e043dc.jpg"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related: []
 ---
 

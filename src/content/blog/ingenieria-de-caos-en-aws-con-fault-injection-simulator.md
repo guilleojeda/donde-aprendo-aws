@@ -1,25 +1,20 @@
 ---
-title: "Ingeniería de Caos en AWS con Fault Injection Simulator"
+title: "Ingeniería de caos en AWS con fault injection simulator"
 description: "Aprende cómo fortalecer tus sistemas en AWS con la ingeniería del caos utilizando AWS Fault Injection Simulator. Descubre los pasos clave y mejores prácticas para mejorar la resiliencia de tus aplicaciones."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T01:48:43.97Z"
-cover: "/assets/blog/0a0b1cf017845abee5cf215d.png"
-coverAlt: "Nube con un escudo y varios rayos bajo ella"
-ogImage: "/assets/blog/0a0b1cf017845abee5cf215d.png"
+cover: "/assets/blog/editorial-practica.png"
+coverAlt: "Un cuaderno abierto con una secuencia de estaciones y un camino azul con punto naranja."
+ogImage: "/assets/blog/editorial-practica.png"
 related:
-  - title: "Servicios de AWS para Frontend"
+  - title: "Servicios de AWS para frontend"
     url: "https://dondeaprendoaws.com/blog/servicios-de-aws-para-frontend/"
-    image: "/assets/blog/31bdf1ca2f3b6c51213246c8.jpg"
-    imageAlt: ""
-  - title: "Mejores Prácticas de Observabilidad en AWS"
+  - title: "Mejores prácticas de observabilidad en AWS"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/"
-    image: "/assets/blog/225d18fffd41e9eec388a76e.jpg"
-    imageAlt: ""
   - title: "Desarrollo en la nube: fundamentos esenciales"
     url: "https://dondeaprendoaws.com/blog/desarrollo-en-la-nube-fundamentos-esenciales/"
-    image: "/assets/blog/9257652addf07f39008f550d.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Descubre cómo hacer tus sistemas en AWS más fuertes con la ingeniería del caos utilizando <a href="https://aws.amazon.com/es/fis" rel="noopener noreferrer" target="_blank">AWS Fault Injection Simulator</a> (AWS FIS). Este enfoque te permite identificar y arreglar vulnerabilidades antes de que causen problemas reales, asegurándote de que tus aplicaciones puedan manejar situaciones difíciles sin afectar a los usuarios finales. Aquí tienes un resumen rápido de lo que aprenderás:</p>
@@ -378,6 +373,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/observabilidad-en-aws-con-amazon-x-ray/">Observabilidad en AWS con Amazon X-Ray</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/estrategias-de-recuperacion-de-desastres-en-aws/">Estrategias de Recuperación de Desastres en AWS</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/observabilidad-en-aws-con-amazon-x-ray/">Observabilidad en AWS con Amazon X-Ray</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/estrategias-de-recuperacion-de-desastres-en-aws/">Estrategias de recuperación de desastres en AWS</a></li>
 </ul>
 </p>

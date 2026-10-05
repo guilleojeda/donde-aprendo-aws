@@ -7,9 +7,9 @@ publishedTimestamp: "2024-05-01T02:41:51.509Z"
 modifiedTimestamp: "2026-10-04T22:31:52-03:00"
 review:
   date: "2026-10-04"
-cover: "/assets/blog/d85eb8d10d11d152a0198dea.jpg"
-coverAlt: "Nube tridimensional con piezas de rompecabezas y una escalera ascendente"
-ogImage: "/assets/blog/d85eb8d10d11d152a0198dea.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related: []
 ---
 
@@ -88,7 +88,7 @@ Al revisar la agenda el **4 de octubre de 2026**, estaban anunciados dos encuent
 - **16 de octubre de 2026, 16:00–17:00 (hora de México, GMT−6):** [EC2 vs Lambda](https://www.meetup.com/fb83c392-728a-42dc-9a3f-7d351301e452/events/315728721/), online, de AWS User Group Tlaxcala FireflyCloud; la ficha compara ventajas y costos.
 - **20 de octubre de 2026, 19:00–21:00 (COT/GMT−5):** [El Combo Indestructible de AWS: SQS + Lambda](https://www.meetup.com/aws-user-group-serverless-colombia/events/316770520/), online, de AWS User Group Serverless Colombia; la ficha anuncia acceso libre.
 
-Consulta cada ficha para confirmar horario en la zona del organizador, registro y cambios. Si estos encuentros ya pasaron cuando leas el artículo, revisa la [agenda de eventos AWS](https://dondeaprendoaws.com/eventos/) y la página de la comunidad por si hay nuevas fechas o una grabación.
+Consulta cada ficha para confirmar horario en la zona del organizador, registro y cambios. Si estos encuentros ya pasaron cuando leas el artículo, revisa la [Agenda de eventos AWS](https://dondeaprendoaws.com/eventos/) y la página de la comunidad por si hay nuevas fechas o una grabación.
 
 ## Preguntas frecuentes
 

@@ -1,25 +1,20 @@
 ---
-title: "Estrategias de Correlación de Eventos AWS"
+title: "Estrategias de correlación de eventos AWS"
 description: "Aprende a gestionar eventos en AWS mediante la correlación, optimizando la seguridad y el rendimiento de tus sistemas."
 author: "guille-ojeda"
 publishedAt: "2024-12-26"
 publishedTimestamp: "2024-12-26T19:07:36.754Z"
-cover: "/assets/blog/b5250ebc33b6dd3702e864e4.jpg"
-coverAlt: "Monitor con un panel de datos y gráficos frente a una ventana"
-ogImage: "/assets/blog/b5250ebc33b6dd3702e864e4.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Cómo crear Infraestructura como Código en AWS con Terraform"
+  - title: "Cómo crear infraestructura como código en AWS con Terraform"
     url: "https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-terraform/"
-    image: "/assets/blog/e70ea85183c2a0917d33154f.png"
-    imageAlt: ""
-  - title: "Tipos y Tamaños de Instancias RDS: Guía Completa"
+  - title: "Tipos y tamaños de instancias RDS: guía completa"
     url: "https://dondeaprendoaws.com/blog/tipos-y-tamanos-de-instancias-rds-guia-completa/"
-    image: "/assets/blog/ad2ff3daa90f3b8701cd3eb8.png"
-    imageAlt: ""
-  - title: "Conceptos Básicos y Avanzados de Amazon VPC"
+  - title: "Conceptos básicos y avanzados de Amazon VPC"
     url: "https://dondeaprendoaws.com/blog/conceptos-basicos-y-avanzados-de-amazon-vpc/"
-    image: "/assets/blog/12c27432a1ba20e5bffcb7b0.jpg"
-    imageAlt: ""
+
 ---
 
 <p><strong>¿Quieres gestionar eventos en AWS de forma eficiente? Aquí tienes las claves:</strong></p>
@@ -49,7 +44,7 @@ related:
 </ol>
 
 
-<p><strong><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas</a>:</strong></p>
+<p><strong><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">mejores prácticas</a>:</strong></p>
 
 
 <ul>
@@ -65,10 +60,10 @@ related:
 <p>Con estas estrategias, optimizarás la seguridad y el rendimiento de tus sistemas en AWS.</p>
 
 
-<h2 class="sb" id="estrategias-para-la-correlaci%C3%B3n-de-eventos-en-aws" tabindex="-1">Estrategias para la Correlación de Eventos en AWS</h2>
+<h2 class="sb" id="estrategias-para-la-correlaci%C3%B3n-de-eventos-en-aws" tabindex="-1">Estrategias para la correlación de eventos en AWS</h2>
 
 
-<h3 id="identificaci%C3%B3n-de-eventos-cr%C3%ADticos" tabindex="-1">Identificación de Eventos Críticos</h3>
+<h3 id="identificaci%C3%B3n-de-eventos-cr%C3%ADticos" tabindex="-1">Identificación de eventos críticos</h3>
 
 
 <p>Identificar eventos críticos es clave para garantizar la seguridad y el rendimiento de los sistemas en AWS. Estos eventos se agrupan según su impacto:</p>
@@ -139,7 +134,7 @@ related:
 <p>Además, puedes integrar estos datos con AWS Security Hub para obtener una visión completa de la seguridad.</p>
 
 
-<h3 id="centralizaci%C3%B3n-de-hallazgos-de-seguridad-con-aws-security-hub" tabindex="-1">Centralización de Hallazgos de Seguridad con <a href="https://docs.aws.amazon.com/securityhub/" rel="noopener noreferrer" target="_blank">AWS Security Hub</a></h3>
+<h3 id="centralizaci%C3%B3n-de-hallazgos-de-seguridad-con-aws-security-hub" tabindex="-1">Centralización de hallazgos de seguridad con <a href="https://docs.aws.amazon.com/securityhub/" rel="noopener noreferrer" target="_blank">AWS Security Hub</a></h3>
 
 
 <p><figure><img alt="AWS Security Hub" src="/assets/blog/4e914db3dbf60d179b772d68.jpg"/></figure></p>
@@ -166,10 +161,10 @@ related:
 <p>Al combinar estas estrategias, puedes construir un sistema sólido que refuerce tanto la seguridad como el rendimiento de tus operaciones en AWS.</p>
 
 
-<h2 class="sb" id="mejores-pr%C3%A1cticas-para-la-correlaci%C3%B3n-de-eventos" tabindex="-1">Mejores Prácticas para la Correlación de Eventos</h2>
+<h2 class="sb" id="mejores-pr%C3%A1cticas-para-la-correlaci%C3%B3n-de-eventos" tabindex="-1">Mejores prácticas para la correlación de eventos</h2>
 
 
-<h3 id="estandarizaci%C3%B3n-de-datos-de-eventos" tabindex="-1">Estandarización de Datos de Eventos</h3>
+<h3 id="estandarizaci%C3%B3n-de-datos-de-eventos" tabindex="-1">Estandarización de datos de eventos</h3>
 
 
 <p>Estandarizar los datos es clave para simplificar el análisis y la correlación entre servicios de AWS. Herramientas como <strong>Amazon EventBridge</strong> y <strong>CloudWatch Events</strong> pueden ayudar a lograr esta uniformidad, permitiendo que los servicios trabajen juntos sin problemas.</p>
@@ -198,7 +193,7 @@ related:
 </table></figure>
 
 
-<h3 id="configuraci%C3%B3n-de-umbrales-de-alerta" tabindex="-1">Configuración de Umbrales de Alerta</h3>
+<h3 id="configuraci%C3%B3n-de-umbrales-de-alerta" tabindex="-1">Configuración de umbrales de alerta</h3>
 
 
 <p>Definir umbrales adecuados es esencial para evitar una sobrecarga de alertas y centrarse en los eventos más relevantes:</p>
@@ -213,7 +208,7 @@ related:
 <p>Mantener estos umbrales actualizados asegura que el sistema continúe funcionando de manera eficiente y relevante.</p>
 
 
-<h3 id="auditor%C3%ADa-de-configuraciones-de-correlaci%C3%B3n" tabindex="-1">Auditoría de Configuraciones de Correlación</h3>
+<h3 id="auditor%C3%ADa-de-configuraciones-de-correlaci%C3%B3n" tabindex="-1">Auditoría de configuraciones de correlación</h3>
 
 
 <p><strong>AWS CloudTrail</strong> y <strong>CloudWatch Logs</strong> son herramientas útiles para monitorear cambios en las configuraciones de correlación. Estas herramientas permiten:</p>
@@ -234,16 +229,16 @@ related:
 
 
 
-<h2 class="sb" id="t%C3%A9cnicas-avanzadas-de-correlaci%C3%B3n-de-eventos" tabindex="-1">Técnicas Avanzadas de Correlación de Eventos</h2>
+<h2 class="sb" id="t%C3%A9cnicas-avanzadas-de-correlaci%C3%B3n-de-eventos" tabindex="-1">Técnicas avanzadas de correlación de eventos</h2>
 
 
-<h3 id="uso-de-machine-learning-para-detecci%C3%B3n-de-anomal%C3%ADas" tabindex="-1">Uso de Machine Learning para Detección de Anomalías</h3>
+<h3 id="uso-de-machine-learning-para-detecci%C3%B3n-de-anomal%C3%ADas" tabindex="-1">Uso de machine learning para detección de anomalías</h3>
 
 
 <p>Herramientas como <strong><a href="https://docs.aws.amazon.com/sagemaker/" rel="noopener noreferrer" target="_blank">Amazon SageMaker</a></strong> y <strong><a href="https://docs.aws.amazon.com/lookout-for-equipment/" rel="noopener noreferrer" target="_blank">Amazon Lookout</a></strong> permiten identificar anomalías en tiempo real al analizar patrones históricos y entrenar modelos predictivos. Estas herramientas van más allá de las estrategias tradicionales, ofreciendo un enfoque dinámico y ágil para identificar riesgos.</p>
 
 
-<h3 id="integraci%C3%B3n-con-sistemas-siem" tabindex="-1">Integración con Sistemas SIEM</h3>
+<h3 id="integraci%C3%B3n-con-sistemas-siem" tabindex="-1">Integración con sistemas SIEM</h3>
 
 
 <p>Conectar sistemas SIEM como <strong>Splunk</strong> o <strong><a href="https://www.sumologic.com/solutions/security-analyst-tools/" rel="noopener noreferrer" target="_blank">Sumo Logic</a></strong> con AWS centraliza los eventos de seguridad y operativos. Esto mejora la correlación de datos entre entornos locales y en la nube, fortaleciendo la detección de amenazas en infraestructuras híbridas.</p>
@@ -252,7 +247,7 @@ related:
 <p>Para lograr una integración eficiente, es clave usar conectores seguros y formatos de datos consistentes. <strong><a href="https://docs.aws.amazon.com/glue/" rel="noopener noreferrer" target="_blank">AWS Glue</a></strong> facilita la transformación y catalogación de datos, asegurando un procesamiento uniforme y ordenado.</p>
 
 
-<h3 id="consideraciones-de-cumplimiento-y-gobernanza" tabindex="-1">Consideraciones de Cumplimiento y Gobernanza</h3>
+<h3 id="consideraciones-de-cumplimiento-y-gobernanza" tabindex="-1">Consideraciones de cumplimiento y gobernanza</h3>
 
 
 <p>Herramientas como <strong><a href="https://docs.aws.amazon.com/lake-formation/" rel="noopener noreferrer" target="_blank">AWS Lake Formation</a></strong> y <strong><a href="https://aws.amazon.com/artifact/" rel="noopener noreferrer" target="_blank">AWS Artifact</a></strong> son esenciales para gestionar permisos y acceder a certificaciones que aseguren el cumplimiento regulatorio. Estas soluciones ayudan a proteger datos sensibles y a evitar posibles sanciones.</p>
@@ -266,10 +261,10 @@ related:
 </blockquote>
 
 
-<h2 class="sb" id="conclusi%C3%B3n-y-pr%C3%B3ximos-pasos" tabindex="-1">Conclusión y Próximos Pasos</h2>
+<h2 class="sb" id="conclusi%C3%B3n-y-pr%C3%B3ximos-pasos" tabindex="-1">Conclusión y próximos pasos</h2>
 
 
-<h3 id="estrategias-clave-resumidas" tabindex="-1">Estrategias Clave Resumidas</h3>
+<h3 id="estrategias-clave-resumidas" tabindex="-1">Estrategias clave resumidas</h3>
 
 
 <p>La correlación de eventos en AWS reúne servicios como <strong>EventBridge</strong>, <strong>CloudWatch</strong> y <strong>Security Hub</strong> para identificar y gestionar incidentes de manera eficiente. AWS Security Hub actúa como un punto central para consolidar hallazgos de seguridad, lo que permite una respuesta más rápida y organizada.</p>
@@ -281,7 +276,7 @@ related:
 <p>El acceso a recursos educativos adecuados también juega un papel importante en la implementación de estas estrategias.</p>
 
 
-<h3 id="recursos-en-espa%C3%B1ol-para-desarrolladores" tabindex="-1">Recursos en Español para Desarrolladores</h3>
+<h3 id="recursos-en-espa%C3%B1ol-para-desarrolladores" tabindex="-1">Recursos en español para desarrolladores</h3>
 
 
 <p>Si buscas aprender y aplicar estrategias de correlación de eventos en AWS, visita <a href="https://dondeaprendoaws.com">Dónde Aprendo AWS</a>. Este sitio ofrece contenido en español, con tutoriales prácticos y materiales creados por la comunidad para facilitar el uso de los servicios de AWS.</p>
@@ -301,4 +296,4 @@ related:
 
 
 <h2>Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores Prácticas de Seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-dirigidas-por-eventos-en-aws/">Arquitecturas Dirigidas por Eventos en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/integracion-siem-aws-7-consejos-practicos-2024/">Integración SIEM-AWS: 7 Consejos Prácticos [2024]</a></li><li><a href="https://dondeaprendoaws.com/blog/cloudwatch-y-eventbridge-integracion/">CloudWatch y EventBridge: Integración</a></li></ul>
+<ul><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores prácticas de seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-dirigidas-por-eventos-en-aws/">arquitecturas dirigidas por eventos en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/integracion-siem-aws-7-consejos-practicos-2024/">Integración SIEM-AWS: 7 consejos prácticos [2024]</a></li><li><a href="https://dondeaprendoaws.com/blog/cloudwatch-y-eventbridge-integracion/">CloudWatch y EventBridge: integración</a></li></ul>

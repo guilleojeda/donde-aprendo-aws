@@ -1,25 +1,20 @@
 ---
-title: "Conceptos Básicos y Avanzados de Amazon VPC"
+title: "Conceptos básicos y avanzados de Amazon VPC"
 description: "Descubre los conceptos básicos y avanzados de Amazon VPC, cómo configurar tu red en la nube de AWS, y estrategias de seguridad y ahorro de costos. Aprende todo sobre Amazon VPC en esta guía detallada."
 author: "guille-ojeda"
 publishedAt: "2024-03-07"
 publishedTimestamp: "2024-03-07T14:04:18.731Z"
-cover: "/assets/blog/12c27432a1ba20e5bffcb7b0.jpg"
-coverAlt: "Diagrama de una nube y nodos conectados sobre una superficie reflectante"
-ogImage: "/assets/blog/12c27432a1ba20e5bffcb7b0.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
-  - title: "10 Repositorios de GitHub para Machine Learning en AWS"
+  - title: "10 repositorios de GitHub para machine learning en AWS"
     url: "https://dondeaprendoaws.com/blog/10-repositorios-de-github-para-machine-learning-en-aws/"
-    image: "/assets/blog/0e7089d339cd0d6e09ee83cd.webp"
-    imageAlt: ""
-  - title: "7 Estrategias de Serverless para Startups: Optimiza Costos"
+  - title: "7 estrategias de serverless para startups: optimiza costos"
     url: "https://dondeaprendoaws.com/blog/7-estrategias-de-serverless-para-startups-optimiza-costos/"
-    image: "/assets/blog/d85eb8d10d11d152a0198dea.jpg"
-    imageAlt: ""
-  - title: "Base de Datos Global con Amazon DynamoDB"
+  - title: "Base de datos global con Amazon DynamoDB"
     url: "https://dondeaprendoaws.com/blog/base-de-datos-global-con-amazon-dynamodb/"
-    image: "/assets/blog/b74e56b41e26732c7dfc378e.png"
-    imageAlt: ""
+
 ---
 
 <p>Amazon VPC (Nube Privada Virtual de Amazon) te ofrece un control total sobre tu espacio de red en la nube de AWS, permitiéndote gestionar quién accede a tus aplicaciones y cómo se comunican. Desde la creación de subredes y gateways hasta la implementación de medidas de seguridad avanzadas, Amazon VPC asegura que tus datos y aplicaciones estén aislados y protegidos. Aquí te explicamos cómo puedes sacar el máximo provecho de Amazon VPC, cubriendo desde los fundamentos hasta consejos avanzados y estrategias de ahorro de costos:</p>
@@ -56,7 +51,7 @@ related:
 <p>En pocas palabras, Amazon VPC te da el poder de aislar tus recursos y aplicaciones en AWS de la manera que necesites.</p>
 
 
-<h3 id="caracter%C3%ADsticas-principales" tabindex="-1">Características Principales</h3>
+<h3 id="caracter%C3%ADsticas-principales" tabindex="-1">Características principales</h3>
 
 
 <p>Las características más importantes de Amazon VPC incluyen:</p>
@@ -74,10 +69,10 @@ related:
 </ul>
 
 
-<h2 id="componentes-b%C3%A1sicos-de-amazon-vpc" tabindex="-1">Componentes Básicos de Amazon VPC</h2>
+<h2 id="componentes-b%C3%A1sicos-de-amazon-vpc" tabindex="-1">Componentes básicos de Amazon VPC</h2>
 
 
-<h3 id="internet-gateway" tabindex="-1">Internet Gateway</h3>
+<h3 id="internet-gateway" tabindex="-1">Internet gateway</h3>
 
 
 <p>Un Internet Gateway es lo que permite que las instancias en tu VPC hablen con Internet. Es como una puerta de enlace para datos que entran y salen.</p>
@@ -86,7 +81,7 @@ related:
 <p>Solo puedes tener un Internet Gateway por VPC y es opcional.</p>
 
 
-<h3 id="virtual-private-gateway" tabindex="-1">Virtual Private Gateway</h3>
+<h3 id="virtual-private-gateway" tabindex="-1">Virtual private gateway</h3>
 
 
 <p>Este componente te permite conectar tu VPC con tu red local a través de una VPN, extendiendo tu red de manera segura hasta la nube.</p>
@@ -95,7 +90,7 @@ related:
 <p>Se utiliza para permitir el tráfico privado entre tu VPC y tu oficina o datacenter.</p>
 
 
-<h3 id="subredes-(subnet)" tabindex="-1">Subredes (Subnet)</h3>
+<h3 id="subredes-(subnet)" tabindex="-1">Subredes (subnet)</h3>
 
 
 <p>Las subredes son como pequeñas secciones dentro de tu VPC que te ayudan a organizar y aislar tus recursos. Puedes tener subredes públicas y privadas, por ejemplo.</p>
@@ -104,25 +99,25 @@ related:
 <p>Cada subred está en una zona de disponibilidad y tiene su propio bloque de IPs.</p>
 
 
-<h3 id="tablas-de-rutas-(route-tables)" tabindex="-1">Tablas de Rutas (Route Tables)</h3>
+<h3 id="tablas-de-rutas-(route-tables)" tabindex="-1">Tablas de rutas (route tables)</h3>
 
 
 <p>Estas tablas controlan cómo se dirige el tráfico desde y hacia las subredes. Por defecto, cada subred se conecta a una tabla de rutas principal, pero puedes personalizar esto.</p>
 
 
-<h3 id="grupos-de-seguridad-(security-groups)" tabindex="-1">Grupos de Seguridad (Security Groups)</h3>
+<h3 id="grupos-de-seguridad-(security-groups)" tabindex="-1">Grupos de seguridad (security groups)</h3>
 
 
 <p>Los grupos de seguridad son como un firewall para tus instancias, controlando quién puede enviar datos hacia y desde ellas. Puedes usar el mismo grupo para varios recursos.</p>
 
 
-<h3 id="listas-de-control-de-acceso-de-red-(network-acls)" tabindex="-1">Listas de Control de Acceso de Red (Network ACLs)</h3>
+<h3 id="listas-de-control-de-acceso-de-red-(network-acls)" tabindex="-1">Listas de control de acceso de red (network ACLs)</h3>
 
 
 <p>Las Network ACLs son similares a los grupos de seguridad pero funcionan a nivel de subred. Ofrecen una capa adicional de seguridad y permiten reglas más detalladas.</p>
 
 
-<h2 id="configuraci%C3%B3n-y-gesti%C3%B3n-de-vpc" tabindex="-1">Configuración y Gestión de VPC</h2>
+<h2 id="configuraci%C3%B3n-y-gesti%C3%B3n-de-vpc" tabindex="-1">Configuración y gestión de VPC</h2>
 
 
 <h3 id="creaci%C3%B3n-de-un-amazon-vpc" tabindex="-1">Creación de un Amazon VPC</h3>
@@ -144,7 +139,7 @@ related:
 <p>Ya con tu VPC listo, puedes añadirle cosas como subredes, tablas de rutas e Internet Gateways, dependiendo de lo que necesites.</p>
 
 
-<h3 id="configuraci%C3%B3n-de-subredes" tabindex="-1">Configuración de Subredes</h3>
+<h3 id="configuraci%C3%B3n-de-subredes" tabindex="-1">Configuración de subredes</h3>
 
 
 <p>Piensa en las subredes como pequeñas áreas dentro de tu VPC donde puedes poner tus recursos. Hay dos tipos principales:</p>
@@ -168,7 +163,7 @@ related:
 </ul>
 
 
-<h3 id="implementaci%C3%B3n-de-gateways-y-rutas" tabindex="-1">Implementación de Gateways y Rutas</h3>
+<h3 id="implementaci%C3%B3n-de-gateways-y-rutas" tabindex="-1">Implementación de gateways y rutas</h3>
 
 
 <p>Estos componentes te ayudan a manejar cómo se mueve el tráfico en tu VPC:</p>
@@ -204,7 +199,7 @@ related:
 <p>Para mantener tus cosas seguras en tu VPC, usa:</p>
 
 
-<h3 id="grupos-de-seguridad" tabindex="-1"><strong>Grupos de Seguridad</strong></h3>
+<h3 id="grupos-de-seguridad" tabindex="-1"><strong>Grupos de seguridad</strong></h3>
 
 
 <p>Son como un firewall para tus instancias, decidiendo qué tráfico puede entrar y salir. Puedes usar el mismo grupo para varias instancias.</p>
@@ -216,7 +211,7 @@ related:
 <p>Protegen a nivel de subred, con reglas específicas para el tráfico permitido.</p>
 
 
-<h3 id="consejos-de-seguridad" tabindex="-1"><strong>Consejos de Seguridad</strong></h3>
+<h3 id="consejos-de-seguridad" tabindex="-1"><strong>Consejos de seguridad</strong></h3>
 
 
 <ul>
@@ -231,10 +226,10 @@ related:
 <p>Con una buena planificación de tus subredes, rutas, gateways y medidas de seguridad, puedes tener un Amazon VPC que se ajuste perfectamente a tus necesidades y sea seguro.</p>
 
 
-<h2 id="casos-de-uso-avanzados-de-amazon-vpc" tabindex="-1">Casos de Uso Avanzados de Amazon VPC</h2>
+<h2 id="casos-de-uso-avanzados-de-amazon-vpc" tabindex="-1">Casos de uso avanzados de Amazon VPC</h2>
 
 
-<h3 id="arquitecturas-de-red-complejas" tabindex="-1">Arquitecturas de Red Complejas</h3>
+<h3 id="arquitecturas-de-red-complejas" tabindex="-1">Arquitecturas de red complejas</h3>
 
 
 <p>Amazon VPC te permite crear redes complejas para necesidades específicas:</p>
@@ -257,7 +252,7 @@ related:
 <p>Esto ayuda a proteger tus aplicaciones más importantes.</p>
 
 
-<h4 id="arquitectura-hub-and-spoke" tabindex="-1">Arquitectura Hub-and-Spoke</h4>
+<h4 id="arquitectura-hub-and-spoke" tabindex="-1">Arquitectura hub-and-spoke</h4>
 
 
 <p>Para conectar varias redes VPC, puedes usar una estructura central (Hub) y varias conexiones (Spokes):</p>
@@ -270,7 +265,7 @@ related:
 </ul>
 
 
-<h3 id="vpc-peering-y-conexiones-vpn" tabindex="-1">VPC Peering y Conexiones VPN</h3>
+<h3 id="vpc-peering-y-conexiones-vpn" tabindex="-1">VPC peering y conexiones VPN</h3>
 
 
 <p>Para conectar redes con Amazon VPC, tienes dos opciones principales:</p>
@@ -282,7 +277,7 @@ related:
 <p>El peering VPC conecta dos VPC de manera privada, permitiendo compartir datos y aplicaciones entre ellas sin exponer tus recursos a Internet.</p>
 
 
-<h4 id="vpn-site-to-site-y-client-vpn" tabindex="-1">VPN Site-to-Site y Client VPN</h4>
+<h4 id="vpn-site-to-site-y-client-vpn" tabindex="-1">VPN site-to-site y client VPN</h4>
 
 
 <p>Las VPNs conectan tu red local con un VPC de forma segura:</p>
@@ -313,7 +308,7 @@ related:
 <p>Es ideal para redes grandes y complejas.</p>
 
 
-<h2 id="precios-de-amazon-vpc-y-c%C3%B3mo-ahorrar" tabindex="-1">Precios de Amazon VPC y Cómo Ahorrar</h2>
+<h2 id="precios-de-amazon-vpc-y-c%C3%B3mo-ahorrar" tabindex="-1">Precios de Amazon VPC y cómo ahorrar</h2>
 
 
 <h3 id="estructura-de-precios-de-amazon-vpc" tabindex="-1">Estructura de <a href="https://aws.amazon.com/vpc/pricing/" rel="noopener noreferrer" target="_blank">Precios de Amazon VPC</a></h3>
@@ -339,7 +334,7 @@ related:
 <p>La mayoría de lo que gastas en VPC viene de los servicios que usas dentro, como servidores o bases de datos.</p>
 
 
-<h3 id="estrategias-para-la-optimizaci%C3%B3n-de-costos" tabindex="-1">Estrategias para la Optimización de Costos</h3>
+<h3 id="estrategias-para-la-optimizaci%C3%B3n-de-costos" tabindex="-1">Estrategias para la optimización de costos</h3>
 
 
 <p>Aquí van algunos consejos para no gastar de más:</p>
@@ -362,10 +357,10 @@ related:
 
 
 
-<h2 id="recursos-adicionales-sobre-amazon-vpc" tabindex="-1">Recursos Adicionales sobre Amazon VPC</h2>
+<h2 id="recursos-adicionales-sobre-amazon-vpc" tabindex="-1">Recursos adicionales sobre Amazon VPC</h2>
 
 
-<h3 id="documentaci%C3%B3n-y-recursos-de-aprendizaje" tabindex="-1">Documentación y Recursos de Aprendizaje</h3>
+<h3 id="documentaci%C3%B3n-y-recursos-de-aprendizaje" tabindex="-1">Documentación y recursos de aprendizaje</h3>
 
 
 <p>Si quieres aprender más sobre Amazon VPC, hay muchos lugares donde puedes encontrar información:</p>
@@ -383,7 +378,7 @@ related:
 <p>Estos recursos son buenos tanto si estás empezando como si ya sabes bastante de Amazon VPC.</p>
 
 
-<h3 id="comunidad-y-soporte" tabindex="-1">Comunidad y Soporte</h3>
+<h3 id="comunidad-y-soporte" tabindex="-1">Comunidad y soporte</h3>
 
 
 <p>Si aún tienes dudas o problemas con Amazon VPC, aquí tienes algunas opciones:</p>
@@ -413,7 +408,7 @@ related:
 <li><strong>Aislamiento y seguridad</strong>: Con Amazon VPC, podemos hacer que solo ciertas personas tengan acceso a nuestra red, manteniendo seguros nuestros datos.</li>
 <li><strong>Cómo diseñar nuestra red</strong>: Podemos armar nuestra red de varias maneras, como tener una zona especial para visitantes (DMZ) o conectar varias redes entre sí.</li>
 <li><strong>Conectar con otras redes</strong>: Amazon VPC nos permite conectar nuestra red en la nube con redes que tengamos en otros lugares, usando cosas como VPN o AWS Direct Connect.</li>
-<li><strong>Administrar muchas conexiones fácilmente</strong>: Si tenemos varias redes, los transit gateways nos ayudan a manejarlas todas desde un solo lugar.</li>
+<li><strong>Administrar muchas conexiones fácilmente</strong>: Si tenemos varias redes, los Transit Gateways nos ayudan a manejarlas todas desde un solo lugar.</li>
 <li><strong>Ahorrar dinero</strong>: Hay varias maneras de usar Amazon VPC sin gastar de más, aprovechando bien los recursos.</li>
 </ul>
 
@@ -424,7 +419,7 @@ related:
 <p>Te recomiendo que le eches un vistazo a la <a href="https://docs.aws.amazon.com/vpc/latest/userguide/what-is-amazon-vpc.html" rel="noopener noreferrer" target="_blank">Guía de usuario VPC</a> y a las <a href="https://aws.amazon.com/es/vpc/faqs/" rel="noopener noreferrer" target="_blank">Preguntas frecuentes AWS VPC</a> para aprender más. ¡Espero que esta guía te haya ayudado!</p>
 
 
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas Relacionadas</h2>
+<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
 
 
 <h3 id="%C2%BFqu%C3%A9-es-una-vpc-y-para-qu%C3%A9-se-usa%3F" tabindex="-1">¿Qué es una VPC y para qué se usa?</h3>
@@ -464,6 +459,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/">Introducción a los servicios de Amazon Web Services</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/nube-aws-guia-de-inicio-rapido/">Nube AWS: Guía de Inicio Rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS Fundamentos: Guía de Inicio Rápido</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/">Introducción a los servicios de Amazon Web Services</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/nube-aws-guia-de-inicio-rapido/">Nube AWS: guía de inicio rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS fundamentos: guía de inicio rápido</a></li>
 </ul>
 </p>

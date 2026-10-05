@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title description">
+  <title id="title">Preparación para certificaciones</title>
+  <desc id="description">Tres tarjetas de estudio con apuntes y hitos sobre un camino azul con un punto naranja.</desc>
+  <rect width="1200" height="630" fill="#F1F4F8" />
+  <path d="M150 482 C285 482 276 411 398 411 S525 468 620 423 S764 382 870 425 S968 478 1032 478" fill="none" stroke="#263457" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" />
+  <circle cx="150" cy="482" r="13" fill="#E87722" />
+  <circle cx="398" cy="411" r="11" fill="#FFFFFF" stroke="#263457" stroke-width="7" />
+  <circle cx="620" cy="423" r="11" fill="#FFFFFF" stroke="#263457" stroke-width="7" />
+  <circle cx="870" cy="425" r="11" fill="#FFFFFF" stroke="#263457" stroke-width="7" />
+  <circle cx="1032" cy="478" r="12" fill="#E87722" />
+  <path d="M390 354 V398 M613 326 V410 M863 354 V411" fill="none" stroke="#8290A6" stroke-width="5" stroke-dasharray="7 10" stroke-linecap="round" />
+  <g transform="rotate(-4 365 258)">
+    <rect x="282" y="188" width="166" height="132" rx="16" fill="#FFFFFF" stroke="#263457" stroke-width="7" />
+    <circle cx="313" cy="222" r="9" fill="#E87722" />
+    <path d="M337 222 H415 M310 258 H414 M310 286 H388" fill="none" stroke="#8290A6" stroke-width="5" stroke-linecap="round" />
+  </g>
+  <g>
+    <rect x="529" y="142" width="174" height="180" rx="16" fill="#FFFFFF" stroke="#263457" stroke-width="7" />
+    <path d="M559 180 H673 M559 210 H650" fill="none" stroke="#8290A6" stroke-width="5" stroke-linecap="round" />
+    <circle cx="565" cy="254" r="8" fill="#E87722" />
+    <path d="M588 254 H670 M558 286 H649" fill="none" stroke="#8290A6" stroke-width="5" stroke-linecap="round" />
+  </g>
+  <g transform="rotate(4 951 258)">
+    <rect x="868" y="188" width="166" height="132" rx="16" fill="#FFFFFF" stroke="#263457" stroke-width="7" />
+    <circle cx="898" cy="222" r="9" fill="#E87722" />
+    <path d="M922 222 H1001 M896 258 H1001 M896 286 H973" fill="none" stroke="#8290A6" stroke-width="5" stroke-linecap="round" />
+  </g>
+  <g transform="translate(1023 44) scale(0.44)">
+    <circle cx="92" cy="20" r="17" fill="#E87722" />
+    <path fill="#263457" d="M78 48c-1-5 7-7 18-7 17 0 28 10 28 25 0 13-9 22-22 31-14 10-31 17-41 30-8 11-7 22 2 27 9 5 24 5 33 1 5-2 5-6 1-10-5-5-6-10-1-15 8-8 24-8 36 0 13 8 18 23 13 38-5 17-20 27-41 31-24 5-55 0-76-10-23-11-32-31-24-53 7-19 23-34 44-48 22-14 35-23 36-36 0-2-2-3-6-4Z" />
+  </g>
+</svg>

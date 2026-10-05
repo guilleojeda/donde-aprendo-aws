@@ -5,9 +5,9 @@ author: "guille-ojeda"
 publishedAt: "2024-05-11"
 publishedTimestamp: "2024-05-11T05:27:40.366Z"
 modifiedTimestamp: "2026-10-04T21:44:34-03:00"
-cover: "/assets/blog/c03425ae80465af167cf55e5.jpg"
-coverAlt: "Nube azul formada por piezas de rompecabezas con símbolos de seguridad"
-ogImage: "/assets/blog/c03425ae80465af167cf55e5.jpg"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related: []
 ---
 
@@ -64,7 +64,7 @@ AWS documenta **AWS Security Hub CSPM** y **AWS Security Hub** como servicios co
 
 - **Prevención:** limita permisos con IAM, usa roles y aplica mínimo privilegio para reducir accesos y el impacto de credenciales comprometidas. Repasa identidades, roles y permisos con el video [“Qué es AWS IAM? - Explicado en 5 minutos”](https://www.youtube.com/watch?v=t51vW-BDwF0), publicado por Marcia Villalba; usa las [buenas prácticas oficiales de IAM](https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html) para definir permisos de producción.
 - **Detección:** usa GuardDuty para los tipos de actividad que cubren sus fuentes y planes; define señales de CloudWatch para logs y métricas adicionales.
-- **Investigación:** empieza por el hallazgo y el recurso afectados. Correlaciona su fecha, identidad y actividad de API con CloudTrail; consulta logs de carga de trabajo en CloudWatch si están habilitados. El hallazgo orienta la investigación, no reemplaza la evidencia de esos sistemas. Para relacionar el impacto con señales de fiabilidad, costos o cambios de despliegue, consulta [Métricas DevOps en AWS](https://dondeaprendoaws.com/blog/10-metricas-clave-de-devops-en-aws/); esas medidas operativas ayudan a poner el incidente en contexto, pero no demuestran por sí mismas una intrusión.
+- **Investigación:** empieza por el hallazgo y el recurso afectados. Correlaciona su fecha, identidad y actividad de API con CloudTrail; consulta logs de carga de trabajo en CloudWatch si están habilitados. El hallazgo orienta la investigación, no reemplaza la evidencia de esos sistemas. Para relacionar el impacto con señales de fiabilidad, costos o cambios de despliegue, consulta [métricas DevOps en AWS](https://dondeaprendoaws.com/blog/10-metricas-clave-de-devops-en-aws/); esas medidas operativas ayudan a poner el incidente en contexto, pero no demuestran por sí mismas una intrusión.
 - **Respuesta:** usa Amazon EventBridge para enrutar hallazgos a un destino como Amazon SNS, un sistema de tickets o un flujo de automatización. Security Hub también ofrece gestión de flujos de respuesta. Prueba cualquier acción que cambie recursos o accesos antes de automatizarla y conserva aprobación humana cuando el impacto operativo lo justifique. [Procesamiento de hallazgos de GuardDuty con EventBridge](https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_findings_eventbridge.html).
 
 ## Cómo comprobar que la alerta llega

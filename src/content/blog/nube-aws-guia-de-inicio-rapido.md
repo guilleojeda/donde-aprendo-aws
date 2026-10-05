@@ -1,25 +1,20 @@
 ---
-title: "Nube AWS: Guía de Inicio Rápido"
+title: "Nube AWS: guía de inicio rápido"
 description: "Guía de inicio rápido para utilizar la nube de AWS, explorando servicios esenciales, beneficios, casos de uso, modelos de servicio, servicios y más."
 author: "guille-ojeda"
 publishedAt: "2024-01-30"
 publishedTimestamp: "2024-01-30T19:09:51.102Z"
-cover: "/assets/blog/c182a819b0d8523e5365c545.jpg"
-coverAlt: "Cielo azul con nubes y un avión de papel rodeado de puntos"
-ogImage: "/assets/blog/c182a819b0d8523e5365c545.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
-  - title: "AWS Lambda y API Gateway: Guía Básica"
+  - title: "AWS Lambda y API Gateway: guía básica"
     url: "https://dondeaprendoaws.com/blog/aws-lambda-y-api-gateway-guia-basica/"
-    image: "/assets/blog/2aa39fe7ff55b6a37888515e.jpg"
-    imageAlt: ""
-  - title: "Integrar Amazon Polly en 5 pasos: Texto a voz realista"
+  - title: "Integrar Amazon Polly en 5 pasos: texto a voz realista"
     url: "https://dondeaprendoaws.com/blog/integrar-amazon-polly-en-5-pasos-texto-a-voz-realista/"
-    image: "/assets/blog/35cbdc26cad1c09b7dd2fc81.jpg"
-    imageAlt: ""
-  - title: "AWS Lambda en Profundidad"
+  - title: "AWS Lambda en profundidad"
     url: "https://dondeaprendoaws.com/blog/aws-lambda-en-profundidad/"
-    image: "/assets/blog/fc7f86cd5d9d53b7ba70da04.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Sin duda, la mayoría estará de acuerdo en que:<strong>es muy difícil saber por dónde empezar al utilizar la nube de AWS por primera vez</strong>.</p>
@@ -81,7 +76,7 @@ related:
 </ul>
 
 
-<h3 id="casos-de-uso-reales-de-la-tecnolog%C3%ADa-just-walk-out-en-la-nube-de-aws" tabindex="-1">Casos de uso reales de la tecnología Just Walk Out en la nube de AWS</h3>
+<h3 id="casos-de-uso-reales-de-la-tecnolog%C3%ADa-just-walk-out-en-la-nube-de-aws" tabindex="-1">Casos de uso reales de la tecnología just walk out en la nube de AWS</h3>
 
 
 <p>La tecnología Just Walk Out permite a los minoristas ofrecer una experiencia de compra sin fricciones donde los clientes no tienen que hacer cola ni pagar en una caja. Se han implementado varios casos de uso en tiendas físicas mediante la <a href="https://dondeaprendoaws.com/blog/cloud-computing-en-espanol-fundamentos-basicos/">infraestructura en la nube</a> de AWS:</p>
@@ -100,7 +95,7 @@ related:
 </ul>
 
 
-<h3 id="introducci%C3%B3n-a-aws%3A-un-recorrido-por-su-historia-y-evoluci%C3%B3n" tabindex="-1">Introducción a AWS: Un recorrido por su historia y evolución</h3>
+<h3 id="introducci%C3%B3n-a-aws%3A-un-recorrido-por-su-historia-y-evoluci%C3%B3n" tabindex="-1">Introducción a AWS: un recorrido por su historia y evolución</h3>
 
 
 <p>AWS se lanzó en 2006 para proporcionar servicios de infraestructura escalables a través de Internet. Originalmente comenzó ofreciendo servicios de almacenamiento y computación básicos.</p>
@@ -278,7 +273,7 @@ related:
 </ul>
 
 
-<h3 id="machine-learning" tabindex="-1">Machine Learning</h3>
+<h3 id="machine-learning" tabindex="-1">Machine learning</h3>
 
 
 <p>Servicios para entrenar, implementar y escalar modelos de aprendizaje automático. Por ejemplo:</p>
@@ -304,7 +299,7 @@ related:
 </ul>
 
 
-<h2 id="primeros-pasos-en-la-nube-de-aws%3A-gu%C3%ADa-de-inicio-r%C3%A1pido" tabindex="-1">Primeros pasos en la nube de AWS: Guía de inicio rápido</h2>
+<h2 id="primeros-pasos-en-la-nube-de-aws%3A-gu%C3%ADa-de-inicio-r%C3%A1pido" tabindex="-1">Primeros pasos en la nube de AWS: guía de inicio rápido</h2>
 
 
 <p>Guía paso a paso de los conceptos y tareas esenciales para comenzar a utilizar la nube de AWS.</p>
@@ -340,7 +335,7 @@ related:
 <p>Además, AWS provee una capa gratuita que incluye ciertos servicios gratis por 12 meses para nuevos usuarios. Por ejemplo, la capa gratuita de EC2 incluye 750 horas de uso de instancias t2.micro al mes. Con la capa gratuita puede comenzar a utilizar AWS sin costo para familiarizarse con la plataforma.</p>
 
 
-<h3 id="configuraci%C3%B3n-inicial%3A-establecimiento-de-su-entorno-en-amazon-vpc" tabindex="-1">Configuración inicial: Establecimiento de su entorno en Amazon VPC</h3>
+<h3 id="configuraci%C3%B3n-inicial%3A-establecimiento-de-su-entorno-en-amazon-vpc" tabindex="-1">Configuración inicial: establecimiento de su entorno en Amazon VPC</h3>
 
 
 <p>Amazon VPC permite aprovisionar una nube privada virtual donde puede lanzar recursos de AWS aislados lógicamente. Los pasos para crear un VPC son:</p>
@@ -358,7 +353,7 @@ related:
 <p>Configurar un VPC es esencial para crear una infraestructura segura y escalable en AWS. El VPC servirá como ambiente para desplegar aplicaciones y bases de datos.</p>
 
 
-<h3 id="formaci%C3%B3n-y-certificaci%C3%B3n-de-aws%3A-mejores-pr%C3%A1cticas-para-principiantes" tabindex="-1">Formación y certificación de AWS: Mejores prácticas para principiantes</h3>
+<h3 id="formaci%C3%B3n-y-certificaci%C3%B3n-de-aws%3A-mejores-pr%C3%A1cticas-para-principiantes" tabindex="-1">Formación y certificación de AWS: mejores prácticas para principiantes</h3>
 
 
 <p>Existen excelentes recursos de formación disponibles para aprender a utilizar la nube de AWS:</p>
@@ -595,7 +590,7 @@ related:
 <p>En conjunto, CloudFormation y Service Catalog facilitan la gestión de infraestructura como código, la estandarización y el gobierno corporativo.</p>
 
 
-<h3 id="an%C3%A1lisis-de-arquitectura-con-aws-well-architected-tool-y-centro-de-arquitectura-de-aws" tabindex="-1">Análisis de arquitectura con AWS Well-Architected Tool y Centro de arquitectura de AWS</h3>
+<h3 id="an%C3%A1lisis-de-arquitectura-con-aws-well-architected-tool-y-centro-de-arquitectura-de-aws" tabindex="-1">Análisis de arquitectura con AWS Well-Architected Tool y centro de arquitectura de AWS</h3>
 
 
 <p>El AWS Well-Architected Tool ofrece una guía para construir sistemas seguros, eficientes y de alto rendimiento en la nube. Analiza una arquitectura existente o planeada según las mejores prácticas de AWS.</p>

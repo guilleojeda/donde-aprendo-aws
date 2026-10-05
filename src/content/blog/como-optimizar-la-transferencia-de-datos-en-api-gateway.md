@@ -1,25 +1,20 @@
 ---
-title: "Cómo Optimizar la Transferencia de Datos en API Gateway"
+title: "Cómo optimizar la transferencia de datos en API Gateway"
 description: "Aprende a optimizar la transferencia de datos en API Gateway para reducir costes y mejorar el rendimiento de tus APIs en AWS."
 author: "guille-ojeda"
 publishedAt: "2025-05-29"
 publishedTimestamp: "2025-05-29T06:24:09.015000+00:00"
-cover: "/assets/blog/e9e708a78c62050c9930cce4.jpg"
-coverAlt: "Líneas curvas y puntos que ascienden sobre un fondo claro"
-ogImage: "/assets/blog/e9e708a78c62050c9930cce4.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Como Configurar y Utilizar AWS Session Manager"
+  - title: "Como configurar y utilizar AWS Session Manager"
     url: "https://dondeaprendoaws.com/blog/como-configurar-y-utilizar-aws-session-manager/"
-    image: "/assets/blog/037793a796bc8f08a1cce7d0.png"
-    imageAlt: "Thumbnail for: Como Configurar y Utilizar AWS Session Manager"
-  - title: "Ingeniería de Caos en AWS con Fault Injection Simulator"
+  - title: "Ingeniería de caos en AWS con fault injection simulator"
     url: "https://dondeaprendoaws.com/blog/ingenieria-de-caos-en-aws-con-fault-injection-simulator/"
-    image: "/assets/blog/0a0b1cf017845abee5cf215d.png"
-    imageAlt: "Thumbnail for: Ingeniería de Caos en AWS con Fault Injection Simulator"
   - title: "AWS curso certificado: preguntas frecuentes"
     url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-preguntas-frecuentes/"
-    image: "/assets/blog/39294214939c4754eb0b11e2.png"
-    imageAlt: "Thumbnail for: AWS curso certificado: preguntas frecuentes"
+
 ---
 
 <p><strong>¿Quieres reducir los costes y mejorar el rendimiento de tus APIs en <a href="https://aws.amazon.com/api-gateway/" rel="nofollow noopener noreferrer" target="_blank">Amazon API Gateway</a>? Aquí tienes un resumen rápido de cómo lograrlo:</strong></p>
@@ -63,9 +58,9 @@ related:
 </tbody>
 </table></figure>
 <p><strong>Conclusión:</strong> Optimizar API Gateway no solo reduce costes, sino que mejora el rendimiento y la experiencia del usuario. Empieza con estos pasos y adapta según tus necesidades.</p>
-<h2 class="sb h2-sbb-cls" id="configuracion-de-la-compresion-de-payload" tabindex="-1">Configuración de la Compresión de Payload</h2>
+<h2 class="sb h2-sbb-cls" id="configuracion-de-la-compresion-de-payload" tabindex="-1">Configuración de la compresión de payload</h2>
 <p>La compresión de payload es una técnica eficaz para reducir costes y acelerar las respuestas de tu API. Puede disminuir el tamaño de los datos entre un 70 % y un 90 % en formatos basados en texto como JSON y XML. Aquí te mostramos cómo configurarla.</p>
-<h3 id="activacion-de-la-compresion-integrada" tabindex="-1">Activación de la Compresión Integrada</h3>
+<h3 id="activacion-de-la-compresion-integrada" tabindex="-1">Activación de la compresión integrada</h3>
 <p>API Gateway ofrece compresión integrada que puedes activar fácilmente. Este servicio es compatible con los algoritmos <code class="inline-code">deflate</code>, <code class="inline-code">gzip</code> e <code class="inline-code">identity</code>. Para habilitar esta funcionalidad, debes configurar la propiedad <code class="inline-code">minimumCompressionSize</code>.</p>
 <p><strong>Cómo activarla:</strong></p>
 <ul>
@@ -78,7 +73,7 @@ related:
 <p>"Comprimir datos de tamaño pequeño podría aumentar el tamaño final de los datos. Además, la compresión en API Gateway y la descompresión en el cliente podrían aumentar la latencia general y requerir más tiempo de computación. Deberías ejecutar casos de prueba contra tu API para determinar un valor óptimo." </p>
 </blockquote>
 <p>Ahora exploraremos cómo personalizar la compresión para casos específicos.</p>
-<h3 id="implementacion-de-compresion-personalizada" tabindex="-1">Implementación de Compresión Personalizada</h3>
+<h3 id="implementacion-de-compresion-personalizada" tabindex="-1">Implementación de compresión personalizada</h3>
 <p>Si utilizas HTTP APIs, puedes optar por compresión personalizada en tus funciones Lambda, lo que te permite ajustar el algoritmo y los parámetros según tus necesidades.</p>
 <p>En marzo de 2023, Anand Gupta demostró esta técnica al desarrollar dos endpoints de API con AWS API Gateway, Lambda, <a href="https://nodejs.org/" rel="nofollow noopener noreferrer" target="_blank">Node.js</a> y zlib. Los resultados fueron sorprendentes: una respuesta sin comprimir de 2,79 MB se redujo a solo 13,33 KB utilizando GZIP.</p>
 <p><strong>Pasos para implementar:</strong></p>
@@ -95,7 +90,7 @@ related:
 <p>"API Gateway permite que tu cliente llame a tu API con payloads comprimidos usando una de las codificaciones de contenido soportadas. Por defecto, API Gateway soporta la descompresión del payload de solicitud del método. Sin embargo, debes configurar la API para comprimir el payload de respuesta." </p>
 </blockquote>
 <p>Un detalle importante es que, cuando el payload de respuesta está comprimido, solo se factura el tamaño de los datos comprimidos para la transferencia. Para optimizar los resultados, habilita la compresión selectivamente para formatos basados en texto como JSON, XML y HTML. Evita comprimir formatos ya comprimidos, como imágenes o vídeos, ya que esto podría aumentar tanto el tamaño final como el tiempo de procesamiento.</p>
-<h2 class="sb h2-sbb-cls" id="seleccion-del-tipo-de-api-correcto" tabindex="-1">Selección del Tipo de API Correcto</h2>
+<h2 class="sb h2-sbb-cls" id="seleccion-del-tipo-de-api-correcto" tabindex="-1">Selección del tipo de API correcto</h2>
 <p>Elegir el tipo de API adecuado en API Gateway no solo puede mejorar el rendimiento, sino también reducir costes de manera significativa. Por ejemplo, en algunos casos, puedes ahorrar hasta un 71 % en gastos. Así como la compresión reduce el tamaño de los payloads, seleccionar la API correcta optimiza la eficiencia y disminuye los costes. A continuación, te explicamos cómo se comparan estas APIs y en qué casos conviene cambiar de una a otra.</p>
 <h3 id="http-api-vs-rest-api" tabindex="-1">HTTP API vs. REST API</h3>
 <p>Las <strong>HTTP APIs</strong> ofrecen funcionalidades básicas a un coste más bajo, mientras que las <strong>REST APIs</strong> añaden características avanzadas. Si estás trabajando con aplicaciones sin servidor, las HTTP APIs son una opción más económica. Por ejemplo, para las primeras 300 millones de solicitudes al mes, el coste es de 1,00 € por millón en HTTP API frente a 3,50 € por millón en REST API. Esta diferencia se mantiene incluso a medida que crece el volumen de solicitudes:</p>
@@ -135,7 +130,7 @@ related:
 <li><strong>Reconfigura CORS:</strong> las HTTP APIs tienen una configuración CORS global, mientras que las REST APIs requieren configuraciones a nivel de método.</li>
 </ul>
 <p>Una vez completada la migración técnica, realiza pruebas exhaustivas para asegurarte de que todas las funciones de la API funcionan correctamente. Además, actualiza los clientes con la nueva URL de la API. Si tu proyecto actual no utiliza completamente las funcionalidades avanzadas de REST API, migrar a HTTP API puede ser una decisión acertada.</p>
-<h2 class="sb h2-sbb-cls" id="metodos-de-optimizacion-del-formato-de-datos" tabindex="-1">Métodos de Optimización del Formato de Datos</h2>
+<h2 class="sb h2-sbb-cls" id="metodos-de-optimizacion-del-formato-de-datos" tabindex="-1">Métodos de optimización del formato de datos</h2>
 <p>El formato en el que se transmiten los datos influye directamente en el rendimiento y los costes de operación. Ajustar estos formatos no solo reduce el tamaño de las transferencias, sino que también acelera las respuestas. Aquí exploraremos técnicas clave como el uso de <strong>Velocity Template Language (VTL)</strong> y la optimización de parámetros de consulta.</p>
 <h3 id="uso-del-velocity-template-language-vtl" tabindex="-1">Uso del <a href="https://velocity.apache.org/" rel="nofollow noopener noreferrer" target="_blank">Velocity Template Language</a> (VTL)</h3>
 <p><figure><img alt="Velocity Template Language" src="/assets/blog/8ed41e048aa258dae67636b2.jpg" style="width:100%;border-radius:16px;"></figure></p>
@@ -148,7 +143,7 @@ related:
 </blockquote>
 <p><strong>Consejos para empezar con VTL:</strong></p>
 <p>Comienza con transformaciones simples y documenta los patrones que uses. Ten en cuenta que API Gateway tiene límites: las plantillas no pueden superar los 300 KB y el tiempo de procesamiento está limitado a 29 segundos en REST APIs. Este enfoque contribuye a minimizar el tamaño de los datos y mejorar la velocidad de respuesta, objetivos esenciales en la <a href="https://dondeaprendoaws.com/blog/guia-para-crear-apis-serverless-con-aws-lambda-y-api-gateway/">optimización de API Gateway</a>.</p>
-<h3 id="reduccion-de-parametros-de-consulta" tabindex="-1">Reducción de Parámetros de Consulta</h3>
+<h3 id="reduccion-de-parametros-de-consulta" tabindex="-1">Reducción de parámetros de consulta</h3>
 <p>Un exceso de parámetros en las consultas puede ralentizar la API y aumentar el tamaño de las transferencias. Además, URLs demasiado largas complican la depuración y pueden exponer información sensible, ya que son visibles para intermediarios.</p>
 <p>Por ello, es fundamental gestionar y simplificar los parámetros de solicitud.</p>
 <p><strong>Formas de optimizar parámetros:</strong></p>
@@ -184,9 +179,9 @@ related:
 </table></figure>
 <p>Los parámetros de ruta son ideales para datos jerárquicos, mientras que los parámetros de consulta funcionan mejor para valores independientes. Reducir los nombres de los parámetros también ayuda a acortar el tamaño de las URLs.</p>
 <p>API Gateway puede validar parámetros de solicitud, evitando llamadas innecesarias a funciones Lambda, y transformar estos parámetros mediante plantillas de mapeo. Analizar los patrones de uso de la API te permitirá identificar qué parámetros son imprescindibles y cuáles pueden eliminarse o simplificarse. Esta práctica es clave para optimizar la experiencia de los usuarios y mejorar el rendimiento general.</p>
-<h2 class="sb h2-sbb-cls" id="conexiones-directas-con-servicios-aws" tabindex="-1">Conexiones Directas con Servicios AWS</h2>
+<h2 class="sb h2-sbb-cls" id="conexiones-directas-con-servicios-aws" tabindex="-1">Conexiones directas con servicios AWS</h2>
 <p>Para optimizar el rendimiento y reducir costes, es clave aprovechar las conexiones directas con servicios de AWS. Un ejemplo claro es el uso de <strong>API Gateway</strong> como proxy directo para servicios como DynamoDB y S3, eliminando la necesidad de funciones Lambda intermedias y simplificando la arquitectura.</p>
-<h3 id="configuracion-de-proxy-de-servicio-directo" tabindex="-1">Configuración de Proxy de Servicio Directo</h3>
+<h3 id="configuracion-de-proxy-de-servicio-directo" tabindex="-1">Configuración de proxy de servicio directo</h3>
 <p>Configurar un proxy directo requiere permisos adecuados en IAM. Además, es esencial emplear plantillas de mapeo para adaptar las solicitudes y respuestas de servicios como DynamoDB y S3.</p>
 <p><strong>Integración con DynamoDB:</strong></p>
 <p>Un ejemplo práctico es implementar una sección de comentarios públicos en un sitio web. Con API Gateway actuando como proxy de DynamoDB, se puede gestionar esta funcionalidad sin necesidad de servidores adicionales. Por ejemplo:</p>
@@ -253,9 +248,9 @@ related:
 <li>Implementar arquitectura ARM en funciones Lambda, lo que puede mejorar la relación rendimiento-precio en hasta un 34%.</li>
 <li>Optar por la API HTTP de API Gateway, que reduce la latencia hasta un 60% y es más económica: 1,11 € por millón de solicitudes frente a los 3,50 € de la API REST.</li>
 </ul>
-<h2 class="sb h2-sbb-cls" id="seguimiento-del-rendimiento-y-mejoras" tabindex="-1">Seguimiento del Rendimiento y Mejoras</h2>
+<h2 class="sb h2-sbb-cls" id="seguimiento-del-rendimiento-y-mejoras" tabindex="-1">Seguimiento del rendimiento y mejoras</h2>
 <p>Después de implementar las optimizaciones en API Gateway, es fundamental establecer un sistema de monitorización continua. Esto permite identificar problemas de rendimiento y controlar los costes de manera eficiente. Una buena monitorización ayuda a detectar cuellos de botella antes de que afecten a los usuarios y a gestionar mejor el gasto en transferencia de datos.</p>
-<h3 id="configuracion-de-alertas-en-cloudwatch" tabindex="-1">Configuración de Alertas en CloudWatch</h3>
+<h3 id="configuracion-de-alertas-en-cloudwatch" tabindex="-1">Configuración de alertas en CloudWatch</h3>
 <p>Amazon CloudWatch recopila métricas de API Gateway cada minuto y las almacena durante 15 meses. Estas métricas son clave para configurar alertas que permitan detectar problemas de rendimiento en tiempo real.</p>
 <p>Entre las métricas más importantes para supervisar están:</p>
 <ul>
@@ -296,7 +291,7 @@ related:
 </table></figure>
 <p>Para que las alertas sean efectivas, configura notificaciones con Amazon SNS cuando se superen ciertos umbrales. Por ejemplo, en enero de 2024, una empresa configuró alarmas para errores 401 y 403 en CloudWatch. Esto les permitió detectar cambios en su grupo de usuarios y recibir notificaciones inmediatas sobre problemas de autenticación.</p>
 <p>Una vez configuradas las alertas, es igual de importante analizar los costes en detalle utilizando AWS Cost Explorer.</p>
-<h3 id="analisis-de-costes-con-aws-cost-explorer" tabindex="-1">Análisis de Costes con <a href="https://aws.amazon.com/aws-cost-management/aws-cost-explorer/" rel="nofollow noopener noreferrer" target="_blank">AWS Cost Explorer</a></h3>
+<h3 id="analisis-de-costes-con-aws-cost-explorer" tabindex="-1">Análisis de costes con <a href="https://aws.amazon.com/aws-cost-management/aws-cost-explorer/" rel="nofollow noopener noreferrer" target="_blank">AWS Cost Explorer</a></h3>
 <p><figure><img alt="AWS Cost Explorer" src="/assets/blog/e6f859e316bcd0092715bfea.jpg" style="width:100%;border-radius:16px;"></figure></p>
 <p>AWS Cost Explorer proporciona una visión detallada de los gastos, utilizando los datos de los informes de costes y uso de AWS. Esta herramienta no solo permite identificar tendencias, sino también prever gastos para los próximos 12 meses.</p>
 <p>Para analizar los costes específicos de transferencia de datos en API Gateway, utiliza <strong>etiquetas de asignación de costes</strong>. Por ejemplo, puedes clasificar instancias como de producción o desarrollo con etiquetas como <code class="inline-code">Clave=Entorno</code> y <code class="inline-code">Valor=Producción</code> o <code class="inline-code">Desarrollo</code>. Una vez activadas estas etiquetas (pueden tardar hasta 24 horas), puedes aplicar filtros en Cost Explorer para desglosar los costes por categorías y exportar los datos en formato CSV para un análisis más detallado.</p>
@@ -307,7 +302,7 @@ related:
 <li>Las <strong>APIs WebSocket</strong> se miden en bloques de 32 KB.</li>
 </ul>
 <p>Una forma eficaz de reducir los costes de transferencia es utilizar <a href="https://aws.amazon.com/cloudfront/" rel="nofollow noopener noreferrer" target="_blank">Amazon CloudFront</a> como CDN. Al almacenar en caché las respuestas, CloudFront puede ayudar a disminuir significativamente los gastos.</p>
-<h2 class="sb h2-sbb-cls" id="resumen-y-puntos-principales" tabindex="-1">Resumen y Puntos Principales</h2>
+<h2 class="sb h2-sbb-cls" id="resumen-y-puntos-principales" tabindex="-1">Resumen y puntos principales</h2>
 <p>Optimizar datos en Amazon API Gateway implica combinar técnicas como compresión, selección adecuada de APIs y una monitorización constante. Estas prácticas no solo reducen costes, sino que también mejoran el rendimiento general de tus APIs.</p>
 <p>La <strong>compresión de datos</strong> es una herramienta clave para reducir el tamaño de las respuestas y disminuir la latencia. Por ejemplo, habilitar la compresión en API Gateway puede reducir el tamaño de las respuestas hasta un 78% y mejorar la latencia en 110 milisegundos, según pruebas realizadas con cargas JSON. Esto no solo mejora la experiencia del usuario, sino que también reduce los costes operativos.</p>
 <p>Por otro lado, la <strong>selección del tipo de API</strong> tiene un impacto directo en la eficiencia y el presupuesto. Las APIs HTTP suelen ser más económicas que las APIs REST, aunque ofrecen menos funcionalidades. Además, las métricas de medición varían: las APIs HTTP se calculan en bloques de 512 KB, mientras que las WebSocket lo hacen en bloques más pequeños de 32 KB.</p>
@@ -335,5 +330,5 @@ related:
 <li><strong>Transferencia de datos más eficiente</strong>: La integración directa mejora la velocidad y reduce la latencia, ofreciendo tiempos de respuesta más ágiles.</li>
 </ul>
 <p>En resumen, estas integraciones no solo hacen que las aplicaciones sean más rápidas y económicas, sino que también permiten adaptarlas fácilmente a los requisitos específicos de cada proyecto.</p>
-<h2>Related posts</h2><ul><li><a href="https://dondeaprendoaws.com/blog/optimizacion-de-costos-de-aws-lambda/">Optimización de Costos de AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-lambda-y-api-gateway-guia-basica/">AWS Lambda y API Gateway: Guía Básica</a></li><li><a href="https://dondeaprendoaws.com/blog/guia-completa-analisis-de-costos-de-trafico-en-aws/">Guía Completa: Análisis de Costos de Tráfico en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/como-usar-aws-cost-explorer-para-trafico-de-red/">Cómo Usar AWS Cost Explorer para Tráfico de Red</a></li></ul>
+<h2>Related posts</h2><ul><li><a href="https://dondeaprendoaws.com/blog/optimizacion-de-costos-de-aws-lambda/">Optimización de costos de AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-lambda-y-api-gateway-guia-basica/">AWS Lambda y API Gateway: guía básica</a></li><li><a href="https://dondeaprendoaws.com/blog/guia-completa-analisis-de-costos-de-trafico-en-aws/">Guía completa: análisis de costos de tráfico en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/como-usar-aws-cost-explorer-para-trafico-de-red/">Cómo usar AWS Cost Explorer para tráfico de red</a></li></ul>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"¿Cómo influye la compresión de datos en el rendimiento y los costes de una API en Amazon API Gateway?","acceptedAnswer":{"@type":"Answer","text":"<h2 id=\"compresion-de-datos-en-amazon-api-gateway\" tabindex=\"-1\" class=\"sb h2-sbb-cls\">Compresión de datos en Amazon API Gateway</h2> <p>La compresión de datos en Amazon API Gateway puede marcar una gran diferencia en el rendimiento al reducir el tamaño de las cargas útiles. Esto no solo disminuye la latencia, sino que también acelera la transferencia de información, lo que es especialmente útil en sistemas que manejan grandes volúmenes de datos. Además, al enviar menos datos a través de la red, se pueden reducir los costes asociados a la transferencia.</p> <p>Pero no todo son ventajas. La compresión requiere un mayor uso de recursos de procesamiento en el servidor. Si no se gestiona correctamente, esto podría afectar al rendimiento, sobre todo en sistemas sometidos a alta demanda. Por eso, es crucial encontrar un equilibrio. Cuando se aplica de manera adecuada, la compresión puede ser una herramienta muy eficaz para optimizar tanto el rendimiento como los costes operativos.</p>"}},{"@type":"Question","name":"¿En qué se diferencian las APIs HTTP y REST en términos de coste y funcionalidad?","acceptedAnswer":{"@type":"Answer","text":"<p>Las <strong>APIs REST</strong> destacan por ofrecer funcionalidades más completas, como la gestión de claves de API, límites específicos por cliente y opciones avanzadas de integración con otros servicios. Estas ventajas suelen venir acompañadas de un coste más alto.</p> <p>En cambio, las <strong>APIs HTTP</strong> son más simples y accesibles económicamente, lo que las convierte en una opción ideal para proyectos que no requieren características avanzadas. La decisión entre ambas dependerá de las necesidades concretas de tu proyecto y del presupuesto con el que cuentes.</p>"}},{"@type":"Question","name":"¿Cuáles son las ventajas de integrar directamente API Gateway con servicios de AWS como DynamoDB y S3?","acceptedAnswer":{"@type":"Answer","text":"<h2 id=\"integracion-directa-de-api-gateway-con-dynamodb-y-s3\" tabindex=\"-1\" class=\"sb h2-sbb-cls\">Integración directa de API Gateway con DynamoDB y S3</h2> <p>Conectar directamente API Gateway con servicios como <strong>DynamoDB</strong> y <strong>S3</strong> trae consigo una serie de beneficios que pueden marcar la diferencia en el desarrollo de aplicaciones:</p> <ul> <li><strong>Menos complicaciones</strong>: No necesitas preocuparte por gestionar servidores. Esto simplifica todo el proceso y permite que los desarrolladores se centren en lo que importa: construir soluciones funcionales.</li> <li><strong>Reducción de costes</strong>: Al eliminar la necesidad de infraestructura adicional, los gastos operativos disminuyen considerablemente.</li> <li><strong>Escalabilidad automática</strong>: Las aplicaciones ajustan su capacidad según la demanda, garantizando un rendimiento óptimo sin intervención manual.</li> <li><strong>Transferencia de datos más eficiente</strong>: La integración directa mejora la velocidad y reduce la latencia, ofreciendo tiempos de respuesta más ágiles.</li> </ul> <p>En resumen, estas integraciones no solo hacen que las aplicaciones sean más rápidas y económicas, sino que también permiten adaptarlas fácilmente a los requisitos específicos de cada proyecto.</p>"}}]}</script>

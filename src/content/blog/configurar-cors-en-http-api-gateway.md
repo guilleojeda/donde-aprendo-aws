@@ -4,22 +4,17 @@ description: "Aprende a configurar CORS en API Gateway de AWS para asegurar el a
 author: "guille-ojeda"
 publishedAt: "2025-03-10"
 publishedTimestamp: "2025-03-10T05:50:46.65Z"
-cover: "/assets/blog/b7ca17278c2b7e43c95dfeec.jpg"
-coverAlt: "Portátil con código en pantalla sobre un escritorio junto a una taza"
-ogImage: "/assets/blog/b7ca17278c2b7e43c95dfeec.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "AWS Lambda y API Gateway: Guía Básica"
+  - title: "AWS Lambda y API Gateway: guía básica"
     url: "https://dondeaprendoaws.com/blog/aws-lambda-y-api-gateway-guia-basica/"
-    image: "/assets/blog/2aa39fe7ff55b6a37888515e.jpg"
-    imageAlt: ""
-  - title: "AWS OpsWorks: Automatiza Despliegues con Chef"
+  - title: "AWS OpsWorks: automatiza despliegues con Chef"
     url: "https://dondeaprendoaws.com/blog/aws-opsworks-automatiza-despliegues-con-chef/"
-    image: "/assets/blog/6b2f0b16a8f28318691c2a8d.jpg"
-    imageAlt: ""
-  - title: "AWS Seguridad: Mejores Prácticas"
+  - title: "AWS seguridad: mejores prácticas"
     url: "https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/"
-    image: "/assets/blog/58bea5d60c133d57e4a0bdbf.jpg"
-    imageAlt: ""
+
 ---
 
 <p><strong>¿Quieres que tu API sea accesible desde diferentes dominios de forma segura? Configurar CORS (Cross-Origin Resource Sharing) es clave para lograrlo.</strong></p>
@@ -38,7 +33,7 @@ related:
 <li>Configura los parámetros de CORS: orígenes, métodos, cabeceras y más.</li>
 </ol>
 </li>
-<li><strong><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas</a></strong>:
+<li><strong><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">mejores prácticas</a></strong>:
 <ul>
 <li>Restringe los orígenes permitidos.</li>
 <li>Especifica solo los métodos y cabeceras necesarios.</li>
@@ -270,7 +265,7 @@ En el cliente, agrega <code class="inline-code">credentials: 'include'</code> en
 
 
 
-<h2 class="sb h2-sbb-cls" id="testing-cors-settings" tabindex="-1">Testing CORS Settings</h2>
+<h2 class="sb h2-sbb-cls" id="testing-cors-settings" tabindex="-1">Testing CORS settings</h2>
 
 
 <h3 id="metodos-de-prueba-cors" tabindex="-1">Métodos de prueba CORS</h3>
@@ -536,4 +531,4 @@ Ideal para analizar cookies y credenciales cuando trabajas con <code class="inli
 
 
 <h2>Publicaciones de blog relacionadas</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/como-habilitar-cloudwatch-logs-en-api-gateway-guia-paso-a-paso/">Cómo Habilitar CloudWatch Logs en API Gateway: Guía Paso a Paso</a></li><li><a href="https://dondeaprendoaws.com/blog/guia-para-crear-apis-serverless-con-aws-lambda-y-api-gateway/">Guía para Crear APIs Serverless con AWS Lambda y API Gateway</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-lambda-y-api-gateway-guia-basica/">AWS Lambda y API Gateway: Guía Básica</a></li><li><a href="https://dondeaprendoaws.com/blog/5-practicas-de-seguridad-para-lambda-authorizers/">5 Prácticas de Seguridad para Lambda Authorizers</a></li></ul>
+<ul><li><a href="https://dondeaprendoaws.com/blog/como-habilitar-cloudwatch-logs-en-api-gateway-guia-paso-a-paso/">Cómo habilitar CloudWatch Logs en API Gateway: guía paso a paso</a></li><li><a href="https://dondeaprendoaws.com/blog/guia-para-crear-apis-serverless-con-aws-lambda-y-api-gateway/">Guía para crear APIs serverless con AWS Lambda y API Gateway</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-lambda-y-api-gateway-guia-basica/">AWS Lambda y API Gateway: guía básica</a></li><li><a href="https://dondeaprendoaws.com/blog/5-practicas-de-seguridad-para-lambda-authorizers/">5 prácticas de seguridad para Lambda authorizers</a></li></ul>

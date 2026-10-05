@@ -1,5 +1,16 @@
 ---
 const contributorUrl = '/#cta_form-01-839181';
+const navigationLinks = [
+  { href: '/', label: 'Inicio' },
+  { href: '/aprender/', label: 'Aprender' },
+  { href: '/recorridos/', label: 'Rutas' },
+  { href: '/creadores/', label: 'Creadores' },
+  { href: '/comunidades/', label: 'Comunidades' },
+  { href: '/eventos/', label: 'Eventos' },
+  { href: '/blog/', label: 'Blog' },
+  { href: '/buscar/', label: 'Buscar' },
+  { href: contributorUrl, label: 'Comparte un recurso', className: 'site-nav__cta' },
+];
 ---
 
 <header class="site-header">
@@ -19,16 +30,14 @@ const contributorUrl = '/#cta_form-01-839181';
       <span></span><span></span><span></span>
     </button>
 
+    <noscript>
+      <div class="site-nav__noscript-menu">
+        {navigationLinks.map((link) => <a class={link.className} href={link.href}>{link.label}</a>)}
+      </div>
+    </noscript>
+
     <div class="site-nav__menu" id="site-menu">
-      <a href="/">Inicio</a>
-      <a href="/aprender/">Aprender</a>
-      <a href="/recorridos/">Rutas</a>
-      <a href="/creadores/">Creadores</a>
-      <a href="/comunidades/">Comunidades</a>
-      <a href="/eventos/">Eventos</a>
-      <a href="/blog/">Blog</a>
-      <a href="/buscar/">Buscar</a>
-      <a class="site-nav__cta" href={contributorUrl}>Comparte un recurso</a>
+      {navigationLinks.map((link) => <a class={link.className} href={link.href}>{link.label}</a>)}
     </div>
   </nav>
 </header>

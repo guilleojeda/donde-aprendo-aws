@@ -7,10 +7,10 @@ publishedTimestamp: "2024-01-26T04:07:45.093Z"
 modifiedTimestamp: "2026-10-05T00:04:02-03:00"
 review:
   date: "2026-10-05"
-cover: "/assets/blog/9eb7bc020e08de9a43291902.jpg"
-coverAlt: "Nube central conectada a varios iconos circulares sobre fondo oscuro"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
 indexOrder: 4
-ogImage: "/assets/blog/9eb7bc020e08de9a43291902.jpg"
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related: []
 ---
 
@@ -84,7 +84,7 @@ Una comunidad puede ayudarte a encontrar otra explicación, conversar sobre una 
 
 En el [directorio de comunidades](/comunidades/) puedes elegir por país, modalidad e interés. Si estudias, revisa también los [Student Builder Groups](/comunidades/?format=Student+Builder+Group); comprueba las condiciones de participación de cada grupo.
 
-Para aprender redes con otras personas, la sesión en línea [Amazon VPC Essentials: Fundamentos de Networking](https://www.meetup.com/aws-sbg-at-francisco-jose-de-caldas-district-univ-bogota/events/316674045/), del grupo estudiantil de la Universidad Distrital de Bogotá, está anunciada para el **21 de octubre de 2026, de 18:00 a 20:00, hora de Bogotá (UTC−5)**. Trata subredes, rutas y conexiones; requiere inscripción, tiene cupos limitados y el enlace virtual se muestra a asistentes. La convocatoria no indica precio. Si la fecha ya pasó, busca otra actividad en la [agenda de eventos en línea](/eventos/?mode=online).
+Para aprender redes con otras personas, la sesión en línea [Amazon VPC Essentials: Fundamentos de Networking](https://www.meetup.com/aws-sbg-at-francisco-jose-de-caldas-district-univ-bogota/events/316674045/), del grupo estudiantil de la Universidad Distrital de Bogotá, está anunciada para el **21 de octubre de 2026, de 18:00 a 20:00, hora de Bogotá (UTC−5)**. Trata subredes, rutas y conexiones; requiere inscripción, tiene cupos limitados y el enlace virtual se muestra a asistentes. La convocatoria no indica precio. Si la fecha ya pasó, busca otra actividad en la [Agenda de eventos en línea](/eventos/?mode=online).
 
 Lleva una pregunta que pueda investigarse: “El laboratorio usa S3 para una web, pero yo quiero guardar imágenes privadas: ¿qué debería cambiar?”. Para errores, explica el resultado esperado, el mensaje recibido y lo que ya comprobaste. Quita credenciales y datos privados de capturas o fragmentos de configuración.
 
@@ -96,7 +96,7 @@ Lleva una pregunta que pueda investigarse: “El laboratorio usa S3 para una web
 
 **Para desarrollar aplicaciones**, empieza por una función pequeña. La [introducción a Lambda y serverless de Marcia Villalba](https://www.youtube.com/watch?v=1wNb_RMvI9E) te ayuda a reconocer ese modelo antes de seguir un tutorial de API. No necesitas construir de inmediato una aplicación con todos los servicios de la tabla.
 
-**Para elegir cursos, lecturas y canales gratuitos según tu nivel**, continúa con [Aprender AWS gratis en español](/blog/aprender-aws-gratis-recursos-y-comunidad/). Esa guía reúne alternativas para seguir avanzando; esta ruta te ayuda a decidir el orden inicial.
+**Para elegir cursos, lecturas y canales gratuitos según tu nivel**, continúa con [aprender AWS gratis en español](/blog/aprender-aws-gratis-recursos-y-comunidad/). Esa guía reúne alternativas para seguir avanzando; esta ruta te ayuda a decidir el orden inicial.
 
 ## Preguntas frecuentes al aprender AWS desde cero
 

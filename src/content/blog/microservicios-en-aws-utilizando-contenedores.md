@@ -1,25 +1,20 @@
 ---
-title: "Microservicios en AWS Utilizando Contenedores"
+title: "Microservicios en AWS utilizando contenedores"
 description: "Descubre cómo desplegar aplicaciones de manera eficiente, flexible y escalable con microservicios en AWS utilizando contenedores. Aprende sobre ECS, EKS, Fargate y más."
 author: "guille-ojeda"
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T00:23:23.974Z"
-cover: "/assets/blog/bf2d7e4c78ec347430ffd844.jpg"
-coverAlt: "Pantalla con una nube y varios bloques debajo"
-ogImage: "/assets/blog/bf2d7e4c78ec347430ffd844.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Control Plane vs Data Plane en AWS App Mesh"
+  - title: "Control plane vs data plane en AWS App Mesh"
     url: "https://dondeaprendoaws.com/blog/control-plane-vs-data-plane-en-aws-app-mesh/"
-    image: "/assets/blog/97233420c8e51dbede977f2c.jpg"
-    imageAlt: ""
-  - title: "Mejores Prácticas Para Amazon ECS"
+  - title: "Mejores prácticas para Amazon ECS"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ecs/"
-    image: "/assets/blog/826c9a11a84720138c6c6ed3.jpg"
-    imageAlt: ""
-  - title: "AWS Seguridad: Mejores Prácticas"
+  - title: "AWS seguridad: mejores prácticas"
     url: "https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/"
-    image: "/assets/blog/58bea5d60c133d57e4a0bdbf.jpg"
-    imageAlt: ""
+
 ---
 
 <p>En este artículo, te guiamos por el fascinante mundo de los <a href="https://d1.awsstatic.com/whitepapers/microservices-on-aws.pdf" rel="noopener noreferrer" target="_blank"><strong>microservicios en AWS</strong></a> <strong>utilizando contenedores</strong>. Descubrirás cómo desplegar aplicaciones de manera eficiente, flexible y escalable. Aprenderás sobre:</p>
@@ -379,7 +374,7 @@ kubectl get services
 <p>¡Te deseo lo mejor en tu aventura con los microservicios!</p>
 
 
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas Relacionadas</h2>
+<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
 
 
 <h3 id="%C2%BFqu%C3%A9-son-los-contenedores-en-microservicios%3F" tabindex="-1">¿Qué son los contenedores en microservicios?</h3>
@@ -439,7 +434,7 @@ kubectl get services
 <p>AWS tiene servicios como ECS, EKS y Fargate para ayudarte a manejar contenedores sin importar el tamaño de tu proyecto.</p>
 
 
-<h3 id="%C2%BFqu%C3%A9-es-un-microservicio-aws%3F" tabindex="-1">¿Qué es un Microservicio AWS?</h3>
+<h3 id="%C2%BFqu%C3%A9-es-un-microservicio-aws%3F" tabindex="-1">¿Qué es un microservicio AWS?</h3>
 
 
 <p>Un microservicio AWS es una pequeña aplicación autónoma diseñada para hacer una tarea específica. Es parte de un estilo de construir aplicaciones donde cada parte trabaja de forma independiente.</p>
@@ -463,6 +458,6 @@ kubectl get services
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ecs/">Mejores Prácticas Para Amazon ECS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-eks/">Mejores Prácticas Para Amazon EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/opciones-para-desplegar-contenedores-en-aws-ecs-y-eks/">Opciones para Desplegar Contenedores en AWS: ECS y EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/">Cómo Desplegar Contenedores en AWS</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ecs/">Mejores prácticas para Amazon ECS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-eks/">Mejores prácticas para Amazon EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/opciones-para-desplegar-contenedores-en-aws-ecs-y-eks/">Opciones para desplegar contenedores en AWS: ECS y EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/">Cómo desplegar contenedores en AWS</a></li>
 </ul>
 </p>

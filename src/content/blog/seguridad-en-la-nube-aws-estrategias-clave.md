@@ -1,25 +1,20 @@
 ---
-title: "Seguridad en la nube AWS: Estrategias clave"
+title: "Seguridad en la nube AWS: estrategias clave"
 description: "Explora las estrategias clave de seguridad en la nube de AWS, incluyendo gestión de identidades y accesos, cifrado de datos, monitoreo de amenazas y certificaciones de seguridad. Aprende a proteger tu entorno en la nube con AWS."
 author: "guille-ojeda"
 publishedAt: "2024-01-28"
 publishedTimestamp: "2024-01-28T01:13:20.58Z"
-cover: "/assets/blog/85153458594dcc202b848554.jpg"
-coverAlt: "Nube rosada con un escudo central conectado a candados y otros símbolos"
-ogImage: "/assets/blog/85153458594dcc202b848554.jpg"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related:
-  - title: "Guía Completa: Análisis de Costos de Tráfico en AWS"
+  - title: "Guía completa: análisis de costos de tráfico en AWS"
     url: "https://dondeaprendoaws.com/blog/guia-completa-analisis-de-costos-de-trafico-en-aws/"
-    image: "/assets/blog/5a1c145030a04aac753625bc.jpg"
-    imageAlt: ""
-  - title: "Automatizar Alertas de Costos AWS en 5 Pasos"
+  - title: "Automatizar alertas de costos AWS en 5 pasos"
     url: "https://dondeaprendoaws.com/blog/automatizar-alertas-de-costos-aws-en-5-pasos/"
-    image: "/assets/blog/cd540f6b1441905ad2c6859c.webp"
-    imageAlt: ""
-  - title: "Cómo crear Infraestructura como Código en AWS con Terraform"
+  - title: "Cómo crear infraestructura como código en AWS con Terraform"
     url: "https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-terraform/"
-    image: "/assets/blog/e70ea85183c2a0917d33154f.png"
-    imageAlt: ""
+
 ---
 
 <p>Seguramente todos estarán de acuerdo en que mantener la <strong>seguridad en la nube de AWS</strong> puede ser un desafío, especialmente para aquellos que recién comienzan con la nube.</p>
@@ -31,13 +26,13 @@ related:
 <p>En este artículo, exploraremos algunas <strong>estrategias clave de seguridad en la nube de AWS</strong>, incluyendo la gestión de identidades y accesos con AWS IAM y el cifrado de datos confidenciales. También analizaremos servicios de monitoreo como Amazon GuardDuty y AWS Security Hub para detectar y responder ante posibles amenazas de seguridad.</p>
 
 
-<h2 id="introducci%C3%B3n-a-la-seguridad-aws%3A-comprendiendo-los-fundamentos" tabindex="-1">Introducción a la Seguridad AWS: Comprendiendo los Fundamentos</h2>
+<h2 id="introducci%C3%B3n-a-la-seguridad-aws%3A-comprendiendo-los-fundamentos" tabindex="-1">Introducción a la seguridad AWS: comprendiendo los fundamentos</h2>
 
 
 <p>La seguridad es una prioridad clave para cualquier organización que utilice la nube de AWS. AWS ofrece una amplia gama de servicios de seguridad que permiten a los clientes proteger sus aplicaciones y datos en la nube.</p>
 
 
-<h3 id="el-modelo-de-responsabilidad-compartida-en-aws" tabindex="-1">El Modelo de Responsabilidad Compartida en AWS</h3>
+<h3 id="el-modelo-de-responsabilidad-compartida-en-aws" tabindex="-1">El modelo de responsabilidad compartida en AWS</h3>
 
 
 <p>El modelo de responsabilidad compartida de AWS establece claramente que la seguridad y el cumplimiento en la nube es una responsabilidad compartida entre AWS y el cliente. Según este modelo, AWS es responsable de proteger la infraestructura global que ejecuta toda la nube de AWS. Esto incluye hardware, software, redes y facilidades.</p>
@@ -46,7 +41,7 @@ related:
 <p>Los clientes son responsables de gestionar la seguridad de todo lo que pongan en la nube de AWS. Esto incluye el sistema operativo de las máquinas virtuales, las aplicaciones que desplieguen y los datos que almacenen. AWS proporciona muchas herramientas y servicios que los clientes pueden usar para ayudar a gestionar la seguridad de sus recursos.</p>
 
 
-<h3 id="visi%C3%B3n-general-de-los-servicios-de-seguridad-aws" tabindex="-1">Visión General de los Servicios de Seguridad AWS</h3>
+<h3 id="visi%C3%B3n-general-de-los-servicios-de-seguridad-aws" tabindex="-1">Visión general de los servicios de seguridad AWS</h3>
 
 
 <p>AWS ofrece una amplia gama de servicios de seguridad que se pueden utilizar para proteger aplicaciones y datos en la nube:</p>
@@ -80,7 +75,7 @@ related:
 </ul>
 
 
-<h3 id="aws-cloud-compliance%3A-alineando-con-est%C3%A1ndares-globales" tabindex="-1">AWS Cloud Compliance: Alineando con Estándares Globales</h3>
+<h3 id="aws-cloud-compliance%3A-alineando-con-est%C3%A1ndares-globales" tabindex="-1">AWS cloud compliance: alineando con estándares globales</h3>
 
 
 <p>AWS ayuda a los clientes a cumplir con una amplia gama de estándares globales de cumplimiento y regulaciones de la industria, incluyendo SOC, PCI DSS, HIPAA y GDPR.</p>
@@ -89,7 +84,7 @@ related:
 <p>AWS proporciona documentación detallada sobre sus controles de seguridad y cómo se alinean con diferentes marcos de cumplimiento. También ofrece herramientas como AWS Artifact que permiten a los clientes acceder fácilmente a informes de auditoría de AWS.</p>
 
 
-<h3 id="aprender-aws-desde-cero%3A-seguridad-como-prioridad" tabindex="-1">Aprender AWS desde Cero: Seguridad como Prioridad</h3>
+<h3 id="aprender-aws-desde-cero%3A-seguridad-como-prioridad" tabindex="-1">Aprender AWS desde cero: seguridad como prioridad</h3>
 
 
 <p>Para los que están comenzando con AWS, es importante priorizar la seguridad desde el primer día. Algunos consejos clave:</p>
@@ -237,7 +232,7 @@ related:
 <p>En resumen, <strong>Security Hub centraliza la visibilidad de seguridad, automatiza la respuesta y ayuda a mejorar la postura de seguridad general en los entornos de nube de AWS</strong>. Es una pieza clave para gestionar la <em>seguridad en la nube aws</em> de manera integral.</p>
 
 
-<h2 id="aws-security-certification%3A-validando-tu-expertise-en-seguridad" tabindex="-1">AWS Security Certification: Validando tu Expertise en Seguridad</h2>
+<h2 id="aws-security-certification%3A-validando-tu-expertise-en-seguridad" tabindex="-1">AWS security certification: validando tu expertise en seguridad</h2>
 
 
 <p>La certificación de seguridad de AWS es una excelente manera de validar tus habilidades y conocimientos en prácticas recomendadas de seguridad en la nube. AWS ofrece varias certificaciones específicas de seguridad que cubren temas como cifrado, protección de datos, detección de amenazas, cumplimiento normativo y más.</p>
@@ -246,7 +241,7 @@ related:
 <p>Obtener una certificación de seguridad de AWS puede mejorar en gran medida tus oportunidades laborales y salariales. Demuestra a los empleadores que tienes las habilidades necesarias para diseñar, implementar y administrar infraestructuras seguras en AWS.</p>
 
 
-<h3 id="rutas-de-certificaci%C3%B3n-en-seguridad-aws" tabindex="-1">Rutas de Certificación en Seguridad AWS</h3>
+<h3 id="rutas-de-certificaci%C3%B3n-en-seguridad-aws" tabindex="-1">Rutas de certificación en seguridad AWS</h3>
 
 
 <p>AWS ofrece 3 certificaciones de seguridad:</p>
@@ -271,7 +266,7 @@ related:
 <p>Los exámenes tienen un costo que varía entre $100 - $300 USD. No hay prerequisitos formales, pero se recomienda tener conocimientos sólidos de los servicios de AWS.</p>
 
 
-<h3 id="preparaci%C3%B3n-para-la-certificaci%C3%B3n-de-seguridad-aws" tabindex="-1">Preparación para la Certificación de Seguridad AWS</h3>
+<h3 id="preparaci%C3%B3n-para-la-certificaci%C3%B3n-de-seguridad-aws" tabindex="-1">Preparación para la certificación de seguridad AWS</h3>
 
 
 <p>Para prepararte para los exámenes de certificación, AWS ofrece varios recursos de aprendizaje:</p>
@@ -299,7 +294,7 @@ related:
 <p>Combina estos recursos con al menos 6 meses de experiencia práctica usando los servicios de seguridad de AWS para tener éxito en los exámenes.</p>
 
 
-<h3 id="el-valor-de-la-certificaci%C3%B3n-de-seguridad-aws-en-la-industria" tabindex="-1">El Valor de la Certificación de Seguridad AWS en la Industria</h3>
+<h3 id="el-valor-de-la-certificaci%C3%B3n-de-seguridad-aws-en-la-industria" tabindex="-1">El valor de la certificación de seguridad AWS en la industria</h3>
 
 
 <p>Obtener una certificación de seguridad AWS es sumamente valioso para avanzar en tu carrera:</p>
@@ -327,7 +322,7 @@ related:
 <p>En resumen, la certificación de seguridad AWS fortalece en gran medida tu perfil profesional y te posiciona como un experto confiable en seguridad en la nube.</p>
 
 
-<h3 id="aprendiendo-aws%3A-mejores-pr%C3%A1cticas-de-seguridad" tabindex="-1">Aprendiendo AWS: Mejores Prácticas de Seguridad</h3>
+<h3 id="aprendiendo-aws%3A-mejores-pr%C3%A1cticas-de-seguridad" tabindex="-1">Aprendiendo AWS: mejores prácticas de seguridad</h3>
 
 
 <p>Al aprender a usar AWS, es clave incorporar buenos hábitos de seguridad desde el principio:</p>
@@ -361,7 +356,7 @@ related:
 <p>Con dedicación y práctica constante, dominarás completamente la seguridad en AWS, preparándote para obtener valiosas certificaciones que impulsarán tu carrera.</p>
 
 
-<h2 id="gesti%C3%B3n-de-identidades-y-accesos-con-aws-iam" tabindex="-1">Gestión de Identidades y Accesos con AWS IAM</h2>
+<h2 id="gesti%C3%B3n-de-identidades-y-accesos-con-aws-iam" tabindex="-1">Gestión de identidades y accesos con AWS IAM</h2>
 
 
 <p>La gestión de identidades y accesos es fundamental para proteger los recursos y datos en la nube de AWS. El servicio AWS Identity and Access Management (IAM) permite controlar quién está autenticado y autorizado para usar recursos de AWS.</p>
@@ -385,7 +380,7 @@ related:
 <p>Con estas medidas se refuerza la <strong>seguridad en aws</strong> y la <strong>protección de datos</strong>.</p>
 
 
-<h3 id="federaci%C3%B3n-de-identidades-y-sso-en-aws" tabindex="-1">Federación de Identidades y SSO en AWS</h3>
+<h3 id="federaci%C3%B3n-de-identidades-y-sso-en-aws" tabindex="-1">Federación de identidades y SSO en AWS</h3>
 
 
 <p>La federación de identidades permite que los usuarios inicien sesión en AWS con sus credenciales corporativas a través de proveedores de identidad como Microsoft AD, Google Workspace o Facebook. Esto se habilita con:</p>
@@ -401,7 +396,7 @@ related:
 <p>Los beneficios incluyen simplificación de la <strong>gestión de identidades</strong> y mayor comodidad para el usuario final.</p>
 
 
-<h3 id="mejores-pr%C3%A1cticas-de-seguridad-en-iam" tabindex="-1">Mejores Prácticas de Seguridad en IAM</h3>
+<h3 id="mejores-pr%C3%A1cticas-de-seguridad-en-iam" tabindex="-1">Mejores prácticas de seguridad en IAM</h3>
 
 
 <p>Algunas recomendaciones para reforzar la seguridad son:</p>
@@ -418,7 +413,7 @@ related:
 <p>Con estas <strong>buenas prácticas de seguridad en IAM</strong> se refuerza la <strong>seguridad en la nube de AWS</strong>.</p>
 
 
-<h3 id="auditor%C3%ADa-y-monitoreo-de-iam-para-la-seguridad-aws" tabindex="-1">Auditoría y Monitoreo de IAM para la Seguridad AWS</h3>
+<h3 id="auditor%C3%ADa-y-monitoreo-de-iam-para-la-seguridad-aws" tabindex="-1">Auditoría y monitoreo de IAM para la seguridad AWS</h3>
 
 
 <p>Es importante auditar regularmente la configuración de IAM mediante:</p>
@@ -434,13 +429,13 @@ related:
 <p>El <strong>monitoreo continuo</strong> y la <strong>detección temprana de amenazas</strong> son claves para la <strong>seguridad en aws</strong>.</p>
 
 
-<h2 id="aws-protecci%C3%B3n-de-datos%3A-cifrado-y-resguardo" tabindex="-1">AWS Protección de Datos: Cifrado y Resguardo</h2>
+<h2 id="aws-protecci%C3%B3n-de-datos%3A-cifrado-y-resguardo" tabindex="-1">AWS protección de datos: cifrado y resguardo</h2>
 
 
 <p>La protección de datos es fundamental para mantener la seguridad en la nube de AWS. Existen estrategias clave que permiten cifrar y clasificar los datos almacenados y en tránsito en los servicios de AWS.</p>
 
 
-<h3 id="cifrado-de-datos-con-aws-key-management-service-(kms)" tabindex="-1">Cifrado de Datos con AWS Key Management Service (KMS)</h3>
+<h3 id="cifrado-de-datos-con-aws-key-management-service-(kms)" tabindex="-1">Cifrado de datos con AWS Key Management Service (KMS)</h3>
 
 
 <p>KMS permite crear y administrar las claves de cifrado utilizadas para proteger los datos. Al integrar KMS con servicios como S3, EBS y RDS, es posible cifrar fácilmente los datos en reposo.</p>
@@ -460,7 +455,7 @@ related:
 </ul>
 
 
-<h3 id="aws-cloudhsm%3A-protecci%C3%B3n-de-datos-de-alto-nivel" tabindex="-1">AWS CloudHSM: Protección de Datos de Alto Nivel</h3>
+<h3 id="aws-cloudhsm%3A-protecci%C3%B3n-de-datos-de-alto-nivel" tabindex="-1">AWS CloudHSM: protección de datos de alto nivel</h3>
 
 
 <p>Amazon CloudHSM es un servicio de hardware security module (HSM) en la nube. Provee un alto nivel de seguridad mediante el almacenamiento de claves de cifrado en HSMs certificados FIPS 140-2 Nivel 3.</p>
@@ -479,7 +474,7 @@ related:
 <p>CloudHSM es ideal para cargas de trabajo con datos altamente sensibles como aplicaciones financieras, empresas de blockchain y sistemas de pago.</p>
 
 
-<h3 id="amazon-macie%3A-inteligencia-artificial-para-la-clasificaci%C3%B3n-de-datos" tabindex="-1">Amazon Macie: Inteligencia Artificial para la Clasificación de Datos</h3>
+<h3 id="amazon-macie%3A-inteligencia-artificial-para-la-clasificaci%C3%B3n-de-datos" tabindex="-1">Amazon Macie: inteligencia artificial para la clasificación de datos</h3>
 
 
 <p>Amazon Macie es un servicio totalmente administrado que emplea machine learning para descubrir, clasificar y proteger datos confidenciales almacenados en S3.</p>
@@ -499,7 +494,7 @@ related:
 <p>Estas capacidades hacen de Macie una solución integral para proteger datos en reposo y prevenir violaciones de seguridad o conformidad.</p>
 
 
-<h3 id="manejo-de-datos-en-s3%3A-seguridad-y-cifrado" tabindex="-1">Manejo de Datos en S3: Seguridad y Cifrado</h3>
+<h3 id="manejo-de-datos-en-s3%3A-seguridad-y-cifrado" tabindex="-1">Manejo de datos en S3: seguridad y cifrado</h3>
 
 
 <p>Amazon S3 es uno de los servicios más utilizados para almacenar datos en la nube. Implementar controles adecuados de seguridad y cifrado en S3 es esencial.</p>
@@ -520,10 +515,10 @@ related:
 <p>Adicionalmente, es posible complementar la seguridad de S3 con opciones como CloudHSM y Macie según los requisitos específicos de cifrado y clasificación de datos.</p>
 
 
-<h2 id="monitoreo-continuo-y-detecci%C3%B3n-de-amenazas-con-aws" tabindex="-1">Monitoreo Continuo y Detección de Amenazas con AWS</h2>
+<h2 id="monitoreo-continuo-y-detecci%C3%B3n-de-amenazas-con-aws" tabindex="-1">Monitoreo continuo y detección de amenazas con AWS</h2>
 
 
-<h3 id="amazon-guardduty%3A-vigilancia-proactiva" tabindex="-1">Amazon GuardDuty: Vigilancia Proactiva</h3>
+<h3 id="amazon-guardduty%3A-vigilancia-proactiva" tabindex="-1">Amazon GuardDuty: vigilancia proactiva</h3>
 
 
 <p>GuardDuty es un servicio de detección continua de amenazas que analiza logs de cuentas de AWS y tráfico de red en busca de actividades sospechosas o malintencionadas.</p>
@@ -547,7 +542,7 @@ related:
 <p>GuardDuty forma parte fundamental de cualquier estrategia de <strong>seguridad en la nube aws</strong>, proporcionando vigilancia experta sobre posibles riesgos.</p>
 
 
-<h3 id="evaluaciones-de-seguridad-con-amazon-inspector" tabindex="-1">Evaluaciones de Seguridad con Amazon Inspector</h3>
+<h3 id="evaluaciones-de-seguridad-con-amazon-inspector" tabindex="-1">Evaluaciones de seguridad con Amazon Inspector</h3>
 
 
 <p>Amazon Inspector es un servicio de evaluación de vulnerabilidades y cumplimiento de estándares en recursos de AWS.</p>
@@ -572,7 +567,7 @@ related:
 <p>Ejecutar evaluaciones periódicas con Amazon Inspector es clave en cualquier programa de seguridad en la nube.</p>
 
 
-<h3 id="centralizaci%C3%B3n-de-alertas-con-aws-security-hub" tabindex="-1">Centralización de Alertas con AWS Security Hub</h3>
+<h3 id="centralizaci%C3%B3n-de-alertas-con-aws-security-hub" tabindex="-1">Centralización de alertas con AWS Security Hub</h3>
 
 
 <p>AWS Security Hub agrega y correlaciona alertas de seguridad de múltiples servicios de AWS y soluciones de partners, proporcionando visibilidad unificada.</p>
@@ -599,7 +594,7 @@ related:
 <p>Security Hub representa el centro de comando para las operaciones de seguridad en la nube.</p>
 
 
-<h3 id="aws-shield-y-aws-waf-para-la-defensa-contra-ataques" tabindex="-1">AWS Shield y AWS WAF para la Defensa contra Ataques</h3>
+<h3 id="aws-shield-y-aws-waf-para-la-defensa-contra-ataques" tabindex="-1">AWS Shield y AWS WAF para la defensa contra ataques</h3>
 
 
 <p>Para proteger aplicaciones en AWS ante ataques de denegación de servicio y explotación de vulnerabilidades web, se recomienda utilizar AWS Shield y AWS WAF.</p>
@@ -620,10 +615,10 @@ related:
 <p>Esta primera línea de defensa es esencial para mantener la <strong>seguridad en la nube aws</strong> ante amenazas externas.</p>
 
 
-<h2 id="conclusi%C3%B3n%3A-asegurando-tu-entorno-en-la-nube-con-aws" tabindex="-1">Conclusión: Asegurando tu Entorno en la Nube con AWS</h2>
+<h2 id="conclusi%C3%B3n%3A-asegurando-tu-entorno-en-la-nube-con-aws" tabindex="-1">Conclusión: asegurando tu entorno en la nube con AWS</h2>
 
 
-<h3 id="recapitulaci%C3%B3n-de-estrategias-de-seguridad-en-la-nube-aws" tabindex="-1">Recapitulación de Estrategias de Seguridad en la Nube AWS</h3>
+<h3 id="recapitulaci%C3%B3n-de-estrategias-de-seguridad-en-la-nube-aws" tabindex="-1">Recapitulación de estrategias de seguridad en la nube AWS</h3>
 
 
 <p>La seguridad en la nube es esencial para proteger tus datos y aplicaciones en AWS. Algunas de las mejores prácticas clave incluyen:</p>
@@ -648,7 +643,7 @@ related:
 </ul>
 
 
-<h3 id="continuando-tu-educaci%C3%B3n-en-seguridad-aws" tabindex="-1">Continuando tu Educación en Seguridad AWS</h3>
+<h3 id="continuando-tu-educaci%C3%B3n-en-seguridad-aws" tabindex="-1">Continuando tu educación en seguridad AWS</h3>
 
 
 <p>Existen muchos recursos para seguir aprendiendo sobre seguridad en AWS:</p>
@@ -676,7 +671,7 @@ related:
 <p>Mantenerse actualizado es clave para responder a las amenazas cambiantes.</p>
 
 
-<h3 id="el-futuro-de-la-seguridad-en-aws" tabindex="-1">El Futuro de la Seguridad en AWS</h3>
+<h3 id="el-futuro-de-la-seguridad-en-aws" tabindex="-1">El futuro de la seguridad en AWS</h3>
 
 
 <p>AWS continúa innovando en seguridad y privacidad, por ejemplo con:</p>
@@ -704,6 +699,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/">Seguridad en AWS: Mejores Prácticas</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS Seguridad: Fundamentos Esenciales</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/">seguridad en AWS: mejores prácticas</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS seguridad: fundamentos esenciales</a></li>
 </ul>
 </p>

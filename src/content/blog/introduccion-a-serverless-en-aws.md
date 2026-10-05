@@ -1,25 +1,20 @@
 ---
-title: "Introducción a Serverless en AWS"
+title: "Introducción a serverless en AWS"
 description: "Descubre el mundo de Serverless en AWS y aprende sobre sus ventajas, conceptos clave, servicios principales y mejores prácticas. ¡Empieza a explorar el desarrollo serverless con AWS ahora!"
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T02:49:31.55Z"
-cover: "/assets/blog/9f5d99800f4cca1daf83afa2.jpg"
-coverAlt: "Nube azul rodeada de pequeños cuadros e iconos de colores"
-ogImage: "/assets/blog/9f5d99800f4cca1daf83afa2.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "10 Métricas Clave de DevOps en AWS"
+  - title: "10 métricas clave de DevOps en AWS"
     url: "https://dondeaprendoaws.com/blog/10-metricas-clave-de-devops-en-aws/"
-    image: "/assets/blog/98aff2370ca15f9967751abc.png"
-    imageAlt: ""
-  - title: "Mejores Prácticas de Observabilidad en AWS"
+  - title: "Mejores prácticas de observabilidad en AWS"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/"
-    image: "/assets/blog/225d18fffd41e9eec388a76e.jpg"
-    imageAlt: ""
-  - title: "Base de Datos Global con Amazon DynamoDB"
+  - title: "Base de datos global con Amazon DynamoDB"
     url: "https://dondeaprendoaws.com/blog/base-de-datos-global-con-amazon-dynamodb/"
-    image: "/assets/blog/b74e56b41e26732c7dfc378e.png"
-    imageAlt: ""
+
 ---
 
 <p><strong>Serverless en AWS</strong> te permite centrarte en desarrollar tus aplicaciones sin la carga de manejar servidores. Aquí, te presentamos una introducción concisa al concepto, ventajas, servicios principales y prácticas recomendadas para aprovechar al máximo esta tecnología:</p>
@@ -376,25 +371,25 @@ related:
 <h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
 
 
-<h3 id="%C2%BFqu%C3%A9-significa-serverless-aws%3F" tabindex="-1">¿Qué significa Serverless AWS?</h3>
+<h3 id="%C2%BFqu%C3%A9-significa-serverless-aws%3F" tabindex="-1">¿Qué significa serverless AWS?</h3>
 
 
 <p>AWS Serverless Application Model (AWS SAM) es una herramienta gratuita que te ayuda a crear aplicaciones sin tener que manejar servidores. Te permite describir tus funciones, las conexiones entre ellas y la base de datos de una forma más sencilla, haciendo que sea más rápido empezar.</p>
 
 
-<h3 id="%C2%BFc%C3%B3mo-se-llama-la-soluci%C3%B3n-serverless-de-aws%3F" tabindex="-1">¿Cómo se llama la solución Serverless de AWS?</h3>
+<h3 id="%C2%BFc%C3%B3mo-se-llama-la-soluci%C3%B3n-serverless-de-aws%3F" tabindex="-1">¿Cómo se llama la solución serverless de AWS?</h3>
 
 
 <p>La solución serverless principal de AWS se llama AWS Lambda. Lambda te permite correr código sin tener que preocuparte por los servidores, pagando solo por el tiempo que tu código está activo. Otra herramienta importante para crear y manejar APIs es Amazon API Gateway.</p>
 
 
-<h3 id="%C2%BFqu%C3%A9-es-desarrollo-serverless%3F" tabindex="-1">¿Qué es desarrollo Serverless?</h3>
+<h3 id="%C2%BFqu%C3%A9-es-desarrollo-serverless%3F" tabindex="-1">¿Qué es desarrollo serverless?</h3>
 
 
 <p>El desarrollo serverless es una manera de hacer aplicaciones donde el proveedor de servicios en la nube, como AWS, se encarga de todo lo que tiene que ver con los servidores. Esto significa que tú, como desarrollador, solo te enfocas en escribir el código de tu aplicación, haciendo tu trabajo más rápido y fácil.</p>
 
 
-<h3 id="%C2%BFqu%C3%A9-es-la-arquitectura-serverless%3F" tabindex="-1">¿Qué es la arquitectura Serverless?</h3>
+<h3 id="%C2%BFqu%C3%A9-es-la-arquitectura-serverless%3F" tabindex="-1">¿Qué es la arquitectura serverless?</h3>
 
 
 <p>La arquitectura serverless es una forma de construir aplicaciones sin tener que manejar servidores. En este modelo, el proveedor de la nube se ocupa de todo lo relacionado con los servidores, permitiéndote concentrarte en la lógica de tu aplicación. Esto hace que sea más fácil escalar y mantener tus aplicaciones.</p>
@@ -403,6 +398,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/">Introducción a la Inteligencia Artificial en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS Fundamentos: Guía de Inicio Rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/nube-aws-guia-de-inicio-rapido/">Nube AWS: Guía de Inicio Rápido</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/">Introducción a la inteligencia artificial en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS fundamentos: guía de inicio rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/nube-aws-guia-de-inicio-rapido/">Nube AWS: guía de inicio rápido</a></li>
 </ul>
 </p>

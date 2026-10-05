@@ -1,25 +1,20 @@
 ---
-title: "Políticas de Control de Servicios (SCPs) en AWS"
+title: "Políticas de control de servicios (SCPs) en AWS"
 description: "Descubra cómo las SCPs en AWS mejoran la seguridad y el cumplimiento mediante la gestión de permisos y el control de accesos en la organización."
 author: "guille-ojeda"
 publishedAt: "2024-05-09"
 publishedTimestamp: "2024-05-09T02:00:12.498Z"
-cover: "/assets/blog/ae0015b4c4fa992bfdc8c817.jpg"
-coverAlt: "Nube azul y blanca con piezas de rompecabezas y un candado central"
-ogImage: "/assets/blog/ae0015b4c4fa992bfdc8c817.jpg"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related:
-  - title: "Monitoreo y Logs de AWS Step Functions: Guía 2024"
+  - title: "Monitoreo y logs de AWS Step Functions: guía 2024"
     url: "https://dondeaprendoaws.com/blog/monitoreo-y-logs-de-aws-step-functions-guia-2024/"
-    image: "/assets/blog/3cdeed308ae19cafa2c58e0d.jpg"
-    imageAlt: ""
-  - title: "Guía de UEBA para la Seguridad de AWS"
+  - title: "Guía de UEBA para la seguridad de AWS"
     url: "https://dondeaprendoaws.com/blog/guia-de-ueba-para-la-seguridad-de-aws/"
-    image: "/assets/blog/77827c07de64ac355ca01278.jpg"
-    imageAlt: ""
-  - title: "Opciones para Desplegar Contenedores en AWS: ECS y EKS"
+  - title: "Opciones para desplegar contenedores en AWS: ECS y EKS"
     url: "https://dondeaprendoaws.com/blog/opciones-para-desplegar-contenedores-en-aws-ecs-y-eks/"
-    image: "/assets/blog/fce8d84a0c54b5cb44769316.png"
-    imageAlt: ""
+
 ---
 
 <p>Las Políticas de Control de Servicios (SCPs) son una poderosa herramienta de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> para controlar y restringir el acceso a servicios y recursos en una organización. Permiten establecer permisos centralizados para todos los usuarios y roles, mejorando la seguridad y el cumplimiento.</p>
@@ -94,7 +89,7 @@ related:
 <p>Las SCPs son fundamentales para una gobernanza efectiva en AWS, permitiendo controlar el acceso a recursos y servicios de manera centralizada y segura.</p>
 
 
-<h2 id="crear-pol%C3%ADticas-de-control-de-servicios-efectivas" tabindex="-1">Crear Políticas de Control de Servicios Efectivas</h2>
+<h2 id="crear-pol%C3%ADticas-de-control-de-servicios-efectivas" tabindex="-1">Crear políticas de control de servicios efectivas</h2>
 
 
 <p>Crear políticas de control de servicios (SCPs) efectivas es crucial para garantizar la seguridad y el cumplimiento en su <a href="https://dondeaprendoaws.com/blog/gestionando-multiples-cuentas-de-aws-con-aws-organizations/">organización de AWS</a>. En esta sección, se describirán los componentes clave de una SCP y se proporcionarán pasos detallados para crear una nueva SCP.</p>
@@ -246,7 +241,7 @@ related:
 <p>Al entender los permisos y restricciones involucrados en adjuntar y desadjuntar SCPs, puede administrar efectivamente el acceso dentro de su organización de AWS y asegurar la seguridad y el cumplimiento de sus recursos.</p>
 
 
-<h2 id="mantenimiento-de-pol%C3%ADticas-de-control-de-servicios" tabindex="-1">Mantenimiento de Políticas de Control de Servicios</h2>
+<h2 id="mantenimiento-de-pol%C3%ADticas-de-control-de-servicios" tabindex="-1">Mantenimiento de políticas de control de servicios</h2>
 
 
 <p>El mantenimiento de las Políticas de Control de Servicios (SCPs) es crucial para garantizar la gobernanza y el control continuos dentro de su organización de AWS. A medida que evoluciona la necesidad de su organización, es posible que deba actualizar, etiquetar o incluso eliminar SCPs existentes. Esta sección cubre las mejores prácticas para administrar SCPs con el tiempo.</p>
@@ -498,7 +493,7 @@ related:
 <p>En resumen, las SCPs ofrecen varias formas de mejorar la seguridad y el cumplimiento dentro de las organizaciones de AWS. Al utilizar SCPs para restringir las acciones de las cuentas basadas en la región, exigir la autenticación MFA y prevenir cambios no autorizados en la configuración de las cuentas y los recursos, las organizaciones pueden garantizar un entorno más seguro y cumplir con los requisitos de seguridad y cumplimiento.</p>
 
 
-<h2 id="conclusi%C3%B3n%3A-uso-de-scps-para-la-gobernanza" tabindex="-1">Conclusión: Uso de SCPs para la Gobernanza</h2>
+<h2 id="conclusi%C3%B3n%3A-uso-de-scps-para-la-gobernanza" tabindex="-1">Conclusión: uso de SCPs para la gobernanza</h2>
 
 
 <p>Las políticas de control de servicios (SCPs) son una herramienta fundamental para garantizar la seguridad y el cumplimiento dentro de las organizaciones de AWS. En este artículo, hemos explorado cómo crear, adjuntar y mantener SCPs efectivas para controlar el acceso a los recursos y servicios de AWS.</p>
@@ -602,6 +597,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores Prácticas de Seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">Seguridad en AWS: Servicios Esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS Seguridad: Fundamentos Esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/gestionando-multiples-cuentas-de-aws-con-aws-organizations/">Gestionando Múltiples Cuentas de AWS con AWS Organizations</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores prácticas de seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">seguridad en AWS: servicios esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS seguridad: fundamentos esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/gestionando-multiples-cuentas-de-aws-con-aws-organizations/">Gestionando múltiples cuentas de AWS con AWS Organizations</a></li>
 </ul>
 </p>

@@ -5,6 +5,8 @@ import sharp from 'sharp';
 
 const dist = resolve('dist');
 const webpSavingsThreshold = 0.1;
+const blogCardSizes = '(max-width: 600px) calc(100vw - 48px), (max-width: 900px) calc((100vw - 72px) / 2), (max-width: 1232px) calc((100vw - 96px) / 3), 379px';
+const blogArticleBodySizes = '(max-width: 600px) calc(100vw - 32px), (max-width: 728px) calc(100vw - 48px), 680px';
 
 function getAttributes(tag) {
   const attributes = new Map();
@@ -79,6 +81,12 @@ function listHtml(directory) {
   });
 }
 
+function owningAnchor(html, offset) {
+  const start = html.lastIndexOf('<a ', offset);
+  const end = html.lastIndexOf('</a>', offset);
+  return start > end ? html.slice(start, offset) : '';
+}
+
 const htmlFiles = listHtml(dist);
 let imageCount = 0;
 let variantCount = 0;
@@ -117,10 +125,11 @@ for (const page of htmlFiles) {
     assert.equal(attributes.get('fetchpriority'), firstIndexImage ? 'high' : undefined, `Unexpected fetch priority: ${pagePath} ${src}`);
 
     if (pagePath === 'blog/index.html') {
-      if (pageImageIndex === 0) assert.match(attributes.get('sizes'), /^\(max-width: 700px\)/);
-      else assert.match(attributes.get('sizes'), /^\(max-width: 500px\)/);
+      assert.equal(attributes.get('sizes'), blogCardSizes, `Unexpected blog index card sizes: ${src}`);
     } else if (pagePath.startsWith('blog/')) {
-      assert.match(attributes.get('sizes'), /^\(max-width: (?:500|710)px\)/, `Unexpected article image size hint: ${src}`);
+      const anchor = owningAnchor(visible, match.index);
+      const expectedSizes = anchor.includes('class="blog-related__card"') ? blogCardSizes : blogArticleBodySizes;
+      assert.equal(attributes.get('sizes'), expectedSizes, `Unexpected article image sizes: ${src}`);
     }
 
     const sourceExt = source.format === 'jpeg' ? 'jpg' : source.format;

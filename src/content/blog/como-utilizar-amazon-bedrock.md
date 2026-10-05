@@ -1,25 +1,20 @@
 ---
-title: "Cómo Utilizar Amazon Bedrock"
+title: "Cómo utilizar Amazon Bedrock"
 description: "Descubre cómo utilizar Amazon Bedrock para integrar inteligencia artificial avanzada en tus proyectos de manera sencilla y eficiente. Aprende sobre requisitos, inscripción, uso de la API, monitoreo de costos y más."
 author: "guille-ojeda"
 publishedAt: "2024-03-18"
 publishedTimestamp: "2024-03-18T23:27:52.315Z"
-cover: "/assets/blog/40a012e9c33f0668e83afad8.png"
-coverAlt: "Montículo rocoso bajo una nube luminosa con conexiones y destellos"
-ogImage: "/assets/blog/40a012e9c33f0668e83afad8.png"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
-  - title: "AWS SAM CLI: Pruebas y Desarrollo Local"
+  - title: "AWS SAM CLI: pruebas y desarrollo local"
     url: "https://dondeaprendoaws.com/blog/aws-sam-cli-pruebas-y-desarrollo-local/"
-    image: "/assets/blog/fa48e5370fe3d3489c8fb4d5.jpg"
-    imageAlt: ""
-  - title: "7 Estrategias para Reducir Costos en AWS Fargate"
+  - title: "7 estrategias para reducir costos en AWS Fargate"
     url: "https://dondeaprendoaws.com/blog/7-estrategias-para-reducir-costos-en-aws-fargate/"
-    image: "/assets/blog/9d9e21deaf95138036c3d24d.jpg"
-    imageAlt: ""
-  - title: "Base de Datos Global con Amazon DynamoDB"
+  - title: "Base de datos global con Amazon DynamoDB"
     url: "https://dondeaprendoaws.com/blog/base-de-datos-global-con-amazon-dynamodb/"
-    image: "/assets/blog/b74e56b41e26732c7dfc378e.png"
-    imageAlt: ""
+
 ---
 
 <p>Si buscas simplificar el uso de inteligencia artificial avanzada en tus proyectos, <strong>Amazon Bedrock</strong> es la solución. Este servicio de AWS facilita la integración de modelos de IA como <em>Claude</em>, <em>Jurassic</em> y <em>Stable Diffusion</em> en tus aplicaciones, sin necesidad de preocuparte por la infraestructura. Aquí te resumo cómo comenzar y sacarle el máximo provecho:</p>
@@ -36,7 +31,7 @@ related:
 <p><strong>Conclusión</strong>: Emplear Amazon Bedrock te permite aprovechar la inteligencia artificial de última generación de manera sencilla y costo-efectiva, potenciando tus aplicaciones sin complicaciones técnicas.</p>
 
 
-<h3 id="preguntas-relacionadas" tabindex="-1">Preguntas Relacionadas</h3>
+<h3 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h3>
 
 
 <ul>
@@ -253,7 +248,7 @@ related:
 <p>En pocas palabras, si sigues estos consejos, podrás crear aplicaciones usando inteligencia artificial de manera fácil, rápida y sin gastar de más con Amazon Bedrock. Hay muchas posibilidades para innovar en cosas como el servicio al cliente, la seguridad en internet y cómo personalizar contenido.</p>
 
 
-<h2 id="preguntas-relacionadas-1" tabindex="-1">Preguntas Relacionadas</h2>
+<h2 id="preguntas-relacionadas-1" tabindex="-1">Preguntas relacionadas</h2>
 
 
 <h3 id="%C2%BFqu%C3%A9-es-bedrock-de-aws%3F" tabindex="-1">¿Qué es Bedrock de AWS?</h3>
@@ -298,6 +293,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-machine-learning-en-aws/">Mejores Prácticas de Machine Learning en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/">Introducción a la Inteligencia Artificial en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/observabilidad-en-aws-con-amazon-x-ray/">Observabilidad en AWS con Amazon X-Ray</a></li><li><a href="https://dondeaprendoaws.com/blog/servicios-de-aws-para-inteligencia-artificial/">Servicios de AWS para Inteligencia Artificial</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-machine-learning-en-aws/">Mejores prácticas de machine learning en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/">Introducción a la inteligencia artificial en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/observabilidad-en-aws-con-amazon-x-ray/">Observabilidad en AWS con Amazon X-Ray</a></li><li><a href="https://dondeaprendoaws.com/blog/servicios-de-aws-para-inteligencia-artificial/">Servicios de AWS para inteligencia artificial</a></li>
 </ul>
 </p>

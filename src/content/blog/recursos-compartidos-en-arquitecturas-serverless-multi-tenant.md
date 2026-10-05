@@ -1,25 +1,20 @@
 ---
-title: "Recursos Compartidos en Arquitecturas Serverless Multi-Tenant"
+title: "Recursos compartidos en arquitecturas serverless multi-tenant"
 description: "Compartir recursos en arquitecturas serverless multi-tenant ofrece beneficios como reducción de costos, escalabilidad y simplificación de la gestión. Aprende las mejores prácticas y estrategias para implementar recursos compartidos de maner"
 author: "guille-ojeda"
 publishedAt: "2024-05-18"
 publishedTimestamp: "2024-05-18T01:35:00.225Z"
-cover: "/assets/blog/b4ce26c384455c6314d61ac3.jpg"
-coverAlt: "Servidores centrales rodeados por una rueda de nodos de colores"
-ogImage: "/assets/blog/b4ce26c384455c6314d61ac3.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Crear un Cluster en Amazon Redshift"
+  - title: "Crear un cluster en Amazon Redshift"
     url: "https://dondeaprendoaws.com/blog/crear-un-cluster-en-amazon-redshift/"
-    image: "/assets/blog/2ce2762453f46a717ff15e81.jpg"
-    imageAlt: ""
-  - title: "Diferencias: Endpoint de interfaz vs. Endpoint de gateway"
+  - title: "Diferencias: endpoint de interfaz vs. endpoint de gateway"
     url: "https://dondeaprendoaws.com/blog/diferencias-endpoint-de-interfaz-vs-endpoint-de-gateway/"
-    image: "/assets/blog/3565dcd644c1d6c694694985.jpg"
-    imageAlt: ""
-  - title: "Cómo Desplegar una Aplicación en Amazon ECS"
+  - title: "Cómo desplegar una aplicación en Amazon ECS"
     url: "https://dondeaprendoaws.com/blog/como-desplegar-una-aplicacion-en-amazon-ecs/"
-    image: "/assets/blog/d73cb60565a00d466c3768e1.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Compartir recursos en <a href="https://dondeaprendoaws.com/blog/7-estrategias-de-serverless-para-startups-optimiza-costos/">arquitecturas serverless multi-tenant</a> ofrece beneficios significativos, como <strong>reducción de costos</strong>, <strong>mayor escalabilidad</strong> y <strong>simplificación de la gestión</strong>. Sin embargo, también presenta desafíos clave que deben abordarse:</p>
@@ -91,13 +86,13 @@ related:
 <p>En este artículo, veremos los conceptos clave de compartir recursos en arquitecturas serverless multi-tenant, incluyendo los beneficios y desafíos, y cómo usar estrategias de aislación de inquilinos y agrupación de recursos para mejorar la eficiencia y seguridad de las aplicaciones.</p>
 
 
-<h2 id="what-are-multi-tenant-serverless-architectures%3F" tabindex="-1">What are Multi-Tenant Serverless Architectures?</h2>
+<h2 id="what-are-multi-tenant-serverless-architectures%3F" tabindex="-1">What are multi-tenant serverless architectures?</h2>
 
 
 <p>Las arquitecturas serverless multi-tenant permiten que múltiples inquilinos compartan los mismos recursos de infraestructura. Esto se logra usando tecnologías serverless, que ejecutan código sin necesidad de gestionar la infraestructura subyacente.</p>
 
 
-<h3 id="t%C3%A9rminos-clave" tabindex="-1">Términos Clave</h3>
+<h3 id="t%C3%A9rminos-clave" tabindex="-1">Términos clave</h3>
 
 
 <p>En este contexto, es importante entender algunos términos:</p>
@@ -127,22 +122,22 @@ related:
 </table></figure>
 
 
-<h3 id="relevancia-en-la-computaci%C3%B3n-en-la-nube" tabindex="-1">Relevancia en la Computación en la Nube</h3>
+<h3 id="relevancia-en-la-computaci%C3%B3n-en-la-nube" tabindex="-1">Relevancia en la computación en la nube</h3>
 
 
 <p>Las arquitecturas serverless multi-tenant son populares en la computación en la nube, especialmente en plataformas como AWS. Permiten reducir costos, mejorar la escalabilidad y simplificar la gestión de la infraestructura. Además, los desarrolladores pueden centrarse en la lógica de negocio sin preocuparse por la infraestructura subyacente.</p>
 
 
-<h2 id="recursos-compartidos-en-arquitecturas-serverless-multi-tenant-1" tabindex="-1">Recursos Compartidos en Arquitecturas Serverless Multi-Tenant</h2>
+<h2 id="recursos-compartidos-en-arquitecturas-serverless-multi-tenant-1" tabindex="-1">Recursos compartidos en arquitecturas serverless multi-tenant</h2>
 
 
-<h3 id="%C2%BFqu%C3%A9-son-los-recursos-compartidos%3F" tabindex="-1">¿Qué son los Recursos Compartidos?</h3>
+<h3 id="%C2%BFqu%C3%A9-son-los-recursos-compartidos%3F" tabindex="-1">¿Qué son los recursos compartidos?</h3>
 
 
 <p>En arquitecturas serverless multi-tenant, los recursos compartidos son componentes de infraestructura usados por varios inquilinos. Estos recursos pueden incluir bases de datos, sistemas de caching y colas de mensajería. Compartir recursos ayuda a reducir costos, mejorar la escalabilidad y simplificar la gestión.</p>
 
 
-<h3 id="ventajas-de-los-recursos-compartidos" tabindex="-1">Ventajas de los Recursos Compartidos</h3>
+<h3 id="ventajas-de-los-recursos-compartidos" tabindex="-1">Ventajas de los recursos compartidos</h3>
 
 
 <figure class="table"><table>
@@ -169,7 +164,7 @@ related:
 </table></figure>
 
 
-<h3 id="desaf%C3%ADos-potenciales" tabindex="-1">Desafíos Potenciales</h3>
+<h3 id="desaf%C3%ADos-potenciales" tabindex="-1">Desafíos potenciales</h3>
 
 
 <figure class="table"><table>
@@ -199,10 +194,10 @@ related:
 <p>En las siguientes secciones, veremos estrategias para compartir recursos de manera efectiva y segura en arquitecturas serverless multi-tenant.</p>
 
 
-<h2 id="estrategias-para-compartir-recursos" tabindex="-1">Estrategias para Compartir Recursos</h2>
+<h2 id="estrategias-para-compartir-recursos" tabindex="-1">Estrategias para compartir recursos</h2>
 
 
-<h3 id="aislaci%C3%B3n-de-inquilinos" tabindex="-1">Aislación de Inquilinos</h3>
+<h3 id="aislaci%C3%B3n-de-inquilinos" tabindex="-1">Aislación de inquilinos</h3>
 
 
 <p>La aislación de inquilinos es clave para compartir recursos en arquitecturas serverless multi-tenant. Esto implica segmentar recursos para cada inquilino, asegurando que solo accedan a sus propios datos.</p>
@@ -221,7 +216,7 @@ related:
 </ul>
 
 
-<h3 id="agrupaci%C3%B3n-de-recursos" tabindex="-1">Agrupación de Recursos</h3>
+<h3 id="agrupaci%C3%B3n-de-recursos" tabindex="-1">Agrupación de recursos</h3>
 
 
 <p>La agrupación de recursos implica poner recursos en un grupo común accesible por varios inquilinos. Esto mejora el uso de los recursos y reduce costos.</p>
@@ -235,7 +230,7 @@ related:
 </ul>
 
 
-<h3 id="partici%C3%B3n-de-recursos" tabindex="-1">Partición de Recursos</h3>
+<h3 id="partici%C3%B3n-de-recursos" tabindex="-1">Partición de recursos</h3>
 
 
 <p>La partición de recursos segmenta recursos en particiones lógicas accesibles por varios inquilinos. Esto facilita la gestión y reduce conflictos.</p>
@@ -249,7 +244,7 @@ related:
 </ul>
 
 
-<h3 id="fragmentaci%C3%B3n-de-recursos" tabindex="-1">Fragmentación de Recursos</h3>
+<h3 id="fragmentaci%C3%B3n-de-recursos" tabindex="-1">Fragmentación de recursos</h3>
 
 
 <p>La fragmentación de recursos distribuye recursos en fragmentos lógicos accesibles por varios inquilinos. Esto mejora la escalabilidad y flexibilidad.</p>
@@ -274,7 +269,7 @@ related:
 
 
 
-<h2 id="usando-servicios-de-aws-para-recursos-compartidos" tabindex="-1">Usando Servicios de AWS para Recursos Compartidos</h2>
+<h2 id="usando-servicios-de-aws-para-recursos-compartidos" tabindex="-1">Usando servicios de AWS para recursos compartidos</h2>
 
 
 <p>Para implementar recursos compartidos en arquitecturas serverless multi-tenant, AWS ofrece varios servicios útiles. A continuación, veremos algunos de los servicios clave de AWS que pueden ayudar a compartir recursos de manera eficiente y segura.</p>
@@ -374,13 +369,13 @@ related:
 </ol>
 
 
-<h2 id="security-for-shared-resources" tabindex="-1">Security for Shared Resources</h2>
+<h2 id="security-for-shared-resources" tabindex="-1">Security for shared resources</h2>
 
 
 <p>La seguridad es clave al compartir recursos en arquitecturas serverless multi-tenant. Aquí te mostramos las mejores prácticas para asegurar los recursos compartidos.</p>
 
 
-<h3 id="aislaci%C3%B3n-de-datos" tabindex="-1">Aislación de Datos</h3>
+<h3 id="aislaci%C3%B3n-de-datos" tabindex="-1">Aislación de datos</h3>
 
 
 <p>Para evitar fugas de datos y problemas de seguridad, sigue estas estrategias:</p>
@@ -406,7 +401,7 @@ related:
 </table></figure>
 
 
-<h3 id="control-de-acceso" tabindex="-1">Control de Acceso</h3>
+<h3 id="control-de-acceso" tabindex="-1">Control de acceso</h3>
 
 
 <p>Para asegurar que solo los usuarios autorizados accedan a los recursos compartidos, utiliza:</p>
@@ -432,7 +427,7 @@ related:
 </table></figure>
 
 
-<h3 id="cifrado-de-datos" tabindex="-1">Cifrado de Datos</h3>
+<h3 id="cifrado-de-datos" tabindex="-1">Cifrado de datos</h3>
 
 
 <p>El cifrado protege los datos tanto en tránsito como en reposo. Usa estas estrategias:</p>
@@ -458,7 +453,7 @@ related:
 </table></figure>
 
 
-<h3 id="monitoreo-y-registro" tabindex="-1">Monitoreo y Registro</h3>
+<h3 id="monitoreo-y-registro" tabindex="-1">Monitoreo y registro</h3>
 
 
 <p>Para detectar y mitigar riesgos de seguridad, implementa:</p>
@@ -484,31 +479,31 @@ related:
 </table></figure>
 
 
-<h2 id="estrategias-de-optimizaci%C3%B3n-de-costos" tabindex="-1">Estrategias de Optimización de Costos</h2>
+<h2 id="estrategias-de-optimizaci%C3%B3n-de-costos" tabindex="-1">Estrategias de optimización de costos</h2>
 
 
 <p>La optimización de costos es clave en arquitecturas serverless multi-tenant, ya que los recursos compartidos pueden ayudar a reducir los gastos. A continuación, se presentan estrategias para monitorear y optimizar los costos en estas arquitecturas.</p>
 
 
-<h3 id="autoscaling-de-recursos" tabindex="-1">Autoscaling de Recursos</h3>
+<h3 id="autoscaling-de-recursos" tabindex="-1">Autoscaling de recursos</h3>
 
 
 <p>El autoscaling ajusta automáticamente los recursos según la demanda. Esto reduce los costos asociados con la sobre-provisión de recursos. Por ejemplo, si un inquilino experimenta un aumento en la demanda, el autoscaling puede agregar recursos adicionales para manejar el tráfico adicional.</p>
 
 
-<h3 id="instancias-reservadas" tabindex="-1">Instancias Reservadas</h3>
+<h3 id="instancias-reservadas" tabindex="-1">Instancias reservadas</h3>
 
 
 <p>Las instancias reservadas permiten reducir los costos para cargas de trabajo predecibles. Al reservar instancias, se puede obtener un descuento en los costos de computación en comparación con las instancias on-demand. Esto es útil para inquilinos con cargas de trabajo estables y predecibles.</p>
 
 
-<h3 id="rightsizing-de-recursos" tabindex="-1">Rightsizing de Recursos</h3>
+<h3 id="rightsizing-de-recursos" tabindex="-1">Rightsizing de recursos</h3>
 
 
 <p>El rightsizing de recursos asegura que los recursos estén adecuadamente escalados para satisfacer las necesidades de los inquilinos. Esto se logra mediante la monitorización del uso de recursos y el ajuste de la configuración según sea necesario. Por ejemplo, si un inquilino utiliza solo una pequeña parte de los recursos asignados, se pueden reducir los recursos asignados para ahorrar costos.</p>
 
 
-<h3 id="asignaci%C3%B3n-y-monitoreo-de-costos" tabindex="-1">Asignación y Monitoreo de Costos</h3>
+<h3 id="asignaci%C3%B3n-y-monitoreo-de-costos" tabindex="-1">Asignación y monitoreo de costos</h3>
 
 
 <p>La asignación y monitoreo de costos es crucial para entender cómo se están utilizando los recursos y encontrar oportunidades de optimización. AWS ofrece herramientas como <a href="https://aws.amazon.com/aws-cost-management/aws-cost-explorer/" rel="noopener noreferrer" target="_blank">AWS Cost Explorer</a> y AWS CloudWatch para monitorear y asignar costos a los inquilinos. Estas herramientas permiten a los administradores identificar áreas de optimización y tomar decisiones informadas sobre la asignación de recursos.</p>
@@ -537,31 +532,31 @@ related:
 <p>Por ejemplo, se puede utilizar AWS Cost Explorer para asignar costos a los inquilinos según su uso de recursos. Esto permite a los administradores identificar inquilinos que están utilizando recursos de manera ineficiente y tomar medidas para optimizar su uso de recursos.</p>
 
 
-<h2 id="t%C3%A9cnicas-de-optimizaci%C3%B3n-del-rendimiento" tabindex="-1">Técnicas de Optimización del Rendimiento</h2>
+<h2 id="t%C3%A9cnicas-de-optimizaci%C3%B3n-del-rendimiento" tabindex="-1">Técnicas de optimización del rendimiento</h2>
 
 
 <p>La optimización del rendimiento es importante en arquitecturas serverless multi-tenant, ya que los recursos compartidos pueden afectar el rendimiento si no se manejan bien. A continuación, se presentan técnicas y estrategias para mejorar el rendimiento de los recursos compartidos en estas arquitecturas.</p>
 
 
-<h3 id="estrategias-de-caching" tabindex="-1">Estrategias de Caching</h3>
+<h3 id="estrategias-de-caching" tabindex="-1">Estrategias de caching</h3>
 
 
 <p>El caching mejora el rendimiento al almacenar datos frecuentemente solicitados en memoria, reduciendo la latencia y mejorando la respuesta del sistema. Se pueden implementar estrategias de caching en diferentes niveles, como en la capa de presentación, negocio o datos. Por ejemplo, se puede usar Amazon ElastiCache para almacenar datos en memoria y reducir la latencia.</p>
 
 
-<h3 id="balanceo-de-carga" tabindex="-1">Balanceo de Carga</h3>
+<h3 id="balanceo-de-carga" tabindex="-1">Balanceo de carga</h3>
 
 
 <p>El balanceo de carga distribuye el tráfico de manera eficiente entre los recursos compartidos. Se pueden usar técnicas como round-robin, IP Hash o Least Connection para distribuir el tráfico. Además, servicios como <a href="https://aws.amazon.com/elasticloadbalancing/" rel="noopener noreferrer" target="_blank">Amazon Elastic Load Balancer</a> pueden manejar el tráfico y reducir la latencia.</p>
 
 
-<h3 id="particionamiento-de-recursos" tabindex="-1">Particionamiento de Recursos</h3>
+<h3 id="particionamiento-de-recursos" tabindex="-1">Particionamiento de recursos</h3>
 
 
 <p>El particionamiento de recursos mejora el rendimiento al dividir los recursos en grupos más pequeños, reduciendo la competencia por los recursos y mejorando la respuesta del sistema. Por ejemplo, se puede particionar una base de datos en varias particiones para reducir la carga de trabajo.</p>
 
 
-<h3 id="sharding-de-recursos" tabindex="-1">Sharding de Recursos</h3>
+<h3 id="sharding-de-recursos" tabindex="-1">Sharding de recursos</h3>
 
 
 <p>El sharding de recursos es una técnica avanzada que mejora el rendimiento al dividir los recursos en grupos más pequeños, reduciendo la competencia y mejorando la respuesta del sistema. Por ejemplo, se puede hacer sharding de una base de datos en varios shards para reducir la carga de trabajo.</p>
@@ -570,7 +565,7 @@ related:
 <p>En resumen, la optimización del rendimiento es clave en arquitecturas serverless multi-tenant. Al implementar estrategias de caching, balanceo de carga, particionamiento y sharding de recursos, se puede mejorar el rendimiento del sistema y reducir la latencia.</p>
 
 
-<h2 id="monitoring-and-observability" tabindex="-1">Monitoring and Observability</h2>
+<h2 id="monitoring-and-observability" tabindex="-1">Monitoring and observability</h2>
 
 
 <p>La monitorización y observabilidad son esenciales para mantener la salud y el rendimiento de las arquitecturas serverless multi-tenant. Sin una visibilidad clara de cómo funcionan los recursos compartidos, es difícil identificar y solucionar problemas de rendimiento y seguridad.</p>
@@ -630,10 +625,10 @@ related:
 <p>En resumen, la monitorización y observabilidad son esenciales para mantener la salud y el rendimiento de las arquitecturas serverless multi-tenant. Al utilizar herramientas como AWS CloudWatch, AWS X-Ray y AWS CloudTrail, puedes obtener una visibilidad clara de cómo funcionan los recursos compartidos y tomar medidas para solucionar problemas y mejorar el rendimiento.</p>
 
 
-<h2 id="troubleshooting-and-best-practices" tabindex="-1">Troubleshooting and Best Practices</h2>
+<h2 id="troubleshooting-and-best-practices" tabindex="-1">Troubleshooting and best practices</h2>
 
 
-<h3 id="problemas-comunes" tabindex="-1">Problemas Comunes</h3>
+<h3 id="problemas-comunes" tabindex="-1">Problemas comunes</h3>
 
 
 <p>Al trabajar con recursos compartidos en arquitecturas serverless multi-tenant, es común enfrentar algunos problemas técnicos. Aquí te mostramos los más comunes y cómo solucionarlos:</p>
@@ -663,7 +658,7 @@ related:
 </table></figure>
 
 
-<h3 id="mejores-pr%C3%A1cticas" tabindex="-1">Mejores Prácticas</h3>
+<h3 id="mejores-pr%C3%A1cticas" tabindex="-1">Mejores prácticas</h3>
 
 
 <p>Para garantizar una implementación exitosa de recursos compartidos en arquitecturas serverless multi-tenant, sigue estas mejores prácticas:</p>
@@ -746,6 +741,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/">Arquitecturas Multi-Región en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/optimizacion-de-costos-de-aws-lambda/">Optimización de Costos de AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/7-estrategias-de-serverless-para-startups-optimiza-costos/">7 Estrategias de Serverless para Startups: Optimiza Costos</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a Serverless en AWS</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/">arquitecturas multi-región en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/optimizacion-de-costos-de-aws-lambda/">Optimización de costos de AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/7-estrategias-de-serverless-para-startups-optimiza-costos/">7 estrategias de serverless para startups: optimiza costos</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a serverless en AWS</a></li>
 </ul>
 </p>

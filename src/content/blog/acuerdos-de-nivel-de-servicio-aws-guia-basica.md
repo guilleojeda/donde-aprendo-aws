@@ -5,14 +5,13 @@ author: "guille-ojeda"
 publishedAt: "2024-11-27"
 publishedTimestamp: "2024-11-27T01:51:56.354Z"
 modifiedTimestamp: "2026-10-05T00:15:07-03:00"
-cover: "/assets/blog/a1b4827aff914f24a4598ecc.jpg"
-coverAlt: "Centro de datos con filas de servidores bajo un cielo nublado"
-ogImage: "/assets/blog/a1b4827aff914f24a4598ecc.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Cómo monitorear SLOs con Amazon CloudWatch"
     url: "https://dondeaprendoaws.com/blog/como-monitorear-slos-con-amazon-cloudwatch/"
-    image: "/assets/blog/0919cf4ddfe7647a0c71877c.jpg"
-    imageAlt: "Monitor de escritorio con un panel de gráficos y medidores"
+
 ---
 
 Un **SLA de AWS** (acuerdo de nivel de servicio) define el compromiso publicado para un servicio, cómo se evalúa y qué remedio ofrece si se incumple; puede incluir un crédito condicionado a los términos del acuerdo. No garantiza que una aplicación construida con AWS esté siempre disponible: cada SLA delimita qué servicio, solicitudes, periodo y condiciones cuentan. Consulta el [índice oficial de SLA de AWS](https://aws.amazon.com/legal/service-level-agreements/) y abre el acuerdo del servicio que usas antes de aplicar un porcentaje.
@@ -70,7 +69,7 @@ Mantén separados ambos registros: el SLO sirve para observar la experiencia que
 
 Si estás analizando cómo medir una operación, también puede servir contrastar decisiones y experiencias con otras personas que trabajan con AWS. En el [directorio de comunidades AWS](/comunidades/) puedes buscar grupos por país, formato y tema. En México, el perfil del [AWS User Group Querétaro](https://www.meetup.com/es-es/amazon-web-services-queretaro/) describe talleres sobre arquitectura y alta disponibilidad. Para una conversación en línea, el [grupo de Telegram de AWS User Group Caracas](https://t.me/awsCaracas) ofrece un canal comunitario. Son espacios de intercambio, no canales para presentar un reclamo contractual a AWS.
 
-Para encontrar charlas, talleres y encuentros en línea o presenciales, consulta la [agenda de eventos AWS](/eventos/) y confirma la fecha y la inscripción en la página de cada organizador.
+Para encontrar charlas, talleres y encuentros en línea o presenciales, consulta la [Agenda de eventos AWS](/eventos/) y confirma la fecha y la inscripción en la página de cada organizador.
 
 ## Preguntas frecuentes sobre los SLA de AWS
 

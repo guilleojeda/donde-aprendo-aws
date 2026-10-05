@@ -19,8 +19,6 @@ const blog = defineCollection({
     related: z.array(z.object({
       title: z.string().min(1),
       url: z.url(),
-      image: localBlogAsset,
-      imageAlt: z.string(),
     })),
   }).refine((post) => post.ogImage === post.cover || post.ogImageAlt !== undefined, {
     message: 'A social image different from the cover needs its own ogImageAlt.',

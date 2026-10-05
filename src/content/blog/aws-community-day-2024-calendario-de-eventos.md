@@ -7,14 +7,13 @@ publishedTimestamp: "2024-05-14T04:11:07.812Z"
 modifiedTimestamp: "2026-10-05T00:34:04-03:00"
 review:
   date: "2026-10-05"
-cover: "/assets/blog/8a72720666074692888beb45.png"
-coverAlt: "Globo rodeado por iconos de nubes de colores unidos con una línea punteada"
-ogImage: "/assets/blog/8a72720666074692888beb45.png"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Aprender AWS gratis en español: recursos y comunidades para avanzar"
     url: "https://dondeaprendoaws.com/blog/aprender-aws-gratis-recursos-y-comunidad/"
-    image: "/assets/blog/c7227ae982494a7ce1620070.jpg"
-    imageAlt: "Nube sobre una mano estilizada y una fila de símbolos de colores"
+
 ---
 
 Un AWS Community Day es una conferencia organizada por líderes de una comunidad local de AWS. Suele reunir charlas técnicas, talleres y laboratorios para aprender de otras personas que construyen y operan con AWS. AWS puede apoyar como uno de varios patrocinadores, pero la comunidad anfitriona define la agenda y la logística.
@@ -29,9 +28,9 @@ En una pantalla pequeña, desliza la tabla hacia los lados para ver todas las co
 | [AWS Community Day Paraguay 2026](https://www.awscommunitydayparaguay.com/) | 17 de octubre, 08:00–18:00 (GMT-3). Presencial en el Servicio Nacional de Promoción Profesional (SNPP), San Lorenzo. | Entrada gratuita, registro obligatorio y cupos limitados. [Reserva tu entrada sin costo](https://www.awscommunitydayparaguay.com/register) en la página oficial. |
 | [AWS Community Day Panamá — Security & Data Edition](https://www.meetup.com/aws-user-group-panama/) | 14 de noviembre, desde las 08:00 (GMT-5). La ficha de AWS User Group Panamá aún no informa sede ni modalidad. | La ficha decía “Save the Date”; todavía no publicaba el precio ni el registro para asistentes. |
 
-Para descubrir ediciones de la región, empieza por la [agenda de eventos AWS en Latinoamérica](/eventos/) y consulta también la [página global de AWS Community Days](https://aws.amazon.com/events/community-day/), que reúne anuncios de distintas ciudades y enlaces a eventos pasados. Antes de inscribirte o viajar, confirma los datos en la página de la comunidad organizadora.
+Para descubrir ediciones de la región, empieza por la [Agenda de eventos AWS en Latinoamérica](/eventos/) y consulta también la [página global de AWS Community Days](https://aws.amazon.com/events/community-day/), que reúne anuncios de distintas ciudades y enlaces a eventos pasados. Antes de inscribirte o viajar, confirma los datos en la página de la comunidad organizadora.
 
-## En qué se diferencia de un Summit o un meetup
+## En qué se diferencia de un summit o un meetup
 
 | Formato | Quién lo organiza y qué puedes esperar |
 |---|---|
@@ -63,7 +62,7 @@ No asumas que debes pertenecer al campus para participar: algunas convocatorias 
 4. **Si participas a distancia, revisa el acceso antes de la hora.** Comprueba el enlace de transmisión, zona horaria, idioma y cómo se envían preguntas. Algunas ediciones no tienen stream; los User Groups también organizan meetups virtuales durante el año.
 5. **Si quieres contribuir, busca la convocatoria de speakers o voluntarios.** Los organizadores publican sus fechas y requisitos. Una experiencia breve de un proyecto o un problema que resolviste puede ser útil para otras personas.
 
-Para encontrar actividades virtuales en la región, usa la [agenda de eventos en línea](/eventos/online/). Si prefieres seguir participando entre conferencias, el [directorio de comunidades AWS por país y tipo de grupo](/comunidades/) reúne grupos locales, comunidades temáticas y Student Builder Groups. Antes de unirte, revisa en la página de cada grupo sus requisitos y canales de participación.
+Para encontrar actividades virtuales en la región, usa la [Agenda de eventos en línea](/eventos/online/). Si prefieres seguir participando entre conferencias, el [directorio de comunidades AWS por país y tipo de grupo](/comunidades/) reúne grupos locales, comunidades temáticas y Student Builder Groups. Antes de unirte, revisa en la página de cada grupo sus requisitos y canales de participación.
 
 ## Grabaciones y comunidades para seguir después
 

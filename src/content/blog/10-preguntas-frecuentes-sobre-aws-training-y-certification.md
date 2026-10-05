@@ -5,9 +5,9 @@ author: "guille-ojeda"
 publishedAt: "2024-05-03"
 publishedTimestamp: "2024-05-03T23:06:27.097Z"
 modifiedTimestamp: "2026-10-04T21:44:34-03:00"
-cover: "/assets/blog/b779f7f567a0e83dd55103f0.jpg"
-coverAlt: "Nube pastel rodeada de estrellas de distintos tamaños"
-ogImage: "/assets/blog/b779f7f567a0e83dd55103f0.jpg"
+cover: "/assets/blog/editorial-certificacion.png"
+coverAlt: "Tres tarjetas de estudio con apuntes y hitos sobre un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-certificacion.png"
 related: []
 ---
 
@@ -27,7 +27,7 @@ No. Un curso puede prepararte y, según la oferta, incluir un cupón o asistenci
 
 Empieza por el trabajo que quieres hacer, no por una lista antigua de cursos. Si necesitas entender los conceptos generales de nube, una certificación de nivel fundamental puede servirte. Si buscas demostrar habilidades para una función técnica —por ejemplo, arquitectura, desarrollo, operaciones o datos—, compara esa función con los dominios y la experiencia recomendada en la [guía del examen vigente](https://docs.aws.amazon.com/aws-certification/latest/examguides/). Las certificaciones avanzadas o de especialidad tienen sentido cuando coinciden con el área en que ya quieres profundizar.
 
-AWS organiza sus credenciales actuales en categorías de negocio, fundamentales, asociadas, profesionales y de especialidad. Consulta el [catálogo de AWS Certification](https://aws.amazon.com/es/certification/) y abre la guía de la opción que se acerque a tu objetivo. No tienes que aprobar primero Cloud Practitioner ni completar un curso: AWS no exige requisitos previos específicos para sus certificaciones, aunque sí recomienda conocimientos y experiencia acordes con cada examen. Si tu interés es IA o machine learning, lee también nuestras [preguntas frecuentes sobre Machine Learning en AWS](/blog/10-preguntas-frecuentes-sobre-machine-learning-en-aws/) para explorar el tema técnico; no es una ruta de certificación. La certificación valida lo que evalúa ese examen; no sustituye la práctica ni garantiza una contratación.
+AWS organiza sus credenciales actuales en categorías de negocio, fundamentales, asociadas, profesionales y de especialidad. Consulta el [catálogo de AWS Certification](https://aws.amazon.com/es/certification/) y abre la guía de la opción que se acerque a tu objetivo. No tienes que aprobar primero Cloud Practitioner ni completar un curso: AWS no exige requisitos previos específicos para sus certificaciones, aunque sí recomienda conocimientos y experiencia acordes con cada examen. Si tu interés es IA o machine learning, lee también nuestras [preguntas frecuentes sobre machine learning en AWS](/blog/10-preguntas-frecuentes-sobre-machine-learning-en-aws/) para explorar el tema técnico; no es una ruta de certificación. La certificación valida lo que evalúa ese examen; no sustituye la práctica ni garantiza una contratación.
 
 Si estás comparando opciones de IA, el [AWS User Group Mixtli de Puebla](https://awsugmixtli.com/) publica sesiones comunitarias como [AWS Certification Challenge #1: Fundamentos de IA y Machine Learning](https://www.youtube.com/watch?v=4WRBFQDJmmA) y [la sesión #4 sobre IA responsable, gobernanza y seguridad](https://www.youtube.com/watch?v=VvS_Zp9Bq5U). Son grabaciones de la comunidad para conversar sobre esos temas; no sustituyen la guía oficial ni confirman por sí solas que el temario esté actualizado.
 
@@ -77,4 +77,4 @@ Un grupo puede ayudarte a contrastar respuestas, sostener el estudio y conocer e
 
 Algunas comunidades publican actividades y recursos propios: el [AWS User Group Perú](https://awsugperu.cloud/) reúne grupos de estudio, actividades y recursos; [AWS Women in Cloud Buenos Aires](https://awswomenincloudba.com.ar/) ofrece grupos de estudio, mentoría y encuentros; y [AWS User Group Ecuador](https://www.awsugecuador.com/) comparte meetups y retos de certificación. Para explorar grabaciones y artículos de comunidades, visita [AWS Women Colombia](https://awswomencolombia.com/) o conoce las actividades del [AWS User Group Mixtli de Puebla](https://awsugmixtli.com/).
 
-La [agenda de eventos AWS en Latinoamérica](/eventos/) muestra encuentros próximos y sus datos publicados de fecha, modalidad y organizador. Las fechas, los cupos y las condiciones de inscripción pueden cambiar; confirma los detalles en la convocatoria del organizador.
+La [Agenda de eventos AWS en Latinoamérica](/eventos/) muestra encuentros próximos y sus datos publicados de fecha, modalidad y organizador. Las fechas, los cupos y las condiciones de inscripción pueden cambiar; confirma los detalles en la convocatoria del organizador.

@@ -4,22 +4,17 @@ description: "Gestiona eficientemente tus cuentas de AWS con mejores prácticas 
 author: "guille-ojeda"
 publishedAt: "2025-03-03"
 publishedTimestamp: "2025-03-03T04:59:25.364Z"
-cover: "/assets/blog/bfdfed56910493c9a698fb14.jpg"
-coverAlt: "Monitor con una interfaz de administración abierta en un escritorio"
-ogImage: "/assets/blog/bfdfed56910493c9a698fb14.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
-  - title: "¿Qué es AWS Lambda? Preguntas y Respuestas"
+  - title: "¿Qué es AWS Lambda? preguntas y respuestas"
     url: "https://dondeaprendoaws.com/blog/que-es-aws-lambda-preguntas-y-respuestas/"
-    image: "/assets/blog/70579f832030c8f349b01339.jpg"
-    imageAlt: ""
   - title: "Recursos de capacitación para socios de AWS"
     url: "https://dondeaprendoaws.com/blog/recursos-de-capacitacion-para-socios-de-aws/"
-    image: "/assets/blog/b495b55f5f4147dccacb4628.jpg"
-    imageAlt: ""
-  - title: "¿Cómo Funciona AWS Amplify?"
+  - title: "¿Cómo funciona AWS Amplify?"
     url: "https://dondeaprendoaws.com/blog/como-funciona-aws-amplify/"
-    image: "/assets/blog/ee80202a0fa6a00452e56ba9.jpg"
-    imageAlt: ""
+
 ---
 
 <p><strong>¿Quieres gestionar tus cuentas de AWS de forma más sencilla y eficiente?</strong> Aquí tienes las claves para lograrlo:</p>
@@ -37,13 +32,13 @@ related:
 <p><strong>Conclusión rápida</strong>: Estandarizar nombres y etiquetas mejora la organización, la seguridad y el control de costes en AWS. ¡Empieza hoy a estructurar tu entorno en la nube con estas prácticas!</p>
 
 
-<h2 class="sb h2-sbb-cls" id="directrices-para-nombres-de-cuentas" tabindex="-1">Directrices para Nombres de Cuentas</h2>
+<h2 class="sb h2-sbb-cls" id="directrices-para-nombres-de-cuentas" tabindex="-1">Directrices para nombres de cuentas</h2>
 
 
 <p>Elegir nombres adecuados para las cuentas de AWS es clave para mantener un entorno bien organizado. Esto facilita la identificación de recursos y mejora la gestión operativa.</p>
 
 
-<h3 id="estructura-de-nombres-de-cuenta" tabindex="-1">Estructura de Nombres de Cuenta</h3>
+<h3 id="estructura-de-nombres-de-cuenta" tabindex="-1">Estructura de nombres de cuenta</h3>
 
 
 <p>Los nombres de las cuentas deben seguir un formato que refleje claramente su propósito y posición dentro de la organización. Este formato debe incluir:</p>
@@ -60,7 +55,7 @@ related:
 <p>Además, se recomienda usar una dirección de correo electrónico de grupo para las cuentas raíz.</p>
 
 
-<h3 id="ejemplos-de-patrones-de-nombres" tabindex="-1">Ejemplos de Patrones de Nombres</h3>
+<h3 id="ejemplos-de-patrones-de-nombres" tabindex="-1">Ejemplos de patrones de nombres</h3>
 
 
 <figure class="table"><table>
@@ -104,13 +99,13 @@ related:
 <p>Estas prácticas resultan especialmente útiles en equipos grandes o estructuras organizativas complejas. A continuación, veremos cómo estos principios se aplican a la organización de Unidades Organizativas (OU).</p>
 
 
-<h2 class="sb h2-sbb-cls" id="reglas-de-nombres-para-ous" tabindex="-1">Reglas de Nombres para OUs</h2>
+<h2 class="sb h2-sbb-cls" id="reglas-de-nombres-para-ous" tabindex="-1">Reglas de nombres para OUs</h2>
 
 
 <p>Tener una buena nomenclatura para las Unidades Organizativas (OUs) es clave para mantener una estructura ordenada y fácil de gestionar dentro de AWS Organizations. Una estrategia clara facilita tanto la administración como el crecimiento de tu infraestructura.</p>
 
 
-<h3 id="correspondencia-entre-ous-y-estructura-empresarial" tabindex="-1">Correspondencia entre OUs y Estructura Empresarial</h3>
+<h3 id="correspondencia-entre-ous-y-estructura-empresarial" tabindex="-1">Correspondencia entre OUs y estructura empresarial</h3>
 
 
 <p>Las OUs deben representar la jerarquía de la organización, lo que simplifica la gestión de políticas y permisos:</p>
@@ -160,7 +155,7 @@ related:
 <p>Diseña tu estructura para que refleje esta jerarquía de manera práctica y funcional.</p>
 
 
-<h3 id="planificacion-de-la-estructura-de-ous" tabindex="-1">Planificación de la Estructura de OUs</h3>
+<h3 id="planificacion-de-la-estructura-de-ous" tabindex="-1">Planificación de la estructura de OUs</h3>
 
 
 <p>Planificar cómo organizar tus OUs es esencial para un entorno AWS eficiente. Encuentra un equilibrio entre mantenerlo simple y cubrir todas las necesidades.</p>
@@ -190,13 +185,13 @@ related:
 
 
 
-<h2 class="sb h2-sbb-cls" id="mejores-practicas-para-el-etiquetado-de-cuentas" tabindex="-1">Mejores Prácticas para el Etiquetado de Cuentas</h2>
+<h2 class="sb h2-sbb-cls" id="mejores-practicas-para-el-etiquetado-de-cuentas" tabindex="-1">Mejores prácticas para el etiquetado de cuentas</h2>
 
 
 <p>El etiquetado, junto con la estructura de nombres y las OUs, añade una capa extra para organizar y gestionar recursos en AWS Organizations. Las etiquetas son pares clave-valor que funcionan como metadatos, ayudando a clasificar y administrar los recursos de manera más eficiente.</p>
 
 
-<h3 id="etiquetas-recomendadas-para-cuentas" tabindex="-1">Etiquetas Recomendadas para Cuentas</h3>
+<h3 id="etiquetas-recomendadas-para-cuentas" tabindex="-1">Etiquetas recomendadas para cuentas</h3>
 
 
 <p>Para una gestión efectiva, es importante definir un conjunto básico de etiquetas que todas las cuentas deben incluir. Estas etiquetas deben proporcionar información clave sobre cada cuenta:</p>
@@ -243,7 +238,7 @@ related:
 <p>Aunque se permite un máximo de 50 etiquetas personalizadas por recurso, es recomendable mantener un conjunto manejable para evitar complicaciones.</p>
 
 
-<h3 id="herramientas-para-gestionar-el-etiquetado" tabindex="-1">Herramientas para Gestionar el Etiquetado</h3>
+<h3 id="herramientas-para-gestionar-el-etiquetado" tabindex="-1">Herramientas para gestionar el etiquetado</h3>
 
 
 <p>AWS proporciona varias herramientas que ayudan a garantizar que las etiquetas se apliquen de forma coherente y cumplan con los estándares definidos:</p>
@@ -265,7 +260,7 @@ Puedes usar funciones Lambda para etiquetar recursos automáticamente en el mome
 </ul>
 
 
-<h3 id="recomendaciones-practicas" tabindex="-1">Recomendaciones Prácticas</h3>
+<h3 id="recomendaciones-practicas" tabindex="-1">Recomendaciones prácticas</h3>
 
 
 <ul>
@@ -279,10 +274,10 @@ Puedes usar funciones Lambda para etiquetar recursos automáticamente en el mome
 <p>El uso combinado de estas herramientas y prácticas asegura un sistema de etiquetado eficiente, facilitando una mejor organización y control de los recursos en AWS Organizations.</p>
 
 
-<h2 class="sb h2-sbb-cls" id="establecimiento-de-reglas-de-nomenclatura" tabindex="-1">Establecimiento de Reglas de Nomenclatura</h2>
+<h2 class="sb h2-sbb-cls" id="establecimiento-de-reglas-de-nomenclatura" tabindex="-1">Establecimiento de reglas de nomenclatura</h2>
 
 
-<h3 id="redaccion-de-directrices-de-nomenclatura" tabindex="-1">Redacción de Directrices de Nomenclatura</h3>
+<h3 id="redaccion-de-directrices-de-nomenclatura" tabindex="-1">Redacción de directrices de nomenclatura</h3>
 
 
 <p>Crea un único documento que reúna todas las convenciones de nombres para los recursos. Este archivo debe incluir la estructura, el formato y ejemplos claros. Haz que sea accesible y permita ajustes a medida que la organización crezca.</p>
@@ -298,7 +293,7 @@ Puedes usar funciones Lambda para etiquetar recursos automáticamente en el mome
 <p>Estas reglas ayudan a mantener la coherencia en toda la organización, complementando las prácticas de nombramiento ya existentes.</p>
 
 
-<h3 id="controles-de-politicas-aws" tabindex="-1">Controles de Políticas AWS</h3>
+<h3 id="controles-de-politicas-aws" tabindex="-1">Controles de políticas AWS</h3>
 
 
 <p>Una vez definidas las convenciones, es crucial implementarlas con políticas que garanticen su cumplimiento. Las Service Control Policies (SCPs) funcionan como límites que restringen los permisos máximos en las cuentas de AWS.</p>
@@ -326,7 +321,7 @@ Antes de aplicar SCPs a toda la organización, pruébalas en un entorno controla
 </ol>
 
 
-<h3 id="revision-de-estandares-de-nomenclatura" tabindex="-1">Revisión de Estándares de Nomenclatura</h3>
+<h3 id="revision-de-estandares-de-nomenclatura" tabindex="-1">Revisión de estándares de nomenclatura</h3>
 
 
 <p>Revisar las reglas de nombres y etiquetas de manera periódica es clave para adaptarlas al crecimiento de la infraestructura. Programa revisiones cada tres meses, habilita canales para recibir comentarios y documenta cualquier excepción que se presente.</p>
@@ -389,9 +384,9 @@ Antes de aplicar SCPs a toda la organización, pruébalas en un entorno controla
 
 
 <ul>
-<li>La <strong><a href="https://dondeaprendoaws.com/blog/gestionando-multiples-cuentas-de-aws-con-aws-organizations/">Guía del Usuario de AWS Organizations</a></strong> ofrece una explicación completa y ayuda a configurar tu organización desde cero.</li>
+<li>La <strong><a href="https://dondeaprendoaws.com/blog/gestionando-multiples-cuentas-de-aws-con-aws-organizations/">guía del usuario de AWS Organizations</a></strong> ofrece una explicación completa y ayuda a configurar tu organización desde cero.</li>
 <li>La <strong>Referencia de API de AWS Organizations</strong> incluye detalles sobre todas las operaciones disponibles, con ejemplos prácticos.</li>
-<li>La <strong><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">Guía de Referencia de AWS Account Management</a></strong> proporciona información detallada sobre cómo crear y gestionar cuentas individuales.</li>
+<li>La <strong><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">guía de referencia de AWS account management</a></strong> proporciona información detallada sobre cómo crear y gestionar cuentas individuales.</li>
 </ul>
 
 
@@ -427,4 +422,4 @@ Antes de aplicar SCPs a toda la organización, pruébalas en un entorno controla
 
 
 <h2>Publicaciones de blog relacionadas</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/gestionando-multiples-cuentas-de-aws-con-aws-organizations/">Gestionando Múltiples Cuentas de AWS con AWS Organizations</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores Prácticas de Seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-organizations-estructuras-de-cuentas-y-nombres/">AWS Organizations: Estructuras de cuentas y nombres</a></li></ul>
+<ul><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/gestionando-multiples-cuentas-de-aws-con-aws-organizations/">Gestionando múltiples cuentas de AWS con AWS Organizations</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores prácticas de seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-organizations-estructuras-de-cuentas-y-nombres/">AWS Organizations: estructuras de cuentas y nombres</a></li></ul>

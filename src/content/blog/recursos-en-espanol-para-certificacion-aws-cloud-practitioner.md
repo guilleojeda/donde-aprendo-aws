@@ -8,23 +8,18 @@ modifiedTimestamp: "2026-10-05T00:34:04-03:00"
 review:
   date: "2026-10-05"
   note: "Versión del examen y recursos revisados: CLF-C02."
-cover: "/assets/blog/8d4ecab3b218a57acfd77f30.jpg"
-coverAlt: "Nube delineada rodeada de iconos de reproducción, ubicación y dirección"
+cover: "/assets/blog/editorial-certificacion.png"
+coverAlt: "Tres tarjetas de estudio con apuntes y hitos sobre un camino azul con un punto naranja."
 indexOrder: 1
-ogImage: "/assets/blog/8d4ecab3b218a57acfd77f30.jpg"
+ogImage: "/assets/blog/editorial-certificacion.png"
 related:
   - title: "Curso AWS con certificado: qué obtienes y cómo elegir"
     url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-basica/"
-    image: "/assets/blog/35e338eebb5988d204344c86.jpg"
-    imageAlt: "Pirámide de franjas de colores atravesada por un camino en zigzag"
   - title: "Alertas de costos en AWS: configura AWS Budgets"
     url: "https://dondeaprendoaws.com/blog/automatizar-alertas-de-costos-aws-en-5-pasos/"
-    image: "/assets/blog/cd540f6b1441905ad2c6859c.webp"
-    imageAlt: "Pantalla sobre un escritorio con gráficos y paneles de colores"
   - title: "¿Qué base de datos elegir en AWS? RDS, Aurora y DynamoDB"
     url: "https://dondeaprendoaws.com/blog/aws-bases-de-datos-introduccion-basica/"
-    image: "/assets/blog/7dd6e4771015e24de4a4bc0d.jpg"
-    imageAlt: "Panel dividido en cuatro ilustraciones de bases de datos y otros símbolos"
+
 ---
 
 
@@ -95,7 +90,7 @@ En Skill Builder, elige la versión en español que te resulte más cómoda. Est
 
 La [sesión inicial del grupo de estudio](https://www.youtube.com/watch?v=un88skd68eA) presenta la ruta y los fundamentos de Cloud Practitioner. El catálogo también reúne sesiones sobre migración, economía de AWS, seguridad, servicios y redes. Son grabaciones de la comunidad: contrasta los nombres, el alcance y las condiciones actuales con la guía oficial antes de tomar apuntes como referencia definitiva.
 
-### Guía comunitaria de preparación — Roxs
+### Guía comunitaria de preparación — roxs
 
 La [guía de estudio de Roxs para CLF-C02](https://github.com/roxsross/aws-cloud-practitioner-complete-guide) organiza conceptos, dominios y un plan de repaso. El repositorio indica que se actualizó en septiembre de 2025; úsalo como apoyo y confirma cualquier dato cambiante en la guía oficial.
 
@@ -191,7 +186,7 @@ Busca un grupo cuya ubicación, modalidad y horarios te permitan participar:
 
 - **Si eres estudiante**, explora los [Student Builder Groups del directorio](https://dondeaprendoaws.com/comunidades/estudiantes/). Busca tu universidad o una institución cercana y consulta los requisitos de participación de cada grupo.
 - **Si buscas una comunidad abierta de usuarios**, revisa los [AWS User Groups](https://dondeaprendoaws.com/comunidades/user-groups/) de tu ciudad o región.
-- **Si prefieres estudiar a distancia**, consulta la [agenda de eventos](https://dondeaprendoaws.com/eventos/) y filtra por modalidad virtual. Comprueba el idioma, la zona horaria y las condiciones de inscripción.
+- **Si prefieres estudiar a distancia**, consulta la [Agenda de eventos](https://dondeaprendoaws.com/eventos/) y filtra por modalidad virtual. Comprueba el idioma, la zona horaria y las condiciones de inscripción.
 
 También puedes ir directamente a comunidades que publican recursos para estudiar AWS: el [AWS User Group Buenos Aires](https://www.meetup.com/aws-user-group-buenos-aires/), el [AWS User Group Córdoba](https://www.meetup.com/aws-user-group-cordoba-argentina/) y el [AWS User Group Medellín](https://www.meetup.com/awsugmed/). Para grabaciones, visita los canales de YouTube de [AWS UG Buenos Aires](https://www.youtube.com/@awsugbsas), [AWS UG Medellín](https://www.youtube.com/@awsugmed) y [AWS User Group Guatemala](https://www.youtube.com/@awsugguatemala). Revisa en cada comunidad las próximas reuniones, el idioma y las condiciones para participar.
 
