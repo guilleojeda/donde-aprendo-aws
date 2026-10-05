@@ -21,8 +21,9 @@ function loadIndex() {
   return indexPromise;
 }
 
-function showNextPage() {
+function showNextPage({ focusFirstResult = false } = {}) {
   const page = matches.slice(shown, shown + pageSize);
+  let firstLink;
   for (const result of page) {
     const item = document.createElement('li');
     const link = document.createElement('a');
@@ -36,10 +37,12 @@ function showNextPage() {
     link.append(label, title, description);
     item.append(link);
     list.append(item);
+    firstLink ??= link;
   }
   shown += page.length;
   more.hidden = shown >= matches.length;
   if (!more.hidden) more.textContent = `Mostrar ${Math.min(pageSize, matches.length - shown)} más`;
+  if (focusFirstResult) firstLink?.focus();
 }
 
 function recordAggregateSearch(query, type, count) {
@@ -52,6 +55,10 @@ form?.addEventListener('submit', async (event) => {
   const version = ++searchVersion;
   const query = queryInput.value.trim();
   if (!query) {
+    matches = [];
+    shown = 0;
+    list.replaceChildren();
+    more.hidden = true;
     status.textContent = 'Escribe una búsqueda para ver resultados.';
     return;
   }
@@ -76,4 +83,4 @@ form?.addEventListener('submit', async (event) => {
   }
 });
 
-more?.addEventListener('click', showNextPage);
+more?.addEventListener('click', () => showNextPage({ focusFirstResult: true }));

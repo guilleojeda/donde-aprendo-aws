@@ -3,6 +3,24 @@ const EVENT_FIELDS = ['id', 'title', 'description', 'startsAt', 'endsAt', 'timeZ
 const EVENT_DATE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/u;
 const RESOURCE_ID = /^[A-Za-z0-9_-]{1,128}$/u;
 
+function normalizeEventText(value) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/gu, '').toLocaleLowerCase('es')
+    .replace(/[^a-z0-9]+/gu, ' ').trim();
+}
+
+/** Match physical listings only when their published venue agrees; city can be absent. */
+function sameEventVenue(left, right) {
+  if (left.mode === 'online' || right.mode === 'online') return left.mode === right.mode;
+
+  const leftPlace = normalizeEventText(left.place ?? '');
+  const rightPlace = normalizeEventText(right.place ?? '');
+  if (!leftPlace || leftPlace !== rightPlace) return false;
+
+  const leftCity = normalizeEventText(left.city ?? '');
+  const rightCity = normalizeEventText(right.city ?? '');
+  return !leftCity || !rightCity || leftCity === rightCity;
+}
+
 export function projectPublicEvent(item, index, validateUrl) {
   const label = `Catalog record ${index + 1}`;
   for (const field of EVENT_FIELDS) {
@@ -66,23 +84,30 @@ export function upcomingEvents(events, now = new Date()) {
 export function uniqueUpcomingEventGroups(events, now = new Date()) {
   const groups = [];
   const groupByUrl = new Map();
+  // A title/start/country can have multiple physical venue groups.
   const groupBySession = new Map();
   for (const event of upcomingEvents(events, now)) {
     const url = new URL(event.registrationUrl);
     const canonicalUrl = `${url.origin}${url.pathname.replace(/\/$/u, '')}`;
-    const title = event.title.normalize('NFD').replace(/[\u0300-\u036f]/gu, '').toLocaleLowerCase('es')
-      .replace(/[^a-z0-9]+/gu, ' ').trim();
-    const location = event.mode === 'online' ? 'online' : (event.country ?? 'unspecified');
-    const session = `${Date.parse(event.startsAt)}:${title}:${location}`;
-    const existingGroup = groupByUrl.get(canonicalUrl) ?? groupBySession.get(session);
+    const title = normalizeEventText(event.title);
+    const locationScope = event.mode === 'online' ? 'online' : (event.country ?? 'unspecified');
+    const session = `${Date.parse(event.startsAt)}:${title}:${locationScope}`;
+    const sessionGroups = groupBySession.get(session) ?? [];
+    const matchingSession = sessionGroups.find((group) => group.events.every((item) => sameEventVenue(item, event)));
+    const existingGroup = groupByUrl.get(canonicalUrl) ?? matchingSession;
     if (existingGroup) {
       existingGroup.events.push(event);
+      // Preserve every co-host URL as a strong identity for later listings.
+      groupByUrl.set(canonicalUrl, existingGroup);
+      if (!sessionGroups.includes(existingGroup)) sessionGroups.push(existingGroup);
+      groupBySession.set(session, sessionGroups);
       continue;
     }
     const group = { event, events: [event] };
     groups.push(group);
     groupByUrl.set(canonicalUrl, group);
-    groupBySession.set(session, group);
+    sessionGroups.push(group);
+    groupBySession.set(session, sessionGroups);
   }
   return groups;
 }

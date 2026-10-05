@@ -3,6 +3,7 @@ import test from 'node:test';
 import { projectPublishedCatalog } from '../src/lib/catalog.mjs';
 import { eventDateLabel, eventLocalDate, eventTimeLabel, upcomingEvents, uniqueUpcomingEventGroups, uniqueUpcomingEvents } from '../src/lib/events.mjs';
 import { eventMatchesFilters } from '../src/lib/event-agenda-filter.mjs';
+import { eventGroupCountries, eventGroupsForAgenda } from '../src/lib/event-agenda-groups.mjs';
 import { fingerprintPublicCatalog } from '../src/lib/publication.mjs';
 
 const event = (overrides = {}) => ({
@@ -58,12 +59,153 @@ test('rejects invalid event dates, zones, venues and registration links', () => 
 });
 
 test('shows a cross-posted session once while keeping different sessions', () => {
-  const first = event({ id: 'event-manual', title: 'AWS en Acción', registrationUrl: 'https://www.meetup.com/aws-ug/events/123/' });
+  const first = event({ id: 'event-manual', title: 'AWS en Acción', registrationUrl: 'https://www.meetup.com/aws-ug/events/123' });
   const sameUrl = event({ id: 'meetup-event-123', title: 'AWS en Acción', registrationUrl: 'https://www.meetup.com/aws-ug/events/123/?source=agenda' });
   const crossPost = event({ id: 'meetup-event-456', title: 'AWS en Acción', registrationUrl: 'https://www.meetup.com/other-ug/events/456/' });
   const later = event({ id: 'meetup-event-789', title: 'Otra charla', registrationUrl: 'https://www.meetup.com/other-ug/events/789/' });
   assert.deepEqual(uniqueUpcomingEvents([later, crossPost, sameUrl, first], '2026-10-01T00:00:00Z').map(({ id }) => id),
     ['event-manual', 'meetup-event-789']);
+});
+
+test('keeps separate physical sessions with the same title, start and organizer country', () => {
+  const cordoba = event({
+    id: 'event-cordoba', title: 'Taller presencial de AWS Lambda',
+    organizer: 'AWS User Group Córdoba', country: 'AR', city: 'Córdoba',
+    place: 'Centro de Convenciones Córdoba', communityId: 'community-cordoba',
+    registrationUrl: 'https://www.meetup.com/awsug-cordoba/events/501/',
+  });
+  const rosario = event({
+    id: 'event-rosario', title: 'Taller presencial de AWS Lambda',
+    organizer: 'AWS User Group Rosario', country: 'AR', city: 'Rosario',
+    place: 'Universidad Nacional de Rosario', communityId: 'community-rosario',
+    registrationUrl: 'https://www.meetup.com/awsug-rosario/events/502/',
+  });
+  const cordobaAtAnotherVenue = event({
+    id: 'event-cordoba-campus', title: 'Taller presencial de AWS Lambda',
+    organizer: 'AWS User Group Córdoba', country: 'AR', city: 'Córdoba',
+    place: 'Universidad Nacional de Córdoba', communityId: 'community-cordoba',
+    registrationUrl: 'https://www.meetup.com/awsug-cordoba/events/503/',
+  });
+  const accepted = projectPublishedCatalog([cordoba, rosario, cordobaAtAnotherVenue]);
+  const groups = uniqueUpcomingEventGroups(accepted, '2026-10-05T12:00:00Z');
+
+  assert.equal(accepted.length, 3);
+  assert.deepEqual(groups.map(({ event: representative }) => representative.id), [
+    'event-cordoba', 'event-cordoba-campus', 'event-rosario',
+  ]);
+  assert.deepEqual(groups.map(({ events }) => events.length), [1, 1, 1]);
+});
+
+test('groups cross-posts at the same physical venue across normalized text and optional city', () => {
+  const cordoba = event({
+    id: 'event-session-cordoba', title: 'Taller en Acción', country: 'AR', mode: 'in-person',
+    organizer: 'AWS User Group Córdoba', city: 'Córdoba', place: 'Auditorio, Córdoba',
+    communityId: 'community-cordoba', registrationUrl: 'https://example.test/cordoba-session',
+  });
+  const cohost = event({
+    id: 'event-session-cohost', title: 'Taller en Acción', country: 'AR', mode: 'hybrid',
+    organizer: 'Comunidad coanfitriona', city: 'Cordoba', place: 'auditorio cordoba',
+    communityId: 'community-cohost', registrationUrl: 'https://example.test/cohost-session?source=community',
+  });
+  const cityNotPublished = event({
+    id: 'z-event-session-city-unknown', title: 'Taller en Acción', country: 'AR',
+    organizer: 'Otro coanfitrión', city: undefined, place: 'AUDITORIO, CÓRDOBA',
+    communityId: 'community-city-unknown', registrationUrl: 'https://example.test/unknown-city-session',
+  });
+  const accepted = projectPublishedCatalog([cohost, cityNotPublished, cordoba]);
+  const [group] = uniqueUpcomingEventGroups(accepted, '2026-10-05T12:00:00Z');
+
+  assert.equal(accepted.length, 3);
+  assert.equal(group.events.length, 3);
+  assert.deepEqual(eventGroupCountries(group, new Map()), ['AR']);
+  assert.equal(eventGroupsForAgenda([group], { communityById: new Map(), country: 'AR' }).length, 1);
+});
+
+test('canonical registration URLs retain physical co-hosts across countries and query variants', () => {
+  const argentinaListing = event({
+    id: 'event-shared-ar', title: 'Sesión compartida', country: 'AR', city: 'Bogotá',
+    place: 'Centro de Convenciones', registrationUrl: 'https://example.test/shared-session',
+  });
+  const colombiaListing = event({
+    id: 'event-shared-co', title: 'Sesión compartida', country: 'CO', city: 'Bogotá',
+    place: 'Centro de Convenciones', registrationUrl: 'https://example.test/shared-session/?source=cohost',
+  });
+  const [group] = uniqueUpcomingEventGroups(
+    projectPublishedCatalog([argentinaListing, colombiaListing]), '2026-10-05T12:00:00Z',
+  );
+
+  assert.deepEqual(eventGroupCountries(group, new Map()).sort(), ['AR', 'CO']);
+  assert.equal(eventGroupsForAgenda([group], { communityById: new Map(), country: 'CO' }).length, 1);
+});
+
+test('keeps same-session cross-posts connected to every canonical registration URL', () => {
+  const first = event({
+    id: 'event-a-first', title: 'AWS en Acción', country: 'AR', city: 'Córdoba',
+    place: 'Auditorio Córdoba', registrationUrl: 'https://www.meetup.com/group/events/501',
+  });
+  const crossPost = event({
+    id: 'event-b-cross-post', title: 'AWS en Acción', country: 'AR', city: 'Cordoba',
+    place: 'Auditorio, Córdoba', registrationUrl: 'https://www.meetup.com/other-group/events/501/',
+  });
+  const sameCanonicalUrl = event({
+    id: 'event-c-same-url', title: 'AWS en Acción', country: 'AR', city: 'Rosario',
+    place: 'Universidad Nacional de Rosario', registrationUrl: 'https://www.meetup.com/other-group/events/501/?source=agenda',
+  });
+  const groups = uniqueUpcomingEventGroups(
+    projectPublishedCatalog([sameCanonicalUrl, crossPost, first]), '2026-10-05T12:00:00Z',
+  );
+
+  assert.equal(groups.length, 1);
+  assert.deepEqual(groups[0].events.map(({ id }) => id), [
+    'event-a-first', 'event-b-cross-post', 'event-c-same-url',
+  ]);
+});
+
+test('a canonical co-host from another country does not split the session alias', () => {
+  const first = event({
+    id: 'event-mixed-url-first', title: 'Sesión presencial', country: 'PY', city: 'Asunción',
+    place: 'Centro de Convenciones', registrationUrl: 'https://example.test/first',
+  });
+  const cohost = event({
+    id: 'event-mixed-url-cohost', title: 'Sesión presencial', country: 'AR', city: 'Asunción',
+    place: 'Centro de Convenciones', registrationUrl: 'https://example.test/first?source=cohost',
+  });
+  const laterCrossPost = event({
+    id: 'event-mixed-url-later', title: 'Sesión presencial', country: 'PY', city: 'Asunción',
+    place: 'Centro de Convenciones', registrationUrl: 'https://example.test/another',
+  });
+  const groups = uniqueUpcomingEventGroups(
+    projectPublishedCatalog([first, cohost, laterCrossPost]), '2026-10-05T12:00:00Z',
+  );
+
+  assert.equal(groups.length, 1);
+  assert.deepEqual(groups[0].events.map(({ id }) => id), [
+    'event-mixed-url-cohost', 'event-mixed-url-first', 'event-mixed-url-later',
+  ]);
+});
+
+test('does not bridge physical listings from different cities through a listing without city', () => {
+  const noCity = event({
+    id: 'event-a-no-city', title: 'Sesión presencial', country: 'AR', city: undefined,
+    place: 'Centro de Convenciones', registrationUrl: 'https://example.test/no-city',
+  });
+  const cordoba = event({
+    id: 'event-b-cordoba', title: 'Sesión presencial', country: 'AR', city: 'Córdoba',
+    place: 'Centro de Convenciones', registrationUrl: 'https://example.test/cordoba',
+  });
+  const rosario = event({
+    id: 'event-c-rosario', title: 'Sesión presencial', country: 'AR', city: 'Rosario',
+    place: 'Centro de Convenciones', registrationUrl: 'https://example.test/rosario',
+  });
+  const now = '2026-10-05T12:00:00Z';
+  const firstOrder = uniqueUpcomingEventGroups(projectPublishedCatalog([noCity, cordoba, rosario]), now);
+  const reversedOrder = uniqueUpcomingEventGroups(projectPublishedCatalog([rosario, cordoba, noCity]), now);
+  const visibleGroups = (groups) => groups.map(({ events }) => events.map(({ id }) => id).sort()).sort();
+
+  assert.equal(firstOrder.length, 2);
+  assert.deepEqual(visibleGroups(firstOrder), visibleGroups(reversedOrder));
+  assert.ok(firstOrder.every(({ events }) =>
+    !(events.some(({ city }) => city === 'Córdoba') && events.some(({ city }) => city === 'Rosario'))));
 });
 
 test('retains every co-host community when the agenda shows one event card', () => {
