@@ -101,3 +101,26 @@ test('a former program name finds the current student community collection', () 
   const index = buildSearchIndex([], [], [], landingSearchPages([]));
   assert.equal(searchIndex(index, 'AWS Cloud Clubs', 'collection')[0].url, '/comunidades/estudiantes/');
 });
+
+test('course collection search indexes the same resolved free-study FAQ as the rendered page', () => {
+  const freeCourse = {
+    ...resource,
+    id: 'mixtli-challenge',
+    title: 'AWS Certification Challenge 2026 — AWS User Group Mixtli',
+    url: 'https://awsugmixtli.com/certification-challenge',
+  };
+  const landingPages = landingSearchPages([freeCourse]);
+  const courseLanding = landingPages.find(({ path }) => path === '/aprender/cursos/');
+  const index = buildSearchIndex([], [freeCourse], [], landingPages);
+  const courseEntry = index.find(({ type, url }) => type === 'collection' && url === '/aprender/cursos/');
+
+  assert.ok(courseLanding.search.includes('AWS User Group Mixtli comparte materiales de estudio gratuitos'));
+  assert.ok(courseLanding.search.includes('¿Hay cursos de AWS gratis?'));
+  assert.ok(courseEntry.search.includes('AWS Certification Challenge 2026'));
+  assert.equal(searchIndex(index, 'materiales de estudio gratuitos Mixtli', 'collection')[0].url, '/aprender/cursos/');
+
+  const fallbackLanding = landingSearchPages([]).find(({ path }) => path === '/aprender/cursos/');
+  assert.ok(fallbackLanding.search.includes('¿Cómo compruebo si un curso de AWS es gratis?'));
+  assert.ok(fallbackLanding.search.includes('página del proveedor antes de inscribirte'));
+  assert.equal(fallbackLanding.search.includes('AWS Certification Challenge 2026'), false);
+});

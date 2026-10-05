@@ -1,4 +1,13 @@
 const FIELDS = ['from', 'to', 'mode', 'country', 'city', 'community'];
+const SECONDARY_FIELDS = ['mode', 'country', 'city', 'community'];
+
+export function secondaryEventAgendaFilterCount(filters) {
+  return SECONDARY_FIELDS.filter((field) => Boolean(filters[field])).length;
+}
+
+export function shouldOpenEventAgendaSecondaryFilters(filters, isMobile) {
+  return secondaryEventAgendaFilterCount(filters) > 0 || !isMobile;
+}
 
 function validDate(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/u.test(value)) return false;

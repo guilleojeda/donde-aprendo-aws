@@ -3,7 +3,13 @@ import test from 'node:test';
 import { eventCalendar } from '../src/lib/event-calendar.mjs';
 import { trackRegistrationClick } from '../src/lib/event-analytics.mjs';
 import { eventCalendarHref } from '../src/lib/catalog-routes.mjs';
-import { eventMatchesFilters, parseEventAgendaSearch, serializeEventAgendaSearch } from '../src/lib/event-agenda-filter.mjs';
+import {
+  eventMatchesFilters,
+  parseEventAgendaSearch,
+  secondaryEventAgendaFilterCount,
+  serializeEventAgendaSearch,
+  shouldOpenEventAgendaSecondaryFilters,
+} from '../src/lib/event-agenda-filter.mjs';
 
 const event = {
   id: 'meetup-event-456', title: 'AWS, seguridad; práctica',
@@ -64,6 +70,25 @@ test('agenda filters validate URL values, preserve unrelated parameters and matc
     'The global country filter includes co-host countries while retaining one representative card.');
   assert.equal(eventMatchesFilters(cohostedCard, { ...filters, country: 'AR' }, Date.parse('2026-10-17T11:00:00Z')), false);
   assert.equal(eventMatchesFilters(card, filters, Date.parse('2026-10-17T13:00:00Z')), false);
+});
+
+test('mobile secondary agenda filters open for active URL filters and stay compact otherwise', () => {
+  const allowed = {
+    mode: new Set(['', 'online', 'in-person']),
+    country: new Set(['', 'CO']),
+    city: new Set(['', 'CO:Bogotá']),
+    community: new Set(['', 'community-co']),
+  };
+  const datesOnly = parseEventAgendaSearch('?from=2026-10-17&to=2026-10-20', allowed);
+  assert.equal(secondaryEventAgendaFilterCount(datesOnly), 0);
+  assert.equal(shouldOpenEventAgendaSecondaryFilters(datesOnly, true), false);
+  assert.equal(shouldOpenEventAgendaSecondaryFilters(datesOnly, false), true);
+
+  const active = parseEventAgendaSearch(
+    '?mode=in-person&country=CO&city=CO%3ABogot%C3%A1&community=community-co', allowed,
+  );
+  assert.equal(secondaryEventAgendaFilterCount(active), 4);
+  assert.equal(shouldOpenEventAgendaSecondaryFilters(active, true), true);
 });
 
 test('registration telemetry uses only public facets and stays off preview hosts', () => {

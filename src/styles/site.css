@@ -978,6 +978,10 @@ button {
   width: min(260px, 100%);
 }
 
+.directory-facet--primary-group {
+  width: min(420px, 100%);
+}
+
 .resource-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));

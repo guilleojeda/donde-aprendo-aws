@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { projectPublishedCatalog } from '../src/lib/catalog.mjs';
-import { directoryListEntries, filterResources, sortResources } from '../src/lib/directory-filter.mjs';
+import { directoryGroupMembership, directoryListEntries, filterResources, sortResources } from '../src/lib/directory-filter.mjs';
 import { recentResources, recommendedResources } from '../src/lib/resource-discovery.mjs';
 
 function record(overrides = {}) {
@@ -91,4 +91,26 @@ test('country and level combine with existing filters', () => {
   ];
   assert.deepEqual(filterResources(records, { kind: 'content', country: 'PE', level: 'inicial', query: 'peru' }), [records[0]]);
   assert.deepEqual(filterResources(records, { country: 'AR', level: 'inicial' }), [records[1]]);
+});
+
+test('exam filtering includes mixed-exam resources and combines with existing facets and search', () => {
+  const groups = [
+    { id: 'cloud-practitioner', resourceIds: ['cloud'], filterResourceIds: ['cloud', 'mixed'] },
+    { id: 'ai-practitioner', resourceIds: ['ai'], filterResourceIds: ['ai', 'mixed'] },
+    { id: 'multiple-exams', resourceIds: ['mixed'] },
+  ];
+  const groupIds = directoryGroupMembership(groups);
+  const records = [
+    { id: 'cloud', groupIds: groupIds.get('cloud'), kind: 'content', format: 'Video', topics: ['Certificaciones'], search: 'Cloud Practitioner' },
+    { id: 'ai', groupIds: groupIds.get('ai'), kind: 'content', format: 'Artículo', topics: ['Certificaciones'], search: 'AI Practitioner' },
+    { id: 'mixed', groupIds: groupIds.get('mixed'), kind: 'content', format: 'Curso', topics: ['Certificaciones'], search: 'Cloud Practitioner y AI Practitioner' },
+    { id: 'other', groupIds: [], kind: 'content', format: 'Curso', topics: ['Serverless'], search: 'Lambda' },
+  ];
+
+  assert.deepEqual(filterResources(records, { group: 'cloud-practitioner' }).map(({ id }) => id), ['cloud', 'mixed']);
+  assert.deepEqual(filterResources(records, { group: 'ai-practitioner' }).map(({ id }) => id), ['ai', 'mixed']);
+  assert.deepEqual(filterResources(records, { group: 'multiple-exams' }).map(({ id }) => id), ['mixed']);
+  assert.deepEqual(filterResources(records, {
+    group: 'cloud-practitioner', kind: 'content', format: 'Curso', topic: 'Certificaciones', query: 'cloud practitioner',
+  }).map(({ id }) => id), ['mixed']);
 });
