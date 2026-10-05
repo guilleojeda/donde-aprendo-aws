@@ -1,87 +1,88 @@
 ---
-title: "AWS DeepLens: introducción al aprendizaje profundo"
-description: "Aprende a utilizar AWS DeepLens para proyectos de aprendizaje profundo y visión artificial, desde la configuración inicial hasta la optimización de modelos."
+title: "AWS DeepLens: fin de soporte y alternativas actuales"
+description: "AWS DeepLens cerró en 2024. Qué dejó de funcionar para sus usuarios y qué opciones actuales sirven para aprender visión artificial e inferencia local."
 author: "guille-ojeda"
 publishedAt: "2024-05-04"
 publishedTimestamp: "2024-05-04T13:44:53.053Z"
+modifiedTimestamp: "2026-10-05T12:59:21-03:00"
+review:
+  date: "2026-10-05"
 cover: "/assets/blog/editorial-datos-ia.png"
 coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
-  - title: "Requisitos de cableado físico para AWS Snowball"
-    url: "https://dondeaprendoaws.com/blog/requisitos-de-cableado-fisico-para-aws-snowball/"
-  - title: "Tipos y tamaños de instancias EC2: guía completa"
-    url: "https://dondeaprendoaws.com/blog/tipos-y-tamanos-de-instancias-ec2-guia-completa/"
-  - title: "Aprender AWS: guía inicial"
-    url: "https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/"
+  - title: "AWS gratis para estudiantes y docentes: cursos y laboratorios"
+    url: "https://dondeaprendoaws.com/blog/aws-gratis-para-educadores-y-estudiantes/"
 
 ---
 
-<p><a href="https://aws.amazon.com/deeplens/faqs/">AWS DeepLens</a> es una cámara de video inteligente diseñada para ayudar a desarrolladores a mejorar sus habilidades en aprendizaje profundo y visión artificial. Esta cámara HD cuenta con procesamiento integrado optimizado para modelos de aprendizaje profundo, que pueden ser programados con <a href="https://aws.amazon.com/">AWS</a> <a href="https://aws.amazon.com/lambda/">Lambda</a>.</p>
-<p><strong>Principales características de AWS DeepLens</strong></p>
-<ul><li><strong>Cámara de video HD</strong> para capturar imágenes y videos</li><li><strong>Procesador <a href="https://www.intel.com/content/www/us/en/products/details/processors/atom.html">Intel Atom</a> con GPU integrada</strong> para ejecutar modelos de aprendizaje profundo</li><li><strong>Modelos pre-entrenados</strong> para detección de rostros, reconocimiento de objetos, etc.</li><li><strong><a href="https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/">integración con servicios AWS</a></strong> como Lambda, <a href="https://aws.amazon.com/s3/">S3</a>, <a href="https://aws.amazon.com/dynamodb/">DynamoDB</a> y <a href="https://aws.amazon.com/rekognition/">Rekognition</a></li></ul>
-<p><strong>Uso de AWS DeepLens</strong></p>
-<ol><li><strong>Configurar el dispositivo</strong>: Desempacar, conectar a la red Wi-Fi y actualizar el firmware</li><li><strong>Registrar el dispositivo</strong>: Crear una cuenta de AWS, registrar el dispositivo y configurar los roles de <a href="https://aws.amazon.com/iam/">IAM</a></li><li><strong>Crear un proyecto DeepLens</strong>: Utilizar la consola de AWS DeepLens para crear proyectos y modelos</li></ol>
-<p><strong>Desarrollar modelos de aprendizaje profundo</strong></p>
-<ul><li>Entrenar modelos con <a href="https://aws.amazon.com/sagemaker/">Amazon SageMaker</a></li><li>Desplegar modelos personalizados en AWS DeepLens</li><li>Optimizar modelos para dispositivos de borde</li></ul>
-<p><strong>Recursos adicionales</strong></p>
-<ul><li>Tutoriales y proyectos para principiantes</li><li>Documentación y foros de la comunidad AWS DeepLens</li><li>Cursos en línea de aprendizaje profundo</li></ul>
-<p>AWS DeepLens es una herramienta ideal para desarrolladores que desean iniciarse en el aprendizaje profundo y la visión artificial, permitiéndoles crear aplicaciones innovadoras con modelos de inteligencia artificial.</p>
-<h2 id="iniciar-con-aws-deeplens">Iniciar con <a href="https://aws.amazon.com/deeplens/faqs/">AWS DeepLens</a></h2>
-<p><img alt="AWS DeepLens" src="/assets/blog/bee6fb8aa90ffd1df03d263b.jpg"/></p>
-<h3 id="pasos-iniciales-de-configuraci%C3%B3n">Pasos iniciales de configuración</h3>
-<p>Para empezar a utilizar AWS DeepLens, debes seguir algunos pasos iniciales de configuración. Primero, debes desempaquetar la cámara de video inalámbrica y conectarla a una fuente de poder y a una red Wi-Fi. Asegúrate de tener todos los componentes, incluyendo la cámara, la fuente de poder y un bracket de montaje.</p>
-<p>Una vez que hayas conectado la cámara, debes actualizar el firmware para asegurarte de que tengas la última versión. Luego, debes registrar la cámara con tu cuenta de AWS y configurarla correctamente.</p>
-<h3 id="uso-de-la-consola-de-aws-deeplens">Uso de la consola de <a href="https://aws.amazon.com/">AWS</a> DeepLens</h3>
-<p><img alt="AWS" src="/assets/blog/2ebe3cf8e7ae57e98d3af846.jpg"/></p>
-<p>Para utilizar AWS DeepLens, debes crear un proyecto en la consola de AWS DeepLens. Si no tienes una cuenta de AWS, debes crear una antes de poder acceder a la consola. La consola te permite crear proyectos, administrar dispositivos y configurar modelos de aprendizaje automático.</p>
-<h3 id="registro-y-configuraci%C3%B3n-del-dispositivo">Registro y configuración del dispositivo</h3>
-<p>Para registrar tu dispositivo AWS DeepLens, debes seguir los siguientes pasos:</p>
-<table><thead><tr><th>Paso</th><th>Descripción</th></tr></thead><tbody><tr><td>1</td><td>Da un nombre a tu cámara y haz clic en <strong>Siguiente</strong>.</td></tr><tr><td>2</td><td>Haz clic en <strong>Descargar certificado</strong> y guarda el archivo en un lugar seguro.</td></tr><tr><td>3</td><td>Crea los roles de IAM necesarios y selecciona cada uno en el menú correspondiente.</td></tr><tr><td>4</td><td>Una vez que hayas completado estos pasos, estás listo para empezar a utilizar tu dispositivo AWS DeepLens.</td></tr></tbody></table>
-<p>Recuerda que debes asegurarte de que tu dispositivo esté configurado correctamente antes de empezar a utilizarlo. Si tienes algún problema durante el proceso de configuración, puedes consultar la documentación de AWS DeepLens o buscar ayuda en la comunidad de AWS.</p>
-<h2 id="aprendizaje-del-aprendizaje-profundo-con-aws-deeplens">Aprendizaje del aprendizaje profundo con AWS DeepLens</h2>
-<p>AWS DeepLens es una plataforma ideal para aquellos que desean introducirse en el aprendizaje profundo y la visión artificial. La plataforma ofrece una variedad de proyectos y tutoriales prácticos que permiten a los usuarios explorar y aprender sobre el aprendizaje automático y la visión artificial.</p>
-<h3 id="proyectos-para-principiantes">Proyectos para principiantes</h3>
-<p>Para aquellos que están empezando con AWS DeepLens, hay una variedad de proyectos y tutoriales básicos que permiten familiarizarse con la plataforma y sus capacidades. Por ejemplo, el proyecto de detección de rostros es un excelente lugar para empezar, ya que muestra cómo utilizar la cámara de AWS DeepLens para detectar rostros en tiempo real.</p>
-<table><thead><tr><th>Proyecto</th><th>Descripción</th></tr></thead><tbody><tr><td>Detección de Rostros</td><td>Detecta rostros en tiempo real utilizando la cámara de AWS DeepLens</td></tr><tr><td>Reconocimiento de Objetos</td><td>Reconoce objetos en imágenes y videos utilizando modelos de visión artificial</td></tr></tbody></table>
-<h3 id="construyendo-modelos-de-visi%C3%B3n-artificial">Construyendo modelos de visión artificial</h3>
-<p>Una vez que hayas dominado los proyectos básicos, puedes avanzar a construir modelos de visión artificial más complejos. AWS DeepLens te permite construir modelos que pueden reconocer objetos, personas y incluso animales.</p>
-<table><thead><tr><th>Modelo</th><th>Descripción</th></tr></thead><tbody><tr><td>Reconocimiento de Objetos</td><td>Reconoce objetos en imágenes y videos</td></tr><tr><td>Detección de Personas</td><td>Detecta personas en imágenes y videos</td></tr><tr><td>Reconocimiento de Animales</td><td>Reconoce animales en imágenes y videos</td></tr></tbody></table>
-<h3 id="integraci%C3%B3n-con-servicios-de-aws">Integración con servicios de AWS</h3>
-<p>AWS DeepLens también se puede integrar con otros servicios de AWS, como Lambda y IoT, para ampliar sus capacidades.</p>
-<table><thead><tr><th>Servicio</th><th>Descripción</th></tr></thead><tbody><tr><td><a href="https://dondeaprendoaws.com/blog/desarrollando-aplicaciones-con-aws-lambda/">AWS Lambda</a></td><td>Procesa imágenes y videos en la nube</td></tr><tr><td>AWS IoT</td><td>Envía resultados a dispositivos conectados</td></tr></tbody></table>
-<h2 id="desarrollando-modelos-de-aprendizaje-autom%C3%A1tico-avanzados">Desarrollando modelos de aprendizaje automático avanzados</h2>
-<p>En este apartado, profundizaremos en el mundo de los modelos de aprendizaje automático, mostrando cómo desarrollar, entrenar y desplegar modelos más complejos en AWS DeepLens.</p>
-<h3 id="entrenamiento-con-amazon-sagemaker">Entrenamiento con <a href="https://aws.amazon.com/sagemaker/">Amazon SageMaker</a></h3>
-<p><img alt="Amazon SageMaker" src="/assets/blog/5d51e82d4de655ce3d159974.jpg"/></p>
-<p>El entrenamiento de modelos de aprendizaje automático con Amazon SageMaker es un paso crucial en el desarrollo de modelos avanzados. SageMaker proporciona un entorno de entrenamiento escalable y seguro para modelos de machine learning, lo que permite a los desarrolladores entrenar modelos más precisos y eficientes.</p>
-<p>Para entrenar un modelo con SageMaker, debes seguir los siguientes pasos:</p>
-<table><thead><tr><th>Paso</th><th>Descripción</th></tr></thead><tbody><tr><td>1</td><td><strong>Preparar los datos</strong>: Recopilar y preparar los datos para el entrenamiento del modelo.</td></tr><tr><td>2</td><td><strong>Configurar el entorno de entrenamiento</strong>: Configurar el entorno de entrenamiento en SageMaker, incluyendo la selección del algoritmo de aprendizaje automático y la configuración de los hiperparámetros.</td></tr><tr><td>3</td><td><strong>Entrenar el modelo</strong>: Entrenar el modelo utilizando los datos preparados y el entorno de entrenamiento configurado.</td></tr><tr><td>4</td><td><strong>Evaluar el modelo</strong>: Evaluar el rendimiento del modelo entrenado utilizando métricas de evaluación relevantes.</td></tr></tbody></table>
-<h3 id="desplegar-modelos-personalizados">Desplegar modelos personalizados</h3>
-<p>Una vez que hayas entrenado un modelo de aprendizaje automático, debes desplegarlo en AWS DeepLens para que pueda ser utilizado en aplicaciones en tiempo real. Para desplegar un modelo personalizado en DeepLens, debes seguir los siguientes pasos:</p>
-<table><thead><tr><th>Paso</th><th>Descripción</th></tr></thead><tbody><tr><td>1</td><td><strong>Convertir el modelo</strong>: Convertir el modelo entrenado en un formato compatible con DeepLens.</td></tr><tr><td>2</td><td><strong>Crear un proyecto DeepLens</strong>: Crear un proyecto DeepLens y configurar el dispositivo DeepLens para que pueda ejecutar el modelo personalizado.</td></tr><tr><td>3</td><td><strong>Desplegar el modelo</strong>: Desplegar el modelo personalizado en el dispositivo DeepLens.</td></tr></tbody></table>
-<h3 id="optimizar-modelos-para-dispositivos-de-borde">Optimizar modelos para dispositivos de borde</h3>
-<p>Los modelos de aprendizaje automático deben ser optimizados para ejecutarse en dispositivos de borde como AWS DeepLens. La optimización de modelos es crucial para garantizar que los modelos sean eficientes en términos de recursos y energía.</p>
-<p>Para optimizar un modelo para dispositivos de borde, debes considerar los siguientes factores:</p>
-<table><thead><tr><th>Factor</th><th>Descripción</th></tr></thead><tbody><tr><td><strong>Tamaño del modelo</strong>: Reducir el tamaño del modelo para que sea más liviano y eficiente en términos de recursos.</td><td></td></tr><tr><td><strong>Complejidad del modelo</strong>: Reducir la complejidad del modelo para que sea más rápido y eficiente en términos de cálculo.</td><td></td></tr><tr><td><strong>Uso de recursos</strong>: Optimizar el uso de recursos como la memoria y la energía para que el modelo sea más eficiente en términos de recursos.</td><td></td></tr></tbody></table>
-<h2 id="solucionar-problemas-de-aws-deeplens">Solucionar problemas de AWS DeepLens</h2>
-<h3 id="problemas-comunes-y-soluciones">Problemas comunes y soluciones</h3>
-<p>Algunos problemas comunes que los usuarios pueden enfrentar al utilizar AWS DeepLens incluyen la incapacidad de registrar el dispositivo, errores durante la actualización del software y problemas de conectividad Wi-Fi. A continuación, se presentan algunas soluciones para estos problemas:</p>
-<table><thead><tr><th>Problema</th><th>Solución</th></tr></thead><tbody><tr><td>Error al registrar el dispositivo</td><td>Verificar que el dispositivo esté correctamente configurado y que los detalles de registro sean precisos.</td></tr><tr><td>Error durante la actualización del software</td><td>Intentar restaurar el dispositivo a sus ajustes de fábrica y luego volver a intentar la actualización.</td></tr><tr><td>Problemas de conectividad Wi-Fi</td><td>Verificar que el dispositivo esté correctamente configurado para conectarse a la red Wi-Fi y que la señal sea fuerte.</td></tr></tbody></table>
-<h3 id="conectarse-con-la-comunidad-de-aws-deeplens">Conectarse con la comunidad de AWS DeepLens</h3>
-<p>La comunidad de AWS DeepLens es una excelente fuente de apoyo y conocimientos compartidos. Los usuarios pueden conectarse con la comunidad a través de los siguientes canales:</p>
-<ul><li><strong>Foros de AWS DeepLens</strong>: Un lugar donde los usuarios pueden hacer preguntas, compartir conocimientos y obtener ayuda de otros usuarios y expertos de AWS.</li><li><strong>Documentación de AWS DeepLens</strong>: La documentación oficial de AWS DeepLens proporciona información detallada sobre el uso y configuración del dispositivo.</li><li><strong><a href="https://github.com/aws-samples/aws-deeplens-recipes">GitHub</a></strong>: La comunidad de desarrolladores de AWS DeepLens en GitHub es un lugar donde los usuarios pueden encontrar proyectos de código abierto y compartir sus propias soluciones.</li></ul>
-<h3 id="administrar-el-fin-de-vida-%C3%BAtil-del-dispositivo">Administrar el fin de vida útil del dispositivo</h3>
-<p>Es importante tener en cuenta que los dispositivos AWS DeepLens tienen un ciclo de vida limitado y eventualmente dejarán de recibir soporte. Es importante planificar con anticipación y considerar las siguientes opciones:</p>
-<ul><li><strong>Actualizar a un dispositivo más nuevo</strong>: Cuando un dispositivo AWS DeepLens llega al final de su vida útil, los usuarios pueden actualizar a un dispositivo más nuevo que ofrezca características y funcionalidades mejoradas.</li><li><strong>Migrar a un servicio en la nube</strong>: Los usuarios pueden considerar migrar sus aplicaciones a un servicio en la nube como Amazon SageMaker, que ofrece una plataforma más escalable y segura para el desarrollo y despliegue de modelos de machine learning.</li><li><strong>Eliminar datos confidenciales</strong>: Es importante eliminar todos los datos confidenciales del dispositivo antes de desecharlo o donarlo.</li></ul>
-<h2 id="conclusi%C3%B3n-y-pr%C3%B3ximos-pasos">Conclusión y próximos pasos</h2>
-<h3 id="caracter%C3%ADsticas-clave-de-aws-deeplens">Características clave de AWS DeepLens</h3>
-<p>En resumen, AWS DeepLens es una cámara de video inteligente que combina el aprendizaje automático con la visión por computadora para desarrolladores. Ofrece características como una cámara de alta definición, un procesador Intel Atom con una GPU integrada, modelos de aprendizaje automático pre-entrenados y <a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">integración con servicios de AWS</a> como Lambda, S3, DynamoDB y Rekognition.</p>
-<h3 id="continuando-la-educaci%C3%B3n-en-aprendizaje-profundo">Continuando la educación en aprendizaje profundo</h3>
-<p>Una vez que haya dominado los conceptos básicos del aprendizaje automático con AWS DeepLens, puede continuar su educación en aprendizaje profundo explorando otras opciones de AWS, como Amazon SageMaker, que ofrece una plataforma más escalable y segura para el desarrollo y despliegue de modelos de machine learning.</p>
-<p><strong>Recursos adicionales</strong></p>
-<ul><li>Cursos y tutoriales de aprendizaje profundo en línea</li><li>Documentación de AWS DeepLens y Amazon SageMaker</li><li>Comunidades de desarrolladores de AWS DeepLens y Amazon SageMaker</li></ul>
-<p><strong>Siguientes pasos</strong></p>
-<ol><li><strong>Explora Amazon SageMaker</strong>: Aprende a desarrollar y desplegar modelos de machine learning en una plataforma escalable y segura.</li><li><strong>Aprovecha los recursos en línea</strong>: Utiliza cursos y tutoriales en línea para ampliar tus habilidades y conocimientos en aprendizaje profundo.</li><li><strong>Únete a la comunidad</strong>: Conecta con otros desarrolladores y expertos en aprendizaje profundo en las comunidades de AWS DeepLens y Amazon SageMaker.</li></ol>
-<h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-machine-learning-en-aws/">Mejores prácticas de machine learning en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/">Introducción a la inteligencia artificial en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/como-desarrollar-aplicaciones-de-inteligencia-artificial-en-aws/">Cómo desarrollar aplicaciones de inteligencia artificial en AWS</a></li></ul>
+<p>AWS DeepLens fue una cámara programable para practicar visión artificial y ejecutar inferencias junto al dispositivo. AWS cerró el servicio el <strong>31 de enero de 2024</strong>: ya no es posible administrar DeepLens desde la consola ni usar sus proyectos como muestran los tutoriales antiguos. AWS la incluye entre los servicios retirados por completo en su <a href="https://docs.aws.amazon.com/general/latest/gr/full_shutdown_services.html" rel="noopener noreferrer" target="_blank">lista oficial de cierres</a>.</p>
+
+<p>Esta guía explica qué cambió para quienes ya tienen una cámara DeepLens y qué caminos actuales sirven para aprender clasificación de imágenes, detección de objetos o inferencia local en el borde.</p>
+
+<h2>Qué era AWS DeepLens</h2>
+
+<p>DeepLens combinaba una cámara con cómputo local y un servicio de AWS para crear proyectos de visión artificial. El modelo procesaba imágenes en el dispositivo; el código podía usar los resultados localmente o enviarlos a otros servicios de AWS. La propuesta era probar el ciclo de captura, inferencia y respuesta sin diseñar desde cero todo el dispositivo.</p>
+
+<p>Ese flujo sigue siendo una buena forma de pensar un proyecto: una cámara produce fotogramas, un modelo identifica patrones y la aplicación decide qué hacer. Lo que terminó fue el producto DeepLens y su administración desde AWS, no el aprendizaje de visión artificial ni la posibilidad de ejecutar modelos en equipos compatibles.</p>
+
+<h2>Qué cambió cuando DeepLens cerró</h2>
+
+<ul>
+  <li><strong>La consola y la administración de DeepLens dejaron de estar disponibles.</strong> AWS anunció que, desde el cierre, no se podían administrar dispositivos ni acceder a proyectos creados con el servicio. La <a href="https://docs.aws.amazon.com/general/latest/gr/full_shutdown_services.html" rel="noopener noreferrer" target="_blank">lista de servicios en cierre total</a> confirma que AWS DeepLens terminó su soporte el 31 de enero de 2024.</li>
+  <li><strong>Las instrucciones de registro y despliegue dejaron de ser aplicables.</strong> No sigas un tutorial que te pida registrar una cámara, crear un proyecto DeepLens en la consola o publicar una función para desplegarla por ese mecanismo.</li>
+  <li><strong>Revisa los recursos de las cuentas que usaste.</strong> El cierre del servicio no confirma que esas cuentas y regiones hayan quedado limpias. Comprueba si todavía necesitas buckets de S3, funciones Lambda, objetos de AWS IoT o roles de IAM relacionados; verifica sus dependencias antes de borrarlos. El almacenamiento o los recursos activos pueden generar cargos.</li>
+  <li><strong>El equipo no recupera soporte por seguir encendido.</strong> AWS retiró DeepLens por completo, así que el servicio ya no está disponible ni recibe soporte, como muestra la <a href="https://docs.aws.amazon.com/general/latest/gr/full_shutdown_services.html" rel="noopener noreferrer" target="_blank">lista oficial de cierres</a>. Si el dispositivo todavía ejecuta código local, eso no implica soporte vigente para hardware o software. No dependas de él para una aplicación nueva.</li>
+</ul>
+
+<p>El cierre también afecta proyectos anteriores: si necesitas un modelo, código o conjunto de datos, búscalo en tus copias locales, repositorios y buckets que aún existan. No cuentes con poder recuperarlo desde la consola de DeepLens.</p>
+
+<h2>Qué usar para aprender visión artificial hoy</h2>
+
+<p>No hay un reemplazo uno a uno para DeepLens. Elige la ruta según lo que quieras entender y dónde deba ejecutarse la inferencia:</p>
+
+<h3>Reconocer objetos o escenas habituales</h3>
+<p><a href="https://docs.aws.amazon.com/rekognition/latest/dg/labels-detect-labels-image.html" rel="noopener noreferrer" target="_blank">Amazon Rekognition, operación DetectLabels</a> recibe una imagen y devuelve etiquetas mediante una API administrada. Sirve para explorar análisis de imágenes; no ejecuta tu modelo localmente en una cámara.</p>
+
+<h3>Clasificar o localizar objetos propios</h3>
+<p><a href="https://docs.aws.amazon.com/rekognition/latest/customlabels-dg/what-is.html" rel="noopener noreferrer" target="_blank">Amazon Rekognition Custom Labels</a> permite entrenar un modelo con imágenes etiquetadas para categorías de tu caso. Revisa los requisitos del conjunto de datos y la modalidad de inferencia antes de empezar.</p>
+
+<h3>Entrenar un modelo con control sobre el flujo de ML</h3>
+<p>Los <a href="https://docs.aws.amazon.com/sagemaker/latest/dg/algorithms-vision.html" rel="noopener noreferrer" target="_blank">algoritmos de visión de Amazon SageMaker AI</a> ofrecen opciones para clasificación, detección y segmentación. Entrenamiento, almacenamiento e inferencia en AWS pueden tener cargos.</p>
+
+<h3>Ejecutar inferencia cerca de la cámara</h3>
+<p>Los <a href="https://docs.aws.amazon.com/greengrass/v2/developerguide/perform-machine-learning-inference.html" rel="noopener noreferrer" target="_blank">componentes de machine learning de AWS IoT Greengrass V2</a> permiten desplegar código, runtime y modelos a un dispositivo compatible. Esta ruta puede servir si necesitas inferencia local sin una llamada por imagen a la nube. Debes elegir y configurar tu propio equipo; no es una cámara lista para usar como lo era DeepLens.</p>
+
+<p>Greengrass V2 ofrece componentes de ejemplo con TensorFlow Lite para clasificación de imágenes y detección de objetos, además de componentes que puedes adaptar a tus modelos. Antes de elegir una placa o una cámara, consulta la <a href="https://docs.aws.amazon.com/greengrass/v2/developerguide/machine-learning-components.html" rel="noopener noreferrer" target="_blank">lista de componentes y plataformas compatibles</a>. La compatibilidad depende del sistema operativo, la arquitectura y los requisitos del modelo; no presupongas que un dispositivo mencionado en un tutorial antiguo sigue siendo una opción soportada.</p>
+
+<p>Una ruta práctica es empezar con imágenes de prueba y distinguir dos tareas: <strong>clasificación</strong> asigna una o más categorías a una imagen; <strong>detección</strong> identifica objetos y su ubicación dentro de la imagen. Luego, compara el resultado con etiquetas revisadas por una persona. Si tu objetivo es un caso específico, reúne imágenes representativas y reserva algunas que no usarás durante el entrenamiento para comprobar cómo responde el modelo ante ejemplos nuevos.</p>
+
+<p>Antes de ejecutar trabajos de entrenamiento o procesar imágenes en AWS, revisa los <a href="https://aws.amazon.com/sagemaker/ai/pricing/" rel="noopener noreferrer" target="_blank">precios de SageMaker AI</a> y los <a href="https://aws.amazon.com/rekognition/pricing/" rel="noopener noreferrer" target="_blank">precios de Rekognition</a> para la región y el uso que planeas. Por ejemplo, Rekognition cobra el análisis de imágenes por uso. Borra al terminar los recursos de prueba que ya no necesites.</p>
+
+<p>Si todavía no tienes una cámara y quieres empezar a practicar AWS sin comprar hardware, nuestra <a href="/blog/aws-gratis-para-educadores-y-estudiantes/">guía de cursos y laboratorios para estudiantes y docentes</a> explica AWS Educate y otras opciones de formación. Esos laboratorios ayudan a aprender servicios de AWS, pero no simulan una cámara ni sustituyen una prueba de inferencia local.</p>
+
+<h2>Evita alternativas que también quedaron obsoletas</h2>
+
+<p>Algunas páginas antiguas sobre DeepLens todavía recomiendan AWS Panorama. El servicio cerró por completo el <strong>20 de mayo de 2026</strong>; <strong>Amazon Lookout for Vision</strong> terminó su soporte el <strong>31 de octubre de 2025</strong>. AWS incluye a ambos en su <a href="https://docs.aws.amazon.com/general/latest/gr/full_shutdown_services.html" rel="noopener noreferrer" target="_blank">lista oficial de cierres</a>. No los elijas como servicios nuevos para proyectos de visión.</p>
+
+<h2>Recursos, comunidades y ayuda</h2>
+
+<ul>
+  <li><strong>Para una introducción a ML en AWS:</strong> la grabación de 2021 <a href="https://www.youtube.com/watch?v=4IAJOSCwWOo" rel="noopener noreferrer" target="_blank">“Machine Learning para developers con Amazon SageMaker”</a> es una charla del AWS User Group Peru. Úsala como material conceptual; la consola y los procedimientos pueden haber cambiado.</li>
+  <li><strong>Para conectar dispositivos con AWS IoT:</strong> el AWS User Group Ecuador publicó en 2024 la charla <a href="https://www.youtube.com/watch?v=ilMHiOXCZns" rel="noopener noreferrer" target="_blank">“Introducción al IoT en AWS con IoT Core y el ESP8266”</a>. Trata la conexión de hardware a la nube; no es una guía para reactivar DeepLens.</li>
+  <li><strong>Para ver un ejemplo de IoT más reciente:</strong> el artículo <a href="https://dev.to/alvarongg/como-arme-un-pit-wall-con-aws-iot-core-y-por-que-este-patron-sirve-para-cualquier-industria-4lo1" rel="noopener noreferrer" target="_blank">“Cómo armé un Pit Wall con AWS IoT Core”</a> explica una arquitectura de telemetría y enlaza su <a href="https://github.com/alvarongg/charlas-pub" rel="noopener noreferrer" target="_blank">código y materiales de la charla</a>. Es un complemento sobre datos de dispositivos, no sobre visión artificial.</li>
+  <li><strong>Para conversar sobre ML en la región:</strong> consulta el <a href="https://www.meetup.com/aws-ug-machine-learning-latam/" rel="noopener noreferrer" target="_blank">AWS UG Machine Learning Latam</a>, un grupo de Meetup centrado en aprendizaje automático en Latinoamérica. Revisa su perfil para conocer sus próximas actividades.</li>
+  <li><strong>Para encontrar grupos y eventos cerca de ti:</strong> el <a href="https://dondeaprendoaws.com/comunidades/" rel="noopener noreferrer" target="_blank">directorio de comunidades AWS</a> permite explorar grupos por país, tipo y tema. La <a href="https://dondeaprendoaws.com/eventos/" rel="noopener noreferrer" target="_blank">agenda de eventos AWS en Latinoamérica</a> muestra modalidad, fechas e inscripción; confirma los datos en la ficha del organizador.</li>
+  <li><strong>Para una pregunta técnica de AWS:</strong> <a href="https://repost.aws/" rel="noopener noreferrer" target="_blank">AWS re:Post</a> reúne preguntas y respuestas de la comunidad sobre diseño, construcción y operación de servicios de AWS.</li>
+</ul>
+
+<h2>Preguntas frecuentes</h2>
+
+<h3>¿Se puede registrar o configurar una cámara AWS DeepLens nueva?</h3>
+<p>No. El servicio para registrar y administrar dispositivos y proyectos cerró el 31 de enero de 2024. Los pasos de consola que aparecen en tutoriales viejos ya no funcionan como un flujo actual.</p>
+
+<h3>¿Cómo compruebo si quedaron recursos de mis proyectos DeepLens?</h3>
+<p>Revisa los servicios y las regiones de las cuentas que utilizaste. No des por hecho que el cierre de DeepLens limpió esas cuentas: comprueba los buckets, funciones, objetos de IoT y roles relacionados, y sus dependencias. Antes de eliminar algo, confirma que no lo necesite otra aplicación.</p>
+
+<h3>¿Qué necesito para hacer inferencia local ahora?</h3>
+<p>Un dispositivo que cumpla los requisitos actuales de AWS IoT Greengrass y del runtime de tu modelo, además del código y los permisos para desplegar componentes. Comprueba esa compatibilidad antes de elegir hardware.</p>
