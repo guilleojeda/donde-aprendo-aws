@@ -1,404 +1,132 @@
 ---
-title: "AWS Web Application Firewall (WAF)"
-description: "Protege tus aplicaciones web en AWS con AWS Web Application Firewall (WAF) y descubre cómo integrarlo con otros servicios de AWS. Aprende sobre sus componentes, casos de uso y mejores prácticas."
+title: "AWS WAF: qué es, cómo funciona y cómo configurarlo"
+description: "Guía de AWS WAF v2: Web ACL, ámbitos CloudFront y regionales, API Gateway REST, reglas administradas, falsos positivos, límites de inspección, registros y costos."
 author: "guille-ojeda"
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T01:28:49.211Z"
+modifiedTimestamp: "2026-10-05T23:42:46Z"
+review:
+  date: "2026-10-05"
 cover: "/assets/blog/editorial-seguridad.png"
 coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-seguridad.png"
 related:
-  - title: "10 métricas clave de DevOps en AWS"
-    url: "https://dondeaprendoaws.com/blog/10-metricas-clave-de-devops-en-aws/"
-  - title: "Microservicios en AWS utilizando contenedores"
-    url: "https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-contenedores/"
-  - title: "Recursos en español para certificacion AWS Cloud Practitioner"
-    url: "https://dondeaprendoaws.com/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/"
-
+  - title: "Servicios de seguridad de AWS: cuál usar para cada problema"
+    url: "https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/"
+  - title: "Mejores prácticas de seguridad en AWS: checklist y cómo verificarlas"
+    url: "https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/"
+  - title: "AWS X-Ray: trazas, diagnóstico y OpenTelemetry"
+    url: "https://dondeaprendoaws.com/blog/aws-x-ray-herramientas-de-depuracion-y-rastreo-distribuido/"
 ---
 
-<p>Si buscas proteger tus aplicaciones web en AWS de ataques y bots maliciosos, AWS WAF es tu solución. Este firewall de aplicaciones web te permite controlar el acceso a tus aplicaciones mediante reglas personalizables, ofreciendo protección contra ataques comunes como inyecciones SQL y XSS. Además, se integra perfectamente con otros servicios de AWS, como CloudFront y API Gateway, para brindarte una seguridad completa. Aquí te doy un resumen de lo más importante:</p>
+AWS WAF v2 (Web Application Firewall) inspecciona solicitudes HTTP(S) que llegan a un recurso de AWS protegido y aplica reglas para permitirlas, bloquearlas, contarlas o pedir una comprobación al cliente. La configuración vive en una **Web ACL** —la documentación y la consola nuevas también la llaman *protection pack (web ACL)*— que se asocia con recursos compatibles, como una distribución de CloudFront, un Application Load Balancer (ALB) o una API Gateway REST API.
 
+La primera decisión es el **alcance**: CloudFront usa el ámbito global de CloudFront y se configura desde **us-east-1**; una Web ACL regional debe estar en la misma Región que el recurso protegido. API Gateway admite la asociación directa documentada con una **REST API**, no con una HTTP API. Después hay que probar las reglas con tráfico representativo: una regla administrada puede detectar una solicitud válida como sospechosa y cortar una operación real.
 
-<ul>
-<li><strong>Controla el acceso a tus aplicaciones</strong>: Decide qué tráfico permitir o bloquear.</li>
-<li><strong>Protección actualizada</strong>: Reglas gestionadas por AWS contra las últimas amenazas.</li>
-<li><strong>Integración con servicios AWS</strong>: Trabaja junto a CloudFront, API Gateway, entre otros.</li>
-<li><strong>Seguridad escalable</strong>: Maneja grandes volúmenes de tráfico sin comprometer el rendimiento.</li>
-</ul>
+AWS WAF añade una capa para filtrar solicitudes web, pero no corrige vulnerabilidades de la aplicación ni sustituye autenticación, autorización, validación de entradas, parches o defensas contra DDoS de otras capas. La [guía oficial de AWS WAF](https://docs.aws.amazon.com/waf/latest/developerguide/waf-chapter.html) describe sus recursos y funciones.
 
+## Qué es una Web ACL y qué hace AWS WAF
 
-<p>AWS WAF es una herramienta clave para mantener tus aplicaciones web seguras, permitiéndote personalizar reglas específicas para tu tráfico esperado, minimizar falsos positivos y revisar métricas regularmente para ajustes necesarios. Implementarlo correctamente puede significar una gran diferencia en la seguridad y disponibilidad de tus aplicaciones web en AWS.</p>
+Una Web ACL reúne reglas y un resultado predeterminado para el tráfico que no coincide con una regla que ya haya terminado la evaluación. Puedes asociarla con uno o varios recursos compatibles. Cada regla compara partes de la solicitud —por ejemplo, la IP de origen, la ruta, una cabecera, parámetros o parte del cuerpo— y aplica la acción que configuraste. Para una introducción práctica, el AWS User Group Ecuador tiene la sesión [“Protegiendo tus aplicaciones web con AWS WAF”](https://www.youtube.com/watch?v=ropgqUGWhro); contrasta los pasos de una grabación con la documentación actual.
 
+Las reglas pueden ser tuyas o venir en grupos administrados por AWS o por vendedores de AWS Marketplace. Por ejemplo, el grupo base Core rule set (AWSManagedRulesCommonRuleSet) incluye reglas para patrones comunes de XSS; el grupo administrado SQL database (AWSManagedRulesSQLiRuleSet) busca patrones asociados con inyección SQL. Revisa las reglas de la versión que agregas: ningún grupo garantiza cubrir todas las variantes de ataque ni corrige un endpoint vulnerable. Consulta la lista de [grupos base de AWS](https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-baseline.html) y [grupos administrados según el caso de uso](https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-use-case.html).
 
-<h2 id="%C2%BFqu%C3%A9-es-aws-waf%3F" tabindex="-1">¿Qué es AWS WAF?</h2>
+WAF solo inspecciona el tráfico que atraviesa el recurso al que asociaste la Web ACL. Si un origen todavía puede recibir solicitudes directas que no pasan por CloudFront, una regla conectada únicamente a CloudFront no filtra esa ruta alternativa.
 
+## Elige el ámbito y comprueba el servicio antes de crear la Web ACL
 
-<p>AWS WAF (Web Application Firewall) es una herramienta de seguridad diseñada para proteger tus aplicaciones web y APIs de ataques y bots malintencionados que pueden hacer que tu página no funcione correctamente, ponga en riesgo tu seguridad o use demasiados recursos.</p>
+AWS WAF tiene dos ámbitos principales. Elige el que corresponde al recurso; el ámbito determina dónde se guarda la Web ACL y qué recursos puede proteger.
 
+**Global (CLOUDFRONT).** Se usa para una distribución de Amazon CloudFront. La Web ACL y los recursos de WAF relacionados se configuran en **us-east-1** (N. Virginia), aunque los orígenes estén en otras Regiones.
 
-<p>Esta herramienta te permite decidir qué tráfico puede acceder a tus aplicaciones mediante reglas de seguridad. Esto es útil para manejar el tráfico de bots y detener ataques comunes antes de que afecten tu página.</p>
+**Regional (REGIONAL).** Se usa para Application Load Balancer, API Gateway REST API, AWS AppSync, Amazon Cognito, App Runner, Verified Access y AgentCore Gateway. La Web ACL debe estar en la misma Región que el recurso protegido.
 
+Las aplicaciones de AWS Amplify también admiten AWS WAF; la referencia de la API especifica el ámbito **CLOUDFRONT** para ellas. El episodio de Desplegando Cloud sobre la [integración de AWS WAF con Amplify Hosting](https://www.youtube.com/watch?v=hpBiGK0u07E) presenta un ejemplo de esa opción; es una grabación, no una referencia de configuración vigente. Consulta la lista actual de [recursos que puedes proteger](https://docs.aws.amazon.com/waf/latest/developerguide/how-aws-waf-works-resources.html) y la referencia de [creación de Web ACL](https://docs.aws.amazon.com/waf/latest/developerguide/web-acl-creating.html) antes de elegir una Región.
 
-<h3 id="caracter%C3%ADsticas-clave" tabindex="-1">Características clave</h3>
+La asociación directa de API Gateway está documentada para **REST API** y se realiza en una etapa de la API con una Web ACL regional de la misma Región. AWS WAF no lista la HTTP API entre los tipos con asociación directa. Para ver una arquitectura de sitio estático que combina Vue.js, S3, CloudFront y WAF, revisa la [grabación del meetup de AWS User Group Panamá](https://www.youtube.com/watch?v=Y6PScTDqAsU); sirve como caso de CloudFront, no como guía para asociar WAF a una HTTP API. Si una arquitectura coloca una distribución de CloudFront delante de una HTTP API, puedes asociar WAF a CloudFront para revisar las solicitudes que pasan por esa distribución; comprueba también que los clientes no puedan saltarse esa capa y llamar al origen por otra ruta. AWS explica la asociación en [proteger REST API de API Gateway con AWS WAF](https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-control-access-aws-waf.html).
 
+## Cómo decide WAF el resultado de una solicitud
 
-<ul>
-<li>Defensa contra ataques como inyecciones SQL y XSS, que son formas comunes de intentar dañar tu página.</li>
-<li>Reglas ajustables para proteger tu página según tus necesidades específicas.</li>
-<li>Capacidad para filtrar quién puede acceder a tu página basándose en varios factores como la dirección IP o el tipo de solicitud.</li>
-<li>Fácil de usar con otros servicios de AWS como CloudFront y API Gateway.</li>
-<li>Opción de crear tus propias reglas para luchar contra nuevos ataques.</li>
-</ul>
+En una Web ACL puedes ordenar reglas con una prioridad numérica: AWS WAF evalúa primero el número más bajo. Las acciones de seguridad más comunes son:
 
+- **Allow** acepta la solicitud y termina la evaluación.
+- **Block** rechaza la solicitud y termina la evaluación.
+- **Count** registra la coincidencia y continúa con las reglas siguientes. Sirve para observar el posible efecto antes de bloquear.
+- **Challenge** y **CAPTCHA** comprueban el estado del token del cliente. Si es válido, WAF continúa como con Count; si falta, no es válido o expiró, detiene la evaluación y bloquea esa solicitud.
 
-<h3 id="beneficios" tabindex="-1">Beneficios</h3>
+Si ninguna regla termina la evaluación, AWS WAF usa la acción predeterminada de la Web ACL. Por eso un **Allow** con un número de prioridad menor puede impedir que reglas posteriores se evalúen; revisa el orden cuando interpretes métricas. Las reglas **Challenge** y **CAPTCHA** están pensadas para clientes de navegador en HTTPS y pueden generar cargos adicionales. La guía actual de [acciones de reglas](https://docs.aws.amazon.com/waf/latest/developerguide/waf-rule-action.html) detalla su comportamiento; CloudFront también ofrece una acción **Monetize** separada, para casos de cobro por acceso a contenido.
 
+## Un comienzo prudente desde la consola
 
-<ul>
-<li>Aumenta la seguridad de tus aplicaciones web y APIs contra bots y varios ataques.</li>
-<li>Mejora el rendimiento al evitar tráfico no deseado antes de que llegue a tu servidor.</li>
-<li>Ayuda a ahorrar en costos al reducir el tráfico innecesario.</li>
-<li>Apoya el cumplimiento de normas de seguridad para tus aplicaciones.</li>
-<li>Mantiene a tus usuarios contentos al asegurar que tu aplicación esté segura.</li>
-</ul>
+Un ejemplo de consola para evaluar reglas sobre un sitio detrás de CloudFront podría seguir estos pasos:
 
+1. En AWS WAF, abre **Resources & protection packs (web ACLs)** y elige **Add protection pack (web ACL)**. Para una distribución de CloudFront, selecciona ese tipo de recurso y el ámbito **Global (CloudFront)**; AWS fija la Región en **us-east-1**.
+2. Selecciona el recurso correcto y agrega solo reglas que correspondan a los riesgos y rutas de tu aplicación. Si agregas un grupo administrado, revisa su proveedor, versión, reglas y condiciones de uso.
+3. En un entorno de prueba, ejecuta solicitudes legítimas representativas y casos de prueba. Configura las reglas que evalúas en **Count** para observar sus coincidencias sin que esas reglas bloqueen; otras reglas de la Web ACL todavía pueden decidir el resultado.
+4. Revisa las métricas y, si habilitaste registros, identifica qué regla coincidió y con qué parte de la solicitud. Ajusta el alcance o una regla concreta si bloquea operaciones válidas.
+5. Cuando el resultado sea aceptable, activa la acción que corresponda para producción y vuelve a observar el tráfico después del cambio.
 
-<h2 id="componentes-centrales-de-aws-waf" tabindex="-1">Componentes centrales de AWS WAF</h2>
+Para un ALB en **us-west-2**, el mismo ejemplo usaría el ámbito **Regional** y esa Región, no **us-east-1**. La [guía de pruebas y ajuste de AWS WAF](https://docs.aws.amazon.com/waf/latest/developerguide/web-acl-testing.html) recomienda probar primero en staging o pruebas y luego observar reglas en modo **Count** con tráfico de producción antes de activarlas.
 
+## Reglas administradas: prueba y ajusta los falsos positivos
 
-<p>AWS WAF tiene unos componentes principales que ayudan a mantener tus aplicaciones web seguras:</p>
+Las reglas administradas reducen el trabajo de mantener patrones de detección, pero no conocen todas las entradas válidas de tu aplicación. Una regla de inyección puede coincidir, por ejemplo, con texto que tu producto permite en un formulario. Por eso no pases de añadir un grupo administrado a bloquear en producción sin observar coincidencias.
 
+AWS permite anular la acción de reglas individuales de un grupo administrado y ponerlas en **Count** para probarlas. También puedes reducir el alcance del grupo con una condición *scope-down* o excluir una regla concreta cuando hayas confirmado la causa del falso positivo. Haz una excepción estrecha para el endpoint y el patrón legítimos; desactivar el grupo completo puede eliminar la protección que sí necesitabas. Comprueba las versiones y las notas del proveedor cuando actualices reglas. Consulta [cómo trabajar con grupos de reglas administrados](https://docs.aws.amazon.com/waf/latest/developerguide/waf-using-managed-rule-groups.html).
 
-<h3 id="web-acls" tabindex="-1">Web ACLs</h3>
+Mantén separados estos pasos: registra el patrón legítimo que causó la coincidencia, verifica la regla en **Count**, modifica solo el alcance necesario y vuelve a probar antes de bloquear. Si las solicitudes coincidentes se relacionan con datos personales, tokens o credenciales, limita también los datos que guardas en registros y muestras.
 
+## Reglas basadas en tasa no son cuotas exactas
 
-<p>Las Web ACLs son como listas de reglas que usas para proteger tus aplicaciones en AWS. Creas una lista, le agregas reglas que dicen qué hacer con ciertas visitas a tu web, y decides si esas visitas se permiten o se bloquean. Piensa en esto como en hacer una lista de invitados para una fiesta, donde decides quién entra y quién no.</p>
+Una regla basada en tasa estima cuántas solicitudes coinciden durante una ventana y aplica la acción configurada cuando el tráfico supera el umbral. Puedes acotarla a rutas o agrupar solicitudes mediante claves como la IP, según la capacidad y la definición de la regla. Es útil para mitigar una frecuencia inusual de solicitudes, como intentos repetidos contra una ruta de acceso.
 
+AWS WAF **no garantiza un límite exacto de solicitudes**. Estima la tasa dando más peso a solicitudes recientes, puede tardar en aplicar o retirar la mitigación y sus conteos pueden cambiar al modificar los ajustes. No la uses como contador preciso para cuotas comerciales, consumo facturable o límites por usuario que deban cumplirse exactamente. Si la preocupación son redes de bots y necesitas estudiar detección y bloqueo más allá de un umbral por tasa, [“BotBusters: AWS Unleashed for Ghost Hunting”](https://www.nerdearla.com/nerdflix/fg2IHEcRIgM/) presenta un caso avanzado que integra AWS WAF con Kestrel y OpenCTI. Para escuchar comentarios en español sobre el panel anti-bots de WAF, está el episodio de marzo de 2026 [“El Nuevo Panel Anti-Bots de AWS WAF”](https://desplegando.substack.com/p/el-nuevo-panel-anti-bots-de-aws-waf); es una grabación de novedades, así que comprueba el comportamiento vigente en la documentación oficial. Lee las [limitaciones de reglas basadas en tasa](https://docs.aws.amazon.com/waf/latest/developerguide/waf-rule-statement-type-rate-based-caveats.html) antes de definir umbrales.
 
-<p>Una Web ACL es básicamente una herramienta de AWS WAF.</p>
+## Tamaño del cuerpo e inspección de solicitudes grandes
 
+AWS WAF no siempre puede revisar el cuerpo completo de una solicitud. Los límites dependen del recurso:
 
-<h3 id="reglas" tabindex="-1">Reglas</h3>
+- **Application Load Balancer y AWS AppSync:** WAF inspecciona los primeros 8 KB; el límite es fijo.
+- **CloudFront, API Gateway, Amazon Cognito, App Runner, Verified Access y AgentCore Gateway:** el límite predeterminado es 16 KB. Puedes aumentarlo en incrementos de 16 KB, hasta 64 KB.
 
+Aumentar el límite de inspección no cambia los umbrales de las reglas que ya agregaste. Por ejemplo, `SizeRestrictions_BODY` del Core rule set bloquea cuerpos mayores de 8 KB (8192 bytes) en la versión documentada, aunque CloudFront permita inspeccionar 16 KB o más. Si una carga legítima sigue bloqueada, identifica la regla exacta y prueba una excepción estrecha; consulta las [reglas y versiones del Core rule set](https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-baseline.html).
 
-<p>Las reglas son instrucciones que revisan las visitas a tu página y deciden qué hacer con ellas. Si una visita cumple con los criterios de una regla, puedes bloquearla, permitirla, contarla o incluso ponerle un desafío, como un CAPTCHA. Es como tener un portero que verifica si los visitantes cumplen con ciertas condiciones para entrar.</p>
+Para una solicitud que supera el límite, WAF inspecciona solo la parte disponible. Si finalmente la permite, el recurso protegido recibe la solicitud completa, incluidos los bytes que WAF no pudo inspeccionar. Configura el manejo de solicitudes grandes de cada regla que inspecciona el cuerpo:
 
+- **Continue** evalúa con los bytes disponibles; no amplía lo que WAF puede ver.
+- **Match** trata el componente grande como una coincidencia, sin comprobar el patrón. Con una acción **Block**, puede rechazar la solicitud por superar el límite.
+- **No match** trata esa regla como no coincidente y WAF sigue evaluando las reglas posteriores.
 
-<p>Una regla no es una herramienta por sí misma en AWS WAF. Solo existe cuando la pones en una Web ACL o en un grupo de reglas.</p>
+Elige la opción según el tamaño legítimo de las solicitudes y el comportamiento esperado del recurso. Si tu aplicación recibe cargas grandes, no supongas que AWS WAF revisa todo el contenido: valida también el cuerpo en la aplicación y define explícitamente qué hacer con los bytes no inspeccionados. Revisa los [límites de inspección del cuerpo](https://docs.aws.amazon.com/waf/latest/developerguide/web-acl-setting-body-inspection-limit.html) y el [manejo de componentes de solicitud grandes](https://docs.aws.amazon.com/waf/latest/developerguide/waf-oversize-request-components.html). Para tráfico gRPC hacia CloudFront o un ALB, WAF omite las reglas de inspección del cuerpo; las demás reglas de la Web ACL siguen aplicándose.
 
+## Métricas, registros, privacidad y costo
 
-<h3 id="grupos-de-reglas" tabindex="-1">Grupos de reglas</h3>
+Las métricas de CloudWatch y las muestras de solicitudes ayudan a ver qué reglas coinciden. Si necesitas investigar una solicitud con más detalle, puedes enviar registros de tráfico WAF a CloudWatch Logs, Amazon S3 o Amazon Data Firehose. Los registros pueden contener rutas, parámetros, cabeceras y otros datos de solicitud; habilita los campos necesarios, conserva los datos el tiempo que requiera tu investigación y limita quién puede leerlos.
 
+AWS WAF ofrece opciones de protección de datos para sustituir u ocultar algunos valores antes de que se usen en registros y otros resultados. La redacción configurada solo para los logs cubre campos concretos y no equivale a proteger todos los campos de una solicitud. Revisa la [protección de datos y registros de AWS WAF](https://docs.aws.amazon.com/waf/latest/developerguide/waf-data-protection-and-logging.html), en especial si las solicitudes contienen tokens, secretos o información personal.
 
-<p>Puedes crear tus propias reglas o usar grupos de reglas que ya vienen hechos, algunos por AWS y otros por vendedores en AWS Marketplace. Es como tener un kit de herramientas para proteger tu página, con la opción de personalizarlo o usar uno pre-hecho.</p>
+El costo depende, entre otros factores, de las Web ACL, las reglas y los grupos añadidos, las solicitudes inspeccionadas, la capacidad utilizada y las funciones activadas. **Challenge**, **CAPTCHA**, ciertos grupos, la inspección de cuerpos por encima del límite base y el envío de logs pueden sumar cargos; el destino también puede cobrar entrega, ingestión y almacenamiento. Consulta los [destinos de registros de AWS WAF](https://docs.aws.amazon.com/waf/latest/developerguide/logging-destinations.html) y sus precios. Estima el diseño en la página de [precios de AWS WAF](https://aws.amazon.com/waf/pricing/) y los precios del destino de registros; no actives registro completo sin decidir qué preguntas necesitas responder.
 
+## Preguntas frecuentes sobre AWS WAF
 
-<p>Un grupo de reglas sí es una herramienta de AWS WAF.</p>
+### ¿AWS WAF funciona con API Gateway HTTP API?
 
+La asociación directa de AWS WAF que API Gateway documenta es para REST API. HTTP API no aparece como recurso con asociación directa. Si una distribución de CloudFront recibe el tráfico antes que tu HTTP API, puedes asociar una Web ACL a CloudFront para filtrar las solicitudes que atraviesan esa distribución.
 
-<h2 id="casos-de-uso-comunes" tabindex="-1">Casos de uso comunes</h2>
+### ¿AWS WAF detiene una solicitud antes de que llegue a la aplicación?
 
+Cuando una regla **Block** coincide, AWS WAF detiene la solicitud antes de que el recurso protegido la procese. Si la acción permite que la solicitud continúe, entonces puedes investigar errores o latencia dentro de la aplicación. Una solicitud bloqueada no genera una traza de aplicación de AWS X-Ray; para diagnosticarla, consulta métricas, muestras o registros de AWS WAF. Para una solicitud permitida que falla o es lenta, la [guía de AWS X-Ray sobre rastreo distribuido](https://dondeaprendoaws.com/blog/aws-x-ray-herramientas-de-depuracion-y-rastreo-distribuido/) sirve como siguiente lectura.
 
-<p>Algunos ejemplos de cómo AWS WAF puede ser útil:</p>
+### ¿AWS WAF es suficiente contra ataques DDoS?
 
+AWS WAF filtra solicitudes HTTP(S) y ayuda a controlar amenazas de capa de aplicación. No es un sustituto de AWS Shield ni de una arquitectura que maneje otros tipos de tráfico y picos. Para distinguir ambos servicios, consulta la charla de AWS Women Colombia [“El Ataque del Nivel 200: AWS WAF y AWS Shield”](https://www.youtube.com/watch?v=Q8dyJiOcE7M) y la [guía de servicios de seguridad de AWS](https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/).
 
-<h3 id="filtrado-de-tr%C3%A1fico-web" tabindex="-1">Filtrado de tráfico web</h3>
+### ¿Qué reviso si una regla administrada bloquea tráfico válido?
 
+Busca la regla coincidente en las métricas y registros, valida la solicitud afectada y cambia esa regla a **Count** para observarla si necesitas más evidencia. Después limita la excepción al endpoint o patrón legítimo y prueba otra vez antes de restablecer el bloqueo. La [lista de verificación de seguridad en AWS](https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/) ayuda a situar WAF dentro de los controles más amplios de una aplicación.
 
-<p>Con AWS WAF, puedes crear reglas para controlar quién puede entrar a tus aplicaciones y APIs. Esto incluye:</p>
+## Comunidades y canales para aprender AWS en español
 
+Para seguir sesiones de seguridad y conversar con otras personas, puedes visitar el [AWS User Group Security Ecuador](https://www.awssecurityecuador.com/) o el canal regional en español de [AWS Security Users Group LatAm](https://www.youtube.com/@AWSSecurityLATAM). También hay grupos generalistas: el [AWS User Group Ciudad de México](https://awsugcdmx.com/) reúne encuentros sobre varios temas de AWS, incluida seguridad.
 
-<ul>
-<li><strong>Dirección IP de origen</strong>: Puedes decidir bloquear o permitir ciertos rangos de IP. Esto es útil si quieres evitar visitas sospechosas o si solo quieres que gente de tu oficina acceda.</li>
-<li><strong>Encabezados de solicitud</strong>: Puedes filtrar visitas basándote en detalles como el tipo de navegador que usan.</li>
-<li><strong>Cuerpo de la solicitud</strong>: Puedes buscar palabras o patrones específicos en el contenido que la gente envía.</li>
-<li><strong>URIs</strong>: Puedes decidir qué páginas de tu sitio permites o bloqueas.</li>
-</ul>
-
-
-<p>Esto te da un control detallado sobre el tráfico a tus aplicaciones.</p>
-
-
-<h3 id="prevenci%C3%B3n-de-fraude" tabindex="-1">Prevención de fraude</h3>
-
-
-<p>AWS WAF te ayuda a evitar el fraude al monitorear las páginas de acceso como las de inicio de sesión, registro y recuperación de contraseñas. Puedes detectar y bloquear intentos de acceso no autorizados.</p>
-
-
-<p>Puedes configurar reglas para identificar comportamientos raros, como muchos intentos fallidos de acceso desde una misma IP, lo que ayuda a prevenir ataques.</p>
-
-
-<h3 id="administraci%C3%B3n-con-apis" tabindex="-1">Administración con APIs</h3>
-
-
-<p>AWS WAF te permite usar APIs para manejar tus Web ACLs y reglas automáticamente. Esto es útil para:</p>
-
-
-<ul>
-<li>Crear reglas automáticamente basadas en IPs o patrones identificados por otros sistemas de seguridad.</li>
-<li>Actualizar muchas reglas de una vez si aparecen nuevas amenazas.</li>
-<li>Integrar la configuración de seguridad en tus procesos de despliegue automáticos.</li>
-</ul>
-
-
-<p>Así, puedes mantener tus defensas de AWS WAF actualizadas y adecuadas a tus necesidades.</p>
-
-
-<h2 id="integraci%C3%B3n-con-otros-servicios" tabindex="-1">Integración con otros servicios</h2>
-
-
-<p>AWS WAF trabaja junto a otros servicios de AWS para mejorar la seguridad:</p>
-
-
-<h3 id="cloudfront" tabindex="-1"><a href="https://aws.amazon.com/es/cloudfront/" rel="noopener noreferrer" target="_blank">CloudFront</a></h3>
-
-
-<p><figure><img alt="CloudFront" src="/assets/blog/a0c1460dcd2de2a74c2abb39.jpg"/></figure></p>
-
-
-<p>Es una manera de distribuir contenido en la web.</p>
-
-
-<p>Usar AWS WAF con CloudFront ayuda a proteger tu contenido. Al conectar una Web ACL de AWS WAF con CloudFront, las reglas que has establecido en AWS WAF se aplican al tráfico que pasa por allí. Así, puedes detener solicitudes dañinas antes de que lleguen a tus servidores.</p>
-
-
-<p>Beneficios de esta combinación incluyen:</p>
-
-
-<ul>
-<li>Defensa contra ataques masivos, conocidos como DDoS, absorbiendo mucho tráfico en los puntos de acceso de CloudFront.</li>
-<li>La capacidad de ajustar las reglas de seguridad según el país o región.</li>
-<li>Menos demora al rechazar solicitudes no deseadas cerca de donde están los usuarios.</li>
-</ul>
-
-
-<h3 id="api-gateway" tabindex="-1"><a href="https://aws.amazon.com/es/api-gateway/" rel="noopener noreferrer" target="_blank">API Gateway</a></h3>
-
-
-<p><figure><img alt="API Gateway" src="/assets/blog/1d1422fb141d525a7f7c259a.jpg"/></figure></p>
-
-
-<p>Para crear, publicar y manejar APIs.</p>
-
-
-<p>AWS WAF puede ayudar a proteger tus APIs en API Gateway. Las reglas que estableces se usan cuando alguien accede a tus APIs.</p>
-
-
-<p>Esto ayuda a:</p>
-
-
-<ul>
-<li>Controlar quién puede hacer qué en tus APIs basándose en su IP o cómo se autentican.</li>
-<li>Parar intentos de adivinar tus contraseñas de API por fuerza bruta.</li>
-<li>Vigilar y gestionar cómo aplicaciones de terceros usan tus APIs.</li>
-</ul>
-
-
-<p>Como con CloudFront, esto ayuda a proteger tus sistemas y hace que tus APIs funcionen mejor.</p>
-
-
-<h3 id="application-load-balancer" tabindex="-1"><a href="https://aws.amazon.com/es/elasticloadbalancing/" rel="noopener noreferrer" target="_blank">Application Load Balancer</a></h3>
-
-
-<p><figure><img alt="Application Load Balancer" src="/assets/blog/254f3b4ab30cc71cc179f2b5.jpg"/></figure></p>
-
-
-<p>Para equilibrar la carga de tus aplicaciones.</p>
-
-
-<p>Puedes poner AWS WAF delante de tus balanceadores de carga para revisar el tráfico antes de que llegue a tus servidores.</p>
-
-
-<p>Esto es útil si tienes tus servidores en EC2 o en tus propias instalaciones y buscas una protección extra.</p>
-
-
-<p>Los beneficios son:</p>
-
-
-<ul>
-<li>Menos carga en tus servidores al filtrar solicitudes que no son válidas.</li>
-<li>Poder usar diferentes reglas de seguridad para diferentes grupos de servidores.</li>
-<li>Es fácil de añadir sin tener que cambiar tu aplicación actual.</li>
-</ul>
-
-
-<p>De esta manera, AWS WAF se convierte en una barrera muy efectiva para proteger tus aplicaciones.</p>
-
-
-
-
-<h2 id="mejores-pr%C3%A1cticas" tabindex="-1">Mejores prácticas</h2>
-
-
-<p>Al seguir estas recomendaciones, podrás usar AWS WAF de manera más eficiente:</p>
-
-
-<h3 id="minimizar-falsos-positivos" tabindex="-1">Minimizar falsos positivos</h3>
-
-
-<p>Es importante ajustar las reglas para evitar bloquear usuarios legítimos. Aquí van algunos consejos:</p>
-
-
-<ul>
-<li>Empieza con reglas amplias y luego ve afinándolas. Por ejemplo, primero bloquea rangos grandes de IP y después ve excluyendo las IPs que sabes que son seguras.</li>
-<li>Prueba las reglas en modo "cuenta" antes de decidir bloquear el tráfico, así puedes ver cómo afectan.</li>
-<li>Usa páginas de error que los usuarios puedan ver si son bloqueados por error, para que puedan avisarte.</li>
-<li>Revisa los registros para encontrar solicitudes legítimas que hayan sido bloqueadas y ajusta tus reglas según sea necesario.</li>
-</ul>
-
-
-<h3 id="probar-ante-varios-escenarios" tabindex="-1">Probar ante varios escenarios</h3>
-
-
-<p>Es importante asegurarse de que tus reglas y Web ACLs funcionen bien en diferentes situaciones. Algunas sugerencias:</p>
-
-
-<ul>
-<li>Haz pruebas con varios tipos de solicitudes legítimas y ataques comunes.</li>
-<li>Prueba cómo funcionan desde diferentes lugares y con distintos dispositivos.</li>
-<li>Comprueba que tus reglas personalizadas están trabajando como deberían.</li>
-<li>Asegúrate de que las reglas no estén causando mucha lentitud o problemas de rendimiento.</li>
-</ul>
-
-
-<h3 id="revisar-m%C3%A9tricas-con-regularidad" tabindex="-1">Revisar métricas con regularidad</h3>
-
-
-<p>Es útil mirar las métricas de AWS WAF en CloudWatch para ver si hay algo raro y hacer ajustes. Por ejemplo:</p>
-
-
-<ul>
-<li>Observa las solicitudes que han sido bloqueadas por cada regla para ver si hay nuevos patrones de ataque.</li>
-<li>Revisa las solicitudes que se han permitido para asegurarte de que no haya un aumento sospechoso.</li>
-<li>Mira los tiempos de respuesta para confirmar que no hay problemas de rendimiento debido a reglas muy complejas.</li>
-<li>Cambia los límites si ves que el tráfico normal de tu aplicación cambia.</li>
-</ul>
-
-
-<p>Al estar al tanto de las métricas, puedes mantener tu AWS WAF funcionando de la mejor manera posible.</p>
-
-
-<h2 id="comenzando-con-aws-waf" tabindex="-1">Comenzando con AWS WAF</h2>
-
-
-<p>Una guía simple para proteger tu aplicación web con AWS WAF:</p>
-
-
-<h3 id="1.-crear-una-web-acl" tabindex="-1">1. Crear una web ACL</h3>
-
-
-<p>Primero, necesitas crear una Web ACL en AWS WAF. Esto es como hacer una lista de reglas que decides aplicar para proteger tu sitio. Puedes elegir reglas que AWS ya tiene preparadas, como protección contra problemas comunes de seguridad.</p>
-
-
-<h2 id="ejemplo-de-c%C3%B3mo-crear-una-web-acl" tabindex="-1">Ejemplo de cómo crear una web ACL</h2>
-
-
-<ul>
-<li>Nombre: WebACL-miapp</li>
-<li>Región: us-east-1</li>
-<li>Reglas:</li>
-<li>Reglas básicas de OWASP</li>
-<li>Reputación de IP de AWS</li>
-</ul>
-
-
-<h3 id="2.-asociar-la-web-acl-a-un-alb" tabindex="-1">2. Asociar la web ACL a un ALB</h3>
-
-
-<p>Después de crear la Web ACL, necesitas conectarla con tu equilibrador de carga (ALB). Esto hace que el tráfico hacia tu aplicación pase por las reglas que has establecido, ayudando a mantenerla segura.</p>
-
-
-<h2 id="ejemplo" tabindex="-1">Ejemplo</h2>
-
-
-<ul>
-<li>Web ACL: WebACL-miapp</li>
-<li>ALB: app-loadbalancer</li>
-</ul>
-
-
-<h3 id="3.-probar-y-monitorear" tabindex="-1">3. Probar y monitorear</h3>
-
-
-<p>Ahora, es importante asegurarte de que todo esté funcionando bien. Puedes probar accediendo a tu aplicación normalmente y también intentando con tráfico que simule ataques. Además, es bueno revisar las estadísticas en CloudWatch para ver cuántas solicitudes se bloquean y cuántas pasan, para poder ajustar tus reglas si hace falta.</p>
-
-
-<p>Ejemplo de métricas para revisar:</p>
-
-
-<ul>
-<li>Solicitudes bloqueadas por regla</li>
-<li>Solicitudes permitidas</li>
-<li>Tiempos de respuesta</li>
-</ul>
-
-
-<pre><code>
-Siguiendo estos pasos, puedes configurar AWS WAF para que proteja tu aplicación web en AWS de manera efectiva.
-
-</code></pre>
-
-
-<h2 id="conclusi%C3%B3n" tabindex="-1">Conclusión</h2>
-
-
-<p>AWS WAF es una herramienta muy útil para proteger aplicaciones web y APIs en AWS. Ofrece varias ventajas clave:</p>
-
-
-<ul>
-<li>Permite controlar qué tráfico puede acceder a tus aplicaciones mediante reglas personalizables. Esto ayuda a manejar bots y detener ataques comunes.</li>
-<li>Viene con reglas administradas por AWS que se actualizan constantemente para defender contra las últimas amenazas. Esto ahorra mucho trabajo manual.</li>
-<li>Se integra fácilmente con varios servicios como CloudFront, API Gateway y Application Load Balancer para una protección completa.</li>
-<li>Proporciona métricas y logs detallados para monitorear el tráfico y ajustar configuraciones.</li>
-<li>Es escalable para manejar grandes volúmenes de tráfico sin afectar el rendimiento.</li>
-</ul>
-
-
-<p>Para sacarle el máximo provecho a AWS WAF, es importante:</p>
-
-
-<ul>
-<li>Configurar reglas específicas para tu aplicación y tráfico esperado. Las reglas genéricas pueden no ser suficientes.</li>
-<li>Probar con diferentes escenarios para minimizar falsos positivos.</li>
-<li>Revisar métricas regularmente y ajustar según sea necesario.</li>
-<li>Usar WAF junto con otras capas de seguridad para una estrategia de defensa en profundidad.</li>
-</ul>
-
-
-<p>Si se implementa correctamente, AWS WAF puede bloquear la gran mayoría de tráfico malicioso y bots, lo cual mejora mucho la seguridad y disponibilidad de aplicaciones web en AWS.</p>
-
-
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
-
-
-<h3 id="%C2%BFes-aws-waf-un-firewall-de-aplicaciones-web%3F" tabindex="-1">¿Es AWS WAF un firewall de aplicaciones web?</h3>
-
-
-<p>Sí, AWS WAF es un tipo de firewall diseñado específicamente para aplicaciones web. Su trabajo es revisar las solicitudes que se hacen a tu aplicación web y decidir cuáles permitir y cuáles bloquear, basándose en las reglas que hayas establecido.</p>
-
-
-<h3 id="%C2%BFes-aws-waf-un-firewall-de-capa-7%3F" tabindex="-1">¿Es AWS WAF un firewall de capa 7?</h3>
-
-
-<p>Sí, AWS WAF funciona en la capa 7 del modelo OSI, que es la capa de aplicación. Esto significa que se enfoca en el tráfico HTTP(S) que va hacia y viene de tu aplicación web, ayudándote a protegerla contra ataques específicos que ocurren en esta capa.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-es-waf-en-aplicaciones-web%3F" tabindex="-1">¿Qué es WAF en aplicaciones web?</h3>
-
-
-<p>Un WAF, o firewall de aplicaciones web, es una herramienta que ayuda a mantener seguras las aplicaciones web. Lo hace filtrando y examinando el tráfico web para detectar y bloquear amenazas, como intentos de hackeo o ataques automáticos de bots, antes de que puedan hacer daño.</p>
-
-
-<h3 id="%C2%BFcon-qu%C3%A9-servicios-de-aws-se-puede-usar-waf%3F" tabindex="-1">¿Con qué servicios de AWS se puede usar WAF?</h3>
-
-
-<p>Puedes usar AWS WAF con varios servicios de AWS, incluyendo Amazon CloudFront, Application Load Balancer (ALB), Amazon API Gateway y AWS AppSync. Esto te permite proteger tus aplicaciones web y contenido en diferentes partes de tu infraestructura en AWS, desde tu red de distribución de contenido (CDN) hasta tus balanceadores de carga y APIs.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/">arquitecturas de alta disponibilidad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/">seguridad en AWS: mejores prácticas</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores prácticas de seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">seguridad en AWS: servicios esenciales</a></li>
-</ul>
-</p>
+Dos actividades anunciadas para octubre de 2026 amplían la conversación sobre seguridad, aunque no son talleres de AWS WAF: [“Cloud Security está más cerca de lo que crees: encuentra tu comunidad”](https://www.meetup.com/aws-user-group-security-colombia/events/316465008/) figura para el 8 de octubre de 2026 en el Centro de Convenciones de Buenos Aires, y [“Compliance as Code en AWS: de la política a la acción automática”](https://www.meetup.com/aws-user-group-security-ecuador/events/316680020/) está anunciado como evento online para el 20 de octubre de 2026, a las 19:00 de Ecuador (UTC−5). Consulta las fichas de Meetup para confirmar horario, lugar, cupos y condiciones antes de planificar la asistencia; las agendas pueden cambiar. Para encuentros posteriores, consulta la [agenda de eventos AWS](/eventos/).
