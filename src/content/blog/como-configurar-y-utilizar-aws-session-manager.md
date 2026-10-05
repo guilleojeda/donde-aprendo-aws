@@ -1,496 +1,112 @@
 ---
-title: "Como configurar y utilizar AWS Session Manager"
-description: "Descubre cómo configurar y utilizar AWS Session Manager para mejorar la seguridad y eficiencia en el acceso a tus servidores EC2. Aprende sobre sus características, beneficios y mejores prácticas."
+title: "AWS Session Manager: cómo configurar el acceso a EC2"
+description: "Configura AWS Session Manager para EC2: revisa IAM, SSM Agent y red, conéctate por consola o CLI, reenvía puertos y entiende registros y costos."
 author: "guille-ojeda"
 publishedAt: "2024-03-18"
 publishedTimestamp: "2024-03-18T23:43:17.278Z"
+modifiedTimestamp: "2026-10-05T20:43:59-03:00"
 cover: "/assets/blog/editorial-practica.png"
 coverAlt: "Un cuaderno abierto con una secuencia de estaciones y un camino azul con punto naranja."
 ogImage: "/assets/blog/editorial-practica.png"
 related:
-  - title: "Configurar AWS para comunicación en equipo: 7 pasos"
-    url: "https://dondeaprendoaws.com/blog/configurar-aws-para-comunicacion-en-equipo-7-pasos/"
-  - title: "Guía de AWS Wavelength: zonas y despliegue"
-    url: "https://dondeaprendoaws.com/blog/guia-de-aws-wavelength-zonas-y-despliegue/"
-  - title: "Introducción a la inteligencia artificial en AWS"
-    url: "https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/"
-
+  - title: "Infraestructura como código en AWS con CloudFormation: guía práctica"
+    url: "https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-aws-cloudformation/"
+  - title: "Mejores prácticas de seguridad en AWS: checklist y cómo verificarlas"
+    url: "https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/"
 ---
 
-<p>AWS Session Manager es una herramienta poderosa dentro de AWS Systems Manager que simplifica la forma en que te conectas y gestionas tus servidores EC2 y otros dispositivos, sin la necesidad de SSH o claves. Aquí te muestro cómo configurarlo y usarlo para mejorar la seguridad y eficiencia en el acceso a tus sistemas:</p>
+AWS Systems Manager Session Manager permite abrir una terminal interactiva en una instancia EC2 desde la consola o la AWS CLI. Para una sesión de shell normal, el agente de la instancia inicia una conexión HTTPS hacia Systems Manager: no necesitas abrir el puerto TCP 22 entrante ni asignar una IP pública si la instancia ya puede alcanzar los endpoints de AWS.
 
+La conexión depende de dos identidades con funciones distintas: los permisos de la persona que inicia la sesión y los permisos de la instancia para registrarse y comunicarse con Systems Manager. Configurar uno no sustituye al otro.
 
-<ul>
-<li><strong>Simplifica el acceso a servidores</strong>: Sin necesidad de SSH o claves.</li>
-<li><strong>Mejora la seguridad</strong>: A través de AWS IAM, cifrado y registro detallado de sesiones.</li>
-<li><strong>Fácil de configurar y usar</strong>: Con pasos claros para la configuración inicial y conexión posterior.</li>
-<li><strong>Versátil</strong>: Soporta Linux y Windows, y permite comandos interactivos y reenvío de puertos.</li>
-</ul>
+## Requisitos para conectar una instancia
 
+- **Sistema operativo y agente:** usa un sistema operativo compatible con Systems Manager y un SSM Agent activo. AWS documenta como mínimo la versión 2.3.68.0 para sesiones básicas; recomienda mantener el agente actualizado. Algunas funciones requieren versiones posteriores: 3.0.222.0 para port forwarding o sesiones SSH y 3.0.284.0 para transmitir registros a CloudWatch Logs. Revisa los [requisitos de Session Manager](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-prerequisites.html) y [cómo instalar o actualizar SSM Agent](https://docs.aws.amazon.com/systems-manager/latest/userguide/ssm-agent.html). Session Manager admite las versiones de Linux compatibles con Systems Manager y Windows Server 2012 o posterior; Windows Server 2016 Nano no está admitido.
+- **Permisos de la instancia:** la instancia necesita un rol de IAM asociado mediante un perfil de instancia que permita a SSM Agent comunicarse con Systems Manager. Para empezar, AWS ofrece la política administrada [`AmazonSSMManagedInstanceCore`](https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AmazonSSMManagedInstanceCore.html). La [configuración de permisos de instancia](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-getting-started-instance-profile.html) también describe otras opciones.
+- **Permisos de quien se conecta:** la persona o el rol que usa la consola o la CLI necesita permisos de IAM para iniciar una sesión en esa instancia y usar el documento de sesión permitido. Por ejemplo, `ssm:StartSession` debe estar autorizado para el nodo de destino. La [guía de acceso de Session Manager](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-getting-started-restrict-access.html) incluye políticas de ejemplo; limita el alcance a las instancias y acciones necesarias.
+- **Red desde la instancia:** SSM Agent debe poder iniciar conexiones HTTPS salientes por TCP 443 hacia los endpoints regionales `ssm` y `ssmmessages`. En regiones lanzadas antes de 2024 puede ser necesario `ec2messages`; ese endpoint no está disponible en regiones lanzadas en 2024 o después. Puedes dar salida a internet mediante la red de la VPC o, para una red privada sin salida a internet, configurar endpoints de interfaz de VPC para los servicios requeridos. Revisa los [endpoints de Systems Manager](https://docs.aws.amazon.com/systems-manager/latest/userguide/troubleshooting-ssm-agent.html) y las [operaciones de ssmmessages y ec2messages](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-setting-up-messageAPIs.html).
 
-<p>Para empezar, asegúrate de tener una cuenta de AWS, permisos de IAM adecuados, y el SSM Agent instalado en tus instancias EC2. Luego, sigue los pasos detallados para la creación de roles de IAM, asociación de roles a instancias, y verificación de la configuración de VPC. Finalmente, explora las distintas formas de conexión, ya sea a través de la consola de AWS, AWS CLI, o incluso programando sesiones automáticas.</p>
+Con endpoints de VPC, comprueba que la resolución DNS privada y el DNS de la VPC estén habilitados. El grupo de seguridad del endpoint debe permitir HTTPS entrante desde la instancia. Si restringiste la salida de la instancia, permite TCP 443 hacia el endpoint. La instancia inicia la conexión: para el shell nativo de Session Manager no hace falta una regla entrante para SSH en el grupo de seguridad ni en la ACL de red. Si vas a enviar registros a CloudWatch Logs o S3, también hacen falta permisos y conectividad hacia esos servicios.
 
+## Conectarse desde la consola o la AWS CLI
 
-<p>¿Listo para mejorar la gestión de tus servidores con AWS Session Manager? Comencemos.</p>
+En la consola de EC2, selecciona la instancia, elige **Connect** y abre la pestaña **Session Manager**. También puedes iniciar la sesión desde Systems Manager, en **Session Manager → Start session**. El nodo debe aparecer administrado y en línea.
 
+Para conectarte desde una terminal, instala la AWS CLI y el [Session Manager plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) en tu computadora. Revisa las versiones con `aws --version` y `session-manager-plugin --version`. AWS indica que actualices el plugin a 1.2.764.0 o posterior y advierte que versiones anteriores dejarán de admitirse próximamente. Después usa credenciales de AWS con los permisos descritos arriba:
 
-<h3 id="caracter%C3%ADsticas-principales" tabindex="-1">Características principales</h3>
+~~~bash
+aws ssm start-session \
+  --target i-0123456789abcdef0 \
+  --region us-east-1 \
+  --profile soporte
+~~~
 
+Reemplaza el ID, la región y el perfil por los de tu cuenta. Sin `--document-name`, AWS inicia el shell predeterminado de Session Manager. Consulta la referencia de [`aws ssm start-session`](https://docs.aws.amazon.com/cli/latest/reference/ssm/start-session.html) para otras opciones.
 
-<p>AWS Session Manager tiene varias características importantes:</p>
+### Reenviar un puerto local a la instancia
 
+El port forwarding permite alcanzar un servicio que escucha en la instancia mediante un puerto local. Por ejemplo, si una aplicación de prueba escucha en el puerto 8080 de la instancia, puedes abrir el puerto 18080 en tu computadora:
 
-<ul>
-<li>Funciona tanto para servidores Linux como Windows</li>
-<li>Puedes acceder usando la consola de AWS, la línea de comandos o SDKs</li>
-<li>Controla quién accede usando AWS Identity and Access Management (IAM)</li>
-<li>Tus datos están seguros porque todo se cifra</li>
-<li>Se integra con AWS PrivateLink</li>
-<li>Puedes ver y auditar quién accedió a qué servidor</li>
-<li>Permite ejecutar comandos de manera interactiva</li>
-<li>Puedes hacer Port Forwarding</li>
-</ul>
+~~~bash
+aws ssm start-session \
+  --target i-0123456789abcdef0 \
+  --document-name AWS-StartPortForwardingSession \
+  --parameters '{"portNumber":["8080"],"localPortNumber":["18080"]}' \
+  --region us-east-1 \
+  --profile soporte
+~~~
 
+Mientras la sesión siga activa, abre `http://localhost:18080` en tu navegador o cliente. El ejemplo supone que la aplicación ya está en ejecución en el puerto remoto 8080; iniciar la sesión no instala ni inicia esa aplicación. Al terminar, cierra la sesión con `Ctrl+C`. Para terminar una sesión que quedó activa, un administrador con permiso `ssm:TerminateSession` puede usar el campo `SessionId` devuelto por `start-session`:
 
-<h3 id="beneficios" tabindex="-1">Beneficios</h3>
+~~~bash
+aws ssm terminate-session \
+  --session-id ID-DE-LA-SESION \
+  --region us-east-1 \
+  --profile soporte
+~~~
 
+Si no anotaste el ID, puedes consultarlo con `aws ssm describe-sessions --state Active` si tu identidad tiene permiso para ver esas sesiones.
 
-<p>Usar AWS Session Manager tiene muchas ventajas:</p>
+## Identidad del sistema y límites de auditoría
 
+IAM determina quién puede iniciar la sesión y a qué nodo puede dirigirse. En el sistema operativo, sin embargo, SSM Agent crea la cuenta `ssm-user` y las sesiones usan sus credenciales administrativas de forma predeterminada. Revisa quién puede iniciar sesiones; si una shell administrativa no es apropiada, consulta cómo [restringir los permisos administrativos de `ssm-user`](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-getting-started-ssm-user-permissions.html) y configura el usuario del sistema operativo según tu política.
 
-<ul>
-<li>Es más seguro porque no tienes que abrir puertos SSH al mundo</li>
-<li>Puedes llevar un registro de quién accede a tus servidores, lo cual es genial para auditorías</li>
-<li>Te ayuda a cumplir con regulaciones de seguridad</li>
-<li>Te ahorra tiempo en manejar claves y sistemas de acceso</li>
-<li>Facilita conectarte a tus servidores rápidamente, incluso si no tienen una IP pública</li>
-</ul>
+CloudTrail puede registrar las llamadas de API para iniciar y terminar sesiones. Si habilitas las preferencias de Session Manager, los comandos y su salida de una sesión de shell también pueden guardarse en CloudWatch Logs o S3. Revisa [cómo funciona el registro de actividad de Session Manager](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-logging.html) y [qué actividad registra CloudTrail](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-auditing.html).
 
+**Session Manager no registra el contenido de las sesiones que usan port forwarding ni SSH.** En esos casos funciona como un túnel; CloudTrail puede conservar metadatos de inicio y fin, pero los comandos o el tráfico que circuló no quedan auditados por el registro de contenido de sesión de CloudWatch Logs o S3. No presentes esos registros de metadatos como evidencia del contenido transmitido. En shells con registro habilitado, evita escribir secretos en texto visible porque los comandos y su salida pueden quedar guardados.
 
-<h2 id="requisitos-previos-para-session-manager" tabindex="-1">Requisitos previos para session manager</h2>
+## Errores frecuentes
 
+- `AccessDeniedException` al iniciar: comprueba la identidad activa en la CLI, la cuenta y región seleccionadas, y que la política de esa identidad permita `ssm:StartSession` sobre el destino y el documento. Adjuntar `AmazonSSMManagedInstanceCore` al rol de EC2 no concede permisos a la persona.
+- `TargetNotConnected`: confirma que elegiste la misma cuenta y región donde está la instancia, que el nodo aparece en Systems Manager y que SSM Agent está ejecutándose. Después revisa el rol de instancia, DNS y conectividad saliente HTTPS a los endpoints regionales. AWS resume estas causas en su guía de [solución de problemas de Session Manager](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-troubleshooting.html).
+- **La CLI informa que falta el plugin:** instálalo o actualízalo en la computadora desde la que ejecutas la CLI. Session Manager no instala ese componente en tu cliente.
 
-<p>Para empezar a usar AWS Session Manager, hay algunas cosas que necesitas tener listas primero:</p>
+## Costos y cierre de una prueba
 
+AWS no cobra un cargo adicional por usar Session Manager con instancias EC2. Eso no significa que toda la configuración sea gratuita:
 
-<h3 id="cuenta-de-aws" tabindex="-1">Cuenta de AWS</h3>
+- CloudWatch Logs cobra por ingestión, retención y consultas según uso y región. Como referencia concreta, la tarifa publicada de ingestión bajo demanda en **US East (N. Virginia)** es **USD 0,50 por GB**; consulta los [precios de CloudWatch](https://aws.amazon.com/cloudwatch/pricing/) para la región y los cargos vigentes.
+- Los endpoints de interfaz de VPC generan cargos por endpoint-hora en cada zona de disponibilidad donde se provisionan y por datos procesados. La tarifa publicada para el primer nivel de procesamiento es **USD 0,01 por GB**; por ejemplo, 10 GB suman USD 0,10 de procesamiento, además de las horas de endpoint. Consulta los [precios de AWS PrivateLink](https://aws.amazon.com/privatelink/pricing/) y calcula el costo por región y cantidad de zonas.
+- El almacenamiento, las solicitudes y la transferencia de S3, el uso de una clave administrada por KMS, NAT y la propia instancia EC2 pueden sumar cargos de sus servicios.
+- Desde el **30 de septiembre de 2026**, AWS cobra **USD 0,05 por sesión** en nodos híbridos y multinube; ese precio no aplica a sesiones de instancias EC2. Consulta los [precios de Systems Manager](https://aws.amazon.com/systems-manager/pricing/) antes de estimar el total.
 
+Para un laboratorio, cierra la sesión cuando termines. Si creaste endpoints de VPC o destinos de registros solo para esa prueba, elimínalos únicamente después de confirmar que no los comparte otro sistema; los endpoints siguen generando cargos mientras existen. El [calculador de precios de AWS](https://calculator.aws/) permite estimar la configuración completa.
 
-<p>Necesitas una cuenta en AWS. Esta cuenta te dará acceso a los servicios de EC2 y Systems Manager.</p>
+## Recursos para seguir aprendiendo
 
+- Para estudiar operaciones, AWS Women Colombia publicó una grabación titulada [“El Despertar de la Fuerza Cloud: AWS Certified SysOps Administrator: AWS Systems Manager”](https://www.youtube.com/watch?v=0sRNTZwaWvc). El título identifica el tema; contrasta los requisitos y comandos con la documentación de AWS.
+- Para repasar IAM y EC2 en conjunto, AWS Women Colombia publicó la grabación [“Practitioner, Una Nueva Esperanza: AWS IAM y Amazon EC2”](https://www.youtube.com/watch?v=rFppvIDrNoA). Úsala como material complementario; las políticas concretas de Session Manager están en la [guía oficial de acceso](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-getting-started-restrict-access.html).
+- Si quieres conocer otra función de Systems Manager, AWS User Group Guatemala tiene la grabación [“Automatiza tus tareas de Seguridad con AWS Systems Manager Documents”](https://www.youtube.com/watch?v=fFcoFODfNXo), disponible en su [canal de YouTube](https://www.youtube.com/@awsugguatemala). Los documentos y Run Command sirven para automatizar tareas; son distintos de la shell interactiva de Session Manager.
+- El artículo comunitario [Cómo configurar el agente de CloudWatch con Systems Manager para monitorear la memoria de una instancia EC2](https://dev.to/cecamilo/como-configurar-el-agente-de-cloudwatch-con-systems-manager-para-monitorear-la-memoria-de-una-instancia-ec2-3ib7), publicado en 2022, muestra otro uso de Systems Manager: instalar y configurar CloudWatch Agent mediante Run Command. Sus pantallas son antiguas; confirma los pasos vigentes en la [documentación de CloudWatch Agent](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Install-CloudWatch-Agent.html). Estas métricas de la instancia son distintas del registro del contenido de una sesión.
 
-<h3 id="permisos-de-iam" tabindex="-1">Permisos de IAM</h3>
+El [repositorio comunitario de CloudFormation para EC2 privadas con Systems Manager](https://github.com/pangoro24/aws-privatelink-private-instance-ssm) sirve para comparar una arquitectura con endpoints de VPC, pero no lo despliegues sin revisarlo. Su plantilla agrega `ec2messages` sin condición, aunque ese endpoint no está disponible en regiones lanzadas desde 2024; además, el README muestra un ejemplo de Windows que pasa una contraseña como parámetro de un comando. No copies ese ejemplo con credenciales reales y adapta la plantilla a la región, los permisos y los servicios que realmente necesitas. Nuestra [guía de CloudFormation](https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-aws-cloudformation/) explica una plantilla acotada, validación y revisión de cambios antes de ejecutar una pila. Para una vista más amplia de controles de AWS, consulta también el [checklist de seguridad](https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/).
 
+## Comunidades y eventos AWS en español
 
-<p>Es importante que el usuario de AWS que va a usar Session Manager tenga los permisos necesarios. Esto incluye permisos para trabajar con EC2, Systems Manager y, si lo necesitas, también con S3 y CloudWatch Logs.</p>
+El [directorio de comunidades AWS](https://dondeaprendoaws.com/comunidades/) reúne grupos para encontrar actividades y conversar con otras personas. Para aprender con comunidades de seguridad AWS en español:
 
-
-<h3 id="instalar-aws-cli-(opcional)" tabindex="-1">Instalar AWS CLI (opcional)</h3>
-
-
-<p>Si quieres manejar Session Manager desde la línea de comandos, debes tener AWS CLI instalado en tu computadora.</p>
-
-
-<h3 id="habilitar-ssm-agent" tabindex="-1">Habilitar SSM agent</h3>
-
-
-<p>Para que Session Manager pueda conectarse a tus instancias EC2, estas deben tener el agente de SSM activo. Este agente ya viene instalado en muchas de las imágenes de máquina (AMIs) que ofrece AWS.</p>
-
-
-<h2 id="configuraci%C3%B3n-de-aws-session-manager" tabindex="-1">Configuración de AWS Session Manager</h2>
-
-
-<h3 id="1.-crear-rol-de-iam" tabindex="-1">1. Crear rol de IAM</h3>
-
-
-<p>Para usar Session Manager, primero necesitas crear un rol de IAM con los permisos básicos. Este rol necesita la política <code class="inline-code">AmazonSSMManagedInstanceCore</code> para que SSM pueda hablar con tus instancias.</p>
-
-
-<p>Para crear el rol:</p>
-
-
-<ul>
-<li>Entra a la consola de IAM</li>
-<li>Haz clic en "Roles" y después en "Crear rol"</li>
-<li>Elige "EC2" como el tipo de entidad confiable</li>
-<li>Busca y selecciona la política <code class="inline-code">AmazonSSMManagedInstanceCore</code></li>
-<li>Ponle un nombre al rol, como "SSM-Role", y créalo</li>
-</ul>
-
-
-<h3 id="2.-instalar-ssm-agent" tabindex="-1">2. Instalar SSM agent</h3>
-
-
-<p>El SSM Agent es necesario para que SSM y las instancias EC2 puedan comunicarse.</p>
-
-
-<p>Para instalarlo:</p>
-
-
-<ul>
-<li>Checa si ya está instalado con <code class="inline-code">sudo systemctl status amazon-ssm-agent</code> en tu instancia</li>
-<li>Si no está, actualiza tu máquina e instala el agente de SSM</li>
-<li>Reinicia el agente con <code class="inline-code">sudo systemctl restart amazon-ssm-agent</code></li>
-</ul>
-
-
-<p>También puedes usar AMIs que ya tienen el agente instalado.</p>
-
-
-<h3 id="3.-asociar-rol-de-iam-a-instancias" tabindex="-1">3. Asociar rol de IAM a instancias</h3>
-
-
-<p>Ahora, tienes que vincular el rol de IAM que hiciste con las instancias que quieres manejar con Session Manager.</p>
-
-
-<p>Para hacerlo:</p>
-
-
-<ul>
-<li>Ve a la consola de EC2 y elige tus instancias</li>
-<li>Haz clic derecho, ve a "Seguridad", luego "Modificar rol de IAM"</li>
-<li>Elige el rol de SSM que creaste</li>
-<li>Guarda los cambios</li>
-</ul>
-
-
-<h3 id="4.-verificar-configuraci%C3%B3n-de-vpc" tabindex="-1">4. Verificar configuración de VPC</h3>
-
-
-<p>Session Manager necesita que ciertos puertos estén abiertos para funcionar bien:</p>
-
-
-<ul>
-<li>El puerto 443 debe estar abierto para el tráfico HTTPS de salida</li>
-<li>Si usas endpoints de VPC, asegúrate de tener un endpoint de SSM</li>
-</ul>
-
-
-<p>Checa que los grupos de seguridad y NACLs de tus subnets permitan este tráfico.</p>
-
-
-<h3 id="5.-configuraci%C3%B3n-avanzada-(opcional)" tabindex="-1">5. Configuración avanzada (opcional)</h3>
-
-
-<p>Algunas configuraciones extra que puedes hacer:</p>
-
-
-<ul>
-<li>Activar CloudWatch Logs para guardar registros de tus sesiones</li>
-<li>Usar cifrado SSL o KMS para proteger el contenido de las sesiones</li>
-<li>Configurar tiempos de espera para sesiones inactivas y la duración máxima de una sesión</li>
-</ul>
-
-
-<h2 id="conexi%C3%B3n-a-instancias-con-session-manager" tabindex="-1">Conexión a instancias con session manager</h2>
-
-
-<h3 id="desde-la-consola-de-aws" tabindex="-1">Desde la consola de AWS</h3>
-
-
-<p>Para conectarte a una instancia EC2 usando la consola de AWS, sigue estos pasos:</p>
-
-
-<ul>
-<li>Ve a la consola de EC2 y elige la instancia a la cual te quieres conectar.</li>
-<li>Da clic en "Connect" (Conectar).</li>
-<li>Selecciona "Session Manager" como tu método de conexión.</li>
-<li>Haz clic en "Connect" (Conectar) nuevamente para empezar la sesión.</li>
-</ul>
-
-
-<p>Una vez que estés conectado, podrás escribir y ejecutar comandos directamente en la instancia desde tu navegador.</p>
-
-
-<h3 id="desde-aws-cli" tabindex="-1">Desde AWS CLI</h3>
-
-
-<p>Para <a href="https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-sessions-start.html" rel="noopener noreferrer" target="_blank">iniciar una sesión</a> usando la línea de comandos, escribe el siguiente comando:</p>
-
-
-<pre><code>aws ssm start-session --target &lt;instance-id&gt;
-</code></pre>
-
-
-<p>Esto abrirá una ventana de terminal en la que puedes escribir comandos para interactuar con tu instancia.</p>
-
-
-<h3 id="reenv%C3%ADo-de-puertos" tabindex="-1">Reenvío de puertos</h3>
-
-
-<p>El reenvío de puertos te permite usar aplicaciones de tu instancia EC2 en tu propia computadora.</p>
-
-
-<p>Para hacer esto:</p>
-
-
-<ul>
-<li>Indica el puerto de la aplicación remota con <code class="inline-code">--port</code>.</li>
-<li>Usa <code class="inline-code">--local-port</code> para decidir a través de qué puerto en tu computadora quieres acceder.</li>
-</ul>
-
-
-<p>Por ejemplo:</p>
-
-
-<pre><code>aws ssm start-session --target i-01234567890 --port 3389 --local-port 3389
-</code></pre>
-
-
-<p>Esto conectará el puerto 3389 de tu instancia al puerto 3389 de tu computadora, permitiéndote acceder a la aplicación.</p>
-
-
-<h3 id="comandos-interactivos" tabindex="-1">Comandos interactivos</h3>
-
-
-<p>Para que SSM ejecute comandos automáticamente al iniciar una sesión, puedes:</p>
-
-
-<ul>
-<li>Crear un documento de SSM que ejecute el comando que quieras, como <code class="inline-code">ls -al</code>.</li>
-<li>Al conectarte, usa <code class="inline-code">--document-name</code> para especificar ese documento.</li>
-</ul>
-
-
-<p>Así, cada vez que te conectes, verás automáticamente el resultado de <code class="inline-code">ls -al</code>.</p>
-
-
-<h3 id="programar-sesiones" tabindex="-1">Programar sesiones</h3>
-
-
-<p>Si necesitas que las sesiones se inicien solas en un horario específico, puedes:</p>
-
-
-<ul>
-<li>Usar Automation de SSM para crear una tarea que ejecute <code class="inline-code">start-session</code>.</li>
-<li>Programa esta tarea para que se ejecute cuando lo necesites.</li>
-</ul>
-
-
-<p>Esto es útil para tareas de administración o mantenimiento que necesitas hacer regularmente.</p>
-
-
-<h2 id="seguridad-y-cumplimiento" tabindex="-1">Seguridad y cumplimiento</h2>
-
-
-<h3 id="aws-identity-and-access-management-(iam)" tabindex="-1">AWS Identity and Access Management (IAM)</h3>
-
-
-<p>Con Session Manager, puedes decidir quién puede hacer qué, gracias a las políticas de IAM. Esto te permite:</p>
-
-
-<ul>
-<li>Elegir quiénes pueden usar Session Manager</li>
-<li>Determinar a qué computadoras pueden acceder (como tus servidores EC2)</li>
-<li>Decidir si pueden ver, empezar o terminar sesiones</li>
-<li>Limitar los puertos o comandos que pueden usar</li>
-</ul>
-
-
-<p>Esto te da un control muy específico sobre quién puede acceder a tus sistemas.</p>
-
-
-<h3 id="integraci%C3%B3n-con-aws-kms" tabindex="-1">Integración con AWS KMS</h3>
-
-
-<p>Session Manager también te permite usar cifrado para proteger los datos que se envían durante las sesiones, usando algo llamado AWS Key Management Service (KMS).</p>
-
-
-<p>Al activar esta opción, la comunicación entre tu computadora y tus servidores se cifra, lo que añade una capa extra de seguridad.</p>
-
-
-<h3 id="registro-en-cloudwatch-logs" tabindex="-1">Registro en CloudWatch Logs</h3>
-
-
-<p>Una parte importante de mantener tus sistemas seguros es saber qué está pasando en ellos. Session Manager puede mandar un registro detallado de cada sesión a CloudWatch Logs. Esto incluye:</p>
-
-
-<ul>
-<li>El ID de la sesión</li>
-<li>Quién empezó la sesión</li>
-<li>A qué servidor se conectaron</li>
-<li>Cuándo empezó y terminó la sesión</li>
-<li>Qué comandos se usaron</li>
-<li>Los resultados de esos comandos</li>
-</ul>
-
-
-<p>Es muy útil activar esta opción para poder revisar actividades pasadas y para cumplir con reglas de seguridad.</p>
-
-
-<h3 id="cumplimiento-normativo" tabindex="-1">Cumplimiento normativo</h3>
-
-
-<p>Usar Session Manager te ayuda a cumplir con varias normas y reglas de seguridad importantes, como HIPAA, PCI DSS, FedRAMP y SOC. Esto significa que al usar Session Manager estás ayudando a que tus sistemas sean más seguros y estén en línea con lo que piden estas normas.</p>
-
-
-
-
-<h2 id="soluci%C3%B3n-de-problemas" tabindex="-1">Solución de problemas</h2>
-
-
-<p>Cuando usas AWS Session Manager, a veces pueden surgir problemas. Aquí te explico cómo solucionar los más comunes:</p>
-
-
-<h3 id="error-de-permisos-de-iam" tabindex="-1">Error de permisos de IAM</h3>
-
-
-<p>Si te sale un error que dice que no tienes permiso para usar Session Manager, significa que necesitas ajustar los permisos de IAM.</p>
-
-
-<p>Qué puedes hacer:</p>
-
-
-<ul>
-<li>Asegúrate de que el usuario de IAM tenga el permiso <code class="inline-code">AmazonSSMManagedInstanceCore</code>. Este permiso permite hacer cosas básicas con SSM.</li>
-<li>Puedes crear un permiso personalizado que incluya lo necesario para usar Session Manager, como <code class="inline-code">ssm:StartSession</code>, <code class="inline-code">ssm:TerminateSession</code>, etc., y dárselo al usuario.</li>
-<li>Si estás usando un rol para una instancia de EC2, verifica que este rol tenga los permisos para usar Session Manager. Puedes agregar el permiso <code class="inline-code">AmazonSSMManagedInstanceCore</code> o uno personalizado.</li>
-<li>Checa que no haya un permiso que esté bloqueando estos accesos. Los permisos de bloqueo son más fuertes que los de acceso.</li>
-</ul>
-
-
-<h3 id="ssm-agent-no-instalado" tabindex="-1">SSM agent no instalado</h3>
-
-
-<p>Si te indica que SSM Agent no está en la instancia de EC2, necesitas instalar o activar el agente.</p>
-
-
-<p>Qué puedes hacer:</p>
-
-
-<ul>
-<li>Revisa si tu instancia tiene una AMI que ya viene con SSM Agent. Muchas AMIs nuevas ya lo incluyen.</li>
-<li>Si no lo tiene, instala SSM Agent manualmente siguiendo las instrucciones para <a href="https://docs.aws.amazon.com/es_es/systems-manager/latest/userguide/sysman-manual-agent-install.html" rel="noopener noreferrer" target="_blank">Linux</a> o <a href="https://docs.aws.amazon.com/es_es/systems-manager/latest/userguide/sysman-install-win.html" rel="noopener noreferrer" target="_blank">Windows</a>.</li>
-<li>Después de instalar, reinicia el servicio de SSM Agent con <code class="inline-code">sudo systemctl restart amazon-ssm-agent</code>.</li>
-<li>También puedes usar el documento de SSM <code class="inline-code">AWS-UpdateSSMAgent</code> para instalar o actualizar el agente de forma automática.</li>
-</ul>
-
-
-<h3 id="problemas-de-conectividad" tabindex="-1">Problemas de conectividad</h3>
-
-
-<p>Si el agente está bien pero no logras conectarte, puede ser un problema de red.</p>
-
-
-<p>Qué puedes hacer:</p>
-
-
-<ul>
-<li>Asegúrate de que el puerto 443 (HTTPS) esté abierto en el grupo de seguridad y las ACLs de la instancia.</li>
-<li>Si usas un endpoint de VPC para SSM, verifica que la configuración de ruta sea la correcta.</li>
-<li>Checa que la instancia pueda conectar con los endpoints de SSM en Internet, o con el endpoint de VPC si usas uno.</li>
-<li>Si tienes un proxy, revisa que SSM Agent esté configurado correctamente para usarlo.</li>
-</ul>
-
-
-<h3 id="sesi%C3%B3n-expirada" tabindex="-1">Sesión expirada</h3>
-
-
-<p>Si tus sesiones se cierran muy rápido, puedes ajustar el tiempo antes de que expiren.</p>
-
-
-<p>Qué puedes hacer:</p>
-
-
-<ul>
-<li>Usa el parámetro <code class="inline-code">SessionTimeout</code> cuando inicies una sesión para que dure más, solo para esa vez.</li>
-<li>En los documentos de SSM que usas para iniciar sesiones, pon un tiempo de espera más largo con <code class="inline-code">timeoutSeconds</code>.</li>
-<li>En las preferencias de Session Manager, aumenta el <code class="inline-code">SessionIdleTimeout</code> para que todas las sesiones duren más por defecto.</li>
-</ul>
-
-
-<h2 id="mejores-pr%C3%A1cticas" tabindex="-1">Mejores prácticas</h2>
-
-
-<p>Aquí tienes algunas recomendaciones para cuando uses AWS Session Manager:</p>
-
-
-<h3 id="usar-pol%C3%ADticas-iam-detalladas" tabindex="-1">Usar políticas IAM detalladas</h3>
-
-
-<p>Es bueno darle a cada persona solo los permisos que realmente necesita para hacer su trabajo. Así, por ejemplo, si alguien solo necesita ver información pero no cambiar nada, solo debería tener permiso para ver. Esto ayuda a mantener todo más seguro.</p>
-
-
-<h3 id="cambiar-las-claves-regularmente" tabindex="-1">Cambiar las claves regularmente</h3>
-
-
-<p>Es una buena idea cambiar las claves de acceso cada cierto tiempo, como cada tres meses. Esto ayuda a evitar problemas si alguien llega a conseguir una clave que no debería tener.</p>
-
-
-<p>AWS puede ayudarte a cambiar estas claves automáticamente para que no se te olvide hacerlo.</p>
-
-
-<h3 id="mantener-un-registro-con-cloudwatch" tabindex="-1">Mantener un registro con CloudWatch</h3>
-
-
-<p>Es muy útil activar una opción que guarda un registro de quién se conecta a tus sistemas y qué hace. Esto se puede hacer con algo llamado Amazon CloudWatch Logs. Te permite ver fácilmente qué pasó y cuándo, lo cual es muy útil si necesitas revisar algo o si hay un problema de seguridad.</p>
-
-
-<h3 id="cifrar-las-sesiones" tabindex="-1">Cifrar las sesiones</h3>
-
-
-<p>Aunque AWS Session Manager ya protege tus datos cuando los envías, puedes hacerlo aún más seguro usando un servicio llamado AWS KMS. Esto es especialmente importante si trabajas con información muy delicada. Esto añade una protección extra para asegurarte de que tus datos estén seguros mientras los envías.</p>
-
-
-<h2 id="conclusi%C3%B3n" tabindex="-1">Conclusión</h2>
-
-
-<h3 id="puntos-clave" tabindex="-1">Puntos clave</h3>
-
-
-<ul>
-<li>AWS Session Manager te permite entrar a tus servidores de manera segura y fácil.</li>
-<li>Es una alternativa a métodos más complicados como usar bastiones o SSH.</li>
-<li>Te ayuda a tener todo bajo control, revisar quién entra a tus sistemas y mantener todo seguro.</li>
-<li>Permite dar acceso cuando se necesita sin tener que dar claves que no cambian.</li>
-<li>Ayuda a que todo esté más seguro y cumpla con las reglas de seguridad.</li>
-</ul>
-
-
-<p>AWS Session Manager es una herramienta práctica para manejar servidores EC2 y otros dispositivos de forma segura. Al no necesitar SSH, claves, ni bastiones, hace mucho más fácil el acceso a tus sistemas, a la vez que aumenta la seguridad.</p>
-
-
-<p>Lo bueno es que con AWS Session Manager puedes controlar quién entra a tus sistemas gracias a las políticas de IAM. Esto significa que puedes dar acceso solo por un rato, en vez de dar claves fijas.</p>
-
-
-<p>También, puedes llevar un registro de todo lo que pasa, quién entra y qué hace, guardando esta información en CloudWatch Logs para verla después.</p>
-
-
-<p>Además, el uso de cifrado SSL y la opción de activar AWS KMS ponen una capa extra de seguridad sobre la información que se comparte en las sesiones.</p>
-
-
-<p>En pocas palabras, AWS Session Manager es una forma excelente de entrar a tus servidores EC2 y otros sistemas de manera sencilla pero muy segura. Usarlo puede mejorar mucho cómo cuidas la seguridad en tu organización.</p>
-
-
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
-
-
-<h3 id="%C2%BFqu%C3%A9-es-session-manager-de-aws%3F" tabindex="-1">¿Qué es session manager de AWS?</h3>
-
-
-<p>AWS Session Manager es una herramienta de AWS Systems Manager que te ayuda a manejar tus servidores o instancias EC2 de forma segura. Te permite conectarte a tus servidores para ejecutar comandos o revisar aplicaciones sin tener que lidiar con temas de seguridad como abrir puertos o manejar muchas contraseñas. Es una manera práctica y segura de acceder a tus servidores.</p>
-
-
-<h3 id="%C2%BFc%C3%B3mo-iniciar-sesi%C3%B3n-en-aws-cli%3F" tabindex="-1">¿Cómo iniciar sesión en AWS CLI?</h3>
-
-
-<p>Para usar AWS CLI (una herramienta que te permite controlar AWS desde la línea de comandos), sigue estos pasos:</p>
-
-
-<ul>
-<li>Primero, asegúrate de tener AWS CLI instalado en tu computadora.</li>
-<li>Abre la terminal y escribe <code class="inline-code">aws configure</code>. Esto te permitirá ingresar tus credenciales, como tu ID de acceso y clave secreta, y también seleccionar tu región.</li>
-<li>Después de configurar tus credenciales, puedes empezar a usar comandos de AWS CLI escribiendo <code class="inline-code">aws</code> seguido del servicio y el comando que quieras usar. Por ejemplo, <code class="inline-code">aws ssm start-session</code> para iniciar una sesión con AWS Session Manager.</li>
-<li>Si necesitas usar diferentes cuentas o configuraciones, puedes crear perfiles adicionales con <code class="inline-code">aws configure --profile nombre_del_perfil</code> y cambiar entre ellos según necesites.</li>
-</ul>
-
-
-<p>Con estos pasos, puedes manejar tus servicios de AWS directamente desde la línea de comandos de una manera más eficiente.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ec2/">Mejores prácticas para Amazon EC2</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores prácticas de seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">seguridad en AWS: servicios esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS fundamentos: guía de inicio rápido</a></li>
-</ul>
-</p>
+- [AWS Security Users Group LatAm en Meetup](https://www.meetup.com/awssecuritylatam/), un grupo regional con actividades sobre seguridad en AWS.
+- [AWS Security UserGroup Argentina en Meetup](https://www.meetup.com/aws-security-usergroup-argentina/), [AWS User Group Security Colombia](https://www.meetup.com/aws-user-group-security-colombia/) y [AWS User Group Security Ecuador](https://www.meetup.com/aws-user-group-security-ecuador/), con páginas para seguir sus encuentros y actividades locales.
+- El [sitio de AWS User Group Security Ecuador](https://www.awssecurityecuador.com/) publica recursos de la comunidad; su [grupo en Meetup](https://www.meetup.com/aws-user-group-security-ecuador/) permite consultar actividades locales.
+- El [canal de YouTube de AWS Security Users Group LatAm](https://www.youtube.com/@AWSSecurityLATAM) reúne grabaciones de la comunidad. Revisa la descripción y fecha de cada video antes de usarlo como referencia técnica.
+- Consulta la [agenda de eventos de comunidades AWS en español](https://dondeaprendoaws.com/eventos/) para encontrar encuentros próximos. La [agenda oficial de eventos y webinars de AWS](https://aws.amazon.com/events/) es otra fuente para actividades organizadas por AWS. Las fechas y condiciones de inscripción cambian; confirma los detalles en cada convocatoria.

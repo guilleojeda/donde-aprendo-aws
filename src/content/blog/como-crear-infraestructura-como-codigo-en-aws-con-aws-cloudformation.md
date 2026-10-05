@@ -1,503 +1,293 @@
 ---
-title: "Cómo crear infraestructura como código en AWS con AWS CloudFormation"
-description: "Aprende a crear infraestructura como código en AWS con AWS CloudFormation. Descubre los beneficios, conceptos básicos, pasos previos necesarios y mejores prácticas para automatizar y gestionar tus recursos en la nube."
+title: "Infraestructura como código en AWS con CloudFormation: guía práctica"
+description: "Crea un bucket S3 privado con una plantilla YAML de CloudFormation. Valida el archivo, crea y actualiza una pila con change sets, revisa reemplazos y elimina o conserva recursos."
 author: "guille-ojeda"
 publishedAt: "2024-03-18"
 publishedTimestamp: "2024-03-18T00:54:16.195Z"
+modifiedTimestamp: "2026-10-05T20:43:59-03:00"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Cómo optimizar la transferencia de datos en API Gateway"
-    url: "https://dondeaprendoaws.com/blog/como-optimizar-la-transferencia-de-datos-en-api-gateway/"
-  - title: "Guía para crear APIs serverless con AWS Lambda y API Gateway"
-    url: "https://dondeaprendoaws.com/blog/guia-para-crear-apis-serverless-con-aws-lambda-y-api-gateway/"
-  - title: "Microservicios en AWS utilizando AWS Lambda"
-    url: "https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-aws-lambda/"
-
+  - title: "Infraestructura como código en AWS con Terraform: guía práctica de S3"
+    url: "https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-terraform/"
+  - title: "AWS Session Manager: cómo configurar el acceso a EC2"
+    url: "https://dondeaprendoaws.com/blog/como-configurar-y-utilizar-aws-session-manager/"
+  - title: "Seguridad de IaC en AWS: 9 controles para Terraform y CloudFormation"
+    url: "https://dondeaprendoaws.com/blog/9-mejores-practicas-de-seguridad-para-iac-en-aws/"
 ---
 
-<p>En este artículo, exploraremos cómo utilizar <a href="https://aws.amazon.com/es/cloudformation/" rel="noopener noreferrer" target="_blank">AWS CloudFormation</a> para crear y gestionar tu infraestructura en la nube como código (IaC), una práctica que simplifica y automatiza el despliegue de recursos en AWS. Aprenderás los conceptos básicos, beneficios, y cómo empezar con CloudFormation, incluyendo:</p>
+AWS CloudFormation convierte una plantilla YAML o JSON en una pila de recursos de AWS que puedes crear, actualizar y eliminar como una unidad. En esta guía crearás una pila con un bucket S3 sin acceso público, cifrado por defecto. También verás cómo revisar actualizaciones antes de ejecutarlas, cómo conservar recursos y qué cubren la validación y la detección de drift.
 
+Los comandos que crean, actualizan o eliminan la pila modificarán recursos de tu cuenta si los ejecutas. Revisa antes el perfil, la región, los permisos y los cambios mostrados, y practica en un entorno aislado.
 
-<ul>
-<li><strong>Automatización y gestión de cambios</strong>: Cómo CloudFormation te permite automatizar la infraestructura y gestionar cambios de forma ordenada.</li>
-<li><strong>Consistencia y eficiencia</strong>: La importancia de mantener una infraestructura consistente y cómo CloudFormation mejora la eficiencia en el despliegue de recursos.</li>
-<li><strong>Escalabilidad y portabilidad</strong>: Cómo CloudFormation facilita la escalabilidad y portabilidad de tu infraestructura.</li>
-<li><strong>Conceptos básicos</strong>: Entenderás qué son las plantillas, pilas, y cómo utilizarlas para crear tu infraestructura.</li>
-<li><strong>Pasos previos necesarios</strong>: Desde tener una cuenta de AWS hasta conocimientos básicos de YAML/JSON.</li>
-<li><strong>Creación de una plantilla sencilla</strong>: Aprenderás a definir recursos como buckets de S3 y políticas de IAM en una plantilla.</li>
-<li><strong>Despliegue y actualización de la plantilla</strong>: Instrucciones para desplegar y actualizar tu infraestructura utilizando tanto la consola de AWS como AWS CLI.</li>
-<li><strong>Mejores prácticas con AWS CloudFormation</strong>: Consejos para reutilizar plantillas, separar entornos, realizar pruebas y más.</li>
-</ul>
+## Qué necesitas
 
+Los ejemplos de terminal usan Bash o Zsh; adapta la sintaxis de variables si trabajas con PowerShell.
 
-<p>Este artículo es una guía completa para empezar con Infraestructura como Código en AWS usando CloudFormation, dirigido a aquellos que buscan automatizar y optimizar la gestión de sus recursos en la nube.</p>
+- AWS CLI configurado con un perfil autorizado para trabajar con CloudFormation y S3.
+- Permisos mínimos para crear, consultar, actualizar y eliminar la pila y para que CloudFormation cree y configure el bucket. En equipos, un rol de servicio con privilegio mínimo puede separar las acciones del operador y de CloudFormation; restringe `iam:PassRole` y recuerda que un rol asociado se usa en las operaciones posteriores de esa pila. Lee la guía de [roles de servicio de CloudFormation](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-servicerole.html). No hacen falta credenciales de largo plazo pegadas en la plantilla.
+- Un editor de texto. No necesitas instalar un SDK para usar este ejemplo.
 
+Con AWS IAM Identity Center puedes iniciar sesión y usar credenciales temporales desde un perfil:
 
-<h3 id="consistencia" tabindex="-1">Consistencia</h3>
+```sh
+aws sso login --profile iac-lab
+export AWS_PROFILE=iac-lab
+export AWS_REGION=us-east-1
+aws sts get-caller-identity
+```
 
+Consulta la guía oficial de AWS CLI para [configurar IAM Identity Center](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sso.html). Confirma que la cuenta y el rol sean los esperados antes de ejecutar comandos que cambien recursos. La identidad que inicia la operación necesita permisos de CloudFormation; el servicio también necesita permisos para aprovisionar el recurso. Si configuras un rol de servicio de CloudFormation, concede solo las acciones y recursos requeridos por la plantilla.
 
-<p>Con CloudFormation, defines todo lo que necesitas para tu proyecto en archivos especiales. Esto ayuda a que todo sea igual cada vez que lo usas, y si hay problemas, es fácil ver qué cambió de una versión a otra. Como todo se hace con estos archivos, no hay errores por hacer cosas a mano.</p>
+## 1. Escribe una plantilla segura
 
+Guarda este contenido como `bucket-privado.yaml`:
 
-<h3 id="eficiencia" tabindex="-1">Eficiencia</h3>
+```yaml
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Bucket S3 privado de ejemplo, con cifrado y bloqueo de acceso público.
 
-
-<p>CloudFormation hace todo el trabajo pesado por ti. En vez de armar cada parte de tu proyecto paso a paso, usas una plantilla que lo hace todo de una vez. Esto te ahorra un montón de tiempo.</p>
-
-
-<h3 id="escalabilidad" tabindex="-1">Escalabilidad</h3>
-
-
-<p>Si necesitas que tu proyecto sea más grande o más pequeño, solo cambias un par de cosas en la plantilla y listo. Esto significa que puedes ajustar tu proyecto rápidamente sin tener que hacerlo todo manualmente.</p>
-
-
-<h3 id="portabilidad" tabindex="-1">Portabilidad</h3>
-
-
-<p>Puedes usar las mismas plantillas para poner en marcha tu proyecto en diferentes lugares dentro de AWS. Esto es genial si estás probando cosas o si necesitas tener una copia de seguridad lista para usar.</p>
-
-
-<p>En resumen, CloudFormation te hace la vida más fácil si trabajas con AWS, ayudándote a automatizar, mantener todo organizado, crecer cuando lo necesitas y mover tu proyecto donde quieras.</p>
-
-
-<h2 id="conceptos-b%C3%A1sicos-de-aws-cloudformation" tabindex="-1">Conceptos básicos de AWS CloudFormation</h2>
-
-
-<p>AWS CloudFormation te ayuda a poner en marcha y organizar tus servicios en AWS de manera fácil. Aquí tienes algunos puntos clave que debes conocer:</p>
-
-
-<h3 id="plantillas" tabindex="-1">Plantillas</h3>
-
-
-<p>Las plantillas de CloudFormation son como recetas que te dicen cómo armar tus servicios en AWS. Pueden estar en formato JSON o YAML y en ellas especificas:</p>
-
-
-<ul>
-<li>Los servicios o recursos que necesitas (como servidores virtuales, espacios de almacenamiento, etc).</li>
-<li>Cómo quieres que sean esos servicios (por ejemplo, qué tan grandes, quién puede acceder a ellos, etc).</li>
-<li>Si un servicio depende de otro para funcionar.</li>
-</ul>
-
-
-<p>Cuando creas algo usando una plantilla, CloudFormation se encarga de preparar todo por ti, respetando el orden y las dependencias.</p>
-
-
-<h3 id="pilas" tabindex="-1">Pilas</h3>
-
-
-<p>Una pila es simplemente un grupo de servicios de AWS que manejas juntos.</p>
-
-
-<p>Al usar una plantilla para crear una pila en CloudFormation, estás armando un conjunto de servicios definidos en esa plantilla. Esto es útil porque:</p>
-
-
-<ul>
-<li>Puedes montar, actualizar o quitar todos los servicios de una aplicación de una sola vez.</li>
-<li>Es fácil copiar y usar la misma configuración en diferentes partes de AWS.</li>
-<li>Te ayuda a llevar un registro de los cambios en tus servicios.</li>
-</ul>
-
-
-<p>En resumen, las pilas hacen que sea mucho más sencillo manejar infraestructuras complejas en la nube.</p>
-
-
-<h2 id="requisitos-previos" tabindex="-1">Requisitos previos</h2>
-
-
-<p>Antes de empezar a usar AWS CloudFormation para crear tu infraestructura como código, hay algunas cosas que necesitas tener listas:</p>
-
-
-<h3 id="cuenta-de-aws" tabindex="-1">Cuenta de AWS</h3>
-
-
-<p>Primero que nada, necesitas una cuenta en AWS. Puedes elegir entre una cuenta gratis o una de pago, dependiendo de lo que necesites. Si eliges la opción gratuita, podrás usar algunos servicios de AWS sin costo durante 12 meses.</p>
-
-
-<p>Una vez que tengas tu cuenta, crea un usuario en IAM (el servicio de gestión de identidades y accesos de AWS) y dale los permisos necesarios para trabajar con CloudFormation. Esto incluye permisos para crear, cambiar y borrar pilas.</p>
-
-
-<h3 id="aws-cli" tabindex="-1">AWS CLI</h3>
-
-
-<p>La AWS CLI es una herramienta que te permite controlar los servicios de AWS desde la línea de comandos, lo que es genial para automatizar procesos con CloudFormation.</p>
-
-
-<p>Instala la AWS CLI en tu computadora y configúrala con tus credenciales de AWS. Así podrás empezar a usar comandos de CloudFormation.</p>
-
-
-<h3 id="sdk-de-aws" tabindex="-1">SDK de AWS</h3>
-
-
-<p>Si planeas usar CloudFormation con código, como en un programa, necesitarás el SDK de AWS para el lenguaje de programación que estés usando (como Java, Python o JavaScript).</p>
-
-
-<p>El SDK te da acceso a las funciones de CloudFormation para que puedas crear, cambiar y borrar pilas desde tu código.</p>
-
-
-<h3 id="editor-de-texto" tabindex="-1">Editor de texto</h3>
-
-
-<p>Para escribir tus plantillas de CloudFormation, usa un editor de texto como Visual Studio Code. Hay una extensión para CloudFormation que te ayuda con el resaltado de sintaxis y el autocompletado, haciéndote la vida más fácil.</p>
-
-
-<h3 id="conocimientos-b%C3%A1sicos-de-yaml%2Fjson" tabindex="-1">Conocimientos básicos de YAML/JSON</h3>
-
-
-<p>Es importante saber un poco de YAML o JSON, ya que son los formatos en los que escribirás tus plantillas de CloudFormation. Si no estás familiarizado con ellos, sería bueno aprender un poco sobre su sintaxis antes de empezar.</p>
-
-
-<p>Con estos pasos cubiertos, estarás listo para empezar a trabajar con infraestructura como código en AWS usando CloudFormation.</p>
-
-
-<h2 id="creaci%C3%B3n-de-una-plantilla-sencilla" tabindex="-1">Creación de una plantilla sencilla</h2>
-
-
-<h3 id="estructura-de-la-plantilla" tabindex="-1">Estructura de la plantilla</h3>
-
-
-<p>Una plantilla de CloudFormation es como una receta que AWS sigue para crear tu infraestructura. Se divide en cuatro partes importantes:</p>
-
-
-<ul>
-<li><strong>AWSTemplateFormatVersion:</strong> Es como decirle a AWS qué idioma hablas. Por lo general, se usa la versión más reciente.</li>
-<li><strong>Description:</strong> Aquí escribes para qué sirve tu plantilla, como una breve explicación.</li>
-<li><strong>Resources:</strong> El corazón de la plantilla. Aquí le dices a AWS qué cosas necesitas, como servidores o espacios para guardar archivos.</li>
-<li><strong>Outputs:</strong> Son los resultados que obtienes, como el nombre o la dirección de lo que creaste.</li>
-</ul>
-
-
-<h3 id="definici%C3%B3n-de-recursos" tabindex="-1">Definición de recursos</h3>
-
-
-<p>Veamos un ejemplo simple de cómo crear un espacio para guardar archivos (bucket de S3) y una regla de seguridad (política de IAM) usando YAML:</p>
-
-
-<pre><code>Resources:
-
-  S3Bucket:
+Resources:
+  PrivateBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: mi-bucket-unico
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      Tags:
+        - Key: Purpose
+          Value: iac-learning
 
-  BucketPolicy:
-    Type: AWS::S3::BucketPolicy
+Outputs:
+  BucketName:
+    Description: Nombre generado para el bucket privado.
+    Value: !Ref PrivateBucket
+```
+
+CloudFormation genera un nombre único para el bucket porque no declaramos `BucketName`. Las cuatro opciones de S3 bloquean el acceso público a través de ACL y políticas. Esto no reemplaza los permisos de IAM: las identidades autorizadas todavía pueden acceder según sus políticas. El cifrado del ejemplo usa claves administradas por S3.
+
+La plantilla define un recurso en `Resources`; CloudFormation llama pila al conjunto gestionado a partir de esa plantilla. `Outputs` publica el nombre asignado al bucket. Consulta la [referencia de AWS::S3::Bucket](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-s3-bucket.html) para ver propiedades y qué cambios interrumpen o reemplazan el recurso.
+
+## 2. Valida antes de crear la pila
+
+Valida la plantilla localmente con [cfn-lint](https://github.com/aws-cloudformation/cfn-lint):
+
+```sh
+cfn-lint bucket-privado.yaml
+```
+
+También puedes pedirle a CloudFormation que lea la plantilla:
+
+```sh
+aws cloudformation validate-template \
+  --template-body file://bucket-privado.yaml \
+  --profile "$AWS_PROFILE" \
+  --region "$AWS_REGION"
+```
+
+Estas comprobaciones ayudan a encontrar errores de sintaxis o de estructura, pero no prueban que tu identidad tenga permisos, que haya cuota disponible ni que una operación real vaya a terminar bien. Los cambios de servicio y las condiciones al desplegar aún pueden causar un fallo.
+
+## 3. Crea una pila con un change set
+
+Un change set muestra los cambios que CloudFormation calcula para una operación y espera a que lo ejecutes. Sirve para revisar recursos que agregaría, modificaría, reemplazaría o eliminaría. No es una garantía de que el despliegue vaya a tener éxito: el resultado puede depender de permisos, cuotas, estado de los recursos y condiciones que solo aparecen durante la operación.
+
+Crea primero un change set de tipo `CREATE`:
+
+```sh
+aws cloudformation create-change-set \
+  --stack-name iac-bucket-demo \
+  --change-set-name crear-bucket \
+  --change-set-type CREATE \
+  --template-body file://bucket-privado.yaml \
+  --description "Bucket privado para practicar CloudFormation" \
+  --profile "$AWS_PROFILE" \
+  --region "$AWS_REGION"
+```
+
+Espera a que CloudFormation termine de calcularlo y examina los recursos:
+
+```sh
+aws cloudformation wait change-set-create-complete \
+  --stack-name iac-bucket-demo \
+  --change-set-name crear-bucket \
+  --profile "$AWS_PROFILE" \
+  --region "$AWS_REGION"
+
+aws cloudformation describe-change-set \
+  --stack-name iac-bucket-demo \
+  --change-set-name crear-bucket \
+  --query 'Changes[].ResourceChange.{Type:ResourceType,Action:Action,Replacement:Replacement}' \
+  --output table \
+  --profile "$AWS_PROFILE" \
+  --region "$AWS_REGION"
+```
+
+Si el resumen coincide con lo que esperabas, ejecuta el change set y espera a que la pila quede lista:
+
+```sh
+aws cloudformation execute-change-set \
+  --stack-name iac-bucket-demo \
+  --change-set-name crear-bucket \
+  --profile "$AWS_PROFILE" \
+  --region "$AWS_REGION"
+
+aws cloudformation wait stack-create-complete \
+  --stack-name iac-bucket-demo \
+  --profile "$AWS_PROFILE" \
+  --region "$AWS_REGION"
+```
+
+Después de que la pila quede lista, consulta su salida y el estado del bucket:
+
+```sh
+aws cloudformation describe-stacks \
+  --stack-name iac-bucket-demo \
+  --query 'Stacks[0].Outputs' \
+  --output table \
+  --profile "$AWS_PROFILE" \
+  --region "$AWS_REGION"
+
+# Usa el valor BucketName que devolvió el comando anterior.
+aws s3api get-public-access-block \
+  --bucket NOMBRE_DEL_BUCKET \
+  --profile "$AWS_PROFILE" \
+  --region "$AWS_REGION"
+
+aws s3api get-bucket-encryption \
+  --bucket NOMBRE_DEL_BUCKET \
+  --profile "$AWS_PROFILE" \
+  --region "$AWS_REGION"
+```
+
+Confirma que las cuatro opciones de bloqueo público estén en `true` y que el cifrado use `AES256`.
+
+Si aparece un cambio inesperado, no ejecutes ese change set. Ajusta la plantilla, crea otro change set y vuelve a revisarlo.
+
+Si falla la creación del change set, consulta su `StatusReason` con `describe-change-set`. Si falla la creación o actualización de la pila, revisa su pestaña **Events** o ejecuta `aws cloudformation describe-stack-events --stack-name iac-bucket-demo` con el mismo perfil y región. Busca el recurso que falló y su `ResourceStatusReason` antes de corregir permisos, cuotas o la plantilla; no vuelvas a ejecutar una operación sin entender su estado.
+
+## 4. Actualiza sin tratar la vista previa como una promesa
+
+Para practicar una actualización, agrega el bloque `VersioningConfiguration` dentro de `Properties` de `PrivateBucket`, al mismo nivel que `PublicAccessBlockConfiguration` y `BucketEncryption`:
+
+```yaml
+      VersioningConfiguration:
+        Status: Enabled
+```
+
+Luego crea un change set de tipo `UPDATE` para la pila existente. En esta operación usa el nombre `habilitar-versionado` en los comandos de espera, revisión y ejecución; el change set `crear-bucket` y el waiter `stack-create-complete` corresponden solo a la creación inicial:
+
+```sh
+aws cloudformation create-change-set \
+  --stack-name iac-bucket-demo \
+  --change-set-name habilitar-versionado \
+  --change-set-type UPDATE \
+  --template-body file://bucket-privado.yaml \
+  --profile "$AWS_PROFILE" \
+  --region "$AWS_REGION"
+```
+
+Espera a que se calcule y revisa el change set de actualización:
+
+```sh
+aws cloudformation wait change-set-create-complete \
+  --stack-name iac-bucket-demo \
+  --change-set-name habilitar-versionado \
+  --profile "$AWS_PROFILE" \
+  --region "$AWS_REGION"
+
+aws cloudformation describe-change-set \
+  --stack-name iac-bucket-demo \
+  --change-set-name habilitar-versionado \
+  --query 'Changes[].ResourceChange.{Type:ResourceType,Action:Action,Replacement:Replacement}' \
+  --output table \
+  --profile "$AWS_PROFILE" \
+  --region "$AWS_REGION"
+```
+
+Solo si las acciones son las esperadas, ejecuta ese mismo change set y espera a que finalice la actualización:
+
+```sh
+aws cloudformation execute-change-set \
+  --stack-name iac-bucket-demo \
+  --change-set-name habilitar-versionado \
+  --profile "$AWS_PROFILE" \
+  --region "$AWS_REGION"
+
+aws cloudformation wait stack-update-complete \
+  --stack-name iac-bucket-demo \
+  --profile "$AWS_PROFILE" \
+  --region "$AWS_REGION"
+
+aws s3api get-bucket-versioning \
+  --bucket NOMBRE_DEL_BUCKET \
+  --profile "$AWS_PROFILE" \
+  --region "$AWS_REGION"
+```
+
+La salida de `get-bucket-versioning` debe incluir `Status: Enabled`. AWS clasifica algunas modificaciones como reemplazos. Por ejemplo, cambiar el nombre explícito de un bucket requiere reemplazarlo. Un reemplazo puede crear otro recurso y retirar el anterior; borrar un bucket con objetos puede fallar.
+
+Los change sets muestran el efecto calculado sobre recursos y propiedades, no una simulación perfecta de todas las condiciones de ejecución. Pueden no anticipar una restricción de servicio o un fallo en tiempo de despliegue. La [guía de change sets](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-changesets.html) explica sus límites y cómo revisar las acciones.
+
+## Eliminar o conservar un recurso
+
+Al eliminar esta pila de práctica, CloudFormation intenta eliminar también el bucket. S3 solo permite borrar buckets vacíos; elimina antes los objetos y, si habilitaste versionado, sus versiones. La operación puede fallar si el bucket sigue teniendo contenido.
+
+Para conservar un bucket al borrar la pila, puedes añadir una política de eliminación:
+
+```yaml
+  PrivateBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
-      Bucket: !Ref S3Bucket
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Sid: PublicReadForGetBucketObjects
-            Effect: Allow
-            Principal: "*"
-            Action: "s3:GetObject"
-            Resource: !Join ["", ["arn:aws:s3:::", !Ref S3Bucket, /*]]
-</code></pre>
+      # Las propiedades del bucket van aquí.
+```
 
+`DeletionPolicy: Retain` conserva el recurso al eliminar la pila o quitarlo de la plantilla. `UpdateReplacePolicy: Retain` regula qué pasa con el recurso anterior cuando una actualización lo reemplaza; son controles distintos. Un recurso retenido queda fuera de la pila y tendrás que gestionarlo y, si corresponde, eliminarlo por separado. Consulta la documentación de [DeletionPolicy](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-deletionpolicy.html) y [UpdateReplacePolicy](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatereplacepolicy.html) antes de usar estas opciones con datos que deban preservarse.
 
-<h3 id="validaci%C3%B3n-de-la-plantilla" tabindex="-1">Validación de la plantilla</h3>
+Para eliminar la pila de ejemplo cuando ya no la necesites:
 
+```sh
+aws cloudformation delete-stack \
+  --stack-name iac-bucket-demo \
+  --profile "$AWS_PROFILE" \
+  --region "$AWS_REGION"
 
-<p>Antes de poner en marcha tu plantilla, es buena idea asegurarte de que está bien escrita. Puedes hacerlo con este comando:</p>
+aws cloudformation wait stack-delete-complete \
+  --stack-name iac-bucket-demo \
+  --profile "$AWS_PROFILE" \
+  --region "$AWS_REGION"
+```
 
+Este cierre elimina el bucket solo si no se retuvo y está vacío. Si una política lo conserva, la pila desaparece pero el bucket permanece en la cuenta. Revisa los recursos retenidos y los costos de tu cuenta después de cada práctica. S3 cobra según almacenamiento, solicitudes y recuperaciones; el versionado también cobra por cada versión que conserva. Un bucket pequeño no implica que el uso sea gratuito: consulta los [precios actuales de Amazon S3](https://aws.amazon.com/s3/pricing/) y estima el uso para tu región antes de desplegar.
 
-<pre><code>aws cloudformation validate-template --template-body file://plantilla.yml
-</code></pre>
+## Drift e importación
 
+Si alguien cambia un recurso fuera de CloudFormation, la pila puede desviarse de la plantilla. La detección de drift compara propiedades compatibles con los valores esperados; no inspecciona todo lo que existe en la cuenta y solo compara los valores definidos explícitamente en la plantilla o por parámetros. Puedes iniciar una revisión de drift desde la consola o con la API de CloudFormation y consultar los resultados antes de decidir cómo reconciliar el recurso.
 
-<p>Esto te ayuda a encontrar y arreglar errores antes de crear algo con ella.</p>
+CloudFormation también permite importar ciertos recursos existentes a una pila. La importación no crea ni modifica recursos como parte de esa operación: primero declaras la configuración, identificas el recurso y creas una operación de importación. Cada recurso que importes necesita una `DeletionPolicy`; después de importar, AWS recomienda ejecutar detección de drift para comprobar que la plantilla coincide con el recurso. Lee la guía de [detección de drift](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-stack-drift.html) y la de [importación de recursos](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/import-resources-manually.html) antes de incorporar recursos existentes.
 
+## CloudFormation o Terraform
 
-<h2 id="despliegue-de-la-plantilla" tabindex="-1">Despliegue de la plantilla</h2>
+CloudFormation integra plantillas y pilas con el servicio de AWS; Terraform usa proveedores y mantiene estado propio, local o remoto. No hay una opción universal: compara el flujo que ya conoce tu equipo, el alcance de proveedores que necesitas y cómo administrará cambios y estado. Si un recurso ya pertenece a una pila de CloudFormation, no lo declares también en Terraform sin planificar una migración o importación: dos herramientas intentando ser dueñas del mismo recurso pueden producir cambios en conflicto.
 
+La [guía prescriptiva de AWS para elegir una herramienta de IaC](https://docs.aws.amazon.com/prescriptive-guidance/latest/choose-iac-tool/choose-tool.html) ofrece criterios de comparación. También puedes ver la charla comunitaria [IaC: Terraform, CDK y CloudFormation](https://www.youtube.com/watch?v=Pz6tt7Ao2Ig), grabada por AWS User Group Medellín.
 
-<p>Para poner en marcha la plantilla de CloudFormation que hemos preparado, podemos hacerlo de dos maneras: a través de la página web de AWS o usando comandos en la computadora. Vamos a ver cómo se hace en cada caso:</p>
+## Recursos, charlas y comunidades
 
+- [Introducción: qué es infraestructura como código](https://www.youtube.com/watch?v=L_VtP9aYedM), una charla general de AWS Girls Chile.
+- [Mejores prácticas con CloudFormation](https://www.youtube.com/watch?v=S0uvgkx4pq4), grabación de AWS User Group Paraguay.
+- [CloudFormation Hooks para validar controles preventivos](https://www.youtube.com/watch?v=2JZOW4p7Yfk), una charla de AWS User Group Security Ecuador sobre validaciones antes de aprovisionar.
+- [CloudFormation, Systems Manager y OpsWorks](https://www.youtube.com/watch?v=FCcAJYnlsPs), una grabación de AWS Girls Perú que relaciona CloudFormation con otros servicios.
+- [Plantillas para EC2 privado con VPC Endpoints y Systems Manager](https://github.com/pangoro24/aws-privatelink-private-instance-ssm), una referencia de topología más amplia que despliega varios recursos. No la ejecutes sin adaptar: el repositorio incluye un endpoint `ec2messages` que no está disponible en regiones lanzadas desde 2024 y una ruta que recibe la contraseña de Windows como parámetro. Sustituye ese manejo por una opción segura de secretos y usa endpoints disponibles en tu región. La guía interna de [AWS Session Manager](/blog/como-configurar-y-utilizar-aws-session-manager/) ayuda a entender el acceso a esas instancias.
+- Puedes participar en [AWS User Group Paraguay](https://www.meetup.com/aws-ug-paraguay/) y [AWS User Group Security Ecuador](https://www.meetup.com/aws-user-group-security-ecuador/), las comunidades detrás de dos charlas enlazadas arriba. El [canal de YouTube de AWS User Group Paraguay](https://www.youtube.com/channel/UC7_OxjDgMxfy3Id5oGyKqLg) reúne más grabaciones de la comunidad. También puedes buscar grupos por país en el [directorio de comunidades AWS](/comunidades/); en [videos de AWS en español](/aprender/videos/) y [canales de YouTube](/creadores/youtube/) encontrarás más charlas.
+- En la agenda revisada el 5 de octubre de 2026 figura [Compliance as Code en AWS, de AWS User Group Security Ecuador](https://www.meetup.com/aws-user-group-security-ecuador/events/316680020/), en línea el 20 de octubre de 19:00 a 20:00 GMT-5. Consulta la ficha para conocer las condiciones de inscripción. También puedes revisar la [agenda AWS actualizada](/eventos/).
 
-<h3 id="despliegue-mediante-la-consola" tabindex="-1">Despliegue mediante la consola</h3>
-
-
-<ul>
-<li>Primero, entramos a la página de AWS y buscamos el servicio de CloudFormation.</li>
-<li>Luego, hacemos clic en "Crear pila".</li>
-<li>Seleccionamos "Cargar un archivo de plantilla" y escogemos el archivo que contiene nuestra plantilla, ya sea en formato YAML o JSON.</li>
-<li>Completamos la información que se nos pide y damos clic en "Siguiente".</li>
-<li>Le ponemos un nombre a nuestra pila y, si es necesario, ajustamos algunas configuraciones adicionales.</li>
-<li>Finalmente, hacemos clic en "Siguiente" y luego en "Crear pila" para empezar el proceso.</li>
-</ul>
-
-
-<p>Después de un rato, podremos ver en la página de CloudFormation cómo va todo y qué se ha creado.</p>
-
-
-<h3 id="despliegue-mediante-aws-cli" tabindex="-1">Despliegue mediante AWS CLI</h3>
-
-
-<p>Si preferimos usar la línea de comandos, podemos hacerlo con el siguiente comando:</p>
-
-
-<pre><code>aws cloudformation create-stack --stack-name mi-pila \
-                               --template-body file://plantilla.yml \
-                               --parameters ParameterKey=NombreParametro,ParameterValue=valor \
-                               --region us-east-1
-</code></pre>
-
-
-<p>Lo que necesitamos saber aquí es:</p>
-
-
-<ul>
-<li><strong>stack-name</strong>: Cómo queremos llamar a nuestra pila</li>
-<li><strong>template-body</strong>: Dónde está el archivo de nuestra plantilla</li>
-<li><strong>parameters</strong>: Los detalles específicos que nuestra plantilla necesita</li>
-<li><strong>region</strong>: En qué parte de AWS queremos que esto se ejecute</li>
-</ul>
-
-
-<p>Una vez que damos este comando, podemos seguir el progreso directamente desde la línea de comandos o revisar en la página de CloudFormation para ver cómo va todo.</p>
-
-
-
-
-<h2 id="actualizaci%C3%B3n-de-la-plantilla" tabindex="-1">Actualización de la plantilla</h2>
-
-
-<p>Después de que ya tengas tu plantilla de AWS CloudFormation funcionando y los recursos creados en AWS, puede que necesites hacer algunos cambios más adelante. Por ejemplo, si creaste un espacio de almacenamiento (bucket de S3) para un sitio web, tal vez luego quieras agregarle un nombre de dominio para que la gente pueda encontrar tu sitio fácilmente.</p>
-
-
-<p>Para hacer estos cambios, tienes dos opciones:</p>
-
-
-<ul>
-<li>Editar directamente la plantilla que ya usaste, añadiendo los cambios necesarios y luego actualizar la infraestructura que ya tienes.</li>
-<li>Hacer una nueva plantilla solo con los cambios y luego combinarla con lo que ya tienes.</li>
-</ul>
-
-
-<h3 id="opci%C3%B3n-1%3A-editar-la-plantilla-original" tabindex="-1">Opción 1: editar la plantilla original</h3>
-
-
-<p>Editar la plantilla original es práctico porque mantienes todo organizado en un solo lugar. Los pasos a seguir serían:</p>
-
-
-<ul>
-<li>Abre la plantilla en tu editor de texto.</li>
-<li>Añade un nuevo recurso. Por ejemplo, para añadir un nombre de dominio con Route 53 que apunte a tu espacio de S3, lo harías así:</li>
-</ul>
-
-
-<pre><code>Recursos:
-
-  SitioWeb:
-    Type: AWS::Route53::RecordSet
-    Properties:
-      HostedZoneName: mi-dominio.com
-      Name: mi-sitio.mi-dominio.com
-      Type: CNAME
-      TTL: '900'
-      ResourceRecords:
-        - !GetAtt S3Bucket.DomainName
-</code></pre>
-
-
-<ul>
-<li>Guarda los cambios.</li>
-<li>Actualiza tu infraestructura con este comando:</li>
-</ul>
-
-
-<pre><code>aws cloudformation update-stack --stack-name mi-pila --template-body file://plantilla-editada.yml
-</code></pre>
-
-
-<ul>
-<li>AWS CloudFormation se encargará de hacer los cambios por ti, incluyendo añadir el nombre de dominio.</li>
-</ul>
-
-
-<h3 id="opci%C3%B3n-2%3A-unir-pilas" tabindex="-1">Opción 2: unir pilas</h3>
-
-
-<p>Si prefieres, puedes dejar tu infraestructura como está y crear una nueva plantilla con solo los cambios. Después, puedes hacer que ambas trabajen juntas. Esto sería así:</p>
-
-
-<ul>
-<li>Haz una nueva plantilla llamada <code class="inline-code">plantilla-dns.yml</code> con el recurso de Route 53 que quieres añadir.</li>
-<li>Usa esta nueva plantilla para crear una nueva infraestructura llamada <code class="inline-code">mi-pila-dns</code>.</li>
-<li>Une esta nueva parte con la anterior usando este comando:</li>
-</ul>
-
-
-<pre><code>aws cloudformation stack-set operation start --operation-preferences RegionConcurrencyType=parallel --operation-id unirPilas
-
---stack-set-name mi-pila-unida --accounts 123456789012 --regions us-east-1
-</code></pre>
-
-
-<ul>
-<li>Esto hará que los recursos de ambas partes trabajen juntos, como el nombre de dominio apuntando al espacio de S3.</li>
-</ul>
-
-
-<p>En resumen, puedes elegir entre actualizar una sola infraestructura o combinar varias para manejar los cambios. Ambas son buenas opciones, así que elige la que mejor se ajuste a lo que necesitas.</p>
-
-
-<h2 id="eliminaci%C3%B3n-de-recursos" tabindex="-1">Eliminación de recursos</h2>
-
-
-<p>Cuando ya no necesitas los recursos que creaste con AWS CloudFormation, es una buena idea borrarlos para evitar gastos que no necesitas. Afortunadamente, eliminar estos recursos es fácil gracias a cómo CloudFormation maneja la infraestructura.</p>
-
-
-<p>Para borrar una pila de CloudFormation y todos los recursos que contiene, tienes dos opciones principales:</p>
-
-
-<h3 id="1.-eliminar-la-pila-desde-la-consola-de-aws" tabindex="-1">1. Eliminar la pila desde la consola de AWS</h3>
-
-
-<p>Para hacerlo desde el sitio web de AWS, sigue estos pasos:</p>
-
-
-<ul>
-<li>Entra a la consola de CloudFormation</li>
-<li>Escoge la pila que quieres eliminar</li>
-<li>Haz clic en "Eliminar"</li>
-<li>Confirma que realmente quieres borrar la pila</li>
-</ul>
-
-
-<p>CloudFormation se encargará de deshacerse de todos los recursos que creó esa pila de forma ordenada.</p>
-
-
-<h3 id="2.-usar-aws-cli" tabindex="-1">2. Usar AWS CLI</h3>
-
-
-<p>Si prefieres, puedes borrar una pila usando la línea de comandos con este comando:</p>
-
-
-<pre><code>aws cloudformation delete-stack --stack-name mi-pila
-</code></pre>
-
-
-<p>Solo tienes que indicar el nombre de la pila que creaste.</p>
-
-
-<p>El proceso de borrado puede tardar un poco, ya que CloudFormation necesita terminar cada recurso correctamente antes de eliminarlo. Puedes ver cómo va el proceso desde la consola o usando el comando <code class="inline-code">describe-stacks</code>.</p>
-
-
-<p>Una vez que termine, la pila y todos sus recursos desaparecerán de tu cuenta de AWS. Así de fácil es mantener todo bajo control con infraestructura como código.</p>
-
-
-<h2 id="mejores-pr%C3%A1cticas-con-aws-cloudformation" tabindex="-1">Mejores prácticas con AWS CloudFormation</h2>
-
-
-<p>Usar AWS CloudFormation puede hacerte la vida mucho más fácil cuando trabajas con infraestructura en AWS. Pero, como cualquier herramienta, hay formas de usarla que te dan mejores resultados. Aquí van algunos consejos sencillos:</p>
-
-
-<h3 id="reutiliza-plantillas-y-c%C3%B3digo" tabindex="-1">Reutiliza plantillas y código</h3>
-
-
-<ul>
-<li>Intenta tener plantillas básicas que puedas usar varias veces. Por ejemplo, una plantilla para armar una red virtual o crear permisos de acceso.</li>
-<li>Aprovecha los <a href="https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/modules.html" rel="noopener noreferrer" target="_blank">módulos</a> para agrupar partes de tus plantillas que usas mucho y así usarlas en diferentes lugares sin repetir código.</li>
-<li>Para compartir código entre plantillas, puedes usar <a href="https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stack.html" rel="noopener noreferrer" target="_blank">pilas anidadas</a>.</li>
-</ul>
-
-
-<h3 id="separaci%C3%B3n-de-entornos" tabindex="-1">Separación de entornos</h3>
-
-
-<ul>
-<li>Es buena idea tener pilas separadas para cada etapa de tu proyecto, como desarrollo, pruebas y producción. Esto te ayuda a evitar errores en lugares donde no deberían pasar.</li>
-<li>Utiliza parámetros para ajustar detalles que cambian entre un entorno y otro, como el tamaño de los servidores o los nombres de los recursos.</li>
-</ul>
-
-
-<h3 id="pruebas" tabindex="-1">Pruebas</h3>
-
-
-<ul>
-<li>Antes de poner en marcha tus plantillas, usa el comando <code class="inline-code">aws cloudformation validate-template</code> para asegurarte de que todo está correcto.</li>
-<li>Prueba tus plantillas en entornos de prueba antes de usarlas en producción.</li>
-<li>Piensa en incluir pruebas automáticas para tus plantillas.</li>
-</ul>
-
-
-<h3 id="par%C3%A1metros" tabindex="-1">Parámetros</h3>
-
-
-<ul>
-<li>Intenta que tus plantillas tengan muchos parámetros para que puedas usarlas en diferentes situaciones.</li>
-<li>Define valores por defecto para esos parámetros y así hacer más fácil el uso de las plantillas.</li>
-<li>Cuando puedas, limita los valores que se pueden elegir para los parámetros y así evitar errores.</li>
-</ul>
-
-
-<p>Siguiendo estos consejos, podrás sacarle más provecho a CloudFormation y hacer tu trabajo con AWS más seguro y eficiente.</p>
-
-
-<h2 id="resumen" tabindex="-1">Resumen</h2>
-
-
-<p>Hemos aprendido cómo usar CloudFormation de AWS para manejar nuestra infraestructura en la nube usando código, en lugar de hacerlo manualmente. Aquí hay un repaso rápido:</p>
-
-
-<ul>
-<li>Con CloudFormation, podemos describir lo que necesitamos en AWS (como servidores o bases de datos) en archivos de texto.</li>
-<li>Una 'plantilla' es básicamente un archivo que dice qué y cómo queremos nuestros recursos.</li>
-<li>Cuando creamos una 'pila', estamos poniendo en marcha todo lo que describimos en la plantilla.</li>
-<li>Podemos actualizar o combinar plantillas para hacer cambios en nuestra infraestructura.</li>
-<li>Si ya no necesitamos esos recursos, podemos eliminar la pila y todo se borrará de forma ordenada.</li>
-</ul>
-
-
-<p>Usar CloudFormation nos ayuda a trabajar más rápido, asegurarnos de que todo se hace de la misma manera cada vez, y facilita el crecimiento o la duplicación de nuestros entornos.</p>
-
-
-<p>Algunos consejos importantes son:</p>
-
-
-<ul>
-<li>Trata de usar las mismas plantillas para diferentes proyectos.</li>
-<li>Mantén separados los ambientes de desarrollo, prueba y producción.</li>
-<li>Siempre revisa tus plantillas antes de usarlas para evitar errores.</li>
-<li>Usa parámetros en tus plantillas para que sean más flexibles.</li>
-</ul>
-
-
-<p>En pocas palabras, CloudFormation nos permite manejar nuestra infraestructura en AWS de una manera organizada y eficiente, siguiendo las prácticas de Infraestructura como Código.</p>
-
-
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
-
-
-<h3 id="%C2%BFqu%C3%A9-servicio-de-aws-permite-administrar-la-infraestructura-usando-c%C3%B3digo%3F" tabindex="-1">¿Qué servicio de AWS permite administrar la infraestructura usando código?</h3>
-
-
-<p>AWS CloudFormation te ayuda a crear y manejar recursos de AWS usando archivos de texto, lo cual es mucho más rápido que hacerlo a mano. Esto es parte de lo que llamamos infraestructura como código.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-significa-infraestructura-como-c%C3%B3digo%3F" tabindex="-1">¿Qué significa infraestructura como código?</h3>
-
-
-<p>Infraestructura como código es una forma de configurar y manejar computadoras y otros dispositivos de red usando archivos de texto, en lugar de hacerlo manualmente. Esto hace que todo el proceso sea más rápido y menos propenso a errores.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-formatos-de-archivo-puedo-usar-con-aws-cloudformation%3F" tabindex="-1">¿Qué formatos de archivo puedo usar con AWS CloudFormation?</h3>
-
-
-<p>Con AWS CloudFormation, puedes usar JSON o YAML, que son dos tipos de archivos de texto, para describir cómo quieres que sea tu infraestructura de AWS.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-papel-juega-la-infraestructura-como-c%C3%B3digo-en-devops%3F" tabindex="-1">¿Qué papel juega la infraestructura como código en DevOps?</h3>
-
-
-<p>En DevOps, la infraestructura como código permite usar archivos de texto para definir y configurar la infraestructura necesaria para desarrollar, probar y lanzar software. Esto ayuda a automatizar procesos y hacer todo más eficiente.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/nube-aws-guia-de-inicio-rapido/">Nube AWS: guía de inicio rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a serverless en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li>
-</ul>
-</p>
+Para continuar dentro del blog, compara esta guía con [Terraform y S3](/blog/como-crear-infraestructura-como-codigo-en-aws-con-terraform/) y consulta nuestros [controles de seguridad para IaC](/blog/9-mejores-practicas-de-seguridad-para-iac-en-aws/). Si luego trabajas con instancias EC2 privadas, revisa [AWS Session Manager](/blog/como-configurar-y-utilizar-aws-session-manager/).

@@ -1,110 +1,120 @@
 ---
-title: "CloudWatch y EventBridge: integración"
-description: "Aprende cómo integrar CloudWatch y EventBridge para automatizar tareas y mejorar el monitoreo en la infraestructura de AWS."
+title: "Cómo conectar alarmas de CloudWatch con EventBridge"
+description: "Filtra cambios de estado de alarmas de CloudWatch con reglas de EventBridge y envíalos a SNS, Lambda o SQS con permisos, reintentos y DLQ."
 author: "guille-ojeda"
 publishedAt: "2024-11-28"
 publishedTimestamp: "2024-11-28T01:51:21.207Z"
+modifiedTimestamp: "2026-10-05T20:43:59-03:00"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Correlación de eventos con Step Functions y CloudWatch"
-    url: "https://dondeaprendoaws.com/blog/correlacion-de-eventos-con-step-functions-y-cloudwatch/"
-  - title: "10 laboratorios prácticos de AWS para principiantes"
-    url: "https://dondeaprendoaws.com/blog/10-laboratorios-practicos-de-aws-para-principiantes/"
-  - title: "Arquitecturas de alta disponibilidad en AWS"
-    url: "https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/"
-
+  - title: "Arquitectura dirigida por eventos en AWS: servicios, ejemplo y decisiones"
+    url: "https://dondeaprendoaws.com/blog/arquitecturas-dirigidas-por-eventos-en-aws/"
 ---
 
-<p><strong>¿Quieres automatizar tareas y mejorar el <a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/">monitoreo en AWS</a>?</strong> La integración de <a href="https://aws.amazon.com/cloudwatch/">Amazon CloudWatch</a> y EventBridge es clave. Aquí tienes lo esencial:</p>
-<ul><li><strong>CloudWatch</strong>: Monitorea métricas, logs y eventos en tiempo real para identificar problemas y analizar rendimiento.</li><li><strong>EventBridge</strong>: Gestiona y enruta eventos, automatizando flujos de trabajo basados en reglas.</li></ul>
-<h3 id="beneficios-principales%3A">Beneficios principales:</h3>
-<ul><li><strong>Automatización</strong>: Responde automáticamente a eventos críticos, como escalar alertas o ejecutar funciones <a href="https://aws.amazon.com/lambda/">Lambda</a>.</li><li><strong>Monitoreo centralizado</strong>: Consolida eventos de múltiples servicios y cuentas AWS.</li><li><strong>Gestión precisa</strong>: Filtra eventos relevantes para reducir ruido y mejorar la visibilidad.</li></ul>
-<h3 id="diferencias-clave%3A">Diferencias clave:</h3>
-<table><thead><tr><th>Característica</th><th>CloudWatch</th><th>EventBridge</th></tr></thead><tbody><tr><td><strong>Función principal</strong></td><td>Monitoreo y logging</td><td>Gestión y enrutamiento de eventos</td></tr><tr><td><strong>Datos procesados</strong></td><td>Métricas, logs y eventos</td><td>Eventos de AWS y apps SaaS</td></tr><tr><td><strong>Uso principal</strong></td><td>Seguimiento de rendimiento</td><td>Automatización de flujos de trabajo</td></tr></tbody></table>
-<p><strong>¿Cómo empezar?</strong> Configura reglas en EventBridge para procesar eventos de CloudWatch y define destinos como Lambda o <a href="https://aws.amazon.com/sns/">SNS</a>. Reduce el ruido con patrones específicos y prioriza eventos críticos según su severidad. Esta integración mejora la respuesta a incidentes y optimiza la infraestructura basada en eventos.</p>
-<h2 id="video-relacionado-de-youtube">Video relacionado de YouTube</h2>
-<div><iframe allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen="" height="315" loading="lazy" src="https://www.youtube-nocookie.com/embed/gCyOPHlp5Ic" title="Video de YouTube" width="560"></iframe></div>
-<h2 id="c%C3%B3mo-configurar-amazon-eventbridge">Cómo configurar <a href="https://aws.amazon.com/eventbridge/">Amazon EventBridge</a></h2>
-<p><img alt="Amazon EventBridge" src="/assets/blog/dcba27902d45cd07a719ed13.jpg"/></p>
-<p>Amazon EventBridge necesita una configuración específica para manejar eventos de forma eficiente. Su funcionamiento se basa en tres elementos principales que trabajan juntos para gestionar el flujo de eventos.</p>
-<h3 id="conceptos-clave-en-eventbridge">Conceptos clave en EventBridge</h3>
-<table><thead><tr><th>Componente</th><th>Descripción</th><th>Uso Principal</th></tr></thead><tbody><tr><td>Bus de eventos</td><td>Canal principal de eventos</td><td>Separación de ambientes (dev/prod)</td></tr><tr><td>Reglas</td><td>Patrones de coincidencia</td><td>Filtrado de eventos específicos</td></tr><tr><td>Destinos</td><td>Servicios receptores</td><td>Acciones desencadenadas por eventos</td></tr></tbody></table>
-<p>Estos elementos son la base de EventBridge, permitiendo un control preciso y eficiente de los eventos en tu infraestructura de AWS.</p>
-<h3 id="c%C3%B3mo-crear-reglas-en-eventbridge">Cómo crear reglas en EventBridge</h3>
-<p>Para configurar una regla en EventBridge, selecciona el bus de eventos adecuado según tu entorno, define el patrón de eventos que deseas procesar y elige hasta cinco destinos para manejar los eventos. Es importante definir las reglas con precisión para optimizar el rendimiento y minimizar costos.</p>
-<p>Después de configurar las reglas, puedes conectar EventBridge con CloudWatch Logs para centralizar el monitoreo.</p>
-<h3 id="vinculaci%C3%B3n-de-eventbridge-con-cloudwatch-logs">Vinculación de EventBridge con CloudWatch Logs</h3>
-<p>El proceso para conectar EventBridge con CloudWatch Logs incluye tres pasos clave:</p>
-<p>1. <strong>Crear un grupo de logs</strong></p>
-<p>Configura un grupo de logs en CloudWatch para que actúe como destino de los eventos.</p>
-<p>2. <strong>Configurar permisos y establecer reglas</strong></p>
-<p>Otorga los permisos necesarios para que EventBridge pueda escribir en CloudWatch Logs. Este paso es esencial para garantizar la seguridad y la operación sin problemas. Luego, ajusta la regla para que el grupo de logs sea el destino, definiendo el formato de los eventos y los datos que deseas registrar.</p>
-<p>Por ejemplo, puedes crear una regla que, al detectar un error en una aplicación crítica, active automáticamente una función Lambda para tomar medidas correctivas y notificar al equipo de operaciones.</p>
-<p>Una configuración adecuada de EventBridge es clave para mantener una <a href="https://dondeaprendoaws.com/blog/arquitecturas-dirigidas-por-eventos-en-aws/">arquitectura basada en eventos</a> eficiente y escalable. Siguiendo estos pasos, puedes gestionar eventos de manera efectiva y mejorar la visibilidad de las operaciones en AWS.</p>
-<h2 id="pasos-para-integrar-cloudwatch-con-eventbridge">Pasos para integrar CloudWatch con EventBridge</h2>
-<p>Una vez que tienes EventBridge configurado, el siguiente paso es conectarlo con CloudWatch para automatizar las respuestas a eventos dentro de tu infraestructura en AWS.</p>
-<h3 id="creaci%C3%B3n-de-reglas-de-eventbridge-para-eventos-de-cloudwatch">Creación de reglas de EventBridge para eventos de CloudWatch</h3>
-<p>Para configurar reglas en EventBridge que respondan a eventos de CloudWatch, necesitas definir patrones específicos. Aquí te mostramos cómo hacerlo:</p>
-<ul><li><strong>Define el origen del evento</strong>: Establece "aws.cloudwatch" como el origen y selecciona los tipos de eventos que deseas monitorear.</li><li><strong>Selecciona el destino</strong>: Configura un destino para cada regla, como funciones Lambda, temas de SNS o colas de <a href="https://aws.amazon.com/sqs/">SQS</a>.</li><li><strong>Configura los permisos necesarios</strong>: Asegúrate de que EventBridge tenga acceso para interactuar con los servicios que hayas elegido como destino.</li></ul>
-<p>Es importante que las reglas sean específicas para evitar que se generen eventos innecesarios que puedan dificultar el monitoreo.</p>
-<h3 id="uso-de-alarmas-de-cloudwatch-con-eventbridge">Uso de alarmas de CloudWatch con EventBridge</h3>
-<p>Las alarmas de CloudWatch rastrean métricas específicas y cambian de estado cuando se alcanzan los umbrales que hayas definido. Estos cambios de estado pueden activar acciones automáticas a través de EventBridge.</p>
-<p>Aquí tienes un resumen de los estados de alarma y las acciones que puedes implementar:</p>
-<table><thead><tr><th>Estado de Alarma</th><th>Tipo de Evento</th><th>Acción Sugerida</th></tr></thead><tbody><tr><td>OK a ALARM</td><td>CloudWatch Alarm State Change</td><td>Enviar notificación</td></tr><tr><td>ALARM a OK</td><td>CloudWatch Alarm State Change</td><td>Registrar resolución</td></tr><tr><td>INSUFFICIENT_DATA</td><td>CloudWatch Alarm State Change</td><td>Revisar métricas</td></tr></tbody></table>
-<p>Si trabajas en diferentes entornos, como desarrollo, pruebas y producción, considera usar buses de eventos separados. Esto facilita la gestión y el control de los eventos según el entorno.</p>
-<p>Integrar CloudWatch con EventBridge te permite implementar sistemas de monitoreo avanzados basados en eventos. En la próxima sección, profundizaremos en estrategias adicionales para maximizar su uso.&lt;/</p>
-<h2 id="consejos-para-el-monitoreo-basado-en-eventos">Consejos para el monitoreo basado en eventos</h2>
-<h3 id="c%C3%B3mo-reducir-el-ruido-en-los-registros-de-eventos">Cómo reducir el ruido en los registros de eventos</h3>
-<p>En el contexto de los logs, el "ruido" se refiere a datos o eventos que, aunque registrados, no aportan información útil para el monitoreo. Con EventBridge, puedes crear patrones específicos que te ayuden a filtrar esta información innecesaria.</p>
-<p>Aquí tienes dos formas de reducir el ruido:</p>
-<ul><li><strong>Crea patrones bien definidos</strong>: Diseña reglas que capten solo los eventos que importan, ajustando los filtros de acuerdo con las necesidades de tu negocio.</li><li><strong>Agrupa eventos similares</strong>: Consolida eventos repetitivos para evitar alertas duplicadas y mantener un monitoreo más claro.</li></ul>
-<h3 id="configuraci%C3%B3n-de-respuesta-para-eventos-cr%C3%ADticos">Configuración de respuesta para eventos críticos</h3>
-<p>Una vez que hayas reducido el ruido en los registros, el siguiente paso es implementar estrategias claras para manejar eventos críticos. La <a href="https://dondeaprendoaws.com/blog/integracion-de-guardduty-de-aws-para-inteligencia-de-amenazas/">integración de CloudWatch con EventBridge</a> requiere un enfoque bien planificado para gestionar incidentes.</p>
-<p>Aquí tienes un resumen de acciones basadas en la severidad de los eventos:</p>
-<table><thead><tr><th>Nivel de Severidad</th><th>Tiempo de Respuesta</th><th>Acción Recomendable</th></tr></thead><tbody><tr><td>Crítico</td><td>Menos de 5 minutos</td><td>Notificar al equipo de guardia de inmediato</td></tr><tr><td>Alto</td><td>Menos de 15 minutos</td><td>Alertar al líder técnico</td></tr><tr><td>Medio</td><td>Menos de 1 hora</td><td>Registrar en el sistema de tickets</td></tr><tr><td>Bajo</td><td>Menos de 24 horas</td><td>Documentar para una revisión futura</td></tr></tbody></table>
-<p>Además, el registro de esquemas puede ayudarte a simplificar la integración y mejorar la rapidez de respuesta. Aunque EventBridge automatiza muchas acciones, algunos eventos críticos todavía necesitan intervención humana para resolverse correctamente.</p>
-<h3 id="monitoreo-centralizado-de-eventos">Monitoreo centralizado de eventos</h3>
-<p>El monitoreo centralizado con EventBridge te permite tener una visión completa de los eventos en varias cuentas de AWS. Una estructura bien organizada puede marcar la diferencia. Considera esta configuración:</p>
-<table><thead><tr><th>Tipo de Bus de Eventos</th><th>Propósito</th><th>Configuración Sugerida</th></tr></thead><tbody><tr><td>Producción</td><td>Manejar eventos críticos</td><td>Activar alertas inmediatas y escalamiento automático</td></tr><tr><td>Desarrollo</td><td>Monitorear eventos de prueba</td><td>Mantener un registro detallado sin generar alertas</td></tr><tr><td>Auditoría</td><td>Supervisar eventos de seguridad</td><td>Configurar retención prolongada de logs</td></tr></tbody></table>
-<p>Con estas estrategias básicas en marcha, puedes comenzar a explorar las capacidades más avanzadas de EventBridge para sacarle todo el provecho posible.</p>
-<h2 id="funcionalidades-avanzadas-de-eventbridge">Funcionalidades avanzadas de EventBridge</h2>
-<h3 id="uso-del-registro-de-esquemas-en-eventbridge">Uso del registro de esquemas en EventBridge</h3>
-<p>El Registro de Esquemas almacena las definiciones de la estructura de eventos, facilitando su reutilización y validación. Con esta herramienta, puedes estandarizar y gestionar el formato de los eventos en tu infraestructura de AWS.</p>
-<p>Algunas ventajas clave del Registro de Esquemas incluyen:</p>
-<ul><li><strong>Validación automática</strong> del formato de los eventos.</li><li><strong>Estandarización de estructuras</strong>, asegurando consistencia.</li><li><strong>Simplificación del procesamiento</strong> de eventos entre diferentes servicios.</li></ul>
-<p>Por ejemplo, si trabajas con notificaciones de cambios en instancias EC2, esta funcionalidad permite validar y procesar los eventos de forma consistente. Esto facilita la integración con otros servicios y mejora la interoperabilidad.</p>
-<p>Además, EventBridge no se limita a eventos internos. También permite trabajar con eventos de aplicaciones externas, ampliando sus posibilidades.</p>
-<h3 id="integraci%C3%B3n-de-eventos-de-partners-con-eventbridge">Integración de eventos de Partners con EventBridge</h3>
-<p>La integración con socios externos permite un monitoreo centralizado y automatiza respuestas. Por ejemplo, si <a href="https://www.zendesk.com/">Zendesk</a> genera un evento sobre un ticket crítico, EventBridge puede activar una función Lambda para asignarlo automáticamente al equipo adecuado.</p>
-<table><thead><tr><th>Partner</th><th>Caso de Uso</th></tr></thead><tbody><tr><td>Zendesk</td><td>Streaming de tickets de soporte y automatización de respuestas según prioridad.</td></tr><tr><td><a href="https://www.broadcom.com/products/cybersecurity">Symantec Cloud</a></td><td>Protección de cargas de trabajo mediante análisis de seguridad en tiempo real.</td></tr><tr><td><a href="https://tealium.com/">Tealium</a></td><td>Gestión y actualización inmediata de perfiles de clientes.</td></tr></tbody></table>
-<p>Estas integraciones ofrecen:</p>
-<ul><li><strong>Visibilidad centralizada</strong> de eventos desde múltiples fuentes.</li><li><strong>Automatización eficiente</strong>, con respuestas basadas en eventos.</li><li><strong>Escalabilidad</strong> para manejar grandes volúmenes de eventos.</li></ul>
-<blockquote><p>"EventBridge gestiona billones de eventos mensualmente, demostrando la capacidad de AWS para manejar grandes cargas de datos."</p></blockquote>
-<p>La capacidad de combinar eventos internos y externos posiciona a EventBridge como una herramienta clave para monitoreo y automatización centralizados.</p>
-<h2 id="conclusi%C3%B3n">Conclusión</h2>
-<h3 id="resumen-de-puntos-clave">Resumen de puntos clave</h3>
-<p>La combinación de CloudWatch y EventBridge ofrece una solución potente para monitoreo y <a href="https://dondeaprendoaws.com/blog/aws-opsworks-automatiza-despliegues-con-chef/">automatización en AWS</a>. Juntos, estos servicios permiten un seguimiento centralizado, respuestas automáticas basadas en eventos, manejo eficiente de grandes volúmenes de datos y una integración sencilla con servicios externos.</p>
-<table><thead><tr><th>Aspecto</th><th>Ventaja</th></tr></thead><tbody><tr><td>Visibilidad</td><td>Seguimiento centralizado de eventos en múltiples cuentas y servicios de AWS</td></tr><tr><td>Automatización</td><td>Acciones automáticas basadas en eventos definidos</td></tr><tr><td>Escalabilidad</td><td>Manejo eficiente de grandes cantidades de eventos</td></tr><tr><td>Integración</td><td>Conexión sin complicaciones con servicios SaaS y socios externos</td></tr></tbody></table>
-<p>Un punto clave es la capacidad de reducir el ruido en los registros de eventos mediante filtros específicos en las reglas de EventBridge.</p>
-<blockquote><p>"EventBridge gestiona billones de eventos mensualmente, demostrando su capacidad para manejar cargas de trabajo empresariales a gran escala, mientras mantiene la simplicidad en su configuración y uso."</p></blockquote>
-<h3 id="d%C3%B3nde-aprender-m%C3%A1s-sobre-aws">Dónde aprender más sobre AWS</h3>
-<p>Si buscas <a href="https://dondeaprendoaws.com/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/">recursos en español</a> para profundizar en AWS, <strong><a href="https://dondeaprendoaws.com/">Dónde Aprendo AWS</a></strong> (https://dondeaprendoaws.com) es una excelente opción. Esta plataforma ofrece guías detalladas para desarrolladores e ingenieros, desde conceptos básicos hasta temas avanzados, incluyendo tutoriales específicos sobre cómo integrar CloudWatch y EventBridge.</p>
-<p>Además, la documentación oficial de AWS, junto con estos recursos, permite:</p>
-<ul><li>Entender <a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">mejores prácticas de implementación</a>.</li><li>Acceder a ejemplos prácticos de configuraciones.</li><li>Mantenerse al día con nuevas funciones y actualizaciones.</li><li>Conectar con la <a href="https://dondeaprendoaws.com/blog/aprender-aws-gratis-recursos-y-comunidad/">comunidad hispanohablante de AWS</a>.</li></ul>
-<p>La integración entre CloudWatch y EventBridge sigue creciendo, mejorando las capacidades de <a href="https://dondeaprendoaws.com/blog/gestion-de-facturacion-de-aws-guia-completa/">gestión y automatización en AWS</a>.&lt;/</p>
-<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
-<p>Aquí respondemos algunas preguntas comunes sobre cómo conectar CloudWatch con EventBridge para mejorar tu configuración.</p>
-<h3 id="%C2%BFc%C3%B3mo-activar-los-registros-de-cloudwatch-para-eventbridge%3F">¿Cómo activar los registros de CloudWatch para EventBridge?</h3>
-<p>Para activar los registros de CloudWatch en EventBridge, sigue estos pasos:</p>
-<ul><li>Accede a la consola de <strong>EventBridge</strong>.</li><li>Ve a la sección <strong>Rules</strong> en el menú lateral.</li><li>Haz clic en <strong>Create rule</strong> y asigna un nombre descriptivo.</li><li>En <strong>Target type</strong>, selecciona <strong>CloudWatch log group</strong>.</li><li>Escoge el grupo de registros de CloudWatch como destino.</li></ul>
-<p>Asegúrate de que los permisos de IAM permitan a EventBridge escribir en los grupos de logs de CloudWatch. Esto incluye las acciones necesarias para registrar eventos en el grupo que hayas seleccionado.</p>
-<h3 id="%C2%BFc%C3%B3mo-crear-un-grupo-de-registros-en-cloudwatch-para-usarlo-como-destino-de-una-regla-de-eventbridge%3F">¿Cómo crear un grupo de registros en CloudWatch para usarlo como destino de una regla de EventBridge?</h3>
-<p>Si necesitas un grupo de registros para usarlo con EventBridge, sigue estos pasos:</p>
-<ul><li>Ingresa a la consola de <strong>CloudWatch</strong>.</li><li>Dirígete a la sección <strong>Logs</strong>.</li><li>Haz clic en <strong>Create log group</strong>.</li><li>Asigna un nombre al grupo y ajusta el período de retención según tus necesidades.</li><li>Usa este grupo como destino al configurar tu regla de EventBridge.</li></ul>
-<table><thead><tr><th>Aspecto</th><th>Detalles</th></tr></thead><tbody><tr><td><strong>Nombre del Grupo</strong></td><td>Utiliza un prefijo identificativo, como <code>/aws/eventbridge/</code>.</td></tr><tr><td><strong>Retención</strong></td><td>Configura un período adecuado (se recomienda 30 días).</td></tr><tr><td><strong>Seguridad</strong></td><td>Activa KMS si necesitas una capa adicional de protección para los datos.</td></tr></tbody></table>
-<blockquote><p>"La conexión entre CloudWatch y EventBridge permite gestionar enormes volúmenes de eventos cada mes, simplificando el monitoreo y la automatización de respuestas basadas en eventos."</p></blockquote>
-<p>Si encuentras problemas, verifica los permisos de IAM, revisa el formato de los eventos y asegúrate de que las reglas estén activas y configuradas correctamente.</p>
-<h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-dirigidas-por-eventos-en-aws/">arquitecturas dirigidas por eventos en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/integracion-siem-aws-7-consejos-practicos-2024/">Integración SIEM-AWS: 7 consejos prácticos [2024]</a></li><li><a href="https://dondeaprendoaws.com/blog/recursos-personalizados-en-cloudformation-con-lambda/">Recursos personalizados en CloudFormation con Lambda</a></li></ul>
+Si ya tienes una alarma de Amazon CloudWatch y quieres ejecutar una acción cuando cambie de estado, puedes usar una regla de Amazon EventBridge. CloudWatch publica un evento de cambio de estado; EventBridge lo filtra y lo entrega a un destino como Amazon SNS, AWS Lambda o Amazon SQS.
+
+```text
+Métrica o consulta de logs
+           ↓
+Alarma de CloudWatch
+           ↓
+Evento de cambio de estado
+           ↓
+Regla de EventBridge
+           ↓
+SNS, Lambda o SQS
+```
+
+La diferencia importa: CloudWatch evalúa métricas y alarmas; EventBridge enruta eventos estructurados. La integración descrita aquí transporta el **estado de la alarma**, no cada métrica ni cada línea de log. [AWS documenta el evento de alarma y garantiza su entrega a EventBridge](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch-and-eventbridge.html). Los eventos de servicios AWS llegan al [bus de eventos predeterminado de la cuenta](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-events.html), así que no hace falta crear buses separados para que CloudWatch publique las alarmas.
+
+Si quieres repasar el papel de métricas, trazas y registros dentro de una visión más amplia, consulta [Observabilidad en la Nube de AWS](https://dev.to/aws-builders/observabilidad-en-la-nube-de-aws-explorando-cloudwatch-x-ray-y-cloudtrail-5d9m).
+
+## Filtra el cambio que te interesa
+
+Al cambiar de estado, una alarma envía un evento `CloudWatch Alarm State Change`. El evento incluye `detail.alarmName`, `detail.state.value` y `detail.previousState.value`. Los estados posibles incluyen `OK`, `ALARM` e `INSUFFICIENT_DATA`.
+
+Por ejemplo, este patrón coincide solo cuando la alarma `Api5xxRateHigh` entra en `ALARM`:
+
+```json
+{
+  "source": ["aws.cloudwatch"],
+  "detail-type": ["CloudWatch Alarm State Change"],
+  "detail": {
+    "alarmName": ["Api5xxRateHigh"],
+    "state": {
+      "value": ["ALARM"]
+    }
+  }
+}
+```
+
+`aws.cloudwatch` es el origen correcto. Añadir `detail-type` evita mezclar cambios de alarma con otros eventos de configuración que CloudWatch también envía a EventBridge; `alarmName` y `state.value` reducen aún más las coincidencias. Puedes quitar `alarmName` para aceptar varias alarmas o cambiar `ALARM` por `OK` si quieres actuar cuando el problema se resuelva. El filtro detecta una transición de estado, no cada evaluación mientras la alarma permanece en `ALARM`. Consulta la [referencia de eventos de CloudWatch](https://docs.aws.amazon.com/eventbridge/latest/ref/events-ref-cloudwatch.html) y la guía de [patrones de EventBridge](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-event-patterns.html).
+
+Si tu regla de alarma usa ventanas de calendario, la lectura [Alarmas de Amazon CloudWatch con ventana de reloj: un día no es lo mismo que 24 horas](https://builder.aws.com/content/3Jw3mQgso7GLIzENc1b524e3L9z/alarmas-de-amazon-cloud-watch-con-ventana-de-reloj-un-da-no-es-lo-mismo-que-horas) ayuda a distinguir esos periodos de evaluación de la transición que consume EventBridge.
+
+Un evento simplificado que coincide con ese patrón se ve así:
+
+```json
+{
+  "version": "0",
+  "id": "example-id",
+  "source": "aws.cloudwatch",
+  "account": "123456789012",
+  "time": "2026-10-05T16:00:00Z",
+  "region": "us-east-1",
+  "resources": [
+    "arn:aws:cloudwatch:us-east-1:123456789012:alarm:Api5xxRateHigh"
+  ],
+  "detail-type": "CloudWatch Alarm State Change",
+  "detail": {
+    "alarmName": "Api5xxRateHigh",
+    "state": { "value": "ALARM" },
+    "previousState": { "value": "OK" }
+  }
+}
+```
+
+## Crea la regla y elige un destino
+
+1. Confirma que la alarma exista en la misma cuenta y región en la que vas a crear la regla. En EventBridge, elige el bus predeterminado y crea una regla basada en un patrón de eventos.
+2. Selecciona los eventos de CloudWatch y el tipo `CloudWatch Alarm State Change`, o pega el patrón JSON anterior. Si tienes alarmas con el mismo nombre en distintas cuentas o regiones, añade filtros que distingan el evento que necesitas.
+3. Elige el destino según el trabajo: SNS para notificar a suscriptores; Lambda para ejecutar lógica propia; SQS para dejar trabajo pendiente y procesarlo de forma asíncrona. Si el destino falla, configura [reintentos y una cola de mensajes fallidos (DLQ)](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-rule-retry-policy.html). La DLQ de una regla es una cola SQS Standard; permite inspeccionar entregas que fallaron, pero requiere permisos para que EventBridge escriba en ella.
+4. Concede a EventBridge solo los permisos que requiere ese destino. Para invocar Lambda, configura en el destino de EventBridge un rol que confíe en `events.amazonaws.com` y permita `lambda:InvokeFunction`, o una política basada en recursos de la función que permita esa acción a ese principal y la restrinja al ARN de esta regla. El rol que EventBridge usa para invocar Lambda es distinto del rol de ejecución que Lambda usa después para acceder a otros servicios. Revisa las [políticas de recursos para destinos](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-use-resource-based.html); la consola puede crear algunos permisos, pero comprueba la política efectiva.
+5. Antes de habilitar una respuesta real, prueba el patrón en el [EventBridge Sandbox](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-event-patterns.html) con un evento de ejemplo. Para probar también la entrega al destino, usa una alarma y un destino de prueba en una cuenta o entorno no productivo; una prueba contra una alarma real puede notificar a personas o iniciar acciones operativas.
+
+EventBridge reintenta ciertos errores de entrega de acuerdo con la política del destino; para destinos de reglas en buses de eventos, el valor predeterminado documentado es hasta 24 horas o 185 intentos, lo que ocurra primero. Los errores de permisos faltantes o de un destino inexistente pueden ir directamente a la DLQ si la configuraste. Si no hay DLQ, un evento que agota los reintentos se descarta. Revisa en CloudWatch las métricas `FailedInvocations`, `InvocationsSentToDLQ` e `InvocationsFailedToBeSentToDLQ` para detectar fallas de entrega y problemas al escribir en la cola.
+
+## Diagnóstico si la regla no produce la respuesta esperada
+
+- **El patrón no coincide:** compara `source`, `detail-type`, `alarmName` y `state.value` con un evento completo de alarma en el [EventBridge Sandbox](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-event-patterns.html). Los nombres y valores distinguen mayúsculas de minúsculas.
+- **La alarma ya estaba en `ALARM`:** la regla recibe transiciones nuevas. Si no hubo un cambio de estado después de crearla, todavía no se habrá generado el evento que esperas. Para una prueba real, usa una alarma aislada en un entorno no productivo.
+- **No hay coincidencias en la regla:** confirma que la alarma y la regla están en la misma cuenta y región, y que la regla escucha el bus predeterminado. Consulta `TriggeredRules` para comprobar si hubo coincidencias.
+- **La regla coincide, pero el destino no actúa:** revisa `Invocations` y `FailedInvocations`, y comprueba la política de recursos o el rol configurado para el destino. Si configuraste una DLQ, revisa los mensajes y las métricas relacionadas con su entrega. AWS reúne estas señales en su guía de [solución de problemas de EventBridge](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-troubleshooting.html).
+
+La entrega a Lambda y la ejecución de su código son etapas distintas. Si Lambda acepta el evento pero la función falla, la entrega de EventBridge puede figurar como correcta: revisa también los errores de la función y sus [reintentos y destinos para invocaciones asíncronas](https://docs.aws.amazon.com/lambda/latest/dg/invocation-async-error-handling.html). La DLQ de EventBridge no sustituye la gestión de esos errores de ejecución.
+
+## CloudWatch Logs no es una exportación automática
+
+Una alarma basada en una métrica derivada de logs puede producir un evento de cambio de estado, igual que una alarma basada en una métrica regular. Eso no entrega a EventBridge las líneas del grupo de logs ni transmite todas las métricas de CloudWatch.
+
+También puedes configurar un grupo de CloudWatch Logs como **destino explícito** de una regla; en ese caso EventBridge escribe allí los eventos que coinciden con el patrón y necesita una política del grupo que le permita crear flujos y publicar registros. Esto conserva el evento recibido, no copia el contenido de otros grupos de logs. Para procesar registros individuales en tiempo real, revisa [suscripciones de Amazon CloudWatch Logs](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/Subscriptions.html) y el destino compatible con tu flujo.
+
+Para explorar otros enfoques de logs en aplicaciones serverless, el catálogo enlaza la charla [Cómo hacer logs estructurados y métricas customizadas con CloudWatch](https://www.youtube.com/watch?v=UBPPGJaBIVY). Si tu objetivo es centralizar grupos de logs entre cuentas y regiones, consulta también la grabación titulada [CloudWatch ahora centraliza logs entre cuentas y regiones](https://www.youtube.com/watch?v=M-KMTHIYOXQ); es un flujo distinto al envío de cambios de estado por EventBridge.
+
+## Costos y limpieza
+
+No hay un costo universal para esta integración: depende de cómo se genere la señal, del tipo de alarma y métricas consultadas, del destino y de si guardas registros. Revisa las tarifas actuales de [CloudWatch](https://aws.amazon.com/cloudwatch/pricing/) y [EventBridge](https://aws.amazon.com/eventbridge/pricing/) para la región y los servicios que uses. Por ejemplo, una alarma de consulta de logs puede tener cargos de consulta además del costo de la alarma.
+
+Si solo estabas probando, desactiva o elimina la regla cuando termines y retira los permisos de destino que añadiste para la prueba. Elimina la alarma, el grupo de logs y la DLQ de prueba solo si ya no los necesitas; define la retención de logs según tus necesidades y políticas, no con un período genérico.
+
+## Recursos y comunidad para seguir
+
+Si la señal que quieres procesar es un hallazgo de seguridad, continúa con la [guía para automatizar AWS Security Hub](/blog/como-automatizar-ajustes-de-politicas-con-aws-security-hub/). Allí cambia el formato del evento, pero sigue siendo necesario separar la detección, el enrutamiento y la acción que modifica el recurso.
+
+Para entender cómo elegir entre los servicios de integración, continúa con [Arquitectura dirigida por eventos en AWS: servicios, ejemplo y decisiones](/blog/arquitecturas-dirigidas-por-eventos-en-aws/). También puedes ampliar con la grabación [Introducción a arquitecturas orientadas a eventos y Amazon EventBridge](https://www.youtube.com/watch?v=TkU1RS5Fw1o), de Desplegando Cloud; la charla comunitaria [La Amenaza del Nivel 100: Amazon EventBridge](https://www.youtube.com/watch?v=f_RNpxzuxHE), de AWS Women Colombia; y el episodio [SQS, SNS, EventBridge o Kinesis: ¿cuál usás?](https://desplegando.substack.com/p/sqs-sns-eventbridge-o-kinesis-cual), que compara opciones de mensajería y eventos. Si quieres un runbook para decidir qué hacer después de una alerta, revisa [La alarma sonó. ¿Y ahora qué? Runbook guiado por SLOs](https://builder.aws.com/content/3IlopS4NCmTbwtDi0MIOjTAf9Ry/la-alarma-sono-y-ahora-que-runbook-guiado-por-slos).
+
+El catálogo también reúne [una grabación de Marcia sobre alarmas de CloudWatch](https://www.youtube.com/watch?v=uS0QE0NeqpA), con un enfoque de infraestructura como código, y el [Laboratorio práctico de Amazon CloudWatch](https://www.youtube.com/watch?v=ZdMM2W0vrvA), del AWS User Group Caracas. Para una introducción a logs en desarrollo serverless, consulta [¿Dónde están mis logs en AWS? CloudWatch explicado para desarrolladores serverless](https://www.youtube.com/watch?v=tsCvaRv5EkU). Si te interesa comparar con una integración programada, [AWS Lambda y Amazon EventBridge con Diana Alfaro](https://www.youtube.com/watch?v=cmBR1BxFSj0) muestra un caso de apagado de EC2 con horario: es otro disparador, distinto a una alarma.
+
+Puedes conversar sobre estos ejemplos en [AWS Women Colombia](https://awswomencolombia.com/), [AWS Girls Chile](https://linktr.ee/awsgirlschile), [AWS User Group Caracas](https://t.me/awsCaracas) o [AWS User Group Security Ecuador](https://www.awssecurityecuador.com/). Para encontrar talleres y encuentros vigentes de comunidades en distintos países, consulta la [agenda de eventos AWS](https://dondeaprendoaws.com/eventos/); las fechas y la inscripción se actualizan en cada ficha.
