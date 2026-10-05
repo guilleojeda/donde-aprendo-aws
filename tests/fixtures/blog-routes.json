@@ -211,7 +211,7 @@
   },
   {
     "slug": "aws-lambda-y-api-gateway-guia-basica",
-    "title": "AWS Lambda y API Gateway: guía básica",
+    "title": "AWS Lambda y API Gateway: crea una HTTP API paso a paso",
     "publishedAt": "2024-11-28",
     "publishedTimestamp": "2024-11-28T01:29:24.642Z"
   },
@@ -409,7 +409,7 @@
   },
   {
     "slug": "aws-iot-edge-simulator-casos-de-uso-reales",
-    "title": "AWS IoT Edge Simulator: casos de uso reales",
+    "title": "Cómo simular dispositivos IoT en AWS: MQTT, ejemplos y límites",
     "publishedAt": "2024-05-15",
     "publishedTimestamp": "2024-05-15T02:46:19.391Z"
   },
@@ -523,7 +523,7 @@
   },
   {
     "slug": "aws-lambda-costo-vs-rendimiento",
-    "title": "AWS Lambda: costo vs. rendimiento",
+    "title": "AWS Lambda: cómo medir costo y rendimiento",
     "publishedAt": "2024-05-08",
     "publishedTimestamp": "2024-05-08T05:33:11.031Z"
   },
@@ -535,7 +535,7 @@
   },
   {
     "slug": "aws-healthscribe-ia-generativa-para-diagnosticos-medicos",
-    "title": "AWS HealthScribe: IA generativa para diagnósticos médicos",
+    "title": "AWS HealthScribe: notas clínicas, idiomas, precios y API",
     "publishedAt": "2024-05-08",
     "publishedTimestamp": "2024-05-08T02:21:01.272Z"
   },
@@ -919,7 +919,7 @@
   },
   {
     "slug": "aws-lambda-en-profundidad",
-    "title": "AWS Lambda en profundidad",
+    "title": "AWS Lambda: cómo funciona, invocaciones y concurrencia",
     "publishedAt": "2024-03-09",
     "publishedTimestamp": "2024-03-09T02:11:48.464Z"
   },
