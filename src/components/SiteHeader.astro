@@ -45,6 +45,8 @@ const navigationLinks = [
 <script>
   const toggle = document.querySelector<HTMLButtonElement>('.site-nav__toggle');
   const menu = document.querySelector<HTMLDivElement>('#site-menu');
+  const brand = document.querySelector<HTMLAnchorElement>('.site-nav__brand');
+  const mobileMenuMedia = window.matchMedia('(max-width: 1100px)');
 
   if (toggle && menu) {
     const closeMenu = (restoreFocus = false) => {
@@ -73,6 +75,20 @@ const navigationLinks = [
       });
     });
 
+    mobileMenuMedia.addEventListener('change', (event) => {
+      if (event.matches) {
+        if (menu.contains(document.activeElement)) {
+          closeMenu();
+          toggle.focus();
+        }
+        return;
+      }
+
+      const toggleHadFocus = document.activeElement === toggle;
+      if (toggle.getAttribute('aria-expanded') === 'true') closeMenu();
+      if (toggleHadFocus) (brand ?? menu.querySelector('a[href]'))?.focus();
+    });
+
     document.addEventListener('keydown', (event) => {
       if (toggle.getAttribute('aria-expanded') !== 'true') return;
       if (event.key === 'Escape') {
@@ -82,7 +98,7 @@ const navigationLinks = [
       if (event.key !== 'Tab') return;
 
       const focusable = [toggle, ...menu.querySelectorAll<HTMLAnchorElement>('a[href]')];
-      const activeIndex = focusable.indexOf(document.activeElement as HTMLButtonElement | HTMLAnchorElement);
+      const activeIndex = focusable.findIndex((element) => element === document.activeElement);
       if (activeIndex === -1) {
         event.preventDefault();
         toggle.focus();

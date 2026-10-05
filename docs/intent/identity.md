@@ -41,3 +41,11 @@ su contenido, proporción y atribución.
 Los maestros editables viven en `public/assets/editorial/`. Ejecutar
 `node scripts/generate-brand-assets.mjs` regenera sus PNG de 1200×630 y las
 exportaciones generales de la marca con Sharp, ya incluido en el proyecto.
+
+En móvil, el menú conserva el foco entre su botón y sus enlaces mientras está
+abierto; Escape lo cierra y devuelve el foco al botón. Al pasar a escritorio,
+se cierra el estado móvil y la navegación con Tab continúa hacia el contenido.
+Los cambios de ancho mantienen el foco en un control visible. Las URLs
+inexistentes muestran «Página no encontrada» y un enlace para volver al inicio,
+con estado HTTP 404 y la dirección solicitada conservada. Las reglas de Amplify
+aplican este comportamiento después de las redirecciones de dominio.
