@@ -1,12 +1,12 @@
 ---
-title: "Aprender AWS gratis en español: recursos y comunidades para avanzar"
-description: "Aprende AWS gratis en español con cursos, laboratorios y recursos de la comunidad. Encuentra dónde practicar, cómo cuidar los costos y con quién seguir aprendiendo."
+title: "Aprender AWS gratis en español: cursos, práctica y comunidades"
+description: "Encuentra cursos, videos, artículos y laboratorios para aprender AWS gratis en español. Elige por nivel y conecta con comunidades y eventos."
 author: "guille-ojeda"
 publishedAt: "2024-01-27"
 publishedTimestamp: "2024-01-27T01:37:04.435Z"
-modifiedTimestamp: "2026-09-30T12:56:37-03:00"
+modifiedTimestamp: "2026-10-05T00:04:02-03:00"
 review:
-  date: "2026-09-30"
+  date: "2026-10-05"
 cover: "/assets/blog/c7227ae982494a7ce1620070.jpg"
 coverAlt: "Nube sobre una mano estilizada y una fila de símbolos de colores"
 indexOrder: 6
@@ -14,142 +14,135 @@ ogImage: "/assets/blog/c7227ae982494a7ce1620070.jpg"
 related: []
 ---
 
+**Puedes aprender AWS gratis en español con cursos digitales, grabaciones, artículos y comunidades.** Para practicar sin una cuenta personal de infraestructura, AWS Educate ofrece laboratorios gratuitos. Si ya tienes una base, los recursos de la comunidad permiten profundizar en un servicio, estudiar con otras personas o explorar proyectos.
 
-Puedes aprender AWS sin comprar un curso. Hay explicaciones, clases grabadas, laboratorios y comunidades en español que te permiten empezar y seguir profundizando. El desafío es elegir un material adecuado para lo que necesitas hacer y convertirlo en algo que puedas explicar o resolver por tu cuenta.
+Conviene distinguir tres cosas: **el acceso al material, el entorno de práctica y la certificación**. Una clase pública puede ser gratuita mientras que ejecutar su proyecto en tu cuenta genera cargos. Completarla tampoco otorga automáticamente AWS Certification.
 
-Antes de elegir, distingue dos cosas: **acceder gratis a un material y usar gratis los servicios de AWS**. Ver una clase o leer un tutorial puede no tener costo; desplegar su proyecto puede generar cargos. Aquí encontrarás recursos para distintos niveles, formas de aprender acompañado y criterios para practicar con esa diferencia clara.
+Esta guía te ayuda a elegir recursos por lo que necesitas conseguir. Si buscas el orden para dar tus primeros pasos, empieza por la [ruta para aprender AWS desde cero](/blog/aws-aprender-guia-inicial/).
 
-## Elige un punto de entrada según tu objetivo
+## Dónde aprender y practicar AWS gratis
 
-| Lo que necesitas ahora | Por dónde empezar | Qué deberías conseguir |
-|---|---|---|
-| Entender la nube desde cero | [Guía inicial de AWS](https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/) | Reconocer los conceptos básicos y elegir una primera práctica. |
-| Practicar sin abrir una cuenta personal de AWS | [AWS Educate](https://aws.amazon.com/es/education/awseducate/) | Completar un laboratorio guiado y comprender sus pasos. |
-| Preparar Cloud Practitioner | [Recursos en español para Cloud Practitioner](https://dondeaprendoaws.com/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/) | Elegir materiales que cubran los temas del examen vigente. |
-| Profundizar en un servicio o resolver una duda técnica | [Biblioteca de contenidos](https://dondeaprendoaws.com/aprender/) | Encontrar una explicación o un ejemplo con los conocimientos previos adecuados. |
-| Encontrar personas con quienes aprender | [Directorio de comunidades](https://dondeaprendoaws.com/comunidades/) | Elegir un grupo cuya actividad, modalidad y nivel te sirvan. |
+| Tu necesidad | Recursos y condiciones de acceso |
+|---|---|
+| Un curso oficial a tu ritmo | [AWS Skill Builder](https://aws.amazon.com/es/training/digital/)<br><br>Tiene formación gratuita y experiencias de suscripción. Revisa la ficha, el idioma y el nivel. |
+| Un laboratorio sin cuenta personal de AWS | [AWS Educate](https://aws.amazon.com/es/education/awseducate/)<br><br>Requiere registro en Educate; no exige tarjeta ni una cuenta personal de AWS. Confirma el idioma del laboratorio. |
+| Clases grabadas en español | [Cloud Practitioner Challenge de Medellín](https://www.youtube.com/playlist?list=PLhbdvasxz8wwO-b9nlRBYYzY6n5CvSOvj)<br><br>Son sesiones grabadas de fundamentos. Verlas no te inscribe en una cohorte ni cubre el uso de infraestructura. |
+| Una explicación escrita por la comunidad | [Serie #100DíasdeAWS de AWS Women Colombia](https://awswomencolombia.com/series/100-dias-de-aws)<br><br>Es una serie histórica; contrasta configuraciones y condiciones de los servicios con documentación actual. |
+| Personas y encuentros para continuar | [AWS Girls Perú](https://awsgirlsperu.com/) y [AWS User Group Medellín](https://www.meetup.com/awsugmed/)<br><br>Consulta la actividad y los requisitos de cada encuentro. No todos los eventos del ecosistema tienen las mismas condiciones. |
 
-Si todavía no sabes qué especialidad te interesa, empieza por fundamentos. Si ya desarrollas aplicaciones, puedes buscar un ejemplo relacionado con tu trabajo. Una duda concreta —cómo guardar archivos, controlar permisos o encontrar un error— te ayudará a elegir mejor que la intención de aprender todos los servicios.
+Elige por la pregunta que necesitas resolver. “Quiero entender quién puede leer un archivo” conduce a IAM y S3; “quiero resumir ventas” conduce a bases de datos y análisis. No necesitas completar todos los materiales de esta guía.
 
-## Recursos de la comunidad: qué elegir y para qué usarlo
+## Cursos oficiales: qué es gratuito y qué requiere otro acceso
 
-### Para entender conceptos y estudiar con continuidad
+### AWS Skill Builder: formación digital con ficha de acceso
 
-El canal [eScalando AWS](https://www.youtube.com/@eScalandoAWS), de Ever Aliaga, reúne videos en español sobre conceptos y servicios. Es una opción para buscar una explicación acotada cuando un tema se te traba. Elige el video por la pregunta que necesitas responder; el canal combina niveles iniciales y más avanzados.
+[AWS Skill Builder](https://aws.amazon.com/es/training/digital/) reúne cursos digitales gratuitos y experiencias adicionales disponibles mediante suscripción. Filtra por idioma y nivel, y comprueba que la experiencia concreta indique acceso gratuito. El curso, el laboratorio y el examen de práctica pueden tener condiciones diferentes.
 
-Para identidad y permisos, Marcia Villalba presenta usuarios, grupos, roles y políticas en [IAM explicado en cinco minutos](https://www.youtube.com/watch?v=t51vW-BDwF0). Es un video conceptual de 2021: úsalo para entender el vocabulario y consulta las recomendaciones actuales de AWS antes de configurar el acceso a una cuenta.
+Una opción para fundamentos es **[AWS Cloud Practitioner Essentials en español latinoamericano](https://skillbuilder.aws/learn/94T2BEN85A/aws-cloud-practitioner-essentials-espaol-latam/RX7XZB6CTM)**. Revisa en su ficha el acceso, el temario y el idioma antes de iniciar sesión. El [anuncio oficial de AWS sobre su versión en español](https://aws.amazon.com/es/blogs/aws-spanish/cloud-practitioner-essentials-completamente-en-espanol/) confirma el propósito del curso; usa la ficha actual para las condiciones de hoy.
 
-Si prefieres clases más largas, el [Cloud Practitioner Challenge de 2025](https://www.youtube.com/playlist?list=PLhbdvasxz8wwO-b9nlRBYYzY6n5CvSOvj), producido por el AWS User Group Medellín, reúne sesiones para estudiar fundamentos. Puedes seguir las grabaciones desde cualquier país. Por ejemplo, la [sesión de identidad y seguridad](https://www.youtube.com/watch?v=PWcl1vwGCrc) permite dedicar una reunión de estudio a ese tema en particular.
+El [AWS Builder ID](https://docs.aws.amazon.com/signin/latest/userguide/differences-builder-id.html) es una identidad de servicios de aprendizaje y otros productos de AWS. Es distinto de una cuenta de AWS que despliega y factura infraestructura. Registrarte en una plataforma de cursos no significa que ya tengas una cuenta para desplegar los ejemplos.
 
-También puedes elegir una clase según la pregunta que quieras resolver:
+### AWS Educate: práctica guiada para comenzar
 
-| Tema | Material comunitario | Para qué puede servirte |
-|---|---|---|
-| Cómputo | [Cómputo en AWS, del Challenge de 2025](https://www.youtube.com/watch?v=IhxrEubfIfI) | Ubicar EC2, Lambda y los servicios de contenedores dentro del panorama de cómputo. |
-| Redes | [Redes IT y CDN, del mismo Challenge](https://www.youtube.com/watch?v=Fx1VXYbT53I) | Entender el vocabulario de VPC, subredes, rutas y distribución de contenido. |
-| Almacenamiento | [Almacenamiento y monitoreo, del Challenge de Buenos Aires de 2023](https://www.youtube.com/watch?v=GqYKhnqDDeI) | Repasar S3, EBS y EFS y reconocer qué preguntas hacer sobre cada opción. |
+[AWS Educate](https://aws.amazon.com/es/education/awseducate/) admite participantes desde los 13 años y ofrece formación y laboratorios gratuitos sin tarjeta. No necesitas que tu institución pertenezca a Academy. La [FAQ oficial de programas educativos](https://aws.amazon.com/training/awsacademy/faq/) aclara que Educate tampoco exige una cuenta de AWS.
 
-Estas grabaciones ayudan a estudiar conceptos. Para seguir instrucciones de consola o decidir sobre precios y límites, consulta la documentación actual del servicio.
+Busca actividades como **Getting Started with Storage**, con S3; **Getting Started with Compute**, con EC2; o **Getting Started with Networking**, con VPC. Elige una y trabaja dentro del entorno provisto. Sus prácticas y tiempos de acceso no deben confundirse con recursos permanentes en tu propia cuenta. Confirma el idioma disponible y sigue las instrucciones de cierre.
 
-Después de una explicación, prueba esto: cierra el material y describe con tus palabras qué problema resuelve el servicio, quién lo utilizaría y qué conceptos todavía no entiendes. Esas dudas te darán una razón concreta para buscar el siguiente recurso o conversar con el grupo.
+### Programas con requisitos de participación
 
-Si tu objetivo es certificarte, contrasta las grabaciones con la [guía oficial del CLF-C02 en español, disponible en PDF](https://docs.aws.amazon.com/es_es/aws-certification/latest/cloud-practitioner-02/cloud-practitioner-02.pdf). Puedes practicar con las [diez preguntas tipo Cloud Practitioner de Joan Amengual](https://www.youtube.com/watch?v=IydkkZO-feI), publicadas en 2025: responde antes de escuchar la explicación y anota por qué elegirías cada opción. Son preguntas de práctica; no constituyen un simulacro oficial completo.
+[AWS re/Start](https://aws.amazon.com/es/training/restart/) ofrece formación gratuita por cohortes orientada a desarrollar habilidades laborales. La selección, los horarios y la disponibilidad dependen de la organización que imparte el programa; consulta la convocatoria local. No promete empleo ni funciona como un curso abierto que empieces en cualquier momento.
 
-La [selección de materiales gratuitos para certificaciones](https://dondeaprendoaws.com/blog/certificacion-aws-gratis-materiales-de-estudio/) ayuda a distinguir preparación, práctica y examen. Completar un curso o recibir una insignia no equivale a obtener una certificación de AWS; el examen normalmente tiene un costo, salvo un beneficio o promoción aplicable.
+[AWS Academy](https://aws.amazon.com/es/training/awsacademy/) se ofrece a través de instituciones de educación superior participantes. Pregunta a tu institución qué cursos están disponibles y cómo se accede. No es la vía de registro abierto de Educate.
 
-### Para conectar AWS con aplicaciones que ya sabes desarrollar
+## Videos de la comunidad en español: elige una pregunta por sesión
 
-En [AWS para Frontends Devs](https://www.youtube.com/watch?v=-zy7nGPyEKQ), República Web conversa con Marcia Villalba sobre opciones de alojamiento y servicios de backend para desarrollo frontend. Es una entrevista para orientarte si ya trabajas con aplicaciones web; no es un laboratorio paso a paso.
+Las grabaciones permiten pausar, repasar y aprender sin estar en el país del grupo. Usa las que explican conceptos para entenderlos; cuando reproduzcas un tutorial antiguo, contrasta sus comandos, pantallas y permisos con las instrucciones actuales del servicio.
 
-Cuando ya entiendas APIs e infraestructura como código, [Cómo desarrollar una API serverless sin una sola Lambda](https://www.andmore.dev/es/blog/build-serverless-api-with-no-lambda/), de Andrés Moreno, muestra una integración directa entre API Gateway y DynamoDB. Es un ejemplo de 2021 que puedes usar para analizar el diseño: dibuja el recorrido de una solicitud e identifica dónde se transforma la información y qué componente necesita permisos. Para desplegarlo, hace falta revisar el código, la seguridad y las condiciones actuales del servicio.
+| Lo que quieres entender | Material público y cómo aprovecharlo |
+|---|---|
+| Identidades y permisos | [IAM explicado en cinco minutos, de Marcia Villalba](https://www.youtube.com/watch?v=t51vW-BDwF0)<br><br>Distingue usuario, rol, grupo y política antes de configurar acceso. |
+| Seguridad como parte de los fundamentos | [Identidad y Seguridad en AWS, del Challenge de Medellín](https://www.youtube.com/watch?v=PWcl1vwGCrc)<br><br>Dedica una sesión de estudio a explicar autenticación y autorización. |
+| Almacenamiento | [S3, EBS, EFS y monitoreo, del AWS User Group Buenos Aires](https://www.youtube.com/watch?v=GqYKhnqDDeI)<br><br>Compara qué problema resuelven un objeto, un disco y un sistema de archivos. |
+| Redes y distribución de contenido | [Redes IT y CDN, del Challenge de Medellín](https://www.youtube.com/watch?v=Fx1VXYbT53I)<br><br>Repasa el vocabulario antes de intentar diseñar la red de una aplicación. |
+| Seguimiento de recursos y gasto | [Monitoreo y Gestión de Recursos, de Medellín](https://www.youtube.com/watch?v=2cGwdSTdUqQ)<br><br>Relaciona observabilidad y costos con preguntas que investigarías en tu cuenta. |
+| Ejecución de código ante eventos | [Introducción a Lambda y serverless, de Marcia Villalba](https://www.youtube.com/watch?v=1wNb_RMvI9E)<br><br>Entiende el modelo antes de construir una función o una API. |
+| Coordinación de pasos de una aplicación | [Introducción a Step Functions, de Marcia Villalba](https://www.youtube.com/watch?v=Zvdf_P5pJis)<br><br>Continúa cuando ya entiendas qué función cumplen los servicios que vas a coordinar. |
+| DynamoDB sin desplegar en AWS | [Docker y DynamoDB Local con una app de votación, de 295DevOps](https://www.youtube.com/watch?v=FJoIbOs03Vc)<br><br>Es una práctica local; revisa Docker, dependencias y recursos de tu computadora antes de seguirla. |
 
-Estas lecturas tienen más valor si ya puedes entender una petición HTTP y leer la configuración del proyecto. Si todavía no llegaste a ese punto, empieza por una práctica pequeña y vuelve después: comprender el recorrido completo importa más que copiar comandos que no sabes explicar.
+Para retomar un tema o encontrar otra charla, visita los canales del [AWS User Group Medellín](https://www.youtube.com/@awsugmed), del [AWS User Group Buenos Aires](https://www.youtube.com/@awsugbsas) y del [AWS User Group Guatemala](https://www.youtube.com/@awsugguatemala). Un canal combina niveles: busca por servicio y resultado, no solo por fecha de publicación.
 
-### Para comprender lo que ocurre en una aplicación
+Si preparas una certificación, la [guía de recursos para Cloud Practitioner](/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/) conecta el temario oficial con cursos y práctica. Las grabaciones son apoyo de estudio, no preguntas reales del examen ni una garantía de aprobación.
 
-Sheyla Leacock explica métricas, registros, trazas y auditoría en [Observabilidad en la nube de AWS: CloudWatch, X-Ray y CloudTrail](https://dev.to/aws-builders/observabilidad-en-la-nube-de-aws-explorando-cloudwatch-x-ray-y-cloudtrail-5d9m). El artículo está en español y es de 2024; el video adicional que enlaza está en inglés.
+## Artículos, ejemplos y proyectos para profundizar
 
-Es una lectura útil cuando ya tienes una aplicación o un ejercicio funcionando. Úsala para pensar qué información necesitarías si una petición falla, tarda demasiado o cambia la configuración de un recurso. Así, el estudio de observabilidad responde a un problema que puedes reconocer.
+### Entender decisiones de aplicaciones y datos
 
-La [sesión de monitoreo y gestión de recursos del Challenge de 2025](https://www.youtube.com/watch?v=2cGwdSTdUqQ) ofrece otra forma de repasar estos temas con una clase grabada.
+El artículo de **[Andrés Moreno sobre construir una API serverless sin una sola Lambda](https://www.andmore.dev/es/blog/build-serverless-api-with-no-lambda/)** muestra otro enfoque para integrar servicios. Sirve para comparar decisiones cuando ya conoces API Gateway y DynamoDB; leerlo es gratuito, desplegar su ejemplo tiene condiciones de costo propias.
 
-### Para elegir una especialidad después de los fundamentos
+La **[guía de observabilidad con CloudWatch, X-Ray y CloudTrail de Sheyla Leacock](https://dev.to/aws-builders/observabilidad-en-la-nube-de-aws-explorando-cloudwatch-x-ray-y-cloudtrail-5d9m)** ayuda a distinguir las preguntas que responde cada herramienta. Puedes leerla y preparar una lista de señales que buscarías ante un fallo, sin crear infraestructura.
 
-Si te atrae la arquitectura de soluciones, Nori explica la relación entre tecnología, necesidades del negocio y comunicación en [Qué es ser arquitecto de soluciones y por qué certificarme con AWS](https://dev.to/norisa/que-es-ser-arquitecto-de-soluciones-y-por-que-certificarme-con-aws-2j8g). Su reflexión de 2023 puede ayudarte a explorar ese rol antes de elegir una ruta de estudio; para preparar una certificación, usa el temario vigente.
+Para separar datos de una aplicación y análisis, continúa con [qué es DynamoDB y cuándo usarlo](/blog/amazon-dynamodb-la-base-de-datos-nosql-de-aws/) y [para qué sirve Amazon Redshift](/blog/amazon-redshift-el-poder-del-data-warehousing-en-aws/). El primero desarrolla claves y consultas de una aplicación; el segundo explica el análisis de conjuntos de datos. No necesitas montar ambos servicios para aprender esa diferencia.
 
-Si te interesa seguridad, [Cloud Security Ninja](https://acloudsecurity.ninja/) ofrece una ruta gratuita en español con fundamentos y temas de seguridad en AWS. Parte del contenido sigue en desarrollo y el sitio no proporciona una cuenta de práctica: sus ejercicios pueden generar gastos en tu propio entorno. Elige la actividad según tus conocimientos de redes, identidades y administración de sistemas.
+### Un proyecto de agentes cuando ya tengas una base de Python
 
-Si ya programas en Python y quieres explorar agentes de IA, Ricardo Ceci publicó en 2026 el curso gratuito en español [Agentes de cero a producción con Strands Agents y Bedrock AgentCore](https://www.youtube.com/playlist?list=PLwmPZhrS9RFRQWzf9YBHkguplSDt_gcbl). Son cinco clases que van desde conceptos y preparación del entorno hasta despliegue. El [repositorio del curso](https://github.com/ricardoceci/curso-strands-agentcore-2026) reúne notebooks, ejemplos y requisitos para seguir las prácticas sin copiar código desde la pantalla. Puedes complementarlo con su artículo [Cinco patrones multiagente con Strands Agents: cuál usar y cuándo](https://dev.to/aws-espanol/5-patrones-multi-agent-con-strands-agents-cual-usar-y-cuando-53ee). Los laboratorios pueden requerir acceso a Bedrock o a servicios externos: ver las clases es gratuito, mientras que las llamadas a modelos y los despliegues tienen sus propias condiciones de uso y precios.
+El **[repositorio del curso de Ricardo Ceci sobre Strands Agents y Bedrock AgentCore](https://github.com/ricardoceci/curso-strands-agentcore-2026)** reúne notebooks, requisitos y ejemplos del curso, además del acceso a sus clases. Lee primero el README y elige una práctica que puedas entender y cerrar. Las llamadas a modelos o los despliegues pueden requerir credenciales y generar cargos; acceso público al código no implica ejecución gratuita.
 
-### Para seguir leyendo y escuchando
+Su artículo **[Cinco patrones multiagente con Strands Agents: cuál usar y cuándo](https://dev.to/aws-espanol/5-patrones-multi-agent-con-strands-agents-cual-usar-y-cuando-53ee)** sirve para discutir cómo coordinar agentes una vez que entiendas un ejemplo sencillo. Si recién comienzas en AWS o Python, vuelve a fundamentos antes de intentar desplegar el proyecto completo.
 
-El [directorio de creadores y canales](https://dondeaprendoaws.com/creadores/) reúne fuentes que puedes seguir según tus intereses. Busca primero un material específico y comprueba si su nivel encaja contigo.
+### Blogs, newsletters y podcasts para seguir aprendiendo
 
-Cuando ya tengas una base, [AWS Español en DEV](https://dev.to/aws-espanol) permite explorar artículos de distintos autores, y [Desplegando.cloud](https://desplegando.substack.com/), de Marcia Villalba, reúne publicaciones públicas en español sobre AWS y serverless. Si prefieres escuchar conversaciones, el podcast [Charlas técnicas](https://podcast.marcia.dev/) aborda cloud, IA y tecnología con Guillermo Ruiz, Isabel Huerga y Marcia Villalba. Elige temas que conecten con lo que estás haciendo y vuelve a la práctica con una pregunta o una idea para probar.
+- **[Blog de Marcia Villalba](https://blog.marcia.dev/):** busca explicaciones y ejemplos de servicios AWS; elige una publicación conectada con lo que estás construyendo.
+- **[Blog de Roxs / 295DevOps](https://blog.295devops.com/):** reúne guías y proyectos de DevOps y cloud para continuar después de una práctica básica.
+- **[Alfalfita, de Diana Alfaro](https://blog.alfalfita.cloud/):** explora notas técnicas en español sobre servicios y configuraciones de AWS.
+- **[Desplegando.cloud](https://desplegando.substack.com/):** lee publicaciones públicas sobre novedades y serverless; comprueba en cada entrada si su acceso o sus recursos asociados tienen condiciones adicionales.
+- **[Charlas técnicas de AWS](https://podcast.marcia.dev/):** escucha conversaciones sobre cloud, IA y experiencias técnicas. El audio aporta contexto; vuelve a la documentación cuando necesites comandos o requisitos precisos.
 
-## Formación oficial gratuita: cursos, laboratorios y programas
+El [catálogo de contenidos](/aprender/) y el [directorio de creadores](/creadores/) permiten encontrar otras fuentes. Guarda el enlace al recurso específico que responda tu duda para poder volver a él o compartirlo con su autoría.
 
-[AWS Educate](https://aws.amazon.com/es/education/awseducate/) es una buena opción para comenzar con práctica guiada. Está abierto a personas desde los 13 años y ofrece formación y laboratorios gratuitos sin pedir una tarjeta de crédito para registrarte. No necesitas pertenecer a una institución participante. Elige una actividad de almacenamiento, cómputo o redes, revisa el idioma disponible y trabaja dentro del entorno que proporciona el programa.
+## Laboratorios gratuitos y práctica en una cuenta propia
 
-[AWS Skill Builder](https://aws.amazon.com/es/training/digital/) ofrece cursos digitales gratuitos y experiencias adicionales que requieren suscripción. Antes de inscribirte, comprueba el idioma, el nivel y qué incluye la ficha. Un curso gratuito no garantiza acceso gratuito a todos los laboratorios o exámenes de práctica de la plataforma. El [AWS Builder ID](https://docs.aws.amazon.com/es_es/signin/latest/userguide/differences-builder-id.html) que puedes usar para servicios de aprendizaje es distinto de una cuenta de AWS que factura infraestructura.
+Para practicar sin cuenta personal, empieza por Educate. Si eliges trabajar en tu cuenta, estos [diez laboratorios para principiantes](/blog/10-laboratorios-practicos-de-aws-para-principiantes/) incluyen objetivos, pasos, comprobaciones y limpieza. Elige una actividad y revisa las condiciones de los servicios antes de ejecutar nada.
 
-Para un curso general con una secuencia definida, [AWS Cloud Practitioner Essentials en español latinoamericano](https://skillbuilder.aws/learn/94T2BEN85A/aws-cloud-practitioner-essentials-espaol-latam/RX7XZB6CTM) ofrece acceso gratuito a contenidos sobre servicios, seguridad, arquitectura y precios. Puedes usarlo como base y recurrir a las explicaciones comunitarias cuando necesites otra forma de entender un tema.
+En cuentas nuevas elegibles, el **Free plan** de AWS dura hasta seis meses o hasta agotar los créditos; el **Paid plan** puede generar cargos por uso no cubierto. Free plan restringe funciones y algunas acciones pueden convertirlo en Paid. Las cuentas anteriores tienen otras condiciones. Consulta la [comparación de planes](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/free-tier-plans.html) y la [FAQ del Free Tier](https://aws.amazon.com/free/free-tier-faqs/) para tu caso. No interpretes “tutorial gratis” como “todos sus recursos están cubiertos”.
 
-También hay programas que dependen de tu situación:
+Antes de empezar, identifica qué crea el ejercicio, quién puede acceder a esos recursos y cómo los eliminarás. Usa una identidad apropiada para la práctica, evita publicar credenciales y revisa créditos y precios. Una alerta de [AWS Budgets](https://docs.aws.amazon.com/cost-management/latest/userguide/budgets-best-practices.html) ayuda a vigilar el gasto, pero no es un límite universal que detenga los cargos. Al finalizar, verifica la limpieza de cada recurso y conserva solo lo que hayas decidido mantener.
 
-- **Si buscas formación acompañada para una transición laboral**, [AWS re/Start](https://aws.amazon.com/es/training/restart/) ofrece capacitación gratuita en grupos con fechas y horarios definidos. La disponibilidad y la selección dependen de la organización que lo imparte. Revisa los requisitos de la convocatoria; no funciona como un curso abierto que puedas iniciar en cualquier momento.
-- **Si tu institución participa en AWS Academy**, consulta qué cursos y laboratorios ofrece a sus estudiantes. El acceso a [AWS Academy](https://aws.amazon.com/es/training/awsacademy/) se canaliza a través de instituciones participantes.
-- **Si estudias en educación superior y tienes 18 años o más**, consulta [AWS Student Rewards](https://builder.aws.com/student-rewards) y sus [condiciones de elegibilidad](https://builder.aws.com/faq#student-rewards). Los beneficios de formación y las recompensas dependen de la institución y el país, de la verificación como estudiante y de los requisitos de participación. Alejandra Bricio explica el proceso en su [guía en español sobre Student Rewards](https://builder.aws.com/content/3IYPWbbLaoeRdEl2zXNHLYjPRBA). No implica un examen gratuito automático para cualquier estudiante.
+## Comunidades y eventos para aprender acompañado
 
-Puedes empezar con los recursos abiertos mientras averiguas si alguno de estos programas se ajusta a tu situación.
+Una comunidad general de AWS también puede servir para una duda concreta. Puedes compartir cómo interpretaste un ejemplo, pedir otra explicación o conocer a personas que están estudiando el mismo tema. No hace falta que el grupo se dedique exclusivamente al servicio que estás aprendiendo.
 
-## Practicar sin confundir un tutorial gratuito con infraestructura gratuita
+- **[AWS Girls Perú](https://awsgirlsperu.com/)** publica rutas de estudio y enlaces para participar. Declara que recibe a todas las personas, con actividades para distintos niveles; revisa su Meetup para las convocatorias.
+- **[AWS User Group Medellín](https://www.meetup.com/awsugmed/)** permite seguir sus encuentros y conocer la comunidad que produce el Challenge enlazado arriba.
+- **[AWS Guatemala](https://www.meetup.com/aws-guatemala/)** comparte encuentros y sesiones de estudio; combina su agenda con el canal de grabaciones para continuar a tu ritmo.
+- **[AWS Women Colombia](https://awswomencolombia.com/)** reúne publicaciones y un [archivo de charlas y encuentros](https://awswomencolombia.com/page/eventos). El archivo sigue siendo útil aunque una sesión ya haya terminado.
 
-Para empezar a usar la consola, un laboratorio administrado de Educate permite practicar sin abrir una cuenta personal de infraestructura. Si quieres trabajar en tu propia cuenta, comprueba sus condiciones antes de crear recursos.
+Estas actividades publicadas para **octubre de 2026** permiten dar un siguiente paso si las fechas y ubicaciones te sirven:
 
-Para nuevos clientes elegibles, AWS ofrece actualmente un **Free plan** y un **Paid plan**. El plan gratuito termina a los seis meses o al agotarse los créditos, lo que ocurra primero, y tiene restricciones de servicios. Al terminar, la cuenta se cierra y pierdes acceso a los recursos. El plan de pago puede generar cargos por consumo no cubierto por créditos u ofertas. Las cuentas anteriores conservan las condiciones que les correspondan: la explicación antigua de “doce meses gratis” no sirve como regla general para registrarse hoy. Consulta la [comparación oficial de planes](https://docs.aws.amazon.com/es_es/awsaccountbilling/latest/aboutv2/free-tier-plans.html) y las [preguntas frecuentes del Free Tier](https://aws.amazon.com/es/free/free-tier-faqs/). Incluso el registro en el plan gratuito requiere un método de pago válido.
+- **[AWS Community Day Paraguay 2026](https://www.awscommunitydayparaguay.com/), 17 de octubre, San Lorenzo:** el organizador anuncia entrada gratuita con registro y cupos limitados, charlas en español y talleres. La agenda incluye “AWS Sin Mapa: tu ruta para empezar en la nube sin perderte”. Revisa los requisitos de la sesión que elijas; asistir a una charla no implica disponer de un laboratorio o una cuenta de práctica.
+- **[Amazon VPC Essentials](https://www.meetup.com/aws-sbg-at-francisco-jose-de-caldas-district-univ-bogota/events/316674045/), 21 de octubre, en línea:** de 18:00 a 20:00, hora de Bogotá (UTC−5), con fundamentos de subredes, rutas y conexiones. Requiere inscripción y tiene cupos limitados; la página no indica precio. El enlace virtual es visible para asistentes.
 
-Antes de ejecutar un tutorial en tu cuenta:
+Si esas fechas ya pasaron, consulta la [agenda de próximos eventos](/eventos/) y su [filtro de actividades en línea](/eventos/?mode=online). El [directorio de comunidades](/comunidades/) y los [Student Builder Groups](/comunidades/?format=Student+Builder+Group) permiten encontrar otros grupos por país. Confirma idioma, nivel, costo, horario y requisitos con el organizador antes de registrarte.
 
-1. **Comprueba qué crea y cómo se elimina.** Incluye recursos secundarios, como almacenamiento, registros, direcciones IP o bases de datos. Un tutorial debería permitirte entender la limpieza antes de empezar.
-2. **Protege el acceso.** Activa la autenticación multifactor (MFA), reserva el usuario raíz para las tareas que lo necesitan y sigue las [buenas prácticas actuales de IAM](https://docs.aws.amazon.com/es_es/IAM/latest/UserGuide/best-practices.html), que priorizan credenciales temporales. Evita copiar claves en código o repositorios.
-3. **Revisa costos, créditos y alertas.** [AWS Budgets](https://docs.aws.amazon.com/es_es/cost-management/latest/userguide/budgets-best-practices.html) ayuda a seguir el gasto y enviar avisos, pero no constituye un límite universal que detenga los cargos. Los datos y las notificaciones pueden llegar después del consumo.
-4. **Termina con una verificación y una limpieza.** Guarda una nota de lo aprendido y comprueba que eliminaste los recursos que ya no necesitas. Detener una aplicación o una instancia puede dejar otros recursos facturables.
+Para estudiar en grupo, elijan una pregunta y un material. Después comparen sus explicaciones o resultados. Una sesión sobre IAM puede terminar con un diagrama de identidades y permisos; una de datos, con una explicación de cuándo usar DynamoDB o Redshift. No necesitan compartir una contraseña ni desplegar un proyecto complejo para aprender juntos.
 
-Si necesitas una práctica con objetivos y cierre definidos, elige una de estas [diez prácticas de AWS para principiantes](https://dondeaprendoaws.com/blog/10-laboratorios-practicos-de-aws-para-principiantes/). Revisa sus requisitos y condiciones de costo antes de ejecutarla.
+## Preguntas frecuentes
 
-## Encuentra una comunidad que te ayude a seguir
+### ¿Puedo hacer un curso de AWS gratis y en español?
 
-Puedes buscar [AWS User Groups](https://dondeaprendoaws.com/comunidades/?format=User+Group) para encontrar encuentros, charlas y personas con intereses similares. Si estudias, los [Student Builder Groups](https://dondeaprendoaws.com/comunidades/?format=Student+Builder+Group) pueden ofrecer un entorno de aprendizaje entre pares. Comprueba cómo se participa y si hay requisitos de institución, ubicación o inscripción.
+Sí: hay cursos digitales gratuitos en Skill Builder y grabaciones públicas de comunidades en español. Comprueba el idioma, el acceso y el alcance de cada ficha. Un curso gratuito puede incluir actividades adicionales de pago.
 
-Para acompañarte desde cualquier país, busca una actividad en la [agenda de eventos en línea](https://dondeaprendoaws.com/eventos/?mode=online). Confirma en la convocatoria del organizador el horario y la zona horaria, el idioma, los conocimientos previos y cualquier costo. Una reunión organizada por una comunidad no necesariamente es gratuita ni está abierta a todas las personas.
+### ¿Dónde puedo practicar AWS gratis sin tarjeta?
 
-Si no puedes asistir en vivo, las grabaciones permiten estudiar a tu ritmo. El [archivo de AWS Women Colombia](https://awswomencolombia.com/page/eventos) reúne charlas que puedes ver sin estar en Colombia; es un archivo de sesiones, no una agenda de próximos encuentros.
+AWS Educate ofrece laboratorios sin tarjeta ni cuenta personal de AWS. Los ejemplos locales son otra opción cuando sus requisitos y dependencias están claros. Si un tutorial despliega en tu cuenta o llama a una API externa, revisa sus condiciones de uso y costo.
 
-Para elegir un grupo, observa su actividad reciente y el tipo de participación que propone. Un espacio puede servirte para preparar una certificación y otro para discutir proyectos o resolver dudas técnicas. Busca uno donde tu objetivo tenga lugar y donde las personas sepan qué se espera de cada encuentro.
+### ¿Un curso gratuito me da una certificación de AWS?
 
-Puedes participar desde tu primera semana. Presentarte con “estoy aprendiendo IAM y quiero entender la diferencia entre un usuario y un rol” da a los demás un punto de partida para conversar contigo. No necesitas una certificación ni pertenecer al programa Community Builders para empezar a aprender con otras personas.
+No automáticamente. Una constancia o una insignia de curso es distinta de AWS Certification. La [FAQ oficial de certificación](https://aws.amazon.com/certification/faqs/) explica la inscripción y los exámenes. No supongas que un curso público incluye un voucher.
 
-## Haz preguntas que permitan ayudarte
+### ¿Cómo elijo entre tantos recursos?
 
-La comunidad puede aportar contexto y nuevas formas de investigar, pero no garantiza una respuesta ni reemplaza el soporte que pueda requerir un problema de producción. [AWS re:Post](https://repost.aws/) también permite buscar preguntas y respuestas técnicas; encontrarás contenido en distintos idiomas.
+Define qué quieres poder explicar o hacer al terminar y comprueba los conocimientos previos. Usa un curso para la secuencia, una charla para otra explicación y la documentación oficial para confirmar configuraciones. Si el ejemplo crea recursos que aún no entiendes, busca primero una introducción.
 
-Cuando te bloquees, explica qué intentas conseguir, qué ocurrió y qué comprobaste. Por ejemplo:
+### ¿Cómo pido ayuda cuando un tutorial falla?
 
-> Estoy haciendo un ejercicio con Lambda y S3. La función debería leer un archivo, pero recibe `AccessDenied`. El archivo existe y revisé la política del rol de ejecución. ¿Qué permisos o configuraciones tendría sentido comprobar después?
-
-Incluye el error relevante y, si ayuda, un fragmento mínimo de configuración. Para problemas de código, la [guía de Stack Overflow en español para crear un ejemplo mínimo, completo y verificable](https://es.stackoverflow.com/help/minimal-reproducible-example) explica cómo preparar una pregunta que otra persona pueda investigar. Quita credenciales, datos personales e información privada antes de publicar. Señala la fecha o versión del tutorial: una pantalla diferente o un servicio que cambió puede explicar parte del problema.
-
-Si encuentras la solución, vuelve a la conversación y explica qué cambiaste. Esa respuesta deja un recurso útil para la próxima persona que tenga la misma duda.
-
-## Convierte los recursos en una forma de aprender con otros
-
-Un grupo de estudio puede empezar con dos o tres personas y una sola pregunta. Elijan una grabación o una lectura, trabajen por separado y reúnanse para comparar lo que entendieron. Para una práctica, acuerden también qué resultado van a comprobar y cómo van a limpiar el entorno. Cada participante debería tener su propio acceso; compartir una contraseña no hace falta para estudiar juntos.
-
-Una reunión sobre IAM, por ejemplo, puede terminar con un diagrama que muestre qué identidad necesita acceder a qué recurso. Una sobre observabilidad puede terminar con una lista de señales que buscarían ante una petición fallida. Así pueden identificar lo aprendido y elegir el siguiente tema a partir de las dudas que quedan.
-
-También puedes devolver algo a la comunidad: señalar un enlace roto, documentar una solución, mejorar un README o compartir una explicación breve con sus fuentes. Si quieres contribuir código, revisa las instrucciones y los asuntos abiertos del repositorio. [AWS Samples](https://github.com/aws-samples) reúne ejemplos de distintos niveles; leerlos y proponer una mejora de documentación puede ser un primer aporte sin desplegar infraestructura.
-
-Si buscas ideas para documentar y compartir lo que aprendes, el [espacio público del Bootcamp Creadores de Contenido Tech LATAM 2026](https://builder.aws.com/connect/space/584c5ee2-dd3a-35ca-8f0a-bc09bf8dc8da/bootcamp-creadores-de-contenido-tech-latam-2026) reúne ejercicios sobre definir proyectos, preparar su documentación y planificar publicaciones. Puedes usarlos como referencia para explicar tu propio trabajo, aunque no hayas participado del bootcamp.
-
-Para tu próxima sesión, elige una pregunta, un material y una forma de comprobar lo aprendido. Puede ser explicar un concepto a otra persona, completar un laboratorio o presentar una duda al grupo. Ese resultado te dará un criterio para decidir por dónde seguir.
+Indica qué intentabas conseguir, el error y lo que comprobaste, además de la fecha o versión del tutorial. Incluye solo información que puedas compartir públicamente. Después vuelve a la conversación con la solución: así otra persona podrá aprovechar lo que aprendiste.
