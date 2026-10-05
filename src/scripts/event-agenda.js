@@ -179,7 +179,12 @@ if (agenda && empty) {
     writeUrl();
     refresh();
   });
-  more?.addEventListener('click', () => { limit += 12; refresh(); });
+  more?.addEventListener('click', () => {
+    const previouslyVisible = new Set(cards.filter((card) => !card.hidden));
+    limit += 12;
+    refresh();
+    cards.find((card) => !card.hidden && !previouslyVisible.has(card))?.focus();
+  });
   window.addEventListener('hashchange', revealEventHash);
   window.addEventListener('popstate', () => { limit = 12; readUrl(); refresh(); revealEventHash(); });
   mobileDisclosure.addEventListener('change', () => syncSecondaryDisclosure(true));

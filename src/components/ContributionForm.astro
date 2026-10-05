@@ -20,11 +20,17 @@ if (import.meta.env.PROD && !submissionApiUrl) {
       class="contribution-form"
       data-contribution-form
       data-api-url={submissionApiUrl}
-      aria-describedby="contribution-help contribution-status"
+      aria-describedby="contribution-help contribution-privacy contribution-status"
     >
       <p id="contribution-help" class="contribution-form__help">
         Completa los datos de tu contenido. Revisaremos el envío antes de publicarlo.
       </p>
+      <p id="contribution-privacy" class="contribution-form__privacy">
+        Tu nombre y correo se guardan para revisar tu aporte y no se publican en el directorio. Si quieres solicitar que los eliminemos, <a href="mailto:contact@dondeaprendoaws.com?subject=Solicitud%20de%20eliminaci%C3%B3n%20de%20mis%20datos">escríbenos</a>.
+      </p>
+      <noscript>
+        <p class="contribution-form__noscript">Para enviar este formulario, activa JavaScript.</p>
+      </noscript>
 
       <div class="contribution-form__fields">
         <div class="contribution-form__field">
@@ -36,7 +42,7 @@ if (import.meta.env.PROD && !submissionApiUrl) {
             autocomplete="email"
             placeholder="tucorreo@tudominio.com"
             maxlength="254"
-            aria-describedby="contribution-help contribution-email-error"
+            aria-describedby="contribution-help contribution-privacy contribution-email-error"
             required
           />
           <span class="contribution-form__error" id="contribution-email-error" data-contribution-error hidden></span>
@@ -51,7 +57,7 @@ if (import.meta.env.PROD && !submissionApiUrl) {
             autocomplete="name"
             placeholder="Escribe tu nombre completo"
             maxlength="160"
-            aria-describedby="contribution-help contribution-full-name-error"
+            aria-describedby="contribution-help contribution-privacy contribution-full-name-error"
             required
           />
           <span class="contribution-form__error" id="contribution-full-name-error" data-contribution-error hidden></span>
