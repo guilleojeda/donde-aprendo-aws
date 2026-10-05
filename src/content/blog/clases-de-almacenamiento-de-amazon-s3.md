@@ -1,673 +1,150 @@
 ---
-title: "Clases de almacenamiento de Amazon S3"
-description: "Consejos para elegir la clase de almacenamiento adecuada en Amazon S3, optimizar costos y asegurar la disponibilidad y seguridad de tus datos. Descubre las ventajas y desventajas de cada opción."
+title: "Clases de almacenamiento de Amazon S3: diferencias y cómo elegir"
+description: "Compara las clases de Amazon S3 por patrón de acceso, disponibilidad, zonas, recuperación y costos; incluye S3 Express One Zone y Amazon S3 Glacier."
 author: "guille-ojeda"
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T01:50:57.327Z"
+modifiedTimestamp: "2026-10-05T20:34:07-03:00"
+review:
+  date: "2026-10-05"
 cover: "/assets/blog/editorial-datos-ia.png"
 coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
-  - title: "Pipeline CI/CD con Terraform y AWS CodePipeline"
-    url: "https://dondeaprendoaws.com/blog/pipeline-cicd-con-terraform-y-aws-codepipeline/"
-  - title: "Diferencias entre SLA y SLO en AWS"
-    url: "https://dondeaprendoaws.com/blog/diferencias-entre-sla-y-slo-en-aws/"
-  - title: "Cómo crear infraestructura como código en AWS con AWS CloudFormation"
-    url: "https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-aws-cloudformation/"
+  - title: "Cómo cifrar datos con AWS KMS: claves de datos y S3"
+    url: "https://dondeaprendoaws.com/blog/cifrado-de-datos-con-aws-kms-guia-practica/"
+  - title: "Checklist: servicios AWS esenciales para el examen SAA-C03"
+    url: "https://dondeaprendoaws.com/blog/checklist-servicios-aws-esenciales-para-saa-c03/"
+  - title: "¿Qué es cloud computing? Fundamentos y ejemplos de AWS"
+    url: "https://dondeaprendoaws.com/blog/cloud-computing-en-espanol-fundamentos-basicos/"
 
 ---
 
-<p>Elegir la clase de almacenamiento correcta en Amazon S3 es crucial para ahorrar costos y asegurar la disponibilidad y seguridad de tus datos. Aquí te presentamos una guía rápida para ayudarte a tomar la mejor decisión:</p>
-
+Amazon S3 asigna una clase de almacenamiento a cada objeto. La clase cambia cómo se cobra el almacenamiento y qué condiciones tiene el acceso: latencia, recuperación, redundancia y retención mínima. Para elegir, compara el patrón de uso y el costo total, no solo el precio por gigabyte. La [comparación oficial de clases de AWS](https://docs.aws.amazon.com/AmazonS3/latest/userguide/storage-class-intro.html) reúne los valores de referencia.
 
-<ul>
-<li><strong>Amazon S3 Standard</strong>: Ideal para datos que accedes frecuentemente.</li>
-<li><strong>Amazon S3 Intelligent-Tiering</strong>: Para datos con patrones de acceso impredecibles, ajusta el costo automáticamente.</li>
-<li><strong>Amazon S3 Standard-IA</strong>: Costo-efectivo para datos accedidos infrecuentemente.</li>
-<li><strong>Amazon S3 One Zone-IA</strong>: Menor costo para datos no críticos en una sola zona.</li>
-<li><strong>Amazon S3 Glacier</strong>: Para archivar datos a largo plazo con acceso raro.</li>
-<li><strong>Amazon S3 Glacier Deep Archive</strong>: La opción más económica para archivar datos que casi nunca necesitarás.</li>
-<li><strong>Amazon S3 Outposts</strong>: Para almacenamiento local con la misma API S3, ideal si necesitas tus datos físicamente cerca.</li>
-</ul>
+Si estás empezando con la nube, los [fundamentos de cloud computing y Amazon S3](/blog/cloud-computing-en-espanol-fundamentos-basicos/) dan contexto sobre el lugar del almacenamiento de objetos en AWS.
 
+## Comparación de clases de almacenamiento S3
 
-<h3 id="comparaci%C3%B3n-r%C3%A1pida" tabindex="-1">Comparación rápida</h3>
+Los porcentajes de disponibilidad de esta tabla son objetivos de diseño publicados por AWS. La durabilidad mide el riesgo de perder un objeto con el paso del tiempo; no es el porcentaje de tiempo que el servicio responde. Consulta las condiciones de la clase y la región antes de diseñar una aplicación.
 
+En móvil, desliza las tablas hacia los lados para ver todas las columnas.
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Clase de Almacenamiento</th>
-<th>Ventajas</th>
-<th>Desventajas</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>S3 Standard</td>
-<td>Acceso rápido y seguro</td>
-<td>Más caro</td>
-</tr>
-<tr>
-<td>S3 Intelligent Tiering</td>
-<td>Ahorra automáticamente</td>
-<td>Puede costar más si no se usa</td>
-</tr>
-<tr>
-<td>S3 Standard-IA</td>
-<td>Más barato que Standard</td>
-<td>Costo por recuperación de datos</td>
-</tr>
-<tr>
-<td>S3 One Zone-IA</td>
-<td>Económico</td>
-<td>Riesgo si la zona falla</td>
-</tr>
-<tr>
-<td>S3 Glacier</td>
-<td>Bajo costo de archivado</td>
-<td>Costo y tiempo en recuperación</td>
-</tr>
-<tr>
-<td>S3 Glacier Deep Archive</td>
-<td>Muy económico para archivar</td>
-<td>La recuperación es cara y lenta</td>
-</tr>
-<tr>
-<td>S3 Outposts</td>
-<td>Datos rápidos y locales</td>
-<td>Requiere equipo especial</td>
-</tr>
-</tbody>
-</table></figure>
+| Clase | Uso y acceso | Ubicación y disponibilidad de diseño | Límites y cargos |
+| --- | --- | --- | --- |
+| **S3 Standard** | Frecuente; acceso en milisegundos. | 99,99%; al menos 3 AZ. | Sin tamaño ni retención mínimos. |
+| **S3 Intelligent-Tiering** | Patrón desconocido; niveles automáticos. | 99,9%; al menos 3 AZ. | Sin mínimos de tamaño o duración. Cargo de monitoreo por objeto elegible; Standard/Bulk gratis, Expedited Archive Access se cobra. |
+| **S3 Standard-IA** | Poco frecuente; acceso inmediato. | 99,9%; al menos 3 AZ. | 30 días; 128 KB facturables; recuperación por GB. |
+| **S3 One Zone-IA** | Poco frecuente; datos recreables. | 99,5%; 1 AZ, sin resiliencia a su pérdida. | 30 días; 128 KB facturables; recuperación por GB. |
+| **S3 Express One Zone** | Cargas de baja latencia; milisegundos de un dígito. | 99,95%; 1 AZ elegida. | Sin mínimos; bucket de directorio; regiones y AZ compatibles. |
+| **S3 Glacier Instant Retrieval** | Archivo; acceso inmediato en milisegundos. | 99,9%; al menos 3 AZ. | 90 días; 128 KB facturables; recuperación por GB. |
+| **S3 Glacier Flexible Retrieval** | Archivo; restauración de minutos a horas. | 99,99% después de restaurar; al menos 3 AZ. | 90 días; 40 KB de metadatos; Bulk gratis y otras opciones facturadas. |
+| **S3 Glacier Deep Archive** | Archivo rara vez leído; acceso en horas. | 99,99% después de restaurar; al menos 3 AZ. | 180 días; 40 KB de metadatos; restauración facturada. |
+| **S3 on Outposts** | Objetos locales para procesamiento o residencia. | Redundante entre equipos del Outpost. | Solo buckets de Outposts; considera la capacidad local. |
+| **S3 Reduced Redundancy Storage (RRS)** | Datos no críticos y reproducibles (AWS no recomienda la clase). | 99,99% de durabilidad y disponibilidad; al menos 3 AZ. | Sin mínimos; AWS recomienda evitarla. Standard es más rentable. |
 
+AWS diseña S3 Standard, Intelligent-Tiering, Standard-IA, One Zone-IA, Express One Zone y las tres clases Glacier para una durabilidad de 99,999999999% (once nueves). One Zone-IA y Express One Zone guardan los datos en una sola AZ: aunque la redundancia dentro de la zona sostiene la durabilidad de diseño indicada, esas clases no están diseñadas para resistir la pérdida física de toda la AZ. RRS tiene durabilidad de diseño de 99,99%; AWS recomienda no usarla porque S3 Standard es más rentable.
 
-<p>Considera tus necesidades de acceso, durabilidad, disponibilidad y costo para elegir la opción que más te convenga.</p>
+S3 Express One Zone requiere un bucket de directorio. La lista de [regiones y AZ compatibles con S3 Express One Zone](https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-express-Endpoints.html) se actualiza en la documentación; incluye São Paulo, pero solo en las AZ indicadas allí. AWS asigna nombres de AZ de forma distinta entre cuentas: para coordinar ubicaciones entre cuentas, usa el AZ ID publicado. La opción tiene sentido si la aplicación puede ejecutarse cerca del bucket; no es una alternativa general para buckets de propósito general.
 
+## Cómo elegir según el acceso
 
-<h3 id="durabilidad-y-disponibilidad" tabindex="-1">Durabilidad y disponibilidad</h3>
+- **Acceso frecuente:** empieza por S3 Standard. Es la clase general para datos que se leen o escriben a menudo.
+- **Acceso impredecible:** considera S3 Intelligent-Tiering si los objetos son elegibles y quieres que S3 los mueva entre niveles automáticos. El monitoreo tiene un cargo por objeto; para objetos pequeños que siempre quedan en Frequent Access, ese cargo no aplica.
+- **Acceso infrecuente con disponibilidad inmediata:** compara Standard-IA y Glacier Instant Retrieval según frecuencia, costo de almacenamiento, recuperaciones y tolerancia al tiempo mínimo. Ambas son multi-AZ; la segunda está orientada a archivo consultado con menos frecuencia.
+- **Una sola AZ aceptable:** One Zone-IA puede servir para datos recreables, como una copia adicional. No la uses como única copia de datos que deban sobrevivir a una pérdida de AZ.
+- **Latencia de un solo dígito en milisegundos:** evalúa S3 Express One Zone si la región, la AZ, el bucket de directorio y la ubicación del cómputo son compatibles.
+- **Archivo sin acceso inmediato:** usa Glacier Flexible Retrieval si una restauración de minutos u horas funciona para tu proceso; usa Deep Archive si puedes esperar más y conservar los datos durante su mínimo de 180 días.
+- **Procesamiento o residencia local:** S3 on Outposts requiere un AWS Outposts disponible en tu entorno y usa buckets de Outposts.
 
+Para preparar el examen Solutions Architect Associate, el [checklist de servicios AWS para SAA-C03](/blog/checklist-servicios-aws-esenciales-para-saa-c03/) reúne S3 con otros servicios de almacenamiento y los temas que conviene estudiar.
 
-<ul>
-<li><strong>Durabilidad</strong> significa qué tan seguro está tu dato de no perderse por un fallo técnico. Todas las opciones de S3 son súper seguras, casi sin riesgo de perder tus datos, excepto una que es un poco menos segura.</li>
-<li><strong>Disponibilidad</strong> es qué tan seguido puedes acceder a tus datos sin problemas. Esto cambia según la opción, algunas te dejan acceder casi todo el tiempo, y otras un poquito menos.</li>
-</ul>
+## Qué significa “Glacier” y cuánto tarda una restauración
 
+Amazon S3 Glacier Instant Retrieval permite un `GET` en milisegundos y no requiere restaurar el objeto. En cambio, los objetos de Glacier Flexible Retrieval y Glacier Deep Archive no están disponibles en tiempo real: antes de leerlos, hay que solicitar una restauración. La restauración crea una copia temporal durante la cantidad de días indicada; el objeto original conserva su clase de archivo. Los tiempos son típicos, no una garantía, y grandes volúmenes pueden demorar más.
 
-<h3 id="costo" tabindex="-1">Costo</h3>
+| Clase o nivel de archivo | Acceso y tiempo típico de restauración |
+| --- | --- |
+| **Glacier Instant Retrieval** | `GET` inmediato; no hay que restaurar. |
+| **Glacier Flexible Retrieval** | Standard: 3–5 horas. Bulk: 5–12 horas. Expedited: 1–5 minutos para objetos menores de 250 MB; premium y sujeto a capacidad. |
+| **Glacier Deep Archive** | Standard: hasta 12 horas. Bulk: hasta 48 horas. Expedited no está disponible. |
+| **Intelligent-Tiering: Archive Access** *(opcional)* | Requiere restaurar; Standard suele tardar 3–5 horas. |
+| **Intelligent-Tiering: Deep Archive Access** *(opcional)* | Requiere restaurar; Standard suele tardar hasta 12 horas. |
 
+Intelligent-Tiering inicia cada objeto en Frequent Access y lo mueve automáticamente a Infrequent Access después de 30 días sin acceso, y a Archive Instant Access después de 90. Los objetos menores de 128 KB no se monitorean ni pasan de Frequent Access; no generan cargo de monitoreo. Los niveles Archive Access y Deep Archive Access son opcionales: debes habilitarlos y pueden archivar tras al menos 90 o 180 días sin acceso, respectivamente. Puedes extender esos períodos. Un objeto archivado en esos niveles requiere restauración; luego vuelve a Frequent Access. Standard y Bulk no cobran recuperación en Intelligent-Tiering; Expedited desde Archive Access sí se cobra. El monitoreo y la automatización tienen cargo por objeto elegible. La [guía de niveles de Intelligent-Tiering](https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html) detalla sus condiciones.
 
-<ul>
-<li>Lo que pagas por guardar tus datos varía. Hay opciones más baratas y otras más caras.</li>
-<li>Algunas opciones te cobran extra si quieres sacar tus datos de ahí, dependiendo de cuánto saques.</li>
-</ul>
+## Recursos y comunidades para seguir
 
+Para cambiar de formato y estudiar con la comunidad:
 
-<h3 id="casos-de-uso" tabindex="-1">Casos de uso</h3>
+- La [sesión de AWS User Group Medellín sobre almacenamiento](https://www.youtube.com/watch?v=j81cCHrfmqA) repasa clases S3, versionado, políticas de acceso, Glacier y otros servicios.
+- La charla breve [AWS Flash Talk: S3 con Bianca Torres](https://www.youtube.com/watch?v=1_wSH_lCB3Q) ofrece otra introducción a Amazon S3.
+- El [laboratorio práctico de Amazon S3 de AWS User Group Caracas](https://www.youtube.com/watch?v=sp36Dcw7ePU) sirve para practicar operaciones con objetos.
 
+Son grabaciones de apoyo: confirma en la documentación oficial la disponibilidad regional y los cargos antes de tomar una decisión técnica. Para conversar con otros estudiantes, consulta las [comunidades AWS por país](/comunidades/) o el [portal de AWS User Group Perú](https://awsugperu.cloud/), que publica grupos locales, talleres, grupos de estudio y recursos. El [calendario de eventos de comunidades AWS](/eventos/) permite revisar modalidad, fecha, horario e inscripción; las agendas cambian con el tiempo.
 
-<ul>
-<li>Cada opción es mejor para ciertas cosas. Por ejemplo, algunas son para cuando necesitas ver tus datos seguido, y otras son para guardar datos a largo plazo que no vas a ver mucho.</li>
-</ul>
+Si también necesitas definir cómo cifrar objetos y administrar claves, consulta la [guía práctica de AWS KMS](/blog/cifrado-de-datos-con-aws-kms-guia-practica/). La clase de almacenamiento y el cifrado responden a decisiones distintas.
 
+## Costos, tamaños y reglas de ciclo de vida
 
-<h3 id="tiempo-de-recuperaci%C3%B3n-de-datos" tabindex="-1">Tiempo de recuperación de datos</h3>
+El precio por GB-mes no alcanza para comparar clases. Según el patrón, la factura puede incluir solicitudes, recuperación por GB, transferencias, transiciones de Lifecycle, duración mínima y metadatos. En Glacier Flexible Retrieval y Deep Archive, durante una restauración también pagas la copia temporal a la tarifa de S3 Standard por los días elegidos, además del objeto que permanece archivado. Revisa el precio de la [región donde vive el bucket](https://aws.amazon.com/s3/pricing/) junto con el número y tamaño de objetos, la retención prevista y el volumen de lecturas y restauraciones. Por eso esta guía no publica una tarifa fija ni afirma que una clase sea siempre la más barata.
 
+Tres condiciones evitan sorpresas:
 
-<ul>
-<li>El tiempo que tardas en obtener tus datos después de pedirlos puede ser rapidísimo o tardar un poco, dependiendo de dónde los guardes.</li>
-</ul>
+1. **Tamaño facturable:** Standard-IA, One Zone-IA y Glacier Instant Retrieval facturan un mínimo de 128 KB por objeto. En Glacier Flexible Retrieval y Deep Archive se agregan 40 KB de metadatos por objeto: 32 KB a la tarifa de archivo y 8 KB a la tarifa Standard.
+2. **Retención mínima:** Standard-IA y One Zone-IA tienen 30 días; Glacier Instant Retrieval y Flexible Retrieval, 90; Deep Archive, 180. Si borras, sobrescribes o mueves un objeto antes de completar ese período, se factura el tiempo restante.
+3. **Transiciones de Lifecycle:** S3 cobra una solicitud por objeto que pasa de clase. Para muchos objetos pequeños, el costo de transición puede superar el ahorro de almacenamiento.
 
+Desde septiembre de 2024, las reglas de S3 Lifecycle no transicionan por defecto objetos menores de 128 KB a ninguna clase. Las configuraciones creadas antes de ese cambio pueden conservar el comportamiento anterior hasta que modifiques sus reglas. AWS explica la excepción y las opciones de filtro en las [consideraciones para transiciones de Lifecycle](https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html).
 
-<h3 id="zonas-de-disponibilidad" tabindex="-1">Zonas de disponibilidad</h3>
+## Consultar una clase o solicitar una restauración con AWS CLI
 
+Reemplaza los valores de ejemplo por la región del bucket y una clave de objeto existente. Para `head-object` y `restore-object`, AWS CLI debe tener una sesión de autenticación válida mediante un perfil, IAM Identity Center o un rol. `head-object` es de solo lectura y requiere `s3:GetObject`; `restore-object` requiere `s3:RestoreObject`. La previsualización con `--dryrun` no llama a S3; una carga real requiere permisos de escritura, como `s3:PutObject`. Si la clase no aparece en la respuesta, el objeto usa Standard, que es la clase predeterminada.
 
-<ul>
-<li>Algunas opciones guardan tus datos en varios lugares para más seguridad, y otras en un solo lugar. Esto afecta qué tan bien se protegen tus datos contra problemas en un área.</li>
-</ul>
+```bash
+REGION='us-east-1'
+BUCKET='mi-bucket-de-prueba'
+KEY='reports/reporte.csv'
 
+aws s3api head-object \
+  --bucket "$BUCKET" \
+  --key "$KEY" \
+  --region "$REGION" \
+  --query '{StorageClass: StorageClass, SizeBytes: ContentLength, Restore: Restore}' \
+  --output json
+```
 
-<p>Pensando en estas cosas te ayudará a escoger el mejor lugar en Amazon S3 para tus datos.</p>
+Para Glacier Flexible Retrieval o Deep Archive, puedes iniciar una restauración Standard y revisar después el estado con el mismo `head-object`. Este comando inicia una operación y puede generar cargos; `Days` indica cuántos días conservar la copia restaurada. No lo uses con Glacier Instant Retrieval, que admite lectura directa.
 
+```bash
+REGION='us-east-1'
+BUCKET='mi-bucket-de-prueba'
+ARCHIVE_KEY='archives/reporte.csv'
 
-<h2 id="comparaci%C3%B3n-de-clases-de-almacenamiento" tabindex="-1">Comparación de clases de almacenamiento</h2>
-
-
-<h3 id="amazon-s3-standard" tabindex="-1">Amazon S3 Standard</h3>
-
-
-<h4 id="durabilidad" tabindex="-1">Durabilidad</h4>
-
-
-<p>Amazon S3 Standard es súper confiable para guardar tus cosas; casi es imposible que pierdas tus datos, incluso si pasa algo muy malo. Está hecho para ser seguro al 99.999999999%.</p>
-
-
-<h4 id="disponibilidad" tabindex="-1">Disponibilidad</h4>
-
-
-<p>Esta clase te deja acceder a tus datos el 99.99% del tiempo, lo que significa que casi siempre puedes llegar a ellos rápido y sin problemas.</p>
-
-
-<h4 id="costo-1" tabindex="-1">Costo</h4>
-
-
-<p>De todas las opciones de Amazon S3, S3 Standard es la más cara por cada GB que guardas, pero es la más barata cuando quieres hacer cosas como subir o bajar datos. No te cobran extra por sacar tus datos.</p>
-
-
-<h4 id="casos-de-uso-1" tabindex="-1">Casos de uso</h4>
-
-
-<p>Es perfecto si necesitas ver tus datos seguido, como para páginas web, aplicaciones, análisis o para guardar copias de seguridad. También es buena opción si vas a compartir mucho contenido.</p>
-
-
-<h4 id="tiempo-de-recuperaci%C3%B3n-de-datos-1" tabindex="-1">Tiempo de recuperación de datos</h4>
-
-
-<p>Con S3 Standard, puedes recuperar tus datos casi al instante, ya que el acceso es en milisegundos.</p>
-
-
-<h4 id="zonas-de-disponibilidad-1" tabindex="-1">Zonas de disponibilidad</h4>
-
-
-<p>Tus datos se guardan en al menos 3 lugares diferentes con AWS para asegurarse de que, incluso si uno falla, tus datos siguen estando seguros. Esto es una buena manera de proteger tus cosas contra grandes problemas.</p>
-
-
-<h3 id="2.-amazon-s3-intelligent-tiering" tabindex="-1">2. Amazon S3 Intelligent-Tiering</h3>
-
-
-<h4 id="durabilidad-1" tabindex="-1">Durabilidad</h4>
-
-
-<p>Amazon S3 Intelligent-Tiering es super confiable, con una durabilidad del 99.999999999%. Esto significa que es muy raro que pierdas tus datos, incluso si algo grande falla.</p>
-
-
-<h4 id="disponibilidad-1" tabindex="-1">Disponibilidad</h4>
-
-
-<p>Esta clase permite que accedas a tus datos casi todo el tiempo, con una disponibilidad del 99.9%. La rapidez con la que puedes ver tus datos, ya sea que los uses mucho o poco, es de solo milisegundos.</p>
-
-
-<h4 id="costo-2" tabindex="-1">Costo</h4>
-
-
-<p>Con S3 Intelligent-Tiering, pagas una pequeña tarifa cada mes por objeto para que Amazon maneje y vigile tus datos. No te cobran extra por sacar tus datos. Y lo mejor, puedes ahorrar mucho, hasta un 95% comparado con el plan más caro, S3 Standard.</p>
-
-
-<h4 id="casos-de-uso-2" tabindex="-1">Casos de uso</h4>
-
-
-<p>Es perfecto para cuando no sabes cuánto vas a usar tus datos, como con lagos de datos, análisis de datos, aplicaciones nuevas o contenido creado por usuarios. Es una buena opción para casi cualquier necesidad.</p>
-
-
-<h4 id="tiempo-de-recuperaci%C3%B3n-de-datos-2" tabindex="-1">Tiempo de recuperación de datos</h4>
-
-
-<p>Recuperar tus datos es rapidísimo, en milisegundos, para los datos que usas seguido o no tanto. Pero si tus datos están archivados, puede tardar desde minutos hasta horas en recuperarlos.</p>
-
-
-<h4 id="zonas-de-disponibilidad-2" tabindex="-1">Zonas de disponibilidad</h4>
-
-
-<p>Tus datos se guardan en al menos 3 lugares distintos para estar más seguros. Esto ayuda a que tus datos estén protegidos, incluso si hay problemas en una zona.</p>
-
-
-<h3 id="3.-amazon-s3-standard-ia" tabindex="-1">3. Amazon S3 Standard-IA</h3>
-
-
-<h4 id="durabilidad-2" tabindex="-1">Durabilidad</h4>
-
-
-<p>S3 Standard-IA es casi a prueba de fallas, con un 99.999999999% de seguridad de que tus datos estarán ahí cuando los necesites, incluso si algo grande pasa. Es como tener un súper seguro para tus datos más importantes.</p>
-
-
-<h4 id="disponibilidad-2" tabindex="-1">Disponibilidad</h4>
-
-
-<p>Con S3 Standard-IA, puedes llegar a tus datos el 99.9% del tiempo. Esto significa que casi siempre puedes obtener lo que necesitas rápido, en milisegundos.</p>
-
-
-<h4 id="costo-3" tabindex="-1">Costo</h4>
-
-
-<p>Guardar cosas aquí es más barato que en S3 Standard, pero si quieres sacar tus datos, te cobran por cada GB que descargas. Esto es importante si planeas recuperar muchos datos.</p>
-
-
-<h4 id="casos-de-uso-3" tabindex="-1">Casos de uso</h4>
-
-
-<p>Es perfecto para cosas que no miras mucho pero que quieres guardar, como copias de seguridad viejas o archivos que no usas a diario. Si tienes datos que piensas usar después, pero no ahora, este es un buen lugar.</p>
-
-
-<h4 id="tiempo-de-recuperaci%C3%B3n-de-datos-3" tabindex="-1">Tiempo de recuperación de datos</h4>
-
-
-<p>Aunque obtener tus datos es rápido, si decides moverlos de S3 Standard-IA a otro lado, podría tardar un poco más, especialmente si estás moviendo mucho.</p>
-
-
-<h4 id="zonas-de-disponibilidad-3" tabindex="-1">Zonas de disponibilidad</h4>
-
-
-<p>S3 Standard-IA guarda tus datos en al menos 3 lugares distintos para que estén seguros, incluso si una zona entera tiene problemas. Esto es como tener copias de seguridad en diferentes casas para más seguridad.</p>
-
-
-<h3 id="4.-amazon-s3-one-zone-ia" tabindex="-1">4. Amazon S3 One Zone-IA</h3>
-
-
-<h4 id="durabilidad-3" tabindex="-1">Durabilidad</h4>
-
-
-<p>S3 One Zone-IA es muy seguro, con una durabilidad del 99.999999999%. Esto quiere decir que casi no hay chance de que tus datos desaparezcan, incluso si pasa algo malo.</p>
-
-
-<h4 id="disponibilidad-3" tabindex="-1">Disponibilidad</h4>
-
-
-<p>Esta clase te deja acceder a tus datos el 99.5% del tiempo. Aunque es un poco menos que otras opciones, aún es bastante alto.</p>
-
-
-<h4 id="costo-4" tabindex="-1">Costo</h4>
-
-
-<p>Guardar tus datos aquí es más económico que en S3 Standard o S3 Standard-IA. Pero, al igual que S3 Standard-IA, te cobran por cada GB que bajas de esta opción.</p>
-
-
-<h4 id="casos-de-uso-4" tabindex="-1">Casos de uso</h4>
-
-
-<p>Es perfecta para datos que no sería un problema volver a crear si se pierden, como copias de seguridad que no son las principales o datos que has replicado de otra región de AWS.</p>
-
-
-<h4 id="tiempo-de-recuperaci%C3%B3n-de-datos-4" tabindex="-1">Tiempo de recuperación de datos</h4>
-
-
-<p>Es muy rápido conseguir tus datos, en milisegundos.</p>
-
-
-<h4 id="zonas-de-disponibilidad-4" tabindex="-1">Zonas de disponibilidad</h4>
-
-
-<p>A diferencia de otras opciones que guardan tus datos en varios lugares, S3 One Zone-IA los guarda en un solo sitio. Esto la hace más barata, pero también significa que si hay problemas en esa zona, tus datos podrían estar en riesgo.</p>
-
-
-<h3 id="5.-amazon-s3-glacier" tabindex="-1">5. Amazon S3 Glacier</h3>
-
-
-<h4 id="durabilidad-4" tabindex="-1">Durabilidad</h4>
-
-
-<p>S3 Glacier es súper seguro, con un 99.999999999% de posibilidades de que tus datos estén a salvo, incluso si pasa algo muy grave. Está hecho para cuidar tus datos por muchos años.</p>
-
-
-<h4 id="disponibilidad-4" tabindex="-1">Disponibilidad</h4>
-
-
-<p>La disponibilidad de S3 Glacier depende de cuánto tardes en pedir que te devuelvan tus datos. Una vez que los tienes, puedes usarlos el 99.99% del tiempo.</p>
-
-
-<h4 id="costo-5" tabindex="-1">Costo</h4>
-
-
-<p>S3 Glacier es la opción más barata para guardar cosas en Amazon S3, con precios desde solo $0.004 por GB al mes. Pero, ten en cuenta que si necesitas recuperar tus datos, eso tiene un costo extra.</p>
-
-
-<h4 id="casos-de-uso-5" tabindex="-1">Casos de uso</h4>
-
-
-<p>S3 Glacier es perfecto para guardar datos que casi no vas a usar, como copias de seguridad que guardas por mucho tiempo, datos que necesitas por reglas de tu industria, o para mantener seguro algo importante por años.</p>
-
-
-<h4 id="tiempo-de-recuperaci%C3%B3n-de-datos-5" tabindex="-1">Tiempo de recuperación de datos</h4>
-
-
-<p>Puedes pedir tus datos y tenerlos listos desde en unos minutos hasta en 12 horas, dependiendo de cómo lo pidas.</p>
-
-
-<h4 id="zonas-de-disponibilidad-5" tabindex="-1">Zonas de disponibilidad</h4>
-
-
-<p>S3 Glacier guarda tus datos en varios lugares al mismo tiempo para que estén más seguros, incluso si se pierde uno de esos lugares por completo.</p>
-
-
-<h3 id="6.-amazon-s3-glacier-deep-archive" tabindex="-1">6. Amazon S3 Glacier Deep Archive</h3>
-
-
-<h4 id="durabilidad-5" tabindex="-1">Durabilidad</h4>
-
-
-<p>S3 Glacier Deep Archive es súper seguro, con una durabilidad de 99.999999999%. Esto quiere decir que tus datos están casi a prueba de desastres. Tus datos están muy bien cuidados aquí.</p>
-
-
-<h4 id="disponibilidad-5" tabindex="-1">Disponibilidad</h4>
-
-
-<p>La disponibilidad de S3 Glacier Deep Archive depende de cuánto tardas en pedir tus datos. Una vez que los tienes, puedes usarlos el 99.99% del tiempo.</p>
-
-
-<h4 id="costo-6" tabindex="-1">Costo</h4>
-
-
-<p>S3 Glacier Deep Archive es la opción más barata de AWS para guardar datos, con precios desde solo $0.00099 por GB al mes. Pero, recuerda que sacar tus datos cuesta extra.</p>
-
-
-<h4 id="casos-de-uso-6" tabindex="-1">Casos de uso</h4>
-
-
-<p>Es perfecto para datos que miras menos de una vez al año, como archivos antiguos, datos que necesitas guardar por ley, o para guardar cosas importantes por mucho tiempo.</p>
-
-
-<h4 id="tiempo-de-recuperaci%C3%B3n-de-datos-6" tabindex="-1">Tiempo de recuperación de datos</h4>
-
-
-<p>Puedes pedir tus datos y tenerlos listos entre 12 y 48 horas, dependiendo de cómo lo hagas.</p>
-
-
-<h4 id="zonas-de-disponibilidad-6" tabindex="-1">Zonas de disponibilidad</h4>
-
-
-<p>S3 Glacier Deep Archive guarda tus datos en varios lugares para más seguridad. Así, si un lugar tiene problemas, tus datos siguen estando seguros.</p>
-
-
-<h3 id="7.-amazon-s3-outposts" tabindex="-1">7. Amazon S3 Outposts</h3>
-
-
-<h4 id="durabilidad-6" tabindex="-1">Durabilidad</h4>
-
-
-<p>S3 Outposts se asegura de que tus datos estén bien protegidos, usando varios lugares y formas para guardarlos. Esto significa que tus datos están casi garantizados a no perderse, incluso si hay un problema técnico. Piensa en esto como tener varias copias de seguridad.</p>
-
-
-<h4 id="disponibilidad-6" tabindex="-1">Disponibilidad</h4>
-
-
-<p>Con S3 Outposts, tus datos están a tu alcance rápidamente, casi como si estuvieran guardados en S3, pero en tu propio lugar. Esto es genial si necesitas tus datos rápido y sin demoras.</p>
-
-
-<h4 id="costo-7" tabindex="-1">Costo</h4>
-
-
-<p>Usar S3 Outposts significa un costo extra porque necesitas tener el equipo de Outposts. El precio varía según cuánto espacio necesitas. Es buena idea revisar la página de precios de AWS para más información.</p>
-
-
-<h4 id="casos-de-uso-7" tabindex="-1">Casos de uso</h4>
-
-
-<p>S3 Outposts es perfecto si necesitas que tus datos estén cerca, como para aplicaciones que no pueden esperar mucho o que tienen reglas especiales de dónde deben estar los datos. También es útil si estás combinando cosas de la nube con cosas en tu propio lugar.</p>
-
-
-<h4 id="tiempo-de-recuperaci%C3%B3n-de-datos-7" tabindex="-1">Tiempo de recuperación de datos</h4>
-
-
-<p>Dado que usas equipo local y las mismas maneras de trabajar que en S3, obtener tus datos es rapidísimo, casi al instante.</p>
-
-
-<h4 id="zonas-de-disponibilidad-7" tabindex="-1">Zonas de disponibilidad</h4>
-
-
-<p>Con S3 Outposts, tus datos se quedan donde tú estés, en el equipo de Outposts. La seguridad de tus datos depende de cómo tengas organizado tu equipo. Para estar más seguro, es bueno tener varias maneras de proteger tus datos. Además, puedes enviar tus datos a S3 para estar aún más seguro en caso de un problema grande en tu lugar.</p>
-
-
-<h2 id="ventajas-y-desventajas" tabindex="-1">Ventajas y desventajas</h2>
-
-
-<p>Hablemos claro de lo bueno y lo malo de cada tipo de almacenamiento en Amazon S3 para que puedas escoger el que más te conviene. Aquí te lo explicamos de manera sencilla:</p>
-
-
-<h3 id="ventajas" tabindex="-1">Ventajas</h3>
-
-
-<ul>
-<li><strong>S3 Standard</strong> - Tus datos están muy protegidos, siempre disponibles y los puedes obtener rápido.</li>
-<li><strong>S3 Intelligent Tiering</strong> - Te ayuda a ahorrar, ajustando el precio según cómo uses tus datos. Además, tus datos están seguros y siempre disponibles.</li>
-<li><strong>S3 Standard-IA</strong> - Es más barato que el S3 Standard para guardar tus datos, manteniendo una alta seguridad y disponibilidad.</li>
-<li><strong>S3 One Zone-IA</strong> - Es la opción más barata y tus datos están muy seguros.</li>
-<li><strong>S3 Glacier</strong> - Ideal para guardar datos a los que casi no accedes, a un precio muy bajo.</li>
-<li><strong>S3 Glacier Deep Archive</strong> - Es lo más barato que encontrarás para archivar datos por mucho tiempo.</li>
-<li><strong>S3 Outposts</strong> - Perfecto si necesitas que tus datos estén físicamente cerca para acceder a ellos rápidamente.</li>
-</ul>
-
-
-<h3 id="desventajas" tabindex="-1">Desventajas</h3>
-
-
-<ul>
-<li><strong>S3 Standard</strong> - Es la opción más cara para guardar tus datos.</li>
-<li><strong>S3 Intelligent Tiering</strong> - Puede que pagues un poco más si tus datos no se usan mucho.</li>
-<li><strong>S3 Standard-IA</strong> - Si necesitas sacar tus datos, te va a costar más.</li>
-<li><strong>S3 One Zone-IA</strong> - Tus datos están en un solo lugar, así que si hay un problema ahí, podrías tener un riesgo.</li>
-<li><strong>S3 Glacier</strong> - Sacar tus datos cuesta dinero y puede tardar un poco.</li>
-<li><strong>S3 Glacier Deep Archive</strong> - Sacar tus datos es caro y tarda bastante.</li>
-<li><strong>S3 Outposts</strong> - Necesitas comprar equipo especial y puede ser más caro.</li>
-</ul>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Clase de Almacenamiento</th>
-<th>Ventajas</th>
-<th>Desventajas</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>S3 Standard</td>
-<td>Seguro y rápido</td>
-<td>Más caro</td>
-</tr>
-<tr>
-<td>S3 Intelligent Tiering</td>
-<td>Ahorra automáticamente</td>
-<td>Más lento para datos no usados</td>
-</tr>
-<tr>
-<td>S3 Standard-IA</td>
-<td>Más barato que Standard</td>
-<td>Cuesta sacar datos</td>
-</tr>
-<tr>
-<td>S3 One Zone-IA</td>
-<td>Super económico</td>
-<td>Menos seguro por estar en una zona</td>
-</tr>
-<tr>
-<td>S3 Glacier</td>
-<td>Económico para archivar</td>
-<td>Pagar y esperar para sacar datos</td>
-</tr>
-<tr>
-<td>S3 Glacier Deep Archive</td>
-<td>Lo más barato para archivar</td>
-<td>Muy caro y lento sacar datos</td>
-</tr>
-<tr>
-<td>S3 Outposts</td>
-<td>Datos cerca y rápidos</td>
-<td>Necesitas equipo especial</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Piensa en qué necesitas realmente, como cuánto puedes gastar, qué tan seguido necesitas tus datos y si la velocidad es importante para ti. Así podrás escoger mejor.</p>
-
-
-<h2 id="estrategias-de-optimizaci%C3%B3n-de-costos" tabindex="-1">Estrategias de optimización de costos</h2>
-
-
-<p>Ahorrar en los costos de guardar cosas en Amazon S3 es más fácil de lo que piensas. Aquí van unos consejos clave:</p>
-
-
-<h3 id="1.-analiza-tus-patrones-de-acceso-a-los-datos" tabindex="-1">1. Analiza tus patrones de acceso a los datos</h3>
-
-
-<ul>
-<li>Fíjate bien en qué datos usas mucho y cuáles casi nunca. Esto te ayuda a escoger la mejor opción para guardarlos sin gastar de más.</li>
-<li>Puedes usar herramientas como <strong>Amazon S3 Analytics</strong> o <strong>Amazon CloudWatch</strong> para entender mejor cómo y cuándo accedes a tus datos.</li>
-<li>Si tus necesidades cambian mucho, <strong>S3 Intelligent-Tiering</strong> puede ajustar automáticamente dónde se guardan tus datos para que no gastes más de lo necesario.</li>
-</ul>
-
-
-<h3 id="2.-configura-pol%C3%ADticas-de-ciclo-de-vida" tabindex="-1">2. Configura políticas de ciclo de vida</h3>
-
-
-<ul>
-<li>Puedes hacer que tus datos se muevan solos a opciones más baratas después de un tiempo. Por ejemplo, pasarlos de S3 Standard a S3 Infrequent Access si no los has usado en 30 días.</li>
-<li>Con <strong>S3 Lifecycle</strong>, puedes establecer estas reglas fácilmente y AWS se encarga del resto.</li>
-</ul>
-
-
-<h3 id="3.-almacena-datos-poco-utilizados-en-glacier" tabindex="-1">3. Almacena datos poco utilizados en Glacier</h3>
-
-
-<ul>
-<li>Para datos que casi no usas, <strong>S3 Glacier</strong> es una opción mucho más barata.</li>
-<li>También puedes programar que tus datos se guarden en Glacier automáticamente después de cierto tiempo con las políticas de ciclo de vida.</li>
-</ul>
-
-
-<h3 id="4.-comprime-objetos-cuando-sea-posible" tabindex="-1">4. Comprime objetos cuando sea posible</h3>
-
-
-<ul>
-<li>
-<p>Hacer tus archivos más pequeños puede ayudarte a ahorrar en el espacio que usan y en el costo de moverlos.</p>
-</li>
-<li>
-<p>Comprimir archivos con formatos como <strong>GZIP</strong> puede ser una buena idea cuando se pueda.</p>
-</li>
-</ul>
-
-
-<h3 id="5.-restringe-el-acceso-a-los-datos" tabindex="-1">5. Restringe el acceso a los datos</h3>
-
-
-<ul>
-<li>Asegúrate de que solo las personas autorizadas puedan ver tus datos. Esto evita que gastes en transferencias que no necesitas.</li>
-</ul>
-
-
-<h3 id="6.-elige-la-redundancia-de-datos-adecuada" tabindex="-1">6. Elige la redundancia de datos adecuada</h3>
-
-
-<ul>
-<li>No todos los datos necesitan la máxima protección. Si no es necesario, puedes usar opciones como <strong>S3 Standard-IA</strong> o <strong>S3 One Zone-IA</strong>.</li>
-</ul>
-
-
-<p>Siguiendo estos consejos, podrás reducir tus gastos en Amazon S3 de manera efectiva. Combina varios de estos métodos para ahorrar aún más.</p>
-
-
-<h2 id="criterios-para-elegir-la-clase-de-almacenamiento-adecuada" tabindex="-1">Criterios para elegir la clase de almacenamiento adecuada</h2>
-
-
-<p>Cuando necesitas decidir dónde guardar tus datos en Amazon S3, hay algunas cosas importantes que debes pensar. Aquí te dejo unas preguntas clave para que encuentres lo que mejor te conviene:</p>
-
-
-<h3 id="%C2%BFcon-qu%C3%A9-frecuencia-necesitar%C3%A1s-acceder-a-los-datos%3F" tabindex="-1">¿Con qué frecuencia necesitarás acceder a los datos?</h3>
-
-
-<ul>
-<li>Si vas a necesitar tus datos muy seguido, como varias veces al día, opciones como <strong>S3 Standard</strong> o <strong>S3 Intelligent Tiering</strong> son buenas porque te permiten acceder a ellos rápido.</li>
-<li>Si solo vas a ver tus datos de vez en cuando, puedes ahorrar eligiendo <strong>S3 Infrequent Access</strong> o <strong>S3 Glacier</strong>.</li>
-</ul>
-
-
-<h3 id="%C2%BFqu%C3%A9-nivel-de-durabilidad-y-disponibilidad-necesitas%3F" tabindex="-1">¿Qué nivel de durabilidad y disponibilidad necesitas?</h3>
-
-
-<ul>
-<li>Si tus datos son super importantes y no puedes arriesgarte a perderlos, mejor ve por <strong>S3 Standard</strong> o <strong>S3 Standard-IA</strong> que son más seguros.</li>
-<li>Si puedes vivir con un poco más de riesgo, <strong>S3 One Zone-IA</strong> puede ser más barato.</li>
-</ul>
-
-
-<h3 id="%C2%BFdurante-cu%C3%A1nto-tiempo-necesitas-almacenar-los-datos%3F" tabindex="-1">¿Durante cuánto tiempo necesitas almacenar los datos?</h3>
-
-
-<ul>
-<li>Si solo necesitas tus datos por un corto tiempo, <strong>S3 Standard</strong> puede ser suficiente.</li>
-<li>Para guardar datos por mucho tiempo, <strong>S3 Glacier</strong> o <strong>S3 Glacier Deep Archive</strong> te ayudarán a ahorrar.</li>
-</ul>
-
-
-<h3 id="%C2%BFqu%C3%A9-volumen-de-datos-vas-a-almacenar%3F" tabindex="-1">¿Qué volumen de datos vas a almacenar?</h3>
-
-
-<ul>
-<li>Si tienes muchos datos, el costo importa. <strong>S3 Standard-IA</strong> o <strong>S3 One Zone-IA</strong> pueden ser más económicos.</li>
-<li>Si no es mucho lo que vas a guardar, quizás el costo no sea tan importante.</li>
-</ul>
-
-
-<h3 id="%C2%BFnecesitas-procesar-los-datos-anal%C3%ADticamente%3F" tabindex="-1">¿Necesitas procesar los datos analíticamente?</h3>
-
-
-<ul>
-<li>Si vas a analizar tus datos o usarlos para inteligencia artificial, <strong>S3 Intelligent Tiering</strong> te puede facilitar las cosas.</li>
-</ul>
-
-
-<h3 id="%C2%BFrequieres-cumplir-con-regulaciones-de-datos-espec%C3%ADficas%3F" tabindex="-1">¿Requieres cumplir con regulaciones de datos específicas?</h3>
-
-
-<ul>
-<li>Algunas reglas dicen que tus datos deben estar guardados en lugares específicos. Asegúrate de que la opción que elijas cumpla con estas normas.</li>
-</ul>
-
-
-<p>Pensando en estas preguntas, podrás escoger mejor entre las diferentes opciones de almacenamiento en S3. Esto te ayudará a sacarle el mayor provecho a S3, manteniendo tus costos bajos.</p>
-
-
-<h2 id="conclusiones" tabindex="-1">Conclusiones</h2>
-
-
-<p>Cuando usas Amazon S3 para guardar tus cosas en la nube, es importante elegir bien para no gastar más de lo necesario. Aquí te dejamos algunos consejos clave:</p>
-
-
-<ul>
-<li><strong>Fíjate cómo y cuándo usas tus datos</strong> para saber qué necesitas y elegir la mejor opción. Puedes usar herramientas como Amazon S3 Analytics o CloudWatch para ayudarte.</li>
-<li><strong>Usa políticas de ciclo de vida en S3</strong> para que tus datos se pasen solos a un almacenamiento más barato según cómo los uses. Esto te ayuda a ahorrar fácilmente.</li>
-<li><strong>Considera usar S3 Glacier y S3 Glacier Deep Archive para datos que casi no usas</strong>. Estas opciones son mucho más baratas.</li>
-<li><strong>Si puedes, haz tus archivos más pequeños</strong> para que ocupen menos y cueste menos moverlos.</li>
-<li><strong>Controla bien quién puede ver o usar tus datos</strong> para evitar gastos que no necesitas.</li>
-<li><strong>Elige cuánta protección necesitan tus datos</strong>. No siempre necesitas lo máximo en durabilidad y disponibilidad.</li>
-<li><strong>Mantente al tanto de cómo usas tus datos</strong> revisando tus métricas en CloudWatch y ajusta según tus necesidades. Ahorrar en la nube es algo que debes hacer todo el tiempo.</li>
-</ul>
-
-
-<p>Siguiendo estos consejos, podrás aprovechar al máximo Amazon S3 y reducir tus costos en la nube. ¡Empieza a aplicarlos hoy mismo!</p>
-
-
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
-
-
-<h3 id="%C2%BFqu%C3%A9-se-puede-guardar-en-s3%3F" tabindex="-1">¿Qué se puede guardar en S3?</h3>
-
-
-<p>S3 Standard es útil para muchas cosas, como aplicaciones en internet, páginas web que siempre están cambiando, compartir contenido, aplicaciones de celular, juegos y para analizar grandes cantidades de datos.</p>
-
-
-<h3 id="%C2%BFcu%C3%A1nto-se-puede-guardar-en-amazon-s3%3F" tabindex="-1">¿Cuánto se puede guardar en Amazon S3?</h3>
-
-
-<p>En Amazon S3 puedes guardar la cantidad de datos y objetos que quieras, sin límite. Los objetos pueden ser desde muy pequeñitos, de 0 bytes, hasta bastante grandes, de hasta 5 TB.</p>
-
-
-<h3 id="%C2%BFcu%C3%A1l-es-la-mejor-opci%C3%B3n-de-almacenamiento-en-s3-para-datos-que-no-se-sabe-cu%C3%A1ndo-se-van-a-usar%3F" tabindex="-1">¿Cuál es la mejor opción de almacenamiento en S3 para datos que no se sabe cuándo se van a usar?</h3>
-
-
-<p>S3 Intelligent-Tiering es la mejor opción para guardar datos cuando no estás seguro de cuándo los vas a necesitar, ya sea que los datos sean grandes, pequeños o estén por mucho tiempo.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-transferencias-de-datos-son-gratis-en-amazon-s3%3F" tabindex="-1">¿Qué transferencias de datos son gratis en Amazon S3?</h3>
-
-
-<p>Amazon S3 te da 100 GB gratis cada mes para enviar datos a internet desde cualquier servicio y región de AWS (menos en China y GovCloud). Si envías más de eso, tendrás que pagar extra según la cantidad de datos.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-s3/">Mejores prácticas para Amazon S3</a></li><li><a href="https://dondeaprendoaws.com/blog/servicios-de-aws-para-frontend/">Servicios de AWS para frontend</a></li><li><a href="https://dondeaprendoaws.com/blog/comprendiendo-aws-backup/">Comprendiendo AWS Backup</a></li>
-</ul>
-</p>
+aws s3api restore-object \
+  --bucket "$BUCKET" \
+  --key "$ARCHIVE_KEY" \
+  --restore-request '{"Days":3,"GlacierJobParameters":{"Tier":"Standard"}}' \
+  --region "$REGION"
+
+aws s3api head-object \
+  --bucket "$BUCKET" \
+  --key "$ARCHIVE_KEY" \
+  --region "$REGION" \
+  --query '{StorageClass: StorageClass, Restore: Restore}' \
+  --output json
+```
+
+Para previsualizar una carga nueva con Standard-IA, reemplaza `./reporte.csv` por un archivo local y define la región y el bucket de prueba. Usa una clave de destino nueva. `--dryrun` muestra la operación sin subir el objeto. Si ejecutas la carga quitando `--dryrun`, la clase tiene mínimo de 30 días y 128 KB facturables por objeto.
+
+```bash
+REGION='us-east-1'
+BUCKET='mi-bucket-de-prueba'
+
+aws s3 cp ./reporte.csv "s3://${BUCKET}/pruebas/reporte-nuevo.csv" \
+  --storage-class STANDARD_IA \
+  --dryrun \
+  --region "$REGION"
+```
+
+La [referencia de AWS CLI para `head-object`](https://docs.aws.amazon.com/cli/latest/reference/s3api/head-object.html), [`restore-object`](https://docs.aws.amazon.com/cli/latest/reference/s3api/restore-object.html) y [`s3 cp`](https://docs.aws.amazon.com/cli/latest/reference/s3/cp.html) documenta los parámetros y respuestas. Revisa también la [autenticación de AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-authentication.html) y los [permisos requeridos por las operaciones de S3](https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-with-s3-policy-actions.html). Para cambiar de clase un objeto existente, copia a una clave separada y comprueba el resultado antes de retirar el original; no sobrescribas una copia de producción como prueba.
