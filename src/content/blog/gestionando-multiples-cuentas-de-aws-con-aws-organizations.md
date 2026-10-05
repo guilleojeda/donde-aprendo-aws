@@ -1,5 +1,5 @@
 ---
-title: "Gestionando Múltiples Cuentas de AWS con AWS Organizations"
+title: "Gestionando múltiples cuentas de AWS con AWS Organizations"
 description: "Descubre cómo gestionar múltiples cuentas de AWS de manera eficiente con AWS Organizations. Aprende a unificar cuentas, implementar políticas de seguridad, optimizar costos, cumplir con regulaciones y expandir sin complicaciones."
 author: "guille-ojeda"
 publishedAt: "2024-03-07"
@@ -10,9 +10,9 @@ ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Automatización de cumplimiento con AWS Config"
     url: "https://dondeaprendoaws.com/blog/automatizacion-de-cumplimiento-con-aws-config/"
-  - title: "Automatizar Alertas de Costos AWS en 5 Pasos"
+  - title: "Automatizar alertas de costos AWS en 5 pasos"
     url: "https://dondeaprendoaws.com/blog/automatizar-alertas-de-costos-aws-en-5-pasos/"
-  - title: "Integrar Amazon Polly en 5 pasos: Texto a voz realista"
+  - title: "Integrar Amazon Polly en 5 pasos: texto a voz realista"
     url: "https://dondeaprendoaws.com/blog/integrar-amazon-polly-en-5-pasos-texto-a-voz-realista/"
 
 ---
@@ -29,7 +29,7 @@ related:
 <ul><li>Cuenta de AWS existente</li></ul>
 <p>Para empezar con AWS Organizations, necesitas tener una cuenta de AWS. Esta cuenta será la principal y desde ella podrás controlar las demás cuentas que agregues.</p>
 <p>Es importante que tengas acceso completo a esta cuenta, porque vas a necesitar poder hacer cambios y ajustes para configurar tu organización.</p>
-<h2 id="paso-1%3A-crear-la-organizaci%C3%B3n">Paso 1: Crear la organización</h2>
+<h2 id="paso-1%3A-crear-la-organizaci%C3%B3n">Paso 1: crear la organización</h2>
 <p>Para comenzar con AWS Organizations, lo primero es crear tu organización. Esto lo haces desde un lugar en la web de AWS llamado consola de administración de AWS Organizations.</p>
 <h3 id="1.-ingresar-a-la-consola-de-aws-organizations">1. Ingresar a la consola de AWS Organizations</h3>
 <ul><li>Entra a la <a href="https://console.aws.amazon.com/">consola de administración de AWS</a> usando tu cuenta de administrador.</li><li>Busca en la lista de Servicios y elige "Organizations".</li><li>Ahora estarás en la consola de administración de <a href="https://aws.amazon.com/organizations">AWS Organizations</a>.</li></ul>
@@ -40,7 +40,7 @@ related:
 <h3 id="4.-revisar-y-confirmar">4. Revisar y confirmar</h3>
 <ul><li>Antes de terminar, revisa que toda la información de tu nueva organización esté correcta.</li><li>Si todo está bien, confirma haciendo clic en "Confirm".</li></ul>
 <p>Ahora que ya creaste la organización, puedes agregar cuentas de AWS que ya tengas o crear cuentas nuevas dentro de tu organización.</p>
-<h2 id="paso-2%3A-agregar-cuentas-de-aws">Paso 2: Agregar cuentas de AWS</h2>
+<h2 id="paso-2%3A-agregar-cuentas-de-aws">Paso 2: agregar cuentas de AWS</h2>
 <p>Una vez que tienes tu organización lista, puedes añadir cuentas que ya existen o crear nuevas cuentas para incluirlas.</p>
 <h3 id="invitar-cuenta-existente">Invitar cuenta existente</h3>
 <p>Para agregar una cuenta que ya tienes a tu organización en AWS Organizations, sigue estos pasos sencillos:</p>
@@ -49,7 +49,7 @@ related:
 <p>Si prefieres empezar con una cuenta nueva dentro de tu organización de AWS Organizations:</p>
 <ul><li>Ve a "Cuentas" y selecciona "Agregar cuenta".</li><li>Ponle un nombre y un alias a esta cuenta nueva.</li><li>Elige dónde quieres que esté esta cuenta, seleccionando una unidad organizacional (OU).</li><li>Checa los permisos y ajustes de la cuenta.</li><li>Clic en "Crear cuenta".</li></ul>
 <p>Tu nueva cuenta estará lista y se agregará de forma automática a tu organización con las opciones que elegiste.</p>
-<h2 id="paso-3%3A-usar-aws-sso-para-simplificar-el-acceso-a-aws">Paso 3: Usar AWS SSO para Simplificar el Acceso a AWS</h2>
+<h2 id="paso-3%3A-usar-aws-sso-para-simplificar-el-acceso-a-aws">Paso 3: usar AWS SSO para simplificar el acceso a AWS</h2>
 <h3 id="por-qu%C3%A9-es-bueno-usar-sso">Por qué es bueno usar SSO</h3>
 <p>AWS Single Sign-On (SSO) te permite entrar a todas tus cuentas de AWS desde un solo lugar. Así, no necesitas recordar un montón de contraseñas diferentes para cada cuenta.</p>
 <p>Algunos beneficios de usar SSO son:</p>
@@ -88,4 +88,4 @@ related:
 <h4 id="%C2%BFqu%C3%A9-es-una-cuenta-de-aws%3F">¿Qué es una cuenta de AWS?</h4>
 <p>Una cuenta de AWS es una identidad con permiso para usar los servicios de AWS. Cada cuenta tiene su propia información de facturación y pago. AWS Organizations te permite crear y manejar varias cuentas de AWS desde un solo lugar central.</p>
 <h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/nube-aws-guia-de-inicio-rapido/">Nube AWS: Guía de Inicio Rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/">Análisis de Costos de AWS con Cost Explorer</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Aprender AWS: guía inicial</a></li></ul>
+<ul><li><a href="https://dondeaprendoaws.com/blog/nube-aws-guia-de-inicio-rapido/">Nube AWS: guía de inicio rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/">análisis de costos de AWS con Cost Explorer</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li></ul>

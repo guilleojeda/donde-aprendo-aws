@@ -1,5 +1,5 @@
 ---
-title: "AWS SMS vs AWS MGN: Comparación 2024"
+title: "AWS SMS vs AWS MGN: comparación 2024"
 description: "Descubre las diferencias clave entre AWS SMS y AWS MGN para migraciones a la nube en 2024, y cuál es la mejor opción para tus necesidades."
 author: "guille-ojeda"
 publishedAt: "2024-10-28"
@@ -8,11 +8,11 @@ cover: "/assets/blog/editorial-fundamentos.png"
 coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
 ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
-  - title: "Políticas de Control de Servicios (SCPs) en AWS"
+  - title: "Políticas de control de servicios (SCPs) en AWS"
     url: "https://dondeaprendoaws.com/blog/politicas-de-control-de-servicios-scps-en-aws/"
   - title: "Cómo integrar los SDK de AWS en 7 pasos"
     url: "https://dondeaprendoaws.com/blog/como-integrar-los-sdk-de-aws-en-7-pasos/"
-  - title: "Aprender AWS gratis: Recursos y Comunidad"
+  - title: "Aprender AWS gratis: recursos y comunidad"
     url: "https://dondeaprendoaws.com/blog/aprender-aws-gratis-recursos-y-comunidad/"
 
 ---
@@ -35,7 +35,7 @@ related:
 
 
 <iframe allowfullscreen="" loading="lazy" src="https://www.youtube-nocookie.com/embed/JrmZA0hAo4Y" title="Video de YouTube"></iframe>
-<h3 id="comparaci%C3%B3n-r%C3%A1pida" tabindex="-1">Comparación Rápida</h3>
+<h3 id="comparaci%C3%B3n-r%C3%A1pida" tabindex="-1">Comparación rápida</h3>
 
 
 <figure class="table"><table>
@@ -107,7 +107,7 @@ related:
 <p><strong>Dato importante:</strong> AWS recomienda MGN para todas las migraciones nuevas desde 2023.</p>
 
 
-<h2 class="sb" id="aws-server-migration-service-(sms)-b%C3%A1sico" tabindex="-1">AWS Server Migration Service (SMS) Básico</h2>
+<h2 class="sb" id="aws-server-migration-service-(sms)-b%C3%A1sico" tabindex="-1">AWS Server Migration Service (SMS) básico</h2>
 
 
 <h3 id="%C2%BFqu%C3%A9-es-sms%3F" tabindex="-1">¿Qué es SMS?</h3>
@@ -261,7 +261,7 @@ related:
 <p><strong>Ejemplo real</strong>: Una empresa movió cientos de servidores y 350TB de datos en 5 semanas con SMS. Sus sistemas nunca se detuvieron.</p>
 
 
-<h2 class="sb" id="aws-application-migration-service-(mgn)-b%C3%A1sico" tabindex="-1">AWS Application Migration Service (MGN) Básico</h2>
+<h2 class="sb" id="aws-application-migration-service-(mgn)-b%C3%A1sico" tabindex="-1">AWS Application Migration Service (MGN) básico</h2>
 
 
 <h3 id="%C2%BFqu%C3%A9-hace-mgn%3F" tabindex="-1">¿Qué hace MGN?</h3>
@@ -394,13 +394,13 @@ related:
 </table></figure>
 
 
-<h2 class="sb" id="sms-vs-mgn%3A-diferencias-clave" tabindex="-1">SMS vs MGN: Diferencias Clave</h2>
+<h2 class="sb" id="sms-vs-mgn%3A-diferencias-clave" tabindex="-1">SMS vs MGN: diferencias clave</h2>
 
 
 <p>¿Necesitas migrar a AWS pero no sabes qué servicio elegir? Aquí te explico las diferencias entre SMS y MGN.</p>
 
 
-<h3 id="m%C3%A9todos-de-migraci%C3%B3n" tabindex="-1">Métodos de Migración</h3>
+<h3 id="m%C3%A9todos-de-migraci%C3%B3n" tabindex="-1">Métodos de migración</h3>
 
 
 <figure class="table"><table>
@@ -439,7 +439,7 @@ related:
 <p>SMS es como mudar una casa mueble por mueble. MGN es como transportar la casa entera de una vez.</p>
 
 
-<h3 id="velocidad-y-rendimiento" tabindex="-1">Velocidad y Rendimiento</h3>
+<h3 id="velocidad-y-rendimiento" tabindex="-1">Velocidad y rendimiento</h3>
 
 
 <figure class="table"><table>
@@ -507,7 +507,7 @@ related:
 <p>Ambos te dan 90 días gratis para probar. Después, pagas según lo que uses.</p>
 
 
-<h3 id="opciones-de-soporte" tabindex="-1">Opciones de Soporte</h3>
+<h3 id="opciones-de-soporte" tabindex="-1">Opciones de soporte</h3>
 
 
 <figure class="table"><table>
@@ -546,7 +546,7 @@ related:
 <p>MGN te da <strong>MÁS CONTROL</strong> y herramientas para gestionar tu migración.</p>
 
 
-<h3 id="funciones-principales" tabindex="-1">Funciones Principales</h3>
+<h3 id="funciones-principales" tabindex="-1">Funciones principales</h3>
 
 
 <figure class="table"><table>
@@ -605,13 +605,13 @@ related:
 <p>En pocas palabras: SMS es para migraciones simples de servidores individuales. MGN es para aplicaciones completas donde el tiempo de inactividad debe ser mínimo.</p>
 
 
-<h2 class="sb" id="cu%C3%A1ndo-usar-cada-servicio" tabindex="-1">Cuándo Usar Cada Servicio</h2>
+<h2 class="sb" id="cu%C3%A1ndo-usar-cada-servicio" tabindex="-1">Cuándo usar cada servicio</h2>
 
 
 <p>SMS y MGN tienen sus puntos fuertes. Veamos cuándo usar cada uno.</p>
 
 
-<h3 id="sms%3A-para-migraciones-controladas" tabindex="-1">SMS: Para Migraciones Controladas</h3>
+<h3 id="sms%3A-para-migraciones-controladas" tabindex="-1">SMS: para migraciones controladas</h3>
 
 
 <p>SMS brilla cuando necesitas:</p>
@@ -653,7 +653,7 @@ related:
 </table></figure>
 
 
-<h3 id="mgn%3A-para-velocidad-y-escala" tabindex="-1">MGN: Para Velocidad y Escala</h3>
+<h3 id="mgn%3A-para-velocidad-y-escala" tabindex="-1">MGN: para velocidad y escala</h3>
 
 
 <p>MGN es tu mejor opción cuando tienes:</p>
@@ -695,7 +695,7 @@ related:
 </table></figure>
 
 
-<h3 id="gu%C3%ADa-r%C3%A1pida-de-selecci%C3%B3n" tabindex="-1">Guía Rápida de Selección</h3>
+<h3 id="gu%C3%ADa-r%C3%A1pida-de-selecci%C3%B3n" tabindex="-1">Guía rápida de selección</h3>
 
 
 <figure class="table"><table>
@@ -766,13 +766,13 @@ related:
 </ul>
 
 
-<h2 class="sb" id="detalles-t%C3%A9cnicos" tabindex="-1">Detalles Técnicos</h2>
+<h2 class="sb" id="detalles-t%C3%A9cnicos" tabindex="-1">Detalles técnicos</h2>
 
 
 <p>AWS SMS y MGN funcionan con los principales sistemas operativos y tienen requisitos específicos. Aquí están los detalles clave:</p>
 
 
-<h3 id="sistemas-soportados" tabindex="-1">Sistemas Soportados</h3>
+<h3 id="sistemas-soportados" tabindex="-1">Sistemas soportados</h3>
 
 
 <figure class="table"><table>
@@ -833,7 +833,7 @@ related:
 </table></figure>
 
 
-<h3 id="configuraci%C3%B3n-de-red" tabindex="-1">Configuración de Red</h3>
+<h3 id="configuraci%C3%B3n-de-red" tabindex="-1">Configuración de red</h3>
 
 
 <p>MGN necesita:</p>
@@ -858,7 +858,7 @@ related:
 </ul>
 
 
-<h3 id="seguridad-y-control" tabindex="-1">Seguridad y Control</h3>
+<h3 id="seguridad-y-control" tabindex="-1">Seguridad y control</h3>
 
 
 <figure class="table"><table>
@@ -899,7 +899,7 @@ related:
 </table></figure>
 
 
-<h3 id="l%C3%ADmites-y-monitoreo" tabindex="-1">Límites y Monitoreo</h3>
+<h3 id="l%C3%ADmites-y-monitoreo" tabindex="-1">Límites y monitoreo</h3>
 
 
 <figure class="table"><table>
@@ -934,7 +934,7 @@ related:
 </table></figure>
 
 
-<h3 id="herramientas-compatibles" tabindex="-1">Herramientas Compatibles</h3>
+<h3 id="herramientas-compatibles" tabindex="-1">Herramientas compatibles</h3>
 
 
 <figure class="table"><table>
@@ -980,10 +980,10 @@ related:
 </blockquote>
 
 
-<h2 class="sb" id="pasos-de-planificaci%C3%B3n-de-migraci%C3%B3n" tabindex="-1">Pasos de Planificación de Migración</h2>
+<h2 class="sb" id="pasos-de-planificaci%C3%B3n-de-migraci%C3%B3n" tabindex="-1">Pasos de planificación de migración</h2>
 
 
-<h3 id="pasos-de-revisi%C3%B3n-inicial" tabindex="-1">Pasos de Revisión Inicial</h3>
+<h3 id="pasos-de-revisi%C3%B3n-inicial" tabindex="-1">Pasos de revisión inicial</h3>
 
 
 <figure class="table"><table>
@@ -1010,7 +1010,7 @@ related:
 </table></figure>
 
 
-<h3 id="equipo-y-recursos" tabindex="-1">Equipo y Recursos</h3>
+<h3 id="equipo-y-recursos" tabindex="-1">Equipo y recursos</h3>
 
 
 <figure class="table"><table>
@@ -1037,7 +1037,7 @@ related:
 </table></figure>
 
 
-<h3 id="tiempos-del-proyecto" tabindex="-1">Tiempos del Proyecto</h3>
+<h3 id="tiempos-del-proyecto" tabindex="-1">Tiempos del proyecto</h3>
 
 
 <figure class="table"><table>
@@ -1073,7 +1073,7 @@ related:
 </table></figure>
 
 
-<h3 id="pruebas-clave" tabindex="-1">Pruebas Clave</h3>
+<h3 id="pruebas-clave" tabindex="-1">Pruebas clave</h3>
 
 
 <p>1. <strong>Replicación</strong></p>
@@ -1102,7 +1102,7 @@ related:
 <p>Prueba cómo volver atrás si algo sale mal.</p>
 
 
-<h3 id="checklist-final" tabindex="-1">Checklist Final</h3>
+<h3 id="checklist-final" tabindex="-1">Checklist final</h3>
 
 
 <figure class="table"><table>
@@ -1142,13 +1142,13 @@ related:
 </blockquote>
 
 
-<h2 class="sb" id="tips-para-el-%C3%A9xito" tabindex="-1">Tips para el Éxito</h2>
+<h2 class="sb" id="tips-para-el-%C3%A9xito" tabindex="-1">Tips para el éxito</h2>
 
 
 <p>No compliques tu migración. Aquí tienes lo que necesitas saber:</p>
 
 
-<h3 id="antes-de-empezar" tabindex="-1">Antes de Empezar</h3>
+<h3 id="antes-de-empezar" tabindex="-1">Antes de empezar</h3>
 
 
 <figure class="table"><table>
@@ -1179,7 +1179,7 @@ related:
 </table></figure>
 
 
-<h3 id="durante-la-migraci%C3%B3n" tabindex="-1">Durante la Migración</h3>
+<h3 id="durante-la-migraci%C3%B3n" tabindex="-1">Durante la migración</h3>
 
 
 <p>¿Quieres que todo salga bien? Sigue estos pasos:</p>
@@ -1213,7 +1213,7 @@ related:
 </table></figure>
 
 
-<h3 id="despu%C3%A9s-de-la-migraci%C3%B3n" tabindex="-1">Después de la Migración</h3>
+<h3 id="despu%C3%A9s-de-la-migraci%C3%B3n" tabindex="-1">Después de la migración</h3>
 
 
 <figure class="table"><table>
@@ -1244,7 +1244,7 @@ related:
 </table></figure>
 
 
-<h3 id="lo-que-no-debes-hacer" tabindex="-1">Lo Que NO Debes Hacer</h3>
+<h3 id="lo-que-no-debes-hacer" tabindex="-1">Lo que NO debes hacer</h3>
 
 
 <figure class="table"><table>
@@ -1289,7 +1289,7 @@ related:
 <p>¿SMS o MGN para tu <a href="https://dev.to/aws-builders/migrar-gran-cantidad-de-datos-a-la-nube-de-aws-rapido-y-economico-3n63">migración a AWS</a>? Aquí está todo lo que necesitas saber:</p>
 
 
-<h3 id="comparaci%C3%B3n-de-servicios" tabindex="-1">Comparación de Servicios</h3>
+<h3 id="comparaci%C3%B3n-de-servicios" tabindex="-1">Comparación de servicios</h3>
 
 
 <figure class="table"><table>
@@ -1321,7 +1321,7 @@ related:
 </table></figure>
 
 
-<h3 id="plan-de-acci%C3%B3n" tabindex="-1">Plan de Acción</h3>
+<h3 id="plan-de-acci%C3%B3n" tabindex="-1">Plan de acción</h3>
 
 
 <p>Si estás usando SMS, es hora de cambiar. Si empiezas desde cero, MGN es tu mejor opción.</p>
@@ -1357,7 +1357,7 @@ related:
 <p>¿Necesitas más información? Visita <a href="https://dondeaprendoaws.com">Dónde Aprendo AWS</a>.</p>
 
 
-<h2 class="sb" id="m%C3%A1s-informaci%C3%B3n" tabindex="-1">Más Información</h2>
+<h2 class="sb" id="m%C3%A1s-informaci%C3%B3n" tabindex="-1">Más información</h2>
 
 
 <p>AWS pone a tu disposición todo lo que necesitas para migrar a la nube. Veamos las herramientas principales:</p>
@@ -1376,7 +1376,7 @@ related:
 </thead>
 <tbody>
 <tr>
-<td><a href="https://dondeaprendoaws.com/blog/migracion-de-datos-con-aws-snowmobile-guia-paso-a-paso/">AWS Cloud Migration</a></td>
+<td><a href="https://dondeaprendoaws.com/blog/migracion-de-datos-con-aws-snowmobile-guia-paso-a-paso/">AWS cloud migration</a></td>
 <td>Centro de recursos y documentación</td>
 <td>aws.amazon.com/cloud-migration</td>
 </tr>
@@ -1394,7 +1394,7 @@ related:
 </table></figure>
 
 
-<h3 id="recursos-en-espa%C3%B1ol" tabindex="-1">Recursos en Español</h3>
+<h3 id="recursos-en-espa%C3%B1ol" tabindex="-1">Recursos en español</h3>
 
 
 <p><a href="https://dondeaprendoaws.com">Dónde Aprendo AWS</a> te ofrece:</p>
@@ -1404,7 +1404,7 @@ related:
 <li>Guías prácticas de migración</li>
 <li>Demos de SMS y MGN</li>
 <li>Experiencias reales</li>
-<li><a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-preparacion-para-el-examen/">Preparación para certificaciones</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-preparacion-para-el-examen/">preparación para certificaciones</a></li>
 </ul>
 
 
@@ -1478,7 +1478,7 @@ related:
 </ol>
 
 
-<h2 class="sb" id="preguntas-frecuentes" tabindex="-1">Preguntas Frecuentes</h2>
+<h2 class="sb" id="preguntas-frecuentes" tabindex="-1">Preguntas frecuentes</h2>
 
 
 <h3 id="%C2%BFcu%C3%A1l-es-la-diferencia-entre-aws-mgn-y-sms%3F" tabindex="-1">¿Cuál es la diferencia entre <a href="https://docs.aws.amazon.com/mgn/" rel="noopener noreferrer" target="_blank">AWS MGN</a> y SMS?</h3>
@@ -1623,6 +1623,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-bases-de-datos-introduccion-basica/">Bases de Datos en AWS: introducción básica</a></li><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/">Arquitecturas Multi-Región en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/servicios-de-aws-para-frontend/">Servicios de AWS para Frontend</a></li><li><a href="https://dondeaprendoaws.com/blog/migracion-de-datos-con-aws-snowmobile-guia-paso-a-paso/">Migración de Datos con AWS Snowmobile: Guía Paso a Paso</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/aws-bases-de-datos-introduccion-basica/">bases de datos en AWS: introducción básica</a></li><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/">arquitecturas multi-región en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/servicios-de-aws-para-frontend/">Servicios de AWS para frontend</a></li><li><a href="https://dondeaprendoaws.com/blog/migracion-de-datos-con-aws-snowmobile-guia-paso-a-paso/">Migración de datos con AWS Snowmobile: guía paso a paso</a></li>
 </ul>
 </p>

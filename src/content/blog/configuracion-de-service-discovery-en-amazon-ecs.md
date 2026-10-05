@@ -1,5 +1,5 @@
 ---
-title: "Configuración de Service Discovery en Amazon ECS"
+title: "Configuración de service discovery en Amazon ECS"
 description: "Aprende a configurar el Service Discovery en Amazon ECS para mejorar la escalabilidad y flexibilidad de tus aplicaciones. Sigue los pasos detallados y las mejores prácticas para una implementación efectiva."
 author: "guille-ojeda"
 publishedAt: "2024-05-19"
@@ -8,11 +8,11 @@ cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Concurrencia Aprovisionada: Solución a Cold Starts en AWS Lambda"
+  - title: "Concurrencia aprovisionada: solución a cold starts en AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/concurrencia-aprovisionada-solucion-a-cold-starts-en-aws-lambda/"
-  - title: "AWS OpsWorks: Automatiza Despliegues con Chef"
+  - title: "AWS OpsWorks: automatiza despliegues con Chef"
     url: "https://dondeaprendoaws.com/blog/aws-opsworks-automatiza-despliegues-con-chef/"
-  - title: "Guía de UEBA para la Seguridad de AWS"
+  - title: "Guía de UEBA para la seguridad de AWS"
     url: "https://dondeaprendoaws.com/blog/guia-de-ueba-para-la-seguridad-de-aws/"
 
 ---
@@ -131,13 +131,13 @@ related:
 <p>Cumplir con estos requisitos previos es clave para una configuración exitosa del servicio de discovery.</p>
 
 
-<h2 id="configuraci%C3%B3n-paso-a-paso-de-service-discovery" tabindex="-1">Configuración paso a paso de Service Discovery</h2>
+<h2 id="configuraci%C3%B3n-paso-a-paso-de-service-discovery" tabindex="-1">Configuración paso a paso de service discovery</h2>
 
 
 <p>Para configurar el servicio de discovery en Amazon ECS, siga estos pasos.</p>
 
 
-<h3 id="paso-1%3A-crear-recursos-de-service-discovery" tabindex="-1">Paso 1: Crear recursos de Service Discovery</h3>
+<h3 id="paso-1%3A-crear-recursos-de-service-discovery" tabindex="-1">Paso 1: crear recursos de service discovery</h3>
 
 
 <p>Primero, cree un namespace de servicio de discovery privado en una VPC especificada y configure un servicio de discovery. Use el siguiente comando de AWS CLI:</p>
@@ -152,7 +152,7 @@ related:
 <p>Luego, utilice el ID de operación devuelto para verificar que el namespace se haya creado correctamente.</p>
 
 
-<h3 id="paso-2%3A-crear-un-cl%C3%BAster-de-amazon-ecs" tabindex="-1">Paso 2: Crear un clúster de <a href="https://aws.amazon.com/ecs/" rel="noopener noreferrer" target="_blank">Amazon ECS</a></h3>
+<h3 id="paso-2%3A-crear-un-cl%C3%BAster-de-amazon-ecs" tabindex="-1">Paso 2: crear un clúster de <a href="https://aws.amazon.com/ecs/" rel="noopener noreferrer" target="_blank">Amazon ECS</a></h3>
 
 
 <p><figure><img alt="Amazon ECS" src="/assets/blog/9a1eaadb0b70caa95e1f48e9.jpg"/></figure></p>
@@ -161,7 +161,7 @@ related:
 <p>A continuación, establezca un clúster de Amazon ECS para hospedar sus servicios. Vaya a la consola de Amazon ECS y seleccione "Crear clúster". Siga las instrucciones para configurar el clúster con las opciones deseadas.</p>
 
 
-<h3 id="paso-3%3A-registrar-la-definici%C3%B3n-de-tarea" tabindex="-1">Paso 3: Registrar la definición de tarea</h3>
+<h3 id="paso-3%3A-registrar-la-definici%C3%B3n-de-tarea" tabindex="-1">Paso 3: registrar la definición de tarea</h3>
 
 
 <p>Defina y registre una definición de tarea que utilice el modo de red "awsvpc". Cree un archivo de definición de tarea en formato JSON o YAML y use el siguiente comando de AWS CLI:</p>
@@ -171,7 +171,7 @@ related:
 </code></pre>
 
 
-<h3 id="paso-4%3A-crear-un-servicio-de-ecs-con-service-discovery" tabindex="-1">Paso 4: Crear un servicio de ECS con Service Discovery</h3>
+<h3 id="paso-4%3A-crear-un-servicio-de-ecs-con-service-discovery" tabindex="-1">Paso 4: crear un servicio de ECS con service discovery</h3>
 
 
 <p>Cree un servicio de ECS que se integre con el namespace de servicio de discovery y el servicio de discovery. Use el siguiente comando de AWS CLI:</p>
@@ -183,7 +183,7 @@ related:
 </code></pre>
 
 
-<h3 id="paso-5%3A-probar-service-discovery" tabindex="-1">Paso 5: Probar Service Discovery</h3>
+<h3 id="paso-5%3A-probar-service-discovery" tabindex="-1">Paso 5: probar service discovery</h3>
 
 
 <p>Finalmente, pruebe la configuración del servicio de discovery mediante la consulta de registros DNS y la realización de solicitudes HTTP desde dentro de la VPC. Use el siguiente comando de AWS CLI:</p>
@@ -198,7 +198,7 @@ related:
 
 
 
-<h2 id="mejores-pr%C3%A1cticas-para-service-discovery" tabindex="-1">Mejores prácticas para Service Discovery</h2>
+<h2 id="mejores-pr%C3%A1cticas-para-service-discovery" tabindex="-1">Mejores prácticas para service discovery</h2>
 
 
 <h3 id="registros-dns-y-verificaciones-de-estado" tabindex="-1">Registros DNS y verificaciones de estado</h3>
@@ -222,7 +222,7 @@ related:
 <p>El monitoreo y registro de la configuración de service discovery es fundamental para mantener un entorno saludable. Configure el monitoreo y registro adecuados para detectar problemas de servicio y realizar un seguimiento del rendimiento. Esto le permitirá identificar y solucionar problemas rápidamente, reduciendo el tiempo de inactividad y mejorando la experiencia del usuario.</p>
 
 
-<h2 id="troubleshooting-common-issues" tabindex="-1">Troubleshooting Common Issues</h2>
+<h2 id="troubleshooting-common-issues" tabindex="-1">Troubleshooting common issues</h2>
 
 
 <h3 id="mensajes-de-error-y-soluciones" tabindex="-1">Mensajes de error y soluciones</h3>
@@ -406,6 +406,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ecs/">Mejores Prácticas Para Amazon ECS</a></li><li><a href="https://dondeaprendoaws.com/blog/opciones-para-desplegar-contenedores-en-aws-ecs-y-eks/">Opciones para Desplegar Contenedores en AWS: ECS y EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/comprendiendo-amazon-ecs/">Comprendiendo Amazon ECS</a></li><li><a href="https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/">Cómo Desplegar Contenedores en AWS</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ecs/">Mejores prácticas para Amazon ECS</a></li><li><a href="https://dondeaprendoaws.com/blog/opciones-para-desplegar-contenedores-en-aws-ecs-y-eks/">Opciones para desplegar contenedores en AWS: ECS y EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/comprendiendo-amazon-ecs/">Comprendiendo Amazon ECS</a></li><li><a href="https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/">Cómo desplegar contenedores en AWS</a></li>
 </ul>
 </p>

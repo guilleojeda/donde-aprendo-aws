@@ -1,5 +1,5 @@
 ---
-title: "SLAs en AWS: Conceptos Legales Clave"
+title: "SLAs en AWS: conceptos legales clave"
 description: "Explora los SLAs de AWS, que garantizan alta disponibilidad y establecen un marco legal para el rendimiento y responsabilidades entre el proveedor y el cliente."
 author: "guille-ojeda"
 publishedAt: "2025-01-16"
@@ -8,11 +8,11 @@ cover: "/assets/blog/editorial-fundamentos.png"
 coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
 ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
-  - title: "AWS Lambda y API Gateway: Guía Básica"
+  - title: "AWS Lambda y API Gateway: guía básica"
     url: "https://dondeaprendoaws.com/blog/aws-lambda-y-api-gateway-guia-basica/"
   - title: "AWS Web Application Firewall (WAF)"
     url: "https://dondeaprendoaws.com/blog/aws-web-application-firewall-waf/"
-  - title: "Recursos en Español para Certificacion AWS Cloud Practitioner"
+  - title: "Recursos en español para certificacion AWS Cloud Practitioner"
     url: "https://dondeaprendoaws.com/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/"
 
 ---
@@ -31,7 +31,7 @@ related:
 <p>Los SLAs no solo protegen tus operaciones, sino que también establecen un marco legal sólido para resolver disputas. <strong>Supervisar el rendimiento y documentar incidentes es clave para aprovechar al máximo estos acuerdos.</strong></p>
 
 
-<h2 class="sb" id="conceptos-legales-clave-en-los-slas-de-aws" tabindex="-1">Conceptos Legales Clave en los SLAs de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a></h2>
+<h2 class="sb" id="conceptos-legales-clave-en-los-slas-de-aws" tabindex="-1">Conceptos legales clave en los SLAs de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a></h2>
 
 
 <p><figure><img alt="AWS" src="/assets/blog/2ebe3cf8e7ae57e98d3af846.jpg"/></figure></p>
@@ -40,13 +40,13 @@ related:
 <p>Los aspectos legales en los SLAs de AWS forman la base de la relación entre AWS y sus clientes. Estos acuerdos no solo detallan el nivel de servicio esperado, sino que también establecen las condiciones para posibles reclamaciones en caso de incumplimientos.</p>
 
 
-<h3 id="objetivos-de-nivel-de-servicio-slos" tabindex="-1">Objetivos de Nivel de Servicio (SLOs)</h3>
+<h3 id="objetivos-de-nivel-de-servicio-slos" tabindex="-1">Objetivos de nivel de servicio (SLOs)</h3>
 
 
 <p>Los SLOs son métricas concretas que definen los estándares de calidad que AWS se compromete a cumplir. Por ejemplo, un SLO típico puede especificar que un servicio debe mantener un tiempo de actividad del 99.99% durante un mes calendario <a href="https://aws.amazon.com/what-is/service-level-agreement/" rel="noopener noreferrer" target="_blank"><sup>[2]</sup></a>. Estas métricas pueden incluir factores como tiempo de respuesta, porcentaje de disponibilidad y plazos para resolver problemas.</p>
 
 
-<h3 id="elementos-principales-de-los-slas" tabindex="-1">Elementos Principales de los SLAs</h3>
+<h3 id="elementos-principales-de-los-slas" tabindex="-1">Elementos principales de los SLAs</h3>
 
 
 <p>Los SLAs de AWS incluyen varios puntos clave que detallan los términos del acuerdo:</p>
@@ -92,7 +92,7 @@ related:
 <h2 class="sb" id="detalles-de-los-slas-de-aws" tabindex="-1">Detalles de los SLAs de AWS</h2>
 
 
-<h3 id="slas-para-servicios-especificos" tabindex="-1">SLAs para Servicios Específicos</h3>
+<h3 id="slas-para-servicios-especificos" tabindex="-1">SLAs para servicios específicos</h3>
 
 
 <p>AWS ofrece acuerdos de nivel de servicio (SLAs) diseñados según las características de sus servicios principales. Aquí tienes un resumen de los compromisos de disponibilidad para algunos servicios clave:</p>
@@ -125,7 +125,7 @@ related:
 <p>Además de estos compromisos, AWS organiza sus SLAs en diferentes niveles para ofrecer a los usuarios claridad y opciones según sus necesidades.</p>
 
 
-<h3 id="slas-a-nivel-regional-e-instancia" tabindex="-1">SLAs a Nivel Regional e Instancia</h3>
+<h3 id="slas-a-nivel-regional-e-instancia" tabindex="-1">SLAs a nivel regional e instancia</h3>
 
 
 <p>Los SLAs de AWS están estructurados en dos niveles principales, que definen las garantías del servicio:</p>
@@ -146,10 +146,10 @@ related:
 
 
 
-<h2 class="sb" id="aspectos-legales-y-de-cumplimiento" tabindex="-1">Aspectos Legales y de Cumplimiento</h2>
+<h2 class="sb" id="aspectos-legales-y-de-cumplimiento" tabindex="-1">Aspectos legales y de cumplimiento</h2>
 
 
-<h3 id="obligaciones-contractuales-del-sla" tabindex="-1">Obligaciones Contractuales del SLA</h3>
+<h3 id="obligaciones-contractuales-del-sla" tabindex="-1">Obligaciones contractuales del SLA</h3>
 
 
 <p>Los SLAs de AWS definen con claridad las responsabilidades tanto de AWS como de sus clientes. Por un lado, AWS se compromete a garantizar niveles específicos de servicio; por otro, los clientes deben cumplir con términos de uso, realizar los pagos correspondientes y seguir las <a href="https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/">prácticas de seguridad recomendadas</a>. Por ejemplo, en el caso de Amazon EC2, AWS asegura "una disponibilidad mensual de al menos 99.99% durante cualquier ciclo de facturación" <a href="https://aws.amazon.com/compute/sla/?did=sla_card&amp;trk=sla_card" rel="noopener noreferrer" target="_blank"><sup>[1]</sup></a>.</p>
@@ -158,7 +158,7 @@ related:
 <p>Mientras AWS se encarga de mantener la infraestructura y cumplir los niveles de servicio, los clientes tienen la tarea de supervisar su uso del servicio y respetar las condiciones establecidas.</p>
 
 
-<h3 id="consecuencias-de-incumplimiento-del-sla" tabindex="-1">Consecuencias de Incumplimiento del SLA</h3>
+<h3 id="consecuencias-de-incumplimiento-del-sla" tabindex="-1">Consecuencias de incumplimiento del SLA</h3>
 
 
 <p>Cuando AWS no cumple con un SLA, los clientes tienen la posibilidad de solicitar créditos de servicio. Estos créditos, sujetos a verificación por parte de AWS, se aplican al ciclo de facturación siguiente tras la validación de la solicitud <a href="https://aws.amazon.com/entity-resolution/sla/" rel="noopener noreferrer" target="_blank"><sup>[3]</sup></a>.</p>
@@ -167,7 +167,7 @@ related:
 <p>Para reducir riesgos y aprovechar al máximo los SLAs, es clave adoptar medidas preventivas y mantener un monitoreo constante.</p>
 
 
-<h3 id="mejores-practicas-de-cumplimiento" tabindex="-1">Mejores Prácticas de Cumplimiento</h3>
+<h3 id="mejores-practicas-de-cumplimiento" tabindex="-1">Mejores prácticas de cumplimiento</h3>
 
 
 <p>El uso de herramientas como <a href="https://aws.amazon.com/cloudwatch/" rel="noopener noreferrer" target="_blank">AWS CloudWatch</a> resulta esencial para supervisar el desempeño y detectar posibles desviaciones de los niveles acordados. Algunas prácticas recomendadas incluyen:</p>
@@ -189,7 +189,7 @@ related:
 <h2 class="sb" id="conclusion" tabindex="-1">Conclusión</h2>
 
 
-<h3 id="resumen-de-puntos-clave" tabindex="-1">Resumen de Puntos Clave</h3>
+<h3 id="resumen-de-puntos-clave" tabindex="-1">Resumen de puntos clave</h3>
 
 
 <p>Los SLAs de AWS juegan un papel crucial en la <a href="https://dondeaprendoaws.com/blog/arquitectura-en-la-nube-tendencias-emergentes/">arquitectura cloud moderna</a>, proporcionando un marco legal que define la calidad del servicio. Entender estos acuerdos es esencial para garantizar la confiabilidad y el cumplimiento de las normativas.</p>
@@ -205,7 +205,7 @@ related:
 </ul>
 
 
-<h3 id="recursos-adicionales" tabindex="-1">Recursos Adicionales</h3>
+<h3 id="recursos-adicionales" tabindex="-1">Recursos adicionales</h3>
 
 
 <p>Si quieres aprender más sobre estos temas y mejorar tus implementaciones en AWS, el blog <a href="https://dondeaprendoaws.com">Dónde Aprendo AWS</a> ofrece contenido en español sobre SLAs y otros aspectos clave de AWS. Estos recursos ayudan a los profesionales a aplicar los SLAs de manera informada y estratégica.</p>
@@ -265,4 +265,4 @@ related:
 
 
 <h2>Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/">Arquitecturas Multi-Región en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/estrategias-de-recuperacion-de-desastres-en-aws/">Estrategias de Recuperación de Desastres en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/">Arquitecturas de Alta Disponibilidad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/acuerdos-de-nivel-de-servicio-aws-guia-basica/">Acuerdos de Nivel de Servicio AWS: Guía Básica</a></li></ul>
+<ul><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/">arquitecturas multi-región en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/estrategias-de-recuperacion-de-desastres-en-aws/">Estrategias de recuperación de desastres en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/">arquitecturas de alta disponibilidad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/acuerdos-de-nivel-de-servicio-aws-guia-basica/">acuerdos de nivel de servicio AWS: guía básica</a></li></ul>

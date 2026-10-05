@@ -1,5 +1,5 @@
 ---
-title: "Introducción a la Inteligencia Artificial en AWS"
+title: "Introducción a la inteligencia artificial en AWS"
 description: "Descubre cómo AWS facilita el uso de la Inteligencia Artificial con servicios accesibles para todos. Aprende sobre Rekognition, SageMaker, aplicaciones prácticas y mejores prácticas en proyectos de IA."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
@@ -8,9 +8,9 @@ cover: "/assets/blog/editorial-datos-ia.png"
 coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
-  - title: "Integración de GuardDuty de AWS para Inteligencia de Amenazas"
+  - title: "Integración de GuardDuty de AWS para inteligencia de amenazas"
     url: "https://dondeaprendoaws.com/blog/integracion-de-guardduty-de-aws-para-inteligencia-de-amenazas/"
-  - title: "Mejores Prácticas Para AWS Lambda"
+  - title: "Mejores prácticas para AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/"
   - title: "Cloud computing en español: fundamentos básicos"
     url: "https://dondeaprendoaws.com/blog/cloud-computing-en-espanol-fundamentos-basicos/"
@@ -51,7 +51,7 @@ related:
 <p>Estos servicios son fáciles de usar y no tienes que preocuparte por manejar equipos o servidores.</p>
 
 
-<h2 id="rekognition%3A-detecci%C3%B3n-y-reconocimiento-de-im%C3%A1genes-y-videos" tabindex="-1">Rekognition: Detección y reconocimiento de imágenes y videos</h2>
+<h2 id="rekognition%3A-detecci%C3%B3n-y-reconocimiento-de-im%C3%A1genes-y-videos" tabindex="-1">Rekognition: detección y reconocimiento de imágenes y videos</h2>
 
 
 <p>Amazon Rekognition te ayuda a analizar imágenes y videos fácilmente. Puede identificar cosas, personas, texto y más.</p>
@@ -71,7 +71,7 @@ related:
 <p>Comparado con otros servicios, Rekognition es más preciso, rápido y fácil de usar.</p>
 
 
-<h2 id="textract%3A-extracci%C3%B3n-de-texto-e-informaci%C3%B3n" tabindex="-1">Textract: Extracción de texto e información</h2>
+<h2 id="textract%3A-extracci%C3%B3n-de-texto-e-informaci%C3%B3n" tabindex="-1">Textract: extracción de texto e información</h2>
 
 
 <p>Amazon Textract saca texto y datos de documentos como facturas y formularios.</p>
@@ -90,7 +90,7 @@ related:
 <p>Textract puede manejar más tipos de archivos y lenguas que otros servicios, y es más preciso.</p>
 
 
-<h2 id="sagemaker%3A-creaci%C3%B3n-de-modelos-de-machine-learning" tabindex="-1">SageMaker: Creación de modelos de machine learning</h2>
+<h2 id="sagemaker%3A-creaci%C3%B3n-de-modelos-de-machine-learning" tabindex="-1">SageMaker: creación de modelos de machine learning</h2>
 
 
 <p>Amazon SageMaker te ayuda a crear, entrenar y poner en marcha modelos de aprendizaje automático de manera más fácil.</p>
@@ -192,6 +192,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/nube-aws-guia-de-inicio-rapido/">Nube AWS: Guía de Inicio Rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS Fundamentos: Guía de Inicio Rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/servicios-de-aws-para-inteligencia-artificial/">Servicios de AWS para Inteligencia Artificial</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/nube-aws-guia-de-inicio-rapido/">Nube AWS: guía de inicio rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS fundamentos: guía de inicio rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/servicios-de-aws-para-inteligencia-artificial/">Servicios de AWS para inteligencia artificial</a></li>
 </ul>
 </p>

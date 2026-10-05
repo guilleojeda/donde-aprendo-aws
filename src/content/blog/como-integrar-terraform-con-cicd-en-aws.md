@@ -9,11 +9,11 @@ cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Visualiza Costos con AWS Cost and Usage Reports y QuickSight"
+  - title: "Visualiza costos con AWS Cost and Usage Reports y QuickSight"
     url: "https://dondeaprendoaws.com/blog/visualiza-costos-con-aws-cost-and-usage-reports-y-quicksight/"
-  - title: "Guía para Implementar Machine Learning con Amazon SageMaker"
+  - title: "Guía para implementar machine learning con Amazon SageMaker"
     url: "https://dondeaprendoaws.com/blog/guia-para-implementar-machine-learning-con-amazon-sagemaker/"
-  - title: "AWS HealthScribe: IA Generativa para Diagnósticos Médicos"
+  - title: "AWS HealthScribe: IA generativa para diagnósticos médicos"
     url: "https://dondeaprendoaws.com/blog/aws-healthscribe-ia-generativa-para-diagnosticos-medicos/"
 
 ---
@@ -68,10 +68,10 @@ related:
 <p><strong>¿Listo para empezar? Sigue leyendo para conocer los detalles técnicos y <a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">mejores prácticas</a>.</strong></p>
 
 
-<h2 class="sb" id="requisitos-de-configuracion" tabindex="-1">Requisitos de Configuración</h2>
+<h2 class="sb" id="requisitos-de-configuracion" tabindex="-1">Requisitos de configuración</h2>
 
 
-<h3 id="configuracion-de-la-cuenta-aws" tabindex="-1">Configuración de la Cuenta AWS</h3>
+<h3 id="configuracion-de-la-cuenta-aws" tabindex="-1">Configuración de la cuenta AWS</h3>
 
 
 <p>Cree tres roles IAM con permisos específicos: uno para <strong>CodePipeline</strong> (orquestación), otro para <strong>CodeBuild</strong> (ejecución) y un tercero para <strong>Cross-account</strong> (despliegues multi-cuenta). Para mejorar la seguridad, implemente federación OIDC en lugar de usar credenciales estáticas <a href="https://dev.to/aws-builders/building-secure-cicd-with-terraform-on-aws-43lf" rel="noopener noreferrer" target="_blank"><sup>[4]</sup></a>. Asegúrese de que estos roles estén alineados con las políticas descritas en la sección 'Configuración de Credenciales Seguras'.</p>
@@ -101,7 +101,7 @@ unzip terraform_*.zip &amp;&amp; sudo mv terraform /usr/local/bin/
 </code></pre>
 
 
-<h3 id="configuracion-del-repositorio-codecommit" tabindex="-1">Configuración del Repositorio CodeCommit</h3>
+<h3 id="configuracion-del-repositorio-codecommit" tabindex="-1">Configuración del repositorio CodeCommit</h3>
 
 
 <p>Organice el repositorio con la siguiente estructura para facilitar el control de versiones y la gestión de entornos:</p>
@@ -132,13 +132,13 @@ unzip terraform_*.zip &amp;&amp; sudo mv terraform /usr/local/bin/
 </code></pre>
 
 
-<h2 class="sb" id="arquitectura-del-pipeline" tabindex="-1">Arquitectura del Pipeline</h2>
+<h2 class="sb" id="arquitectura-del-pipeline" tabindex="-1">Arquitectura del pipeline</h2>
 
 
 <p>El pipeline CI/CD para Terraform en AWS está diseñado con etapas clave que aseguran despliegues seguros y controlados de infraestructura como código.</p>
 
 
-<h3 id="etapas-del-pipeline" tabindex="-1">Etapas del Pipeline</h3>
+<h3 id="etapas-del-pipeline" tabindex="-1">Etapas del pipeline</h3>
 
 
 <p>Este pipeline sigue una estructura clara, donde cada etapa se alinea con los directorios de entorno definidos en el repositorio (por ejemplo, <em>dev</em> y <em>prod</em>). Se utiliza CodePipeline y CodeBuild para implementar estas etapas, como se detalla a continuación.</p>
@@ -172,7 +172,7 @@ unzip terraform_*.zip &amp;&amp; sudo mv terraform /usr/local/bin/
 </table></figure>
 
 
-<h3 id="control-de-acceso" tabindex="-1">Control de Acceso</h3>
+<h3 id="control-de-acceso" tabindex="-1">Control de acceso</h3>
 
 
 <p>El control de acceso se gestiona a través de roles específicos que complementan los tres roles IAM definidos en la <a href="https://dondeaprendoaws.com/blog/configurar-aws-para-comunicacion-en-equipo-7-pasos/">configuración de la cuenta AWS</a>.</p>
@@ -191,7 +191,7 @@ unzip terraform_*.zip &amp;&amp; sudo mv terraform /usr/local/bin/
 </ul>
 
 
-<p>2. <strong><a href="https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-terraform/">Rol de Ejecución Terraform</a></strong></p>
+<p>2. <strong><a href="https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-terraform/">Rol de ejecución Terraform</a></strong></p>
 
 
 <p>Este rol incluye políticas IAM que restringen:</p>
@@ -204,7 +204,7 @@ unzip terraform_*.zip &amp;&amp; sudo mv terraform /usr/local/bin/
 </ul>
 
 
-<h3 id="gestion-de-archivos-de-estado" tabindex="-1">Gestión de Archivos de Estado</h3>
+<h3 id="gestion-de-archivos-de-estado" tabindex="-1">Gestión de archivos de estado</h3>
 
 
 <p>La configuración del estado de Terraform en S3 debe ser sólida para evitar problemas. Se recomienda:</p>
@@ -216,13 +216,13 @@ unzip terraform_*.zip &amp;&amp; sudo mv terraform /usr/local/bin/
 </ul>
 
 
-<h2 class="sb" id="construccion-del-pipeline" tabindex="-1">Construcción del Pipeline</h2>
+<h2 class="sb" id="construccion-del-pipeline" tabindex="-1">Construcción del pipeline</h2>
 
 
 <p>Crear un pipeline CI/CD para Terraform en <a href="https://docs.aws.amazon.com/codepipeline/latest/userguide/welcome.html" rel="noopener noreferrer" target="_blank">AWS CodePipeline</a> y CodeBuild requiere una configuración detallada de varios componentes.</p>
 
 
-<h3 id="especificaciones-de-build" tabindex="-1">Especificaciones de Build</h3>
+<h3 id="especificaciones-de-build" tabindex="-1">Especificaciones de build</h3>
 
 
 <p>El primer paso es crear archivos buildspec específicos para cada etapa del pipeline. Estos archivos contienen las instrucciones que CodeBuild ejecutará.</p>
@@ -252,7 +252,7 @@ artifacts:
 </code></pre>
 
 
-<h3 id="configuracion-de-etapas-del-pipeline" tabindex="-1">Configuración de Etapas del Pipeline</h3>
+<h3 id="configuracion-de-etapas-del-pipeline" tabindex="-1">Configuración de etapas del pipeline</h3>
 
 
 <p>El pipeline en AWS CodePipeline se organiza en etapas, cada una con una función específica. Aquí tienes un ejemplo de configuración:</p>
@@ -302,7 +302,7 @@ artifacts:
 </code></pre>
 
 
-<h3 id="gestion-de-errores" tabindex="-1">Gestión de Errores</h3>
+<h3 id="gestion-de-errores" tabindex="-1">Gestión de errores</h3>
 
 
 <p>Para garantizar que el pipeline funcione de manera estable, se deben implementar varias prácticas de manejo de errores:</p>
@@ -331,19 +331,19 @@ artifacts:
 
 
 
-<h2 class="sb" id="seguridad-y-rendimiento" tabindex="-1">Seguridad y Rendimiento</h2>
+<h2 class="sb" id="seguridad-y-rendimiento" tabindex="-1">Seguridad y rendimiento</h2>
 
 
 <p>Mantener la seguridad y el rendimiento del pipeline implica gestionar credenciales, aplicar políticas y optimizar la ejecución. Esto se logra ajustando y ampliando las configuraciones existentes.</p>
 
 
-<h3 id="gestion-segura-de-credenciales" tabindex="-1">Gestión Segura de Credenciales</h3>
+<h3 id="gestion-segura-de-credenciales" tabindex="-1">Gestión segura de credenciales</h3>
 
 
 <p>Para reforzar la seguridad, se usan herramientas como <strong>Parameter Store</strong>, que permite almacenar secretos y variables de configuración de forma segura. Además, la integración con los servicios de AWS asegura que las credenciales se gestionen de manera centralizada y protegida, complementando los roles IAM previamente definidos.</p>
 
 
-<h3 id="aplicacion-de-politicas" tabindex="-1">Aplicación de Políticas</h3>
+<h3 id="aplicacion-de-politicas" tabindex="-1">Aplicación de políticas</h3>
 
 
 <p>Las políticas, junto con herramientas como OPA, permiten establecer reglas específicas para la infraestructura, similares al monitoreo realizado en <strong>CloudWatch</strong>. Estas políticas ayudan a mantener el control sobre diferentes aspectos clave.</p>
@@ -377,7 +377,7 @@ artifacts:
 </table></figure>
 
 
-<h3 id="optimizacion-del-rendimiento" tabindex="-1">Optimización del Rendimiento</h3>
+<h3 id="optimizacion-del-rendimiento" tabindex="-1">Optimización del rendimiento</h3>
 
 
 <p>El uso de caché en los archivos <strong>buildspec</strong> puede ser llevado más allá al integrar almacenamiento de proveedores. Esto permite acelerar procesos como el inicializado de Terraform.</p>
@@ -391,7 +391,7 @@ artifacts:
 <p>Otra estrategia es dividir la infraestructura en módulos para realizar despliegues paralelos, mejorando así la velocidad general. Además, configurar métricas en <strong>CloudWatch</strong> sobre duración de etapas, errores de concurrencia y actividad IAM inusual te ayudará a monitorear y resolver problemas de manera ágil, manteniendo un pipeline eficiente y seguro.</p>
 
 
-<h2 class="sb" id="proximos-pasos" tabindex="-1">Próximos Pasos</h2>
+<h2 class="sb" id="proximos-pasos" tabindex="-1">Próximos pasos</h2>
 
 
 <h3 id="resumen" tabindex="-1">Resumen</h3>
@@ -427,17 +427,17 @@ artifacts:
 </table></figure>
 
 
-<h3 id="recursos-adicionales" tabindex="-1">Recursos Adicionales</h3>
+<h3 id="recursos-adicionales" tabindex="-1">Recursos adicionales</h3>
 
 
-<p>Si buscas aprender más sobre la automatización de infraestructura con AWS, <strong>Dónde Aprendo AWS</strong> ofrece materiales en español enfocados en integraciones de Terraform y CI/CD. Puedes acceder a ellos aquí: <a href="https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-terraform/">guía de Infraestructura como Código en AWS con Terraform</a>. Estos recursos complementan la <a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">documentación oficial de AWS</a> con ejemplos prácticos diseñados para usuarios hispanohablantes.</p>
+<p>Si buscas aprender más sobre la automatización de infraestructura con AWS, <strong>Dónde Aprendo AWS</strong> ofrece materiales en español enfocados en integraciones de Terraform y CI/CD. Puedes acceder a ellos aquí: <a href="https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-terraform/">guía de infraestructura como código en AWS con Terraform</a>. Estos recursos complementan la <a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">documentación oficial de AWS</a> con ejemplos prácticos diseñados para usuarios hispanohablantes.</p>
 
 
 <p>Además, la comunidad hispanohablante cuenta con varias herramientas útiles:</p>
 
 
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/grupos-de-estudio-aws-en-reddit-2024/">Grupos de usuarios AWS</a> con foros técnicos especializados.</li>
+<li><a href="https://dondeaprendoaws.com/blog/grupos-de-estudio-aws-en-reddit-2024/">grupos de usuarios AWS</a> con foros técnicos especializados.</li>
 <li>Documentación traducida al español.</li>
 <li>Repositorios con patrones adaptados a contextos locales.</li>
 </ul>
@@ -446,7 +446,7 @@ artifacts:
 <p>Para mejorar continuamente, considera integrar las <a href="https://dondeaprendoaws.com/blog/10-metricas-clave-de-devops-en-aws/">métricas de CloudWatch</a> configuradas con <a href="https://dondeaprendoaws.com/blog/automatizar-alertas-de-costos-aws-en-5-pasos/">alertas automatizadas</a>. Esto facilitará el monitoreo y la respuesta ante posibles problemas.</p>
 
 
-<h2 class="sb" id="preguntas-frecuentes" tabindex="-1">Preguntas Frecuentes</h2>
+<h2 class="sb" id="preguntas-frecuentes" tabindex="-1">Preguntas frecuentes</h2>
 
 
 <h3 id="que-es-el-manejo-de-estado-en-terraform" tabindex="-1">¿Qué es el manejo de estado en Terraform?</h3>
@@ -480,4 +480,4 @@ artifacts:
 
 
 <h2>Publicaciones de blog relacionadas</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-terraform/">Cómo crear Infraestructura como Código en AWS con Terraform</a></li><li><a href="https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-aws-cloudformation/">Cómo crear Infraestructura como Código en AWS con AWS CloudFormation</a></li><li><a href="https://dondeaprendoaws.com/blog/9-mejores-practicas-de-seguridad-para-iac-en-aws/">9 Mejores Prácticas de Seguridad para IaC en AWS</a></li></ul>
+<ul><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-terraform/">Cómo crear infraestructura como código en AWS con Terraform</a></li><li><a href="https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-aws-cloudformation/">Cómo crear infraestructura como código en AWS con AWS CloudFormation</a></li><li><a href="https://dondeaprendoaws.com/blog/9-mejores-practicas-de-seguridad-para-iac-en-aws/">9 mejores prácticas de seguridad para IaC en AWS</a></li></ul>

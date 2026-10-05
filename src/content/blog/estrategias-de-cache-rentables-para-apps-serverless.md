@@ -1,5 +1,5 @@
 ---
-title: "Estrategias de Caché Rentables para Apps Serverless"
+title: "Estrategias de caché rentables para apps serverless"
 description: "Descubre cómo implementar estrategias de caché en aplicaciones serverless para mejorar la velocidad y reducir costos en AWS."
 author: "guille-ojeda"
 publishedAt: "2024-10-27"
@@ -8,11 +8,11 @@ cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Recursos Personalizados en CloudFormation con Lambda"
+  - title: "Recursos personalizados en CloudFormation con Lambda"
     url: "https://dondeaprendoaws.com/blog/recursos-personalizados-en-cloudformation-con-lambda/"
-  - title: "¿Cómo Escala DynamoDB? Modos On Demand y Provisioned"
+  - title: "¿Cómo escala DynamoDB? modos on demand y provisioned"
     url: "https://dondeaprendoaws.com/blog/como-escala-dynamodb-modos-on-demand-y-provisioned/"
-  - title: "Conceptos Básicos y Avanzados de Amazon VPC"
+  - title: "Conceptos básicos y avanzados de Amazon VPC"
     url: "https://dondeaprendoaws.com/blog/conceptos-basicos-y-avanzados-de-amazon-vpc/"
 
 ---
@@ -115,13 +115,13 @@ related:
 
 
 <iframe allowfullscreen="" loading="lazy" src="https://www.youtube-nocookie.com/embed/z8wGSykEauI" title="Video de YouTube"></iframe>
-<h2 class="sb" id="problemas-clave-del-cach%C3%A9-en-serverless" tabindex="-1">Problemas Clave del Caché en Serverless</h2>
+<h2 class="sb" id="problemas-clave-del-cach%C3%A9-en-serverless" tabindex="-1">Problemas clave del caché en serverless</h2>
 
 
 <p>El caché en sistemas serverless presenta 4 retos que afectan su funcionamiento:</p>
 
 
-<h3 id="cold-start-y-su-impacto" tabindex="-1">Cold Start y su Impacto</h3>
+<h3 id="cold-start-y-su-impacto" tabindex="-1">Cold start y su impacto</h3>
 
 
 <p>El cold start golpea directo al rendimiento:</p>
@@ -156,7 +156,7 @@ related:
 </blockquote>
 
 
-<h3 id="datos-fuera-de-sincron%C3%ADa" tabindex="-1">Datos Fuera de Sincronía</h3>
+<h3 id="datos-fuera-de-sincron%C3%ADa" tabindex="-1">Datos fuera de sincronía</h3>
 
 
 <p>Cada Lambda tiene su propio caché, lo que genera:</p>
@@ -169,7 +169,7 @@ related:
 </ul>
 
 
-<h3 id="l%C3%ADmites-que-frenan-el-rendimiento" tabindex="-1">Límites que Frenan el Rendimiento</h3>
+<h3 id="l%C3%ADmites-que-frenan-el-rendimiento" tabindex="-1">Límites que frenan el rendimiento</h3>
 
 
 <figure class="table"><table>
@@ -200,7 +200,7 @@ related:
 </table></figure>
 
 
-<h3 id="el-precio-del-cach%C3%A9-mal-implementado" tabindex="-1">El Precio del Caché Mal Implementado</h3>
+<h3 id="el-precio-del-cach%C3%A9-mal-implementado" tabindex="-1">El precio del caché mal implementado</h3>
 
 
 <p>Las pruebas muestran números claros:</p>
@@ -231,13 +231,13 @@ related:
 </blockquote>
 
 
-<h2 class="sb" id="c%C3%B3mo-ahorrar-con-cach%C3%A9" tabindex="-1">Cómo Ahorrar con Caché</h2>
+<h2 class="sb" id="c%C3%B3mo-ahorrar-con-cach%C3%A9" tabindex="-1">Cómo ahorrar con caché</h2>
 
 
 <p>El caché es una de las mejores formas de reducir costos en AWS. Veamos cómo.</p>
 
 
-<h3 id="cach%C3%A9-en-navegador-y-api-gateway" tabindex="-1">Caché en Navegador y API Gateway</h3>
+<h3 id="cach%C3%A9-en-navegador-y-api-gateway" tabindex="-1">Caché en navegador y API Gateway</h3>
 
 
 <p>API Gateway incluye caché que elimina llamadas Lambda que no necesitas:</p>
@@ -298,7 +298,7 @@ def get_user(user_id):
 </code></pre>
 
 
-<h3 id="cach%C3%A9-lazy%3A-carga-solo-lo-que-necesitas" tabindex="-1">Caché Lazy: Carga Solo lo que Necesitas</h3>
+<h3 id="cach%C3%A9-lazy%3A-carga-solo-lo-que-necesitas" tabindex="-1">Caché lazy: carga solo lo que necesitas</h3>
 
 
 <p>El caché lazy es MUY eficiente:</p>
@@ -328,7 +328,7 @@ def get_user(user_id):
 </table></figure>
 
 
-<h3 id="cach%C3%A9-para-bases-de-datos" tabindex="-1">Caché para Bases de Datos</h3>
+<h3 id="cach%C3%A9-para-bases-de-datos" tabindex="-1">Caché para bases de datos</h3>
 
 
 <p>Elige según lo que necesites:</p>
@@ -369,10 +369,10 @@ def get_user(user_id):
 </ul>
 
 
-<h2 class="sb" id="gu%C3%ADas-de-configuraci%C3%B3n" tabindex="-1">Guías de Configuración</h2>
+<h2 class="sb" id="gu%C3%ADas-de-configuraci%C3%B3n" tabindex="-1">Guías de configuración</h2>
 
 
-<h3 id="m%C3%A9todos-de-actualizaci%C3%B3n-de-cach%C3%A9" tabindex="-1">Métodos de Actualización de Caché</h3>
+<h3 id="m%C3%A9todos-de-actualizaci%C3%B3n-de-cach%C3%A9" tabindex="-1">Métodos de actualización de caché</h3>
 
 
 <p>Hay 3 formas de mantener tu caché fresco:</p>
@@ -406,7 +406,7 @@ def get_user(user_id):
 </table></figure>
 
 
-<h3 id="reducci%C3%B3n-de-costos" tabindex="-1">Reducción de Costos</h3>
+<h3 id="reducci%C3%B3n-de-costos" tabindex="-1">Reducción de costos</h3>
 
 
 <p>Aquí tienes código que FUNCIONA para ahorrar dinero:</p>
@@ -449,7 +449,7 @@ def get_data(key):
 </table></figure>
 
 
-<h3 id="factores-de-velocidad" tabindex="-1">Factores de Velocidad</h3>
+<h3 id="factores-de-velocidad" tabindex="-1">Factores de velocidad</h3>
 
 
 <p>¿Qué hace lento tu caché? Aquí están los datos:</p>
@@ -532,10 +532,10 @@ def get_data(key):
 </table></figure>
 
 
-<h2 class="sb" id="patrones-b%C3%A1sicos-de-cach%C3%A9" tabindex="-1">Patrones Básicos de Caché</h2>
+<h2 class="sb" id="patrones-b%C3%A1sicos-de-cach%C3%A9" tabindex="-1">Patrones básicos de caché</h2>
 
 
-<h3 id="write-through" tabindex="-1">Write-Through</h3>
+<h3 id="write-through" tabindex="-1">Write-through</h3>
 
 
 <p>El write-through mantiene sincronizados el caché y la base de datos. Cada vez que escribes datos, se actualizan AMBOS lugares.</p>
@@ -577,7 +577,7 @@ def get_data(key):
 </table></figure>
 
 
-<h3 id="cache-aside" tabindex="-1">Cache-Aside</h3>
+<h3 id="cache-aside" tabindex="-1">Cache-aside</h3>
 
 
 <p>El cache-aside (o lazy loading) solo guarda datos en caché cuando alguien los pide. Es como un almacén que solo ordena productos cuando hay demanda.</p>
@@ -650,7 +650,7 @@ def get_data(key):
 <td>Menos</td>
 </tr>
 <tr>
-<td><a href="https://dondeaprendoaws.com/blog/aws-gratis-para-educadores-y-estudiantes/">Costo AWS</a></td>
+<td><a href="https://dondeaprendoaws.com/blog/aws-gratis-para-educadores-y-estudiantes/">costo AWS</a></td>
 <td>Alto</td>
 <td>Bajo</td>
 </tr>
@@ -663,13 +663,13 @@ def get_data(key):
 </table></figure>
 
 
-<h2 class="sb" id="configuraci%C3%B3n-y-mejora-del-cach%C3%A9" tabindex="-1">Configuración y Mejora del Caché</h2>
+<h2 class="sb" id="configuraci%C3%B3n-y-mejora-del-cach%C3%A9" tabindex="-1">Configuración y mejora del caché</h2>
 
 
 <p>El caché puede hacer o romper tu aplicación serverless. Veamos cómo hacerlo bien.</p>
 
 
-<h3 id="problemas-frecuentes" tabindex="-1">Problemas Frecuentes</h3>
+<h3 id="problemas-frecuentes" tabindex="-1">Problemas frecuentes</h3>
 
 
 <p>Estos son los dolores de cabeza más comunes con el caché:</p>
@@ -708,7 +708,7 @@ def get_data(key):
 </table></figure>
 
 
-<h3 id="medici%C3%B3n-del-rendimiento" tabindex="-1">Medición del Rendimiento</h3>
+<h3 id="medici%C3%B3n-del-rendimiento" tabindex="-1">Medición del rendimiento</h3>
 
 
 <p>¿Tu caché está funcionando? Aquí está cómo saberlo:</p>
@@ -747,7 +747,7 @@ def get_data(key):
 </table></figure>
 
 
-<h3 id="control-de-costos" tabindex="-1">Control de Costos</h3>
+<h3 id="control-de-costos" tabindex="-1">Control de costos</h3>
 
 
 <p>Mantén tu billetera feliz:</p>
@@ -765,7 +765,7 @@ def get_data(key):
 <tr>
 <td>Monitoreo 24/7</td>
 <td>Ver problemas rápido</td>
-<td><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/">Alarmas en CloudWatch</a></td>
+<td><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/">alarmas en CloudWatch</a></td>
 </tr>
 <tr>
 <td>Operaciones en grupo</td>
@@ -798,7 +798,7 @@ def get_data(key):
 <p>El caché puede reducir costos y mejorar el rendimiento de tus aplicaciones AWS. Aquí te explico cómo.</p>
 
 
-<h3 id="tipos-de-cach%C3%A9-y-sus-beneficios" tabindex="-1">Tipos de Caché y Sus Beneficios</h3>
+<h3 id="tipos-de-cach%C3%A9-y-sus-beneficios" tabindex="-1">Tipos de caché y sus beneficios</h3>
 
 
 <figure class="table"><table>
@@ -834,7 +834,7 @@ def get_data(key):
 </table></figure>
 
 
-<h3 id="configuraci%C3%B3n-pr%C3%A1ctica" tabindex="-1">Configuración Práctica</h3>
+<h3 id="configuraci%C3%B3n-pr%C3%A1ctica" tabindex="-1">Configuración práctica</h3>
 
 
 <p>¿Cómo configurar tu caché? Así:</p>
@@ -873,7 +873,7 @@ def get_data(key):
 </table></figure>
 
 
-<h3 id="impacto-en-costos" tabindex="-1">Impacto en Costos</h3>
+<h3 id="impacto-en-costos" tabindex="-1">Impacto en costos</h3>
 
 
 <p>Mira los números:</p>
@@ -918,13 +918,13 @@ def get_data(key):
 <p>¿Quieres aprender más sobre caché en AWS? Visita <a href="https://dondeaprendoaws.com">Dónde Aprendo AWS</a> para guías detalladas en español.</p>
 
 
-<h2 class="sb" id="m%C3%A1s-informaci%C3%B3n" tabindex="-1">Más Información</h2>
+<h2 class="sb" id="m%C3%A1s-informaci%C3%B3n" tabindex="-1">Más información</h2>
 
 
 <p>¿Necesitas profundizar en caché serverless? Aquí tienes los mejores recursos:</p>
 
 
-<h3 id="documentaci%C3%B3n-principal" tabindex="-1">Documentación Principal</h3>
+<h3 id="documentaci%C3%B3n-principal" tabindex="-1">Documentación principal</h3>
 
 
 <figure class="table"><table>
@@ -989,7 +989,7 @@ def get_data(key):
 </table></figure>
 
 
-<h3 id="material-en-espa%C3%B1ol" tabindex="-1">Material en Español</h3>
+<h3 id="material-en-espa%C3%B1ol" tabindex="-1">Material en español</h3>
 
 
 <figure class="table"><table>
@@ -1025,7 +1025,7 @@ def get_data(key):
 </blockquote>
 
 
-<h3 id="tus-herramientas" tabindex="-1">Tus Herramientas</h3>
+<h3 id="tus-herramientas" tabindex="-1">Tus herramientas</h3>
 
 
 <figure class="table"><table>
@@ -1061,7 +1061,7 @@ def get_data(key):
 </blockquote>
 
 
-<h2 class="sb" id="preguntas-frecuentes" tabindex="-1">Preguntas Frecuentes</h2>
+<h2 class="sb" id="preguntas-frecuentes" tabindex="-1">Preguntas frecuentes</h2>
 
 
 <h3 id="%C2%BFse-puede-almacenar-datos-en-cach%C3%A9-dentro-de-lambda%3F" tabindex="-1">¿Se puede almacenar datos en caché dentro de Lambda?</h3>
@@ -1170,6 +1170,6 @@ def get_data(key):
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/optimizacion-de-costos-de-aws-lambda/">Optimización de Costos de AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/7-estrategias-de-serverless-para-startups-optimiza-costos/">7 Estrategias de Serverless para Startups: Optimiza Costos</a></li><li><a href="https://dondeaprendoaws.com/blog/guia-de-amazon-elasticache-almacenamiento-en-cache-en-memoria/">Guía de Amazon ElastiCache: Almacenamiento en Caché en Memoria</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-lambda-costo-vs-rendimiento/">AWS Lambda: Costo vs. Rendimiento</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/optimizacion-de-costos-de-aws-lambda/">Optimización de costos de AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/7-estrategias-de-serverless-para-startups-optimiza-costos/">7 estrategias de serverless para startups: optimiza costos</a></li><li><a href="https://dondeaprendoaws.com/blog/guia-de-amazon-elasticache-almacenamiento-en-cache-en-memoria/">Guía de Amazon ElastiCache: almacenamiento en caché en memoria</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-lambda-costo-vs-rendimiento/">AWS Lambda: costo vs. rendimiento</a></li>
 </ul>
 </p>

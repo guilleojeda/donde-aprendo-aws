@@ -1,5 +1,5 @@
 ---
-title: "Concurrencia Aprovisionada: Solución a Cold Starts en AWS Lambda"
+title: "Concurrencia aprovisionada: solución a cold starts en AWS Lambda"
 description: "Aprende sobre la concurrencia aprovisionada en AWS Lambda, cómo reduce los &#x27;cold starts&#x27; y mejora la experiencia del usuario. Configuración, monitoreo y optimización incluidos."
 author: "guille-ojeda"
 publishedAt: "2024-05-20"
@@ -24,7 +24,7 @@ related:
 
 
 <iframe allowfullscreen="" loading="lazy" src="https://www.youtube.com/embed/Pvkq5g80MPg" title="Video de YouTube"></iframe>
-<h2 id="beneficios-clave" tabindex="-1">Beneficios Clave</h2>
+<h2 id="beneficios-clave" tabindex="-1">Beneficios clave</h2>
 
 
 <ul>
@@ -40,7 +40,7 @@ related:
 </ul>
 
 
-<h2 id="casos-de-uso-ideales" tabindex="-1">Casos de Uso Ideales</h2>
+<h2 id="casos-de-uso-ideales" tabindex="-1">Casos de uso ideales</h2>
 
 
 <p>La concurrencia aprovisionada es útil en aplicaciones que requieren baja latencia y alta disponibilidad, como:</p>
@@ -70,7 +70,7 @@ related:
 </table></figure>
 
 
-<h2 id="configuraci%C3%B3n-y-monitoreo" tabindex="-1">Configuración y Monitoreo</h2>
+<h2 id="configuraci%C3%B3n-y-monitoreo" tabindex="-1">Configuración y monitoreo</h2>
 
 
 <ol>
@@ -101,19 +101,19 @@ related:
 <p>Es importante abordar este problema para asegurar que las funciones de Lambda se ejecuten de manera eficiente y rápida, lo que puede ser logrado mediante la implementación de provisioned concurrency, que se discutirá en las secciones siguientes.</p>
 
 
-<h2 id="understanding-cold-starts" tabindex="-1">Understanding Cold Starts</h2>
+<h2 id="understanding-cold-starts" tabindex="-1">Understanding cold starts</h2>
 
 
 <p>Los "cold starts" son un fenómeno común en AWS Lambda que se produce cuando una función Lambda se invoca después de un período de inactividad o cuando se escalan para manejar un aumento en la demanda. Durante un "cold start", AWS necesita inicializar un nuevo entorno de ejecución, cargar el código de la función y establecer conexiones con recursos externos, lo que puede agregar varios segundos de latencia adicional antes de que la función pueda procesar la solicitud.</p>
 
 
-<h3 id="%C2%BFqu%C3%A9-son-los-cold-starts%3F" tabindex="-1">¿Qué son los Cold Starts?</h3>
+<h3 id="%C2%BFqu%C3%A9-son-los-cold-starts%3F" tabindex="-1">¿Qué son los cold starts?</h3>
 
 
 <p>Un "cold start" se produce cuando una función Lambda se invoca después de un período de inactividad o cuando se escalan para manejar un aumento en la demanda. En este momento, AWS necesita inicializar un nuevo entorno de ejecución, cargar el código de la función y establecer conexiones con recursos externos. Esto puede llevar varios segundos, lo que puede afectar negativamente la experiencia del usuario y el rendimiento de la aplicación.</p>
 
 
-<h3 id="factores-que-causan-los-cold-starts" tabindex="-1">Factores que Causan los Cold Starts</h3>
+<h3 id="factores-que-causan-los-cold-starts" tabindex="-1">Factores que causan los cold starts</h3>
 
 
 <p>Existen varios factores que contribuyen a la latencia de los "cold starts", incluyendo:</p>
@@ -151,19 +151,19 @@ related:
 </table></figure>
 
 
-<h2 id="concurrencia-aprovisionada%3A-la-soluci%C3%B3n" tabindex="-1">Concurrencia Aprovisionada: La Solución</h2>
+<h2 id="concurrencia-aprovisionada%3A-la-soluci%C3%B3n" tabindex="-1">Concurrencia aprovisionada: la solución</h2>
 
 
 <p>La concurrencia aprovisionada ayuda a reducir los "cold starts" en AWS Lambda. Esta función mantiene un número específico de entornos de ejecución "calientes" y listos para manejar solicitudes.</p>
 
 
-<h3 id="c%C3%B3mo-funciona-la-concurrencia-aprovisionada" tabindex="-1">Cómo Funciona la Concurrencia Aprovisionada</h3>
+<h3 id="c%C3%B3mo-funciona-la-concurrencia-aprovisionada" tabindex="-1">Cómo funciona la concurrencia aprovisionada</h3>
 
 
 <p>La concurrencia aprovisionada reserva un número fijo de entornos de ejecución para una función Lambda. Estos entornos se mantienen "calientes" y listos para manejar solicitudes, lo que disminuye la latencia de los "cold starts". Cuando llega una solicitud, AWS Lambda asigna una de las instancias "calientes" disponibles, reduciendo el tiempo de respuesta.</p>
 
 
-<h3 id="casos-de-uso-para-la-concurrencia-aprovisionada" tabindex="-1">Casos de Uso para la Concurrencia Aprovisionada</h3>
+<h3 id="casos-de-uso-para-la-concurrencia-aprovisionada" tabindex="-1">Casos de uso para la concurrencia aprovisionada</h3>
 
 
 <p>La concurrencia aprovisionada es útil en aplicaciones que necesitan baja latencia y alta disponibilidad, como:</p>
@@ -185,13 +185,13 @@ related:
 <p>En resumen, la concurrencia aprovisionada mejora la experiencia del usuario y el rendimiento de la aplicación al mitigar los "cold starts" en AWS Lambda.</p>
 
 
-<h2 id="configuraci%C3%B3n-de-la-concurrencia-aprovisionada" tabindex="-1">Configuración de la Concurrencia Aprovisionada</h2>
+<h2 id="configuraci%C3%B3n-de-la-concurrencia-aprovisionada" tabindex="-1">Configuración de la concurrencia aprovisionada</h2>
 
 
 <p>Configurar la concurrencia aprovisionada para una función Lambda es sencillo y se puede hacer a través de la consola de administración de AWS o la CLI de AWS. Aquí te mostramos cómo hacerlo.</p>
 
 
-<h3 id="configuraci%C3%B3n-paso-a-paso" tabindex="-1">Configuración Paso a Paso</h3>
+<h3 id="configuraci%C3%B3n-paso-a-paso" tabindex="-1">Configuración paso a paso</h3>
 
 
 <p>Para configurar la concurrencia aprovisionada desde la consola de administración de AWS, sigue estos pasos:</p>
@@ -222,7 +222,7 @@ related:
 <p>Para configurar la concurrencia aprovisionada usando la CLI de AWS, utiliza el comando <code class="inline-code">aws lambda update-function-configuration</code> con los parámetros adecuados.</p>
 
 
-<h3 id="mejores-pr%C3%A1cticas" tabindex="-1">Mejores Prácticas</h3>
+<h3 id="mejores-pr%C3%A1cticas" tabindex="-1">Mejores prácticas</h3>
 
 
 <ul>
@@ -240,13 +240,13 @@ related:
 
 
 
-<h2 id="determining-concurrency-needs" tabindex="-1">Determining Concurrency Needs</h2>
+<h2 id="determining-concurrency-needs" tabindex="-1">Determining concurrency needs</h2>
 
 
 <p>Determinar las necesidades de concurrencia es clave para configurar la concurrencia aprovisionada de manera efectiva. La concurrencia aprovisionada se configura según la cantidad de instancias de función que se necesitan para manejar el tráfico esperado. Para determinar la concurrencia necesaria, debes considerar factores como la tasa de solicitudes promedio, la duración de ejecución promedio y la concurrencia esperada.</p>
 
 
-<h3 id="estimating-concurrency-requirements" tabindex="-1">Estimating Concurrency Requirements</h3>
+<h3 id="estimating-concurrency-requirements" tabindex="-1">Estimating concurrency requirements</h3>
 
 
 <p>Para estimar la concurrencia necesaria, puedes utilizar la fórmula siguiente:</p>
@@ -279,13 +279,13 @@ related:
 <p>Al utilizar CloudWatch para monitorear la concurrencia, puedes identificar patrones de tráfico y ajustar la concurrencia aprovisionada para asegurarte de que tengas suficientes instancias de función para manejar el tráfico esperado.</p>
 
 
-<h2 id="comparaci%C3%B3n-de-rendimiento" tabindex="-1">Comparación de Rendimiento</h2>
+<h2 id="comparaci%C3%B3n-de-rendimiento" tabindex="-1">Comparación de rendimiento</h2>
 
 
 <p>La concurrencia aprovisionada puede mejorar el rendimiento de tus funciones Lambda. Aquí comparamos el rendimiento de una función Lambda con y sin concurrencia aprovisionada.</p>
 
 
-<h3 id="m%C3%A9tricas-de-rendimiento" tabindex="-1">Métricas de Rendimiento</h3>
+<h3 id="m%C3%A9tricas-de-rendimiento" tabindex="-1">Métricas de rendimiento</h3>
 
 
 <p>Para evaluar el rendimiento, usamos métricas como la latencia de inicio en frío, el tiempo de respuesta promedio y la latencia de cola. A continuación, se presentan los resultados de las pruebas:</p>
@@ -322,7 +322,7 @@ related:
 <p>Como se puede ver, la concurrencia aprovisionada reduce la latencia de inicio en frío y el tiempo de respuesta promedio, mejorando la experiencia del usuario.</p>
 
 
-<h3 id="an%C3%A1lisis-de-datos-de-rendimiento" tabindex="-1">Análisis de Datos de Rendimiento</h3>
+<h3 id="an%C3%A1lisis-de-datos-de-rendimiento" tabindex="-1">Análisis de datos de rendimiento</h3>
 
 
 <p>Para interpretar los datos, es importante entender cómo se miden las métricas y qué factores pueden afectar los resultados. Por ejemplo, la latencia de inicio en frío se mide desde que se recibe la solicitud hasta que se completa la inicialización de la función Lambda. La concurrencia aprovisionada reduce esta latencia al mantener instancias de función Lambda listas para manejar solicitudes.</p>
@@ -331,13 +331,13 @@ related:
 <p>Al analizar los datos, también es importante considerar la variabilidad en el tráfico y la complejidad de la función Lambda. La concurrencia aprovisionada es útil en situaciones donde se esperan picos de tráfico o se requiere un rendimiento rápido y predecible.</p>
 
 
-<h2 id="optimizing-lambda-functions" tabindex="-1">Optimizing Lambda Functions</h2>
+<h2 id="optimizing-lambda-functions" tabindex="-1">Optimizing Lambda functions</h2>
 
 
 <p>Optimizar las funciones Lambda es clave para aprovechar la concurrencia aprovisionada. Aquí te mostramos las <a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">mejores prácticas</a> para reducir el tiempo de inicialización, usar caché y separar el código de inicialización del controlador principal.</p>
 
 
-<h3 id="reduciendo-el-tiempo-de-inicializaci%C3%B3n" tabindex="-1">Reduciendo el Tiempo de Inicialización</h3>
+<h3 id="reduciendo-el-tiempo-de-inicializaci%C3%B3n" tabindex="-1">Reduciendo el tiempo de inicialización</h3>
 
 
 <p>La inicialización de una función Lambda puede ser lenta. Para reducir este tiempo, sigue estas técnicas:</p>
@@ -356,7 +356,7 @@ related:
 </ul>
 
 
-<h3 id="estrategias-de-caching" tabindex="-1">Estrategias de Caching</h3>
+<h3 id="estrategias-de-caching" tabindex="-1">Estrategias de caching</h3>
 
 
 <p>El caching mejora el rendimiento de las funciones Lambda. Aquí algunas estrategias:</p>
@@ -386,7 +386,7 @@ related:
 </table></figure>
 
 
-<h3 id="optimizaci%C3%B3n-del-c%C3%B3digo" tabindex="-1">Optimización del Código</h3>
+<h3 id="optimizaci%C3%B3n-del-c%C3%B3digo" tabindex="-1">Optimización del código</h3>
 
 
 <p>Optimizar el código es esencial para mejorar el rendimiento. Aquí algunas técnicas:</p>
@@ -405,13 +405,13 @@ related:
 </ul>
 
 
-<h2 id="consideraciones-de-costos" tabindex="-1">Consideraciones de Costos</h2>
+<h2 id="consideraciones-de-costos" tabindex="-1">Consideraciones de costos</h2>
 
 
 <p>Cuando se usa concurrencia aprovisionada, es importante tener en cuenta los costos asociados. A diferencia de las invocaciones de Lambda bajo demanda, la concurrencia aprovisionada tiene un costo adicional por la cantidad de concurrencia configurada y el tiempo durante el cual se mantiene.</p>
 
 
-<h3 id="precios-de-la-concurrencia-aprovisionada" tabindex="-1">Precios de la Concurrencia Aprovisionada</h3>
+<h3 id="precios-de-la-concurrencia-aprovisionada" tabindex="-1">Precios de la concurrencia aprovisionada</h3>
 
 
 <p>La concurrencia aprovisionada se cobra según la cantidad de concurrencia configurada y el tiempo que se mantiene. El precio también depende de la memoria asignada a las funciones. Por ejemplo, si configuras una concurrencia aprovisionada en una función con 1 GB de memoria, pagarás $0.015 por hora, incluso si no hay invocaciones.</p>
@@ -445,7 +445,7 @@ related:
 </table></figure>
 
 
-<h3 id="equilibrando-costo-y-rendimiento" tabindex="-1">Equilibrando Costo y Rendimiento</h3>
+<h3 id="equilibrando-costo-y-rendimiento" tabindex="-1">Equilibrando costo y rendimiento</h3>
 
 
 <p>Para equilibrar el costo y el rendimiento al usar concurrencia aprovisionada, considera estos consejos:</p>
@@ -470,13 +470,13 @@ related:
 <p>Siguiendo estos consejos, puedes equilibrar el costo y el rendimiento al usar concurrencia aprovisionada en AWS Lambda.</p>
 
 
-<h2 id="using-auto-scaling" tabindex="-1">Using Auto Scaling</h2>
+<h2 id="using-auto-scaling" tabindex="-1">Using auto scaling</h2>
 
 
 <p>Cuando se utiliza concurrencia aprovisionada, es importante ajustar la concurrencia según sea necesario. AWS Auto Scaling permite ajustar automáticamente la concurrencia aprovisionada según los patrones de tráfico o programaciones.</p>
 
 
-<h3 id="ajuste-din%C3%A1mico" tabindex="-1">Ajuste Dinámico</h3>
+<h3 id="ajuste-din%C3%A1mico" tabindex="-1">Ajuste dinámico</h3>
 
 
 <p>Para configurar AWS Auto Scaling y ajustar dinámicamente la concurrencia aprovisionada, sigue estos pasos:</p>
@@ -495,7 +495,7 @@ related:
 <p>Puedes configurar la política de escalado para que aumente la concurrencia aprovisionada cuando el tráfico aumenta y la disminuya cuando el tráfico baja. Esto asegura que la función Lambda tenga la concurrencia adecuada para manejar el tráfico y evitar costos innecesarios.</p>
 
 
-<h3 id="escalado-programado" tabindex="-1">Escalado Programado</h3>
+<h3 id="escalado-programado" tabindex="-1">Escalado programado</h3>
 
 
 <p>Otra opción es programar la escalada de la concurrencia aprovisionada según una programación específica. Esto es útil cuando se sabe que el tráfico aumentará en ciertos momentos del día o de la semana.</p>
@@ -507,13 +507,13 @@ related:
 <p>En resumen, AWS Auto Scaling permite ajustar automáticamente la concurrencia aprovisionada según sea necesario. Puedes configurar políticas de escalado dinámicas o programar la escalada para asegurarte de que la función Lambda tenga la concurrencia adecuada para manejar el tráfico y evitar costos innecesarios.</p>
 
 
-<h2 id="monitoring-and-troubleshooting" tabindex="-1">Monitoring and Troubleshooting</h2>
+<h2 id="monitoring-and-troubleshooting" tabindex="-1">Monitoring and troubleshooting</h2>
 
 
 <p>Para asegurarte de que la concurrencia aprovisionada se configure y se utilice correctamente, es importante monitorear las <a href="https://dondeaprendoaws.com/blog/10-metricas-clave-de-devops-en-aws/">métricas de CloudWatch</a> y diagnosticar problemas comunes. En esta sección, exploraremos las mejores prácticas para monitorear y solucionar problemas de concurrencia aprovisionada.</p>
 
 
-<h3 id="monitoring-metrics" tabindex="-1">Monitoring Metrics</h3>
+<h3 id="monitoring-metrics" tabindex="-1">Monitoring metrics</h3>
 
 
 <p>Para monitorear la concurrencia aprovisionada, debes configurar CloudWatch para recopilar métricas clave, como:</p>
@@ -535,7 +535,7 @@ related:
 <p>Estas métricas te permiten identificar problemas potenciales con la concurrencia aprovisionada, como invocaciones que superan la concurrencia configurada o una utilización ineficiente de la concurrencia aprovisionada.</p>
 
 
-<h3 id="troubleshooting-issues" tabindex="-1">Troubleshooting Issues</h3>
+<h3 id="troubleshooting-issues" tabindex="-1">Troubleshooting issues</h3>
 
 
 <p>Si detectas problemas con la concurrencia aprovisionada, sigue estos pasos para diagnosticar y solucionarlos:</p>
@@ -661,6 +661,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-lambda-costo-vs-rendimiento/">AWS Lambda: Costo vs. Rendimiento</a></li><li><a href="https://dondeaprendoaws.com/blog/optimizacion-de-costos-de-aws-lambda/">Optimización de Costos de AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/">Mejores Prácticas Para AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/7-estrategias-para-mitigar-cold-starts-en-aws-lambda/">7 Estrategias para Mitigar Cold Starts en AWS Lambda</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/aws-lambda-costo-vs-rendimiento/">AWS Lambda: costo vs. rendimiento</a></li><li><a href="https://dondeaprendoaws.com/blog/optimizacion-de-costos-de-aws-lambda/">Optimización de costos de AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/">Mejores prácticas para AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/7-estrategias-para-mitigar-cold-starts-en-aws-lambda/">7 estrategias para mitigar cold starts en AWS Lambda</a></li>
 </ul>
 </p>

@@ -9,7 +9,7 @@ cover: "/assets/blog/editorial-datos-ia.png"
 coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
-  - title: "Guía para Implementar Machine Learning con Amazon SageMaker"
+  - title: "Guía para implementar machine learning con Amazon SageMaker"
     url: "https://dondeaprendoaws.com/blog/guia-para-implementar-machine-learning-con-amazon-sagemaker/"
 
 ---
@@ -113,4 +113,4 @@ En un caso coescrito con [Aigen](https://aws.amazon.com/blogs/architecture/how-a
 
 Para entender por qué la preparación y la calidad de datos condicionan el modelo, puedes escuchar [Análisis de datos para machine learning](https://www.youtube.com/watch?v=62s0OxI8SZw), una grabación de *Charlas Técnicas de AWS* publicada el 24 de mayo de 2021. Incluye referencias a herramientas de ese momento; consulta la documentación actual antes de seguir pasos de servicio o interfaz. El [AWS Meetup #47: ML Day con SageMaker, MLOps e IoT](https://www.youtube.com/watch?v=NVEbOgBTNSk) es una grabación de AWS User Group Peru del 28 de septiembre de 2020; puede servir para conceptos, pero no para copiar una configuración actual.
 
-Para conversar sobre decisiones de ML e infraestructura, consulta [AWS UG Machine Learning Latam](https://www.meetup.com/aws-ug-machine-learning-latam/), con sede en Lima; el [AWS User Group Buenos Aires](https://www.meetup.com/aws-user-group-buenos-aires/), un grupo general de AWS; y [AWS User Group Peru](https://www.meetup.com/awsperu/), organizador de dos grabaciones de ML mencionadas arriba. Revisa sus páginas para conocer sus actividades y alcance actuales. También puedes buscar grupos de otros países en el [directorio de comunidades AWS](/comunidades/) y encuentros vigentes en la [agenda de eventos](/eventos/).
+Para conversar sobre decisiones de ML e infraestructura, consulta [AWS UG Machine Learning Latam](https://www.meetup.com/aws-ug-machine-learning-latam/), con sede en Lima; el [AWS User Group Buenos Aires](https://www.meetup.com/aws-user-group-buenos-aires/), un grupo general de AWS; y [AWS User Group Peru](https://www.meetup.com/awsperu/), organizador de dos grabaciones de ML mencionadas arriba. Revisa sus páginas para conocer sus actividades y alcance actuales. También puedes buscar grupos de otros países en el [directorio de comunidades AWS](/comunidades/) y encuentros vigentes en la [Agenda de eventos](/eventos/).

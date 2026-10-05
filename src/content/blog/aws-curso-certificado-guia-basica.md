@@ -82,7 +82,7 @@ Un curso puede darte un orden; los grupos ayudan a comparar explicaciones, resol
 
 Las páginas de estas comunidades no fijan las mismas condiciones para todos sus cursos y encuentros. Antes de asistir, verifica idioma, modalidad, horario, cupos, requisitos y costo en la actividad concreta.
 
-La [agenda de eventos AWS en Latinoamérica](/eventos/) muestra encuentros en línea, presenciales e híbridos con su fecha, horario, organización y enlace de inscripción. Abre cada evento para confirmar idioma, cupos, precio y requisitos: esas condiciones las define quien organiza la actividad.
+La [Agenda de eventos AWS en Latinoamérica](/eventos/) muestra encuentros en línea, presenciales e híbridos con su fecha, horario, organización y enlace de inscripción. Abre cada evento para confirmar idioma, cupos, precio y requisitos: esas condiciones las define quien organiza la actividad.
 
 Si tu objetivo concreto es preparar Cloud Practitioner, aquí tienes una [guía del examen CLF-C02 en español](/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/) con los dominios oficiales, recursos de práctica y sesiones de grupos latinoamericanos.
 

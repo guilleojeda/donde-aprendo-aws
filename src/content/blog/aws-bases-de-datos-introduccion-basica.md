@@ -39,7 +39,7 @@ Una base NoSQL como DynamoDB modela los datos de otra manera. DynamoDB admite es
 
 Por ejemplo, una tienda puede guardar pedidos e inventario en RDS si necesita relacionar entidades y consultar combinaciones variadas. Puede usar DynamoDB para guardar el carrito asociado a un `userId` si las operaciones principales son obtenerlo y actualizarlo por esa clave. Una aplicación puede combinar más de un servicio, pero cada almacén adicional agrega decisiones de consistencia, monitoreo y costo; no es un requisito para empezar.
 
-## Amazon RDS o Aurora: ¿cuál conviene para una base relacional?
+## Amazon RDS o Aurora: ¿Cuál conviene para una base relacional?
 
 Amazon RDS es un servicio administrado donde eliges un motor relacional, como PostgreSQL, MySQL, MariaDB, Microsoft SQL Server, Oracle Database o IBM Db2. AWS gestiona tareas de infraestructura y operación del servicio, mientras que el equipo de la aplicación sigue siendo responsable, entre otras cosas, del diseño de datos, las consultas, los permisos y la configuración elegida.
 

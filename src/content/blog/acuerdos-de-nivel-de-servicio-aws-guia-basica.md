@@ -69,7 +69,7 @@ Mantén separados ambos registros: el SLO sirve para observar la experiencia que
 
 Si estás analizando cómo medir una operación, también puede servir contrastar decisiones y experiencias con otras personas que trabajan con AWS. En el [directorio de comunidades AWS](/comunidades/) puedes buscar grupos por país, formato y tema. En México, el perfil del [AWS User Group Querétaro](https://www.meetup.com/es-es/amazon-web-services-queretaro/) describe talleres sobre arquitectura y alta disponibilidad. Para una conversación en línea, el [grupo de Telegram de AWS User Group Caracas](https://t.me/awsCaracas) ofrece un canal comunitario. Son espacios de intercambio, no canales para presentar un reclamo contractual a AWS.
 
-Para encontrar charlas, talleres y encuentros en línea o presenciales, consulta la [agenda de eventos AWS](/eventos/) y confirma la fecha y la inscripción en la página de cada organizador.
+Para encontrar charlas, talleres y encuentros en línea o presenciales, consulta la [Agenda de eventos AWS](/eventos/) y confirma la fecha y la inscripción en la página de cada organizador.
 
 ## Preguntas frecuentes sobre los SLA de AWS
 

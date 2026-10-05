@@ -1,5 +1,5 @@
 ---
-title: "Diferencias Entre SLA y SLO en AWS"
+title: "Diferencias entre SLA y SLO en AWS"
 description: "Entiende las diferencias entre SLA y SLO en AWS para optimizar el rendimiento y la confiabilidad de tus servicios en la nube."
 author: "guille-ojeda"
 publishedAt: "2025-01-20"
@@ -8,9 +8,9 @@ cover: "/assets/blog/editorial-fundamentos.png"
 coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
 ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
-  - title: "Guía de Acreditación para Partners de AWS 2024"
+  - title: "Guía de acreditación para Partners de AWS 2024"
     url: "https://dondeaprendoaws.com/blog/guia-de-acreditacion-para-partners-de-aws-2024/"
-  - title: "Optimización de Costos de AWS Lambda"
+  - title: "Optimización de costos de AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/optimizacion-de-costos-de-aws-lambda/"
   - title: "Comprendiendo AWS Step Functions"
     url: "https://dondeaprendoaws.com/blog/comprendiendo-aws-step-functions/"
@@ -65,7 +65,7 @@ related:
 <p>Ambos son esenciales para diseñar sistemas confiables en AWS. Los SLA establecen compromisos mínimos, mientras que los SLO permiten ajustes y mejoras continuas. Por ejemplo, si un SLA exige 99.9% de disponibilidad, un SLO interno podría fijarse en 99.95% para incluir un margen de seguridad.</p>
 
 
-<h2 class="sb" id="1-que-es-un-sla-service-level-agreement" tabindex="-1">1. ¿Qué es un SLA (Service Level Agreement)?</h2>
+<h2 class="sb" id="1-que-es-un-sla-service-level-agreement" tabindex="-1">1. ¿Qué es un SLA (service level agreement)?</h2>
 
 
 <p>Un SLA (Service Level Agreement) es un contrato formal que detalla los niveles de servicio que AWS se compromete a cumplir. Incluye aspectos como tiempo de actividad, tiempo de respuesta y resolución de problemas <a href="https://aws.amazon.com/es/what-is/service-level-agreement/" rel="noopener noreferrer" target="_blank"><sup>[1]</sup></a>.</p>
@@ -96,7 +96,7 @@ related:
 <p>Aunque los SLA son compromisos contractuales, los SLO (Service Level Objectives) se centran en metas internas que guían el diseño y monitoreo del servicio.</p>
 
 
-<h2 class="sb" id="2-que-es-un-slo-service-level-objective" tabindex="-1">2. ¿Qué es un SLO (Service Level Objective)?</h2>
+<h2 class="sb" id="2-que-es-un-slo-service-level-objective" tabindex="-1">2. ¿Qué es un SLO (service level objective)?</h2>
 
 
 <p>Un SLO establece metas internas claras y medibles para el desempeño de un servicio, basándose en métricas como disponibilidad, tiempo de respuesta y tasas de error, evaluadas dentro de un período específico <a href="https://aws.amazon.com/es/what-is/service-level-agreement/" rel="noopener noreferrer" target="_blank"><sup>[1]</sup></a><a href="https://aws.amazon.com/es/what-is/sre/" rel="noopener noreferrer" target="_blank"><sup>[2]</sup></a>. A diferencia de un SLA, no es un contrato formal, sino una herramienta interna que asegura que el servicio cumpla con sus estándares de rendimiento.</p>
@@ -123,7 +123,7 @@ related:
 
 
 
-<h2 class="sb" id="comparando-ventajas-y-desventajas" tabindex="-1">Comparando Ventajas y Desventajas</h2>
+<h2 class="sb" id="comparando-ventajas-y-desventajas" tabindex="-1">Comparando ventajas y desventajas</h2>
 
 
 <p>Estos conceptos juegan un papel clave en la <a href="https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/">arquitectura en AWS</a>, ya que ambos ayudan a garantizar que los sistemas diseñados sean confiables y cumplan con las necesidades del negocio.</p>
@@ -247,4 +247,4 @@ related:
 
 
 <h2>Publicaciones de blog relacionadas</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/">Arquitecturas Multi-Región en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/">Arquitecturas de Alta Disponibilidad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/acuerdos-de-nivel-de-servicio-aws-guia-basica/">Acuerdos de Nivel de Servicio AWS: Guía Básica</a></li><li><a href="https://dondeaprendoaws.com/blog/slas-en-aws-conceptos-legales-clave/">SLAs en AWS: Conceptos Legales Clave</a></li></ul>
+<ul><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/">arquitecturas multi-región en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/">arquitecturas de alta disponibilidad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/acuerdos-de-nivel-de-servicio-aws-guia-basica/">acuerdos de nivel de servicio AWS: guía básica</a></li><li><a href="https://dondeaprendoaws.com/blog/slas-en-aws-conceptos-legales-clave/">SLAs en AWS: conceptos legales clave</a></li></ul>

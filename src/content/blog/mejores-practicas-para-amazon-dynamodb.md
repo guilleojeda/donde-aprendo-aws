@@ -1,5 +1,5 @@
 ---
-title: "Mejores Prácticas Para Amazon DynamoDB"
+title: "Mejores prácticas para Amazon DynamoDB"
 description: "Consejos y mejores prácticas para utilizar Amazon DynamoDB de manera eficiente y segura. Aprende sobre diseño de tablas, ajuste de capacidad, seguridad, índices secundarios y operaciones de lectura/escritura."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
@@ -8,9 +8,9 @@ cover: "/assets/blog/editorial-datos-ia.png"
 coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
-  - title: "Visualiza Costos con AWS Cost and Usage Reports y QuickSight"
+  - title: "Visualiza costos con AWS Cost and Usage Reports y QuickSight"
     url: "https://dondeaprendoaws.com/blog/visualiza-costos-con-aws-cost-and-usage-reports-y-quicksight/"
-  - title: "Mejores Prácticas Para Amazon S3"
+  - title: "Mejores prácticas para Amazon S3"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-s3/"
   - title: "Desarrollo en la nube: fundamentos esenciales"
     url: "https://dondeaprendoaws.com/blog/desarrollo-en-la-nube-fundamentos-esenciales/"
@@ -94,7 +94,7 @@ related:
 <h3 id="%C3%ADndices-secundarios-1">Índices secundarios</h3>
 <p>Los índices secundarios te ayudan a buscar datos de otras formas sin afectar la búsqueda principal:</p>
 <ul><li>Los índices globales (GSI) son útiles cuando quieres buscar con una clave diferente. Por ejemplo, buscar pedidos por fecha en vez de por ID.</li><li>Los índices locales (LSI) son buenos para ordenar los datos de otra manera dentro de una misma partición.</li><li>Ajusta los índices para que solo copien los datos que necesitas. Esto ayuda a ahorrar recursos.</li></ul>
-<h3 id="paginaci%C3%B3n%2C-b%C3%BAsquedas-en-paralelo-y-streams">Paginación, Búsquedas en Paralelo y Streams</h3>
+<h3 id="paginaci%C3%B3n%2C-b%C3%BAsquedas-en-paralelo-y-streams">Paginación, búsquedas en paralelo y streams</h3>
 <p>Hay otras maneras de hacer que DynamoDB sea más rápido:</p>
 <ul><li>La paginación te permite manejar grandes cantidades de datos por partes.</li><li>Las búsquedas en paralelo permiten leer datos de muchas particiones al mismo tiempo, lo que acelera el proceso.</li><li>DynamoDB Streams captura cambios en tus datos para que puedas trabajar con ellos más tarde sin afectar el rendimiento general.</li></ul>
 <h2 id="monitoreo-y-m%C3%A9tricas">Monitoreo y métricas</h2>
@@ -115,7 +115,7 @@ related:
 <p>Aquí tienes un resumen de lo más importante:</p>
 <ul><li>Escoge bien la <strong>clave de partición</strong> para que tus datos se repartan de manera uniforme. Si es necesario, combina varios atributos.</li><li>Las <strong>claves de ordenamiento</strong> te ayudan a buscar datos más rápido dentro de una misma área. Úsalas cuando te convenga.</li><li>Los <strong>índices secundarios (globales y locales)</strong> te permiten buscar tus datos de diferentes maneras. Ajusta lo que copian para usar menos recursos.</li><li>Comienza con ajustes de <strong>capacidad que se pueden cambiar</strong> según lo que necesites y revisa cómo va todo para ajustar la capacidad.</li><li><strong>Cifra</strong> tus datos importantes tanto cuando están guardados como cuando se mueven. Usa IAM para un control más detallado de quién puede hacer qué.</li><li><strong>Vigila</strong> cómo van las cosas con las herramientas de CloudWatch y los informes en la consola de DynamoDB para identificar y solucionar problemas a tiempo.</li></ul>
 <p>Siguiendo estos consejos, podrás crear aplicaciones eficientes, seguras y que puedan crecer con DynamoDB.</p>
-<h2 id="preguntas-relacionadas">Preguntas Relacionadas</h2>
+<h2 id="preguntas-relacionadas">Preguntas relacionadas</h2>
 <h3 id="%C2%BFqu%C3%A9-tipo-de-base-de-datos-es-amazon-dynamodb%3F">¿Qué tipo de base de datos es Amazon DynamoDB?</h3>
 <p>Amazon DynamoDB es una base de datos NoSQL. Esto significa que guarda datos de una manera que no sigue el formato tradicional de filas y columnas. Es muy buena para aplicaciones que necesitan trabajar muy rápido y con mucha información.</p>
 <h3 id="%C2%BFcu%C3%A1ndo-usar-dynamodb%3F">¿Cuándo usar DynamoDB?</h3>
@@ -123,4 +123,4 @@ related:
 <h3 id="%C2%BFqu%C3%A9-es-una-clave-principal-en-amazon-dynamodb%3F">¿Qué es una clave principal en Amazon DynamoDB?</h3>
 <p>La clave principal en DynamoDB es lo que identifica de manera única cada elemento en una tabla. Puede ser una clave simple, que usa un solo atributo, o una clave compuesta, que usa dos atributos. Esto es como decir que cada elemento tiene su propia etiqueta única.</p>
 <h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-s3/">Mejores Prácticas Para Amazon S3</a></li><li><a href="https://dondeaprendoaws.com/blog/amazon-dynamodb-guia-basica/">Amazon DynamoDB: Guía Básica</a></li><li><a href="https://dondeaprendoaws.com/blog/amazon-dynamodb-la-base-de-datos-nosql-de-aws/">Amazon DynamoDB: La Base de Datos NoSQL de AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ec2/">Mejores Prácticas Para Amazon EC2</a></li></ul>
+<ul><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-s3/">Mejores prácticas para Amazon S3</a></li><li><a href="https://dondeaprendoaws.com/blog/amazon-dynamodb-guia-basica/">Amazon DynamoDB: guía básica</a></li><li><a href="https://dondeaprendoaws.com/blog/amazon-dynamodb-la-base-de-datos-nosql-de-aws/">Amazon DynamoDB: la base de datos NoSQL de AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ec2/">Mejores prácticas para Amazon EC2</a></li></ul>

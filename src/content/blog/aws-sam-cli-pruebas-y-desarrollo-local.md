@@ -1,5 +1,5 @@
 ---
-title: "AWS SAM CLI: Pruebas y Desarrollo Local"
+title: "AWS SAM CLI: pruebas y desarrollo local"
 description: "Aprende a desarrollar y probar aplicaciones serverless localmente con AWS SAM CLI, simulando servicios como Lambda y API Gateway."
 author: "guille-ojeda"
 publishedAt: "2024-11-27"
@@ -8,11 +8,11 @@ cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Cómo Utilizar Amazon Bedrock"
+  - title: "Cómo utilizar Amazon Bedrock"
     url: "https://dondeaprendoaws.com/blog/como-utilizar-amazon-bedrock/"
-  - title: "Cómo crear Infraestructura como Código en AWS con AWS CloudFormation"
+  - title: "Cómo crear infraestructura como código en AWS con AWS CloudFormation"
     url: "https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-aws-cloudformation/"
-  - title: "AWS Seguridad: Mejores Prácticas"
+  - title: "AWS seguridad: mejores prácticas"
     url: "https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/"
 
 ---
@@ -27,7 +27,7 @@ related:
 <p>Con AWS SAM CLI, puedes desarrollar aplicaciones serverless de manera más rápida y económica, asegurándote de que funcionen correctamente antes de subirlas a la nube. ¡Empieza hoy!</p>
 <h2 id="video-relacionado-de-youtube">Video relacionado de YouTube</h2>
 <div><iframe allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen="" height="315" loading="lazy" src="https://www.youtube-nocookie.com/embed/Z_GAa9WToMM" title="Video de YouTube" width="560"></iframe></div>
-<h2 id="preparando-tu-entorno-local">Preparando tu Entorno Local</h2>
+<h2 id="preparando-tu-entorno-local">Preparando tu entorno local</h2>
 <p>¿Listo para crear aplicaciones serverless con AWS SAM CLI? Empecemos configurando tu espacio de trabajo local.</p>
 <h3 id="instalando-aws-sam-cli-y-herramientas-requeridas">Instalando <a href="https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/using-sam-cli.html">AWS SAM CLI</a> y Herramientas Requeridas</h3>
 <p><img alt="AWS SAM CLI" src="/assets/blog/9ae244d7bf0fd9827aedbb22.jpg"/></p>
@@ -37,7 +37,7 @@ related:
 <pre><code>sam --version
 </code></pre>
 <p><strong>Docker</strong>: Te permite simular Lambda en tu computadora. Bájalo desde <a href="https://www.docker.com/products/docker-desktop">Docker Desktop</a>.</p>
-<h3 id="configurando-credenciales-de-aws-y-creando-proyectos-sam">Configurando Credenciales de AWS y Creando Proyectos SAM</h3>
+<h3 id="configurando-credenciales-de-aws-y-creando-proyectos-sam">Configurando credenciales de AWS y creando proyectos SAM</h3>
 <p>Primero, configura tus <a href="https://dondeaprendoaws.com/blog/seguridad-en-la-nube-aws-estrategias-clave/">credenciales AWS</a>. El <a href="https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html">Manual de AWS CLI</a> te guía paso a paso.</p>
 <p>Para crear tu primer proyecto, ejecuta:</p>
 <pre><code>sam init
@@ -45,7 +45,7 @@ related:
 <p>Este comando te crea todo lo que necesitas:</p>
 <ul><li>Un archivo template.yaml para tu configuración</li><li>Una función Lambda lista para usar</li><li>Tests básicos y dependencias</li></ul>
 <blockquote><p><strong>Pro tip</strong>: Si trabajas con Python, elige una plantilla que ya incluya <code>boto3</code>. Te ahorrará tiempo después.</p></blockquote>
-<h3 id="comprendiendo-la-plantilla-sam">Comprendiendo la Plantilla SAM</h3>
+<h3 id="comprendiendo-la-plantilla-sam">Comprendiendo la plantilla SAM</h3>
 <p>La plantilla SAM es el corazón de tu aplicación serverless. Aquí tienes un ejemplo básico:</p>
 <pre><code>Resources:
   MyFunction:
@@ -61,29 +61,29 @@ related:
 <ul><li><strong>Resources</strong>: Define qué servicios AWS vas a usar</li><li><strong>Functions</strong>: Configura tus funciones Lambda (runtime, handler, etc.)</li></ul>
 <p>¿Quieres aprender más? La <a href="https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-specification-template-anatomy.html">documentación oficial</a> tiene todos los detalles.</p>
 <p>Para recursos en español, visita <a href="https://dondeaprendoaws.com/">Dónde Aprendo AWS</a>. Encontrarás guías y ejemplos que complementan lo que acabamos de ver.</p>
-<h2 id="usando-aws-sam-cli-para-pruebas-locales">Usando AWS SAM CLI para Pruebas Locales</h2>
+<h2 id="usando-aws-sam-cli-para-pruebas-locales">Usando AWS SAM CLI para pruebas locales</h2>
 <p>AWS SAM CLI te ayuda a probar tus aplicaciones serverless en tu computadora antes de subirlas a AWS. Es como tener un mini AWS en tu máquina local - ahorras dinero y tiempo en el desarrollo.</p>
-<h3 id="probando-funciones-lambda-localmente">Probando Funciones Lambda Localmente</h3>
+<h3 id="probando-funciones-lambda-localmente">Probando funciones Lambda localmente</h3>
 <p>¿Quieres probar tus funciones Lambda sin subirlas a AWS? El comando <code>sam local invoke</code> es tu mejor amigo. Así puedes ejecutar y verificar tus funciones:</p>
 <pre><code>sam local invoke "HelloWorldFunction" -e events/event.json --debug
 </code></pre>
 <p>Este comando ejecuta tu función con datos de prueba que tú defines. Si algo sale mal, puedes revisar paso a paso qué está pasando.</p>
-<h3 id="simulando-endpoints-de-api-gateway">Simulando Endpoints de API Gateway</h3>
+<h3 id="simulando-endpoints-de-api-gateway">Simulando endpoints de API Gateway</h3>
 <p>Para probar tus APIs, ejecuta <code>sam local start-api</code>. Esto crea un servidor en tu computadora en <code>http://localhost:3000</code>. Puedes probarlo con herramientas como <code>curl</code>:</p>
 <pre><code>curl http://localhost:3000/hello
 </code></pre>
 <p>Es como tener tu propia versión de API Gateway en tu máquina. Haces cambios, pruebas, y ves los resultados al instante.</p>
-<h3 id="probando-aplicaciones-orientadas-a-eventos">Probando Aplicaciones Orientadas a Eventos</h3>
+<h3 id="probando-aplicaciones-orientadas-a-eventos">Probando aplicaciones orientadas a eventos</h3>
 <p>¿Tu app responde a eventos de S3, DynamoDB o SNS? El comando <code>sam local generate-event</code> crea eventos de prueba que parecen reales:</p>
 <pre><code>sam local generate-event s3 put --bucket mi-bucket --key mi-archivo
 </code></pre>
 <p>Es como simular que alguien subió un archivo a S3, pero todo sucede en tu computadora.</p>
-<h3 id="tips-para-mejores-pruebas-locales">Tips para Mejores Pruebas Locales</h3>
+<h3 id="tips-para-mejores-pruebas-locales">Tips para mejores pruebas locales</h3>
 <ul><li>Usa <code>--env-vars</code> para simular la configuración que tendrás en AWS</li><li>Prueba funciones conectadas entre sí con <code>sam local start-lambda</code></li><li>Crea eventos de prueba que se parezcan a lo que pasará en el mundo real</li></ul>
 <blockquote><p>"La depuración local paso a paso reduce el ciclo de retroalimentación al permitirte encontrar y solucionar problemas que podrías enfrentar en la nube" [1].</p></blockquote>
 <p>Con estas herramientas, puedes asegurarte de que todo funcione bien antes de subir tu app a AWS.</p>
-<h2 id="tips-y-funciones-avanzadas-para-pruebas-locales">Tips y Funciones Avanzadas para Pruebas Locales</h2>
-<h3 id="trabajando-con-runtimes-personalizados">Trabajando con Runtimes Personalizados</h3>
+<h2 id="tips-y-funciones-avanzadas-para-pruebas-locales">Tips y funciones avanzadas para pruebas locales</h2>
+<h3 id="trabajando-con-runtimes-personalizados">Trabajando con runtimes personalizados</h3>
 <p>¿Necesitas usar Rust, PHP u otros lenguajes que <a href="https://dondeaprendoaws.com/blog/desarrollando-aplicaciones-con-aws-lambda/">AWS Lambda</a> no soporta por defecto? Los runtimes personalizados son la solución. Así es como puedes configurarlos en tu archivo <code>template.yaml</code>:</p>
 <pre><code>Resources:
   MiFuncion:
@@ -104,7 +104,7 @@ related:
 <pre><code>sam local start-api --port 3000
 </code></pre>
 <blockquote><p>"La depuración local paso a paso reduce el ciclo de retroalimentación al permitirte encontrar y solucionar problemas que podrías enfrentar en la nube" [1]</p></blockquote>
-<h3 id="mejorando-la-eficiencia-en-pruebas-locales">Mejorando la Eficiencia en Pruebas Locales</h3>
+<h3 id="mejorando-la-eficiencia-en-pruebas-locales">Mejorando la eficiencia en pruebas locales</h3>
 <p>Aquí hay algunos trucos para hacer tus pruebas más rápidas y efectivas:</p>
 <ul><li><strong>Ahorra tiempo con contenedores</strong>: Usa el flag <code>--cached</code> para no descargar todo de nuevo:</li></ul>
 <pre><code>sam build --use-container --cached
@@ -112,7 +112,7 @@ related:
 <ul><li><strong>Mantén tus dependencias bajo control</strong>: Organiza y actualiza tus paquetes para que todo funcione igual en local y en la nube.</li></ul>
 <p><strong>sam sync</strong> es tu mejor amigo para desarrollo rápido - actualiza tu código y plantillas al instante, sin necesidad de reconstruir todo el proyecto. Es como tener un asistente que automáticamente sincroniza tus cambios con el entorno local.</p>
 <p>Para simular AWS en tu máquina, configura las variables de entorno correctamente. Esto te ayudará a detectar problemas antes de subir tu código a la nube.</p>
-<h2 id="recursos-para-desarrolladores-de-habla-hispana">Recursos para Desarrolladores de Habla Hispana</h2>
+<h2 id="recursos-para-desarrolladores-de-habla-hispana">Recursos para desarrolladores de habla hispana</h2>
 <h3 id="introducci%C3%B3n-a-d%C3%B3nde-aprendo-aws">Introducción a <a href="https://dondeaprendoaws.com/">Dónde Aprendo AWS</a></h3>
 <p><img alt="Dónde Aprendo AWS" src="/assets/blog/0b106b2a88b767bcf792b81e.jpg"/></p>
 <p>¿Buscas aprender AWS SAM CLI y <a href="https://www.andmore.dev/es/blog/build-serverless-api-with-no-lambda/">desarrollo serverless</a> en español? <strong><a href="https://dondeaprendoaws.com/">Dónde Aprendo AWS</a></strong> es justo lo que necesitas.</p>
@@ -125,7 +125,7 @@ related:
 <p>El blog te guía paso a paso para crear tu primera API local:</p>
 <ul><li>Prepara tu entorno de desarrollo</li><li>Crea y despliega funciones Lambda</li><li>Configura y prueba API Gateway</li><li>Mejora y corrige errores en tu código</li></ul>
 <p>Con estas herramientas y guías prácticas, dar tus primeros pasos con AWS SAM CLI y desarrollo serverless será mucho más sencillo.</p>
-<h2 id="conclusi%C3%B3n%3A-comenzando-con-aws-sam-cli">Conclusión: Comenzando con AWS SAM CLI</h2>
+<h2 id="conclusi%C3%B3n%3A-comenzando-con-aws-sam-cli">Conclusión: comenzando con AWS SAM CLI</h2>
 <p>AWS SAM CLI te ayuda a crear y probar aplicaciones serverless en tu computadora antes de subirlas a la nube. En esta guía has aprendido lo básico para empezar a trabajar con esta herramienta.</p>
 <p>Lo más importante que debes saber sobre AWS SAM CLI se divide en tres partes:</p>
 <ul><li>Para empezar necesitas instalar AWS CLI y AWS SAM CLI, configurar tus credenciales y crear tu primer proyecto usando <code>sam init</code></li><li>Puedes probar tus funciones Lambda localmente antes de subirlas a AWS</li><li>Las herramientas de depuración y los runtimes personalizados te ayudan a trabajar más rápido</li></ul>
@@ -149,4 +149,4 @@ sam local start-api
 <p><strong>Pro tip</strong>: No olvides ejecutar <code>sam build</code> antes de tus pruebas. Esto asegura que estés probando tu código más reciente.</p>
 <p>¿Necesitas configurar variables de entorno específicas? Usa el flag <code>--env-vars</code> durante tus pruebas. Así puedes simular diferentes escenarios y condiciones de manera precisa.</p>
 <h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/desarrollando-aplicaciones-con-aws-lambda/">Desarrollando Aplicaciones con AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-lambda-en-profundidad/">AWS Lambda en Profundidad</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a Serverless en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/guia-para-crear-apis-serverless-con-aws-lambda-y-api-gateway/">Guía para Crear APIs Serverless con AWS Lambda y API Gateway</a></li></ul>
+<ul><li><a href="https://dondeaprendoaws.com/blog/desarrollando-aplicaciones-con-aws-lambda/">Desarrollando aplicaciones con AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-lambda-en-profundidad/">AWS Lambda en profundidad</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a serverless en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/guia-para-crear-apis-serverless-con-aws-lambda-y-api-gateway/">Guía para crear APIs serverless con AWS Lambda y API Gateway</a></li></ul>

@@ -42,7 +42,7 @@ Antes de crear una tabla para producción, anota cada consulta que la aplicació
 
 Para profundizar en otro patrón, [Brenda Galicia explica el diseño de una sola tabla en DynamoDB](https://dev.to/bardengalicia/simplicidad-y-eficiencia-desmitificando-el-diseno-de-una-sola-tabla-en-amazon-dynamodb-8oc). Es una opción que puedes evaluar según las consultas de tu aplicación; no es un requisito para todas las tablas.
 
-## Query y Scan: consultar por clave o recorrer la tabla
+## Query y scan: consultar por clave o recorrer la tabla
 
 `GetItem` recupera un ítem cuando conoces todos los valores de su clave primaria. `Query` recupera ítems que comparten un valor de clave de partición y, si hay clave de ordenación, admite una condición sobre ella. Para el ejemplo, `Query` puede traer los pedidos de `cliente-42` cuyo valor de `fechaPedido` empieza con `2026-10-`.
 
@@ -166,4 +166,4 @@ AWS ofrece [DynamoDB Local](https://docs.aws.amazon.com/amazondynamodb/latest/de
 
 Para ver DynamoDB en un producto serverless de comunidad, [Kiu y Sessionize: gestión de eventos en AWS User Groups](https://builder.aws.com/content/2s8GaGrxZZPB5KIoOOrlzJsXob2/kiu-y-sessionize-transformando-la-gesti-n-de-eventos-en-aws-user-groups) cuenta cómo un asistente para eventos integra DynamoDB con Lambda y Amazon Bedrock. Es un caso de arquitectura, no un tutorial de inicio.
 
-También puedes conocer el grupo [AWS User Group Serverless Colombia](https://www.meetup.com/aws-user-group-serverless-colombia/) y consultar sus encuentros, explorar **comunidades AWS por país y tipo de grupo** en el [directorio de comunidades](/comunidades/), o buscar **próximas charlas** en la [agenda de eventos](/eventos/). Para seguir canales, blogs y podcasts en español, visita el [directorio de creadores](/creadores/); cada página enlaza sus destinos para que elijas el formato que te sirva.
+También puedes conocer el grupo [AWS User Group Serverless Colombia](https://www.meetup.com/aws-user-group-serverless-colombia/) y consultar sus encuentros, explorar **comunidades AWS por país y tipo de grupo** en el [directorio de comunidades](/comunidades/), o buscar **próximas charlas** en la [Agenda de eventos](/eventos/). Para seguir canales, blogs y podcasts en español, visita el [directorio de creadores](/creadores/); cada página enlaza sus destinos para que elijas el formato que te sirva.

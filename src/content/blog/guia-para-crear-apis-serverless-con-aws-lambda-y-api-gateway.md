@@ -1,5 +1,5 @@
 ---
-title: "Guía para Crear APIs Serverless con AWS Lambda y API Gateway"
+title: "Guía para crear APIs serverless con AWS Lambda y API Gateway"
 description: "Descubre cómo crear APIs serverless usando AWS Lambda y API Gateway con esta guía paso a paso que abarca desde la configuración hasta la optimización."
 author: "guille-ojeda"
 publishedAt: "2024-05-12"
@@ -8,11 +8,11 @@ cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Estrategias de Correlación de Eventos AWS"
+  - title: "Estrategias de correlación de eventos AWS"
     url: "https://dondeaprendoaws.com/blog/estrategias-de-correlacion-de-eventos-aws/"
-  - title: "Gestión de Facturación de AWS: Guía Completa"
+  - title: "Gestión de facturación de AWS: guía completa"
     url: "https://dondeaprendoaws.com/blog/gestion-de-facturacion-de-aws-guia-completa/"
-  - title: "10 Métricas Clave de DevOps en AWS"
+  - title: "10 métricas clave de DevOps en AWS"
     url: "https://dondeaprendoaws.com/blog/10-metricas-clave-de-devops-en-aws/"
 
 ---
@@ -139,7 +139,7 @@ related:
 <p>En esta sección, exploraremos cómo planificar tu API y definir los endpoints y métodos necesarios. La planificación es crucial para crear una API efectiva y escalable.</p>
 
 
-<h3 id="definir-endpoints-y-m%C3%A9todos-de-la-api" tabindex="-1">Definir Endpoints y Métodos de la API</h3>
+<h3 id="definir-endpoints-y-m%C3%A9todos-de-la-api" tabindex="-1">Definir endpoints y métodos de la API</h3>
 
 
 <p>Antes de empezar a codificar, debes identificar claramente los recursos y acciones requeridos para tu API. Esto te ayudará a determinar qué endpoints y métodos necesitarás. Por ejemplo, si estás creando una API para una tienda en línea, podrías necesitar endpoints para:</p>
@@ -152,7 +152,7 @@ related:
 </ul>
 
 
-<h3 id="seleccionar-el-tipo-de-api" tabindex="-1">Seleccionar el Tipo de API</h3>
+<h3 id="seleccionar-el-tipo-de-api" tabindex="-1">Seleccionar el tipo de API</h3>
 
 
 <p>Existen diferentes tipos de APIs, cada una con sus propias características. Algunos de los tipos más comunes son:</p>
@@ -186,7 +186,7 @@ related:
 </table></figure>
 
 
-<h3 id="estructurar-entradas-y-salidas-de-datos" tabindex="-1">Estructurar Entradas y Salidas de Datos</h3>
+<h3 id="estructurar-entradas-y-salidas-de-datos" tabindex="-1">Estructurar entradas y salidas de datos</h3>
 
 
 <p>La estructura de los datos de entrada y salida es crucial para una API efectiva. Debes definir los formatos de datos y esquemas para que sean eficientes y fáciles de entender. Por ejemplo, podrías utilizar JSON (JavaScript Object Notation) para representar los datos en formato de objeto.</p>
@@ -316,7 +316,7 @@ related:
 <p>Para conectar correctamente Lambda y API Gateway, debes configurar un trigger de Lambda en API Gateway y asegurarte de que los dos servicios trabajen juntos sin problemas.</p>
 
 
-<h3 id="configurar-triggers-de-lambda" tabindex="-1">Configurar Triggers de Lambda</h3>
+<h3 id="configurar-triggers-de-lambda" tabindex="-1">Configurar triggers de Lambda</h3>
 
 
 <p>Para configurar un trigger de Lambda, debes seguir los siguientes pasos:</p>
@@ -325,7 +325,7 @@ related:
 <p>1. Inicia sesión en la consola de AWS Management Console. 2. Haz clic en "Crear trigger" en la página de Lambda. 3. Selecciona "API Gateway" como el tipo de trigger. 4. Selecciona la función Lambda que deseas asociar con el trigger. 5. Configura los detalles del trigger según sea necesario.</p>
 
 
-<h3 id="configurar-detalles-de-integraci%C3%B3n" tabindex="-1">Configurar Detalles de Integración</h3>
+<h3 id="configurar-detalles-de-integraci%C3%B3n" tabindex="-1">Configurar detalles de integración</h3>
 
 
 <p>Una vez que hayas configurado el trigger de Lambda, debes configurar los detalles de la integración entre Lambda y API Gateway. Esto incluye:</p>
@@ -361,7 +361,7 @@ related:
 <h2 id="6.-proteger-tu-api" tabindex="-1">6. Proteger tu API</h2>
 
 
-<h3 id="implementar-autenticaci%C3%B3n-y-autorizaci%C3%B3n" tabindex="-1">Implementar Autenticación y Autorización</h3>
+<h3 id="implementar-autenticaci%C3%B3n-y-autorizaci%C3%B3n" tabindex="-1">Implementar autenticación y autorización</h3>
 
 
 <p>La seguridad de las APIs es crucial para proteger los datos y recursos de accesos no autorizados. AWS ofrece varios servicios que se pueden utilizar para implementar la autenticación y autorización en tus APIs.</p>
@@ -385,7 +385,7 @@ related:
 <p>API Gateway también te permite utilizar Claves de API como método de autenticación. Las Claves de API son tokens que los clientes deben incluir en sus solicitudes para acceder a tus APIs. Esto te permite restringir el acceso solo a clientes autorizados.</p>
 
 
-<h3 id="controlar-el-acceso-a-tu-api" tabindex="-1">Controlar el Acceso a tu API</h3>
+<h3 id="controlar-el-acceso-a-tu-api" tabindex="-1">Controlar el acceso a tu API</h3>
 
 
 <p>Una vez que hayas implementado la autenticación y autorización, es importante definir y aplicar políticas de control de acceso para tu API.</p>
@@ -418,10 +418,10 @@ related:
 <p>Al implementar la autenticación, la autorización y el control de acceso adecuados, puedes garantizar que solo los usuarios y servicios autorizados puedan acceder a tus APIs y recursos, protegiendo así la integridad y confidencialidad de tus datos.</p>
 
 
-<h2 id="7.-prueba-y-despliegue-de-tu-api" tabindex="-1">7. Prueba y Despliegue de tu API</h2>
+<h2 id="7.-prueba-y-despliegue-de-tu-api" tabindex="-1">7. Prueba y despliegue de tu API</h2>
 
 
-<h3 id="prueba-de-funcionalidad-de-la-api" tabindex="-1">Prueba de Funcionalidad de la API</h3>
+<h3 id="prueba-de-funcionalidad-de-la-api" tabindex="-1">Prueba de funcionalidad de la API</h3>
 
 
 <p>Antes de implementar tu API en un entorno de producción, es crucial probar exhaustivamente sus funcionalidades para asegurarte de que funcione correctamente y según lo esperado.</p>
@@ -452,10 +452,10 @@ related:
 <p>Una vez que hayas desplegado tu API, estará disponible para los usuarios finales y podrá recibir solicitudes y responder según lo configurado.</p>
 
 
-<h2 id="8.-monitoreo-y-optimizaci%C3%B3n-de-tu-api" tabindex="-1">8. Monitoreo y Optimización de tu API</h2>
+<h2 id="8.-monitoreo-y-optimizaci%C3%B3n-de-tu-api" tabindex="-1">8. Monitoreo y optimización de tu API</h2>
 
 
-<h3 id="configuraci%C3%B3n-de-monitoreo-y-registro" tabindex="-1">Configuración de Monitoreo y Registro</h3>
+<h3 id="configuraci%C3%B3n-de-monitoreo-y-registro" tabindex="-1">Configuración de monitoreo y registro</h3>
 
 
 <p>Para asegurarte de que tu API se ejecuta correctamente y con eficiencia, es crucial establecer un sistema de monitoreo y registro detallado. AWS ofrece varias herramientas para monitorear y registrar el rendimiento de tu API, incluyendo <a href="https://aws.amazon.com/cloudwatch/" rel="noopener noreferrer" target="_blank">Amazon CloudWatch</a>, <a href="https://aws.amazon.com/xray/" rel="noopener noreferrer" target="_blank">AWS X-Ray</a> y <a href="https://aws.amazon.com/cloudtrail/" rel="noopener noreferrer" target="_blank">AWS CloudTrail</a>.</p>
@@ -523,7 +523,7 @@ related:
 </table></figure>
 
 
-<h3 id="optimizaci%C3%B3n-del-rendimiento-de-la-api" tabindex="-1">Optimización del Rendimiento de la API</h3>
+<h3 id="optimizaci%C3%B3n-del-rendimiento-de-la-api" tabindex="-1">Optimización del rendimiento de la API</h3>
 
 
 <p>Una vez que hayas establecido un sistema de monitoreo y registro, puedes utilizar los datos recopilados para optimizar el rendimiento de tu API. Algunas estrategias para mejorar el rendimiento de tu API incluyen:</p>
@@ -540,16 +540,16 @@ related:
 <p>Recuerda que la optimización del rendimiento es un proceso continuo y requiere monitorear y ajustar constantemente tu API para asegurarte de que se ejecuta correctamente y con eficiencia.</p>
 
 
-<h2 id="conclusi%C3%B3n-y-recursos-adicionales" tabindex="-1">Conclusión y Recursos Adicionales</h2>
+<h2 id="conclusi%C3%B3n-y-recursos-adicionales" tabindex="-1">Conclusión y recursos adicionales</h2>
 
 
-<h3 id="resumen-del-viaje-de-la-api-serverless" tabindex="-1">Resumen del Viaje de la API Serverless</h3>
+<h3 id="resumen-del-viaje-de-la-api-serverless" tabindex="-1">Resumen del viaje de la API serverless</h3>
 
 
 <p>En este artículo, hemos cubierto los pasos críticos para crear APIs serverless con AWS Lambda y API Gateway. Desde la planificación y configuración de la API hasta la implementación de la lógica de negocio y la optimización del rendimiento, hemos explorado las <a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">mejores prácticas</a> y consideraciones clave para crear APIs escalables y seguras.</p>
 
 
-<h3 id="recursos-adicionales-para-aprender" tabindex="-1">Recursos Adicionales para Aprender</h3>
+<h3 id="recursos-adicionales-para-aprender" tabindex="-1">Recursos adicionales para aprender</h3>
 
 
 <p>Para aquellos que desean profundizar en el <a href="https://dev.to/aws-builders/creando-un-api-rest-con-infra-como-codigo-terraform-serverless-lambda-python-parte-1-4ha">desarrollo de APIs serverless</a>, recomendamos explorar los siguientes recursos adicionales:</p>
@@ -582,7 +582,7 @@ related:
 <p>Recuerda que la creación de APIs serverless es un proceso continuo que requiere monitoreo y ajuste constante para asegurarte de que se ejecuten correctamente y con eficiencia.</p>
 
 
-<h2 id="preguntas-frecuentes" tabindex="-1">Preguntas Frecuentes</h2>
+<h2 id="preguntas-frecuentes" tabindex="-1">Preguntas frecuentes</h2>
 
 
 <h3 id="%C2%BFc%C3%B3mo-construir-una-api-en-aws-lambda-y-api-gateway%3F" tabindex="-1">¿Cómo construir una API en <a href="https://aws.amazon.com/lambda/" rel="noopener noreferrer" target="_blank">AWS Lambda</a> y API Gateway?</h3>
@@ -627,7 +627,7 @@ related:
 </ol>
 
 
-<h3 id="%C2%BFc%C3%B3mo-construir-una-api-serverless-crud-con-api-gateway%2C-lambda-y-dynamodb%3F" tabindex="-1">¿Cómo construir una API Serverless CRUD con API Gateway, Lambda y DynamoDB?</h3>
+<h3 id="%C2%BFc%C3%B3mo-construir-una-api-serverless-crud-con-api-gateway%2C-lambda-y-dynamodb%3F" tabindex="-1">¿Cómo construir una API serverless CRUD con API Gateway, Lambda y DynamoDB?</h3>
 
 
 <p><strong>Crear una tabla DynamoDB</strong></p>
@@ -666,7 +666,7 @@ related:
 </ol>
 
 
-<h3 id="%C2%BFc%C3%B3mo-utilizar-aws-lambda-y-api-gateway-para-construir-una-api-rest-serverless%3F" tabindex="-1">¿Cómo utilizar AWS Lambda y API Gateway para construir una API REST Serverless?</h3>
+<h3 id="%C2%BFc%C3%B3mo-utilizar-aws-lambda-y-api-gateway-para-construir-una-api-rest-serverless%3F" tabindex="-1">¿Cómo utilizar AWS Lambda y API Gateway para construir una API REST serverless?</h3>
 
 
 <p><strong>Planificar la API</strong></p>
@@ -709,6 +709,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/">Mejores Prácticas Para AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/desarrollando-aplicaciones-con-aws-lambda/">Desarrollando Aplicaciones con AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-aws-lambda/">Microservicios en AWS Utilizando AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a Serverless en AWS</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/">Mejores prácticas para AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/desarrollando-aplicaciones-con-aws-lambda/">Desarrollando aplicaciones con AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-aws-lambda/">Microservicios en AWS utilizando AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a serverless en AWS</a></li>
 </ul>
 </p>

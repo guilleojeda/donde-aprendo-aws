@@ -10,9 +10,9 @@ ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Comprendiendo AWS Step Functions"
     url: "https://dondeaprendoaws.com/blog/comprendiendo-aws-step-functions/"
-  - title: "Tipos y Tamaños de Instancias RDS: Guía Completa"
+  - title: "Tipos y tamaños de instancias RDS: guía completa"
     url: "https://dondeaprendoaws.com/blog/tipos-y-tamanos-de-instancias-rds-guia-completa/"
-  - title: "Certificación AWS gratis: Materiales de estudio"
+  - title: "Certificación AWS gratis: materiales de estudio"
     url: "https://dondeaprendoaws.com/blog/certificacion-aws-gratis-materiales-de-estudio/"
 
 ---
@@ -146,4 +146,4 @@ const dynamodb = new AWS.DynamoDB();
 <p>Sí, las clientes de SDK de AWS son seguras para threads. Se recomienda compartir una instancia única de la cliente para evitar la sobrecarga de tener demasiados grupos de conexiones que no se utilizan de manera efectiva. Si no deseas compartir una instancia de cliente, llama a <code>close()</code> en la instancia para liberar los recursos cuando la cliente no sea necesaria.</p>
 <p><strong>Consejo</strong>: Asegúrate de cerrar la instancia de cliente cuando no la necesites para evitar problemas de rendimiento y seguridad.</p>
 <h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS Fundamentos: Guía de Inicio Rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/como-funciona-aws-amplify/">¿Cómo Funciona AWS Amplify?</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li></ul>
+<ul><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS fundamentos: guía de inicio rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/como-funciona-aws-amplify/">¿Cómo funciona AWS Amplify?</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li></ul>

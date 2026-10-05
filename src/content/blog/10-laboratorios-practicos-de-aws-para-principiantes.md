@@ -49,7 +49,7 @@ Para practicar en tu cuenta, consulta los precios y límites de los servicios, u
 
 *Los tiempos son estimaciones para orientarte. No incluyen ver las grabaciones, obtener permisos ni esperar despliegues que pueden tardar más.*
 
-Los ejercicios 2–4 reutilizan el mismo bucket; los 5, 6 y 8, la misma función. Sigue ese orden si quieres aprovechar lo creado. Los demás pueden hacerse por separado. Si buscas una secuencia de estudio más amplia, [Aprender AWS desde cero: una ruta práctica con recursos en español](/blog/aws-aprender-guia-inicial/) organiza el siguiente paso; el [recorrido de primeros pasos](/recorridos/#primeros-pasos) reúne materiales introductorios del sitio. También puedes acompañar la ruta con el [curso de AWS para principiantes de Cultura DevOps](https://www.youtube.com/playlist?list=PLdOotbFwzDIgjeTHvCSLiGmKKzTpDsLLI): úsalo para entender los servicios, no para copiar sin revisar configuraciones de una grabación anterior.
+Los ejercicios 2–4 reutilizan el mismo bucket; los 5, 6 y 8, la misma función. Sigue ese orden si quieres aprovechar lo creado. Los demás pueden hacerse por separado. Si buscas una secuencia de estudio más amplia, [aprender AWS desde cero: una ruta práctica con recursos en español](/blog/aws-aprender-guia-inicial/) organiza el siguiente paso; el [recorrido de primeros pasos](/recorridos/#primeros-pasos) reúne materiales introductorios del sitio. También puedes acompañar la ruta con el [curso de AWS para principiantes de Cultura DevOps](https://www.youtube.com/playlist?list=PLdOotbFwzDIgjeTHvCSLiGmKKzTpDsLLI): úsalo para entender los servicios, no para copiar sin revisar configuraciones de una grabación anterior.
 
 Los recursos de la comunidad que aparecen más abajo combinan cursos, charlas y artículos. Puedes seguirlos desde cualquier país. Unos explican la decisión detrás del ejercicio; otros muestran proyectos para continuar cuando termines. Como algunas guías tienen varios años, contrasta sus pasos de consola y versiones de herramientas con la documentación actual enlazada en cada laboratorio.
 
@@ -61,7 +61,7 @@ Un presupuesto convierte un número abstracto en una señal que podrás vigilar 
 
 **Al terminar:** puedes conservar el presupuesto si seguirás practicando; es un control útil. Si fue solo una prueba, elimínalo desde Budgets. Revisa también el precio aplicable a los presupuestos de tu cuenta.
 
-Para revisar costos más allá de este aviso, consulta [10 Estrategias de Optimización de Costos en AWS](/blog/10-estrategias-de-optimizacion-de-costos-en-aws/), que reúne controles y herramientas para entender y reducir el gasto.
+Para revisar costos más allá de este aviso, consulta [10 estrategias de optimización de costos en AWS](/blog/10-estrategias-de-optimizacion-de-costos-en-aws/), que reúne controles y herramientas para entender y reducir el gasto.
 
 **Para aprender con la comunidad:** la [sesión de monitoreo y costos del AWS User Group Medellín](https://www.youtube.com/watch?v=2cGwdSTdUqQ) sitúa AWS Budgets junto a Cost Explorer y CloudWatch. Es una grabación para entender cuándo usar cada herramienta; usa la guía actual de AWS para los pasos de consola.
 
@@ -223,7 +223,7 @@ Para probar el tema, crea desde SNS una suscripción de protocolo **Email** usan
 
 Antes de salir de la consola, revisa las Regiones que usaste y comprueba que no queden la distribución de CloudFront, el bucket y su archivo, la HTTP API, la función Lambda y su rol, el grupo de registros, la tabla DynamoDB, la subred y la VPC, ni la pila y la suscripción SNS. Conserva solamente el presupuesto si quieres seguir vigilando tu cuenta. Eliminar un recurso en una pantalla no implica que sus dependencias o registros se hayan borrado; verifica cada resultado.
 
-Si uno de los diez ejercicios te dejó una pregunta, busca una explicación de alguien que ya trabajó ese problema. En [Aprender AWS](/aprender/) encontrarás contenidos concretos; en [creadores y canales](/creadores/), a sus autores. También puedes llevar tus dudas a un [AWS User Group](/comunidades/?format=User+Group) o un [Student Builder Group](/comunidades/?format=Student+Builder+Group) y consultar la [agenda de eventos](/eventos/) para practicar con otras personas. Los directorios abarcan comunidades de países hispanohablantes: elige por tema, modalidad y horario, no por una ciudad supuesta para todos los lectores.
+Si uno de los diez ejercicios te dejó una pregunta, busca una explicación de alguien que ya trabajó ese problema. En [aprender AWS](/aprender/) encontrarás contenidos concretos; en [creadores y canales](/creadores/), a sus autores. También puedes llevar tus dudas a un [AWS User Group](/comunidades/?format=User+Group) o un [student builder group](/comunidades/?format=Student+Builder+Group) y consultar la [Agenda de eventos](/eventos/) para practicar con otras personas. Los directorios abarcan comunidades de países hispanohablantes: elige por tema, modalidad y horario, no por una ciudad supuesta para todos los lectores.
 
 ### Eventos publicados para octubre de 2026
 

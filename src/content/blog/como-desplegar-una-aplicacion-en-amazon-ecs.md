@@ -1,5 +1,5 @@
 ---
-title: "Cómo Desplegar una Aplicación en Amazon ECS"
+title: "Cómo desplegar una aplicación en Amazon ECS"
 description: "Aprende cómo desplegar una aplicación en Amazon ECS paso a paso, desde la configuración inicial hasta la administración y escalado. Descubre cómo configurar AWS CLI y tus credenciales, crear un clúster en ECS, definir tareas con imágenes Docker, verificar el funcionamiento de tu aplicación y más."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
@@ -8,11 +8,11 @@ cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Checklist: Servicios AWS Esenciales para SAA-C03"
+  - title: "Checklist: servicios AWS esenciales para SAA-C03"
     url: "https://dondeaprendoaws.com/blog/checklist-servicios-aws-esenciales-para-saa-c03/"
-  - title: "Guía de Eventos AWS Educate 2024"
+  - title: "Guía de eventos AWS Educate 2024"
     url: "https://dondeaprendoaws.com/blog/guia-de-eventos-aws-educate-2024/"
-  - title: "Aprender AWS gratis: Recursos y Comunidad"
+  - title: "Aprender AWS gratis: recursos y comunidad"
     url: "https://dondeaprendoaws.com/blog/aprender-aws-gratis-recursos-y-comunidad/"
 
 ---
@@ -33,7 +33,7 @@ related:
 <p>Además, resolveremos dudas comunes sobre cómo desplegar aplicaciones en AWS, qué es ECS, los servicios disponibles para ejecutar aplicaciones en contenedores, y qué es Amazon Fargate. Este es un recorrido completo para que empieces a utilizar Amazon ECS y Fargate, simplificando el manejo de contenedores y permitiéndote enfocarte más en el desarrollo de tu aplicación.</p>
 
 
-<h3 id="conocimientos-b%C3%A1sicos-de-aws" tabindex="-1">Conocimientos Básicos de AWS</h3>
+<h3 id="conocimientos-b%C3%A1sicos-de-aws" tabindex="-1">Conocimientos básicos de AWS</h3>
 
 
 <ul>
@@ -43,7 +43,7 @@ related:
 </ul>
 
 
-<h3 id="cli-de-aws-instalada-y-configurada" tabindex="-1">CLI de AWS Instalada y Configurada</h3>
+<h3 id="cli-de-aws-instalada-y-configurada" tabindex="-1">CLI de AWS instalada y configurada</h3>
 
 
 <ul>
@@ -67,7 +67,7 @@ related:
 <p>En pocas palabras, asegúrate de conocer un poco sobre AWS y cómo funcionan los contenedores, tener la CLI de AWS lista en tu computadora, y tener una cuenta de AWS para tus pruebas. Esto te pondrá en buen camino para empezar a jugar con la idea de lanzar aplicaciones en contenedores usando Amazon ECS.</p>
 
 
-<h2 id="paso-1%3A-configuraci%C3%B3n-inicial-de-ecs" tabindex="-1">Paso 1: Configuración Inicial de ECS</h2>
+<h2 id="paso-1%3A-configuraci%C3%B3n-inicial-de-ecs" tabindex="-1">Paso 1: configuración inicial de ECS</h2>
 
 
 <h3 id="1.1-crear-clave-de-credencial-de-usuario" tabindex="-1">1.1 Crear clave de credencial de usuario</h3>
@@ -115,7 +115,7 @@ related:
 <p>Este comando te mostrará información sobre tu cuenta de AWS.</p>
 
 
-<h2 id="paso-2%3A-crear-y-configurar-un-cl%C3%BAster-ecs" tabindex="-1">Paso 2: Crear y Configurar un Clúster ECS</h2>
+<h2 id="paso-2%3A-crear-y-configurar-un-cl%C3%BAster-ecs" tabindex="-1">Paso 2: crear y configurar un clúster ECS</h2>
 
 
 <h3 id="2.1-crear-cl%C3%BAster-ecs" tabindex="-1">2.1 Crear clúster ECS</h3>
@@ -171,7 +171,7 @@ related:
 <p>Siguiendo estos pasos, podrás conectarte y manejar tu instancia EC2 sin problemas.</p>
 
 
-<h2 id="paso-3%3A-definici%C3%B3n-de-tareas" tabindex="-1">Paso 3: Definición de Tareas</h2>
+<h2 id="paso-3%3A-definici%C3%B3n-de-tareas" tabindex="-1">Paso 3: definición de tareas</h2>
 
 
 <h3 id="3.1-crear-definici%C3%B3n-de-tarea" tabindex="-1">3.1 Crear definición de tarea</h3>
@@ -212,7 +212,7 @@ related:
 <p>Configurando bien estos aspectos, tu contenedor debería correr sin problemas en las instancias EC2 de tu clúster de ECS.</p>
 
 
-<h2 id="paso-4%3A-configurar-y-desplegar-el-servicio" tabindex="-1">Paso 4: Configurar y Desplegar el Servicio</h2>
+<h2 id="paso-4%3A-configurar-y-desplegar-el-servicio" tabindex="-1">Paso 4: configurar y desplegar el servicio</h2>
 
 
 <h3 id="4.1-configurar-par%C3%A1metros-del-servicio" tabindex="-1">4.1 Configurar parámetros del servicio</h3>
@@ -251,10 +251,10 @@ related:
 
 
 
-<h2 id="paso-5%3A-verificaci%C3%B3n-y-pruebas" tabindex="-1">Paso 5: Verificación y Pruebas</h2>
+<h2 id="paso-5%3A-verificaci%C3%B3n-y-pruebas" tabindex="-1">Paso 5: verificación y pruebas</h2>
 
 
-<h3 id="5.1-comprobar-la-instancia-ec2" tabindex="-1">5.1 Comprobar la Instancia EC2</h3>
+<h3 id="5.1-comprobar-la-instancia-ec2" tabindex="-1">5.1 Comprobar la instancia EC2</h3>
 
 
 <p>Para asegurarte de que tu aplicación funciona bien en la instancia EC2, haz lo siguiente:</p>
@@ -284,7 +284,7 @@ related:
 <p>Con estos pasos, deberías poder entrar a tu aplicación sin problemas usando la dirección IP.</p>
 
 
-<h3 id="5.2-probar-el-funcionamiento" tabindex="-1">5.2 Probar el Funcionamiento</h3>
+<h3 id="5.2-probar-el-funcionamiento" tabindex="-1">5.2 Probar el funcionamiento</h3>
 
 
 <p>Con tu aplicación ya en línea, prueba estas cosas para ver que todo marcha bien:</p>
@@ -302,7 +302,7 @@ related:
 <p>Haciendo estas pruebas, podrás confirmar que tu aplicación está lista para ser usada por otras personas.</p>
 
 
-<h2 id="paso-6%3A-administraci%C3%B3n-y-escalado-de-tu-aplicaci%C3%B3n-en-ecs" tabindex="-1">Paso 6: Administración y Escalado de tu Aplicación en ECS</h2>
+<h2 id="paso-6%3A-administraci%C3%B3n-y-escalado-de-tu-aplicaci%C3%B3n-en-ecs" tabindex="-1">Paso 6: administración y escalado de tu aplicación en ECS</h2>
 
 
 <h3 id="monitoreo-de-recursos" tabindex="-1">Monitoreo de recursos</h3>
@@ -388,7 +388,7 @@ related:
 <p>ECS es una buena opción para cualquier tipo de proyecto en la nube, desde aplicaciones pequeñas hasta sistemas grandes de microservicios. Vale la pena considerarlo si estás pensando en modernizar cómo lanzas tus aplicaciones.</p>
 
 
-<h2 id="preguntas-frecuentes" tabindex="-1">Preguntas Frecuentes</h2>
+<h2 id="preguntas-frecuentes" tabindex="-1">Preguntas frecuentes</h2>
 
 
 <h3 id="%C2%BFc%C3%B3mo-desplegar-una-aplicaci%C3%B3n-en-aws%3F" tabindex="-1">¿Cómo desplegar una aplicación en AWS?</h3>
@@ -442,6 +442,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ecs/">Mejores Prácticas Para Amazon ECS</a></li><li><a href="https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/">Cómo Desplegar Contenedores en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/opciones-para-desplegar-contenedores-en-aws-ecs-y-eks/">Opciones para Desplegar Contenedores en AWS: ECS y EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-eks/">Mejores Prácticas Para Amazon EKS</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ecs/">Mejores prácticas para Amazon ECS</a></li><li><a href="https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/">Cómo desplegar contenedores en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/opciones-para-desplegar-contenedores-en-aws-ecs-y-eks/">Opciones para desplegar contenedores en AWS: ECS y EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-eks/">Mejores prácticas para Amazon EKS</a></li>
 </ul>
 </p>

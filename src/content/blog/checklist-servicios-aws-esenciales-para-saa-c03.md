@@ -1,5 +1,5 @@
 ---
-title: "Checklist: Servicios AWS Esenciales para SAA-C03"
+title: "Checklist: servicios AWS esenciales para SAA-C03"
 description: "Prepárate para el examen SAA-C03 de AWS con una guía completa sobre servicios, arquitecturas y estrategias de estudio efectivas."
 author: "guille-ojeda"
 publishedAt: "2025-04-03"
@@ -8,9 +8,9 @@ cover: "/assets/blog/editorial-certificacion.png"
 coverAlt: "Tres tarjetas de estudio con apuntes y hitos sobre un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-certificacion.png"
 related:
-  - title: "Concurrencia Aprovisionada: Solución a Cold Starts en AWS Lambda"
+  - title: "Concurrencia aprovisionada: solución a cold starts en AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/concurrencia-aprovisionada-solucion-a-cold-starts-en-aws-lambda/"
-  - title: "Guía de Amazon ElastiCache: Almacenamiento en Caché en Memoria"
+  - title: "Guía de Amazon ElastiCache: almacenamiento en caché en memoria"
     url: "https://dondeaprendoaws.com/blog/guia-de-amazon-elasticache-almacenamiento-en-cache-en-memoria/"
   - title: "Comprendiendo Kubernetes y Amazon EKS"
     url: "https://dondeaprendoaws.com/blog/comprendiendo-kubernetes-y-amazon-eks/"
@@ -73,7 +73,7 @@ related:
 <tr>
 <td><a href="https://docs.aws.amazon.com/lambda/" rel="nofollow noopener noreferrer" target="_blank">AWS Lambda</a></td>
 <td>Ejecución sin servidor, activación por eventos, límites de tiempo</td>
-<td><a href="https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-aws-lambda/">Casos de uso serverless</a>, integración con otros servicios, patrones arquitectónicos</td>
+<td><a href="https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-aws-lambda/">casos de uso serverless</a>, integración con otros servicios, patrones arquitectónicos</td>
 </tr>
 <tr>
 <td>Elastic Load Balancing</td>
@@ -197,7 +197,7 @@ related:
 <p>Dominar estos servicios implica comprender sus características, limitaciones y los escenarios en los que son más efectivos para crear soluciones confiables y protegidas.</p>
 <h2 class="sb h2-sbb-cls" id="aws-well-architected-framework" tabindex="-1">AWS Well-Architected Framework</h2>
 <p>El AWS Well-Architected Framework juega un papel importante en el examen SAA-C03, ya que establece prácticas recomendadas para construir <a href="https://dondeaprendoaws.com/blog/arquitectura-en-la-nube-tendencias-emergentes/">arquitecturas en la nube</a>. Esta sección complementa los conocimientos sobre servicios clave, destacando cómo se integran bajo principios arquitectónicos sólidos.</p>
-<h3 id="pilares-del-framework" tabindex="-1">Pilares del Framework</h3>
+<h3 id="pilares-del-framework" tabindex="-1">Pilares del framework</h3>
 <p>El framework está estructurado en cinco pilares fundamentales que todo arquitecto de soluciones debe conocer a fondo:</p>
 <figure class="table"><table>
 <thead>
@@ -268,8 +268,8 @@ related:
 </ul>
 <p>Estos pilares trabajan juntos para garantizar que las arquitecturas sean sólidas. Por ejemplo, una estrategia de optimización de costes debe equilibrarse con las necesidades de rendimiento y fiabilidad.</p>
 <p>Comprender y aplicar el Well-Architected Framework te permitirá diseñar soluciones que equilibren rendimiento, costes, seguridad y fiabilidad de manera efectiva.</p>
-<h2 class="sb h2-sbb-cls" id="guia-de-estudio" tabindex="-1">Guía de Estudio</h2>
-<h3 id="laboratorios-practicos" tabindex="-1">Laboratorios Prácticos</h3>
+<h2 class="sb h2-sbb-cls" id="guia-de-estudio" tabindex="-1">Guía de estudio</h2>
+<h3 id="laboratorios-practicos" tabindex="-1">Laboratorios prácticos</h3>
 <p>Aprovecha el Free Tier de AWS durante 12 meses para trabajar con servicios clave. Aquí tienes un resumen de los servicios más útiles para tus prácticas:</p>
 <figure class="table"><table>
 <thead>
@@ -298,11 +298,11 @@ related:
 <tr>
 <td>Lambda</td>
 <td>1 millón de solicitudes/mes</td>
-<td><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Arquitecturas serverless</a>, integraciones</td>
+<td><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">arquitecturas serverless</a>, integraciones</td>
 </tr>
 </tbody>
 </table></figure>
-<h3 id="pruebas-de-practica" tabindex="-1">Pruebas de Práctica</h3>
+<h3 id="pruebas-de-practica" tabindex="-1">Pruebas de práctica</h3>
 <p>Las pruebas de práctica son clave para entender el formato y nivel del examen SAA-C03. Aquí tienes algunos consejos para sacarles el máximo partido:</p>
 <ul>
 <li>Realiza al menos tres exámenes completos.</li>
@@ -311,25 +311,25 @@ related:
 <li>Trabaja en escenarios integrados para aplicar los conceptos.</li>
 </ul>
 <p>Refuerza tus conocimientos con la documentación y guías oficiales de AWS.</p>
-<h3 id="materiales-de-estudio" tabindex="-1">Materiales de Estudio</h3>
+<h3 id="materiales-de-estudio" tabindex="-1">Materiales de estudio</h3>
 <p>La documentación oficial de AWS es tu mejor aliada para prepararte. Estos son los recursos más útiles:</p>
 <ul>
-<li><strong><a href="https://dondeaprendoaws.com/blog/5-whitepapers-de-aws-para-aprobar-examenes/">AWS Whitepapers</a></strong>: Enfócate en los relacionados con arquitectura y seguridad.</li>
+<li><strong><a href="https://dondeaprendoaws.com/blog/5-whitepapers-de-aws-para-aprobar-examenes/">AWS whitepapers</a></strong>: Enfócate en los relacionados con arquitectura y seguridad.</li>
 <li><strong>Guías de Usuario</strong>: Consulta documentación detallada de cada servicio.</li>
 <li><strong>AWS Well-Architected Framework</strong>: Aprende los principios y <a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">mejores prácticas</a>.</li>
 <li><strong>AWS Architecture Center</strong>: Revisa patrones de diseño y ejemplos prácticos.</li>
 </ul>
-<h3 id="recursos-en-espanol" tabindex="-1">Recursos en Español</h3>
+<h3 id="recursos-en-espanol" tabindex="-1">Recursos en español</h3>
 <p>Para complementar tu preparación, utiliza recursos de la comunidad hispanohablante como los de <a href="https://dondeaprendoaws.com/">Dónde Aprendo AWS</a>, que explican conceptos en español y ofrecen guías prácticas:</p>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">Artículos sobre servicios específicos de AWS</a>.</li>
+<li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">artículos sobre servicios específicos de AWS</a>.</li>
 <li>Explicaciones claras de conceptos avanzados.</li>
 <li>Instrucciones paso a paso para configuraciones comunes.</li>
 <li>Referencias a otros <a href="https://dondeaprendoaws.com/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/">recursos en español</a> de la comunidad AWS.</li>
 </ul>
 <p>Combina estos recursos con práctica constante y la documentación oficial. El examen se enfoca en la aplicación de conocimientos, no solo en la teoría.</p>
 <h2 class="sb h2-sbb-cls" id="resumen" tabindex="-1">Resumen</h2>
-<h3 id="puntos-clave" tabindex="-1">Puntos Clave</h3>
+<h3 id="puntos-clave" tabindex="-1">Puntos clave</h3>
 <p>El examen SAA-C03 exige un conocimiento sólido de los servicios más importantes de AWS. Aquí tienes los aspectos esenciales que debes tener en mente:</p>
 <ul>
 <li><strong>Servicios Principales</strong>: Dedica tiempo a estudiar servicios como EC2, S3, RDS y Lambda, que son claves para el examen.</li>
@@ -338,7 +338,7 @@ related:
 <li><strong>Documentación Oficial</strong>: Consulta whitepapers y guías proporcionadas por AWS.</li>
 </ul>
 <p>Con estos puntos claros, sigue una estrategia organizada para optimizar tu preparación.</p>
-<h3 id="proximos-pasos" tabindex="-1">Próximos Pasos</h3>
+<h3 id="proximos-pasos" tabindex="-1">Próximos pasos</h3>
 <ol>
 <li>
 <strong>Examen Diagnóstico</strong>
@@ -360,4 +360,4 @@ Asegúrate de tener todo lo necesario para tu preparación:
 </li>
 </ol>
 <p>Sigue estos pasos y estarás mejor preparado para afrontar el examen SAA-C03.</p>
-<h2>Related posts</h2><ul><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/">Introducción a los servicios de Amazon Web Services</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/guia-de-estudio-aws-certified-cloud-practitioner-clf-c02/">Guía de Estudio AWS Certified Cloud Practitioner CLF-C02</a></li><li><a href="https://dondeaprendoaws.com/blog/checklist-para-automatizar-cumplimiento-en-aws/">Checklist para automatizar cumplimiento en AWS</a></li></ul>
+<h2>Related posts</h2><ul><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/">Introducción a los servicios de Amazon Web Services</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/guia-de-estudio-aws-certified-cloud-practitioner-clf-c02/">Guía de estudio AWS Certified Cloud Practitioner CLF-C02</a></li><li><a href="https://dondeaprendoaws.com/blog/checklist-para-automatizar-cumplimiento-en-aws/">Checklist para automatizar cumplimiento en AWS</a></li></ul>

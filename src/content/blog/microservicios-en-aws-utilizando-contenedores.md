@@ -1,5 +1,5 @@
 ---
-title: "Microservicios en AWS Utilizando Contenedores"
+title: "Microservicios en AWS utilizando contenedores"
 description: "Descubre cómo desplegar aplicaciones de manera eficiente, flexible y escalable con microservicios en AWS utilizando contenedores. Aprende sobre ECS, EKS, Fargate y más."
 author: "guille-ojeda"
 publishedAt: "2024-03-19"
@@ -8,11 +8,11 @@ cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Control Plane vs Data Plane en AWS App Mesh"
+  - title: "Control plane vs data plane en AWS App Mesh"
     url: "https://dondeaprendoaws.com/blog/control-plane-vs-data-plane-en-aws-app-mesh/"
-  - title: "Mejores Prácticas Para Amazon ECS"
+  - title: "Mejores prácticas para Amazon ECS"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ecs/"
-  - title: "AWS Seguridad: Mejores Prácticas"
+  - title: "AWS seguridad: mejores prácticas"
     url: "https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/"
 
 ---
@@ -374,7 +374,7 @@ kubectl get services
 <p>¡Te deseo lo mejor en tu aventura con los microservicios!</p>
 
 
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas Relacionadas</h2>
+<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
 
 
 <h3 id="%C2%BFqu%C3%A9-son-los-contenedores-en-microservicios%3F" tabindex="-1">¿Qué son los contenedores en microservicios?</h3>
@@ -434,7 +434,7 @@ kubectl get services
 <p>AWS tiene servicios como ECS, EKS y Fargate para ayudarte a manejar contenedores sin importar el tamaño de tu proyecto.</p>
 
 
-<h3 id="%C2%BFqu%C3%A9-es-un-microservicio-aws%3F" tabindex="-1">¿Qué es un Microservicio AWS?</h3>
+<h3 id="%C2%BFqu%C3%A9-es-un-microservicio-aws%3F" tabindex="-1">¿Qué es un microservicio AWS?</h3>
 
 
 <p>Un microservicio AWS es una pequeña aplicación autónoma diseñada para hacer una tarea específica. Es parte de un estilo de construir aplicaciones donde cada parte trabaja de forma independiente.</p>
@@ -458,6 +458,6 @@ kubectl get services
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ecs/">Mejores Prácticas Para Amazon ECS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-eks/">Mejores Prácticas Para Amazon EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/opciones-para-desplegar-contenedores-en-aws-ecs-y-eks/">Opciones para Desplegar Contenedores en AWS: ECS y EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/">Cómo Desplegar Contenedores en AWS</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ecs/">Mejores prácticas para Amazon ECS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-eks/">Mejores prácticas para Amazon EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/opciones-para-desplegar-contenedores-en-aws-ecs-y-eks/">Opciones para desplegar contenedores en AWS: ECS y EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/">Cómo desplegar contenedores en AWS</a></li>
 </ul>
 </p>

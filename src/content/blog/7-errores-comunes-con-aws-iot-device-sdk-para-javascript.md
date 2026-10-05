@@ -109,4 +109,4 @@ AWS proporciona documentación y ejemplos técnicos para [conectar un dispositiv
 
 Si quieres conversar sobre AWS con otras personas, consulta las actividades de [AWS User Group Perú](https://awsugperu.cloud/) o [AWS User Group Ecuador](https://www.awsugecuador.com/). Son comunidades generales de AWS; sus páginas muestran cómo seguir sus eventos y actividades, sin presentarlas como grupos especializados en este SDK.
 
-La [agenda de eventos AWS en Latinoamérica](https://dondeaprendoaws.com/eventos/) se actualiza con encuentros de las comunidades y permite revisar modalidad, país, fecha e inscripción. Confirma la fecha y las condiciones en cada ficha antes de participar.
+La [Agenda de eventos AWS en Latinoamérica](https://dondeaprendoaws.com/eventos/) se actualiza con encuentros de las comunidades y permite revisar modalidad, país, fecha e inscripción. Confirma la fecha y las condiciones en cada ficha antes de participar.

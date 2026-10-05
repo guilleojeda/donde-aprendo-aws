@@ -1,5 +1,5 @@
 ---
-title: "Guía Completa de AWS Elastic Beanstalk"
+title: "Guía completa de AWS Elastic Beanstalk"
 description: "Descubre la guía completa de AWS Elastic Beanstalk, con información sobre despliegue rápido, escalabilidad automática, alta disponibilidad, casos de uso comunes, administración de entornos, monitoreo, seguridad, precios y más."
 author: "guille-ojeda"
 publishedAt: "2024-03-19"
@@ -10,7 +10,7 @@ ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Cómo monitorear SLOs con Amazon CloudWatch"
     url: "https://dondeaprendoaws.com/blog/como-monitorear-slos-con-amazon-cloudwatch/"
-  - title: "Políticas de Control de Servicios (SCPs) en AWS"
+  - title: "Políticas de control de servicios (SCPs) en AWS"
     url: "https://dondeaprendoaws.com/blog/politicas-de-control-de-servicios-scps-en-aws/"
   - title: "Arquitectura en la nube: tendencias emergentes"
     url: "https://dondeaprendoaws.com/blog/arquitectura-en-la-nube-tendencias-emergentes/"
@@ -32,7 +32,7 @@ related:
 <p>Elastic Beanstalk es perfecto para aplicaciones con tráfico variable, que necesitan escalar rápidamente o para simplificar la migración a la nube.</p>
 
 
-<h3 id="prop%C3%B3sito-y-valor" tabindex="-1">Propósito y Valor</h3>
+<h3 id="prop%C3%B3sito-y-valor" tabindex="-1">Propósito y valor</h3>
 
 
 <p>La idea detrás de Elastic Beanstalk es simplificar todo el proceso de poner una aplicación en la web usando AWS. Sus principales ventajas son:</p>
@@ -48,7 +48,7 @@ related:
 <p>En pocas palabras, Elastic Beanstalk te ahorra un montón de trabajo al ocuparse de los aspectos técnicos de poner una aplicación en línea.</p>
 
 
-<h3 id="funcionamiento-y-arquitectura" tabindex="-1">Funcionamiento y Arquitectura</h3>
+<h3 id="funcionamiento-y-arquitectura" tabindex="-1">Funcionamiento y arquitectura</h3>
 
 
 <p>Elastic Beanstalk crea y configura todo lo necesario para que tu aplicación funcione, como servidores, bases de datos y más. Esto incluye:</p>
@@ -65,7 +65,7 @@ related:
 <p>Elastic Beanstalk se encarga de todos estos detalles por ti, manteniendo tu aplicación funcionando de manera eficiente.</p>
 
 
-<h3 id="casos-de-uso-comunes" tabindex="-1">Casos de Uso Comunes</h3>
+<h3 id="casos-de-uso-comunes" tabindex="-1">Casos de uso comunes</h3>
 
 
 <p>Elastic Beanstalk es útil en situaciones como:</p>
@@ -82,10 +82,10 @@ related:
 <p>En resumen, Elastic Beanstalk es una gran herramienta si quieres subir aplicaciones a la web rápidamente sin tener que manejar todos los aspectos técnicos tú mismo.</p>
 
 
-<h2 id="primeros-pasos" tabindex="-1">Primeros Pasos</h2>
+<h2 id="primeros-pasos" tabindex="-1">Primeros pasos</h2>
 
 
-<h3 id="configurar-una-cuenta-de-aws" tabindex="-1">Configurar una Cuenta de AWS</h3>
+<h3 id="configurar-una-cuenta-de-aws" tabindex="-1">Configurar una cuenta de AWS</h3>
 
 
 <p>Para comenzar con Elastic Beanstalk, lo primero es tener una cuenta en AWS. Aquí te digo cómo:</p>
@@ -103,7 +103,7 @@ related:
 <p>Ahora ya estás listo para empezar a explorar Elastic Beanstalk desde la web de AWS.</p>
 
 
-<h3 id="crear-una-aplicaci%C3%B3n-de-ejemplo" tabindex="-1">Crear una Aplicación de Ejemplo</h3>
+<h3 id="crear-una-aplicaci%C3%B3n-de-ejemplo" tabindex="-1">Crear una aplicación de ejemplo</h3>
 
 
 <p>Vamos a probar Elastic Beanstalk con una aplicación simple que viene con el servicio:</p>
@@ -121,7 +121,7 @@ related:
 <p>Eso es todo. Elastic Beanstalk configurará un entorno con una aplicación de ejemplo que ya funciona.</p>
 
 
-<h3 id="explorar-la-aplicaci%C3%B3n-y-el-entorno" tabindex="-1">Explorar la Aplicación y el Entorno</h3>
+<h3 id="explorar-la-aplicaci%C3%B3n-y-el-entorno" tabindex="-1">Explorar la aplicación y el entorno</h3>
 
 
 <p>Una vez que tienes el entorno listo, podrás:</p>
@@ -138,10 +138,10 @@ related:
 <p>Usando la consola de Elastic Beanstalk, podemos entender mejor cómo funciona este servicio y cómo podemos usarlo con nuestras propias aplicaciones.</p>
 
 
-<h2 id="desarrollo-y-despliegue-de-aplicaciones" tabindex="-1">Desarrollo y Despliegue de Aplicaciones</h2>
+<h2 id="desarrollo-y-despliegue-de-aplicaciones" tabindex="-1">Desarrollo y despliegue de aplicaciones</h2>
 
 
-<h3 id="tutoriales-por-lenguaje" tabindex="-1">Tutoriales por Lenguaje</h3>
+<h3 id="tutoriales-por-lenguaje" tabindex="-1">Tutoriales por lenguaje</h3>
 
 
 <p>Si quieres aprender a hacer y poner en marcha aplicaciones usando Elastic Beanstalk, hay guías para varios lenguajes de programación. Aquí tienes algunos ejemplos:</p>
@@ -165,7 +165,7 @@ related:
 <p>Estos tutoriales te llevan paso a paso desde cómo preparar tu espacio de trabajo hasta cómo lanzar tu aplicación al mundo, enseñándote las mejores maneras de organizar tu código, cómo hacer pruebas y mucho más.</p>
 
 
-<h3 id="aplicaciones-de-ejemplo" tabindex="-1">Aplicaciones de Ejemplo</h3>
+<h3 id="aplicaciones-de-ejemplo" tabindex="-1">Aplicaciones de ejemplo</h3>
 
 
 <p>Para que veas cómo funciona Elastic Beanstalk, puedes encontrar proyectos listos para usar en GitHub:</p>
@@ -182,7 +182,7 @@ related:
 <p>Estos proyectos te muestran ejemplos reales y cómo sacarle partido a Elastic Beanstalk.</p>
 
 
-<h3 id="pr%C3%A1cticas-recomendadas" tabindex="-1">Prácticas Recomendadas</h3>
+<h3 id="pr%C3%A1cticas-recomendadas" tabindex="-1">Prácticas recomendadas</h3>
 
 
 <p>Aquí van algunos consejos para cuando desarrolles y despliegues aplicaciones en Elastic Beanstalk:</p>
@@ -200,13 +200,13 @@ related:
 <p>Siguiendo estos consejos y utilizando herramientas de automatización, podrás aprovechar al máximo lo que Elastic Beanstalk tiene para ofrecer.</p>
 
 
-<h2 id="administraci%C3%B3n-de-entornos-elastic-beanstalk" tabindex="-1">Administración de Entornos Elastic Beanstalk</h2>
+<h2 id="administraci%C3%B3n-de-entornos-elastic-beanstalk" tabindex="-1">Administración de entornos elastic beanstalk</h2>
 
 
 <p>Manejar los entornos en Elastic Beanstalk es clave para que tus aplicaciones funcionen bien. Aquí te contamos cómo puedes hacerlo de diferentes maneras:</p>
 
 
-<h3 id="con-la-consola-de-administraci%C3%B3n" tabindex="-1">Con la Consola de Administración</h3>
+<h3 id="con-la-consola-de-administraci%C3%B3n" tabindex="-1">Con la consola de administración</h3>
 
 
 <p>La consola web de Elastic Beanstalk es una herramienta visual para cuidar de tus entornos. Con ella puedes:</p>
@@ -242,7 +242,7 @@ related:
 <p>Es perfecto si te gusta automatizar cosas o si usas Git para manejar tus proyectos. Eso sí, necesitas saber cómo usar comandos de texto.</p>
 
 
-<h3 id="opciones-de-configuraci%C3%B3n" tabindex="-1">Opciones de Configuración</h3>
+<h3 id="opciones-de-configuraci%C3%B3n" tabindex="-1">Opciones de configuración</h3>
 
 
 <p>Con Elastic Beanstalk, puedes ajustar un montón de cosas de tus entornos. Algunas de las configuraciones más importantes son:</p>
@@ -262,7 +262,7 @@ related:
 <p>Cambiando estas opciones, puedes hacer que tus aplicaciones funcionen mejor, sean más seguras, y se ajusten a lo que necesitas.</p>
 
 
-<h2 id="monitoreo%2C-registros-y-soluci%C3%B3n-de-problemas" tabindex="-1">Monitoreo, Registros y Solución de Problemas</h2>
+<h2 id="monitoreo%2C-registros-y-soluci%C3%B3n-de-problemas" tabindex="-1">Monitoreo, registros y solución de problemas</h2>
 
 
 <h3 id="uso-de-amazon-cloudwatch" tabindex="-1">Uso de Amazon CloudWatch</h3>
@@ -296,7 +296,7 @@ related:
 <p>Si nunca has usado CloudWatch, aquí tienes una <a href="https://docs.aws.amazon.com/es_es/AmazonCloudWatch/latest/monitoring/WhatIsCloudWatch.html" rel="noopener noreferrer" target="_blank">guía sencilla</a> para empezar.</p>
 
 
-<h3 id="revisi%C3%B3n-de-registros" tabindex="-1">Revisión de Registros</h3>
+<h3 id="revisi%C3%B3n-de-registros" tabindex="-1">Revisión de registros</h3>
 
 
 <p>Aparte de ver las métricas, también puedes revisar los registros que Elastic Beanstalk crea para entender mejor qué está pasando. Hay 3 tipos principales:</p>
@@ -315,7 +315,7 @@ related:
 <p>Puedes ver los registros desde la consola de Elastic Beanstalk o usando la CLI.</p>
 
 
-<h3 id="soluci%C3%B3n-de-problemas-comunes" tabindex="-1">Solución de Problemas Comunes</h3>
+<h3 id="soluci%C3%B3n-de-problemas-comunes" tabindex="-1">Solución de problemas comunes</h3>
 
 
 <p>Aquí algunos problemas comunes en Elastic Beanstalk y cómo solucionarlos:</p>
@@ -394,7 +394,7 @@ related:
 <p>Siguiendo estos consejos, puedes ayudar a que tus aplicaciones en Elastic Beanstalk estén más seguras.</p>
 
 
-<h2 id="precios-y-costos" tabindex="-1">Precios y Costos</h2>
+<h2 id="precios-y-costos" tabindex="-1">Precios y costos</h2>
 
 
 <p>Usar Elastic Beanstalk no te cuesta nada por sí solo, pero sí pagas por los recursos de AWS que consume tu aplicación. Esto incluye cosas como:</p>
@@ -523,6 +523,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/como-utilizar-elasticsearch-en-aws/">Cómo Utilizar ElasticSearch en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/">Cómo Desplegar Contenedores en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS Fundamentos: Guía de Inicio Rápido</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/como-utilizar-elasticsearch-en-aws/">Cómo utilizar Elasticsearch en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/">Cómo desplegar contenedores en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS fundamentos: guía de inicio rápido</a></li>
 </ul>
 </p>

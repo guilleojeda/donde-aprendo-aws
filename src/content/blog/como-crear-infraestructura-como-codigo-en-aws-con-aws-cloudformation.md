@@ -1,5 +1,5 @@
 ---
-title: "Cómo crear Infraestructura como Código en AWS con AWS CloudFormation"
+title: "Cómo crear infraestructura como código en AWS con AWS CloudFormation"
 description: "Aprende a crear infraestructura como código en AWS con AWS CloudFormation. Descubre los beneficios, conceptos básicos, pasos previos necesarios y mejores prácticas para automatizar y gestionar tus recursos en la nube."
 author: "guille-ojeda"
 publishedAt: "2024-03-18"
@@ -8,11 +8,11 @@ cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Cómo Optimizar la Transferencia de Datos en API Gateway"
+  - title: "Cómo optimizar la transferencia de datos en API Gateway"
     url: "https://dondeaprendoaws.com/blog/como-optimizar-la-transferencia-de-datos-en-api-gateway/"
-  - title: "Guía para Crear APIs Serverless con AWS Lambda y API Gateway"
+  - title: "Guía para crear APIs serverless con AWS Lambda y API Gateway"
     url: "https://dondeaprendoaws.com/blog/guia-para-crear-apis-serverless-con-aws-lambda-y-api-gateway/"
-  - title: "Microservicios en AWS Utilizando AWS Lambda"
+  - title: "Microservicios en AWS utilizando AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-aws-lambda/"
 
 ---
@@ -275,7 +275,7 @@ related:
 </ul>
 
 
-<h3 id="opci%C3%B3n-1%3A-editar-la-plantilla-original" tabindex="-1">Opción 1: Editar la plantilla original</h3>
+<h3 id="opci%C3%B3n-1%3A-editar-la-plantilla-original" tabindex="-1">Opción 1: editar la plantilla original</h3>
 
 
 <p>Editar la plantilla original es práctico porque mantienes todo organizado en un solo lugar. Los pasos a seguir serían:</p>
@@ -316,7 +316,7 @@ related:
 </ul>
 
 
-<h3 id="opci%C3%B3n-2%3A-unir-pilas" tabindex="-1">Opción 2: Unir pilas</h3>
+<h3 id="opci%C3%B3n-2%3A-unir-pilas" tabindex="-1">Opción 2: unir pilas</h3>
 
 
 <p>Si prefieres, puedes dejar tu infraestructura como está y crear una nueva plantilla con solo los cambios. Después, puedes hacer que ambas trabajen juntas. Esto sería así:</p>
@@ -468,7 +468,7 @@ related:
 <p>En pocas palabras, CloudFormation nos permite manejar nuestra infraestructura en AWS de una manera organizada y eficiente, siguiendo las prácticas de Infraestructura como Código.</p>
 
 
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas Relacionadas</h2>
+<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
 
 
 <h3 id="%C2%BFqu%C3%A9-servicio-de-aws-permite-administrar-la-infraestructura-usando-c%C3%B3digo%3F" tabindex="-1">¿Qué servicio de AWS permite administrar la infraestructura usando código?</h3>
@@ -498,6 +498,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/nube-aws-guia-de-inicio-rapido/">Nube AWS: Guía de Inicio Rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a Serverless en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Aprender AWS: guía inicial</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/nube-aws-guia-de-inicio-rapido/">Nube AWS: guía de inicio rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a serverless en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li>
 </ul>
 </p>

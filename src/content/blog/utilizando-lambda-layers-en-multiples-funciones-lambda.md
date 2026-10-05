@@ -1,5 +1,5 @@
 ---
-title: "Utilizando Lambda Layers en Múltiples Funciones Lambda"
+title: "Utilizando Lambda layers en múltiples funciones Lambda"
 description: "Aprende a utilizar Lambda Layers en AWS Lambda para reutilizar código, reducir tamaños de paquetes y gestionar actualizaciones de manera eficiente. Descubre cómo crear, configurar y usar Lambda Layers con ejemplos prácticos."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
@@ -8,11 +8,11 @@ cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Mejores Prácticas de Machine Learning en AWS"
+  - title: "Mejores prácticas de machine learning en AWS"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-de-machine-learning-en-aws/"
-  - title: "Ingeniería de Caos en AWS con Fault Injection Simulator"
+  - title: "Ingeniería de caos en AWS con fault injection simulator"
     url: "https://dondeaprendoaws.com/blog/ingenieria-de-caos-en-aws-con-fault-injection-simulator/"
-  - title: "Desarrollando Aplicaciones con AWS Lambda"
+  - title: "Desarrollando aplicaciones con AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/desarrollando-aplicaciones-con-aws-lambda/"
 
 ---
@@ -31,37 +31,37 @@ related:
 <p>Este artículo te guiará paso a paso sobre cómo crear, configurar y utilizar Lambda Layers para hacer tus proyectos más manejables, rápidos y organizados, con ejemplos prácticos tanto para la interfaz de AWS como para la línea de comandos.</p>
 
 
-<h2 id="beneficios-de-utilizar-lambda-layers" tabindex="-1">Beneficios de Utilizar Lambda Layers</h2>
+<h2 id="beneficios-de-utilizar-lambda-layers" tabindex="-1">Beneficios de utilizar Lambda layers</h2>
 
 
 <p>Las Lambda Layers te ayudan de varias maneras importantes cuando trabajas con aplicaciones que no necesitan un servidor fijo:</p>
 
 
-<h3 id="reutilizaci%C3%B3n-de-c%C3%B3digo" tabindex="-1">Reutilización de Código</h3>
+<h3 id="reutilizaci%C3%B3n-de-c%C3%B3digo" tabindex="-1">Reutilización de código</h3>
 
 
 <p>Piensa en Lambda Layers como un lugar donde puedes guardar código que varias funciones Lambda podrían necesitar. Así, en vez de copiar y pegar el mismo código en todas partes, simplemente lo pones en una capa y lo usas desde ahí. Esto hace que programar sea más rápido y reduce los errores.</p>
 
 
-<h3 id="reducci%C3%B3n-de-tama%C3%B1os-de-paquetes" tabindex="-1">Reducción de Tamaños de Paquetes</h3>
+<h3 id="reducci%C3%B3n-de-tama%C3%B1os-de-paquetes" tabindex="-1">Reducción de tamaños de paquetes</h3>
 
 
 <p>Al poner cosas como librerías que no cambian mucho en una Lambda Layer, haces que los paquetes de tus funciones Lambda sean más pequeños. Esto significa que se suben y empiezan a trabajar más rápido, lo cual es genial.</p>
 
 
-<h3 id="gesti%C3%B3n-centralizada" tabindex="-1">Gestión Centralizada</h3>
+<h3 id="gesti%C3%B3n-centralizada" tabindex="-1">Gestión centralizada</h3>
 
 
 <p>Si actualizas algo en una Lambda Layer, todas las funciones Lambda que la usan se actualizan automáticamente. Esto te ahorra mucho tiempo porque no tienes que ir una por una haciendo cambios.</p>
 
 
-<h3 id="eficiencia-en-el-desarrollo" tabindex="-1">Eficiencia en el Desarrollo</h3>
+<h3 id="eficiencia-en-el-desarrollo" tabindex="-1">Eficiencia en el desarrollo</h3>
 
 
 <p>Usar Lambda Layers hace que sea más fácil y rápido desarrollar aplicaciones sin servidor. Puedes aprovechar el código que ya existe para crear cosas nuevas más rápidamente.</p>
 
 
-<h2 id="creando-una-lambda-layer" tabindex="-1">Creando una Lambda Layer</h2>
+<h2 id="creando-una-lambda-layer" tabindex="-1">Creando una Lambda layer</h2>
 
 
 <p>Para hacer una Lambda Layer, solo sigue estos pasos sencillos:</p>
@@ -134,13 +134,13 @@ related:
 <p>Siguiendo estos pasos, podrás compartir código entre tus funciones Lambda de manera fácil.</p>
 
 
-<h2 id="utilizando-una-lambda-layer-en-funciones-lambda" tabindex="-1">Utilizando una Lambda Layer en Funciones Lambda</h2>
+<h2 id="utilizando-una-lambda-layer-en-funciones-lambda" tabindex="-1">Utilizando una Lambda layer en funciones Lambda</h2>
 
 
 <p><figure><img alt="Funciones" src="/assets/blog/1d9673b0b83dd7505c5ebee4.jpg"/></figure></p>
 
 
-<h3 id="vinculando-una-layer-mediante-la-consola-de-aws" tabindex="-1">Vinculando una Layer mediante la Consola de AWS</h3>
+<h3 id="vinculando-una-layer-mediante-la-consola-de-aws" tabindex="-1">Vinculando una layer mediante la consola de AWS</h3>
 
 
 <p>Para agregar una Lambda Layer a una de tus funciones Lambda usando la página web de AWS, sigue estos pasos sencillos:</p>
@@ -159,20 +159,20 @@ related:
 <p>También puedes buscar la Layer por su nombre en vez de pegar el ARN. Solo recuerda elegir la versión correcta que quieres usar.</p>
 
 
-<h3 id="vinculando-una-layer-mediante-aws-cli" tabindex="-1">Vinculando una Layer mediante AWS CLI</h3>
+<h3 id="vinculando-una-layer-mediante-aws-cli" tabindex="-1">Vinculando una layer mediante AWS CLI</h3>
 
 
 <p>Si prefieres usar la línea de comandos de AWS para agregar una Lambda Layer a una función, aquí te dejo cómo hacerlo:</p>
 
 
-<h3 id="obtener-arn-de-una-lambda-layer" tabindex="-1">Obtener ARN de una Lambda Layer</h3>
+<h3 id="obtener-arn-de-una-lambda-layer" tabindex="-1">Obtener ARN de una Lambda layer</h3>
 
 
 <pre><code>aws lambda list-layers --query 'Layers[?Name==mylayer].LatestMatchingVersion.LayerVersionArn'
 </code></pre>
 
 
-<h3 id="actualizar-configuraci%C3%B3n-de-la-funci%C3%B3n-para-usar-la-layer" tabindex="-1">Actualizar configuración de la función para usar la Layer</h3>
+<h3 id="actualizar-configuraci%C3%B3n-de-la-funci%C3%B3n-para-usar-la-layer" tabindex="-1">Actualizar configuración de la función para usar la layer</h3>
 
 
 <pre><code>aws lambda update-function-configuration --function-name my-function--layers arn:aws:lambda:us-east-1:123456789012:layer:my-layer:1
@@ -182,7 +182,7 @@ related:
 <p>Cambia los nombres de la función y la capa por los que estés usando. Así, estarás agregando la última versión de la Layer a tu función.</p>
 
 
-<h3 id="accediendo-contenido-de-la-layer-desde-el-c%C3%B3digo" tabindex="-1">Accediendo Contenido de la Layer desde el Código</h3>
+<h3 id="accediendo-contenido-de-la-layer-desde-el-c%C3%B3digo" tabindex="-1">Accediendo contenido de la layer desde el código</h3>
 
 
 <p>Una vez que agregas una Layer a tu función Lambda, todo lo que contiene se pone automáticamente en una carpeta llamada <code class="inline-code">/opt</code> en donde corre tu función.</p>
@@ -200,7 +200,7 @@ import my_module
 <p>Igualmente, si tienes archivos de configuración o cualquier otro recurso en tu Layer, puedes acceder a ellos de la misma manera. Esto te permite compartir y reutilizar código, librerías y más entre varias funciones Lambda.</p>
 
 
-<h2 id="utilizando-una-lambda-layer-en-m%C3%BAltiples-funciones" tabindex="-1">Utilizando una Lambda Layer en Múltiples Funciones</h2>
+<h2 id="utilizando-una-lambda-layer-en-m%C3%BAltiples-funciones" tabindex="-1">Utilizando una Lambda layer en múltiples funciones</h2>
 
 
 <p>Compartir código entre varias funciones de AWS Lambda usando layers puede hacer tu vida mucho más fácil. Ayuda a evitar repetir el mismo código, hace que tus funciones funcionen más rápido y hace más sencillo arreglar o cambiar cosas. Aquí te dejo algunos consejos para usar layers de la mejor manera:</p>
@@ -241,10 +241,10 @@ import my_module
 
 
 
-<h2 id="consideraciones-y-pr%C3%A1cticas-recomendadas" tabindex="-1">Consideraciones y Prácticas Recomendadas</h2>
+<h2 id="consideraciones-y-pr%C3%A1cticas-recomendadas" tabindex="-1">Consideraciones y prácticas recomendadas</h2>
 
 
-<h3 id="control-de-versiones" tabindex="-1">Control de Versiones</h3>
+<h3 id="control-de-versiones" tabindex="-1">Control de versiones</h3>
 
 
 <p>Es clave manejar bien las versiones de tus Lambda Layers. Cada vez que actualizas una Layer, se crea una nueva versión. Al usar Layers en tus funciones Lambda, es mejor vincular a una versión específica en lugar de siempre usar la última. Esto te da control sobre los cambios y evita problemas en tus funciones que ya están corriendo.</p>
@@ -253,7 +253,7 @@ import my_module
 <p>Antes de cambiar la versión de una Layer en una función Lambda, prueba bien los cambios en ambientes de prueba. Cuando estés seguro de que todo funciona bien, puedes aplicar los cambios en tus funciones que el público usa.</p>
 
 
-<h3 id="actualizaci%C3%B3n-de-funciones-lambda" tabindex="-1">Actualización de Funciones Lambda</h3>
+<h3 id="actualizaci%C3%B3n-de-funciones-lambda" tabindex="-1">Actualización de funciones Lambda</h3>
 
 
 <p>Cuando publicas una nueva versión de una Layer, las funciones Lambda que la usan no se actualizan solas. Necesitas actualizar estas funciones manualmente para que usen la nueva versión de la Layer.</p>
@@ -262,7 +262,7 @@ import my_module
 <p>Planifica cómo vas a actualizar tus funciones cuando saques nuevas versiones de tus Layers. Esto es especialmente importante para las funciones que mucha gente usa. Puedes hacer la actualización poco a poco para reducir los riesgos.</p>
 
 
-<h3 id="seguridad-y-permisos" tabindex="-1">Seguridad y Permisos</h3>
+<h3 id="seguridad-y-permisos" tabindex="-1">Seguridad y permisos</h3>
 
 
 <p>Asegúrate de dar solo los permisos necesarios a tus Lambda Layers. Esto ayuda a mantener tus funciones seguras.</p>
@@ -271,7 +271,7 @@ import my_module
 <p>Si otras cuentas de AWS necesitan usar una Layer que hiciste, es mejor dar permisos específicos a esas cuentas en lugar de hacer la Layer pública. Así controlas quién puede usar tu Layer.</p>
 
 
-<h2 id="ventajas-y-desventajas-de-lambda-layers" tabindex="-1">Ventajas y Desventajas de Lambda Layers</h2>
+<h2 id="ventajas-y-desventajas-de-lambda-layers" tabindex="-1">Ventajas y desventajas de Lambda layers</h2>
 
 
 <h3 id="ventajas" tabindex="-1">Ventajas</h3>
@@ -359,10 +359,10 @@ import my_module
 <p>En pocas palabras, si usas bien las Layers, puedes hacer que el desarrollo de tus aplicaciones en AWS Lambda sea más rápido y sencillo. Solo asegúrate de entender bien cómo manejar las versiones y actualizaciones.</p>
 
 
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas Relacionadas</h2>
+<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
 
 
-<h3 id="%C2%BFqu%C3%A9-es-una-lambda-layer%3F" tabindex="-1">¿Qué es una Lambda Layer?</h3>
+<h3 id="%C2%BFqu%C3%A9-es-una-lambda-layer%3F" tabindex="-1">¿Qué es una Lambda layer?</h3>
 
 
 <p>Una Lambda Layer es básicamente un paquete de código o datos, como un archivo .zip, que contiene cosas como librerías o configuraciones. Se usa para compartir este contenido entre varias funciones Lambda sin tener que duplicarlo.</p>
@@ -412,6 +412,6 @@ import my_module
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a Serverless en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/">Mejores Prácticas Para AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS Fundamentos: Guía de Inicio Rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/comprendiendo-aws-step-functions/">Comprendiendo AWS Step Functions</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a serverless en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/">Mejores prácticas para AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS fundamentos: guía de inicio rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/comprendiendo-aws-step-functions/">Comprendiendo AWS Step Functions</a></li>
 </ul>
 </p>

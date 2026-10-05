@@ -1,5 +1,5 @@
 ---
-title: "AWS Wavelength: Guía de Escalabilidad y Optimización"
+title: "AWS Wavelength: guía de escalabilidad y optimización"
 description: "Guía de escalabilidad y optimización de AWS Wavelength para desarrolladores. Estrategias clave, monitoreo, resolución de problemas y mejores prácticas."
 author: "guille-ojeda"
 publishedAt: "2024-05-19"
@@ -10,9 +10,9 @@ ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Comprendiendo Kubernetes y Amazon EKS"
     url: "https://dondeaprendoaws.com/blog/comprendiendo-kubernetes-y-amazon-eks/"
-  - title: "Ingeniería de Caos en AWS con Fault Injection Simulator"
+  - title: "Ingeniería de caos en AWS con fault injection simulator"
     url: "https://dondeaprendoaws.com/blog/ingenieria-de-caos-en-aws-con-fault-injection-simulator/"
-  - title: "Arquitecturas Multi-Región en AWS"
+  - title: "Arquitecturas multi-región en AWS"
     url: "https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/"
 
 ---
@@ -74,7 +74,7 @@ related:
 </table></figure>
 
 
-<h3 id="monitoreo-y-resoluci%C3%B3n-de-problemas" tabindex="-1">Monitoreo y Resolución de Problemas</h3>
+<h3 id="monitoreo-y-resoluci%C3%B3n-de-problemas" tabindex="-1">Monitoreo y resolución de problemas</h3>
 
 
 <ul>
@@ -145,7 +145,7 @@ related:
 <p>La escalabilidad es clave para aplicaciones con alto rendimiento y disponibilidad. AWS Wavelength ofrece varias formas de escalar tus aplicaciones según las necesidades de los usuarios.</p>
 
 
-<h3 id="infrastructure-scaling" tabindex="-1">Infrastructure Scaling</h3>
+<h3 id="infrastructure-scaling" tabindex="-1">Infrastructure scaling</h3>
 
 
 <p>Para escalar la infraestructura en AWS Wavelength, puedes usar:</p>
@@ -167,7 +167,7 @@ related:
 <p>Ejemplo: Crea una zona de Wavelength en una región específica y usa AWS Auto Scaling para manejar el tráfico.</p>
 
 
-<h3 id="application-scaling" tabindex="-1">Application Scaling</h3>
+<h3 id="application-scaling" tabindex="-1">Application scaling</h3>
 
 
 <p>Para escalar tus aplicaciones, considera:</p>
@@ -186,7 +186,7 @@ related:
 <p>Ejemplo: Crea una aplicación que use AWS Lambda para procesar solicitudes y AWS Fargate para escalar el cómputo.</p>
 
 
-<h3 id="data-scaling" tabindex="-1">Data Scaling</h3>
+<h3 id="data-scaling" tabindex="-1">Data scaling</h3>
 
 
 <p>Para escalar los datos, puedes usar:</p>
@@ -217,7 +217,7 @@ related:
 <p>Optimizar AWS Wavelength es clave para asegurar un alto rendimiento, eficiencia en costos, seguridad y eficiencia operativa. Aquí hay algunas estrategias para optimizar tus despliegues de AWS Wavelength:</p>
 
 
-<h3 id="optimizaci%C3%B3n-del-rendimiento" tabindex="-1">Optimización del Rendimiento</h3>
+<h3 id="optimizaci%C3%B3n-del-rendimiento" tabindex="-1">Optimización del rendimiento</h3>
 
 
 <p>Para mejorar el rendimiento, considera implementar estrategias de caché con <a href="https://aws.amazon.com/elasticache/" rel="noopener noreferrer" target="_blank">Amazon ElastiCache</a>, usar <a href="https://aws.amazon.com/global-accelerator/" rel="noopener noreferrer" target="_blank">AWS Global Accelerator</a> para la entrega de contenido optimizada, utilizar <a href="https://aws.amazon.com/cloudfront/" rel="noopener noreferrer" target="_blank">Amazon CloudFront</a> para la distribución y caché de contenido, e implementar <a href="https://aws.amazon.com/privatelink/" rel="noopener noreferrer" target="_blank">AWS PrivateLink</a> para acceso seguro y optimizado a servicios. Estas estrategias pueden reducir la latencia y mejorar la experiencia del usuario.</p>
@@ -226,7 +226,7 @@ related:
 <p>Ejemplo: Usa Amazon ElastiCache para almacenar en caché datos frecuentemente accedidos, reduciendo la latencia y mejorando el rendimiento de tu aplicación. Además, AWS Global Accelerator puede optimizar la entrega de contenido al enrutar el tráfico por el camino más óptimo, resultando en cargas de página más rápidas.</p>
 
 
-<h3 id="optimizaci%C3%B3n-de-costos" tabindex="-1">Optimización de Costos</h3>
+<h3 id="optimizaci%C3%B3n-de-costos" tabindex="-1">Optimización de costos</h3>
 
 
 <p>Para optimizar costos, considera usar AWS Auto Scaling y <a href="https://aws.amazon.com/ec2/spot/" rel="noopener noreferrer" target="_blank">AWS Spot Instances</a> para ahorrar, implementar <a href="https://aws.amazon.com/s3/storage-classes/intelligent-tiering/" rel="noopener noreferrer" target="_blank">Amazon S3 Intelligent-Tiering</a> para almacenamiento económico, utilizar <a href="https://aws.amazon.com/aws-cost-management/aws-cost-explorer/" rel="noopener noreferrer" target="_blank">AWS Cost Explorer</a> y AWS Budgets para monitoreo y optimización de costos, e implementar <a href="https://aws.amazon.com/savingsplans/" rel="noopener noreferrer" target="_blank">AWS Savings Plans</a> y AWS Reserved Instances para ahorros a largo plazo.</p>
@@ -235,7 +235,7 @@ related:
 <p>Ejemplo: Usa AWS Auto Scaling para ajustar el número de instancias según la demanda, reduciendo costos en periodos de baja utilización. Además, AWS Spot Instances pueden ofrecer ahorros significativos al permitirte pujar por instancias EC2 no utilizadas.</p>
 
 
-<h3 id="optimizaci%C3%B3n-de-seguridad" tabindex="-1">Optimización de Seguridad</h3>
+<h3 id="optimizaci%C3%B3n-de-seguridad" tabindex="-1">Optimización de seguridad</h3>
 
 
 <p>Para asegurar tu despliegue de AWS Wavelength, considera implementar AWS Identity and Access Management (IAM) para control de acceso, usar <a href="https://aws.amazon.com/secrets-manager/" rel="noopener noreferrer" target="_blank">AWS Secrets Manager</a> para almacenamiento seguro de secretos, utilizar <a href="https://aws.amazon.com/security-hub/" rel="noopener noreferrer" target="_blank">AWS Security Hub</a> para monitoreo de seguridad, e implementar <a href="https://aws.amazon.com/network-firewall/" rel="noopener noreferrer" target="_blank">AWS Network Firewall</a> para seguridad de red e inspección de tráfico.</p>
@@ -244,7 +244,7 @@ related:
 <p>Ejemplo: Usa AWS IAM para controlar el acceso a tus recursos, asegurando que solo usuarios autorizados tengan acceso a datos y recursos sensibles. Además, AWS Secrets Manager puede ayudarte a almacenar y gestionar de forma segura datos sensibles como credenciales de bases de datos y claves API.</p>
 
 
-<h3 id="optimizaci%C3%B3n-operativa" tabindex="-1">Optimización Operativa</h3>
+<h3 id="optimizaci%C3%B3n-operativa" tabindex="-1">Optimización operativa</h3>
 
 
 <p>Para asegurar el funcionamiento fluido de tu despliegue de AWS Wavelength, considera usar <a href="https://aws.amazon.com/cloudformation/" rel="noopener noreferrer" target="_blank">AWS CloudFormation</a> para infraestructura como código (IaC), implementar AWS CloudTrail para auditoría y registro, utilizar Amazon CloudWatch para monitoreo y observabilidad, e integrar con <a href="https://aws.amazon.com/systems-manager/" rel="noopener noreferrer" target="_blank">AWS Systems Manager</a> para gestión centralizada y automatización.</p>
@@ -255,7 +255,7 @@ related:
 
 
 
-<h2 id="monitoring-and-troubleshooting" tabindex="-1">Monitoring and Troubleshooting</h2>
+<h2 id="monitoring-and-troubleshooting" tabindex="-1">Monitoring and troubleshooting</h2>
 
 
 <p>Para asegurar el buen funcionamiento de tus despliegues de AWS Wavelength, es importante implementar estrategias de monitoreo y resolución de problemas. Aquí te presentamos algunas herramientas y técnicas clave.</p>
@@ -297,7 +297,7 @@ related:
 <p>AWS Config es un servicio que recopila y analiza la configuración de tus recursos de AWS. Con Config, puedes identificar problemas de configuración y errores en tu aplicación.</p>
 
 
-<h4 id="ejemplo-de-uso" tabindex="-1">Ejemplo de Uso</h4>
+<h4 id="ejemplo-de-uso" tabindex="-1">Ejemplo de uso</h4>
 
 
 <p>Si experimentas problemas de rendimiento en tu aplicación:</p>
@@ -316,7 +316,7 @@ related:
 </ol>
 
 
-<h3 id="resumen-de-herramientas" tabindex="-1">Resumen de Herramientas</h3>
+<h3 id="resumen-de-herramientas" tabindex="-1">Resumen de herramientas</h3>
 
 
 <figure class="table"><table>
@@ -350,13 +350,13 @@ related:
 <p>Implementar estas estrategias de monitoreo y resolución de problemas te ayudará a mantener tus despliegues de AWS Wavelength funcionando de manera eficiente.</p>
 
 
-<h2 id="best-practices" tabindex="-1">Best Practices</h2>
+<h2 id="best-practices" tabindex="-1">Best practices</h2>
 
 
 <p>Para asegurar la escalabilidad y optimización de tus despliegues de AWS Wavelength, es importante seguir las mejores prácticas recomendadas por AWS y la comunidad de desarrolladores. A continuación, se presentan algunas de las mejores prácticas para diferentes aspectos de AWS Wavelength.</p>
 
 
-<h3 id="dise%C3%B1o-de-la-arquitectura" tabindex="-1">Diseño de la Arquitectura</h3>
+<h3 id="dise%C3%B1o-de-la-arquitectura" tabindex="-1">Diseño de la arquitectura</h3>
 
 
 <ul>
@@ -369,7 +369,7 @@ related:
 </ul>
 
 
-<h3 id="selecci%C3%B3n-de-instancias" tabindex="-1">Selección de Instancias</h3>
+<h3 id="selecci%C3%B3n-de-instancias" tabindex="-1">Selección de instancias</h3>
 
 
 <ul>
@@ -382,7 +382,7 @@ related:
 </ul>
 
 
-<h3 id="uso-de-caching" tabindex="-1">Uso de Caching</h3>
+<h3 id="uso-de-caching" tabindex="-1">Uso de caching</h3>
 
 
 <ul>
@@ -395,7 +395,7 @@ related:
 </ul>
 
 
-<h3 id="monitoreo-y-registro" tabindex="-1">Monitoreo y Registro</h3>
+<h3 id="monitoreo-y-registro" tabindex="-1">Monitoreo y registro</h3>
 
 
 <ul>
@@ -421,7 +421,7 @@ related:
 </ul>
 
 
-<h3 id="optimizaci%C3%B3n-de-costos-1" tabindex="-1">Optimización de Costos</h3>
+<h3 id="optimizaci%C3%B3n-de-costos-1" tabindex="-1">Optimización de costos</h3>
 
 
 <ul>
@@ -473,6 +473,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/">Arquitecturas de Alta Disponibilidad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/optimizacion-de-costos-de-aws-lambda/">Optimización de Costos de AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/">Mejores Prácticas Para AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/">Arquitecturas Multi-Región en AWS</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/">arquitecturas de alta disponibilidad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/optimizacion-de-costos-de-aws-lambda/">Optimización de costos de AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/">Mejores prácticas para AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/">arquitecturas multi-región en AWS</a></li>
 </ul>
 </p>

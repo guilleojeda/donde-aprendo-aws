@@ -78,7 +78,7 @@ Para estudiar CLF-C02 con una serie comunitaria, el [AWS Cloud Practitioner Chal
 
 Si buscas conversación sobre arquitectura, el perfil del [AWS User Group Querétaro](https://www.meetup.com/es-es/amazon-web-services-queretaro/) describe talleres sobre diseño de nube, alta disponibilidad, datos y desarrollo. El [AWS User Group Mixtli](https://www.meetup.com/awsugmixtli/) en Cholula, Puebla, publica charlas y talleres sobre arquitectura, seguridad, costos y otros temas de AWS. Las condiciones de entrada, el formato y las fechas dependen de cada convocatoria.
 
-También puedes explorar el [directorio de AWS User Groups y Student Builder Groups](https://dondeaprendoaws.com/comunidades/) para encontrar una comunidad por país o institución, y la [agenda de eventos AWS en Latinoamérica](https://dondeaprendoaws.com/eventos/) para comparar encuentros presenciales, híbridos y en línea. Las convocatorias de estudio sobre Well-Architected y preparación de examen varían en fechas y cupos; confirma idioma, modalidad, requisitos y disponibilidad en la página del organizador antes de participar. Una grabación, curso o grupo de estudio puede acompañar tu preparación, pero no sustituye la guía oficial.
+También puedes explorar el [directorio de AWS User Groups y Student Builder Groups](https://dondeaprendoaws.com/comunidades/) para encontrar una comunidad por país o institución, y la [Agenda de eventos AWS en Latinoamérica](https://dondeaprendoaws.com/eventos/) para comparar encuentros presenciales, híbridos y en línea. Las convocatorias de estudio sobre Well-Architected y preparación de examen varían en fechas y cupos; confirma idioma, modalidad, requisitos y disponibilidad en la página del organizador antes de participar. Una grabación, curso o grupo de estudio puede acompañar tu preparación, pero no sustituye la guía oficial.
 
 ## Preguntas frecuentes
 
@@ -86,7 +86,7 @@ También puedes explorar el [directorio de AWS User Groups y Student Builder Gro
 
 No hay una cantidad universal. La guía oficial del examen define por dónde empezar. Para SAA-C03, prioriza los objetivos de arquitectura y usa Well-Architected para profundizar; para CLF-C02, relaciona cada lectura con sus dominios y objetivos. Elige documentos según las dudas que encuentres.
 
-### ¿Well-Architected tiene cinco o seis pilares?
+### ¿Well-architected tiene cinco o seis pilares?
 
 El marco actual describe seis pilares, incluida sostenibilidad. Si encuentras un resumen de cinco, comprueba la fecha y contrástalo con la documentación actual.
 

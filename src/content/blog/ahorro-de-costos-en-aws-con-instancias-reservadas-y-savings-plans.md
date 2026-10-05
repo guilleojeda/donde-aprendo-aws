@@ -1,5 +1,5 @@
 ---
-title: "Instancias Reservadas o Savings Plans en AWS: diferencias y riesgos"
+title: "Instancias reservadas o Savings Plans en AWS: diferencias y riesgos"
 description: "Compara las Instancias Reservadas de EC2 y los Savings Plans de cómputo, SageMaker y bases de datos: compromisos, alcance, descuentos y riesgo de subutilización."
 author: "guille-ojeda"
 publishedAt: "2024-03-07"
@@ -80,11 +80,11 @@ En una organización con facturación consolidada, los beneficios de RI y Saving
 
 ## Recursos de FinOps, comunidades y eventos
 
-Para una conversación de comunidad sobre costos, el canal del **AWS User Group CreaTicas** publicó la grabación [“FinOps en acción — Optimización real de costos en la nube”](https://www.youtube.com/watch?v=UphnnilH09A). También puedes buscar grupos por país en el [directorio de comunidades AWS](/comunidades/) y revisar la [agenda de eventos](/eventos/). Al consultar esa agenda el 4 de octubre de 2026, figuraba el encuentro virtual [“EC2 vs Lambda”](https://www.meetup.com/fb83c392-728a-42dc-9a3f-7d351301e452/events/315728721/), organizado por AWS User Group Tlaxcala para el 16 de octubre de 2026, de 16:00 a 17:00 UTC−06; su ficha describe una comparación de costos además de ventajas de ambas opciones. Confirma fecha, horario y disponibilidad de inscripción en Meetup porque esos datos pueden cambiar.
+Para una conversación de comunidad sobre costos, el canal del **AWS User Group CreaTicas** publicó la grabación [“FinOps en acción — Optimización real de costos en la nube”](https://www.youtube.com/watch?v=UphnnilH09A). También puedes buscar grupos por país en el [directorio de comunidades AWS](/comunidades/) y revisar la [Agenda de eventos](/eventos/). Al consultar esa agenda el 4 de octubre de 2026, figuraba el encuentro virtual [“EC2 vs Lambda”](https://www.meetup.com/fb83c392-728a-42dc-9a3f-7d351301e452/events/315728721/), organizado por AWS User Group Tlaxcala para el 16 de octubre de 2026, de 16:00 a 17:00 UTC−06; su ficha describe una comparación de costos además de ventajas de ambas opciones. Confirma fecha, horario y disponibilidad de inscripción en Meetup porque esos datos pueden cambiar.
 
 ## Preguntas frecuentes
 
-### ¿Una Instancia Reservada de EC2 siempre reserva capacidad?
+### ¿Una instancia reservada de EC2 siempre reserva capacidad?
 
 No. Una RI regional ofrece descuento en una región, pero no reserva capacidad. Una RI zonal sí reserva capacidad en la zona de disponibilidad seleccionada, además de ofrecer el descuento correspondiente. La capacidad zonal queda para la cuenta propietaria.
 

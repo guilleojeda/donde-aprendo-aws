@@ -1,5 +1,5 @@
 ---
-title: "Guía para Implementar Machine Learning con Amazon SageMaker"
+title: "Guía para implementar machine learning con Amazon SageMaker"
 description: "Aprende a implementar Machine Learning en la nube con SageMaker, desde la preparación de datos hasta el despliegue de modelos en producción."
 author: "guille-ojeda"
 publishedAt: "2025-03-06"
@@ -8,11 +8,11 @@ cover: "/assets/blog/editorial-datos-ia.png"
 coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
-  - title: "10 Mejores Prácticas de AWS para Detección de Amenazas en Tiempo Real"
+  - title: "10 mejores prácticas de AWS para detección de amenazas en tiempo real"
     url: "https://dondeaprendoaws.com/blog/10-mejores-practicas-de-aws-para-deteccion-de-amenazas-en-tiempo-real/"
-  - title: "Mejores Prácticas Para Amazon DynamoDB"
+  - title: "Mejores prácticas para Amazon DynamoDB"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-dynamodb/"
-  - title: "AWS Seguridad: Servicios Esenciales"
+  - title: "AWS seguridad: servicios esenciales"
     url: "https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/"
 
 ---
@@ -24,20 +24,20 @@ related:
 <li><strong>¿Qué es SageMaker?</strong> Un servicio de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> que incluye herramientas como Jupyter Notebooks, algoritmos optimizados y automatización de tareas como el etiquetado de datos.</li>
 <li><strong>Ventajas principales:</strong> Infraestructura gestionada, integración con AWS, ajuste automático de hiperparámetros y escalabilidad para proyectos pequeños o grandes.</li>
 <li><strong>Usuarios ideales:</strong> Científicos de datos, ingenieros de ML y desarrolladores que trabajan en proyectos como visión por computador, análisis predictivo o sistemas de recomendación.</li>
-<li><strong>Pasos clave:</strong> <a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Configuración inicial de tu cuenta AWS</a>, preparación de datos con <a href="https://aws.amazon.com/es/s3/" rel="noopener noreferrer" target="_blank">Amazon S3</a>, entrenamiento de modelos, pruebas con métricas clave y despliegue seguro en producción.</li>
+<li><strong>Pasos clave:</strong> <a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">configuración inicial de tu cuenta AWS</a>, preparación de datos con <a href="https://aws.amazon.com/es/s3/" rel="noopener noreferrer" target="_blank">Amazon S3</a>, entrenamiento de modelos, pruebas con métricas clave y despliegue seguro en producción.</li>
 </ul>
 
 
 <p>Con esta guía, aprenderás a aprovechar SageMaker para trabajar de manera eficiente y mantener tus modelos en producción con un rendimiento óptimo. ¡Comencemos!</p>
 
 
-<h2 class="sb h2-sbb-cls" id="configuracion-inicial" tabindex="-1">Configuración Inicial</h2>
+<h2 class="sb h2-sbb-cls" id="configuracion-inicial" tabindex="-1">Configuración inicial</h2>
 
 
 <p>Ahora que conoces los fundamentos de SageMaker, es hora de preparar tu entorno de trabajo para comenzar tu proyecto de Machine Learning.</p>
 
 
-<h3 id="configuracion-de-la-cuenta-aws" tabindex="-1">Configuración de la Cuenta <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a></h3>
+<h3 id="configuracion-de-la-cuenta-aws" tabindex="-1">Configuración de la cuenta <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a></h3>
 
 
 <p><figure><img alt="AWS" src="/assets/blog/04e31d093dabde9fc20e6331.jpg"/></figure></p>
@@ -53,7 +53,7 @@ related:
 </ul>
 
 
-<h3 id="configuracion-del-dominio-sagemaker" tabindex="-1">Configuración del Dominio SageMaker</h3>
+<h3 id="configuracion-del-dominio-sagemaker" tabindex="-1">Configuración del dominio SageMaker</h3>
 
 
 <p>En la consola de SageMaker, configura el dominio según las necesidades de tu proyecto. Puedes consultar la <a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">documentación oficial de AWS</a> para asegurarte de que la configuración se ajuste a tu región y requisitos específicos.</p>
@@ -96,19 +96,19 @@ SageMaker Studio incluye herramientas como:
 <p>Con tu cuenta y entorno configurados, ya estás listo para avanzar al siguiente paso: preparar los datos para entrenar tu modelo.</p>
 
 
-<h2 class="sb h2-sbb-cls" id="preparacion-de-datos" tabindex="-1">Preparación de Datos</h2>
+<h2 class="sb h2-sbb-cls" id="preparacion-de-datos" tabindex="-1">Preparación de datos</h2>
 
 
 <p>Con el entorno configurado, es hora de organizar y ajustar los datos para obtener el mejor rendimiento durante el entrenamiento.</p>
 
 
-<h3 id="importacion-y-almacenamiento-de-datos" tabindex="-1">Importación y Almacenamiento de Datos</h3>
+<h3 id="importacion-y-almacenamiento-de-datos" tabindex="-1">Importación y almacenamiento de datos</h3>
 
 
 <p>Amazon SageMaker facilita la importación y almacenamiento de datos a través de Amazon S3. Para empezar, crea un bucket específico para tu proyecto y organiza los datos en carpetas separadas para <strong>entrenamiento</strong>, <strong>validación</strong> y <strong>prueba</strong>. Asegúrate de elegir un formato compatible como <strong>.csv</strong>, <strong>.parquet</strong> o <strong>.json</strong>. Una vez almacenados, realiza un análisis inicial y asegúrate de que los datos estén en buen estado antes de continuar.</p>
 
 
-<h3 id="analisis-y-limpieza-de-datos" tabindex="-1">Análisis y Limpieza de Datos</h3>
+<h3 id="analisis-y-limpieza-de-datos" tabindex="-1">Análisis y limpieza de datos</h3>
 
 
 <p>Para analizar y limpiar los datos, utiliza notebooks en SageMaker Studio con herramientas como <strong>Data Wrangler</strong>, <strong><a href="https://github.com/fbdesignpro/pandas-profiling" rel="noopener noreferrer" target="_blank">Pandas Profiling</a></strong>, <strong><a href="https://matplotlib.org/" rel="noopener noreferrer" target="_blank">Matplotlib</a></strong> y <strong><a href="https://seaborn.pydata.org/" rel="noopener noreferrer" target="_blank">Seaborn</a></strong>. Estas herramientas te ayudarán a:</p>
@@ -124,7 +124,7 @@ SageMaker Studio incluye herramientas como:
 <p>Este paso asegura que los datos sean fiables y estén listos para las transformaciones necesarias.</p>
 
 
-<h3 id="procesamiento-de-datos" tabindex="-1">Procesamiento de Datos</h3>
+<h3 id="procesamiento-de-datos" tabindex="-1">Procesamiento de datos</h3>
 
 
 <p>El siguiente paso es transformar los datos utilizando <strong>Processing Jobs</strong>. Esto incluye:</p>
@@ -140,13 +140,13 @@ SageMaker Studio incluye herramientas como:
 <p>Configura los recursos según el tamaño y la complejidad de los datos, y utiliza la paralelización para acelerar el procesamiento. Guarda los datos transformados en formato <strong><a href="https://parquet.apache.org/docs/" rel="noopener noreferrer" target="_blank">Apache Parquet</a></strong>, que mejora tanto la compresión como el rendimiento en consultas posteriores.</p>
 
 
-<h2 class="sb h2-sbb-cls" id="entrenamiento-del-modelo" tabindex="-1">Entrenamiento del Modelo</h2>
+<h2 class="sb h2-sbb-cls" id="entrenamiento-del-modelo" tabindex="-1">Entrenamiento del modelo</h2>
 
 
 <p>Con los datos ya transformados y listos, el siguiente paso es entrenar el modelo utilizando las herramientas de Amazon SageMaker.</p>
 
 
-<h3 id="seleccion-del-algoritmo" tabindex="-1">Selección del Algoritmo</h3>
+<h3 id="seleccion-del-algoritmo" tabindex="-1">Selección del algoritmo</h3>
 
 
 <p>Selecciona un algoritmo que se ajuste a tu problema específico, ya sea clasificación, regresión o agrupamiento. También considera el tamaño, formato y número de variables de tu conjunto de datos. Amazon SageMaker incluye una variedad de algoritmos integrados que se ajustan a diferentes necesidades.</p>
@@ -154,13 +154,13 @@ SageMaker Studio incluye herramientas como:
 
 
 
-<h2 class="sb h2-sbb-cls" id="pruebas-y-mejora-del-modelo" tabindex="-1">Pruebas y Mejora del Modelo</h2>
+<h2 class="sb h2-sbb-cls" id="pruebas-y-mejora-del-modelo" tabindex="-1">Pruebas y mejora del modelo</h2>
 
 
 <p>Después de entrenar el modelo, es crucial evaluar y ajustar su rendimiento para asegurar resultados consistentes.</p>
 
 
-<h3 id="metricas-de-rendimiento" tabindex="-1">Métricas de Rendimiento</h3>
+<h3 id="metricas-de-rendimiento" tabindex="-1">Métricas de rendimiento</h3>
 
 
 <p>Elige las métricas adecuadas según el tipo de modelo que estés utilizando:</p>
@@ -197,7 +197,7 @@ SageMaker Studio incluye herramientas como:
 <p>Estas métricas te ayudarán a identificar problemas como sobreajuste o subajuste.</p>
 
 
-<h3 id="optimizacion-de-parametros" tabindex="-1">Optimización de Parámetros</h3>
+<h3 id="optimizacion-de-parametros" tabindex="-1">Optimización de parámetros</h3>
 
 
 <p>Amazon SageMaker proporciona herramientas avanzadas para ajustar los hiperparámetros del modelo:</p>
@@ -223,7 +223,7 @@ SageMaker Studio incluye herramientas como:
 <p>Después de ajustar los parámetros, realiza pruebas para confirmar que el modelo generaliza bien con datos nuevos.</p>
 
 
-<h3 id="metodos-de-prueba" tabindex="-1">Métodos de Prueba</h3>
+<h3 id="metodos-de-prueba" tabindex="-1">Métodos de prueba</h3>
 
 
 <p>Sigue un enfoque organizado para validar el modelo:</p>
@@ -251,13 +251,13 @@ SageMaker Studio incluye herramientas como:
 <p>El objetivo es mantener un equilibrio entre el rendimiento actual del modelo y su capacidad para trabajar con datos nuevos.</p>
 
 
-<h2 class="sb h2-sbb-cls" id="implementacion-del-modelo" tabindex="-1">Implementación del Modelo</h2>
+<h2 class="sb h2-sbb-cls" id="implementacion-del-modelo" tabindex="-1">Implementación del modelo</h2>
 
 
 <p>Una vez que el modelo ha sido entrenado y probado, el siguiente paso es llevarlo a producción.</p>
 
 
-<h3 id="configuracion-de-endpoints" tabindex="-1">Configuración de Endpoints</h3>
+<h3 id="configuracion-de-endpoints" tabindex="-1">Configuración de endpoints</h3>
 
 
 <p>Selecciona y configura los endpoints basándote en estas opciones:</p>
@@ -294,7 +294,7 @@ SageMaker Studio incluye herramientas como:
 <p>Elige la versión del modelo que mejor se adapte a tus necesidades, asigna los recursos computacionales adecuados, configura políticas de escalado automático y establece umbrales para su monitorización.</p>
 
 
-<h3 id="lanzamiento-a-produccion" tabindex="-1">Lanzamiento a Producción</h3>
+<h3 id="lanzamiento-a-produccion" tabindex="-1">Lanzamiento a producción</h3>
 
 
 <p>Para un despliegue seguro, sigue estos pasos:</p>
@@ -322,7 +322,7 @@ SageMaker Studio incluye herramientas como:
 </ul>
 
 
-<h3 id="mantenimiento-y-actualizaciones" tabindex="-1">Mantenimiento y Actualizaciones</h3>
+<h3 id="mantenimiento-y-actualizaciones" tabindex="-1">Mantenimiento y actualizaciones</h3>
 
 
 <p>Un mantenimiento continuo asegura que el modelo funcione correctamente a largo plazo.</p>
@@ -361,7 +361,7 @@ SageMaker Studio incluye herramientas como:
 <p>Con estas prácticas, el modelo se mantendrá alineado con las necesidades del negocio y ofrecerá un rendimiento confiable.</p>
 
 
-<h2 class="sb h2-sbb-cls" id="proximos-pasos" tabindex="-1">Próximos Pasos</h2>
+<h2 class="sb h2-sbb-cls" id="proximos-pasos" tabindex="-1">Próximos pasos</h2>
 
 
 <p>Con el modelo ya en producción, es importante repasar los puntos clave para mantener y mejorar tu solución.</p>
@@ -404,7 +404,7 @@ SageMaker Studio incluye herramientas como:
 <p>El éxito del proyecto depende de mantener un balance adecuado entre eficiencia y rendimiento, garantizando que la solución sea sostenible a largo plazo.</p>
 
 
-<h3 id="recursos-adicionales-en-donde-aprendo-aws" tabindex="-1">Recursos Adicionales en "Dónde Aprendo AWS"</h3>
+<h3 id="recursos-adicionales-en-donde-aprendo-aws" tabindex="-1">Recursos adicionales en "Dónde Aprendo AWS"</h3>
 
 
 <p>Si quieres ir más allá, hay recursos adicionales que complementan este tutorial y te ayudarán a profundizar en SageMaker y ML en AWS:</p>
@@ -425,4 +425,4 @@ SageMaker Studio incluye herramientas como:
 
 
 <h2>Publicaciones de blog relacionadas</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/">Introducción a la Inteligencia Artificial en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-machine-learning-en-aws/">Mejores Prácticas de Machine Learning en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/10-preguntas-frecuentes-sobre-machine-learning-en-aws/">10 Preguntas Frecuentes sobre Machine Learning en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/10-repositorios-de-github-para-machine-learning-en-aws/">10 Repositorios de GitHub para Machine Learning en AWS</a></li></ul>
+<ul><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/">Introducción a la inteligencia artificial en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-machine-learning-en-aws/">Mejores prácticas de machine learning en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/10-preguntas-frecuentes-sobre-machine-learning-en-aws/">10 preguntas frecuentes sobre machine learning en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/10-repositorios-de-github-para-machine-learning-en-aws/">10 repositorios de GitHub para machine learning en AWS</a></li></ul>

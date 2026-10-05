@@ -1,5 +1,5 @@
 ---
-title: "Como Configurar y Utilizar AWS Session Manager"
+title: "Como configurar y utilizar AWS Session Manager"
 description: "Descubre cómo configurar y utilizar AWS Session Manager para mejorar la seguridad y eficiencia en el acceso a tus servidores EC2. Aprende sobre sus características, beneficios y mejores prácticas."
 author: "guille-ojeda"
 publishedAt: "2024-03-18"
@@ -8,11 +8,11 @@ cover: "/assets/blog/editorial-practica.png"
 coverAlt: "Un cuaderno abierto con una secuencia de estaciones y un camino azul con punto naranja."
 ogImage: "/assets/blog/editorial-practica.png"
 related:
-  - title: "Configurar AWS para Comunicación en Equipo: 7 Pasos"
+  - title: "Configurar AWS para comunicación en equipo: 7 pasos"
     url: "https://dondeaprendoaws.com/blog/configurar-aws-para-comunicacion-en-equipo-7-pasos/"
-  - title: "Guía de AWS Wavelength: Zonas y Despliegue"
+  - title: "Guía de AWS Wavelength: zonas y despliegue"
     url: "https://dondeaprendoaws.com/blog/guia-de-aws-wavelength-zonas-y-despliegue/"
-  - title: "Introducción a la Inteligencia Artificial en AWS"
+  - title: "Introducción a la inteligencia artificial en AWS"
     url: "https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/"
 
 ---
@@ -34,7 +34,7 @@ related:
 <p>¿Listo para mejorar la gestión de tus servidores con AWS Session Manager? Comencemos.</p>
 
 
-<h3 id="caracter%C3%ADsticas-principales" tabindex="-1">Características Principales</h3>
+<h3 id="caracter%C3%ADsticas-principales" tabindex="-1">Características principales</h3>
 
 
 <p>AWS Session Manager tiene varias características importantes:</p>
@@ -67,7 +67,7 @@ related:
 </ul>
 
 
-<h2 id="requisitos-previos-para-session-manager" tabindex="-1">Requisitos Previos Para Session Manager</h2>
+<h2 id="requisitos-previos-para-session-manager" tabindex="-1">Requisitos previos para session manager</h2>
 
 
 <p>Para empezar a usar AWS Session Manager, hay algunas cosas que necesitas tener listas primero:</p>
@@ -91,7 +91,7 @@ related:
 <p>Si quieres manejar Session Manager desde la línea de comandos, debes tener AWS CLI instalado en tu computadora.</p>
 
 
-<h3 id="habilitar-ssm-agent" tabindex="-1">Habilitar SSM Agent</h3>
+<h3 id="habilitar-ssm-agent" tabindex="-1">Habilitar SSM agent</h3>
 
 
 <p>Para que Session Manager pueda conectarse a tus instancias EC2, estas deben tener el agente de SSM activo. Este agente ya viene instalado en muchas de las imágenes de máquina (AMIs) que ofrece AWS.</p>
@@ -100,7 +100,7 @@ related:
 <h2 id="configuraci%C3%B3n-de-aws-session-manager" tabindex="-1">Configuración de AWS Session Manager</h2>
 
 
-<h3 id="1.-crear-rol-de-iam" tabindex="-1">1. Crear Rol de IAM</h3>
+<h3 id="1.-crear-rol-de-iam" tabindex="-1">1. Crear rol de IAM</h3>
 
 
 <p>Para usar Session Manager, primero necesitas crear un rol de IAM con los permisos básicos. Este rol necesita la política <code class="inline-code">AmazonSSMManagedInstanceCore</code> para que SSM pueda hablar con tus instancias.</p>
@@ -118,7 +118,7 @@ related:
 </ul>
 
 
-<h3 id="2.-instalar-ssm-agent" tabindex="-1">2. Instalar SSM Agent</h3>
+<h3 id="2.-instalar-ssm-agent" tabindex="-1">2. Instalar SSM agent</h3>
 
 
 <p>El SSM Agent es necesario para que SSM y las instancias EC2 puedan comunicarse.</p>
@@ -137,7 +137,7 @@ related:
 <p>También puedes usar AMIs que ya tienen el agente instalado.</p>
 
 
-<h3 id="3.-asociar-rol-de-iam-a-instancias" tabindex="-1">3. Asociar Rol de IAM a Instancias</h3>
+<h3 id="3.-asociar-rol-de-iam-a-instancias" tabindex="-1">3. Asociar rol de IAM a instancias</h3>
 
 
 <p>Ahora, tienes que vincular el rol de IAM que hiciste con las instancias que quieres manejar con Session Manager.</p>
@@ -154,7 +154,7 @@ related:
 </ul>
 
 
-<h3 id="4.-verificar-configuraci%C3%B3n-de-vpc" tabindex="-1">4. Verificar Configuración de VPC</h3>
+<h3 id="4.-verificar-configuraci%C3%B3n-de-vpc" tabindex="-1">4. Verificar configuración de VPC</h3>
 
 
 <p>Session Manager necesita que ciertos puertos estén abiertos para funcionar bien:</p>
@@ -169,7 +169,7 @@ related:
 <p>Checa que los grupos de seguridad y NACLs de tus subnets permitan este tráfico.</p>
 
 
-<h3 id="5.-configuraci%C3%B3n-avanzada-(opcional)" tabindex="-1">5. Configuración Avanzada (opcional)</h3>
+<h3 id="5.-configuraci%C3%B3n-avanzada-(opcional)" tabindex="-1">5. Configuración avanzada (opcional)</h3>
 
 
 <p>Algunas configuraciones extra que puedes hacer:</p>
@@ -182,10 +182,10 @@ related:
 </ul>
 
 
-<h2 id="conexi%C3%B3n-a-instancias-con-session-manager" tabindex="-1">Conexión a Instancias con Session Manager</h2>
+<h2 id="conexi%C3%B3n-a-instancias-con-session-manager" tabindex="-1">Conexión a instancias con session manager</h2>
 
 
-<h3 id="desde-la-consola-de-aws" tabindex="-1">Desde la Consola de AWS</h3>
+<h3 id="desde-la-consola-de-aws" tabindex="-1">Desde la consola de AWS</h3>
 
 
 <p>Para conectarte a una instancia EC2 usando la consola de AWS, sigue estos pasos:</p>
@@ -215,7 +215,7 @@ related:
 <p>Esto abrirá una ventana de terminal en la que puedes escribir comandos para interactuar con tu instancia.</p>
 
 
-<h3 id="reenv%C3%ADo-de-puertos" tabindex="-1">Reenvío de Puertos</h3>
+<h3 id="reenv%C3%ADo-de-puertos" tabindex="-1">Reenvío de puertos</h3>
 
 
 <p>El reenvío de puertos te permite usar aplicaciones de tu instancia EC2 en tu propia computadora.</p>
@@ -240,7 +240,7 @@ related:
 <p>Esto conectará el puerto 3389 de tu instancia al puerto 3389 de tu computadora, permitiéndote acceder a la aplicación.</p>
 
 
-<h3 id="comandos-interactivos" tabindex="-1">Comandos Interactivos</h3>
+<h3 id="comandos-interactivos" tabindex="-1">Comandos interactivos</h3>
 
 
 <p>Para que SSM ejecute comandos automáticamente al iniciar una sesión, puedes:</p>
@@ -255,7 +255,7 @@ related:
 <p>Así, cada vez que te conectes, verás automáticamente el resultado de <code class="inline-code">ls -al</code>.</p>
 
 
-<h3 id="programar-sesiones" tabindex="-1">Programar Sesiones</h3>
+<h3 id="programar-sesiones" tabindex="-1">Programar sesiones</h3>
 
 
 <p>Si necesitas que las sesiones se inicien solas en un horario específico, puedes:</p>
@@ -270,7 +270,7 @@ related:
 <p>Esto es útil para tareas de administración o mantenimiento que necesitas hacer regularmente.</p>
 
 
-<h2 id="seguridad-y-cumplimiento" tabindex="-1">Seguridad y Cumplimiento</h2>
+<h2 id="seguridad-y-cumplimiento" tabindex="-1">Seguridad y cumplimiento</h2>
 
 
 <h3 id="aws-identity-and-access-management-(iam)" tabindex="-1">AWS Identity and Access Management (IAM)</h3>
@@ -318,7 +318,7 @@ related:
 <p>Es muy útil activar esta opción para poder revisar actividades pasadas y para cumplir con reglas de seguridad.</p>
 
 
-<h3 id="cumplimiento-normativo" tabindex="-1">Cumplimiento Normativo</h3>
+<h3 id="cumplimiento-normativo" tabindex="-1">Cumplimiento normativo</h3>
 
 
 <p>Usar Session Manager te ayuda a cumplir con varias normas y reglas de seguridad importantes, como HIPAA, PCI DSS, FedRAMP y SOC. Esto significa que al usar Session Manager estás ayudando a que tus sistemas sean más seguros y estén en línea con lo que piden estas normas.</p>
@@ -326,13 +326,13 @@ related:
 
 
 
-<h2 id="soluci%C3%B3n-de-problemas" tabindex="-1">Solución de Problemas</h2>
+<h2 id="soluci%C3%B3n-de-problemas" tabindex="-1">Solución de problemas</h2>
 
 
 <p>Cuando usas AWS Session Manager, a veces pueden surgir problemas. Aquí te explico cómo solucionar los más comunes:</p>
 
 
-<h3 id="error-de-permisos-de-iam" tabindex="-1">Error de Permisos de IAM</h3>
+<h3 id="error-de-permisos-de-iam" tabindex="-1">Error de permisos de IAM</h3>
 
 
 <p>Si te sale un error que dice que no tienes permiso para usar Session Manager, significa que necesitas ajustar los permisos de IAM.</p>
@@ -349,7 +349,7 @@ related:
 </ul>
 
 
-<h3 id="ssm-agent-no-instalado" tabindex="-1">SSM Agent no Instalado</h3>
+<h3 id="ssm-agent-no-instalado" tabindex="-1">SSM agent no instalado</h3>
 
 
 <p>Si te indica que SSM Agent no está en la instancia de EC2, necesitas instalar o activar el agente.</p>
@@ -366,7 +366,7 @@ related:
 </ul>
 
 
-<h3 id="problemas-de-conectividad" tabindex="-1">Problemas de Conectividad</h3>
+<h3 id="problemas-de-conectividad" tabindex="-1">Problemas de conectividad</h3>
 
 
 <p>Si el agente está bien pero no logras conectarte, puede ser un problema de red.</p>
@@ -383,7 +383,7 @@ related:
 </ul>
 
 
-<h3 id="sesi%C3%B3n-expirada" tabindex="-1">Sesión Expirada</h3>
+<h3 id="sesi%C3%B3n-expirada" tabindex="-1">Sesión expirada</h3>
 
 
 <p>Si tus sesiones se cierran muy rápido, puedes ajustar el tiempo antes de que expiren.</p>
@@ -399,19 +399,19 @@ related:
 </ul>
 
 
-<h2 id="mejores-pr%C3%A1cticas" tabindex="-1">Mejores Prácticas</h2>
+<h2 id="mejores-pr%C3%A1cticas" tabindex="-1">Mejores prácticas</h2>
 
 
 <p>Aquí tienes algunas recomendaciones para cuando uses AWS Session Manager:</p>
 
 
-<h3 id="usar-pol%C3%ADticas-iam-detalladas" tabindex="-1">Usar Políticas IAM Detalladas</h3>
+<h3 id="usar-pol%C3%ADticas-iam-detalladas" tabindex="-1">Usar políticas IAM detalladas</h3>
 
 
 <p>Es bueno darle a cada persona solo los permisos que realmente necesita para hacer su trabajo. Así, por ejemplo, si alguien solo necesita ver información pero no cambiar nada, solo debería tener permiso para ver. Esto ayuda a mantener todo más seguro.</p>
 
 
-<h3 id="cambiar-las-claves-regularmente" tabindex="-1">Cambiar las Claves Regularmente</h3>
+<h3 id="cambiar-las-claves-regularmente" tabindex="-1">Cambiar las claves regularmente</h3>
 
 
 <p>Es una buena idea cambiar las claves de acceso cada cierto tiempo, como cada tres meses. Esto ayuda a evitar problemas si alguien llega a conseguir una clave que no debería tener.</p>
@@ -420,13 +420,13 @@ related:
 <p>AWS puede ayudarte a cambiar estas claves automáticamente para que no se te olvide hacerlo.</p>
 
 
-<h3 id="mantener-un-registro-con-cloudwatch" tabindex="-1">Mantener un Registro con CloudWatch</h3>
+<h3 id="mantener-un-registro-con-cloudwatch" tabindex="-1">Mantener un registro con CloudWatch</h3>
 
 
 <p>Es muy útil activar una opción que guarda un registro de quién se conecta a tus sistemas y qué hace. Esto se puede hacer con algo llamado Amazon CloudWatch Logs. Te permite ver fácilmente qué pasó y cuándo, lo cual es muy útil si necesitas revisar algo o si hay un problema de seguridad.</p>
 
 
-<h3 id="cifrar-las-sesiones" tabindex="-1">Cifrar las Sesiones</h3>
+<h3 id="cifrar-las-sesiones" tabindex="-1">Cifrar las sesiones</h3>
 
 
 <p>Aunque AWS Session Manager ya protege tus datos cuando los envías, puedes hacerlo aún más seguro usando un servicio llamado AWS KMS. Esto es especialmente importante si trabajas con información muy delicada. Esto añade una protección extra para asegurarte de que tus datos estén seguros mientras los envías.</p>
@@ -435,7 +435,7 @@ related:
 <h2 id="conclusi%C3%B3n" tabindex="-1">Conclusión</h2>
 
 
-<h3 id="puntos-clave" tabindex="-1">Puntos Clave</h3>
+<h3 id="puntos-clave" tabindex="-1">Puntos clave</h3>
 
 
 <ul>
@@ -462,10 +462,10 @@ related:
 <p>En pocas palabras, AWS Session Manager es una forma excelente de entrar a tus servidores EC2 y otros sistemas de manera sencilla pero muy segura. Usarlo puede mejorar mucho cómo cuidas la seguridad en tu organización.</p>
 
 
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas Relacionadas</h2>
+<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
 
 
-<h3 id="%C2%BFqu%C3%A9-es-session-manager-de-aws%3F" tabindex="-1">¿Qué es Session Manager de AWS?</h3>
+<h3 id="%C2%BFqu%C3%A9-es-session-manager-de-aws%3F" tabindex="-1">¿Qué es session manager de AWS?</h3>
 
 
 <p>AWS Session Manager es una herramienta de AWS Systems Manager que te ayuda a manejar tus servidores o instancias EC2 de forma segura. Te permite conectarte a tus servidores para ejecutar comandos o revisar aplicaciones sin tener que lidiar con temas de seguridad como abrir puertos o manejar muchas contraseñas. Es una manera práctica y segura de acceder a tus servidores.</p>
@@ -491,6 +491,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ec2/">Mejores Prácticas Para Amazon EC2</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores Prácticas de Seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">Seguridad en AWS: Servicios Esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS Fundamentos: Guía de Inicio Rápido</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ec2/">Mejores prácticas para Amazon EC2</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores prácticas de seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">seguridad en AWS: servicios esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS fundamentos: guía de inicio rápido</a></li>
 </ul>
 </p>

@@ -1,5 +1,5 @@
 ---
-title: "Mejores Prácticas de Seguridad en AWS"
+title: "Mejores prácticas de seguridad en AWS"
 description: "Conoce las mejores prácticas de seguridad en AWS, desde la gestión de identidades hasta la preparación ante desastres. Asegura tus sistemas y datos en la nube con estos consejos."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
@@ -12,7 +12,7 @@ related:
     url: "https://dondeaprendoaws.com/blog/checklist-para-automatizar-cumplimiento-en-aws/"
   - title: "Observabilidad en AWS con Amazon X-Ray"
     url: "https://dondeaprendoaws.com/blog/observabilidad-en-aws-con-amazon-x-ray/"
-  - title: "Cómo Desplegar Contenedores en AWS"
+  - title: "Cómo desplegar contenedores en AWS"
     url: "https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/"
 
 ---
@@ -31,13 +31,13 @@ related:
 <p>Estas prácticas te ayudarán a mantener un entorno seguro en AWS, minimizando los riesgos para tus datos y aplicaciones.</p>
 
 
-<h2 id="seguridad-a-nivel-de-cuenta" tabindex="-1">Seguridad a Nivel de Cuenta</h2>
+<h2 id="seguridad-a-nivel-de-cuenta" tabindex="-1">Seguridad a nivel de cuenta</h2>
 
 
 <p>Mantener tu cuenta de AWS segura es clave para proteger todo lo que tienes en la nube. Aquí van unos consejos importantes:</p>
 
 
-<h3 id="usuario-ra%C3%ADz-y-gesti%C3%B3n-de-iam" tabindex="-1">Usuario Raíz y Gestión de IAM</h3>
+<h3 id="usuario-ra%C3%ADz-y-gesti%C3%B3n-de-iam" tabindex="-1">Usuario raíz y gestión de IAM</h3>
 
 
 <ul>
@@ -48,7 +48,7 @@ related:
 </ul>
 
 
-<h3 id="autenticaci%C3%B3n-multifactor-(mfa)" tabindex="-1">Autenticación Multifactor (MFA)</h3>
+<h3 id="autenticaci%C3%B3n-multifactor-(mfa)" tabindex="-1">Autenticación multifactor (MFA)</h3>
 
 
 <ul>
@@ -58,7 +58,7 @@ related:
 </ul>
 
 
-<h3 id="rotaci%C3%B3n-de-claves-de-acceso" tabindex="-1">Rotación de Claves de Acceso</h3>
+<h3 id="rotaci%C3%B3n-de-claves-de-acceso" tabindex="-1">Rotación de claves de acceso</h3>
 
 
 <ul>
@@ -68,7 +68,7 @@ related:
 </ul>
 
 
-<h3 id="principio-de-m%C3%ADnimo-privilegio" tabindex="-1">Principio de Mínimo Privilegio</h3>
+<h3 id="principio-de-m%C3%ADnimo-privilegio" tabindex="-1">Principio de mínimo privilegio</h3>
 
 
 <ul>
@@ -78,7 +78,7 @@ related:
 </ul>
 
 
-<h2 id="seguridad-en-servicios-aws" tabindex="-1">Seguridad en Servicios AWS</h2>
+<h2 id="seguridad-en-servicios-aws" tabindex="-1">Seguridad en servicios AWS</h2>
 
 
 <h3 id="seguridad-en-amazon-ec2" tabindex="-1">Seguridad en Amazon EC2</h3>
@@ -129,7 +129,7 @@ related:
 </ul>
 
 
-<h2 id="herramientas-de-seguridad-de-aws" tabindex="-1">Herramientas de Seguridad de AWS</h2>
+<h2 id="herramientas-de-seguridad-de-aws" tabindex="-1">Herramientas de seguridad de AWS</h2>
 
 
 <p>AWS tiene unas herramientas especiales para ayudarte a mantener todo seguro. Aquí te contamos sobre algunas muy útiles:</p>
@@ -167,7 +167,7 @@ related:
 <p>Con Security Hub, puedes darte cuenta rápido si hay problemas y actuar para solucionarlos. Todo en un solo lugar.</p>
 
 
-<h2 id="monitoreo-y-auditor%C3%ADa" tabindex="-1">Monitoreo y Auditoría</h2>
+<h2 id="monitoreo-y-auditor%C3%ADa" tabindex="-1">Monitoreo y auditoría</h2>
 
 
 <p>El monitoreo y la auditoría son super importantes para mantener tus cosas seguras en AWS. Aquí te contamos sobre algunas herramientas que te pueden ayudar mucho:</p>
@@ -241,7 +241,7 @@ related:
 <p>En resumen, usar CloudTrail, Config y Security Hub te da una buena idea de lo que pasa en tu entorno de AWS. Esto te ayuda a monitorear mejor, encontrar problemas rápido y hacer auditorías más fácilmente.</p>
 
 
-<h2 id="recuperaci%C3%B3n-ante-desastres" tabindex="-1">Recuperación ante Desastres</h2>
+<h2 id="recuperaci%C3%B3n-ante-desastres" tabindex="-1">Recuperación ante desastres</h2>
 
 
 <p>Si algo malo pasa, es importante que tus sistemas en AWS puedan seguir funcionando. Aquí te dejamos algunos consejos para lograrlo:</p>
@@ -311,7 +311,7 @@ related:
 <p>Siguiendo estos consejos, podrás mantener tus cosas en AWS mucho más seguras. Y recuerda estar siempre al día con las nuevas recomendaciones de seguridad.</p>
 
 
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas Relacionadas</h2>
+<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
 
 
 <h3 id="%C2%BFqu%C3%A9-seguridad-ofrece-aws%3F" tabindex="-1">¿Qué seguridad ofrece AWS?</h3>
@@ -341,6 +341,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS Seguridad: Fundamentos Esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/seguridad-en-la-nube-aws-estrategias-clave/">Seguridad en la nube AWS: Estrategias clave</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">Seguridad en AWS: Servicios Esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/">Seguridad en AWS: Mejores Prácticas</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS seguridad: fundamentos esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/seguridad-en-la-nube-aws-estrategias-clave/">Seguridad en la nube AWS: estrategias clave</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">seguridad en AWS: servicios esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/">seguridad en AWS: mejores prácticas</a></li>
 </ul>
 </p>

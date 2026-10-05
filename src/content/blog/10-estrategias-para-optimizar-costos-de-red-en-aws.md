@@ -28,7 +28,7 @@ En AWS Cost Explorer empieza por el costo y el uso agrupados por servicio, cuent
 
 Usa [VPC Flow Logs](https://docs.aws.amazon.com/vpc/latest/userguide/flow-log-records.html) para investigar quién se comunica con quién y cuántos bytes registra el flujo. Los logs explican el tráfico; el informe de costos confirma los cargos. No son un medidor de factura por sí solos y su destino puede generar cargos de CloudWatch Logs o S3, así que define el alcance y la retención antes de habilitarlos en masa.
 
-## 2. Separa salida a Internet, tráfico regional y tráfico entre regiones
+## 2. Separa salida a internet, tráfico regional y tráfico entre regiones
 
 Agrupa cada flujo por destino y dirección. La salida a Internet, las transferencias entre zonas, el tráfico entre regiones y las solicitudes a otros servicios de AWS pueden usar tarifas distintas. Un camino por NAT Gateway, Transit Gateway o un endpoint también puede sumar cargos del servicio que procesa el tráfico.
 
@@ -138,6 +138,6 @@ Lleva un diagrama sencillo de la ruta, el costo agrupado por tipo de uso y regi�
 
 Para debatir una ruta o aprender en comunidad, puedes empezar por el [AWS User Group Networking Colombia](https://www.meetup.com/aws-user-group-networking-colombia/) si necesitas un espacio especializado en conectividad; el [AWS User Group Córdoba](https://www.meetup.com/aws-user-group-cordoba-argentina/) recibe a personas interesadas en la nube aunque estén empezando; y el [AWS User Group Buenos Aires](https://www.meetup.com/aws-user-group-buenos-aires/) organiza encuentros para compartir y aprender sobre AWS. Si buscas una comunidad de mujeres en AWS con contenido y actividades, consulta [AWS Women Colombia](https://awswomencolombia.com/).
 
-También puedes buscar otros grupos por país en el [directorio de comunidades AWS](/comunidades/?format=User+Group) y encontrar una charla, taller o encuentro actual en la [agenda de eventos AWS](/eventos/) o su [agenda en línea](/eventos/online/). Para pedir una segunda opinión útil, comparte el diagrama, los datos de uso agregados y el objetivo del cambio; así otras personas pueden cuestionar la estimación sin necesitar acceso a tu cuenta.
+También puedes buscar otros grupos por país en el [directorio de comunidades AWS](/comunidades/?format=User+Group) y encontrar una charla, taller o encuentro actual en la [Agenda de eventos AWS](/eventos/) o su [Agenda en línea](/eventos/online/). Para pedir una segunda opinión útil, comparte el diagrama, los datos de uso agregados y el objetivo del cambio; así otras personas pueden cuestionar la estimación sin necesitar acceso a tu cuenta.
 
 ---

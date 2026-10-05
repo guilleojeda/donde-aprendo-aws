@@ -8,11 +8,11 @@ cover: "/assets/blog/editorial-seguridad.png"
 coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-seguridad.png"
 related:
-  - title: "Crear un Cluster en Amazon Redshift"
+  - title: "Crear un cluster en Amazon Redshift"
     url: "https://dondeaprendoaws.com/blog/crear-un-cluster-en-amazon-redshift/"
   - title: "Recursos de capacitación para socios de AWS"
     url: "https://dondeaprendoaws.com/blog/recursos-de-capacitacion-para-socios-de-aws/"
-  - title: "Guía de UEBA para la Seguridad de AWS"
+  - title: "Guía de UEBA para la seguridad de AWS"
     url: "https://dondeaprendoaws.com/blog/guia-de-ueba-para-la-seguridad-de-aws/"
 
 ---
@@ -40,7 +40,7 @@ related:
 <p>Esta guía te muestra cómo implementar estas herramientas para mantener un entorno seguro y cumplir con <a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">regulaciones en AWS</a>.</p>
 
 
-<h2 class="sb" id="servicios-esenciales-de-aws-para-la-automatizacion-del-cumplimiento" tabindex="-1">Servicios Esenciales de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> para la Automatización del Cumplimiento</h2>
+<h2 class="sb" id="servicios-esenciales-de-aws-para-la-automatizacion-del-cumplimiento" tabindex="-1">Servicios esenciales de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> para la Automatización del Cumplimiento</h2>
 
 
 <p><figure><img alt="AWS" src="/assets/blog/2ebe3cf8e7ae57e98d3af846.jpg"/></figure></p>
@@ -119,7 +119,7 @@ related:
 <p>Es esencial revisar y ajustar regularmente las configuraciones para adaptarlas a los requisitos específicos de tu organización. AWS ofrece la flexibilidad necesaria para personalizar estas configuraciones según tus necesidades.</p>
 
 
-<h2 class="sb" id="pasos-de-implementacion-para-la-automatizacion-del-cumplimiento" tabindex="-1">Pasos de Implementación para la Automatización del Cumplimiento</h2>
+<h2 class="sb" id="pasos-de-implementacion-para-la-automatizacion-del-cumplimiento" tabindex="-1">Pasos de implementación para la automatización del cumplimiento</h2>
 
 
 <h3 id="1-configurar-iam" tabindex="-1">1: Configurar IAM</h3>
@@ -170,13 +170,13 @@ related:
 
 
 
-<h2 class="sb" id="estrategias-para-el-cumplimiento-continuo" tabindex="-1">Estrategias para el Cumplimiento Continuo</h2>
+<h2 class="sb" id="estrategias-para-el-cumplimiento-continuo" tabindex="-1">Estrategias para el cumplimiento continuo</h2>
 
 
 <p>Mantener el cumplimiento continuo en AWS implica combinar revisiones periódicas, ajustes dinámicos y respuestas automatizadas. Esto ayuda a garantizar la seguridad y la conformidad en todo momento.</p>
 
 
-<h3 id="revision-regular-de-politicas-iam" tabindex="-1">Revisión Regular de Políticas IAM</h3>
+<h3 id="revision-regular-de-politicas-iam" tabindex="-1">Revisión regular de políticas IAM</h3>
 
 
 <p>Establece un calendario de revisiones trimestrales, ajustándolo según las normativas de tu sector. Durante estas revisiones:</p>
@@ -192,7 +192,7 @@ related:
 <p>Estas revisiones aseguran que los accesos estén alineados con los objetivos de conformidad y complementan el manejo dinámico de las reglas en AWS Config.</p>
 
 
-<h3 id="actualizacion-de-reglas-en-aws-config" tabindex="-1">Actualización de Reglas en AWS Config</h3>
+<h3 id="actualizacion-de-reglas-en-aws-config" tabindex="-1">Actualización de reglas en AWS Config</h3>
 
 
 <p>Lleva a cabo evaluaciones continuas para ajustar las reglas según las necesidades actuales:</p>
@@ -222,7 +222,7 @@ related:
 </table></figure>
 
 
-<h3 id="automatizacion-de-respuesta-a-incidentes" tabindex="-1">Automatización de Respuesta a Incidentes</h3>
+<h3 id="automatizacion-de-respuesta-a-incidentes" tabindex="-1">Automatización de respuesta a incidentes</h3>
 
 
 <p>Herramientas como AWS Security Hub, integradas con Lambda y EventBridge, permiten crear flujos automatizados para responder a problemas de seguridad <a href="https://aws.amazon.com/blogs/security/aws-security-hub-launches-a-new-capability-for-automating-actions-to-update-findings/" rel="noopener noreferrer" target="_blank"><sup>[2]</sup></a>. Configura EventBridge para que active Lambda ante hallazgos críticos. Estas acciones pueden incluir:</p>
@@ -242,7 +242,7 @@ related:
 <p>Mantente informado mediante fuentes confiables para mejorar y fortalecer estas estrategias de cumplimiento.</p>
 
 
-<h2 class="sb" id="recursos-para-aprender-sobre-cumplimiento-en-aws" tabindex="-1">Recursos para Aprender sobre Cumplimiento en AWS</h2>
+<h2 class="sb" id="recursos-para-aprender-sobre-cumplimiento-en-aws" tabindex="-1">Recursos para aprender sobre cumplimiento en AWS</h2>
 
 
 <p>Mantente informado con fuentes confiables que te ayuden a automatizar el <a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">cumplimiento en AWS</a> de manera efectiva.</p>
@@ -257,7 +257,7 @@ related:
 <p>El sitio <a href="https://dondeaprendoaws.com">Dónde Aprendo AWS</a> es una excelente opción para desarrolladores e ingenieros hispanohablantes. Ofrece artículos en español con explicaciones claras, ejemplos prácticos y recursos comunitarios. Aquí puedes aprender cómo implementar servicios clave como <strong>IAM</strong>, <strong>AWS Config</strong> y <strong>Security Hub</strong> en entornos de producción.</p>
 
 
-<h3 id="documentacion-oficial-de-aws" tabindex="-1">Documentación Oficial de AWS</h3>
+<h3 id="documentacion-oficial-de-aws" tabindex="-1">Documentación oficial de AWS</h3>
 
 
 <p>La <a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">documentación oficial de AWS</a> es otro recurso imprescindible. Proporciona guías detalladas, instrucciones paso a paso y ejemplos prácticos. Algunos puntos destacados incluyen:</p>
@@ -293,4 +293,4 @@ related:
 
 
 <h2>Publicaciones de blog relacionadas</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores Prácticas de Seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/9-mejores-practicas-de-seguridad-para-iac-en-aws/">9 Mejores Prácticas de Seguridad para IaC en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/automatizacion-de-cumplimiento-con-aws-config/">Automatización de cumplimiento con AWS Config</a></li></ul>
+<ul><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores prácticas de seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/9-mejores-practicas-de-seguridad-para-iac-en-aws/">9 mejores prácticas de seguridad para IaC en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/automatizacion-de-cumplimiento-con-aws-config/">automatización de cumplimiento con AWS Config</a></li></ul>

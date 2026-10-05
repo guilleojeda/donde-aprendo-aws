@@ -1,5 +1,5 @@
 ---
-title: "Correlación de Eventos con Step Functions y CloudWatch"
+title: "Correlación de eventos con Step Functions y CloudWatch"
 description: "Aprende a automatizar flujos de trabajo en AWS utilizando Step Functions y CloudWatch para mejorar la eficiencia y la detección de problemas."
 author: "guille-ojeda"
 publishedAt: "2025-03-17"
@@ -10,7 +10,7 @@ ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Monitoreo de contenedores con CloudWatch Logs"
     url: "https://dondeaprendoaws.com/blog/monitoreo-de-contenedores-con-cloudwatch-logs/"
-  - title: "¿Qué es AWS Lambda? Preguntas y Respuestas"
+  - title: "¿Qué es AWS Lambda? preguntas y respuestas"
     url: "https://dondeaprendoaws.com/blog/que-es-aws-lambda-preguntas-y-respuestas/"
   - title: "AWS Web Application Firewall (WAF)"
     url: "https://dondeaprendoaws.com/blog/aws-web-application-firewall-waf/"
@@ -33,7 +33,7 @@ related:
 <ul>
 <li>Configurar Step Functions con CloudWatch.</li>
 <li>Diseñar flujos que reaccionen a eventos.</li>
-<li><a href="https://dondeaprendoaws.com/blog/10-metricas-clave-de-devops-en-aws/">Monitorear métricas</a> y configurar alertas.</li>
+<li><a href="https://dondeaprendoaws.com/blog/10-metricas-clave-de-devops-en-aws/">monitorear métricas</a> y configurar alertas.</li>
 <li>Mejorar procesos mediante correlación de eventos.</li>
 </ul>
 </li>
@@ -42,8 +42,8 @@ related:
 </li>
 </ul>
 <p>Esta guía es ideal para desarrolladores y arquitectos con conocimientos básicos de AWS que deseen mejorar la automatización y el monitoreo de sus sistemas.</p>
-<h2 class="sb h2-sbb-cls" id="configuracion-inicial" tabindex="-1">Configuración Inicial</h2>
-<h3 id="componentes-necesarios" tabindex="-1">Componentes Necesarios</h3>
+<h2 class="sb h2-sbb-cls" id="configuracion-inicial" tabindex="-1">Configuración inicial</h2>
+<h3 id="componentes-necesarios" tabindex="-1">Componentes necesarios</h3>
 <p>Para integrar Step Functions con CloudWatch, necesitarás configurar los siguientes elementos en tu cuenta de AWS:</p>
 <figure class="table"><table>
 <thead>
@@ -68,7 +68,7 @@ related:
 </tbody>
 </table></figure>
 <p>Asegúrate de que los roles IAM permitan la comunicación entre estos servicios, lo que facilitará una integración fluida. Una vez que los permisos estén listos, puedes proceder a configurar tu primera máquina de estados.</p>
-<h3 id="configuracion-de-la-primera-maquina-de-estados" tabindex="-1">Configuración de la Primera Máquina de Estados</h3>
+<h3 id="configuracion-de-la-primera-maquina-de-estados" tabindex="-1">Configuración de la primera máquina de estados</h3>
 <ol>
 <li>
 <strong>Crear una máquina de estados básica</strong>
@@ -181,8 +181,8 @@ Ajusta el tiempo de espera en las reglas para evitar pérdidas de eventos y cont
 </ul>
 <p>Es importante encontrar un equilibrio entre la cantidad de eventos monitoreados y los costes asociados. Monitorear demasiados eventos puede ser costoso, mientras que una configuración demasiado limitada podría pasar por alto eventos importantes.</p>
 <p>Si quieres profundizar en la <a href="https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/">integración de servicios de AWS</a>, visita <a href="https://dondeaprendoaws.com/">Dónde Aprendo AWS</a>.</p>
-<h2 class="sb h2-sbb-cls" id="flujos-de-trabajo-para-correlacion-de-eventos" tabindex="-1">Flujos de Trabajo para Correlación de Eventos</h2>
-<h3 id="toma-de-decisiones-basada-en-eventos" tabindex="-1">Toma de Decisiones Basada en Eventos</h3>
+<h2 class="sb h2-sbb-cls" id="flujos-de-trabajo-para-correlacion-de-eventos" tabindex="-1">Flujos de trabajo para correlación de eventos</h2>
+<h3 id="toma-de-decisiones-basada-en-eventos" tabindex="-1">Toma de decisiones basada en eventos</h3>
 <p>Los <a href="https://jjoc007.com/introducci%C3%B3n-a-aws-step-functions-usando-terraform-como-herramienta-de-infrastructura-como-c%C3%B3digo-e2add2930269" target="_blank">flujos de trabajo de Step Functions</a> permiten procesar eventos relacionados mediante estados <strong>Choice</strong>, que ayudan a implementar lógica de negocio según el tipo de evento. Aquí tienes un ejemplo de configuración:</p>
 <pre><code class="language-json">{
   "Type": "Choice",
@@ -208,7 +208,7 @@ Ajusta el tiempo de espera en las reglas para evitar pérdidas de eventos y cont
 <li>Configura tiempos de espera realistas para evitar bloqueos innecesarios.</li>
 </ul>
 <p>El siguiente paso es entender cómo manejar eventos en función de intervalos temporales.</p>
-<h3 id="procesamiento-de-eventos-basado-en-tiempo" tabindex="-1">Procesamiento de Eventos Basado en Tiempo</h3>
+<h3 id="procesamiento-de-eventos-basado-en-tiempo" tabindex="-1">Procesamiento de eventos basado en tiempo</h3>
 <p>Además de tomar decisiones basadas en eventos, gestionar el tiempo entre ellos es esencial para una correlación eficiente. Step Functions ofrece tres opciones principales para manejar esperas:</p>
 <ul>
 <li><strong>Tiempo fijo</strong>: Ideal para retrasos predefinidos (ejemplo: <code class="inline-code">"Seconds": 300</code>).</li>
@@ -223,9 +223,9 @@ Ajusta el tiempo de espera en las reglas para evitar pérdidas de eventos y cont
 }
 </code></pre>
 <p>Ajusta los tiempos de espera para encontrar el equilibrio entre precisión y eficiencia. Los estados <strong>Wait</strong> son especialmente útiles para coordinar eventos que deben ocurrir dentro de una ventana temporal específica.</p>
-<h2 class="sb h2-sbb-cls" id="pruebas-y-manejo-de-errores" tabindex="-1">Pruebas y Manejo de Errores</h2>
+<h2 class="sb h2-sbb-cls" id="pruebas-y-manejo-de-errores" tabindex="-1">Pruebas y manejo de errores</h2>
 <p>Al trabajar con la integración de Step Functions y CloudWatch, es fundamental realizar pruebas exhaustivas y gestionar posibles errores para garantizar que el flujo de eventos funcione correctamente.</p>
-<h3 id="configuracion-de-metricas" tabindex="-1">Configuración de Métricas</h3>
+<h3 id="configuracion-de-metricas" tabindex="-1">Configuración de métricas</h3>
 <p>Es importante monitorear los siguientes aspectos clave:</p>
 <ul>
 <li><strong>Tiempo total de ejecución</strong> del flujo de trabajo.</li>
@@ -234,7 +234,7 @@ Ajusta el tiempo de espera en las reglas para evitar pérdidas de eventos y cont
 <li><strong>Latencia entre eventos</strong>, para medir el tiempo de respuesta.</li>
 </ul>
 <p>Configura métricas personalizadas en CloudWatch enfocadas en estos indicadores para mantener un sistema eficiente.</p>
-<h3 id="creacion-de-paneles-de-monitorizacion" tabindex="-1">Creación de Paneles de Monitorización</h3>
+<h3 id="creacion-de-paneles-de-monitorizacion" tabindex="-1">Creación de paneles de monitorización</h3>
 <p>Una vez que las métricas estén configuradas, organiza un panel en CloudWatch para visualizar los datos de manera clara y efectiva. Aquí tienes un ejemplo de cómo estructurarlo:</p>
 <figure class="table"><table>
 <thead>
@@ -267,7 +267,7 @@ Ajusta el tiempo de espera en las reglas para evitar pérdidas de eventos y cont
 </tr>
 </tbody>
 </table></figure>
-<h3 id="problemas-comunes-y-soluciones" tabindex="-1">Problemas Comunes y Soluciones</h3>
+<h3 id="problemas-comunes-y-soluciones" tabindex="-1">Problemas comunes y soluciones</h3>
 <p>Aquí tienes algunos desafíos habituales y cómo abordarlos:</p>
 <ol>
 <li>
@@ -307,7 +307,7 @@ Limita la cantidad de eventos procesados en un intervalo de tiempo:
 </code></pre>
 </li>
 </ol>
-<h3 id="configuracion-de-alertas-en-cloudwatch" tabindex="-1">Configuración de Alertas en CloudWatch</h3>
+<h3 id="configuracion-de-alertas-en-cloudwatch" tabindex="-1">Configuración de alertas en CloudWatch</h3>
 <p>Para reaccionar rápidamente a problemas, configura alertas que notifiquen en los siguientes casos:</p>
 <ul>
 <li><strong>Tasa de errores</strong> superior al 5%.</li>
@@ -315,10 +315,10 @@ Limita la cantidad de eventos procesados en un intervalo de tiempo:
 <li><strong>Más de 3 reintentos consecutivos</strong>.</li>
 </ul>
 <p>Estas estrategias complementan la configuración inicial y ayudan a gestionar los eventos de manera efectiva, asegurando un flujo de trabajo estable y bien optimizado.</p>
-<h2 class="sb h2-sbb-cls" id="rendimiento-y-estandares" tabindex="-1">Rendimiento y Estándares</h2>
-<h3 id="velocidad-y-control-de-costes" tabindex="-1">Velocidad y Control de Costes</h3>
+<h2 class="sb h2-sbb-cls" id="rendimiento-y-estandares" tabindex="-1">Rendimiento y estándares</h2>
+<h3 id="velocidad-y-control-de-costes" tabindex="-1">Velocidad y control de costes</h3>
 <p>Para mejorar el rendimiento y gestionar los costes, ajusta la memoria asignada a Lambda según la complejidad de las tareas. Además, establece límites de tiempo precisos en Step Functions para evitar ejecuciones innecesarias que puedan generar gastos adicionales.</p>
-<h3 id="recomendaciones-de-seguridad" tabindex="-1">Recomendaciones de Seguridad</h3>
+<h3 id="recomendaciones-de-seguridad" tabindex="-1">Recomendaciones de seguridad</h3>
 <p>La seguridad es clave para proteger cada componente de la integración. Asegúrate de implementar políticas IAM siguiendo el principio de mínimo privilegio y revísalas regularmente para proteger los recursos de manera efectiva.</p>
 <p>Aquí tienes un ejemplo de política IAM restrictiva:</p>
 <pre><code class="language-json">{
@@ -337,7 +337,7 @@ Limita la cantidad de eventos procesados en un intervalo de tiempo:
 </code></pre>
 <p>Estas medidas ayudan a garantizar la integridad y eficiencia en los procesos de correlación de eventos. Si quieres aprender más sobre cómo optimizar y proteger entornos en AWS, visita el blog <a href="https://dondeaprendoaws.com/">Dónde Aprendo AWS</a> (https://dondeaprendoaws.com), donde encontrarás recursos y guías detalladas para desarrolladores de habla hispana.</p>
 <h2 class="sb h2-sbb-cls" id="conclusion" tabindex="-1">Conclusión</h2>
-<h3 id="resumen-de-puntos-clave" tabindex="-1">Resumen de Puntos Clave</h3>
+<h3 id="resumen-de-puntos-clave" tabindex="-1">Resumen de puntos clave</h3>
 <p>La combinación de Step Functions y CloudWatch ofrece una herramienta eficaz para automatizar flujos de trabajo y tomar decisiones en tiempo real, aprovechando el procesamiento temporal para gestionar recursos de manera eficiente. Configurar métricas y paneles personalizados en CloudWatch permite detectar cuellos de botella y áreas de mejora, mientras que el monitoreo constante asegura un rendimiento óptimo y ayuda a reducir costes operativos.</p>
 <p>Algunos de los puntos clave de esta integración incluyen:</p>
 <ul>
@@ -347,7 +347,7 @@ Limita la cantidad de eventos procesados en un intervalo de tiempo:
 <li><strong>Protección de la integridad de datos</strong> con políticas de seguridad sólidas.</li>
 </ul>
 <p>Estos elementos proporcionan una base sólida para explorar más detalles a través de los recursos que se mencionan a continuación.</p>
-<h3 id="recursos-adicionales" tabindex="-1">Recursos Adicionales</h3>
+<h3 id="recursos-adicionales" tabindex="-1">Recursos adicionales</h3>
 <p>Aquí tienes algunos recursos útiles:</p>
 <figure class="table"><table>
 <thead>
@@ -370,10 +370,10 @@ Limita la cantidad de eventos procesados en un intervalo de tiempo:
 </tr>
 <tr>
 <td><a href="https://docs.aws.amazon.com/wellarchitected/latest/framework/welcome.html" rel="nofollow noopener noreferrer" target="_blank">AWS Well-Architected</a></td>
-<td><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas de arquitectura</a></td>
+<td><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">mejores prácticas de arquitectura</a></td>
 <td>Ayuda a optimizar el rendimiento y la seguridad.</td>
 </tr>
 </tbody>
 </table></figure>
 <p>Aprovecha estos recursos para profundizar en la integración y seguir mejorando tus implementaciones en AWS.</p>
-<h2>Publicaciones de blog relacionadas</h2><ul><li><a href="https://dondeaprendoaws.com/blog/comprendiendo-aws-step-functions/">Comprendiendo AWS Step Functions</a></li><li><a href="https://dondeaprendoaws.com/blog/monitoreo-y-logs-de-aws-step-functions-guia-2024/">Monitoreo y Logs de AWS Step Functions: Guía 2024</a></li><li><a href="https://dondeaprendoaws.com/blog/cloudwatch-y-eventbridge-integracion/">CloudWatch y EventBridge: Integración</a></li><li><a href="https://dondeaprendoaws.com/blog/estrategias-de-correlacion-de-eventos-aws/">Estrategias de Correlación de Eventos AWS</a></li></ul>
+<h2>Publicaciones de blog relacionadas</h2><ul><li><a href="https://dondeaprendoaws.com/blog/comprendiendo-aws-step-functions/">Comprendiendo AWS Step Functions</a></li><li><a href="https://dondeaprendoaws.com/blog/monitoreo-y-logs-de-aws-step-functions-guia-2024/">Monitoreo y logs de AWS Step Functions: guía 2024</a></li><li><a href="https://dondeaprendoaws.com/blog/cloudwatch-y-eventbridge-integracion/">CloudWatch y EventBridge: integración</a></li><li><a href="https://dondeaprendoaws.com/blog/estrategias-de-correlacion-de-eventos-aws/">Estrategias de correlación de eventos AWS</a></li></ul>

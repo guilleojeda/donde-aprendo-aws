@@ -1,5 +1,5 @@
 ---
-title: "Clases de Almacenamiento de Amazon S3"
+title: "Clases de almacenamiento de Amazon S3"
 description: "Consejos para elegir la clase de almacenamiento adecuada en Amazon S3, optimizar costos y asegurar la disponibilidad y seguridad de tus datos. Descubre las ventajas y desventajas de cada opción."
 author: "guille-ojeda"
 publishedAt: "2024-03-19"
@@ -10,9 +10,9 @@ ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "Pipeline CI/CD con Terraform y AWS CodePipeline"
     url: "https://dondeaprendoaws.com/blog/pipeline-cicd-con-terraform-y-aws-codepipeline/"
-  - title: "Diferencias Entre SLA y SLO en AWS"
+  - title: "Diferencias entre SLA y SLO en AWS"
     url: "https://dondeaprendoaws.com/blog/diferencias-entre-sla-y-slo-en-aws/"
-  - title: "Cómo crear Infraestructura como Código en AWS con AWS CloudFormation"
+  - title: "Cómo crear infraestructura como código en AWS con AWS CloudFormation"
     url: "https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-aws-cloudformation/"
 
 ---
@@ -31,7 +31,7 @@ related:
 </ul>
 
 
-<h3 id="comparaci%C3%B3n-r%C3%A1pida" tabindex="-1">Comparación Rápida</h3>
+<h3 id="comparaci%C3%B3n-r%C3%A1pida" tabindex="-1">Comparación rápida</h3>
 
 
 <figure class="table"><table>
@@ -130,7 +130,7 @@ related:
 <p>Pensando en estas cosas te ayudará a escoger el mejor lugar en Amazon S3 para tus datos.</p>
 
 
-<h2 id="comparaci%C3%B3n-de-clases-de-almacenamiento" tabindex="-1">Comparación de Clases de Almacenamiento</h2>
+<h2 id="comparaci%C3%B3n-de-clases-de-almacenamiento" tabindex="-1">Comparación de clases de almacenamiento</h2>
 
 
 <h3 id="amazon-s3-standard" tabindex="-1">Amazon S3 Standard</h3>
@@ -154,19 +154,19 @@ related:
 <p>De todas las opciones de Amazon S3, S3 Standard es la más cara por cada GB que guardas, pero es la más barata cuando quieres hacer cosas como subir o bajar datos. No te cobran extra por sacar tus datos.</p>
 
 
-<h4 id="casos-de-uso-1" tabindex="-1">Casos de Uso</h4>
+<h4 id="casos-de-uso-1" tabindex="-1">Casos de uso</h4>
 
 
 <p>Es perfecto si necesitas ver tus datos seguido, como para páginas web, aplicaciones, análisis o para guardar copias de seguridad. También es buena opción si vas a compartir mucho contenido.</p>
 
 
-<h4 id="tiempo-de-recuperaci%C3%B3n-de-datos-1" tabindex="-1">Tiempo de Recuperación de Datos</h4>
+<h4 id="tiempo-de-recuperaci%C3%B3n-de-datos-1" tabindex="-1">Tiempo de recuperación de datos</h4>
 
 
 <p>Con S3 Standard, puedes recuperar tus datos casi al instante, ya que el acceso es en milisegundos.</p>
 
 
-<h4 id="zonas-de-disponibilidad-1" tabindex="-1">Zonas de Disponibilidad</h4>
+<h4 id="zonas-de-disponibilidad-1" tabindex="-1">Zonas de disponibilidad</h4>
 
 
 <p>Tus datos se guardan en al menos 3 lugares diferentes con AWS para asegurarse de que, incluso si uno falla, tus datos siguen estando seguros. Esto es una buena manera de proteger tus cosas contra grandes problemas.</p>
@@ -193,19 +193,19 @@ related:
 <p>Con S3 Intelligent-Tiering, pagas una pequeña tarifa cada mes por objeto para que Amazon maneje y vigile tus datos. No te cobran extra por sacar tus datos. Y lo mejor, puedes ahorrar mucho, hasta un 95% comparado con el plan más caro, S3 Standard.</p>
 
 
-<h4 id="casos-de-uso-2" tabindex="-1">Casos de Uso</h4>
+<h4 id="casos-de-uso-2" tabindex="-1">Casos de uso</h4>
 
 
 <p>Es perfecto para cuando no sabes cuánto vas a usar tus datos, como con lagos de datos, análisis de datos, aplicaciones nuevas o contenido creado por usuarios. Es una buena opción para casi cualquier necesidad.</p>
 
 
-<h4 id="tiempo-de-recuperaci%C3%B3n-de-datos-2" tabindex="-1">Tiempo de Recuperación de Datos</h4>
+<h4 id="tiempo-de-recuperaci%C3%B3n-de-datos-2" tabindex="-1">Tiempo de recuperación de datos</h4>
 
 
 <p>Recuperar tus datos es rapidísimo, en milisegundos, para los datos que usas seguido o no tanto. Pero si tus datos están archivados, puede tardar desde minutos hasta horas en recuperarlos.</p>
 
 
-<h4 id="zonas-de-disponibilidad-2" tabindex="-1">Zonas de Disponibilidad</h4>
+<h4 id="zonas-de-disponibilidad-2" tabindex="-1">Zonas de disponibilidad</h4>
 
 
 <p>Tus datos se guardan en al menos 3 lugares distintos para estar más seguros. Esto ayuda a que tus datos estén protegidos, incluso si hay problemas en una zona.</p>
@@ -232,19 +232,19 @@ related:
 <p>Guardar cosas aquí es más barato que en S3 Standard, pero si quieres sacar tus datos, te cobran por cada GB que descargas. Esto es importante si planeas recuperar muchos datos.</p>
 
 
-<h4 id="casos-de-uso-3" tabindex="-1">Casos de Uso</h4>
+<h4 id="casos-de-uso-3" tabindex="-1">Casos de uso</h4>
 
 
 <p>Es perfecto para cosas que no miras mucho pero que quieres guardar, como copias de seguridad viejas o archivos que no usas a diario. Si tienes datos que piensas usar después, pero no ahora, este es un buen lugar.</p>
 
 
-<h4 id="tiempo-de-recuperaci%C3%B3n-de-datos-3" tabindex="-1">Tiempo de Recuperación de Datos</h4>
+<h4 id="tiempo-de-recuperaci%C3%B3n-de-datos-3" tabindex="-1">Tiempo de recuperación de datos</h4>
 
 
 <p>Aunque obtener tus datos es rápido, si decides moverlos de S3 Standard-IA a otro lado, podría tardar un poco más, especialmente si estás moviendo mucho.</p>
 
 
-<h4 id="zonas-de-disponibilidad-3" tabindex="-1">Zonas de Disponibilidad</h4>
+<h4 id="zonas-de-disponibilidad-3" tabindex="-1">Zonas de disponibilidad</h4>
 
 
 <p>S3 Standard-IA guarda tus datos en al menos 3 lugares distintos para que estén seguros, incluso si una zona entera tiene problemas. Esto es como tener copias de seguridad en diferentes casas para más seguridad.</p>
@@ -271,19 +271,19 @@ related:
 <p>Guardar tus datos aquí es más económico que en S3 Standard o S3 Standard-IA. Pero, al igual que S3 Standard-IA, te cobran por cada GB que bajas de esta opción.</p>
 
 
-<h4 id="casos-de-uso-4" tabindex="-1">Casos de Uso</h4>
+<h4 id="casos-de-uso-4" tabindex="-1">Casos de uso</h4>
 
 
 <p>Es perfecta para datos que no sería un problema volver a crear si se pierden, como copias de seguridad que no son las principales o datos que has replicado de otra región de AWS.</p>
 
 
-<h4 id="tiempo-de-recuperaci%C3%B3n-de-datos-4" tabindex="-1">Tiempo de Recuperación de Datos</h4>
+<h4 id="tiempo-de-recuperaci%C3%B3n-de-datos-4" tabindex="-1">Tiempo de recuperación de datos</h4>
 
 
 <p>Es muy rápido conseguir tus datos, en milisegundos.</p>
 
 
-<h4 id="zonas-de-disponibilidad-4" tabindex="-1">Zonas de Disponibilidad</h4>
+<h4 id="zonas-de-disponibilidad-4" tabindex="-1">Zonas de disponibilidad</h4>
 
 
 <p>A diferencia de otras opciones que guardan tus datos en varios lugares, S3 One Zone-IA los guarda en un solo sitio. Esto la hace más barata, pero también significa que si hay problemas en esa zona, tus datos podrían estar en riesgo.</p>
@@ -310,19 +310,19 @@ related:
 <p>S3 Glacier es la opción más barata para guardar cosas en Amazon S3, con precios desde solo $0.004 por GB al mes. Pero, ten en cuenta que si necesitas recuperar tus datos, eso tiene un costo extra.</p>
 
 
-<h4 id="casos-de-uso-5" tabindex="-1">Casos de Uso</h4>
+<h4 id="casos-de-uso-5" tabindex="-1">Casos de uso</h4>
 
 
 <p>S3 Glacier es perfecto para guardar datos que casi no vas a usar, como copias de seguridad que guardas por mucho tiempo, datos que necesitas por reglas de tu industria, o para mantener seguro algo importante por años.</p>
 
 
-<h4 id="tiempo-de-recuperaci%C3%B3n-de-datos-5" tabindex="-1">Tiempo de Recuperación de Datos</h4>
+<h4 id="tiempo-de-recuperaci%C3%B3n-de-datos-5" tabindex="-1">Tiempo de recuperación de datos</h4>
 
 
 <p>Puedes pedir tus datos y tenerlos listos desde en unos minutos hasta en 12 horas, dependiendo de cómo lo pidas.</p>
 
 
-<h4 id="zonas-de-disponibilidad-5" tabindex="-1">Zonas de Disponibilidad</h4>
+<h4 id="zonas-de-disponibilidad-5" tabindex="-1">Zonas de disponibilidad</h4>
 
 
 <p>S3 Glacier guarda tus datos en varios lugares al mismo tiempo para que estén más seguros, incluso si se pierde uno de esos lugares por completo.</p>
@@ -349,19 +349,19 @@ related:
 <p>S3 Glacier Deep Archive es la opción más barata de AWS para guardar datos, con precios desde solo $0.00099 por GB al mes. Pero, recuerda que sacar tus datos cuesta extra.</p>
 
 
-<h4 id="casos-de-uso-6" tabindex="-1">Casos de Uso</h4>
+<h4 id="casos-de-uso-6" tabindex="-1">Casos de uso</h4>
 
 
 <p>Es perfecto para datos que miras menos de una vez al año, como archivos antiguos, datos que necesitas guardar por ley, o para guardar cosas importantes por mucho tiempo.</p>
 
 
-<h4 id="tiempo-de-recuperaci%C3%B3n-de-datos-6" tabindex="-1">Tiempo de Recuperación de Datos</h4>
+<h4 id="tiempo-de-recuperaci%C3%B3n-de-datos-6" tabindex="-1">Tiempo de recuperación de datos</h4>
 
 
 <p>Puedes pedir tus datos y tenerlos listos entre 12 y 48 horas, dependiendo de cómo lo hagas.</p>
 
 
-<h4 id="zonas-de-disponibilidad-6" tabindex="-1">Zonas de Disponibilidad</h4>
+<h4 id="zonas-de-disponibilidad-6" tabindex="-1">Zonas de disponibilidad</h4>
 
 
 <p>S3 Glacier Deep Archive guarda tus datos en varios lugares para más seguridad. Así, si un lugar tiene problemas, tus datos siguen estando seguros.</p>
@@ -388,25 +388,25 @@ related:
 <p>Usar S3 Outposts significa un costo extra porque necesitas tener el equipo de Outposts. El precio varía según cuánto espacio necesitas. Es buena idea revisar la página de precios de AWS para más información.</p>
 
 
-<h4 id="casos-de-uso-7" tabindex="-1">Casos de Uso</h4>
+<h4 id="casos-de-uso-7" tabindex="-1">Casos de uso</h4>
 
 
 <p>S3 Outposts es perfecto si necesitas que tus datos estén cerca, como para aplicaciones que no pueden esperar mucho o que tienen reglas especiales de dónde deben estar los datos. También es útil si estás combinando cosas de la nube con cosas en tu propio lugar.</p>
 
 
-<h4 id="tiempo-de-recuperaci%C3%B3n-de-datos-7" tabindex="-1">Tiempo de Recuperación de Datos</h4>
+<h4 id="tiempo-de-recuperaci%C3%B3n-de-datos-7" tabindex="-1">Tiempo de recuperación de datos</h4>
 
 
 <p>Dado que usas equipo local y las mismas maneras de trabajar que en S3, obtener tus datos es rapidísimo, casi al instante.</p>
 
 
-<h4 id="zonas-de-disponibilidad-7" tabindex="-1">Zonas de Disponibilidad</h4>
+<h4 id="zonas-de-disponibilidad-7" tabindex="-1">Zonas de disponibilidad</h4>
 
 
 <p>Con S3 Outposts, tus datos se quedan donde tú estés, en el equipo de Outposts. La seguridad de tus datos depende de cómo tengas organizado tu equipo. Para estar más seguro, es bueno tener varias maneras de proteger tus datos. Además, puedes enviar tus datos a S3 para estar aún más seguro en caso de un problema grande en tu lugar.</p>
 
 
-<h2 id="ventajas-y-desventajas" tabindex="-1">Ventajas y Desventajas</h2>
+<h2 id="ventajas-y-desventajas" tabindex="-1">Ventajas y desventajas</h2>
 
 
 <p>Hablemos claro de lo bueno y lo malo de cada tipo de almacenamiento en Amazon S3 para que puedas escoger el que más te conviene. Aquí te lo explicamos de manera sencilla:</p>
@@ -491,7 +491,7 @@ related:
 <p>Piensa en qué necesitas realmente, como cuánto puedes gastar, qué tan seguido necesitas tus datos y si la velocidad es importante para ti. Así podrás escoger mejor.</p>
 
 
-<h2 id="estrategias-de-optimizaci%C3%B3n-de-costos" tabindex="-1">Estrategias de Optimización de Costos</h2>
+<h2 id="estrategias-de-optimizaci%C3%B3n-de-costos" tabindex="-1">Estrategias de optimización de costos</h2>
 
 
 <p>Ahorrar en los costos de guardar cosas en Amazon S3 es más fácil de lo que piensas. Aquí van unos consejos clave:</p>
@@ -557,7 +557,7 @@ related:
 <p>Siguiendo estos consejos, podrás reducir tus gastos en Amazon S3 de manera efectiva. Combina varios de estos métodos para ahorrar aún más.</p>
 
 
-<h2 id="criterios-para-elegir-la-clase-de-almacenamiento-adecuada" tabindex="-1">Criterios para Elegir la Clase de Almacenamiento Adecuada</h2>
+<h2 id="criterios-para-elegir-la-clase-de-almacenamiento-adecuada" tabindex="-1">Criterios para elegir la clase de almacenamiento adecuada</h2>
 
 
 <p>Cuando necesitas decidir dónde guardar tus datos en Amazon S3, hay algunas cosas importantes que debes pensar. Aquí te dejo unas preguntas clave para que encuentres lo que mejor te conviene:</p>
@@ -638,7 +638,7 @@ related:
 <p>Siguiendo estos consejos, podrás aprovechar al máximo Amazon S3 y reducir tus costos en la nube. ¡Empieza a aplicarlos hoy mismo!</p>
 
 
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas Relacionadas</h2>
+<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
 
 
 <h3 id="%C2%BFqu%C3%A9-se-puede-guardar-en-s3%3F" tabindex="-1">¿Qué se puede guardar en S3?</h3>
@@ -668,6 +668,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-s3/">Mejores Prácticas Para Amazon S3</a></li><li><a href="https://dondeaprendoaws.com/blog/servicios-de-aws-para-frontend/">Servicios de AWS para Frontend</a></li><li><a href="https://dondeaprendoaws.com/blog/comprendiendo-aws-backup/">Comprendiendo AWS Backup</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-s3/">Mejores prácticas para Amazon S3</a></li><li><a href="https://dondeaprendoaws.com/blog/servicios-de-aws-para-frontend/">Servicios de AWS para frontend</a></li><li><a href="https://dondeaprendoaws.com/blog/comprendiendo-aws-backup/">Comprendiendo AWS Backup</a></li>
 </ul>
 </p>

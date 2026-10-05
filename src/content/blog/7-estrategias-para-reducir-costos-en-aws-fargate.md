@@ -103,7 +103,7 @@ Compara el costo por solicitud atendida o trabajo completado antes y después de
 - La sesión [Del Container al Serverless: El Viaje de ECS y Fargate](https://www.youtube.com/watch?v=KsNBnuENO10), publicada en 2025 por el [AWS User Group Guatemala](https://www.youtube.com/@awsugguatemala), sirve como introducción a contenedores y Fargate; no es una guía de precios vigente. Para seguir a Roxs, consulta también el [Blog by Roxs](https://blog.295devops.com/), con artículos de AWS y DevOps en español.
 - Si estás comparando tareas de contenedor con funciones que se ejecutan por eventos, consulta también nuestra guía sobre [costos de arquitecturas serverless para startups](https://dondeaprendoaws.com/blog/7-estrategias-de-serverless-para-startups-optimiza-costos/).
 
-Para encontrar grupos locales, el [AWS Student Builder Group de la UTN Facultad Regional Córdoba](https://www.meetup.com/aws-sbg-at-national-technologic-university-regional-faculty/) es una comunidad estudiantil centrada en aprender AWS mediante proyectos prácticos. Al revisar la ficha y la agenda el 4 de octubre de 2026, figuraba el encuentro presencial [AWS Gaming Lab: ECS, CI/CD y la magia de Terraform](https://www.meetup.com/aws-sbg-at-national-technologic-university-regional-faculty/events/316821666/) para el 10 de octubre de 2026, de 12:00 a 14:00 (hora de Argentina), en UTN FRC. La actividad recorre una infraestructura ECS y su automatización con Terraform; no se presenta como una sesión de optimización de costos. Consulta la ficha para inscripción y cambios; si la fecha ya pasó, revisa la [agenda de eventos de comunidades AWS](https://dondeaprendoaws.com/eventos/) o el [directorio de comunidades por país](https://dondeaprendoaws.com/comunidades/) para encontrar otras opciones.
+Para encontrar grupos locales, el [AWS Student Builder Group de la UTN Facultad Regional Córdoba](https://www.meetup.com/aws-sbg-at-national-technologic-university-regional-faculty/) es una comunidad estudiantil centrada en aprender AWS mediante proyectos prácticos. Al revisar la ficha y la agenda el 4 de octubre de 2026, figuraba el encuentro presencial [AWS Gaming Lab: ECS, CI/CD y la magia de Terraform](https://www.meetup.com/aws-sbg-at-national-technologic-university-regional-faculty/events/316821666/) para el 10 de octubre de 2026, de 12:00 a 14:00 (hora de Argentina), en UTN FRC. La actividad recorre una infraestructura ECS y su automatización con Terraform; no se presenta como una sesión de optimización de costos. Consulta la ficha para inscripción y cambios; si la fecha ya pasó, revisa la [Agenda de eventos de comunidades AWS](https://dondeaprendoaws.com/eventos/) o el [directorio de comunidades por país](https://dondeaprendoaws.com/comunidades/) para encontrar otras opciones.
 
 ## Preguntas frecuentes
 
@@ -115,7 +115,7 @@ No. Cobra por la CPU y memoria aprovisionadas para la tarea o el pod durante el 
 
 No. Fargate Spot está disponible para tareas Linux de Amazon ECS; Amazon EKS no admite Fargate Spot.
 
-### ¿Un Compute Savings Plan cubre tareas Spot o toda la factura?
+### ¿Un Compute Savings Plan cubre tareas spot o toda la factura?
 
 No. Puede cubrir uso elegible de Fargate bajo demanda, pero no Spot ni servicios relacionados como NAT, ALB, ECR o CloudWatch.
 

@@ -102,7 +102,7 @@ Un síntoma parecido puede originarse en identidad, red o aplicación. Conserva 
 - **Más material de redes y fundamentos:** el [canal de AWS User Group Guatemala](https://www.youtube.com/@awsugguatemala) reúne grabaciones y sesiones de estudio. Para configurar la red del servicio, usa los requisitos de AWS enlazados arriba, no una receta genérica de una grabación.
 - **Explora otros formatos y autores:** en [creadores y canales de AWS en español](/creadores/) puedes filtrar fuentes por formato, tema y país.
 - **Redes y conectividad:** el [AWS User Group Networking Colombia](https://www.meetup.com/aws-user-group-networking-colombia/) es un grupo técnico de Bogotá dedicado a conectividad híbrida, enrutamiento y diseño de redes en AWS. Consulta su agenda para conocer sus próximos encuentros; no es un canal de soporte específico de WorkSpaces.
-- **Taller puntual de redes:** si consultas esta guía antes del 21 de octubre de 2026, la ficha de [Amazon VPC Essentials: Fundamentos de Networking](https://www.meetup.com/aws-sbg-at-francisco-jose-de-caldas-district-univ-bogota/events/316674045/) anuncia una sesión virtual organizada por AWS Student Builder Group at UDFJC, de 18:00 a 20:00, hora de Bogotá (America/Bogota, UTC−05:00). Requiere inscripción previa y tiene cupos limitados. Después de esa fecha, busca otras fechas en la [agenda de eventos de AWS en Latinoamérica](/eventos/), donde puedes filtrar por país y modalidad.
+- **Taller puntual de redes:** si consultas esta guía antes del 21 de octubre de 2026, la ficha de [Amazon VPC Essentials: Fundamentos de Networking](https://www.meetup.com/aws-sbg-at-francisco-jose-de-caldas-district-univ-bogota/events/316674045/) anuncia una sesión virtual organizada por AWS Student Builder Group at UDFJC, de 18:00 a 20:00, hora de Bogotá (America/Bogota, UTC−05:00). Requiere inscripción previa y tiene cupos limitados. Después de esa fecha, busca otras fechas en la [Agenda de eventos de AWS en Latinoamérica](/eventos/), donde puedes filtrar por país y modalidad.
 - **Encuentra un grupo más cercano:** el [directorio de comunidades AWS de Latinoamérica](/comunidades/) permite filtrar grupos por país, tema y formato. Elige un espacio según tu ubicación y modalidad, y plantea la pregunta con el código de error y los detalles técnicos que no sean sensibles.
 
 ## Preguntas frecuentes
@@ -119,7 +119,7 @@ Sí. **Amazon WorkSpaces Applications** es el nombre actual de Amazon AppStream 
 
 No como cliente nuevo: AWS dejó de aceptar clientes nuevos desde el 31 de julio de 2026. Quienes cumplen el criterio de recursos existentes pueden usarlo hasta el 31 de diciembre de 2027; planifica una migración con la guía de AWS enlazada en la tabla.
 
-### ¿Necesito una VPN para conectarme? ¿Puedo usarlo sin Internet?
+### ¿Necesito una VPN para conectarme? ¿Puedo usarlo sin internet?
 
 No hay una respuesta universal sobre VPN: depende de la ruta y los controles aprobados para tu caso. La transmisión requiere conectividad entre el dispositivo y el servicio, incluso cuando una configuración usa endpoints privados para parte del tráfico. No asumas funcionamiento sin conexión.
 

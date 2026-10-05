@@ -1,5 +1,5 @@
 ---
-title: "¿Qué es AWS Lambda? Preguntas y Respuestas"
+title: "¿Qué es AWS Lambda? preguntas y respuestas"
 description: "AWS Lambda es un servicio de computación sin servidor que ejecuta código en respuesta a eventos, simplificando el desarrollo y optimizando costos."
 author: "guille-ojeda"
 publishedAt: "2025-03-31"
@@ -10,9 +10,9 @@ ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Automatización de cumplimiento con AWS Config"
     url: "https://dondeaprendoaws.com/blog/automatizacion-de-cumplimiento-con-aws-config/"
-  - title: "Cómo Utilizar Amazon Bedrock"
+  - title: "Cómo utilizar Amazon Bedrock"
     url: "https://dondeaprendoaws.com/blog/como-utilizar-amazon-bedrock/"
-  - title: "Mejores Prácticas Para AWS Lambda"
+  - title: "Mejores prácticas para AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/"
 
 ---
@@ -64,8 +64,8 @@ Ejecuta <a href="https://dondeaprendoaws.com/blog/cloud-computing-en-espanol-fun
 </li>
 </ul>
 <p>AWS Lambda es ideal para ahorrar costes y simplificar el desarrollo en <a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">arquitecturas serverless</a>. Es flexible, eficiente y bien integrado con el ecosistema de AWS.</p>
-<h2 class="sb h2-sbb-cls" id="casos-de-uso-comunes" tabindex="-1">Casos de Uso Comunes</h2>
-<h3 id="cuando-usar-aws-lambda" tabindex="-1">Cuándo Usar <a href="https://aws.amazon.com/lambda/" rel="nofollow noopener noreferrer" target="_blank">AWS Lambda</a></h3>
+<h2 class="sb h2-sbb-cls" id="casos-de-uso-comunes" tabindex="-1">Casos de uso comunes</h2>
+<h3 id="cuando-usar-aws-lambda" tabindex="-1">Cuándo usar <a href="https://aws.amazon.com/lambda/" rel="nofollow noopener noreferrer" target="_blank">AWS Lambda</a></h3>
 <p><figure><img alt="AWS Lambda" src="/assets/blog/2f648ae186aa3a148f3d9d2f.jpg" style="width:100%;border-radius:16px;"></figure></p>
 <p>AWS Lambda es perfecto para ejecutar código en respuesta a eventos y manejar cargas de trabajo variables sin preocuparse por la infraestructura. Además, escala automáticamente según la demanda.</p>
 <p>Algunos casos comunes incluyen:</p>
@@ -74,7 +74,7 @@ Ejecuta <a href="https://dondeaprendoaws.com/blog/cloud-computing-en-espanol-fun
 <li>Automatización de tareas repetitivas</li>
 <li>Backend para aplicaciones web y microservicios sin estado</li>
 </ul>
-<h3 id="ejemplos-de-implementacion" tabindex="-1">Ejemplos de Implementación</h3>
+<h3 id="ejemplos-de-implementacion" tabindex="-1">Ejemplos de implementación</h3>
 <p>Aquí tienes ejemplos claros de cómo se utiliza AWS Lambda en diferentes escenarios.</p>
 <p><strong>Procesamiento de imágenes:</strong> Cuando un usuario sube una imagen a un bucket de S3, Lambda puede:</p>
 <ul>
@@ -89,7 +89,7 @@ Ejecuta <a href="https://dondeaprendoaws.com/blog/cloud-computing-en-espanol-fun
 <li>Validar y agregar información nueva</li>
 <li>Realizar copias de seguridad sin intervención manual</li>
 </ul>
-<h3 id="conexiones-con-servicios-aws" tabindex="-1">Conexiones con Servicios AWS</h3>
+<h3 id="conexiones-con-servicios-aws" tabindex="-1">Conexiones con servicios AWS</h3>
 <p>AWS Lambda se integra de manera eficiente con otros servicios de AWS, permitiendo la automatización de flujos de trabajo y ampliando su funcionalidad.</p>
 <figure class="table"><table>
 <thead>
@@ -118,9 +118,9 @@ Ejecuta <a href="https://dondeaprendoaws.com/blog/cloud-computing-en-espanol-fun
 </tbody>
 </table></figure>
 <p>A partir de febrero de 2024, los costes asociados a direcciones IPv4 públicas hacen que soluciones serverless como Lambda sean una opción más atractiva para optimizar recursos y reducir gastos operativos.</p>
-<h2 class="sb h2-sbb-cls" id="configuracion-y-gestion" tabindex="-1">Configuración y Gestión</h2>
+<h2 class="sb h2-sbb-cls" id="configuracion-y-gestion" tabindex="-1">Configuración y gestión</h2>
 <p>AWS Lambda ofrece diversas opciones de configuración y gestión para garantizar que tus funciones operen de manera eficiente.</p>
-<h3 id="pasos-para-configurar-funciones" tabindex="-1">Pasos para Configurar Funciones</h3>
+<h3 id="pasos-para-configurar-funciones" tabindex="-1">Pasos para configurar funciones</h3>
 <p>Aquí tienes los pasos básicos para configurar una función Lambda:</p>
 <ul>
 <li><strong>Selecciona el tiempo de ejecución</strong>: Escoge entre opciones como Node.js, Python, Java o .NET, según el lenguaje de programación que prefieras.</li>
@@ -128,7 +128,7 @@ Ejecuta <a href="https://dondeaprendoaws.com/blog/cloud-computing-en-espanol-fun
 <li><strong>Establece el tiempo máximo de ejecución</strong>: Configura un límite de hasta 15 minutos para cada invocación.</li>
 <li><strong>Configura el rol IAM</strong>: Crea o selecciona un rol con los permisos mínimos necesarios para que la función acceda a otros servicios.</li>
 </ul>
-<h3 id="configuracion-de-disparadores" tabindex="-1">Configuración de Disparadores</h3>
+<h3 id="configuracion-de-disparadores" tabindex="-1">Configuración de disparadores</h3>
 <p>Después de configurar tu función, define los eventos que activarán su ejecución. Aquí tienes algunos ejemplos comunes:</p>
 <figure class="table"><table>
 <thead>
@@ -161,7 +161,7 @@ Ejecuta <a href="https://dondeaprendoaws.com/blog/cloud-computing-en-espanol-fun
 </tr>
 </tbody>
 </table></figure>
-<h3 id="metodos-de-despliegue-de-codigo" tabindex="-1">Métodos de Despliegue de Código</h3>
+<h3 id="metodos-de-despliegue-de-codigo" tabindex="-1">Métodos de despliegue de código</h3>
 <p>Para implementar tu código en AWS Lambda, puedes elegir entre varios métodos según la complejidad de tu proyecto:</p>
 <ul>
 <li>
@@ -177,7 +177,7 @@ Ideal para proyectos más avanzados que incluyen dependencias. El archivo compri
 Con AWS Serverless Application Model (SAM), puedes gestionar aplicaciones serverless completas usando plantillas de <a href="https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-aws-cloudformation/">infraestructura como código</a>.
 </li>
 </ul>
-<h3 id="limites-del-servicio" tabindex="-1">Límites del Servicio</h3>
+<h3 id="limites-del-servicio" tabindex="-1">Límites del servicio</h3>
 <p>AWS Lambda tiene ciertas restricciones que debes tener en cuenta para planificar tus funciones:</p>
 <figure class="table"><table>
 <thead>
@@ -216,7 +216,7 @@ Con AWS Serverless Application Model (SAM), puedes gestionar aplicaciones server
 </tbody>
 </table></figure>
 <p>Estos límites son clave para mantener un rendimiento óptimo, y algunos pueden ajustarse si contactas al soporte de AWS.</p>
-<h2 class="sb h2-sbb-cls" id="gestion-del-rendimiento" tabindex="-1">Gestión del Rendimiento</h2>
+<h2 class="sb h2-sbb-cls" id="gestion-del-rendimiento" tabindex="-1">Gestión del rendimiento</h2>
 <p>Una gestión eficiente del rendimiento es clave para que tus funciones Lambda funcionen de manera óptima. Aquí te explicamos las herramientas y métodos principales para supervisar y mejorar su desempeño.</p>
 <h3 id="integracion-con-cloudwatch" tabindex="-1">Integración con <a href="https://aws.amazon.com/cloudwatch/" rel="nofollow noopener noreferrer" target="_blank">CloudWatch</a></h3>
 <p><figure><img alt="CloudWatch" src="/assets/blog/6ec85b097a6239d8fb1131ba.jpg" style="width:100%;border-radius:16px;"></figure></p>
@@ -262,7 +262,7 @@ Cada función genera un grupo de registros que permite:
 </tr>
 </tbody>
 </table></figure>
-<h3 id="indicadores-de-rendimiento" tabindex="-1">Indicadores de Rendimiento</h3>
+<h3 id="indicadores-de-rendimiento" tabindex="-1">Indicadores de rendimiento</h3>
 <p>Algunos indicadores clave que debes supervisar incluyen:</p>
 <ul>
 <li>
@@ -282,7 +282,7 @@ Monitorea el consumo de memoria real para ajustar la asignación de recursos seg
 Verifica cuántas instancias están ejecutándose simultáneamente.
 </li>
 </ul>
-<h3 id="optimizacion-de-recursos" tabindex="-1">Optimización de Recursos</h3>
+<h3 id="optimizacion-de-recursos" tabindex="-1">Optimización de recursos</h3>
 <p>Aquí tienes algunas estrategias para mejorar el rendimiento y reducir costes:</p>
 <ul>
 <li>
@@ -330,9 +330,9 @@ Usa el directorio <code class="inline-code">/tmp</code> (con un máximo de 512 M
 </tbody>
 </table></figure>
 <p>Supervisar constantemente estas métricas y realizar ajustes basados en datos te ayudará a mantener tus funciones Lambda funcionando de manera eficiente y con un coste controlado.</p>
-<h2 class="sb h2-sbb-cls" id="directrices-de-seguridad" tabindex="-1">Directrices de Seguridad</h2>
+<h2 class="sb h2-sbb-cls" id="directrices-de-seguridad" tabindex="-1">Directrices de seguridad</h2>
 <p>La protección de funciones y datos en AWS Lambda requiere medidas sólidas para evitar accesos no autorizados.</p>
-<h3 id="control-de-acceso" tabindex="-1">Control de Acceso</h3>
+<h3 id="control-de-acceso" tabindex="-1">Control de acceso</h3>
 <p>El acceso en Lambda se administra principalmente a través de <strong>IAM (Identity and Access Management)</strong>. Cada función debe contar con un rol IAM que limite estrictamente los permisos necesarios, como acceso a servicios de AWS, CloudWatch y recursos externos.</p>
 <figure class="table"><table>
 <thead>
@@ -361,7 +361,7 @@ Usa el directorio <code class="inline-code">/tmp</code> (con un máximo de 512 M
 </tbody>
 </table></figure>
 <p>Estos controles complementan las prácticas de administración y configuración previamente mencionadas.</p>
-<h3 id="estandares-de-implementacion" tabindex="-1">Estándares de Implementación</h3>
+<h3 id="estandares-de-implementacion" tabindex="-1">Estándares de implementación</h3>
 <p>Además del control de acceso, es importante seguir buenas prácticas al implementar funciones Lambda para mantenerlas seguras.</p>
 <ul>
 <li><strong>Variables de entorno</strong><br>
@@ -401,7 +401,7 @@ Para funciones que interactúan con una VPC, emplea subredes privadas, endpoints
 </tbody>
 </table></figure>
 <p>Estas prácticas fortalecen la seguridad general de las funciones Lambda.</p>
-<h3 id="estandares-de-seguridad" tabindex="-1">Estándares de Seguridad</h3>
+<h3 id="estandares-de-seguridad" tabindex="-1">Estándares de seguridad</h3>
 <p>Además de los controles y estándares anteriores, es crucial implementar medidas de seguridad adicionales:</p>
 <ul>
 <li><strong>Cifrado</strong><br>
@@ -428,7 +428,7 @@ Supervisa y registra actividades con herramientas como:
 </ul>
 <p>Revisar y actualizar regularmente las configuraciones es clave para mantener un entorno seguro frente a nuevas amenazas y necesidades.</p>
 <h2 class="sb h2-sbb-cls" id="resumen" tabindex="-1">Resumen</h2>
-<h3 id="puntos-clave" tabindex="-1">Puntos Clave</h3>
+<h3 id="puntos-clave" tabindex="-1">Puntos clave</h3>
 <p>AWS Lambda juega un papel crucial en las arquitecturas serverless actuales. Aquí tienes una visión general de los aspectos más destacados:</p>
 <figure class="table"><table>
 <thead>
@@ -453,7 +453,7 @@ Supervisa y registra actividades con herramientas como:
 </tbody>
 </table></figure>
 <p>El éxito al trabajar con Lambda radica en alcanzar un equilibrio adecuado entre seguridad, rendimiento y costes, siguiendo las <a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">mejores prácticas recomendadas</a>. Si buscas más información sobre cómo aplicar estas estrategias, revisa los recursos que te presentamos a continuación.</p>
-<h3 id="recursos-adicionales" tabindex="-1">Recursos Adicionales</h3>
+<h3 id="recursos-adicionales" tabindex="-1">Recursos adicionales</h3>
 <p>Si quieres profundizar en AWS Lambda, estos recursos en español te serán útiles para dominar la plataforma:</p>
 <ul>
 <li>
@@ -474,4 +474,4 @@ Conversaciones centradas en arquitecturas serverless y temas relacionados.
 </li>
 </ul>
 <p>Estos recursos te ofrecen ejemplos prácticos y casos reales para que puedas aprovechar al máximo las capacidades de AWS Lambda.</p>
-<h2>Related posts</h2><ul><li><a href="https://dondeaprendoaws.com/blog/desarrollando-aplicaciones-con-aws-lambda/">Desarrollando Aplicaciones con AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a Serverless en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/">Mejores Prácticas Para AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-aws-lambda/">Microservicios en AWS Utilizando AWS Lambda</a></li></ul>
+<h2>Related posts</h2><ul><li><a href="https://dondeaprendoaws.com/blog/desarrollando-aplicaciones-con-aws-lambda/">Desarrollando aplicaciones con AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a serverless en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/">Mejores prácticas para AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-aws-lambda/">Microservicios en AWS utilizando AWS Lambda</a></li></ul>

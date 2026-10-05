@@ -18,7 +18,7 @@ related:
 
 Una arquitectura de alta disponibilidad reduce el impacto de fallas para que una aplicación siga atendiendo su función principal. Para una aplicación web, un punto de partida común es repartir el ingreso y el cómputo entre varias zonas de disponibilidad (AZ) y configurar cada dependencia para recuperarse ante el fallo que quieres tolerar. Un Application Load Balancer (ALB), un grupo de EC2 Auto Scaling y Amazon RDS Multi-AZ pueden cumplir partes de ese diseño; ninguno garantiza cero interrupciones por sí solo.
 
-## Multi-AZ o Multi-Region: ¿qué falla quieres cubrir?
+## Multi-AZ o Multi-Region: ¿Qué falla quieres cubrir?
 
 Una Región de AWS contiene varias AZ aisladas entre sí. Si el riesgo que te importa es perder una instancia o una AZ, una arquitectura Multi-AZ en una sola Región puede ser suficiente. AWS Well-Architected recomienda distribuir las cargas de producción entre al menos dos AZ y evaluar cada servicio para confirmar cómo replica datos y recupera recursos. [La guía REL10 de AWS](https://docs.aws.amazon.com/es_es/wellarchitected/latest/reliability-pillar/rel_fault_isolation_multiaz_region_system.html) explica esa elección y cuándo considerar varias Regiones. Para ampliar esta decisión con material comunitario en español, puedes ver la grabación [“Diseñando arquitecturas resilientes en AWS”](https://www.youtube.com/watch?v=sEr65Cgskkc) de [AWS User Group Ecuador](https://www.youtube.com/@awsugecuador4610).
 
@@ -91,4 +91,4 @@ En las agendas consultadas el 5 de octubre de 2026 aparecen estos encuentros rel
 - El encuentro en línea [“El Combo Indestructible de AWS: SQS + Lambda”](https://www.meetup.com/aws-user-group-serverless-colombia/events/316770520/), de [AWS User Group Serverless Colombia](https://www.meetup.com/aws-user-group-serverless-colombia/), está publicado para el 20 de octubre de 2026, de 19:00 a 21:00 COT, con acceso libre según su ficha; el enlace de transmisión solo se muestra a quienes confirman su asistencia. Su tema es tolerancia a errores con SQS y Lambda, un patrón complementario a la capa web de este artículo.
 - Si estás cerca de Atlixco, la sesión presencial [“Amazon RDS: Bases de datos administradas”](https://www.meetup.com/aws-sbg-at-higher-technological-institute-of-atilxco/events/316823085/) figura para el 29 de octubre de 2026, de 12:00 a 14:00 (hora del organizador), organizada por AWS SBG at Higher Technological Institute of Atlixco, un grupo estudiantil. La descripción cubre crear una base SQL y conectarla con una aplicación; no indica que se practique Multi-AZ. Consulta la ficha para confirmar las condiciones de participación.
 
-Si esas sedes no te quedan cerca, la [agenda de eventos de comunidades AWS](https://dondeaprendoaws.com/eventos/) permite explorar otras fechas, modalidades y países.
+Si esas sedes no te quedan cerca, la [Agenda de eventos de comunidades AWS](https://dondeaprendoaws.com/eventos/) permite explorar otras fechas, modalidades y países.

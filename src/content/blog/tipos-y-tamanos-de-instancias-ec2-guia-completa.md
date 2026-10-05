@@ -1,5 +1,5 @@
 ---
-title: "Tipos y Tamaños de Instancias EC2: Guía Completa"
+title: "Tipos y tamaños de instancias EC2: guía completa"
 description: "Conoce los diferentes tipos y tamaños de instancias EC2 en AWS, cómo elegir la correcta, la importancia de seleccionarla adecuadamente y consejos prácticos para optimizar su rendimiento y costos."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
@@ -8,11 +8,11 @@ cover: "/assets/blog/editorial-fundamentos.png"
 coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
 ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
-  - title: "Guía para Implementar Machine Learning con Amazon SageMaker"
+  - title: "Guía para implementar machine learning con Amazon SageMaker"
     url: "https://dondeaprendoaws.com/blog/guia-para-implementar-machine-learning-con-amazon-sagemaker/"
   - title: "Automatización de cumplimiento con AWS Config"
     url: "https://dondeaprendoaws.com/blog/automatizacion-de-cumplimiento-con-aws-config/"
-  - title: "Arquitecturas de Alta Disponibilidad en AWS"
+  - title: "Arquitecturas de alta disponibilidad en AWS"
     url: "https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/"
 
 ---
@@ -45,7 +45,7 @@ related:
 <p>Entender estos aspectos fundamentales te ayudará a tomar decisiones informadas, garantizando que tu infraestructura en la nube sea tanto eficiente como costo-efectiva.</p>
 
 
-<h2 id="%C2%BFqu%C3%A9-es-una-instancia-ec2%3F" tabindex="-1">¿Qué es una Instancia EC2?</h2>
+<h2 id="%C2%BFqu%C3%A9-es-una-instancia-ec2%3F" tabindex="-1">¿Qué es una instancia EC2?</h2>
 
 
 <p>Una instancia EC2 es básicamente una computadora en la nube que puedes usar para lo que necesites. Imagina que alquilas una computadora virtual en AWS, donde puedes instalar programas, guardar archivos y hacer tus tareas.</p>
@@ -66,7 +66,7 @@ related:
 <p>En pocas palabras, una instancia EC2 es una computadora en la nube de AWS que puedes configurar y usar según tus necesidades. Es una herramienta esencial para trabajar en la nube.</p>
 
 
-<h2 id="importancia-de-elegir-el-tipo-y-tama%C3%B1o-correcto-de-instancia-ec2" tabindex="-1">Importancia de Elegir el Tipo y Tamaño Correcto de Instancia EC2</h2>
+<h2 id="importancia-de-elegir-el-tipo-y-tama%C3%B1o-correcto-de-instancia-ec2" tabindex="-1">Importancia de elegir el tipo y tamaño correcto de instancia EC2</h2>
 
 
 <p>Elegir bien el tipo y tamaño de tu instancia EC2 es muy importante. Esto puede influir mucho en cómo funciona tu aplicación y cuánto pagas. Aquí te dejo algunos puntos a considerar:</p>
@@ -99,7 +99,7 @@ related:
 <p>En resumen, elegir correctamente el tipo y tamaño de tu instancia EC2 puede hacer una gran diferencia en cómo funciona tu aplicación y cuánto gastas. Es importante pensar bien qué capacidad necesitas y revisar cómo estás usando tus recursos regularmente.</p>
 
 
-<h2 id="c%C3%B3mo-se-nombran-los-tipos-de-instancias-ec2" tabindex="-1">Cómo se Nombran los Tipos de Instancias EC2</h2>
+<h2 id="c%C3%B3mo-se-nombran-los-tipos-de-instancias-ec2" tabindex="-1">Cómo se nombran los tipos de instancias EC2</h2>
 
 
 <p>Amazon EC2 tiene una forma especial de nombrar sus diferentes tipos de instancias, lo que nos ayuda a entender rápidamente qué ofrece cada una solo mirando su nombre:</p>
@@ -144,10 +144,10 @@ related:
 <p>Entender cómo se nombran te puede ayudar a escoger más rápido el tipo de instancia que mejor se adapte a lo que necesitas.</p>
 
 
-<h2 id="tipos-de-instancias-ec2-disponibles" tabindex="-1">Tipos de Instancias EC2 Disponibles</h2>
+<h2 id="tipos-de-instancias-ec2-disponibles" tabindex="-1">Tipos de instancias EC2 disponibles</h2>
 
 
-<h3 id="instancias-de-uso-general" tabindex="-1">Instancias de Uso General</h3>
+<h3 id="instancias-de-uso-general" tabindex="-1">Instancias de uso general</h3>
 
 
 <p>Las instancias de uso general son como navajas suizas: sirven para un poco de todo. Son perfectas si estás empezando y necesitas algo para tu sitio web o una aplicación no muy grande.</p>
@@ -163,7 +163,7 @@ related:
 </ul>
 
 
-<h3 id="instancias-optimizadas-para-computaci%C3%B3n" tabindex="-1">Instancias Optimizadas para Computación</h3>
+<h3 id="instancias-optimizadas-para-computaci%C3%B3n" tabindex="-1">Instancias optimizadas para computación</h3>
 
 
 <p>Si necesitas mucha potencia de procesamiento, como para videojuegos en línea o análisis de grandes cantidades de datos, estas instancias son para ti.</p>
@@ -179,7 +179,7 @@ related:
 </ul>
 
 
-<h3 id="instancias-optimizadas-para-memoria" tabindex="-1">Instancias Optimizadas para Memoria</h3>
+<h3 id="instancias-optimizadas-para-memoria" tabindex="-1">Instancias optimizadas para memoria</h3>
 
 
 <p>Estas instancias tienen mucha memoria RAM, lo que es genial para bases de datos grandes o análisis de datos que necesitan mucho espacio en memoria.</p>
@@ -195,7 +195,7 @@ related:
 </ul>
 
 
-<h3 id="instancias-optimizadas-para-almacenamiento" tabindex="-1">Instancias Optimizadas para Almacenamiento</h3>
+<h3 id="instancias-optimizadas-para-almacenamiento" tabindex="-1">Instancias optimizadas para almacenamiento</h3>
 
 
 <p>Si tu prioridad es tener mucho espacio para guardar datos y que estos se puedan leer y escribir rápidamente, mira estas instancias.</p>
@@ -210,7 +210,7 @@ related:
 </ul>
 
 
-<h3 id="instancias-aceleradas-por-hardware" tabindex="-1">Instancias Aceleradas por Hardware</h3>
+<h3 id="instancias-aceleradas-por-hardware" tabindex="-1">Instancias aceleradas por hardware</h3>
 
 
 <p>Estas instancias tienen equipos especiales para tareas específicas, como aprendizaje automático o trabajos que requieren mucha gráfica.</p>
@@ -226,7 +226,7 @@ related:
 </ul>
 
 
-<h3 id="instancias-de-alto-rendimiento-de-red" tabindex="-1">Instancias de Alto Rendimiento de Red</h3>
+<h3 id="instancias-de-alto-rendimiento-de-red" tabindex="-1">Instancias de alto rendimiento de red</h3>
 
 
 <p>Si necesitas que tus datos se muevan rápido entre servidores, estas instancias te ofrecen mucha velocidad de red.</p>
@@ -235,7 +235,7 @@ related:
 <p>Por ejemplo, <strong>C6gn</strong> (hasta 100 Gbps) y <strong>M6a</strong> (hasta 50 Gbps) son buenas opciones.</p>
 
 
-<h2 id="comparaci%C3%B3n-de-tipos-de-instancias-ec2" tabindex="-1">Comparación de Tipos de Instancias EC2</h2>
+<h2 id="comparaci%C3%B3n-de-tipos-de-instancias-ec2" tabindex="-1">Comparación de tipos de instancias EC2</h2>
 
 
 <figure class="table"><table>
@@ -318,10 +318,10 @@ related:
 <p>En pocas palabras, piensa en qué necesita más tu aplicación: ¿fuerza para calcular cosas, mucha memoria, espacio rápido de almacenamiento o mover datos rápido? Elegir la instancia correcta puede mejorar mucho cómo funciona tu aplicación y cuánto pagas.</p>
 
 
-<h2 id="especificaciones-de-hardware-de-ec2" tabindex="-1">Especificaciones de Hardware de EC2</h2>
+<h2 id="especificaciones-de-hardware-de-ec2" tabindex="-1">Especificaciones de hardware de EC2</h2>
 
 
-<h3 id="caracter%C3%ADsticas-del-procesador" tabindex="-1">Características del Procesador</h3>
+<h3 id="caracter%C3%ADsticas-del-procesador" tabindex="-1">Características del procesador</h3>
 
 
 <p>Las instancias EC2 pueden usar diferentes tipos de procesadores, como los de Intel, AMD y los propios de AWS, llamados Graviton.</p>
@@ -357,7 +357,7 @@ related:
 </ul>
 
 
-<h3 id="caracter%C3%ADsticas-de-red-y-almacenamiento" tabindex="-1">Características de Red y Almacenamiento</h3>
+<h3 id="caracter%C3%ADsticas-de-red-y-almacenamiento" tabindex="-1">Características de red y almacenamiento</h3>
 
 
 <p>Las instancias EC2 tienen diferentes velocidades de internet y formas de guardar datos, según el tipo:</p>
@@ -377,7 +377,7 @@ related:
 <p>Por ejemplo, las instancias de la familia R5 pueden tener hasta 96 vCPUs y 768 GB de memoria, perfectas para trabajos que necesitan mucho poder. Las I3 ofrecen hasta 64 000 IOPS, lo que significa que pueden leer y escribir datos muy rápido gracias a sus discos SSD NVMe.</p>
 
 
-<h2 id="tipos-de-virtualizaci%C3%B3n-de-ami-en-aws" tabindex="-1">Tipos de Virtualización de AMI en AWS</h2>
+<h2 id="tipos-de-virtualizaci%C3%B3n-de-ami-en-aws" tabindex="-1">Tipos de virtualización de AMI en AWS</h2>
 
 
 <p>Las AMI de Amazon EC2 pueden usar dos tipos de virtualización:</p>
@@ -392,7 +392,7 @@ related:
 <p>En algunos casos, las instancias PV pueden funcionar un poco mejor, pero solo las puedes encontrar en tipos de instancias más antiguas y en algunas regiones específicas de AWS.</p>
 
 
-<h3 id="hardware-virtual-machine-(hvm)" tabindex="-1">Hardware Virtual Machine (HVM)</h3>
+<h3 id="hardware-virtual-machine-(hvm)" tabindex="-1">Hardware virtual machine (HVM)</h3>
 
 
 <p>La virtualización HVM aprovecha algunas ayudas especiales de la tecnología para hacer que el sistema operativo funcione como si estuviera en una computadora de verdad, sin necesidad de cambios.</p>
@@ -409,13 +409,13 @@ related:
 
 
 
-<h2 id="instancias-integradas-en-el-sistema-aws-nitro" tabindex="-1">Instancias Integradas en el Sistema AWS Nitro</h2>
+<h2 id="instancias-integradas-en-el-sistema-aws-nitro" tabindex="-1">Instancias integradas en el sistema AWS Nitro</h2>
 
 
 <p>El sistema Nitro es como una caja de herramientas que AWS usa para que las instancias EC2 funcionen mejor. Ayuda a que las computadoras virtuales sean más rápidas, estables y seguras.</p>
 
 
-<h6 class="sb-banner" id="componentes-de-nitro">componentes-de-nitro</h6>
+<h6 class="sb-banner" id="componentes-de-nitro">Componentes-de-nitro</h6>
 
 
 <p>Los componentes principales del sistema Nitro incluyen:</p>
@@ -445,7 +445,7 @@ related:
 </ul>
 
 
-<h3 id="instancias-bare-metal" tabindex="-1">Instancias Bare Metal</h3>
+<h3 id="instancias-bare-metal" tabindex="-1">Instancias bare metal</h3>
 
 
 <p>Las instancias Bare Metal te dan acceso directo al hardware real:</p>
@@ -464,13 +464,13 @@ related:
 <p>En resumen, el sistema Nitro ofrece tanto instancias virtualizadas como Bare Metal para diferentes necesidades de las aplicaciones en la nube.</p>
 
 
-<h2 id="l%C3%ADmites-de-instancias-ec2-y-c%C3%B3mo-gestionarlos" tabindex="-1">Límites de Instancias EC2 y Cómo Gestionarlos</h2>
+<h2 id="l%C3%ADmites-de-instancias-ec2-y-c%C3%B3mo-gestionarlos" tabindex="-1">Límites de instancias EC2 y cómo gestionarlos</h2>
 
 
 <p>AWS pone un tope a cuántas instancias EC2 puedes tener corriendo al mismo tiempo en cada región, y también hay límites para tipos específicos de instancias. Entender y manejar estos límites te ayudará a hacer crecer tu infraestructura sin problemas.</p>
 
 
-<h3 id="l%C3%ADmites-totales-de-instancias" tabindex="-1">Límites Totales de Instancias</h3>
+<h3 id="l%C3%ADmites-totales-de-instancias" tabindex="-1">Límites totales de instancias</h3>
 
 
 <p>Si acabas de empezar con AWS, puedes tener hasta 20 instancias en cada región. Pero, si necesitas más, puedes pedirle a AWS que te permita tener más. <a href="https://docs.aws.amazon.com/es_es/AWSEC2/latest/UserGuide/ec2-resource-limits.html" rel="noopener noreferrer" target="_blank">Aquí te explican cómo hacerlo</a>.</p>
@@ -485,7 +485,7 @@ related:
 </ul>
 
 
-<h3 id="l%C3%ADmites-por-familias-de-instancias" tabindex="-1">Límites por Familias de Instancias</h3>
+<h3 id="l%C3%ADmites-por-familias-de-instancias" tabindex="-1">Límites por familias de instancias</h3>
 
 
 <p>AWS también pone límites basados en la familia y el tipo de instancia. Por ejemplo:</p>
@@ -501,7 +501,7 @@ related:
 <p>Puedes ver cuántas instancias te permiten tener en la consola de EC2 o usando la CLI de AWS.</p>
 
 
-<h3 id="gestionando-los-l%C3%ADmites-de-instancias" tabindex="-1">Gestionando los Límites de Instancias</h3>
+<h3 id="gestionando-los-l%C3%ADmites-de-instancias" tabindex="-1">Gestionando los límites de instancias</h3>
 
 
 <p>Aquí van algunos consejos para no tener problemas con los límites de instancias:</p>
@@ -519,7 +519,7 @@ related:
 <p>Manejar bien tus límites de instancias te ayudará a crecer sin contratiempos conforme tu infraestructura y necesidades aumenten.</p>
 
 
-<h2 id="c%C3%B3mo-seleccionar-el-tipo-y-tama%C3%B1o-de-instancia-ec2-adecuados" tabindex="-1">Cómo Seleccionar el Tipo y Tamaño de Instancia EC2 Adecuados</h2>
+<h2 id="c%C3%B3mo-seleccionar-el-tipo-y-tama%C3%B1o-de-instancia-ec2-adecuados" tabindex="-1">Cómo seleccionar el tipo y tamaño de instancia EC2 adecuados</h2>
 
 
 <p>Elegir el tipo y tamaño de instancia EC2 adecuados para tu aplicación puede parecer complicado al principio debido a la gran variedad de opciones disponibles. Aquí hay algunos consejos prácticos para ayudarte a tomar la mejor decisión:</p>
@@ -591,7 +591,7 @@ related:
 <p>En pocas palabras, dedicar un tiempo a elegir bien tus instancias EC2 y ajustarlas según sea necesario puede hacer una gran diferencia en cómo funciona tu aplicación en la nube y en cuánto gastas.</p>
 
 
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas Relacionadas</h2>
+<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
 
 
 <h3 id="%C2%BFqu%C3%A9-es-una-instancia-ec2%3F-1" tabindex="-1">¿Qué es una instancia EC2?</h3>
@@ -643,6 +643,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/tipos-de-instancia-en-amazon-rds-y-amazon-aurora/">Tipos de Instancia en Amazon RDS y Amazon Aurora</a></li><li><a href="https://dondeaprendoaws.com/blog/amazon-dynamodb-guia-basica/">Amazon DynamoDB: Guía Básica</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS Fundamentos: Guía de Inicio Rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/tipos-y-tamanos-de-instancias-rds-guia-completa/">Tipos y Tamaños de Instancias RDS: Guía Completa</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/tipos-de-instancia-en-amazon-rds-y-amazon-aurora/">Tipos de instancia en Amazon RDS y Amazon Aurora</a></li><li><a href="https://dondeaprendoaws.com/blog/amazon-dynamodb-guia-basica/">Amazon DynamoDB: guía básica</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS fundamentos: guía de inicio rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/tipos-y-tamanos-de-instancias-rds-guia-completa/">Tipos y tamaños de instancias RDS: guía completa</a></li>
 </ul>
 </p>

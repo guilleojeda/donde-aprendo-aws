@@ -126,4 +126,4 @@ La agenda consultada el 4 de octubre de 2026 mostraba estos eventos futuros; con
 - [Compliance as Code en AWS: de la política a la acción automática](https://www.meetup.com/aws-user-group-security-ecuador/events/316680020/) — en línea, 20 de octubre de 2026, de 19:00 a 20:00 GMT-5.
 - [Shift-left con IA: Checkov y AWS Security Agent cuidando tu rama main](https://www.meetup.com/aws-sbg-at-universidad-laica-eloy-alfaro-de-manabi/events/316827722/) — en línea, 21 de octubre de 2026, de 19:00 a 21:00 GMT-5. El título describe el tema de la charla; consulta la página del evento para conocer el contenido y las condiciones actuales.
 
-Si estas fechas ya pasaron, consulta la [agenda vigente de eventos de comunidades AWS](https://dondeaprendoaws.com/eventos/) para encontrar otros encuentros y sus enlaces de inscripción.
+Si estas fechas ya pasaron, consulta la [Agenda vigente de eventos de comunidades AWS](https://dondeaprendoaws.com/eventos/) para encontrar otros encuentros y sus enlaces de inscripción.

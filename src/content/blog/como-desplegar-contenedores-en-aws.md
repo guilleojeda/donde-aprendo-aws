@@ -1,5 +1,5 @@
 ---
-title: "Cómo Desplegar Contenedores en AWS"
+title: "Cómo desplegar contenedores en AWS"
 description: "Aprende a desplegar contenedores en AWS, conoce las ventajas, herramientas disponibles, casos de uso, comparativa de servicios y estrategias de optimización. Descubre cómo trabajar con contenedores en la nube."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
@@ -8,11 +8,11 @@ cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "5 Lecciones Clave del AWS Public Sector Summit 2024"
+  - title: "5 lecciones clave del AWS Public Sector Summit 2024"
     url: "https://dondeaprendoaws.com/blog/5-lecciones-clave-del-aws-public-sector-summit-2024/"
-  - title: "Integración SIEM-AWS: 7 Consejos Prácticos [2024]"
+  - title: "Integración SIEM-AWS: 7 consejos prácticos [2024]"
     url: "https://dondeaprendoaws.com/blog/integracion-siem-aws-7-consejos-practicos-2024/"
-  - title: "Como Configurar y Utilizar AWS Session Manager"
+  - title: "Como configurar y utilizar AWS Session Manager"
     url: "https://dondeaprendoaws.com/blog/como-configurar-y-utilizar-aws-session-manager/"
 
 ---
@@ -285,7 +285,7 @@ CMD ["node", "server.js"]
 <p>En pocas palabras, AWS te facilita mucho la vida cuando trabajas con contenedores, permitiéndote enfocarte en mejorar tu aplicación sin preocuparte por los detalles técnicos.</p>
 
 
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas Relacionadas</h2>
+<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
 
 
 <h3 id="%C2%BFc%C3%B3mo-desplegar-una-aplicaci%C3%B3n-en-aws%3F" tabindex="-1">¿Cómo desplegar una aplicación en AWS?</h3>
@@ -336,6 +336,6 @@ CMD ["node", "server.js"]
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/desarrollo-en-la-nube-fundamentos-esenciales/">Desarrollo en la nube: fundamentos esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/opciones-para-desplegar-contenedores-en-aws-ecs-y-eks/">Opciones para Desplegar Contenedores en AWS: ECS y EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/desarrollo-en-la-nube-fundamentos-esenciales/">Desarrollo en la nube: fundamentos esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/opciones-para-desplegar-contenedores-en-aws-ecs-y-eks/">Opciones para desplegar contenedores en AWS: ECS y EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li>
 </ul>
 </p>

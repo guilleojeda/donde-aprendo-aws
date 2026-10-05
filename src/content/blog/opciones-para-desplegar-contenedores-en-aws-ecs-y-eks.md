@@ -1,5 +1,5 @@
 ---
-title: "Opciones para Desplegar Contenedores en AWS: ECS y EKS"
+title: "Opciones para desplegar contenedores en AWS: ECS y EKS"
 description: "Descubre las diferencias entre Amazon ECS y Amazon EKS al desplegar contenedores en AWS. Conoce las ventajas, características y casos de uso de cada servicio para elegir el adecuado para tus proyectos."
 author: "guille-ojeda"
 publishedAt: "2024-03-07"
@@ -8,11 +8,11 @@ cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Guía de Eventos AWS Educate 2024"
+  - title: "Guía de eventos AWS Educate 2024"
     url: "https://dondeaprendoaws.com/blog/guia-de-eventos-aws-educate-2024/"
-  - title: "AWS Community Day 2024: Calendario de Eventos"
+  - title: "AWS Community Day 2024: calendario de eventos"
     url: "https://dondeaprendoaws.com/blog/aws-community-day-2024-calendario-de-eventos/"
-  - title: "Cómo Usar AWS Transfer Family con Amazon EFS"
+  - title: "Cómo usar AWS Transfer Family con Amazon EFS"
     url: "https://dondeaprendoaws.com/blog/como-usar-aws-transfer-family-con-amazon-efs/"
 
 ---
@@ -26,7 +26,7 @@ related:
 </ul>
 
 
-<h2 id="comparaci%C3%B3n-r%C3%A1pida-entre-ecs-y-eks" tabindex="-1"><strong>Comparación Rápida entre ECS y EKS</strong></h2>
+<h2 id="comparaci%C3%B3n-r%C3%A1pida-entre-ecs-y-eks" tabindex="-1"><strong>Comparación rápida entre ECS y EKS</strong></h2>
 
 
 <figure class="table"><table>
@@ -106,7 +106,7 @@ related:
 <p>En resumen, EKS te quita la carga de manejar la infraestructura de Kubernetes, permitiéndote enfocarte en crear y mejorar tus aplicaciones. Además, la integración con otros servicios de AWS hace más sencillo desarrollar soluciones completas y confiables.</p>
 
 
-<h2 id="comparaci%C3%B3n-directa%3A-ecs-vs.-eks" tabindex="-1">Comparación Directa: ECS vs. EKS</h2>
+<h2 id="comparaci%C3%B3n-directa%3A-ecs-vs.-eks" tabindex="-1">Comparación directa: ECS vs. EKS</h2>
 
 
 <h3 id="facilidad-de-uso-y-configuraci%C3%B3n" tabindex="-1">Facilidad de uso y configuración</h3>
@@ -253,7 +253,7 @@ related:
 <p>Piensa bien en lo que necesitas y escoge la opción que mejor se ajuste. Ambas son muy buenas para trabajar con contenedores en AWS.</p>
 
 
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas Relacionadas</h2>
+<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
 
 
 <h3 id="%C2%BFqu%C3%A9-servicio-se-usa-para-correr-aplicaciones-con-contenedores-en-aws%3F" tabindex="-1">¿Qué servicio se usa para correr aplicaciones con contenedores en AWS?</h3>
@@ -312,6 +312,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/como-utilizar-elasticsearch-en-aws/">Cómo Utilizar ElasticSearch en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/desarrollo-en-la-nube-fundamentos-esenciales/">Desarrollo en la nube: fundamentos esenciales</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/como-utilizar-elasticsearch-en-aws/">Cómo utilizar Elasticsearch en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/desarrollo-en-la-nube-fundamentos-esenciales/">Desarrollo en la nube: fundamentos esenciales</a></li>
 </ul>
 </p>

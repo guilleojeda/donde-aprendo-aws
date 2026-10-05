@@ -1,5 +1,5 @@
 ---
-title: "Cifrado de datos con AWS KMS: Guía práctica"
+title: "Cifrado de datos con AWS KMS: guía práctica"
 description: "Aprende a cifrar y descifrar datos de forma segura en la nube con AWS Key Management Service (KMS). Sigue los pasos detallados y las mejores prácticas para proteger tus datos con AWS KMS."
 author: "guille-ojeda"
 publishedAt: "2024-05-16"
@@ -8,11 +8,11 @@ cover: "/assets/blog/editorial-seguridad.png"
 coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-seguridad.png"
 related:
-  - title: "Crear un Cluster en Amazon Redshift"
+  - title: "Crear un cluster en Amazon Redshift"
     url: "https://dondeaprendoaws.com/blog/crear-un-cluster-en-amazon-redshift/"
-  - title: "10 Preguntas Frecuentes sobre Machine Learning en AWS"
+  - title: "10 preguntas frecuentes sobre machine learning en AWS"
     url: "https://dondeaprendoaws.com/blog/10-preguntas-frecuentes-sobre-machine-learning-en-aws/"
-  - title: "Mejores Prácticas Para Amazon EKS"
+  - title: "Mejores prácticas para Amazon EKS"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-eks/"
 
 ---
@@ -39,7 +39,7 @@ related:
 <p><strong>Cifrar datos con AWS KMS</strong></p>
 <ul>
 <li>
-<p>Utilizar la <a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">Consola de AWS</a></p>
+<p>Utilizar la <a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">consola de AWS</a></p>
 </li>
 <li>
 <p>Cifrar datos con código (ejemplos en Python y CLI)</p>
@@ -64,7 +64,7 @@ related:
 <p>Gestión de claves</p>
 </li>
 <li>
-<p><a href="https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/">Prácticas de seguridad</a></p>
+<p><a href="https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/">prácticas de seguridad</a></p>
 </li>
 <li>
 <p>Optimización del rendimiento</p>
@@ -84,7 +84,7 @@ related:
 
 
 <iframe allowfullscreen="" loading="lazy" src="https://www.youtube.com/embed/f3APF1dP8w0" title="Video de YouTube"></iframe>
-<h2 id="setting-up-aws-kms" tabindex="-1">Setting Up <a href="https://aws.amazon.com/kms/" rel="noopener noreferrer" target="_blank">AWS KMS</a></h2>
+<h2 id="setting-up-aws-kms" tabindex="-1">Setting up <a href="https://aws.amazon.com/kms/" rel="noopener noreferrer" target="_blank">AWS KMS</a></h2>
 
 
 <p><figure><img alt="AWS KMS" src="/assets/blog/80d600fcce31a9aa372404ae.jpg"/></figure></p>
@@ -212,7 +212,7 @@ related:
 <h2 id="cifrado-de-datos-con-aws-kms" tabindex="-1">Cifrado de datos con AWS KMS</h2>
 
 
-<h3 id="usando-la-consola-de-aws" tabindex="-1">Usando la Consola de AWS</h3>
+<h3 id="usando-la-consola-de-aws" tabindex="-1">Usando la consola de AWS</h3>
 
 
 <ol>
@@ -293,7 +293,7 @@ ciphertext = response['CiphertextBlob']
 
 
 
-<h2 id="decrypting-data-with-aws-kms" tabindex="-1">Decrypting Data with AWS KMS</h2>
+<h2 id="decrypting-data-with-aws-kms" tabindex="-1">Decrypting data with AWS KMS</h2>
 
 
 <h3 id="using-the-aws-console" tabindex="-1">Using the AWS Console</h3>
@@ -324,7 +324,7 @@ ciphertext = response['CiphertextBlob']
 </ol>
 
 
-<h3 id="decrypting-data-with-code" tabindex="-1">Decrypting Data with Code</h3>
+<h3 id="decrypting-data-with-code" tabindex="-1">Decrypting data with code</h3>
 
 
 <p>Para descifrar datos con AWS KMS mediante código, puedes utilizar los SDKs de AWS para diferentes lenguajes de programación. Aquí hay un ejemplo en Python:</p>
@@ -370,10 +370,10 @@ plaintext = response['Plaintext']
 <p>Al descifrar datos con AWS KMS, sigue las mejores prácticas de seguridad, como utilizar políticas de clave adecuadas, proteger tus claves y datos cifrados, y monitorear el uso de las claves.</p>
 
 
-<h2 id="best-practices-for-aws-kms" tabindex="-1">Best Practices for AWS KMS</h2>
+<h2 id="best-practices-for-aws-kms" tabindex="-1">Best practices for AWS KMS</h2>
 
 
-<h3 id="key-management-tips" tabindex="-1">Key Management Tips</h3>
+<h3 id="key-management-tips" tabindex="-1">Key management tips</h3>
 
 
 <p>Para administrar claves de manera segura, sigue estas prácticas:</p>
@@ -392,7 +392,7 @@ plaintext = response['Plaintext']
 </ul>
 
 
-<h3 id="security-practices" tabindex="-1">Security Practices</h3>
+<h3 id="security-practices" tabindex="-1">Security practices</h3>
 
 
 <p>Para proteger tus claves y datos cifrados:</p>
@@ -408,7 +408,7 @@ plaintext = response['Plaintext']
 </ul>
 
 
-<h3 id="optimizing-performance" tabindex="-1">Optimizing Performance</h3>
+<h3 id="optimizing-performance" tabindex="-1">Optimizing performance</h3>
 
 
 <p>Para mejorar el rendimiento del cifrado y descifrado:</p>
@@ -427,7 +427,7 @@ plaintext = response['Plaintext']
 </ul>
 
 
-<h3 id="monitoring-and-auditing" tabindex="-1">Monitoring and Auditing</h3>
+<h3 id="monitoring-and-auditing" tabindex="-1">Monitoring and auditing</h3>
 
 
 <p>Para monitorear y auditar el uso de claves KMS, utiliza:</p>
@@ -449,13 +449,13 @@ plaintext = response['Plaintext']
 <h2 id="conclusion" tabindex="-1">Conclusion</h2>
 
 
-<h3 id="puntos-clave" tabindex="-1">Puntos Clave</h3>
+<h3 id="puntos-clave" tabindex="-1">Puntos clave</h3>
 
 
 <p>Hemos cubierto los conceptos básicos de AWS KMS, incluyendo su configuración, el cifrado y descifrado de datos, y las mejores prácticas para mantener la seguridad de tus claves y datos. AWS KMS es una herramienta útil para proteger tus datos en la nube, pero es crucial seguir las prácticas de seguridad adecuadas para evitar vulnerabilidades.</p>
 
 
-<h3 id="pr%C3%B3ximos-pasos" tabindex="-1">Próximos Pasos</h3>
+<h3 id="pr%C3%B3ximos-pasos" tabindex="-1">Próximos pasos</h3>
 
 
 <p>Ahora que has completado esta guía, te sugerimos que profundices en las características avanzadas de AWS KMS y cómo aplicarlas en tus proyectos. Consulta la documentación de AWS para obtener más detalles sobre el uso de AWS KMS para proteger tus datos en la nube. Además, explora otros servicios de AWS que se integran con AWS KMS, como Amazon S3 y <a href="https://aws.amazon.com/rds/" rel="noopener noreferrer" target="_blank">Amazon RDS</a>, para mejorar aún más la seguridad de tus datos.</p>
@@ -485,6 +485,6 @@ plaintext = response['Plaintext']
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/respaldos-y-snapshots-en-ebs/">Respaldos y Snapshots en EBS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS Seguridad: Fundamentos Esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/comprendiendo-aws-backup/">Comprendiendo AWS Backup</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores Prácticas de Seguridad en AWS</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/respaldos-y-snapshots-en-ebs/">Respaldos y snapshots en EBS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS seguridad: fundamentos esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/comprendiendo-aws-backup/">Comprendiendo AWS Backup</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores prácticas de seguridad en AWS</a></li>
 </ul>
 </p>

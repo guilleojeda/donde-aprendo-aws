@@ -9,7 +9,7 @@ cover: "/assets/blog/editorial-datos-ia.png"
 coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
-  - title: "10 repositorios de GitHub para aprender Machine Learning en AWS"
+  - title: "10 repositorios de GitHub para aprender machine learning en AWS"
     url: "https://dondeaprendoaws.com/blog/10-repositorios-de-github-para-machine-learning-en-aws/"
 
 ---
@@ -100,7 +100,7 @@ Como referencia, el ejemplo publicado por AWS calcula **101,16 USD** para import
 
 ## Comunidades y recursos para continuar
 
-Para conversar y practicar, [AWS UG Machine Learning Latam](https://www.meetup.com/es-es/aws-ug-machine-learning-latam/) publica su actividad en Meetup; revisa las fechas y condiciones del próximo encuentro. [AWS re:Post en español](https://repost.aws/es) permite buscar y publicar preguntas técnicas en español con la comunidad de AWS; las respuestas dependen de la comunidad y no equivalen a soporte garantizado. También puedes buscar grupos en el directorio de [comunidades AWS](/comunidades/), revisar la [agenda de eventos](/eventos/) y explorar los [canales y creadores](/creadores/).
+Para conversar y practicar, [AWS UG Machine Learning Latam](https://www.meetup.com/es-es/aws-ug-machine-learning-latam/) publica su actividad en Meetup; revisa las fechas y condiciones del próximo encuentro. [AWS re:Post en español](https://repost.aws/es) permite buscar y publicar preguntas técnicas en español con la comunidad de AWS; las respuestas dependen de la comunidad y no equivalen a soporte garantizado. También puedes buscar grupos en el directorio de [comunidades AWS](/comunidades/), revisar la [Agenda de eventos](/eventos/) y explorar los [canales y creadores](/creadores/).
 
 Si necesitas evaluar una opción administrada de AWS para un caso que usaba Forecast, AWS documenta recursos para pasar a SageMaker Canvas. Esa guía transforma el conjunto de datos de Forecast a otro formato y describe un flujo distinto; lee sus [pasos de transición y requisitos](https://aws.amazon.com/blogs/machine-learning/transition-your-amazon-forecast-usage-to-amazon-sagemaker-canvas/). No es una migración automática ni una equivalencia de API. Comprueba acceso, Región, datos y costos del flujo que vayas a evaluar.
 

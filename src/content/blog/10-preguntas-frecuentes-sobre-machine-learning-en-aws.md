@@ -1,5 +1,5 @@
 ---
-title: "Machine Learning en AWS: cómo empezar y qué servicio elegir"
+title: "Machine learning en AWS: cómo empezar y qué servicio elegir"
 description: "Aprende a empezar con machine learning en AWS: compara SageMaker AI, Bedrock y servicios de IA preentrenados, evalúa un modelo y revisa costos y límites."
 author: "guille-ojeda"
 publishedAt: "2024-05-13"
@@ -94,7 +94,7 @@ Si encuentras una guía que incluye estos servicios, no la uses como una receta 
 - Para descubrir más APIs de IA preparadas, consulta el [catálogo oficial de servicios de AWS](https://aws.amazon.com/ai/services/).
 - Para compartir preguntas y experiencias generales de AWS desde Córdoba, visita el [AWS User Group Córdoba](https://www.meetup.com/aws-user-group-cordoba-argentina/). Si estás en otra ciudad o país, explora el [directorio general de comunidades AWS](https://dondeaprendoaws.com/comunidades/) y revisa cada perfil para conocer su enfoque y participación. Para conversar sobre ML en la región, consulta el [AWS UG Machine Learning Latam](https://www.meetup.com/aws-ug-machine-learning-latam/).
 - Si quieres elegir una formación o decidir si una certificación encaja con tu objetivo, sigue con esta [guía propia sobre AWS Training y Certification](https://dondeaprendoaws.com/blog/10-preguntas-frecuentes-sobre-aws-training-y-certification/). Allí puedes comparar esas rutas sin confundir una actividad de aprendizaje con un examen.
-- Busca charlas, talleres y encuentros en la [agenda de eventos AWS de Latinoamérica](https://dondeaprendoaws.com/eventos/) o filtra la [agenda de Argentina](https://dondeaprendoaws.com/eventos/argentina/). Las fichas indican modalidad, fecha y datos de inscripción; compruébalos antes de organizarte.
+- Busca charlas, talleres y encuentros en la [Agenda de eventos AWS de Latinoamérica](https://dondeaprendoaws.com/eventos/) o filtra la [Agenda de Argentina](https://dondeaprendoaws.com/eventos/argentina/). Las fichas indican modalidad, fecha y datos de inscripción; compruébalos antes de organizarte.
 
 ## Preguntas frecuentes sobre machine learning en AWS
 

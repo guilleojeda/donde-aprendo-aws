@@ -8,9 +8,9 @@ cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Correlación de Eventos con Step Functions y CloudWatch"
+  - title: "Correlación de eventos con Step Functions y CloudWatch"
     url: "https://dondeaprendoaws.com/blog/correlacion-de-eventos-con-step-functions-y-cloudwatch/"
-  - title: "AWS Lambda: Costo vs. Rendimiento"
+  - title: "AWS Lambda: costo vs. rendimiento"
     url: "https://dondeaprendoaws.com/blog/aws-lambda-costo-vs-rendimiento/"
   - title: "AWS curso certificado: preguntas frecuentes"
     url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-preguntas-frecuentes/"
@@ -20,7 +20,7 @@ related:
 <p>Si estás explorando cómo ejecutar y gestionar aplicaciones en la nube de AWS, aquí te presentamos una guía sobre Kubernetes y Amazon EKS. Kubernetes es una herramienta que facilita la ejecución de aplicaciones en contenedores en múltiples entornos, mientras que Amazon EKS simplifica el uso de Kubernetes en AWS. A continuación, desglosamos los componentes clave de Kubernetes, cómo Amazon EKS mejora la experiencia de Kubernetes, y brindamos un paso a paso para implementar tu propio clúster de EKS.</p>
 <ul><li><strong>Kubernetes</strong>: Sistema para automatizar la implementación, escalado y gestión de aplicaciones en contenedores.</li><li><strong>Amazon EKS</strong>: Servicio de AWS que facilita el uso de Kubernetes, encargándose de tareas como la configuración, el mantenimiento y la escalabilidad.</li><li><strong>Componentes de Kubernetes</strong>: Incluyen Pods, Deployments, Services, Ingress, ConfigMaps y Secrets.</li><li><strong>Implementación de un clúster de</strong> <a href="https://aws.amazon.com/eks/"><strong>Amazon EKS</strong></a>: Te guiamos a través de los requisitos previos y pasos para crear y configurar tu clúster.</li><li><strong>Gestión y seguridad</strong>: Consejos para administrar aplicaciones, escalar recursos, actualizar componentes y asegurar tu clúster.</li><li><strong>Monitoreo y registro</strong>: Herramientas de AWS como CloudWatch y X-Ray para supervisar el desempeño y registrar actividades.</li><li><strong>Casos de uso</strong>: Exploramos cómo EKS puede ser utilizado para procesamiento de datos, aplicaciones web y aprendizaje automático.</li><li><strong>Comparación con otras plataformas</strong>: Ventajas de EKS frente a Google Kubernetes Engine, Azure Kubernetes Service y Red Hat OpenShift.</li></ul>
 <p>En resumen, Amazon EKS ofrece una plataforma robusta y segura para desplegar aplicaciones escalables y confiables en Kubernetes, aprovechando la infraestructura de AWS.</p>
-<h3 id="kubernetes-pods">Kubernetes Pods</h3>
+<h3 id="kubernetes-pods">Kubernetes pods</h3>
 <ul><li>Son como la pieza más pequeña de Kubernetes. Aquí es donde viven uno o más contenedores, compartiendo lo que necesitan para funcionar.</li><li>Cada pod es como una mini-aplicación que funciona por su cuenta.</li><li>Los pods no duran para siempre. Se crean y se eliminan según sea necesario.</li></ul>
 <pre><code>apiVersion: v1
 kind: Pod
@@ -86,7 +86,7 @@ spec:
             port:
               number: 80
 </code></pre>
-<h3 id="configmaps-y-secrets">ConfigMaps y Secrets</h3>
+<h3 id="configmaps-y-secrets">ConfigMaps y secrets</h3>
 <ul><li>Son como cajas fuertes donde puedes guardar la configuración y las contraseñas que tus aplicaciones necesitan.</li><li>Esto ayuda a mantener separada la configuración de tu código, haciendo más fácil hacer cambios.</li><li>Los secrets son especiales porque guardan información sensible de forma segura.</li></ul>
 <pre><code>apiVersion: v1
 kind: ConfigMap
@@ -109,7 +109,7 @@ stringData:
 <p>Amazon Elastic Kubernetes Service (Amazon EKS) te permite usar Kubernetes en AWS sin tener que lidiar con la configuración y el mantenimiento complicados. Básicamente, hace el trabajo pesado por ti, para que puedas concentrarte en tus aplicaciones.</p>
 <h3 id="caracter%C3%ADsticas-principales">Características principales</h3>
 <ul><li><strong>Plano de control totalmente administrado</strong>: Amazon EKS se asegura de que la parte central de Kubernetes esté siempre disponible y funcionando.</li><li><strong>Fácil integración con otros servicios de AWS</strong>: Puedes conectarlo fácilmente con otros servicios de AWS para mejorar tus aplicaciones.</li><li><strong>Optimización de costos</strong>: Con herramientas como autoscaling y spot instances, puedes gastar menos.</li><li><strong>Alta disponibilidad</strong>: Tus aplicaciones pueden correr en diferentes lugares al mismo tiempo para que siempre estén disponibles.</li><li><strong>Actualizaciones automáticas</strong>: Amazon EKS actualiza tu sistema por ti a la última versión.</li><li><strong>Grupos de nodos administrados</strong>: Facilita la gestión de los servidores donde corren tus aplicaciones.</li><li><strong>Consola alojada</strong>: Una herramienta central desde donde puedes manejar todo fácilmente.</li><li><strong>Seguridad integrada</strong>: Usa herramientas de seguridad de AWS para proteger tus aplicaciones.</li></ul>
-<h3 id="ventajas-sobre-kubernetes-autogestionado">Ventajas sobre Kubernetes Autogestionado</h3>
+<h3 id="ventajas-sobre-kubernetes-autogestionado">Ventajas sobre Kubernetes autogestionado</h3>
 <p>Usar EKS tiene sus beneficios comparado con manejar Kubernetes por tu cuenta:</p>
 <ul><li>No necesitas ser un experto en Kubernetes.</li><li>Te ahorras mucho trabajo en actualizaciones y mantenimiento.</li><li>Aprovechas la infraestructura de AWS, que es confiable y segura.</li><li>Puedes concentrarte más en crear tus aplicaciones que en manejar infraestructura.</li><li>Puede salir más barato porque usas los recursos de manera más eficiente.</li><li>Cuenta con garantías de que va a estar disponible cuando lo necesites.</li></ul>
 <p>En pocas palabras, EKS hace más fácil usar Kubernetes en AWS al cuidar de la parte complicada. Esto te permite enfocarte en desarrollar aplicaciones escalables y confiables, siguiendo las mejores prácticas de Kubernetes.</p>
@@ -240,19 +240,19 @@ kubectl expose deployment hola-app --type=LoadBalancer --port=8080
 <p>Amazon EKS es un servicio de Kubernetes administrado que nos da muchas ventajas, pero hay otras opciones que también son buenas y que podrían interesarte. Aquí vamos a ver cómo Amazon EKS se compara con otras plataformas como Google Kubernetes Engine (GKE), Azure Kubernetes Service (AKS) y Red Hat OpenShift.</p>
 <h3 id="caracter%C3%ADsticas-principales-1">Características principales</h3>
 <table><thead><tr><th>Característica</th><th>Amazon EKS</th><th>Google GKE</th><th>Azure AKS</th><th>Red Hat OpenShift</th></tr></thead><tbody><tr><td>Kubernetes administrado</td><td>Sí</td><td>Sí</td><td>Sí</td><td>Sí</td></tr><tr><td>Actualizaciones automáticas</td><td>Sí</td><td>Sí</td><td>Sí</td><td>Sí</td></tr><tr><td>Escalado automático</td><td>Sí</td><td>Sí</td><td>Sí</td><td>Sí</td></tr><tr><td>Integración con la nube</td><td>AWS</td><td>Google Cloud</td><td>Azure</td><td>Multi-cloud</td></tr><tr><td>Interfaz de usuario</td><td>Consola de EKS, eksctl</td><td>GKE UI, gcloud</td><td>Azure Portal, CLI</td><td>Web console, CLI</td></tr><tr><td>Redes y seguridad</td><td>VPC, IAM, Security Groups</td><td>VPC, IAM</td><td>VNet, RBAC</td><td>SDN, SELinux</td></tr><tr><td>Certificaciones</td><td>CKPS, PCI, HIPAA, SOC</td><td>CKPS, PCI, HIPAA, SOC</td><td>CKPS, PCI, HIPAA, SOC</td><td>CKPS, PCI, HIPAA, SOC</td></tr></tbody></table>
-<h3 id="google-kubernetes-engine-(gke)">Google Kubernetes Engine (GKE)</h3>
+<h3 id="google-kubernetes-engine-(gke)">Google Kubernetes engine (GKE)</h3>
 <p>GKE es el servicio de Kubernetes de Google Cloud. Funciona muy bien con otros servicios de Google Cloud.</p>
 <p><strong>Ventajas:</strong></p>
 <ul><li>Fácil de usar con otros servicios de Google Cloud</li><li>Tiene una interfaz gráfica para manejar los clústeres</li><li>Buen soporte y mucha documentación</li></ul>
 <p><strong>Desventajas:</strong></p>
 <ul><li>Solo funciona en la nube de Google</li><li>A veces es más caro</li><li>No es tan personalizable</li></ul>
-<h3 id="azure-kubernetes-service-(aks)">Azure Kubernetes Service (AKS)</h3>
+<h3 id="azure-kubernetes-service-(aks)">Azure Kubernetes service (AKS)</h3>
 <p>AKS es la opción de Kubernetes en Azure. Funciona muy bien con otras herramientas de Azure.</p>
 <p><strong>Ventajas:</strong></p>
 <ul><li>Fácil de empezar desde Azure Portal</li><li>Bueno para proyectos que usan mucho Windows y .NET</li><li>Ideal si ya usas mucho Microsoft</li></ul>
 <p><strong>Desventajas:</strong></p>
 <ul><li>No se integra tan bien con servicios fuera de Azure</li><li>La interfaz no es tan completa como otras opciones</li><li>Necesitas saber bastante de Azure para usarlo bien</li></ul>
-<h3 id="red-hat-openshift">Red Hat OpenShift</h3>
+<h3 id="red-hat-openshift">Red hat OpenShift</h3>
 <p>OpenShift es una plataforma de Kubernetes para empresas, con más opciones de seguridad y herramientas.</p>
 <p><strong>Ventajas:</strong></p>
 <ul><li>Muchas opciones y soporte para empresas</li><li>Muy personalizable</li><li>Herramientas útiles para DevOps</li></ul>
@@ -266,7 +266,7 @@ kubectl expose deployment hola-app --type=LoadBalancer --port=8080
 <p>EKS se ha ganado su lugar como uno de los mejores servicios de Kubernetes que hay. Tiene el respaldo oficial de Kubernetes y un gran apoyo de AWS.</p>
 <p>Aunque hay otras opciones como Google Kubernetes Engine o Azure Kubernetes Service, EKS sobresale por su integración con AWS. Esto lo hace ideal si ya usamos otros servicios de AWS y queremos empezar con Kubernetes fácilmente.</p>
 <p>En resumen, EKS nos facilita mucho la vida al momento de lanzar y manejar aplicaciones en la nube. Nos permite enfocarnos en lo importante: construir software de calidad, sin preocuparnos tanto por la infraestructura. Con las ventajas de Kubernetes y el apoyo de AWS, EKS es una plataforma sólida para nuestras aplicaciones importantes en la nube.</p>
-<h2 id="preguntas-relacionadas">Preguntas Relacionadas</h2>
+<h2 id="preguntas-relacionadas">Preguntas relacionadas</h2>
 <h3 id="%C2%BFqu%C3%A9-es-kubernetes-en-aws%3F">¿Qué es Kubernetes en AWS?</h3>
 <p>Kubernetes es una herramienta que te ayuda a ejecutar y manejar aplicaciones que están divididas en pequeñas piezas, llamadas contenedores. AWS tiene un servicio llamado Amazon Elastic Kubernetes Service (Amazon EKS) que hace más fácil usar Kubernetes en la nube de AWS, manejando muchas de las tareas complicadas por ti.</p>
 <h3 id="%C2%BFqu%C3%A9-es-amazon-eks%3F">¿Qué es Amazon EKS?</h3>
@@ -278,4 +278,4 @@ kubectl expose deployment hola-app --type=LoadBalancer --port=8080
 <h3 id="%C2%BFqu%C3%A9-es-eksctl%3F">¿Qué es <a href="https://eksctl.io/">Eksctl</a>?</h3>
 <p><img alt="Eksctl" src="/assets/blog/cde11b7c19ca616e625405fa.jpg"/>Eksctl es una herramienta que puedes usar desde la línea de comandos para crear y manejar clústeres de EKS de manera fácil. Es como un atajo que te permite configurar todo tu clúster y los servidores con solo unos pocos comandos, ahorrándote mucho trabajo manual.</p>
 <h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ecs/">Mejores Prácticas Para Amazon ECS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-eks/">Mejores Prácticas Para Amazon EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/opciones-para-desplegar-contenedores-en-aws-ecs-y-eks/">Opciones para Desplegar Contenedores en AWS: ECS y EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/">Cómo Desplegar Contenedores en AWS</a></li></ul>
+<ul><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ecs/">Mejores prácticas para Amazon ECS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-eks/">Mejores prácticas para Amazon EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/opciones-para-desplegar-contenedores-en-aws-ecs-y-eks/">Opciones para desplegar contenedores en AWS: ECS y EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/">Cómo desplegar contenedores en AWS</a></li></ul>

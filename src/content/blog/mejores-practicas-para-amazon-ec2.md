@@ -1,5 +1,5 @@
 ---
-title: "Mejores Prácticas Para Amazon EC2"
+title: "Mejores prácticas para Amazon EC2"
 description: "Consejos y mejores prácticas para optimizar el uso de Amazon EC2, incluyendo control de acceso, grupos de seguridad, selección de instancias, cifrado de datos, automatización y más."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
@@ -8,11 +8,11 @@ cover: "/assets/blog/editorial-fundamentos.png"
 coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
 ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
-  - title: "5 Startups Exitosas en AWS: Casos de Éxito"
+  - title: "5 startups exitosas en AWS: casos de éxito"
     url: "https://dondeaprendoaws.com/blog/5-startups-exitosas-en-aws-casos-de-exito/"
-  - title: "Cómo Desplegar una Aplicación en Amazon EKS"
+  - title: "Cómo desplegar una aplicación en Amazon EKS"
     url: "https://dondeaprendoaws.com/blog/como-desplegar-una-aplicacion-en-amazon-eks/"
-  - title: "¿Cómo Escala DynamoDB? Modos On Demand y Provisioned"
+  - title: "¿Cómo escala DynamoDB? modos on demand y provisioned"
     url: "https://dondeaprendoaws.com/blog/como-escala-dynamodb-modos-on-demand-y-provisioned/"
 
 ---
@@ -35,7 +35,7 @@ related:
 <p>Estas estrategias te ayudarán a mejorar la seguridad, rendimiento y costo-eficiencia de tus operaciones en EC2.</p>
 
 
-<h3 id="instancias-de-uso-general" tabindex="-1">Instancias de Uso General</h3>
+<h3 id="instancias-de-uso-general" tabindex="-1">Instancias de uso general</h3>
 
 
 <p>Piensa en estas instancias como la opción equilibrada. Son perfectas si estás haciendo cosas como:</p>
@@ -51,7 +51,7 @@ related:
 <p>Si buscas ejemplos, <code class="inline-code">t3.micro</code> y <code class="inline-code">m5.large</code> son bastante comunes.</p>
 
 
-<h3 id="instancias-optimizadas-para-computaci%C3%B3n" tabindex="-1">Instancias Optimizadas para Computación</h3>
+<h3 id="instancias-optimizadas-para-computaci%C3%B3n" tabindex="-1">Instancias optimizadas para computación</h3>
 
 
 <p>Estas instancias son como las versiones turbo. Si tu proyecto necesita mucha potencia, como un sitio web con muchos visitantes o trabajos de ciencia de datos, estas son las mejores.</p>
@@ -142,7 +142,7 @@ related:
 </ul>
 
 
-<h2 id="optimizaci%C3%B3n-del-almacenamiento-en-aws" tabindex="-1">Optimización del Almacenamiento en AWS</h2>
+<h2 id="optimizaci%C3%B3n-del-almacenamiento-en-aws" tabindex="-1">Optimización del almacenamiento en AWS</h2>
 
 
 <h3 id="diferencias-entre-ebs-y-ec2-instance-store" tabindex="-1">Diferencias entre EBS y EC2 Instance Store</h3>
@@ -208,7 +208,7 @@ related:
 <p>Siguiendo estos pasos, tus datos estarán más protegidos en EC2.</p>
 
 
-<h2 id="administraci%C3%B3n-de-recursos-y-monitoreo" tabindex="-1">Administración de Recursos y Monitoreo</h2>
+<h2 id="administraci%C3%B3n-de-recursos-y-monitoreo" tabindex="-1">Administración de recursos y monitoreo</h2>
 
 
 <h3 id="utilice-metadatos-y-etiquetas" tabindex="-1">Utilice metadatos y etiquetas</h3>
@@ -229,7 +229,7 @@ related:
 <p>Siguiendo estos consejos, podrás manejar tus recursos de EC2 mucho más fácil entre los varios servicios de AWS.</p>
 
 
-<h3 id="monitoreo-automatizado-vs.-manual" tabindex="-1">Monitoreo automatizado vs. manual</h3>
+<h3 id="monitoreo-automatizado-vs.-manual" tabindex="-1">Monitoreo automatizado vs. Manual</h3>
 
 
 <p><strong>Monitoreo automatizado</strong></p>
@@ -266,7 +266,7 @@ related:
 <p>Lo mejor es usar tanto el monitoreo automático como las revisiones manuales de vez en cuando. Así, te aseguras de tener todo bajo control.</p>
 
 
-<h2 id="copia-de-seguridad-y-recuperaci%C3%B3n-ante-desastres" tabindex="-1">Copia de Seguridad y Recuperación ante Desastres</h2>
+<h2 id="copia-de-seguridad-y-recuperaci%C3%B3n-ante-desastres" tabindex="-1">Copia de seguridad y recuperación ante desastres</h2>
 
 
 <h3 id="estrategias-de-copia-de-seguridad" tabindex="-1">Estrategias de copia de seguridad</h3>
@@ -313,7 +313,7 @@ related:
 
 
 
-<h2 id="redes-y-conectividad" tabindex="-1">Redes y Conectividad</h2>
+<h2 id="redes-y-conectividad" tabindex="-1">Redes y conectividad</h2>
 
 
 <h3 id="configuraci%C3%B3n-recomendada-de-redes" tabindex="-1">Configuración recomendada de redes</h3>
@@ -374,10 +374,10 @@ related:
 <p>Al poner atención a estos puntos desde el principio, puedes hacer que tus aplicaciones en EC2 trabajen mejor y más seguras.</p>
 
 
-<h2 id="uso-eficiente-de-recursos" tabindex="-1">Uso Eficiente de Recursos</h2>
+<h2 id="uso-eficiente-de-recursos" tabindex="-1">Uso eficiente de recursos</h2>
 
 
-<h3 id="instancias-spot" tabindex="-1">Instancias Spot</h3>
+<h3 id="instancias-spot" tabindex="-1">Instancias spot</h3>
 
 
 <p>Las instancias spot de Amazon EC2 te permiten ahorrar mucho, pero hay un detalle: pueden pararse en cualquier momento. Aquí van algunos consejos para sacarles provecho:</p>
@@ -393,7 +393,7 @@ related:
 </ul>
 
 
-<h3 id="instancias-reservadas" tabindex="-1">Instancias Reservadas</h3>
+<h3 id="instancias-reservadas" tabindex="-1">Instancias reservadas</h3>
 
 
 <p>Si sabes que vas a necesitar ciertas instancias por mucho tiempo, las instancias reservadas te pueden ahorrar hasta un 75%. Aquí unos consejos:</p>
@@ -412,10 +412,10 @@ related:
 <p>Al usar bien las instancias spot y reservadas, puedes hacer que trabajar con EC2 te cueste mucho menos.</p>
 
 
-<h2 id="automatizaci%C3%B3n-y-escalabilidad" tabindex="-1">Automatización y Escalabilidad</h2>
+<h2 id="automatizaci%C3%B3n-y-escalabilidad" tabindex="-1">Automatización y escalabilidad</h2>
 
 
-<h3 id="auto-scaling-groups" tabindex="-1">Auto Scaling Groups</h3>
+<h3 id="auto-scaling-groups" tabindex="-1">Auto scaling groups</h3>
 
 
 <p>Los grupos de Auto Scaling en Amazon EC2 te ayudan a ajustar la cantidad de instancias (o máquinas) que tienes corriendo, dependiendo de cuánto las necesitas. Imagina que automáticamente puedes tener más máquinas cuando hay mucha gente visitando tu sitio y menos cuando hay poca.</p>
@@ -460,7 +460,7 @@ related:
 <p>Con CloudFormation, puedes manejar tu infraestructura de manera eficiente, asegurándote de que todo funciona como debe.</p>
 
 
-<h2 id="mantenimiento-y-actualizaci%C3%B3n" tabindex="-1">Mantenimiento y Actualización</h2>
+<h2 id="mantenimiento-y-actualizaci%C3%B3n" tabindex="-1">Mantenimiento y actualización</h2>
 
 
 <p>Es clave mantener tu sistema y aplicaciones en las instancias de EC2 al día para asegurarte de que todo funcione bien y esté seguro. Aquí te dejamos algunos consejos sencillos:</p>
@@ -523,6 +523,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores Prácticas de Seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-s3/">Mejores Prácticas Para Amazon S3</a></li><li><a href="https://dondeaprendoaws.com/blog/tipos-y-tamanos-de-instancias-ec2-guia-completa/">Tipos y Tamaños de Instancias EC2: Guía Completa</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores prácticas de seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-s3/">Mejores prácticas para Amazon S3</a></li><li><a href="https://dondeaprendoaws.com/blog/tipos-y-tamanos-de-instancias-ec2-guia-completa/">Tipos y tamaños de instancias EC2: guía completa</a></li>
 </ul>
 </p>

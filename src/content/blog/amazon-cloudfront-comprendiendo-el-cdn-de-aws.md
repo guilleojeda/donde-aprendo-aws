@@ -95,7 +95,7 @@ Si ya no necesitas la práctica, primero deshabilita la distribución y espera a
 
 ## Recursos y comunidad para seguir aprendiendo
 
-El [AWS User Group Panamá publicó una grabación titulada “Static Web usando Vue.js, S3, CloudFront, WAF, AWS CI/CD”](https://www.youtube.com/watch?v=Y6PScTDqAsU). También puedes recorrer [su canal de YouTube](https://www.youtube.com/channel/UCjr_J7Xva8QsHP31JfzYsYA), consultar la [comunidad en Panamá](/comunidades/panama/#resource-meetup-22667715) y revisar [sus eventos próximos](/eventos/?community=meetup-22667715). Para encontrar otras charlas, talleres y grupos, visita el [directorio general de comunidades AWS](/comunidades/) y la [agenda de eventos AWS](/eventos/).
+El [AWS User Group Panamá publicó una grabación titulada “Static Web usando Vue.js, S3, CloudFront, WAF, AWS CI/CD”](https://www.youtube.com/watch?v=Y6PScTDqAsU). También puedes recorrer [su canal de YouTube](https://www.youtube.com/channel/UCjr_J7Xva8QsHP31JfzYsYA), consultar la [comunidad en Panamá](/comunidades/panama/#resource-meetup-22667715) y revisar [sus eventos próximos](/eventos/?community=meetup-22667715). Para encontrar otras charlas, talleres y grupos, visita el [directorio general de comunidades AWS](/comunidades/) y la [Agenda de eventos AWS](/eventos/).
 
 Como siguiente paso, puedes buscar la charla de Carlos Cortez [“🔥 El verdadero Edge: Cloudfront Functions! - 📢 Al día con AWS Ep 16 con Carlos Cortez”](https://www.youtube.com/watch?v=Dfd6aCSVwUE), identificada en el catálogo como contenido sobre funciones en el edge. El [canal de Carlos Cortez](https://www.youtube.com/@carloscortezcloud) reúne sus grabaciones.
 

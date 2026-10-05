@@ -1,5 +1,5 @@
 ---
-title: "AWS Fundamentos: Guía de Inicio Rápido"
+title: "AWS fundamentos: guía de inicio rápido"
 description: "Guía de inicio rápido para familiarizarse con los fundamentos de AWS, incluyendo servicios clave como Amazon EC2, Amazon S3, AWS Lambda, seguridad en la nube y más."
 author: "guille-ojeda"
 publishedAt: "2024-01-30"
@@ -8,11 +8,11 @@ cover: "/assets/blog/editorial-fundamentos.png"
 coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
 ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
-  - title: "AWS Organizations: Estructuras de cuentas y nombres"
+  - title: "AWS Organizations: estructuras de cuentas y nombres"
     url: "https://dondeaprendoaws.com/blog/aws-organizations-estructuras-de-cuentas-y-nombres/"
   - title: "Cómo monitorear SLOs con Amazon CloudWatch"
     url: "https://dondeaprendoaws.com/blog/como-monitorear-slos-con-amazon-cloudwatch/"
-  - title: "10 Prácticas Recomendadas para Integrar EUC en AWS"
+  - title: "10 prácticas recomendadas para integrar EUC en AWS"
     url: "https://dondeaprendoaws.com/blog/10-practicas-recomendadas-para-integrar-euc-en-aws/"
 
 ---
@@ -66,7 +66,7 @@ related:
 <p>En resumen, AWS permite a las empresas innovar más rápido, reducir costos, obtener insights de sus datos y expandirse a nivel global en minutos.</p>
 
 
-<h3 id="regiones-y-zonas-de-disponibilidad-de-aws" tabindex="-1">Regiones y Zonas de Disponibilidad de AWS</h3>
+<h3 id="regiones-y-zonas-de-disponibilidad-de-aws" tabindex="-1">Regiones y zonas de disponibilidad de AWS</h3>
 
 
 <p>Las <a href="https://aws.amazon.com/es/about-aws/global-infrastructure/regions_az/" rel="noopener noreferrer" target="_blank"><strong>Regiones de AWS</strong></a> son ubicaciones geográficas separadas que alojan los centros de datos de AWS. Cada región consta de múltiples zonas de disponibilidad aisladas que ayudan a lograr una alta disponibilidad y redundancia.</p>
@@ -91,7 +91,7 @@ related:
 <p>Estos modelos cubren diversos casos de uso, desde startups que utilizan solo la nube pública hasta grandes empresas con requisitos de aislamiento de datos.</p>
 
 
-<h3 id="tipos-de-servicios-de-aws-cloud" tabindex="-1">Tipos de servicios de AWS Cloud</h3>
+<h3 id="tipos-de-servicios-de-aws-cloud" tabindex="-1">Tipos de servicios de AWS cloud</h3>
 
 
 <p>AWS ofrece una amplia gama de servicios agrupados en las siguientes categorías:</p>
@@ -281,7 +281,7 @@ related:
 </ul>
 
 
-<h3 id="machine-learning" tabindex="-1">Machine Learning</h3>
+<h3 id="machine-learning" tabindex="-1">Machine learning</h3>
 
 
 <p>Servicios para desarrollar sistemas de aprendizaje automático:</p>
@@ -308,7 +308,7 @@ related:
 </ul>
 
 
-<h2 id="configuraci%C3%B3n-de-una-cuenta-aws-para-principiantes" tabindex="-1">Configuración de una Cuenta AWS para Principiantes</h2>
+<h2 id="configuraci%C3%B3n-de-una-cuenta-aws-para-principiantes" tabindex="-1">Configuración de una cuenta AWS para principiantes</h2>
 
 
 <h3 id="primeros-pasos-en-la-configuraci%C3%B3n-de-una-cuenta-aws" tabindex="-1">Primeros pasos en la configuración de una cuenta AWS</h3>
@@ -359,7 +359,7 @@ related:
 <p>El nivel de soporte se escala según tus necesidades. Si ejecutas aplicaciones críticas de negocio en AWS, te recomendamos considerar los planes avanzados de soporte técnico.</p>
 
 
-<h3 id="navegando-por-la-consola-de-administraci%C3%B3n-de-aws" tabindex="-1">Navegando por la Consola de Administración de AWS</h3>
+<h3 id="navegando-por-la-consola-de-administraci%C3%B3n-de-aws" tabindex="-1">Navegando por la consola de administración de AWS</h3>
 
 
 <p>La consola de administración de AWS proporciona una interfaz centralizada para administrar tus servicios y recursos de AWS.</p>
@@ -374,13 +374,13 @@ related:
 <p>Te recomendamos familiarizarte con la navegación básica de la consola y personalizarla para tus necesidades. Esto hará que administrar tus servicios en la nube sea más eficiente.</p>
 
 
-<h2 id="fundamentos-de-seguridad-en-aws" tabindex="-1">Fundamentos de Seguridad en AWS</h2>
+<h2 id="fundamentos-de-seguridad-en-aws" tabindex="-1">Fundamentos de seguridad en AWS</h2>
 
 
 <p>Esta sección introduce conceptos de seguridad clave como el modelo de responsabilidad compartida, IAM, Security Groups, cifrado y más.</p>
 
 
-<h3 id="comprendiendo-el-modelo-de-responsabilidad-compartida-de-aws" tabindex="-1">Comprendiendo el Modelo de Responsabilidad Compartida de AWS</h3>
+<h3 id="comprendiendo-el-modelo-de-responsabilidad-compartida-de-aws" tabindex="-1">Comprendiendo el modelo de responsabilidad compartida de AWS</h3>
 
 
 <p>El modelo de responsabilidad compartida de AWS establece claramente quién es responsable de manejar la seguridad en la nube AWS. Según este modelo, AWS es responsable de proteger la infraestructura global que ejecuta toda la nube AWS. Esto incluye hardware, software, redes y facilidades que ejecutan los servicios de AWS.</p>
@@ -412,7 +412,7 @@ related:
 <p>Con estas características, IAM permite aplicar el principio de privilegios mínimos y mejorar la seguridad general de una cuenta de AWS.</p>
 
 
-<h3 id="fundamentos-de-security-groups-en-amazon-ec2" tabindex="-1">Fundamentos de Security Groups en Amazon EC2</h3>
+<h3 id="fundamentos-de-security-groups-en-amazon-ec2" tabindex="-1">Fundamentos de security groups en Amazon EC2</h3>
 
 
 <p>Los Security Groups de Amazon EC2 funcionan como un firewall virtual para definir reglas de tráfico entrante y saliente de instancias EC2.</p>
@@ -436,7 +436,7 @@ related:
 <p>En general, los Security Groups son esenciales para aumentar la seguridad de aplicaciones y servicios en EC2.</p>
 
 
-<h3 id="estrategias-de-cifrado-de-datos-en-aws" tabindex="-1">Estrategias de Cifrado de Datos en AWS</h3>
+<h3 id="estrategias-de-cifrado-de-datos-en-aws" tabindex="-1">Estrategias de cifrado de datos en AWS</h3>
 
 
 <p>Para proteger la confidencialidad de datos y cumplir requerimientos regulatorios, AWS ofrece múltiples opciones de cifrado:</p>
@@ -484,7 +484,7 @@ related:
 <p>En resumen, CloudTrail es esencial para habilitar visibilidad sobre la actividad de una cuenta AWS y auditar uso de servicios.</p>
 
 
-<h2 id="explorando-los-servicios-esenciales-de-aws-para-nuevos-usuarios" tabindex="-1">Explorando los Servicios Esenciales de AWS para nuevos usuarios</h2>
+<h2 id="explorando-los-servicios-esenciales-de-aws-para-nuevos-usuarios" tabindex="-1">Explorando los servicios esenciales de AWS para nuevos usuarios</h2>
 
 
 <p>Esta sección presenta algunos de los servicios más populares y utilizados de AWS que todo usuario nuevo debe conocer.</p>
@@ -594,13 +594,13 @@ related:
 <p>DynamoDB es ideal para aplicaciones móviles, web, juegos, IoT, entre otros que requieren latencias ultra bajas y escalabilidad.</p>
 
 
-<h2 id="recursos-y-soporte-adicionales-para-usuarios-de-aws" tabindex="-1">Recursos y Soporte Adicionales para Usuarios de AWS</h2>
+<h2 id="recursos-y-soporte-adicionales-para-usuarios-de-aws" tabindex="-1">Recursos y soporte adicionales para usuarios de AWS</h2>
 
 
 <p>Esta última sección proporciona recursos para continuar aprendiendo sobre AWS después de dominar los conceptos básicos.</p>
 
 
-<h3 id="accediendo-a-la-documentaci%C3%B3n-t%C3%A9cnica-de-aws" tabindex="-1">Accediendo a la Documentación Técnica de AWS</h3>
+<h3 id="accediendo-a-la-documentaci%C3%B3n-t%C3%A9cnica-de-aws" tabindex="-1">Accediendo a la documentación técnica de AWS</h3>
 
 
 <p>La documentación técnica de AWS cubre cada <strong>servicio</strong> en profundidad. Es el recurso definitivo para usuarios de AWS que buscan entender a fondo las capacidades y funcionalidades de la plataforma.</p>
@@ -621,7 +621,7 @@ related:
 <p>Se recomienda revisar la documentación de los servicios de <strong>AWS fundamentos</strong> que más te interesen, como Amazon EC2, Amazon S3, Amazon VPC, entre otros.</p>
 
 
-<h3 id="capacitaci%C3%B3n-y-certificaci%C3%B3n-en-aws" tabindex="-1">Capacitación y Certificación en AWS</h3>
+<h3 id="capacitaci%C3%B3n-y-certificaci%C3%B3n-en-aws" tabindex="-1">Capacitación y certificación en AWS</h3>
 
 
 <p>AWS ofrece cursos oficiales en línea, bootcamps y <strong>certificaciones</strong> para validar habilidades técnicas en la nube.</p>
@@ -637,7 +637,7 @@ related:
 </ul>
 
 
-<h3 id="obtener-ayuda-a-trav%C3%A9s-del-soporte-t%C3%A9cnico-de-aws" tabindex="-1">Obtener Ayuda a través del Soporte Técnico de AWS</h3>
+<h3 id="obtener-ayuda-a-trav%C3%A9s-del-soporte-t%C3%A9cnico-de-aws" tabindex="-1">Obtener ayuda a través del soporte técnico de AWS</h3>
 
 
 <p>Si tienes preguntas o necesitas ayuda técnica con AWS, hay varios planes de <strong>soporte</strong> disponibles para ti, incluyendo:</p>
@@ -653,7 +653,7 @@ related:
 <p>Puedes abrir casos de soporte directamente desde la <strong>Consola de Administración de AWS</strong> o el centro de <strong>AWS Support</strong>.</p>
 
 
-<h3 id="conectarse-con-la-comunidad-de-aws" tabindex="-1">Conectarse con la Comunidad de AWS</h3>
+<h3 id="conectarse-con-la-comunidad-de-aws" tabindex="-1">Conectarse con la comunidad de AWS</h3>
 
 
 <p>Únete a los foros de la comunidad y otros grupos en línea para conectarte con otros usuarios de AWS, hacer preguntas y compartir conocimientos.</p>
@@ -670,7 +670,7 @@ related:
 </ul>
 
 
-<h3 id="recursos-adicionales-de-aprendizaje-en-aws" tabindex="-1">Recursos Adicionales de Aprendizaje en AWS</h3>
+<h3 id="recursos-adicionales-de-aprendizaje-en-aws" tabindex="-1">Recursos adicionales de aprendizaje en AWS</h3>
 
 
 <p>Revisa más blogs, podcasts, videos y más para continuar tu viaje de aprendizaje sobre AWS y la nube:</p>
@@ -690,6 +690,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-basica/">Guía Básica para Certificaciones de AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS Seguridad: Fundamentos Esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/">Introducción a los servicios de Amazon Web Services</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-basica/">guía básica para certificaciones de AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS seguridad: fundamentos esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/">Introducción a los servicios de Amazon Web Services</a></li>
 </ul>
 </p>

@@ -1,7 +1,7 @@
 [
   {
     "slug": "como-reducir-costos-de-transferencia-intra-region-en-aws",
-    "title": "Cómo Reducir Costos de Transferencia Intra-Región en AWS",
+    "title": "Cómo reducir costos de transferencia intra-región en AWS",
     "publishedAt": "2025-09-11",
     "publishedTimestamp": "2025-09-11T07:03:09.648000+00:00"
   },
@@ -13,7 +13,7 @@
   },
   {
     "slug": "visualiza-costos-con-aws-cost-and-usage-reports-y-quicksight",
-    "title": "Visualiza Costos con AWS Cost and Usage Reports y QuickSight",
+    "title": "Visualiza costos con AWS Cost and Usage Reports y QuickSight",
     "publishedAt": "2025-09-04",
     "publishedTimestamp": "2025-09-04T02:52:29.834000+00:00"
   },
@@ -31,7 +31,7 @@
   },
   {
     "slug": "como-optimizar-la-transferencia-de-datos-en-api-gateway",
-    "title": "Cómo Optimizar la Transferencia de Datos en API Gateway",
+    "title": "Cómo optimizar la transferencia de datos en API Gateway",
     "publishedAt": "2025-05-29",
     "publishedTimestamp": "2025-05-29T06:24:09.015000+00:00"
   },
@@ -55,37 +55,37 @@
   },
   {
     "slug": "crear-un-cluster-en-amazon-redshift",
-    "title": "Crear un Cluster en Amazon Redshift",
+    "title": "Crear un cluster en Amazon Redshift",
     "publishedAt": "2025-04-28",
     "publishedTimestamp": "2025-04-28T03:36:05.740000+00:00"
   },
   {
     "slug": "checklist-servicios-aws-esenciales-para-saa-c03",
-    "title": "Checklist: Servicios AWS Esenciales para SAA-C03",
+    "title": "Checklist: servicios AWS esenciales para SAA-C03",
     "publishedAt": "2025-04-03",
     "publishedTimestamp": "2025-04-03T01:53:13.640000+00:00"
   },
   {
     "slug": "que-es-aws-lambda-preguntas-y-respuestas",
-    "title": "¿Qué es AWS Lambda? Preguntas y Respuestas",
+    "title": "¿Qué es AWS Lambda? preguntas y respuestas",
     "publishedAt": "2025-03-31",
     "publishedTimestamp": "2025-03-31T03:16:05.470000+00:00"
   },
   {
     "slug": "machine-learning-para-triage-de-alertas-en-aws",
-    "title": "Machine Learning para Triage de Alertas en AWS",
+    "title": "Machine learning para triage de alertas en AWS",
     "publishedAt": "2025-03-27",
     "publishedTimestamp": "2025-03-27T01:18:04.566000+00:00"
   },
   {
     "slug": "correlacion-de-eventos-con-step-functions-y-cloudwatch",
-    "title": "Correlación de Eventos con Step Functions y CloudWatch",
+    "title": "Correlación de eventos con Step Functions y CloudWatch",
     "publishedAt": "2025-03-17",
     "publishedTimestamp": "2025-03-17T03:58:59.832000+00:00"
   },
   {
     "slug": "logs-de-acceso-en-elb-guia-completa",
-    "title": "Logs de acceso en ELB: Guía completa",
+    "title": "Logs de acceso en ELB: guía completa",
     "publishedAt": "2025-03-13",
     "publishedTimestamp": "2025-03-13T03:14:10.062000+00:00"
   },
@@ -97,7 +97,7 @@
   },
   {
     "slug": "guia-para-implementar-machine-learning-con-amazon-sagemaker",
-    "title": "Guía para Implementar Machine Learning con Amazon SageMaker",
+    "title": "Guía para implementar machine learning con Amazon SageMaker",
     "publishedAt": "2025-03-06",
     "publishedTimestamp": "2025-03-06T03:07:26.337Z"
   },
@@ -109,7 +109,7 @@
   },
   {
     "slug": "aws-organizations-estructuras-de-cuentas-y-nombres",
-    "title": "AWS Organizations: Estructuras de cuentas y nombres",
+    "title": "AWS Organizations: estructuras de cuentas y nombres",
     "publishedAt": "2025-02-27",
     "publishedTimestamp": "2025-02-27T04:44:08.163Z"
   },
@@ -121,7 +121,7 @@
   },
   {
     "slug": "diferencias-endpoint-de-interfaz-vs-endpoint-de-gateway",
-    "title": "Diferencias: Endpoint de interfaz vs. Endpoint de gateway",
+    "title": "Diferencias: endpoint de interfaz vs. endpoint de gateway",
     "publishedAt": "2025-02-20",
     "publishedTimestamp": "2025-02-20T00:10:01.732Z"
   },
@@ -157,13 +157,13 @@
   },
   {
     "slug": "diferencias-entre-sla-y-slo-en-aws",
-    "title": "Diferencias Entre SLA y SLO en AWS",
+    "title": "Diferencias entre SLA y SLO en AWS",
     "publishedAt": "2025-01-20",
     "publishedTimestamp": "2025-01-20T00:15:06.029Z"
   },
   {
     "slug": "slas-en-aws-conceptos-legales-clave",
-    "title": "SLAs en AWS: Conceptos Legales Clave",
+    "title": "SLAs en AWS: conceptos legales clave",
     "publishedAt": "2025-01-16",
     "publishedTimestamp": "2025-01-16T00:20:32.257Z"
   },
@@ -181,49 +181,49 @@
   },
   {
     "slug": "control-plane-vs-data-plane-en-aws-app-mesh",
-    "title": "Control Plane vs Data Plane en AWS App Mesh",
+    "title": "Control plane vs data plane en AWS App Mesh",
     "publishedAt": "2025-01-06",
     "publishedTimestamp": "2025-01-06T00:21:30.764Z"
   },
   {
     "slug": "como-usar-aws-cost-explorer-para-trafico-de-red",
-    "title": "Cómo Usar AWS Cost Explorer para Tráfico de Red",
+    "title": "Cómo usar AWS Cost Explorer para tráfico de red",
     "publishedAt": "2025-01-02",
     "publishedTimestamp": "2025-01-02T00:17:31.789Z"
   },
   {
     "slug": "guia-completa-analisis-de-costos-de-trafico-en-aws",
-    "title": "Guía Completa: Análisis de Costos de Tráfico en AWS",
+    "title": "Guía completa: análisis de costos de tráfico en AWS",
     "publishedAt": "2024-12-30",
     "publishedTimestamp": "2024-12-30T12:06:07.312Z"
   },
   {
     "slug": "estrategias-de-correlacion-de-eventos-aws",
-    "title": "Estrategias de Correlación de Eventos AWS",
+    "title": "Estrategias de correlación de eventos AWS",
     "publishedAt": "2024-12-26",
     "publishedTimestamp": "2024-12-26T19:07:36.754Z"
   },
   {
     "slug": "cloudwatch-y-eventbridge-integracion",
-    "title": "CloudWatch y EventBridge: Integración",
+    "title": "CloudWatch y EventBridge: integración",
     "publishedAt": "2024-11-28",
     "publishedTimestamp": "2024-11-28T01:51:21.207Z"
   },
   {
     "slug": "aws-lambda-y-api-gateway-guia-basica",
-    "title": "AWS Lambda y API Gateway: Guía Básica",
+    "title": "AWS Lambda y API Gateway: guía básica",
     "publishedAt": "2024-11-28",
     "publishedTimestamp": "2024-11-28T01:29:24.642Z"
   },
   {
     "slug": "cache-para-autorizadores-lambda-en-api-gateway",
-    "title": "Caché para Autorizadores Lambda en API Gateway",
+    "title": "Caché para autorizadores Lambda en API Gateway",
     "publishedAt": "2024-11-28",
     "publishedTimestamp": "2024-11-28T00:05:44.586Z"
   },
   {
     "slug": "aws-sam-guia-basica-para-aplicaciones-serverless",
-    "title": "AWS SAM: Guía Básica para Aplicaciones Serverless",
+    "title": "AWS SAM: guía básica para aplicaciones serverless",
     "publishedAt": "2024-11-27",
     "publishedTimestamp": "2024-11-27T02:20:00.277Z"
   },
@@ -235,19 +235,19 @@
   },
   {
     "slug": "aws-sam-cli-pruebas-y-desarrollo-local",
-    "title": "AWS SAM CLI: Pruebas y Desarrollo Local",
+    "title": "AWS SAM CLI: pruebas y desarrollo local",
     "publishedAt": "2024-11-27",
     "publishedTimestamp": "2024-11-27T00:08:23.504Z"
   },
   {
     "slug": "politicas-de-confianza-aws-acceso-entre-cuentas",
-    "title": "Políticas de Confianza AWS: Acceso Entre Cuentas",
+    "title": "Políticas de confianza AWS: acceso entre cuentas",
     "publishedAt": "2024-11-26",
     "publishedTimestamp": "2024-11-26T20:13:42.04Z"
   },
   {
     "slug": "monitoreo-y-logs-de-aws-step-functions-guia-2024",
-    "title": "Monitoreo y Logs de AWS Step Functions: Guía 2024",
+    "title": "Monitoreo y logs de AWS Step Functions: guía 2024",
     "publishedAt": "2024-11-26",
     "publishedTimestamp": "2024-11-26T19:49:41.97Z"
   },
@@ -259,13 +259,13 @@
   },
   {
     "slug": "guia-de-mejores-practicas-para-vpc-traffic-mirroring-en-aws",
-    "title": "Guía de Mejores Prácticas para VPC Traffic Mirroring en AWS",
+    "title": "Guía de mejores prácticas para VPC traffic mirroring en AWS",
     "publishedAt": "2024-10-28",
     "publishedTimestamp": "2024-10-28T03:11:03.66Z"
   },
   {
     "slug": "aws-sms-vs-aws-mgn-comparacion-2024",
-    "title": "AWS SMS vs AWS MGN: Comparación 2024",
+    "title": "AWS SMS vs AWS MGN: comparación 2024",
     "publishedAt": "2024-10-28",
     "publishedTimestamp": "2024-10-28T02:54:04.742Z"
   },
@@ -283,19 +283,19 @@
   },
   {
     "slug": "10-repositorios-de-github-para-machine-learning-en-aws",
-    "title": "10 repositorios de GitHub para aprender Machine Learning en AWS",
+    "title": "10 repositorios de GitHub para aprender machine learning en AWS",
     "publishedAt": "2024-10-27",
     "publishedTimestamp": "2024-10-27T03:07:38.015Z"
   },
   {
     "slug": "estrategias-de-cache-rentables-para-apps-serverless",
-    "title": "Estrategias de Caché Rentables para Apps Serverless",
+    "title": "Estrategias de caché rentables para apps serverless",
     "publishedAt": "2024-10-27",
     "publishedTimestamp": "2024-10-27T02:26:14.893Z"
   },
   {
     "slug": "principios-de-zero-trust-en-aws-componentes-clave",
-    "title": "Principios de Zero Trust en AWS: Componentes Clave",
+    "title": "Principios de Zero Trust en AWS: componentes clave",
     "publishedAt": "2024-10-26",
     "publishedTimestamp": "2024-10-26T19:07:21.543Z"
   },
@@ -307,7 +307,7 @@
   },
   {
     "slug": "gestion-de-facturacion-de-aws-guia-completa",
-    "title": "Gestión de Facturación de AWS: Guía Completa",
+    "title": "Gestión de facturación de AWS: guía completa",
     "publishedAt": "2024-10-26",
     "publishedTimestamp": "2024-10-26T18:40:19.127Z"
   },
@@ -319,37 +319,37 @@
   },
   {
     "slug": "configurar-aws-para-comunicacion-en-equipo-7-pasos",
-    "title": "Configurar AWS para Comunicación en Equipo: 7 Pasos",
+    "title": "Configurar AWS para comunicación en equipo: 7 pasos",
     "publishedAt": "2024-05-20",
     "publishedTimestamp": "2024-05-20T00:27:01.26Z"
   },
   {
     "slug": "concurrencia-aprovisionada-solucion-a-cold-starts-en-aws-lambda",
-    "title": "Concurrencia Aprovisionada: Solución a Cold Starts en AWS Lambda",
+    "title": "Concurrencia aprovisionada: solución a cold starts en AWS Lambda",
     "publishedAt": "2024-05-20",
     "publishedTimestamp": "2024-05-20T00:03:01.19Z"
   },
   {
     "slug": "guia-de-aws-wavelength-zonas-y-despliegue",
-    "title": "Guía de AWS Wavelength: Zonas y Despliegue",
+    "title": "Guía de AWS Wavelength: zonas y despliegue",
     "publishedAt": "2024-05-19",
     "publishedTimestamp": "2024-05-19T00:55:00.331Z"
   },
   {
     "slug": "aws-wavelength-guia-de-escalabilidad-y-optimizacion",
-    "title": "AWS Wavelength: Guía de Escalabilidad y Optimización",
+    "title": "AWS Wavelength: guía de escalabilidad y optimización",
     "publishedAt": "2024-05-19",
     "publishedTimestamp": "2024-05-19T00:37:00.331Z"
   },
   {
     "slug": "configuracion-de-service-discovery-en-amazon-ecs",
-    "title": "Configuración de Service Discovery en Amazon ECS",
+    "title": "Configuración de service discovery en Amazon ECS",
     "publishedAt": "2024-05-19",
     "publishedTimestamp": "2024-05-19T00:02:00.421Z"
   },
   {
     "slug": "recursos-compartidos-en-arquitecturas-serverless-multi-tenant",
-    "title": "Recursos Compartidos en Arquitecturas Serverless Multi-Tenant",
+    "title": "Recursos compartidos en arquitecturas serverless multi-tenant",
     "publishedAt": "2024-05-18",
     "publishedTimestamp": "2024-05-18T01:35:00.225Z"
   },
@@ -361,19 +361,19 @@
   },
   {
     "slug": "guia-de-eventos-aws-educate-2024",
-    "title": "Guía de Eventos AWS Educate 2024",
+    "title": "Guía de eventos AWS Educate 2024",
     "publishedAt": "2024-05-18",
     "publishedTimestamp": "2024-05-18T00:29:00.242Z"
   },
   {
     "slug": "deteccion-de-sesgos-en-modelos-ml-con-sagemaker-clarify",
-    "title": "Detección de Sesgos en Modelos ML con SageMaker Clarify",
+    "title": "Detección de sesgos en modelos ML con SageMaker Clarify",
     "publishedAt": "2024-05-17",
     "publishedTimestamp": "2024-05-17T01:45:54.229Z"
   },
   {
     "slug": "guia-de-acreditacion-para-partners-de-aws-2024",
-    "title": "Guía de Acreditación para Partners de AWS 2024",
+    "title": "Guía de acreditación para Partners de AWS 2024",
     "publishedAt": "2024-05-17",
     "publishedTimestamp": "2024-05-17T00:52:54.211Z"
   },
@@ -385,13 +385,13 @@
   },
   {
     "slug": "migracion-de-datos-con-aws-snowmobile-guia-paso-a-paso",
-    "title": "Migración de Datos con AWS Snowmobile: Guía Paso a Paso",
+    "title": "Migración de datos con AWS Snowmobile: guía paso a paso",
     "publishedAt": "2024-05-16",
     "publishedTimestamp": "2024-05-16T15:02:01.266Z"
   },
   {
     "slug": "cifrado-de-datos-con-aws-kms-guia-practica",
-    "title": "Cifrado de datos con AWS KMS: Guía práctica",
+    "title": "Cifrado de datos con AWS KMS: guía práctica",
     "publishedAt": "2024-05-16",
     "publishedTimestamp": "2024-05-16T14:36:00.762Z"
   },
@@ -403,13 +403,13 @@
   },
   {
     "slug": "recursos-personalizados-en-cloudformation-con-lambda",
-    "title": "Recursos Personalizados en CloudFormation con Lambda",
+    "title": "Recursos personalizados en CloudFormation con Lambda",
     "publishedAt": "2024-05-15",
     "publishedTimestamp": "2024-05-15T04:54:08.82Z"
   },
   {
     "slug": "aws-iot-edge-simulator-casos-de-uso-reales",
-    "title": "AWS IoT Edge Simulator: Casos de Uso Reales",
+    "title": "AWS IoT Edge Simulator: casos de uso reales",
     "publishedAt": "2024-05-15",
     "publishedTimestamp": "2024-05-15T02:46:19.391Z"
   },
@@ -427,19 +427,19 @@
   },
   {
     "slug": "cqrs-y-event-sourcing-en-aws-guia-para-microservicios",
-    "title": "CQRS y Event Sourcing en AWS: Guía para Microservicios",
+    "title": "CQRS y Event Sourcing en AWS: guía para microservicios",
     "publishedAt": "2024-05-14",
     "publishedTimestamp": "2024-05-14T02:22:09.107Z"
   },
   {
     "slug": "10-preguntas-frecuentes-sobre-machine-learning-en-aws",
-    "title": "Machine Learning en AWS: cómo empezar y qué servicio elegir",
+    "title": "Machine learning en AWS: cómo empezar y qué servicio elegir",
     "publishedAt": "2024-05-13",
     "publishedTimestamp": "2024-05-13T06:23:36.093Z"
   },
   {
     "slug": "integrar-amazon-polly-en-5-pasos-texto-a-voz-realista",
-    "title": "Integrar Amazon Polly en 5 pasos: Texto a voz realista",
+    "title": "Integrar Amazon Polly en 5 pasos: texto a voz realista",
     "publishedAt": "2024-05-13",
     "publishedTimestamp": "2024-05-13T05:08:34.138Z"
   },
@@ -451,7 +451,7 @@
   },
   {
     "slug": "guia-para-crear-apis-serverless-con-aws-lambda-y-api-gateway",
-    "title": "Guía para Crear APIs Serverless con AWS Lambda y API Gateway",
+    "title": "Guía para crear APIs serverless con AWS Lambda y API Gateway",
     "publishedAt": "2024-05-12",
     "publishedTimestamp": "2024-05-12T04:39:19.754Z"
   },
@@ -475,19 +475,19 @@
   },
   {
     "slug": "seguridad-y-control-de-costos-en-aws-guia-2024",
-    "title": "Seguridad y Control de Costos en AWS: Guía 2024",
+    "title": "Seguridad y control de costos en AWS: guía 2024",
     "publishedAt": "2024-05-11",
     "publishedTimestamp": "2024-05-11T04:46:00.274Z"
   },
   {
     "slug": "integracion-de-aws-app-mesh-con-eks-guia-paso-a-paso",
-    "title": "Integración de AWS App Mesh con EKS: Guía paso a paso",
+    "title": "Integración de AWS App Mesh con EKS: guía paso a paso",
     "publishedAt": "2024-05-11",
     "publishedTimestamp": "2024-05-11T01:55:00.323Z"
   },
   {
     "slug": "aws-opsworks-automatiza-despliegues-con-chef",
-    "title": "AWS OpsWorks: Automatiza Despliegues con Chef",
+    "title": "AWS OpsWorks: automatiza despliegues con Chef",
     "publishedAt": "2024-05-10",
     "publishedTimestamp": "2024-05-10T07:15:01.296Z"
   },
@@ -517,31 +517,31 @@
   },
   {
     "slug": "politicas-de-control-de-servicios-scps-en-aws",
-    "title": "Políticas de Control de Servicios (SCPs) en AWS",
+    "title": "Políticas de control de servicios (SCPs) en AWS",
     "publishedAt": "2024-05-09",
     "publishedTimestamp": "2024-05-09T02:00:12.498Z"
   },
   {
     "slug": "aws-lambda-costo-vs-rendimiento",
-    "title": "AWS Lambda: Costo vs. Rendimiento",
+    "title": "AWS Lambda: costo vs. rendimiento",
     "publishedAt": "2024-05-08",
     "publishedTimestamp": "2024-05-08T05:33:11.031Z"
   },
   {
     "slug": "guia-de-amazon-elasticache-almacenamiento-en-cache-en-memoria",
-    "title": "Guía de Amazon ElastiCache: Almacenamiento en Caché en Memoria",
+    "title": "Guía de Amazon ElastiCache: almacenamiento en caché en memoria",
     "publishedAt": "2024-05-08",
     "publishedTimestamp": "2024-05-08T04:19:02.817Z"
   },
   {
     "slug": "aws-healthscribe-ia-generativa-para-diagnosticos-medicos",
-    "title": "AWS HealthScribe: IA Generativa para Diagnósticos Médicos",
+    "title": "AWS HealthScribe: IA generativa para diagnósticos médicos",
     "publishedAt": "2024-05-08",
     "publishedTimestamp": "2024-05-08T02:21:01.272Z"
   },
   {
     "slug": "aws-x-ray-herramientas-de-depuracion-y-rastreo-distribuido",
-    "title": "AWS X-Ray: Herramientas de Depuración y Rastreo Distribuido",
+    "title": "AWS X-Ray: herramientas de depuración y rastreo distribuido",
     "publishedAt": "2024-05-07",
     "publishedTimestamp": "2024-05-07T05:49:02.026Z"
   },
@@ -559,19 +559,19 @@
   },
   {
     "slug": "aws-opsworks-para-chef-y-puppet-preguntas-frecuentes",
-    "title": "AWS OpsWorks para Chef y Puppet: Preguntas Frecuentes",
+    "title": "AWS OpsWorks para Chef y Puppet: preguntas frecuentes",
     "publishedAt": "2024-05-06",
     "publishedTimestamp": "2024-05-06T20:31:06.838Z"
   },
   {
     "slug": "caracteristicas-y-beneficios-de-aws-iot-device-defender",
-    "title": "Características y Beneficios de AWS IoT Device Defender",
+    "title": "Características y beneficios de AWS IoT Device Defender",
     "publishedAt": "2024-05-06",
     "publishedTimestamp": "2024-05-06T14:05:13.37Z"
   },
   {
     "slug": "como-usar-aws-transfer-family-con-amazon-efs",
-    "title": "Cómo Usar AWS Transfer Family con Amazon EFS",
+    "title": "Cómo usar AWS Transfer Family con Amazon EFS",
     "publishedAt": "2024-05-05",
     "publishedTimestamp": "2024-05-05T05:44:31.414Z"
   },
@@ -583,25 +583,25 @@
   },
   {
     "slug": "integracion-siem-aws-7-consejos-practicos-2024",
-    "title": "Integración SIEM-AWS: 7 Consejos Prácticos [2024]",
+    "title": "Integración SIEM-AWS: 7 consejos prácticos [2024]",
     "publishedAt": "2024-05-05",
     "publishedTimestamp": "2024-05-05T01:12:15.503Z"
   },
   {
     "slug": "aws-deeplens-introduccion-al-aprendizaje-profundo",
-    "title": "AWS DeepLens: Introducción al Aprendizaje Profundo",
+    "title": "AWS DeepLens: introducción al aprendizaje profundo",
     "publishedAt": "2024-05-04",
     "publishedTimestamp": "2024-05-04T13:44:53.053Z"
   },
   {
     "slug": "guia-de-estudio-aws-certified-cloud-practitioner-clf-c02",
-    "title": "Guía de Estudio AWS Certified Cloud Practitioner CLF-C02",
+    "title": "Guía de estudio AWS Certified Cloud Practitioner CLF-C02",
     "publishedAt": "2024-05-04",
     "publishedTimestamp": "2024-05-04T02:21:52.821Z"
   },
   {
     "slug": "estrategias-de-interoperabilidad-multi-cloud-con-aws",
-    "title": "Estrategias de Interoperabilidad Multi-Cloud con AWS",
+    "title": "Estrategias de interoperabilidad multi-cloud con AWS",
     "publishedAt": "2024-05-04",
     "publishedTimestamp": "2024-05-04T01:13:32.772Z"
   },
@@ -619,13 +619,13 @@
   },
   {
     "slug": "grupos-de-estudio-aws-en-reddit-2024",
-    "title": "Grupos de Estudio AWS en Reddit 2024",
+    "title": "Grupos de estudio AWS en reddit 2024",
     "publishedAt": "2024-04-30",
     "publishedTimestamp": "2024-04-30T16:36:34.718Z"
   },
   {
     "slug": "integracion-de-guardduty-de-aws-para-inteligencia-de-amenazas",
-    "title": "Integración de GuardDuty de AWS para Inteligencia de Amenazas",
+    "title": "Integración de GuardDuty de AWS para inteligencia de amenazas",
     "publishedAt": "2024-04-30",
     "publishedTimestamp": "2024-04-30T06:43:18.648Z"
   },
@@ -637,55 +637,55 @@
   },
   {
     "slug": "personalizacion-en-tiempo-real-con-aws-casos-de-uso",
-    "title": "Personalización en tiempo real con AWS: Casos de uso",
+    "title": "Personalización en tiempo real con AWS: casos de uso",
     "publishedAt": "2024-04-29",
     "publishedTimestamp": "2024-04-29T09:45:01.725Z"
   },
   {
     "slug": "como-habilitar-cloudwatch-logs-en-api-gateway-guia-paso-a-paso",
-    "title": "Cómo Habilitar CloudWatch Logs en API Gateway: Guía Paso a Paso",
+    "title": "Cómo habilitar CloudWatch Logs en API Gateway: guía paso a paso",
     "publishedAt": "2024-04-29",
     "publishedTimestamp": "2024-04-29T07:48:00.212Z"
   },
   {
     "slug": "aws-free-tier-guia-para-principiantes-2024",
-    "title": "AWS Free Tier: Guía para Principiantes 2024",
+    "title": "AWS Free Tier: guía para principiantes 2024",
     "publishedAt": "2024-04-29",
     "publishedTimestamp": "2024-04-29T06:37:00.779Z"
   },
   {
     "slug": "patron-strangler-fig-en-aws-migrar-a-microservicios",
-    "title": "Patrón Strangler Fig en AWS: Migrar a Microservicios",
+    "title": "Patrón Strangler Fig en AWS: migrar a microservicios",
     "publishedAt": "2024-04-29",
     "publishedTimestamp": "2024-04-29T05:31:12.257Z"
   },
   {
     "slug": "guia-de-ueba-para-la-seguridad-de-aws",
-    "title": "Guía de UEBA para la Seguridad de AWS",
+    "title": "Guía de UEBA para la seguridad de AWS",
     "publishedAt": "2024-04-29",
     "publishedTimestamp": "2024-04-29T00:07:13.97Z"
   },
   {
     "slug": "webinars-y-eventos-en-aws-marketplace",
-    "title": "Webinars y Eventos en AWS Marketplace",
+    "title": "Webinars y eventos en AWS Marketplace",
     "publishedAt": "2024-04-28",
     "publishedTimestamp": "2024-04-28T22:20:08.853Z"
   },
   {
     "slug": "guia-completa-de-aws-elastic-beanstalk",
-    "title": "Guía Completa de AWS Elastic Beanstalk",
+    "title": "Guía completa de AWS Elastic Beanstalk",
     "publishedAt": "2024-03-19",
     "publishedTimestamp": "2024-03-19T02:00:11.488Z"
   },
   {
     "slug": "clases-de-almacenamiento-de-amazon-s3",
-    "title": "Clases de Almacenamiento de Amazon S3",
+    "title": "Clases de almacenamiento de Amazon S3",
     "publishedAt": "2024-03-19",
     "publishedTimestamp": "2024-03-19T01:50:57.327Z"
   },
   {
     "slug": "optimizacion-de-costos-de-aws-lambda",
-    "title": "Optimización de Costos de AWS Lambda",
+    "title": "Optimización de costos de AWS Lambda",
     "publishedAt": "2024-03-19",
     "publishedTimestamp": "2024-03-19T01:39:56.043Z"
   },
@@ -697,7 +697,7 @@
   },
   {
     "slug": "guia-completa-sobre-amazon-efs-y-fsx",
-    "title": "Guía Completa sobre Amazon EFS y FSX",
+    "title": "Guía completa sobre Amazon EFS y FSx",
     "publishedAt": "2024-03-19",
     "publishedTimestamp": "2024-03-19T01:14:24.835Z"
   },
@@ -715,7 +715,7 @@
   },
   {
     "slug": "microservicios-en-aws-utilizando-aws-lambda",
-    "title": "Microservicios en AWS Utilizando AWS Lambda",
+    "title": "Microservicios en AWS utilizando AWS Lambda",
     "publishedAt": "2024-03-19",
     "publishedTimestamp": "2024-03-19T00:50:24.052Z"
   },
@@ -727,79 +727,79 @@
   },
   {
     "slug": "microservicios-en-aws-utilizando-contenedores",
-    "title": "Microservicios en AWS Utilizando Contenedores",
+    "title": "Microservicios en AWS utilizando contenedores",
     "publishedAt": "2024-03-19",
     "publishedTimestamp": "2024-03-19T00:23:23.974Z"
   },
   {
     "slug": "como-desarrollar-aplicaciones-de-inteligencia-artificial-en-aws",
-    "title": "Cómo Desarrollar Aplicaciones de Inteligencia Artificial en AWS",
+    "title": "Cómo desarrollar aplicaciones de inteligencia artificial en AWS",
     "publishedAt": "2024-03-19",
     "publishedTimestamp": "2024-03-19T00:01:17.799Z"
   },
   {
     "slug": "como-configurar-y-utilizar-aws-session-manager",
-    "title": "Como Configurar y Utilizar AWS Session Manager",
+    "title": "Como configurar y utilizar AWS Session Manager",
     "publishedAt": "2024-03-18",
     "publishedTimestamp": "2024-03-18T23:43:17.278Z"
   },
   {
     "slug": "como-utilizar-amazon-bedrock",
-    "title": "Cómo Utilizar Amazon Bedrock",
+    "title": "Cómo utilizar Amazon Bedrock",
     "publishedAt": "2024-03-18",
     "publishedTimestamp": "2024-03-18T23:27:52.315Z"
   },
   {
     "slug": "como-funciona-aws-amplify",
-    "title": "¿Cómo Funciona AWS Amplify?",
+    "title": "¿Cómo funciona AWS Amplify?",
     "publishedAt": "2024-03-18",
     "publishedTimestamp": "2024-03-18T23:13:52.162Z"
   },
   {
     "slug": "servicios-de-aws-para-frontend",
-    "title": "Servicios de AWS para Frontend",
+    "title": "Servicios de AWS para frontend",
     "publishedAt": "2024-03-18",
     "publishedTimestamp": "2024-03-18T00:56:34.055Z"
   },
   {
     "slug": "como-crear-infraestructura-como-codigo-en-aws-con-aws-cloudformation",
-    "title": "Cómo crear Infraestructura como Código en AWS con AWS CloudFormation",
+    "title": "Cómo crear infraestructura como código en AWS con AWS CloudFormation",
     "publishedAt": "2024-03-18",
     "publishedTimestamp": "2024-03-18T00:54:16.195Z"
   },
   {
     "slug": "como-crear-infraestructura-como-codigo-en-aws-con-terraform",
-    "title": "Cómo crear Infraestructura como Código en AWS con Terraform",
+    "title": "Cómo crear infraestructura como código en AWS con Terraform",
     "publishedAt": "2024-03-18",
     "publishedTimestamp": "2024-03-18T00:48:17.194Z"
   },
   {
     "slug": "como-desplegar-una-aplicacion-en-amazon-ecs",
-    "title": "Cómo Desplegar una Aplicación en Amazon ECS",
+    "title": "Cómo desplegar una aplicación en Amazon ECS",
     "publishedAt": "2024-03-09",
     "publishedTimestamp": "2024-03-09T23:04:00.573Z"
   },
   {
     "slug": "mejores-practicas-para-amazon-s3",
-    "title": "Mejores Prácticas Para Amazon S3",
+    "title": "Mejores prácticas para Amazon S3",
     "publishedAt": "2024-03-09",
     "publishedTimestamp": "2024-03-09T04:13:21.58Z"
   },
   {
     "slug": "mejores-practicas-para-amazon-dynamodb",
-    "title": "Mejores Prácticas Para Amazon DynamoDB",
+    "title": "Mejores prácticas para Amazon DynamoDB",
     "publishedAt": "2024-03-09",
     "publishedTimestamp": "2024-03-09T04:08:02.203Z"
   },
   {
     "slug": "mejores-practicas-para-amazon-rds-y-aurora",
-    "title": "Mejores Prácticas Para Amazon RDS y Aurora",
+    "title": "Mejores prácticas para Amazon RDS y Aurora",
     "publishedAt": "2024-03-09",
     "publishedTimestamp": "2024-03-09T04:01:54.467Z"
   },
   {
     "slug": "mejores-practicas-para-amazon-eks",
-    "title": "Mejores Prácticas Para Amazon EKS",
+    "title": "Mejores prácticas para Amazon EKS",
     "publishedAt": "2024-03-09",
     "publishedTimestamp": "2024-03-09T03:58:54.462Z"
   },
@@ -811,19 +811,19 @@
   },
   {
     "slug": "mejores-practicas-de-seguridad-en-aws",
-    "title": "Mejores Prácticas de Seguridad en AWS",
+    "title": "Mejores prácticas de seguridad en AWS",
     "publishedAt": "2024-03-09",
     "publishedTimestamp": "2024-03-09T03:50:54.456Z"
   },
   {
     "slug": "mejores-practicas-de-machine-learning-en-aws",
-    "title": "Mejores Prácticas de Machine Learning en AWS",
+    "title": "Mejores prácticas de machine learning en AWS",
     "publishedAt": "2024-03-09",
     "publishedTimestamp": "2024-03-09T03:46:53.199Z"
   },
   {
     "slug": "mejores-practicas-de-observabilidad-en-aws",
-    "title": "Mejores Prácticas de Observabilidad en AWS",
+    "title": "Mejores prácticas de observabilidad en AWS",
     "publishedAt": "2024-03-09",
     "publishedTimestamp": "2024-03-09T03:43:53.201Z"
   },
@@ -835,13 +835,13 @@
   },
   {
     "slug": "mejores-practicas-para-amazon-ec2",
-    "title": "Mejores Prácticas Para Amazon EC2",
+    "title": "Mejores prácticas para Amazon EC2",
     "publishedAt": "2024-03-09",
     "publishedTimestamp": "2024-03-09T03:37:49.478Z"
   },
   {
     "slug": "mejores-practicas-para-amazon-ecs",
-    "title": "Mejores Prácticas Para Amazon ECS",
+    "title": "Mejores prácticas para Amazon ECS",
     "publishedAt": "2024-03-09",
     "publishedTimestamp": "2024-03-09T03:33:48.66Z"
   },
@@ -853,7 +853,7 @@
   },
   {
     "slug": "mejores-practicas-para-aws-lambda",
-    "title": "Mejores Prácticas Para AWS Lambda",
+    "title": "Mejores prácticas para AWS Lambda",
     "publishedAt": "2024-03-09",
     "publishedTimestamp": "2024-03-09T03:26:48.732Z"
   },
@@ -865,37 +865,37 @@
   },
   {
     "slug": "como-desplegar-una-aplicacion-en-amazon-eks",
-    "title": "Cómo Desplegar una Aplicación en Amazon EKS",
+    "title": "Cómo desplegar una aplicación en Amazon EKS",
     "publishedAt": "2024-03-09",
     "publishedTimestamp": "2024-03-09T03:18:48.675Z"
   },
   {
     "slug": "introduccion-a-la-inteligencia-artificial-en-aws",
-    "title": "Introducción a la Inteligencia Artificial en AWS",
+    "title": "Introducción a la inteligencia artificial en AWS",
     "publishedAt": "2024-03-09",
     "publishedTimestamp": "2024-03-09T03:08:46.131Z"
   },
   {
     "slug": "base-de-datos-global-con-amazon-aurora",
-    "title": "Base de Datos Global con Amazon Aurora",
+    "title": "Base de datos global con Amazon Aurora",
     "publishedAt": "2024-03-09",
     "publishedTimestamp": "2024-03-09T03:04:43.715Z"
   },
   {
     "slug": "como-escala-dynamodb-modos-on-demand-y-provisioned",
-    "title": "¿Cómo Escala DynamoDB? Modos On Demand y Provisioned",
+    "title": "¿Cómo escala DynamoDB? modos on demand y provisioned",
     "publishedAt": "2024-03-09",
     "publishedTimestamp": "2024-03-09T02:56:43.716Z"
   },
   {
     "slug": "introduccion-a-serverless-en-aws",
-    "title": "Introducción a Serverless en AWS",
+    "title": "Introducción a serverless en AWS",
     "publishedAt": "2024-03-09",
     "publishedTimestamp": "2024-03-09T02:49:31.55Z"
   },
   {
     "slug": "estrategias-de-recuperacion-de-desastres-en-aws",
-    "title": "Estrategias de Recuperación de Desastres en AWS",
+    "title": "Estrategias de recuperación de desastres en AWS",
     "publishedAt": "2024-03-09",
     "publishedTimestamp": "2024-03-09T02:40:38.528Z"
   },
@@ -907,49 +907,49 @@
   },
   {
     "slug": "utilizando-lambda-layers-en-multiples-funciones-lambda",
-    "title": "Utilizando Lambda Layers en Múltiples Funciones Lambda",
+    "title": "Utilizando Lambda layers en múltiples funciones Lambda",
     "publishedAt": "2024-03-09",
     "publishedTimestamp": "2024-03-09T02:24:39.563Z"
   },
   {
     "slug": "base-de-datos-global-con-amazon-dynamodb",
-    "title": "Base de Datos Global con Amazon DynamoDB",
+    "title": "Base de datos global con Amazon DynamoDB",
     "publishedAt": "2024-03-09",
     "publishedTimestamp": "2024-03-09T02:19:41.967Z"
   },
   {
     "slug": "aws-lambda-en-profundidad",
-    "title": "AWS Lambda en Profundidad",
+    "title": "AWS Lambda en profundidad",
     "publishedAt": "2024-03-09",
     "publishedTimestamp": "2024-03-09T02:11:48.464Z"
   },
   {
     "slug": "respaldos-y-snapshots-en-ebs",
-    "title": "Respaldos y Snapshots en EBS",
+    "title": "Respaldos y snapshots en EBS",
     "publishedAt": "2024-03-09",
     "publishedTimestamp": "2024-03-09T01:55:00.888Z"
   },
   {
     "slug": "ingenieria-de-caos-en-aws-con-fault-injection-simulator",
-    "title": "Ingeniería de Caos en AWS con Fault Injection Simulator",
+    "title": "Ingeniería de caos en AWS con fault injection simulator",
     "publishedAt": "2024-03-09",
     "publishedTimestamp": "2024-03-09T01:48:43.97Z"
   },
   {
     "slug": "tipos-de-instancia-en-amazon-rds-y-amazon-aurora",
-    "title": "Tipos de Instancia en Amazon RDS y Amazon Aurora",
+    "title": "Tipos de instancia en Amazon RDS y Amazon Aurora",
     "publishedAt": "2024-03-09",
     "publishedTimestamp": "2024-03-09T01:35:47.279Z"
   },
   {
     "slug": "tipos-y-tamanos-de-instancias-ec2-guia-completa",
-    "title": "Tipos y Tamaños de Instancias EC2: Guía Completa",
+    "title": "Tipos y tamaños de instancias EC2: guía completa",
     "publishedAt": "2024-03-09",
     "publishedTimestamp": "2024-03-09T01:12:42.616Z"
   },
   {
     "slug": "como-desplegar-contenedores-en-aws",
-    "title": "Cómo Desplegar Contenedores en AWS",
+    "title": "Cómo desplegar contenedores en AWS",
     "publishedAt": "2024-03-09",
     "publishedTimestamp": "2024-03-09T00:56:38.087Z"
   },
@@ -961,19 +961,19 @@
   },
   {
     "slug": "tipos-y-tamanos-de-instancias-rds-guia-completa",
-    "title": "Tipos y Tamaños de Instancias RDS: Guía Completa",
+    "title": "Tipos y tamaños de instancias RDS: guía completa",
     "publishedAt": "2024-03-09",
     "publishedTimestamp": "2024-03-09T00:25:35.456Z"
   },
   {
     "slug": "como-utilizar-elasticsearch-en-aws",
-    "title": "Cómo Utilizar ElasticSearch en AWS",
+    "title": "Cómo utilizar Elasticsearch en AWS",
     "publishedAt": "2024-03-08",
     "publishedTimestamp": "2024-03-08T13:19:46.73Z"
   },
   {
     "slug": "servicios-de-aws-para-inteligencia-artificial",
-    "title": "Servicios de AWS para Inteligencia Artificial",
+    "title": "Servicios de AWS para inteligencia artificial",
     "publishedAt": "2024-03-08",
     "publishedTimestamp": "2024-03-08T13:14:38.36Z"
   },
@@ -985,13 +985,13 @@
   },
   {
     "slug": "gestionando-multiples-cuentas-de-aws-con-aws-organizations",
-    "title": "Gestionando Múltiples Cuentas de AWS con AWS Organizations",
+    "title": "Gestionando múltiples cuentas de AWS con AWS Organizations",
     "publishedAt": "2024-03-07",
     "publishedTimestamp": "2024-03-07T23:44:11.481Z"
   },
   {
     "slug": "opciones-para-desplegar-contenedores-en-aws-ecs-y-eks",
-    "title": "Opciones para Desplegar Contenedores en AWS: ECS y EKS",
+    "title": "Opciones para desplegar contenedores en AWS: ECS y EKS",
     "publishedAt": "2024-03-07",
     "publishedTimestamp": "2024-03-07T23:41:11.485Z"
   },
@@ -1009,25 +1009,25 @@
   },
   {
     "slug": "ahorro-de-costos-en-aws-con-instancias-reservadas-y-savings-plans",
-    "title": "Instancias Reservadas o Savings Plans en AWS: diferencias y riesgos",
+    "title": "Instancias reservadas o Savings Plans en AWS: diferencias y riesgos",
     "publishedAt": "2024-03-07",
     "publishedTimestamp": "2024-03-07T14:42:01.539Z"
   },
   {
     "slug": "desarrollando-aplicaciones-con-aws-lambda",
-    "title": "Desarrollando Aplicaciones con AWS Lambda",
+    "title": "Desarrollando aplicaciones con AWS Lambda",
     "publishedAt": "2024-03-07",
     "publishedTimestamp": "2024-03-07T14:09:19.83Z"
   },
   {
     "slug": "conceptos-basicos-y-avanzados-de-amazon-vpc",
-    "title": "Conceptos Básicos y Avanzados de Amazon VPC",
+    "title": "Conceptos básicos y avanzados de Amazon VPC",
     "publishedAt": "2024-03-07",
     "publishedTimestamp": "2024-03-07T14:04:18.731Z"
   },
   {
     "slug": "bases-de-datos-relacionales-en-aws-con-amazon-rds-y-amazon-aurora",
-    "title": "Bases de datos Relacionales en AWS con Amazon RDS y Amazon Aurora",
+    "title": "Bases de datos relacionales en AWS con Amazon RDS y Amazon Aurora",
     "publishedAt": "2024-01-31",
     "publishedTimestamp": "2024-01-31T00:42:48.279Z"
   },
@@ -1051,25 +1051,25 @@
   },
   {
     "slug": "aws-fundamentos-guia-de-inicio-rapido",
-    "title": "AWS Fundamentos: Guía de Inicio Rápido",
+    "title": "AWS fundamentos: guía de inicio rápido",
     "publishedAt": "2024-01-30",
     "publishedTimestamp": "2024-01-30T19:19:55.184Z"
   },
   {
     "slug": "nube-aws-guia-de-inicio-rapido",
-    "title": "Nube AWS: Guía de Inicio Rápido",
+    "title": "Nube AWS: guía de inicio rápido",
     "publishedAt": "2024-01-30",
     "publishedTimestamp": "2024-01-30T19:09:51.102Z"
   },
   {
     "slug": "certificacion-de-aws-preparacion-sin-costo",
-    "title": "Certificación de AWS: Preparación sin Costo",
+    "title": "Certificación de AWS: preparación sin costo",
     "publishedAt": "2024-01-28",
     "publishedTimestamp": "2024-01-28T23:43:20.471Z"
   },
   {
     "slug": "seguridad-en-la-nube-aws-estrategias-clave",
-    "title": "Seguridad en la nube AWS: Estrategias clave",
+    "title": "Seguridad en la nube AWS: estrategias clave",
     "publishedAt": "2024-01-28",
     "publishedTimestamp": "2024-01-28T01:13:20.58Z"
   },
@@ -1135,7 +1135,7 @@
   },
   {
     "slug": "aws-seguridad-servicios-esenciales",
-    "title": "AWS Seguridad: Servicios Esenciales",
+    "title": "AWS seguridad: servicios esenciales",
     "publishedAt": "2024-01-25",
     "publishedTimestamp": "2024-01-25T01:35:54.384Z"
   },
@@ -1147,25 +1147,25 @@
   },
   {
     "slug": "aws-curso-certificado-guia-de-inicio",
-    "title": "Certificaciones AWS: Por Dónde Empezar",
+    "title": "Certificaciones AWS: por dónde empezar",
     "publishedAt": "2024-01-24",
     "publishedTimestamp": "2024-01-24T01:43:07.262Z"
   },
   {
     "slug": "aws-seguridad-mejores-practicas",
-    "title": "AWS Seguridad: Mejores Prácticas",
+    "title": "AWS seguridad: mejores prácticas",
     "publishedAt": "2024-01-24",
     "publishedTimestamp": "2024-01-24T01:20:24.308Z"
   },
   {
     "slug": "aws-curso-certificado-preparacion-para-el-examen",
-    "title": "Cómo Prepararte Para un Examen de Certificación de AWS",
+    "title": "Cómo prepararte para un examen de certificación de AWS",
     "publishedAt": "2024-01-23",
     "publishedTimestamp": "2024-01-23T17:34:37.557Z"
   },
   {
     "slug": "aws-seguridad-fundamentos-esenciales",
-    "title": "AWS Seguridad: Fundamentos Esenciales",
+    "title": "AWS seguridad: fundamentos esenciales",
     "publishedAt": "2024-01-23",
     "publishedTimestamp": "2024-01-23T17:26:25.234Z"
   },

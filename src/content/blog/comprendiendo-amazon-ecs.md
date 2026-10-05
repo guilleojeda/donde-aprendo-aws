@@ -8,11 +8,11 @@ cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "5 Prácticas de Seguridad para Lambda Authorizers"
+  - title: "5 prácticas de seguridad para Lambda authorizers"
     url: "https://dondeaprendoaws.com/blog/5-practicas-de-seguridad-para-lambda-authorizers/"
-  - title: "Amazon DynamoDB: Guía Básica"
+  - title: "Amazon DynamoDB: guía básica"
     url: "https://dondeaprendoaws.com/blog/amazon-dynamodb-guia-basica/"
-  - title: "Certificación de AWS: Preparación sin Costo"
+  - title: "Certificación de AWS: preparación sin costo"
     url: "https://dondeaprendoaws.com/blog/certificacion-de-aws-preparacion-sin-costo/"
 
 ---
@@ -33,7 +33,7 @@ related:
 <p>Los puntos fuertes de ECS incluyen:</p>
 <ul><li>Hacerse cargo de tareas repetitivas como ajustar la capacidad necesaria, distribuir los contenedores, y reiniciarlos si algo falla.</li><li>Conectar fácilmente con otros servicios de AWS, como bases de datos o almacenamiento.</li><li>Permitir que tus aplicaciones crezcan fácilmente y estén disponibles cuando las necesites.</li><li>Darte la opción de no tener que manejar servidores directamente con Fargate.</li><li>Facilitar la actualización y entrega de tus aplicaciones continuamente.</li></ul>
 <p>En pocas palabras, ECS hace más sencilla la vida de quienes quieren usar contenedores para sus aplicaciones, haciéndolas portátiles, escalables y confiables.</p>
-<h3 id="arquitectura-de-ecs%3A-clusters%2C-tareas%2C-servicios-y-contenedores">Arquitectura de ECS: Clusters, Tareas, Servicios y Contenedores</h3>
+<h3 id="arquitectura-de-ecs%3A-clusters%2C-tareas%2C-servicios-y-contenedores">Arquitectura de ECS: clusters, tareas, servicios y contenedores</h3>
 <p>La estructura de ECS se basa en:</p>
 <ul><li><strong>Clusters</strong>: Son grupos de recursos donde tus contenedores van a correr.</li><li><strong>Tareas</strong>: Piensa en ellas como las instrucciones para correr tus contenedores. Aquí defines qué contenedores deben trabajar juntos.</li><li><strong>Servicios</strong>: Se aseguran de que el número de tareas que quieres esté corriendo y las reinicia si algo sale mal, ayudando a que todo funcione sin interrupciones.</li><li><strong>Contenedores</strong>: Son las cajas donde tus aplicaciones corren, empaquetadas de manera que puedan ser ejecutadas fácilmente.</li></ul>
 <p>En resumen, los clusters proveen la infraestructura, las tareas te dicen qué contenedores deben correr, y los servicios mantienen todo funcionando como debe.</p>
@@ -60,7 +60,7 @@ related:
 <ul><li>Entra a la consola de ECS y busca la sección de Clusters.</li><li>Dale a "Create Cluster" y elige EC2 Linux como el tipo de cluster.</li><li>Escoge la VPC y las subnets que preparaste antes.</li><li>En "Cluster configuration", decide cuántas y qué tipo de instancias EC2 quieres. Empieza con algo pequeño.</li><li>En "Container instance IAM role", crea un nuevo rol con permisos para usar ECS y otros servicios de AWS.</li><li>Configura las opciones de seguridad y los grupos de seguridad del cluster con los que definiste anteriormente.</li><li>Chequea todos los ajustes y crea el clúster.</li></ul>
 <p>Cuando tu clúster esté funcionando, ya puedes añadir tareas, definiciones y servicios para empezar a correr contenedores en ECS.</p>
 <h2 id="trabajando-con-contenedores-en-ecs">Trabajando con contenedores en ECS</h2>
-<h3 id="contenerizaci%C3%B3n-de-una-aplicaci%C3%B3n%3A-ejemplo-pr%C3%A1ctico">Contenerización de una aplicación: Ejemplo práctico</h3>
+<h3 id="contenerizaci%C3%B3n-de-una-aplicaci%C3%B3n%3A-ejemplo-pr%C3%A1ctico">Contenerización de una aplicación: ejemplo práctico</h3>
 <p>Para hacer que una aplicación web típica funcione en ECS, hacemos lo siguiente:</p>
 <ul><li><strong>Elegir la aplicación a contenerizar</strong><br/>Vamos a usar una aplicación web simple en Node.js que dice "¡Hola mundo!" cuando visitas la URL.</li><li><strong>Crear un Dockerfile</strong><br/>El Dockerfile es un archivo que dice cómo construir la imagen del contenedor. Aquí tienes un ejemplo:</li></ul>
 <pre><code>FROM node:16-alpine
@@ -181,14 +181,14 @@ docker push 123456789.dkr.ecr.us-east-1.amazonaws.com/mi-app:latest
 <h3 id="ayuda-y-soporte-de-aws">Ayuda y soporte de AWS</h3>
 <p>Si tienes problemas con Amazon ECS, aquí tienes algunas opciones para buscar ayuda:</p>
 <ul><li><strong>Soporte técnico</strong>: los planes de soporte de AWS te permiten hablar directamente con expertos.</li><li><strong>Foros de la comunidad</strong>: un lugar para hacer preguntas y compartir con otros usuarios de AWS.</li><li><strong>Documentación</strong>: encontrarás guías, tutoriales y mucha información útil.</li><li><strong>FAQs</strong>: respuestas a preguntas comunes sobre los servicios de AWS.</li><li><strong>Soporte al cliente</strong>: si tienes dudas sobre tu factura, tu cuenta o cómo acceder a los servicios.</li></ul>
-<h2 id="preguntas-relacionadas">Preguntas Relacionadas</h2>
+<h2 id="preguntas-relacionadas">Preguntas relacionadas</h2>
 <h3 id="%C2%BFqu%C3%A9-es-ecs-amazon%3F">¿Qué es ECS Amazon?</h3>
 <p>Amazon Elastic Container Service (ECS) es un servicio de AWS que te permite manejar aplicaciones usando contenedores Docker de una manera fácil. Se encarga de organizar cómo y dónde corren tus contenedores, asegurándose de que si algo falla, lo soluciona automáticamente. Esto hace que los desarrolladores puedan centrarse más en mejorar sus aplicaciones en lugar de preocuparse por los detalles técnicos de los servidores.</p>
 <h3 id="%C2%BFqu%C3%A9-significa-ecs%3F">¿Qué significa ECS?</h3>
 <p>ECS son las siglas de Elastic Container Service. Es un servicio de Amazon Web Services diseñado para facilitar el trabajo con aplicaciones en contenedores Docker, permitiendo que se ejecuten de forma eficiente y segura. Con ECS, AWS se encarga de muchos de los detalles técnicos, como preparar los servidores y asegurarse de que tus contenedores estén corriendo correctamente.</p>
 <h3 id="%C2%BFqu%C3%A9-es-ecs-en-software%3F">¿Qué es ECS en software?</h3>
 <p>ECS es un servicio de AWS que te ayuda a usar contenedores Docker en tus proyectos. Te permite crear grupos de servidores para tus contenedores, definir tareas que especifican cómo deben trabajar esos contenedores juntos, y servicios que mantienen corriendo la cantidad de contenedores que necesitas. ECS también se integra bien con otros servicios de AWS, facilitando aún más el trabajo.</p>
-<h3 id="%C2%BFqu%C3%A9-es-container-service%3F">¿Qué es Container Service?</h3>
+<h3 id="%C2%BFqu%C3%A9-es-container-service%3F">¿Qué es container service?</h3>
 <p>Container Service es una forma de usar la nube para correr contenedores, que son como pequeñas cajas donde tus aplicaciones viven y se ejecutan. Proveedores como AWS te dan las herramientas y el espacio para que puedas correr estos contenedores sin preocuparte por los detalles técnicos. Servicios como ECS y Fargate son ejemplos de cómo puedes usar la nube para trabajar con contenedores de manera eficiente.</p>
 <h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/">Análisis de Costos de AWS con Cost Explorer</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/bases-de-datos-relacionales-en-aws-con-amazon-rds-y-amazon-aurora/">Bases de datos Relacionales en AWS con Amazon RDS y Amazon Aurora</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS Fundamentos: Guía de Inicio Rápido</a></li></ul>
+<ul><li><a href="https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/">análisis de costos de AWS con Cost Explorer</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/bases-de-datos-relacionales-en-aws-con-amazon-rds-y-amazon-aurora/">Bases de datos relacionales en AWS con Amazon RDS y Amazon Aurora</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS fundamentos: guía de inicio rápido</a></li></ul>

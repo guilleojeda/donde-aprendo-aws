@@ -8,11 +8,11 @@ cover: "/assets/blog/editorial-fundamentos.png"
 coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
 ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
-  - title: "Visualiza Costos con AWS Cost and Usage Reports y QuickSight"
+  - title: "Visualiza costos con AWS Cost and Usage Reports y QuickSight"
     url: "https://dondeaprendoaws.com/blog/visualiza-costos-con-aws-cost-and-usage-reports-y-quicksight/"
-  - title: "Arquitecturas de Alta Disponibilidad en AWS"
+  - title: "Arquitecturas de alta disponibilidad en AWS"
     url: "https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/"
-  - title: "Tipos y Tamaños de Instancias RDS: Guía Completa"
+  - title: "Tipos y tamaños de instancias RDS: guía completa"
     url: "https://dondeaprendoaws.com/blog/tipos-y-tamanos-de-instancias-rds-guia-completa/"
 
 ---
@@ -84,13 +84,13 @@ related:
 <p>Estos endpoints mejoran la seguridad, reducen costos y optimizan el rendimiento en la red de AWS.</p>
 
 
-<h2 class="sb" id="2-tipos-de-vpc-endpoints" tabindex="-1">2 Tipos de VPC Endpoints</h2>
+<h2 class="sb" id="2-tipos-de-vpc-endpoints" tabindex="-1">2 tipos de VPC endpoints</h2>
 
 
 <p>AWS ofrece dos tipos principales de VPC Endpoints, cada uno diseñado para diferentes necesidades y escenarios. A continuación, te explicamos en detalle cómo funcionan y cuándo utilizarlos.</p>
 
 
-<h3 id="interface-endpoints" tabindex="-1">Interface Endpoints</h3>
+<h3 id="interface-endpoints" tabindex="-1">Interface endpoints</h3>
 
 
 <p>Los Interface Endpoints, basados en AWS PrivateLink, permiten conectar <a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">servicios AWS</a> a través de interfaces de red elásticas (ENIs) con direcciones IP privadas. Este enfoque asegura que el tráfico nunca se exponga a Internet. Algunas de sus características son:</p>
@@ -104,7 +104,7 @@ related:
 </ul>
 
 
-<h3 id="gateway-endpoints" tabindex="-1">Gateway Endpoints</h3>
+<h3 id="gateway-endpoints" tabindex="-1">Gateway endpoints</h3>
 
 
 <p>Los Gateway Endpoints funcionan como entradas en las tablas de enrutamiento de la VPC, dirigiendo el tráfico de manera directa a servicios específicos de AWS. Sus características incluyen:</p>
@@ -119,7 +119,7 @@ related:
 </ul>
 
 
-<h3 id="interface-vs-gateway-endpoints" tabindex="-1">Interface vs Gateway Endpoints</h3>
+<h3 id="interface-vs-gateway-endpoints" tabindex="-1">Interface vs gateway endpoints</h3>
 
 
 <p>A la hora de elegir entre estos dos tipos de endpoints, es importante considerar sus diferencias clave:</p>
@@ -201,13 +201,13 @@ related:
 <p>Estas diferencias te ayudarán a seleccionar el endpoint adecuado para tus necesidades. En las próximas secciones, profundizaremos en cómo implementar estas opciones de manera segura y eficiente.</p>
 
 
-<h2 class="sb" id="operaciones-de-vpc-endpoint" tabindex="-1">Operaciones de VPC Endpoint</h2>
+<h2 class="sb" id="operaciones-de-vpc-endpoint" tabindex="-1">Operaciones de VPC endpoint</h2>
 
 
 <p>Después de elegir el tipo de endpoint adecuado, es importante comprender cómo funcionan en la práctica.</p>
 
 
-<h3 id="trafico-en-red-privada" tabindex="-1">Tráfico en Red Privada</h3>
+<h3 id="trafico-en-red-privada" tabindex="-1">Tráfico en red privada</h3>
 
 
 <p>Los VPC Endpoints aseguran operaciones seguras mediante dos enfoques principales:</p>
@@ -239,10 +239,10 @@ related:
 </table></figure>
 
 
-<p>Este flujo privado refuerza la seguridad descrita anteriormente en las <a href="https://dondeaprendoaws.com/blog/conceptos-basicos-y-avanzados-de-amazon-vpc/">ventajas de los VPC Endpoints</a>.</p>
+<p>Este flujo privado refuerza la seguridad descrita anteriormente en las <a href="https://dondeaprendoaws.com/blog/conceptos-basicos-y-avanzados-de-amazon-vpc/">ventajas de los VPC endpoints</a>.</p>
 
 
-<h3 id="caracteristicas-de-alta-disponibilidad" tabindex="-1">Características de Alta Disponibilidad</h3>
+<h3 id="caracteristicas-de-alta-disponibilidad" tabindex="-1">Características de alta disponibilidad</h3>
 
 
 <p>AWS asegura alta disponibilidad mediante redundancia en múltiples zonas de disponibilidad (multi-AZ), failover automático, balanceo de carga integrado y escalado horizontal sin restricciones predefinidas de ancho de banda <a href="https://docs.aws.amazon.com/whitepapers/latest/aws-privatelink/what-are-vpc-endpoints.html" rel="noopener noreferrer" target="_blank"><sup>[3]</sup></a>.</p>
@@ -261,7 +261,7 @@ related:
 <p>Estas capacidades son clave para garantizar operaciones continuas, lo cual es fundamental en los escenarios que se analizarán más adelante.</p>
 
 
-<h3 id="pasos-para-configuracion" tabindex="-1">Pasos para Configuración</h3>
+<h3 id="pasos-para-configuracion" tabindex="-1">Pasos para configuración</h3>
 
 
 <ul>
@@ -293,13 +293,13 @@ related:
 </ul>
 
 
-<h2 class="sb" id="casos-de-uso-comunes-de-vpc-endpoints" tabindex="-1">Casos de Uso Comunes de VPC Endpoints</h2>
+<h2 class="sb" id="casos-de-uso-comunes-de-vpc-endpoints" tabindex="-1">Casos de uso comunes de VPC endpoints</h2>
 
 
 <p>Los VPC Endpoints ofrecen soluciones prácticas para diversas necesidades empresariales en AWS. Aquí exploramos los escenarios donde su implementación resulta más útil.</p>
 
 
-<h3 id="requisitos-de-seguridad" tabindex="-1">Requisitos de Seguridad</h3>
+<h3 id="requisitos-de-seguridad" tabindex="-1">Requisitos de seguridad</h3>
 
 
 <p>Los VPC Endpoints permiten un control detallado sobre el acceso, utilizando herramientas como:</p>
@@ -312,7 +312,7 @@ related:
 </ul>
 
 
-<h3 id="ahorro-en-costos-de-red" tabindex="-1">Ahorro en Costos de Red</h3>
+<h3 id="ahorro-en-costos-de-red" tabindex="-1">Ahorro en costos de red</h3>
 
 
 <p>Sustituir los NAT Gateways por Gateway Endpoints puede reducir gastos al evitar cargos de procesamiento de datos. Entre los beneficios se incluyen:</p>
@@ -325,7 +325,7 @@ related:
 </ul>
 
 
-<h3 id="configuracion-de-redes-hibridas" tabindex="-1">Configuración de Redes Híbridas</h3>
+<h3 id="configuracion-de-redes-hibridas" tabindex="-1">Configuración de redes híbridas</h3>
 
 
 <p>Los VPC Endpoints también son clave para arquitecturas híbridas, especialmente cuando se integran con <a href="https://docs.aws.amazon.com/directconnect/" rel="noopener noreferrer" target="_blank">AWS Direct Connect</a>. Esto permite:</p>
@@ -352,10 +352,10 @@ related:
 
 
 
-<h2 class="sb" id="pautas-de-implementacion" tabindex="-1">Pautas de Implementación</h2>
+<h2 class="sb" id="pautas-de-implementacion" tabindex="-1">Pautas de implementación</h2>
 
 
-<h3 id="configuracion-multi-vpc" tabindex="-1">Configuración Multi-VPC</h3>
+<h3 id="configuracion-multi-vpc" tabindex="-1">Configuración multi-VPC</h3>
 
 
 <p>Puedes configurar endpoints en varias VPCs utilizando <strong><a href="https://docs.aws.amazon.com/ram/latest/userguide/what-is.html" rel="noopener noreferrer" target="_blank">AWS Resource Access Manager</a> (RAM)</strong> para compartirlos entre cuentas. En arquitecturas más complejas:</p>
@@ -368,7 +368,7 @@ related:
 </ul>
 
 
-<h3 id="control-de-acceso" tabindex="-1">Control de Acceso</h3>
+<h3 id="control-de-acceso" tabindex="-1">Control de acceso</h3>
 
 
 <p>La seguridad de los VPC Endpoints se gestiona mediante diferentes niveles de control, como se detalla en la siguiente tabla:</p>
@@ -416,7 +416,7 @@ related:
 <p>Estos controles son clave para reforzar la seguridad mencionada en la sección de Requisitos de Seguridad.</p>
 
 
-<h3 id="limites-actuales" tabindex="-1">Límites Actuales</h3>
+<h3 id="limites-actuales" tabindex="-1">Límites actuales</h3>
 
 
 <p>Al implementar endpoints, ten en cuenta los siguientes factores:</p>
@@ -432,13 +432,13 @@ related:
 <h2 class="sb" id="conclusion" tabindex="-1">Conclusión</h2>
 
 
-<h3 id="puntos-clave" tabindex="-1">Puntos Clave</h3>
+<h3 id="puntos-clave" tabindex="-1">Puntos clave</h3>
 
 
 <p>Los VPC Endpoints permiten una <a href="https://dondeaprendoaws.com/blog/configurar-aws-para-comunicacion-en-equipo-7-pasos/">conexión privada a los servicios de AWS</a>, ofreciendo tres beneficios principales: <strong>mayor seguridad</strong> al evitar el uso de internet público, <strong>mejor rendimiento</strong> y <strong>ahorro en costos operativos</strong>. Al seguir las recomendaciones mencionadas anteriormente, es posible diseñar arquitecturas más seguras y eficientes.</p>
 
 
-<h3 id="recursos-adicionales" tabindex="-1">Recursos Adicionales</h3>
+<h3 id="recursos-adicionales" tabindex="-1">Recursos adicionales</h3>
 
 
 <p>Si deseas profundizar en el tema de VPC Endpoints y otros servicios de AWS en español, visita <strong><a href="https://dondeaprendoaws.com/">Dónde Aprendo AWS</a></strong> (https://dondeaprendoaws.com).</p>
@@ -447,7 +447,7 @@ related:
 <h2 class="sb" id="faqs" tabindex="-1">FAQs</h2>
 
 
-<h3 id="que-es-amazon-vpc-endpoint" tabindex="-1">¿Qué es Amazon VPC Endpoint?</h3>
+<h3 id="que-es-amazon-vpc-endpoint" tabindex="-1">¿Qué es Amazon VPC endpoint?</h3>
 
 
 <p>Es un recurso virtual que permite la comunicación privada entre tu VPC y servicios de AWS sin necesidad de usar internet pública. Esto se explicó en detalle en la sección 'Conceptos básicos'.</p>
@@ -481,4 +481,4 @@ related:
 
 
 <h2>Publicaciones de blog relacionadas</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/conceptos-basicos-y-avanzados-de-amazon-vpc/">Conceptos Básicos y Avanzados de Amazon VPC</a></li><li><a href="https://dondeaprendoaws.com/blog/amazon-cloudfront-comprendiendo-el-cdn-de-aws/">Amazon CloudFront: Comprendiendo el CDN de AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/10-estrategias-para-optimizar-costos-de-red-en-aws/">10 Estrategias para Optimizar Costos de Red en AWS</a></li></ul>
+<ul><li><a href="https://dondeaprendoaws.com/blog/conceptos-basicos-y-avanzados-de-amazon-vpc/">Conceptos básicos y avanzados de Amazon VPC</a></li><li><a href="https://dondeaprendoaws.com/blog/amazon-cloudfront-comprendiendo-el-cdn-de-aws/">Amazon CloudFront: comprendiendo el CDN de AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/10-estrategias-para-optimizar-costos-de-red-en-aws/">10 estrategias para optimizar costos de red en AWS</a></li></ul>

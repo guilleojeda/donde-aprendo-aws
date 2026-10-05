@@ -1,5 +1,5 @@
 ---
-title: "Mejores Prácticas de Observabilidad en AWS"
+title: "Mejores prácticas de observabilidad en AWS"
 description: "Consejos y mejores prácticas para mejorar la observabilidad en AWS, desde la implementación de monitoreo integral hasta la aplicación de alarmas inteligentes y prácticas de seguridad."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
@@ -8,11 +8,11 @@ cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Patrón Strangler Fig en AWS: Migrar a Microservicios"
+  - title: "Patrón Strangler Fig en AWS: migrar a microservicios"
     url: "https://dondeaprendoaws.com/blog/patron-strangler-fig-en-aws-migrar-a-microservicios/"
-  - title: "¿Cómo Funciona AWS Amplify?"
+  - title: "¿Cómo funciona AWS Amplify?"
     url: "https://dondeaprendoaws.com/blog/como-funciona-aws-amplify/"
-  - title: "Mejores Prácticas de Machine Learning en AWS"
+  - title: "Mejores prácticas de machine learning en AWS"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-de-machine-learning-en-aws/"
 
 ---
@@ -36,7 +36,7 @@ related:
 <p>Recuerda, seguir estas prácticas no solo mejorará la disponibilidad y funcionalidad de tus aplicaciones, sino que también te permitirá solucionar problemas más rápidamente, mejorar la experiencia del usuario, y tomar decisiones basadas en datos confiables.</p>
 
 
-<h2 id="implementaci%C3%B3n-de-monitoreo-integral" tabindex="-1">Implementación de Monitoreo Integral</h2>
+<h2 id="implementaci%C3%B3n-de-monitoreo-integral" tabindex="-1">Implementación de monitoreo integral</h2>
 
 
 <p>Para tener una buena vista de cómo funcionan tus cosas en AWS, es clave monitorear bien todo. Aquí van algunos consejos simples:</p>
@@ -55,7 +55,7 @@ related:
 <p>Siguiendo estos consejos, vas a poder entender mejor tus aplicaciones y solucionar problemas más fácil.</p>
 
 
-<h2 id="uso-de-aws-x-ray-para-la-trazabilidad" tabindex="-1">Uso de AWS X-Ray para la Trazabilidad</h2>
+<h2 id="uso-de-aws-x-ray-para-la-trazabilidad" tabindex="-1">Uso de AWS X-Ray para la trazabilidad</h2>
 
 
 <p>AWS X-Ray es una herramienta que te ayuda a entender cómo tus aplicaciones en AWS piden y reciben datos entre sí. Esto es útil para mejorar cómo funcionan tus aplicaciones y asegurarte de que estén siempre disponibles para tus usuarios.</p>
@@ -77,7 +77,7 @@ related:
 <p>Con AWS X-Ray, puedes entender mejor cómo se pasan los datos en tus aplicaciones, lo que te permite mejorar el rendimiento y evitar problemas.</p>
 
 
-<h2 id="aplicaci%C3%B3n-de-alarmas-inteligentes" tabindex="-1">Aplicación de Alarmas Inteligentes</h2>
+<h2 id="aplicaci%C3%B3n-de-alarmas-inteligentes" tabindex="-1">Aplicación de alarmas inteligentes</h2>
 
 
 <p>Configurar bien las alarmas en CloudWatch es clave para estar al tanto de lo que pasa en tus sistemas AWS sin agobiarte. Aquí te dejamos algunos consejos para que tus alarmas sean más efectivas:</p>
@@ -96,7 +96,7 @@ related:
 <p>Con estas sugerencias, podrás concentrarte en los avisos realmente importantes. Esto te ayudará a manejar mejor tus operaciones y a ofrecer una mejor experiencia a tus usuarios.</p>
 
 
-<h2 id="c%C3%B3mo-manejar-mejor-tus-logs-con-amazon-opensearch-service" tabindex="-1">Cómo Manejar Mejor tus Logs con Amazon OpenSearch Service</h2>
+<h2 id="c%C3%B3mo-manejar-mejor-tus-logs-con-amazon-opensearch-service" tabindex="-1">Cómo manejar mejor tus logs con Amazon OpenSearch Service</h2>
 
 
 <p>Amazon OpenSearch Service es una herramienta de AWS que te ayuda a organizar, buscar y entender grandes cantidades de información que vienen de los logs de tus sistemas. Piensa en ello como un gran archivo donde puedes encontrar fácilmente lo que necesitas.</p>
@@ -118,7 +118,7 @@ related:
 <p>En pocas palabras, usar Amazon OpenSearch Service para tus logs en AWS te ayuda a entender mejor qué pasa en tus sistemas, encontrar y arreglar problemas más rápido, y asegurarte de que tus aplicaciones estén siempre disponibles para tus usuarios.</p>
 
 
-<h2 id="integraci%C3%B3n-de-observabilidad-en-el-ciclo-de-vida-del-desarrollo" tabindex="-1">Integración de Observabilidad en el Ciclo de Vida del Desarrollo</h2>
+<h2 id="integraci%C3%B3n-de-observabilidad-en-el-ciclo-de-vida-del-desarrollo" tabindex="-1">Integración de observabilidad en el ciclo de vida del desarrollo</h2>
 
 
 <p>Hacer que la observabilidad sea parte del proceso de crear aplicaciones desde el principio puede ahorrarte mucho trabajo y problemas más adelante. Aquí van algunos consejos sencillos:</p>
@@ -137,7 +137,7 @@ related:
 <p>Siguiendo estos pasos, vas a hacer que la observabilidad sea una parte esencial de tus aplicaciones desde el comienzo. Esto significa que tus aplicaciones estarán mejor preparadas y tus equipos trabajarán más unidos y eficientemente.</p>
 
 
-<h3 id="c%C3%B3mo-hacer-dashboards-f%C3%A1ciles-de-usar" tabindex="-1">Cómo Hacer Dashboards Fáciles de Usar</h3>
+<h3 id="c%C3%B3mo-hacer-dashboards-f%C3%A1ciles-de-usar" tabindex="-1">Cómo hacer dashboards fáciles de usar</h3>
 
 
 <p>Crear dashboards en CloudWatch te ayuda a ver rápido cómo están tus aplicaciones, mostrándote las métricas y alarmas más importantes en un solo lugar.</p>
@@ -159,7 +159,7 @@ related:
 <p>Siguiendo estos consejos, vas a poder hacer dashboards claros y útiles. La idea es que te ayuden a identificar y arreglar problemas sin tener que buscar mucho.</p>
 
 
-<h3 id="c%C3%B3mo-usar-etiquetas-para-organizar-mejor-tus-recursos-en-aws" tabindex="-1">Cómo Usar Etiquetas para Organizar Mejor tus Recursos en AWS</h3>
+<h3 id="c%C3%B3mo-usar-etiquetas-para-organizar-mejor-tus-recursos-en-aws" tabindex="-1">Cómo usar etiquetas para organizar mejor tus recursos en AWS</h3>
 
 
 <p>Ponerle etiquetas a tus cosas en AWS te ayuda a mantener todo en orden, especialmente cuando tienes muchos recursos. Aquí van algunos consejos simples para hacerlo bien:</p>
@@ -178,7 +178,7 @@ related:
 <p>Siguiendo estos pasos para etiquetar tus recursos en AWS te va a ahorrar tiempo y dolores de cabeza, especialmente cuando tienes que manejar muchos recursos o encontrar y solucionar problemas rápidamente.</p>
 
 
-<h2 id="implementaci%C3%B3n-de-pr%C3%A1cticas-de-seguridad-en-observabilidad" tabindex="-1">Implementación de Prácticas de Seguridad en Observabilidad</h2>
+<h2 id="implementaci%C3%B3n-de-pr%C3%A1cticas-de-seguridad-en-observabilidad" tabindex="-1">Implementación de prácticas de seguridad en observabilidad</h2>
 
 
 <p>Mantener tus datos de observabilidad en AWS seguros es super importante. Aquí te dejamos algunos consejos para lograrlo:</p>
@@ -200,7 +200,7 @@ related:
 <p>Siguiendo estos consejos, podrás dormir tranquilo sabiendo que tus sistemas de observabilidad están protegidos.</p>
 
 
-<h2 id="c%C3%B3mo-sacarle-jugo-a-los-servicios-de-aws-para-una-observabilidad-m%C3%A1s-completa" tabindex="-1">Cómo Sacarle Jugo a los Servicios de AWS para una Observabilidad Más Completa</h2>
+<h2 id="c%C3%B3mo-sacarle-jugo-a-los-servicios-de-aws-para-una-observabilidad-m%C3%A1s-completa" tabindex="-1">Cómo sacarle jugo a los servicios de AWS para una observabilidad más completa</h2>
 
 
 <p>AWS tiene un montón de herramientas que te pueden ayudar a entender mejor cómo funcionan tus sistemas. Aquí te contamos sobre algunas que podrían ser muy útiles:</p>
@@ -258,6 +258,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/observabilidad-en-aws-con-amazon-x-ray/">Observabilidad en AWS con Amazon X-Ray</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ec2/">Mejores Prácticas Para Amazon EC2</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores Prácticas de Seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/observabilidad-en-aws-con-amazon-x-ray/">Observabilidad en AWS con Amazon X-Ray</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ec2/">Mejores prácticas para Amazon EC2</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores prácticas de seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li>
 </ul>
 </p>

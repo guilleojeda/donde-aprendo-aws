@@ -1,5 +1,5 @@
 ---
-title: "Cómo Desarrollar Aplicaciones de Inteligencia Artificial en AWS"
+title: "Cómo desarrollar aplicaciones de inteligencia artificial en AWS"
 description: "Descubre cómo desarrollar aplicaciones de inteligencia artificial en AWS. Aprende los conceptos básicos de IA, configura tu entorno en AWS, explora herramientas clave como Amazon SageMaker y Amazon Lex, y conoce las mejores prácticas para seguridad y optimización de costos."
 author: "guille-ojeda"
 publishedAt: "2024-03-19"
@@ -11,9 +11,9 @@ ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "CORS en WebSocket vs REST API Gateway"
     url: "https://dondeaprendoaws.com/blog/cors-en-websocket-vs-rest-api-gateway/"
-  - title: "Guía de Eventos AWS Educate 2024"
+  - title: "Guía de eventos AWS Educate 2024"
     url: "https://dondeaprendoaws.com/blog/guia-de-eventos-aws-educate-2024/"
-  - title: "Guía de Acreditación para Partners de AWS 2024"
+  - title: "Guía de acreditación para Partners de AWS 2024"
     url: "https://dondeaprendoaws.com/blog/guia-de-acreditacion-para-partners-de-aws-2024/"
 
 ---
@@ -342,7 +342,7 @@ related:
 <p>Por ejemplo, un banco podría usar SageMaker para vigilar las compras con tarjetas de crédito y darse cuenta si algo sospechoso sucede.</p>
 
 
-<h3 id="bots-conversacionales-con-lex" tabindex="-1">Bots conversacionales con Lex</h3>
+<h3 id="bots-conversacionales-con-lex" tabindex="-1">Bots conversacionales con lex</h3>
 
 
 <p>Amazon Lex te permite hacer chatbots que entienden y responden como personas. Esto sirve para:</p>
@@ -456,7 +456,7 @@ related:
 <p>¡Esperamos que este artículo te haya sido útil! Comparte tus experiencias y recursos con otros que también estén aprendiendo sobre IA en AWS en español. Juntos podemos hacer que más gente use estas tecnologías innovadoras.</p>
 
 
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas Relacionadas</h2>
+<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
 
 
 <h3 id="%C2%BFc%C3%B3mo-se-llama-la-inteligencia-artificial-de-amazon%3F" tabindex="-1">¿Cómo se llama la inteligencia artificial de Amazon?</h3>
@@ -507,6 +507,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/">Introducción a la Inteligencia Artificial en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-machine-learning-en-aws/">Mejores Prácticas de Machine Learning en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/servicios-de-aws-para-inteligencia-artificial/">Servicios de AWS para Inteligencia Artificial</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Aprender AWS: guía inicial</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/">Introducción a la inteligencia artificial en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-machine-learning-en-aws/">Mejores prácticas de machine learning en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/servicios-de-aws-para-inteligencia-artificial/">Servicios de AWS para inteligencia artificial</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li>
 </ul>
 </p>

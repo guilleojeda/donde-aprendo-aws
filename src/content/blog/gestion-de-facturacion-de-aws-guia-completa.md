@@ -1,5 +1,5 @@
 ---
-title: "Gestión de Facturación de AWS: Guía Completa"
+title: "Gestión de facturación de AWS: guía completa"
 description: "Descubre cómo gestionar y optimizar tus costos en AWS con estrategias efectivas y herramientas clave para ahorrar hasta un 90%."
 author: "guille-ojeda"
 publishedAt: "2024-10-26"
@@ -8,9 +8,9 @@ cover: "/assets/blog/editorial-fundamentos.png"
 coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
 ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
-  - title: "10 Estrategias de Optimización de Costos en AWS"
+  - title: "10 estrategias de optimización de costos en AWS"
     url: "https://dondeaprendoaws.com/blog/10-estrategias-de-optimizacion-de-costos-en-aws/"
-  - title: "AWS HealthScribe: IA Generativa para Diagnósticos Médicos"
+  - title: "AWS HealthScribe: IA generativa para diagnósticos médicos"
     url: "https://dondeaprendoaws.com/blog/aws-healthscribe-ia-generativa-para-diagnosticos-medicos/"
   - title: "AWS bases de datos: introducción básica"
     url: "https://dondeaprendoaws.com/blog/aws-bases-de-datos-introduccion-basica/"
@@ -105,7 +105,7 @@ related:
 <p><figure><img alt="AWS" src="/assets/blog/2ebe3cf8e7ae57e98d3af846.jpg"/></figure></p>
 
 
-<h3 id="c%C3%B3mo-funcionan-las-cuentas-y-la-facturaci%C3%B3n-de-aws" tabindex="-1">Cómo Funcionan las Cuentas y la Facturación de AWS</h3>
+<h3 id="c%C3%B3mo-funcionan-las-cuentas-y-la-facturaci%C3%B3n-de-aws" tabindex="-1">Cómo funcionan las cuentas y la facturación de AWS</h3>
 
 
 <p>AWS tiene dos modelos de facturación principales:</p>
@@ -140,7 +140,7 @@ related:
 </table></figure>
 
 
-<h3 id="uso-del-panel-de-facturaci%C3%B3n" tabindex="-1">Uso del Panel de Facturación</h3>
+<h3 id="uso-del-panel-de-facturaci%C3%B3n" tabindex="-1">Uso del panel de facturación</h3>
 
 
 <p>El panel se actualiza cada 24 horas y te muestra lo que necesitas saber:</p>
@@ -197,7 +197,7 @@ related:
 </blockquote>
 
 
-<h3 id="t%C3%A9rminos-comunes-de-facturaci%C3%B3n" tabindex="-1">Términos Comunes de Facturación</h3>
+<h3 id="t%C3%A9rminos-comunes-de-facturaci%C3%B3n" tabindex="-1">Términos comunes de facturación</h3>
 
 
 <figure class="table"><table>
@@ -239,10 +239,10 @@ related:
 </ul>
 
 
-<h2 class="sb" id="herramientas-principales-de-facturaci%C3%B3n" tabindex="-1">Herramientas Principales de Facturación</h2>
+<h2 class="sb" id="herramientas-principales-de-facturaci%C3%B3n" tabindex="-1">Herramientas principales de facturación</h2>
 
 
-<h3 id="cost-explorer%3A-tu-panel-de-control-de-gastos" tabindex="-1">Cost Explorer: Tu Panel de Control de Gastos</h3>
+<h3 id="cost-explorer%3A-tu-panel-de-control-de-gastos" tabindex="-1">Cost Explorer: tu panel de control de gastos</h3>
 
 
 <p>Cost Explorer es como tu GPS financiero en AWS. Es gratis y te muestra exactamente dónde va tu dinero:</p>
@@ -318,7 +318,7 @@ related:
 </table></figure>
 
 
-<h3 id="cost-%26-usage-report-(cur)%3A-tu-libro-mayor" tabindex="-1">Cost &amp; Usage Report (CUR): Tu Libro Mayor</h3>
+<h3 id="cost-%26-usage-report-(cur)%3A-tu-libro-mayor" tabindex="-1">Cost &amp; usage report (CUR): tu libro mayor</h3>
 
 
 <p>El CUR es como tu extracto bancario de AWS, pero MÁS detallado:</p>
@@ -337,7 +337,7 @@ related:
 </ul>
 
 
-<h3 id="control-de-gastos-sorpresa" tabindex="-1">Control de Gastos Sorpresa</h3>
+<h3 id="control-de-gastos-sorpresa" tabindex="-1">Control de gastos sorpresa</h3>
 
 
 <figure class="table"><table>
@@ -376,13 +376,13 @@ related:
 <p><strong>OJO</strong>: Pon el CUR en marcha YA. AWS no te da datos del pasado, solo empieza a contar desde que lo activas.</p>
 
 
-<h2 class="sb" id="organizando-tus-costos" tabindex="-1">Organizando Tus Costos</h2>
+<h2 class="sb" id="organizando-tus-costos" tabindex="-1">Organizando tus costos</h2>
 
 
 <p>Las etiquetas y grupos de costos en AWS son como un sistema de organización que te ayuda a ver quién gasta qué. Vamos a ver cómo usarlos.</p>
 
 
-<h3 id="etiquetas-de-costos%3A-lo-b%C3%A1sico" tabindex="-1">Etiquetas de Costos: Lo Básico</h3>
+<h3 id="etiquetas-de-costos%3A-lo-b%C3%A1sico" tabindex="-1">Etiquetas de costos: lo básico</h3>
 
 
 <p>Las etiquetas son simples marcadores que pones en tus recursos AWS. Funcionan así:</p>
@@ -426,7 +426,7 @@ related:
 </ul>
 
 
-<h3 id="grupos-de-costos-en-acci%C3%B3n" tabindex="-1">Grupos de Costos en Acción</h3>
+<h3 id="grupos-de-costos-en-acci%C3%B3n" tabindex="-1">Grupos de costos en acción</h3>
 
 
 <p>Los grupos juntan gastos por equipos o proyectos. Mira este caso:</p>
@@ -536,13 +536,13 @@ related:
 </table></figure>
 
 
-<h2 class="sb" id="c%C3%B3mo-reducir-costos-en-aws" tabindex="-1">Cómo Reducir Costos en AWS</h2>
+<h2 class="sb" id="c%C3%B3mo-reducir-costos-en-aws" tabindex="-1">Cómo reducir costos en AWS</h2>
 
 
 <p>Los <a href="https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/">costos de AWS</a> pueden bajar drásticamente si sabes qué opciones usar. Aquí te muestro las que más impacto tienen:</p>
 
 
-<h3 id="ajusta-el-tama%C3%B1o-de-tus-recursos" tabindex="-1">Ajusta el Tamaño de tus Recursos</h3>
+<h3 id="ajusta-el-tama%C3%B1o-de-tus-recursos" tabindex="-1">Ajusta el tamaño de tus recursos</h3>
 
 
 <p>El primer paso es simple: no pagues por más de lo que necesitas.</p>
@@ -576,7 +576,7 @@ related:
 </table></figure>
 
 
-<h3 id="savings-plans%3A-menos-costos%2C-m%C3%A1s-compromiso" tabindex="-1">Savings Plans: Menos Costos, Más Compromiso</h3>
+<h3 id="savings-plans%3A-menos-costos%2C-m%C3%A1s-compromiso" tabindex="-1">Savings Plans: menos costos, más compromiso</h3>
 
 
 <p>Los Savings Plans son como un contrato: te comprometes a usar AWS y pagas menos.</p>
@@ -610,7 +610,7 @@ related:
 </table></figure>
 
 
-<h3 id="instancias-reservadas%3A-paga-menos-por-adelantado" tabindex="-1">Instancias Reservadas: Paga Menos por Adelantado</h3>
+<h3 id="instancias-reservadas%3A-paga-menos-por-adelantado" tabindex="-1">Instancias reservadas: paga menos por adelantado</h3>
 
 
 <p>Las RIs son perfectas si sabes exactamente qué vas a usar:</p>
@@ -647,7 +647,7 @@ related:
 <p>Puedes pagar todo al inicio, una parte, o nada - tú eliges.</p>
 
 
-<h3 id="spot-instances%3A-el-rey-del-ahorro" tabindex="-1">Spot Instances: El Rey del Ahorro</h3>
+<h3 id="spot-instances%3A-el-rey-del-ahorro" tabindex="-1">Spot instances: el rey del ahorro</h3>
 
 
 <p>¿Quieres ahorrar hasta 90%? Las Spot Instances son tu respuesta.</p>
@@ -699,7 +699,7 @@ related:
 <p>La clave está en mezclar estas opciones: RIs para lo básico, Spot para extras, y Savings Plans para el resto.</p>
 
 
-<h2 class="sb" id="conectando-herramientas-de-aws-con-la-facturaci%C3%B3n" tabindex="-1">Conectando Herramientas de AWS con la Facturación</h2>
+<h2 class="sb" id="conectando-herramientas-de-aws-con-la-facturaci%C3%B3n" tabindex="-1">Conectando herramientas de AWS con la facturación</h2>
 
 
 <p>CloudWatch y AWS Organizations son herramientas clave para controlar tus gastos en AWS. Aquí te explico cómo usarlas.</p>
@@ -730,7 +730,7 @@ related:
 </tr>
 <tr>
 <td>2. Crear Alarma</td>
-<td><a href="https://dondeaprendoaws.com/blog/como-habilitar-cloudwatch-logs-en-api-gateway-guia-paso-a-paso/">Configurar en CloudWatch</a></td>
+<td><a href="https://dondeaprendoaws.com/blog/como-habilitar-cloudwatch-logs-en-api-gateway-guia-paso-a-paso/">configurar en CloudWatch</a></td>
 <td>5 min</td>
 </tr>
 <tr>
@@ -747,7 +747,7 @@ related:
 </blockquote>
 
 
-<h3 id="aws-organizations%3A-control-multi-cuenta" tabindex="-1">AWS Organizations: Control Multi-Cuenta</h3>
+<h3 id="aws-organizations%3A-control-multi-cuenta" tabindex="-1">AWS Organizations: control multi-cuenta</h3>
 
 
 <p>AWS Organizations hace más fácil manejar varias cuentas:</p>
@@ -788,7 +788,7 @@ related:
 </code></pre>
 
 
-<h3 id="permisos-de-facturaci%C3%B3n-en-iam" tabindex="-1">Permisos de Facturación en IAM</h3>
+<h3 id="permisos-de-facturaci%C3%B3n-en-iam" tabindex="-1">Permisos de facturación en IAM</h3>
 
 
 <p>Solo el usuario root ve la facturación por defecto. Esta política IAM da acceso básico:</p>
@@ -841,7 +841,7 @@ related:
 <p><strong>OJO</strong>: Activa el acceso IAM a facturación desde la cuenta root ANTES de usar estas políticas.</p>
 
 
-<h2 class="sb" id="funciones-avanzadas-de-facturaci%C3%B3n" tabindex="-1">Funciones Avanzadas de Facturación</h2>
+<h2 class="sb" id="funciones-avanzadas-de-facturaci%C3%B3n" tabindex="-1">Funciones avanzadas de facturación</h2>
 
 
 <h3 id="gu%C3%ADa-de-aws-billing-conductor" tabindex="-1">Guía de <a href="https://aws.amazon.com/aws-cost-management/aws-billing-conductor/" rel="noopener noreferrer" target="_blank">AWS Billing Conductor</a></h3>
@@ -886,7 +886,7 @@ related:
 </table></figure>
 
 
-<h3 id="panel-de-costos" tabindex="-1">Panel de Costos</h3>
+<h3 id="panel-de-costos" tabindex="-1">Panel de costos</h3>
 
 
 <p>El nuevo panel hace tu vida más fácil:</p>
@@ -920,7 +920,7 @@ related:
 </table></figure>
 
 
-<h3 id="conecta-otras-herramientas" tabindex="-1">Conecta Otras Herramientas</h3>
+<h3 id="conecta-otras-herramientas" tabindex="-1">Conecta otras herramientas</h3>
 
 
 <p>¿Necesitas más opciones? Aquí tienes tres buenas:</p>
@@ -948,13 +948,13 @@ related:
 <tr>
 <td>QuickSight</td>
 <td>Todo en AWS</td>
-<td><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Proyectos AWS</a></td>
+<td><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">proyectos AWS</a></td>
 </tr>
 </tbody>
 </table></figure>
 
 
-<h3 id="mira-tus-costos" tabindex="-1">Mira Tus Costos</h3>
+<h3 id="mira-tus-costos" tabindex="-1">Mira tus costos</h3>
 
 
 <p>CUR 2.0 te da el control:</p>
@@ -991,13 +991,13 @@ related:
 <p><strong>Tip</strong>: ¿Quieres ver datos antiguos? Usa una cuenta que ya tengas como principal en Billing Conductor. Las cuentas nuevas solo ven datos desde que existen.</p>
 
 
-<h2 class="sb" id="soluciona-problemas-comunes" tabindex="-1">Soluciona Problemas Comunes</h2>
+<h2 class="sb" id="soluciona-problemas-comunes" tabindex="-1">Soluciona problemas comunes</h2>
 
 
 <p>¿Te has encontrado con una factura de AWS más alta de lo normal? Vamos a ver cómo solucionarlo.</p>
 
 
-<h3 id="problemas-frecuentes-de-facturaci%C3%B3n" tabindex="-1">Problemas Frecuentes de Facturación</h3>
+<h3 id="problemas-frecuentes-de-facturaci%C3%B3n" tabindex="-1">Problemas frecuentes de facturación</h3>
 
 
 <figure class="table"><table>
@@ -1033,7 +1033,7 @@ related:
 </table></figure>
 
 
-<h3 id="qu%C3%A9-hacer-con-facturas-altas" tabindex="-1">Qué Hacer con Facturas Altas</h3>
+<h3 id="qu%C3%A9-hacer-con-facturas-altas" tabindex="-1">Qué hacer con facturas altas</h3>
 
 
 <p>Cuando veas un aumento en tu factura, NO entres en pánico. Sigue estos pasos:</p>
@@ -1061,7 +1061,7 @@ related:
 <p>Configura AWS Budgets y Cost Anomaly Detection para prevenir sorpresas futuras.</p>
 
 
-<h3 id="reduce-tus-costos" tabindex="-1">Reduce Tus Costos</h3>
+<h3 id="reduce-tus-costos" tabindex="-1">Reduce tus costos</h3>
 
 
 <p>¿Sabías que puedes ahorrar hasta 40% usando instancias Graviton? Aquí hay más formas de reducir costos:</p>
@@ -1111,13 +1111,13 @@ related:
 <p>Para proteger tu cuenta, activa MFA en TODAS las cuentas de usuario y crea roles IAM específicos. No es opcional - es necesario.</p>
 
 
-<h2 class="sb" id="materiales-de-aprendizaje-en-espa%C3%B1ol" tabindex="-1">Materiales de Aprendizaje en Español</h2>
+<h2 class="sb" id="materiales-de-aprendizaje-en-espa%C3%B1ol" tabindex="-1">Materiales de aprendizaje en español</h2>
 
 
 <p>¿Buscas <a href="https://dondeaprendoaws.com/blog/aprender-aws-gratis-recursos-y-comunidad/">recursos de AWS</a> en español? Aquí tienes todo lo que necesitas.</p>
 
 
-<h3 id="gu%C3%ADas-aws-en-espa%C3%B1ol" tabindex="-1">Guías AWS en Español</h3>
+<h3 id="gu%C3%ADas-aws-en-espa%C3%B1ol" tabindex="-1">Guías AWS en español</h3>
 
 
 <p>AWS pone a tu disposición contenido oficial en español:</p>
@@ -1156,7 +1156,7 @@ related:
 </table></figure>
 
 
-<h3 id="comunidad-aws-en-espa%C3%B1ol" tabindex="-1">Comunidad AWS en Español</h3>
+<h3 id="comunidad-aws-en-espa%C3%B1ol" tabindex="-1">Comunidad AWS en español</h3>
 
 
 <p>La comunidad hispanohablante crece cada día:</p>
@@ -1208,7 +1208,7 @@ related:
 </blockquote>
 
 
-<h3 id="facturaci%C3%B3n-por-pa%C3%ADs" tabindex="-1">Facturación por País</h3>
+<h3 id="facturaci%C3%B3n-por-pa%C3%ADs" tabindex="-1">Facturación por país</h3>
 
 
 <figure class="table"><table>
@@ -1340,10 +1340,10 @@ related:
 </ul>
 
 
-<h2 class="sb" id="preguntas-frecuentes" tabindex="-1">Preguntas Frecuentes</h2>
+<h2 class="sb" id="preguntas-frecuentes" tabindex="-1">Preguntas frecuentes</h2>
 
 
-<h3 id="%C2%BFqu%C3%A9-es-aws-billing%3F" tabindex="-1">¿Qué es AWS billing?</h3>
+<h3 id="%C2%BFqu%C3%A9-es-aws-billing%3F" tabindex="-1">¿Qué es AWS Billing?</h3>
 
 
 <p>AWS Billing Conductor es simple: te ayuda a manejar tus facturas de AWS.</p>
@@ -1473,6 +1473,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/">Introducción a los servicios de Amazon Web Services</a></li><li><a href="https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/">Análisis de Costos de AWS con Cost Explorer</a></li><li><a href="https://dondeaprendoaws.com/blog/optimizacion-de-costos-de-aws-lambda/">Optimización de Costos de AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/10-estrategias-de-optimizacion-de-costos-en-aws/">10 Estrategias de Optimización de Costos en AWS</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/">Introducción a los servicios de Amazon Web Services</a></li><li><a href="https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/">análisis de costos de AWS con Cost Explorer</a></li><li><a href="https://dondeaprendoaws.com/blog/optimizacion-de-costos-de-aws-lambda/">Optimización de costos de AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/10-estrategias-de-optimizacion-de-costos-en-aws/">10 estrategias de optimización de costos en AWS</a></li>
 </ul>
 </p>

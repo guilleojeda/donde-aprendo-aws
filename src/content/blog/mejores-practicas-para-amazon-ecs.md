@@ -1,5 +1,5 @@
 ---
-title: "Mejores Prácticas Para Amazon ECS"
+title: "Mejores prácticas para Amazon ECS"
 description: "Descubre cómo dominar Amazon ECS para manejar aplicaciones en contenedores Docker de manera eficiente y segura en AWS. Aprende las mejores prácticas para seguridad, optimización de costos e implementación efectiva."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
@@ -10,9 +10,9 @@ ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Observabilidad en AWS con Amazon X-Ray"
     url: "https://dondeaprendoaws.com/blog/observabilidad-en-aws-con-amazon-x-ray/"
-  - title: "Arquitecturas Multi-Región en AWS"
+  - title: "Arquitecturas multi-región en AWS"
     url: "https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/"
-  - title: "Ahorro de Costos en AWS con Instancias Reservadas y Savings Plans"
+  - title: "Ahorro de costos en AWS con instancias reservadas y Savings Plans"
     url: "https://dondeaprendoaws.com/blog/ahorro-de-costos-en-aws-con-instancias-reservadas-y-savings-plans/"
 
 ---
@@ -260,7 +260,7 @@ related:
 <p>Así, usarás los recursos de manera inteligente y ahorrarás dinero.</p>
 
 
-<h3 id="usar-spot-instances" tabindex="-1">Usar Spot Instances</h3>
+<h3 id="usar-spot-instances" tabindex="-1">Usar spot instances</h3>
 
 
 <p>Las Spot Instances te permiten usar equipos que AWS no está usando a un precio mucho menor.</p>
@@ -392,7 +392,7 @@ related:
 <p>En pocas palabras, ECS es una opción excelente para correr aplicaciones en contenedores de manera sencilla, segura y que se pueda ajustar fácilmente. Si sigues los consejos de esta guía, podrás sacarle el máximo provecho.</p>
 
 
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas Relacionadas</h2>
+<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
 
 
 <h3 id="%C2%BFqu%C3%A9-es-ecs-amazon%3F" tabindex="-1">¿Qué es ECS Amazon?</h3>
@@ -440,6 +440,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/opciones-para-desplegar-contenedores-en-aws-ecs-y-eks/">Opciones para Desplegar Contenedores en AWS: ECS y EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ec2/">Mejores Prácticas Para Amazon EC2</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-eks/">Mejores Prácticas Para Amazon EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/">Cómo Desplegar Contenedores en AWS</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/opciones-para-desplegar-contenedores-en-aws-ecs-y-eks/">Opciones para desplegar contenedores en AWS: ECS y EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ec2/">Mejores prácticas para Amazon EC2</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-eks/">Mejores prácticas para Amazon EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/">Cómo desplegar contenedores en AWS</a></li>
 </ul>
 </p>

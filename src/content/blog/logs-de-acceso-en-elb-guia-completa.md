@@ -1,5 +1,5 @@
 ---
-title: "Logs de acceso en ELB: Guía completa"
+title: "Logs de acceso en ELB: guía completa"
 description: "Aprende cómo configurar y analizar los logs de acceso en ELB para mejorar la seguridad y rendimiento de tu infraestructura en AWS."
 author: "guille-ojeda"
 publishedAt: "2025-03-13"
@@ -10,9 +10,9 @@ ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Guía completa para depurar errores CORS en API Gateway"
     url: "https://dondeaprendoaws.com/blog/guia-completa-para-depurar-errores-cors-en-api-gateway/"
-  - title: "Guía de Acreditación para Partners de AWS 2024"
+  - title: "Guía de acreditación para Partners de AWS 2024"
     url: "https://dondeaprendoaws.com/blog/guia-de-acreditacion-para-partners-de-aws-2024/"
-  - title: "Patrón Strangler Fig en AWS: Migrar a Microservicios"
+  - title: "Patrón Strangler Fig en AWS: migrar a microservicios"
     url: "https://dondeaprendoaws.com/blog/patron-strangler-fig-en-aws-migrar-a-microservicios/"
 
 ---
@@ -36,7 +36,7 @@ related:
 </li>
 <li><strong>Formato y análisis:</strong> Logs comprimidos (.gz) con datos clave como tiempos de procesamiento y bytes transferidos. Analízalos con herramientas como <a href="https://aws.amazon.com/athena/" rel="nofollow noopener noreferrer" target="_blank">Amazon Athena</a> o <a href="https://aws.amazon.com/cloudwatch/" rel="nofollow noopener noreferrer" target="_blank">CloudWatch</a>.</li>
 </ul>
-<h3 id="tabla-rapida-comparativa-de-elb-y-soporte-de-logs" tabindex="-1">Tabla rápida: Comparativa de ELB y soporte de logs</h3>
+<h3 id="tabla-rapida-comparativa-de-elb-y-soporte-de-logs" tabindex="-1">Tabla rápida: comparativa de ELB y soporte de logs</h3>
 <figure class="table"><table>
 <thead>
 <tr>
@@ -467,7 +467,7 @@ Esto puede deberse a varias causas, como:
 </tr>
 <tr>
 <td>Dónde Aprendo AWS</td>
-<td><a href="https://dondeaprendoaws.com/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/">Recursos en español sobre AWS</a>.</td>
+<td><a href="https://dondeaprendoaws.com/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/">recursos en español sobre AWS</a>.</td>
 <td><a href="https://dondeaprendoaws.com/">Dónde Aprendo AWS</a></td>
 </tr>
 </tbody>
@@ -514,7 +514,7 @@ Esto puede deberse a varias causas, como:
 <ul>
 <li><strong>Recursos en español</strong>: El blog <a href="https://dondeaprendoaws.com/">Dónde Aprendo AWS</a> incluye guías detalladas sobre servicios de AWS, con tutoriales específicos sobre seguridad y monitorización.</li>
 <li><strong>Herramientas de análisis</strong>: CloudWatch es una herramienta avanzada que puede complementar el análisis de logs de acceso.</li>
-<li><strong><a href="https://dondeaprendoaws.com/blog/aprender-aws-gratis-recursos-y-comunidad/">Comunidad AWS</a></strong>: Los grupos de usuarios de AWS en España y Latinoamérica son excelentes para compartir experiencias y aprender <a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">mejores prácticas</a>.</li>
+<li><strong><a href="https://dondeaprendoaws.com/blog/aprender-aws-gratis-recursos-y-comunidad/">comunidad AWS</a></strong>: Los grupos de usuarios de AWS en España y Latinoamérica son excelentes para compartir experiencias y aprender <a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">mejores prácticas</a>.</li>
 </ul>
 <p>Establece una rutina para revisar tus logs combinando herramientas automatizadas como CloudWatch con revisiones manuales. Además, considera participar en comunidades de AWS para mantenerte al día y mejorar la seguridad operativa de tu infraestructura.</p>
-<h2>Publicaciones de blog relacionadas</h2><ul><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS Fundamentos: Guía de Inicio Rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/como-utilizar-elasticsearch-en-aws/">Cómo Utilizar ElasticSearch en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/">Mejores Prácticas de Observabilidad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/estrategias-de-correlacion-de-eventos-aws/">Estrategias de Correlación de Eventos AWS</a></li></ul>
+<h2>Publicaciones de blog relacionadas</h2><ul><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS fundamentos: guía de inicio rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/como-utilizar-elasticsearch-en-aws/">Cómo utilizar Elasticsearch en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/">Mejores prácticas de observabilidad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/estrategias-de-correlacion-de-eventos-aws/">Estrategias de correlación de eventos AWS</a></li></ul>

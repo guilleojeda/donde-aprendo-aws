@@ -1,5 +1,5 @@
 ---
-title: "Base de Datos Global con Amazon Aurora"
+title: "Base de datos global con Amazon Aurora"
 description: "Descubre cómo Amazon Aurora revoluciona la gestión de bases de datos en la nube con características clave como alto rendimiento, escalabilidad y seguridad. Aprende sobre las bases de datos globales y sus beneficios."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
@@ -9,9 +9,9 @@ cover: "/assets/blog/editorial-datos-ia.png"
 coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
-  - title: "Cómo Usar AWS Cost Explorer para Tráfico de Red"
+  - title: "Cómo usar AWS Cost Explorer para tráfico de red"
     url: "https://dondeaprendoaws.com/blog/como-usar-aws-cost-explorer-para-trafico-de-red/"
-  - title: "Cómo Usar AWS Transfer Family con Amazon EFS"
+  - title: "Cómo usar AWS Transfer Family con Amazon EFS"
     url: "https://dondeaprendoaws.com/blog/como-usar-aws-transfer-family-con-amazon-efs/"
   - title: "AWS gratis para educadores y estudiantes"
     url: "https://dondeaprendoaws.com/blog/aws-gratis-para-educadores-y-estudiantes/"
@@ -25,7 +25,7 @@ related:
 <p>Las bases de datos globales son importantes porque ayudan a que las apps que usamos en todo el mundo funcionen rápido y sin problemas. Algunas ventajas son:</p>
 <ul><li>Hacen que las apps funcionen rápido en cualquier lugar.</li><li>Ayudan a que los datos estén seguros si pasa algo malo en una región.</li><li>Hacen más fácil manejar datos que están en muchos lugares a la vez.</li></ul>
 <p>Con más apps y servicios que usamos en diferentes países, es más necesario tener bases de datos que puedan trabajar en todo el mundo. Aurora Global Database está hecha para estas necesidades modernas.</p>
-<h2 id="conceptos-b%C3%A1sicos-de-amazon-aurora">Conceptos Básicos de Amazon Aurora</h2>
+<h2 id="conceptos-b%C3%A1sicos-de-amazon-aurora">Conceptos básicos de Amazon Aurora</h2>
 <h3 id="definici%C3%B3n-y-caracter%C3%ADsticas-clave">Definición y características clave</h3>
 <p>Amazon Aurora es un tipo de base de datos que AWS ofrece. Funciona con MySQL y PostgreSQL y está hecho para ser super eficiente en la nube. Ofrece muy buen rendimiento, puede crecer según lo necesites y casi no falla.</p>
 <p>Algunas cosas importantes de Amazon Aurora son:</p>
@@ -34,7 +34,7 @@ related:
 <p>Amazon Aurora es diferente de otros servicios de AWS como:</p>
 <ul><li><strong>Amazon RDS</strong> - Aurora trabaja con lo mismo pero es más rápido, maneja mejor el crecimiento y cambia más rápido si hay problemas.</li><li><strong>Amazon DynamoDB</strong> - DynamoDB es para otro tipo de datos, no como Aurora que es para datos relacionales. DynamoDB ya viene listo para trabajar en varios lugares, Aurora necesita configurar Global Database.</li><li><strong>Amazon DocumentDB</strong> - DocumentDB es para datos NoSQL, mientras que Aurora es para datos SQL. DocumentDB puede crecer en almacenamiento y en capacidad por separado.</li><li><strong>Amazon Redshift</strong> - Redshift es mejor para analizar grandes cantidades de datos. Aurora es mejor para guardar y manejar datos del día a día y también puede hacer análisis.</li><li><strong>Amazon ElastiCache</strong> - ElastiCache es para guardar datos temporalmente para hacer todo más rápido. Aurora es para guardar datos de manera permanente. Puedes usar ambos juntos para mejorar el rendimiento.</li></ul>
 <p>En resumen, Aurora es una buena opción si buscas una base de datos en la nube que sea rápida, que pueda crecer contigo y que siempre esté disponible, todo esto sin gastar mucho dinero. Se diferencia de otras opciones de AWS en lo que ofrece y cómo funciona.</p>
-<h2 id="configuraci%C3%B3n-inicial">Configuración Inicial</h2>
+<h2 id="configuraci%C3%B3n-inicial">Configuración inicial</h2>
 <h3 id="requisitos-previos">Requisitos previos</h3>
 <p>Antes de empezar con tu base de datos global en Amazon Aurora, necesitas tener listo lo siguiente:</p>
 <ul><li>Una cuenta de AWS donde tengas permiso para crear cosas en RDS y VPC.</li><li>Activar la opción que permite que las bases de datos se comuniquen entre diferentes regiones en la consola de RDS.</li><li>Preparar un grupo de subredes en al menos dos regiones de AWS, una será tu región principal y la otra la secundaria.</li><li>Asegurarte de tener configurados los grupos de seguridad en ambas regiones para que las instancias puedan comunicarse entre sí.</li><li>Escoger el mismo tipo de motor de base de datos (puede ser MySQL o PostgreSQL) y usar la misma versión en ambas regiones.</li></ul>
@@ -44,7 +44,7 @@ related:
 <p>Es clave que configures bien los grupos de seguridad y las subredes para que la comunicación entre las regiones funcione sin problemas.</p>
 <p>También es buena idea mantener la misma versión de MySQL o PostgreSQL en ambas regiones para que todo funcione correctamente.</p>
 <p>Siguiendo estos pasos, tendrás una base de datos global de Aurora lista, con una región principal para escribir datos y una secundaria para leer datos rápidamente.</p>
-<h2 id="caracter%C3%ADsticas-principales">Características Principales</h2>
+<h2 id="caracter%C3%ADsticas-principales">Características principales</h2>
 <p>Amazon Aurora global tiene unas funciones muy útiles que la hacen destacar de otras bases de datos:</p>
 <h3 id="acceso-r%C3%A1pido-a-los-datos">Acceso rápido a los datos</h3>
 <ul><li>Con Aurora global, puedes tener copias de tu base de datos en diferentes lugares del mundo.</li><li>Esto significa que la gente puede obtener la información rápido, casi sin esperar, no importa en qué país estén.</li><li>Normalmente, la información se pasa de un lugar a otro en menos de un segundo.</li><li>Esto es genial para aplicaciones que usan gente de muchos lugares porque todos pueden ver los datos rápido.</li></ul>
@@ -52,7 +52,7 @@ related:
 <ul><li>Aurora global está lista para seguir funcionando incluso si hay un problema grande en una región donde AWS trabaja.</li><li>Si pasa algo malo en la región principal, puedes cambiar a una copia de seguridad en otro lugar en menos de un minuto.</li><li>Esto significa que tus datos están seguros y puedes volver a usarlos muy rápido si algo inesperado sucede.</li></ul>
 <h3 id="pagar-solo-por-lo-que-usas">Pagar solo por lo que usas</h3>
 <ul><li>Pagas por cada copia de tu base de datos por separado, según cuánto la uses.</li><li>Esto te permite ajustar las cosas a tu medida, como tener copias más pequeñas en otros lugares solo para cuando la gente quiera leer información.</li><li>No tienes que pagar de más, solo por lo que realmente necesitas.</li></ul>
-<h2 id="implementaci%C3%B3n-y-gesti%C3%B3n">Implementación y Gestión</h2>
+<h2 id="implementaci%C3%B3n-y-gesti%C3%B3n">Implementación y gestión</h2>
 <h3 id="crear-base-de-datos-global-de-aurora-postgresql">Crear base de datos global de Aurora PostgreSQL</h3>
 <p>Para poner en marcha una base de datos global que use Aurora y sea compatible con PostgreSQL, haz lo siguiente:</p>
 <ul><li>Entra a tu cuenta de AWS y busca la consola de RDS.</li><li>Selecciona la región de AWS donde quieras que esté tu base de datos principal.</li><li>Dale clic a "Crear base de datos" y elige "Amazon Aurora con compatibilidad con PostgreSQL".</li><li>Ajusta los detalles de tu clúster principal como normalmente lo haces, incluyendo el tipo de instancia y el espacio de almacenamiento.</li><li>Después de crear el clúster principal, ve a "Conectividad y seguridad" y activa la opción "Global Database".</li><li>Escoge una segunda región de AWS y crea ahí tu clúster secundario.</li><li>Espera a que termine de crearse. ¡Listo! Ya tienes una base de datos global de Aurora PostgreSQL.</li></ul>
@@ -63,7 +63,7 @@ related:
 <p>Para ahorrar, puedes tener un clúster secundario sin una instancia de base de datos activa. Así se hace:</p>
 <ul><li>Crea tu base de datos global de Aurora y el clúster secundario como normalmente.</li><li>Después, haz clic derecho en el clúster secundario y elige "Modificar".</li><li>En la sección de "Bases de datos", cambia el número de instancias a 0.</li><li>Esto quitará la instancia activa pero dejará el clúster para la replicación de datos.</li><li>Si necesitas leer datos, solo tendrás que activar una instancia en el clúster secundario cuando sea necesario.</li></ul>
 <p>De esta forma, puedes mantener tus datos accesibles globalmente sin gastar de más.</p>
-<h2 id="alta-disponibilidad-vs-disponibilidad-continua">Alta Disponibilidad vs Disponibilidad Continua</h2>
+<h2 id="alta-disponibilidad-vs-disponibilidad-continua">Alta disponibilidad vs disponibilidad continua</h2>
 <h3 id="alta-disponibilidad">Alta disponibilidad</h3>
 <p>Amazon Aurora te ayuda a mantener tu base de datos siempre en línea al usar varias zonas dentro de una misma región de AWS. Si algo sale mal en una zona, Aurora cambia rápidamente a otra zona para que todo siga funcionando sin que casi lo notes.</p>
 <p><strong>Lo bueno:</strong></p>
@@ -78,7 +78,7 @@ related:
 <ul><li>Necesitas hacer más configuraciones y mantenimiento.</li><li>Puede que los datos tarden un poco más en llegar si los pides desde la región secundaria.</li></ul>
 <h3 id="tabla-comparativa">Tabla comparativa</h3>
 <table><thead><tr><th>Característica</th><th>Alta Disponibilidad</th><th>Disponibilidad Continua</th></tr></thead><tbody><tr><td>Descripción</td><td>Uso de varias zonas dentro de una región</td><td>Uso de varias regiones</td></tr><tr><td>Ventajas</td><td>No te quedas sin servicio por problemas de zona El cambio de zona es muy rápido</td><td>Estás protegido contra problemas grandes en una región Puedes volver a estar en línea rápidamente</td></tr><tr><td>Desventajas</td><td>No ayuda contra problemas de toda la región</td><td>Necesitas configurar más cosas Los datos pueden tardar un poco más en la región secundaria</td></tr></tbody></table>
-<h2 id="casos-de-uso-y-mejores-pr%C3%A1cticas">Casos de Uso y Mejores Prácticas</h2>
+<h2 id="casos-de-uso-y-mejores-pr%C3%A1cticas">Casos de uso y mejores prácticas</h2>
 <h3 id="casos-de-uso">Casos de uso</h3>
 <p>Las <a href="https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-global-database.html">bases de datos globales de Amazon Aurora</a> son perfectas para aplicaciones que se usan en todo el mundo y que necesitan:</p>
 <ul><li><strong>Acceder rápido a los datos desde cualquier lugar</strong>: Juegos en línea, apps de finanzas y tiendas en línea necesitan que los usuarios puedan ver la información rápido, sin importar dónde estén.</li><li><strong>Seguir funcionando si hay un problema grande en una región</strong>: Aplicaciones muy importantes, como las de bancos o aerolíneas, tienen que estar disponibles siempre, incluso si hay un fallo grande en una parte del mundo.</li><li><strong>Juntar datos de muchos lugares fácilmente</strong>: Tiendas, aseguradoras o hoteles pueden unir información de diferentes países en una sola base de datos, sin complicaciones.</li><li><strong>Analizar datos de todo el mundo al instante</strong>: Servicios de streaming, juegos y tiendas pueden revisar y entender sus datos globales rápido.</li></ul>
@@ -86,7 +86,7 @@ related:
 <p>Aquí van algunos consejos para usar bien las bases de datos globales de Aurora:</p>
 <ul><li>Mantén un ojo en cómo se pasan los datos de una región a otra para evitar problemas.</li><li>En la región secundaria, usa versiones más pequeñas de Aurora si solo la necesitas para leer datos.</li><li>Pon alertas para avisarte si hay retrasos en la replicación o problemas de conexión.</li><li>Prueba de vez en cuando cambiar de región principal para asegurarte de que todo funciona bien.</li><li>Guarda tus datos de forma segura usando cifrado.</li><li>Usa la función de Aurora que permite hacer consultas rápidas para analizar tus datos más rápido.</li><li>Revisa los registros para mantener un control y seguir lo que pasa con tus datos.</li></ul>
 <p>Siguiendo estos consejos, tus aplicaciones globales en Aurora van a funcionar mejor, estarán más seguras y disponibles.</p>
-<h2 id="seguridad-y-cumplimiento">Seguridad y Cumplimiento</h2>
+<h2 id="seguridad-y-cumplimiento">Seguridad y cumplimiento</h2>
 <h3 id="seguridad">Seguridad</h3>
 <p>Mantener tus datos seguros en Aurora es clave. Aquí te dejamos algunos consejos sencillos:</p>
 <ul><li>Asegúrate de que tus datos estén cifrados cuando se guarden y cuando se envíen. Aurora usa un cifrado fuerte y también te permite usar AWS KMS.</li><li>Limita quién puede acceder a tus bases de datos usando grupos de seguridad, reglas de IAM y de VPC.</li><li>Activa el registro para llevar un control de quién accede y qué hace.</li><li>No olvides hacer pruebas para buscar vulnerabilidades.</li><li>Mantén tu sistema al día con las últimas actualizaciones de seguridad.</li><li>Establece alertas para avisarte si algo raro pasa.</li></ul>
@@ -94,7 +94,7 @@ related:
 <p>Aurora cumple con varios requisitos importantes de seguridad:</p>
 <ul><li>HIPAA</li><li>PCI DSS</li><li>SOC 1/SOC 2/SOC 3</li><li>ISO 9001/27001</li><li>GDPR</li></ul>
 <p>Esto quiere decir que puedes usar Aurora para aplicaciones que necesitan seguir reglas estrictas de seguridad, como las de bancos, hospitales o tiendas en línea. AWS te ayuda a cumplir con estas normas gracias a sus controles de seguridad.</p>
-<h2 id="herramientas-y-recursos-adicionales">Herramientas y Recursos Adicionales</h2>
+<h2 id="herramientas-y-recursos-adicionales">Herramientas y recursos adicionales</h2>
 <h3 id="herramientas-de-gesti%C3%B3n-y-monitoreo">Herramientas de gestión y monitoreo</h3>
 <ul><li><strong>Amazon RDS Performance Insights</strong> - Te ayuda a ver cómo está funcionando tu base de datos de Aurora, incluidas las que son globales. Es como tener un chequeo de salud para tus datos.</li><li><strong>CloudWatch</strong> - Es una herramienta de AWS para mantener un ojo en cómo funcionan tus aplicaciones y recursos. Es muy útil para estar al tanto de cómo van tus bases de datos globales.</li><li><strong>AWS CLI</strong> - Es una herramienta que te permite manejar tus recursos de AWS desde la línea de comandos. Esto significa que puedes programar y automatizar tareas para tus bases de datos globales sin tener que hacerlo manualmente.</li></ul>
 <h3 id="recursos-de-aprendizaje">Recursos de aprendizaje</h3>
@@ -105,10 +105,10 @@ related:
 <p>Otro punto a destacar es la facilidad de manejo y configuración. Aunque suene complicado tener una base de datos global, Aurora hace que este proceso sea más sencillo, permitiéndote concentrarte en lo realmente importante: tu aplicación o servicio. Además, con opciones como Aurora Serverless, puedes ajustar los recursos automáticamente según la demanda, lo que significa que no pagas de más.</p>
 <p>La integración con otros servicios de AWS como Amazon RDS para MySQL o PostgreSQL, y Amazon DocumentDB, añade una capa extra de versatilidad, permitiéndote elegir la mejor configuración para tus necesidades específicas. Ya sea que necesites una base de datos que soporte MySQL, PostgreSQL, o incluso un enfoque NoSQL con DocumentDB, Aurora te tiene cubierto.</p>
 <p>En resumen, Amazon Aurora ofrece una solución robusta, eficiente y segura para manejar bases de datos globales. Ya sea que estés buscando mejorar la experiencia de tus usuarios alrededor del mundo, asegurar la continuidad de tu servicio ante cualquier eventualidad, o simplemente manejar tus datos de manera más eficiente, Aurora es una opción que definitivamente vale la pena considerar.</p>
-<h2 id="preguntas-relacionadas">Preguntas Relacionadas</h2>
+<h2 id="preguntas-relacionadas">Preguntas relacionadas</h2>
 <h3 id="%C2%BFqu%C3%A9-es-aurora-mysql%3F">¿Qué es Aurora MySQL?</h3>
 <p>Amazon Aurora es una base de datos especial para la nube que trabaja muy bien con MySQL y PostgreSQL. Es mucho más rápido que MySQL normal y no cuesta tanto. Además, se puede ajustar automáticamente para manejar más o menos datos según lo que necesites.</p>
 <h3 id="%C2%BFqu%C3%A9-hace-amazon-rds%3F">¿Qué hace Amazon RDS?</h3>
 <p>Amazon RDS es un servicio que te ayuda a usar bases de datos como MySQL, PostgreSQL, Oracle, SQL Server y MariaDB en la nube. Hace más fácil empezar a usar bases de datos, manejarlas y hacerlas crecer. Se ocupa de cosas técnicas como configurar tu base de datos, mantenerla actualizada y hacer copias de seguridad para que no pierdas tus datos.</p>
 <h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/bases-de-datos-relacionales-en-aws-con-amazon-rds-y-amazon-aurora/">Bases de datos Relacionales en AWS con Amazon RDS y Amazon Aurora</a></li><li><a href="https://dondeaprendoaws.com/blog/tipos-de-instancia-en-amazon-rds-y-amazon-aurora/">Tipos de Instancia en Amazon RDS y Amazon Aurora</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-bases-de-datos-introduccion-basica/">Bases de Datos en AWS: introducción básica</a></li><li><a href="https://dondeaprendoaws.com/blog/tipos-y-tamanos-de-instancias-rds-guia-completa/">Tipos y Tamaños de Instancias RDS: Guía Completa</a></li></ul>
+<ul><li><a href="https://dondeaprendoaws.com/blog/bases-de-datos-relacionales-en-aws-con-amazon-rds-y-amazon-aurora/">Bases de datos relacionales en AWS con Amazon RDS y Amazon Aurora</a></li><li><a href="https://dondeaprendoaws.com/blog/tipos-de-instancia-en-amazon-rds-y-amazon-aurora/">Tipos de instancia en Amazon RDS y Amazon Aurora</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-bases-de-datos-introduccion-basica/">bases de datos en AWS: introducción básica</a></li><li><a href="https://dondeaprendoaws.com/blog/tipos-y-tamanos-de-instancias-rds-guia-completa/">Tipos y tamaños de instancias RDS: guía completa</a></li></ul>

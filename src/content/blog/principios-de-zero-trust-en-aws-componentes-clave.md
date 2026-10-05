@@ -1,5 +1,5 @@
 ---
-title: "Principios de Zero Trust en AWS: Componentes Clave"
+title: "Principios de Zero Trust en AWS: componentes clave"
 description: "Descubre cómo implementar Zero Trust en AWS, protegiendo identidades, redes y datos con medidas efectivas y herramientas clave."
 author: "guille-ojeda"
 publishedAt: "2024-10-26"
@@ -8,11 +8,11 @@ cover: "/assets/blog/editorial-seguridad.png"
 coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-seguridad.png"
 related:
-  - title: "Guía de AWS Wavelength: Zonas y Despliegue"
+  - title: "Guía de AWS Wavelength: zonas y despliegue"
     url: "https://dondeaprendoaws.com/blog/guia-de-aws-wavelength-zonas-y-despliegue/"
-  - title: "10 Laboratorios Prácticos de AWS para Principiantes"
+  - title: "10 laboratorios prácticos de AWS para principiantes"
     url: "https://dondeaprendoaws.com/blog/10-laboratorios-practicos-de-aws-para-principiantes/"
-  - title: "9 Mejores Prácticas de Seguridad para IaC en AWS"
+  - title: "9 mejores prácticas de seguridad para IaC en AWS"
     url: "https://dondeaprendoaws.com/blog/9-mejores-practicas-de-seguridad-para-iac-en-aws/"
 
 ---
@@ -204,7 +204,7 @@ related:
 <p>AWS verifica cada petición API por separado, sin importar su origen. Es Zero Trust en acción.</p>
 
 
-<h2 class="sb" id="configuraci%C3%B3n-de-identidad-y-acceso-en-aws" tabindex="-1">Configuración de Identidad y Acceso en <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a></h2>
+<h2 class="sb" id="configuraci%C3%B3n-de-identidad-y-acceso-en-aws" tabindex="-1">Configuración de identidad y acceso en <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a></h2>
 
 
 <p><figure><img alt="AWS" src="/assets/blog/2ebe3cf8e7ae57e98d3af846.jpg"/></figure></p>
@@ -213,7 +213,7 @@ related:
 <p>IAM es tu centro de control de <a href="https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/">seguridad en AWS</a>. Vamos a ver cómo configurarlo de manera simple y efectiva.</p>
 
 
-<h3 id="primeros-pasos-con-aws-iam" tabindex="-1">Primeros Pasos con AWS IAM</h3>
+<h3 id="primeros-pasos-con-aws-iam" tabindex="-1">Primeros pasos con AWS IAM</h3>
 
 
 <p>IAM te permite controlar el acceso a AWS. Es como un portero que decide quién entra y qué puede hacer:</p>
@@ -247,7 +247,7 @@ related:
 </table></figure>
 
 
-<h3 id="configuraci%C3%B3n-de-single-sign-on" tabindex="-1">Configuración de Single Sign-On</h3>
+<h3 id="configuraci%C3%B3n-de-single-sign-on" tabindex="-1">Configuración de single sign-on</h3>
 
 
 <p>SSO hace tu vida más fácil cuando manejas varias <a href="https://dondeaprendoaws.com/blog/aws-gratis-para-educadores-y-estudiantes/">cuentas AWS</a>:</p>
@@ -277,7 +277,7 @@ related:
 </table></figure>
 
 
-<h3 id="a%C3%B1adiendo-autenticaci%C3%B3n-multi-factor" tabindex="-1">Añadiendo Autenticación Multi-Factor</h3>
+<h3 id="a%C3%B1adiendo-autenticaci%C3%B3n-multi-factor" tabindex="-1">Añadiendo autenticación multi-factor</h3>
 
 
 <p>MFA no es opcional - es NECESARIO. AWS te da estas opciones:</p>
@@ -312,7 +312,7 @@ related:
 </blockquote>
 
 
-<h3 id="uso-de-roles-aws" tabindex="-1">Uso de Roles AWS</h3>
+<h3 id="uso-de-roles-aws" tabindex="-1">Uso de roles AWS</h3>
 
 
 <p>Los roles son mejores que las claves fijas:</p>
@@ -342,7 +342,7 @@ related:
 </table></figure>
 
 
-<h3 id="conexi%C3%B3n-con-sistemas-externos" tabindex="-1">Conexión con Sistemas Externos</h3>
+<h3 id="conexi%C3%B3n-con-sistemas-externos" tabindex="-1">Conexión con sistemas externos</h3>
 
 
 <p>AWS se conecta con otros sistemas así:</p>
@@ -392,7 +392,7 @@ related:
 <p>Visita <a href="https://dondeaprendoaws.com">Dónde Aprendo AWS</a> para más guías de IAM en español.</p>
 
 
-<h2 class="sb" id="configuraci%C3%B3n-de-seguridad-de-red" tabindex="-1">Configuración de Seguridad de Red</h2>
+<h2 class="sb" id="configuraci%C3%B3n-de-seguridad-de-red" tabindex="-1">Configuración de seguridad de red</h2>
 
 
 <p>AWS ofrece varias herramientas para proteger tu red. Aquí está lo que necesitas saber:</p>
@@ -431,7 +431,7 @@ related:
 </table></figure>
 
 
-<h3 id="grupos-de-seguridad-vs-nacl" tabindex="-1">Grupos de Seguridad vs NACL</h3>
+<h3 id="grupos-de-seguridad-vs-nacl" tabindex="-1">Grupos de seguridad vs NACL</h3>
 
 
 <p>Los Grupos de Seguridad y NACL son diferentes. Así funcionan:</p>
@@ -506,7 +506,7 @@ related:
 </table></figure>
 
 
-<h3 id="capas-de-protecci%C3%B3n" tabindex="-1">Capas de Protección</h3>
+<h3 id="capas-de-protecci%C3%B3n" tabindex="-1">Capas de protección</h3>
 
 
 <p>AWS usa un modelo de defensa en capas:</p>
@@ -551,7 +551,7 @@ related:
 </ul>
 
 
-<h3 id="vpcs-y-micro-segmentaci%C3%B3n" tabindex="-1">VPCs y Micro-segmentación</h3>
+<h3 id="vpcs-y-micro-segmentaci%C3%B3n" tabindex="-1">VPCs y micro-segmentación</h3>
 
 
 <figure class="table"><table>
@@ -596,7 +596,7 @@ related:
 <p>No confíes solo en la ubicación de red para la seguridad. Zero Trust requiere más controles.</p>
 
 
-<h2 class="sb" id="seguridad-y-cifrado-de-datos" tabindex="-1">Seguridad y Cifrado de Datos</h2>
+<h2 class="sb" id="seguridad-y-cifrado-de-datos" tabindex="-1">Seguridad y cifrado de datos</h2>
 
 
 <p>El <a href="https://dondeaprendoaws.com/blog/cifrado-de-datos-con-aws-kms-guia-practica/">cifrado en AWS</a> funciona en dos niveles: cuando los datos viajan y cuando están guardados.</p>
@@ -625,7 +625,7 @@ related:
 </table></figure>
 
 
-<h3 id="aws-kms%3A-lo-b%C3%A1sico" tabindex="-1">AWS KMS: Lo Básico</h3>
+<h3 id="aws-kms%3A-lo-b%C3%A1sico" tabindex="-1">AWS KMS: lo básico</h3>
 
 
 <p>KMS te da 3 opciones para manejar tus claves:</p>
@@ -670,7 +670,7 @@ related:
 </ul>
 
 
-<h3 id="secrets-manager%3A-guarda-tus-secretos" tabindex="-1">Secrets Manager: Guarda Tus Secretos</h3>
+<h3 id="secrets-manager%3A-guarda-tus-secretos" tabindex="-1">Secrets Manager: guarda tus secretos</h3>
 
 
 <figure class="table"><table>
@@ -712,7 +712,7 @@ related:
 </ul>
 
 
-<h3 id="encryptioncontext%3A-m%C3%A1s-control" tabindex="-1">EncryptionContext: Más Control</h3>
+<h3 id="encryptioncontext%3A-m%C3%A1s-control" tabindex="-1">EncryptionContext: más control</h3>
 
 
 <figure class="table"><table>
@@ -750,7 +750,7 @@ related:
 </ul>
 
 
-<h3 id="organiza-tus-datos" tabindex="-1">Organiza Tus Datos</h3>
+<h3 id="organiza-tus-datos" tabindex="-1">Organiza tus datos</h3>
 
 
 <figure class="table"><table>
@@ -795,7 +795,7 @@ related:
 <p>No basta con muros. En Zero Trust, cada dato necesita su propia protección.</p>
 
 
-<h2 class="sb" id="herramientas-de-monitoreo-de-seguridad" tabindex="-1">Herramientas de Monitoreo de Seguridad</h2>
+<h2 class="sb" id="herramientas-de-monitoreo-de-seguridad" tabindex="-1">Herramientas de monitoreo de seguridad</h2>
 
 
 <p>AWS tiene 3 herramientas clave para ver lo que pasa en tu cuenta:</p>
@@ -829,7 +829,7 @@ related:
 </table></figure>
 
 
-<h3 id="cloudwatch%3A-tu-panel-de-control" tabindex="-1">CloudWatch: Tu Panel de Control</h3>
+<h3 id="cloudwatch%3A-tu-panel-de-control" tabindex="-1">CloudWatch: tu panel de control</h3>
 
 
 <p>CloudWatch es como tener cámaras de seguridad en tu cuenta AWS. Ve TODO:</p>
@@ -843,7 +843,7 @@ related:
 </ul>
 
 
-<h3 id="guardduty%3A-tu-detective-digital" tabindex="-1">GuardDuty: Tu Detective Digital</h3>
+<h3 id="guardduty%3A-tu-detective-digital" tabindex="-1">GuardDuty: tu detective digital</h3>
 
 
 <p>GuardDuty mira 3 cosas:</p>
@@ -884,7 +884,7 @@ related:
 </ul>
 
 
-<h3 id="security-hub%3A-todo-en-un-vistazo" tabindex="-1">Security Hub: Todo en Un Vistazo</h3>
+<h3 id="security-hub%3A-todo-en-un-vistazo" tabindex="-1">Security Hub: todo en un vistazo</h3>
 
 
 <p>Security Hub ordena los problemas así:</p>
@@ -933,7 +933,7 @@ related:
 </ul>
 
 
-<h3 id="c%C3%B3mo-trabajan-juntas" tabindex="-1">Cómo Trabajan Juntas</h3>
+<h3 id="c%C3%B3mo-trabajan-juntas" tabindex="-1">Cómo trabajan juntas</h3>
 
 
 <figure class="table"><table>
@@ -972,13 +972,13 @@ related:
 <p>En Zero Trust, estas herramientas son tus ojos y oídos. No solo ven problemas - te ayudan a resolverlos RÁPIDO.</p>
 
 
-<h2 class="sb" id="gesti%C3%B3n-de-permisos" tabindex="-1">Gestión de Permisos</h2>
+<h2 class="sb" id="gesti%C3%B3n-de-permisos" tabindex="-1">Gestión de permisos</h2>
 
 
 <p>Los permisos en AWS son la base de Zero Trust. Veamos cómo implementarlos correctamente.</p>
 
 
-<h3 id="pol%C3%ADticas-iam-b%C3%A1sicas" tabindex="-1">Políticas IAM Básicas</h3>
+<h3 id="pol%C3%ADticas-iam-b%C3%A1sicas" tabindex="-1">Políticas IAM básicas</h3>
 
 
 <p>AWS ofrece 4 tipos principales de políticas:</p>
@@ -1017,7 +1017,7 @@ related:
 </table></figure>
 
 
-<h3 id="permisos-m%C3%ADnimos" tabindex="-1">Permisos Mínimos</h3>
+<h3 id="permisos-m%C3%ADnimos" tabindex="-1">Permisos mínimos</h3>
 
 
 <p>¿Cómo dar <strong>solo</strong> los permisos necesarios?</p>
@@ -1042,7 +1042,7 @@ related:
 </code></pre>
 
 
-<h3 id="control-de-acceso" tabindex="-1">Control de Acceso</h3>
+<h3 id="control-de-acceso" tabindex="-1">Control de acceso</h3>
 
 
 <figure class="table"><table>
@@ -1073,7 +1073,7 @@ related:
 </table></figure>
 
 
-<h3 id="tipos-de-acceso" tabindex="-1">Tipos de Acceso</h3>
+<h3 id="tipos-de-acceso" tabindex="-1">Tipos de acceso</h3>
 
 
 <figure class="table"><table>
@@ -1104,7 +1104,7 @@ related:
 </blockquote>
 
 
-<h3 id="medidas-de-seguridad" tabindex="-1">Medidas de Seguridad</h3>
+<h3 id="medidas-de-seguridad" tabindex="-1">Medidas de seguridad</h3>
 
 
 <ul>
@@ -1116,7 +1116,7 @@ related:
 </ul>
 
 
-<h3 id="acceso-de-emergencia" tabindex="-1">Acceso de Emergencia</h3>
+<h3 id="acceso-de-emergencia" tabindex="-1">Acceso de emergencia</h3>
 
 
 <figure class="table"><table>
@@ -1158,7 +1158,7 @@ related:
 </ul>
 
 
-<h2 class="sb" id="seguridad-de-dispositivos" tabindex="-1">Seguridad de Dispositivos</h2>
+<h2 class="sb" id="seguridad-de-dispositivos" tabindex="-1">Seguridad de dispositivos</h2>
 
 
 <p>AWS Systems Manager es tu centro de control para proteger dispositivos en Zero Trust. Así funciona:</p>
@@ -1197,7 +1197,7 @@ related:
 </table></figure>
 
 
-<h3 id="monitoreo-y-cumplimiento" tabindex="-1">Monitoreo y Cumplimiento</h3>
+<h3 id="monitoreo-y-cumplimiento" tabindex="-1">Monitoreo y cumplimiento</h3>
 
 
 <p>AWS te da herramientas para ver TODO lo que pasa:</p>
@@ -1211,7 +1211,7 @@ related:
 </ul>
 
 
-<h3 id="protecci%C3%B3n-de-endpoints" tabindex="-1">Protección de Endpoints</h3>
+<h3 id="protecci%C3%B3n-de-endpoints" tabindex="-1">Protección de endpoints</h3>
 
 
 <p>Los datos de 2022 son claros: el phishing y el robo de credenciales causan la mayoría de los problemas. Aquí está el plan:</p>
@@ -1255,7 +1255,7 @@ related:
 </blockquote>
 
 
-<h3 id="lo-b%C3%A1sico-que-necesitas" tabindex="-1">Lo Básico que Necesitas</h3>
+<h3 id="lo-b%C3%A1sico-que-necesitas" tabindex="-1">Lo básico que necesitas</h3>
 
 
 <ul>
@@ -1306,7 +1306,7 @@ related:
 <p>Con esto, cada dispositivo pasa por filtros Zero Trust antes de tocar recursos AWS.</p>
 
 
-<h2 class="sb" id="haciendo-las-aplicaciones-seguras" tabindex="-1">Haciendo las Aplicaciones Seguras</h2>
+<h2 class="sb" id="haciendo-las-aplicaciones-seguras" tabindex="-1">Haciendo las aplicaciones seguras</h2>
 
 
 <p>AWS te da todo lo que necesitas para proteger tus apps. Así funciona:</p>
@@ -1345,7 +1345,7 @@ related:
 </table></figure>
 
 
-<h3 id="waf%3A-tu-primera-l%C3%ADnea-de-defensa" tabindex="-1">WAF: Tu Primera Línea de Defensa</h3>
+<h3 id="waf%3A-tu-primera-l%C3%ADnea-de-defensa" tabindex="-1">WAF: tu primera línea de defensa</h3>
 
 
 <p>WAF es como un guardia de seguridad para tu app. Mira esto:</p>
@@ -1384,7 +1384,7 @@ related:
 </table></figure>
 
 
-<h3 id="capas-que-necesitas" tabindex="-1">Capas que Necesitas</h3>
+<h3 id="capas-que-necesitas" tabindex="-1">Capas que necesitas</h3>
 
 
 <p>Piensa en la seguridad como una cebolla - tiene capas:</p>
@@ -1423,7 +1423,7 @@ related:
 </table></figure>
 
 
-<h3 id="ve-todo%2C-responde-r%C3%A1pido" tabindex="-1">Ve Todo, Responde Rápido</h3>
+<h3 id="ve-todo%2C-responde-r%C3%A1pido" tabindex="-1">Ve todo, responde rápido</h3>
 
 
 <figure class="table"><table>
@@ -1459,7 +1459,7 @@ related:
 </table></figure>
 
 
-<h3 id="ponlo-en-marcha" tabindex="-1">Ponlo en Marcha</h3>
+<h3 id="ponlo-en-marcha" tabindex="-1">Ponlo en marcha</h3>
 
 
 <p>1. <strong>WAF Primero</strong></p>
@@ -1480,7 +1480,7 @@ related:
 <p>Standard para empezar. Advanced si manejas datos críticos.</p>
 
 
-<h3 id="lo-b%C3%A1sico-que-no-puede-faltar" tabindex="-1">Lo Básico que No Puede Faltar</h3>
+<h3 id="lo-b%C3%A1sico-que-no-puede-faltar" tabindex="-1">Lo básico que no puede faltar</h3>
 
 
 <figure class="table"><table>
@@ -1695,7 +1695,7 @@ related:
 </table></figure>
 
 
-<h3 id="lo-b%C3%A1sico-para-empezar" tabindex="-1">Lo Básico para Empezar</h3>
+<h3 id="lo-b%C3%A1sico-para-empezar" tabindex="-1">Lo básico para empezar</h3>
 
 
 <figure class="table"><table>
@@ -1734,7 +1734,7 @@ related:
 <p>En Zero Trust, la desconfianza es tu mejor amiga. Cada acceso se verifica, cada conexión se prueba, cada usuario se autentica. Sin excepciones.</p>
 
 
-<h2 class="sb" id="consejos-para-el-%C3%A9xito" tabindex="-1">Consejos para el Éxito</h2>
+<h2 class="sb" id="consejos-para-el-%C3%A9xito" tabindex="-1">Consejos para el éxito</h2>
 
 
 <p>La implementación de Zero Trust en AWS requiere un enfoque estructurado. Aquí están los elementos clave:</p>
@@ -1756,7 +1756,7 @@ related:
 </tr>
 <tr>
 <td>Datos</td>
-<td><a href="https://dondeaprendoaws.com/blog/seguridad-en-la-nube-aws-estrategias-clave/">Cifrado con AWS KMS</a></td>
+<td><a href="https://dondeaprendoaws.com/blog/seguridad-en-la-nube-aws-estrategias-clave/">cifrado con AWS KMS</a></td>
 <td>Protección de información</td>
 </tr>
 <tr>
@@ -1778,7 +1778,7 @@ related:
 </table></figure>
 
 
-<h3 id="acciones-diarias" tabindex="-1">Acciones Diarias</h3>
+<h3 id="acciones-diarias" tabindex="-1">Acciones diarias</h3>
 
 
 <figure class="table"><table>
@@ -1819,7 +1819,7 @@ related:
 </table></figure>
 
 
-<h3 id="elementos-base" tabindex="-1">Elementos Base</h3>
+<h3 id="elementos-base" tabindex="-1">Elementos base</h3>
 
 
 <figure class="table"><table>
@@ -1912,7 +1912,7 @@ related:
 <p>En Zero Trust: verifica cada acceso, prueba cada conexión, autentica cada usuario. Sin excepciones.</p>
 
 
-<h2 class="sb" id="soluci%C3%B3n-de-problemas-comunes" tabindex="-1">Solución de Problemas Comunes</h2>
+<h2 class="sb" id="soluci%C3%B3n-de-problemas-comunes" tabindex="-1">Solución de problemas comunes</h2>
 
 
 <figure class="table"><table>
@@ -1956,7 +1956,7 @@ related:
 <p>¿Te has encontrado con problemas de acceso en AWS? No estás solo. Vamos a ver cómo solucionarlos.</p>
 
 
-<h3 id="errores-en-pol%C3%ADticas%3A-lo-que-debes-saber" tabindex="-1">Errores en Políticas: Lo Que Debes Saber</h3>
+<h3 id="errores-en-pol%C3%ADticas%3A-lo-que-debes-saber" tabindex="-1">Errores en políticas: lo que debes saber</h3>
 
 
 <p>Los errores más comunes que vemos (y cómo arreglarlos):</p>
@@ -1995,7 +1995,7 @@ related:
 </table></figure>
 
 
-<h3 id="respuesta-a-incidentes%3A-plan-de-acci%C3%B3n" tabindex="-1">Respuesta a Incidentes: Plan de Acción</h3>
+<h3 id="respuesta-a-incidentes%3A-plan-de-acci%C3%B3n" tabindex="-1">Respuesta a incidentes: plan de acción</h3>
 
 
 <p>Aquí está el plan paso a paso:</p>
@@ -2042,7 +2042,7 @@ related:
 <p>¿Sabías que una brecha de datos puede costar $3M+? (Datos de IBM)</p>
 
 
-<h3 id="automatizaci%C3%B3n%3A-tu-primera-l%C3%ADnea-de-defensa" tabindex="-1">Automatización: Tu Primera Línea de Defensa</h3>
+<h3 id="automatizaci%C3%B3n%3A-tu-primera-l%C3%ADnea-de-defensa" tabindex="-1">Automatización: tu primera línea de defensa</h3>
 
 
 <figure class="table"><table>
@@ -2095,7 +2095,7 @@ related:
 </ul>
 
 
-<h2 class="sb" id="puntos-clave-para-recordar" tabindex="-1">Puntos Clave para Recordar</h2>
+<h2 class="sb" id="puntos-clave-para-recordar" tabindex="-1">Puntos clave para recordar</h2>
 
 
 <figure class="table"><table>
@@ -2319,7 +2319,7 @@ related:
 </table></figure>
 
 
-<h2 class="sb" id="preguntas-frecuentes" tabindex="-1">Preguntas Frecuentes</h2>
+<h2 class="sb" id="preguntas-frecuentes" tabindex="-1">Preguntas frecuentes</h2>
 
 
 <h3 id="%C2%BFqu%C3%A9-elementos-forman-parte-de-zero-trust%3F" tabindex="-1">¿Qué elementos forman parte de Zero Trust?</h3>
@@ -2397,6 +2397,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS Seguridad: Fundamentos Esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">Seguridad en AWS: Servicios Esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/seguridad-en-la-nube-aws-estrategias-clave/">Seguridad en la nube AWS: Estrategias clave</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores Prácticas de Seguridad en AWS</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS seguridad: fundamentos esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">seguridad en AWS: servicios esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/seguridad-en-la-nube-aws-estrategias-clave/">Seguridad en la nube AWS: estrategias clave</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores prácticas de seguridad en AWS</a></li>
 </ul>
 </p>

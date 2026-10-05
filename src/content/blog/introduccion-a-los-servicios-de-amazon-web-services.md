@@ -8,11 +8,11 @@ cover: "/assets/blog/editorial-fundamentos.png"
 coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
 ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
-  - title: "5 Lecciones Clave del AWS Public Sector Summit 2024"
+  - title: "5 lecciones clave del AWS Public Sector Summit 2024"
     url: "https://dondeaprendoaws.com/blog/5-lecciones-clave-del-aws-public-sector-summit-2024/"
-  - title: "Recursos en Español para Certificacion AWS Cloud Practitioner"
+  - title: "Recursos en español para certificacion AWS Cloud Practitioner"
     url: "https://dondeaprendoaws.com/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/"
-  - title: "Certificaciones AWS: Por Dónde Empezar"
+  - title: "Certificaciones AWS: por dónde empezar"
     url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-de-inicio/"
 
 ---
@@ -26,7 +26,7 @@ related:
 <p>En esta guía introductoria explicaremos de forma sencilla los conceptos básicos detrás de AWS, sus principales servicios en la nube y cómo empezar a utilizarlos de forma práctica.</p>
 
 
-<h2 id="bienvenidos-al-mundo-de-aws%3A-una-introducci%C3%B3n-a-los-servicios-de-amazon-web-services" tabindex="-1">Bienvenidos al mundo de AWS: Una introducción a los servicios de Amazon Web Services</h2>
+<h2 id="bienvenidos-al-mundo-de-aws%3A-una-introducci%C3%B3n-a-los-servicios-de-amazon-web-services" tabindex="-1">Bienvenidos al mundo de AWS: una introducción a los servicios de Amazon Web Services</h2>
 
 
 <p>AWS ha revolucionado la forma en que las empresas acceden a recursos informáticos, almacenamiento y redes. Ofrece más de 200 servicios en la nube que permiten a las organizaciones escalar rápidamente sin tener que invertir en infraestructura física.</p>
@@ -87,7 +87,7 @@ related:
 </ul>
 
 
-<h3 id="accediendo-a-aws%3A-la-aws-console" tabindex="-1">Accediendo a AWS: La AWS Console</h3>
+<h3 id="accediendo-a-aws%3A-la-aws-console" tabindex="-1">Accediendo a AWS: la AWS Console</h3>
 
 
 <p>La AWS Management Console es una interfaz basada en la web que permite acceder y configurar servicios de AWS sin necesidad de conocimientos técnicos profundos.</p>
@@ -162,7 +162,7 @@ related:
 </ul>
 
 
-<h4 id="machine-learning" tabindex="-1">Machine Learning</h4>
+<h4 id="machine-learning" tabindex="-1">Machine learning</h4>
 
 
 <ul>
@@ -276,13 +276,13 @@ related:
 
 
 
-<h2 id="fundamentos-de-aws%3A-comprender-la-infraestructura-de-cloud-computing" tabindex="-1">Fundamentos de AWS: Comprender la Infraestructura de Cloud Computing</h2>
+<h2 id="fundamentos-de-aws%3A-comprender-la-infraestructura-de-cloud-computing" tabindex="-1">Fundamentos de AWS: comprender la infraestructura de cloud computing</h2>
 
 
 <p>La infraestructura de AWS está diseñada para proporcionar alta disponibilidad y escalabilidad para los servicios en la nube. Esto se logra mediante regiones y zonas de disponibilidad.</p>
 
 
-<h3 id="regiones-y-zonas-de-disponibilidad-en-aws" tabindex="-1">Regiones y Zonas de Disponibilidad en AWS</h3>
+<h3 id="regiones-y-zonas-de-disponibilidad-en-aws" tabindex="-1">Regiones y zonas de disponibilidad en AWS</h3>
 
 
 <p>Las <strong>regiones de AWS</strong> son ubicaciones geográficas separadas que constan de zonas de disponibilidad. Cada región es completamente independiente de las otras y tiene su propia infraestructura. Esto proporciona aislamiento y redundancia.</p>
@@ -294,7 +294,7 @@ related:
 <p>Al implementar aplicaciones en varias zonas de disponibilidad, se logra mayor tolerancia a fallas y disponibilidad. Si una zona falla, las aplicaciones pueden failover automáticamente a otra zona dentro de la misma región.</p>
 
 
-<h3 id="escalabilidad-y-elasticidad%3A-amazon-ec2-auto-scaling" tabindex="-1">Escalabilidad y Elasticidad: Amazon EC2 Auto Scaling</h3>
+<h3 id="escalabilidad-y-elasticidad%3A-amazon-ec2-auto-scaling" tabindex="-1">Escalabilidad y elasticidad: Amazon EC2 Auto Scaling</h3>
 
 
 <p>La escalabilidad hace referencia a la capacidad de un sistema para manejar un aumento en la carga de trabajo. En AWS, esto se logra fácilmente mediante <strong>Amazon EC2 Auto Scaling</strong>.</p>
@@ -306,7 +306,7 @@ related:
 <p>Esto proporciona elasticidad, permitiendo que la infraestructura se expanda y contraiga dinámicamente según sea necesario. Los usuarios no necesitan preocuparse por la capacidad o la administración manual.</p>
 
 
-<h3 id="seguridad-en-la-nube-aws%3A-protegiendo-tus-datos" tabindex="-1">Seguridad en la nube AWS: Protegiendo tus datos</h3>
+<h3 id="seguridad-en-la-nube-aws%3A-protegiendo-tus-datos" tabindex="-1">Seguridad en la nube AWS: protegiendo tus datos</h3>
 
 
 <p>La seguridad es la máxima prioridad en AWS. Ofrecen una amplia gama de funciones y servicios para ayudar a proteger datos en la nube, incluyendo:</p>
@@ -338,10 +338,10 @@ related:
 <p>AWS proporciona herramientas para ayudar a los clientes a cumplir con su responsabilidad de seguridad, como los servicios mencionados anteriormente. Pero los clientes deben usarlas efectivamente para proteger sus datos en la nube.</p>
 
 
-<h2 id="primeros-pasos-en-aws%3A-crear-una-cuenta-y-aprender-los-conceptos-b%C3%A1sicos" tabindex="-1">Primeros Pasos en AWS: Crear una Cuenta y Aprender los Conceptos Básicos</h2>
+<h2 id="primeros-pasos-en-aws%3A-crear-una-cuenta-y-aprender-los-conceptos-b%C3%A1sicos" tabindex="-1">Primeros pasos en AWS: crear una cuenta y aprender los conceptos básicos</h2>
 
 
-<h3 id="configuraci%C3%B3n-inicial%3A-crear-una-cuenta-de-aws" tabindex="-1">Configuración inicial: Crear una cuenta de AWS</h3>
+<h3 id="configuraci%C3%B3n-inicial%3A-crear-una-cuenta-de-aws" tabindex="-1">Configuración inicial: crear una cuenta de AWS</h3>
 
 
 <p>Para comenzar a utilizar los servicios de AWS, lo primero que debes hacer es crear una cuenta de AWS. Este es un proceso sencillo que solo toma unos minutos.</p>
@@ -401,7 +401,7 @@ related:
 <p>Estos programas son ideales para adquirir las habilidades técnicas que demanda la industria de la nube, de forma 100% gratuita.</p>
 
 
-<h3 id="certificaci%C3%B3n-y-carrera-profesional-en-aws" tabindex="-1">Certificación y Carrera Profesional en AWS</h3>
+<h3 id="certificaci%C3%B3n-y-carrera-profesional-en-aws" tabindex="-1">Certificación y carrera profesional en AWS</h3>
 
 
 <p>Obtener una <strong>certificación de AWS</strong> es clave para avanzar profesionalmente en el campo de la computación en la nube. Algunos beneficios:</p>
@@ -418,7 +418,7 @@ related:
 <p>AWS ofrece certificaciones para varios roles, como arquitectos de soluciones, desarrolladores y administradores de sistemas. Elige la certificación ideal según tu experiencia y objetivos profesionales.</p>
 
 
-<h3 id="aprender-aws-gratis%3A-recursos-y-comunidad" tabindex="-1">Aprender AWS gratis: Recursos y Comunidad</h3>
+<h3 id="aprender-aws-gratis%3A-recursos-y-comunidad" tabindex="-1">Aprender AWS gratis: recursos y comunidad</h3>
 
 
 <p>Existen muchos recursos disponibles para <strong>aprender aws gratis</strong>:</p>
@@ -437,7 +437,7 @@ related:
 <p>Combining these resources, you can master AWS without spending a dollar. The AWS community also provides support when you get stuck.</p>
 
 
-<h2 id="profundizando-en-los-servicios-de-aws" tabindex="-1">Profundizando en los Servicios de AWS</h2>
+<h2 id="profundizando-en-los-servicios-de-aws" tabindex="-1">Profundizando en los servicios de AWS</h2>
 
 
 <p>Análisis detallado de los servicios de AWS y cómo pueden ser utilizados para diferentes necesidades empresariales.</p>
@@ -482,7 +482,7 @@ related:
 <p>AWS Direct Connect permite establecer una conexión de red dedicada desde un centro de datos local hasta AWS. Es útil para aplicaciones que requieren un ancho de banda elevado, baja latencia o acceso privado.</p>
 
 
-<h3 id="anal%C3%ADtica-y-big-data-en-aws%3A-amazon-emr-y-amazon-redshift" tabindex="-1">Analítica y Big Data en AWS: Amazon EMR y Amazon Redshift</h3>
+<h3 id="anal%C3%ADtica-y-big-data-en-aws%3A-amazon-emr-y-amazon-redshift" tabindex="-1">Analítica y big data en AWS: Amazon EMR y Amazon Redshift</h3>
 
 
 <p>Amazon EMR (Elastic MapReduce) permite procesar y analizar grandes cantidades de datos utilizando herramientas de código abierto como Apache Spark, Hive, HBase, etc. Es útil para trabajos por lotes y flujos de trabajo de Big Data.</p>
@@ -491,10 +491,10 @@ related:
 <p>Amazon Redshift es un almacén de datos escalable y de alto rendimiento. Permite ejecutar consultas complejas sobre conjuntos de datos de petabytes de tamaño. Es ideal para análisis de negocio y generación de informes.</p>
 
 
-<h2 id="optimizaci%C3%B3n-de-costos-y-administraci%C3%B3n-de-recursos-en-aws" tabindex="-1">Optimización de Costos y Administración de Recursos en AWS</h2>
+<h2 id="optimizaci%C3%B3n-de-costos-y-administraci%C3%B3n-de-recursos-en-aws" tabindex="-1">Optimización de costos y administración de recursos en AWS</h2>
 
 
-<h3 id="controlando-su-inversi%C3%B3n-en-la-nube-con-aws-budgets-y-explorador-de-costos-de-aws" tabindex="-1">Controlando su inversión en la nube con AWS Budgets y Explorador de costos de AWS</h3>
+<h3 id="controlando-su-inversi%C3%B3n-en-la-nube-con-aws-budgets-y-explorador-de-costos-de-aws" tabindex="-1">Controlando su inversión en la nube con AWS Budgets y explorador de costos de AWS</h3>
 
 
 <p>AWS ofrece herramientas poderosas para monitorear y controlar los gastos en la nube. <strong>AWS Budgets</strong> permite definir presupuestos personalizados que envían alertas cuando el uso o los costos alcanzan umbrales específicos. Por ejemplo, se puede crear un presupuesto mensual de $100 para servicios de computación y recibir una notificación si se supera ese límite.</p>
@@ -585,7 +585,7 @@ related:
 <p>Trusted Advisor es un aliado invaluable para reducir costos en la nube sin comprometer rendimiento o seguridad.</p>
 
 
-<h2 id="conclusi%C3%B3n%3A-resumen-y-pr%C3%B3ximos-pasos-en-su-viaje-aws" tabindex="-1">Conclusión: Resumen y Próximos Pasos en su Viaje AWS</h2>
+<h2 id="conclusi%C3%B3n%3A-resumen-y-pr%C3%B3ximos-pasos-en-su-viaje-aws" tabindex="-1">Conclusión: resumen y próximos pasos en su viaje AWS</h2>
 
 
 <h3 id="recapitulaci%C3%B3n-de-los-servicios-esenciales-de-aws" tabindex="-1">Recapitulación de los servicios esenciales de AWS</h3>
@@ -646,6 +646,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS Seguridad: Fundamentos Esenciales</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS seguridad: fundamentos esenciales</a></li>
 </ul>
 </p>

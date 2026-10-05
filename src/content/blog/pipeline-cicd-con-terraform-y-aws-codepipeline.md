@@ -8,9 +8,9 @@ cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "10 Preguntas Frecuentes sobre Machine Learning en AWS"
+  - title: "10 preguntas frecuentes sobre machine learning en AWS"
     url: "https://dondeaprendoaws.com/blog/10-preguntas-frecuentes-sobre-machine-learning-en-aws/"
-  - title: "Grupos de Estudio AWS en Reddit 2024"
+  - title: "Grupos de estudio AWS en reddit 2024"
     url: "https://dondeaprendoaws.com/blog/grupos-de-estudio-aws-en-reddit-2024/"
   - title: "Comprendiendo Kubernetes y Amazon EKS"
     url: "https://dondeaprendoaws.com/blog/comprendiendo-kubernetes-y-amazon-eks/"
@@ -57,13 +57,13 @@ related:
 <p>Con esta guía, aprenderás a configurar y optimizar un pipeline CI/CD paso a paso, integrando validaciones, seguridad y <a href="https://www.andmore.dev/es/blog/getting-started-portman/" rel="noopener noreferrer" target="_blank">pruebas automatizadas</a>. ¡Comienza a transformar tus procesos de despliegue hoy!</p>
 
 
-<h2 class="sb" id="configuracion-del-entorno" tabindex="-1">Configuración del Entorno</h2>
+<h2 class="sb" id="configuracion-del-entorno" tabindex="-1">Configuración del entorno</h2>
 
 
 <p>Prepara tu entorno con las herramientas y configuraciones necesarias para garantizar un flujo de trabajo eficiente.</p>
 
 
-<h3 id="herramientas-y-accesos-requeridos" tabindex="-1">Herramientas y Accesos Requeridos</h3>
+<h3 id="herramientas-y-accesos-requeridos" tabindex="-1">Herramientas y accesos requeridos</h3>
 
 
 <p>Asegúrate de contar con las siguientes herramientas instaladas:</p>
@@ -99,7 +99,7 @@ related:
 <p>Además, necesitarás acceso a un repositorio en <strong><a href="https://docs.aws.amazon.com/codecommit/" rel="noopener noreferrer" target="_blank">AWS CodeCommit</a></strong> o <strong>GitHub</strong>. Una vez que tengas todo listo, el siguiente paso será configurar los permisos IAM.</p>
 
 
-<h3 id="configuracion-de-roles-iam" tabindex="-1">Configuración de Roles IAM</h3>
+<h3 id="configuracion-de-roles-iam" tabindex="-1">Configuración de roles IAM</h3>
 
 
 <p>Para cumplir con las <a href="https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/">prácticas de seguridad recomendadas</a>, deberás crear un rol IAM específico para CodePipeline:</p>
@@ -183,20 +183,20 @@ related:
 
 
 <ol start="3">
-<li><strong><a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-basica/">Credenciales AWS</a></strong></li>
+<li><strong><a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-basica/">credenciales AWS</a></strong></li>
 </ol>
 
 
 <p>Define las credenciales de AWS usando variables de entorno o configura AWS Single Sign-On (SSO). Para entornos de producción, es recomendable usar roles IAM con credenciales temporales para mayor seguridad <a href="https://aws.plainenglish.io/how-to-set-up-aws-codepipeline-using-terraform-code-4a732364212" rel="noopener noreferrer" target="_blank"><sup>[1]</sup></a>.</p>
 
 
-<h2 class="sb" id="arquitectura-del-pipeline" tabindex="-1">Arquitectura del Pipeline</h2>
+<h2 class="sb" id="arquitectura-del-pipeline" tabindex="-1">Arquitectura del pipeline</h2>
 
 
 <p>Después de configurar el entorno, diseñamos una arquitectura que combina servicios de AWS con <a href="https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-terraform/">flujos de trabajo de Terraform</a>.</p>
 
 
-<h3 id="componentes-principales" tabindex="-1">Componentes Principales</h3>
+<h3 id="componentes-principales" tabindex="-1">Componentes principales</h3>
 
 
 <p>La arquitectura se basa en servicios de AWS que trabajan en conjunto con Terraform:</p>
@@ -230,7 +230,7 @@ related:
 </table></figure>
 
 
-<h3 id="etapas-del-pipeline" tabindex="-1">Etapas del Pipeline</h3>
+<h3 id="etapas-del-pipeline" tabindex="-1">Etapas del pipeline</h3>
 
 
 <p>El pipeline está organizado en pasos secuenciales que aseguran calidad y control en los despliegues:</p>
@@ -253,13 +253,13 @@ related:
 <p>Esta estructura establece los fundamentos necesarios para la implementación detallada que se desarrollará en la próxima sección.</p>
 
 
-<h2 class="sb" id="construccion-del-pipeline" tabindex="-1">Construcción del Pipeline</h2>
+<h2 class="sb" id="construccion-del-pipeline" tabindex="-1">Construcción del pipeline</h2>
 
 
 <p>Después de definir la arquitectura, el siguiente paso es implementar el pipeline utilizando recursos de Terraform.</p>
 
 
-<h3 id="despliegue-de-recursos" tabindex="-1">Despliegue de Recursos</h3>
+<h3 id="despliegue-de-recursos" tabindex="-1">Despliegue de recursos</h3>
 
 
 <p>El recurso principal del pipeline, CodePipeline, se configura con Terraform de la siguiente manera:</p>
@@ -285,7 +285,7 @@ related:
 <p>Este recurso se complementa con las etapas detalladas en la arquitectura previamente definida.</p>
 
 
-<h3 id="configuracion-de-etapas" tabindex="-1">Configuración de Etapas</h3>
+<h3 id="configuracion-de-etapas" tabindex="-1">Configuración de etapas</h3>
 
 
 <p>Cada etapa del pipeline utiliza un archivo <em>buildspec</em> para definir los comandos necesarios. Aquí tienes un ejemplo:</p>
@@ -309,7 +309,7 @@ phases:
 <p>Este archivo asegura que las herramientas necesarias estén disponibles antes de ejecutar las validaciones y otros procesos de construcción.</p>
 
 
-<h3 id="implementacion-de-seguridad" tabindex="-1">Implementación de Seguridad</h3>
+<h3 id="implementacion-de-seguridad" tabindex="-1">Implementación de seguridad</h3>
 
 
 <p>La seguridad del pipeline se gestiona mediante encriptación con KMS y políticas IAM específicas. Aquí tienes un ejemplo de configuración:</p>
@@ -349,13 +349,13 @@ resource "aws_iam_role_policy" "codepipeline_kms_policy" {
 
 
 
-<h2 class="sb" id="pruebas-del-pipeline" tabindex="-1">Pruebas del Pipeline</h2>
+<h2 class="sb" id="pruebas-del-pipeline" tabindex="-1">Pruebas del pipeline</h2>
 
 
 <p>Después de configurar la infraestructura del pipeline, realizamos pruebas automatizadas en tres niveles para asegurar su correcto funcionamiento.</p>
 
 
-<h3 id="validacion-de-codigo" tabindex="-1">Validación de Código</h3>
+<h3 id="validacion-de-codigo" tabindex="-1">Validación de código</h3>
 
 
 <p>Usamos herramientas como <strong><a href="https://github.com/terraform-linters/tflint" rel="noopener noreferrer" target="_blank">TFLint</a></strong> (para análisis de Terraform) y <strong><a href="https://www.checkov.io/" rel="noopener noreferrer" target="_blank">Checkov</a></strong> (para seguridad). Aquí tienes un ejemplo de configuración en YAML:</p>
@@ -389,7 +389,7 @@ rule "aws_instance_invalid_type" {
 </code></pre>
 
 
-<h3 id="verificacion-del-despliegue" tabindex="-1">Verificación del Despliegue</h3>
+<h3 id="verificacion-del-despliegue" tabindex="-1">Verificación del despliegue</h3>
 
 
 <p>Para validar la infraestructura implementada, integramos pruebas que abarcan tres áreas clave:</p>
@@ -446,13 +446,13 @@ rule "aws_instance_invalid_type" {
 <p>Este enfoque combina validaciones de código y pruebas de despliegue, garantizando que cada implementación cumpla con los estándares de calidad y seguridad necesarios. Esto reduce el riesgo de problemas en producción y refuerza el control de calidad en el pipeline CI/CD.</p>
 
 
-<h2 class="sb" id="configuracion-avanzada" tabindex="-1">Configuración Avanzada</h2>
+<h2 class="sb" id="configuracion-avanzada" tabindex="-1">Configuración avanzada</h2>
 
 
 <p>En proyectos que necesitan operar en múltiples entornos, es clave implementar ajustes específicos para garantizar escalabilidad y seguridad.</p>
 
 
-<h3 id="configuracion-multi-cuenta" tabindex="-1">Configuración Multi-Cuenta</h3>
+<h3 id="configuracion-multi-cuenta" tabindex="-1">Configuración multi-cuenta</h3>
 
 
 <p>Gestionar múltiples cuentas en AWS requiere una arquitectura bien definida. Un elemento esencial es un bucket S3 compartido para almacenar el estado de Terraform de manera centralizada.</p>
@@ -480,7 +480,7 @@ rule "aws_instance_invalid_type" {
 </code></pre>
 
 
-<h3 id="desarrollo-de-modulos" tabindex="-1">Desarrollo de Módulos</h3>
+<h3 id="desarrollo-de-modulos" tabindex="-1">Desarrollo de módulos</h3>
 
 
 <p>Los módulos reutilizables son clave para mantener el código organizado y fácil de gestionar. Aquí hay un ejemplo de cómo estructurar módulos para componentes comunes en un pipeline:</p>
@@ -512,7 +512,7 @@ module "build_project" {
 <p>Configurar pipelines CI/CD con Terraform y AWS CodePipeline simplifica y automatiza los procesos de despliegue. Este tutorial práctico mostró cómo llevarlo a cabo de manera eficiente.</p>
 
 
-<h3 id="puntos-clave" tabindex="-1">Puntos Clave</h3>
+<h3 id="puntos-clave" tabindex="-1">Puntos clave</h3>
 
 
 <p>Integrar Terraform con AWS CodePipeline aporta beneficios claros: automatización confiable usando IaC, mayor seguridad con herramientas como KMS e IAM, y la posibilidad de escalar fácilmente gracias a módulos reutilizables.</p>
@@ -618,4 +618,4 @@ Aquí tienes un ejemplo de cómo se podría definir un pipeline básico usando T
 
 
 <h2>Publicaciones de blog relacionadas</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-terraform/">Cómo crear Infraestructura como Código en AWS con Terraform</a></li><li><a href="https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-aws-cloudformation/">Cómo crear Infraestructura como Código en AWS con AWS CloudFormation</a></li><li><a href="https://dondeaprendoaws.com/blog/como-integrar-terraform-con-cicd-en-aws/">Cómo integrar Terraform con CI/CD en AWS</a></li></ul>
+<ul><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-terraform/">Cómo crear infraestructura como código en AWS con Terraform</a></li><li><a href="https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-aws-cloudformation/">Cómo crear infraestructura como código en AWS con AWS CloudFormation</a></li><li><a href="https://dondeaprendoaws.com/blog/como-integrar-terraform-con-cicd-en-aws/">Cómo integrar Terraform con CI/CD en AWS</a></li></ul>

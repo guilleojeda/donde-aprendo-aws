@@ -1,5 +1,5 @@
 ---
-title: "AWS Seguridad: Mejores Prácticas"
+title: "AWS seguridad: mejores prácticas"
 description: "Descubre las mejores prácticas de seguridad en la nube de AWS, incluyendo gestión de identidades, cifrado de datos, protección de infraestructura y más. Aprende a maximizar la seguridad de tus aplicaciones y datos en AWS."
 author: "guille-ojeda"
 publishedAt: "2024-01-24"
@@ -8,11 +8,11 @@ cover: "/assets/blog/editorial-seguridad.png"
 coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-seguridad.png"
 related:
-  - title: "AWS SAM CLI: Pruebas y Desarrollo Local"
+  - title: "AWS SAM CLI: pruebas y desarrollo local"
     url: "https://dondeaprendoaws.com/blog/aws-sam-cli-pruebas-y-desarrollo-local/"
-  - title: "Microservicios en AWS Utilizando Contenedores"
+  - title: "Microservicios en AWS utilizando contenedores"
     url: "https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-contenedores/"
-  - title: "Tipos y Tamaños de Instancias EC2: Guía Completa"
+  - title: "Tipos y tamaños de instancias EC2: guía completa"
     url: "https://dondeaprendoaws.com/blog/tipos-y-tamanos-de-instancias-ec2-guia-completa/"
 
 ---
@@ -26,13 +26,13 @@ related:
 <p>En este artículo exploraremos estrategias recomendadas como la gestión de identidades, el cifrado de datos, la protección de infraestructura y más para <strong>mantener seguros tus activos en la nube de AWS.</strong></p>
 
 
-<h2 id="introducci%C3%B3n-a-la-seguridad-en-aws" tabindex="-1">Introducción a la Seguridad en AWS</h2>
+<h2 id="introducci%C3%B3n-a-la-seguridad-en-aws" tabindex="-1">Introducción a la seguridad en AWS</h2>
 
 
 <p>La seguridad es un aspecto crítico al migrar cargas de trabajo a la nube de AWS. Aunque AWS proporciona una sólida infraestructura de seguridad, las organizaciones deben tomar medidas adicionales para proteger sus aplicaciones y datos.</p>
 
 
-<h3 id="importancia-de-la-seguridad-en-la-nube-de-aws" tabindex="-1">Importancia de la Seguridad en la Nube de AWS</h3>
+<h3 id="importancia-de-la-seguridad-en-la-nube-de-aws" tabindex="-1">Importancia de la seguridad en la nube de AWS</h3>
 
 
 <p>La seguridad en la nube presenta desafíos únicos en comparación con los centros de datos tradicionales. Algunos de estos desafíos incluyen:</p>
@@ -58,7 +58,7 @@ related:
 <p>Es crucial que las organizaciones aprovechen las capacidades de seguridad integradas en AWS al tiempo que refuerzan su postura de seguridad en la nube.</p>
 
 
-<h3 id="objetivos-de-seguridad-en-aws" tabindex="-1">Objetivos de Seguridad en AWS</h3>
+<h3 id="objetivos-de-seguridad-en-aws" tabindex="-1">Objetivos de seguridad en AWS</h3>
 
 
 <p>Los principales objetivos de seguridad que se buscan en AWS son:</p>
@@ -185,7 +185,7 @@ related:
 <p>En resumen, AWS invierte constantemente para mantener los más altos estándares de seguridad y privacidad, lo cual se refleja en sus certificaciones. Esto brinda tranquilidad a los clientes sobre la protección de sus datos en la nube de AWS.</p>
 
 
-<h2 id="gesti%C3%B3n-de-identidades-y-acceso-con-aws-iam" tabindex="-1">Gestión de Identidades y Acceso con AWS IAM</h2>
+<h2 id="gesti%C3%B3n-de-identidades-y-acceso-con-aws-iam" tabindex="-1">Gestión de identidades y acceso con AWS IAM</h2>
 
 
 <p>AWS Identity and Access Management (IAM) es un servicio de AWS que permite gestionar de forma segura el acceso a los recursos y servicios de AWS. Con IAM se pueden crear usuarios, grupos, roles y políticas para controlar qué usuarios tienen permiso para acceder a qué recursos.</p>
@@ -194,7 +194,7 @@ related:
 <p>Algunos principios básicos de IAM:</p>
 
 
-<h3 id="principios-b%C3%A1sicos-de-aws-iam" tabindex="-1">Principios Básicos de AWS IAM</h3>
+<h3 id="principios-b%C3%A1sicos-de-aws-iam" tabindex="-1">Principios básicos de AWS IAM</h3>
 
 
 <ul>
@@ -221,7 +221,7 @@ related:
 <p>Esto permite mejorar continuamente la seguridad de las políticas de acceso.</p>
 
 
-<h3 id="mejores-pr%C3%A1cticas-de-seguridad-con-aws-iam" tabindex="-1">Mejores Prácticas de Seguridad con AWS IAM</h3>
+<h3 id="mejores-pr%C3%A1cticas-de-seguridad-con-aws-iam" tabindex="-1">Mejores prácticas de seguridad con AWS IAM</h3>
 
 
 <p>Algunas recomendaciones para mejorar la seguridad de IAM:</p>
@@ -237,7 +237,7 @@ related:
 </ul>
 
 
-<h3 id="autenticaci%C3%B3n-multifactor-en-aws" tabindex="-1">Autenticación Multifactor en AWS</h3>
+<h3 id="autenticaci%C3%B3n-multifactor-en-aws" tabindex="-1">Autenticación multifactor en AWS</h3>
 
 
 <p>La autenticación multifactor (MFA) requiere dos formas de identificación para iniciar sesión, lo que dificulta el acceso no autorizado a las cuentas.</p>
@@ -256,10 +256,10 @@ related:
 <p>Se recomienda activar MFA para todos los usuarios de IAM, especialmente aquellos con permisos elevados como administradores. Esto reduce significativamente el riesgo ante posibles ataques o compromiso de credenciales.</p>
 
 
-<h2 id="cifrado-de-datos-con-aws-kms-y-aws-cloudhsm" tabindex="-1">Cifrado de Datos con AWS KMS y AWS CloudHSM</h2>
+<h2 id="cifrado-de-datos-con-aws-kms-y-aws-cloudhsm" tabindex="-1">Cifrado de datos con AWS KMS y AWS CloudHSM</h2>
 
 
-<h3 id="introducci%C3%B3n-al-cifrado-en-aws" tabindex="-1">Introducción al Cifrado en AWS</h3>
+<h3 id="introducci%C3%B3n-al-cifrado-en-aws" tabindex="-1">Introducción al cifrado en AWS</h3>
 
 
 <p>El cifrado de datos es esencial para proteger información confidencial en la nube. Al cifrar los datos, se transforman en texto ilegible mediante un algoritmo y una clave secreta. Solo los usuarios autorizados con la clave correcta pueden descifrar los datos.</p>
@@ -278,7 +278,7 @@ related:
 <p>El cifrado garantiza que los datos permanezcan seguros incluso si se ven comprometidos. Por ejemplo, si alguien obtiene acceso no autorizado a una base de datos cifrada en Amazon RDS, no podrá leer los datos porque estarán cifrados.</p>
 
 
-<h3 id="uso-de-aws-kms-para-la-gesti%C3%B3n-de-claves" tabindex="-1">Uso de AWS KMS para la Gestión de Claves</h3>
+<h3 id="uso-de-aws-kms-para-la-gesti%C3%B3n-de-claves" tabindex="-1">Uso de AWS KMS para la gestión de claves</h3>
 
 
 <p>AWS Key Management Service (AWS KMS) facilita la creación y el control de las claves de cifrado. Con AWS KMS es sencillo cifrar datos en muchos servicios de AWS como Amazon S3, Amazon EBS y Amazon Redshift.</p>
@@ -343,7 +343,7 @@ related:
 <p>AWS CloudHSM requiere más esfuerzo para configurar y administrar que AWS KMS. Por ello, se recomienda evaluar cuidadosamente las necesidades antes de elegir la mejor opción de cifrado en AWS.</p>
 
 
-<h3 id="cifrado-de-datos-en-amazon-s3" tabindex="-1">Cifrado de Datos en Amazon S3</h3>
+<h3 id="cifrado-de-datos-en-amazon-s3" tabindex="-1">Cifrado de datos en Amazon S3</h3>
 
 
 <p>Existen múltiples opciones para cifrar datos en Amazon S3:</p>
@@ -368,10 +368,10 @@ related:
 <p>En definitiva, con las múltiples opciones de cifrado disponibles, AWS facilita proteger los datos confidenciales almacenados en Amazon S3. La elección dependerá de los requisitos específicos de seguridad y cumplimiento de cada organización.</p>
 
 
-<h2 id="protecci%C3%B3n-de-infraestructura-con-amazon-vpc-y-aws-network-firewall" tabindex="-1">Protección de Infraestructura con Amazon VPC y AWS Network Firewall</h2>
+<h2 id="protecci%C3%B3n-de-infraestructura-con-amazon-vpc-y-aws-network-firewall" tabindex="-1">Protección de infraestructura con Amazon VPC y AWS Network Firewall</h2>
 
 
-<h3 id="configuraci%C3%B3n-segura-de-amazon-vpc" tabindex="-1">Configuración Segura de Amazon VPC</h3>
+<h3 id="configuraci%C3%B3n-segura-de-amazon-vpc" tabindex="-1">Configuración segura de Amazon VPC</h3>
 
 
 <p>Amazon Virtual Private Cloud (Amazon VPC) permite aislar los recursos de AWS en una red virtual definida por el usuario. Al crear una Amazon VPC, se obtienen controles completos sobre el entorno de red virtual, incluyendo selección de rangos de direcciones IP, creación de subredes y configuración de tablas de rutas y gateways de red.</p>
@@ -409,7 +409,7 @@ related:
 <p>AWS Network Firewall proporciona una capa crítica de seguridad de red y filtrado de tráfico para recursos en la nube.</p>
 
 
-<h3 id="uso-de-grupos-de-seguridad-y-nacls" tabindex="-1">Uso de Grupos de Seguridad y NACLs</h3>
+<h3 id="uso-de-grupos-de-seguridad-y-nacls" tabindex="-1">Uso de grupos de seguridad y NACLs</h3>
 
 
 <p>Los grupos de seguridad de Amazon EC2 funcionan como firewall virtual en el nivel de instancia, mientras que las NACLs operan en el nivel de subred.</p>
@@ -447,13 +447,13 @@ related:
 <p>La integración con Firewall Manager permite gestionar de forma unificada políticas de grupos de seguridad de EC2, reglas de AWS Network Firewall, protección DDoS de AWS Shield Advanced y más.</p>
 
 
-<h2 id="defensa-contra-amenazas-con-aws-guardduty-y-amazon-inspector" tabindex="-1">Defensa contra Amenazas con AWS GuardDuty y Amazon Inspector</h2>
+<h2 id="defensa-contra-amenazas-con-aws-guardduty-y-amazon-inspector" tabindex="-1">Defensa contra amenazas con AWS GuardDuty y Amazon Inspector</h2>
 
 
 <p>AWS ofrece varias herramientas para ayudar a proteger sus recursos en la nube, detectando actividades sospechosas y vulnerabilidades de seguridad. Dos servicios clave para la defensa contra amenazas son AWS GuardDuty y Amazon Inspector.</p>
 
 
-<h3 id="monitoreo-continuo-con-aws-guardduty" tabindex="-1">Monitoreo Continuo con AWS GuardDuty</h3>
+<h3 id="monitoreo-continuo-con-aws-guardduty" tabindex="-1">Monitoreo continuo con AWS GuardDuty</h3>
 
 
 <p>AWS GuardDuty es un servicio de detección de amenazas que monitorea continuamente la actividad sospechosa y el comportamiento no autorizado para proteger sus cuentas de AWS y cargas de trabajo. Algunas de las funciones clave de GuardDuty incluyen:</p>
@@ -470,7 +470,7 @@ related:
 <p>En resumen, al habilitar GuardDuty, obtienes monitoreo proactivo y continuo de posibles amenazas, lo que te permite responder rápidamente a cualquier actividad maliciosa detectada.</p>
 
 
-<h3 id="evaluaciones-de-seguridad-con-amazon-inspector" tabindex="-1">Evaluaciones de Seguridad con Amazon Inspector</h3>
+<h3 id="evaluaciones-de-seguridad-con-amazon-inspector" tabindex="-1">Evaluaciones de seguridad con Amazon Inspector</h3>
 
 
 <p>Mientras AWS GuardDuty monitorea en busca de amenazas en tiempo real, Amazon Inspector evalúa la seguridad de sus aplicaciones en busca de vulnerabilidades. Inspector escanea automáticamente sus recursos en busca de exposiciones de seguridad y desviaciones de las prácticas recomendadas.</p>
@@ -489,7 +489,7 @@ related:
 <p>Inspector genera un reporte detallado, priorizando los problemas y proporcionando recomendaciones sobre cómo solucionarlos. Al corregir estas vulnerabilidades, puedes mejorar significativamente la postura de seguridad general de tus aplicaciones en AWS.</p>
 
 
-<h3 id="respuesta-a-incidentes-con-amazon-detective" tabindex="-1">Respuesta a Incidentes con Amazon Detective</h3>
+<h3 id="respuesta-a-incidentes-con-amazon-detective" tabindex="-1">Respuesta a incidentes con Amazon Detective</h3>
 
 
 <p>Amazon Detective facilita la investigación de actividades potencialmente dañinas mediante el análisis y la correlación automatizados de los datos de seguridad. Proporciona visualizaciones interactivas para que puedas realizar análisis de causa raíz e identificar a los actores de amenazas.</p>
@@ -510,13 +510,13 @@ related:
 <p>En resumen, AWS ofrece una amplia gama de servicios de seguridad que se integran para brindar defensa en profundidad. Mediante el uso de GuardDuty, Inspector, Detective y Shield, puedes mejorar significativamente tu postura de seguridad en la nube.</p>
 
 
-<h2 id="cumplimiento-y-auditor%C3%ADa-en-aws-con-aws-audit-manager-y-aws-artifact" tabindex="-1">Cumplimiento y Auditoría en AWS con AWS Audit Manager y AWS Artifact</h2>
+<h2 id="cumplimiento-y-auditor%C3%ADa-en-aws-con-aws-audit-manager-y-aws-artifact" tabindex="-1">Cumplimiento y auditoría en AWS con AWS Audit Manager y AWS Artifact</h2>
 
 
 <p>AWS ofrece varios servicios para ayudar a las organizaciones a demostrar el cumplimiento de sus aplicaciones y cargas de trabajo en la nube. Dos servicios clave para la auditoría y el cumplimiento son AWS Audit Manager y AWS Artifact.</p>
 
 
-<h3 id="gesti%C3%B3n-de-auditor%C3%ADas-con-aws-audit-manager" tabindex="-1">Gestión de Auditorías con AWS Audit Manager</h3>
+<h3 id="gesti%C3%B3n-de-auditor%C3%ADas-con-aws-audit-manager" tabindex="-1">Gestión de auditorías con AWS Audit Manager</h3>
 
 
 <p>AWS Audit Manager facilita el seguimiento continuo del cumplimiento de sus recursos de AWS, automatizando el proceso de auditoría.</p>
@@ -536,7 +536,7 @@ related:
 <p>Esto le permite ahorrar tiempo al realizar auditorías de cumplimiento, demostrar la conformidad a los auditores y tomar acciones correctivas donde sea necesario.</p>
 
 
-<h3 id="acceso-a-informes-de-cumplimiento-con-aws-artifact" tabindex="-1">Acceso a Informes de Cumplimiento con AWS Artifact</h3>
+<h3 id="acceso-a-informes-de-cumplimiento-con-aws-artifact" tabindex="-1">Acceso a informes de cumplimiento con AWS Artifact</h3>
 
 
 <p>AWS Artifact permite acceder fácilmente a informes de cumplimiento y certificaciones directamente desde AWS.</p>
@@ -555,7 +555,7 @@ related:
 <p>Esto le permite demostrar cómo AWS cumple con una amplia gama de estándares de cumplimiento.</p>
 
 
-<h3 id="aws-trusted-advisor-para-el-cumplimiento" tabindex="-1">AWS Trusted Advisor para el Cumplimiento</h3>
+<h3 id="aws-trusted-advisor-para-el-cumplimiento" tabindex="-1">AWS Trusted Advisor para el cumplimiento</h3>
 
 
 <p>AWS Trusted Advisor analiza su entorno de AWS y le ofrece recomendaciones en varias categorías, incluyendo costo, rendimiento, seguridad y <strong>cumplimiento</strong>.</p>
@@ -574,7 +574,7 @@ related:
 <p>Atender estas recomendaciones puede ayudarle a mantener y mejorar la postura de cumplimiento en AWS.</p>
 
 
-<h3 id="evaluaci%C3%B3n-de-cumplimiento-con-aws-security-specialty" tabindex="-1">Evaluación de Cumplimiento con AWS Security Specialty</h3>
+<h3 id="evaluaci%C3%B3n-de-cumplimiento-con-aws-security-specialty" tabindex="-1">Evaluación de cumplimiento con AWS Security Specialty</h3>
 
 
 <p>La certificación <strong>AWS Certified Security - Specialty</strong> incluye temas de cumplimiento y auditoría en la nube.</p>
@@ -593,13 +593,13 @@ related:
 <p>Dominar los temas de esta certificación es clave para operar cargas de trabajo sensibles en AWS cumpliendo con regulaciones y estándares del sector.</p>
 
 
-<h2 id="optimizaci%C3%B3n-de-la-seguridad-en-aws-con-aws-security-hub-y-aws-waf" tabindex="-1">Optimización de la Seguridad en AWS con AWS Security Hub y AWS WAF</h2>
+<h2 id="optimizaci%C3%B3n-de-la-seguridad-en-aws-con-aws-security-hub-y-aws-waf" tabindex="-1">Optimización de la seguridad en AWS con AWS Security Hub y AWS WAF</h2>
 
 
 <p>AWS Security Hub y AWS WAF son dos servicios clave para fortalecer la seguridad en AWS. A continuación, algunos consejos rápidos para aprovechar estas herramientas:</p>
 
 
-<h3 id="centralizaci%C3%B3n-de-alertas-con-aws-security-hub" tabindex="-1">Centralización de Alertas con AWS Security Hub</h3>
+<h3 id="centralizaci%C3%B3n-de-alertas-con-aws-security-hub" tabindex="-1">Centralización de alertas con AWS Security Hub</h3>
 
 
 <p>AWS Security Hub actúa como un panel de control de seguridad, agregando y correlacionando alertas de múltiples servicios de AWS y proveedores de seguridad. Esto permite:</p>
@@ -615,7 +615,7 @@ related:
 <p>Es recomendable habilitar AWS Security Hub y conectarlo con Amazon GuardDuty, Amazon Inspector y otros servicios de seguridad de AWS.</p>
 
 
-<h3 id="protecci%C3%B3n-de-aplicaciones-web-con-aws-waf" tabindex="-1">Protección de Aplicaciones Web con AWS WAF</h3>
+<h3 id="protecci%C3%B3n-de-aplicaciones-web-con-aws-waf" tabindex="-1">Protección de aplicaciones web con AWS WAF</h3>
 
 
 <p>AWS WAF protege aplicaciones web de ataques comunes como inyección SQL, scripts entre sitios y abuso de API. Permite:</p>
@@ -631,7 +631,7 @@ related:
 <p>Es importante habilitar AWS WAF en el frontend de las aplicaciones críticas y configurar reglas personalizadas según sea necesario.</p>
 
 
-<h3 id="aws-well-architected-framework-para-seguridad" tabindex="-1">AWS Well-Architected Framework para Seguridad</h3>
+<h3 id="aws-well-architected-framework-para-seguridad" tabindex="-1">AWS Well-Architected Framework para seguridad</h3>
 
 
 <p>El AWS Well-Architected Framework provee una guía con las mejores prácticas para construir cargas de trabajo seguras en la nube. Incluye recomendaciones sobre:</p>
@@ -648,7 +648,7 @@ related:
 <p>Se recomienda revisar esta guía y aplicar las recomendaciones relevantes en los entornos de AWS.</p>
 
 
-<h3 id="automatizaci%C3%B3n-de-tareas-de-seguridad-con-aws-lambda" tabindex="-1">Automatización de Tareas de Seguridad con AWS Lambda</h3>
+<h3 id="automatizaci%C3%B3n-de-tareas-de-seguridad-con-aws-lambda" tabindex="-1">Automatización de tareas de seguridad con AWS Lambda</h3>
 
 
 <p>AWS Lambda permite ejecutar código sin provisionar servidores para automatizar tareas administrativas y de seguridad. Algunos casos de uso incluyen:</p>
@@ -668,7 +668,7 @@ related:
 <p>AWS Security Hub, AWS WAF y otros servicios de seguridad de AWS, en conjunto con prácticas recomendadas como las del Well-Architected Framework, permiten proteger las aplicaciones y la infraestructura en la nube. La automatización con AWS Lambda optimiza los flujos de trabajo de seguridad.</p>
 
 
-<h2 id="resumen-y-conclusiones-sobre-las-mejores-pr%C3%A1cticas-de-seguridad-en-aws" tabindex="-1">Resumen y Conclusiones sobre las Mejores Prácticas de Seguridad en AWS</h2>
+<h2 id="resumen-y-conclusiones-sobre-las-mejores-pr%C3%A1cticas-de-seguridad-en-aws" tabindex="-1">Resumen y conclusiones sobre las mejores prácticas de seguridad en AWS</h2>
 
 
 <p>La seguridad en la nube es una responsabilidad compartida entre AWS y el cliente. AWS proporciona una amplia gama de servicios y herramientas para ayudar a proteger sus recursos, pero usted debe configurarlos y usarlos correctamente.</p>
@@ -690,7 +690,7 @@ related:
 <p>Poner en práctica estas recomendaciones le ayudará a maximizar la seguridad de sus aplicaciones y datos en AWS.</p>
 
 
-<h3 id="claves-para-una-estrategia-de-seguridad-efectiva-en-aws" tabindex="-1">Claves para una Estrategia de Seguridad Efectiva en AWS</h3>
+<h3 id="claves-para-una-estrategia-de-seguridad-efectiva-en-aws" tabindex="-1">Claves para una estrategia de seguridad efectiva en AWS</h3>
 
 
 <ul>
@@ -704,7 +704,7 @@ related:
 </ul>
 
 
-<h3 id="pasos-siguientes-y-recursos-para-profundizar" tabindex="-1">Pasos Siguientes y Recursos para Profundizar</h3>
+<h3 id="pasos-siguientes-y-recursos-para-profundizar" tabindex="-1">Pasos siguientes y recursos para profundizar</h3>
 
 
 <p>Hay muchos recursos disponibles para continuar mejorando la seguridad en AWS:</p>
@@ -725,6 +725,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS Seguridad: Fundamentos Esenciales</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS seguridad: fundamentos esenciales</a></li>
 </ul>
 </p>

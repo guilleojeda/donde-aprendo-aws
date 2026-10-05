@@ -1,5 +1,5 @@
 ---
-title: "Detección de Sesgos en Modelos ML con SageMaker Clarify"
+title: "Detección de sesgos en modelos ML con SageMaker Clarify"
 description: "Descubre cómo SageMaker Clarify puede ayudarte a detectar y mitigar sesgos en modelos de ML. Aprende sobre las mejores prácticas y recursos para desarrollar modelos éticos y confiables."
 author: "guille-ojeda"
 publishedAt: "2024-05-17"
@@ -8,11 +8,11 @@ cover: "/assets/blog/editorial-datos-ia.png"
 coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
-  - title: "CloudWatch y EventBridge: Integración"
+  - title: "CloudWatch y EventBridge: integración"
     url: "https://dondeaprendoaws.com/blog/cloudwatch-y-eventbridge-integracion/"
-  - title: "Arquitecturas Dirigidas por Eventos en AWS"
+  - title: "Arquitecturas dirigidas por eventos en AWS"
     url: "https://dondeaprendoaws.com/blog/arquitecturas-dirigidas-por-eventos-en-aws/"
-  - title: "Gestionando Múltiples Cuentas de AWS con AWS Organizations"
+  - title: "Gestionando múltiples cuentas de AWS con AWS Organizations"
     url: "https://dondeaprendoaws.com/blog/gestionando-multiples-cuentas-de-aws-con-aws-organizations/"
 
 ---
@@ -117,10 +117,10 @@ related:
 <p>Al final, podrás detectar y mitigar sesgos en tus modelos usando SageMaker Clarify.</p>
 
 
-<h2 id="setup-requirements" tabindex="-1">Setup Requirements</h2>
+<h2 id="setup-requirements" tabindex="-1">Setup requirements</h2>
 
 
-<h3 id="requisitos-de-herramientas-y-servicios" tabindex="-1">Requisitos de Herramientas y Servicios</h3>
+<h3 id="requisitos-de-herramientas-y-servicios" tabindex="-1">Requisitos de herramientas y servicios</h3>
 
 
 <p>Para seguir esta guía, necesitarás:</p>
@@ -161,19 +161,19 @@ related:
 <p>Para más detalles, consulta la documentación de AWS.</p>
 
 
-<h2 id="preparaci%C3%B3n-de-datos" tabindex="-1">Preparación de Datos</h2>
+<h2 id="preparaci%C3%B3n-de-datos" tabindex="-1">Preparación de datos</h2>
 
 
 <p>Para preparar tu conjunto de datos para la detección de sesgos usando SageMaker Clarify, sigue estos pasos:</p>
 
 
-<h3 id="carga-del-conjunto-de-datos" tabindex="-1">Carga del Conjunto de Datos</h3>
+<h3 id="carga-del-conjunto-de-datos" tabindex="-1">Carga del conjunto de datos</h3>
 
 
 <p>Carga tu conjunto de datos en un DataFrame de <a href="https://pandas.pydata.org/" rel="noopener noreferrer" target="_blank">pandas</a> o un formato similar. Esto te permitirá manipular y analizar tus datos fácilmente. Asegúrate de manejar cualquier valor faltante o valores atípicos en tu conjunto de datos.</p>
 
 
-<h3 id="preprocesamiento-de-datos" tabindex="-1">Preprocesamiento de Datos</h3>
+<h3 id="preprocesamiento-de-datos" tabindex="-1">Preprocesamiento de datos</h3>
 
 
 <p>Preprocesa tus datos limpiándolos y formateándolos adecuadamente. Esto puede incluir tareas como:</p>
@@ -195,7 +195,7 @@ related:
 </ul>
 
 
-<h3 id="subida-de-datos-a-s3" tabindex="-1">Subida de Datos a S3</h3>
+<h3 id="subida-de-datos-a-s3" tabindex="-1">Subida de datos a S3</h3>
 
 
 <p>Sube tu conjunto de datos preparado a un bucket de Amazon S3. Esto te permitirá acceder a tus datos desde SageMaker Clarify y ejecutar trabajos de detección de sesgos. Asegúrate de seguir las <a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">mejores prácticas de AWS</a> para el almacenamiento y la seguridad de datos.</p>
@@ -265,7 +265,7 @@ clarify_processor = SageMakerClarifyProcessor(
 
 
 
-<h2 id="running-bias-detection" tabindex="-1">Running Bias Detection</h2>
+<h2 id="running-bias-detection" tabindex="-1">Running bias detection</h2>
 
 
 <h3 id="ejecutar-el-trabajo-de-procesamiento" tabindex="-1">Ejecutar el trabajo de procesamiento</h3>
@@ -312,13 +312,13 @@ clarify_processor = SageMakerClarifyProcessor(
 <p>Una vez que hayas revisado los registros, puedes proceder a analizar los resultados de la detección de sesgos.</p>
 
 
-<h2 id="analyzing-results" tabindex="-1">Analyzing Results</h2>
+<h2 id="analyzing-results" tabindex="-1">Analyzing results</h2>
 
 
 <p>Una vez que hayas ejecutado el trabajo de procesamiento, SageMaker Clarify generará un informe de sesgo con información sobre los resultados. En esta sección, te guiaré a través del análisis de estos resultados.</p>
 
 
-<h3 id="accessing-bias-report" tabindex="-1">Accessing Bias Report</h3>
+<h3 id="accessing-bias-report" tabindex="-1">Accessing bias report</h3>
 
 
 <p>Para acceder al informe de sesgo, sigue estos pasos:</p>
@@ -340,7 +340,7 @@ clarify_processor = SageMakerClarifyProcessor(
 </ol>
 
 
-<h3 id="understanding-bias-metrics" tabindex="-1">Understanding Bias Metrics</h3>
+<h3 id="understanding-bias-metrics" tabindex="-1">Understanding bias metrics</h3>
 
 
 <p>SageMaker Clarify proporciona varias métricas de sesgo para identificar y cuantificar los sesgos en tus modelos. Aquí tienes algunas de las métricas más comunes:</p>
@@ -374,7 +374,7 @@ clarify_processor = SageMakerClarifyProcessor(
 </table></figure>
 
 
-<h3 id="visualizing-results" tabindex="-1">Visualizing Results</h3>
+<h3 id="visualizing-results" tabindex="-1">Visualizing results</h3>
 
 
 <p>Para visualizar los resultados de la detección de sesgos, puedes usar gráficos y diagramas. Por ejemplo:</p>
@@ -393,13 +393,13 @@ clarify_processor = SageMakerClarifyProcessor(
 <p>Al analizar los resultados, considera múltiples métricas de sesgo y visualiza los datos para identificar patrones y tendencias.</p>
 
 
-<h2 id="mitigaci%C3%B3n-de-sesgos-detectados" tabindex="-1">Mitigación de Sesgos Detectados</h2>
+<h2 id="mitigaci%C3%B3n-de-sesgos-detectados" tabindex="-1">Mitigación de sesgos detectados</h2>
 
 
 <p>Una vez que hayas identificado los sesgos en tus modelos de machine learning, es importante tomar medidas para mitigarlos. Aquí te presento algunas estrategias y prácticas recomendadas para abordar los sesgos detectados.</p>
 
 
-<h3 id="estrategias-para-mitigar-sesgos" tabindex="-1">Estrategias para Mitigar Sesgos</h3>
+<h3 id="estrategias-para-mitigar-sesgos" tabindex="-1">Estrategias para mitigar sesgos</h3>
 
 
 <p>Existen varias formas de mitigar los sesgos en tus modelos de machine learning. Algunas de las estrategias más comunes incluyen:</p>
@@ -421,7 +421,7 @@ clarify_processor = SageMakerClarifyProcessor(
 </ul>
 
 
-<h3 id="re-ejecutar-la-detecci%C3%B3n-de-sesgos" tabindex="-1">Re-ejecutar la Detección de Sesgos</h3>
+<h3 id="re-ejecutar-la-detecci%C3%B3n-de-sesgos" tabindex="-1">Re-ejecutar la detección de sesgos</h3>
 
 
 <p>Después de aplicar las estrategias de mitigación, es importante re-ejecutar la detección de sesgos para evaluar si las medidas han sido efectivas. SageMaker Clarify permite re-ejecutar la detección de sesgos fácilmente, lo que te permite evaluar el progreso y ajustar tus estrategias según sea necesario.</p>
@@ -430,10 +430,10 @@ clarify_processor = SageMakerClarifyProcessor(
 <p>Recuerda que la detección y mitigación de sesgos es un proceso continuo que requiere vigilancia y ajustes constantes. Al implementar estas estrategias, podrás reducir los sesgos en tus modelos de machine learning y mejorar la precisión y la confiabilidad de tus resultados.</p>
 
 
-<h2 id="mejores-pr%C3%A1cticas-y-recursos" tabindex="-1">Mejores Prácticas y Recursos</h2>
+<h2 id="mejores-pr%C3%A1cticas-y-recursos" tabindex="-1">Mejores prácticas y recursos</h2>
 
 
-<h3 id="pruebas-y-validaci%C3%B3n" tabindex="-1">Pruebas y Validación</h3>
+<h3 id="pruebas-y-validaci%C3%B3n" tabindex="-1">Pruebas y validación</h3>
 
 
 <p>Es importante probar y validar los resultados de la detección de sesgos para asegurarse de que los problemas se hayan identificado correctamente. Considera los siguientes aspectos:</p>
@@ -452,7 +452,7 @@ clarify_processor = SageMakerClarifyProcessor(
 </ul>
 
 
-<h3 id="desaf%C3%ADos-comunes-y-soluciones" tabindex="-1">Desafíos Comunes y Soluciones</h3>
+<h3 id="desaf%C3%ADos-comunes-y-soluciones" tabindex="-1">Desafíos comunes y soluciones</h3>
 
 
 <p>Aquí algunos desafíos comunes y sus soluciones:</p>
@@ -478,7 +478,7 @@ clarify_processor = SageMakerClarifyProcessor(
 </table></figure>
 
 
-<h3 id="lectura-adicional" tabindex="-1">Lectura Adicional</h3>
+<h3 id="lectura-adicional" tabindex="-1">Lectura adicional</h3>
 
 
 <p>Para más información sobre la detección de sesgos y el uso de SageMaker Clarify, consulta los siguientes recursos:</p>
@@ -503,7 +503,7 @@ clarify_processor = SageMakerClarifyProcessor(
 <p>En resumen, la detección de sesgos en modelos de machine learning es crucial para asegurarse de que los resultados sean precisos y justos. SageMaker Clarify es una herramienta poderosa que nos permite identificar y mitigar sesgos en nuestros modelos. En esta guía, hemos cubierto los pasos para configurar y ejecutar SageMaker Clarify, así como también hemos discutido las mejores prácticas y recursos adicionales para la detección de sesgos.</p>
 
 
-<h3 id="puntos-clave" tabindex="-1">Puntos Clave</h3>
+<h3 id="puntos-clave" tabindex="-1">Puntos clave</h3>
 
 
 <ul>
@@ -549,6 +549,6 @@ clarify_processor = SageMakerClarifyProcessor(
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/como-desarrollar-aplicaciones-de-inteligencia-artificial-en-aws/">Cómo Desarrollar Aplicaciones de Inteligencia Artificial en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-machine-learning-en-aws/">Mejores Prácticas de Machine Learning en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/10-preguntas-frecuentes-sobre-machine-learning-en-aws/">10 Preguntas Frecuentes sobre Machine Learning en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/">Introducción a la Inteligencia Artificial en AWS</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/como-desarrollar-aplicaciones-de-inteligencia-artificial-en-aws/">Cómo desarrollar aplicaciones de inteligencia artificial en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-machine-learning-en-aws/">Mejores prácticas de machine learning en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/10-preguntas-frecuentes-sobre-machine-learning-en-aws/">10 preguntas frecuentes sobre machine learning en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/">Introducción a la inteligencia artificial en AWS</a></li>
 </ul>
 </p>

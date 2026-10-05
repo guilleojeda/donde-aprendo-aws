@@ -1,5 +1,5 @@
 ---
-title: "Servicios de AWS para Frontend"
+title: "Servicios de AWS para frontend"
 description: "Descubre los servicios de AWS para frontend como AWS Amplify, Amazon S3 y Amazon CloudFront. Compara sus ventajas y desventajas, casos de uso y ejemplos prácticos para elegir el mejor servicio."
 author: "guille-ojeda"
 publishedAt: "2024-03-18"
@@ -8,11 +8,11 @@ cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "AWS Wavelength: Guía de Escalabilidad y Optimización"
+  - title: "AWS Wavelength: guía de escalabilidad y optimización"
     url: "https://dondeaprendoaws.com/blog/aws-wavelength-guia-de-escalabilidad-y-optimizacion/"
-  - title: "Nube AWS: Guía de Inicio Rápido"
+  - title: "Nube AWS: guía de inicio rápido"
     url: "https://dondeaprendoaws.com/blog/nube-aws-guia-de-inicio-rapido/"
-  - title: "Aprender AWS gratis: Recursos y Comunidad"
+  - title: "Aprender AWS gratis: recursos y comunidad"
     url: "https://dondeaprendoaws.com/blog/aprender-aws-gratis-recursos-y-comunidad/"
 
 ---
@@ -76,7 +76,7 @@ related:
 <p>Al final del día, la elección depende de la complejidad de tu aplicación, tus expectativas de tráfico y tu presupuesto. Este artículo te equipará con la información necesaria para tomar esa decisión.</p>
 
 
-<h2 id="comparativa-de-servicios-aws-para-frontend" tabindex="-1">Comparativa de Servicios AWS para Frontend</h2>
+<h2 id="comparativa-de-servicios-aws-para-frontend" tabindex="-1">Comparativa de servicios AWS para frontend</h2>
 
 
 <h3 id="1.-aws-amplify" tabindex="-1">1. <a href="https://aws.amazon.com/amplify" rel="noopener noreferrer" target="_blank">AWS Amplify</a></h3>
@@ -205,7 +205,7 @@ related:
 <p>En pocas palabras, CloudFront es una buena opción para hacer que tu sitio sea más rápido y pueda atender a más visitantes sin problemas.</p>
 
 
-<h2 id="ventajas-y-desventajas" tabindex="-1">Ventajas y Desventajas</h2>
+<h2 id="ventajas-y-desventajas" tabindex="-1">Ventajas y desventajas</h2>
 
 
 <p>Vamos a ver qué tan buenos son AWS Amplify, Amazon S3 y Amazon CloudFront, y también qué no es tan genial de cada uno:</p>
@@ -254,13 +254,13 @@ related:
 <p>En resumen, la mejor opción depende de cosas como qué tipo de app estás haciendo, cuánta gente esperas que la visite y cuánto dinero puedes gastar. AWS Amplify es una buena opción para empezar con apps de una sola página, mientras que S3 y CloudFront pueden ser mejores para sitios más grandes o con necesidades específicas.</p>
 
 
-<h2 id="casos-de-uso-y-ejemplos" tabindex="-1">Casos de Uso y Ejemplos</h2>
+<h2 id="casos-de-uso-y-ejemplos" tabindex="-1">Casos de uso y ejemplos</h2>
 
 
 <p>Aquí te contamos cómo algunas empresas y desarrolladores han usado estos servicios de AWS para mejorar sus sitios web y aplicaciones, con ejemplos sencillos de entender.</p>
 
 
-<h3 id="sitio-web-est%C3%A1tico" tabindex="-1">Sitio Web Estático</h3>
+<h3 id="sitio-web-est%C3%A1tico" tabindex="-1">Sitio web estático</h3>
 
 
 <p>Imagina una empresa que tiene un sitio web simple, donde muestra lo que vende o los servicios que ofrece. Este sitio estaba en un servidor que a veces fallaba cuando muchos visitantes entraban al mismo tiempo.</p>
@@ -279,7 +279,7 @@ related:
 <p>Con estos cambios, el sitio ahora aguanta más visitas sin problemas y carga más rápido para los usuarios gracias a CloudFront.</p>
 
 
-<h3 id="aplicaci%C3%B3n-web-progresiva" tabindex="-1">Aplicación Web Progresiva</h3>
+<h3 id="aplicaci%C3%B3n-web-progresiva" tabindex="-1">Aplicación web progresiva</h3>
 
 
 <p>Un desarrollador tenía una aplicación web moderna que quería mejorar. Quería añadir cosas como que los usuarios puedan entrar con contraseña, recibir avisos y tener una base de datos que se actualice en tiempo real.</p>
@@ -309,7 +309,7 @@ DataStore.save(new Post({/* ... */}));
 <p>Con AWS Amplify, pudo hacer una aplicación completa y lista para crecer, sin tener que complicarse con detalles técnicos.</p>
 
 
-<h3 id="portal-de-noticias" tabindex="-1">Portal de Noticias</h3>
+<h3 id="portal-de-noticias" tabindex="-1">Portal de noticias</h3>
 
 
 <p>Un sitio de noticias buscaba que sus artículos cargaran más rápido. Antes, usaban un servidor especial para preparar las páginas antes de mostrarlas a los usuarios.</p>
@@ -350,6 +350,6 @@ DataStore.save(new Post({/* ... */}));
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/amazon-cloudfront-comprendiendo-el-cdn-de-aws/">Amazon CloudFront: Comprendiendo el CDN de AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS Fundamentos: Guía de Inicio Rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a Serverless en AWS</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/amazon-cloudfront-comprendiendo-el-cdn-de-aws/">Amazon CloudFront: comprendiendo el CDN de AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS fundamentos: guía de inicio rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a serverless en AWS</a></li>
 </ul>
 </p>

@@ -9,9 +9,9 @@ cover: "/assets/blog/editorial-datos-ia.png"
 coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
-  - title: "SLAs en AWS: Conceptos Legales Clave"
+  - title: "SLAs en AWS: conceptos legales clave"
     url: "https://dondeaprendoaws.com/blog/slas-en-aws-conceptos-legales-clave/"
-  - title: "9 Mejores Prácticas de Seguridad para IaC en AWS"
+  - title: "9 mejores prácticas de seguridad para IaC en AWS"
     url: "https://dondeaprendoaws.com/blog/9-mejores-practicas-de-seguridad-para-iac-en-aws/"
   - title: "AWS curso certificado: preguntas frecuentes"
     url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-preguntas-frecuentes/"
@@ -36,7 +36,7 @@ related:
 <p>Ya sea que estés desarrollando una aplicación de e-commerce, un sistema de gestión de inventario o cualquier solución que requiera consistencia de datos en operaciones complejas, comprender cómo utilizar las transacciones en DynamoDB es esencial.</p>
 
 
-<h3 id="configuraci%C3%B3n-inicial" tabindex="-1">Configuración Inicial</h3>
+<h3 id="configuraci%C3%B3n-inicial" tabindex="-1">Configuración inicial</h3>
 
 
 <p>Antes de empezar con las transacciones, necesitas:</p>
@@ -135,7 +135,7 @@ TransactGetItemsResult result = dynamoDB.transactGetItems(getRequest);
 <p>Esto ayuda a que todo funcione sin problemas, manteniendo tus datos seguros y en orden.</p>
 
 
-<h2 id="uso-pr%C3%A1ctico-de-transacciones" tabindex="-1">Uso Práctico de Transacciones</h2>
+<h2 id="uso-pr%C3%A1ctico-de-transacciones" tabindex="-1">Uso práctico de transacciones</h2>
 
 
 <h3 id="ejemplo-de-transacciones-en-dynamodb" tabindex="-1">Ejemplo de transacciones en DynamoDB</h3>
@@ -247,7 +247,7 @@ ddb.transactWriteItems(request);
 <p>Así, te aseguras de que las transacciones tengan lo necesario para funcionar correctamente.</p>
 
 
-<h2 id="soluci%C3%B3n-de-problemas-comunes" tabindex="-1">Solución de Problemas Comunes</h2>
+<h2 id="soluci%C3%B3n-de-problemas-comunes" tabindex="-1">Solución de problemas comunes</h2>
 
 
 <p>Cuando usas la API TransactWriteItems en DynamoDB, puedes encontrarte con algunos problemas. Aquí te explicamos cómo solucionarlos de manera sencilla:</p>
@@ -331,7 +331,7 @@ ddb.transactWriteItems(request);
 <p>Es buena idea seguir de cerca las métricas de CloudWatch y poner alarmas para darte cuenta rápido si algo no va bien.</p>
 
 
-<h2 id="pr%C3%A1cticas-recomendadas" tabindex="-1">Prácticas Recomendadas</h2>
+<h2 id="pr%C3%A1cticas-recomendadas" tabindex="-1">Prácticas recomendadas</h2>
 
 
 <p>Aquí te dejamos algunos consejos para cuando uses transacciones en Amazon DynamoDB:</p>
@@ -395,7 +395,7 @@ ddb.transactWriteItems(request);
 <p>Entendiendo bien estos puntos, podemos crear aplicaciones usando DynamoDB que sean robustas, rápidas y confiables. Con un buen diseño de datos y siguiendo las mejores prácticas, DynamoDB puede manejar incluso las tareas más complicadas que necesitemos.</p>
 
 
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas Relacionadas</h2>
+<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
 
 
 <h3 id="%C2%BFqu%C3%A9-tipo-de-base-de-datos-es-amazon-dynamodb%3F" tabindex="-1">¿Qué tipo de base de datos es Amazon DynamoDB?</h3>
@@ -404,7 +404,7 @@ ddb.transactWriteItems(request);
 <p>Amazon DynamoDB es una base de datos que no usa tablas como Excel, sino que guarda información de una manera más libre, llamada NoSQL. Es automática, rápida y puede manejar mucha información sin problemas.</p>
 
 
-<h3 id="%C2%BFpara-qu%C3%A9-sirve-la-sort-key-en-dynamodb%3F" tabindex="-1">¿Para qué sirve la Sort Key en DynamoDB?</h3>
+<h3 id="%C2%BFpara-qu%C3%A9-sirve-la-sort-key-en-dynamodb%3F" tabindex="-1">¿Para qué sirve la sort key en DynamoDB?</h3>
 
 
 <p>La Sort Key te ayuda a:</p>
@@ -455,6 +455,6 @@ ddb.transactWriteItems(request);
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/amazon-dynamodb-guia-basica/">Amazon DynamoDB: Guía Básica</a></li><li><a href="https://dondeaprendoaws.com/blog/amazon-dynamodb-la-base-de-datos-nosql-de-aws/">Amazon DynamoDB: La Base de Datos NoSQL de AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-dynamodb/">Mejores Prácticas Para Amazon DynamoDB</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-bases-de-datos-introduccion-basica/">Bases de Datos en AWS: introducción básica</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/amazon-dynamodb-guia-basica/">Amazon DynamoDB: guía básica</a></li><li><a href="https://dondeaprendoaws.com/blog/amazon-dynamodb-la-base-de-datos-nosql-de-aws/">Amazon DynamoDB: la base de datos NoSQL de AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-dynamodb/">Mejores prácticas para Amazon DynamoDB</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-bases-de-datos-introduccion-basica/">bases de datos en AWS: introducción básica</a></li>
 </ul>
 </p>

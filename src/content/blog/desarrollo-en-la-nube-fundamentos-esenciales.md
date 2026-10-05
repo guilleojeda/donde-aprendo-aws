@@ -8,9 +8,9 @@ cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Guía Completa: Análisis de Costos de Tráfico en AWS"
+  - title: "Guía completa: análisis de costos de tráfico en AWS"
     url: "https://dondeaprendoaws.com/blog/guia-completa-analisis-de-costos-de-trafico-en-aws/"
-  - title: "Mejores Prácticas de Seguridad en AWS"
+  - title: "Mejores prácticas de seguridad en AWS"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/"
   - title: "AWS curso certificado: preguntas frecuentes"
     url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-preguntas-frecuentes/"
@@ -61,7 +61,7 @@ related:
 </ul>
 
 
-<h3 id="arquitecturas-de-aplicaciones-en-la-nube%3A-microservicios-y-faas" tabindex="-1">Arquitecturas de aplicaciones en la nube: Microservicios y FaaS</h3>
+<h3 id="arquitecturas-de-aplicaciones-en-la-nube%3A-microservicios-y-faas" tabindex="-1">Arquitecturas de aplicaciones en la nube: microservicios y FaaS</h3>
 
 
 <p>Dos arquitecturas populares son:</p>
@@ -216,7 +216,7 @@ related:
 <p>En resumen, trabajar en la nube incrementa la productividad, reduce costos y permite adaptarse rápidamente a las necesidades cambiantes del negocio.</p>
 
 
-<h2 id="fundamentos-del-desarrollo-de-software-en-la-nube" tabindex="-1">Fundamentos del desarrollo de Software en la nube</h2>
+<h2 id="fundamentos-del-desarrollo-de-software-en-la-nube" tabindex="-1">Fundamentos del desarrollo de software en la nube</h2>
 
 
 <p>El desarrollo de software en la nube presenta ventajas únicas en comparación con los enfoques tradicionales. Al aprovechar la escalabilidad y flexibilidad de la nube, los desarrolladores pueden crear aplicaciones más ágiles y receptivas. Sin embargo, para tener éxito, es importante comprender algunos conceptos clave.</p>
@@ -298,7 +298,7 @@ related:
 <p>Con este enfoque es fácil <strong>escalar horizontalmente</strong> agregando más instancias de los servicios, mejorando mucho la capacidad y rendimiento.</p>
 
 
-<h3 id="devops%3A-la-integraci%C3%B3n-y-la-implementaci%C3%B3n-continuas" tabindex="-1">DevOps: La integración y la implementación continuas</h3>
+<h3 id="devops%3A-la-integraci%C3%B3n-y-la-implementaci%C3%B3n-continuas" tabindex="-1">DevOps: la integración y la implementación continuas</h3>
 
 
 <p><strong>DevOps</strong> y sus prácticas como la integración y implementación continuas son clave para acelerar el ciclo de publicación de aplicaciones en la nube.</p>
@@ -387,7 +387,7 @@ related:
 <p>En resumen, los contenedores traen grandes ventajas para crear aplicaciones portables y escalables en la nube.</p>
 
 
-<h3 id="microservicios%3A-desacoplamiento-y-agilidad-en-arquitectura-en-la-nube" tabindex="-1">Microservicios: Desacoplamiento y agilidad en arquitectura en la nube</h3>
+<h3 id="microservicios%3A-desacoplamiento-y-agilidad-en-arquitectura-en-la-nube" tabindex="-1">Microservicios: desacoplamiento y agilidad en arquitectura en la nube</h3>
 
 
 <p>Los microservicios son aplicaciones pequeñas, independientes y con una única responsabilidad, que se comunican a través de API. Sus ventajas incluyen:</p>
@@ -421,7 +421,7 @@ related:
 <p>Tener un registro facilita la colaboración entre equipos y la reutilización de imágenes estandarizadas.</p>
 
 
-<h3 id="sistemas-con-estado-y-sin-estado%3A-consideraciones-para-microservicios" tabindex="-1">Sistemas con estado y sin estado: Consideraciones para microservicios</h3>
+<h3 id="sistemas-con-estado-y-sin-estado%3A-consideraciones-para-microservicios" tabindex="-1">Sistemas con estado y sin estado: consideraciones para microservicios</h3>
 
 
 <ul>
@@ -460,7 +460,7 @@ related:
 <p>Estos y otros servicios de AWS permiten a los desarrolladores enfocarse en construir aplicaciones innovadoras en la nube.</p>
 
 
-<h3 id="azure%3A-plataforma-de-desarrollo-en-la-nube-de-microsoft" tabindex="-1">Azure: Plataforma de desarrollo en la nube de Microsoft</h3>
+<h3 id="azure%3A-plataforma-de-desarrollo-en-la-nube-de-microsoft" tabindex="-1">Azure: plataforma de desarrollo en la nube de microsoft</h3>
 
 
 <p>Microsoft Azure es otra plataforma en la nube muy popular que ofrece una amplia gama de herramientas y servicios para desarrolladores. Algunos aspectos destacados de Azure para el <strong>desarrollo en la nube</strong> son:</p>
@@ -478,7 +478,7 @@ related:
 <p>Azure también tiene una gran cantidad de herramientas y marcos de trabajo para lenguajes populares como .NET, Java, Python y JavaScript.</p>
 
 
-<h3 id="google-cloud%3A-creando-aplicaciones-escalables" tabindex="-1">Google Cloud: Creando aplicaciones escalables</h3>
+<h3 id="google-cloud%3A-creando-aplicaciones-escalables" tabindex="-1">Google cloud: creando aplicaciones escalables</h3>
 
 
 <p>Google Cloud Platform (GCP) es otra opción excelente para crear aplicaciones escalables en la nube. Al igual que AWS y Azure, GCP ofrece una amplia gama de servicios, pero se destaca en áreas como:</p>
@@ -552,7 +552,7 @@ related:
 </ul>
 
 
-<h3 id="modernizaci%C3%B3n-de-las-aplicaciones-java-en-la-nube" tabindex="-1">Modernización de las aplicaciones Java en la nube</h3>
+<h3 id="modernizaci%C3%B3n-de-las-aplicaciones-java-en-la-nube" tabindex="-1">Modernización de las aplicaciones java en la nube</h3>
 
 
 <ul>
@@ -566,7 +566,7 @@ related:
 <p>En resumen, la nube permite crear aplicaciones escalables, flexibles y de alto rendimiento para diversos casos de uso. Desde sitios web hasta procesamiento de datos y aplicaciones móviles, la nube agrega valor en cualquier industria.</p>
 
 
-<h2 id="conclusi%C3%B3n%3A-resumen-y-pr%C3%B3ximos-pasos-en-el-desarrollo-en-la-nube" tabindex="-1">Conclusión: Resumen y próximos pasos en el desarrollo en la nube</h2>
+<h2 id="conclusi%C3%B3n%3A-resumen-y-pr%C3%B3ximos-pasos-en-el-desarrollo-en-la-nube" tabindex="-1">Conclusión: resumen y próximos pasos en el desarrollo en la nube</h2>
 
 
 <p>El desarrollo en la nube ofrece muchas ventajas, como escalabilidad, flexibilidad y eficiencia de costos. Al adoptar una estrategia de nube, las empresas pueden acelerar el tiempo de comercialización, probar nuevas ideas más rápido y enfocarse en ofrecer valor al cliente en lugar de administrar infraestructura.</p>
@@ -625,6 +625,6 @@ related:
 <p>
 <h2>Related posts</h2>
 <ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS Seguridad: Fundamentos Esenciales</a></li>
+<li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS seguridad: fundamentos esenciales</a></li>
 </ul>
 </p>

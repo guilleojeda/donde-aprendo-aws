@@ -1,5 +1,5 @@
 ---
-title: "10 repositorios de GitHub para aprender Machine Learning en AWS"
+title: "10 repositorios de GitHub para aprender machine learning en AWS"
 description: "Elige ejemplos de SageMaker AI, fundamentos de ML, MLOps y Amazon Bedrock. Repositorios verificados, requisitos, costos y recursos en español."
 author: "guille-ojeda"
 publishedAt: "2024-10-27"
@@ -81,7 +81,7 @@ cd amazon-sagemaker-examples
 
 Estos comandos descargan archivos; ejecutar después un notebook puede crear recursos facturables. Para ubicar el flujo en español, mira [Machine Learning para developers con Amazon SageMaker](https://www.youtube.com/watch?v=4IAJOSCwWOo), del AWS User Group Perú. Si prefieres leer una presentación introductoria, Vicente G. Guzmán comparte [SageMaker: transformando el aprendizaje automático en AWS](https://vicenteguzman.com/aws/2024-08-27-sagemaker-ml-aws/), con material de su sesión para AWS Women Colombia.
 
-## 5. From idea to production: avanzar de notebook a MLOps
+## 5. From Idea to Production: avanzar de notebook a MLOps
 
 [amazon-sagemaker-from-idea-to-production](https://github.com/aws-samples/amazon-sagemaker-from-idea-to-production) propone una secuencia de notebooks que incorpora procesamiento y entrenamiento gestionados, Pipelines, registro de modelos y otras capacidades de MLOps. El material parte de un experimento y añade automatización y operación progresivamente.
 
@@ -121,7 +121,7 @@ El AWS Users Group Paraguay tiene una grabación sobre [redes neuronales con Ten
 
 Para continuar en español con agentes, el catálogo incluye [Surfeando la nube, el canal de Ricardo Ceci](https://www.youtube.com/@ricardoceci-dev), y su [clase introductoria de agentes en producción](https://www.youtube.com/watch?v=hGpJRxBMdfs). Comprueba en el canal los episodios disponibles y sus requisitos antes de seguir la serie.
 
-## 10. Copiloto de Código: seguir un proyecto de la comunidad
+## 10. Copiloto de código: seguir un proyecto de la comunidad
 
 [Copiloto-de-Codigo, de Hazel Sáenz](https://github.com/hsaenzG/Copiloto-de-Codigo), combina Strands Agents, Amazon Bedrock y Python para construir un agente que trabaja con repositorios de código. Cada episodio tiene su propia carpeta y guía.
 
@@ -146,9 +146,9 @@ Lleva una pregunta concreta: qué notebook ejecutaste, qué versión utilizaste,
 - [AWS User Group Buenos Aires](https://www.meetup.com/aws-user-group-buenos-aires/) ofrece un espacio general de aprendizaje entre usuarios. Su [grabación Machine Learning de Cero a Hero](https://www.youtube.com/watch?v=0kia26HQxs0) permite conocer contenido del grupo antes de participar.
 - [AWS User Group Panamá](https://www.meetup.com/aws-user-group-panama/) publica encuentros sobre AWS y tiene actividades relacionadas con agentes y Bedrock.
 
-La [agenda de eventos del catálogo](/eventos/) permite buscar una actividad por país y modalidad. Como referencias publicadas al revisar esta guía el 4 de octubre de 2026, aparecen el [Workshop day de Bedrock, Strands y MCP de Panamá](https://www.meetup.com/aws-user-group-panama/events/316730635/), anunciado presencial para el 13 de octubre, y [SegurAWS Américas sobre Bedrock Guardrails](https://www.meetup.com/aws-ug-cardenas/events/316670420/), anunciado en línea para el 19 de noviembre. Revisa cada ficha para confirmar registro, horario, lugar o enlace de conexión y condiciones vigentes.
+La [Agenda de eventos del catálogo](/eventos/) permite buscar una actividad por país y modalidad. Como referencias publicadas al revisar esta guía el 4 de octubre de 2026, aparecen el [Workshop day de Bedrock, Strands y MCP de Panamá](https://www.meetup.com/aws-user-group-panama/events/316730635/), anunciado presencial para el 13 de octubre, y [SegurAWS Américas sobre Bedrock Guardrails](https://www.meetup.com/aws-ug-cardenas/events/316670420/), anunciado en línea para el 19 de noviembre. Revisa cada ficha para confirmar registro, horario, lugar o enlace de conexión y condiciones vigentes.
 
-Para encontrar más explicaciones de la tarea que elegiste, visita [Aprender AWS](/aprender/) y el directorio de [creadores y canales](/creadores/). Puedes estudiar con recursos publicados en otro país; para participar en vivo, elige por tema, modalidad y horario.
+Para encontrar más explicaciones de la tarea que elegiste, visita [aprender AWS](/aprender/) y el directorio de [creadores y canales](/creadores/). Puedes estudiar con recursos publicados en otro país; para participar en vivo, elige por tema, modalidad y horario.
 
 ## Preguntas frecuentes
 

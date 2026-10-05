@@ -14,6 +14,8 @@ decoración; los indicadores con texto usan #A4470B sobre #FFF1E6. Los controles
 tienen límites y foco visibles; el color nunca es el único indicador necesario.
 
 Los textos propios usan tuteo (Aprende, Encuentra, Elige, Puedes, Comparte).
+Los títulos y encabezados propios usan mayúsculas de oración y «español» en
+minúscula; los nombres de servicios y las siglas conservan su capitalización.
 Los títulos, nombres y descripciones externos del catálogo y las citas literales
 conservan la voz de sus autores. DynamoDB sigue siendo el dueño del catálogo.
 La portada presenta orientación, accesos por familia y objetivo, recomendaciones
