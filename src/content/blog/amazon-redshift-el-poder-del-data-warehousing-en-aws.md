@@ -51,12 +51,12 @@ ORDER BY 1, 2;</code></pre>
 <p>La decisión empieza por el patrón de acceso a los datos: operaciones puntuales de una aplicación, consultas sobre archivos en S3 o análisis recurrente de conjuntos integrados requieren herramientas distintas.</p>
 
 <figure class="table"><table>
-<thead><tr><th>Servicio</th><th>Encaja cuando necesitás</th><th>Ejemplo</th></tr></thead>
+<thead><tr><th>Servicio</th><th>Cuándo encaja y ejemplo</th></tr></thead>
 <tbody>
-<tr><td><strong>Amazon Redshift</strong></td><td>Ejecutar consultas analíticas, agregaciones y combinaciones sobre datos preparados para reportes o BI.</td><td>Medir ventas mensuales por producto, canal y región.</td></tr>
-<tr><td><strong>Amazon RDS</strong></td><td>Una base relacional para las lecturas y escrituras de una aplicación, con motores como PostgreSQL o MySQL.</td><td>Guardar pedidos y actualizar su estado durante una compra.</td></tr>
-<tr><td><strong>Amazon DynamoDB</strong></td><td>Una base NoSQL de clave-valor o documentos para patrones de acceso definidos por la aplicación.</td><td>Consultar el carrito de una persona por su clave. <a href="/blog/amazon-dynamodb-la-base-de-datos-nosql-de-aws/">Lee cuándo conviene DynamoDB</a>.</td></tr>
-<tr><td><strong>Amazon Athena</strong></td><td>Consultar con SQL archivos que ya están en Amazon S3, sin operar un clúster de warehouse.</td><td>Investigar un conjunto de archivos Parquet de uso ocasional.</td></tr>
+<tr><td><strong>Amazon Redshift</strong></td><td>Ejecutar consultas analíticas, agregaciones y combinaciones sobre datos preparados para reportes o BI.<br><br>Medir ventas mensuales por producto, canal y región.</td></tr>
+<tr><td><strong>Amazon RDS</strong></td><td>Una base relacional para las lecturas y escrituras de una aplicación, con motores como PostgreSQL o MySQL.<br><br>Guardar pedidos y actualizar su estado durante una compra.</td></tr>
+<tr><td><strong>Amazon DynamoDB</strong></td><td>Una base NoSQL de clave-valor o documentos para patrones de acceso definidos por la aplicación.<br><br>Consultar el carrito de una persona por su clave. <a href="/blog/amazon-dynamodb-la-base-de-datos-nosql-de-aws/">Lee cuándo conviene DynamoDB</a>.</td></tr>
+<tr><td><strong>Amazon Athena</strong></td><td>Consultar con SQL archivos que ya están en Amazon S3, sin operar un clúster de warehouse.<br><br>Investigar un conjunto de archivos Parquet de uso ocasional.</td></tr>
 </tbody></table></figure>
 
 <p>Redshift, RDS y DynamoDB no son variantes intercambiables de una misma base. RDS y DynamoDB suelen servir las operaciones de una aplicación; Redshift atiende el análisis. Athena permite consultar datos directamente en S3 cuando el caso no requiere mantener la misma carga analítica dentro de un warehouse. AWS resume estos patrones en su <a href="https://docs.aws.amazon.com/decision-guides/latest/decision-guides/databases-on-aws-how-to-choose.html" target="_blank" rel="noopener noreferrer">guía para elegir un servicio de base de datos</a> y en la <a href="https://docs.aws.amazon.com/athena/latest/ug/what-is.html" target="_blank" rel="noopener noreferrer">introducción a Athena</a>.</p>
@@ -66,10 +66,10 @@ ORDER BY 1, 2;</code></pre>
 <p>Ambas opciones ejecutan consultas de Redshift. Cambia cuánto decidís y administrás sobre la capacidad de cómputo:</p>
 
 <figure class="table"><table>
-<thead><tr><th>Opción</th><th>Qué administrás</th><th>Cuándo puede encajar</th></tr></thead>
+<thead><tr><th>Opción</th><th>Qué administrás y para qué cargas</th></tr></thead>
 <tbody>
-<tr><td><strong>Serverless</strong></td><td>Creás un namespace para los objetos y datos, y un workgroup para la capacidad de cómputo. No elegís nodos; configurás la capacidad base y los límites de uso que correspondan.</td><td>Prototipos o cargas variables cuando preferís que AWS administre y ajuste la capacidad según el trabajo.</td></tr>
-<tr><td><strong>Provisionado</strong></td><td>Creás un clúster, elegís el tipo y la cantidad de nodos y planificás su capacidad.</td><td>Cargas conocidas y sostenidas, o cuando el equipo necesita controlar directamente el tamaño del clúster y su operación.</td></tr>
+<tr><td><strong>Serverless</strong></td><td>Creás un namespace para los objetos y datos, y un workgroup para la capacidad de cómputo. No elegís nodos; configurás la capacidad base y los límites de uso que correspondan.<br><br>Prototipos o cargas variables cuando preferís que AWS administre y ajuste la capacidad según el trabajo.</td></tr>
+<tr><td><strong>Provisionado</strong></td><td>Creás un clúster, elegís el tipo y la cantidad de nodos y planificás su capacidad.<br><br>Cargas conocidas y sostenidas, o cuando el equipo necesita controlar directamente el tamaño del clúster y su operación.</td></tr>
 </tbody></table></figure>
 
 <p>Serverless no significa que no haya configuración ni que el cómputo sea ilimitado. Su capacidad tiene parámetros y controles; el espacio de almacenamiento se factura por separado. En los clústeres provisionados, los tipos RA3 permiten ajustar cómputo y almacenamiento administrado por separado. Revisá la <a href="https://docs.aws.amazon.com/redshift/latest/mgmt/serverless-console-comparison.html" target="_blank" rel="noopener noreferrer">comparación oficial entre Serverless y provisionado</a> antes de decidir.</p>
