@@ -8,8 +8,8 @@
   },
   {
     "slug": "10-laboratorios-practicos-de-aws-para-principiantes",
-    "title": "10 Laboratorios Prácticos de AWS para Principiantes",
-    "description": "Diez prácticas de AWS con resultados verificables, recursos de la comunidad y pasos de limpieza: de un bucket privado en S3 a tu primera API.",
+    "title": "10 laboratorios de AWS para principiantes: guía paso a paso",
+    "description": "Practica AWS desde cero con diez laboratorios paso a paso, resultados verificables, costos y limpieza; incluye opciones guiadas sin una cuenta propia.",
     "publishedAt": "2024-05-18",
     "coverAlt": "Nube central rodeada por círculos con iconos de distintos dispositivos"
   },
