@@ -238,7 +238,8 @@ for (const article of archive) {
   assert.equal(decode(html.match(/<meta name="twitter:image:alt" content="([^"]*)"/)?.[1] ?? ''), expectedSocialAlt);
 }
 
-const declaredRelatedCardCount = [...sourceBySlug.values()].reduce((count, { data }) => count + (data.related?.length ?? 0), 0);
+const declaredRelatedCardCount = [...sourceBySlug.values()]
+  .reduce((count, article) => count + (article.data.related?.length ?? 0), 0);
 assert.equal(relatedCardCount, declaredRelatedCardCount, 'Every declared related card must retain its destination, title, cover and alternative.');
 
 // Only the shared, built navigation module is permitted alongside article
