@@ -80,7 +80,7 @@ for (const group of upcomingEventGroups) {
 }
 ---
 
-<main>
+<main id="contenido" tabindex="-1">
   <section class="directory-section" aria-labelledby="directory-title">
     <div class="site-container directory-section__container">
       {breadcrumb?.length ? <nav class="community-breadcrumb" aria-label="Ruta de navegación">
@@ -98,13 +98,13 @@ for (const group of upcomingEventGroups) {
           <li aria-current="page">{countryLabel(country)}</li>
         </ol>
       </nav>}
-      <div class="directory-hero">
+      <header class="directory-hero">
         <h1 id="directory-title">{title}</h1>
         <p>{intro}</p>
         {kind === 'community' && country && agendaPath && <p class="community-country-events">
           <a href={agendaPath}>Consultar agenda de eventos organizados por comunidades de {countryLabel(country)}</a>
         </p>}
-      </div>
+      </header>
 
       {kind === 'community' && showCountryNavigation && <CountryNavigation pages={countryPages} section="comunidades" currentCountry={country} showCounts />}
 

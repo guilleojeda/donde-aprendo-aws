@@ -7,19 +7,19 @@ import '../../styles/search.css';
 
 <BaseLayout
   title="Buscar contenido AWS | ¿Dónde Aprendo AWS?"
-  description="Buscá recorridos, artículos, recursos, creadores, comunidades y eventos de AWS en español."
+  description="Busca recorridos, artículos, recursos, creadores, comunidades y eventos de AWS en español."
   canonical="https://dondeaprendoaws.com/buscar/"
   noindex
 >
   <SiteHeader />
-  <main class="search-page site-container">
+  <main id="contenido" tabindex="-1" class="search-page site-container">
     <header class="search-page__header">
       <h1>Buscar en todo el sitio</h1>
-      <p>Encontrá recorridos, artículos del blog, recursos para aprender, creadores, comunidades y eventos.</p>
+      <p>Encuentra recorridos, artículos del blog, recursos para aprender, creadores, comunidades y eventos.</p>
     </header>
 
     <form class="search-form" data-unified-search role="search">
-      <label for="site-query">¿Qué querés aprender?</label>
+      <label for="site-query">¿Qué quieres aprender?</label>
       <div class="search-form__row">
         <input id="site-query" type="search" required maxlength="100" autocomplete="off" placeholder="Por ejemplo: seguridad en S3" />
         <select id="site-type" aria-label="Tipo de contenido">
@@ -38,11 +38,11 @@ import '../../styles/search.css';
 
     <section class="search-results" aria-labelledby="search-results-title">
       <h2 id="search-results-title">Resultados</h2>
-      <p data-search-status role="status" aria-live="polite">Escribí una búsqueda para ver resultados.</p>
+      <p data-search-status role="status" aria-live="polite">Escribe una búsqueda para ver resultados.</p>
       <ol data-search-results></ol>
       <button class="search-results__more" type="button" data-search-more hidden>Mostrar más resultados</button>
     </section>
-    <noscript><p>Para usar esta búsqueda necesitás JavaScript. También podés explorar el <a href="/blog/">archivo del blog</a> y los <a href="/aprender/">recursos para aprender</a>.</p></noscript>
+    <noscript><p>Para usar esta búsqueda necesitas JavaScript. También puedes explorar el <a href="/blog/">archivo del blog</a> y los <a href="/aprender/">recursos para aprender</a>.</p></noscript>
   </main>
   <SiteFooter />
 </BaseLayout>

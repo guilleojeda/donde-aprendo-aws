@@ -20,7 +20,7 @@ interface Props {
 
 const {
   title = 'Dónde Aprendo AWS: recursos y comunidades en español',
-  description = 'Encontrá cursos, videos, creadores y comunidades para aprender AWS en español. Explorá recorridos de aprendizaje y próximos eventos.',
+  description = 'Encuentra cursos, videos, creadores y comunidades para aprender AWS en español. Explora rutas de aprendizaje y próximos eventos.',
   canonical,
   image,
   imageAlt,
@@ -82,11 +82,13 @@ const articleSchema = publishedTimestamp && canonical && imageUrl
     <meta name="twitter:image:alt" content={socialImageAlt} />
     {articleSchema && <script type="application/ld+json" set:html={articleSchema} />}
     {productionBuild && <script is:inline src="/assets/analytics.js" defer />}
+    <link rel="icon" type="image/svg+xml" href="/assets/site-favicon.svg" />
     <link rel="icon" type="image/png" href="/assets/site-favicon.png" sizes="120x120" />
     <link rel="preload" href="/assets/fonts/fira-sans/latin-400.woff2" as="font" type="font/woff2" crossorigin />
     <title>{title}</title>
   </head>
   <body>
+    <a class="skip-link" href="#contenido">Saltar al contenido</a>
     <slot />
   </body>
 </html>

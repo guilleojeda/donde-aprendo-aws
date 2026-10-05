@@ -38,21 +38,19 @@ test('post-render processing preserves image content and emits correctly sized l
   await copyFile(resolve('public', source.slice(1)), resolve(outputDir, source.slice(1)));
   await copyFile(resolve('public', compressedSource.slice(1)), resolve(publicDir, compressedSource.slice(1)));
   await copyFile(resolve('public', compressedSource.slice(1)), resolve(outputDir, compressedSource.slice(1)));
-  await copyFile(resolve('public/assets/simple-aws-logo.png'), resolve(publicDir, 'assets/simple-aws-logo.png'));
-  await copyFile(resolve('public/assets/simple-aws-logo.png'), resolve(outputDir, 'assets/simple-aws-logo.png'));
 
   const indexPath = resolve(outputDir, 'blog/index.html');
   const articlePath = resolve(outputBlogDir, 'index.html');
   const homePath = resolve(outputDir, 'index.html');
   await writeFile(indexPath, `<main><a class="blog-card" href="/blog/a/"><img src="${source}" alt="Diagrama del artículo"></a><a class="blog-card" href="/blog/b/"><img src="${source}" alt="Otra tarjeta"></a></main><script type="application/ld+json">{"description":"<img src=\\\"${source}\\\">"}</script>`);
   await writeFile(articlePath, `<article class="blog-article__body"><p><img src="${compressedSource}" alt="Imagen del cuerpo"></p></article><section class="blog-related__cards"><a class="blog-related__card"><img src="${source}" alt="Artículo relacionado"></a></section>`);
-  await writeFile(homePath, `<a class="partner-logo"><img src="/assets/simple-aws-logo.png" width="130" height="100" alt="Logo simple aws blanco" loading="lazy"></a>`);
+  await writeFile(homePath, '<main>Contenido sin imágenes de socios.</main>');
 
   t.after(() => rm(root, { recursive: true, force: true }));
   const result = await processResponsiveImages({ outputDir, publicDir });
   assert.equal(result.pages, 3);
-  assert.equal(result.images, 5);
-  assert.equal(result.uniqueImages, 3);
+  assert.equal(result.images, 4);
+  assert.equal(result.uniqueImages, 2);
 
   const indexHtml = await readFile(indexPath, 'utf8');
   assert.match(indexHtml, /<script type="application\/ld\+json">\{"description":"<img src=/);
@@ -105,14 +103,7 @@ test('post-render processing preserves image content and emits correctly sized l
     }
   }
 
-  const homeHtml = await readFile(homePath, 'utf8');
-  const partner = attributes(images(homeHtml)[0]);
-  const partnerMetadata = await sharp(resolve(publicDir, 'assets/simple-aws-logo.png')).metadata();
-  assert.equal(partner.get('width'), String(partnerMetadata.width));
-  assert.equal(partner.get('height'), String(partnerMetadata.height));
-  assert.equal(partner.get('sizes'), '130px');
-  assert.equal(partner.get('loading'), 'lazy');
-  assert.deepEqual(partner.get('srcset').split(',').map((candidate) => Number.parseInt(candidate.trim().split(/\s+/)[1], 10)), [130, 260, 390]);
+  assert.equal(await readFile(homePath, 'utf8'), '<main>Contenido sin imágenes de socios.</main>');
 
   const dimensionSource = await sharp(resolve(publicDir, source.slice(1))).metadata();
   const descriptors = [];

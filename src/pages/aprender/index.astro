@@ -16,28 +16,28 @@ const events = catalog.filter((record): record is CatalogEvent => record.recordT
 const collectionLinks = RESOURCE_COLLECTIONS.filter((collection) => collection.kind === 'content')
   .map(({ path, label }) => ({ path, label }));
 const guide = {
-  heading: 'Elegí cómo querés aprender AWS',
-  body: 'Podés empezar con un curso, resolver una duda con un tutorial o profundizar leyendo una guía. Si todavía no tenés un tema, los recorridos proponen un orden para empezar.',
+  heading: 'Elige cómo quieres aprender AWS',
+  body: 'Puedes empezar con un curso, resolver una duda con un tutorial o profundizar con una guía. Si todavía no tienes un tema en mente, los recorridos te proponen un orden para empezar.',
   points: [
-    'Filtrá los recursos por formato, tema y nivel para acercarte a lo que necesitás.',
-    'Revisá el destino, la fecha y los requisitos de cada publicación antes de seguir sus pasos.',
+    'Filtra los recursos por formato, tema y nivel para encontrar lo que necesitas.',
+    'Revisa el destino, la fecha y los requisitos de cada publicación antes de seguir sus pasos.',
     'El catálogo enlaza material de terceros; las condiciones y la vigencia dependen de cada autor.',
   ],
 };
 ---
-<BaseLayout title="Recursos para aprender AWS en español | ¿Dónde Aprendo AWS?" description="Explorá cursos, videos, artículos y recursos en español para aprender AWS por formato, tema y nivel." canonical="https://dondeaprendoaws.com/aprender/">
+<BaseLayout title="Recursos para aprender AWS en español | ¿Dónde Aprendo AWS?" description="Explora cursos, videos, artículos y recursos en español para aprender AWS por formato, tema y nivel." canonical="https://dondeaprendoaws.com/aprender/">
   <SiteHeader />
   <aside class="learning-path-promo site-container" aria-label="Recorridos de aprendizaje">
-    <p>¿No sabés por dónde empezar? <a href="/recorridos/">Seguí un recorrido de aprendizaje</a> con recursos y artículos en orden.</p>
+    <p>¿No sabes por dónde empezar? <a href="/recorridos/">Sigue un recorrido de aprendizaje</a> con recursos y artículos en orden.</p>
   </aside>
-  <Directory title="Recursos para aprender AWS en español" intro="Encontrá cursos, videos y artículos para estudiar AWS a tu ritmo. Explorá por formato, tema o nivel, y elegí recursos de acuerdo con lo que querés aprender o construir." kind="content" resources={resources} allResources={allResources} events={events}>
+  <Directory title="Recursos para aprender AWS en español" intro="Encuentra cursos, videos y artículos para estudiar AWS a tu ritmo. Explora por formato, tema o nivel y elige recursos según lo que quieres aprender o construir." kind="content" resources={resources} allResources={allResources} events={events}>
     <div slot="before-filters" class="collection-page__editorial">
       <CollectionNavigation links={collectionLinks} />
     </div>
     <div slot="after-results" class="collection-page__after-results">
       <CollectionGuide guide={guide} links={[]} />
       <p class="collection-page__catalog-note">
-        Para seguir una secuencia, <a href="/recorridos/">explorá los recorridos de aprendizaje</a>. Cada recorrido conecta artículos y recursos existentes.
+        Para seguir una secuencia, <a href="/recorridos/">explora los recorridos de aprendizaje</a>. Cada recorrido conecta artículos y recursos existentes.
       </p>
     </div>
   </Directory>

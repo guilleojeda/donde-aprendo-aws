@@ -1,26 +1,5 @@
 ---
-const links = [
-  { href: '/', label: 'Inicio' },
-  { href: '/aprender/', label: 'Aprender' },
-  { href: '/recorridos/', label: 'Rutas' },
-  { href: '/blog/', label: 'Blog' },
-  { href: '/buscar/', label: 'Buscar' },
-];
+import SiteHeader from './SiteHeader.astro';
 ---
 
-<header class="blog-header">
-  <nav class="blog-shell blog-header__nav" aria-label="Navegación del blog">
-    <a class="blog-header__brand" href="/">¿Dónde Aprendo AWS?</a>
-    <div class="blog-header__links">
-      {links.map(({ href, label }) => <a href={href}>{label}</a>)}
-    </div>
-    <details class="blog-header__mobile">
-      <summary aria-label="Abrir menú">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 7h14M5 12h14M5 17h14" /></svg>
-      </summary>
-      <div class="blog-header__mobile-links">
-        {links.map(({ href, label }) => <a href={href}>{label}</a>)}
-      </div>
-    </details>
-  </nav>
-</header>
+<SiteHeader />

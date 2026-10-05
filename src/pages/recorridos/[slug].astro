@@ -48,7 +48,7 @@ const { path } = Astro.props as { path: ResolvedPath };
   canonical={`https://dondeaprendoaws.com/recorridos/${path.id}/`}
 >
   <SiteHeader />
-  <main class="learning-path-detail site-container">
+  <main id="contenido" tabindex="-1" class="learning-path-detail site-container">
     <nav class="learning-path-detail__breadcrumbs" aria-label="Ruta de navegación">
       <ol>
         <li><a href="/">Inicio</a></li>
@@ -61,14 +61,14 @@ const { path } = Astro.props as { path: ResolvedPath };
       <p class="learning-paths__eyebrow">{path.audience}</p>
       <h1>{path.title}</h1>
       <p class="learning-path-detail__summary">{path.intro}</p>
-      <p class="learning-path-detail__guidance">Los pasos son sugeridos: seguí el orden o elegí el material que mejor responda a lo que necesitás aprender.</p>
+      <p class="learning-path-detail__guidance">Los pasos son sugerencias: sigue el orden o elige el material que mejor responda a lo que necesitas aprender.</p>
     </header>
 
     <section class="learning-path-detail__steps" aria-labelledby="learning-path-steps-title">
       <div class="learning-path-detail__section-heading">
         <div>
           <p class="learning-paths__eyebrow">Artículos y recursos</p>
-          <h2 id="learning-path-steps-title">Seguí la ruta</h2>
+          <h2 id="learning-path-steps-title">Sigue la ruta</h2>
         </div>
         <span>{path.steps.length} pasos</span>
       </div>
@@ -87,9 +87,9 @@ const { path } = Astro.props as { path: ResolvedPath };
       </ol>
     </section>
 
-    <nav class="learning-path-detail__related" aria-label="Seguí explorando">
+    <nav class="learning-path-detail__related" aria-label="Sigue explorando">
       <a href={path.relatedCollection.href}>{path.relatedCollection.label}</a>
-      <a href="/recorridos/">Elegí otra ruta</a>
+      <a href="/recorridos/">Elige otra ruta</a>
     </nav>
   </main>
   <SiteFooter />

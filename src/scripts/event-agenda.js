@@ -136,7 +136,7 @@ if (agenda && empty) {
     empty.hidden = matching > 0;
     empty.textContent = active === 0
       ? (empty.dataset.eventNoUpcoming ?? 'No hay próximos eventos publicados. Vuelve pronto para ver nuevas fechas.')
-      : 'No hay eventos que coincidan con estos filtros. Probá con otras fechas o limpiá los filtros.';
+      : 'No hay eventos que coincidan con estos filtros. Prueba con otras fechas o limpia los filtros.';
     if (more) more.hidden = matching <= limit;
     if (count) count.textContent = `${matching} ${matching === 1 ? 'evento' : 'eventos'}`;
     const nextTransition = nextEventAgendaTransition(events, now);

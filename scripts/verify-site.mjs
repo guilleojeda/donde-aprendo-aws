@@ -76,6 +76,8 @@ assert.equal(defaultSocialImage.readUInt32BE(20), 630, 'Default social image hei
 let sitemapModificationDates = 0;
 for (const path of allHtmlPaths) {
   const html = read(path);
+  assert.match(html, /class="skip-link" href="#contenido"/, `Keyboard bypass: ${path}`);
+  assert.match(html, /<main\b[^>]*id="contenido"[^>]*tabindex="-1"/, `Focusable main target: ${path}`);
   const metadata = new Map();
   for (const [, attributes] of html.matchAll(/<meta\b([^>]*)>/gi)) {
     const name = attributes.match(/\b(?:property|name)="([^"]+)"/)?.[1];
@@ -157,8 +159,8 @@ for (const path of pagePaths) {
 const notFound = read('404.html');
 assert.match(notFound, /<meta name="robots" content="noindex, nofollow"/);
 const home = read('index.html');
-assert.match(home, /<title>Dónde aprender AWS en español \| ¿Dónde Aprendo AWS\?<\/title>/);
-assert.match(home, /Elegí cómo aprender AWS en español: cursos, videos, tutoriales, rutas de aprendizaje, comunidades y próximos eventos en Latinoamérica\./);
+assert.match(home, /<title>Aprende AWS en español \| ¿Dónde Aprendo AWS\?<\/title>/);
+assert.match(home, /Encuentra recursos, rutas de aprendizaje, comunidades y próximos eventos para aprender AWS en español\./);
 assert.match(read('blog/index.html'), /<title>Guías y tutoriales AWS en español \| Dónde Aprendo AWS<\/title>/);
 for (const section of sections) assert.match(home, new RegExp(`href="/${section}/"`));
 assert.match(home, /id="legacy-resource-routes"/);
@@ -176,7 +178,8 @@ for (const id of ['primeros-pasos', 'serverless', 'seguridad', 'ia-generativa'])
   assert.ok(detail.includes(`href="${LEARNING_PATHS.find((path) => path.id === id).relatedCollection.href}"`), `${id} links to its matching resource collection.`);
 }
 assert.match(read('recorridos/primeros-pasos/index.html'), /href="\/blog\/aws-fundamentos-guia-de-inicio-rapido\/"/);
-const learningMain = learning.match(/<main class="learning-paths[^>]*">([\s\S]*?)<\/main>/)?.[1] ?? '';
+const learningMain = learning.match(/<main\b[^>]*class="learning-paths[^\"]*"[^>]*>([\s\S]*?)<\/main>/)?.[1] ?? '';
+assert.ok(learningMain, 'Learning-path main must be located before checking its links.');
 assert.doesNotMatch(learningMain, /href="https?:\/\//, 'Learning paths should point to existing internal destinations.');
 const searchPage = read('buscar/index.html');
 assert.match(searchPage, /data-unified-search/);

@@ -164,14 +164,19 @@ for (const article of archive) {
   assert.equal(html.match(/<meta name="twitter:image" content="([^"]+)"/)?.[1], ogImage);
 }
 
+// Only the shared, built navigation module is permitted alongside article
+// structured data; scripts embedded in imported article bodies stay rejected.
+const navigationScripts = new Set([...read('404.html').matchAll(/<script\b[^>]*type="module"[^>]*>[\s\S]*?<\/script>/g)].map(([script]) => script));
+assert.ok(navigationScripts.size > 0, 'Shared mobile navigation module is missing');
 for (const html of allPages) {
-  for (const menu of ['blog-header__links', 'blog-header__mobile-links']) {
-    const navigation = html.match(new RegExp(`<div class="${menu}">([\\s\\S]*?)<\\/div>`))?.[1] ?? '';
-    const links = [...navigation.matchAll(/<a href="([^"]+)">([^<]+)<\/a>/g)]
-      .map(([, href, text]) => [href, text]);
-    assert.deepEqual(links, [['/', 'Inicio'], ['/aprender/', 'Aprender'], ['/recorridos/', 'Rutas'],
-      ['/blog/', 'Blog'], ['/buscar/', 'Buscar']], `Complete blog menu: ${menu}`);
-  }
+  const navigation = html.match(/<div class="site-nav__menu"[^>]*>([\s\S]*?)<\/div>/)?.[1] ?? '';
+  const links = [...navigation.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)]
+    .map(([, href, text]) => [href, decode(text.replace(/<[^>]+>/g, '').trim())]);
+  assert.deepEqual(links, [['/', 'Inicio'], ['/aprender/', 'Aprender'], ['/recorridos/', 'Rutas'],
+    ['/creadores/', 'Creadores'], ['/comunidades/', 'Comunidades'], ['/eventos/', 'Eventos'],
+    ['/blog/', 'Blog'], ['/buscar/', 'Buscar'], ['/#cta_form-01-839181', 'Comparte un recurso']], 'Complete shared blog menu');
+  assert.match(html, /aria-controls="site-menu"/, 'Mobile menu must control the shared navigation');
+  assert.match(html, /aria-expanded="false"/, 'Mobile menu starts closed');
   if (production) {
     assert.doesNotMatch(html, /<meta name="robots" content="noindex, nofollow"/);
   } else {
@@ -180,17 +185,21 @@ for (const html of allPages) {
   assert.doesNotMatch(html, /(?:unicornplatform\.com|seobotai\.com|mars-images\.imgix\.net|googletagmanager\.com)/i);
   assert.doesNotMatch(html, /<a\b[^>]*href="\s*javascript:/i);
   assert.doesNotMatch(html, /\son[a-z]+\s*=/i);
-  for (const [, attributes] of html.matchAll(/<script\b([^>]*)>/gi)) {
+  for (const [script, attributes] of html.matchAll(/<script\b([^>]*)>[\s\S]*?<\/script>/gi)) {
     if (production && /\bsrc="\/assets\/analytics\.js"/.test(attributes)) {
       continue;
     }
-    assert.match(attributes, /\btype="application\/ld\+json"/, 'Blog scripts must be inert structured data.');
+    if (/\btype="module"/.test(attributes)) {
+      assert.ok(navigationScripts.has(script), 'Blog module must be the same built navigation used outside articles');
+      continue;
+    }
+    assert.match(attributes, /\btype="application\/ld\+json"/, 'Inline blog scripts must be inert structured data.');
   }
   for (const [, src] of html.matchAll(/<iframe\b[^>]*\bsrc="([^"]+)"/gi)) {
     assert.match(src, /^https:\/\/www\.youtube(?:-nocookie)?\.com\/embed\//, `Unexpected video embed: ${src}`);
   }
   for (const [, src] of html.matchAll(/<img\b[^>]*\bsrc="([^"]+)"/g)) {
-    assert.ok(src.startsWith('/assets/blog/'), `Non-local blog image: ${src}`);
+    assert.ok(src.startsWith('/assets/blog/') || /^\/assets\/site-logo(?:-(?:mono|white))?\.svg$/.test(src), `Non-local blog image: ${src}`);
     const file = resolve(dist, `.${src}`);
     assert.ok(file.startsWith(`${dist}/`) && existsSync(file), `Missing blog image: ${src}`);
     assetPaths.add(src);
@@ -224,4 +233,4 @@ for (const { slug, comments } of articlesWithCodeComments) {
   }
 }
 
-console.log(`Verified ${archive.length} confirmed authors and exact original publication dates, ${modifiedArticles} declared modifications, ${reviewedArticles} reviews, ${expected.length} featured cards, ${archiveUrls.length} archive links, ${pathMembership.size} article path continuations, both blog menus, and ${assetPaths.size} owned images.`);
+console.log(`Verified ${archive.length} confirmed authors and exact original publication dates, ${modifiedArticles} declared modifications, ${reviewedArticles} reviews, ${expected.length} featured cards, ${archiveUrls.length} archive links, ${pathMembership.size} article path continuations, the shared desktop/mobile blog menu, and ${assetPaths.size} owned images.`);
