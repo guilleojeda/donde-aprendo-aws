@@ -4,7 +4,7 @@ description: "Compara EventBridge, SNS y SQS y diseña un flujo de pedidos en AW
 author: "guille-ojeda"
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T00:59:24.459Z"
-modifiedTimestamp: "2026-10-05T00:15:04-03:00"
+modifiedTimestamp: "2026-10-05T00:19:53-03:00"
 review:
   date: "2026-10-05"
 cover: "/assets/blog/1a0df738c1ab9c313bf60144.jpg"
@@ -24,10 +24,6 @@ Para procesar pedidos, una base sólida es guardar el pedido y su evento de sali
 | [Amazon EventBridge](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-rules.html) | Recibir eventos de AWS, aplicaciones propias o SaaS y dirigirlos con reglas basadas en su contenido. | Un bus de eventos y reglas que pueden enviar un evento coincidente a uno o varios destinos. | No es una cola de trabajo ni promete un orden global entre eventos. Configurá una cola o un archivo si necesitás retener trabajo o reproducir eventos. |
 | [Amazon SNS](https://docs.aws.amazon.com/sns/latest/dg/welcome.html) | Publicar una notificación para varios suscriptores —por ejemplo, HTTP, Lambda o varias colas SQS— con un modelo pub/sub. | Entrega de una publicación a suscriptores; las políticas de filtro ayudan a seleccionar qué recibe cada suscripción. | No ofrece a cada consumidor una cola independiente salvo que suscribas colas SQS. |
 | [Amazon SQS](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/welcome.html) | Amortiguar picos, desacoplar el ritmo de un productor y un trabajador, o mantener trabajo pendiente durante una interrupción del consumidor. | Una cola que el consumidor lee y cuyas entregas puede reintentar; una DLQ permite aislar mensajes que exceden los intentos configurados. | No enruta mensajes por sí misma a distintos consumidores según el contenido. La cola Standard permite duplicados y no garantiza orden. |
-
-<figure><img alt="Amazon EventBridge" src="/assets/blog/dcba27902d45cd07a719ed13.jpg"/></figure>
-<figure><img alt="Amazon SNS" src="/assets/blog/8201b20ff4631e566e1d41df.jpg"/></figure>
-<figure><img alt="Amazon SQS" src="/assets/blog/b0789df1f55a01d05145a3f4.jpg"/></figure>
 
 Una regla práctica: **EventBridge para decidir adónde va un hecho; SNS para difundir una publicación; SQS para poner trabajo en espera**. Por ejemplo, una regla de EventBridge puede enviar `OrderPlaced` a una cola SQS de inventario y a otra de notificaciones. Si todas las publicaciones de un productor deben llegar a muchos suscriptores con filtros sencillos, SNS con una cola SQS por suscriptor también puede encajar. La [guía de decisión de AWS para SNS, SQS y EventBridge](https://docs.aws.amazon.com/decision-guides/latest/decision-guides/sns-or-sqs-or-eventbridge.html) compara estos modelos y sus casos de uso.
 
