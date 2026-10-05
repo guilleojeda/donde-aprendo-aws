@@ -4,22 +4,17 @@ description: "Descubre todo lo que necesitas saber sobre los tipos y tamaños de
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T00:25:35.456Z"
-cover: "/assets/blog/ad2ff3daa90f3b8701cd3eb8.png"
-coverAlt: "Nube azul con círculos de colores de distintos tamaños"
-ogImage: "/assets/blog/ad2ff3daa90f3b8701cd3eb8.png"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "Detección de Sesgos en Modelos ML con SageMaker Clarify"
     url: "https://dondeaprendoaws.com/blog/deteccion-de-sesgos-en-modelos-ml-con-sagemaker-clarify/"
-    image: "/assets/blog/055e62c5fbddebf94a936e62.jpg"
-    imageAlt: ""
   - title: "Cifrado de datos con AWS KMS: Guía práctica"
     url: "https://dondeaprendoaws.com/blog/cifrado-de-datos-con-aws-kms-guia-practica/"
-    image: "/assets/blog/8879f0457d281038d09e5222.png"
-    imageAlt: ""
   - title: "Cómo Utilizar ElasticSearch en AWS"
     url: "https://dondeaprendoaws.com/blog/como-utilizar-elasticsearch-en-aws/"
-    image: "/assets/blog/17fe006845acd8b3930b23c8.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Si estás buscando el tipo y tamaño de instancia RDS adecuado para tu proyecto, este artículo es para ti. Aquí encontrarás todo lo que necesitas saber sobre Amazon RDS, desde conceptos básicos hasta consejos para elegir la mejor opción para tu aplicación. Vamos a desglosarlo de manera simple:</p>

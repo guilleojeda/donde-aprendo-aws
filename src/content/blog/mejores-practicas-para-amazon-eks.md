@@ -4,22 +4,17 @@ description: "Descubre las mejores prácticas para aprovechar al máximo Amazon 
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:58:54.462Z"
-cover: "/assets/blog/5db43c07fa6733b870313471.jpg"
-coverAlt: "Tres nubes pequeñas con iconos sobre una plataforma ovalada azul"
-ogImage: "/assets/blog/5db43c07fa6733b870313471.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Cómo Reducir Costos de Transferencia Intra-Región en AWS"
     url: "https://dondeaprendoaws.com/blog/como-reducir-costos-de-transferencia-intra-region-en-aws/"
-    image: "/assets/blog/f7f97a6864a4b23d66bec74e.jpg"
-    imageAlt: ""
   - title: "5 Startups Exitosas en AWS: Casos de Éxito"
     url: "https://dondeaprendoaws.com/blog/5-startups-exitosas-en-aws-casos-de-exito/"
-    image: "/assets/blog/b94e80f121605caa3d2fcec3.jpg"
-    imageAlt: ""
   - title: "Guía de Estudio AWS Certified Cloud Practitioner CLF-C02"
     url: "https://dondeaprendoaws.com/blog/guia-de-estudio-aws-certified-cloud-practitioner-clf-c02/"
-    image: "/assets/blog/9ee272960332ab17524d1056.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Si estás buscando simplificar la gestión de aplicaciones en contenedores con Kubernetes, Amazon EKS es tu solución. Aquí te dejo las claves para entender y aprovechar al máximo este servicio:</p>

@@ -4,22 +4,17 @@ description: "Aprende cómo sacar el máximo provecho de los eventos de AWS Educ
 author: "guille-ojeda"
 publishedAt: "2024-05-18"
 publishedTimestamp: "2024-05-18T00:29:00.242Z"
-cover: "/assets/blog/835302183289e4165c02383b.jpg"
-coverAlt: "Diagrama de una nube conectada a iconos de educación, pantallas y edificios"
-ogImage: "/assets/blog/835302183289e4165c02383b.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Estructuras multi-cuenta AWS para escalar"
     url: "https://dondeaprendoaws.com/blog/estructuras-multi-cuenta-aws-para-escalar/"
-    image: "/assets/blog/0e9e4bdd57782b78da6d878e.jpg"
-    imageAlt: ""
   - title: "AWS DeepLens: Introducción al Aprendizaje Profundo"
     url: "https://dondeaprendoaws.com/blog/aws-deeplens-introduccion-al-aprendizaje-profundo/"
-    image: "/assets/blog/711eae34c71ed3b53e765f69.jpg"
-    imageAlt: ""
   - title: "AWS Seguridad: Servicios Esenciales"
     url: "https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/"
-    image: "/assets/blog/2ac2bf3abc517088f07fb837.png"
-    imageAlt: ""
+
 ---
 
 <p><a href="https://aws.amazon.com/education/awseducate/" rel="noopener noreferrer" target="_blank">AWS Educate</a> es un programa gratuito de aprendizaje en línea que enseña <a href="https://dondeaprendoaws.com/blog/cloud-computing-en-espanol-fundamentos-basicos/">computación en la nube</a> a estudiantes y profesionales. Esta guía te ayudará a aprovechar al máximo los eventos de <a href="https://aws.amazon.com/education/awseducate/" rel="noopener noreferrer" target="_blank">AWS Educate</a>, como webinars, talleres y conferencias, para:</p>

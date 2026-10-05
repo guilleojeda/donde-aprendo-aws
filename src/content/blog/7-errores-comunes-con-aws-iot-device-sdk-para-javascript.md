@@ -7,9 +7,9 @@ publishedTimestamp: "2024-04-30T04:58:42.738Z"
 modifiedTimestamp: "2026-10-04T22:31:52-03:00"
 review:
   date: "2026-10-04"
-cover: "/assets/blog/fc596e41b0cacbc6f7d02513.jpg"
-coverAlt: "Nube central rodeada por círculos con símbolos de conexión, herramientas y energía"
-ogImage: "/assets/blog/fc596e41b0cacbc6f7d02513.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related: []
 ---
 

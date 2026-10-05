@@ -4,22 +4,17 @@ description: "Aprende a integrar los SDK de AWS en tu proyecto en 7 pasos claros
 author: "guille-ojeda"
 publishedAt: "2024-05-05"
 publishedTimestamp: "2024-05-05T03:40:17.719Z"
-cover: "/assets/blog/056aaf4c9dbb90032443ee34.jpg"
-coverAlt: "Bloques con símbolos forman un camino sobre un fondo claro"
-ogImage: "/assets/blog/056aaf4c9dbb90032443ee34.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Comprendiendo AWS Step Functions"
     url: "https://dondeaprendoaws.com/blog/comprendiendo-aws-step-functions/"
-    image: "/assets/blog/5cccd042a4e55b019d2587c8.png"
-    imageAlt: ""
   - title: "Tipos y Tamaños de Instancias RDS: Guía Completa"
     url: "https://dondeaprendoaws.com/blog/tipos-y-tamanos-de-instancias-rds-guia-completa/"
-    image: "/assets/blog/ad2ff3daa90f3b8701cd3eb8.png"
-    imageAlt: ""
   - title: "Certificación AWS gratis: Materiales de estudio"
     url: "https://dondeaprendoaws.com/blog/certificacion-aws-gratis-materiales-de-estudio/"
-    image: "/assets/blog/0d33d48b094b306e8f1fb75f.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Integrar los SDK de <a href="https://aws.amazon.com/">AWS</a> en tu proyecto puede ser sencillo siguiendo estos 7 pasos:</p>

@@ -4,22 +4,17 @@ description: "Descubre cómo optimizar costos y mejorar el rendimiento en AWS La
 author: "guille-ojeda"
 publishedAt: "2024-05-08"
 publishedTimestamp: "2024-05-08T05:33:11.031Z"
-cover: "/assets/blog/e7d2b8371eaa07e84e5400f5.jpg"
-coverAlt: "Balanza con dos símbolos de rayo en sus platillos"
-ogImage: "/assets/blog/e7d2b8371eaa07e84e5400f5.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Detección de anomalías con CloudWatch Logs"
     url: "https://dondeaprendoaws.com/blog/deteccion-de-anomalias-con-cloudwatch-logs/"
-    image: "/assets/blog/f71d9ec92cdf5041cc6744bc.jpg"
-    imageAlt: ""
   - title: "AWS SAM: Guía Básica para Aplicaciones Serverless"
     url: "https://dondeaprendoaws.com/blog/aws-sam-guia-basica-para-aplicaciones-serverless/"
-    image: "/assets/blog/7007833ab0e2d90f4deb11ec.jpg"
-    imageAlt: ""
   - title: "Guía completa de escalado automático de contenedores en AWS"
     url: "https://dondeaprendoaws.com/blog/guia-completa-de-escalado-automatico-de-contenedores-en-aws/"
-    image: "/assets/blog/d8c29e3674fe4e59874460c0.jpg"
-    imageAlt: ""
+
 ---
 
 <p><a href="https://aws.amazon.com/lambda/">AWS Lambda</a> es un servicio de computación sin servidor que cobra por el número de solicitudes y la cantidad de trabajo realizado. Para optimizar los costos y el rendimiento, es fundamental comprender el modelo de precios y aplicar técnicas de optimización adecuadas.</p>

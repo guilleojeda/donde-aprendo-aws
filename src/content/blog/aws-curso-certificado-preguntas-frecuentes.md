@@ -5,22 +5,17 @@ author: "guille-ojeda"
 publishedAt: "2024-01-25"
 publishedTimestamp: "2024-01-25T02:32:17.745Z"
 modifiedTimestamp: "2026-10-01T15:14:05-03:00"
-cover: "/assets/blog/39294214939c4754eb0b11e2.png"
-coverAlt: "Nube dorada rodeada por círculos con símbolos de búsqueda, datos y seguridad"
-ogImage: "/assets/blog/39294214939c4754eb0b11e2.png"
+cover: "/assets/blog/editorial-certificacion.png"
+coverAlt: "Tres tarjetas de estudio con apuntes y hitos sobre un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-certificacion.png"
 related:
   - title: "10 Preguntas Frecuentes sobre Machine Learning en AWS"
     url: "https://dondeaprendoaws.com/blog/10-preguntas-frecuentes-sobre-machine-learning-en-aws/"
-    image: "/assets/blog/5152d1b598aa9df8aaa8e72c.jpg"
-    imageAlt: ""
   - title: "Mejores Prácticas de Observabilidad en AWS"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/"
-    image: "/assets/blog/225d18fffd41e9eec388a76e.jpg"
-    imageAlt: ""
   - title: "Comprendiendo Amazon ECS"
     url: "https://dondeaprendoaws.com/blog/comprendiendo-amazon-ecs/"
-    image: "/assets/blog/b69a84da0455667e2bdf35cc.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Seguramente todos estarán de acuerdo en que es difícil saber por dónde empezar cuando se trata de obtener una certificación de AWS.</p>

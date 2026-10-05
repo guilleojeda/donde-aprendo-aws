@@ -4,22 +4,17 @@ description: "Los endpoints de VPC en AWS ofrecen conexiones seguras y privadas 
 author: "guille-ojeda"
 publishedAt: "2025-02-17"
 publishedTimestamp: "2025-02-17T00:17:36.99Z"
-cover: "/assets/blog/784749ef7570c8a485edf97b.jpg"
-coverAlt: "Filas de servidores con una trama luminosa de conexiones superpuesta"
-ogImage: "/assets/blog/784749ef7570c8a485edf97b.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Visualiza Costos con AWS Cost and Usage Reports y QuickSight"
     url: "https://dondeaprendoaws.com/blog/visualiza-costos-con-aws-cost-and-usage-reports-y-quicksight/"
-    image: "/assets/blog/bcf6fecd181e12cedeeed88a.jpg"
-    imageAlt: ""
   - title: "Arquitecturas de Alta Disponibilidad en AWS"
     url: "https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/"
-    image: "/assets/blog/1b184fe1242c3e7fb970e984.jpg"
-    imageAlt: ""
   - title: "Tipos y Tamaños de Instancias RDS: Guía Completa"
     url: "https://dondeaprendoaws.com/blog/tipos-y-tamanos-de-instancias-rds-guia-completa/"
-    image: "/assets/blog/ad2ff3daa90f3b8701cd3eb8.png"
-    imageAlt: ""
+
 ---
 
 <p><strong>Los endpoints de VPC en <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> permiten conexiones privadas y seguras entre tus VPCs y servicios de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> sin usar Internet pública.</strong> Existen dos tipos principales:</p>

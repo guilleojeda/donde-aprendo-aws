@@ -5,14 +5,13 @@ author: "guille-ojeda"
 publishedAt: "2024-05-09"
 publishedTimestamp: "2024-05-09T04:29:13.731Z"
 modifiedTimestamp: "2026-10-04T21:26:34-03:00"
-cover: "/assets/blog/b531b459f1900e0e59a6d476.jpg"
-coverAlt: "Collage verde de parcelas agrícolas, nubes e iconos de tecnología"
-ogImage: "/assets/blog/b531b459f1900e0e59a6d476.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "Guía para Implementar Machine Learning con Amazon SageMaker"
     url: "https://dondeaprendoaws.com/blog/guia-para-implementar-machine-learning-con-amazon-sagemaker/"
-    image: "/assets/blog/57b9e13953de77f8b6210bc2.jpg"
-    imageAlt: "Portátil con gráficos de análisis en una oficina junto a una planta"
+
 ---
 
 El machine learning (ML) puede ayudar a estimar rendimientos, anticipar condiciones locales y detectar patrones en imágenes o sensores. Para que esas predicciones sirvan en una operación agrícola hacen falta datos observados en campo, resultados medibles y pruebas que representen otras parcelas y temporadas. AWS ofrece servicios para almacenar y preparar esos datos, entrenar modelos y entregar predicciones; no aporta por defecto un modelo agronómico listo ni garantiza ahorros o mayor precisión.

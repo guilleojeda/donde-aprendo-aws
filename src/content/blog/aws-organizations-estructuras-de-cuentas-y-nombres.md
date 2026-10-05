@@ -4,22 +4,17 @@ description: "Aprende a gestionar eficientemente cuentas en AWS Organizations me
 author: "guille-ojeda"
 publishedAt: "2025-02-27"
 publishedTimestamp: "2025-02-27T04:44:08.163Z"
-cover: "/assets/blog/0bc804415b6cb6339123371f.jpg"
-coverAlt: "Portátil con una consola de texto abierta junto a una estantería"
-ogImage: "/assets/blog/0bc804415b6cb6339123371f.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Estructuras multi-cuenta AWS para escalar"
     url: "https://dondeaprendoaws.com/blog/estructuras-multi-cuenta-aws-para-escalar/"
-    image: "/assets/blog/0e9e4bdd57782b78da6d878e.jpg"
-    imageAlt: ""
   - title: "Acuerdos de Nivel de Servicio AWS: Guía Básica"
     url: "https://dondeaprendoaws.com/blog/acuerdos-de-nivel-de-servicio-aws-guia-basica/"
-    image: "/assets/blog/a1b4827aff914f24a4598ecc.jpg"
-    imageAlt: ""
   - title: "AWS curso certificado: guía básica"
     url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-basica/"
-    image: "/assets/blog/35e338eebb5988d204344c86.jpg"
-    imageAlt: ""
+
 ---
 
 <p><strong><a href="https://docs.aws.amazon.com/organizations/latest/userguide/orgs_introduction.html" rel="noopener noreferrer" target="_blank">AWS Organizations</a></strong> es una herramienta clave para gestionar múltiples cuentas de AWS desde un único lugar. Ofrece control centralizado sobre seguridad, costes y administración, ideal para empresas que necesitan escalar en la nube. Aquí tienes los puntos principales que debes saber para estructurar y nombrar tus cuentas de forma eficiente:</p>

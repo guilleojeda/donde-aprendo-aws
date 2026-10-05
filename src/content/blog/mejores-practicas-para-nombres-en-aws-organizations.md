@@ -4,22 +4,17 @@ description: "Gestiona eficientemente tus cuentas de AWS con mejores prácticas 
 author: "guille-ojeda"
 publishedAt: "2025-03-03"
 publishedTimestamp: "2025-03-03T04:59:25.364Z"
-cover: "/assets/blog/bfdfed56910493c9a698fb14.jpg"
-coverAlt: "Monitor con una interfaz de administración abierta en un escritorio"
-ogImage: "/assets/blog/bfdfed56910493c9a698fb14.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "¿Qué es AWS Lambda? Preguntas y Respuestas"
     url: "https://dondeaprendoaws.com/blog/que-es-aws-lambda-preguntas-y-respuestas/"
-    image: "/assets/blog/70579f832030c8f349b01339.jpg"
-    imageAlt: ""
   - title: "Recursos de capacitación para socios de AWS"
     url: "https://dondeaprendoaws.com/blog/recursos-de-capacitacion-para-socios-de-aws/"
-    image: "/assets/blog/b495b55f5f4147dccacb4628.jpg"
-    imageAlt: ""
   - title: "¿Cómo Funciona AWS Amplify?"
     url: "https://dondeaprendoaws.com/blog/como-funciona-aws-amplify/"
-    image: "/assets/blog/ee80202a0fa6a00452e56ba9.jpg"
-    imageAlt: ""
+
 ---
 
 <p><strong>¿Quieres gestionar tus cuentas de AWS de forma más sencilla y eficiente?</strong> Aquí tienes las claves para lograrlo:</p>

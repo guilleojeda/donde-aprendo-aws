@@ -4,22 +4,17 @@ description: "Aprende a monitorear objetivos de nivel de servicio (SLOs) con Ama
 author: "guille-ojeda"
 publishedAt: "2025-02-24"
 publishedTimestamp: "2025-02-24T06:43:53.013Z"
-cover: "/assets/blog/0919cf4ddfe7647a0c71877c.jpg"
-coverAlt: "Monitor de escritorio con un panel de gráficos y medidores"
-ogImage: "/assets/blog/0919cf4ddfe7647a0c71877c.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Webinars y Eventos en AWS Marketplace"
     url: "https://dondeaprendoaws.com/blog/webinars-y-eventos-en-aws-marketplace/"
-    image: "/assets/blog/8f2a908f4bdb73449da17e82.jpg"
-    imageAlt: ""
   - title: "Ahorro de Costos en AWS con Instancias Reservadas y Savings Plans"
     url: "https://dondeaprendoaws.com/blog/ahorro-de-costos-en-aws-con-instancias-reservadas-y-savings-plans/"
-    image: "/assets/blog/201da9e2ec2ae649f47566a7.jpg"
-    imageAlt: ""
   - title: "Cómo Prepararte Para un Examen de Certificación de AWS"
     url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-preparacion-para-el-examen/"
-    image: "/assets/blog/4cb1b939d8aa6ff5e1dc2ac1.jpg"
-    imageAlt: ""
+
 ---
 
 <p><strong>¿Por qué usar CloudWatch para SLOs?</strong><br/>

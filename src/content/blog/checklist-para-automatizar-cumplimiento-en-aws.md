@@ -4,22 +4,17 @@ description: "Automatizar el cumplimiento en AWS es esencial para la seguridad y
 author: "guille-ojeda"
 publishedAt: "2025-01-13"
 publishedTimestamp: "2025-01-13T00:14:28.589Z"
-cover: "/assets/blog/a46b50f31e32898c7df40cce.jpg"
-coverAlt: "Portátil sobre un escritorio con una lista de comprobación abierta"
-ogImage: "/assets/blog/a46b50f31e32898c7df40cce.jpg"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related:
   - title: "Crear un Cluster en Amazon Redshift"
     url: "https://dondeaprendoaws.com/blog/crear-un-cluster-en-amazon-redshift/"
-    image: "/assets/blog/2ce2762453f46a717ff15e81.jpg"
-    imageAlt: ""
   - title: "Recursos de capacitación para socios de AWS"
     url: "https://dondeaprendoaws.com/blog/recursos-de-capacitacion-para-socios-de-aws/"
-    image: "/assets/blog/b495b55f5f4147dccacb4628.jpg"
-    imageAlt: ""
   - title: "Guía de UEBA para la Seguridad de AWS"
     url: "https://dondeaprendoaws.com/blog/guia-de-ueba-para-la-seguridad-de-aws/"
-    image: "/assets/blog/77827c07de64ac355ca01278.jpg"
-    imageAlt: ""
+
 ---
 
 <p><strong>Automatizar el cumplimiento en <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a></strong> es clave para garantizar la seguridad y cumplir con normativas, reduciendo errores y optimizando procesos. Usando servicios como <strong>IAM</strong>, <strong><a href="https://docs.aws.amazon.com/config/" rel="noopener noreferrer" target="_blank">AWS Config</a></strong> y <strong><a href="https://docs.aws.amazon.com/securityhub/" rel="noopener noreferrer" target="_blank">AWS Security Hub</a></strong>, puedes implementar un sistema que:</p>

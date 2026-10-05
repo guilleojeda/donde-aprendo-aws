@@ -4,22 +4,17 @@ description: "Descubre las diferencias clave entre AWS SMS y AWS MGN para migrac
 author: "guille-ojeda"
 publishedAt: "2024-10-28"
 publishedTimestamp: "2024-10-28T02:54:04.742Z"
-cover: "/assets/blog/bd5f26b73ef9b33625d04b90.webp"
-coverAlt: "Flechas opuestas rotuladas AWS SMS y MGN entre dos paneles"
-ogImage: "/assets/blog/bd5f26b73ef9b33625d04b90.webp"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Políticas de Control de Servicios (SCPs) en AWS"
     url: "https://dondeaprendoaws.com/blog/politicas-de-control-de-servicios-scps-en-aws/"
-    image: "/assets/blog/ae0015b4c4fa992bfdc8c817.jpg"
-    imageAlt: ""
   - title: "Cómo integrar los SDK de AWS en 7 pasos"
     url: "https://dondeaprendoaws.com/blog/como-integrar-los-sdk-de-aws-en-7-pasos/"
-    image: "/assets/blog/056aaf4c9dbb90032443ee34.jpg"
-    imageAlt: ""
   - title: "Aprender AWS gratis: Recursos y Comunidad"
     url: "https://dondeaprendoaws.com/blog/aprender-aws-gratis-recursos-y-comunidad/"
-    image: "/assets/blog/c7227ae982494a7ce1620070.jpg"
-    imageAlt: ""
+
 ---
 
 <p>¿Necesitas migrar a AWS y no sabes qué servicio elegir? Aquí está la respuesta rápida:</p>

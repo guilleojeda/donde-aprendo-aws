@@ -4,22 +4,17 @@ description: "Consejos clave para optimizar y asegurar tus aplicaciones sin serv
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:26:48.732Z"
-cover: "/assets/blog/020c3be0259dc50cecb2155a.png"
-coverAlt: "Lupa, marcador y engranaje conectados con una nube"
-ogImage: "/assets/blog/020c3be0259dc50cecb2155a.png"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "7 Estrategias para Mitigar Cold Starts en AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/7-estrategias-para-mitigar-cold-starts-en-aws-lambda/"
-    image: "/assets/blog/c936f3eb45382355f87b0707.jpg"
-    imageAlt: ""
   - title: "Utilizando Lambda Layers en Múltiples Funciones Lambda"
     url: "https://dondeaprendoaws.com/blog/utilizando-lambda-layers-en-multiples-funciones-lambda/"
-    image: "/assets/blog/ab65afd218440c66bc564a0a.jpg"
-    imageAlt: ""
   - title: "Ingeniería de Caos en AWS con Fault Injection Simulator"
     url: "https://dondeaprendoaws.com/blog/ingenieria-de-caos-en-aws-con-fault-injection-simulator/"
-    image: "/assets/blog/0a0b1cf017845abee5cf215d.png"
-    imageAlt: ""
+
 ---
 
 <p>Para lograr el máximo rendimiento y seguridad en tus aplicaciones sin servidor con AWS Lambda, sigue estas estrategias clave:</p>

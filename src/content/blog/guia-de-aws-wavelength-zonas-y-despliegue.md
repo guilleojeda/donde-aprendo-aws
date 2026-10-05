@@ -4,22 +4,17 @@ description: "Descubre todo sobre AWS Wavelength, desde su arquitectura hasta su
 author: "guille-ojeda"
 publishedAt: "2024-05-19"
 publishedTimestamp: "2024-05-19T00:55:00.331Z"
-cover: "/assets/blog/e73412d95c38ad88b6dc619a.jpg"
-coverAlt: "Nodos circulares de varios tamaños sobre un fondo de centro de datos"
-ogImage: "/assets/blog/e73412d95c38ad88b6dc619a.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "AWS DeepLens: Introducción al Aprendizaje Profundo"
     url: "https://dondeaprendoaws.com/blog/aws-deeplens-introduccion-al-aprendizaje-profundo/"
-    image: "/assets/blog/711eae34c71ed3b53e765f69.jpg"
-    imageAlt: ""
   - title: "Desarrollando Aplicaciones con AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/desarrollando-aplicaciones-con-aws-lambda/"
-    image: "/assets/blog/699efcfd9fc0a59df5186b93.png"
-    imageAlt: ""
   - title: "AWS bases de datos: introducción básica"
     url: "https://dondeaprendoaws.com/blog/aws-bases-de-datos-introduccion-basica/"
-    image: "/assets/blog/7dd6e4771015e24de4a4bc0d.jpg"
-    imageAlt: ""
+
 ---
 
 <p><a href="https://aws.amazon.com/wavelength/" rel="noopener noreferrer" target="_blank">AWS Wavelength</a> es un servicio de infraestructura que permite a los desarrolladores crear aplicaciones con latencia ultra baja para dispositivos móviles y usuarios finales. Despliega recursos de computación y <a href="https://dondeaprendoaws.com/blog/clases-de-almacenamiento-de-amazon-s3/">almacenamiento de AWS</a> en la periferia de las redes 5G de los proveedores de telecomunicaciones, reduciendo la latencia y mejorando la experiencia del usuario.</p>

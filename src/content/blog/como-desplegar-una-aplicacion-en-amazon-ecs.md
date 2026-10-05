@@ -4,22 +4,17 @@ description: "Aprende cómo desplegar una aplicación en Amazon ECS paso a paso,
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T23:04:00.573Z"
-cover: "/assets/blog/d73cb60565a00d466c3768e1.jpg"
-coverAlt: "Cohete que asciende desde una nube junto a cubos y engranajes"
-ogImage: "/assets/blog/d73cb60565a00d466c3768e1.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Checklist: Servicios AWS Esenciales para SAA-C03"
     url: "https://dondeaprendoaws.com/blog/checklist-servicios-aws-esenciales-para-saa-c03/"
-    image: "/assets/blog/eadb9eb1eb9dfe22a3da22e2.jpg"
-    imageAlt: ""
   - title: "Guía de Eventos AWS Educate 2024"
     url: "https://dondeaprendoaws.com/blog/guia-de-eventos-aws-educate-2024/"
-    image: "/assets/blog/835302183289e4165c02383b.jpg"
-    imageAlt: ""
   - title: "Aprender AWS gratis: Recursos y Comunidad"
     url: "https://dondeaprendoaws.com/blog/aprender-aws-gratis-recursos-y-comunidad/"
-    image: "/assets/blog/c7227ae982494a7ce1620070.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Desplegar una aplicación en Amazon ECS es más fácil de lo que piensas y aquí te mostramos cómo hacerlo paso a paso. Desde la configuración inicial hasta la administración y escalado, te guiaremos en cada etapa para que puedas lanzar tu aplicación con éxito en Amazon ECS usando Fargate, sin preocuparte por los servidores. Aprenderás a:</p>

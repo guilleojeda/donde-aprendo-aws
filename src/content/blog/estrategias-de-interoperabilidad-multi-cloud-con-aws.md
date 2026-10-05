@@ -4,22 +4,17 @@ description: "Descubre cómo AWS potencia la interoperabilidad multi-nube mejora
 author: "guille-ojeda"
 publishedAt: "2024-05-04"
 publishedTimestamp: "2024-05-04T01:13:32.772Z"
-cover: "/assets/blog/36e16d8c286c92c9ff8903fc.jpg"
-coverAlt: "Nubes de colores conectadas en una línea sobre un fondo claro"
-ogImage: "/assets/blog/36e16d8c286c92c9ff8903fc.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Guía Completa: Análisis de Costos de Tráfico en AWS"
     url: "https://dondeaprendoaws.com/blog/guia-completa-analisis-de-costos-de-trafico-en-aws/"
-    image: "/assets/blog/5a1c145030a04aac753625bc.jpg"
-    imageAlt: ""
   - title: "Mejores Prácticas Para Amazon S3"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-s3/"
-    image: "/assets/blog/7dc90730b1402ed9efe1a10b.jpg"
-    imageAlt: ""
   - title: "Cómo Prepararte Para un Examen de Certificación de AWS"
     url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-preparacion-para-el-examen/"
-    image: "/assets/blog/4cb1b939d8aa6ff5e1dc2ac1.jpg"
-    imageAlt: ""
+
 ---
 
 <p><a href="https://aws.amazon.com/">AWS</a> ofrece una amplia gama de servicios y herramientas para facilitar la interoperabilidad en entornos multi-nube, permitiendo a las organizaciones aprovechar las fortalezas de cada proveedor de servicios en la nube y mejorar la flexibilidad, la escalabilidad y la seguridad en sus operaciones en la nube.</p>

@@ -4,22 +4,17 @@ description: "Aprende a conectar dispositivos IoT a AWS con el SDK de C++ para u
 author: "guille-ojeda"
 publishedAt: "2024-05-10"
 publishedTimestamp: "2024-05-10T02:52:14.698Z"
-cover: "/assets/blog/066ea33361c58e79e3d5a983.jpg"
-coverAlt: "Nube delineada sobre una fila de iconos de dispositivos y bombillas"
-ogImage: "/assets/blog/066ea33361c58e79e3d5a983.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "9 Mejores Prácticas de Seguridad para IaC en AWS"
     url: "https://dondeaprendoaws.com/blog/9-mejores-practicas-de-seguridad-para-iac-en-aws/"
-    image: "/assets/blog/0b84e7609d9a01cdc2449b30.jpg"
-    imageAlt: ""
   - title: "Servicios de AWS para Inteligencia Artificial"
     url: "https://dondeaprendoaws.com/blog/servicios-de-aws-para-inteligencia-artificial/"
-    image: "/assets/blog/54201ee89ce3b648eb0ec011.jpg"
-    imageAlt: ""
   - title: "Aprender AWS gratis: Recursos y Comunidad"
     url: "https://dondeaprendoaws.com/blog/aprender-aws-gratis-recursos-y-comunidad/"
-    image: "/assets/blog/c7227ae982494a7ce1620070.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Para conectar dispositivos IoT a <a href="https://aws.amazon.com/">AWS</a> utilizando el SDK de C++, sigue estos pasos:</p>

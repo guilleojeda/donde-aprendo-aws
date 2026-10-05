@@ -4,22 +4,17 @@ description: "Aprende sobre la concurrencia aprovisionada en AWS Lambda, cómo r
 author: "guille-ojeda"
 publishedAt: "2024-05-20"
 publishedTimestamp: "2024-05-20T00:03:01.19Z"
-cover: "/assets/blog/4efa7f16e3c389136cc18ae2.png"
-coverAlt: "Nube central rodeada por flechas circulares y pequeños símbolos"
-ogImage: "/assets/blog/4efa7f16e3c389136cc18ae2.png"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "CORS en WebSocket vs REST API Gateway"
     url: "https://dondeaprendoaws.com/blog/cors-en-websocket-vs-rest-api-gateway/"
-    image: "/assets/blog/c306342b2e9d89f2a4308624.jpg"
-    imageAlt: ""
   - title: "Requisitos de cableado físico para AWS Snowball"
     url: "https://dondeaprendoaws.com/blog/requisitos-de-cableado-fisico-para-aws-snowball/"
-    image: "/assets/blog/3b6a26d54c02dfac32acb13b.jpg"
-    imageAlt: ""
   - title: "Introducción a los servicios de Amazon Web Services"
     url: "https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/"
-    image: "/assets/blog/e1091b2adcfd9ac3b3889cb0.jpg"
-    imageAlt: ""
+
 ---
 
 <p>La concurrencia aprovisionada es una función de AWS Lambda que ayuda a reducir significativamente la latencia de los "cold starts" al mantener entornos de ejecución listos para manejar solicitudes. Al configurar la concurrencia aprovisionada, se reserva un número fijo de instancias "calientes" para una función Lambda, lo que disminuye el tiempo de respuesta y mejora la experiencia del usuario.</p>

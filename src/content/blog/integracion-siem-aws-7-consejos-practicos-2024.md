@@ -4,22 +4,17 @@ description: "Descubre cómo mejorar la seguridad y cumplimiento en AWS con la i
 author: "guille-ojeda"
 publishedAt: "2024-05-05"
 publishedTimestamp: "2024-05-05T01:12:15.503Z"
-cover: "/assets/blog/0f354446d0c7715526e96a32.jpg"
-coverAlt: "Nube multicolor de rompecabezas sobre un fondo blanco"
-ogImage: "/assets/blog/0f354446d0c7715526e96a32.jpg"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related:
   - title: "Guía de Eventos AWS Educate 2024"
     url: "https://dondeaprendoaws.com/blog/guia-de-eventos-aws-educate-2024/"
-    image: "/assets/blog/835302183289e4165c02383b.jpg"
-    imageAlt: ""
   - title: "Detección de Sesgos en Modelos ML con SageMaker Clarify"
     url: "https://dondeaprendoaws.com/blog/deteccion-de-sesgos-en-modelos-ml-con-sagemaker-clarify/"
-    image: "/assets/blog/055e62c5fbddebf94a936e62.jpg"
-    imageAlt: ""
   - title: "Comprendiendo AWS Step Functions"
     url: "https://dondeaprendoaws.com/blog/comprendiendo-aws-step-functions/"
-    image: "/assets/blog/5cccd042a4e55b019d2587c8.png"
-    imageAlt: ""
+
 ---
 
 <p>La integración de un sistema de gestión de eventos e información de seguridad (SIEM) con <a href="https://aws.amazon.com/">AWS</a> es fundamental para monitorear y analizar la actividad de seguridad en tiempo real en tu entorno en la nube. Al seguir estos 7 consejos prácticos, podrás mejorar tu postura de seguridad y cumplimiento en <a href="https://aws.amazon.com/">AWS</a>:</p>

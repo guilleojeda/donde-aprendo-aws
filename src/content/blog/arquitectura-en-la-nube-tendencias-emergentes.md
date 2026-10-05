@@ -7,26 +7,19 @@ publishedTimestamp: "2024-01-27T23:50:47.33Z"
 modifiedTimestamp: "2026-10-05T00:29:42-03:00"
 review:
   date: "2026-10-05"
-cover: "/assets/blog/d781a44da56c41c82eb33501.png"
-coverAlt: "Nube transparente conectada a cubos y figuras geométricas"
-ogImage: "/assets/blog/d781a44da56c41c82eb33501.png"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Alta disponibilidad en AWS: arquitectura Multi-AZ para una app web"
     url: "https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/"
-    image: "/assets/blog/1b184fe1242c3e7fb970e984.jpg"
-    imageAlt: ""
   - title: "Arquitectura dirigida por eventos en AWS: servicios, ejemplo y decisiones"
     url: "https://dondeaprendoaws.com/blog/arquitecturas-dirigidas-por-eventos-en-aws/"
-    image: "/assets/blog/1a0df738c1ab9c313bf60144.jpg"
-    imageAlt: ""
   - title: "Arquitectura multi-región en AWS: cuándo conviene"
     url: "https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/"
-    image: "/assets/blog/bafde793116d5b5e38a659da.jpg"
-    imageAlt: ""
   - title: "AWS Config: reglas de cumplimiento y remediación segura"
     url: "https://dondeaprendoaws.com/blog/automatizacion-de-cumplimiento-con-aws-config/"
-    image: "/assets/blog/887b167cb63dec6854e043dc.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Para diseñar una arquitectura en AWS, empieza por lo que el sistema debe hacer y las condiciones con las que debe cumplir. A partir de ahí, compara opciones de cómputo, datos, integración y recuperación. No hay un patrón que sea el mejor para todas las cargas: el <a href="https://docs.aws.amazon.com/wellarchitected/latest/framework/welcome.html">AWS Well-Architected Framework</a> ayuda a sopesar las decisiones. Sus <a href="https://docs.aws.amazon.com/wellarchitected/latest/framework/the-pillars-of-the-framework.html">seis pilares</a> son excelencia operativa, seguridad, confiabilidad, eficiencia del rendimiento, optimización de costos y sostenibilidad.</p>

@@ -4,22 +4,17 @@ description: "Descubre cómo maximizar Amazon S3 para tus necesidades de almacen
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T04:13:21.58Z"
-cover: "/assets/blog/7dc90730b1402ed9efe1a10b.jpg"
-coverAlt: "Candado dentro de una nube delineada, rodeado por escudos y anillos punteados"
-ogImage: "/assets/blog/7dc90730b1402ed9efe1a10b.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "Configurar CORS en HTTP API Gateway"
     url: "https://dondeaprendoaws.com/blog/configurar-cors-en-http-api-gateway/"
-    image: "/assets/blog/b7ca17278c2b7e43c95dfeec.jpg"
-    imageAlt: ""
   - title: "10 Estrategias de Optimización de Costos en AWS"
     url: "https://dondeaprendoaws.com/blog/10-estrategias-de-optimizacion-de-costos-en-aws/"
-    image: "/assets/blog/74f152c85b46e1ac5ea004f9.jpg"
-    imageAlt: ""
   - title: "10 Laboratorios Prácticos de AWS para Principiantes"
     url: "https://dondeaprendoaws.com/blog/10-laboratorios-practicos-de-aws-para-principiantes/"
-    image: "/assets/blog/e9f2fc671d3e9516f2345bb7.png"
-    imageAlt: ""
+
 ---
 
 <p>Descubre cómo maximizar Amazon S3 para tus necesidades de almacenamiento, manteniendo tus datos seguros y optimizando costos:</p>

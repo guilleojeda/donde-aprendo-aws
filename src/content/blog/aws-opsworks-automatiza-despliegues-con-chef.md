@@ -4,22 +4,17 @@ description: "Explora cómo AWS OpsWorks con Chef automatiza el despliegue y la 
 author: "guille-ojeda"
 publishedAt: "2024-05-10"
 publishedTimestamp: "2024-05-10T07:15:01.296Z"
-cover: "/assets/blog/6b2f0b16a8f28318691c2a8d.jpg"
-coverAlt: "Brazo robótico que coloca una pieza sobre una plataforma bajo una nube de iconos"
-ogImage: "/assets/blog/6b2f0b16a8f28318691c2a8d.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Mejores Prácticas Para AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/"
-    image: "/assets/blog/020c3be0259dc50cecb2155a.png"
-    imageAlt: ""
   - title: "Mejores prácticas AWS para DevOps"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/"
-    image: "/assets/blog/87b7131b5cdf72f70b5347bd.jpg"
-    imageAlt: ""
   - title: "Introducción a los servicios de Amazon Web Services"
     url: "https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/"
-    image: "/assets/blog/e1091b2adcfd9ac3b3889cb0.jpg"
-    imageAlt: ""
+
 ---
 
 <p><a href="https://aws.amazon.com/opsworks/" rel="noopener noreferrer" target="_blank">AWS OpsWorks</a> es un servicio de administración de aplicaciones que te permite automatizar el despliegue y la configuración de aplicaciones en la nube utilizando <a href="https://www.chef.io/" rel="noopener noreferrer" target="_blank">Chef</a>, una plataforma de automatización que trata la <a href="https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-aws-cloudformation/">infraestructura como código</a>.</p>

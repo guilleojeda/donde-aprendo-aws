@@ -7,15 +7,14 @@ publishedTimestamp: "2024-01-27T00:02:16.502Z"
 modifiedTimestamp: "2026-09-29T17:29:08-03:00"
 review:
   date: "2026-09-29"
-cover: "/assets/blog/0d33d48b094b306e8f1fb75f.jpg"
-coverAlt: "Manos señalan un libro abierto, una nube y una lupa"
+cover: "/assets/blog/editorial-certificacion.png"
+coverAlt: "Tres tarjetas de estudio con apuntes y hitos sobre un camino azul con un punto naranja."
 indexOrder: 3
-ogImage: "/assets/blog/0d33d48b094b306e8f1fb75f.jpg"
+ogImage: "/assets/blog/editorial-certificacion.png"
 related:
   - title: "AWS Cloud Practitioner: recursos en español para preparar la certificación"
     url: "https://dondeaprendoaws.com/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/"
-    image: "/assets/blog/8d4ecab3b218a57acfd77f30.jpg"
-    imageAlt: ""
+
 ---
 
 

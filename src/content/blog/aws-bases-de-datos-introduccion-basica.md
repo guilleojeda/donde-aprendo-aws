@@ -7,9 +7,9 @@ publishedTimestamp: "2024-01-27T00:58:59.942Z"
 modifiedTimestamp: "2026-10-05T00:34:04-03:00"
 review:
   date: "2026-10-05"
-cover: "/assets/blog/7dd6e4771015e24de4a4bc0d.jpg"
-coverAlt: "Panel dividido en cuatro ilustraciones de bases de datos y otros símbolos"
-ogImage: "/assets/blog/7dd6e4771015e24de4a4bc0d.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related: []
 ---
 

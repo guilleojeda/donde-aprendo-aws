@@ -4,22 +4,17 @@ description: "Aprende a detectar anomalías en CloudWatch Logs usando machine le
 author: "guille-ojeda"
 publishedAt: "2025-01-27"
 publishedTimestamp: "2025-01-27T00:39:09.213Z"
-cover: "/assets/blog/f71d9ec92cdf5041cc6744bc.jpg"
-coverAlt: "Monitor con gráficos y paneles de datos en una oficina oscura"
-ogImage: "/assets/blog/f71d9ec92cdf5041cc6744bc.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "Estructuras multi-cuenta AWS para escalar"
     url: "https://dondeaprendoaws.com/blog/estructuras-multi-cuenta-aws-para-escalar/"
-    image: "/assets/blog/0e9e4bdd57782b78da6d878e.jpg"
-    imageAlt: ""
   - title: "Crear un Cluster en Amazon Redshift"
     url: "https://dondeaprendoaws.com/blog/crear-un-cluster-en-amazon-redshift/"
-    image: "/assets/blog/2ce2762453f46a717ff15e81.jpg"
-    imageAlt: ""
   - title: "Cómo Desplegar Contenedores en AWS"
     url: "https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/"
-    image: "/assets/blog/25f323bf6f07480e77ba86a0.jpg"
-    imageAlt: ""
+
 ---
 
 <p>La detección de anomalías en <strong><a href="https://aws.amazon.com/cloudwatch/" rel="noopener noreferrer" target="_blank">CloudWatch</a> Logs</strong> te ayuda a identificar patrones inusuales en tus registros de manera automática con <strong>machine learning</strong>. Esto permite supervisar sistemas en tiempo real y reaccionar rápidamente ante problemas.</p>

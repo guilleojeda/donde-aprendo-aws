@@ -4,22 +4,17 @@ description: "Una guía introductoria a los servicios de Amazon Web Services (AW
 author: "guille-ojeda"
 publishedAt: "2024-01-23"
 publishedTimestamp: "2024-01-23T15:42:44.638Z"
-cover: "/assets/blog/e1091b2adcfd9ac3b3889cb0.jpg"
-coverAlt: "Nube con iconos circulares en su interior sobre una superficie clara"
-ogImage: "/assets/blog/e1091b2adcfd9ac3b3889cb0.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "5 Lecciones Clave del AWS Public Sector Summit 2024"
     url: "https://dondeaprendoaws.com/blog/5-lecciones-clave-del-aws-public-sector-summit-2024/"
-    image: "/assets/blog/f4d9080a8f5eea1a871c1a1b.jpg"
-    imageAlt: ""
   - title: "Recursos en Español para Certificacion AWS Cloud Practitioner"
     url: "https://dondeaprendoaws.com/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/"
-    image: "/assets/blog/8d4ecab3b218a57acfd77f30.jpg"
-    imageAlt: ""
   - title: "Certificaciones AWS: Por Dónde Empezar"
     url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-de-inicio/"
-    image: "/assets/blog/50f3a9e16de9a8db356f87d5.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Seguramente muchos estarán de acuerdo en que:</p>

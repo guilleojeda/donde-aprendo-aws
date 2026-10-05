@@ -5,9 +5,9 @@ author: "guille-ojeda"
 publishedAt: "2024-05-03"
 publishedTimestamp: "2024-05-03T23:06:27.097Z"
 modifiedTimestamp: "2026-10-04T21:44:34-03:00"
-cover: "/assets/blog/b779f7f567a0e83dd55103f0.jpg"
-coverAlt: "Nube pastel rodeada de estrellas de distintos tamaños"
-ogImage: "/assets/blog/b779f7f567a0e83dd55103f0.jpg"
+cover: "/assets/blog/editorial-certificacion.png"
+coverAlt: "Tres tarjetas de estudio con apuntes y hitos sobre un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-certificacion.png"
 related: []
 ---
 

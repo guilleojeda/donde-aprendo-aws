@@ -4,22 +4,17 @@ description: "Aprende a configurar políticas de confianza en AWS para permitir 
 author: "guille-ojeda"
 publishedAt: "2024-11-26"
 publishedTimestamp: "2024-11-26T20:13:42.04Z"
-cover: "/assets/blog/6d11bddb1995c82265977259.jpg"
-coverAlt: "Dos nubes conectadas por circuitos, rotuladas Account A y Account B"
-ogImage: "/assets/blog/6d11bddb1995c82265977259.jpg"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related:
   - title: "Pipeline CI/CD con Terraform y AWS CodePipeline"
     url: "https://dondeaprendoaws.com/blog/pipeline-cicd-con-terraform-y-aws-codepipeline/"
-    image: "/assets/blog/8c8805d819a48bf8b59f25eb.jpg"
-    imageAlt: ""
   - title: "AWS DeepLens: Introducción al Aprendizaje Profundo"
     url: "https://dondeaprendoaws.com/blog/aws-deeplens-introduccion-al-aprendizaje-profundo/"
-    image: "/assets/blog/711eae34c71ed3b53e765f69.jpg"
-    imageAlt: ""
   - title: "Mejores Prácticas Para Amazon RDS y Aurora"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-rds-y-aurora/"
-    image: "/assets/blog/c147658e3887f6dc27b94b8d.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Las <strong>políticas de confianza en <a href="https://aws.amazon.com/">AWS</a></strong> son reglas que controlan quién puede acceder a recursos en tu cuenta y bajo qué condiciones. Si necesitas conectar cuentas de AWS para compartir recursos, las políticas de confianza son esenciales. Aquí tienes lo básico:</p>

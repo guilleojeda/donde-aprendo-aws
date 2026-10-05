@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title description">
+  <title id="title">Datos e inteligencia artificial</title>
+  <desc id="description">Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja.</desc>
+  <rect width="1200" height="630" fill="#F1F4F8" />
+  <path d="M150 484 C281 484 272 405 396 405 S525 458 617 414 S779 352 876 393 S969 319 1032 296" fill="none" stroke="#263457" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" />
+  <circle cx="150" cy="484" r="13" fill="#E87722" />
+  <circle cx="396" cy="405" r="11" fill="#FFFFFF" stroke="#263457" stroke-width="7" />
+  <circle cx="876" cy="393" r="11" fill="#FFFFFF" stroke="#263457" stroke-width="7" />
+  <circle cx="1032" cy="296" r="12" fill="#E87722" />
+  <rect x="467" y="130" width="274" height="224" rx="18" fill="#FFFFFF" stroke="#263457" stroke-width="7" />
+  <path d="M511 179 H697 M511 218 H697 M511 257 H697 M511 296 H697 M548 161 V323 M590 161 V323 M632 161 V323 M674 161 V323" fill="none" stroke="#D9DFE8" stroke-width="4" stroke-linecap="round" />
+  <g fill="#8290A6">
+    <circle cx="524" cy="194" r="7" /><circle cx="566" cy="233" r="7" /><circle cx="608" cy="194" r="7" />
+    <circle cx="650" cy="272" r="7" /><circle cx="692" cy="233" r="7" /><circle cx="524" cy="311" r="7" />
+    <circle cx="608" cy="272" r="7" /><circle cx="692" cy="311" r="7" />
+  </g>
+  <path d="M527 272 L568 246 L608 256 L650 205 L690 184" fill="none" stroke="#263457" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
+  <circle cx="527" cy="272" r="8" fill="#E87722" />
+  <circle cx="568" cy="246" r="8" fill="#FFFFFF" stroke="#263457" stroke-width="5" />
+  <circle cx="608" cy="256" r="8" fill="#FFFFFF" stroke="#263457" stroke-width="5" />
+  <circle cx="650" cy="205" r="8" fill="#FFFFFF" stroke="#263457" stroke-width="5" />
+  <circle cx="690" cy="184" r="8" fill="#E87722" />
+  <g transform="translate(1023 44) scale(0.44)">
+    <circle cx="92" cy="20" r="17" fill="#E87722" />
+    <path fill="#263457" d="M78 48c-1-5 7-7 18-7 17 0 28 10 28 25 0 13-9 22-22 31-14 10-31 17-41 30-8 11-7 22 2 27 9 5 24 5 33 1 5-2 5-6 1-10-5-5-6-10-1-15 8-8 24-8 36 0 13 8 18 23 13 38-5 17-20 27-41 31-24 5-55 0-76-10-23-11-32-31-24-53 7-19 23-34 44-48 22-14 35-23 36-36 0-2-2-3-6-4Z" />
+  </g>
+</svg>

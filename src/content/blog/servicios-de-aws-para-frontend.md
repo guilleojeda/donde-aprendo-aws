@@ -4,22 +4,17 @@ description: "Descubre los servicios de AWS para frontend como AWS Amplify, Amaz
 author: "guille-ojeda"
 publishedAt: "2024-03-18"
 publishedTimestamp: "2024-03-18T00:56:34.055Z"
-cover: "/assets/blog/31bdf1ca2f3b6c51213246c8.jpg"
-coverAlt: "Nube sobre franjas onduladas de colores y un camino sinuoso"
-ogImage: "/assets/blog/31bdf1ca2f3b6c51213246c8.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "AWS Wavelength: Guía de Escalabilidad y Optimización"
     url: "https://dondeaprendoaws.com/blog/aws-wavelength-guia-de-escalabilidad-y-optimizacion/"
-    image: "/assets/blog/fe5d7c13d156814fe29c2d7a.jpg"
-    imageAlt: ""
   - title: "Nube AWS: Guía de Inicio Rápido"
     url: "https://dondeaprendoaws.com/blog/nube-aws-guia-de-inicio-rapido/"
-    image: "/assets/blog/c182a819b0d8523e5365c545.jpg"
-    imageAlt: ""
   - title: "Aprender AWS gratis: Recursos y Comunidad"
     url: "https://dondeaprendoaws.com/blog/aprender-aws-gratis-recursos-y-comunidad/"
-    image: "/assets/blog/c7227ae982494a7ce1620070.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Si estás buscando cómo construir y alojar aplicaciones o sitios web usando servicios de AWS, te encuentras en el lugar correcto. Aquí, te ofrecemos una guía clara y concisa sobre tres servicios principales de AWS para frontend: <strong>AWS Amplify</strong>, <strong>Amazon S3</strong>, y <strong>Amazon CloudFront</strong>. Cada uno tiene sus ventajas y situaciones ideales de uso.</p>

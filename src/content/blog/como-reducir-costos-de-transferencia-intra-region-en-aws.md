@@ -4,22 +4,17 @@ description: "Optimiza los costos de transferencia de datos intra-región en AWS
 author: "guille-ojeda"
 publishedAt: "2025-09-11"
 publishedTimestamp: "2025-09-11T07:03:09.648000+00:00"
-cover: "/assets/blog/f7f97a6864a4b23d66bec74e.jpg"
-coverAlt: "Dos servidores con nubes conectados por una línea luminosa"
-ogImage: "/assets/blog/f7f97a6864a4b23d66bec74e.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Checklist para automatizar cumplimiento en AWS"
     url: "https://dondeaprendoaws.com/blog/checklist-para-automatizar-cumplimiento-en-aws/"
-    image: "/assets/blog/a46b50f31e32898c7df40cce.jpg"
-    imageAlt: "Thumbnail for: Checklist para automatizar cumplimiento en AWS"
   - title: "Características y Beneficios de AWS IoT Device Defender"
     url: "https://dondeaprendoaws.com/blog/caracteristicas-y-beneficios-de-aws-iot-device-defender/"
-    image: "/assets/blog/64ba25d52c7b46f1df3dfd5e.png"
-    imageAlt: "Thumbnail for: Características y Beneficios de AWS IoT Device Defender"
   - title: "Opciones para Desplegar Contenedores en AWS: ECS y EKS"
     url: "https://dondeaprendoaws.com/blog/opciones-para-desplegar-contenedores-en-aws-ecs-y-eks/"
-    image: "/assets/blog/fce8d84a0c54b5cb44769316.png"
-    imageAlt: "Thumbnail for: Opciones para Desplegar Contenedores en AWS: ECS y EKS"
+
 ---
 
 <p>Reducir los costos de transferencia de datos intra-región en <a href="https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/">AWS</a> es clave para optimizar tus gastos en la nube. Este tipo de transferencia ocurre cuando los datos se mueven entre Zonas de Disponibilidad (AZ) dentro de una misma región, y aunque el coste estándar es de 0,01 $ por GB, estos cargos pueden acumularse rápidamente en <a href="https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/">arquitecturas distribuidas</a>.</p>

@@ -5,22 +5,17 @@ author: "guille-ojeda"
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T01:07:24.799Z"
 modifiedTimestamp: "2026-10-01T15:14:05-03:00"
-cover: "/assets/blog/92c10f1c21ba45a500fbff08.jpg"
-coverAlt: "Diagrama de datos con flechas en ambos sentidos, bases de datos y un candado"
-ogImage: "/assets/blog/92c10f1c21ba45a500fbff08.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "SLAs en AWS: Conceptos Legales Clave"
     url: "https://dondeaprendoaws.com/blog/slas-en-aws-conceptos-legales-clave/"
-    image: "/assets/blog/6a87e6f6cd6e98298a62ee1a.jpg"
-    imageAlt: ""
   - title: "9 Mejores Prácticas de Seguridad para IaC en AWS"
     url: "https://dondeaprendoaws.com/blog/9-mejores-practicas-de-seguridad-para-iac-en-aws/"
-    image: "/assets/blog/0b84e7609d9a01cdc2449b30.jpg"
-    imageAlt: ""
   - title: "AWS curso certificado: preguntas frecuentes"
     url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-preguntas-frecuentes/"
-    image: "/assets/blog/39294214939c4754eb0b11e2.png"
-    imageAlt: ""
+
 ---
 
 <p>En este artículo, exploraremos cómo manejar transacciones en Amazon DynamoDB, una base de datos NoSQL rápida y flexible ideal para aplicaciones dinámicas. Las transacciones permiten realizar operaciones complejas de forma segura, asegurando la consistencia de los datos. Descubrirás desde conceptos básicos hasta prácticas recomendadas para implementar transacciones eficientemente.</p>

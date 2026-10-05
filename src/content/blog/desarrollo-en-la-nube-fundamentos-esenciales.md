@@ -4,22 +4,17 @@ description: "Descubre los fundamentos esenciales del desarrollo en la nube, des
 author: "guille-ojeda"
 publishedAt: "2024-01-25"
 publishedTimestamp: "2024-01-25T03:23:03.64Z"
-cover: "/assets/blog/9257652addf07f39008f550d.jpg"
-coverAlt: "Nube conectada a varias terminales y pequeños iconos"
-ogImage: "/assets/blog/9257652addf07f39008f550d.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Guía Completa: Análisis de Costos de Tráfico en AWS"
     url: "https://dondeaprendoaws.com/blog/guia-completa-analisis-de-costos-de-trafico-en-aws/"
-    image: "/assets/blog/5a1c145030a04aac753625bc.jpg"
-    imageAlt: ""
   - title: "Mejores Prácticas de Seguridad en AWS"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/"
-    image: "/assets/blog/b986394b769bbf12716343e5.jpg"
-    imageAlt: ""
   - title: "AWS curso certificado: preguntas frecuentes"
     url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-preguntas-frecuentes/"
-    image: "/assets/blog/39294214939c4754eb0b11e2.png"
-    imageAlt: ""
+
 ---
 
 <p>Seguramente todos estarán de acuerdo en que:</p>

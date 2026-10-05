@@ -4,22 +4,17 @@ description: "Explora los fundamentos de la seguridad en AWS, incluyendo el mode
 author: "guille-ojeda"
 publishedAt: "2024-01-23"
 publishedTimestamp: "2024-01-23T17:26:25.234Z"
-cover: "/assets/blog/15bc5fcf943d474b0b00277c.jpg"
-coverAlt: "Nube azul formada por piezas de rompecabezas con candados"
-ogImage: "/assets/blog/15bc5fcf943d474b0b00277c.jpg"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related:
   - title: "Concurrencia Aprovisionada: Solución a Cold Starts en AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/concurrencia-aprovisionada-solucion-a-cold-starts-en-aws-lambda/"
-    image: "/assets/blog/4efa7f16e3c389136cc18ae2.png"
-    imageAlt: ""
   - title: "Políticas de Control de Servicios (SCPs) en AWS"
     url: "https://dondeaprendoaws.com/blog/politicas-de-control-de-servicios-scps-en-aws/"
-    image: "/assets/blog/ae0015b4c4fa992bfdc8c817.jpg"
-    imageAlt: ""
   - title: "Servicios de AWS para Frontend"
     url: "https://dondeaprendoaws.com/blog/servicios-de-aws-para-frontend/"
-    image: "/assets/blog/31bdf1ca2f3b6c51213246c8.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Seguramente muchos estarán de acuerdo en que proteger adecuadamente los recursos en la nube puede ser un desafío.</p>

@@ -5,22 +5,17 @@ author: "guille-ojeda"
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T00:01:17.799Z"
 modifiedTimestamp: "2026-10-01T15:14:05-03:00"
-cover: "/assets/blog/ac5297dc259dcbbe8d397c9d.jpg"
-coverAlt: "Nube con un cerebro en su interior, rodeada por engranajes y una línea punteada"
-ogImage: "/assets/blog/ac5297dc259dcbbe8d397c9d.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "CORS en WebSocket vs REST API Gateway"
     url: "https://dondeaprendoaws.com/blog/cors-en-websocket-vs-rest-api-gateway/"
-    image: "/assets/blog/c306342b2e9d89f2a4308624.jpg"
-    imageAlt: ""
   - title: "Guía de Eventos AWS Educate 2024"
     url: "https://dondeaprendoaws.com/blog/guia-de-eventos-aws-educate-2024/"
-    image: "/assets/blog/835302183289e4165c02383b.jpg"
-    imageAlt: ""
   - title: "Guía de Acreditación para Partners de AWS 2024"
     url: "https://dondeaprendoaws.com/blog/guia-de-acreditacion-para-partners-de-aws-2024/"
-    image: "/assets/blog/0d6df5a1297701914debd614.png"
-    imageAlt: ""
+
 ---
 
 <p>Si quieres desarrollar aplicaciones de Inteligencia Artificial (IA) en AWS, este artículo te guiará a través de todo lo que necesitas saber para comenzar. Desde conceptos básicos de IA hasta la implementación de tu aplicación, cubrimos los servicios clave de AWS como Amazon SageMaker, Amazon Lex y Amazon Rekognition, y ofrecemos consejos sobre seguridad, optimización de costos y mantenimiento. Además, encontrarás ejemplos de casos de uso y recursos de aprendizaje para profundizar tus conocimientos.</p>

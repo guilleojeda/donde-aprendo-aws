@@ -4,22 +4,17 @@ description: "Descubre cómo utilizar el AWS Free Tier en 2024 para explorar y p
 author: "guille-ojeda"
 publishedAt: "2024-04-29"
 publishedTimestamp: "2024-04-29T06:37:00.779Z"
-cover: "/assets/blog/a883588726566bcfe7e00c48.jpg"
-coverAlt: "Flecha ascendente frente a una nube con candado e iconos de fondo"
-ogImage: "/assets/blog/a883588726566bcfe7e00c48.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "AWS IoT Edge Simulator: Casos de Uso Reales"
     url: "https://dondeaprendoaws.com/blog/aws-iot-edge-simulator-casos-de-uso-reales/"
-    image: "/assets/blog/7854091f527530189ba482f0.png"
-    imageAlt: ""
   - title: "Arquitecturas Dirigidas por Eventos en AWS"
     url: "https://dondeaprendoaws.com/blog/arquitecturas-dirigidas-por-eventos-en-aws/"
-    image: "/assets/blog/1a0df738c1ab9c313bf60144.jpg"
-    imageAlt: ""
   - title: "Base de Datos Global con Amazon DynamoDB"
     url: "https://dondeaprendoaws.com/blog/base-de-datos-global-con-amazon-dynamodb/"
-    image: "/assets/blog/b74e56b41e26732c7dfc378e.png"
-    imageAlt: ""
+
 ---
 
 <p>El <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> Free Tier es un programa gratuito de Amazon Web Services que te permite explorar y probar una amplia variedad de servicios en la nube sin costo alguno. Ofrece tres tipos de ofertas:</p>

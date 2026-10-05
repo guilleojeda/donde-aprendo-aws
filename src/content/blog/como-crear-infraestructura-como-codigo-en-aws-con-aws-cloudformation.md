@@ -4,22 +4,17 @@ description: "Aprende a crear infraestructura como código en AWS con AWS CloudF
 author: "guille-ojeda"
 publishedAt: "2024-03-18"
 publishedTimestamp: "2024-03-18T00:54:16.195Z"
-cover: "/assets/blog/7b36649641ff19d02f4e3551.jpg"
-coverAlt: "Nube sobre documentos y líneas punteadas que descienden"
-ogImage: "/assets/blog/7b36649641ff19d02f4e3551.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Cómo Optimizar la Transferencia de Datos en API Gateway"
     url: "https://dondeaprendoaws.com/blog/como-optimizar-la-transferencia-de-datos-en-api-gateway/"
-    image: "/assets/blog/e9e708a78c62050c9930cce4.jpg"
-    imageAlt: ""
   - title: "Guía para Crear APIs Serverless con AWS Lambda y API Gateway"
     url: "https://dondeaprendoaws.com/blog/guia-para-crear-apis-serverless-con-aws-lambda-y-api-gateway/"
-    image: "/assets/blog/919d108a9faabfb32e4a011d.jpg"
-    imageAlt: ""
   - title: "Microservicios en AWS Utilizando AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-aws-lambda/"
-    image: "/assets/blog/7db368f44486be089c66ca22.jpg"
-    imageAlt: ""
+
 ---
 
 <p>En este artículo, exploraremos cómo utilizar <a href="https://aws.amazon.com/es/cloudformation/" rel="noopener noreferrer" target="_blank">AWS CloudFormation</a> para crear y gestionar tu infraestructura en la nube como código (IaC), una práctica que simplifica y automatiza el despliegue de recursos en AWS. Aprenderás los conceptos básicos, beneficios, y cómo empezar con CloudFormation, incluyendo:</p>

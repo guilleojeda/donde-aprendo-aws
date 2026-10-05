@@ -4,22 +4,17 @@ description: "Descubre cómo implementar Zero Trust en AWS, protegiendo identida
 author: "guille-ojeda"
 publishedAt: "2024-10-26"
 publishedTimestamp: "2024-10-26T19:07:21.543Z"
-cover: "/assets/blog/3bded967f6dd68d809d0a807.webp"
-coverAlt: "Portátil con panel de gráficos frente a iconos de seguridad luminosos"
-ogImage: "/assets/blog/3bded967f6dd68d809d0a807.webp"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related:
   - title: "Guía de AWS Wavelength: Zonas y Despliegue"
     url: "https://dondeaprendoaws.com/blog/guia-de-aws-wavelength-zonas-y-despliegue/"
-    image: "/assets/blog/e73412d95c38ad88b6dc619a.jpg"
-    imageAlt: ""
   - title: "10 Laboratorios Prácticos de AWS para Principiantes"
     url: "https://dondeaprendoaws.com/blog/10-laboratorios-practicos-de-aws-para-principiantes/"
-    image: "/assets/blog/e9f2fc671d3e9516f2345bb7.png"
-    imageAlt: ""
   - title: "9 Mejores Prácticas de Seguridad para IaC en AWS"
     url: "https://dondeaprendoaws.com/blog/9-mejores-practicas-de-seguridad-para-iac-en-aws/"
-    image: "/assets/blog/0b84e7609d9a01cdc2449b30.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Zero Trust en <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> significa una cosa: verificar todo, siempre, sin excepciones.</p>

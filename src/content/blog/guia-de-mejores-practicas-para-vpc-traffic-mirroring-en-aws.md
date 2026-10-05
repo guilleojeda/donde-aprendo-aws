@@ -4,22 +4,17 @@ description: "Descubre cómo implementar VPC Traffic Mirroring en AWS para mejor
 author: "guille-ojeda"
 publishedAt: "2024-10-28"
 publishedTimestamp: "2024-10-28T03:11:03.66Z"
-cover: "/assets/blog/06f2f4250afcc07dff4646bf.webp"
-coverAlt: "Pasillo de servidores iluminado por líneas naranjas y azules"
-ogImage: "/assets/blog/06f2f4250afcc07dff4646bf.webp"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related:
   - title: "Visualiza Costos con AWS Cost and Usage Reports y QuickSight"
     url: "https://dondeaprendoaws.com/blog/visualiza-costos-con-aws-cost-and-usage-reports-y-quicksight/"
-    image: "/assets/blog/bcf6fecd181e12cedeeed88a.jpg"
-    imageAlt: ""
   - title: "Cómo integrar Terraform con CI/CD en AWS"
     url: "https://dondeaprendoaws.com/blog/como-integrar-terraform-con-cicd-en-aws/"
-    image: "/assets/blog/455f2eb1c408f11b2e18115c.jpg"
-    imageAlt: ""
   - title: "10 Estrategias para Optimizar Costos de Red en AWS"
     url: "https://dondeaprendoaws.com/blog/10-estrategias-para-optimizar-costos-de-red-en-aws/"
-    image: "/assets/blog/732b4db41baecb1699e72d80.webp"
-    imageAlt: ""
+
 ---
 
 <p>VPC Traffic Mirroring es una función de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> que copia el tráfico de red para análisis de seguridad y resolución de problemas. Es como tener una cámara de seguridad para tu red.</p>

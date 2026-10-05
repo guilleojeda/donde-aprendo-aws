@@ -4,22 +4,17 @@ description: "Descubre el mundo de Serverless en AWS y aprende sobre sus ventaja
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T02:49:31.55Z"
-cover: "/assets/blog/9f5d99800f4cca1daf83afa2.jpg"
-coverAlt: "Nube azul rodeada de pequeños cuadros e iconos de colores"
-ogImage: "/assets/blog/9f5d99800f4cca1daf83afa2.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "10 Métricas Clave de DevOps en AWS"
     url: "https://dondeaprendoaws.com/blog/10-metricas-clave-de-devops-en-aws/"
-    image: "/assets/blog/98aff2370ca15f9967751abc.png"
-    imageAlt: ""
   - title: "Mejores Prácticas de Observabilidad en AWS"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/"
-    image: "/assets/blog/225d18fffd41e9eec388a76e.jpg"
-    imageAlt: ""
   - title: "Base de Datos Global con Amazon DynamoDB"
     url: "https://dondeaprendoaws.com/blog/base-de-datos-global-con-amazon-dynamodb/"
-    image: "/assets/blog/b74e56b41e26732c7dfc378e.png"
-    imageAlt: ""
+
 ---
 
 <p><strong>Serverless en AWS</strong> te permite centrarte en desarrollar tus aplicaciones sin la carga de manejar servidores. Aquí, te presentamos una introducción concisa al concepto, ventajas, servicios principales y prácticas recomendadas para aprovechar al máximo esta tecnología:</p>

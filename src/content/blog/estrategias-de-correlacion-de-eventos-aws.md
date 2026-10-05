@@ -4,22 +4,17 @@ description: "Aprende a gestionar eventos en AWS mediante la correlación, optim
 author: "guille-ojeda"
 publishedAt: "2024-12-26"
 publishedTimestamp: "2024-12-26T19:07:36.754Z"
-cover: "/assets/blog/b5250ebc33b6dd3702e864e4.jpg"
-coverAlt: "Monitor con un panel de datos y gráficos frente a una ventana"
-ogImage: "/assets/blog/b5250ebc33b6dd3702e864e4.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Cómo crear Infraestructura como Código en AWS con Terraform"
     url: "https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-terraform/"
-    image: "/assets/blog/e70ea85183c2a0917d33154f.png"
-    imageAlt: ""
   - title: "Tipos y Tamaños de Instancias RDS: Guía Completa"
     url: "https://dondeaprendoaws.com/blog/tipos-y-tamanos-de-instancias-rds-guia-completa/"
-    image: "/assets/blog/ad2ff3daa90f3b8701cd3eb8.png"
-    imageAlt: ""
   - title: "Conceptos Básicos y Avanzados de Amazon VPC"
     url: "https://dondeaprendoaws.com/blog/conceptos-basicos-y-avanzados-de-amazon-vpc/"
-    image: "/assets/blog/12c27432a1ba20e5bffcb7b0.jpg"
-    imageAlt: ""
+
 ---
 
 <p><strong>¿Quieres gestionar eventos en AWS de forma eficiente? Aquí tienes las claves:</strong></p>

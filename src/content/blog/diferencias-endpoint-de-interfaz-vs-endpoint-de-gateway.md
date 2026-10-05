@@ -4,22 +4,17 @@ description: "Compara los endpoints de interfaz y gateway en AWS para determinar
 author: "guille-ojeda"
 publishedAt: "2025-02-20"
 publishedTimestamp: "2025-02-20T00:10:01.732Z"
-cover: "/assets/blog/3565dcd644c1d6c694694985.jpg"
-coverAlt: "Dos recorridos curvos rotulados Interface Endpoint y Gateway Performance"
-ogImage: "/assets/blog/3565dcd644c1d6c694694985.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Guía para Crear APIs Serverless con AWS Lambda y API Gateway"
     url: "https://dondeaprendoaws.com/blog/guia-para-crear-apis-serverless-con-aws-lambda-y-api-gateway/"
-    image: "/assets/blog/919d108a9faabfb32e4a011d.jpg"
-    imageAlt: ""
   - title: "AWS HealthScribe: IA Generativa para Diagnósticos Médicos"
     url: "https://dondeaprendoaws.com/blog/aws-healthscribe-ia-generativa-para-diagnosticos-medicos/"
-    image: "/assets/blog/cac2ef4bd724a0e8247e5e35.jpg"
-    imageAlt: ""
   - title: "Amazon DynamoDB: Guía Básica"
     url: "https://dondeaprendoaws.com/blog/amazon-dynamodb-guia-basica/"
-    image: "/assets/blog/a45735d6d45d12223256fbc4.png"
-    imageAlt: ""
+
 ---
 
 <p>Los <strong>VPC Endpoints</strong> en AWS permiten conexiones privadas y seguras entre tu VPC y <a href="https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/">servicios de AWS</a>. Los más comunes son los <strong>endpoints de interfaz</strong> y los <strong>endpoints de gateway</strong>. Aquí tienes un resumen rápido:</p>

@@ -4,22 +4,17 @@ description: "Aprende a utilizar AWS Cost Explorer para monitorear y optimizar l
 author: "guille-ojeda"
 publishedAt: "2025-01-02"
 publishedTimestamp: "2025-01-02T00:17:31.789Z"
-cover: "/assets/blog/dbdbc8a8b6e306c35e966f8a.jpg"
-coverAlt: "Monitor con gráficos de costos en un escritorio junto a plantas"
-ogImage: "/assets/blog/dbdbc8a8b6e306c35e966f8a.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "AWS Wavelength: Guía de Escalabilidad y Optimización"
     url: "https://dondeaprendoaws.com/blog/aws-wavelength-guia-de-escalabilidad-y-optimizacion/"
-    image: "/assets/blog/fe5d7c13d156814fe29c2d7a.jpg"
-    imageAlt: ""
   - title: "Recursos Personalizados en CloudFormation con Lambda"
     url: "https://dondeaprendoaws.com/blog/recursos-personalizados-en-cloudformation-con-lambda/"
-    image: "/assets/blog/e66856987698eaa908dfab80.jpg"
-    imageAlt: ""
   - title: "Gestionando Múltiples Cuentas de AWS con AWS Organizations"
     url: "https://dondeaprendoaws.com/blog/gestionando-multiples-cuentas-de-aws-con-aws-organizations/"
-    image: "/assets/blog/f49b26fc90f711fa88bba709.jpg"
-    imageAlt: ""
+
 ---
 
 <p><strong>¿Quieres reducir los costos de tráfico de red en <a href="https://aws.amazon.com/">AWS</a>?</strong> <a href="https://aws.amazon.com/aws-cost-management/aws-cost-explorer/">AWS Cost Explorer</a> es la herramienta que necesitas. Te permite analizar, visualizar y optimizar los gastos asociados al tráfico de red, como transferencias entre regiones, zonas de disponibilidad o hacia Internet. Aquí tienes lo esencial:</p>

@@ -4,22 +4,17 @@ description: "Descubra cómo las SCPs en AWS mejoran la seguridad y el cumplimie
 author: "guille-ojeda"
 publishedAt: "2024-05-09"
 publishedTimestamp: "2024-05-09T02:00:12.498Z"
-cover: "/assets/blog/ae0015b4c4fa992bfdc8c817.jpg"
-coverAlt: "Nube azul y blanca con piezas de rompecabezas y un candado central"
-ogImage: "/assets/blog/ae0015b4c4fa992bfdc8c817.jpg"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related:
   - title: "Monitoreo y Logs de AWS Step Functions: Guía 2024"
     url: "https://dondeaprendoaws.com/blog/monitoreo-y-logs-de-aws-step-functions-guia-2024/"
-    image: "/assets/blog/3cdeed308ae19cafa2c58e0d.jpg"
-    imageAlt: ""
   - title: "Guía de UEBA para la Seguridad de AWS"
     url: "https://dondeaprendoaws.com/blog/guia-de-ueba-para-la-seguridad-de-aws/"
-    image: "/assets/blog/77827c07de64ac355ca01278.jpg"
-    imageAlt: ""
   - title: "Opciones para Desplegar Contenedores en AWS: ECS y EKS"
     url: "https://dondeaprendoaws.com/blog/opciones-para-desplegar-contenedores-en-aws-ecs-y-eks/"
-    image: "/assets/blog/fce8d84a0c54b5cb44769316.png"
-    imageAlt: ""
+
 ---
 
 <p>Las Políticas de Control de Servicios (SCPs) son una poderosa herramienta de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> para controlar y restringir el acceso a servicios y recursos en una organización. Permiten establecer permisos centralizados para todos los usuarios y roles, mejorando la seguridad y el cumplimiento.</p>

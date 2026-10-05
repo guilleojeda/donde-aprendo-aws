@@ -4,22 +4,17 @@ description: "Guía de inicio rápido para familiarizarse con los fundamentos de
 author: "guille-ojeda"
 publishedAt: "2024-01-30"
 publishedTimestamp: "2024-01-30T19:19:55.184Z"
-cover: "/assets/blog/945b48235c5e1f4c1d3cc3ae.jpg"
-coverAlt: "Nube blanca de la que caen líneas hacia una fila de iconos"
-ogImage: "/assets/blog/945b48235c5e1f4c1d3cc3ae.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "AWS Organizations: Estructuras de cuentas y nombres"
     url: "https://dondeaprendoaws.com/blog/aws-organizations-estructuras-de-cuentas-y-nombres/"
-    image: "/assets/blog/0bc804415b6cb6339123371f.jpg"
-    imageAlt: ""
   - title: "Cómo monitorear SLOs con Amazon CloudWatch"
     url: "https://dondeaprendoaws.com/blog/como-monitorear-slos-con-amazon-cloudwatch/"
-    image: "/assets/blog/0919cf4ddfe7647a0c71877c.jpg"
-    imageAlt: ""
   - title: "10 Prácticas Recomendadas para Integrar EUC en AWS"
     url: "https://dondeaprendoaws.com/blog/10-practicas-recomendadas-para-integrar-euc-en-aws/"
-    image: "/assets/blog/278a42e279f664f5331f81e7.png"
-    imageAlt: ""
+
 ---
 
 <p>Sin duda, todos estaríamos de acuerdo en que puede resultar intimidante adentrarse en el mundo de la computación en la nube de AWS por primera vez.</p>

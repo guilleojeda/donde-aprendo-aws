@@ -5,9 +5,9 @@ author: "guille-ojeda"
 publishedAt: "2024-05-10"
 publishedTimestamp: "2024-05-10T05:21:18.994Z"
 modifiedTimestamp: "2026-10-04T21:44:34-03:00"
-cover: "/assets/blog/278a42e279f664f5331f81e7.png"
-coverAlt: "Nube tridimensional conectada a engranajes y nodos circulares"
-ogImage: "/assets/blog/278a42e279f664f5331f81e7.png"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related: []
 ---
 

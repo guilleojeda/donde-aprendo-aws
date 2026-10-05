@@ -4,22 +4,17 @@ description: "Guía detallada para migrar grandes cantidades de datos a AWS de f
 author: "guille-ojeda"
 publishedAt: "2024-05-16"
 publishedTimestamp: "2024-05-16T15:02:01.266Z"
-cover: "/assets/blog/3469cfa7d51896eb4b791860.jpg"
-coverAlt: "Vehículo azul de orugas junto a iconos de datos y nubes"
-ogImage: "/assets/blog/3469cfa7d51896eb4b791860.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "Configurar AWS para Comunicación en Equipo: 7 Pasos"
     url: "https://dondeaprendoaws.com/blog/configurar-aws-para-comunicacion-en-equipo-7-pasos/"
-    image: "/assets/blog/f92b3e352f4a3a9565a17d1a.jpg"
-    imageAlt: ""
   - title: "Cómo Desarrollar Aplicaciones de Inteligencia Artificial en AWS"
     url: "https://dondeaprendoaws.com/blog/como-desarrollar-aplicaciones-de-inteligencia-artificial-en-aws/"
-    image: "/assets/blog/ac5297dc259dcbbe8d397c9d.jpg"
-    imageAlt: ""
   - title: "Bases de datos Relacionales en AWS con Amazon RDS y Amazon Aurora"
     url: "https://dondeaprendoaws.com/blog/bases-de-datos-relacionales-en-aws-con-amazon-rds-y-amazon-aurora/"
-    image: "/assets/blog/a57ee6c77803a35c0e96c332.jpg"
-    imageAlt: ""
+
 ---
 
 <p><a href="https://aws.amazon.com/blogs/aws/aws-snowmobile-move-exabytes-of-data-to-the-cloud-in-weeks/" rel="noopener noreferrer" target="_blank">AWS Snowmobile</a> es un servicio de transferencia de datos a gran escala que permite migrar grandes cantidades de datos a AWS de manera rápida, segura y económica. Cada Snowmobile puede mover hasta 100 PB de datos, haciéndolo ideal para migraciones de centros de datos, análisis de big data y <a href="https://dondeaprendoaws.com/blog/respaldos-y-snapshots-en-ebs/">respaldos de datos</a>.</p>

@@ -4,22 +4,17 @@ description: "Aprende a configurar y depurar errores CORS en API Gateway para ga
 author: "guille-ojeda"
 publishedAt: "2025-05-26"
 publishedTimestamp: "2025-05-26T19:44:19.872000+00:00"
-cover: "/assets/blog/8cdc1f9432243e263d1de431.jpg"
-coverAlt: "Monitor con una interfaz de diagnóstico abierta sobre un escritorio"
-ogImage: "/assets/blog/8cdc1f9432243e263d1de431.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Introducción a la Inteligencia Artificial en AWS"
     url: "https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/"
-    image: "/assets/blog/740fd46916e44bd2c61ce62c.png"
-    imageAlt: "Thumbnail for: Introducción a la Inteligencia Artificial en AWS"
   - title: "Amazon DynamoDB: Guía Básica"
     url: "https://dondeaprendoaws.com/blog/amazon-dynamodb-guia-basica/"
-    image: "/assets/blog/a45735d6d45d12223256fbc4.png"
-    imageAlt: "Thumbnail for: Amazon DynamoDB: Guía Básica"
   - title: "Desarrollando Aplicaciones con AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/desarrollando-aplicaciones-con-aws-lambda/"
-    image: "/assets/blog/699efcfd9fc0a59df5186b93.png"
-    imageAlt: "Thumbnail for: Desarrollando Aplicaciones con AWS Lambda"
+
 ---
 
 <p>Enfrentar errores CORS (Cross-Origin Resource Sharing) en <a href="https://docs.aws.amazon.com/apigateway/latest/developerguide/welcome.html" rel="nofollow noopener noreferrer" target="_blank">API Gateway</a> puede ser frustrante, pero con una configuración adecuada y herramientas de diagnóstico, es posible resolverlos rápidamente. Aquí tienes un resumen de los puntos clave para abordar este problema:</p>

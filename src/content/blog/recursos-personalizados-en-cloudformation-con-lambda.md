@@ -4,22 +4,17 @@ description: "Descubre cómo integrar AWS Lambda con CloudFormation para crear r
 author: "guille-ojeda"
 publishedAt: "2024-05-15"
 publishedTimestamp: "2024-05-15T04:54:08.82Z"
-cover: "/assets/blog/e66856987698eaa908dfab80.jpg"
-coverAlt: "Nube con una figura violeta y varios iconos pequeños alrededor"
-ogImage: "/assets/blog/e66856987698eaa908dfab80.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Cómo Optimizar la Transferencia de Datos en API Gateway"
     url: "https://dondeaprendoaws.com/blog/como-optimizar-la-transferencia-de-datos-en-api-gateway/"
-    image: "/assets/blog/e9e708a78c62050c9930cce4.jpg"
-    imageAlt: ""
   - title: "Monitoreo y Logs de AWS Step Functions: Guía 2024"
     url: "https://dondeaprendoaws.com/blog/monitoreo-y-logs-de-aws-step-functions-guia-2024/"
-    image: "/assets/blog/3cdeed308ae19cafa2c58e0d.jpg"
-    imageAlt: ""
   - title: "Cómo Desplegar Contenedores en AWS"
     url: "https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/"
-    image: "/assets/blog/25f323bf6f07480e77ba86a0.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Combinar <a href="https://aws.amazon.com/lambda/">AWS Lambda</a> con <a href="https://aws.amazon.com/cloudformation/">CloudFormation</a> permite crear recursos personalizados que superan las limitaciones de <a href="https://aws.amazon.com/cloudformation/">CloudFormation</a>. Esto permite:</p>

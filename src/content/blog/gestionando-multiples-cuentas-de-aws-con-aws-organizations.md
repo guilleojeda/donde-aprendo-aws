@@ -4,22 +4,17 @@ description: "Descubre cómo gestionar múltiples cuentas de AWS de manera efici
 author: "guille-ojeda"
 publishedAt: "2024-03-07"
 publishedTimestamp: "2024-03-07T23:44:11.481Z"
-cover: "/assets/blog/f49b26fc90f711fa88bba709.jpg"
-coverAlt: "Árbol con ramas en forma de nube y raíces extendidas"
-ogImage: "/assets/blog/f49b26fc90f711fa88bba709.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Automatización de cumplimiento con AWS Config"
     url: "https://dondeaprendoaws.com/blog/automatizacion-de-cumplimiento-con-aws-config/"
-    image: "/assets/blog/887b167cb63dec6854e043dc.jpg"
-    imageAlt: ""
   - title: "Automatizar Alertas de Costos AWS en 5 Pasos"
     url: "https://dondeaprendoaws.com/blog/automatizar-alertas-de-costos-aws-en-5-pasos/"
-    image: "/assets/blog/cd540f6b1441905ad2c6859c.webp"
-    imageAlt: ""
   - title: "Integrar Amazon Polly en 5 pasos: Texto a voz realista"
     url: "https://dondeaprendoaws.com/blog/integrar-amazon-polly-en-5-pasos-texto-a-voz-realista/"
-    image: "/assets/blog/35cbdc26cad1c09b7dd2fc81.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Si manejas varias cuentas de AWS y buscas simplificar su administración, AWS Organizations es tu mejor aliado. Este servicio permite:</p>

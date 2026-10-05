@@ -7,9 +7,9 @@ publishedTimestamp: "2024-01-31T00:13:19.305Z"
 modifiedTimestamp: "2026-10-05T00:04:02-03:00"
 review:
   date: "2026-10-05"
-cover: "/assets/blog/b55473f49a3eacffcaae0175.jpg"
-coverAlt: "Cilindro de base de datos conectado a varios cilindros más pequeños"
-ogImage: "/assets/blog/b55473f49a3eacffcaae0175.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related: []
 ---
 

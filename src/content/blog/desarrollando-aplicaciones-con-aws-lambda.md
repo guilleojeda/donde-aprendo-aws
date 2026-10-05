@@ -4,22 +4,17 @@ description: "AWS Lambda es una herramienta poderosa para desarrollar aplicacion
 author: "guille-ojeda"
 publishedAt: "2024-03-07"
 publishedTimestamp: "2024-03-07T14:09:19.83Z"
-cover: "/assets/blog/699efcfd9fc0a59df5186b93.png"
-coverAlt: "Nube formada por piezas de rompecabezas sobre una plataforma con nodos"
-ogImage: "/assets/blog/699efcfd9fc0a59df5186b93.png"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "AWS IoT Edge Simulator: Casos de Uso Reales"
     url: "https://dondeaprendoaws.com/blog/aws-iot-edge-simulator-casos-de-uso-reales/"
-    image: "/assets/blog/7854091f527530189ba482f0.png"
-    imageAlt: ""
   - title: "AWS Fundamentos: Guía de Inicio Rápido"
     url: "https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/"
-    image: "/assets/blog/945b48235c5e1f4c1d3cc3ae.jpg"
-    imageAlt: ""
   - title: "AWS curso certificado: preguntas frecuentes"
     url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-preguntas-frecuentes/"
-    image: "/assets/blog/39294214939c4754eb0b11e2.png"
-    imageAlt: ""
+
 ---
 
 <p>AWS Lambda es una potente herramienta que te permite crear aplicaciones escalables sin preocuparte por la infraestructura. Aquí te damos un resumen de lo que aprenderás en este artículo:</p>

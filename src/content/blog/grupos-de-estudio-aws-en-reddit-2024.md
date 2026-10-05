@@ -4,22 +4,17 @@ description: "Descubre cómo los grupos de estudio AWS en Reddit pueden ayudarte
 author: "guille-ojeda"
 publishedAt: "2024-04-30"
 publishedTimestamp: "2024-04-30T16:36:34.718Z"
-cover: "/assets/blog/5aabd355c99039c456c8249b.jpg"
-coverAlt: "Figuras humanas alrededor de una mesa redonda con una nube encima"
-ogImage: "/assets/blog/5aabd355c99039c456c8249b.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Guía completa de escalado automático de contenedores en AWS"
     url: "https://dondeaprendoaws.com/blog/guia-completa-de-escalado-automatico-de-contenedores-en-aws/"
-    image: "/assets/blog/d8c29e3674fe4e59874460c0.jpg"
-    imageAlt: ""
   - title: "AWS OpsWorks para Chef y Puppet: Preguntas Frecuentes"
     url: "https://dondeaprendoaws.com/blog/aws-opsworks-para-chef-y-puppet-preguntas-frecuentes/"
-    image: "/assets/blog/865feccab5c0ad8e72605945.jpg"
-    imageAlt: ""
   - title: "Cómo Desplegar una Aplicación en Amazon EKS"
     url: "https://dondeaprendoaws.com/blog/como-desplegar-una-aplicacion-en-amazon-eks/"
-    image: "/assets/blog/b0397a49b6dcdda375e046d4.jpg"
-    imageAlt: ""
+
 ---
 
 <p>¿Buscas prepararte para la certificación <a href="https://aws.amazon.com/">AWS</a>? Unirte a un grupo de estudio en <a href="https://www.redditinc.com/">Reddit</a> puede ser la clave. Estos grupos en línea te permiten:</p>

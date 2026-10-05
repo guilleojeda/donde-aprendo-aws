@@ -4,22 +4,17 @@ description: "Aprende cómo integrar CloudWatch y EventBridge para automatizar t
 author: "guille-ojeda"
 publishedAt: "2024-11-28"
 publishedTimestamp: "2024-11-28T01:51:21.207Z"
-cover: "/assets/blog/382dfac33d6132edaa6b8e63.jpg"
-coverAlt: "Dos monitores muestran paneles de gráficos sobre un escritorio"
-ogImage: "/assets/blog/382dfac33d6132edaa6b8e63.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Correlación de Eventos con Step Functions y CloudWatch"
     url: "https://dondeaprendoaws.com/blog/correlacion-de-eventos-con-step-functions-y-cloudwatch/"
-    image: "/assets/blog/1ddc83af1d16737de7b3fdb8.jpg"
-    imageAlt: ""
   - title: "10 Laboratorios Prácticos de AWS para Principiantes"
     url: "https://dondeaprendoaws.com/blog/10-laboratorios-practicos-de-aws-para-principiantes/"
-    image: "/assets/blog/e9f2fc671d3e9516f2345bb7.png"
-    imageAlt: ""
   - title: "Arquitecturas de Alta Disponibilidad en AWS"
     url: "https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/"
-    image: "/assets/blog/1b184fe1242c3e7fb970e984.jpg"
-    imageAlt: ""
+
 ---
 
 <p><strong>¿Quieres automatizar tareas y mejorar el <a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/">monitoreo en AWS</a>?</strong> La integración de <a href="https://aws.amazon.com/cloudwatch/">Amazon CloudWatch</a> y EventBridge es clave. Aquí tienes lo esencial:</p>

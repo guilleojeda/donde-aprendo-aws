@@ -5,9 +5,9 @@ author: "guille-ojeda"
 publishedAt: "2024-05-12"
 publishedTimestamp: "2024-05-12T01:37:13.938Z"
 modifiedTimestamp: "2026-10-04T21:44:34-03:00"
-cover: "/assets/blog/98aff2370ca15f9967751abc.png"
-coverAlt: "Medidor con engranajes e iconos integrado en una nube sobre otras nubes"
-ogImage: "/assets/blog/98aff2370ca15f9967751abc.png"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related: []
 ---
 

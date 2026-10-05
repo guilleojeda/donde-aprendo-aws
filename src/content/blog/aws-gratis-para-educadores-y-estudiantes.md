@@ -7,10 +7,10 @@ publishedTimestamp: "2024-01-30T19:24:56.085Z"
 modifiedTimestamp: "2026-09-30T11:36:26-03:00"
 review:
   date: "2026-09-30"
-cover: "/assets/blog/2e829a000de9165446203907.jpg"
-coverAlt: "Dos puestos con personas frente a una pantalla de aprendizaje con nubes"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
 indexOrder: 5
-ogImage: "/assets/blog/2e829a000de9165446203907.jpg"
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related: []
 ---
 

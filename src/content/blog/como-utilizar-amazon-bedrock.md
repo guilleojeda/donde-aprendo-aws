@@ -4,22 +4,17 @@ description: "Descubre cómo utilizar Amazon Bedrock para integrar inteligencia 
 author: "guille-ojeda"
 publishedAt: "2024-03-18"
 publishedTimestamp: "2024-03-18T23:27:52.315Z"
-cover: "/assets/blog/40a012e9c33f0668e83afad8.png"
-coverAlt: "Montículo rocoso bajo una nube luminosa con conexiones y destellos"
-ogImage: "/assets/blog/40a012e9c33f0668e83afad8.png"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "AWS SAM CLI: Pruebas y Desarrollo Local"
     url: "https://dondeaprendoaws.com/blog/aws-sam-cli-pruebas-y-desarrollo-local/"
-    image: "/assets/blog/fa48e5370fe3d3489c8fb4d5.jpg"
-    imageAlt: ""
   - title: "7 Estrategias para Reducir Costos en AWS Fargate"
     url: "https://dondeaprendoaws.com/blog/7-estrategias-para-reducir-costos-en-aws-fargate/"
-    image: "/assets/blog/9d9e21deaf95138036c3d24d.jpg"
-    imageAlt: ""
   - title: "Base de Datos Global con Amazon DynamoDB"
     url: "https://dondeaprendoaws.com/blog/base-de-datos-global-con-amazon-dynamodb/"
-    image: "/assets/blog/b74e56b41e26732c7dfc378e.png"
-    imageAlt: ""
+
 ---
 
 <p>Si buscas simplificar el uso de inteligencia artificial avanzada en tus proyectos, <strong>Amazon Bedrock</strong> es la solución. Este servicio de AWS facilita la integración de modelos de IA como <em>Claude</em>, <em>Jurassic</em> y <em>Stable Diffusion</em> en tus aplicaciones, sin necesidad de preocuparte por la infraestructura. Aquí te resumo cómo comenzar y sacarle el máximo provecho:</p>

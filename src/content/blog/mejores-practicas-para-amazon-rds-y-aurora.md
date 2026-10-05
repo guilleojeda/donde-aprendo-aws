@@ -5,22 +5,17 @@ author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T04:01:54.467Z"
 modifiedTimestamp: "2026-10-01T15:14:05-03:00"
-cover: "/assets/blog/c147658e3887f6dc27b94b8d.jpg"
-coverAlt: "Nubes de colores rodeadas por símbolos de seguridad y herramientas"
-ogImage: "/assets/blog/c147658e3887f6dc27b94b8d.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "Configurar CORS en HTTP API Gateway"
     url: "https://dondeaprendoaws.com/blog/configurar-cors-en-http-api-gateway/"
-    image: "/assets/blog/b7ca17278c2b7e43c95dfeec.jpg"
-    imageAlt: ""
   - title: "Características y Beneficios de AWS IoT Device Defender"
     url: "https://dondeaprendoaws.com/blog/caracteristicas-y-beneficios-de-aws-iot-device-defender/"
-    image: "/assets/blog/64ba25d52c7b46f1df3dfd5e.png"
-    imageAlt: ""
   - title: "Microservicios en AWS Utilizando Contenedores"
     url: "https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-contenedores/"
-    image: "/assets/blog/bf2d7e4c78ec347430ffd844.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Para asegurar el máximo rendimiento, disponibilidad y seguridad de tus bases de datos en Amazon RDS y Aurora, sigue estas recomendaciones esenciales:</p>

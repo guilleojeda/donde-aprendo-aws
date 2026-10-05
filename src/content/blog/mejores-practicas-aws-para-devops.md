@@ -4,22 +4,17 @@ description: "Descubre las mejores prácticas de AWS para DevOps, desde el marco
 author: "guille-ojeda"
 publishedAt: "2024-01-24"
 publishedTimestamp: "2024-01-24T23:31:38.611Z"
-cover: "/assets/blog/87b7131b5cdf72f70b5347bd.jpg"
-coverAlt: "Nube compuesta por iconos conectados a bloques y nodos inferiores"
-ogImage: "/assets/blog/87b7131b5cdf72f70b5347bd.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Diferencias: Endpoint de interfaz vs. Endpoint de gateway"
     url: "https://dondeaprendoaws.com/blog/diferencias-endpoint-de-interfaz-vs-endpoint-de-gateway/"
-    image: "/assets/blog/3565dcd644c1d6c694694985.jpg"
-    imageAlt: ""
   - title: "Principios de Zero Trust en AWS: Componentes Clave"
     url: "https://dondeaprendoaws.com/blog/principios-de-zero-trust-en-aws-componentes-clave/"
-    image: "/assets/blog/3bded967f6dd68d809d0a807.webp"
-    imageAlt: ""
   - title: "5 Whitepapers de AWS para Aprobar Exámenes"
     url: "https://dondeaprendoaws.com/blog/5-whitepapers-de-aws-para-aprobar-examenes/"
-    image: "/assets/blog/251a69179cad106c40e9334f.webp"
-    imageAlt: ""
+
 ---
 
 <p>Cualquier desarrollador o equipo de DevOps estaría de acuerdo en que <strong>integrar AWS al flujo de trabajo de DevOps</strong> puede ser un desafío.</p>

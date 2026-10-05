@@ -4,22 +4,17 @@ description: "Configura AWS para la comunicación en equipo en 7 pasos esenciale
 author: "guille-ojeda"
 publishedAt: "2024-05-20"
 publishedTimestamp: "2024-05-20T00:27:01.26Z"
-cover: "/assets/blog/f92b3e352f4a3a9565a17d1a.jpg"
-coverAlt: "Diagrama organizativo con personas, bases de datos, pantallas y engranajes"
-ogImage: "/assets/blog/f92b3e352f4a3a9565a17d1a.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Cómo Optimizar la Transferencia de Datos en API Gateway"
     url: "https://dondeaprendoaws.com/blog/como-optimizar-la-transferencia-de-datos-en-api-gateway/"
-    image: "/assets/blog/e9e708a78c62050c9930cce4.jpg"
-    imageAlt: ""
   - title: "AWS SAM: Guía Básica para Aplicaciones Serverless"
     url: "https://dondeaprendoaws.com/blog/aws-sam-guia-basica-para-aplicaciones-serverless/"
-    image: "/assets/blog/7007833ab0e2d90f4deb11ec.jpg"
-    imageAlt: ""
   - title: "AWS SAM CLI: Pruebas y Desarrollo Local"
     url: "https://dondeaprendoaws.com/blog/aws-sam-cli-pruebas-y-desarrollo-local/"
-    image: "/assets/blog/fa48e5370fe3d3489c8fb4d5.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Esenciales</p>

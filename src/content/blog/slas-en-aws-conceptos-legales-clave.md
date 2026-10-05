@@ -4,22 +4,17 @@ description: "Explora los SLAs de AWS, que garantizan alta disponibilidad y esta
 author: "guille-ojeda"
 publishedAt: "2025-01-16"
 publishedTimestamp: "2025-01-16T00:20:32.257Z"
-cover: "/assets/blog/6a87e6f6cd6e98298a62ee1a.jpg"
-coverAlt: "Centro de datos con una superposición de indicadores y gráficos de SLA"
-ogImage: "/assets/blog/6a87e6f6cd6e98298a62ee1a.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "AWS Lambda y API Gateway: Guía Básica"
     url: "https://dondeaprendoaws.com/blog/aws-lambda-y-api-gateway-guia-basica/"
-    image: "/assets/blog/2aa39fe7ff55b6a37888515e.jpg"
-    imageAlt: ""
   - title: "AWS Web Application Firewall (WAF)"
     url: "https://dondeaprendoaws.com/blog/aws-web-application-firewall-waf/"
-    image: "/assets/blog/f5ae0710f3fb74786f37f833.png"
-    imageAlt: ""
   - title: "Recursos en Español para Certificacion AWS Cloud Practitioner"
     url: "https://dondeaprendoaws.com/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/"
-    image: "/assets/blog/8d4ecab3b218a57acfd77f30.jpg"
-    imageAlt: ""
+
 ---
 
 <p><strong>¿Sabías que los SLAs de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> garantizan hasta un 99.99% de disponibilidad en servicios como EC2 y S3?</strong> Estos acuerdos son esenciales para definir el rendimiento esperado, las responsabilidades mutuas y las compensaciones en caso de fallos. Aquí tienes un resumen rápido:</p>

@@ -4,22 +4,17 @@ description: "Explora las diferencias en la configuración de CORS entre APIs RE
 author: "guille-ojeda"
 publishedAt: "2025-09-01"
 publishedTimestamp: "2025-09-01T05:25:00.432000+00:00"
-cover: "/assets/blog/c306342b2e9d89f2a4308624.jpg"
-coverAlt: "Monitor dividido en dos diagramas titulados REST API y WebSocket"
-ogImage: "/assets/blog/c306342b2e9d89f2a4308624.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Integración de AWS App Mesh con EKS: Guía paso a paso"
     url: "https://dondeaprendoaws.com/blog/integracion-de-aws-app-mesh-con-eks-guia-paso-a-paso/"
-    image: "/assets/blog/b6336599f042126db9b5d45c.png"
-    imageAlt: "Thumbnail for: Integración de AWS App Mesh con EKS: Guía paso a paso"
   - title: "Tipos y Tamaños de Instancias EC2: Guía Completa"
     url: "https://dondeaprendoaws.com/blog/tipos-y-tamanos-de-instancias-ec2-guia-completa/"
-    image: "/assets/blog/c17586bd518131452b0a717a.png"
-    imageAlt: "Thumbnail for: Tipos y Tamaños de Instancias EC2: Guía Completa"
   - title: "Tipos y Tamaños de Instancias RDS: Guía Completa"
     url: "https://dondeaprendoaws.com/blog/tipos-y-tamanos-de-instancias-rds-guia-completa/"
-    image: "/assets/blog/ad2ff3daa90f3b8701cd3eb8.png"
-    imageAlt: "Thumbnail for: Tipos y Tamaños de Instancias RDS: Guía Completa"
+
 ---
 
 <p>Cuando trabajas con APIs en <a href="https://dondeaprendoaws.com/blog/guia-para-crear-apis-serverless-con-aws-lambda-y-api-gateway/">AWS API Gateway</a>, es crucial entender cómo funciona CORS (Cross-Origin Resource Sharing) en REST y WebSocket. Ambos tipos de APIs manejan CORS de manera diferente debido a sus arquitecturas y modelos de comunicación.</p>

@@ -4,22 +4,17 @@ description: "Explora cómo UEBA fortalece la seguridad en AWS, integrándose co
 author: "guille-ojeda"
 publishedAt: "2024-04-29"
 publishedTimestamp: "2024-04-29T00:07:13.97Z"
-cover: "/assets/blog/77827c07de64ac355ca01278.jpg"
-coverAlt: "Nube sobre servidores, enfocada por una gran lupa"
-ogImage: "/assets/blog/77827c07de64ac355ca01278.jpg"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related:
   - title: "AWS OpsWorks: Automatiza Despliegues con Chef"
     url: "https://dondeaprendoaws.com/blog/aws-opsworks-automatiza-despliegues-con-chef/"
-    image: "/assets/blog/6b2f0b16a8f28318691c2a8d.jpg"
-    imageAlt: ""
   - title: "Tipos y Tamaños de Instancias EC2: Guía Completa"
     url: "https://dondeaprendoaws.com/blog/tipos-y-tamanos-de-instancias-ec2-guia-completa/"
-    image: "/assets/blog/c17586bd518131452b0a717a.png"
-    imageAlt: ""
   - title: "Aprender AWS gratis: Recursos y Comunidad"
     url: "https://dondeaprendoaws.com/blog/aprender-aws-gratis-recursos-y-comunidad/"
-    image: "/assets/blog/c7227ae982494a7ce1620070.jpg"
-    imageAlt: ""
+
 ---
 
 <p><a href="https://en.wikipedia.org/wiki/User_behavior_analytics">UEBA</a> (Análisis de Comportamiento de Usuarios y Entidades) es un proceso de seguridad cibernética que detecta comportamientos anómalos de usuarios y entidades en sistemas y redes. En entornos de <a href="https://aws.amazon.com/">AWS</a>, <a href="https://en.wikipedia.org/wiki/User_behavior_analytics">UEBA</a> es crucial para identificar amenazas internas y externas, como ataques de insiders, cuentas comprometidas y movimientos laterales.</p>

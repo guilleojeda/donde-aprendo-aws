@@ -4,22 +4,17 @@ description: "Consejos y mejores prácticas para utilizar Amazon DynamoDB de man
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T04:08:02.203Z"
-cover: "/assets/blog/4cce0f893747a12210fe7416.jpg"
-coverAlt: "Cilindro de base de datos dentro de un diagrama con flechas, candado y piezas"
-ogImage: "/assets/blog/4cce0f893747a12210fe7416.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "Visualiza Costos con AWS Cost and Usage Reports y QuickSight"
     url: "https://dondeaprendoaws.com/blog/visualiza-costos-con-aws-cost-and-usage-reports-y-quicksight/"
-    image: "/assets/blog/bcf6fecd181e12cedeeed88a.jpg"
-    imageAlt: ""
   - title: "Mejores Prácticas Para Amazon S3"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-s3/"
-    image: "/assets/blog/7dc90730b1402ed9efe1a10b.jpg"
-    imageAlt: ""
   - title: "Desarrollo en la nube: fundamentos esenciales"
     url: "https://dondeaprendoaws.com/blog/desarrollo-en-la-nube-fundamentos-esenciales/"
-    image: "/assets/blog/9257652addf07f39008f550d.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Para sacar el máximo provecho a Amazon DynamoDB y hacer que tus aplicaciones sean más rápidas y seguras, sigue estas recomendaciones clave:</p>

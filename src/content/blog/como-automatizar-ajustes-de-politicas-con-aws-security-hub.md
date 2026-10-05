@@ -4,22 +4,17 @@ description: "Automatiza políticas de seguridad en la nube con AWS Security Hub
 author: "guille-ojeda"
 publishedAt: "2025-05-05"
 publishedTimestamp: "2025-05-05T06:01:04.872000+00:00"
-cover: "/assets/blog/0a51232b23a8b40ad5b29e21.jpg"
-coverAlt: "Portátil con una lista de políticas y un gráfico circular en pantalla"
-ogImage: "/assets/blog/0a51232b23a8b40ad5b29e21.jpg"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related:
   - title: "Cifrado de datos con AWS KMS: Guía práctica"
     url: "https://dondeaprendoaws.com/blog/cifrado-de-datos-con-aws-kms-guia-practica/"
-    image: "/assets/blog/8879f0457d281038d09e5222.png"
-    imageAlt: "Thumbnail for: Cifrado de datos con AWS KMS: Guía práctica"
   - title: "Comprendiendo AWS Step Functions"
     url: "https://dondeaprendoaws.com/blog/comprendiendo-aws-step-functions/"
-    image: "/assets/blog/5cccd042a4e55b019d2587c8.png"
-    imageAlt: "Thumbnail for: Comprendiendo AWS Step Functions"
   - title: "Desarrollando Aplicaciones con AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/desarrollando-aplicaciones-con-aws-lambda/"
-    image: "/assets/blog/699efcfd9fc0a59df5186b93.png"
-    imageAlt: "Thumbnail for: Desarrollando Aplicaciones con AWS Lambda"
+
 ---
 
 <p><a href="https://docs.aws.amazon.com/es_es/securityhub/" rel="nofollow noopener noreferrer" target="_blank">AWS Security Hub</a> te permite automatizar políticas de <a href="https://dondeaprendoaws.com/blog/seguridad-en-la-nube-aws-estrategias-clave/">seguridad en la nube</a>, reduciendo errores y mejorando la respuesta ante amenazas. Aquí tienes lo esencial:</p>

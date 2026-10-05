@@ -21,6 +21,8 @@ function images(html) {
 
 const source = '/assets/blog/020c3be0259dc50cecb2155a.png';
 const compressedSource = '/assets/blog/e9f2fc671d3e9516f2345bb7.png';
+const blogCardSizes = '(max-width: 600px) calc(100vw - 48px), (max-width: 900px) calc((100vw - 72px) / 2), (max-width: 1232px) calc((100vw - 96px) / 3), 379px';
+const blogArticleBodySizes = '(max-width: 600px) calc(100vw - 32px), (max-width: 728px) calc(100vw - 48px), 680px';
 
 test('post-render processing preserves image content and emits correctly sized local candidates', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'responsive-images-'));
@@ -59,9 +61,10 @@ test('post-render processing preserves image content and emits correctly sized l
   assert.equal(indexImages[0].get('alt'), 'Diagrama del artículo');
   assert.equal(indexImages[0].get('loading'), 'eager');
   assert.equal(indexImages[0].get('fetchpriority'), 'high');
-  assert.equal(indexImages[0].get('sizes'), '(max-width: 700px) calc(100vw - 30px), (max-width: 880px) calc(66.667vw - 26.667px), 560px');
+  assert.equal(indexImages[0].get('sizes'), blogCardSizes);
   assert.equal(indexImages[1].get('loading'), 'lazy');
   assert.equal(indexImages[1].get('fetchpriority'), undefined);
+  assert.equal(indexImages[1].get('sizes'), blogCardSizes, 'Featured cards share the same grid geometry.');
   for (const match of indexHtml.matchAll(/<source\b[^>]*>/g)) {
     assert.match(match[0], /type="image\/webp"/);
     assert.match(match[0], /srcset="[^"]+"/);
@@ -71,8 +74,8 @@ test('post-render processing preserves image content and emits correctly sized l
   const articleImages = images(articleHtml).map(attributes);
   assert.equal(articleImages.length, 2);
   assert.ok(articleImages.every((image) => image.get('loading') === 'lazy'));
-  assert.equal(articleImages[0].get('sizes'), '(max-width: 710px) calc(100vw - 30px), 680px');
-  assert.equal(articleImages[1].get('sizes'), '(max-width: 500px) calc(100vw - 30px), (max-width: 700px) calc((100vw - 50px) / 2), 320px');
+  assert.equal(articleImages[0].get('sizes'), blogArticleBodySizes);
+  assert.equal(articleImages[1].get('sizes'), blogCardSizes, 'Related cards share the index card grid geometry.');
   assert.equal(articleImages[0].get('alt'), 'Imagen del cuerpo');
 
   const compressedBytes = (await stat(resolve(publicDir, compressedSource.slice(1)))).size;

@@ -5,9 +5,9 @@ author: "guille-ojeda"
 publishedAt: "2025-01-23"
 publishedTimestamp: "2025-01-23T00:34:06.712Z"
 modifiedTimestamp: "2026-10-04T21:31:45-03:00"
-cover: "/assets/blog/e838de22cc856de64a0d3bdc.jpg"
-coverAlt: "Portátil con código rodeado de iconos luminosos de candados y escudos"
-ogImage: "/assets/blog/e838de22cc856de64a0d3bdc.jpg"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related: []
 review:
   date: "2026-10-04"

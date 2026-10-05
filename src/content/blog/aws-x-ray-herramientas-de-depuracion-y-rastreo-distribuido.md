@@ -4,22 +4,17 @@ description: "Descubre cómo AWS X-Ray mejora el rendimiento de aplicaciones dis
 author: "guille-ojeda"
 publishedAt: "2024-05-07"
 publishedTimestamp: "2024-05-07T05:49:02.026Z"
-cover: "/assets/blog/2f81887ad0ca1683bc24fbf1.jpg"
-coverAlt: "Dos nubes conectadas por líneas sobre una malla de nodos"
-ogImage: "/assets/blog/2f81887ad0ca1683bc24fbf1.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Características y Beneficios de AWS IoT Device Defender"
     url: "https://dondeaprendoaws.com/blog/caracteristicas-y-beneficios-de-aws-iot-device-defender/"
-    image: "/assets/blog/64ba25d52c7b46f1df3dfd5e.png"
-    imageAlt: ""
   - title: "Patrón Strangler Fig en AWS: Migrar a Microservicios"
     url: "https://dondeaprendoaws.com/blog/patron-strangler-fig-en-aws-migrar-a-microservicios/"
-    image: "/assets/blog/a4bd2fc033fb9605dec915d6.png"
-    imageAlt: ""
   - title: "Servicios de AWS para Inteligencia Artificial"
     url: "https://dondeaprendoaws.com/blog/servicios-de-aws-para-inteligencia-artificial/"
-    image: "/assets/blog/54201ee89ce3b648eb0ec011.jpg"
-    imageAlt: ""
+
 ---
 
 <p><a href="https://aws.amazon.com/xray/">AWS X-Ray</a> es una herramienta de análisis y depuración de <a href="https://dondeaprendoaws.com/blog/cloud-computing-en-espanol-fundamentos-basicos/">aplicaciones distribuidas en la nube</a>. Permite rastrear solicitudes, identificar cuellos de botella y resolver problemas de rendimiento en <a href="https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-contenedores/">aplicaciones basadas en microservicios</a>. Algunas de sus características clave son:</p>

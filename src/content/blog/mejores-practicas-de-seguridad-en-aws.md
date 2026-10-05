@@ -4,22 +4,17 @@ description: "Conoce las mejores prácticas de seguridad en AWS, desde la gesti�
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:50:54.456Z"
-cover: "/assets/blog/b986394b769bbf12716343e5.jpg"
-coverAlt: "Nube blanca sobre piezas de rompecabezas dispersas"
-ogImage: "/assets/blog/b986394b769bbf12716343e5.jpg"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related:
   - title: "Checklist para automatizar cumplimiento en AWS"
     url: "https://dondeaprendoaws.com/blog/checklist-para-automatizar-cumplimiento-en-aws/"
-    image: "/assets/blog/a46b50f31e32898c7df40cce.jpg"
-    imageAlt: ""
   - title: "Observabilidad en AWS con Amazon X-Ray"
     url: "https://dondeaprendoaws.com/blog/observabilidad-en-aws-con-amazon-x-ray/"
-    image: "/assets/blog/9c1a2ce4c93fa5462aba7299.jpg"
-    imageAlt: ""
   - title: "Cómo Desplegar Contenedores en AWS"
     url: "https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/"
-    image: "/assets/blog/25f323bf6f07480e77ba86a0.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Para proteger tus sistemas y datos en AWS, es esencial seguir las mejores prácticas de seguridad. Aquí te dejamos un resumen de lo más importante:</p>

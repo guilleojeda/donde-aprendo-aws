@@ -4,22 +4,17 @@ description: "Descubre cómo migrar de forma segura y gradual aplicaciones monol
 author: "guille-ojeda"
 publishedAt: "2024-04-29"
 publishedTimestamp: "2024-04-29T05:31:12.257Z"
-cover: "/assets/blog/a4bd2fc033fb9605dec915d6.png"
-coverAlt: "Árbol de nodos con raíces ramificadas y copa en forma de nube"
-ogImage: "/assets/blog/a4bd2fc033fb9605dec915d6.png"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "AWS OpsWorks: Automatiza Despliegues con Chef"
     url: "https://dondeaprendoaws.com/blog/aws-opsworks-automatiza-despliegues-con-chef/"
-    image: "/assets/blog/6b2f0b16a8f28318691c2a8d.jpg"
-    imageAlt: ""
   - title: "Cómo integrar los SDK de AWS en 7 pasos"
     url: "https://dondeaprendoaws.com/blog/como-integrar-los-sdk-de-aws-en-7-pasos/"
-    image: "/assets/blog/056aaf4c9dbb90032443ee34.jpg"
-    imageAlt: ""
   - title: "Clases de Almacenamiento de Amazon S3"
     url: "https://dondeaprendoaws.com/blog/clases-de-almacenamiento-de-amazon-s3/"
-    image: "/assets/blog/783a6beb62602d5d128b9c75.jpg"
-    imageAlt: ""
+
 ---
 
 <p>de Forma Gradual y Segura</p>

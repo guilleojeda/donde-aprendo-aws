@@ -4,22 +4,17 @@ description: "Aprende a crear Infraestructura como Código en AWS con Terraform.
 author: "guille-ojeda"
 publishedAt: "2024-03-18"
 publishedTimestamp: "2024-03-18T00:48:17.194Z"
-cover: "/assets/blog/e70ea85183c2a0917d33154f.png"
-coverAlt: "Nube conectada a una fila de nodos con símbolos de código"
-ogImage: "/assets/blog/e70ea85183c2a0917d33154f.png"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Mejores Prácticas de Seguridad en AWS"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/"
-    image: "/assets/blog/b986394b769bbf12716343e5.jpg"
-    imageAlt: ""
   - title: "AWS Fundamentos: Guía de Inicio Rápido"
     url: "https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/"
-    image: "/assets/blog/945b48235c5e1f4c1d3cc3ae.jpg"
-    imageAlt: ""
   - title: "AWS Seguridad: Mejores Prácticas"
     url: "https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/"
-    image: "/assets/blog/58bea5d60c133d57e4a0bdbf.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Crear infraestructura en AWS con Terraform te permite gestionar tus recursos en la nube de manera eficiente y automatizada. Terraform utiliza la Infraestructura como Código (IaC) para facilitar la creación, actualización y mantenimiento de tus sistemas. Aquí te mostraremos cómo empezar, desde los conceptos básicos hasta consejos avanzados:</p>

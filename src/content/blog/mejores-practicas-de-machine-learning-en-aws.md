@@ -5,22 +5,17 @@ author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:46:53.199Z"
 modifiedTimestamp: "2026-10-01T15:14:05-03:00"
-cover: "/assets/blog/93b405bec4b3d8ac5255f4ed.png"
-coverAlt: "Nube azul acompañada por flechas y ramificaciones de circuito"
-ogImage: "/assets/blog/93b405bec4b3d8ac5255f4ed.png"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "10 Repositorios de GitHub para Machine Learning en AWS"
     url: "https://dondeaprendoaws.com/blog/10-repositorios-de-github-para-machine-learning-en-aws/"
-    image: "/assets/blog/0e7089d339cd0d6e09ee83cd.webp"
-    imageAlt: ""
   - title: "Comprendiendo AWS Step Functions"
     url: "https://dondeaprendoaws.com/blog/comprendiendo-aws-step-functions/"
-    image: "/assets/blog/5cccd042a4e55b019d2587c8.png"
-    imageAlt: ""
   - title: "Recursos en Español para Certificacion AWS Cloud Practitioner"
     url: "https://dondeaprendoaws.com/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/"
-    image: "/assets/blog/8d4ecab3b218a57acfd77f30.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Si buscas optimizar tus proyectos de Machine Learning (ML) en AWS, este artículo te guiará a través de las mejores prácticas, servicios disponibles y consejos clave para lograrlo. Te mostraremos cómo AWS simplifica el ML, ofreciendo desde servicios de IA listos para usar hasta infraestructura avanzada y técnicas de MLOps para una implementación eficiente. Aquí un resumen de lo más importante:</p>

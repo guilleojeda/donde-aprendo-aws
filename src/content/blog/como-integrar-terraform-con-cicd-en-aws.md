@@ -5,22 +5,17 @@ author: "guille-ojeda"
 publishedAt: "2025-02-10"
 publishedTimestamp: "2025-02-10T00:20:47.716Z"
 modifiedTimestamp: "2026-10-01T15:14:05-03:00"
-cover: "/assets/blog/455f2eb1c408f11b2e18115c.jpg"
-coverAlt: "Portátil con código en un escritorio y diagramas en la pared"
-ogImage: "/assets/blog/455f2eb1c408f11b2e18115c.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Visualiza Costos con AWS Cost and Usage Reports y QuickSight"
     url: "https://dondeaprendoaws.com/blog/visualiza-costos-con-aws-cost-and-usage-reports-y-quicksight/"
-    image: "/assets/blog/bcf6fecd181e12cedeeed88a.jpg"
-    imageAlt: ""
   - title: "Guía para Implementar Machine Learning con Amazon SageMaker"
     url: "https://dondeaprendoaws.com/blog/guia-para-implementar-machine-learning-con-amazon-sagemaker/"
-    image: "/assets/blog/57b9e13953de77f8b6210bc2.jpg"
-    imageAlt: ""
   - title: "AWS HealthScribe: IA Generativa para Diagnósticos Médicos"
     url: "https://dondeaprendoaws.com/blog/aws-healthscribe-ia-generativa-para-diagnosticos-medicos/"
-    image: "/assets/blog/cac2ef4bd724a0e8247e5e35.jpg"
-    imageAlt: ""
+
 ---
 
 <p><strong>¿Quieres automatizar la gestión de infraestructura en AWS con <a href="https://www.terraform.io/" rel="noopener noreferrer" target="_blank">Terraform</a> y CI/CD? Aquí te explico cómo hacerlo paso a paso.</strong></p>

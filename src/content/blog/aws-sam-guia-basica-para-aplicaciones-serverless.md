@@ -4,22 +4,17 @@ description: "Aprende a crear aplicaciones serverless de forma sencilla en AWS u
 author: "guille-ojeda"
 publishedAt: "2024-11-27"
 publishedTimestamp: "2024-11-27T02:20:00.277Z"
-cover: "/assets/blog/7007833ab0e2d90f4deb11ec.jpg"
-coverAlt: "Persona frente a varios monitores con diagramas en una oficina"
-ogImage: "/assets/blog/7007833ab0e2d90f4deb11ec.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "¿Qué es AWS Lambda? Preguntas y Respuestas"
     url: "https://dondeaprendoaws.com/blog/que-es-aws-lambda-preguntas-y-respuestas/"
-    image: "/assets/blog/70579f832030c8f349b01339.jpg"
-    imageAlt: ""
   - title: "Estrategias de Correlación de Eventos AWS"
     url: "https://dondeaprendoaws.com/blog/estrategias-de-correlacion-de-eventos-aws/"
-    image: "/assets/blog/b5250ebc33b6dd3702e864e4.jpg"
-    imageAlt: ""
   - title: "Seguridad y Control de Costos en AWS: Guía 2024"
     url: "https://dondeaprendoaws.com/blog/seguridad-y-control-de-costos-en-aws-guia-2024/"
-    image: "/assets/blog/fa1b6e3bfee7c71b39327fcd.jpg"
-    imageAlt: ""
+
 ---
 
 <p><a href="https://docs.aws.amazon.com/serverless-application-model/">AWS SAM</a> te permite crear <a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">aplicaciones serverless</a> de forma sencilla en AWS. Con este framework, puedes definir funciones Lambda, APIs, <a href="https://dondeaprendoaws.com/blog/aws-bases-de-datos-introduccion-basica/">bases de datos</a> y más usando plantillas YAML o JSON. Además, el SAM CLI facilita el desarrollo, pruebas locales y despliegues automáticos. Aquí tienes lo esencial:</p>

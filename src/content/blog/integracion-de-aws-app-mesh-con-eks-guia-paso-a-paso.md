@@ -4,22 +4,17 @@ description: "Aprende a integrar AWS App Mesh con Amazon EKS para mejorar la com
 author: "guille-ojeda"
 publishedAt: "2024-05-11"
 publishedTimestamp: "2024-05-11T01:55:00.323Z"
-cover: "/assets/blog/b6336599f042126db9b5d45c.png"
-coverAlt: "Nube de contorno estratificado con una trama de hexágonos y conexiones"
-ogImage: "/assets/blog/b6336599f042126db9b5d45c.png"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "10 Consejos de Redes para AWS Outposts"
     url: "https://dondeaprendoaws.com/blog/10-consejos-de-redes-para-aws-outposts/"
-    image: "/assets/blog/d57b2c7f6d8d4785748ce1c5.png"
-    imageAlt: ""
   - title: "Webinars y Eventos en AWS Marketplace"
     url: "https://dondeaprendoaws.com/blog/webinars-y-eventos-en-aws-marketplace/"
-    image: "/assets/blog/8f2a908f4bdb73449da17e82.jpg"
-    imageAlt: ""
   - title: "Mejores Prácticas Para Amazon EKS"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-eks/"
-    image: "/assets/blog/5db43c07fa6733b870313471.jpg"
-    imageAlt: ""
+
 ---
 
 <p><a href="https://aws.amazon.com/app-mesh/">AWS App Mesh</a> es una malla de servicios que simplifica la comunicación entre microservicios en aplicaciones nativas de la nube. Esta guía detallada te mostrará cómo integrar App Mesh con <a href="https://aws.amazon.com/eks/">Amazon EKS</a> para crear aplicaciones escalables, seguras y fáciles de mantener en un entorno de contenedores.</p>

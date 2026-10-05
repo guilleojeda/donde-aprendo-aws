@@ -4,22 +4,17 @@ description: "Aprende a optimizar la transferencia de datos en API Gateway para 
 author: "guille-ojeda"
 publishedAt: "2025-05-29"
 publishedTimestamp: "2025-05-29T06:24:09.015000+00:00"
-cover: "/assets/blog/e9e708a78c62050c9930cce4.jpg"
-coverAlt: "Líneas curvas y puntos que ascienden sobre un fondo claro"
-ogImage: "/assets/blog/e9e708a78c62050c9930cce4.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Como Configurar y Utilizar AWS Session Manager"
     url: "https://dondeaprendoaws.com/blog/como-configurar-y-utilizar-aws-session-manager/"
-    image: "/assets/blog/037793a796bc8f08a1cce7d0.png"
-    imageAlt: "Thumbnail for: Como Configurar y Utilizar AWS Session Manager"
   - title: "Ingeniería de Caos en AWS con Fault Injection Simulator"
     url: "https://dondeaprendoaws.com/blog/ingenieria-de-caos-en-aws-con-fault-injection-simulator/"
-    image: "/assets/blog/0a0b1cf017845abee5cf215d.png"
-    imageAlt: "Thumbnail for: Ingeniería de Caos en AWS con Fault Injection Simulator"
   - title: "AWS curso certificado: preguntas frecuentes"
     url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-preguntas-frecuentes/"
-    image: "/assets/blog/39294214939c4754eb0b11e2.png"
-    imageAlt: "Thumbnail for: AWS curso certificado: preguntas frecuentes"
+
 ---
 
 <p><strong>¿Quieres reducir los costes y mejorar el rendimiento de tus APIs en <a href="https://aws.amazon.com/api-gateway/" rel="nofollow noopener noreferrer" target="_blank">Amazon API Gateway</a>? Aquí tienes un resumen rápido de cómo lograrlo:</strong></p>

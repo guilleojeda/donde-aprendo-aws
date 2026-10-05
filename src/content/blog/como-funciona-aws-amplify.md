@@ -4,22 +4,17 @@ description: "Descubre cómo AWS Amplify simplifica el desarrollo de aplicacione
 author: "guille-ojeda"
 publishedAt: "2024-03-18"
 publishedTimestamp: "2024-03-18T23:13:52.162Z"
-cover: "/assets/blog/ee80202a0fa6a00452e56ba9.jpg"
-coverAlt: "Tableta conectada a ventanas y nubes mediante líneas"
-ogImage: "/assets/blog/ee80202a0fa6a00452e56ba9.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Guía de Mejores Prácticas para VPC Traffic Mirroring en AWS"
     url: "https://dondeaprendoaws.com/blog/guia-de-mejores-practicas-para-vpc-traffic-mirroring-en-aws/"
-    image: "/assets/blog/06f2f4250afcc07dff4646bf.webp"
-    imageAlt: ""
   - title: "Seguridad y Control de Costos en AWS: Guía 2024"
     url: "https://dondeaprendoaws.com/blog/seguridad-y-control-de-costos-en-aws-guia-2024/"
-    image: "/assets/blog/fa1b6e3bfee7c71b39327fcd.jpg"
-    imageAlt: ""
   - title: "Cómo crear Infraestructura como Código en AWS con Terraform"
     url: "https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-terraform/"
-    image: "/assets/blog/e70ea85183c2a0917d33154f.png"
-    imageAlt: ""
+
 ---
 
 <p>AWS Amplify facilita enormemente el desarrollo de aplicaciones web y móviles, permitiendo a los desarrolladores concentrarse en la experiencia del usuario mientras maneja el backend de forma segura y eficiente. Aquí te resumimos lo esencial sobre cómo funciona AWS Amplify:</p>

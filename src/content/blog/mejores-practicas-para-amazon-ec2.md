@@ -4,22 +4,17 @@ description: "Consejos y mejores prácticas para optimizar el uso de Amazon EC2,
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:37:49.478Z"
-cover: "/assets/blog/ba08e34938ffab3b828b7b82.jpg"
-coverAlt: "Nube de seguridad con escudo, lupa, engranaje y candado conectados"
-ogImage: "/assets/blog/ba08e34938ffab3b828b7b82.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "5 Startups Exitosas en AWS: Casos de Éxito"
     url: "https://dondeaprendoaws.com/blog/5-startups-exitosas-en-aws-casos-de-exito/"
-    image: "/assets/blog/b94e80f121605caa3d2fcec3.jpg"
-    imageAlt: ""
   - title: "Cómo Desplegar una Aplicación en Amazon EKS"
     url: "https://dondeaprendoaws.com/blog/como-desplegar-una-aplicacion-en-amazon-eks/"
-    image: "/assets/blog/b0397a49b6dcdda375e046d4.jpg"
-    imageAlt: ""
   - title: "¿Cómo Escala DynamoDB? Modos On Demand y Provisioned"
     url: "https://dondeaprendoaws.com/blog/como-escala-dynamodb-modos-on-demand-y-provisioned/"
-    image: "/assets/blog/ce62e0cc8508d5055bba53b4.png"
-    imageAlt: ""
+
 ---
 
 <p>Para sacar el máximo provecho a Amazon EC2 y asegurar la eficiencia y seguridad de tus recursos en la nube, considera estas prácticas esenciales:</p>

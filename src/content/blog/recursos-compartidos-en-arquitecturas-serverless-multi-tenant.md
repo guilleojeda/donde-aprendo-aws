@@ -4,22 +4,17 @@ description: "Compartir recursos en arquitecturas serverless multi-tenant ofrece
 author: "guille-ojeda"
 publishedAt: "2024-05-18"
 publishedTimestamp: "2024-05-18T01:35:00.225Z"
-cover: "/assets/blog/b4ce26c384455c6314d61ac3.jpg"
-coverAlt: "Servidores centrales rodeados por una rueda de nodos de colores"
-ogImage: "/assets/blog/b4ce26c384455c6314d61ac3.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Crear un Cluster en Amazon Redshift"
     url: "https://dondeaprendoaws.com/blog/crear-un-cluster-en-amazon-redshift/"
-    image: "/assets/blog/2ce2762453f46a717ff15e81.jpg"
-    imageAlt: ""
   - title: "Diferencias: Endpoint de interfaz vs. Endpoint de gateway"
     url: "https://dondeaprendoaws.com/blog/diferencias-endpoint-de-interfaz-vs-endpoint-de-gateway/"
-    image: "/assets/blog/3565dcd644c1d6c694694985.jpg"
-    imageAlt: ""
   - title: "Cómo Desplegar una Aplicación en Amazon ECS"
     url: "https://dondeaprendoaws.com/blog/como-desplegar-una-aplicacion-en-amazon-ecs/"
-    image: "/assets/blog/d73cb60565a00d466c3768e1.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Compartir recursos en <a href="https://dondeaprendoaws.com/blog/7-estrategias-de-serverless-para-startups-optimiza-costos/">arquitecturas serverless multi-tenant</a> ofrece beneficios significativos, como <strong>reducción de costos</strong>, <strong>mayor escalabilidad</strong> y <strong>simplificación de la gestión</strong>. Sin embargo, también presenta desafíos clave que deben abordarse:</p>

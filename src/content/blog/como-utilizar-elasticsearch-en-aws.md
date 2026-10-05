@@ -4,22 +4,17 @@ description: "Descubre cómo utilizar ElasticSearch en AWS, desde la creación d
 author: "guille-ojeda"
 publishedAt: "2024-03-08"
 publishedTimestamp: "2024-03-08T13:19:46.73Z"
-cover: "/assets/blog/17fe006845acd8b3930b23c8.jpg"
-coverAlt: "Engranajes naranjas sobre una plataforma blanca rodeada de nubes"
-ogImage: "/assets/blog/17fe006845acd8b3930b23c8.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "AWS Organizations: Estructuras de cuentas y nombres"
     url: "https://dondeaprendoaws.com/blog/aws-organizations-estructuras-de-cuentas-y-nombres/"
-    image: "/assets/blog/0bc804415b6cb6339123371f.jpg"
-    imageAlt: ""
   - title: "Recursos Personalizados en CloudFormation con Lambda"
     url: "https://dondeaprendoaws.com/blog/recursos-personalizados-en-cloudformation-con-lambda/"
-    image: "/assets/blog/e66856987698eaa908dfab80.jpg"
-    imageAlt: ""
   - title: "Bases de datos Relacionales en AWS con Amazon RDS y Amazon Aurora"
     url: "https://dondeaprendoaws.com/blog/bases-de-datos-relacionales-en-aws-con-amazon-rds-y-amazon-aurora/"
-    image: "/assets/blog/a57ee6c77803a35c0e96c332.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Si estás interesado en <strong>cómo utilizar Elasticsearch en AWS</strong>, has llegado al lugar correcto. A continuación, te presentamos los puntos clave para sacarle el máximo partido a esta poderosa herramienta de búsqueda y análisis en la nube:</p>

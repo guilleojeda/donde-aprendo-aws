@@ -4,22 +4,17 @@ description: "Descubre los servicios esenciales de seguridad de AWS, cómo prote
 author: "guille-ojeda"
 publishedAt: "2024-01-25"
 publishedTimestamp: "2024-01-25T01:35:54.384Z"
-cover: "/assets/blog/2ac2bf3abc517088f07fb837.png"
-coverAlt: "Nube tridimensional azul con varios candados grandes"
-ogImage: "/assets/blog/2ac2bf3abc517088f07fb837.png"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related:
   - title: "Grupos de Estudio AWS en Reddit 2024"
     url: "https://dondeaprendoaws.com/blog/grupos-de-estudio-aws-en-reddit-2024/"
-    image: "/assets/blog/5aabd355c99039c456c8249b.jpg"
-    imageAlt: ""
   - title: "Observabilidad en AWS con Amazon X-Ray"
     url: "https://dondeaprendoaws.com/blog/observabilidad-en-aws-con-amazon-x-ray/"
-    image: "/assets/blog/9c1a2ce4c93fa5462aba7299.jpg"
-    imageAlt: ""
   - title: "Amazon DynamoDB: La Base de Datos NoSQL de AWS"
     url: "https://dondeaprendoaws.com/blog/amazon-dynamodb-la-base-de-datos-nosql-de-aws/"
-    image: "/assets/blog/b55473f49a3eacffcaae0175.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Casi todos estarán de acuerdo en que gestionar efectivamente la <strong>seguridad</strong> en la nube es un desafío.</p>

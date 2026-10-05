@@ -4,22 +4,17 @@ description: "Aprende a utilizar Lambda Layers en AWS Lambda para reutilizar có
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T02:24:39.563Z"
-cover: "/assets/blog/ab65afd218440c66bc564a0a.jpg"
-coverAlt: "Nube sobre varias plataformas apiladas y pequeños diagramas conectados"
-ogImage: "/assets/blog/ab65afd218440c66bc564a0a.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Mejores Prácticas de Machine Learning en AWS"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-de-machine-learning-en-aws/"
-    image: "/assets/blog/93b405bec4b3d8ac5255f4ed.png"
-    imageAlt: ""
   - title: "Ingeniería de Caos en AWS con Fault Injection Simulator"
     url: "https://dondeaprendoaws.com/blog/ingenieria-de-caos-en-aws-con-fault-injection-simulator/"
-    image: "/assets/blog/0a0b1cf017845abee5cf215d.png"
-    imageAlt: ""
   - title: "Desarrollando Aplicaciones con AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/desarrollando-aplicaciones-con-aws-lambda/"
-    image: "/assets/blog/699efcfd9fc0a59df5186b93.png"
-    imageAlt: ""
+
 ---
 
 <p>Si estás buscando optimizar tus proyectos en AWS Lambda, utilizar Lambda Layers es una estrategia clave que te permite compartir código, bibliotecas y otros recursos entre múltiples funciones Lambda. Te ayudarán a:</p>

@@ -4,22 +4,17 @@ description: "Prepárate eficazmente para el examen AWS Certified Cloud Practiti
 author: "guille-ojeda"
 publishedAt: "2024-05-04"
 publishedTimestamp: "2024-05-04T02:21:52.821Z"
-cover: "/assets/blog/9ee272960332ab17524d1056.jpg"
-coverAlt: "Nube rosada con un sobre en el centro y símbolos circulares alrededor"
-ogImage: "/assets/blog/9ee272960332ab17524d1056.jpg"
+cover: "/assets/blog/editorial-certificacion.png"
+coverAlt: "Tres tarjetas de estudio con apuntes y hitos sobre un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-certificacion.png"
 related:
   - title: "Checklist: Servicios AWS Esenciales para SAA-C03"
     url: "https://dondeaprendoaws.com/blog/checklist-servicios-aws-esenciales-para-saa-c03/"
-    image: "/assets/blog/eadb9eb1eb9dfe22a3da22e2.jpg"
-    imageAlt: ""
   - title: "Guía para Crear APIs Serverless con AWS Lambda y API Gateway"
     url: "https://dondeaprendoaws.com/blog/guia-para-crear-apis-serverless-con-aws-lambda-y-api-gateway/"
-    image: "/assets/blog/919d108a9faabfb32e4a011d.jpg"
-    imageAlt: ""
   - title: "Bases de datos Relacionales en AWS con Amazon RDS y Amazon Aurora"
     url: "https://dondeaprendoaws.com/blog/bases-de-datos-relacionales-en-aws-con-amazon-rds-y-amazon-aurora/"
-    image: "/assets/blog/a57ee6c77803a35c0e96c332.jpg"
-    imageAlt: ""
+
 ---
 
 <p>¿Quieres obtener la certificación <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> Cloud Practitioner? Esta guía te ayudará a prepararte de manera efectiva para el examen CLF-C02. Aquí encontrarás todo lo que necesitas saber:</p>

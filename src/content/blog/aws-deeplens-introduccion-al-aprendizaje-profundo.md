@@ -4,22 +4,17 @@ description: "Aprende a utilizar AWS DeepLens para proyectos de aprendizaje prof
 author: "guille-ojeda"
 publishedAt: "2024-05-04"
 publishedTimestamp: "2024-05-04T13:44:53.053Z"
-cover: "/assets/blog/711eae34c71ed3b53e765f69.jpg"
-coverAlt: "Círculos concéntricos sobre un circuito electrónico"
-ogImage: "/assets/blog/711eae34c71ed3b53e765f69.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "Requisitos de cableado físico para AWS Snowball"
     url: "https://dondeaprendoaws.com/blog/requisitos-de-cableado-fisico-para-aws-snowball/"
-    image: "/assets/blog/3b6a26d54c02dfac32acb13b.jpg"
-    imageAlt: ""
   - title: "Tipos y Tamaños de Instancias EC2: Guía Completa"
     url: "https://dondeaprendoaws.com/blog/tipos-y-tamanos-de-instancias-ec2-guia-completa/"
-    image: "/assets/blog/c17586bd518131452b0a717a.png"
-    imageAlt: ""
   - title: "Aprender AWS: guía inicial"
     url: "https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/"
-    image: "/assets/blog/9eb7bc020e08de9a43291902.jpg"
-    imageAlt: ""
+
 ---
 
 <p><a href="https://aws.amazon.com/deeplens/faqs/">AWS DeepLens</a> es una cámara de video inteligente diseñada para ayudar a desarrolladores a mejorar sus habilidades en aprendizaje profundo y visión artificial. Esta cámara HD cuenta con procesamiento integrado optimizado para modelos de aprendizaje profundo, que pueden ser programados con <a href="https://aws.amazon.com/">AWS</a> <a href="https://aws.amazon.com/lambda/">Lambda</a>.</p>

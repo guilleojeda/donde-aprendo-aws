@@ -4,22 +4,17 @@ description: "Amazon EKS es una excelente opción para usar Kubernetes en AWS. D
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:21:48.687Z"
-cover: "/assets/blog/066e0f22ea88769f71d0c039.png"
-coverAlt: "Nube sobre un diagrama de flujo con cuadros y flechas"
-ogImage: "/assets/blog/066e0f22ea88769f71d0c039.png"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Correlación de Eventos con Step Functions y CloudWatch"
     url: "https://dondeaprendoaws.com/blog/correlacion-de-eventos-con-step-functions-y-cloudwatch/"
-    image: "/assets/blog/1ddc83af1d16737de7b3fdb8.jpg"
-    imageAlt: ""
   - title: "AWS Lambda: Costo vs. Rendimiento"
     url: "https://dondeaprendoaws.com/blog/aws-lambda-costo-vs-rendimiento/"
-    image: "/assets/blog/e7d2b8371eaa07e84e5400f5.jpg"
-    imageAlt: ""
   - title: "AWS curso certificado: preguntas frecuentes"
     url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-preguntas-frecuentes/"
-    image: "/assets/blog/39294214939c4754eb0b11e2.png"
-    imageAlt: ""
+
 ---
 
 <p>Si estás explorando cómo ejecutar y gestionar aplicaciones en la nube de AWS, aquí te presentamos una guía sobre Kubernetes y Amazon EKS. Kubernetes es una herramienta que facilita la ejecución de aplicaciones en contenedores en múltiples entornos, mientras que Amazon EKS simplifica el uso de Kubernetes en AWS. A continuación, desglosamos los componentes clave de Kubernetes, cómo Amazon EKS mejora la experiencia de Kubernetes, y brindamos un paso a paso para implementar tu propio clúster de EKS.</p>

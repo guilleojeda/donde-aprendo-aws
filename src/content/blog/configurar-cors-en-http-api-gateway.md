@@ -4,22 +4,17 @@ description: "Aprende a configurar CORS en API Gateway de AWS para asegurar el a
 author: "guille-ojeda"
 publishedAt: "2025-03-10"
 publishedTimestamp: "2025-03-10T05:50:46.65Z"
-cover: "/assets/blog/b7ca17278c2b7e43c95dfeec.jpg"
-coverAlt: "Portátil con código en pantalla sobre un escritorio junto a una taza"
-ogImage: "/assets/blog/b7ca17278c2b7e43c95dfeec.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "AWS Lambda y API Gateway: Guía Básica"
     url: "https://dondeaprendoaws.com/blog/aws-lambda-y-api-gateway-guia-basica/"
-    image: "/assets/blog/2aa39fe7ff55b6a37888515e.jpg"
-    imageAlt: ""
   - title: "AWS OpsWorks: Automatiza Despliegues con Chef"
     url: "https://dondeaprendoaws.com/blog/aws-opsworks-automatiza-despliegues-con-chef/"
-    image: "/assets/blog/6b2f0b16a8f28318691c2a8d.jpg"
-    imageAlt: ""
   - title: "AWS Seguridad: Mejores Prácticas"
     url: "https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/"
-    image: "/assets/blog/58bea5d60c133d57e4a0bdbf.jpg"
-    imageAlt: ""
+
 ---
 
 <p><strong>¿Quieres que tu API sea accesible desde diferentes dominios de forma segura? Configurar CORS (Cross-Origin Resource Sharing) es clave para lograrlo.</strong></p>

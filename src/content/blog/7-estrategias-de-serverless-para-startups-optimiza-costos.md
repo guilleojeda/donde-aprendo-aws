@@ -7,9 +7,9 @@ publishedTimestamp: "2024-05-01T02:41:51.509Z"
 modifiedTimestamp: "2026-10-04T22:31:52-03:00"
 review:
   date: "2026-10-04"
-cover: "/assets/blog/d85eb8d10d11d152a0198dea.jpg"
-coverAlt: "Nube tridimensional con piezas de rompecabezas y una escalera ascendente"
-ogImage: "/assets/blog/d85eb8d10d11d152a0198dea.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related: []
 ---
 

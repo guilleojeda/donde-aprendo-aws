@@ -4,22 +4,17 @@ description: "Acreditación para Partners de AWS: cómo obtenerla, mantenerla y 
 author: "guille-ojeda"
 publishedAt: "2024-05-17"
 publishedTimestamp: "2024-05-17T00:52:54.211Z"
-cover: "/assets/blog/0d6df5a1297701914debd614.png"
-coverAlt: "Nube sobre una red de circuitos, iconos y líneas verticales"
-ogImage: "/assets/blog/0d6df5a1297701914debd614.png"
+cover: "/assets/blog/editorial-certificacion.png"
+coverAlt: "Tres tarjetas de estudio con apuntes y hitos sobre un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-certificacion.png"
 related:
   - title: "Crear un Cluster en Amazon Redshift"
     url: "https://dondeaprendoaws.com/blog/crear-un-cluster-en-amazon-redshift/"
-    image: "/assets/blog/2ce2762453f46a717ff15e81.jpg"
-    imageAlt: ""
   - title: "AWS X-Ray: Herramientas de Depuración y Rastreo Distribuido"
     url: "https://dondeaprendoaws.com/blog/aws-x-ray-herramientas-de-depuracion-y-rastreo-distribuido/"
-    image: "/assets/blog/2f81887ad0ca1683bc24fbf1.jpg"
-    imageAlt: ""
   - title: "Mejores Prácticas Para Amazon RDS y Aurora"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-rds-y-aurora/"
-    image: "/assets/blog/c147658e3887f6dc27b94b8d.jpg"
-    imageAlt: ""
+
 ---
 
 <p>La Guía de Acreditación para Partners de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> 2024 es una herramienta esencial para mejorar tus habilidades y conocimientos en la nube de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a>. Obtener una acreditación te permite:</p>

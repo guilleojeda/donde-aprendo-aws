@@ -7,9 +7,9 @@ publishedTimestamp: "2024-05-07T02:13:47.453Z"
 modifiedTimestamp: "2026-10-04T22:31:52-03:00"
 review:
   date: "2026-10-04"
-cover: "/assets/blog/0b84e7609d9a01cdc2449b30.jpg"
-coverAlt: "Nube conectada a una red de candados, escudos y otros símbolos de seguridad"
-ogImage: "/assets/blog/0b84e7609d9a01cdc2449b30.jpg"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related: []
 ---
 

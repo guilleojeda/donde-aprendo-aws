@@ -4,22 +4,17 @@ description: "Entiende las diferencias entre SLA y SLO en AWS para optimizar el 
 author: "guille-ojeda"
 publishedAt: "2025-01-20"
 publishedTimestamp: "2025-01-20T00:15:06.029Z"
-cover: "/assets/blog/8281401d50eb83da06a511af.jpg"
-coverAlt: "Nube con el logotipo de AWS entre dos paneles de gráficos"
-ogImage: "/assets/blog/8281401d50eb83da06a511af.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Guía de Acreditación para Partners de AWS 2024"
     url: "https://dondeaprendoaws.com/blog/guia-de-acreditacion-para-partners-de-aws-2024/"
-    image: "/assets/blog/0d6df5a1297701914debd614.png"
-    imageAlt: ""
   - title: "Optimización de Costos de AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/optimizacion-de-costos-de-aws-lambda/"
-    image: "/assets/blog/149aa7de30b1ec6844a9daf3.jpg"
-    imageAlt: ""
   - title: "Comprendiendo AWS Step Functions"
     url: "https://dondeaprendoaws.com/blog/comprendiendo-aws-step-functions/"
-    image: "/assets/blog/5cccd042a4e55b019d2587c8.png"
-    imageAlt: ""
+
 ---
 
 <p><strong>SLA (Service Level Agreement)</strong> y <strong>SLO (Service Level Objective)</strong> son conceptos clave para medir y garantizar el rendimiento de servicios en <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a>. Aunque están relacionados, tienen diferencias importantes:</p>

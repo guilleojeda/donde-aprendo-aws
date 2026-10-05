@@ -4,22 +4,17 @@ description: "Descubre cómo configurar y utilizar AWS Session Manager para mejo
 author: "guille-ojeda"
 publishedAt: "2024-03-18"
 publishedTimestamp: "2024-03-18T23:43:17.278Z"
-cover: "/assets/blog/037793a796bc8f08a1cce7d0.png"
-coverAlt: "Nube con candado conectada a dos computadoras"
-ogImage: "/assets/blog/037793a796bc8f08a1cce7d0.png"
+cover: "/assets/blog/editorial-practica.png"
+coverAlt: "Un cuaderno abierto con una secuencia de estaciones y un camino azul con punto naranja."
+ogImage: "/assets/blog/editorial-practica.png"
 related:
   - title: "Configurar AWS para Comunicación en Equipo: 7 Pasos"
     url: "https://dondeaprendoaws.com/blog/configurar-aws-para-comunicacion-en-equipo-7-pasos/"
-    image: "/assets/blog/f92b3e352f4a3a9565a17d1a.jpg"
-    imageAlt: ""
   - title: "Guía de AWS Wavelength: Zonas y Despliegue"
     url: "https://dondeaprendoaws.com/blog/guia-de-aws-wavelength-zonas-y-despliegue/"
-    image: "/assets/blog/e73412d95c38ad88b6dc619a.jpg"
-    imageAlt: ""
   - title: "Introducción a la Inteligencia Artificial en AWS"
     url: "https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/"
-    image: "/assets/blog/740fd46916e44bd2c61ce62c.png"
-    imageAlt: ""
+
 ---
 
 <p>AWS Session Manager es una herramienta poderosa dentro de AWS Systems Manager que simplifica la forma en que te conectas y gestionas tus servidores EC2 y otros dispositivos, sin la necesidad de SSH o claves. Aquí te muestro cómo configurarlo y usarlo para mejorar la seguridad y eficiencia en el acceso a tus sistemas:</p>

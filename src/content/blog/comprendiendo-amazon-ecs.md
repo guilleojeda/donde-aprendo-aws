@@ -4,22 +4,17 @@ description: "Amazon ECS (Elastic Container Service) es un servicio de AWS que f
 author: "guille-ojeda"
 publishedAt: "2024-03-07"
 publishedTimestamp: "2024-03-07T23:14:06.199Z"
-cover: "/assets/blog/b69a84da0455667e2bdf35cc.jpg"
-coverAlt: "Barco de carga con contenedores navega bajo varias nubes"
-ogImage: "/assets/blog/b69a84da0455667e2bdf35cc.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "5 Prácticas de Seguridad para Lambda Authorizers"
     url: "https://dondeaprendoaws.com/blog/5-practicas-de-seguridad-para-lambda-authorizers/"
-    image: "/assets/blog/e838de22cc856de64a0d3bdc.jpg"
-    imageAlt: ""
   - title: "Amazon DynamoDB: Guía Básica"
     url: "https://dondeaprendoaws.com/blog/amazon-dynamodb-guia-basica/"
-    image: "/assets/blog/a45735d6d45d12223256fbc4.png"
-    imageAlt: ""
   - title: "Certificación de AWS: Preparación sin Costo"
     url: "https://dondeaprendoaws.com/blog/certificacion-de-aws-preparacion-sin-costo/"
-    image: "/assets/blog/b85977e8b87b51eadb100d2e.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Amazon ECS (Elastic Container Service) es un servicio de AWS diseñado para facilitar la gestión de aplicaciones en contenedores Docker, permitiéndote ejecutarlas de manera escalable y con alta disponibilidad. Aquí tienes un resumen rápido de lo que necesitas saber sobre Amazon ECS:</p>

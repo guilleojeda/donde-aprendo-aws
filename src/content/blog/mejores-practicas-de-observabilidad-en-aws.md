@@ -4,22 +4,17 @@ description: "Consejos y mejores prácticas para mejorar la observabilidad en AW
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:43:53.201Z"
-cover: "/assets/blog/225d18fffd41e9eec388a76e.jpg"
-coverAlt: "Nube de la que cuelgan un círculo, un cuadrado, un rombo y un triángulo"
-ogImage: "/assets/blog/225d18fffd41e9eec388a76e.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Patrón Strangler Fig en AWS: Migrar a Microservicios"
     url: "https://dondeaprendoaws.com/blog/patron-strangler-fig-en-aws-migrar-a-microservicios/"
-    image: "/assets/blog/a4bd2fc033fb9605dec915d6.png"
-    imageAlt: ""
   - title: "¿Cómo Funciona AWS Amplify?"
     url: "https://dondeaprendoaws.com/blog/como-funciona-aws-amplify/"
-    image: "/assets/blog/ee80202a0fa6a00452e56ba9.jpg"
-    imageAlt: ""
   - title: "Mejores Prácticas de Machine Learning en AWS"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-de-machine-learning-en-aws/"
-    image: "/assets/blog/93b405bec4b3d8ac5255f4ed.png"
-    imageAlt: ""
+
 ---
 
 <p>Si estás buscando mejorar la observabilidad de tus sistemas en AWS, has llegado al lugar correcto. Aquí te comparto las mejores prácticas resumidas para que puedas implementarlas de manera efectiva y rápida:</p>

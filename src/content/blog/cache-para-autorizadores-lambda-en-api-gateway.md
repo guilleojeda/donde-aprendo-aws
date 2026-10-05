@@ -4,22 +4,17 @@ description: "Aprende cómo implementar caché en autorizadores Lambda de API Ga
 author: "guille-ojeda"
 publishedAt: "2024-11-28"
 publishedTimestamp: "2024-11-28T00:05:44.586Z"
-cover: "/assets/blog/88ec1a2d5d2521db3a61ab5a.jpg"
-coverAlt: "Racks de servidores y un monitor con el rótulo API Gateway Cache"
-ogImage: "/assets/blog/88ec1a2d5d2521db3a61ab5a.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Mejores prácticas para nombres en AWS Organizations"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-nombres-en-aws-organizations/"
-    image: "/assets/blog/bfdfed56910493c9a698fb14.jpg"
-    imageAlt: ""
   - title: "AWS Organizations: Estructuras de cuentas y nombres"
     url: "https://dondeaprendoaws.com/blog/aws-organizations-estructuras-de-cuentas-y-nombres/"
-    image: "/assets/blog/0bc804415b6cb6339123371f.jpg"
-    imageAlt: ""
   - title: "Cómo Desarrollar Aplicaciones de Inteligencia Artificial en AWS"
     url: "https://dondeaprendoaws.com/blog/como-desarrollar-aplicaciones-de-inteligencia-artificial-en-aws/"
-    image: "/assets/blog/ac5297dc259dcbbe8d397c9d.jpg"
-    imageAlt: ""
+
 ---
 
 <p>El uso de caché en autorizadores Lambda de API Gateway permite reducir latencia, ahorrar costos y minimizar invocaciones innecesarias a Lambda. Aquí tienes los puntos clave para implementarlo correctamente:</p>

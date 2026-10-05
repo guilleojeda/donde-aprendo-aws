@@ -5,22 +5,17 @@ author: "guille-ojeda"
 publishedAt: "2024-05-14"
 publishedTimestamp: "2024-05-14T02:22:09.107Z"
 modifiedTimestamp: "2026-10-01T15:14:05-03:00"
-cover: "/assets/blog/53f0f04efd58a298eab8c1e1.jpg"
-coverAlt: "Nubes y figuras geométricas conectadas alrededor de un símbolo central"
-ogImage: "/assets/blog/53f0f04efd58a298eab8c1e1.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Integración de GuardDuty de AWS para Inteligencia de Amenazas"
     url: "https://dondeaprendoaws.com/blog/integracion-de-guardduty-de-aws-para-inteligencia-de-amenazas/"
-    image: "/assets/blog/ce55ff284d28beb4aeeeab54.jpg"
-    imageAlt: ""
   - title: "Optimización de Costos de AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/optimizacion-de-costos-de-aws-lambda/"
-    image: "/assets/blog/149aa7de30b1ec6844a9daf3.jpg"
-    imageAlt: ""
   - title: "Certificaciones AWS: Por Dónde Empezar"
     url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-de-inicio/"
-    image: "/assets/blog/50f3a9e16de9a8db356f87d5.jpg"
-    imageAlt: ""
+
 ---
 
 <p><strong>¿Qué son</strong> <a href="https://en.wikipedia.org/wiki/Command_Query_Responsibility_Segregation" rel="noopener noreferrer" target="_blank"><strong>CQRS</strong></a> <strong>y</strong> <a href="https://martinfowler.com/eaaDev/EventSourcing.html" rel="noopener noreferrer" target="_blank"><strong>Event Sourcing</strong></a><strong>?</strong></p>

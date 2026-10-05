@@ -4,22 +4,17 @@ description: "Descubre cómo aprovechar las tablas globales de Amazon DynamoDB p
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T02:19:41.967Z"
-cover: "/assets/blog/b74e56b41e26732c7dfc378e.png"
-coverAlt: "Globo rodeado por iconos amarillos de bases de datos"
-ogImage: "/assets/blog/b74e56b41e26732c7dfc378e.png"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "¿Qué son los endpoints de VPC en AWS?"
     url: "https://dondeaprendoaws.com/blog/que-son-los-endpoints-de-vpc-en-aws/"
-    image: "/assets/blog/784749ef7570c8a485edf97b.jpg"
-    imageAlt: ""
   - title: "10 Estrategias de Optimización de Costos en AWS"
     url: "https://dondeaprendoaws.com/blog/10-estrategias-de-optimizacion-de-costos-en-aws/"
-    image: "/assets/blog/74f152c85b46e1ac5ea004f9.jpg"
-    imageAlt: ""
   - title: "¿Cómo Escala DynamoDB? Modos On Demand y Provisioned"
     url: "https://dondeaprendoaws.com/blog/como-escala-dynamodb-modos-on-demand-y-provisioned/"
-    image: "/assets/blog/ce62e0cc8508d5055bba53b4.png"
-    imageAlt: ""
+
 ---
 
 <p>Si buscas hacer que tu aplicación funcione rápidamente alrededor del mundo, las tablas globales de Amazon DynamoDB son tu solución. Aquí te explicamos de forma sencilla cómo aprovecharlas:</p>

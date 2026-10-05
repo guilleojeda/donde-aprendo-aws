@@ -4,22 +4,17 @@ description: "Descubre cómo AWS potencia la personalización en tiempo real par
 author: "guille-ojeda"
 publishedAt: "2024-04-29"
 publishedTimestamp: "2024-04-29T09:45:01.725Z"
-cover: "/assets/blog/80447419580996138f728ccb.jpg"
-coverAlt: "Silueta geométrica de una persona rodeada de cuadrados y triángulos"
-ogImage: "/assets/blog/80447419580996138f728ccb.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "Control Plane vs Data Plane en AWS App Mesh"
     url: "https://dondeaprendoaws.com/blog/control-plane-vs-data-plane-en-aws-app-mesh/"
-    image: "/assets/blog/97233420c8e51dbede977f2c.jpg"
-    imageAlt: ""
   - title: "Mejores Prácticas Para AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/"
-    image: "/assets/blog/020c3be0259dc50cecb2155a.png"
-    imageAlt: ""
   - title: "Arquitecturas Multi-Región en AWS"
     url: "https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/"
-    image: "/assets/blog/bafde793116d5b5e38a659da.jpg"
-    imageAlt: ""
+
 ---
 
 <p>La personalización en tiempo real permite ofrecer contenido y experiencias personalizadas a cada usuario en tiempo real, utilizando datos y tecnología. <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> ofrece herramientas como:</p>

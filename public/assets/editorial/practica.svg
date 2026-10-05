@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title description">
+  <title id="title">Práctica con AWS</title>
+  <desc id="description">Un cuaderno abierto con una secuencia de estaciones y un camino azul con punto naranja.</desc>
+  <rect width="1200" height="630" fill="#F1F4F8" />
+  <path d="M150 486 C282 486 273 408 396 408 S520 456 616 421 S784 365 883 400 S967 327 1032 306" fill="none" stroke="#263457" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" />
+  <circle cx="150" cy="486" r="13" fill="#E87722" />
+  <circle cx="396" cy="408" r="11" fill="#FFFFFF" stroke="#263457" stroke-width="7" />
+  <circle cx="883" cy="400" r="11" fill="#FFFFFF" stroke="#263457" stroke-width="7" />
+  <circle cx="1032" cy="306" r="12" fill="#E87722" />
+  <rect x="470" y="132" width="258" height="242" rx="20" fill="#FFFFFF" stroke="#263457" stroke-width="7" />
+  <path d="M520 132 V374" fill="none" stroke="#263457" stroke-width="7" />
+  <path d="M488 178 H505 M488 222 H505 M488 266 H505 M488 310 H505" fill="none" stroke="#8290A6" stroke-width="5" stroke-linecap="round" />
+  <path d="M545 188 H684 M545 225 H660 M545 260 C588 260 573 295 617 295 S650 260 690 260 M545 332 H680" fill="none" stroke="#8290A6" stroke-width="5" stroke-linecap="round" />
+  <path d="M552 294 C577 294 579 278 602 278 S626 313 650 313 S665 295 690 295" fill="none" stroke="#263457" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+  <circle cx="552" cy="294" r="8" fill="#E87722" />
+  <circle cx="602" cy="278" r="8" fill="#FFFFFF" stroke="#263457" stroke-width="5" />
+  <circle cx="650" cy="313" r="8" fill="#FFFFFF" stroke="#263457" stroke-width="5" />
+  <circle cx="690" cy="295" r="8" fill="#E87722" />
+  <g transform="translate(1023 44) scale(0.44)">
+    <circle cx="92" cy="20" r="17" fill="#E87722" />
+    <path fill="#263457" d="M78 48c-1-5 7-7 18-7 17 0 28 10 28 25 0 13-9 22-22 31-14 10-31 17-41 30-8 11-7 22 2 27 9 5 24 5 33 1 5-2 5-6 1-10-5-5-6-10-1-15 8-8 24-8 36 0 13 8 18 23 13 38-5 17-20 27-41 31-24 5-55 0-76-10-23-11-32-31-24-53 7-19 23-34 44-48 22-14 35-23 36-36 0-2-2-3-6-4Z" />
+  </g>
+</svg>

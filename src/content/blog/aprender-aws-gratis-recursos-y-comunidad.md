@@ -7,10 +7,10 @@ publishedTimestamp: "2024-01-27T01:37:04.435Z"
 modifiedTimestamp: "2026-10-05T00:04:02-03:00"
 review:
   date: "2026-10-05"
-cover: "/assets/blog/c7227ae982494a7ce1620070.jpg"
-coverAlt: "Nube sobre una mano estilizada y una fila de símbolos de colores"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
 indexOrder: 6
-ogImage: "/assets/blog/c7227ae982494a7ce1620070.jpg"
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related: []
 ---
 

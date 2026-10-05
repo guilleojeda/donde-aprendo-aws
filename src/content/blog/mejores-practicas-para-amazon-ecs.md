@@ -4,22 +4,17 @@ description: "Descubre cómo dominar Amazon ECS para manejar aplicaciones en con
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:33:48.66Z"
-cover: "/assets/blog/826c9a11a84720138c6c6ed3.jpg"
-coverAlt: "Nube conectada a cuatro círculos con símbolos de candado, moneda y engranajes"
-ogImage: "/assets/blog/826c9a11a84720138c6c6ed3.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Observabilidad en AWS con Amazon X-Ray"
     url: "https://dondeaprendoaws.com/blog/observabilidad-en-aws-con-amazon-x-ray/"
-    image: "/assets/blog/9c1a2ce4c93fa5462aba7299.jpg"
-    imageAlt: ""
   - title: "Arquitecturas Multi-Región en AWS"
     url: "https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/"
-    image: "/assets/blog/bafde793116d5b5e38a659da.jpg"
-    imageAlt: ""
   - title: "Ahorro de Costos en AWS con Instancias Reservadas y Savings Plans"
     url: "https://dondeaprendoaws.com/blog/ahorro-de-costos-en-aws-con-instancias-reservadas-y-savings-plans/"
-    image: "/assets/blog/201da9e2ec2ae649f47566a7.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Descubre cómo dominar Amazon ECS (Elastic Container Service) para manejar aplicaciones en contenedores Docker de manera eficiente y segura en AWS. Este servicio te permite enfocarte en mejorar tus aplicaciones sin preocuparte por la infraestructura subyacente. Aquí, te proporcionamos una guía completa para aprovechar al máximo Amazon ECS, incluyendo consejos de seguridad, optimización de costos, y estrategias para una implementación efectiva.</p>

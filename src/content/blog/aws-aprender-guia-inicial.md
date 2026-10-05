@@ -7,10 +7,10 @@ publishedTimestamp: "2024-01-26T04:07:45.093Z"
 modifiedTimestamp: "2026-10-05T00:04:02-03:00"
 review:
   date: "2026-10-05"
-cover: "/assets/blog/9eb7bc020e08de9a43291902.jpg"
-coverAlt: "Nube central conectada a varios iconos circulares sobre fondo oscuro"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
 indexOrder: 4
-ogImage: "/assets/blog/9eb7bc020e08de9a43291902.jpg"
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related: []
 ---
 

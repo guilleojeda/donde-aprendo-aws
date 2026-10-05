@@ -4,22 +4,17 @@ description: "Consejos para elegir la clase de almacenamiento adecuada en Amazon
 author: "guille-ojeda"
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T01:50:57.327Z"
-cover: "/assets/blog/783a6beb62602d5d128b9c75.jpg"
-coverAlt: "Nube dorada con un candado sobre un gráfico de barras"
-ogImage: "/assets/blog/783a6beb62602d5d128b9c75.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "Pipeline CI/CD con Terraform y AWS CodePipeline"
     url: "https://dondeaprendoaws.com/blog/pipeline-cicd-con-terraform-y-aws-codepipeline/"
-    image: "/assets/blog/8c8805d819a48bf8b59f25eb.jpg"
-    imageAlt: ""
   - title: "Diferencias Entre SLA y SLO en AWS"
     url: "https://dondeaprendoaws.com/blog/diferencias-entre-sla-y-slo-en-aws/"
-    image: "/assets/blog/8281401d50eb83da06a511af.jpg"
-    imageAlt: ""
   - title: "Cómo crear Infraestructura como Código en AWS con AWS CloudFormation"
     url: "https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-aws-cloudformation/"
-    image: "/assets/blog/7b36649641ff19d02f4e3551.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Elegir la clase de almacenamiento correcta en Amazon S3 es crucial para ahorrar costos y asegurar la disponibilidad y seguridad de tus datos. Aquí te presentamos una guía rápida para ayudarte a tomar la mejor decisión:</p>

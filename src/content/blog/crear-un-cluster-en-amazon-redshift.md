@@ -4,22 +4,17 @@ description: "Aprende a crear, configurar y optimizar clústeres en Amazon Redsh
 author: "guille-ojeda"
 publishedAt: "2025-04-28"
 publishedTimestamp: "2025-04-28T03:36:05.740000+00:00"
-cover: "/assets/blog/2ce2762453f46a717ff15e81.jpg"
-coverAlt: "Texto Crear un clúster en Amazon Redshift sobre una pila de cubos azules"
-ogImage: "/assets/blog/2ce2762453f46a717ff15e81.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "Patrón Strangler Fig en AWS: Migrar a Microservicios"
     url: "https://dondeaprendoaws.com/blog/patron-strangler-fig-en-aws-migrar-a-microservicios/"
-    image: "/assets/blog/a4bd2fc033fb9605dec915d6.png"
-    imageAlt: "Thumbnail for: Patrón Strangler Fig en AWS: Migrar a Microservicios"
   - title: "Cómo crear Infraestructura como Código en AWS con Terraform"
     url: "https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-terraform/"
-    image: "/assets/blog/e70ea85183c2a0917d33154f.png"
-    imageAlt: "Thumbnail for: Cómo crear Infraestructura como Código en AWS con Terraform"
   - title: "Ingeniería de Caos en AWS con Fault Injection Simulator"
     url: "https://dondeaprendoaws.com/blog/ingenieria-de-caos-en-aws-con-fault-injection-simulator/"
-    image: "/assets/blog/0a0b1cf017845abee5cf215d.png"
-    imageAlt: "Thumbnail for: Ingeniería de Caos en AWS con Fault Injection Simulator"
+
 ---
 
 <p><strong>¿Quieres analizar grandes volúmenes de datos de forma rápida y segura?</strong> <a href="https://aws.amazon.com/redshift/" rel="nofollow noopener noreferrer" target="_blank">Amazon Redshift</a> es la solución de almacenamiento de datos en la nube de <a href="https://aws.amazon.com/" rel="nofollow noopener noreferrer" target="_blank">AWS</a> que te permite crear clusters para procesar y consultar información de manera eficiente. Aquí tienes lo esencial para empezar:</p>

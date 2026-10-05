@@ -4,22 +4,17 @@ description: "Aprende a implementar Machine Learning en la nube con SageMaker, d
 author: "guille-ojeda"
 publishedAt: "2025-03-06"
 publishedTimestamp: "2025-03-06T03:07:26.337Z"
-cover: "/assets/blog/57b9e13953de77f8b6210bc2.jpg"
-coverAlt: "Portátil con gráficos de análisis en una oficina junto a una planta"
-ogImage: "/assets/blog/57b9e13953de77f8b6210bc2.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "10 Mejores Prácticas de AWS para Detección de Amenazas en Tiempo Real"
     url: "https://dondeaprendoaws.com/blog/10-mejores-practicas-de-aws-para-deteccion-de-amenazas-en-tiempo-real/"
-    image: "/assets/blog/c03425ae80465af167cf55e5.jpg"
-    imageAlt: ""
   - title: "Mejores Prácticas Para Amazon DynamoDB"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-dynamodb/"
-    image: "/assets/blog/4cce0f893747a12210fe7416.jpg"
-    imageAlt: ""
   - title: "AWS Seguridad: Servicios Esenciales"
     url: "https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/"
-    image: "/assets/blog/2ac2bf3abc517088f07fb837.png"
-    imageAlt: ""
+
 ---
 
 <p>¿Quieres implementar Machine Learning de manera rápida y sencilla? <strong><a href="https://aws.amazon.com/sagemaker/" rel="noopener noreferrer" target="_blank">Amazon SageMaker</a> es la solución ideal para gestionar todo el ciclo de vida de tus proyectos de ML en la nube.</strong> Desde la preparación de datos hasta el despliegue, SageMaker simplifica cada paso. Aquí tienes un resumen de lo que aprenderás en esta guía:</p>

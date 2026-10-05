@@ -4,22 +4,17 @@ description: "Fundamentos de cloud computing, modelos de servicio, aplicaciones,
 author: "guille-ojeda"
 publishedAt: "2024-01-26"
 publishedTimestamp: "2024-01-26T05:05:32.947Z"
-cover: "/assets/blog/9d8403a4cf66ec6c49656be3.jpg"
-coverAlt: "Nube de iconos pequeños sobre una plataforma azul"
-ogImage: "/assets/blog/9d8403a4cf66ec6c49656be3.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Estrategias de Recuperación de Desastres en AWS"
     url: "https://dondeaprendoaws.com/blog/estrategias-de-recuperacion-de-desastres-en-aws/"
-    image: "/assets/blog/df6cee7d6c3bd49e97412d95.jpg"
-    imageAlt: ""
   - title: "Bases de datos Relacionales en AWS con Amazon RDS y Amazon Aurora"
     url: "https://dondeaprendoaws.com/blog/bases-de-datos-relacionales-en-aws-con-amazon-rds-y-amazon-aurora/"
-    image: "/assets/blog/a57ee6c77803a35c0e96c332.jpg"
-    imageAlt: ""
   - title: "AWS Seguridad: Fundamentos Esenciales"
     url: "https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/"
-    image: "/assets/blog/15bc5fcf943d474b0b00277c.jpg"
-    imageAlt: ""
+
 ---
 
 <p>En este artículo, explicaremos los fundamentos básicos de cloud computing de una manera clara y concisa. Aprenderás sobre los diferentes modelos de servicio en la nube como IaaS, PaaS y SaaS, las distintas arquitecturas de nubes públicas, privadas e híbridas, ejemplos de implementación en AWS y mucho más.</p>

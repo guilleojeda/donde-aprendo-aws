@@ -4,22 +4,17 @@ description: "Descubre cómo integrar AWS GuardDuty con inteligencia de amenazas
 author: "guille-ojeda"
 publishedAt: "2024-04-30"
 publishedTimestamp: "2024-04-30T06:43:18.648Z"
-cover: "/assets/blog/ce55ff284d28beb4aeeeab54.jpg"
-coverAlt: "Escudo formado por piezas de colores junto a una nube"
-ogImage: "/assets/blog/ce55ff284d28beb4aeeeab54.jpg"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related:
   - title: "5 Whitepapers de AWS para Aprobar Exámenes"
     url: "https://dondeaprendoaws.com/blog/5-whitepapers-de-aws-para-aprobar-examenes/"
-    image: "/assets/blog/251a69179cad106c40e9334f.webp"
-    imageAlt: ""
   - title: "Transacciones en Amazon DynamoDB"
     url: "https://dondeaprendoaws.com/blog/transacciones-en-amazon-dynamodb/"
-    image: "/assets/blog/92c10f1c21ba45a500fbff08.jpg"
-    imageAlt: ""
   - title: "AWS Lambda en Profundidad"
     url: "https://dondeaprendoaws.com/blog/aws-lambda-en-profundidad/"
-    image: "/assets/blog/fc7f86cd5d9d53b7ba70da04.jpg"
-    imageAlt: ""
+
 ---
 
 <p><a href="https://aws.amazon.com/guardduty/" rel="noopener noreferrer" target="_blank">AWS GuardDuty</a> es un servicio de detección de amenazas que utiliza inteligencia de amenazas para identificar y priorizar posibles amenazas en tu entorno de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a>. Integrar feeds de inteligencia de amenazas en GuardDuty mejora las capacidades de detección de amenazas y reduce falsos positivos.</p>

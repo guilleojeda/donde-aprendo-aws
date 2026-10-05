@@ -4,22 +4,17 @@ description: "Aprende a cifrar y descifrar datos de forma segura en la nube con 
 author: "guille-ojeda"
 publishedAt: "2024-05-16"
 publishedTimestamp: "2024-05-16T14:36:00.762Z"
-cover: "/assets/blog/8879f0457d281038d09e5222.png"
-coverAlt: "Candado tridimensional dentro de una nube azul"
-ogImage: "/assets/blog/8879f0457d281038d09e5222.png"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related:
   - title: "Crear un Cluster en Amazon Redshift"
     url: "https://dondeaprendoaws.com/blog/crear-un-cluster-en-amazon-redshift/"
-    image: "/assets/blog/2ce2762453f46a717ff15e81.jpg"
-    imageAlt: ""
   - title: "10 Preguntas Frecuentes sobre Machine Learning en AWS"
     url: "https://dondeaprendoaws.com/blog/10-preguntas-frecuentes-sobre-machine-learning-en-aws/"
-    image: "/assets/blog/5152d1b598aa9df8aaa8e72c.jpg"
-    imageAlt: ""
   - title: "Mejores Prácticas Para Amazon EKS"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-eks/"
-    image: "/assets/blog/5db43c07fa6733b870313471.jpg"
-    imageAlt: ""
+
 ---
 
 <p><a href="https://aws.amazon.com/kms/" rel="noopener noreferrer" target="_blank">AWS Key Management Service</a> (KMS) es un servicio administrado de AWS que permite cifrar y descifrar datos de forma segura en la nube. Esta guía práctica te enseñará cómo configurar y utilizar AWS KMS para proteger tus datos, siguiendo estos pasos:</p>

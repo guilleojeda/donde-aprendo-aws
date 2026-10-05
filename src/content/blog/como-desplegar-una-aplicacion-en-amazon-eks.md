@@ -4,22 +4,17 @@ description: "Aprende cómo desplegar una aplicación en Amazon EKS paso a paso.
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:18:48.675Z"
-cover: "/assets/blog/b0397a49b6dcdda375e046d4.jpg"
-coverAlt: "Grupo de cubos dentro de una nube tridimensional"
-ogImage: "/assets/blog/b0397a49b6dcdda375e046d4.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Diferencias: Endpoint de interfaz vs. Endpoint de gateway"
     url: "https://dondeaprendoaws.com/blog/diferencias-endpoint-de-interfaz-vs-endpoint-de-gateway/"
-    image: "/assets/blog/3565dcd644c1d6c694694985.jpg"
-    imageAlt: ""
   - title: "Diferencias Entre SLA y SLO en AWS"
     url: "https://dondeaprendoaws.com/blog/diferencias-entre-sla-y-slo-en-aws/"
-    image: "/assets/blog/8281401d50eb83da06a511af.jpg"
-    imageAlt: ""
   - title: "Servicios de AWS para Frontend"
     url: "https://dondeaprendoaws.com/blog/servicios-de-aws-para-frontend/"
-    image: "/assets/blog/31bdf1ca2f3b6c51213246c8.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Si estás buscando cómo desplegar una aplicación en Amazon EKS, has llegado al lugar indicado. Este artículo te guiará paso a paso para que logres poner en marcha tu aplicación usando Kubernetes en la nube de Amazon. Aquí encontrarás todo lo que necesitas saber, desde los conceptos básicos de Kubernetes y Amazon EKS, hasta cómo crear un clúster de EKS y desplegar tu aplicación. A continuación, te resumo los puntos clave:</p>

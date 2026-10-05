@@ -5,9 +5,9 @@ author: "guille-ojeda"
 publishedAt: "2024-05-13"
 publishedTimestamp: "2024-05-13T06:23:36.093Z"
 modifiedTimestamp: "2026-10-04T21:44:34-03:00"
-cover: "/assets/blog/5152d1b598aa9df8aaa8e72c.jpg"
-coverAlt: "Nube delineada junto a iconos de engranajes, candados y gráficos"
-ogImage: "/assets/blog/5152d1b598aa9df8aaa8e72c.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related: []
 ---
 

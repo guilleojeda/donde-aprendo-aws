@@ -4,22 +4,17 @@ description: "Explora las diferencias entre el plano de control y el plano de da
 author: "guille-ojeda"
 publishedAt: "2025-01-06"
 publishedTimestamp: "2025-01-06T00:21:30.764Z"
-cover: "/assets/blog/97233420c8e51dbede977f2c.jpg"
-coverAlt: "Sala oscura con paneles de control y una red de puntos luminosos"
-ogImage: "/assets/blog/97233420c8e51dbede977f2c.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Correlación de Eventos con Step Functions y CloudWatch"
     url: "https://dondeaprendoaws.com/blog/correlacion-de-eventos-con-step-functions-y-cloudwatch/"
-    image: "/assets/blog/1ddc83af1d16737de7b3fdb8.jpg"
-    imageAlt: ""
   - title: "AWS Wavelength: Guía de Escalabilidad y Optimización"
     url: "https://dondeaprendoaws.com/blog/aws-wavelength-guia-de-escalabilidad-y-optimizacion/"
-    image: "/assets/blog/fe5d7c13d156814fe29c2d7a.jpg"
-    imageAlt: ""
   - title: "Configuración de Service Discovery en Amazon ECS"
     url: "https://dondeaprendoaws.com/blog/configuracion-de-service-discovery-en-amazon-ecs/"
-    image: "/assets/blog/06c78ff6dbda05d66c1f63e8.jpg"
-    imageAlt: ""
+
 ---
 
 <p><a href="https://docs.aws.amazon.com/app-mesh/">AWS App Mesh</a> organiza su arquitectura en dos componentes principales: <strong>Plano de Control</strong> y <strong>Plano de Datos</strong>. Ambos trabajan juntos para gestionar y optimizar el tráfico entre microservicios. Aquí tienes un resumen rápido:</p>

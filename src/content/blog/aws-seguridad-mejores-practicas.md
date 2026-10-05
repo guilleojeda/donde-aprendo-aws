@@ -4,22 +4,17 @@ description: "Descubre las mejores prácticas de seguridad en la nube de AWS, in
 author: "guille-ojeda"
 publishedAt: "2024-01-24"
 publishedTimestamp: "2024-01-24T01:20:24.308Z"
-cover: "/assets/blog/58bea5d60c133d57e4a0bdbf.jpg"
-coverAlt: "Nube con escudo y candado sobre un fondo azul lleno de símbolos de seguridad"
-ogImage: "/assets/blog/58bea5d60c133d57e4a0bdbf.jpg"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related:
   - title: "AWS SAM CLI: Pruebas y Desarrollo Local"
     url: "https://dondeaprendoaws.com/blog/aws-sam-cli-pruebas-y-desarrollo-local/"
-    image: "/assets/blog/fa48e5370fe3d3489c8fb4d5.jpg"
-    imageAlt: ""
   - title: "Microservicios en AWS Utilizando Contenedores"
     url: "https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-contenedores/"
-    image: "/assets/blog/bf2d7e4c78ec347430ffd844.jpg"
-    imageAlt: ""
   - title: "Tipos y Tamaños de Instancias EC2: Guía Completa"
     url: "https://dondeaprendoaws.com/blog/tipos-y-tamanos-de-instancias-ec2-guia-completa/"
-    image: "/assets/blog/c17586bd518131452b0a717a.png"
-    imageAlt: ""
+
 ---
 
 <p>Es cierto que mantener la seguridad en la nube puede ser difícil.</p>

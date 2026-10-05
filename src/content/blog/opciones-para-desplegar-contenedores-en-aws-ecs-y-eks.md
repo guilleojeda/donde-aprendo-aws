@@ -4,22 +4,17 @@ description: "Descubre las diferencias entre Amazon ECS y Amazon EKS al desplega
 author: "guille-ojeda"
 publishedAt: "2024-03-07"
 publishedTimestamp: "2024-03-07T23:41:11.485Z"
-cover: "/assets/blog/fce8d84a0c54b5cb44769316.png"
-coverAlt: "Dos embarcaciones reflejadas sobre el agua, una de ellas con velas"
-ogImage: "/assets/blog/fce8d84a0c54b5cb44769316.png"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Guía de Eventos AWS Educate 2024"
     url: "https://dondeaprendoaws.com/blog/guia-de-eventos-aws-educate-2024/"
-    image: "/assets/blog/835302183289e4165c02383b.jpg"
-    imageAlt: ""
   - title: "AWS Community Day 2024: Calendario de Eventos"
     url: "https://dondeaprendoaws.com/blog/aws-community-day-2024-calendario-de-eventos/"
-    image: "/assets/blog/8a72720666074692888beb45.png"
-    imageAlt: ""
   - title: "Cómo Usar AWS Transfer Family con Amazon EFS"
     url: "https://dondeaprendoaws.com/blog/como-usar-aws-transfer-family-con-amazon-efs/"
-    image: "/assets/blog/4f1c44f2f3d79e3f40174550.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Cuando se trata de desplegar <a href="https://kubernetes.io/docs/concepts/containers/" rel="noopener noreferrer" target="_blank">contenedores</a> en AWS, tienes dos opciones principales: <strong>Amazon Elastic Container Service (ECS)</strong> y <strong>Amazon Elastic Kubernetes Service (EKS)</strong>. A continuación, te presentamos un resumen rápido para ayudarte a decidir cuál es la mejor opción para tus necesidades:</p>

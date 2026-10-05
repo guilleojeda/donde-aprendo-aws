@@ -5,22 +5,17 @@ author: "guille-ojeda"
 publishedAt: "2024-01-28"
 publishedTimestamp: "2024-01-28T23:43:20.471Z"
 modifiedTimestamp: "2026-10-01T15:14:05-03:00"
-cover: "/assets/blog/b85977e8b87b51eadb100d2e.jpg"
-coverAlt: "Camino sinuoso entre montañas con pequeñas señales"
-ogImage: "/assets/blog/b85977e8b87b51eadb100d2e.jpg"
+cover: "/assets/blog/editorial-certificacion.png"
+coverAlt: "Tres tarjetas de estudio con apuntes y hitos sobre un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-certificacion.png"
 related:
   - title: "Migración de Datos con AWS Snowmobile: Guía Paso a Paso"
     url: "https://dondeaprendoaws.com/blog/migracion-de-datos-con-aws-snowmobile-guia-paso-a-paso/"
-    image: "/assets/blog/3469cfa7d51896eb4b791860.jpg"
-    imageAlt: ""
   - title: "Estrategias de Recuperación de Desastres en AWS"
     url: "https://dondeaprendoaws.com/blog/estrategias-de-recuperacion-de-desastres-en-aws/"
-    image: "/assets/blog/df6cee7d6c3bd49e97412d95.jpg"
-    imageAlt: ""
   - title: "AWS curso certificado: preguntas frecuentes"
     url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-preguntas-frecuentes/"
-    image: "/assets/blog/39294214939c4754eb0b11e2.png"
-    imageAlt: ""
+
 ---
 
 <p>Seguramente muchos coincidirán en que:</p>

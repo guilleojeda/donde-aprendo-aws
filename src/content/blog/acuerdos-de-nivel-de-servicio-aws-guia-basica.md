@@ -5,14 +5,13 @@ author: "guille-ojeda"
 publishedAt: "2024-11-27"
 publishedTimestamp: "2024-11-27T01:51:56.354Z"
 modifiedTimestamp: "2026-10-05T00:15:07-03:00"
-cover: "/assets/blog/a1b4827aff914f24a4598ecc.jpg"
-coverAlt: "Centro de datos con filas de servidores bajo un cielo nublado"
-ogImage: "/assets/blog/a1b4827aff914f24a4598ecc.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Cómo monitorear SLOs con Amazon CloudWatch"
     url: "https://dondeaprendoaws.com/blog/como-monitorear-slos-con-amazon-cloudwatch/"
-    image: "/assets/blog/0919cf4ddfe7647a0c71877c.jpg"
-    imageAlt: "Monitor de escritorio con un panel de gráficos y medidores"
+
 ---
 
 Un **SLA de AWS** (acuerdo de nivel de servicio) define el compromiso publicado para un servicio, cómo se evalúa y qué remedio ofrece si se incumple; puede incluir un crédito condicionado a los términos del acuerdo. No garantiza que una aplicación construida con AWS esté siempre disponible: cada SLA delimita qué servicio, solicitudes, periodo y condiciones cuentan. Consulta el [índice oficial de SLA de AWS](https://aws.amazon.com/legal/service-level-agreements/) y abre el acuerdo del servicio que usas antes de aplicar un porcentaje.

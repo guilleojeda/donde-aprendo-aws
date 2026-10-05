@@ -4,22 +4,17 @@ description: "Descubra cómo implementar y gestionar bases de datos relacionales
 author: "guille-ojeda"
 publishedAt: "2024-01-31"
 publishedTimestamp: "2024-01-31T00:42:48.279Z"
-cover: "/assets/blog/a57ee6c77803a35c0e96c332.jpg"
-coverAlt: "Nube central con hexágonos y varios iconos de bases de datos alrededor"
-ogImage: "/assets/blog/a57ee6c77803a35c0e96c332.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "Diferencias: Endpoint de interfaz vs. Endpoint de gateway"
     url: "https://dondeaprendoaws.com/blog/diferencias-endpoint-de-interfaz-vs-endpoint-de-gateway/"
-    image: "/assets/blog/3565dcd644c1d6c694694985.jpg"
-    imageAlt: ""
   - title: "SLAs en AWS: Conceptos Legales Clave"
     url: "https://dondeaprendoaws.com/blog/slas-en-aws-conceptos-legales-clave/"
-    image: "/assets/blog/6a87e6f6cd6e98298a62ee1a.jpg"
-    imageAlt: ""
   - title: "Cómo Prepararte Para un Examen de Certificación de AWS"
     url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-preparacion-para-el-examen/"
-    image: "/assets/blog/4cb1b939d8aa6ff5e1dc2ac1.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Existe una forma sencilla de implementar bases de datos relacionales escalables y de alto rendimiento en AWS gracias a servicios como Amazon RDS y Amazon Aurora.</p>

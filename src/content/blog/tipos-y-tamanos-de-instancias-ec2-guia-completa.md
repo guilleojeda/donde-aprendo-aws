@@ -4,22 +4,17 @@ description: "Conoce los diferentes tipos y tamaños de instancias EC2 en AWS, c
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T01:12:42.616Z"
-cover: "/assets/blog/c17586bd518131452b0a717a.png"
-coverAlt: "Composición de bloques geométricos, una forma de nube y un medidor"
-ogImage: "/assets/blog/c17586bd518131452b0a717a.png"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Guía para Implementar Machine Learning con Amazon SageMaker"
     url: "https://dondeaprendoaws.com/blog/guia-para-implementar-machine-learning-con-amazon-sagemaker/"
-    image: "/assets/blog/57b9e13953de77f8b6210bc2.jpg"
-    imageAlt: ""
   - title: "Automatización de cumplimiento con AWS Config"
     url: "https://dondeaprendoaws.com/blog/automatizacion-de-cumplimiento-con-aws-config/"
-    image: "/assets/blog/887b167cb63dec6854e043dc.jpg"
-    imageAlt: ""
   - title: "Arquitecturas de Alta Disponibilidad en AWS"
     url: "https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/"
-    image: "/assets/blog/1b184fe1242c3e7fb970e984.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Elegir el tipo y tamaño de instancia EC2 correctos en AWS es crucial para el rendimiento y la eficiencia de costos de tu aplicación. Aquí te presentamos una guía rápida para entender y seleccionar entre las diversas opciones disponibles:</p>

@@ -4,22 +4,17 @@ description: "Aprende a monitorear y gestionar logs en AWS Step Functions para o
 author: "guille-ojeda"
 publishedAt: "2024-11-26"
 publishedTimestamp: "2024-11-26T19:49:41.97Z"
-cover: "/assets/blog/3cdeed308ae19cafa2c58e0d.jpg"
-coverAlt: "Monitor con un panel de registros en una oficina junto a una planta"
-ogImage: "/assets/blog/3cdeed308ae19cafa2c58e0d.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Estructuras multi-cuenta AWS para escalar"
     url: "https://dondeaprendoaws.com/blog/estructuras-multi-cuenta-aws-para-escalar/"
-    image: "/assets/blog/0e9e4bdd57782b78da6d878e.jpg"
-    imageAlt: ""
   - title: "AWS SMS vs AWS MGN: Comparación 2024"
     url: "https://dondeaprendoaws.com/blog/aws-sms-vs-aws-mgn-comparacion-2024/"
-    image: "/assets/blog/bd5f26b73ef9b33625d04b90.webp"
-    imageAlt: ""
   - title: "9 Mejores Prácticas de Seguridad para IaC en AWS"
     url: "https://dondeaprendoaws.com/blog/9-mejores-practicas-de-seguridad-para-iac-en-aws/"
-    image: "/assets/blog/0b84e7609d9a01cdc2449b30.jpg"
-    imageAlt: ""
+
 ---
 
 <p>El monitoreo y los logs en <strong><a href="https://docs.aws.amazon.com/step-functions/">AWS Step Functions</a></strong> son esenciales para garantizar que tus flujos de trabajo funcionen correctamente. Aquí tienes lo más importante:</p>

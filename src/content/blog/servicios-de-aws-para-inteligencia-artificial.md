@@ -4,22 +4,17 @@ description: "Descubre los servicios de inteligencia artificial de AWS, sus func
 author: "guille-ojeda"
 publishedAt: "2024-03-08"
 publishedTimestamp: "2024-03-08T13:14:38.36Z"
-cover: "/assets/blog/54201ee89ce3b648eb0ec011.jpg"
-coverAlt: "Libro abierto junto a un cerebro facetado y un gráfico de líneas"
-ogImage: "/assets/blog/54201ee89ce3b648eb0ec011.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "Guía completa para depurar errores CORS en API Gateway"
     url: "https://dondeaprendoaws.com/blog/guia-completa-para-depurar-errores-cors-en-api-gateway/"
-    image: "/assets/blog/8cdc1f9432243e263d1de431.jpg"
-    imageAlt: ""
   - title: "5 Startups Exitosas en AWS: Casos de Éxito"
     url: "https://dondeaprendoaws.com/blog/5-startups-exitosas-en-aws-casos-de-exito/"
-    image: "/assets/blog/b94e80f121605caa3d2fcec3.jpg"
-    imageAlt: ""
   - title: "AWS HealthScribe: IA Generativa para Diagnósticos Médicos"
     url: "https://dondeaprendoaws.com/blog/aws-healthscribe-ia-generativa-para-diagnosticos-medicos/"
-    image: "/assets/blog/cac2ef4bd724a0e8247e5e35.jpg"
-    imageAlt: ""
+
 ---
 
 <p>AWS ofrece una variedad de servicios de Inteligencia Artificial (IA) diseñados para facilitar a las empresas la mejora de sus operaciones y la experiencia de sus clientes. Estos servicios cubren desde el análisis de imágenes y videos hasta la comprensión y generación de texto, pasando por la personalización de recomendaciones y la automatización de interacciones con el cliente. En este artículo, exploramos las características clave, casos de uso, facilidad de integración y costos de algunos de los servicios de IA más destacados de AWS, como Amazon Rekognition, Amazon Comprehend, Amazon Lex, y Amazon Personalize, entre otros. Además, discutiremos los desafíos comunes al implementar IA y cómo AWS proporciona recursos para superarlos.</p>

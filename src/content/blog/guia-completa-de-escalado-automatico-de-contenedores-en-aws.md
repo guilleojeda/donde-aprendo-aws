@@ -4,22 +4,17 @@ description: "Descubre la guía completa de escalado automático de contenedores
 author: "guille-ojeda"
 publishedAt: "2024-05-17"
 publishedTimestamp: "2024-05-17T00:30:54.181Z"
-cover: "/assets/blog/d8c29e3674fe4e59874460c0.jpg"
-coverAlt: "Nube oscura con un diagrama jerárquico de cuadros y flechas"
-ogImage: "/assets/blog/d8c29e3674fe4e59874460c0.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Configurar CORS en HTTP API Gateway"
     url: "https://dondeaprendoaws.com/blog/configurar-cors-en-http-api-gateway/"
-    image: "/assets/blog/b7ca17278c2b7e43c95dfeec.jpg"
-    imageAlt: ""
   - title: "Análisis de Costos de AWS con Cost Explorer"
     url: "https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/"
-    image: "/assets/blog/9498b87ad3dae112bf347132.jpg"
-    imageAlt: ""
   - title: "Cómo Prepararte Para un Examen de Certificación de AWS"
     url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-preparacion-para-el-examen/"
-    image: "/assets/blog/4cb1b939d8aa6ff5e1dc2ac1.jpg"
-    imageAlt: ""
+
 ---
 
 <p>El <a href="https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/">escalado automático de contenedores</a> en <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> permite ajustar automáticamente la cantidad de recursos asignados a una aplicación según la demanda. Esto mejora el rendimiento, reduce costos y aumenta la fiabilidad. <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> ofrece varias opciones de escalado automático, como <a href="https://aws.amazon.com/autoscaling/" rel="noopener noreferrer" target="_blank">AWS Auto Scaling</a>, ECS Service Auto Scaling y Kubernetes Horizontal Pod Autoscaler.</p>

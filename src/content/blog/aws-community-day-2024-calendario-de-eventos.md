@@ -7,14 +7,13 @@ publishedTimestamp: "2024-05-14T04:11:07.812Z"
 modifiedTimestamp: "2026-10-05T00:34:04-03:00"
 review:
   date: "2026-10-05"
-cover: "/assets/blog/8a72720666074692888beb45.png"
-coverAlt: "Globo rodeado por iconos de nubes de colores unidos con una línea punteada"
-ogImage: "/assets/blog/8a72720666074692888beb45.png"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Aprender AWS gratis en español: recursos y comunidades para avanzar"
     url: "https://dondeaprendoaws.com/blog/aprender-aws-gratis-recursos-y-comunidad/"
-    image: "/assets/blog/c7227ae982494a7ce1620070.jpg"
-    imageAlt: "Nube sobre una mano estilizada y una fila de símbolos de colores"
+
 ---
 
 Un AWS Community Day es una conferencia organizada por líderes de una comunidad local de AWS. Suele reunir charlas técnicas, talleres y laboratorios para aprender de otras personas que construyen y operan con AWS. AWS puede apoyar como uno de varios patrocinadores, pero la comunidad anfitriona define la agenda y la logística.

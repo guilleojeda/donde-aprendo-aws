@@ -4,22 +4,17 @@ description: "Aprende cómo configurar y analizar los logs de acceso en ELB para
 author: "guille-ojeda"
 publishedAt: "2025-03-13"
 publishedTimestamp: "2025-03-13T03:14:10.062000+00:00"
-cover: "/assets/blog/fe79fa50612b43f06d41c37a.jpg"
-coverAlt: "Monitor con gráficos de actividad en un escritorio con plantas"
-ogImage: "/assets/blog/fe79fa50612b43f06d41c37a.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Guía completa para depurar errores CORS en API Gateway"
     url: "https://dondeaprendoaws.com/blog/guia-completa-para-depurar-errores-cors-en-api-gateway/"
-    image: "/assets/blog/8cdc1f9432243e263d1de431.jpg"
-    imageAlt: "Thumbnail for: Guía completa para depurar errores CORS en API Gateway"
   - title: "Guía de Acreditación para Partners de AWS 2024"
     url: "https://dondeaprendoaws.com/blog/guia-de-acreditacion-para-partners-de-aws-2024/"
-    image: "/assets/blog/0d6df5a1297701914debd614.png"
-    imageAlt: "Thumbnail for: Guía de Acreditación para Partners de AWS 2024"
   - title: "Patrón Strangler Fig en AWS: Migrar a Microservicios"
     url: "https://dondeaprendoaws.com/blog/patron-strangler-fig-en-aws-migrar-a-microservicios/"
-    image: "/assets/blog/a4bd2fc033fb9605dec915d6.png"
-    imageAlt: "Thumbnail for: Patrón Strangler Fig en AWS: Migrar a Microservicios"
+
 ---
 
 <p><strong>¿Quieres mejorar la seguridad y el rendimiento de tu infraestructura en AWS?</strong> Los logs de acceso de Elastic Load Balancer (ELB) son clave para analizar tráfico, detectar problemas y cumplir normativas. Aquí tienes lo más importante:</p>

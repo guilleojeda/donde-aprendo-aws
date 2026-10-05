@@ -5,22 +5,17 @@ author: "guille-ojeda"
 publishedAt: "2024-05-09"
 publishedTimestamp: "2024-05-09T02:52:12.467Z"
 modifiedTimestamp: "2026-10-01T15:14:05-03:00"
-cover: "/assets/blog/b495b55f5f4147dccacb4628.jpg"
-coverAlt: "Fila circular de figuras humanas alrededor de una nube y una persona"
-ogImage: "/assets/blog/b495b55f5f4147dccacb4628.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "AWS Organizations: Estructuras de cuentas y nombres"
     url: "https://dondeaprendoaws.com/blog/aws-organizations-estructuras-de-cuentas-y-nombres/"
-    image: "/assets/blog/0bc804415b6cb6339123371f.jpg"
-    imageAlt: ""
   - title: "10 Estrategias para Optimizar Costos de Red en AWS"
     url: "https://dondeaprendoaws.com/blog/10-estrategias-para-optimizar-costos-de-red-en-aws/"
-    image: "/assets/blog/732b4db41baecb1699e72d80.webp"
-    imageAlt: ""
   - title: "7 Estrategias para Mitigar Cold Starts en AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/7-estrategias-para-mitigar-cold-starts-en-aws-lambda/"
-    image: "/assets/blog/c936f3eb45382355f87b0707.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Los <strong>recursos de capacitación de <a href="https://aws.amazon.com/">AWS</a></strong> son fundamentales para los socios, permitiéndoles desarrollar habilidades y conocimientos en <a href="https://dondeaprendoaws.com/blog/cloud-computing-en-espanol-fundamentos-basicos/">soluciones y servicios en la nube</a>. Esto les permite brindar soluciones personalizadas y de vanguardia a sus clientes.</p>

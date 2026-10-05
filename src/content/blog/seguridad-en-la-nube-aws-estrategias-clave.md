@@ -4,22 +4,17 @@ description: "Explora las estrategias clave de seguridad en la nube de AWS, incl
 author: "guille-ojeda"
 publishedAt: "2024-01-28"
 publishedTimestamp: "2024-01-28T01:13:20.58Z"
-cover: "/assets/blog/85153458594dcc202b848554.jpg"
-coverAlt: "Nube rosada con un escudo central conectado a candados y otros símbolos"
-ogImage: "/assets/blog/85153458594dcc202b848554.jpg"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related:
   - title: "Guía Completa: Análisis de Costos de Tráfico en AWS"
     url: "https://dondeaprendoaws.com/blog/guia-completa-analisis-de-costos-de-trafico-en-aws/"
-    image: "/assets/blog/5a1c145030a04aac753625bc.jpg"
-    imageAlt: ""
   - title: "Automatizar Alertas de Costos AWS en 5 Pasos"
     url: "https://dondeaprendoaws.com/blog/automatizar-alertas-de-costos-aws-en-5-pasos/"
-    image: "/assets/blog/cd540f6b1441905ad2c6859c.webp"
-    imageAlt: ""
   - title: "Cómo crear Infraestructura como Código en AWS con Terraform"
     url: "https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-terraform/"
-    image: "/assets/blog/e70ea85183c2a0917d33154f.png"
-    imageAlt: ""
+
 ---
 
 <p>Seguramente todos estarán de acuerdo en que mantener la <strong>seguridad en la nube de AWS</strong> puede ser un desafío, especialmente para aquellos que recién comienzan con la nube.</p>

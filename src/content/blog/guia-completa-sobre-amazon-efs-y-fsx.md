@@ -4,22 +4,17 @@ description: "Una guía completa sobre Amazon EFS y FSX, comparando característ
 author: "guille-ojeda"
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T01:14:24.835Z"
-cover: "/assets/blog/9018003cbe19f3288dffc90d.jpg"
-coverAlt: "Nube dividida en dos con símbolos de documentos, datos y servidores"
-ogImage: "/assets/blog/9018003cbe19f3288dffc90d.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "Checklist: Servicios AWS Esenciales para SAA-C03"
     url: "https://dondeaprendoaws.com/blog/checklist-servicios-aws-esenciales-para-saa-c03/"
-    image: "/assets/blog/eadb9eb1eb9dfe22a3da22e2.jpg"
-    imageAlt: ""
   - title: "AWS Lambda: Costo vs. Rendimiento"
     url: "https://dondeaprendoaws.com/blog/aws-lambda-costo-vs-rendimiento/"
-    image: "/assets/blog/e7d2b8371eaa07e84e5400f5.jpg"
-    imageAlt: ""
   - title: "Nube AWS: Guía de Inicio Rápido"
     url: "https://dondeaprendoaws.com/blog/nube-aws-guia-de-inicio-rapido/"
-    image: "/assets/blog/c182a819b0d8523e5365c545.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Si estás explorando opciones de almacenamiento en la nube de AWS y te preguntas entre <strong>Amazon EFS</strong> y <strong>Amazon FSx</strong>, este resumen es para ti. Ambos servicios te permiten guardar archivos en la nube, pero están diseñados para necesidades diferentes. Aquí te doy un vistazo rápido a lo que necesitas saber:</p>

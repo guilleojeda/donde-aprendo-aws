@@ -4,22 +4,17 @@ description: "Descubre la guía completa de AWS Elastic Beanstalk, con informaci
 author: "guille-ojeda"
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T02:00:11.488Z"
-cover: "/assets/blog/65446b800cf17cea0992fc7b.jpg"
-coverAlt: "Nube de la que descienden líneas hacia una cuadrícula iluminada"
-ogImage: "/assets/blog/65446b800cf17cea0992fc7b.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Cómo monitorear SLOs con Amazon CloudWatch"
     url: "https://dondeaprendoaws.com/blog/como-monitorear-slos-con-amazon-cloudwatch/"
-    image: "/assets/blog/0919cf4ddfe7647a0c71877c.jpg"
-    imageAlt: ""
   - title: "Políticas de Control de Servicios (SCPs) en AWS"
     url: "https://dondeaprendoaws.com/blog/politicas-de-control-de-servicios-scps-en-aws/"
-    image: "/assets/blog/ae0015b4c4fa992bfdc8c817.jpg"
-    imageAlt: ""
   - title: "Arquitectura en la nube: tendencias emergentes"
     url: "https://dondeaprendoaws.com/blog/arquitectura-en-la-nube-tendencias-emergentes/"
-    image: "/assets/blog/d781a44da56c41c82eb33501.png"
-    imageAlt: ""
+
 ---
 
 <p>AWS Elastic Beanstalk facilita el despliegue y manejo de aplicaciones web en AWS, permitiéndote concentrarte en el desarrollo sin preocuparte por la infraestructura. Aquí te dejamos lo esencial que debes saber:</p>

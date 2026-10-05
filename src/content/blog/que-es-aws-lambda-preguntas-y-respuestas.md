@@ -4,22 +4,17 @@ description: "AWS Lambda es un servicio de computación sin servidor que ejecuta
 author: "guille-ojeda"
 publishedAt: "2025-03-31"
 publishedTimestamp: "2025-03-31T03:16:05.470000+00:00"
-cover: "/assets/blog/70579f832030c8f349b01339.jpg"
-coverAlt: "Pasillo de servidores con rótulos de AWS y Lambda en los racks"
-ogImage: "/assets/blog/70579f832030c8f349b01339.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Automatización de cumplimiento con AWS Config"
     url: "https://dondeaprendoaws.com/blog/automatizacion-de-cumplimiento-con-aws-config/"
-    image: "/assets/blog/887b167cb63dec6854e043dc.jpg"
-    imageAlt: "Thumbnail for: Automatización de cumplimiento con AWS Config"
   - title: "Cómo Utilizar Amazon Bedrock"
     url: "https://dondeaprendoaws.com/blog/como-utilizar-amazon-bedrock/"
-    image: "/assets/blog/40a012e9c33f0668e83afad8.png"
-    imageAlt: "Thumbnail for: Cómo Utilizar Amazon Bedrock"
   - title: "Mejores Prácticas Para AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/"
-    image: "/assets/blog/020c3be0259dc50cecb2155a.png"
-    imageAlt: "Thumbnail for: Mejores Prácticas Para AWS Lambda"
+
 ---
 
 <p><a href="https://aws.amazon.com/lambda/" rel="nofollow noopener noreferrer" target="_blank">AWS Lambda</a> es un servicio de computación sin servidor que ejecuta tu código automáticamente en respuesta a eventos, sin necesidad de administrar servidores. Aquí tienes lo esencial:</p>

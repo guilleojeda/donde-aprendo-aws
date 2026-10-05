@@ -4,22 +4,17 @@ description: "Comprende AWS Step Functions, una herramienta para coordinar aplic
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:40:56.477Z"
-cover: "/assets/blog/5cccd042a4e55b019d2587c8.png"
-coverAlt: "Recorrido de pasos y bifurcaciones con pequeñas nubes y cubos"
-ogImage: "/assets/blog/5cccd042a4e55b019d2587c8.png"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "CORS en WebSocket vs REST API Gateway"
     url: "https://dondeaprendoaws.com/blog/cors-en-websocket-vs-rest-api-gateway/"
-    image: "/assets/blog/c306342b2e9d89f2a4308624.jpg"
-    imageAlt: ""
   - title: "Comprendiendo Kubernetes y Amazon EKS"
     url: "https://dondeaprendoaws.com/blog/comprendiendo-kubernetes-y-amazon-eks/"
-    image: "/assets/blog/066e0f22ea88769f71d0c039.png"
-    imageAlt: ""
   - title: "Ahorro de Costos en AWS con Instancias Reservadas y Savings Plans"
     url: "https://dondeaprendoaws.com/blog/ahorro-de-costos-en-aws-con-instancias-reservadas-y-savings-plans/"
-    image: "/assets/blog/201da9e2ec2ae649f47566a7.jpg"
-    imageAlt: ""
+
 ---
 
 <p>AWS Step Functions es una herramienta poderosa para coordinar componentes de aplicaciones sin servidor. Te permite visualizar y gestionar flujos de trabajo complejos con facilidad, integrándose perfectamente con otros servicios de AWS. Aquí te presentamos un resumen de lo que necesitas saber:</p>

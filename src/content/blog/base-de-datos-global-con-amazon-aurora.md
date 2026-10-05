@@ -5,22 +5,17 @@ author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:04:43.715Z"
 modifiedTimestamp: "2026-10-01T15:14:05-03:00"
-cover: "/assets/blog/5c1876ee5b54561eb5f8612a.jpg"
-coverAlt: "Globo terráqueo rodeado de nubes y líneas de conexión"
-ogImage: "/assets/blog/5c1876ee5b54561eb5f8612a.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "Cómo Usar AWS Cost Explorer para Tráfico de Red"
     url: "https://dondeaprendoaws.com/blog/como-usar-aws-cost-explorer-para-trafico-de-red/"
-    image: "/assets/blog/dbdbc8a8b6e306c35e966f8a.jpg"
-    imageAlt: ""
   - title: "Cómo Usar AWS Transfer Family con Amazon EFS"
     url: "https://dondeaprendoaws.com/blog/como-usar-aws-transfer-family-con-amazon-efs/"
-    image: "/assets/blog/4f1c44f2f3d79e3f40174550.jpg"
-    imageAlt: ""
   - title: "AWS gratis para educadores y estudiantes"
     url: "https://dondeaprendoaws.com/blog/aws-gratis-para-educadores-y-estudiantes/"
-    image: "/assets/blog/2e829a000de9165446203907.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Amazon Aurora ha revolucionado la forma en que las empresas manejan bases de datos en la nube, ofreciendo una solución robusta, eficiente y segura. Con características clave como alto rendimiento, escalabilidad, disponibilidad continua, y una integración perfecta con otros servicios de AWS, Aurora se presenta como la opción ideal para aplicaciones globales. Aquí tienes un desglose rápido de lo más importante sobre Amazon Aurora:</p>

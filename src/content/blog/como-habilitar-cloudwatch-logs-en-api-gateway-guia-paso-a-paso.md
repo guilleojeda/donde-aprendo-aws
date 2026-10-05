@@ -4,22 +4,17 @@ description: "Aprende cómo configurar CloudWatch Logs en API Gateway para monit
 author: "guille-ojeda"
 publishedAt: "2024-04-29"
 publishedTimestamp: "2024-04-29T07:48:00.212Z"
-cover: "/assets/blog/f256f4a211663872e566e67f.jpg"
-coverAlt: "Camino de bloques que conduce a una nube con una llave"
-ogImage: "/assets/blog/f256f4a211663872e566e67f.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Seguridad y Control de Costos en AWS: Guía 2024"
     url: "https://dondeaprendoaws.com/blog/seguridad-y-control-de-costos-en-aws-guia-2024/"
-    image: "/assets/blog/fa1b6e3bfee7c71b39327fcd.jpg"
-    imageAlt: ""
   - title: "Mejores Prácticas Para Amazon ECS"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ecs/"
-    image: "/assets/blog/826c9a11a84720138c6c6ed3.jpg"
-    imageAlt: ""
   - title: "AWS Seguridad: Fundamentos Esenciales"
     url: "https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/"
-    image: "/assets/blog/15bc5fcf943d474b0b00277c.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Configurar <a href="https://aws.amazon.com/cloudwatch/" rel="noopener noreferrer" target="_blank">CloudWatch</a> Logs para <a href="https://aws.amazon.com/api-gateway/" rel="noopener noreferrer" target="_blank">API Gateway</a> es crucial para monitorear y depurar APIs REST y WebSocket. Esta guía te enseña cómo habilitar CloudWatch Logs, desde crear un rol de IAM hasta configurar formatos de registro de acceso.</p>

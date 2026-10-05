@@ -4,22 +4,17 @@ description: "Descubre los conceptos básicos y avanzados de Amazon VPC, cómo c
 author: "guille-ojeda"
 publishedAt: "2024-03-07"
 publishedTimestamp: "2024-03-07T14:04:18.731Z"
-cover: "/assets/blog/12c27432a1ba20e5bffcb7b0.jpg"
-coverAlt: "Diagrama de una nube y nodos conectados sobre una superficie reflectante"
-ogImage: "/assets/blog/12c27432a1ba20e5bffcb7b0.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "10 Repositorios de GitHub para Machine Learning en AWS"
     url: "https://dondeaprendoaws.com/blog/10-repositorios-de-github-para-machine-learning-en-aws/"
-    image: "/assets/blog/0e7089d339cd0d6e09ee83cd.webp"
-    imageAlt: ""
   - title: "7 Estrategias de Serverless para Startups: Optimiza Costos"
     url: "https://dondeaprendoaws.com/blog/7-estrategias-de-serverless-para-startups-optimiza-costos/"
-    image: "/assets/blog/d85eb8d10d11d152a0198dea.jpg"
-    imageAlt: ""
   - title: "Base de Datos Global con Amazon DynamoDB"
     url: "https://dondeaprendoaws.com/blog/base-de-datos-global-con-amazon-dynamodb/"
-    image: "/assets/blog/b74e56b41e26732c7dfc378e.png"
-    imageAlt: ""
+
 ---
 
 <p>Amazon VPC (Nube Privada Virtual de Amazon) te ofrece un control total sobre tu espacio de red en la nube de AWS, permitiéndote gestionar quién accede a tus aplicaciones y cómo se comunican. Desde la creación de subredes y gateways hasta la implementación de medidas de seguridad avanzadas, Amazon VPC asegura que tus datos y aplicaciones estén aislados y protegidos. Aquí te explicamos cómo puedes sacar el máximo provecho de Amazon VPC, cubriendo desde los fundamentos hasta consejos avanzados y estrategias de ahorro de costos:</p>

@@ -4,22 +4,17 @@ description: "Las estructuras multi-cuenta en AWS optimizan la gestión de recur
 author: "guille-ojeda"
 publishedAt: "2025-09-08"
 publishedTimestamp: "2025-09-08T14:45:28.938000+00:00"
-cover: "/assets/blog/0e9e4bdd57782b78da6d878e.jpg"
-coverAlt: "Nube central rodeada por varias nubes pequeñas y un arco naranja"
-ogImage: "/assets/blog/0e9e4bdd57782b78da6d878e.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "10 Consejos de Redes para AWS Outposts"
     url: "https://dondeaprendoaws.com/blog/10-consejos-de-redes-para-aws-outposts/"
-    image: "/assets/blog/d57b2c7f6d8d4785748ce1c5.png"
-    imageAlt: "Thumbnail for: 10 Consejos de Redes para AWS Outposts"
   - title: "Mejores Prácticas de Machine Learning en AWS"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-de-machine-learning-en-aws/"
-    image: "/assets/blog/93b405bec4b3d8ac5255f4ed.png"
-    imageAlt: "Thumbnail for: Mejores Prácticas de Machine Learning en AWS"
   - title: "Arquitectura en la nube: tendencias emergentes"
     url: "https://dondeaprendoaws.com/blog/arquitectura-en-la-nube-tendencias-emergentes/"
-    image: "/assets/blog/d781a44da56c41c82eb33501.png"
-    imageAlt: "Thumbnail for: Arquitectura en la nube: tendencias emergentes"
+
 ---
 
 <p>Las estructuras multi-cuenta en AWS son una estrategia eficaz para gestionar recursos de forma aislada y organizada, especialmente en empresas en crecimiento o con necesidades específicas de seguridad, normativas y control de costes. A través de <strong><a href="https://dondeaprendoaws.com/blog/gestionando-multiples-cuentas-de-aws-con-aws-organizations/">AWS Organizations</a></strong>, puedes centralizar la administración de varias cuentas, aplicando políticas de seguridad, consolidando la facturación y automatizando procesos.</p>

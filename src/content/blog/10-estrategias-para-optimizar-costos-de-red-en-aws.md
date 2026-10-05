@@ -5,14 +5,13 @@ author: "guille-ojeda"
 publishedAt: "2024-10-28"
 publishedTimestamp: "2024-10-28T02:48:30.386Z"
 modifiedTimestamp: "2026-10-04T21:26:34-03:00"
-cover: "/assets/blog/732b4db41baecb1699e72d80.webp"
-coverAlt: "Monitor con gráficos sobre un escritorio junto a una planta y una taza"
-ogImage: "/assets/blog/732b4db41baecb1699e72d80.webp"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Cómo reducir costos en AWS: 10 estrategias para optimizar tu factura"
     url: "https://dondeaprendoaws.com/blog/10-estrategias-de-optimizacion-de-costos-en-aws/"
-    image: "/assets/blog/74f152c85b46e1ac5ea004f9.jpg"
-    imageAlt: ""
+
 ---
 
 Una factura de red alta puede venir de transferencias entre zonas o regiones, salida a Internet, NAT Gateway o servicios de conectividad. El primer paso es ubicar el flujo y la línea de uso que generan el cargo; después, comparar un cambio que reduzca datos o elimine un salto facturable sin comprometer disponibilidad, seguridad ni latencia.

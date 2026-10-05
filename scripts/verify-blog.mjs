@@ -21,14 +21,51 @@ const decode = (value) => value
   .replaceAll('&#x27;', "'")
   .replaceAll('&lt;', '<')
   .replaceAll('&gt;', '>');
+const attributesOf = (tag) => {
+  const attributes = new Map();
+  const pattern = /([^\s=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/g;
+  for (const match of tag.replace(/^<[^\s>]+\b/u, '').replace(/\s*\/?\s*>$/u, '').matchAll(pattern)) {
+    attributes.set(match[1].toLowerCase(), match[2] ?? match[3] ?? match[4] ?? null);
+  }
+  return attributes;
+};
+const assertCoverImage = (card, { cover, coverAlt, label }) => {
+  const imageTag = card.match(/<img\b[^>]*\/?\s*>/u)?.[0] ?? '';
+  assert.ok(imageTag, `Cover image is missing: ${label}`);
+  const attributes = attributesOf(imageTag);
+  const src = decode(attributes.get('src') ?? '');
+  const srcset = (attributes.get('srcset') ?? '').split(',')
+    .map((candidate) => decode(candidate.trim().split(/\s+/u)[0] ?? ''));
+  assert.ok(src === cover || srcset.includes(cover), `Cover reference changed after responsive processing: ${label}`);
+  assert.equal(decode(attributes.get('alt') ?? ''), coverAlt, `Cover alternative mismatch: ${label}`);
+};
 
 assert.equal(expected.length, 6, 'Featured index fixture must contain the six selected articles.');
 assert.equal(archive.length, 196, 'Original sitemap fixture must contain 196 articles.');
 assert.equal(new Set(archive.map(({ slug }) => slug)).size, 196, 'Original article slugs must be unique.');
+const sourceBySlug = new Map(archive.map(({ slug }) => {
+  const source = readFileSync(`src/content/blog/${slug}.md`, 'utf8');
+  const frontmatter = source.match(/^---\n([\s\S]*?)\n---\n/)?.[1];
+  assert.ok(frontmatter, `Frontmatter missing: ${slug}`);
+  return [slug, { source, data: parseYaml(frontmatter) }];
+}));
+const slugByBlogUrl = new Map(archive.map(({ slug }) => [`https://dondeaprendoaws.com/blog/${slug}/`, slug]));
 const index = read('blog/index.html');
-const indexUrls = [...index.matchAll(/<a\b[^>]*class="blog-card"[^>]*href="([^"]+)"/g)]
-  .map((match) => match[1]);
+const featuredCards = [...index.matchAll(/<a\b[^>]*class="blog-card"[^>]*>[\s\S]*?<\/a>/gu)];
+const indexUrls = featuredCards.map((match) => decode(attributesOf(match[0].match(/^<a\b[^>]*>/u)?.[0] ?? '').get('href') ?? ''));
 assert.deepEqual(indexUrls, expected.map(({ slug }) => `/blog/${slug}/`));
+assert.equal(featuredCards.length, expected.length, 'Every featured fixture entry must render as a card.');
+for (const [position, match] of featuredCards.entries()) {
+  const featured = expected[position];
+  const card = match[0];
+  const destination = sourceBySlug.get(featured.slug);
+  assert.ok(destination, `Featured article source is missing: ${featured.slug}`);
+  assert.equal(destination.data.title, featured.title, `Featured fixture title matches frontmatter: ${featured.slug}`);
+  assert.equal(destination.data.coverAlt, featured.coverAlt, `Featured fixture cover alternative matches frontmatter: ${featured.slug}`);
+  const title = decode(card.match(/<h3\b[^>]*>([\s\S]*?)<\/h3>/u)?.[1]?.replace(/<[^>]*>/gu, '') ?? '');
+  assert.equal(title, featured.title, `Featured card title matches fixture and frontmatter: ${featured.slug}`);
+  assertCoverImage(card, { cover: destination.data.cover, coverAlt: featured.coverAlt, label: `featured card ${featured.slug}` });
+}
 const archiveHtml = index.match(/<section class="blog-archive"[\s\S]*?<\/section>/)?.[0] ?? '';
 const archiveUrls = [...archiveHtml.matchAll(/<li><a href="(\/blog\/[^\"]+\/)">/g)].map((match) => match[1]);
 const allIndexUrls = [...indexUrls, ...archiveUrls];
@@ -52,6 +89,7 @@ const assetPaths = new Set();
 const pathMembership = new Map();
 let modifiedArticles = 0;
 let reviewedArticles = 0;
+let relatedCardCount = 0;
 for (const { id } of LEARNING_PATHS) {
   const detail = read(`recorridos/${id}/index.html`);
   const title = decode(detail.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/)?.[1] ?? '');
@@ -69,10 +107,10 @@ for (const { id } of LEARNING_PATHS) {
 assert.equal(pathMembership.size, 9, 'Existing paths must identify their nine blog articles.');
 for (const article of archive) {
   const html = read(`blog/${article.slug}/index.html`);
-  const source = readFileSync(`src/content/blog/${article.slug}.md`, 'utf8');
-  const frontmatter = source.match(/^---\n([\s\S]*?)\n---\n/)?.[1];
-  assert.ok(frontmatter, `Frontmatter missing: ${article.slug}`);
-  const data = metadataSchema.parse(parseYaml(frontmatter));
+  const source = sourceBySlug.get(article.slug);
+  assert.ok(source, `Source article missing: ${article.slug}`);
+  const sourceData = source.data;
+  const data = metadataSchema.parse(sourceData);
   assert.equal(data.publishedAt, article.publishedAt, `Original publication day changed: ${article.slug}`);
   assert.equal(data.publishedTimestamp, article.publishedTimestamp, `Original publication timestamp changed: ${article.slug}`);
   const structuredData = [...html.matchAll(/<script\b[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)]
@@ -115,6 +153,33 @@ for (const article of archive) {
   }
   assert.deepEqual(times, expectedTimes, `Semantic and visible dates agree: ${article.slug}`);
   assert.doesNotMatch(html, /<em>Revisado el (?:29|30) de septiembre de 2026/, `No duplicate manual review: ${article.slug}`);
+
+  const declaredRelated = sourceData.related ?? [];
+  const relatedCardsContainer = html.match(/<div class="blog-related__cards">([\s\S]*?)<\/div>/)?.[1] ?? '';
+  const renderedRelatedCards = [...relatedCardsContainer.matchAll(/<a\b[^>]*class="blog-related__card"[^>]*>[\s\S]*?<\/a>/gu)];
+  assert.equal(renderedRelatedCards.length, declaredRelated.length, `Every declared related card must render: ${article.slug}`);
+  for (const [position, match] of renderedRelatedCards.entries()) {
+    const related = declaredRelated[position];
+    const card = match[0];
+    const anchor = card.match(/^<a\b[^>]*>/u)?.[0] ?? '';
+    const anchorAttributes = attributesOf(anchor);
+    const href = decode(anchorAttributes.get('href') ?? '');
+    assert.equal(href, related.url, `Related destination matches frontmatter: ${article.slug} card ${position + 1}`);
+    const destinationSlug = slugByBlogUrl.get(related.url);
+    assert.ok(destinationSlug, `Related destination must be a generated blog article: ${article.slug} ${related.url}`);
+    const destination = sourceBySlug.get(destinationSlug);
+    assert.ok(destination, `Related destination source is missing: ${article.slug} ${related.url}`);
+    const title = decode(card.match(/<h3\b[^>]*>([\s\S]*?)<\/h3>/u)?.[1]?.replace(/<[^>]*>/gu, '') ?? '');
+    assert.equal(title, related.title, `Related title matches frontmatter: ${article.slug} card ${position + 1}`);
+
+    assertCoverImage(card, {
+      cover: destination.data.cover,
+      coverAlt: destination.data.coverAlt,
+      label: `related card ${article.slug} ${position + 1}`,
+    });
+    relatedCardCount += 1;
+  }
+
   allPages.push(html);
   const memberships = pathMembership.get(`/blog/${article.slug}/`) ?? [];
   const pathNav = html.match(/<nav class="blog-paths"[^>]*>([\s\S]*?)<\/nav>/)?.[1];
@@ -150,11 +215,19 @@ for (const article of archive) {
   assert.match(html, /"datePublished":"\d{4}-\d{2}-\d{2}T/, `Publication date missing: ${article.slug}`);
   assert.match(html, /<article class="blog-article__body">/, `Body missing: ${article.slug}`);
   const ogImage = html.match(/<meta property="og:image" content="([^"]+)"/)?.[1];
-  assert.ok(ogImage?.startsWith(`${mediaOrigin}/assets/blog/`), `Owned social image missing: ${article.slug}`);
+  assert.ok(sourceData.cover && sourceData.coverAlt, `Declared article cover is missing: ${article.slug}`);
+  assert.ok(sourceData.ogImage, `Declared social image is missing: ${article.slug}`);
+  if (sourceData.ogImage !== sourceData.cover) {
+    assert.ok(sourceData.ogImageAlt?.trim(), `A different social image needs its own declared alternative: ${article.slug}`);
+  }
+  const expectedSocialImage = new URL(sourceData.ogImage, mediaOrigin).href;
+  const expectedSocialAlt = sourceData.ogImageAlt ?? sourceData.coverAlt;
+  assert.equal(ogImage, expectedSocialImage, `Open Graph image must match the declared social image: ${article.slug}`);
   assert.match(html, /<meta property="og:type" content="article"/, `Open Graph article type: ${article.slug}`);
   const ogImageAlt = decode(html.match(/<meta property="og:image:alt" content="([^"]*)"/)?.[1] ?? '');
-  assert.ok(ogImageAlt.trim(), `Social image alternative missing: ${article.slug}`);
+  assert.equal(ogImageAlt, expectedSocialAlt, `Open Graph image alternative must match the declared cover: ${article.slug}`);
   assert.doesNotMatch(ogImageAlt, /^Thumbnail for:/, `Social image alternative must describe the image: ${article.slug}`);
+  assert.deepEqual(posting.image, [expectedSocialImage], `BlogPosting image must match the declared social image: ${article.slug}`);
   const ogFile = resolve(dist, `.${new URL(ogImage).pathname}`);
   assert.ok(ogFile.startsWith(`${dist}/`) && existsSync(ogFile), `Social image file missing: ${article.slug}`);
   assert.match(html, /<meta name="twitter:card" content="summary_large_image"/);
@@ -162,19 +235,28 @@ for (const article of archive) {
   assert.equal(decode(html.match(/<meta name="twitter:title" content="([^"]*)"/)?.[1] ?? ''), article.title);
   assert.equal(decode(html.match(/<meta name="twitter:description" content="([^"]*)"/)?.[1] ?? ''), decode(description?.[1] ?? ''));
   assert.equal(html.match(/<meta name="twitter:image" content="([^"]+)"/)?.[1], ogImage);
+  assert.equal(decode(html.match(/<meta name="twitter:image:alt" content="([^"]*)"/)?.[1] ?? ''), expectedSocialAlt);
 }
+
+assert.equal(relatedCardCount, 488, 'All 488 related cards must retain their declared destination, title, cover and alternative.');
 
 // Only the shared, built navigation module is permitted alongside article
 // structured data; scripts embedded in imported article bodies stay rejected.
 const navigationScripts = new Set([...read('404.html').matchAll(/<script\b[^>]*type="module"[^>]*>[\s\S]*?<\/script>/g)].map(([script]) => script));
 assert.ok(navigationScripts.size > 0, 'Shared mobile navigation module is missing');
+const expectedNavigation = [['/', 'Inicio'], ['/aprender/', 'Aprender'], ['/recorridos/', 'Rutas'],
+  ['/creadores/', 'Creadores'], ['/comunidades/', 'Comunidades'], ['/eventos/', 'Eventos'],
+  ['/blog/', 'Blog'], ['/buscar/', 'Buscar'], ['/#cta_form-01-839181', 'Comparte un recurso']];
 for (const html of allPages) {
   const navigation = html.match(/<div class="site-nav__menu"[^>]*>([\s\S]*?)<\/div>/)?.[1] ?? '';
   const links = [...navigation.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)]
     .map(([, href, text]) => [href, decode(text.replace(/<[^>]+>/g, '').trim())]);
-  assert.deepEqual(links, [['/', 'Inicio'], ['/aprender/', 'Aprender'], ['/recorridos/', 'Rutas'],
-    ['/creadores/', 'Creadores'], ['/comunidades/', 'Comunidades'], ['/eventos/', 'Eventos'],
-    ['/blog/', 'Blog'], ['/buscar/', 'Buscar'], ['/#cta_form-01-839181', 'Comparte un recurso']], 'Complete shared blog menu');
+  assert.deepEqual(links, expectedNavigation, 'Complete shared blog menu');
+  const noScriptNavigation = html.match(/<noscript\b[^>]*>[\s\S]*?<div class="site-nav__noscript-menu"[^>]*>([\s\S]*?)<\/div>[\s\S]*?<\/noscript>/i)?.[1];
+  assert.ok(noScriptNavigation, 'No-JavaScript shared navigation is missing from the blog page.');
+  const noScriptLinks = [...noScriptNavigation.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)]
+    .map(([, href, text]) => [decode(href), decode(text.replace(/<[^>]+>/g, '').trim())]);
+  assert.deepEqual(noScriptLinks, expectedNavigation, 'No-JavaScript menu must preserve all nine destinations and labels.');
   assert.match(html, /aria-controls="site-menu"/, 'Mobile menu must control the shared navigation');
   assert.match(html, /aria-expanded="false"/, 'Mobile menu starts closed');
   if (production) {
@@ -233,4 +315,4 @@ for (const { slug, comments } of articlesWithCodeComments) {
   }
 }
 
-console.log(`Verified ${archive.length} confirmed authors and exact original publication dates, ${modifiedArticles} declared modifications, ${reviewedArticles} reviews, ${expected.length} featured cards, ${archiveUrls.length} archive links, ${pathMembership.size} article path continuations, the shared desktop/mobile blog menu, and ${assetPaths.size} owned images.`);
+console.log(`Verified ${archive.length} confirmed authors and exact original publication dates, ${modifiedArticles} declared modifications, ${reviewedArticles} reviews, ${expected.length} featured cards, ${archiveUrls.length} archive links, ${relatedCardCount} related cards, ${pathMembership.size} article path continuations, the shared desktop/mobile blog menu, and ${assetPaths.size} owned images.`);

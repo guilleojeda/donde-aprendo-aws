@@ -7,14 +7,13 @@ publishedTimestamp: "2024-10-27T03:38:07.454Z"
 modifiedTimestamp: "2026-10-05T00:34:04-03:00"
 review:
   date: "2026-10-05"
-cover: "/assets/blog/cd540f6b1441905ad2c6859c.webp"
-coverAlt: "Pantalla sobre un escritorio con gráficos y paneles de colores"
-ogImage: "/assets/blog/cd540f6b1441905ad2c6859c.webp"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Cómo reducir costos en AWS: 10 estrategias para optimizar tu factura"
     url: "https://dondeaprendoaws.com/blog/10-estrategias-de-optimizacion-de-costos-en-aws/"
-    image: "/assets/blog/74f152c85b46e1ac5ea004f9.jpg"
-    imageAlt: "Icono de nube rodeado por círculos con engranajes, datos y ubicaciones"
+
 ---
 
 Para recibir alertas de costos en AWS, crea un presupuesto mensual en **AWS Budgets** y define un umbral para gasto real o previsto. El correo electrónico puede ser el único canal; para llevar los avisos a Slack, agrega Amazon SNS y configura **Amazon Q Developer in chat applications** (antes AWS Chatbot).

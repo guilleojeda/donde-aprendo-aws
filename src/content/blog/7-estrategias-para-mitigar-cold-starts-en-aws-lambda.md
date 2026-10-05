@@ -7,9 +7,9 @@ publishedTimestamp: "2024-05-15T06:00:17.055Z"
 modifiedTimestamp: "2026-10-04T22:31:52-03:00"
 review:
   date: "2026-10-04"
-cover: "/assets/blog/c936f3eb45382355f87b0707.jpg"
-coverAlt: "Camino sinuoso con símbolos de nube, engranajes y conexiones"
-ogImage: "/assets/blog/c936f3eb45382355f87b0707.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related: []
 ---
 

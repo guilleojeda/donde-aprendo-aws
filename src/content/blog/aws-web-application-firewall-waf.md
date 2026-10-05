@@ -4,22 +4,17 @@ description: "Protege tus aplicaciones web en AWS con AWS Web Application Firewa
 author: "guille-ojeda"
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T01:28:49.211Z"
-cover: "/assets/blog/f5ae0710f3fb74786f37f833.png"
-coverAlt: "Escudo compuesto por piezas de rompecabezas con símbolos de protección"
-ogImage: "/assets/blog/f5ae0710f3fb74786f37f833.png"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related:
   - title: "10 Métricas Clave de DevOps en AWS"
     url: "https://dondeaprendoaws.com/blog/10-metricas-clave-de-devops-en-aws/"
-    image: "/assets/blog/98aff2370ca15f9967751abc.png"
-    imageAlt: ""
   - title: "Microservicios en AWS Utilizando Contenedores"
     url: "https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-contenedores/"
-    image: "/assets/blog/bf2d7e4c78ec347430ffd844.jpg"
-    imageAlt: ""
   - title: "Recursos en Español para Certificacion AWS Cloud Practitioner"
     url: "https://dondeaprendoaws.com/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/"
-    image: "/assets/blog/8d4ecab3b218a57acfd77f30.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Si buscas proteger tus aplicaciones web en AWS de ataques y bots maliciosos, AWS WAF es tu solución. Este firewall de aplicaciones web te permite controlar el acceso a tus aplicaciones mediante reglas personalizables, ofreciendo protección contra ataques comunes como inyecciones SQL y XSS. Además, se integra perfectamente con otros servicios de AWS, como CloudFront y API Gateway, para brindarte una seguridad completa. Aquí te doy un resumen de lo más importante:</p>

@@ -5,14 +5,13 @@ author: "guille-ojeda"
 publishedAt: "2024-05-14"
 publishedTimestamp: "2024-05-14T05:11:03.706Z"
 modifiedTimestamp: "2026-10-04T21:26:34-03:00"
-cover: "/assets/blog/d57b2c7f6d8d4785748ce1c5.png"
-coverAlt: "Árbol estilizado que brota de un dispositivo con raíces de circuitos"
-ogImage: "/assets/blog/d57b2c7f6d8d4785748ce1c5.png"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Conceptos Básicos y Avanzados de Amazon VPC"
     url: "https://dondeaprendoaws.com/blog/conceptos-basicos-y-avanzados-de-amazon-vpc/"
-    image: "/assets/blog/12c27432a1ba20e5bffcb7b0.jpg"
-    imageAlt: "Diagrama de una nube y nodos conectados sobre una superficie reflectante"
+
 ---
 
 La red de AWS Outposts depende primero del **factor de forma**. En un rack, el *service link* comunica el Outpost con su región de AWS y un **gateway local** conecta las subredes del Outpost con la red del sitio. En un servidor, el *service link* también llega a la región, pero la conexión con la LAN se hace mediante una **interfaz de red local (LNI)**. Son rutas y controles diferentes; por eso, no hay una configuración única que sirva para todos los Outposts.

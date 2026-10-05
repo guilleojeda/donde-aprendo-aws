@@ -4,22 +4,17 @@ description: "Descubre cómo AWS HealthScribe revoluciona la documentación méd
 author: "guille-ojeda"
 publishedAt: "2024-05-08"
 publishedTimestamp: "2024-05-08T02:21:01.272Z"
-cover: "/assets/blog/cac2ef4bd724a0e8247e5e35.jpg"
-coverAlt: "Silueta humana conectada a nodos, con un corazón luminoso en el pecho"
-ogImage: "/assets/blog/cac2ef4bd724a0e8247e5e35.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "Gestión de Facturación de AWS: Guía Completa"
     url: "https://dondeaprendoaws.com/blog/gestion-de-facturacion-de-aws-guia-completa/"
-    image: "/assets/blog/2363e8e50d51d42bcaec6ec4.webp"
-    imageAlt: ""
   - title: "Detección de Sesgos en Modelos ML con SageMaker Clarify"
     url: "https://dondeaprendoaws.com/blog/deteccion-de-sesgos-en-modelos-ml-con-sagemaker-clarify/"
-    image: "/assets/blog/055e62c5fbddebf94a936e62.jpg"
-    imageAlt: ""
   - title: "Servicios de AWS para Inteligencia Artificial"
     url: "https://dondeaprendoaws.com/blog/servicios-de-aws-para-inteligencia-artificial/"
-    image: "/assets/blog/54201ee89ce3b648eb0ec011.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Precisos</p>

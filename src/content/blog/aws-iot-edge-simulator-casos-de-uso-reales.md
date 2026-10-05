@@ -4,22 +4,17 @@ description: "Descubre cómo el simulador de dispositivos IoT de AWS mejora las 
 author: "guille-ojeda"
 publishedAt: "2024-05-15"
 publishedTimestamp: "2024-05-15T02:46:19.391Z"
-cover: "/assets/blog/7854091f527530189ba482f0.png"
-coverAlt: "Nube conectada por caminos a pequeños dispositivos y objetos"
-ogImage: "/assets/blog/7854091f527530189ba482f0.png"
+cover: "/assets/blog/editorial-practica.png"
+coverAlt: "Un cuaderno abierto con una secuencia de estaciones y un camino azul con punto naranja."
+ogImage: "/assets/blog/editorial-practica.png"
 related:
   - title: "Cómo automatizar ajustes de políticas con AWS Security Hub"
     url: "https://dondeaprendoaws.com/blog/como-automatizar-ajustes-de-politicas-con-aws-security-hub/"
-    image: "/assets/blog/0a51232b23a8b40ad5b29e21.jpg"
-    imageAlt: ""
   - title: "Guía Completa: Análisis de Costos de Tráfico en AWS"
     url: "https://dondeaprendoaws.com/blog/guia-completa-analisis-de-costos-de-trafico-en-aws/"
-    image: "/assets/blog/5a1c145030a04aac753625bc.jpg"
-    imageAlt: ""
   - title: "CloudWatch y EventBridge: Integración"
     url: "https://dondeaprendoaws.com/blog/cloudwatch-y-eventbridge-integracion/"
-    image: "/assets/blog/382dfac33d6132edaa6b8e63.jpg"
-    imageAlt: ""
+
 ---
 
 <p>El simulador de dispositivos IoT de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> es una herramienta poderosa que permite a los profesionales de TI probar y validar soluciones de IoT de manera eficiente, reduciendo costos y tiempo de desarrollo. Con esta herramienta, es posible:</p>

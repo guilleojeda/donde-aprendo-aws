@@ -4,22 +4,17 @@ description: "Aprende a optimizar los costos de tráfico en AWS con herramientas
 author: "guille-ojeda"
 publishedAt: "2024-12-30"
 publishedTimestamp: "2024-12-30T12:06:07.312Z"
-cover: "/assets/blog/5a1c145030a04aac753625bc.jpg"
-coverAlt: "Monitor con paneles de costos y gráficos en una oficina con plantas"
-ogImage: "/assets/blog/5a1c145030a04aac753625bc.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Ingeniería de Caos en AWS con Fault Injection Simulator"
     url: "https://dondeaprendoaws.com/blog/ingenieria-de-caos-en-aws-con-fault-injection-simulator/"
-    image: "/assets/blog/0a0b1cf017845abee5cf215d.png"
-    imageAlt: ""
   - title: "Tipos y Tamaños de Instancias EC2: Guía Completa"
     url: "https://dondeaprendoaws.com/blog/tipos-y-tamanos-de-instancias-ec2-guia-completa/"
-    image: "/assets/blog/c17586bd518131452b0a717a.png"
-    imageAlt: ""
   - title: "Amazon DynamoDB: La Base de Datos NoSQL de AWS"
     url: "https://dondeaprendoaws.com/blog/amazon-dynamodb-la-base-de-datos-nosql-de-aws/"
-    image: "/assets/blog/b55473f49a3eacffcaae0175.jpg"
-    imageAlt: ""
+
 ---
 
 <p>¿Sabías que mover datos entre regiones o servicios en AWS puede aumentar significativamente tu factura mensual? Este artículo te enseña cómo gestionar y optimizar estos costos con herramientas como <strong><a href="https://aws.amazon.com/aws-cost-management/aws-cost-explorer/" rel="noopener noreferrer" target="_blank">AWS Cost Explorer</a></strong>, <strong><a href="https://calculator.aws/" rel="noopener noreferrer" target="_blank">AWS Pricing Calculator</a></strong>, y estrategias prácticas.</p>

@@ -4,22 +4,17 @@ description: "Guía de inicio rápido para utilizar la nube de AWS, explorando s
 author: "guille-ojeda"
 publishedAt: "2024-01-30"
 publishedTimestamp: "2024-01-30T19:09:51.102Z"
-cover: "/assets/blog/c182a819b0d8523e5365c545.jpg"
-coverAlt: "Cielo azul con nubes y un avión de papel rodeado de puntos"
-ogImage: "/assets/blog/c182a819b0d8523e5365c545.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "AWS Lambda y API Gateway: Guía Básica"
     url: "https://dondeaprendoaws.com/blog/aws-lambda-y-api-gateway-guia-basica/"
-    image: "/assets/blog/2aa39fe7ff55b6a37888515e.jpg"
-    imageAlt: ""
   - title: "Integrar Amazon Polly en 5 pasos: Texto a voz realista"
     url: "https://dondeaprendoaws.com/blog/integrar-amazon-polly-en-5-pasos-texto-a-voz-realista/"
-    image: "/assets/blog/35cbdc26cad1c09b7dd2fc81.jpg"
-    imageAlt: ""
   - title: "AWS Lambda en Profundidad"
     url: "https://dondeaprendoaws.com/blog/aws-lambda-en-profundidad/"
-    image: "/assets/blog/fc7f86cd5d9d53b7ba70da04.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Sin duda, la mayoría estará de acuerdo en que:<strong>es muy difícil saber por dónde empezar al utilizar la nube de AWS por primera vez</strong>.</p>

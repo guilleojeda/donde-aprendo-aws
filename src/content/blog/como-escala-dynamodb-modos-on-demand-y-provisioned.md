@@ -4,22 +4,17 @@ description: "Descubre cómo escalar DynamoDB con los modos On Demand y Provisio
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T02:56:43.716Z"
-cover: "/assets/blog/ce62e0cc8508d5055bba53b4.png"
-coverAlt: "Balanza con una nube y un rayo en un platillo, y engranajes en el otro"
-ogImage: "/assets/blog/ce62e0cc8508d5055bba53b4.png"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "Mejores prácticas para nombres en AWS Organizations"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-nombres-en-aws-organizations/"
-    image: "/assets/blog/bfdfed56910493c9a698fb14.jpg"
-    imageAlt: ""
   - title: "Guía de Acreditación para Partners de AWS 2024"
     url: "https://dondeaprendoaws.com/blog/guia-de-acreditacion-para-partners-de-aws-2024/"
-    image: "/assets/blog/0d6df5a1297701914debd614.png"
-    imageAlt: ""
   - title: "Utilizando Lambda Layers en Múltiples Funciones Lambda"
     url: "https://dondeaprendoaws.com/blog/utilizando-lambda-layers-en-multiples-funciones-lambda/"
-    image: "/assets/blog/ab65afd218440c66bc564a0a.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Si estás considerando usar DynamoDB para tu aplicación, es crucial entender cómo escalarla adecuadamente. DynamoDB ofrece dos modos principales de escalado: <strong>On Demand</strong> y <strong>Provisioned</strong>. Aquí te doy un resumen rápido para ayudarte a elegir el mejor camino:</p>

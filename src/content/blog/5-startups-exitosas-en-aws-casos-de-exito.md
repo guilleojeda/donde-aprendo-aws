@@ -7,9 +7,9 @@ publishedTimestamp: "2024-05-13T02:42:31.872Z"
 modifiedTimestamp: "2026-10-04T21:31:45-03:00"
 review:
   date: "2026-10-04"
-cover: "/assets/blog/b94e80f121605caa3d2fcec3.jpg"
-coverAlt: "Engranajes de varios colores sobre un fondo de nubes"
-ogImage: "/assets/blog/b94e80f121605caa3d2fcec3.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related: []
 ---
 

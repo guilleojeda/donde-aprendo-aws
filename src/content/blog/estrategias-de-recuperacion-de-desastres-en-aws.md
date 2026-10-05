@@ -4,22 +4,17 @@ description: "Descubre las estrategias clave de recuperación de desastres en AW
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T02:40:38.528Z"
-cover: "/assets/blog/df6cee7d6c3bd49e97412d95.jpg"
-coverAlt: "Nube mitad oscura y mitad clara rodeada de candados y escudos"
-ogImage: "/assets/blog/df6cee7d6c3bd49e97412d95.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Guía de AWS Wavelength: Zonas y Despliegue"
     url: "https://dondeaprendoaws.com/blog/guia-de-aws-wavelength-zonas-y-despliegue/"
-    image: "/assets/blog/e73412d95c38ad88b6dc619a.jpg"
-    imageAlt: ""
   - title: "Guía de UEBA para la Seguridad de AWS"
     url: "https://dondeaprendoaws.com/blog/guia-de-ueba-para-la-seguridad-de-aws/"
-    image: "/assets/blog/77827c07de64ac355ca01278.jpg"
-    imageAlt: ""
   - title: "Cómo Prepararte Para un Examen de Certificación de AWS"
     url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-preparacion-para-el-examen/"
-    image: "/assets/blog/4cb1b939d8aa6ff5e1dc2ac1.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Enfrentar desastres y recuperar tu negocio rápidamente en AWS es crucial para la continuidad operativa. Aquí te presentamos las estrategias clave y herramientas que AWS ofrece para prepararte y responder eficazmente a cualquier adversidad:</p>

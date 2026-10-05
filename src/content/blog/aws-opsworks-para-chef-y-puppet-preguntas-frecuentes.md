@@ -4,22 +4,17 @@ description: "Guía definitiva de AWS OpsWorks para la automatización y gestió
 author: "guille-ojeda"
 publishedAt: "2024-05-06"
 publishedTimestamp: "2024-05-06T20:31:06.838Z"
-cover: "/assets/blog/865feccab5c0ad8e72605945.jpg"
-coverAlt: "Nube con engranajes sobre dos pequeñas escenas de construcción"
-ogImage: "/assets/blog/865feccab5c0ad8e72605945.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "7 Errores Comunes con AWS IoT Device SDK para JavaScript"
     url: "https://dondeaprendoaws.com/blog/7-errores-comunes-con-aws-iot-device-sdk-para-javascript/"
-    image: "/assets/blog/fc596e41b0cacbc6f7d02513.jpg"
-    imageAlt: ""
   - title: "Comprendiendo Kubernetes y Amazon EKS"
     url: "https://dondeaprendoaws.com/blog/comprendiendo-kubernetes-y-amazon-eks/"
-    image: "/assets/blog/066e0f22ea88769f71d0c039.png"
-    imageAlt: ""
   - title: "Mejores prácticas AWS para DevOps"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/"
-    image: "/assets/blog/87b7131b5cdf72f70b5347bd.jpg"
-    imageAlt: ""
+
 ---
 
 <p><a href="https://aws.amazon.com/opsworks/">AWS OpsWorks</a> es un servicio de administración de configuración que ofrece instancias administradas de las plataformas de automatización de <a href="https://www.chef.io/">Chef</a> y <a href="https://www.puppet.com/">Puppet</a>. Estas plataformas utilizan código para automatizar la configuración de servidores en Amazon Elastic Compute Cloud (EC2) o implementaciones locales.</p>

@@ -4,22 +4,17 @@ description: "Guía de escalabilidad y optimización de AWS Wavelength para desa
 author: "guille-ojeda"
 publishedAt: "2024-05-19"
 publishedTimestamp: "2024-05-19T00:37:00.331Z"
-cover: "/assets/blog/fe5d7c13d156814fe29c2d7a.jpg"
-coverAlt: "Red de nodos y circuitos alrededor de un módulo circular central"
-ogImage: "/assets/blog/fe5d7c13d156814fe29c2d7a.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Comprendiendo Kubernetes y Amazon EKS"
     url: "https://dondeaprendoaws.com/blog/comprendiendo-kubernetes-y-amazon-eks/"
-    image: "/assets/blog/066e0f22ea88769f71d0c039.png"
-    imageAlt: ""
   - title: "Ingeniería de Caos en AWS con Fault Injection Simulator"
     url: "https://dondeaprendoaws.com/blog/ingenieria-de-caos-en-aws-con-fault-injection-simulator/"
-    image: "/assets/blog/0a0b1cf017845abee5cf215d.png"
-    imageAlt: ""
   - title: "Arquitecturas Multi-Región en AWS"
     url: "https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/"
-    image: "/assets/blog/bafde793116d5b5e38a659da.jpg"
-    imageAlt: ""
+
 ---
 
 <p><a href="https://aws.amazon.com/wavelength/" rel="noopener noreferrer" target="_blank"><strong>AWS Wavelength</strong></a> es un servicio que permite a los desarrolladores crear aplicaciones con latencia ultra baja para dispositivos 5G, extendiendo la <a href="https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/">infraestructura y servicios de AWS</a> a las redes 5G. Su principal beneficio es llevar el poder de AWS al borde de la red, permitiendo casos de uso que requieren respuestas en tiempo real.</p>

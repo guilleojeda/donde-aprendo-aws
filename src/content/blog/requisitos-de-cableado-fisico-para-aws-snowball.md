@@ -4,22 +4,17 @@ description: "Configura correctamente el cableado físico para AWS Snowball y op
 author: "guille-ojeda"
 publishedAt: "2025-05-01"
 publishedTimestamp: "2025-05-01T03:33:14.998000+00:00"
-cover: "/assets/blog/3b6a26d54c02dfac32acb13b.jpg"
-coverAlt: "Estuche negro con el logotipo de AWS y cables conectados"
-ogImage: "/assets/blog/3b6a26d54c02dfac32acb13b.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "10 Laboratorios Prácticos de AWS para Principiantes"
     url: "https://dondeaprendoaws.com/blog/10-laboratorios-practicos-de-aws-para-principiantes/"
-    image: "/assets/blog/e9f2fc671d3e9516f2345bb7.png"
-    imageAlt: "Thumbnail for: 10 Laboratorios Prácticos de AWS para Principiantes"
   - title: "10 Métricas Clave de DevOps en AWS"
     url: "https://dondeaprendoaws.com/blog/10-metricas-clave-de-devops-en-aws/"
-    image: "/assets/blog/98aff2370ca15f9967751abc.png"
-    imageAlt: "Thumbnail for: 10 Métricas Clave de DevOps en AWS"
   - title: "Base de Datos Global con Amazon DynamoDB"
     url: "https://dondeaprendoaws.com/blog/base-de-datos-global-con-amazon-dynamodb/"
-    image: "/assets/blog/b74e56b41e26732c7dfc378e.png"
-    imageAlt: "Thumbnail for: Base de Datos Global con Amazon DynamoDB"
+
 ---
 
 <p><strong>¿Necesitas transferir grandes volúmenes de datos con <a href="https://aws.amazon.com/snowball/" rel="nofollow noopener noreferrer" target="_blank">AWS Snowball</a>?</strong> Aquí tienes lo esencial para configurar el cableado físico y garantizar una transferencia eficiente:</p>

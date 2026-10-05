@@ -4,22 +4,17 @@ description: "Prepárate para el examen SAA-C03 de AWS con una guía completa so
 author: "guille-ojeda"
 publishedAt: "2025-04-03"
 publishedTimestamp: "2025-04-03T01:53:13.640000+00:00"
-cover: "/assets/blog/eadb9eb1eb9dfe22a3da22e2.jpg"
-coverAlt: "Mujer usa un portátil en una oficina rodeada de iconos translúcidos"
-ogImage: "/assets/blog/eadb9eb1eb9dfe22a3da22e2.jpg"
+cover: "/assets/blog/editorial-certificacion.png"
+coverAlt: "Tres tarjetas de estudio con apuntes y hitos sobre un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-certificacion.png"
 related:
   - title: "Concurrencia Aprovisionada: Solución a Cold Starts en AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/concurrencia-aprovisionada-solucion-a-cold-starts-en-aws-lambda/"
-    image: "/assets/blog/4efa7f16e3c389136cc18ae2.png"
-    imageAlt: "Thumbnail for: Concurrencia Aprovisionada: Solución a Cold Starts en AWS Lambda"
   - title: "Guía de Amazon ElastiCache: Almacenamiento en Caché en Memoria"
     url: "https://dondeaprendoaws.com/blog/guia-de-amazon-elasticache-almacenamiento-en-cache-en-memoria/"
-    image: "/assets/blog/ddce4c2f6e4102cbcd2b90ad.png"
-    imageAlt: "Thumbnail for: Guía de Amazon ElastiCache: Almacenamiento en Caché en Memoria"
   - title: "Comprendiendo Kubernetes y Amazon EKS"
     url: "https://dondeaprendoaws.com/blog/comprendiendo-kubernetes-y-amazon-eks/"
-    image: "/assets/blog/066e0f22ea88769f71d0c039.png"
-    imageAlt: "Thumbnail for: Comprendiendo Kubernetes y Amazon EKS"
+
 ---
 
 <p><strong>¿Te estás preparando para el examen <a href="https://aws.amazon.com/" rel="nofollow noopener noreferrer" target="_blank">AWS</a> Solutions Architect Associate (SAA-C03)? Aquí tienes todo lo que necesitas saber, rápido y claro:</strong></p>

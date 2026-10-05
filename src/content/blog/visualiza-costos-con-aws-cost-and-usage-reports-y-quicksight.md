@@ -4,22 +4,17 @@ description: "Transforma tus datos de costos de AWS en visualizaciones efectivas
 author: "guille-ojeda"
 publishedAt: "2025-09-04"
 publishedTimestamp: "2025-09-04T02:52:29.834000+00:00"
-cover: "/assets/blog/bcf6fecd181e12cedeeed88a.jpg"
-coverAlt: "Portátil con barras y gráficos bajo un título sobre costos y uso de AWS"
-ogImage: "/assets/blog/bcf6fecd181e12cedeeed88a.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "Cómo monitorear SLOs con Amazon CloudWatch"
     url: "https://dondeaprendoaws.com/blog/como-monitorear-slos-con-amazon-cloudwatch/"
-    image: "/assets/blog/0919cf4ddfe7647a0c71877c.jpg"
-    imageAlt: "Thumbnail for: Cómo monitorear SLOs con Amazon CloudWatch"
   - title: "AWS IoT Edge Simulator: Casos de Uso Reales"
     url: "https://dondeaprendoaws.com/blog/aws-iot-edge-simulator-casos-de-uso-reales/"
-    image: "/assets/blog/7854091f527530189ba482f0.png"
-    imageAlt: "Thumbnail for: AWS IoT Edge Simulator: Casos de Uso Reales"
   - title: "AWS Seguridad: Servicios Esenciales"
     url: "https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/"
-    image: "/assets/blog/2ac2bf3abc517088f07fb837.png"
-    imageAlt: "Thumbnail for: AWS Seguridad: Servicios Esenciales"
+
 ---
 
 <p><strong>Gestionar los costos en AWS puede ser complejo, pero con <a href="https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/">AWS Cost and Usage Reports</a> (CUR) y <a href="https://dondeaprendoaws.com/blog/amazon-redshift-el-poder-del-data-warehousing-en-aws/">Amazon QuickSight</a>, puedes transformar datos detallados de facturación en gráficos claros y útiles.</strong> Esta guía te muestra cómo integrar estas herramientas para analizar y optimizar tus gastos en la nube, con configuraciones específicas para España.</p>

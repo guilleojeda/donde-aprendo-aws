@@ -7,19 +7,16 @@ publishedTimestamp: "2024-05-18T00:59:00.192Z"
 modifiedTimestamp: "2026-10-04T21:26:34-03:00"
 review:
   date: "2026-10-04"
-cover: "/assets/blog/e9f2fc671d3e9516f2345bb7.png"
-coverAlt: "Nube central rodeada por círculos con iconos de distintos dispositivos"
+cover: "/assets/blog/editorial-practica.png"
+coverAlt: "Un cuaderno abierto con una secuencia de estaciones y un camino azul con punto naranja."
 indexOrder: 2
-ogImage: "/assets/blog/e9f2fc671d3e9516f2345bb7.png"
+ogImage: "/assets/blog/editorial-practica.png"
 related:
   - title: "Aprender AWS desde cero: una ruta práctica con recursos en español"
     url: "https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/"
-    image: "/assets/blog/9eb7bc020e08de9a43291902.jpg"
-    imageAlt: "Nube central conectada a varios iconos circulares sobre fondo oscuro"
   - title: "Cómo reducir costos en AWS: 10 estrategias para optimizar tu factura"
     url: "https://dondeaprendoaws.com/blog/10-estrategias-de-optimizacion-de-costos-en-aws/"
-    image: "/assets/blog/74f152c85b46e1ac5ea004f9.jpg"
-    imageAlt: "Icono de nube rodeado por círculos con engranajes, datos y ubicaciones"
+
 ---
 
 

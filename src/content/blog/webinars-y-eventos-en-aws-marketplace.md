@@ -4,22 +4,17 @@ description: "Descubre cómo los webinars y eventos en AWS Marketplace pueden tr
 author: "guille-ojeda"
 publishedAt: "2024-04-28"
 publishedTimestamp: "2024-04-28T22:20:08.853Z"
-cover: "/assets/blog/8f2a908f4bdb73449da17e82.jpg"
-coverAlt: "Nube delineada con un botón de reproducción sobre un diagrama de flujo"
-ogImage: "/assets/blog/8f2a908f4bdb73449da17e82.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "¿Qué son los endpoints de VPC en AWS?"
     url: "https://dondeaprendoaws.com/blog/que-son-los-endpoints-de-vpc-en-aws/"
-    image: "/assets/blog/784749ef7570c8a485edf97b.jpg"
-    imageAlt: ""
   - title: "Políticas de Control de Servicios (SCPs) en AWS"
     url: "https://dondeaprendoaws.com/blog/politicas-de-control-de-servicios-scps-en-aws/"
-    image: "/assets/blog/ae0015b4c4fa992bfdc8c817.jpg"
-    imageAlt: ""
   - title: "AWS Lambda en Profundidad"
     url: "https://dondeaprendoaws.com/blog/aws-lambda-en-profundidad/"
-    image: "/assets/blog/fc7f86cd5d9d53b7ba70da04.jpg"
-    imageAlt: ""
+
 ---
 
 <p>: Una Guía Esencial</p>

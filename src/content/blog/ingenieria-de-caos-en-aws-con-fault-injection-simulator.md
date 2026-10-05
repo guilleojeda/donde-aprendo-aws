@@ -4,22 +4,17 @@ description: "Aprende cómo fortalecer tus sistemas en AWS con la ingeniería de
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T01:48:43.97Z"
-cover: "/assets/blog/0a0b1cf017845abee5cf215d.png"
-coverAlt: "Nube con un escudo y varios rayos bajo ella"
-ogImage: "/assets/blog/0a0b1cf017845abee5cf215d.png"
+cover: "/assets/blog/editorial-practica.png"
+coverAlt: "Un cuaderno abierto con una secuencia de estaciones y un camino azul con punto naranja."
+ogImage: "/assets/blog/editorial-practica.png"
 related:
   - title: "Servicios de AWS para Frontend"
     url: "https://dondeaprendoaws.com/blog/servicios-de-aws-para-frontend/"
-    image: "/assets/blog/31bdf1ca2f3b6c51213246c8.jpg"
-    imageAlt: ""
   - title: "Mejores Prácticas de Observabilidad en AWS"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/"
-    image: "/assets/blog/225d18fffd41e9eec388a76e.jpg"
-    imageAlt: ""
   - title: "Desarrollo en la nube: fundamentos esenciales"
     url: "https://dondeaprendoaws.com/blog/desarrollo-en-la-nube-fundamentos-esenciales/"
-    image: "/assets/blog/9257652addf07f39008f550d.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Descubre cómo hacer tus sistemas en AWS más fuertes con la ingeniería del caos utilizando <a href="https://aws.amazon.com/es/fis" rel="noopener noreferrer" target="_blank">AWS Fault Injection Simulator</a> (AWS FIS). Este enfoque te permite identificar y arreglar vulnerabilidades antes de que causen problemas reales, asegurándote de que tus aplicaciones puedan manejar situaciones difíciles sin afectar a los usuarios finales. Aquí tienes un resumen rápido de lo que aprenderás:</p>

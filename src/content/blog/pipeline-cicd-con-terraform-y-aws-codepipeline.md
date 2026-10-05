@@ -4,22 +4,17 @@ description: "Automatiza tus despliegues en AWS con un pipeline CI/CD usando Ter
 author: "guille-ojeda"
 publishedAt: "2025-02-13"
 publishedTimestamp: "2025-02-13T00:13:18.43Z"
-cover: "/assets/blog/8c8805d819a48bf8b59f25eb.jpg"
-coverAlt: "Escritorio con dos monitores, código en pantalla y una planta"
-ogImage: "/assets/blog/8c8805d819a48bf8b59f25eb.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "10 Preguntas Frecuentes sobre Machine Learning en AWS"
     url: "https://dondeaprendoaws.com/blog/10-preguntas-frecuentes-sobre-machine-learning-en-aws/"
-    image: "/assets/blog/5152d1b598aa9df8aaa8e72c.jpg"
-    imageAlt: ""
   - title: "Grupos de Estudio AWS en Reddit 2024"
     url: "https://dondeaprendoaws.com/blog/grupos-de-estudio-aws-en-reddit-2024/"
-    image: "/assets/blog/5aabd355c99039c456c8249b.jpg"
-    imageAlt: ""
   - title: "Comprendiendo Kubernetes y Amazon EKS"
     url: "https://dondeaprendoaws.com/blog/comprendiendo-kubernetes-y-amazon-eks/"
-    image: "/assets/blog/066e0f22ea88769f71d0c039.png"
-    imageAlt: ""
+
 ---
 
 <p><strong>¿Quieres automatizar tus despliegues en AWS de forma eficiente y segura?</strong> Configurar un pipeline CI/CD con <a href="https://www.terraform.io/" rel="noopener noreferrer" target="_blank">Terraform</a> y <a href="https://docs.aws.amazon.com/codepipeline/latest/userguide/welcome.html" rel="noopener noreferrer" target="_blank">AWS CodePipeline</a> es la solución. Este enfoque combina <a href="https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-aws-cloudformation/">infraestructura como código</a> y servicios administrados para acelerar el desarrollo.</p>

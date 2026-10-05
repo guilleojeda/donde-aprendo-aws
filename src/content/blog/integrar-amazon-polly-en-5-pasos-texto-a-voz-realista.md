@@ -4,22 +4,17 @@ description: "Aprende a integrar Amazon Polly en tus aplicaciones en 5 pasos y a
 author: "guille-ojeda"
 publishedAt: "2024-05-13"
 publishedTimestamp: "2024-05-13T05:08:34.138Z"
-cover: "/assets/blog/35cbdc26cad1c09b7dd2fc81.jpg"
-coverAlt: "Perfil de una cabeza con ondas sonoras y circuitos en su interior"
-ogImage: "/assets/blog/35cbdc26cad1c09b7dd2fc81.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Correlación de Eventos con Step Functions y CloudWatch"
     url: "https://dondeaprendoaws.com/blog/correlacion-de-eventos-con-step-functions-y-cloudwatch/"
-    image: "/assets/blog/1ddc83af1d16737de7b3fdb8.jpg"
-    imageAlt: ""
   - title: "9 Mejores Prácticas de Seguridad para IaC en AWS"
     url: "https://dondeaprendoaws.com/blog/9-mejores-practicas-de-seguridad-para-iac-en-aws/"
-    image: "/assets/blog/0b84e7609d9a01cdc2449b30.jpg"
-    imageAlt: ""
   - title: "Clases de Almacenamiento de Amazon S3"
     url: "https://dondeaprendoaws.com/blog/clases-de-almacenamiento-de-amazon-s3/"
-    image: "/assets/blog/783a6beb62602d5d128b9c75.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Convierte fácilmente texto en voz realista con <a href="https://aws.amazon.com/polly/">Amazon Polly</a>, un servicio de síntesis de voz con tecnología de aprendizaje automático avanzada. Sigue estos 5 sencillos pasos:</p>

@@ -4,22 +4,17 @@ description: "Aprende a automatizar flujos de trabajo en AWS utilizando Step Fun
 author: "guille-ojeda"
 publishedAt: "2025-03-17"
 publishedTimestamp: "2025-03-17T03:58:59.832000+00:00"
-cover: "/assets/blog/1ddc83af1d16737de7b3fdb8.jpg"
-coverAlt: "Monitor con un panel de datos en una oficina tenue"
-ogImage: "/assets/blog/1ddc83af1d16737de7b3fdb8.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Monitoreo de contenedores con CloudWatch Logs"
     url: "https://dondeaprendoaws.com/blog/monitoreo-de-contenedores-con-cloudwatch-logs/"
-    image: "/assets/blog/2b59cebb297e58db709a33a5.jpg"
-    imageAlt: "Thumbnail for: Monitoreo de contenedores con CloudWatch Logs"
   - title: "¿Qué es AWS Lambda? Preguntas y Respuestas"
     url: "https://dondeaprendoaws.com/blog/que-es-aws-lambda-preguntas-y-respuestas/"
-    image: "/assets/blog/70579f832030c8f349b01339.jpg"
-    imageAlt: "Thumbnail for: ¿Qué es AWS Lambda? Preguntas y Respuestas"
   - title: "AWS Web Application Firewall (WAF)"
     url: "https://dondeaprendoaws.com/blog/aws-web-application-firewall-waf/"
-    image: "/assets/blog/f5ae0710f3fb74786f37f833.png"
-    imageAlt: "Thumbnail for: AWS Web Application Firewall (WAF)"
+
 ---
 
 <p>Combinar <strong><a href="https://docs.aws.amazon.com/step-functions/" rel="nofollow noopener noreferrer" target="_blank">AWS Step Functions</a></strong> y <strong><a href="https://docs.aws.amazon.com/cloudwatch/" rel="nofollow noopener noreferrer" target="_blank">Amazon CloudWatch</a></strong> te permite automatizar flujos de trabajo y tomar decisiones basadas en eventos en tiempo real. Aquí tienes lo esencial:</p>

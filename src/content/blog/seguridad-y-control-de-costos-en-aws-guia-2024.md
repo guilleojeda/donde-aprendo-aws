@@ -4,22 +4,17 @@ description: "Descubre estrategias efectivas para la gestión de costos y la seg
 author: "guille-ojeda"
 publishedAt: "2024-05-11"
 publishedTimestamp: "2024-05-11T04:46:00.274Z"
-cover: "/assets/blog/fa1b6e3bfee7c71b39327fcd.jpg"
-coverAlt: "Candado junto a un gráfico circular dividido en segmentos"
-ogImage: "/assets/blog/fa1b6e3bfee7c71b39327fcd.jpg"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related:
   - title: "Logs de acceso en ELB: Guía completa"
     url: "https://dondeaprendoaws.com/blog/logs-de-acceso-en-elb-guia-completa/"
-    image: "/assets/blog/fe79fa50612b43f06d41c37a.jpg"
-    imageAlt: ""
   - title: "Concurrencia Aprovisionada: Solución a Cold Starts en AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/concurrencia-aprovisionada-solucion-a-cold-starts-en-aws-lambda/"
-    image: "/assets/blog/4efa7f16e3c389136cc18ae2.png"
-    imageAlt: ""
   - title: "Características y Beneficios de AWS IoT Device Defender"
     url: "https://dondeaprendoaws.com/blog/caracteristicas-y-beneficios-de-aws-iot-device-defender/"
-    image: "/assets/blog/64ba25d52c7b46f1df3dfd5e.png"
-    imageAlt: ""
+
 ---
 
 <p>AWS ofrece herramientas y servicios clave para gestionar costos y seguridad en la nube:</p>

@@ -2,8 +2,8 @@
 import '../../styles/blog.css';
 import { getCollection, render } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import BlogHeader from '../../components/BlogHeader.astro';
-import BlogFooter from '../../components/BlogFooter.astro';
+import SiteHeader from '../../components/SiteHeader.astro';
+import SiteFooter from '../../components/SiteFooter.astro';
 import BlogArticleMetadata from '../../components/BlogArticleMetadata.astro';
 import { BLOG_CONTRIBUTORS } from '../../lib/blog-contributors.mjs';
 import { loadSiteCatalog } from '../../lib/site-catalog.mjs';
@@ -15,13 +15,21 @@ export async function getStaticPaths() {
   const resources = (catalog as Array<CatalogResource | CatalogEvent>)
     .filter((record): record is CatalogResource => record.recordType !== 'event');
   const paths = resolveLearningPaths(LEARNING_PATHS, resources, posts);
-  return posts.map((post) => ({
-    params: { slug: post.id },
-    props: { post, pathNavigation: articlePathNavigation(paths, post.id) },
-  }));
+  const postsByUrl = new Map(posts.map((post) => [`https://dondeaprendoaws.com/blog/${post.id}/`, post]));
+  return posts.map((post) => {
+    const related = post.data.related.map((link) => {
+      const destination = postsByUrl.get(link.url);
+      if (!destination) throw new Error(`Related article missing from ${post.id}: ${link.url}`);
+      return { ...link, image: destination.data.cover, imageAlt: destination.data.coverAlt };
+    });
+    return {
+      params: { slug: post.id },
+      props: { post, related, pathNavigation: articlePathNavigation(paths, post.id) },
+    };
+  });
 }
 
-const { post, pathNavigation } = Astro.props;
+const { post, related, pathNavigation } = Astro.props;
 const { Content } = await render(post);
 const canonical = new URL(`/blog/${post.id}/`, Astro.site ?? Astro.url).href;
 const author = BLOG_CONTRIBUTORS[post.data.author];
@@ -41,7 +49,7 @@ const review = post.data.review && {
   modifiedTimestamp={post.data.modifiedTimestamp}
   author={author}
 >
-  <BlogHeader />
+  <SiteHeader />
   <main id="contenido" tabindex="-1" class="blog-article">
     <header class="blog-article__header">
       <h1>{post.data.title}</h1>
@@ -58,7 +66,7 @@ const review = post.data.review && {
     </article>
     {pathNavigation.length > 0 && (
       <nav class="blog-paths" aria-labelledby="blog-paths-title">
-        <h2 id="blog-paths-title">Continuá tu recorrido</h2>
+        <h2 id="blog-paths-title">Continúa tu recorrido</h2>
         <ul>
           {pathNavigation.map((path) => <li>
             <p>Este artículo forma parte de <strong>{path.title}</strong>.</p>
@@ -73,24 +81,24 @@ const review = post.data.review && {
         </ul>
       </nav>
     )}
-    {post.data.related.length > 0 && (
+    {related.length > 0 && (
       <section class="blog-related" aria-labelledby="blog-related-title">
         <div class="blog-related__header">
-          <h2 id="blog-related-title">Seguí leyendo</h2>
+          <h2 id="blog-related-title">Sigue leyendo</h2>
           <a href="/blog/" aria-label="Volver al blog" class="blog-related__home">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 11.5 12 4l9 7.5M5.5 10.5V20h13v-9.5M9.5 20v-6h5v6" /></svg>
           </a>
         </div>
         <div class="blog-related__cards">
-          {post.data.related.map((related) => (
-            <a class="blog-related__card" href={related.url}>
-              <img src={related.image} alt={related.imageAlt} loading="lazy" />
-              <h3>{related.title}</h3>
+          {related.map((link) => (
+            <a class="blog-related__card" href={link.url}>
+              <img src={link.image} alt={link.imageAlt} loading="lazy" />
+              <h3>{link.title}</h3>
             </a>
           ))}
         </div>
       </section>
     )}
   </main>
-  <BlogFooter />
+  <SiteFooter />
 </BaseLayout>

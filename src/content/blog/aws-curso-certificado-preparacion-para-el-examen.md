@@ -4,22 +4,17 @@ description: "Prepárate para el examen de certificación de AWS con consejos, t
 author: "guille-ojeda"
 publishedAt: "2024-01-23"
 publishedTimestamp: "2024-01-23T17:34:37.557Z"
-cover: "/assets/blog/4cb1b939d8aa6ff5e1dc2ac1.jpg"
-coverAlt: "Perfil de una cabeza con una nube, un engranaje y una bombilla en su interior"
-ogImage: "/assets/blog/4cb1b939d8aa6ff5e1dc2ac1.jpg"
+cover: "/assets/blog/editorial-certificacion.png"
+coverAlt: "Tres tarjetas de estudio con apuntes y hitos sobre un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-certificacion.png"
 related:
   - title: "Cómo automatizar ajustes de políticas con AWS Security Hub"
     url: "https://dondeaprendoaws.com/blog/como-automatizar-ajustes-de-politicas-con-aws-security-hub/"
-    image: "/assets/blog/0a51232b23a8b40ad5b29e21.jpg"
-    imageAlt: ""
   - title: "Estrategias de Caché Rentables para Apps Serverless"
     url: "https://dondeaprendoaws.com/blog/estrategias-de-cache-rentables-para-apps-serverless/"
-    image: "/assets/blog/ddae590c4e3ebe901251f97c.webp"
-    imageAlt: ""
   - title: "Amazon DynamoDB: Guía Básica"
     url: "https://dondeaprendoaws.com/blog/amazon-dynamodb-guia-basica/"
-    image: "/assets/blog/a45735d6d45d12223256fbc4.png"
-    imageAlt: ""
+
 ---
 
 <p>Sin duda, la mayoría estará de acuerdo en que <strong>prepararse adecuadamente para los exámenes de certificación de AWS puede resultar todo un desafío</strong>.</p>

@@ -4,22 +4,17 @@ description: "Automatiza y optimiza la gestión de alertas de seguridad en AWS c
 author: "guille-ojeda"
 publishedAt: "2025-03-27"
 publishedTimestamp: "2025-03-27T01:18:04.566000+00:00"
-cover: "/assets/blog/6f0cbd991f1cfe77b09e89dd.jpg"
-coverAlt: "Dos personas observan paneles de control; el logotipo de AWS aparece en la pared"
-ogImage: "/assets/blog/6f0cbd991f1cfe77b09e89dd.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "Logs de acceso en ELB: Guía completa"
     url: "https://dondeaprendoaws.com/blog/logs-de-acceso-en-elb-guia-completa/"
-    image: "/assets/blog/fe79fa50612b43f06d41c37a.jpg"
-    imageAlt: "Thumbnail for: Logs de acceso en ELB: Guía completa"
   - title: "Pipeline CI/CD con Terraform y AWS CodePipeline"
     url: "https://dondeaprendoaws.com/blog/pipeline-cicd-con-terraform-y-aws-codepipeline/"
-    image: "/assets/blog/8c8805d819a48bf8b59f25eb.jpg"
-    imageAlt: "Thumbnail for: Pipeline CI/CD con Terraform y AWS CodePipeline"
   - title: "AWS Community Day 2024: Calendario de Eventos"
     url: "https://dondeaprendoaws.com/blog/aws-community-day-2024-calendario-de-eventos/"
-    image: "/assets/blog/8a72720666074692888beb45.png"
-    imageAlt: "Thumbnail for: AWS Community Day 2024: Calendario de Eventos"
+
 ---
 
 <p><strong>¿Cómo gestionar alertas de <a href="https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/">seguridad en AWS</a> sin perder tiempo ni precisión?</strong> El <strong>Machine Learning (ML)</strong> permite automatizar y optimizar el proceso de clasificación de alertas, superando los problemas de los métodos manuales como la sobrecarga de alertas, fatiga del analista y tiempos de respuesta lentos. Con ML puedes:</p>

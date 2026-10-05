@@ -4,22 +4,17 @@ description: "Aprende a monitorizar contenedores con CloudWatch Logs, centraliza
 author: "guille-ojeda"
 publishedAt: "2025-06-02"
 publishedTimestamp: "2025-06-02T08:56:16.722000+00:00"
-cover: "/assets/blog/2b59cebb297e58db709a33a5.jpg"
-coverAlt: "Cubo transparente con gráficos iluminados en una sala de servidores"
-ogImage: "/assets/blog/2b59cebb297e58db709a33a5.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "10 Prácticas Recomendadas para Integrar EUC en AWS"
     url: "https://dondeaprendoaws.com/blog/10-practicas-recomendadas-para-integrar-euc-en-aws/"
-    image: "/assets/blog/278a42e279f664f5331f81e7.png"
-    imageAlt: "Thumbnail for: 10 Prácticas Recomendadas para Integrar EUC en AWS"
   - title: "¿Cómo Escala DynamoDB? Modos On Demand y Provisioned"
     url: "https://dondeaprendoaws.com/blog/como-escala-dynamodb-modos-on-demand-y-provisioned/"
-    image: "/assets/blog/ce62e0cc8508d5055bba53b4.png"
-    imageAlt: "Thumbnail for: ¿Cómo Escala DynamoDB? Modos On Demand y Provisioned"
   - title: "AWS curso certificado: preguntas frecuentes"
     url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-preguntas-frecuentes/"
-    image: "/assets/blog/39294214939c4754eb0b11e2.png"
-    imageAlt: "Thumbnail for: AWS curso certificado: preguntas frecuentes"
+
 ---
 
 <p><strong><a href="https://aws.amazon.com/cloudwatch/" rel="nofollow noopener noreferrer" target="_blank">Amazon CloudWatch</a> Logs</strong> es una herramienta clave para monitorizar contenedores. Permite centralizar registros, analizar métricas en tiempo real y responder rápidamente a problemas. Aquí tienes un resumen rápido de lo que ofrece:</p>

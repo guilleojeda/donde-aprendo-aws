@@ -4,22 +4,17 @@ description: "Aprende a integrar AWS Transfer Family con Amazon EFS para una tra
 author: "guille-ojeda"
 publishedAt: "2024-05-05"
 publishedTimestamp: "2024-05-05T05:44:31.414Z"
-cover: "/assets/blog/4f1c44f2f3d79e3f40174550.jpg"
-coverAlt: "Diagrama de flechas que muestran el paso de datos entre dos nubes"
-ogImage: "/assets/blog/4f1c44f2f3d79e3f40174550.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "5 Prácticas de Seguridad para Lambda Authorizers"
     url: "https://dondeaprendoaws.com/blog/5-practicas-de-seguridad-para-lambda-authorizers/"
-    image: "/assets/blog/e838de22cc856de64a0d3bdc.jpg"
-    imageAlt: ""
   - title: "AWS Community Day 2024: Calendario de Eventos"
     url: "https://dondeaprendoaws.com/blog/aws-community-day-2024-calendario-de-eventos/"
-    image: "/assets/blog/8a72720666074692888beb45.png"
-    imageAlt: ""
   - title: "Estrategias de Interoperabilidad Multi-Cloud con AWS"
     url: "https://dondeaprendoaws.com/blog/estrategias-de-interoperabilidad-multi-cloud-con-aws/"
-    image: "/assets/blog/36e16d8c286c92c9ff8903fc.jpg"
-    imageAlt: ""
+
 ---
 
 <p><a href="https://aws.amazon.com/aws-transfer-family/" rel="noopener noreferrer" target="_blank">AWS Transfer Family</a> es un servicio de transferencia de archivos seguro y escalable que te permite transferir archivos hacia y desde sistemas de archivos de Amazon Elastic File System (EFS). Al integrar <a href="https://aws.amazon.com/aws-transfer-family/" rel="noopener noreferrer" target="_blank">AWS Transfer Family</a> con <a href="https://aws.amazon.com/efs/" rel="noopener noreferrer" target="_blank">Amazon EFS</a>, puedes acceder a tus archivos desde cualquier lugar, dispositivo y en cualquier momento, utilizando protocolos de transferencia como SFTP, FTPS y FTP.</p>

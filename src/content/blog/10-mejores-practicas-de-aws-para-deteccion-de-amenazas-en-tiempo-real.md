@@ -5,9 +5,9 @@ author: "guille-ojeda"
 publishedAt: "2024-05-11"
 publishedTimestamp: "2024-05-11T05:27:40.366Z"
 modifiedTimestamp: "2026-10-04T21:44:34-03:00"
-cover: "/assets/blog/c03425ae80465af167cf55e5.jpg"
-coverAlt: "Nube azul formada por piezas de rompecabezas con símbolos de seguridad"
-ogImage: "/assets/blog/c03425ae80465af167cf55e5.jpg"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related: []
 ---
 

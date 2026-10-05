@@ -4,22 +4,17 @@ description: "Guía completa para obtener la certificación de AWS de manera gra
 author: "guille-ojeda"
 publishedAt: "2024-01-24"
 publishedTimestamp: "2024-01-24T01:43:07.262Z"
-cover: "/assets/blog/50f3a9e16de9a8db356f87d5.jpg"
-coverAlt: "Camino que conecta una nube con una bombilla y varios servidores"
-ogImage: "/assets/blog/50f3a9e16de9a8db356f87d5.jpg"
+cover: "/assets/blog/editorial-certificacion.png"
+coverAlt: "Tres tarjetas de estudio con apuntes y hitos sobre un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-certificacion.png"
 related:
   - title: "Cómo automatizar ajustes de políticas con AWS Security Hub"
     url: "https://dondeaprendoaws.com/blog/como-automatizar-ajustes-de-politicas-con-aws-security-hub/"
-    image: "/assets/blog/0a51232b23a8b40ad5b29e21.jpg"
-    imageAlt: ""
   - title: "7 Estrategias de Serverless para Startups: Optimiza Costos"
     url: "https://dondeaprendoaws.com/blog/7-estrategias-de-serverless-para-startups-optimiza-costos/"
-    image: "/assets/blog/d85eb8d10d11d152a0198dea.jpg"
-    imageAlt: ""
   - title: "Tipos de Instancia en Amazon RDS y Amazon Aurora"
     url: "https://dondeaprendoaws.com/blog/tipos-de-instancia-en-amazon-rds-y-amazon-aurora/"
-    image: "/assets/blog/aa03147d445ee06a398e3780.jpg"
-    imageAlt: ""
+
 ---
 
 <p><strong>Obtener una certificación de AWS puede parecer abrumador al principio</strong>. Pero en realidad, con los recursos adecuados y una buena guía, <strong>es perfectamente posible prepararse para la certificación de AWS de manera gratuita</strong>.</p>

@@ -4,22 +4,17 @@ description: "Explora cómo Amazon ElastiCache mejora el rendimiento de aplicaci
 author: "guille-ojeda"
 publishedAt: "2024-05-08"
 publishedTimestamp: "2024-05-08T04:19:02.817Z"
-cover: "/assets/blog/ddce4c2f6e4102cbcd2b90ad.png"
-coverAlt: "Nube azul rellena de cuadrados verdes sobre franjas azules"
-ogImage: "/assets/blog/ddce4c2f6e4102cbcd2b90ad.png"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "Pipeline CI/CD con Terraform y AWS CodePipeline"
     url: "https://dondeaprendoaws.com/blog/pipeline-cicd-con-terraform-y-aws-codepipeline/"
-    image: "/assets/blog/8c8805d819a48bf8b59f25eb.jpg"
-    imageAlt: ""
   - title: "Guía Completa sobre Amazon EFS y FSX"
     url: "https://dondeaprendoaws.com/blog/guia-completa-sobre-amazon-efs-y-fsx/"
-    image: "/assets/blog/9018003cbe19f3288dffc90d.jpg"
-    imageAlt: ""
   - title: "Introducción a los servicios de Amazon Web Services"
     url: "https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/"
-    image: "/assets/blog/e1091b2adcfd9ac3b3889cb0.jpg"
-    imageAlt: ""
+
 ---
 
 <p><strong>¿Qué es <a href="https://aws.amazon.com/elasticache/" rel="noopener noreferrer" target="_blank">Amazon ElastiCache</a>?</strong></p>

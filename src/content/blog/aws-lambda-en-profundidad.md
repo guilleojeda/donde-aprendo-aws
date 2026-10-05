@@ -4,22 +4,17 @@ description: "Descubre todo sobre AWS Lambda, desde cómo funciona y cómo usarl
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T02:11:48.464Z"
-cover: "/assets/blog/fc7f86cd5d9d53b7ba70da04.jpg"
-coverAlt: "Nube blanca en el centro de anillos y figuras geométricas de colores"
-ogImage: "/assets/blog/fc7f86cd5d9d53b7ba70da04.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Configurar CORS en HTTP API Gateway"
     url: "https://dondeaprendoaws.com/blog/configurar-cors-en-http-api-gateway/"
-    image: "/assets/blog/b7ca17278c2b7e43c95dfeec.jpg"
-    imageAlt: ""
   - title: "Ahorro de Costos en AWS con Instancias Reservadas y Savings Plans"
     url: "https://dondeaprendoaws.com/blog/ahorro-de-costos-en-aws-con-instancias-reservadas-y-savings-plans/"
-    image: "/assets/blog/201da9e2ec2ae649f47566a7.jpg"
-    imageAlt: ""
   - title: "AWS Seguridad: Mejores Prácticas"
     url: "https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/"
-    image: "/assets/blog/58bea5d60c133d57e4a0bdbf.jpg"
-    imageAlt: ""
+
 ---
 
 <p>AWS Lambda te permite desplegar aplicaciones y servicios sin preocuparte por los servidores. Aquí te comparto una guía completa para entender y aprovechar AWS Lambda al máximo:</p>

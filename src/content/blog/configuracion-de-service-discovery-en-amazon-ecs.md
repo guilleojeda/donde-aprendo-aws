@@ -4,22 +4,17 @@ description: "Aprende a configurar el Service Discovery en Amazon ECS para mejor
 author: "guille-ojeda"
 publishedAt: "2024-05-19"
 publishedTimestamp: "2024-05-19T00:02:00.421Z"
-cover: "/assets/blog/06c78ff6dbda05d66c1f63e8.jpg"
-coverAlt: "Lupa grande frente a una red de nodos y figuras geométricas"
-ogImage: "/assets/blog/06c78ff6dbda05d66c1f63e8.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Concurrencia Aprovisionada: Solución a Cold Starts en AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/concurrencia-aprovisionada-solucion-a-cold-starts-en-aws-lambda/"
-    image: "/assets/blog/4efa7f16e3c389136cc18ae2.png"
-    imageAlt: ""
   - title: "AWS OpsWorks: Automatiza Despliegues con Chef"
     url: "https://dondeaprendoaws.com/blog/aws-opsworks-automatiza-despliegues-con-chef/"
-    image: "/assets/blog/6b2f0b16a8f28318691c2a8d.jpg"
-    imageAlt: ""
   - title: "Guía de UEBA para la Seguridad de AWS"
     url: "https://dondeaprendoaws.com/blog/guia-de-ueba-para-la-seguridad-de-aws/"
-    image: "/assets/blog/77827c07de64ac355ca01278.jpg"
-    imageAlt: ""
+
 ---
 
 <p>El Service Discovery permite que los contenedores se comuniquen entre sí de manera eficiente en un entorno dinámico. Configurar este servicio en <a href="https://aws.amazon.com/ecs/" rel="noopener noreferrer" target="_blank">Amazon ECS</a> ofrece los siguientes beneficios:</p>

@@ -5,14 +5,13 @@ author: "guille-ojeda"
 publishedAt: "2024-05-20"
 publishedTimestamp: "2024-05-20T01:10:01.307Z"
 modifiedTimestamp: "2026-10-04T21:26:34-03:00"
-cover: "/assets/blog/74f152c85b46e1ac5ea004f9.jpg"
-coverAlt: "Icono de nube rodeado por círculos con engranajes, datos y ubicaciones"
-ogImage: "/assets/blog/74f152c85b46e1ac5ea004f9.jpg"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "Costos de red en AWS: 10 estrategias para reducir la factura"
     url: "https://dondeaprendoaws.com/blog/10-estrategias-para-optimizar-costos-de-red-en-aws/"
-    image: "/assets/blog/732b4db41baecb1699e72d80.webp"
-    imageAlt: "Monitor con gráficos sobre un escritorio junto a una planta y una taza"
+
 ---
 
 Para reducir costos en AWS, primero identifica qué cargas generan el gasto y quién puede actuar sobre ellas. Después elimina capacidad ociosa, ajusta recursos y retención, y evalúa descuentos por compromiso cuando el uso sea estable. Mide el costo total y el costo por unidad de trabajo junto con el rendimiento: una factura menor no sirve si rompe la disponibilidad o hace más lenta la aplicación.

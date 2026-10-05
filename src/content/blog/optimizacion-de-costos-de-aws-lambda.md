@@ -5,22 +5,17 @@ author: "guille-ojeda"
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T01:39:56.043Z"
 modifiedTimestamp: "2026-10-01T15:14:05-03:00"
-cover: "/assets/blog/149aa7de30b1ec6844a9daf3.jpg"
-coverAlt: "Balanza con una nube en un platillo y una pila triangular en el otro"
-ogImage: "/assets/blog/149aa7de30b1ec6844a9daf3.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Configuración de Service Discovery en Amazon ECS"
     url: "https://dondeaprendoaws.com/blog/configuracion-de-service-discovery-en-amazon-ecs/"
-    image: "/assets/blog/06c78ff6dbda05d66c1f63e8.jpg"
-    imageAlt: ""
   - title: "Tipos y Tamaños de Instancias EC2: Guía Completa"
     url: "https://dondeaprendoaws.com/blog/tipos-y-tamanos-de-instancias-ec2-guia-completa/"
-    image: "/assets/blog/c17586bd518131452b0a717a.png"
-    imageAlt: ""
   - title: "Certificación AWS gratis: Materiales de estudio"
     url: "https://dondeaprendoaws.com/blog/certificacion-aws-gratis-materiales-de-estudio/"
-    image: "/assets/blog/0d33d48b094b306e8f1fb75f.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Si quieres reducir tus gastos en AWS Lambda sin sacrificar el rendimiento, estás en el lugar correcto. Aquí te presento un resumen de estrategias efectivas para optimizar costos:</p>

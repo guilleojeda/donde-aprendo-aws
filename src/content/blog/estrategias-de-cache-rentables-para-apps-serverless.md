@@ -4,22 +4,17 @@ description: "Descubre cómo implementar estrategias de caché en aplicaciones s
 author: "guille-ojeda"
 publishedAt: "2024-10-27"
 publishedTimestamp: "2024-10-27T02:26:14.893Z"
-cover: "/assets/blog/ddae590c4e3ebe901251f97c.webp"
-coverAlt: "Portátil con paneles de código y gráficos junto a plantas"
-ogImage: "/assets/blog/ddae590c4e3ebe901251f97c.webp"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Recursos Personalizados en CloudFormation con Lambda"
     url: "https://dondeaprendoaws.com/blog/recursos-personalizados-en-cloudformation-con-lambda/"
-    image: "/assets/blog/e66856987698eaa908dfab80.jpg"
-    imageAlt: ""
   - title: "¿Cómo Escala DynamoDB? Modos On Demand y Provisioned"
     url: "https://dondeaprendoaws.com/blog/como-escala-dynamodb-modos-on-demand-y-provisioned/"
-    image: "/assets/blog/ce62e0cc8508d5055bba53b4.png"
-    imageAlt: ""
   - title: "Conceptos Básicos y Avanzados de Amazon VPC"
     url: "https://dondeaprendoaws.com/blog/conceptos-basicos-y-avanzados-de-amazon-vpc/"
-    image: "/assets/blog/12c27432a1ba20e5bffcb7b0.jpg"
-    imageAlt: ""
+
 ---
 
 <p><strong>¿Necesitas hacer tus apps serverless más rápidas y baratas? El caché es la solución.</strong></p>

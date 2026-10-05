@@ -4,22 +4,17 @@ description: "Comparación detallada entre Amazon RDS y Amazon Aurora, incluyend
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T01:35:47.279Z"
-cover: "/assets/blog/aa03147d445ee06a398e3780.jpg"
-coverAlt: "Dos nubes diferentes sobre platillos separados de una balanza"
-ogImage: "/assets/blog/aa03147d445ee06a398e3780.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "Guía para Implementar Machine Learning con Amazon SageMaker"
     url: "https://dondeaprendoaws.com/blog/guia-para-implementar-machine-learning-con-amazon-sagemaker/"
-    image: "/assets/blog/57b9e13953de77f8b6210bc2.jpg"
-    imageAlt: ""
   - title: "Checklist para automatizar cumplimiento en AWS"
     url: "https://dondeaprendoaws.com/blog/checklist-para-automatizar-cumplimiento-en-aws/"
-    image: "/assets/blog/a46b50f31e32898c7df40cce.jpg"
-    imageAlt: ""
   - title: "AWS OpsWorks para Chef y Puppet: Preguntas Frecuentes"
     url: "https://dondeaprendoaws.com/blog/aws-opsworks-para-chef-y-puppet-preguntas-frecuentes/"
-    image: "/assets/blog/865feccab5c0ad8e72605945.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Al decidir entre <strong>Amazon RDS</strong> y <strong>Amazon Aurora</strong> para tu base de datos en la nube, es crucial entender sus diferencias y ventajas. Aquí te ofrecemos un resumen rápido para ayudarte a elegir la opción más adecuada para tu proyecto:</p>

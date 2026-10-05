@@ -4,22 +4,17 @@ description: "Descubre cómo SageMaker Clarify puede ayudarte a detectar y mitig
 author: "guille-ojeda"
 publishedAt: "2024-05-17"
 publishedTimestamp: "2024-05-17T01:45:54.229Z"
-cover: "/assets/blog/055e62c5fbddebf94a936e62.jpg"
-coverAlt: "Lupa circular muestra un espectro de colores entre iconos de gráficos"
-ogImage: "/assets/blog/055e62c5fbddebf94a936e62.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "CloudWatch y EventBridge: Integración"
     url: "https://dondeaprendoaws.com/blog/cloudwatch-y-eventbridge-integracion/"
-    image: "/assets/blog/382dfac33d6132edaa6b8e63.jpg"
-    imageAlt: ""
   - title: "Arquitecturas Dirigidas por Eventos en AWS"
     url: "https://dondeaprendoaws.com/blog/arquitecturas-dirigidas-por-eventos-en-aws/"
-    image: "/assets/blog/1a0df738c1ab9c313bf60144.jpg"
-    imageAlt: ""
   - title: "Gestionando Múltiples Cuentas de AWS con AWS Organizations"
     url: "https://dondeaprendoaws.com/blog/gestionando-multiples-cuentas-de-aws-con-aws-organizations/"
-    image: "/assets/blog/f49b26fc90f711fa88bba709.jpg"
-    imageAlt: ""
+
 ---
 
 <p><a href="https://aws.amazon.com/sagemaker/clarify/" rel="noopener noreferrer" target="_blank"><strong>SageMaker Clarify</strong></a> es una herramienta de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> que permite detectar sesgos en modelos de aprendizaje automático y explicar sus predicciones. Esto es crucial para garantizar decisiones automatizadas justas y transparentes, evitando que los modelos refuercen o aumenten los sesgos presentes en los datos.</p>

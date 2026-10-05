@@ -4,22 +4,17 @@ description: "Descubre cómo AWS facilita el uso de la Inteligencia Artificial c
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:08:46.131Z"
-cover: "/assets/blog/740fd46916e44bd2c61ce62c.png"
-coverAlt: "Nube conectada a un ojo, un engranaje y otros símbolos"
-ogImage: "/assets/blog/740fd46916e44bd2c61ce62c.png"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "Integración de GuardDuty de AWS para Inteligencia de Amenazas"
     url: "https://dondeaprendoaws.com/blog/integracion-de-guardduty-de-aws-para-inteligencia-de-amenazas/"
-    image: "/assets/blog/ce55ff284d28beb4aeeeab54.jpg"
-    imageAlt: ""
   - title: "Mejores Prácticas Para AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/"
-    image: "/assets/blog/020c3be0259dc50cecb2155a.png"
-    imageAlt: ""
   - title: "Cloud computing en español: fundamentos básicos"
     url: "https://dondeaprendoaws.com/blog/cloud-computing-en-espanol-fundamentos-basicos/"
-    image: "/assets/blog/9d8403a4cf66ec6c49656be3.jpg"
-    imageAlt: ""
+
 ---
 
 <p>Descubre cómo AWS transforma el uso de la Inteligencia Artificial (IA), facilitando tareas complejas con herramientas accesibles para todos. Aprende sobre:</p>

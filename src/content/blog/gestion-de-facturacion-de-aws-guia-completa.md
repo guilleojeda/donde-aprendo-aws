@@ -4,22 +4,17 @@ description: "Descubre cómo gestionar y optimizar tus costos en AWS con estrate
 author: "guille-ojeda"
 publishedAt: "2024-10-26"
 publishedTimestamp: "2024-10-26T18:40:19.127Z"
-cover: "/assets/blog/2363e8e50d51d42bcaec6ec4.webp"
-coverAlt: "Portátil con un panel de facturación sobre un escritorio"
-ogImage: "/assets/blog/2363e8e50d51d42bcaec6ec4.webp"
+cover: "/assets/blog/editorial-fundamentos.png"
+coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
+ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
   - title: "10 Estrategias de Optimización de Costos en AWS"
     url: "https://dondeaprendoaws.com/blog/10-estrategias-de-optimizacion-de-costos-en-aws/"
-    image: "/assets/blog/74f152c85b46e1ac5ea004f9.jpg"
-    imageAlt: ""
   - title: "AWS HealthScribe: IA Generativa para Diagnósticos Médicos"
     url: "https://dondeaprendoaws.com/blog/aws-healthscribe-ia-generativa-para-diagnosticos-medicos/"
-    image: "/assets/blog/cac2ef4bd724a0e8247e5e35.jpg"
-    imageAlt: ""
   - title: "AWS bases de datos: introducción básica"
     url: "https://dondeaprendoaws.com/blog/aws-bases-de-datos-introduccion-basica/"
-    image: "/assets/blog/7dd6e4771015e24de4a4bc0d.jpg"
-    imageAlt: ""
+
 ---
 
 <p><strong>¿Quieres controlar tus costos en <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a>? Esta guía te muestra exactamente cómo hacerlo.</strong></p>

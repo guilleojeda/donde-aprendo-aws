@@ -4,22 +4,17 @@ description: "Descubre cómo utilizar AWS Lambda para desarrollar eficientes mic
 author: "guille-ojeda"
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T00:50:24.052Z"
-cover: "/assets/blog/7db368f44486be089c66ca22.jpg"
-coverAlt: "Círculos de varios colores conectados por líneas punteadas"
-ogImage: "/assets/blog/7db368f44486be089c66ca22.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Estructuras multi-cuenta AWS para escalar"
     url: "https://dondeaprendoaws.com/blog/estructuras-multi-cuenta-aws-para-escalar/"
-    image: "/assets/blog/0e9e4bdd57782b78da6d878e.jpg"
-    imageAlt: ""
   - title: "CloudWatch y EventBridge: Integración"
     url: "https://dondeaprendoaws.com/blog/cloudwatch-y-eventbridge-integracion/"
-    image: "/assets/blog/382dfac33d6132edaa6b8e63.jpg"
-    imageAlt: ""
   - title: "Integrar Amazon Polly en 5 pasos: Texto a voz realista"
     url: "https://dondeaprendoaws.com/blog/integrar-amazon-polly-en-5-pasos-texto-a-voz-realista/"
-    image: "/assets/blog/35cbdc26cad1c09b7dd2fc81.jpg"
-    imageAlt: ""
+
 ---
 
 <p>AWS Lambda es una poderosa herramienta que te permite ejecutar código sin preocuparte por los servidores, pagando solo por el tiempo de ejecución. Ideal para microservicios, ofrece escalabilidad, alta disponibilidad y un enfoque en la lógica de negocio. Este artículo explora cómo usar AWS Lambda para desarrollar microservicios eficientes, desde la configuración y el código hasta la integración, el despliegue y el monitoreo. Descubre cómo puedes beneficiarte de AWS Lambda en diferentes casos de uso, desde el procesamiento de datos hasta el backend de aplicaciones móviles.</p>

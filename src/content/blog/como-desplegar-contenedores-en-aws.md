@@ -4,22 +4,17 @@ description: "Aprende a desplegar contenedores en AWS, conoce las ventajas, herr
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T00:56:38.087Z"
-cover: "/assets/blog/25f323bf6f07480e77ba86a0.jpg"
-coverAlt: "Nube sobre filas de bloques y contenedores de colores"
-ogImage: "/assets/blog/25f323bf6f07480e77ba86a0.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "5 Lecciones Clave del AWS Public Sector Summit 2024"
     url: "https://dondeaprendoaws.com/blog/5-lecciones-clave-del-aws-public-sector-summit-2024/"
-    image: "/assets/blog/f4d9080a8f5eea1a871c1a1b.jpg"
-    imageAlt: ""
   - title: "Integración SIEM-AWS: 7 Consejos Prácticos [2024]"
     url: "https://dondeaprendoaws.com/blog/integracion-siem-aws-7-consejos-practicos-2024/"
-    image: "/assets/blog/0f354446d0c7715526e96a32.jpg"
-    imageAlt: ""
   - title: "Como Configurar y Utilizar AWS Session Manager"
     url: "https://dondeaprendoaws.com/blog/como-configurar-y-utilizar-aws-session-manager/"
-    image: "/assets/blog/037793a796bc8f08a1cce7d0.png"
-    imageAlt: ""
+
 ---
 
 <p>Si estás interesado en <strong>desplegar contenedores en AWS</strong>, este artículo es para ti. Te guiaremos a través de los conceptos básicos de los contenedores, cómo funcionan en AWS y cómo puedes comenzar a utilizarlos para tu proyecto. Además, te ofrecemos una comparación entre los servicios de AWS que puedes usar para contenedores, como ECS, EKS, Fargate y ECR, y consejos para optimizar y monitorear tu despliegue.</p>

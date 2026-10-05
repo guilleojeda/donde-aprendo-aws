@@ -4,22 +4,17 @@ description: "Descubre los fundamentos y mejores prácticas para crear y manejar
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T01:55:00.888Z"
-cover: "/assets/blog/898bfede65963403cc64e267.jpg"
-coverAlt: "Nube sobre piezas con símbolos de candados y escudos"
-ogImage: "/assets/blog/898bfede65963403cc64e267.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "7 Estrategias para Mitigar Cold Starts en AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/7-estrategias-para-mitigar-cold-starts-en-aws-lambda/"
-    image: "/assets/blog/c936f3eb45382355f87b0707.jpg"
-    imageAlt: ""
   - title: "10 Consejos de Redes para AWS Outposts"
     url: "https://dondeaprendoaws.com/blog/10-consejos-de-redes-para-aws-outposts/"
-    image: "/assets/blog/d57b2c7f6d8d4785748ce1c5.png"
-    imageAlt: ""
   - title: "Tipos de Instancia en Amazon RDS y Amazon Aurora"
     url: "https://dondeaprendoaws.com/blog/tipos-de-instancia-en-amazon-rds-y-amazon-aurora/"
-    image: "/assets/blog/aa03147d445ee06a398e3780.jpg"
-    imageAlt: ""
+
 ---
 
 <p>En esta guía, descubrirás los fundamentos y mejores prácticas para crear y manejar <em>snapshots</em> en Amazon EBS, asegurando la seguridad y disponibilidad de tus datos en la nube. Aquí te presento un resumen de lo más importante:</p>

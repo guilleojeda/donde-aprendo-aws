@@ -4,22 +4,17 @@ description: "Aprende a desarrollar y probar aplicaciones serverless localmente 
 author: "guille-ojeda"
 publishedAt: "2024-11-27"
 publishedTimestamp: "2024-11-27T00:08:23.504Z"
-cover: "/assets/blog/fa48e5370fe3d3489c8fb4d5.jpg"
-coverAlt: "Manos escribiendo código en un portátil junto a una planta"
-ogImage: "/assets/blog/fa48e5370fe3d3489c8fb4d5.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Cómo Utilizar Amazon Bedrock"
     url: "https://dondeaprendoaws.com/blog/como-utilizar-amazon-bedrock/"
-    image: "/assets/blog/40a012e9c33f0668e83afad8.png"
-    imageAlt: ""
   - title: "Cómo crear Infraestructura como Código en AWS con AWS CloudFormation"
     url: "https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-aws-cloudformation/"
-    image: "/assets/blog/7b36649641ff19d02f4e3551.jpg"
-    imageAlt: ""
   - title: "AWS Seguridad: Mejores Prácticas"
     url: "https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/"
-    image: "/assets/blog/58bea5d60c133d57e4a0bdbf.jpg"
-    imageAlt: ""
+
 ---
 
 <p><a href="https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/using-sam-cli.html">AWS SAM CLI</a> te permite desarrollar y probar <a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">aplicaciones serverless</a> directamente en tu computadora, simulando servicios de AWS como Lambda y API Gateway sin necesidad de subir tu código a la nube. Esto ahorra tiempo y dinero, y facilita la detección de errores. Aquí tienes lo esencial para empezar:</p>

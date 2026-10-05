@@ -4,22 +4,17 @@ description: "Aprende a integrar AWS Lambda y API Gateway para crear aplicacione
 author: "guille-ojeda"
 publishedAt: "2024-11-28"
 publishedTimestamp: "2024-11-28T01:29:24.642Z"
-cover: "/assets/blog/2aa39fe7ff55b6a37888515e.jpg"
-coverAlt: "Portátil en un escritorio con un diagrama técnico en pantalla"
-ogImage: "/assets/blog/2aa39fe7ff55b6a37888515e.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Estructuras multi-cuenta AWS para escalar"
     url: "https://dondeaprendoaws.com/blog/estructuras-multi-cuenta-aws-para-escalar/"
-    image: "/assets/blog/0e9e4bdd57782b78da6d878e.jpg"
-    imageAlt: ""
   - title: "7 Estrategias para Mitigar Cold Starts en AWS Lambda"
     url: "https://dondeaprendoaws.com/blog/7-estrategias-para-mitigar-cold-starts-en-aws-lambda/"
-    image: "/assets/blog/c936f3eb45382355f87b0707.jpg"
-    imageAlt: ""
   - title: "Introducción a la Inteligencia Artificial en AWS"
     url: "https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/"
-    image: "/assets/blog/740fd46916e44bd2c61ce62c.png"
-    imageAlt: ""
+
 ---
 
 <p><strong>¿Quieres crear aplicaciones sin servidores de manera eficiente?</strong> <a href="https://aws.amazon.com/lambda/">AWS Lambda</a> y <a href="https://aws.amazon.com/api-gateway/">API Gateway</a> son la combinación perfecta para lograrlo. Lambda te permite ejecutar código sin preocuparte por servidores, mientras que <a href="https://aws.amazon.com/api-gateway/">API Gateway</a> gestiona tus APIs, asegurando tráfico, seguridad y monitoreo.</p>

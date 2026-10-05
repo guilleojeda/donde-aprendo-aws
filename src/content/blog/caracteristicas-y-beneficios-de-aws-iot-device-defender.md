@@ -4,22 +4,17 @@ description: "Descubre las ventajas de AWS IoT Device Defender para la protecci�
 author: "guille-ojeda"
 publishedAt: "2024-05-06"
 publishedTimestamp: "2024-05-06T14:05:13.37Z"
-cover: "/assets/blog/64ba25d52c7b46f1df3dfd5e.png"
-coverAlt: "Escudo con un ojo y una lupa frente a un diagrama técnico"
-ogImage: "/assets/blog/64ba25d52c7b46f1df3dfd5e.png"
+cover: "/assets/blog/editorial-seguridad.png"
+coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-seguridad.png"
 related:
   - title: "7 Errores Comunes con AWS IoT Device SDK para JavaScript"
     url: "https://dondeaprendoaws.com/blog/7-errores-comunes-con-aws-iot-device-sdk-para-javascript/"
-    image: "/assets/blog/fc596e41b0cacbc6f7d02513.jpg"
-    imageAlt: ""
   - title: "Cómo Habilitar CloudWatch Logs en API Gateway: Guía Paso a Paso"
     url: "https://dondeaprendoaws.com/blog/como-habilitar-cloudwatch-logs-en-api-gateway-guia-paso-a-paso/"
-    image: "/assets/blog/f256f4a211663872e566e67f.jpg"
-    imageAlt: ""
   - title: "AWS Seguridad: Fundamentos Esenciales"
     url: "https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/"
-    image: "/assets/blog/15bc5fcf943d474b0b00277c.jpg"
-    imageAlt: ""
+
 ---
 
 <p><a href="https://aws.amazon.com/es/iot-device-defender/" rel="noopener noreferrer" target="_blank">AWS IoT Device Defender</a> es un servicio de seguridad de IoT que protege sus dispositivos IoT mediante:</p>

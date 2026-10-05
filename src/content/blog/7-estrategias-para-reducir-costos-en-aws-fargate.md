@@ -7,9 +7,9 @@ publishedTimestamp: "2024-11-26T19:09:41.914Z"
 modifiedTimestamp: "2026-10-04T22:31:52-03:00"
 review:
   date: "2026-10-04"
-cover: "/assets/blog/9d9e21deaf95138036c3d24d.jpg"
-coverAlt: "Portátil sobre un escritorio con un panel de gráficos y costos en pantalla"
-ogImage: "/assets/blog/9d9e21deaf95138036c3d24d.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related: []
 ---
 

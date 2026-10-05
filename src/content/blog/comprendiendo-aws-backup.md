@@ -4,22 +4,17 @@ description: "Descubre cómo utilizar AWS Backup para proteger tus datos en la n
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:55:54.461Z"
-cover: "/assets/blog/25448721c535fa1737e8eeba.jpg"
-coverAlt: "Nube con un escudo y un candado rodeada por anillos tecnológicos"
-ogImage: "/assets/blog/25448721c535fa1737e8eeba.jpg"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
   - title: "¿Qué es AWS Lambda? Preguntas y Respuestas"
     url: "https://dondeaprendoaws.com/blog/que-es-aws-lambda-preguntas-y-respuestas/"
-    image: "/assets/blog/70579f832030c8f349b01339.jpg"
-    imageAlt: ""
   - title: "7 Estrategias para Reducir Costos en AWS Fargate"
     url: "https://dondeaprendoaws.com/blog/7-estrategias-para-reducir-costos-en-aws-fargate/"
-    image: "/assets/blog/9d9e21deaf95138036c3d24d.jpg"
-    imageAlt: ""
   - title: "AWS Fundamentos: Guía de Inicio Rápido"
     url: "https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/"
-    image: "/assets/blog/945b48235c5e1f4c1d3cc3ae.jpg"
-    imageAlt: ""
+
 ---
 
 <p>AWS Backup es una herramienta esencial para asegurar tus datos en la nube, permitiéndote automatizar, organizar y proteger tus copias de seguridad de manera eficiente. Aquí están las claves que necesitas saber:</p>

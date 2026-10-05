@@ -7,9 +7,9 @@ publishedTimestamp: "2024-10-27T03:07:38.015Z"
 modifiedTimestamp: "2026-10-04T21:31:45-03:00"
 review:
   date: "2026-10-04"
-cover: "/assets/blog/0e7089d339cd0d6e09ee83cd.webp"
-coverAlt: "Portátil abierto con código en pantalla sobre un escritorio junto a libros"
-ogImage: "/assets/blog/0e7089d339cd0d6e09ee83cd.webp"
+cover: "/assets/blog/editorial-datos-ia.png"
+coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
+ogImage: "/assets/blog/editorial-datos-ia.png"
 related: []
 ---
 

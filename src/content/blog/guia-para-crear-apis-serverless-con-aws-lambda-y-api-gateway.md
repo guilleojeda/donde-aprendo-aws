@@ -4,22 +4,17 @@ description: "Descubre cómo crear APIs serverless usando AWS Lambda y API Gatew
 author: "guille-ojeda"
 publishedAt: "2024-05-12"
 publishedTimestamp: "2024-05-12T04:39:19.754Z"
-cover: "/assets/blog/919d108a9faabfb32e4a011d.jpg"
-coverAlt: "Nube delineada con figuras hexagonales y una flecha ascendente"
-ogImage: "/assets/blog/919d108a9faabfb32e4a011d.jpg"
+cover: "/assets/blog/editorial-serverless-desarrollo.png"
+coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
+ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
   - title: "Estrategias de Correlación de Eventos AWS"
     url: "https://dondeaprendoaws.com/blog/estrategias-de-correlacion-de-eventos-aws/"
-    image: "/assets/blog/b5250ebc33b6dd3702e864e4.jpg"
-    imageAlt: ""
   - title: "Gestión de Facturación de AWS: Guía Completa"
     url: "https://dondeaprendoaws.com/blog/gestion-de-facturacion-de-aws-guia-completa/"
-    image: "/assets/blog/2363e8e50d51d42bcaec6ec4.webp"
-    imageAlt: ""
   - title: "10 Métricas Clave de DevOps en AWS"
     url: "https://dondeaprendoaws.com/blog/10-metricas-clave-de-devops-en-aws/"
-    image: "/assets/blog/98aff2370ca15f9967751abc.png"
-    imageAlt: ""
+
 ---
 
 <p><strong>¿Qué son las APIs Serverless?</strong></p>
