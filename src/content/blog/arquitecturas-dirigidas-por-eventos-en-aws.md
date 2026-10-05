@@ -1,373 +1,114 @@
 ---
-title: "Arquitecturas Dirigidas por Eventos en AWS"
-description: "Descubre cómo implementar arquitecturas dirigidas por eventos en AWS para crear sistemas flexibles y escalables. Aprende sobre los beneficios, componentes y mejores prácticas en este completo artículo."
+title: "Arquitectura dirigida por eventos en AWS: servicios, ejemplo y decisiones"
+description: "Compara EventBridge, SNS y SQS y diseña un flujo de pedidos en AWS con outbox, idempotencia, reintentos, DLQ y orden explícito."
 author: "guille-ojeda"
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T00:59:24.459Z"
+modifiedTimestamp: "2026-10-05T00:15:04-03:00"
+review:
+  date: "2026-10-05"
 cover: "/assets/blog/1a0df738c1ab9c313bf60144.jpg"
 coverAlt: "Manos sostienen una tarjeta con tres bases de datos unidas por flechas"
 ogImage: "/assets/blog/1a0df738c1ab9c313bf60144.jpg"
-related:
-  - title: "Automatización de cumplimiento con AWS Config"
-    url: "https://dondeaprendoaws.com/blog/automatizacion-de-cumplimiento-con-aws-config/"
-    image: "/assets/blog/887b167cb63dec6854e043dc.jpg"
-    imageAlt: ""
-  - title: "Guía de Eventos AWS Educate 2024"
-    url: "https://dondeaprendoaws.com/blog/guia-de-eventos-aws-educate-2024/"
-    image: "/assets/blog/835302183289e4165c02383b.jpg"
-    imageAlt: ""
-  - title: "AWS IoT Edge Simulator: Casos de Uso Reales"
-    url: "https://dondeaprendoaws.com/blog/aws-iot-edge-simulator-casos-de-uso-reales/"
-    image: "/assets/blog/7854091f527530189ba482f0.png"
-    imageAlt: ""
+related: []
 ---
 
-<p>Imagina construir aplicaciones flexibles y capaces de crecer rápidamente utilizando AWS. Las arquitecturas dirigidas por eventos (EDA) hacen esto posible, permitiendo que los componentes de tu sistema se comuniquen mediante eventos. Esto facilita la escalabilidad, el procesamiento asíncrono y una rápida adaptación a cambios. Aquí tienes lo esencial que necesitas saber sobre EDA en AWS:</p>
+Una arquitectura dirigida por eventos (EDA) permite que un servicio publique un hecho que ya ocurrió —por ejemplo, `OrderPlaced`— y que otros servicios reaccionen sin que el productor tenga que llamarlos uno por uno. En AWS, **EventBridge enruta eventos**, **SNS distribuye publicaciones a suscriptores** y **SQS conserva trabajo pendiente para que un consumidor lo procese a su ritmo**. Se pueden combinar, pero cumplen funciones distintas.
 
+Para procesar pedidos, una base sólida es guardar el pedido y su evento de salida en la misma transacción, publicar ese evento con un outbox, enrutarlo a una cola por consumidor y hacer que cada consumidor tolere duplicados. Eso permite desacoplar el trabajo; no vuelve atómicas las operaciones entre servicios ni garantiza por sí solo que un pedido se complete.
 
-<ul>
-<li><strong>Desacoplamiento de componentes:</strong> Permite que los servicios funcionen independientemente.</li>
-<li><strong>Escalabilidad:</strong> Fácilmente añade más componentes según sea necesario.</li>
-<li><strong>Resiliencia:</strong> Los fallos en un componente no afectan al sistema completo.</li>
-<li><strong>Eficiencia de costos:</strong> Paga solo por los recursos que utilizas.</li>
-</ul>
+## EventBridge, SNS y SQS: cuál elegir
 
+| Servicio | Elegilo cuando necesitás | Qué aporta | Qué no resuelve por sí solo |
+| --- | --- | --- | --- |
+| [Amazon EventBridge](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-rules.html) | Recibir eventos de AWS, aplicaciones propias o SaaS y dirigirlos con reglas basadas en su contenido. | Un bus de eventos y reglas que pueden enviar un evento coincidente a uno o varios destinos. | No es una cola de trabajo ni promete un orden global entre eventos. Configurá una cola o un archivo si necesitás retener trabajo o reproducir eventos. |
+| [Amazon SNS](https://docs.aws.amazon.com/sns/latest/dg/welcome.html) | Publicar una notificación para varios suscriptores —por ejemplo, HTTP, Lambda o varias colas SQS— con un modelo pub/sub. | Entrega de una publicación a suscriptores; las políticas de filtro ayudan a seleccionar qué recibe cada suscripción. | No ofrece a cada consumidor una cola independiente salvo que suscribas colas SQS. |
+| [Amazon SQS](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/welcome.html) | Amortiguar picos, desacoplar el ritmo de un productor y un trabajador, o mantener trabajo pendiente durante una interrupción del consumidor. | Una cola que el consumidor lee y cuyas entregas puede reintentar; una DLQ permite aislar mensajes que exceden los intentos configurados. | No enruta mensajes por sí misma a distintos consumidores según el contenido. La cola Standard permite duplicados y no garantiza orden. |
 
-<p><strong>Servicios clave de AWS para EDA:</strong></p>
+<figure><img alt="Amazon EventBridge" src="/assets/blog/dcba27902d45cd07a719ed13.jpg"/></figure>
+<figure><img alt="Amazon SNS" src="/assets/blog/8201b20ff4631e566e1d41df.jpg"/></figure>
+<figure><img alt="Amazon SQS" src="/assets/blog/b0789df1f55a01d05145a3f4.jpg"/></figure>
 
+Una regla práctica: **EventBridge para decidir adónde va un hecho; SNS para difundir una publicación; SQS para poner trabajo en espera**. Por ejemplo, una regla de EventBridge puede enviar `OrderPlaced` a una cola SQS de inventario y a otra de notificaciones. Si todas las publicaciones de un productor deben llegar a muchos suscriptores con filtros sencillos, SNS con una cola SQS por suscriptor también puede encajar. La [guía de decisión de AWS para SNS, SQS y EventBridge](https://docs.aws.amazon.com/decision-guides/latest/decision-guides/sns-or-sqs-or-eventbridge.html) compara estos modelos y sus casos de uso.
 
-<ul>
-<li><strong>Amazon EventBridge:</strong> Gestiona el flujo de eventos entre aplicaciones.</li>
-<li><strong>Amazon SNS:</strong> Permite la comunicación mediante la publicación y suscripción de mensajes.</li>
-<li><strong>Amazon SQS:</strong> Ofrece colas de mensajes para almacenar y transferir mensajes.</li>
-</ul>
+Para oír otra comparación práctica de los tres servicios, mirá [AWS SQS vs SNS vs EventBridge: ¿cuál escoger?](https://www.youtube.com/watch?v=6gITIiiXQNg), de [Marcia en Desplegando Cloud](https://www.youtube.com/@marcia_); los criterios de arquitectura y entrega de la tabla se apoyan en la guía oficial de AWS enlazada arriba.
 
+## Ejemplo: publicar un pedido sin perder la intención de notificar
 
-<p>Con estas herramientas, puedes diseñar sistemas que no solo son robustos y escalables, sino también eficientes en costos y fáciles de mantener.</p>
+Supongamos que una tienda debe reservar inventario y avisar al cliente cuando se confirma un pedido. El servicio de pedidos valida la solicitud y guarda el pedido junto con una fila de outbox en **una transacción de su base de datos**. Un publicador lee las filas ya confirmadas y envía el evento a un bus propio de EventBridge. Una regla filtra `source` y `detail-type`, y entrega el evento a una cola de inventario y a otra de notificaciones. Cada consumidor procesa su cola de forma independiente.
 
+El outbox resuelve el hueco de una escritura dual: si la base de datos confirma el pedido pero falla la publicación, la fila sigue pendiente para que el publicador vuelva a intentarlo; si la transacción se revierte, tampoco queda el evento. El publicador aún puede enviar una misma fila más de una vez, así que los consumidores siguen necesitando idempotencia. AWS describe este compromiso en su guía del [patrón transactional outbox](https://docs.aws.amazon.com/es_es/prescriptive-guidance/latest/cloud-design-patterns/transactional-outbox.html).
 
-<h3 id="%C2%BFqu%C3%A9-es-una-arquitectura-dirigida-por-eventos-(eda)%3F" tabindex="-1">¿Qué es una arquitectura dirigida por eventos (EDA)?</h3>
+Como ejemplo para estudiar el fan-out con una cola por consumidor, el repositorio [Streaming Serverless Demo: música con SQS, SNS y API Gateway](https://github.com/hsaenzG/streaming-serverless-demo) implementa en Python y AWS CDK una publicación SNS que alimenta tres colas SQS, cada una con su Lambda. Para ver otro pipeline con S3, SQS, Lambda y DynamoDB, consultá [Procesamiento serverless orientado a eventos](https://www.alfredo-dominguez.dev/arquitecturas/03-event-driven-serverless/). Son ejemplos de procesamiento y fan-out, no un diseño de pedidos listo para producción; revisá prerrequisitos, recursos y limpieza antes de desplegar el repositorio en una cuenta propia, porque el costo depende de la cuenta, región y uso.
 
+Este objeto representa **el contenido de `detail` del evento propio**; EventBridge lo envuelve además con metadatos como `source`, `detail-type`, `id`, cuenta y región. `eventId` es un identificador estable que crea el servicio de pedidos y guarda junto con la fila outbox; sirve para reconocer la misma publicación cuando el publicador reintenta.
 
-<p>Imagina un sistema donde las partes se comunican solo cuando algo importante sucede, como cuando recibes un mensaje en tu teléfono. Eso es, en esencia, una arquitectura dirigida por eventos. Aquí, las partes de una aplicación se pasan notas (eventos) cuando algo cambia o necesita atención.</p>
+```json
+{
+  "eventId": "evt_01J9Q2K7M4",
+  "schemaVersion": 1,
+  "orderId": "ord_8042",
+  "aggregateVersion": 1,
+  "occurredAt": "2026-10-04T18:32:01Z",
+  "items": [
+    { "sku": "cafe-250g", "quantity": 2 }
+  ]
+}
+```
 
+El sobre estándar de EventBridge usa `source` para identificar al productor y `detail-type` para nombrar el hecho; las reglas pueden filtrar esos campos y valores de `detail`. Mantené el contrato versionado y enviá solo los datos que los consumidores necesitan. Evitá incluir credenciales o datos personales si basta con un identificador que el consumidor pueda resolver con autorización.
 
-<p>Los puntos clave de este sistema son:</p>
+### Qué pasa cuando algo falla
 
+Hay dos entregas distintas que conviene observar por separado:
 
-<ul>
-<li><strong>Desacoplamiento de componentes:</strong> Las partes trabajan por su cuenta, sin necesidad de saber exactamente qué hacen las demás.</li>
-<li><strong>Comunicación mediante eventos:</strong> Las partes no hablan directamente, solo se envían eventos para comunicarse.</li>
-<li><strong>Escalabilidad:</strong> Puedes añadir más partes (productores o consumidores de eventos) según sea necesario, sin complicaciones.</li>
-</ul>
+1. **Del bus al destino.** Configurá una DLQ en el destino de la regla para guardar fallas de entrega. EventBridge reintenta según la política configurada, pero algunos errores —como permisos faltantes o un destino inexistente— no son reintentables y pueden ir directamente a la DLQ. Sin DLQ, un error no reintentable o un evento que agota sus reintentos puede descartarse. La DLQ de destino usa SQS Standard y requiere permisos para que EventBridge escriba en ella. Esta DLQ captura fallas de entrega al destino; no captura errores dentro de una función Lambda que ya recibió el evento. Consultá las [condiciones de DLQ para EventBridge](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-rule-dlq.html).
+2. **De la cola al consumidor.** Si una Lambda que lee SQS falla, el mensaje vuelve a estar visible después del tiempo de visibilidad. Configurá una política de redrive y una DLQ en la cola de origen para aislar mensajes que fallan repetidamente; después de corregir la causa, revisá y reprocesá los mensajes según el impacto de negocio. Una DLQ no arregla automáticamente un mensaje inválido ni reconcilia un pedido incompleto.
 
+Con el mapeo de origen de eventos de SQS, Lambda puede recibir varios registros en una invocación. Si la invocación falla, por defecto puede volver a procesarse el lote completo; las respuestas parciales permiten informar cuáles registros fallaron. AWS recomienda que el tiempo de visibilidad de la cola sea al menos seis veces el timeout de la función, más la ventana de batching si configuraste una. Revisá la guía de [configuración de SQS con Lambda](https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-configure.html) y [manejo de errores y respuestas parciales](https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-errorhandling.html) antes de fijar esos valores.
 
-<h3 id="componentes-de-una-eda" tabindex="-1">Componentes de una EDA</h3>
+Una cola Standard ofrece entrega *at least once*: puede volver a entregar un mensaje y no mantiene siempre el orden. Hacé cada efecto repetible sin daño. Una tabla inbox puede registrar `eventId` procesado en la misma transacción que el cambio de inventario; para una API externa, usá una clave de idempotencia si esa API la soporta. No dependas solo de eliminar el mensaje de SQS para impedir que un efecto se repita: puede fallar el proceso entre confirmar el cambio de negocio y eliminar el mensaje.
 
+Si importa el orden **por pedido**, una cola FIFO con el mismo `MessageGroupId` —por ejemplo, el `orderId`— conserva el orden en que recibe los mensajes de ese grupo. El productor debe emitirlos en el orden de la secuencia de negocio. EventBridge no establece un orden global, y una cola FIFO conserva el orden de llegada: no corrige eventos que ya llegaron invertidos. Al configurar una cola FIFO como destino de una regla clásica de EventBridge, revisá también los requisitos de [parámetros del destino SQS](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-targets.html), incluida la deduplicación basada en contenido. La deduplicación de FIFO tampoco hace que un pago o una escritura en otra base de datos tenga efecto exactamente una vez. Revisá la documentación de [colas SQS FIFO](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-fifo-queues.html) y los [límites de entrega de SQS Standard](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/standard-queues-at-least-once-delivery.html).
 
-<p>Los ingredientes principales de este sistema son:</p>
+El bus no debe tratarse como una cola que conserva trabajo para siempre. Si necesitás guardar y reproducir eventos para reprocesar después de una corrección, habilitá y dimensioná un [archivo de EventBridge](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-archive.html); la retención y el replay son una configuración explícita. Una DLQ guarda fallas de entrega o consumo en otra etapa, y también necesita alertas, revisión y un procedimiento de reproceso.
 
+## Coreografía u orquestación
 
-<ul>
-<li><strong>Productores de eventos:</strong> Son los que avisan cuando algo pasa, como un sensor que detecta movimiento.</li>
-<li><strong>Consumidores de eventos:</strong> Son los que reciben el aviso y actúan en consecuencia, como una app que te manda una notificación.</li>
-<li><strong>Brokers de eventos:</strong> Son como los carteros que llevan los eventos del productor al consumidor. Ejemplos incluyen Amazon SQS y Amazon Kinesis.</li>
-</ul>
+Para efectos independientes que pueden reaccionar al hecho —actualizar analítica o enviar una notificación— la coreografía con eventos mantiene a cada consumidor enfocado en su propio trabajo. Si reservar inventario, cobrar y confirmar el pedido forman una secuencia con ramas, esperas, compensaciones y un estado global que el equipo necesita consultar, evaluá orquestar ese proceso con [AWS Step Functions](https://docs.aws.amazon.com/step-functions/latest/dg/welcome.html). El patrón saga coordina transacciones locales y define acciones compensatorias; no convierte varias bases de datos en una transacción ACID única. AWS recomienda valorar también la complejidad de depurar y mantener la saga en su guía de [orquestación](https://docs.aws.amazon.com/prescriptive-guidance/latest/modernization-integrating-microservices/orchestration.html) y el [patrón saga](https://docs.aws.amazon.com/prescriptive-guidance/latest/modernization-data-persistence/saga-pattern.html).
 
+Para contrastar esos enfoques en español, mirá [¿Qué arquitectura es mejor para mi aplicación? Eventos o máquinas de estado?](https://www.youtube.com/watch?v=3UwgnYByOk8), de [Marcia en Desplegando Cloud](https://www.youtube.com/@marcia_), y [Sesión 5: Orquestación vs. Coreografía – Diseñando Flujos de Integración en AWS](https://www.youtube.com/watch?v=iYCgmy-9Tg4), de [Axel Echevarría Piérola](https://www.youtube.com/@axlpierola). Tomá las guías oficiales enlazadas arriba como referencia para los límites del diseño.
 
-<h3 id="beneficios-de-eda" tabindex="-1">Beneficios de EDA</h3>
+Si ese flujo además debe seguir disponible ante una caída regional, revisá la topología y recuperación de sus buses, colas y datos con la guía interna de [arquitecturas multi-región en AWS](https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/).
 
+No hace falta orquestar todos los eventos: elegí un flujo explícito cuando los requisitos de negocio necesitan decisiones, visibilidad de extremo a extremo o acciones compensatorias. Si el objetivo es publicar un hecho y dejar que varios interesados independientes reaccionen, no agregues un coordinador central sin una necesidad concreta.
 
-<p>Algunas ventajas de usar este sistema son:</p>
+## Recursos para seguir el tema
 
+### Comparar servicios y entender el patrón
 
-<ul>
-<li>
-<p>Puedes hacer crecer el sistema fácilmente, solo añadiendo más partes donde sea necesario.</p>
-</li>
-<li>
-<p>Es más resistente a problemas, ya que si una parte falla, no afecta directamente a las demás.</p>
-</li>
-<li>
-<p>Facilita el trabajo de desarrollo, ya que puedes enfocarte en una parte a la vez.</p>
-</li>
-<li>
-<p>Ayuda a ahorrar, especialmente si usas servicios que cobran por uso, como AWS Lambda.</p>
-</li>
-</ul>
+- [Arquitectura orientada a eventos: por qué tus servicios no deberían conocerse entre sí](https://builder.aws.com/content/3GBOuh54nfwbnkYqbA6IyhIW5RC/arquitectura-orientada-a-eventos-por-qu-tus-servicios-no-deberan-conocerse-entre-s): una lectura en AWS Builder Center sobre productores, consumidores, pub/sub y cuándo una llamada directa sigue siendo apropiada.
+- [Introducción a arquitecturas orientadas a eventos y Amazon EventBridge](https://www.youtube.com/watch?v=TkU1RS5Fw1o), de [Marcia en Desplegando Cloud](https://www.youtube.com/@marcia_): una charla en español para continuar desde el papel de EventBridge.
+- [SQS, SNS, EventBridge o Kinesis: ¿cuál usás?](https://desplegando.substack.com/p/sqs-sns-eventbridge-o-kinesis-cual): episodio de Desplegando Cloud para ampliar la comparación a procesamiento de streams.
 
+### Conversar y encontrar actividades
 
-<p>Este enfoque te ayuda a crear sistemas que son fáciles de expandir, resistentes y no muy caros de mantener usando AWS.</p>
+Podés llevar una pregunta concreta —por ejemplo, cómo deduplicar una reserva o cuándo poner SQS detrás de SNS— a un grupo de usuarios. Estos enlaces apuntan directamente a comunidades que anuncian encuentros, recursos o actividades:
 
+- [AWS User Group Córdoba](https://www.meetup.com/aws-user-group-cordoba-argentina/), comunidad argentina para compartir experiencias y conocimientos de AWS.
+- [AWS User Group Serverless Colombia](https://www.meetup.com/aws-user-group-serverless-colombia/), grupo local centrado en AWS serverless.
+- [AWS User Group Perú](https://awsugperu.cloud/), portal con grupos locales, actividades, talleres y recursos de la comunidad.
 
-<h2 id="implementando-eda-en-aws" tabindex="-1">Implementando EDA en AWS</h2>
+El AWS User Group Serverless Colombia anuncia la sesión virtual **El Combo Indestructible de AWS: SQS + Lambda**, para el martes 20 de octubre de 2026 de 19:00 a 21:00 (hora de Colombia, UTC−5). [Consultá la ficha de Meetup](https://www.meetup.com/aws-user-group-serverless-colombia/events/316770520/) para revisar la inscripción y cualquier cambio de horario o disponibilidad.
 
+## Antes de llevarlo a producción
 
-<h3 id="configuraci%C3%B3n-inicial" tabindex="-1">Configuración inicial</h3>
+- Elegí cada servicio por el modelo de entrega que el consumidor necesita: filtro y enrutamiento, difusión o buffer independiente.
+- Registrá el evento junto al cambio de negocio con outbox o CDC cuando no puedas tolerar que se confirme un pedido sin registrar la intención de publicarlo.
+- Diseñá consumidores idempotentes; esperá reintentos y posibles duplicados.
+- Separá las DLQ de entrega de EventBridge de las DLQ de procesamiento SQS, medí la antigüedad y cantidad de mensajes y definí quién revisa y reprocesa cada una.
+- Incluí un identificador estable, correlación y versión del contrato; no expongas datos sensibles innecesarios.
+- Si la secuencia por agregado importa, documentá el orden esperado, el grupo FIFO y cómo el productor mantiene la secuencia.
+- Medí latencia, errores, edad del mensaje más antiguo, invocaciones fallidas y costos con carga representativa. La facturación depende del volumen y de los servicios y configuraciones elegidos.
 
-
-<p>Para empezar con una arquitectura dirigida por eventos en AWS, es bueno seguir estos pasos básicos:</p>
-
-
-<ul>
-<li>Asegúrate de que los servicios de AWS puedan hablar entre sí configurando roles y políticas de IAM. Esto es como darles permiso para compartir información.</li>
-<li>Crea una red privada virtual (VPC) para poner ahí todos tus componentes. Esta red tendrá áreas públicas y privadas.</li>
-<li>Establece reglas de seguridad para que los servicios puedan intercambiar datos sin problemas. Por ejemplo, que Amazon EventBridge pueda enviar información a Lambda.</li>
-<li>Prepara un espacio en S3 para guardar registros y otros datos importantes. No olvides ajustar los permisos para controlar quién puede ver o usar esos datos.</li>
-</ul>
-
-
-<h3 id="patrones-comunes-de-eda" tabindex="-1">Patrones comunes de EDA</h3>
-
-
-<p>Algunos diseños que mucha gente usa en EDA son:</p>
-
-
-<ul>
-<li><strong>Publicación/Suscripción</strong>: Aquí, quien crea el evento lo manda a un lugar común y los interesados en ese tipo de eventos se conectan para recibirlos. Amazon SNS es un ejemplo.</li>
-<li><strong>Event Sourcing</strong>: Se guarda un registro de todos los eventos en un orden específico. Esto ayuda a entender cómo ha cambiado la información con el tiempo.</li>
-<li><strong>Cadena de Responsabilidad</strong>: Es como pasar el evento de mano en mano, donde cada servicio hace algo con él si es necesario, o lo pasa al siguiente.</li>
-</ul>
-
-
-<h3 id="casos-de-uso" tabindex="-1">Casos de uso</h3>
-
-
-<p>EDA es útil para muchas cosas, como:</p>
-
-
-<ul>
-<li><strong>Procesamiento de pedidos</strong>: Cuando alguien hace un pedido, se pueden crear eventos para diferentes áreas como inventario o envíos, y cada una maneja su parte.</li>
-<li><strong>CI/CD</strong>: Los cambios en el código pueden iniciar automáticamente procesos para revisar y desplegar ese código.</li>
-<li><strong>Analytics</strong>: Analizar cómo la gente usa una aplicación a partir de los eventos que genera.</li>
-<li><strong>IoT</strong>: Los dispositivos conectados envían datos constantemente que se pueden usar para monitoreo o alertas.</li>
-</ul>
-
-
-<p>En pocas palabras, EDA ayuda a que los sistemas trabajen juntos de manera más eficiente, permitiendo que crezcan y se adapten fácilmente.</p>
-
-
-<h2 id="mejores-pr%C3%A1cticas-para-eda-en-aws" tabindex="-1">Mejores prácticas para EDA en AWS</h2>
-
-
-<h3 id="estrategias-de-dise%C3%B1o" tabindex="-1">Estrategias de diseño</h3>
-
-
-<p>Al crear una arquitectura dirigida por eventos en AWS, es bueno tener en cuenta estas recomendaciones:</p>
-
-
-<ul>
-<li><strong>Mantén los componentes separados</strong>. Cada parte debe funcionar por su cuenta, usando eventos para comunicarse. Esto hace más fácil aumentar o mejorar el sistema.</li>
-<li><strong>Define bien los eventos</strong>. Los eventos deben llevar solo la información necesaria para que quienes los reciban puedan actuar. Ni más, ni menos.</li>
-<li><strong>Prepárate para los fallos</strong>. Piensa en cómo manejar eventos que no se procesen bien, como intentar de nuevo o guardarlos para después. SQS y EventBridge son útiles aquí.</li>
-<li><strong>Idempotencia</strong>. Esto significa que si un evento se procesa más de una vez, no debería causar problemas. Es una manera de evitar resultados inesperados.</li>
-<li><strong>Piensa en la seguridad desde el principio</strong>. Usa control de acceso, cifra tus datos, y considera usar redes privadas virtuales.</li>
-</ul>
-
-
-<h3 id="optimizaci%C3%B3n-de-costos" tabindex="-1">Optimización de costos</h3>
-
-
-<p>Aquí van algunas ideas para no gastar de más:</p>
-
-
-<ul>
-<li>
-<p>Aprovecha SQS, SNS y Kinesis que ajustan su capacidad automáticamente. Así no pagas por más de lo que necesitas.</p>
-</li>
-<li>
-<p>Guarda eventos que no necesitas de inmediato en S3 Infrequent Access, que es más barato. Luego, muévelos a Standard cuando los vayas a usar.</p>
-</li>
-<li>
-<p>Prefiere usar Lambda en lugar de servidores que estén encendidos todo el tiempo. Con Lambda, pagas solo por lo que usas.</p>
-</li>
-<li>
-<p>Revisa y ajusta lo que pagas por capacidad que realmente usas. No gastes en lo que no necesitas.</p>
-</li>
-<li>
-<p>Considera si DynamoDB On-Demand te sale más a cuenta que tener una capacidad fija.</p>
-</li>
-</ul>
-
-
-<h3 id="monitoreo-y-logs" tabindex="-1">Monitoreo y logs</h3>
-
-
-<p>Es importante mantener un ojo en cómo va todo para solucionar rápido cualquier problema.</p>
-
-
-<ul>
-<li>
-<p>Guarda los registros (logs) de todos los componentes en un lugar común como un bucket S3. CloudWatch puede ayudar con esto.</p>
-</li>
-<li>
-<p>Activa alertas en CloudWatch para cosas importantes como errores o retrasos.</p>
-</li>
-<li>
-<p>Usa AWS X-Ray para seguir la pista de los eventos a través del sistema.</p>
-</li>
-<li>
-<p>CloudWatch Dashboards es bueno para tener una vista general del estado de tu sistema.</p>
-</li>
-<li>
-<p>Para un monitoreo más detallado, puedes usar servicios como Managed Prometheus y Managed Grafana.</p>
-</li>
-</ul>
-
-
-<h2 id="servicios-de-aws-para-implementar-eda" tabindex="-1">Servicios de AWS para implementar EDA</h2>
-
-
-<p>Vamos a hablar de algunos servicios de AWS que te ayudan a poner en marcha arquitecturas dirigidas por eventos de manera sencilla:</p>
-
-
-<h3 id="amazon-eventbridge" tabindex="-1"><a href="https://aws.amazon.com/eventbridge/" rel="noopener noreferrer" target="_blank">Amazon EventBridge</a></h3>
-
-
-<p><figure><img alt="Amazon EventBridge" src="/assets/blog/dcba27902d45cd07a719ed13.jpg"/></figure></p>
-
-
-<p>Amazon EventBridge es como un sistema de correo para eventos, que te permite enviar y recibir información de eventos en tiempo real entre diferentes aplicaciones y servicios de AWS. Puedes crear tus propios canales de eventos, especificar reglas para dirigir estos eventos a donde necesites, y conectar fácilmente distintas partes de tus aplicaciones.</p>
-
-
-<p>Aspectos importantes de EventBridge:</p>
-
-
-<ul>
-<li>Se conecta con más de 90 servicios de AWS, permitiéndote usarlos como puntos de inicio o de llegada para los eventos.</li>
-<li>Puede enviar eventos en tiempo real a servicios como Lambda, SQS, SNS.</li>
-<li>Permite filtrar eventos para que solo lleguen los que realmente interesan.</li>
-<li>Puedes cambiar la información de los eventos antes de pasarlos a otro servicio.</li>
-<li>Ofrece un registro de eventos para que puedas revisar y arreglar problemas fácilmente.</li>
-</ul>
-
-
-<p>EventBridge es genial para separar partes de tu aplicación y hacer sistemas que se pueden ajustar y crecer fácilmente.</p>
-
-
-<h3 id="amazon-sns" tabindex="-1"><a href="https://aws.amazon.com/sns/" rel="noopener noreferrer" target="_blank">Amazon SNS</a></h3>
-
-
-<p><figure><img alt="Amazon SNS" src="/assets/blog/8201b20ff4631e566e1d41df.jpg"/></figure></p>
-
-
-<p>Amazon Simple Notification Service (SNS) es como un tablón de anuncios para tus aplicaciones y servicios, donde puedes publicar mensajes que otros componentes pueden recibir.</p>
-
-
-<p>Lo que hace especial a SNS:</p>
-
-
-<ul>
-<li>Puede mandar mensajes directamente a dispositivos móviles.</li>
-<li>Se integra con Lambda para que puedas correr código automáticamente cuando lleguen mensajes.</li>
-<li>Te permite filtrar los mensajes para que solo recibas los que te interesan.</li>
-<li>Puede guardar mensajes en SQS para que los manejes cuando puedas.</li>
-<li>Si un mensaje no llega a su destino, lo intentará enviar de nuevo automáticamente.</li>
-</ul>
-
-
-<p>SNS te ayuda a mantener comunicadas las diferentes partes de tus sistemas sin que estén directamente conectadas.</p>
-
-
-<h3 id="amazon-sqs" tabindex="-1"><a href="https://aws.amazon.com/sqs/" rel="noopener noreferrer" target="_blank">Amazon SQS</a></h3>
-
-
-<p><figure><img alt="Amazon SQS" src="/assets/blog/b0789df1f55a01d05145a3f4.jpg"/></figure></p>
-
-
-<p>Amazon Simple Queue Service (SQS) es como una fila en el banco para tus mensajes. Permite que las partes de tu aplicación se comuniquen dejando y recogiendo mensajes en una cola.</p>
-
-
-<p>Cosas clave sobre SQS:</p>
-
-
-<ul>
-<li>Borra los mensajes automáticamente una vez que se han procesado.</li>
-<li>Ajusta su tamaño automáticamente para manejar más o menos mensajes.</li>
-<li>Los mensajes pueden quedarse en la cola hasta por 14 días.</li>
-<li>Tiene reglas para manejar mensajes que no se procesan a la primera.</li>
-<li>Mantiene tus mensajes seguros mientras esperan ser procesados.</li>
-</ul>
-
-
-<p>SQS es una herramienta útil para asegurarte de que los mensajes lleguen a donde deben, incluso cuando las cosas están ocupadas, manteniendo tus aplicaciones trabajando suavemente.</p>
-
-
-<h2 id="conclusi%C3%B3n" tabindex="-1">Conclusión</h2>
-
-
-<p>Usar arquitecturas dirigidas por eventos en AWS es una buena idea para crear sistemas que pueden crecer y cambiar fácilmente sin romperse. Aquí van algunos consejos para hacerlo bien:</p>
-
-
-<p><strong>Define bien los eventos</strong></p>
-
-
-<p>Los eventos son super importantes. Asegúrate de que cada evento tenga toda la información necesaria para que quien lo reciba sepa qué hacer. Piensa en los eventos como mensajes claros y directos.</p>
-
-
-<p><strong>Que cada parte haga lo suyo</strong></p>
-
-
-<p>Cada pieza de tu sistema debe trabajar sola, hablando con las demás solo a través de eventos. Esto hace que sea más fácil hacer cambios o arreglos sin problemas.</p>
-
-
-<p><strong>Prepara todo desde el inicio</strong></p>
-
-
-<p>Asegúrate de que todo esté listo para que las partes de tu sistema puedan comunicarse sin problemas. Esto incluye configurar la red, los permisos y la seguridad. Y no te olvides de activar los registros para poder seguir lo que pasa.</p>
-
-
-<p><strong>Usa los servicios de AWS que mejor te convengan</strong></p>
-
-
-<p>EventBridge, SNS y SQS son geniales para manejar eventos. AWS Lambda es perfecto para correr código sin preocuparte por servidores. Escoge lo que mejor se adapte a lo que necesitas.</p>
-
-
-<p><strong>Mantén un ojo en cómo va todo</strong></p>
-
-
-<p>Es clave que sepas cómo está funcionando tu sistema. Usa herramientas como CloudWatch y X-Ray para ver lo que pasa y para estar al tanto de cualquier problema.</p>
-
-
-<p><strong>Ahorra dinero pagando solo por lo que usas</strong></p>
-
-
-<p>Benefíciate de servicios que se ajustan automáticamente como Lambda y DynamoDB on-demand. Guarda eventos que no uses mucho en S3 Infrequent Access. Y siempre revisa tus gastos para no pagar de más.</p>
-
-
-<p>Siguiendo estos consejos, podrás crear sistemas que pueden crecer y cambiar fácilmente usando AWS.</p>
-
-
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
-
-
-<h3 id="%C2%BFqu%C3%A9-es-la-arquitectura-basada-en-eventos%3F" tabindex="-1">¿Qué es la arquitectura basada en eventos?</h3>
-
-
-<p>La arquitectura basada en eventos se trata de usar señales, o 'eventos', para que diferentes partes de un sistema se comuniquen. Es como si cada parte del sistema tuviera un buzón de correo para enviar y recibir mensajes. Esto es muy útil cuando tienes muchas partes trabajando juntas pero de manera independiente, como en sistemas que usan microservicios. Los eventos ayudan a que el sistema se adapte y crezca fácilmente.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-es-arquitectura-en-aws%3F" tabindex="-1">¿Qué es arquitectura en AWS?</h3>
-
-
-<p>La arquitectura en AWS se refiere a cómo organizas y construyes tus proyectos en la nube de AWS. Piensa en ello como el plan de construcción para una casa, pero para tus aplicaciones y datos en internet. Involucra elegir los servicios de AWS que necesitas, cómo van a interactuar, y cómo mantener todo funcionando de manera eficiente y segura.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-es-eda-en-sistemas%3F" tabindex="-1">¿Qué es EDA en sistemas?</h3>
-
-
-<p>EDA en sistemas significa usar eventos para que diferentes partes de un software se comuniquen entre sí. En lugar de que un pedazo de código llame directamente a otro, envía un mensaje o 'evento' que otro pedazo de código puede recoger y responder. Esto ayuda a que cada parte del sistema trabaje de forma independiente, facilitando cambios y mejoras sin afectar todo el sistema.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-es-eda-en-ti%3F" tabindex="-1">¿Qué es EDA en TI?</h3>
-
-
-<p>EDA en TI se refiere al Análisis Exploratorio de Datos. Es como hacer detective con tus datos, buscando pistas sobre cómo se comportan, si hay algo raro, o patrones interesantes. Esto se hace antes de empezar a usar algoritmos más complicados, para tener una buena idea de cómo son tus datos y qué esperar de ellos.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/">Arquitecturas de Alta Disponibilidad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a Serverless en AWS</a></li>
-</ul>
-</p>
+Una EDA útil hace visibles las fronteras y los fallos del sistema. EventBridge, SNS, SQS, outbox e idempotencia aportan piezas distintas; la garantía final depende de cómo la aplicación las combina y de cómo recupera sus estados de negocio.
