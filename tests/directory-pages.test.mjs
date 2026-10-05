@@ -34,7 +34,7 @@ test('directory filters round-trip through shareable URLs without losing unrelat
   const original = '?utm_source=community&q=Cómo%20usar%20IAM&format=Video&topic=Seguridad&country=AR&level=inicial&sort=recent';
   const parsed = parseDirectorySearch(original, allowed);
   assert.deepEqual(parsed, {
-    query: 'Cómo usar IAM', format: 'Video', topic: 'Seguridad', country: 'AR', level: 'inicial',
+    query: 'Cómo usar IAM', format: 'Video', topic: 'Seguridad', country: 'AR', level: 'inicial', group: '', groupFilterEnabled: false,
     sort: 'recent', sortExplicit: true, defaultSort: 'recommended',
   });
   const saved = serializeDirectorySearch(original, parsed);
@@ -44,7 +44,7 @@ test('directory filters round-trip through shareable URLs without losing unrelat
 
 test('unsupported URL facets are ignored instead of hiding valid results', () => {
   assert.deepEqual(parseDirectorySearch('?format=Libro&country=BR&sort=unknown', allowed), {
-    query: '', format: '', topic: '', country: '', level: '', sort: 'recommended',
+    query: '', format: '', topic: '', country: '', level: '', group: '', groupFilterEnabled: false, sort: 'recommended',
     sortExplicit: false, defaultSort: 'recommended',
   });
 });
@@ -86,8 +86,59 @@ test('hash reveal clears filters and query while keeping the selected sort', () 
   const filtered = parseDirectorySearch('?q=IAM&format=Video&topic=Seguridad&country=AR&level=inicial&sort=directory', allowed);
   const revealed = resetDirectorySearchForReveal(filtered, allowed);
   assert.deepEqual(revealed, {
-    query: '', format: '', topic: '', country: '', level: '',
+    query: '', format: '', topic: '', country: '', level: '', group: '', groupFilterEnabled: false,
     sort: 'directory', sortExplicit: true, defaultSort: 'recommended',
   });
   assert.equal(serializeDirectorySearch('?utm_source=guide', revealed), 'utm_source=guide&sort=directory');
+});
+
+test('certification group selection combines with search, facets, and sort in the query string', () => {
+  const certificationAllowed = { ...allowed, group: new Set(['cloud-practitioner', 'multiple-exams']) };
+  const original = '?utm_source=guide&group=multiple-exams&q=Cloud&topic=Seguridad&country=CO&level=inicial&sort=recent';
+  const parsed = parseDirectorySearch(original, certificationAllowed, 'purpose');
+  assert.equal(parsed.group, 'multiple-exams');
+  assert.equal(parsed.groupFilterEnabled, true);
+  assert.equal(parsed.query, 'Cloud');
+  assert.equal(parsed.topic, 'Seguridad');
+  assert.equal(parsed.country, 'CO');
+  assert.equal(parsed.level, 'inicial');
+  assert.equal(parsed.sort, 'recent');
+
+  parsed.group = 'cloud-practitioner';
+  parsed.query = 'Cloud Practitioner';
+  const saved = serializeDirectorySearch(original, parsed);
+  const params = new URLSearchParams(saved);
+  assert.equal(params.get('group'), 'cloud-practitioner');
+  assert.equal(params.get('q'), 'Cloud Practitioner');
+  assert.equal(params.get('topic'), 'Seguridad');
+  assert.equal(params.get('country'), 'CO');
+  assert.equal(params.get('level'), 'inicial');
+  assert.equal(params.get('sort'), 'recent');
+  assert.equal(params.get('utm_source'), 'guide');
+  assert.equal(parseDirectorySearch(`?${saved}`, certificationAllowed, 'purpose').group, 'cloud-practitioner');
+});
+
+test('unsupported group values are ignored, and general directories preserve group as an unrelated query parameter', () => {
+  const certificationAllowed = { ...allowed, group: new Set(['cloud-practitioner']) };
+  const unsupported = parseDirectorySearch('?group=unknown&q=AWS', certificationAllowed, 'purpose');
+  assert.equal(unsupported.group, '');
+  assert.equal(new URLSearchParams(serializeDirectorySearch('?group=unknown', unsupported)).has('group'), false);
+
+  const ordinary = parseDirectorySearch('?group=campaign&format=Video', allowed);
+  const saved = serializeDirectorySearch('?group=campaign&format=Video', ordinary);
+  assert.equal(new URLSearchParams(saved).get('group'), 'campaign');
+  assert.equal(new URLSearchParams(saved).get('format'), 'Video');
+});
+
+test('hash reveal clears selected group filters and keeps the chosen sort', () => {
+  const certificationAllowed = { ...allowed, group: new Set(['cloud-practitioner', 'multiple-exams']) };
+  const filtered = parseDirectorySearch('?q=Cloud&group=multiple-exams&format=Video&sort=directory', certificationAllowed, 'purpose');
+  const revealed = resetDirectorySearchForReveal(filtered, certificationAllowed, 'purpose');
+  assert.equal(revealed.group, '');
+  assert.equal(revealed.query, '');
+  assert.equal(revealed.format, '');
+  assert.equal(revealed.sort, 'directory');
+  assert.equal(revealed.sortExplicit, true);
+  assert.equal(new URLSearchParams(serializeDirectorySearch('?utm_source=guide&group=multiple-exams', revealed)).has('group'), false);
+  assert.equal(new URLSearchParams(serializeDirectorySearch('?utm_source=guide&group=multiple-exams', revealed)).get('sort'), 'directory');
 });

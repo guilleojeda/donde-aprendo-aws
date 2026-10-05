@@ -2,7 +2,7 @@ export function normalizeSearch(value) {
   return String(value).normalize('NFD').replace(/[\u0300-\u036f]/gu, '').toLocaleLowerCase('es');
 }
 
-export function filterResources(resources, { kind = '', format = '', topic = '', country = '', level = '', query = '' } = {}) {
+export function filterResources(resources, { kind = '', format = '', topic = '', country = '', level = '', group = '', query = '' } = {}) {
   const normalizedQuery = normalizeSearch(query.trim());
   return resources.filter((resource) => (
     (!kind || resource.kind === kind)
@@ -10,8 +10,23 @@ export function filterResources(resources, { kind = '', format = '', topic = '',
     && (!topic || resource.topics.includes(topic))
     && (!country || resource.country === country)
     && (!level || resource.level === level)
+    && (!group || resource.groupIds?.includes(group))
     && (!normalizedQuery || normalizeSearch(resource.search).includes(normalizedQuery))
   ));
+}
+
+/** Map catalog resource IDs to filter groups, including broader filters for mixed-exam records. */
+export function directoryGroupMembership(groups = []) {
+  const membership = new Map();
+  for (const group of groups) {
+    const resourceIds = group.filterResourceIds ?? group.resourceIds ?? [];
+    for (const resourceId of resourceIds) {
+      const groupIds = membership.get(resourceId) ?? [];
+      groupIds.push(group.id);
+      membership.set(resourceId, groupIds);
+    }
+  }
+  return membership;
 }
 
 export function sortResources(resources, sort = 'directory') {
