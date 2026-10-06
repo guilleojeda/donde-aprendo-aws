@@ -4,7 +4,7 @@ description: "Consulta la factura de AWS, investiga aumentos con Cost Explorer y
 author: "guille-ojeda"
 publishedAt: "2024-10-26"
 publishedTimestamp: "2024-10-26T18:40:19.127Z"
-modifiedTimestamp: "2026-10-06T15:51:02-03:00"
+modifiedTimestamp: "2026-10-06T16:09:46-03:00"
 review:
   date: "2026-10-06"
 cover: "/assets/blog/editorial-fundamentos.png"
@@ -35,7 +35,7 @@ Para consultar una factura de AWS, abre **Billing and Cost Management → Bills*
 
 AWS reúne estas funciones en la [consola de Billing and Cost Management](https://console.aws.amazon.com/costmanagement/). La página **Bills** ayuda a revisar los cargos estimados del período actual y las facturas ya emitidas. Usa la factura del período cerrado para confirmar el importe facturado; utiliza Cost Explorer para investigar cómo se distribuyó el gasto. La [guía de Billing](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/view-billing-dashboard.html) explica qué muestra la consola y por qué su resumen puede diferir de Bills.
 
-Antes de crear una carga nueva, puedes usar la [AWS Pricing Calculator](https://calculator.aws/) para modelar servicios y uso previsto. El resultado es una estimación, no una factura; el costo real depende del uso y AWS indica que el cálculo no incluye impuestos. La calculadora pública usa tarifas On-Demand; la versión dentro de Billing también permite modelar descuentos y compromisos. Revisa la [documentación vigente de Pricing Calculator](https://docs.aws.amazon.com/cost-management/latest/userguide/pricing-calculator.html) para elegir la experiencia adecuada. El [canal de AWS Women Colombia](https://www.youtube.com/@awswomencolombia) publica una grabación titulada [AWS Pricing Calculator paso a paso](https://www.youtube.com/watch?v=e_oVCKBMnkA). Para seguir aprendiendo, consulta también el [archivo de charlas y actividades de la comunidad](https://awswomencolombia.com/page/eventos) o sus [encuentros en Meetup](https://www.meetup.com/aws-women-colombia-user-group/); verifica en la guía oficial las condiciones actuales de la calculadora.
+Antes de crear una carga nueva, puedes usar la [AWS Pricing Calculator](https://calculator.aws/) para modelar servicios y uso previsto. El resultado es una estimación, no una factura; el costo real depende del uso y AWS indica que el cálculo no incluye impuestos. La calculadora pública no requiere una cuenta de AWS y permite elegir opciones de pago para los servicios que las ofrecen. La versión dentro de Billing puede incorporar tu uso existente, descuentos y compromisos de compra para modelar cambios. Revisa la [documentación vigente de Pricing Calculator](https://docs.aws.amazon.com/cost-management/latest/userguide/pricing-calculator.html) para elegir la experiencia adecuada. El [canal de AWS Women Colombia](https://www.youtube.com/@awswomencolombia) publica una grabación titulada [AWS Pricing Calculator paso a paso](https://www.youtube.com/watch?v=e_oVCKBMnkA). Para seguir aprendiendo, consulta también el [archivo de charlas y actividades de la comunidad](https://awswomencolombia.com/page/eventos) o sus [encuentros en Meetup](https://www.meetup.com/aws-women-colombia-user-group/); verifica en la guía oficial las condiciones actuales de la calculadora.
 
 ## Cómo investigar un aumento en la factura
 
