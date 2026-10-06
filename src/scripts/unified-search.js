@@ -7,17 +7,35 @@ const status = document.querySelector('[data-search-status]');
 const list = document.querySelector('[data-search-results]');
 const more = document.querySelector('[data-search-more]');
 const pageSize = 20;
+const indexTimeoutMs = 12_000;
 let indexPromise;
 let matches = [];
 let shown = 0;
 let searchVersion = 0;
 
 function loadIndex() {
-  indexPromise ??= fetch('/search-index.json')
-    .then((response) => {
-      if (!response.ok) throw new Error(`Search index: HTTP ${response.status}`);
-      return response.json();
+  if (!indexPromise) {
+    const controller = new AbortController();
+    const request = (async () => {
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+      }, indexTimeoutMs);
+      try {
+        const response = await fetch('/search-index.json', { signal: controller.signal });
+        if (!response.ok) throw new Error(`Search index: HTTP ${response.status}`);
+        return await response.json();
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    })();
+
+    let cachedPromise;
+    cachedPromise = request.catch((error) => {
+      if (indexPromise === cachedPromise) indexPromise = undefined;
+      throw error;
     });
+    indexPromise = cachedPromise;
+  }
   return indexPromise;
 }
 
@@ -78,7 +96,6 @@ form?.addEventListener('submit', async (event) => {
     recordAggregateSearch(query, type, matches.length);
   } catch {
     if (version !== searchVersion) return;
-    indexPromise = undefined;
     status.textContent = 'La búsqueda no está disponible en este momento. Intenta de nuevo.';
   }
 });

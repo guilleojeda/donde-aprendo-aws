@@ -15,6 +15,12 @@ A search submitted with only whitespace clears its prior results and pagination
 and shows the empty-query guidance. A previous asynchronous search cannot restore
 those results afterward. Revealing more search results focuses the first new
 result link; the initial search response leaves the visitor’s focus in place.
+The initial public-index download has a bounded wait, including reading its
+response body. A stalled or failed download shows the existing retry guidance
+and clears the failed request even when its original query is no longer current.
+The next submitted search can retry immediately; successful downloads remain
+cached for subsequent searches on the page. Only the latest submitted query
+can replace results or status.
 
 `/recorridos/` provides four editorial sequences for fundamentals, serverless, security and generative AI. Each step resolves a published learning resource or a blog article to its existing internal destination; it does not copy that content. The paths are also available in global search. See [learning paths](learning-paths.md) for the editing contract.
 
