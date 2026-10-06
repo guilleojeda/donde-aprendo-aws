@@ -4,7 +4,7 @@ description: "Guía para elegir caché en Lambda, API Gateway, CloudFront, Elast
 author: "guille-ojeda"
 publishedAt: "2024-10-27"
 publishedTimestamp: "2024-10-27T02:26:14.893Z"
-modifiedTimestamp: "2026-10-06T13:57:53-03:00"
+modifiedTimestamp: "2026-10-06T14:19:21-03:00"
 review:
   date: "2026-10-06"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
@@ -55,7 +55,9 @@ En *cache-aside*, la aplicación consulta primero el caché. Ante un fallo, lee 
 # verified_tenant_id proviene de la identidad autenticada, no de la solicitud.
 
 def get_product(verified_tenant_id, product_id):
-    key = f"product:v1:{verified_tenant_id}:{product_id}"
+    key = "product:v1:" + json.dumps(
+        [verified_tenant_id, product_id], separators=(",", ":")
+    )
     try:
         cached = cache.get(key)
     except CacheUnavailable:
@@ -71,6 +73,8 @@ def get_product(verified_tenant_id, product_id):
         except CacheUnavailable:
             pass  # La lectura de la fuente ya produjo la respuesta.
     return product</code></pre>
+
+La clave serializa el par de identificadores en JSON para distinguir sus límites incluso si contienen `:`. Concatenarlos con ese separador sin codificarlos puede hacer que pares distintos produzcan la misma clave.
 
 Los 60 segundos solo ilustran dónde se configura un TTL, no son una recomendación universal. En producción, el identificador del tenant debe salir de una identidad verificada, y la consulta a la base también debe limitarse a ese tenant. Incluye en la clave cada valor que cambie el contenido —por ejemplo, tenant, idioma o versión— y evita claves globales para respuestas privadas.
 
