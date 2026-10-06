@@ -1,520 +1,190 @@
 ---
-title: "Logs de acceso en ELB: guía completa"
-description: "Aprende cómo configurar y analizar los logs de acceso en ELB para mejorar la seguridad y rendimiento de tu infraestructura en AWS."
+title: "Logs de acceso de ELB en AWS: configurar ALB y diagnosticar 5xx"
+description: "Configura logs de acceso de ALB en S3, consulta errores 5xx con Athena y entiende qué registran ALB, NLB y Classic Load Balancer."
 author: "guille-ojeda"
 publishedAt: "2025-03-13"
 publishedTimestamp: "2025-03-13T03:14:10.062000+00:00"
+modifiedTimestamp: "2026-10-06T17:34:19-03:00"
+review:
+  date: "2026-10-06"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Guía completa para depurar errores CORS en API Gateway"
-    url: "https://dondeaprendoaws.com/blog/guia-completa-para-depurar-errores-cors-en-api-gateway/"
-  - title: "Guía de acreditación para Partners de AWS 2024"
-    url: "https://dondeaprendoaws.com/blog/guia-de-acreditacion-para-partners-de-aws-2024/"
-  - title: "Patrón Strangler Fig en AWS: migrar a microservicios"
-    url: "https://dondeaprendoaws.com/blog/patron-strangler-fig-en-aws-migrar-a-microservicios/"
+  - title: "Correlación de eventos en AWS: IDs, EventBridge y CloudWatch"
+    url: "https://dondeaprendoaws.com/blog/estrategias-de-correlacion-de-eventos-aws/"
 
 ---
 
-<p><strong>¿Quieres mejorar la seguridad y el rendimiento de tu infraestructura en AWS?</strong> Los logs de acceso de Elastic Load Balancer (ELB) son clave para analizar tráfico, detectar problemas y cumplir normativas. Aquí tienes lo más importante:</p>
-<ul>
-<li><strong>¿Qué son los logs de acceso?</strong> Registros que documentan cada solicitud en tu ELB, incluyendo IPs, tiempos de respuesta, códigos HTTP y más.</li>
-<li><strong>Tipos de ELB compatibles:</strong>
-<ul>
-<li><strong>ALB:</strong> Detalles HTTP/HTTPS completos.</li>
-<li><strong>NLB:</strong> Métricas básicas TCP/UDP.</li>
-<li><strong>Classic:</strong> Información tradicional sobre HTTP/TCP.</li>
-</ul>
-</li>
-<li><strong>Cómo configurarlos:</strong>
-<ol>
-<li>Actívalos desde la consola de AWS o CLI.</li>
-<li>Usa un bucket S3 para almacenar los logs.</li>
-<li>Configura permisos IAM y ciclo de vida de datos.</li>
-</ol>
-</li>
-<li><strong>Formato y análisis:</strong> Logs comprimidos (.gz) con datos clave como tiempos de procesamiento y bytes transferidos. Analízalos con herramientas como <a href="https://aws.amazon.com/athena/" rel="nofollow noopener noreferrer" target="_blank">Amazon Athena</a> o <a href="https://aws.amazon.com/cloudwatch/" rel="nofollow noopener noreferrer" target="_blank">CloudWatch</a>.</li>
-</ul>
-<h3 id="tabla-rapida-comparativa-de-elb-y-soporte-de-logs" tabindex="-1">Tabla rápida: comparativa de ELB y soporte de logs</h3>
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Tipo de ELB</th>
-<th>Soporte de logs</th>
-<th>Intervalo de entrega</th>
-<th>Datos registrados</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>ALB</td>
-<td>Completo</td>
-<td>Cada 5 minutos</td>
-<td>HTTP/HTTPS</td>
-</tr>
-<tr>
-<td>NLB</td>
-<td>Básico</td>
-<td>Cada 5 minutos</td>
-<td>TCP/UDP</td>
-</tr>
-<tr>
-<td>Classic</td>
-<td>Completo</td>
-<td>Cada 5 minutos</td>
-<td>HTTP/TCP</td>
-</tr>
-</tbody>
-</table></figure>
-<p><strong>Conclusión:</strong> Configurar y analizar los logs de ELB no solo mejora la seguridad, sino que también optimiza el rendimiento y ayuda a cumplir normativas. Sigue leyendo para aprender cómo configurarlos y sacarles el máximo partido.</p>
-<h2 class="sb h2-sbb-cls" id="configuracion-de-logs-de-acceso" tabindex="-1">Configuración de logs de acceso</h2>
-<p>Configurar los logs de acceso en ELB es clave para mejorar tanto la seguridad como el rendimiento. Esto implica ajustar varios componentes de AWS.</p>
-<h3 id="requisitos-de-configuracion" tabindex="-1">Requisitos de configuración</h3>
-<p>Para activar los logs de acceso en ELB, asegúrate de contar con lo siguiente:</p>
-<ul>
-<li><strong>Un bucket S3 dedicado</strong> para almacenar los logs, lo que facilita la gestión de permisos y el ciclo de vida de los datos.</li>
-<li><strong>Permisos IAM configurados correctamente</strong> para permitir el acceso necesario.</li>
-<li><strong>Un balanceador de carga en una VPC.</strong></li>
-<li>Configuración que permita a ELB escribir logs en el bucket.</li>
-</ul>
-<h3 id="habilitar-el-registro-de-acceso" tabindex="-1">Habilitar el registro de acceso</h3>
-<p>El procedimiento para activar los logs depende del tipo de balanceador que utilices:</p>
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Tipo de ELB</th>
-<th>Método de activación</th>
-<th>Intervalo de entrega</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>ALB/NLB</td>
-<td>AWS Console o CLI</td>
-<td>Cada 5 minutos</td>
-</tr>
-<tr>
-<td>Classic</td>
-<td>AWS Console o CLI</td>
-<td>Cada 5 minutos</td>
-</tr>
-<tr>
-<td>Gateway</td>
-<td>AWS Console o CLI</td>
-<td>Cada 5 minutos</td>
-</tr>
-</tbody>
-</table></figure>
-<p>Pasos para habilitar los logs:</p>
-<ol>
-<li>Ve a <strong>EC2 &gt; Load Balancers</strong> y selecciona el balanceador que deseas configurar.</li>
-<li>En la pestaña <strong>Attributes</strong>, activa la opción <strong>Access logs</strong>.</li>
-<li>Ingresa el nombre del bucket S3 donde se almacenarán los logs y, si lo deseas, añade un prefijo opcional.</li>
-</ol>
-<p>Una vez hecho esto, asegúrate de configurar correctamente tu bucket S3 para completar el proceso.</p>
-<h3 id="configuracion-del-bucket-s3" tabindex="-1">Configuración del bucket S3</h3>
-<ol>
-<li><strong>Crea un bucket con la siguiente política de permisos:</strong></li>
-</ol>
-<pre><code class="language-json">{
+Si buscas una solicitud HTTP que llegó a un balanceador, ver qué respondió el balanceador y qué devolvió el destino, los logs de acceso de un **Application Load Balancer (ALB)** —parte de Elastic Load Balancing (ELB)— son un buen punto de partida. El método tradicional los entrega como archivos en Amazon S3. La configuración, el cifrado y los datos disponibles cambian según el tipo de balanceador; un **Network Load Balancer (NLB)**, por ejemplo, solo registra solicitudes que pasan por un listener TLS.
+
+Esta guía configura el caso más común —ALB hacia S3—, muestra una consulta de errores con Athena y explica qué usar cuando el tráfico o la pregunta son distintos.
+
+## Qué registra cada tipo de balanceador
+
+### Application Load Balancer (ALB)
+
+Registra solicitudes HTTP/HTTPS, incluida la ruta, los códigos de respuesta y los tiempos del balanceador y del destino. También admite entradas HTTP/2, gRPC y WebSockets. Los archivos tradicionales se comprimen en S3 y se publican cada cinco minutos por nodo. La entrega es eventual y de mejor esfuerzo, no un recuento exacto de solicitudes. Consulta el [formato y los campos de ALB](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-access-logs.html).
+
+### Network Load Balancer (NLB)
+
+Registra detalles de conexiones TLS, como cliente, negociación y protocolo. Los archivos tradicionales se comprimen en S3 y se publican cada cinco minutos. **Solo genera access logs si tiene un listener TLS y solo para solicitudes TLS**; no registra listeners TCP o UDP sin TLS. El bucket S3 debe estar en la misma Región, aunque puede pertenecer a otra cuenta. Consulta el [formato y los campos de NLB](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-access-logs.html).
+
+### Classic Load Balancer
+
+Registra solicitudes y conexiones según el listener, con un formato distinto del de ALB. El bucket debe estar en la misma Región; AWS cifra cada archivo con SSE-S3. Publica en S3 cada 5 o 60 minutos; el intervalo predeterminado es 60 minutos. Contrasta el formato y los atributos con la [guía de logs de Classic](https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/access-log-collection.html) y sus [requisitos de habilitación](https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/enable-access-logs.html).
+
+### Gateway Load Balancer
+
+No genera access logs propios: reenvía flujos de capa 3 sin terminarlos. Para ver tráfico, usa VPC Flow Logs y activa registros en los dispositivos de seguridad de destino. Consulta cómo [monitorear GWLB](https://docs.aws.amazon.com/elasticloadbalancing/latest/gateway/monitoring.html).
+
+Para ALB y NLB hay además una integración de logs de CloudWatch. Desde **Integrations** puede entregar tipos de logs a CloudWatch Logs, Amazon Data Firehose o S3; S3 admite Parquet. En ALB incluye access, connection y health check logs. En NLB sigue registrando solo solicitudes TLS. Es una vía de entrega distinta de los archivos tradicionales en S3 y requiere sus propios permisos y revisión de costos. Usa [CloudWatch Logs Insights](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-cloudwatch-logs.html) si los envías a CloudWatch; para los archivos tradicionales en S3, puedes consultar el formato con Athena.
+
+Si quieres repasar primero cómo se diferencian ALB y NLB, AWS Women Colombia publicó dos introducciones conceptuales en 2023: [Application Load Balancer, capa 7](https://awswomencolombia.com/100diasdeaws-dia18-aws-application-load-balancer) y [Network Load Balancer, capa 4](https://awswomencolombia.com/100diasdeaws-dia17-aws-network-load-balancer). No son tutoriales de access logs; confirma la configuración, las funciones y los precios actuales en la documentación de AWS.
+
+## Habilitar los logs tradicionales de un ALB en S3
+
+Necesitas un ALB existente y un bucket de S3. El bucket debe estar en la **misma Región de AWS** que el balanceador; puede pertenecer a otra cuenta si la política lo permite. Para este tipo de access logs, AWS admite **SSE-S3** como cifrado del bucket, no SSE-KMS. Un prefijo opcional organiza los objetos, pero no puede incluir el texto `AWSLogs`. Consulta los [requisitos vigentes de AWS](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/enable-access-logging.html) antes de aplicar una configuración en otra partición o en Outposts.
+
+### 1. Permitir la entrega en la política del bucket
+
+Añade esta declaración a la política del bucket existente. Cambia el nombre del bucket, el prefijo `logs` y el ID de la cuenta propietaria del ALB. El ID de cuenta debe ser el de la cuenta del balanceador, incluso si el bucket está en otra cuenta.
+
+```json
+{
   "Version": "2012-10-17",
   "Statement": [
     {
+      "Sid": "AllowALBAccessLogs",
       "Effect": "Allow",
       "Principal": {
-        "AWS": "arn:aws:iam::elb-account-id:root"
+        "Service": "logdelivery.elasticloadbalancing.amazonaws.com"
       },
       "Action": "s3:PutObject",
-      "Resource": "arn:aws:s3:::your-bucket-name/*"
+      "Resource": "arn:aws:s3:::MI-BUCKET/logs/AWSLogs/123456789012/*"
     }
   ]
 }
-</code></pre>
-<ol start="2">
-<li><strong>Configura el ciclo de vida del bucket:</strong></li>
-</ol>
-<ul>
-<li>Mueve los datos a <strong>S3 Infrequent Access</strong> después de 30 días.</li>
-<li>Archiva los logs en <strong>S3 Glacier</strong> tras 90 días.</li>
-<li>Configura la eliminación automática de los logs después de 365 días.</li>
-</ul>
-<ol start="3">
-<li><strong>Habilita el cifrado:</strong></li>
-</ol>
-<p>Activa el cifrado del lado del servidor (SSE-S3) para proteger los logs almacenados.</p>
-<p>Finalmente, realiza una prueba de escritura para confirmar que los logs se están generando correctamente en el bucket configurado.</p>
-<h2 class="sb h2-sbb-cls" id="formato-de-logs-de-acceso" tabindex="-1">Formato de logs de acceso</h2>
-<p>Los logs de acceso de ELB siguen una estructura estándar que facilita analizar el tráfico y el rendimiento.</p>
-<h3 id="estructura-del-archivo-de-logs" tabindex="-1">Estructura del archivo de logs</h3>
-<p>Los archivos de logs se almacenan en un bucket S3 con un formato específico:</p>
-<pre><code>bucket-name/prefix/AWSLogs/aws-account-id/elasticloadbalancing/region/yyyy/mm/dd/aws-account-id_elasticloadbalancing_region_load-balancer-name_end-time_ip-address_random-string.log.gz
-</code></pre>
-<p>Cada archivo contiene registros de 5 minutos de actividad y está comprimido en formato .gz para ahorrar espacio.</p>
-<h3 id="campos-clave-en-los-logs" tabindex="-1">Campos clave en los logs</h3>
-<p>Estos son los campos principales que aparecen en cada registro:</p>
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Campo</th>
-<th>Descripción</th>
-<th>Ejemplo</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>timestamp</td>
-<td>Fecha y hora en formato ISO 8601</td>
-<td>2025-03-13T10:55:36.123Z</td>
-</tr>
-<tr>
-<td>elb</td>
-<td>Nombre del balanceador</td>
-<td>app/my-loadbalancer/50dc6c495c0c9188</td>
-</tr>
-<tr>
-<td>client:port</td>
-<td>IP y puerto del cliente</td>
-<td>192.168.1.1:12345</td>
-</tr>
-<tr>
-<td>target:port</td>
-<td>IP y puerto del destino</td>
-<td>10.0.1.10:80</td>
-</tr>
-<tr>
-<td>request_processing_time</td>
-<td>Tiempo de procesamiento inicial</td>
-<td>0,086</td>
-</tr>
-<tr>
-<td>target_processing_time</td>
-<td>Tiempo de respuesta del servidor</td>
-<td>0,048</td>
-</tr>
-<tr>
-<td>response_processing_time</td>
-<td>Tiempo final de respuesta</td>
-<td>0,037</td>
-</tr>
-<tr>
-<td>status_code</td>
-<td>Código HTTP de respuesta</td>
-<td>200</td>
-</tr>
-<tr>
-<td>target_status_code</td>
-<td>Código del servidor destino</td>
-<td>200</td>
-</tr>
-<tr>
-<td>received_bytes</td>
-<td>Bytes recibidos</td>
-<td>1.234</td>
-</tr>
-<tr>
-<td>sent_bytes</td>
-<td>Bytes enviados</td>
-<td>5.678</td>
-</tr>
-</tbody>
-</table></figure>
-<h3 id="ejemplo-de-registro" tabindex="-1">Ejemplo de registro</h3>
-<pre><code>2025-03-13T10:55:36.123Z app/my-loadbalancer/50dc6c495c0c9188 192.168.1.1:12345 10.0.1.10:80 0,086 0,048 0,037 200 200 1234 5678 "GET https://example.com:443/api/users HTTP/1.1"
-</code></pre>
-<p><strong>Desglose del ejemplo:</strong></p>
-<ul>
-<li>La petición se realizó el 13 de marzo de 2025 a las 10:55:36.</li>
-<li>El tiempo total fue de 171 ms (suma de los tres tiempos).</li>
-<li>La respuesta fue exitosa con un código HTTP 200.</li>
-<li>Se transfirieron 1,2 KB de datos de entrada y 5,5 KB de salida.</li>
-</ul>
-<p>El análisis de los tiempos permite detectar posibles problemas:</p>
-<ul>
-<li><strong>request_processing_time:</strong> 86 ms para establecer la conexión.</li>
-<li><strong>target_processing_time:</strong> 48 ms en el servidor.</li>
-<li><strong>response_processing_time:</strong> 37 ms para procesar y enviar la respuesta.</li>
-</ul>
-<p>Estos detalles ayudan a identificar problemas de rendimiento y posibles incidencias en la red, el balanceador o los servidores.</p>
-<h2 class="sb h2-sbb-cls" id="metodos-de-analisis-de-logs" tabindex="-1">Métodos de análisis de logs</h2>
-<p>El análisis detallado de los logs de ELB es clave para garantizar el buen funcionamiento y la estabilidad de la infraestructura. Estas prácticas complementan la configuración inicial de los registros.</p>
-<h3 id="herramientas-de-analisis-de-aws" tabindex="-1">Herramientas de análisis de AWS</h3>
-<p><strong>Amazon CloudWatch Logs Insights</strong></p>
-<ul>
-<li>Permite realizar consultas SQL en tiempo real.</li>
-<li>Ofrece visualizaciones automáticas y genera alertas basadas en métricas.</li>
-</ul>
-<p><strong>Amazon Athena</strong></p>
-<ul>
-<li>Facilita el análisis histórico mediante consultas SQL.</li>
-<li>Maneja grandes volúmenes de datos para crear informes detallados.</li>
-</ul>
-<p>Ejemplo de consulta en Athena para identificar IPs con errores 5xx:</p>
-<pre><code class="language-sql">SELECT client_ip, COUNT(*) as error_count
-FROM elb_logs
-WHERE status_code &gt;= 500
-GROUP BY client_ip
-ORDER BY error_count DESC
-LIMIT 10;
-</code></pre>
-<h3 id="herramientas-de-analisis-externas" tabindex="-1">Herramientas de análisis externas</h3>
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Herramienta</th>
-<th>Función principal</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><a href="https://grafana.com/" rel="nofollow noopener noreferrer" target="_blank">Grafana</a></td>
-<td>Crea paneles personalizados con alertas en tiempo real.</td>
-</tr>
-<tr>
-<td><a href="https://www.elastic.co/elastic-stack" rel="nofollow noopener noreferrer" target="_blank">ELK Stack</a></td>
-<td>Realiza análisis profundos con búsqueda de texto completo.</td>
-</tr>
-<tr>
-<td><a href="https://www.splunk.com/en_us/products/splunk-enterprise.html" rel="nofollow noopener noreferrer" target="_blank">Splunk</a></td>
-<td>Detecta amenazas y correlaciona eventos de forma eficiente.</td>
-</tr>
-</tbody>
-</table></figure>
-<p>La combinación de estas herramientas con una estrategia de monitorización activa permite identificar problemas antes de que afecten al sistema.</p>
-<h3 id="configuracion-de-monitorizacion" tabindex="-1">Configuración de monitorización</h3>
-<p>1. <strong><a href="https://dondeaprendoaws.com/blog/10-metricas-clave-de-devops-en-aws/">Métricas clave</a></strong></p>
-<ul>
-<li>Respuestas con tiempo superior a 1 segundo.</li>
-<li>Tasa de errores superior al 1%.</li>
-<li>Conexiones rechazadas.</li>
-<li>Comportamientos o patrones anómalos.</li>
-</ul>
-<p>2. <strong>Sistema de alertas</strong></p>
-<ul>
-<li>Aumento en errores 4xx/5xx.</li>
-<li>Latencias inusualmente altas.</li>
-<li>Picos de tráfico inesperados.</li>
-<li>Actividad de IPs sospechosas.</li>
-</ul>
-<p>3. <strong>Dashboards</strong></p>
-<ul>
-<li>Visualización de distribución geográfica del tráfico.</li>
-<li>Análisis de tendencias en el rendimiento.</li>
-<li>Métricas relacionadas con la seguridad.</li>
-<li>Resumen del estado general del sistema.</li>
-</ul>
-<p>La correlación de los logs de ELB con registros de <a href="https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-user-guide.html" rel="nofollow noopener noreferrer" target="_blank">CloudTrail</a> y VPC Flow Logs ofrece una perspectiva completa, ayudando a identificar problemas de seguridad y rendimiento de manera eficiente. Esto permite tomar medidas correctivas rápidamente y mantener la estabilidad del sistema.</p>
-<h2 class="sb h2-sbb-cls" id="directrices-de-seguridad" tabindex="-1">Directrices de seguridad</h2>
-<p>Esta sección amplía la configuración anterior, centrándose en reforzar la seguridad de los logs.</p>
-<h3 id="gestion-de-logs" tabindex="-1">Gestión de logs</h3>
-<p>Es importante gestionar los logs para garantizar su disponibilidad y protección. Aquí tienes algunas recomendaciones clave:</p>
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Aspecto</th>
-<th>Recomendación</th>
-<th>Ventaja</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Retención</td>
-<td>Define un período de retención acorde con las normativas (por ejemplo, 90 días)</td>
-<td>Cumplimiento con regulaciones y análisis histórico</td>
-</tr>
-<tr>
-<td>Rotación</td>
-<td>Implementa rotación diaria</td>
-<td>Mejor uso del espacio de almacenamiento</td>
-</tr>
-<tr>
-<td>Organización y compresión</td>
-<td>Utiliza GZIP y organiza los logs por año/mes/día</td>
-<td>Ahorro de costes y gestión más eficiente</td>
-</tr>
-</tbody>
-</table></figure>
-<h3 id="controles-de-seguridad" tabindex="-1">Controles de seguridad</h3>
-<p>Para proteger los registros frente a accesos no autorizados, se sugiere implementar las siguientes medidas:</p>
-<ul>
-<li>Configura el bucket con <a href="https://dondeaprendoaws.com/blog/cifrado-de-datos-con-aws-kms-guia-practica/">cifrado SSE-KMS</a>.</li>
-<li>Aplica el principio de mínimo privilegio mediante roles específicos de IAM.</li>
-<li>Activa CloudTrail para monitorear todos los accesos.</li>
-</ul>
-<p>A continuación, se muestra una política que asegura que solo se acepten objetos cifrados con SSE-KMS:</p>
-<pre><code class="language-json">{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Deny",
-            "Principal": "*",
-            "Action": "s3:PutObject",
-            "Resource": "arn:aws:s3:::nombre-bucket/*",
-            "Condition": {
-                "StringNotEquals": {
-                    "s3:x-amz-server-side-encryption": "aws:kms"
-                }
-            }
-        }
-    ]
-}
-</code></pre>
-<h3 id="estandares-de-cumplimiento" tabindex="-1">Estándares de cumplimiento</h3>
-<p>Asegura que la gestión de logs cumpla con normativas internacionales para fortalecer la seguridad y simplificar auditorías.</p>
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Normativa</th>
-<th>Requisito principal</th>
-<th>Configuración en ELB</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>GDPR</td>
-<td>Protección de datos personales</td>
-<td>Configurar los logs para reducir la exposición de información sensible (por ejemplo, enmascarar IPs)</td>
-</tr>
-<tr>
-<td>ISO 27001</td>
-<td>Control de acceso</td>
-<td>Activar logs de auditoría</td>
-</tr>
-<tr>
-<td>PCI DSS</td>
-<td>Retención de logs</td>
-<td>Ajustar el período de retención según las directrices del estándar (por ejemplo, períodos más largos)</td>
-</tr>
-</tbody>
-</table></figure>
-<p><strong>Sugerencias adicionales:</strong></p>
-<ul>
-<li>Etiqueta los recursos para una clasificación clara de los datos.</li>
-<li>Establece procesos regulares para revisar las políticas de acceso.</li>
-<li>Documenta todos los cambios realizados en la configuración de seguridad.</li>
-<li>Realiza auditorías frecuentes para verificar el cumplimiento.</li>
-</ul>
-<p>Adapta estas prácticas según tus necesidades, buscando un equilibrio entre protección y accesibilidad.</p>
-<p>Si quieres explorar más sobre seguridad y gestión de logs en AWS, visita el blog <a href="https://dondeaprendoaws.com/">Dónde Aprendo AWS</a>.</p>
-<h2 class="sb h2-sbb-cls" id="problemas-comunes" tabindex="-1">Problemas comunes</h2>
-<p>Al configurar y analizar los logs, pueden surgir algunos inconvenientes que es necesario abordar. Con una configuración adecuada, identificar y resolver estos problemas rápidamente es clave para garantizar la seguridad y el rendimiento del sistema.</p>
-<h3 id="problemas-de-configuracion" tabindex="-1">Problemas de configuración</h3>
-<p>Los errores más habituales durante la configuración inicial suelen requerir pasos específicos para solucionarlos:</p>
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Error</th>
-<th>Solución</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Access Denied</td>
-<td>Revisa y actualiza la <a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-s3/">política del bucket S3</a> para incluir permisos de elasticloadbalancing.amazonaws.com.</td>
-</tr>
-<tr>
-<td>Logs no aparecen</td>
-<td>Asegúrate de que el prefijo termine con una barra (/) y siga el formato: AWSLogs/AWS-account-ID/elasticloadbalancing/region/.</td>
-</tr>
-<tr>
-<td>Bucket no encontrado</td>
-<td>Verifica que el bucket exista en la misma región que el ELB.</td>
-</tr>
-</tbody>
-</table></figure>
-<h3 id="problemas-de-entrega-de-logs" tabindex="-1">Problemas de entrega de logs</h3>
-<p>La entrega de logs en S3 puede tardar entre 5 y 15 minutos. Si notas problemas, considera lo siguiente:</p>
-<ul>
-<li>
-<strong>Retrasos en la entrega</strong><br>
-Comprueba el estado de la cuota de servicio de S3, revisa las reglas de ciclo de vida configuradas y asegúrate de que los permisos del rol IAM sean los correctos.
-</li>
-<li>
-<strong>Logs incompletos</strong><br>
-Esto puede deberse a varias causas, como:
-<ul>
-<li>El bucket S3 está lleno o se encuentra saturado.</li>
-<li>Problemas de conectividad.</li>
-<li>Restricciones en el ancho de banda.</li>
-</ul>
-</li>
-</ul>
-<p>Si encuentras problemas más específicos o necesitas ayuda extra, consulta los recursos disponibles.</p>
-<h3 id="recursos-de-ayuda" tabindex="-1">Recursos de ayuda</h3>
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Recurso</th>
-<th>Descripción</th>
-<th>Acceso</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>AWS Troubleshooting Guide</td>
-<td>Guía para resolver problemas comunes.</td>
-<td>Console &gt; ELB &gt; Documentación</td>
-</tr>
-<tr>
-<td>CloudWatch Metrics</td>
-<td>Métricas relacionadas con la entrega de logs.</td>
-<td>CloudWatch &gt; Metrics &gt; ELB</td>
-</tr>
-<tr>
-<td>AWS Support Center</td>
-<td>Soporte técnico personalizado.</td>
-<td>AWS Support &gt; Create Case</td>
-</tr>
-<tr>
-<td>Dónde Aprendo AWS</td>
-<td><a href="https://dondeaprendoaws.com/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/">recursos en español sobre AWS</a>.</td>
-<td><a href="https://dondeaprendoaws.com/">Dónde Aprendo AWS</a></td>
-</tr>
-</tbody>
-</table></figure>
-<p><strong>Consejo práctico:</strong> Configura <a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/">alertas en CloudWatch</a> para monitorizar posibles errores en la entrega de logs. Establece umbrales en métricas como latencia de entrega, tasa de errores y volumen de logs procesados. Estas alertas te ayudarán a detectar y solucionar problemas antes de que afecten a los análisis de seguridad o al cumplimiento de normativas.</p>
-<h2 class="sb h2-sbb-cls" id="conclusion" tabindex="-1">Conclusión</h2>
-<p>Gestionar los logs de acceso en ELB de forma adecuada es clave para mantener una infraestructura segura y cumplir con las <a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">normativas en AWS</a>. En esta guía hemos destacado los puntos más importantes y compartido recursos útiles para seguir explorando el tema.</p>
-<h3 id="puntos-clave" tabindex="-1">Puntos clave</h3>
-<p>Configurar y analizar los logs de acceso correctamente puede marcar una gran diferencia tanto en la seguridad como en el rendimiento del sistema. Aquí tienes un resumen:</p>
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Aspecto</th>
-<th>Ventaja</th>
-<th>Cómo aplicarlo</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Monitorización</td>
-<td>Identificar actividades sospechosas</td>
-<td>Analizar patrones de acceso regularmente</td>
-</tr>
-<tr>
-<td>Cumplimiento</td>
-<td>Facilitar auditorías de seguridad</td>
-<td>Retener logs según las normativas</td>
-</tr>
-<tr>
-<td>Optimización</td>
-<td>Mejorar el rendimiento del sistema</td>
-<td>Evaluar métricas de latencia y errores</td>
-</tr>
-<tr>
-<td>Seguridad</td>
-<td>Evitar accesos no permitidos</td>
-<td>Usar controles basados en los análisis</td>
-</tr>
-</tbody>
-</table></figure>
-<p>Revisar los logs de manera sistemática permite detectar y responder rápidamente a posibles incidentes de seguridad.</p>
-<h3 id="recursos-adicionales" tabindex="-1">Recursos adicionales</h3>
-<p>Si quieres ampliar tus conocimientos, aquí tienes algunos recursos recomendados:</p>
-<ul>
-<li><strong>Recursos en español</strong>: El blog <a href="https://dondeaprendoaws.com/">Dónde Aprendo AWS</a> incluye guías detalladas sobre servicios de AWS, con tutoriales específicos sobre seguridad y monitorización.</li>
-<li><strong>Herramientas de análisis</strong>: CloudWatch es una herramienta avanzada que puede complementar el análisis de logs de acceso.</li>
-<li><strong><a href="https://dondeaprendoaws.com/blog/aprender-aws-gratis-recursos-y-comunidad/">comunidad AWS</a></strong>: Los grupos de usuarios de AWS en España y Latinoamérica son excelentes para compartir experiencias y aprender <a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">mejores prácticas</a>.</li>
-</ul>
-<p>Establece una rutina para revisar tus logs combinando herramientas automatizadas como CloudWatch con revisiones manuales. Además, considera participar en comunidades de AWS para mantenerte al día y mejorar la seguridad operativa de tu infraestructura.</p>
-<h2>Publicaciones de blog relacionadas</h2><ul><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS fundamentos: guía de inicio rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/como-utilizar-elasticsearch-en-aws/">Cómo utilizar Elasticsearch en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/">Mejores prácticas de observabilidad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/estrategias-de-correlacion-de-eventos-aws/">Estrategias de correlación de eventos AWS</a></li></ul>
+```
+
+Si no vas a usar prefijo, elimina `logs/` tanto de la ruta de S3 que configures como del ARN del recurso. La política usa el principal de entrega actual para balanceadores estándar; AWS documenta un principal y una política distintos para balanceadores en Outposts. En AWS GovCloud, el ARN del bucket usa la partición `arn:aws-us-gov`. La [guía de habilitación de ALB](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/enable-access-logging.html) incluye estos casos y ejemplos completos.
+
+### 2. Activar el atributo de access logs
+
+En la consola, abre **EC2 → Load Balancers**, selecciona el ALB y, en **Attributes → Edit → Monitoring**, activa **Access logs**. Indica el nombre del bucket y el prefijo `logs` del ejemplo.
+
+El mismo cambio se puede hacer con AWS CLI. Este comando actualiza los atributos de un ALB existente; no crea el bucket ni el balanceador:
+
+```bash
+aws elbv2 modify-load-balancer-attributes \
+  --region REGION_DEL_ALB \
+  --load-balancer-arn "ARN_DEL_ALB" \
+  --attributes \
+    Key=access_logs.s3.enabled,Value=true \
+    Key=access_logs.s3.bucket,Value=MI-BUCKET \
+    Key=access_logs.s3.prefix,Value=logs
+```
+
+Si no configuras un prefijo, omite el último atributo. Para NLB, los nombres de atributos de S3 son parecidos, pero no reutilices la política del ALB: usa el procedimiento de AWS para [habilitar access logs de un NLB](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/enable-access-logs.html).
+
+### 3. Verificar permisos y esperar una solicitud real
+
+Al habilitar los logs, Elastic Load Balancing valida el bucket y puede crear `ELBAccessLogTestFile` bajo `logs/AWSLogs/123456789012/`. Ese objeto comprueba permisos; **no contiene registros de solicitudes**. Envía una solicitud de prueba al ALB y revisa el prefijo con la cuenta, Región y fecha correctas.
+
+AWS publica archivos por nodo cada cinco minutos, pero la entrega es eventualmente consistente. Puede haber más de un archivo para el mismo intervalo y la primera entrega puede tardar. No esperes un objeto nuevo exactamente cada cinco minutos. La ruta tiene esta forma:
+
+```text
+s3://MI-BUCKET/logs/AWSLogs/123456789012/elasticloadbalancing/REGION/AAAA/MM/DD/...
+```
+
+El resto del nombre identifica el balanceador y el intervalo final en UTC; los objetos terminan en `.log.gz`. La [documentación del formato de access logs de ALB](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-access-logs.html) explica cada componente.
+
+## Leer los campos de una solicitud ALB
+
+Los registros de ALB son líneas delimitadas por espacios, pero algunos campos —como la línea de solicitud y el agente de usuario— están entre comillas y pueden contener espacios. No los proceses separando cada línea ingenuamente por espacios. Los campos nuevos se agregan al final, así que mantén el parser o la tabla de Athena alineados con el formato publicado por AWS.
+
+- **`time` y `request_creation_time`**: Comparar la hora de recepción y la respuesta del balanceador. Se expresan en UTC.
+- **`client:port` y `target:port`**: Identificar el par cliente y destino. Si había un proxy delante del ALB, `client:port` puede ser la dirección del proxy.
+- **`elb_status_code`**: Código generado por el balanceador, una regla de respuesta fija o una respuesta personalizada de AWS WAF.
+- **`target_status_code`**: Código enviado por el destino, si se estableció una conexión y este respondió; `-` significa que no se registró respuesta HTTP del destino.
+- **`request_processing_time`**: Segundos desde que el ALB recibió la solicitud hasta que la envió al destino. `-1` indica que no pudo despacharla, por ejemplo ante una solicitud malformada o una conexión fallida al destino.
+- **`target_processing_time`**: Segundos desde que el ALB envió la solicitud hasta que el destino empezó a enviar los encabezados de respuesta. `-1` puede indicar que el destino no respondió.
+- **`response_processing_time`**: Segundos desde que el ALB recibió los encabezados del destino hasta que empezó a enviar la respuesta al cliente. No es el tiempo completo que percibe el cliente.
+- **`request_line`, `actions_executed`, `error_reason`**: Ver la ruta y método, la acción aplicada y el motivo registrado para determinados fallos. La línea puede incluir la URL enviada por el cliente.
+
+
+Los tiempos se expresan en segundos con precisión de milisegundos. No sumes a ciegas las tres fases para afirmar la latencia total de extremo a extremo: el significado depende de cómo terminó la solicitud y de condiciones como AWS WAF o el destino. Compara las fases con el código y el campo `error_reason`.
+
+Una distinción práctica: si `elb_status_code` es 5xx y `target_status_code` también es 5xx, el destino devolvió ese error. Si el ALB muestra 5xx y el destino tiene `-`, investiga si la solicitud alcanzó un destino, si el destino respondió y qué indica `error_reason`. Las [definiciones de campos y códigos de ALB](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-access-logs.html) cubren los casos particulares.
+
+## Consultar errores 5xx con Athena
+
+Athena no convierte automáticamente cualquier archivo de S3 en una tabla: primero crea una base de datos y una tabla con el [DDL de AWS para el formato actual de ALB](https://docs.aws.amazon.com/athena/latest/ug/create-alb-access-logs-table.html). Sustituye en `LOCATION` el prefijo real de tus logs. El esquema de ejemplo de AWS contempla campos recientes; si trabajas con una tabla antigua, actualiza las columnas y la expresión de lectura. La guía oficial también incluye [consultas de ejemplo](https://docs.aws.amazon.com/athena/latest/ug/query-alb-access-logs-examples.html).
+
+Con esa tabla —llamada `alb_access_logs` en el ejemplo de AWS—, esta consulta lista errores 5xx del balanceador con la ruta y el estado del destino:
+
+```sql
+SELECT
+  time,
+  client_ip,
+  request_url,
+  elb_status_code,
+  target_status_code,
+  request_processing_time,
+  target_processing_time
+FROM alb_access_logs
+WHERE elb_status_code >= 500
+ORDER BY time DESC
+LIMIT 100;
+```
+
+Si creaste la tabla con la variante de AWS que usa *partition projection*, filtra además por la columna `day` —por ejemplo, `day = '2026/10/06'`— para consultar solo esa fecha. Sin particiones o un prefijo acotado, una consulta histórica puede leer muchos datos; revisa los bytes que Athena va a analizar y el [modelo de precios de Athena](https://aws.amazon.com/athena/pricing/) antes de ampliar el rango.
+
+Como recorrido grabado en español, [AWS User Group Caracas: Introducción a CloudFormation y visualización de logs con Athena](https://www.youtube.com/watch?v=aFs6xVYOIwE) muestra una demostración publicada en 2022. Sirve como referencia conceptual para explorar Athena; contrasta el esquema, los permisos y los pasos de configuración con la documentación actual.
+
+## Logs de acceso, métricas, VPC Flow Logs y CloudTrail
+
+Elige la señal según la pregunta. No son intercambiables:
+
+- **Access logs de ALB**: ¿Qué solicitud HTTP llegó, qué acción ejecutó el ALB y qué código o tiempo devolvió el destino?
+- **Métricas de CloudWatch**: ¿Cómo cambian con el tiempo los conteos, la salud de los destinos o los errores agregados del balanceador? No identifican cada solicitud.
+- **VPC Flow Logs**: ¿Qué flujos IP entraron o salieron de una interfaz, con qué protocolo, puertos y resultado? No contienen URL ni código HTTP; son una alternativa para investigar NLB TCP/UDP sin TLS.
+- **CloudTrail**: ¿Quién llamó a una API de Elastic Load Balancing y cuándo cambió la configuración? Registra operaciones de administración, no las solicitudes de la aplicación.
+
+
+Consulta la guía de [métricas de ALB en CloudWatch](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-cloudwatch-metrics.html), la de [VPC Flow Logs](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html) y la de [llamadas de API de ELB en CloudTrail](https://docs.aws.amazon.com/elasticloadbalancing/latest/userguide/cloudtrail-logs.html). Para Gateway Load Balancer, AWS recomienda Flow Logs y los registros de los dispositivos conectados porque el GWLB no termina los flujos ni genera access logs.
+
+## Problemas frecuentes
+
+### El ALB devuelve `Access Denied` al activar los logs
+
+Comprueba que el bucket esté en la misma Región; que el nombre del bucket coincida; que el `Principal.Service` sea el de la guía actual; y que el ARN incluya la cuenta del balanceador, el prefijo configurado y `AWSLogs`. Si no configuraste prefijo, elimínalo del ARN. Revisa también la configuración de cifrado: para los access logs tradicionales de ALB el bucket debe usar SSE-S3, no SSE-KMS. La [guía de habilitación de ALB](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/enable-access-logging.html) enumera estas causas.
+
+### Aparece `ELBAccessLogTestFile`, pero no hay `.log.gz`
+
+El archivo de prueba solo valida la escritura en el bucket. Genera tráfico real, espera la entrega eventual y revisa la ruta de la Región y la fecha UTC correspondientes. Si sigue sin haber archivos, confirma que el atributo `access_logs.s3.enabled` esté en `true` y que el balanceador reciba solicitudes.
+
+### El NLB no produce registros para un listener TCP o UDP
+
+Es el comportamiento esperado de los access logs: solo se crean cuando el NLB tiene un listener TLS y registran solicitudes TLS. Para tráfico TCP/UDP sin TLS, empieza con VPC Flow Logs y métricas de CloudWatch. Si necesitas access logs TLS, comprueba la política y el cifrado indicados en la [guía específica de NLB](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/enable-access-logs.html): a diferencia de ALB, el destino S3 puede usar SSE-S3 o SSE-KMS con una clave administrada por el cliente; las claves administradas por AWS no se admiten en ese caso.
+
+### Athena devuelve columnas incorrectas o no analiza algunos registros
+
+Usa el DDL actual de AWS y revisa si se publicaron campos adicionales al final. Actualiza la tabla y su expresión de lectura en lugar de asumir que todas las versiones tienen idéntico número de campos. Conserva el patrón final opcional que recomienda AWS para tolerar campos futuros. No conviertas `-` o `-1` en cero: tienen significados diferentes según el campo.
+
+## Proteger los registros y decidir su retención
+
+Los logs pueden guardar direcciones IP, agente de usuario, ruta y URL enviados por el cliente. Restringe quién puede leer el bucket y evita incluir credenciales o secretos en query strings. Define la retención según la necesidad operativa y las obligaciones de tu organización; si quieres archivar o eliminar objetos automáticamente, configura una regla de ciclo de vida de S3 con ese plazo. No hay un período universal que sirva para todas las aplicaciones.
+
+Si necesitas unir una solicitud con los registros de varios servicios, continúa con la guía sobre [correlación de eventos e identificadores en AWS](/blog/estrategias-de-correlacion-de-eventos-aws/). Los access logs ayudan a localizar lo que observó el balanceador; la propagación de IDs en la aplicación permite seguir la operación más allá de él.
+
+## Aprender y conversar con la comunidad AWS
+
+Para dudas de conectividad, [AWS User Group Networking Colombia](https://www.meetup.com/aws-user-group-networking-colombia/) reúne a personas que trabajan con redes híbridas, VPC, rutas y observabilidad de red. Para intercambiar experiencias sobre seguridad y controles, consulta [AWS User Group Security Ecuador](https://www.meetup.com/aws-user-group-security-ecuador/). Sus agendas y modalidades pueden cambiar; revisa cada página antes de participar. El [directorio de comunidades AWS](/comunidades/user-groups/) y la [agenda de eventos](/eventos/) ayudan a encontrar grupos y actividades por país y modalidad.
+
+Al revisar esta guía el **6 de octubre de 2026**, había dos actividades próximas que podían complementar el tema desde redes y comunidad:
+
+- [Amazon VPC Essentials: Fundamentos de Networking](https://www.meetup.com/aws-sbg-at-francisco-jose-de-caldas-district-univ-bogota/events/316674045/) es virtual el 21 de octubre de 2026, de 18:00 a 20:00, hora de Colombia (UTC−5). La sesión cubre VPC, subredes y rutas; los cupos son limitados y requiere inscripción previa.
+- [AWS Community Day Paraguay 2026](https://www.awscommunitydayparaguay.com/register) se realiza presencialmente el 17 de octubre, de 08:00 a 18:00, en San Lorenzo, Paraguay. La entrada es gratuita, el cupo es limitado y el registro se hace en Eventbrite; los talleres prácticos tienen cupos propios.
+
+Si estás en otro país o esas fechas ya pasaron, consulta la agenda para ver próximas actividades. En eventos grabados, usa la charla para aprender conceptos y confirma los comandos, permisos y formatos en la documentación vigente de AWS.
