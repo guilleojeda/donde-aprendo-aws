@@ -29,6 +29,12 @@ agenda y zonas horarias, calendario, campos del formulario y recibo real. Los
 errores nativos de validación se muestran junto a cada campo y se asocian con
 aria-describedby; al corregirse desaparecen sin perder las ayudas.
 
+Las respuestas del FAQ de portada se abren y cierran con puntero y teclado,
+también cuando JavaScript está desactivado o no se ejecuta. El navegador maneja
+el acordeón con controles nativos; varias respuestas pueden permanecer abiertas
+y el foco sigue en la pregunta al abrirla o cerrarla. Se conservan los enlaces
+y el contenido de las respuestas.
+
 El blog usa una columna de lectura de 680 px, tarjetas con títulos en HTML y un
 archivo completo por año. Sus portadas forman seis familias: fundamentos,
 certificación, práctica, desarrollo/serverless, seguridad y datos/IA. Las

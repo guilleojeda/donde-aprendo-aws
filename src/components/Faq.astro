@@ -38,36 +38,24 @@ const contributorUrl = '/#cta_form-01-839181';
         const answerId = `faq-answer-${index + 1}`;
         return (
           <li class="faq-item">
-            <button class="faq-question" type="button" aria-expanded="false" aria-controls={answerId}>
-              <span>{faq.question}</span>
-              <span class="faq-arrow" aria-hidden="true">⌄</span>
-            </button>
-            <div class="faq-answer" id={answerId} hidden>
-              {index === 0 ? (
-                <p>
-                  Puedes agregar cualquier contenido que ayude a alguien a aprender AWS con el enlace <a href={contributorUrl}>Agrega tu contenido</a>. Revisaremos el envío antes de publicarlo. Puede ser gratuito o de pago, tu blog completo o cada artículo, y puede estar escrito, en video o en cualquier otro formato. La única condición es que esté en español.
-                </p>
-              ) : (
-                <p>{faq.answer}</p>
-              )}
-            </div>
+            <details class="faq-disclosure">
+              <summary class="faq-question">
+                <span>{faq.question}</span>
+                <span class="faq-arrow" aria-hidden="true">⌄</span>
+              </summary>
+              <div class="faq-answer" id={answerId}>
+                {index === 0 ? (
+                  <p>
+                    Puedes agregar cualquier contenido que ayude a alguien a aprender AWS con el enlace <a href={contributorUrl}>Agrega tu contenido</a>. Revisaremos el envío antes de publicarlo. Puede ser gratuito o de pago, tu blog completo o cada artículo, y puede estar escrito, en video o en cualquier otro formato. La única condición es que esté en español.
+                  </p>
+                ) : (
+                  <p>{faq.answer}</p>
+                )}
+              </div>
+            </details>
           </li>
         );
       })}
     </ul>
   </div>
 </section>
-
-<script>
-  document.querySelectorAll('.faq-question').forEach((question) => {
-    question.addEventListener('click', () => {
-      const answerId = question.getAttribute('aria-controls');
-      const answer = answerId ? document.getElementById(answerId) : null;
-      if (!answer) return;
-      const isExpanded = question.getAttribute('aria-expanded') === 'true';
-      question.setAttribute('aria-expanded', String(!isExpanded));
-      answer.hidden = isExpanded;
-      question.closest('.faq-item')?.classList.toggle('is-open', !isExpanded);
-    });
-  });
-</script>
