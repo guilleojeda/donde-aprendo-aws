@@ -126,7 +126,52 @@ function makeSearchIndex(count) {
   }));
 }
 
-function createSearch({ fetchIndex = async () => ({ ok: true, json: async () => makeSearchIndex(45) }) } = {}) {
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+function createControlledTimers() {
+  let nextId = 0;
+  const timers = new Map();
+  return {
+    setTimeout(callback, delay) {
+      const id = ++nextId;
+      timers.set(id, { callback, delay });
+      return id;
+    },
+    clearTimeout(id) {
+      timers.delete(id);
+    },
+    fireNext() {
+      const [id, timer] = timers.entries().next().value ?? [];
+      if (!timer) throw new Error('No timer is pending');
+      timers.delete(id);
+      timer.callback();
+      return timer.delay;
+    },
+    pendingDelays() {
+      return [...timers.values()].map(({ delay }) => delay);
+    },
+  };
+}
+
+function makeTargetSearchIndex() {
+  return [
+    { type: 'article', title: 'Guía de S3', description: 'Almacenamiento en AWS', search: '', url: '/s3/' },
+    { type: 'article', title: 'Guía de IAM', description: 'Identidades en AWS', search: '', url: '/iam/' },
+  ];
+}
+
+function createSearch({
+  fetchIndex = async () => ({ ok: true, json: async () => makeSearchIndex(45) }),
+  timers,
+} = {}) {
   const document = { activeElement: null };
   document.body = new MockElement(document, { tagName: 'BODY' });
   document.activeElement = document.body;
@@ -150,6 +195,9 @@ function createSearch({ fetchIndex = async () => ({ ok: true, json: async () => 
     aggregateSearchData,
     searchIndex,
     TYPE_LABELS,
+    AbortController,
+    setTimeout: timers?.setTimeout ?? setTimeout,
+    clearTimeout: timers?.clearTimeout ?? clearTimeout,
   });
 
   return {
@@ -260,4 +308,152 @@ test('a whitespace submit invalidates an earlier pending search response', async
   assert.equal(search.status.textContent, 'Escribe una búsqueda para ver resultados.');
   assert.equal(search.list.children.length, 0, 'the stale response cannot repopulate the cleared result list');
   assert.equal(search.more.hidden, true);
+});
+
+test('search shares one pending index request, renders only the latest query, and caches success', async () => {
+  const request = deferred();
+  let fetchCalls = 0;
+  const search = createSearch({ fetchIndex: () => {
+    fetchCalls += 1;
+    return request.promise;
+  } });
+
+  search.queryInput.value = 'S3';
+  const firstSearch = search.submitNative();
+  await Promise.resolve();
+  search.queryInput.value = 'IAM';
+  const latestSearch = search.submitNative();
+  await Promise.resolve();
+  assert.equal(fetchCalls, 1, 'overlapping searches share the same pending index request');
+
+  request.resolve({ ok: true, json: async () => makeTargetSearchIndex() });
+  await Promise.all([firstSearch, latestSearch]);
+  assert.equal(search.list.children.length, 1);
+  assert.equal(search.list.children[0].children[0].children[1].textContent, 'Guía de IAM');
+
+  search.queryInput.value = 'S3';
+  await search.submitNative();
+  assert.equal(fetchCalls, 1, 'a successful index remains cached for later searches');
+  assert.equal(search.list.children[0].children[0].children[1].textContent, 'Guía de S3');
+});
+
+test('a stale failed request clears its shared cache so the next search retries immediately', async () => {
+  const firstRequest = deferred();
+  let fetchCalls = 0;
+  const search = createSearch({ fetchIndex: () => {
+    fetchCalls += 1;
+    return fetchCalls === 1
+      ? firstRequest.promise
+      : Promise.resolve({ ok: true, json: async () => makeTargetSearchIndex() });
+  } });
+
+  search.queryInput.value = 'S3';
+  const pendingSearch = search.submitNative();
+  await Promise.resolve();
+  assert.equal(fetchCalls, 1);
+
+  search.queryInput.value = '   ';
+  await search.submitNative();
+  firstRequest.reject(new Error('network unavailable'));
+  await pendingSearch;
+  assert.equal(search.status.textContent, 'Escribe una búsqueda para ver resultados.');
+
+  search.queryInput.value = 'IAM';
+  await search.submitNative();
+  assert.equal(fetchCalls, 2, 'the first non-empty search after failure starts a new request');
+  assert.equal(search.status.textContent, '1 resultado.');
+  assert.equal(search.list.children[0].children[0].children[1].textContent, 'Guía de IAM');
+});
+
+test('a hung index fetch times out, aborts, and permits an immediate retry', async () => {
+  const timers = createControlledTimers();
+  let firstSignal;
+  let fetchCalls = 0;
+  const search = createSearch({
+    timers,
+    fetchIndex: (_url, { signal }) => {
+      fetchCalls += 1;
+      if (fetchCalls === 1) {
+        firstSignal = signal;
+        return new Promise((_, reject) => {
+          signal.addEventListener('abort', () => reject(new Error('fetch aborted')), { once: true });
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => makeTargetSearchIndex() });
+    },
+  });
+
+  search.queryInput.value = 'S3';
+  const pendingSearch = search.submitNative();
+  await Promise.resolve();
+  assert.equal(fetchCalls, 1);
+  assert.deepEqual(timers.pendingDelays(), [12_000]);
+
+  assert.equal(timers.fireNext(), 12_000);
+  await pendingSearch;
+  assert.equal(firstSignal.aborted, true, 'timeout aborts the underlying fetch');
+  assert.equal(search.status.textContent, 'La búsqueda no está disponible en este momento. Intenta de nuevo.');
+  assert.deepEqual(timers.pendingDelays(), []);
+
+  search.queryInput.value = 'IAM';
+  await search.submitNative();
+  assert.equal(fetchCalls, 2, 'the next submission starts a fresh request');
+  assert.equal(search.list.children[0].children[0].children[1].textContent, 'Guía de IAM');
+});
+
+test('a hung index body is bounded and the successful retry remains shared', async () => {
+  const timers = createControlledTimers();
+  const retryRequest = deferred();
+  let bodyStarted;
+  const bodyStartedPromise = new Promise((resolve) => { bodyStarted = resolve; });
+  let firstSignal;
+  let fetchCalls = 0;
+  const search = createSearch({
+    timers,
+    fetchIndex: (_url, { signal }) => {
+      fetchCalls += 1;
+      if (fetchCalls === 1) {
+        firstSignal = signal;
+        return Promise.resolve({ ok: true, json: () => {
+          bodyStarted();
+          return new Promise((_, reject) => {
+            signal.addEventListener('abort', () => reject(new Error('body read aborted')), { once: true });
+          });
+        } });
+      }
+      return retryRequest.promise;
+    },
+  });
+
+  search.queryInput.value = 'S3';
+  const pendingSearch = search.submitNative();
+  await bodyStartedPromise;
+  assert.equal(fetchCalls, 1);
+  assert.deepEqual(timers.pendingDelays(), [12_000]);
+
+  timers.fireNext();
+  await pendingSearch;
+  assert.equal(firstSignal.aborted, true, 'timeout aborts response-body consumption');
+  assert.equal(search.status.textContent, 'La búsqueda no está disponible en este momento. Intenta de nuevo.');
+
+  search.queryInput.value = 'IAM';
+  const retrySearch = search.submitNative();
+  await Promise.resolve();
+  assert.equal(fetchCalls, 2);
+
+  search.queryInput.value = 'S3';
+  const latestSearch = search.submitNative();
+  await Promise.resolve();
+  assert.equal(fetchCalls, 2, 'overlapping searches share the retry request');
+
+  retryRequest.resolve({ ok: true, json: async () => makeTargetSearchIndex() });
+  await Promise.all([retrySearch, latestSearch]);
+  assert.equal(search.status.textContent, '1 resultado.');
+  assert.equal(search.list.children.length, 1);
+  assert.equal(search.list.children[0].children[0].children[1].textContent, 'Guía de S3');
+
+  search.queryInput.value = 'IAM';
+  await search.submitNative();
+  assert.equal(fetchCalls, 2, 'a successful retry remains cached');
+  assert.deepEqual(timers.pendingDelays(), []);
 });
