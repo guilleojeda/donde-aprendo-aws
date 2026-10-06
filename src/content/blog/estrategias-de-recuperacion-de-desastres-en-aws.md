@@ -1,336 +1,140 @@
 ---
-title: "Estrategias de recuperación de desastres en AWS"
-description: "Descubre las estrategias clave de recuperación de desastres en AWS, incluyendo RTO, RPO, copias de seguridad, AWS Elastic Disaster Recovery y más. Aprende cómo prepararte eficazmente para cualquier adversidad."
+title: "Recuperación ante desastres en AWS: RTO, RPO y estrategias"
+description: "Compara estrategias de recuperación ante desastres en AWS, define RTO y RPO y aprende a probar backups, failover y failback."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T02:40:38.528Z"
+modifiedTimestamp: "2026-10-06T15:51:02-03:00"
+review:
+  date: "2026-10-06"
 cover: "/assets/blog/editorial-fundamentos.png"
 coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
 ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
-  - title: "Guía de AWS Wavelength: zonas y despliegue"
-    url: "https://dondeaprendoaws.com/blog/guia-de-aws-wavelength-zonas-y-despliegue/"
-  - title: "Guía de UEBA para la seguridad de AWS"
-    url: "https://dondeaprendoaws.com/blog/guia-de-ueba-para-la-seguridad-de-aws/"
-  - title: "Cómo prepararte para un examen de certificación de AWS"
-    url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-preparacion-para-el-examen/"
+  - title: "AWS Backup: cómo crear planes y probar restauraciones"
+    url: "https://dondeaprendoaws.com/blog/comprendiendo-aws-backup/"
+  - title: "Alta disponibilidad en AWS: arquitectura Multi-AZ para una app web"
+    url: "https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/"
+  - title: "Arquitectura multi-región en AWS: cuándo conviene"
+    url: "https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/"
 
 ---
 
-<p>Enfrentar desastres y recuperar tu negocio rápidamente en AWS es crucial para la continuidad operativa. Aquí te presentamos las estrategias clave y herramientas que AWS ofrece para prepararte y responder eficazmente a cualquier adversidad:</p>
+<p>Un plan de recuperación ante desastres (DR) define cómo volver a operar cuando una falla interrumpe una carga de trabajo completa. En AWS, puedes restaurar desde copias, mantener preparado un entorno en otra región o atender tráfico desde varios sitios. La decisión empieza por dos objetivos acordados con el negocio —RTO y RPO— y termina cuando el equipo ha probado el proceso completo, incluido el cambio de tráfico y el regreso a la operación normal.</p>
 
+<h2>Alta disponibilidad y recuperación ante desastres cubren fallas distintas</h2>
 
-<ul>
-<li><strong>Definición de RTO y RPO</strong>: Entender tus límites en tiempo de inactividad y pérdida de datos es fundamental.</li>
-<li><strong>Estrategias de Recuperación</strong>: Desde copias de seguridad y restauración, pasando por sistemas en espera (luz piloto y espera semiactiva), hasta operaciones activa/activa en varios sitios.</li>
-<li><strong>AWS Elastic Disaster Recovery (AWS DRS)</strong>: Una solución que automatiza la recuperación, ahorrando tiempo y recursos.</li>
-<li><strong>Planificación y Pruebas</strong>: La importancia de probar tu plan con regularidad y automatizar procesos para una recuperación rápida.</li>
-</ul>
+<p>La alta disponibilidad (HA) busca que un servicio siga funcionando ante fallas de componentes o de una zona de disponibilidad. Por ejemplo, una arquitectura Multi-AZ puede mantener una aplicación operativa si una AZ deja de responder. La recuperación ante desastres cubre una interrupción mayor: el equipo debe reconstruir o activar el conjunto de la carga de trabajo en un sitio de recuperación, posiblemente en otra región.</p>
 
+<p>Una arquitectura Multi-AZ no protege por sí sola contra una interrupción de toda la región. Tampoco una arquitectura activa en varias zonas reemplaza las copias con historial: si se borra o corrompe un dato, la replicación puede llevar ese cambio al otro sitio. AWS explica la diferencia entre HA y DR en su <a href="https://docs.aws.amazon.com/whitepapers/latest/disaster-recovery-workloads-on-aws/high-availability-is-not-disaster-recovery.html" rel="noopener noreferrer" target="_blank">guía de recuperación de cargas de trabajo</a>. Para ver un ejemplo de HA de aplicación y base de datos, consulta también <a href="https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/">la guía de arquitectura Multi-AZ</a>.</p>
 
-<p>Ya sea que estés en el sector retail o fintech, o manejes picos estacionales de demanda, AWS te proporciona las herramientas para minimizar el impacto de los desastres, asegurando que tu negocio se recupere con rapidez y eficiencia.</p>
+<p>Como otro material para seguir con este tema, el catálogo incluye la grabación comunitaria <a href="https://www.youtube.com/watch?v=sEr65Cgskkc" rel="noopener noreferrer" target="_blank">Diseñando arquitecturas resilientes en AWS</a>, publicada por AWS UG Ecuador.</p>
 
+<h2>Define RTO y RPO antes de elegir una estrategia</h2>
 
-<h3 id="objetivo-de-punto-de-recuperaci%C3%B3n-(rpo)" tabindex="-1">Objetivo de punto de recuperación (RPO)</h3>
+<p>El <strong>objetivo de tiempo de recuperación (RTO)</strong> es el retraso máximo aceptable entre la interrupción del servicio y su recuperación. El <strong>objetivo de punto de recuperación (RPO)</strong> es la antigüedad máxima aceptable del último punto de datos recuperable; señala cuántos cambios recientes podrías perder. AWS recomienda definir ambos por carga de trabajo según el impacto en el negocio, no copiar valores genéricos de un ejemplo. Consulta la guía oficial sobre <a href="https://docs.aws.amazon.com/wellarchitected/2024-06-27/framework/rel_planning_for_recovery_objective_defined_recovery.html" rel="noopener noreferrer" target="_blank">objetivos RTO y RPO</a>.</p>
 
+<p>En un ejemplo hipotético, un equipo podría fijar un RPO de 30 minutos y un RTO de 2 horas: aceptaría recuperar datos de hasta 30 minutos antes de la interrupción y necesitaría restablecer el servicio dentro de 2 horas. Son objetivos de negocio, no tiempos prometidos por AWS ni por una estrategia. Al medir el RTO, cuenta desde que ocurre la interrupción hasta que la aplicación y sus dependencias pasan la validación y vuelven a atender tráfico. Para el RPO, comprueba qué datos están disponibles en el punto que realmente puedes restaurar.</p>
 
-<p>El Objetivo de Punto de Recuperación (RPO) nos dice cuánto tiempo de trabajo podemos permitirnos perder sin que sea un problema demasiado grande. Por ejemplo, si nuestro RPO es de 1 hora, significa que deberíamos poder volver a tener nuestros datos como estaban hasta una hora antes del desastre.</p>
+<p>Si prefieres repasar estos conceptos en video, el catálogo incluye <a href="https://www.youtube.com/watch?v=bEEnOxwfdk8" rel="noopener noreferrer" target="_blank">Semana 8 — RTO/RPO y recuperación de desastres</a>, una grabación de Axel Echevarría Piérola. Puedes explorar más sesiones en su <a href="https://www.youtube.com/@axlpierola" rel="noopener noreferrer" target="_blank">canal de YouTube</a>.</p>
 
+<p>Escribe los objetivos por carga de trabajo y considera sus dependencias: identidad y permisos, red, claves de cifrado, bases de datos, colas, DNS y servicios externos. Un servidor que arranca rápido no recupera el sistema si una base de datos o una dependencia crítica sigue ausente. La <a href="https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/">guía para decidir cuándo conviene una arquitectura multi-región</a> amplía cómo relacionar alcance de falla, RTO, RPO y replicación.</p>
 
-<h3 id="objetivo-de-tiempo-de-recuperaci%C3%B3n-(rto)" tabindex="-1">Objetivo de tiempo de recuperación (RTO)</h3>
+<h2>Cuatro estrategias de recuperación</h2>
 
+<p>En términos generales, cuanto más del entorno mantienes preparado, menos infraestructura necesitas desplegar durante una contingencia. Eso puede reducir trabajo de recuperación, pero no garantiza un RTO o RPO determinado: el resultado depende de los datos, las dependencias, la capacidad disponible, el enrutamiento y las pruebas de tu aplicación. La guía <a href="https://docs.aws.amazon.com/wellarchitected/latest/framework/rel_planning_for_recovery_disaster_recovery.html" rel="noopener noreferrer" target="_blank">REL13 del AWS Well-Architected Framework</a> describe estos patrones.</p>
 
-<p>El Objetivo de Tiempo de Recuperación (RTO), por otro lado, nos dice cuánto tiempo podemos estar parados después de un desastre antes de que empiece a ser un problema serio. Si nuestro RTO es de 4 horas, quiere decir que necesitamos que nuestros sistemas más importantes estén de nuevo en funcionamiento dentro de ese tiempo después del problema.</p>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Estrategia</th>
+      <th scope="col">Qué queda preparado</th>
+      <th scope="col">Qué falta hacer al recuperarse</th>
+      <th scope="col">Cuándo considerarla</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th scope="row">Backup y restauración</th>
+      <td>Copias de datos y artefactos de despliegue, idealmente accesibles desde un sitio de recuperación.</td>
+      <td>Desplegar la infraestructura y el código, restaurar los datos, comprobar dependencias y dirigir el tráfico.</td>
+      <td>Cuando el negocio puede tolerar el tiempo necesario para reconstruir el entorno desde copias probadas.</td>
+    </tr>
+    <tr>
+      <th scope="row">Pilot Light (luz piloto)</th>
+      <td>Datos replicados y componentes centrales que permiten sostenerlos, como bases de datos o almacenamiento.</td>
+      <td>Crear o activar los componentes que no están listos para atender solicitudes y escalar el entorno.</td>
+      <td>Cuando quieres mantener preparada la base de recuperación, pero no necesitas que la aplicación atienda tráfico en condiciones normales.</td>
+    </tr>
+    <tr>
+      <th scope="row">Warm Standby (espera activa reducida)</th>
+      <td>Una copia funcional de la aplicación en el sitio de recuperación, con capacidad menor a la producción.</td>
+      <td>Escalar, validar y asumir el tráfico de producción.</td>
+      <td>Cuando es importante reducir las tareas de despliegue durante la recuperación y existe una necesidad de continuidad más exigente.</td>
+    </tr>
+    <tr>
+      <th scope="row">Multisitio activo/activo</th>
+      <td>Varios sitios reciben tráfico de producción y mantienen sus datos sincronizados.</td>
+      <td>Desviar tráfico del sitio afectado y comprobar que los sitios restantes soportan la demanda.</td>
+      <td>Cuando la aplicación necesita seguir atendiendo durante fallas amplias y puede resolver los conflictos y la consistencia de datos entre sitios.</td>
+    </tr>
+  </tbody>
+</table>
 
+<p>Los nombres describen cuánto está preparado, no cuánto tardará tu sistema en recuperarse. Pilot Light necesita activar más componentes antes de procesar solicitudes; Warm Standby ya puede atender una parte del tráfico y se escala. En activo/activo, diseña cómo evitar o resolver escrituras simultáneas en distintas regiones. Para cualquier patrón, define cuánto cuesta mantener recursos listos según tu propia arquitectura y valida los precios actuales antes de decidir; no hay un costo único aplicable a todas las cargas de trabajo.</p>
 
-<p>Entender bien estos dos conceptos, el RPO y el RTO, es super importante para hacer un plan que realmente funcione cuando tengamos un desastre. Si queremos menos tiempo sin trabajar y más seguridad en nuestros datos, probablemente nos costará más, pero puede valer la pena dependiendo de lo que necesite nuestra empresa.</p>
+<h2>AWS Backup y AWS Elastic Disaster Recovery tienen funciones diferentes</h2>
 
+<h3>AWS Backup para coordinar copias y restauraciones</h3>
 
-<h2 id="estrategias-de-recuperaci%C3%B3n-de-desastres-en-aws-1" tabindex="-1">Estrategias de recuperación de desastres en AWS</h2>
+<p>Para copiar backups con AWS Backup entre cuentas, origen y destino deben pertenecer a la misma organización de AWS Organizations. La cuenta de administración debe habilitar la función de copias entre cuentas; también necesitas la bóveda de destino, su política de acceso y el cifrado adecuado. La <a href="/blog/gestionando-multiples-cuentas-de-aws-con-aws-organizations/">guía para administrar cuentas con AWS Organizations</a> explica cómo crear o incorporar las cuentas antes de configurar esas copias.</p>
 
+<p><a href="https://docs.aws.amazon.com/aws-backup/latest/devguide/whatisbackup.html" rel="noopener noreferrer" target="_blank">AWS Backup</a> centraliza planes, retención y operaciones de copia y restauración para los tipos de recurso que admite. Puedes copiar puntos de recuperación a otra región o cuenta cuando esa combinación está disponible, pero el soporte varía por servicio y región. Comprueba la <a href="https://docs.aws.amazon.com/aws-backup/latest/devguide/backup-feature-availability.html" rel="noopener noreferrer" target="_blank">matriz de funciones de AWS Backup</a> y las condiciones de <a href="https://docs.aws.amazon.com/aws-backup/latest/devguide/create-cross-account-backup.html" rel="noopener noreferrer" target="_blank">copias entre cuentas</a>, incluidas las políticas de acceso y las claves de cifrado. Para una guía de planes, bóvedas y pruebas de restauración, sigue con <a href="https://dondeaprendoaws.com/blog/comprendiendo-aws-backup/">el tutorial de AWS Backup</a>.</p>
 
-<h3 id="1.-copia-de-seguridad-y-restauraci%C3%B3n" tabindex="-1">1. Copia de seguridad y restauración</h3>
+<p>Para ver una demo comunitaria con plantillas de CloudFormation que configura bóvedas, permisos y copias entre cuentas y regiones, revisa <a href="https://github.com/pangoro24/aws-backup-cross-account--cross-region-solution" rel="noopener noreferrer" target="_blank">AWS Backup entre cuentas y regiones: solución de recuperación ante desastres</a>. Es un ejemplo para estudiar y adaptar, no una plantilla universal: su copia regional de ejemplo es semanal y, para DynamoDB, la matriz de AWS Backup separa las funciones avanzadas de la compatibilidad base. Revisa esos requisitos y la frecuencia antes de usarla con tus propios datos.</p>
 
+<p>La función Restore Testing puede programar restauraciones periódicas y registrar cuánto tardan para los recursos admitidos. Un trabajo completado confirma que se restauró el recurso de prueba; no verifica por sí solo que la aplicación funcione. Puedes añadir una validación funcional, por ejemplo con un flujo de EventBridge y Lambda, y revisar disponibilidad por tipo de recurso y región en la <a href="https://docs.aws.amazon.com/aws-backup/latest/devguide/restore-testing.html" rel="noopener noreferrer" target="_blank">documentación de Restore Testing</a>.</p>
 
-<p>Hacer copias de seguridad es como tener un plan B. Regularmente guardas una copia de tus datos y ajustes en un lugar seguro. Si algo malo pasa, usas esas copias para volver a como estabas.</p>
+<h3>AWS Elastic Disaster Recovery para recuperar servidores</h3>
 
+<p><a href="https://docs.aws.amazon.com/drs/latest/userguide/what-is-drs.html" rel="noopener noreferrer" target="_blank">AWS Elastic Disaster Recovery (AWS DRS)</a> replica bloques de servidores de origen de forma continua al área de preparación en AWS y permite lanzar instancias de recuperación en Amazon EC2. Se usa para cargas de trabajo basadas en servidores; no es un sustituto universal de las copias y mecanismos de recuperación propios de servicios administrados como bases de datos o almacenamiento. La replicación puede quedar atrasada si la red o el área de preparación no puede seguir el ritmo de escritura, y los datos que siguen en memoria sin haberse escrito al almacenamiento no forman parte del punto recuperable. Revisa los <a href="https://docs.aws.amazon.com/drs/latest/userguide/CloudEndure-Concepts.html" rel="noopener noreferrer" target="_blank">conceptos y condiciones de RPO de AWS DRS</a>.</p>
 
-<p>En AWS, puedes usar:</p>
+<p>AWS DRS no decide por sí mismo cuándo declarar un desastre ni redirige automáticamente el tráfico de producción. Tu plan debe establecer quién aprueba el failover, qué validaciones se ejecutan y qué servicio de DNS o gestión de tráfico usará el equipo. Las instancias de simulacro de DRS permiten probar la recuperación sin interrumpir los servidores de origen ni la replicación; aun así, la prueba debe cubrir la aplicación completa y sus dependencias.</p>
 
+<h2>La replicación no sustituye a las copias con historial</h2>
 
-<ul>
-<li><a href="https://aws.amazon.com/backup" rel="noopener noreferrer" target="_blank"><strong>AWS Backup</strong></a>: para automatizar las copias de tus datos en servicios como EC2, EBS, RDS y DynamoDB.</li>
-<li><a href="https://aws.amazon.com/storagegateway/" rel="noopener noreferrer" target="_blank"><strong>AWS Storage Gateway</strong></a>: para hacer copias de seguridad de tus datos en Amazon S3 desde tus sistemas propios.</li>
-</ul>
+<p>La replicación mantiene otro sitio al día con los cambios que recibe. Si esos cambios son una eliminación, una corrupción o datos cifrados por malware, también pueden propagarse. Por eso, una arquitectura replicada necesita puntos de restauración anteriores al incidente. Las instantáneas de punto en el tiempo de DRS pueden dar opciones para elegir un estado previo, pero AWS advierte en sus <a href="https://docs.aws.amazon.com/drs/latest/userguide/best_practices_drs.html" rel="noopener noreferrer" target="_blank">prácticas recomendadas de DRS</a> que borrar esas instantáneas o perder el servidor de replicación reduce las opciones de recuperación. Protege esos puntos con controles de acceso, retención y copias separadas, y no dependas de una sola cuenta que también pueda administrar producción.</p>
 
+<p><a href="https://docs.aws.amazon.com/aws-backup/latest/devguide/vault-lock.html" rel="noopener noreferrer" target="_blank">AWS Backup Vault Lock</a> ofrece controles de retención tipo WORM para recursos y regiones compatibles. AWS Backup también puede integrar análisis de malware de Amazon GuardDuty para ciertos puntos de recuperación; esa función ayuda a detectar amenazas, pero no bloquea cambios en los sistemas activos ni garantiza que todas las amenazas hayan sido detectadas. Verifica los tipos de recursos y regiones admitidos y revisa los resultados incompletos en la <a href="https://docs.aws.amazon.com/aws-backup/latest/devguide/malware-protection.html" rel="noopener noreferrer" target="_blank">guía de protección contra malware de AWS Backup</a>. Para una copia en otra cuenta, AWS exige configurar relaciones de confianza, permisos y cifrado; consulta sus <a href="https://docs.aws.amazon.com/aws-backup/latest/devguide/create-cross-account-backup.html" rel="noopener noreferrer" target="_blank">condiciones para copias entre cuentas</a>.</p>
 
-<p>Es un método sencillo y barato, pero puede tardar un poco en recuperar todo.</p>
+<h2>Prueba restauración, failover y failback</h2>
 
-
-<h3 id="2.-luz-piloto-(pilot-light)" tabindex="-1">2. Luz piloto (Pilot Light)</h3>
-
-
-<p>Imagina que siempre tienes una pequeña parte de tu sistema encendida y lista para actuar en caso de emergencia. Esto puede ser:</p>
-
-
-<ul>
-<li>Una instancia EC2 lista para usar.</li>
-<li>Una base de datos RDS esperando.</li>
-<li>Tablas DynamoDB listas pero vacías.</li>
-</ul>
-
-
-<p>Si algo sucede, estos componentes pueden ayudarte a volver en marcha rápidamente, reduciendo el tiempo de espera.</p>
-
-
-<h3 id="3.-espera-semiactiva-(warm-standby)" tabindex="-1">3. Espera semiactiva (Warm Standby)</h3>
-
-
-<p>Aquí tienes una versión más pequeña de tu aplicación corriendo en otro lugar, lista para tomar el relevo si es necesario. Usas cosas como:</p>
-
-
-<ul>
-<li>Grupos de Auto Scaling para ajustar rápidamente el tamaño.</li>
-<li>RDS Multi-AZ para cambios automáticos en caso de fallos.</li>
-<li>Sincronización de datos con DynamoDB.</li>
-</ul>
-
-
-<p>Esto puede hacer que vuelvas a funcionar en minutos, y mantiene tus datos al día.</p>
-
-
-<h3 id="4.-activa%2Factiva-en-varios-sitios" tabindex="-1">4. Activa/activa en varios sitios</h3>
-
-
-<p>Esta estrategia reparte tu aplicación en diferentes lugares, todos funcionando al mismo tiempo. Si uno falla, los demás siguen adelante sin problema. Esto se logra con:</p>
-
-
-<ul>
-<li>Grupos de Auto Scaling en varias regiones.</li>
-<li>Balanceo de carga con Global Accelerator.</li>
-<li>Route 53 para verificar el estado y hacer cambios automáticos si algo no va bien.</li>
-</ul>
-
-
-<p>Es la opción más completa pero también la más cara. Es esencial para aplicaciones muy importantes que no pueden parar de funcionar.</p>
-
-
-<h2 id="aws-elastic-disaster-recovery" tabindex="-1">AWS Elastic Disaster Recovery</h2>
-
-
-<p>AWS Elastic Disaster Recovery (AWS DRS) es una herramienta de AWS que te ayuda a prepararte para situaciones de emergencia, como desastres naturales o fallos técnicos, permitiéndote recuperar tu información y sistemas rápidamente.</p>
-
-
-<p>Lo que hace AWS DRS es:</p>
-
+<p>Una prueba útil recorre la ruta completa, no solo el botón de restauración o el arranque de una instancia:</p>
 
 <ul>
-<li><strong>Mantener una copia actualizada</strong> de tus sistemas y datos en AWS, lo que significa que si algo malo pasa, puedes volver a un punto reciente sin perder mucho.</li>
-<li>Te permite <strong>volver a poner en marcha</strong> tus aplicaciones en AWS rápido, normalmente en unos minutos. Esto es genial porque reduce el tiempo que estás sin servicio.</li>
-<li><strong>Ahorra dinero</strong>, ya que solo pagas por el almacenamiento y los recursos mínimos que se necesitan para mantener esta copia actualizada. Cuando necesitas recuperar algo, esos recursos se activan solo en ese momento.</li>
-<li>Puedes <strong>probar</strong> que todo funciona bien sin afectar tu trabajo diario, asegurándote de que, si ocurre un desastre, tu plan realmente funcionará.</li>
-<li><strong>Automatiza</strong> muchas tareas, como ajustar la red o limpiar después de una prueba, lo que hace todo más sencillo.</li>
-<li>Con la ayuda de AWS Route 53 y Application Recovery Controller, puede <strong>cambiar automáticamente</strong> el tráfico a donde tienes tu copia de seguridad en caso de emergencia, sin que tú tengas que hacer nada.</li>
-<li>Después de usar AWS para recuperarte de un desastre, puedes <strong>sincronizar todo de vuelta</strong> a tu lugar original, asegurándote de que todo esté actualizado.</li>
+  <li>Restaura un punto de recuperación en una cuenta o red de prueba, usando permisos, claves y parámetros que estarán disponibles durante un incidente.</li>
+  <li>Comprueba los datos esperados, el acceso a servicios dependientes y una operación funcional de la aplicación antes de exponerla a usuarios.</li>
+  <li>Inicia la medición del RTO cuando se interrumpe el servicio; incluye detección, decisión, recuperación y validación. Registra también cuál fue el punto de datos realmente recuperado.</li>
+  <li>Ensaya el cambio de tráfico, las comunicaciones, quién toma cada decisión y cómo mantener la operación mientras el sitio principal se recupera.</li>
+  <li>Prueba el failback por separado: replica o sincroniza los cambios creados durante la contingencia al entorno de origen, valida la copia y recién entonces vuelve a dirigir el tráfico.</li>
 </ul>
 
+<p>AWS DRS puede asistir con la replicación inversa durante el failback, pero el cambio de tráfico sigue siendo una acción del equipo, como explica su guía de <a href="https://docs.aws.amazon.com/drs/latest/userguide/failback.html" rel="noopener noreferrer" target="_blank">recuperación y failback</a>. AWS Backup permite automatizar pruebas periódicas para los tipos de recurso compatibles. Repite los ejercicios cuando cambien dependencias, permisos, datos o arquitectura, y actualiza el runbook con los hallazgos.</p>
 
-<p>En resumen, AWS DRS te ofrece una manera fácil y económica de estar listo para cualquier problema, reduciendo mucho el tiempo y el esfuerzo para volver a la normalidad después de un desastre.</p>
+<p>Como lectura complementaria, AWS Builder Center publicó <a href="https://builder.aws.com/content/3K45qVEJzMtJBbA8PHnaFLZAgxz/pruebas-de-resiliencia-recomendadas-en-aws-resilience-hub-un-runbook-que-nunca-se-ejecut-es-una-hiptesis" rel="noopener noreferrer" target="_blank">Pruebas de resiliencia recomendadas en AWS Resilience Hub: un runbook que nunca se ejecutó es una hipótesis</a>, de vtjean, sobre cómo contrastar los runbooks con pruebas observables.</p>
 
+<h2>Una lista de partida para tu plan</h2>
 
-<h2 id="planificaci%C3%B3n-y-pruebas" tabindex="-1">Planificación y pruebas</h2>
+<ol>
+  <li>Haz un inventario de las cargas de trabajo, sus dependencias y el impacto de su interrupción.</li>
+  <li>Acuerda RTO y RPO con las personas responsables del servicio y documenta qué prueba confirmará cada objetivo.</li>
+  <li>Elige el patrón de recuperación según el tamaño de la falla que necesitas cubrir y la cantidad de trabajo que puedes hacer durante una contingencia.</li>
+  <li>Comprueba soporte de recursos y regiones, permisos, llaves, capacidad, red y propiedad de cada paso de failover y failback.</li>
+  <li>Prueba puntos de recuperación reales, registra los tiempos y las brechas, y convierte cada hallazgo en un cambio al plan.</li>
+</ol>
 
+<h2>Recursos, comunidades y eventos para seguir aprendiendo</h2>
 
-<p>Es super importante probar cómo vas a responder a un desastre antes de que realmente pase algo malo. AWS te da varias herramientas para hacer estas pruebas:</p>
+<p>Para conversar con otras personas que trabajan con AWS, puedes conocer el <a href="https://www.awsugecuador.com/" rel="noopener noreferrer" target="_blank">AWS User Group Ecuador</a>, que organiza meetups y talleres en varias ciudades y en línea.</p>
 
-
-<h3 id="pruebas-de-recuperaci%C3%B3n" tabindex="-1">Pruebas de recuperación</h3>
-
-
-<p>Puedes hacer simulaciones para ver cómo te iría si tuvieras que recuperarte de un desastre. Esto incluye:</p>
-
-
-<ul>
-<li>Encender los recursos de respaldo en otra región o cuenta de AWS.</li>
-<li>Cambiar el tráfico hacia esos recursos usando Route 53 o Global Accelerator.</li>
-<li>Revisar cuánto tiempo te tomó volver a estar en marcha (<strong>RTO</strong>) y cuántos datos pudiste recuperar (<strong>RPO</strong>), y ver si eso coincide con lo que esperabas.</li>
-</ul>
-
-
-<p>Hacer estas pruebas con frecuencia te ayuda a:</p>
-
-
-<ul>
-<li>Asegurarte de que tus respaldos están listos y funcionan.</li>
-<li>Encontrar y arreglar problemas antes de que sean un dolor de cabeza.</li>
-<li>Mejorar tus tiempos de recuperación y la cantidad de datos que puedes salvar.</li>
-<li>Practicar con tu equipo los pasos a seguir en caso de emergencia.</li>
-</ul>
-
-
-<p>AWS DRS y Backup son herramientas que te facilitan mucho estas pruebas.</p>
-
-
-<h3 id="automatizaci%C3%B3n-con-cloudformation" tabindex="-1">Automatización con CloudFormation</h3>
-
-
-<p>Usar <a href="https://aws.amazon.com/cloudformation" rel="noopener noreferrer" target="_blank">AWS CloudFormation</a> para armar tu infraestructura tiene sus ventajas cuando piensas en desastres:</p>
-
-
-<ul>
-<li>Puedes poner en marcha recursos rápidamente y de la misma manera en varios lugares con solo una plantilla.</li>
-<li>Con CloudFormation StackSets, puedes actualizar recursos en muchos sitios al mismo tiempo.</li>
-<li>Si pasa algo malo, puedes reconstruir todo en minutos, no horas o días.</li>
-</ul>
-
-
-<p>Esto baja mucho tu <strong>RTO</strong> porque elimina muchos pasos manuales en el proceso de recuperación.</p>
-
-
-<p>También es buena idea mirar AWS Cloud Development Kit (CDK) para definir tu infraestructura usando lenguajes de programación que ya conoces.</p>
-
-
-<p>En resumen, hacer pruebas y automatizar cómo respondes a desastres es clave para asegurarte de que puedes levantar tu negocio rápido después de un problema grande.</p>
-
-
-
-
-<h2 id="casos-de-uso" tabindex="-1">Casos de uso</h2>
-
-
-<p>Hay varios ejemplos de empresas que han usado AWS para prepararse y responder a problemas grandes, como desastres naturales o fallos técnicos:</p>
-
-
-<h3 id="empresa-de-retail" tabindex="-1">Empresa de retail</h3>
-
-
-<p>Una empresa grande que vende cosas en tiendas en Latinoamérica usó AWS para proteger sus sistemas de ventas y de control de inventario. Se aseguraron de tener sus sistemas funcionando en diferentes lugares usando AWS para que, si algo falla en un lado, puedan seguir trabajando sin problemas. Pusieron en práctica un sistema que ajusta automáticamente los recursos necesarios y se aseguraron de tener copias de seguridad de sus bases de datos listas para tomar el control si algo va mal. Gracias a esto, lograron reducir el tiempo que tardarían en volver a funcionar de 8 horas a solo 15 minutos.</p>
-
-
-<h3 id="startup-fintech" tabindex="-1">Startup fintech</h3>
-
-
-<p>Una empresa nueva de servicios financieros que trabaja totalmente online tenía que estar siempre disponible, ya que es muy importante en el sector financiero. Decidieron usar AWS en diferentes lugares para copiar sus aplicaciones y datos. Configuraron <a href="https://aws.amazon.com/route53" rel="noopener noreferrer" target="_blank">Amazon Route 53</a> para que vigile si los recursos están disponibles y, si hay un problema en un lugar, automáticamente muevan el tráfico a otro lado. Esto les permite volver a funcionar en menos de 5 minutos automáticamente si algo pasa.</p>
-
-
-<h3 id="empresa-de-retail-1" tabindex="-1">Empresa de retail</h3>
-
-
-<p>Un vendedor en línea que tiene mucha demanda en ciertas épocas del año usó AWS Elastic Disaster Recovery para tener un plan de emergencia que no cuesta mucho. Cuando no están en temporada alta, mantienen una copia básica de sus sistemas en otro lugar, lo que significa que solo pagan por lo mínimo necesario. Cuando se acerca una temporada con mucha demanda, prueban este sistema para asegurarse de que pueden volver a tener todo funcionando rápidamente si es necesario.</p>
-
-
-<h2 id="conclusi%C3%B3n" tabindex="-1">Conclusión</h2>
-
-
-<p>Para hacer un buen plan que te ayude a recuperarte de desastres usando AWS, hay varias cosas importantes que debes tener en cuenta:</p>
-
-
-<h3 id="definir-objetivos-de-rto-y-rpo" tabindex="-1">Definir objetivos de RTO y RPO</h3>
-
-
-<p>Primero, es muy importante que entiendas qué tanto tiempo tu negocio puede aguantar estar parado (RTO) y cuánta información puedes permitirte perder (RPO). Esto te ayudará a escoger la mejor forma de prepararte para problemas.</p>
-
-
-<h3 id="probar-regularmente" tabindex="-1">Probar regularmente</h3>
-
-
-<p>Es clave hacer pruebas de vez en cuando para asegurarte de que todo funciona como debe. Esto te da confianza en tu plan.</p>
-
-
-<h3 id="automatizar-procesos" tabindex="-1">Automatizar procesos</h3>
-
-
-<p>Usar herramientas que hacen las cosas solas, como AWS CloudFormation, ayuda a evitar errores de las personas y hace que todo sea más rápido si hay un problema.</p>
-
-
-<h3 id="analizar-costo-beneficio" tabindex="-1">Analizar costo-beneficio</h3>
-
-
-<p>Cada forma de prepararte tiene sus pros y contras, incluyendo cuánto cuesta. Es importante pensar bien en esto para encontrar el balance perfecto para tu negocio.</p>
-
-
-<h3 id="revisar-regularmente" tabindex="-1">Revisar regularmente</h3>
-
-
-<p>Las cosas cambian: tu negocio, tus aplicaciones, y la tecnología. Por eso, es importante mantener tu plan al día con estos cambios.</p>
-
-
-<p>En resumen, AWS tiene muchas herramientas y opciones para ayudarte a estar listo por si algo malo pasa. Lo importante es escoger bien según lo que necesitas, probar tu plan a menudo, y mantenerlo actualizado.</p>
-
-
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
-
-
-<h3 id="%C2%BFqu%C3%A9-es-cloudendure-disaster-recovery-aws%3F" tabindex="-1">¿Qué es CloudEndure disaster recovery AWS?</h3>
-
-
-<p><a href="https://aws.amazon.com/cloudendure-disaster-recovery" rel="noopener noreferrer" target="_blank">CloudEndure Disaster Recovery</a> es una herramienta de AWS que te permite tener una copia de seguridad de tus sistemas y datos en la nube de AWS. Esto es útil por si algo malo pasa con tu infraestructura local, como un desastre natural o un fallo técnico, y necesitas recuperar tu información rápidamente.</p>
-
-
-<p>Algunos beneficios importantes son:</p>
-
-
-<ul>
-<li>Puedes recuperar tus datos rápidamente, en minutos.</li>
-<li>Ayuda a reducir el riesgo de que tu negocio se quede parado.</li>
-<li>Puedes hacer pruebas para asegurarte de que todo funciona sin afectar tu trabajo diario.</li>
-<li>Es una opción que puede ahorrar dinero.</li>
-</ul>
-
-
-<h3 id="%C2%BFqu%C3%A9-es-rto-y-rpo-en-aws%3F" tabindex="-1">¿Qué es RTO y RPO en AWS?</h3>
-
-
-<p><strong>RTO</strong> (Tiempo de Recuperación Objetivo): Es el tiempo máximo que puedes permitirte estar sin tus sistemas después de un problema. Si tienes un RTO de 4 horas, significa que necesitas que todo esté funcionando de nuevo en ese tiempo.</p>
-
-
-<p><strong>RPO</strong> (Punto de Recuperación Objetivo): Es cuánto trabajo estás dispuesto a perder en caso de un problema. Por ejemplo, un RPO de 1 hora indica que puedes aceptar perder hasta una hora de datos.</p>
-
-
-<p>Estos conceptos te ayudan a planificar cómo recuperarte de problemas en AWS, buscando afectar lo menos posible a tu negocio.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-es-un-plan-de-recuperaci%C3%B3n-en-caso-de-desastre%3F" tabindex="-1">¿Qué es un plan de recuperación en caso de desastre?</h3>
-
-
-<p>Un plan de recuperación ante desastres (DRP) es una guía que tu empresa sigue cuando ocurre algo malo, como un desastre natural o un fallo técnico. Este plan incluye:</p>
-
-
-<ul>
-<li>Identificar qué puede salir mal.</li>
-<li>Evaluar cómo estos problemas afectarían a tu negocio.</li>
-<li>Decidir cuánto tiempo y qué datos puedes permitirte perder.</li>
-<li>Escribir paso a paso qué hacer para recuperarte.</li>
-<li>Hacer pruebas y mantener el plan actualizado.</li>
-</ul>
-
-
-<p>El objetivo es volver a la normalidad lo más rápido posible sin afectar mucho a tu negocio.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-pilar-revisa-la-contingencia-ante-desastres-drp%3F" tabindex="-1">¿Qué pilar revisa la contingencia ante desastres DRP?</h3>
-
-
-<p>El pilar de <strong>Fiabilidad</strong> del Well-Architected Framework de AWS se encarga de revisar los planes de recuperación ante desastres (DRP). Este pilar busca asegurar que tus sistemas y aplicaciones puedan volver a funcionar correctamente después de cualquier problema, cumpliendo con lo que necesitas en términos de disponibilidad.</p>
-
-
-<p>Se enfoca en:</p>
-
-
-<ul>
-<li>Cómo hacer y restaurar copias de seguridad.</li>
-<li>Cómo recuperarte de desastres.</li>
-<li>Mantener tus servicios disponibles todo el tiempo.</li>
-<li>Probar que tus sistemas son fuertes y pueden aguantar problemas.</li>
-</ul>
-
-
-<p>Tener un buen plan en estas áreas te ayuda a tener sistemas que pueden enfrentar mejor los desafíos.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS seguridad: fundamentos esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores prácticas de seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/bases-de-datos-relacionales-en-aws-con-amazon-rds-y-amazon-aurora/">Bases de datos relacionales en AWS con Amazon RDS y Amazon Aurora</a></li>
-</ul>
-</p>
+<p>Si estás en otro país, explora el <a href="/comunidades/">directorio de comunidades AWS de Latinoamérica</a> para encontrar grupos locales. Consulta la <a href="/eventos/">agenda de eventos AWS</a> para revisar fechas, modalidades y enlaces de inscripción vigentes; así puedes encontrar próximos encuentros sin depender de una fecha publicada en este artículo.</p>

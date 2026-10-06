@@ -1,106 +1,101 @@
 ---
-title: "Estrategias de interoperabilidad multi-cloud con AWS"
-description: "Descubre cómo AWS potencia la interoperabilidad multi-nube mejorando seguridad, flexibilidad y escalabilidad en operaciones en la nube."
+title: "Interoperabilidad multi-cloud con AWS: red, identidad y datos"
+description: "Guía práctica para conectar AWS con otras nubes: elige entre APIs y red privada, define identidades y datos, y estima costos sin asumir portabilidad automática."
 author: "guille-ojeda"
 publishedAt: "2024-05-04"
 publishedTimestamp: "2024-05-04T01:13:32.772Z"
+modifiedTimestamp: "2026-10-06T15:51:02-03:00"
+review:
+  date: "2026-10-06"
 cover: "/assets/blog/editorial-fundamentos.png"
 coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
 ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
+  - title: "Amazon VPC: subredes, rutas, NAT y seguridad en AWS"
+    url: "https://dondeaprendoaws.com/blog/conceptos-basicos-y-avanzados-de-amazon-vpc/"
+  - title: "Infraestructura como código en AWS con Terraform: guía práctica de S3"
+    url: "https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-terraform/"
   - title: "Guía completa: análisis de costos de tráfico en AWS"
     url: "https://dondeaprendoaws.com/blog/guia-completa-analisis-de-costos-de-trafico-en-aws/"
-  - title: "Mejores prácticas para Amazon S3"
-    url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-s3/"
-  - title: "Cómo prepararte para un examen de certificación de AWS"
-    url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-preparacion-para-el-examen/"
-
 ---
 
-<p><a href="https://aws.amazon.com/">AWS</a> ofrece una amplia gama de servicios y herramientas para facilitar la interoperabilidad en entornos multi-nube, permitiendo a las organizaciones aprovechar las fortalezas de cada proveedor de servicios en la nube y mejorar la flexibilidad, la escalabilidad y la seguridad en sus operaciones en la nube.</p>
-<p><strong>Ventajas de la Interoperabilidad Multi-Nube con AWS</strong></p>
-<table><thead><tr><th>Ventaja</th><th>Descripción</th></tr></thead><tbody><tr><td>Despliegue de aplicaciones</td><td>Utilizar contenedores de AWS para desplegar aplicaciones en diferentes entornos de nube</td></tr><tr><td>Interacción coherente</td><td>Usar APIs y CloudFormation de AWS para interactuar de manera coherente y segura con diferentes proveedores</td></tr><tr><td>Gestión de acceso</td><td>Utilizar <a href="https://aws.amazon.com/iam/">AWS IAM</a> y <a href="https://aws.amazon.com/iam/identity-center/">AWS Single Sign-On</a> para controlar el acceso en entornos multi-nube</td></tr><tr><td>Gobernanza</td><td>Implementar marcos de gobernanza con <a href="https://aws.amazon.com/config/">AWS Config</a> y <a href="https://aws.amazon.com/cloudtrail/">AWS CloudTrail</a></td></tr></tbody></table>
-<p>Para superar los desafíos de interoperabilidad, AWS ofrece soluciones como:</p>
-<table><thead><tr><th>Solución</th><th>Descripción</th></tr></thead><tbody><tr><td>Gestión de configuración</td><td>AWS Config para monitorear y controlar configuraciones en la nube</td></tr><tr><td>Comunicación entre nubes</td><td>Conexiones directas y APIs para intercambiar datos</td></tr><tr><td>Seguridad y cumplimiento</td><td>AWS IAM, AWS Cognito y <a href="https://aws.amazon.com/lake-formation/">AWS Lake Formation</a> para mantener la seguridad y el cumplimiento</td></tr></tbody></table>
-<p>En resumen, la interoperabilidad en entornos de multi-nube es fundamental para aprovechar al máximo los beneficios de la nube. AWS ofrece una variedad de servicios y herramientas para facilitar la interoperabilidad, desde la gestión de configuración y la comunicación entre nubes hasta la seguridad y el cumplimiento de datos.</p>
-<h2 id="entendiendo-configuraciones-multi-nube">Entendiendo configuraciones multi-nube</h2>
-<p>La configuración de una infraestructura multi-nube implica la integración de múltiples proveedores de servicios en la nube para aprovechar las fortalezas de cada uno. Es fundamental comprender las diferencias entre las configuraciones multi-nube y híbridas, así como las consideraciones clave para la seguridad, gobernanza, cumplimiento y gestión de costos en estos entornos.</p>
-<h3 id="multi-nube-vs.-h%C3%ADbrida">Multi-nube vs. Híbrida</h3>
-<table><thead><tr><th>Tipo de Configuración</th><th>Descripción</th></tr></thead><tbody><tr><td>Multi-Nube</td><td>Utiliza múltiples proveedores de servicios en la nube para diferentes cargas de trabajo o aplicaciones.</td></tr><tr><td>Híbrida</td><td>Combina una nube privada con una o más nubes públicas para crear un entorno de nube híbrida.</td></tr></tbody></table>
-<p>La elección entre una configuración multi-nube y una híbrida depende de las necesidades específicas de la organización y de los objetivos que se desean lograr.</p>
-<h3 id="selecci%C3%B3n-de-opciones-de-despliegue">Selección de opciones de despliegue</h3>
-<p>Al seleccionar una opción de despliegue, es fundamental considerar los siguientes factores:</p>
-<ul><li>Redundancia</li><li>Escalabilidad</li><li>Seguridad</li></ul>
-<p>Las organizaciones deben evaluar cuidadosamente sus necesidades y objetivos para determinar la mejor opción de despliegue para cada carga de trabajo o aplicación.</p>
-<h3 id="gesti%C3%B3n-de-costos-en-multi-nube">Gestión de costos en multi-nube</h3>
-<p>La gestión de costos es un aspecto clave en una configuración multi-nube. Las organizaciones deben analizar cuidadosamente sus cargas de trabajo y aplicaciones para identificar oportunidades de ahorro de costos y optimizar la utilización de los recursos en la nube.</p>
-<table><thead><tr><th>Consideraciones para la Gestión de Costos</th><th>Descripción</th></tr></thead><tbody><tr><td>Evaluación de costos</td><td>Analizar los costos de cada proveedor de servicios en la nube.</td></tr><tr><td>Selección de proveedores</td><td>Seleccionar los proveedores que ofrecen la mejor relación calidad-precio.</td></tr><tr><td>Optimización de recursos</td><td>Optimizar la utilización de los recursos en la nube para reducir costos.</td></tr></tbody></table>
-<h2 id="aws-para-interoperabilidad-multi-nube"><a href="https://aws.amazon.com/">AWS</a> para Interoperabilidad Multi-Nube</h2>
-<p><img alt="AWS" src="/assets/blog/2ebe3cf8e7ae57e98d3af846.jpg"/></p>
-<p>AWS ofrece una variedad de características y servicios que facilitan la interoperabilidad en entornos multi-nube, permitiendo a las organizaciones aprovechar las fortalezas de cada proveedor de servicios en la nube.</p>
-<h3 id="contenedores-con-aws">Contenedores con AWS</h3>
-<p>Los servicios de contenedorización de AWS, como <a href="https://aws.amazon.com/ecs/">Amazon ECS</a> y <a href="https://aws.amazon.com/eks/">Amazon EKS</a>, permiten a las organizaciones desplegar aplicaciones en diferentes entornos de nube, abstrayendo la infraestructura subyacente. Esto permite una mayor portabilidad y flexibilidad al momento de elegir el proveedor de servicios en la nube adecuado para cada carga de trabajo o aplicación.</p>
-<h3 id="apis-y-cloudformation-de-aws">APIs y CloudFormation de AWS</h3>
-<p>Las APIs de AWS juegan un papel fundamental en la creación de soluciones interoperables, permitiendo a las organizaciones interactuar con diferentes proveedores de servicios en la nube de manera coherente y segura. <a href="https://aws.amazon.com/cloudformation/">AWS CloudFormation</a>, por su parte, permite mantener la consistencia en la configuración de la infraestructura en la nube, lo que facilita la gestión y el mantenimiento de entornos multi-nube.</p>
-<h3 id="gesti%C3%B3n-de-acceso-con-aws">Gestión de acceso con AWS</h3>
-<p>AWS IAM y AWS Single Sign-On facilitan la gestión de acceso seguro y sin problemas en entornos multi-nube, permitiendo a las organizaciones controlar quién tiene acceso a qué recursos y servicios en la nube.</p>
-<h3 id="gobernanza-con-herramientas-de-aws">Gobernanza con herramientas de AWS</h3>
-<p>AWS Config y AWS CloudTrail permiten a las organizaciones implementar marcos de gobernanza que apoyan la interoperabilidad, proporcionando visibilidad y control sobre la configuración y los cambios en la infraestructura en la nube.</p>
-<p>En resumen, AWS ofrece una amplia gama de características y servicios que facilitan la interoperabilidad en entornos multi-nube, permitiendo a las organizaciones aprovechar las fortalezas de cada proveedor de servicios en la nube y mejorar la flexibilidad, la escalabilidad y la seguridad en sus operaciones en la nube.</p>
-<table><thead><tr><th><strong>Características de AWS</strong></th><th><strong>Descripción</strong></th></tr></thead><tbody><tr><td>Contenedores</td><td>Despliegue de aplicaciones en diferentes entornos de nube</td></tr><tr><td>APIs y CloudFormation</td><td>Interacción coherente y segura con diferentes proveedores de servicios en la nube</td></tr><tr><td>Gestión de Acceso</td><td>Control de acceso seguro y sin problemas en entornos multi-nube</td></tr><tr><td>Gobernanza</td><td>Implementación de marcos de gobernanza que apoyan la interoperabilidad</td></tr></tbody></table>
-<h2 id="ejemplos-reales-de-interoperabilidad-de-aws">Ejemplos reales de interoperabilidad de AWS</h2>
-<p>En este apartado, vamos a presentar algunos ejemplos reales de cómo AWS ha sido instrumental en resolver desafíos de interoperabilidad en entornos multi-nube.</p>
-<h3 id="ejemplo-1%3A-contenedores-con-aws">Ejemplo 1: contenedores con AWS</h3>
-<p>Una empresa de comercio electrónico utilizó contenedores de AWS para desplegar sus aplicaciones en diferentes entornos de nube. Con Amazon ECS y Amazon EKS, la empresa pudo abstraer la infraestructura subyacente y desplegar sus aplicaciones de manera flexible.</p>
-<table><thead><tr><th><strong>Ejemplo</strong></th><th><strong>Descripción</strong></th></tr></thead><tbody><tr><td>Contenedores con AWS</td><td>Despliegue de aplicaciones en diferentes entornos de nube</td></tr></tbody></table>
-<h3 id="ejemplo-2%3A-apis-y-cloudformation-de-aws">Ejemplo 2: APIs y CloudFormation de AWS</h3>
-<p>Una empresa de servicios financieros utilizó las APIs de AWS para crear soluciones interoperables que interactúan con diferentes proveedores de servicios en la nube. Con AWS CloudFormation, la empresa pudo mantener la consistencia en la configuración de la infraestructura en la nube.</p>
-<table><thead><tr><th><strong>Ejemplo</strong></th><th><strong>Descripción</strong></th></tr></thead><tbody><tr><td>APIs y CloudFormation de AWS</td><td>Interacción coherente y segura con diferentes proveedores de servicios en la nube</td></tr></tbody></table>
-<h3 id="ejemplo-3%3A-gesti%C3%B3n-de-acceso-con-aws">Ejemplo 3: gestión de acceso con AWS</h3>
-<p>Una empresa de tecnología utilizó AWS IAM y AWS Single Sign-On para gestionar el acceso seguro y sin problemas en entornos multi-nube. Esto les permitió controlar quién tiene acceso a qué recursos y servicios en la nube.</p>
-<table><thead><tr><th><strong>Ejemplo</strong></th><th><strong>Descripción</strong></th></tr></thead><tbody><tr><td>Gestión de Acceso con AWS</td><td>Control de acceso seguro y sin problemas en entornos multi-nube</td></tr></tbody></table>
-<p>Estos ejemplos demuestran cómo AWS ofrece una amplia gama de características y servicios que facilitan la interoperabilidad en entornos multi-nube, permitiendo a las organizaciones aprovechar las fortalezas de cada proveedor de servicios en la nube y mejorar la flexibilidad, la escalabilidad y la seguridad en sus operaciones en la nube.</p>
-<h2 id="seguridad-en-entornos-multi-nube-con-aws">Seguridad en entornos multi-nube con AWS</h2>
-<p>Cuando se trata de seguridad en entornos multi-nube, AWS ofrece una variedad de características y servicios para ayudar a mantener una postura de seguridad sólida. En esta sección, exploraremos algunas prácticas recomendadas y servicios adicionales de AWS que pueden mejorar la seguridad en entornos multi-nube.</p>
-<h3 id="automatizaci%C3%B3n-de-la-seguridad-con-aws-lambda">Automatización de la seguridad con <a href="https://aws.amazon.com/lambda/">AWS Lambda</a></h3>
-<p><img alt="AWS Lambda" src="/assets/blog/c0eb5d69184d1120b29c2a25.jpg"/></p>
-<p>La automatización es clave para administrar la seguridad en múltiples nubes. AWS Lambda se puede utilizar para la remediación automática, lo que le permite responder rápidamente a las amenazas de seguridad. Al automatizar tareas de seguridad, puede reducir el riesgo de error humano y asegurar prácticas de seguridad consistentes en su entorno multi-nube.</p>
-<p>Por ejemplo, puede utilizar AWS Lambda para automatizar el proceso de actualización de configuraciones de seguridad, parchear vulnerabilidades y responder a incidentes de seguridad. Esto puede ayudar a mantenerse adelante de posibles amenazas de seguridad y reducir el riesgo de una violación de seguridad.</p>
-<h3 id="cumplimiento-con-servicios-de-aws">Cumplimiento con servicios de AWS</h3>
-<p>Asegurar el cumplimiento con various regulaciones es crítico en entornos multi-nube. AWS ofrece una variedad de servicios para ayudar a lograr el cumplimiento, incluyendo <a href="https://aws.amazon.com/artifact/">AWS Artifact</a> y el mapeo de controles internos a ofertas de AWS.</p>
-<p>AWS Artifact proporciona un repositorio centralizado de documentos relacionados con el cumplimiento, incluyendo informes de seguridad y cumplimiento, y certificados. Esto puede ayudar a simplificar sus esfuerzos de cumplimiento y reducir el riesgo de incumplimiento.</p>
-<p>Además, AWS ofrece una variedad de marcos de cumplimiento y estándares, incluyendo <a href="https://en.wikipedia.org/wiki/Payment_Card_Industry_Data_Security_Standard">PCI-DSS</a>, <a href="https://en.wikipedia.org/wiki/Health_Insurance_Portability_and_Accountability_Act">HIPAA/HITECH</a> y <a href="https://en.wikipedia.org/wiki/General_Data_Protection_Regulation">GDPR</a>. Estos marcos proporcionan una serie de directrices y prácticas recomendadas para ayudar a lograr el cumplimiento con regulaciones específicas.</p>
-<h3 id="monitoreo-y-respuesta-a-incidentes">Monitoreo y respuesta a incidentes</h3>
-<p>El monitoreo y la respuesta a incidentes son componentes críticos de una postura de seguridad sólida. AWS CloudTrail y <a href="https://aws.amazon.com/guardduty/">Amazon GuardDuty</a> pueden ayudar a monitorear eventos en la nube y orquestar la respuesta a incidentes en servicios de nube dispares.</p>
-<p>AWS CloudTrail proporciona un registro detallado de todas las llamadas API realizadas dentro de su cuenta de AWS, lo que le permite rastrear cambios en configuraciones de seguridad y detectar posibles amenazas de seguridad.</p>
-<p>Amazon GuardDuty utiliza aprendizaje automático y detección de anomalías para identificar posibles amenazas de seguridad, incluyendo acceso no autorizado y actividad maliciosa. Esto puede ayudar a responder rápidamente a incidentes de seguridad y reducir el riesgo de una violación de seguridad.</p>
-<p>Al seguir estas prácticas recomendadas y aprovechar servicios adicionales de AWS, puede mejorar la seguridad en su entorno multi-nube y reducir el riesgo de una violación de seguridad.</p>
-<table><thead><tr><th><strong>Práctica Recomendada</strong></th><th><strong>Descripción</strong></th></tr></thead><tbody><tr><td>Gestión de Postura de Seguridad en la Nube (CSPM)</td><td>Administre configuraciones, detecte vulnerabilidades y ayude con el cumplimiento en todas sus nubes.</td></tr><tr><td>SIEM Nativo en la Nube</td><td>Aproveche sistemas de información y eventos de seguridad integrados en la nube.</td></tr><tr><td>Guardrails Específicos de AWS</td><td>Aproveche al máximo las herramientas de seguridad de AWS, como GuardDuty, AWS Security Hub y AWS Config.</td></tr><tr><td>Herramientas de Seguridad Cross-Platform</td><td>Opte por herramientas de seguridad que funcionen sin problemas en múltiples entornos de nube, incluyendo AWS.</td></tr></tbody></table>
-<p>Al implementar estas prácticas recomendadas y aprovechar servicios adicionales de AWS, puede mantener una postura de seguridad sólida en su entorno multi-nube y reducir el riesgo de una violación de seguridad.</p>
-<h2 id="superar-los-desaf%C3%ADos-de-interoperabilidad">Superar los desafíos de interoperabilidad</h2>
-<p>Cuando se implementan estrategias de multi-nube, es común enfrentar desafíos de interoperabilidad. Estos desafíos pueden surgir debido a la falta de compatibilidad entre las diferentes plataformas de nube, lo que puede llevar a problemas de configuración, comunicación y seguridad.</p>
-<h3 id="gesti%C3%B3n-de-configuraci%C3%B3n-con-aws">Gestión de configuración con AWS</h3>
-<p>Una de las principales dificultades de la interoperabilidad es la gestión de la configuración. Cuando se trabaja con múltiples nubes, es crucial mantener una configuración uniforme en todas ellas. AWS Config es un servicio que ayuda a lograr esto, permitiendo a los usuarios monitorear y controlar las configuraciones de sus recursos en la nube.</p>
-<table><thead><tr><th><strong>Ventajas de AWS Config</strong></th><th><strong>Descripción</strong></th></tr></thead><tbody><tr><td>Monitoreo de configuración</td><td>Monitorea cambios en la configuración de sus recursos en la nube.</td></tr><tr><td>Control de configuración</td><td>Controla quién puede realizar cambios en la configuración de sus recursos en la nube.</td></tr><tr><td>Notificaciones</td><td>Recibe notificaciones cuando se produzcan cambios no autorizados en la configuración de sus recursos en la nube.</td></tr></tbody></table>
-<h3 id="comunicaci%C3%B3n-entre-nubes">Comunicación entre nubes</h3>
-<p>Otro desafío de la interoperabilidad es la comunicación entre las diferentes nubes. AWS ofrece varias formas de facilitar la comunicación entre las nubes, como la creación de conexiones directas entre las nubes o el uso de APIs para intercambiar datos.</p>
-<table><thead><tr><th><strong>Formas de Comunicación</strong></th><th><strong>Descripción</strong></th></tr></thead><tbody><tr><td>Conexiones directas</td><td>Crea conexiones directas entre las nubes para facilitar la comunicación.</td></tr><tr><td>APIs</td><td>Utiliza APIs para intercambiar datos entre las nubes.</td></tr></tbody></table>
-<h3 id="seguridad-y-cumplimiento-de-datos">Seguridad y cumplimiento de datos</h3>
-<p>La seguridad y el cumplimiento de los datos son fundamentales en entornos de multi-nube. AWS ofrece una variedad de herramientas y servicios para ayudar a mantener la seguridad y el cumplimiento de los datos.</p>
-<table><thead><tr><th><strong>Herramientas y Servicios de Seguridad</strong></th><th><strong>Descripción</strong></th></tr></thead><tbody><tr><td>AWS IAM</td><td>Controla el acceso a los datos y recursos en la nube.</td></tr><tr><td>AWS Cognito</td><td>Autentica y autoriza el acceso a los datos y recursos en la nube.</td></tr><tr><td>AWS Lake Formation</td><td>Crea un repositorio de datos seguro y escalable en la nube.</td></tr></tbody></table>
-<p>Al abordar estos desafíos de interoperabilidad, es importante elegir las herramientas y servicios adecuados para su entorno de multi-nube. AWS ofrece una amplia gama de soluciones para ayudar a superar estos desafíos y mantener una postura de seguridad sólida en su entorno de multi-nube.</p>
-<h2 id="conclusi%C3%B3n">Conclusión</h2>
-<p>En resumen, la interoperabilidad en entornos de multi-nube es fundamental para aprovechar al máximo los beneficios de la nube. AWS ofrece una variedad de servicios y herramientas para facilitar la interoperabilidad, desde la gestión de configuración y la comunicación entre nubes hasta la seguridad y el cumplimiento de datos.</p>
-<h3 id="ventajas-de-la-interoperabilidad">Ventajas de la interoperabilidad</h3>
-<p>La interoperabilidad en entornos de multi-nube ofrece varias ventajas, incluyendo:</p>
-<table><thead><tr><th><strong>Ventaja</strong></th><th><strong>Descripción</strong></th></tr></thead><tbody><tr><td>Mejora de la seguridad</td><td>Protege sus datos y recursos en la nube.</td></tr><tr><td>Aumento del rendimiento empresarial</td><td>Mejora la eficiencia y reduce los costos.</td></tr><tr><td>Desarrollo de habilidades transversales</td><td>Genera talentos y habilidades difíciles de encontrar externamente.</td></tr></tbody></table>
-<p>Para superar los desafíos de interoperabilidad, es importante elegir las herramientas y servicios adecuados para su entorno de multi-nube. AWS ofrece una amplia gama de soluciones para ayudar a superar estos desafíos y mantener una postura de seguridad sólida en su entorno de multi-nube.</p>
-<p>En última instancia, la interoperabilidad en entornos de multi-nube es fundamental para la adopción de la nube y la transformación digital. Al elegir las herramientas y servicios adecuados y abordar los desafíos de interoperabilidad, las empresas pueden aprovechar al máximo los beneficios de la nube y mantener una ventaja competitiva en el mercado.</p>
-<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
-<h3 id="%C2%BFaws-admite-entornos-multi-nube%3F">¿AWS admite entornos multi-nube?</h3>
-<p>Sí, AWS admite entornos multi-nube y ofrece servicios y herramientas para facilitar la interoperabilidad.</p>
-<h3 id="%C2%BFqu%C3%A9-ofrece-aws-para-entornos-multi-nube%3F">¿Qué ofrece AWS para entornos multi-nube?</h3>
-<p>AWS ofrece soluciones para entornos híbridos y multi-nube que permiten simplificar y centralizar la administración de la infraestructura y las aplicaciones en AWS, en las instalaciones y en otras nubes.</p>
-<table><thead><tr><th><strong>Característica</strong></th><th><strong>Descripción</strong></th></tr></thead><tbody><tr><td>Interoperabilidad</td><td>Facilita la comunicación y el intercambio de datos entre diferentes proveedores de servicios en la nube.</td></tr><tr><td>Administración centralizada</td><td>Permite administrar la infraestructura y las aplicaciones en AWS, en las instalaciones y en otras nubes desde una sola plataforma.</td></tr><tr><td>Seguridad y cumplimiento</td><td>Ofrece herramientas y servicios para mantener la seguridad y el cumplimiento de los datos en entornos multi-nube.</td></tr></tbody></table>
-<h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/seguridad-en-la-nube-aws-estrategias-clave/">Seguridad en la nube AWS: estrategias clave</a></li><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/">arquitecturas multi-región en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">seguridad en AWS: servicios esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li></ul>
+Conectar una carga de trabajo de AWS con otra nube no vuelve interoperables por sí solos los datos, las identidades ni las aplicaciones. Primero define qué debe cruzar el límite entre proveedores y con qué frecuencia. Después elige la integración más pequeña que cumpla latencia, seguridad, disponibilidad y costo.
+
+Esta guía recorre cuatro decisiones: cómo se comunican las aplicaciones, cuándo hace falta una red privada, cómo separar identidades y permisos, y qué partes de Terraform y Kubernetes conservan dependencias de cada proveedor.
+
+Multicloud implica trabajar con más de un proveedor de nube. Si tu problema es separar cargas entre varias cuentas de AWS, empieza por [cómo diseñar una arquitectura multi-cuenta en AWS](/blog/estructuras-multi-cuenta-aws-para-escalar/): allí se explican los límites de las cuentas y su agrupación en OUs.
+
+## Elige el patrón según lo que debe cruzar
+
+| Necesidad | Patrón inicial | Límite que debes diseñar |
+| --- | --- | --- |
+| Una aplicación consulta o envía información a otra | API autenticada; usa eventos o lotes si no hace falta respuesta inmediata | Contrato, credenciales, reintentos, duplicados y tiempos de espera |
+| Servicios privados se comunican por IP o hay movimiento frecuente de grandes volúmenes | Enlace privado entre redes | Direcciones, rutas, DNS, firewalls, cifrado y cargos de ambos lados |
+| Quieres desplegar la misma aplicación en varios proveedores | Empaqueta la aplicación y automatiza la infraestructura con Kubernetes/Terraform donde encaje | Almacenamiento, balanceadores, identidades y servicios administrados siguen siendo específicos |
+
+Una llamada entre aplicaciones no siempre necesita acceso de red amplio. Si un sistema solo necesita pedir o publicar datos, una API con un contrato claro puede mantener la frontera más pequeña. Reserva la conectividad de red cuando los requisitos de la carga de trabajo la necesiten.
+
+## Conecta las redes sin confundir el enlace con la aplicación
+
+[AWS Interconnect - multicloud](https://docs.aws.amazon.com/interconnect/latest/userguide/what-is-interconnect.html) ofrece conectividad privada administrada entre VPC de AWS y redes de otros proveedores en las combinaciones de proveedor y región admitidas. El enlace se integra con servicios de red de AWS como Virtual Private Gateway, Transit Gateway y Cloud WAN. Confirma la cobertura y las condiciones vigentes en la [guía para comenzar](https://docs.aws.amazon.com/interconnect/latest/userguide/getting-started-multicloud.html): disponibilidad, regiones y velocidades dependen de cada combinación.
+
+La conectividad resuelve el trayecto de red; no crea permisos de aplicación, sincroniza bases de datos ni traduce automáticamente direcciones, nombres o políticas del otro proveedor. En ambos lados acuerda rangos IP sin solapamientos, rutas de ida y vuelta, DNS, puertos permitidos, límites de ancho de banda y quién diagnostica cada tramo. AWS también pide revisar que los rangos de red existentes no entren en conflicto al planificar Interconnect.
+
+Si el proveedor o la región que necesitas no aparece en la matriz vigente, evalúa una VPN IPsec o un servicio de conectividad de un partner que una los dos extremos. [AWS Site-to-Site VPN](https://docs.aws.amazon.com/vpn/latest/s2svpn/VPC_VPN.html) conecta una VPC con una red remota mediante túneles IPsec; configura y prueba ambos túneles y el enrutamiento de respaldo. Una conexión tradicional de [AWS Direct Connect](https://docs.aws.amazon.com/directconnect/latest/UserGuide/) termina en la red de AWS desde tu red o una ubicación de Direct Connect; llegar desde allí a un segundo proveedor requiere que ese otro extremo y sus rutas también estén resueltos.
+
+Si quieres comparar el enlace administrado con una VPN configurada por los equipos, la charla en español de Nerdearla [Networking for dummies: Conectando Azure y AWS](https://www.nerdearla.com/nerdflix/y_1S-f_9vc4/) recorre VPC, VNet, subredes, rutas, gateways y una VPN IPsec, además de resolución de nombres e IP privadas. La ficha identifica a Rodrigo Schanzenbach y el año 2024; contrasta los pasos y precios con documentación actual antes de aplicarlos. Para profundizar en el enrutamiento del lado AWS, el canal de YouTube [AWS Women Colombia](https://www.youtube.com/@awswomencolombia) publica una charla titulada [“Episodio II: El Ataque del Nivel 200: Simplificando Redes con AWS Transit Gateway”](https://www.youtube.com/watch?v=FSA-Io7oakg). La grabación complementa el diseño de VPC en AWS; no describe por sí sola una integración entre proveedores.
+
+La guía de [Amazon VPC](/blog/conceptos-basicos-y-avanzados-de-amazon-vpc/) ayuda a repasar subredes, rutas y controles antes de diseñar ese trayecto.
+
+## Separa inicio de sesión, permisos humanos e identidades de máquinas
+
+Una organización puede usar el mismo proveedor de identidad para sus personas, pero cada nube sigue necesitando su propia relación de confianza y sus propios permisos. AWS IAM Identity Center permite conectar identidades de personal desde un IdP externo mediante SAML 2.0 y aprovisionar usuarios y grupos con SCIM; los asigna a cuentas y aplicaciones de AWS. Eso no administra las autorizaciones de Azure, Google Cloud u otro proveedor. Configura allí también su federación y sus roles según las capacidades de ese servicio.
+
+Para aplicaciones y automatizaciones, evita copiar claves permanentes entre nubes. Usa identidades de carga de trabajo y credenciales temporales cuando el proveedor las admita. AWS IAM puede confiar en proveedores SAML u OIDC externos para dar a identidades federadas acceso a recursos de AWS; define el alcance en la política de confianza y limita los permisos del rol. Consulta [federación de identidades en AWS](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers.html) y la [conexión de proveedores externos con IAM Identity Center](https://docs.aws.amazon.com/singlesignon/latest/userguide/manage-your-identity-source-idp.html).
+
+Como ejemplo de federación para la capa de aplicación, la charla de Nerdearla [Autenticación federada de Azure a AWS](https://www.nerdearla.com/nerdflix/jN0i0YwyKXs/) describe un inicio de sesión web o móvil con Cognito federado, API Gateway y Amplify. Es un caso de autenticación de usuarios de aplicaciones, no de autorización de infraestructura entre cuentas cloud.
+
+Aclara por separado quién puede iniciar sesión, qué acciones permite cada rol, cómo se revoca el acceso y qué sistema registra esos cambios. Una persona con la misma cuenta corporativa no debería recibir permisos equivalentes de manera automática en todas las nubes.
+
+## Define quién posee los datos y cómo se sincronizan
+
+Antes de replicar una base de datos o enviar archivos entre proveedores, anota:
+
+- cuál sistema es la fuente autoritativa y cuál solo consume una copia;
+- si la transferencia es por API, eventos o lotes, y qué demora puede tolerar el uso;
+- cómo se detectan reintentos y escrituras duplicadas, y cómo se corrigen conflictos;
+- qué datos pueden salir de cada región, cómo se cifran y quién puede leerlos;
+- cómo se reconcilian una carga inicial, las actualizaciones y las eliminaciones.
+
+Una red privada no resuelve consistencia ni residencia de datos. Si una aplicación consulta en tiempo real datos que viven al otro lado, mide la latencia y el efecto de una interrupción. Si replicas datos, considera que ambas copias generan almacenamiento, registro y operaciones de mantenimiento. Usa contratos versionados para las APIs y formatos de eventos, de modo que desplegar una versión en un proveedor no rompa de inmediato al consumidor en el otro.
+
+## Terraform y Kubernetes reducen repetición, pero no igualan las nubes
+
+Terraform tiene proveedores separados que publican sus propios tipos de recursos, parámetros y versiones. Una misma configuración puede declarar más de un proveedor, pero el código común no convierte las APIs ni los servicios administrados en equivalentes. Revisa qué expone cada proveedor y fija versiones compatibles; separa módulos y estados cuando ayude a limitar permisos, ciclo de vida o impacto de cambios. El [modelo de proveedores de Terraform](https://developer.hashicorp.com/terraform/language/providers) y su explicación del [estado](https://developer.hashicorp.com/terraform/language/state) describen esas responsabilidades. Para practicar con recursos AWS, consulta también nuestra [guía de Terraform y S3](/blog/como-crear-infraestructura-como-codigo-en-aws-con-terraform/). El [workshop introductorio de Roxs](https://github.com/roxsross/workshop-tfroxs) ofrece ejercicios con Terraform y Docker, LocalStack/S3 y DynamoDB de AWS para practicar el flujo y la configuración de proveedores; es un laboratorio local/AWS, no un despliegue multi-cloud.
+
+Kubernetes ofrece APIs comunes para desplegar y operar contenedores, pero varias piezas dependen del entorno. Por ejemplo, un servicio de tipo `LoadBalancer` pide una integración que varía con el proveedor, y una `StorageClass` define un provisionador y parámetros de almacenamiento concretos. Conserva manifiestos compartidos donde funcionen y documenta los ajustes por plataforma para balanceadores, red, discos, identidad, secretos y monitoreo. La documentación de Kubernetes sobre [Services](https://kubernetes.io/docs/concepts/services-networking/service/) y [StorageClasses](https://kubernetes.io/docs/concepts/storage/storage-classes/) muestra esos puntos de extensión.
+
+Amazon EKS Hybrid Nodes es otra cosa: ejecuta nodos que administra el cliente fuera de AWS conectados al plano de control de EKS en una región. Requiere conectividad privada, direcciones compatibles y configuración de credenciales; puede servir para extender un clúster EKS a infraestructura propia, pero no convierte clústeres administrados por proveedores distintos en un único clúster. Revisa los [requisitos de nodos híbridos de EKS](https://docs.aws.amazon.com/eks/latest/userguide/hybrid-nodes-prereqs.html) antes de considerar ese diseño.
+
+## Opera cada proveedor con sus fuentes de verdad
+
+No presupongas que un servicio de gobierno de AWS observa recursos y eventos de las otras nubes. AWS Config registra tipos de recursos AWS que admite, con cobertura que depende de región y tipo. CloudTrail registra actividad de una cuenta AWS. Conserva los inventarios y registros nativos del otro proveedor, normaliza lo necesario en la plataforma de análisis que elijas y asocia cada alerta con un equipo responsable. Consulta [tipos de recursos admitidos por AWS Config](https://docs.aws.amazon.com/config/latest/developerguide/resource-config-reference.html) y [eventos de CloudTrail](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-events.html).
+
+Las conexiones administradas Interconnect entre routers AWS y del partner cifran esos enlaces con MACsec. Mantén TLS para las comunicaciones de aplicación y las políticas de autorización correspondientes: la protección física del enlace no autentica a la aplicación ni decide qué datos puede consultar.
+
+## Estima el costo total y prueba el comportamiento
+
+Para AWS Interconnect, el precio del lado AWS depende de la capacidad y el alcance geográfico de la conexión, se cobra por hora y no agrega un cargo por cada GB transferido a través del servicio. El proveedor remoto define sus propios cargos; la capa gratuita de 500 Mbps solo aplica a conexiones locales y proveedores que cumplan las condiciones de disponibilidad indicadas por AWS. También pueden aplicar cargos de servicios conectados, como procesamiento de Transit Gateway o transferencia entre regiones. Lee los [precios de Interconnect](https://docs.aws.amazon.com/interconnect/latest/userguide/interconnect-pricing.html) y confirma tarifas de ambos lados antes de estimar el costo.
+
+Incluye además egreso que cobre cada proveedor, VPN o partner, procesamiento de red, almacenamiento duplicado, replicación, registros y monitoreo. AWS Direct Connect tradicional tiene componentes de capacidad/horas de puerto y transferencia saliente; sus precios no se deben asumir para AWS Interconnect. Compara el costo con volumen, dirección y ubicación del tráfico. Nuestra [guía de costos de tráfico en AWS](/blog/guia-completa-analisis-de-costos-de-trafico-en-aws/) cubre el lado de AWS; agrega la tarifa y el modelo de consumo del segundo proveedor.
+
+Antes de producción, prueba pérdida de túnel o ruta, expiración de credenciales, demora de API, reintentos, carga de datos y recuperación de la conexión. Mide latencia y transferencia en los horarios esperados, y confirma que cada nube registre sus propios cambios. Documenta el costo mensual estimado junto al flujo de datos y a su equipo dueño.
+
+## Recursos, comunidad y eventos próximos
+
+- [NERDflix](https://www.nerdearla.com/nerdflix/browse/) reúne más charlas de Nerdearla sobre infraestructura, desarrollo y seguridad.
+- El [AWS User Group Networking Colombia](https://www.meetup.com/aws-user-group-networking-colombia/) es una comunidad técnica enfocada en conectividad híbrida, enrutamiento multi-cuenta, redes y DNS. Al consultar su página no figuraban próximos eventos, pero puedes seguir el grupo para ver nuevas sesiones.
+- El AWS Student Builder Group de la Universidad Distrital anunció la sesión online [Amazon VPC Essentials: Fundamentos de Networking](https://www.meetup.com/aws-sbg-at-francisco-jose-de-caldas-district-univ-bogota/events/316674045/) para el 21 de octubre de 2026, de 18:00 a 20:00, hora de Bogotá. La actividad cubre subredes, rutas y conexiones dentro de AWS; Meetup indica registro previo y cupos limitados. Es una base de networking, no un taller multicloud.
+- El [AWS Community Day Paraguay 2026](https://www.awscommunitydayparaguay.com/register) es una jornada de la comunidad —no un evento oficial de AWS— el 17 de octubre, de 08:00 a 18:00, en el SNPP de San Lorenzo. Su [agenda](https://www.awscommunitydayparaguay.com/) incluye a las 10:00 “De monitoreo manual a monitoreo como código con Terraform en AWS”. La entrada es gratuita, con registro Eventbrite y cupo limitado; los talleres tienen inscripción aparte en acreditación.
+
+Para explorar otros artículos, guías y actividades, visita [recursos para aprender AWS](/aprender/), [la agenda de eventos](/eventos/) y [el directorio de comunidades](/comunidades/).
