@@ -1,426 +1,195 @@
 ---
-title: "Guía completa sobre Amazon EFS y FSx"
-description: "Una guía completa sobre Amazon EFS y FSX, comparando características, casos de uso y cómo implementar y administrar estos servicios de almacenamiento en la nube de AWS."
+title: "Amazon EFS vs FSx: cómo elegir almacenamiento de archivos en AWS"
+description: "Compara Amazon EFS con las cuatro opciones de Amazon FSx, EBS y S3. Elige por protocolo, disponibilidad, rendimiento, costos y requisitos de montaje."
 author: "guille-ojeda"
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T01:14:24.835Z"
+modifiedTimestamp: "2026-10-06T15:38:25-03:00"
+review:
+  date: "2026-10-06"
 cover: "/assets/blog/editorial-datos-ia.png"
 coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
-  - title: "Checklist: servicios AWS esenciales para SAA-C03"
-    url: "https://dondeaprendoaws.com/blog/checklist-servicios-aws-esenciales-para-saa-c03/"
-  - title: "AWS Lambda: costo vs. rendimiento"
-    url: "https://dondeaprendoaws.com/blog/aws-lambda-costo-vs-rendimiento/"
-  - title: "Nube AWS: guía de inicio rápido"
-    url: "https://dondeaprendoaws.com/blog/nube-aws-guia-de-inicio-rapido/"
+  - title: "Cómo configurar AWS Transfer Family con Amazon EFS por SFTP"
+    url: "https://dondeaprendoaws.com/blog/como-usar-aws-transfer-family-con-amazon-efs/"
+  - title: "AWS Backup: cómo crear planes y probar restauraciones"
+    url: "https://dondeaprendoaws.com/blog/comprendiendo-aws-backup/"
+  - title: "Cómo desplegar contenedores en AWS: elige entre ECS, EKS y Fargate"
+    url: "https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/"
+  - title: "Mejores prácticas para Amazon S3"
+    url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-s3/"
 
 ---
 
-<p>Si estás explorando opciones de almacenamiento en la nube de AWS y te preguntas entre <strong>Amazon EFS</strong> y <strong>Amazon FSx</strong>, este resumen es para ti. Ambos servicios te permiten guardar archivos en la nube, pero están diseñados para necesidades diferentes. Aquí te doy un vistazo rápido a lo que necesitas saber:</p>
+<p>Amazon EFS y Amazon FSx son almacenamiento de archivos administrado, pero la comparación termina ahí. EFS ofrece una interfaz NFS elástica para compartir carpetas, mientras que FSx reúne cuatro sistemas de archivos con protocolos, capacidades y modelos de disponibilidad diferentes. Elegir por la etiqueta «FSx» o por una cifra aislada de rendimiento suele llevar a una arquitectura equivocada.</p>
 
+<p>La pregunta útil es: <strong>¿qué sistema operativo, protocolo, patrón de acceso y nivel de resiliencia necesita la aplicación?</strong> Esta guía responde primero esa pregunta y después muestra cómo montar un EFS existente en una instancia EC2 Linux.</p>
 
-<ul>
-<li><strong>Amazon EFS</strong> es ideal para aplicaciones escalables que requieren compartir archivos entre múltiples instancias. Se ajusta automáticamente en tamaño y rendimiento.</li>
-<li><a href="https://aws.amazon.com/es/fsx/windows/" rel="noopener noreferrer" target="_blank"><strong>Amazon FSx</strong></a> ofrece soluciones de almacenamiento más especializadas, incluyendo opciones para Windows File Server, Lustre, NetApp ONTAP y OpenZFS, cada una diseñada para casos de uso específicos como alto rendimiento o compatibilidad con sistemas operativos.</li>
-</ul>
+<h2 id="respuesta-rapida">Respuesta rápida: elige por el tipo de acceso</h2>
 
-
-<h3 id="comparaci%C3%B3n-r%C3%A1pida" tabindex="-1">Comparación rápida</h3>
-
+<p>Antes de comparar precios o throughput, identifica cómo leerá y escribirá los datos la carga:</p>
 
 <figure class="table"><table>
-<thead>
-<tr>
-<th>Característica</th>
-<th>EFS</th>
-<th>FSx para Windows</th>
-<th>FSx para Lustre</th>
-</tr>
-</thead>
+<thead><tr><th>Necesidad principal</th><th>Opción que debes evaluar primero</th><th>Por qué</th></tr></thead>
 <tbody>
-<tr>
-<td>Escalabilidad</td>
-<td>Automática</td>
-<td>Configurable</td>
-<td>Configurable</td>
-</tr>
-<tr>
-<td>Rendimiento</td>
-<td>Ajustable</td>
-<td>Alto por defecto</td>
-<td>Muy alto para datos grandes</td>
-</tr>
-<tr>
-<td>Protocolos compatibles</td>
-<td>NFSv4.1</td>
-<td>SMB, NTFS</td>
-<td>NFSv3, POSIX</td>
-</tr>
-<tr>
-<td>Sistemas operativos soportados</td>
-<td>Linux</td>
-<td>Windows Server</td>
-<td>Linux</td>
-</tr>
-<tr>
-<td>Casos de uso comunes</td>
-<td>Aplicaciones contenerizadas, Big Data</td>
-<td>Archivos de Windows, ASP.NET</td>
-<td>Inteligencia artificial, análisis de grandes datos</td>
-</tr>
+<tr><td>Carpeta compartida para aplicaciones Linux, contenedores o varios clientes NFS</td><td><a href="https://aws.amazon.com/efs/" rel="noopener noreferrer" target="_blank">Amazon EFS</a></td><td>NFSv4 y almacenamiento elástico administrado; el modo de throughput se elige por el patrón de carga.</td></tr>
+<tr><td>Aplicaciones Windows, recursos compartidos SMB o permisos con Active Directory</td><td><a href="https://docs.aws.amazon.com/fsx/latest/WindowsGuide/what-is.html" rel="noopener noreferrer" target="_blank">FSx para Windows File Server</a></td><td>Sistema de archivos Windows administrado y acceso SMB nativo.</td></tr>
+<tr><td>Procesamiento paralelo de datos, HPC o entrenamiento que usa S3 como repositorio</td><td><a href="https://docs.aws.amazon.com/fsx/latest/LustreGuide/what-is.html" rel="noopener noreferrer" target="_blank">FSx para Lustre</a></td><td>Interfaz POSIX/Lustre, integración con S3 y opciones scratch o persistent.</td></tr>
+<tr><td>Aplicaciones que ya usan ONTAP, NFS y SMB a la vez, iSCSI o funciones NetApp</td><td><a href="https://docs.aws.amazon.com/fsx/latest/ONTAPGuide/what-is-fsx-ontap.html" rel="noopener noreferrer" target="_blank">FSx para NetApp ONTAP</a></td><td>Ofrece NFS, SMB e iSCSI y conserva conceptos de ONTAP como volúmenes, snapshots y replicación.</td></tr>
+<tr><td>Servidor NFS o ZFS que necesita snapshots, clones o compresión administrados</td><td><a href="https://docs.aws.amazon.com/fsx/latest/OpenZFSGuide/what-is-fsx.html" rel="noopener noreferrer" target="_blank">FSx para OpenZFS</a></td><td>Admite NFS desde Linux, Windows y macOS, con funciones de OpenZFS.</td></tr>
+<tr><td>Volumen de bloques para una aplicación que corre en EC2</td><td><a href="https://aws.amazon.com/ebs/" rel="noopener noreferrer" target="_blank">Amazon EBS</a></td><td>La aplicación ve un dispositivo de bloques; no es una carpeta compartida general como EFS o FSx.</td></tr>
+<tr><td>Objetos, datos de un data lake, contenido estático o archivo consultado mediante API</td><td><a href="https://aws.amazon.com/s3/" rel="noopener noreferrer" target="_blank">Amazon S3</a></td><td>Es almacenamiento de objetos. No requiere ni ofrece la misma semántica de un sistema de archivos NFS o SMB.</td></tr>
 </tbody>
 </table></figure>
 
+<p>La <a href="https://docs.aws.amazon.com/decision-guides/latest/decision-guides/choosing-aws-storage-service.html" rel="noopener noreferrer" target="_blank">guía de decisión de almacenamiento de AWS</a> separa bloque, archivo y objeto. Esa separación evita intentar resolver con EFS una necesidad de objetos en S3, o montar EBS cuando varios hosts necesitan compartir la misma carpeta.</p>
 
-<p>Ya sea que busques flexibilidad y escalabilidad con <strong>EFS</strong> o necesites un rendimiento especializado y opciones para Windows o Linux con <strong>FSx</strong>, AWS tiene una solución para tus necesidades de almacenamiento en la nube.</p>
+<h2 id="que-son-efs-y-fsx">Qué son Amazon EFS y Amazon FSx</h2>
 
+<p><a href="https://aws.amazon.com/efs/when-to-choose-efs/" rel="noopener noreferrer" target="_blank">Amazon EFS</a> es un sistema de archivos administrado que expone una interfaz NFS para clientes compatibles. El almacenamiento puede crecer o reducirse con los archivos que guardas y borras; eso no significa que todos los modos de rendimiento o todas las cuotas se ajusten solos.</p>
 
-<h3 id="caracter%C3%ADsticas-principales" tabindex="-1">Características principales</h3>
+<p><a href="https://docs.aws.amazon.com/fsx/" rel="noopener noreferrer" target="_blank">Amazon FSx</a> es una familia, no un único sistema de archivos. AWS ofrece FSx para Windows File Server, FSx para Lustre, FSx para NetApp ONTAP y FSx para OpenZFS. Cada producto tiene protocolos, opciones de almacenamiento, capacidad, throughput, IOPS, disponibilidad y precios propios.</p>
 
+<h2 id="amazon-efs">Amazon EFS: NFS compartido y elástico</h2>
 
-<p>Amazon EFS te da un lugar en la nube donde puedes guardar tus archivos y no te tienes que preocupar por quedarte sin espacio. Aquí tienes lo más importante:</p>
-
-
-<ul>
-<li><strong>Escalabilidad automática</strong>: Amazon EFS crece o se reduce automáticamente según cuánto guardes o borres, sin que tengas que hacer nada especial.</li>
-<li><strong>Rendimiento ajustable</strong>: Puedes hacer que EFS trabaje más rápido según lo necesites, eligiendo cuánto quieres que maneje por cada GB de datos que guardes.</li>
-<li><strong>Miles de conexiones simultáneas</strong>: EFS permite que muchas computadoras se conecten al mismo tiempo para leer y escribir archivos. Esto es genial para trabajos que requieren que muchas máquinas trabajen juntas.</li>
-<li><strong>Crecimiento ilimitado</strong>: Con EFS puedes guardar todos los datos y archivos que quieras, y seguirá creciendo sin límites.</li>
-</ul>
-
-
-<h3 id="casos-de-uso-comunes" tabindex="-1">Casos de uso comunes</h3>
-
-
-<p>Amazon EFS es útil para muchas cosas, como:</p>
-
-
-<ul>
-<li><strong>Aplicaciones contenerizadas</strong>: EFS es perfecto para aplicaciones que usan contenedores y se manejan con herramientas como Amazon ECS, Amazon EKS, y Kubernetes. Les da un lugar común para guardar datos.</li>
-<li><strong>Procesamiento de big data</strong>: Para analizar grandes cantidades de datos, muchas veces se necesita que varias computadoras accedan a los mismos datos al mismo tiempo. EFS es ideal para esto.</li>
-<li><strong>Medios y entretenimiento</strong>: Si trabajas con video, gráficos o cualquier cosa que requiera mucho rendimiento y espacio, EFS te puede ayudar gracias a su capacidad para manejar muchas conexiones y su gran escalabilidad.</li>
-<li><strong>Copias de seguridad y recuperación</strong>: Puedes hacer copias de seguridad de tus datos en EFS de manera rápida y segura usando AWS Backup. También te permite recuperar archivos y carpetas específicos cuando lo necesites.</li>
-</ul>
-
-
-<h2 id="amazon-fsx%3A-almacenamiento-para-windows-y-linux-explicado-de-manera-sencilla" tabindex="-1"><a href="https://aws.amazon.com/es/fsx/windows/" rel="noopener noreferrer" target="_blank">Amazon FSx</a>: Almacenamiento para Windows y Linux explicado de manera sencilla</h2>
-
-
-<p><figure><img alt="Amazon FSx" src="/assets/blog/f1273e97953b9613f0a27385.jpg"/></figure></p>
-
-
-<p>FSx te ofrece dos opciones principales: FSx para Windows File Server y FSx para Lustre. Cada una está pensada para necesidades específicas.</p>
-
-
-<h3 id="fsx-para-windows-file-server" tabindex="-1">FSx para windows file server</h3>
-
-
-<p>Imagínate que necesitas un lugar especial para guardar y compartir archivos que solo funcionan en Windows, como documentos de Office o sitios web que usan ASP.NET. FSx para Windows File Server es perfecto para eso. Es como un disco duro en la nube que entiende y trabaja bien con todo lo que es de Windows.</p>
-
-
-<p>Lo que lo hace especial:</p>
-
-
-<ul>
-<li>Entiende perfectamente el lenguaje de Windows (SMB y NTFS)</li>
-<li>Puede trabajar con el sistema de identidades de Windows (Active Directory)</li>
-<li>Hace copias de seguridad por ti y te permite recuperar tus archivos fácilmente</li>
-<li>Puede enviar tus archivos a otras zonas de AWS para mantenerlos seguros</li>
-<li>Usa grupos de seguridad que ayudan a que tus archivos estén a salvo y solo los vean quienes tú quieras</li>
-</ul>
-
-
-<p>Es muy útil para empresas que usan programas y archivos de Windows y quieren mantener todo organizado y seguro en la nube.</p>
-
-
-<h3 id="fsx-para-lustre" tabindex="-1">FSx para lustre</h3>
-
-
-<p>Ahora, si lo tuyo es hacer cosas como entrenar modelos para inteligencia artificial, editar videos, analizar mucha información o hacer cálculos complejos, FSx para Lustre es tu mejor opción. Es súper rápido y puede manejar muchísima información al mismo tiempo.</p>
-
-
-<p>Lo que lo hace brillar:</p>
-
-
-<ul>
-<li>Es rapidísimo y puede manejar un montón de datos a la vez</li>
-<li>Se lleva bien con S3, lo que significa que puedes guardar ahí lo que no te cabe</li>
-<li>Si necesitas más espacio o velocidad, lo puedes ampliar fácilmente</li>
-</ul>
-
-
-<p>Por ejemplo, si estás trabajando en un proyecto grande de datos y necesitas que muchas computadoras trabajen juntas en lo mismo, FSx para Lustre hace que todo sea más fácil y rápido.</p>
-
-
-<p>En resumen, FSx te da opciones para guardar tus archivos en la nube, ya sean de Windows o para proyectos grandes y rápidos. Te ayuda a mantener todo organizado, seguro y accesible.</p>
-
-
-<h2 id="comparativa%3A-%C2%BFefs-o-fsx%3F" tabindex="-1">Comparativa: ¿EFS o FSx?</h2>
-
-
-<p>Vamos a ver las diferencias principales entre EFS y FSx de una manera sencilla, para que puedas entender cuál te conviene más.</p>
-
+<h3 id="regional-one-zone">Regional y One Zone: no son el mismo nivel de resiliencia</h3>
 
 <figure class="table"><table>
-<thead>
-<tr>
-<th>Característica</th>
-<th>EFS</th>
-<th>FSx para Windows</th>
-<th>FSx para Lustre</th>
-</tr>
-</thead>
+<thead><tr><th>Tipo de sistema EFS</th><th>Distribución de los datos</th><th>Red y decisión</th></tr></thead>
 <tbody>
-<tr>
-<td>Escalabilidad</td>
-<td>Crece automáticamente</td>
-<td>Se ajusta, pero tú decides cuánto</td>
-<td>Se ajusta, pero tú decides cuánto</td>
-</tr>
-<tr>
-<td>Rendimiento</td>
-<td>Tú decides cuánto quieres que sea rápido</td>
-<td>Ya viene rápido</td>
-<td>Muy rápido para trabajos grandes</td>
-</tr>
-<tr>
-<td>Protocolos compatibles</td>
-<td>NFSv4.1</td>
-<td>SMB, NTFS</td>
-<td>NFSv3, POSIX</td>
-</tr>
-<tr>
-<td>Sistemas operativos soportados</td>
-<td>Linux</td>
-<td>Windows Server</td>
-<td>Linux</td>
-</tr>
-<tr>
-<td>Casos de uso comunes</td>
-<td>Todo tipo de trabajos</td>
-<td>Para cosas de Windows</td>
-<td>Para trabajos de datos grandes y rápidos</td>
-</tr>
+<tr><td><strong>Regional</strong></td><td>Datos y metadatos redundantes en varias zonas de disponibilidad de la región.</td><td>Puedes crear un mount target por zona desde la que accederás. Es la opción recomendada cuando necesitas la mayor disponibilidad y durabilidad regional.</td></tr>
+<tr><td><strong>One Zone</strong></td><td>Datos y metadatos redundantes dentro de una sola zona de disponibilidad.</td><td>Solo admite un mount target en esa zona. Puede encajar cuando la carga tolera perder disponibilidad o datos ante una pérdida de la zona y buscas un modelo de menor alcance.</td></tr>
 </tbody>
 </table></figure>
 
+<p>Un cliente puede acceder a un EFS Regional desde distintas zonas usando el mount target local de cada una. Para One Zone, AWS permite montar desde otra zona indicando la zona o el DNS del mount target, pero la ubicación del cliente afecta la latencia y puede generar transferencia entre zonas. Para una carga de contenedores o una función que usa One Zone, planifica que se ejecute en la misma zona del sistema de archivos.</p>
 
-<p><strong>Escalabilidad</strong></p>
+<p>Consulta <a href="https://docs.aws.amazon.com/efs/latest/ug/features.html" rel="noopener noreferrer" target="_blank">las características y tipos de EFS</a> y <a href="https://docs.aws.amazon.com/efs/latest/ug/accessing-fs.html" rel="noopener noreferrer" target="_blank">la documentación de mount targets</a> antes de elegir. «Multi-AZ» no es una propiedad que puedas atribuir a todos los productos FSx ni el nombre comercial de EFS: aquí la distinción correcta es Regional frente a One Zone.</p>
 
+<h3 id="clases-y-throughput-efs">Clases de almacenamiento, rendimiento y throughput</h3>
 
+<p>EFS combina una clase de sistema de archivos con clases de almacenamiento y un modo de throughput:</p>
+
+<figure class="table"><table>
+<thead><tr><th>Elemento</th><th>Opciones actuales</th><th>Qué debes comprobar</th></tr></thead>
+<tbody>
+<tr><td>Clases de almacenamiento</td><td>Standard, Infrequent Access (IA) y Archive.</td><td>Standard es para datos activos; IA para datos accedidos pocas veces por trimestre; Archive para datos accedidos pocas veces por año. Las clases frías tienen latencias y cargos de acceso distintos.</td></tr>
+<tr><td>Throughput</td><td>Elastic, Provisioned y Bursting.</td><td>Elastic sigue la actividad y cobra el throughput usado; Provisioned separa la capacidad de throughput del tamaño almacenado; Bursting depende de los datos en Standard y de los créditos. Los máximos dependen de la región.</td></tr>
+<tr><td>Modo de rendimiento</td><td>General Purpose y Max I/O.</td><td>General Purpose tiene menor latencia y AWS lo recomienda para todos los sistemas. Max I/O es una opción anterior, con más latencia; no está disponible para One Zone ni para Elastic throughput.</td></tr>
+</tbody>
+</table></figure>
+
+<p>Las políticas de <a href="https://docs.aws.amazon.com/efs/latest/ug/lifecycle-management-efs.html" rel="noopener noreferrer" target="_blank">Lifecycle Management</a> mueven archivos entre clases según el acceso. EFS Archive está soportado en sistemas Regional con Elastic throughput; no lo trates como una clase universal disponible para cualquier combinación.</p>
+
+<p>La palabra «elástico» tampoco equivale a «sin límites»: EFS tiene cuotas de conexiones, throughput, operaciones y mount targets. Revisa las <a href="https://docs.aws.amazon.com/efs/latest/ug/limits.html" rel="noopener noreferrer" target="_blank">cuotas de EFS</a> para la región y los clientes que realmente usarás.</p>
+
+<h2 id="familia-fsx">Amazon FSx: cuatro sistemas de archivos distintos</h2>
+
+<p>En FSx, el nombre del sistema importa más que la marca de la familia. Estas son las diferencias que cambian la decisión:</p>
+
+<h3 id="fsx-windows">FSx para Windows File Server</h3>
+<p>Usa un sistema de archivos Windows administrado y el protocolo SMB 2.0 a 3.1.1. Es la opción natural para recursos compartidos de Windows, aplicaciones empresariales que esperan SMB, permisos de archivos y carpetas con Active Directory o una migración de un servidor Windows. AWS también documenta <a href="https://docs.aws.amazon.com/fsx/latest/WindowsGuide/supported-fsx-clients.html" rel="noopener noreferrer" target="_blank">clientes Linux compatibles</a> que acceden al recurso por SMB; el protocolo y la autenticación siguen siendo los de Windows. Al crear el sistema eliges capacidad, tipo de almacenamiento, IOPS SSD cuando corresponda y throughput.</p>
+<p>Windows File Server ofrece despliegues <strong>Single-AZ</strong> y <strong>Multi-AZ</strong>. Multi-AZ usa un clúster de servidores en dos zonas, replica los datos de forma síncrona entre ellas y puede conmutar al servidor en espera. Single-AZ concentra el sistema en una zona y tiene un modelo de recuperación y disponibilidad diferente. Lee <a href="https://docs.aws.amazon.com/fsx/latest/WindowsGuide/high-availability-multiAZ.html" rel="noopener noreferrer" target="_blank">la comparación oficial de Windows Single-AZ y Multi-AZ</a> antes de usar estos nombres en un diseño.</p>
+
+<h3 id="fsx-lustre">FSx para Lustre</h3>
+<p>Lustre ofrece una interfaz de archivos POSIX para Linux y está orientado a cargas paralelas como HPC, entrenamiento y preparación de datos. Puede vincularse con S3 para importar o exportar conjuntos de datos. Sus opciones actuales incluyen despliegues <strong>scratch</strong> y <strong>persistent</strong>, junto con clases SSD, Intelligent-Tiering y HDD según la opción y la región.</p>
+<p>Scratch sirve para procesamiento temporal: sus datos no se replican y no persisten si falla un servidor de archivos. Persistent está destinado a almacenamiento más duradero; el modelo de replicación depende de la clase elegida. No conviertas «FSx para Lustre» en una promesa de Multi-AZ genérica: revisa <a href="https://docs.aws.amazon.com/fsx/latest/LustreGuide/using-fsx-lustre.html" rel="noopener noreferrer" target="_blank">las opciones de despliegue y clases de Lustre</a> para la región concreta.</p>
+
+<h3 id="fsx-ontap">FSx para NetApp ONTAP</h3>
+<p>ONTAP es adecuado cuando necesitas compatibilidad con un entorno NetApp o una combinación de protocolos. Sus volúmenes pueden exponerse por NFS, SMB o iSCSI, y admite acceso multiprotocolo a un mismo volumen cuando el diseño de permisos lo contempla. También ofrece capacidades de ONTAP como snapshots y replicación, dentro de los límites del servicio administrado.</p>
+<p>FSx para ONTAP tiene despliegues Single-AZ y Multi-AZ. Single-AZ puede incluir pares de alta disponibilidad dentro de una sola zona, pero no equivale a replicar los datos en otra zona. Multi-AZ coloca los servidores en dos zonas y replica de forma síncrona. Las generaciones Single-AZ 1/2 y Multi-AZ 1/2 son opciones concretas del producto; no las generalices a toda la familia FSx. Consulta <a href="https://docs.aws.amazon.com/fsx/latest/ONTAPGuide/high-availability-AZ.html" rel="noopener noreferrer" target="_blank">la guía de disponibilidad de ONTAP</a>.</p>
+
+<h3 id="fsx-openzfs">FSx para OpenZFS</h3>
+<p>OpenZFS expone NFSv3, v4.0, v4.1 y v4.2 a clientes Linux, Windows y macOS, y aporta snapshots casi instantáneos, clones, compresión y volúmenes administrados. Es una buena transición para un servidor NFS o ZFS que necesita esas funciones sin administrar el hardware.</p>
+<p>Este producto distingue Multi-AZ (HA), Single-AZ (HA) y Single-AZ (no HA). Multi-AZ replica en dos zonas; Single-AZ (HA) mantiene servidores en espera dentro de una zona; Single-AZ (no HA) tiene un modelo de recuperación distinto. Las clases SSD e Intelligent-Tiering tampoco están disponibles con todas las combinaciones. Comprueba la <a href="https://docs.aws.amazon.com/fsx/latest/OpenZFSGuide/availability-durability.html" rel="noopener noreferrer" target="_blank">matriz de disponibilidad y durabilidad de OpenZFS</a>.</p>
+
+<h2 id="elegir-efs-fsx">Cómo decidir entre EFS y cada opción de FSx</h2>
+<ol>
+<li><strong>Empieza por el cliente.</strong> Si la aplicación espera una ruta NFS y corre en Linux, EFS es el punto de partida. Si espera una ruta SMB, permisos de Windows o Active Directory, comienza con FSx para Windows.</li>
+<li><strong>Comprueba si existe una dependencia del sistema de archivos.</strong> Una aplicación que ya usa snapshots, clones o compresión de ZFS se beneficia de OpenZFS; una que depende de ONTAP, multiprotocolo o iSCSI debe evaluar ONTAP.</li>
+<li><strong>Separa datos temporales de datos persistentes.</strong> En Lustre, scratch y persistent responden a necesidades distintas. Un scratch no debe ser la única copia de un dato que necesitas conservar.</li>
+<li><strong>Define el fallo que debes soportar.</strong> EFS Regional, EFS One Zone, FSx Windows Multi-AZ, ONTAP Multi-AZ y OpenZFS Multi-AZ tienen modelos diferentes. Escribe el RPO, el RTO y la pérdida de zona que tolera la carga antes de elegir.</li>
+<li><strong>Mide el patrón de acceso.</strong> Cuenta lectura, escritura, tamaño de archivos, metadatos, clientes simultáneos y latencia. Un benchmark de otra región, clase o despliegue no prueba tu caso.</li>
+<li><strong>Estima la factura completa.</strong> Incluye almacenamiento, throughput, IOPS, backups, solicitudes o acceso a clases frías y transferencia entre zonas o regiones.</li>
+</ol>
+
+<h2 id="efs-fsx-ebs-s3">EFS, FSx, EBS y S3: la diferencia que evita errores</h2>
 <ul>
-<li>EFS crece solo. Cuanto más guardes, más grande se hace.</li>
-<li>FSx te deja elegir cuánto quieres que crezca.</li>
+<li><strong>Archivo:</strong> EFS y FSx presentan carpetas y semántica de archivos a varios clientes. El protocolo y las funciones del sistema determinan la compatibilidad.</li>
+<li><strong>Bloque:</strong> EBS se conecta a EC2 como un volumen de bloques que el sistema operativo debe formatear y montar. Es apropiado para una aplicación que necesita su propio dispositivo; no reemplaza una carpeta compartida entre hosts.</li>
+<li><strong>Objeto:</strong> S3 se consulta con API y claves de objeto. Puede ser la fuente duradera de datos para Lustre, pero no es automáticamente un sistema de archivos POSIX.</li>
 </ul>
+<p>Si la aplicación puede usar una API de objetos, S3 suele ser una decisión distinta y no un sustituto directo de EFS. Si necesita abrir archivos con rutas, bloqueo y permisos del sistema operativo, compara EFS y FSx según el protocolo y el sistema que espera.</p>
 
+<h2 id="montar-efs-ec2-linux">Ejemplo comprobable: montar EFS en EC2 Linux</h2>
+<p>Este ejemplo parte de un sistema de archivos EFS existente y muestra el flujo y los puntos que debes verificar. Usa valores ficticios: sustituye <code>fs-EXAMPLE</code> por un sistema de archivos que puedas probar sin afectar datos de producción.</p>
 
-<p><strong>Rendimiento</strong></p>
-
-
+<h3 id="requisitos-montaje">Requisitos antes de ejecutar comandos</h3>
 <ul>
-<li>En EFS, tú decides cuánto quieres pagar para que sea más rápido.</li>
-<li>FSx para Windows ya viene configurado para ser rápido.</li>
-<li>FSx para Lustre es la opción para cuando necesitas mucha velocidad.</li>
+<li>Una instancia EC2 Linux compatible y un sistema EFS en la misma región.</li>
+<li>Un mount target de EFS en una zona accesible por la instancia. Para EFS Regional, crea uno por cada zona desde la que accederás; para One Zone, debe estar en la única zona del sistema.</li>
+<li>Un grupo de seguridad de la instancia con salida TCP 2049 hacia el grupo de seguridad de los mount targets, y una regla de entrada TCP 2049 en los mount targets cuyo origen sea el grupo de la instancia.</li>
+<li>El paquete <code>amazon-efs-utils</code> instalado según la distribución. AWS recomienda el mount helper; EFS no admite montarse desde una instancia EC2 Windows.</li>
+<li>Red y DNS que permitan a la instancia llegar al mount target. El helper con <code>tls</code> cifra el tránsito entre el cliente y EFS. El montaje básico sin <code>iam</code> solo funcionará si la política del sistema permite ese acceso. Con <code>iam</code>, el helper identifica al cliente mediante su rol y EFS evalúa las políticas de identidad y del sistema de archivos para autorizar el acceso; no es obligatorio otorgar el mismo permiso en ambas. En ambos casos, los permisos POSIX del sistema de archivos siguen aplicando. Consulta <a href="https://docs.aws.amazon.com/efs/latest/ug/iam-access-control-nfs-efs.html">cómo EFS autoriza a los clientes NFS</a>.</li>
 </ul>
+<p>La regla de TCP 2049 no se abre a Internet: limita el origen al grupo de seguridad de los clientes. La documentación de AWS resume estas reglas en <a href="https://docs.aws.amazon.com/efs/latest/ug/network-access.html" rel="noopener noreferrer" target="_blank">acceso de red con grupos de seguridad</a>.</p>
 
+<h3 id="comandos-montaje">Montar y comprobar</h3>
+<pre><code># Ejecutar en la instancia EC2 Linux
+sudo mkdir -p /mnt/efs
+sudo mount -t efs -o tls fs-EXAMPLE /mnt/efs
 
-<p><strong>Protocolos y Sistemas Operativos</strong></p>
+# Comprueba el montaje; el tipo esperado es nfs4
+mountpoint /mnt/efs
+findmnt -no FSTYPE /mnt/efs
+TEST_FILE=$(sudo mktemp /mnt/efs/aws-efs-demo.XXXXXX)
+printf 'prueba-efs\n' | sudo tee "$TEST_FILE" &gt; /dev/null
+sudo cat "$TEST_FILE"
+</code></pre>
+<p>La primera comprobación confirma que el punto está montado; la segunda muestra el tipo de sistema de archivos, normalmente <code>nfs4</code>; la escritura y lectura comprueban que el cliente puede usar el sistema de archivos. Para montar automáticamente después de un reinicio, añade una entrada con <code>_netdev</code> a <code>/etc/fstab</code> y valida con <code>sudo mount -a</code> antes de reiniciar:</p>
+<pre><code>fs-EXAMPLE:/ /mnt/efs efs _netdev,tls,nofail 0 0</code></pre>
+<p>El helper usa NFS por debajo y EFS admite NFSv4.0 y NFSv4.1. Si necesitas montar con el cliente NFS estándar, sigue la <a href="https://docs.aws.amazon.com/efs/latest/ug/mounting-fs.html" rel="noopener noreferrer" target="_blank">guía oficial de montaje</a> y conserva la verificación de red y de la versión NFS.</p>
 
+<h3 id="limpiar-montaje">Limpiar una prueba</h3>
+<p>En la misma sesión, elimina solo el archivo temporal que guardaste en <code>TEST_FILE</code> y desmonta antes de retirar el sistema. Si añadiste la entrada a <code>/etc/fstab</code> para una prueba temporal, retírala para que no intente montar un recurso eliminado:</p>
+<pre><code>sudo rm -- "$TEST_FILE"
+sudo umount /mnt/efs
+</code></pre>
+<p>Si el EFS era temporal, conserva primero cualquier dato que necesites. La consola puede eliminar el sistema y sus mount targets; con la CLI debes eliminar antes todos los mount targets y access points asociados. La eliminación es destructiva y no se puede deshacer: sigue <a href="https://docs.aws.amazon.com/efs/latest/ug/delete-efs-fs.html" rel="noopener noreferrer" target="_blank">la guía de eliminación de EFS</a> y comprueba que ningún cliente o servicio lo usa.</p>
 
+<h2 id="precios-rendimiento-backups">Precios, rendimiento y copias: qué comparar</h2>
+<h3 id="precios">Precios</h3>
+<p>EFS factura según el tipo de sistema, clases de almacenamiento, throughput, actividad de acceso o tiering, backups y transferencia. Elastic throughput escala con el tráfico, mientras que Provisioned cobra una capacidad de throughput configurada; el precio depende de la región. Las conexiones a un mount target de otra zona pueden añadir transferencia.</p>
+<p>FSx no tiene un precio único: Windows, Lustre, ONTAP y OpenZFS cobran combinaciones diferentes de capacidad o datos almacenados, throughput, IOPS, backups y transferencia. En algunos productos eliges capacidad aprovisionada; en otros existen clases elásticas. Usa la <a href="https://aws.amazon.com/efs/pricing/" rel="noopener noreferrer" target="_blank">página de precios de EFS</a>, la <a href="https://aws.amazon.com/fsx/pricing/" rel="noopener noreferrer" target="_blank">página de precios de FSx</a> y la calculadora para la región y el despliegue exactos. No extrapoles una tarifa de FSx para Windows a Lustre, ONTAP u OpenZFS.</p>
+<h3 id="rendimiento">Rendimiento</h3>
+<p>Selecciona el throughput y la clase a partir de métricas reales: tamaño de archivos, lecturas, escrituras, metadatos, clientes y latencia. Los máximos publicados por AWS cambian por región, modo, cliente y generación del producto. Las cifras de la documentación son límites o diseños de referencia, no una garantía para todas las cargas.</p>
+<h3 id="backups">Backups y recuperación</h3>
+<p>EFS se integra con AWS Backup. AWS documenta backups automáticos para los sistemas One Zone y permite restaurar un backup a una zona operativa o a otra región; revisa la política de backup y prueba una restauración para el caso Regional que uses. FSx ofrece backups nativos y, según el producto y la región, integración con AWS Backup. El backup no reemplaza una prueba: verifica que los permisos, rutas, clientes y datos que la aplicación necesita vuelvan a funcionar.</p>
+<p>Para diseñar la política, consulta <a href="https://docs.aws.amazon.com/efs/latest/ug/awsbackup.html" rel="noopener noreferrer" target="_blank">backups de EFS</a> y la <a href="https://docs.aws.amazon.com/aws-backup/latest/devguide/backup-feature-availability.html" rel="noopener noreferrer" target="_blank">matriz de compatibilidad de AWS Backup</a>. Los recursos temporales de una prueba también generan cargos si permanecen activos.</p>
+
+<h2 id="recursos-comunidad">Recursos y comunidad en español</h2>
+<p>Estas grabaciones complementan la documentación oficial con ejemplos y lenguaje en español:</p>
 <ul>
-<li>EFS usa NFSv4.1, que es común en Linux.</li>
-<li>FSx para Windows usa SMB y NTFS, que son de Windows.</li>
-<li>FSx para Lustre trabaja con NFSv3 y POSIX, también de Linux.</li>
+<li><a href="https://www.youtube.com/watch?v=GqYKhnqDDeI" rel="noopener noreferrer" target="_blank"><strong>AWS UG Buenos Aires: EBS, EFS, S3 y monitoreo</strong></a> compara almacenamiento de bloques, archivos y objetos. Es una buena introducción antes de decidir entre EBS, EFS y S3; el contenido es una grabación, no una referencia de precios actuales.</li>
+<li><a href="https://www.youtube.com/watch?v=-ZK2SwC0n1Q" rel="noopener noreferrer" target="_blank"><strong>Conociendo más de discos compartidos: AWS EFS, AWS FSx y AWS Backup</strong></a>, de AWS Girls Perú, conecta los servicios con datos compartidos y copias. Contrasta sus ejemplos con la documentación vigente de cada producto.</li>
+<li><a href="https://www.youtube.com/watch?v=J8OrxPPeSPs" rel="noopener noreferrer" target="_blank"><strong>Grupo de estudio: EFS para AWS Solutions Architect Associate</strong></a>, del AWS User Group Guatemala, ayuda a practicar la decisión de EFS en escenarios de certificación; no sustituye las cuotas y opciones actuales.</li>
+<li><a href="https://www.youtube.com/watch?v=urfLdkPLuPc" rel="noopener noreferrer" target="_blank"><strong>Introducción al almacenamiento en AWS</strong></a>, de Marcia Villalba — Desplegando Cloud, sirve para repasar las categorías antes de profundizar en EFS o FSx.</li>
+<li><a href="https://www.youtube.com/watch?v=t3WW-dcnGEk" rel="noopener noreferrer" target="_blank"><strong>Practitioner, Una Nueva Esperanza: Amazon EBS y Amazon EFS</strong></a>, de AWS Women Colombia, ayuda a fijar la diferencia entre bloques y archivos antes de elegir EFS. Puedes continuar en su <a href="https://awswomencolombia.com/" rel="noopener noreferrer" target="_blank">sitio de comunidad</a> y <a href="https://www.youtube.com/channel/UCdpHSMDDwo4_d_u3mSU41Mw" rel="noopener noreferrer" target="_blank">canal de YouTube</a>.</li>
 </ul>
-
-
-<p><strong>Casos de Uso</strong></p>
-
-
-<ul>
-<li>EFS es bueno para una variedad de trabajos, como aplicaciones que usan muchos datos o necesitan hacer copias de seguridad.</li>
-<li>FSx para Windows es ideal para cuando trabajas con archivos de Windows o programas como ASP.NET.</li>
-<li>FSx para Lustre es para cuando tienes trabajos de datos grandes que necesitan mucha velocidad, como inteligencia artificial o análisis de grandes cantidades de información.</li>
-</ul>
-
-
-<p>En pocas palabras, si necesitas un lugar flexible para guardar tus datos, EFS es una buena opción. Si trabajas mucho con Windows, FSx para Windows es lo tuyo. Y si lo tuyo son los trabajos de datos grandes y rápidos, entonces FSx para Lustre es tu mejor elección.</p>
-
-
-<h2 id="implementaci%C3%B3n-y-administraci%C3%B3n" tabindex="-1">Implementación y administración</h2>
-
-
-<h3 id="creando-un-sistema-de-archivos-efs" tabindex="-1">Creando un sistema de archivos EFS</h3>
-
-
-<p>Para empezar con Amazon EFS, tienes dos caminos:</p>
-
-
-<ul>
-<li><strong>Usando la consola de AWS</strong>:</li>
-<li>Primero, entra a la consola de AWS y busca Amazon EFS.</li>
-<li>Luego, haz clic en "Crear sistema de archivos".</li>
-<li>Escoge la VPC y las subredes que quieras usar.</li>
-<li>Ajusta los grupos de seguridad de Amazon VPC.</li>
-<li>Decide cómo quieres que sea el rendimiento.</li>
-<li>Revisa todo y dale a "Crear".</li>
-<li><strong>A través de CloudFormation</strong>:</li>
-<li>Prepara una plantilla de CloudFormation con todos los detalles de EFS.</li>
-<li>Asegúrate de incluir cosas como la VPC, subredes, seguridad y cómo quieres que sea el rendimiento.</li>
-<li>Usa CloudFormation para poner en marcha tu sistema de archivos EFS.</li>
-</ul>
-
-
-<p>Recuerda que es clave seleccionar bien la VPC, las subredes y los grupos de seguridad para controlar quién puede acceder a EFS. También es bueno pensar en cuánto rendimiento necesitarás desde el principio.</p>
-
-
-<h3 id="montando-un-sistema-de-archivos-efs" tabindex="-1">Montando un sistema de archivos EFS</h3>
-
-
-<p>Después de crear tu sistema de archivos EFS, necesitas conectarlo a tus instancias EC2 para usarlo.</p>
-
-
-<p><strong>Para instancias Linux</strong>:</p>
-
-
-<ul>
-<li>Necesitas instalar <code class="inline-code">nfs-utils</code>.</li>
-<li>Luego, con el comando <code class="inline-code">mount</code>, conectas el sistema de archivos EFS poniendo el ID del sistema y dónde lo quieres montar.</li>
-</ul>
-
-
-<p><strong>Para instancias Windows</strong>:</p>
-
-
-<ul>
-<li>Instala el <a href="https://docs.aws.amazon.com/efs/latest/ug/using-amazon-efs-utils.html" rel="noopener noreferrer" target="_blank">Amazon EFS Utils</a>.</li>
-<li>Conecta el sistema de archivos EFS como si fuera una unidad de red, usando el ID del sistema.</li>
-</ul>
-
-
-<p>Es una buena idea hacer que el sistema de archivos EFS se conecte automáticamente cada vez que arranques tus instancias EC2. En Linux, puedes editar el archivo <code class="inline-code">/etc/fstab</code> para hacerlo. En Windows, puedes mapear una unidad de red que se mantenga entre reinicios.</p>
-
-
-<p>También puedes hacer que el proceso de montaje sea automático usando herramientas como CloudFormation o Terraform cuando estés configurando tus instancias.</p>
-
-
-
-
-<h2 id="optimizaci%C3%B3n-de-costos-y-rendimiento" tabindex="-1">Optimización de costos y rendimiento</h2>
-
-
-<p>Para que Amazon EFS y Amazon FSx te cuesten menos y funcionen mejor, aquí van unos consejos sencillos:</p>
-
-
-<h3 id="escalado-autom%C3%A1tico" tabindex="-1">Escalado automático</h3>
-
-
-<ul>
-<li>En EFS, puedes hacer que se ajuste solo según cuánto lo uses. Así, si necesitas más espacio o menos, EFS se encarga por ti.</li>
-<li>Con FSx, puedes hacer que se añadan más instancias automáticamente si ves que necesitas más capacidad.</li>
-</ul>
-
-
-<h3 id="ajustes-de-rendimiento" tabindex="-1">Ajustes de rendimiento</h3>
-
-
-<ul>
-<li>Para EFS, si tus necesidades cambian mucho, usa el modo "bursting". Es más barato que pagar por un rendimiento alto todo el tiempo.</li>
-<li>Si usas FSx para Windows y necesitas más velocidad, elige una opción que ofrezca más IOPS.</li>
-<li>Con FSx para Lustre, si tu trabajo es muy demandante, opta por SSD de alto rendimiento.</li>
-</ul>
-
-
-<h3 id="copias-de-seguridad-y-archivado" tabindex="-1">Copias de seguridad y archivado</h3>
-
-
-<ul>
-<li>Aprovecha que EFS y FSx se pueden conectar fácil con AWS Backup para hacer copias de seguridad sin gastar mucho.</li>
-<li>Si tienes datos viejos, guárdalos en Amazon S3 Glacier. Es una forma de ahorrar en almacenamiento.</li>
-</ul>
-
-
-<h3 id="despliegues-multi-az" tabindex="-1">Despliegues Multi-AZ</h3>
-
-
-<ul>
-<li>Usar Multi-AZ hace que tus datos se guarden en diferentes lugares para más seguridad. Pero, si puedes permitirte pequeñas pausas, elige Single-AZ para ahorrar.</li>
-</ul>
-
-
-<h3 id="life-cycle-management" tabindex="-1">Life cycle management</h3>
-
-
-<p>Pon reglas para:</p>
-
-
-<ul>
-<li>Mover datos viejos a lugares más baratos automáticamente.</li>
-<li>Borrar datos que ya no uses después de cierto tiempo.</li>
-</ul>
-
-
-<p>Siguiendo estos consejos, puedes conseguir que EFS y FSx te den un buen rendimiento sin que te cuesten una fortuna.</p>
-
-
-<h2 id="conclusi%C3%B3n" tabindex="-1">Conclusión</h2>
-
-
-<p>Amazon EFS y Amazon FSx son dos servicios de AWS que te ayudan a guardar tus archivos en la nube, pero cada uno funciona de manera un poco diferente.</p>
-
-
-<p><strong>Amazon EFS</strong> es muy flexible. Se agranda automáticamente cuando subes más cosas y permite que muchas computadoras accedan a los mismos archivos al mismo tiempo. Es perfecto para aplicaciones que necesitan compartir datos, como sitios web o proyectos de análisis de datos grandes.</p>
-
-
-<p><strong>Amazon FSx</strong> está más especializado. Tiene versiones para archivos de Windows y para proyectos que necesitan procesar datos muy rápido, como inteligencia artificial. Es como tener un sistema de archivos que ya sabe trabajar bien con Windows o que puede manejar mucha información rápidamente.</p>
-
-
-<p>Cuando estés decidiendo entre EFS y FSx, piensa en qué tanto necesitas que tu almacenamiento crezca automáticamente, qué tan rápido necesitas que sea, con qué sistemas operativos debe ser compatible y para qué lo vas a usar:</p>
-
-
-<ul>
-<li>EFS es genial si tienes muchos datos y necesitas que crezca sin preocuparte. Además, puedes ajustar cuánto quieres gastar en rendimiento.</li>
-<li>FSx te da opciones especializadas. Si trabajas mucho con Windows, FSx para Windows es ideal. Si tu trabajo implica analizar muchos datos rápidamente, entonces FSx para Lustre es lo que necesitas.</li>
-</ul>
-
-
-<p>En resumen, si tu proyecto es bastante general y esperas que crezca mucho, EFS puede ser tu mejor opción. Si necesitas algo más específico para Windows o para análisis de datos de alto rendimiento, entonces FSx podría ser mejor para ti.</p>
-
-
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
-
-
-<h3 id="%C2%BFqu%C3%A9-es-amazon-fsx%3F" tabindex="-1">¿Qué es Amazon FSx?</h3>
-
-
-<p>Amazon FSx es un servicio de AWS que te permite tener sistemas de archivos en la nube, tanto para Windows como para Linux. Es como tener un disco duro en internet que puedes usar para varias cosas:</p>
-
-
-<ul>
-<li>Es fácil de configurar.</li>
-<li>Funciona rápido y bien.</li>
-<li>Es seguro y puedes confiar en él.</li>
-<li>Funciona con otros servicios de AWS.</li>
-<li>Hay opciones para usarlo con Windows, Linux y otros sistemas.</li>
-</ul>
-
-
-<p>Es muy útil para cuando tienes aplicaciones en internet, sitios web o cualquier cosa que necesite que varios usuarios accedan a los mismos archivos.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-es-fsx%3F" tabindex="-1">¿Qué es FSx?</h3>
-
-
-<p>FSX se refiere a "Flight Simulator X", un juego de simulación de vuelo hecho por Microsoft. Lanzado en 2006, es la décima versión de la serie Flight Simulator.</p>
-
-
-<p>Te permite volar aviones de manera virtual, con gráficos que se ven muy reales, un montón de aviones para elegir, ciudades y paisajes detallados, y el clima que cambia. Mucha gente lo considera uno de los mejores simuladores de vuelo disponibles para el público general.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ecs/">Mejores prácticas para Amazon ECS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-s3/">Mejores prácticas para Amazon S3</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS fundamentos: guía de inicio rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/opciones-para-desplegar-contenedores-en-aws-ecs-y-eks/">Opciones para desplegar contenedores en AWS: ECS y EKS</a></li>
-</ul>
-</p>
+<p>Para ampliar dudas o encontrar charlas, puedes seguir el <a href="https://www.youtube.com/@awsugbsas" rel="noopener noreferrer" target="_blank">canal de AWS User Group Buenos Aires</a> y su <a href="https://www.meetup.com/aws-user-group-buenos-aires/" rel="noopener noreferrer" target="_blank">grupo de Meetup</a>; consultar el <a href="https://awsgirlsperu.com/" rel="noopener noreferrer" target="_blank">sitio de AWS Girls Perú</a> y su <a href="https://www.meetup.com/aws-girls-peru/" rel="noopener noreferrer" target="_blank">Meetup</a>; o participar en el <a href="https://www.meetup.com/aws-guatemala/" rel="noopener noreferrer" target="_blank">AWS User Group Guatemala</a> y su <a href="https://www.youtube.com/@awsugguatemala" rel="noopener noreferrer" target="_blank">canal de YouTube</a>. Son espacios para preguntar y seguir sesiones; confirma siempre fecha, modalidad y condiciones de cada actividad.</p>
+<p>Para continuar con una aplicación concreta, revisa <a href="https://dondeaprendoaws.com/blog/como-usar-aws-transfer-family-con-amazon-efs/">Cómo configurar AWS Transfer Family con Amazon EFS por SFTP</a>. Si tu decisión es de contenedores, consulta <a href="https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/">Cómo desplegar contenedores en AWS</a> y valida por separado el volumen y el controlador que usará tu plataforma. La <a href="/eventos/">agenda de eventos AWS</a> permite buscar talleres y charlas de comunidades; confirma fecha, modalidad y disponibilidad en la ficha antes de asistir.</p>
+
+<h2 id="conclusion">Conclusión</h2>
+<p>Usa EFS cuando necesitas un sistema NFS compartido y elástico para clientes Linux, y decide primero entre Regional y One Zone. Usa FSx cuando necesitas las funciones y el protocolo de un sistema concreto: Windows File Server para SMB y Active Directory, Lustre para procesamiento paralelo, ONTAP para compatibilidad NetApp y multiprotocolo, u OpenZFS para NFS y capacidades de ZFS.</p>
+<p>Compara el despliegue específico, las clases, el throughput, la resiliencia, los backups y la transferencia. Si lo que necesitas es un dispositivo de bloques para EC2 o una API de objetos, cambia de categoría y evalúa EBS o S3. La decisión correcta es la que coincide con la interfaz que la aplicación ya necesita y con el fallo que tu operación puede aceptar.</p>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<h3 id="efs-windows">¿Puedo montar EFS desde Windows?</h3>
+<p>AWS no admite montar EFS desde instancias EC2 Windows. Para recursos compartidos SMB y aplicaciones Windows, evalúa FSx para Windows File Server.</p>
+<h3 id="efs-nfs-2049">¿Qué puerto necesita EFS?</h3>
+<p>El cliente debe poder conectarse al mount target por TCP 2049. Permite salida desde el grupo de la instancia y entrada en el grupo del mount target con el grupo de la instancia como origen; no abras el puerto a Internet.</p>
+<h3 id="fsx-multiaz">¿FSx siempre es Multi-AZ?</h3>
+<p>No. Windows File Server y ONTAP tienen opciones Single-AZ y Multi-AZ; OpenZFS distingue Multi-AZ (HA), Single-AZ (HA) y Single-AZ (no HA); Lustre usa opciones scratch y persistent con modelos de replicación propios. Comprueba el producto y la región concretos.</p>
+<h3 id="borrar-efs">¿Qué debo borrar al terminar una prueba de EFS?</h3>
+<p>Desmonta el sistema y elimina los archivos temporales. Si vas a borrar el recurso, confirma los datos, access points y clientes dependientes; con la CLI elimina antes mount targets y access points. La eliminación del sistema es irreversible.</p>

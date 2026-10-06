@@ -1,667 +1,480 @@
 ---
-title: "Guía completa de escalado automático de contenedores en AWS"
-description: "Descubre la guía completa de escalado automático de contenedores en AWS. Aprende sobre estrategias, configuración, optimización y ejemplos en el mundo real para mejorar el rendimiento y eficiencia de costos."
+title: "Escalado automático de contenedores en AWS: ECS, EKS y Fargate"
+description: "Escala tareas ECS y pods EKS con target tracking o HPA. Distingue réplicas y nodos, diagnostica capacidad y practica en un clúster local."
 author: "guille-ojeda"
 publishedAt: "2024-05-17"
 publishedTimestamp: "2024-05-17T00:30:54.181Z"
+modifiedTimestamp: "2026-10-06T15:38:25-03:00"
+review:
+  date: "2026-10-06"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Configurar CORS en HTTP API Gateway"
-    url: "https://dondeaprendoaws.com/blog/configurar-cors-en-http-api-gateway/"
-  - title: "Análisis de costos de AWS con Cost Explorer"
-    url: "https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/"
-  - title: "Cómo prepararte para un examen de certificación de AWS"
-    url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-preparacion-para-el-examen/"
+  - title: "Cómo desplegar contenedores en AWS: elige entre ECS, EKS y Fargate"
+    url: "https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/"
+  - title: "Cómo desplegar una aplicación en Amazon ECS con Fargate"
+    url: "https://dondeaprendoaws.com/blog/como-desplegar-una-aplicacion-en-amazon-ecs/"
+  - title: "Cómo desplegar una aplicación en Amazon EKS con kubectl"
+    url: "https://dondeaprendoaws.com/blog/como-desplegar-una-aplicacion-en-amazon-eks/"
+  - title: "Cómo reducir costos en AWS Fargate con ECS: guía práctica"
+    url: "https://dondeaprendoaws.com/blog/7-estrategias-para-reducir-costos-en-aws-fargate/"
 
 ---
 
-<p>El <a href="https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/">escalado automático de contenedores</a> en <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> permite ajustar automáticamente la cantidad de recursos asignados a una aplicación según la demanda. Esto mejora el rendimiento, reduce costos y aumenta la fiabilidad. <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> ofrece varias opciones de escalado automático, como <a href="https://aws.amazon.com/autoscaling/" rel="noopener noreferrer" target="_blank">AWS Auto Scaling</a>, ECS Service Auto Scaling y Kubernetes Horizontal Pod Autoscaler.</p>
+El escalado automático de contenedores en AWS no es una sola función. Es un conjunto de controles que actúan sobre capas distintas: el número de tareas de un servicio ECS, el número de pods de un workload de Kubernetes y la capacidad de cómputo donde esas unidades deben ejecutarse. Si mezclas esas capas, puedes ver más réplicas pendientes mientras el clúster sigue sin capacidad, o agregar nodos cuando el problema real es que una tarea está mal dimensionada.
 
+Esta guía te ayuda a elegir el control correcto, configurar un ejemplo de Amazon ECS y comprobar un Horizontal Pod Autoscaler (HPA) de Kubernetes en local. Los valores de CPU, memoria, réplicas y tiempos son puntos de partida para una carga concreta; no garantizan por sí solos rendimiento, disponibilidad ni un costo determinado.
 
-<p><strong>Beneficios clave:</strong></p>
+## El mapa mental: qué escala cada control
 
+Antes de elegir una política, identifica qué unidad debe aumentar o disminuir:
 
-<ul>
-<li>
-<p><strong>Rendimiento optimizado:</strong> Ajusta los recursos según la carga de trabajo, manteniendo un rendimiento óptimo.</p>
-</li>
-<li>
-<p><strong>Ahorro de costos:</strong> Reduce recursos en períodos de baja demanda, disminuyendo los costos.</p>
-</li>
-<li>
-<p><strong>Alta disponibilidad:</strong> Asegura que la aplicación pueda manejar picos de tráfico sin degradación.</p>
-</li>
-</ul>
+| Capa | Unidad que cambia | Control habitual | Qué no resuelve por sí solo |
+| --- | --- | --- | --- |
+| Servicio ECS | Tareas del servicio y su `desiredCount` | ECS Service Auto Scaling mediante Application Auto Scaling | No agrega instancias EC2 si el clúster no tiene capacidad |
+| Capacidad ECS sobre EC2 | Instancias del Auto Scaling group asociado al capacity provider | ECS cluster auto scaling (managed scaling) | No decide cuántas tareas necesita el servicio |
+| Workload EKS | Pods de un `Deployment`, `StatefulSet` u otro recurso escalable | HPA con `autoscaling/v2` | No crea nodos cuando los pods no caben |
+| Cómputo EKS | Nodos o recursos de cómputo | EKS Auto Mode, Karpenter o Cluster Autoscaler | No reemplaza la política HPA del workload |
+| Tamaño de una unidad | CPU y memoria asignadas a una tarea o pod | Una nueva definición de tarea o recursos del pod; VPA queda fuera de esta guía | No aumenta el número de réplicas |
 
+En ECS, una tarea es una ejecución de una definición de tareas. En EKS, un pod es la unidad que el scheduler coloca en un nodo o en Fargate. Un nodo no es una réplica de la aplicación: es capacidad compartida para colocar pods. En Fargate no administras nodos EC2, pero sigues teniendo que escalar las tareas ECS o los pods EKS que atienden el trabajo.
 
-<p><strong>Estrategias de escalado automático:</strong></p>
+Antes de multiplicar contenedores, externaliza el estado que deba sobrevivir a una réplica: sesiones, archivos subidos, imágenes, locks y datos de negocio no deberían depender del disco efímero de una tarea o pod. Elige el servicio por la semántica que necesita la aplicación —por ejemplo, S3 para objetos, una base de datos para datos transaccionales o EFS/FSx para un sistema de archivos compartido— y mide conexiones, latencia y consistencia por separado. [Nuestra comparación de EFS y FSx](/blog/guia-completa-sobre-amazon-efs-y-fsx/) ayuda a decidir por protocolo, acceso, disponibilidad y rendimiento; montar almacenamiento compartido no convierte por sí solo una aplicación con estado en una carga escalable.
 
+## ECS: escalar tareas del servicio
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Estrategia</th>
-<th>Ventajas</th>
-<th>Desventajas</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Basada en uso de CPU</td>
-<td>Responde rápido a cambios de carga</td>
-<td>Difícil determinar umbral de CPU adecuado</td>
-</tr>
-<tr>
-<td>Basada en uso de memoria</td>
-<td>Previene errores de memoria</td>
-<td>Difícil determinar umbral de memoria adecuado</td>
-</tr>
-<tr>
-<td>Basada en métricas personalizadas</td>
-<td>Mayor flexibilidad y precisión</td>
-<td>Complejidad en configuración y mantenimiento</td>
-</tr>
-</tbody>
-</table></figure>
+[Amazon ECS Service Auto Scaling](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-auto-scaling.html) usa Application Auto Scaling y métricas de CloudWatch para cambiar automáticamente el número deseado de tareas de un servicio. ECS publica utilización media de CPU y memoria; también puedes usar métricas como solicitudes por destino de un Application Load Balancer o una métrica personalizada.
 
+El servicio debe tener un mínimo y un máximo. El mínimo protege una capacidad base y el máximo limita el crecimiento que la política puede solicitar. La tarea todavía debe poder iniciar: la imagen, el rol de ejecución, la red, los límites de CPU y memoria, el balanceador y la capacidad de cómputo tienen que estar disponibles.
 
-<p><strong>Configuración en AWS:</strong></p>
+### Target tracking, step scaling y programado
 
+Para una carga que cambia de forma continua, **target tracking** suele ser el punto de partida más sencillo: eliges una métrica y un objetivo, y Application Auto Scaling crea y administra las alarmas de CloudWatch. AWS documenta como métricas predefinidas `ECSServiceAverageCPUUtilization`, `ECSServiceAverageMemoryUtilization` y `ALBRequestCountPerTarget`.
 
-<ul>
-<li>
-<p><strong>ECS Service Auto Scaling:</strong> Define reglas de escalado para tareas de contenedores.</p>
-</li>
-<li>
-<p><strong>EKS Auto Scaling:</strong> Define reglas de escalado para pods de Kubernetes.</p>
-</li>
-<li>
-<p><a href="https://aws.amazon.com/fargate/" rel="noopener noreferrer" target="_blank"><strong>AWS Fargate</strong></a> <strong>Auto Scaling:</strong> Define reglas de escalado para servicios Fargate.</p>
-</li>
-</ul>
+Target tracking escala hacia fuera cuando la métrica está por encima del objetivo y reduce tareas de forma más gradual. No escala si la métrica tiene datos insuficientes. Puedes tener varias políticas con métricas distintas: ECS escala hacia fuera si cualquiera está lista para hacerlo, y solo escala hacia dentro cuando todas las políticas que permiten scale-in lo permiten. Las alarmas creadas por target tracking las administra Application Auto Scaling; no las edites manualmente.
 
+**Step scaling** es útil cuando necesitas incrementos explícitos después de cruzar umbrales, por ejemplo, agregar cuatro tareas cuando el backlog supera cierto nivel. **Scheduled scaling** sirve para horarios previsibles, como preparar más capacidad antes de una jornada. Puedes combinar una política programada con una dinámica, pero establece un rango mínimo y máximo que ambas respeten.
 
-<p><strong>Optimización:</strong></p>
+### Elegir la métrica de ECS
 
+Empieza por el síntoma que limita el servicio, no por una métrica cómoda:
 
-<ul>
-<li>
-<p>Elección de métricas de escalado relevantes</p>
-</li>
-<li>
-<p>Pruebas de carga y monitoreo continuo</p>
-</li>
-<li>
-<p>Gestión de eventos de escalado y políticas</p>
-</li>
-<li>
-<p>Técnicas de optimización de costos (dimensionamiento correcto, instancias reservadas y spot)</p>
-</li>
-</ul>
+- **CPU media:** una opción razonable si el trabajo es principalmente de CPU y la definición de tareas tiene una reserva representativa.
+- **Memoria media:** útil si la memoria es el límite dominante; observa reinicios y presión de memoria además de la media.
+- **Solicitudes por destino:** apropiada para una API detrás de ALB cuando una tarea puede procesar una tasa estable de solicitudes. No presupone que todas las solicitudes cuestan lo mismo.
+- **Backlog por tarea:** suele encajar mejor con workers de SQS. La métrica debe ser proporcional al trabajo pendiente por tarea y publicarse con suficiente continuidad; la [guía de escalado de ECS por cola SQS](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-autoscaling-queue.html) muestra el patrón.
+- **Métrica de negocio:** puede representar mejor una carga que no consume CPU de manera uniforme, pero requiere instrumentación, permisos, alarmas y una prueba de que responde en la dirección esperada al agregar tareas. Para target tracking, [Application Auto Scaling requiere](https://docs.aws.amazon.com/autoscaling/application/userguide/application-auto-scaling-target-tracking.html) una métrica cuyo valor disminuya aproximadamente cuando aumenta la capacidad; una latencia suele servir como SLO o alarma para step scaling, pero no debe elegirse como target tracking sin demostrar esa relación.
 
+No uses CPU como sinónimo de capacidad disponible. Un servicio bloqueado por conexiones, I/O o una cola puede mostrar CPU baja y seguir necesitando más tareas. Mide al menos la métrica de decisión junto con tareas deseadas y ejecutándose, latencia, errores, reinicios, backlog y tiempo de arranque.
 
-<p>El escalado automático es una herramienta poderosa para mejorar el rendimiento y la eficiencia de costos de tus aplicaciones contenerizadas en AWS. Sigue las mejores prácticas y configura el escalado automático según las necesidades de tu aplicación.</p>
+### Cooldown y escala a cero en ECS
 
+El cooldown permite que una actividad tenga tiempo de surtir efecto. El scale-out debe reaccionar con rapidez, pero no volver a sumar capacidad antes de que las tareas nuevas entren en servicio; el scale-in conviene hacerlo con más cautela. Ajusta `ScaleOutCooldown` y `ScaleInCooldown` según el tiempo que tarda tu imagen en descargarse, la tarea en estar saludable y el balanceador en incorporarla.
 
-<h2 id="related-video-from-youtube" tabindex="-1">Related video from YouTube</h2>
+Un servicio ECS puede usar `min-capacity 0`. En target tracking, si la capacidad actual es cero, Application Auto Scaling espera un dato de demanda antes de iniciar y comienza con el incremento mínimo posible. Es una opción razonable para workers cuya carga puede esperar el arranque; una API interactiva puede sufrir el tiempo de arranque y de registro de destinos. Escalar el servicio a cero tampoco elimina cargos de un ALB, NAT Gateway, ECR, logs u otros recursos que sigan activos.
 
+Durante un despliegue ECS, Application Auto Scaling suspende el scale-in y mantiene el scale-out salvo que lo suspendas explícitamente. Esto evita retirar capacidad mientras cambia la revisión, pero también puede hacer que el conteo actual supere temporalmente el mínimo.
 
-<iframe allowfullscreen="" loading="lazy" src="https://www.youtube.com/embed/Vhl8rLIBm4w" title="Video de YouTube"></iframe>
-<h2 id="introducci%C3%B3n" tabindex="-1">Introducción</h2>
+### Ejemplo: una política de CPU para un servicio ECS existente
 
+Este ejemplo cambia la configuración de un servicio ya creado. Úsalo únicamente en un servicio de laboratorio que no tenga un scalable target ni políticas de Application Auto Scaling previas. Necesitas AWS CLI configurada, permisos para Application Auto Scaling y un servicio ECS con una definición de tareas que ya pueda arrancar. El `resource-id` tiene la forma `service/<cluster>/<service>`; no confundas el nombre del servicio con el nombre de la definición de tareas.
 
-<p>El escalado automático de contenedores es clave en la <a href="https://dondeaprendoaws.com/blog/cloud-computing-en-espanol-fundamentos-basicos/">gestión de aplicaciones en la nube</a>. Permite a los desarrolladores y administradores mejorar el rendimiento, reducir costos y aumentar la fiabilidad de sus aplicaciones. Amazon Web Services (AWS) ofrece varias opciones de escalado automático para contenedores, como <a href="https://aws.amazon.com/ecs/" rel="noopener noreferrer" target="_blank">Amazon Elastic Container Service</a> (ECS) y <a href="https://aws.amazon.com/eks/" rel="noopener noreferrer" target="_blank">Amazon Elastic Container Service for Kubernetes</a> (EKS).</p>
+Primero comprueba que el servicio elegido no tenga escalado registrado y guarda su `desiredCount` actual. Si cualquiera de las dos primeras consultas devuelve un recurso, detente y usa otro servicio de laboratorio: el cleanup de este ejemplo no debe retirar una política ajena.
 
+```bash
+export AWS_REGION="us-east-1"
+export ECS_CLUSTER="mi-cluster"
+export ECS_SERVICE="mi-servicio"
+export RESOURCE_ID="service/${ECS_CLUSTER}/${ECS_SERVICE}"
+export POLICY_NAME="cpu60-target-tracking"
 
-<h3 id="%C2%BFqu%C3%A9-es-el-escalado-autom%C3%A1tico%3F" tabindex="-1">¿Qué es el escalado automático?</h3>
+aws application-autoscaling describe-scalable-targets \
+  --service-namespace ecs \
+  --resource-id "$RESOURCE_ID" \
+  --scalable-dimension ecs:service:DesiredCount \
+  --region "$AWS_REGION"
 
+aws application-autoscaling describe-scaling-policies \
+  --service-namespace ecs \
+  --resource-id "$RESOURCE_ID" \
+  --scalable-dimension ecs:service:DesiredCount \
+  --region "$AWS_REGION"
 
-<p>El escalado automático ajusta la cantidad de recursos asignados a una aplicación según la demanda. En contenedores, permite definir reglas para aumentar o disminuir el número de instancias de contenedores según la carga de trabajo, manteniendo un rendimiento óptimo y reduciendo costos.</p>
+aws ecs describe-services \
+  --cluster "$ECS_CLUSTER" \
+  --services "$ECS_SERVICE" \
+  --query 'services[0].desiredCount' \
+  --region "$AWS_REGION"
 
+# Guarda el número mostrado antes de continuar y reemplaza el marcador.
+export ORIGINAL_DESIRED_COUNT="REEMPLAZAR_CON_EL_VALOR_OBSERVADO"
 
-<h3 id="%C2%BFpor-qu%C3%A9-utilizar-aws-para-el-escalado-autom%C3%A1tico%3F" tabindex="-1">¿Por qué utilizar <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> para el escalado automático?</h3>
+aws application-autoscaling register-scalable-target \
+  --service-namespace ecs \
+  --scalable-dimension ecs:service:DesiredCount \
+  --resource-id "$RESOURCE_ID" \
+  --min-capacity 1 \
+  --max-capacity 6 \
+  --region "$AWS_REGION"
 
+cat > config.json <<'JSON'
+{
+  "TargetValue": 60.0,
+  "PredefinedMetricSpecification": {
+    "PredefinedMetricType": "ECSServiceAverageCPUUtilization"
+  },
+  "ScaleOutCooldown": 60,
+  "ScaleInCooldown": 180
+}
+JSON
+
+aws application-autoscaling put-scaling-policy \
+  --service-namespace ecs \
+  --scalable-dimension ecs:service:DesiredCount \
+  --resource-id "$RESOURCE_ID" \
+  --policy-name "$POLICY_NAME" \
+  --policy-type TargetTrackingScaling \
+  --target-tracking-scaling-policy-configuration file://config.json \
+  --region "$AWS_REGION"
+```
+
+Comprueba que el objetivo y la política existen y que ECS recibe tareas:
+
+```bash
+aws application-autoscaling describe-scalable-targets \
+  --service-namespace ecs \
+  --resource-id "$RESOURCE_ID" \
+  --scalable-dimension ecs:service:DesiredCount \
+  --region "$AWS_REGION"
+
+aws application-autoscaling describe-scaling-policies \
+  --service-namespace ecs \
+  --resource-id "$RESOURCE_ID" \
+  --scalable-dimension ecs:service:DesiredCount \
+  --region "$AWS_REGION"
+
+aws ecs describe-services \
+  --cluster "$ECS_CLUSTER" \
+  --services "$ECS_SERVICE" \
+  --query 'services[0].{desired:desiredCount,running:runningCount,pending:pendingCount}' \
+  --region "$AWS_REGION"
+```
+
+Para limpiar lo que este ejemplo creó, elimina la política, desregistra el objetivo y borra el archivo local. La eliminación de la política también quita las alarmas administradas por target tracking; no borres el servicio ECS si pertenece a otra práctica.
 
-<p><figure><img alt="AWS" src="/assets/blog/2ebe3cf8e7ae57e98d3af846.jpg"/></figure></p>
+```bash
+aws application-autoscaling delete-scaling-policy \
+  --service-namespace ecs \
+  --scalable-dimension ecs:service:DesiredCount \
+  --resource-id "$RESOURCE_ID" \
+  --policy-name "$POLICY_NAME" \
+  --region "$AWS_REGION"
 
+aws application-autoscaling deregister-scalable-target \
+  --service-namespace ecs \
+  --scalable-dimension ecs:service:DesiredCount \
+  --resource-id "$RESOURCE_ID" \
+  --region "$AWS_REGION"
 
-<p>AWS ofrece una infraestructura escalable y confiable para la gestión de contenedores. Además, proporciona herramientas y servicios para monitorear y administrar recursos, facilitando decisiones informadas sobre el escalado automático.</p>
+aws ecs update-service \
+  --cluster "$ECS_CLUSTER" \
+  --service "$ECS_SERVICE" \
+  --desired-count "$ORIGINAL_DESIRED_COUNT" \
+  --region "$AWS_REGION"
 
+rm config.json
+```
 
-<h3 id="visi%C3%B3n-general-de-las-opciones-de-escalado-autom%C3%A1tico" tabindex="-1">Visión general de las opciones de escalado automático</h3>
+Este bloque muta la configuración de una cuenta AWS y puede producir cargos por las tareas y los servicios que ya existan. Para un laboratorio de ECS completo, sigue el [tutorial de despliegue de ECS con Fargate](/blog/como-desplegar-una-aplicacion-en-amazon-ecs/), que incluye los recursos de red y su limpieza.
 
+## ECS: capacidad de EC2 y capacity providers
 
-<p>AWS ofrece varias opciones de escalado automático para contenedores:</p>
+Si tu servicio usa Fargate, AWS suministra la capacidad de cómputo subyacente y no administras un Auto Scaling group de instancias para esas tareas. Aun así, Service Auto Scaling debe cambiar el número de tareas. Fargate no convierte automáticamente la métrica de CPU del servicio en más tareas: necesitas una política del servicio.
 
+En una carga ECS sobre EC2, la pregunta adicional es dónde colocar las tareas nuevas. Un **capacity provider** asociado a un Auto Scaling group puede usar managed scaling para ajustar la cantidad de instancias según `CapacityProviderReservation`. ECS crea y administra la política de target tracking de ese grupo. Esta política actúa sobre instancias, mientras la política de Service Auto Scaling actúa sobre tareas; normalmente necesitas ambas capas coordinadas.
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Opción</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>AWS Auto Scaling</strong></td>
-<td>Permite definir reglas para ajustar el número de instancias de contenedores.</td>
-</tr>
-<tr>
-<td><strong>ECS Service Auto Scaling</strong></td>
-<td>Permite definir reglas para ajustar el número de tareas de contenedores.</td>
-</tr>
-<tr>
-<td><strong>Kubernetes Horizontal Pod Autoscaler</strong></td>
-<td>Permite definir reglas para ajustar el número de pods.</td>
-</tr>
-</tbody>
-</table></figure>
+Para que una tarea pendiente participe en el escalado administrado, el servicio debe usar una estrategia de capacity providers compatible. Las tareas sin esa estrategia no provocan el scale-out del capacity provider. ECS tampoco puede colocar una tarea si sus requisitos exceden el tipo de instancia más pequeño del Auto Scaling group; en ese caso puede permanecer en `PROVISIONING` aunque parezca que hay una política de escalado.
 
+Revisa también estos límites:
 
-<p>En las siguientes secciones, veremos en detalle cada una de estas opciones y cómo usarlas para implementar estrategias de <a href="https://dondeaprendoaws.com/blog/como-escala-dynamodb-modos-on-demand-y-provisioned/">escalado automático en AWS</a>.</p>
+- `MaximumCapacity` del Auto Scaling group debe ser mayor que cero para poder escalar hacia fuera.
+- ECS no modifica automáticamente el mínimo y máximo del Auto Scaling group.
+- Al escalar desde cero instancias, ECS lanza inicialmente dos instancias en el comportamiento documentado de cluster auto scaling; el tiempo de arranque y `instanceWarmupPeriod` forman parte de la latencia.
+- No añadas otra política que gestione el `desired capacity` del mismo Auto Scaling group mientras el capacity provider administrado está activo.
 
+Consulta [cluster auto scaling de ECS](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/cluster-auto-scaling.html) y el detalle de [managed scaling behavior](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/managed-scaling-behavior.html) antes de mezclar tipos de instancia, constraints y estrategias de placement.
 
-<h2 id="t%C3%A9rminos-y-conceptos-clave" tabindex="-1">Términos y conceptos clave</h2>
+Como siguiente paso comunitario, [Backend escalable con ECS Fargate y RDS](https://www.alfredo-dominguez.dev/arquitecturas/02-scalable-backend/) muestra una arquitectura con balanceador, tareas Fargate y una base de datos. Úsalo para identificar qué estado queda fuera de las tareas y qué componentes tienen costos y límites propios; su diseño no es una medición ni una plantilla obligatoria.
 
+Para repasar la capa de instancias antes de configurar un capacity provider, [Introducción a Auto Scaling Groups](https://speakerdeck.com/gerardokaztro/introduccion-a-asg) presenta los conceptos de un ASG, y [Al día con AWS #18: Sobreviviendo al Auto Scaling](https://www.youtube.com/watch?v=al7zc1OOChM) recorre operación y capacidad en AWS. Ambos son material comunitario complementario: el primero es una presentación introductoria y el segundo una grabación general de cómputo, así que confirma límites y nombres en la documentación de ECS.
 
-<h3 id="orquestaci%C3%B3n-de-contenedores" tabindex="-1">Orquestación de contenedores</h3>
+## EKS: separar HPA de los nodos
 
+En Amazon EKS, el [Horizontal Pod Autoscaler](https://docs.aws.amazon.com/eks/latest/userguide/horizontal-pod-autoscaler.html) modifica las réplicas del workload que referencia. No escala el tamaño de los nodos. Para métricas de CPU o memoria necesitas una fuente de `metrics.k8s.io`, normalmente [Metrics Server](https://kubernetes.io/docs/tasks/debug/debug-cluster/resource-metrics-pipeline/). Para métricas personalizadas o externas necesitas el adaptador correspondiente.
 
-<p>El escalado automático de contenedores se basa en la orquestación de contenedores, que es el proceso de automatizar la gestión del ciclo de vida de las aplicaciones contenerizadas. Esto incluye la creación, escalado, monitoreo y eliminación de contenedores en un clúster. En AWS, servicios como Amazon Elastic Container Service (ECS) y Amazon Elastic Container Service for Kubernetes (EKS) ofrecen orquestación de contenedores para gestionar aplicaciones contenerizadas.</p>
+Con `autoscaling/v2`, HPA puede evaluar varias métricas y usar la mayor recomendación de réplicas. Para `averageUtilization`, Kubernetes calcula la utilización con respecto al `resources.requests` del contenedor; si no existe la reserva relevante, no puede calcular esa métrica para ese pod. Define requests y limits coherentes antes de interpretar el porcentaje.
 
-
-<h3 id="equilibrio-de-carga" tabindex="-1">Equilibrio de carga</h3>
-
-
-<p>El equilibrio de carga es crucial en el escalado automático de contenedores. Se refiere a distribuir el tráfico de red entre múltiples contenedores para asegurar alta disponibilidad y escalabilidad de las aplicaciones. En AWS, servicios como <a href="https://aws.amazon.com/elasticloadbalancing/" rel="noopener noreferrer" target="_blank">Elastic Load Balancer</a> (ELB) y <a href="https://aws.amazon.com/elasticloadbalancing/application-load-balancer/" rel="noopener noreferrer" target="_blank">Application Load Balancer</a> (ALB) ofrecen equilibrio de carga para distribuir el tráfico de red entre múltiples contenedores.</p>
-
-
-<h3 id="t%C3%A9rminos-de-aws-auto-scaling" tabindex="-1">Términos de <a href="https://aws.amazon.com/autoscaling/" rel="noopener noreferrer" target="_blank">AWS Auto Scaling</a></h3>
-
-
-<p><figure><img alt="AWS Auto Scaling" src="/assets/blog/477122bd14c7add7215343b7.jpg"/></figure></p>
-
-
-<p>En AWS, hay varios términos clave relacionados con el escalado automático de contenedores:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Término</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Target Tracking Scaling</strong></td>
-<td>Ajusta el número de instancias de contenedores según un objetivo de rendimiento específico.</td>
-</tr>
-<tr>
-<td><strong>Step Scaling</strong></td>
-<td>Ajusta el número de instancias de contenedores según un conjunto de reglas definidas.</td>
-</tr>
-<tr>
-<td><strong>Scheduled Scaling</strong></td>
-<td>Ajusta el número de instancias de contenedores según un horario programado.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Entender estos términos es importante para implementar estrategias de escalado automático efectivas en AWS.</p>
-
-
-<h2 id="estrategias-de-escalado-autom%C3%A1tico" tabindex="-1">Estrategias de escalado automático</h2>
-
-
-<p>El <a href="https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-contenedores/">escalado automático de contenedores en AWS</a> ofrece varias estrategias para ajustarse a las necesidades cambiantes de las aplicaciones. A continuación, se presentan algunas de las estrategias más comunes y sus pros y contras.</p>
-
-
-<h3 id="escalado-basado-en-uso-de-cpu" tabindex="-1">Escalado basado en uso de CPU</h3>
-
-
-<p>Esta estrategia ajusta el número de instancias de contenedores según la carga de trabajo actual.</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventajas</th>
-<th>Desventajas</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Responde rápido a cambios en la carga de trabajo</td>
-<td>Difícil determinar el umbral de CPU adecuado</td>
-</tr>
-<tr>
-<td>Reduce costos en períodos de baja demanda</td>
-<td>No considera otros factores que afectan el rendimiento</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="escalado-basado-en-uso-de-memoria" tabindex="-1">Escalado basado en uso de memoria</h3>
-
-
-<p>Ajusta el número de instancias de contenedores según la cantidad de memoria disponible.</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventajas</th>
-<th>Desventajas</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Previene errores de memoria y mejora la estabilidad</td>
-<td>Difícil determinar el umbral de memoria adecuado</td>
-</tr>
-<tr>
-<td>Responde rápido a cambios en la carga de trabajo</td>
-<td>No considera otros factores que afectan el rendimiento</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="escalado-basado-en-m%C3%A9tricas-personalizadas" tabindex="-1">Escalado basado en métricas personalizadas</h3>
-
-
-<p>Ajusta el número de instancias de contenedores según métricas específicas de la aplicación.</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventajas</th>
-<th>Desventajas</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Mayor flexibilidad en decisiones de escalado</td>
-<td>Difícil configurar y mantener métricas personalizadas</td>
-</tr>
-<tr>
-<td>Mejora la precisión al considerar métricas específicas</td>
-<td>Requiere mayor complejidad en la configuración</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Cada estrategia tiene sus pros y contras. Es importante elegir la que mejor se ajuste a las necesidades de la aplicación y la carga de trabajo.</p>
-
-
-<h2 id="configuring-auto-scaling-in-aws" tabindex="-1">Configuring auto-scaling in AWS</h2>
-
-
-<p>Configurar el escalado automático en AWS es importante para que las aplicaciones funcionen de manera eficiente. Aquí te mostramos cómo hacerlo con diferentes servicios de AWS.</p>
-
-
-<h3 id="configuraci%C3%B3n-de-ecs-service-auto-scaling" tabindex="-1">Configuración de ECS Service Auto Scaling</h3>
-
-
-<p>Para configurar el escalado automático en un servicio ECS, sigue estos pasos:</p>
-
-
-<ol>
-<li>
-<p>Inicia sesión en la consola de AWS y ve a la página de servicios ECS.</p>
-</li>
-<li>
-<p>Selecciona el servicio que deseas configurar.</p>
-</li>
-<li>
-<p>Haz clic en "Update" y luego en "Configure Service Auto Scaling".</p>
-</li>
-<li>
-<p>Elige el tipo de escalado automático (por ejemplo, basado en CPU o memoria).</p>
-</li>
-<li>
-<p>Configura los umbrales de escalado según sea necesario.</p>
-</li>
-<li>
-<p>Haz clic en "Save" para guardar los cambios.</p>
-</li>
-</ol>
-
-
-<h3 id="configuraci%C3%B3n-de-eks-(kubernetes)-auto-scaling" tabindex="-1">Configuración de EKS (Kubernetes) auto scaling</h3>
-
-
-<p>Para configurar el escalado automático en un clúster EKS, sigue estos pasos:</p>
-
-
-<ol>
-<li>
-<p>Inicia sesión en la consola de AWS y ve a la página de servicios EKS.</p>
-</li>
-<li>
-<p>Selecciona el clúster que deseas configurar.</p>
-</li>
-<li>
-<p>Haz clic en "Update" y luego en "Configure Cluster Auto Scaling".</p>
-</li>
-<li>
-<p>Elige el tipo de escalado automático (por ejemplo, basado en CPU o memoria).</p>
-</li>
-<li>
-<p>Configura los umbrales de escalado según sea necesario.</p>
-</li>
-<li>
-<p>Haz clic en "Save" para guardar los cambios.</p>
-</li>
-</ol>
-
-
-<h3 id="configuraci%C3%B3n-de-aws-fargate-auto-scaling" tabindex="-1">Configuración de <a href="https://aws.amazon.com/fargate/" rel="noopener noreferrer" target="_blank">AWS Fargate</a> Auto Scaling</h3>
-
-
-<p><figure><img alt="AWS Fargate" src="/assets/blog/0d15d7bb385b4c3a24715cea.jpg"/></figure></p>
-
-
-<p>Para configurar el escalado automático en un servicio Fargate, sigue estos pasos:</p>
-
-
-<ol>
-<li>
-<p>Inicia sesión en la consola de AWS y ve a la página de servicios Fargate.</p>
-</li>
-<li>
-<p>Selecciona el servicio que deseas configurar.</p>
-</li>
-<li>
-<p>Haz clic en "Update" y luego en "Configure Service Auto Scaling".</p>
-</li>
-<li>
-<p>Elige el tipo de escalado automático (por ejemplo, basado en CPU o memoria).</p>
-</li>
-<li>
-<p>Configura los umbrales de escalado según sea necesario.</p>
-</li>
-<li>
-<p>Haz clic en "Save" para guardar los cambios.</p>
-</li>
-</ol>
-
-
-<p>Recuerda que la configuración del escalado automático varía según el servicio de AWS que estés utilizando. Asegúrate de seguir los pasos específicos para cada servicio para que la configuración sea correcta.</p>
-
-
-
-
-<h2 id="optimizaci%C3%B3n-del-escalado-autom%C3%A1tico" tabindex="-1">Optimización del escalado automático</h2>
-
-
-<p>Optimizar el escalado automático es clave para que tu aplicación funcione de manera eficiente y económica en AWS. Aquí tienes algunas prácticas recomendadas y consejos para mejorar el rendimiento y la eficiencia de costos del escalado automático.</p>
-
-
-<h3 id="elecci%C3%B3n-de-m%C3%A9tricas-de-escalado" tabindex="-1">Elección de métricas de escalado</h3>
-
-
-<p>Elegir las métricas de escalado correctas es esencial para que tu aplicación se escale adecuadamente. Debes seleccionar métricas que sean relevantes para la carga de trabajo y el uso de recursos de tu aplicación. Por ejemplo, si tu aplicación consume mucho CPU, puedes usar la utilización de CPU como métrica de escalado. Si consume mucha memoria, usa la utilización de memoria.</p>
-
-
-<p>También puedes usar métricas personalizadas para escalar tu aplicación según necesidades específicas del negocio, como el número de solicitudes, el tiempo de respuesta o las tasas de error.</p>
-
-
-<h3 id="pruebas-de-carga-y-monitoreo" tabindex="-1">Pruebas de carga y monitoreo</h3>
-
-
-<p>Las pruebas de carga y el monitoreo continuo del rendimiento son esenciales para asegurar que tu aplicación pueda manejar el aumento de tráfico y escalar correctamente. Puedes usar herramientas como <a href="https://aws.amazon.com/cloudwatch/" rel="noopener noreferrer" target="_blank">AWS CloudWatch</a>, <a href="https://aws.amazon.com/xray/" rel="noopener noreferrer" target="_blank">AWS X-Ray</a> y herramientas de terceros como <a href="https://newrelic.com/" rel="noopener noreferrer" target="_blank">New Relic</a> o <a href="https://www.datadoghq.com/" rel="noopener noreferrer" target="_blank">Datadog</a> para monitorear el rendimiento de tu aplicación e identificar cuellos de botella.</p>
-
-
-<p>Las pruebas de carga te ayudan a identificar la capacidad máxima de tu aplicación y aseguran que pueda manejar el aumento de tráfico sin tiempo de inactividad o degradación del rendimiento. Puedes usar herramientas como <a href="https://jmeter.apache.org/" rel="noopener noreferrer" target="_blank">Apache JMeter</a> o <a href="https://gatling.io/" rel="noopener noreferrer" target="_blank">Gatling</a> para realizar pruebas de carga.</p>
-
-
-<h3 id="gesti%C3%B3n-de-eventos-de-escalado" tabindex="-1">Gestión de eventos de escalado</h3>
-
-
-<p>Gestionar los eventos de escalado es crucial para asegurar que tu aplicación se escale correctamente y de manera eficiente. Puedes implementar periodos de enfriamiento para evitar escalados rápidos y reducir costos. Además, puedes usar políticas de escalado para controlar el proceso de escalado y asegurar que tu aplicación se escale según condiciones específicas.</p>
-
-
-<p>Por ejemplo, puedes usar una política de escalado para escalar tu aplicación basada en la utilización de CPU. Si la utilización de CPU supera un cierto umbral, la política de escalado puede desencadenar un evento de escalado para agregar más instancias.</p>
-
-
-<h3 id="gesti%C3%B3n-de-costos" tabindex="-1">Gestión de costos</h3>
-
-
-<p>La gestión de costos es esencial para asegurar que tu aplicación funcione de manera económica en AWS. Puedes usar técnicas de optimización de costos como el dimensionamiento correcto, instancias reservadas e instancias spot para reducir costos.</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Técnica</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Dimensionamiento Correcto</strong></td>
-<td>Seleccionar el tipo y tamaño de instancia correctos según el uso de recursos de tu aplicación.</td>
-</tr>
-<tr>
-<td><strong>Instancias Reservadas</strong></td>
-<td>Ofrecen una tarifa con descuento para instancias que se usan por un largo período.</td>
-</tr>
-<tr>
-<td><strong>Instancias Spot</strong></td>
-<td>Ofrecen una tarifa con descuento para instancias que se usan por períodos cortos.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Además, puedes usar herramientas de estimación de costos como <a href="https://aws.amazon.com/aws-cost-management/aws-cost-explorer/" rel="noopener noreferrer" target="_blank">AWS Cost Explorer</a> o herramientas de terceros como <a href="https://www.parkmycloud.com/" rel="noopener noreferrer" target="_blank">ParkMyCloud</a> para estimar costos e identificar áreas para la optimización de costos.</p>
-
-
-<h2 id="troubleshooting-and-monitoring" tabindex="-1">Troubleshooting and monitoring</h2>
-
-
-<p>En este artículo, hemos cubierto los conceptos básicos del escalado automático en AWS y hemos proporcionado consejos para optimizar el rendimiento y la eficiencia de costos. Sin embargo, es importante recordar que el escalado automático no siempre funciona como se espera, y es posible que debas solucionar problemas y monitorear el rendimiento de tu aplicación.</p>
-
-
-<h3 id="problemas-comunes-de-escalado-autom%C3%A1tico" tabindex="-1">Problemas comunes de escalado automático</h3>
-
-
-<p>A continuación, se presentan algunos problemas comunes al configurar el escalado automático en AWS:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Problema</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Problemas de configuración</strong></td>
-<td>La configuración de escalado automático puede no ser correcta, lo que impide el escalado adecuado.</td>
-</tr>
-<tr>
-<td><strong>Problemas de métricas</strong></td>
-<td>Las métricas de escalado pueden no ser relevantes para la carga de trabajo y el uso de recursos de tu aplicación.</td>
-</tr>
-<tr>
-<td><strong>Problemas de rendimiento</strong></td>
-<td>El rendimiento de tu aplicación puede no ser suficiente para manejar el aumento de tráfico.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Para solucionar estos problemas, revisa la configuración de escalado automático, verifica las métricas de escalado y monitorea el rendimiento de tu aplicación.</p>
-
-
-<h3 id="uso-de-cloudwatch-para-monitoreo" tabindex="-1">Uso de CloudWatch para monitoreo</h3>
-
-
-<p>AWS CloudWatch es una herramienta de monitoreo que te permite supervisar el rendimiento de tu aplicación y los recursos de AWS. Puedes utilizar CloudWatch para:</p>
-
-
-<ul>
-<li>
-<p><strong>Monitorear métricas</strong>: Utilización de CPU, memoria y número de solicitudes.</p>
-</li>
-<li>
-<p><strong>Configurar alarmas</strong>: Recibir notificaciones cuando se superan ciertos umbrales de rendimiento.</p>
-</li>
-<li>
-<p><strong>Verificar la configuración de escalado</strong>: Asegurarte de que la configuración de escalado automático sea correcta.</p>
-</li>
-</ul>
-
-
-<h3 id="depuraci%C3%B3n-de-pol%C3%ADticas-de-escalado" tabindex="-1">Depuración de políticas de escalado</h3>
-
-
-<p>Para depurar políticas de escalado, debes:</p>
-
-
-<p>1. <strong>Verificar la configuración de escalado</strong></p>
-
-
-<p>Asegúrate de que la configuración de escalado automático sea correcta y que las métricas de escalado sean relevantes para la carga de trabajo y el uso de recursos de tu aplicación.</p>
-
-
-<p>2. <strong>Monitorear el rendimiento</strong></p>
-
-
-<p>Monitorea el rendimiento de tu aplicación y los recursos de AWS para identificar cuellos de botella y problemas de rendimiento.</p>
-
-
-<p>3. <strong>Probar políticas de escalado</strong></p>
-
-
-<p>Prueba políticas de escalado en un entorno de prueba para asegurarte de que funcionen como se espera.</p>
-
-
-<p>Siguiendo estos consejos, podrás solucionar problemas comunes de escalado automático y monitorear el rendimiento de tu aplicación para asegurarte de que se escale correctamente y de manera eficiente.</p>
-
-
-<h2 id="ejemplos-en-el-mundo-real" tabindex="-1">Ejemplos en el mundo real</h2>
-
-
-<p>En este artículo, hemos cubierto los conceptos básicos del escalado automático en AWS y hemos proporcionado consejos para optimizar el rendimiento y la eficiencia de costos. A continuación, presentamos algunos ejemplos en el mundo real de implementaciones de escalado automático en AWS para ilustrar aplicaciones prácticas y beneficios.</p>
-
-
-<h3 id="aplicaci%C3%B3n-de-comercio-electr%C3%B3nico" tabindex="-1">Aplicación de comercio electrónico</h3>
-
-
-<p>Un ejemplo de aplicación de comercio electrónico que utiliza el escalado automático es una tienda en línea que experimenta un aumento significativo en el tráfico durante las fiestas navideñas. Para manejar este aumento de tráfico, la tienda en línea configura un grupo de escalado automático que se basa en la utilización de la CPU y la memoria. Cuando el tráfico aumenta, el grupo de escalado automático agrega instancias adicionales para manejar la carga adicional. De esta manera, la tienda en línea puede manejar el aumento de tráfico sin afectar el rendimiento de la aplicación.</p>
-
-
-<h3 id="servicio-de-transmisi%C3%B3n-de-medios" tabindex="-1">Servicio de transmisión de medios</h3>
-
-
-<p>Otro ejemplo es un servicio de transmisión de medios que utiliza el escalado automático para manejar la variable carga de usuarios. El servicio de transmisión de medios configura un grupo de escalado automático que se basa en la cantidad de usuarios conectados y el ancho de banda utilizado. Cuando la cantidad de usuarios conectados aumenta, el grupo de escalado automático agrega instancias adicionales para manejar la carga adicional. De esta manera, el servicio de transmisión de medios puede manejar la variable carga de usuarios sin afectar el rendimiento de la aplicación.</p>
-
-
-<h3 id="tuber%C3%ADa-de-procesamiento-de-datos" tabindex="-1">Tubería de procesamiento de datos</h3>
-
-
-<p>Un tercer ejemplo es una tubería de procesamiento de datos que utiliza el escalado automático para manejar grandes volúmenes de datos. La tubería de procesamiento de datos configura un grupo de escalado automático que se basa en la cantidad de datos que se procesan y el tiempo de procesamiento. Cuando la cantidad de datos que se procesan aumenta, el grupo de escalado automático agrega instancias adicionales para manejar la carga adicional. De esta manera, la tubería de procesamiento de datos puede manejar grandes volúmenes de datos de manera eficiente.</p>
-
-
-<p>En resumen, estos ejemplos en el mundo real ilustran cómo el escalado automático en AWS puede ayudar a las aplicaciones a manejar cambios en la carga de trabajo y a mejorar el rendimiento y la eficiencia de costos.</p>
-
-
-<h2 id="conclusion" tabindex="-1">Conclusion</h2>
-
-
-<h3 id="puntos-clave" tabindex="-1">Puntos clave</h3>
-
-
-<p>En este artículo, hemos cubierto los conceptos básicos del escalado automático en AWS y cómo optimizar el rendimiento y la eficiencia de costos. Algunos puntos clave son:</p>
-
-
-<ul>
-<li>
-<p>El escalado automático ajusta la capacidad de tus recursos según la demanda.</p>
-</li>
-<li>
-<p>Puedes configurar el escalado automático basado en métricas como la utilización de CPU, memoria y ancho de banda.</p>
-</li>
-<li>
-<p>El escalado automático mejora el rendimiento y la disponibilidad de tus aplicaciones y reduce costos.</p>
-</li>
-<li>
-<p>Es importante elegir la estrategia de escalado adecuada para tu aplicación.</p>
-</li>
-</ul>
-
-
-<h3 id="pr%C3%B3ximos-pasos" tabindex="-1">Próximos pasos</h3>
-
-
-<p>Ahora que conoces el escalado automático en AWS, aquí hay algunos pasos siguientes:</p>
-
-
-<ul>
-<li>
-<p>Explora los servicios de AWS que admiten el escalado automático, como ECS, EKS y Fargate.</p>
-</li>
-<li>
-<p>Configura el escalado automático para tus aplicaciones y monitorea su rendimiento y costos.</p>
-</li>
-<li>
-<p>Aprende más sobre las mejores prácticas para el escalado automático en AWS.</p>
-</li>
-<li>
-<p>Investiga otros recursos y herramientas de AWS para mejorar el rendimiento y la eficiencia de costos de tus aplicaciones.</p>
-</li>
-</ul>
-
-
-<p>Recuerda que el escalado automático es una herramienta útil para mejorar el rendimiento y la disponibilidad de tus aplicaciones, así como para reducir costos. Consulta la documentación de AWS y otros recursos para aprender más y mejorar tus habilidades en el escalado automático.</p>
-
-
-<h2 id="faqs" tabindex="-1">FAQs</h2>
-
-
-<h3 id="%C2%BFpuede-ecs-autoescalar%3F" tabindex="-1">¿Puede ECS autoescalar?</h3>
-
-
-<p>Sí, ECS puede autoescalar. El escalado automático permite aumentar o disminuir el número de tareas en tu servicio de <a href="https://dev.to/aws-espanol/ecsgo-o-como-hacer-troubleshooting-en-ecs-rapidamente-1bha" rel="noopener noreferrer" target="_blank">Amazon ECS</a> automáticamente. <a href="https://dev.to/aws-espanol/ecsgo-o-como-hacer-troubleshooting-en-ecs-rapidamente-1bha" rel="noopener noreferrer" target="_blank">Amazon ECS</a> utiliza el servicio de escalado automático de aplicaciones para proporcionar esta funcionalidad.</p>
-
-
-<h3 id="%C2%BFcu%C3%A1les-son-las-desventajas-del-escalado-autom%C3%A1tico-de-aws%3F" tabindex="-1">¿Cuáles son las desventajas del escalado automático de AWS?</h3>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Desventaja</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Complejidad de desarrollo</strong></td>
-<td>Integrar el escalado automático puede hacer que la implementación y configuración sean más complicadas.</td>
-</tr>
-<tr>
-<td><strong>Limitaciones regionales</strong></td>
-<td>El servicio de <a href="https://dondeaprendoaws.com/blog/aws-opsworks-automatiza-despliegues-con-chef/">escalado automático de AWS</a> solo es efectivo en una región y no se puede usar en múltiples regiones.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-contenedores/">Microservicios en AWS utilizando contenedores</a></li><li><a href="https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/">Cómo desplegar contenedores en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ecs/">Mejores prácticas para Amazon ECS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-machine-learning-en-aws/">Mejores prácticas de machine learning en AWS</a></li>
-</ul>
-</p>
+```yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+```
+
+El valor de 60% no es una recomendación universal. Mide el tiempo de respuesta, errores, saturación de dependencias y el costo mientras pruebas un objetivo. Kubernetes usa por defecto una ventana de estabilización de scale-down de cinco minutos; puedes cambiarla en `behavior`, como en el ejemplo. El scale-down a cero no funciona con CPU o memoria: para `minReplicas: 0` necesitas una métrica de objeto o externa y las condiciones de versión/feature gate que correspondan a tu clúster.
+
+### ¿Quién crea los nodos?
+
+Cuando el HPA aumenta pods y el scheduler no puede colocarlos, el síntoma aparece como pods `Pending`. Ahí entra otra capa:
+
+- [EKS Auto Mode](https://docs.aws.amazon.com/eks/latest/userguide/autoscaling.html) escala el cómputo del clúster, crea recursos cuando un pod no cabe y consolida nodos. AWS indica que Auto Mode se basa en Karpenter.
+- [Karpenter](https://karpenter.sh/) aprovisiona recursos según los requisitos de los pods, pero es software que el cliente instala, configura, actualiza y opera. AWS no ofrece un SLA para Karpenter como software administrado.
+- [Cluster Autoscaler](https://docs.aws.amazon.com/eks/latest/userguide/autoscaling.html) ajusta grupos de Auto Scaling cuando hay pods que no se pueden programar o nodos infrautilizados.
+
+Elige una ruta de gestión de nodos para el clúster y documenta su propiedad. No instales Karpenter y Cluster Autoscaler para que ambos administren el mismo grupo sin un diseño explícito. EKS Auto Mode tampoco convierte el HPA en un autoscaler de nodos: el HPA decide pods y la capa de cómputo decide dónde ponerlos.
+
+### EKS con Fargate
+
+En EKS Fargate, un perfil de Fargate decide qué pods pueden ejecutarse en Fargate y cada pod tiene su propia frontera de cómputo. HPA puede aumentar el número de pods de un `Deployment`, pero debes comprobar que los pods coincidan con el perfil y que las subredes, permisos e imágenes permitan iniciarlos. Un pod que no coincide con un perfil puede quedar `Pending`.
+
+Fargate evita que administres grupos de nodos EC2; no elimina la necesidad de elegir `minReplicas`, `maxReplicas`, requests, métricas y límites de la aplicación. EKS Fargate tampoco ofrece Fargate Spot. Para detalles y restricciones actuales, revisa [la guía de Fargate para EKS](https://docs.aws.amazon.com/eks/latest/userguide/fargate.html).
+
+### Una ruta administrada adicional: Elastic Beanstalk Cluster
+
+Si quieres delegar más decisiones de Kubernetes, [Elastic Beanstalk Cluster](https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/concepts-cluster.html) ejecuta la aplicación en un clúster EKS que Elastic Beanstalk crea y opera. Su escalado de cluster cambia el número de réplicas mediante opciones de Elastic Beanstalk y el entorno usa capacidad de nodos suministrada por EKS Auto Mode; [la configuración de Cluster scaling](https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/configuring-cluster-scaling.html) define mínimos, máximos, triggers, cooldown y métricas del entorno.
+
+Es una frontera administrada distinta de configurar directamente HPA, NodePools o Karpenter en un clúster EKS propio. Evalúala cuando prefieras operar un entorno de aplicación con opciones de Elastic Beanstalk; elige EKS directo cuando necesites controlar los manifiestos, adaptadores de métricas y autoscalers del clúster. El entorno Cluster mantiene al menos una réplica, por lo que no es una ruta para escala a cero.
+
+## Métricas, límites y pruebas
+
+Un autoscaler solo puede reaccionar a lo que mide. Antes de cambiar un objetivo, define qué significa “capacidad suficiente” para tu servicio:
+
+1. **Señal de demanda:** solicitudes por destino, backlog por tarea, concurrencia o una métrica de negocio. CPU y memoria son señales de saturación, no siempre de demanda.
+2. **SLO de la aplicación:** latencia, errores, tiempo de procesamiento y disponibilidad observados junto con la métrica de escalado.
+3. **Capacidad de arranque:** tiempo de descarga de imagen, inicialización, health check y registro en el balanceador. El cooldown debe ser mayor que el tiempo necesario para observar el efecto.
+4. **Límites:** mínimo y máximo de tareas o pods, límite de instancias o NodePool y cuotas de la cuenta. Un máximo bajo puede explicar que la métrica siga elevada.
+5. **Carga representativa:** picos, pausas, mensajes que llegan en ráfagas y dependencias lentas. Una prueba que solo mide CPU media no valida una API limitada por la base de datos.
+
+No interpretes el éxito como “la métrica llegó exactamente al objetivo”. ECS redondea sus ajustes y escala hacia dentro de forma conservadora; HPA aplica tolerancia, considera pods sin métricas y estabiliza recomendaciones. Verifica que la carga se atiende y que la aplicación recupera su estado, no solo que aumentó un contador de réplicas.
+
+## Diagnóstico rápido
+
+| Síntoma | Dónde mirar primero | Interpretación habitual |
+| --- | --- | --- |
+| La política ECS no cambia tareas | Target scalable, política, alarmas administradas y datos de CloudWatch | El objetivo puede no estar registrado, la métrica puede no existir todavía o tener datos insuficientes |
+| `desiredCount` sube pero `runningCount` no | Eventos del servicio, tareas `PENDING`, imagen, IAM, red y capacidad | Service Auto Scaling pidió tareas; ECS todavía no pudo colocarlas o iniciarlas |
+| ECS sobre EC2 deja tareas en `PROVISIONING` | Estrategia de capacity providers, `CapacityProviderReservation`, requisitos de la tarea y tipos de instancia | La política de tareas y la de instancias son capas distintas; una tarea incompatible no provoca capacidad útil |
+| HPA muestra `unknown` | `kubectl get --raw /apis/metrics.k8s.io/v1beta1/nodes`, Metrics Server, requests y eventos | Falta la API de métricas o el pod no tiene la reserva que necesita la métrica |
+| HPA aumenta pods pero quedan `Pending` | `kubectl describe pod`, eventos del scheduler y la capa de nodos | HPA creó réplicas; Auto Mode, Karpenter o Cluster Autoscaler debe aportar cómputo compatible |
+| La aplicación oscila entre escalas | Métrica, ruido, cooldown, readiness y estabilización | El objetivo puede ser demasiado sensible o la métrica no representar la demanda |
+| No baja a cero | Mínimo configurado, tipo de métrica y disponibilidad de datos | ECS necesita `min-capacity 0`; HPA no escala a cero con CPU o memoria solamente |
+
+En ECS, empieza por `describe-services` y los eventos del servicio. En EKS, empieza por `kubectl describe hpa`, `kubectl get events --sort-by=.lastTimestamp` y `kubectl describe pod`. Un autoscaler no puede arreglar una imagen que no se descarga, un permiso IAM ausente, una subred sin salida o una dependencia saturada.
+
+## Práctica comprobable sin AWS: HPA en Minikube
+
+Puedes comprobar el ciclo de métricas, HPA y réplicas sin crear una cuenta, un clúster EKS ni recursos facturables. Esta ruta requiere [Minikube](https://minikube.sigs.k8s.io/docs/start/), [kubectl](https://kubernetes.io/docs/tasks/tools/), Docker o un driver compatible y `curl` opcional. Consume CPU y memoria local. Usa un perfil dedicado y un contexto explícito para no reutilizar ni detener otro clúster Minikube.
+
+### 1. Inicia el clúster y Metrics Server
+
+```bash
+export MINIKUBE_PROFILE="aws-hpa-demo"
+
+# Si el nombre ya aparece, elige otro perfil antes de continuar.
+if minikube profile list --output=json | grep -Fq "$MINIKUBE_PROFILE"; then
+  echo "El perfil $MINIKUBE_PROFILE ya existe; elige otro." >&2
+  exit 1
+fi
+
+minikube start --profile "$MINIKUBE_PROFILE" --driver=docker
+minikube addons enable metrics-server --profile "$MINIKUBE_PROFILE"
+minikube status --profile "$MINIKUBE_PROFILE"
+kubectl --context "$MINIKUBE_PROFILE" wait --for=condition=available deployment/metrics-server \
+  -n kube-system --timeout=120s
+```
+
+Comprueba que la API de métricas responda. El primer valor puede tardar unos segundos:
+
+```bash
+kubectl --context "$MINIKUBE_PROFILE" get --raw /apis/metrics.k8s.io/v1beta1/nodes
+kubectl --context "$MINIKUBE_PROFILE" top nodes
+```
+
+### 2. Despliega una aplicación con un request de CPU
+
+El HPA no puede calcular utilización de CPU sin `resources.requests.cpu`. Este manifiesto usa la imagen de ejemplo de la [práctica oficial de Kubernetes](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale-walkthrough/).
+
+```bash
+kubectl --context "$MINIKUBE_PROFILE" apply -f - <<'YAML'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hpa-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hpa-demo
+  template:
+    metadata:
+      labels:
+        app: hpa-demo
+    spec:
+      containers:
+        - name: app
+          image: registry.k8s.io/hpa-example
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 200m
+            limits:
+              cpu: 500m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hpa-demo
+spec:
+  selector:
+    app: hpa-demo
+  ports:
+    - port: 80
+      targetPort: 80
+YAML
+
+kubectl --context "$MINIKUBE_PROFILE" rollout status deployment/hpa-demo --timeout=120s
+```
+
+### 3. Crea el HPA y observa la recomendación
+
+```bash
+kubectl --context "$MINIKUBE_PROFILE" apply -f - <<'YAML'
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hpa-demo
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hpa-demo
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 60
+YAML
+
+kubectl --context "$MINIKUBE_PROFILE" get hpa hpa-demo
+kubectl --context "$MINIKUBE_PROFILE" describe hpa hpa-demo
+```
+
+El objetivo debe mostrar un porcentaje actual y `REPLICAS` igual a 1 al principio. Si aparece `<unknown>`, vuelve a revisar Metrics Server, `kubectl top pods` y el request de CPU.
+
+### 4. Genera carga y verifica el scale-out
+
+En otra terminal, crea un pod temporal que solicite el servicio. El `--rm` lo elimina cuando interrumpas el proceso; si tu terminal no conserva la sesión, bórralo manualmente.
+
+```bash
+kubectl --context "$MINIKUBE_PROFILE" run load-generator \
+  --rm -it --restart=Never \
+  --image=busybox:1.36 \
+  -- /bin/sh -c 'while sleep 0.01; do wget -q -O- http://hpa-demo; done'
+```
+
+Mientras la carga corre, observa varias lecturas:
+
+```bash
+kubectl --context "$MINIKUBE_PROFILE" get hpa hpa-demo --watch
+kubectl --context "$MINIKUBE_PROFILE" get deployment hpa-demo
+kubectl --context "$MINIKUBE_PROFILE" get pods -l app=hpa-demo
+```
+
+La comprobación es que el HPA deje de mostrar `unknown` y que `REPLICAS` pueda subir por encima de 1 hasta el máximo de 5 si la carga y las métricas alcanzan el objetivo. Después de interrumpir el generador, espera la ventana de estabilización y verifica que las réplicas bajen gradualmente. El número exacto y el tiempo dependen del entorno local y del ciclo de métricas; no uses esta prueba para inferir un tiempo de respuesta de EKS.
+
+### 5. Limpia el laboratorio local
+
+Estos comandos eliminan solo los objetos de Kubernetes creados en los pasos anteriores. `minikube delete` también borra el clúster local completo; úsalo si no necesitas conservarlo.
+
+```bash
+kubectl --context "$MINIKUBE_PROFILE" delete hpa hpa-demo --ignore-not-found
+kubectl --context "$MINIKUBE_PROFILE" delete deployment hpa-demo service hpa-demo --ignore-not-found
+kubectl --context "$MINIKUBE_PROFILE" delete pod load-generator --ignore-not-found
+minikube stop --profile "$MINIKUBE_PROFILE"
+# Para borrar también el clúster local y su disco:
+# minikube delete --profile "$MINIKUBE_PROFILE"
+```
+
+Esta práctica valida el mecanismo de HPA y sus métricas. No valida EKS Auto Mode, Karpenter, Fargate, IAM, redes AWS, ALB ni los tiempos de arranque de ECS. Esas diferencias son precisamente la razón para medir cada capa por separado.
+
+## Recursos, comunidad y eventos para continuar
+
+La documentación primaria es la referencia para límites y comportamiento vigente:
+
+- [Escalado automático de servicios ECS](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-auto-scaling.html) explica target tracking, step scaling, programado, cooldown y el comportamiento de `min-capacity 0`.
+- [Target tracking para ECS](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-autoscaling-targettracking.html) detalla métricas, alarmas administradas, datos insuficientes y varias políticas.
+- La referencia de la CLI para [`put-scaling-policy`](https://docs.aws.amazon.com/cli/latest/reference/application-autoscaling/put-scaling-policy.html) muestra la forma exacta del JSON target tracking usado en el ejemplo.
+- [Cluster auto scaling de ECS](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/cluster-auto-scaling.html) separa capacity providers e instancias EC2 del conteo de tareas.
+- [HPA en Amazon EKS](https://docs.aws.amazon.com/eks/latest/userguide/horizontal-pod-autoscaler.html) muestra el requisito de Metrics Server y el flujo de verificación.
+- [HPA en Kubernetes](https://kubernetes.io/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale/) documenta requests, métricas múltiples, estabilización y escala a cero.
+- [Escalado de cómputo en EKS](https://docs.aws.amazon.com/eks/latest/userguide/autoscaling.html) compara EKS Auto Mode, Karpenter y Cluster Autoscaler.
+
+Para ver ejemplos comunitarios en español, el [demo de ECS Fargate con Flask y DynamoDB de Roxs](https://github.com/roxsross/roxs-aws-ecs-demo) incluye un modo local con Docker Compose y DynamoDB Local; su ruta de Terraform sí crea recursos AWS y requiere revisar cargos y destrucción. El [laboratorio de EKS Auto Mode con Terraform](https://github.com/roxsross/roxs-eks-auto-mode) ayuda a estudiar NodePools, pero su `terraform apply` crea recursos AWS y no es una práctica sin cuenta. Lee los README y fija versiones antes de usarlos.
+
+Como apoyo audiovisual, [Karpenter es una solución de administración de nodos de Kubernetes incubada en AWS Labs](https://www.youtube.com/watch?v=MKy_BvhJkHI), del canal AWS Women Colombia, sirve para separar el escalado de nodos del HPA. El video [Bootcamp DevOps | EKS Auto Mode & Hybrid Nodes: El Crossover Definitivo de Containers](https://www.youtube.com/watch?v=eCpzplnwYaY), del canal 295Devops, muestra Auto Mode y nodos híbridos; úsalo como complemento y confirma la documentación actual antes de aplicar Terraform. Para ECS, [Encuentro 13: Amazon ECS con Terraform y GitHub Actions | Flask + Fargate + DynamoDB](https://www.youtube.com/watch?v=Ivtza36jJxA), también de 295Devops, conecta despliegue y operación de una aplicación Fargate; no es una medición de rendimiento ni de costos.
+
+Si estás estudiando fundamentos para una certificación, [Practitioner, Una Nueva Esperanza: AWS Autoscaling y ELB](https://www.youtube.com/watch?v=-JUcihjxloU), de AWS Women Colombia, conecta Auto Scaling y balanceadores. Es material introductorio de certificación y no una guía específica de ECS o EKS; úsalo después de esta separación de capas y contrasta sus nombres con la documentación vigente.
+
+Puedes seguir conversaciones y actividades en el [AWS User Group Ciudad de México](https://awsugcdmx.com/), cuya comunidad publica encuentros de arquitectura, contenedores, seguridad y FinOps. Si estás en Córdoba, la agenda revisada el 6 de octubre de 2026 mostraba [AWS Gaming Lab: ECS, CI/CD y la magia de Terraform](https://www.meetup.com/aws-sbg-at-national-technologic-university-regional-faculty/events/316821666/) para el 10 de octubre de 2026 en UTN Facultad Regional Córdoba. La actividad se centra en ECS y Terraform, no sustituye una prueba de escalado; verifica horario, cupos y cambios en Meetup. Para otras fechas, consulta la [agenda de eventos de comunidades AWS](/eventos/).
+
+## Preguntas frecuentes
+
+### ¿ECS Service Auto Scaling escala instancias EC2?
+
+No. Cambia el número deseado de tareas del servicio. Si las tareas no caben en un clúster ECS sobre EC2, necesitas capacidad suficiente y un capacity provider con managed scaling, o administrar esa capacidad por separado. En Fargate no administras instancias EC2, pero sí la cantidad de tareas.
+
+### ¿HPA y Karpenter hacen lo mismo?
+
+No. HPA modifica las réplicas de un workload de Kubernetes. Karpenter aprovisiona capacidad de nodos según los pods que no caben y sus requisitos. EKS Auto Mode integra gestión de cómputo basada en Karpenter; Cluster Autoscaler trabaja con Auto Scaling groups. Son controles de capas diferentes.
+
+### ¿Debo escalar por CPU o por memoria?
+
+Usa la métrica que se relacione con el límite de tu carga y valida el resultado con latencia, errores, reinicios y backlog. CPU baja no demuestra que una API tenga capacidad; una cola, el I/O o una dependencia pueden ser el cuello de botella. En HPA, la utilización de CPU depende de `resources.requests`.
+
+### ¿Puedo escalar un servicio ECS a cero?
+
+Sí, con un mínimo de cero y una métrica que entregue demanda. Target tracking necesita observar un dato de demanda para iniciar desde capacidad cero y puede tardar en recuperar una API interactiva. Revisa también los cargos de recursos que no desaparecen al detener las tareas.
+
+### ¿Puedo usar HPA con EKS Fargate?
+
+HPA puede cambiar el número de pods, siempre que las nuevas réplicas coincidan con un perfil de Fargate y puedan iniciar con la red, imagen y permisos disponibles. Fargate elimina la operación de nodos EC2; no elimina la configuración de HPA ni garantiza capacidad, latencia o costo.
+
+### ¿Cómo sé si el autoscaler funciona?
+
+Verifica primero que la métrica tenga datos; después observa la recomendación, las réplicas deseadas y las realmente ejecutándose, los eventos de colocación y la salud de la aplicación. Repite la prueba con carga representativa y registra latencia, errores, tiempo de arranque y costo. Un contador de réplicas por sí solo no demuestra que el servicio pueda atender la demanda.
