@@ -1,1175 +1,128 @@
 ---
-title: "Estrategias de caché rentables para apps serverless"
-description: "Descubre cómo implementar estrategias de caché en aplicaciones serverless para mejorar la velocidad y reducir costos en AWS."
+title: "Caché en AWS serverless: patrones, TTL y costos"
+description: "Guía para elegir caché en Lambda, API Gateway, CloudFront, ElastiCache o DAX: TTL, claves por tenant, invalidación y medición de costos y latencia."
 author: "guille-ojeda"
 publishedAt: "2024-10-27"
 publishedTimestamp: "2024-10-27T02:26:14.893Z"
+modifiedTimestamp: "2026-10-06T13:57:53-03:00"
+review:
+  date: "2026-10-06"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Recursos personalizados en CloudFormation con Lambda"
-    url: "https://dondeaprendoaws.com/blog/recursos-personalizados-en-cloudformation-con-lambda/"
-  - title: "¿Cómo escala DynamoDB? modos on demand y provisioned"
-    url: "https://dondeaprendoaws.com/blog/como-escala-dynamodb-modos-on-demand-y-provisioned/"
-  - title: "Conceptos básicos y avanzados de Amazon VPC"
-    url: "https://dondeaprendoaws.com/blog/conceptos-basicos-y-avanzados-de-amazon-vpc/"
+  - title: "Amazon CloudFront: qué es, cómo funciona y cómo configurarlo"
+    url: "https://dondeaprendoaws.com/blog/amazon-cloudfront-comprendiendo-el-cdn-de-aws/"
+  - title: "Caché de autorizadores Lambda en API Gateway: TTL y permisos"
+    url: "https://dondeaprendoaws.com/blog/cache-para-autorizadores-lambda-en-api-gateway/"
 
 ---
 
-<p><strong>¿Necesitas hacer tus apps serverless más rápidas y baratas? El caché es la solución.</strong></p>
-
-
-<p>Aquí tienes todo lo que necesitas saber sobre caché en serverless:</p>
+El caché puede reducir lecturas repetidas y el tiempo que una solicitud pasa esperando a un backend, pero agrega almacenamiento, llamadas de red y reglas para mantener los datos correctos. Conviene cuando se repiten consultas con una respuesta que puede reutilizarse durante un tiempo conocido. No existe un TTL ni un servicio que resulte siempre más rápido o barato: primero identifica qué trabajo quieres evitar y cuánto tiempo puede tolerarse una respuesta desactualizada.
 
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Tipo de Caché</th>
-<th>Ahorro</th>
-<th>Velocidad</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Cliente (Navegador)</td>
-<td>Sin costo</td>
-<td>Instantáneo</td>
-</tr>
-<tr>
-<td><a href="https://docs.aws.amazon.com/cloudfront/" rel="noopener noreferrer" target="_blank">CloudFront</a></td>
-<td>35-40% menos peticiones</td>
-<td>&lt; 1 segundo</td>
-</tr>
-<tr>
-<td>API Gateway</td>
-<td>45% menos llamadas <a href="https://docs.aws.amazon.com/lambda/" rel="noopener noreferrer" target="_blank">Lambda</a></td>
-<td>30ms</td>
-</tr>
-<tr>
-<td>Lambda</td>
-<td>50-60% menos memoria</td>
-<td>Variable</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p><strong>Los números no mienten:</strong></p>
-
-
-<ul>
-<li>Sin caché: $7,081.13 por 1M llamadas</li>
-<li>Con caché: $0.75 por 1M llamadas</li>
-<li>Mejora en tiempo: De 38 segundos a menos de 1 segundo</li>
-</ul>
+## Elige la capa según los datos y el recorrido
 
+| Opción | Úsala cuando | Qué debes tener en cuenta |
+| --- | --- | --- |
+| Navegador y CloudFront | Muchos usuarios piden los mismos archivos o respuestas públicas desde distintas ubicaciones. | La clave y los encabezados TTL determinan qué respuesta se comparte y durante cuánto tiempo. CloudFront tiene cargos propios; la privacidad depende también de la autorización de los lectores y de la política de caché. |
+| Caché de respuestas de API Gateway | Quieres conservar respuestas repetidas de métodos GET en una REST API. | Se configura por etapa, se cobra por hora según capacidad y no está incluido en el nivel gratuito. API Gateway HTTP API no ofrece esta función de caché de respuestas. |
+| Memoria o /tmp de Lambda | Una misma instancia puede reutilizar una configuración o un archivo estático. | Es una caché local por entorno de ejecución, no compartida entre instancias ni garantizada entre invocaciones. No guardes ahí estado de usuario o datos sensibles. |
+| ElastiCache | Varias ejecuciones necesitan consultar una caché compartida, por ejemplo para claves de lectura frecuentes. | Añade una dependencia de red y su propia facturación. Compara Serverless y los clústeres con nodos para la carga real. |
+| DynamoDB Accelerator (DAX) | La aplicación lee repetidamente datos de DynamoDB y puede aceptar las condiciones de consistencia de DAX. | Solo se integra con DynamoDB. Las lecturas fuertes pasan a DynamoDB y no quedan en caché; el caché de consultas tiene reglas de expiración distintas. |
 
-<p><strong>Tres formas de implementar caché:</strong></p>
+La caché de respuestas de API Gateway es una función de **REST API**: por defecto almacena respuestas GET, el TTL predeterminado documentado es de 300 segundos y el máximo es de 3600. Es de mejor esfuerzo, se factura por hora según el tamaño del clúster y no reúne las condiciones del nivel gratuito. Compara los [precios actuales de API Gateway](https://aws.amazon.com/api-gateway/pricing/) para la región de uso. Revisa los contadores CacheHitCount y CacheMissCount para confirmar si realmente atiende solicitudes. La [guía de caché de REST API](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-caching.html) y la [comparación entre REST API y HTTP API](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-vs-rest.html) detallan estas diferencias. Para estudiar configuración declarativa, el [ejemplo comunitario de API Gateway con CDK](https://github.com/hsaenzG/APIGatewayCacheImplementation-CDK) muestra caché por endpoint según su README; contrasta tipo de API y versión de CDK antes de adaptar el código.
 
+No confundas esa caché de respuestas con la caché del resultado de un Lambda authorizer. Una conserva la respuesta de la integración; la otra conserva una decisión de autorización durante su propio TTL. Si buscas resolver permisos, consulta la [guía de caché de authorizers, fuentes de identidad y alcance de políticas](/blog/cache-para-autorizadores-lambda-en-api-gateway/).
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Método</th>
-<th>Mejor Para</th>
-<th>Principal Ventaja</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Lazy Loading</td>
-<td>Datos poco usados</td>
-<td>Solo guarda lo necesario</td>
-</tr>
-<tr>
-<td>Write-Through</td>
-<td>Datos que cambian mucho</td>
-<td>Siempre actualizado</td>
-</tr>
-<tr>
-<td>TTL</td>
-<td>Datos semi-estáticos</td>
-<td>Se limpia solo</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p><strong>Lo que debes saber:</strong></p>
-
-
-<ul>
-<li>El caché más cerca del usuario = mejor rendimiento</li>
-<li>TTL de 2-5 minutos = balance óptimo</li>
-<li>Lazy loading = control de memoria</li>
-<li>Monitoreo constante = control de costos</li>
-</ul>
+### Lambda: reutiliza el entorno sin depender de él
 
+Lambda puede reutilizar un entorno de ejecución cuando vuelve a recibir trabajo para ese entorno. Por eso AWS recomienda inicializar fuera del handler los clientes de SDK y conexiones, y mantener archivos estáticos locales en /tmp cuando sea útil. Sin embargo, Lambda puede crear más entornos al escalar y terminar entornos existentes; una variable global o un archivo local no es un almacén compartido ni duradero. Trata cada solicitud como si empezara sin esa caché y deja una ruta normal para reconstruir el dato. La [guía del ciclo de vida del entorno de Lambda](https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtime-environment.html) explica la reutilización y la [guía de buenas prácticas](https://docs.aws.amazon.com/lambda/latest/dg/best-practices.html) advierte que no se guarden datos de usuario, eventos u otra información sensible entre invocaciones.
 
-<p>Este artículo te muestra paso a paso cómo implementar caché en tu app serverless, desde la configuración básica hasta técnicas avanzadas de optimización.</p>
+### ElastiCache y DAX: caché compartida con condiciones distintas
 
-
-<h2 class="sb" id="related-video-from-youtube" tabindex="-1">Related video from YouTube</h2>
-
-
-<iframe allowfullscreen="" loading="lazy" src="https://www.youtube-nocookie.com/embed/z8wGSykEauI" title="Video de YouTube"></iframe>
-<h2 class="sb" id="problemas-clave-del-cach%C3%A9-en-serverless" tabindex="-1">Problemas clave del caché en serverless</h2>
-
-
-<p>El caché en sistemas serverless presenta 4 retos que afectan su funcionamiento:</p>
-
-
-<h3 id="cold-start-y-su-impacto" tabindex="-1">Cold start y su impacto</h3>
-
-
-<p>El cold start golpea directo al rendimiento:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Escenario</th>
-<th>Tiempo de Respuesta</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Función + VPC</td>
-<td>8.83s extra</td>
-</tr>
-<tr>
-<td>Con Concurrencia</td>
-<td>7-66ms</td>
-</tr>
-<tr>
-<td>Sin Concurrencia</td>
-<td>650ms</td>
-</tr>
-</tbody>
-</table></figure>
+ElastiCache puede ofrecer una caché compartida para funciones concurrentes. En Serverless, AWS mide los datos almacenados en GB-h y las solicitudes en ECPU. El mínimo de almacenamiento medido depende del motor: 100 MB por caché para Valkey y 1 GB para Redis OSS o Memcached. En clústeres con nodos, se factura cada nodo por hora. Ese piso puede pesar en cachés pequeños con pocos aciertos, así que compara el motor, la región y los [precios vigentes de ElastiCache](https://aws.amazon.com/elasticache/pricing/) antes de elegir. Para escuchar una explicación comunitaria de ElastiCache Serverless y sus consideraciones de rendimiento, mira la charla [ElastiCache Serverless en RoxsFest](https://youtu.be/zn_k5AZcPNA), presentada por Odina Jacobs; úsala junto a la documentación y las tarifas actuales.
 
+DAX es más específico: se ubica delante de DynamoDB y almacena resultados de lecturas compatibles. Las lecturas eventualmente consistentes pueden servirse desde el caché; las lecturas fuertemente consistentes y las transacciones de lectura se envían a DynamoDB y no se guardan en DAX. Además, una escritura a la tabla que evita DAX no invalida automáticamente sus valores almacenados. La [guía de consistencia de DAX](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DAX.consistency.html), los [criterios de AWS para evaluar si DAX conviene](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/evaluate-dax-suitability.html) y los [precios vigentes de DynamoDB y DAX](https://aws.amazon.com/dynamodb/pricing/) explican cuándo esa capa agrega valor y cuándo solo suma costo o complejidad.
 
-<blockquote>
-<p>AWS introdujo <a href="https://docs.aws.amazon.com/lambda/latest/dg/snapstart.html" rel="noopener noreferrer" target="_blank">SnapStart</a> para atacar este problema: toma una foto del estado de la función cuando se publica, la encripta y guarda en caché para acceso rápido.</p>
-</blockquote>
+## Patrón práctico: cache-aside con clave por tenant
 
+En *cache-aside*, la aplicación consulta primero el caché. Ante un fallo, lee la fuente de verdad, guarda el resultado con un TTL y lo devuelve. El caché puede perder todos sus datos sin perder la fuente. El siguiente ejemplo supone que `read_product_for_tenant` devuelve un diccionario serializable a JSON y consulta usando ambos identificadores. El adaptador del caché traduce errores de conexión o timeout a `CacheUnavailable`; configura un timeout corto y registra esos desvíos. No conviertas errores de autorización, serialización o lectura de la fuente en fallos de caché.
 
-<h3 id="datos-fuera-de-sincron%C3%ADa" tabindex="-1">Datos fuera de sincronía</h3>
+<pre><code class="language-python">import json
 
+# cache tiene un timeout corto y devuelve texto.
+# CacheUnavailable representa fallos de conexión o timeout del adaptador.
+# verified_tenant_id proviene de la identidad autenticada, no de la solicitud.
 
-<p>Cada Lambda tiene su propio caché, lo que genera:</p>
+def get_product(verified_tenant_id, product_id):
+    key = f"product:v1:{verified_tenant_id}:{product_id}"
+    try:
+        cached = cache.get(key)
+    except CacheUnavailable:
+        cached = None  # Desvío a la fuente; registra el fallo.
 
+    if cached is not None:
+        return json.loads(cached)
 
-<ul>
-<li>Datos diferentes entre servidores</li>
-<li>Respuestas inconsistentes</li>
-<li>Conexiones que no cierran bien</li>
-</ul>
-
-
-<h3 id="l%C3%ADmites-que-frenan-el-rendimiento" tabindex="-1">Límites que frenan el rendimiento</h3>
-
+    product = read_product_for_tenant(verified_tenant_id, product_id)
+    if product is not None:
+        try:
+            cache.set(key, json.dumps(product), ex=60)
+        except CacheUnavailable:
+            pass  # La lectura de la fuente ya produjo la respuesta.
+    return product</code></pre>
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Elemento</th>
-<th>Límite</th>
-<th>Efecto</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Memoria</td>
-<td>128MB - 10GB</td>
-<td>+6-7ms con 128MB</td>
-</tr>
-<tr>
-<td>Conexiones</td>
-<td>Timeout 60s</td>
-<td>Conexiones muertas</td>
-</tr>
-<tr>
-<td>Caché</td>
-<td>Por contenedor</td>
-<td>Sin garantía de datos</td>
-</tr>
-</tbody>
-</table></figure>
+Los 60 segundos solo ilustran dónde se configura un TTL, no son una recomendación universal. En producción, el identificador del tenant debe salir de una identidad verificada, y la consulta a la base también debe limitarse a ese tenant. Incluye en la clave cada valor que cambie el contenido —por ejemplo, tenant, idioma o versión— y evita claves globales para respuestas privadas.
 
+Este ejemplo continúa con la fuente de verdad cuando falla la conexión al caché y devuelve el dato leído aunque no pueda guardarlo. Ese desvío aumenta las lecturas al origen; úsalo solo si este puede absorber esa carga y vigila los timeouts para no convertir una caída de caché en una sobrecarga de la base.
 
-<h3 id="el-precio-del-cach%C3%A9-mal-implementado" tabindex="-1">El precio del caché mal implementado</h3>
+Después de confirmar una escritura en la fuente, elimina la misma clave. Si la invalidación falla, el valor anterior puede seguir sirviéndose hasta que expire; registra el fallo y elige un TTL compatible con esa ventana. Una lectura iniciada antes de la escritura también podría volver a cargar el valor antiguo después del borrado. Si no toleras ninguna lectura desactualizada, consulta la fuente o usa una estrategia de versiones/coordinación que cumpla ese requisito.
 
+## TTL, invalidación y privacidad
 
-<p>Las pruebas muestran números claros:</p>
+El TTL representa cuánto puede reutilizarse un valor antes de tratarlo como vencido. Elígelo según la frecuencia de cambio del dato y el retraso máximo que tu producto puede aceptar. Un catálogo público puede tolerar una ventana más amplia que un inventario o un permiso. Un TTL corto no garantiza que los datos estén siempre actualizados: después de una escritura también puede hacer falta invalidar la clave, publicar una versión nueva o consultar la fuente de verdad.
 
+Con CloudFront, el origen puede usar encabezados como Cache-Control para expresar vigencia. La clave por defecto incluye el dominio y la ruta; añade encabezados, cookies o parámetros solo si cambian la respuesta. Si el TTL mínimo de una política es mayor que cero, CloudFront puede conservar contenido durante ese mínimo incluso cuando el origen indica no-cache, no-store o private. Para archivos que cambian, los nombres versionados suelen ser más predecibles que depender de invalidaciones. Revisa la documentación de [claves de caché](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/understanding-the-cache-key.html), [TTL y comportamiento de caché](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesCacheBehavior.html) e [invalidaciones](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Invalidation.html), además de los [precios de CloudFront](https://aws.amazon.com/cloudfront/pricing/). Para una guía más extensa sobre orígenes, claves e invalidación, consulta [Amazon CloudFront: qué es y cómo configurarlo](/blog/amazon-cloudfront-comprendiendo-el-cdn-de-aws/).
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Caso</th>
-<th>Resultado</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Sin caché</td>
-<td>11x más lento</td>
-</tr>
-<tr>
-<td>Con caché</td>
-<td>Procesa 25 vuelos</td>
-</tr>
-</tbody>
-</table></figure>
+Si una respuesta depende de usuario, tenant, rol, idioma u otro atributo, ese dato debe influir en la clave efectiva o la respuesta no debe compartirse. No tomes el tenant directamente de una query string como prueba de identidad. Si no puedes demostrar que dos solicitudes cacheadas deben recibir exactamente la misma respuesta y los mismos permisos, desactiva esa caché. Este cuidado también aplica a un proxy CDN delante de una API y a las cachés del navegador.
 
+## Cómo saber si el caché ayuda
 
-<blockquote>
-<p>Un test comparó Lambda con <a href="https://www.scaleoutdigitaltwins.com/" rel="noopener noreferrer" target="_blank">ScaleOut Digital Twins</a>: el sistema serverless necesitó bloqueos para sincronizar <a href="https://docs.aws.amazon.com/dynamodb/" rel="noopener noreferrer" target="_blank">DynamoDB</a>, mientras la plataforma en memoria lo actualizaba automáticamente. El resultado: Digital Twin procesó 25 cancelaciones (100 pasajeros/vuelo) 11 veces más rápido.</p>
-</blockquote>
+Antes de comparar resultados, define qué latencia y proporción de respuestas correctas necesita el usuario; la guía de [SLI, SLO y presupuesto de error en AWS](/blog/diferencias-entre-sla-y-slo-en-aws/) ayuda a fijar ese objetivo. Compara el mismo tipo de tráfico antes y después, incluyendo la distribución de claves, concurrencia y tamaño de respuesta. Mide al menos:
 
+- Aciertos y fallos de caché, y cuántas consultas al backend evitó cada acierto.
+- Latencia p50 y p95 de extremo a extremo, no solo el tiempo que tarda el caché.
+- Invocaciones y duración de Lambda, lecturas de la base de datos y errores o throttling.
+- Costo de la caché, almacenamiento, transferencia y servicios de origen durante el mismo período.
 
-<h2 class="sb" id="c%C3%B3mo-ahorrar-con-cach%C3%A9" tabindex="-1">Cómo ahorrar con caché</h2>
+Para caché de respuestas de REST API, empieza con CacheHitCount y CacheMissCount. En ElastiCache Serverless, AWS publica BytesUsedForCache y ElastiCacheProcessingUnits; puedes revisar estas métricas junto con su [documentación de escalado y límites de uso](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/Scaling-serverless.html). Un porcentaje alto de aciertos no basta para afirmar que ahorras: resta el costo de mantener la caché y atender sus solicitudes a los costos reales que evita. Si medir muestra poco reuso o la aplicación apenas mejora, elimina la capa.
 
+| Síntoma | Qué revisar primero |
+| --- | --- |
+| Casi todos los accesos son fallos | Si las claves incluyen parámetros innecesarios, si hay demasiados valores únicos y si las solicitudes repiten el mismo contenido. No quites datos que cambien la respuesta. |
+| Aparecen datos viejos | El TTL, el camino de escritura e invalidación y los valores que forman la clave. Comprueba qué capa respondió antes de vaciar o invalidar. |
+| Un tenant recibe datos de otro | Desactiva la caché afectada mientras corriges la clave y valida tanto la autorización como la consulta a la fuente. No basta con ocultar el dato en la interfaz. |
+| La latencia o factura sube | Mide la llamada al caché, transferencias, almacenamiento y aciertos reales. Un salto de red puede costar más que leer un origen pequeño. |
 
-<p>El caché es una de las mejores formas de reducir costos en AWS. Veamos cómo.</p>
+## Recursos y comunidad para continuar
 
+- El [AWS User Group Serverless Colombia](https://www.meetup.com/aws-user-group-serverless-colombia/) permite conectar con personas que comparten sesiones de AWS serverless; consulta allí qué actividades tienen anunciadas y su modalidad. Para buscar grupos de otros países, usa el [directorio de comunidades AWS](/comunidades/).
+- La [agenda de eventos AWS](/eventos/) reúne fechas, modalidades y enlaces de inscripción de eventos publicados por comunidades de Latinoamérica. La oferta cambia según cada organizador, así que confirma los datos en el enlace de registro.
 
-<h3 id="cach%C3%A9-en-navegador-y-api-gateway" tabindex="-1">Caché en navegador y API Gateway</h3>
+## Preguntas frecuentes
 
+### ¿Una variable global de Lambda es un caché compartido?
 
-<p>API Gateway incluye caché que elimina llamadas Lambda que no necesitas:</p>
+No. Puede sobrevivir a varias invocaciones procesadas por el mismo entorno, pero otra instancia tiene su propia memoria y Lambda no garantiza que el entorno siga disponible. Úsala como optimización local reconstruible, no como fuente de estado ni como caché entre tenants.
 
+### ¿API Gateway guarda las respuestas en caché para HTTP API?
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Tipo</th>
-<th>Velocidad</th>
-<th>Ahorro</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Sin caché</td>
-<td>55ms</td>
-<td>Precio base</td>
-</tr>
-<tr>
-<td>Con caché</td>
-<td>30ms</td>
-<td>45% menos</td>
-</tr>
-<tr>
-<td>Mínimo</td>
-<td>0.5 GB</td>
-<td>$14.60/mes</td>
-</tr>
-</tbody>
-</table></figure>
+No. La caché de respuestas integrada está disponible para REST API. HTTP API y REST API son productos diferentes, así que verifica la tabla de capacidades antes de aplicar instrucciones de configuración.
 
+### ¿ElastiCache Serverless siempre cuesta menos que leer DynamoDB?
 
-<p>¿Cuánto caché necesitas? Depende del tamaño de tu API:</p>
+No. ElastiCache Serverless factura almacenamiento y ECPU, y su mínimo medido depende del motor: 100 MB para Valkey y 1 GB para Redis OSS o Memcached. El costo neto depende además de frecuencia de acceso, tamaño y vida de los valores, cantidad de fallos, red, región y carga evitada. Compara con mediciones y precios de tu región.
 
+### ¿DAX sirve como caché para cualquier base de datos?
 
-<ul>
-<li>APIs pequeñas: 0.5 - 1.6 GB</li>
-<li>APIs medianas: 6.1 - 13.5 GB</li>
-<li>APIs grandes: 28.4 - 237 GB</li>
-</ul>
-
-
-<h3 id="cach%C3%A9-en-lambda" tabindex="-1">Caché en <a href="https://docs.aws.amazon.com/lambda/" rel="noopener noreferrer" target="_blank">Lambda</a></h3>
-
-
-<p><figure><img alt="Lambda" src="/assets/blog/90d376eb716637cb83251502.jpg"/></figure></p>
-
-
-<p>Lambda puede guardar datos entre ejecuciones. Mira este ejemplo:</p>
-
-
-<pre><code class="language-python">cache = {}
-def get_user(user_id):
-    if user_id not in cache:
-        cache[user_id] = consultar_base_datos(user_id)
-    return cache[user_id]
-</code></pre>
-
-
-<h3 id="cach%C3%A9-lazy%3A-carga-solo-lo-que-necesitas" tabindex="-1">Caché lazy: carga solo lo que necesitas</h3>
-
-
-<p>El caché lazy es MUY eficiente:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Beneficio</th>
-<th>¿Por qué?</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Menos memoria</td>
-<td>Solo guarda lo usado</td>
-</tr>
-<tr>
-<td>Auto-actualización</td>
-<td>Se refresca al expirar</td>
-</tr>
-<tr>
-<td>Menos consultas</td>
-<td>Reduce carga en BD</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="cach%C3%A9-para-bases-de-datos" tabindex="-1">Caché para bases de datos</h3>
-
-
-<p>Elige según lo que necesites:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Opción</th>
-<th>Úsala para</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>DynamoDB DAX</td>
-<td>Muchas lecturas</td>
-</tr>
-<tr>
-<td><a href="https://docs.aws.amazon.com/elasticache/" rel="noopener noreferrer" target="_blank">ElastiCache</a></td>
-<td>Datos en memoria</td>
-</tr>
-<tr>
-<td>CloudFront + API</td>
-<td>Caché distribuido</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Para gastar menos:</p>
-
-
-<ul>
-<li>TTL de 2-5 minutos = balance entre velocidad y datos frescos</li>
-<li>Usa caché del navegador para contenido que no cambia</li>
-<li>Implementa caché lazy para controlar memoria</li>
-<li>Revisa el tamaño del caché para no pagar de más</li>
-</ul>
-
-
-<h2 class="sb" id="gu%C3%ADas-de-configuraci%C3%B3n" tabindex="-1">Guías de configuración</h2>
-
-
-<h3 id="m%C3%A9todos-de-actualizaci%C3%B3n-de-cach%C3%A9" tabindex="-1">Métodos de actualización de caché</h3>
-
-
-<p>Hay 3 formas de mantener tu caché fresco:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Método</th>
-<th>Uso</th>
-<th>Ventajas</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Lazy Loading</td>
-<td>Datos leídos con frecuencia</td>
-<td>Solo guarda lo necesario</td>
-</tr>
-<tr>
-<td>Write-Through</td>
-<td>Datos que cambian mucho</td>
-<td>Siempre actualizado</td>
-</tr>
-<tr>
-<td>TTL</td>
-<td>Datos semi-estáticos</td>
-<td>Auto-limpieza</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="reducci%C3%B3n-de-costos" tabindex="-1">Reducción de costos</h3>
-
-
-<p>Aquí tienes código que FUNCIONA para ahorrar dinero:</p>
-
-
-<pre><code class="language-python"># Caché lazy en Lambda que ahorra costos
-cache = {}
-def get_data(key):
-    if key not in cache:
-        cache[key] = obtener_datos_externos(key)
-        cache['ttl'] = tiempo_actual() + 300  # 5 minutos
-    return cache[key]
-</code></pre>
-
-
-<p>Mira estos números:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Acción</th>
-<th>Ahorro Estimado</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>TTL de 2-5 minutos</td>
-<td>30-40% menos consultas</td>
-</tr>
-<tr>
-<td>Lazy Loading</td>
-<td>50-60% menos memoria</td>
-</tr>
-<tr>
-<td>CloudFront + API Gateway</td>
-<td>45% menos llamadas Lambda</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="factores-de-velocidad" tabindex="-1">Factores de velocidad</h3>
-
-
-<p>¿Qué hace lento tu caché? Aquí están los datos:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Factor</th>
-<th>Impacto</th>
-<th>Solución</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Tamaño del caché</td>
-<td>+5ms por GB</td>
-<td>Usar lazy loading</td>
-</tr>
-<tr>
-<td>Ubicación</td>
-<td>+20-50ms entre regiones</td>
-<td>CloudFront</td>
-</tr>
-<tr>
-<td>Conexiones</td>
-<td>+10ms por conexión</td>
-<td>Connection pooling</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Configura ElastiCache en DOS pasos:</p>
-
-
-<pre><code class="language-bash">aws elasticache create-serverless-cache \
-  --serverless-cache-name cache-01 \
-  --description "ElastiCache para Lambda" \
-  --engine valkey
-</code></pre>
-
-
-<p>Revisa el estado:</p>
-
-
-<pre><code class="language-bash">aws elasticache describe-serverless-caches \
-  --serverless-cache-name cache-01
-</code></pre>
-
-
-<p>Configura Lambda según estos números:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Uso de Memoria</th>
-<th>Tiempo de Ejecución</th>
-<th>Configuración Recomendada</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>&lt; 128MB</td>
-<td>&lt; 100ms</td>
-<td>128MB</td>
-</tr>
-<tr>
-<td>128MB - 256MB</td>
-<td>100-500ms</td>
-<td>256MB</td>
-</tr>
-<tr>
-<td>&gt; 256MB</td>
-<td>&gt; 500ms</td>
-<td>512MB o más</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h2 class="sb" id="patrones-b%C3%A1sicos-de-cach%C3%A9" tabindex="-1">Patrones básicos de caché</h2>
-
-
-<h3 id="write-through" tabindex="-1">Write-through</h3>
-
-
-<p>El write-through mantiene sincronizados el caché y la base de datos. Cada vez que escribes datos, se actualizan AMBOS lugares.</p>
-
-
-<p>Así se implementa en Python:</p>
-
-
-<pre><code class="language-python">def guardar_usuario(id_usuario, valores):
-    # Guardar en DB
-    registro = db.query("update usuarios ... where id = ?", id_usuario, valores)
-    # Actualizar caché
-    cache.set(id_usuario, registro)
-    return registro
-</code></pre>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventajas</th>
-<th>Desventajas</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Datos siempre al día</td>
-<td>Escrituras más lentas</td>
-</tr>
-<tr>
-<td>Sin inconsistencias</td>
-<td>Más RAM necesaria</td>
-</tr>
-<tr>
-<td>Lecturas rápidas</td>
-<td>Costos más altos</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="cache-aside" tabindex="-1">Cache-aside</h3>
-
-
-<p>El cache-aside (o lazy loading) solo guarda datos en caché cuando alguien los pide. Es como un almacén que solo ordena productos cuando hay demanda.</p>
-
-
-<p>Mira cómo funciona:</p>
-
-
-<pre><code class="language-python">def obtener_usuario(id_usuario):
-    # Revisar caché
-    registro = cache.get(id_usuario)
-    if registro is None:
-        # Consultar DB
-        registro = db.query("select * from usuarios where id = ?", id_usuario)
-        # Guardar en caché
-        cache.set(id_usuario, registro)
-    return registro
-</code></pre>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Caso de Uso</th>
-<th>Por Qué</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Perfiles</td>
-<td>Se leen más que se modifican</td>
-</tr>
-<tr>
-<td>Catálogos</td>
-<td>Cambios poco frecuentes</td>
-</tr>
-<tr>
-<td>Config</td>
-<td>Datos que casi no cambian</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>¿Cuál elegir? Depende de tus necesidades:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Aspecto</th>
-<th>Write-Through</th>
-<th>Cache-Aside</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Velocidad escritura</td>
-<td>Lenta</td>
-<td>Rápida</td>
-</tr>
-<tr>
-<td>Consistencia</td>
-<td>Alta</td>
-<td>Media</td>
-</tr>
-<tr>
-<td>Memoria</td>
-<td>Más</td>
-<td>Menos</td>
-</tr>
-<tr>
-<td><a href="https://dondeaprendoaws.com/blog/aws-gratis-para-educadores-y-estudiantes/">costo AWS</a></td>
-<td>Alto</td>
-<td>Bajo</td>
-</tr>
-<tr>
-<td>Ideal para</td>
-<td>Datos que cambian mucho</td>
-<td>Datos estables</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h2 class="sb" id="configuraci%C3%B3n-y-mejora-del-cach%C3%A9" tabindex="-1">Configuración y mejora del caché</h2>
-
-
-<p>El caché puede hacer o romper tu aplicación serverless. Veamos cómo hacerlo bien.</p>
-
-
-<h3 id="problemas-frecuentes" tabindex="-1">Problemas frecuentes</h3>
-
-
-<p>Estos son los dolores de cabeza más comunes con el caché:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Problema</th>
-<th>Por Qué Ocurre</th>
-<th>Cómo Arreglarlo</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Variables globales que cambian</td>
-<td>El estado persiste entre llamadas</td>
-<td>No uses variables globales que cambien</td>
-</tr>
-<tr>
-<td>Clientes DB muertos</td>
-<td>Las conexiones se vencen</td>
-<td>Crea un cliente nuevo en cada llamada</td>
-</tr>
-<tr>
-<td>Gastos fuera de control</td>
-<td>Mala configuración</td>
-<td>Pon alertas y revisa métricas</td>
-</tr>
-<tr>
-<td>Caché que no sirve</td>
-<td>Datos que nadie usa</td>
-<td>Mira qué datos necesita tu app</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="medici%C3%B3n-del-rendimiento" tabindex="-1">Medición del rendimiento</h3>
-
-
-<p>¿Tu caché está funcionando? Aquí está cómo saberlo:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Qué Medir</th>
-<th>Con Qué</th>
-<th>Qué Buscar</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Éxitos vs Fallos</td>
-<td>API Gateway</td>
-<td>% de aciertos</td>
-</tr>
-<tr>
-<td>Velocidad</td>
-<td><a href="https://docs.aws.amazon.com/cloudwatch/" rel="noopener noreferrer" target="_blank">CloudWatch</a></td>
-<td>Tiempo de respuesta</td>
-</tr>
-<tr>
-<td>Memoria</td>
-<td>CloudWatch</td>
-<td>Uso de RAM</td>
-</tr>
-<tr>
-<td>Usuarios simultáneos</td>
-<td>CloudWatch</td>
-<td>Picos de uso</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="control-de-costos" tabindex="-1">Control de costos</h3>
-
-
-<p>Mantén tu billetera feliz:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Qué Hacer</th>
-<th>Para Qué</th>
-<th>Cómo</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Monitoreo 24/7</td>
-<td>Ver problemas rápido</td>
-<td><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/">alarmas en CloudWatch</a></td>
-</tr>
-<tr>
-<td>Operaciones en grupo</td>
-<td>Menos llamadas = menos $$</td>
-<td>Junta operaciones similares</td>
-</tr>
-<tr>
-<td>Limpia índices</td>
-<td>Menos espacio = menos $$</td>
-<td>Revisa cada mes</td>
-</tr>
-<tr>
-<td>Solo guarda lo necesario</td>
-<td>Menos datos = menos $$</td>
-<td>Ajusta tus consultas</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Amazon Prime Day 2022 manejó 105M de peticiones por segundo. ¿Su secreto? Un caché bien configurado.</p>
-
-
-<p><strong>Dato de costos</strong>: <a href="https://www.gomomento.com/" rel="noopener noreferrer" target="_blank">Momento</a> cobra $0.50/GB de datos. Puede salir <a href="https://dondeaprendoaws.com/blog/amazon-dynamodb-la-base-de-datos-nosql-de-aws/">más barato que DynamoDB</a> si escribes mucho.</p>
-
-
-<h2 class="sb" id="resumen" tabindex="-1">Resumen</h2>
-
-
-<p>El caché puede reducir costos y mejorar el rendimiento de tus aplicaciones AWS. Aquí te explico cómo.</p>
-
-
-<h3 id="tipos-de-cach%C3%A9-y-sus-beneficios" tabindex="-1">Tipos de caché y sus beneficios</h3>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Tipo de Caché</th>
-<th>Para Qué Sirve</th>
-<th>Beneficio Principal</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>CloudFront</td>
-<td>Archivos estáticos</td>
-<td>35-40% menos peticiones</td>
-</tr>
-<tr>
-<td>API Gateway</td>
-<td>Datos API repetitivos</td>
-<td>20-25% menos uso Lambda</td>
-</tr>
-<tr>
-<td>Lambda</td>
-<td>Consultas frecuentes</td>
-<td>30-35% menos uso DB</td>
-</tr>
-<tr>
-<td>DAX</td>
-<td>Lecturas DB intensas</td>
-<td>50% menos tiempo respuesta</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="configuraci%C3%B3n-pr%C3%A1ctica" tabindex="-1">Configuración práctica</h3>
-
-
-<p>¿Cómo configurar tu caché? Así:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Elemento</th>
-<th>Acción</th>
-<th>Resultado</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Memoria</td>
-<td>Inicia pequeño</td>
-<td>Optimiza costos</td>
-</tr>
-<tr>
-<td>Eventos</td>
-<td>Usa event-driven</td>
-<td>Menos Lambda</td>
-</tr>
-<tr>
-<td>Variables</td>
-<td>Guarda global</td>
-<td>Menos llamadas</td>
-</tr>
-<tr>
-<td>Conexiones</td>
-<td>No Lambdas en serie</td>
-<td>Mejor velocidad</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="impacto-en-costos" tabindex="-1">Impacto en costos</h3>
-
-
-<p>Mira los números:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Servicio</th>
-<th>Costo Base</th>
-<th>Lo Que Ahorras</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Momento</td>
-<td>$0.50/GB</td>
-<td>Más barato que DynamoDB</td>
-</tr>
-<tr>
-<td>DAX</td>
-<td>Por nodo</td>
-<td>10x más rápido</td>
-</tr>
-<tr>
-<td>CloudFront</td>
-<td>Por datos</td>
-<td>50% más veloz</td>
-</tr>
-<tr>
-<td>API Gateway</td>
-<td>Por request</td>
-<td>25-30% menos gasto</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p><strong>Tip técnico</strong>: Con DAX, DynamoDB pasa de milisegundos a microsegundos. Es como pasar de caminar a volar.</p>
-
-
-<p>¿Quieres aprender más sobre caché en AWS? Visita <a href="https://dondeaprendoaws.com">Dónde Aprendo AWS</a> para guías detalladas en español.</p>
-
-
-<h2 class="sb" id="m%C3%A1s-informaci%C3%B3n" tabindex="-1">Más información</h2>
-
-
-<p>¿Necesitas profundizar en caché serverless? Aquí tienes los mejores recursos:</p>
-
-
-<h3 id="documentaci%C3%B3n-principal" tabindex="-1">Documentación principal</h3>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Recurso</th>
-<th>¿Qué Ofrece?</th>
-<th>¿Por Qué Te Sirve?</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><a href="https://dondeaprendoaws.com">Dónde Aprendo AWS</a></td>
-<td>Guías de caché serverless en español</td>
-<td>Tutoriales paso a paso con ejemplos reales</td>
-</tr>
-<tr>
-<td>AWS Docs</td>
-<td>Docs técnicas de DAX y Lambda</td>
-<td>Información directa de la fuente</td>
-</tr>
-<tr>
-<td>AWS en Español</td>
-<td>Contenido de la comunidad</td>
-<td>Casos prácticos y soluciones probadas</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="docs-aws-que-debes-leer" tabindex="-1">Docs <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> que DEBES Leer</h3>
-
-
-<p><figure><img alt="AWS" src="/assets/blog/2ebe3cf8e7ae57e98d3af846.jpg"/></figure></p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Tema</th>
-<th>Lo Que Aprenderás</th>
-<th>Dónde Encontrarlo</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>DAX</td>
-<td>Todo sobre DynamoDB Accelerator</td>
-<td>Sección DAX Docs</td>
-</tr>
-<tr>
-<td>Lambda</td>
-<td>Caché en funciones Lambda</td>
-<td>Lambda Functions Docs</td>
-</tr>
-<tr>
-<td>API Gateway</td>
-<td>Optimización de API con caché</td>
-<td>API Gateway Docs</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="material-en-espa%C3%B1ol" tabindex="-1">Material en español</h3>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Contenido</th>
-<th>Formato</th>
-<th>¿Qué Te Aporta?</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Tutoriales</td>
-<td>Video paso a paso</td>
-<td>Ves la configuración en acción</td>
-</tr>
-<tr>
-<td>Guías</td>
-<td>PDF descargable</td>
-<td>Estudias sin internet</td>
-</tr>
-<tr>
-<td>Código</td>
-<td>Repositorios Git</td>
-<td>Copias y pegas soluciones</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<blockquote>
-<p><strong>DATO CLAVE</strong>: AWS tiene un <a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">e-book gratis sobre serverless</a>. El capítulo 4 se enfoca en caché.</p>
-</blockquote>
-
-
-<h3 id="tus-herramientas" tabindex="-1">Tus herramientas</h3>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Tool</th>
-<th>Para Qué Sirve</th>
-<th>Por Qué Usarla</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>AWS CDK</td>
-<td>Código = Infraestructura</td>
-<td>Configuras todo más rápido</td>
-</tr>
-<tr>
-<td>CloudWatch</td>
-<td>Ver métricas de caché</td>
-<td>Detectas problemas al instante</td>
-</tr>
-<tr>
-<td>Cost Explorer</td>
-<td>Control de gastos</td>
-<td>Ahorras dinero</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<blockquote>
-<p><strong>OJO</strong>: AWS actualiza sus docs cada mes. Mira siempre la fecha de la última versión.</p>
-</blockquote>
-
-
-<h2 class="sb" id="preguntas-frecuentes" tabindex="-1">Preguntas frecuentes</h2>
-
-
-<h3 id="%C2%BFse-puede-almacenar-datos-en-cach%C3%A9-dentro-de-lambda%3F" tabindex="-1">¿Se puede almacenar datos en caché dentro de Lambda?</h3>
-
-
-<p>Sí, Lambda permite almacenar datos en caché. Hay dos formas principales:</p>
-
-
-<ol>
-<li>En variables globales fuera del handler</li>
-<li>En el directorio /tmp (hasta 512 MB)</li>
-</ol>
-
-
-<p>El caché funciona SOLO mientras el entorno de ejecución está activo. Es perfecto para guardar configuraciones y datos que uses con frecuencia.</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Aspecto</th>
-<th>Detalles</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Ubicación</td>
-<td>Variables globales fuera del handler</td>
-</tr>
-<tr>
-<td>Límite</td>
-<td>512 MB en /tmp</td>
-</tr>
-<tr>
-<td>Duración</td>
-<td>Vida del entorno de ejecución</td>
-</tr>
-<tr>
-<td>Mejor uso</td>
-<td>Configs y datos estáticos</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<blockquote>
-<p>"Al definir una variable global fuera del handler e inicializarla en la primera invocación, tendrás acceso a ella mientras Lambda esté activo" - Saif, Dev Genius</p>
-</blockquote>
-
-
-<h3 id="%C2%BFc%C3%B3mo-funciona-el-cach%C3%A9-en-lambda%3F" tabindex="-1">¿Cómo funciona el caché en Lambda?</h3>
-
-
-<p>El caché en Lambda es simple: los datos se mantienen entre invocaciones, pero SOLO si usas el mismo entorno de ejecución.</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Característica</th>
-<th>Comportamiento</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Duración</td>
-<td>Entre invocaciones del mismo entorno</td>
-</tr>
-<tr>
-<td>Reset</td>
-<td>Al desplegar nuevas versiones</td>
-</tr>
-<tr>
-<td>Alcance</td>
-<td>Solo en el entorno actual</td>
-</tr>
-<tr>
-<td>Datos ideales</td>
-<td>Configs y contenido estático</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p><strong>Lo que debes saber:</strong></p>
-
-
-<ul>
-<li>Revisa si hay datos en caché antes de guardar</li>
-<li>Define cuándo expiran tus datos</li>
-<li>Usa /tmp para archivos temporales</li>
-<li>El caché se borra con cada actualización</li>
-</ul>
-
-
-<p><strong>Ten en cuenta:</strong></p>
-
-
-<ul>
-<li>El caché dura lo que dure el entorno</li>
-<li>Tienes 512 MB en /tmp</li>
-<li>No esperes que el entorno se mantenga entre llamadas</li>
-</ul>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/optimizacion-de-costos-de-aws-lambda/">Optimización de costos de AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/7-estrategias-de-serverless-para-startups-optimiza-costos/">7 estrategias de serverless para startups: optimiza costos</a></li><li><a href="https://dondeaprendoaws.com/blog/guia-de-amazon-elasticache-almacenamiento-en-cache-en-memoria/">Guía de Amazon ElastiCache: almacenamiento en caché en memoria</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-lambda-costo-vs-rendimiento/">AWS Lambda: costo vs. rendimiento</a></li>
-</ul>
-</p>
+No. DAX está diseñado para acelerar lecturas de DynamoDB. Si la aplicación necesita lecturas fuertemente consistentes, esas operaciones se consultan en DynamoDB y no se guardan en DAX; revisa la consistencia que necesita tu caso.
