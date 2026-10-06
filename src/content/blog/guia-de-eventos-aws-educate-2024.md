@@ -1,355 +1,87 @@
 ---
-title: "Guía de eventos AWS Educate 2024"
-description: "Aprende cómo sacar el máximo provecho de los eventos de AWS Educate para mejorar tus habilidades en la nube, conectar con profesionales y avanzar en tu carrera."
+title: "AWS Educate: cursos gratuitos y laboratorios para empezar"
+description: "Conoce qué ofrece AWS Educate, cómo registrarte y practicar con laboratorios guiados. También encontrarás dónde consultar eventos AWS y comunidades para seguir aprendiendo."
 author: "guille-ojeda"
 publishedAt: "2024-05-18"
 publishedTimestamp: "2024-05-18T00:29:00.242Z"
+modifiedTimestamp: "2026-10-06T15:59:00-03:00"
 cover: "/assets/blog/editorial-fundamentos.png"
 coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
 ogImage: "/assets/blog/editorial-fundamentos.png"
-related:
-  - title: "Estructuras multi-cuenta AWS para escalar"
-    url: "https://dondeaprendoaws.com/blog/estructuras-multi-cuenta-aws-para-escalar/"
-  - title: "AWS DeepLens: introducción al aprendizaje profundo"
-    url: "https://dondeaprendoaws.com/blog/aws-deeplens-introduccion-al-aprendizaje-profundo/"
-  - title: "AWS seguridad: servicios esenciales"
-    url: "https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/"
-
+related: []
 ---
 
-<p><a href="https://aws.amazon.com/education/awseducate/" rel="noopener noreferrer" target="_blank">AWS Educate</a> es un programa gratuito de aprendizaje en línea que enseña <a href="https://dondeaprendoaws.com/blog/cloud-computing-en-espanol-fundamentos-basicos/">computación en la nube</a> a estudiantes y profesionales. Esta guía te ayudará a aprovechar al máximo los eventos de <a href="https://aws.amazon.com/education/awseducate/" rel="noopener noreferrer" target="_blank">AWS Educate</a>, como webinars, talleres y conferencias, para:</p>
-
-
-<ul>
-<li>
-<p>Mejorar tus <a href="https://dondeaprendoaws.com/blog/desarrollo-en-la-nube-fundamentos-esenciales/">habilidades en la nube</a></p>
-</li>
-<li>
-<p>Acceder a <a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">recursos exclusivos de AWS</a></p>
-</li>
-<li>
-<p>Conectar con otros profesionales</p>
-</li>
-<li>
-<p>Avanzar en tu carrera</p>
-</li>
-<li>
-<p>Aprender sobre las últimas tendencias y tecnologías</p>
-</li>
-</ul>
+AWS Educate es una forma gratuita y autodirigida de empezar a aprender y practicar en la nube de AWS. La oferta actual incluye formación para principiantes y laboratorios guiados sobre temas como almacenamiento, cómputo, redes y bases de datos. AWS indica que no necesitas una tarjeta de crédito ni una cuenta personal de AWS para usar Educate.
 
+Si buscabas un calendario de eventos de AWS Educate, la página pública del programa se centra en cursos y laboratorios a tu ritmo. Para encontrar encuentros en vivo, consulta por separado los eventos de formación de AWS y las agendas de las comunidades.
 
-<h2 id="related-video-from-youtube" tabindex="-1">Related video from YouTube</h2>
+## Qué ofrece AWS Educate
 
+La página oficial de [AWS Educate](https://aws.amazon.com/es/education/awseducate/) presenta rutas de formación que puedes seguir a tu propio ritmo, videos y prácticas en la consola de AWS. Entre las actividades introductorias que muestra están:
 
-<iframe allowfullscreen="" loading="lazy" src="https://www.youtube.com/embed/MeZj4WTOAf0" title="Video de YouTube"></iframe>
-<h2 id="tipos-de-eventos" tabindex="-1">Tipos de eventos</h2>
+- **Almacenamiento:** crear una solución de almacenamiento y alojar un sitio estático con Amazon S3.
+- **Cómputo:** practicar con una instancia de Amazon EC2.
+- **Redes:** adquirir experiencia con Amazon VPC.
+- **Bases de datos:** lanzar una instancia de Amazon RDS y conectar una aplicación.
+- **Operaciones en la nube:** explorar tareas de operaciones y sus prácticas asociadas.
 
+El contenido y los ejercicios disponibles pueden cambiar. Revisa la descripción de cada actividad antes de empezar para confirmar el tema, el idioma y si incluye un laboratorio.
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Tipo de Evento</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Webinars</td>
-<td>Sesiones en línea de 30 minutos a 1 hora sobre temas de computación en la nube</td>
-</tr>
-<tr>
-<td>Talleres y Laboratorios Prácticos</td>
-<td>Eventos interactivos de varias horas o días para desarrollar habilidades prácticas</td>
-</tr>
-<tr>
-<td>Cumbres y Conferencias</td>
-<td>Eventos grandes con keynotes, sesiones, oportunidades de networking y exhibiciones</td>
-</tr>
-</tbody>
-</table></figure>
+La página de AWS dice que el registro no requiere tarjeta y que se puede empezar con una dirección de correo electrónico. Tampoco hace falta una cuenta personal de AWS, según la guía oficial [Getting Started with AWS Cloud Essentials](https://aws.amazon.com/getting-started/cloud-essentials/). La edad mínima depende del país o la región donde resides; consulta los [términos vigentes de AWS Learner](https://aws.amazon.com/legal/learner-terms-conditions/) si ese requisito aplica a tu caso. Para registrarte, abre la página oficial y sigue el enlace **Regístrate ahora**.
 
+AWS Educate y una cuenta personal de AWS son accesos distintos. No necesitas abrir una cuenta personal solo para empezar con los laboratorios de Educate. Si más adelante ejecutas ejercicios en tu propia cuenta, revisa los precios y las condiciones de los servicios que uses.
 
-<h2 id="preparaci%C3%B3n" tabindex="-1">Preparación</h2>
+## Cómo empezar con un laboratorio
 
+Elige una actividad que responda a una pregunta concreta, en lugar de intentar completar todo el catálogo. Por ejemplo, si quieres entender qué puedes hacer con Amazon S3, la actividad **Getting Started with Storage** propone construir una solución de almacenamiento y alojar un sitio estático.
 
-<ul>
-<li>
-<p>Regístrate con anticipación y revisa los requisitos previos</p>
-</li>
-<li>
-<p>Define tus objetivos: desarrollar habilidades, explorar oportunidades de carrera, conectar con profesionales, etc.</p>
-</li>
-<li>
-<p>Utiliza recursos como <a href="https://skillbuilder.aws/" rel="noopener noreferrer" target="_blank">AWS Skill Builder</a> para evaluar y mejorar tus habilidades</p>
-</li>
-</ul>
+Puedes aprovechar el laboratorio con estos pasos:
 
+1. **Lee el objetivo antes de comenzar.** Anota qué resultado esperas y qué servicio vas a practicar.
+2. **Sigue las instrucciones y comprueba el resultado.** Identifica qué cambió en cada paso y qué parte de la consola o de la aplicación demuestra que funcionó.
+3. **Registra lo que aprendiste y la duda que queda.** Así puedes elegir una siguiente práctica o buscar una explicación puntual sin repetir todo el ejercicio.
 
-<h2 id="aprovechando-al-m%C3%A1ximo-los-eventos" tabindex="-1">Aprovechando al máximo los eventos</h2>
+Para estudiar otro tema, la página de Educate también presenta actividades introductorias con EC2, VPC y RDS. Confirma qué requisitos y materiales muestra la ficha actual de cada una.
 
+Si prefieres ampliar el catálogo oficial, [AWS Skill Builder](https://aws.amazon.com/es/training/digital/) ofrece formación digital y otras experiencias de aprendizaje. Las condiciones de acceso varían entre cursos, laboratorios y opciones con suscripción; verifica la ficha que elijas. Para comparar Educate con Academy y otros programas para estudiantes y docentes, consulta nuestra [guía de formación y laboratorios AWS gratuitos](/blog/aws-gratis-para-educadores-y-estudiantes/).
 
-<ul>
-<li>
-<p>Participa activamente y haz preguntas a los presentadores</p>
-</li>
-<li>
-<p>Aprovecha las actividades prácticas para aplicar lo aprendido</p>
-</li>
-<li>
-<p>Aprovecha las oportunidades de networking para establecer conexiones valiosas</p>
-</li>
-</ul>
+### Insignias y certificaciones no son lo mismo
 
+AWS Educate permite obtener insignias digitales en actividades que las ofrecen. Los criterios dependen de cada insignia. Una insignia documenta un logro de aprendizaje; no equivale a una certificación AWS, que requiere aprobar el examen correspondiente. Consulta los criterios en la página de [insignias de AWS Training](https://aws.amazon.com/training/badges/) y los requisitos en [AWS Certification](https://aws.amazon.com/certification/).
 
-<h2 id="despu%C3%A9s-del-evento" tabindex="-1">Después del evento</h2>
+## Dónde encontrar eventos de AWS
 
+AWS Educate es una oferta de aprendizaje a tu ritmo; no tomes sus cursos o laboratorios como una agenda de webinars o encuentros en vivo. Para encontrar formación en directo, consulta los [eventos de AWS Training and Certification](https://aws.amazon.com/training/events/). La [agenda general de AWS](https://aws.amazon.com/events/) reúne también otros eventos en línea y presenciales.
 
-<ul>
-<li>
-<p>Accede a los recursos del evento (grabaciones, diapositivas, etc.)</p>
-</li>
-<li>
-<p>Aplica tus nuevas habilidades en proyectos personales o de código abierto</p>
-</li>
-<li>
-<p>Considera obtener una certificación de AWS</p>
-</li>
-<li>
-<p>Únete a la comunidad de AWS Educate para mantenerte actualizado y conectado</p>
-</li>
-</ul>
+Si eres docente, AWS mantiene además una [serie de aprendizaje para educadores](https://aws.amazon.com/education/education-webinars/) con seminarios bajo demanda sobre enseñanza en línea y aprendizaje de cloud. Es una biblioteca de grabaciones, no una agenda de próximos encuentros.
 
+Para charlas y talleres de comunidades AWS en Latinoamérica, revisa la [agenda de eventos de Dónde Aprendo AWS](/eventos/). Allí puedes explorar encuentros en línea, presenciales e híbridos. Confirma fecha, horario, idioma, lugar, inscripción y cualquier condición en la ficha del organizador, porque cada evento define sus propios requisitos.
 
-<p>Aprovecha los <a href="https://dondeaprendoaws.com/blog/aws-gratis-para-educadores-y-estudiantes/">eventos de AWS Educate</a> para mejorar tus habilidades, conectar con otros profesionales y avanzar en tu carrera en computación en la nube.</p>
+En la agenda revisada el 6 de octubre de 2026 figura la sesión virtual [Amazon VPC Essentials: Fundamentos de Networking](https://www.meetup.com/aws-sbg-at-francisco-jose-de-caldas-district-univ-bogota/events/316674045/), del AWS Student Builder Group de la Universidad Distrital. Está anunciada para el 21 de octubre, de 18:00 a 20:00, hora de Bogotá (UTC−5), y trata los fundamentos de VPC, subredes y rutas. La convocatoria pide registro previo e indica cupos limitados; comprueba en la ficha si sigue disponible antes de planificar.
 
+## Comunidades para seguir aprendiendo con otras personas
 
-<h2 id="%C2%BFde-qu%C3%A9-trata-esta-gu%C3%ADa%3F" tabindex="-1">¿De qué trata esta guía?</h2>
+Los grupos comunitarios son distintos de AWS Educate: ofrecen espacios para compartir aprendizaje, proyectos y actividades, cada uno con sus propias condiciones.
 
+- **AWS User Groups:** son grupos liderados por la comunidad para personas interesadas en crear con AWS, aprender con sus pares y conectar con la comunidad local. AWS indica que se reúnen de forma presencial o virtual. Explora el [directorio oficial de AWS User Groups](https://builder.aws.com/community/user-groups) o el [directorio de grupos de Latinoamérica](/comunidades/user-groups/). El [portal de AWS User Group Perú](https://awsugperu.cloud/) reúne información de grupos, encuentros, recursos y actividades de estudio.
+- **AWS Student Builder Groups:** son comunidades estudiantiles en campus de educación superior, antes conocidas como AWS Cloud Clubs. La página oficial indica que sus miembros deben estar matriculados en una institución de educación superior y tener 18 años o más. Liderar o iniciar un grupo es un proceso aparte; consulta sus requisitos por separado. Para conocer las condiciones actuales y buscar un grupo, visita el [directorio oficial de Student Builder Groups](https://builder.aws.com/community/student-builder-groups) y nuestro [directorio de comunidades para estudiantes](/comunidades/estudiantes/). El [mapa de Student Builder Groups de Bolivia](https://www.sbgbo.com/) muestra capítulos y actividades por ciudad. En Colombia, el [AWS Student Builder Group de la Universidad Distrital (UDFJC)](https://linktr.ee/aws.ud) reúne sus enlaces de estudio, talleres, proyectos y grabaciones.
 
-<h3 id="descripci%C3%B3n-del-programa-aws-educate" tabindex="-1">Descripción del programa <a href="https://aws.amazon.com/education/awseducate/" rel="noopener noreferrer" target="_blank">AWS Educate</a></h3>
+No necesitas pertenecer a una universidad para empezar con AWS Educate. Si estudias en educación superior y cumples los requisitos para miembros, un Student Builder Group puede servirte para aprender con compañeros de tu campus; para participar en un User Group, consulta las condiciones de cada grupo.
 
+Como recurso grabado en español, el [Cloud Practitioner Challenge del AWS User Group Medellín](https://www.youtube.com/playlist?list=PLhbdvasxz8wwO-b9nlRBYYzY6n5CvSOvj) reúne sesiones de estudio sobre fundamentos. Puedes comenzar por la [Sesión 1: Introducción a la nube y AWS](https://www.youtube.com/watch?v=HhPGckLLDWY), y visitar el [canal de YouTube del grupo](https://www.youtube.com/@awsugmed) para explorar otras charlas. Son grabaciones de una comunidad; para detalles técnicos actuales, contrasta los pasos con la documentación del servicio.
 
-<p><figure><img alt="AWS Educate" src="/assets/blog/52008a00bee253fceb153d71.jpg"/></figure></p>
+Si quieres organizar los siguientes pasos de estudio, sigue nuestra [ruta práctica para aprender AWS desde cero](/blog/aws-aprender-guia-inicial/). También puedes buscar cursos, videos y artículos por tema en el [catálogo de recursos para aprender AWS](/aprender/).
 
+## Preguntas frecuentes
 
-<p>AWS Educate es un programa gratuito de aprendizaje en línea que enseña a los estudiantes sobre computación en la nube. Está diseñado para preprofesionales con poca o ninguna experiencia en la nube. Ofrece recursos, contenido y herramientas de colaboración para estudiantes y educadores.</p>
+### ¿Tengo que ser estudiante para registrarme en AWS Educate?
 
+No. AWS Educate está abierto a personas en distintas etapas de formación y carrera, sujeto a la edad mínima que AWS establece para cada país o región. Ser estudiante sí es un requisito para participar en un Student Builder Group.
 
-<h3 id="%C2%BFpor-qu%C3%A9-asistir-a-los-eventos-de-aws-educate%3F" tabindex="-1">¿Por qué asistir a los eventos de AWS Educate?</h3>
+### ¿AWS Educate tiene eventos en vivo?
 
+La página pública de AWS Educate describe formación autodirigida y laboratorios. Para encontrar sesiones en vivo, consulta los eventos de AWS Training y las agendas de AWS User Groups y otras comunidades.
 
-<p>Los eventos de AWS Educate permiten a profesionales de TI, educadores y estudiantes conectarse, aprender y desarrollarse en computación en la nube. Estos eventos ayudan a mejorar habilidades, acceder a recursos exclusivos de AWS y conectar con otros profesionales del campo.</p>
+### ¿Terminar un curso de AWS Educate me certifica?
 
-
-<h3 id="beneficios-de-la-participaci%C3%B3n" tabindex="-1">Beneficios de la participación</h3>
-
-
-<p>Al asistir a los eventos de AWS Educate, los participantes pueden:</p>
-
-
-<ul>
-<li>
-<p>Mejorar sus habilidades en la nube</p>
-</li>
-<li>
-<p>Acceder a recursos exclusivos de AWS</p>
-</li>
-<li>
-<p>Conectar con otros profesionales</p>
-</li>
-<li>
-<p>Avanzar en sus carreras</p>
-</li>
-<li>
-<p>Aprender sobre las últimas tendencias y tecnologías en la computación en la nube</p>
-</li>
-</ul>
-
-
-
-
-<h2 id="tipos-de-eventos-1" tabindex="-1">Tipos de eventos</h2>
-
-
-<p>Los eventos de AWS Educate se dividen en tres categorías principales: webinars, talleres y laboratorios prácticos, y cumbres y conferencias. Cada tipo de evento ofrece una experiencia única para aprender sobre computación en la nube.</p>
-
-
-<h3 id="webinars" tabindex="-1">Webinars</h3>
-
-
-<p>Los webinars de AWS Educate son sesiones en línea, en vivo o bajo demanda, que duran entre 30 minutos y 1 hora. Cubren temas desde introducciones a la computación en la nube hasta temas avanzados como seguridad y análisis de datos. Incluyen presentaciones, demos y sesiones de preguntas y respuestas con expertos.</p>
-
-
-<h3 id="talleres-y-laboratorios-pr%C3%A1cticos" tabindex="-1">Talleres y laboratorios prácticos</h3>
-
-
-<p>Los talleres y laboratorios prácticos son eventos interactivos que permiten a los participantes desarrollar habilidades prácticas en computación en la nube. Estos eventos pueden durar varias horas o días y cubren temas como desarrollo de aplicaciones, seguridad y migración a la nube. Los participantes trabajan en proyectos prácticos y reciben retroalimentación de expertos.</p>
-
-
-<h3 id="cumbres-y-conferencias" tabindex="-1">Cumbres y conferencias</h3>
-
-
-<p>Las cumbres y conferencias son eventos más grandes que reúnen a expertos, líderes de la industria y profesionales de TI. Incluyen keynotes, sesiones de presentación, oportunidades de networking y exhibiciones de productos y servicios. Los participantes pueden conectarse con otros profesionales, aprender sobre las últimas tendencias y tecnologías en la computación en la nube y obtener información sobre cómo aplicar las soluciones de AWS en sus organizaciones.</p>
-
-
-<h2 id="getting-ready" tabindex="-1">Getting ready</h2>
-
-
-<p>Para aprovechar al máximo los eventos de AWS Educate, es importante prepararse adecuadamente. En esta sección, te guiaré a través del proceso de registro, los requisitos previos y la configuración de objetivos para que puedas sacar el mayor provecho de tus experiencias de aprendizaje.</p>
-
-
-<h3 id="registro-del-proceso" tabindex="-1">Registro del proceso</h3>
-
-
-<p>El registro para los eventos de AWS Educate es sencillo y solo requiere algunos detalles personales y de contacto. No necesitas una tarjeta de crédito ni una cuenta de Amazon existente. Proporciona tu nombre, país, mes y año de nacimiento, y dirección de correo electrónico. Una vez que valides tu correo electrónico, podrás acceder al sitio web de Educate y explorar los cursos disponibles.</p>
-
-
-<p>Es importante registrarse con anticipación para asegurarte un lugar en los eventos más populares. También es recomendable revisar los requisitos de habilidades y conocimientos previos para cada evento para estar preparado y aprovechar al máximo la experiencia.</p>
-
-
-<h3 id="requisitos-previos-y-niveles-de-habilidad" tabindex="-1">Requisitos previos y niveles de habilidad</h3>
-
-
-<p>Antes de asistir a un evento de AWS Educate, revisa los requisitos previos y los niveles de habilidad recomendados. Esto te ayudará a determinar si el evento es adecuado para ti. Si no tienes experiencia previa en computación en la nube, no te preocupes. AWS Educate ofrece recursos y cursos para ayudarte a desarrollar tus habilidades y prepararte para los eventos.</p>
-
-
-<p>Puedes usar recursos como AWS Skill Builder para evaluar tus habilidades y ver en qué áreas necesitas mejorar. También puedes conectarte con otros estudiantes y profesionales en la comunidad de AWS Educate para obtener consejos y orientación.</p>
-
-
-<h3 id="configuraci%C3%B3n-de-objetivos" tabindex="-1">Configuración de objetivos</h3>
-
-
-<p>Antes de asistir a un evento de AWS Educate, define tus objetivos. ¿Qué esperas lograr del evento? ¿Quieres desarrollar habilidades específicas o conectarte con otros profesionales? Al definir tus objetivos, podrás enfocarte en las actividades y recursos que te ayudarán a lograrlos.</p>
-
-
-<p>Algunos objetivos comunes para los eventos de AWS Educate incluyen:</p>
-
-
-<ul>
-<li>
-<p>Desarrollar habilidades en computación en la nube</p>
-</li>
-<li>
-<p>Explorar oportunidades de carrera</p>
-</li>
-<li>
-<p>Conectar con otros profesionales en la industria</p>
-</li>
-</ul>
-
-
-<p>Definir tus objetivos te permitirá aprovechar al máximo tu experiencia y alcanzar tus metas.</p>
-
-
-<h2 id="making-the-most-of-events" tabindex="-1">Making the most of events</h2>
-
-
-<p>Para aprovechar al máximo los eventos de AWS Educate, es importante tener estrategias efectivas para participar activamente y aprovechar las oportunidades de aprendizaje y networking.</p>
-
-
-<h3 id="engaging-with-presenters" tabindex="-1">Engaging with presenters</h3>
-
-
-<p>Para sacar el máximo provecho de las sesiones, prepárate con preguntas específicas para los presentadores. Esto te permitirá participar activamente y obtener respuestas valiosas. No dudes en hacer preguntas, ya que los presentadores están allí para ayudarte. Algunas preguntas que podrías considerar incluyen:</p>
-
-
-<ul>
-<li>
-<p>¿Cuál es el objetivo principal de esta sesión?</p>
-</li>
-<li>
-<p>¿Cómo puedo aplicar este conocimiento en mi trabajo o proyecto actual?</p>
-</li>
-<li>
-<p>¿Qué recursos adicionales puedo utilizar para aprender más sobre este tema?</p>
-</li>
-</ul>
-
-
-<h3 id="hands-on-activities" tabindex="-1">Hands-on activities</h3>
-
-
-<p>Las actividades prácticas son una parte clave de los eventos de AWS Educate. Aprovecha estas oportunidades para desarrollar habilidades y aplicar lo aprendido. Algunos consejos para aprovechar al máximo las actividades prácticas incluyen:</p>
-
-
-<ul>
-<li>
-<p>Tomar notas detalladas sobre los pasos y resultados.</p>
-</li>
-<li>
-<p>Pedir ayuda a los instructores o compañeros si tienes preguntas.</p>
-</li>
-<li>
-<p>Documentar tu proceso de aprendizaje y compartir tus experiencias con otros estudiantes.</p>
-</li>
-</ul>
-
-
-<h3 id="networking-opportunities" tabindex="-1">Networking opportunities</h3>
-
-
-<p>Los eventos de AWS Educate ofrecen oportunidades únicas para conectarte con otros profesionales y estudiantes con intereses similares. Aprovecha estas oportunidades para hacer networking y establecer conexiones valiosas. Algunos consejos para aprovechar al máximo las oportunidades de networking incluyen:</p>
-
-
-<ul>
-<li>
-<p>Preparar un discurso breve que describa tus objetivos e intereses.</p>
-</li>
-<li>
-<p>Intercambiar tarjetas de presentación y mantener el contacto con los nuevos contactos.</p>
-</li>
-<li>
-<p>Unirse a grupos de estudio o proyectos colaborativos para seguir aprendiendo y creciendo con otros estudiantes.</p>
-</li>
-</ul>
-
-
-<h2 id="after-the-event" tabindex="-1">After the event</h2>
-
-
-<p>Después de un evento de AWS Educate, es importante seguir aprendiendo y aplicando las habilidades adquiridas. A continuación, se presentan algunos consejos y pasos para hacerlo.</p>
-
-
-<h3 id="accessing-event-resources" tabindex="-1">Accessing event resources</h3>
-
-
-<p>Una vez finalizado el evento, es posible que desees acceder a recursos adicionales, como grabaciones de sesiones, diapositivas o materiales de apoyo. AWS Educate proporciona acceso a estos recursos a través de su plataforma. Organiza y revisa estos recursos de manera efectiva, tomando notas y destacando los puntos clave.</p>
-
-
-<h3 id="applying-new-skills" tabindex="-1">Applying new skills</h3>
-
-
-<p>Identifica oportunidades para aplicar tus nuevas habilidades en proyectos personales, contribuciones a proyectos de código abierto o tareas de clase. Esto te permitirá consolidar tus conocimientos y desarrollar experiencia práctica. Considera crear un proyecto personal que te permita aplicar lo aprendido y mejorar tus habilidades.</p>
-
-
-<h3 id="aws-certifications" tabindex="-1">AWS certifications</h3>
-
-
-<p>Si estás interesado en obtener una certificación de AWS, hay varios caminos que puedes seguir. AWS ofrece una variedad de certificaciones, desde la certificación de desarrollador hasta la certificación de arquitecto. Investiga las opciones disponibles y elige la que mejor se adapte a tus objetivos y necesidades.</p>
-
-
-<h3 id="joining-the-community" tabindex="-1">Joining the community</h3>
-
-
-<p>La comunidad de AWS Educate es un recurso valioso para conectarte con otros estudiantes y profesionales que comparten tus intereses. Únete a la comunidad para mantenerse actualizado sobre los últimos avances en la nube de AWS y conectarte con otros miembros que pueden ofrecerte apoyo y orientación.</p>
-
-
-<h2 id="pensamientos-finales" tabindex="-1">Pensamientos finales</h2>
-
-
-<p>Participar en eventos de AWS Educate puede ser una experiencia enriquecedora para estudiantes y profesionales que buscan mejorar sus habilidades en la nube de AWS. Al asistir a estos eventos, podrás acceder a recursos útiles, conectarte con otros miembros de la comunidad y desarrollar habilidades prácticas que te ayudarán en tu carrera.</p>
-
-
-<p>Recuerda que la educación continua es clave en el mundo de la tecnología, que está en constante cambio. Aprovecha al máximo los eventos de AWS Educate y sigue aprendiendo para mantenerte actualizado y competitivo en el mercado laboral.</p>
-
-
-<p>Consulta los próximos eventos de AWS Educate y regístrate hoy mismo para aprovechar esta oportunidad de crecimiento profesional. ¡No te pierdas la oportunidad de mejorar tus habilidades y alcanzar tus objetivos!</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-gratis-para-educadores-y-estudiantes/">AWS gratis para educadores y estudiantes</a></li><li><a href="https://dondeaprendoaws.com/blog/webinars-y-eventos-en-aws-marketplace/">Webinars y eventos en AWS Marketplace</a></li><li><a href="https://dondeaprendoaws.com/blog/5-lecciones-clave-del-aws-public-sector-summit-2024/">5 lecciones clave del AWS Public Sector Summit 2024</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-community-day-2024-calendario-de-eventos/">AWS Community Day 2024: calendario de eventos</a></li>
-</ul>
-</p>
+No. Algunas actividades ofrecen insignias digitales, según sus propios criterios. AWS Certification es una credencial separada que se obtiene al aprobar un examen oficial.

@@ -1,714 +1,204 @@
 ---
-title: "Guía para crear APIs serverless con AWS Lambda y API Gateway"
-description: "Descubre cómo crear APIs serverless usando AWS Lambda y API Gateway con esta guía paso a paso que abarca desde la configuración hasta la optimización."
+title: "API Gateway HTTP API o REST API: cómo elegir para Lambda"
+description: "Compara las APIs de API Gateway para un backend serverless con Lambda y diseña un contrato HTTP con payload 2.0, CORS, autorización y errores."
 author: "guille-ojeda"
 publishedAt: "2024-05-12"
 publishedTimestamp: "2024-05-12T04:39:19.754Z"
+modifiedTimestamp: "2026-10-06T15:59:00-03:00"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Estrategias de correlación de eventos AWS"
-    url: "https://dondeaprendoaws.com/blog/estrategias-de-correlacion-de-eventos-aws/"
-  - title: "Gestión de facturación de AWS: guía completa"
-    url: "https://dondeaprendoaws.com/blog/gestion-de-facturacion-de-aws-guia-completa/"
-  - title: "10 métricas clave de DevOps en AWS"
-    url: "https://dondeaprendoaws.com/blog/10-metricas-clave-de-devops-en-aws/"
+  - title: "AWS Lambda y API Gateway: crea una HTTP API paso a paso"
+    url: "https://dondeaprendoaws.com/blog/aws-lambda-y-api-gateway-guia-basica/"
+  - title: "Cómo configurar CORS en HTTP API de API Gateway"
+    url: "https://dondeaprendoaws.com/blog/configurar-cors-en-http-api-gateway/"
+  - title: "Lambda authorizers: seguridad, JWT y caché en API Gateway"
+    url: "https://dondeaprendoaws.com/blog/5-practicas-de-seguridad-para-lambda-authorizers/"
 
 ---
 
-<p><strong>¿Qué son las APIs Serverless?</strong></p>
+Cuando conectas AWS Lambda con API Gateway, la función necesita conocer el formato del evento que recibe y la forma de la respuesta que API Gateway devolverá al cliente. Antes de escribirla, decide también si te conviene una **HTTP API** o una **REST API**: ambas pueden invocar Lambda, pero ofrecen controles distintos.
 
+Esta guía compara esas opciones y recorre el contrato de ejemplo `GET /productos/{id}` con una HTTP API y payload 2.0. Incluye una función pequeña con validación y pruebas locales; la [guía paso a paso para crear e integrar una HTTP API con Lambda](/blog/aws-lambda-y-api-gateway-guia-basica/) cubre la configuración y el despliegue en AWS.
 
-<ul>
-<li>No requieren la gestión de servidores</li>
-<li>El proveedor de la nube ejecuta el código y proporciona los recursos</li>
-<li>No hay que preocuparse por la escalabilidad, seguridad o gestión de servidores</li>
-</ul>
+## HTTP API o REST API
 
+Las dos son APIs RESTful y pueden integrarse con Lambda. AWS describe HTTP API como una opción con menos funciones y menor precio; elige REST API cuando una capacidad concreta de su catálogo sea necesaria.
 
-<p><strong>Beneficios de <a href="https://aws.amazon.com/lambda/" rel="noopener noreferrer" target="_blank">AWS Lambda</a> y API Gateway</strong></p>
+| Si necesitas… | Evalúa primero… | Qué tener en cuenta |
+| --- | --- | --- |
+| Una ruta HTTP común hacia Lambda, autorización JWT y despliegues automáticos | HTTP API | Tiene integración Lambda, CORS integrado, autorizadores JWT para tokens de proveedores OIDC/OAuth 2.0 y un precio menor que REST API según la comparación de AWS. |
+| Claves y planes de uso para clientes, validación de solicitudes en API Gateway o caché de respuestas | REST API | HTTP API no ofrece esos controles de administración y validación. Los límites de uso de un plan son objetivos de mejor esfuerzo, no una barrera garantizada de acceso o gasto. |
+| Un endpoint privado de API Gateway o integración con AWS WAF | REST API | HTTP API admite integraciones privadas con algunos servicios, pero no un endpoint privado de API Gateway ni AWS WAF. |
+| Controlar identidad y permisos | Cualquiera de las dos | Ambas ofrecen autorización IAM y Lambda. HTTP API puede validar JWT directamente; REST API puede usar un autorizador de grupo de usuarios de Amazon Cognito. |
 
+La [comparación oficial de API Gateway](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-vs-rest.html) incluye otros detalles, como transformaciones, tipos de endpoint y opciones de monitoreo. Revisa esa lista si el diseño depende de una función específica. Si no necesitas una capacidad exclusiva de REST API, HTTP API suele ser suficiente para exponer una ruta sencilla.
 
-<ul>
-<li><a href="https://www.andmore.dev/es/blog/build-serverless-api-with-no-lambda/">Crear APIs serverless</a> escalables y seguras</li>
-<li>Fácil de mantener y desarrollar la lógica de negocio</li>
-</ul>
+Una clave de API de REST sirve para identificar clientes y asociarlos a planes de uso; **no autentica ni protege datos por sí sola**. AWS recomienda usar IAM, un autorizador o Amazon Cognito para controlar el acceso. Además, las cuotas y el throttling de los planes se aplican como objetivos de mejor esfuerzo, así que no los uses como control de seguridad o límite de costo. Consulta la [guía oficial de claves y planes de uso](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-api-usage-plans.html).
 
+Para un repaso en video de los conceptos de API Gateway, [AWS Women Colombia explica el servicio en «La Amenaza del Nivel 100: Amazon API Gateway»](https://www.youtube.com/watch?v=p1otaxU9pOI). La grabación es de 2022; úsala para orientación general y comprueba las funciones actuales en la documentación oficial enlazada arriba.
 
-<p><strong>Pasos Clave</strong></p>
+## Define la ruta y el contrato HTTP
 
+Para el ejemplo, API Gateway recibe `GET /productos/{id}` y envía la solicitud a Lambda. La ruta incluye un identificador en la URL, así que la función buscará `id` en `event.pathParameters`. En un sistema real, la función podría consultar un almacén de datos; aquí usaremos un producto fijo para centrarnos en la entrada y la respuesta.
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Paso</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1. <a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">Configurar AWS</a></td>
-<td>Verificar la cuenta y la CLI de AWS</td>
-</tr>
-<tr>
-<td>2. Planificar la API</td>
-<td>Definir endpoints, métodos y estructuras de datos</td>
-</tr>
-<tr>
-<td>3. Crear función Lambda</td>
-<td>Configurar runtime, manejador y lógica de negocio</td>
-</tr>
-<tr>
-<td>4. <a href="https://cloudiostrategy.com/endpoint-proxy-con-api-gateway/">Configurar API Gateway</a></td>
-<td>Crear API Gateway e integrar con Lambda</td>
-</tr>
-<tr>
-<td>5. <a href="https://dondeaprendoaws.com/blog/desarrollando-aplicaciones-con-aws-lambda/">Conectar Lambda y API Gateway</a></td>
-<td>Configurar triggers y detalles de integración</td>
-</tr>
-<tr>
-<td>6. Proteger la API</td>
-<td>Implementar autenticación, autorización y control de acceso</td>
-</tr>
-<tr>
-<td>7. Prueba y despliegue</td>
-<td>Probar funcionalidad y desplegar la API</td>
-</tr>
-<tr>
-<td>8. Monitoreo y optimización</td>
-<td>Configurar monitoreo, registro y optimizar rendimiento</td>
-</tr>
-</tbody>
-</table></figure>
+Con una integración proxy de HTTP API configurada con payload **2.0**, un evento contiene, entre otros campos, `version`, `routeKey`, `rawPath`, `pathParameters` y `requestContext.http.method`. Una versión reducida del evento para la ruta es:
 
+```json
+{
+  "version": "2.0",
+  "routeKey": "GET /productos/{id}",
+  "rawPath": "/productos/demo-1",
+  "pathParameters": { "id": "demo-1" },
+  "requestContext": {
+    "http": { "method": "GET", "path": "/productos/demo-1" }
+  }
+}
+```
 
-<p><strong>Recursos Adicionales</strong></p>
+El contrato importa porque el evento no es solo el cuerpo de la solicitud: también lleva ruta, método, cabeceras, query string y contexto de API Gateway. En el formato 2.0, los nombres de cabecera se entregan en minúsculas y no existen `multiValueHeaders` ni `multiValueQueryStringParameters`; los valores repetidos se combinan con comas. El formato 1.0 usa campos distintos, como `httpMethod`. No copies acceso a propiedades de un formato en un handler configurado con el otro. AWS documenta ambos [formatos de evento y respuesta](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-lambda.html).
 
+## Devuelve respuestas HTTP explícitas desde Lambda
 
-<ul>
-<li>Documentación de AWS</li>
-<li>Tutoriales de AWS</li>
-<li>Foros de la comunidad AWS</li>
-</ul>
+Guarda este ejemplo como `index.mjs`. La función reconoce un identificador de 1 a 32 letras, números o guiones y busca uno de los productos de demostración. Devuelve `200` si existe, `400` si el identificador no respeta el contrato y `404` si tiene formato válido pero no aparece en el catálogo.
 
+```javascript
+const productos = new Map([
+  ["demo-1", { id: "demo-1", nombre: "Teclado de práctica" }]
+]);
 
-<h2 id="related-video-from-youtube" tabindex="-1">Related video from YouTube</h2>
+const responder = (statusCode, datos) => ({
+  statusCode,
+  headers: { "content-type": "application/json; charset=utf-8" },
+  isBase64Encoded: false,
+  body: JSON.stringify(datos)
+});
 
+export const handler = async (event = {}) => {
+  if (event.version !== "2.0") {
+    return responder(500, { error: "Formato de integración no compatible" });
+  }
 
-<iframe allowfullscreen="" loading="lazy" src="https://www.youtube.com/embed/MxSF2GPz4HE" title="Video de YouTube"></iframe>
-<h2 id="1.-configuraci%C3%B3n-del-entorno-de-aws" tabindex="-1">1. Configuración del entorno de AWS</h2>
+  const id = event.pathParameters?.id;
+  if (typeof id !== "string" || !/^[a-z0-9-]{1,32}$/i.test(id)) {
+    return responder(400, { error: "El identificador no es válido" });
+  }
 
+  const producto = productos.get(id);
+  if (!producto) {
+    return responder(404, { error: "No se encontró el producto" });
+  }
 
-<p>Para crear una API serverless con AWS Lambda y API Gateway, debes configurar tu entorno de AWS correctamente. En esta sección, te guiaré a través del proceso de configuración de tu cuenta de AWS y la CLI.</p>
-
-
-<h3 id="verificar-la-cuenta-de-aws-y-la-configuraci%C3%B3n-de-la-cli" tabindex="-1">Verificar la cuenta de AWS y la configuración de la CLI</h3>
-
-
-<p>Antes de empezar, asegúrate de que tengas una cuenta de AWS válida y configurada correctamente. Si no tienes una cuenta, crea una en la página de AWS. Una vez que tengas una cuenta, asegúrate de que la CLI de AWS esté configurada en tu máquina local.</p>
-
-
-<p><strong>Verificar la versión de la CLI de AWS</strong></p>
-
-
-<p>Ejecuta el comando <code class="inline-code">aws --version</code> en tu terminal. Debe aparecer la versión de la CLI de AWS que estás utilizando.</p>
-
-
-<h3 id="conceptos-b%C3%A1sicos-de-apis-serverless" tabindex="-1">Conceptos básicos de APIs serverless</h3>
-
-
-<p>Antes de crear una API serverless, es importante entender los conceptos básicos detrás de esta arquitectura. Una API serverless es una API que no requiere la gestión de servidores, lo que significa que no necesitas preocuparte por la escalabilidad, la seguridad o la gestión de servidores.</p>
-
-
-<p><strong>Características clave de las APIs serverless</strong></p>
-
-
-<ul>
-<li>No requieren la gestión de servidores</li>
-<li>El proveedor de la nube se encarga de ejecutar el código y proporcionar los recursos necesarios</li>
-</ul>
-
-
-<p>En la próxima sección, exploraremos cómo planificar tu API y definir los endpoints y métodos necesarios.</p>
-
-
-<h2 id="2.-planificaci%C3%B3n-de-tu-api" tabindex="-1">2. Planificación de tu API</h2>
-
-
-<p>En esta sección, exploraremos cómo planificar tu API y definir los endpoints y métodos necesarios. La planificación es crucial para crear una API efectiva y escalable.</p>
-
-
-<h3 id="definir-endpoints-y-m%C3%A9todos-de-la-api" tabindex="-1">Definir endpoints y métodos de la API</h3>
-
-
-<p>Antes de empezar a codificar, debes identificar claramente los recursos y acciones requeridos para tu API. Esto te ayudará a determinar qué endpoints y métodos necesitarás. Por ejemplo, si estás creando una API para una tienda en línea, podrías necesitar endpoints para:</p>
-
-
-<ul>
-<li>Obtener una lista de productos</li>
-<li>Agregar un producto al carrito</li>
-<li>Realizar un pedido</li>
-</ul>
-
-
-<h3 id="seleccionar-el-tipo-de-api" tabindex="-1">Seleccionar el tipo de API</h3>
-
-
-<p>Existen diferentes tipos de APIs, cada una con sus propias características. Algunos de los tipos más comunes son:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Tipo de API</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>RESTful</td>
-<td>Utiliza métodos HTTP para interactuar con recursos</td>
-</tr>
-<tr>
-<td>GraphQL</td>
-<td>Permite a los clientes solicitar solo los datos necesarios</td>
-</tr>
-<tr>
-<td>WebSocket</td>
-<td>Permite una comunicación bidireccional en tiempo real</td>
-</tr>
-<tr>
-<td>HTTP</td>
-<td>Utiliza protocolo HTTP para la comunicación</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="estructurar-entradas-y-salidas-de-datos" tabindex="-1">Estructurar entradas y salidas de datos</h3>
-
-
-<p>La estructura de los datos de entrada y salida es crucial para una API efectiva. Debes definir los formatos de datos y esquemas para que sean eficientes y fáciles de entender. Por ejemplo, podrías utilizar JSON (JavaScript Object Notation) para representar los datos en formato de objeto.</p>
-
-
-<p>Al planificar tu API, es importante considerar la escalabilidad, la seguridad y la facilidad de uso. En la próxima sección, exploraremos cómo crear la función Lambda y configurar el manejador de Lambda.</p>
-
-
-<h2 id="3.-crear-la-funci%C3%B3n-lambda" tabindex="-1">3. Crear la función Lambda</h2>
-
-
-<p>En esta sección, exploraremos cómo crear una función Lambda, configurar el manejador y implementar la lógica empresarial.</p>
-
-
-<h3 id="configurar-lambda-con-el-runtime-adecuado" tabindex="-1">Configurar Lambda con el runtime adecuado</h3>
-
-
-<p>Para crear una función Lambda, debes elegir el runtime adecuado para tu función. AWS Lambda admite varios runtimes, como Node.js, Python, Java, Go y Ruby. Por ejemplo, si estás desarrollando una función que utiliza Node.js, debes seleccionar Node.js como runtime.</p>
-
-
-<p><strong>Pasos para crear una función Lambda con Node.js</strong></p>
-
-
-<ol>
-<li>Inicia sesión en la consola de AWS Management Console.</li>
-<li>Haz clic en "Crear función" en la página de Lambda.</li>
-<li>Selecciona "Author from scratch" y elige Node.js como runtime.</li>
-<li>Asigna un nombre a tu función y configura los permisos adecuados.</li>
-</ol>
-
-
-<h3 id="configurar-el-manejador-de-lambda" tabindex="-1">Configurar el manejador de Lambda</h3>
-
-
-<p>El manejador de Lambda es el punto de entrada de tu función. Debes definir el manejador correctamente para que Lambda pueda invocar tu función. En Node.js, el manejador se define como una función que exporta un objeto con una función <code class="inline-code">handler</code>.</p>
-
-
-<pre><code class="language-javascript">exports.handler = async (event) =&gt; {
-  // Tu lógica empresarial aquí
+  return responder(200, producto);
 };
-</code></pre>
+```
 
+Una respuesta explícita con `statusCode` permite decidir qué estado HTTP recibe el cliente. En una integración proxy, `body` debe ser una cadena; por eso el código serializa el objeto con `JSON.stringify`. El cuerpo exitoso será `{"id":"demo-1","nombre":"Teclado de práctica"}` y el `Content-Type` indicará JSON. En payload 2.0, API Gateway también puede inferir `200` y `application/json` si la función devuelve JSON válido sin `statusCode`; las respuestas explícitas hacen que el contrato y los errores sean más claros.
 
-<h3 id="implementar-la-l%C3%B3gica-empresarial" tabindex="-1">Implementar la lógica empresarial</h3>
+La función espera el handler `index.handler` y un runtime compatible con módulos ECMAScript; AWS explica cómo [definir un handler de Node.js](https://docs.aws.amazon.com/lambda/latest/dg/nodejs-handler.html). AWS lista actualmente Node.js 24 como runtime `nodejs24.x`; vuelve a revisar la [lista de runtimes soportados](https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtimes.html) antes de crear una función, porque los plazos de soporte cambian.
 
+### Comprueba casos correctos y errores en local
 
-<p>La lógica empresarial es el corazón de tu función Lambda. Debes implementar la lógica necesaria para que tu función realice la tarea deseada. Por ejemplo, si estás creando una función que devuelve un mensaje de bienvenida, puedes implementar la lógica como sigue:</p>
+Guarda estas pruebas junto al handler como `handler.test.mjs`. Node.js trae un ejecutor de pruebas; no hacen falta paquetes ni credenciales de AWS.
 
+```javascript
+import test from "node:test";
+import assert from "node:assert/strict";
+import { handler } from "./index.mjs";
 
-<pre><code class="language-javascript">exports.handler = async (event) =&gt; {
-  const response = {
-    statusCode: 200,
-    body: JSON.stringify('¡Bienvenido!'),
-  };
-  return response;
-};
-</code></pre>
+const evento = (id) => ({
+  version: "2.0",
+  routeKey: "GET /productos/{id}",
+  rawPath: `/productos/${id}`,
+  pathParameters: { id },
+  requestContext: { http: { method: "GET", path: `/productos/${id}` } }
+});
 
+test("devuelve el producto conocido como JSON", async () => {
+  const respuesta = await handler(evento("demo-1"));
+  assert.equal(respuesta.statusCode, 200);
+  assert.equal(respuesta.headers["content-type"], "application/json; charset=utf-8");
+  assert.deepEqual(JSON.parse(respuesta.body), {
+    id: "demo-1",
+    nombre: "Teclado de práctica"
+  });
+});
 
-<p>Recuerda que la lógica empresarial debe ser escalable, segura y eficiente. Asegúrate de probar tu función exhaustivamente antes de implementarla en producción.</p>
+test("rechaza identificadores fuera del contrato", async () => {
+  const respuesta = await handler(evento("sku_invalido"));
+  assert.equal(respuesta.statusCode, 400);
+});
 
+test("distingue un identificador válido sin producto", async () => {
+  const respuesta = await handler(evento("demo-999"));
+  assert.equal(respuesta.statusCode, 404);
+  assert.deepEqual(JSON.parse(respuesta.body), {
+    error: "No se encontró el producto"
+  });
+});
 
-<h2 id="4.-configuraci%C3%B3n-de-api-gateway" tabindex="-1">4. Configuración de API Gateway</h2>
+test("detecta una integración con otro formato de payload", async () => {
+  const respuesta = await handler({ ...evento("demo-1"), version: "1.0" });
+  assert.equal(respuesta.statusCode, 500);
+});
+```
 
+Ejecuta las pruebas con:
 
-<p>En esta sección, exploraremos cómo crear un API Gateway para exponer la función Lambda como un punto de acceso API.</p>
+```bash
+node --test handler.test.mjs
+```
 
+Estas pruebas verifican la lógica y el objeto que devuelve el handler. No crean la ruta de API Gateway ni validan los permisos, el runtime o el CORS de una cuenta AWS. Para crear y desplegar la HTTP API de práctica, sigue la [guía completa con Lambda y API Gateway](/blog/aws-lambda-y-api-gateway-guia-basica/).
 
-<h3 id="crear-un-nuevo-api-gateway" tabindex="-1">Crear un nuevo API Gateway</h3>
+Si mantienes un contrato OpenAPI y quieres automatizar pruebas de la API ya desplegada, [esta introducción a Portman, de AndMore Dev](https://www.andmore.dev/es/blog/getting-started-portman/) muestra cómo comparar respuestas con una definición. El artículo es de 2021 y usa una versión antigua del CLI; comprueba la sintaxis vigente de Portman antes de aplicar sus comandos. Como otra explicación práctica con rutas `GET` y `POST`, puedes ver la grabación del [AWS User Group Perú sobre una API con API Gateway y Lambda](https://www.youtube.com/watch?v=nf_BdOoHIRY&t=834s); revisa la configuración de runtime y payload contra la documentación actual.
 
+## Configura CORS si el cliente corre en un navegador
 
-<p>Para crear un API Gateway, debes seguir los siguientes pasos:</p>
+CORS determina si código JavaScript ejecutado en un navegador puede leer una respuesta desde otro origen. El origen incluye protocolo, host y puerto: `https://app.example.com` y `http://app.example.com` son distintos. CORS no identifica a la persona ni evita llamadas hechas desde `curl` u otro servidor.
 
+En HTTP API puedes configurar en API Gateway los orígenes, métodos y cabeceras que necesita el frontend. Cuando activas CORS, API Gateway responde automáticamente a las solicitudes preflight `OPTIONS` y añade las cabeceras configuradas a las respuestas; también ignora las cabeceras CORS devueltas por Lambda. Permite solo los orígenes y métodos necesarios. La guía de AWS explica [cómo configurar CORS para HTTP API](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-cors.html).
 
-<p>1. Inicia sesión en la consola de AWS Management Console. 2. Haz clic en "Crear API" en la página de API Gateway. 3. Selecciona "REST API" o "HTTP API" según tus necesidades. 4. Asigna un nombre a tu API y configura los permisos adecuados.</p>
+REST API también admite CORS, pero con una integración proxy la función backend debe devolver las cabeceras CORS requeridas. La configuración y el diagnóstico tienen diferencias entre tipos de API; consulta la [guía de CORS para REST API](https://docs.aws.amazon.com/apigateway/latest/developerguide/how-to-cors.html) si eliges esa opción. Para resolver preflight, orígenes y rutas `$default`, sigue la guía interna sobre [CORS en HTTP API de API Gateway](/blog/configurar-cors-en-http-api-gateway/).
 
+## Separa autorización y permisos de Lambda
 
-<h3 id="integrar-m%C3%A9todos-y-endpoints-con-lambda" tabindex="-1">Integrar métodos y endpoints con Lambda</h3>
+Si una ruta de un endpoint público no tiene un authorizer, autorización IAM ni otra política de acceso configurados, cualquiera que conozca la URL puede intentar invocarla. CORS no la vuelve privada. Para una HTTP API, puedes usar un autorizador JWT para validar tokens de un proveedor OIDC/OAuth 2.0, IAM o un Lambda authorizer. En REST API puedes usar IAM, un autorizador de Amazon Cognito o Lambda. La [comparación oficial de tipos y opciones de autorización](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-vs-rest.html) y la guía de [JWT para HTTP API](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-jwt-authorizer.html) describen esas elecciones.
 
+También hay dos permisos de IAM distintos:
 
-<p>Una vez que hayas creado tu API Gateway, debes integrar los métodos y endpoints con la función Lambda. Para hacer esto, debes seguir los siguientes pasos:</p>
+- El **rol de ejecución de Lambda** define qué puede hacer el código de la función, por ejemplo escribir logs o leer una tabla.
+- La **política basada en recursos de la función** permite que API Gateway invoque Lambda. Limita el origen al API, etapa y ruta que correspondan cuando tu herramienta de despliegue lo permita.
 
+Dar permiso a Lambda para leer una tabla no autoriza a un cliente a llamar a la API; dar permiso a API Gateway para invocar la función tampoco decide qué usuario final puede acceder a cada dato. La [guía de permisos de Lambda y API Gateway](https://docs.aws.amazon.com/lambda/latest/dg/services-apigateway.html) muestra la política de invocación. La consola y AWS SAM pueden generar este permiso al crear la integración; con otras herramientas, comprueba que esté configurado.
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Paso</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>Selecciona el método que deseas integrar con la función Lambda.</td>
-</tr>
-<tr>
-<td>2</td>
-<td>Haz clic en "Actions" y selecciona "Integrar con función Lambda".</td>
-</tr>
-<tr>
-<td>3</td>
-<td>Selecciona la función Lambda que deseas integrar con el método.</td>
-</tr>
-<tr>
-<td>4</td>
-<td>Configura los detalles de la integración según sea necesario.</td>
-</tr>
-</tbody>
-</table></figure>
+Para una charla sobre decisiones de seguridad con API Gateway, mira [«Domina la seguridad de tus API con API Gateway» de AWS User Group Medellín](https://www.youtube.com/watch?v=0Hm94rAe3fU). La grabación, publicada en julio de 2024, es un complemento sobre seguridad; verifica las opciones vigentes en las guías de AWS anteriores.
 
+## Considera límites, costos y registros
 
-<h3 id="habilitar-cors-para-el-intercambio-de-recursos" tabindex="-1">Habilitar CORS para el intercambio de recursos</h3>
+La integración HTTP API tiene un tiempo máximo de 30 segundos. Lambda permite configurar una función hasta 900 segundos, pero un timeout más largo en la función no amplía lo que API Gateway espera por una respuesta HTTP. Mantén el trabajo síncrono dentro del límite; para trabajos largos, acepta la solicitud y procesa el trabajo de forma asíncrona. Consulta las [cuotas de HTTP API](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-quotas.html) y el [timeout de Lambda](https://docs.aws.amazon.com/lambda/latest/dg/configuration-timeout.html).
 
+HTTP API tiene un precio menor que REST API en la comparación de AWS, pero una implementación sigue generando cargos por el uso de API Gateway y Lambda; la ingesta y retención de registros también pueden costar. Las tarifas dependen de la región y de las condiciones vigentes de la cuenta. Revisa los [precios de API Gateway](https://aws.amazon.com/api-gateway/pricing/), [Lambda](https://aws.amazon.com/lambda/pricing/) y [CloudWatch](https://aws.amazon.com/cloudwatch/pricing/) antes de desplegar; no supongas que un laboratorio estará siempre cubierto por una oferta gratuita.
 
-<p>Para permitir que tu API sea accedida desde diferentes orígenes, debes habilitar CORS (Cross-Origin Resource Sharing). Para hacer esto, debes seguir los siguientes pasos:</p>
+Lambda envía sus logs a CloudWatch Logs si el rol de ejecución tiene los permisos básicos de registro. Los access logs de HTTP API se configuran por etapa y también se escriben en CloudWatch Logs. Registra el ID de solicitud, la ruta y el estado; evita guardar tokens, credenciales o cuerpos con datos personales. Para diagnosticar un error de integración, AWS recomienda incluir `$context.integrationErrorMessage` en los access logs de HTTP API. Consulta [logs de Lambda](https://docs.aws.amazon.com/lambda/latest/dg/monitoring-cloudwatchlogs.html) y [logging de HTTP API](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-logging.html).
 
+| Resultado | Qué revisar primero |
+| --- | --- |
+| `400` o `404` que devuelve la función | Validación del identificador y existencia del producto. |
+| `404` antes de llegar a Lambda | Método, ruta y etapa de API Gateway. Una ruta que no coincide no invoca el handler. |
+| `401` o `403` | Authorizer, token, scopes o permisos IAM del cliente. |
+| `500` de API Gateway | Permiso para que API Gateway invoque Lambda o error de integración. Consulta access logs. |
+| `502 Bad Gateway` | Lambda devolvió un formato incompatible o tuvo un error de ejecución; compara la versión del payload y revisa los logs. |
+| Funciona con `curl`, falla en el navegador | Preflight, origen, método y cabeceras CORS. `curl` no aplica las restricciones CORS del navegador. |
+| Timeout | Duración del handler y de sus dependencias frente al límite de 30 segundos de HTTP API. |
 
-<p>1. Selecciona el método que deseas habilitar CORS para. 2. Haz clic en "Actions" y selecciona "Habilitar CORS". 3. Configura los detalles de CORS según sea necesario.</p>
+AWS explica que API Gateway devuelve `500` si rechaza la invocación y `502` si Lambda falla o devuelve un formato incompatible en la [guía de errores de Lambda a través de API Gateway](https://docs.aws.amazon.com/lambda/latest/dg/services-apigateway-errors.html). Para aislar el motivo, activa access logs e incluye `$context.integrationErrorMessage`, como muestra la guía de [diagnóstico de integraciones Lambda en HTTP API](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-troubleshooting-lambda.html).
 
+## Practica y participa con la comunidad
 
-<p>Recuerda que la configuración de CORS es importante para permitir que tu API sea accedida desde diferentes orígenes. Asegúrate de configurar CORS correctamente para evitar problemas de seguridad.</p>
+Cuando pruebes una API, comparte el método, la ruta, la versión de payload, el código HTTP y el mensaje de error; elimina tokens y datos personales antes de publicar registros. Para profundizar en el control de acceso, consulta la guía sobre [autorizadores Lambda, JWT y caché](/blog/5-practicas-de-seguridad-para-lambda-authorizers/).
 
+El [AWS User Group Serverless Colombia](https://www.meetup.com/aws-user-group-serverless-colombia/) publica charlas online y presenciales en Meetup. Al revisar su agenda el **6 de octubre de 2026**, figuraba la sesión virtual [«El Combo Indestructible de AWS: SQS + Lambda»](https://www.meetup.com/aws-user-group-serverless-colombia/events/316770520/) para el **20 de octubre de 2026 a las 19:00, hora de Colombia**, con acceso libre según la ficha del organizador. Confirma allí la inscripción y el horario antes de asistir. También puedes buscar otros grupos en el [directorio de comunidades AWS](/comunidades/) y próximas charlas en la [agenda de eventos](/eventos/).
 
-<h2 id="5.-conectar-lambda-y-api-gateway" tabindex="-1">5. Conectar Lambda y API Gateway</h2>
-
-
-<p>Para conectar correctamente Lambda y API Gateway, debes configurar un trigger de Lambda en API Gateway y asegurarte de que los dos servicios trabajen juntos sin problemas.</p>
-
-
-<h3 id="configurar-triggers-de-lambda" tabindex="-1">Configurar triggers de Lambda</h3>
-
-
-<p>Para configurar un trigger de Lambda, debes seguir los siguientes pasos:</p>
-
-
-<p>1. Inicia sesión en la consola de AWS Management Console. 2. Haz clic en "Crear trigger" en la página de Lambda. 3. Selecciona "API Gateway" como el tipo de trigger. 4. Selecciona la función Lambda que deseas asociar con el trigger. 5. Configura los detalles del trigger según sea necesario.</p>
-
-
-<h3 id="configurar-detalles-de-integraci%C3%B3n" tabindex="-1">Configurar detalles de integración</h3>
-
-
-<p>Una vez que hayas configurado el trigger de Lambda, debes configurar los detalles de la integración entre Lambda y API Gateway. Esto incluye:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Paso</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>Configurar la integración de solicitud y respuesta entre Lambda y API Gateway.</td>
-</tr>
-<tr>
-<td>2</td>
-<td>Definir los métodos HTTP que se utilizarán para invocar la función Lambda.</td>
-</tr>
-<tr>
-<td>3</td>
-<td>Configurar los permisos adecuados para que API Gateway pueda invocar la función Lambda.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Recuerda que la configuración correcta de la integración es crucial para que Lambda y API Gateway trabajen juntos sin problemas. Asegúrate de seguir los pasos cuidadosamente y de probar la integración antes de implementarla en producción.</p>
-
-
-<h2 id="6.-proteger-tu-api" tabindex="-1">6. Proteger tu API</h2>
-
-
-<h3 id="implementar-autenticaci%C3%B3n-y-autorizaci%C3%B3n" tabindex="-1">Implementar autenticación y autorización</h3>
-
-
-<p>La seguridad de las APIs es crucial para proteger los datos y recursos de accesos no autorizados. AWS ofrece varios servicios que se pueden utilizar para implementar la autenticación y autorización en tus APIs.</p>
-
-
-<h4 id="aws-cognito" tabindex="-1"><a href="https://aws.amazon.com/cognito/" rel="noopener noreferrer" target="_blank">AWS Cognito</a></h4>
-
-
-<p>AWS Cognito es un servicio que facilita la incorporación de autenticación, autorización y gestión de usuarios en tus aplicaciones. Con Cognito, puedes crear grupos de usuarios y asignarles diferentes roles y permisos para acceder a tus APIs.</p>
-
-
-<h4 id="aws-identity-and-access-management-(iam)" tabindex="-1">AWS Identity and Access Management (IAM)</h4>
-
-
-<p>IAM es el servicio de AWS que te permite gestionar de forma segura el acceso a los recursos de AWS. Puedes crear políticas y roles de IAM para controlar qué usuarios o servicios pueden acceder a tus APIs y con qué permisos.</p>
-
-
-<h4 id="claves-de-api" tabindex="-1">Claves de API</h4>
-
-
-<p>API Gateway también te permite utilizar Claves de API como método de autenticación. Las Claves de API son tokens que los clientes deben incluir en sus solicitudes para acceder a tus APIs. Esto te permite restringir el acceso solo a clientes autorizados.</p>
-
-
-<h3 id="controlar-el-acceso-a-tu-api" tabindex="-1">Controlar el acceso a tu API</h3>
-
-
-<p>Una vez que hayas implementado la autenticación y autorización, es importante definir y aplicar políticas de control de acceso para tu API.</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Paso</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td><strong>Definir Políticas de Acceso</strong></td>
-</tr>
-<tr>
-<td>2</td>
-<td><strong>Aplicar Políticas de Acceso</strong></td>
-</tr>
-<tr>
-<td>3</td>
-<td><strong>Monitorear y Auditar</strong></td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Al implementar la autenticación, la autorización y el control de acceso adecuados, puedes garantizar que solo los usuarios y servicios autorizados puedan acceder a tus APIs y recursos, protegiendo así la integridad y confidencialidad de tus datos.</p>
-
-
-<h2 id="7.-prueba-y-despliegue-de-tu-api" tabindex="-1">7. Prueba y despliegue de tu API</h2>
-
-
-<h3 id="prueba-de-funcionalidad-de-la-api" tabindex="-1">Prueba de funcionalidad de la API</h3>
-
-
-<p>Antes de implementar tu API en un entorno de producción, es crucial probar exhaustivamente sus funcionalidades para asegurarte de que funcione correctamente y según lo esperado.</p>
-
-
-<p><strong>Puntos a Probar</strong></p>
-
-
-<ul>
-<li>Cada punto de conexión y método</li>
-<li>Parámetros y tipos de datos</li>
-<li>Manejo de errores y excepciones</li>
-</ul>
-
-
-<h3 id="despliegue-de-la-api" tabindex="-1">Despliegue de la API</h3>
-
-
-<p>Una vez que hayas probado y verificado la funcionalidad de tu API, puedes desplegarla en un entorno de producción. Para desplegar tu API en AWS, sigue los siguientes pasos:</p>
-
-
-<p><strong>Despliegue en AWS</strong></p>
-
-
-<p>1. <strong>Crear un nuevo despliegue</strong>: En la consola de API Gateway, selecciona tu API y haz clic en "Actions" y luego en "Create Deployment". 2. <strong>Seleccionar el entorno de destino</strong>: Selecciona el entorno de destino para tu despliegue, como por ejemplo, "prod" o "staging". 3. <strong>Configurar las opciones de despliegue</strong>: Configura las opciones de despliegue según sea necesario, como por ejemplo, la configuración de la autenticación y autorización. 4. <strong>Desplegar la API</strong>: Haz clic en "Deploy" para desplegar tu API en el entorno de destino seleccionado.</p>
-
-
-<p>Una vez que hayas desplegado tu API, estará disponible para los usuarios finales y podrá recibir solicitudes y responder según lo configurado.</p>
-
-
-<h2 id="8.-monitoreo-y-optimizaci%C3%B3n-de-tu-api" tabindex="-1">8. Monitoreo y optimización de tu API</h2>
-
-
-<h3 id="configuraci%C3%B3n-de-monitoreo-y-registro" tabindex="-1">Configuración de monitoreo y registro</h3>
-
-
-<p>Para asegurarte de que tu API se ejecuta correctamente y con eficiencia, es crucial establecer un sistema de monitoreo y registro detallado. AWS ofrece varias herramientas para monitorear y registrar el rendimiento de tu API, incluyendo <a href="https://aws.amazon.com/cloudwatch/" rel="noopener noreferrer" target="_blank">Amazon CloudWatch</a>, <a href="https://aws.amazon.com/xray/" rel="noopener noreferrer" target="_blank">AWS X-Ray</a> y <a href="https://aws.amazon.com/cloudtrail/" rel="noopener noreferrer" target="_blank">AWS CloudTrail</a>.</p>
-
-
-<p><strong>Configuración de CloudWatch</strong></p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Paso</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>Inicia sesión en la consola de AWS y selecciona la región donde se encuentra tu API.</td>
-</tr>
-<tr>
-<td>2</td>
-<td>Haz clic en "Services" y selecciona "CloudWatch".</td>
-</tr>
-<tr>
-<td>3</td>
-<td>Haz clic en "Metrics" y selecciona la métrica que deseas monitorear, como por ejemplo, el tiempo de respuesta o el número de solicitudes.</td>
-</tr>
-<tr>
-<td>4</td>
-<td>Configura las opciones de registro según sea necesario, como por ejemplo, el nivel de registro y el destino del registro.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p><strong>Configuración de X-Ray</strong></p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Paso</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>Inicia sesión en la consola de AWS y selecciona la región donde se encuentra tu API.</td>
-</tr>
-<tr>
-<td>2</td>
-<td>Haz clic en "Services" y selecciona "X-Ray".</td>
-</tr>
-<tr>
-<td>3</td>
-<td>Haz clic en "Traces" y selecciona la traza que deseas analizar.</td>
-</tr>
-<tr>
-<td>4</td>
-<td>Configura las opciones de análisis según sea necesario, como por ejemplo, el tipo de análisis y el destino del análisis.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="optimizaci%C3%B3n-del-rendimiento-de-la-api" tabindex="-1">Optimización del rendimiento de la API</h3>
-
-
-<p>Una vez que hayas establecido un sistema de monitoreo y registro, puedes utilizar los datos recopilados para optimizar el rendimiento de tu API. Algunas estrategias para mejorar el rendimiento de tu API incluyen:</p>
-
-
-<ul>
-<li><strong>Optimizar la lógica de negocio</strong>: Asegúrate de que la lógica de negocio sea eficiente y no consuma demasiados recursos.</li>
-<li><strong>Utilizar caching</strong>: Utiliza caching para reducir la carga en tu API y mejorar el rendimiento.</li>
-<li><strong>Optimizar la base de datos</strong>: Asegúrate de que la base de datos esté optimizada para manejar el tráfico y las solicitudes.</li>
-<li><strong>Escalar verticalmente</strong>: Asegúrate de que la instancia de tu API esté escalada verticalmente para manejar el tráfico y las solicitudes.</li>
-</ul>
-
-
-<p>Recuerda que la optimización del rendimiento es un proceso continuo y requiere monitorear y ajustar constantemente tu API para asegurarte de que se ejecuta correctamente y con eficiencia.</p>
-
-
-<h2 id="conclusi%C3%B3n-y-recursos-adicionales" tabindex="-1">Conclusión y recursos adicionales</h2>
-
-
-<h3 id="resumen-del-viaje-de-la-api-serverless" tabindex="-1">Resumen del viaje de la API serverless</h3>
-
-
-<p>En este artículo, hemos cubierto los pasos críticos para crear APIs serverless con AWS Lambda y API Gateway. Desde la planificación y configuración de la API hasta la implementación de la lógica de negocio y la optimización del rendimiento, hemos explorado las <a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">mejores prácticas</a> y consideraciones clave para crear APIs escalables y seguras.</p>
-
-
-<h3 id="recursos-adicionales-para-aprender" tabindex="-1">Recursos adicionales para aprender</h3>
-
-
-<p>Para aquellos que desean profundizar en el <a href="https://dev.to/aws-builders/creando-un-api-rest-con-infra-como-codigo-terraform-serverless-lambda-python-parte-1-4ha">desarrollo de APIs serverless</a>, recomendamos explorar los siguientes recursos adicionales:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Recurso</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Documentación de AWS</td>
-<td>La documentación oficial de AWS es un recurso invaluable para aprender sobre las características y capacidades de AWS Lambda y API Gateway.</td>
-</tr>
-<tr>
-<td>Tutoriales de AWS</td>
-<td>Los tutoriales de AWS ofrecen guías prácticas y paso a paso para implementar APIs serverless con AWS Lambda y API Gateway.</td>
-</tr>
-<tr>
-<td>Foros de la Comunidad AWS</td>
-<td>Los foros de la comunidad AWS son un lugar excelente para conectarse con otros desarrolladores y obtener ayuda y consejos sobre el desarrollo de APIs serverless.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Recuerda que la creación de APIs serverless es un proceso continuo que requiere monitoreo y ajuste constante para asegurarte de que se ejecuten correctamente y con eficiencia.</p>
-
-
-<h2 id="preguntas-frecuentes" tabindex="-1">Preguntas frecuentes</h2>
-
-
-<h3 id="%C2%BFc%C3%B3mo-construir-una-api-en-aws-lambda-y-api-gateway%3F" tabindex="-1">¿Cómo construir una API en <a href="https://aws.amazon.com/lambda/" rel="noopener noreferrer" target="_blank">AWS Lambda</a> y API Gateway?</h3>
-
-
-<p><figure><img alt="AWS Lambda" src="/assets/blog/c0eb5d69184d1120b29c2a25.jpg"/></figure></p>
-
-
-<p><strong>Crear una función Lambda</strong></p>
-
-
-<ol>
-<li>Define el código de tu función Lambda en el lenguaje que prefieras (Node.js, Python, Java, etc.).</li>
-<li>Configura el manejador y las capas necesarias para tu función.</li>
-</ol>
-
-
-<p><strong>Crear una API Gateway</strong></p>
-
-
-<ol>
-<li>En el servicio API Gateway, crea una nueva API (HTTP API o REST API).</li>
-<li>Define los recursos y métodos HTTP para tus endpoints.</li>
-</ol>
-
-
-<p><strong>Integrar Lambda con API Gateway</strong></p>
-
-
-<ol>
-<li>En API Gateway, crea una integración con tu función Lambda.</li>
-<li>Configura los detalles de la integración, como el tipo de integración, los mapeos de solicitud y respuesta.</li>
-</ol>
-
-
-<p><strong>Desplegar y probar la API</strong></p>
-
-
-<ol>
-<li>Despliega tu API en un stage de API Gateway.</li>
-<li>Prueba los endpoints de tu API utilizando herramientas como <a href="https://www.postman.com/" rel="noopener noreferrer" target="_blank">Postman</a> o curl.</li>
-</ol>
-
-
-<h3 id="%C2%BFc%C3%B3mo-construir-una-api-serverless-crud-con-api-gateway%2C-lambda-y-dynamodb%3F" tabindex="-1">¿Cómo construir una API serverless CRUD con API Gateway, Lambda y DynamoDB?</h3>
-
-
-<p><strong>Crear una tabla DynamoDB</strong></p>
-
-
-<ol>
-<li>Crea una tabla DynamoDB para almacenar los datos de tu aplicación.</li>
-<li>Define la clave de partición y la clave de ordenación según tus necesidades.</li>
-</ol>
-
-
-<p><strong>Crear una función Lambda</strong></p>
-
-
-<ol>
-<li>Escribe el código de tu función Lambda para manejar las operaciones CRUD (Crear, Leer, Actualizar, Eliminar).</li>
-<li>Otorga permisos a tu función Lambda para acceder a DynamoDB.</li>
-</ol>
-
-
-<p><strong>Crear una API Gateway</strong></p>
-
-
-<ol>
-<li>Crea una nueva API Gateway y define los recursos y métodos HTTP para tus endpoints CRUD.</li>
-<li>Integra cada método con tu función Lambda correspondiente.</li>
-</ol>
-
-
-<p><strong>Desplegar y probar la API</strong></p>
-
-
-<ol>
-<li>Despliega tu API en un stage de API Gateway.</li>
-<li>Prueba los endpoints CRUD utilizando herramientas como Postman o curl.</li>
-</ol>
-
-
-<h3 id="%C2%BFc%C3%B3mo-utilizar-aws-lambda-y-api-gateway-para-construir-una-api-rest-serverless%3F" tabindex="-1">¿Cómo utilizar AWS Lambda y API Gateway para construir una API REST serverless?</h3>
-
-
-<p><strong>Planificar la API</strong></p>
-
-
-<ol>
-<li>Define los recursos, métodos HTTP y estructuras de datos de tu API.</li>
-<li>Decide si utilizarás una API HTTP o REST en API Gateway.</li>
-</ol>
-
-
-<p><strong>Crear funciones Lambda</strong></p>
-
-
-<ol>
-<li>Desarrolla funciones Lambda separadas para cada operación de tu API.</li>
-<li>Implementa la lógica de negocio en cada función Lambda.</li>
-</ol>
-
-
-<p><strong>Configurar API Gateway</strong></p>
-
-
-<ol>
-<li>Crea una nueva API Gateway y define los recursos y métodos HTTP.</li>
-<li>Integra cada método con la función Lambda correspondiente.</li>
-<li>Configura la seguridad, autorización y CORS según tus necesidades.</li>
-</ol>
-
-
-<p><strong>Desplegar y monitorear</strong></p>
-
-
-<ol>
-<li>Despliega tu API en un stage de API Gateway.</li>
-<li>Prueba y monitorea el rendimiento de tu API utilizando las herramientas de AWS.</li>
-</ol>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/">Mejores prácticas para AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/desarrollando-aplicaciones-con-aws-lambda/">Desarrollando aplicaciones con AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-aws-lambda/">Microservicios en AWS utilizando AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a serverless en AWS</a></li>
-</ul>
-</p>
+Si quieres participar en otros espacios regionales, consulta el [AWS User Group Perú](https://awsugperu.cloud/) y la comunidad de [AWS User Group Medellín en Meetup](https://www.meetup.com/awsugmed/). Para más charlas técnicas en español, visita el [canal de YouTube de AWS Women Colombia](https://www.youtube.com/channel/UCdpHSMDDwo4_d_u3mSU41Mw).
