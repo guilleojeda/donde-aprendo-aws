@@ -1,183 +1,83 @@
 ---
 title: "Cómo reducir costos de transferencia intra-región en AWS"
-description: "Optimiza los costos de transferencia de datos intra-región en AWS con estrategias efectivas y herramientas de monitoreo."
+description: "Identifica cargos de transferencia entre zonas de disponibilidad y compara cambios de red, NAT Gateway y VPC endpoints sin perder de vista resiliencia y costos de servicio."
 author: "guille-ojeda"
 publishedAt: "2025-09-11"
 publishedTimestamp: "2025-09-11T07:03:09.648000+00:00"
+modifiedTimestamp: "2026-10-06T10:14:29-03:00"
+review:
+  date: "2026-10-06"
 cover: "/assets/blog/editorial-fundamentos.png"
 coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
 ogImage: "/assets/blog/editorial-fundamentos.png"
-related:
-  - title: "Checklist para automatizar cumplimiento en AWS"
-    url: "https://dondeaprendoaws.com/blog/checklist-para-automatizar-cumplimiento-en-aws/"
-  - title: "Características y beneficios de AWS IoT Device Defender"
-    url: "https://dondeaprendoaws.com/blog/caracteristicas-y-beneficios-de-aws-iot-device-defender/"
-  - title: "Opciones para desplegar contenedores en AWS: ECS y EKS"
-    url: "https://dondeaprendoaws.com/blog/opciones-para-desplegar-contenedores-en-aws-ecs-y-eks/"
-
+related: []
 ---
 
-<p>Reducir los costos de transferencia de datos intra-región en <a href="https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/">AWS</a> es clave para optimizar tus gastos en la nube. Este tipo de transferencia ocurre cuando los datos se mueven entre Zonas de Disponibilidad (AZ) dentro de una misma región, y aunque el coste estándar es de 0,01 $ por GB, estos cargos pueden acumularse rápidamente en <a href="https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/">arquitecturas distribuidas</a>.</p>
-<h3 id="claves-para-reducir-costes" tabindex="-1">Claves para reducir costes:</h3>
-<ul>
-<li><strong>Agrupa recursos en la misma AZ</strong>: Minimiza el tráfico entre zonas colocando servicios que interactúan frecuentemente en la misma zona.</li>
-<li><strong>Usa IPs privadas y VPC Endpoints</strong>: Evita el tráfico público configurando conexiones internas para servicios como S3 o <a href="https://dondeaprendoaws.com/blog/amazon-dynamodb-la-base-de-datos-nosql-de-aws/">DynamoDB</a>.</li>
-<li><strong>Optimiza el tráfico</strong>: Implementa cachés locales, comprime datos y agrupa consultas para reducir el volumen de transferencia.</li>
-<li><strong>Monitorea patrones de tráfico</strong>: Utiliza herramientas como <a href="https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/">AWS Cost Explorer</a>, CUR y VPC Flow Logs para identificar y actuar sobre transferencias ineficientes.</li>
-<li><strong>Aprovecha <a href="https://dondeaprendoaws.com/blog/amazon-cloudfront-comprendiendo-el-cdn-de-aws/">CloudFront</a></strong>: Cachea contenido estático o datos repetitivos para reducir solicitudes directas.</li>
-</ul>
-<p>Estas estrategias no solo ayudan a reducir los costes, sino que también mejoran la eficiencia de tus sistemas. Por ejemplo, una empresa española reorganizó su arquitectura con VPC Endpoints y cachés internas, logrando un ahorro anual significativo y mejorando la latencia de sus aplicaciones.</p>
-<h2 class="sb h2-sbb-cls" id="identificar-y-analizar-los-costos-de-transferencia-intra-region" tabindex="-1">Identificar y analizar los costos de transferencia intra-región</h2>
-<p>Una vez entendido el impacto de los costos de transferencia intra-región, el siguiente paso es localizarlos y analizarlos detalladamente para tomar decisiones informadas.</p>
-<h3 id="encontrar-costos-en-aws-billing-y-cost-explorer" tabindex="-1">Encontrar costos en <a href="https://aws.amazon.com/" rel="nofollow noopener noreferrer" target="_blank">AWS</a> Billing y Cost Explorer</h3>
-<p><figure><img alt="AWS" src="/assets/blog/60da63bb51e1ade7c2f8945d.jpg" style="width:100%;border-radius:16px;"></figure></p>
-<p>Para mantener bajo control estos cargos, es fundamental identificarlos dentro de la consola de AWS, ya que suelen estar distribuidos entre diferentes servicios.</p>
-<p>En el <strong>AWS Billing Dashboard</strong>, los costos de transferencia intra-región aparecen bajo la categoría <em>"Data Transfer"</em> dentro de cada servicio. Por ejemplo, en EC2 se reflejan como <em>"Data Transfer - Regional"</em> o <em>"Inter-AZ Data Transfer"</em>. Cada servicio, como RDS o <a href="https://dondeaprendoaws.com/blog/guia-de-amazon-elasticache-almacenamiento-en-cache-en-memoria/">ElastiCache</a>, factura estos costos de manera independiente, por lo que es necesario revisarlos uno por uno.</p>
-<p>Por otro lado, <strong>Cost Explorer</strong> ofrece una vista más detallada y permite filtrar específicamente por tipo de cargo. Al aplicar el filtro <em>"Usage Type"</em>, es posible identificar estos costos más fácilmente. Esto resulta especialmente útil para arquitecturas con múltiples microservicios distribuidos entre zonas de disponibilidad (AZ), ya que puede revelar patrones de gasto significativos.</p>
-<p>Además, la <strong>agrupación por zona de disponibilidad</strong> dentro de Cost Explorer permite identificar qué AZ generan más tráfico cruzado. Esto es particularmente relevante para empresas en España que operan en regiones como <em>eu-west-1</em>, donde optimizar la distribución de recursos entre AZ puede marcar una gran diferencia.</p>
-<p>Con esta información en mano, el <strong>Cost and Usage Report (CUR)</strong> puede ser utilizado para realizar un análisis más profundo y comprender los patrones de tráfico.</p>
-<h3 id="usar-cost-and-usage-report-cur-para-analisis" tabindex="-1">Usar Cost and Usage Report (CUR) para análisis</h3>
-<p>El <strong>Cost and Usage Report (CUR)</strong> es la herramienta más detallada para desglosar los costos de transferencia intra-región. Al combinarlo con <strong><a href="https://dondeaprendoaws.com/blog/amazon-redshift-el-poder-del-data-warehousing-en-aws/">Amazon Athena</a></strong>, se pueden realizar análisis personalizados que identifiquen patrones de tráfico y los principales generadores de costos.</p>
-<p>Para configurarlo, primero se debe crear un bucket de S3 dedicado y habilitar la entrega de informes con granularidad horaria. Una vez configurado, el CUR incluye columnas como <em>product/usagetype</em>, <em>lineItem/operation</em> y <em>lineItem/availabilityZone</em>, que son clave para analizar estas transferencias.</p>
-<p>Las consultas más útiles suelen centrarse en identificar <strong>los recursos que generan mayores volúmenes de transferencia</strong>. Por ejemplo, una consulta típica filtra <em>product/usagetype</em> que contenga "DataTransfer" y agrupa por <em>lineItem/resourceId</em>, mostrando qué instancias o servicios específicos generan más tráfico entre AZ.</p>
-<p>El análisis temporal también es crucial. Muchas empresas descubren que los picos de transferencia coinciden con procesos como backups, sincronizaciones de datos o tareas de mantenimiento. Identificar estos patrones permite <strong>reprogramar operaciones</strong> en horarios de menor tráfico, optimizando así los costos.</p>
-<h3 id="comparacion-de-herramientas-de-monitorizacion" tabindex="-1">Comparación de herramientas de monitorización</h3>
-<p>Dependiendo de la complejidad de tu entorno, cada herramienta tiene ventajas específicas que pueden facilitar el análisis.</p>
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Herramienta</th>
-<th>Ventajas</th>
-<th>Desventajas</th>
-<th>Mejor Para</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>AWS Billing Dashboard</strong></td>
-<td>Interfaz sencilla y acceso inmediato, no requiere configuración adicional</td>
-<td>Información limitada y sin análisis granular</td>
-<td>Revisión rápida para equipos pequeños o análisis mensuales</td>
-</tr>
-<tr>
-<td><strong>Cost Explorer</strong></td>
-<td>Filtros avanzados, visualizaciones gráficas y análisis de tendencias</td>
-<td>Actualización de datos con 24 horas de retraso, limitado para consultas complejas</td>
-<td>Identificar patrones y preparar informes ejecutivos</td>
-</tr>
-<tr>
-<td><strong>Cost and Usage Report + Athena</strong></td>
-<td>Máximo nivel de detalle, consultas personalizadas y análisis histórico</td>
-<td>Requiere configuración técnica y puede generar costos adicionales en Athena y S3</td>
-<td>Análisis exhaustivo en entornos complejos</td>
-</tr>
-</tbody>
-</table></figure>
-<p>La elección de la herramienta dependerá del tamaño y la complejidad de tu infraestructura. Por ejemplo, las startups en España suelen optar por Cost Explorer debido a su facilidad de uso, mientras que grandes organizaciones con arquitecturas distribuidas suelen necesitar la granularidad que ofrece el CUR combinado con Athena.</p>
-<p>Para empresas con múltiples cuentas AWS, <strong><a href="https://dondeaprendoaws.com/blog/gestionando-multiples-cuentas-de-aws-con-aws-organizations/">AWS Organizations</a></strong> y la facturación consolidada permiten analizar los costos de transferencia intra-región a nivel global. Esto es especialmente útil para compañías con subsidiarias o departamentos que manejan cuentas independientes.</p>
-<p>Por último, la <strong>frecuencia de revisión</strong> también influye en la elección de herramientas. Cost Explorer es ideal para revisiones semanales o mensuales, mientras que el CUR es más adecuado para análisis detallados y optimizaciones a largo plazo en la arquitectura.</p>
-<h2 class="sb h2-sbb-cls" id="metodos-para-reducir-los-costos-de-transferencia-intra-region" tabindex="-1">Métodos para reducir los costos de transferencia intra-región</h2>
-<p>Una vez identificados los costos, estas estrategias pueden ayudarte a reducir los gastos de transferencia dentro de una región sin sacrificar el rendimiento de tus sistemas.</p>
-<h3 id="localizacion-de-datos" tabindex="-1">Localización de datos</h3>
-<p>La <strong>localización de datos</strong> consiste en agrupar recursos que interactúan frecuentemente dentro de la misma zona de disponibilidad (AZ), ayudando a minimizar los costos asociados a la transferencia de datos entre zonas.</p>
-<p>El primer paso es <strong>mapear las comunicaciones</strong> entre tus servicios. En aplicaciones web, los patrones suelen ser predecibles: servidores que consultan bases de datos, cachés que entregan contenido o servicios que acceden a almacenamiento. Al identificar estos flujos, puedes organizar los recursos de manera más eficiente.</p>
-<p>Por ejemplo, si una instancia EC2 en <em>eu-west-1a</em> consulta constantemente una base de datos RDS en <em>eu-west-1b</em>, mover ambos recursos a la misma AZ elimina los costos de transferencia entre zonas. Eso sí, esta decisión debe equilibrarse con la necesidad de alta disponibilidad. Una buena práctica es mantener réplicas de lectura en la misma AZ que los servidores de aplicación, y reservar réplicas en otras zonas para casos de contingencia.</p>
-<p>Además, se puede configurar la <strong>afinidad de zona</strong> en los balanceadores de carga de AWS. Esto permite priorizar el tráfico hacia recursos en la misma zona, reduciendo las transferencias cruzadas en arquitecturas distribuidas.</p>
-<p>En arquitecturas de <strong>microservicios</strong>, la localización de datos requiere un análisis más profundo. Los servicios que intercambian grandes volúmenes de datos deben estar en la misma AZ, mientras que aquellos con comunicaciones menos frecuentes pueden distribuirse para garantizar disponibilidad.</p>
-<p>Por último, no solo importa dónde están los recursos, sino también cómo se comunican entre sí. Aquí es donde entra en juego la elección de las IPs.</p>
-<h3 id="uso-de-ips-privadas" tabindex="-1">Uso de IPs privadas</h3>
-<p>Las <strong>IPs privadas</strong> son una opción más económica para transferencias de datos en comparación con las IPs públicas o elásticas, especialmente en entornos con un alto volumen de tráfico interno.</p>
-<p>Cuando las instancias se comunican mediante <strong>IPs públicas</strong>, AWS cobra tarifas tanto por el tráfico saliente como por el entrante. En cambio, las comunicaciones a través de IPs privadas dentro de una misma región tienen costos mucho más bajos e incluso pueden ser gratuitas si ocurren dentro de la misma AZ.</p>
-<p>Para aprovechar esto, configura tus instancias para usar IPs privadas en las comunicaciones internas. Actualiza las cadenas de conexión y ajusta los grupos de seguridad para permitir solo tráfico interno. Una recomendación es crear grupos de seguridad separados para el tráfico interno y público, manteniéndolos bien diferenciados.</p>
-<p>En el caso de bases de datos y servicios de caché, deshabilita el acceso público y utiliza endpoints privados. Servicios como <a href="https://dondeaprendoaws.com/blog/bases-de-datos-relacionales-en-aws-con-amazon-rds-y-amazon-aurora/">Amazon RDS</a> y <a href="https://aws.amazon.com/elasticache/" rel="nofollow noopener noreferrer" target="_blank">ElastiCache</a> permiten restringir el acceso exclusivamente a través de la VPC, eliminando costos asociados al tráfico público.</p>
-<p>Una vez optimizada la ubicación y el uso de redes internas, puedes centrarte en minimizar el volumen de datos transferidos.</p>
-<h3 id="optimizacion-de-trafico" tabindex="-1">Optimización de tráfico</h3>
-<p>Reducir el volumen de datos transferidos es clave. Algunas prácticas útiles incluyen la compresión de datos, el caching y la agregación de consultas.</p>
-<p>El <strong>caching estratégico</strong> es una herramienta poderosa. En lugar de consultar constantemente bases de datos remotas, utiliza cachés locales (como <a href="https://redis.io/" rel="nofollow noopener noreferrer" target="_blank">Redis</a> o <a href="https://memcached.org/" rel="nofollow noopener noreferrer" target="_blank">Memcached</a>) en cada AZ. Esto permite que los datos se transfieran una sola vez y se sirvan localmente mientras el caché sea válido.</p>
-<p>La <strong>agregación de consultas</strong> es otra técnica efectiva. En lugar de realizar múltiples solicitudes pequeñas, agrupa los datos en lotes para reducir la cantidad de transferencias. Esto es especialmente útil en arquitecturas de microservicios donde varios servicios consultan las mismas fuentes de datos.</p>
-<p>Si tu aplicación tiene <strong>patrones de acceso predecibles</strong>, considera sincronizar los datos en horarios de menor tráfico. Por ejemplo, puedes sincronizar catálogos de productos durante la noche y servirlos desde copias locales durante el día, disminuyendo así las consultas en tiempo real.</p>
-<p>También es importante optimizar los protocolos de comunicación. Usa conexiones persistentes como HTTP/2, que permiten multiplexar múltiples solicitudes en una sola conexión, reduciendo la sobrecarga de encabezados.</p>
-<p>Finalmente, analiza los <strong>logs de aplicación</strong> para identificar patrones de tráfico ineficientes. Esto te permitirá detectar consultas duplicadas, transferencias innecesarias y comunicaciones redundantes entre servicios, brindándote oportunidades claras para optimizar el tráfico y reducir costos de forma efectiva.</p>
-<h2 class="sb h2-sbb-cls" id="herramientas-y-servicios-de-aws-para-la-optimizacion-de-costos" tabindex="-1">Herramientas y servicios de AWS para la optimización de costos</h2>
-<p>Además de las estrategias para gestionar la localización y el tráfico, AWS pone a disposición herramientas específicas que ayudan a reducir costos de transferencia dentro de la misma región, optimizar el uso del tráfico y reforzar la seguridad.</p>
-<h3 id="aws-privatelink-y-vpc-endpoints" tabindex="-1"><a href="https://aws.amazon.com/privatelink/" rel="nofollow noopener noreferrer" target="_blank">AWS PrivateLink</a> y VPC Endpoints</h3>
-<p><figure><img alt="AWS PrivateLink" src="/assets/blog/8e244d65936511f595f657ff.jpg" style="width:100%;border-radius:16px;"></figure></p>
-<p><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">AWS PrivateLink</a> permite conectar servicios de manera interna, evitando el tráfico por redes públicas. Esto no solo mejora la seguridad, sino que también puede reducir los cargos relacionados con el uso de la red pública al mantener las transferencias dentro de la <a href="https://dondeaprendoaws.com/blog/aws-bases-de-datos-introduccion-basica/">infraestructura de AWS</a>.</p>
-<p>Los <strong>VPC Endpoints</strong> son especialmente útiles para servicios como S3, <a href="https://aws.amazon.com/dynamodb/" rel="nofollow noopener noreferrer" target="_blank">DynamoDB</a> y Lambda. Al acceder a estos servicios a través de un endpoint en lugar de hacerlo por internet, el tráfico permanece dentro de la VPC, lo que puede eliminar cargos por transferencia de datos salientes. Por ejemplo, si tu aplicación descarga archivos de S3 de manera constante, configurar un VPC Endpoint para S3 puede reducir significativamente esos costos.</p>
-<p>Hay dos tipos principales de VPC Endpoints:</p>
-<ul>
-<li><strong>Gateway Endpoints</strong>: Ideales para servicios como S3 y DynamoDB, ya que no tienen costos adicionales más allá de los ahorros en transferencias de datos.</li>
-<li><strong>Interface Endpoints</strong>: Tienen un coste por hora, pero son compatibles con una mayor variedad de servicios.</li>
-</ul>
-<p>Para maximizar el ahorro, identifica qué servicios consumen más ancho de banda desde tus instancias. Servicios como <a href="https://aws.amazon.com/rds/" rel="nofollow noopener noreferrer" target="_blank">Amazon RDS</a>, ElastiCache y EFS pueden beneficiarse considerablemente de las conexiones privadas, especialmente en arquitecturas con un alto volumen de consultas.</p>
-<p>Una vez configurado el endpoint en tu VPC, actualiza las rutas y ajusta los grupos de seguridad para permitir el tráfico interno. Esto no solo puede reducir los costos de transferencia, sino también mejorar la latencia. Si además necesitas minimizar solicitudes directas a los orígenes, CloudFront puede ser una solución clave.</p>
-<h3 id="uso-de-cloudfront-para-transferencias-internas" tabindex="-1">Uso de <a href="https://aws.amazon.com/cloudfront/" rel="nofollow noopener noreferrer" target="_blank">CloudFront</a> para Transferencias Internas</h3>
-<p><figure><img alt="CloudFront" src="/assets/blog/7e90067a88ffa1725b0eb166.jpg" style="width:100%;border-radius:16px;"></figure></p>
-<p>CloudFront, conocido por distribuir contenido a usuarios finales, también es una herramienta eficaz para optimizar transferencias internas al cachear datos de alto volumen. Esto reduce la frecuencia de solicitudes directas a los orígenes, disminuyendo tanto la carga como los costos asociados.</p>
-<p>Es especialmente útil para contenido estático que se consulta frecuentemente entre diferentes zonas de disponibilidad. Por ejemplo, si tienes imágenes, archivos de configuración o datos de catálogo que se acceden repetidamente desde múltiples instancias, CloudFront puede cachear este contenido y servirlo desde ubicaciones más cercanas a tus recursos.</p>
-<p>Para APIs internas con patrones de acceso predecibles, CloudFront puede actuar como una capa de caché eficiente. Configura políticas de caché para endpoints que devuelvan datos relativamente estáticos, como información de productos o configuraciones de sistema.</p>
-<p>Una estrategia interesante es usar CloudFront como un proxy interno para servicios que generan respuestas computacionalmente costosas. En lugar de que cada instancia consulte directamente una base de datos o API externa, CloudFront puede cachear estas respuestas y distribuirlas internamente, reduciendo tanto el tráfico como la carga en los servicios backend.</p>
-<p>Configurar CloudFront requiere crear una distribución que apunte a tus recursos internos, ajustar las políticas de caché según los patrones de acceso y configurar los orígenes para aceptar tráfico proveniente de CloudFront. Monitorea regularmente las métricas para asegurarte de que las tasas de acierto del caché justifican su uso. Para medir el impacto de estas optimizaciones, Amazon VPC Flow Logs es una herramienta clave.</p>
-<h3 id="monitorizacion-con-amazon-vpc-flow-logs" tabindex="-1">Monitorización con <a href="https://aws.amazon.com/vpc/" rel="nofollow noopener noreferrer" target="_blank">Amazon VPC</a> Flow Logs</h3>
-<p><figure><img alt="Amazon VPC" src="/assets/blog/929ac5171e4550b8186f675f.jpg" style="width:100%;border-radius:16px;"></figure></p>
-<p>Amazon VPC Flow Logs proporciona una visión detallada del tráfico de red, ayudando a identificar transferencias costosas que salen de la red privada y generan cargos adicionales.</p>
-<p>Estos registros documentan todas las comunicaciones IP dentro de tu VPC, incluyendo origen, destino, puertos y volúmenes de datos. Esta información es crucial para detectar tráfico ineficiente, como instancias que acceden a servicios de AWS a través de IPs públicas en lugar de endpoints privados.</p>
-<p>Puedes configurar filtros en los Flow Logs para capturar solo el tráfico relevante para el análisis de costos, lo que simplifica el proceso. Por ejemplo, filtrar por puertos, direcciones IP o tipos de tráfico puede reducir el volumen de datos y facilitar el análisis.</p>
-<p>Una práctica recomendada es usar <a href="https://aws.amazon.com/athena/" rel="nofollow noopener noreferrer" target="_blank">Amazon Athena</a> para consultar los logs almacenados en S3. Esto permite crear consultas SQL que identifiquen patrones de tráfico costosos, como comunicaciones frecuentes entre zonas de disponibilidad o accesos a servicios de AWS a través de internet.</p>
-<p>Además, los Flow Logs pueden revelar conexiones no documentadas entre servicios. Es común que las aplicaciones establezcan comunicaciones que los desarrolladores no han mapeado completamente, y estas conexiones podrían estar generando costos elevados si cruzan zonas de disponibilidad o salen de la VPC.</p>
-<p>Para automatizar el análisis, configura alertas en <a href="https://aws.amazon.com/cloudwatch/" rel="nofollow noopener noreferrer" target="_blank">CloudWatch</a> basadas en métricas derivadas de los Flow Logs. Estas alertas pueden notificarte cuando el tráfico entre zonas supere ciertos umbrales, permitiendo tomar medidas rápidas ante picos de costos inesperados.</p>
-<p>Finalmente, combina los Flow Logs con herramientas de visualización como <a href="https://aws.amazon.com/quicksight/" rel="nofollow noopener noreferrer" target="_blank">Amazon QuickSight</a> para crear dashboards que muestren patrones de tráfico en tiempo real. Esto facilita la identificación de oportunidades para optimizar costos de manera proactiva.</p>
-<h2 class="sb h2-sbb-cls" id="caso-de-estudio-reduciendo-costos-de-transferencia-intra-region" tabindex="-1">Caso de estudio: reduciendo costos de transferencia intra-región</h2>
-<h3 id="descripcion-del-escenario" tabindex="-1">Descripción del escenario</h3>
-<p>Una empresa de comercio electrónico española, operando en la región <strong>eu-west-1</strong> de AWS, utilizaba una arquitectura distribuida para garantizar alta disponibilidad. Su infraestructura estaba compuesta por instancias EC2 distribuidas en varias zonas de disponibilidad, <a href="https://dondeaprendoaws.com/blog/clases-de-almacenamiento-de-amazon-s3/">almacenamiento en S3</a> para imágenes de productos y una base de datos RDS con replicación entre zonas. Sin embargo, esta configuración generaba altos costos de transferencia intra-región debido a que las aplicaciones accedían a S3 a través de conexiones públicas y realizaban consultas a la base de datos desde diferentes zonas, provocando tráfico innecesario.</p>
-<h3 id="aplicacion-de-metodos-y-herramientas" tabindex="-1">Aplicación de métodos y herramientas</h3>
-<p>Para reducir estos costos y optimizar el rendimiento, se implementaron las siguientes soluciones:</p>
-<ul>
-<li><strong>VPC Endpoints para S3</strong>: Se configuraron en cada zona de disponibilidad, eliminando el tráfico hacia internet para acceder al almacenamiento.</li>
-<li><strong>Localización de datos</strong>: Se reorganizó la arquitectura para que cada zona procesara exclusivamente los datos almacenados en buckets S3 locales.</li>
-<li><strong>Réplicas de lectura en RDS</strong>: Se optimizó el acceso a la base de datos configurando réplicas de lectura en cada zona de disponibilidad.</li>
-<li><strong>Uso de CloudFront</strong>: Se implementó como caché interna para las imágenes más solicitadas, reduciendo las solicitudes directas a S3.</li>
-<li><strong>Monitoreo activo</strong>: Se activaron VPC Flow Logs y <a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/">alertas en CloudWatch</a> para identificar y actuar frente a aumentos anómalos en las transferencias.</li>
-</ul>
-<p>Estas medidas no solo redujeron costos, sino que también mejoraron el rendimiento general del sistema.</p>
-<h3 id="resultados-y-ahorros" tabindex="-1">Resultados y ahorros</h3>
-<p>Gracias a estos cambios, la empresa logró una reducción significativa en los costos de transferencia intra-región. La eliminación del tráfico público y la localización de datos disminuyeron el tráfico innecesario entre zonas. Además, <strong>CloudFront</strong> ayudó a reducir la carga en S3, mientras que el monitoreo continuo permitió detectar y corregir patrones de tráfico no deseados.</p>
-<p>El impacto fue claro: menores costes operativos, una mejora notable en la latencia del procesamiento de imágenes y un retorno de la inversión en un periodo corto. Estos resultados subrayan la importancia de una arquitectura bien planificada para optimizar tanto el rendimiento como los gastos asociados.</p>
-<h2 class="sb h2-sbb-cls" id="conclusion" tabindex="-1">Conclusión</h2>
-<h3 id="puntos-clave" tabindex="-1">Puntos clave</h3>
-<p>Reducir los costos intra-región requiere un enfoque basado en visibilidad, una arquitectura bien diseñada y un monitoreo constante. Algunas empresas llegan a gastar millones al año en estos conceptos, lo que en ciertos casos representa hasta un tercio de su factura mensual de AWS.</p>
-<p>Para minimizar estos gastos, es fundamental mantener los recursos en la misma zona de disponibilidad siempre que sea posible, evitando así los cargos de 0,01 USD/GB por transferencia en cada dirección. El uso de IP privadas elimina estos costos, mientras que los VPC Endpoints para servicios como S3 y DynamoDB permiten un acceso directo sin necesidad de pasar por internet. Herramientas como CloudFront, por su parte, pueden actuar como caché interno, reduciendo solicitudes repetitivas.</p>
-<p>Los informes especializados y dashboards proporcionan la visibilidad necesaria para identificar patrones de uso, mientras que los VPC Flow Logs ofrecen metadatos detallados sobre el tráfico real. Además, la compresión de archivos antes de su transferencia y una configuración adecuada de balanceadores de carga pueden generar ahorros significativos.</p>
-<p>Estos elementos son clave para establecer un plan de acción efectivo.</p>
-<h3 id="proximos-pasos" tabindex="-1">Próximos pasos</h3>
-<p>Con estas optimizaciones en mente, considera los siguientes pasos para mantener un enfoque continuo de mejora:</p>
-<ul>
-<li>Activa el CUR y configura alertas en CloudWatch para identificar picos de tráfico anómalos.</li>
-<li>Usa Cost Explorer y etiquetas para localizar instancias con altos costos de transferencia.</li>
-<li>Revisa regularmente la configuración de tus aplicaciones, prestando atención a los intervalos de monitoreo y la granularidad de las métricas para evitar tráfico innecesario entre zonas.</li>
-<li>Implementa el <a href="https://dondeaprendoaws.com/blog/conceptos-basicos-y-avanzados-de-amazon-vpc/">uso compartido de VPC</a> en múltiples cuentas dentro de la misma zona de disponibilidad (AZ) para reducir los costos de transferencia.</li>
-<li>Para cargas de trabajo con grandes volúmenes de datos, evalúa acuerdos de precios privados con AWS y utiliza la <a href="https://dondeaprendoaws.com/blog/gestion-de-facturacion-de-aws-guia-completa/">calculadora de precios de AWS</a> en la planificación arquitectónica para prever los costos de transferencia.</li>
-<li>Mantén un monitoreo constante mediante dashboards interactivos que permitan identificar nuevas oportunidades de optimización con el tiempo.</li>
-</ul>
-<p>Según datos recientes, un cliente promedio que emplea herramientas de <a href="https://dondeaprendoaws.com/blog/10-estrategias-de-optimizacion-de-costos-en-aws/">optimización de costos</a> puede lograr una eficiencia del 33% en su primer año, especialmente cuando cuenta con el apoyo de profesionales certificados en FinOps. Adoptar estas prácticas no solo ayuda a reducir los gastos operativos, sino que también mejora el rendimiento general de los sistemas.</p>
-<h2 class="sb h2-sbb-cls" id="faqs" tabindex="-1">FAQs</h2>
-<h3 data-faq-q="" id="como-puedo-optimizar-el-uso-de-direcciones-ip-privadas-en-aws-para-reducir-los-costos-de-transferencia-de-datos-dentro-de-una-region" tabindex="-1">¿Cómo puedo optimizar el uso de direcciones IP privadas en AWS para reducir los costos de transferencia de datos dentro de una región?</h3>
-<p>Para reducir los costos asociados con la transferencia de datos dentro de una misma región en AWS, lo mejor es usar <strong>direcciones IP privadas</strong> para que los recursos internos se comuniquen entre sí. Esto no solo ayuda a disminuir las tarifas, sino que también mejora el rendimiento de la red al evitar rutas innecesarias.</p>
-<p>Otra estrategia clave es utilizar herramientas como <strong>AWS PrivateLink</strong> y <strong>VPC sharing</strong>. Estas soluciones permiten que el tráfico permanezca dentro de la red privada y dentro de la misma región, eliminando gastos adicionales por datos que salgan de la red.</p>
-<p>Adoptar estas prácticas no solo ayuda a controlar los costos, sino que también refuerza la seguridad y hace que tus recursos en AWS sean más eficientes.</p>
-<h3 data-faq-q="" id="como-puedo-identificar-que-servicios-generan-mas-costes-de-transferencia-de-datos-dentro-de-una-region-en-aws" tabindex="-1">¿Cómo puedo identificar qué servicios generan más costes de transferencia de datos dentro de una región en AWS?</h3>
-<p>Para averiguar qué servicios están generando los mayores costes de transferencia de datos dentro de una región en AWS, puedes recurrir a <strong><a href="https://aws.amazon.com/aws-cost-management/aws-cost-explorer/" rel="nofollow noopener noreferrer" target="_blank">AWS Cost Explorer</a></strong>. Esta herramienta es ideal para analizar patrones de costes y uso, incluyendo aquellos vinculados a la transferencia de datos intra-región.</p>
-<p>También puedes aprovechar los <strong>Informes de Costes y Uso (CUR)</strong>. Procesa estos informes utilizando consultas en <strong>Athena</strong> y crea visualizaciones con <strong>QuickSight</strong>. Esto te permitirá identificar con precisión los recursos que están generando esos costes, ayudándote a priorizar la optimización de los servicios que más impactan en tu factura.</p>
-<p>Con estas estrategias, podrás gestionar de manera más eficaz los costes relacionados con la transferencia de datos en tu infraestructura de AWS.</p>
-<h3 data-faq-q="" id="como-puedo-configurar-vpc-endpoints-para-reducir-el-trafico-hacia-internet-en-mi-infraestructura-de-aws" tabindex="-1">¿Cómo puedo configurar VPC endpoints para reducir el tráfico hacia internet en mi infraestructura de AWS?</h3>
-<p>Configurar <strong>VPC Endpoints</strong> es una forma eficaz de minimizar el tráfico hacia internet y ajustar los costes en AWS. Estos endpoints permiten que los recursos dentro de tu VPC se conecten directamente con servicios de AWS sin necesidad de usar una conexión pública, lo que aporta ventajas tanto en seguridad como en eficiencia.</p>
-<p>Aquí tienes los pasos esenciales para configurarlos:</p>
-<ul>
-<li><strong>Identifica los servicios que necesitas:</strong> Piensa en servicios como S3 o DynamoDB que requieren acceso desde tu VPC. Esto te ayudará a determinar qué endpoints necesitas.</li>
-<li><strong>Crea el VPC Endpoint:</strong> Ve a la consola de AWS, entra en la sección de VPC y selecciona "Endpoints". Escoge el servicio al que quieres conectarte, el tipo de endpoint (Gateway o Interface) y la VPC donde se implementará.</li>
-<li><strong>Ajusta las políticas de acceso:</strong> Configura las políticas del endpoint para definir quién puede usarlo. Esto es clave para mantener el control sobre el acceso.</li>
-<li><strong>Actualiza las rutas o configuraciones:</strong> En caso de usar un Gateway Endpoint, asegúrate de modificar las tablas de rutas de tus subnets para dirigir el tráfico correctamente hacia el endpoint.</li>
-</ul>
-<p>Siguiendo estos pasos, no solo reducirás el tráfico saliente y los costes asociados, sino que también reforzarás la seguridad al mantener el tráfico dentro de la red privada de AWS.</p>
-<h2>Publicaciones de blog relacionadas</h2><ul><li><a href="https://dondeaprendoaws.com/blog/10-estrategias-para-optimizar-costos-de-red-en-aws/">10 estrategias para optimizar costos de red en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/guia-completa-analisis-de-costos-de-trafico-en-aws/">Guía completa: análisis de costos de tráfico en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/como-usar-aws-cost-explorer-para-trafico-de-red/">Cómo usar AWS Cost Explorer para tráfico de red</a></li></ul>
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"¿Cómo puedo optimizar el uso de direcciones IP privadas en AWS para reducir los costos de transferencia de datos dentro de una región?","acceptedAnswer":{"@type":"Answer","text":"<p>Para reducir los costos asociados con la transferencia de datos dentro de una misma región en AWS, lo mejor es usar <strong>direcciones IP privadas</strong> para que los recursos internos se comuniquen entre sí. Esto no solo ayuda a disminuir las tarifas, sino que también mejora el rendimiento de la red al evitar rutas innecesarias.</p> <p>Otra estrategia clave es utilizar herramientas como <strong>AWS PrivateLink</strong> y <strong>VPC sharing</strong>. Estas soluciones permiten que el tráfico permanezca dentro de la red privada y dentro de la misma región, eliminando gastos adicionales por datos que salgan de la red.</p> <p>Adoptar estas prácticas no solo ayuda a controlar los costos, sino que también refuerza la seguridad y hace que tus recursos en AWS sean más eficientes.</p>"}},{"@type":"Question","name":"¿Cómo puedo identificar qué servicios generan más costes de transferencia de datos dentro de una región en AWS?","acceptedAnswer":{"@type":"Answer","text":"<p>Para averiguar qué servicios están generando los mayores costes de transferencia de datos dentro de una región en AWS, puedes recurrir a <strong><a href=\"https://aws.amazon.com/aws-cost-management/aws-cost-explorer/\" target=\"_blank\" rel=\"nofollow noopener noreferrer\">AWS Cost Explorer</a></strong>. Esta herramienta es ideal para analizar patrones de costes y uso, incluyendo aquellos vinculados a la transferencia de datos intra-región.</p> <p>También puedes aprovechar los <strong>Informes de Costes y Uso (CUR)</strong>. Procesa estos informes utilizando consultas en <strong>Athena</strong> y crea visualizaciones con <strong>QuickSight</strong>. Esto te permitirá identificar con precisión los recursos que están generando esos costes, ayudándote a priorizar la optimización de los servicios que más impactan en tu factura.</p> <p>Con estas estrategias, podrás gestionar de manera más eficaz los costes relacionados con la transferencia de datos en tu infraestructura de AWS.</p>"}},{"@type":"Question","name":"¿Cómo puedo configurar VPC Endpoints para reducir el tráfico hacia internet en mi infraestructura de AWS?","acceptedAnswer":{"@type":"Answer","text":"<p>Configurar <strong>VPC Endpoints</strong> es una forma eficaz de minimizar el tráfico hacia internet y ajustar los costes en AWS. Estos endpoints permiten que los recursos dentro de tu VPC se conecten directamente con servicios de AWS sin necesidad de usar una conexión pública, lo que aporta ventajas tanto en seguridad como en eficiencia.</p> <p>Aquí tienes los pasos esenciales para configurarlos:</p> <ul> <li><strong>Identifica los servicios que necesitas:</strong> Piensa en servicios como S3 o DynamoDB que requieren acceso desde tu VPC. Esto te ayudará a determinar qué endpoints necesitas.</li> <li><strong>Crea el VPC Endpoint:</strong> Ve a la consola de AWS, entra en la sección de VPC y selecciona &quot;Endpoints&quot;. Escoge el servicio al que quieres conectarte, el tipo de endpoint (Gateway o Interface) y la VPC donde se implementará.</li> <li><strong>Ajusta las políticas de acceso:</strong> Configura las políticas del endpoint para definir quién puede usarlo. Esto es clave para mantener el control sobre el acceso.</li> <li><strong>Actualiza las rutas o configuraciones:</strong> En caso de usar un Gateway Endpoint, asegúrate de modificar las tablas de rutas de tus subnets para dirigir el tráfico correctamente hacia el endpoint.</li> </ul> <p>Siguiendo estos pasos, no solo reducirás el tráfico saliente y los costes asociados, sino que también reforzarás la seguridad al mantener el tráfico dentro de la red privada de AWS.</p>"}}]}</script>
+Para reducir los **costos de transferencia intra-región en AWS**, primero descubre qué servicio registra el cargo y qué flujo entre zonas o recursos lo provoca. “Intra-región” no significa una tarifa única: el precio depende del servicio, los extremos, la dirección y la ruta. Una dirección IP privada o un VPC endpoint puede cambiar el recorrido, pero por sí solo no elimina todo cargo de transferencia ni el procesamiento de NAT o PrivateLink.
+
+## 1. Separa el cargo de la ruta que mueve los bytes
+
+Un costo que aparece en la factura bajo un servicio puede corresponder a transferencia o a procesamiento de red. También pueden sumarse cargos por hora de recursos que mantienen la ruta disponible. Antes de cambiar subredes o apagar recursos, dibuja el flujo y registra:
+
+- Servicio y recurso de origen y destino, cuenta, región y zona de disponibilidad.
+- Volumen y dirección del tráfico, frecuencia y horas en que ocurre.
+- Cada salto intermedio: balanceador, NAT Gateway, VPC endpoint, Transit Gateway u otra conexión.
+- Los requisitos que deben seguir cumpliéndose: redundancia, latencia, seguridad y recuperación ante fallas.
+
+La grabación [VPC e interconexiones de VPC](https://www.youtube.com/watch?v=Mcffd13mkPc), del AWS User Group Guatemala, repasa conceptos útiles para dibujar esos recorridos y reconocer las conexiones entre redes.
+
+Esa vista evita una optimización engañosa: eliminar un cargo entre AZ puede añadir horas de NAT, datos procesados por un endpoint o una dependencia zonal que antes no existía.
+
+## 2. Localiza cargos y flujos con herramientas distintas
+
+**Para investigar el costo**, abre Cost Explorer y acota el período, la región, la cuenta y el servicio. Prueba los grupos por tipo de uso y zona de disponibilidad; AWS señala que los costos de transferencia se incluyen en el servicio asociado, no siempre en una fila genérica de “Data Transfer”. Los datos de costos no son telemetría en tiempo real. Esta guía interna explica el análisis paso a paso: [cómo usar AWS Cost Explorer para tráfico de red](/blog/como-usar-aws-cost-explorer-para-trafico-de-red/).
+
+Si necesitas más detalle financiero, crea una exportación **Cost and Usage Report 2.0 (CUR 2.0)** en [AWS Data Exports](https://docs.aws.amazon.com/cur/latest/userguide/dataexports-create.html). Sus líneas de uso ayudan a comparar producto, tipo de uso, operación, cuenta y otros campos disponibles; el nivel de recurso depende de la línea y de los datos que la incluyen. La documentación de AWS indica que CUR 2.0 es la opción recomendada para recibir datos detallados de costo y uso.
+
+La sesión [The Cloud Forge: conectividad y FinOps, el arte de crear valor en la nube](https://www.youtube.com/watch?v=k3uIrKU50ak), del AWS User Group Medellín, relaciona decisiones de conectividad con su análisis de costos.
+
+**Para investigar quién se comunica con quién**, habilita VPC Flow Logs con los campos apropiados —por ejemplo, direcciones, interfaz, zona, bytes y acción— en las VPC, subredes o interfaces de interés. Los logs describen flujos IP agregados durante intervalos; no indican cuánto cobró AWS por ese flujo. Son de mejor esfuerzo, no capturan todo el tráfico y pueden tener cargos de entrega o consulta en CloudWatch Logs, S3 y Athena. Consulta [campos y formato de VPC Flow Logs](https://docs.aws.amazon.com/vpc/latest/userguide/flow-log-records.html) y sus [limitaciones](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs-limitations.html).
+
+Relaciona los logs con el costo por tipo de uso y período, pero no intentes convertir cada registro de bytes en una línea exacta de factura. Las unidades, los extremos facturables y los servicios intermedios pueden diferir.
+
+## 3. Comprueba el alcance de una tarifa entre AZ
+
+Para dos instancias EC2 en distintas AZ de una misma región, la página de precios de EC2 en US East (Ohio) publica USD 0,01/GB de entrada y salida para ciertas transferencias. Si la instancia A envía 100 GB a la instancia B durante el mes, el ejemplo suma 100 × USD 0,01 de salida y 100 × USD 0,01 de entrada: USD 2 en total, antes de cualquier otro cargo aplicable. Limita esta cifra a esa combinación y región: otros servicios y rutas pueden tener condiciones distintas. Confirma el precio vigente y los tipos de uso de tu cuenta en la [página de precios de EC2](https://aws.amazon.com/ec2/pricing/on-demand/) y en la factura.
+
+Mantener una comunicación dentro de la misma AZ puede evitar ciertos cargos para algunos pares de recursos, pero no es una recomendación para concentrar toda la producción en una sola zona. Multi-AZ puede ser parte del requisito de disponibilidad. Antes de cambiarlo, compara el costo de tráfico con la reducción de resiliencia y el comportamiento esperado durante una falla zonal.
+
+## 4. Compara NAT Gateway y VPC endpoints por ruta
+
+Un NAT Gateway cobra por hora y por GB procesado; también pueden aplicar cargos estándar de transferencia según la ruta. Distingue sus dos modos antes de comparar:
+
+- **Zonal:** cada gateway pertenece a una AZ. Si recursos de varias AZ comparten un gateway zonal, el tráfico hacia otra zona puede sumar cargos entre AZ y una falla en la zona del gateway puede quitarles salida. Un gateway zonal por AZ con rutas hacia el gateway local puede mantener afinidad zonal, pero agrega horas de gateway.
+- **Regional:** un único recurso se expande entre AZ según la presencia de cargas y busca mantener afinidad zonal. Se cobra por hora en cada AZ cubierta, por GB procesado y por la transferencia estándar aplicable. La expansión a una AZ nueva puede tardar hasta 60 minutos; mientras tanto, parte del tráfico puede procesarse desde una AZ existente. Comprueba cobertura, modo y ruta en la [guía de Regional NAT Gateway](https://docs.aws.amazon.com/vpc/latest/userguide/nat-gateways-regional.html) y calcula su costo por las tarifas de [Amazon VPC](https://aws.amazon.com/vpc/pricing/).
+
+Para gateways zonales, concentrar el tráfico puede ahorrar horas de NAT y añadir cruces entre zonas; desplegar uno por zona puede reducir esos cruces y sumar horas. Regional NAT Gateway es otra alternativa con afinidad zonal y cobro por AZ cubierta. Compara el gasto completo, las rutas y el comportamiento ante una falla para el volumen real. Para observar el tráfico de un NAT regional por zona, CloudWatch combina las dimensiones `NatGatewayId` y `AvailabilityZone`.
+
+Para llegar a **S3 o DynamoDB desde una VPC**, un gateway endpoint no tiene cargos adicionales por hora ni por procesamiento de datos. Si el tráfico hoy pasa por NAT, puede evitar el cargo por GB procesado por NAT para ese flujo. El gateway endpoint no borra horas de NAT que necesites para otros destinos ni convierte todas las transferencias del servicio en gratuitas. Revisa [cómo funcionan los gateway endpoints](https://docs.aws.amazon.com/vpc/latest/privatelink/gateway-endpoints.html) y las [tarifas de Amazon VPC](https://aws.amazon.com/vpc/pricing/).
+
+Un **interface endpoint de AWS PrivateLink** puede dar acceso privado a muchos otros servicios, pero cobra por hora en cada zona donde se aprovisiona y por GB procesado. Para elegir, suma esas unidades y posibles cruces entre AZ; compáralas con NAT, las tarifas estándar que correspondan y el alcance que necesitas. La guía de [acceso a servicios de AWS mediante PrivateLink](https://docs.aws.amazon.com/vpc/latest/privatelink/privatelink-access-aws-services.html) describe el endpoint y sus cargos.
+
+Una IP privada tampoco anula la transferencia entre zonas. Puede evitar una ruta por una dirección IPv4 pública u otro camino externo; el precio de la transferencia dentro de la región sigue dependiendo de los extremos y del servicio. Por eso, revisa la ruta real y las líneas de uso en vez de clasificar una conexión solo por ser “privada”.
+
+Para repasar los conceptos de direccionamiento y rutas, consulta la grabación [Networking en AWS con Claudia: direcciones IP](https://www.youtube.com/watch?v=Ws2419VBjk4), de AWS Women Colombia User Group.
+
+## 5. Reduce el volumen solo donde exista un cargo por volumen
+
+Agrupa lecturas pequeñas cuando la aplicación lo permita, elimina campos y consultas repetidas, aplica caché donde la frescura de los datos lo admita y comprime formatos que se reduzcan bien. Estos cambios pueden bajar GB en flujos facturados por volumen, pero no quitan cargos por hora de NAT o endpoints, ni cargos por solicitud. Mide también CPU, latencia y consistencia antes de conservar la optimización.
+
+CloudFront puede servir contenido reutilizable desde caché y reducir accesos repetidos al origen para usuarios distribuidos. No es una herramienta automática para evitar transferencias entre AZ: compara solicitudes, aciertos de caché, origen, región de los usuarios y precios antes de introducirlo. Para más opciones de redes y sus costos, consulta [costos de red en AWS: 10 estrategias para reducir la factura](/blog/10-estrategias-para-optimizar-costos-de-red-en-aws/).
+
+## 6. Verifica el cambio sin degradar disponibilidad
+
+Antes de mover recursos o cambiar rutas, guarda una referencia del costo por tipo de uso, GB, latencia, errores y disponibilidad para el mismo período. Estima el costo completo de la alternativa con [AWS Pricing Calculator](https://calculator.aws/): incluye horas y GB de NAT, endpoint por zona, transferencias entre zonas, balanceadores y los otros servicios del camino.
+
+Implementa primero en una parte limitada y reversible. Confirma que cada subnet usa la tabla de rutas esperada, que la resolución DNS dirige al endpoint previsto y que Security Groups y políticas permiten solo el tráfico necesario. Luego compara períodos con volúmenes parecidos y espera a que se actualicen los datos de facturación. Revisa también latencia, errores y failover; un menor cargo no compensa una ruta que rompe una zona de disponibilidad o expone un servicio.
+
+## Recursos en español y comunidad
+
+- El [AWS User Group Networking Colombia](https://www.meetup.com/aws-user-group-networking-colombia/) reúne a personas interesadas en conectividad híbrida, enrutamiento y diseño de redes en AWS.
+- Si buscas una sesión introductoria en línea, [Amazon VPC Essentials: Fundamentos de Networking](https://www.meetup.com/aws-sbg-at-francisco-jose-de-caldas-district-univ-bogota/events/316674045/) está anunciada para el 21 de octubre de 2026, de 18:00 a 20:00 (hora de Colombia). Confirma horario, acceso y disponibilidad en la página de registro.
+
+La secuencia más fiable es localizar el tipo de uso que subió, identificar los bytes y saltos que podrían explicarlo, cotizar una alternativa con sus cargos completos y probarla sin sacrificar los requisitos de la aplicación.
