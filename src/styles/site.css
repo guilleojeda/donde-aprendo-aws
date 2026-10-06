@@ -1267,6 +1267,7 @@ h3 {
 }
 
 .faq-question {
+  list-style: none;
   position: relative;
   display: flex;
   width: 100%;
@@ -1286,9 +1287,13 @@ h3 {
   transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 
+.faq-question::-webkit-details-marker {
+  display: none;
+}
+
 .faq-question:hover,
 .faq-question:focus-visible,
-.faq-item.is-open .faq-question {
+.faq-disclosure[open] .faq-question {
   border-color: #fff;
 }
 
@@ -1300,7 +1305,7 @@ h3 {
   transition: transform 0.2s ease;
 }
 
-.faq-item.is-open .faq-arrow {
+.faq-disclosure[open] .faq-arrow {
   transform: rotate(180deg) translateY(2px);
 }
 
@@ -2432,7 +2437,7 @@ input:not([type='checkbox']):not([type='radio']):not([type='submit']):not([type=
 
 .faq-question:hover,
 .faq-question:focus-visible,
-.faq-item.is-open .faq-question {
+.faq-disclosure[open] .faq-question {
   border-color: transparent;
   background: var(--color-panel);
   color: var(--color-ink);
