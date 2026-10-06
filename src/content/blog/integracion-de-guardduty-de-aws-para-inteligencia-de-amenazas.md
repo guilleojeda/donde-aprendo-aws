@@ -1,613 +1,134 @@
 ---
-title: "Integración de GuardDuty de AWS para inteligencia de amenazas"
-description: "Descubre cómo integrar AWS GuardDuty con inteligencia de amenazas para mejorar la seguridad en tu entorno AWS. Aprende a configurar y gestionar amenazas eficazmente."
+title: "Amazon GuardDuty: listas de inteligencia de amenazas"
+description: "Integra indicadores propios con listas de entidades de GuardDuty, conoce sus límites y convierte los hallazgos en una ruta de investigación y respuesta."
 author: "guille-ojeda"
 publishedAt: "2024-04-30"
 publishedTimestamp: "2024-04-30T06:43:18.648Z"
+modifiedTimestamp: "2026-10-06T17:33:52-03:00"
 cover: "/assets/blog/editorial-seguridad.png"
 coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-seguridad.png"
 related:
-  - title: "5 whitepapers de AWS para aprobar exámenes"
-    url: "https://dondeaprendoaws.com/blog/5-whitepapers-de-aws-para-aprobar-examenes/"
-  - title: "Transacciones en Amazon DynamoDB"
-    url: "https://dondeaprendoaws.com/blog/transacciones-en-amazon-dynamodb/"
-  - title: "AWS Lambda en profundidad"
-    url: "https://dondeaprendoaws.com/blog/aws-lambda-en-profundidad/"
+  - title: "UEBA en AWS: GuardDuty, CloudTrail y análisis del comportamiento"
+    url: "https://dondeaprendoaws.com/blog/guia-de-ueba-para-la-seguridad-de-aws/"
+  - title: "Servicios de seguridad de AWS: cuál usar para cada problema"
+    url: "https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/"
+  - title: "Cómo integrar AWS con un SIEM: fuentes, rutas y pruebas"
+    url: "https://dondeaprendoaws.com/blog/integracion-siem-aws-7-consejos-practicos-2024/"
 
 ---
 
-<p><a href="https://aws.amazon.com/guardduty/" rel="noopener noreferrer" target="_blank">AWS GuardDuty</a> es un servicio de detección de amenazas que utiliza inteligencia de amenazas para identificar y priorizar posibles amenazas en tu entorno de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a>. Integrar feeds de inteligencia de amenazas en GuardDuty mejora las capacidades de detección de amenazas y reduce falsos positivos.</p>
-
-
-<p><strong>Beneficios de la inteligencia de amenazas:</strong></p>
-
-
-<ul>
-<li>Entender mejor las amenazas</li>
-<li>Tomar medidas para mitigarlas</li>
-<li>Mejorar la detección de amenazas</li>
-<li>Reducir falsos positivos</li>
-</ul>
+Amazon GuardDuty ya combina [feeds de inteligencia de amenazas administrados por AWS y modelos de aprendizaje automático](https://docs.aws.amazon.com/guardduty/latest/ug/what-is-guardduty.html) para detectar actividad sospechosa en cada Región donde está habilitado. Para sumar tus propios indicadores de compromiso, crea una **lista de entidades de amenaza** con un objeto en Amazon S3 y actívala en GuardDuty. Cuando la actividad que analiza el servicio coincide con un indicador, puede generar un hallazgo. La lista no bloquea el tráfico.
 
-
-<p><strong>Pasos para integrar inteligencia de amenazas en GuardDuty:</strong></p>
-
-
-<ol>
-<li>
-<p><strong>Habilitar y configurar GuardDuty</strong></p>
-<ul>
-<li>Habilitar GuardDuty en todas las regiones de AWS</li>
-<li>Crear un rol de IAM o usuario para administrar GuardDuty</li>
-<li>Habilitar los tipos de protección adecuados (malware, análisis de registros, detección de anomalías)</li>
-</ul>
-</li>
-<li>
-<p><strong>Agregar fuentes de inteligencia de amenazas</strong></p>
-<ul>
-<li>Agregar direcciones IP maliciosas a la lista de amenazas de GuardDuty</li>
-<li>Integrar con servicios de inteligencia de amenazas (<a href="https://www.crowdstrike.com/en-us/" rel="noopener noreferrer" target="_blank">CrowdStrike</a>, <a href="https://www.proofpoint.com/us" rel="noopener noreferrer" target="_blank">Proofpoint</a>, etc.)</li>
-</ul>
-</li>
-<li>
-<p><strong>Administrar IPs confiables y listas de amenazas</strong></p>
-<ul>
-<li>Crear una lista de IPs confiables</li>
-<li>Crear una lista de amenazas</li>
-<li>Actualizar regularmente las listas</li>
-</ul>
-</li>
-<li>
-<p><strong>Automatizar actualizaciones de inteligencia de amenazas</strong></p>
-<ul>
-<li>Crear una función <a href="https://aws.amazon.com/lambda/" rel="noopener noreferrer" target="_blank">Lambda</a> para descargar listas actualizadas</li>
-<li>Configurar la función Lambda para ejecutarse periódicamente o manualmente</li>
-</ul>
-</li>
-<li>
-<p><strong>Verificar la integración y probar</strong></p>
-<ul>
-<li>Generar hallazgos de muestra utilizando la función de simulación de ataques</li>
-<li>Examinar los hallazgos y verificar la configuración de GuardDuty</li>
-</ul>
-</li>
-</ol>
-
-
-<p>Al integrar GuardDuty con inteligencia de amenazas, puedes mejorar la seguridad de tu entorno de AWS y mantenerte protegido contra las últimas amenazas y vulnerabilidades.</p>
-
-
-<h2 id="requisitos-para-configurar-guardduty" tabindex="-1">Requisitos para configurar GuardDuty</h2>
-
-
-<p>Para configurar AWS GuardDuty, es importante cumplir con los siguientes requisitos:</p>
-
-
-<h3 id="habilitar-guardduty-en-todas-las-regiones-compatibles" tabindex="-1">Habilitar GuardDuty en todas las regiones compatibles</h3>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Región</th>
-<th>Acción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Todas las regiones de AWS</td>
-<td>Habilitar GuardDuty</td>
-</tr>
-</tbody>
-</table></figure>
+Elige una lista de amenazas para indicadores maliciosos. Una lista de confianza hace lo contrario: evita hallazgos asociados con sus indicadores. Esta diferencia, el alcance regional y el tipo de fuente que registra la actividad determinan si una lista sirve para tu caso. La [documentación de listas de GuardDuty](https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html) describe ambos tipos y sus límites.
 
+## Qué analiza GuardDuty antes de añadir indicadores propios
 
-<p>Debes habilitar GuardDuty en cada región de AWS que desees monitorear. Esto te permitirá detectar actividad no autorizada o anómala en todas las regiones, incluyendo aquellas que no se utilizan activamente.</p>
+Al habilitar GuardDuty, el servicio empieza a analizar fuentes fundamentales como los eventos de administración de AWS CloudTrail, los registros de flujo de Amazon VPC y las consultas DNS de Route 53 Resolver. Las protecciones centradas en recursos, como S3, EKS, Lambda, RDS y Runtime Monitoring, amplían la cobertura según el plan habilitado. Consulta [cómo empezar con GuardDuty](https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_settingup.html) y [sus planes de protección](https://docs.aws.amazon.com/guardduty/latest/ug/what-is-guardduty.html) para elegir según los recursos que necesitas observar.
 
+Si es tu primera vez con el servicio, puedes ver [Ciberseguridad en menos de 90 segundos: conoce Amazon GuardDuty](https://www.youtube.com/watch?v=9OGOoBZRoXE) o leer la [introducción de AWS Women Colombia](https://awswomencolombia.com/100diasdeaws-dia-23-amazon-guardduty), publicada como parte de una serie en 2023. Usa la documentación actual para comprobar nombres y disponibilidad de funciones. Para un ejemplo corto de Runtime Monitoring en contenedores, consulta [esta demostración de GuardDuty](https://www.youtube.com/watch?v=9JHyitu5jWQ).
 
-<h3 id="crear-un-rol-de-iam-o-usuario-para-administrar-guardduty" tabindex="-1">Crear un rol de IAM o usuario para administrar GuardDuty</h3>
+GuardDuty es un servicio **regional**. Habilítalo y configura sus listas en cada Región que quieras vigilar; AWS recomienda cubrir todas las Regiones compatibles, incluso las que no usas a diario. Una cuenta administradora de GuardDuty puede gestionar listas para las cuentas miembro de una organización. Si todavía estás decidiendo qué servicio cubre cada riesgo, consulta [la comparación de servicios de seguridad de AWS](/blog/aws-seguridad-servicios-esenciales/).
 
+## Lista de amenazas, lista de confianza y listas de IP heredadas
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Requisito</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Rol de IAM o usuario</td>
-<td>Crear un rol de IAM o usuario específico para administrar GuardDuty, siguiendo el principio de privilegios mínimos.</td>
-</tr>
-</tbody>
-</table></figure>
+| Tipo de lista | Efecto en GuardDuty | Indicadores admitidos |
+| --- | --- | --- |
+| Lista de entidades de amenaza | Puede generar hallazgos cuando GuardDuty observa actividad relacionada con un indicador listado. | Direcciones IPv4, dominios y hashes SHA-256 de archivos. Los hashes solo se admiten en listas de amenazas. |
+| Lista de entidades de confianza | Evita que GuardDuty genere hallazgos por actividad asociada con esos indicadores. | Direcciones IPv4 y dominios; no admite hashes. |
+| Lista heredada de IP (`ThreatIntelSet` o `IPSet`) | Personaliza hallazgos de actividad relacionada con direcciones IP. | Direcciones IPv4; no incluye dominios ni hashes. |
 
+AWS recomienda las listas de entidades para nuevos casos. Las listas heredadas de IP no se aplican a los hallazgos basados en consultas DNS de Route 53 Resolver; las listas de entidades sí pueden aplicarse a hallazgos de CloudTrail, VPC Flow Logs y DNS. Los indicadores de IP o dominio solo se aplican a destinos públicamente enrutables; **GuardDuty no admite direcciones IPv6 como indicadores IP en estas listas.**
 
-<h3 id="entender-los-or%C3%ADgenes-de-datos-de-guardduty" tabindex="-1">Entender los orígenes de datos de GuardDuty</h3>
+La condición de enrutamiento público se aplica a los indicadores de IP y dominio; no describe los hashes de archivo. AWS documenta hashes SHA-256 en listas de entidades de amenaza y también documenta IoCs de hash como una señal del motor de análisis de malware. Esa es una ruta de análisis de archivos, no de tráfico de red: por ejemplo, Malware Protection for EC2 analiza volúmenes EBS asociados a instancias EC2 y cargas de contenedores en EC2, mientras Malware Protection for S3 analiza objetos nuevos en buckets seleccionados. No asumas que GuardDuty analiza todo archivo de toda carga de trabajo por el solo hecho de agregar un hash; confirma el plan, los recursos cubiertos y los cargos de cada modalidad en la documentación de [análisis de malware](https://docs.aws.amazon.com/guardduty/latest/ug/guardduty-malware-detection-scan-engine.html), [Malware Protection for EC2](https://docs.aws.amazon.com/guardduty/latest/ug/malware-protection.html) y [Malware Protection for S3](https://docs.aws.amazon.com/guardduty/latest/ug/gdu-malware-protection-s3.html).
 
+Una lista de confianza tampoco es una regla de firewall: su efecto es suprimir hallazgos, no permitir ni bloquear conexiones. Si la misma IP o dominio aparece en una lista de amenazas y en una de confianza, prevalece la de confianza y GuardDuty no genera el hallazgo asociado. Esto puede quitar ruido de fuentes verificadas, pero no garantiza menos falsos positivos; una lista obsoleta o demasiado amplia también puede ocultar actividad que merece investigación.
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Orígenes de datos</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Registros de AWS <a href="https://aws.amazon.com/cloudtrail/" rel="noopener noreferrer" target="_blank">CloudTrail</a></td>
-<td>Registros de actividad de AWS</td>
-</tr>
-<tr>
-<td>Registros de flujo de <a href="https://aws.amazon.com/vpc/" rel="noopener noreferrer" target="_blank">Amazon VPC</a></td>
-<td>Registros de tráfico de red</td>
-</tr>
-<tr>
-<td>Registros de consultas de <a href="https://en.wikipedia.org/wiki/Domain_Name_System" rel="noopener noreferrer" target="_blank">DNS</a></td>
-<td>Registros de consultas de nombres de dominio</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Es importante entender cómo GuardDuty utiliza estos orígenes de datos para generar findings de seguridad.</p>
-
-
-<h3 id="habilitar-los-tipos-de-protecci%C3%B3n-adecuados" tabindex="-1">Habilitar los tipos de protección adecuados</h3>
+## Cómo cargar una lista de inteligencia de amenazas
 
+El formato de texto más simple usa un indicador por línea. Este ejemplo usa valores reservados para documentación; no son indicadores de amenaza para una cuenta real:
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Tipo de protección</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Protección contra malware</td>
-<td>Detección de malware y virus</td>
-</tr>
-<tr>
-<td>Análisis de registros</td>
-<td>Análisis de registros de actividad</td>
-</tr>
-<tr>
-<td>Detección de anomalías</td>
-<td>Detección de actividad anómala</td>
-</tr>
-</tbody>
-</table></figure>
+```text
+192.0.2.1
+192.0.2.0/24
+example.com
+```
 
+Las listas de entidades también admiten hashes SHA-256 en listas de amenazas. Revisa los [formatos admitidos](https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_upload-lists.html) antes de preparar un archivo STIX u otro formato. Una fuente comercial o comunitaria no se conecta automáticamente a GuardDuty por nombrarla: comprueba sus permisos de uso y convierte el feed a un formato admitido antes de publicarlo en S3.
 
-<p>Debes habilitar los tipos de protección adecuados para tu entorno y necesidades de seguridad.</p>
+El recorrido práctico es:
 
+1. **Habilita GuardDuty en la cuenta y Región objetivo.** Para administrar una organización, usa la cuenta administradora de GuardDuty y verifica qué cuentas miembro están habilitadas.
+2. **Decide qué quieres detectar.** Una lista de amenazas añade indicadores maliciosos a la detección. Una lista de confianza suprime hallazgos de fuentes revisadas; no la uses como una allowlist de red.
+3. **Prepara el archivo y súbelo a S3.** El rol IAM que usas para crear la lista debe tener `s3:GetObject` sobre el objeto. Confirma también la ubicación y el propietario del bucket; sigue los [requisitos previos y permisos](https://docs.aws.amazon.com/guardduty/latest/ug/guardduty-lists-prerequisites.html) de AWS.
+4. **Crea y activa la lista en GuardDuty.** En la consola, abre **GuardDuty → Lists → Entity lists → Add list**, elige una lista de amenazas o de confianza, y activa la lista añadida desde **Action → Activate**. Comprueba que el estado sea `Active`; un archivo subido a S3 no queda aplicado solo por existir.
+5. **Automatiza las actualizaciones si mantienes un feed externo.** Un proceso propio puede obtener datos de una fuente autorizada, filtrar y normalizar indicadores, escribir el objeto S3 y volver a activar la lista. GuardDuty no actualiza por sí mismo un feed del proveedor: después de cambiar el objeto hay que activar la lista otra vez.
+6. **Repite la configuración en las Regiones necesarias.** Si usas varias cuentas, confirma que la lista la mantiene la cuenta administradora y que las cuentas miembro reciben la cobertura esperada.
 
-<p>Al cumplir con estos requisitos, podrás configurar GuardDuty para detectar y responder a amenazas de seguridad en tu entorno de AWS.</p>
+Después de activarla, GuardDuty estima que el cambio suele tardar hasta 15 minutos en completarse; en algunos casos puede demorar hasta 40. Comprueba el estado antes de concluir que un indicador no coincide. La [guía para añadir y activar una lista](https://docs.aws.amazon.com/guardduty/latest/ug/guardduty-lists-create-activate.html) incluye los pasos de consola y las condiciones del objeto S3.
 
+### Límites que afectan el diseño del feed
 
-<h2 id="1.-habilitar-y-configurar-aws-guardduty" tabindex="-1">1. Habilitar y configurar <a href="https://aws.amazon.com/guardduty/" rel="noopener noreferrer" target="_blank">AWS GuardDuty</a></h2>
+- Por cuenta y Región puedes activar hasta **seis listas de amenaza en total** —sumando listas de entidades y listas de IP heredadas—, además de **una lista de entidades de confianza**.
+- Cada lista de entidades admite hasta **1.000 indicadores** y el archivo puede ocupar hasta **35 MB**. Las cuotas son distintas para las listas heredadas de IP.
+- GuardDuty solo usa una lista cuando su estado es `Active`. Después de cambiar el objeto S3, vuelve a activarla.
+- Solo se aceptan direcciones IPv4. Los dominios y las direcciones IP deben corresponder a destinos públicamente enrutables para que estas listas apliquen.
+- Una lista heredada de IP no aporta indicadores de dominio ni de hash y no afecta a los hallazgos DNS de Route 53 Resolver.
 
+Consulta las [cuotas actuales de GuardDuty](https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_limits.html) si el feed supera esos límites. No intentes compensar una lista demasiado grande dividiéndola sin revisar el máximo de listas por cuenta y Región.
 
-<p><figure><img alt="AWS GuardDuty" src="/assets/blog/13fd3ebe3a52c8ac783327b0.jpg"/></figure></p>
+## De un indicador coincidente a un hallazgo investigable
 
+Supón que una carga de trabajo consulta un dominio que incluiste en una lista de entidades de amenaza. Si la actividad entra en la cobertura de GuardDuty, el hallazgo puede indicar el dominio, el recurso involucrado, la cuenta, la Región y el nombre de la lista. Usa esos datos para confirmar qué ocurrió; que un indicador aparezca en un feed no determina por sí solo si hubo un compromiso.
 
-<p>Para habilitar y configurar AWS GuardDuty, sigue los siguientes pasos:</p>
+Para cada hallazgo:
 
+1. Revisa el JSON completo, su tipo, hora, cuenta, Región, recurso y los detalles de la actividad. La sección de [detalles de los hallazgos](https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_findings-summary.html) explica los campos y, cuando aplica, muestra el nombre de la lista que coincidió.
+2. Contrasta el indicador con el contexto de la carga de trabajo y la vigencia de la fuente. Si investigas actividad de identidad o llamadas API, correlaciona el evento con CloudTrail y los detalles de la sesión. Para anomalías de identidad, sigue con [UEBA en AWS: GuardDuty, CloudTrail y análisis del comportamiento](/blog/guia-de-ueba-para-la-seguridad-de-aws/).
+3. Decide la contención según el recurso afectado y tu procedimiento de incidentes. GuardDuty detecta y reporta; la corrección del recurso la ejecuta tu equipo o una acción que diseñaste aparte.
+4. Si necesitas notificar o enrutar hallazgos, crea una regla de EventBridge y asígnale un destino como SNS, Lambda o una cola. GuardDuty publica hallazgos en EventBridge casi en tiempo real, pero la regla, el destino y sus permisos deben configurarse. Para la ingesta en un SIEM, continúa con [Cómo integrar AWS con un SIEM: fuentes, rutas y pruebas](/blog/integracion-siem-aws-7-consejos-practicos-2024/); también puedes ver la grabación del AWS User Group CreaTicas sobre [Amazon GuardDuty integrado con SIEM](https://www.youtube.com/watch?v=CQUICC2h0Oc).
 
-<p><strong>Habilitar GuardDuty</strong></p>
+Este patrón selecciona eventos de hallazgos de GuardDuty; el patrón por sí solo no crea una notificación ni ejecuta una respuesta:
 
+```json
+{
+  "source": ["aws.guardduty"],
+  "detail-type": ["GuardDuty Finding"]
+}
+```
 
-<ol>
-<li>Inicia sesión en la consola de AWS Management Console.</li>
-<li>Haz clic en "Servicios" y selecciona "GuardDuty" en la lista de servicios.</li>
-<li>Haz clic en "Comenzar" y luego en "Habilitar GuardDuty".</li>
-<li>Selecciona la región en la que deseas habilitar GuardDuty.</li>
-</ol>
+Antes de automatizar una acción que aísla una instancia, modifica permisos o corta una conexión, valida el filtro con hallazgos de prueba y dirige primero el evento a un destino de observación. Confirma cuenta, Región, recurso, permisos y un procedimiento de recuperación antes de habilitar la acción. La guía de AWS sobre [procesamiento de hallazgos con EventBridge](https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_findings_eventbridge.html) muestra cómo configurar reglas y destinos.
 
+Los hallazgos de muestra de GuardDuty tienen valores de ejemplo y sirven para revisar la consola, filtros y eventos de EventBridge; **no comprueban que tu feed real coincida con un indicador**. Valida el recorrido de una lista únicamente con indicadores y recursos controlados en un entorno de prueba. No generes tráfico hacia infraestructura maliciosa para probar una integración. Para profundizar en la investigación de hallazgos que GuardDuty correlaciona como secuencia de ataque, consulta el [runbook de triaje para un hallazgo crítico](https://builder.aws.com/content/3J68JRbkTcnENVoKrtfk44wFHBD/secuencias-de-ataque-en-amazon-guard-duty-un-runbook-de-triaje-para-el-hallazgo-critical-que-correlaciona-el-resto) publicado en AWS Builder Center.
 
-<p><strong>Configurar GuardDuty</strong></p>
+Si un aviso esperado no llega al destino, comprueba el estado `Active` de la lista y la Región del detector, el permiso `s3:GetObject` del rol que la crea, la política de la clave KMS si el objeto usa SSE-KMS, la compatibilidad del indicador y la regla y permisos de EventBridge. Revisa también listas de confianza y [reglas de supresión](https://docs.aws.amazon.com/guardduty/latest/ug/findings_suppression-rule.html): los hallazgos suprimidos se archivan y no se envían a EventBridge.
 
+## Costos y cobertura por Región
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Paso</th>
-<th>Acción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>Selecciona los tipos de protección que deseas habilitar, como la protección contra malware, el análisis de registros y la detección de anomalías.</td>
-</tr>
-<tr>
-<td>2</td>
-<td>Configura los ajustes de GuardDuty según sea necesario, como la frecuencia de análisis y los umbrales de detección.</td>
-</tr>
-</tbody>
-</table></figure>
+GuardDuty no debe asumirse gratuito de forma permanente. AWS ofrece un período de prueba de 30 días en cada Región para la mayoría de sus planes, pero algunas protecciones tienen condiciones distintas. Después del período aplican cargos según las fuentes de datos procesadas y los planes habilitados. Antes de ampliar cobertura, estima el uso por cuenta y Región con los [precios de GuardDuty](https://docs.aws.amazon.com/guardduty/latest/ug/guardduty-pricing.html) y sus métricas de consumo; las listas de indicadores no sustituyen esa revisión.
 
+## Recursos y comunidades AWS en español
 
-<p><strong>Revisar la configuración inicial</strong></p>
+Para ver ejemplos del trabajo posterior a la detección, el [29.º Meetup de AWS User Group Panamá](https://www.youtube.com/watch?v=B0ns55LItRs) incluye una charla sobre detectar y responder a ataques con GuardDuty. La comunidad de [AWS User Group Security Ecuador](https://www.awssecurityecuador.com/) comparte sesiones de respuesta a incidentes; entre ellas, la grabación [“Nadie apretó un botón”](https://www.youtube.com/watch?v=kiz4Ls7YRm0), sobre respuesta automatizada con servicios de AWS. Son recursos para estudiar diseños y decisiones, no instrucciones para desplegar sin revisar permisos, costos y efectos sobre recursos.
 
+Si quieres conversar o seguir actividades de seguridad AWS en español, consulta [AWS Security Users Group LatAm](https://www.meetup.com/awssecuritylatam/), [AWS Security UserGroup Argentina](https://www.meetup.com/aws-security-usergroup-argentina/) y [AWS User Group Security Colombia](https://www.meetup.com/aws-user-group-security-colombia/). En Ecuador, el [AWS User Group Security Ecuador](https://www.meetup.com/aws-user-group-security-ecuador/) publica actividades sobre seguridad cloud. Para una comunidad AWS general que también reúne a quienes están empezando, consulta [AWS User Group Panamá](https://www.meetup.com/AWS-User-Group-Panama/). El [anuncio público de AWS Security User Group Paraguay](https://es.linkedin.com/posts/aws-security-user-group-paraguay_aws-cloudsecurity-paraguay-activity-7500886396916731905-Xgar) enlaza la invitación a su comunidad y adelanta encuentros sobre respuesta a incidentes. Cada grupo organiza su propia agenda; comprueba el idioma, la modalidad y las condiciones de inscripción antes de participar.
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Paso</th>
-<th>Acción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>Verifica que los tipos de protección seleccionados estén habilitados y configurados correctamente.</td>
-</tr>
-<tr>
-<td>2</td>
-<td>Asegúrate de que la frecuencia de análisis y los umbrales de detección estén configurados según sea necesario.</td>
-</tr>
-</tbody>
-</table></figure>
+Al 6 de octubre de 2026, el grupo de Ecuador anuncia la sesión virtual [“Compliance as Code en AWS: de la política a la acción automática”](https://www.meetup.com/aws-user-group-security-ecuador/events/316680020/) para el 20 de octubre, de 19:00 a 20:00 (UTC−5). También anuncia [“AWS & Cloud Native Security Night”](https://www.meetup.com/aws-user-group-security-ecuador/events/316815633/) para el 23 de octubre, de 17:00 a 20:00 (UTC−5), en Guayaquil; la ficha consultada indica entrada gratuita y cupos limitados. En Panamá, AWS User Group Panamá marca el [Community Day Security & Data Edition](https://www.meetup.com/aws-user-group-panama/events/316732293/) para el 14 de noviembre; la ficha aún muestra “Save the Date” y no especifica el lugar. Revisa las páginas de los organizadores antes de registrarte o planificar un viaje porque los datos pueden cambiar.
 
+## Preguntas frecuentes
 
-<p>Al seguir estos pasos, podrás habilitar y configurar GuardDuty para detectar y responder a amenazas de seguridad en tu entorno de AWS.</p>
+### ¿Puedo conectar cualquier feed de inteligencia de amenazas directamente?
 
+No basta con indicar el nombre de un proveedor. GuardDuty trabaja con las listas que le configuras; publica los indicadores admitidos en un objeto S3 con los permisos requeridos, activa la lista y vuelve a activarla tras actualizar el objeto. El proceso que obtiene, transforma y mantiene el feed externo corre por tu cuenta o la de tu proveedor.
 
-<h2 id="2.-agregar-fuentes-de-inteligencia-de-amenazas-a-guardduty" tabindex="-1">2. Agregar fuentes de inteligencia de amenazas a GuardDuty</h2>
+### ¿Una lista de amenazas bloquea una IP maliciosa?
 
+No. Hace que GuardDuty genere hallazgos cuando detecta actividad relacionada con indicadores incluidos y dentro del alcance de la lista. Para bloquear o aislar recursos necesitas un control de red o un flujo de respuesta separado.
 
-<p>Para mejorar las capacidades de detección de GuardDuty, es posible integrar fuentes de inteligencia de amenazas externas, como CrowdStrike y Proofpoint. Estas fuentes proporcionan información valiosa sobre direcciones IP maliciosas y otros indicadores de compromiso que pueden ayudar a GuardDuty a detectar y responder a amenazas de seguridad.</p>
+### ¿GuardDuty permite crear cualquier regla de detección personalizada?
 
+Las **Custom Detection Rules** son distintas de las listas de indicadores. GuardDuty ofrece una biblioteca de reglas predefinidas para detectar actividad que no esperas en determinadas cuentas; en modo *dry run* evalúa la regla y publica métricas sin crear hallazgos. No es lo mismo que cargar indicadores propios, ni un editor libre para escribir cualquier detección. Consulta la [documentación de Custom Detection Rules](https://docs.aws.amazon.com/guardduty/latest/ug/custom-detection-rules.html).
 
-<h3 id="agregando-ips-maliciosas-a-la-lista-de-amenazas-de-guardduty" tabindex="-1">Agregando IPs maliciosas a la lista de amenazas de GuardDuty</h3>
+### ¿GuardDuty reemplaza un escáner de vulnerabilidades?
 
-
-<p>Puede agregar direcciones IP maliciosas a la lista de amenazas de GuardDuty para que el servicio alerte ante accesos desde esas IPs. También puede agregar indicadores de compromiso de servicios de inteligencia de amenazas contratados.</p>
-
-
-<h3 id="integraci%C3%B3n-con-fuentes-de-inteligencia-de-amenazas" tabindex="-1">Integración con fuentes de inteligencia de amenazas</h3>
-
-
-<p>Para integrar fuentes de inteligencia de amenazas con GuardDuty, debe seguir los siguientes pasos:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Paso</th>
-<th>Acción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>Crear un detector de GuardDuty</td>
-</tr>
-<tr>
-<td>2</td>
-<td>Configurar un bucket de S3 para almacenar la lista de inteligencia de amenazas</td>
-</tr>
-<tr>
-<td>3</td>
-<td>Crear un recurso de ThreatIntelSet de GuardDuty para vincular el bucket de S3 y habilitar la actualización automática de la lista de inteligencia de amenazas</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Al agregar fuentes de inteligencia de amenazas a GuardDuty, puede mejorar la detección de amenazas y reducir el riesgo de ataques de seguridad en su entorno de AWS.</p>
-
-
-<h2 id="3.-administrar-ips-confiables-y-listas-de-amenazas" tabindex="-1">3. Administrar IPs confiables y listas de amenazas</h2>
-
-
-<p>Para mejorar la eficacia de GuardDuty en la detección de amenazas, es importante administrar adecuadamente las listas de IPs confiables y listas de amenazas. Estas listas permiten a GuardDuty distinguir entre tráfico seguro y tráfico malicioso.</p>
-
-
-<h3 id="crear-una-lista-de-ips-confiables" tabindex="-1">Crear una lista de IPs confiables</h3>
-
-
-<p>Una lista de IPs confiables es una colección de direcciones IP que se consideran seguras y no generan alertas de seguridad. Para crear una lista de IPs confiables en GuardDuty, siga los siguientes pasos:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Paso</th>
-<th>Acción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>Crear un archivo de texto que contenga las direcciones IP que desea agregar a la lista de IPs confiables.</td>
-</tr>
-<tr>
-<td>2</td>
-<td>Subir el archivo a un bucket de S3.</td>
-</tr>
-<tr>
-<td>3</td>
-<td>Crear un recurso de IPSet de GuardDuty y vincularlo al bucket de S3 que contiene la lista de IPs confiables.</td>
-</tr>
-<tr>
-<td>4</td>
-<td>Activar la lista de IPs confiables para que GuardDuty la utilice para filtrar tráfico seguro.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="crear-una-lista-de-amenazas" tabindex="-1">Crear una lista de amenazas</h3>
-
-
-<p>Una lista de amenazas es una colección de direcciones IP y otros indicadores de compromiso que se consideran maliciosos y generan alertas de seguridad. Para crear una lista de amenazas en GuardDuty, siga los siguientes pasos:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Paso</th>
-<th>Acción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>Crear un archivo de texto que contenga las direcciones IP y otros indicadores de compromiso que desea agregar a la lista de amenazas.</td>
-</tr>
-<tr>
-<td>2</td>
-<td>Subir el archivo a un bucket de S3.</td>
-</tr>
-<tr>
-<td>3</td>
-<td>Crear un recurso de ThreatIntelSet de GuardDuty y vincularlo al bucket de S3 que contiene la lista de amenazas.</td>
-</tr>
-<tr>
-<td>4</td>
-<td>Activar la lista de amenazas para que GuardDuty la utilice para detectar tráfico malicioso.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="actualizar-listas-de-ips-confiables-y-listas-de-amenazas" tabindex="-1">Actualizar listas de IPs confiables y listas de amenazas</h3>
-
-
-<p>Es importante actualizar regularmente las listas de IPs confiables y listas de amenazas para asegurarse de que GuardDuty tenga la información más actualizada sobre tráfico seguro y malicioso. Puede actualizar estas listas manualmente o configurar GuardDuty para que actualice automáticamente las listas desde fuentes de inteligencia de amenazas externas.</p>
-
-
-<p>Al administrar adecuadamente las listas de IPs confiables y listas de amenazas, puede mejorar la eficacia de GuardDuty en la detección de amenazas y reducir el riesgo de ataques de seguridad en su entorno de AWS.</p>
-
-
-<h2 id="4.-automatizar-actualizaciones-de-inteligencia-de-amenazas" tabindex="-1">4. Automatizar actualizaciones de inteligencia de amenazas</h2>
-
-
-<p>Para mantener sus listas de IPs confiables y listas de amenazas actualizadas, es importante automatizar el proceso de actualización de inteligencia de amenazas. Esto puede lograrse utilizando servicios de AWS como <a href="https://aws.amazon.com/cloudformation/" rel="noopener noreferrer" target="_blank">CloudFormation</a> y Lambda.</p>
-
-
-<h3 id="crear-una-funci%C3%B3n-lambda" tabindex="-1">Crear una función <a href="https://aws.amazon.com/lambda/" rel="noopener noreferrer" target="_blank">Lambda</a></h3>
-
-
-<p><figure><img alt="Lambda" src="/assets/blog/c0eb5d69184d1120b29c2a25.jpg"/></figure></p>
-
-
-<p>Puede crear una función Lambda que descargue las últimas listas de IPs confiables y listas de amenazas de fuentes de inteligencia de amenazas externas. Luego, puede configurar la función Lambda para que se ejecute periódicamente, asegurándose de que sus listas estén siempre actualizadas.</p>
-
-
-<h3 id="configurar-la-funci%C3%B3n-lambda" tabindex="-1">Configurar la función Lambda</h3>
-
-
-<p>Puede configurar la función Lambda para que se ejecute:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Opción</th>
-<th>Acción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Periódicamente</td>
-<td>Utilice un trigger de CloudWatch Events para ejecutar la función Lambda en un intervalo de tiempo específico.</td>
-</tr>
-<tr>
-<td>Manualmente</td>
-<td>Ejecute la función Lambda manualmente en caso de eventos de seguridad urgentes, como el descubrimiento de una nueva vulnerabilidad de día cero.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Al automatizar la actualización de inteligencia de amenazas, puede minimizar los esfuerzos manuales y asegurarse de que su entorno de AWS esté siempre protegido contra las últimas amenazas.</p>
-
-
-<h2 id="5.-verificar-la-integraci%C3%B3n-y-probar" tabindex="-1">5. Verificar la integración y probar</h2>
-
-
-<p>Para asegurarse de que la integración de los feeds de inteligencia de amenazas con GuardDuty sea exitosa, es importante generar y examinar hallazgos de muestra. Esto le permitirá verificar que la configuración de GuardDuty esté funcionando correctamente y detectando las amenazas de manera efectiva.</p>
-
-
-<h3 id="generar-hallazgos-de-muestra" tabindex="-1">Generar hallazgos de muestra</h3>
-
-
-<p>Puede generar hallazgos de muestra utilizando la función de simulación de ataques de GuardDuty. Esta función le permite simular ataques contra su entorno de AWS, lo que activará las reglas de detección de GuardDuty y generará hallazgos.</p>
-
-
-<p>Una vez que haya generado los hallazgos de muestra, puede examinarlos en la consola de GuardDuty para asegurarse de que se estén detectando las amenazas correctamente. Asegúrese de revisar los detalles de cada hallazgo, como la fuente de la amenaza, el tipo de ataque y la gravedad del riesgo.</p>
-
-
-<h3 id="examinar-los-hallazgos" tabindex="-1">Examinar los hallazgos</h3>
-
-
-<p>Al examinar los hallazgos, asegúrese de verificar que los feeds de inteligencia de amenazas estén funcionando correctamente y proporcionando información precisa sobre las amenazas. También es importante revisar la configuración de GuardDuty para asegurarse de que esté ajustada correctamente para detectar las amenazas relevantes para su entorno de AWS.</p>
-
-
-<p>Si encuentra algún problema con la integración o la configuración de GuardDuty, puede utilizar las herramientas de depuración de AWS para identificar y solucionar el problema.</p>
-
-
-<p><strong>Tabla de Verificación</strong></p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Paso</th>
-<th>Acción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>Generar hallazgos de muestra utilizando la función de simulación de ataques de GuardDuty</td>
-</tr>
-<tr>
-<td>2</td>
-<td>Examinar los hallazgos en la consola de GuardDuty</td>
-</tr>
-<tr>
-<td>3</td>
-<td>Verificar que los feeds de inteligencia de amenazas estén funcionando correctamente</td>
-</tr>
-<tr>
-<td>4</td>
-<td>Revisar la configuración de GuardDuty para asegurarse de que esté ajustada correctamente</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Al verificar la integración y probar los hallazgos de muestra, puede estar seguro de que su entorno de AWS esté protegido contra las últimas amenazas y vulnerabilidades.</p>
-
-
-<h2 id="conclusi%C3%B3n" tabindex="-1">Conclusión</h2>
-
-
-<p>En resumen, la integración de GuardDuty de AWS con inteligencia de amenazas es una herramienta poderosa para mejorar la seguridad de su entorno de AWS. Al seguir los pasos descritos en este artículo, puede configurar GuardDuty para detectar y responder a las amenazas de manera efectiva.</p>
-
-
-<p><strong>Verificar la Integración</strong></p>
-
-
-<p>Para asegurarse de que la integración de los feeds de inteligencia de amenazas con GuardDuty sea exitosa, es importante generar y examinar hallazgos de muestra. Esto le permitirá verificar que la configuración de GuardDuty esté funcionando correctamente y detectando las amenazas de manera efectiva.</p>
-
-
-<p><strong>Recomendaciones Finales</strong></p>
-
-
-<p>Recuerde que la seguridad es un proceso continuo y requiere una vigilancia constante para mantenerse protegido contra las últimas amenazas. Al utilizar GuardDuty con inteligencia de amenazas, puede estar seguro de que su entorno de AWS esté protegido contra las últimas vulnerabilidades y ataques.</p>
-
-
-<p>Esperamos que este artículo le haya proporcionado la guía y los consejos necesarios para integrar GuardDuty con inteligencia de amenazas de manera efectiva. ¡Si tiene alguna pregunta o necesita más ayuda, no dude en preguntar!</p>
-
-
-<h2 id="recursos-y-preguntas-frecuentes" tabindex="-1">Recursos y preguntas frecuentes</h2>
-
-
-<p>A continuación, se presentan algunos recursos adicionales y preguntas frecuentes relacionadas con la integración de GuardDuty de AWS con inteligencia de amenazas.</p>
-
-
-<h3 id="recursos-adicionales" tabindex="-1">Recursos adicionales</h3>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Recurso</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Documentación de AWS GuardDuty</td>
-<td>Información detallada sobre cómo configurar y utilizar GuardDuty</td>
-</tr>
-<tr>
-<td><a href="https://aws.amazon.com/security-hub/" rel="noopener noreferrer" target="_blank">AWS Security Hub</a></td>
-<td>Servicio de seguridad que proporciona una visión unificada de la seguridad de su entorno de AWS</td>
-</tr>
-<tr>
-<td><a href="https://flare.io/learn/resources/blog/threat-intelligence-feeds/" rel="noopener noreferrer" target="_blank">Threat Intelligence Feeds</a></td>
-<td>Feeds de inteligencia de amenazas de terceros que ofrecen información actualizada sobre las últimas amenazas y vulnerabilidades</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="preguntas-frecuentes" tabindex="-1">Preguntas frecuentes</h3>
-
-
-<h4 id="%C2%BFqu%C3%A9-fuentes-de-datos-utiliza-amazon-guardduty-para-analizar-y-detectar-amenazas%3F" tabindex="-1">¿Qué fuentes de datos utiliza Amazon GuardDuty para analizar y detectar amenazas?</h4>
-
-
-<p>Amazon GuardDuty utiliza varias fuentes de datos, incluyendo registros de eventos de CloudTrail, registros de flujo de VPC, registros de DNS y feeds de inteligencia de amenazas de terceros.</p>
-
-
-<h4 id="%C2%BFes-guardduty-un-esc%C3%A1ner-de-vulnerabilidades%3F" tabindex="-1">¿Es GuardDuty un escáner de vulnerabilidades?</h4>
-
-
-<p>No, GuardDuty no es un escáner de vulnerabilidades. En su lugar, se centra en la detección de actividad maliciosa y anomalías en su entorno de AWS.</p>
-
-
-<p>Esperamos que estos recursos adicionales y preguntas frecuentes le hayan sido útiles. ¡Si tiene alguna otra pregunta o necesita más ayuda, no dude en preguntar!</p>
-
-
-<h2 id="preguntas-frecuentes-1" tabindex="-1">Preguntas frecuentes</h2>
-
-
-<h3 id="%C2%BFqu%C3%A9-fuentes-de-datos-utiliza-amazon-guardduty-para-analizar-y-detectar-amenazas%3F-1" tabindex="-1">¿Qué fuentes de datos utiliza Amazon GuardDuty para analizar y detectar amenazas?</h3>
-
-
-<p>Amazon GuardDuty utiliza varias fuentes de datos, incluyendo:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Fuente de datos</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Registros de eventos de CloudTrail</td>
-<td>Registros de actividad de AWS</td>
-</tr>
-<tr>
-<td>Registros de flujo de VPC</td>
-<td>Registros de tráfico de red</td>
-</tr>
-<tr>
-<td>Registros de DNS</td>
-<td>Registros de consultas de nombres de dominio</td>
-</tr>
-<tr>
-<td>Feeds de inteligencia de amenazas de terceros</td>
-<td>Información actualizada sobre las últimas amenazas y vulnerabilidades</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Estas fuentes de datos permiten a GuardDuty analizar y detectar actividad maliciosa y anomalías en su entorno de AWS.</p>
-
-
-<h3 id="%C2%BFes-guardduty-un-esc%C3%A1ner-de-vulnerabilidades%3F-1" tabindex="-1">¿Es GuardDuty un escáner de vulnerabilidades?</h3>
-
-
-<p>No, GuardDuty no es un escáner de vulnerabilidades. En su lugar, se centra en la detección de actividad maliciosa y anomalías en su entorno de AWS. GuardDuty utiliza inteligencia de amenazas y alertas para identificar patrones de actividad sospechosos y proporcionar alertas proactivas sobre posibles amenazas.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores prácticas de seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS seguridad: fundamentos esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">seguridad en AWS: servicios esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/seguridad-en-la-nube-aws-estrategias-clave/">Seguridad en la nube AWS: estrategias clave</a></li>
-</ul>
-</p>
+No. GuardDuty detecta actividad que puede indicar una amenaza. Para evaluar vulnerabilidades, revisa la cobertura de Amazon Inspector y los demás controles que correspondan a tu entorno.

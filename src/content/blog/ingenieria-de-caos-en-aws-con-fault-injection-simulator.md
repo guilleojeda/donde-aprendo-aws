@@ -1,378 +1,103 @@
 ---
-title: "Ingeniería de caos en AWS con fault injection simulator"
-description: "Aprende cómo fortalecer tus sistemas en AWS con la ingeniería del caos utilizando AWS Fault Injection Simulator. Descubre los pasos clave y mejores prácticas para mejorar la resiliencia de tus aplicaciones."
+title: "AWS Fault Injection Service: guía práctica para probar resiliencia"
+description: "Aprende a preparar un experimento de AWS FIS en EC2: permisos mínimos, un objetivo de prueba, alarma de parada, recuperación y costos."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T01:48:43.97Z"
+modifiedTimestamp: "2026-10-06T17:33:52-03:00"
+review:
+  date: "2026-10-06"
 cover: "/assets/blog/editorial-practica.png"
 coverAlt: "Un cuaderno abierto con una secuencia de estaciones y un camino azul con punto naranja."
 ogImage: "/assets/blog/editorial-practica.png"
 related:
-  - title: "Servicios de AWS para frontend"
-    url: "https://dondeaprendoaws.com/blog/servicios-de-aws-para-frontend/"
   - title: "Mejores prácticas de observabilidad en AWS"
     url: "https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/"
-  - title: "Desarrollo en la nube: fundamentos esenciales"
-    url: "https://dondeaprendoaws.com/blog/desarrollo-en-la-nube-fundamentos-esenciales/"
+  - title: "Recuperación ante desastres en AWS: RTO, RPO y estrategias"
+    url: "https://dondeaprendoaws.com/blog/estrategias-de-recuperacion-de-desastres-en-aws/"
 
 ---
 
-<p>Descubre cómo hacer tus sistemas en AWS más fuertes con la ingeniería del caos utilizando <a href="https://aws.amazon.com/es/fis" rel="noopener noreferrer" target="_blank">AWS Fault Injection Simulator</a> (AWS FIS). Este enfoque te permite identificar y arreglar vulnerabilidades antes de que causen problemas reales, asegurándote de que tus aplicaciones puedan manejar situaciones difíciles sin afectar a los usuarios finales. Aquí tienes un resumen rápido de lo que aprenderás:</p>
+<p>AWS Fault Injection Service (AWS FIS), antes llamado AWS Fault Injection Simulator, permite probar cómo responde una carga de trabajo cuando falla un componente. Para una primera práctica, puedes detener una única instancia EC2 de prueba y pedirle a FIS que intente iniciarla de nuevo después de dos minutos. La acción ocurre sobre un recurso real: limita el objetivo, prepara una alarma de CloudWatch y verifica la recuperación antes de ejecutar.</p>
 
+<p>Esta guía explica qué configurar, qué observar y qué revisar si el experimento se detiene o no logra recuperar la instancia. No necesitas una pantalla general de “activar FIS”: el flujo documentado empieza con los permisos de IAM y una plantilla de experimento.</p>
 
-<ul>
-<li><strong>Qué es la ingeniería del caos</strong>: Simular problemas a propósito para ver cómo responde tu sistema.</li>
-<li><strong>Importancia</strong>: Te ayuda a identificar y solucionar problemas antes de que ocurran en un entorno real.</li>
-<li><strong>Pre-requisitos</strong>: Experiencia en AWS, conocimientos de DevOps, y acceso a AWS FIS.</li>
-<li><strong>Cómo configurar y usar AWS FIS</strong>: Desde obtener acceso hasta ejecutar y monitorear experimentos.</li>
-<li><strong>Análisis de resultados y estrategias de mejora</strong>: Cómo interpretar los resultados de tus experimentos y mejorar tu sistema.</li>
-<li><strong>Mejores prácticas y errores comunes</strong>: Consejos para evitar problemas comunes y sacar el máximo provecho de tus pruebas.</li>
-<li><strong>Casos de uso</strong>: Ejemplos de cómo empresas como Netflix y Amazon utilizan la ingeniería del caos.</li>
-</ul>
+<h2>Qué hace AWS FIS y qué no garantiza</h2>
 
+<p>AWS FIS ejecuta acciones de inyección de fallos sobre recursos de AWS. Una plantilla define las acciones, los objetivos, las condiciones de parada y el rol que FIS asume para realizar el experimento. Puedes trabajar desde la consola, la CLI, CloudFormation, los SDK o la API HTTPS. El <a href="https://docs.aws.amazon.com/fis/latest/userguide/what-is.html" rel="noopener noreferrer" target="_blank">manual oficial de AWS FIS</a> describe el servicio y sus límites.</p>
 
-<p>La idea es simple: al probar proactivamente tu sistema bajo condiciones controladas, puedes mejorar su resiliencia y garantizar una experiencia de usuario sin interrupciones, incluso bajo estrés.</p>
+<p>Para ver una charla de comunidad sobre observabilidad e ingeniería del caos, consulta la grabación <a href="https://www.youtube.com/watch?v=CL7jJfyg6bg" rel="noopener noreferrer" target="_blank">Cloud Forge: observabilidad, ingeniería del caos y Java en AWS</a>, organizada por AWS User Group Medellín.</p>
 
+<p>Estas acciones no son una simulación aislada del recurso: FIS realiza cambios reales, como detener instancias o introducir errores en solicitudes. Una condición de parada ayuda a limitar el experimento, pero no vuelve inocua la acción ni garantiza que la aplicación se recupere. AWS recomienda planificar la prueba y empezar en un entorno de prueba o preproducción, con métricas y alertas listas. Consulta la guía de <a href="https://docs.aws.amazon.com/fis/latest/userguide/getting-started-planning.html" rel="noopener noreferrer" target="_blank">planificación de experimentos de FIS</a>.</p>
 
-<h3 id="importancia-de-la-ingenier%C3%ADa-del-caos" tabindex="-1">Importancia de la ingeniería del caos</h3>
-
-
-<p>Cuando tienes un montón de computadoras y sistemas trabajando juntos, es complicado saber todo lo que podría salir mal. La ingeniería del caos nos ayuda a probar cómo el sistema maneja los problemas grandes. Al hacer estos 'simulacros', podemos estar más seguros de que nuestro sistema seguirá funcionando bien, incluso cuando las cosas se pongan difíciles. Esto es genial porque significa menos problemas para los usuarios finales.</p>
-
-
-<h2 id="pre-requisitos" tabindex="-1">Pre-requisitos</h2>
-
-
-<p>Antes de empezar con AWS Fault Injection Simulator (AWS FIS), necesitas saber y tener algunas cosas:</p>
-
-
-<h3 id="conocimientos" tabindex="-1">Conocimientos</h3>
-
+<h2>Antes de ejecutar: delimita el recurso, la alarma y los permisos</h2>
 
 <ul>
-<li><strong>Experiencia en AWS</strong>: Es útil saber cómo funcionan servicios como EC2, ECS, CloudWatch, etc., para poder configurar y seguir los experimentos de FIS.</li>
-<li><strong>Bases de DevOps e ingeniería de confiabilidad</strong>: Si entiendes de infraestructura como código, cómo monitorear sistemas y hacer pruebas, te será más fácil aprovechar FIS.</li>
-<li><strong>Cómo monitorear y analizar datos</strong>: Es importante saber configurar alarmas en CloudWatch y entender las métricas antes, durante y después de los experimentos para ver cómo afectan.</li>
+  <li><strong>Elige un entorno de prueba.</strong> Identifica una sola instancia EC2 reemplazable que no atienda producción ni almacene datos que necesites conservar. Para detenerla, debe estar en estado <code>running</code> y tener un dispositivo raíz respaldado por EBS: una instancia con raíz de instance store no se puede detener y volver a iniciar. Si tiene volúmenes instance store, sus datos locales se pierden al detenerla e iniciarla. Confirma también que no esté habilitada la protección contra la detención; esa protección bloquea la llamada a EC2 que FIS debe ejecutar. Consulta las guías de AWS sobre <a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Stop_Start.html" rel="noopener noreferrer" target="_blank">detener e iniciar instancias</a> y <a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-stop-protection.html" rel="noopener noreferrer" target="_blank">protección contra la detención</a>.</li>
+  <li><strong>Define qué esperas comprobar.</strong> Anota el comportamiento normal y las métricas que lo representan: disponibilidad, errores, latencia o tiempo hasta que la aplicación vuelve a estar lista. Formula una hipótesis con límites acordados para ese servicio; no uses porcentajes de ejemplo como objetivos universales.</li>
+  <li><strong>Prepara y prueba la alarma.</strong> Usa una alarma de CloudWatch asociada al impacto que quieres limitar, por ejemplo una comprobación de salud de la aplicación. Debe estar enviando datos y en estado normal antes del experimento. Una alarma genérica o sin datos puede no detectar el problema que te importa.</li>
+  <li><strong>Usa un rol de experimento separado.</strong> La guía de <a href="https://docs.aws.amazon.com/fis/latest/userguide/getting-started-iam-service-role.html" rel="noopener noreferrer" target="_blank">roles IAM para AWS FIS</a> requiere un rol que el servicio pueda asumir y recomienda conceder privilegio mínimo. Limita la relación de confianza al servicio <code>fis.amazonaws.com</code> y sigue la recomendación de restringirla con <code>aws:SourceAccount</code> y <code>aws:SourceArn</code>.</li>
 </ul>
 
+<p>Para la acción de detener y volver a iniciar una EC2, el rol de experimento necesita los permisos de EC2 correspondientes —entre ellos <code>ec2:StopInstances</code> y <code>ec2:StartInstances</code>— sobre el alcance elegido. Si el volumen EBS está cifrado, también puede necesitar <code>kms:CreateGrant</code> y autorización en la clave para permitir el inicio posterior. Revisa los permisos exactos de <a href="https://docs.aws.amazon.com/fis/latest/userguide/fis-actions-reference.html" rel="noopener noreferrer" target="_blank"><code>aws:ec2:stop-instances</code></a> antes de guardar la plantilla.</p>
 
-<h3 id="herramientas" tabindex="-1">Herramientas</h3>
+<p>El rol de experimento no es el rol de la persona que usa la consola. Quien crea la plantilla debe poder pasar ese rol; quien inicia el primer experimento también puede necesitar permiso para crear el rol vinculado al servicio de FIS. AWS crea <code>AWSServiceRoleForFIS</code> para tareas como la selección de recursos y la supervisión. Revisa <a href="https://docs.aws.amazon.com/fis/latest/userguide/using-service-linked-roles.html" rel="noopener noreferrer" target="_blank">cómo usa FIS los roles vinculados al servicio</a> y evita conceder permisos de administrador por comodidad.</p>
 
+<h2>Cuánto cuesta una ejecución</h2>
+
+<p>Al 6 de octubre de 2026, la <a href="https://aws.amazon.com/fis/pricing/" rel="noopener noreferrer" target="_blank">página de precios de AWS FIS</a> indica una tarifa de USD 0,10 por minuto de acción en la mayoría de las regiones, más USD 0,10 por minuto de acción por cada cuenta objetivo adicional. En AWS GovCloud (US-East y US-West), la tarifa es USD 0,12 por minuto de acción, más USD 0,12 por minuto por cada cuenta objetivo adicional. FIS calcula el cargo según cuánto tiempo permanece activa cada acción y redondea ese tiempo al minuto más cercano; no depende de cuántos recursos alcance una acción.</p>
+
+<p>La tarifa de FIS no incluye los cargos que puedan corresponder a los recursos objetivo ni a la telemetría. Revisa también los precios de <a href="https://aws.amazon.com/ec2/pricing/on-demand/" rel="noopener noreferrer" target="_blank">Amazon EC2</a> y <a href="https://aws.amazon.com/cloudwatch/pricing/" rel="noopener noreferrer" target="_blank">Amazon CloudWatch</a>. No des por hecho que una prueba es gratuita: el costo depende de la región, las acciones, su duración y los servicios usados para medir el resultado.</p>
+
+<h2>Práctica: detener y volver a iniciar una sola EC2 de prueba</h2>
+
+<p>El objetivo de este ejercicio es observar la interrupción y comprobar que la instancia y la aplicación regresan a un estado saludable. No prueba por sí solo la alta disponibilidad de una arquitectura. Si detener esa instancia afectaría a usuarios o datos que no puedes perder, no la uses como objetivo.</p>
+
+<ol>
+  <li><strong>Escribe la hipótesis.</strong> Por ejemplo: “Al detener la instancia de prueba, la alarma detectará el impacto y la aplicación volverá a responder dentro del tiempo objetivo de recuperación (RTO) definido para este entorno”. El RTO y el umbral de la alarma deben corresponder a tu propio servicio; AWS no les asigna un valor universal.</li>
+  <li><strong>Crea una plantilla en la región de la instancia.</strong> En la consola de AWS FIS, crea una plantilla con una acción y un objetivo. Para el objetivo, selecciona el tipo <code>aws:ec2:instance</code>, el ID de esa única instancia y el modo de selección <code>ALL</code>. Evita filtros amplios que puedan resolver más recursos de los previstos; consulta cómo se definen los <a href="https://docs.aws.amazon.com/fis/latest/userguide/targets.html" rel="noopener noreferrer" target="_blank">objetivos de AWS FIS</a>.</li>
+  <li><strong>Configura la acción.</strong> Elige <code>aws:ec2:stop-instances</code> y establece <code>startInstancesAfterDuration</code> en <code>PT2M</code>. Ese valor solicita a FIS iniciar la instancia después de dos minutos; el parámetro admite de uno a 720 minutos. Confirma los requisitos adicionales de cifrado y permisos en la referencia de la acción.</li>
+  <li><strong>Agrega la condición de parada.</strong> Selecciona la alarma de CloudWatch que representa el límite de impacto acordado. Si esa alarma pasa a estado de alarma durante el experimento, FIS detiene la ejecución. No uses una condición “ninguna” para este primer ensayo.</li>
+  <li><strong>Revisa el objetivo antes de inyectar el fallo.</strong> Genera una vista previa de objetivos con el modo <code>skip-all</code> y comprueba que aparezca exactamente el ID previsto. La vista previa omite las acciones; no verifica que FIS tenga permiso para ejecutarlas.</li>
+  <li><strong>Inicia y observa.</strong> Arranca el experimento desde la consola solo cuando el equipo responsable esté listo para intervenir. Sigue el estado de la acción y del experimento en FIS; observa la alarma, la comprobación de salud y los errores o la latencia de la aplicación.</li>
+</ol>
+
+<p>Si quieres ampliar la parte de arquitectura, la charla <a href="https://www.youtube.com/watch?v=sEr65Cgskkc" rel="noopener noreferrer" target="_blank">Diseñando arquitecturas resilientes en AWS</a>, del AWS User Group Ecuador, ofrece otro punto de partida para pensar qué comportamiento poner a prueba.</p>
+
+<p>La vista previa y la plantilla se describen en la documentación de <a href="https://docs.aws.amazon.com/fis/latest/userguide/experiment-options.html" rel="noopener noreferrer" target="_blank">opciones de experimentos de AWS FIS</a>. La guía de <a href="https://docs.aws.amazon.com/fis/latest/userguide/experiment-templates.html" rel="noopener noreferrer" target="_blank">componentes de una plantilla</a> explica cómo se relacionan acciones, objetivos, alarmas y roles.</p>
+
+<h2>Qué observar, cómo detener y cómo confirmar la recuperación</h2>
+
+<p>Compara el periodo anterior, el experimento y la recuperación. Registra el estado de la instancia, los cambios en la alarma, la disponibilidad o errores de la aplicación y el tiempo hasta que vuelve a responder. La guía interna de <a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/">Mejores prácticas de observabilidad en AWS</a> amplía cómo combinar métricas, logs y trazas.</p>
+
+<p>Si la condición de CloudWatch se activa, FIS detiene el experimento. También puedes detenerlo manualmente desde la consola. Un experimento detenido no se puede reanudar. Al detenerlo, FIS completa las acciones posteriores pendientes que la acción tenga configuradas; en este caso, <code>startInstancesAfterDuration</code> permite solicitar el inicio de la instancia. Espera a que termine la acción y confirma en EC2 que la instancia está en estado <code>running</code>; después verifica la salud de la aplicación. Si falla el inicio o la aplicación no se recupera, sigue el procedimiento operativo de tu equipo. La condición de parada no es una reparación general ni revierte efectos de acciones que no admiten recuperación.</p>
+
+<p>Para pensar más allá de esta instancia, lee <a href="https://builder.aws.com/content/3K45qVEJzMtJBbA8PHnaFLZAgxz/pruebas-de-resiliencia-recomendadas-en-aws-resilience-hub-un-runbook-que-nunca-se-ejecut-es-una-hipotesis" rel="noopener noreferrer" target="_blank">Pruebas de resiliencia recomendadas en AWS Resilience Hub: un runbook que nunca se ejecutó es una hipótesis</a>, un artículo de AWS Builder Center sobre validar runbooks con pruebas.</p>
+
+<p>Al terminar, guarda el resultado frente a la hipótesis, elimina la plantilla si ya no la necesitas y limpia solo los recursos o roles que hayas creado exclusivamente para esta práctica. No termines una instancia existente como “limpieza”. FIS elimina automáticamente los experimentos completados, detenidos o fallidos después de 120 días; consulta los detalles y conserva la evidencia que tu equipo necesite antes de ese plazo.</p>
+
+<p>Para diseñar pruebas de recuperación más amplias, repasa <a href="https://dondeaprendoaws.com/blog/estrategias-de-recuperacion-de-desastres-en-aws/">Recuperación ante desastres en AWS: RTO, RPO y estrategias</a>. Un experimento FIS y una prueba de recuperación ante desastres pueden compartir métricas, pero cubren fallas y procedimientos de alcance distinto.</p>
+
+<h2>Problemas frecuentes al crear o iniciar un experimento</h2>
 
 <ul>
-<li><strong>Cuenta de AWS</strong>: Necesitas una cuenta de AWS y permisos para usar los servicios que quieres probar con FIS.</li>
-<li><strong>Recursos en AWS (EC2, ECS, etc)</strong>: Para que FIS funcione, ya debes tener cosas como instancias EC2 o clústeres ECS funcionando en AWS.</li>
-<li><strong>Acceso a <a href="https://aws.amazon.com/es/fis" rel="noopener noreferrer" target="_blank">AWS Fault Injection Simulator</a></strong>: Debes pedir acceso a FIS desde la consola de AWS.</li>
-<li><strong>CloudWatch y otras herramientas de monitoreo</strong>: Para seguir el impacto de los experimentos y poner alarmas, necesitas herramientas como CloudWatch, DataDog, New Relic, etc.</li>
+  <li><strong>Acceso denegado al crear la plantilla:</strong> revisa los permisos del operador para crear plantillas y pasar el rol elegido, además de la relación de confianza del rol de experimento.</li>
+  <li><strong>El experimento no encuentra la instancia:</strong> comprueba que seleccionaste el ID correcto en la región correcta y que el recurso cumple los filtros y el estado requeridos. La vista previa ayuda a detectar un alcance equivocado.</li>
+  <li><strong>FIS no puede detener o iniciar la instancia:</strong> revisa los permisos del rol de experimento para la acción y, si el volumen usa cifrado, el acceso a la clave de KMS. Confirma que la instancia esté en estado <code>running</code>, use raíz EBS y no tenga protección contra la detención habilitada. Si la protección está activa, coordina con quien administra el recurso antes de cambiarla.</li>
+  <li><strong>La alarma detiene el experimento enseguida:</strong> confirma que estuviera normal antes de iniciar y que su métrica represente el umbral que quieres usar como límite, no una señal que siempre esté en alarma o sin datos.</li>
+  <li><strong>La EC2 inicia, pero la aplicación sigue fallando:</strong> iniciar la instancia no restaura automáticamente dependencias ni valida el proceso de la aplicación. Comprueba la salud funcional y aplica el runbook correspondiente.</li>
 </ul>
 
+<h2>Comunidades y eventos para seguir aprendiendo</h2>
 
-<h2 id="configuraci%C3%B3n-de-aws-fault-injection-simulator" tabindex="-1">Configuración de AWS Fault Injection Simulator</h2>
-
-
-<h3 id="acceso-a-aws-fis" tabindex="-1">Acceso a AWS FIS</h3>
-
-
-<p>Para empezar con AWS Fault Injection Simulator (AWS FIS), primero tienes que pedir acceso en la consola de AWS. Aquí te digo cómo:</p>
-
+<p>Comparte una descripción sin datos sensibles del experimento y sus resultados con otras personas que aprenden u operan AWS:</p>
 
 <ul>
-<li>Entra a la consola de AWS</li>
-<li>Busca y entra a la página de AWS FIS</li>
-<li>Dale clic a "Activar AWS FIS"</li>
-<li>Acepta los términos y condiciones</li>
-<li>Elige en qué región de AWS quieres usar el servicio</li>
+  <li><a href="https://www.meetup.com/awsugmed/" rel="noopener noreferrer" target="_blank">AWS User Group Medellín</a> publica su agenda y ofrece un espacio para conectar con la comunidad; allí también se organizó la charla de Cloud Forge enlazada arriba.</li>
+  <li><a href="https://www.awsugecuador.com/" rel="noopener noreferrer" target="_blank">AWS User Group Ecuador</a> anuncia meetups, talleres y encuentros en ciudades del país y en línea.</li>
+  <li><a href="https://www.meetup.com/aws-girls-argentina/" rel="noopener noreferrer" target="_blank">AWS Girls Argentina</a> conecta a mujeres interesadas en aprender y compartir sobre AWS y cloud; su página enlaza eventos y su comunidad de WhatsApp.</li>
+  <li><a href="https://awswomencolombia.com/" rel="noopener noreferrer" target="_blank">AWS Women Colombia</a> publica artículos y anuncia eventos con contenido técnico en español. Puedes consultar también su <a href="https://www.meetup.com/aws-women-colombia-user-group/" rel="noopener noreferrer" target="_blank">grupo en Meetup</a> para ver actividades.</li>
+  <li><a href="https://repost.aws/" rel="noopener noreferrer" target="_blank">AWS re:Post</a> es un sitio público de preguntas y respuestas donde se puede pedir orientación técnica y compartir aprendizajes. Para preguntar o responder debes iniciar sesión con credenciales de AWS, completar el perfil y verificar el correo. Su <a href="https://repost.aws/faq" rel="noopener noreferrer" target="_blank">FAQ enumera inglés, chino tradicional y simplificado, japonés, francés y coreano como idiomas admitidos</a>; no incluye español. No publiques IDs de cuenta, datos personales ni información privada de una carga de trabajo.</li>
 </ul>
 
-
-<p>Después de activar AWS FIS, necesitas darle permiso para que pueda trabajar con los recursos que quieres probar. Por ejemplo, si quieres hacer pruebas en tus instancias EC2, AWS FIS necesita permiso para poder encenderlas, apagarlas o terminarlas.</p>
-
-
-<p>Puedes dar estos permisos de varias maneras:</p>
-
-
-<ul>
-<li>Usando roles y políticas que AWS FIS ya tiene listos</li>
-<li>Creando tus propias políticas y roles</li>
-<li>Dándole acceso a AWS FIS a cuentas específicas</li>
-</ul>
-
-
-<h3 id="interfaces-de-aws-fis" tabindex="-1">Interfaces de AWS FIS</h3>
-
-
-<p>AWS FIS te ofrece diferentes maneras de usar el servicio:</p>
-
-
-<ul>
-<li><strong>Consola de administración</strong>: Es una página web donde puedes configurar y hacer tus pruebas. Es lo más fácil para empezar.</li>
-<li><strong>CLI</strong>: La línea de comandos te permite usar scripts para configurar y hacer pruebas automáticamente.</li>
-<li><strong>SDK</strong>: Los <a href="https://aws.amazon.com/tools/" rel="noopener noreferrer" target="_blank">SDK de AWS</a> te dejan integrar AWS FIS en tus propias aplicaciones.</li>
-<li><strong>API</strong>: AWS FIS tiene una API RESTful que puedes usar para hacer llamadas HTTP. Esto es útil si quieres integrarlo con otras herramientas.</li>
-</ul>
-
-
-<p>La manera en que decidas usar AWS FIS depende de lo que necesites. Por ejemplo, la consola web es buena para hacer pruebas de vez en cuando, mientras que la API y los SDK te permiten automatizar más las cosas.</p>
-
-
-<h2 id="creaci%C3%B3n-de-experimentos" tabindex="-1">Creación de experimentos</h2>
-
-
-<h3 id="definici%C3%B3n-del-estado-estable" tabindex="-1">Definición del estado estable</h3>
-
-
-<p>Antes de empezar, es crucial observar cómo se comporta normalmente tu sistema. Esto significa mirar cosas como:</p>
-
-
-<ul>
-<li><strong>Tasas de error y éxito</strong>: cuántas veces las cosas salen bien o mal.</li>
-<li><strong>Latencia</strong>: cuánto tardan en hacerse las cosas.</li>
-<li><strong>Rendimiento</strong>: cuánto trabajo puede hacer tu sistema en un tiempo determinado.</li>
-<li><strong>Saturación</strong>: cuánto están trabajando tus computadoras o redes.</li>
-</ul>
-
-
-<p>Decides qué números son normales para tu sistema. Por ejemplo, si usualmente menos del 5% de las cosas fallan, eso es lo normal.</p>
-
-
-<p>Cuando haces un experimento, comparas lo que pasa con lo que es normal. Si las cosas cambian mucho, quizás necesites parar y revisar.</p>
-
-
-<h3 id="formulaci%C3%B3n-de-hip%C3%B3tesis" tabindex="-1">Formulación de hipótesis</h3>
-
-
-<p>Ahora piensas en qué crees que pasará cuando hagas el experimento. Por ejemplo:</p>
-
-
-<ul>
-<li>Que las cosas falladas suban al 10% pero luego vuelvan a la normalidad en 2 minutos.</li>
-<li>Que las cosas se pongan más lentas, pero solo por 5 minutos.</li>
-<li>Que no más del 20% de las cosas fallen y que tu sistema siga trabajando casi igual.</li>
-</ul>
-
-
-<p>Estas ideas te ayudan a decidir cuándo podría ser necesario parar el experimento si las cosas se ponen feas.</p>
-
-
-<h3 id="configuraci%C3%B3n-de-experimentos" tabindex="-1">Configuración de experimentos</h3>
-
-
-<p>En AWS FIS, necesitas saber tres cosas para hacer un experimento:</p>
-
-
-<p><strong>Acciones</strong>: qué tipo de problema vas a causar, como apagar computadoras o llenar el disco duro.</p>
-
-
-<p><strong>Destinos</strong>: en qué computadoras o sistemas vas a causar estos problemas.</p>
-
-
-<p><strong>Condiciones de detención</strong>: cómo decides si el experimento se está poniendo demasiado riesgoso y necesitas pararlo.</p>
-
-
-<p>Es mejor empezar poco a poco, como apagar una computadora primero, para ver qué pasa. Luego, puedes probar con más si todo va bien.</p>
-
-
-<p>Intenta hacer estos experimentos cuando haya menos gente usando tu sistema, para molestar lo menos posible a los usuarios.</p>
-
-
-<h2 id="ejecuci%C3%B3n-y-monitorizaci%C3%B3n" tabindex="-1">Ejecución y monitorización</h2>
-
-
-<h3 id="ejecutar-experimentos" tabindex="-1">Ejecutar experimentos</h3>
-
-
-<p>Para poner en marcha un experimento con AWS Fault Injection Simulator (AWS FIS), haz lo siguiente:</p>
-
-
-<ul>
-<li>Entra a la consola de AWS FIS.</li>
-<li>Elige la plantilla de experimento que quieres usar o haz una nueva.</li>
-<li>Ajusta las acciones, destinos y condiciones de detención del experimento.</li>
-<li>Las <strong>acciones</strong> son los errores que vas a introducir, como apagar instancias EC2 o hacer más lentas las solicitudes.</li>
-<li>Los <strong>destinos</strong> son los lugares donde vas a aplicar esas acciones, como en ciertas instancias o grupos.</li>
-<li>Las <strong>condiciones de detención</strong> te dicen cuándo parar el experimento si las cosas se complican mucho, por ejemplo, si hay muchos errores o la latencia es demasiado alta.</li>
-<li>Cuando todo esté listo, arranca el experimento.</li>
-<li>AWS FIS realizará las acciones en los lugares que escogiste.</li>
-<li>Mientras ocurre, observa lo que pasa para ver si necesitas detener el experimento.</li>
-</ul>
-
-
-<p>Algunos consejos:</p>
-
-
-<ul>
-<li>Empieza con experimentos pequeños y ve aumentando.</li>
-<li>Hazlos cuando tu sistema no esté muy ocupado.</li>
-<li>Establece condiciones de detención para limitar problemas.</li>
-<li>Ten planes por si necesitas arreglar algo que salga mal.</li>
-</ul>
-
-
-<h3 id="monitorizaci%C3%B3n-en-tiempo-real" tabindex="-1">Monitorización en tiempo real</h3>
-
-
-<p>Mientras el experimento está en marcha, es clave que veas cómo afecta a tu sistema en el momento.</p>
-
-
-<p>Cosas que puedes observar:</p>
-
-
-<ul>
-<li><strong>Métricas en CloudWatch</strong>: pon tableros para seguir cosas como errores, latencia, uso, etc.</li>
-<li><strong>Registros y trazas</strong>: busca cosas raras en tus registros o trazas.</li>
-<li><strong>Alarmas</strong>: pon alarmas que te avisen si algo supera un límite.</li>
-<li><strong>Sintéticos</strong>: usa pruebas que imiten a usuarios reales en tu sistema.</li>
-<li><strong>Otros tableros</strong>: si usas herramientas como DataDog o NewRelic, también puedes mirar ahí.</li>
-</ul>
-
-
-<p>Si ves que el experimento se está saliendo de control:</p>
-
-
-<ul>
-<li><strong>Para el experimento</strong> desde la consola de AWS FIS.</li>
-<li>Aplica tus <strong>planes de arreglo</strong>, como reiniciar sistemas o recursos afectados.</li>
-<li><strong>Analiza</strong> qué falló y cómo puedes hacer que tu sistema resista mejor esos errores.</li>
-</ul>
-
-
-<p>Recuerda, la idea no es causar daño, sino encontrar debilidades y hacer tu sistema más fuerte ante problemas. Así que vigila bien y para los experimentos si ves que el impacto es demasiado.</p>
-
-
-<h2 id="an%C3%A1lisis-de-resultados" tabindex="-1">Análisis de resultados</h2>
-
-
-<h3 id="interpretaci%C3%B3n-de-resultados" tabindex="-1">Interpretación de resultados</h3>
-
-
-<p>Después de hacer un experimento con AWS Fault Injection Simulator, es importante mirar qué pasó para entender cómo podemos mejorar. Aquí te dejo unos pasos sencillos:</p>
-
-
-<ul>
-<li>Mira las métricas en CloudWatch o en otras herramientas para ver cómo cambió el comportamiento de tu sistema durante el experimento. Fíjate en las diferencias grandes.</li>
-<li>Chequea los registros para encontrar errores o cosas raras que pasaron. Esto te ayuda a entender mejor la situación.</li>
-<li>Compara lo que viste con lo que pensabas que iba a pasar. ¿Se comportó tu sistema como esperabas? Si no, piensa en qué fue diferente.</li>
-<li>Identifica los problemas que encontraste. Puede ser que tu sistema tuvo muchos errores, se puso lento, o le costó recuperarse.</li>
-<li>Escribe qué aprendiste y cómo crees que podrías mejorar tu sistema para que sea más fuerte.</li>
-</ul>
-
-
-<h3 id="estrategias-de-mejora" tabindex="-1">Estrategias de mejora</h3>
-
-
-<p>Ahora que sabes qué no funcionó tan bien, aquí tienes algunas ideas para mejorar:</p>
-
-
-<ul>
-<li>Añade chequeos de cómo va todo y asegúrate de que tu código pueda intentar de nuevo si algo falla.</li>
-<li>Usa más de un recurso para las partes más importantes de tu sistema, como las bases de datos.</li>
-<li>Haz que tu sistema pueda crecer automáticamente si necesita manejar más trabajo.</li>
-<li>Prepárate mejor para responder rápido si algo no va bien.</li>
-<li>Usa más métricas y alarmas para estar al tanto de cómo va todo.</li>
-<li>Automatiza cómo arreglar problemas, por ejemplo, con scripts.</li>
-<li>Sigue las mejores prácticas recomendadas por AWS.</li>
-<li>Haz estos experimentos regularmente, especialmente cuando estés haciendo cambios, para asegurarte de que todo sigue funcionando bien.</li>
-</ul>
-
-
-<p>Escribe los cambios que hagas y prueba de nuevo para ver si solucionaste los problemas. La idea es seguir probando y mejorando para que tu sistema sea cada vez más confiable.</p>
-
-
-<h2 id="mejores-pr%C3%A1cticas" tabindex="-1">Mejores prácticas</h2>
-
-
-<h3 id="recomendaciones" tabindex="-1">Recomendaciones</h3>
-
-
-<p>Cuando uses AWS Fault Injection Simulator para hacer ingeniería del caos, es bueno seguir estos consejos:</p>
-
-
-<ul>
-<li>Empieza probando en un ambiente que no sea de producción antes de hacerlo en el real. Así entiendes mejor qué puede pasar.</li>
-<li>Usa CloudWatch para poner métricas y alarmas que te ayuden a ver cómo va el experimento. Si algo sale mal, puedes pararlo rápido.</li>
-<li>Pon reglas para que el experimento se detenga solo si las cosas se ponen muy malas, como si hay muchos errores.</li>
-<li>Es mejor hacer estas pruebas cuando hay poca gente usando tu sistema, para no afectarlos tanto.</li>
-<li>Ten un plan para solucionar problemas rápido si el experimento afecta tu sistema más de lo esperado.</li>
-<li>Si puedes, haz que estos experimentos se hagan solos, por ejemplo, como parte de tu proceso de CI/CD.</li>
-<li>Después de cada prueba, mira bien los resultados para saber cómo puedes hacer tu sistema más fuerte.</li>
-<li>Haz estas pruebas seguido, porque tu sistema siempre está cambiando.</li>
-</ul>
-
-
-<h3 id="errores-comunes" tabindex="-1">Errores comunes</h3>
-
-
-<p>Evita estos errores comunes:</p>
-
-
-<ul>
-<li>No hagas pruebas muy fuertes sin estar preparado. Podrías causar problemas grandes.</li>
-<li>Es importante ver cómo va el experimento mientras se hace, para poder actuar si algo no va bien.</li>
-<li>Siempre ten un plan de cómo arreglar cosas si el experimento sale mal.</li>
-<li>No empieces probando en el ambiente de producción. Primero hazlo en un lugar controlado.</li>
-<li>Es clave mirar los resultados de las pruebas y usar esa información para mejorar.</li>
-<li>No dejes de hacer estas pruebas solo porque todo parece estar bien. Siempre hay espacio para mejorar.</li>
-</ul>
-
-
-<h2 id="casos-de-uso" tabindex="-1">Casos de uso</h2>
-
-
-<h3 id="netflix" tabindex="-1">Netflix</h3>
-
-
-<p>Netflix usa la ingeniería del caos y AWS Fault Injection Simulator para asegurarse de que su plataforma de streaming funciona bien, incluso cuando hay problemas. Lo que hacen es simular situaciones como perder algunas de las computadoras que entregan los videos o tener errores en los sistemas que guardan la información de los videos. Esto les ayuda a ver cómo reacciona su sistema y a buscar maneras de mejorarlo.</p>
-
-
-<p>Por ejemplo, probaron qué pasaba si perdían el 20% de las computadoras que entregan videos y descubrieron que su sistema podía manejarlo gracias a cómo está diseñado. También encontraron que, si había problemas con las bases de datos de los videos, necesitaban tener una forma extra de guardar esa información para que los usuarios no tuvieran problemas.</p>
-
-
-<p>Así, Netflix usa estas pruebas para hacer que su plataforma sea más fuerte y evitar problemas reales.</p>
-
-
-<h3 id="amazon" tabindex="-1">Amazon</h3>
-
-
-<p>Amazon también utiliza la ingeniería del caos y AWS Fault Injection Simulator, pero para prepararse para días de mucho movimiento, como el Black Friday. Simulan cosas como un aumento grande en la gente que visita la tienda en línea, lo que pone más carga en los servidores y las bases de datos. Esto les permite ver qué problemas pueden aparecer y arreglarlos antes de que realmente ocurran.</p>
-
-
-<p>También prueban qué pasaría si fallaran servicios importantes como el procesamiento de pagos o la red de distribución de productos. Esto les ayuda a tener planes listos por si algo no funciona como debería.</p>
-
-
-<p>Gracias a estas pruebas, Amazon puede manejar bien los días cuando mucha gente compra en línea, asegurando que los clientes tengan una buena experiencia.</p>
-
-
-<h2 id="conclusi%C3%B3n" tabindex="-1">Conclusión</h2>
-
-
-<p>La idea de usar la ingeniería del caos y herramientas como AWS Fault Injection Simulator es para hacer nuestros sistemas en la nube más fuertes.</p>
-
-
-<p>Lo que hacemos es simular problemas a propósito para ver cómo responde nuestro sistema. De esta manera, podemos identificar y arreglar puntos débiles antes de que ocurran problemas reales.</p>
-
-
-<p>Los pasos que seguimos son básicamente:</p>
-
-
-<ul>
-<li>Observar cómo funciona normalmente nuestro sistema</li>
-<li>Pensar cómo creemos que el sistema responderá a los problemas</li>
-<li>Preparar los experimentos empezando con cosas pequeñas</li>
-<li>Realizar las pruebas y estar atentos a cómo afectan</li>
-<li>Revisar los resultados para ver qué podemos mejorar</li>
-<li>Hacer cambios y probar de nuevo</li>
-</ul>
-
-
-<p>Al hacer estas pruebas parte de nuestro proceso de trabajo, ayudamos a que nuestros sistemas estén siempre listos para cualquier cosa.</p>
-
-
-<p>Así nos aseguramos de que los usuarios tengan una experiencia buena y sin interrupciones, incluso cuando las cosas se ponen difíciles. La ingeniería del caos nos enseña a manejar mejor los desafíos de la tecnología en la nube.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/observabilidad-en-aws-con-amazon-x-ray/">Observabilidad en AWS con Amazon X-Ray</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/estrategias-de-recuperacion-de-desastres-en-aws/">Estrategias de recuperación de desastres en AWS</a></li>
-</ul>
-</p>
+<p>Si buscas otra comunidad o una próxima actividad, revisa el <a href="/comunidades/">directorio de comunidades AWS en Latinoamérica</a> y la <a href="/eventos/">agenda de eventos</a>. Las fechas, modalidades, idiomas, requisitos de inscripción y costos —si los hay— dependen de cada grupo y evento; confirma esos datos en la página de destino.</p>

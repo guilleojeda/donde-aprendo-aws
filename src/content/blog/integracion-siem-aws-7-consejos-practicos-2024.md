@@ -1,110 +1,180 @@
 ---
-title: "Integración SIEM-AWS: 7 consejos prácticos [2024]"
-description: "Descubre cómo mejorar la seguridad y cumplimiento en AWS con la integración SIEM. Sigue estos 7 consejos prácticos para proteger tu entorno en la nube."
+title: "Cómo integrar AWS con un SIEM: fuentes, rutas y pruebas"
+description: "Elige qué señales enviar a tu SIEM, cómo entregarlas desde CloudTrail, Security Hub, CloudWatch Logs o Security Lake y cómo comprobar su recepción."
 author: "guille-ojeda"
 publishedAt: "2024-05-05"
 publishedTimestamp: "2024-05-05T01:12:15.503Z"
+modifiedTimestamp: "2026-10-06T17:35:53-03:00"
+review:
+  date: "2026-10-06"
 cover: "/assets/blog/editorial-seguridad.png"
 coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-seguridad.png"
 related:
-  - title: "Guía de eventos AWS Educate 2024"
-    url: "https://dondeaprendoaws.com/blog/guia-de-eventos-aws-educate-2024/"
-  - title: "Detección de sesgos en modelos ML con SageMaker Clarify"
-    url: "https://dondeaprendoaws.com/blog/deteccion-de-sesgos-en-modelos-ml-con-sagemaker-clarify/"
-  - title: "Comprendiendo AWS Step Functions"
-    url: "https://dondeaprendoaws.com/blog/comprendiendo-aws-step-functions/"
-
+  - title: "Amazon GuardDuty: listas de inteligencia de amenazas"
+    url: "https://dondeaprendoaws.com/blog/integracion-de-guardduty-de-aws-para-inteligencia-de-amenazas/"
+  - title: "Servicios de seguridad de AWS: cuál usar para cada problema"
+    url: "https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/"
 ---
 
-<p>La integración de un sistema de gestión de eventos e información de seguridad (SIEM) con <a href="https://aws.amazon.com/">AWS</a> es fundamental para monitorear y analizar la actividad de seguridad en tiempo real en tu entorno en la nube. Al seguir estos 7 consejos prácticos, podrás mejorar tu postura de seguridad y cumplimiento en <a href="https://aws.amazon.com/">AWS</a>:</p>
-<ol><li><strong>Entender tus necesidades de SIEM y AWS</strong>: Evalúa las capacidades de tu SIEM actual y los servicios relevantes de AWS, como <a href="https://aws.amazon.com/es/cloudtrail/">CloudTrail</a>, <a href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/WhatIsCloudWatch.html">CloudWatch</a> y <a href="https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html">VPC Flow Logs</a>.</li><li><strong>Seleccionar las fuentes de datos adecuadas</strong>: Prioriza las fuentes de datos que ofrezcan control granular y visibilidad profunda, como <a href="https://es.wikipedia.org/wiki/Administraci%C3%B3n_de_identidades">IAM</a> y VPC Flow Logs. Configura AWS para recopilar y enviar los datos de registro a tu SIEM de manera segura.</li><li><strong>Configurar la integración paso a paso</strong>: Sigue una guía detallada para configurar servicios como CloudTrail y CloudWatch con tu SIEM.</li><li><strong>Elegir una solución SIEM adecuada</strong>: Compara soluciones SIEM populares como <a href="https://www.splunk.com/en_us/products/splunk-cloud-platform.html">Splunk Cloud</a>, <a href="https://www.sumologic.com/">Sumo Logic</a> y <a href="https://www.exabeam.com/">Exabeam</a>, considerando su integración con AWS, monitoreo en tiempo real, detección de amenazas y modelo de precios.</li><li><strong>Integrar <a href="https://aws.amazon.com/security-hub/">AWS Security Hub</a></strong>: Centraliza los hallazgos de seguridad de múltiples servicios de AWS en Security Hub y conéctalo con tu SIEM para un análisis unificado.</li><li><strong>Monitorear y analizar con SIEM</strong>: Configura reglas de alerta y flujos de trabajo de respuesta a incidentes para detectar y responder a amenazas en tiempo real.</li><li><strong>Mantener la integración actualizada</strong>: Realiza auditorías regulares de la <a href="https://dondeaprendoaws.com/blog/integracion-de-guardduty-de-aws-para-inteligencia-de-amenazas/">integración SIEM-AWS</a> y mantente informado sobre las <a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">actualizaciones de AWS</a> para garantizar la seguridad y el cumplimiento continuos.</li></ol>
-<table><thead><tr><th>Solución SIEM</th><th>Integración con AWS</th><th>Monitoreo en tiempo real</th><th>Detección de amenazas</th><th>Modelo de precios</th></tr></thead><tbody><tr><td>Splunk Cloud</td><td>✓</td><td>✓</td><td>✓</td><td>Suscripción</td></tr><tr><td>Sumo Logic</td><td>✓</td><td>✓</td><td>✓</td><td>Pago por GB</td></tr><tr><td>Exabeam</td><td>✓</td><td>✓</td><td>✓</td><td>Suscripción</td></tr><tr><td><a href="https://cribl.io/">Cribl LogStream</a></td><td>✓</td><td>✓</td><td>✓</td><td>Pago por GB</td></tr><tr><td><a href="https://logz.io/">Logz.io</a></td><td>✓</td><td>✓</td><td>✓</td><td>Suscripción</td></tr></tbody></table>
-<p>Al implementar estos consejos, podrás mejorar la seguridad y el cumplimiento en tu entorno de AWS, permitiéndote operar con confianza en la nube.</p>
-<h2 id="1.-entendiendo-tus-necesidades-de-siem-y-aws">1. Entendiendo tus necesidades de SIEM y <a href="https://aws.amazon.com/">AWS</a></h2>
-<p><img alt="AWS" src="/assets/blog/2ebe3cf8e7ae57e98d3af846.jpg"/></p>
-<p>Antes de integrar tu sistema de seguridad de la información y manejo de eventos (SIEM) con AWS, es crucial entender las capacidades de tu sistema SIEM actual y las opciones de servicio que ofrece AWS.</p>
-<h3 id="evaluando-las-caracter%C3%ADsticas-de-tu-siem">Evaluando las características de tu SIEM</h3>
-<p>Debes evaluar las características de tu SIEM, como:</p>
-<ul><li>Reglas de correlación</li><li>Alertas en tiempo real</li><li>Informes de cumplimiento</li></ul>
-<p>Estas características pueden funcionar en conjunto con los servicios de AWS para proporcionar una visión más completa de la <a href="https://dondeaprendoaws.com/blog/seguridad-en-la-nube-aws-estrategias-clave/">seguridad en la nube</a>.</p>
-<h3 id="identificando-servicios-de-aws-relevantes">Identificando servicios de AWS relevantes</h3>
-<p>Es fundamental identificar los servicios de AWS que son pertinentes para la integración de SIEM, como:</p>
-<table><thead><tr><th>Servicio de AWS</th><th>Descripción</th></tr></thead><tbody><tr><td>AWS CloudTrail</td><td>Proporciona un registro detallado de las actividades de API en tu cuenta de AWS</td></tr><tr><td>AWS Config</td><td>Proporciona una visión detallada de la configuración de tus recursos de AWS</td></tr><tr><td>VPC Flow Logs</td><td>Proporciona un registro detallado del tráfico de red en tus VPC</td></tr></tbody></table>
-<p>Cada servicio tiene sus propias funcionalidades y especificaciones de datos de registro, por lo que es importante entender cómo se pueden utilizar para mejorar la seguridad en la nube.</p>
-<h2 id="2.-selecci%C3%B3n-de-las-fuentes-de-datos-de-aws-adecuadas">2. Selección de las fuentes de datos de AWS adecuadas</h2>
-<p>Cuando se integra tu SIEM con AWS, es crucial elegir las fuentes de datos correctas que proporcionen una visión valiosa de tu entorno de AWS. Hay varios servicios de AWS que debes considerar, cada uno con sus propias funcionalidades y especificaciones de datos de registro.</p>
-<h3 id="priorizar-fuentes-de-datos">Priorizar fuentes de datos</h3>
-<p>Para elegir las fuentes de datos correctas, debes priorizarlas según tus necesidades de seguridad. Los servicios que ofrecen un control granular y una visibilidad profunda, como <strong>Identity and Access Management (IAM)</strong> y <strong>VPC Flow Logs</strong>, deben tener prioridad.</p>
-<table><thead><tr><th>Servicio de AWS</th><th>Descripción</th></tr></thead><tbody><tr><td><strong>IAM</strong></td><td>Administra credenciales y especifica acceso</td></tr><tr><td><strong>VPC Flow Logs</strong></td><td>Proporciona una visión detallada del tráfico de red en tus VPC</td></tr><tr><td><strong>CloudTrail</strong></td><td>Registra las actividades de API en tu cuenta de AWS</td></tr><tr><td><strong>CloudWatch Events</strong></td><td>Te permite automatizar respuestas a eventos específicos</td></tr><tr><td><strong>AWS Security Hub</strong></td><td>Centraliza alertas y hallazgos de múltiples servicios</td></tr></tbody></table>
-<h3 id="configuraci%C3%B3n-de-aws-para-la-recopilaci%C3%B3n-de-eventos">Configuración de AWS para la recopilación de eventos</h3>
-<p>Una vez que hayas elegido las fuentes de datos correctas, debes configurar los servicios de AWS para recopilar y dirigir los datos de registro hacia tu SIEM. Esto puede incluir la configuración de <a href="https://en.wikipedia.org/wiki/Amazon_S3">S3</a> bucket logging, CloudWatch Events y otros servicios para asegurarte de que los datos se estén recopilando correctamente.</p>
-<p>Asegúrate de que los datos se estén enviando a tu SIEM de manera segura y confiable. Esto puede incluir la implementación de mecanismos de autenticación y autorización, como AWS IAM roles y permisos, para asegurarte de que solo los usuarios autorizados tengan acceso a los datos.</p>
-<p>Al elegir las fuentes de datos correctas y configurar AWS para la recopilación de eventos, podrás obtener una visión más completa de tu entorno de AWS y mejorar la seguridad y la eficiencia de tus operaciones en la nube.</p>
-<h2 id="3.-gu%C3%ADa-de-configuraci%C3%B3n-paso-a-paso-de-siem-aws">3. Guía de configuración paso a paso de SIEM-AWS</h2>
-<p>Para configurar correctamente tu SIEM con AWS, es importante seguir un enfoque estructurado. A continuación, te proporcionamos una guía paso a paso para configurar AWS servicios, como CloudTrail y CloudWatch, con tu SIEM.</p>
-<h3 id="configuraci%C3%B3n-de-la-integraci%C3%B3n-de-cloudtrail">Configuración de la integración de <a href="https://aws.amazon.com/es/cloudtrail/">CloudTrail</a></h3>
-<p><img alt="CloudTrail" src="/assets/blog/7d09313562a046c75135b0d7.jpg"/></p>
-<p>Para integrar AWS CloudTrail con tu SIEM, debes seguir los siguientes pasos:</p>
-<p>1. <strong>Configura un bucket de S3</strong>: Crea un bucket de S3 para almacenar los registros de CloudTrail.</p>
-<p>2. <strong>Habilita la recopilación de registros</strong>: Habilita la recopilación de registros de CloudTrail en tu cuenta de AWS.</p>
-<p>3. <strong>Configura tu SIEM</strong>: Configura tu SIEM para recopilar los registros de CloudTrail desde el bucket de S3.</p>
-<p>Asegúrate de que los registros se estén enviando a tu SIEM de manera segura y confiable.</p>
-<h3 id="habilitaci%C3%B3n-del-monitoreo-de-cloudwatch">Habilitación del monitoreo de <a href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/WhatIsCloudWatch.html">CloudWatch</a></h3>
-<p><img alt="CloudWatch" src="/assets/blog/9ebb196e98b884187a4d0c91.jpg"/></p>
-<p>Para utilizar CloudWatch para el monitoreo en tiempo real y su integración con herramientas de SIEM para acciones de respuesta automatizadas, sigue estos pasos:</p>
-<p>1. <strong>Configura CloudWatch</strong>: Configura CloudWatch para recopilar métricas y registros de tus recursos de AWS.</p>
-<p>2. <strong>Habilita la integración</strong>: Habilita la integración de CloudWatch con tu SIEM para recopilar y analizar los datos.</p>
-<p>3. <strong>Configura reglas de alerta</strong>: Configura reglas de alerta y respuesta en tu SIEM para responder a eventos específicos detectados por CloudWatch.</p>
-<p>Recuerda que la configuración correcta de CloudWatch y la integración con tu SIEM es crucial para detectar y responder a amenazas de seguridad en tiempo real.</p>
-<h2 id="4.-selecci%C3%B3n-de-una-soluci%C3%B3n-siem-para-aws">4. Selección de una solución SIEM para AWS</h2>
-<p>Al elegir una solución SIEM para AWS, es importante considerar varios factores. Necesitas una solución que se integre efectivamente con tus servicios de AWS, proporcione monitoreo y detección de amenazas en tiempo real, y ofrezca modelos de precios escalables y rentables.</p>
-<h3 id="comparaci%C3%B3n-de-soluciones-siem">Comparación de soluciones SIEM</h3>
-<p>A continuación, se presenta una comparación de algunas soluciones SIEM populares para AWS:</p>
-<table><thead><tr><th>Solución SIEM</th><th>Integración con AWS</th><th>Monitoreo en tiempo real</th><th>Detección de amenazas</th><th>Modelo de precios</th></tr></thead><tbody><tr><td>Splunk Cloud</td><td>☑️</td><td>☑️</td><td>☑️</td><td>Suscripción</td></tr><tr><td>Sumo Logic</td><td>☑️</td><td>☑️</td><td>☑️</td><td>Pago por GB</td></tr><tr><td>Exabeam</td><td>☑️</td><td>☑️</td><td>☑️</td><td>Suscripción</td></tr><tr><td>Cribl LogStream</td><td>☑️</td><td>☑️</td><td>☑️</td><td>Pago por GB</td></tr><tr><td>Logz.io</td><td>☑️</td><td>☑️</td><td>☑️</td><td>Suscripción</td></tr></tbody></table>
-<p>Al evaluar estas soluciones, considera los siguientes factores:</p>
-<ul><li><strong>Integración con AWS</strong>: ¿Puede la solución SIEM integrarse sin problemas con tus servicios de AWS, como CloudTrail, CloudWatch y S3?</li><li><strong>Monitoreo en tiempo real</strong>: ¿Proporciona la solución monitoreo y análisis en tiempo real para detectar amenazas y anomalías?</li><li><strong>Detección de amenazas</strong>: ¿Puede la solución detectar y responder a amenazas avanzadas, como malware, ransomware y ataques DDoS?</li><li><strong>Modelo de precios</strong>: ¿Cuál es el modelo de precios, y es escalable y rentable para tu organización?</li></ul>
-<p>Al considerar estos factores, puedes elegir una solución SIEM que se adapte a las necesidades específicas de tu organización y proporcione monitoreo y detección de amenazas efectivos para tu entorno de AWS.</p>
-<h2 id="5.-uso-de-aws-security-hub-con-siem">5. Uso de <a href="https://aws.amazon.com/security-hub/">AWS Security Hub</a> con SIEM</h2>
-<p><img alt="AWS Security Hub" src="/assets/blog/555daec2d56d53470dc0a44d.jpg"/></p>
-<h3 id="integraci%C3%B3n-de-aws-security-hub">Integración de AWS Security Hub</h3>
-<p>La integración de AWS Security Hub con tu sistema SIEM proporciona una plataforma centralizada para el análisis de datos de seguridad y visibilidad. Esta integración te permite recopilar y analizar hallazgos de seguridad de varios servicios de AWS, como <a href="https://dev.to/mgcenteno/amazon-guardduty-new-features-1gc">Amazon GuardDuty</a>, Amazon Inspector y AWS IAM Access Analyzer, en un solo lugar.</p>
-<p>Para integrar AWS Security Hub con tu SIEM, sigue estos pasos:</p>
-<p>1. <strong>Habilita AWS Security Hub</strong>: Ve al panel de control de AWS y navega hasta el dashboard de Security Hub. Haz clic en "Habilitar Security Hub" para activar el servicio. 2. <strong>Configura AWS Security Hub</strong>: Configura Security Hub especificando los servicios de AWS que deseas integrar, como CloudTrail, CloudWatch y S3. También puedes configurar los estándares de seguridad y marcos de cumplimiento que deseas utilizar. 3. <strong>Conecta tu SIEM</strong>: Conecta tu sistema SIEM a AWS Security Hub utilizando la API de Security Hub o una integración proporcionada por AWS. Esto permitirá que tu SIEM recopile y analice los hallazgos de seguridad de AWS Security Hub. 4. <strong>Configura la ingesta de datos</strong>: Configura tu SIEM para ingerir los hallazgos de seguridad de AWS Security Hub. Esto puede involucrar la configuración de recolectores de datos, el análisis de registros y la configuración de reglas de procesamiento de datos. 5. <strong>Analiza y responde</strong>: Usa tu SIEM para analizar los hallazgos de seguridad de AWS Security Hub y responder a posibles amenazas de seguridad en tiempo real.</p>
-<p>Al integrar AWS Security Hub con tu SIEM, puedes obtener una visión completa de tu postura de seguridad, detectar y responder a amenazas de seguridad de manera más efectiva y mejorar tu postura de seguridad y cumplimiento en general.</p>
-<table><thead><tr><th>Paso</th><th>Descripción</th></tr></thead><tbody><tr><td>1</td><td>Habilita AWS Security Hub</td></tr><tr><td>2</td><td>Configura AWS Security Hub</td></tr><tr><td>3</td><td>Conecta tu SIEM</td></tr><tr><td>4</td><td>Configura la ingesta de datos</td></tr><tr><td>5</td><td>Analiza y responde</td></tr></tbody></table>
-<h2 id="6.-monitoreo-y-an%C3%A1lisis-con-siem">6. Monitoreo y análisis con SIEM</h2>
-<h3 id="detecci%C3%B3n-de-amenazas-en-tiempo-real">Detección de amenazas en tiempo real</h3>
-<p>Para detectar amenazas en tiempo real, debes configurar tu SIEM para monitorear las actividades de tu entorno de AWS de manera continua. Esto te permite identificar y responder a posibles amenazas de seguridad antes de que causen daños.</p>
-<p>Puedes configurar reglas de alerta en tu SIEM que se activan cuando se detecta un patrón de actividad sospechoso. Por ejemplo, puedes configurar una regla que se active cuando se detecta un aumento anómalo en el tráfico de red o cuando se intenta acceder a un recurso AWS desde una ubicación geográfica desconocida.</p>
-<h3 id="flujos-de-trabajo-de-respuesta-a-incidentes">Flujos de trabajo de respuesta a incidentes</h3>
-<p>Una vez que se ha detectado una amenaza de seguridad, es crucial responder de manera rápida y efectiva para minimizar el daño. Para lograr esto, debes establecer flujos de trabajo de respuesta a incidentes que guíen a tu equipo de seguridad a través del proceso de respuesta.</p>
-<p>Un flujo de trabajo de respuesta a incidentes típico puede incluir los siguientes pasos:</p>
-<table><thead><tr><th>Paso</th><th>Descripción</th></tr></thead><tbody><tr><td>1</td><td>Detección de la amenaza: Tu SIEM detecta una amenaza de seguridad y activa una alerta.</td></tr><tr><td>2</td><td>Análisis de la amenaza: Tu equipo de seguridad analiza la amenaza para determinar su gravedad y alcance.</td></tr><tr><td>3</td><td>Contención de la amenaza: Tu equipo de seguridad toma medidas para contener la amenaza y evitar que se propague.</td></tr><tr><td>4</td><td>Erradicación de la amenaza: Tu equipo de seguridad elimina la amenaza de tu entorno de AWS.</td></tr><tr><td>5</td><td>Revisión y seguimiento: Tu equipo de seguridad revisa el incidente y realiza un seguimiento para asegurarse de que la amenaza ha sido completamente eliminada.</td></tr></tbody></table>
-<p>Al establecer flujos de trabajo de respuesta a incidentes, puedes asegurarte de que tu equipo de seguridad esté preparado para responder a amenazas de seguridad de manera rápida y efectiva.</p>
-<h2 id="7.-mantenimiento-de-la-integraci%C3%B3n-siem-aws">7. Mantenimiento de la integración SIEM-AWS</h2>
-<h3 id="auditor%C3%ADas-de-integraci%C3%B3n-regulares">Auditorías de integración regulares</h3>
-<p>Es fundamental realizar <a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">auditorías regulares de la integración SIEM-AWS</a> para asegurarse de que la configuración y los procesos siguen siendo efectivos y seguros con el tiempo. Estas auditorías deben incluir la revisión de los siguientes aspectos:</p>
-<h4 id="configuraci%C3%B3n-de-la-integraci%C3%B3n-siem-aws">Configuración de la integración SIEM-AWS</h4>
-<h4 id="reglas-de-alerta-y-notificaci%C3%B3n">Reglas de alerta y notificación</h4>
-<h4 id="flujos-de-trabajo-de-respuesta-a-incidentes-1">Flujos de trabajo de respuesta a incidentes</h4>
-<h4 id="acceso-y-autenticaci%C3%B3n-de-usuarios">Acceso y autenticación de usuarios</h4>
-<h4 id="actualizaciones-y-parches-de-seguridad">Actualizaciones y parches de seguridad</h4>
-<h3 id="manteniendo-actualizado-con-las-actualizaciones-de-aws">Manteniendo actualizado con las actualizaciones de AWS</h3>
-<p>AWS está en constante evolución, y es fundamental mantenerse informado sobre las actualizaciones y nuevos lanzamientos para asegurarse de que la integración SIEM-AWS siga siendo compatible y segura. Algunas formas de mantenerse informado incluyen:</p>
-<ul><li>Suscribirse a los canales de noticias y actualizaciones de AWS</li><li>Participar en comunidades y foros de seguridad de AWS</li><li>Realizar pruebas y evaluaciones periódicas de las actualizaciones de AWS</li><li>Trabajar con un partner de AWS que pueda proporcionar asistencia y orientación sobre las actualizaciones y mejores prácticas</li></ul>
-<p>Al mantener la integración SIEM-AWS actualizada y segura, puedes asegurarte de que tu entorno de AWS esté protegido contra amenazas y vulnerabilidades, y que estés cumpliendo con los requisitos de seguridad y cumplimiento.</p>
-<h2 id="conclusi%C3%B3n">Conclusión</h2>
-<p>En resumen, la integración de SIEM con AWS es fundamental para mejorar la seguridad y el cumplimiento en la nube. Al seguir los 7 consejos prácticos presentados en este artículo, puedes asegurarte de que tu entorno de AWS esté protegido contra amenazas y vulnerabilidades.</p>
-<h3 id="ventajas-de-la-integraci%C3%B3n-siem-aws">Ventajas de la integración SIEM-AWS</h3>
-<p>La integración de SIEM con AWS te permite:</p>
-<ul><li>Monitorear y analizar tus recursos en la nube de manera efectiva</li><li>Detectar amenazas en tiempo real y responder a incidentes de manera rápida y eficiente</li><li>Cumplir con los requisitos de seguridad y cumplimiento</li></ul>
-<h3 id="mantenimiento-de-la-integraci%C3%B3n-siem-aws">Mantenimiento de la integración SIEM-AWS</h3>
-<p>Para mantener la integración SIEM-AWS actualizada y segura, es importante:</p>
-<ul><li>Realizar auditorías regulares de la integración SIEM-AWS</li><li>Mantenerte informado sobre las actualizaciones de AWS</li><li>Trabajar con un partner de AWS que pueda proporcionar asistencia y orientación sobre las actualizaciones y mejores prácticas</li></ul>
-<p>Al implementar estos consejos prácticos, podrás mejorar la seguridad y el cumplimiento en tu entorno de AWS, lo que te permitirá operar con confianza en la nube.</p>
-<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
-<h3 id="%C2%BFqu%C3%A9-es-siem-de-aws%3F">¿Qué es SIEM de AWS?</h3>
-<p>AWS no ofrece su propio servicio de SIEM, pero proporciona varias soluciones de SIEM a través de AWS Marketplace. Algunas opciones populares incluyen Splunk Cloud, Cribl LogStream, Sumo Logic y Logz.io. Estas soluciones de SIEM permiten centralizar y analizar los registros de su plataforma AWS junto con los registros de otros componentes de su red.</p>
-<h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS seguridad: fundamentos esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">seguridad en AWS: servicios esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores prácticas de seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li></ul>
+Para integrar AWS con un SIEM —un sistema de gestión de eventos e información de seguridad— decide primero qué necesitas investigar y cuánto tarda la señal en llegar. Envía **CloudTrail a S3** para conservar actividad de cuenta; usa **EventBridge** para enrutar hallazgos de Security Hub o GuardDuty con poca demora; conecta **CloudWatch Logs** cuando el SIEM necesita registros de una aplicación; considera **Amazon Security Lake** si tu SIEM tiene un conector compatible con sus datos OCSF.
+
+No hace falta enviar todos los registros ni activar todos los servicios. Define las cuentas, regiones, fuentes, retención y formato que realmente necesitas, elige una ruta para cada fuente y prueba la recepción antes de activar alertas o respuestas.
+
+## Elige la ruta según la señal
+
+Un SIEM correlaciona eventos de seguridad de distintas fuentes. En AWS, conviene separar los registros que describen actividad, las detecciones que resumen un riesgo y el transporte que entrega cada dato.
+
+| Señal | Qué aporta | Ruta habitual | Límite que debes considerar |
+| --- | --- | --- | --- |
+| AWS CloudTrail | Llamadas a API y actividad de administración; también eventos de datos si los habilitas | Trail hacia Amazon S3; opcionalmente, CloudWatch Logs | El historial de eventos no equivale a un trail continuo. Los eventos de datos no se incluyen por defecto y pueden tener cargos adicionales. |
+| Amazon GuardDuty | Hallazgos de amenazas que detecta GuardDuty | Regla de EventBridge o integración documentada por el SIEM | Un hallazgo no es el registro completo que lo originó ni una respuesta automática. |
+| AWS Security Hub | Hallazgos, controles de postura y señales correlacionadas | Integración compatible o regla de EventBridge | Security Hub y Security Hub CSPM son servicios complementarios con formatos y tipos de evento distintos. |
+| Registros de aplicación y servicio | Mensajes que ya se publicaron en un grupo de CloudWatch Logs | Filtro de suscripción hacia Firehose, Kinesis Data Streams o Lambda | Debes seleccionar el grupo y los eventos; vigila el formato, la tasa y la retención. |
+| Tráfico de red | Metadatos de los flujos IP de una VPC | VPC Flow Logs hacia S3, CloudWatch Logs o Firehose | Son registros de flujo, no una captura del contenido de los paquetes. |
+| Fuentes compatibles con Security Lake | Registros convertidos al esquema OCSF y formato Parquet | Suscriptor con acceso a datos o consultas | El SIEM debe admitir una de las modalidades de suscriptor y las fuentes que habilitaste. |
+
+La [guía para elegir servicios de seguridad de AWS](/blog/aws-seguridad-servicios-esenciales/) explica qué problema cubre cada servicio. Para GuardDuty, esta [guía complementaria de inteligencia de amenazas](/blog/integracion-de-guardduty-de-aws-para-inteligencia-de-amenazas/) se centra en sus detecciones y fuentes de inteligencia; aquí nos ocupamos del trayecto de los datos hasta el SIEM.
+
+## Comprueba primero qué acepta tu SIEM
+
+Antes de cambiar AWS, confirma con la documentación de tu SIEM:
+
+- Si tiene un conector nativo para CloudTrail, Security Hub, GuardDuty o Security Lake, y qué edición, región y formato admite.
+- Si lee objetos de S3, usa una cola SQS para enterarse de nuevos archivos, recibe eventos HTTPS, consume Kinesis o Firehose, o espera una función adaptadora.
+- Si procesa JSON comprimido, registros con varios eventos, el formato AWS Security Finding Format (ASFF) o el esquema Open Cybersecurity Schema Framework (OCSF).
+- Cómo autentica la conexión: prefiere un rol entre cuentas, una conexión administrada o credenciales temporales; no guardes claves de IAM permanentes en un script.
+- Qué límites de tamaño, tasa, retención y reintento aplica, y cómo informa de errores o datos rechazados.
+
+Anota también el objetivo: por ejemplo, conservar cambios de permisos durante un año, alertar sobre hallazgos críticos en minutos o buscar accesos a determinados objetos de S3. Ese objetivo determina si necesitas registros completos, hallazgos filtrados o ambas señales. Los títulos de los hallazgos no sustituyen los campos estructurados de cuenta, región, recurso, tipo, hora e identidad.
+
+## Ruta 1: conservar CloudTrail en S3 para auditoría
+
+CloudTrail registra actividad de AWS. Su **Event history** permite consultar hasta 90 días de eventos de administración por región; para entregar archivos de forma continua al SIEM, configura un trail con un destino S3. La [documentación de CloudTrail](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-create-a-trail-using-the-console-first-time.html) recomienda un trail multirregión para incluir la actividad de las regiones habilitadas.
+
+Un recorrido de referencia es:
+
+1. Crea o elige un bucket dedicado y aplica la política de bucket que permita a CloudTrail entregar los archivos. Conserva el prefijo que utilizará el trail y evita dar lectura general al bucket.
+2. Configura un trail multirregión, selecciona los eventos de administración que necesitas y activa la validación de integridad de archivos.
+3. Añade eventos de datos solo para los recursos y operaciones que debas investigar. Por ejemplo, CloudTrail no registra lecturas de objetos S3 como GetObject en el trail si no habilitas selectores de eventos de datos para ese alcance.
+4. Configura el conector del SIEM para leer el bucket y prefijo previstos. Si usa S3 y SQS, limita el acceso a esos objetos y cola, y confirma que el conector descomprime los archivos .json.gz.
+5. Busca una llamada de prueba y confirma en el SIEM la cuenta, región, hora, identidad y nombre de evento esperados.
+
+CloudTrail puede tardar en promedio unos cinco minutos en entregar un archivo, pero AWS indica que ese tiempo no está garantizado. Usa esta ruta para registro y auditoría; no prometas latencia instantánea. Si ya tienes un trail, inspecciona su estado y selectores antes de crear otro. Los comandos de ejemplo requieren AWS CLI configurado con una sesión vigente y una identidad con permisos para cada operación de lectura indicada (CloudTrail, EC2 o EventBridge). Estos comandos ayudan a revisar una configuración existente:
+
+~~~bash
+aws cloudtrail get-trail-status \
+  --name "<nombre-o-ARN-del-trail>" \
+  --region "<region-de-origen>"
+aws cloudtrail get-event-selectors \
+  --trail-name "<nombre-o-ARN-del-trail>" \
+  --region "<region-de-origen>"
+~~~
+
+En la salida de `get-trail-status`, comprueba que `IsLogging` sea `true` y revisa campos como `LatestDeliveryError` o `LatestCloudWatchLogsDeliveryError` si aparecen. El primero señala problemas de entrega a S3; el segundo, errores de la ruta a CloudWatch Logs. La guía de [resolución de problemas de CloudTrail](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-troubleshooting.html) indica revisar la política del bucket o el rol de CloudWatch Logs según el destino.
+
+Para probar recepción sin crear recursos, usa una llamada de administración de solo lectura que coincida con tus selectores; por ejemplo, `aws ec2 describe-regions --region "<region>"` si tu identidad tiene permiso `ec2:DescribeRegions` y el trail registra eventos de lectura. Espera a que CloudTrail entregue el archivo y busca el evento `DescribeRegions` en el bucket y luego en el índice del SIEM. Una búsqueda vacía no demuestra que no hubo actividad: comprueba primero que la región, el tipo de evento, los selectores y el prefijo de S3 coinciden con la prueba.
+
+Si necesitas flujo de logs más continuo, puedes configurar CloudTrail para enviar eventos a un grupo de CloudWatch Logs y conectar ese grupo a un filtro de suscripción. CloudWatch Logs puede entregar los eventos que coinciden con el filtro a Kinesis Data Streams, Firehose o Lambda; el destino necesita permisos y capacidad para el volumen previsto. Esta ruta duplica almacenamiento o transporte si mantienes también la ingesta desde S3, así que úsala cuando resuelva una necesidad de latencia concreta.
+
+Para repasar la diferencia entre CloudWatch, X-Ray y CloudTrail, consulta el artículo comunitario [Observabilidad en la nube de AWS](https://dev.to/aws-builders/observabilidad-en-la-nube-de-aws-explorando-cloudwatch-x-ray-y-cloudtrail-5d9m). Se publicó en 2024 y sirve para los conceptos; usa la documentación de AWS para comprobar la interfaz y configuración actual.
+
+## Ruta 2: enrutar hallazgos con EventBridge
+
+EventBridge resulta útil cuando quieres enviar solo ciertos hallazgos a un SIEM o a una cola de entrada. Security Hub publica hallazgos como eventos; una regla filtra los atributos y dirige el resultado a un destino compatible, como una API HTTPS, SQS, Kinesis o Lambda. Si tu SIEM tiene una integración nativa con Security Hub, revisa primero sus instrucciones: puede gestionar la autenticación, el formato y los reintentos de manera distinta.
+
+### Distingue Security Hub de Security Hub CSPM
+
+La documentación actual describe dos servicios complementarios. **Security Hub CSPM** evalúa la postura contra controles y estándares y utiliza ASFF para sus hallazgos. **AWS Security Hub** ofrece una experiencia unificada para priorizar riesgos y correlaciona señales de servicios como GuardDuty, Inspector, Macie y CSPM; sus hallazgos usan OCSF. La nueva experiencia de Security Hub pasó a disponibilidad general el 2 de diciembre de 2025. Consulta [qué son Security Hub y Security Hub CSPM](https://docs.aws.amazon.com/securityhub/latest/userguide/what-are-securityhub-services.html) antes de seguir una guía antigua que solo mencione “Security Hub”.
+
+Ambos servicios publican eventos con el origen `aws.securityhub`, pero el `detail-type` cambia. Para la nueva experiencia, el tipo es `Findings Imported V2`; CSPM usa `Security Hub Findings - Imported`. Elige el patrón del servicio que tienes habilitado. Mezclar reglas ASFF y OCSF, o escuchar ambos tipos sin deduplicar, puede duplicar hallazgos. La documentación de [eventos de Security Hub](https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-v2-cwe-event-types.html) detalla esta diferencia. Confirma que Security Hub y la fuente que produce el hallazgo estén habilitados en las cuentas y regiones pertinentes; si centralizas una organización, verifica también la cuenta administradora y la región de agregación.
+
+Este esqueleto identifica eventos de la nueva experiencia, pero no filtra hallazgos:
+
+~~~json
+{
+  "source": ["aws.securityhub"],
+  "detail-type": ["Findings Imported V2"]
+}
+~~~
+
+Este patrón recoge todos los hallazgos V2 que lleguen a esa regla. Puede ser adecuado si el SIEM debe conservarlos todos y ya has previsto el alcance y el volumen; si no, limita la regla después de inspeccionar el payload real. Copia el primer objeto a pattern-v2.json y el segundo a finding-v2.json para probar solo la coincidencia de origen y tipo:
+
+~~~json
+{
+  "version": "0",
+  "id": "prueba-sintetica-1",
+  "source": "aws.securityhub",
+  "detail-type": "Findings Imported V2",
+  "account": "111122223333",
+  "time": "2026-10-06T12:00:00Z",
+  "region": "us-east-1",
+  "resources": ["finding-sintetico"],
+  "detail": {
+    "findings": [{"severity": "Critical"}]
+  }
+}
+~~~
+
+El evento es sintético y abreviado; solo prueba el patrón superior, no valida el esquema ni el campo de severidad que entregará tu cuenta. La página de reglas de EventBridge muestra un ejemplo con `Severity` en mayúscula, mientras que su lista de filtros usa `severity` en minúscula; la nueva experiencia de Security Hub usa OCSF. Antes de añadir filtros, inspecciona un evento real o consulta un hallazgo con [GetFindingsV2](https://docs.aws.amazon.com/cli/latest/reference/securityhub/get-findings-v2.html) y toma los nombres del payload que consume tu SIEM. La [documentación OCSF de Security Hub](https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-ocsf.html) y el formato de [eventos V2](https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-v2-cwe-event-formats.html) describen los formatos.
+
+Para comprobar la coincidencia sin crear una regla, ejecuta el [comando `test-event-pattern` de AWS CLI](https://docs.aws.amazon.com/cli/latest/reference/events/test-event-pattern.html):
+
+~~~bash
+aws events test-event-pattern \
+  --event-pattern file://pattern-v2.json \
+  --event file://finding-v2.json \
+  --region "<region>"
+~~~
+
+El comando solo comprueba si el JSON sintético coincide con el patrón. No crea una regla, no comprueba los permisos del destino y no prueba que el SIEM recibió nada. Para comprobar la ruta completa, usa un hallazgo de prueba en una cuenta aislada, dirige la regla primero a un destino de observación o índice de pruebas y verifica el evento recibido. AWS ofrece [reglas de EventBridge para Security Hub](https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-v2-cwe-event-rules.html) y una lista de [integraciones de terceros para Security Hub CSPM](https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-partner-providers.html); confirma cuál corresponde a tu versión.
+
+GuardDuty publica automáticamente hallazgos como eventos de EventBridge cuando está habilitado; su [guía oficial de integración](https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_findings_eventbridge.html) explica las reglas y el esquema. Estos hallazgos sirven para alertas y correlación, pero no reemplazan el registro de auditoría de CloudTrail. La grabación comunitaria [Amazon GuardDuty integrado con SIEM](https://www.youtube.com/watch?v=CQUICC2h0Oc), publicada por AWS User Group CreaTicas, ofrece un ejemplo de conversación sobre esa integración; contrasta los pasos con la documentación vigente. Antes de desplegar una regla, comprueba su alcance por cuenta y región, el rol o política del destino y el formato que recibirá el SIEM.
+
+En EventBridge, revisa las métricas MatchedEvents, Invocations y FailedInvocations. Configura una cola de mensajes fallidos (DLQ) para los eventos que agoten sus reintentos; AWS puede dejar de reintentar después de los límites configurados. Si el destino recibe una llamada pero rechaza el JSON, revisa su respuesta y conserva el evento original para corregir el mapeo. EventBridge puede invocar un destino más de una vez en algunos casos: usa el identificador del evento y el identificador del hallazgo para que el proceso de ingesta sea idempotente.
+
+## Ruta 3: enviar logs de CloudWatch y VPC Flow Logs
+
+CloudWatch Logs es una ruta de salida, no una fuente automática de todos los logs de tu cuenta. Primero comprueba que la aplicación o servicio escribe al grupo de logs correcto. Después crea un filtro de suscripción para reenviar todos los eventos o solo los que coincidan con un patrón a Kinesis Data Streams, Firehose o Lambda. La [guía de filtros de suscripción](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/SubscriptionFilters.html) explica los destinos, el rol necesario y el formato comprimido de los mensajes.
+
+Para un SIEM externo, Firehose o una función adaptadora puede transformar y entregar el formato que espera el proveedor, si existe un destino compatible y configuras sus credenciales. Controla el tamaño de lote, la tasa de entrega y las métricas de fallos. Los filtros de suscripción entregan al menos una vez y pueden producir duplicados; conserva claves de correlación y evita que el proceso vuelva a reenviar los logs que él mismo genera.
+
+Los **VPC Flow Logs** capturan metadatos del tráfico IP aceptado o rechazado en el alcance configurado. Puedes enviarlos directamente a S3, CloudWatch Logs o Amazon Data Firehose; elige el destino que soporte tu SIEM y el volumen previsto. No incluyen el contenido de los paquetes. La [guía de VPC Flow Logs](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html) describe estos destinos y advierte que se aplican cargos por ingestión y archivo de logs. Limita la captura a las VPC, interfaces o campos que necesites investigar.
+
+## Ruta 4: usar Security Lake como fuente normalizada
+
+Security Lake puede ser útil si buscas una ubicación común para varias fuentes compatibles y tu SIEM tiene un conector de suscriptor probado. El servicio normaliza fuentes admitidas a OCSF y guarda archivos Parquet en S3. Entre las fuentes documentadas figuran CloudTrail, VPC Flow Logs y hallazgos de Security Hub CSPM; comprueba la [lista actual de fuentes](https://docs.aws.amazon.com/security-lake/latest/userguide/source-management.html) para la región y el producto que utilizas. No asumas que una integración de Security Hub CSPM cubre automáticamente cada función o evento de la nueva experiencia Security Hub.
+
+Security Lake admite dos formas de suscriptor: acceso a datos de S3, con notificaciones HTTPS o SQS cuando llegan objetos, y acceso de consulta a tablas de Lake Formation. El SIEM debe admitir esa modalidad. Para acceso a datos, prepara la identidad del suscriptor y el permiso de lectura por fuente y región; para consultas, concede SELECT sobre las bases de datos y tablas pertinentes. Revisa la [gestión de suscriptores](https://docs.aws.amazon.com/security-lake/latest/userguide/subscriber-management.html) y las [integraciones de terceros](https://docs.aws.amazon.com/security-lake/latest/userguide/integrations-third-party.html). La grabación de AWS Women Colombia [Logging y Amazon Security Lake](https://www.youtube.com/watch?v=5PCIzFcUxos) es un recurso comunitario complementario; verifica sus pasos con las guías actuales.
+
+Security Lake no es una opción sin costo permanente: cobra por volumen de datos ingeridos y convertidos, y pueden sumarse S3, SQS, EventBridge, Glue, consultas y otros servicios. La prueba publicada por AWS dura 15 días para el propio servicio; servicios relacionados aún pueden cobrar y la facturación empieza al continuar después de la prueba. Consulta [cómo se calcula el precio de Security Lake](https://docs.aws.amazon.com/security-lake/latest/userguide/estimating-costs.html) y estima también el costo del SIEM, la retención y la transferencia de datos.
+
+## Diagnóstico de fallos
+
+Sigue el evento desde el productor hasta el índice final. Comprueba una capa a la vez:
+
+| Síntoma | Qué revisar |
+| --- | --- |
+| No aparecen eventos de CloudTrail | Cuenta y región del trail, estado del registro, selectores de eventos, política del bucket S3 y prefijo. |
+| Llega CloudTrail a S3, pero no al SIEM | Lectura del bucket, cola SQS, descompresión de .json.gz, sondeo y límites del conector. |
+| Security Hub detecta un hallazgo, pero EventBridge no lo enruta | Tipo de evento V1 o V2, patrón, nombres exactos de campos, cuenta, región y estado de la regla. |
+| EventBridge encuentra coincidencias, pero la entrega falla | Permiso de invocación, autenticación del endpoint, cuota del consumidor, métricas FailedInvocations y DLQ. |
+| CloudWatch Logs recibe, pero el SIEM muestra rechazos | Grupo y filtro, rol de entrega, destino activo, decodificación base64, descompresión gzip y esquema esperado. |
+| Hay más hallazgos que alertas esperadas | Actualizaciones repetidas, reglas V1 y V2 solapadas, dos rutas para una misma fuente y reintentos. |
+| El SIEM ingiere eventos, pero no puede correlacionarlos | Preserva cuenta, región, hora UTC, recurso e identidad; revisa el parser ASFF, OCSF, CloudTrail o Flow Logs. |
+
+Guarda el evento original y agrega campos normalizados sin eliminar los campos propios de AWS o del producto de origen. Deduplica con una clave estable, como el identificador del evento de EventBridge o el identificador y hora de actualización del hallazgo. Una notificación de entrega no prueba que el SIEM indexó el dato: confirma su búsqueda e integridad en el índice de destino.
+
+## Costos y seguridad operativa
+
+El costo depende del volumen y el destino. Los eventos de datos e Insights de CloudTrail, los logs de VPC y CloudWatch, la conversión y retención de Security Lake, las colas, el cómputo de transformación, la transferencia y la licencia o ingesta del SIEM pueden facturarse por separado. Empieza con una fuente pequeña y revisa las [tarifas de CloudTrail](https://aws.amazon.com/cloudtrail/pricing/), [CloudWatch](https://aws.amazon.com/cloudwatch/pricing/) y [Security Hub](https://aws.amazon.com/security-hub/pricing/) antes de ampliar la captura. El [estimador de costos de Security Hub](https://docs.aws.amazon.com/securityhub/latest/userguide/security-hub-cost-estimator.html) permite comparar el modelo unificado con el costo de servicios individuales.
+
+Usa privilegios mínimos en cada tramo. El conector que consume S3 necesita acceso solo al prefijo y cola elegidos; el rol de EventBridge debe invocar solo el destino de la regla. Define retención y acceso a registros sensibles antes de enviarlos a otra región o proveedor externo.
+
+## Recursos y comunidades para continuar
+
+Si quieres conversar con grupos dedicados a seguridad cloud, consulta [AWS Security Users Group LatAm](https://www.meetup.com/awssecuritylatam/), [AWS Security UserGroup Argentina](https://www.meetup.com/aws-security-usergroup-argentina/), [AWS User Group Security Colombia](https://www.meetup.com/aws-user-group-security-colombia/) y [AWS User Group Security Ecuador](https://www.awssecurityecuador.com/); también puedes revisar sus [eventos en Meetup](https://www.meetup.com/aws-user-group-security-ecuador/). El sitio de Ecuador presenta el acceso a la comunidad como gratuito; confirma por separado las condiciones de cada evento. El [canal de YouTube de AWS Security Users Group LatAm](https://www.youtube.com/@AWSSecurityLATAM) reúne grabaciones sobre seguridad, respuesta a incidentes y cumplimiento.
+
+También puedes seguir a [CreaTicas AWS User Group](https://www.meetup.com/chiapa-uk-aws-users-meetup-group/), que publica charlas técnicas y tuvo una sesión de GuardDuty con SIEM, o sumarte a comunidades generales como [AWS User Group Perú](https://www.meetup.com/awsperu/) y [AWS User Group Panamá](https://www.meetup.com/aws-user-group-panama/) para consultar dudas más amplias sobre AWS. El [canal de YouTube de CreaTicas](https://www.youtube.com/channel/UCLt3Cav92Ej0t_m3mliLGCQ) ofrece sus grabaciones. La ficha de CreaTicas ya marca aquella sesión como pasada; consulta la página del grupo para próximos encuentros.
+
+Al 6 de octubre de 2026, AWS User Group Security Ecuador anuncia el encuentro virtual [Compliance as Code en AWS: de la política a la acción automática](https://www.meetup.com/aws-user-group-security-ecuador/events/316680020/) para el 20 de octubre a las 19:00 de Ecuador (UTC−5), con cupos limitados. El tema es automatización de controles, no una práctica de integración SIEM; revisa la página para conocer inscripción y condiciones vigentes. AWS User Group Panamá también anuncia un [AWS Community Day Security & Data Edition](https://www.meetup.com/aws-user-group-panama/events/316732293/) para el 14 de noviembre; su ficha indica “Save the Date” y aún deja sede y agenda por confirmar. Ninguna de las dos páginas indica que el acceso sea gratuito, así que comprueba el registro y las condiciones antes de asistir.
