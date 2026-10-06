@@ -1,250 +1,93 @@
 ---
-title: "Diferencias entre SLA y SLO en AWS"
-description: "Entiende las diferencias entre SLA y SLO en AWS para optimizar el rendimiento y la confiabilidad de tus servicios en la nube."
+title: "Diferencia entre SLA y SLO en AWS: SLI y presupuesto de error"
+description: "Distingue el SLA de AWS del SLO de tu aplicación: define un SLI, calcula el presupuesto de error y aprende a medirlo con CloudWatch Application Signals."
 author: "guille-ojeda"
 publishedAt: "2025-01-20"
 publishedTimestamp: "2025-01-20T00:15:06.029Z"
+modifiedTimestamp: "2026-10-06T13:57:53-03:00"
+review:
+  date: "2026-10-06"
 cover: "/assets/blog/editorial-fundamentos.png"
 coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
 ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
-  - title: "Guía de acreditación para Partners de AWS 2024"
-    url: "https://dondeaprendoaws.com/blog/guia-de-acreditacion-para-partners-de-aws-2024/"
-  - title: "Optimización de costos de AWS Lambda"
-    url: "https://dondeaprendoaws.com/blog/optimizacion-de-costos-de-aws-lambda/"
-  - title: "Comprendiendo AWS Step Functions"
-    url: "https://dondeaprendoaws.com/blog/comprendiendo-aws-step-functions/"
-
+  - title: "SLA de AWS: cómo se mide la disponibilidad y cuándo aplican créditos"
+    url: "https://dondeaprendoaws.com/blog/acuerdos-de-nivel-de-servicio-aws-guia-basica/"
+  - title: "Cómo crear SLOs en AWS con CloudWatch Application Signals"
+    url: "https://dondeaprendoaws.com/blog/como-monitorear-slos-con-amazon-cloudwatch/"
 ---
 
-<p><strong>SLA (Service Level Agreement)</strong> y <strong>SLO (Service Level Objective)</strong> son conceptos clave para medir y garantizar el rendimiento de servicios en <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a>. Aunque están relacionados, tienen diferencias importantes:</p>
+El **SLA de un servicio de AWS** describe el compromiso publicado para ese servicio y las condiciones que se aplican si no se cumple. El **SLO de tu aplicación** es una meta que defines para la experiencia de una operación, durante una ventana concreta. Para medirla necesitas un **SLI**: un indicador con una regla clara sobre qué cuenta como resultado correcto.
 
+Son niveles distintos. Que un servicio de AWS cumpla su SLA no demuestra que tu aplicación atendió bien a sus usuarios: también influyen el código, la configuración, las dependencias y el recorrido completo de una solicitud.
 
-<ul>
-<li><strong>SLA</strong>: Es un contrato formal entre AWS y el cliente. Define niveles mínimos de servicio como disponibilidad, tiempo de respuesta y compensaciones en caso de incumplimiento.</li>
-<li><strong>SLO</strong>: Son metas internas y medibles que ayudan a cumplir o superar los SLA. No son acuerdos legales, sino objetivos técnicos para monitorear y mejorar el servicio.</li>
-</ul>
+## SLA, SLI y SLO: diferencias
 
+| Término | Qué describe | Ejemplo |
+| --- | --- | --- |
+| **SLI** (indicador de nivel de servicio) | Una medición y su regla de cálculo, con un alcance y una ventana definidos. | Solicitudes válidas de compra que terminaron con un pedido confirmado ÷ total de solicitudes válidas. |
+| **SLO de aplicación** (objetivo de nivel de servicio) | La meta que el equipo fija para un SLI durante un intervalo. Por sí sola, no es un acuerdo contractual. | Que al menos el 99,9 % de las solicitudes válidas de compra termine correctamente en una ventana móvil de 30 días. |
+| **SLO publicado por AWS** | Un objetivo publicado para el servicio de AWS al que se refiere. No sustituye el objetivo de tu aplicación. | Un objetivo de AWS para una operación o métrica de un servicio concreto. |
+| **SLA de AWS** (acuerdo de nivel de servicio) | Los términos aplicables a un servicio: alcance, medición, exclusiones y el remedio que corresponda si se cumplen las condiciones. | El acuerdo de disponibilidad publicado para Amazon S3. |
 
-<h3 id="comparacion-rapida" tabindex="-1">Comparación rápida:</h3>
+Si trabajas con registros estructurados, la lectura en español [Observabilidad desde los logs: cómo construir SLIs sin esperar a instrumentar el código](https://builder.aws.com/content/3IlpApiKwsNpk6eWH4T0NdgFfkf/observabilidad-desde-los-logs-como-construir-slis-sin-esperar-a-que-alguien-instrumente-el-codigo) explora cómo obtener indicadores de esas señales. Si tu aplicación ya emite trazas, [CloudWatch Transaction Search: del span al SLI sin muestrear a ciegas](https://builder.aws.com/content/3J6HsX79yjI9RdhLPwsaBSOKa5Q/cloud-watch-transaction-search-del-span-al-sli-sin-muestrear-a-ciegas) ofrece otro camino: relaciona los spans de una transacción con el indicador y ayuda a investigar demoras que el promedio puede ocultar.
 
+AWS publica acuerdos y objetivos de servicio por servicio; no hay un único porcentaje que describa la disponibilidad de todos los servicios AWS. Consulta el [índice oficial de SLA](https://aws.amazon.com/legal/service-level-agreements/) y los documentos del servicio concreto. AWS explica también la diferencia entre [sus SLA y los SLO que publica para sus servicios](https://aws.amazon.com/what-is/sla/).
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th><strong>Criterio</strong></th>
-<th><strong>SLA</strong></th>
-<th><strong>SLO</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Naturaleza Legal</strong></td>
-<td>Contrato formal</td>
-<td>Objetivos internos</td>
-</tr>
-<tr>
-<td><strong>Flexibilidad</strong></td>
-<td>Menor, por ser contractual</td>
-<td>Mayor, ajustable según necesidades</td>
-</tr>
-<tr>
-<td><strong>Enfoque</strong></td>
-<td>Cumplir el contrato</td>
-<td>Mejorar continuamente</td>
-</tr>
-<tr>
-<td><strong>Uso de Recursos</strong></td>
-<td>Limitado por obligaciones legales</td>
-<td>Más flexible</td>
-</tr>
-</tbody>
-</table></figure>
+## Ejemplo: un SLO para una operación de compra
 
+Supongamos que quieres medir `POST /checkout`. Primero define qué significa que una solicitud salió bien. Una opción es contar como buena una solicitud válida que termina con un pedido confirmado y persistido; el total debe incluir las solicitudes válidas del mismo recorrido. Esas condiciones forman parte del SLI. Si un rechazo de pago cuenta como un intento fallido para el negocio, no lo excluyas solo porque la respuesta técnica fue HTTP 4xx.
 
-<p>Ambos son esenciales para diseñar sistemas confiables en AWS. Los SLA establecen compromisos mínimos, mientras que los SLO permiten ajustes y mejoras continuas. Por ejemplo, si un SLA exige 99.9% de disponibilidad, un SLO interno podría fijarse en 99.95% para incluir un margen de seguridad.</p>
+Como **ejemplo ilustrativo**, podrías fijar estos objetivos para los últimos 30 días móviles:
 
+- Al menos el **99,9 %** de las solicitudes válidas completa la compra correctamente.
+- Al menos el **99 %** de las solicitudes válidas responde en **400 ms o menos**.
 
-<h2 class="sb" id="1-que-es-un-sla-service-level-agreement" tabindex="-1">1. ¿Qué es un SLA (service level agreement)?</h2>
+Son dos SLI distintos —resultado correcto y latencia— y dos SLO. Los porcentajes, el umbral y la ventana no son recomendaciones universales de AWS: el equipo debe elegirlos según la experiencia que necesita el usuario, los datos observados y el costo de una degradación. Para contrastar decisiones de arquitectura y disponibilidad, el perfil del [AWS User Group Querétaro](https://www.meetup.com/es-es/amazon-web-services-queretaro/) describe talleres sobre diseño en AWS y alta disponibilidad.
 
+### Cómo interpretar el presupuesto de error
 
-<p>Un SLA (Service Level Agreement) es un contrato formal que detalla los niveles de servicio que AWS se compromete a cumplir. Incluye aspectos como tiempo de actividad, tiempo de respuesta y resolución de problemas <a href="https://aws.amazon.com/es/what-is/service-level-agreement/" rel="noopener noreferrer" target="_blank"><sup>[1]</sup></a>.</p>
+El presupuesto depende de cómo definiste el indicador:
 
+- Para un SLO **basado en solicitudes**, el presupuesto de solicitudes malas es `(1 − objetivo) × solicitudes totales`. Con una meta de 99,9 % y un millón de solicitudes válidas en la ventana, el presupuesto es `0,001 × 1.000.000 = 1.000` solicitudes malas.
+- Para un SLO **basado en tiempo**, una disponibilidad del 99,9 % en una ventana de exactamente 30 días permite `0,001 × 30 × 24 × 60 = 43,2` minutos —43 minutos y 12 segundos— de tiempo no disponible. Esa conversión solo aplica si el indicador y la regla del objetivo miden tiempo; no convierte automáticamente un presupuesto de solicitudes en minutos.
 
-<p>Los SLA de AWS se componen de tres elementos clave:</p>
+El presupuesto ayuda a decidir cuándo investigar, frenar cambios o priorizar confiabilidad. Una alarma de *burn rate* avisa si el ritmo de errores puede agotar ese presupuesto antes de que termine el intervalo. El equipo debe escoger ventanas y umbrales que conduzcan a una acción útil, no solo a más notificaciones. Para ampliar el contexto de operaciones y SRE, puedes ver la grabación [Track DevOps & SRE - AWS Community Day Arg](https://www.youtube.com/watch?v=JekD-szbhYg), publicada por el canal AWS Girls Argentina. Es una charla de la comunidad sobre DevOps y SRE; no se presenta como tutorial específico de SLOs.
 
+## Por qué el SLA de AWS no equivale al SLO de tu aplicación
 
-<ul>
-<li><strong>Métricas de servicio</strong>: Indicadores claros para medir el rendimiento <a href="https://aws.amazon.com/es/what-is/service-level-agreement/" rel="noopener noreferrer" target="_blank"><sup>[1]</sup></a>.</li>
-<li><strong>Responsabilidades</strong>: Define las obligaciones tanto de AWS como del cliente dentro del servicio contratado <a href="https://aws.amazon.com/es/what-is/service-level-agreement/" rel="noopener noreferrer" target="_blank"><sup>[1]</sup></a><a href="https://docs.aws.amazon.com/es_es/wellarchitected/latest/reliability-pillar/wellarchitected-reliability-pillar.pdf" rel="noopener noreferrer" target="_blank"><sup>[4]</sup></a>.</li>
-<li><strong>Consecuencias</strong>: Especifica las compensaciones que AWS ofrecerá si no se cumplen los niveles acordados <a href="https://aws.amazon.com/es/what-is/service-level-agreement/" rel="noopener noreferrer" target="_blank"><sup>[1]</sup></a><a href="https://aws.amazon.com/es/what-is/sre/" rel="noopener noreferrer" target="_blank"><sup>[2]</sup></a>.</li>
-</ul>
+Cada SLA define qué servicio cubre, qué solicitudes o recursos cuentan, cómo se calcula el resultado, qué exclusiones aplican y cómo solicitar el remedio previsto. Por ejemplo, el [SLA de Amazon S3](https://aws.amazon.com/s3/sla/) calcula el porcentaje mensual a partir de tasas de error de solicitudes en intervalos de cinco minutos; su fórmula no es simplemente el tiempo que una aplicación completa estuvo inaccesible. El documento además define clases, tramos de crédito, exclusiones y un procedimiento de solicitud. Esas condiciones son propias de ese SLA y no se trasladan a otros servicios.
 
+Por eso, una gráfica de CloudWatch, un SLO de la aplicación o una alarma que se activó no prueban por sí solos que AWS incumplió su SLA ni que corresponda un crédito. Para ese análisis hay que usar el acuerdo vigente del servicio y seguir sus definiciones, exclusiones, evidencia y plazo. La [guía sobre cómo medir un SLA de AWS y cuándo aplican créditos](/blog/acuerdos-de-nivel-de-servicio-aws-guia-basica/) desarrolla el ejemplo de S3.
 
-<p>Esto resulta esencial al diseñar arquitecturas que cumplan con los estándares de rendimiento y disponibilidad requeridos. Por ejemplo, el SLA de <a href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html" rel="noopener noreferrer" target="_blank">Amazon S3</a> establece niveles específicos de disponibilidad, y AWS ofrece créditos de servicio si no se alcanzan <a href="https://aws.amazon.com/es/what-is/service-level-agreement/" rel="noopener noreferrer" target="_blank"><sup>[1]</sup></a><a href="https://aws.amazon.com/es/what-is/sre/" rel="noopener noreferrer" target="_blank"><sup>[2]</sup></a>.</p>
+Tampoco un SLA de un componente equivale a la disponibilidad de todo el workload ni certifica que cumpla automáticamente un requisito normativo. AWS Well-Architected define disponibilidad desde la función que la carga de trabajo debe cumplir y recomienda considerar los objetivos y dependencias de la carga; revisa la guía de [disponibilidad en el pilar de confiabilidad](https://docs.aws.amazon.com/wellarchitected/latest/reliability-pillar/availability.html).
 
+## Medir un SLO con CloudWatch Application Signals
 
-<p>Además, los SLA de AWS pueden ajustarse a las necesidades particulares de los clientes a través de acuerdos personalizados <a href="https://aws.amazon.com/es/what-is/service-level-agreement/" rel="noopener noreferrer" target="_blank"><sup>[1]</sup></a><a href="https://aws.amazon.com/es/what-is/sre/" rel="noopener noreferrer" target="_blank"><sup>[2]</sup></a>.</p>
+[CloudWatch Application Signals permite crear SLOs](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-ServiceLevelObjectives.html) para operaciones y dependencias detectadas. Puedes usar sus métricas estándar de `Availability` y `Latency`, o una métrica o expresión de CloudWatch. La evaluación puede basarse en períodos o en solicitudes, con intervalos de calendario o móviles.
 
+Revisa la definición antes de adoptar una métrica estándar como SLI: la disponibilidad de Application Signals cuenta las respuestas 5xx como fallos y las respuestas 4xx como exitosas. Si un 4xx representa una compra rechazada que tu producto debe medir como error, crea un indicador propio que represente ese resultado de negocio. Una alarma sobre un contador de errores tampoco es por sí sola un SLO: faltaría declarar la meta, el alcance y el intervalo.
 
-<p>Herramientas como <strong><a href="https://docs.aws.amazon.com/cloudwatch/" rel="noopener noreferrer" target="_blank">AWS CloudWatch</a></strong> y <strong><a href="https://docs.aws.amazon.com/xray/" rel="noopener noreferrer" target="_blank">AWS X-Ray</a></strong> permiten supervisar en tiempo real el cumplimiento de los SLA <a href="https://docs.aws.amazon.com/es_es/prescriptive-guidance/latest/security-reference-architecture/security-reference-architecture.pdf" rel="noopener noreferrer" target="_blank"><sup>[3]</sup></a><a href="https://docs.aws.amazon.com/es_es/wellarchitected/latest/reliability-pillar/wellarchitected-reliability-pillar.pdf" rel="noopener noreferrer" target="_blank"><sup>[4]</sup></a>.</p>
+Si no aparece una operación para elegir, confirma que Application Signals recibe telemetría de la aplicación y que la operación tuvo actividad reciente. En los flujos de creación de SLO para operaciones, CloudWatch documenta que los selectores incluyen las operaciones activas durante las últimas 24 horas. También puedes crear un SLO a partir de una métrica de CloudWatch o una expresión de Metric Math. Para ver los requisitos, un ejemplo completo y cómo investigar datos ausentes, continúa con [Cómo crear SLOs en AWS con CloudWatch Application Signals](/blog/como-monitorear-slos-con-amazon-cloudwatch/).
 
+Si una operación continúa entre varios servicios, conserva un identificador de negocio o de correlación para relacionar sus resultados. La guía de [correlación de eventos con EventBridge y CloudWatch](/blog/estrategias-de-correlacion-de-eventos-aws/) muestra cómo seguir un pedido sin confundir eventos, reintentos y operaciones completadas.
 
-<p>En el modelo de responsabilidad compartida, AWS asegura la infraestructura, mientras que los clientes deben configurar sus aplicaciones para cumplir con los parámetros del SLA <a href="https://docs.aws.amazon.com/es_es/wellarchitected/latest/reliability-pillar/wellarchitected-reliability-pillar.pdf" rel="noopener noreferrer" target="_blank"><sup>[4]</sup></a>.</p>
+## Recursos, comunidades y eventos AWS
 
+El [directorio de AWS User Groups en Latinoamérica](/comunidades/user-groups/) permite buscar comunidades por país y tema. Son espacios para aprender e intercambiar experiencias sobre cómo diseñar y operar aplicaciones.
 
-<p>Aunque los SLA son compromisos contractuales, los SLO (Service Level Objectives) se centran en metas internas que guían el diseño y monitoreo del servicio.</p>
+La [agenda de eventos AWS](/eventos/) reúne encuentros de comunidades en línea, presenciales e híbridos, con filtros por país, ciudad, grupo y fecha. Los temas y las condiciones de inscripción varían por evento: confirma los detalles en la ficha del organizador.
 
+## Preguntas frecuentes
 
-<h2 class="sb" id="2-que-es-un-slo-service-level-objective" tabindex="-1">2. ¿Qué es un SLO (service level objective)?</h2>
+### ¿Un SLO de CloudWatch demuestra que AWS incumplió un SLA?
 
+No. El SLO mide la operación de tu aplicación según el indicador, la meta y el intervalo que elegiste. La elegibilidad para cualquier remedio se determina con el SLA del servicio, sus métricas y sus condiciones.
 
-<p>Un SLO establece metas internas claras y medibles para el desempeño de un servicio, basándose en métricas como disponibilidad, tiempo de respuesta y tasas de error, evaluadas dentro de un período específico <a href="https://aws.amazon.com/es/what-is/service-level-agreement/" rel="noopener noreferrer" target="_blank"><sup>[1]</sup></a><a href="https://aws.amazon.com/es/what-is/sre/" rel="noopener noreferrer" target="_blank"><sup>[2]</sup></a>. A diferencia de un SLA, no es un contrato formal, sino una herramienta interna que asegura que el servicio cumpla con sus estándares de rendimiento.</p>
+### ¿El 99,9 % siempre equivale a 43 minutos de caída al mes?
 
+No. Esa cifra corresponde a un indicador basado en tiempo y una ventana exacta de 30 días. Si el objetivo se basa en solicitudes, el presupuesto se calcula sobre solicitudes buenas y malas, no sobre minutos.
 
-<p>Por ejemplo, una aplicación web en AWS podría tener un SLO de <strong>99.95% de disponibilidad</strong>, un tiempo de respuesta promedio de <strong>100ms</strong> y una tasa de errores inferior al <strong>1%</strong> <a href="https://aws.amazon.com/es/what-is/sre/" rel="noopener noreferrer" target="_blank"><sup>[2]</sup></a>. De este SLO se deriva el presupuesto de error, que define el margen de fallos permitido antes de incumplir el objetivo, como un <strong>0.05% de tiempo no disponible</strong> en este caso <a href="https://aws.amazon.com/es/what-is/sre/" rel="noopener noreferrer" target="_blank"><sup>[2]</sup></a>.</p>
+### ¿Qué hago si la métrica de Application Signals no representa el resultado del usuario?
 
-
-<p>Los SLO son clave para:</p>
-
-
-<ul>
-<li>Diseñar sistemas confiables y resistentes.</li>
-<li>Alinear el desempeño del servicio con las metas del negocio.</li>
-<li>Anticiparse a problemas y mejorar la experiencia del cliente <a href="https://aws.amazon.com/es/what-is/sre/" rel="noopener noreferrer" target="_blank"><sup>[2]</sup></a><a href="https://docs.aws.amazon.com/es_es/wellarchitected/latest/reliability-pillar/wellarchitected-reliability-pillar.pdf" rel="noopener noreferrer" target="_blank"><sup>[4]</sup></a>.</li>
-</ul>
-
-
-<p>Herramientas como <strong>AWS CloudWatch</strong> y <strong>AWS X-Ray</strong> ayudan a monitorear y verificar el cumplimiento de estos objetivos <a href="https://aws.amazon.com/es/what-is/service-level-agreement/" rel="noopener noreferrer" target="_blank"><sup>[1]</sup></a><a href="https://aws.amazon.com/es/what-is/sre/" rel="noopener noreferrer" target="_blank"><sup>[2]</sup></a>. Al definir un SLO, es importante considerar las capacidades reales de los servicios en AWS para establecer metas realistas <a href="https://aws.amazon.com/es/what-is/sre/" rel="noopener noreferrer" target="_blank"><sup>[2]</sup></a><a href="https://docs.aws.amazon.com/es_es/wellarchitected/latest/reliability-pillar/wellarchitected-reliability-pillar.pdf" rel="noopener noreferrer" target="_blank"><sup>[4]</sup></a>.</p>
-
-
-<p>Aunque los SLA formalizan compromisos, los SLO funcionan como una guía detallada para garantizar que esos compromisos se cumplan. Además, ofrecen una visión más detallada que permite ajustar y mejorar el rendimiento del servicio <a href="https://aws.amazon.com/es/what-is/sre/" rel="noopener noreferrer" target="_blank"><sup>[2]</sup></a>.</p>
-
-
-
-
-<h2 class="sb" id="comparando-ventajas-y-desventajas" tabindex="-1">Comparando ventajas y desventajas</h2>
-
-
-<p>Estos conceptos juegan un papel clave en la <a href="https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/">arquitectura en AWS</a>, ya que ambos ayudan a garantizar que los sistemas diseñados sean confiables y cumplan con las necesidades del negocio.</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Criterio</th>
-<th>SLA</th>
-<th>SLO</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Naturaleza Legal</strong></td>
-<td>Contrato con obligaciones legales</td>
-<td>Objetivos internos sin implicaciones legales</td>
-</tr>
-<tr>
-<td><strong>Restricciones</strong></td>
-<td>Menos margen de ajuste por compromisos contractuales</td>
-<td>Más margen para modificar objetivos según necesidades</td>
-</tr>
-<tr>
-<td><strong>Proceso de Implementación</strong></td>
-<td>Requiere acuerdos formales</td>
-<td>Más rápido y fácil de ajustar</td>
-</tr>
-<tr>
-<td><strong>Enfoque de Monitoreo</strong></td>
-<td>Centrado en cumplir con el contrato</td>
-<td>Orientado a la mejora y ajustes continuos</td>
-</tr>
-<tr>
-<td><strong>Uso de Recursos</strong></td>
-<td>Limitado por las obligaciones legales</td>
-<td>Más flexible según las capacidades disponibles</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Por ejemplo, un SLA podría exigir un 99.99% de disponibilidad con penalizaciones si no se cumple, mientras que un SLO interno podría establecer un 99.95% para mantener un margen de seguridad <a href="https://aws.amazon.com/es/what-is/sre/" rel="noopener noreferrer" target="_blank"><sup>[2]</sup></a>.</p>
-
-
-<p>En el modelo de responsabilidad compartida, AWS se encarga de la infraestructura subyacente, mientras que los clientes configuran los servicios y supervisan su desempeño con herramientas como <strong>AWS CloudWatch</strong> y <strong>AWS X-Ray</strong> <a href="https://docs.aws.amazon.com/es_es/prescriptive-guidance/latest/security-reference-architecture/security-reference-architecture.pdf" rel="noopener noreferrer" target="_blank"><sup>[3]</sup></a>.</p>
-
-
-<p>Aunque los SLA pueden restringir la capacidad de innovar debido a sus límites estrictos, los SLO ofrecen un marco más flexible para realizar ajustes y mejorar continuamente el servicio <a href="https://aws.amazon.com/es/what-is/service-level-agreement/" rel="noopener noreferrer" target="_blank"><sup>[1]</sup></a><a href="https://aws.amazon.com/es/what-is/sre/" rel="noopener noreferrer" target="_blank"><sup>[2]</sup></a>.</p>
-
-
-<p>Entender estas diferencias permite a los arquitectos en AWS tomar decisiones más acertadas para mejorar la confiabilidad y resistencia de sus sistemas.</p>
-
-
-<h2 class="sb" id="conclusion" tabindex="-1">Conclusión</h2>
-
-
-<p>Al revisar sus características y diferencias, queda claro que los SLAs y los SLOs juegan papeles complementarios en la <a href="https://dondeaprendoaws.com/blog/arquitecturas-dirigidas-por-eventos-en-aws/">arquitectura de AWS</a>. Comprender estas diferencias es crucial para construir sistemas resilientes en esta plataforma.</p>
-
-
-<p>Mientras que los SLAs establecen expectativas claras y consecuencias contractuales, los SLOs se enfocan en permitir ajustes y mejoras continuas. Ambos son fundamentales para asegurar el rendimiento adecuado del servicio.</p>
-
-
-<p>Para aprovechar al máximo estos elementos en AWS, considera lo siguiente:</p>
-
-
-<ul>
-<li>Establece SLOs que no solo cumplan con los SLA, sino que también prevean picos de demanda.</li>
-<li>Monitorea constantemente el rendimiento del servicio.</li>
-<li>Mantén márgenes de seguridad adecuados entre los acuerdos contractuales y las metas internas.</li>
-</ul>
-
-
-<p>Un ejemplo práctico de esta estrategia se encuentra en plataformas de comercio electrónico basadas en AWS. Aquí, mantener un margen de seguridad entre el SLA y el SLO interno resulta esencial para cumplir con los acuerdos y garantizar un servicio confiable <a href="https://aws.amazon.com/es/what-is/service-level-agreement/" rel="noopener noreferrer" target="_blank"><sup>[1]</sup></a>.</p>
-
-
-<p>El diseño inicial debe centrarse en los SLAs, mientras que los SLOs permiten realizar ajustes basados en el rendimiento real. Usar <a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/">herramientas de monitoreo de AWS</a> y definir metas alcanzables son pasos clave para cumplir con los compromisos y mejorar continuamente el servicio.</p>
-
-
-<p>Si deseas profundizar en estos conceptos y su aplicación práctica, el blog <a href="https://dondeaprendoaws.com">Dónde Aprendo AWS</a> es una excelente fuente de contenido en español sobre arquitecturas en AWS.</p>
-
-
-<p>Administrar de manera eficiente los SLAs y SLOs no solo permite cumplir con los acuerdos contractuales, sino que también mejora los servicios de forma continua, creando sistemas más confiables y resistentes <a href="https://aws.amazon.com/es/what-is/service-level-agreement/" rel="noopener noreferrer" target="_blank"><sup>[1]</sup></a><a href="https://docs.aws.amazon.com/es_es/wellarchitected/latest/reliability-pillar/wellarchitected-reliability-pillar.pdf" rel="noopener noreferrer" target="_blank"><sup>[4]</sup></a>.</p>
-
-
-<h2 class="sb" id="faqs" tabindex="-1">FAQs</h2>
-
-
-<h3 id="que-es-el-sla-y-slo" tabindex="-1">¿Qué es el SLA y SLO?</h3>
-
-
-<p>Los SLA son acuerdos formales que establecen los niveles mínimos de servicio prometidos, mientras que los SLO son metas internas específicas y medibles diseñadas para garantizar que esos compromisos se cumplan <a href="https://aws.amazon.com/es/what-is/service-level-agreement/" rel="noopener noreferrer" target="_blank"><sup>[1]</sup></a>.</p>
-
-
-<p>En términos prácticos, los SLO complementan a los SLA definiendo objetivos más concretos. Por ejemplo, un SLA podría prometer una disponibilidad general, mientras que los SLO detallan metas específicas como tiempos de respuesta o tasas de error aceptables <a href="https://aws.amazon.com/es/what-is/service-level-agreement/" rel="noopener noreferrer" target="_blank"><sup>[1]</sup></a><a href="https://aws.amazon.com/es/what-is/sre/" rel="noopener noreferrer" target="_blank"><sup>[2]</sup></a>.</p>
-
-
-<p>Normalmente, los SLO son más estrictos que los SLA para incluir un margen de seguridad. Por ejemplo, si un SLA garantiza una disponibilidad del 99.9%, un SLO interno podría fijarse en 99.95% para asegurar que se mantenga el compromiso <a href="https://aws.amazon.com/es/what-is/service-level-agreement/" rel="noopener noreferrer" target="_blank"><sup>[1]</sup></a><a href="https://aws.amazon.com/es/what-is/sre/" rel="noopener noreferrer" target="_blank"><sup>[2]</sup></a>.</p>
-
-
-<p>En el caso de AWS, los SLO permiten monitorear y garantizar el cumplimiento de los SLA, además de facilitar mejoras continuas. Esto es especialmente crucial en servicios críticos donde la confiabilidad no puede fallar <a href="https://aws.amazon.com/es/what-is/sre/" rel="noopener noreferrer" target="_blank"><sup>[2]</sup></a>.</p>
-
-
-<p><strong>Puntos clave a tener en cuenta:</strong></p>
-
-
-<ul>
-<li>Los SLO aseguran que los compromisos del SLA se mantengan e incluso se superen.</li>
-<li>El monitoreo constante permite ajustar los SLO según las necesidades.</li>
-<li>La combinación de SLA y SLO garantiza un servicio de calidad <a href="https://aws.amazon.com/es/what-is/service-level-agreement/" rel="noopener noreferrer" target="_blank"><sup>[1]</sup></a><a href="https://aws.amazon.com/es/what-is/sre/" rel="noopener noreferrer" target="_blank"><sup>[2]</sup></a>.</li>
-</ul>
-
-
-<blockquote>
-<p>"Los SLO son promesas específicas que se hacen al cliente dentro del marco del SLA, definiendo objetivos medibles para métricas particulares del servicio" <a href="https://aws.amazon.com/es/what-is/service-level-agreement/" rel="noopener noreferrer" target="_blank"><sup>[1]</sup></a>.</p>
-</blockquote>
-
-
-<p>Comprender cómo interactúan los SLA y los SLO ayuda a los <a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">arquitectos de AWS</a> a diseñar sistemas que cumplan, e incluso superen, las expectativas de servicio <a href="https://aws.amazon.com/es/what-is/sre/" rel="noopener noreferrer" target="_blank"><sup>[2]</sup></a>.</p>
-
-
-<h2>Publicaciones de blog relacionadas</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/">arquitecturas multi-región en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-de-alta-disponibilidad-en-aws/">arquitecturas de alta disponibilidad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/acuerdos-de-nivel-de-servicio-aws-guia-basica/">acuerdos de nivel de servicio AWS: guía básica</a></li><li><a href="https://dondeaprendoaws.com/blog/slas-en-aws-conceptos-legales-clave/">SLAs en AWS: conceptos legales clave</a></li></ul>
+Define un SLI propio con los eventos que sí representen ese resultado. Por ejemplo, si un HTTP 4xx significa que la compra no se completó, no uses sin ajustes una métrica que lo trata como respuesta exitosa.

@@ -1,554 +1,145 @@
 ---
-title: "Detección de sesgos en modelos ML con SageMaker Clarify"
-description: "Descubre cómo SageMaker Clarify puede ayudarte a detectar y mitigar sesgos en modelos de ML. Aprende sobre las mejores prácticas y recursos para desarrollar modelos éticos y confiables."
+title: "SageMaker Clarify para detectar sesgos en modelos de machine learning"
+description: "Guía de métricas antes y después del entrenamiento, ejemplo del SDK para clientes existentes, costos y alternativas para proyectos nuevos."
 author: "guille-ojeda"
 publishedAt: "2024-05-17"
 publishedTimestamp: "2024-05-17T01:45:54.229Z"
+modifiedTimestamp: "2026-10-06T13:57:53-03:00"
+review:
+  date: "2026-10-06"
 cover: "/assets/blog/editorial-datos-ia.png"
 coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
-  - title: "CloudWatch y EventBridge: integración"
-    url: "https://dondeaprendoaws.com/blog/cloudwatch-y-eventbridge-integracion/"
-  - title: "Arquitecturas dirigidas por eventos en AWS"
-    url: "https://dondeaprendoaws.com/blog/arquitecturas-dirigidas-por-eventos-en-aws/"
-  - title: "Gestionando múltiples cuentas de AWS con AWS Organizations"
-    url: "https://dondeaprendoaws.com/blog/gestionando-multiples-cuentas-de-aws-con-aws-organizations/"
-
+  - title: "Machine learning en AWS: cómo empezar y qué servicio elegir"
+    url: "https://dondeaprendoaws.com/blog/10-preguntas-frecuentes-sobre-machine-learning-en-aws/"
 ---
 
-<p><a href="https://aws.amazon.com/sagemaker/clarify/" rel="noopener noreferrer" target="_blank"><strong>SageMaker Clarify</strong></a> es una herramienta de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> que permite detectar sesgos en modelos de aprendizaje automático y explicar sus predicciones. Esto es crucial para garantizar decisiones automatizadas justas y transparentes, evitando que los modelos refuercen o aumenten los sesgos presentes en los datos.</p>
+Amazon SageMaker Clarify calcula métricas para examinar posibles disparidades en los datos y en las predicciones de un modelo. También puede generar explicaciones de predicciones mediante atribuciones de características. El análisis ayuda a hacer preguntas concretas sobre un modelo; por sí solo no determina si una decisión es justa.
 
+> **Disponibilidad revisada el 6 de octubre de 2026:** AWS informa que SageMaker Clarify ya no admite clientes nuevos. Quienes ya son clientes de Clarify pueden seguir usando el servicio con normalidad; AWS no planea añadir funciones nuevas. Si estás empezando un flujo de trabajo que todavía no tiene acceso a Clarify, este ejemplo del SDK no habilita el servicio para tu cuenta.
 
-<p><strong>Beneficios Clave:</strong></p>
+Para un proyecto nuevo, AWS propone calcular sus métricas estandarizadas con código propio, por ejemplo con pandas y scikit-learn, y usar la biblioteca SHAP directamente para atribuciones de características. AWS también publica arquitecturas de referencia para integrar estas comprobaciones en un flujo de monitoreo. Es un camino que el equipo implementa y opera; no es el mismo servicio administrado ni una sustitución automática de cada capacidad de Clarify. Revisa la [guía oficial sobre el cambio de disponibilidad y sus reemplazos](https://docs.aws.amazon.com/sagemaker/latest/dg/clarify-availability-change.html).
 
+## Qué analiza Clarify y en qué etapa
 
-<ul>
-<li>
-<p>Identifica sesgos en los datos y modelos de ML</p>
-</li>
-<li>
-<p>Proporciona métricas visuales y cuantitativas de sesgo</p>
-</li>
-<li>
-<p>Ayuda a cumplir con normativas y principios éticos</p>
-</li>
-<li>
-<p>Permite mitigar sesgos mediante técnicas como re-muestreo, re-pesaje y debiasing adversarial</p>
-</li>
-</ul>
+Clarify trabaja con dos entradas distintas según la pregunta:
 
+| Análisis | Qué necesita | Qué ayuda a observar |
+| --- | --- | --- |
+| Antes de entrenar | Datos con una etiqueta objetivo y un atributo o grupo para comparar | Si los grupos tienen distinta representación o proporción de resultados positivos en los datos |
+| Después de entrenar | Datos con etiquetas reales y predicciones de un modelo entrenado | Si las tasas de predicción o algunos errores del modelo difieren entre los grupos |
+| Explicabilidad | Un modelo y ejemplos para analizar | Qué características contribuyen a una predicción; estas atribuciones no son una medida de equidad |
 
-<p><strong>Proceso de Detección de Sesgos con SageMaker Clarify:</strong></p>
+En la documentación de Clarify, una **faceta** es una columna o característica usada para formar los grupos de comparación. La **etiqueta** es el resultado observado. En una clasificación binaria, quien analiza define qué valor cuenta como resultado positivo para el caso; esa elección debe tener sentido en el dominio del problema.
 
+Algunas métricas que aparecen en estos análisis son:
 
-<ol>
-<li>
-<p><strong>Preparación de Datos:</strong> Carga, preprocesa y sube tu conjunto de datos a <a href="https://aws.amazon.com/s3/" rel="noopener noreferrer" target="_blank">Amazon S3</a>.</p>
-</li>
-<li>
-<p><strong>Configuración:</strong> Define los objetos <code class="inline-code">DataConfig</code> y <code class="inline-code">BiasConfig</code> para especificar los datos de entrada, salida y atributos sensibles.</p>
-</li>
-<li>
-<p><strong>Ejecución:</strong> Ejecuta el trabajo de procesamiento con <code class="inline-code">SageMakerClarifyProcessor</code>.</p>
-</li>
-<li>
-<p><strong>Análisis de Resultados:</strong> Accede al informe de sesgo y analiza las métricas clave como CI, DPL, DPPL y AD.</p>
-</li>
-<li>
-<p><strong>Mitigación:</strong> Aplica estrategias como re-muestreo, re-pesaje y debiasing adversarial para reducir los sesgos detectados.</p>
-</li>
-</ol>
+- **CI (Class Imbalance):** compara la cantidad de observaciones entre las dos facetas elegidas. No mide la distribución de etiquetas positivas y negativas por sí sola.
+- **DPL (Difference in Proportions of Labels):** compara la proporción observada de resultados positivos entre facetas antes del entrenamiento.
+- **DPPL (Difference in Positive Proportions in Predicted Labels):** compara la proporción de predicciones positivas entre facetas después del entrenamiento.
+- **DI (Disparate Impact) y AD (Accuracy Difference):** describen, respectivamente, una razón entre tasas de resultados positivos predichos y una diferencia de exactitud entre facetas.
 
+Para las métricas de diferencia como DPL, DPPL y AD, cero representa igualdad en la proporción o exactitud que mide cada una. Para DI, que es una razón, la paridad corresponde a 1. En CI, cero describe cantidades iguales de observaciones entre las facetas, no igualdad de resultados.
 
-<p><strong>Resumen:</strong></p>
+Cada métrica representa una definición distinta de equidad. Las métricas no necesariamente coinciden entre sí y no existe un umbral universal que convierta un resultado en una aprobación. Define qué comparación importa con especialistas del dominio y las personas afectadas, registra cómo elegiste las facetas y evalúa más de una medida cuando corresponda. La paridad en una métrica no prueba que el sistema sea justo, preciso para todas las personas ni conforme a una norma.
 
+### Ejemplo sintético de DPL
 
-<p>SageMaker Clarify es una herramienta poderosa para identificar y mitigar sesgos en modelos de ML, asegurando resultados precisos y justos. Al seguir las mejores prácticas y utilizar los recursos adecuados, puedes desarrollar modelos de ML confiables y éticos.</p>
+Supón un conjunto sintético que contiene solo dos valores de `Group`, 0 y 1: 100 ejemplos con `Group=0`, 80 con `Target=1`; y 100 con `Group=1`, 60 con `Target=1`. En la notación oficial, `q_a` es la tasa positiva de la faceta `a`; aquí `q_a = 80/100 = 0.80` para `Group=0`. `q_d` es la tasa positiva de la faceta `d`; aquí `q_d = 60/100 = 0.60` para `Group=1`. La fórmula documentada es `DPL = q_a - q_d`, así que `DPL = 0.80 - 0.60 = +0.20`: una diferencia de 20 puntos porcentuales en las etiquetas positivas del conjunto.
 
+Este cálculo describe esas etiquetas sintéticas; no determina si la diferencia es aceptable. Su dirección depende de cuál faceta se definió como `a` y cuál como `d`, y no hay un umbral universal de DPL para declarar que un modelo sea justo. La [definición oficial de DPL](https://docs.aws.amazon.com/sagemaker/latest/dg/clarify-data-bias-metric-true-label-imbalance.html) explica la convención de signo y sus límites.
 
-<h2 id="related-video-from-youtube" tabindex="-1">Related video from YouTube</h2>
+La comunidad también tiene recursos en español para ampliar el contexto. [Brenda Galicia presenta un ejemplo de IA responsable con SageMaker Clarify](https://dev.to/bardengalicia/ia-responsable-con-amazon-sagemaker-clarify-mhc), con detección de sesgos y explicabilidad. Esa publicación es de 2024: úsala como lectura complementaria y contrasta sus instrucciones de SDK y servicio con la documentación vigente antes de ejecutar el código. [AWS Girls Chile tiene una grabación sobre IA responsable con Clarify](https://www.youtube.com/watch?v=x_MHs9hLx0s) en su canal de charlas técnicas.
 
+## Ejemplo: revisar etiquetas antes del entrenamiento
 
-<iframe allowfullscreen="" loading="lazy" src="https://www.youtube.com/embed/jvcPZmnXaxo" title="Video de YouTube"></iframe>
-<h2 id="introducci%C3%B3n" tabindex="-1">Introducción</h2>
+Este ejemplo solicita CI y DPL para un archivo tabular CSV. El archivo de entrada de ejemplo está en UTF-8 y no lleva fila de encabezado: sus columnas, en este orden, son `Target`, `Group`, `Age` e `Income`. El valor `1` representa el resultado positivo definido para el análisis. `Group=0` es la faceta seleccionada para esta comparación y `Group=1` la otra faceta; seleccionar un grupo no implica que deba recibir un resultado preferente.
 
+El código sigue la API de SageMaker Python SDK **2.257.6**. Esa publicación requiere Python 3.9 o posterior. SageMaker Python SDK v2 está en una ruta de deprecación; consulta la referencia de tu entorno antes de cambiar de versión. Para reproducir exactamente este ejemplo, instala `sagemaker==2.257.6` y ejecútalo con credenciales de AWS desde una cuenta que ya tenga acceso a Clarify.
 
-<h3 id="%C2%BFqu%C3%A9-es-sagemaker-clarify%3F" tabindex="-1">¿Qué es <a href="https://aws.amazon.com/sagemaker/clarify/" rel="noopener noreferrer" target="_blank">SageMaker Clarify</a>?</h3>
+```python
+from sagemaker import Session, clarify
 
+session = Session()
+role = "arn:aws:iam::123456789012:role/SageMakerExecutionRole"
 
-<p><figure><img alt="SageMaker Clarify" src="/assets/blog/c439bd935e1a15802d831672.jpg"/></figure></p>
-
-
-<p>SageMaker Clarify es una herramienta de Amazon SageMaker que ofrece información sobre los datos y modelos de aprendizaje automático. Permite detectar sesgos en los modelos y explicar las predicciones, lo cual es importante para asegurar decisiones automatizadas justas y transparentes.</p>
-
-
-<h3 id="%C2%BFpor-qu%C3%A9-verificar-sesgos-en-modelos-ml%3F" tabindex="-1">¿Por qué verificar sesgos en modelos ML?</h3>
-
-
-<p>Detectar sesgos en modelos de aprendizaje automático es importante para evitar que los modelos refuercen o aumenten los sesgos presentes en los datos. Los sesgos pueden llevar a discriminación o decisiones injustas. Además, es necesario para cumplir con normativas y principios éticos en la creación de modelos.</p>
-
-
-<h3 id="visi%C3%B3n-general-de-la-gu%C3%ADa" tabindex="-1">Visión general de la guía</h3>
-
-
-<p>En esta guía, aprenderás a usar SageMaker Clarify para detectar sesgos en modelos de aprendizaje automático. Cubriremos:</p>
-
-
-<ul>
-<li>
-<p>Requisitos de configuración</p>
-</li>
-<li>
-<p>Preparación de datos</p>
-</li>
-<li>
-<p>Configuración de SageMaker Clarify</p>
-</li>
-<li>
-<p>Ejecución de la detección de sesgos</p>
-</li>
-<li>
-<p>Análisis de resultados</p>
-</li>
-</ul>
-
-
-<p>Al final, podrás detectar y mitigar sesgos en tus modelos usando SageMaker Clarify.</p>
-
-
-<h2 id="setup-requirements" tabindex="-1">Setup requirements</h2>
-
-
-<h3 id="requisitos-de-herramientas-y-servicios" tabindex="-1">Requisitos de herramientas y servicios</h3>
-
-
-<p>Para seguir esta guía, necesitarás:</p>
-
-
-<ul>
-<li>
-<p>Una cuenta de AWS activa</p>
-</li>
-<li>
-<p>SageMaker Clarify configurado en tu cuenta de AWS</p>
-</li>
-<li>
-<p>Un conjunto de datos para analizar (puedes usar un conjunto de datos público o crear uno propio)</p>
-</li>
-</ul>
-
-
-<h3 id="configuraci%C3%B3n-de-sagemaker-clarify" tabindex="-1">Configuración de SageMaker Clarify</h3>
-
-
-<p>Para configurar SageMaker Clarify, sigue estos pasos:</p>
-
-
-<ol>
-<li>
-<p>Inicia sesión en la consola de AWS y navega a la página de SageMaker Clarify.</p>
-</li>
-<li>
-<p>Haz clic en "Crear un procesador de Clarify" y sigue las instrucciones para configurarlo.</p>
-</li>
-<li>
-<p>Una vez configurado, puedes usarlo para analizar tus conjuntos de datos.</p>
-</li>
-</ol>
-
-
-<p>Para más detalles, consulta la documentación de AWS.</p>
-
-
-<h2 id="preparaci%C3%B3n-de-datos" tabindex="-1">Preparación de datos</h2>
-
-
-<p>Para preparar tu conjunto de datos para la detección de sesgos usando SageMaker Clarify, sigue estos pasos:</p>
-
-
-<h3 id="carga-del-conjunto-de-datos" tabindex="-1">Carga del conjunto de datos</h3>
-
-
-<p>Carga tu conjunto de datos en un DataFrame de <a href="https://pandas.pydata.org/" rel="noopener noreferrer" target="_blank">pandas</a> o un formato similar. Esto te permitirá manipular y analizar tus datos fácilmente. Asegúrate de manejar cualquier valor faltante o valores atípicos en tu conjunto de datos.</p>
-
-
-<h3 id="preprocesamiento-de-datos" tabindex="-1">Preprocesamiento de datos</h3>
-
-
-<p>Preprocesa tus datos limpiándolos y formateándolos adecuadamente. Esto puede incluir tareas como:</p>
-
-
-<ul>
-<li>
-<p>Manejo de valores faltantes</p>
-</li>
-<li>
-<p>Codificación de variables categóricas</p>
-</li>
-<li>
-<p>Escalado de variables numéricas</p>
-</li>
-<li>
-<p>Eliminación de duplicados o datos irrelevantes</p>
-</li>
-</ul>
-
-
-<h3 id="subida-de-datos-a-s3" tabindex="-1">Subida de datos a S3</h3>
-
-
-<p>Sube tu conjunto de datos preparado a un bucket de Amazon S3. Esto te permitirá acceder a tus datos desde SageMaker Clarify y ejecutar trabajos de detección de sesgos. Asegúrate de seguir las <a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">mejores prácticas de AWS</a> para el almacenamiento y la seguridad de datos.</p>
-
-
-<h2 id="configuraci%C3%B3n-de-sagemaker-clarify-1" tabindex="-1">Configuración de SageMaker Clarify</h2>
-
-
-<p>Para configurar SageMaker Clarify para la detección de sesgos, sigue estos pasos:</p>
-
-
-<h3 id="configuraci%C3%B3n-de-dataconfig" tabindex="-1">Configuración de DataConfig</h3>
-
-
-<p>Primero, configura el objeto <code class="inline-code">DataConfig</code> que especifica las columnas objetivo, la entrada de datos y los caminos de salida. Aquí tienes un ejemplo:</p>
-
-
-<pre><code class="language-python">from sagemaker import DataConfig
-
-data_config = DataConfig(
-    s3_data_distribution_type='FullyReplicated',
-    s3_input_path='s3://mi-bucket/data/train',
-    s3_output_path='s3://mi-bucket/data/output',
-    input_mode='File',
-    compression=None,
-    max_runtime_in_seconds=3600
-)
-</code></pre>
-
-
-<h3 id="definici%C3%B3n-de-biasconfig" tabindex="-1">Definición de BiasConfig</h3>
-
-
-<p>Luego, configura el objeto <code class="inline-code">BiasConfig</code> que define los atributos sensibles y los resultados deseados. Aquí tienes un ejemplo:</p>
-
-
-<pre><code class="language-python">from sagemaker import BiasConfig
-
-bias_config = BiasConfig(
-    label_values_or_thresholds=['0', '1'],
-    facet_name='ForeignWorker',
-    facet_values_or_thresholds=['0'],
-    methods=['pre_training_bias', 'post_training_bias']
-)
-</code></pre>
-
-
-<h3 id="creaci%C3%B3n-de-sagemakerclarifyprocessor" tabindex="-1">Creación de SageMakerClarifyProcessor</h3>
-
-
-<p>Finalmente, crea un objeto <code class="inline-code">SageMakerClarifyProcessor</code> que especifica la instancia y el tipo de instancia para ejecutar el trabajo de detección de sesgos. Aquí tienes un ejemplo:</p>
-
-
-<pre><code class="language-python">from sagemaker import SageMakerClarifyProcessor
-
-clarify_processor = SageMakerClarifyProcessor(
-    role='sagemaker-execution-role',
+processor = clarify.SageMakerClarifyProcessor(
+    role=role,
     instance_count=1,
-    instance_type='ml.c5.xlarge',
-    sagemaker_session=sagemaker.Session()
+    instance_type="ml.c4.xlarge",
+    sagemaker_session=session,
 )
-</code></pre>
 
+data_config = clarify.DataConfig(
+    s3_data_input_path="s3://mi-bucket/datos/train.csv",
+    s3_output_path="s3://mi-bucket/clarify/pre-training/",
+    dataset_type="text/csv",
+    headers=["Target", "Group", "Age", "Income"],
+    label="Target",
+)
 
-<p>Una vez configurados estos objetos, estarás listo para ejecutar el trabajo de detección de sesgos con SageMaker Clarify.</p>
+bias_config = clarify.BiasConfig(
+    label_values_or_threshold=[1],
+    facet_name="Group",
+    facet_values_or_threshold=[0],
+)
 
+processor.run_pre_training_bias(
+    data_config=data_config,
+    data_bias_config=bias_config,
+    methods=["CI", "DPL"],
+)
+```
 
+`DataConfig` indica el objeto o prefijo de S3 que contiene los datos, el formato, el orden y los nombres de columnas, la columna de etiqueta y el prefijo de salida. `BiasConfig` fija el resultado positivo y el valor de la faceta seleccionada para la comparación. La llamada correcta para este análisis previo al entrenamiento es `run_pre_training_bias`, que recibe `data_config` y `data_bias_config` como argumentos con nombre.
 
+El rol de ejecución debe permitir al trabajo procesar datos y leer la ruta de entrada y escribir en la de salida de S3. La identidad que lanza el trabajo también debe poder crear el trabajo de procesamiento y pasar ese rol. Cambia el ARN y las rutas de ejemplo por recursos de tu cuenta; evita incluir datos sensibles o no autorizados.
 
-<h2 id="running-bias-detection" tabindex="-1">Running bias detection</h2>
+La [referencia de SageMaker Python SDK v2.257.6](https://sagemaker.readthedocs.io/en/v2.257.6/api/training/processing.html) documenta `SageMakerClarifyProcessor`, `DataConfig`, `BiasConfig` y `run_pre_training_bias`. AWS también muestra el [flujo completo del trabajo de Clarify](https://docs.aws.amazon.com/sagemaker/latest/dg/clarify-processing-job-run.html). Ese flujo confirma los nombres de parámetros y que `methods=["CI", "DPL"]` solicita esas dos métricas.
 
+## Cómo interpretar el informe
 
-<h3 id="ejecutar-el-trabajo-de-procesamiento" tabindex="-1">Ejecutar el trabajo de procesamiento</h3>
+Cuando termina un trabajo, revisa `analysis.json` en el prefijo de salida de S3. El informe organiza los resultados por etapa, faceta y métrica. Conserva junto con el resultado qué conjunto de datos analizaste, cómo definiste el resultado positivo y cómo asignaste las facetas para poder interpretar la comparación más adelante.
 
+Antes de pasar de una señal a una decisión, pregunta:
 
-<p>Una vez que hayas configurado el objeto <code class="inline-code">SageMakerClarifyProcessor</code>, puedes ejecutar el trabajo de procesamiento para detectar sesgos en tus modelos de machine learning. Para hacer esto, llama al método <code class="inline-code">run</code> del objeto <code class="inline-code">SageMakerClarifyProcessor</code> y pasa el objeto <code class="inline-code">DataConfig</code> y <code class="inline-code">BiasConfig</code> como parámetros.</p>
+1. ¿La definición del resultado positivo refleja el objetivo real del proceso?
+2. ¿Las etiquetas representan resultados confiables o registran decisiones históricas que también podrían ser injustas?
+3. ¿El grupo comparado representa la pregunta que necesitas responder y hay suficientes observaciones en cada faceta?
+4. ¿Una diferencia proviene del conjunto de datos, de las predicciones, de errores distintos o de una mezcla de causas?
+5. ¿Qué cambio propones y cómo comprobarás que mejora el resultado sin empeorar errores importantes en otros grupos?
 
+Clarify informa medidas; no cambia automáticamente etiquetas, pesos, muestras ni el algoritmo del modelo. La mitigación ocurre en el proceso de datos y entrenamiento que mantiene el equipo. Después de un cambio, repite las medidas relevantes y compara resultados con la misma definición y un conjunto de evaluación apropiado.
 
-<pre><code class="language-python">clarify_processor.run(data_config, bias_config)
-</code></pre>
+En la [documentación de métricas previas al entrenamiento](https://docs.aws.amazon.com/sagemaker/latest/dg/clarify-measure-data-bias.html) encontrarás las definiciones de CI y DPL. La [documentación de métricas posteriores al entrenamiento](https://docs.aws.amazon.com/sagemaker/latest/dg/clarify-measure-post-training-bias.html) explica DPPL, DI, AD y otras medidas. Para el formato de `analysis.json` y sus informes, consulta [los resultados de un trabajo de Clarify](https://docs.aws.amazon.com/sagemaker/latest/dg/clarify-processing-job-analysis-results.html).
 
+## Costos y acceso
 
-<p>Después de ejecutar el trabajo, SageMaker Clarify comenzará a procesar tus datos y a calcular las métricas de sesgo. Puedes monitorear el progreso del trabajo utilizando CloudWatch u otras herramientas de monitoreo.</p>
+El ejemplo ejecuta un trabajo de SageMaker Processing en una instancia `ml.c4.xlarge`, como la que muestra la documentación de AWS para inicializar el procesador. Comprueba que el tipo de instancia esté disponible en tu región y revisa el precio regional antes de lanzarlo. SageMaker cobra por las instancias utilizadas mientras se ejecuta el trabajo; el almacenamiento de los archivos en S3 también tiene [sus cargos](https://aws.amazon.com/s3/pricing/). Un análisis posterior al entrenamiento necesita predicciones del modelo y puede crear un endpoint temporal para generarlas, lo que añade cómputo mientras está activo. La [página de precios de SageMaker AI](https://aws.amazon.com/sagemaker/ai/pricing/) permite revisar los cargos vigentes.
 
+Si estás creando un flujo nuevo y Clarify no está disponible en tu cuenta, no sigas creando roles o trabajos para intentar habilitarlo. Comienza por la [guía de AWS para reemplazar sus capacidades](https://docs.aws.amazon.com/sagemaker/latest/dg/clarify-availability-change.html): elige las métricas publicadas que responden a tu pregunta, calcula sus fórmulas en código que tu equipo pueda revisar y versionar, y usa las arquitecturas de referencia que AWS enlaza si necesitas registrar y monitorear los resultados dentro de una canalización. Para explicabilidad con SHAP, la misma guía remite a la biblioteca SHAP. Las evaluaciones de Amazon Bedrock se dirigen a modelos fundacionales; AWS aclara que no reemplazan el análisis de sesgo de modelos predictivos tabulares.
 
-<h3 id="revisar-los-registros-del-trabajo" tabindex="-1">Revisar los registros del trabajo</h3>
+## Solución de problemas
 
+- **La consola o el trabajo no ofrece Clarify:** comprueba primero si tu cuenta ya tiene acceso al servicio. AWS no admite clientes nuevos.
+- **El trabajo falla al leer o escribir en S3:** revisa la cuenta, región, URI, cifrado y permisos del rol de ejecución; confirma también que la identidad que lanza el trabajo pueda pasar ese rol.
+- **El informe indica que no encuentra la faceta o la etiqueta:** verifica el orden de columnas, el formato declarado, el nombre exacto de `facet_name` y `label`, y los valores usados para definir el resultado positivo. Si el CSV incluye encabezado, configúralo como lo indica la [guía de formatos tabulares](https://docs.aws.amazon.com/sagemaker/latest/dg/clarify-processing-job-data-format-tabular.html).
+- **No aparece una métrica o el trabajo termina con error:** revisa los registros de CloudWatch y la razón de salida del trabajo; confirma que el modelo y sus predicciones coincidan con el formato, las etiquetas y los tipos configurados. AWS enumera estos casos en la guía de [solución de problemas de trabajos Clarify](https://docs.aws.amazon.com/sagemaker/latest/dg/clarify-processing-job-run-troubleshooting.html).
 
-<p>Una vez que el trabajo haya finalizado, puedes revisar los registros para verificar que se haya ejecutado correctamente. Puedes hacer esto utilizando CloudWatch u otras herramientas de monitoreo.</p>
+## Comunidades y próximas actividades
 
+Si quieres conversar sobre implementaciones y seguir actividades comunitarias, estas páginas tienen enfoques distintos:
 
-<p>Para revisar los registros del trabajo, sigue estos pasos:</p>
+- [AWS AI User Group Argentina](https://www.meetup.com/aws-ai-user-group-argentina/), con base en Córdoba, organiza encuentros sobre inteligencia artificial en AWS y describe opciones presenciales con transmisión en línea y otras totalmente virtuales.
+- [AWS UG Machine Learning Latam](https://www.meetup.com/aws-ug-machine-learning-latam/), con base en Lima y alcance regional, está dedicado a compartir conocimiento sobre machine learning; su agenda permite revisar próximos encuentros y actividades anteriores.
+- [AI AWS User Group Chile](https://www.meetup.com/es-es/ai-aws-ug-chile/) cubre SageMaker, MLOps e IA responsable, además de ofrecer charlas, demostraciones y espacio para preguntas. Al revisar su agenda el 6 de octubre de 2026, figuraban dos encuentros generales de IA en Santiago:
+  - El [Meetup #4: AI Perspectives, el 23 de octubre](https://luma.com/5k1h5kow) está anunciado para las 18:30–20:30 CLST, presencial en Providencia. La agenda y los speakers estaban pendientes. El registro oficial es por Luma, es obligatorio y está sujeto a disponibilidad; confirmar asistencia en Meetup no garantiza un lugar.
+  - El [Meetup #5: Cloud AI Connect, el 29 de octubre](https://luma.com/ry4qpmho) está anunciado para las 18:30–20:30 CLST, presencial en Las Condes. La ficha anuncia charlas de Cloud e IA, con speakers y agenda completa pendientes; el registro oficial también es por Luma y confirmar asistencia en Meetup no garantiza un lugar.
 
+  Ninguna de las dos fichas confirma una sesión sobre Clarify.
+- [AWS User Group Artificial Intelligence Bolivia](https://www.meetup.com/aws-user-group-artificial-intelligence-bolivia/) reúne a personas interesadas en IA y machine learning en AWS, con charlas, talleres y actividades prácticas; consulta la agenda del grupo para conocer fechas y condiciones actuales.
 
-<ol>
-<li>
-<p>Abre la consola de <a href="https://aws.amazon.com/cloudwatch/" rel="noopener noreferrer" target="_blank">Amazon CloudWatch</a>.</p>
-</li>
-<li>
-<p>Selecciona el servicio de SageMaker en la lista desplegable de servicios.</p>
-</li>
-<li>
-<p>Selecciona el nombre del trabajo de procesamiento que deseas revisar.</p>
-</li>
-<li>
-<p>Haz clic en "Ver registros" para ver los detalles del trabajo.</p>
-</li>
-</ol>
+El [canal de YouTube de AWS Girls Chile](https://www.youtube.com/@AWSGirlsChile) reúne sus charlas técnicas y grabaciones, incluida la sesión sobre Clarify enlazada arriba. También puedes consultar el [directorio de eventos AWS en Latinoamérica](https://dondeaprendoaws.com/eventos/) y filtrar por país o modalidad; cada organizador publica sus propias fechas e inscripción.
 
-
-<p>En los registros, puedes ver información sobre el progreso del trabajo, incluyendo cualquier error o advertencia que se haya producido.</p>
-
-
-<p>Una vez que hayas revisado los registros, puedes proceder a analizar los resultados de la detección de sesgos.</p>
-
-
-<h2 id="analyzing-results" tabindex="-1">Analyzing results</h2>
-
-
-<p>Una vez que hayas ejecutado el trabajo de procesamiento, SageMaker Clarify generará un informe de sesgo con información sobre los resultados. En esta sección, te guiaré a través del análisis de estos resultados.</p>
-
-
-<h3 id="accessing-bias-report" tabindex="-1">Accessing bias report</h3>
-
-
-<p>Para acceder al informe de sesgo, sigue estos pasos:</p>
-
-
-<ol>
-<li>
-<p>Abre la consola de Amazon SageMaker.</p>
-</li>
-<li>
-<p>Selecciona el nombre del trabajo de procesamiento que deseas revisar.</p>
-</li>
-<li>
-<p>Haz clic en "Ver resultados" para ver los detalles del trabajo.</p>
-</li>
-<li>
-<p>En la pestaña "Resultados", busca el enlace para descargar el informe de sesgo en formato JSON o CSV.</p>
-</li>
-</ol>
-
-
-<h3 id="understanding-bias-metrics" tabindex="-1">Understanding bias metrics</h3>
-
-
-<p>SageMaker Clarify proporciona varias métricas de sesgo para identificar y cuantificar los sesgos en tus modelos. Aquí tienes algunas de las métricas más comunes:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Métrica de sesgo</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>CI (Class Imbalance)</td>
-<td>Mide la diferencia en la proporción de etiquetas positivas y negativas en el conjunto de datos.</td>
-</tr>
-<tr>
-<td>DPL (Difference in Positive Proportions in Labels)</td>
-<td>Mide la diferencia en la proporción de etiquetas positivas entre diferentes grupos de características.</td>
-</tr>
-<tr>
-<td>DPPL (Difference in Positive Proportions in Predicted Labels)</td>
-<td>Mide la diferencia en la proporción de etiquetas positivas predichas entre diferentes grupos de características.</td>
-</tr>
-<tr>
-<td>AD (Accuracy Difference)</td>
-<td>Mide la diferencia en la precisión del modelo entre diferentes grupos de características.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="visualizing-results" tabindex="-1">Visualizing results</h3>
-
-
-<p>Para visualizar los resultados de la detección de sesgos, puedes usar gráficos y diagramas. Por ejemplo:</p>
-
-
-<ul>
-<li>
-<p>Un gráfico de barras para mostrar la distribución de las etiquetas positivas y negativas.</p>
-</li>
-<li>
-<p>Un gráfico de dispersión para mostrar la relación entre las características y las etiquetas predichas.</p>
-</li>
-</ul>
-
-
-<p>Al analizar los resultados, considera múltiples métricas de sesgo y visualiza los datos para identificar patrones y tendencias.</p>
-
-
-<h2 id="mitigaci%C3%B3n-de-sesgos-detectados" tabindex="-1">Mitigación de sesgos detectados</h2>
-
-
-<p>Una vez que hayas identificado los sesgos en tus modelos de machine learning, es importante tomar medidas para mitigarlos. Aquí te presento algunas estrategias y prácticas recomendadas para abordar los sesgos detectados.</p>
-
-
-<h3 id="estrategias-para-mitigar-sesgos" tabindex="-1">Estrategias para mitigar sesgos</h3>
-
-
-<p>Existen varias formas de mitigar los sesgos en tus modelos de machine learning. Algunas de las estrategias más comunes incluyen:</p>
-
-
-<ul>
-<li>
-<p><strong>Re-muestreo</strong>: Ajustar el conjunto de datos para que sea representativo de la población objetivo.</p>
-</li>
-<li>
-<p><strong>Re-pesaje</strong>: Asignar diferentes pesos a los datos para reducir el impacto de los sesgos en el modelo.</p>
-</li>
-<li>
-<p><strong>Ajustes de algoritmos</strong>: Modificar los algoritmos de machine learning para reducir los sesgos.</p>
-</li>
-<li>
-<p><strong>Técnicas de debiasing</strong>: Utilizar técnicas como el debiasing adversarial para reducir los sesgos en el modelo.</p>
-</li>
-</ul>
-
-
-<h3 id="re-ejecutar-la-detecci%C3%B3n-de-sesgos" tabindex="-1">Re-ejecutar la detección de sesgos</h3>
-
-
-<p>Después de aplicar las estrategias de mitigación, es importante re-ejecutar la detección de sesgos para evaluar si las medidas han sido efectivas. SageMaker Clarify permite re-ejecutar la detección de sesgos fácilmente, lo que te permite evaluar el progreso y ajustar tus estrategias según sea necesario.</p>
-
-
-<p>Recuerda que la detección y mitigación de sesgos es un proceso continuo que requiere vigilancia y ajustes constantes. Al implementar estas estrategias, podrás reducir los sesgos en tus modelos de machine learning y mejorar la precisión y la confiabilidad de tus resultados.</p>
-
-
-<h2 id="mejores-pr%C3%A1cticas-y-recursos" tabindex="-1">Mejores prácticas y recursos</h2>
-
-
-<h3 id="pruebas-y-validaci%C3%B3n" tabindex="-1">Pruebas y validación</h3>
-
-
-<p>Es importante probar y validar los resultados de la detección de sesgos para asegurarse de que los problemas se hayan identificado correctamente. Considera los siguientes aspectos:</p>
-
-
-<ul>
-<li>
-<p>Verificar la precisión de los resultados con conjuntos de datos de prueba.</p>
-</li>
-<li>
-<p>Evaluar la confiabilidad repitiendo la detección con diferentes conjuntos de datos.</p>
-</li>
-<li>
-<p>Considerar posibles sesgos en los datos de prueba.</p>
-</li>
-</ul>
-
-
-<h3 id="desaf%C3%ADos-comunes-y-soluciones" tabindex="-1">Desafíos comunes y soluciones</h3>
-
-
-<p>Aquí algunos desafíos comunes y sus soluciones:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Desafío</th>
-<th>Solución</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Falta de datos representativos</td>
-<td>Recopilar más datos o usar técnicas de re-muestreo.</td>
-</tr>
-<tr>
-<td>Sesgos en los algoritmos de ML</td>
-<td>Usar técnicas de debiasing adversarial o ajustar los algoritmos.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="lectura-adicional" tabindex="-1">Lectura adicional</h3>
-
-
-<p>Para más información sobre la detección de sesgos y el uso de SageMaker Clarify, consulta los siguientes recursos:</p>
-
-
-<ul>
-<li>
-<p>Documentación de AWS sobre SageMaker Clarify</p>
-</li>
-<li>
-<p>Tutorials de AWS sobre detección de sesgos en modelos de ML</p>
-</li>
-<li>
-<p>Artículos académicos sobre detección de sesgos en modelos de ML</p>
-</li>
-</ul>
-
-
-<h2 id="conclusion" tabindex="-1">Conclusion</h2>
-
-
-<p>En resumen, la detección de sesgos en modelos de machine learning es crucial para asegurarse de que los resultados sean precisos y justos. SageMaker Clarify es una herramienta poderosa que nos permite identificar y mitigar sesgos en nuestros modelos. En esta guía, hemos cubierto los pasos para configurar y ejecutar SageMaker Clarify, así como también hemos discutido las mejores prácticas y recursos adicionales para la detección de sesgos.</p>
-
-
-<h3 id="puntos-clave" tabindex="-1">Puntos clave</h3>
-
-
-<ul>
-<li>
-<p>La detección de sesgos es un paso esencial en el desarrollo de modelos de machine learning.</p>
-</li>
-<li>
-<p>SageMaker Clarify es una herramienta fácil de usar y poderosa para identificar y mitigar sesgos.</p>
-</li>
-<li>
-<p>Es importante probar y validar los resultados de la detección de sesgos para asegurarse de que los problemas se hayan identificado correctamente.</p>
-</li>
-<li>
-<p>La debiasing adversarial y la re-muestreo son técnicas efectivas para mitigar sesgos en los modelos de machine learning.</p>
-</li>
-</ul>
-
-
-<h2 id="faqs" tabindex="-1">FAQs</h2>
-
-
-<h3 id="%C2%BFc%C3%B3mo-funciona-sagemaker-clarify%3F" tabindex="-1">¿Cómo funciona SageMaker Clarify?</h3>
-
-
-<p>SageMaker Clarify analiza características como género o edad para detectar posibles sesgos. Proporciona un informe visual con métricas y mediciones de sesgos, ayudándote a identificar y corregir estos sesgos.</p>
-
-
-<h3 id="%C2%BFc%C3%B3mo-detectar-sesgos-en-modelos%3F" tabindex="-1">¿Cómo detectar sesgos en modelos?</h3>
-
-
-<p>Para detectar sesgos en modelos de machine learning, examina el proceso de recopilación de datos y sus limitaciones. También evalúa el rendimiento del modelo en diferentes subgrupos para identificar disparidades.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-caracter%C3%ADstica-de-amazon-sagemaker-ayuda-a-eliminar-sesgos%3F" tabindex="-1">¿Qué característica de <a href="https://aws.amazon.com/sagemaker/" rel="noopener noreferrer" target="_blank">Amazon SageMaker</a> ayuda a eliminar sesgos?</h3>
-
-
-<p><figure><img alt="Amazon SageMaker" src="/assets/blog/5d51e82d4de655ce3d159974.jpg"/></figure></p>
-
-
-<p>SageMaker Clarify ayuda a identificar desequilibrios en los datos durante la preparación, sin necesidad de escribir código.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/como-desarrollar-aplicaciones-de-inteligencia-artificial-en-aws/">Cómo desarrollar aplicaciones de inteligencia artificial en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-machine-learning-en-aws/">Mejores prácticas de machine learning en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/10-preguntas-frecuentes-sobre-machine-learning-en-aws/">10 preguntas frecuentes sobre machine learning en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/">Introducción a la inteligencia artificial en AWS</a></li>
-</ul>
-</p>
+Para ampliar la elección de servicios y las consideraciones de costos, sigue con esta [guía para empezar con machine learning en AWS](https://dondeaprendoaws.com/blog/10-preguntas-frecuentes-sobre-machine-learning-en-aws/).
