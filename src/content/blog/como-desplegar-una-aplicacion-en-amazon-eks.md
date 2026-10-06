@@ -1,113 +1,95 @@
 ---
-title: "Cómo desplegar una aplicación en Amazon EKS"
-description: "Aprende cómo desplegar una aplicación en Amazon EKS paso a paso. Descubre los conceptos básicos de Kubernetes y Amazon EKS, requisitos previos, creación de clúster EKS, despliegue de aplicaciones, gestión del tráfico, escalado y más."
+title: "Cómo desplegar una aplicación en Amazon EKS con kubectl"
+description: "Crea un clúster EKS y despliega Nginx con kubectl. Revisa nodos, probes, logs y acceso local con port-forward, y elimina los recursos al terminar."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:18:48.675Z"
+modifiedTimestamp: "2026-10-06T11:23:43-03:00"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Diferencias: endpoint de interfaz vs. endpoint de gateway"
-    url: "https://dondeaprendoaws.com/blog/diferencias-endpoint-de-interfaz-vs-endpoint-de-gateway/"
-  - title: "Diferencias entre SLA y SLO en AWS"
-    url: "https://dondeaprendoaws.com/blog/diferencias-entre-sla-y-slo-en-aws/"
-  - title: "Servicios de AWS para frontend"
-    url: "https://dondeaprendoaws.com/blog/servicios-de-aws-para-frontend/"
-
+  - title: "Cómo desplegar contenedores en AWS: elige entre ECS, EKS y Fargate"
+    url: "https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/"
+  - title: "Cómo desplegar una aplicación en Amazon ECS con Fargate"
+    url: "https://dondeaprendoaws.com/blog/como-desplegar-una-aplicacion-en-amazon-ecs/"
 ---
 
-<p>Si estás buscando cómo desplegar una aplicación en Amazon EKS, has llegado al lugar indicado. Este artículo te guiará paso a paso para que logres poner en marcha tu aplicación usando Kubernetes en la nube de Amazon. Aquí encontrarás todo lo que necesitas saber, desde los conceptos básicos de Kubernetes y Amazon EKS, hasta cómo crear un clúster de EKS y desplegar tu aplicación. A continuación, te resumo los puntos clave:</p>
-<ul><li><strong>Amazon EKS</strong> te permite manejar aplicaciones en contenedores de manera eficiente.</li><li><a href="https://aws.amazon.com/es/kubernetes/"><strong>Kubernetes</strong></a> facilita la organización y escalabilidad de tus aplicaciones.</li><li>Necesitarás una cuenta de AWS, AWS CLI, <a href="https://kubernetes.io/docs/tasks/tools/install-kubectl/">kubectl</a>, y <a href="https://eksctl.io/">eksctl</a> para empezar.</li><li><strong>Crear un clúster de EKS</strong> es el primer paso práctico.</li><li><strong>Desplegar tu aplicación</strong> implica definir archivos de configuración y aplicarlos en el clúster.</li><li><strong>Gestionar el tráfico</strong> y <strong>escalar</strong> tu aplicación son aspectos avanzados que puedes explorar.</li></ul>
-<p>Este guía está diseñada para ser directa y fácil de seguir, asegurando que puedas tener tu aplicación corriendo en Amazon EKS sin complicaciones.</p>
-<h3 id="%C2%BFpor-qu%C3%A9-usar-amazon-eks%3F">¿Por qué usar <a href="https://images-na.ssl-images-amazon.com/images/g/01/lwa/dev/docs/website-developer-guide._tth_.pdf">Amazon</a> EKS?</h3>
-<p>Usar Amazon EKS tiene sus ventajas:</p>
-<ul><li><strong>F</strong>á<strong>cil de agrandar o achicar</strong>: Si tu aplicación necesita atender a más o menos usuarios, EKS te lo pone fácil.</li><li><strong>Siempre disponible</strong>: Trabaja para que tu aplicación casi nunca esté fuera de línea.</li><li><strong>Funciona bien con Amazon</strong>: Te permite usar otros servicios de Amazon que pueden hacer tu vida más fácil.</li><li><strong>Amazon te ayuda</strong>: Se encargan de las actualizaciones y de mantener todo funcionando bien.</li><li><strong>Hecho para contenedores</strong>: Es perfecto si tu aplicación usa contenedores para funcionar de manera más eficiente.</li></ul>
-<p>En pocas palabras, EKS te ayuda a que tu aplicación funcione en Kubernetes de manera sencilla, eficiente y con el apoyo de Amazon.</p>
-<h2 id="conceptos-b%C3%A1sicos-de-kubernetes-y-amazon-eks">Conceptos básicos de <a href="https://ifgeekthen.everis.com/es/kubernetes">Kubernetes</a> y <a href="https://aws.amazon.com/eks/">Amazon EKS</a></h2>
-<p><img alt="Kubernetes" src="/assets/blog/24e751b0e63097b51e12a224.jpg"/></p>
-<p>Kubernetes es como un sistema que ayuda a que las aplicaciones hechas de contenedores (como los creados con Docker) funcionen bien, crezcan cuando más gente las usa y se mantengan organizadas sin que tú tengas que hacer mucho. Amazon Elastic Kubernetes Service (EKS) es un servicio que ofrece Amazon para que usar Kubernetes sea más fácil y esté todo en la nube.</p>
-<p>Veamos algunos conceptos importantes para entender cómo funciona todo esto:</p>
-<h3 id="cl%C3%BAster">Clúster</h3>
-<p>Un clúster de Kubernetes es como un equipo de computadoras (nodos) que trabajan juntas para mantener tus aplicaciones corriendo. Este equipo se encarga de todo el trabajo pesado, desde hacer que las aplicaciones estén disponibles hasta asegurarse de que funcionen bien.</p>
-<p>En EKS, Amazon se ocupa de la parte más complicada, como asegurarse de que el sistema de Kubernetes esté siempre listo y funcionando.</p>
-<h3 id="nodos">Nodos</h3>
-<p>Los nodos son como las computadoras individuales en este equipo, donde realmente se ejecutan tus aplicaciones en contenedores Docker. Son los que hacen el trabajo día a día.</p>
-<p>Con EKS, puedes elegir si quieres que Amazon se encargue de estos nodos por ti o si prefieres manejarlos tú mismo.</p>
-<h3 id="pods">Pods</h3>
-<p>Un pod es como un paquete pequeño que contiene uno o más contenedores Docker que deben trabajar juntos. Se ejecutan en los nodos y cada uno tiene su propia dirección IP y recursos.</p>
-<p>Los pods ayudan a que los contenedores no tengan problemas entre ellos, manteniéndolos organizados y funcionando bien juntos.</p>
-<h3 id="servicios">Servicios</h3>
-<p>Un servicio es una forma de decirle a Kubernetes cómo quieres que las personas o sistemas externos se comuniquen con tus aplicaciones en los pods. Es como darle una dirección fija a tus aplicaciones, así no importa dónde estén realmente ejecutándose, siempre se pueden encontrar.</p>
-<p>Esto hace más fácil el trabajo de conectar diferentes partes de tu aplicación o permitir que los usuarios accedan a ella desde cualquier lugar.</p>
-<h2 id="requisitos-previos">Requisitos previos</h2>
-<h3 id="cuenta-de-aws">Cuenta de AWS</h3>
-<p>Antes de empezar a desplegar tu aplicación en Amazon EKS, necesitas tener una cuenta en AWS. Si no tienes una, puedes crear una cuenta gratis que te permite usar ciertos servicios de AWS sin costo durante el primer año.</p>
-<h3 id="aws-cli"><a href="https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html">AWS CLI</a></h3>
-<p><img alt="AWS CLI" src="/assets/blog/6c19e0dd3c1cd485566e0d8d.jpg"/></p>
-<p>La AWS CLI es una herramienta que te permite hablar con los servicios de AWS usando la terminal de tu computadora. Es importante tenerla instalada y lista con tus datos de acceso a AWS.</p>
-<h3 id="kubectl"><a href="https://kubernetes.io/docs/tasks/tools/install-kubectl/">kubectl</a></h3>
-<p><img alt="kubectl" src="/assets/blog/d8ddb5305e6f91903b343c2c.jpg"/></p>
-<p>kubectl es una herramienta esencial para trabajar con clústers de Kubernetes. Te ayuda a lanzar aplicaciones, revisar cómo van, ver registros de actividad, entre otras cosas. Debes tener kubectl instalada y configurada para que pueda comunicarse con tu clúster de EKS.</p>
-<h3 id="eksctl"><a href="https://eksctl.io/">eksctl</a></h3>
-<p><img alt="eksctl" src="/assets/blog/cde11b7c19ca616e625405fa.jpg"/></p>
-<p>eksctl es una herramienta creada por AWS que hace mucho más fácil crear y manejar clústers de EKS. Si vas a desplegar tu aplicación pero aún no tienes un clúster, te recomendamos usar eksctl para armar uno con un comando sencillo.</p>
-<h2 id="paso-1---preparar-aws-cli-y-eksctl">Paso 1 - preparar <a href="https://docs.aws.amazon.com/cli/latest/userguide/installing.html">AWS CLI</a> y eksctl</h2>
-<p><img alt="AWS CLI" src="/assets/blog/a78e890bb8564194e0ff5561.jpg"/></p>
-<h3 id="configurar-aws-cli">Configurar AWS CLI</h3>
-<p>Para empezar con AWS CLI, haz lo siguiente:</p>
-<ul><li>Si no tienes AWS CLI en tu computadora, instálalo. Puedes encontrar cómo hacerlo en la <a href="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html">página oficial de instrucciones</a>.</li><li>Cuando lo tengas, abre la terminal y escribe <code>aws configure</code>. Te pedirá algunos datos:</li><li>Tu ID de clave de acceso de AWS (algo así como un nombre de usuario)</li><li>Tu clave secreta de acceso (como una contraseña)</li><li>La región de AWS que vas a usar (por ejemplo, us-east-1)</li><li>El formato en que quieres que AWS te muestre la información (puede ser json, texto o tabla)</li><li>Para asegurarte de que todo está bien configurado, prueba con el comando <code>aws sts get-caller-identity</code>. Si ves información sobre tu cuenta de AWS, significa que todo está correcto.</li></ul>
-<p>Con estos pasos, ya podrás usar AWS CLI para manejar los servicios de AWS desde tu computadora.</p>
-<h3 id="instalar-eksctl">Instalar eksctl</h3>
-<p>Para instalar eksctl:</p>
-<ul><li>Ve a la <a href="https://github.com/weaveworks/eksctl/releases">página donde están las versiones de eksctl</a> y descarga la que corresponda a tu sistema operativo.</li><li>Saca el archivo que descargaste en una carpeta que tu computadora reconozca para ejecutar programas.</li><li>Para verificar que se instaló bien, escribe <code>eksctl version</code> en la terminal.</li></ul>
-<p>Listo, con eksctl instalado y AWS CLI listo, puedes empezar a trabajar en desplegar tu aplicación en Amazon EKS.</p>
-<h2 id="paso-2---crear-un-cl%C3%BAster-eks">Paso 2 - crear un clúster EKS</h2>
-<p>Para crear un clúster en Amazon EKS, vamos a seguir unos pasos sencillos con la ayuda de una herramienta llamada eksctl:</p>
-<h3 id="definir-configuraci%C3%B3n-del-cl%C3%BAster">Definir configuración del clúster</h3>
-<p>Primero, vamos a decidir cómo queremos que sea nuestro clúster EKS. Esto incluye cosas como:</p>
-<ul><li>Qué versión de Kubernetes queremos usar (es buena idea usar la más reciente)</li><li>Qué tipo y tamaño de máquinas (instancias EC2) queremos para los nodos</li><li>Cuántos nodos queremos en total</li><li>En qué región y zonas de AWS queremos que esté</li></ul>
-<p>Por ejemplo:</p>
-<pre><code>eksctl create cluster \
-  --version 1.21 \
-  --node-type t3.medium \
-  --nodes 3 \
-  --region us-east-1 \
-  --zones us-east-1a,us-east-1b
-</code></pre>
-<p>Con esto le estamos diciendo que queremos un clúster con:</p>
-<ul><li>Kubernetes versión 1.21</li><li>Nodos tipo t3.medium (que tienen 2 vCPU y 4GB de RAM)</li><li>Un total de 3 nodos</li><li>Que esté en la región us-east-1 de AWS y en las zonas us-east-1a y us-east-1b</li></ul>
-<h3 id="lanzar-cl%C3%BAster-eks">Lanzar clúster EKS</h3>
-<p>Una vez que sabemos cómo queremos nuestro clúster, usamos eksctl para crearlo:</p>
-<pre><code>eksctl create cluster -f cluster.yaml
-</code></pre>
-<p>Aquí, <code>cluster.yaml</code> es un archivo donde escribimos los detalles que decidimos antes.</p>
-<p>Usando este comando, eksctl automáticamente se encarga de:</p>
-<ul><li>Crear el clúster</li><li>Preparar las máquinas EC2</li><li>Ajustar la red y la seguridad</li><li>Instalar lo necesario</li></ul>
-<p>En unos minutos, nuestro clúster estará listo.</p>
-<h3 id="verificar-creaci%C3%B3n-del-cl%C3%BAster">Verificar creación del clúster</h3>
-<p>Para asegurarnos de que nuestro clúster está funcionando, podemos usar:</p>
-<pre><code>kubectl get nodes
-</code></pre>
-<p>Esto nos muestra los nodos que están funcionando y en qué estado están. Deberíamos ver los nodos que pedimos, listos para trabajar.</p>
-<p>También podemos ver más detalles del clúster con:</p>
-<pre><code>kubectl cluster-info
-</code></pre>
-<p>Con estos comandos podemos confirmar que nuestro clúster de EKS está preparado para nuestras aplicaciones.</p>
-<h2 id="paso-3---c%C3%B3mo-desplegar-tu-aplicaci%C3%B3n-de-ejemplo">Paso 3 - cómo desplegar tu aplicación de ejemplo</h2>
-<h3 id="definir-los-archivos-de-configuraci%C3%B3n">Definir los archivos de configuración</h3>
-<p>Para poner tu aplicación a funcionar en nuestro clúster de EKS, necesitamos preparar unos archivos en formato YAML. Estos archivos son como las instrucciones que le dicen a Kubernetes qué hacer, cómo arrancar tu aplicación y cómo hacerla accesible.</p>
-<p>Hablando de manera simple, necesitarás dos tipos de archivos:</p>
-<ul><li>Uno para decir cómo debe correr tu aplicación, cuántas copias quieres que haya y qué recursos necesita. Esto se llama un archivo de implementación.</li><li>Otro para decir cómo la gente puede acceder a tu aplicación desde fuera. Esto se llama un archivo de <a href="https://kubernetes.io/docs/concepts/services-networking/service/">servicio</a>.</li></ul>
-<p>Aquí te dejo un ejemplo de cómo se ve un archivo de implementación para Nginx:</p>
-<pre><code>apiVersion: apps/v1
+Amazon EKS te permite usar Kubernetes en AWS, pero el servicio no crea una aplicación por sí solo. En este tutorial crearás un clúster de laboratorio con un grupo de nodos EC2 administrado por EKS, desplegarás Nginx con un <code>Deployment</code> y un <code>Service</code> interno, revisarás sus probes y logs, abrirás una prueba local con <code>kubectl port-forward</code> y eliminarás el clúster.
+
+EKS administra el plano de control de Kubernetes. En este recorrido, el grupo de nodos aporta la capacidad de cómputo y sus instancias EC2 se cobran mientras existan. Si todavía comparas Kubernetes con una alternativa AWS más directa, consulta primero la [guía para elegir servicio de contenedores](/blog/como-desplegar-contenedores-en-aws/) o el [tutorial de ECS con Fargate](/blog/como-desplegar-una-aplicacion-en-amazon-ecs/).
+
+## Antes de crear el clúster
+
+Los comandos usan Bash en macOS o Linux. Necesitas una cuenta de AWS, AWS CLI v2, <code>eksctl</code>, <code>kubectl</code>, <code>curl</code> y permisos para crear recursos de Amazon EKS, VPC, EC2, IAM y AWS CloudFormation. Sigue la guía oficial para [instalar AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) y [instalar <code>eksctl</code>](https://docs.aws.amazon.com/eks/latest/eksctl/installation.html). Usa credenciales temporales mediante IAM Identity Center o un rol federado. La identidad IAM con la que <code>eksctl</code> crea el clúster queda como identidad inicial con acceso a Kubernetes; conserva el mismo perfil para las consultas de AWS y <code>kubectl</code>. Si después usa otra persona o rol, tendrás que conceder acceso por las entradas de acceso de EKS y los permisos de Kubernetes que correspondan.
+
+El archivo de abajo fija el endpoint público de la API a la IPv4 de salida que usarás desde tu equipo. Sustituye <code>203.0.113.10/32</code> por tu IP real, o por el rango de tu VPN u oficina. También habilita acceso privado para que los nodos dentro de la VPC alcancen la API aunque el endpoint público tenga esa restricción. Si tu IP cambia, actualiza la allowlist antes de usar <code>kubectl</code>.
+
+El clúster usará una VPC dedicada creada por <code>eksctl</code>, nodos en subredes públicas y una aplicación de laboratorio, sin NAT Gateway. La salida pública de los nodos permite descargar la imagen de Nginx; esta configuración expone la API solo al rango indicado y no es una arquitectura de producción. No reutilices una VPC en este tutorial: así el comando de eliminación puede limpiar los recursos que creó.
+
+## 1. Crea un clúster y un grupo de nodos administrado
+
+Guarda este archivo como <code>cluster.yaml</code>. No fija una versión antigua de Kubernetes: <code>eksctl</code> elegirá una versión que admita al crear el clúster. El grupo de aprendizaje se limita a una instancia <code>t3.medium</code> para mantener explícito el tamaño de la capacidad; el clúster no tiene alta disponibilidad de la carga con un solo nodo.
+
+<pre><code class="language-yaml">apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+metadata:
+  name: da-eks-container-lab
+  region: us-east-1
+vpc:
+  clusterEndpoints:
+    publicAccess: true
+    privateAccess: true
+  publicAccessCIDRs:
+    - "203.0.113.10/32"
+  nat:
+    gateway: Disable
+managedNodeGroups:
+  - name: learning-nodes
+    instanceType: t3.medium
+    desiredCapacity: 1
+    minSize: 1
+    maxSize: 1
+    privateNetworking: false</code></pre>
+
+<code>eksctl</code> crea recursos de VPC y CloudFormation para el clúster. Ejecuta la creación solo con nombres nuevos y revisa el estado hasta que termine. Si editas el nombre o la región del archivo, actualiza también <code>CLUSTER_NAME</code> o <code>AWS_REGION</code> en la terminal:
+
+<pre><code class="language-bash">export AWS_REGION="us-east-1"
+CLUSTER_NAME="da-eks-container-lab"
+aws sts get-caller-identity --region "$AWS_REGION"
+eksctl create cluster -f cluster.yaml</code></pre>
+
+Después de la creación, consulta la versión que eligió el clúster:
+
+<pre><code class="language-bash">aws eks describe-cluster --name "$CLUSTER_NAME" --region "$AWS_REGION" --query 'cluster.version' --output text
+aws eks describe-cluster --name "$CLUSTER_NAME" --region "$AWS_REGION" --query 'cluster.resourcesVpcConfig.[endpointPublicAccess,endpointPrivateAccess,publicAccessCidrs]' --output table</code></pre>
+
+Comprueba la versión cliente con <code>kubectl version --client</code>. Debe estar como máximo una versión menor por encima o por debajo de la versión del plano de control que acabas de consultar; no instales sin comprobar un cliente “latest”. Si hace falta, sigue la guía oficial para [instalar el kubectl compatible con tu versión de EKS](https://docs.aws.amazon.com/eks/latest/userguide/install-kubectl.html). Luego configura el contexto local y comprueba identidad y nodos:
+
+<pre><code class="language-bash">aws eks update-kubeconfig --region "$AWS_REGION" --name "$CLUSTER_NAME"
+kubectl config current-context
+aws sts get-caller-identity --region "$AWS_REGION"
+kubectl get nodes -o wide
+kubectl cluster-info</code></pre>
+
+El comando de kubeconfig usa por defecto la misma identidad que muestra <code>aws sts get-caller-identity</code>; consulta la [referencia de <code>aws eks update-kubeconfig</code>](https://docs.aws.amazon.com/cli/latest/reference/eks/update-kubeconfig.html) si trabajas con más de un perfil o rol.
+
+El endpoint público solo acepta conexiones desde el CIDR configurado. Si <code>kubectl</code> informa que no puede conectar, comprueba que la IP de salida actual esté en esa allowlist y que el clúster esté <code>ACTIVE</code>. Si indica <code>Unauthorized</code> o <code>AccessDenied</code>, confirma que AWS CLI usa la misma identidad que creó el clúster. AWS documenta el [acceso inicial del creador y el acceso de otros roles](https://docs.aws.amazon.com/eks/latest/userguide/grant-k8s-access.html) y la [configuración de endpoints públicos y privados](https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html).
+
+El grupo de nodos administrado hace visible la capacidad EC2 de este ejemplo. La documentación de EKS explica la [arquitectura del servicio](https://docs.aws.amazon.com/eks/latest/userguide/eks-architecture.html) y compara sus [opciones de cómputo y nodos](https://docs.aws.amazon.com/eks/latest/userguide/eks-compute.html). Para delegar más gestión de infraestructura, compara [EKS Auto Mode](https://docs.aws.amazon.com/eks/latest/userguide/automode.html) y su [laboratorio con Terraform](https://github.com/roxsross/roxs-eks-auto-mode). La grabación comunitaria [Episodio II: Karpenter es una solución de administración de nodos de Kubernetes incubada en AWS Labs](https://www.youtube.com/watch?v=MKy_BvhJkHI) muestra otra opción de escalado; contrástala con la documentación vigente antes de elegir. Para provisionar el clúster con infraestructura como código, consulta [la guía de EKS con CloudFormation](https://blog.alfalfita.cloud/automatizando-la-creacion-de-un-cluster-de-eks-con-cloudformation).
+
+## 2. Despliega Nginx con Kubernetes
+
+Guarda el manifiesto siguiente como <code>nginx.yaml</code>. Un <code>Deployment</code> mantiene un pod Nginx, las probes verifican si está vivo y listo para recibir solicitudes, y un <code>Service</code> de tipo <code>ClusterIP</code> lo descubre dentro del clúster. La imagen coincide con nodos Linux <code>X86_64</code>; para una aplicación real fija el digest o una etiqueta inmutable y escanea la imagen.
+
+<pre><code class="language-yaml">apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nginx-deployment
+  name: nginx
   labels:
     app: nginx
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: nginx
@@ -117,82 +99,78 @@ spec:
         app: nginx
     spec:
       containers:
-      - name: nginx
-        image: nginx:1.14.2
-        ports:
-        - containerPort: 80
-</code></pre>
-<p>Y así se ve un archivo de servicio:</p>
-<pre><code>apiVersion: v1
+        - name: nginx
+          image: public.ecr.aws/docker/library/nginx:stable-alpine
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 2
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+---
+apiVersion: v1
 kind: Service
 metadata:
-  name: nginx-service
+  name: nginx
 spec:
+  type: ClusterIP
   selector:
     app: nginx
   ports:
-    - protocol: TCP
+    - name: http
       port: 80
-      targetPort: 80
-</code></pre>
-<p>Con estos archivos, básicamente estamos poniendo a correr Nginx en nuestro clúster, con 3 copias y abriendo el puerto 80 para que se pueda acceder.</p>
-<h3 id="aplicar-los-archivos-en-el-cl%C3%BAster">Aplicar los archivos en el clúster</h3>
-<p>Una vez que tienes tus archivos listos, es momento de ponerlos a trabajar. Para esto, usamos un comando que se llama <code>kubectl apply</code>:</p>
-<pre><code>kubectl apply -f nginx-deployment.yaml
-kubectl apply -f nginx-service.yaml
-</code></pre>
-<p>Esto le dice a Kubernetes que tome los archivos y cree todo lo que le pedimos: las copias de la aplicación, cómo acceder a ella, etc.</p>
-<h3 id="chequear-que-todo-est%C3%A9-funcionando">Chequear que todo esté funcionando</h3>
-<p>Para estar seguros de que todo va bien, podemos usar unos comandos para ver cómo están corriendo las cosas:</p>
-<pre><code>kubectl get pods
-kubectl get services
-kubectl logs &lt;nombre_del_pod&gt;
-curl http://&lt;endpoint_del_clúster&gt;
-</code></pre>
-<p>Con esto, podemos ver si nuestra aplicación está corriendo, si el servicio está disponible, qué dicen los registros de la aplicación y probar si podemos acceder a ella desde el navegador.</p>
-<p>También podemos usar AWS CLI para revisar que todo esté configurado como debe en la nube.</p>
-<p>Así nos aseguramos de que nuestra aplicación está lista y funcionando para los usuarios.</p>
-<h2 id="pasos-siguientes">Pasos siguientes</h2>
-<p>Aquí encontrarás más información sobre cómo sacarle más provecho a Amazon EKS con temas un poco más avanzados.</p>
-<h3 id="escalado-autom%C3%A1tico">Escalado automático</h3>
-<p>El <a href="https://docs.aws.amazon.com/es_es/eks/latest/userguide/cluster-autoscaler.html">escalado automático</a> es una manera de hacer que tu clúster de EKS se ajuste solo, según cuánto se necesite. Imagina que puedes hacer que tu clúster crezca o se encoja automáticamente si ve que tus aplicaciones necesitan más o menos recursos. Esto ayuda a que tu aplicación siempre funcione bien, sin gastar de más en recursos que no se están usando.</p>
-<h3 id="ci%2Fcd">CI/CD</h3>
-<p>EKS también se puede conectar con sistemas de CI/CD, que son herramientas para automatizar los pasos de construir, probar y desplegar tu aplicación. Esto significa que cada vez que cambies algo en tu código, se puede configurar para que automáticamente se cree una nueva versión de tu aplicación, se pruebe y luego se ponga a funcionar en el clúster. Esto hace que mantener y actualizar tu aplicación sea más rápido y menos propenso a errores.</p>
-<h2 id="limpieza">Limpieza</h2>
-<h3 id="eliminar-cl%C3%BAster">Eliminar clúster</h3>
-<p>Para quitar el clúster EKS que armamos, usamos otra vez eksctl:</p>
-<pre><code>eksctl delete cluster --name mi-cluster
-</code></pre>
-<p>Este comando hace que eksctl elimine todo lo que se creó para el clúster, como:</p>
-<ul><li>Los servidores EC2</li><li>Las protecciones de seguridad</li><li>Las áreas de red</li><li>El clúster EKS en sí</li></ul>
-<p>Así nos aseguramos de no tener gastos extra por un clúster que ya no vamos a usar.</p>
-<h3 id="verificar-eliminaci%C3%B3n">Verificar eliminación</h3>
-<p>Luego de borrar el clúster, podemos chequear que realmente se haya ido con algunos comandos:</p>
-<pre><code>aws eks list-clusters
-aws ec2 describe-instances
-</code></pre>
-<p>El primero debería mostrar que el clúster ya no está en EKS. El segundo no debería mostrar nada si los servidores EC2 asociados fueron eliminados correctamente.</p>
-<p>También podemos intentar:</p>
-<pre><code>eksctl get cluster --region &lt;region&gt;
-</code></pre>
-<p>Para confirmar en la región específica que nuestro clúster ya no aparece.</p>
-<p>Con estos pasos, podemos estar tranquilos de que el clúster se eliminó por completo y que no habrá más cargos en nuestra cuenta de AWS por esos recursos.</p>
-<h2 id="conclusi%C3%B3n">Conclusión</h2>
-<h3 id="recapitulaci%C3%B3n">Recapitulación</h3>
-<ul><li>Aprendimos lo básico sobre Kubernetes y <a href="https://aws.amazon.com/eks/">Amazon EKS</a>, como qué son los clústeres, nodos, pods y servicios.</li><li>Preparamos las herramientas que necesitamos: AWS CLI, kubectl y eksctl.</li><li>Creamos un clúster de EKS con la ayuda de eksctl.</li><li>Pusimos a correr una aplicación de ejemplo usando archivos YAML.</li><li>Chequeamos que la aplicación estuviera trabajando correctamente.</li><li>Borramos el clúster de EKS que habíamos creado.</li></ul>
-<h3 id="pr%C3%B3ximos-pasos">Próximos pasos</h3>
-<p>Aquí hay algunas ideas de lo que puedes hacer después:</p>
-<ul><li>Aprender a conectar tu proyecto con herramientas de CI/CD para que los despliegues se hagan solos.</li><li>Activar el escalado automático para que tu aplicación se ajuste sola según la demanda.</li><li>Mover aplicaciones que ya tienes a Amazon EKS.</li><li>Buscar cómo hacer que tu proyecto cueste menos y funcione mejor.</li><li>Añadir formas de ver qué está pasando con tu aplicación y solucionar problemas.</li><li>Asegurarte de que solo las personas correctas puedan acceder a tu proyecto.</li></ul>
-<p>Con lo que vimos hoy, ya tienes un buen punto de partida para empezar a usar Kubernetes con Amazon EKS.</p>
-<h2 id="preguntas-relacionadas">Preguntas relacionadas</h2>
-<h3 id="%C2%BFc%C3%B3mo-desplegar-una-aplicaci%C3%B3n-en-aws%3F">¿Cómo desplegar una aplicación en AWS?</h3>
-<p>Para desplegar una aplicación que usa contenedores en AWS, puedes seguir estos pasos básicos:</p>
-<ul><li>Elige la imagen de Docker que quieras usar, como puede ser Nginx o Node.js.</li><li>Sube esa imagen a un lugar donde se guardan imágenes de contenedores, como Amazon ECR.</li><li>Crea un archivo llamado Dockerfile donde defines cómo debe correr tu aplicación.</li><li>Usa un servicio de AWS como Amazon ECS, Amazon EKS o AWS Fargate para ejecutar tu aplicación.</li><li>Para manejar mejor el tráfico que llega a tu aplicación, puedes usar un balanceador de carga como Application Load Balancer.</li><li>Si necesitas que tu aplicación crezca o se reduzca según la demanda, configura servicios de auto-scaling.</li><li>Para mantener todo bajo control, usa CloudWatch para ver los logs y métricas de tu aplicación.</li></ul>
-<h3 id="%C2%BFqu%C3%A9-es-amazon-eks%3F">¿Qué es Amazon EKS?</h3>
-<p>Amazon EKS es un servicio que te permite usar Kubernetes, una herramienta para manejar aplicaciones en contenedores, de manera fácil en AWS. Con EKS, puedes hacer que tus aplicaciones sean más fiables y escalables sin tener que preocuparte por los detalles técnicos de Kubernetes.</p>
-<h3 id="%C2%BFqu%C3%A9-servicio-se-utiliza-para-ejecutar-aplicaciones-en-contenedores-en-aws%3F">¿Qué servicio se utiliza para ejecutar aplicaciones en contenedores en AWS?</h3>
-<p>Para correr aplicaciones en contenedores en AWS, el servicio principal es Amazon Elastic Container Service (Amazon ECS). ECS te ayuda a manejar tus contenedores, permitiéndote iniciar, detener y escalarlos fácilmente. AWS Fargate es otra opción que permite correr contenedores sin tener que gestionar servidores.</p>
-<h3 id="%C2%BFqu%C3%A9-es-ingress-en-aws%3F">¿Qué es ingress en AWS?</h3>
-<p>Ingress es una manera de hacer que las aplicaciones que corren en Kubernetes estén disponibles en internet de forma segura y eficiente. AWS tiene una herramienta llamada AWS Load Balancer Controller que ayuda a manejar los balanceadores de carga para el tráfico de Ingress, asegurando que tu aplicación sea fiable y pueda manejar bien el tráfico.</p>
-<h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/opciones-para-desplegar-contenedores-en-aws-ecs-y-eks/">Opciones para desplegar contenedores en AWS: ECS y EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/">Cómo desplegar contenedores en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-eks/">Mejores prácticas para Amazon EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ecs/">Mejores prácticas para Amazon ECS</a></li></ul>
+      targetPort: http
+      protocol: TCP</code></pre>
+
+Aplica ambos objetos y espera el rollout:
+
+<pre><code class="language-bash">kubectl apply -f nginx.yaml
+kubectl rollout status deployment/nginx --timeout=120s
+kubectl get deployment,pods,service
+kubectl logs deployment/nginx</code></pre>
+
+Para ver otro primer despliegue explicado por una comunidad, mira [Tu primera aplicación en Kubernetes con Amazon EKS](https://www.youtube.com/watch?v=Mxy9xmvBZZs), de AWS User Group CreaTicas. [EKS Fundamentals: desmitificando Kubernetes con AWS](https://www.youtube.com/watch?v=YEY9NbFMQ0Y), publicado por AWS User Group Ecuador, amplía los conceptos.
+
+Comprueba el sitio en tu equipo. Deja este primer comando ejecutándose en una terminal:
+
+<pre><code class="language-bash">kubectl port-forward service/nginx 8080:80</code></pre>
+
+En otra terminal ejecuta <code>curl --fail --show-error http://127.0.0.1:8080/</code>. Este túnel solo comprueba el servicio desde tu equipo: no publica Nginx en Internet. Para exponer una aplicación, diseña aparte un Ingress o balanceador, su controlador e identidad IAM, las reglas de red y el costo de esos recursos. Para explorar despliegues continuos y GitOps en EKS, mira la sesión de AWS Women Colombia [Episodio IX: El ascenso de AWS, Experiencias Cloud - ¿GitOps en AWS? Infra sincronizada para EKS.](https://www.youtube.com/watch?v=3xHKb53ZFcM).
+
+## 3. Diagnostica y limpia el laboratorio
+
+Si el pod permanece en <code>Pending</code>, revisa <code>kubectl describe pod</code> y <code>kubectl get nodes</code> para distinguir falta de capacidad, recursos insuficientes o un nodo no listo. Si ves <code>ImagePullBackOff</code>, revisa el nombre de la imagen y que el nodo tenga salida a Internet. Si el pod se ejecuta pero no está listo, consulta los eventos con <code>kubectl describe pod</code>, los logs y la ruta de la probe.
+
+Al terminar, elimina el servicio y el Deployment y luego elimina el clúster:
+
+<pre><code class="language-bash">kubectl delete -f nginx.yaml
+eksctl delete cluster --name "$CLUSTER_NAME" --region "$AWS_REGION" --wait
+aws eks list-clusters --region "$AWS_REGION" --query 'clusters' --output table</code></pre>
+
+Espera a que <code>eksctl delete cluster</code> termine. Al crear el clúster, <code>eksctl</code> también creó la VPC dedicada, el grupo administrado, sus recursos de EC2 y grupos de seguridad; la eliminación del clúster limpia esos recursos. No ejecutes comandos de eliminación manual contra VPCs, subredes o grupos que no creó este laboratorio. EKS cobra por el clúster mientras existe, y las instancias EC2, almacenamiento, IPv4 pública y transferencia se cobran aparte. Revisa el [precio vigente de Amazon EKS](https://aws.amazon.com/eks/pricing/) antes de crear recursos; EKS Auto Mode tiene además su propia tarifa de gestión.
+
+## Comunidad y seguridad de contenedores
+
+Si estás en Guayaquil, AWS User Group Security Ecuador y Cloud Native Guayaquil anuncian **AWS & Cloud Native Security Night**, un encuentro presencial sobre la seguridad de Kubernetes y las imágenes de contenedor el **23 de octubre de 2026, de 17:00 a 20:00 (UTC−05:00)** en la Universidad Católica de Santiago de Guayaquil. Consulta la [página del grupo](https://www.meetup.com/aws-user-group-security-ecuador/) para conocer la comunidad y confirmar la [sede e inscripción del evento](https://www.meetup.com/aws-user-group-security-ecuador/events/316815633/). La agenda se consultó el 6 de octubre de 2026. También puedes encontrar otros [AWS User Groups y grupos estudiantiles](/comunidades/).
+
+Para seguir aprendiendo fuera de una fecha concreta, explora el [portal de AWS User Group Ecuador](https://www.awsugecuador.com/), el [canal de charlas de CreaTicas](https://www.youtube.com/channel/UCLt3Cav92Ej0t_m3mliLGCQ) y [AWS Women Colombia](https://awswomencolombia.com/). Ofrecen encuentros y grabaciones para ampliar temas y compartir experiencias. La [agenda AWS](/eventos/) reúne próximas actividades; confirma sus requisitos y condiciones en cada ficha.
+
+Esta es la ruta de Kubernetes de la serie. Para volver a comparar plataformas, lee [cómo desplegar contenedores en AWS](/blog/como-desplegar-contenedores-en-aws/) o sigue con el [tutorial de Amazon ECS](/blog/como-desplegar-una-aplicacion-en-amazon-ecs/).
