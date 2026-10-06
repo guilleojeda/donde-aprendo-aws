@@ -1,428 +1,167 @@
 ---
-title: "Guía para implementar machine learning con Amazon SageMaker"
-description: "Aprende a implementar Machine Learning en la nube con SageMaker, desde la preparación de datos hasta el despliegue de modelos en producción."
+title: "Cómo entrenar y desplegar un modelo en Amazon SageMaker AI"
+description: "Guía práctica de machine learning supervisado en SageMaker AI: prepara datos, evita fuga entre train, validation y test, evalúa el modelo y elige cómo servirlo."
 author: "guille-ojeda"
 publishedAt: "2025-03-06"
 publishedTimestamp: "2025-03-06T03:07:26.337Z"
+modifiedTimestamp: "2026-10-06T15:59:00-03:00"
 cover: "/assets/blog/editorial-datos-ia.png"
 coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
-  - title: "10 mejores prácticas de AWS para detección de amenazas en tiempo real"
-    url: "https://dondeaprendoaws.com/blog/10-mejores-practicas-de-aws-para-deteccion-de-amenazas-en-tiempo-real/"
-  - title: "Mejores prácticas para Amazon DynamoDB"
-    url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-dynamodb/"
-  - title: "AWS seguridad: servicios esenciales"
-    url: "https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/"
-
+  - title: "Machine learning en AWS: cómo empezar y qué servicio elegir"
+    url: "https://dondeaprendoaws.com/blog/10-preguntas-frecuentes-sobre-machine-learning-en-aws/"
+  - title: "SageMaker Clarify para detectar sesgos en modelos de machine learning"
+    url: "https://dondeaprendoaws.com/blog/deteccion-de-sesgos-en-modelos-ml-con-sagemaker-clarify/"
 ---
 
-<p>¿Quieres implementar Machine Learning de manera rápida y sencilla? <strong><a href="https://aws.amazon.com/sagemaker/" rel="noopener noreferrer" target="_blank">Amazon SageMaker</a> es la solución ideal para gestionar todo el ciclo de vida de tus proyectos de ML en la nube.</strong> Desde la preparación de datos hasta el despliegue, SageMaker simplifica cada paso. Aquí tienes un resumen de lo que aprenderás en esta guía:</p>
+Entrenar un modelo con Amazon SageMaker AI implica más que iniciar un trabajo de cómputo. Primero hay que definir qué se quiere predecir, preparar datos representativos y reservar una evaluación que no influya en el entrenamiento. Después se elige cómo convertir el artefacto entrenado en predicciones útiles y se eliminan los recursos de prueba que puedan seguir generando cargos.
 
+Esta guía recorre ese proceso con un ejemplo de clasificación supervisada sobre datos tabulares. Como referencia práctica usa el tutorial oficial de AWS con XGBoost. El formato de entrada, las métricas y las opciones compatibles dependen del algoritmo y de su versión; el ejemplo no convierte esas decisiones en reglas universales.
 
-<ul>
-<li><strong>¿Qué es SageMaker?</strong> Un servicio de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> que incluye herramientas como Jupyter Notebooks, algoritmos optimizados y automatización de tareas como el etiquetado de datos.</li>
-<li><strong>Ventajas principales:</strong> Infraestructura gestionada, integración con AWS, ajuste automático de hiperparámetros y escalabilidad para proyectos pequeños o grandes.</li>
-<li><strong>Usuarios ideales:</strong> Científicos de datos, ingenieros de ML y desarrolladores que trabajan en proyectos como visión por computador, análisis predictivo o sistemas de recomendación.</li>
-<li><strong>Pasos clave:</strong> <a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">configuración inicial de tu cuenta AWS</a>, preparación de datos con <a href="https://aws.amazon.com/es/s3/" rel="noopener noreferrer" target="_blank">Amazon S3</a>, entrenamiento de modelos, pruebas con métricas clave y despliegue seguro en producción.</li>
-</ul>
+## SageMaker AI y SageMaker Unified Studio son cosas distintas
 
+**Amazon SageMaker AI** es el servicio de AWS para desarrollar, entrenar y desplegar modelos de machine learning e inteligencia artificial. **Amazon SageMaker Unified Studio** es un entorno integrado que reúne herramientas de datos, analítica, IA y machine learning, e incluye acceso a capacidades de SageMaker AI. El nombre amplio de la plataforma es Amazon SageMaker.
 
-<p>Con esta guía, aprenderás a aprovechar SageMaker para trabajar de manera eficiente y mantener tus modelos en producción con un rendimiento óptimo. ¡Comencemos!</p>
+La [presentación oficial de AWS](https://aws.amazon.com/blogs/aws/introducing-the-next-generation-of-amazon-sagemaker-the-center-for-all-your-data-analytics-and-ai/) explica el cambio de nombres. En documentación y tutoriales anteriores todavía aparecen “Amazon SageMaker” y “SageMaker Studio”; comprueba si un paso describe el servicio de ML o una experiencia de desarrollo anterior. Para elegir entre SageMaker AI, Amazon Bedrock y las API de IA preparadas para tareas concretas, consulta también esta [guía para elegir un servicio de machine learning en AWS](/blog/10-preguntas-frecuentes-sobre-machine-learning-en-aws/). Bedrock se orienta a aplicaciones generativas con modelos fundacionales; este recorrido trata un modelo predictivo supervisado.
 
+## Antes de entrenar
 
-<h2 class="sb h2-sbb-cls" id="configuracion-inicial" tabindex="-1">Configuración inicial</h2>
+Necesitas un conjunto de datos que puedas usar, una cuenta y región de AWS donde estén disponibles los recursos que requiere el tutorial, acceso a Amazon S3 y un rol de ejecución de SageMaker AI.
 
+El rol de ejecución permite que SageMaker AI lea los datos y escriba los artefactos del modelo en los recursos autorizados. La identidad que lanza el trabajo también necesita permisos para iniciar las operaciones y pasar ese rol. Acota el acceso de S3 a los buckets y prefijos del proyecto, y evita guardar credenciales permanentes en notebooks. AWS describe [cómo funcionan los roles de ejecución y sus permisos](https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html); la política administrada <code>AmazonSageMakerFullAccess</code> puede ser más amplia de lo que necesita un flujo concreto.
 
-<p>Ahora que conoces los fundamentos de SageMaker, es hora de preparar tu entorno de trabajo para comenzar tu proyecto de Machine Learning.</p>
+Revisa el precio de tu región antes de iniciar un notebook, un trabajo de entrenamiento o un endpoint. El cómputo de entrenamiento se factura mientras corre; una aplicación de notebook puede seguir usando cómputo aunque cierres la pestaña; un endpoint en tiempo real puede seguir activo entre solicitudes. Almacenar datos y artefactos en S3 también puede generar cargos. No hay una exención general de costos por usar SageMaker AI: consulta los [precios de SageMaker AI](https://aws.amazon.com/sagemaker/ai/pricing/) y las condiciones vigentes de tu cuenta.
 
+## Flujo práctico: de los datos a las predicciones
 
-<h3 id="configuracion-de-la-cuenta-aws" tabindex="-1">Configuración de la cuenta <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a></h3>
+### 1. Define el resultado que el modelo debe predecir
 
+Empieza con una pregunta que puedas convertir en una etiqueta clara. En una clasificación binaria, la etiqueta puede indicar sí/no; en una clasificación multiclase, puede representar una categoría. Comprueba que las etiquetas sean suficientemente confiables y que las columnas usadas como entrada estén disponibles en el momento de hacer una predicción.
 
-<p><figure><img alt="AWS" src="/assets/blog/04e31d093dabde9fc20e6331.jpg"/></figure></p>
+El tutorial de AWS usa el conjunto público Adult Census y XGBoost para ilustrar una clasificación tabular. Es un laboratorio técnico, no una decisión automática sobre cómo etiquetar o tratar casos reales.
 
+Si primero quieres repasar los conceptos, la grabación de 2021 [“Introducción a Machine Learning y algoritmos”](https://www.youtube.com/watch?v=ej21aS52Nak), de Charlas Técnicas de AWS, presenta problemas de ML y tipos de algoritmos. Úsala como introducción conceptual, no como procedimiento actual de consola o SDK.
 
-<p>Para empezar, sigue estos pasos para configurar tu cuenta en AWS:</p>
+### 2. Separa entrenamiento, validación y prueba
 
+Divide los registros antes de calcular estadísticas, completar valores faltantes, codificar categorías, normalizar variables o seleccionar características. Así, información del conjunto reservado no influye en el modelo.
 
-<ul>
-<li><strong>Crea una cuenta en AWS</strong>: Regístrate en <a href="https://aws.amazon.com" rel="noopener noreferrer" target="_blank">aws.amazon.com</a> y añade un método de pago válido.</li>
-<li><strong>Verificación de identidad</strong>: Completa el proceso a través de SMS o llamada.</li>
-<li><strong>Activa el <a href="https://dondeaprendoaws.com/blog/aws-free-tier-guia-para-principiantes-2024/">AWS Free Tier</a></strong>: Esto te permitirá usar servicios básicos sin coste adicional durante el primer año.</li>
-</ul>
+- **Entrenamiento:** se usa para ajustar el modelo y aprender las transformaciones.
+- **Validación:** se usa durante el desarrollo para comparar modelos y elegir hiperparámetros o un umbral de clasificación.
+- **Prueba (test):** se mantiene aparte hasta que ya elegiste el modelo y sus parámetros. Se usa para una evaluación final sobre ejemplos que el modelo no vio.
 
+Aplica las transformaciones aprendidas con entrenamiento a validación y prueba, sin volver a ajustarlas con esos conjuntos. No uses la prueba para seleccionar características, ajustar el modelo ni elegir el umbral: al hacerlo, deja de ser una evaluación independiente. Excluye también campos que solo se conocen después del resultado, porque revelarían la respuesta al modelo. La [guía de scikit-learn sobre fuga de datos](https://scikit-learn.org/stable/common_pitfalls.html#data-leakage) explica por qué también hay que ajustar la imputación, normalización y selección de características solo con entrenamiento.
 
-<h3 id="configuracion-del-dominio-sagemaker" tabindex="-1">Configuración del dominio SageMaker</h3>
+El tipo de división depende de cómo llegarán los datos reales. Una división aleatoria puede servir cuando los registros son independientes y representativos; en predicciones futuras, separa por tiempo. Si hay varias filas de la misma persona, cuenta, dispositivo o sesión, mantenlas en un solo conjunto para que copias relacionadas no aparezcan a la vez en entrenamiento y prueba. La [práctica guiada de AWS](https://docs.aws.amazon.com/sagemaker/latest/dg/ex1-preprocess-data.html) demuestra cómo preparar train, validation y test; sus proporciones son un ejemplo, no una regla para todos los proyectos.
 
+Para explorar datos antes de entrenar, puedes complementar esta etapa con la grabación de 2021 [“Análisis de datos para Machine Learning”](https://www.youtube.com/watch?v=62s0OxI8SZw) de Charlas Técnicas de AWS y la sesión de 2022 [“Introducción con Python a la visualización de datos en SageMaker”](https://www.youtube.com/watch?v=lTdINoj14w4) de AWS Girls Chile, que presenta Matplotlib y Seaborn. Son sesiones comunitarias; consulta la documentación vigente para los pasos de cada herramienta.
 
-<p>En la consola de SageMaker, configura el dominio según las necesidades de tu proyecto. Puedes consultar la <a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">documentación oficial de AWS</a> para asegurarte de que la configuración se ajuste a tu región y requisitos específicos.</p>
+### 3. Guarda los datos en S3 con el formato que espera el algoritmo
 
+Organiza entradas y resultados bajo prefijos propios del proyecto. Por ejemplo, conserva rutas separadas para <code>train</code>, <code>validation</code>, <code>test</code>, artefactos del modelo y predicciones. El trabajo de entrenamiento suele recibir los conjuntos de entrenamiento y validación; mantén el de prueba fuera de esos canales hasta la evaluación final.
 
-<h3 id="configuracion-de-sagemaker-studio" tabindex="-1">Configuración de SageMaker Studio</h3>
+No conviertas todo a Parquet por defecto. El contrato depende del algoritmo, la versión del contenedor y la modalidad de entrada. El XGBoost integrado de SageMaker AI admite CSV, LibSVM, Parquet y RecordIO-Protobuf; para su entrada CSV de entrenamiento, AWS especifica que no haya encabezado y que la etiqueta esté en la primera columna. Para inferencia se envían las características sin la etiqueta, en el orden esperado por el modelo. Otros algoritmos tienen otros formatos y reglas. Consulta la tabla vigente de [formatos de entrada de XGBoost](https://docs.aws.amazon.com/sagemaker/latest/dg/xgboost-how-to-use.html) o la página del [algoritmo que elegiste](https://docs.aws.amazon.com/sagemaker/latest/dg/algos.html).
 
+Si tu problema es de lenguaje natural, la grabación de 2021 [“Pie & AI Lima: primeros pasos con NLP en AWS usando BlazingText sobre SageMaker”](https://www.youtube.com/watch?v=cXH2XSXxa08) muestra otra ruta. Es un ejemplo específico de NLP y BlazingText, no un formato universal para datos tabulares; compara sus entradas con la documentación actual antes de adaptar el flujo.
 
-<p>SageMaker Studio es una herramienta todo-en-uno que incluye varias funcionalidades esenciales. Su interfaz se divide en tres áreas principales:</p>
+### 4. Inicia un trabajo de entrenamiento y conserva su resultado
 
+Para un primer modelo tabular, puedes seguir el tutorial oficial de AWS con el algoritmo integrado XGBoost. En SageMaker AI, un trabajo de entrenamiento usa datos, hiperparámetros y capacidad de cómputo; SageMaker provisiona los recursos para ejecutar el contenedor y guarda el artefacto resultante en S3.
 
-<ul>
-<li>
-<strong>Panel de Control</strong><br/>
-Aquí puedes acceder a Notebooks de <a href="https://jupyter.org/" rel="noopener noreferrer" target="_blank">JupyterLab</a>, terminales y herramientas de gestión. También encontrarás opciones para visualizar y analizar datos.
-</li>
-<li>
-<strong>Área de Trabajo</strong><br/>
-Una interfaz organizada en secciones:
-<ul>
-<li>Explorador de archivos (a la izquierda)</li>
-<li>Editor principal (en el centro)</li>
-<li>Panel de propiedades (a la derecha)</li>
-<li>Terminal o consola (en la parte inferior)</li>
-</ul>
-</li>
-<li>
-<strong>Herramientas Integradas</strong><br/>
-SageMaker Studio incluye herramientas como:
-<ul>
-<li><em>Debugger</em>: Para analizar y depurar modelos.</li>
-<li><em>Experiments</em>: Para el seguimiento de experimentos.</li>
-<li><em>Pipeline</em>: Para automatizar flujos de trabajo.</li>
-<li><em>Feature Store</em>: Para gestionar características de datos.</li>
-</ul>
-</li>
-</ul>
+La guía oficial actual usa **SageMaker Python SDK v3**, con clases como <code>ModelTrainer</code> e <code>InputData</code>; su ruta de despliegue usa <code>ModelBuilder</code>. Muchos tutoriales anteriores usan el patrón de SDK v2 con <code>Estimator</code>, <code>Model</code> y <code>Predictor</code>. La versión 3 tiene cambios incompatibles con la 2, como explica la [documentación oficial de SageMaker Python SDK v3](https://sagemaker.readthedocs.io/en/v3docs/). Boto3 es otra interfaz: ofrece acceso de bajo nivel a las API de AWS y no es una versión alternativa de SageMaker Python SDK. Sigue un tutorial completo de una sola interfaz, consulta su versión de paquete y fija esa versión al reproducirlo; no mezcles fragmentos de distintas generaciones.
 
+Puedes seguir los pasos de AWS en este orden: [preparar el conjunto de datos](https://docs.aws.amazon.com/sagemaker/latest/dg/ex1-preprocess-data.html), [entrenar con XGBoost](https://docs.aws.amazon.com/sagemaker/latest/dg/ex1-train-model.html), [desplegar el modelo](https://docs.aws.amazon.com/sagemaker/latest/dg/ex1-model-deployment.html) y [evaluar sus predicciones](https://docs.aws.amazon.com/sagemaker/latest/dg/ex1-test-model.html). La guía de entrenamiento indica los requisitos de su SDK y muestra cómo enviar entrenamiento y validación al trabajo. Antes de copiar una versión de contenedor o tipo de instancia, revisa la compatibilidad y disponibilidad en tu región.
 
-<p>Con tu cuenta y entorno configurados, ya estás listo para avanzar al siguiente paso: preparar los datos para entrenar tu modelo.</p>
+Como complemento, puedes ver la sesión de 2021 [“Machine Learning para developers con Amazon SageMaker”](https://www.youtube.com/watch?v=4IAJOSCwWOo) del AWS User Group Perú o leer el resumen comunitario [“SageMaker - Transformando el Aprendizaje Automático en AWS”](https://vicenteguzman.com/aws/2024-08-27-sagemaker-ml-aws/), basado en una charla. Sirven para ampliar el contexto de la herramienta; verifica cualquier paso concreto con las guías actuales enlazadas arriba.
 
+Si tu caso requiere una red neuronal y no un modelo tabular como XGBoost, el AWS User Group Paraguay publicó en 2024 la sesión [“Redes Neuronales con TensorFlow en SageMaker”](https://www.youtube.com/watch?v=yzAd3XLWjLU) en su [canal de YouTube](https://www.youtube.com/channel/UC7_OxjDgMxfy3Id5oGyKqLg). Es otra ruta técnica, con requisitos de datos y cómputo distintos; confirma las versiones del framework y contenedor antes de ejecutar un ejemplo.
 
-<h2 class="sb h2-sbb-cls" id="preparacion-de-datos" tabindex="-1">Preparación de datos</h2>
+### 5. Evalúa con el conjunto de prueba y una métrica que represente el problema
 
+Después de elegir el modelo con validación, genera predicciones para el conjunto de prueba y compáralas con las etiquetas reales. La evaluación estima cómo podría responder el modelo ante casos nuevos; no garantiza que vaya a mejorar el proceso donde se use. Compara el resultado con una referencia sencilla, como una regla existente o el flujo actual.
 
-<p>Con el entorno configurado, es hora de organizar y ajustar los datos para obtener el mejor rendimiento durante el entrenamiento.</p>
+Para clasificación, una matriz de confusión ayuda a ver los tipos de acierto y error. **Precisión** responde qué proporción de los casos marcados como positivos realmente lo era; **recall** indica qué proporción de los positivos reales encontró el modelo. **F1** combina ambas. La exactitud global puede ocultar un mal resultado cuando una clase es mucho menos frecuente que otra. Elige la métrica y el umbral en función del impacto de falsos positivos y falsos negativos, y fija el umbral usando validación antes de medirlo en prueba.
 
+**No ajustes el umbral con el conjunto de prueba.** La página de evaluación del tutorial de AWS muestra cómo explorar distintos cortes, pero su ejemplo calcula ese corte sobre los propios datos de prueba. Para conservar una evaluación independiente, elige el umbral con validación y usa prueba solo para medir el resultado final.
 
-<h3 id="importacion-y-almacenamiento-de-datos" tabindex="-1">Importación y almacenamiento de datos</h3>
+Antes de ejecutar esa receta, corrige otros dos detalles del ejemplo oficial: la función declara `endpoint_name` pero la llamada de ejemplo no lo pasa; además, `array.tostring()` produce bytes numéricos, no texto CSV, aunque la solicitud declara `text/csv`. El despliegue actual documenta `Endpoint.get(...)`, `Endpoint.invoke(...)` y el atributo `endpoint.endpoint_name`. Para las filas de prueba, usa un cuerpo CSV UTF-8 sin encabezado, etiqueta ni índice. Este fragmento continúa el notebook del tutorial: `test` es el conjunto preparado y `endpoint` es el resultado del despliegue. Antes de ejecutarlo, define `umbral_validacion` con el valor que elegiste usando validación:
 
+```python
+import csv
+import io
+from sagemaker.core.resources import Endpoint
 
-<p>Amazon SageMaker facilita la importación y almacenamiento de datos a través de Amazon S3. Para empezar, crea un bucket específico para tu proyecto y organiza los datos en carpetas separadas para <strong>entrenamiento</strong>, <strong>validación</strong> y <strong>prueba</strong>. Asegúrate de elegir un formato compatible como <strong>.csv</strong>, <strong>.parquet</strong> o <strong>.json</strong>. Una vez almacenados, realiza un análisis inicial y asegúrate de que los datos estén en buen estado antes de continuar.</p>
+def predict_features(features, endpoint_name, rows=1000):
+    if rows < 1:
+        raise ValueError("rows debe ser mayor que cero")
 
+    endpoint = Endpoint.get(endpoint_name=endpoint_name)
+    predictions = []
+    for start in range(0, len(features), rows):
+        batch = features[start:start + rows]
+        buffer = io.StringIO(newline="")
+        csv.writer(buffer).writerows(batch)
+        body = buffer.getvalue().encode("utf-8")
 
-<h3 id="analisis-y-limpieza-de-datos" tabindex="-1">Análisis y limpieza de datos</h3>
+        response = endpoint.invoke(body=body, content_type="text/csv")
+        output = response.body.read().decode("utf-8")
+        batch_predictions = [
+            float(value)
+            for line in output.splitlines()
+            for value in line.split(",")
+            if value.strip()
+        ]
+        if len(batch_predictions) != len(batch):
+            raise ValueError("La respuesta no contiene una predicción por fila")
+        predictions.extend(batch_predictions)
+    return predictions
 
+# En este conjunto de ejemplo, la etiqueta ocupa la primera columna.
+X_test = test.iloc[:, 1:].to_numpy()
+y_test = test.iloc[:, 0].to_numpy()
+predictions = predict_features(X_test, endpoint.endpoint_name)
+# umbral_validacion se eligió antes con validation, según el costo de los errores.
+y_pred = [int(score >= umbral_validacion) for score in predictions]
+```
 
-<p>Para analizar y limpiar los datos, utiliza notebooks en SageMaker Studio con herramientas como <strong>Data Wrangler</strong>, <strong><a href="https://github.com/fbdesignpro/pandas-profiling" rel="noopener noreferrer" target="_blank">Pandas Profiling</a></strong>, <strong><a href="https://matplotlib.org/" rel="noopener noreferrer" target="_blank">Matplotlib</a></strong> y <strong><a href="https://seaborn.pydata.org/" rel="noopener noreferrer" target="_blank">Seaborn</a></strong>. Estas herramientas te ayudarán a:</p>
+El ayudante recibe una matriz que ya contiene solo las características, conserva el orden de las filas al dividirlas en lotes y lee la respuesta de texto como valores numéricos. `rows` controla el tamaño de cada solicitud; redúcelo si las entradas o los límites del endpoint requieren lotes menores. Si el endpoint está en otra sesión, pasa el nombre que guardaste al desplegarlo; no dependas de la variable local `endpoint`.
 
+Revisa resultados por segmentos relevantes y autorizados si un promedio podría esconder diferencias importantes. Si necesitas profundizar en disparidades o explicaciones, esta guía propia sobre [SageMaker Clarify y la evaluación de sesgos](/blog/deteccion-de-sesgos-en-modelos-ml-con-sagemaker-clarify/) documenta qué puede medir la herramienta y su disponibilidad actual. AWS indica en la [documentación de explicabilidad](https://docs.aws.amazon.com/sagemaker/latest/dg/clarify-model-explainability.html) que Clarify no está abierto a clientes nuevos.
 
-<ul>
-<li>Manejar valores ausentes mediante técnicas de imputación.</li>
-<li>Identificar y corregir valores atípicos que podrían afectar el modelo.</li>
-<li>Eliminar duplicados que podrían distorsionar los resultados.</li>
-</ul>
+### 6. Elige cómo servir las predicciones
 
+No existe una modalidad que sea mejor para todos los modelos. Decide según cuándo se necesitan las respuestas, cuánto tarda cada solicitud, el tamaño de entrada, el patrón de tráfico y las funciones compatibles con el contenedor.
 
-<p>Este paso asegura que los datos sean fiables y estén listos para las transformaciones necesarias.</p>
+| Modalidad | Cuándo encaja | Qué tener en cuenta |
+| --- | --- | --- |
+| **Real-time** | La aplicación espera una respuesta interactiva por solicitud. | Mantiene un endpoint disponible; mide la latencia y el costo con la carga y configuración reales. No hay una latencia fija garantizada para todos los modelos. |
+| **Serverless Inference** | El tráfico es intermitente o impredecible. | AWS administra la capacidad y cobra según el cómputo usado; hay límites de tamaño y compatibilidad que pueden descartar esta opción para ciertos modelos. |
+| **Asynchronous Inference** | Puedes encolar una solicitud y esperar el resultado; las entradas son grandes o tardan más. | Recibe solicitudes y devuelve resultados de forma asíncrona, normalmente usando S3; puede escalar a cero si así se configura. |
+| **Batch Transform** | Los datos ya están en S3 y necesitas generar predicciones para un lote, no responder a una aplicación interactiva. | Ejecuta un trabajo para procesar los objetos y guardar resultados en S3; no mantiene un endpoint interactivo. |
 
+Consulta la [comparación oficial de opciones y funciones compatibles](https://docs.aws.amazon.com/sagemaker/latest/dg/model-deploy-feature-matrix.html) y sus límites actuales antes de elegir. Para una evaluación inicial sobre un archivo de prueba disponible en S3, Batch Transform evita mantener un endpoint interactivo solo para ese lote. Si la aplicación requiere llamadas individuales, compara real-time, serverless y asynchronous con solicitudes representativas y valida también los errores, la concurrencia y los tiempos de espera.
 
-<h3 id="procesamiento-de-datos" tabindex="-1">Procesamiento de datos</h3>
+Cuando pases del primer endpoint a automatizar entrenamiento y despliegue, estas grabaciones pueden ampliar el tema:
 
+- [MLOps en AWS con Jenny Vega, ML Engineer en Rappi](https://www.youtube.com/watch?v=1G2CC7TRZYU), del AWS User Group Perú (2020), trata MLOps desde la experiencia de una profesional de ML.
+- [Patrones de arquitectura en MLOps](https://www.youtube.com/watch?v=nV12mB7GjZ0), del mismo grupo (2021), aborda decisiones de arquitectura para ese flujo.
+- [AWS ML Day con SageMaker, MLOps y primeros pasos con AWS IoT](https://www.youtube.com/watch?v=NVEbOgBTNSk), de AWS User Group Perú (2020), reúne esos temas en una jornada más amplia.
+- [28vo Meetup de AWS User Group Panamá](https://www.youtube.com/watch?v=xE5vGh_wdjA) (2021) combina una charla de ciencia de datos y ML con otra sobre DevOps en AWS.
+- [Resolviendo problemas con Machine Learning en producción](https://www.youtube.com/watch?v=lbNaNNbTsNc), de Charlas Técnicas de AWS (2021), aporta una perspectiva sobre problemas de operación.
 
-<p>El siguiente paso es transformar los datos utilizando <strong>Processing Jobs</strong>. Esto incluye:</p>
+Son grabaciones históricas: contrasta sus detalles de servicio y versiones con la documentación vigente.
 
+### 7. Elimina lo que ya no necesitas
 
-<ul>
-<li>Normalizar variables numéricas para que estén en la misma escala.</li>
-<li>Codificar variables categóricas para que sean comprensibles por los algoritmos.</li>
-<li>Reducir la dimensionalidad si es necesario, para simplificar el modelo.</li>
-</ul>
+Cuando termine la prueba, elimina primero el endpoint para detener el cómputo que lo mantiene activo. Después, revisa y elimina su configuración y el recurso de modelo si tampoco se reutilizarán. Borrar el modelo de SageMaker AI no borra sus artefactos de S3; conserva o elimina esos archivos de forma deliberada. Si usaste una aplicación o instancia de notebook, detenla y elimínala cuando hayas guardado lo necesario. Comprueba también los objetos de S3 y los logs retenidos, teniendo cuidado de no borrar datos compartidos.
 
+La [guía oficial de limpieza](https://docs.aws.amazon.com/sagemaker/latest/dg/realtime-endpoints-delete-resources.html) enumera qué elimina cada acción. Los trabajos completados, sus metadatos y los artefactos almacenados no desaparecen todos al borrar un endpoint.
 
-<p>Configura los recursos según el tamaño y la complejidad de los datos, y utiliza la paralelización para acelerar el procesamiento. Guarda los datos transformados en formato <strong><a href="https://parquet.apache.org/docs/" rel="noopener noreferrer" target="_blank">Apache Parquet</a></strong>, que mejora tanto la compresión como el rendimiento en consultas posteriores.</p>
+## Tutoriales, comunidades y eventos para seguir aprendiendo
 
+- El [AWS User Group Perú](https://awsugperu.cloud/) es una comunidad general de AWS con agenda y recursos; también puedes consultar su [canal de YouTube](https://www.youtube.com/@AWSUserGroupPeru) para más sesiones.
+- El [AWS UG Machine Learning Latam](https://www.meetup.com/aws-ug-machine-learning-latam/) es un espacio comunitario orientado a difundir machine learning en Latinoamérica. Consulta el tema y formato de cada encuentro: algunas actividades combinan ML e IA generativa.
+- Para buscar encuentros AWS recientes en distintos países y modalidades, revisa la [agenda de eventos AWS en Latinoamérica](/eventos/). Las fechas, el registro y el temario los confirma cada comunidad organizadora.
 
-<h2 class="sb h2-sbb-cls" id="entrenamiento-del-modelo" tabindex="-1">Entrenamiento del modelo</h2>
-
-
-<p>Con los datos ya transformados y listos, el siguiente paso es entrenar el modelo utilizando las herramientas de Amazon SageMaker.</p>
-
-
-<h3 id="seleccion-del-algoritmo" tabindex="-1">Selección del algoritmo</h3>
-
-
-<p>Selecciona un algoritmo que se ajuste a tu problema específico, ya sea clasificación, regresión o agrupamiento. También considera el tamaño, formato y número de variables de tu conjunto de datos. Amazon SageMaker incluye una variedad de algoritmos integrados que se ajustan a diferentes necesidades.</p>
-
-
-
-
-<h2 class="sb h2-sbb-cls" id="pruebas-y-mejora-del-modelo" tabindex="-1">Pruebas y mejora del modelo</h2>
-
-
-<p>Después de entrenar el modelo, es crucial evaluar y ajustar su rendimiento para asegurar resultados consistentes.</p>
-
-
-<h3 id="metricas-de-rendimiento" tabindex="-1">Métricas de rendimiento</h3>
-
-
-<p>Elige las métricas adecuadas según el tipo de modelo que estés utilizando:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Tipo de Modelo</th>
-<th>Métricas Clave</th>
-<th>Uso Principal</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Clasificación</td>
-<td>Precisión, Recall, F1-Score</td>
-<td>Problemas de categorización</td>
-</tr>
-<tr>
-<td>Regresión</td>
-<td>Error Cuadrático Medio (MSE), R²</td>
-<td>Predicción de valores numéricos</td>
-</tr>
-<tr>
-<td>Clustering</td>
-<td>Índice Silhouette, Inercia</td>
-<td>Agrupamiento de datos</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Estas métricas te ayudarán a identificar problemas como sobreajuste o subajuste.</p>
-
-
-<h3 id="optimizacion-de-parametros" tabindex="-1">Optimización de parámetros</h3>
-
-
-<p>Amazon SageMaker proporciona herramientas avanzadas para ajustar los hiperparámetros del modelo:</p>
-
-
-<ul>
-<li><strong>Optimización Automática</strong>: Usa el optimizador integrado de SageMaker para encontrar configuraciones eficaces.</li>
-<li><strong>Búsqueda en Cuadrícula</strong>: Prueba combinaciones específicas de parámetros.</li>
-<li><strong>Búsqueda Aleatoria</strong>: Experimenta con configuraciones aleatorias dentro de rangos definidos.</li>
-</ul>
-
-
-<p>Durante este proceso, asegúrate de registrar:</p>
-
-
-<ul>
-<li>Los valores de los hiperparámetros.</li>
-<li>Las métricas obtenidas.</li>
-<li>Los recursos utilizados.</li>
-</ul>
-
-
-<p>Después de ajustar los parámetros, realiza pruebas para confirmar que el modelo generaliza bien con datos nuevos.</p>
-
-
-<h3 id="metodos-de-prueba" tabindex="-1">Métodos de prueba</h3>
-
-
-<p>Sigue un enfoque organizado para validar el modelo:</p>
-
-
-<ul>
-<li><strong>Validación Cruzada</strong>: Implementa validación cruzada k-fold para obtener una evaluación más confiable del rendimiento.</li>
-<li><strong>Pruebas de Estrés</strong>: Somete el modelo a escenarios extremos, como:
-<ul>
-<li>Altas cargas de trabajo.</li>
-<li>Datos atípicos o inesperados.</li>
-<li>Situaciones de error comunes.</li>
-</ul>
-</li>
-<li><strong>Monitorización Continua</strong>: Configura un sistema que permita:
-<ul>
-<li>Detectar posibles caídas en el rendimiento.</li>
-<li>Identificar desviaciones en las predicciones.</li>
-<li>Evaluar cuándo es necesario reentrenar el modelo.</li>
-</ul>
-</li>
-</ul>
-
-
-<p>El objetivo es mantener un equilibrio entre el rendimiento actual del modelo y su capacidad para trabajar con datos nuevos.</p>
-
-
-<h2 class="sb h2-sbb-cls" id="implementacion-del-modelo" tabindex="-1">Implementación del modelo</h2>
-
-
-<p>Una vez que el modelo ha sido entrenado y probado, el siguiente paso es llevarlo a producción.</p>
-
-
-<h3 id="configuracion-de-endpoints" tabindex="-1">Configuración de endpoints</h3>
-
-
-<p>Selecciona y configura los endpoints basándote en estas opciones:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Tipo de Endpoint</th>
-<th>Uso Recomendado</th>
-<th>Características</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Tiempo Real</td>
-<td>Predicciones instantáneas</td>
-<td>Latencia menor a 100 ms, alta disponibilidad</td>
-</tr>
-<tr>
-<td>Asíncrono</td>
-<td>Procesamiento por lotes</td>
-<td>Mayor capacidad de procesamiento, costes reducidos</td>
-</tr>
-<tr>
-<td>Serverless</td>
-<td>Cargas variables</td>
-<td>Escalado automático, sin necesidad de gestionar infraestructura</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Elige la versión del modelo que mejor se adapte a tus necesidades, asigna los recursos computacionales adecuados, configura políticas de escalado automático y establece umbrales para su monitorización.</p>
-
-
-<h3 id="lanzamiento-a-produccion" tabindex="-1">Lanzamiento a producción</h3>
-
-
-<p>Para un despliegue seguro, sigue estos pasos:</p>
-
-
-<p><strong>Implementación Gradual</strong>:</p>
-
-
-<ul>
-<li>Dirige inicialmente el 10% del tráfico al modelo.</li>
-<li>Supervisa su rendimiento durante 24-48 horas.</li>
-<li>Aumenta el tráfico de forma progresiva.</li>
-<li>Mantén la versión anterior activa como respaldo.</li>
-</ul>
-
-
-<p><strong>Gestión de Costes</strong>:</p>
-
-
-<ul>
-<li>Comienza con instancias de menor capacidad.</li>
-<li>Configura el autoescalado con límites de presupuesto.</li>
-<li>Implementa apagado automático para endpoints inactivos.</li>
-<li>Evalúa regularmente el uso de los recursos.</li>
-</ul>
-
-
-<h3 id="mantenimiento-y-actualizaciones" tabindex="-1">Mantenimiento y actualizaciones</h3>
-
-
-<p>Un mantenimiento continuo asegura que el modelo funcione correctamente a largo plazo.</p>
-
-
-<p><strong>Monitorización Activa</strong>:</p>
-
-
-<ul>
-<li>Usa herramientas como <a href="https://aws.amazon.com/es/cloudwatch/" rel="noopener noreferrer" target="_blank">CloudWatch</a> para rastrear latencia, tasas de error, uso de recursos y posibles desviaciones del modelo.</li>
-</ul>
-
-
-<p><strong>Plan de Actualización</strong>:</p>
-
-
-<ul>
-<li>Programa actualizaciones mensuales.</li>
-<li>Realiza pruebas A/B para evaluar nuevas versiones.</li>
-<li>Lleva un registro detallado de los cambios realizados.</li>
-<li>Establece un procedimiento claro para revertir cambios si es necesario.</li>
-</ul>
-
-
-<p><strong>Gestión de Problemas</strong>:</p>
-
-
-<ul>
-<li>Define protocolos claros para responder a fallos.</li>
-<li>Configura sistemas de alertas tempranas.</li>
-<li>Documenta todos los incidentes y las soluciones aplicadas.</li>
-<li>Realiza análisis post-mortem para identificar áreas de mejora.</li>
-</ul>
-
-
-<p>Con estas prácticas, el modelo se mantendrá alineado con las necesidades del negocio y ofrecerá un rendimiento confiable.</p>
-
-
-<h2 class="sb h2-sbb-cls" id="proximos-pasos" tabindex="-1">Próximos pasos</h2>
-
-
-<p>Con el modelo ya en producción, es importante repasar los puntos clave para mantener y mejorar tu solución.</p>
-
-
-<h3 id="resumen" tabindex="-1">Resumen</h3>
-
-
-<p>Al trabajar con Machine Learning (ML) en SageMaker, es crucial encontrar un buen equilibrio entre rendimiento y recursos:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Fase</th>
-<th>Puntos Clave</th>
-<th>Detalles Importantes</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Preparación</td>
-<td>Configuración de dominio y Studio</td>
-<td>Verifica accesos y permisos en AWS</td>
-</tr>
-<tr>
-<td>Desarrollo</td>
-<td>Gestión y transformación de datos</td>
-<td>Asegúrate de la calidad y formato</td>
-</tr>
-<tr>
-<td>Producción</td>
-<td>Monitorización y mantenimiento</td>
-<td>Evalúa rendimiento y controla costes</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>El éxito del proyecto depende de mantener un balance adecuado entre eficiencia y rendimiento, garantizando que la solución sea sostenible a largo plazo.</p>
-
-
-<h3 id="recursos-adicionales-en-donde-aprendo-aws" tabindex="-1">Recursos adicionales en "Dónde Aprendo AWS"</h3>
-
-
-<p>Si quieres ir más allá, hay recursos adicionales que complementan este tutorial y te ayudarán a profundizar en SageMaker y ML en AWS:</p>
-
-
-<ul>
-<li>Tutoriales prácticos sobre cómo implementar modelos en SageMaker.</li>
-<li>Guías detalladas para reducir costes en proyectos de ML.</li>
-<li>Casos de estudio de empresas en España que utilizan SageMaker.</li>
-<li>Foros en español donde puedes resolver dudas técnicas.</li>
-</ul>
-
-
-<p>En <a href="https://dondeaprendoaws.com">Dónde Aprendo AWS</a> encontrarás contenido actualizado y diseñado para la comunidad hispanohablante. Hay materiales tanto para principiantes como para usuarios avanzados, lo que te permitirá construir una base sólida en el desarrollo de soluciones de Machine Learning con AWS.</p>
-
-
-<p>Además, únete a los <a href="https://dondeaprendoaws.com/blog/grupos-de-estudio-aws-en-reddit-2024/">grupos locales de AWS</a> para compartir experiencias y conectar con otros profesionales que trabajan con SageMaker en sus proyectos diarios. ¡Es una gran oportunidad para aprender y colaborar!</p>
-
-
-<h2>Publicaciones de blog relacionadas</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/">Introducción a la inteligencia artificial en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-machine-learning-en-aws/">Mejores prácticas de machine learning en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/10-preguntas-frecuentes-sobre-machine-learning-en-aws/">10 preguntas frecuentes sobre machine learning en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/10-repositorios-de-github-para-machine-learning-en-aws/">10 repositorios de GitHub para machine learning en AWS</a></li></ul>
+Las grabaciones y eventos dependen de sus organizadores y pueden cambiar. Contrasta cualquier instrucción de consola, SDK o servicio con la documentación actual de AWS antes de ejecutarla.
