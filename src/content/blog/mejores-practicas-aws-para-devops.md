@@ -1,489 +1,108 @@
 ---
-title: "Mejores prácticas AWS para DevOps"
-description: "Descubre las mejores prácticas de AWS para DevOps, desde el marco de trabajo Well-Architected hasta la implementación de servicios específicos de AWS, para acelerar el desarrollo y la entrega de software de manera segura y eficiente."
+title: "Mejores prácticas de DevOps en AWS: CI/CD, IaC y despliegues seguros"
+description: "Diseña un flujo DevOps en AWS desde Git e infraestructura como código hasta pruebas, credenciales temporales, observabilidad y reversión de despliegues."
 author: "guille-ojeda"
 publishedAt: "2024-01-24"
 publishedTimestamp: "2024-01-24T23:31:38.611Z"
+modifiedTimestamp: "2026-10-06T17:50:38-03:00"
+review:
+  date: "2026-10-06"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Diferencias: endpoint de interfaz vs. endpoint de gateway"
-    url: "https://dondeaprendoaws.com/blog/diferencias-endpoint-de-interfaz-vs-endpoint-de-gateway/"
-  - title: "Principios de Zero Trust en AWS: componentes clave"
-    url: "https://dondeaprendoaws.com/blog/principios-de-zero-trust-en-aws-componentes-clave/"
-  - title: "5 whitepapers de AWS para aprobar exámenes"
-    url: "https://dondeaprendoaws.com/blog/5-whitepapers-de-aws-para-aprobar-examenes/"
-
+  - title: "Cómo integrar Terraform con CI/CD en AWS con GitHub Actions"
+    url: "https://dondeaprendoaws.com/blog/como-integrar-terraform-con-cicd-en-aws/"
+  - title: "Seguridad de IaC en AWS: 9 controles para Terraform y CloudFormation"
+    url: "https://dondeaprendoaws.com/blog/9-mejores-practicas-de-seguridad-para-iac-en-aws/"
+  - title: "Cómo diagnosticar problemas en aplicaciones AWS con CloudWatch"
+    url: "https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/"
+  - title: "Métricas DevOps en AWS: DORA, fiabilidad y costos"
+    url: "https://dondeaprendoaws.com/blog/10-metricas-clave-de-devops-en-aws/"
+  - title: "Mejores prácticas de seguridad en AWS: checklist y cómo verificarlas"
+    url: "https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/"
 ---
 
-<p>Cualquier desarrollador o equipo de DevOps estaría de acuerdo en que <strong>integrar AWS al flujo de trabajo de DevOps</strong> puede ser un desafío.</p>
+Un flujo DevOps en AWS conecta cada cambio con pruebas, un despliegue repetible y señales para decidir si mantenerlo o revertirlo. Empieza con un *commit* revisable, valida el código y la infraestructura, publica una versión identificable y promueve esa misma versión entre entornos. Si algo falla, el equipo debe detectar el impacto y saber qué acción tomar; ningún servicio garantiza por sí solo un despliegue seguro.
 
+## Qué hace cada parte del flujo
 
-<p>En este artículo, exploraremos las <strong>mejores prácticas de AWS para DevOps</strong>, desde el marco de trabajo Well-Architected hasta la implementación de servicios específicos de AWS, para que puedas <strong>acelerar el desarrollo y la entrega de software</strong> de manera segura y eficiente.</p>
+Separa responsabilidades para que cada herramienta tenga una función clara:
 
+- **Git** conserva el código, la infraestructura y el historial de cambios. Un *pull request* facilita la revisión antes de integrar una modificación.
+- **La integración continua (CI)** ejecuta pruebas y construye el artefacto de la aplicación. Puedes usar GitHub Actions o AWS CodeBuild; CodeBuild ejecuta comandos definidos, por ejemplo, en un archivo buildspec.yml.
+- **La entrega continua (CD)** coordina etapas como validar, desplegar en pruebas y promover a producción. AWS CodePipeline puede orquestar esas etapas; admite fuentes de GitHub mediante una conexión con GitHub App. Si una canalización existente usa la acción antigua de GitHub con OAuth, la documentación actual recomienda migrar a la acción basada en conexión.
+- **La infraestructura como código (IaC)** define los recursos que acompañan a la aplicación. CloudFormation, AWS CDK y Terraform son opciones distintas; CDK sintetiza plantillas de CloudFormation y Terraform administra su propio estado. Elige una fuente de verdad por conjunto de recursos y revisa la salida que realmente se va a aplicar.
+- **El entorno de ejecución** sirve la aplicación. Por ejemplo, Amazon ECS ejecuta tareas y servicios de contenedores; Amazon ECR almacena imágenes. La canalización construye y promueve las versiones, y el servicio de cómputo las ejecuta.
 
-<p>Cubriremos temas como la infraestructura como código con AWS CloudFormation, la integración y entrega continua con Code Suite, el monitoreo proactivo con CloudWatch y X-Ray, y la seguridad y cumplimiento normativo al implementar estas mejores prácticas. Al final, veremos cómo integrar todo en una cultura DevOps madura mediante mejora continua, feedback y certificaciones de AWS.</p>
+AWS CodePipeline no reemplaza al repositorio ni compila por sí mismo el código de aplicación. Si eliges GitHub Actions para orquestar el flujo, evita crear otra canalización que también aplique los mismos cambios de infraestructura. Consulta la documentación de [fuentes de GitHub en CodePipeline](https://docs.aws.amazon.com/codepipeline/latest/userguide/connections-github.html) y de [archivos buildspec en CodeBuild](https://docs.aws.amazon.com/codebuild/latest/userguide/build-spec-ref.html).
 
+Para ver un flujo de aplicación real, mira la [demostración de Amazon ECS con Terraform y GitHub Actions de 295DevOps](https://www.youtube.com/watch?v=3ocYjn0Aohc). El título y la descripción actuales muestran una aplicación Flask en ECS con Fargate; se publicó en noviembre de 2025. El [canal de 295DevOps](https://www.youtube.com/@295devops) reúne otras charlas y demostraciones sobre AWS y DevOps en español.
 
-<h2 id="introducci%C3%B3n-a-las-mejores-pr%C3%A1cticas-de-aws-para-devops" tabindex="-1">Introducción a las mejores prácticas de AWS para DevOps</h2>
+## Buenas prácticas desde el cambio hasta producción
 
+### 1. Haz cambios pequeños y fáciles de revisar
 
-<p>El AWS Well-Architected Framework proporciona una guía de prácticas recomendadas para diseñar y operar cargas de trabajo seguras, de alto rendimiento, resilientes y eficientes en la nube. Adoptar estas prácticas puede acelerar los ciclos de DevOps al permitir la entrega continua y la integración/implementación continuas.</p>
+Versiona junto al código la infraestructura, la configuración de despliegue y los controles que quieras automatizar. Protege las ramas que pueden publicar a producción y exige revisión para cambios de IAM, red, datos o recursos que podrían reemplazarse. Los cambios pequeños reducen el conjunto de causas posibles cuando una versión se comporta mal. AWS recomienda probar los cambios, automatizar integración y despliegue y hacer cambios pequeños y reversibles en su guía de [excelencia operativa de Well-Architected](https://docs.aws.amazon.com/wellarchitected/latest/operational-excellence-pillar/design-for-operations.html).
 
+### 2. Ejecuta controles antes de conceder acceso de despliegue
 
-<p>En este artículo, exploraremos algunas de las mejores prácticas de AWS que pueden ayudar a los equipos de DevOps a:</p>
+En cada *pull request*, corre formato y análisis estático, pruebas de la aplicación, validaciones de IaC y análisis de dependencias o imágenes según el riesgo del sistema. Para CloudFormation, combina comprobaciones de plantilla con reglas de seguridad cuando correspondan; para Terraform, valida formato, configuración y políticas del equipo. Estas comprobaciones reducen errores, pero no prueban que una operación real vaya a tener permisos, cuotas o condiciones de servicio adecuadas.
 
+No entregues credenciales de despliegue a código no confiable de un *pull request*, como una contribución de un *fork*. Publica resultados que indiquen qué commit se comprobó y conserva el artefacto que luego se promueve; reconstruir otra imagen para producción puede introducir diferencias entre la versión probada y la desplegada.
 
-<h3 id="comprender-el-aws-well-architected-framework-en-devops" tabindex="-1">Comprender el AWS Well-Architected Framework en DevOps</h3>
+### 3. Revisa el cambio de infraestructura antes de ejecutarlo
 
+Con CloudFormation, crea un *change set* y revisa qué recursos se crearán, modificarán, reemplazarán o eliminarán. Con Terraform, revisa el plan correspondiente al commit. Presta atención a bases de datos, almacenamiento, permisos IAM, reglas de red y recursos con datos persistentes.
 
-<p>El AWS Well-Architected Framework se centra en cinco pilares:</p>
+Un *change set* ayuda a ver el efecto previsto, pero no garantiza que CloudFormation pueda completar la actualización: condiciones de ejecución, permisos y cuotas pueden provocar errores. La documentación explica qué muestra y qué no garantiza un [change set de CloudFormation](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-changesets.html).
 
+### 4. Prueba el mismo artefacto antes de producción
 
-<ul>
-<li>Seguridad</li>
-<li>Confiabilidad</li>
-<li>Eficiencia</li>
-<li>Rendimiento</li>
-<li>Optimización de costos</li>
-</ul>
+Despliega primero en un entorno de pruebas parecido a producción y comprueba que el servicio arranca, responde a sus verificaciones de salud y supera pruebas funcionales e integración. La guía de Well-Architected sobre [probar despliegues](https://docs.aws.amazon.com/wellarchitected/latest/operational-excellence-pillar/ops_mit_deploy_risks_test_val_chg.html) recomienda probar antes de producción la misma configuración, controles y pasos. Cuando sea posible, promueve a producción la misma imagen o artefacto que validaste, con su identificador de commit o digest. Separa por entorno la configuración y los permisos, no el contenido compilado de la aplicación.
 
+Para cambios de aplicación, un despliegue progresivo o por lotes reduce el impacto inicial si algo va mal. En Amazon ECS, el *deployment circuit breaker* detecta fallos de estabilidad en servicios con controlador de despliegue rolling; si también configuras rollback, ECS puede volver al último despliegue completado. Las alarmas de CloudWatch pueden detectar degradaciones observables, pero debes asociarlas y configurar qué respuesta quieres. ECS describe los métodos y sus [límites para detectar fallos de despliegue](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-failure-detection.html).
 
-<p>Seguir estas prácticas recomendadas desde el inicio de un proyecto en la nube puede evitar problemas downstream y acelerar los ciclos de DevOps. Por ejemplo, incorporar la seguridad y la confiabilidad en el diseño de la aplicación puede facilitar la aprobación y el despliegue de actualizaciones con mayor frecuencia.</p>
+No supongas que revertir la versión de la aplicación deshace cambios en datos o esquemas. Planifica las migraciones para que la versión anterior pueda convivir durante la transición, o define una recuperación específica para esos datos.
 
+Si quieres probar cambios progresivos y alarmas, el [laboratorio ECS Canary in Action](https://github.com/roxsross/aws-ecs-canary-in-action) incluye un modo local con Docker y otro que despliega una infraestructura de ejemplo en AWS. El README enumera ECS, Fargate, un balanceador, DynamoDB, CloudWatch y ECR; el modo en AWS requiere permisos para esos recursos y puede generar cargos. Empieza en local y revisa los pasos de limpieza antes de crear recursos.
 
-<p>La herramienta Well-Architected de AWS ayuda a los equipos a evaluar sus cargas de trabajo en la nube en función de estos pilares. Los informes generados se pueden usar para identificar brechas y oportunidades de mejora.</p>
+### 5. Usa roles y credenciales temporales para CI
 
+Si el ejecutor externo es GitHub Actions, configura federación OIDC para que el trabajo solicite credenciales temporales mediante un rol de IAM. Limita la confianza del rol al repositorio y al contexto que puede desplegar —por ejemplo, una rama o un entorno protegido— y concede solo las acciones necesarias para esa etapa. El permiso de GitHub `id-token: write` permite solicitar un token OIDC; no concede permisos de AWS por sí solo.
 
-<h3 id="la-sinergia-entre-aws-security-best-practices-y-devops" tabindex="-1">La sinergia entre AWS Security Best Practices y DevOps</h3>
+La condición de confianza debe coincidir con el claim `sub` real del token. Desde el 15 de julio de 2026, los repositorios nuevos de GitHub.com y los repositorios renombrados o transferidos después de esa fecha usan por defecto un `sub` con identificadores inmutables de propietario y repositorio. Los repositorios anteriores conservan el formato previo salvo que habiliten el nuevo. Verifica el formato del repositorio y sigue la guía vigente de [GitHub OIDC con AWS](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-aws) junto con las recomendaciones de [IAM para roles OIDC](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-idp_oidc.html). No guardes claves IAM de larga duración como secretos del repositorio.
 
+Para practicar plan, aprobación y despliegue con permisos temporales, sigue la [guía de Terraform con GitHub Actions y CI/CD en AWS](/blog/como-integrar-terraform-con-cicd-en-aws/).
 
-<p>Las prácticas recomendadas de seguridad de AWS, como el principio de privilegios mínimos, el acceso basado en roles y la rotación automática de credenciales, se alinean estrechamente con los objetivos de DevOps de entrega rápida y continua.</p>
+Si ya separas ambientes en varias cuentas, el artículo de Daniel Castillo sobre un [pipeline CI/CD multi-cuenta](https://dcastillogi.com/arquitecturas/pipeline-cicd-multi-cuenta) muestra la promoción del mismo artefacto entre DEV, QA y PROD, además del costo operativo de mantener cuentas y roles separados. No hace falta esa complejidad para todos los proyectos.
 
+## Observa el resultado y prepara la reversión
 
-<p>Por ejemplo, usar AWS IAM Identity Center para administrar el acceso basado en roles elimina la necesidad de credenciales codificadas y permite que los desarrolladores obtengan acceso temporal a los recursos necesarios para implementar actualizaciones.</p>
+Después del despliegue, mira métricas que representen el servicio: tasa de errores, latencia, solicitudes correctas y verificaciones de salud. Añade registros de la aplicación para investigar fallos y alarmas con umbrales que detengan o reviertan el despliegue cuando se cumplan las condiciones configuradas. Guarda el identificador del artefacto, la hora de despliegue y el resultado de las pruebas para relacionar un cambio con sus efectos. Para comparar velocidad y estabilidad de entrega, consulta la guía de [métricas DevOps en AWS](https://dondeaprendoaws.com/blog/10-metricas-clave-de-devops-en-aws/).
 
+Si instrumentas trazas con los SDK de AWS X-Ray, ten presente su cambio de ciclo: entraron en mantenimiento el **25 de febrero de 2026** y AWS dejará de darles soporte el **25 de febrero de 2027**. AWS recomienda migrar la instrumentación a OpenTelemetry; el formato de las trazas seguirá disponible en CloudWatch después de la migración. Revisa la [línea de tiempo de soporte de X-Ray](https://docs.aws.amazon.com/xray/latest/devguide/xray-sdk-daemon-timeline.html) y la [guía de migración a OpenTelemetry](https://docs.aws.amazon.com/xray/latest/devguide/xray-sdk-migration.html). Para revisar alarmas, métricas y registros en la práctica, sigue con [cómo diagnosticar problemas en aplicaciones AWS con CloudWatch](/blog/mejores-practicas-de-observabilidad-en-aws/).
 
-<p>Otras herramientas como AWS Security Hub y Amazon Inspector pueden integrarse en la canalización de CI/CD para escanear infraestructura y aplicaciones en busca de vulnerabilidades de seguridad. Esto permite detectar y solucionar problemas rápidamente sin poner en peligro la velocidad de entrega.</p>
+La reversión también necesita pruebas. Define qué condición la activa, quién recibe la alerta, qué versión se recupera y cómo confirmar que el servicio volvió a un estado aceptable. El mecanismo depende del servicio y de su configuración: una alarma de aplicación y el circuito de despliegue de ECS no detectan exactamente lo mismo. No automatices una reversión destructiva de datos como si fuera equivalente a volver a desplegar la aplicación.
 
+## Servicios y nombres que cambiaron desde las guías antiguas
 
-<h3 id="optimizar-el-rendimiento-con-amazon-ec2-y-aws-lambda" tabindex="-1">Optimizar el rendimiento con Amazon EC2 y AWS Lambda</h3>
+Antes de seguir una guía antigua, comprueba la disponibilidad y el ciclo de vida de sus servicios:
 
+- **AWS CodeCommit** volvió a disponibilidad general para nuevos clientes el 24 de noviembre de 2025. Puedes elegirlo como repositorio Git, o usar GitHub, GitLab u otro proveedor según las necesidades del equipo y sus integraciones. La [actualización de AWS sobre CodeCommit](https://aws.amazon.com/blogs/devops/aws-codecommit-returns-to-general-availability/) explica el cambio.
+- [AWS Cloud9](https://docs.aws.amazon.com/cloud9/latest/user-guide/history.html) dejó de estar disponible para clientes nuevos el 25 de julio de 2024; quienes ya lo usan pueden continuar. **AWS OpsWorks Stacks** llegó al fin de vida útil el 26 de mayo de 2024. No bases una herramienta nueva en esos servicios; si aún dependes de OpsWorks Stacks, revisa el [aviso de fin de vida y opciones de salida](https://aws.amazon.com/blogs/mt/seamlessly-off-board-from-aws-opsworks-stacks-by-detaching-resources/).
+- Si encuentras nombres antiguos en ejemplos, **CloudWatch Events** hoy es Amazon EventBridge y **Amazon Elasticsearch Service** se llama Amazon OpenSearch Service. Consulta la [guía de servicios integrados con CodePipeline](https://docs.aws.amazon.com/codepipeline/latest/userguide/integrations-action-type.html) y el [historial del cambio a OpenSearch Service](https://docs.aws.amazon.com/opensearch-service/latest/developerguide/rename.html).
 
-<p>Los servicios de computación de AWS como Amazon EC2, Amazon ECS y AWS Lambda permiten a los equipos de DevOps aprovisionar y administrar la capacidad de forma programática.</p>
+## Recursos y comunidades para seguir
 
+Para compartir dudas, conecta con comunidades como [AWS User Group Córdoba](https://www.meetup.com/aws-user-group-cordoba-argentina/) o [AWS User Group Security Ecuador](https://www.meetup.com/aws-user-group-security-ecuador/). La comunidad estudiantil de la [AWS Student Builder Group en UTN FRC](https://www.meetup.com/aws-sbg-at-national-technologic-university-regional-faculty/) también organiza encuentros de AWS, IaC y DevOps.
 
-<p>Esto permite optimizar el rendimiento configurando Auto Scaling para agregar o eliminar recursos según sea necesario. Otras prácticas, como almacenar en caché datos y respuestas de API frecuentemente accedidos con Amazon CloudFront y Amazon ElastiCache, también pueden mejorar el rendimiento.</p>
+Estas actividades de octubre de 2026 permiten seguir aprendiendo con otras personas:
 
+- **10 de octubre, Córdoba:** [AWS Gaming Lab: ECS, CI/CD y la magia de Terraform](https://www.frc.utn.edu.ar/eventos/aws-gaming-lab-ecs-ci-cd-y-la-magia-de-terraform/). La UTN FRC lo anuncia gratis, presencial y con inscripción previa; está dirigido a estudiantes de Ingeniería en Sistemas de Información y comienza con acreditación a las 11:30.
+- **20 de octubre, en línea:** [Compliance as Code en AWS](https://www.meetup.com/aws-user-group-security-ecuador/events/316680020/), a las 19:00, hora de Ecuador. La sesión de AWS User Group Security Ecuador cubre controles automatizados, credenciales IAM y alertas; la página indica cupos limitados e inscripción.
+- **23 de octubre, Guayaquil:** [AWS & Cloud Native Security Night](https://www.meetup.com/aws-user-group-security-ecuador/events/316815633/), presencial de 17:00 a 20:00, hora de Ecuador. Es gratis, con cupos limitados, y la convocatoria incluye a profesionales DevOps y SRE interesados en Kubernetes, contenedores y seguridad.
 
-<p>AWS Lambda permite ejecutar código sin aprovisionar o administrar servidores, lo que se traduce en mayor agilidad y velocidad de innovación. Al combinar Lambda con API Gateway y otros servicios serverless, los equipos de DevOps pueden crear y actualizar funciones backend más rápidamente.</p>
+Confirma cupos y condiciones en cada página antes de asistir. Para encontrar otras actividades o fechas futuras, consulta la [agenda de eventos AWS](/eventos/) y el [directorio de comunidades](/comunidades/).
 
-
-<h3 id="gestionar-recursos-con-aws-organizations-y-aws-control-tower" tabindex="-1">Gestionar recursos con AWS Organizations y AWS Control Tower</h3>
-
-
-<p>AWS Organizations y AWS Control Tower permiten a los equipos de DevOps establecer entornos de cuentas multi-cuenta y aplicar gobernanza consistente a través de todas las cuentas utilizando AWS Service Catalog, políticas y funciones.</p>
-
-
-<p>Esto ayuda a acelerar la configuración de nuevos entornos de prueba/ensayo sin comprometer los controles de seguridad y cumplimiento. Los equipos de DevOps pueden aprovisionar infraestructura y recursos de aplicaciones de forma coherente en diferentes cuentas utilizando AWS CloudFormation.</p>
-
-
-<p>Seguiremos profundizando en estas y otras prácticas recomendadas a lo largo de este artículo.</p>
-
-
-<h2 id="provisionamiento-y-gesti%C3%B3n-de-infraestructura-con-aws-cloudformation" tabindex="-1">Provisionamiento y gestión de infraestructura con AWS CloudFormation</h2>
-
-
-<p>AWS CloudFormation permite aprovisionar y administrar infraestructura de AWS de forma rápida, confiable y escalable. Algunos consejos clave:</p>
-
-
-<h3 id="automatizaci%C3%B3n-de-infraestructura-como-c%C3%B3digo-con-aws-cloudformation" tabindex="-1">Automatización de infraestructura como código con AWS CloudFormation</h3>
-
-
-<p>AWS CloudFormation permite modelar y aprovisionar recursos de AWS con archivos de plantilla declarativos. Esto se conoce como "Infraestructura como Código" y presenta varios beneficios:</p>
-
-
-<ul>
-<li>Permite replicar entornos de forma consistente al usar las mismas plantillas.</li>
-<li>Facilita el control de versiones y la colaboración al manejar la infraestructura como código.</li>
-<li>Reduce errores al minimizar la configuración manual.</li>
-<li>Mejora la eficiencia de los equipos al automatizar despliegues de infraestructura.</li>
-</ul>
-
-
-<p>Algunas best practices para aprovechar AWS CloudFormation:</p>
-
-
-<ul>
-<li>Modularizar plantillas grandes en stacks anidados reutilizables.</li>
-<li>Validar plantillas para evitar errores de sintaxis.</li>
-<li>Etiquetar recursos apropiadamente para facilitar búsquedas e identificación.</li>
-<li>Utilizar parámetros y mapeos para crear plantillas genéricas.</li>
-</ul>
-
-
-<h3 id="orquestaci%C3%B3n-de-despliegues-con-aws-codepipeline-y-aws-codedeploy" tabindex="-1">Orquestación de despliegues con AWS CodePipeline y AWS CodeDeploy</h3>
-
-
-<p>AWS CodePipeline y AWS CodeDeploy automatizan el proceso de lanzar actualizaciones de aplicaciones.</p>
-
-
-<p>Con AWS CodePipeline es posible modelar "pipelines" de lanzamiento que ejecutan pasos en secuencia:</p>
-
-
-<ul>
-<li>Compilación de código</li>
-<li>Pruebas unitarias</li>
-<li>Implementación con AWS CodeDeploy</li>
-<li>Aprobación manual</li>
-<li>Actualización de ambiente de producción</li>
-</ul>
-
-
-<p>CodeDeploy permite coordinar implementaciones "blue/green" sin downtime. También facilita rollbacks automáticos ante errores.</p>
-
-
-<h3 id="gesti%C3%B3n-de-configuraciones-con-aws-opsworks-y-aws-config" tabindex="-1">Gestión de configuraciones con AWS OpsWorks y AWS Config</h3>
-
-
-<p>AWS OpsWorks permite administrar configuraciones de servidores, como instalación de paquetes o manejo de usuarios.</p>
-
-
-<p>AWS Config captura cambios en la configuración de recursos de AWS y dispara alarmas ante violaciones de reglas.</p>
-
-
-<p>En conjunto permiten:</p>
-
-
-<ul>
-<li>Establecer configuraciones consistentes en servidores con OpsWorks.</li>
-<li>Validar cumplimiento de estándares con AWS Config.</li>
-<li>Recibir alertas ante cambios no autorizados o deriva de configuración.</li>
-</ul>
-
-
-<h3 id="implementaci%C3%B3n-de-aws-service-catalog-para-la-gobernanza-de-infraestructura" tabindex="-1">Implementación de AWS Service Catalog para la gobernanza de infraestructura</h3>
-
-
-<p>AWS Service Catalog permite crear un catálogo de productos de infraestructura aprobados en la organización.</p>
-
-
-<p>Los equipos pueden implementar rápidamente stacks de CloudFormation pre-configurados que cumplan con estándares.</p>
-
-
-<p>Esto provee gobernanza centralizada sobre:</p>
-
-
-<ul>
-<li>Qué configuraciones y servicios pueden utilizarse</li>
-<li>Quién puede acceder y aprovisionar recursos</li>
-</ul>
-
-
-<p>De esta forma se obtienen los beneficios de auto-servicio manteniendo control y visibilidad.</p>
-
-
-<h2 id="desarrollo-y-despliegue-de-aplicaciones-con-aws-code-suite-y-contenedores" tabindex="-1">Desarrollo y despliegue de aplicaciones con AWS Code Suite y contenedores</h2>
-
-
-<p>La suite de herramientas de AWS Code permite agilizar el desarrollo y despliegue de aplicaciones en la nube. Al combinar estas herramientas con contenedores, se pueden construir aplicaciones escalables y portables de forma rápida y sencilla.</p>
-
-
-<h3 id="integraci%C3%B3n-continua-con-aws-codebuild-y-aws-codecommit" tabindex="-1">Integración continua con AWS CodeBuild y AWS CodeCommit</h3>
-
-
-<p>La integración continua es esencial en el desarrollo moderno de software. AWS CodeBuild y AWS CodeCommit facilitan esta práctica en la nube de AWS.</p>
-
-
-<p>CodeCommit funciona como un repositorio de código fuente altamente escalable y seguro. Permite almacenar código e integrar flujos de trabajo de CI/CD. CodeBuild se encarga de compilar, probar e implementar el código de CodeCommit de manera automatizada.</p>
-
-
-<p>Esta combinación permite detectar problemas tempranamente, acelerar los ciclos de entrega y mejorar la calidad del software. Al configurar webhooks, los desarrolladores pueden trigger builds automáticamente cuando se sube código nuevo.</p>
-
-
-<h3 id="despliegue-de-microservicios-con-amazon-eks-y-aws-fargate" tabindex="-1">Despliegue de microservicios con Amazon EKS y AWS Fargate</h3>
-
-
-<p>Los microservicios permiten descomponer aplicaciones en componentes independientes. Esto aumenta la escalabilidad y velocidad de entrega.</p>
-
-
-<p>Amazon EKS facilita correr clusters de Kubernetes administrados, perfectos para microservicios. AWS Fargate puede ejecutar containers serverless sin necesidad de provisionar ni administrar servers.</p>
-
-
-<p>Esta combinación reduce costos y complejidad operativa. Los desarrolladores pueden enfocarse solo en construir y desplegar sus aplicaciones. Dejan la infraestructura y orquestación de containers a AWS.</p>
-
-
-<h3 id="gesti%C3%B3n-de-apis-con-amazon-api-gateway" tabindex="-1">Gestión de APIs con Amazon API Gateway</h3>
-
-
-<p>Las APIs permiten que aplicaciones se comuniquen entre sí. Amazon API Gateway facilita crear, publicar y asegurar APIs REST, WebSocket y HTTP a cualquier escala.</p>
-
-
-<p>Permite control de acceso, throttling, monitoreo y generación de SDKs. Se integra con otros servicios de AWS para construir arquitecturas serverless.</p>
-
-
-<p>Esto reduce drásticamente el trabajo de configurar y administrar infraestructura para APIs. Los desarrolladores solo deben preocuparse de definir la lógica de negocio.</p>
-
-
-<h3 id="desarrollo-colaborativo-con-aws-cloud9" tabindex="-1">Desarrollo colaborativo con AWS Cloud9</h3>
-
-
-<p>AWS Cloud9 provee un IDE en la nube para escribir, ejecutar y debuggear código. Permite colaboración en tiempo real entre desarrolladores al compartir ambientes de desarrollo.</p>
-
-
-<p>Esto mejora la velocidad y eficiencia, permitiendo iterar rápidamente sobre el código. También facilita onboarding de nuevos miembros del equipo y transferencia de conocimiento.</p>
-
-
-<p>En resumen, la suite de AWS Code junto con servicios de contenedores como Amazon EKS y AWS Fargate permiten desarrollar aplicaciones modernas de forma ágil y escalable en la nube.</p>
-
-
-
-
-
-
-
-
-<h2 id="operaciones%2C-monitoreo-y-an%C3%A1lisis-con-aws-cloudwatch-y-aws-x-ray" tabindex="-1">Operaciones, monitoreo y análisis con AWS CloudWatch y AWS X-Ray</h2>
-
-
-<p>AWS ofrece varias herramientas para monitorear, analizar y operar aplicaciones y servicios en la nube de forma eficiente. Dos servicios clave son Amazon CloudWatch y AWS X-Ray.</p>
-
-
-<h3 id="monitoreo-proactivo-con-amazon-cloudwatch-y-aws-x-ray" tabindex="-1">Monitoreo proactivo con Amazon CloudWatch y AWS X-Ray</h3>
-
-
-<p>Amazon CloudWatch permite monitorear métricas, logs y eventos de los recursos de AWS. Con CloudWatch se pueden crear dashboards personalizados, establecer alarmas y automatizar acciones.</p>
-
-
-<p>AWS X-Ray permite analizar y depurar aplicaciones serverless y basadas en microservicios. X-Ray proporciona una vista de alto nivel de la arquitectura y permite identificar cuellos de botella en el rendimiento.</p>
-
-
-<p>Al combinar CloudWatch y X-Ray se puede implementar un monitoreo proactivo y detallado. Por ejemplo, se pueden configurar alarmas en CloudWatch que se activen cuando X-Ray detecte latencias altas en algunos servicios.</p>
-
-
-<h3 id="automatizaci%C3%B3n-de-respuestas-con-aws-step-functions-y-cloudwatch-events" tabindex="-1">Automatización de respuestas con AWS Step Functions y CloudWatch Events</h3>
-
-
-<p>AWS Step Functions permite coordinar componentes de aplicaciones serverless en workflows. Step Functions se integra con CloudWatch Events para activar workflows automáticamente ante ciertos eventos.</p>
-
-
-<p>Por ejemplo, se puede crear un workflow en Step Functions para escalar autoscaling groups en respuesta a alarmas de CloudWatch. Esto permite automatizar flujos de trabajo complejos.</p>
-
-
-<h3 id="auditor%C3%ADa-y-cumplimiento-con-aws-cloudtrail-y-aws-config" tabindex="-1">Auditoría y cumplimiento con AWS CloudTrail y AWS Config</h3>
-
-
-<p>AWS CloudTrail registra llamadas a la API de AWS y AWS Config permite evaluar recursos contra reglas de seguridad y compliance.</p>
-
-
-<p>Al combinar CloudTrail y Config se puede auditar el acceso y los cambios en los recursos para cumplir con estándares como PCI, SOC y ISO. Por ejemplo, se puede detectar cambios no autorizados en grupos de seguridad.</p>
-
-
-<h3 id="an%C3%A1lisis-de-logs-con-amazon-cloudwatch-logs-y-amazon-elasticsearch-service" tabindex="-1">Análisis de logs con Amazon CloudWatch Logs y Amazon Elasticsearch Service</h3>
-
-
-<p>Amazon CloudWatch Logs almacena y monitorea logs de aplicaciones y servicios de AWS.</p>
-
-
-<p>Para analizar grandes volúmenes de logs se puede utilizar Amazon Elasticsearch Service y visualizar los datos en Kibana. Esto permite detectar tendencias, patrones de errores y métricas.</p>
-
-
-<p>La integración nativa entre CloudWatch Logs y Elasticsearch facilita el análisis en tiempo real de logs a escala.</p>
-
-
-<h2 id="seguridad-y-conformidad-en-aws%3A-implementando-las-mejores-pr%C3%A1cticas" tabindex="-1">Seguridad y conformidad en AWS: implementando las mejores prácticas</h2>
-
-
-<p>Consejos para proteger infraestructura, datos y aplicaciones en la nube.</p>
-
-
-<h3 id="autenticaci%C3%B3n-y-autorizaci%C3%B3n-con-aws-iam-y-aws-iam-identity-center" tabindex="-1">Autenticación y autorización con AWS IAM y AWS IAM Identity Center</h3>
-
-
-<p>Implementación de controles de acceso robustos con AWS IAM y AWS IAM Identity Center.</p>
-
-
-<p>AWS Identity and Access Management (IAM) permite controlar quién está autenticado (inició sesión) y autorizado (tiene permisos) para usar recursos de AWS. Las <strong>mejores prácticas de AWS</strong> recomiendan:</p>
-
-
-<ul>
-<li>Usar AWS IAM Identity Center para administrar accesos e identidades. Permite integrar con directorios corporativos como Microsoft Active Directory.</li>
-<li>Configurar políticas de permisos mínimos. Concede solo los permisos necesarios.</li>
-<li>Habilitar el registro de actividad (CloudTrail) para auditorías.</li>
-<li>Rotar las credenciales periódicamente.</li>
-<li>Usar roles para aplicaciones que acceden a AWS en lugar de credenciales codificadas.</li>
-</ul>
-
-
-<p>Esto refuerza la <strong>seguridad en la nube</strong> y el cumplimiento de estándares como PCI DSS, HIPAA o SOC.</p>
-
-
-<h3 id="protecci%C3%B3n-contra-amenazas-con-aws-shield-y-aws-waf" tabindex="-1">Protección contra amenazas con AWS Shield y AWS WAF</h3>
-
-
-<p>Defensa contra amenazas y ataques DDoS con AWS Shield y AWS WAF.</p>
-
-
-<p>AWS Shield es un servicio de <strong>protección DDoS</strong> que protege aplicaciones de ataques por denegación de servicio distribuido. Las <strong>mejores prácticas</strong> incluyen:</p>
-
-
-<ul>
-<li>Habilitar AWS Shield Advanced para mitigación automática de ataques a gran escala.</li>
-<li>Monitorear métricas en Amazon CloudWatch para detectar patrones anómalos.</li>
-<li>Configurar alarmas para ser notificado ante eventos sospechosos.</li>
-</ul>
-
-
-<p>AWS WAF es un <strong>firewall de aplicaciones web</strong> que protege contra exploits comunes de web. Para implementarlo:</p>
-
-
-<ul>
-<li>Cree reglas de IP para bloquear direcciones maliciosas conocidas.</li>
-<li>Use reglas OWASP para mitigar las 10 principales vulnerabilidades web.</li>
-<li>Habilite el registro para análisis forense después de incidentes.</li>
-</ul>
-
-
-<p>Esto aumenta la <strong>postura de seguridad</strong> frente a amenazas externas.</p>
-
-
-<h3 id="gesti%C3%B3n-de-secretos-y-certificados-con-aws-secrets-manager-y-aws-certificate-manager" tabindex="-1">Gestión de secretos y certificados con AWS Secrets Manager y AWS Certificate Manager</h3>
-
-
-<p>Manejo seguro de secretos y certificados utilizando AWS Secrets Manager y AWS Certificate Manager.</p>
-
-
-<p>AWS Secrets Manager permite almacenar y controlar el acceso a <strong>secretos</strong> como contraseñas o claves API. Las <strong>mejores prácticas</strong> son:</p>
-
-
-<ul>
-<li>Rotar los secretos periódicamente de forma automática.</li>
-<li>Controlar estrictamente los permisos de acceso.</li>
-<li>Habilitar el registro para auditoría.</li>
-</ul>
-
-
-<p>AWS Certificate Manager simplifica el aprovisionamiento, renovación y administración de certificados SSL/TLS públicos y privados. Para usarlo correctamente:</p>
-
-
-<ul>
-<li>Solicite certificados públicos gratis y automáticos.</li>
-<li>Utilice certificados privados para recursos internos.</li>
-<li>Renueve los certificados automáticamente antes del vencimiento.</li>
-</ul>
-
-
-<p>Esto mejora la <strong>seguridad de conexiones</strong> y reduce costos operativos.</p>
-
-
-<h3 id="cumplimiento-y-an%C3%A1lisis-de-seguridad-con-aws-security-hub-y-amazon-guardduty" tabindex="-1">Cumplimiento y análisis de seguridad con AWS Security Hub y Amazon GuardDuty</h3>
-
-
-<p>Centralización de la gestión de seguridad y análisis de amenazas con AWS Security Hub y Amazon GuardDuty.</p>
-
-
-<p>AWS Security Hub proporciona <strong>visibilidad unificada</strong> de la postura de seguridad en todas las cuentas y servicios de AWS. Para implementarlo:</p>
-
-
-<ul>
-<li>Habilite Security Hub como servicio centralizado de seguridad.</li>
-<li>Integre con servicios como GuardDuty e Inspector para agregar hallazgos.</li>
-<li>Use estándares como CIS para evaluar cumplimiento continuo.</li>
-</ul>
-
-
-<p>Amazon GuardDuty es un servicio de <strong>detección de amenazas</strong> que analiza actividad maliciosa. Las <strong>mejores prácticas</strong> son:</p>
-
-
-<ul>
-<li>Habilite GuardDuty en todas las regiones y cuentas.</li>
-<li>Configure notificaciones para eventos críticos.</li>
-<li>Integre los hallazgos con Security Hub.</li>
-</ul>
-
-
-<p>Esto aumenta la <strong>visibilidad sobre amenazas</strong> y facilita auditorías.</p>
-
-
-<h2 id="conclusi%C3%B3n%3A-integrando-las-mejores-pr%C3%A1cticas-de-aws-en-la-cultura-devops" tabindex="-1">Conclusión: integrando las mejores prácticas de AWS en la cultura DevOps</h2>
-
-
-<p>Resumen de las mejores prácticas presentadas y próximos pasos para adoptar DevOps en AWS.</p>
-
-
-<h3 id="evaluaci%C3%B3n-con-aws-trusted-advisor-y-aws-well-architected-tool" tabindex="-1">Evaluación con AWS Trusted Advisor y AWS Well-Architected Tool</h3>
-
-
-<p>AWS Trusted Advisor y AWS Well-Architected Tool son herramientas esenciales para evaluar y optimizar entornos de AWS.</p>
-
-
-<p>Trusted Advisor analiza la configuración de los servicios de AWS y hace recomendaciones para aumentar el rendimiento, la seguridad y el ahorro de costos. Por ejemplo, puede identificar grupos de seguridad muy permisivos, volúmenes de EBS sin cifrar o recursos infrautilizados.</p>
-
-
-<p>El Well-Architected Tool compara las arquitecturas de AWS con las prácticas recomendadas en áreas como seguridad, confiabilidad, rendimiento y costo. Ayuda a revisar cargas de trabajo en la nube para asegurar que aprovechan al máximo los servicios de AWS.</p>
-
-
-<p>Ambas herramientas deben ejecutarse periódicamente como parte del proceso DevOps. Sus resultados permiten identificar oportunidades de mejora y optimización.</p>
-
-
-<h3 id="planificaci%C3%B3n-estrat%C3%A9gica-con-aws-cloud-adoption-framework" tabindex="-1">Planificación estratégica con AWS Cloud Adoption Framework</h3>
-
-
-<p>El AWS Cloud Adoption Framework (AWS CAF) ofrece una guía detallada para desarrollar una estrategia de adopción de la nube.</p>
-
-
-<p>Incluye prácticas recomendadas para transformación organizacional, gobierno, plataforma de aterrizaje y operaciones. Ayuda a alinear objetivos de negocio con resultados técnicos.</p>
-
-
-<p>Para DevOps, el AWS CAF permite:</p>
-
-
-<ul>
-<li>Definir procesos ágiles de entrega de software</li>
-<li>Establecer una cultura centrada en el cliente</li>
-<li>Habilitar equipos multifuncionales y autogestionados</li>
-<li>Implementar infraestructura como código</li>
-<li>Introducir monitorización y optimización continuas</li>
-</ul>
-
-
-<p>Seguir el AWS CAF asegura que los equipos de DevOps aprovechen todo el potencial de la nube de AWS.</p>
-
-
-<h3 id="capacitaci%C3%B3n-y-certificaci%C3%B3n-en-aws" tabindex="-1">Capacitación y certificación en AWS</h3>
-
-
-<p>La capacitación y certificación en tecnologías de AWS son esenciales para que los equipos de DevOps manejen adecuadamente los servicios en la nube.</p>
-
-
-<p>Cursos como AWS Technical Essentials, AWS Certified Developer y AWS Certified SysOps Administrator proporcionan los conocimientos necesarios.</p>
-
-
-<p>Las certificaciones validan habilidades en áreas como computación en la nube, almacenamiento, bases de datos, redes, seguridad, arquitectura y DevOps.</p>
-
-
-<p>Mantener al día las competencias garantiza que los procesos y herramientas de AWS se utilicen de acuerdo con las mejores prácticas.</p>
-
-
-<h3 id="aplicar-mejoras-continuas-y-feedback-con-aws" tabindex="-1">Aplicar mejoras continuas y feedback con AWS</h3>
-
-
-<p>La esencia de DevOps es la mejora continua a través de ciclos de feedback rápidos.</p>
-
-
-<p>AWS facilita recopilar métricas, monitorizar operaciones y optimizar arquitecturas.</p>
-
-
-<p>Servicios como CloudWatch, X-Ray y CloudTrail permiten medir el rendimiento. CloudFormation y CodePipeline habilitan implementaciones rápidas y confiables.</p>
-
-
-<p>Con AWS, los equipos DevOps pueden evaluar constantemente sus procesos y herramientas. El objetivo es maximizar la velocidad de entrega de software manteniendo los más altos estándares de calidad.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">seguridad en AWS: servicios esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/desarrollo-en-la-nube-fundamentos-esenciales/">Desarrollo en la nube: fundamentos esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/">seguridad en AWS: mejores prácticas</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS seguridad: fundamentos esenciales</a></li>
-</ul>
-</p>
+Para profundizar en controles de infraestructura, revisa [seguridad de IaC en AWS](/blog/9-mejores-practicas-de-seguridad-para-iac-en-aws/) y la [lista de verificación general de seguridad en AWS](/blog/mejores-practicas-de-seguridad-en-aws/).
