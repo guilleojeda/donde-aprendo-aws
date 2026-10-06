@@ -1,205 +1,136 @@
 ---
-title: "Integración de AWS App Mesh con EKS: guía paso a paso"
-description: "Aprende a integrar AWS App Mesh con Amazon EKS para mejorar la comunicación entre microservicios, la disponibilidad y la seguridad de tus aplicaciones en la nube."
+title: "AWS App Mesh en EKS: fin de soporte y cómo migrar"
+description: "AWS retiró App Mesh el 30 de septiembre de 2026. Identifica dependencias en EKS y evalúa VPC Lattice, Istio o Kubernetes nativo según lo que necesites."
 author: "guille-ojeda"
 publishedAt: "2024-05-11"
 publishedTimestamp: "2024-05-11T01:55:00.323Z"
+modifiedTimestamp: "2026-10-06T17:33:52-03:00"
+review:
+  date: "2026-10-06"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "10 consejos de redes para AWS Outposts"
-    url: "https://dondeaprendoaws.com/blog/10-consejos-de-redes-para-aws-outposts/"
-  - title: "Webinars y eventos en AWS Marketplace"
-    url: "https://dondeaprendoaws.com/blog/webinars-y-eventos-en-aws-marketplace/"
-  - title: "Mejores prácticas para Amazon EKS"
-    url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-eks/"
+  - title: "Plano de control y plano de datos en AWS: App Mesh y alternativas"
+    url: "https://dondeaprendoaws.com/blog/control-plane-vs-data-plane-en-aws-app-mesh/"
+  - title: "Amazon EKS: qué es, cómo funciona y cuánto cuesta"
+    url: "https://dondeaprendoaws.com/blog/comprendiendo-kubernetes-y-amazon-eks/"
 
 ---
 
-<p><a href="https://aws.amazon.com/app-mesh/">AWS App Mesh</a> es una malla de servicios que simplifica la comunicación entre microservicios en aplicaciones nativas de la nube. Esta guía detallada te mostrará cómo integrar App Mesh con <a href="https://aws.amazon.com/eks/">Amazon EKS</a> para crear aplicaciones escalables, seguras y fáciles de mantener en un entorno de contenedores.</p>
-<h2 id="related-video-from-youtube">Related video from YouTube</h2>
-<div><iframe allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen="" height="315" loading="lazy" src="https://www.youtube.com/embed/LEK5M2aDqN0" title="Video de YouTube" width="560"></iframe></div>
-<h2 id="beneficios-clave">Beneficios clave</h2>
-<ul><li><strong>Comunicación simplificada</strong>: App Mesh facilita la comunicación entre microservicios, reduciendo la complejidad y mejorando la escalabilidad.</li><li><strong>Mayor disponibilidad</strong>: Monitorea el rendimiento y la disponibilidad de tus aplicaciones, permitiéndote identificar y solucionar problemas rápidamente.</li><li><strong>Seguridad reforzada</strong>: Proporciona una capa adicional de seguridad para proteger tus datos y aplicaciones.</li></ul>
-<h2 id="pasos-principales">Pasos principales</h2>
-<ol><li><strong>Configurar permisos de IAM</strong>: Crea un rol de servicio vinculado a App Mesh y asigna los permisos necesarios.</li><li><strong>Instalar componentes de App Mesh</strong>: Instala el controlador de App Mesh, las definiciones de recursos personalizados (CRDs) y otros componentes en tu clúster de EKS.</li><li><strong>Crear y configurar el servicio de App Mesh</strong>: Crea la malla de servicio, nodos virtuales, routers y servicios para tus aplicaciones.</li><li><strong>Implementar aplicaciones con App Mesh</strong>: Despliega tus aplicaciones en el clúster de EKS utilizando App Mesh.</li><li><strong>Probar la integración</strong>: Verifica que tus aplicaciones funcionen correctamente con App Mesh.</li><li><strong>Monitorear recursos de App Mesh</strong>: Utiliza herramientas como <a href="https://prometheus.io/">Prometheus</a>, <a href="https://grafana.com/">Grafana</a> y <a href="https://aws.amazon.com/xray/">AWS X-Ray</a> para monitorear el rendimiento y la disponibilidad de tus servicios.</li><li><strong>Limpiar el entorno de prueba</strong>: Elimina los recursos de prueba para evitar conflictos futuros.</li></ol>
-<p>Sigue esta guía paso a paso para aprovechar al máximo la <a href="https://dondeaprendoaws.com/blog/comprendiendo-kubernetes-y-amazon-eks/">integración de AWS App Mesh con EKS</a> y crear aplicaciones nativas de la nube escalables, seguras y de alto rendimiento.</p>
-<h2 id="requisitos-para-la-configuraci%C3%B3n-de-app-mesh-y-eks">Requisitos para la configuración de App Mesh y EKS</h2>
-<p>Antes de comenzar la integración, asegúrese de cumplir con los siguientes requisitos:</p>
-<h3 id="cuenta-y-cl%C3%BAster-de-eks">Cuenta y clúster de EKS</h3>
-<ul><li>Una cuenta de AWS</li><li>Un clúster de EKS configurado</li></ul>
-<h3 id="herramientas-necesarias">Herramientas necesarias</h3>
-<ul><li>La CLI de AWS configurada (versión 1.18.82 o superior)</li><li>kubectl instalado (versión 1.13 o superior)</li><li>jq instalado</li><li>aws-iam-authenticator instalado (requerido para <a href="https://eksctl.io/">eksctl</a>)</li><li><a href="https://helm.sh/">helm</a> instalado (versión 3.0 o superior)</li><li>eksctl instalado (versión 0.21.0 o superior)</li></ul>
-<h3 id="regi%C3%B3n-de-aws">Región de AWS</h3>
-<p>Asegúrese de operar en la región <code>us-west-2</code> para este walkthrough.</p>
-<pre><code>export AWS_DEFAULT_REGION=us-west-2
-</code></pre>
-<p>Es importante cumplir con estos requisitos previos para garantizar una configuración exitosa de App Mesh con EKS.</p>
-<h2 id="paso-1%3A-configuraci%C3%B3n-de-permisos-de-iam-para-app-mesh">Paso 1: configuración de permisos de IAM para App Mesh</h2>
-<p>Para configurar correctamente App Mesh con EKS, es necesario configurar los permisos de IAM adecuados. En este paso, crearemos un rol de servicio vinculado a App Mesh y asignaremos los permisos necesarios para que el clúster de EKS pueda interactuar con App Mesh.</p>
-<p>Primero, debemos crear un rol de servicio vinculado a App Mesh. Puede hacerlo mediante la consola de IAM o utilizando la CLI de AWS. Si ha creado un mesh después del 5 de junio de 2019, App Mesh habrá creado el rol de servicio vinculado automáticamente. Sin embargo, si ha eliminado este rol y necesita crearlo nuevamente, puede seguir los mismos pasos para recrear el rol en su cuenta.</p>
-<h3 id="crear-un-rol-de-servicio-vinculado-a-app-mesh">Crear un rol de servicio vinculado a App Mesh</h3>
-<p>Puede crear un rol de servicio vinculado a App Mesh utilizando la CLI de AWS con el siguiente comando:</p>
-<pre><code>aws iam create-service-linked-role --aws-service-name appmesh.amazonaws.com
-</code></pre>
-<h3 id="asignar-permisos-al-rol-de-servicio-vinculado">Asignar permisos al rol de servicio vinculado</h3>
-<p>Una vez que haya creado el rol de servicio vinculado, debemos asignar los permisos necesarios para que el clúster de EKS pueda interactuar con App Mesh. Para hacerlo, agregaremos la política <code>AWSAppMeshFullAccess</code> al rol de servicio vinculado.</p>
-<p>Puede asignar los permisos utilizando el siguiente comando:</p>
-<pre><code>aws iam attach-role-policy --role-name &lt;role-name&gt; --policy-arn arn:aws:iam::aws:policy/AWSAppMeshFullAccess
-</code></pre>
-<p>Donde <code>&lt;role-name&gt;</code> es el nombre del rol de servicio vinculado que creó anteriormente.</p>
-<p>Una vez que haya configurado los permisos de IAM adecuados, estará listo para instalar los componentes de App Mesh en su clúster de EKS.</p>
-<h2 id="paso-2%3A-instalar-componentes-de-app-mesh">Paso 2: instalar componentes de App Mesh</h2>
-<p>Para instalar los componentes de App Mesh, seguimos los pasos descritos en la documentación oficial de AWS. Primero, debemos instalar el controlador de App Mesh para Kubernetes y las definiciones de recursos personalizados (CRDs) necesarias en nuestro clúster.</p>
-<h3 id="componentes-de-app-mesh">Componentes de App Mesh</h3>
-<p>Los componentes de App Mesh que se instalarán son:</p>
-<table><thead><tr><th>Componente</th><th>Descripción</th></tr></thead><tbody><tr><td>Controlador de CRD</td><td>Se encarga de administrar las definiciones de recursos personalizados en nuestro clúster.</td></tr><tr><td>Controlador de admisión</td><td>Se encarga de admitir y rechazar solicitudes de entrada y salida en nuestro clúster.</td></tr><tr><td>Servicio de telemetría</td><td>Se encarga de recopilar y enviar métricas y registros de nuestro clúster.</td></tr><tr><td>Operador de entrega progresiva</td><td>Se encarga de implementar y administrar la entrega progresiva de aplicaciones en nuestro clúster.</td></tr></tbody></table>
-<p>Para instalar los componentes de App Mesh, podemos ejecutar el siguiente comando:</p>
-<pre><code>eksctl create iamserviceaccount --cluster &lt;cluster-name&gt; --namespace appmesh-system --name appmesh-controller --attach-policy-arn arn:aws:iam::aws:policy/AWSAppMeshFullAccess --override-existing-serviceaccounts --approve
-</code></pre>
-<p>Donde <code>&lt;cluster-name&gt;</code> es el nombre de nuestro clúster de EKS.</p>
-<p>Una vez que hayamos instalado los componentes de App Mesh, podemos proceder a configurar el servicio de App Mesh para nuestro clúster de EKS.</p>
-<h2 id="paso-3%3A-crear-y-configurar-el-servicio-de-app-mesh">Paso 3: crear y configurar el servicio de App Mesh</h2>
-<p>Ahora que hemos instalado los componentes de App Mesh, podemos crear y configurar el servicio de App Mesh para nuestro clúster de EKS. Para hacer esto, utilizaremos la CLI de AWS para crear la malla de servicio de App Mesh, junto con los nodos virtuales, routers y servicios necesarios para nuestras aplicaciones.</p>
-<h3 id="crear-la-malla-de-servicio-de-app-mesh">Crear la malla de servicio de App Mesh</h3>
-<p>Primero, creamos la malla de servicio de App Mesh con el siguiente comando:</p>
-<pre><code>aws appmesh create-mesh --mesh-name my-mesh
-</code></pre>
-<p>Donde <code>my-mesh</code> es el nombre de nuestra malla de servicio de App Mesh.</p>
-<h3 id="crear-nodos-virtuales%2C-routers-y-servicios">Crear nodos virtuales, routers y servicios</h3>
-<p>A continuación, creamos un nodo virtual, un router virtual y un servicio con los siguientes comandos:</p>
-<pre><code>aws appmesh create-virtual-node --mesh-name my-mesh --virtual-node-name my-node
-aws appmesh create-virtual-router --mesh-name my-mesh --virtual-router-name my-router
-aws appmesh create-service --mesh-name my-mesh --service-name my-service
-</code></pre>
-<p>Donde <code>my-node</code> es el nombre de nuestro nodo virtual, <code>my-router</code> es el nombre de nuestro router virtual y <code>my-service</code> es el nombre de nuestro servicio.</p>
-<h3 id="configurar-la-ruta-del-tr%C3%A1fico">Configurar la ruta del tráfico</h3>
-<p>Una vez que hemos creado todos los componentes de App Mesh, podemos proceder a configurar la ruta del tráfico para nuestro servicio.</p>
-<p><strong>Recapitulación de los pasos</strong></p>
-<table><thead><tr><th>Paso</th><th>Descripción</th></tr></thead><tbody><tr><td>1</td><td>Crear la malla de servicio de App Mesh</td></tr><tr><td>2</td><td>Crear nodos virtuales, routers y servicios</td></tr><tr><td>3</td><td>Configurar la ruta del tráfico</td></tr></tbody></table>
-<p>Una vez que hayamos completado estos pasos, estaremos listos para implementar nuestras aplicaciones en nuestro clúster de EKS con App Mesh.</p>
-<h2 id="paso-4%3A-implementar-aplicaciones-con-app-mesh">Paso 4: implementar aplicaciones con App Mesh</h2>
-<p>Ahora que hemos configurado el servicio de App Mesh, podemos implementar nuestras aplicaciones en nuestro clúster de EKS. Para hacer esto, debemos crear un archivo de configuración de Kubernetes que defina nuestros servicios y deployments.</p>
-<h3 id="crear-un-archivo-de-configuraci%C3%B3n-de-kubernetes">Crear un archivo de configuración de <a href="https://en.wikipedia.org/wiki/Kubernetes">Kubernetes</a></h3>
-<p><img alt="Kubernetes" src="/assets/blog/95f75593dcc7bc43413e1d9b.jpg"/></p>
-<p>Primero, creamos un archivo de configuración de Kubernetes que defina nuestros servicios y deployments. Por ejemplo, podemos crear un archivo <code>deployment.yaml</code> con el siguiente contenido:</p>
-<pre><code>apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: my-app
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: my-app
-  template:
-    metadata:
-      labels:
-        app: my-app
-    spec:
-      containers:
-      - name: my-app
-        image: my-app:latest
-        ports:
-        - containerPort: 80
-</code></pre>
-<p>Este archivo define un deployment llamado <code>my-app</code> que ejecuta tres réplicas del contenedor <code>my-app:latest</code> y expone el puerto 80.</p>
-<h3 id="aplicar-la-configuraci%C3%B3n-de-kubernetes">Aplicar la configuración de Kubernetes</h3>
-<p>Una vez que hemos creado el archivo de configuración de Kubernetes, podemos aplicar la configuración a nuestro clúster de EKS utilizando el comando <code>kubectl apply</code>:</p>
-<pre><code>kubectl apply -f deployment.yaml
-</code></pre>
-<p>Este comando aplica la configuración definida en el archivo <code>deployment.yaml</code> a nuestro clúster de EKS.</p>
-<h3 id="configurar-el-proxy-de-app-mesh">Configurar el proxy de App Mesh</h3>
-<p>Finalmente, debemos configurar el proxy de App Mesh para que nuestros servicios se comuniquen entre sí. Para hacer esto, podemos crear un archivo de configuración de App Mesh que defina la ruta del tráfico para nuestro servicio. Por ejemplo, podemos crear un archivo <code>appmesh.yaml</code> con el siguiente contenido:</p>
-<pre><code>apiVersion: appmesh.k8s.aws/v1beta2
-kind: VirtualService
-metadata:
-  name: my-app
-spec:
-  aws:
-    appMesh:
-      meshName: my-mesh
-  virtualRouter:
-    name: my-router
-</code></pre>
-<p>Este archivo define un VirtualService llamado <code>my-app</code> que se comunica con el router virtual <code>my-router</code> en la malla de servicio <code>my-mesh</code>.</p>
-<h3 id="conclusi%C3%B3n">Conclusión</h3>
-<p>En este paso, hemos implementado nuestras aplicaciones en nuestro clúster de EKS utilizando App Mesh. Hemos creado un archivo de configuración de Kubernetes que define nuestros servicios y deployments, y hemos configurado el proxy de App Mesh para que nuestros servicios se comuniquen entre sí. En el próximo paso, probaremos nuestra aplicación para asegurarnos de que funcione correctamente.</p>
-<h2 id="paso-5%3A-probar-la-aplicaci%C3%B3n-integrada">Paso 5: probar la aplicación integrada</h2>
-<p>Ahora que hemos configurado y desplegado nuestras aplicaciones con App Mesh, es hora de probar la integración para asegurarnos de que funcione correctamente. Para hacer esto, podemos utilizar la aplicación de ejemplo de color y un pod de curler del repositorio de aws-app-mesh-examples.</p>
-<p>Primero, debemos clonar el repositorio de aws-app-mesh-examples y cambiar a la carpeta correspondiente:</p>
-<pre><code>git clone https://github.com/aws/aws-app-mesh-examples.git
-cd aws-app-mesh-examples/examples/colorapp
-</code></pre>
-<p>A continuación, podemos desplegar la aplicación de ejemplo de color utilizando el comando <code>kubectl apply</code>:</p>
-<pre><code>kubectl apply -f colorapp.yaml
-</code></pre>
-<p>Una vez que la aplicación esté desplegada, podemos probar la integración utilizando un pod de curler. Primero, debemos crear un archivo de configuración de Kubernetes para el pod de curler:</p>
-<pre><code>apiVersion: v1
-kind: Pod
-metadata:
-  name: curler
-spec:
-  containers:
-  - name: curler
-    image: curlimages/curl:7.73.0
-    command: ["/bin/sh", "-c"]
-    args:
-    - while true; do
-        curl -s http://colorapp:8080/color;
-        sleep 1;
-      done
-</code></pre>
-<p>Luego, podemos desplegar el pod de curler utilizando el comando <code>kubectl apply</code>:</p>
-<pre><code>kubectl apply -f curler.yaml
-</code></pre>
-<p>Una vez que el pod de curler esté desplegado, podemos verificar que la aplicación de ejemplo de color esté funcionando correctamente utilizando el comando <code>kubectl logs</code>:</p>
-<pre><code>kubectl logs -f curler
-</code></pre>
-<p>Deberíamos ver una salida similar a la siguiente:</p>
-<pre><code>Color es: azul
-Color es: verde
-Color es: rojo
-</code></pre>
-<p>Esto indica que la aplicación de ejemplo de color está funcionando correctamente y que el tráfico está siendo enrutado correctamente a través de App Mesh.</p>
-<p><strong>Verificar el tráfico</strong></p>
-<p>Para verificar que el tráfico esté siendo enrutado correctamente, podemos utilizar CloudWatch para observar el tráfico y verificar que la integración esté funcionando correctamente. Puede ver métricas como el número de solicitudes y la latencia promedio para cada servicio.</p>
-<p><strong>Conclusión</strong></p>
-<p>En este paso, hemos probado la integración de App Mesh con nuestra aplicación de ejemplo de color y hemos verificado que funcione correctamente. En el próximo paso, podemos monitorear los recursos de App Mesh para asegurarnos de que estén funcionando correctamente.</p>
-<h2 id="paso-6%3A-monitorear-recursos-de-app-mesh">Paso 6: monitorear recursos de App Mesh</h2>
-<p>Ahora que hemos desplegado nuestras aplicaciones con App Mesh, es hora de monitorear los recursos de App Mesh para asegurarnos de que estén funcionando correctamente. Para hacer esto, podemos utilizar herramientas como Prometheus, Grafana, <a href="https://www.jaegertracing.io/">Jaeger</a> y AWS X-Ray <a href="https://www.datadoghq.com/">Datadog</a> para instalar plugins de observabilidad y monitorear nuestros servicios de App Mesh.</p>
-<h3 id="m%C3%A9tricas-y-registros">Métricas y registros</h3>
-<p>App Mesh proporciona métricas y registros detallados sobre el rendimiento y la disponibilidad de nuestros servicios. Podemos utilizar estas métricas y registros para identificar problemas de rendimiento, depurar errores y optimizar la configuración de nuestros servicios.</p>
-<h3 id="integraci%C3%B3n-con-herramientas-de-observabilidad">Integración con herramientas de observabilidad</h3>
-<p>App Mesh se integra con varias herramientas de observabilidad, como Prometheus, Grafana, Jaeger y AWS X-Ray Datadog. Estas herramientas nos permiten recopilar y analizar métricas y registros de nuestros servicios.</p>
-<h3 id="monitoreo-de-tr%C3%A1fico">Monitoreo de tráfico</h3>
-<p>Podemos utilizar App Mesh para monitorear el tráfico entre nuestros servicios. Esto nos permite identificar problemas de rendimiento, depurar errores y optimizar la configuración de nuestros servicios.</p>
-<h3 id="herramientas-de-observabilidad">Herramientas de observabilidad</h3>
-<table><thead><tr><th>Herramienta</th><th>Descripción</th></tr></thead><tbody><tr><td>Prometheus</td><td>Un sistema de monitoreo de código abierto que recopila métricas de nuestros servicios.</td></tr><tr><td>Grafana</td><td>Una plataforma de visualización de datos que nos permite crear paneles personalizados para monitorear nuestros servicios.</td></tr><tr><td>Jaeger</td><td>Un sistema de seguimiento distribuido que nos permite depurar errores y optimizar la configuración de nuestros servicios.</td></tr><tr><td>AWS X-Ray Datadog</td><td>Un servicio de monitoreo de rendimiento que nos permite recopilar y analizar métricas y registros de nuestros servicios.</td></tr></tbody></table>
-<h3 id="conclusi%C3%B3n-1">Conclusión</h3>
-<p>En este paso, hemos monitoreado los recursos de App Mesh para asegurarnos de que estén funcionando correctamente. En el próximo paso, podemos limpiar el entorno de prueba.</p>
-<h2 id="paso-7%3A-limpiar-el-entorno-de-prueba">Paso 7: limpiar el entorno de prueba</h2>
-<p>Ahora que hemos terminado de monitorear los recursos de App Mesh, es hora de limpiar el entorno de prueba para asegurarnos de que no haya recursos innecesarios que afecten otros servicios.</p>
-<h3 id="eliminar-la-aplicaci%C3%B3n-de-muestra">Eliminar la aplicación de muestra</h3>
-<p>Para eliminar la aplicación de muestra, debemos ejecutar el siguiente comando:</p>
-<pre><code>cd aws-app-mesh-examples/walkthroughs/howto-k8s-http-headers/kubectl delete -f _output/manifest.yaml
-</code></pre>
-<p>Este comando eliminará la aplicación de muestra y sus recursos asociados.</p>
-<h3 id="eliminar-el-controlador-de-app-mesh">Eliminar el controlador de App Mesh</h3>
-<p>Para eliminar el controlador de App Mesh, debemos ejecutar el siguiente comando:</p>
-<pre><code>helm delete appmesh-controller -n appmesh-system
-</code></pre>
-<p>Este comando eliminará el controlador de App Mesh y sus recursos asociados.</p>
-<p>Al eliminar estos recursos, podemos asegurarnos de que nuestro entorno de prueba esté limpio y listo para nuevas configuraciones o pruebas. Recuerda que puedes recrear fácilmente estos recursos siguiendo los pasos de la guía.</p>
-<p><strong>Recursos Eliminados</strong></p>
-<table><thead><tr><th>Recurso</th><th>Comando de Eliminación</th></tr></thead><tbody><tr><td>Aplicación de Muestra</td><td><code>kubectl delete -f _output/manifest.yaml</code></td></tr><tr><td>Controlador de App Mesh</td><td><code>helm delete appmesh-controller -n appmesh-system</code></td></tr></tbody></table>
-<p>Recuerda que es importante limpiar el entorno de prueba después de cada prueba para evitar conflictos con futuras configuraciones o pruebas.</p>
-<h2 id="resumen">Resumen</h2>
-<p>En resumen, la integración de AWS App Mesh con EKS ofrece una forma sencilla y escalable de administrar la comunicación entre microservicios en entornos de contenedores. Al seguir los pasos de esta guía, podrás configurar App Mesh para administrar el tráfico entre tus microservicios, monitorear el rendimiento y la disponibilidad, y garantizar la seguridad de tus aplicaciones.</p>
-<h3 id="ventajas-de-la-integraci%C3%B3n">Ventajas de la integración</h3>
-<p>La integración de App Mesh con EKS ofrece varias ventajas, incluyendo:</p>
-<table><thead><tr><th>Ventaja</th><th>Descripción</th></tr></thead><tbody><tr><td>Simplifica la comunicación</td><td>App Mesh simplifica la comunicación entre microservicios, lo que reduce la complejidad y mejora la escalabilidad.</td></tr><tr><td>Mejora la disponibilidad</td><td>App Mesh monitorea el rendimiento y la disponibilidad de tus aplicaciones, lo que te permite identificar y solucionar problemas rápidamente.</td></tr><tr><td>Garantiza la seguridad</td><td>App Mesh proporciona una capa adicional de seguridad para tus aplicaciones, lo que te permite proteger tus datos y aplicaciones de ataques malintencionados.</td></tr></tbody></table>
-<p>Si deseas explorar más a fondo las características avanzadas de App Mesh, puedes comenzar a investigar sobre la configuración de rutas de tráfico, la implementación de políticas de seguridad y la integración con otros servicios de AWS. Recuerda que la práctica y la experimentación son clave para dominar las habilidades de integración de App Mesh con EKS.</p>
-<h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/opciones-para-desplegar-contenedores-en-aws-ecs-y-eks/">Opciones para desplegar contenedores en AWS: ECS y EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/como-desplegar-una-aplicacion-en-amazon-eks/">Cómo desplegar una aplicación en Amazon EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-eks/">Mejores prácticas para Amazon EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-contenedores/">Microservicios en AWS utilizando contenedores</a></li></ul>
+AWS App Mesh dejó de recibir soporte el **30 de septiembre de 2026**. Desde esa fecha ya no se puede acceder a la consola ni a los recursos del servicio, según el [aviso vigente de AWS](https://docs.aws.amazon.com/app-mesh/latest/userguide/what-is-app-mesh.html). La antigua guía de instalación de App Mesh en Amazon EKS ya no describe una configuración que puedas poner en marcha hoy.
+
+El cambio no retira EKS ni Kubernetes. En un clúster pueden seguir existiendo objetos de Kubernetes, el controlador de App Mesh y proxies Envoy, pero esas piezas locales no devuelven el acceso al servicio de AWS ni restauran el soporte de App Mesh. El aviso de AWS no afirma que el tráfico de las aplicaciones ya desplegadas se haya interrumpido de inmediato ni garantiza que continúe funcionando. Por eso, un Pod en estado `Ready` no basta para confirmar que las llamadas entre servicios sigan sanas: prueba el tráfico de aplicación y planifica una migración.
+
+Esta guía explica qué hacía cada componente, cómo localizar dependencias que aún estén en tu clúster y cómo comparar rutas actuales. Para EKS, AWS publicó una [guía de migración de App Mesh a VPC Lattice](https://aws.amazon.com/blogs/containers/migrating-from-aws-app-mesh-to-amazon-vpc-lattice/); es un punto de partida, no una conversión automática ni una decisión de arquitectura para todos los casos.
+
+## Qué hacía App Mesh junto a una aplicación en EKS
+
+App Mesh era el servicio administrado que mantenía la configuración de la malla. En EKS, el controlador de App Mesh para Kubernetes y sus definiciones de recursos personalizados permitían declarar ciertos objetos desde Kubernetes. Un webhook podía añadir a los Pods un proxy Envoy y un contenedor de inicialización `appmesh-proxy-route-manager`, que preparaba las reglas de red para encaminar las llamadas a través del proxy. Envoy aplicaba la configuración recibida desde el plano de control de App Mesh. La [guía de Kubernetes de AWS](https://docs.aws.amazon.com/app-mesh/latest/userguide/getting-started-kubernetes.html) explica la integración histórica; hoy también muestra el aviso de fin de soporte.
+
+| Parte | Dónde vivía | Qué buscar hoy |
+| --- | --- | --- |
+| Recursos de la malla, como servicios virtuales, nodos y rutas | En el servicio AWS App Mesh | Recupera definiciones desde repositorios de infraestructura, manifiestos versionados, respaldos o documentación interna. Después del fin de soporte no cuentes con la consola o la API de App Mesh para consultarlas. |
+| Controlador y recursos personalizados | En el clúster EKS | Revisa los CRD del grupo `appmesh.k8s.aws`, los despliegues del controlador, sus roles y las releases de Helm. |
+| Proxy de tráfico Envoy y configuración de red del Pod | Dentro de los Pods que tenían la integración | Inspecciona contenedores e init containers, imágenes, anotaciones, selectores de inyección y variables de entorno en los manifiestos. |
+| Servicio y aplicación reales | En Kubernetes y en tu código | Identifica quién llama a quién, qué nombres DNS y puertos usan, y si las aplicaciones dependen de reintentos, rutas, autenticación o certificados gestionados por la malla. |
+
+Si necesitas repasar cómo se relacionan Kubernetes, Pods y Services, la grabación [EKS Fundamentals: Desmitificando Kubernetes con AWS](https://www.youtube.com/watch?v=YEY9NbFMQ0Y) de AWS User Group Ecuador cubre esos fundamentos. Su [sitio de comunidad](https://www.awsugecuador.com/) reúne enlaces a sus encuentros.
+
+En los clústeres a los que todavía tienes acceso, estas consultas son de solo lectura y ayudan a encontrar rastros locales:
+
+```sh
+kubectl get crd -o name | grep "appmesh.k8s.aws"
+kubectl get deployments -A | grep -i appmesh
+kubectl get pods -A
+helm list -A
+```
+
+La lista de Pods no muestra por sí sola la configuración de cada contenedor: inspecciona los Pods y sus manifiestos para revisar imágenes, init containers y anotaciones. Estas consultas no llaman a App Mesh. Conserva los manifiestos antes de retirar el controlador o los proxies; si la configuración de la malla solo estaba guardada en App Mesh, quizá no puedas recuperarla desde ese servicio.
+
+## Qué evitar al reutilizar un tutorial antiguo
+
+La guía anterior combinaba una fecha de soporte vencida con instrucciones que no creaban una integración funcional. Ten presentes estas diferencias antes de ejecutar pasos copiados:
+
+- `aws appmesh create-service` no es una operación de App Mesh. Sus recursos incluían `VirtualService`, `VirtualNode`, `VirtualRouter` y rutas; la referencia de la [API de App Mesh en AWS CLI](https://docs.aws.amazon.com/cli/latest/reference/appmesh/index.html) enumera los comandos. Los ejemplos antiguos de `create-virtual-node` y `create-virtual-router` también omitían `--spec`, que era obligatorio.
+- El rol vinculado al servicio App Mesh y el rol IAM del controlador de Kubernetes cumplían funciones distintas. La [guía de instalación de Kubernetes de AWS](https://docs.aws.amazon.com/app-mesh/latest/userguide/getting-started-kubernetes.html) asignaba permisos al rol de la cuenta de servicio del controlador; añadir `AWSAppMeshFullAccess` al rol vinculado al servicio no le daba esos permisos al controlador. Ese procedimiento solo ayuda a entender una integración existente: no intentes instalar App Mesh ahora.
+- El controlador no era un sistema genérico de telemetría ni de entrega progresiva. AWS documentaba CRD, un webhook de admisión, el proxy Envoy y el contenedor `appmesh-proxy-route-manager`; aplicar un Deployment de Kubernetes sin esa integración no creaba rutas de App Mesh ni enviaba tráfico a través de la malla.
+- No ejecutes un bloque de limpieza antiguo sin revisar a qué manifiestos y recursos apunta. Un comando que mezcla rutas de distintos walkthroughs puede dejar componentes atrás o eliminar otra aplicación; primero identifica los recursos que dependen de cada Pod y guarda la configuración recuperable.
+
+## Una ruta práctica para salir de una integración existente
+
+### 1. Reconstruye el inventario
+
+Parte de los repositorios de aplicación e infraestructura, las releases de Helm, los CRD que aún existan y la configuración de los Pods. Por cada servicio registra:
+
+- su namespace, Deployment y Service de Kubernetes, sus consumidores y los nombres DNS usados por la aplicación;
+- puertos y protocolos, reglas de enrutamiento, pesos entre versiones, timeouts y reintentos;
+- requisitos de TLS o mTLS, identidad y autorización entre servicios;
+- exposición de entrada y salida, conexiones entre clústeres, VPC o cuentas;
+- métricas, logs, trazas, alertas y el proceso para revertir un despliegue.
+
+No intentes reconstruir el inventario llamando a la API de App Mesh: desde el 30 de septiembre de 2026 AWS indica que sus recursos ya no son accesibles. Contrasta cada dato con manifiestos e infraestructura versionada. Si falta una regla, valida su efecto observando el tráfico real antes de reemplazarla.
+
+### 2. Compara el comportamiento, no solo los nombres de los recursos
+
+El ejemplo de migración de AWS relaciona conceptos de App Mesh con recursos de VPC Lattice, pero sus objetos no son equivalentes uno a uno:
+
+| App Mesh | Recurso aproximado en VPC Lattice y Gateway API | Qué tienes que volver a decidir |
+| --- | --- | --- |
+| Mesh | Service Network | Qué servicios comparten red y qué VPC o cuentas participan. |
+| VirtualService | Service | Nombre de servicio, consumidores y forma de descubrir el endpoint nuevo. |
+| VirtualNode | Target Group asociado al Service | Selección de Pods, health checks, puertos y atributos del destino. |
+| VirtualRouter y Route | Listener y reglas; en EKS, recursos como `HTTPRoute` | Coincidencia de solicitudes, pesos, destinos y comportamiento de la aplicación ante fallos. |
+
+Para escuchar experiencias de comunidad sobre la alternativa que describe el ejemplo, mira [Episodio II: El Ataque de Nivel 200: Amazon VPC Lattice](https://www.youtube.com/watch?v=vwAda02OH18), de AWS Women Colombia, y [Deja de hacer peering](https://www.youtube.com/watch?v=nFOCbh-wcLA), grabada por AWS User Group Guatemala sobre VPC Lattice y AWS PrivateLink. Estas charlas sirven para comparar enfoques de conectividad; confirma compatibilidad, políticas y costos en la documentación actual de AWS.
+
+La correspondencia de recursos ayuda a planificar, no a copiar YAML y esperar que se conserve cada función. Antes de decidir, confirma que la alternativa cubra tus protocolos, rutas, cifrado, políticas de acceso, visibilidad y límites de red. En particular, compara qué requiere tu mTLS y autenticación de carga: una política de autorización de red no reemplaza automáticamente la [configuración mTLS de App Mesh](https://docs.aws.amazon.com/app-mesh/latest/userguide/mutual-tls.html). Revisa también los costos: VPC Lattice cobra según recursos provisionados, datos transferidos y solicitudes o conexiones, de acuerdo con la [página oficial de precios](https://aws.amazon.com/vpc/lattice/pricing/).
+
+### 3. Elige una ruta según la necesidad
+
+No hay un reemplazo universal para App Mesh. Estas opciones responden a necesidades distintas:
+
+| Necesidad | Ruta para evaluar | Límites que debes comprobar |
+| --- | --- | --- |
+| Mantener las cargas en EKS y conectar servicios dentro o entre clústeres, VPC o cuentas de AWS | **Amazon VPC Lattice con AWS Gateway API Controller**. AWS documenta esta ruta para EKS y usa el controlador para asociar recursos de Kubernetes a VPC Lattice. | Requiere crear la red y las reglas de destino en el modelo de Lattice, adaptar endpoints y verificar cada política y protocolo. No convierte los CRD de App Mesh automáticamente. Empieza por la [guía de integración de EKS](https://docs.aws.amazon.com/eks/latest/userguide/integration-vpc-lattice.html) y la [guía del controlador](https://www.gateway-api-controller.eks.aws.dev/latest/). |
+| Mantener funciones de malla dentro de Kubernetes, como políticas de tráfico L7, mTLS y observabilidad de servicio a servicio | **Istio en EKS**. La documentación de Istio incluye una [configuración para Amazon EKS](https://istio.io/latest/docs/setup/platform-setup/amazon-eks/) y describe sus [capacidades de tráfico, seguridad y telemetría](https://istio.io/latest/docs/overview/what-is-istio/). | El equipo pasa a operar el plano de control y el plano de datos de Istio, sus actualizaciones y su configuración. Sus recursos también deben diseñarse de nuevo; no son compatibles con App Mesh. |
+| Resolver llamadas internas sencillas entre servicios del mismo clúster, sin necesitar políticas de malla | **Service y DNS de Kubernetes**, con controles de red que implemente tu CNI y resiliencia en la aplicación. | `NetworkPolicy` controla tráfico IP y puertos y solo tiene efecto si la red del clúster la implementa; no sustituye rutas HTTP, reintentos ni mTLS. Consulta la [documentación de servicios y redes de Kubernetes](https://kubernetes.io/docs/concepts/services-networking/). |
+| Cambiar deliberadamente las cargas de EKS a ECS | **Amazon ECS Service Connect** puede interconectar servicios de ECS. | Service Connect configura la comunicación entre servicios ECS y no es una malla que puedas instalar en EKS. AWS separa esta ruta de la migración de App Mesh para EKS; revisa el [alcance de Service Connect](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-connect.html) antes de considerar el cambio de plataforma. |
+
+Elige una ruta solo después de verificar los requisitos de tu aplicación y del equipo que la va a operar. Si no necesitas una malla, no reproduzcas sus capas por inercia: para servicios internos simples puede bastar el descubrimiento nativo y la resiliencia de la aplicación. Si dependes de rutas L7, identidad mTLS o conectividad entre VPC, prueba esas funciones explícitamente en el destino.
+
+### 4. Migra en un entorno que permita probar y revertir
+
+Construye primero la configuración de destino en un namespace, clúster o entorno de prueba separado. Migra una cadena pequeña de servicios y comprueba resolución DNS, rutas y pesos, health checks, timeouts y reintentos, certificados y autorización, métricas y logs. Prueba también el comportamiento ante un destino no saludable y una reversión.
+
+Planifica el cambio de tráfico por el punto que realmente usan tus clientes —por ejemplo, configuración del cliente, DNS o una entrada de red— y documenta qué se necesita para volver atrás. Tras el fin de soporte, una reversión que dependa de la consola, las API o la propagación de configuración de App Mesh no es una estrategia comprobada. Mantén una ruta de rollback que no requiera ese servicio y valida su funcionamiento antes del corte.
+
+Retira el controlador, las anotaciones de inyección y los proxies de los Pods cuando hayas confirmado que ningún consumidor sigue dependiendo de ellos. Luego revisa roles IAM y permisos asociados que ya no se necesiten. No elimines CRD o manifests antes de guardar los datos que sí puedes recuperar desde Kubernetes y tus repositorios.
+
+## Encuentros y comunidades para continuar
+
+Al revisar esta guía el **6 de octubre de 2026**, el [AWS Student Builder Group de la Universidad Distrital en Bogotá](https://www.meetup.com/aws-sbg-at-francisco-jose-de-caldas-district-univ-bogota/) anunciaba **Amazon VPC Essentials: Fundamentos de Networking** para el **21 de octubre, de 18:00 a 20:00 (hora de Colombia, UTC−05:00)**, en modalidad virtual. La sesión cubre VPC, subredes y rutas; su [ficha de Meetup](https://www.meetup.com/aws-sbg-at-francisco-jose-de-caldas-district-univ-bogota/events/316674045/) indica cupos limitados, registro previo y que el enlace virtual solo se muestra a asistentes. Confirma allí que siga disponible.
+
+Para encontrar encuentros posteriores sobre VPC Lattice, revisa la agenda de [AWS Women Colombia](https://www.meetup.com/aws-women-colombia-user-group/) y la de [AWS User Group Guatemala](https://www.meetup.com/aws-guatemala/). Las grabaciones anteriores aportan contexto, mientras que los requisitos de cada recurso deben validarse en la documentación de AWS.
+
+Si tu inventario también incluye reglas de acceso o seguridad de Pods, [AWS User Group Security Ecuador](https://www.meetup.com/aws-user-group-security-ecuador/) anunciaba **AWS & Cloud Native Security Night** para el **23 de octubre de 2026, de 17:00 a 20:00 (hora de Ecuador, UTC−05:00)**, presencial en la Universidad Católica de Santiago de Guayaquil. La [ficha del evento](https://www.meetup.com/aws-user-group-security-ecuador/events/316815633/) describe una sesión sobre seguridad de Kubernetes y contenedores: la entrada es gratuita, con cupos limitados y registro previo. Revisa el lugar y la disponibilidad antes de viajar.
+
+Si necesitas repasar responsabilidades del plano de control y del plano de datos, continúa con [Plano de control y plano de datos en AWS: App Mesh y alternativas](/blog/control-plane-vs-data-plane-en-aws-app-mesh/). Para revisar cómo se relaciona App Mesh con los recursos propios de Kubernetes, consulta [Amazon EKS: qué es, cómo funciona y cuánto cuesta](/blog/comprendiendo-kubernetes-y-amazon-eks/).
+
+## Preguntas frecuentes
+
+### ¿App Mesh sigue disponible en EKS después del 30 de septiembre de 2026?
+
+No como servicio con soporte. AWS indica que después de esa fecha ya no se puede acceder a la consola ni a los recursos de App Mesh. Que queden CRD, Pods o contenedores Envoy en EKS no equivale a que el servicio siga disponible.
+
+### ¿Una aplicación que ya usaba App Mesh dejó de funcionar ese día?
+
+El aviso oficial no promete una interrupción inmediata de todas las llamadas que ya estaban en curso ni garantiza que los proxies continúen operando. Comprueba el tráfico de aplicación, las respuestas de los servicios y sus señales de observabilidad; no infieras salud de malla únicamente a partir del estado `Ready` de Kubernetes.
+
+### ¿Amazon ECS Service Connect reemplaza App Mesh en un clúster EKS?
+
+No: Service Connect configura la comunicación entre servicios ECS. Para mantener las cargas en EKS, AWS documenta la evaluación de VPC Lattice y su Gateway API Controller. Si también estás evaluando mover EKS a ECS, esa es una decisión de plataforma separada.
+
+### ¿VPC Lattice importa automáticamente las rutas de App Mesh?
+
+No hay una traducción directa que conserve sin revisión todos los recursos y políticas. Recupera la configuración disponible, relaciona cada llamada con un destino nuevo y prueba protocolos, seguridad, ruteo y observabilidad en el entorno elegido.
