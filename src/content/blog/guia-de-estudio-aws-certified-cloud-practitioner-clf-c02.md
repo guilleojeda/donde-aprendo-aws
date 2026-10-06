@@ -1,536 +1,152 @@
 ---
-title: "Guía de estudio AWS Certified Cloud Practitioner CLF-C02"
-description: "Prepárate eficazmente para el examen AWS Certified Cloud Practitioner CLF-C02 con nuestra guía completa de estudio, estrategias y recursos."
+title: "Cómo estudiar para AWS Cloud Practitioner (CLF-C02): plan de estudio y práctica"
+description: "Prepara el examen CLF-C02 con los dominios oficiales, un método para practicar cada objetivo y criterios para decidir cuándo reservarlo."
 author: "guille-ojeda"
 publishedAt: "2024-05-04"
 publishedTimestamp: "2024-05-04T02:21:52.821Z"
+modifiedTimestamp: "2026-10-06T16:00:55-03:00"
+review:
+  date: "2026-10-06"
 cover: "/assets/blog/editorial-certificacion.png"
 coverAlt: "Tres tarjetas de estudio con apuntes y hitos sobre un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-certificacion.png"
 related:
-  - title: "Checklist: servicios AWS esenciales para SAA-C03"
-    url: "https://dondeaprendoaws.com/blog/checklist-servicios-aws-esenciales-para-saa-c03/"
-  - title: "Guía para crear APIs serverless con AWS Lambda y API Gateway"
-    url: "https://dondeaprendoaws.com/blog/guia-para-crear-apis-serverless-con-aws-lambda-y-api-gateway/"
-  - title: "Bases de datos relacionales en AWS con Amazon RDS y Amazon Aurora"
-    url: "https://dondeaprendoaws.com/blog/bases-de-datos-relacionales-en-aws-con-amazon-rds-y-amazon-aurora/"
+  - title: "AWS Cloud Practitioner (CLF-C02): cómo preparar el examen en español"
+    url: "https://dondeaprendoaws.com/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/"
+  - title: "Curso AWS con certificado: qué obtienes y cómo elegir"
+    url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-basica/"
 
 ---
 
-<p>¿Quieres obtener la certificación <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> Cloud Practitioner? Esta guía te ayudará a prepararte de manera efectiva para el examen CLF-C02. Aquí encontrarás todo lo que necesitas saber:</p>
-
-
-<ul>
-<li>
-<p><strong>Formato del Examen</strong>: 65 preguntas de opción múltiple y respuesta múltiple, duración de 90 minutos.</p>
-</li>
-<li>
-<p><strong>Dominios Clave</strong>:</p>
-</li>
-</ul>
+Para estudiar para **AWS Certified Cloud Practitioner (CLF-C02)**, empieza por la guía oficial vigente. Convierte cada objetivo en una pregunta que puedas explicar, practica con situaciones nuevas y usa tus errores para elegir qué repasar. Reserva el examen cuando puedas justificar tus respuestas y hayas comprobado las condiciones para rendir; ningún curso ni porcentaje de un simulacro garantiza el resultado.
 
+Al 6 de octubre de 2026, AWS publica CLF-C02 como el examen vigente de Cloud Practitioner. Comprueba de nuevo el código y la guía antes de comenzar, porque el alcance puede cambiar. Si primero necesitas elegir materiales, la [guía de recursos para Cloud Practitioner en español](/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/) reúne cursos, grabaciones, práctica y comunidades. Esta página se concentra en cómo estudiar con esos recursos y decidir cuándo presentarte.
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Dominio</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Conceptos de la Nube</td>
-<td>Fundamentos de la computación en la nube, beneficios y características clave.</td>
-</tr>
-<tr>
-<td>Seguridad y Cumplimiento</td>
-<td>Identidad, acceso, protección de datos, seguridad de infraestructura y cumplimiento.</td>
-</tr>
-<tr>
-<td>Tecnología y Servicios en la Nube</td>
-<td>Servicios de AWS como almacenamiento, computación, bases de datos, seguridad y redes.</td>
-</tr>
-<tr>
-<td>Facturación, Precio y Soporte</td>
-<td>Facturación, modelos de precios y opciones de soporte de AWS.</td>
-</tr>
-</tbody>
-</table></figure>
+## Qué evalúa CLF-C02
 
+AWS describe Cloud Practitioner como una certificación de nivel fundacional para demostrar conocimiento general de la nube, sus servicios y su terminología. No hay requisitos previos formales para obtener una certificación de AWS. La guía plantea un perfil con hasta seis meses de exposición a AWS y recomienda conocimientos de nube, seguridad, servicios principales y economía; ese perfil es una orientación de preparación, no una condición de inscripción.
 
-<ul>
-<li>
-<p><strong>Plan de Estudio</strong>: Define objetivos claros, crea un cronograma y utiliza una variedad de recursos como documentación oficial, cursos en línea, pruebas de práctica y la comunidad de AWS.</p>
-</li>
-<li>
-<p><strong>Estrategias de Estudio</strong>: Desarrolla hábitos efectivos como la repetición espaciada, el recuerdo activo y el estudio en grupo. Maneja el estrés y la ansiedad con técnicas de relajación.</p>
-</li>
-<li>
-<p><strong>Día del Examen</strong>: Llega temprano, lee cuidadosamente las preguntas y mantén una mentalidad positiva.</p>
-</li>
-</ul>
-
-
-<p>¡Sigue esta guía y estarás listo para aprobar el examen de <a href="https://aws.amazon.com/certification/certified-cloud-practitioner/" rel="noopener noreferrer" target="_blank">AWS Certified Cloud Practitioner</a>!</p>
-
-
-<h2 id="visi%C3%B3n-general-del-examen-y-temas" tabindex="-1">Visión general del examen y temas</h2>
-
-
-<h3 id="formato-del-examen-y-tipos-de-preguntas" tabindex="-1">Formato del examen y tipos de preguntas</h3>
-
-
-<p>El examen de AWS Certified Cloud Practitioner (CLF-C02) es un examen de opción múltiple que consta de 65 preguntas y tiene una duración de 90 minutos. El examen evalúa la comprensión de los conceptos de la nube, la seguridad, la tecnología y los servicios en la nube, así como la facturación y el soporte. Las preguntas del examen se presentan en formato de opción múltiple y respuesta múltiple.</p>
-
-
-<h3 id="dominios-clave-del-examen" tabindex="-1">Dominios clave del examen</h3>
-
-
-<p>El examen de AWS Certified Cloud Practitioner (CLF-C02) se centra en cuatro dominios clave:</p>
-
+La guía vigente distribuye el contenido puntuado entre cuatro dominios:
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Dominio</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Conceptos de la Nube</strong></td>
-<td>Evalúa la comprensión de los conceptos fundamentales de la nube, incluyendo la definición de la nube, los modelos de servicio en la nube, los beneficios de la nube y las características clave de la nube.</td>
-</tr>
-<tr>
-<td><strong>Seguridad y Cumplimiento</strong></td>
-<td>Evalúa la comprensión de la seguridad y el cumplimiento en la nube, incluyendo la identidad y el acceso, la protección de datos, la seguridad de la infraestructura y el cumplimiento de los estándares de seguridad.</td>
-</tr>
-<tr>
-<td><strong>Tecnología y Servicios en la Nube</strong></td>
-<td>Evalúa la comprensión de los servicios en la nube de AWS, incluyendo el almacenamiento, la computación, la base de datos, la seguridad y la red.</td>
-</tr>
-<tr>
-<td><strong>Facturación, Precio y Soporte</strong></td>
-<td>Evalúa la comprensión de la facturación y el precio de los servicios en la nube de AWS, así como el soporte y los recursos disponibles.</td>
-</tr>
-</tbody>
-</table></figure>
+| Dominio | Peso | Pregunta para orientar el repaso |
+|---|---:|---|
+| Conceptos de la nube | 24 % | ¿Qué valor de la nube responde a la necesidad que describe el caso? |
+| Seguridad y cumplimiento | 30 % | ¿Qué responsabilidad conserva AWS y cuál le corresponde al cliente en este servicio? |
+| Tecnología y servicios en la nube | 34 % | ¿Qué categoría de servicio resuelve el caso y por qué? |
+| Facturación, precios y soporte | 12 % | ¿Se necesita estimar un gasto, analizar el uso o recibir una alerta? |
 
+Los porcentajes corresponden al contenido puntuado, no a una fórmula para asignar horas. Tecnología tiene el mayor peso y seguridad le sigue de cerca. El dominio de facturación también cuenta aunque tenga un porcentaje menor. Consulta los objetivos y las listas de servicios dentro y fuera del alcance en la [guía oficial CLF-C02 en español](https://docs.aws.amazon.com/es_es/aws-certification/latest/cloud-practitioner-02/cloud-practitioner-02.html); la tabla de arriba solo resume cómo orientar el estudio.
 
-<h2 id="planificaci%C3%B3n-de-tu-enfoque-de-estudio" tabindex="-1">Planificación de tu enfoque de estudio</h2>
+El examen busca conocimientos generales y la selección de servicios para casos comunes. La guía deja fuera tareas como programar, diseñar arquitecturas, solucionar problemas, implementar soluciones y hacer pruebas de carga o rendimiento. No hace falta desplegar una aplicación para preparar esos objetivos. Puedes empezar con escenarios escritos y sumar laboratorios si te ayudan a entender un concepto.
 
+## Convierte el temario en un plan personal
 
-<p>Ahora que tienes una idea clara de lo que se evalúa en el examen de AWS Certified Cloud Practitioner y has identificado los dominios clave que debes dominar, es el momento de crear un plan de estudio efectivo.</p>
+Abre la guía y clasifica sus enunciados en tres grupos:
 
+- **Lo puedo explicar:** puedo responder con mis palabras y dar un ejemplo.
+- **Lo reconozco, pero lo confundo:** identifico el tema, pero no sé distinguir opciones cercanas.
+- **Necesito estudiarlo:** todavía no puedo explicar de qué trata ni cómo se aplica.
 
-<h3 id="definiendo-objetivos-de-estudio" tabindex="-1">Definiendo objetivos de estudio</h3>
+Agrega una evidencia breve junto a cada objetivo. “Vi una clase de IAM” registra una actividad; “puedo explicar qué parte de la seguridad administra AWS y qué parte debe proteger el cliente en este servicio” registra algo que puedes comprobar. Para ordenar prioridades, cruza el peso del dominio con la dificultad que te mostró ese diagnóstico. No conviertas el porcentaje del examen en una meta idéntica de tiempo para todas las personas: lo que ya dominas necesita menos repaso que una confusión persistente.
 
+Puedes usar esta tabla como punto de partida:
 
-<p>Antes de comenzar a estudiar, es importante definir objetivos claros y alcanzables para tu preparación. Establece metas específicas para cada dominio del examen. Por ejemplo:</p>
+| Objetivo que marca la guía | Comprobación propia | Próximo repaso |
+|---|---|---|
+| Explicar el valor de la nube | Relacionar una necesidad de demanda variable con elasticidad o agilidad | Resolver otro caso y comparar los beneficios posibles |
+| Comprender el modelo de responsabilidad compartida | Explicar qué responsabilidades de seguridad corresponden a AWS y cuáles conserva el cliente según el servicio | Revisar el objetivo oficial y explicar el caso con un servicio distinto |
+| Reconocer servicios para casos comunes | Elegir una categoría para almacenar objetos, ejecutar código o guardar datos | Comparar dos opciones y justificar por qué una responde mejor al escenario |
+| Entender costos, economía y facturación | Distinguir estimar una carga planeada, analizar costos y uso, y seguir un presupuesto | Explicar cuándo usar Pricing Calculator, Cost Explorer o AWS Budgets |
 
+Son ejemplos de trabajo, no una lista completa del examen. Para verificar la diferencia entre herramientas de costos, consulta la documentación de AWS sobre [estimaciones con Pricing Calculator](https://docs.aws.amazon.com/es_es/cost-management/latest/userguide/pricing-calculator.html), [análisis con Cost Explorer](https://docs.aws.amazon.com/es_es/cost-management/latest/userguide/ce-what-is.html) y [seguimiento con AWS Budgets](https://docs.aws.amazon.com/es_es/cost-management/latest/userguide/budgets-managing-costs.html).
 
-<ul>
-<li>Leer la documentación de AWS sobre conceptos de la nube en una semana</li>
-<li>Realizar un 80% en un simulacro de examen en un mes</li>
-<li>Dominar los servicios de almacenamiento de AWS en dos semanas</li>
-</ul>
+## Estudia cada objetivo con un ciclo breve
 
+Repite este ciclo para las tareas que marcaste como pendientes:
 
-<h3 id="creando-un-cronograma-de-estudio" tabindex="-1">Creando un cronograma de estudio</h3>
+1. **Elige un objetivo concreto.** Por ejemplo, comparar dos categorías de almacenamiento para un caso.
+2. **Estudia una explicación.** Usa el curso, la documentación o la grabación que responda a esa duda. Si es una grabación antigua, toma de ella los conceptos y confirma nombres, precios y condiciones actuales con AWS.
+3. **Cierra el material y recuerda.** Explica la idea sin mirar apuntes; después abre la guía o documentación y corrige lo que faltó.
+4. **Resuelve un escenario distinto.** Di qué opción elegirías, qué dato del caso te llevó a hacerlo y por qué descartarías las alternativas cercanas.
+5. **Guarda el error útil.** Anota la diferencia que te hizo cambiar de respuesta y vuelve a probar el concepto más adelante con otra pregunta.
 
+No repitas una serie completa cada vez que aparezca una laguna. Busca la explicación de ese objetivo y úsala para resolver un caso nuevo. Si la respuesta solo te resulta familiar porque viste la misma pregunta, todavía no comprobaste que puedas aplicar el concepto.
 
-<p>Crea un cronograma de estudio que se adapte a tu horario y estilo de aprendizaje. Asegúrate de asignar tiempo suficiente para cada dominio del examen y no te olvides de programar pausas y descansos para evitar el agotamiento.</p>
+## Usa preguntas de práctica para detectar lagunas
 
+AWS recomienda familiarizarse primero con el formato mediante su **conjunto oficial de 20 preguntas de práctica**, disponible gratis en Skill Builder. El examen oficial de práctica completo y preguntas adicionales requieren una suscripción. Revisa la [oferta actual de preparación de AWS](https://aws.amazon.com/es/certification/certification-prep/) antes de elegir una actividad: AWS describe allí qué incluye cada opción. Para una persona que estudia por su cuenta, AWS recomienda iniciar sesión con un AWS Builder ID; también existen opciones de acceso para organizaciones y partners. El Builder ID es un perfil personal gratuito, distinto de la suscripción a Skill Builder y de la cuenta de AWS donde se crean recursos facturables. Consulta las [preguntas frecuentes de AWS Training](https://aws.amazon.com/es/training/faqs/) y la explicación de [AWS Builder ID](https://docs.aws.amazon.com/es_es/signin/latest/userguide/sign-in-builder-id.html) si no sabes qué acceso necesitas.
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Día</th>
-<th>Hora</th>
-<th>Dominio del Examen</th>
-<th>Actividad</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Lunes</td>
-<td>7:00-9:00 am</td>
-<td>Conceptos de la Nube</td>
-<td>Leer documentación de AWS</td>
-</tr>
-<tr>
-<td>Martes</td>
-<td>7:00-9:00 am</td>
-<td>Tecnología y Servicios en la Nube</td>
-<td>Realizar simulacro de examen</td>
-</tr>
-<tr>
-<td>Miércoles</td>
-<td>7:00-9:00 am</td>
-<td>Seguridad y Cumplimiento</td>
-<td>Leer artículos de seguridad en la nube</td>
-</tr>
-<tr>
-<td>...</td>
-<td>...</td>
-<td>...</td>
-<td>...</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Recuerda que la clave para un buen cronograma de estudio es ser realista y flexible. Ajusta tu cronograma según sea necesario y no te desanimes si no puedes cumplir con tus objetivos iniciales.</p>
+Para practicar en español latinoamericano, [CloudPrep: AWS en práctica](https://thomassr30.github.io/cloudprep-clf-es/) ofrece preguntas originales, explicaciones y referencias. Su [repositorio público](https://github.com/thomassr30/cloudprep-clf-es) describe un simulacro de 65 preguntas y 90 minutos; declara que el material es independiente de AWS y que el banco se revisó el 19 de septiembre de 2026. Sus resultados sirven para encontrar temas que conviene repasar. Su porcentaje no es la puntuación escalada de AWS ni predice si aprobarás.
 
+También puedes escuchar otra forma de razonar preguntas en la grabación de [AWS User Group Medellín: práctica con preguntas de examen](https://www.youtube.com/watch?v=U9KAboCim2o), una sesión de su Cloud Practitioner Challenge. Es una explicación comunitaria; úsala para poner a prueba tus argumentos y vuelve a la guía cuando una afirmación dependa del alcance vigente.
 
-<h2 id="materiales-de-estudio-y-recursos" tabindex="-1">Materiales de estudio y recursos</h2>
+Cuando revises una respuesta, registra algo más que “correcta” o “incorrecta”:
 
+| Resultado | Qué revisar |
+|---|---|
+| Acierto con explicación | Comprueba que también puedas aplicarlo a otro escenario |
+| Acierto por recordar la opción | Busca una pregunta nueva sobre el mismo objetivo |
+| Error entre dos servicios | Escribe la necesidad que resuelve cada uno y vuelve a compararlos |
+| Error por un detalle del caso | Subraya qué condición cambia la decisión |
+| Duda sobre un dato actual | Contrástalo con la guía o documentación oficial |
 
-<p>En este punto, ya tienes una idea clara de lo que se evalúa en el examen de AWS Certified Cloud Practitioner y has identificado los dominios clave que debes dominar. Ahora, es hora de explorar los materiales de estudio y recursos que te ayudarán a prepararte para el examen.</p>
+AWS informa el resultado en una escala de 100 a 1000. La puntuación mínima de aprobación de CLF-C02 es 700 y AWS usa una puntuación escalada; 700 no significa que haya una conversión fija de 70 % de aciertos. El modelo es compensatorio, así que no necesitas aprobar cada dominio por separado. Usa los resultados por dominio para localizar lagunas, no para inventar un puntaje mínimo personal que AWS no publica.
 
+## Decide cuándo reservar
 
-<h3 id="documentaci%C3%B3n-de-aws-y-whitepapers" tabindex="-1">Documentación de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> y Whitepapers</h3>
+No existe un número de horas, una cantidad de preguntas acertadas o un porcentaje comunitario que garantice la aprobación. Antes de reservar, comprueba estas señales:
 
+- Puedes explicar los objetivos de la guía que más te costaban sin depender de una respuesta memorizada.
+- Resuelves preguntas nuevas y justificas tanto la opción elegida como las alternativas que descartas.
+- Volviste a revisar las lagunas recurrentes en los cuatro dominios, prestando atención a su peso y a tus dificultades.
+- Conoces el formato, el idioma y la modalidad disponibles para tu cita; el costo y los requisitos encajan con tu plan.
 
-<p><figure><img alt="AWS" src="/assets/blog/2ebe3cf8e7ae57e98d3af846.jpg"/></figure></p>
+AWS recomienda evaluar la preparación con su examen oficial de práctica, que requiere suscripción. Si decides hacerlo, úsalo como una señal adicional y como oportunidad para practicar con una puntuación escalada; el resultado no puede garantizar el del examen supervisado. Repetir el mismo banco puede medir memoria, así que combina los resultados con tu capacidad de explicar objetivos y aplicar conceptos a casos nuevos.
 
+## Formato, costo y condiciones del examen
 
-<p>La documentación de AWS es una fuente invaluable de información para prepararte para el examen. Asegúrate de leer los siguientes whitepapers y documentos oficiales de AWS:</p>
+Confirma estos datos en las [páginas oficiales de Cloud Practitioner](https://aws.amazon.com/es/certification/certified-cloud-practitioner/) y de [políticas para candidatos](https://aws.amazon.com/es/certification/policies/before-testing/), porque los precios, la disponibilidad de citas y las condiciones pueden cambiar.
 
+| Dato | Información publicada por AWS |
+|---|---|
+| Versión | CLF-C02, según la guía vigente consultada |
+| Duración y preguntas | 90 minutos y 65 preguntas; hay preguntas de opción única y de respuesta múltiple |
+| Preguntas que puntúan | 50 afectan la puntuación; 15 no tienen puntaje y no se identifican durante el examen |
+| Preguntas sin responder | Se califican como incorrectas; no hay penalización por adivinar |
+| Aprobación | 700 puntos en una escala de 100 a 1000; la puntuación es escalada |
+| Idiomas del examen | Incluye español de América Latina y español de España |
+| Modalidad | Centro Pearson VUE o examen supervisado en línea |
+| Precio de referencia | 100 USD por intento para el nivel fundacional; pueden aplicarse impuestos y el precio local puede variar |
+| Vigencia | La certificación es válida durante tres años desde la fecha en que se obtiene |
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Documento</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong><a href="https://docs.aws.amazon.com/wellarchitected/latest/framework/welcome.html" rel="noopener noreferrer" target="_blank">AWS Well-Architected Framework</a></strong></td>
-<td>Proporciona una visión general de los principios de diseño y operación de una arquitectura bien diseñada en la nube.</td>
-</tr>
-<tr>
-<td><strong><a href="https://docs.aws.amazon.com/securityhub/latest/userguide/fsbp-standard.html" rel="noopener noreferrer" target="_blank">AWS Security Best Practices</a></strong></td>
-<td>Brinda consejos y recomendaciones para implementar la seguridad en la nube de AWS.</td>
-</tr>
-<tr>
-<td><strong><a href="https://aws.amazon.com/cloud-adoption-framework/" rel="noopener noreferrer" target="_blank">AWS Cloud Adoption Framework</a></strong></td>
-<td>Ayuda a entender cómo adoptar la nube de AWS de manera efectiva.</td>
-</tr>
-</tbody>
-</table></figure>
+AWS no exige completar un curso ni presentar experiencia laboral como requisito previo. Para reservar, crea o usa una cuenta de AWS Certification siguiendo las [instrucciones vigentes para candidatos](https://aws.amazon.com/es/certification/policies/before-testing/). AWS indica que el acceso se configura con un ID de creador de AWS (AWS Builder ID) y que la cuenta de certificación es independiente de la cuenta donde creas servicios de AWS. Al rendir, tendrás que presentar una identificación oficial válida; los documentos aceptados dependen de tu residencia y de si eliges un centro o supervisión en línea. Revisa los requisitos y la confirmación de Pearson VUE antes de la cita.
 
+AWS ofrece adaptaciones razonables para personas con discapacidades documentadas, coordinadas con el proveedor del examen. Deben solicitarse antes de programar cada examen. Si rindes en inglés y no eres hablante nativo, puedes solicitar la adaptación ESL +30, que agrega 30 minutos; revisa los pasos y condiciones en la política vigente.
 
-<h3 id="cursos-en-l%C3%ADnea-y-videos" tabindex="-1">Cursos en línea y videos</h3>
+Si no apruebas, AWS pide esperar 14 días calendario antes de volver a rendir y cobra el precio completo por cada intento, según su [política posterior al examen](https://aws.amazon.com/es/certification/policies/after-testing/). La certificación dura tres años desde que la obtienes; cuando se acerque el vencimiento, confirma en tu cuenta las opciones que AWS ofrezca entonces para mantenerla activa. Un curso puede acompañar tu preparación y entregar su propio certificado de finalización, pero la AWS Certification se obtiene al aprobar el examen supervisado. Para distinguir esos documentos, consulta [qué recibes al terminar un curso de AWS](/blog/aws-curso-certificado-guia-basica/).
 
+## Estudia acompañado y sigue actividades
 
-<p>Los cursos en línea y los videos son una excelente manera de aprender sobre los servicios de AWS y los conceptos de la nube. A continuación, te presentamos algunos recursos recomendados:</p>
+Compartir una duda concreta ayuda a recibir respuestas que puedas aplicar: lleva el objetivo que estudiaste, el escenario y la opción que te resultó difícil. Si aprendes mejor con otras personas, **AWS Women in Cloud Buenos Aires** publica grupos de estudio colaborativos para certificaciones, mentoría, talleres y actividades en su [sitio comunitario](https://awswomenincloudba.com.ar/). Su página dirige a Meetup para ver encuentros; confirma allí la fecha, la modalidad y las condiciones para participar.
 
+Para conversar sobre AWS y encontrar eventos de una comunidad general, revisa el [AWS User Group Medellín en Meetup](https://www.meetup.com/awsugmed/). Su página presenta reuniones y actividades del grupo; los temas, horarios y cupos pertenecen a cada convocatoria. También puedes buscar otros grupos en el [directorio de AWS User Groups](/comunidades/user-groups/) y consultar la [agenda de eventos AWS en Latinoamérica](/eventos/) para encontrar sesiones en línea o presenciales.
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Recurso</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong><a href="https://aws.amazon.com/free/" rel="noopener noreferrer" target="_blank">AWS Free Tier</a></strong></td>
-<td>Ofrece un conjunto de recursos gratuitos que te permiten aprender y experimentar con los servicios de AWS.</td>
-</tr>
-<tr>
-<td><strong><a href="https://www.aws.training/" rel="noopener noreferrer" target="_blank">AWS Training and Certification</a></strong></td>
-<td>El sitio web de AWS ofrece una variedad de cursos en línea y recursos de capacitación para ayudarte a prepararte para el examen.</td>
-</tr>
-<tr>
-<td><strong><a href="https://www.udemy.com/" rel="noopener noreferrer" target="_blank">Udemy</a> y <a href="https://www.coursera.org/" rel="noopener noreferrer" target="_blank">Coursera</a></strong></td>
-<td>Estas plataformas de aprendizaje en línea ofrecen cursos y tutoriales sobre AWS y la nube.</td>
-</tr>
-</tbody>
-</table></figure>
+Como complemento grabado, AWS Girls Argentina publicó el [Cloud Practitioner Challenge — Exam Prep](https://www.youtube.com/watch?v=6RajcfoPy6Q) el 23 de julio de 2025. Es una sesión de comunidad, no una guía oficial del examen; úsala para escuchar un enfoque de preparación y contrasta cualquier dato cambiante con CLF-C02. AWS Girls Argentina explica en su [grupo de Meetup](https://www.meetup.com/aws-girls-argentina/) que comparte próximos eventos, cursos y talleres; el grupo se orienta a conectar mujeres interesadas en formarse y compartir conocimientos de AWS.
 
+## Preguntas frecuentes
 
-<h3 id="uso-de-pruebas-de-pr%C3%A1ctica" tabindex="-1">Uso de pruebas de práctica</h3>
+### ¿Necesito experiencia o terminar un curso para presentar CLF-C02?
 
+AWS no establece requisitos previos formales ni obliga a completar un curso. La guía describe el conocimiento recomendado y el perfil de candidato para ayudarte a medir tu preparación. Terminar una formación no sustituye el examen supervisado.
 
-<p>Las pruebas de práctica son una excelente manera de evaluar tus conocimientos y habilidades antes de presentarte al examen. A continuación, te presentamos algunos recursos recomendados:</p>
+### ¿Cuántas horas debo estudiar?
 
+No hay una duración universal que asegure el resultado. Usa los objetivos que todavía no puedes explicar, tus errores en preguntas nuevas y el tiempo que tengas disponible para decidir el ritmo.
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Recurso</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>AWS Practice Exams</strong></td>
-<td>Ofrece pruebas de práctica oficiales que te permiten evaluar tus conocimientos y habilidades.</td>
-</tr>
-<tr>
-<td><strong><a href="https://tutorialsdojo.com/" rel="noopener noreferrer" target="_blank">Tutorials Dojo</a></strong></td>
-<td>Este sitio web ofrece pruebas de práctica y recursos de capacitación para ayudarte a prepararte para el examen.</td>
-</tr>
-<tr>
-<td><strong><a href="https://www.whizlabs.com/" rel="noopener noreferrer" target="_blank">Whizlabs</a></strong></td>
-<td>Este sitio web ofrece pruebas de práctica y recursos de capacitación para ayudarte a prepararte para el examen.</td>
-</tr>
-</tbody>
-</table></figure>
+### ¿Un 70 % en un simulacro significa que voy a aprobar?
 
+No. AWS informa el examen mediante una puntuación escalada, y los simulacros independientes tienen su propia selección y dificultad. Interpreta cada resultado como una pista sobre qué tema repasar.
 
-<p>Recuerda que la clave para un buen estudio es ser consistente y persistente. Asegúrate de asignar tiempo suficiente para cada dominio del examen y no te olvides de programar pausas y descansos para evitar el agotamiento.</p>
+### ¿Tengo que crear una cuenta de AWS para estudiar?
 
-
-<h2 id="estrategias-de-estudio-por-dominio-del-examen" tabindex="-1">Estrategias de estudio por dominio del examen</h2>
-
-
-<p>En este punto, ya tienes una idea clara de lo que se evalúa en el examen de AWS Certified Cloud Practitioner y has identificado los dominios clave que debes dominar. Ahora, es hora de explorar estrategias de estudio específicas para cada dominio del examen.</p>
-
-
-<h3 id="dominar-conceptos-de-la-nube" tabindex="-1">Dominar conceptos de la nube</h3>
-
-
-<p>Para dominar los conceptos de la nube, debes comprender los fundamentos de la computación en la nube, incluyendo el valor que aporta la nube de AWS y los principios de diseño. Asegúrate de leer los siguientes recursos:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Recurso</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>AWS Well-Architected Framework</strong></td>
-<td>Proporciona una visión general de los principios de diseño y operación de una arquitectura bien diseñada en la nube.</td>
-</tr>
-<tr>
-<td><strong>AWS Cloud Adoption Framework</strong></td>
-<td>Ayuda a entender cómo adoptar la nube de AWS de manera efectiva.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="entender-seguridad-y-cumplimiento" tabindex="-1">Entender seguridad y cumplimiento</h3>
-
-
-<p>Para entender la seguridad y el cumplimiento en AWS, debes familiarizarte con el modelo de responsabilidad compartida de AWS y las mejores prácticas de seguridad en la nube. Asegúrate de leer los siguientes recursos:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Recurso</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>AWS Security Best Practices</strong></td>
-<td>Brinda consejos y recomendaciones para implementar la seguridad en la nube de AWS.</td>
-</tr>
-<tr>
-<td><strong>AWS Compliance and Security</strong></td>
-<td>Proporciona información detallada sobre la seguridad y el cumplimiento en AWS.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="estudiar-servicios-de-aws" tabindex="-1">Estudiar servicios de AWS</h3>
-
-
-<p>Para estudiar los servicios de AWS, debes comprender la infraestructura global de AWS, los servicios de computación, bases de datos y otros servicios clave. Asegúrate de leer los siguientes recursos:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Recurso</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>AWS Services Overview</strong></td>
-<td>Proporciona una visión general de los servicios de AWS y cómo se relacionan entre sí.</td>
-</tr>
-<tr>
-<td><strong>AWS Documentation</strong></td>
-<td>La documentación de AWS es una fuente invaluable de información para prepararte para el examen.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="entender-facturaci%C3%B3n%2C-precios-y-soporte" tabindex="-1">Entender facturación, precios y soporte</h3>
-
-
-<p>Para entender la facturación, precios y soporte de AWS, debes comprender los modelos de precios de AWS, las herramientas de gestión de costos y las opciones de soporte disponibles. Asegúrate de leer los siguientes recursos:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Recurso</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>AWS Pricing Calculator</strong></td>
-<td>Ayuda a estimar los costos de utilizar los servicios de AWS.</td>
-</tr>
-<tr>
-<td><strong>AWS Support</strong></td>
-<td>Proporciona información detallada sobre las opciones de soporte disponibles en AWS.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Recuerda que la clave para un buen estudio es ser consistente y persistente. Asegúrate de asignar tiempo suficiente para cada dominio del examen y no te olvides de programar pausas y descansos para evitar el agotamiento.</p>
-
-
-<h2 id="estrategias-de-preparaci%C3%B3n-del-examen" tabindex="-1">Estrategias de preparación del examen</h2>
-
-
-<p>En este punto, ya tienes una idea clara de lo que se evalúa en el examen de AWS Certified Cloud Practitioner y has identificado los dominios clave que debes dominar. Ahora, es hora de explorar estrategias de estudio específicas para prepararte de manera efectiva para el examen.</p>
-
-
-<h3 id="desarrolla-h%C3%A1bitos-de-estudio-efectivos" tabindex="-1">Desarrolla hábitos de estudio efectivos</h3>
-
-
-<p>Para prepararte de manera efectiva para el examen, es importante desarrollar hábitos de estudio efectivos. Algunas técnicas que puedes probar incluyen:</p>
-
-
-<ul>
-<li><strong>Repetición espaciada</strong>: repite lo que has estudiado en intervalos regulares para solidificar la información en tu memoria a largo plazo.</li>
-<li><strong>Recuerdo activo</strong>: prueba a recordar información sin mirar tus apuntes o recursos de estudio.</li>
-<li><strong>Estudio en grupo o con un compañero de estudio</strong>: trabajar con otros puede ayudarte a mantener la motivación y a obtener una perspectiva diferente sobre el material.</li>
-</ul>
-
-
-<h3 id="consejos-para-el-d%C3%ADa-del-examen" tabindex="-1">Consejos para el día del examen</h3>
-
-
-<p>Cuando llegue el día del examen, asegúrate de:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th><strong>Consejo</strong></th>
-<th><strong>Descripción</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Llegar temprano</td>
-<td>Llega al lugar del examen con anticipación para evitar estrés innecesario.</td>
-</tr>
-<tr>
-<td>Traer materiales necesarios</td>
-<td>Asegúrate de tener todos los materiales necesarios, como tu identificación y cualquier otro material que se te haya solicitado.</td>
-</tr>
-<tr>
-<td>Leer cuidadosamente</td>
-<td>Lee cada pregunta con atención y asegúrate de entender lo que se te está pidiendo antes de responder.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="maneja-el-estr%C3%A9s-y-la-ansiedad" tabindex="-1">Maneja el estrés y la ansiedad</h3>
-
-
-<p>Es normal sentirse nervioso o ansioso antes de un examen, pero es importante no dejar que el estrés te impida rendir al máximo. Algunas sugerencias para manejar el estrés y la ansiedad incluyen:</p>
-
-
-<ul>
-<li><strong>Respira profundamente</strong>: respira profundamente y relajarte antes del examen.</li>
-<li><strong>Visualiza tu éxito</strong>: visualiza tu éxito y confía en tus habilidades y conocimientos.</li>
-<li><strong>Asegúrate de estar preparado</strong>: asegúrate de haber estudiado lo suficiente y estar bien preparado para el examen.</li>
-</ul>
-
-
-<p>Recuerda que la clave para un buen estudio es ser consistente y persistente. Asegúrate de asignar tiempo suficiente para cada dominio del examen y no te olvides de programar pausas y descansos para evitar el agotamiento.</p>
-
-
-<h2 id="interactuando-con-la-comunidad-de-aws" tabindex="-1">Interactuando con la comunidad de AWS</h2>
-
-
-<p>La comunidad de AWS es una fuente valiosa de conocimientos, recursos y apoyo para aquellos que se preparan para el examen de AWS Certified Cloud Practitioner. Interactuar con la comunidad de AWS puede ayudarte a obtener respuestas a tus preguntas, compartir materiales de estudio y conectar con otros profesionales que están pasando por un proceso similar.</p>
-
-
-<h3 id="foros-y-comunidades-en-l%C3%ADnea" tabindex="-1">Foros y comunidades en línea</h3>
-
-
-<p>Existen varias plataformas en línea donde puedes conectarte con otros candidatos y profesionales de AWS, como el subreddit r/AWSCertifications, AWS Forums y AWS re/Start. Estos foros te permiten hacer preguntas, compartir recursos y obtener retroalimentación de otros miembros de la comunidad.</p>
-
-
-<h3 id="grupos-de-estudio" tabindex="-1">Grupos de estudio</h3>
-
-
-<p>Los grupos de estudio son una excelente manera de conectarte con otros candidatos que están preparándose para el mismo examen. Puedes buscar grupos de estudio en línea o crear uno tú mismo en plataformas como Meetup o Facebook Groups. Los grupos de estudio te permiten trabajar en equipo, repasar materiales de estudio y practicar preguntas de examen juntos.</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th><strong>Ventajas de los Grupos de Estudio</strong></th>
-<th><strong>Descripción</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Apoyo Mutuo</strong></td>
-<td>Obtienes apoyo y motivación de otros miembros del grupo.</td>
-</tr>
-<tr>
-<td><strong>Compartir Recursos</strong></td>
-<td>Puedes compartir materiales de estudio y recursos con otros miembros del grupo.</td>
-</tr>
-<tr>
-<td><strong>Practicar Preguntas</strong></td>
-<td>Puedes practicar preguntas de examen con otros miembros del grupo.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h2 id="revisi%C3%B3n-final-y-pr%C3%B3ximos-pasos" tabindex="-1">Revisión final y próximos pasos</h2>
-
-
-<p>Has llegado al final de nuestra guía de estudio para el examen de AWS Certified Cloud Practitioner. Esperamos que hayas encontrado los consejos y recursos proporcionados útiles para tu preparación.</p>
-
-
-<h3 id="verifica-lo-siguiente-antes-de-sentarte-a-tomar-el-examen%3A" tabindex="-1">Verifica lo siguiente antes de sentarte a tomar el examen:</h3>
-
-
-<ul>
-<li>Entiende la estructura del examen y los tipos de preguntas que se te presentarán.</li>
-<li>Asegúrate de tener un plan de estudio estructurado y de haber cubierto todos los temas clave.</li>
-<li>Utiliza una variedad de materiales de estudio, incluyendo documentación de AWS, cursos en línea y prácticas de examen.</li>
-<li>Conecta con la comunidad de AWS para obtener apoyo y recursos adicionales.</li>
-</ul>
-
-
-<h3 id="mant%C3%A9n-una-mentalidad-positiva-y-enf%C3%B3cate-en-tu-objetivo" tabindex="-1">Mantén una mentalidad positiva y enfócate en tu objetivo</h3>
-
-
-<p>Recuerda que la clave para el éxito es mantener una mentalidad positiva y enfocarte en tu objetivo. ¡Estás listo para aprobar el examen de AWS Certified Cloud Practitioner!</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-basica/">guía básica para certificaciones de AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/certificacion-de-aws-preparacion-sin-costo/">Certificación de AWS: preparación sin costo</a></li><li><a href="https://dondeaprendoaws.com/blog/certificacion-aws-gratis-materiales-de-estudio/">certificación AWS gratis: materiales de estudio</a></li><li><a href="https://dondeaprendoaws.com/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/">recursos en español para certificacion AWS Cloud Practitioner</a></li>
-</ul>
-</p>
+No necesitas una cuenta de servicios de AWS para consultar la guía, ver grabaciones o practicar en CloudPrep. Para usar Skill Builder, inicia sesión con el método disponible para ti; AWS recomienda Builder ID para particulares. No hace falta desplegar servicios para estudiar los objetivos de CLF-C02. Si aun así practicas con recursos de una cuenta de AWS, revisa antes los precios y lo que puede generar cargos.

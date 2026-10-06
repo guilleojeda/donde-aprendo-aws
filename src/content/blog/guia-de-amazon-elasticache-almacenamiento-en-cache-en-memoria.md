@@ -1,563 +1,106 @@
 ---
-title: "Guía de Amazon ElastiCache: almacenamiento en caché en memoria"
-description: "Explora cómo Amazon ElastiCache mejora el rendimiento de aplicaciones en la nube mediante el almacenamiento en memoria y la reducción de la carga en bases de datos."
+title: "Amazon ElastiCache: motores, caché y conexión segura"
+description: "Aprende cuándo usar ElastiCache y elegir Valkey, Redis OSS o Memcached. Incluye Serverless, nodos, TTL, conexión segura y costos."
 author: "guille-ojeda"
 publishedAt: "2024-05-08"
 publishedTimestamp: "2024-05-08T04:19:02.817Z"
+modifiedTimestamp: "2026-10-06T16:00:55-03:00"
+review:
+  date: "2026-10-06"
 cover: "/assets/blog/editorial-datos-ia.png"
 coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
-  - title: "Pipeline CI/CD con Terraform y AWS CodePipeline"
-    url: "https://dondeaprendoaws.com/blog/pipeline-cicd-con-terraform-y-aws-codepipeline/"
-  - title: "Guía completa sobre Amazon EFS y FSx"
-    url: "https://dondeaprendoaws.com/blog/guia-completa-sobre-amazon-efs-y-fsx/"
-  - title: "Introducción a los servicios de Amazon Web Services"
-    url: "https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/"
+  - title: "Caché en AWS serverless: patrones, TTL y costos"
+    url: "https://dondeaprendoaws.com/blog/estrategias-de-cache-rentables-para-apps-serverless/"
 
 ---
 
-<p><strong>¿Qué es <a href="https://aws.amazon.com/elasticache/" rel="noopener noreferrer" target="_blank">Amazon ElastiCache</a>?</strong></p>
+Amazon ElastiCache es un servicio administrado para crear una caché o un almacén de datos distribuido en memoria con **Valkey, Redis OSS o Memcached**. La aplicación consulta el caché mediante el cliente de ese motor; ElastiCache no intercepta ni acelera automáticamente las consultas a una base de datos. Antes de añadirlo, comprueba que las lecturas se repiten, que puedes tolerar una ventana de datos desactualizados y que el ahorro de trabajo en el origen compensa otra conexión, otro costo y otra pieza que operar. [La guía de AWS presenta el servicio y sus motores](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/WhatIs.html).
 
+## Elige el motor y el tipo de despliegue
 
-<p><a href="https://www.amazon.com/" rel="noopener noreferrer" target="_blank">Amazon</a> ElastiCache es un servicio de caching en memoria que mejora el rendimiento de las aplicaciones web al reducir la latencia y la carga en las bases de datos. Almacena datos en memoria para proporcionar un acceso rápido y minimizar el tiempo de respuesta.</p>
+Son dos decisiones distintas: el **motor** define el protocolo y las operaciones disponibles; el **despliegue** define cuánto control tendrás sobre la capacidad y los nodos.
 
+| Motor | Cuándo evaluarlo | Qué comprobar |
+| --- | --- | --- |
+| Valkey | Si tu aplicación puede usar un cliente compatible y quieres evaluar las funciones y versiones disponibles en ElastiCache. | Compatibilidad de comandos, tipo de despliegue y versión. Valkey y Redis OSS comparten una parte importante del ecosistema de clientes, pero no supongas que toda función existe en todas las versiones. |
+| Redis OSS | Si ya dependes de sus clientes o de comandos específicos y quieres conservar ese contrato. | Comandos admitidos por ElastiCache, modo de clúster y versión del motor. |
+| Memcached | Para una caché sencilla de objetos con claves y valores, cuando te sirve su modelo y el uso de varios hilos por nodo. | No ofrece el mismo conjunto de estructuras y capacidades de clúster que Valkey o Redis OSS. Revisa la tabla de funciones antes de elegirlo. |
 
-<p><strong>Características Clave</strong></p>
+AWS compara [los motores y sus capacidades](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/SelectEngine.html) y mantiene una lista de [comandos admitidos y restringidos](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/SupportedCommands.html). Si migras una aplicación existente, prueba las operaciones que realmente usa: la compatibilidad del cliente por sí sola no demuestra que cada comando esté disponible.
 
+Después, elige el despliegue:
 
-<ul>
-<li>Basado en los motores de caching <a href="https://redis.io/" rel="noopener noreferrer" target="_blank">Redis</a> y <a href="https://memcached.org/" rel="noopener noreferrer" target="_blank">Memcached</a></li>
-<li>Facilita la configuración y escalabilidad de un entorno de caché distribuido</li>
-<li>Reduce la carga en las bases de datos y mejora el rendimiento de las aplicaciones</li>
-</ul>
+| Despliegue | Tiene sentido cuando | Costos de operación |
+| --- | --- | --- |
+| Serverless | Estás empezando o la demanda cambia y prefieres que AWS gestione el escalado de capacidad. | No dimensionas nodos, pero pagas por datos guardados y solicitudes. Para Valkey o Redis OSS, el cliente debe admitir modo de clúster habilitado. |
+| Clúster con nodos | Puedes estimar la carga o necesitas controlar el tipo y la cantidad de nodos, su ubicación y el diseño del clúster. | Debes observar la capacidad y ajustar los nodos. La facturación depende de cada nodo y de cuánto tiempo permanece activo. |
 
+Consulta la [comparación vigente entre Serverless y nodos](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/WhatIs.deployment.html) antes de escoger. Las versiones compatibles y algunas funciones varían según el motor y el despliegue.
 
-<p><strong>Ventajas</strong></p>
+Como complemento a la opción Serverless, mira la charla [RoxsFest: Amazon ElastiCache Serverless](https://www.youtube.com/watch?v=zn_k5AZcPNA), con Odina Jacobs, sobre el uso y el rendimiento del servicio.
 
+Una caché clásica suele guardar datos que la aplicación puede reconstruir desde otra fuente. Eso no significa que cada configuración de ElastiCache sea siempre efímera: **Valkey 9.0 en un clúster con nodos puede habilitar durabilidad** mediante un registro transaccional Multi-AZ. Es una configuración específica, no disponible en Serverless, con garantías y costos propios; si la aplicación no puede reconstruir los datos, evalúa [la función de durabilidad](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/durability.html), sus [limitaciones](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/Durability.Limitations.html) y los requisitos antes de tratar el servicio como almacén principal.
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventaja</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Mejora del rendimiento</td>
-<td>Reduce la latencia y acelera la respuesta del sistema</td>
-</tr>
-<tr>
-<td>Reducción de costos</td>
-<td>Solución de caching escalable y costo-efectiva</td>
-</tr>
-<tr>
-<td>Manejo de cargas pesadas</td>
-<td>Maneja picos de tráfico de manera efectiva</td>
-</tr>
-<tr>
-<td>Predecibilidad</td>
-<td>Permite planificar mejor el rendimiento de la aplicación</td>
-</tr>
-<tr>
-<td>Elimina cuellos de botella</td>
-<td>Evita la sobrecarga en las bases de datos</td>
-</tr>
-</tbody>
-</table></figure>
+Para escuchar una conversación más amplia sobre ElastiCache junto a sus fuentes de datos, la comunidad AWS Women Colombia publicó en 2021 [Ataque del Nivel 200: Amazon RDS, Amazon Aurora y Amazon ElastiCache](https://www.youtube.com/watch?v=5xlrzYNEFs0). Es una grabación histórica para conocer experiencias, no una referencia para configurar versiones actuales.
 
+## Patrón cache-aside: leer, cargar y expirar
 
-<p><strong>Casos de Uso Comunes</strong></p>
+En *cache-aside*, la aplicación decide cuándo consultar el caché y cuándo acudir a la fuente de verdad:
 
+1. Construye una clave que identifique el dato y cada dimensión que cambie la respuesta. Por ejemplo, `producto:v1:tienda-42:sku-381`.
+2. Busca esa clave en ElastiCache. Si existe, devuelve el valor guardado.
+3. Si no existe, lee el producto de la base de datos, guarda el resultado con un TTL y responde al usuario.
+4. Después de confirmar una actualización en la base, invalida la clave correspondiente. El siguiente lector volverá a cargar el valor desde el origen.
 
-<ul>
-<li>Almacenamiento de datos en tiempo real (líderes en juegos en línea)</li>
-<li>Caché de sesión (información de inicio de sesión de usuarios)</li>
-<li>Caché de datos analíticos (resultados de consultas complejas)</li>
-<li>Caché de contenido web (imágenes y archivos)</li>
-</ul>
+El TTL limita cuánto tiempo queda una entrada antes de expirar; **no sincroniza** el caché con la base. Elígelo según la antigüedad máxima que tolera el producto: una descripción de catálogo puede admitir más demora que una existencia o un permiso. Si la invalidación falla, el dato viejo podría seguir apareciendo hasta el vencimiento. Un lector concurrente también puede volver a cargar un valor antiguo justo después de que otra solicitud lo haya borrado; para requisitos estrictos de actualidad, coordina lecturas y escrituras o evita servir ese dato desde caché.
 
+Incluye en la clave el tenant, la versión, el idioma u otros atributos que alteren el resultado. Obtén el identificador del tenant de la identidad autenticada y limita también la consulta al origen con ese identificador. Si dos usuarios no deben compartir la misma respuesta, no uses una clave global. Si los identificadores pueden contener el separador elegido, codifica cada componente de forma inequívoca.
 
-<p>En resumen, Amazon ElastiCache es una herramienta poderosa para mejorar el rendimiento y la escalabilidad de aplicaciones en la nube, al almacenar datos en memoria y reducir la carga en las bases de datos.</p>
+Cuando el caché no responde, puedes continuar con la base solo si esta soporta las lecturas adicionales; ante una caída, el desvío de muchas solicitudes puede sobrecargarla. Define timeouts cortos, registra aciertos, fallos y errores de conexión, y maneja como fallo de caché únicamente los errores de red previstos. La explicación de [caché-aside, TTL e invalidación de AWS](https://aws.amazon.com/blogs/database/building-resilient-applications-design-patterns-for-handling-database-outages/) describe el mismo flujo. Para comparar otras capas, consulta también [la guía de caché en aplicaciones serverless](/blog/estrategias-de-cache-rentables-para-apps-serverless/), que cubre Lambda, API Gateway, CloudFront y DAX.
 
+## Conexión, TLS y autenticación
 
-<h2 id="entendiendo-amazon-elasticache" tabindex="-1">Entendiendo <a href="https://aws.amazon.com/elasticache/" rel="noopener noreferrer" target="_blank">Amazon ElastiCache</a></h2>
+Para un endpoint privado de VPC, ejecuta el cliente en una red con ruta al caché y permite en el grupo de seguridad del caché solo el tráfico TCP que necesite el grupo de seguridad de la aplicación. No abras el puerto a cualquier origen. Usa el nombre DNS del endpoint que entrega ElastiCache; la dirección IP subyacente puede cambiar. Los puertos predeterminados son **6379** para Valkey o Redis OSS y **11211** para Memcached. Serverless de Valkey o Redis OSS utiliza **6379** para el endpoint principal y **6380** para el endpoint de lectura; algunos clientes intentan conectar a ambos. Confirma puertos y rutas en la [guía de conectividad persistente](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/TroubleshootingConnections.html).
 
+El cifrado en tránsito está activado en Serverless. En clústeres con nodos, habilítalo según el motor, la versión y el tipo de clúster; configura también el cliente para usar TLS. La [guía de TLS de ElastiCache](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/in-transit-encryption.html) detalla compatibilidad y restricciones. Como excepción, AWS documenta [endpoints públicos para cachés Serverless de Valkey 9.0 o posterior](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/serverless-public-endpoints-chapter.html); [conectarse a uno requiere IAM y TLS 1.3](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/connecting-public-endpoint.html). No presupongas que Redis OSS o Memcached ofrecen la misma opción.
 
-<p><figure><img alt="Amazon ElastiCache" src="/assets/blog/adf2dccdf60ff88a8d1eaba5.jpg"/></figure></p>
+Para Valkey y Redis OSS, configura usuarios y permisos mediante RBAC. La autenticación con IAM está disponible con Valkey 7.2 o posterior y Redis OSS 7.0 o posterior, requiere TLS y usa tokens temporales; en conexiones duraderas, el cliente debe renovar las credenciales. Consulta [autenticación con IAM](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/auth-iam.html) y aplica la opción de autenticación que corresponda al motor elegido. Guarda las credenciales fuera del código y verifica tanto el acceso de red como los permisos del usuario.
 
+Si una conexión falla, revisa primero el endpoint, la región, la VPC o ruta, los grupos de seguridad, el puerto y TLS. Luego confirma credenciales y permisos. Si aparece `CROSSSLOT`, comprueba que el cliente admita modo de clúster y que las operaciones con varias claves respeten las ranuras del clúster. La [guía de resolución de problemas de ElastiCache](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/wwe-troubleshooting.html) reúne causas y pasos de diagnóstico.
 
-<p>En esta sección, profundizaremos en qué es Amazon ElastiCache, presentando una descripción detallada del servicio, incluyendo sus características principales, motores de caching compatibles y cómo se diferencia de otros servicios de caching en memoria.</p>
+## Mide el resultado y el costo
 
+Una tasa alta de aciertos no prueba por sí sola que la caché convenga. Compara, con tráfico parecido, la latencia p50/p95 de la aplicación, lecturas y carga del origen, errores, tamaño guardado, solicitudes y costo total. En CloudWatch, revisa aciertos y fallos; para Serverless de Valkey o Redis OSS también puedes consultar `BytesUsedForCache`, `ElastiCacheProcessingUnits` y latencias del servicio. Estas últimas miden el tramo interno de ElastiCache, no el tiempo de red entre tu aplicación y el endpoint. AWS describe esas señales en [métricas de cachés Serverless](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/serverless-metrics-events-redis.html) y [métricas de ElastiCache](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/CacheMetrics.html).
 
-<h3 id="caracter%C3%ADsticas-clave" tabindex="-1">Características clave</h3>
+| Opción | Qué se cobra principalmente |
+| --- | --- |
+| Serverless | Datos almacenados en GB-hora y solicitudes en unidades ECPU, que consideran procesamiento y datos transferidos. La página actual indica un mínimo medido de 100 MB por caché para Valkey y 1 GB para Redis OSS o Memcached. |
+| Nodos bajo demanda | Tipo y número de nodos por hora. El precio cambia por motor, tamaño y región; otras opciones de precio pueden cambiar la tarifa. |
 
+Copias de seguridad y transferencias pueden modificar el total. Estima con la [página de precios de ElastiCache](https://aws.amazon.com/elasticache/pricing/) y su calculadora para la región, el motor, los bytes por solicitud y la carga prevista. Las tarifas y mínimos cambian; no tomes Serverless como automáticamente más barato que un nodo o que consultar directamente el origen.
 
-<p>Amazon ElastiCache es un servicio de caching en memoria que ofrece una solución escalable y de alto rendimiento para mejorar el rendimiento de las aplicaciones web. A continuación, se presentan algunas de las características clave de Amazon ElastiCache:</p>
+Al terminar una práctica, detén la aplicación y comprueba la cuenta, región y nombre del recurso en la consola de ElastiCache antes de borrarlo. Elige el motor y el recurso exactos (caché Serverless, clúster o grupo de replicación), abre **Actions → Delete** y revisa el diálogo de confirmación. El borrado no se puede cancelar una vez iniciado; decide antes si necesitas una copia final. La guía de AWS explica cómo [limpiar una caché Serverless](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/read-write-cleanup-mem.html), [borrar un grupo de replicación](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/Replication.DeletingRepGroup.html) y [borrar un clúster Valkey o Redis OSS desde la consola](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/Clusters.Delete-gs.redis.html). Para una caché independiente, consulta también [el procedimiento de borrado del clúster](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/Clusters.Delete.html). Revisa las copias manuales: pueden conservarse después de borrar ciertos clústeres y se eliminan por separado.
 
+## Recursos y comunidades para continuar
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Característica</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Facilidad de configuración y escalabilidad</td>
-<td>Permite a los desarrolladores y administradores de sistemas configurar y escalar fácilmente un entorno de caching en memoria distribuido en la nube.</td>
-</tr>
-<tr>
-<td>Compatibilidad con motores de caching</td>
-<td>Es compatible con dos motores de caching populares: Redis y Memcached.</td>
-</tr>
-<tr>
-<td>Almacenamiento en memoria</td>
-<td>Almacena datos en memoria para reducir la latencia y mejorar el rendimiento de las aplicaciones web.</td>
-</tr>
-</tbody>
-</table></figure>
+La [guía oficial para empezar con ElastiCache](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/GettingStarted.html) enlaza tutoriales de Python y de acceso desde Lambda en una VPC. Antes de aprovisionar recursos, revisa el precio y el apartado de limpieza del tutorial.
 
+Puedes seguir las sesiones técnicas de AWS Women Colombia en su [canal de YouTube](https://www.youtube.com/channel/UCdpHSMDDwo4_d_u3mSU41Mw); la grabación sobre RDS, Aurora y ElastiCache aparece junto al contexto de motores más arriba.
 
-<h3 id="ventajas-y-desventajas" tabindex="-1">Ventajas y desventajas</h3>
-
-
-<p>A continuación, se presentan las ventajas y desventajas de utilizar Amazon ElastiCache:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th><strong>Ventajas</strong></th>
-<th><strong>Desventajas</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Mejora el rendimiento</td>
-<td>Costo</td>
-</tr>
-<tr>
-<td>Escalabilidad</td>
-<td>Complejidad</td>
-</tr>
-<tr>
-<td>Compatibilidad con motores de caching</td>
-<td>Limitaciones de almacenamiento</td>
-</tr>
-</tbody>
-</table></figure>
+Para preguntar, compartir una decisión de diseño o encontrar una actividad local, explora el [directorio de comunidades AWS](/comunidades/) y la [agenda de eventos](/eventos/). El portal de [AWS User Group Perú](https://awsugperu.cloud/) publica sus grupos locales, Cloud Clubs, actividades y recursos; confirma allí qué encuentros siguen vigentes. La comunidad [AWS Women Colombia](https://awswomencolombia.com/) comparte eventos, experiencias y material técnico en español.
 
+## Preguntas frecuentes
 
-<h2 id="casos-de-uso-comunes" tabindex="-1">Casos de uso comunes</h2>
+### ¿ElastiCache reemplaza a la base de datos?
 
+En el patrón de caché descrito aquí, no: la base conserva la fuente de verdad y la aplicación puede reconstruir las entradas vencidas o ausentes. Valkey 9.0 con durabilidad habilitada es una opción distinta; no la confundas con una caché cache-aside sin persistencia.
 
-<p>Amazon ElastiCache es una herramienta versátil que se puede utilizar en various scenarios para mejorar el rendimiento de las aplicaciones. A continuación, se presentan algunos de los casos de uso más comunes:</p>
+### ¿Qué conviene: ElastiCache Serverless o nodos?
 
+Serverless reduce el trabajo de dimensionar capacidad y sigue la demanda, con costo por datos y solicitudes. Un clúster con nodos ofrece más control sobre hardware y topología y requiere planificar la capacidad. Compara el costo y el rendimiento con las métricas de tu carga antes de decidir.
 
-<h3 id="almacenamiento-de-datos-en-tiempo-real" tabindex="-1">Almacenamiento de datos en tiempo real</h3>
+### ¿Un TTL corto evita todos los datos desactualizados?
 
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th><strong>Uso</strong></th>
-<th><strong>Descripción</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Líderboards en juegos en línea</td>
-<td>Almacenar datos en memoria reduce la latencia y mejora la experiencia del usuario.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="cach%C3%A9-de-sesi%C3%B3n" tabindex="-1">Caché de sesión</h3>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th><strong>Uso</strong></th>
-<th><strong>Descripción</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Información de inicio de sesión de los usuarios</td>
-<td>Reducir la carga en la base de datos y mejorar la respuesta del sistema.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="cach%C3%A9-de-datos-anal%C3%ADticos" tabindex="-1">Caché de datos analíticos</h3>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th><strong>Uso</strong></th>
-<th><strong>Descripción</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Resultados de consultas complejas</td>
-<td>Reducir el tiempo de respuesta y mejorar la eficiencia del sistema.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="cach%C3%A9-de-contenido-web" tabindex="-1">Caché de contenido web</h3>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th><strong>Uso</strong></th>
-<th><strong>Descripción</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Imágenes y archivos</td>
-<td>Reducir la carga en el servidor web y mejorar la experiencia del usuario.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>En resumen, Amazon ElastiCache es una herramienta versátil que se puede utilizar en various scenarios para mejorar el rendimiento de las aplicaciones y reducir la latencia.</p>
-
-
-<h2 id="ventajas-de-utilizar-amazon-elasticache" tabindex="-1">Ventajas de utilizar <a href="https://www.amazon.com/" rel="noopener noreferrer" target="_blank">Amazon</a> ElastiCache</h2>
-
-
-<p><figure><img alt="Amazon" src="/assets/blog/abbe4a67c0929c632517e1ea.jpg"/></figure></p>
-
-
-<p>Amazon ElastiCache ofrece varias ventajas para las aplicaciones que lo utilizan. A continuación, se presentan algunas de las ventajas más importantes:</p>
-
-
-<h3 id="mejora-del-rendimiento" tabindex="-1">Mejora del rendimiento</h3>
-
-
-<p>Almacenar datos en memoria reduce la latencia y mejora la respuesta del sistema. Esto se traduce en una experiencia del usuario más rápida y más satisfactoria.</p>
-
-
-<h3 id="reducci%C3%B3n-de-costos" tabindex="-1">Reducción de costos</h3>
-
-
-<p>ElastiCache es una solución de caching escalable y costo-efectiva. Al reducir la carga en la base de datos y los servidores, se pueden ahorrar recursos y reducir los costos.</p>
-
-
-<h3 id="manejo-de-cargas-pesadas" tabindex="-1">Manejo de cargas pesadas</h3>
-
-
-<p>ElastiCache puede manejar cargas pesadas y picos de tráfico de manera efectiva, lo que garantiza que la aplicación siga funcionando sin problemas.</p>
-
-
-<h3 id="predecibilidad" tabindex="-1">Predecibilidad</h3>
-
-
-<p>Con ElastiCache, es posible predecir y planificar mejor el rendimiento de la aplicación, lo que reduce la incertidumbre y mejora la toma de decisiones.</p>
-
-
-<h3 id="eliminaci%C3%B3n-de-cuellos-de-botella-de-base-de-datos" tabindex="-1">Eliminación de cuellos de botella de base de datos</h3>
-
-
-<p>ElastiCache elimina los cuellos de botella de base de datos, lo que permite que la aplicación se ejecute más rápido y de manera más eficiente.</p>
-
-
-<h3 id="ventajas-adicionales" tabindex="-1">Ventajas adicionales</h3>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th><strong>Ventaja</strong></th>
-<th><strong>Descripción</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Mayor escalabilidad</td>
-<td>ElastiCache se puede escalar fácilmente para manejar aumentos en el tráfico o la carga.</td>
-</tr>
-<tr>
-<td>Mejora la experiencia del usuario</td>
-<td>Al reducir la latencia y mejorar la respuesta del sistema, ElastiCache mejora la experiencia del usuario.</td>
-</tr>
-<tr>
-<td>Mayor flexibilidad</td>
-<td>ElastiCache es compatible con varios motores de caching y se puede integrar con various tecnologías.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>En resumen, Amazon ElastiCache es una herramienta poderosa que puede mejorar significativamente el rendimiento y la eficiencia de las aplicaciones. Al entender las ventajas de utilizar ElastiCache, los desarrolladores y los administradores de sistemas pueden tomar decisiones informadas sobre cómo implementar esta tecnología en sus aplicaciones.</p>
-
-
-<h2 id="c%C3%B3mo-funciona-amazon-elasticache" tabindex="-1">Cómo funciona Amazon ElastiCache</h2>
-
-
-<p>Amazon ElastiCache es un servicio de caching en memoria que actúa como un intermediario entre la aplicación y la base de datos. Cuando se solicita datos, ElastiCache primero consulta la caché. Si los datos existen en la caché y están actualizados, ElastiCache devuelve los datos directamente a la aplicación. Esto se conoce como un "acceso a la caché" (cache hit).</p>
-
-
-<h3 id="proceso-de-caching" tabindex="-1">Proceso de caching</h3>
-
-
-<p>Si los datos no existen en la caché o han caducado (lo que se conoce como un "fallo de la caché" o cache miss), el proceso es el siguiente:</p>
-
-
-<p>1. La aplicación solicita datos a ElastiCache. 2. Como la caché no tiene los datos solicitados, devuelve una respuesta nula. 3. La aplicación solicita entonces los datos a la base de datos. 4. La base de datos devuelve los datos a la aplicación. 5. La aplicación escribe los datos recibidos en la caché de ElastiCache para que estén disponibles para una recuperación más rápida la próxima vez que se soliciten.</p>
-
-
-<h3 id="motores-de-caching-compatibles" tabindex="-1">Motores de caching compatibles</h3>
-
-
-<p>ElastiCache admite dos motores de caching populares: Redis y Memcached.</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Motor de caching</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Redis</td>
-<td>Un almacén de datos en memoria que ofrece características avanzadas como persistencia de datos, mensajería pub/sub y indexación geoespacial.</td>
-</tr>
-<tr>
-<td>Memcached</td>
-<td>Un sistema de caching de objetos en memoria de alto rendimiento conocido por su simplicidad y velocidad.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="escalabilidad" tabindex="-1">Escalabilidad</h3>
-
-
-<p>Al utilizar ElastiCache, se puede crear un clúster de caching que se puede escalar horizontalmente para manejar aumentos en el tráfico o la carga. Esto se logra agregando más nodos de caching al clúster, lo que distribuye los datos entre múltiples nodos y mejora tanto la lectura como la escritura de datos.</p>
-
-
-<h2 id="estrategias-de-caching" tabindex="-1">Estrategias de caching</h2>
-
-
-<p>El almacenamiento en caché es una técnica crucial para mejorar el rendimiento de las aplicaciones. En Amazon ElastiCache, existen varias estrategias de caching que se pueden utilizar para almacenar y recuperar datos de manera eficiente.</p>
-
-
-<h3 id="estrategias-de-caching-1" tabindex="-1">Estrategias de caching</h3>
-
-
-<p>A continuación, se presentan algunas de las estrategias de caching más comunes:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Estrategia</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Lazy loading</strong></td>
-<td>Carga los datos en la caché solo cuando se necesitan. Útil cuando se trabajan con grandes cantidades de datos y se desea reducir la carga en la base de datos.</td>
-</tr>
-<tr>
-<td><strong>Write-through</strong></td>
-<td>Escribe los datos directamente en la base de datos y los almacena en la caché al mismo tiempo. Útil cuando se requiere alta disponibilidad y consistencia de datos.</td>
-</tr>
-<tr>
-<td><strong>Agregar TTL (Time To Live)</strong></td>
-<td>Asigna un tiempo de vida (TTL) a los datos almacenados en la caché. Cuando el TTL expira, los datos se eliminan de la caché y se vuelven a cargar desde la base de datos.</td>
-</tr>
-<tr>
-<td><strong>Selección del motor de caching adecuado</strong></td>
-<td>Amazon ElastiCache admite dos motores de caching populares: Redis y Memcached. La selección del motor de caching adecuado depende del tipo de datos y del patrón de acceso a los mismos.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="selecci%C3%B3n-de-la-estrategia-de-caching-adecuada" tabindex="-1">Selección de la estrategia de caching adecuada</h3>
-
-
-<p>La selección de la estrategia de caching adecuada depende de varios factores, como el tipo de datos, el patrón de acceso a los mismos, la carga de trabajo y los requisitos de rendimiento. Es importante evaluar cuidadosamente las necesidades de la aplicación y seleccionar la estrategia de caching que mejor se adapte a ellas.</p>
-
-
-<p>En resumen, las estrategias de caching en Amazon ElastiCache permiten mejorar el rendimiento de las aplicaciones al reducir la carga en la base de datos y acelerar el acceso a los datos. Al seleccionar la estrategia de caching adecuada, se puede asegurar que la aplicación se ejecuta de manera eficiente y escalable.</p>
-
-
-<h2 id="conclusi%C3%B3n" tabindex="-1">Conclusión</h2>
-
-
-<p>En resumen, Amazon ElastiCache es una herramienta poderosa para mejorar el rendimiento de las aplicaciones en la nube. Almacenar datos en memoria y reducir la carga en la base de datos, ElastiCache puede ayudar a las organizaciones a mejorar la velocidad y la escalabilidad de sus aplicaciones.</p>
-
-
-<h3 id="ventajas-de-utilizar-amazon-elasticache-1" tabindex="-1">Ventajas de utilizar Amazon ElastiCache</h3>
-
-
-<p>A continuación, se presentan algunas de las ventajas clave de utilizar Amazon ElastiCache:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventaja</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Mejora del rendimiento</td>
-<td>Almacenar datos en memoria reduce la latencia y mejora la respuesta del sistema.</td>
-</tr>
-<tr>
-<td>Reducción de costos</td>
-<td>ElastiCache es una solución de caching escalable y costo-efectiva.</td>
-</tr>
-<tr>
-<td>Manejo de cargas pesadas</td>
-<td>ElastiCache puede manejar cargas pesadas y picos de tráfico de manera efectiva.</td>
-</tr>
-<tr>
-<td>Predecibilidad</td>
-<td>Con ElastiCache, es posible predecir y planificar mejor el rendimiento de la aplicación.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="implementaci%C3%B3n-exitosa-de-amazon-elasticache" tabindex="-1">Implementación exitosa de Amazon ElastiCache</h3>
-
-
-<p>Para implementar con éxito Amazon ElastiCache en entornos de nube, es importante:</p>
-
-
-<ul>
-<li>Evaluar cuidadosamente las necesidades de la aplicación</li>
-<li>Seleccionar la estrategia de caching adecuada</li>
-<li>Asegurarse de que la configuración de ElastiCache se ajuste a las necesidades específicas de la aplicación</li>
-<li>Monitorear y ajustar regularmente para garantizar el rendimiento óptimo</li>
-</ul>
-
-
-<p>En última instancia, Amazon ElastiCache es una herramienta valiosa para cualquier organización que busque mejorar el rendimiento y la escalabilidad de sus aplicaciones en la nube.</p>
-
-
-<h2 id="recursos-adicionales" tabindex="-1">Recursos adicionales</h2>
-
-
-<p>Para aquellos que desean profundizar en su comprensión de Amazon ElastiCache y obtener ayuda adicional para su implementación, aquí hay algunos recursos adicionales que pueden ser útiles:</p>
-
-
-<h3 id="documentaci%C3%B3n-y-cursos" tabindex="-1">Documentación y cursos</h3>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Recurso</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><a href="https://docs.aws.amazon.com/AmazonElastiCache/latest/mem-ug/what-is-elasticache.html" rel="noopener noreferrer" target="_blank">Documentación de AWS ElastiCache</a></td>
-<td>La documentación oficial de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> proporciona información detallada sobre las características, beneficios y casos de uso de ElastiCache.</td>
-</tr>
-<tr>
-<td><a href="https://aws.amazon.com/training/" rel="noopener noreferrer" target="_blank">Cursos en línea de AWS</a></td>
-<td>AWS ofrece una variedad de cursos en línea gratuitos y de pago que cubren temas como ElastiCache, Redis y caching en la nube.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="comunidad-y-gu%C3%ADas" tabindex="-1">Comunidad y guías</h3>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Recurso</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><a href="https://forums.aws.amazon.com/" rel="noopener noreferrer" target="_blank">Comunidad de AWS</a></td>
-<td>La comunidad de AWS es un lugar para conectarse con otros desarrolladores y expertos en la nube, hacer preguntas y compartir conocimientos sobre ElastiCache y otros servicios de AWS.</td>
-</tr>
-<tr>
-<td><a href="https://docs.aws.amazon.com/AmazonElastiCache/latest/mem-ug/GettingStarted.html" rel="noopener noreferrer" target="_blank">Guía de inicio rápido de ElastiCache</a></td>
-<td>Esta guía de inicio rápido proporciona pasos detallados para configurar y ejecutar ElastiCache en su entorno de nube.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Esperamos que estos recursos adicionales le ayuden a obtener una comprensión más profunda de Amazon ElastiCache y a implementarlo con éxito en su entorno de nube.</p>
-
-
-<h2 id="preguntas-frecuentes" tabindex="-1">Preguntas frecuentes</h2>
-
-
-<h3 id="%C2%BFqu%C3%A9-se-almacena-en-la-memoria-cach%C3%A9%3F" tabindex="-1">¿Qué se almacena en la memoria caché?</h3>
-
-
-<p>La memoria caché almacena datos que se utilizan con frecuencia, como resultados de consultas, objetos de sesión y otros datos que se necesitan rápidamente. Esto permite que las solicitudes futuras de dichos datos se atiendan con mayor rapidez que si se debe acceder a los datos desde la ubicación de almacenamiento principal.</p>
-
-
-<h3 id="%C2%BFes-elasticache-un-servicio-de-almacenamiento%3F" tabindex="-1">¿Es ElastiCache un servicio de almacenamiento?</h3>
-
-
-<p>No, Amazon ElastiCache no es un servicio de almacenamiento. Es un servicio de caching en memoria que proporciona acceso rápido a los datos y reduce la carga en las bases de datos y aplicaciones.</p>
-
-
-<h4 id="caracter%C3%ADsticas-clave-de-elasticache" tabindex="-1">Características clave de ElastiCache</h4>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Característica</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Almacenamiento en memoria</td>
-<td>Almacena datos en memoria para reducir la latencia y mejorar el rendimiento de las aplicaciones.</td>
-</tr>
-<tr>
-<td>Acceso rápido</td>
-<td>Proporciona acceso rápido a los datos para mejorar la respuesta del sistema.</td>
-</tr>
-<tr>
-<td>Reducción de carga</td>
-<td>Reduce la carga en las bases de datos y aplicaciones para mejorar el rendimiento general.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/amazon-dynamodb-guia-basica/">Amazon DynamoDB: guía básica</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-rds-y-aurora/">Mejores prácticas para Amazon RDS y Aurora</a></li><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/">arquitecturas multi-región en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/bases-de-datos-relacionales-en-aws-con-amazon-rds-y-amazon-aurora/">Bases de datos relacionales en AWS con Amazon RDS y Amazon Aurora</a></li>
-</ul>
-</p>
+No. Reduce el tiempo máximo habitual que una entrada permanece guardada, pero una actualización también debe invalidar o versionar las claves relacionadas. Considera fallos de invalidación y escrituras concurrentes al definir cuánta demora es aceptable.

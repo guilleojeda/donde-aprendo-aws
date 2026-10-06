@@ -1,409 +1,96 @@
 ---
-title: "Guía completa: análisis de costos de tráfico en AWS"
-description: "Aprende a optimizar los costos de tráfico en AWS con herramientas y estrategias efectivas para manejar tu infraestructura de manera eficiente."
+title: "Cómo analizar los costos de transferencia de datos en AWS"
+description: "Identifica cargos de transferencia en Cost Explorer y CUR 2.0, reconstruye la ruta y compara NAT y endpoints sin perder disponibilidad."
 author: "guille-ojeda"
 publishedAt: "2024-12-30"
 publishedTimestamp: "2024-12-30T12:06:07.312Z"
+modifiedTimestamp: "2026-10-06T16:00:55-03:00"
+review:
+  date: "2026-10-06"
 cover: "/assets/blog/editorial-fundamentos.png"
 coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
 ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
-  - title: "Ingeniería de caos en AWS con fault injection simulator"
-    url: "https://dondeaprendoaws.com/blog/ingenieria-de-caos-en-aws-con-fault-injection-simulator/"
-  - title: "Tipos y tamaños de instancias EC2: guía completa"
-    url: "https://dondeaprendoaws.com/blog/tipos-y-tamanos-de-instancias-ec2-guia-completa/"
-  - title: "Amazon DynamoDB: la base de datos NoSQL de AWS"
-    url: "https://dondeaprendoaws.com/blog/amazon-dynamodb-la-base-de-datos-nosql-de-aws/"
-
+  - title: "Cómo usar AWS Cost Explorer: filtros y costos que no aparecen"
+    url: "https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/"
+  - title: "Cómo reducir costos de transferencia intra-región en AWS"
+    url: "https://dondeaprendoaws.com/blog/como-reducir-costos-de-transferencia-intra-region-en-aws/"
 ---
 
-<p>¿Sabías que mover datos entre regiones o servicios en AWS puede aumentar significativamente tu factura mensual? Este artículo te enseña cómo gestionar y optimizar estos costos con herramientas como <strong><a href="https://aws.amazon.com/aws-cost-management/aws-cost-explorer/" rel="noopener noreferrer" target="_blank">AWS Cost Explorer</a></strong>, <strong><a href="https://calculator.aws/" rel="noopener noreferrer" target="_blank">AWS Pricing Calculator</a></strong>, y estrategias prácticas.</p>
+Para analizar los **costos de transferencia de datos en AWS**, identifica primero qué línea de uso aumentó y después reconstruye la ruta que recorrieron esos datos. No hay una tarifa única por “tráfico”: el cargo depende del servicio, las regiones de origen y destino, la dirección, el volumen y los componentes intermedios. Un NAT Gateway, un endpoint de interfaz o un Transit Gateway también pueden cobrar por procesar datos o por hora, además de los cargos de transferencia que correspondan.
 
+Empieza en **AWS Cost Explorer**, profundiza en las líneas de uso de **AWS Data Exports / Cost and Usage Report 2.0 (CUR 2.0)** cuando haga falta y usa telemetría de red para entender los flujos. Compara el costo total de cada alternativa junto con latencia, seguridad y disponibilidad; reducir una línea de la factura no justifica perder redundancia.
 
-<h3 id="puntos-clave%3A" tabindex="-1">Puntos clave:</h3>
+## 1. Dibuja el recorrido de los datos
 
+Antes de cambiar una arquitectura, anota los elementos necesarios para entender cada flujo:
 
-<ul>
-<li><strong>Costos más altos</strong>: Transferencias entre regiones.</li>
-<li><strong>Costos moderados</strong>: Tráfico entre zonas de disponibilidad.</li>
-<li><strong>Costos bajos</strong>: Transferencias dentro de la misma región.</li>
-</ul>
+- Servicio, cuenta, región y zona de disponibilidad de origen y destino.
+- Dirección del tráfico y volumen transferido durante el período analizado.
+- Saltos de red: balanceadores, NAT Gateway, VPC endpoints, Transit Gateway, Internet Gateway, CloudFront o Direct Connect.
+- Requisitos que el sistema debe conservar, como disponibilidad multi-AZ, latencia, seguridad, recuperación y residencia de datos.
 
+Esta lista ayuda a distinguir, por ejemplo, una transferencia entre dos recursos de una región de los cargos por procesar esos bytes en un NAT Gateway. Para repasar conexiones entre redes, consulta la grabación [VPC e interconexiones de VPC](https://www.youtube.com/watch?v=Mcffd13mkPc), del AWS User Group Guatemala. Es material de la comunidad para estudiar topologías; consulta la documentación y los precios actuales antes de tomar una decisión.
 
-<h3 id="herramientas-%C3%BAtiles%3A" tabindex="-1">Herramientas útiles:</h3>
+## 2. Encuentra qué línea de uso cambió
 
+### Empieza con Cost Explorer
 
-<ul>
-<li><strong>AWS Cost Explorer</strong>: Analiza gastos históricos y proyecta costos futuros.</li>
-<li><strong>AWS Pricing Calculator</strong>: Estima costos para nuevos proyectos.</li>
-<li><strong><a href="https://aws.amazon.com/aws-cost-management/aws-budgets/" rel="noopener noreferrer" target="_blank">AWS Budgets</a></strong>: Establece alertas para evitar sorpresas.</li>
-</ul>
+En Cost Explorer, elige un período cerrado y agrupa los costos por **Service**. Si un servicio aumentó, filtra por ese servicio y prueba **Usage type**; después agrupa por **Region** o **Linked account** para acotar la investigación. Compara períodos con una duración y un patrón de uso semejantes. Una vista del mes en curso todavía puede cambiar.
 
+Cost Explorer organiza costos y uso para investigar tendencias, pero no muestra cada paquete de red ni identifica por sí solo el flujo de una aplicación. AWS actualiza sus datos al menos una vez cada 24 horas y algunos cargos pueden tardar más en llegar desde los sistemas de facturación. La interfaz de Cost Explorer no tiene costo; cada solicitud paginada a su API cuesta USD 0,01, según la [guía oficial de Cost Explorer](https://docs.aws.amazon.com/cost-management/latest/userguide/ce-what-is.html). La guía interna [AWS Cost Explorer: filtros y costos que no aparecen](/blog/analisis-de-costos-de-aws-con-cost-explorer/) amplía cómo interpretar filtros, permisos y diferencias con la factura.
 
-<h3 id="estrategias%3A" tabindex="-1">Estrategias:</h3>
+### Profundiza con CUR 2.0
 
+Cuando necesites revisar líneas de uso, descarga o exporta los datos de facturación. AWS recomienda [CUR 2.0 en Data Exports](https://docs.aws.amazon.com/cur/latest/userguide/) para obtener detalles de costos y uso. En ese esquema, `line_item_usage_type` ayuda a distinguir categorías de transferencia y `line_item_product_code` identifica el producto asociado. Por ejemplo, AWS documenta `USE2-DataTransfer-Regional-Bytes` para tráfico entre zonas de disponibilidad en US East (Ohio), y tipos de uso distintos para transferencia entre regiones y salida a Internet. El prefijo y el nombre dependen del caso; no los trates como una tarifa universal.
 
-<ul>
-<li>Centraliza datos en una región para reducir transferencias.</li>
-<li>Usa <strong><a href="https://aws.amazon.com/cloudfront/" rel="noopener noreferrer" target="_blank">Amazon CloudFront</a></strong> para distribuir contenido de forma eficiente.</li>
-<li>Considera <strong><a href="https://docs.aws.amazon.com/directconnect/" rel="noopener noreferrer" target="_blank">AWS Direct Connect</a></strong> para manejar grandes volúmenes de datos.</li>
-</ul>
+Para algunas líneas puedes habilitar detalle por recurso, pero los identificadores de recurso no están disponibles para todos los cargos. AWS indica que `line_item_resource_id` puede quedar vacío en líneas de transferencia de datos, como explica el [diccionario de columnas de CUR 2.0](https://docs.aws.amazon.com/cur/latest/userguide/table-dictionary-cur2-line-item.html). Por eso, CUR ayuda a confirmar qué uso se facturó, pero no siempre puede atribuir cada GB a una interfaz o conversación de la aplicación.
 
+## 3. Separa transferencia, procesamiento y cargos por hora
 
-<h3 id="comparativa-r%C3%A1pida%3A" tabindex="-1">Comparativa rápida:</h3>
+La factura puede combinar varios componentes de la misma ruta. Revisa la página de precios de cada servicio y el detalle de uso de tu cuenta antes de extrapolar un ejemplo:
 
+| Recorrido o componente | Cargos que conviene comprobar |
+| --- | --- |
+| Salida a Internet o entre regiones | El servicio que mide los datos, la región de origen, el destino, la dirección y los tramos de volumen. Las condiciones de entrada y salida pueden diferir. |
+| Tráfico entre zonas de disponibilidad | Las reglas del servicio y los recursos que se comunican. Algunos pares en la misma AZ pueden no tener cargo de transferencia; no todas las rutas dentro de una región cuestan lo mismo. |
+| NAT Gateway | Horas aprovisionadas, GB procesados por el NAT Gateway y cargos estándar de transferencia que apliquen a la ruta. |
+| Gateway endpoint para S3 o DynamoDB | No tiene cargos adicionales por hora ni por procesamiento del endpoint. Comprueba que sea el tipo de endpoint y la ruta adecuados para el destino. |
+| Interface endpoint de AWS PrivateLink | Horas por zona de disponibilidad y GB procesados; para acceso entre regiones también puede aplicar transferencia interregional. No es automáticamente más barato que NAT Gateway. |
+| Transit Gateway | Horas de attachments, datos procesados y posibles cargos estándar de transferencia. |
+| CloudFront | Transferencia desde ubicaciones de borde, solicitudes y funciones habilitadas. El resultado depende de la ubicación de los usuarios, el contenido cacheable y el tráfico que todavía llega al origen. |
+| [Direct Connect](https://aws.amazon.com/directconnect/pricing/) | Horas y capacidad de los puertos, transferencia saliente según región de origen y ubicación de Direct Connect, y cargos del proveedor o de otros servicios de red que formen parte del recorrido. |
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Escenario</th>
-<th>Impacto en Costos</th>
-<th>Solución Recomendada</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Tráfico entre regiones</td>
-<td>Alto</td>
-<td>Consolidar datos por región</td>
-</tr>
-<tr>
-<td>Tráfico entre zonas</td>
-<td>Medio</td>
-<td>Agrupar recursos por zona</td>
-</tr>
-<tr>
-<td>Tráfico local</td>
-<td>Bajo</td>
-<td>Procesar en la misma zona</td>
-</tr>
-</tbody>
-</table></figure>
+Un ejemplo muestra por qué conviene separar las partidas: si una instancia EC2 accede a S3 en la misma región pasando por NAT Gateway, puede no haber cargo estándar de transferencia entre EC2 y S3 bajo las condiciones del ejemplo de AWS, pero el NAT Gateway sigue cobrando por los GB que procesa y por sus horas aprovisionadas. Si el tráfico sale a Internet o cruza de zona, pueden sumarse otros cargos. Enrutar S3 mediante un gateway endpoint puede evitar el procesamiento de NAT para ese flujo, pero no elimina el cargo por hora del NAT Gateway si la arquitectura aún lo necesita para otros destinos.
 
+El detalle oficial de cargos de [Amazon VPC](https://aws.amazon.com/vpc/pricing/) explica por separado las horas y el procesamiento de NAT Gateway. AWS documenta que los [gateway endpoints para S3 y DynamoDB](https://docs.aws.amazon.com/vpc/latest/privatelink/gateway-endpoints.html) no tienen cargo adicional. Atienden rutas desde su VPC hacia esos servicios en la misma región; no permiten acceso directo desde redes locales ni desde otra VPC. Las páginas de precios de [AWS PrivateLink](https://aws.amazon.com/privatelink/pricing/) y [Transit Gateway](https://aws.amazon.com/transit-gateway/pricing/) describen los cargos de endpoint y de red centralizada. Para comparar los tipos de uso de transferencia, consulta también la guía de [AWS Data Exports sobre cargos de transferencia](https://docs.aws.amazon.com/cur/latest/userguide/cur-data-transfers-charges.html).
 
-<p>Con estas tácticas, puedes mantener el rendimiento de tu red mientras controlas los costos. Aprende a usar estas herramientas y estrategias para optimizar tu infraestructura en AWS.</p>
+## 4. Usa los logs para entender los flujos, no como una factura
 
+**VPC Flow Logs** registra información sobre el tráfico IP que entra y sale de interfaces de red, subredes o VPC. Según el formato elegido, puedes comparar direcciones, interfaces, acción y bytes para entender qué sistemas se comunican y en qué dirección. Cruza ese análisis con las líneas de uso de Cost Explorer o CUR en el mismo período.
 
-<h2 class="sb" id="herramientas-para-analizar-los-costos-de-tr%C3%A1fico" tabindex="-1">Herramientas para analizar los costos de tráfico</h2>
+Un registro de flujo no es una unidad facturable y sus bytes no se convierten directamente en el monto de una línea de factura. Los logs describen tráfico agregado, pueden no contener todos los flujos y su publicación y almacenamiento pueden generar cargos de CloudWatch Logs, S3 o Data Firehose. Revisa las páginas de AWS sobre [VPC Flow Logs](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html) y sus [limitaciones](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs-limitations.html) antes de usarlos como fuente de diagnóstico.
 
+## 5. Compara el costo total sin degradar el servicio
 
-<h3 id="uso-de-aws-cost-explorer" tabindex="-1">Uso de <a href="https://aws.amazon.com/aws-cost-management/aws-cost-explorer/" rel="noopener noreferrer" target="_blank">AWS Cost Explorer</a></h3>
+Para una alternativa, calcula el recorrido completo con [AWS Pricing Calculator](https://calculator.aws/): volumen por dirección, regiones, horas de NAT o endpoints, cargos de procesamiento y los demás componentes de red. La calculadora produce una estimación; confirma las condiciones en las páginas actuales de [precios de EC2](https://aws.amazon.com/ec2/pricing/on-demand/), VPC y los otros servicios implicados. El video [AWS Pricing Calculator paso a paso](https://www.youtube.com/watch?v=e_oVCKBMnkA), publicado por AWS Women Colombia User Group, sirve como apoyo para practicar la estimación.
 
+Evalúa cada cambio con sus efectos operativos:
 
-<p><figure><img alt="AWS Cost Explorer" src="/assets/blog/703ab52f647421de1e04c2c4.jpg"/></figure></p>
+- **NAT Gateway por zona:** compartir un NAT Gateway zonal puede añadir tráfico entre AZ. Poner un NAT Gateway en cada AZ suma cargos por hora, pero puede reducir esos cruces y evitar que la salida de otras zonas dependa de la AZ del gateway. AWS también ofrece [Regional NAT Gateway](https://docs.aws.amazon.com/vpc/latest/userguide/nat-gateways-regional.html), cuyo costo horario depende de las AZ que cubre además de los GB procesados. Compara ambos modos según tráfico y requisito de continuidad; la guía de [NAT Gateway de AWS](https://docs.aws.amazon.com/vpc/latest/userguide/nat-gateway-basics.html) explica el efecto de disponibilidad. No concentres una carga multi-AZ en una sola zona solo para reducir la transferencia. Para un recorrido intra-región más detallado, sigue con [Cómo reducir costos de transferencia intra-región en AWS](/blog/como-reducir-costos-de-transferencia-intra-region-en-aws/).
+- **Endpoints:** compara el costo de procesamiento de NAT con las horas y GB del endpoint de interfaz que reemplazaría parte de la ruta. Para S3 o DynamoDB desde una VPC, un gateway endpoint no tiene cargo adicional; esto no elimina el uso de NAT para otros destinos ni las tarifas propias del servicio.
+- **CloudFront:** una caché puede reducir solicitudes repetidas al origen y mejorar la entrega a usuarios distribuidos, pero no garantiza una factura menor. Incluye transferencia al usuario, solicitudes, tasa de aciertos, características habilitadas y consumo que siga llegando al origen; consulta los [precios actuales de CloudFront](https://aws.amazon.com/cloudfront/pricing/).
+- **Regiones:** acercar datos y cómputo puede reducir algunos flujos interregionales, pero también puede cambiar latencia, recuperación ante desastres, requisitos de residencia y disponibilidad. Compara esos requisitos antes de mover datos o centralizar cargas.
+- **Direct Connect:** no es una reducción automática del costo por GB. Su modelo depende de puertos, volumen de salida, región de origen y ubicación de conexión; incluye también el proveedor y los servicios adicionales de la arquitectura.
 
+Si pruebas una modificación, conserva una línea de base del volumen, costo, latencia, errores y disponibilidad. Cambia una variable a la vez y compara períodos equivalentes cuando los datos de facturación estén disponibles. Una reducción de cargos que empeora el objetivo de disponibilidad no es una optimización válida.
 
-<p>AWS Cost Explorer ofrece datos históricos de hasta 13 meses atrás y proyecciones para los próximos 12 meses. Con su interfaz fácil de usar, puedes analizar patrones de costos, configurar alertas y generar informes detallados según servicio, región o etiquetas específicas.</p>
+## 6. Usa Budgets para avisos, no como tope de gasto
 
+AWS Budgets permite seguir costos reales o previstos y enviar notificaciones cuando se supera o se prevé superar un umbral. Sus datos se actualizan hasta tres veces al día, habitualmente con intervalos de 8 a 12 horas; además, puede haber una demora entre el uso y la notificación. Trata el presupuesto como una señal para investigar, no como un límite que impide incurrir en más cargos. Budgets también ofrece acciones opcionales, como aplicar una política de IAM, pero requieren configuración explícita y no se activan solo por crear un presupuesto. Consulta la guía vigente de [AWS Budgets](https://docs.aws.amazon.com/cost-management/latest/userguide/budgets-managing-costs.html).
 
-<p>Algunas formas de sacarle provecho incluyen:</p>
+## Recursos, comunidades y eventos
 
+Para conectar el diseño de red con su análisis financiero, la grabación [The Cloud Forge: conectividad y FinOps, el arte de crear valor en la nube](https://www.youtube.com/watch?v=k3uIrKU50ak) comparte una charla del AWS User Group Medellín. Si tu problema se concentra en conectividad híbrida o diseño de redes, puedes plantearlo en el [AWS User Group Networking Colombia](https://www.meetup.com/aws-user-group-networking-colombia/). En Argentina, el [AWS User Group Córdoba](https://www.meetup.com/aws-user-group-cordoba-argentina/) invita a personas interesadas en compartir experiencias y aprender sobre AWS.
 
-<ul>
-<li><strong>Crear informes personalizados</strong>: Filtra por servicio, región o etiquetas para obtener información específica.</li>
-<li><strong>Configurar alertas</strong>: Detecta anomalías en los costos antes de que se conviertan en un problema.</li>
-<li><strong>Usar la función de pronóstico</strong>: Calcula posibles gastos futuros basados en el uso histórico.</li>
-</ul>
-
-
-<h3 id="calculadora-de-precios-de-aws" tabindex="-1">Calculadora de precios de AWS</h3>
-
-
-<p>La <a href="https://dondeaprendoaws.com/blog/gestion-de-facturacion-de-aws-guia-completa/">calculadora de precios de AWS</a> permite estimar costos de proyectos, ajustar configuraciones y prever gastos mensuales. Es una herramienta clave para planificación, diseño y presupuestación.</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Escenario</th>
-<th>Beneficio Principal</th>
-<th>Uso Recomendado</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Planificación de Proyectos</td>
-<td>Estimación detallada de costos</td>
-<td>Antes de migrar servicios</td>
-</tr>
-<tr>
-<td><a href="https://dondeaprendoaws.com/blog/10-estrategias-de-optimizacion-de-costos-en-aws/">optimización de costos</a></td>
-<td>Comparación de configuraciones</td>
-<td>Durante la fase de diseño</td>
-</tr>
-<tr>
-<td>Presupuestación</td>
-<td>Proyección de gastos mensuales</td>
-<td>Para presentaciones a stakeholders</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="herramientas-de-terceros-para-gesti%C3%B3n-de-costos" tabindex="-1">Herramientas de terceros para gestión de costos</h3>
-
-
-<p>Las herramientas de terceros complementan las opciones de AWS al ofrecer monitoreo en tiempo real, recomendaciones automatizadas y una integración más amplia con otros servicios. Estas herramientas suelen ser útiles para empresas que manejan infraestructuras más complejas.</p>
-
-
-<p>Es importante tener en cuenta que AWS Cost Explorer tiene un costo de $0.01 por solicitud de API paginada <a href="https://docs.aws.amazon.com/cost-management/latest/userguide/ce-what-is.html?icmpid=docs_ach_docs_ach_help_panel" rel="noopener noreferrer" target="_blank"><sup>[3]</sup></a>. Por otro lado, las herramientas de terceros generalmente funcionan bajo modelos de suscripción.</p>
-
-
-<p>Para una estrategia más completa, puedes combinar estas herramientas con servicios como <strong>AWS Budgets</strong> y <strong><a href="https://docs.aws.amazon.com/awssupport/latest/user/trusted-advisor.html" rel="noopener noreferrer" target="_blank">AWS Trusted Advisor</a></strong> <a href="https://docs.aws.amazon.com/whitepapers/latest/cost-optimization-laying-the-foundation/reporting-cost-optimization-tools.html" rel="noopener noreferrer" target="_blank"><sup>[1]</sup></a>. Estas opciones ayudan a identificar áreas de mejora, un tema que exploraremos en la siguiente sección.</p>
-
-
-<h2 class="sb" id="estrategias-para-optimizar-los-costos-de-tr%C3%A1fico" tabindex="-1">Estrategias para optimizar los costos de tráfico</h2>
-
-
-<h3 id="reduciendo-el-tr%C3%A1fico-entre-regiones-y-zonas" tabindex="-1">Reduciendo el tráfico entre regiones y zonas</h3>
-
-
-<p>Controlar el tráfico entre regiones y zonas es clave para ahorrar en costos. Puedes lograrlo consolidando el procesamiento en una sola región y agrupando recursos dentro de la misma zona. Aquí algunas recomendaciones:</p>
-
-
-<ul>
-<li>Usa servicios de AWS con soporte para almacenamiento localizado, como <strong><a href="https://aws.amazon.com/s3/" rel="noopener noreferrer" target="_blank">Amazon S3</a></strong> y <strong><a href="https://aws.amazon.com/dynamodb/" rel="noopener noreferrer" target="_blank">Amazon DynamoDB</a></strong>.</li>
-<li>Centraliza el procesamiento de datos en una región o zona específica.</li>
-<li>Coloca los recursos cerca de los usuarios o servicios que los necesiten.</li>
-</ul>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Escenario</th>
-<th>Impacto en Costos</th>
-<th>Solución Recomendada</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Tráfico entre regiones</td>
-<td>Alto</td>
-<td>Replicación regional de datos</td>
-</tr>
-<tr>
-<td>Tráfico entre zonas</td>
-<td>Medio</td>
-<td>Agrupar recursos por zona</td>
-</tr>
-<tr>
-<td>Tráfico local</td>
-<td>Bajo</td>
-<td>Procesar en la misma zona</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Si reducir el tráfico local no es suficiente, las redes de distribución de contenido pueden ser una herramienta efectiva para disminuir costos.</p>
-
-
-<h3 id="redes-de-distribuci%C3%B3n-de-contenido-(cdn)" tabindex="-1">Redes de distribución de contenido (CDN)</h3>
-
-
-<p><strong>Amazon CloudFront</strong> es una excelente opción para reducir costos al almacenar contenido en caché y distribuir datos desde ubicaciones de borde. Esto no solo mejora la eficiencia, sino también la experiencia del usuario.</p>
-
-
-<p>Principales ventajas de CloudFront:</p>
-
-
-<ul>
-<li>Distribución eficiente de contenido, tanto estático como dinámico.</li>
-<li>Reducción de latencia al usar ubicaciones de borde cercanas.</li>
-<li>Menores costos al reducir las transferencias al origen.</li>
-</ul>
-
-
-<p>Para empresas con necesidades más específicas y grandes volúmenes de datos, <strong>AWS Direct Connect</strong> es una solución que vale la pena considerar.</p>
-
-
-<h3 id="ventajas-de-aws-direct-connect" tabindex="-1">Ventajas de <a href="https://docs.aws.amazon.com/directconnect/" rel="noopener noreferrer" target="_blank">AWS Direct Connect</a></h3>
-
-
-<p><figure><img alt="AWS Direct Connect" src="/assets/blog/cdf86af5104a784dbe88150d.jpg"/></figure></p>
-
-
-<p><strong>AWS Direct Connect</strong> proporciona una conexión dedicada entre tu infraestructura local y AWS. Esto es ideal para organizaciones que manejan grandes cantidades de datos. Sin embargo, para obtener el máximo beneficio, es importante planificar bien la arquitectura de conexión y monitorear los patrones de transferencia.</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Característica</th>
-<th>Ventaja</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Conexión Dedicada</td>
-<td>Mayor estabilidad y menor latencia</td>
-</tr>
-<tr>
-<td>Sin Uso de Internet Público</td>
-<td>Mejor seguridad y rendimiento</td>
-</tr>
-<tr>
-<td>Ancho de Banda Predecible</td>
-<td>Control más efectivo de costos</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Combinando estas estrategias con herramientas como <strong>AWS Cost Explorer</strong> para analizar patrones de uso, puedes reducir los costos de tráfico sin comprometer el rendimiento de tu red.</p>
-
-
-
-
-<h2 class="sb" id="mejores-pr%C3%A1cticas-para-la-gesti%C3%B3n-continua-de-costos" tabindex="-1">Mejores prácticas para la gestión continua de costos</h2>
-
-
-<h3 id="monitoreo-e-informes" tabindex="-1">Monitoreo e informes</h3>
-
-
-<p>Con <strong>AWS Cost Explorer</strong>, puedes analizar patrones de gasto tanto históricos como actuales mediante informes personalizados. Para gestionar los costos de forma eficiente:</p>
-
-
-<ul>
-<li>Configura informes personalizados para identificar tendencias mensuales, comparar regiones y detectar picos de tráfico.</li>
-<li>Examina patrones de uso para reconocer servicios y horarios con mayor consumo, lo que te ayudará a encontrar <a href="https://dondeaprendoaws.com/blog/10-estrategias-para-optimizar-costos-de-red-en-aws/">oportunidades para reducir costos</a>.</li>
-</ul>
-
-
-<h3 id="configuraci%C3%B3n-de-alertas-y-presupuestos" tabindex="-1">Configuración de alertas y presupuestos</h3>
-
-
-<p><strong>AWS Budgets</strong> te permite establecer límites específicos y recibir notificaciones cuando los costos se acercan a los umbrales definidos <a href="https://docs.aws.amazon.com/whitepapers/latest/cost-optimization-laying-the-foundation/reporting-cost-optimization-tools.html" rel="noopener noreferrer" target="_blank"><sup>[1]</sup></a><a href="https://www.nops.io/blog/aws-cost-optimization-tools/" rel="noopener noreferrer" target="_blank"><sup>[2]</sup></a>.</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Tipo de Alerta</th>
-<th>Umbral Recomendado</th>
-<th>Acción Sugerida</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Presupuesto mensual</td>
-<td>80% del límite</td>
-<td>Revisar uso</td>
-</tr>
-<tr>
-<td>Pronóstico de gastos</td>
-<td>110% del promedio</td>
-<td>Tomar medidas</td>
-</tr>
-<tr>
-<td>Anomalías</td>
-<td>Desviación &gt;20%</td>
-<td>Investigar</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="optimizaci%C3%B3n-continua" tabindex="-1">Optimización continua</h3>
-
-
-<p>La optimización no es un evento único, sino un proceso regular. <strong>AWS Trusted Advisor</strong> ofrece recomendaciones actualizadas para ayudarte a reducir gastos <a href="https://www.nops.io/blog/aws-cost-optimization-tools/" rel="noopener noreferrer" target="_blank"><sup>[2]</sup></a>.</p>
-
-
-<p>Puntos clave para optimizar:</p>
-
-
-<ul>
-<li>Revisa los recursos cada mes y ajusta según el uso real.</li>
-<li>Implementa etiquetas para asignar costos a proyectos o departamentos específicos.</li>
-<li>Automatiza tareas como apagar instancias no utilizadas o ajustar recursos de manera dinámica.</li>
-</ul>
-
-
-<p>Estas prácticas ayudan a mantener los costos bajo control en arquitecturas complejas. El objetivo es equilibrar el rendimiento con la eficiencia económica, utilizando estas herramientas de forma constante para gestionar los gastos de manera efectiva. &lt;/</p>
-
-
-<h2 class="sb" id="conclusi%C3%B3n-y-pr%C3%B3ximos-pasos" tabindex="-1">Conclusión y próximos pasos</h2>
-
-
-<h3 id="resumen-de-puntos-clave" tabindex="-1">Resumen de puntos clave</h3>
-
-
-<p>Gestionar los <a href="https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/">costos de tráfico en AWS</a> requiere un monitoreo constante y el uso de herramientas específicas como <strong>AWS Cost Explorer</strong> y <strong>AWS Budgets</strong> para mantener el control.</p>
-
-
-<p>Algunas herramientas esenciales incluyen:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Aspecto</th>
-<th>Propósito Principal</th>
-<th>Herramienta Sugerida</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Análisis de Costos</td>
-<td>Evaluar y comprender los gastos</td>
-<td>AWS Cost Explorer</td>
-</tr>
-<tr>
-<td>Optimización de Tráfico</td>
-<td>Reducir costos entre regiones</td>
-<td>AWS Direct Connect</td>
-</tr>
-<tr>
-<td>Monitoreo Continuo</td>
-<td>Evitar gastos inesperados</td>
-<td>AWS Budgets</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Aplicar estas herramientas y estrategias te ayudará a mantener una infraestructura eficiente y controlada en términos de costos. Es importante ajustar estas prácticas según las necesidades específicas de tu entorno.</p>
-
-
-<h3 id="recursos-adicionales-de-aprendizaje" tabindex="-1">Recursos adicionales de aprendizaje</h3>
-
-
-<p>Para profundizar en estas estrategias, consulta recursos en español como el blog <a href="https://dondeaprendoaws.com">Dónde Aprendo AWS</a>. Este tipo de contenido puede guiarte en la gestión de costos de red en AWS mientras aseguras un mejor rendimiento de tus recursos.</p>
-
-
-<h2 class="sb" id="preguntas-frecuentes" tabindex="-1">Preguntas frecuentes</h2>
-
-
-<h3 id="%C2%BFc%C3%B3mo-revisar-los-costos-de-cloudwatch%3F" tabindex="-1">¿Cómo revisar los costos de CloudWatch?</h3>
-
-
-<p>En AWS, CloudWatch puede representar una parte importante de los gastos, especialmente en configuraciones complejas. Revisar y entender estos costos es clave para mantener el presupuesto bajo control.</p>
-
-
-<p>Aquí tienes cómo hacerlo:</p>
-
-
-<ul>
-<li><strong>Accede a Cost Explorer</strong>: Inicia sesión en la consola de AWS y abre Cost Explorer.</li>
-<li><strong>Filtra por servicio</strong>: Selecciona "CloudWatch" para enfocarte en este servicio específico.</li>
-<li><strong>Configura la vista</strong>: Ajusta las opciones de visualización según lo que necesites analizar.</li>
-</ul>
-
-
-<p>Herramientas como <strong>AWS Cost Explorer</strong>, <strong>AWS Budgets</strong> y <strong>AWS Trusted Advisor</strong> trabajan juntas para ayudarte a gestionar los costos:</p>
-
-
-<ul>
-<li><strong>Cost Explorer</strong>: Te permite analizar el historial de gastos y prever costos futuros.</li>
-<li><strong>Budgets</strong>: Te envía alertas si superas los límites establecidos.</li>
-<li><strong>Trusted Advisor</strong>: Ofrece recomendaciones para optimizar el uso y reducir gastos <a href="https://docs.aws.amazon.com/whitepapers/latest/cost-optimization-laying-the-foundation/reporting-cost-optimization-tools.html" rel="noopener noreferrer" target="_blank"><sup>[1]</sup></a><a href="https://www.nops.io/blog/aws-cost-optimization-tools/" rel="noopener noreferrer" target="_blank"><sup>[2]</sup></a>.</li>
-</ul>
-
-
-<p>Revisar los costos regularmente te ayuda a identificar patrones y ajustar tu estrategia de gasto. Al combinar estas herramientas con análisis periódicos, puedes mantener un control más preciso sobre los <a href="https://dondeaprendoaws.com/blog/automatizar-alertas-de-costos-aws-en-5-pasos/">costos de CloudWatch</a> <a href="https://docs.aws.amazon.com/whitepapers/latest/cost-optimization-laying-the-foundation/reporting-cost-optimization-tools.html" rel="noopener noreferrer" target="_blank"><sup>[1]</sup></a><a href="https://www.nops.io/blog/aws-cost-optimization-tools/" rel="noopener noreferrer" target="_blank"><sup>[2]</sup></a>. Usarlas como parte de un enfoque integral de optimización hará que los resultados sean aún más efectivos.</p>
-
-
-<h2>Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/">Introducción a los servicios de Amazon Web Services</a></li><li><a href="https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/">análisis de costos de AWS con Cost Explorer</a></li><li><a href="https://dondeaprendoaws.com/blog/optimizacion-de-costos-de-aws-lambda/">Optimización de costos de AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/10-estrategias-de-optimizacion-de-costos-en-aws/">10 estrategias de optimización de costos en AWS</a></li></ul>
+Consulta el [directorio de comunidades AWS](/comunidades/) para encontrar otros grupos y la [agenda de eventos](/eventos/) para revisar fechas, modalidad y condiciones vigentes antes de inscribirte. Si compartes una consulta en una comunidad, acompáñala con un diagrama sin datos sensibles, el tipo de uso que cambió y los requisitos que tu arquitectura debe conservar.
