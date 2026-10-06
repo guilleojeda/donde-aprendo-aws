@@ -1,74 +1,116 @@
 ---
-title: "Cómo usar AWS Cost Explorer para tráfico de red"
-description: "Aprende a utilizar AWS Cost Explorer para monitorear y optimizar los costos de tráfico de red, mejorando tu gestión financiera en la nube."
+title: "Cómo analizar los costos de tráfico de red en AWS Cost Explorer"
+description: "Filtra cargos de red por tipo de uso, servicio y región en Cost Explorer. Aprende cuándo pasar a Data Exports o VPC Flow Logs para encontrar el origen."
 author: "guille-ojeda"
 publishedAt: "2025-01-02"
 publishedTimestamp: "2025-01-02T00:17:31.789Z"
+modifiedTimestamp: "2026-10-06T10:14:29-03:00"
+review:
+  date: "2026-10-06"
 cover: "/assets/blog/editorial-fundamentos.png"
 coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
 ogImage: "/assets/blog/editorial-fundamentos.png"
-related:
-  - title: "AWS Wavelength: guía de escalabilidad y optimización"
-    url: "https://dondeaprendoaws.com/blog/aws-wavelength-guia-de-escalabilidad-y-optimizacion/"
-  - title: "Recursos personalizados en CloudFormation con Lambda"
-    url: "https://dondeaprendoaws.com/blog/recursos-personalizados-en-cloudformation-con-lambda/"
-  - title: "Gestionando múltiples cuentas de AWS con AWS Organizations"
-    url: "https://dondeaprendoaws.com/blog/gestionando-multiples-cuentas-de-aws-con-aws-organizations/"
-
+related: []
 ---
 
-<p><strong>¿Quieres reducir los costos de tráfico de red en <a href="https://aws.amazon.com/">AWS</a>?</strong> <a href="https://aws.amazon.com/aws-cost-management/aws-cost-explorer/">AWS Cost Explorer</a> es la herramienta que necesitas. Te permite analizar, visualizar y optimizar los gastos asociados al tráfico de red, como transferencias entre regiones, zonas de disponibilidad o hacia Internet. Aquí tienes lo esencial:</p>
-<ul><li><strong>¿Qué es?</strong> Una herramienta para monitorear costos y uso en AWS con datos históricos (13 meses) y proyecciones futuras (12 meses).</li><li><strong>¿Por qué usarlo?</strong> El tráfico de red puede ser una de las principales fuentes de gasto en AWS, y entenderlo te ayudará a optimizar tu presupuesto.</li><li><strong>¿Cómo empezar?</strong> Habilita Cost Explorer desde la consola de AWS, configura etiquetas para asignación de costos y usa filtros para identificar patrones de uso.</li></ul>
-<p><strong>Ejemplo de costos clave a monitorear:</strong></p>
-<ul><li>Transferencias entre zonas de disponibilidad (Inter AZ)</li><li>Transferencias salientes a Internet (Internet Out)</li><li>Transferencias entre regiones (Region to Region)</li></ul>
-<p>Con AWS Cost Explorer, puedes aplicar filtros, analizar tendencias y exportar informes para tomar decisiones informadas. Si buscas optimizar tus gastos, esta guía te muestra cómo hacerlo paso a paso.</p>
-<h2 id="configuraci%C3%B3n-de-aws-cost-explorer">Configuración de <a href="https://aws.amazon.com/aws-cost-management/aws-cost-explorer/">AWS Cost Explorer</a></h2>
-<p><img alt="AWS Cost Explorer" src="/assets/blog/703ab52f647421de1e04c2c4.jpg"/></p>
-<h3 id="habilitando-aws-cost-explorer">Habilitando <a href="https://aws.amazon.com/">AWS</a> Cost Explorer</h3>
-<p><img alt="AWS" src="/assets/blog/2ebe3cf8e7ae57e98d3af846.jpg"/></p>
-<p>Para analizar los costos asociados al tráfico de red, dirígete a AWS Cost Explorer desde la Consola de AWS. Este servicio suele estar activado por defecto en todas las cuentas. Si no es tu caso, simplemente entra a la consola y selecciona la opción <strong>'<a href="https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/">habilitar Cost Explorer</a>'</strong>.</p>
-<h3 id="preparando-los-datos-iniciales">Preparando los datos iniciales</h3>
-<p>El primer paso para obtener una visión detallada de los costos relacionados con el tráfico de red es habilitar y <a href="https://dondeaprendoaws.com/blog/automatizar-alertas-de-costos-aws-en-5-pasos/">preparar AWS Cost Explorer</a>. El procesamiento inicial puede tardar hasta 24 horas, ya que se recopilan datos históricos y se procesan etiquetas asociadas.</p>
-<p><strong>Aspectos clave del procesamiento</strong>:</p>
-<ul><li>Datos históricos de uso.</li><li>Información de costos por cada servicio.</li><li>Detalles sobre transferencias de datos.</li><li>Datos vinculados a etiquetas configuradas.</li></ul>
-<p>Para un análisis más preciso de los costos de tráfico de red, se recomienda configurar las etiquetas de asignación de costos desde el inicio <a href="https://aws.amazon.com/blogs/mt/using-aws-cost-explorer-to-analyze-data-transfer-costs/">[1]</a>. Aunque el acceso a la interfaz es gratuito, ten en cuenta que la API de Cost Explorer tiene un costo de $0.01 por solicitud paginada <a href="https://docs.aws.amazon.com/cost-management/latest/userguide/ce-what-is.html?icmpid=docs_ach_docs_ach_help_panel">[3]</a>.</p>
-<p>A continuación, se detallan los principales tipos de transferencia de datos que debes monitorear:</p>
-<table><thead><tr><th>Tipo de Transferencia</th><th>Descripción</th><th>Relevancia para Costos</th></tr></thead><tbody><tr><td>EC2: Data Transfer - Inter AZ</td><td>Transferencias entre Zonas de Disponibilidad</td><td>Alta</td></tr><tr><td>EC2: Data Transfer - Internet (Out)</td><td>Transferencias salientes a Internet</td><td>Muy Alta</td></tr><tr><td>EC2: Data Transfer - Region to Region</td><td>Transferencias entre Regiones</td><td>Alta</td></tr></tbody></table>
-<p>Con los datos iniciales procesados, puedes empezar a aplicar filtros y analizar costos específicos relacionados con el tráfico de red <a href="https://aws.amazon.com/blogs/mt/using-aws-cost-explorer-to-analyze-data-transfer-costs/">[1]</a><a href="https://docs.aws.amazon.com/cost-management/latest/userguide/ce-filtering.html">[2]</a>.</p>
-<h2 id="analizando-costos-de-tr%C3%A1fico-de-red-con-aws-cost-explorer">Analizando costos de tráfico de red con AWS Cost Explorer</h2>
-<h3 id="aplicando-filtros-para-el-an%C3%A1lisis-de-costos">Aplicando filtros para el análisis de costos</h3>
-<p>Para desglosar los costos relacionados con el tráfico de red, puedes usar filtros específicos en AWS Cost Explorer, como:</p>
-<ul><li><strong>Servicio</strong>: Detecta gastos asociados a EC2, ELB o S3.</li><li><strong>Cuentas vinculadas</strong>: Ideal para revisar múltiples cuentas de AWS.</li><li><strong>Etiquetas</strong>: Clasifica los costos según ambientes o proyectos.</li></ul>
-<p>Estos filtros ayudan a identificar patrones claros en los gastos de tráfico de red <a href="https://aws.amazon.com/blogs/mt/using-aws-cost-explorer-to-analyze-data-transfer-costs/">[1]</a>. Una vez aplicados, el siguiente paso es analizar los diferentes tipos de transferencia de datos y cómo afectan los costos.</p>
-<h3 id="entendiendo-los-tipos-de-transferencia-de-datos">Entendiendo los tipos de transferencia de datos</h3>
-<p>Cada tipo de transferencia influye de manera distinta en los costos. Aquí tienes un desglose:</p>
-<table><thead><tr><th>Tipo de Transferencia</th><th>Descripción</th><th>Estrategia de Optimización</th></tr></thead><tbody><tr><td>Internet (Salida)</td><td>Datos enviados hacia Internet</td><td>Optimiza en regiones con mayor volumen de tráfico.</td></tr><tr><td>Entre Zonas de Disponibilidad</td><td>Transferencias dentro de una misma región</td><td>Agrupa recursos en la misma zona para reducir costos.</td></tr><tr><td>Entre Regiones</td><td>Transferencias entre diferentes regiones de AWS</td><td>Revisa si la distribución geográfica es necesaria.</td></tr></tbody></table>
-<h3 id="visualizando-los-costos-de-tr%C3%A1fico-de-red">Visualizando los costos de tráfico de red</h3>
-<p>AWS Cost Explorer ofrece herramientas útiles para monitorear y analizar costos. Puedes configurar períodos diarios o mensuales, usar previsiones para planificar gastos futuros y exportar informes en formato CSV para evaluaciones más detalladas <a href="https://docs.aws.amazon.com/cost-management/latest/userguide/ce-what-is.html?icmpid=docs_ach_docs_ach_help_panel">[3]</a>.</p>
-<blockquote><p>"El análisis regular de los datos de costos, el uso de la función de previsión para anticipar gastos futuros y el aprovechamiento de las vistas preconfiguradas son prácticas fundamentales para identificar rápidamente las tendencias de costos" <a href="https://docs.aws.amazon.com/cost-management/latest/userguide/ce-what-is.html?icmpid=docs_ach_docs_ach_help_panel">[3]</a>.</p></blockquote>
-<p>Los datos de costos se actualizan al menos una vez cada 24 horas, lo que permite un monitoreo constante. Estas herramientas son un excelente punto de partida. Si buscas un análisis más detallado, considera usar etiquetas para una asignación de costos más precisa.</p>
-<h2 id="t%C3%A9cnicas-avanzadas-de-an%C3%A1lisis-de-costos">Técnicas avanzadas de análisis de costos</h2>
-<h3 id="configuraci%C3%B3n-de-etiquetas-para-asignaci%C3%B3n-de-costos">Configuración de etiquetas para asignación de costos</h3>
-<p>Para configurar etiquetas de asignación de costos, ingresa a la consola de Billing and Cost Management, selecciona la opción 'Cost Allocation Tags' y habilita las etiquetas que sean necesarias. Si buscas un análisis más detallado, asegúrate de que las etiquetas reflejen la estructura organizativa o las necesidades específicas de tu negocio.</p>
-<p>El uso de etiquetas consistentes facilita tanto la asignación de costos como la responsabilidad presupuestaria. Además de clasificar los costos, estas etiquetas te permiten identificar patrones específicos de tráfico de red, ayudando a mejorar su gestión.</p>
-<table><thead><tr><th>Etiqueta</th><th>Beneficio</th></tr></thead><tbody><tr><td>Ambiente</td><td>Identifica costos por entorno (dev, staging, prod)</td></tr><tr><td>Proyecto</td><td>Realiza un seguimiento de gastos por iniciativa específica</td></tr><tr><td>Equipo</td><td>Define claramente la responsabilidad presupuestaria</td></tr></tbody></table>
-<p>Es importante mencionar que las etiquetas pueden tardar hasta 24 horas en reflejar los costos asociados <a href="https://aws.amazon.com/blogs/mt/using-aws-cost-explorer-to-analyze-data-transfer-costs/">[1]</a>.</p>
-<h3 id="uso-del-informe-de-costos-y-uso">Uso del informe de costos y uso</h3>
-<p>Después de configurar las etiquetas, el siguiente paso es utilizar el Informe de Costos y Uso para obtener un análisis más detallado. Este informe te proporciona una vista granular que complementa las herramientas de visualización de Cost Explorer, permitiendo:</p>
-<ul><li>Examinar costos según el tipo de transferencia de datos y patrones específicos de uso.</li><li>Identificar picos inesperados o comportamientos inusuales en los gastos.</li></ul>
-<p>Para obtener el mayor provecho de este informe, puedes aplicar hasta 1024 filtros diferentes, lo que permite un análisis extremadamente detallado <a href="https://docs.aws.amazon.com/cost-management/latest/userguide/ce-filtering.html">[2]</a>.</p>
-<blockquote><p>"El análisis regular de los datos de costos mediante el Informe de Costos y Uso, combinado con una estrategia efectiva de etiquetado, es fundamental para optimizar los gastos de tráfico de red y tomar decisiones informadas sobre la arquitectura de red" <a href="https://docs.aws.amazon.com/cost-management/latest/userguide/ce-what-is.html?icmpid=docs_ach_docs_ach_help_panel">[3]</a>.</p></blockquote>
-<p>Algunos consejos útiles para optimizar tu análisis incluyen:</p>
-<ul><li>Revisar los informes de manera mensual, aplicar varios filtros y exportar los datos para un análisis más profundo.</li><li>Planificar tus consultas de manera eficiente para reducir costos y obtener información relevante.</li></ul>
-<p>Recuerda que cada solicitud paginada a la API de Cost Explorer tiene un costo de $0.01, por lo que organizar tus consultas de forma cuidadosa es clave <a href="https://docs.aws.amazon.com/cost-management/latest/userguide/ce-what-is.html?icmpid=docs_ach_docs_ach_help_panel">[3]</a>.</p>
-<h2 id="conclusi%C3%B3n-y-recursos">Conclusión y recursos</h2>
-<h3 id="puntos-clave">Puntos clave</h3>
-<p>Analizar los costos del tráfico de red en AWS requiere herramientas como <strong>AWS Cost Explorer</strong>, que facilita el acceso a datos históricos, la aplicación de filtros específicos y la creación de informes detallados. Además, las etiquetas y los informes granulares juegan un papel clave en la optimización de gastos.</p>
-<p>Algunos elementos importantes para realizar un análisis efectivo incluyen:</p>
-<ul><li><strong>Etiquetas estratégicas</strong>: Ayudan a categorizar y organizar los costos.</li><li><strong>Filtros específicos</strong>: Permiten un análisis más enfocado.</li><li><strong>Informes detallados</strong>: Facilitan el seguimiento y la toma de decisiones.</li></ul>
-<h3 id="recursos-adicionales">Recursos adicionales</h3>
-<p>Si quieres profundizar en el análisis de costos, aquí tienes algunos recursos útiles:</p>
-<ul><li><strong><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">documentación oficial de AWS</a></strong>: Proporciona información completa sobre las funcionalidades de AWS Cost Management.</li><li><strong>Guías avanzadas en español</strong>: Encuentra contenido especializado en <a href="https://dondeaprendoaws.com/">Dónde Aprendo AWS</a>.</li><li><strong>Herramientas adicionales</strong>: Combina <strong>AWS Cost Explorer</strong> con <strong><a href="https://aws.amazon.com/aws-cost-management/aws-budgets/">AWS Budgets</a></strong> para un control más detallado de los gastos.</li></ul>
-<p>Estos recursos complementan las estrategias descritas, ayudándote a gestionar y optimizar los costos relacionados con el tráfico de red de manera más eficiente.</p>
-<h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/">análisis de costos de AWS con Cost Explorer</a></li><li><a href="https://dondeaprendoaws.com/blog/seguridad-y-control-de-costos-en-aws-guia-2024/">Seguridad y control de costos en AWS: guía 2024</a></li><li><a href="https://dondeaprendoaws.com/blog/10-estrategias-de-optimizacion-de-costos-en-aws/">10 estrategias de optimización de costos en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/guia-completa-analisis-de-costos-de-trafico-en-aws/">Guía completa: análisis de costos de tráfico en AWS</a></li></ul>
+AWS Cost Explorer sirve para responder **cuánto se facturó y bajo qué tipo de uso**, por ejemplo, transferencia entre zonas de disponibilidad o salida a Internet. No muestra cada conexión, dirección IP, aplicación de origen ni destino. Es una herramienta de análisis de costos, no telemetría de red.
+
+Para investigar un aumento, empieza por el tipo de uso, usa el servicio y la región para ubicar cómo se registró el cargo, y luego confirma qué tráfico lo produjo con los datos de facturación detallados o los registros de red adecuados.
+
+## Antes de abrir el informe
+
+La primera vez, habilita Cost Explorer desde **Billing and Cost Management → Cost Explorer**. AWS prepara los datos del mes actual y hasta los 13 meses anteriores; el mes actual suele aparecer en unas 24 horas y el historial puede tardar algunos días más. Después, los datos se actualizan al menos cada 24 horas, aunque la facturación de origen puede llegar con demora. Por eso, un pico de hoy todavía puede no aparecer. [AWS explica la habilitación y la disponibilidad de los datos](https://docs.aws.amazon.com/cost-management/latest/userguide/ce-enable.html).
+
+Para entrar a la consola, tu usuario o rol necesita acceso de Billing y los permisos de Cost Explorer correspondientes. En una organización, el administrador puede limitar el acceso de las cuentas miembro; estas normalmente solo ven sus propios costos. Para consultar la API del ejemplo más abajo se necesita, como mínimo, permiso para `ce:GetCostAndUsage`. [Consulta las reglas de acceso de Cost Explorer](https://docs.aws.amazon.com/cost-management/latest/userguide/ce-access.html) y [los permisos de Billing and Cost Management](https://docs.aws.amazon.com/cost-management/latest/userguide/control-access-billing.html).
+
+Si es tu primera vez con Cost Explorer, mira la [sesión de AWS User Group Medellín sobre monitoreo y gestión de recursos](https://www.youtube.com/watch?v=2cGwdSTdUqQ). Repasa Amazon CloudWatch, CloudTrail, AWS Budgets y Cost Explorer; el [canal de AWS User Group Medellín](https://www.youtube.com/@awsugmed) publica más contenido en español.
+
+## Encuentra cargos de transferencia en Cost Explorer
+
+1. En Cost Explorer, abre **Cost and Usage** (en algunas cuentas aparece dentro de **Explore**). Elige un período cerrado para comparar datos completos; selecciona granularidad diaria para investigar cuándo creció el costo o mensual para revisar una tendencia.
+2. En **Group by**, elige **Usage type** para ver los medidores que aparecen en tu factura. Busca los que describen transferencia, como salida a Internet, comunicación entre zonas o transferencia entre regiones. Los nombres y grupos disponibles dependen de los servicios y regiones que usó la cuenta.
+3. Cambia **Group by** a **Service**, **Region**, **Availability Zone** o **Linked account** para ubicar dónde quedó registrado el gasto. También puedes aplicar esos valores como filtros. El servicio ayuda a localizar el cargo en AWS; la región o la zona indican su dimensión de facturación, pero no identifican por sí solas los dos extremos de una conexión.
+4. Si aparece **Usage type group**, úsalo para revisar una categoría agrupada, como transferencia de EC2. Esos grupos solo están disponibles para algunos servicios y reúnen tipos de uso relacionados; no existe un único filtro universal que incluya toda transferencia de datos de todas las cuentas.
+5. Descarga el CSV de la tabla si necesitas conservar la comparación o revisar varias filas juntas. Cost Explorer incluye los cargos de transferencia dentro de los servicios asociados, como EC2 o S3; no necesariamente los muestra como una línea separada llamada “Data Transfer”. [La guía de filtros describe los tipos de uso y sus grupos](https://docs.aws.amazon.com/cost-management/latest/userguide/ce-filtering.html), y [la guía de tablas explica cómo aparecen los cargos de transferencia](https://docs.aws.amazon.com/cost-management/latest/userguide/ce-table.html).
+
+En la práctica, lee estas dimensiones como respuestas a preguntas diferentes:
+
+- **Service:** ¿en qué servicio se registró el cargo?
+- **Region, Availability Zone y Linked account:** ¿en qué región, zona o cuenta aparece?
+- **Usage type:** ¿qué unidad o actividad midió AWS para calcular ese cargo?
+- **Usage type group:** ¿qué grupo de medidores relacionados quiero revisar?
+
+Una etiqueta de asignación de costos puede ayudar a separar proyectos o equipos, si ya está activa y se aplica al cargo. No reemplaza el tipo de uso y no atribuye automáticamente un flujo de red a una instancia o aplicación.
+
+### Cómo leer un tipo de uso
+
+Los nombres concretos dependen del servicio, la región y la ruta del tráfico. Como ejemplo, AWS documenta `USE2-DataTransfer-Regional-Bytes` para transferencia entre zonas de disponibilidad de la región us-east-2. La región incluida en ese nombre forma parte del **tipo de uso**; el filtro **Region** es otra dimensión. No copies un nombre de otra cuenta sin comprobar qué valores aparecen en la tuya.
+
+Tampoco sumes **UsageQuantity** de tipos distintos sin separar sus unidades: un resultado puede combinar GB, horas y otras medidas. Para encontrar qué aumentó, compara costos. Si necesitas comparar cantidades, filtra por un tipo de uso o grupo con la misma unidad antes de sumarlas. La API de Cost Explorer advierte expresamente sobre esta mezcla de unidades. [AWS detalla los tipos de uso de transferencia intra-región, entre regiones y hacia Internet](https://docs.aws.amazon.com/cur/latest/userguide/cur-data-transfers-charges.html).
+
+## Consulta un tipo de uso con la API
+
+Usa este ejemplo si tienes AWS CLI v2 configurada con un perfil de solo lectura que puede consultar Cost Explorer. Guarda este filtro en un archivo local llamado `filtro.json`:
+
+```json
+{
+  "Dimensions": {
+    "Key": "USAGE_TYPE",
+    "Values": ["USE2-DataTransfer-Regional-Bytes"]
+  }
+}
+```
+
+Luego consulta un mes ya cerrado y agrupa el costo por servicio y tipo de uso:
+
+```bash
+aws ce get-cost-and-usage \
+  --profile PERFIL_LECTURA \
+  --region us-east-1 \
+  --time-period Start=2026-08-01,End=2026-09-01 \
+  --granularity MONTHLY \
+  --metrics UnblendedCost \
+  --filter file://filtro.json \
+  --group-by Type=DIMENSION,Key=SERVICE Type=DIMENSION,Key=USAGE_TYPE
+```
+
+Reemplaza `PERFIL_LECTURA`, las fechas y el tipo de uso por los valores de tu cuenta. En el ejemplo, el inicio es inclusivo y el fin exclusivo: incluye del 1 al 31 de agosto de 2026. El filtro usa un tipo de uso de muestra para us-east-2; si ese tipo no aparece en tu período, la consulta puede devolver valores vacíos.
+
+La consulta devuelve `UnblendedCost` como ejemplo. Si tu equipo informa costos amortizados o netos, cambia la métrica y mantén el mismo criterio en las comparaciones.
+
+Cost Explorer expone esta API en `https://ce.us-east-1.amazonaws.com`, aunque los cargos consultados sean de otras regiones. La consola no cobra por usar los informes de Cost Explorer; cada solicitud paginada a la API cuesta actualmente **US$ 0,01 por página**. La CLI puede pedir más de una página para completar un resultado. [Consulta `GetCostAndUsage` para ver los campos, los grupos y la regla de fechas](https://docs.aws.amazon.com/aws-cost-management/latest/APIReference/API_GetCostAndUsage.html), y [el endpoint e IAM de la API](https://docs.aws.amazon.com/cost-management/latest/userguide/ce-api.html). AWS puede actualizar sus precios; confirma el cargo vigente antes de automatizar consultas.
+
+## Separa las dos partes del costo de NAT Gateway
+
+Antes de interpretar un cargo, confirma si el NAT Gateway es **zonal** o **regional**:
+
+- Un gateway zonal opera en una zona de disponibilidad y genera un cargo por cada hora que está disponible. Si tienes un NAT Gateway en tres zonas, cada uno genera su propio cargo horario.
+- Un gateway regional es un recurso que puede abarcar varias zonas, pero su cargo horario se calcula **por cada zona activa**. Por ejemplo, si admite tres zonas durante una hora, se facturan tres NAT Gateway-hours; el total horario baja cuando deja de tener una zona activa.
+
+En ambos modos se cobra el procesamiento por GB. Además, se aplican los cargos de transferencia estándar que correspondan a la ruta: por ejemplo, la salida a Internet puede tener su propio cargo, y una ruta entre el workload y un NAT zonal en otra zona puede generar transferencia entre zonas. No tomes los GB procesados por NAT como el total de GB facturados o como garantía de un cargo de egreso. Cost Explorer ofrece grupos como **EC2: NAT Gateway - Running Hours** y **EC2: NAT Gateway - Data Processed**; agrupa después por **Usage type** y confirma que las filas cubran el modo y las zonas activos de tu cuenta. AWS publica [el desglose actualizado de precios, incluidas las horas de un NAT regional por zona](https://aws.amazon.com/vpc/pricing/) y [la descripción de los grupos de uso de Cost Explorer](https://docs.aws.amazon.com/cost-management/latest/userguide/ce-filtering.html).
+
+Con ese desglose confirmado, puedes comparar cambios como mantener un NAT zonal cerca de sus workloads o usar endpoints para tráfico hacia servicios de AWS compatibles. Valida el costo completo y las necesidades de disponibilidad antes de cambiar rutas: ni una alternativa ni el cambio de modo garantizan un ahorro para todas las arquitecturas.
+
+Si el cargo principal es transferencia intra-región, continúa con la [guía para investigar y reducir costos de transferencia entre zonas de disponibilidad](https://dondeaprendoaws.com/blog/como-reducir-costos-de-transferencia-intra-region-en-aws/). Si el servicio que destaca es API Gateway, revisa la [guía para optimizar su transferencia de datos](https://dondeaprendoaws.com/blog/como-optimizar-la-transferencia-de-datos-en-api-gateway/); su análisis se centra en esa parte de la factura.
+
+## Cuándo pasar de costos a tráfico real
+
+Cost Explorer es un buen primer paso para detectar un servicio o tipo de uso que cambió. Si necesitas desgloses de facturación más completos, crea una exportación **CUR 2.0 en AWS Data Exports**: entrega filas de costo y uso por producto, tipo de uso y operación, con granularidad por hora, día o mes. Al habilitar el detalle por recurso, agrega la columna `line_item_resource_id`; ese campo queda vacío en tipos de uso como transferencias de datos y solicitudes de API. En el CUR clásico se llama `lineItem/ResourceId`. Por eso, el informe detallado tampoco garantiza que puedas atribuir cada GB a una instancia. Consulta la [tabla y opciones de CUR 2.0](https://docs.aws.amazon.com/cur/latest/userguide/table-dictionary-cur2.html) y los [campos de sus líneas de uso](https://docs.aws.amazon.com/cur/latest/userguide/table-dictionary-cur2-line-item.html).
+
+Cuando la pregunta es **qué interfaces, IP, puertos o flujos generaron tráfico**, usa **VPC Flow Logs** para la VPC, subred o interfaz relevante. Sus registros describen tráfico IP y pueden publicarse en CloudWatch Logs, S3 o Firehose; no son una medición de facturación y no llegan en tiempo real. AWS también documenta límites sobre el tráfico que capturan. La publicación de esos registros genera cargos de ingestión y archivo en el destino, así que revisa el volumen y el precio antes de habilitarlos. [Consulta qué capturan los Flow Logs](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html), [sus tiempos de entrega](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs-basics.html) y [sus límites](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs-limitations.html).
+
+Para un NAT Gateway, las métricas de CloudWatch pueden mostrar bytes agregados que entran y salen. Un gateway zonal se consulta por `NatGatewayId`; uno regional, por `NatGatewayId` y `AvailabilityZone`. Ayudan a validar volumen por zona y modo, pero no reemplazan el costo facturado ni identifican por sí solas cada aplicación. [AWS lista las métricas de NAT Gateway y sus dimensiones](https://docs.aws.amazon.com/vpc/latest/userguide/metrics-dimensions-nat-gateway.html).
+
+## Comprobaciones si el resultado sorprende
+
+- **No aparece el último día:** espera a que lleguen los datos de facturación; Cost Explorer no se actualiza como un registro de paquetes en vivo.
+- **No encuentras “Data Transfer” como servicio:** agrupa por **Usage type** y revisa los servicios asociados; AWS puede integrar esos cargos en EC2, S3 u otro servicio.
+- **El costo no coincide con los GB de un log:** Cost Explorer muestra importes facturados por medidor. Flow Logs y métricas describen tráfico con otro nivel de agregación y alcance.
+- **No puedes ver otras cuentas de la organización:** pide al administrador que confirme el acceso de Billing y los permisos de Cost Explorer para tu cuenta o rol.
+- **El total de una consulta de uso parece absurdo:** confirma la unidad de cada tipo de uso. No sumes horas con GB.
+
+## Para seguir aprendiendo y conversar
+
+Para contrastar un hallazgo con el diseño de red, puedes conversar en el [AWS User Group Networking Colombia](https://www.meetup.com/aws-user-group-networking-colombia/). Su temario incluye conectividad híbrida y entre cuentas, VPC Flow Logs y observabilidad de redes.
+
+Para ampliar la mirada financiera, escucha el episodio [FinOps: cómo ahorrar en la nube](https://podcast.marcia.dev/932377/episodes/16129768-5-18-finops-o-como-ahorrar-en-la-nube), que aborda responsabilidades compartidas, métricas y decisiones de costo. Para conectar esa conversación con redes AWS, mira [The Cloud Forge: Conectividad y FinOps, el arte de crear valor en la nube](https://www.youtube.com/watch?v=k3uIrKU50ak). También puedes ver la sesión [FinOps en acción: Optimización real de costos en la nube](https://www.youtube.com/watch?v=UphnnilH09A), organizada por AWS User Group CreaTicas junto con AWS User Group San José, y seguir las actividades de [CreaTicas AWS User Group en Costa Rica](https://www.meetup.com/chiapa-uk-aws-users-meetup-group/).

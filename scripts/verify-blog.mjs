@@ -115,6 +115,13 @@ for (const article of archive) {
   assert.equal(data.publishedTimestamp, article.publishedTimestamp, `Original publication timestamp changed: ${article.slug}`);
   const structuredData = [...html.matchAll(/<script\b[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)]
     .map(([, json]) => JSON.parse(json));
+  // Editorial rewrites can remove these structures; verify the current declarations.
+  const declaresTable = /<table\b/i.test(source.source)
+    || /^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$/m.test(source.source);
+  if (declaresTable) assert.match(html, /<table\b/, `Declared table must render: ${article.slug}`);
+  if (/"@type"\s*:\s*"FAQPage"/.test(source.source)) {
+    assert.ok(structuredData.some((node) => node['@type'] === 'FAQPage'), `Declared FAQ data must render: ${article.slug}`);
+  }
   const blogPostings = structuredData.filter((node) => node['@type'] === 'BlogPosting');
   assert.equal(blogPostings.length, 1, `Exactly one BlogPosting is required: ${article.slug}`);
   const posting = blogPostings[0];
@@ -290,9 +297,6 @@ for (const html of allPages) {
   }
 }
 
-const articleWithTable = read('blog/como-reducir-costos-de-transferencia-intra-region-en-aws/index.html');
-assert.match(articleWithTable, /<table\b/);
-assert.match(articleWithTable, /"@type":"FAQPage"/);
 const articleWithoutBodyImages = read('blog/cors-en-websocket-vs-rest-api-gateway/index.html');
 const body = articleWithoutBodyImages.match(/<article class="blog-article__body">([\s\S]*?)<\/article>/)?.[1] ?? '';
 assert.doesNotMatch(body, /<img\b/);

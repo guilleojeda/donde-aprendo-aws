@@ -1,606 +1,130 @@
 ---
-title: "Cómo prepararte para un examen de certificación de AWS"
-description: "Prepárate para el examen de certificación de AWS con consejos, técnicas de estudio, formación gratuita y rutas de certificación. Descubre los beneficios, costos, y recursos clave para el éxito."
+title: "Cómo prepararse para una certificación AWS: guía de estudio"
+description: "Elige un examen AWS según tu perfil, arma un plan con la guía oficial y practica con recursos y comunidades en español. Revisa costos, registro y reintentos."
 author: "guille-ojeda"
 publishedAt: "2024-01-23"
 publishedTimestamp: "2024-01-23T17:34:37.557Z"
+modifiedTimestamp: "2026-10-06T10:14:29-03:00"
+review:
+  date: "2026-10-06"
 cover: "/assets/blog/editorial-certificacion.png"
 coverAlt: "Tres tarjetas de estudio con apuntes y hitos sobre un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-certificacion.png"
-related:
-  - title: "Cómo automatizar ajustes de políticas con AWS Security Hub"
-    url: "https://dondeaprendoaws.com/blog/como-automatizar-ajustes-de-politicas-con-aws-security-hub/"
-  - title: "Estrategias de caché rentables para apps serverless"
-    url: "https://dondeaprendoaws.com/blog/estrategias-de-cache-rentables-para-apps-serverless/"
-  - title: "Amazon DynamoDB: guía básica"
-    url: "https://dondeaprendoaws.com/blog/amazon-dynamodb-guia-basica/"
-
+related: []
 ---
 
-<p>Sin duda, la mayoría estará de acuerdo en que <strong>prepararse adecuadamente para los exámenes de certificación de AWS puede resultar todo un desafío</strong>.</p>
+Para prepararte para una certificación AWS, elige primero el examen que corresponde al trabajo que quieres demostrar. Después usa su guía vigente como lista de objetivos, estudia las lagunas que encuentres, practica con preguntas y escenarios, y reserva el examen cuando puedas explicar tus decisiones. Hacer un curso puede ayudar, pero AWS no lo exige y terminarlo no equivale a obtener la certificación.
 
+No hay un curso, un simulacro ni una cantidad de horas que garantice aprobar. La meta es entender los conceptos y saber aplicarlos a situaciones nuevas, no memorizar respuestas. Esta guía te ayuda a elegir una ruta, organizar el estudio, encontrar apoyo en español y revisar las condiciones del examen antes de pagar.
 
-<p>Afortunadamente, siguiendo los consejos y técnicas de estudio detallados en esta guía, <strong>podrás prepararte de forma eficiente y aprobar los exámenes de certificación de AWS sin problemas</strong>.</p>
+Los códigos, idiomas y fechas de transición mencionados aquí se comprobaron el **6 de octubre de 2026**. Vuelve a consultar la ficha oficial y la disponibilidad de Pearson VUE antes de inscribirte.
 
+## Qué certificación AWS elegir
 
-<p>En este artículo encontrarás todo lo que necesitas saber sobre <strong>cómo crear un plan de estudio efectivo, utilizar los mejores recursos de aprendizaje, realizar exámenes de práctica y mucho más</strong> para garantizar el éxito en tus exámenes de certificación de AWS.</p>
+Empieza por el área en la que quieres trabajar. Estas cinco rutas cubren necesidades distintas; no hace falta rendir una certificación Foundational antes de un examen Associate si tu experiencia ya corresponde al rol.
 
+- **Conocer la nube o empezar sin experiencia técnica:** [AWS Certified Cloud Practitioner](https://aws.amazon.com/certification/certified-cloud-practitioner/) valida una comprensión general de AWS. La guía vigente al 6 de octubre de 2026 es **CLF-C02**. Puede servir a principiantes y a personas de áreas no técnicas que necesitan entender la nube.
+- **Entender usos de IA y machine learning en AWS:** [AWS Certified AI Practitioner](https://aws.amazon.com/certification/certified-ai-practitioner/) cubre conceptos y casos de uso de IA, ML e IA generativa. La guía vigente al revisar este artículo es **AIF-C01**. Es una ruta de fundamentos; por sí sola no acredita que puedas construir soluciones de IA en producción.
+- **Desarrollar aplicaciones:** [AWS Certified Developer – Associate](https://aws.amazon.com/es/certification/certified-developer-associate/) corresponde a quienes desarrollan, despliegan y mantienen aplicaciones con AWS. Al **6 de octubre de 2026**, AWS aún ofrece **DVA-C02** y anuncia que abrirá la inscripción de **DVA-C03 el 27 de octubre**, con entrega general prevista para el 1 de diciembre. El [anuncio oficial de septiembre](https://aws.amazon.com/blogs/training-and-certification/september-2026-new-offerings/) da el 30 de noviembre como último día para DVA-C02; la ficha oficial en español indica el 1 de diciembre. Si vas a rendir DVA-C02, planea hacerlo a más tardar el 30 de noviembre y confirma el turno en Pearson VUE.
+- **Diseñar soluciones en la nube:** [AWS Certified Solutions Architect – Associate](https://aws.amazon.com/certification/certified-solutions-architect-associate/) se enfoca en decisiones de arquitectura, como seguridad, resiliencia, rendimiento y costo. La guía que AWS publica actualmente es **SAA-C03**.
+- **Operar cargas de trabajo:** [AWS Certified CloudOps Engineer – Associate](https://aws.amazon.com/certification/certified-cloudops-engineer-associate/) cubre operaciones, monitorización, automatización, redes y continuidad. La versión actual es **SOA-C03**; el examen SysOps **SOA-C02 tuvo su última fecha de rendición el 29 de septiembre de 2025**, según el [anuncio de transición de AWS](https://aws.amazon.com/blogs/training-and-certification/exam-update-and-new-name-for-operations-certification/). Al revisar este artículo, la página de AWS lista inglés, japonés, coreano y chino simplificado, no español; indica que coreano y chino simplificado dejarán de ofrecerse después del 19 de noviembre de 2026.
 
-<h2 id="introducci%C3%B3n-a-las-certificaciones-de-aws" tabindex="-1">Introducción a las certificaciones de AWS</h2>
+Los nombres, códigos y calendarios pueden cambiar. Antes de empezar y antes de reservar, consulta el [índice oficial de guías de examen](https://docs.aws.amazon.com/aws-certification/latest/examguides/) y la página de la certificación elegida. Si un curso muestra otro código, puede cubrir una versión anterior aunque mantenga un título parecido.
 
+## Un plan de estudio que puedes ajustar
 
-<p>Las certificaciones de AWS son una excelente manera de demostrar tus habilidades y conocimientos en la nube de AWS. Los exámenes cubren una amplia gama de servicios de AWS y soluciones en la nube.</p>
+No necesitas seguir un cronograma fijo. Organiza sesiones según tu disponibilidad y avanza cuando puedas explicar los objetivos, no solo cuando termines un curso.
 
+### 1. Diagnostica tus conocimientos con la guía
 
-<p>Obtener una certificación puede ayudarte a avanzar en tu carrera y abrir nuevas oportunidades laborales. A continuación te damos una introducción a los conceptos básicos que debes saber sobre las certificaciones de AWS.</p>
+Abre la guía del examen y revisa cada dominio y objetivo. Marca cada punto como **lo puedo explicar**, **necesito repasar** o **todavía no lo entiendo**. Agrega una pregunta concreta para los temas pendientes.
 
+Por ejemplo, “vi un video de IAM” registra una actividad. “Puedo explicar por qué una aplicación usa un rol y qué permisos necesita” describe algo que ya puedes demostrar.
 
-<h3 id="certificaciones-aws%3A-por-d%C3%B3nde-empezar" tabindex="-1">Certificaciones AWS: por dónde empezar</h3>
+AWS mantiene un [catálogo de guías de examen](https://docs.aws.amazon.com/aws-certification/latest/examguides/) con objetivos y referencias a los servicios dentro y fuera del alcance. La guía delimita lo que se evalúa; no reemplaza la documentación ni pretende explicar cada concepto desde cero.
 
+### 2. Estudia por lagunas, no por cantidad de cursos
 
-<p>AWS ofrece varios niveles y tipos de certificaciones, incluyendo:</p>
+Elige un recurso principal que cubra el examen y complétalo con materiales específicos para las dudas que detectaste. En [AWS Skill Builder](https://aws.amazon.com/certification/certification-prep/) hay contenido gratuito, como conjuntos oficiales de preguntas y cursos de preparación, y otros materiales que requieren suscripción, como exámenes oficiales de práctica y algunos laboratorios. Comprueba las condiciones de acceso de cada actividad.
 
+La formación no es un requisito para rendir. Un curso, un video o un certificado de finalización acredita participación según las condiciones de quien lo ofrece; la certificación AWS se obtiene al aprobar el examen supervisado.
 
-<ul>
-<li><strong>Nivel Foundational:</strong> Como AWS Certified Cloud Practitioner. Sirve para validar conocimientos generales sobre AWS.</li>
-<li><strong>Nivel Associate:</strong> Como AWS Certified Developer, Solutions Architect y SysOps Administrator Associate. Requiere experiencia técnica en AWS.</li>
-<li><strong>Nivel Professional:</strong> Como AWS Certified Solutions Architect Professional. Valida habilidades avanzadas en arquitectura en la nube.</li>
-<li><strong>Especialidades:</strong> En áreas como seguridad, bases de datos o redes.</li>
-</ul>
+Al cerrar cada sesión, intenta explicar el concepto sin consultar apuntes. Para cada servicio, anota qué problema resuelve, qué alternativa considerarías y qué dato del escenario justifica la elección. Si estudias arquitectura, por ejemplo, compara almacenamiento de objetos con un sistema de archivos compartido a partir de lo que necesita la aplicación.
 
+### 3. Practica al nivel del examen
 
-<p>Es recomendable empezar por los exámenes Foundational o Associate según tus intereses antes de avanzar a niveles más altos.</p>
+El tipo de práctica depende de la certificación. Para Cloud Practitioner, clasificar servicios y explicar sus casos de uso puede ser suficiente para muchos objetivos; no tienes que desplegar una aplicación completa para estudiar conceptos. En exámenes técnicos, suma prácticas que correspondan al rol: investigar una alarma para operaciones, corregir un permiso en desarrollo o comparar opciones de disponibilidad en arquitectura.
 
+Si usas una cuenta de AWS para laboratorios, revisa el precio de los servicios y elimina los recursos que ya no necesites. Que un curso o laboratorio sea gratuito no implica que los servicios que despliegues en tu cuenta no generen cargos.
 
-<h3 id="beneficios-de-obtener-una-certificaci%C3%B3n-aws-reconocida-en-el-sector" tabindex="-1">Beneficios de obtener una certificación AWS reconocida en el sector</h3>
+### 4. Convierte cada error en una pregunta de repaso
 
+Usa preguntas de práctica para descubrir qué no entiendes. Después de responder, anota por qué elegiste esa opción y qué detalle descartó las otras. Clasifica el error: concepto desconocido, dos servicios que confundiste, requisito del escenario que pasaste por alto o respuesta que recordabas sin poder justificar.
 
-<p>Obtener una certificación AWS tiene muchos beneficios, incluyendo:</p>
+Vuelve a estudiar ese punto y prueba con una pregunta diferente. Repetir la misma respuesta puede medir memoria de la pregunta y no comprensión del tema. Prioriza materiales que expliquen por qué una opción funciona y enlacen a referencias verificables; evita memorizar bancos que afirman contener preguntas reales del examen.
 
+Los conjuntos de preguntas oficiales de Skill Builder sirven para conocer el estilo de examen. Un resultado alto en una práctica ayuda a encontrar avances y temas pendientes, pero no predice ni garantiza el resultado del examen real.
 
-<ul>
-<li>Mayor <strong>credibilidad</strong> en tus habilidades en tecnologías de nube</li>
-<li><strong>Mejores oportunidades laborales</strong> y salarios más altos</li>
-<li>Más opciones de <strong>avance profesional</strong> en tu carrera</li>
-<li><strong>Validación</strong> de tus conocimientos ante empleadores y colegas</li>
-<li>Acceso a la <strong>comunidad</strong> exclusiva de profesionales certificados de AWS</li>
-</ul>
+### 5. Decide cuándo reservar
 
+Antes de pagar, recorre otra vez los objetivos que marcaste como pendientes. Una señal útil es poder explicar los temas principales y resolver escenarios nuevos con una razón para elegir y descartar alternativas. No necesitas acertar todas las preguntas de práctica ni completar todos los recursos disponibles.
 
-<p>La inversión en una certificación AWS vale la pena para impulsar tu carrera en la nube.</p>
+Si todavía confundes varios conceptos, aprovecha ese diagnóstico para ajustar el estudio. Si ya puedes explicar tus decisiones, consulta la modalidad, el idioma y la disponibilidad de turnos de tu examen.
 
+## Estudiar con recursos y comunidades en español
 
-<h3 id="certificaci%C3%B3n-aws%3A-precio-e-inversi%C3%B3n-en-tu-futuro" tabindex="-1">Certificación AWS: precio e inversión en tu futuro</h3>
+Los grupos de estudio permiten poner en palabras tus dudas, escuchar cómo razonan otras personas y comparar formas de resolver un problema. Lleva una pregunta concreta y comparte el recurso que consultaste; la conversación será más útil que pedir una lista genérica de “preguntas para aprobar”.
 
+### Refuerzos por tipo de examen
 
-<p>Los exámenes de certificación de AWS tienen un precio que va desde los $100 hasta los $300 USD aproximadamente. AWS a veces ofrece descuentos en los exámenes.</p>
+- Para Cloud Practitioner, el [AWS Cloud Practitioner Challenge de AWS User Group Medellín](https://www.youtube.com/watch?v=U9KAboCim2o) tiene una sesión grabada de práctica con preguntas. Es contenido comunitario, no un examen oficial; contrasta los temas con la guía vigente.
+- Si estudias fundamentos de IA y ML, esta [sesión de AWS Certification Challenge de AWS User Group Mixtli](https://www.youtube.com/watch?v=4WRBFQDJmmA) introduce esos conceptos. Es una grabación comunitaria, no material oficial de examen; úsala como explicación complementaria y verifica el alcance en la guía vigente.
+- Si elegiste Solutions Architect Associate, esta [checklist de servicios y decisiones para SAA-C03](/blog/checklist-servicios-aws-esenciales-para-saa-c03/) organiza los temas por dominios, compara alternativas de arquitectura y enlaza grabaciones de un grupo de estudio de Guatemala. Fue revisada el 5 de octubre de 2026; vuelve a cotejarla con la guía oficial si AWS actualiza el examen.
+- Para Developer Associate, la [experiencia de estudio de Kevin Lupera](https://dev.to/kevinlupera/domina-el-desarrollo-en-la-nube-consejos-para-la-certificacion-aws-certified-developer-associate-1n90), publicada en enero de 2025, describe cómo combinó curso, práctica y repaso de servicios. Es una referencia personal de la versión anterior: úsala para ideas de estudio, no como lista del temario DVA-C03.
+- Para una primera explicación de operaciones, el artículo de AWS Community Builders sobre [CloudWatch, X-Ray y CloudTrail](https://dev.to/aws-builders/observabilidad-en-la-nube-de-aws-explorando-cloudwatch-x-ray-y-cloudtrail-5d9m) distingue métricas, trazas y registros. Se publicó en 2024 y no es una guía de SOA-C03; compara sus conceptos con el examen vigente.
 
+### Comunidades y eventos donde estudiar
 
-<p>A esto se suma el costo de preparación con cursos y materiales de estudio. Sin embargo, la certificación representa una inversión en el desarrollo de habilidades valiosas y muy demandadas.</p>
+- [AWS Women in Cloud Buenos Aires](https://awswomenincloudba.com.ar/) organiza grupos colaborativos de estudio, mentorías, talleres y encuentros para aprender sobre cloud y prepararse para certificaciones.
+- Para conocer las actividades de grupos de usuarios abiertos, consulta [AWS User Group Buenos Aires](https://www.meetup.com/aws-user-group-buenos-aires/) o [AWS User Group Medellín](https://www.meetup.com/awsugmed/); cada comunidad publica sus propios encuentros y condiciones para participar.
+- En el [directorio de comunidades AWS](https://dondeaprendoaws.com/comunidades/) puedes buscar grupos de usuarios y comunidades estudiantiles en otros países. Consulta la [agenda de eventos](https://dondeaprendoaws.com/eventos/) para encontrar sesiones, talleres y encuentros próximos; revisa la fecha, el idioma, la modalidad, los cupos y las condiciones de inscripción de cada organizador.
 
+Si elegiste Cloud Practitioner, esta [selección de recursos en español para CLF-C02](/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/) reúne guías, cursos, grabaciones y formas de practicar por tema. Para construir un plan con materiales gratuitos, consulta también cómo [preparar una certificación AWS sin pagar cursos](/blog/certificacion-de-aws-preparacion-sin-costo/).
 
-<p>Una vez certificado, tendrás acceso a un mercado laboral en auge, con salarios atractivos para los roles relacionados con la nube. Así que el precio de la certificación se compensa rápidamente con las oportunidades que abre.</p>
+## Costos, formatos e inscripción
 
+Los datos cambian según el examen y el lugar donde rindas. Verifícalos en la página oficial de la certificación y en el calendario de Pearson VUE antes de pagar.
 
-<h2 id="%C2%BFcu%C3%A1nto-cuesta-un-certificado-de-aws%3F" tabindex="-1">¿Cuánto cuesta un certificado de AWS?</h2>
+### ¿Cuánto cuesta un examen AWS?
 
+Según las [preguntas frecuentes de AWS Certification](https://aws.amazon.com/certification/faqs/), los exámenes Foundational y Business cuestan **100 USD**, los Associate **150 USD** y los Professional y Specialty **300 USD**. Es el precio por intento; pueden aplicarse impuestos y algunas monedas locales tienen precios publicados distintos. Comprueba el total de tu turno al registrarte.
 
-<p>El costo de los exámenes de certificación de AWS varía según el nivel:</p>
+### ¿Cuánto dura y qué formato tiene?
 
+La duración, la cantidad de preguntas, los tipos de respuesta y la puntuación dependen del examen. Por ejemplo, AWS publica para Cloud Practitioner CLF-C02 una duración de **90 minutos** y **65 preguntas** de opción múltiple o respuesta múltiple. Revisa la ficha y la guía del examen que elegiste; no extrapoles esos datos a otra certificación.
 
-<ul>
-<li>El examen de <strong>AWS Certified Cloud Practitioner</strong> cuesta <strong>100 dólares</strong>. Es el nivel inicial para validar conocimientos básicos sobre los servicios de AWS.</li>
-<li>Los exámenes de nivel <strong>Associate</strong>, como <strong>AWS Certified Developer</strong>, <strong>AWS Certified Solutions Architect</strong>, y <strong>AWS Certified SysOps Administrator</strong> cuestan <strong>150 dólares</strong> cada uno. Son para personas con alguna experiencia práctica utilizando AWS.</li>
-<li>Los exámenes de nivel <strong>Professional</strong> y <strong>Specialty</strong>, como <strong>AWS Certified Solutions Architect – Professional</strong> y <strong>AWS Certified Security – Specialty</strong> cuestan <strong>300 dólares</strong>. Son niveles avanzados que requieren mayor experiencia en implementaciones complejas en la nube.</li>
-</ul>
+### ¿Puedo rendir en español o desde casa?
 
+Cada examen tiene su propia lista de idiomas. La supervisión en línea también tiene idiomas y horarios de disponibilidad propios, que no siempre coinciden con los idiomas del examen. Por ejemplo, la ficha actual de CloudOps Associate no ofrece preguntas en español, aunque sí hay supervisión en español latinoamericano para citas en línea en ciertos horarios. Comprueba ambos datos por separado en la [ficha de tu examen](https://aws.amazon.com/certification/) y en las [opciones de evaluación](https://aws.amazon.com/certification/certification-prep/testing/).
 
-<p>En resumen, el precio de la certificación de AWS depende del nivel de conocimientos que se quiera validar. Pero en general, oscila entre 100 y 300 dólares por examen. Al prepararse para cualquier nivel, es buena idea utilizar recursos de estudio como <strong>AWS Skill Builder</strong>, <strong>AWS Academy</strong> o <strong>AWS Educate</strong> para adquirir las habilidades necesarias y aprobar los exámenes.</p>
+Los exámenes se programan mediante Pearson VUE, en un centro de evaluación o con supervisión en línea cuando la opción esté disponible para tu examen. Para reservar, inicia sesión en tu cuenta de AWS Certification, selecciona **Schedule New Exam**, elige **Schedule with Pearson VUE** y sigue los pasos para elegir modalidad, idioma, fecha y hora. La cuenta de certificación es distinta de una cuenta de servicios AWS. Revisa también los requisitos de identificación y las condiciones del proveedor antes de confirmar.
 
+AWS permite reprogramar o cancelar sin cargo hasta **24 horas antes** de la cita. Dentro de ese plazo ya no puedes cambiarla; si no te presentas, puedes perder el pago. Lee las [políticas de AWS antes de rendir](https://aws.amazon.com/certification/policies/before-testing/) y el correo de confirmación de Pearson VUE.
 
-<h2 id="%C2%BFc%C3%B3mo-certificarse-en-aws%3F" tabindex="-1">¿Cómo certificarse en AWS?</h2>
+## Preguntas frecuentes
 
+### ¿Necesito hacer un curso oficial para certificarme en AWS?
 
-<p>La mejor manera de certificarse en AWS es a través de AWS Skill Builder. Esta plataforma ofrece cursos de preparación para los exámenes de certificación de AWS diseñados para enseñarle los conceptos y habilidades necesarios para aprobar los exámenes.</p>
+No. AWS recomienda prepararse, pero no exige completar un curso. Elige formación si te ayuda a entender un objetivo o a practicar; comprueba si requiere pago y si corresponde a la versión vigente del examen.
 
+### ¿Qué pasa si no apruebo el examen?
 
-<h3 id="prep%C3%A1rese-para-certificaciones-aws-con-aws-skill-builder" tabindex="-1">PREPÁRESE PARA CERTIFICACIONES AWS CON AWS Skill Builder</h3>
+Debes esperar **14 días calendario** antes de volver a rendir. AWS no limita la cantidad de intentos, pero cada nuevo intento requiere pagar la tarifa de inscripción vigente. Consulta la política completa en las [preguntas frecuentes oficiales](https://aws.amazon.com/certification/faqs/).
 
+### ¿El curso o simulacro me da la certificación?
 
-<ul>
-<li>Aprenda a su propio ritmo. Conozca el mejor método para estar listo antes del examen con los cursos digitales de preparación para el examen. Estos cursos en línea le permiten avanzar a su propio paso, repasando el material las veces que sea necesario.</li>
-<li>Aprenda con la práctica. Realice los laboratorios prácticos para obtener experiencia práctica con los servicios de AWS. Esto es clave para aplicar los conceptos aprendidos.</li>
-<li>Póngase a prueba. Complete exámenes de práctica para evaluar sus conocimientos y prepararse para las preguntas reales del examen de certificación. Esto le ayuda a enfocarse en las áreas que necesita reforzar.</li>
-</ul>
+No. Completar un curso o aprobar su simulacro no otorga una certificación AWS. La credencial se obtiene al aprobar el examen supervisado de la certificación elegida.
 
+## Tu próximo paso
 
-<p>En resumen, AWS Skill Builder, con sus cursos en línea, laboratorios y exámenes de práctica es la mejor opción para prepararse para la certificación de AWS. Le permite aprender a su ritmo, obtener experiencia práctica y probar sus conocimientos para llegar confiado el día del examen.</p>
-
-
-<h2 id="%C2%BFd%C3%B3nde-aprender-aws-gratis%3F" tabindex="-1">¿Dónde aprender AWS gratis?</h2>
-
-
-<p>Los mejores recursos para aprender AWS gratis en español los puedes encontrar en <a href="https://dondeaprendoaws.com/?utm_source=dondeaprendoaws?utm_medium=blog">Dónde Aprendo AWS</a>, un directorio con recursos de AWS en español. Allí encontrarás artículos, videos, cursos, canales de YouTube, blogs, podcasts y mucho más. Cualquier persona puede listar su contenido, y así ayudar a que la comunidad de AWS en español los descubra más fácilmente.</p>
-
-
-<h2 id="%C2%BFqu%C3%A9-certificaciones-hay-en-aws%3F" tabindex="-1">¿Qué certificaciones hay en AWS?</h2>
-
-
-<p>AWS ofrece varias certificaciones para validar los conocimientos y habilidades en la nube. Algunas de las certificaciones más populares son:</p>
-
-
-<h3 id="aws-certified-cloud-practitioner" tabindex="-1">AWS Certified Cloud Practitioner</h3>
-
-
-<ul>
-<li>Certificación de nivel básico para validar conocimientos generales sobre AWS y la nube</li>
-<li>Ideal para personas sin experiencia técnica previa</li>
-<li>Temas: Beneficios de la nube, servicios básicos de AWS, seguridad, arquitectura, precios y soporte</li>
-<li>Tip: Puedes aprender mucho mirando los videos del <a href="https://www.youtube.com/playlist?list=PLMg_LIgq4KWfR3bBVwgayGVuhbDItJzp8" rel="noopener noreferrer" target="_blank">AWS Cloud Practitioner Challenge 2023</a> organizado por el AWS User Group Buenos Aires.</li>
-</ul>
-
-
-<h3 id="aws-certified-solutions-architect-%E2%80%93-associate" tabindex="-1">AWS Certified Solutions Architect – associate</h3>
-
-
-<ul>
-<li>Enfocada en diseño, despliegue y gestión de aplicaciones en la nube</li>
-<li>Requiere conocimientos intermedios de AWS</li>
-<li>Temas: Storage y CDN, bases de datos en la nube, despliegue de aplicaciones escalables</li>
-</ul>
-
-
-<h3 id="aws-certified-sysops-administrator-%E2%80%93-associate" tabindex="-1">AWS Certified SysOps Administrator – associate</h3>
-
-
-<ul>
-<li>Enfocada en despliegue, gestión y operaciones en la nube</li>
-<li>Requiere conocimientos intermedios de AWS</li>
-<li>Temas: monitorización, networking, escalabilidad, alta disponibilidad</li>
-</ul>
-
-
-<h3 id="aws-certified-developer-%E2%80%93-associate" tabindex="-1">AWS Certified Developer – associate</h3>
-
-
-<ul>
-<li>Enfocada en desarrollo de aplicaciones en la nube</li>
-<li>Requiere conocimientos de programación</li>
-<li>Temas: despliegue de código en AWS, debugging, seguridad, buenas prácticas</li>
-</ul>
-
-
-<p>Cada certificación valida competencias específicas en la nube de AWS. Lo ideal es empezar por la certificación Cloud Practitioner para luego especializarse según el perfil profesional.</p>
-
-
-
-
-<h2 id="preparaci%C3%B3n-para-el-examen-de-certificaci%C3%B3n-aws" tabindex="-1">Preparación para el examen de certificación AWS</h2>
-
-
-<p>Esta sección cubre consejos y recursos clave para prepararse para aprobar los exámenes de certificación de AWS.</p>
-
-
-<h3 id="gu%C3%ADa-de-estudio-aws%3A-creando-un-plan-efectivo" tabindex="-1">Guía de estudio AWS: creando un plan efectivo</h3>
-
-
-<p>Para crear un plan de estudio efectivo para la certificación de AWS, se recomienda:</p>
-
-
-<ul>
-<li>Revisar la guía de examen oficial de AWS para entender los dominios de conocimiento que se evaluarán. Esto te dará una idea de las áreas en las que necesitas enfocarte.</li>
-<li>Utilizar la calculadora de preparación para el examen de AWS para determinar cuánto tiempo necesitarás para prepararte. Esto depende de tu nivel actual de conocimientos.</li>
-<li>Elaborar un cronograma semanal detallado de estudio. Debes dedicar al menos 10-20 horas por semana. Define días/horas fijos para mantenerte enfocado.</li>
-<li>Combinar diferentes recursos de aprendizaje como cursos de vídeo, libros, laboratorios prácticos y exámenes de práctica. Esto maximizará la retención.</li>
-<li>Tomar notas exhaustivas y crear tarjetas didácticas/diagramas con conceptos clave. Te ayudarán a sintetizar y memorizar la información.</li>
-<li>Unirte a comunidades en línea para hacer preguntas y participar en discusiones técnicas. Esto mejorará tu comprensión de los servicios de AWS.</li>
-</ul>
-
-
-<h3 id="t%C3%A9cnicas-de-estudio-para-certificaci%C3%B3n-aws" tabindex="-1">Técnicas de estudio para certificación AWS</h3>
-
-
-<p>Al prepararte para la certificación de AWS, incorpora estas técnicas de estudio probadas:</p>
-
-
-<ul>
-<li><strong>Estudio activo:</strong> no solo leas materiales pasivamente. Resume conceptos con tus propias palabras, relaciónalos entre sí, crea analogías y enséñaselo a otras personas.</li>
-<li><strong>Repetición espaciada:</strong> repasa los conceptos varias veces en diferentes días, dejando tiempo entre sesiones. Esto optimiza la memoria a largo plazo. Usa tarjetas didácticas para repasos rápidos.</li>
-<li><strong>Exámenes de práctica:</strong> simula la experiencia real del examen resolviendo exámenes de práctica bajo las mismas condiciones. Identifica áreas débiles y enfócate en mejorarlas.</li>
-<li><strong>Enfoque en debilidades:</strong> prioriza estudiar los temas que te resultan más difíciles. No malgastes tiempo repasando lo que ya sabes.</li>
-<li><strong>Analiza errores:</strong> cuando falles preguntas de práctica, asegúrate de entender por qué estaban mal y aprende la respuesta correcta.</li>
-</ul>
-
-
-<h3 id="utilizar-recursos-de-aprendizaje-de-aws" tabindex="-1">Utilizar recursos de aprendizaje de AWS</h3>
-
-
-<p>AWS ofrece excelentes recursos para reforzar tu preparación para la certificación:</p>
-
-
-<ul>
-<li><strong>AWS Skill Builder:</strong> plataforma de aprendizaje digital gratuita de AWS. Ofrece cursos, laboratorios y exámenes de práctica.</li>
-<li><strong>AWS Academy:</strong> programa de entrenamiento en la nube desarrollado junto con instituciones educativas. Prepara para la certificación a través de cursos online y presenciales.</li>
-<li><strong>Formación digital de AWS:</strong> cursos intensivos facilitados por instructores expertos de AWS. Cubren conceptos y servicios clave de la nube de AWS requeridos para la certificación.</li>
-</ul>
-
-
-<p>Estos recursos de aprendizaje de AWS están alineados con los exámenes de certificación, por lo que son ideales para reforzar tu preparación.</p>
-
-
-<h3 id="realizar-ex%C3%A1menes-de-pr%C3%A1ctica" tabindex="-1">Realizar exámenes de práctica</h3>
-
-
-<p>Es clave realizar exámenes de práctica antes de presentarte al examen de certificación:</p>
-
-
-<ul>
-<li>Te permite familiarizarte con el formato de preguntas y la plataforma de examen.</li>
-<li>Identificas tus debilidades y áreas de mejora para enfocar tu estudio.</li>
-<li>Ganar confianza y reducir la ansiedad el día del examen real.</li>
-<li>AWS Skill Builder y otros proveedores como Udemy ofrecen bancos de preguntas y exámenes de práctica. Utilízalos para poner a prueba tus conocimientos.</li>
-</ul>
-
-
-<p>Enfócate en entender cada concepto, no solo en aprobar los exámenes de práctica. Esto construirá una base de conocimiento sólida para aprobar el examen en el primer intento.</p>
-
-
-<h2 id="explorando-las-rutas-de-certificaci%C3%B3n-de-aws" tabindex="-1">Explorando las rutas de certificación de AWS</h2>
-
-
-<p>Un análisis detallado de las diferentes rutas de certificación ofrecidas por AWS y cómo elegir la más adecuada según tus objetivos.</p>
-
-
-<h3 id="aws-certified-cloud-practitioner%3A-el-primer-paso" tabindex="-1">AWS Certified Cloud Practitioner: el primer paso</h3>
-
-
-<p>La certificación <strong>AWS Certified Cloud Practitioner</strong> está diseñada para quienes se están iniciando en el mundo de la computación en la nube. Es recomendable tanto para personas técnicas sin experiencia en la nube como para personas no técnicas que necesiten certificar sus conocimientos de nube.</p>
-
-
-<p>El examen se centra en validar conocimientos sobre:</p>
-
-
-<ul>
-<li>Conceptos básicos de AWS</li>
-<li>Beneficios de utilizar AWS</li>
-<li>Servicios esenciales de AWS</li>
-<li>Despliegue de cargas de trabajo sencillas</li>
-<li>Análisis de costos en la nube</li>
-<li>Buenas prácticas en la nube</li>
-</ul>
-
-
-<p>Para prepararte para este examen, te recomendamos:</p>
-
-
-<ul>
-<li>Ver los videos del <a href="https://www.youtube.com/playlist?list=PLMg_LIgq4KWfR3bBVwgayGVuhbDItJzp8" rel="noopener noreferrer" target="_blank">AWS Cloud Practitioner Challenge 2023</a> organizado por el AWS User Group Buenos Aires</li>
-<li>Revisar la <a href="https://d1.awsstatic.com/es_ES/training-and-certification/docs-cloud-practitioner/AWS-Certified-Cloud-Practitioner_Exam-Guide.pdf" rel="noopener noreferrer" target="_blank"><strong>guía de preparación de examen</strong></a></li>
-<li>Practicar con los <strong>exámenes de práctica</strong></li>
-</ul>
-
-
-<p>Con la certificación <strong>AWS Certified Cloud Practitioner</strong>, podrás validar tus conocimientos generales de la nube, dándole una mayor impronta a tu perfil profesional.</p>
-
-
-<h3 id="aws-certified-developer---associate%3A-un-camino-para-desarrolladores" tabindex="-1">AWS Certified Developer - associate: un camino para desarrolladores</h3>
-
-
-<p>La certificación <strong>AWS Certified Developer - Associate</strong> está diseñada específicamente para desarrolladores que desean demostrar sus habilidades para crear y mantener aplicaciones en la nube de AWS.</p>
-
-
-<p>El examen se centra en validar conocimientos sobre:</p>
-
-
-<ul>
-<li>Desarrollo y despliegue de aplicaciones escalables en AWS</li>
-<li>Uso de AWS SDK y CLI para interactuar con servicios de AWS</li>
-<li>Autenticación y autorización en aplicaciones</li>
-<li>Almacenamiento y bases de datos en AWS</li>
-<li>Prácticas recomendadas de desarrollo en la nube</li>
-</ul>
-
-
-<p>Para prepararte para este examen, te recomendamos:</p>
-
-
-<ul>
-<li>Completar el <a href="https://explore.skillbuilder.aws/learn" rel="noopener noreferrer" target="_blank"><strong>curso de AWS Skill Builder para desarrolladores</strong></a></li>
-<li>Revisar la <a href="https://d0.awsstatic.com/es_ES/training-and-certification/docs-dev-associate/AWS-Certified-Developer-Associate_Exam-Guide.pdf" rel="noopener noreferrer" target="_blank"><strong>guía de preparación de examen</strong></a></li>
-<li>Practicar con los <strong>exámenes de práctica</strong></li>
-<li>Desarrollar aplicaciones utilizando servicios como EC2, S3, DynamoDB y API Gateway</li>
-</ul>
-
-
-<p>Con la certificación <strong>AWS Certified Developer</strong>, podrás validar tus habilidades técnicas en desarrollo en la nube, mejorando tu perfil profesional.</p>
-
-
-<h3 id="aws-certified-solutions-architect---associate%3A-construyendo-la-arquitectura-ideal" tabindex="-1">AWS Certified Solutions Architect - associate: construyendo la arquitectura ideal</h3>
-
-
-<p>La certificación <strong>AWS Certified Solutions Architect - Associate</strong> valida la capacidad para diseñar sistemas en la nube escalables y de alto rendimiento en AWS.</p>
-
-
-<p>Los temas clave que se evalúan son:</p>
-
-
-<ul>
-<li>Diseño de arquitecturas escalables y de alta disponibilidad</li>
-<li>Migración de cargas de trabajo a la nube</li>
-<li>Estimación de costos y presupuesto en la nube</li>
-<li>Optimización de arquitecturas para mejorar eficiencia</li>
-<li>Seguridad y cumplimiento en la nube</li>
-</ul>
-
-
-<p>Para prepararte, te sugerimos:</p>
-
-
-<ul>
-<li>Llevar el <a href="https://aws.amazon.com/training/architect/" rel="noopener noreferrer" target="_blank"><strong>curso de arquitectura en AWS</strong></a></li>
-<li>Leer la <a href="https://d1.awsstatic.com/es_ES/training-and-certification/docs-sa-assoc/AWS-Certified-Solutions-Architect-Associate_Exam-Guide.pdf" rel="noopener noreferrer" target="_blank"><strong>guía de examen</strong></a></li>
-<li>Practicar con <strong>exámenes de ejemplo</strong></li>
-</ul>
-
-
-<p>Con la credencial de <strong>AWS Certified Solutions Architect Associate</strong> demostrarás tus habilidades para diseñar infraestructura escalable y segura en la nube de AWS.</p>
-
-
-<h3 id="aws-certified-sysops-administrator---associate%3A-operaciones-en-la-nube" tabindex="-1">AWS Certified SysOps Administrator - associate: operaciones en la nube</h3>
-
-
-<p>La certificación <strong>AWS Certified SysOps Administrator - Associate</strong> se enfoca en validar habilidades para administrar aplicaciones y sistemas en AWS.</p>
-
-
-<p>Los temas de examen incluyen:</p>
-
-
-<ul>
-<li>Implementación, administración y operaciones en AWS</li>
-<li>Migraciones a AWS y transferencias de datos</li>
-<li>Implementación de almacenamiento y bases de datos</li>
-<li>Configuración de redes y escalabilidad</li>
-<li>Optimización de costos y monitorización</li>
-</ul>
-
-
-<p>Para prepararte recomendamos:</p>
-
-
-<ul>
-<li>Tomar el <a href="https://www.aws.training/Details/Curriculum?id=19185" rel="noopener noreferrer" target="_blank"><strong>curso de operaciones en AWS</strong></a></li>
-<li>Revisar los <a href="https://d1.awsstatic.com/training-and-certification/docs-sysops-associate/AWS-Certified-SysOps-Administrator-Associate_Sample-Questions.pdf" rel="noopener noreferrer" target="_blank"><strong>ejemplos de preguntas</strong></a></li>
-<li>Practicar con <strong>exámenes de práctica</strong></li>
-</ul>
-
-
-<p>La certificación <strong>AWS Certified SysOps Administrator</strong> valida tus competencias en administración de sistemas en la nube de AWS.</p>
-
-
-<h3 id="aws-certified-security---specialty%3A-asegurando-la-nube" tabindex="-1">AWS Certified Security - Specialty: asegurando la nube</h3>
-
-
-<p>La certificación <strong>AWS Certified Security - Specialty</strong> está diseñada para profesionales enfocados en seguridad y cumplimiento en AWS.</p>
-
-
-<p>Los temas de examen cubren:</p>
-
-
-<ul>
-<li>Principios de diseño seguro en la nube</li>
-<li>Protección de datos y cargas de trabajo</li>
-<li>Detección de amenazas y respuesta a incidentes</li>
-<li>Validación de seguridad y cumplimiento</li>
-<li>Mitigación de vulnerabilidades</li>
-</ul>
-
-
-<p>Para prepararte, puedes:</p>
-
-
-<ul>
-<li>Completar el <a href="https://www.aws.training/Details/eLearning?id=60697" rel="noopener noreferrer" target="_blank"><strong>curso de seguridad avanzada de AWS</strong></a></li>
-<li>Revisar la <a href="https://d1.awsstatic.com/es_ES/training-and-certification/docs-security-spec/AWS-Certified-Security-Specialty_Exam-Guide.pdf" rel="noopener noreferrer" target="_blank"><strong>guía de examen</strong></a></li>
-<li>Practicar con los <strong>exámenes de ejemplo</strong></li>
-</ul>
-
-
-<p>La certificación de especialidad en seguridad de AWS valida tus habilidades avanzadas en protección de cargas de trabajo en la nube.</p>
-
-
-<h2 id="formaci%C3%B3n-y-recursos-complementarios-de-aws" tabindex="-1">Formación y recursos complementarios de AWS</h2>
-
-
-<p>La preparación para la certificación de AWS va más allá de solo estudiar para el examen. Complementar tu plan de estudio con recursos adicionales puede enriquecer tu aprendizaje y desarrollo de habilidades en la nube. Aquí hay algunas opciones recomendadas:</p>
-
-
-<h3 id="formaci%C3%B3n-t%C3%A9cnica-y-certificaci%C3%B3n-aws%3A-ampliando-habilidades" tabindex="-1">Formación técnica y certificación AWS: ampliando habilidades</h3>
-
-
-<p>Los cursos de formación técnica de AWS profundizan en servicios y temas específicos de la nube. Al complementarlos con tu preparación para la certificación, puedes:</p>
-
-
-<ul>
-<li>Adquirir conocimientos más avanzados sobre temas complejos como bases de datos, análisis y machine learning.</li>
-<li>Desarrollar habilidades prácticas a través de laboratorios y ejercicios guiados.</li>
-<li>Prepararte mejor para aplicar lo aprendido en entornos reales de trabajo.</li>
-</ul>
-
-
-<p>Esto puede marcar una gran diferencia para aprobar el examen y también para desempeñarte mejor en proyectos reales de AWS.</p>
-
-
-<h3 id="formaci%C3%B3n-presencial-aws%3A-aprendizaje-interactivo" tabindex="-1">Formación presencial AWS: aprendizaje interactivo</h3>
-
-
-<p>Las academias y socios de capacitación autorizados de AWS ofrecen formación presencial y en vivo. Sus beneficios incluyen:</p>
-
-
-<ul>
-<li>Aprendizaje colaborativo e intercambio en tiempo real con instructores y compañeros.</li>
-<li>Networking para crear contactos valiosos en la industria.</li>
-<li>Acceso a infraestructura de nube para prácticas hands-on.</li>
-</ul>
-
-
-<p>Aunque conlleva una inversión extra, muchos la consideran invaluable para afianzar conocimientos y estar mejor preparados para la certificación y el trabajo en la nube.</p>
-
-
-<h3 id="cursos-de-skill-builder-aws%3A-aprendizaje-autodirigido" tabindex="-1">Cursos de skill builder AWS: aprendizaje autodirigido</h3>
-
-
-<p>La plataforma Skill Builder de AWS ofrece cursos en línea para desarrollar habilidades en la nube. Sus ventajas:</p>
-
-
-<ul>
-<li>Catálogo extenso con contenidos muy específicos.</li>
-<li>Flexibilidad de aprendizaje a tu ritmo desde cualquier lugar.</li>
-<li>Ejercicios prácticos y recursos descargables para reforzar lo aprendido.</li>
-</ul>
-
-
-<p>Ideal para aprender en profundidad temas puntuales que te interesen o en los que detectes carencias mediante los exámenes de práctica.</p>
-
-
-<h3 id="aws-educate%3A-iniciativas-para-estudiantes-y-educadores" tabindex="-1">AWS Educate: iniciativas para estudiantes y educadores</h3>
-
-
-<p>AWS Educate es una iniciativa global que provee contenidos en la nube y recursos de AWS para estudiantes y educadores. Sus opciones:</p>
-
-
-<ul>
-<li>Programas de estudio y planes de lección sobre tecnologías de AWS.</li>
-<li>Acceso gratuito a laboratorios en la nube y exámenes de práctica.</li>
-<li>Oportunidades de pasantías y conexiones con empleadores.</li>
-</ul>
-
-
-<p>Útil tanto para reforzar tu aprendizaje de cara a la certificación como para explorar oportunidades profesionales.</p>
-
-
-<p>En resumen, existen diversos caminos de formación complementaria con AWS que pueden enriquecer tu preparación para la certificación y potenciar tus habilidades en la era de la nube. ¡Encuentra las que mejor se adapten a tus necesidades!</p>
-
-
-<h2 id="recomendaciones-finales-para-la-certificaci%C3%B3n-aws" tabindex="-1">Recomendaciones finales para la certificación AWS</h2>
-
-
-<h3 id="mejores-pr%C3%A1cticas-de-estudio-para-aws" tabindex="-1">Mejores prácticas de estudio para AWS</h3>
-
-
-<p>Las mejores prácticas de estudio para prepararse para la certificación de AWS incluyen:</p>
-
-
-<ul>
-<li>Hacer simulacros de exámenes regularmente. Los simulacros te permiten practicar en un entorno similar al del examen real y te ayudan a identificar tus áreas débiles.</li>
-<li>Estudiar en intervalos cortos y frecuentes. Es más efectivo estudiar por 30-60 minutos varias veces al día que estudiar en bloques de varias horas seguidas.</li>
-<li>Tomar descansos frecuentes cuando estés estudiando. Tu cerebro absorbe mejor la información cuando le das un respiro de vez en cuando.</li>
-<li>Leer en voz alta y explicar los conceptos a otra persona. Esto refuerza tu comprensión y retención del material.</li>
-<li>Usar tarjetas didácticas y diagramas para simplificar conceptos complejos. El aprendizaje visual puede ser muy útil.</li>
-<li>Dormir lo suficiente. Dormir bien es crucial para consolidar lo que has aprendido y tener un buen rendimiento el día del examen.</li>
-</ul>
-
-
-<p>En resumen, alterna el estudio con descansos, utiliza diferentes métodos de aprendizaje, duerme bien y haz simulacros de examen con regularidad. Esto maximizará tu preparación para la certificación de AWS.</p>
-
-
-<h3 id="simulacros-de-examen-y-gesti%C3%B3n-del-tiempo" tabindex="-1">Simulacros de examen y gestión del tiempo</h3>
-
-
-<p>Los simulacros de examen son esenciales en la preparación para la certificación de AWS ya que te permiten:</p>
-
-
-<ul>
-<li>Practicar la gestión del tiempo durante el examen real. Tener un buen sentido del tiempo es clave porque el examen tiene un límite estricto.</li>
-<li>Familiarizarte con el formato de preguntas del examen. Saber qué esperar reducirá tu ansiedad el día del examen.</li>
-<li>Identificar áreas débiles en tu conocimiento. Podrás enfocar tu estudio en los temas que te generen más dificultad.</li>
-<li>Ganar confianza respecto a tu nivel de preparación. Terminar un simulacro exitosamente aumentará tu confianza para el día del examen.</li>
-</ul>
-
-
-<p>Se recomienda hacer por lo menos 3 o 4 simulacros de examen durante la etapa final de la preparación. Esto te permitirá refinar tu estrategia y llegar mucho mejor preparado el día del examen real.</p>
-
-
-<h3 id="enfocarse-en-%C3%A1reas-problem%C3%A1ticas" tabindex="-1">Enfocarse en áreas problemáticas</h3>
-
-
-<p>Una vez que hayas hecho algunos simulacros de examen, podrás identificar las áreas temáticas en las que tienes más debilidades. Por ejemplo, es posible que tengas dificultades para responder preguntas sobre redes y seguridad o sobre bases de datos en AWS.</p>
-
-
-<p>Algunas estrategias útiles para mejorar en esas áreas incluyen:</p>
-
-
-<ul>
-<li>Releer los capítulos o secciones relevantes de tu material de estudio.</li>
-<li>Ver videos explicativos, conferencias o tutoriales sobre esos temas específicos.</li>
-<li>Hacer preguntas en foros en línea para aclarar conceptos que no entiendes bien.</li>
-<li>Crear tarjetas didácticas o diagramas para simplificar y memorizar la información.</li>
-</ul>
-
-
-<p>Enfocarse en tus puntos débiles es una manera eficiente de cerrar las brechas en tu conocimiento y maximizar tu puntuación en el examen.</p>
-
-
-<h3 id="mantener-la-calma-y-la-confianza" tabindex="-1">Mantener la calma y la confianza</h3>
-
-
-<p>La preparación para la certificación de AWS puede ser estresante. Hay algunos consejos útiles para manejar la ansiedad antes y durante el examen:</p>
-
-
-<ul>
-<li>Visualiza el éxito. Imagínate saliendo del centro de exámenes con tu certificación aprobada. Esto aumenta tu motivación y confianza.</li>
-<li>Respira profundamente antes de comenzar el examen para calmar tu mente y cuerpo.</li>
-<li>Lee cada pregunta cuidadosamente y en su totalidad antes de responder. No te apresures.</li>
-<li>Saltea las preguntas que te generen mucha duda y vuelve a ellas al final si te queda tiempo.</li>
-<li>Confía en tu preparación y en tu capacidad. Miles de personas han aprobado este examen y tú también puedes lograrlo.</li>
-</ul>
-
-
-<p>Mantener la calma, respirar y pensar con claridad es fundamental para tener un buen desempeño el día del examen. ¡Tú puedes!</p>
-
-
-<h2 id="conclusi%C3%B3n%3A-resumen-de-la-preparaci%C3%B3n-para-la-certificaci%C3%B3n-de-aws" tabindex="-1">Conclusión: resumen de la preparación para la certificación de AWS</h2>
-
-
-<h3 id="repaso-de-los-pasos-clave-para-la-certificaci%C3%B3n" tabindex="-1">Repaso de los pasos clave para la certificación</h3>
-
-
-<p>Prepararse para la certificación de AWS requiere dedicación y perseverancia. Algunos pasos clave que se deben seguir son:</p>
-
-
-<ul>
-<li>Elegir la certificación adecuada según tus objetivos profesionales</li>
-<li>Estudiar el material de preparación recomendado por AWS</li>
-<li>Realizar exámenes de práctica para evaluar tus conocimientos</li>
-<li>Programar el examen cuando te sientas listo</li>
-<li>Presentarte al examen descansado y concentrado</li>
-</ul>
-
-
-<p>Es importante dedicar suficiente tiempo al estudio, practicar mucho y no rendirse ante las dificultades. Con esfuerzo y motivación, es posible alcanzar la certificación deseada.</p>
-
-
-<h3 id="la-importancia-de-la-perseverancia-y-la-mejora-continua" tabindex="-1">La importancia de la perseverancia y la mejora continua</h3>
-
-
-<p>Obtener una certificación de AWS requiere perseverancia. El camino puede ser desafiante, pero vale la pena el esfuerzo. Una vez certificado, es importante seguir aprendiendo y creciendo profesionalmente.</p>
-
-
-<p>Las tecnologías en la nube evolucionan rápidamente, por lo que se recomienda:</p>
-
-
-<ul>
-<li>Mantenerse actualizado con los nuevos servicios y funcionalidades</li>
-<li>Poner en práctica los conocimientos adquiridos</li>
-<li>Considerar obtener certificaciones más avanzadas en el futuro</li>
-</ul>
-
-
-<p>La preparación para la certificación es solo el comienzo. El aprendizaje y la mejora continua son claves para tener éxito trabajando con AWS.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/">Introducción a los servicios de Amazon Web Services</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/">seguridad en AWS: mejores prácticas</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">seguridad en AWS: servicios esenciales</a></li>
-</ul>
-</p>
+Elige uno de los cinco perfiles, abre su guía vigente y marca tres temas que necesitas estudiar primero. Usa esa lista para escoger tus próximas sesiones, llevar una duda a una comunidad y decidir cuándo estarás listo para reservar.
