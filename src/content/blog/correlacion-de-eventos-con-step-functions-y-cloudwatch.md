@@ -1,379 +1,163 @@
 ---
-title: "Correlación de eventos con Step Functions y CloudWatch"
-description: "Aprende a automatizar flujos de trabajo en AWS utilizando Step Functions y CloudWatch para mejorar la eficiencia y la detección de problemas."
+title: "Cómo correlacionar eventos en AWS con correlationId"
+description: "Propaga correlationId con EventBridge y Step Functions, búscalo en CloudWatch Logs y separa la trazabilidad de la persistencia y la idempotencia."
 author: "guille-ojeda"
 publishedAt: "2025-03-17"
 publishedTimestamp: "2025-03-17T03:58:59.832000+00:00"
+modifiedTimestamp: "2026-10-06T13:57:35-03:00"
+review:
+  date: "2026-10-06"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Monitoreo de contenedores con CloudWatch Logs"
-    url: "https://dondeaprendoaws.com/blog/monitoreo-de-contenedores-con-cloudwatch-logs/"
-  - title: "¿Qué es AWS Lambda? preguntas y respuestas"
-    url: "https://dondeaprendoaws.com/blog/que-es-aws-lambda-preguntas-y-respuestas/"
-  - title: "AWS Web Application Firewall (WAF)"
-    url: "https://dondeaprendoaws.com/blog/aws-web-application-firewall-waf/"
-
+  - title: "AWS Step Functions: qué es y cómo elegir Standard o Express"
+    url: "https://dondeaprendoaws.com/blog/comprendiendo-aws-step-functions/"
+  - title: "Arquitectura dirigida por eventos en AWS: servicios, ejemplo y decisiones"
+    url: "https://dondeaprendoaws.com/blog/arquitecturas-dirigidas-por-eventos-en-aws/"
+  - title: "Cómo conectar alarmas de CloudWatch con EventBridge"
+    url: "https://dondeaprendoaws.com/blog/cloudwatch-y-eventbridge-integracion/"
 ---
 
-<p>Combinar <strong><a href="https://docs.aws.amazon.com/step-functions/" rel="nofollow noopener noreferrer" target="_blank">AWS Step Functions</a></strong> y <strong><a href="https://docs.aws.amazon.com/cloudwatch/" rel="nofollow noopener noreferrer" target="_blank">Amazon CloudWatch</a></strong> te permite automatizar flujos de trabajo y tomar decisiones basadas en eventos en tiempo real. Aquí tienes lo esencial:</p>
-<ul>
-<li>
-<strong>Beneficios clave</strong>:
-<ul>
-<li>Detecta problemas antes de que impacten a los usuarios.</li>
-<li>Responde automáticamente a eventos específicos.</li>
-<li>Optimiza recursos según patrones detectados.</li>
-<li>Reduce falsos positivos en las alertas.</li>
-</ul>
-</li>
-<li>
-<strong>Qué aprenderás</strong>:
-<ul>
-<li>Configurar Step Functions con CloudWatch.</li>
-<li>Diseñar flujos que reaccionen a eventos.</li>
-<li><a href="https://dondeaprendoaws.com/blog/10-metricas-clave-de-devops-en-aws/">monitorear métricas</a> y configurar alertas.</li>
-<li>Mejorar procesos mediante correlación de eventos.</li>
-</ul>
-</li>
-<li>
-<strong>Ejemplo práctico</strong>: Una máquina de estados simple que registra métricas en CloudWatch para supervisar eventos importantes. Además, puedes crear reglas en CloudWatch para activar flujos automáticamente según cambios como el estado de instancias EC2.
-</li>
-</ul>
-<p>Esta guía es ideal para desarrolladores y arquitectos con conocimientos básicos de AWS que deseen mejorar la automatización y el monitoreo de sus sistemas.</p>
-<h2 class="sb h2-sbb-cls" id="configuracion-inicial" tabindex="-1">Configuración inicial</h2>
-<h3 id="componentes-necesarios" tabindex="-1">Componentes necesarios</h3>
-<p>Para integrar Step Functions con CloudWatch, necesitarás configurar los siguientes elementos en tu cuenta de AWS:</p>
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Componente</th>
-<th>Permisos Mínimos Requeridos</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Rol IAM para Step Functions</td>
-<td>states:*, cloudwatch:PutMetricData</td>
-</tr>
-<tr>
-<td>Rol IAM para CloudWatch</td>
-<td>states:StartExecution, states:DescribeExecution</td>
-</tr>
-<tr>
-<td>Acceso a la Consola de AWS</td>
-<td>AWSStepFunctionsFullAccess, CloudWatchFullAccess</td>
-</tr>
-</tbody>
-</table></figure>
-<p>Asegúrate de que los roles IAM permitan la comunicación entre estos servicios, lo que facilitará una integración fluida. Una vez que los permisos estén listos, puedes proceder a configurar tu primera máquina de estados.</p>
-<h3 id="configuracion-de-la-primera-maquina-de-estados" tabindex="-1">Configuración de la primera máquina de estados</h3>
-<ol>
-<li>
-<strong>Crear una máquina de estados básica</strong>
-Aquí tienes un ejemplo de una máquina de estados sencilla para correlacionar eventos:
-<pre><code class="language-json">{
-  "Comment": "Máquina de estados simple para correlación de eventos",
-  "StartAt": "RegistrarEvento",
-  "States": {
-    "RegistrarEvento": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::cloudwatch:putMetricData",
-      "Parameters": {
-        "Namespace": "MiAplicacion",
-        "MetricData": [{
-          "MetricName": "EventosProcesados",
-          "Value": 1
-        }]
-      },
-      "End": true
-    }
-  }
-}
-</code></pre>
-</li>
-<li>
-<strong>Configurar la ejecución</strong>
-Define los parámetros necesarios para el registro y trazabilidad en CloudWatch. Esto te permitirá monitorear las ejecuciones de manera eficiente.
-</li>
-<li>
-<strong>Verificar la configuración</strong>
-Asegúrate de lo siguiente:
-<ul>
-<li>La máquina de estados se ejecuta sin errores.</li>
-<li>CloudWatch está recibiendo los registros generados.</li>
-<li>Los permisos de IAM funcionan correctamente.</li>
-</ul>
-Además, configura métricas de monitoreo cada 5 minutos para identificar posibles problemas de forma anticipada, sin generar gastos innecesarios.
-</li>
-</ol>
-<h2 class="sb h2-sbb-cls" id="conexion-de-cloudwatch-con-step-functions" tabindex="-1">Conexión de CloudWatch con Step Functions</h2>
-<h3 id="configuracion-de-reglas-en-cloudwatch" tabindex="-1">Configuración de reglas en CloudWatch</h3>
-<p>Configura reglas en CloudWatch para <a href="https://dondeaprendoaws.com/blog/comprendiendo-aws-step-functions/">activar tus Step Functions</a> según eventos específicos.</p>
-<p>Para crear una regla en CloudWatch Events:</p>
-<ul>
-<li>
-<strong>Definir el patrón de eventos</strong><br>
-Especifica los eventos que deseas monitorear. Por ejemplo:
-<pre><code class="language-json">{
-  "source": ["aws.ec2"],
-  "detail-type": ["EC2 Instance State-change Notification"],
+Si un pedido activa varios servicios, un `correlationId` estable te ayuda a encontrar los registros y ejecuciones que pertenecen al mismo proceso. En este diseño, **Amazon EventBridge recibe y enruta eventos, AWS Step Functions coordina el trabajo, Amazon CloudWatch Logs permite buscar actividad y un almacén persistente conserva el estado de negocio que necesitas consultar**.
+
+Usa además un `eventId` distinto para identificar cada evento y el `executionArn` que Step Functions asigna a cada ejecución. Esos tres valores describen cosas diferentes: un proceso de negocio, un evento individual y una ejecución concreta.
+
+## Define los identificadores antes de conectar servicios
+
+Supón que el pedido `8421` genera eventos cuando se confirma, se prepara y se envía. Los tres comparten `correlationId: "pedido-8421"`, pero cada uno tiene su propio `eventId`. Si un evento vuelve a publicarse por un reintento, conserva el mismo `eventId`; si ocurre un nuevo hecho de negocio, crea otro.
+
+Un productor puede publicar detalles como estos en EventBridge:
+
+```json
+{
+  "source": "com.ejemplo.pedidos",
+  "detail-type": "PedidoActualizado",
   "detail": {
-    "state": ["running", "stopped"]
+    "correlationId": "pedido-8421",
+    "eventId": "evt-01",
+    "eventType": "confirmado",
+    "pedidoId": "8421"
   }
 }
-</code></pre>
-</li>
-<li>
-<strong>Establecer el destino</strong><br>
-Selecciona tu máquina de estados como destino de la regla. Asegúrate de incluir su ARN y el rol IAM necesario.
-</li>
-</ul>
-<h3 id="conexion-de-eventos-con-step-functions" tabindex="-1">Conexión de eventos con Step Functions</h3>
-<p>Ahora, enlaza los eventos de CloudWatch directamente con tus Step Functions configurando permisos y roles adecuados:</p>
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Servicio</th>
-<th>Permiso necesario</th>
-<th>Propósito</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>CloudWatch Events</td>
-<td><code class="inline-code">states:StartExecution</code></td>
-<td>Permitir iniciar ejecuciones en Step Functions</td>
-</tr>
-<tr>
-<td>IAM</td>
-<td><code class="inline-code">iam:PassRole</code></td>
-<td>Autorizar a CloudWatch a asumir roles</td>
-</tr>
-</tbody>
-</table></figure>
-<p>Para garantizar una integración segura:</p>
-<ul>
-<li>
-<strong>Verifica la política del rol IAM</strong><br>
-Asegúrate de incluir una política como esta:
-<pre><code class="language-json">{
+```
+
+EventBridge agrega metadatos al evento, incluido `id`, un identificador único generado por el servicio. Ese `id` sirve para seguir **un evento** por reglas y destinos; no agrupa por sí solo varios hechos del mismo pedido. Conserva el `correlationId` de negocio en `detail` y no lo reemplaces por el `id` del sobre de EventBridge. [La referencia de estructura de eventos de AWS describe ambos campos](https://docs.aws.amazon.com/eventbridge/latest/ref/events-structure.html).
+
+Si el evento de origen es de un servicio AWS y no trae un `correlationId`, elige una clave de negocio que realmente identifique el proceso, si existe. Cuando solo puedas identificar ese hecho puntual, usa el identificador del evento para rastrearlo y evita fingir que representa una correlación entre varios hechos.
+
+Una regla puede seleccionar, por ejemplo, los eventos de pedido confirmado con este patrón:
+
+```json
+{
+  "source": ["com.ejemplo.pedidos"],
+  "detail-type": ["PedidoActualizado"],
+  "detail": {
+    "eventType": ["confirmado"]
+  }
+}
+```
+
+EventBridge compara el patrón con los metadatos y los campos de `detail`, y envía al destino los eventos que coinciden. [Consulta cómo crear patrones de eventos](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-event-patterns.html).
+
+## Qué hace cada servicio
+
+| Parte del flujo | Responsabilidad | Qué guardar o transmitir |
+| --- | --- | --- |
+| Ingesta y enrutamiento | EventBridge recibe el evento y una regla decide si lo envía al destino configurado. | El evento original, con `correlationId` y `eventId` en `detail`. |
+| Orquestación | Step Functions coordina estados y tareas; la forma de su entrada depende de cómo configures el destino de EventBridge. | Conserva los identificadores de cada evento y pásalos explícitamente a las tareas que los necesiten. |
+| Persistencia | Un almacén persistente registra estados de negocio, resultados y claves de idempotencia. | Por ejemplo, `correlationId`, `eventId`, `executionArn`, estado y fecha de actualización. |
+| Consulta operativa | CloudWatch Logs almacena registros de ejecución y de aplicación que puedes buscar con Logs Insights. | Registros estructurados con los identificadores que quieras consultar. |
+
+Una regla puede iniciar directamente una máquina de estados de Step Functions. Antes de definir las rutas del flujo, comprueba la forma de entrada del destino y conserva `correlationId` y `eventId` al transformarla. El destino Step Functions que usa `StepFunctionsParameters` inicia una ejecución por lote y entrega sus eventos en un array JSON; `BatchConfiguration.MaxBatchSize: 1` limita el lote a un evento, pero la entrada sigue siendo un array. Si el lote puede contener varios eventos, usa un estado `Map` para procesarlos todos y llevar cada par de identificadores a su tarea; un lote puede reunir distintos `correlationId`. [Step Functions usa `Map` para procesar cada elemento de un array](https://docs.aws.amazon.com/step-functions/latest/dg/state-map.html). Consulta también [la referencia del destino Step Functions y su batching](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-custom-bus-target-sfn.html) y [cómo transformar entradas de EventBridge](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-transform-target-input.html).
+
+Cuando el payload que recibe la máquina tiene forma de objeto, una rama `Choice` puede leer `$.detail.eventType` para decidir qué tarea ejecutar. Esa ruta no sirve para una entrada que es un array: usa `Map` para recorrerla y pasa el `correlationId` y el `eventId` de cada elemento a sus tareas. Si una tarea invoca Lambda, una API u otro servicio, transmite ambos valores explícitamente. Para ver un ejemplo de una tarea que llama a una API con Step Functions y SAM, consulta [esta guía en español](https://www.andmore.dev/es/blog/http-invoke-with-sam/). Si el proceso publica un nuevo evento, conserva el `correlationId` y asigna un `eventId` para ese nuevo hecho.
+
+Para ampliar el tema de las integraciones directas desde Step Functions, mira la [sesión de AWS Women Colombia sobre integración de servicios](https://www.youtube.com/watch?v=Je-7jIzLdJA).
+
+La diferencia importa: un mismo pedido puede originar varios eventos y, por tanto, varias ejecuciones. El `executionArn` identifica una de ellas; no sustituye a la clave que conecta todo el proceso. Para una explicación de EventBridge, SNS y SQS y de sus responsabilidades, continúa con [la guía de arquitectura dirigida por eventos en AWS](https://dondeaprendoaws.com/blog/arquitecturas-dirigidas-por-eventos-en-aws/).
+
+## Elige Standard o Express según la ejecución
+
+| Tipo de flujo | Historial y entrega | Encaja cuando… |
+| --- | --- | --- |
+| Standard | Step Functions conserva el historial de ejecución durante 90 días. Su modelo es exactamente una vez, salvo que la definición incluya reintentos. | Necesitas consultar el recorrido de cada ejecución o coordinar procesos largos. |
+| Express asíncrono | Step Functions no conserva el historial de ejecución; el modelo de entrega es al menos una vez. Configura CloudWatch Logs para consultar eventos, sabiendo que la entrega de esos registros es de mejor esfuerzo. | Procesas cargas cortas y puedes hacer idempotentes las tareas. |
+| Express síncrono | Step Functions no conserva el historial de ejecución; el modelo es como máximo una vez. | El invocador espera el resultado y tu flujo se ajusta a ese modo. |
+
+Los historiales de Standard están disponibles por la API hasta 90 días después de completarse. Express no registra su historial dentro de Step Functions: para verlo debes habilitar CloudWatch Logs. AWS advierte que la integridad y puntualidad de la entrega de esos registros no están garantizadas; si necesitas conservar cada resultado, registra los datos del flujo en almacenamiento apropiado. [Compara los tipos de flujo](https://docs.aws.amazon.com/step-functions/latest/dg/choosing-workflow-type.html) y [los detalles de su historial y registro](https://docs.aws.amazon.com/step-functions/latest/dg/cw-logs.html).
+
+La operación `StartExecution` tampoco deduplica ambos tipos por igual. Es idempotente para Standard si se repiten el mismo nombre y la misma entrada mientras esa ejecución sigue abierta; no lo es para Express. Un `correlationId` que abarca varios eventos no debe usarse como sustituto automático del nombre de ejecución. [La API documenta estas condiciones](https://docs.aws.amazon.com/step-functions/latest/apireference/API_StartExecution.html).
+
+## Diseña para reintentos y eventos duplicados
+
+EventBridge reintenta entregas que fallan y, en casos poco frecuentes, una regla o su destino pueden ejecutarse más de una vez para el mismo evento. Por eso, el `eventId` debe seguir siendo estable ante reintentos del productor, y las tareas con efectos secundarios deben poder reconocer una operación ya aplicada. [AWS describe los reintentos de entrega](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-rule-retry-policy.html) y [los casos de invocación duplicada](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-troubleshooting.html).
+
+Para una tabla de DynamoDB, una clave compuesta como `(correlationId, eventId)` permite registrar eventos individuales dentro de un proceso. Una escritura condicional con `attribute_not_exists` puede impedir que la misma clave sobrescriba un registro anterior. Esa condición protege la escritura de la tabla; el código aún debe definir qué hacer con el duplicado y cómo evitar repetir el efecto de negocio, como un cobro o una notificación. [La API de `PutItem` explica las escrituras condicionales](https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_PutItem.html).
+
+Puedes configurar una cola de mensajes fallidos (DLQ) en el destino para conservar eventos que EventBridge no consiguió entregar tras sus reintentos. La DLQ cubre el fallo de entrega al destino; no representa el resultado de una ejecución que sí comenzó y luego falló dentro de Step Functions. Para ese recorrido, consulta el estado de la ejecución y registra el resultado de negocio en tu almacenamiento.
+
+Si, además de investigar la ejecución, necesitas avisar al equipo cuando falle, consulta la [guía de avisos operativos de AWS en Slack o Teams](https://dondeaprendoaws.com/blog/configurar-aws-para-comunicacion-en-equipo-7-pasos/). Esa notificación es un paso separado de la correlación y del registro durable.
+
+## Busca el correlationId en CloudWatch Logs
+
+Configura Step Functions para enviar sus eventos de ejecución al grupo de CloudWatch Logs que uses para ese flujo. Para buscar el identificador dentro de la entrada de ejecución, incluye los datos de ejecución en los registros y revisa si esa entrada también contiene información sensible. Otra opción es emitir desde las tareas registros JSON propios con `correlationId` como campo de primer nivel:
+
+```json
+{
+  "correlationId": "pedido-8421",
+  "eventId": "evt-01",
+  "executionArn": "arn:aws:states:us-east-1:123456789012:execution:ProcesarPedido:exec-abc123",
+  "paso": "validacion",
+  "estado": "ok"
+}
+```
+
+En Logs Insights, selecciona el grupo de registros pertinente y un intervalo de tiempo acotado. Si tus eventos JSON exponen esos campos, esta consulta muestra la secuencia para el pedido:
+
+```text
+fields @timestamp, correlationId, eventId, executionArn, paso, estado
+| filter correlationId = "pedido-8421"
+| sort @timestamp asc
+```
+
+Los nombres de campo deben coincidir con el formato que emite tu aplicación. Para revisar registros de Step Functions que guardan la entrada como texto anidado, puedes buscar el valor en el mensaje:
+
+```text
+fields @timestamp, @message
+| filter @message like /pedido-8421/
+| sort @timestamp asc
+```
+
+[CloudWatch Logs Insights admite estos comandos de consulta](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CWL_QuerySyntax.html). Limita los grupos y el período consultado para reducir el volumen de datos que analiza cada búsqueda.
+
+Si necesitas diseñar los registros JSON que emiten tus tareas, puedes ver esta [explicación de logs estructurados y métricas con CloudWatch en aplicaciones serverless](https://www.youtube.com/watch?v=UBPPGJaBIVY). Es material complementario, no una referencia para configurar Step Functions hoy.
+
+CloudWatch Logs es una herramienta de diagnóstico, no un registro transaccional. Step Functions entrega sus registros a CloudWatch con el mejor esfuerzo: pueden faltar o llegar tarde. Además, la entrada y la salida de una ejecución pueden truncarse en los registros si superan los límites de tamaño. Usa el historial de Step Functions Standard o un almacén persistente cuando necesites conservar un historial operativo o de negocio para consultarlo después.
+
+## Separa los permisos de cada rol
+
+En una regla de EventBridge, el rol de destino necesita confiar en `events.amazonaws.com` y autorizar `states:StartExecution` sobre la máquina de estados concreta. Para un escenario de la misma cuenta, la política de permisos puede limitarse así:
+
+```json
+{
   "Version": "2012-10-17",
   "Statement": [
     {
       "Effect": "Allow",
       "Action": "states:StartExecution",
-      "Resource": "arn:aws:states:eu-west-1:*:stateMachine:*"
+      "Resource": "arn:aws:states:us-east-1:123456789012:stateMachine:ProcesarPedido"
     }
   ]
 }
-</code></pre>
-</li>
-<li>
-<strong>Activa los registros</strong><br>
-Habilita el registro tanto en CloudWatch como en Step Functions para facilitar la depuración.
-</li>
-<li>
-<strong>Configura un timeout adecuado</strong><br>
-Ajusta el tiempo de espera en las reglas para evitar pérdidas de eventos y controlar los costes.
-</li>
-</ul>
-<p>Es importante encontrar un equilibrio entre la cantidad de eventos monitoreados y los costes asociados. Monitorear demasiados eventos puede ser costoso, mientras que una configuración demasiado limitada podría pasar por alto eventos importantes.</p>
-<p>Si quieres profundizar en la <a href="https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/">integración de servicios de AWS</a>, visita <a href="https://dondeaprendoaws.com/">Dónde Aprendo AWS</a>.</p>
-<h2 class="sb h2-sbb-cls" id="flujos-de-trabajo-para-correlacion-de-eventos" tabindex="-1">Flujos de trabajo para correlación de eventos</h2>
-<h3 id="toma-de-decisiones-basada-en-eventos" tabindex="-1">Toma de decisiones basada en eventos</h3>
-<p>Los <a href="https://jjoc007.com/introducci%C3%B3n-a-aws-step-functions-usando-terraform-como-herramienta-de-infrastructura-como-c%C3%B3digo-e2add2930269" target="_blank">flujos de trabajo de Step Functions</a> permiten procesar eventos relacionados mediante estados <strong>Choice</strong>, que ayudan a implementar lógica de negocio según el tipo de evento. Aquí tienes un ejemplo de configuración:</p>
-<pre><code class="language-json">{
-  "Type": "Choice",
-  "Choices": [
-    {
-      "Variable": "$.eventType",
-      "StringEquals": "ec2.instanceStop",
-      "Next": "NotificarParada"
-    },
-    {
-      "Variable": "$.eventType",
-      "StringEquals": "ec2.highCPU",
-      "Next": "EscalarRecursos"
-    }
-  ],
-  "Default": "ManejoPredeterminado"
-}
-</code></pre>
-<p><strong>Consejos prácticos</strong>:</p>
-<ul>
-<li>Define patrones claros para identificar eventos relacionados.</li>
-<li>Usa estados <strong>Wait</strong> para sincronizar eventos que ocurran en diferentes momentos.</li>
-<li>Configura tiempos de espera realistas para evitar bloqueos innecesarios.</li>
-</ul>
-<p>El siguiente paso es entender cómo manejar eventos en función de intervalos temporales.</p>
-<h3 id="procesamiento-de-eventos-basado-en-tiempo" tabindex="-1">Procesamiento de eventos basado en tiempo</h3>
-<p>Además de tomar decisiones basadas en eventos, gestionar el tiempo entre ellos es esencial para una correlación eficiente. Step Functions ofrece tres opciones principales para manejar esperas:</p>
-<ul>
-<li><strong>Tiempo fijo</strong>: Ideal para retrasos predefinidos (ejemplo: <code class="inline-code">"Seconds": 300</code>).</li>
-<li><strong>Timestamp</strong>: Útil para momentos específicos (ejemplo: <code class="inline-code">"Timestamp": "2025-03-17T14:30:00Z"</code>).</li>
-<li><strong>Intervalo dinámico</strong>: Permite definir esperas variables (ejemplo: <code class="inline-code">"SecondsPath": "$.waitTime"</code>).</li>
-</ul>
-<p>Para gestionar estos tiempos, puedes usar el estado <strong>Wait</strong> como en este ejemplo:</p>
-<pre><code class="language-json">{
-  "Type": "Wait",
-  "SecondsPath": "$.correlationWindow",
-  "Next": "ProcesarEventosRelacionados"
-}
-</code></pre>
-<p>Ajusta los tiempos de espera para encontrar el equilibrio entre precisión y eficiencia. Los estados <strong>Wait</strong> son especialmente útiles para coordinar eventos que deben ocurrir dentro de una ventana temporal específica.</p>
-<h2 class="sb h2-sbb-cls" id="pruebas-y-manejo-de-errores" tabindex="-1">Pruebas y manejo de errores</h2>
-<p>Al trabajar con la integración de Step Functions y CloudWatch, es fundamental realizar pruebas exhaustivas y gestionar posibles errores para garantizar que el flujo de eventos funcione correctamente.</p>
-<h3 id="configuracion-de-metricas" tabindex="-1">Configuración de métricas</h3>
-<p>Es importante monitorear los siguientes aspectos clave:</p>
-<ul>
-<li><strong>Tiempo total de ejecución</strong> del flujo de trabajo.</li>
-<li><strong>Cantidad de eventos exitosos</strong> correlacionados.</li>
-<li><strong>Tasa de errores</strong>, para identificar problemas rápidamente.</li>
-<li><strong>Latencia entre eventos</strong>, para medir el tiempo de respuesta.</li>
-</ul>
-<p>Configura métricas personalizadas en CloudWatch enfocadas en estos indicadores para mantener un sistema eficiente.</p>
-<h3 id="creacion-de-paneles-de-monitorizacion" tabindex="-1">Creación de paneles de monitorización</h3>
-<p>Una vez que las métricas estén configuradas, organiza un panel en CloudWatch para visualizar los datos de manera clara y efectiva. Aquí tienes un ejemplo de cómo estructurarlo:</p>
-<figure class="table"><table>
-<thead>
-<tr>
-<th><strong>Widget</strong></th>
-<th><strong>Métrica</strong></th>
-<th><strong>Frecuencia de actualización</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Estado General</td>
-<td>Tasa de éxito</td>
-<td>Cada 5 minutos</td>
-</tr>
-<tr>
-<td>Latencia</td>
-<td>Tiempo entre eventos</td>
-<td>Cada 1 minuto</td>
-</tr>
-<tr>
-<td>Errores</td>
-<td>Fallos de correlación</td>
-<td>Cada 1 minuto</td>
-</tr>
-<tr>
-<td>Rendimiento</td>
-<td>Eventos por minuto</td>
-<td>Cada 5 minutos</td>
-</tr>
-</tbody>
-</table></figure>
-<h3 id="problemas-comunes-y-soluciones" tabindex="-1">Problemas comunes y soluciones</h3>
-<p>Aquí tienes algunos desafíos habituales y cómo abordarlos:</p>
-<ol>
-<li>
-<strong>Eventos perdidos o duplicados</strong><br>
-Usa un mecanismo de captura para manejar errores como el siguiente:
-<pre><code class="language-json">{
-  "Type": "Catch",
-  "ErrorEquals": ["States.Timeout"],
-  "Next": "RecuperacionEventos"
-}
-</code></pre>
-</li>
-<li>
-<strong>Inconsistencias temporales</strong><br>
-Implementa un retraso ajustable para sincronizar eventos:
-<pre><code class="language-json">{
-  "Type": "Wait",
-  "SecondsPath": "$.adjustedDelay",
-  "Next": "ValidacionSincronizacion"
-}
-</code></pre>
-</li>
-<li>
-<strong>Control de sobrecarga</strong><br>
-Limita la cantidad de eventos procesados en un intervalo de tiempo:
-<pre><code class="language-json">{
-  "Type": "Task",
-  "Resource": "arn:aws:states:::lambda:invoke",
-  "Parameters": {
-    "FunctionName": "controladorLimites",
-    "Payload": {
-      "maxEventos": 100,
-      "intervaloSegundos": 60
-    }
-  }
-}
-</code></pre>
-</li>
-</ol>
-<h3 id="configuracion-de-alertas-en-cloudwatch" tabindex="-1">Configuración de alertas en CloudWatch</h3>
-<p>Para reaccionar rápidamente a problemas, configura alertas que notifiquen en los siguientes casos:</p>
-<ul>
-<li><strong>Tasa de errores</strong> superior al 5%.</li>
-<li><strong>Tiempo de procesamiento</strong> mayor a 30 segundos.</li>
-<li><strong>Más de 3 reintentos consecutivos</strong>.</li>
-</ul>
-<p>Estas estrategias complementan la configuración inicial y ayudan a gestionar los eventos de manera efectiva, asegurando un flujo de trabajo estable y bien optimizado.</p>
-<h2 class="sb h2-sbb-cls" id="rendimiento-y-estandares" tabindex="-1">Rendimiento y estándares</h2>
-<h3 id="velocidad-y-control-de-costes" tabindex="-1">Velocidad y control de costes</h3>
-<p>Para mejorar el rendimiento y gestionar los costes, ajusta la memoria asignada a Lambda según la complejidad de las tareas. Además, establece límites de tiempo precisos en Step Functions para evitar ejecuciones innecesarias que puedan generar gastos adicionales.</p>
-<h3 id="recomendaciones-de-seguridad" tabindex="-1">Recomendaciones de seguridad</h3>
-<p>La seguridad es clave para proteger cada componente de la integración. Asegúrate de implementar políticas IAM siguiendo el principio de mínimo privilegio y revísalas regularmente para proteger los recursos de manera efectiva.</p>
-<p>Aquí tienes un ejemplo de política IAM restrictiva:</p>
-<pre><code class="language-json">{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "states:StartExecution",
-        "states:DescribeExecution"
-      ],
-      "Resource": "arn:aws:states:eu-west-1:*:stateMachine:EventCorrelation*"
-    }
-  ]
-}
-</code></pre>
-<p>Estas medidas ayudan a garantizar la integridad y eficiencia en los procesos de correlación de eventos. Si quieres aprender más sobre cómo optimizar y proteger entornos en AWS, visita el blog <a href="https://dondeaprendoaws.com/">Dónde Aprendo AWS</a> (https://dondeaprendoaws.com), donde encontrarás recursos y guías detalladas para desarrolladores de habla hispana.</p>
-<h2 class="sb h2-sbb-cls" id="conclusion" tabindex="-1">Conclusión</h2>
-<h3 id="resumen-de-puntos-clave" tabindex="-1">Resumen de puntos clave</h3>
-<p>La combinación de Step Functions y CloudWatch ofrece una herramienta eficaz para automatizar flujos de trabajo y tomar decisiones en tiempo real, aprovechando el procesamiento temporal para gestionar recursos de manera eficiente. Configurar métricas y paneles personalizados en CloudWatch permite detectar cuellos de botella y áreas de mejora, mientras que el monitoreo constante asegura un rendimiento óptimo y ayuda a reducir costes operativos.</p>
-<p>Algunos de los puntos clave de esta integración incluyen:</p>
-<ul>
-<li><strong>Automatización de flujos basados en eventos</strong>, mejorando la eficiencia operativa.</li>
-<li><strong>Gestión eficiente de recursos</strong> gracias al procesamiento temporal.</li>
-<li><strong>Detección temprana de problemas</strong> mediante paneles personalizados.</li>
-<li><strong>Protección de la integridad de datos</strong> con políticas de seguridad sólidas.</li>
-</ul>
-<p>Estos elementos proporcionan una base sólida para explorar más detalles a través de los recursos que se mencionan a continuación.</p>
-<h3 id="recursos-adicionales" tabindex="-1">Recursos adicionales</h3>
-<p>Aquí tienes algunos recursos útiles:</p>
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Recurso</th>
-<th>Descripción</th>
-<th>Ventaja Principal</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Documentación AWS</td>
-<td>Guías oficiales de Step Functions y CloudWatch</td>
-<td>Información técnica detallada y actualizada.</td>
-</tr>
-<tr>
-<td>Dónde Aprendo AWS</td>
-<td>Tutoriales en español sobre servicios AWS</td>
-<td>Contenido útil y accesible para desarrolladores hispanohablantes.</td>
-</tr>
-<tr>
-<td><a href="https://docs.aws.amazon.com/wellarchitected/latest/framework/welcome.html" rel="nofollow noopener noreferrer" target="_blank">AWS Well-Architected</a></td>
-<td><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">mejores prácticas de arquitectura</a></td>
-<td>Ayuda a optimizar el rendimiento y la seguridad.</td>
-</tr>
-</tbody>
-</table></figure>
-<p>Aprovecha estos recursos para profundizar en la integración y seguir mejorando tus implementaciones en AWS.</p>
-<h2>Publicaciones de blog relacionadas</h2><ul><li><a href="https://dondeaprendoaws.com/blog/comprendiendo-aws-step-functions/">Comprendiendo AWS Step Functions</a></li><li><a href="https://dondeaprendoaws.com/blog/monitoreo-y-logs-de-aws-step-functions-guia-2024/">Monitoreo y logs de AWS Step Functions: guía 2024</a></li><li><a href="https://dondeaprendoaws.com/blog/cloudwatch-y-eventbridge-integracion/">CloudWatch y EventBridge: integración</a></li><li><a href="https://dondeaprendoaws.com/blog/estrategias-de-correlacion-de-eventos-aws/">Estrategias de correlación de eventos AWS</a></li></ul>
+```
+
+Reemplaza la región, la cuenta y el nombre por los de tu máquina. `iam:PassRole`, cuando corresponda, pertenece a la identidad que crea o actualiza el destino para que pueda asignar ese rol a EventBridge; no es un permiso que el rol de destino necesite para iniciar la ejecución. [AWS detalla el rol y los permisos de los destinos de EventBridge](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-events-iam-roles.html). [IAM explica cuándo la identidad que configura el destino requiere `iam:PassRole`](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_passrole.html).
+
+El rol de ejecución de Step Functions es independiente: confía en Step Functions y concede las acciones que requieren sus tareas. Si habilitas registros, ese rol necesita además los permisos de CloudWatch Logs que documenta AWS; algunas de esas acciones no permiten restringir `Resource` a un grupo concreto. No reemplaces estas políticas separadas con acceso completo a Step Functions o CloudWatch.
+
+## Recursos y comunidad
+
+Si buscas una comunidad para conversar sobre arquitectura serverless y AWS, visita [AWS User Group Serverless Colombia](https://www.meetup.com/aws-user-group-serverless-colombia/). Al 6 de octubre de 2026, el grupo anuncia el encuentro virtual [El Combo Indestructible de AWS: SQS + Lambda](https://www.meetup.com/aws-user-group-serverless-colombia/events/316770520/) para el 20 de octubre a las 19:00 (hora de Colombia); la ficha indica acceso libre. Si estás en Argentina, también puedes seguir las actividades y conversaciones del [AWS User Group Córdoba](https://www.meetup.com/aws-user-group-cordoba-argentina/).
+
+Si quieres comparar la elección entre Standard y Express con más detalle, lee [la guía de Step Functions](https://dondeaprendoaws.com/blog/comprendiendo-aws-step-functions/). Para el caso en que el disparador sea una alarma de CloudWatch, consulta [cómo conectar alarmas de CloudWatch con EventBridge](https://dondeaprendoaws.com/blog/cloudwatch-y-eventbridge-integracion/).
