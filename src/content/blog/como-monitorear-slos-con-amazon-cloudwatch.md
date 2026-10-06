@@ -1,465 +1,118 @@
 ---
-title: "Cómo monitorear SLOs con Amazon CloudWatch"
-description: "Aprende a monitorear objetivos de nivel de servicio (SLOs) con Amazon CloudWatch, optimizando la disponibilidad y rendimiento de tus aplicaciones."
+title: "Cómo crear SLOs en AWS con CloudWatch Application Signals"
+description: "Define indicadores de disponibilidad y latencia, calcula el error budget y configura alertas de burn rate con CloudWatch Application Signals."
 author: "guille-ojeda"
 publishedAt: "2025-02-24"
+modifiedTimestamp: "2026-10-06T10:03:48-03:00"
 publishedTimestamp: "2025-02-24T06:43:53.013Z"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Webinars y eventos en AWS Marketplace"
-    url: "https://dondeaprendoaws.com/blog/webinars-y-eventos-en-aws-marketplace/"
-  - title: "Ahorro de costos en AWS con instancias reservadas y Savings Plans"
-    url: "https://dondeaprendoaws.com/blog/ahorro-de-costos-en-aws-con-instancias-reservadas-y-savings-plans/"
-  - title: "Cómo prepararte para un examen de certificación de AWS"
-    url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-preparacion-para-el-examen/"
+  - title: "Cómo habilitar CloudWatch Logs en API Gateway: REST, HTTP y WebSocket"
+    url: "https://dondeaprendoaws.com/blog/como-habilitar-cloudwatch-logs-en-api-gateway-guia-paso-a-paso/"
+  - title: "AWS X-Ray: trazas, diagnóstico y OpenTelemetry"
+    url: "https://dondeaprendoaws.com/blog/aws-x-ray-herramientas-de-depuracion-y-rastreo-distribuido/"
 
+review:
+  date: "2026-10-06"
 ---
 
-<p><strong>¿Por qué usar CloudWatch para SLOs?</strong><br/>
-<a href="https://aws.amazon.com/cloudwatch/" rel="noopener noreferrer" target="_blank">Amazon CloudWatch</a> es una herramienta que te ayuda a supervisar objetivos de nivel de servicio (SLOs) para garantizar el rendimiento de tus aplicaciones. Con CloudWatch, puedes:</p>
-
-
-<ul>
-<li><strong>Configurar Dashboards Personalizados:</strong> Visualiza <a href="https://dondeaprendoaws.com/blog/10-metricas-clave-de-devops-en-aws/">métricas clave</a> como disponibilidad, latencia y consumo de error budget.</li>
-<li><strong>Recibir Alertas Automáticas:</strong> Configura alarmas para detectar rápidamente desviaciones en tus objetivos.</li>
-<li><strong>Analizar Rendimiento:</strong> Usa herramientas avanzadas como Logs Insights y <a href="https://docs.aws.amazon.com/xray/latest/devguide/aws-xray.html" rel="noopener noreferrer" target="_blank">AWS X-Ray</a> para identificar problemas de latencia o errores.</li>
-<li><strong>Centralizar Datos Multi-Cuenta:</strong> Monitorea métricas desde varias cuentas AWS sin costo adicional.</li>
-</ul>
-
-
-<p><strong>Pasos clave para empezar:</strong></p>
-
-
-<ol>
-<li><strong>Crea un Dashboard:</strong> Diseña un panel con widgets como gráficos de líneas para tendencias o medidores para error budgets.</li>
-<li><strong>Configura Métricas:</strong> Define indicadores como latencia y disponibilidad usando estadísticas específicas.</li>
-<li><strong>Configura Alarmas:</strong> Combina ventanas de monitoreo corto y largo plazo para detectar problemas.</li>
-<li><strong>Usa Herramientas Avanzadas:</strong> Aprovecha Logs Insights para búsquedas detalladas y AWS X-Ray para trazabilidad.</li>
-</ol>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Función</th>
-<th>Beneficio</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Dashboards Personalizados</td>
-<td>Visualización clara de métricas clave</td>
-</tr>
-<tr>
-<td>Alarmas Compuestas</td>
-<td>Alertas más precisas y menos falsos positivos</td>
-</tr>
-<tr>
-<td>Monitoreo Multi-Cuenta</td>
-<td>Centralización de datos sin costo adicional</td>
-</tr>
-<tr>
-<td>Análisis con Logs Insights</td>
-<td>Consultas interactivas en registros</td>
-</tr>
-</tbody>
-</table></figure>
+Para monitorear SLOs en AWS, elige una métrica que represente la experiencia de una operación, define qué resultado cuenta como bueno y fija una meta para un intervalo. CloudWatch Application Signals permite crear SLOs con sus métricas de disponibilidad y latencia, o con una métrica de CloudWatch y una expresión de Metric Math. Puedes evaluar el resultado por períodos o por solicitudes, y configurar alarmas de presupuesto de error y burn rate.
 
+En esta guía vas a crear dos SLOs para la operación técnica `POST /checkout`: que el 99,9 % de las solicitudes no registre `Fault` según `Availability`, y que el 99 % responda en 300 ms o menos durante una ventana móvil de 28 días. La disponibilidad estándar cuenta las respuestas 4xx como exitosas; eso no garantiza que la lógica de negocio haya completado una compra. Si un rechazo de negocio debe contar como fallo, crea un SLI propio que lo incluya. Los valores son un ejemplo; ajústalos a los usuarios, el tráfico y los compromisos de tu servicio.
 
-<p><strong>Conclusión:</strong> CloudWatch simplifica el monitoreo de SLOs al automatizar métricas, alertas y análisis, ayudándote a mantener la confiabilidad de tus servicios.</p>
+## SLI, SLO, SLA y presupuesto de error
 
+Un **SLI** es la medición que eliges, como disponibilidad o latencia. Un **SLO** es la meta para ese indicador dentro de un intervalo. Un **SLA** es el acuerdo de servicio con un cliente y puede especificar qué ocurre si no se cumple. Un SLO operativo ayuda a detectar el riesgo de incumplir ese acuerdo, pero no lo reemplaza. AWS explica estos conceptos y su relación en su guía de [SLO eficaces](https://aws.amazon.com/blogs/mt/improve-application-reliability-with-effective-slos/).
 
-<h2 class="sb h2-sbb-cls" id="configuracion-de-cloudwatch-para-el-monitoreo-de-slos" tabindex="-1">Configuración de CloudWatch para el monitoreo de SLOs</h2>
+El **presupuesto de error** es lo que el objetivo permite que falle. Si el objetivo es 99,9 % de solicitudes buenas, queda un presupuesto de 0,1 % de solicitudes malas en el intervalo. En un objetivo por períodos, el presupuesto se expresa como la proporción de períodos que pueden quedar por debajo del umbral.
 
+Un objetivo del 100 % deja presupuesto cero: una sola solicitud o un período fallido hace imposible cumplirlo en ese intervalo. AWS recomienda fijar una meta alcanzable según las expectativas de los usuarios y el comportamiento real del servicio; 99 %, 99,9 % o 99,99 % no son valores universales.
 
-<p>Aquí te mostramos cómo configurar CloudWatch para supervisar tus SLOs de manera eficiente.</p>
+## Elige una métrica que refleje el resultado del usuario
 
+Application Signals recopila `Availability` y `Latency` para los servicios y operaciones que descubre. También registra `Fault` y `Error`. Revisa la definición de [métricas de Application Signals](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AppSignals-MetricsCollected.html) antes de usarlas:
 
-<h3 id="creacion-de-tu-primer-dashboard" tabindex="-1">Creación de tu primer dashboard</h3>
+- Application Signals calcula la disponibilidad estándar como `(1 - Faults / Total) × 100`. Las respuestas HTTP 5xx cuentan como fallos y las 4xx se consideran exitosas; la métrica `Error` registra los errores 4xx por separado. La métrica `Fault` también contempla errores de estado de spans de OpenTelemetry.
+- `Latency` mide la demora de respuesta en milisegundos. Una meta como “el 99 % de las solicitudes tarda 300 ms o menos” describe mejor la experiencia que un promedio que puede ocultar respuestas lentas.
+- Una alarma sobre el conteo de 5xx es una señal operativa, no un SLO completo: no mide por sí sola la latencia, el objetivo de cumplimiento a largo plazo ni los errores de negocio. Si un 4xx representa un resultado fallido para tu producto, define un SLI propio que lo incluya.
 
+Puedes usar cualquier métrica de CloudWatch o expresión de Metric Math que produzca una serie temporal. Para una métrica propia por solicitudes, el cálculo básico es `solicitudes buenas / solicitudes totales`. Asegúrate de que numerador y denominador correspondan a la misma operación, dimensiones e intervalo.
 
-<p>Diseña un dashboard personalizado para seguir de cerca las métricas clave de tus SLOs.</p>
+## Evaluación por períodos o por solicitudes
 
+CloudWatch ofrece dos formas de calcular el cumplimiento:
 
-<ul>
-<li>
-<strong>Acceso y configuración inicial</strong>: Entra a CloudWatch, selecciona "Dashboards" y haz clic en "Create dashboard". Dale un nombre que represente claramente el monitoreo de tus SLOs.
-</li>
-<li>
-<strong>Elección de widgets</strong>: Los widgets son los bloques que usarás para visualizar tus métricas. Aquí tienes algunas opciones según lo que necesites:
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Tipo de Widget</th>
-<th>Uso Recomendado</th>
-<th>Visualización</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Línea</td>
-<td>Tendencias de latencia</td>
-<td>Evolución temporal</td>
-</tr>
-<tr>
-<td>Número</td>
-<td>Disponibilidad actual</td>
-<td>Valor único</td>
-</tr>
-<tr>
-<td>Medidor</td>
-<td>Consumo de error budget</td>
-<td>Porcentaje visual</td>
-</tr>
-<tr>
-<td>Texto</td>
-<td>Documentación de SLOs</td>
-<td>Formato Markdown</td>
-</tr>
-</tbody>
-</table></figure>
-</li>
-<li>
-<strong>Organización del dashboard</strong>: Agrupa los widgets de manera lógica. Por ejemplo, coloca los indicadores de disponibilidad junto a las alertas de burn rate para facilitar el monitoreo.
-</li>
-</ul>
+- **Por períodos (`Periods`)**: compara una estadística agregada con el umbral en cada período corto. El attainment es `períodos buenos / períodos totales`. Si un período resulta malo, toda su duración cuenta contra el presupuesto. Por ejemplo, con intervalos de un minuto, el SLO mide qué porcentaje de esos minutos pasó el umbral.
+- **Por solicitudes (`Requests`)**: mide `solicitudes buenas / solicitudes totales` en el intervalo. Cada solicitud pesa en el resultado; esto suele ser más adecuado cuando el volumen cambia mucho entre períodos.
 
+El **intervalo** del SLO es otra elección. Un intervalo de calendario, como un mes, se alinea con el período de informes y reinicia el cálculo al comenzar el siguiente. Un intervalo móvil de 28 días siempre mira hacia atrás 28 días; es útil para seguir la experiencia reciente sin esperar al cambio de mes. La [guía de SLOs de CloudWatch](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-ServiceLevelObjectives.html) explica cómo se relacionan evaluación, períodos e intervalos. Las ventanas de una alarma de métricas tienen una configuración independiente: las ventanas móviles evalúan datos recientes y las de reloj esperan los límites de tiempo definidos. No confundas esa opción de alarma con el intervalo calendario o móvil del SLO; consulta la [evaluación de alarmas por ventanas de tiempo](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/alarm-evaluation-window.html) y esta explicación de [ventanas de reloj en alarmas de CloudWatch](https://builder.aws.com/content/3Jw3mQgso7GLIzENc1b524e3L9z/alarmas-de-amazon-cloud-watch-con-ventana-de-reloj-un-da-no-es-lo-mismo-que-horas).
 
-<h3 id="configuracion-de-metricas" tabindex="-1">Configuración de métricas</h3>
+En un SLO request-based, el presupuesto de solicitudes se calcula como `(1 - objetivo decimal) × solicitudes totales`. Por ejemplo, un objetivo de 99,9 % permite un máximo de 1.000 solicitudes malas por cada 1.000.000 solicitudes del intervalo: `0,001 × 1.000.000 = 1.000`. Un objetivo del 99 % permitiría 10.000 en ese mismo volumen. Ese presupuesto cuenta solicitudes; no equivale a minutos de indisponibilidad.
 
+## Requisitos antes de crear el SLO
 
-<p>Una vez creado el dashboard, necesitas configurar las métricas que alimentarán tus SLOs. Application Signals recopila automáticamente datos sobre latencia y disponibilidad .</p>
+Application Signals necesita recibir telemetría de la aplicación. Primero activa el descubrimiento de servicios en la cuenta; AWS crea el rol vinculado al servicio que necesita para leer las señales. Después habilita la instrumentación adecuada para la aplicación y genera tráfico representativo.
 
+AWS documenta como plataformas compatibles y probadas Amazon EKS, Kubernetes nativo, Amazon ECS y Amazon EC2; Lambda tiene un [procedimiento de habilitación propio](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Application-Signals-Enable-LambdaMain.html). Los lenguajes, runtimes y bibliotecas compatibles dependen del método de instrumentación: revisa la [matriz de sistemas e instrumentación](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Application-Signals-supportmatrix.html) para tu entorno.
 
-<p>Para métricas de latencia en SLOs basados en solicitudes, usa estadísticas de <em>Trimmed count</em> (TC). Si tu umbral es de 9 ms con un operador "menor que" (&lt;), el umbral TC se calcula como (:threshold - 1) .</p>
+Antes de configurar el objetivo, confirma en CloudWatch que aparecen el servicio, la operación y sus métricas `Availability` o `Latency`. AWS indica que descubrir un servicio puede tardar hasta 10 minutos y evaluar la salud del SLI hasta 15 minutos. Las listas de servicios y operaciones también dependen de la actividad reciente. Consulta la guía de [habilitación de Application Signals](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Application-Signals-Enable.html) si la telemetría no aparece.
 
+## Crea dos SLOs para una operación de compra
 
-<h3 id="configuracion-de-alertas" tabindex="-1">Configuración de alertas</h3>
+1. Abre CloudWatch y elige **Service Level Objectives (SLO)**, luego **Create SLO**.
+2. En el tipo de indicador, elige **Service**. Selecciona la aplicación, el servicio y la operación que representa el recorrido de compra, por ejemplo `POST /checkout`.
+3. Para el primer SLO, elige **Requests** y `Availability`. Define un attainment de **99,9 %** y un intervalo móvil de **28 días**. Esto mide la proporción de solicitudes exitosas de esa operación en toda la ventana.
+4. Crea un segundo SLO para latencia: elige **Requests**, selecciona `Latency` y configura el límite de **300 ms** con attainment de **99 %** en el mismo intervalo. Así separas el objetivo de disponibilidad del objetivo de rapidez.
+5. Configura las alarmas de SLO o de burn rate y, si corresponde, una notificación con Amazon SNS. Verifica que los umbrales representen acciones concretas para el equipo que recibe la alerta.
 
+Si ya tienes datos históricos, Application Signals puede recomendar umbrales, attainment y ventanas de burn rate a partir de los últimos 30 días. Tómalos como punto de partida: confirma que encajan con el resultado que necesitan los usuarios y el negocio.
 
-<p>Después de definir las métricas, configura alertas para supervisar el consumo del error budget.</p>
+Si la operación aún no aparece como servicio instrumentado, puedes crear el SLO con una métrica de CloudWatch o una expresión de Metric Math. Para un SLO request-based, define un conteo de solicitudes que cumplen la condición del SLI y otro conteo total, con las mismas dimensiones y período. Para latencia propia, especifica qué observaciones cuentan como buenas y comprueba cómo las agrega la estadística que elijas antes de guardar.
 
+Si partes de logs estructurados, esta [guía comunitaria para construir SLIs desde logs](https://builder.aws.com/content/3IlpApiKwsNpk6eWH4T0NdgFfkf/observabilidad-desde-los-logs-como-construir-slis-sin-esperar-a-que-alguien-instrumente-el-codigo) compara filtros de métricas, Embedded Metric Format y Logs Insights. Los filtros convierten eventos nuevos en métricas y solo funcionan con grupos de logs de clase Standard, según la [documentación de AWS](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/MonitoringLogData.html).
 
-<p>Por ejemplo, si deseas recibir una alerta cuando se consuma el 2% del error budget en 60 minutos, el cálculo del umbral de burn rate sería: 2% * 40,320 (28 días) / 60 = 13.44 .</p>
+## Calcula el burn rate y elige alarmas
 
+El **burn rate** indica cuántas veces más rápido o más lento se consume el presupuesto frente al ritmo permitido por el objetivo. Un valor de 1 representa el ritmo esperado; un valor superior a 1 implica que el presupuesto puede agotarse antes de terminar el intervalo.
 
-<p>Usa alarmas compuestas para combinar ventanas cortas (para detectar picos) y ventanas largas (para degradaciones). Además, configura <a href="https://aws.amazon.com/sns/" rel="noopener noreferrer" target="_blank">Amazon SNS</a> para recibir notificaciones rápidas .</p>
+Puedes definir una alarma con esta fórmula:
 
+```text
+umbral de burn rate = fracción del presupuesto que se permite consumir × duración del intervalo / ventana de observación
+```
 
-<h2 class="sb h2-sbb-cls" id="funciones-avanzadas-para-monitorear-slos" tabindex="-1">Funciones avanzadas para monitorear SLOs</h2>
+Para ver la unidad con claridad, considera un SLO **por períodos** con períodos de un minuto, objetivo de 99 % e intervalo móvil de 28 días: hay `40.320` períodos y su presupuesto es 1 % de ellos. Si quieres alertar cuando el ritmo observado equivale a consumir el 2 % de ese presupuesto en una ventana de 60 minutos, el umbral es `0,02 × 40.320 / 60 = 13,44`. Configura la alarma para ese burn rate durante 60 minutos: `13,44` significa 13,44 veces el ritmo de error permitido por el objetivo, no 13,44 % de solicitudes fallidas.
 
+La misma fórmula sirve para un SLO por solicitudes, pero la interpretación como porcentaje de **solicitudes** consumidas en una hora depende del tráfico observado: el volumen cambia y el presupuesto absoluto de solicitudes también. En ese caso, lee `13,44` como un umbral de ritmo respecto a la tasa permitida, no como una garantía de que se gastó exactamente 2 % del presupuesto de solicitudes. La guía de AWS requiere que la ventana de burn rate sea múltiplo del período del SLO y menor que su intervalo.
 
-<p>CloudWatch ofrece herramientas potentes para gestionar y monitorear SLOs en entornos complejos de AWS.</p>
+Puedes combinar una ventana larga con otra corta y notificar solo cuando ambas excedan el umbral; así detectas un problema que sigue ocurriendo y evitas reaccionar a un pico aislado. Usa el [procedimiento de burn rate de CloudWatch](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-ServiceLevelObjectives.html) para escoger ventanas y configurar alarmas compuestas.
 
+## Diagnostica datos ausentes antes de silenciar alertas
 
-<h3 id="monitoreo-multi-cuenta" tabindex="-1">Monitoreo multi-cuenta</h3>
+La falta de una métrica puede indicar cero tráfico, una operación inactiva, un problema de permisos, instrumentación detenida o retraso de publicación. No la trates automáticamente como señal saludable. Comprueba región y cuenta, genera solicitudes de prueba, confirma que el agente o la capa de instrumentación esté activo y revisa que la serie tenga dimensiones compatibles.
 
+Application Signals calcula el burn rate a partir del attainment cuando no hay datos para la ventana de burn rate. Para las alarmas normales de CloudWatch, el tratamiento de datos ausentes es una opción aparte: `missing`, `notBreaching`, `breaching` o `ignore`. Elige según el comportamiento de esa señal; una métrica de tráfico continuo y un contador que solo aparece al ocurrir un error no deben recibir necesariamente el mismo tratamiento. Si dejar de recibir telemetría debe despertar al equipo, crea una comprobación separada de actividad o de envío de métricas. Revisa la guía de [datos ausentes en alarmas de CloudWatch](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/alarms-and-missing-data.html).
 
-<p>CloudWatch facilita la centralización de datos de observabilidad a través de múltiples cuentas AWS. Este sistema se organiza en dos tipos de cuentas:</p>
+Si tienes poco tráfico real, un canary de CloudWatch Synthetics puede probar un recorrido importante desde una ubicación externa. Su SLO es por períodos y mide las ejecuciones del canary; complementa una SLI de solicitudes reales, pero no la reemplaza. Con varias ubicaciones puedes comparar si falla una región o el recorrido en general; cada réplica agrega ejecuciones y costo. Revisa la [documentación de canaries en múltiples ubicaciones](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_MultiLocation.html) y la explicación comunitaria de [cuántas ubicaciones deben fallar para alertar](https://builder.aws.com/content/3K46jibaz3OPYJp7TT5yFsTue4j/canaries-multiubicacin-en-amazon-cloud-watch-synthetics-cuntas-ubicaciones-tienen-que-fallar-para-despertar-a-alguien). La guía de SLOs también documenta SLOs para canaries.
 
+Para aplicaciones instrumentadas, los Service Events de Application Signals reúnen eventos de rendimiento, errores y despliegues que ayudan a investigar qué cambió alrededor de una degradación. Consulta la [documentación de Service Events](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Application-Signals-ServiceEvents.html) para ver qué eventos captura, y esta [introducción comunitaria a Service Events](https://builder.aws.com/content/3JfhMyOFONdCzpGDYBsVRaKzPPH/service-events-en-amazon-cloud-watch-application-signals-el-detalle-ya-estaba-capturado). Son contexto para diagnosticar, no un sustituto del SLI ni de una alarma de telemetría ausente.
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Tipo de Cuenta</th>
-<th>Función</th>
-<th>Capacidad</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Cuenta de Monitoreo</td>
-<td>Centro de observabilidad</td>
-<td>Hasta 100,000 cuentas fuente</td>
-</tr>
-<tr>
-<td>Cuenta Fuente</td>
-<td>Genera datos de observación</td>
-<td>Comparte con hasta 5 cuentas de monitoreo</td>
-</tr>
-</tbody>
-</table></figure>
+Para una operación de API Gateway, los logs de ejecución y acceso ayudan a investigar una alarma: consulta la [guía para habilitar CloudWatch Logs en API Gateway](https://dondeaprendoaws.com/blog/como-habilitar-cloudwatch-logs-en-api-gateway-guia-paso-a-paso/). Si el SLO se degrada por una dependencia o una llamada lenta, las [trazas de AWS X-Ray y OpenTelemetry](https://dondeaprendoaws.com/blog/aws-x-ray-herramientas-de-depuracion-y-rastreo-distribuido/) permiten seguir el recorrido y localizar el tramo afectado.
 
+## Costos y limpieza
 
-<p><strong>Pasos para configurarlo:</strong></p>
+Application Signals cobra por la telemetría de solicitudes entrantes y salientes; cada SLO añade dos Application Signals por período de métrica de SLI. El intervalo que evalúas no es el único factor: el número de SLOs y la frecuencia de sus períodos también influyen. Además pueden cobrarse las métricas personalizadas, alarmas, logs, consultas de Logs Insights, trazas y funciones de observabilidad que habilites. Revisa los [precios vigentes de CloudWatch](https://aws.amazon.com/cloudwatch/pricing/) con tu volumen, región y configuración antes de extenderlo a más operaciones.
 
+Evita dimensiones únicas por solicitud, como `requestId` o `userId`, en métricas personalizadas: cada combinación de dimensiones puede crear otra métrica facturable. La documentación de [CloudWatch Embedded Metric Format](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Embedded_Metric_Format.html) explica el efecto de las dimensiones de alta cardinalidad. Define también la retención de logs y ajusta el volumen de trazas a tus necesidades operativas.
 
-<ul>
-<li>Configura una Cuenta de Monitoreo para centralizar los datos.</li>
-<li>Vincula las Cuentas Fuente desde la consola o utilizando AWS CLI.</li>
-</ul>
+Cuando retires el SLO, bórralo desde **Actions > Delete SLO** y revisa las alarmas relacionadas: CloudWatch indica que no se eliminan automáticamente junto con el SLO. Si ya no necesitas recopilar telemetría de la aplicación, desactiva también su instrumentación por separado y revisa las reglas de retención de los datos existentes.
 
+## Recursos, comunidades y eventos
 
-<p>Un punto clave: el monitoreo multi-cuenta en CloudWatch no tiene costo adicional para logs y métricas, y la primera copia de trazas es gratuita . Esto se complementa con herramientas avanzadas que proporcionan una visión completa del rendimiento.</p>
+Para ver una charla en español sobre alarmas, consulta la grabación [Observabilidad de tus aplicaciones en la nube: CloudWatch Alarms](https://www.youtube.com/watch?v=uS0QE0NeqpA), publicada por el canal [Marcia en Desplegando Cloud](https://www.youtube.com/@marcia_). El canal [Cloud en Español](https://www.youtube.com/channel/UCjMLZUU8ep124ZZT-W2X4uA) reúne videos y encuentros online con temas que varían según cada sesión.
 
+Para conversar con otros profesionales o aprender en grupo, puedes explorar el [directorio de comunidades AWS por país](/comunidades/) y conocer actividades del [AWS User Group Perú](https://awsugperu.cloud/) o del [AWS User Group Córdoba en Meetup](https://www.meetup.com/aws-user-group-cordoba-argentina/). La [agenda de eventos AWS](/eventos/) muestra fechas, modalidad y enlaces de inscripción de encuentros publicados por las comunidades.
 
-<h3 id="herramientas-de-analisis-detallado" tabindex="-1">Herramientas de análisis detallado</h3>
-
-
-<p>CloudWatch incluye funciones específicas para analizar el rendimiento de los SLOs.</p>
-
-
-<p><strong>CloudWatch Logs Insights</strong></p>
-
-
-<p>Permite realizar búsquedas interactivas en los logs usando lenguajes como Logs Insights QL, OpenSearch Service PPL y SQL.</p>
-
-
-<p><strong>Consejos para aprovechar al máximo esta herramienta:</strong></p>
-
-
-<ul>
-<li>Estandariza los formatos de logs para facilitar el descubrimiento automático.</li>
-<li>Crea índices en campos clave.</li>
-<li>Guarda las consultas que uses con frecuencia.</li>
-</ul>
-
-
-<p><strong>AWS X-Ray para Trazabilidad</strong></p>
-
-
-<p>AWS X-Ray recopila y visualiza datos de solicitudes, ayudando a identificar problemas como cuellos de botella y latencia elevada .</p>
-
-
-<p><strong>Ventajas principales:</strong></p>
-
-
-<ul>
-<li>Identificación de problemas de rendimiento.</li>
-<li>Visualización de interacciones entre servicios.</li>
-<li>Análisis detallado de latencia.</li>
-</ul>
-
-
-<p><strong>Para reducir costos:</strong></p>
-
-
-<ul>
-<li>Configura la expiración de logs.</li>
-<li>Limita los rangos de tiempo en las consultas.</li>
-<li>Filtra niveles de log que no sean críticos.</li>
-</ul>
-
-
-<p>Estas herramientas ofrecen un enfoque práctico y detallado para garantizar que tus SLOs se cumplan de manera eficiente.</p>
-
-
-
-
-<h2 class="sb h2-sbb-cls" id="mejores-practicas-para-monitorear-slos" tabindex="-1">Mejores prácticas para monitorear SLOs</h2>
-
-
-<p>Monitorear SLOs de manera efectiva requiere un enfoque estratégico y un mantenimiento constante. Aquí te mostramos cómo sacar el máximo provecho de tu <a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/">configuración en CloudWatch</a>.</p>
-
-
-<h3 id="mantenimiento-de-metricas-y-alarmas" tabindex="-1">Mantenimiento de métricas y alarmas</h3>
-
-
-<p>CloudWatch almacena el historial de alarmas durante 30 días, lo que facilita el análisis del rendimiento. Para mejorar la precisión de tus métricas:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Aspecto</th>
-<th>Configuración Recomendada</th>
-<th>Ventaja</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Datos Faltantes</td>
-<td><code class="inline-code">notBreaching</code> para métricas continuas</td>
-<td>Reduce falsos positivos</td>
-</tr>
-<tr>
-<td>Detección de Anomalías</td>
-<td>Activada con umbral dinámico</td>
-<td>Ajusta automáticamente según patrones</td>
-</tr>
-<tr>
-<td>Revisión de Umbrales</td>
-<td>Mensual</td>
-<td>Garantiza alertas más precisas</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Es crucial manejar los datos faltantes según el tipo de métrica. Por ejemplo, para métricas de disponibilidad, usar la opción <code class="inline-code">missing</code> cambiará el estado de la alarma a <code class="inline-code">INSUFFICIENT_DATA</code> si no hay datos disponibles.</p>
-
-
-<h3 id="integracion-con-servicios-aws" tabindex="-1">Integración con servicios AWS</h3>
-
-
-<p>Después de ajustar métricas y alarmas, puedes ampliar tu monitoreo integrándolo con otros servicios de AWS. Por ejemplo, Lambda envía automáticamente logs al grupo <code class="inline-code">/aws/lambda/&lt;function name&gt;</code> en CloudWatch, facilitando el seguimiento.</p>
-
-
-<p>Un caso práctico: en diciembre de 2024, <a href="https://www.mamezou.com/" rel="noopener noreferrer" target="_blank">Mamezou Tech</a> implementó CloudWatch Application Signals para monitorear una función Lambda, definiendo un SLO del 95%, lo que mejoró la precisión del monitoreo .</p>
-
-
-<p>Además, Amazon SNS recopila métricas automáticamente cada minuto, lo que permite monitorear mensajes publicados, notificaciones entregadas y errores .</p>
-
-
-<h3 id="gestion-de-alertas" tabindex="-1">Gestión de alertas</h3>
-
-
-<p>Una vez configuradas las métricas y alarmas, gestionar las notificaciones es clave para responder rápidamente. CloudWatch ofrece herramientas útiles para este propósito:</p>
-
-
-<ul>
-<li><strong>Alarmas Compuestas</strong>: Combinan métricas de consumo a corto y largo plazo, mejorando la precisión de las alertas .</li>
-<li><strong>Detección de Anomalías</strong>: Utiliza inteligencia artificial para ajustar umbrales dinámicamente y minimizar falsos positivos .</li>
-</ul>
-
-
-<p>Configura ventanas de supresión durante mantenimientos y aplica filtros para priorizar notificaciones críticas. Esto permite que tu equipo se enfoque en los problemas más urgentes y relevantes.</p>
-
-
-<h2 class="sb h2-sbb-cls" id="recursos-de-aprendizaje" tabindex="-1">Recursos de aprendizaje</h2>
-
-
-<p>Amplía tus conocimientos sobre SLOs con CloudWatch utilizando estas fuentes especializadas. Estos recursos te ayudarán a configurar y trabajar con SLOs de manera efectiva.</p>
-
-
-<h3 id="donde-aprendo-aws" tabindex="-1">Dónde Aprendo AWS</h3>
-
-
-<p>El blog <strong>Dónde Aprendo AWS</strong> ofrece contenido en español para desarrolladores y arquitectos interesados en AWS. Entre sus artículos sobre CloudWatch, destacan:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Nivel</th>
-<th>Contenido</th>
-<th>Detalles</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Principiante</td>
-<td><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">conceptos básicos de CloudWatch</a></td>
-<td>Explicaciones claras y en español</td>
-</tr>
-<tr>
-<td>Intermedio</td>
-<td>Configuración de métricas y alarmas</td>
-<td>Ejemplos prácticos con fragmentos de código</td>
-</tr>
-<tr>
-<td>Avanzado</td>
-<td>Implementación de SLOs</td>
-<td>Casos reales y aplicaciones prácticas</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Esta plataforma organiza los conceptos técnicos de manera progresiva, lo que facilita el aprendizaje en español.</p>
-
-
-<p>Además, AWS ofrece recursos oficiales que complementan esta información para quienes deseen profundizar aún más.</p>
-
-
-<h3 id="recursos-oficiales-de-aws" tabindex="-1">Recursos oficiales de AWS</h3>
-
-
-<p><strong><a href="https://skillbuilder.aws/" rel="noopener noreferrer" target="_blank">AWS Skill Builder</a></strong> es otra excelente opción, con planes gratuitos y de pago (por ejemplo, $29 mensuales o $449 anuales) .</p>
-
-
-<blockquote>
-<p>"AWS Skill Builder incluye laboratorios prácticos, preparación para exámenes y AWS Digital Classroom, disponible con suscripciones anuales" .</p>
-</blockquote>
-
-
-<p>Entre los <a href="https://dondeaprendoaws.com/blog/aprender-aws-gratis-recursos-y-comunidad/">recursos oficiales de AWS</a>, puedes encontrar:</p>
-
-
-<ul>
-<li>Guías detalladas para configurar SLOs</li>
-<li>Referencias de API</li>
-<li>Tutoriales paso a paso</li>
-<li>Ejemplos de código y SDK</li>
-</ul>
-
-
-<p>AWS sugiere comenzar con el nivel gratuito de Skill Builder para familiarizarse con los conceptos básicos antes de explorar funciones más avanzadas.</p>
-
-
-<h2 class="sb h2-sbb-cls" id="conclusion" tabindex="-1">Conclusión</h2>
-
-
-<p>Después de analizar las capacidades de CloudWatch, aquí tienes un resumen de los puntos clave para implementar SLOs y mantener la confiabilidad de tus aplicaciones.</p>
-
-
-<h3 id="revision-de-puntos-principales" tabindex="-1">Revisión de puntos principales</h3>
-
-
-<p>CloudWatch Application Signals ha cambiado las reglas del juego en el monitoreo de SLOs al ofrecer herramientas completas. Algunos aspectos destacados incluyen:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Aspecto</th>
-<th>Beneficio</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Resumen de Instrumentación</td>
-<td>Recolección automática de métricas clave </td>
-</tr>
-<tr>
-<td>Alertas</td>
-<td>Sistema flexible de alarmas para umbrales críticos </td>
-</tr>
-<tr>
-<td>Análisis</td>
-<td>Consultas avanzadas mediante CloudWatch Metrics Insights </td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Con esto en mente, puedes usar estos elementos como base para construir un sistema de monitoreo eficaz.</p>
-
-
-<h3 id="guia-de-implementacion" tabindex="-1">Guía de implementación</h3>
-
-
-<p>Aquí tienes algunos pasos esenciales para implementar SLOs de manera efectiva:</p>
-
-
-<ol>
-<li><strong>Definición de Objetivos</strong></li>
-</ol>
-
-
-<p>Por ejemplo, una empresa de fitness logró mantener un 99% de disponibilidad monitoreando métricas ALB cada minuto. Esto les permitió alcanzar un 95% de solicitudes exitosas en intervalos móviles de 28 días .</p>
-
-
-<ol start="2">
-<li><strong>Configuración de Alarmas</strong></li>
-</ol>
-
-
-<p>Crea alarmas que combinen ventanas largas (para identificar tendencias) y cortas (para detección rápida). Esto te ayudará a gestionar el consumo del error budget .</p>
-
-
-<blockquote>
-<p>"everything fails, all the time" - Werner Vogels, CTO de Amazon </p>
-</blockquote>
-
-
-<p>Esta cita resalta la importancia de un monitoreo constante y proactivo. Combina automatización con supervisión manual para optimizar tus SLOs, aprovechando las capacidades de CloudWatch Application Signals para obtener datos útiles .</p>
-
-
-<p>Si quieres profundizar más, revisa los recursos mencionados anteriormente para mejorar tu implementación y conocimiento.</p>
-
-
-<h2>Publicaciones de blog relacionadas</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/">Mejores prácticas de observabilidad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/acuerdos-de-nivel-de-servicio-aws-guia-basica/">acuerdos de nivel de servicio AWS: guía básica</a></li><li><a href="https://dondeaprendoaws.com/blog/slas-en-aws-conceptos-legales-clave/">SLAs en AWS: conceptos legales clave</a></li><li><a href="https://dondeaprendoaws.com/blog/diferencias-entre-sla-y-slo-en-aws/">Diferencias entre SLA y SLO en AWS</a></li></ul>
+Como contexto general sobre métricas, registros, trazas y auditoría, lee [Observabilidad en la nube de AWS: CloudWatch, X-Ray y CloudTrail](https://dev.to/aws-builders/observabilidad-en-la-nube-de-aws-explorando-cloudwatch-x-ray-y-cloudtrail-5d9m), un artículo de AWS Community Builders publicado en 2024. Sus ejemplos son una introducción; usa la documentación oficial actual para configurar Application Signals y SLOs.

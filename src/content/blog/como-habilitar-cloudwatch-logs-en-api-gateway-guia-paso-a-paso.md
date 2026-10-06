@@ -1,501 +1,171 @@
 ---
-title: "Cómo habilitar CloudWatch Logs en API Gateway: guía paso a paso"
-description: "Aprende cómo configurar CloudWatch Logs en API Gateway para monitorear y optimizar tus APIs. Sigue esta guía paso a paso desde la creación de roles IAM hasta el análisis de registros."
+title: "Cómo habilitar CloudWatch Logs en API Gateway: REST, HTTP y WebSocket"
+description: "Configura logs de ejecución y acceso en API Gateway según el tipo de API. Incluye permisos IAM por región, JSON, consultas, costos y diagnóstico."
 author: "guille-ojeda"
 publishedAt: "2024-04-29"
+modifiedTimestamp: "2026-10-06T10:03:48-03:00"
 publishedTimestamp: "2024-04-29T07:48:00.212Z"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Seguridad y control de costos en AWS: guía 2024"
-    url: "https://dondeaprendoaws.com/blog/seguridad-y-control-de-costos-en-aws-guia-2024/"
-  - title: "Mejores prácticas para Amazon ECS"
-    url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ecs/"
-  - title: "AWS seguridad: fundamentos esenciales"
-    url: "https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/"
+  - title: "Mejores prácticas de observabilidad en AWS"
+    url: "https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/"
+  - title: "Observabilidad en AWS con Amazon X-Ray"
+    url: "https://dondeaprendoaws.com/blog/observabilidad-en-aws-con-amazon-x-ray/"
+  - title: "Cómo crear SLOs en AWS con CloudWatch Application Signals"
+    url: "https://dondeaprendoaws.com/blog/como-monitorear-slos-con-amazon-cloudwatch/"
 
+review:
+  date: "2026-10-06"
 ---
 
-<p>Configurar <a href="https://aws.amazon.com/cloudwatch/" rel="noopener noreferrer" target="_blank">CloudWatch</a> Logs para <a href="https://aws.amazon.com/api-gateway/" rel="noopener noreferrer" target="_blank">API Gateway</a> es crucial para monitorear y depurar APIs REST y WebSocket. Esta guía te enseña cómo habilitar CloudWatch Logs, desde crear un rol de IAM hasta configurar formatos de registro de acceso.</p>
+Para habilitar **CloudWatch Logs en API Gateway**, primero identifica el tipo de API: las API REST y WebSocket admiten logs de ejecución y de acceso; las HTTP API admiten **solo logs de acceso**. REST y WebSocket necesitan un rol IAM de CloudWatch Logs configurado por cuenta y región. En una HTTP API, crea un grupo de CloudWatch Logs y asígnalo a cada etapa que quieras registrar.
 
+El registro se configura por etapa. Guardar un ajuste de logging de etapa no requiere publicar un deployment nuevo. Los cambios en recursos, métodos, rutas o integraciones sí requieren publicar la configuración de la API en REST y WebSocket; una HTTP API los publica automáticamente solo si su etapa tiene `autoDeploy` habilitado. Consulta las guías de [actualizaciones REST](https://docs.aws.amazon.com/apigateway/latest/developerguide/updating-api.html), [despliegue WebSocket](https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-set-up-websocket-deployment.html) y [etapas HTTP](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-stages.html).
 
-<p><strong>Beneficios Clave:</strong></p>
+| Tipo de API | Logs disponibles |
+| --- | --- |
+| REST | Ejecución y acceso. |
+| HTTP | Solo acceso. |
+| WebSocket | Ejecución y acceso. |
 
+Los **logs de ejecución** describen cómo API Gateway procesa una solicitud o mensaje y ayudan a investigar errores dentro del gateway. Los **logs de acceso** registran una entrada por solicitud con los campos `$context` que selecciones, por ejemplo, el identificador de solicitud, la ruta, el estado HTTP y la latencia. Puedes habilitar ambos tipos de manera independiente en REST y WebSocket; en HTTP API, configura el registro de acceso.
 
-<ul>
-<li>Monitoreo en tiempo real de solicitudes y respuestas</li>
-<li>Herramientas de análisis avanzadas para examinar registros</li>
-<li>Identificar oportunidades para mejorar el rendimiento</li>
-</ul>
+## Antes de configurar el registro
 
+Elige la cuenta, región, API y etapa que quieres observar. Los logs de acceso se configuran por etapa. La API debe tener una etapa antes de poder recibir invocaciones; para comprobar los logs, también tendrás que generar una solicitud o un mensaje de prueba. [AWS documenta cómo desplegar una API REST](https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-deployments.html) y [cómo ver sus grupos de logs](https://docs.aws.amazon.com/apigateway/latest/developerguide/view-cloudwatch-log-events-in-cloudwatch-console.html).
 
-<p><strong>Pasos Principales:</strong></p>
+Para logs de **REST y WebSocket**, configura el rol de CloudWatch Logs en API Gateway. En IAM, crea un rol cuyo servicio de confianza sea `apigateway.amazonaws.com` y asígnale la política administrada `AmazonAPIGatewayPushToCloudWatchLogs`. En la consola de API Gateway, selecciona la región, abre **Settings → Logging** y guarda el ARN en **CloudWatch log role ARN**. Es una configuración de cuenta y región, compartida por las API que la usan; no crees otra por cada etapa. [AWS explica el rol, la política y el requisito de AWS STS regional](https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-logging.html).
 
+Si el rol ya está configurado, conserva el existente. Para establecerlo desde la AWS CLI en `us-east-1`, reemplaza el ID de cuenta y el nombre del rol:
 
-<ol>
-<li>
-<p><strong>Crear un Rol de IAM</strong></p>
-<ul>
-<li>Crear un rol de IAM con permisos para escribir registros en CloudWatch</li>
-<li>Asociar el rol con tu API Gateway</li>
-</ul>
-</li>
-<li>
-<p><strong>Habilitar Registro de Ejecución</strong></p>
-<ul>
-<li>Configurar el nivel de registro de ejecución para tus etapas de API</li>
-</ul>
-</li>
-<li>
-<p><strong>Configurar Formatos de Registro de Acceso</strong></p>
-<ul>
-<li>Seleccionar el formato de registro de acceso deseado para tus etapas</li>
-</ul>
-</li>
-<li>
-<p><strong>Probar la Integración</strong></p>
-<ul>
-<li>Enviar solicitudes de prueba a tu API</li>
-<li>Ver registros en la consola de CloudWatch</li>
-</ul>
-</li>
-<li>
-<p><strong>Utilizar CloudWatch Insights</strong></p>
-<ul>
-<li>Crear consultas para analizar registros</li>
-<li>Identificar patrones y optimizar el rendimiento de tu API</li>
-</ul>
-</li>
-</ol>
+```bash
+aws apigateway update-account \
+  --patch-operations op='replace',path='/cloudwatchRoleArn',value='arn:aws:iam::123456789012:role/APIGatewayToCloudWatchLogs' \
+  --region us-east-1
+```
 
+`update-account` cambia la configuración de la cuenta **en la región indicada**; repite el ajuste en cada región donde lo necesites. La identidad que ejecuta el comando necesita permiso `apigateway:PATCH` para actualizar la cuenta y `iam:PassRole` para pasar el rol a API Gateway. Si el servicio no puede asumir el rol, confirma la relación de confianza, la política y que AWS STS esté activo allí. Consulta la [referencia de AWS CLI para `update-account`](https://docs.aws.amazon.com/cli/latest/reference/apigateway/update-account.html) y las [acciones IAM de API Gateway](https://docs.aws.amazon.com/service-authorization/latest/reference/list_apigateway.html).
 
-<p>Al habilitar CloudWatch Logs, puedes monitorear, depurar y optimizar tus APIs de manera efectiva. Sigue esta guía paso a paso para una configuración sencilla.</p>
+Las HTTP API usan otro flujo: crea un grupo de CloudWatch Logs y permite que la identidad que guarda la configuración de API Gateway administre la entrega de logs y la etapa. La guía de [logging para HTTP API](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-logging.html) publica la lista de permisos para crear el grupo y configurar la entrega, incluidos `logs:CreateLogGroup`, `logs:CreateLogDelivery`, `logs:PutResourcePolicy`, `logs:UpdateLogDelivery` y `logs:DeleteLogDelivery`. La identidad también necesita `apigateway:PATCH` para actualizar la etapa, según la [referencia IAM de API Gateway V2](https://docs.aws.amazon.com/service-authorization/latest/reference/list_apigatewayv2.html). No configures el rol `cloudWatchRoleArn` como sustituto de esos permisos.
 
+## Habilitar logs de ejecución y acceso
 
-<h2 id="preparaci%C3%B3n-para-la-registro-de-cloudwatch" tabindex="-1">Preparación para la registro de <a href="https://aws.amazon.com/cloudwatch/" rel="noopener noreferrer" target="_blank">CloudWatch</a></h2>
+### API REST
 
+1. Abre la API REST y elige una etapa existente. En **Logs and tracing**, selecciona **Edit**.
+2. En **CloudWatch Logs**, elige `ERROR` para registrar errores o `INFO` si necesitas los eventos informativos de ejecución. AWS recomienda uno de esos niveles. Deja **Data tracing** desactivado en producción: registra detalles de solicitudes y respuestas que pueden contener información sensible. API Gateway oculta algunos valores, como claves de API y encabezados de autorización, pero esa redacción no cubre todos los campos de tu aplicación. Consulta la guía de [logs de ejecución para REST](https://docs.aws.amazon.com/apigateway/latest/developerguide/rest-api-execution-logging.html).
+3. Para registrar accesos, crea o elige un grupo de CloudWatch Logs en la cuenta y región de la API, activa **Custom access logging**, indica el ARN del grupo y pega un formato JSON de una sola línea. En REST, el formato debe incluir `$context.requestId` **o** `$context.extendedRequestId`; incluir ambos facilita la correlación con otros registros. La [guía de logs de acceso REST](https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-access-logging.html) muestra las variables compatibles. Por ejemplo:
 
-<p><figure><img alt="CloudWatch" src="/assets/blog/af6613064a74b982792aeda9.jpg"/></figure></p>
+   ```json
+   {"requestId":"$context.requestId","extendedRequestId":"$context.extendedRequestId","method":"$context.httpMethod","resourcePath":"$context.resourcePath","status":"$context.status","latencyMs":"$context.responseLatency"}
+   ```
+4. Guarda los cambios.
 
+En el modo estándar, los eventos de ejecución REST se truncan a 1 KiB y API Gateway administra el nombre del grupo. Si necesitas otro destino o conservar eventos mayores, AWS ofrece [CloudWatch Logs delivery para logs de ejecución](https://docs.aws.amazon.com/apigateway/latest/developerguide/rest-api-execution-logging.html#rest-api-execution-logging-delivery): admite eventos de hasta 1 MiB, pero reemplaza el flujo estándar para esa etapa.
 
-<p>Antes de configurar CloudWatch Logs para su API Gateway, es importante verificar que su API esté correctamente configurada y que tenga los permisos de IAM necesarios.</p>
+### API WebSocket
 
+1. Abre la API WebSocket y elige la etapa. En **Logs and tracing**, activa el nivel de ejecución `ERROR` o `INFO` para las rutas que quieras observar. Puedes configurar el valor predeterminado de las rutas y sobrescribirlo por ruta.
+2. Si necesitas registrar el payload completo de mensajes, **Data tracing** puede hacerlo; evita activarlo en producción porque los mensajes pueden incluir datos personales o secretos.
+3. Para logs de acceso, elige un grupo de CloudWatch Logs y usa variables propias de WebSocket. `eventType` toma los valores `CONNECT`, `MESSAGE` o `DISCONNECT`; `routeKey` identifica la ruta y `connectionId` identifica la conexión. Un formato JSON compacto podría ser:
 
-<h3 id="verificar-la-implementaci%C3%B3n-de-su-api" tabindex="-1">Verificar la implementación de su API</h3>
+   ```json
+   {"requestId":"$context.requestId","eventType":"$context.eventType","routeKey":"$context.routeKey","connectionId":"$context.connectionId","status":"$context.status"}
+   ```
 
+   El formato debe ocupar una sola línea e incluir `$context.requestId`. No uses `httpMethod` o `resourcePath` como si fueran mensajes HTTP. Consulta la lista completa de variables en la guía de [logging para WebSocket](https://docs.aws.amazon.com/apigateway/latest/developerguide/websocket-api-logging.html).
 
-<p>Asegúrese de que su API esté correctamente desplegada y haya sido invocada al menos una vez. Esto es esencial para que los registros se generen correctamente. Verifique que su API esté configurada correctamente y que no haya errores de despliegue.</p>
+API Gateway crea el grupo de ejecución WebSocket `/aws/apigateway/{api-id}/{stage}`. La guía de AWS para [activar logs de REST y WebSocket](https://repost.aws/knowledge-center/api-gateway-cloudwatch-logs) explica también la configuración regional del rol y cómo encontrar el grupo administrado.
 
+### HTTP API
 
-<h3 id="configuraci%C3%B3n-de-permisos-de-iam-para-la-registro" tabindex="-1">Configuración de permisos de IAM para la registro</h3>
+Una HTTP API no tiene logs de ejecución de API Gateway. Configura logs de acceso así:
 
+1. En CloudWatch, crea un grupo como `/apigateway/orders/access` en la región de la API y copia su ARN.
+2. En API Gateway, abre la HTTP API y ve a **Monitor → Logging**. Selecciona la etapa, activa **Access logging**, pega el ARN y elige el formato.
+3. Guarda. Usa variables de HTTP API como `routeKey`, `httpMethod`, `status` y `responseLatency`; revisa la referencia de [formatos y variables para HTTP API](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-logging.html).
 
-<p>Para que API Gateway pueda escribir registros en CloudWatch, es necesario asignar los permisos de IAM adecuados. Cree un rol de IAM que tenga los permisos necesarios para escribir registros en CloudWatch. Luego, asocie este rol con su API Gateway.</p>
+La AWS CLI puede crear el grupo y asignar el formato a una etapa. Cambia el API ID, cuenta y región por los de tu entorno; crea el grupo solo si aún no existe:
 
+```bash
+aws logs create-log-group \
+  --log-group-name '/apigateway/orders/access' \
+  --region us-east-1
 
-<p><strong>Crear un rol de IAM para la registro de CloudWatch</strong></p>
+aws apigatewayv2 update-stage \
+  --api-id a1b2c3d4 \
+  --stage-name '$default' \
+  --access-log-settings '{"DestinationArn":"arn:aws:logs:us-east-1:123456789012:log-group:/apigateway/orders/access","Format":"{\"requestId\":\"$context.requestId\",\"time\":\"$context.requestTime\",\"method\":\"$context.httpMethod\",\"routeKey\":\"$context.routeKey\",\"status\":\"$context.status\",\"latencyMs\":\"$context.responseLatency\"}"}' \
+  --region us-east-1
+```
 
+El ARN sigue la forma `arn:aws:logs:{region}:{account-id}:log-group:{log-group-name}`. En este ejemplo, las comillas simples protegen `$default` y las variables `$context` de la shell. La [referencia de AWS CLI para `update-stage`](https://docs.aws.amazon.com/cli/latest/reference/apigatewayv2/update-stage.html) muestra la estructura de `access-log-settings`.
 
-<p>1. Inicie sesión en la consola de AWS y vaya a la página de IAM.</p>
+## Comprobar los logs y encontrar errores
 
+Envía una solicitud segura a una ruta que ya exista. Por ejemplo, para una etapa con nombre en REST o HTTP API:
 
-<p>2. Haga clic en "Roles" en el panel de navegación y luego haga clic en "Crear rol".</p>
+```bash
+GATEWAY_API_ID=a1b2c3d4
+GATEWAY_REGION=us-east-1
+GATEWAY_STAGE=dev
+GATEWAY_ROUTE=health
 
+curl -i "https://${GATEWAY_API_ID}.execute-api.${GATEWAY_REGION}.amazonaws.com/${GATEWAY_STAGE}/${GATEWAY_ROUTE}"
+```
 
-<p>3. Seleccione "API Gateway" como el servicio que utilizará el rol.</p>
+Reemplaza los valores y agrega la autenticación requerida por tu API. Una etapa HTTP API `$default` se invoca sin el segmento de etapa en la URL. Para WebSocket, usa un cliente compatible para conectarte y enviar un mensaje. Toda solicitud real puede invocar tu backend y generar cargos; prueba una ruta que no modifique datos y una etapa controlada.
 
+En CloudWatch, cambia a la misma región de la API y abre **Logs → Log groups**. Busca el grupo de ejecución o el grupo de acceso que configuraste, luego el flujo más reciente. La entrega puede tardar un poco. Si tienes más de un grupo, revisa también su nombre y la etapa asociada.
 
-<p>4. Asigne los permisos necesarios para escribir registros en CloudWatch.</p>
+Con JSON estructurado puedes filtrar errores de servidor en CloudWatch Logs Insights. Esta consulta usa los nombres del formato HTTP API de arriba:
 
+```text
+fields @timestamp, requestId, method, routeKey, status, latencyMs
+| filter status like /^5[0-9][0-9]$/
+| sort @timestamp desc
+| limit 20
+```
 
-<p>5. Guarde el rol y anote el ARN del rol.</p>
+En el formato JSON, `status` llega como texto; la expresión regular selecciona códigos 5xx sin convertirlo a número. Puedes ver solicitudes recientes desde el [lenguaje de consultas de CloudWatch Logs Insights](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CWL_QuerySyntax-Filter.html).
 
+Los logs ayudan a inspeccionar solicitudes concretas; las métricas ayudan a ver tasas y tendencias. Para REST, revisa `Count`, `4XXError`, `5XXError`, `Latency` e `IntegrationLatency`; para HTTP API, los nombres son `Count`, `4xx`, `5xx`, `Latency` e `IntegrationLatency`. WebSocket expone métricas propias como `ConnectCount`, `MessageCount`, `ClientError`, `ExecutionError` e `IntegrationError`. Activar métricas detalladas por método, recurso o ruta puede tener cargos adicionales. Consulta las referencias de [métricas REST](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-metrics-and-dimensions.html), [métricas HTTP API](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-metrics.html) y [métricas WebSocket](https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-websocket-api-logging.html).
 
-<p><strong>Asociar el rol de IAM con su API Gateway</strong></p>
+Si API Gateway integra una Lambda, sus eventos aparecen en el grupo `/aws/lambda/{nombre-de-la-función}`. Ese grupo registra el proceso de Lambda; los logs de API Gateway registran el procesamiento del gateway. Para entender CloudWatch como conjunto de métricas, logs y trazas, mira [CloudWatch explicado fácil](https://www.youtube.com/watch?v=48f2d-oM00Y). El video [¿Dónde están mis logs en AWS?](https://www.youtube.com/watch?v=tsCvaRv5EkU) se enfoca en encontrar logs en una aplicación serverless. Para estructurar logs de aplicación y emitir métricas propias desde Lambda, consulta [logs estructurados y métricas personalizadas con CloudWatch](https://www.youtube.com/watch?v=UBPPGJaBIVY). Los tres videos son del [canal de Marcia en YouTube](https://www.youtube.com/@marcia_).
 
+## Errores frecuentes
 
-<p>1. Vaya a la página de API Gateway, seleccione su API y luego vaya a la pestaña "Settings".</p>
+| Síntoma | Qué revisar |
+| --- | --- |
+| REST o WebSocket no muestra logs de ejecución | Confirma la región seleccionada, que el rol de CloudWatch tenga a `apigateway.amazonaws.com` como entidad de confianza y que incluya la política correcta. Verifica que STS esté activo, que el nivel sea `ERROR` o `INFO` y que elegiste la etapa correcta. Puedes comprobar el rol guardado con `aws apigateway get-account --region us-east-1 --query cloudwatchRoleArn --output text`. |
+| HTTP API no registra solicitudes | HTTP API no genera logs de ejecución: revisa **Access logging** en la etapa, el ARN del grupo, la región y los permisos de entrega de CloudWatch Logs para quien guarda la configuración. |
+| No encuentras el grupo | Para REST, busca `API-Gateway-Execution-Logs_{api-id}/{stage}`. Para WebSocket, busca `/aws/apigateway/{api-id}/{stage}`. Para HTTP API, busca el grupo que elegiste. Para errores internos de Lambda, revisa aparte `/aws/lambda/{nombre-de-la-función}`. |
+| El JSON tiene campos vacíos o no se guarda | Usa nombres de variables compatibles con el tipo de API y respeta mayúsculas y minúsculas. En REST, incluye `$context.requestId` o `$context.extendedRequestId` (ambos son útiles para correlación); HTTP y WebSocket usan `requestId`. REST usa `resourcePath`; HTTP y WebSocket usan `routeKey`; WebSocket también tiene `eventType` y `connectionId`. El formato debe ser una sola línea. |
+| Cambiaste el rol y aún no aparecen eventos | Espera unos minutos y vuelve a probar; AWS indica que el rol nuevo puede tardar en aplicarse. También hay errores que API Gateway rechaza antes de enrutar y que no aparecen en logs de ejecución; compara los logs de acceso y las métricas. |
 
+Los logs y las métricas no cubren todos los fallos de entrada. AWS indica que REST o HTTP API pueden no generar telemetría, por ejemplo, para solicitudes 413, 431 (REST), demasiados 429, errores 400 de dominios personalizados sin mapeo y ciertos 500 internos. Revisa los límites de la medición en las guías de [monitoreo REST](https://docs.aws.amazon.com/apigateway/latest/developerguide/rest-api-monitor.html) y [monitoreo HTTP API](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-monitor.html).
 
-<p>2. En la sección "CloudWatch log role ARN", ingrese el ARN del rol de IAM que creó.</p>
+## Seguridad, retención y costos
 
+Los logs de ejecución pueden incluir valores de parámetros, datos del autorizador y, si activas data tracing, el contenido completo de solicitudes y respuestas. Conserva solo los campos que realmente necesitas. Evita tokens, datos personales, claves, cookies y cuerpos de mensajes en los logs de acceso; limita quién puede leer los grupos.
 
-<p>Con estos pasos, estará listo para configurar CloudWatch Logs para su API Gateway. En la próxima sección, exploraremos cómo habilitar la registro de ejecución y acceso para su API.</p>
+CloudWatch Logs conserva los eventos **indefinidamente por defecto**. Define una retención compatible con tus requisitos operativos, legales y de auditoría. Por ejemplo, para dejar 30 días en un grupo propio:
 
+```bash
+aws logs put-retention-policy \
+  --log-group-name '/apigateway/orders/access' \
+  --retention-in-days 30 \
+  --region us-east-1
+```
 
-<h2 id="habilitar-cloudwatch-logs-en-api-gateway" tabindex="-1">Habilitar CloudWatch Logs en <a href="https://aws.amazon.com/api-gateway/" rel="noopener noreferrer" target="_blank">API Gateway</a></h2>
+Treinta días es solo un ejemplo: elige el plazo que corresponda a tu entorno. El costo depende de la región y del volumen que ingieres, conservas y consultas con Logs Insights. Las métricas detalladas también pueden sumar cargos. Revisa la [página de precios de CloudWatch](https://aws.amazon.com/cloudwatch/pricing/) y no asumas que el registro será gratuito por habilitarlo.
 
+No borres manualmente los grupos de ejecución que administra API Gateway: AWS advierte que eliminarlos puede interrumpir el registro. Puedes ajustar su retención. El grupo de acceso que creaste tú puede retirarse cuando hayas desactivado el registro de esa etapa y ya no necesites sus datos.
 
-<p><figure><img alt="API Gateway" src="/assets/blog/ad213751f1e388f278f0d764.jpg"/></figure></p>
+## Recursos y comunidad
 
+Para entender cómo se complementan métricas, logs y trazas, lee [Observabilidad en la nube de AWS: CloudWatch, X-Ray y CloudTrail](https://dev.to/aws-builders/observabilidad-en-la-nube-de-aws-explorando-cloudwatch-x-ray-y-cloudtrail-5d9m), una explicación en español publicada por AWS Community Builders. Si tus logs ya contienen estado y latencia y quieres investigar cómo convertir esos campos en indicadores de servicio, el artículo comunitario [Observabilidad desde los logs: cómo construir SLIs sin esperar a instrumentar el código](https://builder.aws.com/content/3IlpApiKwsNpk6eWH4T0NdgFfkf/observabilidad-desde-los-logs-como-construir-slis-sin-esperar-a-que-alguien-instrumente-el-codigo) compara metric filters, Embedded Metric Format y consultas de Logs Insights. Para seguir una solicitud entre servicios, continúa con [Mejores prácticas de observabilidad en AWS](https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/) y [Observabilidad en AWS con Amazon X-Ray](https://dondeaprendoaws.com/blog/observabilidad-en-aws-con-amazon-x-ray/). Si los logs ya te permiten diagnosticar fallos y quieres convertir la salud del servicio en objetivos medibles de disponibilidad y latencia, sigue con [Cómo crear SLOs en AWS con CloudWatch Application Signals](https://dondeaprendoaws.com/blog/como-monitorear-slos-con-amazon-cloudwatch/).
 
-<h3 id="crear-un-rol-de-iam-para-registro" tabindex="-1">Crear un rol de IAM para registro</h3>
-
-
-<p>Para habilitar CloudWatch Logs en API Gateway, debes crear un rol de IAM que tenga los permisos necesarios para escribir registros en CloudWatch. Sigue estos pasos para crear un rol de IAM para registro:</p>
-
-
-<p>1. Inicia sesión en la consola de AWS y ve a la página de IAM. 2. Haz clic en "Roles" en el panel de navegación y luego haz clic en "Crear rol". 3. Selecciona "API Gateway" como el servicio que utilizará el rol. 4. Asigna los permisos necesarios para escribir registros en CloudWatch. Puedes hacer esto agregando la política de IAM "AmazonAPIGatewayPushToCloudWatchLogs" al rol. 5. Guarda el rol y anota el ARN del rol.</p>
-
-
-<h3 id="asociar-el-rol-de-iam-con-api-gateway" tabindex="-1">Asociar el rol de IAM con API Gateway</h3>
-
-
-<p>Una vez que hayas creado el rol de IAM, debes asociarlo con tu API Gateway. Sigue estos pasos para asociar el rol de IAM con API Gateway:</p>
-
-
-<p>1. Ve a la página de API Gateway, selecciona tu API y luego ve a la pestaña "Settings". 2. En la sección "CloudWatch log role ARN", ingresa el ARN del rol de IAM que creaste. 3. Guarda los cambios.</p>
-
-
-<h3 id="habilitar-registro-de-ejecuci%C3%B3n-para-etapas-de-api" tabindex="-1">Habilitar registro de ejecución para etapas de API</h3>
-
-
-<p>Una vez que hayas asociado el rol de IAM con API Gateway, puedes habilitar el registro de ejecución para tus etapas de API. Sigue estos pasos para habilitar el registro de ejecución:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Paso</th>
-<th>Acción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>Ve a la página de API Gateway, selecciona tu API y luego ve a la pestaña "Stages".</td>
-</tr>
-<tr>
-<td>2</td>
-<td>Selecciona la etapa de API para la que deseas habilitar el registro de ejecución.</td>
-</tr>
-<tr>
-<td>3</td>
-<td>En la sección "Logs and tracing", selecciona el nivel de registro de ejecución deseado.</td>
-</tr>
-<tr>
-<td>4</td>
-<td>Guarda los cambios.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="configurar-formatos-de-registro-de-acceso" tabindex="-1">Configurar formatos de registro de acceso</h3>
-
-
-<p>Finalmente, puedes configurar los formatos de registro de acceso para tus API. Sigue estos pasos para configurar los formatos de registro de acceso:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Paso</th>
-<th>Acción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>Ve a la página de API Gateway, selecciona tu API y luego ve a la pestaña "Stages".</td>
-</tr>
-<tr>
-<td>2</td>
-<td>Selecciona la etapa de API para la que deseas configurar los formatos de registro de acceso.</td>
-</tr>
-<tr>
-<td>3</td>
-<td>En la sección "Logs and tracing", selecciona el formato de registro de acceso deseado.</td>
-</tr>
-<tr>
-<td>4</td>
-<td>Guarda los cambios.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Con estos pasos, habrás habilitado CloudWatch Logs para tu API Gateway y podrás ver los registros de ejecución y acceso en la consola de CloudWatch.</p>
-
-
-<h2 id="probar-la-integraci%C3%B3n-de-registros-de-cloudwatch" tabindex="-1">Probar la integración de registros de CloudWatch</h2>
-
-
-<p>Después de configurar la integración de registros de CloudWatch, es importante probar que funcione correctamente.</p>
-
-
-<h3 id="enviar-solicitudes-de-prueba-a-su-api" tabindex="-1">Enviar solicitudes de prueba a su API</h3>
-
-
-<p>Para probar la integración de registros de CloudWatch, debe enviar solicitudes de prueba a su API. Puede utilizar herramientas como <a href="https://www.postman.com/" rel="noopener noreferrer" target="_blank">Postman</a> o <a href="https://curl.se/" rel="noopener noreferrer" target="_blank">cURL</a> para enviar solicitudes a su API. Asegúrese de incluir headers y parámetros relevantes en su solicitud.</p>
-
-
-<p>Una vez que haya enviado la solicitud, espere unos minutos para que los registros se generen en CloudWatch. Luego, vaya a la consola de CloudWatch y busque los registros de su API. Debe ver los registros de ejecución y acceso en la consola de CloudWatch.</p>
-
-
-<h3 id="ver-registros-en-la-consola-de-cloudwatch" tabindex="-1">Ver registros en la consola de CloudWatch</h3>
-
-
-<p>Para ver los registros en la consola de CloudWatch, siga estos pasos:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Paso</th>
-<th>Acción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>Inicie sesión en la consola de AWS y vaya a la página de CloudWatch.</td>
-</tr>
-<tr>
-<td>2</td>
-<td>Selecciona "Logs" en el panel de navegación.</td>
-</tr>
-<tr>
-<td>3</td>
-<td>Selecciona el grupo de registros que desea ver.</td>
-</tr>
-<tr>
-<td>4</td>
-<td>Selecciona el flujo de registros que desea ver.</td>
-</tr>
-<tr>
-<td>5</td>
-<td>Analice los registros para asegurarse de que se estén generando correctamente.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Recuerde que los registros de CloudWatch pueden tardar unos minutos en aparecer en la consola. Asegúrese de esperar lo suficiente antes de buscar los registros.</p>
-
-
-<p>Con estos pasos, podrá probar la integración de registros de CloudWatch y asegurarse de que se estén generando correctamente.</p>
-
-
-<h2 id="solucionar-problemas-de-registro" tabindex="-1">Solucionar problemas de registro</h2>
-
-
-<p>Presenta problemas de registro comunes y sus soluciones, asegurando un proceso de configuración suave.</p>
-
-
-<h3 id="corregir-errores-de-permiso" tabindex="-1">Corregir errores de permiso</h3>
-
-
-<p>Discute cómo resolver errores de roles y políticas de IAM que pueden obstaculizar el registro.</p>
-
-
-<p>Cuando configura registros de CloudWatch para API Gateway, errores de permiso pueden ocurrir si el rol de IAM no está configurado correctamente. Para solucionar esto, asegúrese de que el rol de IAM tenga los permisos necesarios para escribir registros en CloudWatch. Puede hacer esto adjuntando la política administrada <code class="inline-code">AmazonAPIGatewayPushToCloudWatchLogs</code> al rol de IAM. Esta política otorga los permisos necesarios para que API Gateway escriba registros en CloudWatch.</p>
-
-
-<p>Además, asegúrese de que el rol de IAM esté activado para todas las regiones de AWS donde desee habilitar registros de CloudWatch. Puede hacer esto verificando la configuración del rol de IAM en la consola de AWS Management.</p>
-
-
-<h3 id="corregir-errores-de-formato-de-registro" tabindex="-1">Corregir errores de formato de registro</h3>
-
-
-<p>Ofrece consejos sobre el uso correcto de variables de formato de registro y soluciona problemas relacionados con el formato.</p>
-
-
-<p>Cuando configura formatos de registro en API Gateway, es esencial utilizar las variables correctas para capturar los datos de registro requeridos. Por ejemplo, si desea registrar el ID de solicitud, puede utilizar la variable <code class="inline-code">$context.requestId</code>. Asegúrese de verificar la documentación de API Gateway para la sintaxis y el uso correctos de variables de formato de registro.</p>
-
-
-<p>Si encuentra problemas con formatos de registro, verifique los registros de API Gateway para errores y solucione según sea necesario. También puede probar sus formatos de registro utilizando la consola de API Gateway o una herramienta como Postman.</p>
-
-
-<h3 id="abordar-la-falta-de-datos-de-registro" tabindex="-1">Abordar la falta de datos de registro</h3>
-
-
-<p>Explora las causas potenciales de la falta de registros y estrategias para asegurarse de que los registros se capturen completamente.</p>
-
-
-<p>Si no ve registros en CloudWatch, puede haber varias razones para esto. Una causa común es que el rol de IAM no esté configurado correctamente o que el formato de registro sea incorrecto. Para abordar esto, revise la configuración del rol de IAM y los formatos de registro para asegurarse de que sean correctos.</p>
-
-
-<p>Otra causa potencial es que la etapa de API Gateway no esté configurada correctamente para el registro. Asegúrese de que la etapa esté configurada para registrar solicitudes y respuestas, y que el formato de registro sea correcto.</p>
-
-
-<p>Al solucionar estos problemas comunes, puede asegurarse de que sus registros de CloudWatch estén configurados correctamente y capturen los datos requeridos.</p>
-
-
-<h2 id="utilizar-cloudwatch-insights-para-an%C3%A1lisis-de-registros" tabindex="-1">Utilizar CloudWatch Insights para análisis de registros</h2>
-
-
-<p>Utilizar CloudWatch Insights es una forma efectiva de analizar los registros de su API y mejorar su rendimiento.</p>
-
-
-<h3 id="crear-consultas-en-cloudwatch-insights" tabindex="-1">Crear consultas en CloudWatch Insights</h3>
-
-
-<p>Para crear consultas en CloudWatch Insights, siga estos pasos:</p>
-
-
-<ol>
-<li>Abra la consola de CloudWatch y seleccione <strong>Insights</strong> en el panel de navegación.</li>
-<li>Seleccione el grupo de registros que desea analizar.</li>
-<li>Especifique el período de tiempo que desea analizar.</li>
-<li>Cree una consulta utilizando el lenguaje de consulta de CloudWatch Insights.</li>
-<li>Ejecute la consulta y revise los resultados.</li>
-</ol>
-
-
-<p>Por ejemplo, puede crear una consulta para ver los 10 últimos errores 4xx en su API:</p>
-
-
-<pre><code>fields @timestamp, status, ip, path, httpMethod| filter status&gt;=400 and status&lt;=499| sort @timestamp desc| limit 10
-</code></pre>
-
-
-<h3 id="analizar-registros-para-optimizar-la-api" tabindex="-1">Analizar registros para optimizar la API</h3>
-
-
-<p>Al analizar los registros en CloudWatch Insights, puede identificar patrones y tendencias que pueden ayudar a mejorar el rendimiento de su API. Por ejemplo, puede:</p>
-
-
-<ul>
-<li>Identificar los endpoints más lentos y optimizarlos para mejorar el rendimiento.</li>
-<li>Detectar errores comunes y solucionarlos para reducir el número de errores.</li>
-<li>Analizar los patrones de tráfico y ajustar la capacidad de su API para manejar picos de tráfico.</li>
-</ul>
-
-
-<p>Al utilizar CloudWatch Insights para analizar los registros, puede tomar decisiones informadas para mejorar el rendimiento y la escalabilidad de su API.</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th><strong>Ventajas de utilizar CloudWatch Insights</strong></th>
-<th><strong>Descripción</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Identificar patrones y tendencias</td>
-<td>Analizar los registros para identificar patrones y tendencias que pueden ayudar a mejorar el rendimiento de su API.</td>
-</tr>
-<tr>
-<td>Optimizar endpoints</td>
-<td>Identificar los endpoints más lentos y optimizarlos para mejorar el rendimiento.</td>
-</tr>
-<tr>
-<td>Reducir errores</td>
-<td>Detectar errores comunes y solucionarlos para reducir el número de errores.</td>
-</tr>
-<tr>
-<td>Ajustar la capacidad</td>
-<td>Analizar los patrones de tráfico y ajustar la capacidad de su API para manejar picos de tráfico.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h2 id="conclusi%C3%B3n%3A-registros-de-cloudwatch-para-la-gesti%C3%B3n-de-api" tabindex="-1">Conclusión: registros de CloudWatch para la gestión de API</h2>
-
-
-<p>En resumen, habilitar registros de CloudWatch en API Gateway es un paso crucial para mantener APIs de alta performance y seguridad. En esta guía, hemos cubierto los pasos detallados para configurar registros de CloudWatch, desde la creación de un rol de IAM hasta la configuración de formatos de registro de acceso. También hemos explorado las ventajas de utilizar CloudWatch Insights para analizar los registros y mejorar el rendimiento de la API.</p>
-
-
-<h3 id="ventajas-de-utilizar-cloudwatch-logs" tabindex="-1">Ventajas de utilizar CloudWatch Logs</h3>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th><strong>Ventaja</strong></th>
-<th><strong>Descripción</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Identificar patrones y tendencias</td>
-<td>Analizar los registros para identificar patrones y tendencias que pueden ayudar a mejorar el rendimiento de su API.</td>
-</tr>
-<tr>
-<td>Optimizar endpoints</td>
-<td>Identificar los endpoints más lentos y optimizarlos para mejorar el rendimiento.</td>
-</tr>
-<tr>
-<td>Reducir errores</td>
-<td>Detectar errores comunes y solucionarlos para reducir el número de errores.</td>
-</tr>
-<tr>
-<td>Ajustar la capacidad</td>
-<td>Analizar los patrones de tráfico y ajustar la capacidad de su API para manejar picos de tráfico.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Al habilitar registros de CloudWatch, puede identificar patrones y tendencias en los registros, optimizar los endpoints lentos, reducir errores y ajustar la capacidad de su API para manejar picos de tráfico. Siguiendo los pasos detallados en esta guía, puede asegurarse de que su API esté funcionando de manera óptima y segura.</p>
-
-
-<h2 id="preguntas-frecuentes" tabindex="-1">Preguntas frecuentes</h2>
-
-
-<h3 id="%C2%BFc%C3%B3mo-obtengo-registros-de-aws-api-gateway%3F" tabindex="-1">¿Cómo obtengo registros de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> API Gateway?</h3>
-
-
-<p><figure><img alt="AWS" src="/assets/blog/2ebe3cf8e7ae57e98d3af846.jpg"/></figure></p>
-
-
-<p>Abre la consola de CloudWatch en <a href="https://console.aws.amazon.com/cloudwatch/" rel="noopener noreferrer" target="_blank">https://console.aws.amazon.com/cloudwatch/</a>. Si es necesario, cambia la región de AWS. En el panel de navegación, elige <strong>Logs</strong>, luego <strong>Log groups</strong>. Bajo la tabla <strong>Log Groups</strong>, elige un grupo de registros con el nombre <code class="inline-code">API-Gateway-Execution-Logs_{rest-api-id}/{stage-name}</code>.</p>
-
-
-<h3 id="%C2%BFc%C3%B3mo-aseguro-que-la-registro-de-api-en-cloudwatch-est%C3%A9-habilitada%3F" tabindex="-1">¿Cómo aseguro que la registro de API en CloudWatch esté habilitada?</h3>
-
-
-<p>Crea una API y despliégala en una etapa. Elige <strong>Logs/Tracing</strong> en el editor de etapas. Elige <strong>Habilitar registros de CloudWatch</strong> en <strong>Configuración de CloudWatch</strong>. Seleccione <strong>Guardar cambios</strong>.</p>
-
-
-<h3 id="%C2%BFtiene-registros-api-gateway%3F" tabindex="-1">¿Tiene registros API Gateway?</h3>
-
-
-<p>En el panel de navegación, elige <strong>Logs</strong>, luego <strong>Log groups</strong>. Bajo la tabla <strong>Log Groups</strong>, elige un grupo de registros con el nombre <code class="inline-code">API-Gateway-Execution-Logs_{rest-api-id}/{stage-name}</code>. Bajo la tabla <strong>Log Streams</strong>, elige un flujo de registros. Puedes utilizar la marca de tiempo para ayudar a ubicar el flujo de registros de tu interés.</p>
-
-
-<h3 id="%C2%BFc%C3%B3mo-activo-registros-de-cloudwatch-para-solucionar-problemas-de-mi-api-gateway-rest-api-o-websocket-api%3F" tabindex="-1">¿Cómo activo registros de CloudWatch para solucionar problemas de mi API Gateway REST API o WebSocket API?</h3>
-
-
-<p>Inicia sesión en la consola de API Gateway en <a href="https://console.aws.amazon.com/apigateway/" rel="noopener noreferrer" target="_blank">https://console.aws.amazon.com/apigateway/</a>. En el panel de navegación principal, elige <strong>Configuración</strong>, luego <strong>Editar</strong> bajo <strong>Registro</strong>. Para <strong>ARN de rol de CloudWatch</strong>, ingresa un ARN de un rol de IAM con permisos apropiados.</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th><strong>Preguntas</strong></th>
-<th><strong>Respuestas</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>¿Cómo obtengo registros de AWS API Gateway?</td>
-<td>Abre la consola de CloudWatch y elige un grupo de registros con el nombre <code class="inline-code">API-Gateway-Execution-Logs_{rest-api-id}/{stage-name}</code>.</td>
-</tr>
-<tr>
-<td>¿Cómo aseguro que la registro de API en CloudWatch esté habilitada?</td>
-<td>Crea una API, despliégala en una etapa y habilita registros de CloudWatch en la configuración de CloudWatch.</td>
-</tr>
-<tr>
-<td>¿Tiene registros API Gateway?</td>
-<td>Elige un grupo de registros con el nombre <code class="inline-code">API-Gateway-Execution-Logs_{rest-api-id}/{stage-name}</code> y selecciona un flujo de registros.</td>
-</tr>
-<tr>
-<td>¿Cómo activo registros de CloudWatch para solucionar problemas de mi API Gateway REST API o WebSocket API?</td>
-<td>Inicia sesión en la consola de API Gateway, elige <strong>Configuración</strong>, luego <strong>Editar</strong> bajo <strong>Registro</strong> y ingresa un ARN de un rol de IAM con permisos apropiados.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/">Mejores prácticas de observabilidad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/observabilidad-en-aws-con-amazon-x-ray/">Observabilidad en AWS con Amazon X-Ray</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores prácticas de seguridad en AWS</a></li>
-</ul>
-</p>
+Si buscas un grupo en tu país, explora el [directorio de comunidades AWS en Latinoamérica](https://dondeaprendoaws.com/comunidades/), filtrable por país, tipo de grupo y temas; para encuentros remotos o presenciales, consulta la [agenda de eventos AWS](https://dondeaprendoaws.com/eventos/) y confirma cupos y condiciones en la página de cada actividad. Si estás en Córdoba, puedes conocer al [AWS User Group Córdoba](https://www.meetup.com/aws-user-group-cordoba-argentina/) y consultar sus actividades en Meetup. Para estudiantes de la región, el [AWS Student Community Day Córdoba 2026](https://www.meetup.com/aws-sbg-at-national-university-of-cordoba/events/316848908/) está anunciado para el **7 de noviembre de 2026, de 13:00 a 20:00 ART**, en FaMAF, Ciudad Universitaria. Al **6 de octubre de 2026**, Meetup indicaba registro abierto, entrada gratuita y cupos limitados; revisa la página antes de inscribirte porque la disponibilidad y las condiciones pueden cambiar.
