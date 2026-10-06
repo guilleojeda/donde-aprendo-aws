@@ -1,149 +1,150 @@
 ---
-title: "Conectar dispositivos IoT a AWS usando el SDK de C++"
-description: "Aprende a conectar dispositivos IoT a AWS con el SDK de C++ para un desarrollo eficiente. Incluye configuración, autenticación y manejo de sombras de cosas."
+title: "Conectar AWS IoT Core con C++: MQTT 5 y SDK oficial v2"
+description: "Configura un cliente C++ para AWS IoT Core con MQTT 5, TLS mutuo y certificados X.509. Incluye endpoint ATS, política IoT, compilación y diagnóstico."
 author: "guille-ojeda"
 publishedAt: "2024-05-10"
 publishedTimestamp: "2024-05-10T02:52:14.698Z"
+modifiedTimestamp: "2026-10-06T14:04:22-03:00"
+review:
+  date: "2026-10-06"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "9 mejores prácticas de seguridad para IaC en AWS"
-    url: "https://dondeaprendoaws.com/blog/9-mejores-practicas-de-seguridad-para-iac-en-aws/"
-  - title: "Servicios de AWS para inteligencia artificial"
-    url: "https://dondeaprendoaws.com/blog/servicios-de-aws-para-inteligencia-artificial/"
-  - title: "Aprender AWS gratis: recursos y comunidad"
-    url: "https://dondeaprendoaws.com/blog/aprender-aws-gratis-recursos-y-comunidad/"
+  - title: "AWS IoT Device SDK para JavaScript: 7 errores comunes y cómo resolverlos"
+    url: "https://dondeaprendoaws.com/blog/7-errores-comunes-con-aws-iot-device-sdk-para-javascript/"
+  - title: "Cómo simular dispositivos IoT en AWS: MQTT, ejemplos y límites"
+    url: "https://dondeaprendoaws.com/blog/aws-iot-edge-simulator-casos-de-uso-reales/"
 
 ---
 
-<p>Para conectar dispositivos IoT a <a href="https://aws.amazon.com/">AWS</a> utilizando el SDK de C++, sigue estos pasos:</p>
-<ol><li><p><strong>Configura tu entorno de desarrollo C++</strong></p><ul><li>Instala un compilador de C++ compatible (<a href="https://gcc.gnu.org/">GCC</a>, <a href="https://clang.llvm.org/">Clang</a>, etc.)</li><li>Configura un IDE (<a href="https://visualstudio.microsoft.com/">Visual Studio</a>, <a href="https://www.eclipse.org/">Eclipse</a>, etc.)</li><li>Instala las bibliotecas y dependencias necesarias</li></ul></li><li><p><strong>Crea una cuenta de AWS y configura <a href="https://docs.aws.amazon.com/iot/latest/developerguide/what-is-aws-iot.html">AWS IoT Core</a></strong></p><ul><li>Crea una cuenta de AWS si aún no tienes una</li><li>Configura AWS IoT Core para permitir la conexión de dispositivos IoT</li></ul></li><li><p><strong>Descarga e instala el SDK de C++ de AWS IoT Device</strong></p><ul><li>Clona el repositorio de <a href="https://github.com/">GitHub</a> del SDK</li><li>Sigue las instrucciones de instalación y compilación</li></ul></li><li><p><strong>Configura el SDK con tus credenciales de AWS</strong></p><ul><li>Proporciona la información de tu cuenta de AWS (clave de acceso, clave secreta)</li><li>Configura la conexión <a href="https://en.wikipedia.org/wiki/MQTT">MQTT</a> (dirección del servidor, puerto)</li></ul></li><li><p><strong>Crea un cliente MQTT usando el SDK</strong></p><ul><li>Inicializa una instancia de la clase <code>MqttClient</code></li><li>Configura la conexión de red y la autenticación</li></ul></li><li><p><strong>Gestiona temas MQTT y publica/suscribe mensajes</strong></p><ul><li>Suscríbete a temas MQTT relevantes</li><li>Publica datos en AWS IoT utilizando el método <code>Publish</code></li></ul></li><li><p><strong>Utiliza sombras de cosas para administrar el estado del dispositivo</strong></p><ul><li>Recupera, actualiza y elimina sombras de cosas</li><li>Maneja eventos de sombra de cosa</li></ul></li><li><p><strong>Crea y monitorea trabajos de AWS IoT</strong></p><ul><li>Crea trabajos utilizando la API de AWS IoT Core</li><li>Responde a la ejecución de trabajos en el SDK</li></ul></li></ol>
-<table><thead><tr><th>Característica Clave</th><th>Descripción</th></tr></thead><tbody><tr><td>Conexión segura</td><td>Autenticación, autorización y cifrado de datos</td></tr><tr><td>Sombras de cosas</td><td>Mantener y sincronizar el estado del dispositivo</td></tr><tr><td>Trabajos de AWS IoT</td><td>Realizar tareas como actualizaciones y acciones personalizadas</td></tr></tbody></table>
-<p>Sigue explorando la documentación del SDK y los ejemplos de código para aprovechar al máximo sus características avanzadas.</p>
-<h2 id="related-video-from-youtube">Related video from YouTube</h2>
-<div><iframe allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen="" height="315" loading="lazy" src="https://www.youtube.com/embed/YcY68BJddmg" title="Video de YouTube" width="560"></iframe></div>
-<h2 id="configuraci%C3%B3n-para-la-conexi%C3%B3n-del-dispositivo">Configuración para la conexión del dispositivo</h2>
-<p>Para conectar dispositivos IoT a AWS utilizando el SDK de C++, es necesario realizar algunas preparaciones previas. A continuación, se presentan los pasos necesarios para establecer la conexión.</p>
-<h3 id="crear-una-cuenta-de-aws">Crear una cuenta de <a href="https://aws.amazon.com/">AWS</a></h3>
-<p><img alt="AWS" src="/assets/blog/2ebe3cf8e7ae57e98d3af846.jpg"/></p>
-<p>Antes de empezar, debes crear una cuenta de AWS si no la tienes ya. Para hacerlo, sigue estos pasos:</p>
-<p>1. <strong>Crear una cuenta de AWS</strong>:</p>
-<ul><li>Ve a la página de inicio de AWS y haz clic en "Crear una cuenta de AWS".</li><li>Selecciona el tipo de cuenta que deseas crear (individual o empresarial).</li><li>Proporciona la información requerida, como tu nombre, dirección de correo electrónico y contraseña.</li><li>Verifica tu cuenta mediante el enlace de confirmación que se te envía por correo electrónico.</li></ul>
-<h3 id="configurar-el-entorno-de-desarrollo-de-c%2B%2B">Configurar el entorno de desarrollo de C++</h3>
-<p>Para desarrollar aplicaciones con el SDK de C++ de AWS IoT Device, debes tener un entorno de desarrollo de C++ configurado. Asegúrate de tener instaladas las herramientas y software necesarias, como:</p>
-<ul><li>Un compilador de C++ compatible (como GCC o Clang).</li><li>Un entorno de desarrollo integrado (IDE) como Visual Studio o Eclipse.</li><li>Las bibliotecas y dependencias necesarias para el SDK de C++ de AWS IoT Device.</li></ul>
-<h3 id="entender-mqtt-y-aws-iot-core">Entender <a href="https://en.wikipedia.org/wiki/MQTT">MQTT</a> y <a href="https://docs.aws.amazon.com/iot/latest/developerguide/what-is-aws-iot.html">AWS IoT Core</a></h3>
-<p><img alt="MQTT" src="/assets/blog/f6c0ceacae77dcc2ccf9cb28.jpg"/></p>
-<p>El protocolo MQTT (Message Queuing Telemetry Transport) es un protocolo de mensajería ligero que se utiliza para la comunicación entre dispositivos IoT y AWS IoT Core. AWS IoT Core es un servicio de AWS que permite a los dispositivos IoT conectarse y enviar datos a la nube.</p>
-<p>Es importante entender cómo funciona MQTT y cómo se utiliza en AWS IoT Core para establecer la conexión entre tus dispositivos IoT y AWS.</p>
-<table><thead><tr><th>Concepto</th><th>Descripción</th></tr></thead><tbody><tr><td>MQTT</td><td>Protocolo de mensajería ligero para la comunicación entre dispositivos IoT y AWS IoT Core.</td></tr><tr><td>AWS IoT Core</td><td>Servicio de AWS que permite a los dispositivos IoT conectarse y enviar datos a la nube.</td></tr></tbody></table>
-<h2 id="instalaci%C3%B3n-y-configuraci%C3%B3n-del-sdk-de-c%2B%2B">Instalación y configuración del SDK de C++</h2>
-<p>Para utilizar el SDK de C++ de AWS IoT Device, es necesario descargar e instalar el SDK y configurarlo para que se conecte con AWS IoT Core.</p>
-<h3 id="descarga-e-instalaci%C3%B3n-del-sdk">Descarga e instalación del SDK</h3>
-<p>Para descargar el SDK, clona el repositorio de GitHub de AWS IoT Device SDK para C++. Luego, crea una carpeta llamada <code>build</code> para contener los archivos de compilación y cambia a esa carpeta.</p>
-<p>Ejecuta <code>cmake../.</code> para construir el SDK con la CLI. El comando descargará automáticamente las bibliotecas de terceros necesarias y generará un archivo Makefile. Luego, escribe <code>make &lt;nombre del objetivo&gt;</code> para construir el objetivo deseado.</p>
-<h3 id="configuraci%C3%B3n-del-sdk">Configuración del SDK</h3>
-<p>Una vez instalado el SDK, debes configurarlo para que se conecte con AWS IoT Core. Para hacerlo, debes proporcionar la información de la cuenta de AWS y la configuración de la conexión MQTT.</p>
-<h4 id="informaci%C3%B3n-de-la-cuenta-de-aws">Información de la cuenta de AWS</h4>
-<ul><li>Crea un archivo de configuración que contenga la información de la cuenta de AWS, como la clave de acceso y la clave secreta.</li></ul>
-<h4 id="configuraci%C3%B3n-de-la-conexi%C3%B3n-mqtt">Configuración de la conexión MQTT</h4>
-<ul><li>Proporciona la dirección del servidor MQTT y el puerto de conexión.</li></ul>
-<p>Asegúrate de que el SDK esté configurado correctamente para que se conecte con AWS IoT Core. Puedes hacer esto verificando la documentación del SDK y los ejemplos de código proporcionados.</p>
-<h2 id="conectar-a-aws-iot-con-el-sdk">Conectar a AWS IoT con el SDK</h2>
-<p>Conectar a AWS IoT con el SDK de C++ implica varios pasos importantes para establecer una conexión segura y confiable. A continuación, se presentan los pasos para crear un cliente MQTT utilizando el SDK y conectarlo a AWS IoT Core.</p>
-<h3 id="crear-un-cliente-mqtt">Crear un cliente MQTT</h3>
-<p>Para crear un cliente MQTT, debes inicializar una instancia de la clase <code>MqttClient</code> del SDK de C++. Puedes hacer esto proporcionando una instancia de la clase <code>NetworkConnection</code> que configure la conexión de red y la autenticación con AWS IoT.</p>
-<pre><code>std::shared_ptr&lt;NetworkConnection&gt; p_network_connection = &lt;Crear instancia&gt;;
-std::shared_ptr&lt;MqttClient&gt; p_client = MqttClient::Create(p_network_connection, std::chrono::milliseconds(30000));
-</code></pre>
-<h3 id="gestionar-temas-mqtt-y-mensajes">Gestionar temas MQTT y mensajes</h3>
-<p>Una vez creado el cliente MQTT, debes suscribirte a los temas MQTT relevantes para recibir mensajes de AWS IoT. Puedes hacer esto utilizando el método <code>Subscribe</code> del cliente MQTT.</p>
-<table><thead><tr><th>Paso</th><th>Descripción</th></tr></thead><tbody><tr><td>1</td><td>Crear una instancia de la clase <code>Utf8String</code> con el nombre del tema MQTT.</td></tr><tr><td>2</td><td>Crear un objeto <code>Subscription</code> con el tema MQTT, la calidad de servicio (QoS) y un manejador de suscripciones.</td></tr><tr><td>3</td><td>Agregar el objeto <code>Subscription</code> a un vector de suscripciones.</td></tr><tr><td>4</td><td>Llamar al método <code>Subscribe</code> del cliente MQTT con el vector de suscripciones.</td></tr></tbody></table>
-<h3 id="publicar-datos-en-aws-iot">Publicar datos en AWS IoT</h3>
-<p>Para publicar datos en AWS IoT, debes utilizar el método <code>Publish</code> del cliente MQTT. Puedes proporcionar el tema MQTT, el mensaje y la calidad de servicio (QoS) deseada.</p>
-<table><thead><tr><th>Paso</th><th>Descripción</th></tr></thead><tbody><tr><td>1</td><td>Crear una instancia de la clase <code>Utf8String</code> con el nombre del tema MQTT.</td></tr><tr><td>2</td><td>Llamar al método <code>Publish</code> del cliente MQTT con el tema MQTT, el mensaje y la calidad de servicio (QoS) deseada.</td></tr></tbody></table>
-<p>Recuerda que debes configurar correctamente el SDK y proporcionar la información de la cuenta de AWS y la configuración de la conexión MQTT para establecer una conexión segura y confiable con AWS IoT Core.</p>
-<h2 id="utilizar-sombras-de-cosas">Utilizar sombras de cosas</h2>
-<p>Las sombras de cosas son una característica clave de AWS IoT que permite a los dispositivos IoT mantener un estado en la nube. Esto permite a los dispositivos IoT sincronizar su estado con la nube y recibir actualizaciones en tiempo real. En este artículo, exploraremos cómo utilizar las sombras de cosas con el SDK de C++ para administrar el estado de los dispositivos IoT.</p>
-<h3 id="administrar-el-estado-de-la-sombra-de-cosa">Administrar el estado de la sombra de cosa</h3>
-<p>Para administrar el estado de una sombra de cosa, debes utilizar la API de sombra de cosa proporcionada por el SDK de C++. Puedes recuperar el estado actual de una sombra de cosa utilizando el método <code>GetThingShadow</code> del cliente MQTT.</p>
-<table><thead><tr><th>Método</th><th>Descripción</th></tr></thead><tbody><tr><td><code>GetThingShadow</code></td><td>Recupera el estado actual de una sombra de cosa.</td></tr><tr><td><code>UpdateThingShadow</code></td><td>Actualiza el estado de una sombra de cosa.</td></tr><tr><td><code>DeleteThingShadow</code></td><td>Elimina una sombra de cosa.</td></tr></tbody></table>
-<h3 id="actualizar-el-estado-de-la-sombra-de-cosa">Actualizar el estado de la sombra de cosa</h3>
-<p>Puedes actualizar el estado de una sombra de cosa utilizando el método <code>UpdateThingShadow</code> del cliente MQTT.</p>
-<pre><code>std::string new_shadow_state = "{\"temperature\": 25.0}";
-p_client-&gt;UpdateThingShadow(thing_name, new_shadow_state);
-</code></pre>
-<h3 id="eliminar-sombras-de-cosas">Eliminar sombras de cosas</h3>
-<p>Para eliminar una sombra de cosa, debes utilizar el método <code>DeleteThingShadow</code> del cliente MQTT. Es importante tener en cuenta que eliminar una sombra de cosa también elimina todos los datos asociados con ella.</p>
-<pre><code>p_client-&gt;DeleteThingShadow(thing_name);
-</code></pre>
-<h3 id="manejar-eventos-de-sombra-de-cosa">Manejar eventos de sombra de cosa</h3>
-<p>Puedes establecer callbacks para manejar eventos de sombra de cosa, como cambios en el estado de la sombra de cosa. Para hacer esto, debes proporcionar un objeto <code>ThingShadowCallback</code> al método <code>SetThingShadowCallback</code> del cliente MQTT.</p>
-<pre><code>class MyThingShadowCallback : public ThingShadowCallback {
-public:
-    void OnThingShadowUpdated(const std::string&amp; thing_name, const std::string&amp; shadow_state) override {
-        // Manejar el evento de actualización de la sombra de cosa
-    }
-};
+Para conectar un programa **C++** a AWS IoT Core puedes usar el **AWS IoT Device SDK for C++ v2** y MQTT 5 con TLS mutuo. En esta guía compilas el ejemplo oficial que presenta un certificado X.509, se suscribe a un topic, publica un mensaje y espera recibirlo.
 
-MyThingShadowCallback callback;
-p_client-&gt;SetThingShadowCallback(&amp;callback);
-</code></pre>
-<p>Recuerda que debes configurar correctamente el SDK y proporcionar la información de la cuenta de AWS y la configuración de la conexión MQTT para utilizar las sombras de cosas de manera efectiva.</p>
-<h2 id="trabajos-de-aws-iot">Trabajos de AWS IoT</h2>
-<p>Los trabajos de AWS IoT permiten a los dispositivos IoT realizar tareas como actualizaciones y acciones personalizadas. En este artículo, exploraremos cómo utilizar el SDK de C++ para crear y administrar trabajos en AWS IoT.</p>
-<h3 id="crear-y-monitorear-trabajos">Crear y monitorear trabajos</h3>
-<p>Para crear un trabajo en AWS IoT, debes utilizar la API de AWS IoT Core. Primero, debes crear un documento de trabajo que contenga la información del trabajo, como el ID del trabajo y la URL del documento del trabajo. Luego, puedes utilizar el comando <code>aws iot create-job</code> para crear el trabajo.</p>
-<table><thead><tr><th>Comando</th><th>Descripción</th></tr></thead><tbody><tr><td><code>aws iot create-job</code></td><td>Crea un trabajo en AWS IoT.</td></tr></tbody></table>
-<p>Ejemplo de comando:</p>
-<pre><code>aws iot create-job \
-  --job-id hello-world-job-1 \
-  --document-source "job_document_url" \
-  --targets "thing_arn" \
-  --target-selection SNAPSHOT
-</code></pre>
-<p>Si el comando es exitoso, devuelve un resultado como este:</p>
-<p><code>{ "jobArn": "arn:aws:iot:us-west-2:57EXAMPLE833:job/hello-world-job-1", "jobId": "hello-world-job-1"}</code></p>
-<p>Una vez creado el trabajo, puedes monitorear su estado utilizando la API de AWS IoT Core.</p>
-<h3 id="responder-a-la-ejecuci%C3%B3n-de-un-trabajo">Responder a la ejecución de un trabajo</h3>
-<p>Para responder a la ejecución de un trabajo, debes establecer un callback en el SDK de C++. Esto te permite recibir notificaciones cuando se ejecuta un trabajo y realizar acciones personalizadas en respuesta.</p>
-<pre><code>class MyJobCallback : public JobCallback {
-public:
-    void OnJobExecution(const std::string&amp; jobId, const std::string&amp; jobStatus) override {
-        // Manejar la ejecución del trabajo
-    }
-};
+El **AWS SDK for C++** general sirve para llamar APIs de servicios AWS; el **IoT Device SDK** incluye un cliente MQTT para conectar dispositivos al broker de IoT Core. No son bibliotecas intercambiables.
 
-MyJobCallback callback;
-p_client-&gt;SetJobCallback(&amp;callback);
-</code></pre>
-<p>Recuerda que debes configurar correctamente el SDK y proporcionar la información de la cuenta de AWS y la configuración de la conexión MQTT para utilizar los trabajos de AWS IoT de manera efectiva.</p>
-<h2 id="uso-avanzado-del-sdk">Uso avanzado del SDK</h2>
-<p>El SDK de C++ para AWS IoT Device ofrece varias características avanzadas que permiten a los desarrolladores crear soluciones IoT más complejas y escalables. En esta sección, exploraremos algunas de las formas en que puedes aprovechar al máximo el SDK para crear aplicaciones IoT más robustas y seguras.</p>
-<h3 id="integraci%C3%B3n-con-otros-servicios-de-aws">Integración con otros servicios de AWS</h3>
-<p>Puedes integrar el SDK de C++ para AWS IoT Device con otros servicios de AWS para crear soluciones IoT más completas. Por ejemplo, puedes utilizar <a href="https://en.wikipedia.org/wiki/AWS_Lambda">AWS Lambda</a> para procesar y analizar datos IoT en tiempo real, o <a href="https://en.wikipedia.org/wiki/Amazon_S3">AWS S3</a> para almacenar y procesar grandes cantidades de datos.</p>
-<table><thead><tr><th>Servicio de AWS</th><th>Descripción</th></tr></thead><tbody><tr><td>AWS Lambda</td><td>Procesar y analizar datos IoT en tiempo real</td></tr><tr><td>AWS S3</td><td>Almacenar y procesar grandes cantidades de datos</td></tr></tbody></table>
-<h3 id="seguridad-de-las-comunicaciones-de-dispositivos-iot">Seguridad de las comunicaciones de dispositivos IoT</h3>
-<p>La seguridad es un aspecto crítico en cualquier aplicación IoT. El SDK de C++ para AWS IoT Device proporciona varias características de seguridad para proteger las comunicaciones entre los dispositivos IoT y AWS IoT Core.</p>
-<table><thead><tr><th>Característica de seguridad</th><th>Descripción</th></tr></thead><tbody><tr><td>Autenticación y autorización basadas en certificados</td><td>Garantizar que solo los dispositivos autorizados puedan conectarse a AWS IoT Core</td></tr><tr><td>Cifrado de datos</td><td>Proteger los datos en tránsito</td></tr></tbody></table>
-<h3 id="soluci%C3%B3n-de-problemas-y-manejo-de-errores">Solución de problemas y manejo de errores</h3>
-<p>A pesar de que el SDK de C++ para AWS IoT Device es muy robusto, es posible que encuentres errores o problemas al utilizarlo. En este caso, es importante saber cómo diagnosticar y resolver problemas comunes.</p>
-<table><thead><tr><th>Herramienta o técnica</th><th>Descripción</th></tr></thead><tbody><tr><td>Registros de depuración</td><td>Ayudar a diagnosticar problemas de conectividad y autenticación</td></tr><tr><td>Excepciones personalizadas</td><td>Proporcionar información detallada sobre los errores que ocurren</td></tr><tr><td>Herramientas de terceros</td><td>Ayudar a diagnosticar problemas de conectividad y autenticación</td></tr></tbody></table>
-<h2 id="conclusi%C3%B3n-y-aprendizaje-adicional">Conclusión y aprendizaje adicional</h2>
-<p>En este artículo, hemos explorado los pasos para conectar dispositivos IoT a AWS utilizando el SDK de C++. Desde la configuración del entorno de desarrollo hasta la publicación de datos en AWS IoT, hemos cubierto los conceptos clave y las características avanzadas del SDK.</p>
-<h3 id="siguientes-pasos">Siguientes pasos</h3>
-<p>Ahora que has completado esta guía, estás listo para empezar a construir tus propias aplicaciones IoT con AWS y el SDK de C++. Recuerda que la documentación del SDK es una excelente fuente de información para profundizar en los conceptos y características presentadas en este artículo.</p>
-<h3 id="recursos-adicionales">Recursos adicionales</h3>
-<p>Para seguir aprendiendo, te recomendamos explorar los siguientes recursos:</p>
-<table><thead><tr><th>Recurso</th><th>Descripción</th></tr></thead><tbody><tr><td>Documentación del SDK de C++ para AWS IoT Device</td><td>Información detallada sobre el SDK y sus características</td></tr><tr><td>Sitio web de AWS IoT</td><td>Más información sobre los servicios y características de AWS IoT</td></tr><tr><td>Ejemplos de código y proyectos de muestra en GitHub</td><td>Inspiración y aprendizaje de otros desarrolladores</td></tr></tbody></table>
-<p>Continúa explorando el mundo de IoT y AWS, y no dudes en compartir tus experiencias y conocimientos con la comunidad de desarrolladores. ¡Buena suerte en tus proyectos IoT!</p>
-<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
-<h3 id="%C2%BFc%C3%B3mo-utilizar-el-sdk-de-dispositivo-iot-de-aws%3F">¿Cómo utilizar el SDK de dispositivo IoT de AWS?</h3>
-<p>Para utilizar el <a href="https://dondeaprendoaws.com/blog/7-errores-comunes-con-aws-iot-device-sdk-para-javascript/">SDK de dispositivo IoT de AWS</a>, sigue estos pasos:</p>
-<ol><li>Instala el SDK de dispositivo IoT de AWS para C++.</li><li>Configura la aplicación de ejemplo según el dispositivo y la plataforma que estés utilizando.</li><li>Compila y ejecuta la aplicación de ejemplo.</li></ol>
-<h3 id="%C2%BFc%C3%B3mo-compilar-el-sdk-en-aws%3F">¿Cómo compilar el SDK en AWS?</h3>
-<p>Para compilar el SDK en AWS, sigue estos pasos:</p>
-<table><thead><tr><th>Paso</th><th>Descripción</th></tr></thead><tbody><tr><td>1</td><td>Instala CMake (versión mínima 3.13) y las herramientas de compilación relevantes para tu plataforma.</td></tr><tr><td>2</td><td>En una ventana de comandos, navega a una carpeta donde desees almacenar el SDK.</td></tr><tr><td>3</td><td>Genera los archivos de compilación ejecutando <code>cmake.</code>.</td></tr><tr><td>4</td><td>Compila el SDK utilizando los archivos de compilación generados.</td></tr></tbody></table>
-<h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/7-errores-comunes-con-aws-iot-device-sdk-para-javascript/">7 errores comunes con AWS IoT Device SDK para JavaScript</a></li><li><a href="https://dondeaprendoaws.com/blog/como-integrar-los-sdk-de-aws-en-7-pasos/">Cómo integrar los SDK de AWS en 7 pasos</a></li><li><a href="https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-aws-lambda/">Microservicios en AWS utilizando AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/">Introducción a la inteligencia artificial en AWS</a></li></ul>
+Si tu firmware está escrito en C, consulta el [AWS IoT Device SDK for Embedded C](https://github.com/aws/aws-iot-device-sdk-embedded-C). Es otra biblioteca, modular, pensada para integrarse al firmware; por ejemplo, <code>coreMQTT</code> deja a la aplicación implementar la capa de red y TLS de su plataforma.
+
+## Qué versión usar
+
+El [repositorio actual del AWS IoT Device SDK for C++ v2](https://github.com/aws/aws-iot-device-sdk-cpp-v2) incluye MQTT 5 y ejemplos para IoT Core. El cliente MQTT 5 del SDK usa <code>Start()</code> y eventos de ciclo de vida; los ejemplos antiguos de v1 emplean otras clases y métodos. El [repositorio de v1](https://github.com/aws/aws-iot-device-sdk-cpp) indica que ya no recibirá funciones nuevas, aunque mantendrá actualizaciones de seguridad.
+
+El SDK v2 ofrece clientes y ejemplos específicos para funciones como Device Shadows y Jobs. Esta guía cubre solo el intercambio MQTT básico: no uses métodos como <code>GetThingShadow()</code> o <code>SetJobCallback()</code> como si fueran métodos del cliente MQTT. Para otra capacidad, parte de su [documentación y muestras oficiales](https://github.com/aws/aws-iot-device-sdk-cpp-v2/tree/main/samples).
+
+## Requisitos y recursos de AWS
+
+Si recién empiezas con AWS IoT Core y microcontroladores, la [introducción a IoT Core y ESP8266 del AWS User Group Ecuador](https://www.youtube.com/watch?v=ilMHiOXCZns) da contexto visual. Es una grabación comunitaria sobre hardware, no un tutorial del SDK C++ v2.
+
+Necesitas:
+
+- Un compilador C++ compatible y CMake 3.9 o posterior. El SDK v2 requiere C++11 o superior; la muestra MQTT 5 usa C++14.
+- Git con soporte para clonar submódulos.
+- Una cuenta con AWS IoT Core habilitado en una Región.
+- Un certificado X.509 de cliente registrado y activo, su clave privada y una política IoT asociada que permita las operaciones de la muestra.
+- Salida de red TCP al puerto <code>8883</code>, usado por la conexión MQTT con certificado.
+- Un equipo o firmware que valide el certificado TLS del servidor. El certificado de cliente autentica el dispositivo; la validación de la cadena del servidor autentica AWS IoT Core. La [documentación de autenticación del servidor](https://docs.aws.amazon.com/iot/latest/developerguide/server-authentication.html) explica las autoridades raíz de confianza para el endpoint ATS.
+
+Puedes seguir el [tutorial de AWS para crear los recursos IoT](https://docs.aws.amazon.com/iot/latest/developerguide/create-iot-resources.html). Un objeto *Thing* en el registro ayuda a inventariar el dispositivo, pero no es requisito para esta conexión si la política no usa variables del Thing; AWS también muestra una [policy para clientes que no están registrados como Things](https://docs.aws.amazon.com/iot/latest/developerguide/connect-and-pub.html). Cada dispositivo debe tener una identidad propia; evita compartir la clave privada entre dispositivos y no la subas al repositorio.
+
+### Certificado, política IoT y permisos IAM
+
+Con MQTT sobre TLS mutuo, el certificado X.509 identifica al cliente y una **política de AWS IoT Core** autoriza lo que puede hacer en el broker. La política se asocia al certificado. No reemplaces esto por una clave de acceso IAM dentro del dispositivo.
+
+IAM sí puede autorizar acciones administrativas —por ejemplo, crear certificados o consultar el endpoint desde AWS CLI—, pero esos permisos no se convierten en permisos MQTT del certificado. AWS separa el plano de administración del plano de datos en su [tabla de autorización de IoT Core](https://docs.aws.amazon.com/iot/latest/developerguide/iot-authorization.html).
+
+Para practicar con la muestra, usa un <code>clientId</code> y topic fijos. Sustituye <code>REGION</code> y <code>ACCOUNT_ID</code> por los valores de la cuenta, y usa el mismo <code>clientId</code> y topic en la política y al ejecutar el programa:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "iot:Connect",
+      "Resource": "arn:aws:iot:REGION:ACCOUNT_ID:client/sensor-01"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["iot:Publish", "iot:Receive"],
+      "Resource": "arn:aws:iot:REGION:ACCOUNT_ID:topic/devices/sensor-01/telemetry"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "iot:Subscribe",
+      "Resource": "arn:aws:iot:REGION:ACCOUNT_ID:topicfilter/devices/sensor-01/telemetry"
+    }
+  ]
+}
+```
+
+<code>iot:Connect</code> se limita al identificador del cliente. <code>iot:Publish</code> y <code>iot:Receive</code> usan un recurso <code>topic/</code>; <code>iot:Subscribe</code> usa <code>topicfilter/</code>. Los topics no se crean por separado: eliges el nombre al publicar o suscribirte, y la política decide qué nombres permite. Consulta las [acciones de políticas IoT](https://docs.aws.amazon.com/iot/latest/developerguide/iot-policy-actions.html) y los [ejemplos de publicación y suscripción](https://docs.aws.amazon.com/iot/latest/developerguide/pub-sub-policy.html). Para ver cómo se aplican identidad y topics en un caso de telemetría con reglas, lee [Cómo armé un Pit Wall con AWS IoT Core](https://dev.to/alvarongg/como-arme-un-pit-wall-con-aws-iot-core-y-por-que-este-patron-sirve-para-cualquier-industria-4lo1); es un ejemplo de arquitectura, no una guía del SDK C++.
+
+La muestra se suscribe al mismo topic en el que publica, así que necesita esos tres permisos de datos además de <code>iot:Connect</code>. Si cambias el topic o el <code>clientId</code>, actualiza la política para que coincidan. Una conexión nueva con un <code>clientId</code> ya activo puede desconectar a la anterior; asigna un valor único a cada cliente.
+
+### Obtener el endpoint de datos
+
+Cada cuenta tiene un endpoint por Región. El endpoint <code>iot:Data-ATS</code> usa certificados de Amazon Trust Services y es el recomendado por AWS. Puedes verlo en **AWS IoT Core → Settings** o consultarlo con AWS CLI:
+
+```sh
+aws iot describe-endpoint --endpoint-type iot:Data-ATS --region us-east-1
+```
+
+La respuesta contiene un <code>endpointAddress</code>, por ejemplo <code>a1b2c3d4e5f6g7-ats.iot.us-east-1.amazonaws.com</code>. En la primera consulta, AWS crea el endpoint de datos para esa cuenta y Región. Pasa solo el nombre del host: no agregues <code>https://</code>, una ruta MQTT ni un puerto al argumento <code>--endpoint</code>. El comando CLI usa las credenciales IAM que ya configuraste para administración; el dispositivo usa su certificado X.509. AWS explica los [endpoints para conectar dispositivos](https://docs.aws.amazon.com/iot/latest/developerguide/iot-connect-devices.html) y los [protocolos y puertos disponibles](https://docs.aws.amazon.com/iot/latest/developerguide/protocols.html). MQTT con X.509 en el puerto <code>443</code> también requiere configurar ALPN; no es un reemplazo directo del puerto <code>8883</code>.
+
+## Compilar el ejemplo oficial
+
+El [ejemplo <code>mqtt5_x509</code>](https://github.com/aws/aws-iot-device-sdk-cpp-v2/tree/main/samples/mqtt/mqtt5_x509) muestra la conexión por TLS mutuo con certificado y clave. Clona el repositorio con sus submódulos, instala la biblioteca y compila esa muestra. Estos comandos usan una terminal tipo Bash, desde el directorio donde quieres guardar el repositorio:
+
+```sh
+git clone --recursive https://github.com/aws/aws-iot-device-sdk-cpp-v2.git
+SDK_DIR="aws-iot-device-sdk-cpp-v2"
+INSTALL_DIR="$(pwd)/sdk-install"
+
+cmake -S "$SDK_DIR" -B "$SDK_DIR/build" -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" -DCMAKE_BUILD_TYPE=Release
+cmake --build "$SDK_DIR/build" --target install --config Release
+
+cmake -S "$SDK_DIR/samples/mqtt/mqtt5_x509" -B "$SDK_DIR/build-sample" -DCMAKE_PREFIX_PATH="$INSTALL_DIR" -DCMAKE_BUILD_TYPE=Release
+cmake --build "$SDK_DIR/build-sample" --config Release
+```
+
+El [README de la muestra](https://github.com/aws/aws-iot-device-sdk-cpp-v2/blob/main/samples/mqtt/mqtt5_x509/README.md) describe el proceso y sus argumentos. En Windows, sigue la configuración de Visual Studio del [README principal del SDK](https://github.com/aws/aws-iot-device-sdk-cpp-v2); el ejecutable queda en el directorio de configuración que genere CMake.
+
+## Ejecutar una prueba MQTT de ida y vuelta
+
+La muestra recibe el endpoint, el certificado y la clave; puedes especificar un <code>clientId</code>, topic, mensaje y cantidad limitada de publicaciones:
+
+```sh
+"$SDK_DIR/build-sample/mqtt5_x509" --endpoint "a1b2c3d4e5f6g7-ats.iot.us-east-1.amazonaws.com" --cert "/ruta/segura/sensor-certificate.pem.crt" --key "/ruta/segura/sensor-private.pem.key" --client_id "sensor-01" --topic "devices/sensor-01/telemetry" --message "temperatura_c=22.4" --count 1
+```
+
+Con esos argumentos, el cliente inicia MQTT 5, se suscribe al topic, publica un mensaje QoS 1, espera recibirlo y se desconecta. La muestra agrega un número a <code>--message</code> y lo publica como una cadena JSON; no convierte el argumento en un objeto JSON. Busca en la salida <code>Lifecycle Connection Success</code> y <code>1 message(s) received.</code>. Esta comprobación ejercita certificado, endpoint, <code>clientId</code>, permisos y broker. No verifica una regla IoT, una base de datos, una alarma ni el sensor físico.
+
+El ejecutable solo usa el certificado y la clave necesarios para autenticarse. Confirma que el almacén de confianza del sistema o dispositivo valide la cadena TLS de AWS IoT Core. Conserva la clave privada con permisos de lectura restringidos. Si la conectividad de salida al puerto <code>8883</code> está bloqueada, primero revisa las reglas de red; el puerto <code>443</code> para MQTT con certificado exige el ajuste de ALPN mencionado arriba.
+
+## Diagnóstico cuando no conecta
+
+AWS resume los requisitos en su [guía de diagnóstico de conectividad](https://docs.aws.amazon.com/iot/latest/developerguide/diagnosing-connectivity-issues.html). Comprueba en este orden:
+
+| Síntoma | Qué revisar |
+| --- | --- |
+| Falla al establecer TLS o no resuelve el host | Endpoint <code>iot:Data-ATS</code> de la misma cuenta y Región, nombre de host sin esquema, DNS, salida TCP a <code>8883</code>, reloj del equipo y confianza en la CA del servidor. |
+| El broker rechaza la conexión | Certificado registrado y activo en esa Región, clave correspondiente al certificado, política IoT adjunta y permiso <code>iot:Connect</code> para el <code>clientId</code> exacto. |
+| Conecta, pero no publica | <code>iot:Publish</code> debe incluir el ARN <code>topic/</code> que coincide con el topic enviado. |
+| Conecta, pero la suscripción no funciona | <code>iot:Subscribe</code> debe permitir el filtro mediante <code>topicfilter/</code>; para recibir el mensaje hace falta además <code>iot:Receive</code> sobre el recurso <code>topic/</code>. |
+| Un dispositivo reemplaza la conexión de otro | Usa un <code>clientId</code> diferente para cada conexión activa. |
+| El comando <code>describe-endpoint</code> falla | Verifica identidad y Región de AWS CLI, además del permiso IAM de administración para consultar el endpoint. |
+
+Si el cliente publica pero una aplicación no ve el dato, compara exactamente el topic y sus permisos. MQTT distingue mayúsculas y minúsculas. QoS 1 permite entregas de al menos una vez, por lo que una aplicación de producción debe tolerar posibles duplicados. Las [prácticas de seguridad de AWS IoT Core](https://docs.aws.amazon.com/iot/latest/developerguide/security-best-practices.html) recomiendan una identidad por dispositivo y permisos limitados a un <code>clientId</code> y topics conocidos. Para conversar sobre políticas y protección de dispositivos en español, puedes explorar las actividades de [AWS User Group Security Ecuador](https://www.awssecurityecuador.com/) y las [grabaciones de AWS Security Users Group LatAm](https://www.youtube.com/@AWSSecurityLATAM); son recursos generales de seguridad, no tutoriales de este SDK.
+
+Al terminar, detener el ejecutable cierra la conexión MQTT, pero no elimina Thing, certificado ni política. Borra solo los recursos de prueba que creaste y que no compartan otras cargas. Revisa también los [precios regionales de AWS IoT Core](https://aws.amazon.com/iot-core/pricing/) antes de hacer pruebas prolongadas.
+
+## Recursos de IoT y comunidades en español
+
+Para estudiar otra conexión con hardware, el catálogo público enlaza una [demostración con microcontroladores del AWS User Group Perú](https://www.youtube.com/watch?v=pq3HK8zrF14). El canal de Ecuador reúne más [grabaciones de charlas y talleres de AWS](https://www.youtube.com/channel/UCgzEFlDd-KR0BL5rlOVY7KQ); el [canal del AWS User Group Perú](https://www.youtube.com/@AWSUserGroupPeru) conserva sus sesiones técnicas.
+
+Para ver aplicaciones de IoT Core, puedes revisar el [monitoreo de sensores con Raspberry Pi y Alexa](https://www.youtube.com/watch?v=-lYaBFheUdI), una [charla sobre IoT industrial](https://www.youtube.com/watch?v=61nuGOSj1Co) o el [AWS Meetup sobre SageMaker, MLOps e IoT](https://www.youtube.com/watch?v=NVEbOgBTNSk), todos publicados por el AWS User Group Perú. La charla combina varios temas, no es un tutorial de C++.
+
+Para una arquitectura de rastreo, consulta el [artículo de seguimiento GPS vehicular](https://www.alfredo-dominguez.dev/arquitecturas/05-gps-vehicle-tracking/) y su [página de proyecto](https://www.alfredo-dominguez.dev/proyectos/gps-vehicle-tracking/). Son ejemplos para comparar diseños, no pruebas de rendimiento para tu carga.
+
+Si quieres explorar una integración distinta, la [app que genera chistes con la temperatura](https://dev.to/aws-espanol/integracion-iot-y-generative-ai-como-crear-una-app-que-cuenta-chistes-basados-en-la-temperatura-522) acompaña el [código para ESP8266 y DHT22](https://github.com/fernandosilvot/App-IoT_GenAI). Usa hardware y otros servicios AWS; no es un ejemplo del SDK C++. El relato de [un proyecto maker con IoT Core y ESP32](https://builder.aws.com/content/3JkzKadLy6UgcIARkhZwqutiVs3/cmo-io-t-core-despert-mis-ganas-de-ser-maker-otra-vez) ofrece otra idea de práctica. Para temas generales, el pódcast [Charlas Técnicas de AWS](https://podcast.marcia.dev/) tiene un [episodio de introducción a IoT](https://www.youtube.com/watch?v=_1Ryarag_pE) y otro sobre [IoT en FoodTech](https://www.youtube.com/watch?v=qN6tBUJfNcI).
+
+El [AWS User Group Perú](https://awsugperu.cloud/) ofrece grupos locales, talleres y recursos; el [AWS User Group Ecuador](https://www.awsugecuador.com/) enlaza sus encuentros comunitarios. El [AWS Community Day Perú](https://awscommunityday.pe/) publica agendas y materiales de sus ediciones; verifica en el sitio organizador la fecha y modalidad. Son comunidades generales de AWS, no grupos dedicados a este SDK. Busca otros grupos en el [directorio de comunidades AWS](/comunidades/) y encuentros actuales en la [agenda regional de eventos](/eventos/). También puedes leer sobre cómo distinguir SDK y permisos en la guía de [errores frecuentes del SDK IoT para JavaScript](https://dondeaprendoaws.com/blog/7-errores-comunes-con-aws-iot-device-sdk-para-javascript/) o comparar la prueba con la guía de [simulación de dispositivos IoT en AWS](https://dondeaprendoaws.com/blog/aws-iot-edge-simulator-casos-de-uso-reales/); ambas cubren casos distintos de este cliente C++.
