@@ -1,197 +1,90 @@
 ---
-title: "Introducción a la inteligencia artificial en AWS"
-description: "Descubre cómo AWS facilita el uso de la Inteligencia Artificial con servicios accesibles para todos. Aprende sobre Rekognition, SageMaker, aplicaciones prácticas y mejores prácticas en proyectos de IA."
+title: "Inteligencia artificial en AWS: qué servicio elegir y por dónde empezar"
+description: "Distingue machine learning e IA generativa, compara los servicios de IA de AWS y elige una primera ruta con Amazon Bedrock, SageMaker AI o APIs especializadas."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:08:46.131Z"
+modifiedTimestamp: "2026-10-06T17:34:19-03:00"
 cover: "/assets/blog/editorial-datos-ia.png"
 coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-datos-ia.png"
+review:
+  date: "2026-10-06"
 related:
-  - title: "Integración de GuardDuty de AWS para inteligencia de amenazas"
-    url: "https://dondeaprendoaws.com/blog/integracion-de-guardduty-de-aws-para-inteligencia-de-amenazas/"
-  - title: "Mejores prácticas para AWS Lambda"
-    url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/"
-  - title: "Cloud computing en español: fundamentos básicos"
-    url: "https://dondeaprendoaws.com/blog/cloud-computing-en-espanol-fundamentos-basicos/"
+  - title: "Qué es Amazon Bedrock y cómo usarlo: API, permisos y costos"
+    url: "https://dondeaprendoaws.com/blog/como-utilizar-amazon-bedrock/"
+  - title: "Cómo entrenar y desplegar un modelo en Amazon SageMaker AI"
+    url: "https://dondeaprendoaws.com/blog/guia-para-implementar-machine-learning-con-amazon-sagemaker/"
 
 ---
 
-<p>Descubre cómo AWS transforma el uso de la Inteligencia Artificial (IA), facilitando tareas complejas con herramientas accesibles para todos. Aprende sobre:</p>
+Si buscas inteligencia artificial en AWS, empieza por definir qué resultado necesitas: extraer datos de una factura, transcribir audio, responder preguntas sobre documentos, clasificar imágenes o predecir un valor. AWS ofrece servicios especializados para algunas tareas y plataformas para crear aplicaciones generativas o desarrollar modelos propios. Elegir por el problema suele ser más útil que empezar por el nombre de un servicio.
 
+Esta guía presenta esas rutas y un método sencillo para escoger una primera prueba. Si todavía te falta una vista general de la nube, puedes leer la [introducción a los servicios de AWS](/blog/introduccion-a-los-servicios-de-amazon-web-services/) antes de entrar en IA.
 
-<ul>
-<li><strong>Servicios de IA en AWS:</strong> Desde análisis de imágenes con Rekognition hasta creación de modelos con SageMaker.</li>
-<li><strong>Tipos de IA:</strong> Reactiva, con memoria limitada y el futurista autoconsciente.</li>
-<li><strong>Aplicaciones prácticas:</strong> Seguridad, marketing, procesamiento de facturas y mucho más.</li>
-<li><strong>Primeros pasos:</strong> Cómo iniciar tu proyecto de IA en AWS.</li>
-<li><strong>Mejores prácticas:</strong> Protección de datos, control de gastos y actualización de modelos.</li>
-</ul>
+## IA, machine learning e IA generativa
 
+La **inteligencia artificial (IA)** es el campo amplio. El **machine learning** o aprendizaje automático (ML) es una forma de IA en la que un modelo aprende patrones a partir de datos para producir predicciones o clasificaciones. La **IA generativa** usa modelos capaces de producir contenido nuevo, como texto, imágenes o audio, a partir de una instrucción y el contexto disponible.
 
-<p>AWS desmitifica la IA, acercándola a usuarios y empresas para innovar y resolver problemas complejos de manera efectiva.</p>
+Por ejemplo, un modelo de ML puede estimar la demanda del próximo mes a partir de ventas históricas. Un modelo generativo puede redactar un resumen de una política interna. Ninguno garantiza por sí mismo que el resultado sea correcto: hay que probarlo con ejemplos representativos y decidir qué errores son aceptables.
 
+Para repasar estos conceptos en español, la comunidad AWS Tech Girls ofrece el artículo [Fundamentos de IA y ML: conceptos y terminología](https://builder.aws.com/content/3HCJ3JtjZgLleslkiGnlFwI6MU6/fundamentos-de-ia-y-ml-conceptos-y-terminologa) y una [sesión grabada con el mismo temario](https://awsgirls.tech/sesiones/fundamentos-de-ia-y-ml). Explican cómo se relacionan IA, ML y deep learning, además de nociones como entrenamiento, inferencia y sobreajuste. Forman parte de una serie comunitaria sobre AWS Certified AI Practitioner; son material de aprendizaje, no una promesa de aprobar una certificación.
 
-<h2 id="introducci%C3%B3n-a-los-servicios-de-ia-de-aws" tabindex="-1">Introducción a los servicios de IA de AWS</h2>
+## Qué servicio de IA de AWS conviene explorar
 
+Esta lista es un punto de partida, no un catálogo completo. AWS mantiene una [lista vigente de servicios y herramientas de IA](https://aws.amazon.com/es/ai/services/); comprueba en la documentación que una función, modelo y región sean compatibles con tu caso.
 
-<p>AWS tiene un montón de servicios en la nube, incluyendo muchos de IA como:</p>
+- **Transcribir voz a texto:** [Amazon Transcribe](https://docs.aws.amazon.com/transcribe/latest/dg/what-is.html) convierte audio grabado o en tiempo real a texto. Comprueba los idiomas, el tipo de audio y las opciones que admite tu flujo.
+- **Extraer campos de una factura o un recibo:** [Amazon Textract](https://docs.aws.amazon.com/textract/latest/dg/invoices-receipts.html) ofrece AnalyzeExpense para detectar campos y partidas en esos documentos. Revisa una muestra de resultados: reconocer un campo no valida que el dato o la operación comercial sean correctos.
+- **Detectar objetos o conceptos generales en imágenes:** [Amazon Rekognition](https://docs.aws.amazon.com/rekognition/latest/dg/labels-detect-labels-image.html) puede devolver etiquetas y propiedades de imagen. Para etiquetas propias, [Rekognition Custom Labels](https://docs.aws.amazon.com/rekognition/latest/customlabels-dg/) permite entrenar un modelo con imágenes etiquetadas y medirlo con un conjunto de prueba.
+- **Crear una aplicación que genere respuestas, resúmenes o contenido:** [Amazon Bedrock](https://docs.aws.amazon.com/bedrock/latest/userguide/what-is-bedrock.html) permite integrar modelos fundacionales y ofrece capacidades como bases de conocimiento. Compara modelos, operaciones, región, datos de entrada y precio; las respuestas pueden contener errores.
+- **Entrenar, personalizar y desplegar un modelo para un problema propio:** [Amazon SageMaker AI](https://aws.amazon.com/es/sagemaker/ai/) reúne herramientas para preparar datos, entrenar, evaluar y desplegar modelos. Es una ruta para casos que requieren más control sobre el modelo y el flujo de ML.
 
+Como material de nivel intermedio, la grabación de AWS Women Colombia [SageMaker: Transformando el Aprendizaje Automático en AWS](https://www.youtube.com/watch?v=ojbVlWU7IqI) (22 de agosto de 2024) presenta el desarrollo, entrenamiento e implementación de modelos con SageMaker. Úsala para ampliar el contexto; los nombres y pasos pueden haber cambiado, así que consulta la documentación de SageMaker AI antes de reproducir instrucciones.
 
-<ul>
-<li><strong>Rekognition:</strong> para analizar imágenes y videos</li>
-<li><strong>Textract:</strong> para sacar texto de documentos</li>
-<li><strong>SageMaker:</strong> una plataforma para crear modelos de aprendizaje automático</li>
-<li><strong>Lex:</strong> para hacer chatbots</li>
-<li><strong>Polly:</strong> para convertir texto en voz</li>
-<li><strong>Comprehend:</strong> para entender el lenguaje humano</li>
-</ul>
+Para modelos generativos, una [base de conocimiento de Amazon Bedrock](https://docs.aws.amazon.com/bedrock/latest/userguide/knowledge-base.html) puede recuperar información de fuentes conectadas para aportar contexto a la respuesta. La recuperación ayuda a trabajar con documentos autorizados, pero no garantiza una respuesta correcta ni reemplaza la revisión de las fuentes.
 
+Si quieres profundizar en los límites antes de diseñar, la sesión grabada [IA generativa: capacidades, limitaciones e infraestructura en AWS](https://awsgirls.tech/sesiones/capacidades-limitaciones-e-infraestructura) de AWS Tech Girls trata alucinaciones, respuestas no deterministas y criterios para seleccionar modelos. Forma parte de una serie comunitaria para aprender conceptos de AI Practitioner.
 
-<p>Estos servicios son fáciles de usar y no tienes que preocuparte por manejar equipos o servidores.</p>
+Si tu caso de uso requiere un agente que coordine herramientas, el repositorio en español [Agentes con Strands: primeros pasos y laboratorios](https://github.com/ricardoceci/curso-strands-agentcore-2026) incluye cuadernos ejecutables de Python que empiezan con Bedrock y luego avanzan a herramientas externas y memoria. El primer laboratorio requiere Python 3.11 o posterior y acceso a Bedrock; otros ejercicios necesitan claves de servicios externos. Es una ruta técnica para profundizar, no un requisito para probar una aplicación generativa sencilla.
 
+## Bedrock, SageMaker AI o un servicio especializado
 
-<h2 id="rekognition%3A-detecci%C3%B3n-y-reconocimiento-de-im%C3%A1genes-y-videos" tabindex="-1">Rekognition: detección y reconocimiento de imágenes y videos</h2>
+La pregunta no es cuál servicio es mejor en general, sino cuál se ajusta al trabajo:
 
+- **Usa un servicio especializado** cuando la tarea coincide con una capacidad concreta, como transcribir audio o extraer campos de recibos. No hace falta entrenar un modelo propio solo para probar una función que ya existe.
+- **Evalúa Amazon Bedrock** cuando la aplicación debe generar o resumir texto, responder en lenguaje natural o trabajar con modelos fundacionales. Aún debes elegir y probar un modelo, controlar qué información envías y validar las respuestas.
+- **Evalúa SageMaker AI** cuando necesitas desarrollar o adaptar un modelo de ML con tus datos y gestionar su entrenamiento, evaluación y despliegue. No todo proyecto necesita empezar desde cero, pero sí conviene tener datos adecuados y una forma de medir si el modelo funciona.
+- **Combina servicios** cuando cada uno resuelve una parte distinta. Por ejemplo, Textract puede extraer datos de un documento y una aplicación puede usar Bedrock para redactar una explicación basada en una política autorizada. Cada paso necesita su propia validación.
 
-<p>Amazon Rekognition te ayuda a analizar imágenes y videos fácilmente. Puede identificar cosas, personas, texto y más.</p>
+AWS mantiene una [guía de decisión entre Amazon Bedrock y SageMaker AI](https://docs.aws.amazon.com/decision-guides/latest/decision-guides/bedrock-or-sagemaker.html) con criterios más detallados. Para pasar de la comparación a una primera llamada con permisos, región y costos, sigue la [guía de Amazon Bedrock con el SDK de AWS](/blog/como-utilizar-amazon-bedrock/). Si tu ruta requiere un modelo predictivo propio, consulta la [guía para entrenar y evaluar un modelo en SageMaker AI](/blog/guia-para-implementar-machine-learning-con-amazon-sagemaker/).
 
+## Un ejemplo para empezar sin construir de más
 
-<p>Es útil para:</p>
+Supón que un equipo recibe facturas y quiere recuperar proveedor, fecha, total y conceptos:
 
+1. Define los campos que necesita el proceso y qué errores requieren una revisión manual.
+2. Prueba Amazon Textract con documentos que tengas autorización para usar y verifica los resultados contra los valores revisados por una persona.
+3. Si después necesitas explicar un resultado usando una política interna, evalúa una aplicación generativa con Bedrock y las fuentes de información adecuadas. Conserva las referencias usadas y revisa cualquier respuesta que pueda afectar un pago.
+4. Compara el resultado con el proceso actual: calidad de extracción, tiempo de revisión y costo por documento.
 
-<ul>
-<li>Seguridad</li>
-<li>Análisis de marketing</li>
-<li>Buscar imágenes y videos</li>
-<li>Controlar el contenido</li>
-</ul>
+Si la necesidad fuera predecir ventas, en cambio, definirías el resultado, prepararías datos históricos representativos y compararías el modelo con una referencia sencilla antes de automatizar decisiones. Ese problema puede llevarte a SageMaker AI; un chatbot no lo resuelve por el hecho de generar respuestas convincentes.
 
+## Antes de probar: datos, evaluación y costo
 
-<p>Comparado con otros servicios, Rekognition es más preciso, rápido y fácil de usar.</p>
+Antes de enviar datos a un servicio, confirma que tienes autorización para usarlos y revisa los permisos, la región y las condiciones de manejo que aplican. No pegues información confidencial en una consola o demostración sin verificar primero las políticas de tu organización.
 
+Prueba con ejemplos que representen entradas normales y casos difíciles. Compara las salidas con una respuesta revisada y registra dónde falla el sistema. Para una respuesta generativa, verifica tanto el texto como las fuentes que la aplicación presenta. Para una predicción, mide el error que importa al proceso, no solo una cifra promedio.
 
-<h2 id="textract%3A-extracci%C3%B3n-de-texto-e-informaci%C3%B3n" tabindex="-1">Textract: extracción de texto e información</h2>
+Las pruebas de inferencia, almacenamiento y cómputo pueden generar cargos, según el servicio y la forma de uso. Consulta los [precios de Amazon Bedrock](https://aws.amazon.com/bedrock/pricing/), [SageMaker AI](https://aws.amazon.com/sagemaker/ai/pricing/) o del servicio especializado que elijas antes de ejecutar una prueba. Revisa también la disponibilidad regional y elimina los recursos de cómputo que ya no necesites.
 
+## Recursos, comunidades y eventos para continuar
 
-<p>Amazon Textract saca texto y datos de documentos como facturas y formularios.</p>
+También puedes aprender con otras personas:
 
+- En Córdoba, el perfil de [AWS AI User Group Argentina](https://www.meetup.com/aws-ai-user-group-argentina/) describe encuentros presenciales y en línea sobre IA aplicada al desarrollo de software e infraestructura. Consulta su agenda para confirmar próximas actividades.
+- [AI AWS UG Chile](https://www.meetup.com/es-es/ai-aws-ug-chile/) se enfoca en IA y machine learning en AWS; su perfil publica las próximas reuniones y las instrucciones de registro.
+- [AWS User Group Perú](https://awsugperu.cloud/) reúne grupos locales, actividades, grupos de estudio y recursos para seguir aprendiendo cloud e IA.
+- La [guía de comunidades AWS](/comunidades/) permite explorar grupos por ubicación y temas. La [agenda de eventos AWS](/eventos/) muestra opciones en línea, presenciales e híbridas, con fechas e inscripción.
 
-<p>Es bueno para:</p>
-
-
-<ul>
-<li>Procesar facturas</li>
-<li>Llenar formularios</li>
-<li>Sacar datos de tablas</li>
-</ul>
-
-
-<p>Textract puede manejar más tipos de archivos y lenguas que otros servicios, y es más preciso.</p>
-
-
-<h2 id="sagemaker%3A-creaci%C3%B3n-de-modelos-de-machine-learning" tabindex="-1">SageMaker: creación de modelos de machine learning</h2>
-
-
-<p>Amazon SageMaker te ayuda a crear, entrenar y poner en marcha modelos de aprendizaje automático de manera más fácil.</p>
-
-
-<p>Es genial porque te ahorra mucho trabajo en preparar datos, entrenar modelos y ajustar algoritmos.</p>
-
-
-<h2 id="otros-servicios-de-ia-en-aws" tabindex="-1">Otros servicios de IA en AWS</h2>
-
-
-<p>También hay otros servicios de IA en AWS como:</p>
-
-
-<ul>
-<li><strong>Lex:</strong> para chatbots</li>
-<li><strong>Polly:</strong> para voz</li>
-<li><strong>Transcribe:</strong> para pasar audio a texto</li>
-<li><strong>Comprehend:</strong> para entender el lenguaje</li>
-</ul>
-
-
-<h2 id="desarrollando-tu-primer-proyecto-de-ia" tabindex="-1">Desarrollando tu primer proyecto de IA</h2>
-
-
-<p>Para empezar un proyecto de IA en AWS, puedes:</p>
-
-
-<ul>
-<li>Abrir una cuenta en AWS</li>
-<li>Subir imágenes a un espacio de almacenamiento S3</li>
-<li>Usar Rekognition para analizar las imágenes</li>
-<li>Crear un modelo de aprendizaje automático con SageMaker</li>
-<li>Poner tu aplicación en línea</li>
-</ul>
-
-
-<h2 id="mejores-pr%C3%A1cticas-en-proyectos-de-ia" tabindex="-1">Mejores prácticas en proyectos de IA</h2>
-
-
-<p>Algunos consejos:</p>
-
-
-<ul>
-<li>Protege tus datos</li>
-<li>Controla tus gastos</li>
-<li>Asegúrate de que tu proyecto pueda crecer</li>
-<li>Actualiza tus modelos con datos nuevos</li>
-</ul>
-
-
-<h2 id="recursos-y-comunidades-sobre-ia-en-aws" tabindex="-1">Recursos y comunidades sobre IA en AWS</h2>
-
-
-<p>Para aprender más sobre IA en AWS, puedes revisar:</p>
-
-
-<ul>
-<li>Blogs de AWS</li>
-<li>Libros y cursos</li>
-<li>Grupos de usuarios de AWS</li>
-<li>Eventos y seminarios en línea</li>
-</ul>
-
-
-<h2 id="conclusi%C3%B3n" tabindex="-1">Conclusión</h2>
-
-
-<p>La IA está cambiando cómo usamos la tecnología. AWS hace que sea fácil para cualquiera usar servicios de IA para innovar y hacer cosas nuevas. Esta guía te introduce a lo básico y a los principales servicios de IA en AWS.</p>
-
-
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
-
-
-<h3 id="%C2%BFc%C3%B3mo-se-llama-la-inteligencia-artificial-de-amazon%3F" tabindex="-1">¿Cómo se llama la inteligencia artificial de Amazon?</h3>
-
-
-<p>La inteligencia artificial de Amazon se llama Amazon AI. Incluye varios servicios como Amazon Rekognition, que ayuda a entender imágenes y videos, Amazon Comprehend para trabajar con el lenguaje de forma natural, y Amazon SageMaker, que es una herramienta para crear y usar modelos de aprendizaje automático.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-es-el-aprendizaje-autom%C3%A1tico-en-aws%3F" tabindex="-1">¿Qué es el aprendizaje automático en AWS?</h3>
-
-
-<p>El aprendizaje automático en AWS se refiere a usar la nube de AWS para entrenar y usar modelos que pueden aprender por sí mismos. Con servicios como Amazon SageMaker, es más fácil preparar datos, entrenar modelos y usarlos en la nube. AWS también tiene otros servicios como Amazon Rekognition para reconocer cosas en imágenes, Amazon Comprehend para entender texto, y Amazon Lex para hacer chatbots.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-es-la-inteligencia-artificial-y-en-qu%C3%A9-consiste%3F" tabindex="-1">¿Qué es la inteligencia artificial y en qué consiste?</h3>
-
-
-<p>La inteligencia artificial es hacer que las máquinas puedan hacer tareas que normalmente requerirían inteligencia humana, como aprender de la experiencia, entender el lenguaje, y reconocer objetos o personas. AWS ofrece muchos servicios para ayudar a las empresas a usar inteligencia artificial de manera fácil y rápida.</p>
-
-
-<h3 id="%C2%BFcu%C3%A1l-es-el-objetivo-principal-de-la-inteligencia-artificial%3F" tabindex="-1">¿Cuál es el objetivo principal de la inteligencia artificial?</h3>
-
-
-<p>El principal objetivo de la inteligencia artificial es hacer que las máquinas puedan tomar decisiones y realizar tareas por sí mismas, imitando cómo lo haría un humano. La idea es que las máquinas puedan aprender, adaptarse y trabajar junto a los humanos para resolver problemas complicados.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/nube-aws-guia-de-inicio-rapido/">Nube AWS: guía de inicio rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS fundamentos: guía de inicio rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/servicios-de-aws-para-inteligencia-artificial/">Servicios de AWS para inteligencia artificial</a></li>
-</ul>
-</p>
+Al revisar esa agenda el 6 de octubre de 2026, figuraba el [Meetup presencial “Introducción a la IA con AWS Cloud” de AWS User Group Piura y GDG Piura](https://www.meetup.com/aws-user-group-piura/events/316380557/), el sábado 17 de octubre de 9:00 a 13:00, en Piura (UTC−5). El programa anuncia fundamentos, demostraciones de Bedrock, Textract y Rekognition, y un asistente sobre documentos; la ficha indica que no requiere experiencia y anuncia registro gratuito mediante [GDG Piura](https://gdg.community.dev/events/details/google-gdg-piura-presents-introduccion-a-la-ia-con-aws-cloud/). Confirma cupos y detalles con los organizadores antes de asistir.

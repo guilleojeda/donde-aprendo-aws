@@ -1,403 +1,125 @@
 ---
-title: "Introducción a serverless en AWS"
-description: "Descubre el mundo de Serverless en AWS y aprende sobre sus ventajas, conceptos clave, servicios principales y mejores prácticas. ¡Empieza a explorar el desarrollo serverless con AWS ahora!"
+title: "Serverless en AWS: qué es, cómo funciona y cómo empezar"
+description: "Qué significa serverless en AWS, cómo encajan Lambda, API Gateway y los servicios de datos, cuándo conviene y qué revisar en costos, límites y seguridad."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T02:49:31.55Z"
+modifiedTimestamp: "2026-10-06T17:34:19-03:00"
+review:
+  date: "2026-10-06"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "10 métricas clave de DevOps en AWS"
-    url: "https://dondeaprendoaws.com/blog/10-metricas-clave-de-devops-en-aws/"
-  - title: "Mejores prácticas de observabilidad en AWS"
-    url: "https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/"
-  - title: "Base de datos global con Amazon DynamoDB"
-    url: "https://dondeaprendoaws.com/blog/base-de-datos-global-con-amazon-dynamodb/"
-
+  - title: "AWS Lambda y API Gateway: crea una HTTP API paso a paso"
+    url: "https://dondeaprendoaws.com/blog/aws-lambda-y-api-gateway-guia-basica/"
+  - title: "Arquitectura dirigida por eventos en AWS: servicios, ejemplo y decisiones"
+    url: "https://dondeaprendoaws.com/blog/arquitecturas-dirigidas-por-eventos-en-aws/"
+  - title: "AWS SAM: qué es y cómo desplegar una API sencilla"
+    url: "https://dondeaprendoaws.com/blog/aws-sam-guia-basica-para-aplicaciones-serverless/"
+  - title: "AWS Lambda: cómo medir costo y rendimiento"
+    url: "https://dondeaprendoaws.com/blog/aws-lambda-costo-vs-rendimiento/"
 ---
 
-<p><strong>Serverless en AWS</strong> te permite centrarte en desarrollar tus aplicaciones sin la carga de manejar servidores. Aquí, te presentamos una introducción concisa al concepto, ventajas, servicios principales y prácticas recomendadas para aprovechar al máximo esta tecnología:</p>
+**Serverless en AWS** es una forma de construir aplicaciones con servicios administrados que ejecutan código, procesan eventos o guardan datos sin que tengas que aprovisionar y mantener los servidores. Los servidores siguen existiendo: AWS opera esa infraestructura; tú sigues a cargo del código, los permisos, los datos, la configuración y el costo de los servicios que eliges.
 
+Un ejemplo habitual conecta **Amazon API Gateway** con **AWS Lambda** para atender una petición web y con **Amazon DynamoDB** para guardar los datos. También puedes iniciar una función cuando llega un archivo a Amazon S3 o cuando un mensaje aparece en una cola de Amazon SQS. La idea clave es aprender a conectar estas piezas y decidir qué trabajo corresponde a cada una.
 
-<ul>
-<li><strong>Serverless</strong> es una forma de computación donde AWS se encarga de los servidores, permitiéndote enfocarte en la lógica de tu aplicación.</li>
-<li><strong>Ventajas</strong> incluyen escalabilidad automática, alta disponibilidad, y costos reducidos al pagar solo por lo que usas.</li>
-<li><strong>Servicios clave</strong> como AWS Lambda, AWS Fargate, y AWS Step Functions simplifican el desarrollo de aplicaciones.</li>
-<li><strong>Prácticas recomendadas</strong> abarcan optimización de costos, monitoreo efectivo, y mantener la seguridad en tus aplicaciones.</li>
-</ul>
+## Cómo funciona una aplicación serverless
 
+Imagina una tienda que recibe una solicitud para crear un pedido. El navegador envía `POST /pedidos` a API Gateway; el gateway invoca Lambda; la función valida la solicitud y guarda el pedido en DynamoDB. Lambda devuelve una respuesta a API Gateway, que responde al navegador. Este es un ejemplo conceptual: el artículo no despliega recursos ni usa una cuenta de AWS.
 
-<p>Este resumen te ofrece un panorama general para empezar a explorar el desarrollo serverless con AWS, facilitando la innovación y reduciendo la complejidad técnica.</p>
+API Gateway ofrece la ruta HTTP y envía la solicitud a Lambda. AWS documenta el mismo patrón en su [tutorial para crear una HTTP API con Lambda](https://docs.aws.amazon.com/apigateway/latest/developerguide/getting-started.html).
 
+Si la confirmación del pedido requiere trabajo que puede terminar más tarde, la función puede enviar un mensaje a SQS para que otro proceso lo atienda. Una cola ayuda a separar al productor del consumidor y a absorber trabajo pendiente. **Amazon EventBridge** cumple otro papel: enruta eventos a destinos según reglas. **AWS Step Functions** coordina pasos cuando un flujo necesita decisiones, reintentos o seguimiento de su estado. No hace falta añadir todos estos servicios a una primera aplicación.
 
-<h3 id="evoluci%C3%B3n-hist%C3%B3rica" tabindex="-1">Evolución histórica</h3>
+Estos servicios cubren partes diferentes de la aplicación; puedes empezar con unos pocos:
 
+- **API Gateway** ofrece rutas HTTP para que una aplicación web o móvil llame a tu backend.
+- **AWS Lambda** ejecuta lógica de negocio en respuesta a una solicitud o un evento.
+- **Amazon DynamoDB** o **Amazon S3** guardan registros o archivos que deben persistir después de una ejecución.
+- [**Amazon SQS**](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/welcome.html) guarda trabajo pendiente y desacopla al productor del consumidor; úsala cuando necesites que ambos avancen a ritmos distintos.
+- [**Amazon EventBridge**](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-event-bus.html) enruta eventos a destinos según reglas; considéralo cuando varios componentes deban reaccionar a hechos de una aplicación o de AWS.
+- [**AWS Step Functions**](https://docs.aws.amazon.com/step-functions/latest/dg/welcome.html) coordina tareas, decisiones y manejo de errores cuando el flujo tiene varios pasos que deben avanzar en un orden explícito.
+- [**AWS Fargate**](https://aws.amazon.com/fargate/) ejecuta contenedores con Amazon ECS o Amazon EKS sin que tengas que administrar la infraestructura de cómputo subyacente; compáralo con Lambda si tu proceso no encaja en una función.
 
-<p>Antes, para correr aplicaciones en internet, necesitabas manejar muchos detalles técnicos y era bastante complicado:</p>
+Lambda suele ser un buen punto de entrada para entender el modelo, pero **serverless es más que Lambda**: incluye servicios administrados de cómputo, almacenamiento, API e integración. Puedes ver más ejemplos en la [guía de servicios serverless de AWS](https://aws.amazon.com/serverless/) y en el [diseño de aplicaciones con Lambda](https://docs.aws.amazon.com/lambda/latest/dg/concepts-application-design.html).
 
+Si prefieres una introducción en video a cómo encajan las funciones, servicios y eventos, el [canal de AWS User Group Chile](https://www.youtube.com/channel/UCYUBBIe0XzNsxcq9Tu_Wqsw) publica grabaciones de charlas; su sesión [*Serverless 101*](https://www.youtube.com/watch?v=lzzSp4LLRY0) es una explicación comunitaria para continuar desde este panorama. Es una grabación, así que consulta la documentación de AWS para confirmar límites y precios actuales.
 
-<ul>
-<li><strong>IaaS</strong>: Era como alquilar un espacio en internet pero aún tenías que configurarlo todo tú mismo.</li>
-<li><strong>PaaS</strong>: Era un poco más fácil porque no tenías que preocuparte por el sistema operativo, pero aún había bastante trabajo manual.</li>
-<li><strong>Serverless</strong>: Ahora, AWS se encarga de todo el trabajo duro. Solo necesitas enfocarte en cómo quieres que tu aplicación funcione.</li>
-</ul>
+## Qué significa “sin servidor” en AWS
 
+“Sin servidor” describe cuánto de la infraestructura operas tú. No significa que no haya servidores ni que AWS tome todas las decisiones por ti. El proveedor administra la infraestructura de los servicios serverless y tareas como aprovisionar capacidad o aplicar parches al sistema subyacente. Tú diseñas la aplicación, decides qué servicios usar, configuras los permisos y respondes por cómo se manejan los datos.
 
-<p>Con el tiempo, esta manera de hacer las cosas ha hecho que los desarrolladores puedan trabajar más rápido y sin tantas complicaciones.</p>
+El modelo también cambia según el servicio. Con Lambda no eliges ni mantienes una máquina virtual para cada función. Con Fargate entregas una imagen de contenedor y eliges los recursos de una tarea, mientras AWS administra la infraestructura de cómputo que la ejecuta. En ambos casos siguen existiendo cuotas, configuración y responsabilidades de aplicación.
 
+## Qué debes saber sobre AWS Lambda
 
-<h3 id="ventajas-de-serverless" tabindex="-1">Ventajas de serverless</h3>
+### Las funciones se activan por eventos
 
+Una función Lambda tiene un punto de entrada —su *handler*— que recibe un evento y procesa sus datos. El evento puede llegar desde API Gateway, Amazon S3, SQS, EventBridge u otro origen compatible. El [modelo de ejecución de Lambda](https://docs.aws.amazon.com/lambda/latest/dg/concepts-how-lambda-runs-code.html) explica cómo el servicio prepara el entorno y llama al handler.
 
-<p>Usar serverless tiene muchos beneficios, como:</p>
+Para ver ese ciclo explicado en español, el video [Fundamentos de AWS Lambda: cómo se ejecuta tu código sin servidores](https://www.youtube.com/watch?v=fR5-TDI3g-I), de AWS en Español con Hazel Sáenz, repasa eventos, handler, inicialización y costos. La versión escrita en [AWS Builder Center](https://builder.aws.com/content/3FoaikPUMJDyJPdt0qHQ6igjiDm/fundamentos-de-aws-lambda-cmo-se-ejecuta-tu-cdigo-sin-servidores) explica qué pasa entre el evento y la ejecución de la función.
 
+### Guarda el estado permanente fuera de la función
 
-<ul>
-<li><strong>Escalabilidad automática</strong>: AWS ajusta los recursos según lo que necesites. No hay que adivinar cuánto vas a necesitar.</li>
-<li><strong>Alta disponibilidad integrada</strong>: Las aplicaciones están siempre disponibles sin que tengas que hacer algo extra.</li>
-<li><strong>Sin pagar por ociosidad</strong>: Solo pagas cuando tu aplicación está en uso. Si nadie la está usando, no cuesta nada.</li>
-<li><strong>Enfoque en la lógica de negocios</strong>: Puedes dedicar más tiempo a mejorar tu aplicación en lugar de mantener servidores.</li>
-<li><strong>Productividad</strong>: Puedes hacer cambios y mejoras más rápido porque no estás atascado lidiando con la infraestructura.</li>
-</ul>
+Diseña cada invocación para poder funcionar sin depender de datos que haya dejado otra ejecución. Persiste los datos que deban durar en un servicio de almacenamiento, como DynamoDB o S3. Lambda puede reutilizar un entorno de ejecución y sus recursos inicializados para otra invocación, pero no debes contar con que ese entorno se mantenga. Tampoco uses su memoria o archivos temporales para conservar datos de una persona entre llamadas. AWS describe este enfoque en su guía para [diseñar aplicaciones con Lambda](https://docs.aws.amazon.com/lambda/latest/dg/concepts-application-design.html).
 
+### Prevé reintentos y eventos repetidos
 
-<p>En resumen, serverless te permite hacer aplicaciones de manera más fácil y menos costosa.</p>
+En flujos asíncronos, un evento puede volver a entregarse después de un error. Diseña la operación para que procesar el mismo evento otra vez no duplique el efecto; por ejemplo, identifica el pedido ya procesado antes de cobrarlo de nuevo. Este enfoque se llama **idempotencia**. Los reintentos y su comportamiento dependen de cómo se invoca la función, así que revisa la configuración del origen. La documentación de [buenas prácticas para Lambda](https://docs.aws.amazon.com/lambda/latest/dg/best-practices.html) recomienda contemplar duplicados.
 
+### Considera la latencia inicial y los límites
 
-<h2 id="conceptos-b%C3%A1sicos-de-serverless" tabindex="-1">Conceptos básicos de serverless</h2>
+Cuando Lambda prepara un entorno nuevo, la inicialización puede aumentar la latencia de esa invocación; suele llamarse *cold start*. Un entorno reutilizado puede evitar parte de esa inicialización en una llamada posterior, pero no está garantizado ni ocurre necesariamente solo en “la primera llamada” de la vida de la función. Mide el efecto en la aplicación antes de pagar por capacidad previamente inicializada.
 
+Las funciones Lambda estándar pueden ejecutarse hasta **15 minutos por invocación**. Esa cifra no describe todas las opciones de cómputo de AWS: por ejemplo, Fargate ejecuta tareas en contenedores con otro modelo. Además, las cuotas de concurrencia y otros límites pueden variar según cuenta, región, servicio y configuración. Comprueba los valores aplicables en las [cuotas vigentes de Lambda](https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-limits.html) y en los servicios que formen parte de tu flujo.
 
-<p>La computación serverless se basa en algunos conceptos clave que la hacen diferente de otras formas de usar la nube:</p>
+## Cuándo conviene y qué límites tiene
 
+Serverless suele encajar cuando una aplicación responde a solicitudes o eventos, necesita cambiar de capacidad con la demanda o se puede dividir en trabajos acotados. Algunos ejemplos son una API, el procesamiento de archivos al cargarlos en S3, una tarea programada o la reacción a mensajes de una cola.
 
-<h3 id="funciones-sin-estado" tabindex="-1">Funciones sin estado</h3>
+No es automáticamente la opción más barata ni la más simple para todo sistema. Una carga sostenida puede tener otra economía que una carga intermitente; una función con muchas dependencias o llamadas remotas puede tardar más y costar más de lo esperado; y los límites de cada servicio influyen en el diseño. Si el requisito es ejecutar un contenedor o un proceso prolongado, compara Lambda con opciones como Fargate. Decide a partir del patrón de uso, la latencia, los límites y el costo total, no solo del precio de una función aislada.
 
+## Costos: calcula la aplicación completa
 
-<p>Imagina que tienes un código que solo se activa cuando algo específico sucede, como cuando alguien hace clic en un botón. Este código, en el mundo serverless, es una función que no recuerda nada de las veces anteriores que se usó. Cada vez que se necesita, se inicia como si fuera la primera vez, hace su trabajo y luego se olvida de todo. Esto hace que todo sea más simple porque no tienes que preocuparte por guardar información de un uso al otro.</p>
+El costo de una arquitectura serverless se distribuye entre sus servicios. Para Lambda estándar, el cálculo incluye solicitudes y duración, y la duración depende, entre otros factores, de la memoria configurada. API Gateway, el almacenamiento, las colas, los flujos, los logs, la transferencia de datos y las opciones de capacidad tienen sus propios precios y unidades de cobro. Revisa las [tarifas actuales de Lambda](https://aws.amazon.com/lambda/pricing/) y [API Gateway](https://aws.amazon.com/api-gateway/pricing/) para la región y las opciones que usarás.
 
+Antes de probar un despliegue, estima los componentes que crearás y configura una notificación de costo con [AWS Budgets](https://docs.aws.amazon.com/cost-management/latest/userguide/budgets-managing-costs.html). Una alerta permite enterarte de que te acercas a un umbral; no equivale a un tope automático de gasto y puede llegar después de que se generen cargos. Al terminar un ejercicio en AWS, elimina los recursos y revisa que también se hayan limpiado los logs u otros elementos creados por separado.
 
-<h3 id="contenedores-ef%C3%ADmeros" tabindex="-1">Contenedores efímeros</h3>
+Para mantenerte al día con AWS y serverless en español, [Desplegando.cloud](https://desplegando.substack.com/) publica un newsletter y podcast con novedades y conversaciones técnicas; consulta cada edición para ver qué tema trata.
 
+## Seguridad y operación
 
-<p>Estas funciones corren en espacios aislados, llamados contenedores, que solo existen por el tiempo que se necesita para hacer el trabajo. Una vez que la función termina, el contenedor desaparece junto con todo lo que usó. Esto es genial porque significa que solo usas (y pagas) los recursos en el momento exacto que los necesitas, sin desperdiciar nada cuando no hay trabajo por hacer.</p>
+La función Lambda usa un **rol de ejecución de IAM** para acceder a otros recursos, como una tabla de DynamoDB o CloudWatch Logs. Concédele solo las acciones y recursos que necesita. Ese rol responde a lo que la función puede hacer; los permisos basados en recursos de Lambda pueden autorizar qué servicio está habilitado para invocar la función. Son controles distintos. Consulta cómo [administrar permisos en Lambda](https://docs.aws.amazon.com/lambda/latest/dg/lambda-permissions.html) antes de abrir una integración.
 
+Para operar la aplicación, revisa errores, duración, límites y reintentos. Lambda envía registros a CloudWatch Logs si su rol tiene los permisos necesarios; esos logs tienen los cargos estándar de CloudWatch. Protege las rutas públicas con el método de autenticación apropiado y guarda secretos fuera del código. Consulta las guías de AWS para [proteger endpoints públicos](https://docs.aws.amazon.com/lambda/latest/dg/security-public-endpoints.html) y seguir las [buenas prácticas de Lambda](https://docs.aws.amazon.com/lambda/latest/dg/best-practices.html).
 
-<h3 id="escalado-autom%C3%A1tico" tabindex="-1">Escalado automático</h3>
+## Cómo empezar con serverless paso a paso
 
+No necesitas aprender cada servicio de AWS antes de comenzar. Una ruta acotada te permite entender el ciclo completo:
 
-<p>Una parte genial de serverless es que no tienes que preocuparte por cuánta capacidad necesitas. AWS se encarga de eso. Si de repente mucha gente está usando tu aplicación, AWS automáticamente usa más recursos para manejar el tráfico. Y cuando menos gente la usa, reduce esos recursos. Esto asegura que tu aplicación pueda manejar cualquier cantidad de uso sin que tengas que hacer nada especial para prepararte.</p>
+1. Aprende lo básico de eventos, funciones, HTTP, JSON y roles de IAM.
+2. Crea una función pequeña que reciba una entrada y devuelva una respuesta, sin guardar datos todavía.
+3. Conéctala a una ruta HTTP con API Gateway y verifica el formato de respuesta que espera la integración.
+4. Describe los recursos como infraestructura en código. **AWS SAM** ofrece una sintaxis basada en CloudFormation y una CLI para definir, compilar, probar localmente y desplegar una aplicación serverless; SAM es una herramienta y un modelo de infraestructura, no el nombre de una función ni un servicio de cómputo.
+5. Agrega almacenamiento o trabajo asíncrono solo cuando el caso lo necesite; al hacerlo, configura permisos, reintentos y protección contra eventos duplicados.
+6. Revisa logs, límites y costo estimado. Si desplegaste recursos, sigue los pasos de limpieza del tutorial y confirma que ya no se necesiten.
 
+Si te resulta más fácil seguir clases guiadas, en el [catálogo de cursos de Marcia Villalba](https://www.marcia.dev/courses/) figura *Todo sobre AWS Lambda*. Revisa en la ficha vigente el idioma, nivel, temario, precio y acceso antes de inscribirte.
 
-<p>Al entender estos conceptos, se ve cómo serverless hace la vida más fácil para los que desarrollan aplicaciones, permitiéndoles enfocarse en mejorar su aplicación sin preocuparse por los detalles técnicos de la infraestructura.</p>
+La [guía oficial de inicio con AWS SAM](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-getting-started-hello-world.html) incluye creación, pruebas locales, despliegue y eliminación de la aplicación de ejemplo. Las pruebas locales ayudan a iterar sobre código y eventos, pero no sustituyen la verificación en AWS de permisos, integraciones y red. El tutorial de AWS crea recursos en una cuenta; consulta precios y limpieza antes de desplegar.
 
+Para practicar con ejemplos paso a paso, puedes continuar con [una HTTP API de Lambda y API Gateway](https://dondeaprendoaws.com/blog/aws-lambda-y-api-gateway-guia-basica/), o con [AWS SAM para desplegar una API sencilla](https://dondeaprendoaws.com/blog/aws-sam-guia-basica-para-aplicaciones-serverless/). Si quieres profundizar en eventos, revisa [cómo elegir entre EventBridge, SNS y SQS](https://dondeaprendoaws.com/blog/arquitecturas-dirigidas-por-eventos-en-aws/). Para revisar costo y rendimiento en Lambda, consulta [qué medir antes de cambiar su configuración](https://dondeaprendoaws.com/blog/aws-lambda-costo-vs-rendimiento/).
 
-<h2 id="servicios-serverless-de-aws" tabindex="-1">Servicios serverless de AWS</h2>
+## Errores frecuentes al empezar
 
+Si la API devuelve **403**, comprueba la ruta, el método de autenticación y quién puede invocar la función. Si Lambda muestra un error de acceso a DynamoDB, revisa las acciones y el recurso incluidos en su rol de ejecución. Si la llamada devuelve **5xx** o vence el tiempo de espera, sigue la invocación en los logs de Lambda y verifica el formato de respuesta, la integración y los tiempos de espera de cada servicio. El diagnóstico depende del origen y del tipo de invocación; AWS mantiene una guía para [resolver problemas de invocación de Lambda](https://docs.aws.amazon.com/lambda/latest/dg/troubleshooting-invocation.html).
 
-<p>Los servicios serverless de AWS te ayudan a hacer aplicaciones sin que tengas que preocuparte por los servidores. Se ajustan solos según cuánta gente esté usando tu aplicación, y solo pagas por el tiempo que tu aplicación está activa.</p>
+Si funciona desde una herramienta de API pero falla desde el navegador, revisa la configuración de **CORS** de la API y la respuesta de la integración. Si un proceso aparece duplicado, revisa los reintentos del origen y haz idempotente la operación antes de desactivarlos sin entender su función.
 
+## Comunidades y eventos para continuar
 
-<h3 id="aws-lambda" tabindex="-1">AWS Lambda</h3>
+Explora el [directorio de comunidades AWS en Latinoamérica](/comunidades/) para localizar grupos por país y revisar sus formatos, temas y enlaces. Como ejemplos, el [AWS User Group Córdoba](https://www.meetup.com/aws-user-group-cordoba-argentina/) es una comunidad general de computación en la nube, y el [AWS User Group Serverless Colombia](https://www.meetup.com/aws-user-group-serverless-colombia/) se centra en serverless. Confirma en cada página si hay próximos encuentros, su modalidad, cupos y condiciones de inscripción.
 
-
-<p>AWS Lambda te permite hacer que tu código funcione solo cuando algo específico pasa, sin tener que manejar servidores. Tu código vive en pequeños contenedores que solo aparecen cuando se necesitan.</p>
-
-
-<p>Usos comunes de Lambda incluyen:</p>
-
-
-<ul>
-<li>Reaccionar a cambios en datos o archivos (como en un bucket S3)</li>
-<li>Hacer el backend para aplicaciones serverless</li>
-<li>Procesar información sin tener que esperar</li>
-</ul>
-
-
-<p>Con Lambda, solo pagas por el tiempo que tu código está corriendo, lo que es perfecto para tareas que no pasan todo el tiempo.</p>
-
-
-<h3 id="aws-fargate" tabindex="-1">AWS Fargate</h3>
-
-
-<p>AWS Fargate te permite correr contenedores sin tener que lidiar con los servidores o grupos de servidores. Funciona bien con Amazon ECS y Amazon EKS.</p>
-
-
-<p>Fargate se encarga de cosas como ajustar cuántos recursos necesitas y mantener tus contenedores actualizados. Solo pagas por lo que usas.</p>
-
-
-<p>Algunos usos de Fargate son:</p>
-
-
-<ul>
-<li>Correr microservicios</li>
-<li>Hacer trabajos de procesamiento en lotes y ETL</li>
-<li>Manejar aplicaciones que no guardan información entre usos</li>
-</ul>
-
-
-<h3 id="aws-step-functions" tabindex="-1">AWS Step Functions</h3>
-
-
-<p>AWS Step Functions te ayuda a organizar cómo diferentes partes de tu aplicación serverless trabajan juntas. Puedes conectar funciones Lambda, tareas de Fargate, y otros servicios en una especie de diagrama que muestra cómo fluye tu aplicación.</p>
-
-
-<p>Es útil para cosas como:</p>
-
-
-<ul>
-<li>Procesamiento ETL y en lotes</li>
-<li>Hacer que microservicios trabajen juntos</li>
-<li>Manejar flujos de trabajo de aprobaciones y CI/CD</li>
-</ul>
-
-
-<p>Con Step Functions, pagas por cada paso que tu aplicación toma y por las veces que usas Lambda u otras actividades. Es una buena herramienta para mantener organizadas tus aplicaciones serverless.</p>
-
-
-<h2 id="casos-de-uso-comunes" tabindex="-1">Casos de uso comunes</h2>
-
-
-<h3 id="aplicaciones-web-y-m%C3%B3viles" tabindex="-1">Aplicaciones web y móviles</h3>
-
-
-<p>Usar serverless es perfecto para crear sitios web y apps para celulares que pueden crecer mucho y estar siempre disponibles, sin gastar de más. Por ejemplo:</p>
-
-
-<ul>
-<li>Sitios web simples como blogs o listas de cosas por hacer, que utilicen AWS Lambda y Amazon API Gateway para el backend, y Amazon DynamoDB para guardar datos. Solo pagas cuando la gente visita tu sitio.</li>
-<li>Apps para celulares que usan funciones Lambda para hacer cosas específicas. Estas funciones se ajustan solas para manejar más visitas cuando es necesario.</li>
-<li>Páginas web estáticas guardadas en Amazon S3 y que se pueden ver en todo el mundo gracias a Amazon CloudFront. Es barato y puede recibir muchas visitas.</li>
-</ul>
-
-
-<p>Estas opciones son geniales para personas o pequeñas empresas que quieren empezar rápido y cambiar cosas sobre la marcha sin complicaciones.</p>
-
-
-<h3 id="procesamiento-de-datos" tabindex="-1">Procesamiento de datos</h3>
-
-
-<p>Serverless también es muy útil para trabajar con datos, como:</p>
-
-
-<ul>
-<li><strong>ETL</strong>: Sacar datos de diferentes lugares, cambiarlos y ponerlos donde se necesiten. Puedes usar Lambda y AWS Step Functions para organizar cómo se hace esto.</li>
-<li><strong>Procesamiento por lotes</strong>: Tareas que se hacen de vez en cuando, como crear informes o actualizar datos. Se pueden hacer en contenedores Fargate sin tener que preocuparte por los servidores.</li>
-<li><strong>Análisis e Inteligencia de Negocios</strong>: Herramientas serverless como Amazon Athena te permiten hacer consultas sobre datos guardados en S3 sin tener que montar toda una infraestructura.</li>
-</ul>
-
-
-<p>Usar serverless para estos trabajos hace que todo sea más fácil y menos caro, porque solo pagas por lo que usas. Es ideal para tareas que se hacen en momentos específicos o que requieren mucha capacidad de repente.</p>
-
-
-<h2 id="mejores-pr%C3%A1cticas" tabindex="-1">Mejores prácticas</h2>
-
-
-<h3 id="optimizaci%C3%B3n-de-costos" tabindex="-1">Optimización de costos</h3>
-
-
-<p>Para ahorrar dinero y usar los recursos de manera inteligente en aplicaciones sin servidor, es bueno:</p>
-
-
-<ul>
-<li>Usar funciones Lambda que terminen rápido. Cuanto menos tiempo estén activas, menos pagarás.</li>
-<li>Poner límites de tiempo a funciones Lambda y AWS Step Functions para evitar que se ejecuten más de lo necesario.</li>
-<li>Mejorar el rendimiento de una función (por ejemplo, dándole más memoria) antes de crear más instancias de esa función.</li>
-<li>Activar el ajuste automático en servicios como Amazon DynamoDB para que se adapten a tus necesidades sin gastar de más.</li>
-<li>Guardar archivos estáticos en Amazon S3 y usar Amazon CloudFront para compartirlos, lo que puede reducir los costos de transferencia de datos.</li>
-<li>Revisar cómo estás usando los recursos y cuánto estás gastando para encontrar formas de gastar menos.</li>
-</ul>
-
-
-<h3 id="monitoreo-y-logs" tabindex="-1">Monitoreo y logs</h3>
-
-
-<p>Para entender mejor cómo funcionan tus aplicaciones sin servidor, es útil:</p>
-
-
-<ul>
-<li>Activar CloudWatch Logs en funciones Lambda para ver qué está pasando.</li>
-<li>Usar X-Ray para ver cómo diferentes partes de tu aplicación trabajan juntas.</li>
-<li>Crear alarmas en CloudWatch que te avisen si algo no va bien.</li>
-<li>Escribir código en tus funciones que registre información útil sobre lo que está haciendo tu aplicación.</li>
-<li>Usar otras herramientas como Honeycomb y New Relic para tener más detalles sobre el rendimiento de tu aplicación.</li>
-</ul>
-
-
-<h3 id="seguridad" tabindex="-1">Seguridad</h3>
-
-
-<p>Para mantener tus aplicaciones sin servidor seguras, considera:</p>
-
-
-<ul>
-<li>Dar a las funciones Lambda solo los permisos que realmente necesitan para funcionar.</li>
-<li>Guardar información sensible como contraseñas en AWS Secrets Manager, no en el código.</li>
-<li>Asegurarte de que los datos almacenados en servicios como Amazon DynamoDB y Amazon S3 estén encriptados.</li>
-<li>Separar los ambientes de desarrollo, prueba y producción en cuentas o Amazon VPCs distintas.</li>
-<li>Usar WAF para proteger tu Amazon API Gateway de ataques comunes en internet.</li>
-<li>Revisar las configuraciones de seguridad con regularidad para asegurarte de que todo esté correcto.</li>
-</ul>
-
-
-<p>Siguiendo estos consejos, podrás crear aplicaciones sin servidor que sean seguras, fáciles de entender y económicas.</p>
-
-
-
-
-<h2 id="desaf%C3%ADos-y-consideraciones" tabindex="-1">Desafíos y consideraciones</h2>
-
-
-<p>Adoptar serverless es genial, pero también tiene sus desafíos. Vamos a ver algunos de los más importantes.</p>
-
-
-<h3 id="latencia-en-fr%C3%ADo" tabindex="-1">Latencia en frío</h3>
-
-
-<p>Imagina que una función Lambda es como un auto que se ha enfriado por no usarse. La próxima vez que quieras arrancarlo, tomará un poco más de tiempo. Esto pasa con las funciones Lambda que no se han usado en un rato y pueden hacer que tu aplicación tarde un poco más en responder la primera vez que alguien la usa después de un descanso.</p>
-
-
-<p>Para evitar esto, puedes:</p>
-
-
-<ul>
-<li>Hacer que tus funciones se activen de vez en cuando, aunque no se necesiten, para que estén listas cuando sí se usen.</li>
-<li>Usar AWS Provisioned Concurrency, que es como tener el auto listo y en marcha esperando que lo uses.</li>
-<li>Hacer que tu código y lo que necesita para funcionar sea lo más ligero posible, para que arranque rápido.</li>
-</ul>
-
-
-<h3 id="depuraci%C3%B3n-y-monitorizaci%C3%B3n" tabindex="-1">Depuración y monitorización</h3>
-
-
-<p>Cuando tu aplicación se reparte en muchas funciones pequeñas, encontrar y arreglar errores puede ser más difícil. Aquí hay algunas ideas para ayudarte:</p>
-
-
-<ul>
-<li>Asegúrate de que CloudWatch esté recogiendo registros y métricas de todas tus funciones.</li>
-<li>Usa X-Ray para ver cómo las partes de tu aplicación trabajan juntas.</li>
-<li>Haz pruebas detalladas de cada función por separado.</li>
-<li>Escribe código en tus funciones que te ayude a entender qué está pasando cuando las usas.</li>
-</ul>
-
-
-<h3 id="pruebas" tabindex="-1">Pruebas</h3>
-
-
-<p>Probar tu aplicación serverless puede ser un desafío porque:</p>
-
-
-<ul>
-<li>Simular eventos que hacen que tus funciones se activen no siempre es fácil.</li>
-<li>Necesitas hacer pruebas que cubran todas las maneras en que tu aplicación podría ser usada.</li>
-<li>Es importante saber cómo se comporta tu aplicación cuando mucha gente la usa al mismo tiempo.</li>
-</ul>
-
-
-<p>Algunas recomendaciones son:</p>
-
-
-<ul>
-<li>Usar AWS SAM para hacer pruebas en tu máquina y de manera automática.</li>
-<li>Probar en un ambiente que sea lo más parecido posible a donde tu aplicación va a vivir de verdad.</li>
-<li>Usar herramientas que te muestren qué partes de tu código están siendo probadas y cuáles no.</li>
-</ul>
-
-
-<p>En pocas palabras, aunque serverless te quita muchas preocupaciones, todavía hay cosas como la depuración, las pruebas y la monitorización que necesitas manejar bien.</p>
-
-
-<h2 id="primeros-pasos-con-serverless" tabindex="-1">Primeros pasos con serverless</h2>
-
-
-<h3 id="configuraci%C3%B3n-de-la-cuenta" tabindex="-1">Configuración de la cuenta</h3>
-
-
-<p>Para empezar a hacer aplicaciones sin servidores en AWS, necesitas preparar tu cuenta de AWS de esta manera:</p>
-
-
-<ul>
-<li>Asegúrate de que puedes usar los servicios sin servidores que necesitas, como AWS Lambda, Amazon API Gateway y Amazon DynamoDB. Esto se hace desde el sitio donde manejas tu cuenta de AWS.</li>
-<li>Crea un usuario en IAM (el sistema de manejo de identidades y accesos de AWS) que tenga los permisos justos para trabajar con estos servicios sin servidores. La idea es dar solo los accesos que son realmente necesarios.</li>
-<li>Instala las herramientas de línea de comandos de AWS y pon tus credenciales para poder manejar tus recursos desde la terminal.</li>
-<li>Piensa en activar CloudWatch Logs para tus funciones Lambda. Esto te ayuda a ver cómo van y a encontrar errores.</li>
-</ul>
-
-
-<h3 id="opciones-de-desarrollo" tabindex="-1">Opciones de desarrollo</h3>
-
-
-<p>Hay varias maneras de desarrollar aplicaciones sin servidores en AWS:</p>
-
-
-<ul>
-<li><strong>AWS SAM:</strong> Te permite escribir lo que necesitas para tu aplicación sin servidor en archivos YAML. Tiene comandos para empaquetar, poner en marcha y probar cosas localmente. Es bueno para proyectos no muy complicados.</li>
-<li><strong>AWS CloudFormation:</strong> Es un servicio más completo para manejar infraestructura con código. Te deja modelar todo tu entorno sin servidor de una manera declarativa.</li>
-<li><strong>IDEs especializados:</strong> Herramientas como AWS Toolkit for Visual Studio Code hacen más fácil crear y arreglar aplicaciones sin servidores.</li>
-<li><strong>Frameworks:</strong> Herramientas como <a href="https://www.serverless.com/" rel="noopener noreferrer" target="_blank">Serverless Framework</a> o SST (Serverless Stack) te ayudan a simplificar el desarrollo. Son mejores para proyectos más grandes.</li>
-</ul>
-
-
-<p>Es una buena idea empezar con AWS SAM o el AWS Toolkit para probar cosas básicas, y luego usar otras herramientas más avanzadas según tu proyecto vaya creciendo.</p>
-
-
-<h2 id="conclusi%C3%B3n" tabindex="-1">Conclusión</h2>
-
-
-<h3 id="puntos-principales" tabindex="-1">Puntos principales</h3>
-
-
-<ul>
-<li>La computación serverless te permite hacer aplicaciones sin preocuparte por los servidores. Esto hace que trabajar sea más fácil y puedes ahorrar dinero.</li>
-<li>Servicios como AWS Lambda, Fargate y Step Functions crecen o se achican automáticamente según cuánta gente use tu aplicación.</li>
-<li>Serverless es perfecto para sitios web, trabajar con datos y otras tareas que necesitan poder manejar muchos usuarios fácilmente.</li>
-<li>Es importante hacer que tus aplicaciones trabajen rápido y no gasten mucho, además de tener un buen sistema para ver qué está pasando con ellas.</li>
-<li>Hay que tener en cuenta la seguridad, hacer pruebas adecuadas y saber que a veces las aplicaciones pueden tardar un poco en responder si no se han usado en un rato.</li>
-</ul>
-
-
-<h3 id="el-futuro-de-serverless" tabindex="-1">El futuro de serverless</h3>
-
-
-<p>Serverless está cambiando cómo hacemos aplicaciones en internet, permitiéndonos crear cosas nuevas de manera rápida y barata. Se espera que más y más gente use serverless porque hace la vida más fácil para los desarrolladores, dejándoles concentrarse en mejorar sus aplicaciones sin tener que preocuparse por los detalles técnicos.</p>
-
-
-<p>Con el tiempo, seguramente veremos nuevas formas de usar serverless que hoy no imaginamos. Esto es emocionante porque puede ayudar a las empresas pequeñas y a las startups a probar nuevas ideas sin gastar mucho.</p>
-
-
-<p>En pocas palabras, serverless tiene un futuro brillante y nos va a permitir seguir innovando en la era digital.</p>
-
-
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
-
-
-<h3 id="%C2%BFqu%C3%A9-significa-serverless-aws%3F" tabindex="-1">¿Qué significa serverless AWS?</h3>
-
-
-<p>AWS Serverless Application Model (AWS SAM) es una herramienta gratuita que te ayuda a crear aplicaciones sin tener que manejar servidores. Te permite describir tus funciones, las conexiones entre ellas y la base de datos de una forma más sencilla, haciendo que sea más rápido empezar.</p>
-
-
-<h3 id="%C2%BFc%C3%B3mo-se-llama-la-soluci%C3%B3n-serverless-de-aws%3F" tabindex="-1">¿Cómo se llama la solución serverless de AWS?</h3>
-
-
-<p>La solución serverless principal de AWS se llama AWS Lambda. Lambda te permite correr código sin tener que preocuparte por los servidores, pagando solo por el tiempo que tu código está activo. Otra herramienta importante para crear y manejar APIs es Amazon API Gateway.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-es-desarrollo-serverless%3F" tabindex="-1">¿Qué es desarrollo serverless?</h3>
-
-
-<p>El desarrollo serverless es una manera de hacer aplicaciones donde el proveedor de servicios en la nube, como AWS, se encarga de todo lo que tiene que ver con los servidores. Esto significa que tú, como desarrollador, solo te enfocas en escribir el código de tu aplicación, haciendo tu trabajo más rápido y fácil.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-es-la-arquitectura-serverless%3F" tabindex="-1">¿Qué es la arquitectura serverless?</h3>
-
-
-<p>La arquitectura serverless es una forma de construir aplicaciones sin tener que manejar servidores. En este modelo, el proveedor de la nube se ocupa de todo lo relacionado con los servidores, permitiéndote concentrarte en la lógica de tu aplicación. Esto hace que sea más fácil escalar y mantener tus aplicaciones.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-la-inteligencia-artificial-en-aws/">Introducción a la inteligencia artificial en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS fundamentos: guía de inicio rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/nube-aws-guia-de-inicio-rapido/">Nube AWS: guía de inicio rápido</a></li>
-</ul>
-</p>
+Para encontrar próximos encuentros en línea, presenciales o híbridos, consulta la [agenda de eventos AWS](/eventos/). Las fechas y condiciones cambian; comprueba la ficha antes de planificar.
