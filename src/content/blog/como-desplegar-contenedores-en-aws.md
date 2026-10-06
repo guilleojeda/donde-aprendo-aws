@@ -1,341 +1,82 @@
 ---
-title: "Cómo desplegar contenedores en AWS"
-description: "Aprende a desplegar contenedores en AWS, conoce las ventajas, herramientas disponibles, casos de uso, comparativa de servicios y estrategias de optimización. Descubre cómo trabajar con contenedores en la nube."
+title: "Cómo desplegar contenedores en AWS: elige entre ECS, EKS y Fargate"
+description: "Compara ECS, EKS, Fargate, EC2 y Lightsail. Elige cómo desplegar contenedores en AWS y revisa red, permisos, costos y tutoriales para practicar."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T00:56:38.087Z"
+modifiedTimestamp: "2026-10-06T11:23:43-03:00"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "5 lecciones clave del AWS Public Sector Summit 2024"
-    url: "https://dondeaprendoaws.com/blog/5-lecciones-clave-del-aws-public-sector-summit-2024/"
-  - title: "Integración SIEM-AWS: 7 consejos prácticos [2024]"
-    url: "https://dondeaprendoaws.com/blog/integracion-siem-aws-7-consejos-practicos-2024/"
-  - title: "Como configurar y utilizar AWS Session Manager"
-    url: "https://dondeaprendoaws.com/blog/como-configurar-y-utilizar-aws-session-manager/"
-
+  - title: "Cómo desplegar una aplicación en Amazon ECS con Fargate"
+    url: "https://dondeaprendoaws.com/blog/como-desplegar-una-aplicacion-en-amazon-ecs/"
+  - title: "Cómo desplegar una aplicación en Amazon EKS con kubectl"
+    url: "https://dondeaprendoaws.com/blog/como-desplegar-una-aplicacion-en-amazon-eks/"
 ---
 
-<p>Si estás interesado en <strong>desplegar contenedores en AWS</strong>, este artículo es para ti. Te guiaremos a través de los conceptos básicos de los contenedores, cómo funcionan en AWS y cómo puedes comenzar a utilizarlos para tu proyecto. Además, te ofrecemos una comparación entre los servicios de AWS que puedes usar para contenedores, como ECS, EKS, Fargate y ECR, y consejos para optimizar y monitorear tu despliegue.</p>
+Para desplegar contenedores en AWS, primero decide qué debe administrar AWS y cuánto control necesitas. **Amazon ECS** organiza tareas sin exigirte Kubernetes; **Amazon EKS** ejecuta Kubernetes; **AWS Fargate** y **Amazon EC2** aportan capacidad de cómputo; **Amazon ECR** guarda imágenes y no las ejecuta. Para una web sencilla también puedes evaluar **Amazon Lightsail Container Services** o **Amazon ECS Express Mode**.
 
+La pregunta práctica no es «¿cuál es el mejor servicio?», sino si tu equipo necesita Kubernetes, control de servidores o una experiencia más guiada. La [guía de decisión de AWS para servicios de contenedores](https://docs.aws.amazon.com/decision-guides/latest/decision-guides/choosing-aws-container-service.html) compara estas rutas. Esta guía separa esas decisiones y te lleva a un despliegue concreto en [ECS con Fargate](/blog/como-desplegar-una-aplicacion-en-amazon-ecs/) o [EKS con Kubernetes](/blog/como-desplegar-una-aplicacion-en-amazon-eks/).
 
-<ul>
-<li><strong>Ventajas de los</strong> <a href="https://kubernetes.io/docs/concepts/containers/" rel="noopener noreferrer" target="_blank"><strong>contenedores</strong></a>: Portabilidad, eficiencia, escalabilidad y agilidad.</li>
-<li><strong>Herramientas de AWS para contenedores</strong>: Amazon ECS, Amazon EKS, AWS Fargate, Amazon ECR.</li>
-<li><strong>Guía de despliegue</strong>: Cómo crear una imagen Docker y desplegarla en ECS usando Fargate.</li>
-<li><strong>Comparativa de servicios</strong>: Diferencias entre ECS, EKS, Fargate y ECR.</li>
-<li><strong>Optimización</strong>: Estrategias de escalabilidad automática, alta disponibilidad y monitorización.</li>
-</ul>
+## Elige una ruta según tu aplicación
 
+| Lo que necesitas | Ruta para evaluar | Qué administra AWS y qué debes considerar |
+| --- | --- | --- |
+| Publicar una aplicación web en contenedores con una configuración breve | [Lightsail Container Services](https://docs.aws.amazon.com/lightsail/latest/userguide/amazon-lightsail-container-services.html) | Ofrece capacidad, despliegues y un endpoint HTTPS administrados. El servicio se cobra por su capacidad mensual aun cuando esté deshabilitado o no tenga un despliegue; debes eliminarlo para dejar de pagar. Tiene límites y controles distintos de ECS y EKS. |
+| Recibir una imagen y obtener una aplicación en ECS con red, balanceador y escalado | [ECS Express Mode](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/express-service-overview.html) | Crea un servicio ECS sobre Fargate y recursos como un Application Load Balancer. No suma un cargo propio por Express Mode, pero sí se cobran los recursos que crea. |
+| Ejecutar servicios y tareas de contenedores integrados con AWS sin adoptar Kubernetes | Amazon ECS con Fargate o EC2 | ECS es el orquestador. Con Fargate no gestionas instancias; con EC2 eliges y operas las instancias. En ambos casos configuras tareas, red, permisos, salud y observabilidad. |
+| Usar la API, las herramientas o los manifiestos del ecosistema Kubernetes | Amazon EKS | EKS administra el plano de control. Puedes elegir nodos EC2 administrados, [EKS Auto Mode](https://docs.aws.amazon.com/eks/latest/userguide/automode.html) o Fargate para los pods, con distintos controles y costos. |
+| Controlar el sistema operativo y desplegar Docker directamente en una máquina | Amazon EC2 | Tú administras la instancia, sus actualizaciones, seguridad, capacidad y despliegue. Como referencia comunitaria, [esta guía despliega Docker en EC2 con dominio y TLS](https://github.com/GuillermoSM33/deploy-con-docker-y-aws); ECS o EKS pueden añadir orquestación después. |
+| Guardar y versionar imágenes para ECS o EKS | Amazon ECR | ECR es un registro de imágenes. Elige el servicio de ejecución por separado; una imagen no queda desplegada por el hecho de subirla al registro. |
 
-<p>En resumen, AWS ofrece múltiples herramientas para facilitar el trabajo con contenedores, permitiéndote enfocarte en mejorar tu aplicación. A continuación, exploraremos cada uno de estos puntos con más detalle.</p>
+Si valoras un servicio de contenedores empaquetado, contrasta la [documentación actual de Lightsail Container Services](https://docs.aws.amazon.com/lightsail/latest/userguide/amazon-lightsail-container-services.html) con la charla comunitaria [La forma más fácil de desplegar contenedores en AWS usando Lightsail](https://www.youtube.com/watch?v=V-C_ZJi6-o0). La documentación vigente explica capacidad, endpoints y precio; úsala para confirmar los límites de tu caso.
 
+Para un backend con más piezas, revisa [ECS Fargate con RDS y balanceo](https://www.alfredo-dominguez.dev/arquitecturas/02-scalable-backend/). Si tu aplicación usa rendering server-side de Next.js, esta [arquitectura ECS Fargate para Next.js](https://dcastillogi.com/arquitecturas/despliegue-nextjs-ecs-fargate) combina CloudFront, S3, ALB, Aurora y GitHub Actions; su autor advierte que ese diseño es más de lo necesario para una web estática.
 
-<h3 id="casos-de-uso-comunes-de-contenedores" tabindex="-1">Casos de uso comunes de contenedores</h3>
+### Una secuencia corta para decidir
 
+1. Si una dependencia exige Kubernetes —por ejemplo, herramientas que usan la API de Kubernetes—, evalúa EKS. Si no, no necesitas adoptar EKS solo por ejecutar contenedores.
+2. Si tu carga encaja en una aplicación web pequeña y valoras un paquete administrado con endpoint HTTPS, compara Lightsail con ECS Express Mode. Revisa límites, red, escalado y precio antes de elegir.
+3. Si quieres definir tareas y servicios con control sobre la integración AWS, elige ECS. En ECS, Fargate delega la administración de las instancias; EC2 permite elegir y operar los hosts.
+4. Reserva ECR para almacenar imágenes. Una imagen pública sirve para una prueba; para una imagen privada de ECR, el rol de ejecución y la conectividad de red deben permitir la descarga.
 
-<p>Los contenedores son útiles para:</p>
+Fargate no reemplaza a ECS ni a EKS: es una opción de cómputo que puede acompañar a cualquiera de los dos. EC2 también puede aportar capacidad a ambos.
 
+## Compara operación, red y costo
 
-<ul>
-<li><strong>Desarrollo de aplicaciones</strong>: Permiten que los desarrolladores trabajen en sus aplicaciones de forma fácil y sin problemas, sin importar dónde estén.</li>
-<li><strong>Integración y despliegue continuos (CI/CD)</strong>: Ayudan a que el proceso de llevar una aplicación desde el desarrollo hasta su uso real sea rápido y sin contratiempos.</li>
-<li><strong>Microservicios</strong>: Son perfectos para sistemas que usan muchos servicios pequeños porque cada servicio puede tener su propia caja.</li>
-<li><strong>Machine Learning</strong>: Facilitan compartir y trabajar en proyectos de aprendizaje automático, ya que todo lo necesario se puede empaquetar en un contenedor.</li>
-</ul>
+| Ruta | Qué queda bajo tu responsabilidad | Qué puede generar cargos |
+| --- | --- | --- |
+| ECS con Fargate | Tamaño y número de tareas, imagen, roles, subredes, security groups, salud y logs | vCPU y memoria solicitadas, almacenamiento adicional si aplica, direcciones IPv4 públicas, transferencia y servicios asociados. |
+| ECS con EC2 | Lo anterior, más instancias, sistema operativo, capacidad del clúster y parches del host | Instancias EC2, volúmenes, balanceadores, transferencia y servicios asociados. |
+| EKS con managed node groups | Manifiestos y operación de Kubernetes, además del tamaño, capacidad y actualizaciones de los nodos | Cargo del clúster EKS, instancias EC2, volúmenes, direcciones IP y transferencia. |
+| EKS Auto Mode | Aplicaciones, configuración del clúster y VPC; AWS gestiona más partes de la infraestructura del clúster | Cargo del clúster, de las instancias EC2 y una tarifa de gestión de Auto Mode, además de red, almacenamiento y balanceo que use la carga. |
+| Lightsail Container Services | Imagen, despliegue y capacidad elegida | Precio mensual de capacidad y transferencia que exceda la cuota publicada. El cargo continúa hasta eliminar el servicio. |
 
+Consulta los precios vigentes de [ECS](https://aws.amazon.com/ecs/pricing/), [Fargate](https://aws.amazon.com/fargate/pricing/), [EKS](https://aws.amazon.com/eks/pricing/) y [Lightsail](https://aws.amazon.com/lightsail/pricing/). EKS Auto Mode agrega una tarifa de gestión independiente del costo de EC2. La región, duración, arquitectura y recursos asociados cambian el total; no hay una ruta más barata para todos los casos.
 
-<h3 id="opciones-para-ejecutar-contenedores-en-aws" tabindex="-1">Opciones para ejecutar <a href="https://kubernetes.io/docs/concepts/containers/" rel="noopener noreferrer" target="_blank">contenedores</a> en AWS</h3>
+La red también forma parte de la decisión. Una tarea Fargate en una subred pública necesita una ruta al Internet Gateway y una IP pública si debe descargar una imagen pública o recibir tráfico desde Internet. En una subred privada, la descarga de una imagen pública necesita salida a Internet, por ejemplo mediante NAT. Para una imagen de ECR privado puedes diseñar acceso mediante endpoints de ECR, S3 y los servicios auxiliares necesarios. EKS suma el endpoint de la API del clúster, el acceso de los nodos y la red de los pods. No abras el acceso público a todo Internet por comodidad: limita el origen y habilita solo los puertos que requiere la aplicación.
 
+## Qué preparar antes de desplegar
 
-<p><figure><img alt="contenedores" src="/assets/blog/b00e1f818f2c35dc864477db.jpg"/></figure></p>
+- Empaqueta la aplicación y sus dependencias en una imagen que sea compatible con el sistema operativo y la arquitectura de la capacidad elegida. Los tutoriales ECS y EKS de esta serie usan imágenes Linux para una tarea y nodos <code>X86_64</code>.
+- Define cómo sabrás que la aplicación está lista. Una tarea o pod puede estar activo aunque la aplicación todavía no responda.
+- Decide dónde vivirá la imagen: un registro público para una práctica o ECR privado para una aplicación propia.
+- Usa credenciales temporales mediante IAM Identity Center o roles federados para la CLI y roles de IAM distintos para ejecutar tareas o dar acceso a la aplicación. No guardes claves permanentes de usuario en un Dockerfile.
+- Estima red, IPv4 pública, balanceadores, almacenamiento, logs y el costo del clúster. Elimina el laboratorio cuando termines.
 
+## Novedad sobre AWS App Runner
 
-<p>AWS tiene varias herramientas para trabajar con contenedores:</p>
+App Runner dejó de aceptar clientes nuevos el 31 de marzo de 2026. Los clientes existentes pueden seguir usando el servicio, pero AWS indica que no planea añadir funciones nuevas y recomienda explorar ECS Express Mode para migraciones. Por eso, un tutorial antiguo de App Runner no es una ruta de alta para una cuenta nueva. Lee el [aviso oficial de disponibilidad de App Runner](https://docs.aws.amazon.com/apprunner/latest/dg/apprunner-availability-change.html).
 
+## Aprende con una comunidad y continúa con una práctica
 
-<ul>
-<li><strong>Amazon ECS</strong>: Es como un director de orquesta para contenedores, ayudándote a manejar muchos de ellos juntos, ya sea en servidores propios o usando Fargate para no preocuparte por los servidores.</li>
-<li><strong>Amazon EKS</strong>: Es para quienes usan Kubernetes, otra herramienta para organizar contenedores, pero con más opciones de personalización.</li>
-<li><strong>AWS Fargate</strong>: Te permite usar contenedores sin tener que manejar los servidores tú mismo.</li>
-<li><strong>Amazon ECR</strong>: Es como un armario donde puedes guardar y organizar tus <a href="https://kubernetes.io/docs/concepts/containers/images/" rel="noopener noreferrer" target="_blank">imágenes</a> de contenedores, listas para usar cuando las necesites.</li>
-</ul>
+El [AWS User Group Ecuador](https://www.awsugecuador.com/) organiza charlas, talleres y encuentros sobre distintos temas de AWS, además de enlazar otras comunidades del país. También puedes [buscar User Groups y grupos estudiantiles por región](/comunidades/).
 
+En Cali, el grupo estudiantil [AWS SBG de la Universidad del Valle](https://www.meetup.com/aws-sbg-at-university-of-the-valle/) anuncia [Contenedores 101: construye, ejecuta y despliega en AWS](https://www.meetup.com/aws-sbg-at-university-of-the-valle/events/316796377/), presencial el **6 de octubre de 2026, de 10:00 a 11:00 (UTC−05:00)** en Universidad ICESI. Es una actividad para empezar con Docker y contenedores; confirma acceso e inscripción en la ficha.
 
-<p>Estas herramientas de AWS te ayudan a usar contenedores de forma fácil y segura en la nube.</p>
+Si estás cerca de Córdoba, la comunidad estudiantil [AWS SBG at National Technologic University Regional Faculty](https://www.meetup.com/aws-sbg-at-national-technologic-university-regional-faculty/) anuncia **AWS Gaming Lab: ECS, CI/CD y la magia de Terraform**, un encuentro presencial el **10 de octubre de 2026, de 12:00 a 14:00 (UTC−03:00)** en UTN Facultad Regional Córdoba. Consulta la [página del evento](https://www.meetup.com/aws-sbg-at-national-technologic-university-regional-faculty/events/316821666/) para confirmar sede, disponibilidad e inscripción. La agenda se consultó el 6 de octubre de 2026. Si estas fechas ya pasaron, busca próximas actividades en la [agenda de eventos AWS](/eventos/).
 
+Para ampliar los fundamentos en español, lee [Cómo entendí los contenedores en AWS: Docker, ECS y EKS explicados desde cero](https://builder.aws.com/content/33FIp8idcHVslPOeJPdvgUL4wNo/cmo-entend-los-contenedores-en-aws-docker-ecs-y-eks-explicados-desde-cero) y mira [AWS container services overview en NERDflix](https://www.nerdearla.com/nerdflix/Hm3DEKB6Los/), una charla de Boris Cortés grabada en 2018. La charla ayuda a ampliar el mapa conceptual; confirma los detalles actuales en la documentación enlazada arriba.
 
-<h2 id="despliegue-de-una-aplicaci%C3%B3n-web-en-contenedores" tabindex="-1">Despliegue de una aplicación web en contenedores</h2>
-
-
-<p>Guía paso a paso para desplegar una aplicación web sencilla en un contenedor Docker utilizando ECS y Fargate.</p>
-
-
-<h3 id="crear-un-contenedor-docker-con-la-aplicaci%C3%B3n" tabindex="-1">Crear un contenedor Docker con la aplicación</h3>
-
-
-<p>Para empezar, vamos a crear una imagen de Docker que tenga todo lo necesario para que nuestra aplicación web funcione. Esto lo hacemos con un archivo llamado <code class="inline-code">Dockerfile</code> que contiene unas instrucciones simples:</p>
-
-
-<pre><code class="language-dockerfile">FROM node:14-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm install
-COPY . .
-EXPOSE 3000
-CMD ["node", "server.js"]
-</code></pre>
-
-
-<p>Este archivo le dice a Docker que:</p>
-
-
-<ul>
-<li>Use la imagen <code class="inline-code">node:14-alpine</code> como base</li>
-<li>Cree un espacio de trabajo en <code class="inline-code">/app</code></li>
-<li>Copie los archivos de configuración</li>
-<li>Instale las dependencias necesarias con npm</li>
-<li>Copie el resto de los archivos al contenedor</li>
-<li>Haga disponible el puerto 3000</li>
-<li>Inicie la aplicación con <code class="inline-code">server.js</code></li>
-</ul>
-
-
-<p>Después de tener el Dockerfile listo, creamos la imagen con este comando:</p>
-
-
-<pre><code>docker build -t mi-app .
-</code></pre>
-
-
-<p>Esto crea una imagen de Docker llamada <code class="inline-code">mi-app</code> con nuestra aplicación dentro.</p>
-
-
-<h3 id="subir-la-imagen-a-amazon-ecr" tabindex="-1">Subir la imagen a Amazon ECR</h3>
-
-
-<p>El siguiente paso es subir esta imagen a Amazon ECR para que podamos usarla en ECS. Primero, hacemos que el CLI de Docker se conecte con ECR:</p>
-
-
-<pre><code>aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 1234512345.dkr.ecr.us-east-1.amazonaws.com
-</code></pre>
-
-
-<p>Después, etiquetamos nuestra imagen para que se asocie con nuestro repositorio en ECR:</p>
-
-
-<pre><code>docker tag mi-app:latest 1234512345.dkr.ecr.us-east-1.amazonaws.com/mi-app:latest
-</code></pre>
-
-
-<p>Y la subimos con este comando:</p>
-
-
-<pre><code>docker push 1234512345.dkr.ecr.us-east-1.amazonaws.com/mi-app:latest
-</code></pre>
-
-
-<p>Con esto, nuestra imagen ya está en ECR y lista para usarse en ECS.</p>
-
-
-<h3 id="desplegar-el-contenedor-con-ecs%2Ffargate" tabindex="-1">Desplegar el contenedor con ECS/Fargate</h3>
-
-
-<p>Ahora, en ECS, creamos un grupo llamado <code class="inline-code">mi-cluster</code> y una definición de tarea llamada <code class="inline-code">mi-tarea</code> que usará la imagen que acabamos de subir.</p>
-
-
-<p>Usamos Fargate para que se encargue de correr esta tarea, así no tenemos que manejar servidores EC2 por nuestra cuenta.</p>
-
-
-<p>Por último, creamos un servicio en ECS llamado <code class="inline-code">mi-servicio</code> que mantendrá nuestra tarea corriendo, y le conectamos un balanceador de carga para que la aplicación esté disponible en internet.</p>
-
-
-<p>¡Eso es todo! Nuestra aplicación ya debería estar funcionando y accesible gracias a ECS y Fargate.</p>
-
-
-<h2 id="comparativa-de-servicios-de-aws-para-contenedores" tabindex="-1">Comparativa de servicios de AWS para contenedores</h2>
-
-
-<p>AWS tiene varios servicios para ayudarte a trabajar con contenedores, que son como cajas para tus aplicaciones. Cada servicio tiene sus propias características y es mejor para ciertos trabajos. Aquí te explicamos de manera sencilla qué hace cada uno:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Servicio</th>
-<th>Descripción</th>
-<th>Casos de uso</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Amazon ECS</td>
-<td>Te permite organizar y manejar tus contenedores en EC2 o Fargate. Es como tener un control remoto para tus contenedores.</td>
-<td>Ideal para aplicaciones que necesitan ajustes específicos.</td>
-</tr>
-<tr>
-<td>Amazon EKS</td>
-<td>Es como ECS, pero usa Kubernetes, que es otra forma de manejar contenedores, ofreciendo más herramientas.</td>
-<td>Bueno para quienes ya usan Kubernetes o necesitan sus funciones avanzadas.</td>
-</tr>
-<tr>
-<td>AWS Fargate</td>
-<td>Con Fargate, no tienes que preocuparte por los servidores donde corren tus contenedores. AWS lo hace por ti.</td>
-<td>Perfecto para quienes quieren simplificar las cosas y no manejar servidores.</td>
-</tr>
-<tr>
-<td>Amazon ECR</td>
-<td>Un lugar seguro donde puedes guardar y organizar tus imágenes de contenedores.</td>
-<td>Útil para almacenar imágenes que usas en ECS, EKS o Fargate.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p><strong>Amazon ECS</strong> es básicamente un controlador para tus contenedores, dándote más poder sobre cómo y dónde corren. Se lleva bien con otros servicios de AWS.</p>
-
-
-<p><strong>Amazon EKS</strong> te permite usar Kubernetes, que es una herramienta avanzada para manejar contenedores, sin tener que configurar todo desde cero. Es genial para negocios que necesitan esas capacidades extra.</p>
-
-
-<p><strong>AWS Fargate</strong> es la forma más fácil de trabajar con contenedores. No tienes que encargarte de los servidores, AWS lo hace por ti, dejándote concentrarte en mejorar tu aplicación.</p>
-
-
-<p><strong>Amazon ECR</strong> es como tu biblioteca privada de imágenes de contenedores, donde puedes guardarlas de manera segura y usarlas cuando las necesites.</p>
-
-
-<p>En resumen, AWS te ofrece muchas opciones para trabajar con contenedores, desde las más sencillas hasta las más avanzadas, dependiendo de lo que necesites para tu proyecto.</p>
-
-
-
-
-<h2 id="optimizaci%C3%B3n-y-monitorizaci%C3%B3n-del-despliegue" tabindex="-1">Optimización y monitorización del despliegue</h2>
-
-
-<h3 id="estrategias-de-escalabilidad-autom%C3%A1tica" tabindex="-1">Estrategias de escalabilidad automática</h3>
-
-
-<p>La escalabilidad automática es como tener un termostato inteligente para tus contenedores en AWS. Se ajusta automáticamente para que tengas más o menos recursos según lo necesites, ayudándote a ahorrar dinero y mejorar el rendimiento.</p>
-
-
-<p>Para hacer esto en AWS, puedes usar:</p>
-
-
-<ul>
-<li><strong>Auto Scaling Groups</strong> de EC2: Te permite aumentar o disminuir automáticamente la cantidad de instancias EC2.</li>
-<li><strong>Auto Scaling</strong> de ECS: Ajusta el número de tareas en un servicio de ECS basándose en cosas como cuánta CPU o RAM estás usando.</li>
-<li><strong>Auto Scaling</strong> de Fargate: Funciona parecido al de ECS pero para contenedores serverless.</li>
-</ul>
-
-
-<p>Es buena idea configurar alarmas en CloudWatch cuando, por ejemplo, el uso de CPU sea mayor al 75% para que se active el escalado.</p>
-
-
-<h3 id="alta-disponibilidad-y-continuidad-del-negocio" tabindex="-1">Alta disponibilidad y continuidad del negocio</h3>
-
-
-<p>Para que tus aplicaciones sean más resistentes y estén siempre disponibles, puedes:</p>
-
-
-<ul>
-<li>Usar <strong>Application Load Balancers</strong> para repartir el tráfico entre varios contenedores.</li>
-<li>Asegurarte de que tus contenedores estén en <strong>múltiples Zonas de Disponibilidad</strong>.</li>
-<li>Utilizar <strong>replicación de contenedores</strong> y asegurarte de que se reinicien automáticamente si hay un fallo.</li>
-<li>Guardar datos importantes en <strong>Amazon EFS</strong>, que es más seguro que el almacenamiento del contenedor.</li>
-</ul>
-
-
-<p>Estas prácticas ayudan a que tus servicios sigan funcionando incluso si algo sale mal.</p>
-
-
-<h3 id="optimizaci%C3%B3n-de-registros-y-monitorizaci%C3%B3n" tabindex="-1">Optimización de registros y monitorización</h3>
-
-
-<p>Para mantener un buen seguimiento de tus contenedores, es útil:</p>
-
-
-<ul>
-<li>Usar <strong>CloudWatch Logs</strong> para juntar todos los registros en un solo lugar.</li>
-<li>Aplicar <strong>CloudWatch Container Insights</strong> para ver cómo están funcionando tus contenedores.</li>
-<li>Activar <strong>AWS X-Ray</strong> para seguir la pista de las solicitudes a través de tus servicios.</li>
-<li>Crear tableros personalizados en CloudWatch para ver toda la información importante de un vistazo.</li>
-<li>Configurar alarmas basadas en métricas importantes para estar al tanto de cualquier problema.</li>
-</ul>
-
-
-<p>Esto te ayuda a identificar y solucionar problemas rápidamente, manteniendo tus aplicaciones funcionando sin problemas.</p>
-
-
-<h2 id="conclusi%C3%B3n" tabindex="-1">Conclusión</h2>
-
-
-<p>Usar contenedores en AWS tiene muchas ventajas, como hacer las cosas más fáciles y rápidas, ahorrar recursos y poder crecer según lo necesitemos. Hemos visto cómo funcionan los contenedores y cómo AWS nos ofrece varias herramientas para manejarlos, como ECS, EKS y Fargate.</p>
-
-
-<p>Te mostramos cómo preparar un contenedor con una aplicación web y cómo hacerlo funcionar en ECS usando Fargate. Esto te ayuda a ver lo sencillo que es lanzar aplicaciones en contenedores.</p>
-
-
-<p>Hablamos de las diferencias entre ECS, EKS, Fargate y ECR, y para qué sirve cada uno. Por ejemplo, ECS te da mucho control, EKS es para los que ya usan Kubernetes, Fargate te quita la preocupación de los servidores, y ECR es donde guardas tus imágenes de forma segura.</p>
-
-
-<p>También discutimos cómo hacer que tus aplicaciones en contenedores funcionen mejor, como usando escalado automático y asegurándote de que estén disponibles todo el tiempo. Herramientas como CloudWatch te ayudan a mantener todo bajo control.</p>
-
-
-<p>En pocas palabras, AWS te facilita mucho la vida cuando trabajas con contenedores, permitiéndote enfocarte en mejorar tu aplicación sin preocuparte por los detalles técnicos.</p>
-
-
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
-
-
-<h3 id="%C2%BFc%C3%B3mo-desplegar-una-aplicaci%C3%B3n-en-aws%3F" tabindex="-1">¿Cómo desplegar una aplicación en AWS?</h3>
-
-
-<p>Para poner en marcha una aplicación en AWS, los pasos básicos son:</p>
-
-
-<ul>
-<li>Hacer una imagen de Docker con tu aplicación y lo que necesita para funcionar.</li>
-<li>Subir esa imagen a un lugar de almacenamiento como Amazon ECR.</li>
-<li>Crear una tarea en Amazon ECS que use tu imagen.</li>
-<li>Correr esa tarea en máquinas EC2 o usar Fargate para no preocuparte por las máquinas.</li>
-<li>Hacer que tu aplicación se pueda ver en internet con un balanceador de carga o API Gateway.</li>
-</ul>
-
-
-<p>También puedes hacer que este proceso sea automático usando herramientas como CodePipeline.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-servicio-se-utiliza-para-ejecutar-aplicaciones-en-contenedores-en-aws%3F" tabindex="-1">¿Qué servicio se utiliza para ejecutar aplicaciones en contenedores en AWS?</h3>
-
-
-<p>El servicio principal para correr aplicaciones en contenedores es Amazon Elastic Container Service (Amazon ECS). Te permite usar contenedores Docker en máquinas EC2 o con AWS Fargate para olvidarte de las máquinas.</p>
-
-
-<p>Otra opción es Amazon Elastic Kubernetes Service (Amazon EKS) si prefieres usar Kubernetes en AWS.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-es-contenedores-en-aws%3F" tabindex="-1">¿Qué es contenedores en AWS?</h3>
-
-
-<p>Los contenedores en AWS son una forma de empaquetar tu aplicación con todo lo que necesita para correr de manera que pueda moverse fácilmente y correr sin problemas. Servicios como ECS y EKS te ayudan a manejar muchos contenedores en la nube.</p>
-
-
-<p>Usar contenedores en AWS te da beneficios como poder mover tu aplicación fácilmente, hacerla más grande o más pequeña según necesites, y trabajar de manera más eficiente.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-es-un-docker-en-aws%3F" tabindex="-1">¿Qué es un Docker en AWS?</h3>
-
-
-<p>Docker es una herramienta que te ayuda a crear, correr y manejar contenedores. Te da todo lo necesario para preparar tu aplicación en contenedores y controlar cómo funcionan.</p>
-
-
-<p>En AWS, puedes usar Docker junto con ECS para definir tareas y servicios usando imágenes de Docker. Esto también te permite crear procesos automáticos para construir, probar e implementar tus contenedores en un ambiente de producción.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/desarrollo-en-la-nube-fundamentos-esenciales/">Desarrollo en la nube: fundamentos esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/opciones-para-desplegar-contenedores-en-aws-ecs-y-eks/">Opciones para desplegar contenedores en AWS: ECS y EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li>
-</ul>
-</p>
+Las rutas prácticas de esta serie continúan en el [tutorial de Amazon ECS](/blog/como-desplegar-una-aplicacion-en-amazon-ecs/) y el [tutorial de Amazon EKS](/blog/como-desplegar-una-aplicacion-en-amazon-eks/).

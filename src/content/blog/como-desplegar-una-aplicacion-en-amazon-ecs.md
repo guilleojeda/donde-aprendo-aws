@@ -1,447 +1,188 @@
 ---
-title: "Cómo desplegar una aplicación en Amazon ECS"
-description: "Aprende cómo desplegar una aplicación en Amazon ECS paso a paso, desde la configuración inicial hasta la administración y escalado. Descubre cómo configurar AWS CLI y tus credenciales, crear un clúster en ECS, definir tareas con imágenes Docker, verificar el funcionamiento de tu aplicación y más."
+title: "Cómo desplegar una aplicación en Amazon ECS con Fargate"
+description: "Despliega Nginx en ECS con Fargate usando AWS CLI: configura red, IAM, logs y salud; comprueba el acceso HTTP y elimina los recursos del laboratorio."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T23:04:00.573Z"
+modifiedTimestamp: "2026-10-06T11:23:43-03:00"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Checklist: servicios AWS esenciales para SAA-C03"
-    url: "https://dondeaprendoaws.com/blog/checklist-servicios-aws-esenciales-para-saa-c03/"
-  - title: "Guía de eventos AWS Educate 2024"
-    url: "https://dondeaprendoaws.com/blog/guia-de-eventos-aws-educate-2024/"
-  - title: "Aprender AWS gratis: recursos y comunidad"
-    url: "https://dondeaprendoaws.com/blog/aprender-aws-gratis-recursos-y-comunidad/"
-
+  - title: "Cómo desplegar contenedores en AWS: elige entre ECS, EKS y Fargate"
+    url: "https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/"
+  - title: "Cómo desplegar una aplicación en Amazon EKS con kubectl"
+    url: "https://dondeaprendoaws.com/blog/como-desplegar-una-aplicacion-en-amazon-eks/"
 ---
 
-<p>Desplegar una aplicación en Amazon ECS es más fácil de lo que piensas y aquí te mostramos cómo hacerlo paso a paso. Desde la configuración inicial hasta la administración y escalado, te guiaremos en cada etapa para que puedas lanzar tu aplicación con éxito en Amazon ECS usando Fargate, sin preocuparte por los servidores. Aprenderás a:</p>
+En esta guía desplegarás Nginx como una aplicación web de prueba en un servicio de Amazon ECS con AWS Fargate. Crearás un rol de ejecución, configurarás una tarea con logs y health check, la ejecutarás en una subred pública con HTTP permitido solo desde tu dirección IP y comprobarás la página con <code>curl</code>. Al final eliminarás el servicio y los recursos de este laboratorio.
+
+ECS coordina la tarea y el servicio; Fargate aporta la capacidad para ejecutarlos sin que administres instancias EC2. Si aún estás decidiendo entre ECS y Kubernetes, empieza por la [guía de rutas para desplegar contenedores en AWS](/blog/como-desplegar-contenedores-en-aws/). Si necesitas la API y las herramientas de Kubernetes, sigue el [tutorial de Amazon EKS](/blog/como-desplegar-una-aplicacion-en-amazon-eks/).
+
+## Antes de empezar
+
+Los comandos usan Bash en macOS o Linux. Necesitas una cuenta de AWS, [AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html), <code>curl</code> y permisos para crear un clúster ECS, un servicio Fargate, un security group, un log group y un rol de IAM con su política. La identidad que ejecuta <code>create-service</code> también necesita permiso <code>iam:PassRole</code> para pasar el rol de ejecución a ECS. Inicia sesión con credenciales temporales mediante IAM Identity Center o un rol federado; no crees claves permanentes de usuario para este ejercicio.
+
+Fargate usa el modo de red <code>awsvpc</code> y necesita al menos una subred. En la consola de VPC, elige una subred pública de la misma VPC: su tabla de rutas efectiva —asociada a la subred o, si no tiene asociación explícita, la tabla principal— debe tener una ruta <code>0.0.0.0/0</code> hacia un Internet Gateway. Esta práctica asigna una IP pública a la tarea para que descargue la imagen y puedas abrir la página. En una subred privada, esta imagen pública necesita salida a Internet, por ejemplo mediante NAT. Los endpoints privados pueden servir para otros flujos —incluidas imágenes de ECR privado y servicios auxiliares—, pero no reemplazan la salida a Internet que requiere esta imagen pública. Elige una sola subred para mantener el ejercicio acotado; no representa una configuración de alta disponibilidad.
+
+Obtén tu IPv4 pública y anótala con máscara <code>/32</code>, por ejemplo <code>203.0.113.10/32</code> como formato de muestra. Sustitúyela por tu IP real: el grupo de seguridad solo permitirá HTTP desde ese origen. Si usas una VPN o una red de oficina, utiliza el rango de salida que realmente tendrá tu navegador.
+
+## 1. Define la región y comprueba la red
+
+Usa nombres nuevos para este laboratorio. Si ya existen en tu cuenta, cambia los nombres antes de ejecutar los comandos. En los ejemplos, sustituye los identificadores de VPC y subred y la dirección de origen por los tuyos.
+
+<pre><code class="language-bash">export AWS_REGION="us-east-1"
+CLUSTER_NAME="da-ecs-container-lab"
+SERVICE_NAME="nginx-demo"
+TASK_FAMILY="nginx-demo"
+ROLE_NAME="daEcsTaskExecutionLab"
+LOG_GROUP="/ecs/da-ecs-container-lab/nginx"
+SECURITY_GROUP_NAME="da-ecs-nginx-lab"
+VPC_ID="vpc-REEMPLAZAR"
+SUBNET_ID="subnet-REEMPLAZAR"
+READER_CIDR="203.0.113.10/32"
+aws sts get-caller-identity --region "$AWS_REGION"
+aws ec2 describe-subnets --subnet-ids "$SUBNET_ID" --query 'Subnets[0].[VpcId,AvailabilityZone,MapPublicIpOnLaunch]' --output table --region "$AWS_REGION"</code></pre>
+
+Confirma que la salida de la subred corresponde a <code>VPC_ID</code> y revisa en la consola la ruta efectiva al Internet Gateway antes de continuar. No uses una subred privada sin configurar primero la salida de red que requiere la tarea.
+
+## 2. Crea el rol de ejecución y los recursos del laboratorio
+
+El rol de ejecución permite que el agente de ECS descargue imágenes privadas de ECR y envíe logs a CloudWatch. Esta aplicación Nginx no llama APIs de AWS, así que no necesita un rol de tarea. El rol de ejecución y el rol de tarea cumplen funciones distintas.
+
+Crea un rol nuevo con confianza para las tareas de ECS y la política administrada de ejecución. Si el nombre ya existe, elige otro nombre; no cambies ni elimines un rol compartido.
+
+<pre><code class="language-json">{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": { "Service": "ecs-tasks.amazonaws.com" },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}</code></pre>
 
+Guarda ese contenido como <code>ecs-task-execution-trust.json</code> y crea el rol. Luego crea el grupo de logs, el clúster ECS y un grupo de seguridad nuevo con una única regla de entrada:
 
-<ul>
-<li>Configurar AWS CLI y tus credenciales.</li>
-<li>Crear un clúster en ECS y preparar una instancia EC2.</li>
-<li>Definir y configurar tu tarea con una imagen Docker.</li>
-<li>Ajustar y desplegar tu servicio en el clúster.</li>
-<li>Verificar que tu aplicación esté funcionando correctamente.</li>
-<li>Monitorear el rendimiento y escalar recursos según sea necesario.</li>
-</ul>
+<pre><code class="language-bash">aws iam create-role --role-name "$ROLE_NAME" --assume-role-policy-document file://ecs-task-execution-trust.json
+aws iam attach-role-policy --role-name "$ROLE_NAME" --policy-arn arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+EXECUTION_ROLE_ARN="$(aws iam get-role --role-name "$ROLE_NAME" --query 'Role.Arn' --output text)"
+aws logs create-log-group --log-group-name "$LOG_GROUP" --region "$AWS_REGION"
+aws ecs create-cluster --cluster-name "$CLUSTER_NAME" --region "$AWS_REGION"
+SECURITY_GROUP_ID="$(aws ec2 create-security-group --group-name "$SECURITY_GROUP_NAME" --description "$SECURITY_GROUP_NAME" --vpc-id "$VPC_ID" --query 'GroupId' --output text --region "$AWS_REGION")"
+aws ec2 authorize-security-group-ingress --group-id "$SECURITY_GROUP_ID" --protocol tcp --port 80 --cidr "$READER_CIDR" --region "$AWS_REGION"</code></pre>
 
+El grupo de seguridad conserva la salida predeterminada para que la tarea pueda obtener la imagen y enviar logs. No agregues SSH ni abras el puerto 80 a <code>0.0.0.0/0</code>. El rol administrado permite crear flujos de logs; el grupo se crea por separado porque el tutorial no habilita la creación automática de grupos desde la tarea.
 
-<p>Además, resolveremos dudas comunes sobre cómo desplegar aplicaciones en AWS, qué es ECS, los servicios disponibles para ejecutar aplicaciones en contenedores, y qué es Amazon Fargate. Este es un recorrido completo para que empieces a utilizar Amazon ECS y Fargate, simplificando el manejo de contenedores y permitiéndote enfocarte más en el desarrollo de tu aplicación.</p>
+## 3. Registra la definición de tarea
 
+La definición usa una imagen pública de Nginx desde Amazon ECR Public, una tarea Fargate Linux <code>X86_64</code> de 0,25 vCPU y 512 MiB, <code>awsvpc</code>, CloudWatch Logs y un health check. El binario <code>wget</code> está disponible en la imagen Alpine elegida y la comprobación consulta Nginx por loopback. Para una aplicación real, fija una versión inmutable o un digest y escanea la imagen; la etiqueta <code>stable-alpine</code> puede cambiar.
 
-<h3 id="conocimientos-b%C3%A1sicos-de-aws" tabindex="-1">Conocimientos básicos de AWS</h3>
+Guarda el JSON como <code>ecs-task-definition-template.json</code>. Los cuatro marcadores se reemplazan con la familia, el ARN, el grupo de logs y la región definidos u obtenidos arriba:
 
+<pre><code class="language-json">{
+  "family": "TASK_FAMILY",
+  "executionRoleArn": "EXECUTION_ROLE_ARN",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "runtimePlatform": {
+    "operatingSystemFamily": "LINUX",
+    "cpuArchitecture": "X86_64"
+  },
+  "containerDefinitions": [
+    {
+      "name": "nginx",
+      "image": "public.ecr.aws/docker/library/nginx:stable-alpine",
+      "essential": true,
+      "portMappings": [
+        { "containerPort": 80, "protocol": "tcp" }
+      ],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 20
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "LOG_GROUP",
+          "awslogs-region": "AWS_REGION",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}</code></pre>
 
-<ul>
-<li>Es importante que tengas una idea de cómo funciona AWS. Cosas como VPCs, subnets, grupos de seguridad, roles de IAM, son esenciales para que tus <a href="https://kubernetes.io/docs/concepts/containers/" rel="noopener noreferrer" target="_blank">contenedores</a> corran sin problemas en ECS.</li>
-<li>También deberías saber lo básico sobre contenedores y Docker, como crear <a href="https://kubernetes.io/docs/concepts/containers/images/" rel="noopener noreferrer" target="_blank">imágenes</a> de Docker y entender qué son los Dockerfiles.</li>
-<li>Sería bueno que le dieras una leída a la documentación de Amazon ECS para que sepas de qué va antes de empezar.</li>
-</ul>
+Genera el archivo que registrará ECS y revisa que los marcadores ya no aparezcan:
 
+<pre><code class="language-bash">sed -e "s|TASK_FAMILY|$TASK_FAMILY|g" -e "s|EXECUTION_ROLE_ARN|$EXECUTION_ROLE_ARN|g" -e "s|LOG_GROUP|$LOG_GROUP|g" -e "s|AWS_REGION|$AWS_REGION|g" ecs-task-definition-template.json &gt; ecs-task-definition.json
+grep -E 'TASK_FAMILY|EXECUTION_ROLE_ARN|LOG_GROUP|AWS_REGION' ecs-task-definition.json</code></pre>
 
-<h3 id="cli-de-aws-instalada-y-configurada" tabindex="-1">CLI de AWS instalada y configurada</h3>
+El último comando no debe imprimir resultados. Registra la definición:
 
+<pre><code class="language-bash">TASK_DEFINITION_ARN="$(aws ecs register-task-definition --cli-input-json file://ecs-task-definition.json --query 'taskDefinition.taskDefinitionArn' --output text --region "$AWS_REGION")"
+printf '%s\n' "$TASK_DEFINITION_ARN"</code></pre>
 
-<ul>
-<li>Necesitas tener la CLI de AWS (una herramienta para manejar AWS desde la línea de comandos) instalada en tu computadora. Esto te va a permitir controlar tus recursos de AWS sin tener que usar la interfaz web.</li>
-<li>Asegúrate de configurar tus credenciales de AWS en la CLI. Esto es como darle las llaves de tu cuenta de AWS a la CLI para que pueda hacer cosas en tu nombre.</li>
-</ul>
+Si tu imagen está en un repositorio privado de ECR, cambia la URI y conserva el rol de ejecución con los permisos de pull. En una subred sin salida a Internet, puedes planificar endpoints privados para ECR y los servicios auxiliares que uses, incluida la transferencia de capas a S3 y CloudWatch Logs. Confirma las dependencias de la imagen y de la tarea con la [guía de endpoints de VPC para ECR](https://docs.aws.amazon.com/AmazonECR/latest/userguide/vpc-endpoints.html).
 
+## 4. Crea y espera el servicio Fargate
 
-<h3 id="cuenta-de-aws" tabindex="-1">Cuenta de AWS</h3>
+El servicio mantiene una tarea activa. La IP pública permite una prueba HTTP directa, pero el security group la limita a <code>READER_CIDR</code>. No se crea un balanceador de carga.
 
+<pre><code class="language-bash">aws ecs create-service --cluster "$CLUSTER_NAME" --service-name "$SERVICE_NAME" --task-definition "$TASK_DEFINITION_ARN" --desired-count 1 --launch-type FARGATE --network-configuration "awsvpcConfiguration={subnets=[$SUBNET_ID],securityGroups=[$SECURITY_GROUP_ID],assignPublicIp=ENABLED}" --region "$AWS_REGION"
+aws ecs wait services-stable --cluster "$CLUSTER_NAME" --services "$SERVICE_NAME" --region "$AWS_REGION"
+aws ecs describe-services --cluster "$CLUSTER_NAME" --services "$SERVICE_NAME" --query 'services[0].[status,desiredCount,runningCount,events[0].message]' --output table --region "$AWS_REGION"</code></pre>
 
-<ul>
-<li>Si todavía no tienes una, crea una cuenta en AWS. ECS tiene una opción gratuita para que puedas probar cómo funciona sin gastar dinero.</li>
-<li>Lo ideal es que uses una cuenta solo para tus pruebas. Así no te preocupas de que algo de lo que estés probando interfiera con otros proyectos.</li>
-</ul>
+Cuando el servicio muestre una tarea en ejecución, obtén su interfaz de red, consulta su dirección IPv4 pública y abre la página:
 
+<pre><code class="language-bash">TASK_ARN="$(aws ecs list-tasks --cluster "$CLUSTER_NAME" --service-name "$SERVICE_NAME" --query 'taskArns[0]' --output text --region "$AWS_REGION")"
+ENI_ID="$(aws ecs describe-tasks --cluster "$CLUSTER_NAME" --tasks "$TASK_ARN" --query 'tasks[0].attachments[0].details[?name==`networkInterfaceId`].value | [0]' --output text --region "$AWS_REGION")"
+PUBLIC_IP="$(aws ec2 describe-network-interfaces --network-interface-ids "$ENI_ID" --query 'NetworkInterfaces[0].Association.PublicIp' --output text --region "$AWS_REGION")"
+curl --fail --show-error "http://$PUBLIC_IP/"</code></pre>
 
-<h3 id="resumen" tabindex="-1">Resumen</h3>
+Si <code>curl</code> no conecta, confirma que tu salida a Internet todavía coincide con <code>READER_CIDR</code>, que el servicio está estable y que la subred tiene ruta al Internet Gateway. En un laboratorio, una IP pública puede generar cargos. Para ver eventos y logs:
 
+<pre><code class="language-bash">aws ecs describe-services --cluster "$CLUSTER_NAME" --services "$SERVICE_NAME" --query 'services[0].events[0:5].[createdAt,message]' --output table --region "$AWS_REGION"
+aws logs tail "$LOG_GROUP" --since 10m --region "$AWS_REGION"</code></pre>
 
-<p>En pocas palabras, asegúrate de conocer un poco sobre AWS y cómo funcionan los contenedores, tener la CLI de AWS lista en tu computadora, y tener una cuenta de AWS para tus pruebas. Esto te pondrá en buen camino para empezar a jugar con la idea de lanzar aplicaciones en contenedores usando Amazon ECS.</p>
+<code>CannotPullContainerError</code> suele apuntar a la URI de imagen, a la salida de red o, si la imagen es privada, a permisos de pull del rol de ejecución. Si una tarea se detiene, revisa <code>stoppedReason</code> en <code>aws ecs describe-tasks</code> y los eventos del servicio. Un health check fallido puede indicar que la aplicación no escucha en el puerto configurado o que el comando de prueba no existe en la imagen.
 
+Para pasar de Nginx a una aplicación con datos, revisa la [demo ECS Fargate con Flask y DynamoDB](https://github.com/roxsross/roxs-aws-ecs-demo) y el [video comunitario de ECS, Flask y DynamoDB](https://www.youtube.com/watch?v=Ivtza36jJxA). La [guía de capacidad y escalado de DynamoDB](/blog/como-escala-dynamodb-modos-on-demand-y-provisioned/) ayuda a estimar el tráfico de esa base de datos.
 
-<h2 id="paso-1%3A-configuraci%C3%B3n-inicial-de-ecs" tabindex="-1">Paso 1: configuración inicial de ECS</h2>
+Para extender el ejemplo hacia una aplicación propia, revisa el [pipeline de despliegue de contenedores con GitHub, ECR y ECS Fargate](https://github.com/JonasCC8/AWS-Container-Deployment-with-GitHub-Integration). Si tu backend necesita persistencia, la referencia de [ECS Fargate con RDS y balanceo](https://www.alfredo-dominguez.dev/arquitecturas/02-scalable-backend/) muestra una arquitectura más amplia. Para un frontend server-side de Next.js, esta [arquitectura en ECS Fargate](https://dcastillogi.com/arquitecturas/despliegue-nextjs-ecs-fargate) combina CloudFront, S3, ALB, Aurora y GitHub Actions; es más infraestructura de la que requiere una web estática.
 
+## 5. Elimina lo creado
 
-<h3 id="1.1-crear-clave-de-credencial-de-usuario" tabindex="-1">1.1 Crear clave de credencial de usuario</h3>
+Detén la tarea antes de retirar los recursos. Espera a que el servicio tenga cero tareas activas y luego elimínalo. Después elimina el clúster, desregistra la revisión de tarea y elimina el grupo de logs, el grupo de seguridad y el rol que creaste aquí:
 
+<pre><code class="language-bash">aws ecs update-service --cluster "$CLUSTER_NAME" --service "$SERVICE_NAME" --desired-count 0 --region "$AWS_REGION"
+aws ecs wait services-stable --cluster "$CLUSTER_NAME" --services "$SERVICE_NAME" --region "$AWS_REGION"
+aws ecs delete-service --cluster "$CLUSTER_NAME" --service "$SERVICE_NAME" --region "$AWS_REGION"
+aws ecs wait services-inactive --cluster "$CLUSTER_NAME" --services "$SERVICE_NAME" --region "$AWS_REGION"
+aws ecs delete-cluster --cluster "$CLUSTER_NAME" --region "$AWS_REGION"
+aws ecs deregister-task-definition --task-definition "$TASK_DEFINITION_ARN" --region "$AWS_REGION"
+aws logs delete-log-group --log-group-name "$LOG_GROUP" --region "$AWS_REGION"</code></pre>
 
-<p>Para usar la AWS CLI, primero necesitamos unas claves especiales. Aquí te cuento cómo conseguirlas:</p>
+Cuando la interfaz de red de la tarea ya no exista, elimina el grupo de seguridad y el rol de ejecución de este tutorial:
 
+<pre><code class="language-bash">aws ec2 delete-security-group --group-id "$SECURITY_GROUP_ID" --region "$AWS_REGION"
+aws iam detach-role-policy --role-name "$ROLE_NAME" --policy-arn arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+aws iam delete-role --role-name "$ROLE_NAME"</code></pre>
 
-<ul>
-<li>Entra a la consola de AWS y busca IAM (Identity and Access Management).</li>
-<li>Elige "Usuarios" y después "Agregar usuario".</li>
-<li>Escribe un nombre para el usuario y marca la opción de "Acceso programático". Esto es para que se creen unas claves especiales.</li>
-<li>En la pantalla que sigue, verás tu clave de acceso y tu clave secreta. Guarda estos datos bien porque son importantes y no los podrás ver de nuevo.</li>
-</ul>
+No elimines la VPC ni la subred: este recorrido las reutiliza. Si usaste un rol preexistente en lugar del creado aquí, no ejecutes los comandos de IAM sobre ese rol. Fargate cobra por los recursos de la tarea desde que empieza a descargar su imagen hasta que termina, con un mínimo de un minuto; IPv4 pública, transferencia y logs pueden sumar otros cargos. Revisa la [tarifa vigente de ECS y Fargate](https://aws.amazon.com/ecs/pricing/) y confirma que el servicio figure como inactivo y que los recursos creados se hayan eliminado.
 
+## Para seguir practicando
 
-<h3 id="1.2-configurar-aws-cli" tabindex="-1">1.2 Configurar AWS CLI</h3>
+- La documentación oficial recorre una [tarea Fargate desde AWS CLI](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ECS_AWSCLI_Fargate.html) y explica la [red de tareas Fargate](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/fargate-task-networking.html), los [roles de IAM](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/security-iam-roles.html), los [health checks](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/healthcheck.html) y los [logs con awslogs](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/using_awslogs.html).
+- Para aprender infraestructura como código, continúa con el [workshop de Amazon ECS con Terraform](https://github.com/roxsross/workshop-ecs). Para explorar despliegues canary y reversión, prueba [ECS Canary in Action](https://github.com/roxsross/aws-ecs-canary-in-action).
+- La [AWS Student Builder Group de la UTN Facultad Regional Córdoba](https://www.meetup.com/aws-sbg-at-national-technologic-university-regional-faculty/) organiza **AWS Gaming Lab: ECS, CI/CD y la magia de Terraform**, un encuentro presencial en UTN FRC el **10 de octubre de 2026, de 12:00 a 14:00 (UTC−03:00)**. Consulta allí la sede, disponibilidad e inscripción antes de asistir: [página del evento](https://www.meetup.com/aws-sbg-at-national-technologic-university-regional-faculty/events/316821666/). La agenda se consultó el 6 de octubre de 2026.
 
+Para conversar sobre tu despliegue, puedes participar en [AWS User Group Córdoba](https://www.meetup.com/aws-user-group-cordoba-argentina/) o [AWS User Group Panamá](https://www.meetup.com/AWS-User-Group-Panama/), comunidades generales para aprender y compartir experiencias. Encuentra otros grupos en el [directorio de comunidades](/comunidades/) y próximas actividades en la [agenda AWS](/eventos/). Confirma las condiciones de cada encuentro en su ficha.
 
-<p>Ahora que tenemos nuestras claves, vamos a configurar la CLI. Simplemente escribe esto en tu terminal:</p>
-
-
-<pre><code>aws configure
-</code></pre>
-
-
-<p>Te pedirá que ingreses:</p>
-
-
-<ul>
-<li><strong>AWS Access Key ID</strong>: La clave de acceso de 20 caracteres</li>
-<li><strong>AWS Secret Access Key</strong>: La clave secreta de 40 caracteres</li>
-<li><strong>Default region name</strong>: Elige la región de AWS que prefieras, como us-east-1</li>
-<li><strong>Default output format</strong>: escribe json</li>
-</ul>
-
-
-<p>Con esto, ya estás listo para usar la AWS CLI y manejar tus recursos en AWS. Para asegurarte de que todo está bien configurado, prueba con:</p>
-
-
-<pre><code>aws sts get-caller-identity
-</code></pre>
-
-
-<p>Este comando te mostrará información sobre tu cuenta de AWS.</p>
-
-
-<h2 id="paso-2%3A-crear-y-configurar-un-cl%C3%BAster-ecs" tabindex="-1">Paso 2: crear y configurar un clúster ECS</h2>
-
-
-<h3 id="2.1-crear-cl%C3%BAster-ecs" tabindex="-1">2.1 Crear clúster ECS</h3>
-
-
-<p>Para empezar con tu clúster ECS, haz lo siguiente:</p>
-
-
-<ul>
-<li>Entra a la consola de AWS y busca la sección de ECS.</li>
-<li>Selecciona "Crear clúster".</li>
-<li>Escoge la opción "EC2 Linux + Networking" y dale a "Siguiente".</li>
-<li>Ponle un nombre a tu clúster para identificarlo fácilmente.</li>
-<li>Deja la cantidad de instancias en 1 para iniciar.</li>
-<li>En "Redes", elige una VPC y subnets que ya tengas, o crea unas nuevas solo para este clúster.</li>
-<li>Dale clic a "Crear".</li>
-</ul>
-
-
-<p>Con estos pasos, tu clúster estará listo para manejar tareas y servicios con imágenes Docker.</p>
-
-
-<h3 id="2.2-configurar-instancia-ec2" tabindex="-1">2.2 Configurar instancia EC2</h3>
-
-
-<p>Ahora, vamos a preparar la instancia EC2 que tu clúster va a usar:</p>
-
-
-<ul>
-<li>Ve a la sección de EC2 en la consola de AWS.</li>
-<li>Encuentra la instancia que ECS creó por ti. Debería tener el nombre de tu clúster.</li>
-<li>Selecciona "Configurar detalles de la instancia".</li>
-<li>Escoge una plantilla Linux, como Amazon Linux 2.</li>
-<li>Selecciona un tipo de instancia, como t2.micro para empezar.</li>
-<li>Asegúrate de que la interfaz de red esté en la misma VPC y subnet que tu clúster.</li>
-<li>Guarda los cambios.</li>
-</ul>
-
-
-<p>Para conectarte por SSH a tu instancia EC2, necesitas un par de claves. Aquí te explicamos cómo:</p>
-
-
-<ul>
-<li>En EC2, ve a "Pares de claves".</li>
-<li>Clic en "Crear par de claves".</li>
-<li>Dale un nombre y descarga el archivo .pem con las claves.</li>
-<li>Selecciona tu instancia EC2 y en "Acciones", ve a "Configuración de la instancia" &gt; "Adjuntar/Reemplazar rol IAM".</li>
-<li>Usa el rol EC2 que ECS ya tiene listo. Esto le da los permisos que necesita.</li>
-<li>Finalmente, en "Grupos de seguridad", permite SSH desde tu IP.</li>
-</ul>
-
-
-<p>Siguiendo estos pasos, podrás conectarte y manejar tu instancia EC2 sin problemas.</p>
-
-
-<h2 id="paso-3%3A-definici%C3%B3n-de-tareas" tabindex="-1">Paso 3: definición de tareas</h2>
-
-
-<h3 id="3.1-crear-definici%C3%B3n-de-tarea" tabindex="-1">3.1 Crear definición de tarea</h3>
-
-
-<p>Para que tus contenedores Docker funcionen en tu clúster de ECS, primero necesitas decirle a ECS qué imagen de Docker quieres usar y cómo debe configurarla. Es como darle una receta de cocina.</p>
-
-
-<ul>
-<li>Ve a la consola de ECS y busca "Definiciones de tareas".</li>
-<li>Haz clic en "Crear nueva definición de tarea".</li>
-<li>Escoge si vas a usar Fargate o EC2 y qué tipo de plataforma.</li>
-<li>Cuando llegues a la parte de contenedores, selecciona "Agregar contenedor".</li>
-<li>Pon el nombre de la imagen de Docker que vas a usar, como <code class="inline-code">nginx</code>.</li>
-<li>Decide cuánta CPU y memoria va a necesitar.</li>
-<li>En "Opciones avanzadas", busca la parte de "Puertos".</li>
-<li>Añade un mapeo de puertos para conectar el puerto de la imagen Docker (normalmente 80 para Nginx) con el puerto de tu instancia EC2, por ejemplo <code class="inline-code">80</code>.</li>
-</ul>
-
-
-<p>Con estos pasos, ya tienes una definición de tarea lista. No olvides ponerle un nombre que te ayude a recordar para qué es.</p>
-
-
-<h3 id="3.2-configurar-contenedor-docker" tabindex="-1">3.2 Configurar contenedor Docker</h3>
-
-
-<p>Cuando estés configurando tu contenedor en la definición de tarea, hay cosas clave que debes ajustar:</p>
-
-
-<ul>
-<li><strong>Puertos</strong>: Conecta el puerto de tu imagen Docker con un puerto en tu instancia EC2 para que la gente pueda acceder a tu aplicación.</li>
-<li><strong>CPU/Memoria</strong>: Asigna la cantidad correcta de CPU y RAM que tu aplicación necesita. Si ves que necesitas ajustar esto más adelante, puedes hacerlo sin problema.</li>
-<li><strong>Volúmenes de datos</strong>: Si tu aplicación necesita guardar datos de manera permanente, asegúrate de añadir volúmenes para ello.</li>
-<li><strong>Variables de entorno</strong>: Si tu aplicación necesita ciertas variables para funcionar, aquí es donde las defines.</li>
-</ul>
-
-
-<p>Configurando bien estos aspectos, tu contenedor debería correr sin problemas en las instancias EC2 de tu clúster de ECS.</p>
-
-
-<h2 id="paso-4%3A-configurar-y-desplegar-el-servicio" tabindex="-1">Paso 4: configurar y desplegar el servicio</h2>
-
-
-<h3 id="4.1-configurar-par%C3%A1metros-del-servicio" tabindex="-1">4.1 Configurar parámetros del servicio</h3>
-
-
-<p>Para poner a punto los detalles de tu servicio en Amazon ECS, aquí tienes unos pasos claros:</p>
-
-
-<ul>
-<li>Primero, decide si vas a usar EC2 o Fargate. Aquí, vamos con EC2.</li>
-<li>Luego, piensa en cuántas copias de tu aplicación quieres que corran al mismo tiempo. Empezar con una está bien.</li>
-<li>Si tu aplicación va a recibir visitas por Internet, probablemente necesites un balanceador de carga. Esto ayuda a distribuir las visitas para que no se sature.</li>
-<li>Por último, aunque no es necesario de inmediato, piensa en Auto Scaling. Esto ajusta automáticamente el número de copias de tu aplicación según cuánta gente la esté usando.</li>
-</ul>
-
-
-<h3 id="4.2-desplegar-el-servicio" tabindex="-1">4.2 Desplegar el servicio</h3>
-
-
-<p>Ahora que ya configuraste todo, es hora de lanzar tu servicio:</p>
-
-
-<ul>
-<li>Asegúrate de que la definición de tareas que hiciste antes es la que quieres usar.</li>
-<li>Escoge el clúster de ECS donde quieres que corra tu servicio.</li>
-<li>Dale a "Siguiente".</li>
-<li>En la pantalla de revisión, chequea que todo esté como lo quieres.</li>
-<li>Haz clic en "Crear servicio".</li>
-<li>Espera un poco mientras tu servicio se pone en marcha. Esto puede tardar unos minutos.</li>
-<li>Cuando el servicio esté listo, tu aplicación debería estar disponible para usar, ya sea a través del balanceador de carga o usando la dirección IP de tu instancia EC2.</li>
-</ul>
-
-
-<p>Siguiendo estos pasos, habrás logrado desplegar tu servicio en Amazon ECS con EC2. Ahora, tu aplicación debe estar funcionando y lista para recibir visitas.</p>
-
-
-
-
-<h2 id="paso-5%3A-verificaci%C3%B3n-y-pruebas" tabindex="-1">Paso 5: verificación y pruebas</h2>
-
-
-<h3 id="5.1-comprobar-la-instancia-ec2" tabindex="-1">5.1 Comprobar la instancia EC2</h3>
-
-
-<p>Para asegurarte de que tu aplicación funciona bien en la instancia EC2, haz lo siguiente:</p>
-
-
-<ul>
-<li>Ve a la consola de EC2 y encuentra la instancia que usas para tu clúster ECS.</li>
-<li>Toma la dirección IP pública (IPv4) de esa instancia.</li>
-<li>Escribe esa IP en tu navegador para ver tu aplicación. Por ejemplo, si usas Nginx, deberías ver su página de inicio.</li>
-</ul>
-
-
-<p>Si no puedes ver tu aplicación, puede ser que el grupo de seguridad no esté configurado para dejar pasar el tráfico. Para arreglarlo:</p>
-
-
-<ul>
-<li>En la consola de EC2, busca el grupo de seguridad de tu instancia.</li>
-<li>Ve a la sección de reglas de entrada.</li>
-<li>Añade una regla nueva que permita:</li>
-<li>Tipo: HTTP</li>
-<li>Protocolo: TCP</li>
-<li>Puerto: 80</li>
-<li>Origen: 0.0.0.0/0 (esto significa que cualquiera puede acceder)</li>
-</ul>
-
-
-<p>Con estos pasos, deberías poder entrar a tu aplicación sin problemas usando la dirección IP.</p>
-
-
-<h3 id="5.2-probar-el-funcionamiento" tabindex="-1">5.2 Probar el funcionamiento</h3>
-
-
-<p>Con tu aplicación ya en línea, prueba estas cosas para ver que todo marcha bien:</p>
-
-
-<ul>
-<li>Navega por las diferentes páginas o secciones de tu aplicación web. Si tienes una API, prueba algunos de sus servicios.</li>
-<li>Si tu aplicación guarda información entre visitas, asegúrate de que esta función trabaje correctamente.</li>
-<li>Intenta simular usuarios reales usando herramientas como ab o jmeter para ver cómo responde tu aplicación.</li>
-<li>Revisa los registros en CloudWatch para identificar posibles errores o problemas.</li>
-<li>Configura alarmas en CloudWatch para monitorear aspectos importantes como el uso de CPU, la memoria, o si hay errores.</li>
-</ul>
-
-
-<p>Haciendo estas pruebas, podrás confirmar que tu aplicación está lista para ser usada por otras personas.</p>
-
-
-<h2 id="paso-6%3A-administraci%C3%B3n-y-escalado-de-tu-aplicaci%C3%B3n-en-ecs" tabindex="-1">Paso 6: administración y escalado de tu aplicación en ECS</h2>
-
-
-<h3 id="monitoreo-de-recursos" tabindex="-1">Monitoreo de recursos</h3>
-
-
-<p>Es clave que revisemos con frecuencia cómo están trabajando nuestros recursos en el clúster de ECS para asegurarnos de que todo va bien. Aquí algunas cosas a tener en cuenta:</p>
-
-
-<ul>
-<li>Chequear el uso de CPU y memoria en las instancias EC2. Si se están quedando cortas, podría afectar cómo corren los contenedores.</li>
-<li>Verificar que los servicios y tareas en ECS estén funcionando como esperamos. Es importante tener siempre el número de tareas activas que necesitamos.</li>
-<li>Observar cómo están trabajando los contenedores, por ejemplo, cuántas solicitudes reciben por segundo o si están tardando mucho en responder.</li>
-<li>Revisar los registros de los contenedores en CloudWatch para buscar errores o advertencias.</li>
-</ul>
-
-
-<p>Podemos crear paneles en CloudWatch con las métricas más importantes para tener todo a la vista. También es buena idea poner alarmas que nos avisen si algo no está bien, como demasiados errores o un aumento inesperado en el uso de recursos.</p>
-
-
-<h3 id="escalado-vertical-y-horizontal" tabindex="-1">Escalado vertical y horizontal</h3>
-
-
-<p>Si llega más tráfico, tal vez necesitemos más recursos. Podemos hacerlo de dos maneras:</p>
-
-
-<p><strong>Vertical</strong>: hacemos más grandes las instancias EC2 para que tengan más potencia.</p>
-
-
-<p><strong>Horizontal</strong>: agregamos más tareas e instancias EC2 para repartir el trabajo.</p>
-
-
-<p>Para escalar horizontalmente en ECS, simplemente aumentamos el número de tareas en la configuración del servicio. ECS se encarga de agregar más instancias EC2 si hace falta. También podemos configurar reglas de Auto Scaling para que esto se ajuste automáticamente.</p>
-
-
-<p>Para el escalado vertical, cambiamos a un tipo de instancia EC2 más grande.</p>
-
-
-<p>Lo mejor es ir viendo cómo va el rendimiento y ajustar los recursos poco a poco. Un buen indicador es el uso de CPU, tratando de que no pase del 60-70% bajo carga máxima.</p>
-
-
-<h3 id="actualizaciones-y-despliegues" tabindex="-1">Actualizaciones y despliegues</h3>
-
-
-<p>También tenemos que saber cómo actualizar nuestra aplicación sin interrupciones. Algunas formas de hacerlo son:</p>
-
-
-<ul>
-<li>Despliegue Blue/Green: mantenemos 2 versiones en producción y vamos cambiando el tráfico entre ellas.</li>
-<li>Despliegue Canary: lanzamos la nueva versión solo a un pequeño grupo de usuarios primero. Si todo sale bien, seguimos con todos.</li>
-<li>Actualizaciones progresivas: actualizamos algunas tareas primero y vamos avanzando poco a poco.</li>
-</ul>
-
-
-<p>Es crucial tener un plan para volver atrás si algo sale mal con una actualización. ECS nos permite regresar a la versión anterior de una tarea fácilmente.</p>
-
-
-<p>Con un buen manejo de monitoreo, escalado y actualizaciones, podemos mantener nuestra aplicación en ECS funcionando de maravilla.</p>
-
-
-<h2 id="conclusi%C3%B3n" tabindex="-1">Conclusión</h2>
-
-
-<p>En esta guía, te mostramos cómo poner en marcha una aplicación web usando Amazon ECS y Fargate, paso a paso. Aquí lo que aprendimos:</p>
-
-
-<ul>
-<li>Cómo empezar configurando la AWS CLI y tus credenciales.</li>
-<li>Cómo crear un clúster en ECS con una instancia EC2.</li>
-<li>Cómo decirle a ECS qué imagen Docker queremos usar mediante una definición de tarea.</li>
-<li>Cómo ajustar los detalles de nuestro servicio, como cuánta memoria o CPU necesita.</li>
-<li>Cómo hacer que nuestro servicio empiece a funcionar en el clúster.</li>
-<li>Cómo comprobar que todo está funcionando bien y hacer pruebas.</li>
-<li>Cómo mantener un ojo en cómo va todo, cómo hacer que nuestra aplicación pueda manejar más visitas y cómo actualizarla.</li>
-</ul>
-
-
-<p>Estos pasos básicos te ayudarán a lanzar aplicaciones en contenedores, sin que te tengas que romper la cabeza con la infraestructura que está por debajo.</p>
-
-
-<p>Amazon ECS hace más sencillo trabajar con contenedores en AWS, permitiéndote enfocarte más en tu código. Con la ayuda de servicios como Fargate, Elastic Load Balancing y Auto Scaling, puedes hacer que tus aplicaciones sean capaces de ajustarse a más visitas y ser más estables sin mucho esfuerzo.</p>
-
-
-<p>ECS es una buena opción para cualquier tipo de proyecto en la nube, desde aplicaciones pequeñas hasta sistemas grandes de microservicios. Vale la pena considerarlo si estás pensando en modernizar cómo lanzas tus aplicaciones.</p>
-
-
-<h2 id="preguntas-frecuentes" tabindex="-1">Preguntas frecuentes</h2>
-
-
-<h3 id="%C2%BFc%C3%B3mo-desplegar-una-aplicaci%C3%B3n-en-aws%3F" tabindex="-1">¿Cómo desplegar una aplicación en AWS?</h3>
-
-
-<p>Para lanzar una aplicación que usa contenedores en AWS, sigue estos pasos básicos:</p>
-
-
-<ul>
-<li>Asegúrate de tener lista la imagen de Docker de tu aplicación.</li>
-<li>Crea un clúster usando ECS o EKS para ejecutar tus contenedores.</li>
-<li>Define una tarea en ECS con esa imagen de tu aplicación.</li>
-<li>Configura un servicio en el clúster para mantener esa tarea en funcionamiento.</li>
-<li>Si es necesario, usa un balanceador de carga para que tu servicio sea accesible desde Internet.</li>
-</ul>
-
-
-<p>Es clave también manejar bien los permisos y la configuración de la red, mantener un ojo en los recursos y estar listo para aumentar la capacidad o actualizar tu aplicación cuando haga falta.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-es-ecs-amazon%3F" tabindex="-1">¿Qué es ECS Amazon?</h3>
-
-
-<p>Amazon Elastic Container Service (ECS) es un servicio de AWS para ejecutar y manejar contenedores Docker en la nube. Te permite crear grupos de máquinas virtuales o usar Fargate para que no tengas que lidiar con la infraestructura. Después, puedes definir tareas y desplegar servicios que mantengan esas tareas activas en tu grupo. ECS trabaja bien con muchos otros servicios de AWS.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-servicio-se-utiliza-para-ejecutar-aplicaciones-en-contenedores-en-aws%3F" tabindex="-1">¿Qué servicio se utiliza para ejecutar aplicaciones en <a href="https://kubernetes.io/docs/concepts/containers/" rel="noopener noreferrer" target="_blank">contenedores</a> en AWS?</h3>
-
-
-<p><figure><img alt="contenedores" src="/assets/blog/b00e1f818f2c35dc864477db.jpg"/></figure></p>
-
-
-<p>Los servicios principales de AWS para ejecutar aplicaciones en contenedores son:</p>
-
-
-<ul>
-<li><strong>Amazon ECS</strong>: Ideal para ejecutar contenedores Docker en instancias EC2 o con Fargate, donde no tienes que preocuparte por los servidores. Es fácil de usar.</li>
-<li><strong>Amazon EKS</strong>: Usa Kubernetes para manejar contenedores a gran escala. Es más complejo pero muy potente.</li>
-</ul>
-
-
-<p>Ambos servicios son buenas opciones para contenerizar aplicaciones en AWS. La elección entre ellos depende de tus necesidades específicas.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-es-amazon-fargate%3F" tabindex="-1">¿Qué es Amazon Fargate?</h3>
-
-
-<p>Amazon Fargate es una manera de correr contenedores en AWS sin tener que manejar servidores. No necesitas pensar en las instancias EC2. Solo defines tus tareas y servicios en ECS o EKS, y Fargate asigna los recursos necesarios para que se ejecuten. Pagas únicamente por los recursos que usan tus contenedores. Es una opción excelente para aplicaciones en contenedores que buscan una solución sin servidores.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ecs/">Mejores prácticas para Amazon ECS</a></li><li><a href="https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/">Cómo desplegar contenedores en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/opciones-para-desplegar-contenedores-en-aws-ecs-y-eks/">Opciones para desplegar contenedores en AWS: ECS y EKS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-eks/">Mejores prácticas para Amazon EKS</a></li>
-</ul>
-</p>
+La siguiente ruta de esta serie es [desplegar una aplicación en Amazon EKS](/blog/como-desplegar-una-aplicacion-en-amazon-eks/) si quieres practicar Kubernetes, o volver a la [guía para elegir servicio de contenedores](/blog/como-desplegar-contenedores-en-aws/).
