@@ -1,534 +1,169 @@
 ---
-title: "Configurar CORS en HTTP API Gateway"
-description: "Aprende a configurar CORS en API Gateway de AWS para asegurar el acceso a tu API desde diferentes dominios de manera eficiente."
+title: "Cómo configurar CORS en HTTP API de API Gateway"
+description: "Configura CORS en HTTP API (v2) con AWS CLI y entiende preflight OPTIONS, rutas $default con autorización, credenciales y errores del navegador."
 author: "guille-ojeda"
 publishedAt: "2025-03-10"
 publishedTimestamp: "2025-03-10T05:50:46.65Z"
+modifiedTimestamp: "2026-10-06T13:57:35-03:00"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "AWS Lambda y API Gateway: guía básica"
+  - title: "AWS Lambda y API Gateway: crea una HTTP API paso a paso"
     url: "https://dondeaprendoaws.com/blog/aws-lambda-y-api-gateway-guia-basica/"
-  - title: "AWS OpsWorks: automatiza despliegues con Chef"
-    url: "https://dondeaprendoaws.com/blog/aws-opsworks-automatiza-despliegues-con-chef/"
-  - title: "AWS seguridad: mejores prácticas"
-    url: "https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/"
-
+  - title: "Lambda authorizers: seguridad, JWT y caché en API Gateway"
+    url: "https://dondeaprendoaws.com/blog/5-practicas-de-seguridad-para-lambda-authorizers/"
+review:
+  date: "2026-10-06"
 ---
 
-<p><strong>¿Quieres que tu API sea accesible desde diferentes dominios de forma segura? Configurar CORS (Cross-Origin Resource Sharing) es clave para lograrlo.</strong></p>
+Para que una página web lea una respuesta de una HTTP API de Amazon API Gateway alojada en otro origen, configura CORS en la API. En una **HTTP API (API Gateway v2)**, API Gateway puede responder automáticamente a las solicitudes preflight `OPTIONS` y añadir las cabeceras CORS configuradas a las respuestas de la integración. Si tu API usa una ruta `$default` con autorizador, agrega además una ruta `OPTIONS /{proxy+}` sin autorización para que el preflight no quede bloqueado.
 
+CORS es una regla que aplica el navegador: decide si el código de una página puede leer una respuesta de otro origen. No autentica al usuario ni reemplaza la autorización de la API; una llamada hecha con `curl` o desde otro servidor no está sujeta a esa regla del navegador. Un origen incluye protocolo, host y puerto, por lo que `https://app.example.com` y `http://app.example.com` son distintos. [MDN explica el modelo CORS del navegador](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS).
 
-<p>Esta guía rápida te explica cómo configurar CORS en un HTTP <a href="https://docs.aws.amazon.com/apigateway/latest/developerguide/welcome.html" rel="noopener noreferrer" target="_blank">API Gateway</a> de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> en pocos pasos:</p>
+## Qué configura CORS en una HTTP API
 
+La configuración CORS de la API define qué origen puede leer la respuesta, qué métodos puede enviar el navegador, qué cabeceras puede incluir la solicitud y, si corresponde, qué cabeceras de respuesta puede leer el código. Para HTTP APIs, AWS documenta estos ajustes en la [guía de CORS de API Gateway](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-cors.html).
 
-<ul>
-<li><strong>¿Qué es CORS?</strong>: Es un mecanismo de seguridad que permite que un frontend (por ejemplo, <code class="inline-code">https://miapp.com</code>) acceda a una API en otro dominio (<code class="inline-code">https://api.miapp.com</code>).</li>
-<li><strong>HTTP API vs REST API</strong>: La configuración de CORS en HTTP API es más sencilla y económica que en REST API.</li>
-<li><strong>Pasos básicos</strong>:
-<ol>
-<li>Accede a la consola de API Gateway.</li>
-<li>Selecciona tu HTTP API.</li>
-<li>Configura los parámetros de CORS: orígenes, métodos, cabeceras y más.</li>
-</ol>
-</li>
-<li><strong><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">mejores prácticas</a></strong>:
-<ul>
-<li>Restringe los orígenes permitidos.</li>
-<li>Especifica solo los métodos y cabeceras necesarios.</li>
-<li>Activa credenciales solo si es imprescindible.</li>
-</ul>
-</li>
-</ul>
+| Propiedad de API Gateway | Cabecera CORS | Para qué sirve |
+| --- | --- | --- |
+| `AllowOrigins` | `Access-Control-Allow-Origin` | Orígenes web permitidos, con protocolo y host. |
+| `AllowMethods` | `Access-Control-Allow-Methods` | Métodos de la solicitud real, por ejemplo `GET` o `POST`. |
+| `AllowHeaders` | `Access-Control-Allow-Headers` | Cabeceras que el navegador puede enviar, por ejemplo `content-type` o `authorization`. |
+| `ExposeHeaders` | `Access-Control-Expose-Headers` | Cabeceras de respuesta que el JavaScript podrá consultar. |
+| `AllowCredentials` | `Access-Control-Allow-Credentials` | Permite que el navegador comparta la respuesta de una solicitud con credenciales. |
+| `MaxAge` | `Access-Control-Max-Age` | Segundos durante los que el navegador puede reutilizar el resultado del preflight. |
 
+No agregues `OPTIONS` a `AllowMethods` solo porque el navegador envía un preflight `OPTIONS`: esa lista debe permitir el método de la **solicitud real** que el preflight está comprobando, como `POST`. La ruta `OPTIONS` que se necesita en el caso especial de `$default` es una regla de enrutamiento de API Gateway y cumple otra función.
 
-<h3 id="comparativa-rapida-http-api-vs-rest-api" tabindex="-1">Comparativa rápida: HTTP API vs REST API</h3>
+## Preflight: qué ocurre antes de la solicitud real
 
+Algunas solicitudes cross-origin necesitan una comprobación previa. Por ejemplo, el navegador suele hacer preflight para una llamada `POST` con `Content-Type: application/json` o una cabecera `Authorization`. Envía `OPTIONS` con `Origin`, `Access-Control-Request-Method` y, si corresponde, `Access-Control-Request-Headers`. Si la respuesta no autoriza el origen, el método y las cabeceras solicitadas, el navegador no envía la solicitud real.
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Característica</th>
-<th>HTTP API</th>
-<th>REST API</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Configuración de CORS</td>
-<td>Automática y sencilla</td>
-<td>Manual y compleja</td>
-</tr>
-<tr>
-<td>Rendimiento</td>
-<td>Menor latencia</td>
-<td>Más funcionalidades</td>
-</tr>
-<tr>
-<td>Coste</td>
-<td>Más económico</td>
-<td>Más alto</td>
-</tr>
-</tbody>
-</table></figure>
+Las solicitudes simples pueden no tener preflight. En ese caso, el navegador envía la solicitud y luego decide si permite que JavaScript lea la respuesta. Por eso, no encontrar una llamada `OPTIONS` en las herramientas de desarrollo no demuestra por sí mismo que CORS esté configurado mal.
 
+Cuando defines CORS en una HTTP API, API Gateway responde automáticamente a preflight `OPTIONS`, incluso si no creaste una ruta OPTIONS, y agrega las cabeceras configuradas a las respuestas de la integración. También **ignora las cabeceras CORS que devuelva esa integración**. Esto evita mantener dos configuraciones distintas: administra CORS en API Gateway o, si no lo configuras allí, haz que la integración genere las cabeceras necesarias. [AWS detalla ambos comportamientos](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-cors.html).
 
-<p><strong>¿Problemas con CORS?</strong> Revisa los errores más comunes y cómo solucionarlos en las herramientas del navegador.</p>
+## Configurar CORS desde la consola o AWS CLI
 
+En la consola, abre tu HTTP API en API Gateway y edita su sección **CORS**. Permite solo los orígenes, métodos y cabeceras que necesita el cliente web. Si no vas a enviar cookies de navegador, deja desactivadas las credenciales.
 
-<p>Con esta guía, podrás configurar CORS de forma segura y eficiente. ¡Sigue leyendo para aprender más!</p>
+Para aplicar el mismo cambio con AWS CLI, crea un archivo `cors.json`:
 
-
-<h2 class="sb h2-sbb-cls" id="configuracion-de-cors-en-http-api-gateway" tabindex="-1">Configuración de CORS en HTTP <a href="https://docs.aws.amazon.com/apigateway/latest/developerguide/welcome.html" rel="noopener noreferrer" target="_blank">API Gateway</a></h2>
-
-
-<p><figure><img alt="API Gateway" src="/assets/blog/3bd76b02d8cc943a4861866d.jpg"/></figure></p>
-
-
-<h3 id="como-acceder-a-la-configuracion-de-cors" tabindex="-1">Cómo acceder a la configuración de CORS</h3>
-
-
-<p>Para ajustar CORS en una HTTP API de API Gateway, primero debes ingresar a la <a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">consola de AWS</a> y localizar tu API. Una vez dentro, sigue estos pasos para encontrar la sección de configuración:</p>
-
-
-<ol>
-<li>Ve a la consola de API Gateway.</li>
-<li>Selecciona tu HTTP API en la lista.</li>
-<li>En el menú de navegación izquierdo, haz clic en <strong>CORS</strong>.</li>
-<li>En la sección principal, selecciona <strong>Configurar</strong>.</li>
-</ol>
-
-
-<p>A continuación, revisa las opciones disponibles para personalizar la configuración.</p>
-
-
-<h3 id="parametros-de-configuracion-de-cors" tabindex="-1">Parámetros de configuración de CORS</h3>
-
-
-<p>En HTTP API Gateway, puedes personalizar varios parámetros de CORS según tus necesidades. Aquí tienes una tabla con ejemplos comunes:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Parámetro</th>
-<th>Descripción</th>
-<th>Ejemplo</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Access-Control-Allow-Origins</td>
-<td>Especifica los orígenes permitidos</td>
-<td>https://miapp.es</td>
-</tr>
-<tr>
-<td>Access-Control-Allow-Methods</td>
-<td>Métodos HTTP autorizados</td>
-<td>GET, POST, PUT, DELETE, OPTIONS</td>
-</tr>
-<tr>
-<td>Access-Control-Allow-Headers</td>
-<td>Cabeceras permitidas en las solicitudes</td>
-<td>Authorization, Content-Type, X-Amz-Date, X-Api-Key, X-Amz-Security-Token</td>
-</tr>
-<tr>
-<td>Access-Control-Expose-Headers</td>
-<td>Cabeceras visibles para el cliente</td>
-<td>x-amz-date, x-api-id</td>
-</tr>
-<tr>
-<td>Access-Control-Max-Age</td>
-<td>Tiempo en segundos para cachear preflight</td>
-<td>300 segundos</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Ahora veamos cómo aplicar esta configuración en un caso práctico.</p>
-
-
-<h3 id="ejemplo-basico-de-configuracion-de-cors" tabindex="-1">Ejemplo básico de configuración de CORS</h3>
-
-
-<p>Con los pasos anteriores, puedes implementar una configuración básica ajustando los siguientes parámetros:</p>
-
-
-<ul>
-<li>
-<strong>Orígenes permitidos</strong><br/>
-Agrega el dominio de tu aplicación: <code class="inline-code">https://miapp.es</code>
-</li>
-<li>
-<strong>Métodos HTTP autorizados</strong><br/>
-Incluye métodos como: <code class="inline-code">GET, POST, PUT, DELETE, OPTIONS</code>
-</li>
-<li>
-<strong>Cabeceras permitidas</strong><br/>
-Especifica cabeceras como: <code class="inline-code">Authorization, Content-Type, X-Amz-Date, X-Api-Key, X-Amz-Security-Token</code>
-</li>
-</ul>
-
-
-<p>Antes de llevar esta configuración a producción, realiza una prueba en tu navegador. Asegúrate de que la respuesta incluya las cabeceras CORS esperadas. Esto garantizará que las solicitudes desde tu dominio funcionen correctamente.</p>
-
-
-<h2 class="sb h2-sbb-cls" id="configuracion-personalizada-de-cors" tabindex="-1">Configuración personalizada de CORS</h2>
-
-
-<p>Tras haber configurado CORS de manera básica, es momento de ajustar las opciones para que se adapten mejor a las necesidades específicas de tu entorno.</p>
-
-
-<h3 id="restriccion-de-origenes-permitidos" tabindex="-1">Restricción de orígenes permitidos</h3>
-
-
-<p>Definir con precisión los orígenes autorizados es clave. En lugar de usar el comodín <code class="inline-code">*</code>, que permite acceso desde cualquier origen, es mejor especificar los dominios permitidos.</p>
-
-
-<p>Por ejemplo, puedes configurar los orígenes así:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Entorno</th>
-<th>Origen permitido</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Desarrollo</td>
-<td>https://dev.miapp.es</td>
-</tr>
-<tr>
-<td>Pruebas</td>
-<td>https://staging.miapp.es</td>
-</tr>
-<tr>
-<td>Producción</td>
-<td>https://miapp.es</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Incluye siempre el protocolo y, si es necesario, el subdominio. Una vez definidos los orígenes, ajusta los métodos y las cabeceras permitidas para aumentar la seguridad.</p>
-
-
-<h3 id="definicion-de-metodos-y-cabeceras" tabindex="-1">Definición de métodos y cabeceras</h3>
-
-
-<p>Además de limitar los orígenes, es importante especificar los métodos y cabeceras que estará permitido usar. Solo habilita lo necesario para tu aplicación.</p>
-
-
-<p>Si tu API realiza operaciones CRUD básicas, una configuración típica sería:</p>
-
-
-<pre><code class="language-json">{
-    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Authorization, Content-Type, X-Amz-Date"
+```json
+{
+  "AllowOrigins": ["https://app.example.com"],
+  "AllowMethods": ["GET", "POST"],
+  "AllowHeaders": ["content-type", "authorization"],
+  "ExposeHeaders": ["x-request-id"],
+  "MaxAge": 300,
+  "AllowCredentials": false
 }
-</code></pre>
+```
 
+Con una identidad de AWS CLI autorizada, selecciona la región y el ID de la HTTP API existente y aplica el archivo:
 
-<h3 id="manejo-de-credenciales" tabindex="-1">Manejo de credenciales</h3>
+```bash
+export AWS_REGION="us-east-1"
+export API_ID="abc123"
 
+aws apigatewayv2 update-api \
+  --api-id "$API_ID" \
+  --region "$AWS_REGION" \
+  --cors-configuration file://cors.json \
+  --no-cli-pager
+```
 
-<p>El manejo de credenciales en solicitudes cross-origin es esencial si necesitas trabajar con cookies o encabezados de autorización. Para habilitarlo, sigue estos pasos:</p>
+El comando modifica la configuración de esa API. Verifica el resultado con `get-api` antes de probar desde la aplicación:
 
+```bash
+aws apigatewayv2 get-api \
+  --api-id "$API_ID" \
+  --region "$AWS_REGION" \
+  --query CorsConfiguration \
+  --output json \
+  --no-cli-pager
+```
 
-<ol>
-<li>
-Configura en el API Gateway lo siguiente:
-<pre><code class="language-json">{
-    "Access-Control-Allow-Credentials": "true"
-}
-</code></pre>
-</li>
-<li>
-En el cliente, agrega <code class="inline-code">credentials: 'include'</code> en tus solicitudes fetch:
-<pre><code class="language-javascript">fetch('https://api.miapp.es/recurso', {
-    credentials: 'include'
+Las propiedades del JSON (`AllowOrigins`, `AllowMethods` y las demás) corresponden a la estructura que acepta [`update-api` para HTTP APIs](https://docs.aws.amazon.com/cli/latest/reference/apigatewayv2/update-api.html). Usa `apigatewayv2`: `apigateway` es el conjunto de comandos para REST API y su configuración no es intercambiable.
+
+Los cambios llegan a las etapas automáticamente si tienen `AutoDeploy` activado. Compruébalo con [`get-stages`](https://docs.aws.amazon.com/cli/latest/reference/apigatewayv2/get-stages.html): `aws apigatewayv2 get-stages --api-id "$API_ID" --region "$AWS_REGION"`. Si la etapa que usas no despliega automáticamente, publica la nueva configuración en esa etapa:
+
+```bash
+export STAGE="prod"
+
+aws apigatewayv2 create-deployment \
+  --api-id "$API_ID" \
+  --stage-name "$STAGE" \
+  --region "$AWS_REGION" \
+  --no-cli-pager
+```
+
+AWS explica que las etapas HTTP con despliegue automático reciben los cambios enseguida y las demás necesitan un despliegue. Consulta [etapas de HTTP API](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-stages.html) y el comando [`create-deployment`](https://docs.aws.amazon.com/cli/latest/reference/apigatewayv2/create-deployment.html).
+
+### Si `$default` tiene autorización
+
+La ruta `$default` recibe métodos y rutas que no tienen una coincidencia más específica, incluidas solicitudes `OPTIONS`. Si esa ruta tiene autorizador, el preflight normalmente llega sin la identidad o credencial que requiere la ruta real. AWS indica crear una ruta `OPTIONS /{proxy+}` sin autorización y asociarle una integración; esta ruta tiene prioridad sobre `$default`.
+
+El siguiente ejemplo supone que ya existe una integración para la HTTP API, que `INTEGRATION_ID` es su identificador y que aún no existe esa ruta. Si el cliente llama a la ruta raíz `/`, crea también una ruta `OPTIONS /` sin autorización.
+
+```bash
+export INTEGRATION_ID="abc456"
+
+aws apigatewayv2 create-route \
+  --api-id "$API_ID" \
+  --route-key 'OPTIONS /{proxy+}' \
+  --authorization-type NONE \
+  --target "integrations/$INTEGRATION_ID" \
+  --region "$AWS_REGION" \
+  --no-cli-pager
+```
+
+No asocies un autorizador a esta ruta OPTIONS. El ejemplo se basa en las opciones de [`create-route`](https://docs.aws.amazon.com/cli/latest/reference/apigatewayv2/create-route.html) y en la [prioridad de rutas de HTTP API](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-routes.html). Si la ruta ya existe, edita esa ruta en vez de intentar crear un duplicado.
+
+Para un recorrido desde cero —crear una función, integrarla y exponer una ruta— consulta la [guía para construir una HTTP API con Lambda](https://dondeaprendoaws.com/blog/aws-lambda-y-api-gateway-guia-basica/). Este artículo se concentra en CORS y no requiere crear una API nueva.
+
+## Credenciales y orígenes permitidos
+
+Si la aplicación debe enviar cookies del navegador, establece `AllowCredentials` en `true` en `cors.json`, vuelve a aplicar `update-api` y usa `credentials: "include"` en `fetch`:
+
+```javascript
+const respuesta = await fetch("https://api.example.com/perfil", {
+  credentials: "include"
 });
-</code></pre>
-</li>
-</ol>
+```
 
+En este caso, indica el origen concreto en `AllowOrigins`; la respuesta no puede usar `Access-Control-Allow-Origin: *` para una solicitud con credenciales. Mantén también listas explícitas de métodos y cabeceras. CORS solo permite que el navegador comparta la respuesta: la API todavía debe validar la sesión y autorizar la operación. Si usas una cabecera `Authorization: Bearer …`, incluye `authorization` en `AllowHeaders`; enviar esa cabecera no significa por sí solo que debas habilitar cookies con `AllowCredentials`. Las reglas de cookies `SameSite`, `Secure` y el bloqueo de cookies de terceros del navegador también siguen aplicando. Consulta las [reglas de credenciales y comodines de MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS#requests_with_credentials).
 
-<p><strong>Importante</strong>: Cuando habilites credenciales, asegúrate de especificar cada origen permitido de forma explícita.</p>
+`MaxAge` controla durante cuánto tiempo el navegador puede reutilizar el permiso del preflight; no almacena la respuesta de negocio. Un valor de `300` significa 300 segundos. El navegador puede aplicar sus propios límites a ese tiempo.
 
+Si quieres profundizar en las decisiones de autorización, consulta la guía interna sobre [seguridad, JWT y caché de Lambda authorizers](https://dondeaprendoaws.com/blog/5-practicas-de-seguridad-para-lambda-authorizers/). Para comparar este flujo HTTP con WebSocket y el chequeo de origen durante el handshake, revisa [CORS y seguridad al elegir entre REST y WebSocket en API Gateway](https://dondeaprendoaws.com/blog/cors-en-websocket-vs-rest-api-gateway/).
 
-<p>Permitir el uso de credenciales hace que la seguridad de tu API sea más exigente. Por eso, es recomendable implementar medidas adicionales, como el uso de tokens CSRF y una validación estricta de sesiones, especialmente si estás trabajando con cookies o credenciales de autenticación.</p>
+Como material comunitario para seguir con seguridad de API Gateway, el AWS User Group Medellín comparte la charla [«Domina la seguridad de tus APIs con API Gateway»](https://www.youtube.com/watch?v=0Hm94rAe3fU). Si el siguiente paso es estudiar autenticación con Cognito en una arquitectura distinta, [«APIs avanzadas en AWS con API Gateway, FastAPI y Cognito»](https://www.youtube.com/watch?v=s-BrAa-dIfQ) recorre ese diseño con REST APIs, FastAPI y Cognito.
 
+## Diagnosticar un error CORS
 
+1. Abre **Network/Red** y **Console/Consola** en las herramientas de desarrollo del navegador. Identifica si falló `OPTIONS` o la solicitud real; una solicitud simple puede no tener preflight.
+2. En `OPTIONS`, revisa el código HTTP y compara `Origin`, `Access-Control-Request-Method` y `Access-Control-Request-Headers` con la configuración de CORS. El `Origin` debe coincidir exactamente, incluido `https` y cualquier puerto.
+3. Si `OPTIONS` responde `401` o `403` en una API con `$default`, revisa si esa ruta está capturando el preflight; agrega o corrige `OPTIONS /{proxy+}` sin autorización.
+4. Si el preflight permite la llamada pero falla la solicitud real, revisa las cabeceras CORS de esa respuesta, el estado y los registros de la integración. Con CORS configurado en HTTP API, API Gateway agrega sus valores e ignora los valores del backend.
+5. Si `curl` funciona y el navegador no, recuerda que `curl` no aplica CORS. Repite la comprobación en el navegador y verifica el origen real de la página, la URL de API, las credenciales y el método que se envía.
 
+Puedes inspeccionar el preflight con `curl` sin crear recursos:
 
-<h2 class="sb h2-sbb-cls" id="testing-cors-settings" tabindex="-1">Testing CORS settings</h2>
+```bash
+curl -i -X OPTIONS "https://API_ID.execute-api.AWS_REGION.amazonaws.com/recurso" \
+  -H 'Origin: https://app.example.com' \
+  -H 'Access-Control-Request-Method: POST' \
+  -H 'Access-Control-Request-Headers: content-type,authorization'
+```
 
+Reemplaza la URL por el endpoint real de tu API e incluye el nombre de etapa en la ruta si no usas una etapa `$default`. En la respuesta, comprueba que `Access-Control-Allow-Origin` corresponda al origen permitido, que `Access-Control-Allow-Methods` incluya `POST` y que `Access-Control-Allow-Headers` incluya las cabeceras solicitadas. `curl` muestra lo que respondió el servidor; no puede confirmar que un navegador permita leer la respuesta.
 
-<h3 id="metodos-de-prueba-cors" tabindex="-1">Métodos de prueba CORS</h3>
+## Aprende y practica con la comunidad
 
+Si estás en Ciudad de México, [Cloud Builders 04 del AWS Student Builder Group de la Universidad Panamericana](https://www.meetup.com/aws-sbg-at-pan-american-university-cdmx/events/316387395/) anuncia una práctica híbrida para construir una API con Lambda, API Gateway y DynamoDB el **8 de octubre de 2026, de 17:00 a 19:00 (hora de Ciudad de México)**. La página consultada indica acceso gratuito y 30 lugares presenciales; verifica allí la disponibilidad, el formato y las condiciones de inscripción antes de asistir. La sesión practica la creación de una API, no la configuración de CORS.
 
-<p>Puedes comprobar tu configuración CORS utilizando las herramientas de desarrollo del navegador o realizando solicitudes de prueba.</p>
+Para seguir charlas virtuales sobre AWS y serverless, puedes visitar el [AWS User Group Serverless Colombia en Meetup](https://www.meetup.com/aws-user-group-serverless-colombia/). Su página publica encuentros en línea y presenciales; revisa la agenda vigente.
 
-
-<p>Aquí tienes un ejemplo para probar desde el frontend:</p>
-
-
-<pre><code class="language-javascript">async function probarCORS() {
-    try {
-        const respuesta = await fetch('https://tu-api.execute-api.eu-west-1.amazonaws.com/test', {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
-        console.log('Código de respuesta:', respuesta.status);
-    } catch (error) {
-        console.error('Error CORS:', error);
-    }
-}
-</code></pre>
-
-
-<p>Si la solicitud no funciona, consulta la siguiente sección para identificar y corregir errores.</p>
-
-
-<h3 id="solucion-de-errores-cors" tabindex="-1">Solución de errores CORS</h3>
-
-
-<p>Aquí tienes una tabla con los problemas más comunes y cómo resolverlos:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Error</th>
-<th>Causa</th>
-<th>Solución</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Origin not allowed</td>
-<td>El origen no está en la lista permitida</td>
-<td>Añade el origen en <code class="inline-code">Access-Control-Allow-Origin</code></td>
-</tr>
-<tr>
-<td>Method not allowed</td>
-<td>Método HTTP no configurado</td>
-<td>Incluye el método en <code class="inline-code">Access-Control-Allow-Methods</code></td>
-</tr>
-<tr>
-<td>Headers not allowed</td>
-<td>Cabeceras no autorizadas</td>
-<td>Agrega las cabeceras en <code class="inline-code">Access-Control-Allow-Headers</code></td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Para diagnosticar, revisa la respuesta OPTIONS de tu API:</p>
-
-
-<ol>
-<li>Abre las herramientas de desarrollo del navegador.</li>
-<li>Ve a la pestaña <strong>Network</strong> o <strong>Red</strong>.</li>
-<li>Busca la solicitud preliminar OPTIONS.</li>
-<li>Comprueba las cabeceras CORS en la respuesta.</li>
-</ol>
-
-
-<p>Las herramientas del navegador pueden ser de gran ayuda para entender mejor los problemas.</p>
-
-
-<h3 id="herramientas-del-navegador-para-cors" tabindex="-1">Herramientas del navegador para CORS</h3>
-
-
-<p><a href="https://developer.chrome.com/docs/devtools" rel="noopener noreferrer" target="_blank">Chrome DevTools</a> incluye funciones útiles para depurar problemas relacionados con CORS:</p>
-
-
-<ul>
-<li>
-<strong>Panel de Console y Network</strong><br/>
-Muestra mensajes detallados sobre errores CORS. También permite revisar las solicitudes OPTIONS y las cabeceras como:
-<ul>
-<li><code class="inline-code">Access-Control-Allow-Origin</code></li>
-<li><code class="inline-code">Access-Control-Allow-Methods</code></li>
-<li><code class="inline-code">Access-Control-Allow-Headers</code></li>
-</ul>
-</li>
-<li>
-<strong>Panel de Application</strong><br/>
-Ideal para analizar cookies y credenciales cuando trabajas con <code class="inline-code">Access-Control-Allow-Credentials</code>.
-</li>
-</ul>
-
-
-<p>Si usas <a href="https://www.mozilla.org/en-US/firefox/developer/" rel="noopener noreferrer" target="_blank">Firefox Developer Edition</a>, también encontrarás herramientas para simular diferentes orígenes y analizar el comportamiento de tu API.</p>
-
-
-<h2 class="sb h2-sbb-cls" id="consejos-de-seguridad-y-rendimiento" tabindex="-1">Consejos de seguridad y rendimiento</h2>
-
-
-<p>Con la configuración básica y personalizada de CORS ya en marcha, aquí tienes algunos consejos para reforzar la seguridad y mejorar el rendimiento de tu API.</p>
-
-
-<h3 id="directrices-para-una-configuracion-cors-segura" tabindex="-1">Directrices para una configuración CORS segura</h3>
-
-
-<p>Una configuración adecuada de CORS ayuda a proteger tu API HTTP. Ten en cuenta estos puntos clave:</p>
-
-
-<ul>
-<li><strong>Define orígenes específicos</strong>: Evita el uso de comodines innecesarios para limitar la exposición.</li>
-<li><strong>Usa HTTPS siempre</strong>: Garantiza que el tráfico esté cifrado para prevenir ataques como el man-in-the-middle.</li>
-<li><strong>Aplica el principio de permisos mínimos</strong>: Permite solo los métodos y cabeceras estrictamente necesarios.</li>
-</ul>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Aspecto</th>
-<th>Configuración segura</th>
-<th>Configuración no recomendada</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Orígenes</td>
-<td>https://miapp.es</td>
-<td>*</td>
-</tr>
-<tr>
-<td>Métodos</td>
-<td>GET, POST específicos</td>
-<td>Todos los métodos</td>
-</tr>
-<tr>
-<td>Credenciales</td>
-<td>false por defecto</td>
-<td>true sin restricciones</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Estos pasos complementan los ejemplos básicos de configuración que ya hemos visto.</p>
-
-
-<h3 id="como-cors-afecta-el-rendimiento" tabindex="-1">Cómo CORS afecta el rendimiento</h3>
-
-
-<p>La implementación de CORS puede influir en el rendimiento de tu API. Algunos factores a considerar:</p>
-
-
-<ul>
-<li><strong>Solicitudes OPTIONS</strong>: Configura <code class="inline-code">Access-Control-Max-Age</code> para almacenar en caché las respuestas OPTIONS y reducir la latencia.</li>
-<li><strong>Validación de orígenes</strong>: Validar múltiples orígenes puede aumentar el tiempo de respuesta.</li>
-<li><strong>Cabeceras adicionales</strong>: Cada cabecera extra incrementa el tamaño de la respuesta, afectando el rendimiento.</li>
-</ul>
-
-
-<p>Para mejorar el rendimiento, puedes usar una configuración como esta:</p>
-
-
-<pre><code class="language-javascript">{
-    "cors": {
-        "allowOrigins": ["https://miapp.es"],
-        "allowMethods": ["GET", "POST"],
-        "maxAge": 300,
-        "allowCredentials": false
-    }
-}
-</code></pre>
-
-
-<h3 id="cuando-usar-comodines" tabindex="-1">¿Cuándo usar comodines?</h3>
-
-
-<p>El uso de comodines (*), aunque tentador, debe limitarse a APIs públicas o entornos de desarrollo. En producción, es mejor mantener una lista específica de orígenes permitidos:</p>
-
-
-<pre><code class="language-javascript">{
-    "allowOrigins": [
-        "https://app.miempresa.es",
-        "https://admin.miempresa.es",
-        "https://dev.miempresa.es"
-    ]
-}
-</code></pre>
-
-
-<p>Busca un equilibrio entre flexibilidad en el desarrollo y seguridad en producción. Prueba siempre estos ajustes en el navegador para asegurarte de que funcionan como esperas, tal y como se explicó en la sección de testing.</p>
-
-
-<h2 class="sb h2-sbb-cls" id="proximos-pasos" tabindex="-1">Próximos pasos</h2>
-
-
-<p>Después de configurar y probar CORS, es importante planificar las siguientes acciones para mantener un buen rendimiento y garantizar la seguridad a largo plazo.</p>
-
-
-<h3 id="revision-de-puntos-clave" tabindex="-1">Revisión de puntos clave</h3>
-
-
-<p>Para implementar CORS de manera efectiva, ten en cuenta lo siguiente:</p>
-
-
-<ul>
-<li><strong>Configuración inicial y avanzada</strong>: Comienza con una configuración básica para pruebas y utiliza configuraciones más específicas en producción, limitando los orígenes permitidos.</li>
-<li><strong>Seguridad y optimización</strong>: Asegúrate de usar HTTPS, valida todas las entradas y aplica métodos sólidos de autenticación y autorización. Además, mejora el rendimiento con técnicas como caché y compresión.</li>
-</ul>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Aspecto</th>
-<th>Herramienta recomendada</th>
-<th>Función principal</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Monitorización</td>
-<td><a href="https://docs.aws.amazon.com/cloudwatch/" rel="noopener noreferrer" target="_blank">CloudWatch</a></td>
-<td>Seguimiento de métricas y registros</td>
-</tr>
-<tr>
-<td>Trazabilidad</td>
-<td><a href="https://docs.aws.amazon.com/xray/latest/devguide/aws-xray.html" rel="noopener noreferrer" target="_blank">X-Ray</a></td>
-<td>Análisis de latencia y detección de errores</td>
-</tr>
-<tr>
-<td>Auditoría</td>
-<td><a href="https://docs.aws.amazon.com/cloudtrail/" rel="noopener noreferrer" target="_blank">CloudTrail</a></td>
-<td>Registro de actividades en la API</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Con estos puntos claros, puedes consultar más recursos para ampliar tus conocimientos sobre la configuración de CORS.</p>
-
-
-<h3 id="recursos-adicionales" tabindex="-1">Recursos adicionales</h3>
-
-
-<p>Si quieres aprender más sobre la configuración de CORS y cómo mejorar la seguridad en AWS, aquí tienes algunos recursos en español:</p>
-
-
-<ul>
-<li><strong><a href="https://dondeaprendoaws.com/">Dónde Aprendo AWS</a></strong> (https://dondeaprendoaws.com): Un portal especializado con artículos y tutoriales en español sobre AWS, incluyendo guías detalladas sobre cómo proteger tu infraestructura en la nube.</li>
-<li><strong>Estrategia de seguridad</strong>: El artículo <em>"Estrategia de seguridad en la nube de AWS, ¿Por dónde empezar?"</em> ofrece una excelente introducción para implementar medidas de seguridad eficaces.</li>
-</ul>
-
-
-<p>No olvides revisar periódicamente tu configuración y actualizar las medidas de seguridad utilizando herramientas como CloudWatch, X-Ray y CloudTrail.</p>
-
-
-<h2>Publicaciones de blog relacionadas</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/como-habilitar-cloudwatch-logs-en-api-gateway-guia-paso-a-paso/">Cómo habilitar CloudWatch Logs en API Gateway: guía paso a paso</a></li><li><a href="https://dondeaprendoaws.com/blog/guia-para-crear-apis-serverless-con-aws-lambda-y-api-gateway/">Guía para crear APIs serverless con AWS Lambda y API Gateway</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-lambda-y-api-gateway-guia-basica/">AWS Lambda y API Gateway: guía básica</a></li><li><a href="https://dondeaprendoaws.com/blog/5-practicas-de-seguridad-para-lambda-authorizers/">5 prácticas de seguridad para Lambda authorizers</a></li></ul>
+En la agenda consultada el 6 de octubre de 2026 aparece [«El Combo Indestructible de AWS: SQS + Lambda»](https://www.meetup.com/aws-user-group-serverless-colombia/events/316770520/), una sesión virtual sobre resiliencia con SQS y Lambda el **20 de octubre de 2026 a las 19:00 (hora de Colombia)**. La página de Meetup indica acceso libre; confirma allí la inscripción y el horario antes del evento.
