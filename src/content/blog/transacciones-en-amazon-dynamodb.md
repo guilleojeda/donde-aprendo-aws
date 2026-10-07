@@ -1,460 +1,178 @@
 ---
-title: "Transacciones en Amazon DynamoDB"
-description: "Descubre cómo manejar transacciones en Amazon DynamoDB, una base de datos NoSQL rápida y flexible. Aprende sobre APIs, niveles de aislamiento, gestión de conflictos y prácticas recomendadas."
-author: "guille-ojeda"
-publishedAt: "2024-03-19"
-publishedTimestamp: "2024-03-19T01:07:24.799Z"
-modifiedTimestamp: "2026-10-01T15:14:05-03:00"
-cover: "/assets/blog/editorial-datos-ia.png"
-coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
-ogImage: "/assets/blog/editorial-datos-ia.png"
+title: 'Transacciones en Amazon DynamoDB: guía práctica de TransactWriteItems'
+description: Aprende cuándo usar TransactWriteItems y TransactGetItems, sus límites, un ejemplo de pedido e inventario y cómo diagnosticar cancelaciones.
+author: guille-ojeda
+publishedAt: '2024-03-19'
+publishedTimestamp: '2024-03-19T01:07:24.799Z'
+modifiedTimestamp: '2026-10-07T10:03:05-03:00'
+cover: /assets/blog/editorial-datos-ia.png
+coverAlt: Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja.
+ogImage: /assets/blog/editorial-datos-ia.png
 related:
-  - title: "SLAs en AWS: conceptos legales clave"
-    url: "https://dondeaprendoaws.com/blog/slas-en-aws-conceptos-legales-clave/"
-  - title: "9 mejores prácticas de seguridad para IaC en AWS"
-    url: "https://dondeaprendoaws.com/blog/9-mejores-practicas-de-seguridad-para-iac-en-aws/"
-  - title: "AWS curso certificado: preguntas frecuentes"
-    url: "https://dondeaprendoaws.com/blog/aws-curso-certificado-preguntas-frecuentes/"
-
+- title: 'Amazon DynamoDB para principiantes: claves y consultas'
+  url: https://dondeaprendoaws.com/blog/amazon-dynamodb-guia-basica/
+- title: 'Mejores prácticas para Amazon DynamoDB: claves, consultas y costos'
+  url: https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-dynamodb/
+review:
+  date: '2026-10-07'
 ---
 
-<p>En este artículo, exploraremos cómo manejar transacciones en Amazon DynamoDB, una base de datos NoSQL rápida y flexible ideal para aplicaciones dinámicas. Las transacciones permiten realizar operaciones complejas de forma segura, asegurando la consistencia de los datos. Descubrirás desde conceptos básicos hasta prácticas recomendadas para implementar transacciones eficientemente.</p>
 
+Una transacción de DynamoDB agrupa operaciones relacionadas para que una escritura completa se aplique o no se aplique, o para leer varios elementos como una misma instantánea. Usa `TransactWriteItems` cuando varias escrituras deben mantenerse juntas —por ejemplo, crear un pedido y descontar inventario— y `TransactGetItems` cuando necesitas leer varios elementos con una vista coherente.
 
-<p>Principales puntos a considerar:</p>
+La guía está pensada para quienes implementan aplicaciones con DynamoDB. Si todavía estás decidiendo cómo organizar claves y consultas, puedes repasar primero [Amazon DynamoDB para principiantes: claves y consultas](/blog/amazon-dynamodb-guia-basica/) y luego las [mejores prácticas para claves, consultas y costos](/blog/mejores-practicas-para-amazon-dynamodb/).
 
+## Cuándo usar cada API
+
+En una pantalla pequeña, desliza la tabla hacia los lados para ver todas las columnas.
+
+| API | Qué reúne | Cuándo sirve |
+| --- | --- | --- |
+| `TransactWriteItems` | Hasta 100 acciones `Put`, `Update`, `Delete` o `ConditionCheck`. | Cuando todas las escrituras deben confirmarse juntas. |
+| `TransactGetItems` | Hasta 100 lecturas `Get` por clave primaria. | Cuando necesitas consultar varios elementos con una misma instantánea. |
+
+Las dos operaciones son atómicas dentro de una solicitud. En una escritura, DynamoDB confirma todas las acciones o cancela todas; en una lectura transaccional, los resultados corresponden a una vista coherente de los elementos solicitados. Una serie de llamadas separadas a `GetItem` puede leer algunos elementos antes y otros después de una escritura concurrente. Si necesitas una instantánea de varios elementos, usa `TransactGetItems`. La [guía de transacciones de AWS](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/transaction-apis.html) detalla estas APIs y sus niveles de aislamiento.
+
+Una transacción no es una forma de ejecutar operaciones sobre índices: cada acción trabaja con un elemento identificado por su clave primaria. Además, una misma escritura transaccional no puede incluir dos acciones para el mismo elemento. Por ejemplo, no puedes agregar un `ConditionCheck` y un `Update` dirigidos al mismo elemento; incorpora la condición en la propia acción `Update`.
+
+## Límites y alcance regional
+
+Antes de diseñar una transacción, considera estos límites vigentes:
+
+- Cada solicitud admite hasta **100 acciones** y hasta **4 MB de datos en total**.
+- Cada elemento sigue sujeto al máximo de **400 KB**, incluidos los nombres y valores de sus atributos.
+- Puedes abarcar varias tablas, pero deben pertenecer a la misma cuenta de AWS y a la misma Región.
+- Las acciones deben dirigirse a elementos distintos; las transacciones no usan índices secundarios.
+
+Los límites de 4 MB por transacción y 400 KB por elemento son independientes: respetar uno no garantiza respetar el otro. La referencia de AWS reúne las [cuotas y restricciones de DynamoDB](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Constraints.html).
+
+Las transacciones tampoco dan atomicidad entre regiones de una tabla global. En una tabla con consistencia eventual multirregión (MREC), una escritura se confirma primero en la región de origen y sus cambios se replican después. Durante esa replicación, otra región puede mostrar solo parte de la transacción. Las tablas globales con consistencia fuerte multirregión (MRSC) **no admiten operaciones transaccionales**. Revisa la documentación actual de AWS sobre [tablas globales y transacciones](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/globaltables-CoreConcepts.html) si tu aplicación opera en más de una región.
+
+## Ejemplo: crear un pedido y descontar inventario
+
+Este ejemplo crea un pedido solo si su identificador todavía no existe y descuenta dos unidades de un producto solo si hay stock suficiente. Si cualquiera de las condiciones falla, DynamoDB cancela ambas acciones: no queda el pedido creado ni se modifica el inventario.
+
+El ejemplo supone que ya existen dos tablas en la misma cuenta y Región:
+
+- `Orders`, con clave de partición de tipo string llamada `orderId`.
+- `Inventory`, con clave de partición de tipo string llamada `productId`, y el elemento `SKU-42` ya existe con un atributo numérico `stock` de al menos `2`.
 
-<ul>
-<li><strong>Transacciones en DynamoDB</strong>: Permiten ejecutar operaciones de lectura y escritura de forma atómica, garantizando que todos los cambios se realicen o ninguno.</li>
-<li><strong>APIs <a href="https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_TransactWriteItems.html" rel="noopener noreferrer" target="_blank">TransactWriteItems</a> y TransactGetItems</strong>: Facilitan la actualización y recuperación de múltiples ítems en una sola operación.</li>
-<li><strong>Niveles de aislamiento</strong>: DynamoDB utiliza el nivel de aislamiento serializable para evitar conflictos entre transacciones.</li>
-<li><strong>Gestión de conflictos y capacidad</strong>: Es crucial manejar adecuadamente los conflictos de transacciones y planificar la capacidad para evitar errores y asegurar el rendimiento.</li>
-<li><strong>Prácticas recomendadas</strong>: Incluyen desde la planificación de la capacidad hasta el diseño eficiente de las transacciones y el modelado de datos.</li>
-</ul>
+El perfil y la región de AWS CLI deben estar configurados para la cuenta donde están esas tablas. La identidad necesita `dynamodb:PutItem` sobre `Orders` y `dynamodb:UpdateItem` sobre `Inventory`. Si ejecutas la lectura transaccional de la sección siguiente, también necesita `dynamodb:GetItem` sobre ambas. AWS autoriza cada acción transaccional con el permiso de su operación subyacente; la [guía de IAM para transacciones](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/transaction-apis-iam.html) explica el alcance por tabla.
 
+El siguiente comando cambia datos en las tablas de la cuenta y región configuradas. Pruébalo primero en un entorno de desarrollo con tablas de prueba. Guarda estas acciones en un archivo llamado `transact-items.json`:
 
-<p>Ya sea que estés desarrollando una aplicación de e-commerce, un sistema de gestión de inventario o cualquier solución que requiera consistencia de datos en operaciones complejas, comprender cómo utilizar las transacciones en DynamoDB es esencial.</p>
+```json
+[
+  {
+    "Put": {
+      "TableName": "Orders",
+      "Item": {
+        "orderId": { "S": "order-9001" },
+        "productId": { "S": "SKU-42" },
+        "quantity": { "N": "2" },
+        "status": { "S": "PENDING" }
+      },
+      "ConditionExpression": "attribute_not_exists(#orderId)",
+      "ExpressionAttributeNames": {
+        "#orderId": "orderId"
+      }
+    }
+  },
+  {
+    "Update": {
+      "TableName": "Inventory",
+      "Key": {
+        "productId": { "S": "SKU-42" }
+      },
+      "UpdateExpression": "SET #stock = #stock - :qty",
+      "ConditionExpression": "attribute_exists(#productId) AND #stock >= :qty",
+      "ExpressionAttributeNames": {
+        "#productId": "productId",
+        "#stock": "stock"
+      },
+      "ExpressionAttributeValues": {
+        ":qty": { "N": "2" }
+      }
+    }
+  }
+]
+```
 
+Genera un token distinto para este pedido y llama a la API:
 
-<h3 id="configuraci%C3%B3n-inicial" tabindex="-1">Configuración inicial</h3>
+```bash
+CLIENT_REQUEST_TOKEN="$(python3 -c 'import uuid; print(uuid.uuid4())')"
+aws dynamodb transact-write-items \
+  --transact-items file://transact-items.json \
+  --client-request-token "$CLIENT_REQUEST_TOKEN" \
+  --return-consumed-capacity TOTAL
+```
 
+Si la solicitud termina con éxito, el pedido aparece en `Orders` y el inventario disminuye de forma conjunta. La condición `attribute_not_exists(#orderId)` impide reemplazar accidentalmente un pedido con la misma clave; la condición del inventario impide descontar stock inexistente o insuficiente. No hay dos acciones para el mismo elemento: una modifica `Orders` y la otra `Inventory`.
 
-<p>Antes de empezar con las transacciones, necesitas:</p>
+El token de cliente hace idempotente el reintento de esa solicitud. Si la respuesta se pierde o expira, conserva el mismo token y el mismo contenido de `transact-items.json` al reintentar: DynamoDB reconoce la solicitud repetida durante una ventana de **10 minutos**. Si reutilizas el token dentro de esa ventana pero cambias la solicitud, recibirás `IdempotentParameterMismatchException`; después de la ventana, el token se considera nuevo. En una aplicación, genera y guarda el token junto con el identificador de la operación para poder recuperarlo tras un timeout. La condición de clave única del pedido protege además frente a un segundo descuento si el mismo pedido se vuelve a procesar más adelante. Consulta las reglas de [idempotencia de `TransactWriteItems`](https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_TransactWriteItems.html).
 
+## Leer el pedido y el inventario como una instantánea
 
-<ul>
-<li>Una cuenta de AWS</li>
-<li>AWS CLI instalado y listo</li>
-<li>Tablas de DynamoDB ya creadas</li>
-<li>Permiso para trabajar con esas tablas</li>
-</ul>
+Si después necesitas mostrar ambos elementos con una vista coherente, guarda la siguiente lista en `read-items.json`:
 
+```json
+[
+  {
+    "Get": {
+      "TableName": "Orders",
+      "Key": {
+        "orderId": { "S": "order-9001" }
+      }
+    }
+  },
+  {
+    "Get": {
+      "TableName": "Inventory",
+      "Key": {
+        "productId": { "S": "SKU-42" }
+      }
+    }
+  }
+]
+```
 
-<p>Con todo esto listo, puedes empezar a usar las transacciones para agrupar cambios en tus datos.</p>
+Ejecuta la lectura transaccional:
 
+```bash
+aws dynamodb transact-get-items \
+  --transact-items file://read-items.json
+```
 
-<h2 id="funcionamiento-de-las-transacciones-de-amazon-dynamodb" tabindex="-1">Funcionamiento de las <a href="https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/servicequotas.html" rel="noopener noreferrer" target="_blank">Transacciones de Amazon DynamoDB</a></h2>
+La respuesta contiene un resultado por cada acción `Get`, en el mismo orden. Si un elemento no existe, esa entrada no trae atributos; la lectura no crea el elemento. La operación sirve para mostrar una combinación coherente de estado del pedido e inventario, no para sustituir consultas por patrones de acceso ni para buscar elementos por atributos que no forman parte de sus claves.
 
+## Capacidad y efecto en el costo
 
-<h3 id="transactwriteitems-api" tabindex="-1"><a href="https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_TransactWriteItems.html" rel="noopener noreferrer" target="_blank">TransactWriteItems</a> API</h3>
+DynamoDB hace dos lecturas o escrituras internas por cada elemento transaccional: una para preparar la transacción y otra para confirmarla. Como referencia, una escritura transaccional de hasta 1 KB requiere **2 WCU** en modo aprovisionado —o unidades de escritura equivalentes en modo bajo demanda—; una lectura transaccional de hasta 4 KB requiere **2 RCU** —o unidades de lectura equivalentes—. Los elementos mayores consumen más unidades según las reglas de redondeo de DynamoDB. Una transacción cancelada también consume capacidad por las acciones que intentó ejecutar. AWS explica el [cálculo de capacidad para transacciones](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/transaction-apis.html) y el consumo general en [lecturas y escrituras](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/read-write-operations.html).
 
+Las transacciones no necesitan un cargo fijo por activarse: el costo viene de las lecturas y escrituras que realizan y del modo de capacidad de las tablas e índices afectados. Por eso, si solo necesitas modificar un elemento con una condición, una llamada normal a `UpdateItem` puede ser suficiente. Reserva la transacción para reglas que realmente dependen de que varios elementos cambien juntos.
 
-<p>La API TransactWriteItems te permite hacer varias cosas a la vez con tus datos, como si estuvieras haciendo malabares pero asegurándote de no dejar caer ninguna bola. Imagina que quieres actualizar la información de varios clientes y pedidos al mismo tiempo, esta API te ayuda a hacerlo todo de una sola vez, sin errores.</p>
+DynamoDB Accelerator (DAX) admite ambas APIs, pero no guarda localmente el resultado de `TransactGetItems`; esa operación pasa a DynamoDB. Las escrituras `TransactWriteItems` también pasan por DynamoDB y DAX puede hacer lecturas transaccionales adicionales para llenar su caché. Mide el efecto sobre latencia y capacidad antes de añadir DAX a una carga transaccional; no presupongas que acelerará esas llamadas.
 
+## Cómo diagnosticar una transacción cancelada
 
-<p>Ejemplo en Java:</p>
+`TransactionCanceledException` significa que la solicitud transaccional completa se canceló, pero no identifica por sí sola la causa de negocio. AWS documenta `CancellationReasons` en el orden de las acciones de `TransactItems`; la propiedad no está disponible igual en todos los lenguajes, así que confirma que tu SDK la exponga antes de basar la lógica en ella. Puedes distinguir, entre otros casos, una condición que no se cumplió, un conflicto con otra escritura o capacidad insuficiente.
 
+| Motivo de cancelación | Qué revisar |
+| --- | --- |
+| Condición no satisfecha | Decide si el pedido ya existe, falta stock o cambió el estado esperado. No repitas la solicitud sin releer o recalcular la operación. |
+| `TransactionConflict` | Otra transacción o escritura individual está usando el mismo elemento. Reduce la contención o vuelve a intentar con espera exponencial acotada y variación aleatoria (*jitter*). |
+| Capacidad o throttling | Revisa el motivo de throttling y la tabla o índice que aparece en la excepción; ajusta la capacidad o la carga si corresponde. |
+| Error de validación | Corrige la solicitud, la tabla o la clave antes de volver a enviarla. |
 
-<pre><code class="language-java">TransactWriteItemsRequest writeRequest = new TransactWriteItemsRequest();
+Los SDK de AWS no reintentan automáticamente una `TransactionCanceledException`. La nota del [API Reference de DynamoDB](https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/dynamodb-api.pdf) documenta `CancellationReasons` para Java e indica que la propiedad no se establece para otros lenguajes; la guía general de transacciones presenta los motivos sin esa limitación. Confirma la disponibilidad en el SDK que usas. Si no expone los motivos, usa el código y mensaje de error disponibles, además de los registros y métricas. Trata una condición falsa como un resultado de negocio, no como un error temporal; para conflictos concurrentes, implementa reintentos limitados con espera exponencial y *jitter*. Si la respuesta indica throttling, consulta sus detalles y las métricas de DynamoDB, incluida `TransactionConflict`. La guía de AWS cubre el [manejo de conflictos transaccionales](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/transaction-apis.html) y la [resolución de errores y reintentos](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Programming.Errors.html).
 
-writeRequest.addPutItem(
-    new PutItemRequest().withTableName("Customers")
-        .withItem(new Item().withPrimaryKey("CustomerId", 101)
-            .with("Email", "john@example.com")));
+No confundas un conflicto con una condición rechazada. El conflicto puede ser transitorio; una condición rechazada suele indicar que el estado actual ya no cumple la regla, por lo que reintentar exactamente lo mismo repetirá la cancelación. Usa la respuesta y el estado vigente para decidir si corresponde informar el resultado, leer otra vez o construir una nueva solicitud con un nuevo token. Un `AccessDeniedException` es distinto: señala permisos IAM insuficientes y no es un motivo de `TransactionCanceledException`; revisa los permisos de las acciones y tablas implicadas.
 
-writeRequest.addUpdateItem(
-    new UpdateItemRequest().withTableName("Orders")
-        .withPrimaryKey("OrderId", 303)
-        .addAttributeUpdate(new AttributeUpdate("Status").put("NEW")));
+## Recursos y comunidades en español
 
- dynamoDB.transactWriteItems(writeRequest);
-</code></pre>
+Para repasar el modelo del servicio antes de trabajar con transacciones, mira la charla [Introducción a AWS DynamoDB, de Charlas Técnicas de AWS](https://www.youtube.com/watch?v=ybG2Qnucmts). Para ampliar el contexto sobre diseño de datos, el [AWS User Group Córdoba Meetup #18](https://www.youtube.com/watch?v=7Xk0MKt69Is) incluye una charla sobre DynamoDB y OpenSearch. Ambos son grabaciones de comunidad, no referencias para verificar límites actuales; usa la documentación de AWS enlazada en esta guía para las cuotas y el comportamiento de las APIs.
 
+Si primero quieres preparar un entorno de práctica local con Docker, DynamoDB Local y AWS CLI, la guía [De lo local se aprende: una app con Docker y DynamoDB Local](https://blog.295devops.com/de-lo-local-se-aprende-desplegando-tu-primera-app-con-docker-y-dynamodb-local) muestra ese flujo sin una cuenta de AWS ni infraestructura en la nube.
 
-<h3 id="transactgetitems-api" tabindex="-1">TransactGetItems API</h3>
-
-
-<p>La API TransactGetItems es como tener un carrito de compras donde puedes juntar varias cosas de distintas tiendas y pagar todo junto. Te permite recoger información de diferentes lugares en una sola ida, asegurándote de que todo lo que recoges es correcto y está al día.</p>
-
-
-<p>Ejemplo en Java:</p>
-
-
-<pre><code class="language-java">TransactGetItemsRequest getRequest = new TransactGetItemsRequest();
-
-getRequest.addGetItem(
-    new GetItemRequest().withTableName("Customers")
-        .withPrimaryKey("CustomerId", 101));
-
-getRequest.addGetItem(
-    new GetItemRequest().withTableName("Orders")
-        .withPrimaryKey("OrderId", 303));
-
-TransactGetItemsResult result = dynamoDB.transactGetItems(getRequest);
-</code></pre>
-
-
-<h3 id="niveles-de-aislamiento" tabindex="-1">Niveles de aislamiento</h3>
-
-
-<p>DynamoDB tiene dos maneras de asegurarse de que las transacciones no se metan una con otra:</p>
-
-
-<ul>
-<li><strong>Serializable</strong>: Es como tener una fila única para cada cliente, asegurando que nadie se salte su turno.</li>
-<li><strong>Read committed</strong>: Permite que la gente se asome a lo que otros están haciendo, pero sin afectar el orden. Es más rápido pero menos estricto.</li>
-</ul>
-
-
-<p>Normalmente, DynamoDB usa el método serializable porque es más seguro.</p>
-
-
-<h3 id="gesti%C3%B3n-de-conflictos-de-transacciones" tabindex="-1">Gestión de conflictos de transacciones</h3>
-
-
-<p>A veces, dos personas quieren hacer lo mismo al mismo tiempo, y eso puede causar problemas. DynamoDB tiene maneras de solucionar esto:</p>
-
-
-<ul>
-<li>Si hay un conflicto, una de las acciones se detiene y se tiene que intentar de nuevo.</li>
-<li>DynamoDB ordena algunas acciones de manera específica para evitar que todo se trabe.</li>
-<li>Se pueden poner condiciones para asegurarse de que no haya cambios inesperados.</li>
-</ul>
-
-
-<p>Esto ayuda a que todo funcione sin problemas, manteniendo tus datos seguros y en orden.</p>
-
-
-<h2 id="uso-pr%C3%A1ctico-de-transacciones" tabindex="-1">Uso práctico de transacciones</h2>
-
-
-<h3 id="ejemplo-de-transacciones-en-dynamodb" tabindex="-1">Ejemplo de transacciones en DynamoDB</h3>
-
-
-<p>Imaginemos que queremos hacer un pedido. Para que todo salga bien, debemos hacer varios pasos uno tras otro:</p>
-
-
-<ul>
-<li>Chequear que el cliente exista en nuestra base de datos.</li>
-<li>Asegurarnos de que tenemos suficiente producto en el inventario.</li>
-<li>Anotar el pedido con todos los detalles.</li>
-<li>Actualizar nuestro inventario para reflejar la venta.</li>
-</ul>
-
-
-<p>Para que esto funcione en DynamoDB, lo hacemos todo en una sola transacción:</p>
-
-
-<pre><code class="language-java">TransactWriteItemsRequest request = new TransactWriteItemsRequest();
-
-// 1. Chequear cliente
-request.addGetItem(new GetItemRequest()
-    .withTableName("Clientes")
-    .withPrimaryKey("clienteId", 101));
-
-// 2. Verificar inventario
-request.addGetItem(new GetItemRequest()
-    .withTableName("Inventario")
-    .withPrimaryKey("productoId", 303));
-
-// 3. Anotar pedido
-request.addPutItem(new PutItemRequest()
-    .withTableName("Pedidos")
-    .withItem(new Item()
-        .withNumber("pedidoId", 929)
-        .withString("clienteId", 101)));
-
-// 4. Actualizar inventario
-request.addUpdateItem(new UpdateItemRequest()
-    .withTableName("Inventario")
-    .withPrimaryKey("productoId", 303)
-    .addAttributeUpdate(new AttributeUpdate("unidades")
-        .addNumeric("-1")));
-
-// Ejecutar transacción
-dynamoDB.transactWriteItems(request);
-</code></pre>
-
-
-<p>Después, para ver los detalles del pedido, usamos <code class="inline-code">GetItem</code>:</p>
-
-
-<pre><code class="language-java">GetItemRequest pedidoRequest = new GetItemRequest()
-    .withTableName("Pedidos")
-    .withPrimaryKey("pedidoId", 929);
-
-GetItemResult result = dynamoDB.getItem(pedidoRequest);
-</code></pre>
-
-
-<p>Así, nos aseguramos de que todo el proceso del pedido se haga bien o que no se haga ningún cambio si algo sale mal.</p>
-
-
-<h3 id="uso-de-las-api-transaccionales-en-dynamodb-accelerator-(dax)" tabindex="-1">Uso de las API transaccionales en DynamoDB Accelerator (DAX)</h3>
-
-
-<p>DAX es como un turbo para DynamoDB que hace todo más rápido. Para usar transacciones con DAX:</p>
-
-
-<ul>
-<li>Activa DAX en tu tabla de DynamoDB</li>
-<li>Usa las mismas API de transacciones, pero con la dirección de DAX</li>
-<li>DAX se encarga de coordinar con DynamoDB</li>
-</ul>
-
-
-<p>Ejemplo en Java:</p>
-
-
-<pre><code class="language-java">AmazonDynamoDB ddb = AmazonDynamoDBClientBuilder.standard()
-    .withEndpointConfiguration(new EndpointConfiguration(daxEndpoint, region))
-    .build();
-
-TransactWriteItemsRequest request = //...
-ddb.transactWriteItems(request);
-</code></pre>
-
-
-<p>Con DAX, tus transacciones serán rápidas y seguras.</p>
-
-
-<h3 id="administraci%C3%B3n-de-la-capacidad-para-las-transacciones" tabindex="-1">Administración de la capacidad para las transacciones</h3>
-
-
-<p>DynamoDB separa una parte de su capacidad para que las transacciones funcionen bien. Esta capacidad se mide en cuánto se puede hacer por segundo.</p>
-
-
-<p>Para tener todo bajo control, usa CloudWatch:</p>
-
-
-<ul>
-<li>La métrica <code class="inline-code">TransactionConflict</code> te muestra si hay problemas.</li>
-<li>Con <code class="inline-code">UpdateContinuousBackups</code> puedes ajustar tus límites.</li>
-<li>Puedes poner alarmas para que te avisen si algo no va bien.</li>
-</ul>
-
-
-<p>Así, te aseguras de que las transacciones tengan lo necesario para funcionar correctamente.</p>
-
-
-<h2 id="soluci%C3%B3n-de-problemas-comunes" tabindex="-1">Solución de problemas comunes</h2>
-
-
-<p>Cuando usas la API TransactWriteItems en DynamoDB, puedes encontrarte con algunos problemas. Aquí te explicamos cómo solucionarlos de manera sencilla:</p>
-
-
-<h3 id="error-transactioncanceledexception" tabindex="-1">Error TransactionCanceledException</h3>
-
-
-<p>Este error aparece si tu solicitud choca con otra que está cambiando los mismos datos.</p>
-
-
-<p><strong>Soluciones:</strong></p>
-
-
-<ul>
-<li>Intenta hacer la transacción otra vez. A veces, en el segundo intento no hay problemas.</li>
-<li>Antes de cambiar algo, usa condiciones de chequeo para asegurarte de que todo está como esperas.</li>
-<li>Si es posible, haz cambios más pequeños que tengan menos chances de causar conflictos.</li>
-</ul>
-
-
-<h3 id="error-de-capacidad-insuficiente" tabindex="-1">Error de capacidad insuficiente</h3>
-
-
-<p>Esto significa que no tienes suficiente capacidad reservada para hacer tu transacción.</p>
-
-
-<p><strong>Soluciones:</strong></p>
-
-
-<ul>
-<li>Aumenta la capacidad que tienes asignada para transacciones desde la consola de DynamoDB.</li>
-<li>Haz tus transacciones más eficientes para que usen menos recursos.</li>
-<li>Considera usar DAX para hacer las cosas más rápido.</li>
-</ul>
-
-
-<h3 id="transacciones-lentas" tabindex="-1">Transacciones lentas</h3>
-
-
-<p>Si tus transacciones demoran mucho, puede ser por varias razones:</p>
-
-
-<ul>
-<li>No tienes suficiente capacidad asignada.</li>
-<li>Tus tablas están muy cargadas de trabajo.</li>
-<li>Las operaciones que estás haciendo no son eficientes.</li>
-</ul>
-
-
-<p><strong>Soluciones:</strong></p>
-
-
-<ul>
-<li>Aumenta la capacidad para transacciones.</li>
-<li>Organiza mejor tus tablas para distribuir el trabajo.</li>
-<li>Asegúrate de que tus solicitudes sean lo más eficientes posible.</li>
-<li>Piensa en usar DAX para acelerar el proceso.</li>
-</ul>
-
-
-<h3 id="m%C3%A9trica-transactionconflict-en-aumento" tabindex="-1">Métrica <a href="https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/metrics-dimensions.html" rel="noopener noreferrer" target="_blank">TransactionConflict</a> en aumento</h3>
-
-
-<p><figure><img alt="TransactionConflict" src="/assets/blog/42879323e8fc95dbde83715b.jpg"/></figure></p>
-
-
-<p>Si ves que esta métrica sube, significa que hay más choques entre transacciones que se hacen al mismo tiempo.</p>
-
-
-<p><strong>Soluciones:</strong></p>
-
-
-<ul>
-<li>Intenta de nuevo las transacciones que no funcionaron.</li>
-<li>Usa condiciones más estrictas para evitar problemas.</li>
-<li>Trata de no cambiar los mismos datos al mismo tiempo con operaciones diferentes.</li>
-</ul>
-
-
-<p>Es buena idea seguir de cerca las métricas de CloudWatch y poner alarmas para darte cuenta rápido si algo no va bien.</p>
-
-
-<h2 id="pr%C3%A1cticas-recomendadas" tabindex="-1">Prácticas recomendadas</h2>
-
-
-<p>Aquí te dejamos algunos consejos para cuando uses transacciones en Amazon DynamoDB:</p>
-
-
-<h3 id="planificaci%C3%B3n-de-capacidad" tabindex="-1">Planificación de capacidad</h3>
-
-
-<ul>
-<li>Activa el ajuste automático en las tablas que uses para las transacciones, así te aseguras de tener siempre el rendimiento necesario.</li>
-<li>Revisa cómo van las métricas de <code class="inline-code">ConsumedWriteCapacity</code> y <code class="inline-code">ConsumedReadCapacity</code> para encontrar y solucionar problemas de lentitud.</li>
-<li>Separa un poco de capacidad solo para las transacciones, para que no te quedes corto en momentos de mucho trabajo.</li>
-<li>Considera usar DynamoDB Accelerator (DAX) si necesitas que todo vaya más rápido.</li>
-</ul>
-
-
-<h3 id="dise%C3%B1o-de-transacciones" tabindex="-1">Diseño de transacciones</h3>
-
-
-<ul>
-<li>Intenta hacer transacciones pequeñas y sencillas.</li>
-<li>Si un elemento se usa mucho, distribuye su carga en varias partes.</li>
-<li>Si puedes, elige tener una consistencia eventual que es más sencilla que una fuerte.</li>
-<li>Si te encuentras con errores <code class="inline-code">TransactionCanceledException</code>, prueba de nuevo.</li>
-<li>Para cosas más complicadas, piensa en usar colas o mensajes.</li>
-</ul>
-
-
-<h3 id="modelado-de-datos" tabindex="-1">Modelado de datos</h3>
-
-
-<ul>
-<li>A veces, copiar datos en más de un lugar ayuda a hacer menos transacciones.</li>
-<li>Si cambias mucho un dato, mejor guárdalo aparte.</li>
-<li>Usa índices para buscar cosas rápido.</li>
-<li>Es más fácil manejar relaciones de uno a muchos que de muchos a muchos.</li>
-</ul>
-
-
-<p>En pocas palabras, si planificas bien, haces transacciones sencillas y organizas tus datos de manera inteligente, tus aplicaciones van a funcionar mejor y más rápido. No te olvides de estar siempre revisando cómo van las cosas para poder mejorar.</p>
-
-
-<h2 id="conclusi%C3%B3n" tabindex="-1">Conclusión</h2>
-
-
-<p>Amazon DynamoDB nos permite hacer transacciones de manera segura y eficiente en nuestras aplicaciones. Esto significa que podemos hacer varios cambios en nuestros datos al mismo tiempo y asegurarnos de que todos se realicen correctamente o ninguno se haga si hay un problema. Esto ayuda a mantener nuestros datos correctos y consistentes, incluso cuando muchas personas están usando la aplicación al mismo tiempo.</p>
-
-
-<p>Aquí hay algunas ideas clave para recordar:</p>
-
-
-<ul>
-<li>Las transacciones en DynamoDB nos ayudan a hacer cambios complejos en los datos de forma segura.</li>
-<li>Necesitamos pensar en cuánta capacidad necesitan nuestras tablas para manejar todas las transacciones sin problemas.</li>
-<li>Es mejor hacer transacciones sencillas y tener un buen diseño de nuestros datos para evitar problemas.</li>
-<li>Usar herramientas como DAX puede hacer que nuestras transacciones sean más rápidas.</li>
-<li>Es importante revisar las métricas en CloudWatch para identificar y arreglar problemas rápidamente.</li>
-</ul>
-
-
-<p>Entendiendo bien estos puntos, podemos crear aplicaciones usando DynamoDB que sean robustas, rápidas y confiables. Con un buen diseño de datos y siguiendo las mejores prácticas, DynamoDB puede manejar incluso las tareas más complicadas que necesitemos.</p>
-
-
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
-
-
-<h3 id="%C2%BFqu%C3%A9-tipo-de-base-de-datos-es-amazon-dynamodb%3F" tabindex="-1">¿Qué tipo de base de datos es Amazon DynamoDB?</h3>
-
-
-<p>Amazon DynamoDB es una base de datos que no usa tablas como Excel, sino que guarda información de una manera más libre, llamada NoSQL. Es automática, rápida y puede manejar mucha información sin problemas.</p>
-
-
-<h3 id="%C2%BFpara-qu%C3%A9-sirve-la-sort-key-en-dynamodb%3F" tabindex="-1">¿Para qué sirve la sort key en DynamoDB?</h3>
-
-
-<p>La Sort Key te ayuda a:</p>
-
-
-<ul>
-<li>Juntar información que tiene algo en común.</li>
-<li>Hacer búsquedas más específicas, no solo por el nombre del ítem.</li>
-<li>Decidir cómo quieres que se ordene tu información.</li>
-</ul>
-
-
-<p>Esto es útil cuando tienes mucha información y quieres encontrar algo rápido.</p>
-
-
-<h3 id="%C2%BFcu%C3%A1ndo-deber%C3%ADa-usar-dynamodb%3F" tabindex="-1">¿Cuándo debería usar DynamoDB?</h3>
-
-
-<p>Piensa en usar DynamoDB si:</p>
-
-
-<ul>
-<li>Tuviste problemas para que tu base de datos anterior creciera con tu proyecto.</li>
-<li>Necesitas que tu aplicación funcione muy rápido.</li>
-<li>Tu proyecto implica muchas transacciones, como una tienda en línea.</li>
-<li>Quieres una base de datos que alguien más cuide por ti.</li>
-</ul>
-
-
-<p>DynamoDB es buena para proyectos modernos que necesitan ser rápidos y fiables.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-es-una-clave-principal-en-amazon-dynamodb%3F" tabindex="-1">¿Qué es una clave principal en Amazon DynamoDB?</h3>
-
-
-<p>La clave principal es como el DNI de cada pieza de información en tu base de datos. Se compone de:</p>
-
-
-<ul>
-<li><strong>Clave de partición</strong>: Es como el apellido, dice en qué grupo va cada cosa.</li>
-<li><strong>Clave de ordenamiento</strong>: Es opcional y funciona como el nombre, ayudando a ordenar los elementos dentro del mismo grupo.</li>
-</ul>
-
-
-<p>DynamoDB usa estas claves para mantener todo organizado y fácil de encontrar.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/amazon-dynamodb-guia-basica/">Amazon DynamoDB: guía básica</a></li><li><a href="https://dondeaprendoaws.com/blog/amazon-dynamodb-la-base-de-datos-nosql-de-aws/">Amazon DynamoDB: la base de datos NoSQL de AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-dynamodb/">Mejores prácticas para Amazon DynamoDB</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-bases-de-datos-introduccion-basica/">bases de datos en AWS: introducción básica</a></li>
-</ul>
-</p>
+El canal [Cloud en Español](https://www.youtube.com/channel/UCjMLZUU8ep124ZZT-W2X4uA) reúne videos y encuentros en línea sobre temas AWS variados. Si quieres compartir un caso o buscar encuentros locales, puedes consultar [AWS User Group Córdoba en Meetup](https://www.meetup.com/aws-user-group-cordoba-argentina/) o encontrar un grupo de tu país en el [directorio de comunidades AWS](/comunidades/). Para revisar próximas charlas, talleres y su modalidad, visita la [agenda de eventos](/eventos/); las actividades disponibles cambian con el tiempo.

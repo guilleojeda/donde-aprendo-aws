@@ -1,417 +1,187 @@
 ---
-title: "Utilizando Lambda layers en múltiples funciones Lambda"
-description: "Aprende a utilizar Lambda Layers en AWS Lambda para reutilizar código, reducir tamaños de paquetes y gestionar actualizaciones de manera eficiente. Descubre cómo crear, configurar y usar Lambda Layers con ejemplos prácticos."
-author: "guille-ojeda"
-publishedAt: "2024-03-09"
-publishedTimestamp: "2024-03-09T02:24:39.563Z"
-cover: "/assets/blog/editorial-serverless-desarrollo.png"
-coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
-ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
+title: 'AWS Lambda Layers en varias funciones: cuándo convienen y cómo crear una'
+description: Aprende cuándo usar Lambda Layers, empaqueta un módulo Python, comparte una versión entre funciones y soluciona errores de importación, límites y permisos.
+author: guille-ojeda
+publishedAt: '2024-03-09'
+publishedTimestamp: '2024-03-09T02:24:39.563Z'
+cover: /assets/blog/editorial-serverless-desarrollo.png
+coverAlt: Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja.
+ogImage: /assets/blog/editorial-serverless-desarrollo.png
 related:
-  - title: "Mejores prácticas de machine learning en AWS"
-    url: "https://dondeaprendoaws.com/blog/mejores-practicas-de-machine-learning-en-aws/"
-  - title: "Ingeniería de caos en AWS con fault injection simulator"
-    url: "https://dondeaprendoaws.com/blog/ingenieria-de-caos-en-aws-con-fault-injection-simulator/"
-  - title: "Desarrollando aplicaciones con AWS Lambda"
-    url: "https://dondeaprendoaws.com/blog/desarrollando-aplicaciones-con-aws-lambda/"
-
+- title: 'AWS Lambda con Node.js: crea y prueba una función localmente'
+  url: https://dondeaprendoaws.com/blog/desarrollando-aplicaciones-con-aws-lambda/
+- title: 'Mejores prácticas para AWS Lambda: reintentos, concurrencia y seguridad'
+  url: https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/
+- title: 'Serverless en AWS: qué es, cómo funciona y cómo empezar'
+  url: https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/
+modifiedTimestamp: '2026-10-07T10:03:05-03:00'
+review:
+  date: '2026-10-07'
 ---
 
-<p>Si estás buscando optimizar tus proyectos en AWS Lambda, utilizar Lambda Layers es una estrategia clave que te permite compartir código, bibliotecas y otros recursos entre múltiples funciones Lambda. Te ayudarán a:</p>
 
+Una **Lambda Layer** es un archivo ZIP con código, bibliotecas o archivos que una función puede reutilizar. Lambda incorpora su contenido en el entorno de ejecución de las funciones empaquetadas como ZIP; por eso puedes conectar una misma capa a varias funciones sin copiar ese contenido en cada paquete de código.
 
-<ul>
-<li><strong>Reutilizar código</strong> fácilmente entre funciones, evitando duplicaciones.</li>
-<li><strong>Reducir los tamaños de los paquetes</strong> de tus funciones, lo que acelera las cargas y la ejecución.</li>
-<li>Gestionar de manera <strong>centralizada las actualizaciones</strong>, aplicando cambios a múltiples funciones con una sola actualización de la Layer.</li>
-<li>Mejorar la <strong>eficiencia en el desarrollo</strong> al permitirte enfocarte en la lógica de negocio en lugar de en la gestión de dependencias.</li>
-</ul>
+Las capas son útiles cuando varias funciones comparten una dependencia o un módulo propio que cambia con menos frecuencia que la lógica de cada función. No comparten memoria ni estado entre invocaciones, y publicar una versión nueva no actualiza las funciones que siguen usando una versión anterior. El beneficio principal es organizar y distribuir código compartido; una layer no garantiza que la función arranque o ejecute más rápido. [AWS explica el modelo y el ciclo de vida de las capas](https://docs.aws.amazon.com/lambda/latest/dg/chapter-layers.html).
 
+## Cuándo conviene una layer
 
-<p>Este artículo te guiará paso a paso sobre cómo crear, configurar y utilizar Lambda Layers para hacer tus proyectos más manejables, rápidos y organizados, con ejemplos prácticos tanto para la interfaz de AWS como para la línea de comandos.</p>
+- **Usa una layer** si dos o más funciones ZIP dependen del mismo módulo o biblioteca, la dependencia tiene un responsable y su ciclo de cambios es independiente del código de cada función.
+- **Incluye la dependencia en el ZIP de la función** si la usa una sola función, cambia junto con su código o quieres mantener un paquete autónomo que sea sencillo de depurar y desplegar.
+- **Incluye las dependencias en la imagen** si tu función usa un paquete de tipo contenedor. Lambda no permite adjuntar Lambda Layers a funciones basadas en imágenes.
+- Para funciones compiladas en **Go o Rust**, AWS recomienda incluir las dependencias en el paquete de la función; cargar bibliotecas por separado puede complicar el despliegue y aumentar la inicialización.
 
+Una layer agrega una versión más que debes probar y desplegar. Si varias funciones necesitan versiones distintas de una biblioteca, mantenerlas en capas separadas puede ser más simple que actualizarlas todas al mismo tiempo. Compara el tamaño del ZIP de cada función, el tamaño total descomprimido y el tiempo de inicialización antes de adoptar capas para resolver un problema de rendimiento.
 
-<h2 id="beneficios-de-utilizar-lambda-layers" tabindex="-1">Beneficios de utilizar Lambda layers</h2>
+Si trabajas con Node.js y AWS SAM, [AndMore muestra otra opción: empaquetar el código compartido y las dependencias con esbuild](https://www.andmore.dev/es/blog/layerless-esbuild-lambda/). Es un ejemplo de 2024 que menciona Node.js 20; toma el patrón de empaquetado y verifica el runtime y las dependencias vigentes antes de copiar la configuración.
 
+## Crear una layer de Python y probarla en tu equipo
 
-<p>Las Lambda Layers te ayudan de varias maneras importantes cuando trabajas con aplicaciones que no necesitan un servidor fijo:</p>
+El ejemplo crea un módulo propio sin instalar paquetes. Necesitas Python 3 y su biblioteca estándar; no hace falta una cuenta AWS para comprobar el ZIP y la importación.
 
+La estructura importa: el ZIP debe tener **python/** en la raíz. Lambda expone ese directorio como **/opt/python** y los runtimes de Python lo incluyen en la ruta de búsqueda de módulos. No hace falta agregar **/opt/python** a **sys.path** manualmente. También puedes instalar bibliotecas en **python/lib/python3.x/site-packages**; reemplaza **3.x** por la versión de Python que uses. Consulta las [rutas por runtime](https://docs.aws.amazon.com/lambda/latest/dg/packaging-layers.html) antes de empaquetar. Si luego agregas bibliotecas de terceros, la [guía de layers para Python](https://docs.aws.amazon.com/lambda/latest/dg/python-layers.html) muestra cómo prepararlas.
 
-<h3 id="reutilizaci%C3%B3n-de-c%C3%B3digo" tabindex="-1">Reutilización de código</h3>
+Crea el módulo:
 
+~~~bash
+mkdir -p capa/python
+cat > capa/python/saludo.py <<'PY'
+def saludar(nombre):
+    return f"Hola, {nombre}."
+PY
+~~~
 
-<p>Piensa en Lambda Layers como un lugar donde puedes guardar código que varias funciones Lambda podrían necesitar. Así, en vez de copiar y pegar el mismo código en todas partes, simplemente lo pones en una capa y lo usas desde ahí. Esto hace que programar sea más rápido y reduce los errores.</p>
+Genera **utilidades-comunes.zip** con **python/** en la raíz:
 
+~~~bash
+python3 - <<'PY'
+from pathlib import Path
+from zipfile import ZIP_DEFLATED, ZipFile
 
-<h3 id="reducci%C3%B3n-de-tama%C3%B1os-de-paquetes" tabindex="-1">Reducción de tamaños de paquetes</h3>
+origen = Path("capa")
+with ZipFile("utilidades-comunes.zip", "w", compression=ZIP_DEFLATED) as archivo_zip:
+    for archivo in sorted((origen / "python").rglob("*")):
+        if archivo.is_file():
+            archivo_zip.write(archivo, archivo.relative_to(origen))
+PY
+~~~
 
+Comprueba el contenido y que Python pueda importar el módulo desde esa ruta:
 
-<p>Al poner cosas como librerías que no cambian mucho en una Lambda Layer, haces que los paquetes de tus funciones Lambda sean más pequeños. Esto significa que se suben y empiezan a trabajar más rápido, lo cual es genial.</p>
+~~~bash
+python3 - <<'PY'
+import sys
+import tempfile
+from pathlib import Path
+from zipfile import ZipFile
 
+with tempfile.TemporaryDirectory() as directorio_temporal:
+    destino = Path(directorio_temporal)
+    with ZipFile("utilidades-comunes.zip") as archivo_zip:
+        assert "python/saludo.py" in archivo_zip.namelist()
+        archivo_zip.extractall(destino)
 
-<h3 id="gesti%C3%B3n-centralizada" tabindex="-1">Gestión centralizada</h3>
+    sys.path.insert(0, str(destino / "python"))
+    from saludo import saludar
 
+    assert saludar("Ana") == "Hola, Ana."
+print("Estructura e importación correctos")
+PY
+~~~
 
-<p>Si actualizas algo en una Lambda Layer, todas las funciones Lambda que la usan se actualizan automáticamente. Esto te ahorra mucho tiempo porque no tienes que ir una por una haciendo cambios.</p>
+En la función, importa el mismo módulo:
 
+~~~python
+from saludo import saludar
 
-<h3 id="eficiencia-en-el-desarrollo" tabindex="-1">Eficiencia en el desarrollo</h3>
+def lambda_handler(event, context):
+    return {"saludo": saludar(event.get("nombre", "Lambda"))}
+~~~
 
+Con el evento **{"nombre": "Ana"}**, el handler devuelve **{"saludo": "Hola, Ana."}**.
 
-<p>Usar Lambda Layers hace que sea más fácil y rápido desarrollar aplicaciones sin servidor. Puedes aprovechar el código que ya existe para crear cosas nuevas más rápidamente.</p>
+La prueba local comprueba la estructura del ZIP y la importación del módulo puro de Python. No valida el runtime administrado por Lambda, los permisos, el handler desplegado ni las integraciones de la función.
 
+## Publicar la layer y adjuntarla a dos funciones
 
-<h2 id="creando-una-lambda-layer" tabindex="-1">Creando una Lambda layer</h2>
+Al publicar una layer, Lambda crea una nueva versión. El siguiente ejemplo usa Python 3.14 y marca el módulo puro como compatible con ambas arquitecturas. Sustituye el runtime por el que esté configurado en tus funciones. El dato **--compatible-runtimes** sirve para filtrar resultados de **ListLayers** y **ListLayerVersions**; no convierte ni comprueba las dependencias. Consulta la [referencia de AWS CLI](https://docs.aws.amazon.com/cli/latest/reference/lambda/publish-layer-version.html).
 
+Antes de ejecutar los comandos, asegúrate de tener:
 
-<p>Para hacer una Lambda Layer, solo sigue estos pasos sencillos:</p>
+- AWS CLI instalada y configurada, con credenciales válidas y la región de despliegue seleccionada.
+- Dos funciones existentes como paquetes ZIP en esa región, con el runtime Python elegido.
+- El código y handler de cada función preparados para importar el módulo de la layer.
 
+Los comandos siguientes publican la layer y cambian la configuración de capas de las funciones; no crean las funciones ni despliegan su código. El principal que los ejecuta debe poder publicar la layer y leerla y actualizar la configuración de las funciones.
 
-<ul>
-<li><strong>Elige el entorno de ejecución</strong></li>
-</ul>
+~~~bash
+aws lambda publish-layer-version \
+  --layer-name utilidades-comunes \
+  --zip-file fileb://utilidades-comunes.zip \
+  --compatible-runtimes python3.14 \
+  --compatible-architectures arm64 x86_64 \
+  --query LayerVersionArn \
+  --output text
+~~~
 
+Guarda el ARN completo que devuelve el comando, incluido su número final, por ejemplo **arn:aws:lambda:us-east-1:123456789012:layer:utilidades-comunes:1**. Ese número identifica la versión publicada. Adjunta el mismo ARN a cada función:
 
-<p>Primero, decide qué lenguaje de programación vas a usar y su versión. Por ejemplo, si tu código es en Python, podrías elegir <code class="inline-code">python3.8</code>.</p>
+~~~bash
+aws lambda update-function-configuration \
+  --function-name funcion-a \
+  --layers "arn:aws:lambda:us-east-1:123456789012:layer:utilidades-comunes:1"
 
+aws lambda update-function-configuration \
+  --function-name funcion-b \
+  --layers "arn:aws:lambda:us-east-1:123456789012:layer:utilidades-comunes:1"
+~~~
 
-<ul>
-<li><strong>Empaqueta tu código y lo que necesite</strong></li>
-</ul>
+En estos comandos, reemplaza los nombres y el ARN por los de tu cuenta, región y funciones. Si una función ya usa otras layers, envía en **--layers** la lista completa que debe quedar configurada, incluida cada layer que quieras conservar. Usa la consola de Lambda si prefieres publicar el ZIP y agregar después la versión elegida en la sección **Layers** de cada función.
 
+### Fija las versiones para que los despliegues sean reproducibles
 
-<p>Después, necesitas poner tu código y todo lo que necesite (como librerías) en un archivo ZIP. Si estás compartiendo un módulo de Python que hiciste, pon ese módulo y las librerías que usa en el ZIP.</p>
+El contenido de una versión de layer es inmutable. Una nueva publicación crea, por ejemplo, la versión **:2**; no cambia la **:1** que ya tienen adjunta las funciones. Cada ARN de layer que configures debe identificar una versión concreta. Guarda esos ARN en tu plantilla de infraestructura o pipeline y despliega la nueva versión primero en un ambiente de prueba.
 
+Las versiones publicadas de una función también guardan una copia inmutable de su configuración, incluidas sus layers. Cambiar la configuración de **$LATEST** no cambia una versión publicada a la que apunte un alias de producción. Después de probar la nueva layer, publica una nueva versión de la función y mueve el alias correspondiente. Revisa [cómo administra Lambda las versiones de función](https://docs.aws.amazon.com/lambda/latest/dg/configuration-versions.html) y [cómo se agregan y cambian las versiones de las layers](https://docs.aws.amazon.com/lambda/latest/dg/adding-layers.html).
 
-<p>Asegúrate de que en el ZIP solo estén los archivos necesarios y nada más, para que Lambda pueda usarlos sin problemas.</p>
+## Compatibilidad, límites y empaquetado
 
+- **Runtime y rutas.** El ejemplo usa **python3.14**; si tus funciones usan otro runtime de Python, empaqueta para esa versión y confirma que siga admitida en la [tabla vigente de runtimes](https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtimes.html). En Node.js, las dependencias van en **nodejs/node_modules** o en una ruta versionada, como **nodejs/node22/node_modules** para Node.js 22. Confirma la ruta documentada para tu runtime. Lambda monta el contenido de la layer bajo **/opt**.
+- **Sistema operativo y arquitectura.** Las funciones ZIP de Lambda corren en Amazon Linux. El módulo propio de este ejemplo es Python puro y no depende de la arquitectura del procesador. Una biblioteca con extensiones nativas, como una que contiene código C o C++, debe coincidir con la versión de Python, Linux y arquitectura elegidos para la función (**x86_64** o **arm64**). Para esos paquetes, usa una rueda Linux compatible o construye en un entorno Linux equivalente; publicar una layer como compatible con una arquitectura no recompila sus binarios. La [guía oficial para dependencias Python nativas](https://docs.aws.amazon.com/lambda/latest/dg/python-package.html#python-package-native-libraries) detalla cómo preparar ruedas para cada arquitectura. Los módulos nativos de Node.js también deben compilar para el runtime, el entorno Linux y la arquitectura de la función; consulta la [guía de layers de Node.js](https://docs.aws.amazon.com/lambda/latest/dg/nodejs-layers.html).
+- **Cantidad y tamaño descomprimido.** Una función ZIP admite hasta **5 layers**. El paquete de la función y todas sus layers, una vez descomprimidos, comparten un máximo de **250 MB**.
+- **Tamaño del ZIP y carga.** La carga directa desde consola, API o SDK tiene un máximo de **50 MB** para el archivo comprimido. Para un ZIP mayor, súbelo a Amazon S3 y publica la layer desde allí, indicando el bucket y la clave con **--content**:
 
-<ul>
-<li><strong>Sube el ZIP</strong></li>
-</ul>
+  ~~~bash
+  aws lambda publish-layer-version \
+    --layer-name utilidades-comunes \
+    --content S3Bucket=mi-bucket,S3Key=layers/utilidades-comunes.zip \
+    --compatible-runtimes python3.14 \
+    --compatible-architectures arm64 x86_64
+  ~~~
 
+  La opción **--content** recibe el bucket y la clave del ZIP, como muestra la [referencia de AWS CLI](https://docs.aws.amazon.com/cli/latest/reference/lambda/publish-layer-version.html). La ruta de carga cambia, pero el límite descomprimido combinado sigue siendo 250 MB. AWS resume estos topes en sus [cuotas de Lambda](https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-limits.html).
+- **Funciones de contenedor.** Una función desplegada como imagen no admite layers de Lambda. Agrega el código compartido a la imagen durante la construcción; AWS describe las opciones en la [guía de capas y funciones de contenedor](https://docs.aws.amazon.com/lambda/latest/dg/chapter-layers.html).
 
-<p>Ahora, sube ese archivo ZIP a un lugar donde Lambda pueda encontrarlo, como un bucket de S3.</p>
+## IAM y uso entre cuentas
 
+El principal de despliegue necesita **lambda:PublishLayerVersion** para publicar la capa, **lambda:GetLayerVersion** para usar esa versión y **lambda:UpdateFunctionConfiguration** para adjuntarla a cada función. Para usar una layer de otra cuenta, su propietario también debe permitir **lambda:GetLayerVersion** en la política basada en recursos de esa versión; el usuario o rol consumidor necesita ese permiso en su política de identidad. Los permisos de compartir aplican a una versión concreta, así que hay que volver a concederlos al publicar otra. La función no recibe permisos de ejecución adicionales por llevar una layer: su rol de ejecución sigue siendo el que usa para acceder a servicios y datos.
 
-<ul>
-<li><strong>Crea la Lambda Layer</strong></li>
-</ul>
+Trata el contenido de una layer como código que ejecutarás en cada función que la consuma. Revisa su origen y dependencias, limita el acceso entre cuentas a los principales que lo necesiten y fija versiones. La guía de AWS para [compartir acceso a una layer entre cuentas](https://docs.aws.amazon.com/lambda/latest/dg/permissions-layer-cross-account.html) incluye los permisos requeridos.
 
+## Resolver No module named ... o Unable to import module
 
-<p>Con la ayuda de la consola de AWS, la línea de comandos o CloudFormation, crea la Lambda Layer. Aquí le dices dónde está tu código en S3.</p>
+Cuando la función no encuentra un módulo de la layer, revisa en este orden:
 
+1. **Mira la raíz del ZIP.** Debe aparecer **python/saludo.py**, no **capa/python/saludo.py** ni **python/python/saludo.py**. Usa **zipinfo -1 utilidades-comunes.zip** o el bloque de Python anterior para inspeccionarlo.
+2. **Confirma la versión adjunta.** Revisa la configuración de la función y asegúrate de que tenga el ARN de layer esperado, con el número de versión correcto. Una publicación nueva no cambia las funciones existentes. Si invocas una versión publicada o alias, comprueba también esa versión, no solo **$LATEST**.
+3. **Revisa el nombre y el runtime.** Python distingue mayúsculas de minúsculas en el nombre del archivo y del módulo. Para paquetes con dependencias, confirma que el runtime de la layer y de la función sean compatibles y que la ruta use el formato correcto para Python o Node.js.
+4. **Descarta una dependencia que oculta la layer.** En Python, los paquetes incluidos en el ZIP de la función tienen prioridad sobre los de la layer. Si hay una copia antigua en ambos lugares, Lambda puede importar la del paquete de la función.
+5. **Si hay código nativo, verifica Linux y arquitectura.** Una biblioteca construida para macOS, Windows, **x86_64** o **arm64** puede no cargar en una función con otro sistema operativo, runtime o arquitectura. Consulta los logs de inicialización y la [guía de diagnóstico de Lambda](https://docs.aws.amazon.com/lambda/latest/dg/troubleshooting-execution.html).
 
-<ul>
-<li><strong>Configura quién puede usarla</strong></li>
-</ul>
+Lambda incorpora la layer en **/opt**; no es un directorio de datos compartido. Para guardar o compartir estado entre invocaciones, usa un servicio de almacenamiento apropiado, no una layer.
 
+## Comunidades y un próximo evento
 
-<p>No te olvides de definir quién puede usar tu Layer. Esto lo haces con permisos, para que solo las funciones Lambda que tú quieras puedan acceder a ella.</p>
+Si quieres conversar con otras personas que usan AWS, el [AWS User Group Ciudad de México](https://www.meetup.com/awsugcdmx/) es una comunidad general con reuniones sobre nube, desarrollo y serverless. Para encuentros centrados en serverless, puedes seguir el [AWS User Group Serverless Colombia](https://www.meetup.com/aws-user-group-serverless-colombia/). El [directorio de comunidades AWS](/comunidades/) permite buscar otros grupos por país.
 
-
-<ul>
-<li><strong>Úsala en tus funciones Lambda</strong></li>
-</ul>
-
-
-<p>Por último, ve a tus funciones Lambda y añade la Layer que acabas de crear. Así, podrán usar todo lo que pusiste en ella.</p>
-
-
-<h3 id="cosas-a-tener-en-cuenta" tabindex="-1">Cosas a tener en cuenta</h3>
-
-
-<p>Cuando hagas una Layer, recuerda que:</p>
-
-
-<ul>
-<li>No puede ser más grande de 250 MB cuando se descomprime</li>
-<li>Puedes poner hasta 5 Layers en una función Lambda</li>
-<li>Lambda guarda estas Layers en una carpeta llamada <code class="inline-code">/opt</code></li>
-</ul>
-
-
-<p>Siguiendo estos pasos, podrás compartir código entre tus funciones Lambda de manera fácil.</p>
-
-
-<h2 id="utilizando-una-lambda-layer-en-funciones-lambda" tabindex="-1">Utilizando una Lambda layer en funciones Lambda</h2>
-
-
-<p><figure><img alt="Funciones" src="/assets/blog/1d9673b0b83dd7505c5ebee4.jpg"/></figure></p>
-
-
-<h3 id="vinculando-una-layer-mediante-la-consola-de-aws" tabindex="-1">Vinculando una layer mediante la consola de AWS</h3>
-
-
-<p>Para agregar una Lambda Layer a una de tus funciones Lambda usando la página web de AWS, sigue estos pasos sencillos:</p>
-
-
-<ul>
-<li>Entra a la página de AWS y busca la sección de Lambda.</li>
-<li>Elige la función Lambda a la que quieres añadir la Layer.</li>
-<li>Busca la pestaña que dice "Configuración" y baja hasta encontrar "Layers".</li>
-<li>Haz clic en "Agregar una capa".</li>
-<li>Ahora, elige "Especificar un ARN" y pega el ARN de la Layer que quieres usar. Dale clic a "Verificar".</li>
-<li>Después de verificar el ARN, solo tienes que hacer clic en "Agregar" y ya estará vinculada a tu función.</li>
-</ul>
-
-
-<p>También puedes buscar la Layer por su nombre en vez de pegar el ARN. Solo recuerda elegir la versión correcta que quieres usar.</p>
-
-
-<h3 id="vinculando-una-layer-mediante-aws-cli" tabindex="-1">Vinculando una layer mediante AWS CLI</h3>
-
-
-<p>Si prefieres usar la línea de comandos de AWS para agregar una Lambda Layer a una función, aquí te dejo cómo hacerlo:</p>
-
-
-<h3 id="obtener-arn-de-una-lambda-layer" tabindex="-1">Obtener ARN de una Lambda layer</h3>
-
-
-<pre><code>aws lambda list-layers --query 'Layers[?Name==mylayer].LatestMatchingVersion.LayerVersionArn'
-</code></pre>
-
-
-<h3 id="actualizar-configuraci%C3%B3n-de-la-funci%C3%B3n-para-usar-la-layer" tabindex="-1">Actualizar configuración de la función para usar la layer</h3>
-
-
-<pre><code>aws lambda update-function-configuration --function-name my-function--layers arn:aws:lambda:us-east-1:123456789012:layer:my-layer:1
-</code></pre>
-
-
-<p>Cambia los nombres de la función y la capa por los que estés usando. Así, estarás agregando la última versión de la Layer a tu función.</p>
-
-
-<h3 id="accediendo-contenido-de-la-layer-desde-el-c%C3%B3digo" tabindex="-1">Accediendo contenido de la layer desde el código</h3>
-
-
-<p>Una vez que agregas una Layer a tu función Lambda, todo lo que contiene se pone automáticamente en una carpeta llamada <code class="inline-code">/opt</code> en donde corre tu función.</p>
-
-
-<p>Por ejemplo, si en tu Layer hay una carpeta llamada <code class="inline-code">/python</code>, puedes usar los módulos Python que estén ahí así:</p>
-
-
-<pre><code class="language-python">import sys
-sys.path.insert(0, "/opt/python")
-import my_module
-</code></pre>
-
-
-<p>Igualmente, si tienes archivos de configuración o cualquier otro recurso en tu Layer, puedes acceder a ellos de la misma manera. Esto te permite compartir y reutilizar código, librerías y más entre varias funciones Lambda.</p>
-
-
-<h2 id="utilizando-una-lambda-layer-en-m%C3%BAltiples-funciones" tabindex="-1">Utilizando una Lambda layer en múltiples funciones</h2>
-
-
-<p>Compartir código entre varias funciones de AWS Lambda usando layers puede hacer tu vida mucho más fácil. Ayuda a evitar repetir el mismo código, hace que tus funciones funcionen más rápido y hace más sencillo arreglar o cambiar cosas. Aquí te dejo algunos consejos para usar layers de la mejor manera:</p>
-
-
-<h3 id="1.-identifica-el-c%C3%B3digo-com%C3%BAn" tabindex="-1">1. Identifica el código común</h3>
-
-
-<p>Mira bien tus funciones para ver qué código o herramientas usas más de una vez. Esto puede ser desde pedazos de código que haces tú hasta herramientas que otros han hecho. Eso es lo que deberías poner en una layer.</p>
-
-
-<h3 id="2.-crea-una-layer-para-varias-cosas" tabindex="-1">2. Crea una layer para varias cosas</h3>
-
-
-<p>Es mejor tener una layer que sirva para varias cosas en lugar de muchas layers para cosas muy específicas. Así, puedes añadir más código a la misma layer cuando lo necesites.</p>
-
-
-<h3 id="3.-sigue-reglas-de-buen-c%C3%B3digo" tabindex="-1">3. Sigue reglas de buen código</h3>
-
-
-<p>El código en tu layer debe ser fácil de entender y usar. Esto significa que debe ser claro, manejar errores de manera inteligente, tener pruebas y explicaciones de cómo se usa.</p>
-
-
-<h3 id="4.-piensa-en-c%C3%B3mo-manejar-cambios" tabindex="-1">4. Piensa en cómo manejar cambios</h3>
-
-
-<p>Decide cómo vas a actualizar tu layer cuando necesites hacer cambios. Puedes usar números de versión o tener una para usar y otra para probar cambios. Esto te ayudará a evitar problemas.</p>
-
-
-<h3 id="5.-actualiza-tus-funciones" tabindex="-1">5. Actualiza tus funciones</h3>
-
-
-<p>No te olvides de actualizar tus funciones para usar lo nuevo que pongas en la layer.</p>
-
-
-<p>Siguiendo estos consejos, podrás sacarle más provecho a las layers y hacer que trabajar con Lambda sea más fácil.</p>
-
-
-
-
-<h2 id="consideraciones-y-pr%C3%A1cticas-recomendadas" tabindex="-1">Consideraciones y prácticas recomendadas</h2>
-
-
-<h3 id="control-de-versiones" tabindex="-1">Control de versiones</h3>
-
-
-<p>Es clave manejar bien las versiones de tus Lambda Layers. Cada vez que actualizas una Layer, se crea una nueva versión. Al usar Layers en tus funciones Lambda, es mejor vincular a una versión específica en lugar de siempre usar la última. Esto te da control sobre los cambios y evita problemas en tus funciones que ya están corriendo.</p>
-
-
-<p>Antes de cambiar la versión de una Layer en una función Lambda, prueba bien los cambios en ambientes de prueba. Cuando estés seguro de que todo funciona bien, puedes aplicar los cambios en tus funciones que el público usa.</p>
-
-
-<h3 id="actualizaci%C3%B3n-de-funciones-lambda" tabindex="-1">Actualización de funciones Lambda</h3>
-
-
-<p>Cuando publicas una nueva versión de una Layer, las funciones Lambda que la usan no se actualizan solas. Necesitas actualizar estas funciones manualmente para que usen la nueva versión de la Layer.</p>
-
-
-<p>Planifica cómo vas a actualizar tus funciones cuando saques nuevas versiones de tus Layers. Esto es especialmente importante para las funciones que mucha gente usa. Puedes hacer la actualización poco a poco para reducir los riesgos.</p>
-
-
-<h3 id="seguridad-y-permisos" tabindex="-1">Seguridad y permisos</h3>
-
-
-<p>Asegúrate de dar solo los permisos necesarios a tus Lambda Layers. Esto ayuda a mantener tus funciones seguras.</p>
-
-
-<p>Si otras cuentas de AWS necesitan usar una Layer que hiciste, es mejor dar permisos específicos a esas cuentas en lugar de hacer la Layer pública. Así controlas quién puede usar tu Layer.</p>
-
-
-<h2 id="ventajas-y-desventajas-de-lambda-layers" tabindex="-1">Ventajas y desventajas de Lambda layers</h2>
-
-
-<h3 id="ventajas" tabindex="-1">Ventajas</h3>
-
-
-<p>Las Lambda Layers ofrecen varias ventajas importantes:</p>
-
-
-<ul>
-<li><strong>Reutilización de código</strong>: Te permiten guardar código común, bibliotecas y otros recursos en un lugar separado para compartir entre varias funciones Lambda. Esto evita que tengas que copiar el mismo código una y otra vez.</li>
-<li><strong>Reducción de tamaños de despliegue</strong>: Al mover las dependencias a una capa, el tamaño del paquete que necesitas desplegar para cada función se hace más pequeño. Esto hace que todo funcione más rápido, especialmente cuando inicias una función por primera vez.</li>
-<li><strong>Eficiencia en el desarrollo</strong>: Hace más fácil manejar las dependencias y las actualizaciones, ya que puedes hacer cambios en una sola Layer en vez de en cada función Lambda por separado.</li>
-<li><strong>Gestión centralizada de dependencias</strong>: Todas las funciones que usan una Layer tendrán las mismas versiones de las dependencias, lo que ayuda a evitar problemas de inconsistencia.</li>
-</ul>
-
-
-<h3 id="desventajas" tabindex="-1">Desventajas</h3>
-
-
-<p>Sin embargo, Lambda Layers también tiene algunas desventajas:</p>
-
-
-<ul>
-<li>Puede ser un poco complicado al principio tener que manejar capas adicionales.</li>
-<li>Necesitas estar atento a las versiones tanto de las Layers como de las funciones Lambda que las usan. Es necesario actualizar las funciones manualmente para usar las nuevas versiones de las Layers.</li>
-<li>Hay límites en cuanto al tamaño de las Layers (250 MB después de descomprimir) y cuántas Layers puedes usar por función (5).</li>
-<li>No puedes usar una Layer para compartir estado entre funciones.</li>
-</ul>
-
-
-<p>En resumen, las Lambda Layers te ayudan a reutilizar código, ser más eficiente y manejar mejor las dependencias, pero también traen un poco de trabajo extra en cuanto a la gestión de versiones y actualizaciones.</p>
-
-
-<h2 id="conclusi%C3%B3n" tabindex="-1">Conclusión</h2>
-
-
-<p>Las Lambda Layers de AWS son súper útiles cuando desarrollas aplicaciones que no necesitan un servidor propio:</p>
-
-
-<h3 id="compartir-c%C3%B3digo-y-recursos" tabindex="-1">Compartir código y recursos</h3>
-
-
-<ul>
-<li>Te permiten juntar código, librerías y otras cosas para compartir entre varias funciones Lambda.</li>
-<li>Esto ayuda a que no tengas que copiar y pegar las mismas cosas una y otra vez.</li>
-</ul>
-
-
-<h3 id="mejorar-eficiencia" tabindex="-1">Mejorar eficiencia</h3>
-
-
-<ul>
-<li>Al poner las dependencias aparte, las funciones individuales ocupan menos espacio.</li>
-<li>Esto hace que todo se inicie, se suba y se ejecute más rápido.</li>
-</ul>
-
-
-<h3 id="simplificar-mantenimiento" tabindex="-1">Simplificar mantenimiento</h3>
-
-
-<ul>
-<li>Si actualizas algo en una Layer, todas las funciones que la usan se actualizan solas.</li>
-<li>Así no tienes que ir una por una haciendo cambios.</li>
-</ul>
-
-
-<h3 id="control-de-dependencias" tabindex="-1">Control de dependencias</h3>
-
-
-<ul>
-<li>Todas las funciones usan la misma versión de lo que está en la Layer.</li>
-<li>Esto evita problemas porque todo está igual.</li>
-</ul>
-
-
-<h3 id="desarrollo-%C3%A1gil" tabindex="-1">Desarrollo ágil</h3>
-
-
-<ul>
-<li>Permite hacer cambios y probar cosas nuevas más rápido porque es más fácil manejar las dependencias.</li>
-<li>También te ayuda a usar entornos de ejecución a tu medida.</li>
-</ul>
-
-
-<p>En pocas palabras, si usas bien las Layers, puedes hacer que el desarrollo de tus aplicaciones en AWS Lambda sea más rápido y sencillo. Solo asegúrate de entender bien cómo manejar las versiones y actualizaciones.</p>
-
-
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
-
-
-<h3 id="%C2%BFqu%C3%A9-es-una-lambda-layer%3F" tabindex="-1">¿Qué es una Lambda layer?</h3>
-
-
-<p>Una Lambda Layer es básicamente un paquete de código o datos, como un archivo .zip, que contiene cosas como librerías o configuraciones. Se usa para compartir este contenido entre varias funciones Lambda sin tener que duplicarlo.</p>
-
-
-<h3 id="%C2%BFc%C3%B3mo-se-utiliza-lambda%3F" tabindex="-1">¿Cómo se utiliza Lambda?</h3>
-
-
-<p>Las funciones Lambda se usan para tareas como:</p>
-
-
-<ul>
-<li>Responder a eventos, como clics o cambios en datos.</li>
-<li>Procesar información al instante.</li>
-<li>Conectar diferentes servicios de AWS entre sí.</li>
-</ul>
-
-
-<p>Lo bueno es que Lambda corre tu código solo cuando lo necesitas y no tienes que preocuparte por los servidores. Pagas solo por el tiempo que tu código está corriendo.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-conjunto-de-par%C3%A1metros-podemos-usar-en-aws-lambda%3F" tabindex="-1">¿Qué conjunto de parámetros podemos usar en AWS Lambda?</h3>
-
-
-<p>AWS Lambda soporta varios lenguajes de programación como Java, Go, Node.js, Python, entre otros. También puedes ajustar cosas como:</p>
-
-
-<ul>
-<li>La cantidad de memoria que usa tu función.</li>
-<li>Cuánto tiempo puede correr.</li>
-<li>Variables de entorno y más.</li>
-</ul>
-
-
-<p>Puedes agregar Capas para incluir código o librerías extras que tu función necesita.</p>
-
-
-<h3 id="%C2%BFc%C3%B3mo-funciona-una-funci%C3%B3n-lambda%3F" tabindex="-1">¿Cómo funciona una función Lambda?</h3>
-
-
-<p>Una función Lambda se activa cuando pasa algo que la dispara, como una solicitud de web o un cambio en una base de datos.</p>
-
-
-<p>AWS Lambda entonces corre tu función, procesa lo que tenga que hacer y termina. La próxima vez que algo active tu función, se corre de nuevo desde cero. Esto significa que no tienes que manejar servidores ni pagar por tiempo que no estás usando.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a serverless en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/">Mejores prácticas para AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS fundamentos: guía de inicio rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/comprendiendo-aws-step-functions/">Comprendiendo AWS Step Functions</a></li>
-</ul>
-</p>
+Al 7 de octubre de 2026, Serverless Colombia anuncia el encuentro virtual [El Combo Indestructible de AWS: SQS + Lambda](https://www.meetup.com/aws-user-group-serverless-colombia/events/316770520/) para el **20 de octubre de 2026 a las 19:00 COT**, con acceso libre. Meetup indica que el enlace para entrar es visible para asistentes; confirma allí el registro y las condiciones antes del evento.
