@@ -12,8 +12,9 @@ test('encodes only public resource context into a mailto draft', () => {
 
   assert.equal(parsed.protocol, 'mailto:');
   assert.equal(parsed.pathname, 'contact@dondeaprendoaws.com');
-  assert.equal(parsed.searchParams.get('subject'), 'Reporte de enlace roto o dato incorrecto');
+  assert.equal(parsed.searchParams.get('subject'), 'Reporte de enlace');
   const body = parsed.searchParams.get('body');
+  assert.equal(body, `Título: ${title}\nReferencia: ${recordId}\nEnlace público: ${targetUrl}`);
   assert.ok(body.includes(title));
   assert.ok(body.includes(recordId));
   assert.ok(body.includes(targetUrl));
@@ -41,6 +42,8 @@ test('ignores private submission fields and sanitizes header-like title text', (
   assert.equal(body.includes('private@example.invalid'), false);
   assert.equal(body.includes('Private Submitter'), false);
   assert.equal(body.includes('Private description'), false);
+  assert.equal(body.includes('Hola, quiero reportar'), false);
+  assert.equal(body.includes('Gracias.'), false);
   assert.equal(parsed.searchParams.has('bcc'), false);
   assert.equal(parsed.searchParams.has('to'), false);
 });
@@ -50,5 +53,5 @@ test('omits unsafe URLs and offers instructions for generic footer reports', () 
   assert.equal(unsafe.searchParams.get('body').includes('javascript:'), false);
 
   const generic = new URL(buildReportMailto());
-  assert.ok(generic.searchParams.get('body').includes('Incluye el enlace público que quieres reportar.'));
+  assert.equal(generic.searchParams.get('body'), 'Incluye el enlace público que quieres reportar.');
 });

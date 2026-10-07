@@ -1,5 +1,5 @@
 const CONTACT_EMAIL = 'contact@dondeaprendoaws.com';
-const REPORT_SUBJECT = 'Reporte de enlace roto o dato incorrecto';
+const REPORT_SUBJECT = 'Reporte de enlace';
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/u;
 
 /**
@@ -7,10 +7,7 @@ const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/u;
  * as URI components so titles and URLs cannot add recipients or headers.
  */
 export function buildReportMailto({ title, recordId, targetUrl } = {}) {
-  const lines = [
-    'Hola, quiero reportar un enlace roto o un dato incorrecto en Dónde Aprendo AWS.',
-    '',
-  ];
+  const lines = [];
 
   const safeTitle = publicText(title, 240);
   const safeRecordId = publicText(recordId, 128);
@@ -23,8 +20,6 @@ export function buildReportMailto({ title, recordId, targetUrl } = {}) {
   if (!safeTitle && !safeRecordId && !safeTargetUrl) {
     lines.push('Incluye el enlace público que quieres reportar.');
   }
-
-  lines.push('', 'Describe brevemente el problema. Gracias.');
 
   return `mailto:${CONTACT_EMAIL}?subject=${encodeUriComponent(REPORT_SUBJECT)}&body=${encodeUriComponent(lines.join('\n'))}`;
 }
