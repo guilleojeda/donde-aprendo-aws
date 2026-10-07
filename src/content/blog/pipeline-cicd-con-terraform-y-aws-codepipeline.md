@@ -1,621 +1,406 @@
 ---
-title: "Pipeline CI/CD con Terraform y AWS CodePipeline"
-description: "Automatiza tus despliegues en AWS con un pipeline CI/CD usando Terraform y CodePipeline, optimizando seguridad, escalabilidad y eficiencia."
+title: "Pipeline CI/CD con Terraform y AWS CodePipeline: plan y aprobación"
+description: "Configura Terraform en AWS CodePipeline y CodeBuild: guarda el plan como artefacto, revísalo y aplica ese mismo archivo con roles IAM separados."
 author: "guille-ojeda"
 publishedAt: "2025-02-13"
 publishedTimestamp: "2025-02-13T00:13:18.43Z"
+modifiedTimestamp: "2026-10-07T00:07:26-03:00"
+review:
+  date: "2026-10-07"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "10 preguntas frecuentes sobre machine learning en AWS"
-    url: "https://dondeaprendoaws.com/blog/10-preguntas-frecuentes-sobre-machine-learning-en-aws/"
-  - title: "Grupos de estudio AWS en reddit 2024"
-    url: "https://dondeaprendoaws.com/blog/grupos-de-estudio-aws-en-reddit-2024/"
-  - title: "Comprendiendo Kubernetes y Amazon EKS"
-    url: "https://dondeaprendoaws.com/blog/comprendiendo-kubernetes-y-amazon-eks/"
-
+  - title: "Infraestructura como código en AWS con Terraform: guía práctica de S3"
+    url: "https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-terraform/"
+  - title: "Cómo integrar Terraform con CI/CD en AWS con GitHub Actions"
+    url: "https://dondeaprendoaws.com/blog/como-integrar-terraform-con-cicd-en-aws/"
+  - title: "Acceso entre cuentas en AWS con IAM: roles y políticas de confianza"
+    url: "https://dondeaprendoaws.com/blog/politicas-de-confianza-aws-acceso-entre-cuentas/"
 ---
 
-<p><strong>¿Quieres automatizar tus despliegues en AWS de forma eficiente y segura?</strong> Configurar un pipeline CI/CD con <a href="https://www.terraform.io/" rel="noopener noreferrer" target="_blank">Terraform</a> y <a href="https://docs.aws.amazon.com/codepipeline/latest/userguide/welcome.html" rel="noopener noreferrer" target="_blank">AWS CodePipeline</a> es la solución. Este enfoque combina <a href="https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-aws-cloudformation/">infraestructura como código</a> y servicios administrados para acelerar el desarrollo.</p>
+Para automatizar Terraform con AWS CodePipeline, generá el plan una vez, guardalo como artefacto, revisá ese plan y aplicá el mismo archivo. Este ejemplo conecta un repositorio de GitHub mediante AWS CodeConnections, ejecuta validaciones y Terraform en AWS CodeBuild, y detiene la ejecución para aprobación antes de modificar recursos.
 
+El flujo aplica un <code>tfplan</code> producido para el mismo commit que luego recibe la etapa Apply. También conserva la configuración y el archivo <code>.terraform.lock.hcl</code> entre etapas. El ejemplo cubre una canalización en una sola región; supone que el bucket de estado, el bucket de artefactos, la conexión, los proyectos de CodeBuild y los roles IAM ya existen. Al final explico qué debe tener cada uno.
 
-<h3 id="resumen-rapido" tabindex="-1">Resumen rápido:</h3>
+## Resumen del flujo
 
+1. Un commit de la rama protegida activa el origen de CodePipeline.
+2. CodeBuild valida formato y configuración sin conectarse al backend ni modificar recursos.
+3. Otro proyecto de CodeBuild lee el estado, crea un plan y publica un artefacto cifrado con el plan, una vista legible y el commit.
+4. Una persona autorizada abre ese artefacto y aprueba o rechaza la ejecución.
+5. CodeBuild recibe el código fuente y el plan de esa misma ejecución, verifica el commit y ejecuta <code>terraform apply</code> sobre el archivo guardado.
 
-<ul>
-<li><strong>Herramientas necesarias</strong>: AWS CLI (≥2.0), Terraform (≥1.0.0), Git (2.x).</li>
-<li><strong>Componentes clave</strong>:
-<ul>
-<li><strong>Terraform</strong>: Gestiona la infraestructura.</li>
-<li><strong>AWS CodePipeline</strong>: Orquesta el flujo de despliegue.</li>
-<li><strong><a href="https://docs.aws.amazon.com/codebuild/latest/userguide/welcome.html" rel="noopener noreferrer" target="_blank">AWS CodeBuild</a></strong>: Valida y aplica cambios de Terraform.</li>
-</ul>
-</li>
-<li><strong>Etapas del pipeline</strong>:
-<ol>
-<li><strong>Origen</strong>: Detecta cambios en el repositorio.</li>
-<li><strong>Validación</strong>: Ejecuta <code class="inline-code">terraform validate</code> y <code class="inline-code">terraform fmt</code>.</li>
-<li><strong>Planificación</strong>: Genera un plan con <code class="inline-code">terraform plan</code>.</li>
-<li><strong>Aprobación</strong>: Paso manual para entornos críticos.</li>
-<li><strong>Aplicación</strong>: Implementa cambios con <code class="inline-code">terraform apply</code>.</li>
-</ol>
-</li>
-</ul>
+Este diseño aplica un plan aprobado, no vuelve a calcular uno. Si el estado cambia mientras la ejecución espera, Terraform puede rechazar el plan por obsoleto. En ese caso hay que generar otro plan y pedir una nueva revisión.
 
+Para conocer las herramientas de entrega continua de AWS, [AWS Women Colombia repasa CodeCommit, CodePipeline, CodeBuild, CodeDeploy y CodeArtifact](https://www.youtube.com/watch?v=ZO6FP7dSEVc) con Joana Ramírez y Angélica Ortega en una grabación de 2021. Sirve como panorama de servicios; contrasta las pantallas antiguas con la documentación actual. El ejemplo de esta guía usa GitHub y CodeConnections.
 
-<h3 id="beneficios" tabindex="-1">Beneficios:</h3>
+## Qué preparar antes de desplegar
 
+### 1. Separá el estado de los artefactos
 
-<ul>
-<li><strong>Automatización</strong>: Menos errores y despliegues más rápidos.</li>
-<li><strong>Seguridad</strong>: Uso de KMS, IAM, y MFA.</li>
-<li><strong>Escalabilidad</strong>: Modularidad y soporte multi-cuenta.</li>
-</ul>
+El backend S3 debe existir antes de que Terraform pueda usarlo. Prepará el bucket mediante un proceso de bootstrap separado o una plataforma que ya administre el estado. Activá el bloqueo de acceso público, el cifrado y el versionado de objetos; el versionado permite recuperar una versión anterior del estado. El bucket de estado no es el bucket de artefactos de CodePipeline ni el bucket de la aplicación.
 
+Esta configuración usa el bloqueo nativo de S3:
 
-<p>Con esta guía, aprenderás a configurar y optimizar un pipeline CI/CD paso a paso, integrando validaciones, seguridad y <a href="https://www.andmore.dev/es/blog/getting-started-portman/" rel="noopener noreferrer" target="_blank">pruebas automatizadas</a>. ¡Comienza a transformar tus procesos de despliegue hoy!</p>
+~~~hcl
+terraform {
+  required_version = ">= 1.10.0, < 2.0.0"
 
-
-<h2 class="sb" id="configuracion-del-entorno" tabindex="-1">Configuración del entorno</h2>
-
-
-<p>Prepara tu entorno con las herramientas y configuraciones necesarias para garantizar un flujo de trabajo eficiente.</p>
-
-
-<h3 id="herramientas-y-accesos-requeridos" tabindex="-1">Herramientas y accesos requeridos</h3>
-
-
-<p>Asegúrate de contar con las siguientes herramientas instaladas:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Herramienta</th>
-<th>Versión</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>AWS CLI</td>
-<td>≥2.0</td>
-</tr>
-<tr>
-<td>Terraform</td>
-<td>≥1.0.0</td>
-</tr>
-<tr>
-<td>Git</td>
-<td>2.x</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Si usas <a href="https://docs.aws.amazon.com/cloudshell/latest/userguide/welcome.html" rel="noopener noreferrer" target="_blank">AWS CloudShell</a>, estas herramientas ya vienen preinstaladas.</p>
-
-
-<p>Además, necesitarás acceso a un repositorio en <strong><a href="https://docs.aws.amazon.com/codecommit/" rel="noopener noreferrer" target="_blank">AWS CodeCommit</a></strong> o <strong>GitHub</strong>. Una vez que tengas todo listo, el siguiente paso será configurar los permisos IAM.</p>
-
-
-<h3 id="configuracion-de-roles-iam" tabindex="-1">Configuración de roles IAM</h3>
-
-
-<p>Para cumplir con las <a href="https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/">prácticas de seguridad recomendadas</a>, deberás crear un rol IAM específico para CodePipeline:</p>
-
-
-<ul>
-<li><strong>Paso 1:</strong> Crea un rol IAM para CodePipeline.</li>
-<li><strong>Paso 2:</strong> Adjunta las políticas necesarias: <code class="inline-code">AWSCodePipelineFullAccess</code> y <code class="inline-code">AWSCodeBuildAdminAccess</code>.</li>
-<li><strong>Paso 3:</strong> Agrega una política personalizada para gestionar el acceso a S3 y KMS:</li>
-</ul>
-
-
-<pre><code class="language-hcl">data "aws_iam_policy_document" "pipeline_policy" {
-  statement {
-    effect = "Allow"
-    actions = [
-      "s3:GetObject",
-      "s3:GetObjectVersion",
-      "s3:PutObject"
-    ]
-    resources = ["${aws_s3_bucket.artifacts.arn}/*"]
-  }
-
-  statement {
-    effect = "Allow"
-    actions = [
-      "kms:Decrypt",
-      "kms:GenerateDataKey"
-    ]
-    resources = [aws_kms_key.pipeline_key.arn]
-  }
-}
-</code></pre>
-
-
-<p>No olvides habilitar la <strong>autenticación multifactor (MFA)</strong> para añadir una capa adicional de seguridad <a href="https://aws.plainenglish.io/how-to-set-up-aws-codepipeline-using-terraform-code-4a732364212" rel="noopener noreferrer" target="_blank"><sup>[1]</sup></a>.</p>
-
-
-<h3 id="configuracion-de-terraform" tabindex="-1">Configuración de <a href="https://www.terraform.io/" rel="noopener noreferrer" target="_blank">Terraform</a></h3>
-
-
-<p><figure><img alt="Terraform" src="/assets/blog/4e3b1c8d6bf25353076fb7b4.jpg"/></figure></p>
-
-
-<p>Terraform será clave para gestionar la infraestructura. A continuación, te mostramos cómo configurarlo:</p>
-
-
-<ol>
-<li><strong>Estructura del Proyecto</strong></li>
-</ol>
-
-
-<p>Organiza los archivos de tu proyecto de la siguiente manera:</p>
-
-
-<pre><code>terraform-pipeline/
-├── main.tf
-├── variables.tf
-├── outputs.tf
-└── backend.tf
-</code></pre>
-
-
-<ol start="2">
-<li><strong>Backend de Terraform</strong></li>
-</ol>
-
-
-<p>Configura el backend para almacenar el <a href="https://dev.to/aws-builders/como-gestionar-el-estado-de-terraform-en-aws-51n1" rel="noopener noreferrer" target="_blank">estado de Terraform</a> en S3:</p>
-
-
-<pre><code class="language-hcl">terraform {
-  backend "s3" {
-    bucket = "${var.project_name}-terraform-state"
-    key    = "pipeline/terraform.tfstate"
-    region = "us-west-2"
-    encrypt = true
-  }
-}
-</code></pre>
-
-
-<ol start="3">
-<li><strong><a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-basica/">credenciales AWS</a></strong></li>
-</ol>
-
-
-<p>Define las credenciales de AWS usando variables de entorno o configura AWS Single Sign-On (SSO). Para entornos de producción, es recomendable usar roles IAM con credenciales temporales para mayor seguridad <a href="https://aws.plainenglish.io/how-to-set-up-aws-codepipeline-using-terraform-code-4a732364212" rel="noopener noreferrer" target="_blank"><sup>[1]</sup></a>.</p>
-
-
-<h2 class="sb" id="arquitectura-del-pipeline" tabindex="-1">Arquitectura del pipeline</h2>
-
-
-<p>Después de configurar el entorno, diseñamos una arquitectura que combina servicios de AWS con <a href="https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-terraform/">flujos de trabajo de Terraform</a>.</p>
-
-
-<h3 id="componentes-principales" tabindex="-1">Componentes principales</h3>
-
-
-<p>La arquitectura se basa en servicios de AWS que trabajan en conjunto con Terraform:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Componente</th>
-<th>Función Principal</th>
-<th>Relación con Terraform</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>AWS CodePipeline</strong></td>
-<td>Orquestador del pipeline</td>
-<td>Coordina la ejecución de comandos de Terraform</td>
-</tr>
-<tr>
-<td><strong>AWS CodeCommit</strong></td>
-<td>Repositorio de código</td>
-<td>Almacena y versiona archivos <code class="inline-code">.tf</code></td>
-</tr>
-<tr>
-<td><strong>AWS CodeBuild</strong></td>
-<td>Motor de ejecución de builds</td>
-<td>Ejecuta <code class="inline-code">terraform validate</code>, <code class="inline-code">plan</code> y <code class="inline-code">apply</code></td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="etapas-del-pipeline" tabindex="-1">Etapas del pipeline</h3>
-
-
-<p>El pipeline está organizado en pasos secuenciales que aseguran calidad y control en los despliegues:</p>
-
-
-<ul>
-<li><strong>Origen</strong>: El pipeline se activa automáticamente cuando hay cambios en la rama principal del repositorio.</li>
-<li><strong>Validación</strong>: En esta etapa, CodeBuild ejecuta:
-<ul>
-<li><code class="inline-code">terraform validate</code></li>
-<li><code class="inline-code">terraform fmt -check</code></li>
-</ul>
-</li>
-<li><strong>Planificación</strong>: Genera un plan de ejecución utilizando <code class="inline-code">terraform plan</code>.</li>
-<li><strong>Aprobación</strong>: Paso crucial para entornos de producción, que requiere una aprobación manual antes de proceder.</li>
-<li><strong>Aplicación</strong>: Aplica los cambios con el comando <code class="inline-code">terraform apply --auto-approve</code>.</li>
-</ul>
-
-
-<p>Esta estructura establece los fundamentos necesarios para la implementación detallada que se desarrollará en la próxima sección.</p>
-
-
-<h2 class="sb" id="construccion-del-pipeline" tabindex="-1">Construcción del pipeline</h2>
-
-
-<p>Después de definir la arquitectura, el siguiente paso es implementar el pipeline utilizando recursos de Terraform.</p>
-
-
-<h3 id="despliegue-de-recursos" tabindex="-1">Despliegue de recursos</h3>
-
-
-<p>El recurso principal del pipeline, CodePipeline, se configura con Terraform de la siguiente manera:</p>
-
-
-<pre><code class="language-terraform">resource "aws_codepipeline" "pipeline" {
-  name     = "terraform-pipeline"
-  role_arn = aws_iam_role.codepipeline_role.arn
-
-  artifact_store {
-    location = aws_s3_bucket.artifact_store.bucket
-    type     = "S3"
-
-    encryption_key {
-      id   = aws_kms_key.artifact_key.arn
-      type = "KMS"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.0"
     }
   }
-}
-</code></pre>
 
-
-<p>Este recurso se complementa con las etapas detalladas en la arquitectura previamente definida.</p>
-
-
-<h3 id="configuracion-de-etapas" tabindex="-1">Configuración de etapas</h3>
-
-
-<p>Cada etapa del pipeline utiliza un archivo <em>buildspec</em> para definir los comandos necesarios. Aquí tienes un ejemplo:</p>
-
-
-<pre><code class="language-yaml">version: 0.2
-
-phases:
-  pre_build:
-    commands:
-      - wget https://releases.hashicorp.com/terraform/1.0.0/terraform_1.0.0_linux_amd64.zip
-      - unzip terraform_1.0.0_linux_amd64.zip
-      - mv terraform /usr/local/bin/
-  build:
-    commands:
-      - terraform init
-      - terraform validate
-</code></pre>
-
-
-<p>Este archivo asegura que las herramientas necesarias estén disponibles antes de ejecutar las validaciones y otros procesos de construcción.</p>
-
-
-<h3 id="implementacion-de-seguridad" tabindex="-1">Implementación de seguridad</h3>
-
-
-<p>La seguridad del pipeline se gestiona mediante encriptación con KMS y políticas IAM específicas. Aquí tienes un ejemplo de configuración:</p>
-
-
-<pre><code class="language-terraform">resource "aws_kms_key" "artifact_key" {
-  description             = "Clave KMS para artefactos del pipeline"
-  deletion_window_in_days = 10
-  enable_key_rotation     = true
-}
-
-resource "aws_iam_role_policy" "codepipeline_kms_policy" {
-  role = aws_iam_role.codepipeline_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "kms:Decrypt",
-          "kms:DescribeKey",
-          "kms:Encrypt",
-          "kms:ReEncrypt*",
-          "kms:GenerateDataKey*"
-        ]
-        Resource = aws_kms_key.artifact_key.arn
-      }
-    ]
-  })
-}
-</code></pre>
-
-
-<p>Estas configuraciones refuerzan el principio de privilegios mínimos, asegurando que el pipeline solo tenga acceso a los recursos necesarios para su operación. Además, la rotación automática de claves KMS agrega una capa adicional de seguridad.</p>
-
-
-
-
-<h2 class="sb" id="pruebas-del-pipeline" tabindex="-1">Pruebas del pipeline</h2>
-
-
-<p>Después de configurar la infraestructura del pipeline, realizamos pruebas automatizadas en tres niveles para asegurar su correcto funcionamiento.</p>
-
-
-<h3 id="validacion-de-codigo" tabindex="-1">Validación de código</h3>
-
-
-<p>Usamos herramientas como <strong><a href="https://github.com/terraform-linters/tflint" rel="noopener noreferrer" target="_blank">TFLint</a></strong> (para análisis de Terraform) y <strong><a href="https://www.checkov.io/" rel="noopener noreferrer" target="_blank">Checkov</a></strong> (para seguridad). Aquí tienes un ejemplo de configuración en YAML:</p>
-
-
-<pre><code class="language-yaml">version: 0.2
-phases:
-  install:
-    commands:
-      - curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
-      - pip install checkov
-  build:
-    commands:
-      - tflint --format=compact
-      - checkov -d . --framework terraform --output cli
-</code></pre>
-
-
-<p>Además, personalizamos reglas específicas en el archivo <code class="inline-code">.tflint.hcl</code> para ajustar las validaciones a nuestras necesidades:</p>
-
-
-<pre><code class="language-hcl">plugin "aws" {
-  enabled = true
-  version = "0.21.1"
-  source  = "github.com/terraform-linters/tflint-ruleset-aws"
-}
-
-rule "aws_instance_invalid_type" {
-  enabled = true
-}
-</code></pre>
-
-
-<h3 id="verificacion-del-despliegue" tabindex="-1">Verificación del despliegue</h3>
-
-
-<p>Para validar la infraestructura implementada, integramos pruebas que abarcan tres áreas clave:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Nivel de Prueba</th>
-<th>Herramienta</th>
-<th>Propósito</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Infraestructura</td>
-<td><a href="https://docs.aws.amazon.com/config/" rel="noopener noreferrer" target="_blank">AWS Config</a> Rules</td>
-<td>Revisión de conformidad y configuración</td>
-</tr>
-<tr>
-<td>Funcional</td>
-<td>Scripts de prueba</td>
-<td>Validación de operaciones básicas</td>
-</tr>
-<tr>
-<td>Monitoreo</td>
-<td>CloudWatch Alarms</td>
-<td>Seguimiento de métricas importantes</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>En el pipeline, incluimos scripts que automatizan esta verificación:</p>
-
-
-<pre><code class="language-yaml">post_build: # Verificación automatizada
-  commands:
-    - python scripts/verify_infrastructure.py
-    - aws cloudwatch put-metric-alarm --alarm-name PipelineHealth --metric-name DeploymentStatus --namespace AWS/CodePipeline --statistic Average --period 300 --threshold 1 --comparison-operator GreaterThanThreshold
-</code></pre>
-
-
-<p>Si ocurre un fallo durante el despliegue, ejecutamos un rollback automático:</p>
-
-
-<pre><code class="language-yaml">on_failure:
-  commands:
-    - terraform destroy -auto-approve -var-file="rollback.tfvars"
-    - aws sns publish --topic-arn ${SNS_TOPIC} --message "Despliegue fallido - Rollback ejecutado"
-</code></pre>
-
-
-<p>Este enfoque combina validaciones de código y pruebas de despliegue, garantizando que cada implementación cumpla con los estándares de calidad y seguridad necesarios. Esto reduce el riesgo de problemas en producción y refuerza el control de calidad en el pipeline CI/CD.</p>
-
-
-<h2 class="sb" id="configuracion-avanzada" tabindex="-1">Configuración avanzada</h2>
-
-
-<p>En proyectos que necesitan operar en múltiples entornos, es clave implementar ajustes específicos para garantizar escalabilidad y seguridad.</p>
-
-
-<h3 id="configuracion-multi-cuenta" tabindex="-1">Configuración multi-cuenta</h3>
-
-
-<p>Gestionar múltiples cuentas en AWS requiere una arquitectura bien definida. Un elemento esencial es un bucket S3 compartido para almacenar el estado de Terraform de manera centralizada.</p>
-
-
-<p>Para manejar despliegues entre cuentas, se utilizan roles IAM diseñados bajo el principio de privilegios mínimos:</p>
-
-
-<ul>
-<li><strong>Cuenta de Desarrollo</strong>: Rol <code class="inline-code">TerraformDev</code> (para despliegues en el entorno de desarrollo).</li>
-<li><strong>Cuenta de Pruebas</strong>: Rol <code class="inline-code">TerraformTest</code> (para validaciones en staging).</li>
-<li><strong>Cuenta de Producción</strong>: Rol <code class="inline-code">TerraformProd</code> (para implementaciones en producción).</li>
-</ul>
-
-
-<p>La configuración del proveedor AWS para cada cuenta se define de esta manera:</p>
-
-
-<pre><code class="language-hcl">provider "aws" {
-  region = "us-west-2"
-  assume_role {
-    role_arn = "arn:aws:iam::TARGET_ACCOUNT_ID:role/RolDespliegue"
+  backend "s3" {
+    bucket       = "mi-estado-terraform-123456789012-us-east-1"
+    key          = "red/terraform.tfstate"
+    region       = "us-east-1"
+    encrypt      = true
+    use_lockfile = true
   }
 }
-</code></pre>
 
+provider "aws" {
+  region = "us-east-1"
+}
+~~~
 
-<h3 id="desarrollo-de-modulos" tabindex="-1">Desarrollo de módulos</h3>
+<code>use_lockfile</code> requiere una versión de Terraform que lo admita; este ejemplo fija el mínimo en 1.10.0. Para migrar clientes antiguos, el backend aún admite temporalmente el bloqueo en S3 y DynamoDB a la vez. DynamoDB está obsoleto para nuevos backends y HashiCorp indica que lo retirará en una versión menor futura. Consultá la [documentación vigente del backend S3](https://developer.hashicorp.com/terraform/language/backend/s3) antes de migrar un estado compartido.
 
+En <code>required_providers</code> declarás un rango compatible; <code>.terraform.lock.hcl</code> registra la versión exacta del proveedor elegida y sus sumas de comprobación. Generá o actualizá ese archivo en una revisión local, agregá la plataforma de CodeBuild y subilo al repositorio:
 
-<p>Los módulos reutilizables son clave para mantener el código organizado y fácil de gestionar. Aquí hay un ejemplo de cómo estructurar módulos para componentes comunes en un pipeline:</p>
+~~~sh
+terraform init -backend=false -input=false
+terraform providers lock -platform=linux_amd64
+git add .terraform.lock.hcl
+~~~
 
+El archivo de bloqueo fija proveedores, no las versiones de módulos remotos. Si usás módulos externos, declarales también una versión concreta. CodeBuild debe usar exactamente la misma versión de Terraform y la misma imagen de Linux amd64 en Plan y Apply. La restricción del ejemplo no instala la versión más reciente en cada ejecución: fija una imagen revisada que incluya el ejecutable de Terraform. <code>terraform init -lockfile=readonly</code> hace que la canalización falle si falta el archivo o una dependencia requiere cambiarlo. HashiCorp explica cómo [bloquear dependencias](https://developer.hashicorp.com/terraform/language/files/dependency-lock) y cómo [aplicar un plan guardado](https://developer.hashicorp.com/terraform/cli/commands/apply).
 
-<pre><code class="language-hcl">module "source_pipeline" {
-  source = "./modules/pipeline_source"
-  repository_name = var.repo_name
-  branch_name = var.branch_name
+El backend necesita <code>s3:ListBucket</code> limitado al prefijo del estado, <code>s3:GetObject</code> y <code>s3:PutObject</code> sobre el objeto del estado, y <code>s3:GetObject</code>, <code>s3:PutObject</code> y <code>s3:DeleteObject</code> sobre el archivo <code>.tflock</code>. Si cifrás con una clave KMS propia, añadí solo los permisos de esa clave que exijan las operaciones. No guardes claves de AWS ni secretos de backend en el código: la configuración de backend puede terminar dentro de los metadatos locales y del plan.
+
+Si querés una explicación más extensa del estado remoto y un ejemplo de bucket, consultá la [guía de Terraform con S3](https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-terraform/).
+
+### 2. Conectá el repositorio con CodeConnections
+
+Creá una conexión en AWS Developer Tools, instalá o autorizá la aplicación del proveedor y comprobá que su estado sea <code>AVAILABLE</code>. La conexión es regional. Verificá que la región elegida admita la integración y que el bucket de artefactos y los proyectos de CodeBuild estén en esa región.
+
+Aunque el servicio hoy se llama AWS CodeConnections, la acción de origen de CodePipeline conserva el proveedor <code>CodeStarSourceConnection</code>. Para GitHub, GitLab o Bitbucket, la acción genera por defecto un ZIP con el código del commit. El ARN de conexión puede usar el prefijo <code>codeconnections</code> o el anterior <code>codestar-connections</code>; AWS pide autorizar ambas acciones de IAM para cubrir los dos caminos. Consultá la [referencia actual de la acción de origen](https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference-CodestarConnectionSource.html), la lista de [proveedores compatibles](https://docs.aws.amazon.com/dtconsole/latest/userguide/supported-versions-connections.html) y las [integraciones de CodeConnections](https://docs.aws.amazon.com/dtconsole/latest/userguide/integrations-connections.html).
+
+La instalación de la conexión puede requerir completar una autorización fuera de Terraform. La guía del proveedor <code>aws_codestarconnections_connection</code> indica que un recurso recién creado queda <code>PENDING</code> hasta terminar el proceso de instalación. Este ejemplo recibe el ARN de una conexión que ya está activa.
+
+### 3. Configurá tres proyectos de CodeBuild
+
+Los proyectos Validate, Plan y Apply usan <code>CODEPIPELINE</code> como origen y como tipo de artefactos. Cada proyecto lee su buildspec del ZIP de origen:
+
+- Validate usa <code>buildspec-validate.yml</code> y no necesita permisos para consultar o cambiar la cuenta destino.
+- Plan usa <code>buildspec-plan.yml</code>, el backend S3 y permisos de lectura para los recursos y fuentes de datos que administre Terraform.
+- Apply usa <code>buildspec-apply.yml</code>, el mismo backend y los permisos de escritura requeridos por los recursos de esa configuración.
+
+Plan y Apply deben fijar la misma versión exacta de Terraform, sistema operativo, arquitectura e imagen. Una versión de proveedor distinta puede invalidar el plan. Las rutas locales también importan: un archivo de plan puede contener rutas absolutas a módulos y archivos del proyecto. Por eso los dos buildspec copian el mismo ZIP a <code>/tmp/terraform-project</code> y cambian realmente a ese directorio antes de ejecutar Terraform. Así coinciden tanto la ruta raíz como <code>path.cwd</code>; HashiCorp documenta que [<code>-chdir</code> conserva el directorio original en <code>path.cwd</code>](https://developer.hashicorp.com/terraform/cli/commands). La guía de HashiCorp sobre [Terraform en automatización](https://developer.hashicorp.com/terraform/tutorials/automation/automate-terraform) describe estas condiciones.
+
+El proyecto Terraform de destino va en el repositorio conectado a SourceArtifact: incluí ahí sus archivos <code>.tf</code>, módulos locales, <code>.terraform.lock.hcl</code>, los tres buildspecs y los valores no sensibles que necesite, por ejemplo en <code>terraform.tfvars</code>. Inyectá los valores sensibles desde Secrets Manager o Parameter Store; nunca los guardes en Git. Configurá el mismo conjunto y versión de entradas en Plan y Apply cuando el proveedor las requiera. Terraform guarda los valores usados en el plan aprobado, así que tratá el artefacto con el mismo cuidado que el estado.
+
+## Definí las acciones del pipeline
+
+Este HCL pertenece a un stack de bootstrap separado, que un equipo administra antes de ejecutar el pipeline. No lo pongas en el proyecto Terraform de destino que recibe SourceArtifact: ese repositorio contiene los recursos que el pipeline administra, además de los buildspecs descritos abajo. El recurso crea las etapas y conecta el artefacto del plan con Apply. No crea la conexión, el bucket S3/KMS, los proyectos CodeBuild ni sus roles: son requisitos previos y deben tener permisos ajustados a los recursos que administra la configuración objetivo.
+
+~~~hcl
+variable "codepipeline_role_arn" {
+  type = string
 }
 
-module "build_project" {
-  source = "./modules/build"
-  project_name = var.project_name
-  build_spec = var.build_spec
+variable "artifact_bucket" {
+  type = string
 }
-</code></pre>
 
+variable "artifact_kms_key_arn" {
+  type = string
+}
 
-<p>Para manejar secretos y configuraciones sensibles, se utiliza AWS Secrets Manager, lo que permite centralizar el acceso a credenciales y tokens necesarios para el pipeline.</p>
+variable "connection_arn" {
+  type = string
+}
 
+variable "repository_id" {
+  type = string
+}
 
-<p>Además, se habilitan <a href="https://docs.aws.amazon.com/cloudtrail/" rel="noopener noreferrer" target="_blank">AWS CloudTrail</a> y AWS Config para auditoría y monitoreo centralizados. Estas herramientas complementan las políticas de cifrado con KMS y las configuraciones IAM ya implementadas, asegurando un entorno seguro y preparado para manejar la complejidad de múltiples entornos.</p>
+variable "source_branch" {
+  type    = string
+  default = "main"
+}
 
+variable "validate_project_name" {
+  type = string
+}
 
-<h2 class="sb" id="resumen" tabindex="-1">Resumen</h2>
+variable "plan_project_name" {
+  type = string
+}
 
+variable "apply_project_name" {
+  type = string
+}
 
-<p>Configurar pipelines CI/CD con Terraform y AWS CodePipeline simplifica y automatiza los procesos de despliegue. Este tutorial práctico mostró cómo llevarlo a cabo de manera eficiente.</p>
-
-
-<h3 id="puntos-clave" tabindex="-1">Puntos clave</h3>
-
-
-<p>Integrar Terraform con AWS CodePipeline aporta beneficios claros: automatización confiable usando IaC, mayor seguridad con herramientas como KMS e IAM, y la posibilidad de escalar fácilmente gracias a módulos reutilizables.</p>
-
-
-<p><strong>Automatización y Consistencia</strong></p>
-
-
-<ul>
-<li>Definir infraestructura como código permite un control de versiones preciso.</li>
-<li>Los <a href="https://dondeaprendoaws.com/blog/aws-opsworks-automatiza-despliegues-con-chef/">despliegues automatizados</a> agilizan el proceso, como se destacó en las etapas de validación y aplicación.</li>
-</ul>
-
-
-<p><strong>Seguridad y Cumplimiento</strong></p>
-
-
-<ul>
-<li>Artefactos cifrados con AWS KMS.</li>
-<li>Supervisión centralizada mediante AWS CloudTrail y Config.</li>
-</ul>
-
-
-<p><strong>Escalabilidad</strong></p>
-
-
-<ul>
-<li>Uso de módulos reutilizables para componentes comunes.</li>
-</ul>
-
-
-<p>Consulta más guías prácticas en <a href="https://dondeaprendoaws.com">Dónde Aprendo AWS</a>.</p>
-
-
-<p>Para mantener tu pipeline funcionando correctamente, recuerda realizar revisiones de configuración (sección 2.2), actualizar dependencias (sección 4.2) y seguir <a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">prácticas de seguridad</a> (sección 4.3). Si quieres implementar este flujo en tus proyectos, revisa las configuraciones detalladas en las secciones anteriores y la guía práctica del FAQ.</p>
-
-
-<h2 class="sb" id="faqs" tabindex="-1">FAQs</h2>
-
-
-<h3 id="como-configurar-aws-codepipeline-usando-codigo-terraform" tabindex="-1">¿Cómo configurar <a href="https://docs.aws.amazon.com/codepipeline/latest/userguide/welcome.html" rel="noopener noreferrer" target="_blank">AWS CodePipeline</a> usando código Terraform?</h3>
-
-
-<p><figure><img alt="AWS CodePipeline" src="/assets/blog/7aaedc74a537945a64cbb016.jpg"/></figure></p>
-
-
-<p>La configuración básica sigue los pasos descritos en las secciones anteriores. Este proceso implica coordinar tres elementos clave mencionados en la arquitectura (sección 3):</p>
-
-
-<ul>
-<li><strong>Repositorio de código</strong></li>
-<li><strong>Proyecto de construcción</strong></li>
-<li><strong>Definición del pipeline</strong></li>
-</ul>
-
-
-<p>El enfoque principal se divide en dos fases:</p>
-
-
-<ol>
-<li>
-<strong>Definir los Componentes Principales</strong>
-<ul>
-<li>Configurar el origen del código de acuerdo con la arquitectura establecida.</li>
-<li>Establecer los parámetros necesarios para la construcción.</li>
-<li>Implementar políticas de seguridad según lo indicado en la sección 4.3.</li>
-</ul>
-</li>
-<li>
-<strong>Integrar el Pipeline</strong>
-Aquí tienes un ejemplo de cómo se podría definir un pipeline básico usando Terraform:
-<pre><code class="language-hcl">resource "aws_codepipeline" "pipeline" {
-  name     = "pipeline-aplicacion"
-  role_arn = aws_iam_role.rol_pipeline.arn
+resource "aws_codepipeline" "terraform" {
+  name     = "terraform-infra"
+  role_arn = var.codepipeline_role_arn
 
   artifact_store {
-    location = aws_s3_bucket.artefactos.bucket
     type     = "S3"
+    location = var.artifact_bucket
+
+    encryption_key {
+      id   = var.artifact_kms_key_arn
+      type = "KMS"
+    }
   }
 
   stage {
     name = "Source"
+
     action {
-      name             = "Source"
+      name             = "GitHub"
       category         = "Source"
       owner            = "AWS"
-      provider         = "CodeCommit"
+      provider         = "CodeStarSourceConnection"
       version          = "1"
-      output_artifacts = ["codigo_fuente"]
+      output_artifacts = ["SourceArtifact"]
+
       configuration = {
-        RepositoryName = aws_codecommit_repository.repositorio.repository_name
-        BranchName     = "main"
+        ConnectionArn        = var.connection_arn
+        FullRepositoryId     = var.repository_id
+        BranchName           = var.source_branch
+        OutputArtifactFormat = "CODE_ZIP"
+      }
+    }
+  }
+
+  stage {
+    name = "Validate"
+
+    action {
+      name            = "ValidateTerraform"
+      category        = "Build"
+      owner           = "AWS"
+      provider        = "CodeBuild"
+      version         = "1"
+      input_artifacts = ["SourceArtifact"]
+
+      configuration = {
+        ProjectName = var.validate_project_name
+      }
+    }
+  }
+
+  stage {
+    name = "Plan"
+
+    action {
+      name             = "CreatePlan"
+      category         = "Build"
+      owner            = "AWS"
+      provider         = "CodeBuild"
+      version          = "1"
+      input_artifacts  = ["SourceArtifact"]
+      output_artifacts = ["TfPlan"]
+
+      configuration = {
+        ProjectName = var.plan_project_name
+      }
+    }
+  }
+
+  stage {
+    name = "Review"
+
+    action {
+      name     = "ApprovePlan"
+      category = "Approval"
+      owner    = "AWS"
+      provider = "Manual"
+      version  = "1"
+
+      configuration = {
+        CustomData = "Revisa el artefacto TfPlan de esta ejecución antes de aprobar."
+      }
+    }
+  }
+
+  stage {
+    name = "Apply"
+
+    action {
+      name            = "ApplyReviewedPlan"
+      category        = "Build"
+      owner           = "AWS"
+      provider        = "CodeBuild"
+      version         = "1"
+      input_artifacts = ["SourceArtifact", "TfPlan"]
+
+      configuration = {
+        ProjectName   = var.apply_project_name
+        PrimarySource = "SourceArtifact"
       }
     }
   }
 }
-</code></pre>
-</li>
-</ol>
+~~~
 
+Plan publica un artefacto llamado <code>TfPlan</code>. Apply recibe tanto ese artefacto como <code>SourceArtifact</code> de la misma ejecución. <code>PrimarySource</code> hace que CodeBuild abra el buildspec desde el código fuente y lo deje disponible en <code>CODEBUILD_SRC_DIR</code>; el segundo artefacto queda en <code>CODEBUILD_SRC_DIR_TfPlan</code>. La referencia de AWS detalla los [artefactos de entrada y salida de CodeBuild](https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference-CodeBuild.html).
 
-<p>Es importante complementar estos pasos con las políticas de seguridad detalladas en la sección "Implementación de Seguridad". En implementaciones más complejas, se recomienda usar módulos (sección 6.2) y definir políticas IAM estrictas (sección 2.2) <a href="https://aws.plainenglish.io/how-to-set-up-aws-codepipeline-using-terraform-code-4a732364212" rel="noopener noreferrer" target="_blank"><sup>[1]</sup></a><a href="https://docs.aws.amazon.com/es_es/prescriptive-guidance/latest/patterns/create-a-ci-cd-pipeline-to-validate-terraform-configurations-by-using-aws-codepipeline.html" rel="noopener noreferrer" target="_blank"><sup>[2]</sup></a>.</p>
+## Usá buildspecs que transportan el plan aprobado
 
+Guardá estos tres archivos en la raíz del repositorio. La imagen configurada en los proyectos CodeBuild debe incluir la versión exacta de Terraform que probaste. El proyecto Apply usa <code>SourceArtifact</code> como su fuente primaria, tal como se define en el recurso anterior.
 
-<h2>Publicaciones de blog relacionadas</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-terraform/">Cómo crear infraestructura como código en AWS con Terraform</a></li><li><a href="https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-aws-cloudformation/">Cómo crear infraestructura como código en AWS con AWS CloudFormation</a></li><li><a href="https://dondeaprendoaws.com/blog/como-integrar-terraform-con-cicd-en-aws/">Cómo integrar Terraform con CI/CD en AWS</a></li></ul>
+### Validación sin acceso al estado
+
+~~~yaml
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - terraform version
+      - test -f .terraform.lock.hcl
+  build:
+    commands:
+      - terraform -chdir="$CODEBUILD_SRC_DIR" init -backend=false -input=false -lockfile=readonly
+      - terraform -chdir="$CODEBUILD_SRC_DIR" fmt -check -recursive
+      - terraform -chdir="$CODEBUILD_SRC_DIR" validate
+~~~
+
+<code>terraform validate</code> comprueba la configuración inicializada; no verifica permisos, cuotas, políticas de seguridad ni si AWS aceptará cada cambio. El uso de <code>-backend=false</code> permite validar sin dar acceso al estado remoto.
+
+### Plan y artefacto para revisar
+
+~~~yaml
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - terraform version
+      - test -f "$CODEBUILD_SRC_DIR/.terraform.lock.hcl"
+  pre_build:
+    commands:
+      - test -n "$CODEBUILD_RESOLVED_SOURCE_VERSION"
+      - rm -rf /tmp/terraform-project
+      - mkdir -p /tmp/terraform-project
+      - cp -a "$CODEBUILD_SRC_DIR/." /tmp/terraform-project/
+      - mkdir -p "$CODEBUILD_SRC_DIR/pipeline-output"
+      - cd /tmp/terraform-project && terraform init -input=false -lockfile=readonly
+  build:
+    commands:
+      - cd /tmp/terraform-project && terraform plan -input=false -lock-timeout=5m -out="$CODEBUILD_SRC_DIR/pipeline-output/tfplan" > /dev/null
+      - cd /tmp/terraform-project && terraform show -no-color "$CODEBUILD_SRC_DIR/pipeline-output/tfplan" > "$CODEBUILD_SRC_DIR/pipeline-output/plan.txt"
+      - printf '%s\n' "$CODEBUILD_RESOLVED_SOURCE_VERSION" > "$CODEBUILD_SRC_DIR/pipeline-output/source-commit.txt"
+
+artifacts:
+  base-directory: pipeline-output
+  files:
+    - tfplan
+    - plan.txt
+    - source-commit.txt
+~~~
+
+La salida de CodeBuild contiene tres archivos: el plan binario, una vista legible para revisión y el identificador del commit. CodePipeline los empaqueta como <code>TfPlan</code>. En el historial de la ejecución, abrí la acción Plan y la pestaña Artifacts para revisar ese archivo antes de aprobar; la [documentación de CodePipeline explica cómo ver los artefactos](https://docs.aws.amazon.com/codepipeline/latest/userguide/executions-view.html).
+
+### Aplicar el mismo plan del mismo commit
+
+~~~yaml
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - terraform version
+      - test -f "$CODEBUILD_SRC_DIR/.terraform.lock.hcl"
+  pre_build:
+    commands:
+      - test -n "$CODEBUILD_RESOLVED_SOURCE_VERSION"
+      - test -f "$CODEBUILD_SRC_DIR_TfPlan/tfplan"
+      - test "$(cat "$CODEBUILD_SRC_DIR_TfPlan/source-commit.txt")" = "$CODEBUILD_RESOLVED_SOURCE_VERSION"
+      - rm -rf /tmp/terraform-project
+      - mkdir -p /tmp/terraform-project
+      - cp -a "$CODEBUILD_SRC_DIR/." /tmp/terraform-project/
+      - cd /tmp/terraform-project && terraform init -input=false -lockfile=readonly
+  build:
+    commands:
+      - cd /tmp/terraform-project && terraform apply -input=false -lock-timeout=5m "$CODEBUILD_SRC_DIR_TfPlan/tfplan"
+~~~
+
+El marcador compara el commit usado por Plan y Apply. Ambos extraen el código fuente de la misma ejecución, lo copian a <code>/tmp/terraform-project</code> y ejecutan <code>cd</code> antes de cada comando Terraform. Así el directorio efectivo, el backend S3 y el bloqueo <code>.tflock</code> coinciden en las dos etapas. También inicializan desde el mismo <code>.terraform.lock.hcl</code>. Terraform aplica el archivo recibido; no ejecuta un segundo <code>terraform plan</code> ni selecciona otro artefacto. Si otra ejecución guardó cambios en el estado después del plan, Terraform rechaza el plan guardado por obsoleto y hay que reiniciar desde Plan.
+
+La aprobación manual detiene el flujo hasta que una identidad autorizada aprueba o rechaza la acción. La aprobación vence si no se resuelve dentro de siete días. La persona que aprueba necesita permiso para leer el artefacto cifrado y su clave KMS, además del permiso de CodePipeline para aprobar. La guía de AWS explica [cómo funcionan las aprobaciones manuales](https://docs.aws.amazon.com/codepipeline/latest/userguide/approvals.html).
+
+## Separá roles y permisos por etapa
+
+No adjuntes <code>AWSCodePipelineFullAccess</code> o <code>AWSCodeBuildAdminAccess</code> a los roles de ejecución. Son permisos administrativos que no describen lo que necesita este flujo. Diseñá políticas para los ARNs y operaciones reales del proyecto:
+
+| Identidad | Acceso necesario |
+| --- | --- |
+| CodePipeline | Usar la conexión específica; leer y escribir artefactos en el bucket; usar su clave KMS; iniciar y consultar los tres proyectos CodeBuild. |
+| CodeBuild Validate | Leer <code>SourceArtifact</code> del bucket de artefactos, descifrarlo y escribir logs. Sin permisos para el backend ni para modificar la cuenta objetivo. |
+| CodeBuild Plan | Lo común a CodeBuild, más lectura del backend S3 y su bloqueo; lectura de los recursos y fuentes de datos que administre Terraform. Debe escribir y cifrar el artefacto <code>TfPlan</code>, pero no cambiar los recursos administrados. |
+| CodeBuild Apply | Lo común a CodeBuild, más lectura y descifrado de <code>TfPlan</code>, backend S3 y su bloqueo; acciones de crear, actualizar o eliminar los recursos que esta configuración realmente administra. Limita <code>iam:PassRole</code> a los roles de servicio concretos que Terraform necesite pasar. |
+| Revisor | Leer el plan protegido y aprobar o rechazar la acción. No necesita asumir el rol de Apply. |
+
+Como base común, cada rol de CodeBuild necesita leer <code>SourceArtifact</code> desde el bucket de artefactos, descifrar sus objetos con la clave KMS configurada y escribir logs en CloudWatch. Plan necesita además escribir el artefacto de salida <code>TfPlan</code> y cifrarlo con esa clave; Apply necesita leer y descifrarlo. Validate no requiere permisos para escribir artefactos de salida en este flujo. Limitá S3 al bucket y al prefijo de objetos de artefactos que realmente usa este pipeline, y KMS al ARN de su clave; incluí el rol en la política de la clave cuando corresponda. Los permisos concretos pueden variar con la configuración del proyecto y la clave, así que contrastalos con las referencias de [artefactos de CodePipeline](https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference-CodeBuild.html), [cifrado de CodeBuild](https://docs.aws.amazon.com/codebuild/latest/userguide/security-encryption.html) y [rol de servicio de CodeBuild](https://docs.aws.amazon.com/codebuild/latest/userguide/setting-up-service-role.html).
+
+El rol de CodePipeline requiere las dos acciones que documenta AWS para usar conexiones, <code>codeconnections:UseConnection</code> y <code>codestar-connections:UseConnection</code>, sobre el ARN de conexión correspondiente; además inicia y consulta solo estos tres proyectos CodeBuild y maneja los artefactos del pipeline. Los permisos de CodeBuild para la cuenta destino dependen de cada proveedor y recurso Terraform; no existe una política universal segura para una configuración desconocida. AWS recomienda limitar el rol de servicio de [CodeBuild al mínimo necesario](https://docs.aws.amazon.com/codebuild/latest/userguide/setting-up-service-role.html).
+
+Si el pipeline vive en una cuenta de herramientas y administra otra cuenta, asigná roles de Plan y Apply separados en cada cuenta destino. El rol del proyecto CodeBuild debe poder ejecutar <code>sts:AssumeRole</code> sobre el rol concreto; la política de confianza del rol de destino debe aceptar el ARN de ese rol CodeBuild. La política de permisos del rol asumido define las acciones permitidas dentro de la cuenta destino. El backend central puede requerir otro acceso separado. Para ver un ejemplo de confianza entre cuentas aplicado a CodeBuild, consultá [políticas de confianza y acceso entre cuentas](https://dondeaprendoaws.com/blog/politicas-de-confianza-aws-acceso-entre-cuentas/).
+
+La charla [Estrategias avanzadas: despliegues multiaccount con CDK y CodePipeline](https://www.youtube.com/watch?v=IikiBrUpiyM), de AWS Girls Chile, aborda permisos, seguridad y organización entre cuentas. Es una grabación de 2024 que usa CDK: aprovecha la explicación de roles y límites entre cuentas, y adapta la implementación al flujo de Terraform y al plan aprobado descritos aquí.
+
+Quienes puedan editar el buildspec, el proyecto CodeBuild o el pipeline pueden cambiar qué código ejecuta el rol Apply. Protegé esos cambios con revisión, controles de rama y permisos de administración más estrictos. No entregues claves IAM de larga duración en variables del proyecto ni en el repositorio: CodeBuild obtiene credenciales temporales del rol de servicio.
+
+## Protegé los planes y el estado
+
+Un plan binario puede contener la configuración completa, el estado previo y valores sensibles en texto claro. Marcar una variable como sensible oculta algunos valores en la terminal, pero no cifra el archivo de plan o el estado. <code>plan.txt</code> también puede revelar detalles de infraestructura o secretos no marcados.
+
+- Cifrá el bucket de artefactos y el estado; limita el acceso a los roles de pipeline y revisores que los necesitan.
+- No imprimas el plan completo en logs de acceso amplio. El buildspec anterior lo guarda como artefacto para lectura autorizada.
+- No subas planes, estado o variables con secretos a Git.
+- Si los valores sensibles se incluyen en configuración administrada, revisá qué guarda el proveedor en estado y en los planes antes de conectarlos a CI.
+
+HashiCorp describe qué se conserva en los [planes guardados](https://developer.hashicorp.com/terraform/cli/commands/plan) y cómo [gestionar datos sensibles](https://developer.hashicorp.com/terraform/language/manage-sensitive-data). El cifrado KMS del bucket protege los objetos en reposo, pero cualquier identidad que pueda descifrar el plan debe tratarse como una identidad con acceso a sus valores.
+
+## Errores frecuentes
+
+### CodePipeline falla al usar CodeConnections
+
+Comprobá que la conexión esté <code>AVAILABLE</code>, que corresponda a la misma región del pipeline y que el ARN esté bien copiado. Revisá las dos acciones IAM de CodeConnections en el rol de CodePipeline y el acceso al repositorio autorizado por la aplicación instalada.
+
+### <code>terraform init</code> falla con bloqueo o acceso denegado en S3
+
+Verificá el nombre del bucket, la clave de estado, la región y los permisos separados para el objeto del estado y <code>.tflock</code>. Si usás KMS, revisá tanto la política de IAM como la política de la clave. No resuelvas el error con permisos de administrador ni desactivando el bloqueo.
+
+### Apply indica que el plan está obsoleto
+
+Otra ejecución de Terraform pudo guardar un estado nuevo mientras la aprobación estaba pendiente. En ese caso, el plan guardado ya no corresponde al serial actual y Apply debe fallar. Un cambio manual directo en AWS, en cambio, no actualiza por sí solo el estado de Terraform y no garantiza que el plan se rechace como obsoleto; puede aparecer al refrescar, causar un error del proveedor o dejar el resultado distinto del revisado. No recalcules el plan durante Apply ni intentes forzar el archivo anterior. Investigá el estado y cualquier cambio externo, iniciá una ejecución nueva y pedí otra aprobación.
+
+### ¿Terraform hace rollback si falla Apply?
+
+No como una transacción. Algunos recursos pueden haber cambiado antes del error. Detené otras ejecuciones sobre el mismo estado, comprobá qué cambió en AWS y en el estado, corregí la configuración y generá un plan nuevo. No uses <code>terraform destroy</code> como rollback automático en producción.
+
+### Avisos de ejecuciones
+
+Si necesitas seguir el inicio, éxito, fallo o cancelación de una ejecución, el repositorio [notificaciones de CodePipeline con SNS, Lambda y Slack](https://github.com/JonasCC8/AWS-CodePipeline-SNS-Lambda-Slack-Notifications) describe ese recorrido y su montaje manual. Lee el diseño para adaptarlo a tus eventos y región; conserva el webhook de Slack como un secreto y verifica los permisos de cada componente. El material contiene instrucciones y un ejemplo, sin una plantilla de despliegue completa.
+
+## Recursos y comunidad AWS en español
+
+Para complementar la revisión de infraestructura como código, puedes ver esta demostración comunitaria de [revisión de Terraform con Kiro headless en GitHub Actions](https://blog.295devops.com/pipelines-que-piensan-infra-que-no-rompe-kiro-headless-mode-en-acci-n). El artículo muestra cómo comenta hallazgos de IaC en un pull request; requiere una clave de Kiro y presenta una implementación concreta. Puede complementar el análisis, pero no reemplaza validaciones deterministas, privilegios mínimos ni revisión humana.
+
+Al 6 de octubre de 2026, la comunidad estudiantil AWS de la UTN Facultad Regional Córdoba anuncia el encuentro presencial [AWS Gaming Lab: ECS, CI/CD y la magia de Terraform](https://prensa.frc.utn.edu.ar/eventos/aws-gaming-lab-ecs-ci-cd-y-la-magia-de-terraform/), el sábado 10 de octubre. Es gratuito con inscripción previa y está destinado a estudiantes de Ingeniería en Sistemas de Información. La charla principal empieza a las 12:00, con acreditación desde las 11:30; la inscripción se gestiona en [Meetup](https://www.meetup.com/aws-sbg-at-national-technologic-university-regional-faculty/events/316821666/).
+
+Si te interesa la seguridad del flujo de entrega, el [encuentro online DevSecOps con agentes de IA](https://www.meetup.com/awssecuritylatam/events/316875555/) está anunciado para el 15 de octubre de 2026, de 16:00 a 17:00, hora de Perú. Lo organiza AWS Security Users Group LatAm; el enlace de conexión se habilita para participantes registrados. Verificá inscripción, disponibilidad y condiciones en Meetup antes de asistir.
+
+Para buscar una comunidad general de AWS en tu país, consultá el [directorio oficial de AWS User Groups](https://builder.aws.com/community/user-groups), que reúne grupos locales y encuentros presenciales o virtuales. También podés explorar [AWS Security Users Group LatAm en Meetup](https://www.meetup.com/awssecuritylatam/) para seguir sus próximas sesiones.
+
+Si preferís comparar otro orquestador para Terraform, la guía de [Terraform con GitHub Actions en AWS](https://dondeaprendoaws.com/blog/como-integrar-terraform-con-cicd-en-aws/) muestra otro flujo de CI/CD. La herramienta cambia; la regla se mantiene: revisá y aplicá el mismo plan, producido por el commit que aprobaste.
