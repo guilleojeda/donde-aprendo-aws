@@ -24,6 +24,8 @@ La guía está pensada para quienes implementan aplicaciones con DynamoDB. Si to
 
 ## Cuándo usar cada API
 
+En una pantalla pequeña, desliza la tabla hacia los lados para ver todas las columnas.
+
 | API | Qué reúne | Cuándo sirve |
 | --- | --- | --- |
 | `TransactWriteItems` | Hasta 100 acciones `Put`, `Update`, `Delete` o `ConditionCheck`. | Cuando todas las escrituras deben confirmarse juntas. |

@@ -34,6 +34,8 @@ Los nombres de familia que aparecen abajo son una orientación, no un catálogo 
 
 Si estás empezando por el servicio, la grabación [Introducción a Amazon RDS](https://www.youtube.com/watch?v=2Ng-Ot0VH_k) de AWS User Group CreaTicas repasa sus conceptos básicos.
 
+En una pantalla pequeña, desliza la tabla hacia los lados para ver todas las columnas.
+
 | Tipo de clase | Cuándo conviene evaluarlo | Qué revisar |
 | --- | --- | --- |
 | <code>db.m*</code>, uso general | Si buscas un equilibrio entre CPU y memoria para una carga relacional variada. | El consumo sostenido y los picos de la carga real. |

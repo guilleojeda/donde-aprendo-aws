@@ -26,6 +26,8 @@ El tipo de una instancia EC2 define una combinación de procesador, memoria, alm
 
 Usa esta tabla para armar una lista corta de tipos que valga la pena comparar. Es una orientación inicial: las capacidades y los límites concretos cambian entre generaciones, procesadores y tamaños.
 
+En una pantalla pequeña, desliza la tabla hacia los lados para ver todas las columnas.
+
 | Lo que predomina en la carga | Familias que conviene comparar | Qué medir |
 | --- | --- | --- |
 | CPU, memoria y red en proporciones relativamente equilibradas | Propósito general (M) | Latencia de la aplicación, CPU, memoria y tráfico de red |
