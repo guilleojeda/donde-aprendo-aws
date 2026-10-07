@@ -1,5 +1,6 @@
 ---
 import ResourceCard from './ResourceCard.astro';
+import DirectorySort from './DirectorySort.astro';
 import CatalogCriteria from './CatalogCriteria.astro';
 import CountryNavigation from './CountryNavigation.astro';
 import type { CatalogEvent, CatalogResource } from '../types/catalog';
@@ -57,6 +58,7 @@ const countries = country ? [] : Object.keys(COUNTRY_LABELS).filter((country) =>
 const levels = kind === 'content'
   ? Object.keys(LEVEL_LABELS).filter((level) => resources.some((resource) => resource.level === level))
   : [];
+const hasPrimaryGroup = resourceGroups.some((group) => (group.filterResourceIds ?? group.resourceIds).length > 0);
 const availableFacets = [
   !omitFacet('format') && formats.length > 0,
   !omitFacet('topic') && topics.length > 0,
@@ -121,14 +123,17 @@ for (const group of upcomingEventGroups) {
           spellcheck="false"
           data-resource-search
         />
-        {resourceGroups.some((group) => (group.filterResourceIds ?? group.resourceIds).length > 0) && <div class="directory-facet directory-facet--primary-group">
-          <label for="resource-group">Examen o tipo de recurso</label>
-          <select id="resource-group" data-group-filter>
-            <option value="">Todos los exámenes y recursos</option>
-            {resourceGroups.filter((group) => (group.filterResourceIds ?? group.resourceIds).length > 0).map((group) =>
-              <option value={group.id}>{group.label}</option>
-            )}
-          </select>
+        {hasPrimaryGroup && <div class="directory-controls__primary-row">
+          <div class="directory-facet directory-facet--primary-group">
+            <label for="resource-group">Examen o tipo de recurso</label>
+            <select id="resource-group" data-group-filter>
+              <option value="">Todos los exámenes y recursos</option>
+              {resourceGroups.filter((group) => (group.filterResourceIds ?? group.resourceIds).length > 0).map((group) =>
+                <option value={group.id}>{group.label}</option>
+              )}
+            </select>
+          </div>
+          <DirectorySort defaultSort={defaultSort} />
         </div>}
         {availableFacets && <details class="directory-filter-disclosure" data-filter-disclosure>
           <summary>Filtros adicionales</summary>
@@ -169,15 +174,7 @@ for (const group of upcomingEventGroups) {
         <h2 class="sr-only">Resultados</h2>
         <div class="directory-list-heading">
           <p class="directory-result-count" data-result-count data-count-singular={countNouns.singular} data-count-plural={countNouns.plural} aria-live="polite">{resources.length} {resourceCountNoun}</p>
-          <div class="directory-facet directory-facet--sort">
-            <label for="resource-sort">Ordenar por</label>
-            <select id="resource-sort" data-sort-filter data-default-sort={defaultSort}>
-              {defaultSort === 'purpose' && <option value="purpose" selected>Por examen y objetivo</option>}
-              <option value="directory">Orden del directorio</option>
-              <option value="recent">Agregados recientemente</option>
-              <option value="recommended" selected={defaultSort === 'recommended'}>Recomendados</option>
-            </select>
-          </div>
+          {!hasPrimaryGroup && <DirectorySort defaultSort={defaultSort} />}
         </div>
         <ul class="resource-list" data-resource-list data-resource-groups={resourceGroups.length ? JSON.stringify(resourceGroups) : undefined}>
           {(() => {

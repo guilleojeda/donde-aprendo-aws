@@ -4,7 +4,7 @@ import { relative, resolve } from 'node:path';
 import deployment from '../config/deployment.json' with { type: 'json' };
 import { COUNTRY_SLUGS } from '../src/lib/community-country-pages.mjs';
 import { COUNTRY_LABELS } from '../src/lib/resource-discovery.mjs';
-import { RESOURCE_COLLECTIONS, resourceCollectionResources, groupCertificationResources, resolveResourceCollectionFaq } from '../src/lib/resource-collections.mjs';
+import { RESOURCE_COLLECTIONS, learningCollectionNavigation, resourceCollectionResources, groupCertificationResources, resolveResourceCollectionFaq } from '../src/lib/resource-collections.mjs';
 import { sortResources } from '../src/lib/directory-filter.mjs';
 import { communityFaqItems, eventFaqItems } from '../src/lib/page-faq-content.mjs';
 import { EVENT_COLLECTIONS } from '../src/lib/event-collections.mjs';
@@ -249,6 +249,25 @@ const generalCommunities = cardData(read('comunidades/index.html')).filter(({ ki
 const globalCards = [...cardData(read('aprender/index.html')), ...cardData(read('creadores/index.html')), ...generalCommunities];
 for (const collection of RESOURCE_COLLECTIONS) {
   const html = read(`${collection.path.slice(1)}index.html`);
+  const learningNavigation = collection.kind === 'content' ? learningCollectionNavigation(collection.path) : undefined;
+  if (learningNavigation) {
+    const navMatch = html.match(/<nav class="collection-navigation collection-navigation--learning"[^>]*>([\s\S]*?)<\/nav>/u);
+    const nav = navMatch?.[1];
+    assert.ok(navMatch, `Compact learning navigation exists: ${collection.path}`);
+    assert.match(navMatch[0], /aria-label="Navegación de recursos para aprender"/u);
+    assert.match(nav, /<details class="collection-navigation__details">/u, 'The topic disclosure starts closed and uses native details.');
+    assert.match(nav, /<summary class="collection-navigation__trigger">/u, 'The topic disclosure has a keyboard-operable summary.');
+    assert.doesNotMatch(nav, /collection-navigation__details"[^>]*\bopen\b/u, 'The topic menu does not cover results initially.');
+    for (const link of [...learningNavigation.formats, ...learningNavigation.topics]) {
+      assert.ok(nav.includes(`href="${link.path}"`), `No-JavaScript navigation link is present: ${link.path}`);
+      if (link.path === collection.path) assert.ok(nav.includes(`href="${link.path}" aria-current="page"`), `Current collection is announced: ${link.path}`);
+      else assert.ok(!nav.includes(`href="${link.path}" aria-current="page"`), `Other collections are not marked current: ${link.path}`);
+    }
+    if (learningNavigation.activeTopic) {
+      assert.ok(nav.includes(`class="collection-navigation__active-topic">${learningNavigation.activeTopic}</span>`),
+        `The closed topic menu shows the current selection: ${collection.path}`);
+    }
+  }
   const scopedCards = resourceCollectionResources(collection, sortResources(globalCards, 'directory'));
   const purposeGroups = collection.id === 'certificaciones' ? groupCertificationResources(scopedCards) : [];
   const expected = (collection.id === 'certificaciones'
@@ -267,6 +286,14 @@ for (const collection of RESOURCE_COLLECTIONS) {
       const groupControlIndex = html.indexOf('data-group-filter');
       const secondaryFiltersIndex = html.indexOf('data-filter-disclosure');
       assert.ok(groupControlIndex >= 0 && (secondaryFiltersIndex < 0 || groupControlIndex < secondaryFiltersIndex), 'The exam selector stays outside secondary filters.');
+      const primaryRow = html.match(/<div class="directory-controls__primary-row">([\s\S]*?)<\/div>\s*<\/div>/u)?.[1] ?? '';
+      assert.ok(primaryRow.includes('data-group-filter') && primaryRow.includes('data-sort-filter'),
+        'The exam selector and sort control share the primary control row.');
+      assert.ok(primaryRow.indexOf('data-group-filter') < primaryRow.indexOf('data-sort-filter'),
+        'Sorting follows the exam selector in the shared row.');
+      assert.equal([...html.matchAll(/\bdata-sort-filter\b/gu)].length, 1, 'Certification pages render one sort control.');
+      assert.match(html, /class="directory-list-heading">\s*<p class="directory-result-count"[^>]*data-result-count/u,
+        'The result counter remains in the results heading after moving sorting.');
       const actualOptions = [...groupSelect.matchAll(/<option value="([^"]*)">([^<]*)<\/option>/gu)]
         .filter(([, id]) => id)
         .map(([, id, label]) => ({ id, label: decode(label) }));
@@ -284,6 +311,8 @@ for (const collection of RESOURCE_COLLECTIONS) {
   }
   if (collection.faq) verifyFaq(html, resolveResourceCollectionFaq(collection, globalCards), collection.path);
   assert.equal(decode(html.match(/<h1 id="directory-title">([^<]+)<\/h1>/u)?.[1] ?? ''), collection.title);
+  assert.equal(decode(html.match(/<meta\b(?=[^>]*\bname="description")([^>]*)>/u)?.[1]?.match(/\bcontent="([^"]*)"/u)?.[1] ?? ''), collection.description,
+    `Page description matches the collection registry: ${collection.path}`);
   assert.ok(html.includes(`href="https://dondeaprendoaws.com${collection.path}"`));
   assert.match(html, /id="collection-guide"/u, `Specific guidance: ${collection.path}`);
   assert.match(html, /class="community-breadcrumb"/u);

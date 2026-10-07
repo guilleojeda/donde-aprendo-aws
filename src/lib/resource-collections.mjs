@@ -161,6 +161,75 @@ export const RESOURCE_COLLECTIONS = Object.freeze([
     earlyRoute: { path: '/recorridos/ia-generativa/', label: 'Sigue la ruta de IA generativa', text: '¿Prefieres aprender paso a paso?' },
   },
   {
+    id: 'fundamentos', path: '/aprender/fundamentos/', kind: 'content', label: 'Fundamentos',
+    title: 'Fundamentos de AWS: recursos para empezar',
+    description: 'Explora recursos en español sobre los conceptos y servicios que ayudan a comprender AWS y cómo empezar a usar la nube.',
+    intro: 'Revisa recursos sobre conceptos básicos de la nube, servicios de AWS y primeros pasos con una cuenta. Elige una explicación o práctica según lo que quieras comprender.',
+    selector: { topic: 'Fundamentos' },
+    guide: {
+      heading: 'Cómo empezar por los fundamentos de AWS',
+      body: 'Puedes empezar por el modelo de responsabilidad compartida y la estructura global de AWS. Después, relaciona servicios de cómputo, almacenamiento y bases de datos con las necesidades de una aplicación.',
+      points: [
+        'Busca una introducción que explique los conceptos antes de comparar servicios.',
+        'Revisa qué conocimientos previos y qué cuenta requiere cada práctica.',
+        'Si quieres una secuencia, sigue la ruta desde cero y continúa con el tema que más te interese.',
+      ],
+      links: ['/aprender/cursos/', '/aprender/arquitectura/', '/aprender/'],
+    },
+    earlyRoute: { path: '/recorridos/primeros-pasos/', label: 'Sigue la ruta para aprender desde cero', text: '¿Prefieres una secuencia paso a paso?' },
+  },
+  {
+    id: 'arquitectura', path: '/aprender/arquitectura/', kind: 'content', label: 'Arquitectura',
+    title: 'Arquitectura en AWS: recursos y guías',
+    description: 'Encuentra recursos en español para entender y diseñar arquitecturas en AWS, comparar componentes y revisar patrones de la nube.',
+    intro: 'Explora guías, cursos y videos sobre arquitecturas en AWS. Compara componentes y patrones según los requisitos de disponibilidad, seguridad y operación de cada sistema.',
+    selector: { topic: 'Arquitectura' },
+    guide: {
+      heading: 'Cómo estudiar arquitectura en AWS',
+      body: 'Empieza por los requisitos del sistema y observa cómo cada decisión afecta a sus componentes. Los diagramas y ejemplos ayudan a relacionar redes, cómputo, datos y controles operativos.',
+      points: [
+        'Identifica el requisito que aborda cada patrón, como disponibilidad o separación de cargas.',
+        'Compara las responsabilidades y límites de los servicios incluidos en un diseño.',
+        'Revisa los supuestos del ejemplo antes de adaptarlo a otra región o carga de trabajo.',
+      ],
+      links: ['/aprender/fundamentos/', '/aprender/datos/', '/aprender/'],
+    },
+  },
+  {
+    id: 'datos', path: '/aprender/datos/', kind: 'content', label: 'Datos',
+    title: 'Datos en AWS: recursos para bases de datos y analítica',
+    description: 'Explora materiales en español sobre bases de datos, almacenamiento, integración y análisis de datos con servicios de AWS.',
+    intro: 'Encuentra recursos sobre cómo almacenar, consultar y analizar datos en AWS. Elige un tema por el tipo de datos, el uso esperado y las decisiones que quieras comparar.',
+    selector: { topic: 'Datos' },
+    guide: {
+      heading: 'Cómo elegir un tema de datos en AWS',
+      body: 'Distingue primero si necesitas una base de datos operativa, un repositorio para analítica o una forma de mover datos entre sistemas. Esa necesidad acota las opciones que vale la pena estudiar.',
+      points: [
+        'Compara los modelos de datos y patrones de acceso que requiere tu aplicación.',
+        'Para analítica, revisa cómo se ingieren, transforman y consultan los datos.',
+        'Considera seguridad, respaldo y costos de almacenamiento junto con el servicio.',
+      ],
+      links: ['/aprender/arquitectura/', '/aprender/devops/', '/aprender/'],
+    },
+  },
+  {
+    id: 'devops', path: '/aprender/devops/', kind: 'content', label: 'DevOps',
+    title: 'DevOps en AWS: recursos para desarrollo y operación',
+    description: 'Encuentra recursos en español sobre automatización, entrega continua, infraestructura como código y operación de cargas en AWS.',
+    intro: 'Explora prácticas y herramientas para automatizar cambios y operar cargas en AWS. Elige recursos sobre integración, despliegue, infraestructura como código u observabilidad.',
+    selector: { topic: 'DevOps' },
+    guide: {
+      heading: 'Cómo recorrer recursos de DevOps en AWS',
+      body: 'Relaciona el flujo de cambios con la infraestructura que despliegas y la forma de observarla. Así puedes estudiar automatización, controles y operación como partes del mismo proceso.',
+      points: [
+        'Busca ejemplos que expliquen cómo se construye, prueba y despliega un cambio.',
+        'Compara las herramientas de infraestructura como código con el entorno que quieres administrar.',
+        'Incluye registros, métricas y alertas al revisar cómo se opera una carga.',
+      ],
+      links: ['/aprender/arquitectura/', '/aprender/datos/', '/aprender/'],
+    },
+  },
+  {
     id: 'youtube', path: '/creadores/youtube/', kind: 'source', label: 'Canales de YouTube',
     title: 'Canales de YouTube para aprender AWS en español',
     description: 'Compara canales de YouTube en español sobre AWS por temas, público y tipo de contenido.',
@@ -319,6 +388,21 @@ const CERTIFICATION_EXAMS = Object.freeze([
 const collectionByPath = new Map(RESOURCE_COLLECTIONS.map((collection) => [collection.path, collection]));
 export function lookupResourceCollection(path) {
   return collectionByPath.get(path);
+}
+
+/** Build the compact learning navigation from the same collection registry as its routes. */
+export function learningCollectionNavigation(currentPath = '/aprender/') {
+  const contentCollections = RESOURCE_COLLECTIONS.filter((collection) => collection.kind === 'content');
+  const formats = contentCollections.filter((collection) => collection.selector?.format)
+    .map(({ path, label }) => ({ path, label }));
+  const topics = contentCollections.filter((collection) => collection.selector?.topic || collection.selector?.generativeAI)
+    .map(({ path, label }) => ({ path, label }));
+  return {
+    formats: [{ path: '/aprender/', label: 'Todos los recursos' }, ...formats],
+    topics,
+    currentPath,
+    activeTopic: topics.find((topic) => topic.path === currentPath)?.label,
+  };
 }
 
 /** Group certification resources from their existing public title and description only. */
