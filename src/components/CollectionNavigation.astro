@@ -11,12 +11,39 @@ interface Props {
   links: CollectionLink[];
   currentPath?: string;
   label?: string;
+  learningNavigation?: {
+    formats: CollectionLink[];
+    topics: CollectionLink[];
+    currentPath: string;
+    activeTopic?: string;
+  };
 }
 
-const { links, currentPath, label = 'Explorar por formato o tema' } = Astro.props;
+const { links, currentPath, label = 'Explorar por formato o tema', learningNavigation } = Astro.props;
 ---
 
-{links.length > 0 && <nav class="collection-navigation" aria-label={label}>
+{learningNavigation ? <nav class="collection-navigation collection-navigation--learning" aria-label="Navegación de recursos para aprender">
+  <ul class="collection-navigation__learning-list">
+    {learningNavigation.formats.map((link) => <li>
+      <a href={link.path} aria-current={link.path === learningNavigation.currentPath ? 'page' : undefined}>{link.label}</a>
+    </li>)}
+    {learningNavigation.topics.length > 0 && <li class="collection-navigation__topics">
+      <details class="collection-navigation__details">
+        <summary class="collection-navigation__trigger">
+          <span>Temas y objetivos</span>
+          {learningNavigation.activeTopic && <span class="collection-navigation__active-topic">{learningNavigation.activeTopic}</span>}
+        </summary>
+        <div class="collection-navigation__menu">
+          <ul class="collection-navigation__topics-list">
+            {learningNavigation.topics.map((link) => <li>
+              <a href={link.path} aria-current={link.path === learningNavigation.currentPath ? 'page' : undefined}>{link.label}</a>
+            </li>)}
+          </ul>
+        </div>
+      </details>
+    </li>}
+  </ul>
+</nav> : links.length > 0 && <nav class="collection-navigation" aria-label={label}>
   <ul>
     {links.map((link) => <li>
       <a href={link.path} aria-current={link.path === currentPath ? 'page' : undefined}>
