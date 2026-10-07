@@ -1,425 +1,122 @@
 ---
-title: "Mejores prácticas para nombres en AWS Organizations"
-description: "Gestiona eficientemente tus cuentas de AWS con mejores prácticas de nomenclatura, organización y etiquetado para optimizar recursos y costos."
+title: "Cómo nombrar cuentas y OUs en AWS Organizations: guía y ejemplos"
+description: "Define nombres claros para cuentas AWS y OUs: distingue nombre, ID, alias de IAM y correo raíz, organiza por controles y entiende el alcance real de las etiquetas."
 author: "guille-ojeda"
 publishedAt: "2025-03-03"
 publishedTimestamp: "2025-03-03T04:59:25.364Z"
+modifiedTimestamp: "2026-10-06T23:48:20-03:00"
+review:
+  date: "2026-10-06"
 cover: "/assets/blog/editorial-fundamentos.png"
 coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
 ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
-  - title: "¿Qué es AWS Lambda? preguntas y respuestas"
-    url: "https://dondeaprendoaws.com/blog/que-es-aws-lambda-preguntas-y-respuestas/"
-  - title: "Recursos de capacitación para socios de AWS"
-    url: "https://dondeaprendoaws.com/blog/recursos-de-capacitacion-para-socios-de-aws/"
-  - title: "¿Cómo funciona AWS Amplify?"
-    url: "https://dondeaprendoaws.com/blog/como-funciona-aws-amplify/"
+  - title: "Arquitectura multi-cuenta en AWS: cómo separar cuentas y OUs"
+    url: "https://dondeaprendoaws.com/blog/estructuras-multi-cuenta-aws-para-escalar/"
+  - title: "AWS Organizations: cómo administrar varias cuentas"
+    url: "https://dondeaprendoaws.com/blog/gestionando-multiples-cuentas-de-aws-con-aws-organizations/"
 
 ---
 
-<p><strong>¿Quieres gestionar tus cuentas de AWS de forma más sencilla y eficiente?</strong> Aquí tienes las claves para lograrlo:</p>
+Una convención de nombres ayuda a reconocer cuentas y unidades organizativas (OUs) en la consola, los informes y los inventarios. El nombre es una etiqueta para las personas: no concede permisos, no aísla cargas y no reemplaza el identificador de la cuenta. Diseña las OUs según los controles que sus cuentas deben compartir y usa nombres breves que expliquen su función.
 
+Si todavía estás decidiendo qué cargas separar en cuentas, consulta [Arquitectura multi-cuenta en AWS: cómo separar cuentas y OUs](/blog/estructuras-multi-cuenta-aws-para-escalar/). Para los pasos de creación y administración de una organización, continúa con [AWS Organizations: cómo administrar varias cuentas](/blog/gestionando-multiples-cuentas-de-aws-con-aws-organizations/).
 
-<ul>
-<li><strong><a href="https://docs.aws.amazon.com/organizations/latest/userguide/orgs_introduction.html" rel="noopener noreferrer" target="_blank">AWS Organizations</a></strong>: Herramienta gratuita que centraliza la administración de cuentas, recursos, facturación y seguridad.</li>
-<li><strong>Nombres claros y consistentes</strong>: Usa estructuras que incluyan unidad de negocio, entorno, región y función. Ejemplo: <code class="inline-code">WorkloadsFooADev</code>.</li>
-<li><strong>Unidades Organizativas (OUs)</strong>: Organiza jerárquicamente por departamentos, subdepartamentos y entornos. Ejemplo: <code class="inline-code">OU-FIN-PAGOS-PROD</code>.</li>
-<li><strong>Etiquetas clave</strong>: Añade metadatos como <code class="inline-code">empresa:centro-coste</code> o <code class="inline-code">empresa:propietario</code> para facilitar el control de costes y la asignación de responsabilidades.</li>
-<li><strong>Automatización</strong>: Usa herramientas como <a href="https://docs.aws.amazon.com/config/" rel="noopener noreferrer" target="_blank">AWS Config</a> y Lambda para mantener consistencia en nombres y etiquetas.</li>
-</ul>
+## Distingue el nombre de la cuenta de sus identificadores
 
+AWS utiliza varios datos distintos para una cuenta. Conviene saber cuál ve una persona y cuál necesita una herramienta:
 
-<p><strong>Conclusión rápida</strong>: Estandarizar nombres y etiquetas mejora la organización, la seguridad y el control de costes en AWS. ¡Empieza hoy a estructurar tu entorno en la nube con estas prácticas!</p>
+En móvil, desplaza las tablas hacia los lados para ver todas las columnas.
 
+| Dato | Para qué sirve | Qué tener en cuenta |
+| --- | --- | --- |
+| **Nombre de la cuenta** | Ayuda a reconocerla en AWS Organizations, la consola y la facturación. | Es una etiqueta legible y se puede actualizar. Evita incluir información personal o sensible. |
+| **ID de cuenta** | Identifica de forma única la cuenta con 12 dígitos. | Úsalo en inventarios, automatizaciones y referencias entre cuentas; no dependas del nombre visible para identificarla. |
+| **Correo del usuario raíz** | Es la dirección asociada al usuario raíz de la cuenta. | Al crear una cuenta miembro, AWS exige un correo que no esté asociado con otra cuenta. Elige uno que las personas responsables puedan mantener y recuperar. |
+| **Alias de cuenta de IAM** | Puede aparecer en la URL de inicio de sesión de usuarios de IAM en vez del ID. | Es opcional, no es secreto y tiene reglas propias: solo minúsculas, números y guiones; debe ser único en su partición de AWS. |
+| **Nombre de una OU** | Ayuda a reconocer el grupo de cuentas y su propósito. | Debe ser único entre las OUs que comparten el mismo padre. Las políticas se adjuntan a la OU, no se activan por el nombre. |
 
-<h2 class="sb h2-sbb-cls" id="directrices-para-nombres-de-cuentas" tabindex="-1">Directrices para nombres de cuentas</h2>
+El nombre, el correo raíz y el alias de IAM son campos diferentes; AWS lo aclara al [crear una cuenta miembro](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_create.html). El [ID de cuenta](https://docs.aws.amazon.com/IAM/latest/UserGuide/console-account-alias.html) es el número de 12 dígitos que identifica la cuenta. Un alias solo cambia la URL de inicio de sesión de usuarios de IAM; si tu equipo usa federación o IAM Identity Center, no necesitas definir uno para que la cuenta tenga un nombre comprensible.
 
+Por ejemplo, `acme-payments-prod` puede ser el nombre visible, `111122223333` su ID y `acme-payments-prod` un alias de IAM. Aunque el nombre y alias coincidan, siguen siendo datos distintos y cumplen funciones diferentes. El alias aparece en una URL pública de inicio de sesión, así que no incluyas secretos ni datos sensibles en él.
 
-<p>Elegir nombres adecuados para las cuentas de AWS es clave para mantener un entorno bien organizado. Esto facilita la identificación de recursos y mejora la gestión operativa.</p>
+El usuario raíz (*root user*) es una identidad asociada a cada cuenta; no es el nombre de la cuenta ni la cuenta de administración de Organizations. La cuenta de administración es la cuenta que gobierna la organización, como explica la guía de [conceptos de AWS Organizations](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_getting-started_concepts.html). El [webinar de Mexico in Tech sobre Organizations y buenas prácticas para la cuenta root](https://www.youtube.com/watch?v=eQJBvwJfPec) repasa la estructura multi-cuenta, las OUs, las SCP y el cuidado del usuario raíz; puedes consultar más sesiones en el [canal de Mexico in Tech](https://www.youtube.com/@MexicoinTech).
 
+Puedes cambiar el nombre visible de una cuenta. Para cuentas miembro, el cambio centralizado requiere una organización con todas las funciones habilitadas y acceso de confianza para AWS Account Management; consulta cómo [actualizar el nombre de una cuenta](https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-update-acct-name.html). También puedes [renombrar una OU](https://docs.aws.amazon.com/organizations/latest/userguide/rename_ou.html) desde la cuenta de administración. Renombrarla cambia la etiqueta; mover cuentas a otra OU es una acción distinta y puede cambiar las políticas que heredan.
 
-<h3 id="estructura-de-nombres-de-cuenta" tabindex="-1">Estructura de nombres de cuenta</h3>
+## Define una convención breve para los nombres de cuenta
 
+Empieza con las partes que una persona necesita reconocer: la organización, la función o carga de trabajo y, si corresponde, el entorno. Un patrón posible es:
 
-<p>Los nombres de las cuentas deben seguir un formato que refleje claramente su propósito y posición dentro de la organización. Este formato debe incluir:</p>
+```text
+<organizacion>-<funcion-o-carga>-<entorno>
+```
 
+| Nombre de ejemplo | Qué indica |
+| --- | --- |
+| `acme-payments-prod` | Carga de pagos en producción. |
+| `acme-payments-dev` | Entorno de desarrollo de pagos. |
+| `acme-security-audit` | Cuenta de auditoría o herramientas de seguridad. |
+| `acme-network-shared` | Servicios de red compartidos. |
+| `acme-org-management` | Cuenta que administra AWS Organizations. |
 
-<ul>
-<li><strong>Unidad de negocio</strong>: Identifica el departamento o área responsable.</li>
-<li><strong>Entorno</strong>: Diferencia entre producción, desarrollo, pruebas, etc.</li>
-<li><strong>Región</strong>: Especifica la ubicación geográfica principal.</li>
-<li><strong>Función</strong>: Indica el propósito principal de la cuenta.</li>
-</ul>
+Usa un vocabulario acordado para ambientes y funciones, y mantén los mismos separadores en todo el inventario. No es necesario incluir todos los componentes en cada nombre. Evita nombres de personas, clientes, secretos, fechas de retiro o equipos que pueden cambiar; guarda el responsable, el centro de costos y otros datos que cambian en etiquetas o en el inventario de cuentas. No agregues una región por costumbre: una cuenta de AWS puede contener recursos en varias regiones, salvo que tenga un propósito deliberadamente regional.
 
+AWS recomienda nombres reconocibles basados en organización, propósito y ambiente, y desaconseja reflejar información personal en ellos. El nombre ayuda a una persona a orientarse, pero una cuenta llamada `prod` no se convierte por eso en una cuenta de producción protegida. Define el acceso y los controles con las políticas y servicios correspondientes.
 
-<p>Además, se recomienda usar una dirección de correo electrónico de grupo para las cuentas raíz.</p>
+## Nombra las OUs por los controles que agrupan
 
+Una OU es un contenedor lógico de cuentas. AWS recomienda diseñar las OUs por función o por el conjunto de controles que comparten, en lugar de copiar el organigrama de la empresa. Las políticas compatibles adjuntas a una OU se heredan por sus cuentas y OUs descendientes ([buenas prácticas de OUs](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_ous_best_practices.html), [cómo funcionan las OUs](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_ous.html)).
 
-<h3 id="ejemplos-de-patrones-de-nombres" tabindex="-1">Ejemplos de patrones de nombres</h3>
+Una estructura inicial podría verse así:
 
+```text
+Raíz de Organizations
+├── Security
+├── Infrastructure
+└── Workloads
+    ├── Nonproduction
+    └── Production
+```
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Tipo de Cuenta</th>
-<th>Dirección de Correo</th>
-<th>Nombre de Cuenta</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Desarrollo A</td>
-<td>Workloads+fooA+dev@domain.com</td>
-<td>WorkloadsFooADev</td>
-</tr>
-<tr>
-<td>Desarrollo B</td>
-<td>Workloads+fooB+dev@domain.com</td>
-<td>WorkloadsFooBDev</td>
-</tr>
-</tbody>
-</table></figure>
+Es un ejemplo, no una plantilla obligatoria. Usa `Security` o `Infrastructure` si sus cuentas necesitan controles comunes distintos de las cargas de negocio. Separa `Production` y `Nonproduction` cuando los límites de permisos, cambios o datos deban ser diferentes. Si dos grupos solo pertenecen a áreas distintas del organigrama, pero necesitan los mismos controles, no hace falta crear una OU para cada uno.
 
+Una OU llamada `Production` no convierte una cuenta en producción ni bloquea acciones. El efecto depende de las políticas realmente adjuntas a la jerarquía. Revisa la cadena de políticas heredadas antes de mover una cuenta: [AWS explica cómo se comportan las políticas de una OU](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps.html). Mantén la jerarquía corta y agrega niveles solo cuando hagan más clara la aplicación de controles.
 
-<p>Para gestionar las cuentas de forma eficiente:</p>
+Para automatizaciones, identifica OUs por su ID o ARN, no por la etiqueta que ven las personas. Los nombres de OU pueden cambiar y solo deben ser únicos dentro del mismo padre; la [referencia de la API de Organizations](https://docs.aws.amazon.com/organizations/latest/APIReference/API_OrganizationalUnit.html) documenta el ID y el nombre de una OU.
 
+## Usa etiquetas como metadatos y conoce sus límites
 
-<ul>
-<li><strong>Evita duplicados</strong> verificando antes de crear nuevas cuentas.</li>
-<li><strong>Usa etiquetas</strong> que indiquen uso, centro de costes, entorno y proyecto.</li>
-<li><strong>Aplica consistencia</strong>: Sigue la misma estructura de nombres en todas las cuentas.</li>
-</ul>
+Las etiquetas pueden ayudar a encontrar cuentas y recursos por `owner`, `cost-center`, `application` o `environment`. Acuerda la escritura de las claves y los valores permitidos; por ejemplo, usa siempre `cost-center` y valores como `FIN-42`, en vez de crear variantes como `CostCenter`, `cost_center` y `centro-costos`.
 
+Distingue las etiquetas aplicadas a una cuenta u OU en Organizations de las etiquetas que cada servicio admite en sus recursos; AWS las administra como tipos de recurso distintos en su guía de [etiquetado de recursos de Organizations](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_tagging.html). No asumas que una etiqueta de la cuenta se copia automáticamente a sus recursos. Una etiqueta tampoco concede ni limita acceso por sí sola: una política de IAM, de Organizations u otra configuración debe usarla para producir ese efecto.
 
-<blockquote>
-<p>"Para las cuentas miembro, utiliza una estructura de nombres y dirección de correo electrónico que refleje el uso de la cuenta." - Documentación de AWS </p>
-</blockquote>
+Las [políticas de etiquetas de Organizations](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_tag-policies.html) ayudan a estandarizar claves, mayúsculas y valores. Algunas reglas se pueden aplicar para bloquear operaciones de etiquetado no conformes en tipos de recurso compatibles. Esto no garantiza que todo recurso se cree con todas las claves obligatorias: las reglas básicas no hacen cumplir las etiquetas que faltan en recursos creados sin ellas. La cobertura depende de los servicios y operaciones admitidos; la documentación describe el [alcance de la aplicación y las claves requeridas](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_tag-policies-enforcement.html).
 
+Para requerir etiquetas durante una creación, evalúa la opción de claves requeridas con tu herramienta de infraestructura como código o una SCP que use condiciones de solicitud, cuando la acción del servicio las admita. AWS recomienda [revisar el soporte y probar la aplicación en una cuenta antes de ampliarla](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_tag-policies-best-practices.html); una SCP limita acciones en cuentas miembro, pero no concede permisos ni afecta a la cuenta de administración. Esa excepción corresponde a las SCP: las políticas IAM siguen definiendo el acceso a identidades de la cuenta de administración, y AWS documenta que las políticas de etiquetas también la afectan. Consulta la [tabla de alcance de las políticas de Organizations](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies.html), y la condición `aws:RequestTag` en la [referencia de claves de condición de IAM](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html#condition-keys-requesttag). Para detectar etiquetas faltantes o no conformes después de crear recursos, configura informes y reglas compatibles con los tipos de recurso que usas.
 
-<p>Estas prácticas resultan especialmente útiles en equipos grandes o estructuras organizativas complejas. A continuación, veremos cómo estos principios se aplican a la organización de Unidades Organizativas (OU).</p>
+Para otra explicación en español, [AWS Women Colombia comparte una charla sobre políticas de control con AWS Organizations](https://www.youtube.com/watch?v=2lLxBlric5I), disponible junto con más grabaciones en su [canal de YouTube](https://www.youtube.com/@awswomencolombia). Úsala para complementar los conceptos; valida el alcance de cada control en la documentación oficial antes de aplicarlo.
 
+El límite de etiquetas también depende del servicio y del tipo de recurso. Comprueba la documentación del recurso concreto antes de fijar una cuota o exigir una lista de claves común a toda la organización.
 
-<h2 class="sb h2-sbb-cls" id="reglas-de-nombres-para-ous" tabindex="-1">Reglas de nombres para OUs</h2>
+## Recursos en español y comunidades AWS
 
+Para contrastar una estructura multi-cuenta, Daniel Castillo presenta en [AWS Organizations Landing Zone](https://dcastillogi.com/arquitecturas/aws-organizations-landing-zone) un ejemplo de cuentas para seguridad, registros, redes, cargas y sandbox. Úsalo como una referencia para discutir controles y responsables; no como una topología que debas copiar sin adaptarla.
 
-<p>Tener una buena nomenclatura para las Unidades Organizativas (OUs) es clave para mantener una estructura ordenada y fácil de gestionar dentro de AWS Organizations. Una estrategia clara facilita tanto la administración como el crecimiento de tu infraestructura.</p>
+Si quieres conversar sobre AWS con otras personas, el portal de [AWS User Group Perú](https://awsugperu.cloud/) reúne su agenda, mapa de grupos locales y recursos. También puedes explorar el [directorio de comunidades AWS](/comunidades/) para encontrar grupos de otros países.
 
+La ficha de Meetup anuncia [Compliance as Code en AWS: de la política a la acción automática](https://www.meetup.com/aws-user-group-security-ecuador/events/316680020/) para el 20 de octubre de 2026, de 19:00 a 20:00 (UTC−5), en línea y con cupos limitados. La organiza [AWS User Group Security Ecuador](https://www.meetup.com/aws-user-group-security-ecuador/). Revisa el RSVP para confirmar si todavía hay lugar y las condiciones de registro; la ficha no garantiza la asistencia ni indica que el evento sea gratuito. Puedes consultar más sesiones en la [agenda de eventos AWS](/eventos/).
 
-<h3 id="correspondencia-entre-ous-y-estructura-empresarial" tabindex="-1">Correspondencia entre OUs y estructura empresarial</h3>
+## Preguntas frecuentes
 
+### ¿Puedo cambiar el nombre de una cuenta o una OU?
 
-<p>Las OUs deben representar la jerarquía de la organización, lo que simplifica la gestión de políticas y permisos:</p>
+Sí. AWS permite actualizar el nombre de una cuenta y renombrar una OU. El cambio de nombre no sustituye una decisión de mover la cuenta a otra OU; ese movimiento puede modificar los controles heredados.
 
+### ¿Una OU debe representar un departamento?
 
-<p><strong>Estructura Jerárquica</strong>:</p>
+No necesariamente. AWS recomienda agrupar cuentas por función o controles comunes. Usa una OU departamental solo si ese grupo necesita una política o un tratamiento operativo distinto.
 
+### ¿Las políticas de etiquetas impiden siempre crear recursos sin etiquetas?
 
-<ul>
-<li><strong>Nivel Superior</strong>: Representa las divisiones principales, como Finanzas, TI o Marketing.</li>
-<li><strong>Nivel Medio</strong>: Corresponde a subdepartamentos o funciones específicas.</li>
-<li><strong>Nivel Inferior</strong>: Agrupa cuentas según su entorno o propósito.</li>
-</ul>
-
-
-<p>Por ejemplo, una estructura podría lucir así:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Nivel OU</th>
-<th>Ejemplo de Nombre</th>
-<th>Propósito</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Superior</td>
-<td>OU-FIN</td>
-<td>División Financiera</td>
-</tr>
-<tr>
-<td>Medio</td>
-<td>OU-FIN-PAGOS</td>
-<td>Sistemas de Pago</td>
-</tr>
-<tr>
-<td>Inferior</td>
-<td>OU-FIN-PAGOS-PROD</td>
-<td>Entorno de Producción</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Diseña tu estructura para que refleje esta jerarquía de manera práctica y funcional.</p>
-
-
-<h3 id="planificacion-de-la-estructura-de-ous" tabindex="-1">Planificación de la estructura de OUs</h3>
-
-
-<p>Planificar cómo organizar tus OUs es esencial para un entorno AWS eficiente. Encuentra un equilibrio entre mantenerlo simple y cubrir todas las necesidades.</p>
-
-
-<p><strong>Puntos a Tener en Cuenta</strong>:</p>
-
-
-<ul>
-<li><strong>Agrupación Lógica</strong>: Organiza las cuentas según roles, cargas de trabajo o áreas funcionales.</li>
-<li>Las políticas aplicadas a una OU se heredan automáticamente en todas las cuentas que contiene.</li>
-</ul>
-
-
-<p><strong>Consejos Útiles</strong>:</p>
-
-
-<ul>
-<li>Usa nombres únicos y prefijos consistentes para cada nivel jerárquico.</li>
-<li>Evita nombres largos que puedan generar confusión.</li>
-<li>Documenta la estructura y el propósito de cada OU para facilitar su comprensión.</li>
-</ul>
-
-
-<p>Crea una organización que permita crecer sin complicaciones, pero que al mismo tiempo sea fácil de administrar en cuanto a políticas y recursos.</p>
-
-
-
-
-<h2 class="sb h2-sbb-cls" id="mejores-practicas-para-el-etiquetado-de-cuentas" tabindex="-1">Mejores prácticas para el etiquetado de cuentas</h2>
-
-
-<p>El etiquetado, junto con la estructura de nombres y las OUs, añade una capa extra para organizar y gestionar recursos en AWS Organizations. Las etiquetas son pares clave-valor que funcionan como metadatos, ayudando a clasificar y administrar los recursos de manera más eficiente.</p>
-
-
-<h3 id="etiquetas-recomendadas-para-cuentas" tabindex="-1">Etiquetas recomendadas para cuentas</h3>
-
-
-<p>Para una gestión efectiva, es importante definir un conjunto básico de etiquetas que todas las cuentas deben incluir. Estas etiquetas deben proporcionar información clave sobre cada cuenta:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th><strong>Categoría de Etiqueta</strong></th>
-<th><strong>Clave Ejemplo</strong></th>
-<th><strong>Valor Ejemplo</strong></th>
-<th><strong>Propósito</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Centro de Costes</td>
-<td>empresa:centro-coste</td>
-<td>FIN-2025</td>
-<td>Seguimiento de gastos</td>
-</tr>
-<tr>
-<td>Entorno</td>
-<td>empresa:ambiente</td>
-<td>producción</td>
-<td>Control de acceso</td>
-</tr>
-<tr>
-<td>Propietario</td>
-<td>empresa:propietario</td>
-<td>equipo-pagos</td>
-<td>Asignación de responsabilidades</td>
-</tr>
-<tr>
-<td>ID de Aplicación</td>
-<td>empresa:app-id</td>
-<td>APP-PAG-001</td>
-<td>Identificación de sistemas</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Aunque se permite un máximo de 50 etiquetas personalizadas por recurso, es recomendable mantener un conjunto manejable para evitar complicaciones.</p>
-
-
-<h3 id="herramientas-para-gestionar-el-etiquetado" tabindex="-1">Herramientas para gestionar el etiquetado</h3>
-
-
-<p>AWS proporciona varias herramientas que ayudan a garantizar que las etiquetas se apliquen de forma coherente y cumplan con los estándares definidos:</p>
-
-
-<ul>
-<li>
-<strong>AWS Organizations y Políticas de Etiquetas</strong><br/>
-Estas políticas permiten establecer reglas obligatorias de etiquetado, bloqueando acciones que no cumplan con dichas reglas. Además, aseguran que las etiquetas se apliquen de manera uniforme en todas las cuentas.
-</li>
-<li>
-<strong>AWS Config</strong><br/>
-Con esta herramienta, puedes configurar reglas para supervisar que los recursos cumplan con los estándares de etiquetado. Por ejemplo, puedes recibir alertas si faltan etiquetas necesarias o si estas no siguen el formato correcto.
-</li>
-<li>
-<strong>Automatización con <a href="https://docs.aws.amazon.com/lambda/" rel="noopener noreferrer" target="_blank">AWS Lambda</a></strong><br/>
-Puedes usar funciones Lambda para etiquetar recursos automáticamente en el momento en que se crean.
-</li>
-</ul>
-
-
-<h3 id="recomendaciones-practicas" tabindex="-1">Recomendaciones prácticas</h3>
-
-
-<ul>
-<li>Usa un formato estandarizado y consistente, teniendo en cuenta mayúsculas y minúsculas.</li>
-<li>Aplica controles tanto preventivos como correctivos para evitar errores en el etiquetado.</li>
-<li>Incluye los requisitos de etiquetado en las plantillas de <a href="https://docs.aws.amazon.com/cloudformation/" rel="noopener noreferrer" target="_blank">CloudFormation</a> para automatizar el proceso.</li>
-<li>Configura políticas IAM que limiten las acciones según las etiquetas asignadas.</li>
-</ul>
-
-
-<p>El uso combinado de estas herramientas y prácticas asegura un sistema de etiquetado eficiente, facilitando una mejor organización y control de los recursos en AWS Organizations.</p>
-
-
-<h2 class="sb h2-sbb-cls" id="establecimiento-de-reglas-de-nomenclatura" tabindex="-1">Establecimiento de reglas de nomenclatura</h2>
-
-
-<h3 id="redaccion-de-directrices-de-nomenclatura" tabindex="-1">Redacción de directrices de nomenclatura</h3>
-
-
-<p>Crea un único documento que reúna todas las convenciones de nombres para los recursos. Este archivo debe incluir la estructura, el formato y ejemplos claros. Haz que sea accesible y permita ajustes a medida que la organización crezca.</p>
-
-
-<p>Por ejemplo, para cuentas de desarrollo, puedes usar un formato sencillo como:</p>
-
-
-<pre><code>{departamento}-{ambiente}-{función}
-</code></pre>
-
-
-<p>Estas reglas ayudan a mantener la coherencia en toda la organización, complementando las prácticas de nombramiento ya existentes.</p>
-
-
-<h3 id="controles-de-politicas-aws" tabindex="-1">Controles de políticas AWS</h3>
-
-
-<p>Una vez definidas las convenciones, es crucial implementarlas con políticas que garanticen su cumplimiento. Las Service Control Policies (SCPs) funcionan como límites que restringen los permisos máximos en las cuentas de AWS.</p>
-
-
-<ol>
-<li>
-<strong>Políticas de Etiquetado</strong><br/>
-Las políticas de etiquetas mediante SCPs permiten:
-<ul>
-<li>Obligar el uso de etiquetas específicas en nuevos recursos.</li>
-<li>Bloquear la creación de recursos sin las etiquetas requeridas.</li>
-<li>Evitar que se eliminen etiquetas críticas.</li>
-</ul>
-</li>
-<li>
-<strong>Implementación Gradual</strong><br/>
-Antes de aplicar SCPs a toda la organización, pruébalas en un entorno controlado. Asegúrate de que:
-<ul>
-<li>No interfieran con procesos actuales.</li>
-<li>Funcionen como se espera.</li>
-<li>Sean claras y entendibles para los equipos.</li>
-</ul>
-</li>
-</ol>
-
-
-<h3 id="revision-de-estandares-de-nomenclatura" tabindex="-1">Revisión de estándares de nomenclatura</h3>
-
-
-<p>Revisar las reglas de nombres y etiquetas de manera periódica es clave para adaptarlas al crecimiento de la infraestructura. Programa revisiones cada tres meses, habilita canales para recibir comentarios y documenta cualquier excepción que se presente.</p>
-
-
-<p>Para mantener uniformidad, utiliza nombres en minúsculas con guiones y prefijos organizacionales:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th><strong>Tipo de Recurso</strong></th>
-<th><strong>Formato Recomendado</strong></th>
-<th><strong>Ejemplo</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Cuenta Producción</td>
-<td>prod-{servicio}-{función}</td>
-<td>prod-pagos-procesamiento</td>
-</tr>
-<tr>
-<td>Cuenta Desarrollo</td>
-<td>dev-{equipo}-{proyecto}</td>
-<td>dev-backend-auth</td>
-</tr>
-<tr>
-<td>OU Departamental</td>
-<td>ou-{departamento}-{región}</td>
-<td>ou-finanzas-eu</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h2 class="sb h2-sbb-cls" id="proximos-pasos" tabindex="-1">Próximos pasos</h2>
-
-
-<h3 id="resumen-de-puntos-clave" tabindex="-1">Resumen de puntos clave</h3>
-
-
-<p>Para aplicar correctamente las convenciones de nomenclatura en <strong>AWS Organizations</strong>, ten en cuenta estos aspectos importantes:</p>
-
-
-<ul>
-<li>Las <strong>etiquetas clave</strong> ayudan a identificar el uso, el centro de costes, el entorno y el proyecto en cada cuenta.</li>
-<li>La estructura de nombres debe ser clara y reflejar el propósito de la cuenta. Por ejemplo: <em>"WorkloadsFooADev"</em> para entornos de desarrollo.</li>
-<li>La <strong>API Resource Groups Tagging</strong> permite automatizar y garantizar la uniformidad del etiquetado.</li>
-</ul>
-
-
-<p>En marzo de 2023, <strong><a href="https://www.chegg.com/homework-help/questions-and-answers/activity-review-architectural-design-fictitious-company-anycompany-corporation-design-prin-q104994243" rel="noopener noreferrer" target="_blank">AnyCompany</a></strong> implementó etiquetas como <em>'anycompany:cost-center'</em>, <em>'anycompany:environment-type'</em> y <em>'anycompany:application-id'</em>. Esto facilitó la identificación de recursos y una mejor asignación de costes.</p>
-
-
-<h3 id="recursos-adicionales-sobre-aws" tabindex="-1">Recursos adicionales sobre AWS</h3>
-
-
-<p>Con estos puntos en mente, explora la documentación oficial para profundizar en tus conocimientos:</p>
-
-
-<ul>
-<li>La <strong><a href="https://dondeaprendoaws.com/blog/gestionando-multiples-cuentas-de-aws-con-aws-organizations/">guía del usuario de AWS Organizations</a></strong> ofrece una explicación completa y ayuda a configurar tu organización desde cero.</li>
-<li>La <strong>Referencia de API de AWS Organizations</strong> incluye detalles sobre todas las operaciones disponibles, con ejemplos prácticos.</li>
-<li>La <strong><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">guía de referencia de AWS account management</a></strong> proporciona información detallada sobre cómo crear y gestionar cuentas individuales.</li>
-</ul>
-
-
-<p>Si buscas recursos en español, visita <a href="https://dondeaprendoaws.com">Dónde Aprendo AWS</a>. Este sitio ofrece artículos y tutoriales enfocados en la comunidad hispanohablante, cubriendo tanto conceptos básicos como avanzados de AWS.</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Recurso</th>
-<th>Beneficio principal</th>
-<th>Uso recomendado</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>AWS Organizations User Guide</td>
-<td>Introducción y configuración</td>
-<td>Planificación inicial</td>
-</tr>
-<tr>
-<td>API Reference</td>
-<td>Detalles técnicos y ejemplos</td>
-<td>Automatización e implementación</td>
-</tr>
-<tr>
-<td>AWS CLI Reference</td>
-<td>Gestión por línea de comandos</td>
-<td>Tareas diarias y scripts</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h2>Publicaciones de blog relacionadas</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/gestionando-multiples-cuentas-de-aws-con-aws-organizations/">Gestionando múltiples cuentas de AWS con AWS Organizations</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores prácticas de seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-organizations-estructuras-de-cuentas-y-nombres/">AWS Organizations: estructuras de cuentas y nombres</a></li></ul>
+No. La aplicación depende del servicio, el tipo de recurso y la operación. Las reglas básicas no bloquean recursos creados sin etiquetas; para exigir claves, revisa los mecanismos compatibles con tu herramienta y servicio.
