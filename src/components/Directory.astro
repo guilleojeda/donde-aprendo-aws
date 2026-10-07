@@ -176,7 +176,7 @@ for (const group of upcomingEventGroups) {
           <p class="directory-result-count" data-result-count data-count-singular={countNouns.singular} data-count-plural={countNouns.plural} aria-live="polite">{resources.length} {resourceCountNoun}</p>
           {!hasPrimaryGroup && <DirectorySort defaultSort={defaultSort} />}
         </div>
-        <ul class="resource-list" data-resource-list data-resource-groups={resourceGroups.length ? JSON.stringify(resourceGroups) : undefined}>
+        <ul class="resource-list" data-resource-list data-kind={kind} data-resource-groups={resourceGroups.length ? JSON.stringify(resourceGroups) : undefined}>
           {(() => {
             let previousGroupId: string | undefined;
             return orderedResources.map((resource) => {

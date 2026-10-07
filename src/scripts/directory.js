@@ -1,5 +1,6 @@
 import { directoryGroupMembership, directoryListEntries, filterResources, sortResources } from '../lib/directory-filter.mjs';
 import { parseDirectorySearch, resetDirectorySearchForReveal, serializeDirectorySearch } from '../lib/directory-url.mjs';
+import { COUNTRY_LABELS, LEVEL_LABELS } from '../lib/resource-discovery.mjs';
 
 const controls = document.querySelector('[data-directory-controls]');
 const list = document.querySelector('[data-resource-list]');
@@ -25,23 +26,41 @@ if (controls && list) {
   const groupByResourceId = new Map(collectionGroups.flatMap((group, groupIndex) => group.resourceIds
     .map((id) => [id, { ...group, groupIndex }])));
   const groupMembership = directoryGroupMembership(collectionGroups);
-  const records = cards.map((card) => ({
-    card,
-    directoryIndex: Number(card.dataset.resourceIndex),
-    kind: card.dataset.kind,
-    format: card.dataset.format,
-    topics: (card.dataset.topics || '').split('|').filter(Boolean),
-    country: card.dataset.country || '',
-    level: card.dataset.level || '',
-    addedAt: card.dataset.addedAt || '',
-    featured: card.dataset.featured === 'true',
-    search: card.dataset.search || '',
-    purposeGroupId: groupByResourceId.get(card.id.replace(/^resource-/u, ''))?.id,
-    purposeGroupIndex: groupByResourceId.get(card.id.replace(/^resource-/u, ''))?.groupIndex,
-    purposeGroupLabel: groupByResourceId.get(card.id.replace(/^resource-/u, ''))?.label,
-    purposeGroupDescription: groupByResourceId.get(card.id.replace(/^resource-/u, ''))?.description,
-    groupIds: groupMembership.get(card.id.replace(/^resource-/u, '')) ?? [],
-  }));
+  const labels = (value, knownLabels) => value ? knownLabels[value] ?? value : '';
+  const records = cards.map((card) => {
+    const resourceId = card.id.replace(/^resource-/u, '');
+    const relatedTitles = { source: '', community: '', event: '' };
+    for (const { textContent = '' } of card.querySelectorAll('.resource-card__related a')) {
+      for (const [field, prefix] of [
+        ['source', 'Autor o fuente: '], ['community', 'Comunidad: '], ['event', 'Grabación de: '],
+      ]) {
+        if (textContent.startsWith(prefix)) relatedTitles[field] = textContent.slice(prefix.length);
+      }
+    }
+    const metadata = [...card.querySelectorAll('.resource-card__meta span')]
+      .map(({ textContent = '' }) => textContent);
+    const topics = (card.dataset.topics || '').split('|').filter(Boolean);
+    const country = card.dataset.country || '';
+    const level = card.dataset.level || '';
+
+    return {
+      card,
+      directoryIndex: Number(card.dataset.resourceIndex),
+      kind: list.dataset.kind,
+      format: metadata[0] ?? '',
+      topics,
+      country,
+      level,
+      addedAt: card.querySelector('time')?.getAttribute('datetime') ?? '',
+      featured: card.dataset.featured === 'true',
+      search: `${card.querySelector('h3')?.textContent ?? ''} ${card.querySelector('.resource-card__description')?.textContent ?? ''} ${card.dataset.category ?? ''} ${metadata[0] ?? ''} ${topics.join(' ')} ${labels(country, COUNTRY_LABELS)} ${labels(level, LEVEL_LABELS)} ${relatedTitles.source} ${relatedTitles.community} ${relatedTitles.event}`,
+      purposeGroupId: groupByResourceId.get(resourceId)?.id,
+      purposeGroupIndex: groupByResourceId.get(resourceId)?.groupIndex,
+      purposeGroupLabel: groupByResourceId.get(resourceId)?.label,
+      purposeGroupDescription: groupByResourceId.get(resourceId)?.description,
+      groupIds: groupMembership.get(resourceId) ?? [],
+    };
+  });
   const recordsById = new Map(records.map((record) => [record.card.id, record]));
   const allowed = Object.fromEntries(Object.entries(selects).map(([key, select]) => [
     key, new Set([...(select?.options ?? [])].map((option) => option.value).filter(Boolean)),

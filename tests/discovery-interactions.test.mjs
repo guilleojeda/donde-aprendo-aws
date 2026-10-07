@@ -4,6 +4,7 @@ import { runInNewContext } from 'node:vm';
 import test from 'node:test';
 import { directoryGroupMembership, directoryListEntries, filterResources, sortResources } from '../src/lib/directory-filter.mjs';
 import { parseDirectorySearch, resetDirectorySearchForReveal, serializeDirectorySearch } from '../src/lib/directory-url.mjs';
+import { COUNTRY_LABELS, LEVEL_LABELS } from '../src/lib/resource-discovery.mjs';
 import { aggregateSearchData, searchIndex, TYPE_LABELS } from '../src/lib/unified-search.mjs';
 
 const directoryScript = readFileSync(new URL('../src/scripts/directory.js', import.meta.url), 'utf8')
@@ -68,23 +69,51 @@ class MockFragment {
   append(...children) { this.children.push(...children); }
 }
 
-function createDirectory({ count }) {
+function createDirectory({ count, resources, initialSearch = '' } = {}) {
+  resources ??= Array.from({ length: count }, (_, index) => ({
+    title: `recurso ${index}`, category: 'Curso', format: 'Curso', topics: [],
+  }));
   const document = { activeElement: null, body: null };
   document.body = new MockElement(document, { tagName: 'BODY' });
   document.activeElement = document.body;
 
   const controls = new MockElement(document);
   const search = new MockElement(document, { tagName: 'INPUT' });
-  controls.querySelector = (selector) => selector === '[data-resource-search]' ? search : null;
-  const list = new MockElement(document, { tagName: 'UL', dataset: { resourceGroups: '[]' } });
-  const cards = Array.from({ length: count }, (_, index) => new MockElement(document, {
-    tagName: 'LI',
-    id: `resource-${index}`,
-    dataset: {
-      resourceIndex: String(index), kind: 'content', format: 'Curso', topics: '', country: '', level: '',
-      addedAt: '', featured: 'false', search: `recurso ${index} aws`,
-    },
-  }));
+  const format = new MockElement(document, { tagName: 'SELECT' });
+  format.options = [{ value: '' }, { value: 'Curso' }, { value: 'Video' }];
+  controls.querySelector = (selector) => selector === '[data-resource-search]' ? search
+    : selector === '[data-format-filter]' ? format : null;
+  const list = new MockElement(document, { tagName: 'UL', dataset: { kind: 'content', resourceGroups: '[]' } });
+  const cards = resources.map((resource, index) => {
+    const card = new MockElement(document, {
+      tagName: 'LI',
+      id: `resource-${index}`,
+      dataset: {
+        resourceIndex: String(index), category: resource.category ?? '', topics: (resource.topics ?? []).join('|'),
+        country: resource.country ?? '', level: resource.level ?? '', featured: resource.featured ? 'true' : undefined,
+      },
+    });
+    const metadata = [resource.format, ...(resource.topics ?? []).slice(0, 2), resource.countryLabel, resource.levelLabel]
+      .filter(Boolean)
+      .map((textContent) => Object.assign(new MockElement(document, { tagName: 'SPAN' }), { textContent }));
+    const title = Object.assign(new MockElement(document, { tagName: 'H3' }), { textContent: resource.title ?? '' });
+    const description = resource.description == null ? null
+      : Object.assign(new MockElement(document, { tagName: 'P' }), { textContent: resource.description });
+    const time = resource.addedAt ? new MockElement(document, { tagName: 'TIME' }) : null;
+    if (time) time.attributes.set('datetime', resource.addedAt);
+    const related = (resource.related ?? []).map((textContent) => Object.assign(
+      new MockElement(document, { tagName: 'A' }), { textContent },
+    ));
+    card.querySelector = (selector) => {
+      if (selector === 'h3') return title;
+      if (selector === '.resource-card__description') return description;
+      if (selector === 'time') return time;
+      return null;
+    };
+    card.querySelectorAll = (selector) => selector === '.resource-card__meta span' ? metadata
+      : selector === '.resource-card__related a' ? related : [];
+    return card;
+  });
   list.querySelectorAll = (selector) => selector === '[data-resource-index]' ? cards : [];
   const showMoreWrap = new MockElement(document, { hidden: true });
   const showMore = new MockElement(document, { tagName: 'BUTTON' });
@@ -101,19 +130,28 @@ function createDirectory({ count }) {
   document.createElement = (tagName) => new MockElement(document, { tagName: tagName.toUpperCase() });
   document.createDocumentFragment = () => new MockFragment();
   document.addEventListener = (type, handler) => documentListeners.set(type, handler);
-  const location = { pathname: '/aprender/', search: '', hash: '' };
+  const location = { pathname: '/aprender/', search: initialSearch, hash: '' };
   const history = { pushState() {}, replaceState() {} };
   const windowListeners = new Map();
   const window = { addEventListener: (type, handler) => windowListeners.set(type, handler) };
+  let lastFilteredRecords = [];
 
   runInNewContext(directoryScript, {
     document, window, location, history,
-    directoryGroupMembership, directoryListEntries, filterResources, sortResources,
+    directoryGroupMembership, directoryListEntries,
+    filterResources: (records, state) => {
+      lastFilteredRecords = records;
+      return filterResources(records, state);
+    },
+    sortResources, COUNTRY_LABELS, LEVEL_LABELS,
     parseDirectorySearch, resetDirectorySearchForReveal, serializeDirectorySearch,
     requestAnimationFrame: (callback) => callback(), URL,
   });
 
-  return { document, search, list, cards, showMore, showMoreWrap, resultCount, noResults };
+  return {
+    document, search, format, list, cards, showMore, showMoreWrap, resultCount, noResults,
+    get records() { return lastFilteredRecords; },
+  };
 }
 
 function makeSearchIndex(count) {
@@ -240,6 +278,78 @@ test('directory with fewer than one page keeps results visible without moving fo
   assert.equal(directory.document.activeElement, directory.document.body);
   assert.equal(directory.cards.filter((card) => !card.hidden).length, 7);
   assert.equal(directory.showMoreWrap.hidden, true);
+});
+
+test('directory reads its format facet from the first visible metadata span and dates from time elements', () => {
+  const directory = createDirectory({ resources: [
+    { title: 'Older course', category: 'Curso', format: 'Curso', topics: [], addedAt: '2026-09-25' },
+    { title: 'Newer video', category: 'Video', format: 'Video', topics: [], addedAt: '2026-10-01' },
+  ] });
+
+  assert.equal(directory.list.children[0], directory.cards[1], 'The default recent order reads the date from time[datetime].');
+  directory.format.value = 'Curso';
+  directory.format.emit('change');
+  assert.deepEqual(directory.cards.map(({ hidden }) => !hidden), [true, false], 'The format facet reads the first metadata span.');
+});
+
+test('directory search reconstructs searchable text from static card content and metadata', () => {
+  const directory = createDirectory({ resources: [
+    {
+      title: '¿Cómo leer CloudTrail?', description: 'Introducción práctica a AWS.', category: 'Guías y laboratorios',
+      format: 'Curso', topics: ['Seguridad', 'Auditoría', 'Certificaciones'], country: 'PE', countryLabel: 'Perú',
+      level: 'inicial', levelLabel: 'Inicial', addedAt: '2026-09-25',
+      related: [
+        'Autor o fuente: AWS Academy (oficial)', 'Comunidad: Mujeres AWS Perú',
+        'Grabación de: re:Invent 2025', 'Reportar enlace roto o dato incorrecto', 'Recomendado',
+      ],
+    },
+    { title: 'Recurso sin descripción', description: null, category: 'Videos', format: 'Video', topics: [] },
+  ] });
+  const reconstructed = directory.records.find(({ card }) => card.id === 'resource-0');
+  assert.equal(reconstructed.search,
+    '¿Cómo leer CloudTrail? Introducción práctica a AWS. Guías y laboratorios Curso Seguridad Auditoría Certificaciones Perú Inicial AWS Academy (oficial) Mujeres AWS Perú re:Invent 2025');
+  assert.deepEqual([...reconstructed.topics], ['Seguridad', 'Auditoría', 'Certificaciones'], 'All topics remain available to filters and search.');
+  assert.deepEqual(
+    reconstructed.card.querySelectorAll('.resource-card__meta span').map(({ textContent }) => textContent),
+    ['Curso', 'Seguridad', 'Auditoría', 'Perú', 'Inicial'],
+    'Only the first two topics stay visible as badges.',
+  );
+
+  for (const query of [
+    '¿Cómo leer CloudTrail?', 'introduccion practica', 'Guías y laboratorios', 'auditoria',
+    'Perú', 'Inicial', 'AWS Academy (oficial)', 'Mujeres AWS Perú', 're:Invent 2025',
+  ]) {
+    directory.search.value = query;
+    directory.search.emit('input');
+    assert.deepEqual(directory.cards.map(({ hidden }) => !hidden), [true, false], `Search finds static field: ${query}`);
+  }
+
+  directory.search.value = 'sin descripción';
+  directory.search.emit('input');
+  assert.deepEqual(directory.cards.map(({ hidden }) => !hidden), [false, true], 'A missing description does not contribute an undefined value.');
+  for (const query of ['undefined', 'Reportar enlace roto', 'Recomendado']) {
+    directory.search.value = query;
+    directory.search.emit('input');
+    assert.deepEqual(directory.cards.map(({ hidden }) => !hidden), [false, false], `Presentation-only text is excluded: ${query}`);
+  }
+});
+
+test('directory search keeps the former empty-field slots for the published missing-country card', () => {
+  const directory = createDirectory({ resources: [{
+    title: 'Usando anclas y alias de YAML en una plantilla SAM',
+    description: 'Aprende cómo puedes configurar tu plantilla SAM para reutilizar piezas comunes de configuración utilizando anclas y alias sin introducir problemas.',
+    category: 'Serverless', format: 'Artículo', topics: ['Serverless'], level: 'intermedio', levelLabel: 'Intermedio',
+    related: ['Autor o fuente: AndMore Dev'],
+  }] });
+  const record = directory.records[0];
+
+  // This is the old expression for catalog-cea4bcc7c72537db16d6aed79d518d92.
+  assert.equal(record.search,
+    'Usando anclas y alias de YAML en una plantilla SAM Aprende cómo puedes configurar tu plantilla SAM para reutilizar piezas comunes de configuración utilizando anclas y alias sin introducir problemas. Serverless Artículo Serverless  Intermedio AndMore Dev  ');
+  directory.search.value = 'Serverless Intermedio';
+  directory.search.emit('input');
+  assert.deepEqual(directory.cards.map(({ hidden }) => !hidden), [false],
+    'A query cannot bridge the empty country slot between topic and level fields.');
 });
 
 test('search Show More focuses each new page while initial short results stay unfocused', async () => {

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 import deployment from '../config/deployment.json' with { type: 'json' };
 import { COUNTRY_SLUGS } from '../src/lib/community-country-pages.mjs';
@@ -41,6 +41,10 @@ const learningDetailPaths = LEARNING_PATHS.map(({ id }) => `${learningPathHref(i
 const isCountryRoute = (path, section) => new RegExp(`^${section}/[^/]+/index\\.html$`, 'u').test(path) && !collectionHtmlPaths.includes(path);
 const communityCountryRoutePaths = allHtmlPaths.filter((path) => isCountryRoute(path, 'comunidades'));
 const eventCountryRoutePaths = allHtmlPaths.filter((path) => isCountryRoute(path, 'eventos'));
+const resourceDirectoryPaths = [
+  'aprender/index.html', 'creadores/index.html', 'comunidades/index.html', ...communityCountryRoutePaths,
+  ...RESOURCE_COLLECTIONS.map(({ path }) => `${path.slice(1)}index.html`),
+];
 const routeCountries = (paths, section) => paths.map((htmlPath) => {
   const slug = htmlPath.split('/')[1];
   const country = Object.entries(COUNTRY_SLUGS).find(([, countrySlug]) => countrySlug === slug)?.[0];
@@ -67,6 +71,10 @@ assert.deepEqual(eventCountryRoutes.map(({ country }) => country).sort(), countr
   'Event country routes match the countries with published communities.');
 assert.equal(new Set(locations).size, expectedLocations.length, 'Sitemap URLs must be unique.');
 assert.deepEqual([...allHtmlPaths].sort(), [...pagePaths, '404.html'].sort(), 'Every generated HTML page must be checked, with no unexpected event detail routes.');
+for (const path of resourceDirectoryPaths) {
+  const size = statSync(resolve(dist, path)).size;
+  assert.ok(size <= 2_000_000, `Resource directory HTML must stay within 2,000,000 bytes: ${path} is ${size.toLocaleString('en')} bytes.`);
+}
 
 const decode = (value) => value.replaceAll('&amp;', '&').replaceAll('&quot;', '"').replaceAll('&#39;', "'").replaceAll('&#x27;', "'").replaceAll('&lt;', '<').replaceAll('&gt;', '>');
 const defaultSocialImage = readFileSync(resolve(dist, 'assets/site-social.png'));
@@ -200,7 +208,9 @@ for (const [section, expectedKind] of [['aprender', 'content'], ['creadores', 's
   assert.match(directory, /data-format-filter/);
   assert.match(directory, /data-sort-filter/);
   assert.match(directory, /data-show-more/);
-  assert.match(directory, new RegExp(`data-kind="${expectedKind}"`));
+  const listAttributes = directory.match(/<ul\b(?=[^>]*\bdata-resource-list\b)([^>]*)>/u)?.[1] ?? '';
+  assert.match(listAttributes, new RegExp(`\\bdata-kind="${expectedKind}"`), `The directory list declares its invariant kind: ${section}`);
+  assert.doesNotMatch(directory, /\bdata-search=/u, 'Search text is reconstructed from existing static card content.');
   assert.match(directory, /id="directory-criteria"/);
   assert.match(directory, /Recomendado/);
   assert.match(directory, /selección editorial/);
@@ -212,29 +222,33 @@ for (const [section, expectedKind] of [['aprender', 'content'], ['creadores', 's
   assert.doesNotMatch(directory, /Enlace comprobado<\/strong>[^<]*\d{4}/);
   assert.doesNotMatch(directory, /Contenido revisado<\/strong>[^<]*\d{4}/);
   for (const kind of ['content', 'source', 'community'].filter((kind) => kind !== expectedKind)) {
-    assert.doesNotMatch(directory, new RegExp(`data-kind="${kind}"`), `Unexpected ${kind} in ${section}`);
+    assert.doesNotMatch(listAttributes, new RegExp(`\\bdata-kind="${kind}"`), `Unexpected ${kind} in ${section}`);
   }
 }
 
-const cardData = (html) => [...html.matchAll(/<li\b([^>]*)>([\s\S]*?)<\/li>/gu)].flatMap(([, attributes, body]) => {
-  const id = attributes.match(/\bid="resource-([^" ]+)"/u)?.[1];
-  const kind = attributes.match(/\bdata-kind="([^"]*)"/u)?.[1];
-  if (!id || !kind) return [];
-  const mainLink = body.match(/<a\b[^>]*class="resource-card__main-link"[^>]*>/u)?.[0] ?? '';
-  return [{
-    id,
-    kind,
-    url: decode(mainLink.match(/\bhref="([^"]*)"/u)?.[1] ?? ''),
-    title: decode(body.match(/<h3\b[^>]*>([\s\S]*?)<\/h3>/u)?.[1] ?? ''),
-    description: decode(body.match(/<p class="resource-card__description">([\s\S]*?)<\/p>/u)?.[1] ?? ''),
-    country: attributes.match(/\bdata-country="([^"]*)"/u)?.[1] ?? '',
-    format: attributes.match(/\bdata-format="([^"]*)"/u)?.[1] ?? '',
-    topics: (attributes.match(/\bdata-topics="([^"]*)"/u)?.[1] ?? '').split('|').filter(Boolean),
-    featured: attributes.match(/\bdata-featured="([^"]*)"/u)?.[1] === 'true',
-    addedAt: attributes.match(/\bdata-added-at="([^"]*)"/u)?.[1] ?? '',
-    directoryIndex: Number(attributes.match(/\bdata-resource-index="([^"]*)"/u)?.[1]),
-  }];
-});
+const cardData = (html) => {
+  const listAttributes = html.match(/<ul\b(?=[^>]*\bdata-resource-list\b)([^>]*)>/u)?.[1] ?? '';
+  const kind = listAttributes.match(/\bdata-kind="([^"]*)"/u)?.[1] ?? '';
+  return [...html.matchAll(/<li\b([^>]*)>([\s\S]*?)<\/li>/gu)].flatMap(([, attributes, body]) => {
+    const id = attributes.match(/\bid="resource-([^" ]+)"/u)?.[1];
+    if (!id || !kind) return [];
+    const mainLink = body.match(/<a\b[^>]*class="resource-card__main-link"[^>]*>/u)?.[0] ?? '';
+    const metadata = body.match(/<div class="resource-card__meta">([\s\S]*?)<\/div>/u)?.[1] ?? '';
+    return [{
+      id,
+      kind,
+      url: decode(mainLink.match(/\bhref="([^"]*)"/u)?.[1] ?? ''),
+      title: decode(body.match(/<h3\b[^>]*>([\s\S]*?)<\/h3>/u)?.[1] ?? ''),
+      description: decode(body.match(/<p class="resource-card__description">([\s\S]*?)<\/p>/u)?.[1] ?? ''),
+      country: attributes.match(/\bdata-country="([^"]*)"/u)?.[1] ?? '',
+      format: decode(metadata.match(/<span>([\s\S]*?)<\/span>/u)?.[1] ?? ''),
+      topics: (attributes.match(/\bdata-topics="([^"]*)"/u)?.[1] ?? '').split('|').filter(Boolean),
+      featured: attributes.match(/\bdata-featured="true"/u) !== null,
+      addedAt: body.match(/<time\b[^>]*\bdatetime="([^"]*)"/u)?.[1] ?? '',
+      directoryIndex: Number(attributes.match(/\bdata-resource-index="([^"]*)"/u)?.[1]),
+    }];
+  });
+};
 const verifyFaq = (html, items, page) => {
   assert.match(html, /class="page-faq"/u, `Visible FAQ section: ${page}`);
   const text = decode(html);
@@ -461,7 +475,11 @@ if (fixtureBuild) {
   assert.match(featuredCard, /<time datetime="2026-09-25">25 de septiembre de 2026<\/time>/);
   assert.match(featuredCard, /Agregado al directorio/);
   assert.match(featuredCard, /href="#directory-criteria"[^>]*>Recomendado<\/a>/);
-  assert.match(featuredCard, /data-search="[^"]*Canal de ejemplo/);
+  assert.deepEqual(cardData(learn).find(({ id }) => id === 'fixture-featured'), {
+    id: 'fixture-featured', kind: 'content', url: 'https://example.com/curso?utm_source=fixture&lang=es',
+    title: 'Curso de ejemplo', description: 'Descripción pública de ejemplo.', country: 'AR', format: 'Curso',
+    topics: [], featured: true, addedAt: '2026-09-25', directoryIndex: 0,
+  }, 'Static card content retains its description, exact outbound URL, and searchable metadata.');
   assert.match(featuredCard, /Autor o fuente: Canal de ejemplo/);
   assert.match(sourceCard, /href="#directory-criteria"[^>]*>Recomendado<\/a>/);
   assert.doesNotMatch(sourceCard, /<time\b/);

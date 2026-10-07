@@ -1,10 +1,10 @@
 ---
-title: "Mejores prácticas de seguridad en AWS: checklist y cómo verificarlas"
-description: "Revisa root y MFA, permisos, S3, red, CloudTrail y respuesta a incidentes. Cada práctica incluye una comprobación concreta y recursos en español para profundizar."
+title: "Revisión de seguridad en AWS: verifica una cuenta con evidencia"
+description: "Revisa una cuenta AWS con evidencia sobre identidades, permisos, S3, red, CloudTrail, detección y recuperación. Incluye consultas de solo lectura y explica qué confirma cada comprobación."
 author: "guille-ojeda"
 publishedAt: "2024-01-24"
 publishedTimestamp: "2024-01-24T01:20:24.308Z"
-modifiedTimestamp: "2026-10-05T12:46:00-03:00"
+modifiedTimestamp: "2026-10-07T12:21:13-03:00"
 cover: "/assets/blog/editorial-seguridad.png"
 coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-seguridad.png"
@@ -15,9 +15,9 @@ related:
     url: "https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/"
 ---
 
-**Para mejorar la seguridad en AWS, revisa primero el acceso a la cuenta, los permisos y la exposición de datos y red; después comprueba los registros, la detección y tu capacidad de respuesta.** Activar servicios sin verificar su alcance deja preguntas importantes sin responder.
+**Esta guía sirve para revisar una cuenta AWS existente y dejar evidencia de cada control.** Sigue el acceso, los permisos, la exposición de datos y red, los registros, la detección y la recuperación. Cada comprobación indica qué puede confirmar y qué queda fuera de su alcance.
 
-Este checklist sirve para una revisión inicial de una cuenta o una aplicación. Registra la cuenta, las Regiones utilizadas, el recurso, la evidencia y quién corregirá cada problema. Si necesitas entender el reparto de responsabilidades antes de actuar, empieza por los [fundamentos de seguridad en AWS](https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/).
+Registra la cuenta, las Regiones utilizadas, el recurso, la evidencia y quién corregirá cada problema. Las consultas de AWS CLI de esta guía son de solo lectura. Si estás definiendo una base de seguridad antes de revisar una cuenta, empieza por el [checklist inicial de seguridad en AWS](https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/). Para entender el reparto de responsabilidades, consulta los [fundamentos de seguridad en AWS](https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/).
 
 | Control | Evidencia que debes buscar |
 | --- | --- |
