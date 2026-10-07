@@ -1,102 +1,195 @@
 ---
-title: "Recursos personalizados en CloudFormation con Lambda"
-description: "Descubre cómo integrar AWS Lambda con CloudFormation para crear recursos personalizados, superando las limitaciones y optimizando la gestión de infraestructura en la nube."
+title: "Recursos personalizados de CloudFormation con Lambda: guía práctica"
+description: "Aprende el ciclo Create, Update y Delete de un recurso personalizado, cómo responder a ResponseURL y cómo controlar PhysicalResourceId, reintentos y timeouts."
 author: "guille-ojeda"
 publishedAt: "2024-05-15"
 publishedTimestamp: "2024-05-15T04:54:08.82Z"
+modifiedTimestamp: "2026-10-07T10:00:50-03:00"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Cómo optimizar la transferencia de datos en API Gateway"
-    url: "https://dondeaprendoaws.com/blog/como-optimizar-la-transferencia-de-datos-en-api-gateway/"
-  - title: "Monitoreo y logs de AWS Step Functions: guía 2024"
-    url: "https://dondeaprendoaws.com/blog/monitoreo-y-logs-de-aws-step-functions-guia-2024/"
-  - title: "Cómo desplegar contenedores en AWS"
-    url: "https://dondeaprendoaws.com/blog/como-desplegar-contenedores-en-aws/"
-
+  - title: "Infraestructura como código en AWS con CloudFormation: guía práctica"
+    url: "https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-aws-cloudformation/"
+  - title: "AWS Lambda: qué es, cómo funciona y cuándo usarlo"
+    url: "https://dondeaprendoaws.com/blog/que-es-aws-lambda-preguntas-y-respuestas/"
 ---
 
-<p>Combinar <a href="https://aws.amazon.com/lambda/">AWS Lambda</a> con <a href="https://aws.amazon.com/cloudformation/">CloudFormation</a> permite crear recursos personalizados que superan las limitaciones de <a href="https://aws.amazon.com/cloudformation/">CloudFormation</a>. Esto permite:</p>
-<ul><li><strong>Automatizar la provisión de infraestructura en la nube</strong></li><li><strong>Integrar herramientas de monitoreo y registro de terceros</strong></li><li><strong>Gestionar servicios AWS no nativos en CloudFormation</strong></li></ul>
-<p>Pasos para implementar recursos personalizados con Lambda:</p>
-<ol><li>Definir el recurso personalizado en CloudFormation</li><li>Desarrollar la función Lambda para manejar eventos</li><li>Implementar versiones y alias para la función Lambda</li><li>Probar y depurar la implementación</li></ol>
-<p>Para optimizar la gestión de recursos personalizados:</p>
-<table><thead><tr><th>Aspecto</th><th>Estrategia</th></tr></thead><tbody><tr><td>Depuración</td><td>Utilizar registros de <a href="https://aws.amazon.com/cloudwatch/">CloudWatch</a>, pruebas unitarias y <a href="https://aws.amazon.com/xray/">AWS X-Ray</a></td></tr><tr><td>Seguridad</td><td>Definir roles de <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/introduction.html">IAM</a> con privilegios mínimos y utilizar políticas</td></tr><tr><td>Rendimiento</td><td>Optimizar configuración de Lambda, utilizar caching y escalabilidad</td></tr></tbody></table>
-<p>Ejemplos prácticos de recursos personalizados:</p>
-<ul><li>Automatización de infraestructura con Lambda</li><li>Integración de herramientas de monitoreo de terceros</li><li>Gestión de servicios AWS no nativos</li></ul>
-<p>La integración de Lambda y CloudFormation permite crear soluciones de infraestructura en la nube personalizadas y escalables, superando las limitaciones de CloudFormation.</p>
-<h2 id="related-video-from-youtube">Related video from YouTube</h2>
-<div><iframe allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen="" height="315" loading="lazy" src="https://www.youtube.com/embed/42JUHhRigsI" title="Video de YouTube" width="560"></iframe></div>
-<h2 id="ampliaci%C3%B3n-de-cloudformation-con-lambda">Ampliación de <a href="https://aws.amazon.com/cloudformation/">CloudFormation</a> con Lambda</h2>
-<p><img alt="CloudFormation" src="/assets/blog/2272c4e5a5159ed5fccb014b.jpg"/></p>
-<p>La integración de AWS Lambda con CloudFormation permite a los desarrolladores crear soluciones de recursos personalizados que superan las limitaciones de CloudFormation. En este artículo, exploraremos cómo combinar Lambda con CloudFormation para crear recursos personalizados que se ajusten a las necesidades específicas de su aplicación.</p>
-<h3 id="limitaciones-de-cloudformation">Limitaciones de CloudFormation</h3>
-<p>CloudFormation es una herramienta eficiente para administrar recursos AWS, pero tiene algunas limitaciones. Una de las principales limitaciones es su incapacidad para interactuar directamente con sistemas externos o realizar acciones más allá del alcance de los servicios AWS. Esto puede ser restrictivo cuando se necesita integrar con APIs externas y bases de datos o realizar acciones personalizadas durante la creación o actualización de una pila.</p>
-<h3 id="lambda-para-la-administraci%C3%B3n-de-recursos-avanzada">Lambda para la administración de recursos avanzada</h3>
-<p>AWS Lambda es una solución ideal para extender las capacidades de CloudFormation para la administración de recursos personalizados. Al combinar Lambda con CloudFormation, los desarrolladores pueden crear recursos personalizados que se integren con sistemas externos y realicen acciones personalizadas. En las siguientes secciones, exploraremos cómo implementar recursos personalizados con Lambda y cómo optimizar su administración.</p>
-<h2 id="implementaci%C3%B3n-de-recursos-personalizados-con-lambda">Implementación de recursos personalizados con Lambda</h2>
-<p>En esta sección, se proporciona una guía paso a paso sobre cómo aprovechar las funciones de AWS Lambda para definir y administrar recursos personalizados dentro de plantillas de CloudFormation.</p>
-<h3 id="definici%C3%B3n-de-recursos-personalizados-en-cloudformation">Definición de recursos personalizados en CloudFormation</h3>
-<p>Al definir recursos personalizados en CloudFormation, es esencial entender la sintaxis y las propiedades clave involucradas. Un recurso personalizado se declara utilizando el tipo <code>Custom::</code> o <code>AWS::CloudFormation::CustomResource</code>. Las propiedades del recurso incluyen el <code>ServiceToken</code>, que especifica el ARN de la función de Lambda que manejará los eventos del recurso personalizado.</p>
-<p>A continuación, se muestra un ejemplo de declaración de recurso personalizado:</p>
-<pre><code>Resources:
-  MyCustomResource:
-    Type: Custom::MyCustomResource
-    Properties:
-      ServiceToken:!GetAtt MyLambdaFunction.Arn
-</code></pre>
-<h3 id="desarrollo-de-funciones-lambda-para-recursos">Desarrollo de funciones Lambda para recursos</h3>
-<p>Para manejar eventos de recursos personalizados, es necesario crear una función Lambda que procese los eventos y realice las acciones necesarias. La función Lambda debe estar configurada para manejar los eventos <code>CREATE</code>, <code>UPDATE</code> y <code>DELETE</code>, y debe devolver una respuesta a CloudFormation indicando el resultado del evento.</p>
-<p>A continuación, se muestra un ejemplo de función Lambda que maneja eventos de recursos personalizados:</p>
-<pre><code>import boto3
+Un recurso personalizado permite ejecutar lógica propia durante una operación de CloudFormation. En el caso respaldado por Lambda, CloudFormation envía a la función un evento <code>Create</code>, <code>Update</code> o <code>Delete</code>. La función debe enviar una respuesta JSON a la URL prefirmada <code>ResponseURL</code>; devolver un diccionario desde el handler no completa la operación.
 
-def lambda_handler(event, context):
-    # Procesar el evento y realizar las acciones necesarias
-    # Devolver una respuesta a CloudFormation
-    return {
-        'Status': 'SUCCESS',
-        'RequestId': event['RequestId'],
-        'LogicalResourceId': event['LogicalResourceId'],
-        'PhysicalResourceId': event['PhysicalResourceId'],
-        'StackId': event['StackId']
+Esta guía explica cuándo conviene el recurso, cómo responder y qué hacer con el <code>PhysicalResourceId</code> para que una actualización o un borrado no deje objetos externos sin administrar. La [guía de AWS para recursos personalizados respaldados por Lambda](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/template-custom-resources-lambda.html) describe la integración con el handler. Los fragmentos de este artículo ilustran el contrato: no forman una pila lista para desplegar ni ejecutan cambios en una cuenta.
+
+## Cuándo conviene un recurso personalizado
+
+Úsalo cuando la pila necesita una acción de aprovisionamiento que no cubre un tipo de recurso nativo de CloudFormation, por ejemplo, llamar a una API externa o mantener una configuración en otro sistema. Si AWS ya ofrece un recurso nativo para ese trabajo, suele ser más sencillo dejar que CloudFormation lo administre directamente.
+
+Los recursos personalizados admiten las operaciones <code>Create</code>, <code>Update</code> y <code>Delete</code>. Si necesitas un tipo de recurso con lectura, listado y detección de drift, compara esa opción con los tipos de recurso del [CloudFormation Registry](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/registry.html). Este artículo se centra en Lambda como proveedor; CloudFormation también puede enviar solicitudes a un tema de Amazon SNS.
+
+## Declara el recurso y sus propiedades
+
+El recurso puede usar el tipo <code>Custom::</code> o <code>AWS::CloudFormation::CustomResource</code>. En ambos casos, <code>ServiceToken</code> identifica al proveedor. Este fragmento supone que ya existe una función Lambda en la misma región de la pila y que proporcionas su ARN mediante el parámetro <code>ProviderFunctionArn</code>:
+
+~~~yaml
+Parameters:
+  ProviderFunctionArn:
+    Type: String
+
+Resources:
+  ExternalSetting:
+    Type: Custom::ExternalSetting
+    Properties:
+      ServiceToken: !Ref ProviderFunctionArn
+      ServiceTimeout: 120
+      Key: app-version
+
+Outputs:
+  ResolvedValue:
+    Value: !GetAtt ExternalSetting.Value
+~~~
+
+CloudFormation pasa <code>Key</code> y las otras propiedades como <code>ResourceProperties</code> en el evento. El proveedor decide qué significan y qué valores acepta. En este fragmento, el parámetro debe recibir el ARN de una función Lambda de la misma región que la pila. Si declaras la función en esta misma plantilla como un recurso <code>AWS::Lambda::Function</code> con ID lógico <code>ProviderFunction</code>, puedes usar <code>!GetAtt ProviderFunction.Arn</code> en <code>ServiceToken</code>. <code>ServiceTimeout</code> limita cuánto espera CloudFormation una respuesta: acepta de 1 a 3600 segundos y su valor predeterminado es 3600, según la [referencia del recurso](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-cloudformation-customresource.html).
+
+La función que muestra el ejemplo no está definida aquí: debes implementarla y concederle los permisos que necesita para administrar el sistema externo. La guía de [CloudFormation con AWS CLI](https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-aws-cloudformation/) explica cómo validar plantillas, revisar cambios de pila y gestionar su ciclo de vida.
+
+Si estás definiendo los accesos del proveedor, la guía de [seguridad en AWS: por dónde empezar y en qué orden](/blog/seguridad-en-la-nube-aws-estrategias-clave/) explica cómo limitar permisos y usar roles para las cargas de trabajo.
+
+## Qué recibe y qué debe responder Lambda
+
+CloudFormation invoca la función de forma asíncrona y envía campos como estos:
+
+| Campo | Para qué sirve |
+| --- | --- |
+| <code>RequestType</code> | Indica <code>Create</code>, <code>Update</code> o <code>Delete</code>. |
+| <code>RequestId</code>, <code>StackId</code> y <code>LogicalResourceId</code> | Identifican la solicitud, la pila y el recurso lógico. Debes copiar sus valores exactamente en la respuesta. |
+| <code>ResponseURL</code> | URL prefirmada de S3 a la que el proveedor carga la respuesta. |
+| <code>ResourceProperties</code> | Propiedades actuales de la plantilla. En un evento <code>Update</code> también llega <code>OldResourceProperties</code>. |
+| <code>PhysicalResourceId</code> | Identificador del recurso administrado; aparece en las solicitudes <code>Update</code> y <code>Delete</code>. |
+
+La respuesta no vuelve en el valor de retorno del handler. El proveedor debe enviar por HTTP <code>PUT</code> un documento JSON a <code>ResponseURL</code> antes de que venza <code>ServiceTimeout</code>. Para una actualización que termina correctamente, la respuesta tiene esta forma:
+
+~~~json
+{
+  "Status": "SUCCESS",
+  "RequestId": "copiar desde el evento",
+  "StackId": "copiar desde el evento",
+  "LogicalResourceId": "ExternalSetting",
+  "PhysicalResourceId": "id estable del proveedor",
+  "Data": {
+    "Value": "1.2.3"
+  }
+}
+~~~
+
+<code>Data</code> es opcional. CloudFormation expone sus valores como atributos del recurso, por lo que la plantilla puede leer el ejemplo con <code>!GetAtt ExternalSetting.Value</code>. Si la operación falla, responde con <code>Status: FAILED</code> y un <code>Reason</code> breve que ayude a encontrar el error. La respuesta completa no puede superar 4096 bytes. <code>Data</code> y <code>NoEcho</code> no se admiten en respuestas de <code>Delete</code>.
+
+Evita incluir secretos en <code>Data</code>. <code>NoEcho: true</code> enmascara los valores del recurso que se recuperan con <code>Fn::GetAtt</code>, pero no cifra el dato ni redacta copias en las secciones <code>Metadata</code> o <code>Outputs</code> de la plantilla, ni las que hayas escrito en los logs. Si necesitas entregar un secreto a otro recurso, devuelve una referencia y guarda el valor en un servicio diseñado para administrarlo.
+
+Este helper Python, usando solo la biblioteca estándar, implementa el envío de la respuesta. No crea ni elimina el recurso externo:
+
+~~~python
+import json
+from urllib.request import Request, urlopen
+
+MAX_RESPONSE_BYTES = 4096
+
+def send_response(event, status, physical_resource_id, data=None, reason=None):
+    if status not in {"SUCCESS", "FAILED"}:
+        raise ValueError("status debe ser SUCCESS o FAILED")
+    if not physical_resource_id:
+        raise ValueError("physical_resource_id no puede estar vacío")
+    if len(physical_resource_id.encode("utf-8")) > 1024:
+        raise ValueError("physical_resource_id supera 1 KB")
+    if status == "FAILED" and not reason:
+        raise ValueError("reason es obligatorio cuando status es FAILED")
+
+    payload = {
+        "Status": status,
+        "RequestId": event["RequestId"],
+        "StackId": event["StackId"],
+        "LogicalResourceId": event["LogicalResourceId"],
+        "PhysicalResourceId": physical_resource_id,
     }
-</code></pre>
-<h3 id="mantenimiento-de-la-consistencia-de-los-recursos">Mantenimiento de la consistencia de los recursos</h3>
-<p>Para asegurar que los recursos personalizados permanezcan consistentes a lo largo de las actualizaciones y eliminaciones, es esencial implementar versiones y alias para sus funciones Lambda. Esto permite administrar diferentes versiones de la función Lambda y asegurarse de que se utilice la versión correcta para cada evento de recurso personalizado.</p>
-<p>A continuación, se muestra una tabla que resume los pasos para implementar recursos personalizados con Lambda:</p>
-<table><thead><tr><th>Paso</th><th>Descripción</th></tr></thead><tbody><tr><td>1</td><td>Definir el recurso personalizado en CloudFormation</td></tr><tr><td>2</td><td>Desarrollar la función Lambda para manejar eventos de recursos personalizados</td></tr><tr><td>3</td><td>Implementar versiones y alias para la función Lambda</td></tr><tr><td>4</td><td>Probar y depurar la implementación</td></tr></tbody></table>
-<p>Al seguir estos pasos, puede implementar recursos personalizados con Lambda y ampliar las capacidades de CloudFormation para su caso de uso específico.</p>
-<h2 id="optimizaci%C3%B3n-de-la-gesti%C3%B3n-de-recursos-personalizados">Optimización de la gestión de recursos personalizados</h2>
-<p>La gestión de recursos personalizados con AWS Lambda y CloudFormation requiere una planificación cuidadosa y una implementación eficiente para garantizar la seguridad, la confiabilidad y el rendimiento. A continuación, se presentan las mejores prácticas y estrategias para optimizar la gestión de recursos personalizados.</p>
-<h3 id="depuraci%C3%B3n-de-funciones-lambda">Depuración de funciones Lambda</h3>
-<p>Al utilizar funciones Lambda como recursos personalizados, es esencial identificar y resolver errores de manera eficiente. Algunas técnicas para depurar errores en funciones Lambda incluyen:</p>
-<ul><li>Utilizar registros de CloudWatch para identificar errores y excepciones</li><li>Implementar pruebas unitarias y de integración para garantizar que la función Lambda se ejecute correctamente</li><li>Utilizar herramientas de depuración como AWS X-Ray para identificar problemas de rendimiento y errores</li></ul>
-<h3 id="seguridad-de-funciones-lambda-con-iam">Seguridad de funciones Lambda con <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/introduction.html">IAM</a></h3>
-<p><img alt="IAM" src="/assets/blog/32f316943ddb6bd02a24d6b2.jpg"/></p>
-<p>La seguridad es fundamental cuando se utilizan funciones Lambda como recursos personalizados. Es importante definir roles de IAM con el principio de privilegios mínimos para garantizar que la función Lambda tenga solo los permisos necesarios para realizar sus tareas. Algunas mejores prácticas para asegurar funciones Lambda incluyen:</p>
-<table><thead><tr><th>Mejora de Seguridad</th><th>Descripción</th></tr></thead><tbody><tr><td>Definir roles de IAM específicos</td><td>Asignar roles de IAM específicos para cada función Lambda</td></tr><tr><td>Utilizar políticas de IAM</td><td>Restringir los permisos de la función Lambda con políticas de IAM</td></tr><tr><td>Implementar autenticación y autorización</td><td>Garantizar que solo los usuarios autorizados puedan acceder a la función Lambda</td></tr></tbody></table>
-<h3 id="mejora-del-rendimiento-de-lambda">Mejora del rendimiento de Lambda</h3>
-<p>El rendimiento de las funciones Lambda es crucial para garantizar que los recursos personalizados se creen y se eliminen de manera eficiente. Algunas estrategias para mejorar el rendimiento de las funciones Lambda incluyen:</p>
-<ul><li>Optimizar la configuración de memoria y timeout de la función Lambda</li><li>Utilizar caching y almacenamiento en memoria para reducir la carga de trabajo de la función Lambda</li><li>Implementar técnicas de escalabilidad para garantizar que la función Lambda pueda manejar cargas de trabajo pesadas</li></ul>
-<p>Al seguir estas mejores prácticas y estrategias, puede optimizar la gestión de recursos personalizados con AWS Lambda y CloudFormation, garantizando la seguridad, la confiabilidad y el rendimiento.</p>
-<h2 id="ejemplos-pr%C3%A1cticos-de-recursos-personalizados">Ejemplos prácticos de recursos personalizados</h2>
-<p>En esta sección, exploraremos ejemplos prácticos que demuestran los beneficios y aplicaciones prácticas de utilizar funciones Lambda como recursos personalizados en CloudFormation.</p>
-<h3 id="automatizaci%C3%B3n-de-infraestructura-con-lambda">Automatización de infraestructura con Lambda</h3>
-<p>Un caso de uso común para recursos personalizados es la automatización de infraestructura. Al utilizar funciones Lambda, puede automatizar la provisión y <a href="https://dondeaprendoaws.com/blog/cloud-computing-en-espanol-fundamentos-basicos/">gestión de infraestructura en la nube</a>, como la creación y <a href="https://dondeaprendoaws.com/blog/tipos-y-tamanos-de-instancias-ec2-guia-completa/">configuración de instancias EC2</a>, bases de datos RDS o buckets S3. Por ejemplo, puede crear un recurso personalizado que provisiona una instancia EC2 con una configuración específica, como un tipo de instancia, grupo de seguridad y subred determinados.</p>
-<h3 id="integraci%C3%B3n-de-herramientas-de-monitoreo-de-terceros">Integración de herramientas de monitoreo de terceros</h3>
-<p>Otro ejemplo es la integración de herramientas de monitoreo y registro de terceros en CloudFormation. Puede crear un recurso personalizado que configura un agente de <a href="https://www.datadoghq.com/">Datadog</a> o <a href="https://newrelic.com/">New Relic</a> en una instancia EC2, lo que le permite monitorear y registrar métricas de rendimiento. Esto le permite aprovechar el poder de herramientas de terceros mientras mantiene una sola fuente de verdad para su configuración de infraestructura.</p>
-<h3 id="gesti%C3%B3n-de-servicios-aws-no-nativos">Gestión de servicios AWS no nativos</h3>
-<p>Los recursos personalizados también se pueden utilizar para gestionar servicios AWS que no son directamente compatibles con CloudFormation. Por ejemplo, puede crear un recurso personalizado que provisiona y configura un almacén de datos de <a href="https://aws.amazon.com/lake-formation/">AWS Lake Formation</a>, que no es compatible de forma nativa con CloudFormation. Esto le permite utilizar CloudFormation para gestionar toda su infraestructura, incluyendo servicios que no son directamente compatibles.</p>
-<p>Estos ejemplos demuestran la flexibilidad y el poder de utilizar funciones Lambda como recursos personalizados en CloudFormation. Al automatizar la provisión de infraestructura, integrar herramientas de terceros y gestionar servicios AWS no nativos, puede simplificar la gestión de su infraestructura y reducir la complejidad de su entorno en la nube.</p>
-<h2 id="conclusi%C3%B3n%3A-recursos-personalizados-con-lambda">Conclusión: recursos personalizados con Lambda</h2>
-<p>En este artículo, hemos explorado los beneficios y aplicaciones prácticas de utilizar funciones Lambda como recursos personalizados en CloudFormation. Al combinar la potencia de CloudFormation con la flexibilidad de Lambda, podemos crear soluciones de infraestructura en la nube personalizadas y escalables.</p>
-<h3 id="ventajas-de-cloudformation-y-lambda">Ventajas de CloudFormation y Lambda</h3>
-<p>La <a href="https://dondeaprendoaws.com/blog/desarrollando-aplicaciones-con-aws-lambda/">integración de Lambda con CloudFormation</a> nos permite superar las limitaciones de CloudFormation y crear recursos personalizados que se ajustan a nuestras necesidades específicas. Esto nos permite automatizar la provisión y gestión de infraestructura en la nube, integrar herramientas de terceros y gestionar servicios AWS no nativos.</p>
-<h3 id="importancia-de-la-gesti%C3%B3n-de-recursos-personalizados">Importancia de la gestión de recursos personalizados</h3>
-<p>La gestión de recursos personalizados es crucial para lograr soluciones de infraestructura en la nube complejas y personalizadas. Al utilizar recursos personalizados, podemos crear soluciones que se ajustan a nuestras necesidades específicas y reducir la complejidad de nuestro entorno en la nube.</p>
-<h3 id="recursos-adicionales-para-aprender">Recursos adicionales para aprender</h3>
-<p>Si desea aprender más sobre la integración de Lambda y CloudFormation, le recomendamos explorar los siguientes recursos:</p>
-<table><thead><tr><th>Recurso</th><th>Descripción</th></tr></thead><tbody><tr><td>Documentación oficial de AWS</td><td>La documentación oficial de AWS sobre Lambda y CloudFormation</td></tr><tr><td>Tutoriales y ejemplos de código</td><td>Tutoriales y ejemplos de código en GitHub y otros sitios web de desarrollo</td></tr><tr><td>Cursos en línea</td><td>Cursos en línea y recursos de capacitación en AWS y otros sitios web de educación en línea</td></tr></tbody></table>
-<h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/desarrollando-aplicaciones-con-aws-lambda/">Desarrollando aplicaciones con AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-aws-lambda/">Microservicios en AWS utilizando AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/">Mejores prácticas para AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-aws-cloudformation/">Cómo crear infraestructura como código en AWS con AWS CloudFormation</a></li></ul>
+    if reason:
+        payload["Reason"] = reason[:512]
+    if event["RequestType"] != "Delete" and data is not None:
+        payload["Data"] = data
+
+    body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    if len(body) > MAX_RESPONSE_BYTES:
+        payload = {
+            "Status": "FAILED",
+            "RequestId": event["RequestId"],
+            "StackId": event["StackId"],
+            "LogicalResourceId": event["LogicalResourceId"],
+            "PhysicalResourceId": physical_resource_id,
+            "Reason": "La respuesta supera 4096 bytes; reduce Data.",
+        }
+        body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    if len(body) > MAX_RESPONSE_BYTES:
+        raise ValueError("la respuesta mínima supera el límite de CloudFormation")
+
+    request = Request(
+        event["ResponseURL"],
+        data=body,
+        headers={
+            "content-type": "",
+            "content-length": str(len(body)),
+        },
+        method="PUT",
+    )
+    with urlopen(request, timeout=10) as response:
+        response.read()
+~~~
+
+Después de completar la operación externa, el handler llama una vez a <code>send_response</code> con <code>SUCCESS</code> y el identificador físico correcto. Si falla la operación externa, debe enviar <code>FAILED</code> y conservar el error completo en los logs de Lambda. Si falla el propio envío, no envíes una segunda respuesta sin comprobar el estado externo: el primer <code>PUT</code> pudo haber llegado aunque Lambda no haya recibido su confirmación. El motivo de la respuesta debe ser corto y no contener credenciales ni otros datos sensibles.
+
+AWS también proporciona el módulo [<code>cfn-response</code>](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-lambda-function-code-cfnresponsemodule.html), pero CloudFormation solo lo incluye cuando el código de Lambda está definido en la propiedad <code>ZipFile</code> de una plantilla. Para código empaquetado en S3 debes implementar el envío, como en el helper anterior, o usar una biblioteca de proveedor compatible. Si usas <code>cfn-response</code>, pasa un identificador físico estable: por defecto usa el nombre del log stream, y un valor distinto en una actualización provoca un reemplazo.
+
+## Diseña Create, Update y Delete alrededor del identificador físico
+
+El <code>PhysicalResourceId</code> identifica el objeto que el proveedor administra. Debe ser una cadena no vacía, única para ese objeto y de hasta 1 KB. Mantén un identificador estable para el mismo objeto; evita generar uno aleatorio en cada actualización.
+
+| Evento | Acción del proveedor |
+| --- | --- |
+| <code>Create</code> | Crea o encuentra el objeto externo y devuelve su identificador físico. Si además devuelve datos, la plantilla puede obtenerlos con <code>Fn::GetAtt</code>. |
+| <code>Update</code> | Compara las propiedades actuales con <code>OldResourceProperties</code> y aplica el cambio. Si modifica el mismo objeto, devuelve el mismo identificador físico. |
+| <code>Delete</code> | Elimina el objeto identificado por <code>PhysicalResourceId</code> y envía una respuesta. Si el objeto ya no existe, trata esa condición como una eliminación completada. |
+
+Si una actualización necesita reemplazar el objeto, crea el nuevo, responde con su nuevo <code>PhysicalResourceId</code> y deja que CloudFormation envíe después un evento <code>Delete</code> para el objeto anterior. Si devuelves un identificador distinto por error, CloudFormation también interpreta que hubo reemplazo y puede borrar el objeto previo. La documentación explica este comportamiento en la referencia de [respuestas de recursos personalizados](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/crpg-ref.html).
+
+La lógica del proveedor no forma una transacción con el resto de la pila. Si crea un objeto externo y luego falla antes de responder, CloudFormation puede marcar la operación como fallida aunque el efecto externo haya ocurrido. Usa un nombre o clave estable, verifica si el objeto ya existe antes de crearlo y haz que las operaciones de actualización converjan al estado deseado, en vez de sumar efectos cada vez que se procesan.
+
+Para identificar una repetición del mismo evento puedes usar <code>RequestId</code> junto con <code>StackId</code>; AWS documenta esa combinación como identificador de solicitud. Eso no cubre por sí solo una nueva operación de pila, que tendrá otra solicitud. Para esas repeticiones, haz que la creación sea idempotente con una clave propia del objeto, registra el resultado de la operación si el sistema externo lo necesita y haz que borrar un objeto ausente termine correctamente. En una sustitución, conserva la capacidad de borrar específicamente el identificador viejo.
+
+## Reintentos, errores y limpieza
+
+Lambda recibe las solicitudes de CloudFormation de forma asíncrona. En las invocaciones asíncronas estándar, Lambda reintenta por defecto hasta dos veces los errores del handler; también puede entregar un mismo evento más de una vez. La [documentación de reintentos asíncronos de Lambda](https://docs.aws.amazon.com/lambda/latest/dg/invocation-async-error-handling.html) describe este comportamiento. Si el handler alcanzó a crear el objeto externo antes de fallar o de perder la respuesta, el reintento no debe crear un duplicado.
+
+Hay dos resultados distintos que conviene registrar:
+
+- Si el proveedor carga una respuesta <code>FAILED</code> y el handler termina normalmente, CloudFormation falla la operación de pila. Lambda no interpreta el valor JSON <code>FAILED</code> como un error del handler.
+- Si el handler termina con error o timeout antes de completar el envío, se aplican los reintentos asíncronos de Lambda. Cuando no se recibe una respuesta válida, CloudFormation sigue esperando hasta el timeout del recurso.
+
+Cuando CloudFormation debe borrar el recurso al eliminar la pila o quitarlo de la plantilla, envía <code>Delete</code>; durante un reemplazo envía <code>Delete</code> para el objeto anterior. Una política de retención puede omitir esa limpieza, así que comprueba si el recurso se conservará y quién gestionará luego el objeto externo. La función debe usar el <code>PhysicalResourceId</code> que llega en la solicitud para limpiar el objeto correcto y siempre responder, incluso si ya no existe. Incluye una estrategia de compensación para los fallos que ocurren después de crear un objeto externo, porque ese efecto no desaparece automáticamente al fallar la pila.
+
+## Timeouts y resolución de errores
+
+<code>ServiceTimeout</code> es el tiempo máximo de espera de CloudFormation, no el timeout de la función Lambda. Lambda tiene su propio límite de ejecución. Ajusta ambos a la duración esperada: configura el timeout de Lambda para poder diagnosticar la operación y reservar tiempo para cargar la respuesta antes de que venza el timeout del recurso.
+
+Si la pila se queda esperando o marca el recurso como fallido:
+
+1. En **Events** de la pila, localiza el <code>LogicalResourceId</code> y lee <code>ResourceStatusReason</code>. La [documentación de eventos de CloudFormation](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/view-stack-events.html) explica esos estados y motivos.
+2. En los logs de CloudWatch de la función, busca el mismo evento y comprueba si el handler recibió el tipo de solicitud correcto, terminó la acción y cargó la respuesta.
+3. Verifica que la respuesta use <code>PUT</code>, incluya <code>RequestId</code>, <code>StackId</code>, <code>LogicalResourceId</code> y un <code>PhysicalResourceId</code>, y que el JSON no supere 4096 bytes.
+4. Comprueba que <code>ServiceToken</code> y la pila estén en la misma región. Si Lambda está en una VPC, asegúrate de que pueda alcanzar la URL prefirmada de S3. Con AWS PrivateLink, el recurso necesita acceso a los buckets de S3 específicos de CloudFormation para entregar esa respuesta; consulta las [consideraciones de AWS para recursos personalizados en una VPC](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/vpc-interface-endpoints.html).
+
+Un timeout de CloudFormation puede indicar que el trabajo externo sí ocurrió, pero la respuesta no llegó. Antes de reintentar una operación fallida, consulta el objeto externo mediante su clave estable para evitar duplicarlo. Para profundizar en pilas, change sets y validación, continúa con [Infraestructura como código en AWS con CloudFormation: guía práctica](/blog/como-crear-infraestructura-como-codigo-en-aws-con-aws-cloudformation/). Si necesitas repasar invocaciones, permisos e idempotencia en Lambda, consulta [AWS Lambda: qué es, cómo funciona y cuándo usarlo](/blog/que-es-aws-lambda-preguntas-y-respuestas/).
+
+## Recursos, canales y comunidades para seguir aprendiendo
+
+- La [documentación de recursos personalizados de CloudFormation](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/template-custom-resources.html) define el ciclo de vida y cuándo usar esta extensión. La [referencia de solicitudes y respuestas](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/crpg-ref.html) sirve para revisar cada campo del protocolo.
+- [Mejores prácticas con AWS CloudFormation](https://www.youtube.com/watch?v=S0uvgkx4pq4) es una grabación de AWS User Group Paraguay sobre prácticas de CloudFormation. Para conversar con la comunidad detrás del video y ver sus actividades, visita [AWS User Group Paraguay en Meetup](https://www.meetup.com/aws-ug-paraguay/).
+- Para novedades generales de CloudFormation, Marcia Villalba dedicó una edición de [Desplegando.cloud a CloudFormation Express Mode](https://desplegando.substack.com/p/cloudformation-4x-veces-mas-rapido). Trata una mejora de velocidad de despliegue; es una actualización distinta del protocolo que usan los recursos personalizados.
+- No hace falta una comunidad especializada para preguntar sobre tu pila. [AWS User Group Córdoba](https://www.meetup.com/aws-user-group-cordoba-argentina/) es un grupo general donde sus miembros comparten experiencias y conocimientos de AWS.
+- Si trabajas con Lambda, el [AWS User Group Serverless Colombia](https://www.meetup.com/aws-user-group-serverless-colombia/) anunció la sesión online [El Combo Indestructible de AWS: SQS + Lambda](https://www.meetup.com/aws-user-group-serverless-colombia/events/316770520/) para el 20 de octubre de 2026 a las 19:00, hora de Colombia (UTC−5). Es sobre SQS y Lambda, no sobre recursos personalizados; el encuentro puede servir para aprender sobre tolerancia a fallos en otra integración.
+- Explora más artículos, videos y cursos en el [catálogo de recursos AWS en español](/aprender/), encuentra grupos en el [directorio de comunidades](/comunidades/) y consulta la [agenda de eventos](/eventos/) para ver actividades vigentes.

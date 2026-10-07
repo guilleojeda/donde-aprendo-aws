@@ -1,100 +1,70 @@
 ---
-title: "Recursos de capacitación para socios de AWS"
-description: "Descubre cómo los socios de AWS pueden aprovechar recursos de capacitación y certificación para mejorar habilidades en la nube y mantener ventaja competitiva."
+title: "Capacitación para socios de AWS: cursos, acceso y certificaciones"
+description: "Cómo acceder a cursos AWS para partners, distinguir acreditaciones de certificaciones y conocer el programa para impartir formación oficial."
 author: "guille-ojeda"
 publishedAt: "2024-05-09"
 publishedTimestamp: "2024-05-09T02:52:12.467Z"
-modifiedTimestamp: "2026-10-01T15:14:05-03:00"
+modifiedTimestamp: "2026-10-07T10:00:50-03:00"
 cover: "/assets/blog/editorial-fundamentos.png"
 coverAlt: "Un libro abierto junto a un camino azul con estaciones y un punto naranja."
 ogImage: "/assets/blog/editorial-fundamentos.png"
 related:
-  - title: "AWS Organizations: estructuras de cuentas y nombres"
-    url: "https://dondeaprendoaws.com/blog/aws-organizations-estructuras-de-cuentas-y-nombres/"
-  - title: "10 estrategias para optimizar costos de red en AWS"
-    url: "https://dondeaprendoaws.com/blog/10-estrategias-para-optimizar-costos-de-red-en-aws/"
-  - title: "7 estrategias para mitigar cold starts en AWS Lambda"
-    url: "https://dondeaprendoaws.com/blog/7-estrategias-para-mitigar-cold-starts-en-aws-lambda/"
-
+  - title: "Acreditación de AWS Partner: acceso, pasos y diferencias"
+    url: "https://dondeaprendoaws.com/blog/guia-de-acreditacion-para-partners-de-aws-2024/"
+  - title: "AWS Training y Certification: preguntas sobre cursos y exámenes"
+    url: "https://dondeaprendoaws.com/blog/10-preguntas-frecuentes-sobre-aws-training-y-certification/"
+  - title: "AWS Cloud Practitioner (CLF-C02): cómo preparar el examen en español"
+    url: "https://dondeaprendoaws.com/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/"
 ---
 
-<p>Los <strong>recursos de capacitación de <a href="https://aws.amazon.com/">AWS</a></strong> son fundamentales para los socios, permitiéndoles desarrollar habilidades y conocimientos en <a href="https://dondeaprendoaws.com/blog/cloud-computing-en-espanol-fundamentos-basicos/">soluciones y servicios en la nube</a>. Esto les permite brindar soluciones personalizadas y de vanguardia a sus clientes.</p>
-<h2 id="beneficios-clave">Beneficios clave</h2>
-<ul><li><strong>Desarrolla habilidades y conocimientos</strong> en <a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">soluciones y servicios de AWS</a></li><li><strong>Mantiene la ventaja competitiva</strong> al mantenerse actualizado con las últimas tecnologías en la nube</li><li><strong>Demuestra compromiso con la excelencia</strong> y aumenta la confianza de los clientes</li></ul>
-<h2 id="opciones-de-capacitaci%C3%B3n">Opciones de capacitación</h2>
-<table><thead><tr><th>Tipo</th><th>Descripción</th></tr></thead><tbody><tr><td><strong>Cursos en aula</strong></td><td>Experiencia de aprendizaje interactiva y en vivo</td></tr><tr><td><strong>Cursos digitales</strong></td><td>Flexibilidad y accesibilidad desde cualquier lugar</td></tr><tr><td><strong>Vouchers de exámenes de certificación</strong></td><td>Validan las habilidades de los empleados y aumentan la confianza de los clientes</td></tr></tbody></table>
-<p>Para aprovechar al máximo los <a href="https://dondeaprendoaws.com/blog/certificacion-de-aws-preparacion-sin-costo/">recursos de capacitación de AWS</a>, se recomienda:</p>
-<ul><li>Crear un plan de aprendizaje personalizado</li><li>Identificar brechas de habilidades utilizando herramientas de evaluación de AWS</li></ul>
-<p>La inversión en capacitación y certificación es valiosa para mantener una ventaja competitiva en el mercado y brindar soluciones de alta calidad a los clientes.</p>
-<h2 id="convertirse-en-un-socio-de-capacitaci%C3%B3n-de-aws">Convertirse en un socio de capacitación de <a href="https://aws.amazon.com/">AWS</a></h2>
-<p><img alt="AWS" src="/assets/blog/2ebe3cf8e7ae57e98d3af846.jpg"/></p>
-<p>Para convertirse en un <a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-basica/">socio de capacitación de AWS</a>, es necesario cumplir con ciertos requisitos y seguir un proceso específico. A continuación, se presentará una visión general del <a href="https://dondeaprendoaws.com/blog/aws-gratis-para-educadores-y-estudiantes/">programa de socios de capacitación de AWS</a> y los beneficios que conlleva.</p>
-<h3 id="visi%C3%B3n-general-de-la-red-de-socios-de-aws">Visión general de la red de socios de AWS</h3>
-<p>La red de socios de AWS (<a href="https://en.wikipedia.org/wiki/Access_Point_Name">APN</a>) es una red de socios que trabajan con AWS para ofrecer soluciones y servicios en la nube. El <a href="https://en.wikipedia.org/wiki/Access_Point_Name">APN</a> tiene varios niveles, cada uno con sus propias ventajas y requisitos. Para <a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-preparacion-para-el-examen/">convertirse en un socio de capacitación de AWS</a>, es necesario ser miembro del <a href="https://en.wikipedia.org/wiki/Access_Point_Name">APN</a> y cumplir con los requisitos específicos del programa de capacitación.</p>
-<h3 id="ventajas-del-programa-de-socios-de-capacitaci%C3%B3n">Ventajas del programa de socios de capacitación</h3>
-<p>El programa de socios de capacitación de AWS ofrece las siguientes ventajas:</p>
-<table><thead><tr><th>Ventaja</th><th>Descripción</th></tr></thead><tbody><tr><td>Acceso a contenido de capacitación autorizado</td><td>Acceso a materiales de capacitación oficiales de AWS</td></tr><tr><td>Credenciales oficiales</td><td>Reconocimiento oficial como socio de capacitación de AWS</td></tr><tr><td>Oportunidades de marketing y ventas</td><td>Acceso a oportunidades de marketing y ventas para promover su negocio</td></tr><tr><td>Acceso a herramientas y recursos</td><td>Acceso a herramientas y recursos para apoyar su crecimiento</td></tr></tbody></table>
-<p>Al convertirse en un socio de capacitación de AWS, puede mejorar su negocio y brindar soluciones más efectivas a sus clientes.</p>
-<h2 id="soluciones-de-capacitaci%C3%B3n-de-aws-para-socios">Soluciones de capacitación de AWS para socios</h2>
-<p>AWS ofrece una variedad de soluciones de capacitación en la nube para socios de AWS. Estas soluciones están diseñadas para ayudar a los socios a mejorar sus habilidades y conocimientos en la nube, lo que les permite brindar soluciones más efectivas a sus clientes.</p>
-<h3 id="opciones-de-capacitaci%C3%B3n-en-el-aula-y-digital">Opciones de capacitación en el aula y digital</h3>
-<p>AWS ofrece diferentes tipos de capacitación en la nube para socios, incluyendo:</p>
-<ul><li><strong>Cursos de capacitación en el aula</strong>: Experiencia de aprendizaje interactiva y en vivo.</li><li><strong>Cursos digitales bajo demanda</strong>: Flexibilidad y accesibilidad desde cualquier lugar.</li></ul>
-<p>Los socios pueden elegir la opción que mejor se adapte a sus necesidades y objetivos.</p>
-<h3 id="vouchers-de-ex%C3%A1menes-de-certificaci%C3%B3n-de-aws">Vouchers de exámenes de certificación de AWS</h3>
-<p>Los socios de AWS también tienen acceso a <a href="https://aws.amazon.com/certification/bulk-voucher/">vouchers de exámenes de certificación de AWS</a>, que les permiten demostrar sus habilidades y conocimientos en la nube. Estos vouchers son una forma efectiva de validar las habilidades de los empleados y mejorar la confianza de los clientes.</p>
-<table><thead><tr><th>Beneficio</th><th>Descripción</th></tr></thead><tbody><tr><td><strong>Validación de habilidades</strong></td><td>Demuestra las habilidades y conocimientos de los empleados en la nube.</td></tr><tr><td><strong>Mejora la confianza de los clientes</strong></td><td>Incrementa la confianza de los clientes en la capacidad del socio para brindar soluciones efectivas.</td></tr></tbody></table>
-<h2 id="el-programa-de-capacitaci%C3%B3n-de-socios-de-aws">El programa de capacitación de socios de AWS</h2>
-<p>El <a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">programa de capacitación de socios de AWS</a> es una iniciativa diseñada para ayudar a los socios de AWS a mejorar sus habilidades y conocimientos en la nube. El programa ofrece una variedad de recursos y herramientas para que los socios puedan desarrollar su expertise y crecer su negocio.</p>
-<h3 id="estructura-del-programa-y-requisitos">Estructura del programa y requisitos</h3>
-<p>Para participar en el Programa de Capacitación de Socios de AWS, los socios deben cumplir con ciertos requisitos y seguir una estructura específica. Esto incluye ser miembro de la Red de Socios de AWS (APN) y completar los pasos necesarios para inscribirse en el programa.</p>
-<h4 id="requisitos-del-programa">Requisitos del programa</h4>
-<ul><li>Ser miembro de la Red de Socios de AWS (APN)</li><li>Completar los pasos necesarios para inscribirse en el programa</li></ul>
-<h3 id="apoyo-de-marketing-y-ventas">Apoyo de marketing y ventas</h3>
-<p>AWS ofrece una variedad de herramientas y programas de marketing y ventas para ayudar a los socios a promover sus servicios de capacitación. Estos recursos están diseñados para ayudar a los socios a atraer a nuevos clientes y a mejorar su presencia en el mercado.</p>
-<h4 id="herramientas-y-programas-de-marketing-y-ventas">Herramientas y programas de marketing y ventas</h4>
-<ul><li>Campañas de marketing conjuntas</li><li>Herramientas de análisis de necesidades de aprendizaje</li><li>Programas de desarrollo de instructores</li></ul>
-<h2 id="recursos-de-aprendizaje-adicionales">Recursos de aprendizaje adicionales</h2>
-<p>Para mantenerse actualizado con las últimas innovaciones y mejores prácticas de AWS, es importante tener acceso a recursos de aprendizaje adicionales. A continuación, se presentan algunos recursos adicionales que pueden ayudar a los socios de AWS a mejorar sus habilidades y conocimientos en la nube.</p>
-<h3 id="plataforma-aws-skill-builder">Plataforma <a href="https://skillbuilder.aws/">AWS Skill Builder</a></h3>
-<p><img alt="AWS Skill Builder" src="/assets/blog/145fe54bdee36a4a54572528.jpg"/></p>
-<p>La plataforma AWS Skill Builder es una herramienta valiosa para los socios de AWS que buscan desarrollar habilidades prácticas en la nube. La plataforma ofrece experiencias de aprendizaje inmersivas que permiten a los usuarios desarrollar habilidades en una variedad de áreas, como el desarrollo de aplicaciones, la seguridad y la arquitectura de la nube.</p>
-<h4 id="caracter%C3%ADsticas-de-la-plataforma">Características de la plataforma</h4>
-<ul><li>Cursos digitales</li><li>Laboratorios prácticos</li><li>Recursos de aprendizaje personalizados</li></ul>
-<h3 id="aws-partnercast-y-seminarios-web">AWS PartnerCast y seminarios web</h3>
-<p>AWS PartnerCast es una serie de seminarios web gratuitos y en vivo que ofrecen a los socios de AWS la oportunidad de aprender de los expertos de AWS sobre las últimas innovaciones y mejores prácticas en la nube.</p>
-<h4 id="caracter%C3%ADsticas-de-los-seminarios-web">Características de los seminarios web</h4>
-<ul><li>Seminarios web en vivo y gratuitos</li><li>Grabaciones de seminarios web disponibles bajo demanda</li><li>Recursos de aprendizaje personalizados</li></ul>
-<h2 id="historias-de-%C3%A9xito-de-socios-de-capacitaci%C3%B3n-de-aws">Historias de éxito de socios de capacitación de AWS</h2>
-<p>Los socios de AWS Training han logrado un gran éxito al aprovechar al máximo los recursos de capacitación de AWS. A continuación, se presentan algunos casos de estudio y testimonios de socios que han obtenido beneficios tangibles al participar en el programa de capacitación de AWS.</p>
-<h3 id="estudio-de-caso%3A-bae-systems-ai">Estudio de caso: <a href="https://www.baesystems.com/en/digital/home">BAE Systems AI</a></h3>
-<p><img alt="BAE Systems AI" src="/assets/blog/0a7836013de4c3ecba118965.jpg"/></p>
-<p>BAE Systems AI, un socio de AWS, necesitaba mejorar las habilidades de su fuerza laboral en la nube para apoyar a sus clientes en la transformación digital. Al unirse al programa de capacitación de AWS, BAE Systems AI pudo acceder a recursos de aprendizaje personalizados y experiencias de capacitación prácticas. Como resultado, la empresa logró mejorar sus habilidades en la nube y aumentar su capacidad para ofrecer soluciones innovadoras a sus clientes.</p>
-<h3 id="testimonios-de-socios">Testimonios de socios</h3>
-<table><thead><tr><th>Socio</th><th>Testimonio</th></tr></thead><tbody><tr><td>Mark McCreath, Vice President, Education and Training Solutions at <a href="https://www.techdata.com/us/en.html">Tech Data</a></td><td>"El programa de capacitación de AWS ha sido fundamental para nuestro crecimiento como socio de AWS. Ha permitido a nuestros empleados desarrollar habilidades prácticas en la nube y mejorar nuestra capacidad para ofrecer soluciones innovadoras a nuestros clientes."</td></tr><tr><td>Pieter Nel, Executive Learning Solutions at <a href="https://www.altron.com/">Altron People Solutions</a></td><td>"La capacitación de AWS ha sido clave para nuestro éxito como socio de AWS. Ha permitido a nuestros empleados mejorar sus habilidades en la nube y ofrecer soluciones más efectivas a nuestros clientes."</td></tr></tbody></table>
-<p>Estos casos de estudio y testimonios demuestran el valor del programa de capacitación de AWS para los socios de AWS. Al aprovechar al máximo los recursos de capacitación de AWS, los socios pueden mejorar sus habilidades en la nube, aumentar su capacidad para ofrecer soluciones innovadoras y mejorar su competitividad en el mercado.</p>
-<h2 id="mejores-pr%C3%A1cticas-para-la-capacitaci%C3%B3n-de-aws">Mejores prácticas para la capacitación de AWS</h2>
-<p>Para aprovechar al máximo los recursos de capacitación de AWS, es importante seguir las mejores prácticas para la capacitación y certificación. A continuación, se presentan algunas recomendaciones clave para los socios de AWS.</p>
-<h3 id="crear-un-plan-de-aprendizaje">Crear un plan de aprendizaje</h3>
-<p>Crear un plan de aprendizaje personalizado es fundamental para alcanzar los objetivos de capacitación y certificación. Identifique las habilidades y conocimientos que necesita mejorar y establezca metas realistas para alcanzarlas.</p>
-<h3 id="identificar-brechas-de-habilidades">Identificar brechas de habilidades</h3>
-<p>Identificar las brechas de habilidades es crucial para crear un plan de aprendizaje efectivo. Utilice las herramientas de evaluación de AWS para identificar las áreas en las que necesita mejorar.</p>
-<p><strong>Recomendaciones para la Capacitación de AWS</strong></p>
-<table><thead><tr><th>Recomendación</th><th>Descripción</th></tr></thead><tbody><tr><td>Crear un plan de aprendizaje</td><td>Identifique las habilidades y conocimientos que necesita mejorar y establezca metas realistas.</td></tr><tr><td>Identificar brechas de habilidades</td><td>Utilice las herramientas de evaluación de AWS para identificar las áreas en las que necesita mejorar.</td></tr></tbody></table>
-<p>Siguiendo estas prácticas, los socios de AWS pueden aprovechar al máximo los recursos de capacitación de AWS y mejorar sus habilidades en la nube.</p>
-<h2 id="conclusi%C3%B3n">Conclusión</h2>
-<p>En resumen, la capacitación y certificación son fundamentales para el éxito en el ecosistema de AWS. Los socios de AWS deben mantenerse actualizados con las últimas tecnologías y tendencias de la nube para brindar soluciones efectivas a sus clientes.</p>
-<p>La capacitación y certificación son procesos continuos que requieren dedicación y esfuerzo. Sin embargo, con la ayuda de los recursos de capacitación de AWS, los socios pueden superar los desafíos y alcanzar sus objetivos en la nube.</p>
-<p>La inversión en capacitación y certificación es valiosa para cualquier socio de AWS que busque mantener una ventaja competitiva en el mercado. Al invertir en la capacitación y certificación, los socios demuestran su compromiso con la excelencia y su capacidad para brindar soluciones de alta calidad a sus clientes.</p>
-<p><strong>Ventajas de la capacitación y certificación</strong></p>
-<table><thead><tr><th>Ventaja</th><th>Descripción</th></tr></thead><tbody><tr><td>Mejora las habilidades y conocimientos</td><td>Los socios pueden mejorar sus habilidades y conocimientos en la nube.</td></tr><tr><td>Incrementa la confianza del cliente</td><td>La capacitación y certificación pueden incrementar la confianza del cliente en la capacidad del socio para brindar soluciones efectivas.</td></tr><tr><td>Mejora la competitividad</td><td>La capacitación y certificación pueden ayudar a los socios a mantener una ventaja competitiva en el mercado.</td></tr></tbody></table>
-<p>En última instancia, la capacitación y certificación son clave para el éxito en el ecosistema de AWS. Los socios que invierten en la capacitación y certificación pueden mejorar sus habilidades y conocimientos, incrementar la confianza del cliente y mantener una ventaja competitiva en el mercado.</p>
-<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
-<h3 id="%C2%BFcu%C3%A1les-son-los-beneficios-de-ser-un-socio-de-aws%3F">¿Cuáles son los beneficios de ser un socio de AWS?</h3>
-<p>Ser un socio de AWS ofrece varios beneficios, como acceso a <a href="https://dondeaprendoaws.com/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/">recursos de capacitación y certificación</a>, apoyo de marketing y ventas, y oportunidades para crecer su negocio.</p>
-<h3 id="%C2%BFqu%C3%A9-es-un-socio-de-capacitaci%C3%B3n-de-aws%3F">¿Qué es un socio de capacitación de AWS?</h3>
-<p>Un socio de capacitación de AWS es una organización seleccionada por AWS para ofrecer <a href="https://dondeaprendoaws.com/blog/aws-curso-certificado-preguntas-frecuentes/">capacitación oficial de AWS</a>. Estos socios pueden ofrecer cursos digitales y de aula, y también pueden vender vouchers de exámenes de certificación de AWS.</p>
-<h4 id="ventajas-de-elegir-un-socio-de-capacitaci%C3%B3n-de-aws">Ventajas de elegir un socio de capacitación de AWS</h4>
-<table><thead><tr><th>Ventaja</th><th>Descripción</th></tr></thead><tbody><tr><td>Capacitación de alta calidad</td><td>Los socios de capacitación de AWS ofrecen capacitación oficial de AWS.</td></tr><tr><td>Acceso a recursos exclusivos</td><td>Los socios de capacitación de AWS tienen acceso a <a href="https://dondeaprendoaws.com/blog/aprender-aws-gratis-recursos-y-comunidad/">recursos exclusivos de AWS</a>.</td></tr><tr><td>Mejora las habilidades en AWS</td><td>Los socios de capacitación de AWS pueden mejorar sus habilidades en AWS.</td></tr></tbody></table>
-<h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/">recursos en español para certificacion AWS Cloud Practitioner</a></li><li><a href="https://dondeaprendoaws.com/blog/certificacion-aws-gratis-materiales-de-estudio/">certificación AWS gratis: materiales de estudio</a></li><li><a href="https://dondeaprendoaws.com/blog/10-preguntas-frecuentes-sobre-aws-training-y-certification/">10 preguntas frecuentes sobre AWS Training y Certification</a></li></ul>
+Si trabajas en una empresa que forma parte de AWS Partner Network y buscas cursos AWS para partners, empieza por el catálogo exclusivo de [AWS Partner Training en Skill Builder](https://aws.amazon.com/partners/training/). Para abrir esos cursos, inicia sesión con un AWS Builder ID asociado al dominio de correo de tu empresa; también puedes usar el inicio de sesión único (SSO) si tu organización lo habilitó.
+
+AWS Partner Training reúne cursos y planes de aprendizaje para socios; algunos cursos incluyen insignias de AWS Partner. Una acreditación de formación no equivale a una AWS Certification, que se obtiene al aprobar un examen. Y el programa AWS Training Partner (ATP) es otro camino: permite a organizaciones seleccionadas impartir o revender formación oficial de AWS.
+
+## Cursos AWS para partners: cómo conseguir acceso
+
+1. **Inicia sesión en AWS Skill Builder con tu cuenta de trabajo.** Usa AWS Builder ID y el correo de la empresa. Si tu organización habilitó SSO, sigue el método que indique su equipo.
+2. **Pide que revisen el dominio si no ves el catálogo.** Una persona con permisos específicos en IAM administra los dominios asociados desde la sección de formación y certificación de [AWS Partner Central](https://docs.aws.amazon.com/es_es/partner-central/latest/getting-started/partner-central-settings.html). AWS explica cómo [asociar y verificar un dominio](https://docs.aws.amazon.com/es_es/partner-central/latest/getting-started/associating-domains.html). Si no tienes acceso, consulta al administrador de Partner Central de tu empresa.
+3. **Elige el contenido según tu función.** Revisa los planes y cursos de [AWS Partner Training](https://aws.amazon.com/partners/training/) para objetivos técnicos, comerciales o de preparación para certificaciones. El catálogo requiere iniciar sesión; comprueba en la ficha vigente el idioma, los requisitos y el reconocimiento que ofrece cada actividad.
+4. **Usa PartnerCast para complementar el estudio.** [AWS PartnerCast](https://aws.amazon.com/partners/training/partnercast/) reúne webinars interactivos gratuitos y grabaciones bajo demanda para roles técnicos y de negocio. Revisa el tema y el idioma de cada sesión.
+
+No des por hecho que un curso incluye una inscripción a examen o un voucher. Comprueba esas condiciones en la ficha de la formación o en la oferta que te haya hecho tu empresa o proveedor.
+
+## Acreditación, certificación y AWS Training Partner
+
+Estos términos describen logros y programas distintos:
+
+### Acreditación de AWS Partner: logro de formación individual
+
+Los cursos y planes del catálogo para socios pueden ofrecer insignias de AWS Partner. Consulta la ficha para conocer los requisitos y el reconocimiento concreto de cada actividad.
+
+### AWS Certification: credencial obtenida por examen
+
+Una AWS Certification valida los conocimientos de una persona mediante el examen correspondiente. Completar un curso no reemplaza el examen supervisado. Consulta el [catálogo oficial de AWS Certification](https://aws.amazon.com/es/certification/) y la guía vigente de cada examen.
+
+### AWS Training Partner: programa para organizaciones
+
+Las organizaciones seleccionadas para ATP pueden ofrecer, impartir o revender formación oficial de AWS. Ser AWS Partner no convierte por sí solo a una empresa en ATP. Consulta cómo [trabajar con un socio de formación o participar en el programa](https://aws.amazon.com/es/partners/aws-training-partners/).
+
+### Partner Path y nivel: requisitos de la empresa
+
+El avance de la organización en las rutas de socios tiene sus propios requisitos y se sigue en Partner Central. Una acreditación individual no concede por sí sola un nivel a la empresa; revisa el [Partner Scorecard de AWS](https://docs.aws.amazon.com/es_es/partner-central/latest/getting-started/partner-scorecard.html).
+
+Si tu objetivo es cumplir una meta de tu equipo, confirma con quien administra Partner Central qué ruta y qué requisitos aplican a tu organización. Si solo buscas desarrollar una habilidad, elige el curso por rol y tema. Si necesitas validar conocimientos ante clientes o empleadores, revisa la guía del examen y prepara la certificación como un proceso aparte.
+
+Para profundizar en el acceso y las diferencias entre acreditaciones, certificaciones y niveles de socio, sigue nuestra [guía de acreditación de AWS Partner](/blog/guia-de-acreditacion-para-partners-de-aws-2024/). También puedes consultar las [preguntas sobre cursos, insignias y exámenes de AWS Training y Certification](/blog/10-preguntas-frecuentes-sobre-aws-training-y-certification/). Si necesitas una credencial introductoria, la [guía de estudio de AWS Cloud Practitioner (CLF-C02)](/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/) reúne recursos en español para preparar ese examen.
+
+## Recursos en español para seguir aprendiendo
+
+El [catálogo público de recursos para aprender AWS](/aprender/) reúne cursos, videos y artículos en español. El directorio de [creadores y canales](/creadores/) te permite explorar fuentes de la comunidad; ambos sirven para complementar los materiales exclusivos de Partner Training con explicaciones y práctica por tema.
+
+- La página de [cursos en español de Marcia Villalba](https://www.marcia.dev/courses/) incluye opciones de fundamentos de AWS y desarrollo serverless. Es formación de una creadora independiente: revisa el contenido, el precio y las condiciones actuales con quien ofrece cada curso. No da acceso al catálogo privado de AWS Partner Training ni reemplaza una AWS Certification.
+- El canal de [AWS User Group Medellín en YouTube](https://www.youtube.com/@awsugmed) publica sesiones de estudio. Por ejemplo, su [Cloud Practitioner Challenge: introducción a la nube y AWS](https://www.youtube.com/watch?v=HhPGckLLDWY) es una grabación comunitaria para repasar fundamentos; no es un curso exclusivo para socios ni una credencial oficial.
+
+## Aprender con comunidades y eventos AWS
+
+Los grupos de usuarios pueden ayudarte a resolver dudas y conocer experiencias de otras personas que trabajan con AWS. No son recursos exclusivos para socios, pero complementan la formación oficial con conversación y actividades abiertas.
+
+El [AWS User Group Perú](https://awsugperu.cloud/) publica grupos de estudio, talleres, recursos y eventos para personas de distintos niveles. Si estás en Argentina, el [AWS User Group Buenos Aires](https://www.meetup.com/aws-user-group-buenos-aires/) reúne a personas que aprenden y comparten experiencias con AWS. Si eres mujer y buscas mentoría, talleres o preparación de certificaciones con otras profesionales, [AWS Women in Cloud Buenos Aires](https://awswomenincloudba.com.ar/) publica actividades y grupos de estudio. También puedes [explorar comunidades AWS por país](/comunidades/) para encontrar grupos en otros lugares de Latinoamérica.
+
+Consulta la [agenda de eventos AWS](/eventos/) para encontrar encuentros, charlas y talleres de comunidades. Las fechas, modalidades y cupos pueden cambiar; confirma la información y la inscripción en la convocatoria del organizador.
