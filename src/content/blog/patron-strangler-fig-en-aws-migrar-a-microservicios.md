@@ -6,7 +6,7 @@ publishedAt: "2024-04-29"
 publishedTimestamp: "2024-04-29T05:31:12.257Z"
 modifiedTimestamp: "2026-10-06T23:58:58-03:00"
 review:
-  date: "2026-10-06"
+  date: "2026-10-07"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"

@@ -6,7 +6,7 @@ publishedAt: "2024-04-29"
 publishedTimestamp: "2024-04-29T09:45:01.725Z"
 modifiedTimestamp: "2026-10-06T23:58:58-03:00"
 review:
-  date: "2026-10-06"
+  date: "2026-10-07"
 cover: "/assets/blog/editorial-datos-ia.png"
 coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-datos-ia.png"

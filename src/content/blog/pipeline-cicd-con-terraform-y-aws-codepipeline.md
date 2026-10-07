@@ -4,9 +4,9 @@ description: "Configura Terraform en AWS CodePipeline y CodeBuild: guarda el pla
 author: "guille-ojeda"
 publishedAt: "2025-02-13"
 publishedTimestamp: "2025-02-13T00:13:18.43Z"
-modifiedTimestamp: "2026-10-06T23:58:58-03:00"
+modifiedTimestamp: "2026-10-07T00:07:26-03:00"
 review:
-  date: "2026-10-06"
+  date: "2026-10-07"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
@@ -32,6 +32,8 @@ El flujo aplica un <code>tfplan</code> producido para el mismo commit que luego 
 5. CodeBuild recibe el código fuente y el plan de esa misma ejecución, verifica el commit y ejecuta <code>terraform apply</code> sobre el archivo guardado.
 
 Este diseño aplica un plan aprobado, no vuelve a calcular uno. Si el estado cambia mientras la ejecución espera, Terraform puede rechazar el plan por obsoleto. En ese caso hay que generar otro plan y pedir una nueva revisión.
+
+Para conocer las herramientas de entrega continua de AWS, [AWS Women Colombia repasa CodeCommit, CodePipeline, CodeBuild, CodeDeploy y CodeArtifact](https://www.youtube.com/watch?v=ZO6FP7dSEVc) con Joana Ramírez y Angélica Ortega en una grabación de 2021. Sirve como panorama de servicios; contrasta las pantallas antiguas con la documentación actual. El ejemplo de esta guía usa GitHub y CodeConnections.
 
 ## Qué preparar antes de desplegar
 
@@ -98,7 +100,7 @@ Los proyectos Validate, Plan y Apply usan <code>CODEPIPELINE</code> como origen 
 - Plan usa <code>buildspec-plan.yml</code>, el backend S3 y permisos de lectura para los recursos y fuentes de datos que administre Terraform.
 - Apply usa <code>buildspec-apply.yml</code>, el mismo backend y los permisos de escritura requeridos por los recursos de esa configuración.
 
-Plan y Apply deben fijar la misma versión exacta de Terraform, sistema operativo, arquitectura e imagen. Una versión de proveedor distinta puede invalidar el plan. Las rutas locales también importan: un archivo de plan puede contener rutas absolutas a módulos y archivos del proyecto. Por eso los dos buildspec copian el mismo ZIP a <code>/tmp/terraform-project</code> y cambian realmente a ese directorio antes de ejecutar Terraform. Así coinciden tanto la ruta raíz como <code>path.cwd</code>; usar <code>-chdir</code> no cambiaría este último, que conserva el directorio original. La guía de HashiCorp sobre [Terraform en automatización](https://developer.hashicorp.com/terraform/tutorials/automation/automate-terraform) describe estas condiciones.
+Plan y Apply deben fijar la misma versión exacta de Terraform, sistema operativo, arquitectura e imagen. Una versión de proveedor distinta puede invalidar el plan. Las rutas locales también importan: un archivo de plan puede contener rutas absolutas a módulos y archivos del proyecto. Por eso los dos buildspec copian el mismo ZIP a <code>/tmp/terraform-project</code> y cambian realmente a ese directorio antes de ejecutar Terraform. Así coinciden tanto la ruta raíz como <code>path.cwd</code>; HashiCorp documenta que [<code>-chdir</code> conserva el directorio original en <code>path.cwd</code>](https://developer.hashicorp.com/terraform/cli/commands). La guía de HashiCorp sobre [Terraform en automatización](https://developer.hashicorp.com/terraform/tutorials/automation/automate-terraform) describe estas condiciones.
 
 El proyecto Terraform de destino va en el repositorio conectado a SourceArtifact: incluí ahí sus archivos <code>.tf</code>, módulos locales, <code>.terraform.lock.hcl</code>, los tres buildspecs y los valores no sensibles que necesite, por ejemplo en <code>terraform.tfvars</code>. Inyectá los valores sensibles desde Secrets Manager o Parameter Store; nunca los guardes en Git. Configurá el mismo conjunto y versión de entradas en Plan y Apply cuando el proveedor las requiera. Terraform guarda los valores usados en el plan aprobado, así que tratá el artefacto con el mismo cuidado que el estado.
 
@@ -354,6 +356,8 @@ El rol de CodePipeline requiere las dos acciones que documenta AWS para usar con
 
 Si el pipeline vive en una cuenta de herramientas y administra otra cuenta, asigná roles de Plan y Apply separados en cada cuenta destino. El rol del proyecto CodeBuild debe poder ejecutar <code>sts:AssumeRole</code> sobre el rol concreto; la política de confianza del rol de destino debe aceptar el ARN de ese rol CodeBuild. La política de permisos del rol asumido define las acciones permitidas dentro de la cuenta destino. El backend central puede requerir otro acceso separado. Para ver un ejemplo de confianza entre cuentas aplicado a CodeBuild, consultá [políticas de confianza y acceso entre cuentas](https://dondeaprendoaws.com/blog/politicas-de-confianza-aws-acceso-entre-cuentas/).
 
+La charla [Estrategias avanzadas: despliegues multiaccount con CDK y CodePipeline](https://www.youtube.com/watch?v=IikiBrUpiyM), de AWS Girls Chile, aborda permisos, seguridad y organización entre cuentas. Es una grabación de 2024 que usa CDK: aprovecha la explicación de roles y límites entre cuentas, y adapta la implementación al flujo de Terraform y al plan aprobado descritos aquí.
+
 Quienes puedan editar el buildspec, el proyecto CodeBuild o el pipeline pueden cambiar qué código ejecuta el rol Apply. Protegé esos cambios con revisión, controles de rama y permisos de administración más estrictos. No entregues claves IAM de larga duración en variables del proyecto ni en el repositorio: CodeBuild obtiene credenciales temporales del rol de servicio.
 
 ## Protegé los planes y el estado
@@ -384,6 +388,10 @@ Otra ejecución de Terraform pudo guardar un estado nuevo mientras la aprobació
 ### ¿Terraform hace rollback si falla Apply?
 
 No como una transacción. Algunos recursos pueden haber cambiado antes del error. Detené otras ejecuciones sobre el mismo estado, comprobá qué cambió en AWS y en el estado, corregí la configuración y generá un plan nuevo. No uses <code>terraform destroy</code> como rollback automático en producción.
+
+### Avisos de ejecuciones
+
+Si necesitas seguir el inicio, éxito, fallo o cancelación de una ejecución, el repositorio [notificaciones de CodePipeline con SNS, Lambda y Slack](https://github.com/JonasCC8/AWS-CodePipeline-SNS-Lambda-Slack-Notifications) describe ese recorrido y su montaje manual. Lee el diseño para adaptarlo a tus eventos y región; conserva el webhook de Slack como un secreto y verifica los permisos de cada componente. El material contiene instrucciones y un ejemplo, sin una plantilla de despliegue completa.
 
 ## Recursos y comunidad AWS en español
 

@@ -6,7 +6,7 @@ publishedAt: "2024-11-26"
 publishedTimestamp: "2024-11-26T20:13:42.04Z"
 modifiedTimestamp: "2026-10-06T23:58:58-03:00"
 review:
-  date: "2026-10-06"
+  date: "2026-10-07"
 cover: "/assets/blog/editorial-seguridad.png"
 coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-seguridad.png"
