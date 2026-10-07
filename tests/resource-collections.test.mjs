@@ -6,6 +6,7 @@ import {
   findFreeCourseExample,
   groupCertificationResources,
   isGenerativeAIResource,
+  learningCollectionNavigation,
   lookupResourceCollection,
   resourceCollectionResources,
   resolveResourceCollectionFaq,
@@ -15,7 +16,8 @@ test('registry exposes each approved collection route once', () => {
   const expectedPaths = [
     '/aprender/cursos/', '/aprender/videos/', '/aprender/articulos/',
     '/aprender/certificaciones/', '/aprender/serverless/', '/aprender/seguridad/',
-    '/aprender/ia-generativa/', '/creadores/youtube/', '/creadores/blogs/',
+    '/aprender/ia-generativa/', '/aprender/fundamentos/', '/aprender/arquitectura/',
+    '/aprender/datos/', '/aprender/devops/', '/creadores/youtube/', '/creadores/blogs/',
     '/creadores/podcasts/', '/creadores/newsletters/',
     '/comunidades/user-groups/', '/comunidades/estudiantes/',
   ];
@@ -78,6 +80,56 @@ test('unknown collections and empty catalog inputs produce no records', () => {
   assert.deepEqual(resourceCollectionResources(undefined, [{ id: 'x' }]), []);
   assert.deepEqual(resourceCollectionResources(collection, []), []);
   assert.deepEqual(resourceCollectionResources(collection, undefined), []);
+});
+
+test('four topic collections have distinct guidance and select only their published topic', () => {
+  const topicCases = [
+    ['/aprender/fundamentos/', 'Fundamentos'],
+    ['/aprender/arquitectura/', 'Arquitectura'],
+    ['/aprender/datos/', 'Datos'],
+    ['/aprender/devops/', 'DevOps'],
+  ];
+  const records = [
+    ...topicCases.map(([, topic], index) => ({ id: `topic-${index}`, kind: 'content', format: 'Artículo', topics: [topic] })),
+    { id: 'other-topic', kind: 'content', format: 'Curso', topics: ['Seguridad'] },
+    { id: 'source-topic', kind: 'source', format: 'Blog', topics: ['Fundamentos'] },
+  ];
+  const copyFields = ['title', 'description', 'intro'];
+
+  for (const [index, [path, topic]] of topicCases.entries()) {
+    const collection = lookupResourceCollection(path);
+    assert.equal(collection.selector.topic, topic);
+    assert.deepEqual(resourceCollectionResources(collection, records).map(({ id }) => id), [`topic-${index}`]);
+    for (const field of copyFields) {
+      assert.ok(collection[field].trim(), `${path} has ${field} copy`);
+    }
+  }
+
+  assert.equal(lookupResourceCollection('/aprender/fundamentos/').earlyRoute.path, '/recorridos/primeros-pasos/');
+  assert.equal(lookupResourceCollection('/aprender/fundamentos/').guide.links.includes('/recorridos/primeros-pasos/'), false,
+    'The fundamentals route is linked before filters and is not repeated after results.');
+  for (const field of copyFields) {
+    const values = topicCases.map(([path]) => lookupResourceCollection(path)[field]);
+    assert.equal(new Set(values).size, values.length, `${field} is distinct for each new collection`);
+  }
+});
+
+test('compact learning navigation covers formats and topic collections with the current selection', () => {
+  const navigation = learningCollectionNavigation('/aprender/fundamentos/');
+  assert.deepEqual(navigation.formats, [
+    { path: '/aprender/', label: 'Todos los recursos' },
+    { path: '/aprender/cursos/', label: 'Cursos' },
+    { path: '/aprender/videos/', label: 'Videos' },
+    { path: '/aprender/articulos/', label: 'Artículos' },
+  ]);
+  assert.deepEqual(navigation.topics.map(({ path }) => path), [
+    '/aprender/certificaciones/', '/aprender/serverless/', '/aprender/seguridad/', '/aprender/ia-generativa/',
+    '/aprender/fundamentos/', '/aprender/arquitectura/', '/aprender/datos/', '/aprender/devops/',
+  ]);
+  assert.equal(navigation.activeTopic, 'Fundamentos');
+  assert.equal(navigation.currentPath, '/aprender/fundamentos/');
+  assert.equal(learningCollectionNavigation('/aprender/').activeTopic, undefined);
+  assert.deepEqual(navigation.topics.filter((topic) => topic.path.startsWith('/creadores/') || topic.path.startsWith('/comunidades/')), []);
 });
 
 test('certification groups use explicit title-first exam names and include mixed records in each exam filter', () => {

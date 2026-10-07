@@ -1,0 +1,18 @@
+---
+
+interface Props {
+  defaultSort: 'recommended' | 'purpose';
+}
+
+const { defaultSort } = Astro.props;
+---
+
+<div class="directory-facet directory-facet--sort">
+  <label for="resource-sort">Ordenar por</label>
+  <select id="resource-sort" data-sort-filter data-default-sort={defaultSort}>
+    {defaultSort === 'purpose' && <option value="purpose" selected>Por examen y objetivo</option>}
+    <option value="directory">Orden del directorio</option>
+    <option value="recent">Agregados recientemente</option>
+    <option value="recommended" selected={defaultSort === 'recommended'}>Recomendados</option>
+  </select>
+</div>

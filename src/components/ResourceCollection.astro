@@ -7,7 +7,7 @@ import CollectionNavigation from './CollectionNavigation.astro';
 import CollectionGuide from './CollectionGuide.astro';
 import PageFaq from './PageFaq.astro';
 import { loadSiteCatalog } from '../lib/site-catalog.mjs';
-import { RESOURCE_COLLECTIONS, groupCertificationResources, lookupResourceCollection, resourceCollectionResources, resolveResourceCollectionFaq } from '../lib/resource-collections.mjs';
+import { RESOURCE_COLLECTIONS, groupCertificationResources, learningCollectionNavigation, lookupResourceCollection, resourceCollectionResources, resolveResourceCollectionFaq } from '../lib/resource-collections.mjs';
 import type { CatalogEvent, CatalogResource } from '../types/catalog';
 
 interface Collection {
@@ -97,7 +97,9 @@ const canonical = `https://dondeaprendoaws.com${collection.path}`;
       {collection.earlyRoute && <p class="collection-route-callout">
         {collection.earlyRoute.text} <a href={collection.earlyRoute.path}>{collection.earlyRoute.label}<span aria-hidden="true"> →</span></a>
       </p>}
-      <CollectionNavigation links={siblingLinks} currentPath={collection.path} />
+      {collection.kind === 'content'
+        ? <CollectionNavigation links={[]} learningNavigation={learningCollectionNavigation(collection.path)} />
+        : <CollectionNavigation links={siblingLinks} currentPath={collection.path} />}
     </div>
     <div slot="after-results" class="collection-page__after-results">
       <CollectionGuide guide={collection.guide} links={guideLinks} />
