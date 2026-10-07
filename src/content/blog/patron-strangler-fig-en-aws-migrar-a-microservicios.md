@@ -1,363 +1,92 @@
 ---
-title: "Patrón Strangler Fig en AWS: migrar a microservicios"
-description: "Descubre cómo migrar de forma segura y gradual aplicaciones monolíticas a microservicios en AWS con el patrón Strangler Fig, minimizando riesgos y maximizando beneficios."
+title: "Strangler Fig en AWS: cómo migrar un monolito por partes"
+description: "Guía práctica para extraer funciones de un monolito en AWS: rutas con ALB o API Gateway, responsabilidad sobre los datos, eventos idempotentes y rollback."
 author: "guille-ojeda"
 publishedAt: "2024-04-29"
 publishedTimestamp: "2024-04-29T05:31:12.257Z"
+modifiedTimestamp: "2026-10-06T23:58:58-03:00"
+review:
+  date: "2026-10-06"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
-related:
-  - title: "AWS OpsWorks: automatiza despliegues con Chef"
-    url: "https://dondeaprendoaws.com/blog/aws-opsworks-automatiza-despliegues-con-chef/"
-  - title: "Cómo integrar los SDK de AWS en 7 pasos"
-    url: "https://dondeaprendoaws.com/blog/como-integrar-los-sdk-de-aws-en-7-pasos/"
-  - title: "Clases de almacenamiento de Amazon S3"
-    url: "https://dondeaprendoaws.com/blog/clases-de-almacenamiento-de-amazon-s3/"
-
+related: []
 ---
 
-<p>de Forma Gradual y Segura</p>
+El patrón **Strangler Fig** permite reemplazar una aplicación monolítica de manera gradual: una fachada recibe las solicitudes, envía las funciones migradas a una implementación nueva y deja el resto en el sistema existente. Cuando ya no quedan llamadas ni dependencias del monolito, puedes retirar esa parte. [Martin Fowler presentó la idea](https://martinfowler.com/bliki/StranglerFigApplication.html) como una forma de modernizar por etapas; [AWS documenta el ciclo](https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/strangler-fig.html) como transformar, hacer coexistir y eliminar.
 
+Esto reduce el tamaño de cada cambio, pero no garantiza cero interrupciones ni obliga a terminar con microservicios. El resultado también puede ser un monolito modular mejor delimitado. Conviene extraer una función cuando su despliegue, escalado o propiedad de datos independiente aporta más valor que la complejidad de operar otro servicio.
 
-<p>El patrón Strangler Fig es una estrategia efectiva para migrar aplicaciones monolíticas a microservicios en <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> de manera incremental, minimizando el riesgo y la interrupción del negocio. Este enfoque implica:</p>
+## Ejemplo: sacar las lecturas del catálogo
 
+Supón una tienda cuyo monolito atiende `GET /catalogo/{sku}`, `POST /pedidos` y otras rutas bajo `api.tienda.example`. El primer corte puede dejar las lecturas del catálogo en el sistema nuevo y conservar las escrituras y el resto del tráfico en el monolito:
 
-<ul>
-<li>Identificar componentes monolíticos para reemplazar por microservicios</li>
-<li>Crear nuevos microservicios que gradualmente reemplacen los componentes monolíticos</li>
-<li>Utilizar servicios de AWS como <a href="https://aws.amazon.com/es/api-gateway/" rel="noopener noreferrer" target="_blank">API Gateway</a> y <a href="https://en.wikipedia.org/wiki/AWS_Lambda" rel="noopener noreferrer" target="_blank">AWS Lambda</a> para facilitar la implementación</li>
-</ul>
+| Solicitud | Destino durante el primer corte |
+| --- | --- |
+| `GET /catalogo/*` | Servicio nuevo de catálogo |
+| Otras rutas, incluido `POST /pedidos` | Monolito existente |
 
+Si la aplicación ya recibe tráfico mediante un **Application Load Balancer (ALB)**, puedes agregar una regla de listener con las condiciones de método HTTP `GET` y ruta `/catalogo/*`, y reenviarla al grupo de destino (*target group*) del servicio nuevo. La regla predeterminada continúa reenviando al monolito. ALB evalúa las reglas por prioridad y admite condiciones como ruta, método y encabezado; revisa el contrato real de la aplicación antes de elegir esas condiciones en [la documentación de reglas de listener](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/listener-rules.html).
 
-<p>Las ventajas clave del patrón Strangler Fig son:</p>
+**API Gateway** puede servir como fachada cuando necesitas administrar una API pública, sus métodos, autorizadores o integraciones HTTP. Puedes definir las rutas nuevas hacia el servicio extraído y conservar las rutas existentes hacia el backend legado. Si el backend está dentro de una VPC, una integración privada de una REST API puede conectarse a un ALB mediante VPC Link V2; AWS documenta requisitos de cuenta y detalles de ruta, incluido el prefijo de etapa que puede llegar al backend. No elijas API Gateway solo porque el destino se llame “microservicio”: [compara sus patrones de enrutamiento](https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/api-routing-path.html), [las integraciones proxy HTTP](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-set-up-simple-proxy.html) y [las integraciones privadas de REST API](https://docs.aws.amazon.com/apigateway/latest/developerguide/private-integration.html). Si evalúas una API HTTP en lugar de REST, verifica su propia [guía de integración privada](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-private-integration.html). Si el destino es Lambda, consulta [cómo elegir entre HTTP API y REST API para ese backend](/blog/guia-para-crear-apis-serverless-con-aws-lambda-y-api-gateway/).
 
+El corte por ruta funciona si puedes interceptar la llamada en el borde del monolito. Si quieres mover lógica más profunda, con dependencias internas, agrega una abstracción dentro de la aplicación y cambia su implementación gradualmente; AWS describe esta alternativa como [branch by abstraction](https://docs.aws.amazon.com/prescriptive-guidance/latest/modernization-decomposing-monoliths/branch-by-abstraction.html). Un proxy de entrada no separa automáticamente clases, transacciones ni módulos internos.
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventaja</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Migración incremental</td>
-<td>Minimiza el riesgo y la interrupción, garantizando una transición suave y controlada</td>
-</tr>
-<tr>
-<td>Servicios de AWS</td>
-<td>Facilitan la implementación práctica del patrón, simplificando el proceso de migración</td>
-</tr>
-<tr>
-<td>Planificación y comunicación</td>
-<td>Son vitales para el éxito de la migración, involucrando a todas las partes interesadas</td>
-</tr>
-</tbody>
-</table></figure>
+> **Nota sobre Refactor Spaces:** algunos tutoriales de Strangler Fig aún muestran AWS Migration Hub Refactor Spaces. AWS dejó de aceptar clientes nuevos el 7 de noviembre de 2025; quienes ya lo usan pueden continuar sus migraciones. La indisponibilidad del producto para nuevos clientes no cambia el patrón: tendrás que elegir y operar la fachada con opciones de enrutamiento vigentes para tu caso. Consulta el [aviso de disponibilidad de AWS](https://docs.aws.amazon.com/migrationhub-refactor-spaces/latest/userguide/migrationhub-availability-change.html).
 
+## Una secuencia de migración verificable
 
-<p>Al adoptar este enfoque, las organizaciones pueden modernizar sus aplicaciones legacy de manera segura y controlada, aprovechando al máximo los beneficios de la migración a microservicios en AWS.</p>
+1. **Dibuja el flujo que existe.** Registra las rutas, llamadas internas, transacciones, tablas compartidas, consumidores y requisitos de latencia. Mide tasas de error y tiempos de respuesta antes de mover tráfico. Busca una capacidad coherente —por ejemplo, lecturas de catálogo—, no solo una tabla o un paquete de código.
+2. **Crea el punto de entrada sin cambiar el comportamiento.** Mantén la URL y el contrato actuales; al principio, dirige todas las solicitudes al monolito. Verifica TLS, autorización, encabezados, cookies, timeouts, límites de tamaño, reglas de salud y logs en esta capa.
+3. **Extrae una función acotada.** Implementa el contrato en el servicio nuevo y prueba sus respuestas con datos representativos. Para comparar lecturas puedes usar tráfico de prueba o una copia segura de solicitudes sin efectos secundarios. No repitas escrituras de producción a ciegas: podrías cobrar, reservar inventario o enviar notificaciones dos veces.
+4. **Cambia una ruta y observa el resultado.** Por ejemplo, empieza por `GET /catalogo/*`, conserva el destino predeterminado en el monolito y compara errores, latencia y resultados de negocio. Amplía a otra operación solo cuando el corte actual cumpla sus criterios.
+5. **Retira la implementación vieja cuando deje de ser necesaria.** Confirma que ningún consumidor, trabajo programado, informe o proceso interno dependa de ella. Conserva el código y los datos durante la ventana de reversión que definiste; elimina la ruta antigua después de cerrar esa ventana.
 
+Para versionar y revisar los cambios de infraestructura o de la fachada, puedes seguir el [pipeline de Terraform con AWS CodePipeline](/blog/pipeline-cicd-con-terraform-y-aws-codepipeline/). Esa guía conserva y aplica el plan aprobado; el despliegue del código de la aplicación requiere su propio flujo.
 
-<h2 id="el-patr%C3%B3n-de-strangler-fig-explicado" tabindex="-1">El patrón de Strangler Fig explicado</h2>
+El orden es deliberado: la ruta deja de ser el límite de migración si otros servicios siguen llamando directamente al monolito o consultando sus tablas. La guía de Strangler Fig de AWS también señala que el patrón requiere poder modificar o interceptar el sistema existente.
 
+## Decide quién escribe cada dato
 
-<p>El patrón de Strangler Fig es una solución efectiva para migrar aplicaciones monolíticas a microservicios en AWS, inspirada en la naturaleza y su aplicación metafórica en el desarrollo de software.</p>
+La independencia del servicio depende de quién controla los cambios de negocio y el acceso a sus datos. Un servicio puede comenzar leyendo una base compartida mientras reduces el acoplamiento, pero define un único escritor para cada dato durante cada etapa. Si el monolito y el servicio nuevo pueden modificar el mismo registro, decide antes cómo resolver conflictos, reintentos y orden; de lo contrario, una falla intermedia puede dejar dos versiones distintas.
 
+No hace falta mover una base entera para extraer la primera ruta. Cuando un servicio pasa a ser dueño de su información, los demás deberían acceder mediante una API o recibir una proyección por eventos, en lugar de escribir directamente sus tablas. AWS detalla los beneficios y el costo de ese límite en el patrón de [base de datos por servicio](https://docs.aws.amazon.com/prescriptive-guidance/latest/modernization-data-persistence/database-per-service.html): las consultas y transacciones que abarcan servicios se vuelven más difíciles y pueden requerir una vista compuesta o consistencia eventual.
 
-<h3 id="inspiraci%C3%B3n-en-la-naturaleza-para-el-patr%C3%B3n" tabindex="-1">Inspiración en la naturaleza para el patrón</h3>
+Si una operación actualiza la base del nuevo servicio y además debe notificar a otros sistemas, una escritura directa en la base seguida por un `PutEvents` puede fallar entre ambas acciones. El patrón **transactional outbox** guarda el cambio de negocio y el evento pendiente en una transacción local; un publicador envía después el evento. El consumidor debe tolerar entregas repetidas mediante una clave de idempotencia o un registro de eventos procesados. El *outbox* resuelve la coordinación entre una base y su evento; **no** hace atómicas las escrituras en la base nueva y la antigua. Si una transición necesita mantener ambas lecturas, planea explícitamente la replicación, el retraso aceptable y una conciliación de datos. Para un flujo de pedidos, consulta la guía interna de [arquitecturas dirigidas por eventos en AWS](/blog/arquitecturas-dirigidas-por-eventos-en-aws/) junto con la guía de AWS sobre [transactional outbox](https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/transactional-outbox.html).
 
+Cuando una regla de negocio atraviesa varios servicios —por ejemplo, crear un pedido y reservar inventario—, no finjas que una transacción SQL puede cubrir todos los almacenes. Define qué significa completar o compensar la operación; para estos casos, evalúa una [saga](https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/saga-patterns.html). Si no puedes tolerar consistencia eventual ni diseñar una compensación segura, mantén temporalmente esa operación dentro del componente que ya controla la transacción.
 
-<p>El patrón de Strangler Fig se inspira en la higuera estranguladora, un tipo de árbol que crece envolviendo a otro árbol, gradualmente estrangulándolo hasta que muere. De manera similar, el patrón de Strangler Fig permite reemplazar gradualmente los componentes monolíticos con microservicios, sin interrumpir el funcionamiento del sistema.</p>
+## El rollback de lecturas no es el de escrituras
 
+**En una extracción de solo lectura**, volver a enviar `/catalogo/*` al monolito suele ser una operación de routing sencilla, siempre que el contrato siga siendo compatible y el monolito pueda responder con datos válidos. Conserva la regla anterior y prueba el cambio de vuelta antes de abrir el tráfico.
 
-<h3 id="migraci%C3%B3n-incremental-con-strangler-fig" tabindex="-1">Migración incremental con Strangler Fig</h3>
+**En una extracción con escrituras**, cambiar una regla no devuelve los datos nuevos al sistema viejo. Si el servicio ya aceptó pedidos en su propia base, el monolito no puede verlos por arte de magia. Antes del corte, define si la reversión requiere replicar cambios, reconciliar registros o ejecutar compensaciones; si no existe una vía segura de retorno, prepara una corrección hacia adelante y comunica ese límite. Mantén los esquemas compatibles durante la ventana de reversión: agrega primero, migra consumidores y elimina campos antiguos después.
 
+Por eso, “el monolito sigue encendido” no es un plan suficiente de rollback. También necesitas saber cuál sistema es la fuente de verdad, qué datos pueden estar atrasados y quién detiene nuevas escrituras durante una reversión.
 
-<p>La implementación del patrón de Strangler Fig en AWS implica un proceso de migración incremental, en el que se identifican los componentes monolíticos que se deben reemplazar y se crean nuevos microservicios que los reemplazan gradualmente. Este enfoque permite reducir los riesgos asociados con la migración y garantizar la continuidad del negocio.</p>
+## Mide antes y después del corte
 
+Separa las métricas por ruta y destino: volumen, latencia, errores del ALB o API Gateway, salud de cada *target group*, errores del servicio nuevo, retraso de eventos y diferencias encontradas al conciliar datos. Para ALB, AWS publica métricas como `HTTPCode_ELB_5XX_Count` y `UnHealthyHostCount`. En HTTP APIs de API Gateway, puedes observar `4xx`, `5xx`, `Latency` e `IntegrationLatency`; REST APIs tienen métricas con nombres y dimensiones propios. Activa también registros estructurados con un `requestId` o `correlationId` que atraviese los componentes. Consulta los [indicadores de ALB](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-cloudwatch-metrics.html), las [métricas de HTTP API](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-metrics.html) o las [métricas de REST API](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-metrics-and-dimensions.html). Para diseñar identificadores que sirvan en una operación distribuida, consulta [cómo correlacionar eventos en AWS](/blog/correlacion-de-eventos-con-step-functions-y-cloudwatch/).
 
-<h4 id="proceso-de-migraci%C3%B3n" tabindex="-1">Proceso de migración</h4>
+Define umbrales y una persona responsable de decidir si se amplía, se detiene o se revierte el corte. Observa también resultados de negocio, como pedidos completados o inventario reservado: un `200 OK` no prueba que el flujo quedó consistente. La fachada añade configuración, saltos de red y un componente crítico para el tráfico; una ruta mal configurada o un backend no saludable todavía puede interrumpir solicitudes. El patrón reduce el tamaño del cambio, pero no promete disponibilidad perfecta.
 
+## Cuándo no extraer otro servicio
 
-<p>El proceso de migración se puede dividir en tres pasos clave:</p>
+Si el sistema funciona, los límites de dominio son confusos y los equipos pueden desplegar módulos juntos, primero ordena el monolito. Extraer un servicio implica operar redes, permisos, alertas, reintentos, contratos y coherencia de datos por separado. Hazlo cuando necesites desplegar, escalar o delegar esa capacidad de forma independiente y puedas asumir esas tareas operativas.
 
+Si la meta inmediata es mover la aplicación a AWS, un traslado sin refactorización puede tener menos riesgo y trabajo que partirla mientras migra. Si la función no se puede aislar en el perímetro, usa una abstracción dentro del código. Y si una aplicación pequeña no necesita despliegues independientes, no hace falta convertirla en microservicios para aplicar el patrón de forma correcta.
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Paso</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1. Transformar</td>
-<td>Identificar los límites y limitaciones del componente monolítico</td>
-</tr>
-<tr>
-<td>2. Coexistir</td>
-<td>Crear un wrapper autour del monolito para permitir la coexistencia con el nuevo microservicio</td>
-</tr>
-<tr>
-<td>3. Eliminar</td>
-<td>Eliminar el componente monolítico una vez que el microservicio ha sido completamente probado y validado</td>
-</tr>
-</tbody>
-</table></figure>
+## Sigue aprendiendo y conversa con la comunidad
 
+La grabación en español [“Rompiendo Monolitos” de Charlas Técnicas de AWS](https://www.youtube.com/watch?v=7KSqiOlBg7Y), con Irene Aguilar, recorre discovery y patrones como Strangler Fig, anti-corruption layer y branch by abstraction. Se publicó en 2023: sirve para escuchar experiencias y preguntas de diseño; comprueba los detalles actuales de los servicios en la documentación enlazada arriba. El AWS User Group CreaTicas también publicó [“Microlitos: De monolitos a microservicios”](https://www.youtube.com/watch?v=-xmVUogaJbY), una conversación sobre el riesgo de dividir el sistema sin eliminar el acoplamiento.
 
-<p>Este enfoque incremental permite una migración segura y controlada, minimizando los riesgos y garantizando la continuidad del negocio.</p>
+Para hacer preguntas técnicas en español, puedes usar [AWS re:Post](https://repost.aws/es), un foro público de preguntas y respuestas. No publiques credenciales, datos personales ni detalles privados de una cuenta; las consultas urgentes o confidenciales corresponden a AWS Support. Si prefieres conversar en un grupo, busca por país y tipo en el [directorio de comunidades AWS de Latinoamérica](/comunidades/); por ejemplo, el [AWS User Group Córdoba](https://www.meetup.com/aws-user-group-cordoba-argentina/) comparte experiencias sobre AWS y nuevas tecnologías, y el [portal del AWS User Group Perú](https://awsugperu.cloud/) reúne grupos locales, talleres y recursos. Revisa las condiciones de cada actividad en su página.
 
+La [agenda de eventos AWS en Latinoamérica](/eventos/) reúne fechas y modalidades de comunidades. Al revisarla, encontré estas actividades próximas:
 
-<h2 id="implementaci%C3%B3n-del-patr%C3%B3n-strangler-fig-en-aws" tabindex="-1">Implementación del patrón Strangler Fig en <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a></h2>
+- El [AWS Gaming Lab sobre ECS, CI/CD y Terraform](https://www.meetup.com/aws-sbg-at-national-technologic-university-regional-faculty/events/316821666/) está anunciado en Córdoba para el 10 de octubre de 2026; la [ficha de UTN Facultad Regional Córdoba](https://prensa.frc.utn.edu.ar/eventos/aws-gaming-lab-ecs-ci-cd-y-la-magia-de-terraform/) indica que es gratuito, requiere inscripción previa y está dirigido a estudiantes de Ingeniería en Sistemas de Información.
+- El [AWS Community Day Paraguay 2026](https://www.awscommunitydayparaguay.com/register) figura para el 17 de octubre, de 08:00 a 18:00, en San Lorenzo. La organización informa que la entrada es gratuita, requiere registro y tiene cupo limitado; habrá charlas y talleres en español.
+- El [AWSpectrum Architecture Arena](https://www.meetup.com/aws-user-group-awspectrum/events/316830690/) está anunciado para el 26 de octubre, de 16:00 a 18:30, en Ciudad de México. La convocatoria propone diseñar y defender una arquitectura cloud; consulta Meetup para confirmar precio, cupos y registro, que no aparecen en la descripción revisada.
+- El [AWS Student Community Day Córdoba 2026](https://www.meetup.com/aws-sbg-at-national-university-of-cordoba/events/316848908/) está anunciado para el 7 de noviembre, de 13:00 a 20:00, en la FaMAF de la UNC. La comunidad informa que es gratuito, que requiere registro y que tiene cupos limitados; la agenda incluye un espacio técnico de arquitectura y talleres prácticos.
 
-
-<p><figure><img alt="AWS" src="/assets/blog/2ebe3cf8e7ae57e98d3af846.jpg"/></figure></p>
-
-
-<p>Para implementar el patrón de Strangler Fig en AWS, es fundamental utilizar una variedad de servicios de AWS que faciliten el proceso de migración. A continuación, se presentan los servicios clave y cómo se utilizan en el proceso de migración.</p>
-
-
-<h3 id="servicios-de-aws-para-la-migraci%C3%B3n-de-strangler-fig" tabindex="-1">Servicios de AWS para la migración de Strangler Fig</h3>
-
-
-<p>AWS ofrece una variedad de servicios que pueden ayudar a facilitar la migración de aplicaciones monolíticas a microservicios. Algunos de los servicios clave incluyen:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Servicio</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>API Gateway</strong></td>
-<td>Actúa como una capa de proxy entre la aplicación monolítica y los microservicios, permitiendo la ruta de las solicitudes a los microservicios correspondientes.</td>
-</tr>
-<tr>
-<td><strong>AWS Lambda</strong></td>
-<td>Permite ejecutar código sin servidor, lo que facilita la creación de microservicios que pueden ser escalados y administrados de manera independiente.</td>
-</tr>
-<tr>
-<td><strong><a href="https://aws.amazon.com/blogs/aws/new-aws-migration-hub-refactor-spaces-helps-to-incrementally-refactor-your-applications/" rel="noopener noreferrer" target="_blank">AWS Migration Hub Refactor Spaces</a></strong></td>
-<td>Proporciona una infraestructura de refactorización que ayuda a crear y configurar la infraestructura necesaria para la migración, incluyendo la creación de políticas de IAM y la configuración de API Gateway.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="pruebas-y-monitoreo-durante-la-migraci%C3%B3n" tabindex="-1">Pruebas y monitoreo durante la migración</h3>
-
-
-<p>Es fundamental realizar pruebas exhaustivas y monitorear en tiempo real durante la implementación del patrón de Strangler Fig para garantizar la integridad y el rendimiento del sistema. Esto puede incluir:</p>
-
-
-<ul>
-<li><strong>Pruebas de carga y estrés</strong>: para evaluar el rendimiento del sistema bajo diferentes cargas y condiciones.</li>
-<li><strong>Monitoreo de logs y métricas</strong>: para identificar problemas potenciales y optimizar el rendimiento del sistema.</li>
-<li><strong>Pruebas de seguridad</strong>: para garantizar que el sistema sea seguro y protegido contra ataques y vulnerabilidades.</li>
-</ul>
-
-
-<p>Al implementar el patrón de Strangler Fig en AWS, es importante recordar que la migración es un proceso incremental que requiere planificación y ejecución cuidadosas. Sin embargo, con la ayuda de los servicios de AWS y una estrategia de migración bien planeada, es posible lograr una migración exitosa y minimizar los riesgos asociados con la migración.</p>
-
-
-<h2 id="ventajas-y-desventajas-del-patr%C3%B3n-strangler-fig" tabindex="-1">Ventajas y desventajas del patrón Strangler Fig</h2>
-
-
-<p>El patrón de Strangler Fig es una estrategia efectiva para migrar aplicaciones monolíticas a microservicios en AWS. Sin embargo, es importante considerar los pros y contras de este enfoque antes de implementarlo.</p>
-
-
-<h3 id="tabla-de-ventajas-y-desventajas-del-patr%C3%B3n-strangler-fig" tabindex="-1">Tabla de ventajas y desventajas del patrón Strangler Fig</h3>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventajas</th>
-<th>Desventajas</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Reduce el riesgo de interrupción del negocio</td>
-<td>Aumenta la complejidad del sistema durante la transición</td>
-</tr>
-<tr>
-<td>Permite agregar nuevas características durante la migración</td>
-<td>Punto de fallo único en la capa de proxy</td>
-</tr>
-<tr>
-<td>Minimiza el tiempo de inactividad</td>
-<td>Puede requerir cambios significativos en el código base monolítico</td>
-</tr>
-<tr>
-<td>Mejora la flexibilidad y escalabilidad</td>
-<td>Requiere una planificación y ejecución cuidadosas</td>
-</tr>
-<tr>
-<td>Permite la coexistencia de la aplicación monolítica y los microservicios</td>
-<td>Puede ser necesario reescribir parte del código existente</td>
-</tr>
-<tr>
-<td>Reduce los costos de mantenimiento a largo plazo</td>
-<td>Requiere una inversión inicial en herramientas y recursos</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Es importante tener en cuenta que cada organización es única y que los pros y contras del patrón de Strangler Fig pueden variar según las necesidades y objetivos específicos de cada empresa. Al evaluar los pros y contras, es fundamental considerar los beneficios a largo plazo y los costos asociados con la implementación de este patrón.</p>
-
-
-<h2 id="mejores-pr%C3%A1cticas-para-una-migraci%C3%B3n-exitosa" tabindex="-1">Mejores prácticas para una migración exitosa</h2>
-
-
-<h3 id="planificaci%C3%B3n-y-hoja-de-ruta-para-la-migraci%C3%B3n" tabindex="-1">Planificación y hoja de ruta para la migración</h3>
-
-
-<p>Para asegurar una migración exitosa, es fundamental planificar cuidadosamente cada paso del proceso. A continuación, se presentan algunas mejores prácticas para considerar:</p>
-
-
-<p>1. <strong>Definir objetivos claros</strong>: Establezca objetivos claros y medibles para la migración, alineados con las necesidades comerciales y técnicas de la organización.</p>
-
-
-<p>2. <strong>Evaluar el estado actual</strong>: Realice un análisis exhaustivo del monolito existente, incluyendo su arquitectura, dependencias, código base y flujos de datos.</p>
-
-
-<p>3. <strong>Priorizar los servicios</strong>: Priorice los servicios que serán migrados a microservicios basándose en criterios como criticidad para el negocio, acoplamiento con otros componentes y facilidad de separación.</p>
-
-
-<p>4. <strong>Crear una hoja de ruta</strong>: Desarrolle una hoja de ruta detallada que defina las fases de la migración, los plazos y los recursos necesarios.</p>
-
-
-<p>5. <strong>Establecer métricas y KPIs</strong>: Defina métricas y KPIs para monitorear el progreso de la migración y medir su éxito.</p>
-
-
-<h3 id="comunicaci%C3%B3n-y-gesti%C3%B3n-del-cambio" tabindex="-1">Comunicación y gestión del cambio</h3>
-
-
-<p>La migración a microservicios implica cambios significativos en la forma de trabajar y en la cultura organizacional. Es crucial involucrar a todas las partes interesadas y comunicar de manera efectiva para garantizar una transición fluida.</p>
-
-
-<p>1. <strong>Involucrar a todas las partes interesadas</strong>: Involucre a todos los equipos y líderes empresariales en el proceso de migración para asegurar una transición suave.</p>
-
-
-<p>2. <strong>Comunicar de manera efectiva</strong>: Establezca un plan de comunicación claro y consistente para mantener informados a todos los involucrados sobre los objetivos, el progreso y los desafíos de la migración.</p>
-
-
-<p>3. <strong>Capacitar y apoyar a los equipos</strong>: Proporcione capacitación y recursos adecuados a los equipos para garantizar una transición suave y minimizar la resistencia al cambio.</p>
-
-
-<p>4. <strong>Fomentar la colaboración</strong>: Promueva un enfoque de equipo y fomente la comunicación abierta y la resolución conjunta de problemas.</p>
-
-
-<p>5. <strong>Celebrar los logros</strong>: Reconozca y celebre los hitos alcanzados durante la migración para mantener la motivación y el compromiso de los equipos involucrados.</p>
-
-
-<h2 id="conclusi%C3%B3n%3A-beneficios-de-la-migraci%C3%B3n-gradual" tabindex="-1">Conclusión: beneficios de la migración gradual</h2>
-
-
-<p>En resumen, la adopción del patrón Strangler Fig para la migración a microservicios en AWS ofrece varios beneficios clave. Estos beneficios incluyen:</p>
-
-
-<h3 id="ventajas-de-la-migraci%C3%B3n-gradual" tabindex="-1">Ventajas de la migración gradual</h3>
-
-
-<ul>
-<li><strong>Migración incremental</strong>: minimiza el riesgo y la interrupción, lo que garantiza una transición suave y controlada.</li>
-<li><strong>Servicios de AWS</strong>: facilitan la implementación práctica del patrón Strangler Fig, lo que simplifica el proceso de migración.</li>
-<li><strong>Planificación y comunicación</strong>: son vitales para el éxito de la migración.</li>
-</ul>
-
-
-<p>Al adoptar este enfoque, las organizaciones pueden modernizar sus aplicaciones legacy de manera segura y controlada, minimizando el riesgo de interrupción y maximizando los beneficios de la migración a microservicios.</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th><strong>Ventajas</strong></th>
-<th><strong>Descripción</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Migración incremental</td>
-<td>Minimiza el riesgo y la interrupción</td>
-</tr>
-<tr>
-<td>Servicios de AWS</td>
-<td>Facilitan la implementación práctica del patrón Strangler Fig</td>
-</tr>
-<tr>
-<td>Planificación y comunicación</td>
-<td>Son vitales para el éxito de la migración</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>En última instancia, la clave para una migración exitosa es adoptar un enfoque gradual y bien planificado, que permita a las organizaciones aprovechar al máximo los beneficios de la migración a microservicios en AWS.</p>
-
-
-<h2 id="preguntas-frecuentes" tabindex="-1">Preguntas frecuentes</h2>
-
-
-<h3 id="%C2%BFc%C3%B3mo-se-implementa-el-patr%C3%B3n-strangler%3F" tabindex="-1">¿Cómo se implementa el patrón strangler?</h3>
-
-
-<p>Para implementar el patrón Strangler, siga estos pasos:</p>
-
-
-<ol>
-<li>Cree un microservicio de gestión de pedidos.</li>
-<li>Configure la puerta de enlace de API para enrutar solicitudes de gestión de pedidos al microservicio.</li>
-<li>Migre funcionalidades específicas de la aplicación monolítica al microservicio.</li>
-<li>Repita los pasos 1-4 hasta que la aplicación monolítica esté completamente reemplazada.</li>
-</ol>
-
-
-<h3 id="%C2%BFqu%C3%A9-describe-mejor-el-patr%C3%B3n-de-la-higuera-estranguladora%3F" tabindex="-1">¿Qué describe mejor el patrón de la higuera estranguladora?</h3>
-
-
-<p>Este patrón implica moverse a microservicios mediante la extracción gradual de características y la creación de una nueva aplicación alrededor del sistema existente. Las características en la aplicación monolítica se reemplazan gradualmente por microservicios, y los usuarios de la aplicación pueden utilizar las características migradas progresivamente.</p>
-
-
-<h4 id="ventajas-del-patr%C3%B3n-strangler" tabindex="-1">Ventajas del patrón strangler</h4>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th><strong>Ventaja</strong></th>
-<th><strong>Descripción</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Migración incremental</td>
-<td>Minimiza el riesgo y la interrupción</td>
-</tr>
-<tr>
-<td>Uso de servicios de AWS</td>
-<td>Facilita la implementación práctica del patrón Strangler</td>
-</tr>
-<tr>
-<td>Planificación y comunicación</td>
-<td>Son vitales para el éxito de la migración</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-contenedores/">Microservicios en AWS utilizando contenedores</a></li><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/">arquitecturas multi-región en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-aws-lambda/">Microservicios en AWS utilizando AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/arquitecturas-dirigidas-por-eventos-en-aws/">arquitecturas dirigidas por eventos en AWS</a></li>
-</ul>
-</p>
+Las fechas y condiciones pueden cambiar. Si ya pasaron, usa la agenda para encontrar otras actividades.

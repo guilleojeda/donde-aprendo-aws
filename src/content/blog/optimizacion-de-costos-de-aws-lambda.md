@@ -1,292 +1,142 @@
 ---
-title: "Optimización de costos de AWS Lambda"
-description: "Consejos y estrategias para optimizar los costos de AWS Lambda sin sacrificar el rendimiento. Aprende a ajustar la memoria, el tiempo de ejecución y la concurrencia para reducir gastos."
+title: "Cómo optimizar costos de AWS Lambda: mide antes de cambiar"
+description: "Entiende qué se factura en AWS Lambda y compara memoria, arquitectura y concurrencia con una carga real, incluidos INIT y los servicios asociados."
 author: "guille-ojeda"
 publishedAt: "2024-03-19"
 publishedTimestamp: "2024-03-19T01:39:56.043Z"
-modifiedTimestamp: "2026-10-01T15:14:05-03:00"
+modifiedTimestamp: "2026-10-06T23:58:58-03:00"
+review:
+  date: "2026-10-06"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Configuración de service discovery en Amazon ECS"
-    url: "https://dondeaprendoaws.com/blog/configuracion-de-service-discovery-en-amazon-ecs/"
-  - title: "Tipos y tamaños de instancias EC2: guía completa"
-    url: "https://dondeaprendoaws.com/blog/tipos-y-tamanos-de-instancias-ec2-guia-completa/"
-  - title: "Certificación AWS gratis: materiales de estudio"
-    url: "https://dondeaprendoaws.com/blog/certificacion-aws-gratis-materiales-de-estudio/"
-
+  - title: "AWS Lambda: cómo medir costo y rendimiento"
+    url: "https://dondeaprendoaws.com/blog/aws-lambda-costo-vs-rendimiento/"
+  - title: "AWS Lambda: cómo funciona, invocaciones y concurrencia"
+    url: "https://dondeaprendoaws.com/blog/aws-lambda-en-profundidad/"
+  - title: "Concurrencia aprovisionada en AWS Lambda: cómo configurarla"
+    url: "https://dondeaprendoaws.com/blog/concurrencia-aprovisionada-solucion-a-cold-starts-en-aws-lambda/"
 ---
 
-<p>Si quieres reducir tus gastos en AWS Lambda sin sacrificar el rendimiento, estás en el lugar correcto. Aquí te presento un resumen de estrategias efectivas para optimizar costos:</p>
+Para optimizar los costos de AWS Lambda, mide primero qué parte de cada operación genera gasto y latencia; después compara una configuración por vez con entradas representativas. Más memoria puede reducir la duración de una función limitada por CPU, pero no garantiza una factura menor. El valor de timeout tampoco se cobra completo: establece el máximo que puede durar una invocación.
 
+Esta guía trata el modelo estándar de Lambda bajo demanda. Concurrencia aprovisionada, Lambda Managed Instances y otras modalidades tienen cargos distintos; revisa sus precios por separado antes de aplicar las fórmulas de abajo.
 
-<ul>
-<li><strong>Elije inteligentemente la memoria y el tiempo de ejecución</strong>: Ajusta la memoria y el tiempo de ejecución de tus funciones Lambda basándote en sus necesidades reales, comenzando con valores bajos y ajustando según sea necesario.</li>
-<li><strong>Aprovecha las capas Lambda y reusa entornos</strong>: Usa capas para compartir código y dependencias entre funciones, y configura tu entorno para reutilizar conexiones, reduciendo la latencia y el costo.</li>
-<li><strong>Monitorea y ajusta regularmente</strong>: Usa CloudWatch y herramientas como <code class="inline-code">optimize-lambda-cost</code> para analizar el rendimiento y los costos, ajustando la configuración para optimizar ambos.</li>
-<li><strong>Experimenta con la configuración</strong>: Aumentar la memoria puede hacer que tus funciones se ejecuten más rápido y por menos tiempo, lo que a menudo resulta en un menor costo general. Ajusta también la concurrencia y el tiempo de ejecución según tus necesidades.</li>
-</ul>
+## Qué se factura en una función bajo demanda
 
+En el modelo estándar, los principales cargos propios de Lambda son el número de solicitudes y la duración facturada, que depende de la memoria configurada. Lambda factura la memoria asignada, no solo la cantidad que alcanzó a ocupar el código. La tarifa cambia según la región, la arquitectura y el tramo de uso; consulta los [precios actuales de Lambda](https://aws.amazon.com/lambda/pricing/) para el cálculo de tu cuenta.
 
-<p>Con estos consejos, puedes encontrar el balance perfecto entre costo y rendimiento para tus funciones Lambda, aprovechando al máximo el cómputo sin servidores de AWS.</p>
+La duración se redondea al milisegundo. Desde el 1 de agosto de 2025, AWS también factura la fase de inicialización (**INIT**) en todas las configuraciones. Para invocaciones bajo demanda empaquetadas como ZIP con runtime administrado, el INIT ahora forma parte de <code>Billed Duration</code>. Usa ese campo de los registros <code>REPORT</code> para estimar consumo y no sumes <code>Init Duration</code> otra vez. La [nota de AWS sobre el cambio de facturación de INIT](https://aws.amazon.com/blogs/compute/aws-lambda-standardizes-billing-for-init-phase/) y la [guía del ciclo de vida](https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtime-environment.html) explican qué ocurre al preparar un entorno.
 
+Para una primera estimación del cómputo bajo demanda:
 
-<h3 id="memoria-asignada" tabindex="-1">Memoria asignada</h3>
+~~~text
+GB-segundos por invocación = (memoria configurada en MB / 1024)
+                             × (Billed Duration en ms / 1000)
 
+costo de cómputo = suma de GB-segundos facturables × tarifa de la región y arquitectura
+costo de solicitudes = solicitudes facturables × tarifa por solicitud
+~~~
 
-<p>Cuando usas AWS Lambda, le das a tu función una cantidad específica de memoria RAM. Esto es como decirle cuánto espacio tiene para trabajar. Si le das más memoria, tu función puede trabajar más rápido. Pero, esto también significa que pagarás más, porque AWS Lambda cobra según la memoria que uses y el tiempo que tu función esté en marcha.</p>
+Esta cuenta no incluye otros servicios ni es el modelo completo para concurrencia aprovisionada, Lambda Managed Instances, funciones durables o SnapStart. En particular, Lambda publica precios separados para algunas de esas modalidades; valida el tipo de cómputo antes de extrapolar.
 
+### Un ejemplo para comparar memoria
 
-<p>Lo mejor es encontrar el equilibrio perfecto: darle a tu función la memoria que realmente necesita. No demasiado para no gastar de más, pero tampoco tan poco que tu función se vuelva lenta.</p>
+Supón que una función tarda 500 ms con 512 MB y 200 ms con 1.024 MB. Son cifras hipotéticas para mostrar la cuenta, no una medición ni una promesa:
 
+| Configuración | GB-segundos por invocación |
+| --- | ---: |
+| 512 MB × 500 ms | 0,25 |
+| 1.024 MB × 200 ms | 0,20 |
 
-<p>AWS sugiere empezar con poca memoria, como 128MB o 256MB, y ver cómo funciona. Si notas que necesita más, puedes aumentarla poco a poco.</p>
+Con la misma arquitectura, número de solicitudes y tarifa por GB-segundo, la segunda configuración usaría menos cómputo por invocación. En otra función, aumentar memoria puede acelerar poco y elevar el consumo. Mide tu código y calcula el costo con la tarifa y los descuentos que corresponden a tu cuenta.
 
+## Timeout: un límite, no una reserva
 
-<h3 id="tiempo-de-ejecuci%C3%B3n" tabindex="-1">Tiempo de ejecución</h3>
+El timeout define cuánto espera Lambda antes de detener una invocación; no reserva ni factura por adelantado todos esos segundos. Si una ejecución termina antes, no paga el tiempo restante del límite. Si agota el timeout, sí consume recursos durante la ejecución que llegó a realizar y puede generar nuevos intentos según el invocador, el tipo de evento y la configuración de reintentos.
 
+Para el modelo estándar, el valor predeterminado es 3 segundos y puedes configurar entre 1 y 900 segundos. Elige un límite que permita terminar casos lentos válidos con cierto margen, y usa <code>Duration</code>, errores y latencia de la dependencia para investigar el problema. Reducir un timeout que casi nunca se alcanza no reduce por sí solo el costo; puede provocar fallos y reintentos. Consulta la [configuración de timeout](https://docs.aws.amazon.com/lambda/latest/dg/configuration-timeout.html). Lambda Managed Instances tiene reglas de duración diferentes para algunas invocaciones y otra estructura de precios.
 
-<p>El tiempo de ejecución es el límite de tiempo que tu función puede estar activa en una sola vez. Si se pasa de este tiempo, AWS la detiene automáticamente.</p>
+## Ajusta memoria con datos de tu carga
 
+Lambda asigna más CPU cuando aumentas la memoria, que se configura entre 128 MB y 10.240 MB. Esto puede ayudar a un proceso limitado por CPU, pero no necesariamente a una función que pasa el tiempo esperando una base de datos o una API. La [guía de memoria de AWS](https://docs.aws.amazon.com/lambda/latest/dg/configuration-memory.html) explica esta relación y recomienda observar consumo y duración.
 
-<p>El mínimo es de 1 segundo, y después de eso, AWS cobra por cada 100 milisegundos que tu función esté corriendo.</p>
+Antes de cambiar valores, guarda una referencia: versión de código y runtime, memoria, arquitectura, región, tamaño de las entradas, concurrencia y servicios llamados. Define qué debe mejorar —por ejemplo, el costo por operación correcta bajo una latencia p95 acordada— y registra duración, <code>Billed Duration</code>, <code>Init Duration</code>, memoria máxima usada, errores, timeouts y throttles. Para más detalle de costos por ajuste, sigue con [cómo medir costo y rendimiento de Lambda](https://dondeaprendoaws.com/blog/aws-lambda-costo-vs-rendimiento/).
 
+Prueba varias configuraciones de memoria con el mismo código y entradas. Repite la medición y evita ejecutar todas las variantes en paralelo si compiten por una base de datos u otro servicio limitado. Compara percentiles y errores además del promedio: una configuración rápida para una entrada pequeña puede fallar o volverse lenta ante un lote grande.
 
-<p>Igual que con la memoria, es importante ajustar este tiempo. No lo pongas tan corto que tu función no pueda terminar lo que tiene que hacer, pero tampoco tan largo que termines pagando de más sin necesidad.</p>
+Si necesitas investigar un cuello de botella antes de cambiar memoria, [Diagnóstico de AWS Lambda: guía para detectar y solucionar problemas de rendimiento](https://dev.to/aws-espanol/eleva-el-rendimiento-de-aws-lambda-7il), de Hazel Sáenz (4 de mayo de 2024), recorre CloudWatch, X-Ray y Logs Insights. Es una guía de observabilidad anterior al cambio de facturación de INIT: úsala para explorar señales y contrasta los cálculos de costo con la documentación actual de AWS enlazada aquí.
 
+### AWS Lambda Power Tuning
 
-<p>AWS aconseja comenzar con un tiempo corto y aumentarlo si ves que tus funciones no alcanzan a terminar.</p>
+[AWS Lambda Power Tuning](https://github.com/alexcasalboni/aws-lambda-power-tuning) es una herramienta de código abierto basada en Step Functions. Invoca la función objetivo con los valores de memoria que configures y presenta promedios de costo y duración para estrategias como costo, rapidez o equilibrio. AWS también la recomienda en su [guía de memoria](https://docs.aws.amazon.com/lambda/latest/dg/configuration-memory.html).
 
+La herramienta ejecuta tu función en tu cuenta: puede hacer llamadas HTTP y solicitudes con el SDK, además de crear cold starts. Por eso genera cargos de Lambda y Step Functions y podría escribir en sistemas reales o cargar una dependencia. Pruébala con una función y datos de ensayo seguros, comprueba sus efectos y permisos, limita las invocaciones y revisa los costos del estado de Step Functions. El gráfico ayuda a comparar configuraciones; no demuestra por sí solo que las salidas sean correctas ni que el tráfico de producción se comporte igual.
 
-<p>Ajustar bien la memoria y el tiempo de ejecución te ayuda a controlar tus gastos en Lambda, asegurando que no pagas de más sin perder rendimiento.</p>
+Para ver un recorrido en español, [Tunea tus funciones Lambda, de Camilo Cabrales](https://dev.to/cecamilo/tunea-tus-funciones-lambda-31a4) (9 de marzo de 2023) muestra un despliegue y una ejecución de Power Tuning. El tutorial antecede a la facturación actual de INIT; usa el repositorio del proyecto para confirmar los pasos vigentes y no tomes sus cifras de ejemplo como precios de hoy.
 
+### Compara x86_64 y arm64 por separado
 
-<h2 id="evaluaci%C3%B3n-del-rendimiento-actual" tabindex="-1">Evaluación del rendimiento actual</h2>
+La arquitectura <code>arm64</code> con AWS Graviton puede ofrecer una relación precio-rendimiento favorable, pero la diferencia depende de la función. Haz una prueba aparte con código y entradas equivalentes y consulta el precio aplicable a cada arquitectura.
 
+Antes de migrar, comprueba que tus dependencias nativas, capas y extensiones tengan una versión compatible. Las imágenes de contenedor también deben construirse para la arquitectura elegida. La [guía de AWS para arquitecturas Lambda](https://docs.aws.amazon.com/lambda/latest/dg/foundation-arch.html) detalla estas condiciones y recomienda probar el rendimiento antes de cambiar tráfico.
 
-<p>Para entender cómo están funcionando tus funciones Lambda y cuánto te están costando, es buena idea mirar los registros de CloudWatch. Estos registros te muestran cómo se comporta tu función cuando la usas en el mundo real.</p>
+## Concurrencia: controla capacidad, no la factura con un solo número
 
+La concurrencia es la cantidad de invocaciones que se procesan al mismo tiempo. Ajustarla puede proteger una base de datos o ayudar a cumplir un objetivo de latencia, pero no convierte automáticamente el uso en más barato.
 
-<p>Aquí tienes unos pasos sencillos para revisar esos registros:</p>
+| Configuración | Qué hace | Efecto en costos y capacidad |
+| --- | --- | --- |
+| **Concurrencia reservada** | Establece capacidad exclusiva para una función y limita su máximo de ejecuciones simultáneas. | Configurarla no tiene cargo adicional. La capacidad apartada no queda disponible para otras funciones y un límite demasiado bajo puede causar throttles. |
+| **Concurrencia aprovisionada** | Mantiene una cantidad de entornos inicializados antes de las solicitudes. | Añade un cargo por memoria, cantidad configurada y tiempo habilitado, redondeado a intervalos de cinco minutos. También se facturan solicitudes y duración; la capacidad excedida puede ejecutarse bajo demanda. |
 
+Usa concurrencia reservada para aislar capacidad o poner un tope cuando haya una razón de capacidad. Considera concurrencia aprovisionada si las mediciones muestran que los cold starts incumplen una meta de latencia. Se cobra mientras está habilitada aunque parte de esa capacidad no atienda tráfico, y el nivel gratuito de Lambda no aplica a funciones que la activan. La [documentación de escalado](https://docs.aws.amazon.com/lambda/latest/dg/lambda-concurrency.html) y los [precios de concurrencia aprovisionada](https://aws.amazon.com/lambda/pricing/#Provisioned_Concurrency_Pricing) describen esos cargos. Para pasos de configuración y métricas, consulta [la guía de concurrencia aprovisionada](https://dondeaprendoaws.com/blog/concurrencia-aprovisionada-solucion-a-cold-starts-en-aws-lambda/).
 
-<ul>
-<li>Abre CloudWatch en la consola de AWS y busca el grupo de registros de tu función Lambda. Cada vez que tu función se ejecuta, se crea un registro que muestra detalles como cuánto tiempo tardó y cuánta memoria usó.</li>
-<li>CloudWatch te permite hacer consultas en los registros. Así puedes ver, por ejemplo, cuánto tiempo tardan tus funciones en promedio.</li>
-<li>También puedes ver cómo la cantidad de memoria que asignaste afecta el rendimiento. Esto te ayuda a encontrar el balance perfecto entre lo rápido que quieres que corra tu función y cuánto estás dispuesto a pagar.</li>
-<li>Puedes configurar alarmas en CloudWatch para que te avise si tus funciones tienen muchos errores o si están tardando demasiado. Esto te ayuda a solucionar problemas rápidamente.</li>
-</ul>
+## Optimiza el flujo completo, no solo el handler
 
+En una API o un proceso por eventos, Lambda puede ser solo una parte de la factura. Haz un inventario de lo que el flujo crea o usa:
 
-<p>Otra herramienta que puedes usar es <a href="https://github.com/alexcasalboni/aws-lambda-power-tuning" rel="noopener noreferrer" target="_blank">optimize-lambda-cost</a>, que es gratuita y analiza tus registros para darte consejos sobre cuánta memoria y concurrencia deberías usar.</p>
+| Componente | Qué revisar |
+| --- | --- |
+| Registros, métricas y trazas | Volumen de logs, retención, consultas de Logs Insights y herramientas de observabilidad; revisa los [precios de CloudWatch](https://aws.amazon.com/cloudwatch/pricing/). |
+| Entrada HTTP | Solicitudes y transferencia de API Gateway; consulta sus [precios](https://aws.amazon.com/api-gateway/pricing/). |
+| Colas y orquestación | Solicitudes, sondeo y transiciones de SQS, EventBridge o Step Functions; consulta [SQS](https://aws.amazon.com/sqs/pricing/), [EventBridge](https://aws.amazon.com/eventbridge/pricing/) y [Step Functions](https://aws.amazon.com/step-functions/pricing/). Power Tuning también incurre en cargos de Step Functions. |
+| Red y transferencia | Tráfico entre servicios, salida a internet y NAT Gateway si tu arquitectura lo utiliza; revisa los [precios de VPC](https://aws.amazon.com/vpc/pricing/) y de transferencia asociados a la ruta. |
+| Almacenamiento y datos | Bases de datos, EFS y otros servicios que la función consulta o modifica. Cada uno tiene su propia tarifa. |
+| Espacio temporal <code>/tmp</code> | Los primeros 512 MB no tienen cargo adicional; el almacenamiento extra configurado se cobra según capacidad y duración. Los [precios de Lambda](https://aws.amazon.com/lambda/pricing/#Lambda_Ephemeral_Storage_Pricing) detallan la cuenta. |
 
+Las capas Lambda ayudan a empaquetar y compartir dependencias, pero por sí solas no reducen el costo de ejecución. Del mismo modo, AWS puede reutilizar un entorno después de una invocación, pero no garantiza que la próxima llamada use ese mismo entorno. Mide cualquier cambio de empaquetado, inicialización o reutilización en tu carga antes de contar un ahorro.
 
-<p>Siguiendo estos pasos, podrás tener una idea clara de cómo se están comportando tus funciones Lambda. Con esta información, puedes experimentar con diferentes configuraciones para mejorar el rendimiento y reducir los costos.</p>
+Para estimar la arquitectura completa, usa la [AWS Pricing Calculator](https://calculator.aws/) con región y servicios concretos. Cuando el flujo ya está activo, Cost Explorer ayuda a investigar lo que se facturó: puedes filtrar por Lambda y agrupar por tipo de uso. La guía interna [Cómo usar Cost Explorer para investigar costos](https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/) explica ese análisis; Cost Explorer no muestra los cargos en tiempo real.
 
+## Aprende con la comunidad AWS
 
-<h2 id="herramientas-y-estrategias-para-la-optimizaci%C3%B3n" tabindex="-1">Herramientas y estrategias para la optimización</h2>
+Un benchmark sirve más si otras personas pueden entender y cuestionar cómo se hizo. Comparte región, runtime, arquitectura, memoria, tipo y tamaño de entrada, cantidad de muestras, p50/p95, <code>Billed Duration</code>, errores y costo estimado. No publiques credenciales, datos de clientes ni cuerpos sensibles.
 
+La grabación [Deja de asumir: comparación de costos de Python, Go y Rust en serverless](https://www.youtube.com/watch?v=4UJLnLnxUwo) es del [canal de YouTube del AWS User Group Guatemala](https://www.youtube.com/@awsugguatemala), publicada el **25 de febrero de 2026**. Compara lenguajes en un contexto concreto; úsala para aprender el método y no como ahorro esperado para cualquier función.
 
-<h3 id="instalaci%C3%B3n" tabindex="-1">Instalación</h3>
+También puedes conversar con [AWS User Group Serverless Colombia](https://www.meetup.com/aws-user-group-serverless-colombia/) y preguntar por actividades o formas de participar. Dos sesiones en línea están anunciadas para octubre de 2026:
 
+- [EC2 vs Lambda](https://www.meetup.com/fb83c392-728a-42dc-9a3f-7d351301e452/events/315728721/), organizada por AWS User Group Tlaxcala FireflyCloud: **16 de octubre, 16:00–17:00, hora de México (UTC−6)**. Compara los dos modelos y sus costos.
+- [El Combo Indestructible de AWS: SQS + Lambda](https://www.meetup.com/aws-user-group-serverless-colombia/events/316770520/), de AWS User Group Serverless Colombia: **20 de octubre, 19:00–21:00, hora de Colombia (UTC−5)**. Trata el uso de colas y Lambda ante fallos.
 
-<p>Para empezar a usar la herramienta gratuita optimize-lambda-cost, que revisa los registros de tus funciones Lambda para darte consejos sobre cómo ahorrar, sigue estos pasos:</p>
+No hace falta encontrar un grupo dedicado exclusivamente a optimizar costos: un AWS User Group local también sirve para compartir una prueba, pedir una revisión o ayudar a reproducir un caso. Explora el [directorio de comunidades AWS en Latinoamérica](/comunidades/) y la [agenda de eventos](/eventos/) para encontrar otras actividades. Confirma fecha, modalidad e inscripción en cada ficha; las fechas de arriba pasarán.
 
+## Preguntas frecuentes
 
-<ul>
-<li>Primero, necesitas tener Go en tu computadora. Si no lo tienes, ve al <a href="https://golang.org/doc/install" rel="noopener noreferrer" target="_blank">sitio oficial de Go</a> y descárgalo.</li>
-<li>Luego, abre una terminal o línea de comandos y escribe esto:</li>
-</ul>
+### ¿Más memoria siempre reduce el costo?
 
+No. Aumenta la CPU y puede acortar la ejecución, pero solo una prueba representativa mostrará si la duración baja lo suficiente para compensar el mayor recurso asignado.
 
-<pre><code>go get -u -v github.com/iopipe/optimize-lambda-cost
-</code></pre>
+### ¿Si el timeout está en 10 segundos pago 10 segundos en cada llamada?
 
+No. Es el máximo permitido. Si la función termina antes, el límite no convierte el tiempo restante en cómputo facturado. Si alcanza el timeout, se factura el trabajo ejecutado y pueden existir reintentos.
 
-<ul>
-<li>Con esto, la herramienta se descargará e instalará en tu equipo.</li>
-</ul>
+### ¿La concurrencia reservada me cobra por las unidades sin usar?
 
+No tiene un cargo propio, pero aparta parte de la capacidad regional. La concurrencia aprovisionada sí añade cargos mientras está habilitada, incluso si queda ociosa.
 
-<h3 id="uso" tabindex="-1">Uso</h3>
+### ¿Qué significa el límite de 15 minutos?
 
-
-<p>Una vez instalada, puedes usar esta herramienta para revisar cómo están funcionando tus funciones Lambda y ver recomendaciones.</p>
-
-
-<p>Por ejemplo, si quieres revisar cómo ha estado trabajando tu función llamada "mi-funcion" durante las últimas 4 horas, escribe:</p>
-
-
-<pre><code>optimize-lambda-cost analyze -p perfil-con-permisos -f mi-funcion --since="4 horas"
-</code></pre>
-
-
-<p>Aquí:</p>
-
-
-<ul>
-<li><code class="inline-code">-p</code> es para decirle qué perfil de AWS CLI usar</li>
-<li><code class="inline-code">-f</code> es el nombre de tu función Lambda</li>
-<li><code class="inline-code">--since</code> es para ver los registros de las últimas 4 horas</li>
-</ul>
-
-
-<p>Esto te mostrará algo como:</p>
-
-
-<pre><code>Memoria sugerida basada en tu uso:
-Sugerencia para el percentil 25: 1280 MB
-Sugerencia para el percentil 50: 1408 MB
-Sugerencia para el percentil 75: 1536 MB
-</code></pre>
-
-
-<p>La herramienta te dirá cuánta memoria sería ideal darle a tu función según cómo la has usado. Así, puedes ajustarla para no gastar de más pero asegurarte de que funcione bien.</p>
-
-
-<p>Además, te muestra datos sobre cuánto tiempo toma ejecutar tu función, cuánta memoria usa, y cuánto te costaría por millón de solicitudes.</p>
-
-
-<p>Experimentando con diferentes ajustes y viendo estas métricas, puedes encontrar un buen equilibrio entre lo que gastas y cómo funciona tu función.</p>
-
-
-<h2 id="ajustes-pr%C3%A1cticos-de-configuraci%C3%B3n" tabindex="-1">Ajustes prácticos de configuración</h2>
-
-
-<p>Para que tus funciones de AWS Lambda te cuesten menos y trabajen mejor, hay algunos cambios sencillos que puedes hacer. Estos trucos te ayudan a mejorar cómo funcionan tus tareas y a gastar menos al mismo tiempo.</p>
-
-
-<h3 id="aumento-de-memoria" tabindex="-1">Aumento de memoria</h3>
-
-
-<p>Una manera muy eficaz de hacer que Lambda funcione mejor es darle más memoria a tus tareas. Si aumentas la memoria, tus tareas se pueden hacer más rápido y, por lo tanto, AWS te cobra menos tiempo.</p>
-
-
-<p>Por ejemplo, si pasamos de 512MB a 1024MB de memoria, el tiempo que tardan las tareas en hacerse puede bajar bastante:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Memoria</th>
-<th>Tiempo de Ejecución (percentil 99)</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>512MB</td>
-<td>18500 ms</td>
-</tr>
-<tr>
-<td>1024MB</td>
-<td>7300 ms</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Y si aumentamos la memoria a 2048MB, el costo por cada millón de tareas solo sube un poco, pero la velocidad mejora mucho.</p>
-
-
-<h3 id="ajuste-de-tiempo-de-ejecuci%C3%B3n" tabindex="-1">Ajuste de tiempo de ejecución</h3>
-
-
-<p>Reducir el tiempo máximo que puede durar una tarea también puede ayudarte a ahorrar. Si notas que tus tareas casi nunca usan todo el tiempo que les das, puedes bajar ese límite sin problemas.</p>
-
-
-<p>Por ejemplo, si tenías un límite de 5 segundos pero tus tareas suelen durar 3 segundos, puedes bajar el límite a 4 segundos. Esto te permite gastar menos sin que afecte cómo funcionan tus tareas.</p>
-
-
-<h3 id="concurrencia" tabindex="-1">Concurrencia</h3>
-
-
-<p>Manejar bien cuántas tareas se hacen al mismo tiempo (concurrencia) también es clave para ahorrar. Lo ideal es tener la concurrencia justa para tu trabajo, pero no tanta que termines pagando por cosas que no usas.</p>
-
-
-<p>Si ves que tu concurrencia está en 100 pero en realidad usas 50, puedes bajarla a 60 o 70. Así reduces costos sin perder rendimiento.</p>
-
-
-<p>Con estos ajustes y revisando cómo van tus tareas en CloudWatch Logs, puedes encontrar la mejor manera de configurar tus funciones Lambda para que sean eficientes y no gasten de más.</p>
-
-
-<h2 id="casos-de-uso-y-ejemplos-reales" tabindex="-1">Casos de uso y ejemplos reales</h2>
-
-
-<p>La optimización de costos de AWS Lambda puede ser muy efectiva en ciertos casos de uso comunes:</p>
-
-
-<h3 id="procesamiento-por-lotes-as%C3%ADncrono" tabindex="-1">Procesamiento por lotes asíncrono</h3>
-
-
-<p>AWS Lambda es ideal para tareas asíncronas como procesamiento por lotes, donde las tareas se activan por eventos de diferentes fuentes. Algunos ejemplos son:</p>
-
-
-<ul>
-<li>Procesar archivos subidos a un bucket S3</li>
-<li>Enviar notificaciones por email basadas en eventos de una base de datos</li>
-<li>Generar reportes diarios con datos agregados</li>
-</ul>
-
-
-<p>En estos casos, Lambda te permite correr tu código solo cuando es necesario, sin la necesidad de mantener servidores funcionando todo el tiempo. Y si optimizas la configuración como mencionamos antes, puedes reducir bastante los costos.</p>
-
-
-<h3 id="apis-y-backends-serverless" tabindex="-1">APIs y backends serverless</h3>
-
-
-<p>Las funciones Lambda también son útiles para crear APIs y backends que se ajustan automáticamente según la demanda. Por ejemplo:</p>
-
-
-<ul>
-<li>Una API para una aplicación móvil que consulta una base de datos</li>
-<li>Un servicio backend para procesar peticiones de un sitio web</li>
-</ul>
-
-
-<p>Si configuras bien los tiempos de espera, la memoria y la concurrencia según el tráfico esperado, Lambda puede manejar estas tareas de manera eficiente y económica.</p>
-
-
-<h3 id="casos-donde-la-optimizaci%C3%B3n-es-m%C3%A1s-dif%C3%ADcil" tabindex="-1">Casos donde la optimización es más difícil</h3>
-
-
-<p>Existen situaciones donde reducir costos en Lambda puede ser más complicado:</p>
-
-
-<ul>
-<li>Tareas que necesitan mucho procesamiento de CPU durante tiempos prolongados. Aquí es mejor usar instancias EC2.</li>
-<li>Trabajos que deben estar siempre activos o que necesitan mantener un estado. Lambda se reinicia desde cero cada vez que se ejecuta.</li>
-<li>Cuando los requisitos de rendimiento son muy estrictos o se necesita una latencia muy baja. A veces, optimizar para reducir costos puede afectar el rendimiento.</li>
-</ul>
-
-
-<p>En resumen, Lambda es una opción excelente para ahorrar en tareas asíncronas, procesamiento por lotes, APIs y backends. Pero no es la mejor para trabajos que requieren un esfuerzo constante, tareas con estado o cuando la latencia debe ser mínima. Conociendo estos límites, puedes aprovecharlo al máximo.</p>
-
-
-<h2 id="conclusiones" tabindex="-1">Conclusiones</h2>
-
-
-<p>Para ahorrar en AWS Lambda y seguir teniendo un buen rendimiento, hay algunas cosas clave que puedes hacer:</p>
-
-
-<ul>
-<li>Mira cómo estás usando los recursos ahora y ajusta la memoria y el tiempo de ejecución según lo que necesites.</li>
-<li>Usa herramientas como CloudWatch Logs y optimize-lambda-cost para que te den consejos específicos.</li>
-<li>Si le das más memoria a tus tareas, pueden correr más rápido.</li>
-<li>Si tu código casi nunca usa todo el tiempo de ejecución que le das, intenta reducirlo.</li>
-<li>Asegúrate de que la cantidad de tareas que haces al mismo tiempo (concurrencia) sea la adecuada para lo que realmente necesitas.</li>
-</ul>
-
-
-<p>Siguiendo estos consejos y encontrando el balance correcto entre rendimiento y costo, puedes gastar menos en AWS Lambda. Esto significa que puedes disfrutar de las ventajas de usar cómputo sin servidores sin pagar de más.</p>
-
-
-<p>Es buena idea mirar cada situación por separado y probar diferentes ajustes, siempre viendo cómo afectan al rendimiento y al costo. Tomar decisiones basadas en datos te ayudará a optimizar Lambda de la mejor manera.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/utilizando-lambda-layers-en-multiples-funciones-lambda/">Utilizando Lambda layers en múltiples funciones Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a serverless en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ec2/">Mejores prácticas para Amazon EC2</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/">Mejores prácticas para AWS Lambda</a></li>
-</ul>
-</p>
+Para el modelo estándar, una invocación puede durar hasta 900 segundos. Lambda Managed Instances permite hasta 5.400 segundos para algunas invocaciones asíncronas y de mapeos de eventos, con excepciones; tiene otro modelo de precios. Revisa el [límite de timeout](https://docs.aws.amazon.com/lambda/latest/dg/configuration-timeout.html) y la documentación de [Lambda Managed Instances](https://docs.aws.amazon.com/lambda/latest/dg/lambda-managed-instances.html) antes de diseñar un proceso largo.
