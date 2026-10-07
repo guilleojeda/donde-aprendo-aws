@@ -1,99 +1,126 @@
 ---
-title: "Monitoreo y logs de AWS Step Functions: guía 2024"
-description: "Aprende a monitorear y gestionar logs en AWS Step Functions para optimizar el rendimiento y detectar problemas rápidamente."
+title: "Cómo monitorear y depurar AWS Step Functions con CloudWatch"
+description: "Guía para revisar historiales Standard y Express, configurar CloudWatch Logs, consultar ejecuciones con Logs Insights y crear alertas para AWS Step Functions."
 author: "guille-ojeda"
 publishedAt: "2024-11-26"
 publishedTimestamp: "2024-11-26T19:49:41.97Z"
+modifiedTimestamp: "2026-10-07T00:03:47-03:00"
+review:
+  date: "2026-10-07"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
-related:
-  - title: "Estructuras multi-cuenta AWS para escalar"
-    url: "https://dondeaprendoaws.com/blog/estructuras-multi-cuenta-aws-para-escalar/"
-  - title: "AWS SMS vs AWS MGN: comparación 2024"
-    url: "https://dondeaprendoaws.com/blog/aws-sms-vs-aws-mgn-comparacion-2024/"
-  - title: "9 mejores prácticas de seguridad para IaC en AWS"
-    url: "https://dondeaprendoaws.com/blog/9-mejores-practicas-de-seguridad-para-iac-en-aws/"
-
+related: []
 ---
 
-<p>El monitoreo y los logs en <strong><a href="https://docs.aws.amazon.com/step-functions/">AWS Step Functions</a></strong> son esenciales para garantizar que tus flujos de trabajo funcionen correctamente. Aquí tienes lo más importante:</p>
-<ul><li><strong>¿Por qué es importante?</strong><br/>Te permite identificar problemas rápidamente, mejorar el rendimiento y mantener registros para auditorías y seguridad.</li><li><strong>Herramientas clave:</strong><ul><li><strong><a href="https://docs.aws.amazon.com/cloudwatch/">Amazon CloudWatch</a>:</strong> Monitorea métricas y configura alertas.</li><li><strong>CloudWatch Logs:</strong> Guarda registros detallados para análisis.</li><li><strong>Consola de Step Functions:</strong> Visualiza el estado de cada flujo en tiempo real.</li></ul></li><li><strong>Cómo configurarlo:</strong><ul><li>Activa métricas como <code>ExecutionsStarted</code> y <code>ExecutionsTimedOut</code>.</li><li>Usa niveles de logs (<code>ALL</code>, <code>ERROR</code>, <code>FATAL</code>) según tus necesidades.</li><li>Crea dashboards personalizados en CloudWatch para una vista clara.</li></ul></li><li><strong><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">mejores prácticas</a>:</strong><ul><li>Establece una línea base de rendimiento.</li><li>Optimiza la retención de logs para reducir costos.</li><li>Correlaciona eventos con otros servicios de AWS como Lambda o EventBridge.</li></ul></li></ul>
-<p>El monitoreo no es solo recolectar datos, es entenderlos y usarlos para mejorar. ¡Empieza con estas herramientas para mantener tus flujos bajo control!</p>
-<h2 id="video-relacionado-de-youtube">Video relacionado de YouTube</h2>
-<div><iframe allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen="" height="315" loading="lazy" src="https://www.youtube-nocookie.com/embed/04GjxhXNwN4" title="Video de YouTube" width="560"></iframe></div>
-<h2 id="c%C3%B3mo-configurar-el-monitoreo-y-los-logs-para-aws-step-functions">Cómo configurar el monitoreo y los logs para <a href="https://docs.aws.amazon.com/step-functions/">AWS Step Functions</a></h2>
-<p><img alt="AWS Step Functions" src="/assets/blog/1fb235ac7df301b0424cdf8f.jpg"/></p>
-<p>El monitoreo y los logs en AWS Step Functions te permiten rastrear tus flujos de trabajo y detectar problemas. Veamos cómo implementarlo con <strong>Amazon CloudWatch</strong>.</p>
-<h3 id="configuraci%C3%B3n-de-amazon-cloudwatch">Configuración de <a href="https://docs.aws.amazon.com/cloudwatch/">Amazon CloudWatch</a></h3>
-<p><img alt="Amazon CloudWatch" src="/assets/blog/ef8880b6b6afeaa43311f2f4.jpg"/></p>
-<p>CloudWatch recibe automáticamente las métricas principales de Step Functions. Las que más te interesarán son:</p>
-<ul><li><code>ExecutionsStarted</code>: Cuántas ejecuciones comenzaron</li><li><code>ExecutionsTimedOut</code>: Cuántas ejecuciones se pasaron del tiempo límite</li></ul>
-<p>Para flujos de trabajo <strong>Express</strong>, necesitas un paso extra: crear y asignar un grupo de logs en CloudWatch. Una vez configurado, podrás usar <a href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/AnalyzingLogData.html">CloudWatch Logs Insights</a> para analizar tus datos mediante consultas específicas.</p>
-<p>La consola de Step Functions te muestra el historial de ejecuciones de forma diferente según el tipo de flujo:</p>
-<ul><li>Los flujos <strong>Standard</strong> te dan acceso completo al historial</li><li>Los flujos <strong>Express</strong> muestran un historial básico, pero puedes ver más detalles en CloudWatch</li></ul>
-<h3 id="comprensi%C3%B3n-de-los-niveles-de-logs">Comprensión de los niveles de logs</h3>
-<p>Los niveles de logs te ayudan a controlar qué información quieres ver en CloudWatch:</p>
-<ul><li><strong>ALL</strong>: Es la opción por defecto para flujos <strong>Express</strong>. Registra todo lo que pasa.</li><li><strong>ERROR</strong>: Solo guarda los fallos. Perfecto si solo quieres ver qué salió mal.</li><li><strong>FATAL</strong>: Se centra en problemas graves que podrían tumbar tu sistema.</li></ul>
-<p><strong>¿Recién empiezas?</strong> Usa el nivel <code>ALL</code>. Podrás ver todo lo que sucede y después ajustar según lo que necesites.</p>
-<h3 id="optimizaci%C3%B3n-del-monitoreo">Optimización del monitoreo</h3>
-<p>Para sacar el máximo provecho:</p>
-<ol><li>Crea <a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/">alarmas en CloudWatch</a> para que te avise cuando algo importante suceda</li><li>Diseña paneles que muestren tus métricas clave</li><li>Revisa cada cuánto tiempo quieres guardar los logs para no gastar de más</li></ol>
-<p>Con estos ajustes, tendrás un sistema de monitoreo efectivo que te ayudará a mantener tus flujos de trabajo funcionando sin problemas.</p>
-<h2 id="t%C3%A9cnicas-avanzadas-para-el-monitoreo-y-los-logs">Técnicas avanzadas para el monitoreo y los logs</h2>
-<p>Vamos a ver cómo sacar el máximo provecho al monitoreo y los logs en AWS Step Functions con técnicas que van más allá de lo básico.</p>
-<h3 id="seguimiento-de-m%C3%A9tricas-de-flujos-abiertos-en-cloudwatch">Seguimiento de métricas de flujos abiertos en CloudWatch</h3>
-<p>CloudWatch te ayuda a mantener tus flujos bajo control y detectar problemas antes de que se vuelvan críticos. Así es cómo puedes aprovecharlo:</p>
-<p>Ve a la consola de CloudWatch, busca las métricas de Step Functions en la sección "States" y configura alarmas con umbrales específicos. Cuando algo no va bien, recibirás una notificación y podrás actuar rápido.</p>
-<h3 id="correlaci%C3%B3n-de-eventos-con-otros-servicios-de-aws">Correlación de eventos con otros servicios de AWS</h3>
-<p>Cuando trabajas con varios servicios de AWS, necesitas ver el panorama completo. La correlación de eventos te permite conectar los puntos cuando las cosas no salen según lo planeado.</p>
-<h4 id="integraci%C3%B3n-con-eventbridge">Integración con EventBridge</h4>
-<p>Para conectar tus eventos, sigue estos pasos en EventBridge:</p>
-<ul><li>Crea una regla nueva para capturar eventos de Step Functions</li><li>Configura dónde quieres enviar estos eventos (por ejemplo, a un tema SNS)</li></ul>
-<h4 id="ejemplo-de-correlaci%C3%B3n-de-eventos">Ejemplo de correlación de eventos</h4>
-<p>Piensa en esto: tienes un flujo que usa funciones Lambda. Si algo falla, EventBridge puede ayudarte a ver si el problema está en Lambda o en el flujo mismo. Es como tener un detective que sigue las pistas entre diferentes servicios.</p>
-<h3 id="creaci%C3%B3n-de-dashboards-personalizados-en-cloudwatch">Creación de dashboards personalizados en CloudWatch</h3>
-<p>Un buen dashboard es como el panel de control de tu coche: te muestra todo lo que necesitas saber de un vistazo. Así puedes crear el tuyo:</p>
-<ol><li>Entra en la sección Dashboards de CloudWatch</li><li>Añade elementos útiles como:<ul><li>Gráficos de rendimiento</li><li>Registros de errores importantes</li><li>Estado de tus alarmas</li></ul></li></ol>
-<p><strong>Consejo práctico</strong>: Organiza tu dashboard como una historia. Pon los indicadores más importantes arriba y agrupa los elementos relacionados. Esto te ayudará a detectar problemas más rápido y entender mejor qué está pasando en tus flujos de trabajo.</p>
-<p>Por ejemplo, si ves un pico en los errores junto con alertas específicas, podrás conectar los puntos y resolver el problema antes de que tus usuarios lo noten.</p>
-<h2 id="mejores-pr%C3%A1cticas-para-el-monitoreo-y-los-logs-de-aws-step-functions">Mejores prácticas para el monitoreo y los logs de AWS Step Functions</h2>
-<p>El monitoreo y los logs son elementos clave para mantener tus flujos de trabajo en AWS Step Functions funcionando sin problemas. Veamos cómo sacarles el máximo provecho mientras mantienes los costos bajo control.</p>
-<h3 id="creaci%C3%B3n-de-una-l%C3%ADnea-base-de-rendimiento">Creación de una línea base de rendimiento</h3>
-<p>¿Cómo saber si tu flujo de trabajo está funcionando correctamente? La respuesta está en establecer una línea base de rendimiento. Es como tomar una "foto" del comportamiento normal de tu sistema.</p>
-<p><strong>Para armar una línea base efectiva:</strong></p>
-<p>Observa el comportamiento de tus flujos en diferentes momentos - durante las horas pico y en períodos tranquilos. Es como conocer cómo respira tu aplicación durante el día y la noche.</p>
-<p>Las métricas que no puedes dejar de ver son:</p>
-<ul><li><code>ActivitiesStarted</code> y <code>ActivitiesTimedOut</code></li><li><code>ExecutionsStarted</code> y <code>ExecutionsTimedOut</code></li><li><code>LambdaFunctionsStarted</code> y <code>LambdaFunctionsTimedOut</code></li></ul>
-<p>Configura alertas en Amazon CloudWatch para que te avise cuando algo se salga de lo normal. Por ejemplo, si <code>ExecutionsTimedOut</code> sube más de lo esperado, probablemente hay algo que necesita tu atención.</p>
-<p><strong>Caso práctico:</strong> Un sitio de e-commerce usa esta línea base para detectar problemas. Si los tiempos de ejecución suben de repente, puede ser señal de un cuello de botella o que una API externa está fallando.</p>
-<h3 id="gesti%C3%B3n-de-la-retenci%C3%B3n-de-logs-y-los-costos">Gestión de la retención de logs y los costos</h3>
-<p>Los logs son como el historial médico de tu aplicación - necesitas guardarlos, pero no para siempre. La clave está en encontrar el balance entre tener la información que necesitas y mantener los costos bajo control.</p>
-<p><strong>¿Cómo optimizar tus logs?</strong></p>
-<p>Piensa en cuánto tiempo necesitas guardar tus logs. ¿30 días son suficientes para tus auditorías? Ajusta los niveles de log (<code>ALL</code>, <code>ERROR</code>, <code>FATAL</code>) según lo que realmente necesites ver.</p>
-<p><strong>Tip pro:</strong> Usa etiquetas en tus recursos de CloudWatch Logs si trabajas con varios equipos o proyectos. Es como poner nombre a tus carpetas - te ayuda a ver rápidamente qué está consumiendo más recursos y dónde puedes ajustar.</p>
-<p>CloudWatch Logs Insights es tu mejor amigo para analizar los logs y entender dónde se van tus costos. Es como tener una lupa que te ayuda a ver los patrones en tus datos.</p>
-<h2 id="resumen-y-recursos-adicionales">Resumen y recursos adicionales</h2>
-<h3 id="puntos-clave-del-monitoreo">Puntos clave del monitoreo</h3>
-<p>El monitoreo y los logs en <strong>AWS Step Functions</strong> son elementos clave para mantener tus flujos de trabajo funcionando sin problemas. Veamos lo que hemos aprendido:</p>
-<p><strong>Amazon CloudWatch</strong> es tu mejor aliado - funciona como los ojos y oídos de tus aplicaciones, permitiéndote ver exactamente qué está pasando en tiempo real.</p>
-<p>¿Qué hace que el monitoreo sea TAN importante? Simple: te ayuda a:</p>
-<ul><li>Detectar problemas antes de que afecten a tus usuarios</li><li>Entender cómo se comportan tus flujos de trabajo</li><li>Tomar decisiones basadas en datos reales</li></ul>
-<p>Una combinación ganadora es usar CloudWatch junto con <strong><a href="https://docs.aws.amazon.com/cloudtrail/">AWS CloudTrail</a></strong> - es como tener un sistema de videovigilancia para tus aplicaciones. Te muestra quién hizo qué y cuándo lo hizo.</p>
-<h3 id="recursos-para-seguir-aprendiendo">Recursos para seguir aprendiendo</h3>
-<p>¿Quieres profundizar más? <strong>Dónde Aprendo AWS</strong> (https://dondeaprendoaws.com) es el sitio perfecto si hablas español. Es como tener un profesor particular de AWS que explica todo paso a paso, desde lo básico hasta temas más complejos.</p>
-<p>Para práctica hands-on, no te pierdas el <strong><a href="https://workshops.aws/categories/AWS%20Step%20Functions">AWS Step Functions Workshop</a></strong>. El <strong>Módulo 12</strong> es especialmente útil - te enseña todo sobre CloudWatch en acción.</p>
-<p>Y por supuesto, la <a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">documentación oficial de AWS</a> siempre está ahí cuando necesites los detalles técnicos específicos. Es como tener el manual del usuario definitivo.</p>
-<p>Recuerda: el monitoreo no es solo sobre recolectar datos - es sobre entenderlos y usarlos para mejorar tus aplicaciones. Con estas herramientas y recursos, estás bien equipado para mantener tus flujos de trabajo funcionando de manera óptima.</p>
-<h2 id="faqs">FAQs</h2>
-<h3 id="%C2%BFc%C3%B3mo-verificar-una-step-function-en-aws%3F">¿Cómo verificar una step function en AWS?</h3>
-<p>La consola de <strong>AWS Step Functions</strong> te permite monitorear tus flujos de trabajo a través de la sección <strong>Executions</strong>. Aquí podrás ver:</p>
-<ul><li>El diseño completo de la máquina de estados</li><li>El estatus actual de cada ejecución</li><li>El ARN (Amazon Resource Name) específico</li><li>Las transiciones entre estados</li><li>Los datos que entran y salen en cada paso del proceso</li></ul>
-<p>¿Necesitas resolver un problema en tu flujo? Es tan simple como abrir el historial de ejecuciones. Podrás ver exactamente dónde ocurrió el error y qué información se estaba procesando en ese momento.</p>
-<h3 id="%C2%BFcu%C3%A1les-son-los-niveles-de-logs-de-step-functions%3F">¿Cuáles son los niveles de logs de Step Functions?</h3>
-<p><strong>AWS Step Functions</strong> te ofrece estos niveles de registro:</p>
-<ul><li><strong>ALL</strong>: Captura cada evento sin excepción</li><li><strong>ERROR</strong>: Solo registra cuando algo sale mal</li><li><strong>FATAL</strong>: Únicamente eventos que detienen todo el proceso</li><li><strong>OFF</strong>: Sin registro de eventos</li></ul>
-<p>Para flujos <strong>Express</strong>, te recomendamos usar <strong>ALL</strong> como nivel de logs. ¿Por qué? Porque tendrás una vista completa de todo lo que sucede. Y si necesitas analizar patrones específicos, <strong>CloudWatch Logs Insights</strong> te permite hacer búsquedas detalladas.</p>
-<p><strong>¿Sabías que...?</strong> Los flujos estándar mantienen su historial por <strong>90 días</strong>. ¿Necesitas guardar datos por más tiempo? Configura tus flujos Express para enviar logs a <strong>Amazon CloudWatch</strong> - ahí podrás conservarlos durante el tiempo que necesites.</p>
-<h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/observabilidad-en-aws-con-amazon-x-ray/">Observabilidad en AWS con Amazon X-Ray</a></li><li><a href="https://dondeaprendoaws.com/blog/comprendiendo-aws-step-functions/">Comprendiendo AWS Step Functions</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/">Mejores prácticas de observabilidad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/como-habilitar-cloudwatch-logs-en-api-gateway-guia-paso-a-paso/">Cómo habilitar CloudWatch Logs en API Gateway: guía paso a paso</a></li></ul>
+Para depurar una ejecución de **AWS Step Functions**, abre su historial en la consola si es Standard; si es Express, configura **Amazon CloudWatch Logs**, porque Step Functions no conserva allí el historial. Usa las métricas de CloudWatch para detectar tendencias y alarmas, y Logs Insights para buscar eventos concretos. **Standard conserva el historial durante 90 días después de finalizar la ejecución, por defecto; Express depende de los registros de CloudWatch para mostrarlo.**
+
+## Standard y Express guardan el historial de forma distinta
+
+- **Standard:** Step Functions conserva el historial y permite consultar ejecuciones completadas durante 90 días por defecto. CloudWatch Logs es opcional: actívalo si quieres enviar los eventos también a CloudWatch o consultarlos con Logs Insights.
+- **Express:** Step Functions no conserva el historial. La consola lo reconstruye desde el grupo de CloudWatch Logs. Configura el registro si necesitas inspeccionar ejecuciones; sin esos logs no tendrás el historial detallado.
+
+Para Express, la consola muestra por defecto las ejecuciones de las últimas tres horas. Puedes ampliar el intervalo, pero las consultas que revisan más datos pueden aumentar el costo de analizar logs. Si borras el grupo de logs, las ejecuciones Express dejan de aparecer en la pestaña **Executions**. Una cuenta puede solicitar a AWS reducir de 90 a 30 días la retención del historial Standard para una región. Consulta [cómo se presentan las ejecuciones Standard y Express](https://docs.aws.amazon.com/step-functions/latest/dg/concepts-view-execution-details.html) y [las cuotas del historial](https://docs.aws.amazon.com/step-functions/latest/dg/service-quotas.html).
+
+Los logs de Step Functions se entregan a CloudWatch Logs **con el mejor esfuerzo**: AWS no garantiza que lleguen todos ni cuándo llegarán. No los uses como registro de auditoría completo. Si un flujo Express necesita conservar cada resultado por un requisito operativo o de negocio, guarda esos datos en un almacenamiento duradero dentro del propio flujo. En Standard puedes recuperar el historial mediante `GetExecutionHistory`; esa API no está disponible para Express. [AWS detalla estas garantías y alternativas](https://docs.aws.amazon.com/step-functions/latest/dg/cw-logs.html).
+
+Si todavía estás decidiendo qué tipo de flujo usar, revisa [la guía de Step Functions y la comparación entre Standard y Express](https://dondeaprendoaws.com/blog/comprendiendo-aws-step-functions/).
+
+## Configura CloudWatch Logs para ver los pasos
+
+Al crear una máquina Standard desde la consola, Step Functions no la configura automáticamente para enviar logs. La consola configura el envío de logs para Express con nivel `ALL` de forma predeterminada; si creas cualquiera de los dos tipos mediante API, CLI o CloudFormation, el nivel queda en `OFF` hasta que configures el registro y los permisos. Comprueba la configuración efectiva antes de investigar una ejecución.
+
+Este fragmento corresponde a `LoggingConfiguration` al crear o actualizar una máquina. Usa un grupo de CloudWatch Logs preparado en la región de la máquina, reemplaza `REGION`, `ACCOUNT_ID` y `MI_FLUJO`, y termina el ARN del grupo en `:*`, como indica la [referencia de `CreateStateMachine`](https://docs.aws.amazon.com/step-functions/latest/apireference/API_CreateStateMachine.html).
+
+```json
+{
+  "level": "ALL",
+  "includeExecutionData": false,
+  "destinations": [
+    {
+      "cloudWatchLogsLogGroup": {
+        "logGroupArn": "arn:aws:logs:REGION:ACCOUNT_ID:log-group:/aws/vendedlogs/states/MI_FLUJO:*"
+      }
+    }
+  ]
+}
+```
+
+El nivel `ALL` registra todos los tipos de eventos de ejecución. `ERROR` conserva eventos de error, `FATAL` registra fallos de la ejecución y `OFF` desactiva el registro. Con `ERROR` o `FATAL`, los detalles que la consola puede reconstruir para Express son parciales. El nivel no decide si también se guardan los datos de entrada y salida: eso lo controla `includeExecutionData`. En el ejemplo está en `false` para no copiar esos datos potencialmente sensibles a los logs. Si necesitas verlos para depurar, evalúa si el payload contiene información personal, credenciales o datos de negocio y limita quién puede consultar el grupo antes de habilitarlos.
+
+El rol de ejecución de la máquina necesita los permisos de CloudWatch Logs documentados por AWS, entre ellos `logs:CreateLogDelivery`, `logs:PutLogEvents`, `logs:DescribeLogGroups` y permisos para administrar la entrega. La política de ejemplo de AWS usa `Resource: "*"` porque varias de esas acciones no permiten limitar el recurso a un grupo de logs. Revisa la [política y los pasos de solución de problemas de acceso](https://docs.aws.amazon.com/step-functions/latest/dg/cw-logs.html). Si hay muchos grupos, el prefijo `/aws/vendedlogs/states/` ayuda a evitar que las políticas de recursos de CloudWatch Logs excedan su límite.
+
+Si defines la máquina como infraestructura, [esta grabación sobre AWS SAM](https://www.youtube.com/watch?v=nDOOP_aV5Us) muestra cómo declarar una máquina Step Functions con ASL. Se publicó en 2022 y no es una guía específica de `LoggingConfiguration`; consulta la [documentación actual de Step Functions con SAM](https://docs.aws.amazon.com/step-functions/latest/dg/concepts-sam-sfn.html) para adaptar la plantilla y los permisos.
+
+Los eventos pueden contener `input`, `output` y variables asignadas. Si los datos enviados a CloudWatch superan los límites aplicables, se truncan; inspecciona `inputDetails`, `outputDetails` o `assignedVariablesDetails` y su campo `truncated`. Para el historial Standard completo, usa `GetExecutionHistory`. Para payloads grandes, pasa referencias de Amazon S3 en el flujo en vez de depender de una copia truncada en los logs. Revisa [el detalle del truncamiento](https://docs.aws.amazon.com/step-functions/latest/apireference/API_HistoryEventExecutionDataDetails.html) y [las alternativas para cargas grandes](https://docs.aws.amazon.com/step-functions/latest/dg/sfn-best-practices.html).
+
+Los registros de Step Functions describen los eventos de la máquina de estados. Los registros de una tarea, como la salida de una función Lambda, pertenecen al servicio que la ejecuta y se consultan en su grupo de logs. La vista de ejecución de Step Functions ofrece enlaces a esos registros para las tareas que los generan. Para familiarizarte con los logs que publican las aplicaciones serverless, esta [grabación sobre CloudWatch y logs estructurados](https://www.youtube.com/watch?v=UBPPGJaBIVY) muestra una perspectiva complementaria, con ejemplos de 2022 para logs de aplicación; no configura el historial de Step Functions.
+
+El historial indica qué estado falló y qué datos intercambió cada paso. Si además necesitas examinar la latencia entre llamadas a servicios, consulta la [guía de trazas con AWS X-Ray y OpenTelemetry](https://dondeaprendoaws.com/blog/observabilidad-en-aws-con-amazon-x-ray/). Step Functions admite trazas para máquinas Standard y Express cuando X-Ray está habilitado; la cobertura depende del soporte o la instrumentación de cada integración, y no incluye las ejecuciones hijas de un `Map` distribuido. X-Ray aplica muestreo, así que una ejecución sin traza no demuestra por sí sola que no haya ocurrido. Revisa [las condiciones y límites actuales](https://docs.aws.amazon.com/step-functions/latest/dg/concepts-xray-tracing.html) antes de interpretar una traza como evidencia de todas las llamadas.
+
+## Busca fallos y duraciones con Logs Insights
+
+En CloudWatch Logs Insights, selecciona el grupo configurado para la máquina y limita el intervalo al período que estás investigando. Esta consulta adaptada a partir del ejemplo de AWS muestra la hora, el ARN de ejecución y los fallos Express recientes:
+
+```text
+fields @timestamp, execution_arn, type
+| filter type in ["ExecutionFailed", "ExecutionAborted", "ExecutionTimedOut"]
+| sort @timestamp desc
+| limit 100
+```
+
+El ARN permite localizar la ejecución concreta en la consola de Step Functions y revisar su estado y causa.
+
+Para ordenar ejecuciones por duración y ver su último estado registrado, usa esta consulta oficial:
+
+```text
+fields ispresent(execution_arn) as exec_arn
+| filter exec_arn
+| filter type in ["ExecutionStarted", "ExecutionSucceeded", "ExecutionFailed", "ExecutionAborted", "ExecutionTimedOut"]
+| stats latest(type) as status,
+    tomillis(earliest(event_timestamp)) as UTC_starttime,
+    tomillis(latest(event_timestamp)) as UTC_endtime,
+    latest(event_timestamp) - earliest(event_timestamp) as duration_in_ms by execution_arn
+| sort duration_in_ms desc
+```
+
+La consulta de fallos adapta los campos del ejemplo oficial; la consulta de duración está copiada de la [guía de solución de problemas de Express](https://docs.aws.amazon.com/step-functions/latest/dg/troubleshooting.html). Las operaciones `fields`, `filter`, `sort` y `limit` pertenecen al [lenguaje de consulta de Logs Insights](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CWL_QuerySyntax.html). Ejecuta la consulta de duración sobre un intervalo con ejecuciones finalizadas: si una ejecución sigue abierta, no habrá un evento terminal; si faltan eventos por la entrega de mejor esfuerzo, el tiempo calculado puede ser menor que la duración real. Los registros también pueden llegar tarde. Logs Insights cobra por los datos que analiza: elige solo los grupos necesarios y un rango de tiempo acotado. Revisa las [tarifas de CloudWatch Logs](https://aws.amazon.com/cloudwatch/pricing/) y establece una política de retención adecuada para cada grupo.
+
+## Vigila métricas y configura alarmas
+
+Step Functions publica métricas en el espacio `AWS/States`. Para observar una máquina específica, filtra por la dimensión `StateMachineArn`. Tanto Standard como Express emiten métricas de estado como `ExecutionsFailed` y `ExecutionsTimedOut`. **`ExecutionThrottled` sirve para investigar retrasos por la cuota de transiciones Standard**; Express no tiene el mismo límite de tasa de transiciones. Express también publica métricas específicas como `ExpressExecutionBilledDuration` y `ExpressExecutionBilledMemory` para revisar el tiempo y la memoria facturados. CloudWatch puede crear una alarma sobre una métrica y notificar por Amazon SNS cuando se cumple el umbral.
+
+Para métricas de conteo, AWS recomienda la estadística `Sum`. No uses `SampleCount` como cantidad exacta de ejecuciones: Step Functions emite dos puntos para cada `ExecutionsStarted`, y otras métricas de estado pueden repetirse por su entrega al menos una vez. Además, las métricas llegan con el mejor esfuerzo, pueden retrasarse y no equivalen a un registro contable completo. Úsalas para seguimiento operativo y alarmas, y confirma la causa en el historial o los logs. Consulta [las métricas, dimensiones y alarmas de Step Functions](https://docs.aws.amazon.com/step-functions/latest/dg/procedure-cw-metrics.html).
+
+El umbral de una alarma depende de lo que sea normal para tu carga. Por ejemplo, puedes alertar cuando `ExecutionsFailed` sea mayor que cero durante el período de evaluación que tenga sentido para el proceso. Ajusta el período y las acciones para que respondan al objetivo operativo de tu aplicación; no conviertas una alarma en una suposición de que cada métrica llegará a tiempo.
+
+Para repasar el diseño de alarmas como infraestructura, puedes ver la [grabación de Marcia Villalba sobre CloudWatch Alarms](https://www.youtube.com/watch?v=uS0QE0NeqpA), publicada en 2022. Es material general, no una guía específica de Step Functions; verifica los nombres actuales de las métricas en la documentación enlazada arriba.
+
+## Usa EventBridge para reaccionar al estado de la ejecución
+
+EventBridge recibe de Step Functions el evento `Step Functions Execution Status Change` en el bus predeterminado. **Solo los flujos Standard envían este evento** y representa cambios en el estado de una ejecución, no cada transición entre estados. EventBridge entrega estos eventos con el mejor esfuerzo y pueden llegar desordenados. Sirven para notificar o iniciar una respuesta automatizada; no reemplazan el historial de ejecución ni el almacenamiento duradero.
+
+Este patrón coincide con ejecuciones fallidas, vencidas o abortadas de una máquina concreta:
+
+```json
+{
+  "source": ["aws.states"],
+  "detail-type": ["Step Functions Execution Status Change"],
+  "detail": {
+    "status": ["FAILED", "TIMED_OUT", "ABORTED"],
+    "stateMachineArn": ["arn:aws:states:REGION:ACCOUNT_ID:stateMachine:MI_FLUJO"]
+  }
+}
+```
+
+Asocia la regla a un destino, por ejemplo SNS, y configura sus permisos. El evento es un aviso sobre el estado de la ejecución; abre el historial Standard para averiguar qué estado produjo el fallo. Para Express, usa los registros de CloudWatch. Consulta [la referencia de eventos de Step Functions en EventBridge](https://docs.aws.amazon.com/step-functions/latest/dg/eventbridge-integration.html), que incluye la forma del evento y ejemplos de patrones.
+
+## Sigue aprendiendo y practica en comunidad
+
+- Para una práctica guiada, consulta el [AWS Step Functions Workshop](https://catalog.workshops.aws/stepfunctions/en-US), disponible en inglés. Antes de ejecutar los módulos, revisa qué recursos crean, sus permisos, posibles cargos y las instrucciones de limpieza.
+- La grabación [Aprende sobre máquinas de estado con AWS Step Functions](https://www.youtube.com/watch?v=rvhOKO-XROs), del AWS User Group Guatemala, muestra conceptos y una demostración de consola. Es de 2023; úsala para repasar el servicio y verifica la configuración actual en la documentación.
+- Si buscas una comunidad para hacer preguntas y conversar sobre AWS, visita el [AWS User Group Buenos Aires](https://www.meetup.com/aws-user-group-buenos-aires/). Su página tiene una sección de discusiones y enlaces a sus canales.
+- El archivo de [eventos y grabaciones de AWS Women Colombia](https://awswomencolombia.com/page/eventos) permite explorar sesiones técnicas en español y seguir sus próximas actividades. La página enlaza su grupo de Meetup y su canal de YouTube; las grabaciones corresponden a encuentros pasados.
+- Si quieres ampliar el tema hacia la resiliencia de aplicaciones serverless, AWS User Group Serverless Colombia anuncia el encuentro virtual [El Combo Indestructible de AWS: SQS + Lambda](https://www.meetup.com/aws-user-group-serverless-colombia/events/316770520/). La ficha consultada indica martes 20 de octubre de 2026, 19:00 (hora de Colombia) y acceso libre; confirma fecha y condiciones en Meetup. El encuentro es sobre SQS y Lambda, no sobre Step Functions.
+
+Si la ejecución cruza servicios y necesitas encontrar todos sus eventos mediante un identificador común, sigue con [la guía para correlacionar eventos con `correlationId`](https://dondeaprendoaws.com/blog/correlacion-de-eventos-con-step-functions-y-cloudwatch/).
