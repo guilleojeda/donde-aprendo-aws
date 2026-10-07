@@ -1,329 +1,119 @@
 ---
-title: "Mejores prácticas para AWS Lambda"
-description: "Consejos clave para optimizar y asegurar tus aplicaciones sin servidor con AWS Lambda. Aprende a simplificar tu código, configurar cuidadosamente y monitorear tu función para un rendimiento óptimo."
+title: "Mejores prácticas para AWS Lambda: reintentos, concurrencia y seguridad"
+description: "Guía práctica de AWS Lambda: reutiliza recursos sin compartir datos entre solicitudes, maneja reintentos con idempotencia, protege dependencias y mide memoria, logs y SnapStart."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:26:48.732Z"
+modifiedTimestamp: "2026-10-06T23:48:20-03:00"
+review:
+  date: "2026-10-06"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "7 estrategias para mitigar cold starts en AWS Lambda"
+  - title: "AWS Lambda: cómo funciona, invocaciones y concurrencia"
+    url: "https://dondeaprendoaws.com/blog/aws-lambda-en-profundidad/"
+  - title: "Cold starts en AWS Lambda: cómo medirlos y reducir su impacto"
     url: "https://dondeaprendoaws.com/blog/7-estrategias-para-mitigar-cold-starts-en-aws-lambda/"
-  - title: "Utilizando Lambda layers en múltiples funciones Lambda"
-    url: "https://dondeaprendoaws.com/blog/utilizando-lambda-layers-en-multiples-funciones-lambda/"
-  - title: "Ingeniería de caos en AWS con fault injection simulator"
-    url: "https://dondeaprendoaws.com/blog/ingenieria-de-caos-en-aws-con-fault-injection-simulator/"
-
+  - title: "AWS Lambda: cómo medir costo y rendimiento"
+    url: "https://dondeaprendoaws.com/blog/aws-lambda-costo-vs-rendimiento/"
 ---
 
-<p>Para lograr el máximo rendimiento y seguridad en tus aplicaciones sin servidor con AWS Lambda, sigue estas estrategias clave:</p>
+Las mejores prácticas para AWS Lambda empiezan por una pregunta: **¿quién invoca la función y qué hará ese servicio si algo falla?** Esa respuesta determina cómo configurar reintentos, duplicados, concurrencia y alarmas. A partir de ahí puedes mejorar el rendimiento sin exponer datos ni enviar más trabajo del que tus dependencias soportan.
 
+Esta guía se refiere al modo de cómputo predeterminado de Lambda. Si eliges **Lambda Managed Instances**, revisa su modelo: varias invocaciones pueden ejecutarse en el mismo entorno al mismo tiempo, por lo que el estado mutable requiere aislamiento y seguridad entre hilos. La guía de [Lambda y sus tipos de invocación y concurrencia](https://dondeaprendoaws.com/blog/aws-lambda-en-profundidad/) explica cómo ubicar esa configuración en el flujo de tu aplicación.
 
-<ul>
-<li><strong>Simplifica tu código</strong>: Separa la lógica principal de tu función Lambda del controlador para facilitar las pruebas y el mantenimiento.</li>
-<li><strong>Optimiza el uso de recursos</strong>: Reutiliza conexiones y entornos de ejecución y minimiza el tamaño del paquete de tu función.</li>
-<li><strong>Configura cuidadosamente</strong>: Elige la cantidad de memoria adecuada y usa AWS Lambda Power Tuning para un rendimiento óptimo.</li>
-<li><strong>Monitorea y asegura tu función</strong>: Implementa métricas y alarmas con CloudWatch y asegura tu aplicación desde el diseño, utilizando AWS Security Hub para revisiones de seguridad.</li>
-<li><strong>Mejora el rendimiento con SnapStart</strong>: Asegúrate de restablecer las conexiones de red y precargar clases importantes para reducir la latencia.</li>
-</ul>
+## Elige y mantén un runtime compatible
 
+Usa una versión de runtime admitida y planifica la migración antes de su fecha de deprecación. La [lista de runtimes de Lambda](https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtimes.html) publica las fechas previstas; pueden cambiar, así que consulta la tabla vigente en cada actualización. Las versiones en vista previa no son una opción para cargas de producción.
 
-<p>AWS Lambda es ideal para aplicaciones que requieren alta adaptabilidad y eficiencia sin la carga de manejar servidores. Soporta varios lenguajes de programación como Java, Go, PowerShell, Node.js, C#, Python, y Ruby, ofreciendo flexibilidad para tus proyectos. Emplea estas mejores prácticas para aprovechar al máximo las capacidades de AWS Lambda, mejorando la seguridad, rendimiento y eficiencia de tus aplicaciones.</p>
+En runtimes administrados, Lambda aplica actualizaciones de runtime automáticamente por defecto. Eso mantiene el runtime al día con parches, pero no sustituye la migración entre versiones principales del lenguaje. Si despliegas una imagen de contenedor, debes reconstruirla desde una imagen base actualizada y volver a desplegarla. Incluye pruebas de compatibilidad en tu flujo de actualización y evita depender de paquetes internos no documentados del runtime.
 
+## Reutiliza recursos, no datos de cada solicitud
 
-<h2 id="c%C3%B3mo-mejorar-tus-funciones-lambda" tabindex="-1">Cómo mejorar tus funciones Lambda</h2>
+Lambda puede reutilizar un entorno de ejecución para invocaciones posteriores de la misma función. Inicializa fuera del handler lo costoso y estable, como clientes de AWS SDK, configuración y conexiones a bases de datos. Así puedes aprovechar esa reutilización sin depender de que el entorno siga disponible: Lambda puede detenerlo en cualquier momento y crear otro.
 
+Separa la validación del evento, la lógica de negocio y la respuesta del handler. Para un procesador de órdenes, por ejemplo, valida la estructura recibida, ejecuta una función de negocio con datos explícitos y devuelve el resultado esperado por el invocador. Esa separación facilita probar la lógica con entradas representativas sin desplegar la integración completa.
 
-<p>Consejos para hacer tu código de función Lambda más eficiente y fácil de manejar.</p>
+No guardes en variables globales datos de un usuario, el evento actual, autorizaciones ni resultados que deban pertenecer a una sola solicitud. El estado permanente debe ir a un almacenamiento duradero; el directorio `/tmp` sirve para datos temporales de un entorno, no para compartir estado ni conservarlo como respaldo. Una variable global puede conservar un valor entre invocaciones reutilizadas y mezclar información si se trata como almacenamiento de sesión.
 
+Las conexiones inactivas pueden cerrarse. Configura el keep-alive apropiado para tu runtime y trata una conexión fallida como algo que debes validar o volver a abrir; no supongas que una conexión creada durante la inicialización sigue viva. AWS resume estas pautas en sus [prácticas recomendadas para Lambda](https://docs.aws.amazon.com/lambda/latest/dg/best-practices.html).
 
-<h3 id="separar-el-controlador-de-lambda-de-la-l%C3%B3gica-del-n%C3%BAcleo" tabindex="-1">Separar el controlador de Lambda de la lógica del núcleo</h3>
+## Diseña reintentos e idempotencia según el invocador
 
+Lambda no aplica una única política de reintentos a todas las funciones. En una invocación síncrona, el cliente decide si reintenta. En una invocación asíncrona, Lambda vuelve a intentar por defecto dos veces los errores de la función. En los mapeos de fuentes de eventos, el comportamiento depende de la fuente: SQS vuelve a entregar mensajes según su tiempo de visibilidad y su política de redrive; los flujos como Kinesis o DynamoDB Streams pueden reintentar un lote y bloquear el shard afectado mientras persista un error. Consulta la política específica de tu disparador en la documentación de [reintentos de Lambda](https://docs.aws.amazon.com/lambda/latest/dg/invocation-retries.html).
 
-<p>Hacer esto hace más fácil probar y mantener tu código. Si pones la parte principal de tu función Lambda en un lugar separado, puedes probarla sin tener que usar todo el controlador. También te permite usar la misma parte principal en diferentes funciones Lambda, lo que hace todo más ordenado.</p>
+En móvil, desplaza las tablas hacia los lados para ver todas las columnas.
 
+| Tipo de invocación | Qué debes revisar |
+| --- | --- |
+| Síncrona, por ejemplo desde una API | El cliente recibe la respuesta o el error y controla el reintento. Define un timeout coherente entre cliente, API y función. |
+| Asíncrona, como un evento de S3 o EventBridge | Revisa intentos, antigüedad máxima del evento y destino de fallos o DLQ; una función con errores puede acumular eventos. |
+| Mapeo de una cola o un flujo | Define lotes, retención, reintentos y destino para los registros fallidos. En SQS, configura el tiempo de visibilidad al menos seis veces mayor que el timeout de la función y, si usas una ventana de lote, suma también `MaximumBatchingWindowInSeconds`; consulta la [configuración oficial de SQS con Lambda](https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-configure.html). |
 
-<p>Por ejemplo:</p>
+Asume que un evento puede llegar más de una vez, incluso si tu handler terminó parte del trabajo antes de fallar. Para evitar cobrar dos veces o repetir una operación, vuelve idempotente la acción de negocio:
 
+1. Elige una clave estable del negocio, como `orderId` más el tipo de operación. No uses el ID de invocación de Lambda: cambia en cada intento.
+2. Registra esa clave de forma persistente y atómica antes de aplicar el efecto. Guarda también el resultado y define cuánto tiempo debe considerarse duplicado según la ventana de reintentos y reprocesamiento.
+3. Si la misma clave ya se completó, devuelve o reutiliza el resultado sin repetir el efecto. Decide qué hacer si otra ejecución todavía la está procesando o si la ejecución anterior falló.
+4. Si llamas a un sistema externo, pásale la misma clave de idempotencia cuando lo admita. Lambda no puede hacer atómica una escritura local y un cobro remoto por sí sola.
 
-<pre><code>exports.handler = function(event, context, callback) {
-  var result = miFuncion(event);
-  callback(null, result);
-}
+Puedes implementar el registro con una escritura condicional en un almacén duradero o usar una utilidad de idempotencia de AWS Lambda Powertools adecuada a tu runtime. Por ejemplo, la [guía de Powertools para Python](https://docs.aws.amazon.com/powertools/python/latest/utilities/idempotency/) describe la clave, la caducidad, la gestión de errores y el almacenamiento persistente.
 
-function miFuncion(event) {
-  // aquí va la parte principal
-}
-</code></pre>
+Si procesas una tanda SQS y falla un solo mensaje, por defecto pueden volver a la cola también los que ya se procesaron. Con `ReportBatchItemFailures`, la función puede indicar solo los mensajes fallidos para reintentarlos. Configura esa respuesta en el mapeo y en el handler, y conserva la idempotencia: una respuesta parcial reduce trabajo repetido, pero no elimina todas las entregas duplicadas. La guía de AWS explica [cómo manejar errores de una fuente SQS](https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-errorhandling.html).
 
+## Usa la concurrencia como límite de capacidad
 
-<h3 id="reutilizar-el-entorno-de-ejecuci%C3%B3n-para-mejorar-el-rendimiento" tabindex="-1">Reutilizar el entorno de ejecución para mejorar el rendimiento</h3>
+La concurrencia es el número de invocaciones que están en curso al mismo tiempo. Como estimación inicial para solicitudes individuales, puedes usar:
 
+```text
+concurrencia aproximada = solicitudes por segundo × duración media en segundos
+```
 
-<p>Esto ayuda a evitar el tiempo extra que toma iniciar un nuevo contenedor cada vez que alguien usa tu función. Configura tu función Lambda para que mantenga abiertas las conexiones y recursos entre usos, en vez de cerrar todo después de cada uso. Esto hace que todo funcione más rápido porque no tiene que empezar de cero cada vez.</p>
+Con 40 solicitudes por segundo y una duración media de 0,25 segundos, la estimación es 10 invocaciones concurrentes. Usa el pico esperado y vuelve a medir con la distribución real; los lotes de eventos y los límites de la fuente cambian el cálculo.
 
+Lambda escala automáticamente, pero una base de datos o API externa puede tener un límite menor. **La concurrencia reservada** reserva capacidad de la cuenta para una función y también limita su máximo; puede proteger una dependencia de demasiadas solicitudes, pero una cifra demasiado baja genera throttling o acumulación en la fuente. Comprueba métricas y cuotas de tu cuenta y región antes de fijarla. La [guía oficial de concurrencia](https://docs.aws.amazon.com/lambda/latest/dg/lambda-concurrency.html) describe ambos lados de ese control.
 
-<p>Pero, cuidado de no guardar información de un uso para otro, para no mezclar datos de diferentes usuarios.</p>
+**La concurrencia aprovisionada** inicializa entornos con anticipación para reducir latencia de arranque. Tiene cargos mientras está configurada; no hace más rápida una consulta externa ni elimina el trabajo del handler. Mídela frente al objetivo de latencia y el patrón de tráfico antes de habilitarla.
 
+Evita ciclos de invocación involuntarios, por ejemplo, que una función escriba en un recurso que la vuelve a disparar sin condición de salida. Un bucle de eventos puede multiplicar invocaciones y costos. Añade límites o filtros cuando el flujo requiera volver a invocar la misma función y alerta sobre un crecimiento anormal.
 
-<h3 id="utilizar-variables-de-entorno-para-pasar-par%C3%A1metros" tabindex="-1">Utilizar variables de entorno para pasar parámetros</h3>
+## Ajusta memoria y costo con mediciones
 
+La memoria también determina el CPU disponible: aumentarla puede acelerar cálculos, procesamiento de archivos o trabajo limitado por CPU, y a veces reduce la duración facturada. Si la función pasa el tiempo esperando una dependencia lenta, asignarle más CPU puede no resolver el cuello de botella. Revisa memoria utilizada, duración y latencia de extremo a extremo con entradas similares a las reales.
 
-<p>Es mejor no poner información fija directamente en el código. Usa variables de entorno para esto. Así, si necesitas cambiar algo, puedes hacerlo fácilmente sin tener que actualizar toda la función.</p>
+Para elegir una configuración, registra una línea base y cambia una variable por vez. Compara memoria, arquitectura y número de invocaciones con el mismo código y datos representativos; mide también errores y operaciones completadas, no solo la duración de ejecuciones exitosas. La guía de [costo y rendimiento de Lambda](https://dondeaprendoaws.com/blog/aws-lambda-costo-vs-rendimiento/) ayuda a interpretar duración facturada y costo por operación.
 
+AWS Lambda Power Tuning es una herramienta de código abierto que despliega una máquina de estados de Step Functions y ejecuta tu función con distintas asignaciones de memoria. **Invoca código real en tu cuenta**, incluidas sus llamadas HTTP y de AWS; usa una función de prueba sin efectos como pagos o envíos, limita el número de ejecuciones y considera los cargos de Lambda y Step Functions. El proyecto explica sus [parámetros y costos](https://github.com/alexcasalboni/aws-lambda-power-tuning). No lo trates como una prueba gratis ni como una garantía de que la configuración ganadora en un ensayo será la mejor con tráfico de producción.
 
-<h3 id="minimizar-el-tama%C3%B1o-del-paquete-y-evitar-c%C3%B3digo-recursivo" tabindex="-1">Minimizar el tamaño del paquete y evitar código recursivo</h3>
+## Protege secretos, permisos y datos de entrada
 
+Usa variables de entorno para parámetros operativos que cambian entre ambientes, como un nombre de tabla o un nivel de log. Para credenciales, tokens y claves, AWS recomienda [Secrets Manager](https://docs.aws.amazon.com/lambda/latest/dg/with-secrets-manager.html) en lugar de variables de entorno. Limita la política de acceso del rol de ejecución a las acciones y recursos que la función necesita. Si hay una política que permite a otro servicio invocarla, delimítala al servicio, cuenta o recurso que corresponda.
 
-<p>Esto ayuda a que tu función inicie más rápido y cueste menos de ejecutar.</p>
+Valida el formato, tamaño y valores esperados del evento antes de usarlo. Los disparadores y clientes son parte de tu perímetro: no asumas que un evento es confiable solo porque proviene de una integración AWS. No escribas en logs contraseñas, tokens, cabeceras de autorización, datos personales ni el cuerpo completo de cada evento. Revisa también la retención de los logs, porque contienen información operativa de la aplicación.
 
+## Observa fallos, retrasos y latencia de arranque
 
-<ul>
-<li>Trata de usar solo las dependencias y bibliotecas que realmente necesitas. Esto hace que todo sea más rápido y más barato.</li>
-<li>Evita usar código que se llama a sí mismo de manera que no puedas controlar. Esto puede terminar costando mucho.</li>
-</ul>
+Lambda puede enviar logs a CloudWatch Logs si el rol de ejecución tiene los permisos necesarios. Emite mensajes estructurados con el ID de solicitud, la clave de negocio y un resultado resumido; esos campos ayudan a correlacionar intentos sin registrar datos sensibles. Las tarifas estándar de CloudWatch Logs aplican al almacenamiento y análisis. Si el volumen de logs se vuelve un problema, el artículo de Andres Moreno sobre [búfer de logs con Lambda Powertools](https://andmore.dev/es/blog/log-buffering/) demuestra el buffer y su descarga ante errores. Es opcional: el buffer tiene un límite y puede descartar los mensajes más antiguos cuando se llena, así que conserva la evidencia necesaria y prueba su comportamiento antes de depender de él.
 
+Mira señales distintas para problemas distintos: `Errors` cuenta errores del código o runtime; `Throttles` se publica por separado y no se incluye en `Errors`; `ConcurrentExecutions` muestra ejecuciones simultáneas. La métrica `Duration` mide el tiempo del código y **no incluye el cold start**. Para detectar retrasos, combina estas señales con las de la fuente: `AsyncEventAge` para invocaciones asíncronas, `IteratorAge` para fuentes de flujo o la antigüedad del mensaje más antiguo de SQS. Configura alarmas con el objetivo de servicio de tu aplicación, no con umbrales universales. Consulta los [tipos de métricas de Lambda](https://docs.aws.amazon.com/lambda/latest/dg/monitoring-metrics-types.html) y el flujo de [logs de función a CloudWatch](https://docs.aws.amazon.com/lambda/latest/dg/monitoring-cloudwatchlogs.html). Para recorrer una línea base y el diagnóstico de cuellos de botella en español, [Hazel Sáenz explica cómo diagnosticar el rendimiento de Lambda para AWS Español](https://dev.to/aws-espanol/eleva-el-rendimiento-de-aws-lambda-7il); usa la documentación vigente para confirmar métricas, costos y configuración.
 
-<h2 id="configuraci%C3%B3n-de-la-funci%C3%B3n" tabindex="-1">Configuración de la función</h2>
+También puedes profundizar con las grabaciones de [observabilidad en aplicaciones Serverless](https://www.youtube.com/watch?v=UdBDmelLlOQ) y [CloudWatch Alarms](https://www.youtube.com/watch?v=uS0QE0NeqpA), del canal de Marcia Villalba, Desplegando Cloud. Son material complementario; revisa las opciones actuales en la documentación oficial antes de cambiar la configuración.
 
+Si la demora ocurre antes de que empiece el handler, mide el tiempo de inicialización en los logs y la latencia que observa el cliente. La guía de [cold starts en Lambda](https://dondeaprendoaws.com/blog/7-estrategias-para-mitigar-cold-starts-en-aws-lambda/) explica cuándo investigar esa fase y cuándo probar SnapStart.
 
-<p>Aquí te damos unos consejos para que tu función Lambda funcione mejor y te cueste menos.</p>
+## Evalúa SnapStart solo si tu función es compatible
 
+SnapStart guarda una instantánea del estado de memoria y disco de un entorno inicializado para restaurarlo en nuevos entornos. Reduce parte de la latencia de inicialización; no acelera automáticamente el handler ni las dependencias externas. A la fecha de revisión, los runtimes administrados compatibles son **Java 11 o posterior, Python 3.12 o posterior y .NET 8 o posterior**, junto con sus imágenes base de Lambda correspondientes. Confirma el soporte de tu runtime, imagen y región en la [documentación de SnapStart](https://docs.aws.amazon.com/lambda/latest/dg/snapstart.html) antes de elegirlo.
 
-<h3 id="elegir-la-configuraci%C3%B3n-de-memoria-%C3%B3ptima" tabindex="-1">Elegir la configuración de memoria óptima</h3>
+Hay restricciones concretas: SnapStart se activa en versiones publicadas y alias que apuntan a una versión, no en `$LATEST`. No es compatible con concurrencia aprovisionada, Amazon EFS, Amazon S3 Files ni almacenamiento efímero por encima de 512 MB. Revisa también el precio de almacenamiento y restauración de instantáneas; las condiciones varían por runtime.
 
+El snapshot puede copiar el estado que tu código generó durante la inicialización. No generes allí valores que deban ser únicos para cada entorno, como IDs, secretos o semillas de aleatoriedad; crea esos valores después de restaurar o usa un hook de runtime compatible. Las conexiones establecidas durante la inicialización tampoco tienen un estado garantizado al restaurar: valídalas y vuelve a abrirlas cuando haga falta. En muchos casos las conexiones del AWS SDK se reanudan automáticamente. Los hooks son mecanismos del ciclo de vida de SnapStart; no existe un `onStartup` genérico para arreglar cada conexión.
 
-<p>Es clave probar cómo va tu función Lambda para ver cómo balancear bien el costo y cómo funciona. Si le das más memoria, también va a tener más capacidad de procesamiento. Usa CloudWatch para ver cuánta memoria usa y si necesitas ajustarla.</p>
+## Continúa con recursos, comunidades y eventos
 
+Para practicar la selección de memoria en español, [Camilo Cabrales explica cómo probar AWS Lambda Power Tuning](https://dev.to/cecamilo/tunea-tus-funciones-lambda-31a4). Es una guía publicada en 2023; úsala para entender el experimento y verifica los parámetros frente a la versión actual de la herramienta. [Diana Alfaro muestra cómo revisar ejecuciones concurrentes con CloudWatch](https://blog.alfalfita.cloud/identificando-ejecuciones-concurrentes-de-lambdas-sobre-una-cuenta-con-amazon-cloudwatch), con una fórmula y un gráfico de ejemplo.
 
-<p>Te sugerimos probar <a href="https://github.com/alexcasalboni/aws-lambda-power-tuning" rel="noopener noreferrer" target="_blank">AWS Lambda Power Tuning</a>, una herramienta gratis que te ayuda a encontrar la mejor configuración de memoria para tus funciones. También, si tu función necesita mucho poder de procesamiento, considera usar bibliotecas que aprovechen Advanced Vector Extensions 2 (AVX2).</p>
+Puedes consultar actividades y participar en [AWS User Group Serverless Colombia](https://www.meetup.com/aws-user-group-serverless-colombia/), que organiza encuentros sobre AWS y serverless, o en [AWS User Group Buenos Aires](https://www.meetup.com/aws-user-group-buenos-aires/), una comunidad general de usuarios AWS. El [directorio de comunidades AWS por país](/comunidades/) te ayuda a encontrar grupos más cercanos o con otros temas. Para seguir novedades y otros recursos en español, [Desplegando.cloud, de Marcia Villalba](https://desplegando.substack.com/), publica un boletín y podcast sobre AWS y Serverless.
 
-
-<h3 id="utilizar-aws-lambda-power-tuning" tabindex="-1">Utilizar AWS Lambda Power Tuning</h3>
-
-
-<p><a href="https://github.com/alexcasalboni/aws-lambda-power-tuning" rel="noopener noreferrer" target="_blank">AWS Lambda Power Tuning</a> es una herramienta gratis que te ayuda a encontrar la mejor manera de configurar los recursos para tu función Lambda, según lo que necesitas hacer. Hace pruebas con diferentes configuraciones y te dice cuál es la mejor combinación de memoria y capacidad de procesamiento para tu caso.</p>
-
-
-<p>Es buena idea usar esta herramienta cuando estás ajustando tu función Lambda para asegurarte de que estás usando la configuración más eficiente.</p>
-
-
-<h3 id="usar-los-permisos-m%C3%A1s-restrictivos-posibles" tabindex="-1">Usar los permisos más restrictivos posibles</h3>
-
-
-<p>Cuando configures los permisos para tu función Lambda, es importante dar solo los permisos que realmente necesita para acceder a los recursos que usa. Esto hace que tu función sea más segura.</p>
-
-
-<p>Revisa bien qué recursos necesita tu función y limita los permisos solo a eso. También es buena idea revisar de vez en cuando los permisos para quitar los que ya no se usan. Entre más limitados sean los permisos, más segura será tu función.</p>
-
-
-<h2 id="m%C3%A9tricas%2C-monitoreo-y-alarmas" tabindex="-1">Métricas, monitoreo y alarmas</h2>
-
-
-<p>Es muy importante mantener un ojo en cómo van las cosas con tus funciones Lambda para asegurarte de que todo funcione bien y para encontrar problemas antes de que se hagan grandes.</p>
-
-
-<h3 id="utilizar-m%C3%A9tricas-de-lambda-y-cloudwatch-alarms" tabindex="-1">Utilizar métricas de Lambda y CloudWatch Alarms</h3>
-
-
-<p>Las métricas de Lambda junto con las alarmas de CloudWatch te ayudan a ver cómo están tus funciones Lambda y te avisan si algo no va bien.</p>
-
-
-<ul>
-<li>La métrica <code class="inline-code">Duration</code> te dice cuánto tiempo toman tus funciones en hacer su trabajo. Si ves que están tardando mucho, puedes poner una alarma para saberlo.</li>
-<li>Con la métrica <code class="inline-code">Errors</code>, puedes ver cuántas veces tus funciones no funcionan como deben. Si de repente hay muchos errores, puedes recibir una alerta.</li>
-<li>También es buena idea ver cuántas veces se llaman tus funciones, cuánta memoria usan y cosas así.</li>
-</ul>
-
-
-<p>Esto te ayuda a encontrar problemas rápidamente y a mantener tus funciones corriendo suavemente.</p>
-
-
-<h3 id="implementar-librer%C3%ADas-de-logs-para-una-mejor-detecci%C3%B3n-de-errores" tabindex="-1">Implementar librerías de logs para una mejor detección de errores</h3>
-
-
-<p>Usar librerías de logs, como <a href="https://logging.apache.org/log4j/2.x/" rel="noopener noreferrer" target="_blank">log4j</a>, te permite mandar información sobre lo que pasa en tus funciones a CloudWatch Logs. Esto hace más fácil encontrar y solucionar problemas.</p>
-
-
-<p>Algunos consejos:</p>
-
-
-<ul>
-<li>Escribe en los logs información sobre lo que entra y sale de tus funciones.</li>
-<li>Usa diferentes niveles de importancia en tus logs, como DEBUG, INFO, WARN, ERROR.</li>
-<li>Asegúrate de registrar los errores y los detalles de por qué pasaron.</li>
-<li>No olvides añadir información extra que te pueda ayudar a entender mejor el problema, como identificadores únicos de las ejecuciones.</li>
-</ul>
-
-
-<p>Con toda esta información en un solo lugar, puedes buscar y analizar fácilmente lo que pasó si algo no funciona bien. Esto te da una buena idea de cómo están funcionando tus funciones y te ayuda a solucionar problemas más rápidamente.</p>
-
-
-
-
-<h2 id="seguridad-en-aws-lambda" tabindex="-1">Seguridad en AWS Lambda</h2>
-
-
-<h3 id="monitorear-lambda-con-aws-security-hub" tabindex="-1">Monitorear Lambda con AWS Security Hub</h3>
-
-
-<p>AWS Security Hub te ayuda a mantener tus funciones Lambda seguras al revisar si todo está configurado correctamente según las normas de seguridad importantes como PCI DSS e ISO. Te permite:</p>
-
-
-<ul>
-<li>Verificar que la configuración de tus Lambda cumpla con estándares de seguridad.</li>
-<li>Detectar si has dado más permisos de los necesarios, o si tienes variables de entorno que no están protegidas.</li>
-<li>Juntar todas las alertas de seguridad en un solo lugar para que no se te pase nada.</li>
-<li>Conectar con otras herramientas como Amazon CloudWatch para tener una mejor idea de lo que está pasando.</li>
-</ul>
-
-
-<p>Es una buena idea activar Security Hub para que estés siempre al tanto de la seguridad de tus funciones Lambda y puedas actuar rápido si algo no va bien.</p>
-
-
-<h3 id="aplicar-las-mejores-pr%C3%A1cticas-de-seguridad-desde-el-dise%C3%B1o" tabindex="-1">Aplicar las mejores prácticas de seguridad desde el diseño</h3>
-
-
-<p>Cuando creas una función Lambda, es muy importante pensar en la seguridad desde el principio:</p>
-
-
-<ul>
-<li><strong>Protege la información delicada</strong> en variables de entorno y en los datos que entran, usando AWS KMS. Esto ayuda a mantener segura información como contraseñas.</li>
-<li><strong>Revisa todos los datos que entran</strong> antes de procesarlos para evitar que te metan código malo.</li>
-<li><strong>Da solo los permisos necesarios</strong> a tu función usando políticas de IAM. Así, si alguien intenta hacer algo que no debe, no podrá.</li>
-<li><strong>Guarda un registro</strong> de lo que hace tu función para poder revisarlo después.</li>
-<li><strong>Usa ambientes separados</strong> para probar y desarrollar, lejos del ambiente de producción.</li>
-</ul>
-
-
-<p>También es muy útil hacer pruebas de seguridad con expertos de vez en cuando para encontrar y arreglar problemas antes de que alguien más los encuentre.</p>
-
-
-<p>Si sigues estos consejos desde el comienzo, tus aplicaciones serverless estarán mucho más seguras.</p>
-
-
-<h2 id="optimizaci%C3%B3n-de-rendimiento" tabindex="-1">Optimización de rendimiento</h2>
-
-
-<h3 id="restablecer-siempre-las-conexiones-de-red-con-lambda-snapstart" tabindex="-1">Restablecer siempre las conexiones de red con Lambda SnapStart</h3>
-
-
-<p>Cuando una función Lambda se vuelve a activar desde una instantánea con SnapStart, no podemos estar seguros de cómo están las conexiones de red. Es clave asegurarse de que estas conexiones se restablezcan cada vez que la función se active de nuevo:</p>
-
-
-<ul>
-<li>Usa el método <code class="inline-code">onStartup</code> en tu controlador para restablecer conexiones cada vez que la función se active.</li>
-<li>Evita usar el nombre del host para reconocer el entorno de ejecución. Mejor, crea un ID único en el controlador.</li>
-<li>No conectes a puertos fijos, ya que esto puede causar errores al reconectar.</li>
-<li>Intenta no usar la caché DNS de Java, porque puede provocar problemas de conexión.</li>
-</ul>
-
-
-<p>Si sigues estos consejos, podrás evitar problemas de conexión y asegurar que tu función Lambda funcione correctamente después de reactivarse desde una instantánea.</p>
-
-
-<h3 id="precargar-clases-que-contribuyen-a-la-latencia-de-inicio" tabindex="-1">Precargar clases que contribuyen a la latencia de inicio</h3>
-
-
-<p>Para que Lambda con SnapStart funcione mejor, es buena idea cargar de antemano las clases que hacen que la función tarde en iniciar. Esto se puede hacer de dos maneras:</p>
-
-
-<ul>
-<li><strong>Durante la inicialización:</strong> Carga las clases importantes directamente cuando estás preparando todo, no en el controlador. Esto ayuda a eliminar la espera que se produce al cargar estas clases cuando se necesita la función.</li>
-<li><strong>Con invocaciones ficticias</strong>: Si cargar durante la inicialización no es posible, puedes simular llamadas al controlador para que estas clases se carguen antes de que llegue una llamada real.</li>
-</ul>
-
-
-<p>Por ejemplo, en una función que usa Spring Boot, podrías añadir este código al controlador para hacer una llamada ficticia a <code class="inline-code">/pets</code> al preparar todo:</p>
-
-
-<pre><code class="language-java">handler.proxy(new AwsProxyRequest().withHttpMethod("GET").withPath("/pets"), new TestContext());
-</code></pre>
-
-
-<p>Esto mejora el rendimiento porque las clases importantes ya estarán listas cuando se necesiten, reduciendo el tiempo que tarda en iniciar la función.</p>
-
-
-<h2 id="conclusi%C3%B3n" tabindex="-1">Conclusión</h2>
-
-
-<p>Cuando usas AWS Lambda para hacer aplicaciones sin servidor, es super importante seguir algunos consejos para que todo funcione de maravilla. Aquí te dejamos lo más importante que debes recordar:</p>
-
-
-<ul>
-<li><strong>Mantén la parte principal de tu función Lambda separada</strong>. Esto hace que sea más fácil probarla y usarla en otros lugares.</li>
-<li><strong>Haz que tu función reutilice conexiones y recursos</strong>. Esto hace que todo sea más rápido porque no tiene que empezar de cero cada vez.</li>
-<li><strong>Piensa bien cuánta memoria necesita tu función</strong>. Usar herramientas como AWS Lambda Power Tuning te puede ayudar a encontrar el balance perfecto entre lo que gastas y cómo funciona.</li>
-<li><strong>Estar al pendiente de cómo va todo con CloudWatch</strong>. Es clave para detectar problemas rápido y asegurarte de que tu función esté corriendo bien.</li>
-<li><strong>Dale solo los permisos necesarios a tu función</strong>. Así es más segura y reduces riesgos si algo sale mal.</li>
-<li><strong>No te saltes las pruebas</strong>. Checar bien todo, especialmente la seguridad y cómo se desempeña, es crucial.</li>
-</ul>
-
-
-<p>Siguiendo estos consejos desde el inicio, puedes crear funciones Lambda que son seguras, eficientes y fáciles de mantener. Esto significa que tus aplicaciones sin servidor van a correr mejor y vas a tener menos problemas más adelante.</p>
-
-
-<p>Al enfocarte en estos puntos desde el diseño y la implementación, te aseguras de aprovechar al máximo Lambda y evitas complicaciones futuras.</p>
-
-
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
-
-
-<h3 id="%C2%BFcu%C3%A1ndo-usar-lambda%3F" tabindex="-1">¿Cuándo usar Lambda?</h3>
-
-
-<p>AWS Lambda es ideal cuando necesitas que tu código se ejecute automáticamente en respuesta a ciertos eventos, como cambios en datos o acciones de usuarios, sin tener que preocuparte por los servidores. Es perfecto para:</p>
-
-
-<ul>
-<li>Manejar tareas que no son constantes y aparecen esporádicamente.</li>
-<li>Responder a eventos de otros servicios de AWS como S3 o DynamoDB.</li>
-<li>Desarrollar aplicaciones pequeñas sin servidor, conocidas como microsservicios.</li>
-</ul>
-
-
-<p>En resumen, si quieres que tu aplicación se adapte rápidamente a las necesidades sin tener que manejar servidores, Lambda es una buena opción.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-lenguajes-soporta-aws-lambda%3F" tabindex="-1">¿Qué lenguajes soporta AWS Lambda?</h3>
-
-
-<p>AWS Lambda permite usar varios lenguajes de programación, incluyendo:</p>
-
-
-<ul>
-<li>Java</li>
-<li>Go</li>
-<li>PowerShell</li>
-<li>Node.js</li>
-<li>C#</li>
-<li>Python</li>
-<li>Ruby</li>
-</ul>
-
-
-<p>Además, AWS Lambda te da la opción de usar otros lenguajes mediante una API especial, así que tienes bastante flexibilidad para programar tus funciones.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-es-el-servicio-aws-lambda%3F" tabindex="-1">¿Qué es el servicio AWS Lambda?</h3>
-
-
-<p>AWS Lambda es un servicio que te permite ejecutar código sin que tengas que preocuparte por los servidores. Solo pagas por el tiempo que tu código está corriendo. Esto es útil porque:</p>
-
-
-<ul>
-<li>Se encarga de todo lo que tiene que ver con servidores, como ajustar la cantidad de recursos necesarios o asegurarse de que tu código esté siempre disponible.</li>
-<li>Permite que tu aplicación se ajuste automáticamente según lo que necesite, sin que tengas que hacer nada.</li>
-</ul>
-
-
-<p>En pocas palabras, AWS Lambda hace que sea mucho más fácil y económico correr aplicaciones que necesitan adaptarse rápidamente a diferentes situaciones.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a serverless en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-lambda-en-profundidad/">AWS Lambda en profundidad</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores prácticas de seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-ec2/">Mejores prácticas para Amazon EC2</a></li>
-</ul>
-</p>
+El grupo Serverless Colombia anuncia el encuentro online [El Combo Indestructible de AWS: SQS + Lambda](https://www.meetup.com/aws-user-group-serverless-colombia/events/316770520/) para el **20 de octubre de 2026, de 19:00 a 21:00 GMT-5**. La página indica acceso libre y que el enlace aparece para asistentes; revisa allí las condiciones vigentes y el registro. Si ya pasó la fecha, consulta la [agenda de eventos AWS en línea](/eventos/online/) para encontrar próximas actividades.
