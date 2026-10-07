@@ -1,355 +1,191 @@
 ---
-title: "Servicios de AWS para frontend"
-description: "Descubre los servicios de AWS para frontend como AWS Amplify, Amazon S3 y Amazon CloudFront. Compara sus ventajas y desventajas, casos de uso y ejemplos prácticos para elegir el mejor servicio."
+title: "AWS para frontend: Amplify Hosting o S3 con CloudFront"
+description: "Elige hosting para una SPA, sitio estático o app SSR en AWS. Compara Amplify y S3 con CloudFront, publica un build y resuelve rutas, caché y permisos."
 author: "guille-ojeda"
 publishedAt: "2024-03-18"
 publishedTimestamp: "2024-03-18T00:56:34.055Z"
+modifiedTimestamp: "2026-10-07T09:41:54-03:00"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "AWS Wavelength: guía de escalabilidad y optimización"
-    url: "https://dondeaprendoaws.com/blog/aws-wavelength-guia-de-escalabilidad-y-optimizacion/"
-  - title: "Nube AWS: guía de inicio rápido"
-    url: "https://dondeaprendoaws.com/blog/nube-aws-guia-de-inicio-rapido/"
-  - title: "Aprender AWS gratis: recursos y comunidad"
-    url: "https://dondeaprendoaws.com/blog/aprender-aws-gratis-recursos-y-comunidad/"
-
+  - title: "¿Cómo funciona AWS Amplify? Guía de Gen 2 para empezar"
+    url: "https://dondeaprendoaws.com/blog/como-funciona-aws-amplify/"
+  - title: "Amazon CloudFront: qué es, cómo funciona y cómo configurarlo"
+    url: "https://dondeaprendoaws.com/blog/amazon-cloudfront-comprendiendo-el-cdn-de-aws/"
+review:
+  date: "2026-10-07"
 ---
 
-<p>Si estás buscando cómo construir y alojar aplicaciones o sitios web usando servicios de AWS, te encuentras en el lugar correcto. Aquí, te ofrecemos una guía clara y concisa sobre tres servicios principales de AWS para frontend: <strong>AWS Amplify</strong>, <strong>Amazon S3</strong>, y <strong>Amazon CloudFront</strong>. Cada uno tiene sus ventajas y situaciones ideales de uso.</p>
+**Para publicar un frontend en AWS, empieza por lo que produce tu aplicación.** Si genera HTML, CSS y JavaScript como archivos, puedes usar **Amplify Hosting** para automatizar compilación y despliegue desde Git, o **S3 con CloudFront** si necesitas controlar la distribución y su configuración. Si genera HTML en cada solicitud mediante SSR, necesitas un entorno de ejecución compatible: S3 por sí solo no lo ofrece.
 
+CloudFront es la CDN que entrega contenido y puede consultar un servidor; no reemplaza al servidor que ejecuta tu aplicación. Y publicar el frontend no crea automáticamente una API, una base de datos o el inicio de sesión de tus usuarios.
 
-<ul>
-<li><strong><a href="https://aws.amazon.com/amplify" rel="noopener noreferrer" target="_blank">AWS Amplify</a></strong> es perfecto para aplicaciones web y móviles complejas, ofreciendo facilidades para el desarrollo, lanzamiento y escalabilidad.</li>
-<li><strong>Amazon S3</strong> es ideal para alojar sitios web estáticos de manera económica y sencilla.</li>
-<li><strong>Amazon CloudFront</strong> se utiliza para distribuir contenido de manera rápida y segura a nivel global.</li>
-</ul>
+## Qué servicio elegir según tu aplicación
 
+| Necesidad | Opción inicial | Qué comprobar |
+| --- | --- | --- |
+| Landing, documentación o sitio generado como archivos | Amplify Hosting | Comando de build, directorio de salida y dominio. |
+| React, Vue o Angular con navegación en el navegador —SPA— | Amplify Hosting | Reescritura de rutas sin ocultar assets faltantes. |
+| Sitio estático con reglas propias de CDN e infraestructura | S3 privado + CloudFront | OAC, HTTPS, rutas y políticas de caché. |
+| Next.js con SSR | Amplify Hosting compute | Versión y funciones de Next.js admitidas. |
+| Astro, Nuxt o SvelteKit con SSR | Amplify Hosting con el adaptador correspondiente | Compatibilidad del adaptador y salida de despliegue. |
+| SSR que requiere control propio del runtime o contenedor | Evaluar un servicio de cómputo, como ECS Fargate | Operación, escalado y costo base adicionales. |
 
-<p>Te guiamos a través de los criterios de selección y te proporcionamos ejemplos prácticos para que puedas decidir cuál servicio se adapta mejor a tus necesidades.</p>
+Una **SPA** ejecuta la interfaz en el navegador y puede llamar a una API. Un sitio con **SSG** genera sus páginas durante la compilación. **SSR** las genera al recibir solicitudes. La misma app puede combinar modalidades: usar React no indica por sí solo qué hosting necesita.
 
+Elige Amplify Hosting cuando su flujo administrado cubra tus necesidades y quieras reducir configuración operativa. Elige S3 y CloudFront cuando tengas un motivo concreto para controlar orígenes, comportamientos, caché o infraestructura como código. El tamaño del sitio no determina por sí solo cuál conviene ni cuál será más barato.
 
-<p><strong>Comparativa Rápida:</strong></p>
+## Amplify Hosting: publicar sin construir el pipeline completo
 
+Amplify Hosting conecta un repositorio y una rama, compila la aplicación y publica sus artefactos. Puedes utilizarlo para un frontend que consume un backend existente. **No necesitas crear un backend Amplify para alojar una web estática.** La [guía de despliegue desde Git de AWS](https://docs.aws.amazon.com/amplify/latest/userguide/getting-started.html) describe el flujo de conexión.
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Servicio</th>
-<th>Facilidad de uso</th>
-<th>Escalabilidad</th>
-<th>Costo</th>
-<th>SPA y SSR</th>
-<th>Integración con AWS</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>AWS Amplify</td>
-<td>Alta</td>
-<td>Automática</td>
-<td>Variable según uso</td>
-<td>Ideal para SPA</td>
-<td>Excelente</td>
-</tr>
-<tr>
-<td>Amazon S3</td>
-<td>Media, inicialmente compleja</td>
-<td>Alta</td>
-<td>Económico inicialmente, varía con el tráfico</td>
-<td>Requiere configuración para SPA/SSR</td>
-<td>Buena</td>
-</tr>
-<tr>
-<td>Amazon CloudFront</td>
-<td>Media, inicialmente compleja</td>
-<td>Muy alta</td>
-<td>Costo por transferencia de datos</td>
-<td>Compatible con SPA y SSR</td>
-<td>Excelente</td>
-</tr>
-</tbody>
-</table></figure>
+Amplify también ofrece herramientas para definir autenticación, datos y funciones. Ese trabajo pertenece al backend: nuestra [guía de Amplify Gen 2](/blog/como-funciona-aws-amplify/) explica la separación y evita mezclar el CLI clásico de Gen 1 con el flujo actual.
 
+### Publicar una SPA React/Vite existente
 
-<p>Al final del día, la elección depende de la complejidad de tu aplicación, tus expectativas de tráfico y tu presupuesto. Este artículo te equipará con la información necesaria para tomar esa decisión.</p>
+Este ejemplo supone un repositorio npm con `package-lock.json`, un script `build` y Vite configurado para producir `dist/`. Necesitas una cuenta AWS, permisos para crear la app Hosting y acceso al repositorio. La publicación puede generar cargos.
 
+1. Ejecuta `npm ci` y `npm run build` localmente. Confirma que `dist/` contiene `index.html` y los archivos referenciados. Si tu app tiene otra salida, usa esa carpeta.
+2. En Amplify, crea una app, conecta el proveedor Git y selecciona repositorio y rama. Revisa los ajustes detectados antes de desplegar.
+3. Para este frontend estático, guarda este `amplify.yml` en la raíz del repositorio:
 
-<h2 id="comparativa-de-servicios-aws-para-frontend" tabindex="-1">Comparativa de servicios AWS para frontend</h2>
+```yaml
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - npm ci
+    build:
+      commands:
+        - npm run build
+  artifacts:
+    baseDirectory: dist
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - node_modules/**/*
+```
 
+`npm ci` necesita un lockfile consistente. En un monorepo debes configurar también la raíz de la app; no copies esta estructura sin adaptarla. El archivo del repositorio prevalece sobre los ajustes guardados en consola. AWS documenta los [ajustes de build](https://docs.aws.amazon.com/amplify/latest/userguide/build-settings.html) y el [formato de la especificación](https://docs.aws.amazon.com/amplify/latest/userguide/yml-specification-syntax.html).
 
-<h3 id="1.-aws-amplify" tabindex="-1">1. <a href="https://aws.amazon.com/amplify" rel="noopener noreferrer" target="_blank">AWS Amplify</a></h3>
+4. Publica y abre la URL asignada. Comprueba portada, CSS, JavaScript y una navegación real.
+5. Si usas un router SPA, abre directamente una ruta como `/productos/42` y recarga. Configura una **reescritura con estado 200 hacia `/index.html` para rutas de navegación**, conservando la URL original. No debe interceptar `/assets/`, llamadas a la API ni archivos estáticos. El [ejemplo oficial de reglas SPA de Amplify](https://docs.aws.amazon.com/amplify/latest/userguide/redirect-rewrite-examples.html) excluye varias extensiones: adáptalo si tu build usa otras, como `.mjs` o `.avif`.
+6. Solicita también `/assets/no-existe.js`: debe fallar como archivo faltante, no devolver `index.html` con estado 200. Luego conecta el dominio propio y verifica HTTPS y sus registros DNS.
 
+No apliques el fallback SPA a un sitio multipágina generado: allí cada URL debe resolver su página correspondiente, y una página inexistente debe devolver 404. Tampoco uses este `amplify.yml` como configuración genérica de SSR.
 
-<p><figure><img alt="AWS Amplify" src="/assets/blog/14519ecdfa5c7d58021e84ca.jpg"/></figure></p>
+### ¿Amplify sirve para SSR y Next.js?
 
+Sí. A la fecha de revisión, AWS documenta soporte de **Next.js 12 a 15 en Amplify Hosting compute**. Consulta la [matriz de funciones de Next.js](https://docs.aws.amazon.com/amplify/latest/userguide/ssr-amplify-support.html) para verificar tu versión y capacidades; no deduzcas soporte de una versión posterior porque el build termine correctamente.
 
-<p><strong>Fácil de usar</strong></p>
+Nuxt dispone de un preset y Astro y SvelteKit usan adaptadores de comunidad, según la [guía de frameworks SSR de Hosting](https://docs.aws.amazon.com/amplify/latest/userguide/server-side-rendering-amplify.html). Revisa sus instrucciones, límites y logs. Una exportación estática de un framework puede alojarse como archivos, pero pierde las funciones que requieren ejecución en cada solicitud.
 
+Si necesitas administrar un contenedor Next.js, la [arquitectura de Daniel Castillo con ECS Fargate](https://dcastillogi.com/arquitecturas/despliegue-nextjs-ecs-fargate) permite estudiar otra opción. Incluye ALB, ECR y otros componentes: evalúa ese costo y operación antes de adoptarla para un sitio simple.
 
-<p>AWS Amplify es fácil de manejar porque tiene una interfaz que puedes usar con comandos, herramientas para desarrolladores y un sitio web para controlar todo. Es muy bueno para poner en marcha aplicaciones rápidamente sin necesidad de manejar servidores.</p>
+## S3 y CloudFront: archivos privados en el origen, web pública por HTTPS
 
+El recorrido es **navegador → CloudFront → bucket S3 privado**. S3 conserva los archivos; CloudFront los entrega desde su caché o consulta el bucket. Usa el endpoint normal del bucket —REST— con **Origin Access Control (OAC)**, que autentica las solicitudes de CloudFront al origen.
 
-<p><strong>Puede crecer contigo</strong></p>
+El endpoint de **sitio web estático de S3** es diferente: exige contenido accesible públicamente, no ofrece HTTPS y, si lo usas como origen de CloudFront, no admite OAC ni OAI. Puedes ofrecer HTTPS al visitante mediante CloudFront, pero el tramo hacia ese endpoint sigue siendo HTTP. AWS compara los [endpoints de S3](https://docs.aws.amazon.com/AmazonS3/latest/userguide/WebsiteEndpoints.html).
 
+### Configuración mínima y comprobaciones
 
-<p>AWS Amplify se adapta al tráfico que tenga tu aplicación, así que no tienes que preocuparte si tu proyecto se hace grande.</p>
+Para un build estático con `index.html`:
 
+1. Crea un bucket conservando **Block Public Access** y **Object Ownership: Bucket owner enforced**. Sube únicamente los artefactos del build, con sus rutas y tipos de contenido correctos.
+2. Crea una distribución CloudFront con el bucket como origen S3 y asocia un OAC con **Sign requests / firmar siempre**. Esta opción también usa HTTPS hacia S3.
+3. Aplica la política del bucket que permite `s3:GetObject` al principal `cloudfront.amazonaws.com`, condicionada al ARN de **tu distribución**. No uses `Principal: "*"` como solución a un 403. Para SSE-KMS revisa además los permisos de la clave. La [guía oficial de OAC](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3.html) contiene las políticas y su configuración.
+4. Define `index.html` como **Default root object**, sin barra inicial, y redirige HTTP a HTTPS para visitantes. Espera a que termine el despliegue de la distribución.
+5. Comprueba que CloudFront entrega `index.html` y un asset, mientras una solicitud anónima al mismo objeto directamente en S3 se deniega. **OAC no autentica a los visitantes:** el contenido sigue siendo público a través de CloudFront salvo que añadas un control para ellos.
+6. Si usas un dominio propio, asocia el nombre alternativo, un certificado ACM que cubra ese nombre en **us-east-1**, y DNS hacia CloudFront. Route 53 es opcional: puedes conservar otro proveedor DNS. Revisa los [requisitos de certificados de CloudFront](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/cnames-and-https-requirements.html).
 
-<p><strong>Costo</strong></p>
+La [guía de CloudFront de este blog](/blog/amazon-cloudfront-comprendiendo-el-cdn-de-aws/) desarrolla este recorrido y sus políticas de caché.
 
+### Rutas de SPA, páginas generadas y errores reales
 
-<p>Con AWS Amplify, solo pagas por lo que necesitas, lo que puede ser muy útil si tu proyecto es nuevo o pequeño.</p>
+El objeto raíz predeterminado resuelve `/`, pero **no convierte `/productos/42` en `/index.html` ni busca automáticamente un index en cada carpeta**. Así lo explica la [documentación de Default root object](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DefaultRootObject.html).
 
+Para una SPA puedes usar una función de CloudFront en viewer request que reescriba únicamente las rutas de navegación conocidas hacia `/index.html`. Excluye rutas de assets y API. Para un sitio generado con `/guia/index.html`, necesitas resolver `/guia/` a ese objeto; devolver la portada no sirve.
 
-<p><strong>Bueno para ciertos tipos de aplicaciones</strong></p>
+Convertir globalmente todos los 403/404 en `index.html` con 200 puede esconder una política OAC rota o un JavaScript eliminado. En un origen privado, un objeto ausente también puede terminar como 403: comprueba su existencia antes de concluir que fallan los permisos. Tu prueba debe distinguir navegación válida, página inexistente y asset inexistente.
 
+## Caché y despliegues: por qué ves una versión anterior
 
-<p>Funciona bien con aplicaciones que solo necesitan una página (SPA) y no requieren que el servidor genere las páginas (SSR).</p>
+Usa nombres con hash para assets que cambian, como `app.a83f1.js`, y un TTL largo solo si cada cambio genera una ruta nueva. Para HTML que referencia esos assets, elige revalidación o una vigencia corta. Si necesitas respetar `Cache-Control: no-cache`, el **TTL mínimo de la política de CloudFront debe ser cero**; con un mínimo mayor, la CDN puede conservar la respuesta aunque el origen pida no cachearla. Consulta las [reglas de expiración y Cache-Control](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Expiration.html).
 
+En despliegues propios a S3, publica los assets nuevos antes del HTML y conserva los anteriores mientras los clientes puedan necesitarlos. Subir una carpeta no constituye un despliegue atómico. Cambiar los metadatos locales tampoco garantiza que una sincronización vuelva a copiar archivos sin cambios.
 
-<p><strong>Se lleva bien con otros servicios de AWS</strong></p>
+Una invalidación retira copias en CloudFront; no borra la caché del navegador ni de un service worker. Verifica `Cache-Control`, `Age`, `Content-Type` y la URL exacta en Network. AWS compara [invalidar contenido y versionar archivos](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Invalidation.html).
 
+## Login, APIs y secretos: qué necesita el backend
 
-<p>AWS Amplify se puede conectar fácilmente con otros servicios de AWS, como Amazon Cognito para manejar la entrada de usuarios o Amazon DynamoDB para guardar datos.</p>
+Para registrar e iniciar sesión puedes usar **Cognito User Pools**, directamente o mediante Amplify Auth. Una SPA es un cliente público: no puede proteger un client secret. Para login OAuth usa un cliente público y [authorization code con PKCE](https://docs.aws.amazon.com/cognito/latest/developerguide/using-pkce-in-authorization-code.html); los identificadores públicos no son contraseñas. Revisa las [opciones de clientes de Cognito](https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-settings-client-apps.html).
 
+Para operaciones propias puedes añadir **API Gateway + Lambda**. Una HTTP API admite un [autorizador JWT](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-jwt-authorizer.html), pero la app también debe comprobar permisos sobre cada recurso. Amplify Data/AppSync es otra opción cuando necesitas su API de datos; no hace falta sumar ambas por defecto. Para practicar una integración sencilla, sigue el [tutorial de Lambda y HTTP API](/blog/aws-lambda-y-api-gateway-guia-basica/).
 
-<h3 id="2.-amazon-s3" tabindex="-1">2. Amazon S3</h3>
+No pongas claves IAM permanentes, contraseñas de bases de datos ni secretos de terceros en el bundle. Las variables que tu framework incorpora al JavaScript del navegador son públicas aunque se configuren en una consola. Guarda y utiliza secretos en el backend, con el [mecanismo de secretos de Amplify Gen 2](https://docs.amplify.aws/react/build-a-backend/functions/environment-variables-and-secrets/) o el servicio adecuado para tu arquitectura. Una variable disponible durante el build tampoco está automáticamente disponible al runtime SSR: sigue la [configuración de variables para el servidor de Amplify](https://docs.aws.amazon.com/amplify/latest/userguide/ssr-environment-variables.html).
 
+Si el navegador necesita acceder directamente a servicios AWS, usa credenciales temporales con permisos limitados, por ejemplo mediante Cognito Identity Pools. Para una API propia, normalmente transmite el token a la API en vez de entregar las credenciales del despliegue. **CORS no sustituye autenticación ni autorización.**
 
-<h4 id="facilidad-de-uso" tabindex="-1">Facilidad de uso</h4>
+## Diagnóstico rápido
 
+| Síntoma | Primera comprobación |
+| --- | --- |
+| Build correcto, web vacía | Directorio de artefactos, ruta base y errores JavaScript en Network/Console. |
+| Portada funciona, recargar una ruta falla | Modalidad de renderizado y regla de navegación. |
+| Error MIME o `Unexpected token '<'` al cargar JS | La URL de un asset recibió HTML por un fallback demasiado amplio. |
+| CloudFront devuelve 403 | Objeto y mayúsculas, origen elegido, OAC y política; SSE-KMS si corresponde. |
+| Despliegue nuevo muestra código viejo | HTML y assets, TTL, caché del navegador y service worker. |
+| API funciona con curl pero falla en navegador | Preflight, origen y cabeceras CORS; revisa también el error real de la API. |
+| SSR falla aunque la parte estática carga | Compatibilidad, adaptador, logs del runtime y acceso a configuración/backend. |
 
-<p>Configurar Amazon S3 y CloudFront puede llevar un poco más de tiempo al principio que AWS Amplify. Pero una vez que está todo listo, es fácil hacer que tu sitio crezca sin tener que complicarte mucho. Con S3, puedes guardar tus archivos de sitio web como HTML, CSS, JavaScript e imágenes de manera sencilla.</p>
+Para el caso del navegador, la [guía de diagnóstico CORS de API Gateway](/blog/guia-completa-para-depurar-errores-cors-en-api-gateway/) separa preflight, authorizers y respuestas de error. Lleva al diagnóstico una URL, su estado y su respuesta: “es un 403” no identifica por sí solo la causa.
 
+## Cuánto cuesta y qué retirar al terminar
 
-<h4 id="escalabilidad" tabindex="-1">Escalabilidad</h4>
+No hay una opción universalmente gratuita o más barata. Estima **builds, almacenamiento, tráfico y, para SSR, solicitudes y duración de cómputo** en [Amplify Hosting](https://aws.amazon.com/amplify/pricing/). Para S3 y CloudFront, revisa [almacenamiento y solicitudes S3](https://aws.amazon.com/s3/pricing/) y [precios y planes CloudFront](https://aws.amazon.com/cloudfront/pricing/), incluidas sus condiciones. Dominios, DNS, WAF, logs y servicios del backend pueden añadir cargos.
 
+Una cuota o crédito depende de la oferta aplicable a tu cuenta; no garantiza costo cero. Configura alertas de gasto y revisa consumo tras publicar. La [guía de seguridad y control de costos](/blog/seguridad-y-control-de-costos-en-aws-guia-2024/) desarrolla esos controles.
 
-<p>Una gran ventaja de Amazon S3 es que te permite guardar un montón de archivos sin gastar mucho dinero. Cuando lo usas con CloudFront, tu sitio puede cargar rápido para las personas que lo visitan, sin importar de dónde sean. Esto lo hace una opción muy buena para cuando tu sitio empiece a tener más visitas.</p>
+Al terminar una práctica, elimina la app Hosting y comprueba sus backends asociados y recursos creados aparte. Con CloudFront, deshabilita la distribución, espera su despliegue y sigue el [procedimiento de eliminación](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/HowToDeleteDistribution.html); un plan de tarifa fija tiene condiciones adicionales de cancelación. Retira los recursos exclusivos del ejercicio y vacía el bucket, incluidas versiones si existen, antes de eliminarlo.
 
+## Recursos en español y comunidad para continuar
 
-<h4 id="costo" tabindex="-1">Costo</h4>
+Elige la continuación según lo que quieras practicar. Las grabaciones y artículos históricos pueden usar otra consola, generación de Amplify o mecanismo de acceso; verifica sus instrucciones con las fuentes actuales antes de ejecutarlas.
 
+- **Entender Amplify con una aplicación:** [introducción full stack de Marcia Villalba](https://www.youtube.com/watch?v=xIy0KVMOHHw), [sesión sobre aplicaciones web de AWS User Group Mixtli](https://www.youtube.com/watch?v=1AZPzfWFnDg) y [charla full stack de AWS Girls Argentina](https://www.youtube.com/watch?v=FIYXT5cZjas). Son explicaciones complementarias de creadores y comunidades; no suponen que sus comandos correspondan a Gen 2. Para construir con el flujo vigente, sigue el [quickstart oficial de Amplify Gen 2](https://docs.amplify.aws/react/start/quickstart/).
+- **Ver una arquitectura de hosting estático:** [Vue.js, S3, CloudFront, WAF y CI/CD, de Eliezer Rangel en AWS User Group Panamá](https://www.youtube.com/watch?v=Y6PScTDqAsU). Sirve para estudiar la combinación de servicios; WAF es una decisión adicional, no un requisito para publicar cada sitio.
+- **Definir infraestructura como código:** [sitio web con AWS SAM de Diana Alfaro](https://blog.alfalfita.cloud/sitio-web-sin-servidor-con-aws-sam) y su [grabación publicada por AWS Girls Chile](https://www.youtube.com/watch?v=nD6tq5HH51I). El artículo de 2023 usa OAI: adapta ese acceso a OAC si partes de la configuración propuesta aquí.
+- **Automatizar y separar despliegues:** [sesión sobre CI/CD de AWS User Group Guatemala](https://www.youtube.com/watch?v=1XNA7-MJWJU) y [experiencia de Diana Alfaro con microfrontends y Amplify](https://blog.alfalfita.cloud/despliegue-de-microfrontends). Esta última, de 2023, usa CLI Gen 1 y OAI; es una referencia para despliegues independientes, no una receta Gen 2 ni un motivo para dividir una app pequeña.
+- **Añadir lógica de entrega:** [CloudFront Functions con Carlos Cortez](https://www.youtube.com/watch?v=Dfd6aCSVwUE). Complementa el trabajo con rutas; una función de CDN no convierte S3 en un runtime SSR completo.
+- **Entender identidad y APIs:** [primeros pasos con Cognito de Alejandro Condori en AWS User Group Perú](https://www.youtube.com/watch?v=PXS2_s2tKnc) y [API Gateway, Cognito y FastAPI de AWS User Group Medellín](https://www.youtube.com/watch?v=j7REV2ZO_Ec). El [artículo de Andres Moreno sobre Cognito y SAM](https://andmore.dev/es/blog/api-cognito/) trata el flujo client credentials entre máquinas: su client secret pertenece a un cliente de backend, nunca a una SPA.
+- **Seguir la protección del hosting:** [episodio de Desplegando.cloud sobre Amplify Hosting y WAF](https://www.youtube.com/watch?v=hpBiGK0u07E). Revisa precios y disponibilidad antes de activar protección adicional.
 
-<p>Tener tu sitio en S3 es barato, especialmente si no tienes muchas visitas. A medida que tu sitio crece y tienes más gente entrando, el costo puede subir, pero generalmente sigue siendo más económico que otras opciones de hosting.</p>
+Para seguir contenido, visita el [canal de AWS User Group Mixtli](https://www.youtube.com/@awsugmixtli), el [canal de AWS User Group Panamá](https://www.youtube.com/channel/UCjr_J7Xva8QsHP31JfzYsYA), el [blog Alfalfita de Diana Alfaro](https://blog.alfalfita.cloud/) y [Desplegando.cloud](https://desplegando.substack.com/). Cada uno ofrece una continuación distinta: sesiones, experiencias de desarrollo o novedades.
 
+Para conversar sobre tu proyecto, conoce [AWS User Group Mixtli en Cholula](https://awsugmixtli.com/) y el [portal de AWS User Group Perú](https://awsugperu.cloud/), o busca un grupo cercano en el [directorio de comunidades](/comunidades/). Son comunidades generales de AWS donde también puedes aprender redes, seguridad y backend. El [Discord oficial de Amplify](https://discord.com/servers/aws-amplify-705853757799399426) está enfocado en esa herramienta y señala inglés como idioma.
 
-<h4 id="soporte-para-spa-y-ssr" tabindex="-1">Soporte para SPA y SSR</h4>
+Como continuación sobre decisiones de backend, el evento online [“EC2 vs Lambda”, de AWS User Group Tlaxcala FireflyCloud](https://www.meetup.com/fb83c392-728a-42dc-9a3f-7d351301e452/events/315728721/), figura para el **16 de octubre de 2026, de 16:00 a 17:00, UTC−6**, al revisar esta guía. No es una sesión de frontend: compara cómputo y costos para desplegar aplicaciones. La página indica que el enlace online es visible para asistentes; confirma fecha, registro y condiciones en la convocatoria. Para otras oportunidades consulta la [agenda de eventos](/eventos/).
 
+Cuando pidas ayuda, comparte framework y versión, modalidad de renderizado, ruta que falla, estado HTTP y un ejemplo reducido sin tokens, secretos ni datos personales.
 
-<p>S3 funciona bien para sitios simples. Si tienes una aplicación de una sola página (SPA) o necesitas que el servidor haga parte del trabajo (SSR), vas a necesitar hacer algunos ajustes extra.</p>
+## Preguntas frecuentes
 
+### ¿Puedo publicar React en S3 sin usar Amplify?
 
-<h4 id="integraci%C3%B3n-con-otros-servicios-aws" tabindex="-1">Integración con otros servicios AWS</h4>
+Sí, si el resultado es un build estático. Añade CloudFront para HTTPS y distribución, conserva el origen privado con OAC y configura las rutas de la SPA. Si React forma parte de una app con SSR, necesitas además un runtime compatible.
 
+### ¿CloudFront ejecuta Next.js?
 
-<p>Amazon S3 se lleva bien con otros servicios de AWS, lo que te ayuda a mejorar tu sitio:</p>
+CloudFront distribuye contenido y dirige solicitudes hacia un origen. No ejecuta por sí solo el servidor Next.js; esa ejecución corresponde a Hosting compute u otra arquitectura de cómputo. Una exportación estática es un caso diferente.
 
+### ¿Un bucket privado hace privada mi aplicación?
 
-<ul>
-<li>Usa CloudFront para que tu sitio cargue más rápido</li>
-<li>Route 53 para manejar direcciones y dominios</li>
-<li>Certificate Manager para manejar certificados SSL</li>
-<li>CloudWatch para ver cómo está funcionando tu sitio</li>
-<li>AWS Lambda para añadir funciones extra a tu sitio</li>
-</ul>
+No. OAC puede impedir acceso directo a S3 mientras CloudFront entrega los archivos públicamente. Para proteger datos, autoriza las operaciones en el backend; para restringir archivos entregados por la CDN, evalúa URL o cookies firmadas y su configuración de acceso.
 
+### ¿Necesito una certificación AWS para desplegar un frontend?
 
-<p>En pocas palabras, usar S3 junto con CloudFront es una manera eficiente y no muy cara de tener tu sitio web listo y capaz de recibir a muchos visitantes.</p>
-
-
-<h3 id="3.-amazon-cloudfront" tabindex="-1">3. Amazon CloudFront</h3>
-
-
-<h4 id="facilidad-de-uso-1" tabindex="-1">Facilidad de uso</h4>
-
-
-<p>Para empezar con CloudFront hay que seguir unos pasos, pero una vez que esté listo, es fácil de manejar. Funciona por sí solo para hacer que tu sitio web cargue más rápido, solo tienes que conectarlo bien con tus archivos en S3.</p>
-
-
-<h4 id="escalabilidad-1" tabindex="-1">Escalabilidad</h4>
-
-
-<p>CloudFront hace que tu sitio pueda recibir a más gente sin problemas, guardando tu contenido en lugares más cercanos a tus visitantes. Esto hace que las páginas carguen rápido, incluso si de repente mucha gente entra a tu sitio.</p>
-
-
-<h4 id="costo-1" tabindex="-1">Costo</h4>
-
-
-<p>CloudFront te permite usar hasta 50 GB de datos y hacer 2000 solicitudes cada mes sin cobrarte. Si necesitas más que eso, el precio depende de cuántos datos transfieras y cuántas solicitudes reciba tu sitio. Si tu sitio tiene mucho tráfico, CloudFront puede resultar más barato.</p>
-
-
-<h4 id="soporte-para-aplicaciones-spa-y-ssr" tabindex="-1">Soporte para aplicaciones SPA y SSR</h4>
-
-
-<p>CloudFront funciona bien tanto para sitios que cargan todo de una vez (SPA) como para aquellos que necesitan que el servidor prepare las páginas (SSR). Con la ayuda de S3 y Lambda@Edge, puedes ajustar cómo se muestra tu contenido para estas tecnologías modernas.</p>
-
-
-<h4 id="integraci%C3%B3n-con-otros-servicios-aws-1" tabindex="-1">Integración con otros servicios AWS</h4>
-
-
-<p>CloudFront se conecta bien con otros servicios de AWS:</p>
-
-
-<ul>
-<li><strong>S3</strong>: Donde guardas los archivos que CloudFront distribuye</li>
-<li><strong>Route 53</strong>: Dirige a los usuarios al punto de CloudFront más cercano</li>
-<li><strong>Lambda@Edge</strong>: Permite personalizar cómo se entrega el contenido</li>
-<li><strong>Certificate Manager</strong>: Ofrece certificados SSL/TLS sin costo</li>
-<li><strong>CloudWatch</strong>: Brinda información detallada sobre cómo está funcionando tu sitio</li>
-</ul>
-
-
-<p>En pocas palabras, CloudFront es una buena opción para hacer que tu sitio sea más rápido y pueda atender a más visitantes sin problemas.</p>
-
-
-<h2 id="ventajas-y-desventajas" tabindex="-1">Ventajas y desventajas</h2>
-
-
-<p>Vamos a ver qué tan buenos son AWS Amplify, Amazon S3 y Amazon CloudFront, y también qué no es tan genial de cada uno:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Servicio</th>
-<th>Lo bueno</th>
-<th>Lo no tan bueno</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>AWS Amplify</td>
-<td>- Fácil de empezar y usar  <br/>- Crece contigo sin problemas  <br/>- Se une bien con otros servicios de AWS  <br/>- Perfecto para apps que solo necesitan una página</td>
-<td>- Puede salir más caro si lo usas mucho  <br/>- Necesitas hacer algunos cambios si tu app necesita generar páginas desde el servidor</td>
-</tr>
-<tr>
-<td>Amazon S3</td>
-<td>- Barato para sitios pequeños  <br/>- Puede tener mucha info sin gastar mucho  <br/>- Funciona bien con otros servicios de AWS</td>
-<td>- Al principio puede ser un poco complicado de armar  <br/>- Si tienes mucha gente entrando, puede salir más caro  <br/>- Necesitas hacer cosas extra si tu sitio es de una sola página o necesita generar páginas desde el servidor</td>
-</tr>
-<tr>
-<td>Amazon CloudFront</td>
-<td>- Hace que tu sitio o app sea más rápido y puede manejar más visitas  <br/>- Viene con protección contra ataques malos de internet  <br/>- Funciona tanto para sitios de una sola página como para los que necesitan generar páginas desde el servidor</td>
-<td>- Necesitas configurarlo al principio  <br/>- Lo que pagas depende de cuánta gente visita tu sitio</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Como podemos ver, cada uno tiene sus cosas buenas y no tan buenas.</p>
-
-
-<p><strong>AWS Amplify</strong> es fácil para empezar y crecer, especialmente si estás haciendo una app que solo necesita una página. Pero, si mucha gente usa tu app, puede que tengas que pagar más.</p>
-
-
-<p><strong>Amazon S3</strong> es bueno porque no cuesta mucho al principio y puedes tener mucha información. Pero, armarlo puede ser un poco difícil y si tu sitio es muy visitado, puede salir más caro.</p>
-
-
-<p><strong>Amazon CloudFront</strong> hace que tu sitio o app funcione más rápido y pueda recibir a más gente sin problemas. Funciona bien tanto para sitios de una sola página como para los que necesitan generar páginas desde el servidor. Pero, lo que pagas depende de cuánta gente visita tu sitio.</p>
-
-
-<p>En resumen, la mejor opción depende de cosas como qué tipo de app estás haciendo, cuánta gente esperas que la visite y cuánto dinero puedes gastar. AWS Amplify es una buena opción para empezar con apps de una sola página, mientras que S3 y CloudFront pueden ser mejores para sitios más grandes o con necesidades específicas.</p>
-
-
-<h2 id="casos-de-uso-y-ejemplos" tabindex="-1">Casos de uso y ejemplos</h2>
-
-
-<p>Aquí te contamos cómo algunas empresas y desarrolladores han usado estos servicios de AWS para mejorar sus sitios web y aplicaciones, con ejemplos sencillos de entender.</p>
-
-
-<h3 id="sitio-web-est%C3%A1tico" tabindex="-1">Sitio web estático</h3>
-
-
-<p>Imagina una empresa que tiene un sitio web simple, donde muestra lo que vende o los servicios que ofrece. Este sitio estaba en un servidor que a veces fallaba cuando muchos visitantes entraban al mismo tiempo.</p>
-
-
-<p>La solución fue mover el sitio a Amazon S3 y usar Amazon CloudFront para que el sitio funcionara mejor. Esto es lo que hicieron:</p>
-
-
-<ul>
-<li>Subieron los archivos del sitio (como HTML, CSS, y fotos) a un espacio en S3</li>
-<li>Configuraron CloudFront para que mostrara el contenido desde S3</li>
-<li>Cambiaron la configuración de su dominio para que apuntara a CloudFront</li>
-</ul>
-
-
-<p>Con estos cambios, el sitio ahora aguanta más visitas sin problemas y carga más rápido para los usuarios gracias a CloudFront.</p>
-
-
-<h3 id="aplicaci%C3%B3n-web-progresiva" tabindex="-1">Aplicación web progresiva</h3>
-
-
-<p>Un desarrollador tenía una aplicación web moderna que quería mejorar. Quería añadir cosas como que los usuarios puedan entrar con contraseña, recibir avisos y tener una base de datos que se actualice en tiempo real.</p>
-
-
-<p>Decidió usar AWS Amplify, que le facilitó añadir estas características:</p>
-
-
-<pre><code class="language-js">import { Auth } from 'aws-amplify';
-
-// Para añadir entrada de usuarios
-Auth.configure();
-
-import { PushNotificationIOS } from '@react-native-community/push-notification-ios';
-
-// Para configurar avisos
-PushNotificationIOS.requestPermissions().then // ...
-
-import { DataStore } from '@aws-amplify/datastore';
-import { Post } from './models';
-
-// Para tener una base de datos en tiempo real
-DataStore.save(new Post({/* ... */}));
-</code></pre>
-
-
-<p>Con AWS Amplify, pudo hacer una aplicación completa y lista para crecer, sin tener que complicarse con detalles técnicos.</p>
-
-
-<h3 id="portal-de-noticias" tabindex="-1">Portal de noticias</h3>
-
-
-<p>Un sitio de noticias buscaba que sus artículos cargaran más rápido. Antes, usaban un servidor especial para preparar las páginas antes de mostrarlas a los usuarios.</p>
-
-
-<p>Decidieron cambiar a usar S3 y CloudFront, con algunos ajustes como:</p>
-
-
-<ul>
-<li>Un espacio en S3 para guardar los archivos del sitio</li>
-<li>CloudFront para hacer que el contenido llegara más rápido a los usuarios</li>
-<li>Lambda@Edge para preparar las páginas en lugares más cercanos a los usuarios</li>
-</ul>
-
-
-<p>Ahora, las páginas se preparan más cerca de donde están los usuarios y se guardan en CloudFront, lo que hace que carguen más rápido, incluso cuando hay muchos visitantes.</p>
-
-
-<h2 id="conclusiones" tabindex="-1">Conclusiones</h2>
-
-
-<p>Para terminar, AWS tiene varias opciones buenas para hacer sitios web y aplicaciones. Cada una tiene sus ventajas y cosas no tan buenas:</p>
-
-
-<ul>
-<li><strong>AWS Amplify</strong> es una buena elección si estás haciendo una aplicación para web o móviles, especialmente si es de esas que solo necesitan una página para funcionar. Es fácil de usar, puede crecer según lo necesites y se lleva bien con otros servicios de AWS.</li>
-<li><strong>Amazon S3</strong> y <strong>CloudFront</strong> son perfectos para poner en línea sitios web que no cambian mucho, de una manera que no cuesta mucho y puede manejar muchos visitantes. Al principio, puede que necesites dedicarle tiempo a configurarlo, pero después es fácil de mantener.</li>
-<li><strong>API Gateway</strong> y <strong>Lambda</strong> te dan la opción de añadir funciones de backend a tus aplicaciones cuando lo necesites.</li>
-</ul>
-
-
-<p>Cuando estés decidiendo qué servicio usar, piensa en qué tipo de aplicación estás haciendo, cuánta gente esperas que la visite, cuánto puedes gastar y qué tan fácil quieres que sea manejarlo. AWS Amplify podría ser la mejor opción para muchos proyectos de frontend hoy en día, porque te da todo lo que necesitas en un solo lugar y es compatible con tecnologías modernas.</p>
-
-
-<p>De cualquier manera, con todos los servicios que ofrece AWS, puedes hacer aplicaciones para web y móviles que funcionan muy bien, que pueden crecer con tu proyecto y que son seguras, usando las herramientas que mejor se adapten a lo que necesitas.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/amazon-cloudfront-comprendiendo-el-cdn-de-aws/">Amazon CloudFront: comprendiendo el CDN de AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS fundamentos: guía de inicio rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a serverless en AWS</a></li>
-</ul>
-</p>
+No. Necesitas entender el build de tu app, permisos, costos y el recorrido de sus solicitudes. Practica primero con archivos y datos ficticios, verifica el resultado y retira los recursos al terminar.

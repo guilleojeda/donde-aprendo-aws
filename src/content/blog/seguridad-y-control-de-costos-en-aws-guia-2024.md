@@ -1,458 +1,168 @@
 ---
-title: "Seguridad y control de costos en AWS: guía 2024"
-description: "Descubre estrategias efectivas para la gestión de costos y la seguridad en AWS con herramientas como AWS Budgets y Cost Anomaly Detection en nuestra guía completa de 2024."
+title: "Seguridad y control de costos en AWS: evita gastos inesperados"
+description: "Protege tu cuenta y controla gastos con IAM, AWS Budgets y Cost Anomaly Detection. Conoce sus límites, cómo investigar alertas y qué revisar al limpiar recursos."
 author: "guille-ojeda"
 publishedAt: "2024-05-11"
 publishedTimestamp: "2024-05-11T04:46:00.274Z"
+modifiedTimestamp: "2026-10-07T09:41:54-03:00"
+review:
+  date: "2026-10-07"
 cover: "/assets/blog/editorial-seguridad.png"
 coverAlt: "Un escudo y una llave junto a un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-seguridad.png"
 related:
-  - title: "Logs de acceso en ELB: guía completa"
-    url: "https://dondeaprendoaws.com/blog/logs-de-acceso-en-elb-guia-completa/"
-  - title: "Concurrencia aprovisionada: solución a cold starts en AWS Lambda"
-    url: "https://dondeaprendoaws.com/blog/concurrencia-aprovisionada-solucion-a-cold-starts-en-aws-lambda/"
-  - title: "Características y beneficios de AWS IoT Device Defender"
-    url: "https://dondeaprendoaws.com/blog/caracteristicas-y-beneficios-de-aws-iot-device-defender/"
-
+  - title: "Servicios de seguridad de AWS: cuál usar para cada problema"
+    url: "https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/"
+  - title: "Cómo usar AWS Cost Explorer: filtros y costos que no aparecen"
+    url: "https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/"
 ---
 
-<p>AWS ofrece herramientas y servicios clave para gestionar costos y seguridad en la nube:</p>
+Para controlar costos y seguridad en AWS, **protege las credenciales, limita qué se puede desplegar, configura alertas y elimina los recursos que ya no necesitas**. AWS Budgets te avisa cuando el costo registrado o previsto alcanza un umbral; Cost Anomaly Detection busca patrones de gasto inusuales; Cost Explorer ayuda a encontrar la causa. Cada herramienta resuelve una parte del problema.
 
+**Un presupuesto convencional de AWS Budgets no es un tope de facturación.** Sus datos llegan con demora y una alerta no detiene recursos. Hay acciones de presupuesto y, en una experiencia nueva disponible para ciertos clientes, límites de gasto por proyecto. Conviene conocer exactamente qué hacen antes de confiarles el control de una cuenta.
 
-<p><strong>Gestión de Costos</strong></p>
+Esta guía sirve para una cuenta de aprendizaje o un equipo que necesita ordenar sus controles. En producción, cualquier apagado o restricción de permisos debe considerar la disponibilidad, la recuperación y quién responderá al aviso.
 
+## Qué herramienta usar para cada necesidad
 
-<ul>
-<li><strong><a href="https://aws.amazon.com/aws-cost-management/aws-budgets/" rel="noopener noreferrer" target="_blank">AWS Budgets</a></strong>: Establece presupuestos, alertas y acciones automáticas para controlar gastos</li>
-<li><strong><a href="https://aws.amazon.com/aws-cost-management/aws-cost-anomaly-detection/" rel="noopener noreferrer" target="_blank">AWS Cost Anomaly Detection</a></strong>: Detecta anomalías de costos utilizando aprendizaje automático</li>
-<li><strong><a href="https://aws.amazon.com/aws-cost-management/aws-cost-explorer/" rel="noopener noreferrer" target="_blank">AWS Cost Explorer</a></strong>: Analiza y visualiza los costos de AWS</li>
-</ul>
+| Necesidad | Herramienta y alcance |
+| --- | --- |
+| Restringir acceso y creación de recursos | IAM; en organizaciones, SCP para cuentas miembro. |
+| Avisar al alcanzar un importe | AWS Budgets, con umbrales reales o previstos. |
+| Detectar un patrón de gasto inusual | Cost Anomaly Detection, con datos de facturación. |
+| Explicar un aumento | Cost Explorer y la página Bills. |
+| Investigar actividad de la cuenta | CloudTrail; GuardDuty aporta detección de amenazas. |
+| Estimar antes de desplegar | AWS Pricing Calculator; la estimación depende de tus supuestos. |
 
+Un aumento de costos puede deberse a tráfico legítimo, un error de configuración o credenciales comprometidas. Una alerta financiera señala dónde investigar; no demuestra por sí sola un incidente de seguridad.
 
-<p><strong>Controles de Uso</strong></p>
+## 1. Protege la cuenta antes de crear recursos
 
+Empieza por el acceso, porque un presupuesto no impide que alguien use credenciales robadas.
 
-<ul>
-<li><strong>Políticas de <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/introduction.html" rel="noopener noreferrer" target="_blank">IAM</a></strong>: Define permisos y acciones permitidas para usuarios y roles</li>
-<li><strong>Límites de Servicio</strong>: Establece límites en la asignación de recursos por servicio</li>
-</ul>
+- **Reserva el usuario raíz para tareas que lo requieren.** Protege su acceso con MFA, preferiblemente una passkey o llave de seguridad, y no crees claves de acceso para root. Mantén recuperables el correo y los mecanismos de acceso. Sigue las [recomendaciones oficiales para el usuario raíz](https://docs.aws.amazon.com/IAM/latest/UserGuide/root-user-best-practices.html).
+- **Usa credenciales temporales.** Para personas, prioriza federación o IAM Identity Center; para aplicaciones, roles IAM. Evita incrustar claves permanentes en código, imágenes de contenedor o repositorios.
+- **Concede solo los permisos necesarios.** Separa la administración de cuenta del trabajo cotidiano. Revisa usuarios, roles, claves y permisos sin uso; IAM Access Analyzer puede ayudar a validar políticas y revisar accesos públicos o entre cuentas. La [guía de buenas prácticas de IAM](https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html) desarrolla estas medidas.
 
+Tener MFA en la consola **no vuelve segura una clave permanente expuesta**. El acceso por API necesita los controles correspondientes; AWS explica cómo [exigir MFA para operaciones API](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_mfa_configure-api-require.html). Preferir credenciales temporales reduce la necesidad de distribuir secretos de larga duración.
 
-<p><strong>Seguridad</strong></p>
+Para entender usuarios, roles y permisos, mira la [introducción breve a IAM de Marcia Villalba](https://www.youtube.com/watch?v=t51vW-BDwF0); para profundizar, escucha su [episodio sobre cómo asegurar una cuenta AWS con IAM](https://www.youtube.com/watch?v=E3Kv9CS3Qts). La [sesión grabada de AWS Perú Security Day sobre IAM Access Analyzer](https://www.youtube.com/watch?v=JS_UBVMEQ4g) aborda la revisión de permisos. Contrasta los procedimientos de las grabaciones con la documentación vigente.
 
+## 2. Define dónde y cómo puedes gastar
 
-<ul>
-<li><strong>Protección de Datos con IAM</strong>: Controla quién tiene acceso a qué recursos y bajo qué condiciones</li>
-<li><strong>AWS Cost Anomaly Detection</strong>: Identifica gastos anómalos que podrían indicar problemas de seguridad</li>
-</ul>
+Antes de desplegar, anota el servicio, la Región, el tamaño, cuánto tiempo quedará activo y qué otros componentes necesita. Incluye almacenamiento, transferencia, NAT Gateway, balanceadores y registros cuando correspondan. Usa la [calculadora de precios de AWS](https://calculator.aws/) para estimar esos componentes; no tomes el resultado como una factura garantizada. El video [¿Cuánto te va a costar tu arquitectura en AWS?](https://www.youtube.com/watch?v=Ki0drG2WLm4), de Marcia Villalba, acompaña este ejercicio.
 
+Para una práctica, usa un entorno separado de producción y permisos acordes al ejercicio. Decide de antemano qué recursos vas a borrar, quién lo hará y cuándo. En un equipo, asigna un responsable del costo y distingue desarrollo, pruebas y producción.
 
-<p><strong>Optimización de Costos con Seguridad</strong></p>
+Las etiquetas como `Project`, `Environment` y `Owner` ayudan a atribuir el gasto, pero **crear una etiqueta no basta para verla en Cost Explorer**: debes activarla como etiqueta de asignación de costos en Billing. Consulta los [requisitos oficiales de etiquetas de costos](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/cost-alloc-tags.html). El artículo de Kevin Lupera sobre [etiquetado para optimizar costos](https://dev.to/aws-builders/aws-cost-optimization-por-que-las-tags-son-tu-mejor-aliado-1h8j) muestra una convención y un ejemplo con CDK; sus nombres de etiquetas son una propuesta, no una obligación de AWS.
 
+### IAM, SCP y cuotas: restricciones de uso
 
-<ul>
-<li>Administrar recursos no utilizados</li>
-<li>Utilizar <a href="https://dondeaprendoaws.com/blog/ahorro-de-costos-en-aws-con-instancias-reservadas-y-savings-plans/">instancias reservadas y planes de ahorro</a></li>
-<li>Automatización y escalabilidad</li>
-</ul>
+Una política puede impedir determinadas acciones de aprovisionamiento o limitar configuraciones admitidas. Define esos controles según lo que necesitas permitir, y prueba también que funcionen el mantenimiento y la eliminación de recursos.
 
+En AWS Organizations, las [políticas de control de servicios o SCP](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps.html) delimitan permisos de cuentas miembro: no conceden acceso y no restringen a los usuarios o roles de la cuenta de administración. Un `Deny` que bloquea la creación de nuevos recursos no elimina los existentes ni deja de cobrar su uso.
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Estrategia</th>
-<th>Beneficios</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Administrar recursos no utilizados</td>
-<td>Reduce costos y riesgos de seguridad</td>
-</tr>
-<tr>
-<td>Instancias reservadas y planes de ahorro</td>
-<td>Ahorros significativos, mejor planificación y utilización de recursos</td>
-</tr>
-<tr>
-<td>Automatización y escalabilidad</td>
-<td>Mejora la utilización de recursos, seguridad y escalabilidad</td>
-</tr>
-</tbody>
-</table></figure>
+[Service Quotas](https://docs.aws.amazon.com/servicequotas/latest/userguide/intro.html) muestra límites de recursos u operaciones y permite solicitar aumentos de cuotas ajustables. **Las cuotas no son límites en dólares.** Una sola instancia, una base de datos o un volumen pueden seguir acumulando cargos dentro de la cuota. Tampoco supongas que puedes reducir cualquier cuota desde la consola; revisa las opciones del servicio concreto.
 
+## 3. Configura AWS Budgets y comprueba el aviso
 
-<p>El equilibrio entre costos y seguridad en AWS se logra siendo consciente de los costos y riesgos, implementando controles de costos y presupuestos, optimizando recursos y automatizando tareas, y manteniendo una vigilancia constante para ajustar y mejorar continuamente la estrategia.</p>
+Necesitas un rol con acceso a facturación y permisos para administrar presupuestos. En **Billing and Cost Management → Budgets**, crea un presupuesto de costos mensual y recurrente. La [guía oficial de creación de presupuestos](https://docs.aws.amazon.com/cost-management/latest/userguide/create-cost-budget.html) detalla el flujo.
 
+1. **Elige un importe de referencia y el alcance.** Para observar una cuenta completa, evita filtros que oculten servicios. Si necesitas un presupuesto por proyecto, revisa cuentas, etiquetas y conceptos incluidos: créditos, impuestos, soporte y compromisos pueden cambiar la cifra seguida.
+2. **Añade alertas de costo real.** Como ejemplo, un presupuesto de USD 50 con umbrales de 50 %, 80 % y 100 % compara el costo registrado con USD 25, USD 40 y USD 50. Son números ilustrativos, no importes que AWS garantice respetar.
+3. **Añade una alerta prevista si tienes historial.** Los pronósticos de Budgets requieren aproximadamente cinco semanas de datos de uso. En una cuenta nueva, empieza por el gasto real. Las [buenas prácticas de Budgets](https://docs.aws.amazon.com/cost-management/latest/userguide/budgets-best-practices.html) explican ese requisito y el comportamiento de los avisos.
+4. **Verifica los destinatarios.** Los correos nuevos deben quedar verificados y activos en la cuenta que los añadió. Si usas SNS, confirma sus suscripciones y permisos de publicación; es un flujo distinto. Consulta la [verificación de destinatarios de Budgets](https://docs.aws.amazon.com/cost-management/latest/userguide/budgets-email-recipients.html).
+5. **Asigna una respuesta.** Define quién revisará el aviso y qué podrá cambiar. Un correo sin responsable no corrige el desvío.
 
-<h2 id="related-video-from-youtube" tabindex="-1">Related video from YouTube</h2>
+AWS actualiza la información de Budgets hasta tres veces al día, normalmente con intervalos de **8 a 12 horas**. También existe demora entre usar un recurso y registrar su facturación: puedes superar el umbral antes de recibir el aviso. La [documentación de frecuencia y demoras de Budgets](https://docs.aws.amazon.com/cost-management/latest/userguide/budgets-managing-costs.html) lo advierte expresamente.
 
+Para probar la condición sin crear consumo adicional, usa un presupuesto temporal **sin acciones**, con un umbral menor que cargos ya visibles, y espera la siguiente evaluación. Revisa el aviso y elimina el presupuesto de prueba. Si no hay cargos registrados, no generes gasto solo para comprobarlo. La guía de [configuración y prueba de alertas de AWS Budgets](/blog/automatizar-alertas-de-costos-aws-en-5-pasos/) incluye correo, SNS, Slack y diagnóstico de problemas. También puedes seguir la [demostración grabada de creación de presupuestos de Marcia Villalba](https://www.youtube.com/watch?v=FlEg0oGamB0).
 
-<iframe allowfullscreen="" loading="lazy" src="https://www.youtube.com/embed/UPrle8n7zI4" title="Video de YouTube"></iframe>
-<h2 id="uso-de-aws-budgets-para-el-control-de-costos" tabindex="-1">Uso de <a href="https://aws.amazon.com/aws-cost-management/aws-budgets/" rel="noopener noreferrer" target="_blank">AWS Budgets</a> para el control de costos</h2>
+### Qué pueden hacer las acciones de presupuesto
 
+Las [acciones de AWS Budgets](https://docs.aws.amazon.com/cost-management/latest/userguide/budgets-controls.html) pueden aplicar una política IAM, aplicar una SCP o detener instancias EC2 o RDS específicas mediante Systems Manager. Se configuran para ejecución automática o con aprobación manual y necesitan un rol de ejecución autorizado.
 
-<p><figure><img alt="AWS Budgets" src="/assets/blog/eb54faeb5dcf73d332a370df.jpg"/></figure></p>
+**No ofrecen una acción genérica para terminar todos los recursos de la cuenta.** La definición de acciones de Systems Manager admite [`STOP_EC2_INSTANCES` y `STOP_RDS_INSTANCES`](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-budgets-budgetsaction-ssmactiondefinition.html). Una acción sobre una instancia RDS tampoco equivale a detener cualquier clúster Aurora.
 
+Prueba primero en recursos de desarrollo y confirma el resultado. Auto Scaling puede reemplazar o reiniciar una instancia EC2 detenida; además, detener cómputo no elimina el almacenamiento asociado. Restringir nuevos despliegues y detener recursos elegidos son controles diferentes. Ninguno convierte las acciones convencionales en un tope absoluto de facturación.
 
-<p>AWS Budgets es una herramienta fundamental para mantener el gasto en AWS bajo control. Permite a los usuarios configurar y administrar alertas para excedentes de costos previstos, lo que ayuda a evitar sorpresas desagradables en la factura de AWS.</p>
+### Si tu cuenta ofrece un límite de gasto por proyecto
 
+AWS está habilitando una experiencia de **spend limits en AWS Settings** para un número limitado de clientes. Requiere un plan Paid y se aplica por proyecto, al costo antes de impuestos y sin descontar créditos. Al llegar al límite, AWS pausa el proyecto y detiene sus recursos; esto puede interrumpir tu aplicación.
 
-<h3 id="configuraci%C3%B3n-de-herramientas-de-presupuesto-de-aws" tabindex="-1">Configuración de herramientas de presupuesto de AWS</h3>
+No lo confundas con configurar una alerta en un presupuesto común. Comprueba que tu cuenta tenga la función y entiende su alcance antes de usarla. Para reactivar un proyecto debes aumentar el límite; algunos recursos necesitan reinicio manual. **Tras 90 días sin actuar sobre un proyecto pausado, AWS elimina permanentemente sus datos.** Consulta las [condiciones actuales de límites de gasto en AWS Settings](https://docs.aws.amazon.com/accounts/latest/reference/create-spend-limit.html).
 
+## 4. Añade Cost Anomaly Detection sin tratarlo como una alarma inmediata
 
-<p>Para configurar AWS Budgets, debes crear un presupuesto en la consola de AWS Budgets. Puedes elegir entre varios tipos de presupuestos, como presupuestos de costos y presupuestos de uso. Una vez que hayas creado un presupuesto, puedes configurar alertas para recibir notificaciones cuando se alcance un umbral específico.</p>
+AWS Cost Anomaly Detection compara patrones de gasto y señala desviaciones. Revisa qué monitor cubre tu cuenta, servicios o agrupación, configura una suscripción de alertas y un umbral de impacto que tu responsable pueda investigar.
 
+Tiene límites que importan para una cuenta de aprendizaje:
 
-<p>Por ejemplo, puedes configurar una alerta para recibir una notificación cuando el gasto real supere el 80% del presupuesto establecido. Esto te permite tomar medidas correctivas antes de que el gasto se salga de control.</p>
+- Usa datos de Cost Explorer con una demora de hasta 24 horas; ejecuta el análisis aproximadamente tres veces al día después de procesar la facturación.
+- Un monitor nuevo puede tardar 24 horas en empezar a detectar anomalías. Un servicio nuevo necesita diez días de historial de uso.
+- No supervisa productos de terceros de AWS Marketplace, salvo modelos fundacionales de terceros en Amazon Bedrock. Para otros cargos de Marketplace, usa presupuestos con el alcance adecuado.
 
+La [guía oficial de Cost Anomaly Detection](https://docs.aws.amazon.com/cost-management/latest/userguide/manage-ad.html) documenta estos límites y permite investigar contribuyentes por servicio, cuenta, Región y tipo de uso. **Detectar una anomalía no detiene recursos ni prueba que haya un atacante.** Combina esa señal con tus alertas de presupuesto y la investigación operativa.
 
-<h3 id="monitoreo-con-pron%C3%B3sticos-de-costos" tabindex="-1">Monitoreo con pronósticos de costos</h3>
+## 5. Investiga una alerta antes de elegir la corrección
 
+1. **Acota el gasto.** En Bills y Cost Explorer, revisa el período y la cuenta; agrupa por servicio. Filtra el servicio que aumentó y examina tipo de uso, Región o cuenta vinculada. La guía de [filtros y diagnóstico en Cost Explorer](/blog/analisis-de-costos-de-aws-con-cost-explorer/) explica por qué un costo puede no aparecer todavía.
+2. **Comprueba qué cambió.** Busca despliegues, aumento de tráfico, tareas repetidas, recursos encendidos o almacenamiento creciente. Cost Explorer explica el gasto agregado; no mide por sí solo si un recurso está ocioso.
+3. **Revisa la actividad si el uso no tiene explicación.** El historial de CloudTrail conserva 90 días de eventos de administración por Región. No incluye eventos de datos ni es un inventario de recursos sin uso. Descarga lo relevante y confirma la cobertura del registro que necesitarás conservar. AWS describe los [límites del historial de CloudTrail](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/view-cloudtrail-events.html).
+4. **Si hay indicios de acceso no autorizado, contiene el acceso y preserva evidencia.** [Desactiva las claves comprometidas](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html) y revisa sesiones y permisos derivados; borrar el secreto del repositorio no revoca su acceso. Las sesiones temporales requieren los [controles de revocación correspondientes a su identidad](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_control-access_disable-perms.html). Contacta a AWS Support para investigar cargos o un posible compromiso; no asumas que habrá un reembolso.
+5. **Confirma la corrección.** Revisa el estado real de los recursos y vuelve a consultar la facturación cuando se actualice. Distingue el consumo ya ocurrido de nuevos cargos posteriores.
 
-<p>AWS Budgets también ofrece la capacidad de predecir costos futuros mediante la función de pronóstico de costos. Esta función utiliza algoritmos de aprendizaje automático para analizar tus patrones de gasto pasado y predecir tus costos futuros.</p>
+[GuardDuty](https://docs.aws.amazon.com/guardduty/latest/ug/what-is-guardduty.html) puede aportar hallazgos de amenazas, como posibles credenciales comprometidas o minería no autorizada. Revisa cobertura, cuentas, Regiones y precio antes de habilitarlo; sus hallazgos necesitan respuesta. Para estudiar esa operación, tienes la [presentación de Gerardo Castro sobre detección y respuesta con GuardDuty](https://speakerdeck.com/gerardokaztro/como-detectar-y-responder-amenazas-con-aws-guardduty) y la [grabación de CreaTicas sobre integración de GuardDuty con un SIEM](https://www.youtube.com/watch?v=CQUICC2h0Oc).
 
+Si administras varias cuentas, el [caso de auditoría de claves antiguas de Road to CloudSec LATAM](https://roadtocloudsec.la/posts/encontre-access-key-2018-activa-produccion-python-boto3) y su [repositorio iam-audit](https://github.com/gerardokaztro/iam-audit) ofrecen un ejemplo de revisión con roles y credenciales temporales. El proyecto requiere permisos y roles en las cuentas auditadas; evalúa el código y el modo de ejecución antes de incorporarlo. Una herramienta comunitaria no sustituye la revisión de cobertura.
 
-<p>Puedes utilizar esta función para identificar posibles excedentes de costos y tomar medidas para reducirlos. Por ejemplo, si el pronóstico de costos indica que tu gasto mensual será mayor que el presupuesto establecido, puedes reducir tus recursos o ajustar tus políticas de gasto para evitar excedentes.</p>
+## 6. Limpia recursos y verifica los cargos que persisten
 
+Cerrar la consola, borrar una aplicación local o detener una instancia no elimina todo lo desplegado. Revisa **todas las Regiones usadas** y también servicios globales, suscripciones y compromisos. La [lista oficial de causas de cargos inesperados](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/checklistforunwantedcharges.html) ayuda a ordenar la revisión.
 
-<h3 id="comprensi%C3%B3n-de-la-estructura-de-costos-de-aws" tabindex="-1">Comprensión de la estructura de costos de AWS</h3>
+| Recurso | Qué comprobar al terminar |
+| --- | --- |
+| EC2 | Instancias, volúmenes EBS conservados, snapshots e IPs elásticas. |
+| RDS | Instancias, almacenamiento, backups y snapshots retenidos. |
+| Redes | NAT Gateways, balanceadores y endpoints que sigan provisionados. |
+| Datos y registros | Objetos y versiones de S3, backups y retención de logs. |
+| Compras | Suscripciones, dominios y compromisos de RI o Savings Plans. |
 
+Dos casos frecuentes:
 
-<p>Es importante comprender la estructura de costos de AWS para utilizar AWS Budgets de manera efectiva. AWS ofrece una variedad de servicios y opciones de precios, lo que puede hacer que sea difícil entender cómo se calculan los costos.</p>
+- **EC2 detenida:** no cobra cómputo de la instancia en estado `stopped`, pero EBS y direcciones IP elásticas pueden seguir generando cargos. Terminarla tampoco elimina los volúmenes configurados para conservarse. Consulta el [ciclo de vida y facturación de EC2](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html).
+- **RDS detenida:** conserva almacenamiento y backups facturables y se inicia automáticamente después de siete días consecutivos. Detenerla es temporal; revisa las [condiciones de parada de RDS](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_StopInstance.html).
 
+Antes de borrar datos o backups, confirma qué debes conservar y cómo restaurarlos. Si usaste infraestructura como código, verifica el resultado de la eliminación: una política de retención o un fallo puede dejar recursos fuera de la limpieza prevista.
 
-<p>Puedes utilizar AWS Budgets para obtener una visión clara de tus costos y identificar áreas donde puedas reducir gastos. Por ejemplo, puedes utilizar AWS Budgets para ver qué servicios están generando la mayoría de tus costos y ajustar tus políticas de gasto en consecuencia.</p>
+Optimiza tamaño y uso antes de comprar compromisos. Las RI y los Savings Plans pueden seguir cobrándose aunque tu carga desaparezca; compara [compromisos, cobertura y riesgos de Instancias Reservadas y Savings Plans](/blog/ahorro-de-costos-en-aws-con-instancias-reservadas-y-savings-plans/). El artículo de Diana Alfaro sobre [gestión práctica de costos y desperdicio en AWS](https://blog.alfalfita.cloud/from-waste-to-efficiency-enfoques-practicos-para-la-gestion-de-costos-en-aws) propone apagado de entornos de desarrollo, ajuste de tamaño y asignación de responsables.
 
+## Preguntas frecuentes
 
-<p>Al entender la estructura de costos de AWS y utilizar AWS Budgets para monitorear y controlar tus gastos, puedes asegurarte de que estás obteniendo el máximo valor de tus inversiones en la nube.</p>
+### ¿AWS Budgets garantiza que no voy a superar mi presupuesto?
 
+Un presupuesto convencional con alertas, no. Puede avisarte después de superar el umbral. Las acciones requieren configuración y tienen alcance limitado. Si tu cuenta ofrece spend limits por proyecto, lee sus condiciones e impacto de pausa por separado.
 
-<h4 id="ventajas-de-utilizar-aws-budgets" tabindex="-1">Ventajas de utilizar AWS Budgets</h4>
+### ¿Por qué no llega la alerta?
 
+Comprueba el período, alcance, umbral, costo ya registrado y estado de los destinatarios. Si es prevista, puede faltar historial. Si usa SNS, revisa permisos y confirmación de suscripciones. Espera la evaluación de Budgets; no uses la ausencia de un correo como prueba de que no estás gastando.
 
-<ul>
-<li><strong>Control de costos</strong>: AWS Budgets te permite establecer límites de gasto y recibir alertas cuando se alcance un umbral específico.</li>
-<li><strong>Pronóstico de costos</strong>: AWS Budgets utiliza algoritmos de aprendizaje automático para predecir tus costos futuros y ayudarte a identificar posibles excedentes de costos.</li>
-<li><strong>Análisis de costos</strong>: AWS Budgets te permite obtener una visión clara de tus costos y identificar áreas donde puedas reducir gastos.</li>
-</ul>
+### ¿Cost Anomaly Detection reemplaza a GuardDuty?
 
+No. Detecta desvíos financieros en datos de facturación; GuardDuty busca señales de amenazas en sus fuentes cubiertas. Un patrón de gasto normal tampoco demuestra que una cuenta esté segura.
 
-<h4 id="pasos-para-configurar-aws-budgets" tabindex="-1">Pasos para configurar AWS Budgets</h4>
+### ¿El Free Tier evita cargos inesperados?
 
+Depende del plan, fecha de creación, ofertas, créditos y uso. Revisa las [condiciones actuales del AWS Free Tier y los posibles cargos](/blog/aws-free-tier-guia-para-principiantes-2024/) antes de practicar. No apliques automáticamente las condiciones de una cuenta antigua a una nueva.
 
-<p>1. <strong>Crear un presupuesto</strong>: Crea un presupuesto en la consola de AWS Budgets y selecciona el tipo de presupuesto que deseas utilizar.</p>
+## Sigue aprendiendo y lleva tus preguntas a la comunidad
 
+Para ampliar el tema financiero, tienes la [grabación de Marcia Villalba sobre facturación en AWS](https://www.youtube.com/watch?v=8eLAumsarls), la [sesión de CreaTicas sobre FinOps y optimización de costos](https://www.youtube.com/watch?v=UphnnilH09A) y el [episodio de Charlas Técnicas sobre FinOps y ahorro en la nube](https://www.youtube.com/watch?v=3XJEQebQEYU). Son grabaciones, no próximos eventos ni promesas de ahorro; comprueba precios, ofertas y pantallas actuales en AWS.
 
-<p>2. <strong>Configurar alertas</strong>: Configura alertas para recibir notificaciones cuando se alcance un umbral específico.</p>
+Para conversar sobre permisos, auditoría y respuesta a incidentes, consulta los grupos de seguridad de [Argentina](https://www.meetup.com/aws-security-usergroup-argentina/), [Colombia](https://www.meetup.com/aws-user-group-security-colombia/), [Ecuador](https://www.meetup.com/aws-user-group-security-ecuador/) y [AWS Security Users Group LatAm](https://www.meetup.com/awssecuritylatam/). El [canal de grabaciones de Security LatAm](https://www.youtube.com/@AWSSecurityLATAM) permite continuar después de los encuentros.
 
+Para dudas generales sobre una cuenta de aprendizaje o costos de una arquitectura, revisa [AWS User Group Medellín](https://www.meetup.com/awsugmed/), [CreaTicas](https://www.meetup.com/chiapa-uk-aws-users-meetup-group/), [AWS Women Colombia](https://awswomencolombia.com/) y [AWS User Group Ciudad de México](https://awsugcdmx.com/). Consulta la agenda, modalidad y condiciones de cada actividad; pertenecer al grupo no garantiza una sesión de soporte individual.
 
-<p>3. <strong>Monitorear y ajustar</strong>: Monitorea tus costos y ajusta tus políticas de gasto según sea necesario.</p>
+**Actividades anunciadas al revisar el artículo el 7 de octubre de 2026:** [DevSecOps con agentes de IA de Security LatAm](https://www.meetup.com/awssecuritylatam/events/316875555/), el 15 de octubre de 16:00 a 17:00 (UTC−5), y [Compliance as Code de Security Ecuador](https://www.meetup.com/aws-user-group-security-ecuador/events/316680020/), el 20 de octubre de 19:00 a 20:00 (UTC−5). Ambas figuran como online; la segunda anuncia cupos limitados. Confirma inscripción y disponibilidad en sus páginas. Cuando esas fechas hayan pasado, busca otra actividad en la [agenda de eventos online](/eventos/online/) o una comunidad en el [directorio de grupos AWS](/comunidades/).
 
-
-<h2 id="implementaci%C3%B3n-de-controles-de-costos-en-aws" tabindex="-1">Implementación de controles de costos en AWS</h2>
-
-
-<h3 id="configuraci%C3%B3n-de-pol%C3%ADticas-de-notificaci%C3%B3n-de-costos" tabindex="-1">Configuración de políticas de notificación de costos</h3>
-
-
-<p>Para mantener un control efectivo sobre los gastos en AWS, es crucial implementar políticas de notificación de costos. Puedes utilizar AWS Budgets para configurar alertas que te notifiquen cuando se alcancen ciertos umbrales de gasto, lo que te permitirá tomar medidas correctivas a tiempo.</p>
-
-
-<p><strong>Pasos para configurar políticas de notificación de costos</strong></p>
-
-
-<p>1. <strong>Crear un presupuesto</strong>: Inicia creando un presupuesto en la consola de AWS Budgets. Puedes configurar un presupuesto de costos o de uso, y establecer el alcance del presupuesto (por ejemplo, para una cuenta específica, servicio o etiqueta de costo).</p>
-
-
-<p>2. <strong>Configurar umbrales de alerta</strong>: Define los umbrales de gasto en los que deseas recibir alertas. Por ejemplo, puedes configurar una alerta cuando se alcance el 80% del presupuesto y otra cuando se alcance el 100%.</p>
-
-
-<p>3. <strong>Establecer destinatarios de alertas</strong>: Especifica las direcciones de correo electrónico o los temas de <a href="https://aws.amazon.com/sns/" rel="noopener noreferrer" target="_blank">Amazon SNS</a> a los que se enviarán las alertas.</p>
-
-
-<p>4. <strong>Monitorear y responder</strong>: Revisa regularmente las alertas recibidas y toma medidas para reducir el gasto, como ajustar los recursos o implementar controles de acceso más estrictos.</p>
-
-
-<h3 id="aplicaci%C3%B3n-de-acciones-de-presupuesto-en-aws" tabindex="-1">Aplicación de acciones de presupuesto en AWS</h3>
-
-
-<p>Además de recibir alertas, AWS Budgets te permite definir acciones automáticas que se ejecutarán cuando se alcancen ciertos umbrales de gasto. Estas acciones pueden ayudarte a controlar los costos de manera proactiva.</p>
-
-
-<p><strong>Pasos para aplicar acciones de presupuesto</strong></p>
-
-
-<p>1. <strong>Definir acciones de presupuesto</strong>: En la consola de AWS Budgets, puedes configurar acciones como enviar notificaciones adicionales, detener o terminar recursos, o aplicar políticas de control de servicios (SCP) de <a href="https://aws.amazon.com/organizations/" rel="noopener noreferrer" target="_blank">AWS Organizations</a>.</p>
-
-
-<p>2. <strong>Establecer umbrales de acción</strong>: Determina los umbrales de gasto en los que se activarán las acciones definidas. Por ejemplo, puedes configurar una acción para detener instancias EC2 no utilizadas cuando se alcance el 90% del presupuesto.</p>
-
-
-<p>3. <strong>Aplicar políticas de IAM y SCP</strong>: Para habilitar las acciones de presupuesto, debes configurar las políticas de IAM y SCP necesarias. Estas políticas otorgarán los permisos requeridos para que AWS Budgets pueda ejecutar las acciones definidas.</p>
-
-
-<p>4. <strong>Monitorear y ajustar</strong>: Revisa periódicamente la efectividad de las acciones de presupuesto y ajústalas según sea necesario para optimizar el control de costos.</p>
-
-
-<p>Al implementar controles de costos en AWS, es importante mantener un equilibrio entre la optimización de costos y la disponibilidad y rendimiento de tus aplicaciones. Utiliza las herramientas y funciones de AWS de manera inteligente para lograr tus objetivos de negocio sin comprometer la seguridad o la calidad del servicio.</p>
-
-
-<h2 id="controles-de-uso-para-la-gesti%C3%B3n-de-costos" tabindex="-1">Controles de uso para la gestión de costos</h2>
-
-
-<p>Describe estrategias para aplicar controles de uso en AWS para optimizar gastos, involucrando acceso de usuario, límites de servicio y roles.</p>
-
-
-<h3 id="uso-de-pol%C3%ADticas-de-iam-y-roles" tabindex="-1">Uso de políticas de <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/introduction.html" rel="noopener noreferrer" target="_blank">IAM</a> y Roles</h3>
-
-
-<p><figure><img alt="IAM" src="/assets/blog/32f316943ddb6bd02a24d6b2.jpg"/></figure></p>
-
-
-<p>Para controlar los gastos en AWS, es fundamental implementar políticas de IAM que definan las acciones permitidas para los usuarios y roles. De esta manera, se evita el uso indebido de los servicios de AWS y se reduce el riesgo de gastos innecesarios.</p>
-
-
-<p><strong>Ventajas de utilizar políticas de IAM</strong></p>
-
-
-<ul>
-<li><strong>Control de acceso</strong>: Defina quién tiene acceso a qué recursos y bajo qué condiciones.</li>
-<li><strong>Reducir gastos</strong>: Evite el uso indebido de los servicios de AWS y reduzca el riesgo de gastos innecesarios.</li>
-</ul>
-
-
-<p><strong>Pasos para crear políticas de IAM efectivas</strong></p>
-
-
-<p>1. <strong>Identificar los recursos críticos</strong>: Determina qué recursos son más importantes para tu negocio y establece políticas para controlar el acceso a ellos. 2. <strong>Definir las acciones permitidas</strong>: Establece qué acciones pueden realizar los usuarios y roles en los recursos definidos. 3. <strong>Establecer condiciones</strong>: Define las condiciones bajo las cuales se permiten las acciones, como la región, el horario o el estado del recurso.</p>
-
-
-<h3 id="establecer-l%C3%ADmites-de-servicio" tabindex="-1">Establecer límites de servicio</h3>
-
-
-<p>Otra forma de controlar los gastos en AWS es establecer límites de servicio para los recursos. De esta manera, se evita la asignación de recursos innecesarios y se reduce el riesgo de gastos excesivos.</p>
-
-
-<p><strong>Ventajas de establecer límites de servicio</strong></p>
-
-
-<ul>
-<li><strong>Control de recursos</strong>: Defina cuántos recursos se pueden asignar a un servicio o aplicación específica.</li>
-<li><strong>Reducir gastos</strong>: Evite la asignación de recursos innecesarios y reduzca el riesgo de gastos excesivos.</li>
-</ul>
-
-
-<p><strong>Pasos para establecer límites de servicio efectivos</strong></p>
-
-
-<p>1. <strong>Identificar los servicios críticos</strong>: Determina qué servicios son más importantes para tu negocio y establece límites de servicio para ellos. 2. <strong>Definir los límites</strong>: Establece los límites de servicio para cada recurso, considerando la capacidad y el rendimiento necesarios. 3. <strong>Monitorear y ajustar</strong>: Revisa periódicamente los límites de servicio y ajusta según sea necesario para asegurarte de que se están cumpliendo los objetivos de negocio.</p>
-
-
-<p>Al implementar controles de uso en AWS, es importante encontrar un equilibrio entre la optimización de costos y la disponibilidad y rendimiento de tus aplicaciones. Utiliza las herramientas y funciones de AWS de manera inteligente para lograr tus objetivos de negocio sin comprometer la seguridad o la calidad del servicio.</p>
-
-
-<h2 id="seguridad-en-la-gesti%C3%B3n-de-costos-en-aws" tabindex="-1">Seguridad en la gestión de costos en AWS</h2>
-
-
-<p>La seguridad es fundamental en la <a href="https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/">gestión de costos en AWS</a>. Es importante implementar prácticas de seguridad robustas para proteger los recursos y datos en la nube, ya que la mala configuración o el acceso no autorizado pueden generar gastos innecesarios y comprometer la integridad de los datos.</p>
-
-
-<h3 id="protecci%C3%B3n-de-datos-y-iam-para-la-gesti%C3%B3n-de-costos" tabindex="-1">Protección de datos y IAM para la gestión de costos</h3>
-
-
-<p>La protección de datos y la gestión de identidades y acceso (IAM) son fundamentales para una gestión de costos segura y eficiente en AWS. IAM permite definir quién tiene acceso a qué recursos y bajo qué condiciones, lo que ayuda a reducir el riesgo de gastos innecesarios y a proteger los datos contra el acceso no autorizado.</p>
-
-
-<p><strong>Ventajas de utilizar IAM</strong></p>
-
-
-<ul>
-<li><strong>Control de acceso</strong>: Defina quién tiene acceso a qué recursos y bajo qué condiciones.</li>
-<li><strong>Protección de datos</strong>: Proteja los datos contra el acceso no autorizado y la mala configuración.</li>
-</ul>
-
-
-<h3 id="detecci%C3%B3n-de-anomal%C3%ADas-de-costos-en-aws" tabindex="-1">Detección de anomalías de costos en AWS</h3>
-
-
-<p>AWS Cost Anomaly Detection es una herramienta que ayuda a identificar gastos atípicos que pueden indicar problemas de seguridad o ineficiencias en la configuración de los recursos. Esta herramienta utiliza algoritmos de aprendizaje automático para analizar los patrones de gasto y detectar anomalías, lo que permite tomar medidas correctivas para reducir los costos y mejorar la seguridad.</p>
-
-
-<p><strong>Ventajas de utilizar AWS Cost Anomaly Detection</strong></p>
-
-
-<ul>
-<li><strong>Detección temprana</strong>: Identifique rápidamente los gastos anómalos y tome medidas para corregirlos.</li>
-<li><strong>Mejora de la seguridad</strong>: Reduzca el riesgo de gastos innecesarios y proteja los datos contra el acceso no autorizado.</li>
-</ul>
-
-
-<h2 id="optimizaci%C3%B3n-de-costos-de-aws-con-seguridad" tabindex="-1">Optimización de costos de AWS con seguridad</h2>
-
-
-<p>La <a href="https://dondeaprendoaws.com/blog/aws-seguridad-mejores-practicas/">optimización de costos de AWS con seguridad</a> es crucial para asegurarse de que su organización no esté gastando demasiado en recursos en la nube mientras mantiene la seguridad y integridad de sus datos. En esta sección, exploraremos tres estrategias clave para optimizar costos de AWS con seguridad: administrar recursos no utilizados, utilizar instancias reservadas y planes de ahorro, y automatización y escalabilidad.</p>
-
-
-<h3 id="administrar-recursos-no-utilizados" tabindex="-1">Administrar recursos no utilizados</h3>
-
-
-<p>Administrar recursos no utilizados es un paso esencial para optimizar costos de AWS. Los recursos no utilizados no solo desperdician dinero, sino que también plantean un riesgo de seguridad si no se configuran o monitorean adecuadamente. Para administrar recursos no utilizados, puede utilizar herramientas de AWS como AWS Cost Explorer y <a href="https://aws.amazon.com/cloudtrail/" rel="noopener noreferrer" target="_blank">AWS CloudTrail</a> para identificar recursos inactivos y luego terminar o redimensionarlos según sea necesario.</p>
-
-
-<p><strong>Consejos para administrar recursos no utilizados:</strong></p>
-
-
-<ul>
-<li>Revise regularmente sus recursos de AWS para identificar recursos inactivos o subutilizados.</li>
-<li>Utilice AWS Cost Explorer para analizar sus costos y identificar oportunidades de optimización de costos.</li>
-<li>Utilice AWS CloudTrail para monitorear y registrar llamadas API para identificar recursos no utilizados.</li>
-</ul>
-
-
-<h3 id="utilizar-instancias-reservadas-y-planes-de-ahorro" tabindex="-1">Utilizar instancias reservadas y planes de ahorro</h3>
-
-
-<p>Utilizar instancias reservadas y planes de ahorro es otra forma efectiva de optimizar costos de AWS. Las instancias reservadas y planes de ahorro le permiten comprometerse a utilizar una cantidad determinada de recursos durante un período especificado, lo que puede resultar en ahorros significativos.</p>
-
-
-<p><strong>Ventajas de utilizar instancias reservadas y planes de ahorro:</strong></p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventaja</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Ahorros significativos</td>
-<td>Comparado con la tarifa por demanda</td>
-</tr>
-<tr>
-<td>Mejora la planificación y presupuesto</td>
-<td>Para sus costos de AWS</td>
-</tr>
-<tr>
-<td>Mejora la utilización de recursos</td>
-<td>Reduciendo el desperdicio</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="automatizaci%C3%B3n-y-escalabilidad" tabindex="-1">Automatización y escalabilidad</h3>
-
-
-<p>La automatización y escalabilidad son componentes críticos de la optimización de costos de AWS con seguridad. Al automatizar tareas rutinarias y escalar recursos hacia arriba o hacia abajo según sea necesario, puede reducir el desperdicio, mejorar la utilización de recursos y mejorar la seguridad. AWS proporciona una variedad de herramientas y servicios de automatización, como <a href="https://aws.amazon.com/lambda/" rel="noopener noreferrer" target="_blank">AWS Lambda</a> y <a href="https://aws.amazon.com/cloudformation/" rel="noopener noreferrer" target="_blank">AWS CloudFormation</a>, que pueden ayudar a automatizar y escalar sus recursos.</p>
-
-
-<p><strong>Ventajas de la automatización y escalabilidad:</strong></p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventaja</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Mejora la utilización de recursos</td>
-<td>Reduciendo el desperdicio</td>
-</tr>
-<tr>
-<td>Mejora la seguridad</td>
-<td>A través de la automatización de tareas rutinarias</td>
-</tr>
-<tr>
-<td>Mejora la escalabilidad</td>
-<td>Para adaptarse a las necesidades cambiantes del negocio</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Al implementar estas tres estrategias, puede optimizar sus costos de AWS con seguridad y asegurarse de que su organización no esté gastando demasiado en recursos en la nube mientras mantiene la seguridad y integridad de sus datos.</p>
-
-
-<h2 id="conclusi%C3%B3n" tabindex="-1">Conclusión</h2>
-
-
-<p>En este artículo, hemos explorado las estrategias clave para mantener un equilibrio óptimo entre costos y seguridad en AWS. Desde la implementación de controles de costos y presupuestos hasta la optimización de recursos y la automatización de tareas, hemos visto cómo AWS ofrece una variedad de herramientas y servicios para ayudar a las organizaciones a reducir sus costos mientras mantienen la seguridad y integridad de sus datos.</p>
-
-
-<p><strong>Claves para un equilibrio óptimo</strong></p>
-
-
-<ul>
-<li>Ser consciente de los costos y riesgos asociados con la nube</li>
-<li>Implementar controles de costos y presupuestos efectivos</li>
-<li>Optimizar recursos y automatizar tareas</li>
-<li>Mantener una vigilancia constante para ajustar y mejorar continuamente la estrategia de costos y seguridad</li>
-</ul>
-
-
-<p>Al implementar estas estrategias, las organizaciones pueden asegurarse de que no estén gastando demasiado en recursos en la nube mientras mantienen la seguridad y integridad de sus datos.</p>
-
-
-<p>En resumen, la clave para mantener un equilibrio óptimo entre costos y seguridad en AWS es ser consciente de los costos y riesgos asociados con la nube y implementar estrategias efectivas para reducir costos y mejorar la seguridad.</p>
-
-
-<h2 id="preguntas-frecuentes" tabindex="-1">Preguntas frecuentes</h2>
-
-
-<h3 id="%C2%BFcu%C3%A1l-es-el-servicio-clave-para-la-optimizaci%C3%B3n-de-costos-en-aws%3F" tabindex="-1">¿Cuál es el servicio clave para la optimización de costos en AWS?</h3>
-
-
-<p>El servicio clave para la optimización de costos en AWS es AWS Cost Anomaly Detection. Este servicio utiliza algoritmos de aprendizaje automático para identificar anomalías en los gastos y detectar patrones de gasto inesperados.</p>
-
-
-<h3 id="%C2%BFc%C3%B3mo-funciona-aws-cost-anomaly-detection%3F" tabindex="-1">¿Cómo funciona <a href="https://aws.amazon.com/aws-cost-management/aws-cost-anomaly-detection/" rel="noopener noreferrer" target="_blank">AWS Cost Anomaly Detection</a>?</h3>
-
-
-<p><figure><img alt="AWS Cost Anomaly Detection" src="/assets/blog/19c70ad0ac9bb9b1d6ceb97c.jpg"/></figure></p>
-
-
-<p>AWS Cost Anomaly Detection analiza los patrones de gasto históricos y detecta desviaciones significativas en los gastos actuales. El servicio proporciona recomendaciones para reducir costos y mejorar la eficiencia.</p>
-
-
-<h3 id="%C2%BFcu%C3%A1les-son-los-beneficios-de-utilizar-aws-cost-anomaly-detection%3F" tabindex="-1">¿Cuáles son los beneficios de utilizar AWS Cost Anomaly Detection?</h3>
-
-
-<p>Los beneficios de utilizar AWS Cost Anomaly Detection incluyen:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Beneficio</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Detección temprana de anomalías</td>
-<td>Identifica anomalías en los gastos antes de que se conviertan en problemas costosos</td>
-</tr>
-<tr>
-<td>Reducción de costos ineficientes</td>
-<td>Ayuda a reducir costos ineficientes y mejorar la eficiencia en la utilización de los recursos</td>
-</tr>
-<tr>
-<td>Visibilidad en tiempo real</td>
-<td>Proporciona visibilidad en tiempo real sobre los gastos y permite tomar decisiones informadas sobre la asignación de recursos</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-servicios-esenciales/">seguridad en AWS: servicios esenciales</a></li><li><a href="https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/">análisis de costos de AWS con Cost Explorer</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-seguridad-en-aws/">Mejores prácticas de seguridad en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS seguridad: fundamentos esenciales</a></li>
-</ul>
-</p>
+Al compartir una duda, lleva el servicio, Región, tipo de uso y cambio observado, con datos sensibles ocultos. Esa información permite discutir una corrección concreta sin publicar credenciales ni información privada de la cuenta.
