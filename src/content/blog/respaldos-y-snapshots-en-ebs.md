@@ -1,520 +1,167 @@
 ---
-title: "Respaldos y snapshots en EBS"
-description: "Descubre los fundamentos y mejores prácticas para crear y manejar snapshots en Amazon EBS. Aprende cómo automatizar el proceso, asegurar tus datos con cifrado y recuperar información importante."
+title: "Snapshots de Amazon EBS: crear, restaurar y automatizar respaldos"
+description: "Aprende cómo funcionan los snapshots incrementales de Amazon EBS, qué consistencia ofrecen, cómo restaurarlos y cuándo usar AWS Backup o Data Lifecycle Manager."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T01:55:00.888Z"
+modifiedTimestamp: "2026-10-07T10:00:50-03:00"
 cover: "/assets/blog/editorial-datos-ia.png"
 coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
 ogImage: "/assets/blog/editorial-datos-ia.png"
 related:
-  - title: "7 estrategias para mitigar cold starts en AWS Lambda"
-    url: "https://dondeaprendoaws.com/blog/7-estrategias-para-mitigar-cold-starts-en-aws-lambda/"
-  - title: "10 consejos de redes para AWS Outposts"
-    url: "https://dondeaprendoaws.com/blog/10-consejos-de-redes-para-aws-outposts/"
-  - title: "Tipos de instancia en Amazon RDS y Amazon Aurora"
-    url: "https://dondeaprendoaws.com/blog/tipos-de-instancia-en-amazon-rds-y-amazon-aurora/"
+  - title: "AWS Backup: cómo crear planes y probar restauraciones"
+    url: "https://dondeaprendoaws.com/blog/comprendiendo-aws-backup/"
+  - title: "Recuperación ante desastres en AWS: RTO, RPO y estrategias"
+    url: "https://dondeaprendoaws.com/blog/estrategias-de-recuperacion-de-desastres-en-aws/"
 
 ---
 
-<p>En esta guía, descubrirás los fundamentos y mejores prácticas para crear y manejar <em>snapshots</em> en Amazon EBS, asegurando la seguridad y disponibilidad de tus datos en la nube. Aquí te presento un resumen de lo más importante:</p>
+<p>Un snapshot de Amazon EBS guarda el estado de un volumen en un momento concreto y permite crear otro volumen desde esa copia. El primer snapshot es completo; los siguientes guardan los bloques que cambiaron. AWS no respalda automáticamente los datos de EBS, así que debes definir una frecuencia, conservar copias y probar la restauración antes de depender de ellas.</p>
 
+<p>Esta guía explica qué captura un snapshot, qué tipo de consistencia ofrece, cómo crear y restaurar uno, y cuándo conviene automatizar con Amazon Data Lifecycle Manager (DLM) o AWS Backup.</p>
 
-<ul>
-<li><strong>Snapshots de EBS</strong>: Son 'fotos' de tus datos en un momento específico, almacenadas de manera segura y eficiente.</li>
-<li><strong>Creación y Gestión de Snapshots</strong>: Aprenderás a crearlos manualmente o automáticamente con herramientas como Amazon Data Lifecycle Manager, así como a gestionarlos para optimizar el espacio y costos.</li>
-<li><strong>Recuperación de Datos</strong>: Te mostraré cómo recuperar tus datos fácilmente desde un snapshot.</li>
-<li><strong>Seguridad y Cifrado</strong>: Tus datos están protegidos con cifrado AES-256, y la gestión de claves se simplifica con AWS KMS.</li>
-<li><strong>Casos de Uso</strong>: Desde copias de seguridad hasta recuperación ante desastres, los snapshots son fundamentales para la estrategia de datos en AWS.</li>
-</ul>
+<h2 id="que-guarda-un-snapshot-ebs">Qué guarda un snapshot de EBS</h2>
 
+<p>Un snapshot es una copia puntual de los bloques escritos en un volumen. Amazon EBS conserva los datos en almacenamiento de Amazon S3 administrado por AWS, pero no puedes consultar esos snapshots desde la consola ni desde la API de S3; se administran con las herramientas de EBS. AWS replica el dato del snapshot entre las zonas de disponibilidad de su región. Para tener una copia en otra región, debes copiarla allí. La <a href="https://docs.aws.amazon.com/ebs/latest/userguide/ebs-snapshots.html" rel="noopener noreferrer" target="_blank">guía de snapshots de Amazon EBS</a> explica cómo se almacenan y administran.</p>
 
-<p>Te guiaré paso a paso para que puedas aprovechar al máximo los snapshots de EBS, manteniendo tus datos seguros y accesibles cuando los necesites.</p>
+<p>Los snapshots de una misma historia de volumen son incrementales. El primero guarda los bloques que tienen datos; cada snapshot posterior guarda los bloques nuevos o modificados desde el anterior y comparte la referencia a los demás bloques. Cada punto de restauración contiene el estado completo del volumen en ese momento: no necesitas aplicar manualmente todos los snapshots anteriores para crear un volumen desde uno reciente. El espacio y el costo dependen de los datos almacenados en los bloques, no del tamaño provisionado del volumen.</p>
 
+<p>Una copia no equivale a una política de respaldo. Define qué volúmenes proteger, cada cuánto tomar puntos de recuperación, cuánto tiempo guardarlos y cómo comprobar que puedes recuperar los datos que importan.</p>
 
-<h3 id="%C2%BFqu%C3%A9-es-amazon-ebs%3F" tabindex="-1">¿Qué es Amazon EBS?</h3>
+<h2 id="consistencia-snapshot-ebs">Consistencia: un volumen, varios volúmenes y la aplicación</h2>
 
-
-<p>Amazon EBS (Amazon Elastic Block Store) es como un disco duro en la nube para las instancias EC2. Piénsalo como un lugar donde puedes guardar todo lo que tu aplicación necesita, pero en internet.</p>
-
-
-<p>Lo importante de Amazon EBS es:</p>
-
+<p>Al crear un snapshot, EBS incluye los datos que ya se escribieron en el volumen. No incluye escrituras que todavía estén en caché en la aplicación o en el sistema operativo. Por eso, un snapshot tomado mientras una carga sigue activa no garantiza por sí solo que una base de datos o una aplicación haya completado todas sus transacciones de forma consistente.</p>
 
 <ul>
-<li><strong>Rápido</strong> - Los volúmenes EBS trabajan rápido para que tus aplicaciones corran sin problemas.</li>
-<li><strong>Confiable</strong> - Se hace una copia de tus datos automáticamente en un área específica para que no los pierdas si algo falla.</li>
-<li><strong>A tu medida</strong> - Puedes escoger diferentes tipos de volúmenes según lo que necesites, ya sea para bases de datos, aplicaciones importantes o para guardar mucha información.</li>
+<li><strong>Un volumen:</strong> para reducir el riesgo de una copia inconsistente, pausa las escrituras y vacía los búferes de la aplicación antes de crear el snapshot. Si no puedes hacerlo, AWS recomienda desmontar el volumen antes de tomar la copia. Para el volumen raíz de una instancia EC2, AWS recomienda detener la instancia antes de crear el snapshot.</li>
+<li><strong>Varios volúmenes de una instancia:</strong> usa la operación de snapshots de varios volúmenes para crear un conjunto coordinado y consistente ante una caída (crash-consistent). Esto captura los volúmenes seleccionados al mismo tiempo, pero no pausa las transacciones de la aplicación.</li>
+<li><strong>Consistencia de aplicación:</strong> usa el método de backup propio de la base de datos, pausa de manera segura las escrituras o configura scripts previos y posteriores que preparen y reanuden la aplicación. DLM admite este patrón con Systems Manager para los casos y sistemas operativos compatibles.</li>
 </ul>
 
+<p>La <a href="https://docs.aws.amazon.com/ebs/latest/userguide/ebs-creating-snapshot.html" rel="noopener noreferrer" target="_blank">guía de creación de snapshots de EBS</a> describe las escrituras que se capturan y sus recomendaciones para pausar cargas. Para un conjunto coordinado, consulta <a href="https://docs.aws.amazon.com/cli/latest/reference/ec2/create-snapshots.html" rel="noopener noreferrer" target="_blank">la operación create-snapshots</a>; para respaldos de aplicación con scripts, revisa <a href="https://docs.aws.amazon.com/ebs/latest/userguide/automate-app-consistent-backups.html" rel="noopener noreferrer" target="_blank">la guía de consistencia de aplicación con DLM</a>.</p>
 
-<p>En pocas palabras, EBS te da un espacio seguro y rápido en la nube para tus datos.</p>
+<h2 id="crear-y-restaurar-snapshot-ebs">Crear, comprobar y restaurar un snapshot</h2>
 
+<p>Este ejemplo parte de un volumen de prueba que ya existe en us-east-1. Sustituye los identificadores de ejemplo por los de tus recursos y usa la región del volumen de origen. Elige una cuenta y un volumen no productivos antes de ejecutar operaciones que crean recursos.</p>
 
-<h3 id="%C2%BFqu%C3%A9-son-los-snapshots%3F" tabindex="-1">¿Qué son los snapshots?</h3>
+<h3 id="comandos-de-solo-lectura">Primero, inspeccionar sin cambiar recursos</h3>
 
+<p>Estos comandos consultan el volumen y los snapshots existentes. Son de solo lectura:</p>
 
-<p>Los snapshots de EBS son como fotos que capturan cómo están tus datos en un momento específico. Estas fotos se guardan en Amazon S3 y solo se toman de los datos que han cambiado desde la última vez, lo que ayuda a ahorrar espacio y dinero.</p>
+<pre><code>aws ec2 describe-volumes --region us-east-1 --volume-ids vol-REEMPLAZAR
+aws ec2 describe-snapshots \
+  --region us-east-1 \
+  --owner-ids self \
+  --filters Name=volume-id,Values=vol-REEMPLAZAR</code></pre>
 
+<h3 id="crear-un-snapshot">Crear el snapshot</h3>
 
-<p>Lo que debes saber:</p>
+<p>El siguiente comando crea un snapshot manual del volumen y devuelve su ID. La creación es asíncrona: el estado empieza como <code>pending</code> y pasa a <code>completed</code> cuando termina. Crear y conservar el snapshot puede generar cargos de almacenamiento.</p>
 
+<pre><code>aws ec2 create-snapshot \
+  --region us-east-1 \
+  --volume-id vol-REEMPLAZAR \
+  --description "pre-cambio" \
+  --tag-specifications 'ResourceType=snapshot,Tags=[{Key=Name,Value=pre-cambio}]'</code></pre>
+
+<p>Antes de crear un volumen desde la copia, espera a que el snapshot llegue a <code>completed</code>. El waiter consulta el estado cada 15 segundos; no crea ni modifica recursos. Después puedes comprobar el estado con el comando de solo lectura:</p>
+
+<pre><code>aws ec2 wait snapshot-completed \
+  --region us-east-1 \
+  --snapshot-ids snap-REEMPLAZAR
+aws ec2 describe-snapshots --region us-east-1 --snapshot-ids snap-REEMPLAZAR</code></pre>
+
+<h3 id="restaurar-el-snapshot-en-un-volumen-nuevo">Restaurar en un volumen nuevo</h3>
+
+<p>Para probar la copia, crea un volumen desde el snapshot. El ejemplo especifica tipo gp3 y deja que EBS use el tamaño de la copia; selecciona el tipo y el rendimiento que necesita tu carga. Esta operación crea otro volumen y genera cargos mientras exista.</p>
+
+<pre><code>aws ec2 create-volume \
+  --region us-east-1 \
+  --availability-zone us-east-1a \
+  --snapshot-id snap-REEMPLAZAR \
+  --volume-type gp3</code></pre>
+
+<p>El volumen restaurado queda en la zona de disponibilidad indicada. Para adjuntarlo a una instancia EC2, ambos recursos deben estar en la misma zona. Luego revisa el sistema de archivos y los datos desde una instancia de prueba; no formatees el volumen restaurado. Un volumen creado desde un snapshot puede tener latencia en las primeras lecturas mientras EBS inicializa sus bloques. Si necesitas rendimiento completo desde el inicio, evalúa <a href="https://docs.aws.amazon.com/ebs/latest/userguide/ebs-fast-snapshot-restore.html" rel="noopener noreferrer" target="_blank">Fast Snapshot Restore</a> o una <a href="https://docs.aws.amazon.com/ebs/latest/userguide/initalize-volume.html" rel="noopener noreferrer" target="_blank">tasa provisionada de inicialización</a>, y considera sus cargos y disponibilidad por zona.</p>
+
+<h3 id="limpiar-la-prueba">Limpiar los recursos de prueba</h3>
+
+<p>Cuando termines de validar, desmonta el sistema de archivos. Si adjuntaste el volumen restaurado, sepáralo de la instancia y espera a que su estado sea <code>available</code>:</p>
+
+<pre><code>aws ec2 detach-volume \
+  --region us-east-1 \
+  --volume-id vol-RESTAURADO \
+  --instance-id i-REEMPLAZAR</code></pre>
+
+<p>Luego elimina únicamente los recursos de prueba que ya no necesites. Primero se borra el volumen creado para restaurar y después el snapshot manual, si no debe conservarse:</p>
+
+<pre><code>aws ec2 delete-volume --region us-east-1 --volume-id vol-RESTAURADO
+aws ec2 delete-snapshot --region us-east-1 --snapshot-id snap-PRUEBA</code></pre>
+
+<p>Estos comandos de eliminación son destructivos. No los uses para borrar el volumen de origen ni una copia que tu política de respaldo deba conservar. Si configuraste reglas de Recycle Bin, el snapshot eliminado puede seguir retenido y generar cargos durante el plazo de retención. Los snapshots gestionados por AWS Backup se eliminan desde AWS Backup, no con <code>delete-snapshot</code> en EC2. Consulta las condiciones de <a href="https://docs.aws.amazon.com/ebs/latest/userguide/ebs-deleting-snapshot.html" rel="noopener noreferrer" target="_blank">eliminación de snapshots</a> antes de limpiar datos reales.</p>
+
+<h2 id="copiar-snapshot-ebs-otra-region">Copiar un snapshot a otra región y cifrarlo</h2>
+
+<p>Los snapshots se crean en la región del volumen. Para preparar una recuperación ante una falla regional, espera a que el snapshot esté completo y luego crea una copia en la región de destino. La copia es un recurso separado; no mueve ni elimina el original.</p>
+
+<p>Un snapshot de un volumen cifrado hereda el estado de cifrado y la clave KMS del volumen. No se puede quitar el cifrado de un snapshot cifrado. Para cifrar un snapshot que originalmente no lo estaba o volver a cifrar una copia, usa <code>copy-snapshot</code> y una clave KMS válida en la región de destino. Por ejemplo:</p>
+
+<pre><code>aws ec2 copy-snapshot \
+  --source-region us-east-1 \
+  --source-snapshot-id snap-REEMPLAZAR \
+  --region us-west-2 \
+  --description "copia-dr" \
+  --encrypted \
+  --kms-key-id alias/ebs-backup</code></pre>
+
+<p>El comando crea un snapshot en us-west-2 y supone que <code>alias/ebs-backup</code> existe allí y que tu identidad tiene los permisos necesarios para usar esa clave. La copia puede añadir cargos por transferencia y por almacenar los datos en el destino. Las copias sucesivas pueden ser incrementales si ya existe una copia reciente en el destino, sigue disponible, no está archivada y mantiene la misma clave KMS; cambiar la clave puede hacer que una copia sea completa. Revisa la <a href="https://docs.aws.amazon.com/ebs/latest/userguide/ebs-copy-snapshot.html" rel="noopener noreferrer" target="_blank">documentación de copia y cifrado de snapshots</a>, incluidos los requisitos de KMS, antes de configurar una política entre regiones.</p>
+
+<p>Una copia regional ayuda a conservar un punto de recuperación fuera de la región de origen, pero no prueba que una aplicación pueda arrancar allí. Define los objetivos de tiempo y pérdida de datos, y ensaya el proceso completo. La guía de <a href="https://dondeaprendoaws.com/blog/estrategias-de-recuperacion-de-desastres-en-aws/">recuperación ante desastres en AWS</a> amplía esa decisión con RTO, RPO y estrategias de recuperación.</p>
+
+<h2 id="automatizar-respaldos-ebs">Automatizar: Amazon Data Lifecycle Manager o AWS Backup</h2>
+
+<p>Para evitar copias manuales sin una retención definida, elige la herramienta según el alcance de tu política:</p>
 
 <ul>
-<li><strong>Incrementales</strong> - Solo se guarda lo nuevo o lo que ha cambiado, haciendo que ocupen menos espacio.</li>
-<li><strong>Recuperación rápida</strong> - Puedes usar estas fotos para traer de vuelta tus datos rápidamente si los pierdes.</li>
-<li><strong>Seguros</strong> - Tus datos están bien guardados en Amazon S3 y puedes acceder a ellos desde diferentes lugares si es necesario.</li>
+<li><strong>Amazon Data Lifecycle Manager (DLM)</strong> permite programar snapshots y AMIs respaldadas por EBS, definir retención y borrar los puntos que la política ya no necesita. Es una opción directa si tu política se concentra en EBS/EC2. DLM solo administra los snapshots y AMIs creados por sus propias políticas; no adopta snapshots manuales ni los de AWS Backup. El servicio no tiene costo adicional, pero sí pagas el almacenamiento, las copias entre regiones y otras opciones facturables que habilites.</li>
+<li><strong>AWS Backup</strong> centraliza planes, bóvedas y operaciones de copia/restauración para EBS y otros recursos compatibles. Conviene evaluar este servicio cuando necesitas reglas comunes para varios tipos de datos, controles de bóveda o administración central de copias entre cuentas y regiones. Cuando proteges una instancia EC2, AWS Backup crea por defecto un conjunto de snapshots consistente ante una caída (crash-consistent) con sus volúmenes EBS adjuntos. No des por hecha esa coordinación en trabajos separados para volúmenes individuales; tampoco equivale a consistencia de aplicación. Consulta la <a href="https://docs.aws.amazon.com/aws-backup/latest/devguide/multi-volume-crash-consistent.html" rel="noopener noreferrer" target="_blank">documentación de backups crash-consistent de varios volúmenes</a> y verifica las funciones disponibles para tu recurso y región.</li>
 </ul>
 
+<p>Las dos herramientas gestionan sus propios puntos de recuperación. Evita programar dos políticas sobre el mismo volumen sin una razón clara: puedes crear copias repetidas y aumentar el almacenamiento. Si eliges AWS Backup para EBS, elimina los puntos desde su bóveda y su ciclo de vida. Para seguir el flujo de planes, permisos y pruebas de restauración, consulta <a href="https://dondeaprendoaws.com/blog/comprendiendo-aws-backup/">la guía de AWS Backup</a>. Revisa las páginas oficiales de <a href="https://docs.aws.amazon.com/ebs/latest/userguide/snapshot-lifecycle.html" rel="noopener noreferrer" target="_blank">automatización de respaldos con DLM</a> y <a href="https://docs.aws.amazon.com/aws-backup/latest/devguide/working-with-supported-services.html" rel="noopener noreferrer" target="_blank">integración de AWS Backup con EBS</a>.</p>
 
-<p>En resumen, los snapshots son una manera eficiente de mantener seguros tus datos, permitiéndote recuperarlos fácilmente si algo sucede.</p>
+<h2 id="retencion-borrado-archivo-y-costos">Retención, eliminación, archivo y costos</h2>
 
+<p>Define la retención según el tiempo durante el que necesites recuperar estados anteriores y las reglas de tu organización. Como los snapshots comparten bloques, borrar un punto antiguo no rompe los posteriores: cada snapshot puede crear por sí mismo un volumen con el estado capturado. Al eliminar uno, EBS borra los bloques exclusivos de ese punto; los bloques que todavía usa otro snapshot se conservan y siguen contándose en el almacenamiento. Por eso, borrar un snapshot no siempre reduce la factura de inmediato.</p>
 
-<h2 id="creaci%C3%B3n-de-snapshots" tabindex="-1">Creación de snapshots</h2>
+<p>Para copias que se consultan rara vez, el nivel <strong>Amazon EBS Snapshots Archive</strong> puede ser una alternativa de largo plazo. Archivar convierte el snapshot incremental en un snapshot completo y lo cobra con la tarifa del nivel de archivo. El almacenamiento archivado tiene un período mínimo de 90 días; recuperar el dato implica restaurarlo al nivel estándar y puede tardar más y generar un cargo de recuperación. Compáralo con conservar el snapshot estándar y revisa los <a href="https://docs.aws.amazon.com/ebs/latest/userguide/snapshot-archive-pricing.html" rel="noopener noreferrer" target="_blank">precios y condiciones del archivo de snapshots</a> antes de elegirlo.</p>
 
+<p>El costo total puede incluir almacenamiento incremental, snapshots copiados a otra región, el volumen restaurado mientras exista, Fast Snapshot Restore, inicialización provisionada y almacenamiento de archivo o su recuperación. Los importes varían por región y uso; consulta los <a href="https://aws.amazon.com/ebs/pricing/" rel="noopener noreferrer" target="_blank">precios actuales de Amazon EBS</a> y, para puntos gestionados por AWS Backup, los <a href="https://aws.amazon.com/backup/pricing/" rel="noopener noreferrer" target="_blank">precios de AWS Backup</a>. Anota las etiquetas de costo y revisa la factura después de activar una política de retención.</p>
 
-<p>Para hacer un snapshot de tus datos en Amazon EBS, aquí te mostramos cómo hacerlo paso a paso, ya sea usando la web de AWS, la línea de comandos (CLI) o la API:</p>
+<h2 id="recursos-y-comunidades">Recursos y comunidades para seguir aprendiendo</h2>
 
-
-<h3 id="utilizando-la-consola-de-aws" tabindex="-1">Utilizando la consola de AWS</h3>
-
+<p>El catálogo reúne grabaciones de comunidades en español sobre EBS y otros servicios de almacenamiento. Puedes abrir los videos directamente o <a href="/aprender/">explorar más recursos de aprendizaje en el catálogo</a>:</p>
 
 <ul>
-<li>Entra a la web de AWS y ve a la sección de EC2.</li>
-<li>En el menú de la izquierda, bajo "ELASTIC BLOCK STORE", elige "Volumes".</li>
-<li>Escoge el volumen del que quieres hacer el snapshot.</li>
-<li>Clic en "Actions" y luego en "Take snapshot".</li>
-<li>Ponle un nombre y, si quieres, una descripción al snapshot.</li>
-<li>Clic en "Take Snapshot".</li>
+<li><a href="https://www.youtube.com/watch?v=rBawTUS0vLA" rel="noopener noreferrer" target="_blank">Grupo de Estudio - Certificación Solutions Architect - Amazon Elastic Block Store (EBS)</a>, de AWS User Group Guatemala.</li>
+<li><a href="https://www.youtube.com/watch?v=2-um5JkAlc4" rel="noopener noreferrer" target="_blank">AWS Girls - EBS - Bianca Torres</a>, de AWS Girls Perú.</li>
+<li><a href="https://www.youtube.com/watch?v=t3WW-dcnGEk" rel="noopener noreferrer" target="_blank">Practitioner, Una Nueva Esperanza: Amazon EBS y Amazon EFS</a>, de AWS Women Colombia.</li>
+<li><a href="https://www.youtube.com/watch?v=GqYKhnqDDeI" rel="noopener noreferrer" target="_blank">AWS UG BS AS: AWS CLOUD PRACTITIONER CHALLENGE Sesión 5 "Storage (EBS, EFS, S3) + Monitoring/Log"</a>, de AWS User Group Buenos Aires.</li>
 </ul>
 
+<p>Un grupo no tiene que dedicarse a EBS para que puedas aprender con otras personas: las comunidades generales de AWS también sirven para conversar sobre backups, operación y recuperación. Si estás en Córdoba, consulta el <a href="https://www.meetup.com/aws-user-group-cordoba-argentina/" rel="noopener noreferrer" target="_blank">AWS User Group Córdoba</a>; para encontrar grupos en otros países, explora el <a href="/comunidades/">directorio de comunidades AWS</a>. Las sesiones y los temas cambian, así que revisa también la <a href="/eventos/">agenda de eventos AWS</a> para encontrar próximos encuentros y talleres.</p>
 
-<p>El proceso de crear el snapshot empezará y verás que su estado es "pending". Cuando termine, cambiará a "completed".</p>
+<h2 id="preguntas-frecuentes">Preguntas frecuentes sobre snapshots de EBS</h2>
 
+<h3 id="cada-snapshot-ebs-es-una-copia-completa">¿Cada snapshot de EBS es una copia completa?</h3>
+<p>Cada snapshot representa el estado completo del volumen y puede usarse para crear otro volumen. El almacenamiento se incrementa con los bloques nuevos o modificados que todavía no se guardaron en la cadena.</p>
 
-<h3 id="utilizando-aws-cli" tabindex="-1">Utilizando AWS CLI</h3>
+<h3 id="puedo-borrar-snapshots-antiguos-ebs">¿Puedo borrar snapshots antiguos sin perder los nuevos?</h3>
+<p>Sí. Los snapshots posteriores no requieren que conserves los antiguos para restaurarse. Sin embargo, los bloques que un snapshot posterior todavía referencia se conservan y pueden seguir generando cargos.</p>
 
+<h3 id="un-snapshot-ebs-es-consistente-con-mi-base-de-datos">¿Un snapshot es consistente con mi base de datos?</h3>
+<p>No necesariamente. EBS captura los bloques escritos, pero una aplicación puede tener datos pendientes en sus propios búferes. Usa el mecanismo de backup de la base de datos o pausa y prepara la aplicación antes del snapshot.</p>
 
-<p>Si prefieres usar la línea de comandos, puedes escribir:</p>
+<h3 id="el-snapshot-se-cifra-automaticamente">¿El snapshot se cifra automáticamente?</h3>
+<p>Hereda el cifrado del volumen de origen. Si el volumen estaba cifrado, el snapshot también lo estará con la clave asociada; para cifrar una copia de un snapshot sin cifrar, crea una copia cifrada con una clave KMS permitida en su región de destino.</p>
 
-
-<pre><code>aws ec2 create-snapshot --volume-id vol-01234567890abcedf --description "Mi snapshot del volumen"
-</code></pre>
-
-
-<p>Aquí:</p>
-
-
-<ul>
-<li><code class="inline-code">--volume-id</code> es el ID del volumen EBS del que quieres hacer el snapshot.</li>
-<li><code class="inline-code">--description</code> es una descripción opcional para tu snapshot.</li>
-</ul>
-
-
-<h3 id="utilizando-aws-api" tabindex="-1">Utilizando AWS API</h3>
-
-
-<p>Para los que usan la API de AWS, pueden enviar una solicitud <code class="inline-code">CreateSnapshot</code> con el ID del volumen como parámetro.</p>
-
-
-<p>Cosas importantes a recordar:</p>
-
-
-<ul>
-<li>Es buena idea hacer snapshots regularmente para tener copias de seguridad actualizadas.</li>
-<li>Los snapshots ocupan menos espacio porque solo guardan los cambios.</li>
-<li>Puedes usarlos para recuperar datos o mover volúmenes entre diferentes lugares.</li>
-<li>Siempre prueba que puedes restaurar tus datos desde un snapshot.</li>
-</ul>
-
-
-<p>Hacer snapshots, ya sea a mano o automáticamente con herramientas como Amazon Data Lifecycle Manager, es fundamental para cuidar tus datos en Amazon EBS.</p>
-
-
-<h2 id="gesti%C3%B3n-de-snapshots" tabindex="-1">Gestión de snapshots</h2>
-
-
-<p>Una vez que tienes tus snapshots, es clave saber cómo cuidarlos para que tus datos estén siempre seguros.</p>
-
-
-<h3 id="visualizaci%C3%B3n-de-snapshots" tabindex="-1">Visualización de snapshots</h3>
-
-
-<p>Para checar tus snapshots existentes, puedes usar la consola de AWS, la CLI o la API:</p>
-
-
-<p><strong>Consola</strong>:</p>
-
-
-<ul>
-<li>Ve a la sección de EC2 en la consola de AWS.</li>
-<li>En el menú de la izquierda, en "ELASTIC BLOCK STORE", elige "Snapshots".</li>
-<li>Aquí verás una lista con todos tus snapshots.</li>
-<li>Al seleccionar uno, podrás ver detalles como:</li>
-<li>ID del snapshot</li>
-<li>Fecha en que se creó</li>
-<li>Estado (completado, en proceso, etc)</li>
-<li>De qué volumen se tomó</li>
-<li>Descripción</li>
-<li>Etiquetas</li>
-<li>Otros datos importantes</li>
-</ul>
-
-
-<p><strong>CLI</strong>:</p>
-
-
-<p>Para obtener información sobre tus snapshots con la línea de comandos, usa:</p>
-
-
-<pre><code>aws ec2 describe-snapshots --snapshot-id snap-01234567890abcdef
-</code></pre>
-
-
-<p><strong>API</strong>:</p>
-
-
-<p>Con la API, la orden es <code class="inline-code">DescribeSnapshots</code> y solo tienes que poner el ID del snapshot que te interesa.</p>
-
-
-<h3 id="copiar-snapshots" tabindex="-1">Copiar snapshots</h3>
-
-
-<p>Si necesitas mover un snapshot a otra región, quizás para tener copias en diferentes lugares, sigue estos pasos:</p>
-
-
-<p><strong>Consola</strong>:</p>
-
-
-<ul>
-<li>Escoge el snapshot que quieres copiar.</li>
-<li>Haz clic en "Actions" y después en "Copy".</li>
-<li>Elige a dónde lo quieres mandar.</li>
-<li>Si quieres, cambia el nombre y la descripción.</li>
-<li>Haz clic en "Copy snapshot".</li>
-</ul>
-
-
-<p><strong>CLI</strong>:</p>
-
-
-<pre><code>aws ec2 copy-snapshot --source-region us-east-1 --source-snapshot-id snap-01234567890abcdef --description "Copia de snapshot a Ohio"
-</code></pre>
-
-
-<p><strong>API</strong>:</p>
-
-
-<p>La orden aquí es <code class="inline-code">CopySnapshot</code>, asegúrate de especificar el ID del snapshot y a qué región lo quieres enviar.</p>
-
-
-<h3 id="compartir-snapshots" tabindex="-1">Compartir snapshots</h3>
-
-
-<p>Si quieres compartir un snapshot con otra cuenta de AWS, aquí te decimos cómo:</p>
-
-
-<p><strong>Consola</strong>:</p>
-
-
-<ul>
-<li>Elige el snapshot que quieres compartir.</li>
-<li>Haz clic en "Actions", luego en "Modify Permissions".</li>
-<li>Puedes hacerlo público o escribir el ID de la cuenta con la que quieres compartir.</li>
-<li>Guarda los cambios.</li>
-</ul>
-
-
-<p><strong>CLI</strong>:</p>
-
-
-<pre><code>aws ec2 modify-snapshot-attribute --snapshot-id snap-01234567890abcdef --attribute createVolumePermission --operation-type add --user-ids 123456789012
-</code></pre>
-
-
-<p><strong>API</strong>:</p>
-
-
-<p>La orden es <code class="inline-code">ModifySnapshotAttribute</code>. Solo tienes que dar el ID del snapshot y la cuenta con la que lo quieres compartir.</p>
-
-
-<h3 id="eliminar-snapshots" tabindex="-1">Eliminar snapshots</h3>
-
-
-<p>Si tienes snapshots que ya no necesitas, así los puedes borrar:</p>
-
-
-<p><strong>Consola</strong>:</p>
-
-
-<ul>
-<li>Selecciona los snapshots que quieres eliminar.</li>
-<li>Haz clic en "Actions" y luego en "Delete".</li>
-<li>Confirma tu decisión.</li>
-</ul>
-
-
-<p><strong>CLI</strong>:</p>
-
-
-<pre><code>aws ec2 delete-snapshot --snapshot-id snap-01234567890abcdef
-</code></pre>
-
-
-<p><strong>API</strong>:</p>
-
-
-<p>La orden es <code class="inline-code">DeleteSnapshot</code>, usa el ID del snapshot que quieres eliminar.</p>
-
-
-<p>Antes de borrar algo, recuerda:</p>
-
-
-<ul>
-<li>Una vez eliminado, no podrás recuperar esos datos.</li>
-<li>Si creaste un AMI o un volumen desde ese snapshot, primero tienes que eliminar esos recursos.</li>
-</ul>
-
-
-<p>Siempre es buena idea asegurarte de que puedes restaurar datos desde un snapshot antes de deshacerte de los antiguos.</p>
-
-
-<h2 id="automatizaci%C3%B3n-de-snapshots" tabindex="-1">Automatización de snapshots</h2>
-
-
-<p>Usar AWS Data Lifecycle Manager (DLM) te ayuda a manejar automáticamente la creación, guardado y borrado de snapshots de EBS. Esto significa que puedes hacer que todo el proceso de cuidado de tus snapshots se maneje solo, siguiendo reglas que tú defines.</p>
-
-
-<h3 id="creaci%C3%B3n-de-una-pol%C3%ADtica-de-snapshots-automatizados" tabindex="-1">Creación de una política de snapshots automatizados</h3>
-
-
-<p>Si quieres que tus snapshots se hagan solos, sigue estos pasos:</p>
-
-
-<ul>
-<li>Ve a la consola de DLM en AWS.</li>
-<li>Elige "Create lifecycle policy".</li>
-<li>Selecciona "Snapshots management – EBS snapshots" y dale a "Next".</li>
-<li>Dale un nombre a tu política y si quieres, una descripción.</li>
-<li>Decide cada cuánto quieres que se hagan los snapshots (puede ser todos los días, cada semana, etc.)</li>
-<li>Elige cuántos snapshots quieres guardar antes de borrar los más viejos.</li>
-<li>Escoge qué volúmenes EBS van a seguir esta regla.</li>
-<li>Revisa todo y si estás de acuerdo, haz clic en "Create policy".</li>
-</ul>
-
-
-<p>Con estos pasos, DLM se encargará de hacer y borrar snapshots por ti, siguiendo las reglas que pusiste.</p>
-
-
-<h3 id="ventajas" tabindex="-1">Ventajas</h3>
-
-
-<p>Hacer esto tiene sus buenos puntos:</p>
-
-
-<ul>
-<li>Te ahorra tener que hacerlo a mano y reduce los errores que podríamos cometer.</li>
-<li>Puedes ajustar cómo y cuándo se hacen y borran los snapshots.</li>
-<li>Ayuda a que cumplas con las reglas de seguridad de datos.</li>
-<li>Ayuda a controlar los costos, ya que borra los snapshots viejos automáticamente.</li>
-</ul>
-
-
-<h3 id="consideraciones" tabindex="-1">Consideraciones</h3>
-
-
-<p>Pero hay cosas que debes tener en cuenta:</p>
-
-
-<ul>
-<li>Necesitas permisos especiales en IAM.</li>
-<li>Esto no significa que ya tienes todo resuelto para proteger tus datos en caso de un desastre.</li>
-<li>Es importante que revises que todo funcione como debe.</li>
-</ul>
-
-
-<p>En pocas palabras, AWS Data Lifecycle Manager te permite automatizar el cuidado de tus snapshots de EBS de manera fácil y según tus necesidades, lo que te ayuda a trabajar mejor, cumplir con las reglas de seguridad y controlar tus gastos.</p>
-
-
-<h2 id="recuperaci%C3%B3n-de-datos-desde-snapshots" tabindex="-1">Recuperación de datos desde snapshots</h2>
-
-
-<p>Si necesitas traer de vuelta tus datos de un snapshot de EBS, sigue estos pasos sencillos:</p>
-
-
-<ul>
-<li><strong>Crea un nuevo volumen de EBS usando el snapshot</strong>. Esto se puede hacer de diferentes maneras:</li>
-<li><strong>Consola</strong>: Elige el snapshot, dale clic en "Actions" y después en "Create Volume".</li>
-<li><strong>CLI</strong>: Utiliza el comando <code class="inline-code">create-volume</code> y no te olvides de poner el ID del snapshot.</li>
-<li><strong>API</strong>: Aquí debes usar <code class="inline-code">CreateVolume</code> y dar el ID del snapshot.</li>
-<li><strong>Adjunta este nuevo volumen a una instancia EC2</strong>. Esto te permitirá usar los datos del snapshot.</li>
-<li>En la consola, busca "Volumes", elige el volumen que acabas de crear, dale clic en "Actions" y luego en "Attach Volume".</li>
-<li>Con la CLI y la API, también hay formas de pegar este volumen a una instancia.</li>
-<li><strong>Accede y usa los datos</strong>. Una vez que el volumen está adjunto, puedes mover los archivos que necesites del snapshot a la instancia EC2. O si prefieres, puedes simplemente cambiar un volumen viejo por este nuevo que viene del snapshot.</li>
-</ul>
-
-
-<p><strong>Cosas que debes recordar</strong>:</p>
-
-
-<ul>
-<li>Al crear un volumen desde un snapshot, los datos se van cargando poco a poco. Esto significa que al principio, acceder a los datos puede ser lento hasta que todo se cargue completamente desde S3.</li>
-<li>Es una buena idea hacer que el volumen se cargue por completo antes de usarlo, para evitar esperas al acceder a los datos por primera vez. Puedes usar herramientas como <code class="inline-code">dd</code> o <code class="inline-code">fio</code> para esto.</li>
-<li>Siempre prueba cómo recuperar tus datos desde un snapshot antes de que realmente lo necesites, para asegurarte de que todo funcione bien.</li>
-</ul>
-
-
-<p>En resumen, con estos pasos de crear un volumen desde un snapshot, adjuntarlo a una instancia y mover los datos necesarios, puedes recuperar tus archivos de manera fácil y segura si algo pasa.</p>
-
-
-
-
-<h2 id="seguridad-y-cifrado" tabindex="-1">Seguridad y cifrado</h2>
-
-
-<p>Mantener tus datos seguros es super importante cuando usas snapshots de EBS. Aquí te contamos cómo se hace para que tus datos estén protegidos.</p>
-
-
-<h3 id="cifrado-nativo" tabindex="-1">Cifrado nativo</h3>
-
-
-<p>Cuando haces un snapshot de EBS, este se protege automáticamente con un sistema de seguridad llamado cifrado AES-256. Esto quiere decir que tus datos están seguros tanto cuando los estás moviendo como cuando no los estás usando.</p>
-
-
-<p>Este proceso de proteger tus datos es automático y no tienes que hacer nada extra.</p>
-
-
-<h3 id="administraci%C3%B3n-de-claves" tabindex="-1">Administración de claves</h3>
-
-
-<p>Para que el cifrado funcione, se usan unas llaves especiales a través de algo llamado AWS Key Management Service (AWS KMS). Cuando creas un volumen de EBS, se crea una llave nueva, a menos que decidas usar una que ya tengas.</p>
-
-
-<p>Esto es genial porque significa que no tienes que preocuparte por cómo manejar estas llaves; AWS lo hace por ti.</p>
-
-
-<h3 id="copias-cifradas" tabindex="-1">Copias cifradas</h3>
-
-
-<p>Si creas un volumen de EBS a partir de un snapshot que ya estaba protegido, este nuevo volumen también estará protegido con la misma llave. Y si quieres, puedes cambiar la llave por una nueva cuando hagas una copia del snapshot.</p>
-
-
-<h3 id="seguridad-adicional" tabindex="-1">Seguridad adicional</h3>
-
-
-<p>Además del cifrado, hay otras cosas que puedes hacer para mantener tus snapshots seguros:</p>
-
-
-<ul>
-<li>Asegúrate de que solo las personas correctas puedan acceder a tus snapshots, usando algo llamado IAM.</li>
-<li>Usa bloqueos de snapshots para prevenir que se borren por accidente.</li>
-<li>Prueba de vez en cuando que puedes recuperar tus datos desde los snapshots sin problemas.</li>
-</ul>
-
-
-<p>En resumen, los snapshots de EBS vienen con una buena protección automática, pero siempre es buena idea agregar un poco más de seguridad por tu cuenta.</p>
-
-
-<h2 id="casos-de-uso-de-snapshots" tabindex="-1">Casos de uso de snapshots</h2>
-
-
-<p>Los snapshots en EBS son super útiles en varias situaciones típicas:</p>
-
-
-<h3 id="copias-de-seguridad" tabindex="-1">Copias de seguridad</h3>
-
-
-<p>Los snapshots son una manera fácil y segura de guardar una copia de tus datos en los volúmenes de EBS. Al hacer snapshots con frecuencia, puedes estar tranquilo de tener un respaldo por si algo sale mal.</p>
-
-
-<p>Algunos ejemplos prácticos:</p>
-
-
-<ul>
-<li>Hacer un snapshot manual antes de cambios grandes, para poder volver atrás si algo no sale bien.</li>
-<li>Programar snapshots automáticos con Amazon Data Lifecycle Manager para seguir las políticas de copias de seguridad.</li>
-<li>Usar snapshots con otras herramientas de respaldo para proteger tus instancias EC2.</li>
-</ul>
-
-
-<h3 id="recuperaci%C3%B3n-ante-desastres" tabindex="-1">Recuperación ante desastres</h3>
-
-
-<p>Los snapshots te ayudan a mover tus datos entre diferentes áreas de AWS, lo cual es clave para recuperarte de desastres. Puedes:</p>
-
-
-<ul>
-<li>Hacer snapshots en tu área principal y copiarlos a otras áreas para tener una copia.</li>
-<li>Mover datos de tu oficina a AWS usando snapshots en volúmenes EBS.</li>
-<li>Aprovechar la opción de "Restauración rápida de instantáneas" para volver a tener tus datos rápidamente.</li>
-</ul>
-
-
-<h3 id="migraciones" tabindex="-1">Migraciones</h3>
-
-
-<p>Los snapshots sirven para:</p>
-
-
-<ul>
-<li>Pasar datos entre cuentas y áreas de AWS.</li>
-<li>Crear AMIs de tus snapshots para iniciar instancias EC2 en otras cuentas o áreas.</li>
-<li>Copiar snapshots que otra gente ha compartido o hecho públicos a tu cuenta.</li>
-</ul>
-
-
-<p>En pocas palabras, los snapshots de EBS son fundamentales para hacer copias de seguridad, recuperarte de problemas y mover tus datos en AWS. Tener un buen plan con snapshots es vital para cuidar tus datos en la nube.</p>
-
-
-<h2 id="conclusiones" tabindex="-1">Conclusiones</h2>
-
-
-<p>Mantener nuestros datos seguros usando snapshots en Amazon EBS es clave. Aquí te dejamos algunos consejos sencillos:</p>
-
-
-<ul>
-<li>Intenta hacer snapshots de manera regular. Puedes hacerlo a mano o usar herramientas como Amazon Data Lifecycle Manager para que se hagan solos. Esto te ayuda a tener siempre una copia reciente de tus datos.</li>
-<li>Cada tanto, asegúrate de que puedes volver a poner tus datos como estaban usando esos snapshots. Así sabrás que puedes contar con ellos si algo pasa.</li>
-<li>Activa el cifrado en tus snapshots y volúmenes de EBS para que tus datos estén protegidos. AWS se encarga de las llaves de cifrado, pero tú también puedes manejarlas si prefieres tener más control.</li>
-<li>Si tienes snapshots muy importantes, cópialos a otras regiones de AWS. Así tienes respaldos en diferentes lugares, lo cual es muy útil si necesitas recuperarte de algún problema grande.</li>
-<li>Piénsalo bien antes de borrar snapshots viejos. Asegúrate de que no necesitas nada de lo que están guardando.</li>
-<li>Controla quién puede ver y usar tus snapshots ajustando los permisos. Solo las personas que tú decidas deben poder acceder a ellos.</li>
-</ul>
-
-
-<p>En pocas palabras, los snapshots de Amazon EBS son fundamentales para cuidar tus datos en la nube. Si configuras bien los snapshots automáticos, revisas que todo funcione, activas el cifrado y guardas copias en varios lugares, estarás preparado para cualquier imprevisto.</p>
-
-
-<h2 id="%C2%BFqu%C3%A9-es-un-snapshot-en-aws%3F" tabindex="-1">¿Qué es un snapshot en AWS?</h2>
-
-
-<p>Imagina que puedes tomar una foto de cómo están tus datos en un momento específico, eso es un snapshot en AWS. Estas 'fotos' guardan solo los cambios desde la última vez que tomaste una, así que no ocupan mucho espacio y ayudan a ahorrar.</p>
-
-
-<p>Algunos puntos importantes:</p>
-
-
-<ul>
-<li>Te ayudan a recuperar tus datos si pierdes algo o si necesitas moverlos a otro lado.</li>
-<li>Se guardan de manera segura en Amazon S3.</li>
-<li>Puedes programarlos para que se hagan solos con herramientas como <a href="https://aws.amazon.com/backup/" rel="noopener noreferrer" target="_blank">AWS Backup</a>.</li>
-<li>Todos están protegidos con un cifrado fuerte para que tus datos estén seguros.</li>
-<li>También pueden ser útiles para aumentar el tamaño de tus espacios de almacenamiento en EBS.</li>
-</ul>
-
-
-<p>Es una buena idea hacer estos snapshots con frecuencia, ya sea a mano o de forma automática.</p>
-
-
-<p>Antes de borrar los antiguos, asegúrate de que puedes usarlos para recuperar tus datos sin problemas. No olvides activar el cifrado y poner permisos para que solo la gente autorizada pueda verlos.</p>
-
-
-<p>En resumen, los snapshots de EBS son una forma práctica de mantener seguros tus datos, recuperar cosas importantes rápidamente, mover información de un lugar a otro y proteger todo lo que tienes en la nube. Son una parte esencial de cualquier plan para cuidar tus datos.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/estrategias-de-recuperacion-de-desastres-en-aws/">Estrategias de recuperación de desastres en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-fundamentos-guia-de-inicio-rapido/">AWS fundamentos: guía de inicio rápido</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-seguridad-fundamentos-esenciales/">AWS seguridad: fundamentos esenciales</a></li>
-</ul>
-</p>
+<h3 id="dlm-o-aws-backup">¿Conviene usar DLM o AWS Backup?</h3>
+<p>DLM administra políticas de snapshots EBS y AMIs EBS. AWS Backup ofrece planes y bóvedas centralizados para varios recursos compatibles. Elige según el alcance que necesitas proteger, la recuperación que vas a probar y los controles de retención requeridos.</p>
