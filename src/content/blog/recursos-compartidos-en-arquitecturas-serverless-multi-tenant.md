@@ -1,746 +1,194 @@
 ---
-title: "Recursos compartidos en arquitecturas serverless multi-tenant"
-description: "Compartir recursos en arquitecturas serverless multi-tenant ofrece beneficios como reducción de costos, escalabilidad y simplificación de la gestión. Aprende las mejores prácticas y estrategias para implementar recursos compartidos de maner"
+title: "Serverless multi-tenant en AWS: recursos compartidos y aislamiento"
+description: "Aprende a compartir Lambda, DynamoDB y S3 entre tenants: modelos pool, silo y bridge, autorización, noisy neighbor, caché y observabilidad."
 author: "guille-ojeda"
 publishedAt: "2024-05-18"
 publishedTimestamp: "2024-05-18T01:35:00.225Z"
+modifiedTimestamp: "2026-10-06T23:36:27-03:00"
+review:
+  date: "2026-10-06"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Crear un cluster en Amazon Redshift"
-    url: "https://dondeaprendoaws.com/blog/crear-un-cluster-en-amazon-redshift/"
-  - title: "Diferencias: endpoint de interfaz vs. endpoint de gateway"
-    url: "https://dondeaprendoaws.com/blog/diferencias-endpoint-de-interfaz-vs-endpoint-de-gateway/"
-  - title: "Cómo desplegar una aplicación en Amazon ECS"
-    url: "https://dondeaprendoaws.com/blog/como-desplegar-una-aplicacion-en-amazon-ecs/"
-
+  - title: "Mejores prácticas para Amazon DynamoDB: claves, consultas y costos"
+    url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-amazon-dynamodb/"
+  - title: "Caché en AWS serverless: patrones, TTL y costos"
+    url: "https://dondeaprendoaws.com/blog/estrategias-de-cache-rentables-para-apps-serverless/"
+  - title: "AWS Lambda: qué es, cómo funciona y cuándo usarlo"
+    url: "https://dondeaprendoaws.com/blog/que-es-aws-lambda-preguntas-y-respuestas/"
 ---
 
-<p>Compartir recursos en <a href="https://dondeaprendoaws.com/blog/7-estrategias-de-serverless-para-startups-optimiza-costos/">arquitecturas serverless multi-tenant</a> ofrece beneficios significativos, como <strong>reducción de costos</strong>, <strong>mayor escalabilidad</strong> y <strong>simplificación de la gestión</strong>. Sin embargo, también presenta desafíos clave que deben abordarse:</p>
+Una aplicación **serverless multi-tenant** puede compartir una función Lambda, una tabla DynamoDB o un bucket S3 entre varios clientes. Esto permite aprovechar infraestructura común, pero exige resolver dos problemas distintos: impedir que un cliente acceda a los datos de otro y evitar que su carga degrade el servicio para los demás. Añadir un campo `tenantId` no resuelve ninguno por sí solo.
 
+Un **tenant** es el cliente o la organización que usa el producto; puede tener muchos usuarios. Por ejemplo, dos empresas pueden utilizar el mismo sistema de pedidos, con usuarios, datos y permisos independientes. Esta guía explica las opciones para compartir recursos en AWS y los controles que debes comprobar en cada capa, desde la identidad hasta las colas y la observabilidad.
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Desafío</th>
-<th>Solución</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Seguridad de datos</strong></td>
-<td>Implementar aislamiento de inquilinos, políticas de acceso y cifrado de datos.</td>
-</tr>
-<tr>
-<td><strong>Contención de recursos</strong></td>
-<td>Utilizar estrategias como agrupación, partición y fragmentación de recursos.</td>
-</tr>
-<tr>
-<td><strong>Rendimiento</strong></td>
-<td>Aplicar técnicas de caching, balanceo de carga y particionamiento.</td>
-</tr>
-<tr>
-<td><a href="https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/"><strong>Monitoreo y observabilidad</strong></a></td>
-<td>Utilizar herramientas como <a href="https://aws.amazon.com/cloudwatch/" rel="noopener noreferrer" target="_blank">AWS CloudWatch</a>, X-Ray y CloudTrail.</td>
-</tr>
-</tbody>
-</table></figure>
+## Pool, silo y bridge: qué compartes y qué separas
 
+AWS distingue estos [modelos de SaaS en su Well-Architected SaaS Lens](https://docs.aws.amazon.com/wellarchitected/latest/saas-lens/silo-pool-and-bridge-models.html):
 
-<p>Para aprovechar los beneficios y mitigar los riesgos, es crucial seguir las mejores prácticas, como:</p>
+| Modelo | Ejemplo serverless | Ventaja y costo de operarlo |
+| --- | --- | --- |
+| **Pool**: recursos compartidos | Una Lambda y una tabla DynamoDB para varios tenants | Centraliza despliegues y puede aprovechar mejor los recursos. Debes aplicar aislamiento lógico y controlar la contención. |
+| **Silo**: recursos dedicados | Función y tabla independientes por tenant | Permite acotar permisos y capacidad por recurso. Aumenta el número de recursos que debes provisionar, actualizar y observar. |
+| **Bridge**: combinación | API compartida y almacenamiento dedicado para ciertos tenants | Separa los componentes que lo necesitan. Requiere enrutar correctamente y operar ambas modalidades. |
 
+La elección puede variar por servicio y por categoría de cliente. Compartir la API no obliga a compartir las tablas. Tener recursos dedicados tampoco basta si el rol de la aplicación puede leer los de cualquier tenant. En todos los modelos debes validar los permisos y mantener una operación coherente para los clientes.
 
-<ul>
-<li>
-<p>Implementar políticas de acceso y autenticación adecuadas.</p>
-</li>
-<li>
-<p>Monitorear el rendimiento y escalar recursos según sea necesario.</p>
-</li>
-<li>
-<p>Utilizar servicios de <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> como DynamoDB, ElastiCache, SQS y SNS.</p>
-</li>
-<li>
-<p>Optimizar costos con autoscaling, instancias reservadas y rightsizing.</p>
-</li>
-</ul>
+Antes de elegir, identifica qué exige separación, qué carga comparten los clientes y cuánto cuesta operar recursos independientes. Compara con tráfico representativo: serverless administra infraestructura, pero no elimina las cuotas ni garantiza que compartir siempre sea más barato.
 
+## La identidad del tenant debe llegar desde un contexto confiable
 
-<p>Al abordar estos aspectos, las organizaciones pueden disfrutar de los beneficios de compartir recursos en <a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">arquitecturas serverless</a> multi-tenant de manera segura y eficiente.</p>
+**Autenticar** responde quién hace la solicitud. **Autorizar** decide si esa identidad puede ejecutar la operación sobre esos datos. El [aislamiento entre tenants](https://docs.aws.amazon.com/wellarchitected/latest/saas-lens/tenant-isolation.html) debe impedir accesos cruzados incluso entre usuarios autenticados.
 
+Supón que alguien solicita `GET /tenants/beta/orders/42`, pero pertenece a `acme`. Que tenga un token válido no le concede acceso a `beta`. El backend debe comprobar la pertenencia y los permisos antes de consultar el pedido. Si una persona pertenece a varias organizaciones, también debe comprobar que puede actuar en la seleccionada.
 
-<h2 id="related-video-from-youtube" tabindex="-1">Related video from YouTube</h2>
+Un flujo concreto sería:
 
+1. Validar la credencial con el proveedor y authorizer apropiados: firma, emisor, destinatario y vigencia del token, además de los permisos de la ruta. Por ejemplo, AWS explica esas comprobaciones en los [JWT authorizers de HTTP API](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-jwt-authorizer.html).
+2. Resolver el tenant autorizado desde claims verificados o una relación de pertenencia controlada por el backend. Un encabezado, subdominio o parámetro enviado por el cliente puede seleccionar un tenant, pero no demostrar que tiene acceso.
+3. Propagar ese contexto a las consultas, escrituras, claves de caché y trabajos asíncronos. Los consumidores de mensajes deben conservar los mismos límites.
+4. Restringir el acceso al almacenamiento para que un error de selección no abra todos los datos.
 
-<iframe allowfullscreen="" loading="lazy" src="https://www.youtube.com/embed/zf8gcvbnsKg" title="Video de YouTube"></iframe>
-<h2 id="introducci%C3%B3n" tabindex="-1">Introducción</h2>
+La guía de [Lambda authorizers: seguridad, JWT y caché en API Gateway](/blog/5-practicas-de-seguridad-para-lambda-authorizers/) desarrolla la validación y el alcance de las decisiones cacheadas. Como práctica en español, [Asegurar API Gateway con Amazon Cognito usando SAM, de Andres Moreno](https://andmore.dev/es/blog/api-cognito/), muestra autenticación máquina a máquina con scopes. Sirve para estudiar la entrada a la API; debes agregar los controles de pertenencia y datos de tu SaaS.
 
+## DynamoDB compartido: las claves organizan; IAM restringe
 
-<p>En la arquitectura serverless multi-tenant, compartir recursos es clave para optimizar costos y rendimiento. Al permitir que varios inquilinos usen los mismos recursos, las organizaciones pueden reducir gastos de infraestructura y mejorar la escalabilidad y flexibilidad de sus aplicaciones.</p>
+En una tabla con claves compuestas puedes agrupar pedidos de un tenant de esta forma:
 
+| PK | SK | Datos de ejemplo |
+| --- | --- | --- |
+| `TENANT#acme` | `ORDER#42` | Pedido de Acme |
+| `TENANT#acme` | `ORDER#43` | Otro pedido de Acme |
+| `TENANT#beta` | `ORDER#42` | Pedido de Beta |
 
-<p>Compartir recursos en una arquitectura serverless multi-tenant ofrece varios beneficios, como la reducción de costos y la simplificación de la gestión de la infraestructura. Sin embargo, también presenta desafíos únicos, como garantizar la seguridad y la aislación de los recursos compartidos.</p>
+El backend construye `PK` desde el contexto autorizado, no desde el cuerpo recibido. Sin embargo, un rol con acceso a toda la tabla todavía puede consultar ambas particiones. AWS muestra cómo [usar credenciales temporales restringidas para una Lambda compartida](https://aws.amazon.com/blogs/security/security-practices-in-aws-multi-tenant-saas-environments/): el código accede a los datos mediante una sesión con permisos del tenant correspondiente.
 
+Esta política de lectura ilustra el uso de `dynamodb:LeadingKeys`. Sustituye región, cuenta y tabla; presupone una sesión IAM etiquetada con `TenantId` por un componente confiable:
 
-<p>En este artículo, veremos los conceptos clave de compartir recursos en arquitecturas serverless multi-tenant, incluyendo los beneficios y desafíos, y cómo usar estrategias de aislación de inquilinos y agrupación de recursos para mejorar la eficiencia y seguridad de las aplicaciones.</p>
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Action": ["dynamodb:GetItem", "dynamodb:Query"],
+    "Resource": "arn:aws:dynamodb:REGION:ACCOUNT_ID:table/Orders",
+    "Condition": {
+      "ForAllValues:StringEquals": {
+        "dynamodb:LeadingKeys": ["TENANT#${aws:PrincipalTag/TenantId}"]
+      },
+      "Null": {
+        "dynamodb:LeadingKeys": "false",
+        "aws:PrincipalTag/TenantId": "false"
+      }
+    }
+  }]
+}
+```
 
+Para una sesión con `TenantId=acme`, esa concesión permite leer `TENANT#acme` y no concede `TENANT#beta`. La comparación es exacta: tampoco incluye `TENANT#acme2`. Las comprobaciones `Null` exigen que existan la clave de condición y la etiqueta. Consulta la referencia de [condiciones IAM de DynamoDB](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/specifying-conditions.html) y la explicación de [ForAllValues y claves ausentes](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-single-vs-multi-valued-context-keys.html).
 
-<h2 id="what-are-multi-tenant-serverless-architectures%3F" tabindex="-1">What are multi-tenant serverless architectures?</h2>
+La política no concede escrituras, `Scan` ni acceso a índices; no es una configuración completa para producción. La confianza del rol debe impedir que quien pide acceso elija una etiqueta ajena. Revisa otras concesiones IAM: un permiso amplio adicional puede anular el efecto práctico de una concesión limitada. Si usas una política de sesión, sus permisos se intersectan con los del rol, como explica [AWS STS AssumeRole](https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html). El cliente DynamoDB debe usar las credenciales restringidas, y el camino habitual de datos no debe conservar una alternativa con acceso general.
 
+Una clave por tenant facilita el ejemplo, pero puede concentrar demasiado tráfico. Para cargas mayores, diseña las colecciones según el acceso, por ejemplo combinando tenant y pedido. Revisa entonces la política y cada índice: no traslades esta igualdad exacta a un esquema de claves diferente. AWS desarrolla esas decisiones en [DynamoDB multi-tenancy, parte 2](https://aws.amazon.com/blogs/database/amazon-dynamodb-data-modeling-for-multi-tenancy-part-2/). Una expresión de filtro que descarta datos después de leerlos no reemplaza la autorización.
 
-<p>Las arquitecturas serverless multi-tenant permiten que múltiples inquilinos compartan los mismos recursos de infraestructura. Esto se logra usando tecnologías serverless, que ejecutan código sin necesidad de gestionar la infraestructura subyacente.</p>
+Para seguir estudiando el diseño, consulta [Mejores prácticas para Amazon DynamoDB: claves, consultas y costos](/blog/mejores-practicas-para-amazon-dynamodb/) y la lectura comunitaria de Brenda Galicia sobre [diseño de una sola tabla](https://dev.to/bardengalicia/simplicidad-y-eficiencia-desmitificando-el-diseno-de-una-sola-tabla-en-amazon-dynamodb-8oc). Esta última explica claves y relaciones; no implementa aislamiento multi-tenant.
 
+## S3 y caché: un prefijo tampoco es una frontera de permisos
 
-<h3 id="t%C3%A9rminos-clave" tabindex="-1">Términos clave</h3>
+En un bucket compartido, `tenants/acme/invoices/42.pdf` permite organizar objetos, pero no impide que un rol lea `tenants/beta/invoices/42.pdf`. Restringe las operaciones sobre objetos al ARN del prefijo autorizado y, si permites listar, restringe `s3:ListBucket` con la condición `s3:prefix`. Son controles distintos: AWS documenta [políticas sobre objetos y listados por prefijo](https://docs.aws.amazon.com/AmazonS3/latest/userguide/amazon-s3-policy-keys.html).
 
+El backend también debe comprobar el tenant antes de generar una [URL prefirmada para un objeto](https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-presigned-url.html). Cifrar los objetos no sustituye esa autorización: si un principal tiene los permisos necesarios para leer y descifrar, el cifrado no corrige un acceso cruzado.
 
-<p>En este contexto, es importante entender algunos términos:</p>
+En una caché compartida, una clave como `order:42` colisionaría entre los dos clientes del ejemplo. Una clave `tenant:acme:order:42:v1` distingue sus datos, pero debes construirla desde el contexto autorizado y comprobar el acceso también en un acierto de caché. Si la respuesta depende del usuario o de su rol, incluye ese alcance o evita compartirla.
 
+Revisa TTL e invalidación cuando cambian datos o permisos. En Lambda, no conserves datos sensibles de una solicitud en variables globales o archivos temporales que otra invocación pueda reutilizar; las [prácticas de AWS Lambda](https://docs.aws.amazon.com/lambda/latest/dg/best-practices.html) advierten sobre ese riesgo. La guía de [caché en AWS serverless](/blog/estrategias-de-cache-rentables-para-apps-serverless/) desarrolla claves, privacidad y costo antes de añadir ElastiCache u otra capa.
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Término</th>
-<th>Definición</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Inquilino (Tenant)</strong></td>
-<td>Entidad que usa una aplicación o servicio en la nube.</td>
-</tr>
-<tr>
-<td><strong>Recursos compartidos</strong></td>
-<td>Componentes de infraestructura usados por varios inquilinos.</td>
-</tr>
-<tr>
-<td><strong>Aislación de inquilinos</strong></td>
-<td>Garantiza que cada inquilino acceda solo a sus propios recursos y datos.</td>
-</tr>
-</tbody>
-</table></figure>
+## Noisy neighbor: protege la capacidad que comparten los clientes
 
+Un **noisy neighbor** es un tenant cuya carga perjudica a otros. Puede producir una ráfaga de solicitudes, monopolizar consumidores de una cola o concentrar lecturas en una clave. Subir capacidad puede ayudar, pero también aumentar la factura sin corregir cómo se reparte el trabajo.
 
-<h3 id="relevancia-en-la-computaci%C3%B3n-en-la-nube" tabindex="-1">Relevancia en la computación en la nube</h3>
+### Lambda: reservar concurrencia no crea una cuota por tenant
 
+La [concurrencia reservada de Lambda](https://docs.aws.amazon.com/lambda/latest/dg/configuration-concurrency.html) aparta capacidad y fija un máximo para una función. Si todos los tenants usan esa función, comparten ese máximo. No reserva una parte para cada uno. Para entender invocaciones, concurrencia y límites, lee [AWS Lambda: qué es, cómo funciona y cuándo usarlo](/blog/que-es-aws-lambda-preguntas-y-respuestas/).
 
-<p>Las arquitecturas serverless multi-tenant son populares en la computación en la nube, especialmente en plataformas como AWS. Permiten reducir costos, mejorar la escalabilidad y simplificar la gestión de la infraestructura. Además, los desarrolladores pueden centrarse en la lógica de negocio sin preocuparse por la infraestructura subyacente.</p>
+Puedes evaluar límites de admisión por tenant antes de ejecutar tareas costosas, consumidores separados para cargas que lo necesitan o funciones dedicadas con sus propias reservas. Define qué trabajo rechazas o pospones y comprueba también el límite del recurso aguas abajo. Una alarma solo informa; para frenar consumo necesitas un control que actúe en ese flujo.
 
+AWS ofrece además un [modo de aislamiento de tenants en Lambda](https://docs.aws.amazon.com/lambda/latest/dg/tenant-isolation.html) que asigna entornos de ejecución al `tenant-id` indicado. Evita reutilizar el mismo entorno entre tenants diferentes, pero mantiene el rol de ejecución compartido y el comportamiento de concurrencia. Por tanto, debes seguir autorizando datos y resolviendo la contención. Se habilita al crear la función, tiene cargos adicionales y no es compatible con Function URLs, concurrencia aprovisionada ni SnapStart. Verifica compatibilidad y región antes de adoptarlo.
 
-<h2 id="recursos-compartidos-en-arquitecturas-serverless-multi-tenant-1" tabindex="-1">Recursos compartidos en arquitecturas serverless multi-tenant</h2>
+### API Gateway y SQS: conoce el alcance de cada control
 
+En **REST API**, los usage plans de API Gateway permiten objetivos de throttling y cuotas por API key. AWS aclara que se aplican con esfuerzo razonable y pueden superarse: no son un límite estricto de gasto. Las API keys tampoco deben usarse como autenticación o autorización. Consulta [usage plans y API keys](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-api-usage-plans.html) antes de tratarlos como una garantía para clientes.
 
-<h3 id="%C2%BFqu%C3%A9-son-los-recursos-compartidos%3F" tabindex="-1">¿Qué son los recursos compartidos?</h3>
+Para una cola **SQS standard** compartida, las [fair queues](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-fair-queues.html) utilizan `MessageGroupId` para identificar tenants y mitigar el aumento de espera de otros grupos cuando uno concentra mensajes en procesamiento. El productor debe asignarlo desde el contexto confiable. Esta función no impone una tasa máxima por tenant ni da orden FIFO. Tampoco convierte una cola común en colas privadas: los consumidores deben aplicar el contexto y los permisos de cada tarea.
 
+Si quieres estudiar el procesamiento asíncrono acompañado, el AWS User Group Serverless Colombia anuncia [El Combo Indestructible de AWS: SQS + Lambda](https://www.meetup.com/aws-user-group-serverless-colombia/events/316770520/) para el **20 de octubre de 2026, a las 19:00 de Colombia (UTC−5)**. Al revisar la ficha el 6 de octubre, figura como sesión virtual de acceso libre, con enlace visible para asistentes. Es una charla de arquitectura resiliente, no una promesa de taller sobre aislamiento; confirma agenda y registro en Meetup.
 
-<p>En arquitecturas serverless multi-tenant, los recursos compartidos son componentes de infraestructura usados por varios inquilinos. Estos recursos pueden incluir bases de datos, sistemas de caching y colas de mensajería. Compartir recursos ayuda a reducir costos, mejorar la escalabilidad y simplificar la gestión.</p>
+## Observabilidad y costo por tenant
 
+Una media saludable puede ocultar que un cliente responde lento. Publica logs estructurados con identificador interno de tenant, operación, duración, resultado e ID de solicitud. Evita tokens y datos personales innecesarios. Las [operaciones conscientes del tenant en SaaS Lens](https://docs.aws.amazon.com/wellarchitected/latest/saas-lens/tenant-aware-operations.html) explican por qué necesitas esa vista además de las métricas globales.
 
-<h3 id="ventajas-de-los-recursos-compartidos" tabindex="-1">Ventajas de los recursos compartidos</h3>
+Si tus logs de solicitudes contienen `tenantId` y `durationMs`, esta consulta de CloudWatch Logs Insights compara volumen y latencia p95 por tenant en el período y grupos seleccionados:
 
+```text
+filter ispresent(tenantId) and ispresent(durationMs)
+| stats count(*) as requests, pct(durationMs, 95) as p95Ms by tenantId
+| sort p95Ms desc
+```
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Ventaja</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Ahorro de costos</strong></td>
-<td>Reduce los costos de infraestructura y mantenimiento.</td>
-</tr>
-<tr>
-<td><strong>Mejora de la escalabilidad</strong></td>
-<td>Permite ajustar la capacidad según sea necesario.</td>
-</tr>
-<tr>
-<td><strong>Simplificación de la gestión</strong></td>
-<td>Facilita la gestión de la infraestructura.</td>
-</tr>
-</tbody>
-</table></figure>
+Registra un evento por solicitud si quieres que el conteo represente solicitudes; con varios eventos estarías contando líneas de log. La [sintaxis de stats](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CWL_QuerySyntax-Stats.html) admite esas agregaciones. La consulta no crea métricas ni alarmas: debes configurarlas sobre señales publicadas y probar su respuesta. Si publicas métricas personalizadas por tenant, cada combinación de dimensiones crea una serie distinta; evalúa cantidad y costo antes de multiplicarlas. La referencia de [conceptos de métricas de CloudWatch](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_concepts.html) explica esa identidad.
 
+Correlaciona logs y trazas para seguir la solicitud, y contrasta errores, throttling y capacidad del servicio afectado. La guía de [diagnóstico con CloudWatch](/blog/mejores-practicas-de-observabilidad-en-aws/) explica instrumentación, datos ausentes y OpenTelemetry. Como entrada en español, [Observabilidad en la Nube de AWS, de Sheyla Leacock](https://dev.to/aws-builders/observabilidad-en-la-nube-de-aws-explorando-cloudwatch-x-ray-y-cloudtrail-5d9m), compara métricas, logs y trazas. [Búfer de logs con Lambda Powertools, de Andres Moreno](https://andmore.dev/es/blog/log-buffering/), muestra cómo conservar y emitir logs bajo condiciones concretas; antes de usarlo, comprueba que tu diagnóstico y auditoría no dependan de eventos que terminarías descartando.
 
-<h3 id="desaf%C3%ADos-potenciales" tabindex="-1">Desafíos potenciales</h3>
+CloudTrail registra actividad de APIs, pero no equivale a todos los eventos de negocio. Los eventos de datos necesitan configuración y pueden tener cargos; revisa [cómo habilitarlos](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-data-events-with-cloudtrail.html) en vez de asumir que todos los accesos a objetos ya se auditan.
 
+Para repartir costos compartidos necesitas un criterio explícito: solicitudes, duración, unidades consumidas u otra medida apropiada al servicio. Cost Explorer no identifica automáticamente qué tenant consumió cada invocación de una función compartida. Separa costos directamente atribuibles de estimaciones y gastos comunes; SaaS Lens desarrolla este problema en [medición y atribución del consumo](https://docs.aws.amazon.com/wellarchitected/latest/saas-lens/expenditure-awareness.html).
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Desafío</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Seguridad de los datos</strong></td>
-<td>Riesgo de acceso no autorizado a los datos de los inquilinos.</td>
-</tr>
-<tr>
-<td><strong>Contención de recursos</strong></td>
-<td>Conflictos entre inquilinos que comparten los mismos recursos.</td>
-</tr>
-<tr>
-<td><strong>Complejidad en la monitorización y gestión</strong></td>
-<td>Dificultad para monitorizar y gestionar los recursos individuales.</td>
-</tr>
-</tbody>
-</table></figure>
+## Cómo comprobar el aislamiento antes de confiar en él
 
+Prepara dos tenants ficticios y verifica accesos permitidos y rechazados, además de una carga desbalanceada. No basta con probar el camino correcto de un usuario:
 
-<p>En las siguientes secciones, veremos estrategias para compartir recursos de manera efectiva y segura en arquitecturas serverless multi-tenant.</p>
+| Caso | Qué debes comprobar |
+| --- | --- |
+| Usuario de Acme cambia el tenant en ruta, cuerpo o encabezado | La autorización rechaza el acceso a Beta antes de devolver datos. |
+| Sesión de Acme intenta consultar claves o índices de Beta | Los permisos del almacén impiden el acceso; revisa también escrituras y operaciones por lotes si las habilitas. |
+| Dos tenants usan el mismo ID de pedido | Consultas y caché mantienen respuestas separadas, incluyendo aciertos y cambios de permisos. |
+| Una tarea se entrega nuevamente | El consumidor conserva el tenant y no repite efectos de negocio indebidamente. |
+| Un tenant genera una ráfaga | Mide latencia, errores y espera de los demás; comprueba qué límite actúa y qué ocurre con el trabajo rechazado. |
 
+La política ilustrativa y la consulta de logs no demuestran por sí solas el aislamiento de tu aplicación: debes comprobar la configuración efectiva y los caminos que usa el código, incluyendo los rechazos previstos.
 
-<h2 id="estrategias-para-compartir-recursos" tabindex="-1">Estrategias para compartir recursos</h2>
+## Recursos y comunidades para seguir aprendiendo
 
+Puedes llevar un diagrama pequeño, claves ficticias y una pregunta concreta —por ejemplo, «¿cómo separo permisos de tabla y de índice?»— a una comunidad. Un grupo general también sirve para aprender y contrastar experiencias; no tiene que estar dedicado a SaaS.
 
-<h3 id="aislaci%C3%B3n-de-inquilinos" tabindex="-1">Aislación de inquilinos</h3>
+- [AWS User Group Serverless Colombia](https://www.meetup.com/aws-user-group-serverless-colombia/): consulta sus encuentros para conversar sobre funciones, APIs y procesamiento de eventos.
+- [AWS User Group Perú](https://awsugperu.cloud/): ofrece un portal con comunidades locales, actividades y grupos de estudio para encontrar personas con quienes aprender.
+- [AWS User Group Chile](https://awsugchile.com/): reúne personas interesadas en AWS y ofrece vías para participar. Su [canal de YouTube](https://www.youtube.com/channel/UCYUBBIe0XzNsxcq9Tu_Wqsw) permite explorar charlas grabadas a tu ritmo.
+- [AWS Women Colombia](https://awswomencolombia.com/): comparte publicaciones y actividades de la comunidad; su [canal de YouTube](https://www.youtube.com/channel/UCdpHSMDDwo4_d_u3mSU41Mw) es otra opción para revisar sesiones técnicas en español.
+- [AWS User Group Security Ecuador](https://www.awssecurityecuador.com/): publica encuentros y recursos para profundizar controles de acceso y seguridad en AWS.
+- [AndMore Dev](https://www.andmore.dev/es/): permite continuar con artículos prácticos en español sobre APIs, SAM y Lambda, incluidos los ejemplos enlazados en esta guía.
 
+Para encontrar otras opciones por país o formato, explora el [directorio de comunidades](/comunidades/), los [creadores y canales](/creadores/) y la [agenda de eventos AWS](/eventos/). Confirma fechas, modalidad, requisitos y condiciones con cada organizador.
 
-<p>La aislación de inquilinos es clave para compartir recursos en arquitecturas serverless multi-tenant. Esto implica segmentar recursos para cada inquilino, asegurando que solo accedan a sus propios datos.</p>
+## Preguntas frecuentes
 
+### ¿Un tenantId en DynamoDB o un prefijo en S3 garantiza aislamiento?
 
-<p><strong>Ejemplo en AWS:</strong></p>
+No. Identifica y organiza datos. El aislamiento requiere validar la pertenencia del solicitante y restringir las operaciones al ámbito autorizado mediante controles del backend y del almacén.
 
+### ¿Cognito aísla automáticamente los datos de cada cliente?
 
-<ul>
-<li>
-<p>Usar Amazon DynamoDB para crear una base de datos específica para cada inquilino.</p>
-</li>
-<li>
-<p>Implementar políticas de acceso y autorización para controlar el acceso a los recursos.</p>
-</li>
-</ul>
+No. Puede aportar identidad y tokens para autorizar una API; la aplicación debe relacionar esa identidad con el tenant y sus permisos, y aplicar el límite en cada acceso a datos.
 
+### ¿Una Lambda compartida puede reservar concurrencia por tenant?
 
-<h3 id="agrupaci%C3%B3n-de-recursos" tabindex="-1">Agrupación de recursos</h3>
+La concurrencia reservada se configura para la función. Los tenants que la usan comparten ese límite. Un reparto por tenant necesita controles adicionales o recursos separados según el comportamiento que quieras garantizar.
 
+### ¿Pool siempre cuesta menos que silo?
 
-<p>La agrupación de recursos implica poner recursos en un grupo común accesible por varios inquilinos. Esto mejora el uso de los recursos y reduce costos.</p>
+No. Puede aprovechar infraestructura común, pero el consumo, las capas adicionales y la operación también cuestan. Compara la carga y los controles necesarios; no atribuyas ahorros sin medirlos.
 
+### ¿SQS fair queues reemplaza una cuota por cliente?
 
-<p><strong>Ejemplo en AWS:</strong></p>
-
-
-<ul>
-<li>Usar Amazon ElastiCache para crear un grupo de caching compartido por varios inquilinos.</li>
-</ul>
-
-
-<h3 id="partici%C3%B3n-de-recursos" tabindex="-1">Partición de recursos</h3>
-
-
-<p>La partición de recursos segmenta recursos en particiones lógicas accesibles por varios inquilinos. Esto facilita la gestión y reduce conflictos.</p>
-
-
-<p><strong>Ejemplo en AWS:</strong></p>
-
-
-<ul>
-<li>Usar Amazon SQS para crear una cola de mensajería compartida por varios inquilinos.</li>
-</ul>
-
-
-<h3 id="fragmentaci%C3%B3n-de-recursos" tabindex="-1">Fragmentación de recursos</h3>
-
-
-<p>La fragmentación de recursos distribuye recursos en fragmentos lógicos accesibles por varios inquilinos. Esto mejora la escalabilidad y flexibilidad.</p>
-
-
-<p><strong>Ejemplo en AWS:</strong></p>
-
-
-<ul>
-<li>Usar Amazon SNS para crear un tema de notificación compartido por varios inquilinos.</li>
-</ul>
-
-
-<p>Estas estrategias permiten compartir recursos de manera eficiente y segura en arquitecturas serverless multi-tenant. Al elegir la estrategia adecuada, se puede asegurar que cada inquilino tenga acceso a los recursos necesarios sin comprometer la seguridad o la escalabilidad.</p>
-
-
-<h2 id="using-aws-services-for-shared-resources" tabindex="-1">Using <a href="https://aws.amazon.com/" rel="noopener noreferrer" target="_blank">AWS</a> Services for Shared Resources</h2>
-
-
-<p><figure><img alt="AWS" src="/assets/blog/2ebe3cf8e7ae57e98d3af846.jpg"/></figure></p>
-
-
-
-
-<h2 id="usando-servicios-de-aws-para-recursos-compartidos" tabindex="-1">Usando servicios de AWS para recursos compartidos</h2>
-
-
-<p>Para implementar recursos compartidos en arquitecturas serverless multi-tenant, AWS ofrece varios servicios útiles. A continuación, veremos algunos de los servicios clave de AWS que pueden ayudar a compartir recursos de manera eficiente y segura.</p>
-
-
-<h3 id="amazon-dynamodb" tabindex="-1"><a href="https://aws.amazon.com/dynamodb/" rel="noopener noreferrer" target="_blank">Amazon DynamoDB</a></h3>
-
-
-<p><figure><img alt="Amazon DynamoDB" src="/assets/blog/3904dda60f23aabdd6180916.jpg"/></figure></p>
-
-
-<p>Amazon DynamoDB es un servicio de base de datos NoSQL totalmente gestionado. Puedes usarlo para almacenar datos de múltiples inquilinos en una sola base de datos, manteniendo la aislación de inquilinos mediante tablas o particiones separadas.</p>
-
-
-<p><strong>Pasos para empezar con DynamoDB:</strong></p>
-
-
-<ol>
-<li>
-<p>Crea una tabla DynamoDB.</p>
-</li>
-<li>
-<p>Define el esquema de tus datos.</p>
-</li>
-<li>
-<p>Usa los SDKs de AWS o la API de DynamoDB para interactuar con la tabla y almacenar datos para cada inquilino.</p>
-</li>
-</ol>
-
-
-<h3 id="amazon-elasticache" tabindex="-1"><a href="https://aws.amazon.com/elasticache/" rel="noopener noreferrer" target="_blank">Amazon ElastiCache</a></h3>
-
-
-<p><figure><img alt="Amazon ElastiCache" src="/assets/blog/adf2dccdf60ff88a8d1eaba5.jpg"/></figure></p>
-
-
-<p>Amazon ElastiCache es un servicio que facilita la configuración y gestión de un entorno de caché en memoria distribuido. Puedes usarlo para implementar mecanismos de caché compartidos entre inquilinos, reduciendo la carga de tu aplicación y mejorando el rendimiento.</p>
-
-
-<p><strong>Pasos para usar ElastiCache:</strong></p>
-
-
-<ol>
-<li>
-<p>Crea un clúster de caché.</p>
-</li>
-<li>
-<p>Configúralo para almacenar datos de múltiples inquilinos.</p>
-</li>
-<li>
-<p>Usa la API de ElastiCache o los SDKs de AWS para interactuar con el caché y almacenar datos para cada inquilino.</p>
-</li>
-</ol>
-
-
-<h3 id="amazon-simple-queue-service-(sqs)" tabindex="-1">Amazon Simple Queue Service (SQS)</h3>
-
-
-<p>Amazon SQS es un servicio de colas de mensajes totalmente gestionado. Puedes usarlo para implementar colas de mensajes y tareas en un entorno multi-tenant, manteniendo la aislación de inquilinos mediante colas o particiones separadas.</p>
-
-
-<p><strong>Pasos para empezar con SQS:</strong></p>
-
-
-<ol>
-<li>
-<p>Crea una cola.</p>
-</li>
-<li>
-<p>Define el esquema de tus mensajes.</p>
-</li>
-<li>
-<p>Usa la API de SQS o los SDKs de AWS para interactuar con la cola y almacenar mensajes para cada inquilino.</p>
-</li>
-</ol>
-
-
-<h3 id="amazon-simple-notification-service-(sns)" tabindex="-1">Amazon Simple Notification Service (SNS)</h3>
-
-
-<p>Amazon SNS es un servicio de mensajería totalmente gestionado. Puedes usarlo para implementar servicios de notificación y mensajería entre múltiples inquilinos, manteniendo la aislación de inquilinos mediante temas o particiones separadas.</p>
-
-
-<p><strong>Pasos para usar SNS:</strong></p>
-
-
-<ol>
-<li>
-<p>Crea un tema.</p>
-</li>
-<li>
-<p>Define el esquema de tus mensajes.</p>
-</li>
-<li>
-<p>Usa la API de SNS o los SDKs de AWS para interactuar con el tema y almacenar mensajes para cada inquilino.</p>
-</li>
-</ol>
-
-
-<h2 id="security-for-shared-resources" tabindex="-1">Security for shared resources</h2>
-
-
-<p>La seguridad es clave al compartir recursos en arquitecturas serverless multi-tenant. Aquí te mostramos las mejores prácticas para asegurar los recursos compartidos.</p>
-
-
-<h3 id="aislaci%C3%B3n-de-datos" tabindex="-1">Aislación de datos</h3>
-
-
-<p>Para evitar fugas de datos y problemas de seguridad, sigue estas estrategias:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Estrategia</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Tablas o particiones separadas</strong></td>
-<td>Cada inquilino tiene su propia tabla o partición en la base de datos.</td>
-</tr>
-<tr>
-<td><strong>Claves de acceso</strong></td>
-<td>Se usan claves de acceso únicas para cada inquilino.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="control-de-acceso" tabindex="-1">Control de acceso</h3>
-
-
-<p>Para asegurar que solo los usuarios autorizados accedan a los recursos compartidos, utiliza:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Estrategia</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Políticas IAM</strong></td>
-<td>Definen permisos específicos para cada inquilino.</td>
-</tr>
-<tr>
-<td><strong>Roles de acceso</strong></td>
-<td>Se asignan roles de acceso para cada inquilino.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="cifrado-de-datos" tabindex="-1">Cifrado de datos</h3>
-
-
-<p>El cifrado protege los datos tanto en tránsito como en reposo. Usa estas estrategias:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Estrategia</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Cifrado en tránsito</strong></td>
-<td>Usa SSL/TLS para cifrar los datos en tránsito.</td>
-</tr>
-<tr>
-<td><strong>Cifrado en reposo</strong></td>
-<td>Usa algoritmos como AES para cifrar los datos en reposo.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="monitoreo-y-registro" tabindex="-1">Monitoreo y registro</h3>
-
-
-<p>Para detectar y mitigar riesgos de seguridad, implementa:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Estrategia</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>AWS CloudWatch</strong></td>
-<td>Monitorea las actividades de los recursos compartidos.</td>
-</tr>
-<tr>
-<td><strong>AWS CloudTrail</strong></td>
-<td>Registra todas las actividades de los recursos compartidos.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h2 id="estrategias-de-optimizaci%C3%B3n-de-costos" tabindex="-1">Estrategias de optimización de costos</h2>
-
-
-<p>La optimización de costos es clave en arquitecturas serverless multi-tenant, ya que los recursos compartidos pueden ayudar a reducir los gastos. A continuación, se presentan estrategias para monitorear y optimizar los costos en estas arquitecturas.</p>
-
-
-<h3 id="autoscaling-de-recursos" tabindex="-1">Autoscaling de recursos</h3>
-
-
-<p>El autoscaling ajusta automáticamente los recursos según la demanda. Esto reduce los costos asociados con la sobre-provisión de recursos. Por ejemplo, si un inquilino experimenta un aumento en la demanda, el autoscaling puede agregar recursos adicionales para manejar el tráfico adicional.</p>
-
-
-<h3 id="instancias-reservadas" tabindex="-1">Instancias reservadas</h3>
-
-
-<p>Las instancias reservadas permiten reducir los costos para cargas de trabajo predecibles. Al reservar instancias, se puede obtener un descuento en los costos de computación en comparación con las instancias on-demand. Esto es útil para inquilinos con cargas de trabajo estables y predecibles.</p>
-
-
-<h3 id="rightsizing-de-recursos" tabindex="-1">Rightsizing de recursos</h3>
-
-
-<p>El rightsizing de recursos asegura que los recursos estén adecuadamente escalados para satisfacer las necesidades de los inquilinos. Esto se logra mediante la monitorización del uso de recursos y el ajuste de la configuración según sea necesario. Por ejemplo, si un inquilino utiliza solo una pequeña parte de los recursos asignados, se pueden reducir los recursos asignados para ahorrar costos.</p>
-
-
-<h3 id="asignaci%C3%B3n-y-monitoreo-de-costos" tabindex="-1">Asignación y monitoreo de costos</h3>
-
-
-<p>La asignación y monitoreo de costos es crucial para entender cómo se están utilizando los recursos y encontrar oportunidades de optimización. AWS ofrece herramientas como <a href="https://aws.amazon.com/aws-cost-management/aws-cost-explorer/" rel="noopener noreferrer" target="_blank">AWS Cost Explorer</a> y AWS CloudWatch para monitorear y asignar costos a los inquilinos. Estas herramientas permiten a los administradores identificar áreas de optimización y tomar decisiones informadas sobre la asignación de recursos.</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Herramienta</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>AWS Cost Explorer</strong></td>
-<td>Asigna costos a los inquilinos según su uso de recursos.</td>
-</tr>
-<tr>
-<td><strong>AWS CloudWatch</strong></td>
-<td>Monitorea el uso de recursos y ayuda a identificar ineficiencias.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Por ejemplo, se puede utilizar AWS Cost Explorer para asignar costos a los inquilinos según su uso de recursos. Esto permite a los administradores identificar inquilinos que están utilizando recursos de manera ineficiente y tomar medidas para optimizar su uso de recursos.</p>
-
-
-<h2 id="t%C3%A9cnicas-de-optimizaci%C3%B3n-del-rendimiento" tabindex="-1">Técnicas de optimización del rendimiento</h2>
-
-
-<p>La optimización del rendimiento es importante en arquitecturas serverless multi-tenant, ya que los recursos compartidos pueden afectar el rendimiento si no se manejan bien. A continuación, se presentan técnicas y estrategias para mejorar el rendimiento de los recursos compartidos en estas arquitecturas.</p>
-
-
-<h3 id="estrategias-de-caching" tabindex="-1">Estrategias de caching</h3>
-
-
-<p>El caching mejora el rendimiento al almacenar datos frecuentemente solicitados en memoria, reduciendo la latencia y mejorando la respuesta del sistema. Se pueden implementar estrategias de caching en diferentes niveles, como en la capa de presentación, negocio o datos. Por ejemplo, se puede usar Amazon ElastiCache para almacenar datos en memoria y reducir la latencia.</p>
-
-
-<h3 id="balanceo-de-carga" tabindex="-1">Balanceo de carga</h3>
-
-
-<p>El balanceo de carga distribuye el tráfico de manera eficiente entre los recursos compartidos. Se pueden usar técnicas como round-robin, IP Hash o Least Connection para distribuir el tráfico. Además, servicios como <a href="https://aws.amazon.com/elasticloadbalancing/" rel="noopener noreferrer" target="_blank">Amazon Elastic Load Balancer</a> pueden manejar el tráfico y reducir la latencia.</p>
-
-
-<h3 id="particionamiento-de-recursos" tabindex="-1">Particionamiento de recursos</h3>
-
-
-<p>El particionamiento de recursos mejora el rendimiento al dividir los recursos en grupos más pequeños, reduciendo la competencia por los recursos y mejorando la respuesta del sistema. Por ejemplo, se puede particionar una base de datos en varias particiones para reducir la carga de trabajo.</p>
-
-
-<h3 id="sharding-de-recursos" tabindex="-1">Sharding de recursos</h3>
-
-
-<p>El sharding de recursos es una técnica avanzada que mejora el rendimiento al dividir los recursos en grupos más pequeños, reduciendo la competencia y mejorando la respuesta del sistema. Por ejemplo, se puede hacer sharding de una base de datos en varios shards para reducir la carga de trabajo.</p>
-
-
-<p>En resumen, la optimización del rendimiento es clave en arquitecturas serverless multi-tenant. Al implementar estrategias de caching, balanceo de carga, particionamiento y sharding de recursos, se puede mejorar el rendimiento del sistema y reducir la latencia.</p>
-
-
-<h2 id="monitoring-and-observability" tabindex="-1">Monitoring and observability</h2>
-
-
-<p>La monitorización y observabilidad son esenciales para mantener la salud y el rendimiento de las arquitecturas serverless multi-tenant. Sin una visibilidad clara de cómo funcionan los recursos compartidos, es difícil identificar y solucionar problemas de rendimiento y seguridad.</p>
-
-
-<h3 id="aws-cloudwatch" tabindex="-1"><a href="https://aws.amazon.com/cloudwatch/" rel="noopener noreferrer" target="_blank">AWS CloudWatch</a></h3>
-
-
-<p><figure><img alt="AWS CloudWatch" src="/assets/blog/af6613064a74b982792aeda9.jpg"/></figure></p>
-
-
-<p>AWS CloudWatch es una herramienta de monitorización que proporciona información detallada sobre el uso de recursos, métricas de rendimiento y registros de aplicación. Con CloudWatch, puedes configurar alarmas para recibir notificaciones cuando se superan los umbrales de rendimiento o se detectan anomalías. Esto te permite tomar medidas para solucionar problemas antes de que afecten a los usuarios.</p>
-
-
-<h3 id="aws-x-ray" tabindex="-1"><a href="https://aws.amazon.com/xray/" rel="noopener noreferrer" target="_blank">AWS X-Ray</a></h3>
-
-
-<p><figure><img alt="AWS X-Ray" src="/assets/blog/0602324681861f885dc45224.jpg"/></figure></p>
-
-
-<p>AWS X-Ray es una herramienta de trazado y depuración que te permite analizar y depurar aplicaciones distribuidas. Con X-Ray, puedes identificar cuellos de botella en la aplicación y optimizar el rendimiento de los recursos compartidos. X-Ray también proporciona información sobre la latencia, la tasa de errores y otras métricas de rendimiento.</p>
-
-
-<h3 id="aws-cloudtrail" tabindex="-1"><a href="https://aws.amazon.com/cloudtrail/" rel="noopener noreferrer" target="_blank">AWS CloudTrail</a></h3>
-
-
-<p><figure><img alt="AWS CloudTrail" src="/assets/blog/2f6f1f4094ac0f825f89f302.jpg"/></figure></p>
-
-
-<p>AWS CloudTrail es una herramienta de auditoría que proporciona visibilidad sobre la actividad de la API en tu cuenta de AWS. Con CloudTrail, puedes rastrear quién hizo qué, cuándo y desde dónde, lo que te permite identificar y solucionar problemas de seguridad y cumplimiento. Además, CloudTrail proporciona información sobre el uso de recursos y los patrones de acceso.</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Herramienta</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>AWS CloudWatch</strong></td>
-<td>Monitorea el uso de recursos, métricas de rendimiento y registros de aplicación.</td>
-</tr>
-<tr>
-<td><strong>AWS X-Ray</strong></td>
-<td>Analiza y depura aplicaciones distribuidas, identificando cuellos de botella.</td>
-</tr>
-<tr>
-<td><strong>AWS CloudTrail</strong></td>
-<td>Audita la actividad de la API, rastreando acciones y patrones de acceso.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>En resumen, la monitorización y observabilidad son esenciales para mantener la salud y el rendimiento de las arquitecturas serverless multi-tenant. Al utilizar herramientas como AWS CloudWatch, AWS X-Ray y AWS CloudTrail, puedes obtener una visibilidad clara de cómo funcionan los recursos compartidos y tomar medidas para solucionar problemas y mejorar el rendimiento.</p>
-
-
-<h2 id="troubleshooting-and-best-practices" tabindex="-1">Troubleshooting and best practices</h2>
-
-
-<h3 id="problemas-comunes" tabindex="-1">Problemas comunes</h3>
-
-
-<p>Al trabajar con recursos compartidos en arquitecturas serverless multi-tenant, es común enfrentar algunos problemas técnicos. Aquí te mostramos los más comunes y cómo solucionarlos:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Problema</th>
-<th>Solución</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Acceso no autorizado</strong></td>
-<td>Implementa políticas de acceso y autenticación adecuadas, como la autenticación de usuarios y la autorización basada en roles.</td>
-</tr>
-<tr>
-<td><strong>Problemas de rendimiento</strong></td>
-<td>Monitorea el rendimiento de los recursos compartidos y escálalos según sea necesario.</td>
-</tr>
-<tr>
-<td><strong>Inseguridad de datos</strong></td>
-<td>Implementa medidas de seguridad como el cifrado de datos y la autenticación de usuarios.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<h3 id="mejores-pr%C3%A1cticas" tabindex="-1">Mejores prácticas</h3>
-
-
-<p>Para garantizar una implementación exitosa de recursos compartidos en arquitecturas serverless multi-tenant, sigue estas mejores prácticas:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Práctica</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Políticas de acceso y autenticación</strong></td>
-<td>Asegúrate de que solo los usuarios autorizados tengan acceso a los recursos compartidos.</td>
-</tr>
-<tr>
-<td><strong>Monitoreo del rendimiento</strong></td>
-<td>Monitorea el rendimiento de los recursos compartidos para identificar problemas y escalar según sea necesario.</td>
-</tr>
-<tr>
-<td><strong>Medidas de seguridad</strong></td>
-<td>Implementa cifrado de datos y autenticación de usuarios para proteger los datos.</td>
-</tr>
-<tr>
-<td><a href="https://dondeaprendoaws.com/blog/introduccion-a-los-servicios-de-amazon-web-services/"><strong>Uso de servicios de AWS</strong></a></td>
-<td>Utiliza AWS CloudWatch, AWS X-Ray y AWS CloudTrail para monitorear y mejorar el rendimiento y la seguridad de los recursos compartidos.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Siguiendo estas prácticas, puedes minimizar problemas técnicos y de seguridad en arquitecturas serverless multi-tenant.</p>
-
-
-<h2 id="conclusion" tabindex="-1">Conclusion</h2>
-
-
-<p>En resumen, compartir recursos en arquitecturas serverless multi-enant ofrece beneficios como mayor escalabilidad, flexibilidad y reducción de costos. Sin embargo, también presenta desafíos técnicos y de seguridad que deben ser gestionados con cuidado.</p>
-
-
-<p>Al implementar recursos compartidos, es importante considerar:</p>
-
-
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Aspecto</th>
-<th>Descripción</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Aislación de inquilinos</strong></td>
-<td>Asegurar que cada inquilino acceda solo a sus propios datos.</td>
-</tr>
-<tr>
-<td><strong>Gestión de recursos</strong></td>
-<td>Monitorear y ajustar los recursos según la demanda.</td>
-</tr>
-<tr>
-<td><strong>Seguridad de datos</strong></td>
-<td>Implementar cifrado y políticas de acceso adecuadas.</td>
-</tr>
-<tr>
-<td><strong>Optimización del rendimiento</strong></td>
-<td>Usar técnicas como caching y balanceo de carga.</td>
-</tr>
-</tbody>
-</table></figure>
-
-
-<p>Además, es crucial monitorear y depurar los recursos compartidos para garantizar su funcionamiento óptimo.</p>
-
-
-<p>Siguiendo las mejores prácticas y estrategias descritas en este artículo, puedes aprovechar los beneficios de compartir recursos en arquitecturas serverless multi-tenant y minimizar los riesgos asociados. Continúa aprendiendo sobre este tema para mejorar tus habilidades en la creación de aplicaciones escalables y seguras.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/arquitecturas-multi-region-en-aws/">arquitecturas multi-región en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/optimizacion-de-costos-de-aws-lambda/">Optimización de costos de AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/7-estrategias-de-serverless-para-startups-optimiza-costos/">7 estrategias de serverless para startups: optimiza costos</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a serverless en AWS</a></li>
-</ul>
-</p>
+No. Mitiga el impacto de un vecino ruidoso en la espera de otros grupos, pero no fija una tasa de consumo máxima por tenant. Los límites comerciales y la autorización siguen siendo responsabilidades separadas.

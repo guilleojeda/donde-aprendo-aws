@@ -1,477 +1,164 @@
 ---
-title: "¿Qué es AWS Lambda? preguntas y respuestas"
-description: "AWS Lambda es un servicio de computación sin servidor que ejecuta código en respuesta a eventos, simplificando el desarrollo y optimizando costos."
+title: "AWS Lambda: qué es, cómo funciona y cuándo usarlo"
+description: "Entiende AWS Lambda con un ejemplo en Python: eventos, permisos IAM, reintentos, cold starts, límites y costos. Encuentra recursos y comunidades en español."
 author: "guille-ojeda"
 publishedAt: "2025-03-31"
 publishedTimestamp: "2025-03-31T03:16:05.470000+00:00"
+modifiedTimestamp: "2026-10-06T23:36:27-03:00"
+review:
+  date: "2026-10-06"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
 related:
-  - title: "Automatización de cumplimiento con AWS Config"
-    url: "https://dondeaprendoaws.com/blog/automatizacion-de-cumplimiento-con-aws-config/"
-  - title: "Cómo utilizar Amazon Bedrock"
-    url: "https://dondeaprendoaws.com/blog/como-utilizar-amazon-bedrock/"
-  - title: "Mejores prácticas para AWS Lambda"
-    url: "https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/"
-
+  - title: "Serverless en AWS: qué es, cómo funciona y cómo empezar"
+    url: "https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/"
+  - title: "Arquitectura dirigida por eventos en AWS: servicios, ejemplo y decisiones"
+    url: "https://dondeaprendoaws.com/blog/arquitecturas-dirigidas-por-eventos-en-aws/"
+  - title: "AWS Free Tier: planes, créditos, límites y cargos"
+    url: "https://dondeaprendoaws.com/blog/aws-free-tier-guia-para-principiantes-2024/"
+  - title: "Endpoints de VPC en AWS: gateway, interfaz y PrivateLink"
+    url: "https://dondeaprendoaws.com/blog/que-son-los-endpoints-de-vpc-en-aws/"
 ---
 
-<p><a href="https://aws.amazon.com/lambda/" rel="nofollow noopener noreferrer" target="_blank">AWS Lambda</a> es un servicio de computación sin servidor que ejecuta tu código automáticamente en respuesta a eventos, sin necesidad de administrar servidores. Aquí tienes lo esencial:</p>
-<ul>
-<li>
-<strong>¿Qué hace?</strong><br>
-Ejecuta <a href="https://dondeaprendoaws.com/blog/cloud-computing-en-espanol-fundamentos-basicos/">funciones en la nube</a> cuando ocurren eventos, como subir un archivo a S3 o cambios en bases de datos.
-</li>
-<li>
-<strong>Casos de uso más comunes:</strong>
-<ul>
-<li>Procesamiento de datos en tiempo real.</li>
-<li>Automatización de tareas repetitivas.</li>
-<li>Backend para aplicaciones web y microservicios.</li>
-</ul>
-</li>
-<li>
-<strong>Ventajas principales:</strong>
-<ul>
-<li>Escala automáticamente según la demanda.</li>
-<li>Solo pagas por el tiempo de ejecución.</li>
-<li>Integración con otros servicios de AWS como S3, <a href="https://aws.amazon.com/dynamodb/" rel="nofollow noopener noreferrer" target="_blank">DynamoDB</a> y <a href="https://aws.amazon.com/es/api-gateway/" rel="nofollow noopener noreferrer" target="_blank">API Gateway</a>.</li>
-</ul>
-</li>
-<li>
-<strong>Puntos clave de configuración:</strong>
-<ul>
-<li>Asigna memoria (128 MB a 10.240 MB).</li>
-<li>Define el tiempo máximo de ejecución (hasta 15 minutos).</li>
-<li>Configura disparadores como S3, API Gateway o DynamoDB.</li>
-</ul>
-</li>
-<li>
-<strong>Límites importantes:</strong>
-<ul>
-<li>Máximo 15 minutos por ejecución.</li>
-<li>Tamaño del código comprimido: 50 MB.</li>
-<li>Almacenamiento temporal: 512 MB.</li>
-</ul>
-</li>
-<li>
-<strong>Seguridad:</strong>
-<ul>
-<li>Usa roles IAM con permisos mínimos.</li>
-<li>Cifra datos con <a href="https://aws.amazon.com/kms/" rel="nofollow noopener noreferrer" target="_blank">AWS KMS</a> y TLS.</li>
-</ul>
-</li>
-</ul>
-<p>AWS Lambda es ideal para ahorrar costes y simplificar el desarrollo en <a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">arquitecturas serverless</a>. Es flexible, eficiente y bien integrado con el ecosistema de AWS.</p>
-<h2 class="sb h2-sbb-cls" id="casos-de-uso-comunes" tabindex="-1">Casos de uso comunes</h2>
-<h3 id="cuando-usar-aws-lambda" tabindex="-1">Cuándo usar <a href="https://aws.amazon.com/lambda/" rel="nofollow noopener noreferrer" target="_blank">AWS Lambda</a></h3>
-<p><figure><img alt="AWS Lambda" src="/assets/blog/2f648ae186aa3a148f3d9d2f.jpg" style="width:100%;border-radius:16px;"></figure></p>
-<p>AWS Lambda es perfecto para ejecutar código en respuesta a eventos y manejar cargas de trabajo variables sin preocuparse por la infraestructura. Además, escala automáticamente según la demanda.</p>
-<p>Algunos casos comunes incluyen:</p>
-<ul>
-<li>Procesamiento de datos en tiempo real</li>
-<li>Automatización de tareas repetitivas</li>
-<li>Backend para aplicaciones web y microservicios sin estado</li>
-</ul>
-<h3 id="ejemplos-de-implementacion" tabindex="-1">Ejemplos de implementación</h3>
-<p>Aquí tienes ejemplos claros de cómo se utiliza AWS Lambda en diferentes escenarios.</p>
-<p><strong>Procesamiento de imágenes:</strong> Cuando un usuario sube una imagen a un bucket de S3, Lambda puede:</p>
-<ul>
-<li>Crear miniaturas</li>
-<li>Agregar marcas de agua</li>
-<li>Optimizar el tamaño de las imágenes</li>
-<li>Extraer información de metadatos</li>
-</ul>
-<p><strong>Operaciones con bases de datos:</strong> En combinación con DynamoDB, Lambda puede:</p>
-<ul>
-<li>Actualizar registros automáticamente</li>
-<li>Validar y agregar información nueva</li>
-<li>Realizar copias de seguridad sin intervención manual</li>
-</ul>
-<h3 id="conexiones-con-servicios-aws" tabindex="-1">Conexiones con servicios AWS</h3>
-<p>AWS Lambda se integra de manera eficiente con otros servicios de AWS, permitiendo la automatización de flujos de trabajo y ampliando su funcionalidad.</p>
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Servicio AWS</th>
-<th>Uso Principal</th>
-<th>Ventaja Clave</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>API Gateway</td>
-<td>Crear APIs REST y WebSocket</td>
-<td>Ofrece endpoints HTTP seguros y escalables</td>
-</tr>
-<tr>
-<td>S3</td>
-<td>Procesar archivos</td>
-<td>Automatiza la gestión de archivos</td>
-</tr>
-<tr>
-<td>DynamoDB</td>
-<td>Operaciones con bases de datos</td>
-<td>Maneja streams de datos de forma eficiente</td>
-</tr>
-</tbody>
-</table></figure>
-<p>A partir de febrero de 2024, los costes asociados a direcciones IPv4 públicas hacen que soluciones serverless como Lambda sean una opción más atractiva para optimizar recursos y reducir gastos operativos.</p>
-<h2 class="sb h2-sbb-cls" id="configuracion-y-gestion" tabindex="-1">Configuración y gestión</h2>
-<p>AWS Lambda ofrece diversas opciones de configuración y gestión para garantizar que tus funciones operen de manera eficiente.</p>
-<h3 id="pasos-para-configurar-funciones" tabindex="-1">Pasos para configurar funciones</h3>
-<p>Aquí tienes los pasos básicos para configurar una función Lambda:</p>
-<ul>
-<li><strong>Selecciona el tiempo de ejecución</strong>: Escoge entre opciones como Node.js, Python, Java o .NET, según el lenguaje de programación que prefieras.</li>
-<li><strong>Asigna memoria</strong>: Define entre 128 MB y 10.240 MB, dependiendo de los requisitos de tu función.</li>
-<li><strong>Establece el tiempo máximo de ejecución</strong>: Configura un límite de hasta 15 minutos para cada invocación.</li>
-<li><strong>Configura el rol IAM</strong>: Crea o selecciona un rol con los permisos mínimos necesarios para que la función acceda a otros servicios.</li>
-</ul>
-<h3 id="configuracion-de-disparadores" tabindex="-1">Configuración de disparadores</h3>
-<p>Después de configurar tu función, define los eventos que activarán su ejecución. Aquí tienes algunos ejemplos comunes:</p>
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Servicio Disparador</th>
-<th>Tipo de Evento</th>
-<th>Configuración Requerida</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><a href="https://aws.amazon.com/s3/" rel="nofollow noopener noreferrer" target="_blank">Amazon S3</a></td>
-<td>Operaciones en objetos</td>
-<td>Especifica permisos de bucket y el tipo de evento</td>
-</tr>
-<tr>
-<td>API Gateway</td>
-<td>Solicitudes HTTP</td>
-<td>Configura el método HTTP y la ruta del recurso</td>
-</tr>
-<tr>
-<td><a href="https://aws.amazon.com/es/eventbridge/" rel="nofollow noopener noreferrer" target="_blank">EventBridge</a></td>
-<td>Eventos programados</td>
-<td>Usa expresiones cron o establece una frecuencia</td>
-</tr>
-<tr>
-<td>DynamoDB</td>
-<td>Cambios en tablas</td>
-<td>Activa streams para capturar cambios</td>
-</tr>
-</tbody>
-</table></figure>
-<h3 id="metodos-de-despliegue-de-codigo" tabindex="-1">Métodos de despliegue de código</h3>
-<p>Para implementar tu código en AWS Lambda, puedes elegir entre varios métodos según la complejidad de tu proyecto:</p>
-<ul>
-<li>
-<strong>Despliegue directo desde la consola</strong><br>
-Perfecto para funciones simples o pruebas rápidas. Permite editar y ejecutar el código directamente desde el navegador.
-</li>
-<li>
-<strong>Despliegue mediante archivo ZIP</strong><br>
-Ideal para proyectos más avanzados que incluyen dependencias. El archivo comprimido no debe superar los 50 MB (o 250 MB sin comprimir).
-</li>
-<li>
-<strong>Uso de <a href="https://aws.amazon.com/serverless/aws-sam/" rel="nofollow noopener noreferrer" target="_blank">AWS SAM</a></strong><br>
-Con AWS Serverless Application Model (SAM), puedes gestionar aplicaciones serverless completas usando plantillas de <a href="https://dondeaprendoaws.com/blog/como-crear-infraestructura-como-codigo-en-aws-con-aws-cloudformation/">infraestructura como código</a>.
-</li>
-</ul>
-<h3 id="limites-del-servicio" tabindex="-1">Límites del servicio</h3>
-<p>AWS Lambda tiene ciertas restricciones que debes tener en cuenta para planificar tus funciones:</p>
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Recurso</th>
-<th>Límite</th>
-<th>Detalles</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Memoria</td>
-<td>128 MB - 10.240 MB</td>
-<td>Ajustable en incrementos de 1 MB</td>
-</tr>
-<tr>
-<td>Tiempo de ejecución</td>
-<td>Hasta 15 minutos</td>
-<td>Límite máximo por invocación</td>
-</tr>
-<tr>
-<td>Tamaño del paquete</td>
-<td>50 MB (comprimido)</td>
-<td>Hasta 250 MB sin comprimir</td>
-</tr>
-<tr>
-<td>Almacenamiento temporal</td>
-<td>512 MB</td>
-<td>Disponible en la ruta /tmp</td>
-</tr>
-<tr>
-<td>Concurrencia</td>
-<td>1.000</td>
-<td>Por región (ampliable con soporte)</td>
-</tr>
-</tbody>
-</table></figure>
-<p>Estos límites son clave para mantener un rendimiento óptimo, y algunos pueden ajustarse si contactas al soporte de AWS.</p>
-<h2 class="sb h2-sbb-cls" id="gestion-del-rendimiento" tabindex="-1">Gestión del rendimiento</h2>
-<p>Una gestión eficiente del rendimiento es clave para que tus funciones Lambda funcionen de manera óptima. Aquí te explicamos las herramientas y métodos principales para supervisar y mejorar su desempeño.</p>
-<h3 id="integracion-con-cloudwatch" tabindex="-1">Integración con <a href="https://aws.amazon.com/cloudwatch/" rel="nofollow noopener noreferrer" target="_blank">CloudWatch</a></h3>
-<p><figure><img alt="CloudWatch" src="/assets/blog/6ec85b097a6239d8fb1131ba.jpg" style="width:100%;border-radius:16px;"></figure></p>
-<p><strong>CloudWatch</strong> proporciona una visión detallada del comportamiento de tus funciones Lambda:</p>
-<ul>
-<li>
-<strong>Métricas automáticas</strong><br>
-Incluyen datos básicos como invocaciones, duración y errores.
-</li>
-<li>
-<strong>Registros detallados</strong><br>
-Cada función genera un grupo de registros que permite:
-<ul>
-<li>Revisar salidas de <code class="inline-code">console.log()</code>.</li>
-<li>Analizar errores.</li>
-<li>Crear filtros métricos personalizados para tus necesidades.</li>
-</ul>
-</li>
-</ul>
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Tipo de Métrica</th>
-<th>Periodo de Retención</th>
-<th>Nivel de Detalle</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Métricas básicas</td>
-<td>15 meses</td>
-<td>Agregación cada minuto</td>
-</tr>
-<tr>
-<td>Registros de ejecución</td>
-<td>Configurable</td>
-<td>Por invocación</td>
-</tr>
-<tr>
-<td>Métricas personalizadas</td>
-<td>15 meses</td>
-<td>Definido por el usuario</td>
-</tr>
-</tbody>
-</table></figure>
-<h3 id="indicadores-de-rendimiento" tabindex="-1">Indicadores de rendimiento</h3>
-<p>Algunos indicadores clave que debes supervisar incluyen:</p>
-<ul>
-<li>
-<strong>Latencia</strong><br>
-Tiempo total que tarda la función en ejecutarse, incluyendo los arranques en frío. Esto ayuda a identificar posibles cuellos de botella.
-</li>
-<li>
-<strong>Tasa de error</strong><br>
-Controla la cantidad de errores y el porcentaje de éxito para detectar problemas rápidamente.
-</li>
-<li>
-<strong>Uso de memoria</strong><br>
-Monitorea el consumo de memoria real para ajustar la asignación de recursos según sea necesario.
-</li>
-<li>
-<strong>Concurrencia</strong><br>
-Verifica cuántas instancias están ejecutándose simultáneamente.
-</li>
-</ul>
-<h3 id="optimizacion-de-recursos" tabindex="-1">Optimización de recursos</h3>
-<p>Aquí tienes algunas estrategias para mejorar el rendimiento y reducir costes:</p>
-<ul>
-<li>
-<strong>Ajuste de memoria</strong><br>
-Aumentar la memoria asignada también incrementa la CPU disponible. Realiza pruebas para encontrar el equilibrio adecuado entre coste y rendimiento.
-</li>
-<li>
-<strong>Reutilización de conexiones</strong><br>
-Mantén las conexiones fuera del manejador principal para que puedan ser reutilizadas entre invocaciones.
-</li>
-<li>
-<strong>Caché de dependencias</strong><br>
-Usa el directorio <code class="inline-code">/tmp</code> (con un máximo de 512 MB) para almacenar datos y dependencias que puedan ser reutilizados.
-</li>
-</ul>
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Aspecto</th>
-<th>Recomendación</th>
-<th>Impacto</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Memoria</td>
-<td>Prueba incrementos de 256 MB</td>
-<td>Mejora tiempo de ejecución</td>
-</tr>
-<tr>
-<td>Tiempo de ejecución</td>
-<td>Mantener &lt; 100 ms si posible</td>
-<td>Reduce costes</td>
-</tr>
-<tr>
-<td>Tamaño del código</td>
-<td>Máximo 50 MB comprimido</td>
-<td>Mejora tiempo de inicio</td>
-</tr>
-<tr>
-<td>Conexiones</td>
-<td>Implementar connection pooling</td>
-<td>Reduce latencia</td>
-</tr>
-</tbody>
-</table></figure>
-<p>Supervisar constantemente estas métricas y realizar ajustes basados en datos te ayudará a mantener tus funciones Lambda funcionando de manera eficiente y con un coste controlado.</p>
-<h2 class="sb h2-sbb-cls" id="directrices-de-seguridad" tabindex="-1">Directrices de seguridad</h2>
-<p>La protección de funciones y datos en AWS Lambda requiere medidas sólidas para evitar accesos no autorizados.</p>
-<h3 id="control-de-acceso" tabindex="-1">Control de acceso</h3>
-<p>El acceso en Lambda se administra principalmente a través de <strong>IAM (Identity and Access Management)</strong>. Cada función debe contar con un rol IAM que limite estrictamente los permisos necesarios, como acceso a servicios de AWS, CloudWatch y recursos externos.</p>
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Tipo de Permiso</th>
-<th>Uso Recomendado</th>
-<th>Consideración</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Permisos mínimos</td>
-<td>Solo servicios necesarios</td>
-<td>Reduce la superficie de ataque</td>
-</tr>
-<tr>
-<td>Roles temporales</td>
-<td>Accesos de corta duración</td>
-<td>Aumenta la seguridad</td>
-</tr>
-<tr>
-<td>Políticas específicas</td>
-<td>Por función o grupo</td>
-<td>Mayor control granular</td>
-</tr>
-</tbody>
-</table></figure>
-<p>Estos controles complementan las prácticas de administración y configuración previamente mencionadas.</p>
-<h3 id="estandares-de-implementacion" tabindex="-1">Estándares de implementación</h3>
-<p>Además del control de acceso, es importante seguir buenas prácticas al implementar funciones Lambda para mantenerlas seguras.</p>
-<ul>
-<li><strong>Variables de entorno</strong><br>
-Utiliza <a href="https://aws.amazon.com/es/secrets-manager/" rel="nofollow noopener noreferrer" target="_blank">AWS Secrets Manager</a> para manejar credenciales, tokens de API y claves de cifrado de manera segura.</li>
-<li><strong>Configuración de red</strong><br>
-Para funciones que interactúan con una VPC, emplea subredes privadas, endpoints específicos y grupos de seguridad estrictos.</li>
-</ul>
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Aspecto</th>
-<th>Configuración Recomendada</th>
-<th>Beneficio</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Tiempo de ejecución</td>
-<td>Máximo necesario</td>
-<td>Limita la exposición</td>
-</tr>
-<tr>
-<td>Memoria asignada</td>
-<td>Ajustada a las necesidades</td>
-<td>Optimiza recursos</td>
-</tr>
-<tr>
-<td>Tamaño de código</td>
-<td>Menos de 50 MB comprimido</td>
-<td>Reduce riesgos de seguridad</td>
-</tr>
-<tr>
-<td>Capas Lambda</td>
-<td>Separar dependencias</td>
-<td>Facilita el mantenimiento</td>
-</tr>
-</tbody>
-</table></figure>
-<p>Estas prácticas fortalecen la seguridad general de las funciones Lambda.</p>
-<h3 id="estandares-de-seguridad" tabindex="-1">Estándares de seguridad</h3>
-<p>Además de los controles y estándares anteriores, es crucial implementar medidas de seguridad adicionales:</p>
-<ul>
-<li><strong>Cifrado</strong><br>
-Protege tanto el código como las variables de entorno mediante cifrado:
-<ul>
-<li>En reposo, utiliza <strong>AWS KMS</strong>.</li>
-<li>En tránsito, emplea <strong>TLS 1.2</strong>.</li>
-</ul>
-</li>
-<li><strong>Auditoría</strong><br>
-Supervisa y registra actividades con herramientas como:
-<ul>
-<li><strong><a href="https://aws.amazon.com/es/cloudtrail/" rel="nofollow noopener noreferrer" target="_blank">AWS CloudTrail</a></strong> para rastrear llamadas a la API.</li>
-<li><strong>CloudWatch Logs</strong> para monitorear la ejecución.</li>
-<li><strong><a href="https://aws.amazon.com/config/" rel="nofollow noopener noreferrer" target="_blank">AWS Config</a></strong> para evaluar configuraciones.</li>
-</ul>
-</li>
-</ul>
-<p>AWS Lambda cumple con certificaciones de seguridad reconocidas, entre ellas:</p>
-<ul>
-<li><strong>ISO 27001</strong> (Gestión de seguridad).</li>
-<li><strong>SOC 1, SOC 2 y SOC 3</strong> (Controles operativos).</li>
-<li><strong>PCI DSS</strong> (Protección de datos de tarjetas).</li>
-</ul>
-<p>Revisar y actualizar regularmente las configuraciones es clave para mantener un entorno seguro frente a nuevas amenazas y necesidades.</p>
-<h2 class="sb h2-sbb-cls" id="resumen" tabindex="-1">Resumen</h2>
-<h3 id="puntos-clave" tabindex="-1">Puntos clave</h3>
-<p>AWS Lambda juega un papel crucial en las arquitecturas serverless actuales. Aquí tienes una visión general de los aspectos más destacados:</p>
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Aspecto</th>
-<th>Principal Ventaja</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Seguridad</td>
-<td>Protección completa mediante IAM, KMS y auditorías</td>
-</tr>
-<tr>
-<td>Monitorización</td>
-<td>Seguimiento detallado del rendimiento con herramientas propias de AWS</td>
-</tr>
-<tr>
-<td>Implementación</td>
-<td>Mayor flexibilidad y facilidad de gestión con capas y variables de entorno</td>
-</tr>
-</tbody>
-</table></figure>
-<p>El éxito al trabajar con Lambda radica en alcanzar un equilibrio adecuado entre seguridad, rendimiento y costes, siguiendo las <a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">mejores prácticas recomendadas</a>. Si buscas más información sobre cómo aplicar estas estrategias, revisa los recursos que te presentamos a continuación.</p>
-<h3 id="recursos-adicionales" tabindex="-1">Recursos adicionales</h3>
-<p>Si quieres profundizar en AWS Lambda, estos recursos en español te serán útiles para dominar la plataforma:</p>
-<ul>
-<li>
-<strong>Blogs y Artículos</strong><br>
-Guías prácticas sobre implementación y <a href="https://dondeaprendoaws.com/blog/optimizacion-de-costos-de-aws-lambda/">optimización en entornos serverless</a>.
-</li>
-<li>
-<strong>Videos y Tutoriales</strong><br>
-Contenido práctico en canales especializados que te enseñan paso a paso.
-</li>
-<li>
-<strong>Boletines Informativos</strong><br>
-Actualizaciones semanales con novedades y consejos útiles.
-</li>
-<li>
-<strong>Podcasts Técnicos</strong><br>
-Conversaciones centradas en arquitecturas serverless y temas relacionados.
-</li>
-</ul>
-<p>Estos recursos te ofrecen ejemplos prácticos y casos reales para que puedas aprovechar al máximo las capacidades de AWS Lambda.</p>
-<h2>Related posts</h2><ul><li><a href="https://dondeaprendoaws.com/blog/desarrollando-aplicaciones-con-aws-lambda/">Desarrollando aplicaciones con AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/introduccion-a-serverless-en-aws/">Introducción a serverless en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-para-aws-lambda/">Mejores prácticas para AWS Lambda</a></li><li><a href="https://dondeaprendoaws.com/blog/microservicios-en-aws-utilizando-aws-lambda/">Microservicios en AWS utilizando AWS Lambda</a></li></ul>
+**AWS Lambda es un servicio de cómputo que ejecuta tu código cuando recibe una solicitud o un evento, sin que tengas que administrar los servidores que lo ejecutan.** Puedes usarlo para responder una petición de una API, procesar un archivo recién subido a S3 o atender mensajes de una cola. AWS administra la infraestructura; tú eliges el código, los permisos, la configuración y cómo manejar sus errores.
+
+Lambda encaja especialmente bien en trabajos acotados que responden a eventos y cuya demanda varía. No garantiza que cualquier aplicación sea más barata ni elimina los límites de capacidad. Esta guía empieza por **funciones estándar con capacidad bajo demanda (*on-demand*)**, el modelo habitual para aprender Lambda. Otras modalidades, como Lambda Managed Instances, tienen condiciones diferentes.
+
+## Cómo funciona Lambda: del evento al resultado
+
+Una función tiene un **handler**, el punto de entrada de tu programa. Lambda prepara un entorno con el runtime del lenguaje y tus dependencias, y llama al handler con los datos del evento. Cuando termina, puede reutilizar ese entorno para otra invocación. Consulta el [modelo de funcionamiento de Lambda](https://docs.aws.amazon.com/lambda/latest/dg/concepts-basics.html) para distinguir función, runtime, evento y disparador.
+
+Por ejemplo, una tienda recibe `GET /pedidos/123`. API Gateway recibe la petición HTTP e invoca una función; el handler busca el pedido en una base de datos y devuelve una respuesta al gateway. El evento que recibe la función contiene los datos de la petición en el formato definido por la integración. No es el mismo objeto que enviaría S3 o SQS: **el origen determina el formato y el modo de invocación**.
+
+Lambda es una pieza de una aplicación [serverless en AWS](/blog/introduccion-a-serverless-en-aws/). El almacenamiento permanente, la API y las colas cumplen otros trabajos. Guarda los datos que deban sobrevivir a una ejecución en servicios como S3 o DynamoDB; la memoria de un entorno y sus archivos temporales no sustituyen una base de datos.
+
+Para una introducción en video, Marcia Villalba explica el servicio en [Qué es AWS Lambda: introducción en español a serverless](https://www.youtube.com/watch?v=1wNb_RMvI9E). Es una grabación para entender el modelo; los límites y precios actuales se comprueban en la documentación de AWS.
+
+## Qué puede activar una función
+
+La forma de invocar importa porque determina quién espera el resultado y qué pasa cuando falla el código:
+
+| Origen y modo | Cómo llega el trabajo | Qué ocurre con el resultado |
+| --- | --- | --- |
+| API Gateway o una llamada directa síncrona | El invocador envía la solicitud y espera. | Recibe la respuesta o el error. Lambda no reintenta automáticamente los errores del código en una llamada directa; API Gateway devuelve el error al cliente. |
+| Notificaciones de S3 o SNS, asíncronas | Lambda acepta el evento en una cola interna y lo procesa después. | La aceptación no confirma que el código haya terminado. Para funciones estándar hay reintentos y puedes configurar un destino de fallos o una DLQ. |
+| SQS, Kinesis o DynamoDB Streams | Un mapeo de origen de eventos lee registros y los envía a la función, normalmente en lotes. | El procesamiento y los reintentos dependen del origen y de la configuración del mapeo. |
+
+AWS explica las diferencias en su guía de [comportamiento de reintentos](https://docs.aws.amazon.com/lambda/latest/dg/invocation-retries.html). No apliques las reglas de S3 a una cola SQS solo porque ambas terminan ejecutando Lambda.
+
+También puedes programar una invocación con EventBridge Scheduler o enrutar eventos de una aplicación con EventBridge. Si estás eligiendo entre un bus, una cola y notificaciones, continúa con [arquitecturas dirigidas por eventos: EventBridge, SNS y SQS](/blog/arquitecturas-dirigidas-por-eventos-en-aws/).
+
+## Un ejemplo pequeño en Python, sin desplegar AWS
+
+Este handler recibe un **evento propio con un objeto JSON** y devuelve un saludo. No utiliza servicios de AWS ni requiere credenciales. Copia el código en un archivo llamado `lambda_function.py`:
+
+```python
+def lambda_handler(event, context):
+    nombre = event.get("nombre")
+    if not isinstance(nombre, str) or not nombre.strip():
+        raise ValueError("nombre debe ser un texto no vacío")
+    return {"mensaje": f"Hola, {nombre.strip()}"}
+```
+
+Para comprobarlo localmente, agrega debajo y ejecuta `python lambda_function.py`:
+
+```python
+if __name__ == "__main__":
+    print(lambda_handler({"nombre": "Ana"}, None))
+```
+
+La salida es `{'mensaje': 'Hola, Ana'}`. Si llamas al handler con `{}` o `{"nombre": "   "}`, lanza `ValueError`. Así puedes comprobar tanto una entrada válida como el error de validación.
+
+En Lambda, el nombre de handler sería `lambda_function.lambda_handler`: archivo y función. El runtime entrega `event` y `context`; aquí usamos `None` porque el ejemplo local no necesita información de la invocación. La [guía de handlers Python de AWS](https://docs.aws.amazon.com/lambda/latest/dg/python-handler.html) detalla ese contrato.
+
+**Esta prueba verifica la lógica Python.** Una integración con API Gateway requiere adaptar el evento y la respuesta a su contrato; probar localmente tampoco verifica IAM, red ni entrega de eventos en AWS.
+
+## Qué permisos necesita Lambda
+
+Hay dos preguntas separadas:
+
+- **¿Qué puede hacer el código?** El [rol de ejecución](https://docs.aws.amazon.com/lambda/latest/dg/lambda-intro-execution-role.html) permite que la función lea un objeto S3, consulte una tabla o escriba logs. Su política de confianza permite que `lambda.amazonaws.com` asuma el rol. Concede las acciones y recursos que necesita; una función que lee un prefijo de un bucket no necesita acceso completo a todo S3.
+- **¿Quién puede ejecutarlo?** Los permisos de invocación autorizan al usuario o servicio que llama a Lambda. Una [política basada en recursos de la función](https://docs.aws.amazon.com/lambda/latest/dg/access-control-resource-based.html) puede permitir que S3 la invoque, restringiendo el bucket y la cuenta de origen. Para una llamada directa de una identidad IAM, revisa también sus permisos de `lambda:InvokeFunction`.
+
+Que el rol tenga acceso a S3 no autoriza a S3 a invocar la función. Y poder invocar la función no concede al código permiso para leer el bucket.
+
+### ¿Necesito conectar Lambda a una VPC?
+
+Conéctala a tu VPC cuando deba alcanzar recursos privados, como una base de datos. Esa configuración controla **la conexión del código a la red**; no convierte por sí sola el punto de invocación en privado. Además, colocar la función en una subred pública no le da automáticamente acceso a Internet. Revisa rutas, grupos de seguridad y la salida necesaria en la [guía de acceso de Lambda a una VPC](https://docs.aws.amazon.com/lambda/latest/dg/configuration-vpc.html).
+
+Si necesitas llamar a servicios de AWS desde esa red sin pasar por una salida a Internet, revisa [qué son los endpoints de VPC](/blog/que-son-los-endpoints-de-vpc-en-aws/). La conectividad y la autorización IAM son controles distintos: necesitas que ambos permitan la operación.
+
+## Errores, reintentos e idempotencia
+
+Para una **invocación asíncrona estándar**, Lambda reintenta por defecto dos veces después de un error del código o del runtime, como un timeout. Los errores de capacidad o del servicio tienen otra política. Incluso una ejecución exitosa puede recibir de nuevo el mismo evento. Configura la edad máxima del evento, los reintentos y un destino de fallos o DLQ según el impacto del trabajo, como explica AWS en [errores de invocación asíncrona](https://docs.aws.amazon.com/lambda/latest/dg/invocation-async-error-handling.html).
+
+Con SQS, configura el tiempo de visibilidad y la política de redrive en la cola. Si un lote contiene diez registros y solo uno falla, una respuesta parcial puede indicar ese registro para no repetir los nueve exitosos. Debes habilitar la opción correspondiente e implementar la respuesta en el handler; consulta [manejo de errores de SQS con Lambda](https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-errorhandling.html).
+
+La **idempotencia** significa que repetir una operación no vuelve a producir su efecto. Por ejemplo, dos entregas del evento `pedido-123` no deberían generar dos cobros. Usa un identificador estable de negocio y una operación persistente que controle duplicados; para cobrar mediante una API externa, usa su mecanismo de idempotencia cuando esté disponible. Guardar identificadores en una variable global del handler no protege frente a otros entornos o reinicios. AWS desarrolla este principio en [diseño de aplicaciones Lambda](https://docs.aws.amazon.com/lambda/latest/dg/concepts-application-design.html).
+
+## Cold starts y concurrencia: cómo medir el rendimiento
+
+Un **cold start** ocurre cuando una invocación necesita inicializar un entorno de ejecución. Puede aparecer al comenzar, al aumentar la demanda o al reemplazar entornos; no es solamente “la primera llamada” de la función. El runtime, las dependencias y el trabajo de inicialización influyen en esa latencia. Lambda puede reutilizar clientes de SDK creados fuera del handler, pero no garantiza conservar el entorno. La [guía del ciclo de vida del entorno](https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtime-environment.html) explica las fases de inicialización y ejecución.
+
+La **concurrencia** cuenta ejecuciones simultáneas; no equivale a solicitudes por segundo. La [concurrencia reservada](https://docs.aws.amazon.com/lambda/latest/dg/configuration-concurrency.html) asigna una parte de la capacidad disponible a la función y limita cuánto puede consumir, sin precalentarla. La [concurrencia aprovisionada](https://docs.aws.amazon.com/lambda/latest/dg/provisioned-concurrency.html) mantiene entornos inicializados y tiene costo adicional; si la demanda la supera, puede haber invocaciones bajo demanda. Elige a partir de la latencia medida y del tráfico esperado.
+
+Empieza por `Errors`, `Throttles`, `Duration` y `ConcurrentExecutions` en CloudWatch. `Duration` mide el procesamiento del evento y **no incluye el tiempo del cold start**; para entender la espera del usuario observa también inicialización y latencia de la aplicación completa. No confundas un rechazo por falta de concurrencia con un error que ocurrió dentro del handler. Consulta las [métricas de Lambda](https://docs.aws.amazon.com/lambda/latest/dg/monitoring-metrics-types.html).
+
+Dos lecturas comunitarias ayudan a pasar de la explicación a la práctica:
+
+- [Diagnóstico de AWS Lambda](https://dev.to/aws-espanol/eleva-el-rendimiento-de-aws-lambda-7il), de Hazel Sáenz, recorre métricas, una referencia inicial de rendimiento y comparación de resultados antes de optimizar.
+- [Tunea tus funciones Lambda](https://dev.to/cecamilo/tunea-tus-funciones-lambda-31a4), de Camilo Cabrales, muestra cómo usar AWS Lambda Power Tuning para comparar configuraciones de memoria. Su práctica despliega recursos y ejecuta funciones en una cuenta: revisa permisos, precios y limpieza antes de seguirla.
+
+## Límites que debes revisar antes de elegir Lambda
+
+Estos valores describen las funciones estándar bajo demanda; consulta siempre las [cuotas actuales y las asignadas a tu cuenta](https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-limits.html):
+
+| Configuración | Valor y condición |
+| --- | --- |
+| Timeout | Hasta 900 segundos: 15 minutos por invocación. |
+| Memoria | De 128 a 10.240 MB; la CPU aumenta en proporción a la memoria configurada. |
+| Almacenamiento temporal `/tmp` | De 512 a 10.240 MB, configurable; no es almacenamiento permanente. |
+| Paquete ZIP | 50 MB comprimidos al subir directamente por consola, API o SDK; 250 MB descomprimidos, incluidas las capas. Para ZIP mayores, la carga usa S3. |
+| Imagen de contenedor | Hasta 10 GB descomprimidos, incluidas sus capas. |
+| Concurrencia de cuenta por región | Valor predeterminado de 1.000, ajustable; las cuentas nuevas pueden tener cuotas menores. No es capacidad garantizada para cada función. |
+
+El límite de 15 minutos **no describe todos los modos de Lambda**. Lambda Managed Instances admite hasta 90 minutos para invocaciones asíncronas y mapeos de origen de eventos, excepto Amazon MQ y Amazon DocumentDB, según el [anuncio de AWS de septiembre de 2026](https://aws.amazon.com/es/about-aws/whats-new/2026/09/aws-lambda-90-minute-function/). Ese modo tiene otro modelo de capacidad y facturación; no basta con subir el timeout de una función bajo demanda a 90 minutos.
+
+Si necesitas empaquetar dependencias de Node.js, [Elimina el uso de capas en Lambda utilizando ESBuild](https://www.andmore.dev/es/blog/layerless-esbuild-lambda/), de Andrés Moreno, muestra una alternativa de empaquetado. No necesitas agregar una capa solo porque varias funciones compartan código.
+
+## Cuánto cuesta y qué significa el Free Tier
+
+En el modelo estándar bajo demanda, el cobro principal combina **solicitudes y duración facturada según la memoria configurada**, medida en GB-segundos. Un millón de ejecuciones con 1 GB y 0,2 segundos facturados por ejecución consume `1.000.000 × 1 × 0,2 = 200.000 GB-segundos`. Es una cuenta de consumo, no el precio total de la aplicación. La duración facturada incluye la inicialización: AWS [unificó el cobro de la fase INIT desde agosto de 2025](https://aws.amazon.com/blogs/compute/aws-lambda-standardizes-billing-for-init-phase/). Por eso, la métrica `Duration` y el valor `Billed Duration` de los logs pueden diferir.
+
+La [página de precios de Lambda](https://aws.amazon.com/lambda/pricing/) publica una oferta mensual de **un millón de solicitudes y 400.000 GB-segundos**. Revisa condiciones: un evento asíncrono de más de 256 KB cuenta como varias solicitudes, y la concurrencia aprovisionada no recibe esa oferta. También pueden generar cargos el almacenamiento temporal adicional, logs, API Gateway, S3, bases de datos, transferencia y componentes de red. El costo varía por región, arquitectura y modalidad.
+
+**El límite mensual de Lambda y los créditos de una cuenta son beneficios distintos.** Comprueba tu plan y ofertas en Billing. El plan Free actual para clientes nuevos termina a los seis meses o al agotar sus créditos; en Paid puede haber cargos por consumo no cubierto. Consulta la [comparación oficial de planes](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/free-tier-plans.html) y nuestra [guía de AWS Free Tier](/blog/aws-free-tier-guia-para-principiantes-2024/).
+
+## Cuándo conviene una función y cuándo comparar alternativas
+
+Lambda suele encajar para validar y transformar entradas de una API, generar miniaturas, reaccionar a cambios de datos o ejecutar una tarea programada. Define un trabajo concreto, persiste los resultados fuera del entorno y comprueba que termina dentro de los límites aplicables.
+
+Compara otras opciones si necesitas un proceso continuamente activo, control del sistema operativo, una GPU o un trabajo que excede los recursos o duración disponibles. Una carga sostenida también merece comparar su costo completo. La [guía de decisión entre Fargate y Lambda](https://docs.aws.amazon.com/decision-guides/latest/decision-guides/fargate-or-lambda.html) ayuda a contrastar tareas en contenedores con funciones por eventos.
+
+A veces puedes eliminar la función: si solo transmite una operación de un servicio a otro, comprueba si existe una integración directa. En [Cómo desarrollar una API serverless sin un solo Lambda](https://www.andmore.dev/es/blog/build-serverless-api-with-no-lambda/), Andrés Moreno muestra una API con API Gateway y DynamoDB mediante OpenAPI y SAM. Es un ejemplo de integración directa, no una regla para quitar la lógica de negocio que tu aplicación sí necesita.
+
+## Aprende Lambda en español y conversa con la comunidad
+
+Si prefieres un recorrido de clases, [Todo sobre AWS Lambda](https://join.desplegando.cloud/curso/todo-sobre-lambda/?utm_campaign=link&utm_content=lambda&utm_medium=link&utm_source=marciadev), de Marcia Villalba, presenta un temario de ciclo de vida, monitoreo, errores, escalado y costos, con fundamentos de AWS como prerrequisito. Su [catálogo de cursos](https://www.marcia.dev/courses/) lo lista como pago y la ficha muestra una lista de espera: comprueba precio y disponibilidad antes de inscribirte.
+
+Para seguir novedades, [Desplegando.cloud](https://desplegando.substack.com/) reúne newsletter y podcast en español sobre AWS y serverless. Para clases grabadas de comunidad, el [canal AWS UG Buenos Aires](https://www.youtube.com/@awsugbsas) permite consultar encuentros anteriores; busca las sesiones serverless que correspondan a tu pregunta.
+
+No necesitas pertenecer a un grupo especializado en Lambda para aprender acompañado. Puedes llevar una duda concreta —un error de permisos, un evento repetido o una ejecución lenta— a estas comunidades y consultar sus actividades:
+
+- [AWS User Group Serverless Colombia](https://www.meetup.com/aws-user-group-serverless-colombia/): encuentros enfocados en serverless y un espacio para conectar con personas que trabajan con estos servicios.
+- [AWS User Group Buenos Aires](https://www.meetup.com/aws-user-group-buenos-aires/): grupo general de AWS que publica encuentros y enlaces a sus grabaciones.
+- [AWS User Group Córdoba](https://www.meetup.com/aws-user-group-cordoba-argentina/): comunidad general para compartir experiencias y conocimientos de AWS en Argentina.
+- [AWS User Group Perú](https://awsugperu.cloud/): portal para encontrar grupos locales, talleres, actividades y recursos de aprendizaje.
+
+A la fecha de esta revisión hay dos encuentros virtuales anunciados que continúan las preguntas de esta guía:
+
+- [EC2 vs Lambda](https://www.meetup.com/fb83c392-728a-42dc-9a3f-7d351301e452/events/315728721/), del AWS User Group Tlaxcala FireflyCloud, el **16 de octubre de 2026 a las 16:00, UTC−6**: comparación de ventajas, costos y escenarios de uso. La ficha muestra el enlace de acceso para asistentes; revisa la inscripción y sus condiciones.
+- [El Combo Indestructible de AWS: SQS + Lambda](https://www.meetup.com/aws-user-group-serverless-colombia/events/316770520/), el **20 de octubre de 2026 a las 19:00, hora de Colombia, UTC−5**: sesión de Serverless Colombia sobre procesamiento y tolerancia a fallos. Se anuncia con acceso libre y enlace visible para asistentes registrados.
+
+Confirma horarios, cupos y cambios en cada ficha. Si ya pasaron esas fechas o buscas otra ubicación, consulta la [agenda de eventos](/eventos/) y el [directorio de comunidades AWS](/comunidades/). Para ampliar las lecturas, el [catálogo de recursos](/aprender/) permite buscar Lambda y serverless entre artículos, videos y cursos.
