@@ -1,205 +1,114 @@
 ---
-title: "Observabilidad en AWS con Amazon X-Ray"
-description: "Descubre cómo Amazon X-Ray en AWS te ayuda a detectar errores, optimizar el rendimiento y mantener la seguridad en tus aplicaciones en la nube. Aprende su funcionamiento y casos de uso."
+title: "Trazas distribuidas en AWS con X-Ray y OpenTelemetry"
+description: "Aprende a seguir solicitudes con AWS X-Ray, entender segmentos, spans y muestreo, y enviar trazas actuales con OpenTelemetry y ADOT."
 author: "guille-ojeda"
 publishedAt: "2024-03-09"
 publishedTimestamp: "2024-03-09T03:29:48.795Z"
+modifiedTimestamp: "2026-10-07T00:03:47-03:00"
+review:
+  date: "2026-10-07"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
-related:
-  - title: "7 estrategias para reducir costos en AWS Fargate"
-    url: "https://dondeaprendoaws.com/blog/7-estrategias-para-reducir-costos-en-aws-fargate/"
-  - title: "Estrategias de caché rentables para apps serverless"
-    url: "https://dondeaprendoaws.com/blog/estrategias-de-cache-rentables-para-apps-serverless/"
-  - title: "Guía de Amazon ElastiCache: almacenamiento en caché en memoria"
-    url: "https://dondeaprendoaws.com/blog/guia-de-amazon-elasticache-almacenamiento-en-cache-en-memoria/"
-
+related: []
 ---
 
-<p>Si buscas entender y mejorar tus aplicaciones en AWS, <strong>Amazon X-Ray</strong> es tu aliado clave. Este servicio te permite:</p>
+Para encontrar por qué una solicitud falla o tarda dentro de una aplicación distribuida, sigue su recorrido con una traza. **AWS X-Ray** recibe y muestra trazas de aplicaciones instrumentadas; para instrumentar código nuevo, AWS recomienda **OpenTelemetry (OTel)** y su distribución **ADOT**. Desde el 25 de febrero de 2026, los SDK de X-Ray y su daemon están en modo de mantenimiento: AWS limita sus versiones a correcciones de seguridad y ya no agrega funciones, según el [cronograma del SDK y daemon](https://docs.aws.amazon.com/xray/latest/devguide/xray-sdk-daemon-timeline.html). Ese aviso se refiere a esos componentes; X-Ray sigue siendo un destino para trazas de OpenTelemetry.
 
+## Qué muestra una traza distribuida
 
-<ul>
-<li><strong>Detectar y resolver errores rápidamente</strong>: Sigue el recorrido de las solicitudes para identificar dónde y por qué surgen problemas.</li>
-<li><strong>Optimizar el rendimiento</strong>: Analiza el tiempo de respuesta entre servicios para localizar cuellos de botella.</li>
-<li><strong>Entender sistemas complejos</strong>: Ofrece una visión clara de la interacción entre servicios, crucial para microservicios y arquitecturas serverless.</li>
-<li><strong>Mantener la seguridad</strong>: Ayuda a monitorear el acceso a información sensible y detectar actividades sospechosas.</li>
-</ul>
+Una traza reúne el trabajo generado por una solicitud y lo conecta mediante un mismo identificador de traza. Cada paso medido es un **span**: registra su inicio, duración, resultado y atributos. En X-Ray, esos pasos se representan como **segmentos** y **subsegmentos**. Al exportar spans de OpenTelemetry a X-Ray, los spans de servidor se convierten en segmentos y los demás, normalmente llamadas a dependencias, en subsegmentos.
 
+El **mapa de servicios** resume qué componentes participaron y cómo se relacionan. Al abrir una traza puedes ver una línea de tiempo con la duración de cada segmento y subsegmento. La vista depende de los datos que enviaron tus componentes: un nodo o una llamada que no estén instrumentados no aparecerán por arte de magia. AWS explica el modelo en la [guía de conceptos de X-Ray](https://docs.aws.amazon.com/xray/latest/devguide/xray-concepts.html) y la [guía de migración a OpenTelemetry](https://docs.aws.amazon.com/xray/latest/devguide/xray-sdk-migration.html).
 
-<p>Con herramientas de visualización, integración con otros servicios de AWS, y análisis de datos con inteligencia artificial, AWS X-Ray te equipa para crear aplicaciones robustas, eficientes y seguras. <strong>Empezar es sencillo</strong> y no requiere grandes cambios en tu código, ideal para probar en un ambiente de desarrollo antes de pasar a producción.</p>
+Si prefieres una lectura inicial en español, [#100DíasdeAWS | Día 25 | AWS X-Ray](https://awswomencolombia.com/100diasdeaws-dia-25-aws-x-ray), de AWS Women Colombia, presenta el servicio y el concepto de trazado distribuido. Es material de 2023: sirve como introducción, pero no refleja el ciclo de vida actual de los SDK y el daemon.
 
+Por ejemplo, una solicitud `POST /pedidos` puede pasar por `checkout`, consultar `inventario` y guardar la compra. La traza permite comparar el tiempo de cada llamada. Si la espera está en `inventario`, inspecciona esa dependencia; si el tramo que tarda es `checkout`, agrega spans dentro del código de esa operación para medir sus pasos. Es un ejemplo conceptual: cada aplicación necesita instrumentación y propagación de contexto compatibles.
 
-<h3 id="el-desaf%C3%ADo-de-la-complejidad-en-arquitecturas-modernas" tabindex="-1">El desafío de la complejidad en arquitecturas modernas</h3>
+| Concepto | Para qué sirve |
+| --- | --- |
+| Traza | Agrupa el trabajo relacionado con una solicitud. |
+| Span | Mide una operación y puede tener spans hijos. |
+| Segmento de X-Ray | Representa el trabajo de un servicio; suele corresponder a un span de servidor. |
+| Subsegmento de X-Ray | Detalla una operación dentro del servicio, como una llamada a otra dependencia. |
+| Mapa de servicios | Resume las relaciones y señales observadas entre componentes. |
 
+Una traza tampoco reemplaza los logs o la auditoría. Las métricas ayudan a observar tendencias; los logs guardan eventos y contexto detallado; las trazas muestran el recorrido de una solicitud. X-Ray no es un registro de auditoría de cambios en la cuenta ni una alarma de seguridad. Para revisar eventos de API de AWS, usa [CloudTrail](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-events.html). Si quieres una explicación comunitaria de X-Ray, CloudWatch, CloudTrail y Config, consulta [La Amenaza del Nivel 100](https://www.youtube.com/watch?v=TfBZFzGokQM), grabación de AWS Women Colombia de 2021; sigue la documentación para los pasos actuales.
 
-<p>Las aplicaciones de hoy en día pueden ser complicadas, con muchas partes trabajando juntas, cambiando todo el tiempo y usando diferentes tecnologías. Esto hace que sea difícil ver qué está pasando y encontrar problemas.</p>
+## Cómo se conectan los servicios
 
+La propagación de contexto mantiene la relación entre spans creados por procesos distintos. OpenTelemetry usa W3C Trace Context de forma predeterminada; para integrarte con servicios que esperan el encabezado de X-Ray, puedes configurar el **X-Ray Propagator**. Si cada servicio genera un ID nuevo, o un componente no pasa el encabezado al siguiente, la traza queda separada en partes.
 
-<h3 id="la-soluci%C3%B3n-de-aws-x-ray" tabindex="-1">La solución de AWS X-Ray</h3>
+Los SDK de OpenTelemetry ofrecen instrumentación automática para determinados lenguajes, frameworks y bibliotecas. Eso puede crear spans para entradas HTTP y llamadas conocidas sin escribir un span a mano, pero la cobertura varía según el runtime y la biblioteca. La instrumentación automática tampoco conoce por sí sola qué pasos de negocio quieres comparar. Revisa la compatibilidad en la [guía de instrumentación de OpenTelemetry](https://opentelemetry.io/docs/concepts/instrumentation/) y agrega spans manuales para las operaciones importantes que falten. Para más contexto sobre entornos serverless, mira la grabación [Observabilidad en aplicaciones Serverless](https://www.youtube.com/watch?v=UdBDmelLlOQ), de Charlas Técnicas de AWS; la documentación actual de X-Ray y ADOT sigue siendo la referencia para configurarlos.
 
+En la traza también puedes anotar datos para encontrar solicitudes, pero evita incluir credenciales, tokens, datos personales u otra información que no necesites. Mantén los atributos breves y revisa qué campos exporta la instrumentación automática.
 
-<p>AWS X-Ray te ayuda a ver el camino que siguen las solicitudes en tu aplicación, mostrando dónde se demoran o si algo falla. Esto te da pistas sobre cómo mejorar las cosas y asegurarte de que tus usuarios estén contentos.</p>
+## X-Ray y Transaction Search
 
+El mapa y la línea de tiempo de X-Ray ayudan a seguir dependencias y tiempos entre servicios. Si activas **Transaction Search** en CloudWatch, los spans enviados a X-Ray también se ingieren como registros estructurados en el grupo `aws/spans`; puedes buscarlos y analizarlos con atributos. X-Ray indexa un porcentaje de esos spans como resúmenes de traza. Es una capacidad de búsqueda distinta del mapa de servicios: revisa sus [requisitos y precios de CloudWatch](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Transaction-Search.html) antes de habilitarla.
 
-<p>Con AWS X-Ray, puedes ver dónde están los problemas, como partes lentas o errores, y entender mejor cómo interactúan las diferentes partes de tu aplicación.</p>
+La decisión de muestreo determina qué trazas se registran en una configuración convencional de X-Ray u OpenTelemetry. Si una solicitud no fue muestreada, quizá no encuentres su traza aunque la aplicación haya funcionado. Ajusta el muestreo a tu volumen y a la clase de solicitudes que quieras investigar; no supongas que X-Ray y cada configuración de OpenTelemetry aplican la misma regla.
 
+Si envías a través de la [nueva dirección OTLP de CloudWatch](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-OTLPEndpoint.html), el patrón para trazas es `https://xray.<región>.amazonaws.com/v1/traces`. Esa ruta requiere que **Transaction Search** esté habilitado y que las solicitudes se firmen con AWS Signature Version 4 (SigV4). El [SDK ADOT sin collector](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-OTLP-UsingADOT.html) está documentado para ciertos agentes y lenguajes; en esta opción, el muestreo predeterminado es del 100 %, así que decide qué porcentaje necesitas antes de usarla en producción.
 
-<h2 id="%C2%BFc%C3%B3mo-funciona-aws-x-ray%3F" tabindex="-1">¿Cómo funciona AWS X-Ray?</h2>
+## Enviar trazas con ADOT
 
+Para una aplicación instrumentada con OpenTelemetry, un **ADOT Collector** puede recibir datos OTLP, procesarlos y usar el exportador `awsxray` incluido en la distribución ADOT para enviarlos a X-Ray. Si ya administras el agente de CloudWatch en EC2 o en servidores propios, su versión 1.300025.0 o posterior también puede recibir trazas de OpenTelemetry. AWS documenta ambos recorridos y pasos específicos para EC2, ECS y Elastic Beanstalk en su [guía de migración desde el daemon de X-Ray](https://docs.aws.amazon.com/xray/latest/devguide/xray-sdk-migration.html).
 
-<h3 id="arquitectura-y-componentes" tabindex="-1">Arquitectura y componentes</h3>
+Este ejemplo mínimo recibe OTLP por HTTP en el mismo host y usa `us-east-1` como región de exportación. Cambia la región y el punto de entrada para que coincidan con tu entorno:
 
+```yaml
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 127.0.0.1:4318
 
-<p>AWS X-Ray tiene varias partes que ayudan a ver qué pasa en tus aplicaciones:</p>
+processors:
+  batch:
 
+exporters:
+  awsxray:
+    region: us-east-1
 
-<ul>
-<li><strong>Daemon de X-Ray</strong>: Es un programa que corre en los servidores y recoge información sobre las solicitudes de las aplicaciones. Guarda esta información temporalmente y luego la manda a AWS X-Ray en grupos.</li>
-<li><strong>SDKs y bibliotecas de instrumentación</strong>: Son herramientas que permiten a tus aplicaciones mandar información al daemon de X-Ray. Hay para varios lenguajes de programación como Java, Python, Node.js, Go, .NET, y más.</li>
-<li><strong>Servicio de X-Ray</strong>: Este servicio recibe la información del daemon, la guarda, la organiza y la prepara para que puedas verla y analizarla.</li>
-<li><strong>Consola de X-Ray</strong>: Es una página web donde puedes ver y entender la información recogida por X-Ray, como cuánto tardan las solicitudes, dónde hay errores, etc.</li>
-</ul>
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [awsxray]
+```
 
+Configura el cliente OTLP de tu aplicación para enviar trazas por HTTP/Protobuf al collector. Si el SDK admite las variables estándar de OpenTelemetry, usa el endpoint específico de trazas:
 
-<h3 id="flujo-de-trazas-y-segmentos" tabindex="-1">Flujo de trazas y segmentos</h3>
+```bash
+export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="http://127.0.0.1:4318/v1/traces"
+export OTEL_EXPORTER_OTLP_TRACES_PROTOCOL="http/protobuf"
+```
 
+Con el endpoint general `OTEL_EXPORTER_OTLP_ENDPOINT`, en cambio, se configura la URL base `http://127.0.0.1:4318`: el exporter añade la ruta de cada señal. La [especificación del exporter OTLP](https://opentelemetry.io/docs/specs/otel/protocol/exporter/) explica esta diferencia, que evita repetir `/v1/traces` en la URL.
 
-<p>X-Ray ve el trabajo de una aplicación como <strong>trazas</strong> y <strong>segmentos</strong>:</p>
+Ese destino es el receptor local del collector, no el endpoint regional de X-Ray. La dirección local funciona si la aplicación y el collector comparten el mismo espacio de red, por ejemplo, en un host común, en contenedores de una tarea ECS con modo `awsvpc` o en contenedores de un mismo pod de Kubernetes. En modo bridge o si están en tareas, pods o hosts separados, cambia **tanto** el punto de enlace del receptor (por ejemplo, a `0.0.0.0:4318`) como la dirección del cliente, y limita el acceso a la red privada y a los emisores autorizados. No publiques el receptor en Internet.
 
+El rol de la instancia o tarea que ejecuta el collector debe permitir escribir segmentos en X-Ray (`xray:PutTraceSegments`). AWS también documenta permisos adicionales para telemetría, muestreo remoto y otras señales: agrega solo los que necesite la configuración elegida. Si usas un muestreador remoto de X-Ray, el collector o SDK también necesitará permisos de lectura para sus reglas y objetivos de muestreo. Consulta la [lista de permisos de ADOT](https://aws-otel.github.io/docs/setup/permissions/) y la guía de AWS para la plataforma donde lo ejecutarás. El exporter usa la región configurada para el servicio X-Ray; no reemplaces `region` con la URL OTLP anterior, porque son rutas de exportación distintas.
 
-<ul>
-<li><strong>Trazas</strong>: Son como historias de solicitudes individuales, mostrando por dónde pasan en tu sistema.</li>
-<li><strong>Segmentos</strong>: Son partes de esas historias, mostrando el trabajo específico hecho por un servicio o recurso.</li>
-</ul>
+## Diagnosticar una traza vacía o incompleta
 
+Cuando no aparece la solicitud esperada, revisa estos puntos en orden:
 
-<p>Los segmentos recogen detalles como cuándo empezaron y terminaron, información extra, errores, y más.</p>
+1. **Cuenta, región y hora.** Confirma que buscas en la región que recibe la traza y en el intervalo de tiempo correcto.
+2. **Muestreo.** Revisa qué componente toma la decisión y si la solicitud fue seleccionada. Si no se registra, X-Ray no puede mostrarla.
+3. **Propagación.** Compara el ID de traza en cada servicio y verifica que el contexto viaje en el encabezado HTTP o mensaje adecuado. Usa el propagador X-Ray cuando debas interoperar con servicios que leen `X-Amzn-Trace-Id`; W3C es el formato predeterminado de OpenTelemetry.
+4. **Instrumentación.** Comprueba que el framework y el cliente HTTP, de base de datos o AWS SDK tengan instrumentación compatible. Si falta un paso propio de negocio, crea un span manual.
+5. **Exportación e IAM.** Revisa los logs del collector, su conexión con el endpoint regional, las credenciales de su rol y `xray:PutTraceSegments`. En una migración, no dejes el daemon antiguo escuchando en el mismo puerto que el collector o agente nuevo: AWS advierte que puede causar un conflicto.
+6. **Correlación con logs.** Si la traza te lleva a un error, abre el evento de aplicación correspondiente. Para enlazar spans con CloudWatch Logs debes configurar los atributos y la integración de logs; no ocurre automáticamente en toda aplicación. La [guía para diagnosticar problemas con CloudWatch](https://dondeaprendoaws.com/blog/mejores-practicas-de-observabilidad-en-aws/) muestra cómo seguir un ID de traza desde los logs y contrastarlo con otras señales.
 
+Si el flujo usa Step Functions, habilita el trazado de la máquina de estados y comprueba que el encabezado de traza se propague desde el servicio anterior cuando necesites una sola traza. X-Ray admite Standard y Express; no incluye las ejecuciones hijas iniciadas por un estado Distributed Map. La [documentación de trazas de Step Functions](https://docs.aws.amazon.com/step-functions/latest/dg/concepts-xray-tracing.html) detalla estos límites. Para inspeccionar estados, fallos y datos del flujo de trabajo, sigue la [guía para monitorear y depurar Step Functions con CloudWatch](https://dondeaprendoaws.com/blog/monitoreo-y-logs-de-aws-step-functions-guia-2024/). El historial y los logs de la máquina complementan las trazas de sus dependencias.
 
-<h3 id="integraci%C3%B3n-con-servicios-de-aws" tabindex="-1">Integración con servicios de AWS</h3>
+Si quieres ver un ejemplo de diagnóstico en español, mira [Cómo debuggear tu aplicación en la nube usando X-Ray y Trazas](https://www.youtube.com/watch?v=VO3_dcOzcDc), de [Marcia en Desplegando Cloud](https://www.youtube.com/@marcia_). La grabación ayuda a seguir el recorrido de investigación; confirma la configuración actual en la documentación de AWS.
 
+Para ampliar la práctica, [Cloud Forge: Observabilidad, Ingeniería del Caos y Java en AWS](https://www.youtube.com/watch?v=CL7jJfyg6bg), del AWS User Group Medellín, conecta observabilidad con fallos controlados en sistemas distribuidos. Es una charla grabada sobre observabilidad, caos y Java, no un tutorial de configuración de X-Ray.
 
-<p>Algunos servicios de AWS ya trabajan bien con X-Ray, haciendo más fácil ver qué pasa sin tener que cambiar mucho tus aplicaciones:</p>
+## Sigue aprendiendo en comunidad
 
-
-<ul>
-<li><strong>API Gateway</strong>, <strong>Lambda</strong>, <strong>EC2 / ECS</strong>: Mandan información a X-Ray automáticamente.</li>
-<li><strong>S3, DynamoDB, SQS</strong>: Las herramientas de programación (SDKs) de estos servicios también mandan información automáticamente.</li>
-</ul>
-
-
-<p>Esto te ayuda a entender tus aplicaciones mejor sin mucho esfuerzo.</p>
-
-
-<h3 id="an%C3%A1lisis-e-insights-de-datos-de-trazas" tabindex="-1">Análisis e insights de datos de trazas</h3>
-
-
-<p>La consola de X-Ray tiene herramientas para ayudarte a entender cómo funcionan tus aplicaciones:</p>
-
-
-<ul>
-<li><strong>Mapa de servicios</strong>: Te muestra cómo se conectan y comunican las diferentes partes de tu sistema.</li>
-<li><strong>Estadísticas de trazas</strong>: Te da números como cuánto tardan las solicitudes en promedio, cuántas hay por segundo, y el porcentaje de errores.</li>
-<li><strong>Consultas y filtros</strong>: Te permite buscar información específica para ver más detalles.</li>
-<li><strong>Analytics</strong>: Te ayuda a encontrar problemas y patrones usando estadísticas y aprendizaje automático.</li>
-</ul>
-
-
-<p>Con estas herramientas, puedes mejorar tus aplicaciones, solucionar problemas y hacer que funcionen mejor.</p>
-
-
-<h2 id="casos-de-uso-comunes-de-aws-x-ray" tabindex="-1">Casos de uso comunes de AWS X-Ray</h2>
-
-
-<p>AWS X-Ray es muy útil en diferentes situaciones, especialmente cuando trabajas con aplicaciones modernas que usan muchos servicios pequeños (microservicios) o que no necesitan servidores fijos (serverless). Aquí te contamos algunos ejemplos:</p>
-
-
-<h3 id="depuraci%C3%B3n-de-aplicaciones" tabindex="-1">Depuración de aplicaciones</h3>
-
-
-<p>Con X-Ray, encontrar y arreglar errores se hace más fácil porque puedes ver todo el camino que sigue una solicitud por tu aplicación.</p>
-
-
-<p>Si un usuario te dice que algo no funciona, con X-Ray puedes mirar la traza de esa solicitud y ver por dónde pasó y dónde se atoró. Esto te ayuda a solucionar problemas mucho más rápido que si tuvieras que adivinar qué pasó.</p>
-
-
-<p>También puedes usar CloudWatch para crear alarmas que te avisen si hay muchos errores. Así te enteras rápido si algo falla en tu aplicación.</p>
-
-
-<h3 id="an%C3%A1lisis-de-performance" tabindex="-1">Análisis de performance</h3>
-
-
-<p>X-Ray te ayuda a ver cómo cambia el rendimiento de tu aplicación bajo diferentes condiciones. Por ejemplo, puedes comparar cómo se comporta con poco tráfico y con mucho tráfico para encontrar dónde se hacen cuellos de botella.</p>
-
-
-<p>Puedes usar X-Ray para mantener un ojo en cosas importantes como cuánto tardan en responder tus servicios y asegurarte de que todo funcione rápido y sin problemas.</p>
-
-
-<h3 id="monitorizaci%C3%B3n-de-arquitecturas-serverless" tabindex="-1">Monitorización de arquitecturas serverless</h3>
-
-
-<p>En aplicaciones sin servidores fijos, donde usas funciones Lambda y otros recursos, X-Ray te da una visión completa de cómo funciona todo junto.</p>
-
-
-<p>Por ejemplo, te muestra cómo las diferentes partes de tu aplicación se comunican entre sí, lo que te ayuda a mejorar cómo se manejan los datos y las solicitudes.</p>
-
-
-<p>También, puedes ver si hay problemas como funciones que no se están ejecutando bien y arreglarlos antes de que afecten a tus usuarios.</p>
-
-
-<h3 id="cumplimiento-y-seguridad" tabindex="-1">Cumplimiento y seguridad</h3>
-
-
-<p>X-Ray también te ayuda a mantener tu aplicación segura y a cumplir con reglas importantes.</p>
-
-
-<p>Por ejemplo, si necesitas llevar registro de quién accede a información sensible, X-Ray puede capturar esa información para que la revises después.</p>
-
-
-<p>También puedes configurar alarmas para detectar actividades sospechosas, como un aumento inesperado de errores, lo que podría indicar un ataque a tu aplicación.</p>
-
-
-<h2 id="conclusi%C3%B3n" tabindex="-1">Conclusión</h2>
-
-
-<p>AWS X-Ray es una herramienta esencial para entender mejor qué pasa con tus aplicaciones en la nube. Te permite seguir el camino que toman las solicitudes a través de tu sistema, dándote datos importantes sobre dónde se pueden estar retrasando, dónde ocurren los errores y cómo se comunican entre sí los diferentes servicios.</p>
-
-
-<p>Los principales beneficios de usar AWS X-Ray incluyen:</p>
-
-
-<ul>
-<li><strong>Encontrar y arreglar errores más rápido:</strong> Al poder ver todo el viaje de una solicitud, es más fácil identificar dónde se están produciendo los problemas.</li>
-<li><strong>Mejorar el rendimiento:</strong> Ayuda a encontrar y solucionar los puntos donde las cosas se ralentizan al analizar cuánto tiempo toman las solicitudes entre servicios.</li>
-<li><strong>Comprender sistemas complejos:</strong> Proporciona una vista clara de cómo los diferentes servicios, como microservicios y arquitecturas sin servidor, trabajan juntos.</li>
-<li><strong>Mantener la seguridad:</strong> Es útil para revisar quién accede a qué información y para detectar comportamientos extraños que podrían ser señales de problemas de seguridad.</li>
-</ul>
-
-
-<p>En resumen, AWS X-Ray te da una perspectiva importante para crear aplicaciones fuertes, rápidas y seguras en la nube.</p>
-
-
-<h2 id="pasos-siguientes-con-aws-x-ray" tabindex="-1">Pasos siguientes con AWS X-Ray</h2>
-
-
-<p>Si estás listo para empezar con AWS X-Ray, aquí tienes algunos recursos que pueden ayudarte:</p>
-
-
-<ul>
-<li><strong>Documentación oficial:</strong> Aquí encontrarás todo lo que necesitas saber sobre AWS X-Ray, incluyendo cómo integrarlo con otros servicios y cómo configurarlo.</li>
-<li><strong>Blog de AWS:</strong> Es un buen lugar para leer sobre cómo otras personas están usando AWS X-Ray y aprender de sus experiencias.</li>
-<li><strong>Soporte técnico:</strong> Si tienes preguntas o enfrentas problemas, puedes pedir ayuda directamente a los expertos de AWS.</li>
-</ul>
-
-
-<p>Incorporar AWS X-Ray en tu aplicación suele ser un proceso directo y no necesita grandes cambios en tu código. Es una buena idea probarlo primero en un ambiente de desarrollo o de prueba antes de usarlo en tu entorno de producción.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/">análisis de costos de AWS con Cost Explorer</a></li><li><a href="https://dondeaprendoaws.com/blog/como-utilizar-elasticsearch-en-aws/">Cómo utilizar Elasticsearch en AWS</a></li>
-</ul>
-</p>
+Si quieres seguir grabaciones y participar en encuentros, revisa el [archivo de eventos de AWS Women Colombia](https://awswomencolombia.com/page/eventos) y su [grupo en Meetup](https://www.meetup.com/aws-women-colombia-user-group/). El archivo enlaza también su canal de [YouTube](https://www.youtube.com/channel/UCdpHSMDDwo4_d_u3mSU41Mw); las fechas y los temas cambian, así que confirma la agenda antes de inscribirte. El [canal de AWS User Group Medellín](https://www.youtube.com/@awsugmed) publica charlas comunitarias y su [grupo en Meetup](https://www.meetup.com/awsugmed/) mantiene un calendario de actividades. Revisa las fichas para confirmar si una sesión próxima trata trazas u observabilidad.

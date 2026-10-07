@@ -1,317 +1,96 @@
 ---
-title: "Opciones para desplegar contenedores en AWS: ECS y EKS"
-description: "Descubre las diferencias entre Amazon ECS y Amazon EKS al desplegar contenedores en AWS. Conoce las ventajas, características y casos de uso de cada servicio para elegir el adecuado para tus proyectos."
+title: "Amazon ECS vs. EKS: diferencias y cómo elegir"
+description: "Compara Amazon ECS y EKS por API, operación, cómputo y disponibilidad. Decide cuándo Kubernetes aporta valor y qué capacidad necesita cada servicio."
 author: "guille-ojeda"
 publishedAt: "2024-03-07"
 publishedTimestamp: "2024-03-07T23:41:11.485Z"
+modifiedTimestamp: "2026-10-07T00:03:47-03:00"
+review:
+  date: "2026-10-07"
 cover: "/assets/blog/editorial-serverless-desarrollo.png"
 coverAlt: "Tres módulos abstractos enlazados por estaciones de un camino azul y un punto naranja."
 ogImage: "/assets/blog/editorial-serverless-desarrollo.png"
-related:
-  - title: "Guía de eventos AWS Educate 2024"
-    url: "https://dondeaprendoaws.com/blog/guia-de-eventos-aws-educate-2024/"
-  - title: "AWS Community Day 2024: calendario de eventos"
-    url: "https://dondeaprendoaws.com/blog/aws-community-day-2024-calendario-de-eventos/"
-  - title: "Cómo usar AWS Transfer Family con Amazon EFS"
-    url: "https://dondeaprendoaws.com/blog/como-usar-aws-transfer-family-con-amazon-efs/"
+related: []
 
 ---
 
-<p>Cuando se trata de desplegar <a href="https://kubernetes.io/docs/concepts/containers/" rel="noopener noreferrer" target="_blank">contenedores</a> en AWS, tienes dos opciones principales: <strong>Amazon Elastic Container Service (ECS)</strong> y <strong>Amazon Elastic Kubernetes Service (EKS)</strong>. A continuación, te presentamos un resumen rápido para ayudarte a decidir cuál es la mejor opción para tus necesidades:</p>
+Si tu aplicación necesita ejecutar contenedores en AWS y no depende de Kubernetes, empieza evaluando **Amazon ECS**. Elige **Amazon EKS** cuando necesites la API y el ecosistema de Kubernetes, ya tengas cargas y herramientas basadas en Kubernetes o quieras mantener una plataforma común en Kubernetes. EKS administra el plano de control; la operación de las aplicaciones y parte de la capacidad siguen siendo decisiones del equipo.
 
+ECS y EKS pueden ejecutar aplicaciones que escalan y requieren alta disponibilidad. El número de microservicios, por sí solo, no determina cuál conviene. Primero separa dos preguntas: **qué orquestador necesita tu equipo** y **quién administrará el cómputo**. Para comparar además Lightsail, ECS Express Mode y otras rutas, consulta la [guía general para desplegar contenedores en AWS](/blog/como-desplegar-contenedores-en-aws/).
 
-<ul>
-<li><strong>ECS</strong> es ideal si buscas una solución sencilla y directa, perfecta para proyectos menos complejos o cuando prefieres evitar la gestión de servidores.</li>
-<li><strong>EKS</strong> ofrece más control y flexibilidad, siendo la opción correcta si ya tienes experiencia con Kubernetes o si tus proyectos requieren sus capacidades avanzadas.</li>
-</ul>
+## Qué cambia entre ECS y EKS
 
+### API y compatibilidad
 
-<h2 id="comparaci%C3%B3n-r%C3%A1pida-entre-ecs-y-eks" tabindex="-1"><strong>Comparación rápida entre ECS y EKS</strong></h2>
+En **ECS** defines tareas y servicios con las API de AWS y una definición de tarea. ECS no expone la API de Kubernetes. En **EKS** describes cargas con objetos de Kubernetes como `Deployment`, `Service` y `Job`, y puedes operarlas con `kubectl` y herramientas compatibles.
 
+EKS es conforme con Kubernetes, pero eso no elimina todas las dependencias al mover una aplicación: IAM, red, almacenamiento y otros servicios de AWS siguen afectando su portabilidad.
 
-<figure class="table"><table>
-<thead>
-<tr>
-<th>Criterio</th>
-<th>ECS</th>
-<th>EKS</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Facilidad de uso</td>
-<td>Alta</td>
-<td>Media, requiere conocimiento en Kubernetes</td>
-</tr>
-<tr>
-<td>Integración con AWS</td>
-<td>Excelente</td>
-<td>Muy buena, con algunos requerimientos extra de configuración</td>
-</tr>
-<tr>
-<td>Escalabilidad y gestión de aplicaciones complejas</td>
-<td>Buena</td>
-<td>Excelente</td>
-</tr>
-<tr>
-<td>Ecosistema y comunidad</td>
-<td>Menor que Kubernetes</td>
-<td>Extensa, debido a Kubernetes</td>
-</tr>
-</tbody>
-</table></figure>
+### Responsabilidades de operación
 
+AWS opera la orquestación de ECS y el plano de control de Kubernetes en EKS. En ambos casos, tu equipo configura la aplicación, su red, permisos, salud y despliegues. La opción de cómputo determina qué tareas de los hosts o nodos delegas en AWS.
 
-<p>Si estás buscando una manera fácil y rápida de trabajar con contenedores en AWS, <strong>ECS</strong> podría ser tu mejor elección. Por otro lado, si necesitas la flexibilidad y las características avanzadas que ofrece Kubernetes, y tienes el conocimiento técnico para manejarlo, <strong>EKS</strong> será la opción más adecuada para ti.</p>
+ECS suele encajar con equipos que quieren ejecutar contenedores sin adoptar Kubernetes. EKS encaja cuando el equipo ya usa sus API, manifiestos, herramientas o controles, o necesita esa plataforma por una razón concreta.
 
+La [documentación de Amazon ECS](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/Welcome.html) describe sus componentes —capacidad, controlador y aprovisionamiento—; la [documentación de Amazon EKS](https://docs.aws.amazon.com/eks/latest/userguide/what-is-eks.html) explica el plano de control administrado y la conformidad con Kubernetes. ECR cumple otra función: [Amazon ECR almacena imágenes de contenedor](https://docs.aws.amazon.com/AmazonECR/latest/userguide/what-is-ecr.html); no ejecuta ni orquesta esas imágenes. Puedes usar ECR con ECS o EKS, siempre que la carga de trabajo tenga acceso al registro.
 
-<h2 id="caracter%C3%ADsticas-principales-de-amazon-elastic-container-service-(ecs)" tabindex="-1">Características principales de Amazon Elastic Container Service (ECS)</h2>
+Si quieres escuchar una explicación comunitaria de ECS en español, la charla [Containers en AWS: Construyendo el ecosistema de contenedores en ECS](https://www.youtube.com/watch?v=vZk7uVwFMQA) del AWS User Group Ecuador fue impartida por Rossana Suarez en junio de 2023. Es una grabación introductoria; para los procedimientos actuales, consulta la documentación oficial enlazada arriba.
 
+## Elige también dónde correr los contenedores
 
-<ul>
-<li><strong>Despliegues sin servidores con AWS Fargate</strong>: Con ECS, puedes usar Fargate para hacer que tus <a href="https://kubernetes.io/docs/concepts/containers/" rel="noopener noreferrer" target="_blank">contenedores</a> funcionen sin que tengas que manejar servidores. Esto hace que sea mucho más fácil poner en marcha tus aplicaciones.</li>
-<li><strong>Orquestación on-premises y en la nube</strong>: ECS Anywhere te permite manejar tus contenedores tanto en la nube como en tus propias instalaciones, usando las mismas herramientas y experiencias.</li>
-<li><strong>Escalabilidad automática</strong>: ECS puede aumentar o disminuir automáticamente la cantidad de contenedores que usas según lo necesites, ayudando a que tu aplicación funcione bien sin importar la demanda.</li>
-<li><strong>Integración con servicios de AWS</strong>: Se integra bien con otros servicios de AWS, como EC2, ECR (Amazon Elastic Container Registry), IAM, VPC, CloudWatch, facilitando la creación de aplicaciones completas y seguras.</li>
-<li><strong>Soporte CI/CD integrado</strong>: Facilita la actualización y entrega continua de tus aplicaciones, haciendo que el proceso de despliegue sea más ágil.</li>
-<li><strong>Descubrimiento de servicios</strong>: Permite que tus contenedores se encuentren y se comuniquen entre sí de manera automática, lo cual es útil para aplicaciones complejas.</li>
-<li><strong>Registros en CloudWatch</strong>: Puedes enviar los registros de tus contenedores a CloudWatch Logs, lo que hace más fácil monitorear y analizar cómo está funcionando tu aplicación.</li>
-</ul>
+Fargate es una opción de cómputo, no un orquestador alternativo a ECS o EKS. El mismo orquestador puede usar distintas formas de capacidad, con diferentes niveles de control y trabajo operativo.
 
+### Cómputo para ECS
 
-<p>En resumen, ECS es una herramienta que te ayuda a trabajar con contenedores de manera fácil, permitiéndote enfocarte más en desarrollar tu aplicación y menos en los detalles técnicos de cómo se ejecuta.</p>
+- **Fargate:** ejecuta tareas sin que administres instancias; reduce el trabajo sobre hosts.
+- **EC2:** eliges y operas las instancias, con control sobre hosts y capacidad.
+- **ECS Managed Instances:** AWS aprovisiona, mantiene, parchea y escala instancias EC2 para el clúster. Conserva acceso a distintas familias y capacidades de EC2, con una tarifa de gestión además del costo de las instancias.
 
+### Cómputo para EKS
 
-<h2 id="%C2%BFqu%C3%A9-es-amazon-elastic-kubernetes-service-(eks)%3F" tabindex="-1">¿Qué es Amazon Elastic Kubernetes Service (EKS)?</h2>
+- **EKS Managed Node Groups o nodos propios en EC2:** aportan hosts para los pods, con responsabilidades distintas de mantenimiento según la opción.
+- **EKS Auto Mode:** AWS administra más componentes del cómputo, la red, el balanceo y el almacenamiento. Reduce tareas de infraestructura, pero tu equipo sigue operando Kubernetes, la configuración de VPC y la aplicación.
+- **Fargate:** ejecuta pods que coinciden con perfiles de Fargate. No admite DaemonSets, contenedores privilegiados ni GPU; comprueba estos límites antes de elegirlo.
 
+Consulta las [opciones de capacidad de ECS](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/capacity-launch-type-comparison.html), las [opciones de cómputo de EKS](https://docs.aws.amazon.com/eks/latest/userguide/eks-compute.html), [EKS Auto Mode](https://docs.aws.amazon.com/eks/latest/userguide/automode.html) y las [consideraciones de EKS Fargate](https://docs.aws.amazon.com/eks/latest/userguide/fargate.html) antes de seleccionar una ruta. Si necesitas GPU, acceso al host, una arquitectura de CPU concreta o ajustes especiales del nodo, verifica qué opción y región los admite.
 
-<p>Amazon Elastic Kubernetes Service (EKS) es básicamente un servicio que te permite usar Kubernetes, una herramienta popular para manejar aplicaciones en contenedores, sin tener que lidiar con la parte más complicada de configurar y mantener todo funcionando. EKS se encarga de las tareas difíciles como configurar los nodos (los servidores donde corren tus aplicaciones), actualizarlos y asegurarse de que si algo falla, se reemplace automáticamente.</p>
+Para leer una experiencia práctica con Auto Mode y sus tradeoffs, consulta el artículo de Bianca Torres para AWS Community Builders, [EKS Auto Mode: correr Kubernetes sin andar peleando con los nodos](https://dev.to/aws-builders/eks-auto-mode-correr-kubernetes-sin-andar-peleando-con-los-nodos-5954). Incluye un laboratorio que crea recursos de EKS y EC2 y propone eliminarlos al terminar; también cita una versión concreta de `eksctl`. Antes de ejecutar los pasos, confirma las versiones, permisos, costos y límites vigentes en la documentación oficial.
 
+## Escalado y alta disponibilidad requieren diseño
 
-<p>Esto significa que puedes concentrarte en construir y mejorar tus aplicaciones sin preocuparte por la infraestructura que las sostiene.</p>
+**Escalar** significa ajustar la cantidad de capacidad según la demanda. **Alta disponibilidad** significa que la aplicación siga atendiendo cuando falla una tarea, un nodo o una zona. Un clúster que escala no necesariamente está preparado para una interrupción, y un clúster distribuido puede quedarse sin capacidad si la demanda supera los recursos disponibles.
 
+En ECS, el escalado automático del servicio ajusta la cantidad deseada de tareas según métricas configuradas. Si usas capacidad EC2, también debes asegurar que haya instancias suficientes; la estrategia de capacidad puede administrar el escalado del clúster. Para alta disponibilidad, usa un servicio con tareas distribuidas en subredes de varias zonas, balanceo y comprobaciones de salud. ECS distribuye las tareas de los servicios entre zonas de manera predeterminada, aunque la distribución y la capacidad disponible siguen dependiendo de la configuración y los recursos elegidos. Consulta la [guía de capacidad y disponibilidad de ECS](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/capacity-availability-best-practice.html).
 
-<h3 id="ventajas-clave" tabindex="-1">Ventajas clave</h3>
+Después de elegir ECS, puedes practicar los despliegues canary con [ECS Canary in Action](https://github.com/roxsross/aws-ecs-canary-in-action), una demo comunitaria que primero ofrece un laboratorio local con Docker Compose. Su modo AWS usa Terraform para crear ECS Fargate, ALB, DynamoDB, CloudWatch y ECR; requiere AWS CLI v2, Docker, `jq`, Terraform 1.6 o superior y permisos para esos recursos. Revisa la guía de operación del repositorio y ejecuta su limpieza (`terraform destroy`) al terminar para retirar el laboratorio.
 
+En EKS, un **Horizontal Pod Autoscaler (HPA)** puede aumentar o reducir réplicas de pods según métricas; es una capa distinta del escalado de nodos. Sin suficiente capacidad, los nuevos pods no podrán programarse hasta que haya nodos disponibles. EKS Auto Mode y otras herramientas de escalado de nodos pueden responder a pods sin capacidad asignada. Para alta disponibilidad de la aplicación, despliega varias réplicas y distribúyelas entre nodos y zonas con restricciones de topología; configura las sondas y las políticas de interrupción que correspondan. La alta disponibilidad del plano de control que administra AWS no garantiza por sí sola la disponibilidad de tu aplicación. Consulta las guías de AWS sobre [HPA en EKS](https://docs.aws.amazon.com/eks/latest/userguide/horizontal-pod-autoscaler.html) y [aplicaciones de EKS de alta disponibilidad](https://docs.aws.amazon.com/eks/latest/best-practices/application.html).
 
-<ul>
-<li><strong>Alta disponibilidad integrada</strong>: EKS asegura que tus aplicaciones estén siempre disponibles distribuyendo los recursos en diferentes lugares para evitar caídas.</li>
-<li><strong>Escalabilidad automática</strong>: EKS puede aumentar o disminuir la cantidad de recursos según lo necesiten tus aplicaciones, asegurando que siempre tengan lo que necesitan para funcionar bien.</li>
-<li><strong>Integración con servicios de AWS</strong>: EKS trabaja muy bien con otros servicios de AWS, como IAM para la seguridad, VPC para la red, y CloudWatch para monitorear tus aplicaciones, lo que hace más fácil construir aplicaciones seguras y eficientes.</li>
-<li><strong>Última versión de Kubernetes</strong>: EKS siempre usa la versión más reciente de Kubernetes, lo que te da acceso a las últimas características y mejoras.</li>
-<li><strong>Soporte para ecosistema de Kubernetes</strong>: Como EKS es compatible con Kubernetes, puedes usar todas las herramientas y aplicaciones diseñadas para Kubernetes sin problemas.</li>
-</ul>
+Por ejemplo, una API sin estado con un proceso en segundo plano y una cola puede funcionar en ECS si no necesita Kubernetes: publica una imagen en ECR, ejecuta la API como servicio y configura la capacidad del proceso según su carga. Una opción inicial es ECS con Fargate si no quieres operar hosts; evalúa ECS Managed Instances o EC2 si necesitas capacidades de instancia o control de los hosts. Distribuye réplicas entre zonas y usa un balanceador para la API si el objetivo incluye tolerar la pérdida de una zona. Diseña por separado la disponibilidad de la base de datos y el almacenamiento.
 
+Si esa misma organización ya mantiene manifiestos de Kubernetes, usa Helm u operadores compatibles, o comparte una plataforma Kubernetes entre entornos, EKS puede reducir cambios en la forma de describir y operar la aplicación. Luego debe elegir nodos EC2, Auto Mode o pods en Fargate según compatibilidad, control y costo. Una aplicación monolítica también puede ejecutarse en EKS si la plataforma del equipo lo justifica; una arquitectura de microservicios puede ejecutarse en ECS si sus necesidades encajan con el modelo de ECS.
 
-<p>En resumen, EKS te quita la carga de manejar la infraestructura de Kubernetes, permitiéndote enfocarte en crear y mejorar tus aplicaciones. Además, la integración con otros servicios de AWS hace más sencillo desarrollar soluciones completas y confiables.</p>
+## Costos y versiones que debes comparar
 
+No hay un ganador de costo para todos los casos. Compara el precio de la región y las horas de operación con los recursos que realmente necesitas: vCPU, memoria, almacenamiento, nodos, balanceadores, IPv4, transferencia, NAT y logs. En ECS con Fargate se cobran los recursos solicitados por las tareas y los servicios asociados; ECS Managed Instances suma una tarifa de gestión al costo de las instancias EC2. En EKS hay un cargo por clúster, además del cómputo y los recursos de la aplicación; Auto Mode añade cargos de gestión al costo de EC2. Usa las páginas de [precios de ECS](https://aws.amazon.com/ecs/pricing/) y [precios de EKS](https://aws.amazon.com/eks/pricing/) para estimar el diseño concreto en tu región.
 
-<h2 id="comparaci%C3%B3n-directa%3A-ecs-vs.-eks" tabindex="-1">Comparación directa: ECS vs. EKS</h2>
+Si eliges EKS, revisa el calendario de versiones antes de crear o actualizar el clúster. AWS ofrece 14 meses de soporte estándar por versión menor y, luego, hasta 12 meses de soporte extendido con un cargo adicional. El soporte extendido no reemplaza un plan de actualización: consulta las [versiones disponibles y sus fechas de soporte](https://docs.aws.amazon.com/eks/latest/userguide/kubernetes-versions.html) para tu fecha de despliegue.
 
+### Referencia de ciclo de vida: AWS App Mesh
 
-<h3 id="facilidad-de-uso-y-configuraci%C3%B3n" tabindex="-1">Facilidad de uso y configuración</h3>
+AWS anunció el fin del soporte de **AWS App Mesh** para el 30 de septiembre de 2026. Después de esa fecha ya no se puede acceder a la consola ni a los recursos del servicio. Por eso, no uses App Mesh como una recomendación vigente para un diseño nuevo; revisa la [documentación oficial de fin de soporte y migración](https://docs.aws.amazon.com/es_es/app-mesh/latest/userguide/what-is-app-mesh.html) si mantienes referencias antiguas.
 
+## Recursos para aprender y probar
 
-<p>ECS es más fácil de empezar a usar que EKS. Con ECS, básicamente defines lo que necesitas y él se encarga de todo. Por otro lado, con EKS tienes que armar y cuidar los nodos del clúster de Kubernetes por tu cuenta.</p>
+Para practicar ECS, la ruta oficial [Getting Started with Amazon ECS](https://aws.amazon.com/ecs/getting-started/) ofrece recorridos de conceptos básicos, Fargate y EC2. El [AWS EKS Workshop](https://www.eksworkshop.com/) permite explorar Kubernetes en EKS con ejercicios prácticos. Antes de ejecutar un taller en una cuenta propia, revisa qué recursos crea, sus permisos y cómo eliminarlos; los recursos de AWS pueden generar cargos.
 
+Si prefieres empezar con una charla en español, [EKS Fundamentals: Desmitificando Kubernetes con AWS](https://www.youtube.com/watch?v=YEY9NbFMQ0Y) es una grabación del AWS User Group Ecuador publicada en junio de 2025. Sirve para repasar conceptos de EKS; contrasta procedimientos y versiones con la documentación actual. Puedes seguir al [AWS User Group Ecuador](https://www.awsugecuador.com/) para encontrar charlas y encuentros de la comunidad.
 
-<p>Para arrancar con ECS, los pasos son sencillos:</p>
+Hay dos actividades próximas que pueden servirte para conversar con otras personas que usan contenedores:
 
+- En Córdoba, la comunidad estudiantil [AWS SBG de UTN Facultad Regional Córdoba](https://www.meetup.com/aws-cloud-club-at-utn-cordoba/) anuncia **AWS Gaming Lab: ECS, CI/CD y la magia de Terraform** el **10 de octubre de 2026**. La actividad es presencial, gratuita con inscripción previa y está dirigida a estudiantes de Ingeniería en Sistemas de Información. La página de UTN indica acreditación desde las 11:30 y charla principal entre las 12:00 y las 14:00, en el SUM del edificio Ing. Rubén Soro. Consulta la [ficha oficial del evento](https://prensa.frc.utn.edu.ar/eventos/aws-gaming-lab-ecs-ci-cd-y-la-magia-de-terraform/) para confirmar inscripción y condiciones.
+- En Guayaquil, [AWS User Group Security Ecuador](https://www.meetup.com/aws-user-group-security-ecuador/) y Cloud Native Guayaquil organizan **AWS & Cloud Native Security Night** el **23 de octubre de 2026**, de 17:00 a 20:00 (UTC−05:00). La página del evento la anuncia presencial y sin costo, con registro y cupos limitados, en la Universidad Católica de Santiago de Guayaquil. Consulta allí los detalles y la [inscripción al evento](https://discover.multiticketing.com/en/aws-user-group-ecuador/events/aws-cloud-native-security-night). La agenda se consultó el 6 de octubre de 2026.
 
-<ul>
-<li>Elige tus imágenes de contenedor</li>
-<li>Configura tus tareas y servicios</li>
-<li>Despliega usando Fargate o EC2</li>
-</ul>
+## Próximo paso práctico
 
-
-<p>Con EKS, necesitas saber más sobre Kubernetes y seguir estos pasos:</p>
-
-
-<ul>
-<li>Crear el clúster de Kubernetes</li>
-<li>Ajustar nodos y la red</li>
-<li>Manejar y actualizar las cargas de trabajo</li>
-<li>Mantener el clúster seguro</li>
-</ul>
-
-
-<p>En pocas palabras, ECS te permite arrancar más rápido, mientras que EKS necesita más esfuerzo al principio.</p>
-
-
-<h3 id="integraci%C3%B3n-con-servicios-de-aws" tabindex="-1">Integración con servicios de AWS</h3>
-
-
-<p>ECS trabaja muy bien con otros servicios de AWS como Amazon EC2 Container Registry, IAM, VPC, Amazon CloudWatch, etc. Esta conexión directa hace más fácil crear aplicaciones seguras y que pueden crecer fácilmente en AWS.</p>
-
-
-<p>EKS también se puede conectar con estos servicios, pero sacarle provecho a esa integración necesita que sepas más sobre Kubernetes. Cosas como el descubrimiento de servicios y las políticas de red son propias de Kubernetes.</p>
-
-
-<p>En general, conectar todo con AWS es más directo con ECS.</p>
-
-
-<h3 id="escalabilidad-y-aplicaciones-complejas" tabindex="-1">Escalabilidad y aplicaciones complejas</h3>
-
-
-<p>ECS y EKS pueden ajustar su tamaño automáticamente para manejar más o menos tráfico. ECS cambia el número de tareas y EKS el de pods en Kubernetes.</p>
-
-
-<p>EKS es mejor para aplicaciones más complicadas y que necesitan estar siempre disponibles, actualizarse sin parar y usar las funciones avanzadas de Kubernetes.</p>
-
-
-<p>Por ejemplo, EKS es ideal para manejar muchos microservicios, procesar datos en tiempo real y aplicaciones que guardan información. Estas se benefician de cómo Kubernetes organiza y conecta todo.</p>
-
-
-<h3 id="experiencia-y-ecosistema" tabindex="-1">Experiencia y ecosistema</h3>
-
-
-<p>Si ya sabes usar Kubernetes, con EKS podrás aplicar ese conocimiento. Pero si eres nuevo, ECS es más fácil de aprender.</p>
-
-
-<p>Sobre el ecosistema, Kubernetes tiene una comunidad grande con muchas herramientas disponibles. ECS quizás no tenga tanto apoyo externo, pero se integra mejor con las herramientas y servicios de AWS.</p>
-
-
-
-
-<h2 id="casos-de-uso-de-ecs-y-eks" tabindex="-1">Casos de uso de ECS y EKS</h2>
-
-
-<p>ECS y EKS pueden ser útiles en diferentes situaciones, dependiendo de las necesidades específicas de cada proyecto. Vamos a ver algunos ejemplos:</p>
-
-
-<h3 id="aplicaci%C3%B3n-monol%C3%ADtica" tabindex="-1">Aplicación monolítica</h3>
-
-
-<p>Si tienes una aplicación sencilla y no esperas que crezca mucho, ECS es una buena elección porque es fácil de usar:</p>
-
-
-<ul>
-<li>Puedes poner toda tu aplicación en contenedores sin complicarte.</li>
-<li>Como ECS es parte de AWS, trabajar con otros servicios como bases de datos es fácil.</li>
-<li>ECS puede ajustar automáticamente cuántos contenedores necesitas, lo que es perfecto si tu aplicación crece poco a poco.</li>
-<li>No tienes que lidiar con la configuración de Kubernetes, que puede ser difícil.</li>
-</ul>
-
-
-<p>En pocas palabras, ECS te hace la vida más fácil si tu aplicación es simple y no necesitas las herramientas avanzadas de Kubernetes.</p>
-
-
-<h3 id="microservicios-complejos" tabindex="-1">Microservicios complejos</h3>
-
-
-<p>Si tu proyecto tiene muchos componentes pequeños y esperas muchos usuarios al mismo tiempo, EKS es mejor porque tiene herramientas más avanzadas:</p>
-
-
-<ul>
-<li>Te ayuda a organizar y manejar muchos servicios pequeños de manera eficiente.</li>
-<li>Si algo falla, EKS se asegura de que tu aplicación siga funcionando bien.</li>
-<li>Puedes usar AWS App Mesh con EKS para que tus servicios pequeños se comuniquen entre sí de forma segura y eficiente.</li>
-<li>Kubernetes está hecho para manejar este tipo de proyectos grandes y complicados.</li>
-</ul>
-
-
-<p>En resumen, EKS usa las herramientas de Kubernetes para manejar proyectos grandes como los microservicios de forma más efectiva.</p>
-
-
-<p>La elección entre ECS y EKS depende de lo que necesites para tu proyecto, pero estos ejemplos te pueden ayudar a decidir qué servicio es mejor para ti.</p>
-
-
-<h2 id="conclusi%C3%B3n-y-recomendaciones" tabindex="-1">Conclusión y recomendaciones</h2>
-
-
-<p>Al final, tanto Amazon ECS como Amazon EKS son buenas maneras de trabajar con aplicaciones que usan contenedores en AWS. Cada uno tiene sus cosas buenas dependiendo de lo que necesites:</p>
-
-
-<p><strong>Amazon ECS</strong> es más fácil de usar si no sabes mucho de Kubernetes. Se lleva muy bien con otros servicios de AWS y es perfecto si tu aplicación es sencilla y no necesita cambiar su tamaño rápidamente o estar disponible todo el tiempo.</p>
-
-
-<p><strong>Amazon EKS</strong> es para los que quieren aprovechar todo lo que ofrece Kubernetes para manejar aplicaciones que necesitan crecer o cambiar mucho. Necesitas saber más de tecnología para usarlo, pero te da más control y opciones. Es la mejor elección para proyectos con muchos microservicios o que tienen que manejar mucha información o tráfico.</p>
-
-
-<p>Cuando tengas que elegir entre ECS y EKS, piensa en estas cosas:</p>
-
-
-<ul>
-<li>Qué tan complicada es tu aplicación</li>
-<li>Si necesitas que crezca rápidamente o esté disponible sin parar</li>
-<li>Cuánto sabe tu equipo sobre Kubernetes</li>
-<li>Si quieres que se conecte fácilmente con otros servicios de AWS</li>
-<li>Si en el futuro quieres tener la opción de mover tus aplicaciones</li>
-</ul>
-
-
-<p>En pocas palabras:</p>
-
-
-<ul>
-<li>Usa <strong>ECS</strong> si buscas algo más sencillo y una buena conexión con AWS.</li>
-<li>Elige <strong>EKS</strong> si tu proyecto es más complejo y quieres todas las opciones que ofrece Kubernetes.</li>
-</ul>
-
-
-<p>Piensa bien en lo que necesitas y escoge la opción que mejor se ajuste. Ambas son muy buenas para trabajar con contenedores en AWS.</p>
-
-
-<h2 id="preguntas-relacionadas" tabindex="-1">Preguntas relacionadas</h2>
-
-
-<h3 id="%C2%BFqu%C3%A9-servicio-se-usa-para-correr-aplicaciones-con-contenedores-en-aws%3F" tabindex="-1">¿Qué servicio se usa para correr aplicaciones con contenedores en AWS?</h3>
-
-
-<p>Amazon Elastic Container Service (Amazon ECS) te permite correr aplicaciones en contenedores de una manera fácil y segura, sin que tengas que preocuparte por manejar servidores o grupos de máquinas.</p>
-
-
-<h3 id="%C2%BFc%C3%B3mo-puedo-poner-una-aplicaci%C3%B3n-en-aws%3F" tabindex="-1">¿Cómo puedo poner una aplicación en AWS?</h3>
-
-
-<p>Para poner una aplicación en AWS usando contenedores, puedes seguir estos pasos:</p>
-
-
-<ul>
-<li>Sube la imagen de tu contenedor a un lugar donde se guardan estas imágenes, como Amazon ECR.</li>
-<li>Crea una definición de tarea en ECS con esa imagen.</li>
-<li>Corre esa tarea en un grupo de ECS o usa Fargate para que no tengas que manejar servidores.</li>
-<li>Si necesitas que tu aplicación pueda atender a más o menos visitas automáticamente, configura un balanceador de carga y grupos de escalado.</li>
-<li>Conecta otros servicios que necesites, como bases de datos en RDS o almacenamiento en S3.</li>
-</ul>
-
-
-<p>Siguiendo estos pasos, podrás tener tu aplicación funcionando en AWS de manera rápida.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-son-ecr%2C-ecs-y-eks%3F" tabindex="-1">¿Qué son ECR, ECS y EKS?</h3>
-
-
-<ul>
-<li><strong>ECR</strong>: Es donde guardas las <a href="https://kubernetes.io/docs/concepts/containers/images/" rel="noopener noreferrer" target="_blank">imágenes</a> de tus contenedores.</li>
-<li><strong>ECS</strong>: Es una plataforma para correr contenedores sin preocuparte por los servidores.</li>
-<li><strong>EKS</strong>: Es un servicio para usar Kubernetes, que es una forma avanzada de manejar contenedores.</li>
-</ul>
-
-
-<p>ECR te ayuda a almacenar tus imágenes, y luego ECS y EKS las usan para poner en marcha tus aplicaciones.</p>
-
-
-<h3 id="%C2%BFqu%C3%A9-servicios-me-permiten-correr-aplicaciones-en-contenedores-sin-manejar-servidores%3F" tabindex="-1">¿Qué servicios me permiten correr aplicaciones en contenedores sin manejar servidores?</h3>
-
-
-<p>Los servicios de AWS que te dejan correr aplicaciones sin que tengas que ocuparte de la infraestructura son:</p>
-
-
-<ul>
-<li><strong>Fargate</strong>: Para correr contenedores sin servidores.</li>
-<li><strong>Lambda</strong>: Para ejecutar código sin servidores que puede estar en contenedores.</li>
-<li><strong>App Runner</strong>: Para desplegar y manejar automáticamente tus contenedores.</li>
-</ul>
-
-
-<p>Con estos servicios, puedes concentrarte en desarrollar tu aplicación sin tener que preocuparte por la infraestructura detrás.</p>
-
-
-<p>
-<h2>Related posts</h2>
-<ul>
-<li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li><li><a href="https://dondeaprendoaws.com/blog/mejores-practicas-aws-para-devops/">Mejores prácticas AWS para DevOps</a></li><li><a href="https://dondeaprendoaws.com/blog/como-utilizar-elasticsearch-en-aws/">Cómo utilizar Elasticsearch en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/desarrollo-en-la-nube-fundamentos-esenciales/">Desarrollo en la nube: fundamentos esenciales</a></li>
-</ul>
-</p>
+Si decides usar ECS, sigue el [tutorial de despliegue con Amazon ECS y Fargate](/blog/como-desplegar-una-aplicacion-en-amazon-ecs/). Si necesitas Kubernetes, continúa con el [tutorial de Amazon EKS y kubectl](/blog/como-desplegar-una-aplicacion-en-amazon-eks/). Ambos recorren un laboratorio distinto; revisa sus requisitos de red, IAM, costos y limpieza antes de crear recursos. Para elegir entre otras opciones administradas y comparar el despliegue desde una imagen, vuelve a la [guía general de contenedores en AWS](/blog/como-desplegar-contenedores-en-aws/). Después del despliegue, la [guía para enviar logs de contenedores a CloudWatch Logs en ECS y EKS](/blog/monitoreo-de-contenedores-con-cloudwatch-logs/) explica las rutas de recolección y sus permisos.
