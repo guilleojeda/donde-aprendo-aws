@@ -1,124 +1,136 @@
 ---
-title: "Tipos y tamaños de instancias RDS: guía completa"
-description: "Descubre todo lo que necesitas saber sobre los tipos y tamaños de instancias RDS en esta guía completa. Aprende sobre Amazon RDS, características clave, opciones de almacenamiento, comparación con Aurora y más."
-author: "guille-ojeda"
-publishedAt: "2024-03-09"
-publishedTimestamp: "2024-03-09T00:25:35.456Z"
-cover: "/assets/blog/editorial-datos-ia.png"
-coverAlt: "Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja."
-ogImage: "/assets/blog/editorial-datos-ia.png"
+title: 'Tipos y tamaños de instancias RDS: cómo elegir la clase'
+description: Guía para elegir una clase y un tamaño de Amazon RDS según el motor, la carga, CPU, memoria, almacenamiento, disponibilidad y costo.
+author: guille-ojeda
+publishedAt: '2024-03-09'
+publishedTimestamp: '2024-03-09T00:25:35.456Z'
+cover: /assets/blog/editorial-datos-ia.png
+coverAlt: Una cuadrícula de puntos y una señal ascendente alrededor de un camino azul con un punto naranja.
+ogImage: /assets/blog/editorial-datos-ia.png
 related:
-  - title: "Detección de sesgos en modelos ML con SageMaker Clarify"
-    url: "https://dondeaprendoaws.com/blog/deteccion-de-sesgos-en-modelos-ml-con-sagemaker-clarify/"
-  - title: "Cifrado de datos con AWS KMS: guía práctica"
-    url: "https://dondeaprendoaws.com/blog/cifrado-de-datos-con-aws-kms-guia-practica/"
-  - title: "Cómo utilizar Elasticsearch en AWS"
-    url: "https://dondeaprendoaws.com/blog/como-utilizar-elasticsearch-en-aws/"
-
+- title: 'Amazon RDS o Aurora: cómo elegir una base de datos relacional en AWS'
+  url: https://dondeaprendoaws.com/blog/bases-de-datos-relacionales-en-aws-con-amazon-rds-y-amazon-aurora/
+- title: 'Cómo usar AWS Cost Explorer: filtros y costos que no aparecen'
+  url: https://dondeaprendoaws.com/blog/analisis-de-costos-de-aws-con-cost-explorer/
+- title: Cómo visualizar costos de AWS con CUR 2.0, Athena y QuickSight
+  url: https://dondeaprendoaws.com/blog/visualiza-costos-con-aws-cost-and-usage-reports-y-quicksight/
+- title: 'Amazon ElastiCache: motores, caché y conexión segura'
+  url: https://dondeaprendoaws.com/blog/guia-de-amazon-elasticache-almacenamiento-en-cache-en-memoria/
+modifiedTimestamp: '2026-10-07T10:03:05-03:00'
+review:
+  date: '2026-10-07'
 ---
 
-<p>Si estás buscando el tipo y tamaño de instancia RDS adecuado para tu proyecto, este artículo es para ti. Aquí encontrarás todo lo que necesitas saber sobre Amazon RDS, desde conceptos básicos hasta consejos para elegir la mejor opción para tu aplicación. Vamos a desglosarlo de manera simple:</p>
-<ul><li><strong>Amazon RDS</strong> facilita el uso de bases de datos en la nube, manejando tareas complicadas por ti.</li><li>Las <strong>instancias RDS</strong> vienen en diferentes tipos y tamaños, adecuados para diversos usos, como desarrollo, pruebas y producción.</li><li>Hay dos grandes categorías: <strong>Uso General</strong> y <strong>Optimizadas para Memoria</strong>.</li><li>Las características clave incluyen <strong>Créditos CPU</strong>, <strong>Opciones de almacenamiento</strong>, y <strong>Redes mejoradas</strong>.</li><li>El <strong>almacenamiento en Amazon RDS</strong> ofrece varias opciones, como SSD de uso general y SSD de IOPS aprovisionadas.</li><li>Para elegir correctamente, considera aspectos como la <strong>CPU</strong>, <strong>memoria</strong>, <strong>almacenamiento</strong>, y <strong>rendimiento de red</strong> que tu proyecto requiere.</li><li><strong>RDS</strong> y <strong>Aurora</strong> se comparan en términos de infraestructura, escalabilidad, rendimiento y seguridad, siendo Aurora la opción más potente para proyectos que necesitan escalabilidad y alto rendimiento.</li></ul>
-<p>Este resumen te da una visión clara de lo que necesitas considerar al seleccionar tu instancia RDS, garantizando que tu elección se alinee con los requisitos y objetivos de tu aplicación.</p>
-<h3 id="definici%C3%B3n-de-una-instancia-rds">Definición de una instancia RDS</h3>
-<p>Una instancia RDS es básicamente una base de datos que funciona en internet, en un espacio propio y seguro. Lo que la hace especial es:</p>
-<ul><li><strong>Espacio propio y seguro</strong>: Cada instancia RDS funciona por su cuenta, lejos de otras, lo que la hace segura y confiable.</li><li><strong>Fácil de manejar</strong>: Con RDS, olvídate de las complicaciones de mantener tu base de datos al día. Amazon se encarga de las actualizaciones y de mantener todo funcionando bien.</li><li><strong>Siempre disponible</strong>: Puedes hacer que tu base de datos esté en varios lugares al mismo tiempo para que, si uno falla, el otro siga funcionando.</li><li><strong>Se ajusta a tus necesidades</strong>: Si necesitas más espacio o capacidad, es fácil hacer cambios para que tu base de datos crezca contigo.</li></ul>
-<h3 id="ventajas-de-usar-rds">Ventajas de usar RDS</h3>
-<p>Las razones principales para usar Amazon RDS en vez de manejar tu base de datos tú mismo son:</p>
-<ul><li><strong>Es más fácil</strong>: RDS se encarga de las partes difíciles como hacer copias de seguridad y actualizar el sistema.</li><li><strong>Ahorras dinero</strong>: Pagas solo por lo que usas, lo que puede ayudarte a ahorrar.</li><li><strong>Siempre activo</strong>: Configurar que tu base de datos esté en varios lugares para más seguridad es fácil y no cuesta más.</li><li><strong>Flexible</strong>: Puedes hacer tu base de datos más grande o más pequeña según lo necesites, sin complicaciones.</li><li><strong>Seguro</strong>: RDS viene con muchas opciones de seguridad para proteger tu información.</li></ul>
-<p>En pocas palabras, Amazon RDS te da un servicio de base de datos que se maneja solo, es seguro y siempre está disponible. Esto significa que puedes concentrarte más en tu trabajo y menos en los problemas técnicos.</p>
-<h2 id="tipos-de-instancias-rds"><a href="https://aws.amazon.com/es/rds/instance-types/">Tipos de Instancias RDS</a></h2>
-<p><img alt="Tipos de Instancias RDS" src="/assets/blog/91cafa14c4079de7a4e4d066.jpg"/></p>
-<p>Amazon RDS te ofrece dos grandes grupos de instancias: las que son para uso general y las que están optimizadas para usar mucha memoria. Cada tipo se crea pensando en necesidades diferentes.</p>
-<h3 id="uso-general">Uso general</h3>
-<p>Las instancias de uso general tienen un equilibrio entre CPU, memoria y capacidad de procesamiento, lo que las hace adecuadas para la mayoría de las bases de datos. Si no tienes necesidades muy específicas, estas podrían ser una buena opción.</p>
-<p>Aquí tienes algunos ejemplos:</p>
-<ul><li><strong>T4g</strong>: Usan un tipo de procesador llamado Arm Graviton2, que ayuda a que el costo sea más bajo.</li><li><strong>T3</strong>: Aumentan su rendimiento automáticamente cuando es necesario.</li><li><strong>T2</strong>: Son económicas y ofrecen recursos básicos.</li><li><strong>M7g</strong>: Utilizan procesadores AMD EPYC de última generación.</li><li><strong>M6i</strong>: Vienen con los más recientes procesadores Intel Ice Lake.</li><li><strong>M6g</strong>: También usan el procesador Arm Graviton2.</li><li><strong>M5</strong>: Tienen un buen equilibrio de recursos con procesadores Intel Skylake.</li><li><strong>M5d</strong>: Además, incluyen un tipo de almacenamiento rápido llamado NVMe SSD.</li><li><strong>M4</strong>: Son una opción genérica con una buena relación calidad-precio.</li></ul>
-<h3 id="optimizadas-para-memoria">Optimizadas para memoria</h3>
-<p>Estas instancias están pensadas para bases de datos que necesitan mucha memoria RAM. Veamos algunos ejemplos:</p>
-<ul><li><strong>R7g</strong>: Son las más nuevas y usan procesadores AWS Graviton3, que ofrecen mucha más memoria.</li><li><strong>R6i</strong>: Basadas en los procesadores Intel Ice Lake de última generación, mejoran el rendimiento.</li><li><strong>R6g</strong>: Utilizan el procesador personalizado Arm Graviton2 de AWS.</li><li><strong>R5</strong>: Pueden tener hasta 768GiB de RAM y usan procesadores Intel Skylake.</li><li><strong>R5b</strong>: Son especiales para bases de datos que funcionan en memoria y son más baratas por la cantidad de RAM que ofrecen.</li><li><strong>R5d</strong>: Incluyen almacenamiento NVMe SSD de hasta 3,6TB.</li><li><strong>R4</strong>: Son de alto rendimiento para tareas que usan mucha memoria.</li><li><strong>X2iedn</strong>: Usan la nueva generación de procesadores Intel Ice Lake.</li><li><strong>X2idn</strong>: Son similares a las X2iedn, pero con menos memoria por cada vCPU.</li><li><strong>X2g</strong>: Con procesadores Graviton2, se enfocan en ofrecer alto rendimiento a bajo costo.</li><li><strong>X1e</strong>: Tienen mucha memoria a un precio accesible.</li><li><strong>X1</strong>: Son parecidas a las X1e, pero sin almacenamiento local.</li><li><strong>Z1d</strong>: Ofrecen la mayor frecuencia de procesador disponible, ideal para software que cobra por núcleo.</li></ul>
-<h2 id="caracter%C3%ADsticas-de-las-instancias-rds">Características de las instancias RDS</h2>
-<p>Amazon RDS ofrece varias características adicionales para ayudar a implementar, administrar y escalar las cargas de trabajo de bases de datos.</p>
-<h3 id="cr%C3%A9ditos-cpu-(t3%2C-t2)">Créditos CPU (T3, T2)</h3>
-<p>Las instancias como T3 y T2 te permiten empezar con un nivel básico de capacidad de procesamiento y aumentarlo si es necesario. Si no están muy ocupadas, acumulan "créditos" que pueden usar cuando hay más trabajo. Esto significa que para muchas tareas no tendrás que pagar extra.</p>
-<h3 id="opciones-de-almacenamiento">Opciones de almacenamiento</h3>
-<p>RDS usa un sistema de almacenamiento llamado EBS. Hay tres tipos principales:</p>
-<ul><li><strong>Uso general (SSD)</strong>: Es la opción estándar para la mayoría de las tareas.</li><li><strong>IOPS aprovisionadas (SSD)</strong>: Ideal para trabajos que necesitan mucho acceso a disco de manera constante.</li><li><strong>Magnéticos</strong>: Son más económicos pero ofrecen menos rendimiento.</li></ul>
-<p>Aurora, por otro lado, usa un sistema de almacenamiento que se ajusta automáticamente según necesites más espacio.</p>
-<h3 id="instancias-optimizadas-para-ebs">Instancias optimizadas para EBS</h3>
-<p>Estas instancias aseguran una conexión directa y rápida entre RDS y el sistema de almacenamiento EBS, lo que es muy útil para trabajos que requieren mucha actividad de disco.</p>
-<h3 id="redes-mejoradas">Redes mejoradas</h3>
-<p>Proporcionan una conexión a internet más rápida y con menos retrasos. RDS activa esta opción automáticamente en los tipos de instancias que lo soportan.</p>
-<h2 id="tipos-de-almacenamiento-en-amazon-rds">Tipos de almacenamiento en Amazon RDS</h2>
-<p>Amazon RDS te ofrece tres tipos principales de almacenamiento:</p>
-<ul><li><strong>SSD de uso general (gp2 y gp3)</strong></li><li><strong>SSD de IOPS aprovisionadas (io1)</strong></li><li><strong>Magnético</strong></li></ul>
-<p>Cada uno tiene sus propias ventajas, dependiendo de lo que necesitas para tu base de datos.</p>
-<h3 id="ssd-de-uso-general-(gp2-vs-gp3)">SSD de uso general (gp2 vs gp3)</h3>
-<p>Los SSD de uso general son una opción asequible y funcionan bien para la mayoría de las bases de datos. Hay dos tipos:</p>
-<ul><li><strong>gp2</strong>: Ofrece un rendimiento básico de 3 IOPS por cada GB, hasta un máximo de 16000 IOPS por volumen. Es ideal para pruebas y desarrollo.</li><li><strong>gp3</strong>: Te permite elegir cuánto almacenamiento y velocidad quieres, con hasta 16000 IOPS y 1000 MB/s. Es más flexible y se ajusta a diferentes necesidades.</li></ul>
-<p>Generalmente, el gp3 es mejor porque te da más control y un rendimiento más estable.</p>
-<h3 id="factores-que-afectan-el-rendimiento">Factores que afectan el rendimiento</h3>
-<p>Varios aspectos pueden influir en cómo de rápido y eficiente es tu almacenamiento en Amazon RDS:</p>
-<ul><li><strong>Tipo de instancia</strong>: Las instancias más fuertes mejoran el rendimiento.</li><li><strong>Actividades del sistema</strong>: Acciones como restaurar datos o crear copias pueden bajar temporalmente el rendimiento.</li><li><strong>Carga de trabajo</strong>: Consultas o transacciones complejas piden más del almacenamiento.</li><li><strong>Tipo y tamaño de almacenamiento</strong>: Los SSD y el almacenamiento con IOPS aprovisionadas suelen ser más rápidos.</li></ul>
-<p>Es clave observar cómo va el rendimiento para identificar y resolver problemas, ajustando los recursos según sea necesario.</p>
-<h2 id="seleccionando-el-tama%C3%B1o-y-tipo-de-instancia-rds">Seleccionando el tamaño y tipo de instancia RDS</h2>
-<h3 id="especificaciones-recomendadas">Especificaciones recomendadas</h3>
-<p>Cuando busques la instancia RDS perfecta, piensa en cuánta fuerza (CPU), memoria, espacio (almacenamiento) y velocidad de conexión (rendimiento de red) necesitas para tu proyecto. Aquí van unos consejos:</p>
-<p><strong>Entornos de desarrollo</strong></p>
-<p>Si estás trabajando en desarrollar y probar cosas nuevas, puedes usar instancias más pequeñas para ahorrar dinero:</p>
-<ul><li><strong>CPU</strong>: 2-4 núcleos virtuales</li><li><strong>Memoria</strong>: 4-16 GiB</li><li><strong>Almacenamiento</strong>: SSD de uso general con 20-100 GB</li><li><strong>Rendimiento de red</strong>: Bajo, suficiente para que los desarrolladores accedan</li><li><strong>Ejemplos de tipos de instancias</strong>: t3.small, t3.medium, t3.large</li></ul>
-<p><strong>Entornos de pruebas</strong></p>
-<p>Para probar tus aplicaciones y simular usuarios reales, necesitarás algo más potente:</p>
-<ul><li><strong>CPU</strong>: 4-8 núcleos virtuales</li><li><strong>Memoria</strong>: 16-64 GiB</li><li><strong>Almacenamiento</strong>: SSD de uso general con 100-500 GB</li><li><strong>Rendimiento de red</strong>: Moderado, para pruebas más realistas</li><li><strong>Ejemplos de tipos de instancias</strong>: m5.large, m5.xlarge, m5.2xlarge</li></ul>
-<p><strong>Producción</strong></p>
-<p>Cuando tu aplicación esté lista para el mundo real y esperes mucho tráfico, elige instancias fuertes:</p>
-<ul><li><strong>CPU</strong>: 8+ núcleos virtuales</li><li><strong>Memoria</strong>: 32+ GiB</li><li><strong>Almacenamiento</strong>: SSD de IOPS aprovisionadas, con suficiente espacio</li><li><strong>Rendimiento de red</strong>: Alto, idealmente 10 Gigabit</li><li><strong>Ejemplos de tipos de instancias</strong>: m5.2xlarge, m5.4xlarge, r5.large, r5.xlarge</li></ul>
-<p>Recuerda revisar cómo van tus recursos y cambiar el tamaño de tus instancias RDS si es necesario. Las instancias más grandes pueden manejar mejor los momentos de mucho trabajo.</p>
-<h2 id="optimizaciones-para-rds-y-mejoras-recientes">Optimizaciones para RDS y mejoras recientes</h2>
-<h3 id="instancias-r6a-mejoradas-para-ebs">Instancias r6a mejoradas para EBS</h3>
-<p>Las instancias R6a usan procesadores AMD EPYC de última generación y tecnología Nitro de AWS. Las últimas actualizaciones han hecho que estas instancias sean aún mejores, ofreciendo:</p>
-<ul><li><strong>60% más de IOPS</strong> para la versión más grande (32xlarge)</li><li><strong>50% más de IOPS</strong> para los otros tamaños de R6a</li><li><strong>50% más de ancho de banda</strong> para conectar con EBS en versiones hasta 32xlarge</li></ul>
-<p>Por ejemplo, ahora las versiones desde large hasta 4xlarge pueden llegar a <strong>10 Gbps</strong> de velocidad y <strong>40.000 IOPS</strong>. Esto significa que pueden trabajar más rápido y manejar más datos a la vez, ideal para tareas que necesitan mucho almacenamiento.</p>
-<p>Lo mejor es que estas <a href="https://mariadb.com/kb/en/changes-improvements-in-mariadb-1011/">mejoras</a> no tienen costo adicional. Si ya tienes instancias R6a, solo necesitas pararlas y volverlas a iniciar para aprovechar estas ventajas.</p>
-<h3 id="aurora-i%2Fo-optimized">Aurora I/o-optimized</h3>
-<p>Aurora I/O-Optimized es una opción para quienes usan Aurora y necesitan mucho manejo de datos (E/S). Esta configuración ofrece:</p>
-<ul><li>Mejores costos para el rendimiento que ofrece</li><li>Precios más fáciles de entender</li><li>Posibilidad de ahorrar hasta un 40% si los gastos de manejo de datos son altos</li></ul>
-<p>Con Aurora I/O-Optimized, solo pagas por el espacio y las instancias que usas, sin cargos extra por el manejo de datos. Esto hace más sencillo calcular cuánto vas a gastar.</p>
-<p>Esta configuración es compatible con las nuevas instancias R7g, que usan procesadores Graviton3. Comparadas con las R6g, estas son hasta un 30% más rápidas y tienen una mejor relación costo-beneficio.</p>
-<p>Cambiar entre la configuración estándar y I/O-Optimized es fácil y se hace desde la consola de AWS. Esta opción está disponible para Aurora MySQL y PostgreSQL en la mayoría de las regiones.</p>
-<h2 id="comparaci%C3%B3n-amazon-rds-vs-aurora">Comparación Amazon RDS vs Aurora</h2>
-<p>RDS y Aurora son dos formas de guardar y manejar datos en la nube con AWS. Aunque se parecen en algunas cosas, hay diferencias importantes entre ellos en cómo están hechos, cuánto pueden crecer, qué tan rápidos son y cómo protegen tus datos. Vamos a ver cómo se comparan:</p>
-<h3 id="tabla-comparativa">Tabla comparativa</h3>
-<table><thead><tr><th>Característica</th><th>RDS</th><th>Aurora</th></tr></thead><tbody><tr><td>Infraestructura</td><td>Usa sistemas de bases de datos conocidos como MySQL, PostgreSQL, Oracle, etc.</td><td>AWS lo hizo desde cero, es especial de ellos</td></tr><tr><td>Escalabilidad</td><td>Depende del equipo que uses</td><td>Puede crecer mucho sin problemas</td></tr><tr><td>Rendimiento</td><td>Está bien para la mayoría de usos</td><td>Es mucho mejor, puede ser hasta 5 veces más rápido que MySQL en RDS</td></tr><tr><td>Seguridad</td><td>Tus datos están protegidos</td><td>También protege tus datos</td></tr></tbody></table>
-<p>Como ves, ambos protegen tus datos bien. Pero Aurora puede hacer más cosas a la vez y crecer más fácilmente.</p>
-<p>RDS es bueno si ya estás usando esos sistemas de bases de datos y quieres seguir así. Pero si necesitas más poder y flexibilidad, Aurora podría ser mejor.</p>
-<h3 id="diferencias-clave-entre-rds-y-aurora">Diferencias clave entre RDS y Aurora</h3>
-<p>Ahora, hablemos más de lo que los hace diferentes:</p>
-<p><strong>Infraestructura</strong></p>
-<p>RDS usa sistemas de bases de datos que ya conocemos y los pone en la nube. Pero eso también significa que no puede crecer más allá de cierto punto.</p>
-<p>Aurora es diferente porque AWS lo creó pensando en la nube, así que puede usar toda la potencia de la nube para crecer más.</p>
-<p><strong>Escalabilidad</strong></p>
-<p>Aurora gana aquí porque puede ajustarse y crecer según lo necesites, sin límites. RDS tiene un tope porque depende del equipo físico.</p>
-<p><strong>Rendimiento</strong></p>
-<p>Aurora trabaja más rápido porque usa tecnologías avanzadas, como guardar las búsquedas más comunes para no tener que hacerlas cada vez. Esto es ideal para aplicaciones que necesitan mucha potencia.</p>
-<p><strong>Seguridad</strong></p>
-<p>Los dos son seguros y protegen tus datos. RDS puede ser más familiar si ya usas esos sistemas de bases de datos.</p>
-<h3 id="conclusi%C3%B3n">Conclusión</h3>
-<p>Al final, si necesitas que tu sistema de datos crezca y sea muy rápido, Aurora es la mejor opción. Pero si prefieres seguir con lo que ya conoces y funciona para ti, RDS es una buena elección.</p>
-<h2 id="conclusiones">Conclusiones</h2>
-<p>Cuando necesitas decidir qué tipo y tamaño de instancia RDS es mejor para tu base de datos, piensa en lo siguiente:</p>
-<ul><li><strong>Para qué vas a usar la base de datos</strong>: ¿Es para crear cosas nuevas, hacer pruebas o ya es para usar de verdad? Esto te ayudará a saber cuánto poder necesitas.</li><li><strong>Cuánto trabajo va a tener</strong>: Piensa en cuántas cosas tiene que hacer tu base de datos, como cuántas personas la van a usar y cuánto tráfico esperas. Esto te ayuda a elegir el tamaño adecuado.</li><li><strong>Qué tan rápido necesitas que sea</strong>: Dependiendo de si necesitas que tu base de datos sea muy rápida o maneje mucha información al mismo tiempo, esto puede influir en tu elección.</li><li><strong>Cuánto puedes gastar</strong>: Las opciones más grandes y con más funciones son más caras. Considera opciones más económicas si tienes un presupuesto limitado.</li><li><strong>Pensando en el futuro</strong>: Elige una opción que te permita crecer fácilmente sin tener que hacer muchos cambios si en el futuro necesitas más capacidad.</li><li><strong>Si necesitas que esté siempre disponible</strong>: Para evitar problemas si algo falla, piensa en usar opciones que tengan copias en diferentes lugares.</li><li><strong>Mantener tus datos seguros</strong>: Asegúrate de que tus datos estén protegidos, tanto cuando están guardados como cuando los estás usando.</li></ul>
-<p>Es importante que revises cómo va todo regularmente, para que puedas ajustar las cosas según sea necesario. Si estás entre elegir RDS o Aurora, recuerda que Aurora puede manejar más carga de trabajo y crecer más fácilmente, pero RDS podría ser mejor si prefieres trabajar con sistemas de bases de datos más tradicionales.</p>
-<h2 id="preguntas-relacionadas">Preguntas relacionadas</h2>
-<h3 id="%C2%BFqu%C3%A9-es-una-instancia-rds%3F">¿Qué es una instancia RDS?</h3>
-<p>RDS es un servicio de AWS que hace más fácil usar bases de datos en la nube. AWS se ocupa de las tareas complicadas como hacer copias de seguridad, actualizar sistemas, aumentar el tamaño y hacer copias de tu base de datos. Esto significa que tú solo tienes que preocuparte por usar la base de datos.</p>
-<p>Puedes tener una base de datos lista, como MySQL, PostgreSQL, Oracle, entre otros, en solo unos minutos y comenzar a trabajar con ella de inmediato.</p>
-<h3 id="%C2%BFcu%C3%A1ntos-motores-distintos-de-base-de-datos-soporta-el-servicio-rds%3F">¿Cuántos motores distintos de base de datos soporta el servicio RDS?</h3>
-<p><img alt="base de datos" src="/assets/blog/143aefb14576b5b371d54ef0.jpg"/></p>
-<p>RDS funciona con varios sistemas de bases de datos:</p>
-<ul><li>MySQL</li><li>PostgreSQL</li><li>Oracle</li><li>Microsoft SQL Server</li><li>MariaDB</li></ul>
-<p>También, AWS tiene su propio sistema de base de datos llamado Amazon Aurora, que es compatible con MySQL.</p>
-<h3 id="%C2%BFqu%C3%A9-es-rds-multi-az%3F">¿Qué es RDS Multi-AZ?</h3>
-<p>RDS Multi-AZ te permite tener una copia de tu base de datos en otra área para que, si hay un problema en el área principal, RDS pueda cambiar a la copia rápidamente. Esto ayuda a que tu base de datos esté disponible todo el tiempo y sea más segura. RDS se encarga de hacer las copias automáticamente.</p>
-<h2 id="related-posts">Related posts</h2>
-<ul><li><a href="https://dondeaprendoaws.com/blog/bases-de-datos-relacionales-en-aws-con-amazon-rds-y-amazon-aurora/">Bases de datos relacionales en AWS con Amazon RDS y Amazon Aurora</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-bases-de-datos-introduccion-basica/">bases de datos en AWS: introducción básica</a></li><li><a href="https://dondeaprendoaws.com/blog/amazon-redshift-el-poder-del-data-warehousing-en-aws/">Amazon Redshift: el poder del data warehousing en AWS</a></li><li><a href="https://dondeaprendoaws.com/blog/aws-aprender-guia-inicial/">aprender AWS: guía inicial</a></li></ul>
+
+Para elegir el tamaño de una instancia de Amazon RDS, confirma primero qué clases admite tu motor, su versión y tu Región de AWS. Luego identifica el límite de la carga —CPU, memoria, almacenamiento o conexiones— y compara clases con métricas de un período representativo. No hay un tamaño universal para «desarrollo», «pruebas» o «producción»: la carga, el motor y el nivel de disponibilidad cambian la decisión.
+
+## Qué significan el tipo y el tamaño
+
+Una **clase de instancia de base de datos** combina un tipo de clase y un tamaño. Por ejemplo, en <code>db.r6g.2xlarge</code>, <code>db.r6g</code> identifica el tipo y <code>2xlarge</code> el tamaño. El tipo indica el perfil de cómputo; el tamaño define la capacidad disponible dentro de esa familia. La clase influye en CPU y memoria, además de los límites de rendimiento de red y de E/S.
+
+La clase y el almacenamiento son decisiones relacionadas, pero distintas. Elegir una instancia más grande no aumenta automáticamente los GB asignados, las IOPS aprovisionadas ni el rendimiento del volumen. A la vez, una clase puede limitar cuánto aprovecha la base de datos del almacenamiento que configuraste. Confirma ambas partes antes de cambiar una.
+
+Los nombres de familia que aparecen abajo son una orientación, no un catálogo de compatibilidad. Las clases disponibles cambian según motor, versión y, en algunos casos, edición del motor, Región y modalidad de despliegue. La [documentación de AWS sobre clases de RDS](https://docs.aws.amazon.com/es_es/AmazonRDS/latest/UserGuide/Concepts.DBInstanceClass.html) explica su formato; la [tabla de compatibilidad por motor](https://docs.aws.amazon.com/es_es/AmazonRDS/latest/UserGuide/Concepts.DBInstanceClass.Support.html) detalla las excepciones.
+
+Si estás empezando por el servicio, la grabación [Introducción a Amazon RDS](https://www.youtube.com/watch?v=2Ng-Ot0VH_k) de AWS User Group CreaTicas repasa sus conceptos básicos.
+
+| Tipo de clase | Cuándo conviene evaluarlo | Qué revisar |
+| --- | --- | --- |
+| <code>db.m*</code>, uso general | Si buscas un equilibrio entre CPU y memoria para una carga relacional variada. | El consumo sostenido y los picos de la carga real. |
+| <code>db.r*</code>, optimizada para memoria | Si la memoria es el límite: por ejemplo, cuando el conjunto de trabajo no cabe bien en memoria y aumenta la lectura desde disco. | Memoria disponible, actividad de E/S y rendimiento de consultas; no la elijas solo porque la base guarda muchos GB. |
+| <code>db.c*</code>, optimizada para cómputo | Si la base necesita CPU sostenida y esa familia está disponible para el motor y despliegue que usas. | Compatibilidad exacta, licencias cuando correspondan y si el problema está en CPU o en consultas ineficientes. |
+| <code>db.t*</code>, ampliable o burstable | Si la carga suele ser baja y tiene picos breves que pueden usar créditos de CPU. | La duración de los picos, el saldo de créditos y los cargos por créditos excedentes. |
+
+Algunas clases basadas en AWS Graviton usan procesadores Arm; por ejemplo, en ciertos tipos el sufijo <code>g</code> identifica esa plataforma. Amazon RDS administra el servidor de base de datos: la aplicación cliente sigue conectándose mediante el protocolo del motor y no necesita usar un procesador Arm por esa elección. La clase basada en Graviton debe estar disponible para la combinación concreta de motor, versión y Región, así que compruébala igual que cualquier otra. RDS no da acceso directo al host en las instancias estándar; consulta la nota sobre [instancias de base de datos RDS](https://docs.aws.amazon.com/es_es/AmazonRDS/latest/UserGuide/Overview.DBInstance.html) si necesitas distinguirlas de RDS Custom.
+
+## Cómo elegir una clase paso a paso
+
+1. **Fija el motor, la versión y la Región.** La disponibilidad de una familia no se deduce de su nombre ni de que exista en otra Región. Incluye la edición de Db2, Oracle o SQL Server cuando corresponda, y comprueba las restricciones del despliegue.
+2. **Mide una carga representativa.** Observa un período que incluya la actividad habitual y los picos. Si recién comienzas, usa un entorno de prueba con datos y consultas que se parezcan a los del uso previsto; vuelve a medir antes de aplicar la elección en producción.
+3. **Busca el recurso que limita la base.** CPU alta, falta de memoria, espera por disco y exceso de conexiones apuntan a causas distintas. Antes de sumar capacidad, examina consultas lentas, bloqueos, esperas y patrones de conexión.
+4. **Compara tamaños de la misma familia y después familias distintas.** Cambia una variable por vez cuando hagas una comparación. Registra latencia, errores, conexiones y costo de la configuración completa bajo una carga comparable.
+5. **Decide el almacenamiento y la disponibilidad por separado.** Una réplica de lectura, una implementación Multi-AZ y un volumen con IOPS aprovisionadas responden a objetivos distintos y tienen costo propio.
+6. **Planifica el cambio.** Cambiar la clase de RDS puede producir una interrupción. Confirma cuándo se aplicará el cambio, el efecto sobre tus conexiones y cómo recuperará el servicio la aplicación. La [tabla de cambios de configuración](https://docs.aws.amazon.com/es_es/AmazonRDS/latest/UserGuide/USER_ModifyInstance.Settings.html) indica el efecto esperado por ajuste.
+
+Para comprobar qué combinaciones están disponibles, puedes usar la consola de RDS o la operación de solo lectura <code>describe-orderable-db-instance-options</code>. Este ejemplo consulta PostgreSQL en <code>us-east-1</code>; cambia el motor y la Región por los tuyos:
+
+<pre><code>aws rds describe-orderable-db-instance-options \
+  --engine postgres \
+  --region us-east-1 \
+  --query 'OrderableDBInstanceOptions[].{Version:EngineVersion,Class:DBInstanceClass,Storage:StorageType}' \
+  --output table</code></pre>
+
+Sin <code>--engine-version</code>, la salida puede incluir varias versiones compatibles. Agrega ese parámetro con la versión exacta que planeas usar para acotar la consulta. La operación enumera opciones disponibles; no modifica recursos ni calcula su precio. Consulta la [guía de AWS para verificar la compatibilidad regional](https://docs.aws.amazon.com/es_es/AmazonRDS/latest/UserGuide/Concepts.DBInstanceClass.RegionSupport.html) y la [referencia del comando de AWS CLI](https://docs.aws.amazon.com/cli/latest/reference/rds/describe-orderable-db-instance-options.html). La consola y la consulta describen opciones compatibles; no reemplazan una prueba de carga.
+
+Para practicar la creación y configuración de una base RDS para MySQL, puedes seguir [Práctica #5: Laboratorio práctico de Amazon RDS MySQL](https://www.youtube.com/watch?v=nu9U0DA49w4), de AWS User Group Caracas. Es un ejercicio con el servicio; consulta la compatibilidad actual de clases en la documentación de AWS.
+
+## Usa las métricas para encontrar el límite
+
+Las métricas de CloudWatch ayudan a decidir qué comparar, pero un valor aislado no es una recomendación automática de cambio. Mira tendencias y picos junto con las consultas y esperas de la base. AWS publica métricas de RDS en [CloudWatch](https://docs.aws.amazon.com/es_es/AmazonRDS/latest/UserGuide/rds-metrics.html); para analizar la carga de base de datos y filtrarla por esperas o sentencias SQL, consulta la [guía actual de CloudWatch Database Insights para RDS](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_DatabaseInsights.html).
+
+| Señal durante la carga | Qué puede indicar | Qué probar |
+| --- | --- | --- |
+| CPU alta durante períodos prolongados o muchas sesiones esperando CPU en Database Insights | Límite de cómputo o consultas que consumen demasiado. | Revisa consultas y esperas. Si la CPU sigue siendo el límite, compara un tamaño mayor o una clase optimizada para cómputo compatible. |
+| Poca memoria disponible, especialmente junto con intercambio o lecturas frecuentes desde disco | El motor puede estar dedicando demasiado tiempo a traer a memoria los datos consultados. | Revisa el conjunto de trabajo y compara una clase optimizada para memoria. Valida el resultado con latencia y consultas. |
+| Aumentan la latencia y la cola de disco mientras la CPU tiene margen | El volumen o los límites de E/S pueden ser el cuello de botella. | Comprueba IOPS y rendimiento configurados, tipo de almacenamiento y límite de EBS de la clase. Aumentar la clase por sí solo no siempre resuelve el límite del volumen. |
+| Se agotan créditos de CPU o aparecen cargos por créditos excedentes en una clase <code>db.t*</code> | Los picos duran más que lo que permite su nivel de rendimiento de referencia. | Compara la carga y el costo con una clase no burstable. Revisa <code>CPUCreditBalance</code> y <code>CPUSurplusCreditsCharged</code>. |
+| Muchas conexiones, pero sin saturación clara de CPU, memoria o E/S | El patrón de conexión de la aplicación puede ser el problema. | Revisa límites del motor, concurrencia y conexión agrupada antes de aumentar el tamaño. |
+
+<code>DBLoad</code> representa sesiones activas, incluidas sesiones que esperan por recursos; por eso, no significa automáticamente que la CPU esté saturada. En Database Insights, desglosar la carga por CPU, espera y consulta ayuda a separar falta de capacidad de una consulta o un bloqueo. No cambies de clase a partir de un único promedio si la aplicación sufre en un pico breve.
+
+## Las clases burstable no son siempre la opción más económica
+
+Las clases <code>db.t3</code> y <code>db.t4g</code> ofrecen un nivel de rendimiento de referencia y pueden usar créditos para aumentarlo temporalmente. RDS configura ambas familias en modo Unlimited: si el uso sostenido supera los créditos que la instancia acumula, puede consumir créditos de CPU excedentes y generar cargos por esa capacidad adicional. AWS recomienda reservar las clases T para desarrollo, pruebas u otros servidores que no se usen en producción.
+
+Antes de usar una clase burstable, mide si la base permanece con carga baja suficiente entre los picos. Revisa las métricas de créditos —se publican cada cinco minutos— y estima el costo si la carga deja de ser esporádica. Una clase T pequeña puede costar más de lo esperado si necesita sostener CPU alta. El sufijo <code>g</code> identifica una clase con procesador AWS Graviton; eso no cambia el modelo de créditos ni elimina la necesidad de revisar su compatibilidad.
+
+## El almacenamiento tiene su propio perfil de rendimiento
+
+El almacenamiento de RDS es otra parte del dimensionamiento. La capacidad en GB sirve para alojar datos; IOPS y rendimiento de lectura/escritura describen operaciones. Según el motor y el tamaño del volumen, puedes elegir entre SSD de uso general y SSD de IOPS aprovisionadas:
+
+- **gp3** es la opción de uso general recomendada por AWS para muchos casos. Permite configurar capacidad y rendimiento por separado dentro de los límites compatibles con el motor y el volumen.
+- **io2** y **io1** se orientan a cargas con necesidades sostenidas de I/O, baja latencia o IOPS aprovisionadas. Verifica si esa opción encaja con el patrón de E/S y si la clase puede aprovechar lo que configures.
+- **gp2** es una generación anterior. El almacenamiento magnético está obsoleto para nuevas instancias; no lo uses como opción nueva.
+
+AWS aclara que una clase puede impedir aprovechar todas las IOPS o todo el rendimiento provisionado del volumen si sus propios límites son menores. Revisa los límites de la clase y del motor junto con las métricas de lectura, escritura y cola; la [guía de almacenamiento de RDS](https://docs.aws.amazon.com/es_es/AmazonRDS/latest/UserGuide/CHAP_Storage.html) mantiene las opciones y restricciones actuales.
+
+## Alta disponibilidad y lecturas no son lo mismo
+
+Una implementación Multi-AZ tradicional de una instancia RDS mantiene una réplica en espera para alta disponibilidad y failover. Esa instancia en espera no atiende consultas de lectura. Si el objetivo es quitarle consultas a la instancia principal, evalúa réplicas de lectura o un clúster Multi-AZ compatible con el motor. Las réplicas de lectura pueden tener retraso y se facturan como instancias de base de datos; no son un reemplazo idéntico para el failover síncrono.
+
+Comprueba qué despliegue tienes antes de tomar una decisión: la opción denominada Multi-AZ no identifica por sí sola una topología que escale lecturas. Revisa la guía de [despliegues Multi-AZ de instancia](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.MultiAZSingleStandby.html), [clústeres Multi-AZ](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/multi-az-db-clusters-concepts.html) y [réplicas de lectura](https://docs.aws.amazon.com/es_es/AmazonRDS/latest/UserGuide/USER_ReadRepl.html).
+
+## Compara el costo de la configuración completa
+
+El precio de una clase depende, entre otros factores, de la Región, el motor, su edición y la opción de licencia. A la tarifa de cómputo de cada instancia se suman los cargos aplicables por almacenamiento, IOPS o rendimiento aprovisionados, Multi-AZ, réplicas, copias de seguridad y transferencia de datos. No compares clases con precios de otra Región ni asumas que una clase con menos CPU siempre cuesta menos para completar la misma carga.
+
+Usa los valores actuales de [precios de Amazon RDS](https://aws.amazon.com/rds/pricing/) y la [Calculadora de precios de AWS](https://calculator.aws/) para estimar tu configuración. Selecciona el motor y la Región, e incluye la clase, el almacenamiento y las opciones de disponibilidad que comparas. La estimación refleja los parámetros que ingreses; valida el resultado con el uso y la factura reales. Para investigar cambios de gasto, consulta la [guía de Cost Explorer](/blog/analisis-de-costos-de-aws-con-cost-explorer/). Si necesitas un panel propio con datos detallados de facturación, la [guía de CUR 2.0, Athena y QuickSight](/blog/visualiza-costos-con-aws-cost-and-usage-reports-y-quicksight/) muestra otro recorrido y sus requisitos.
+
+## Amazon Aurora se dimensiona por separado
+
+Aurora forma parte de Amazon RDS, pero usa una arquitectura de clúster. En Aurora **provisionado** eliges clases para las instancias de escritura y lectura del clúster. **Aurora Serverless v2** usa la clase <code>db.serverless</code> y un rango de capacidad en Aurora Capacity Units (ACU); no es una instancia <code>db.t*</code>, <code>db.m*</code> o <code>db.r*</code> con escalado automático.
+
+La compatibilidad y los rangos de capacidad de Serverless v2 dependen de la versión del motor y de la Región. Compara el costo y el comportamiento de escalado con la carga que esperas: ni Aurora provisionado ni Serverless v2 son siempre más rápidos o más económicos que una instancia RDS. La guía de AWS detalla [Aurora Serverless](https://docs.aws.amazon.com/es_es/AmazonRDS/latest/AuroraUserGuide/aurora-serverless-v2.html); para elegir entre los motores relacionales, sigue la comparación de [Amazon RDS y Aurora](/blog/bases-de-datos-relacionales-en-aws-con-amazon-rds-y-amazon-aurora/).
+
+## Grupos, canales y encuentros
+
+Puedes aprender con grabaciones prácticas y contrastar decisiones con grupos generales de AWS. No todos los grupos se especializan en bases de datos; revisa su agenda, modalidad y condiciones de inscripción antes de participar.
+
+- El [grupo de Telegram de AWS User Group Caracas](https://t.me/awsCaracas) sirve para conversar sobre AWS con esa comunidad; es un canal comunitario general, no el soporte oficial de AWS.
+- Si estás en México, la agenda de [AWS User Group Ciudad de México](https://awsugcdmx.com/) incluye encuentros generales sobre arquitectura, datos y otros temas. En Argentina, puedes ver las actividades del [AWS User Group Córdoba](https://www.meetup.com/aws-user-group-cordoba-argentina/). El portal de [AWS User Group Perú](https://awsugperu.cloud/) reúne grupos locales, talleres, grupos de estudio y recursos; [AWS Women Colombia](https://awswomencolombia.com/) publica encuentros y materiales en español de la comunidad.
+- Si prefieres buscar un grupo de otro país, consulta el [directorio de AWS User Groups de AWS Builder Center](https://builder.aws.com/community/user-groups).
+- Al momento de esta revisión, AWS Student Builder Group del Higher Technological Institute of Atlixco anunció el encuentro presencial [Amazon RDS: Bases de datos administradas](https://www.meetup.com/aws-sbg-at-higher-technological-institute-of-atilxco/events/316823085/), para el 29 de octubre de 2026, de 12:00 a 14:00 (hora de Atlixco). La ficha describe la creación y configuración de una base SQL. Consulta allí los requisitos, el costo, los cupos y la ubicación exacta, que pueden cambiar.
+
+## Preguntas frecuentes
+
+### ¿Cómo sé si me falta CPU, memoria o rendimiento de almacenamiento?
+
+Correlaciona CloudWatch, Database Insights y la latencia que observa la aplicación. Una CPU alta sostenida, memoria baja o espera por disco orientan la prueba, pero también pueden señalar consultas, bloqueos o concurrencia que conviene corregir. Repite la comparación bajo una carga parecida antes de decidir.
+
+### ¿Multi-AZ sirve para atender más lecturas?
+
+No en el despliegue tradicional Multi-AZ de instancia: su standby sirve para failover, no para consultas. Para distribuir lecturas, comprueba compatibilidad de réplicas de lectura o del clúster Multi-AZ con tu motor y versión.
+
+### ¿Puedo cambiar el tamaño después?
+
+Sí. Puedes modificar la clase, pero el cambio puede causar una interrupción; define la ventana de aplicación, verifica la compatibilidad de la nueva clase y comprueba que la aplicación reconecte correctamente.
