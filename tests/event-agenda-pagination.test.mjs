@@ -25,6 +25,11 @@ class MockElement {
     this.children = [];
     this.listeners = new Map();
     this.textContent = '';
+    this.options = [];
+  }
+
+  get selectedOptions() {
+    return this.options.filter((option) => option.value === this.value);
   }
 
   addEventListener(type, handler) {
@@ -46,7 +51,10 @@ class MockElement {
   }
 }
 
-function createEventCards(count, { now, alternateModes = false, expiringFirst = false } = {}) {
+function createEventCards(count, {
+  now, alternateModes = false, expiringFirst = false,
+  eventCountriesByCard = [], eventCommunitiesByCard = [],
+} = {}) {
   return Array.from({ length: count }, (_, index) => {
     const mode = alternateModes && index % 2 ? 'online' : 'in-person';
     const startsAt = expiringFirst && index === 0 ? now - 10_000 : now + 10_000;
@@ -61,21 +69,27 @@ function createEventCards(count, { now, alternateModes = false, expiringFirst = 
         eventDate: '2026-10-05',
         eventMode: mode,
         country: 'AR',
-        eventCountries: 'AR',
-        eventCommunities: '',
+        eventCountries: eventCountriesByCard[index] ?? 'AR',
+        eventCommunities: eventCommunitiesByCard[index] ?? '',
         eventCity: '',
       },
     });
   });
 }
 
-function createAgenda({ count, now = Date.parse('2026-10-05T12:00:00Z'), alternateModes = false, expiringFirst = false, filter = '' }) {
+function createAgenda({
+  count, now = Date.parse('2026-10-05T12:00:00Z'), alternateModes = false,
+  expiringFirst = false, filter = '', withCommunityFilters = false,
+  eventCountriesByCard = [], eventCommunitiesByCard = [],
+}) {
   let clock = now;
   let nextTimer = 0;
   const document = { activeElement: null, hidden: false, listeners: new Map() };
   document.body = new MockElement(document, { tagName: 'BODY' });
   document.activeElement = document.body;
-  const cards = createEventCards(count, { now, alternateModes, expiringFirst });
+  const cards = createEventCards(count, {
+    now, alternateModes, expiringFirst, eventCountriesByCard, eventCommunitiesByCard,
+  });
   for (const card of cards) {
     card.document = document;
     card.querySelector = () => null;
@@ -88,14 +102,26 @@ function createAgenda({ count, now = Date.parse('2026-10-05T12:00:00Z'), alterna
   const countLabel = new MockElement(document);
   const summary = new MockElement(document, { dataset: { eventSummaryIntro: 'Hay', eventSummaryEmpty: 'No hay eventos.' } });
   const modeFilter = new MockElement(document, { tagName: 'SELECT' });
-  modeFilter.options = ['', 'online', 'in-person'].map((value) => ({ value }));
-  modeFilter.selectedOptions = [{ disabled: false }];
+  modeFilter.options = ['', 'online', 'in-person'].map((value) => ({ value, dataset: {} }));
+  const countryFilter = withCommunityFilters ? new MockElement(document, { tagName: 'SELECT' }) : null;
+  const communityFilter = withCommunityFilters ? new MockElement(document, { tagName: 'SELECT' }) : null;
+  if (countryFilter) countryFilter.options = ['', 'AR', 'CO'].map((value) => ({ value, dataset: {} }));
+  if (communityFilter) communityFilter.options = [
+    { value: '', dataset: {} },
+    { value: 'community-ar', dataset: { eventCountry: 'AR' } },
+    { value: 'community-co', dataset: { eventCountry: 'CO' } },
+  ];
   const filterFields = new MockElement(document);
-  filterFields.querySelector = (selector) => selector === '[data-event-mode]' ? modeFilter : null;
+  filterFields.querySelector = (selector) => ({
+    '[data-event-mode]': modeFilter,
+    '[data-event-country]': countryFilter,
+    '[data-event-community]': communityFilter,
+  }[selector] ?? null);
+  const clear = withCommunityFilters ? new MockElement(document, { tagName: 'BUTTON' }) : null;
   const elements = new Map([
     ['[data-event-list]', agenda], ['[data-event-empty]', empty], ['.event-agenda__filters', filterFields],
     ['[data-event-secondary-disclosure]', null], ['[data-event-secondary-label]', null],
-    ['[data-event-clear]', null], ['[data-event-more]', more], ['[data-event-count]', countLabel],
+    ['[data-event-clear]', clear], ['[data-event-more]', more], ['[data-event-count]', countLabel],
     ['[data-event-summary]', summary],
   ]);
   document.querySelector = (selector) => elements.get(selector) ?? null;
@@ -107,7 +133,37 @@ function createAgenda({ count, now = Date.parse('2026-10-05T12:00:00Z'), alterna
     addEventListener: (type, handler) => windowListeners.set(type, handler),
   };
   const location = { pathname: '/eventos/', search: filter, hash: '' };
-  const history = { pushState() {}, replaceState() {} };
+  const historyEntries = [];
+  const historyUrls = [filter];
+  let historyIndex = 0;
+  const applyUrl = (url) => {
+    const hashStart = url.indexOf('#');
+    const queryStart = url.indexOf('?');
+    location.search = queryStart === -1
+      ? ''
+      : url.slice(queryStart, hashStart === -1 ? undefined : hashStart);
+    location.hash = hashStart === -1 ? '' : url.slice(hashStart);
+  };
+  const history = {
+    pushState(_state, _title, url) {
+      historyEntries.push({ method: 'pushState', url });
+      historyUrls.splice(historyIndex + 1);
+      historyUrls.push(url);
+      historyIndex += 1;
+      applyUrl(url);
+    },
+    replaceState(_state, _title, url) {
+      historyEntries.push({ method: 'replaceState', url });
+      historyUrls[historyIndex] = url;
+      applyUrl(url);
+    },
+    back() {
+      if (historyIndex === 0) return;
+      historyIndex -= 1;
+      applyUrl(historyUrls[historyIndex]);
+      windowListeners.get('popstate')?.();
+    },
+  };
   class ClockDate extends Date {
     static now() { return clock; }
   }
@@ -124,7 +180,7 @@ function createAgenda({ count, now = Date.parse('2026-10-05T12:00:00Z'), alterna
   });
 
   return {
-    cards, countLabel, document, empty, modeFilter, more,
+    cards, countLabel, document, empty, modeFilter, more, countryFilter, communityFilter, clear, historyEntries, history,
     advanceTime(ms) { clock += ms; },
     refreshVisibility() { document.listeners.get('visibilitychange')?.(); },
   };
@@ -164,4 +220,46 @@ test('pagination uses the active filter and expiry refreshes never take focus', 
   assert.equal(agenda.document.activeElement, agenda.cards[26], 'Show More focuses the next event in the filtered active set');
   assert.equal(agenda.cards[25].hidden, true, 'an event outside the selected mode stays hidden');
   assert.equal(agenda.more.hidden, true);
+});
+
+test('community options follow country filters, normalize history, and keep co-host data', () => {
+  const agenda = createAgenda({
+    count: 3,
+    withCommunityFilters: true,
+    filter: '?country=AR&community=community-co',
+    eventCountriesByCard: ['AR|CO', 'CO', 'AR'],
+    eventCommunitiesByCard: ['community-ar|community-co', 'community-co', 'community-ar'],
+  });
+
+  assert.equal(agenda.countryFilter.value, 'AR');
+  assert.equal(agenda.communityFilter.value, '', 'an incompatible URL community is cleared before filtering');
+  assert.equal(agenda.communityFilter.options[2].disabled, true);
+  assert.equal(agenda.cards[0].hidden, false, 'the co-hosted card still matches Argentina');
+  assert.equal(agenda.cards[1].hidden, true);
+  assert.equal(agenda.cards[2].hidden, false);
+
+  agenda.communityFilter.value = 'community-ar';
+  agenda.communityFilter.emit('change');
+  assert.equal(agenda.historyEntries.at(-1).url, '/eventos/?country=AR&community=community-ar');
+
+  agenda.countryFilter.value = 'CO';
+  agenda.countryFilter.emit('change');
+  assert.equal(agenda.communityFilter.value, '', 'changing country clears the incompatible community');
+  assert.equal(agenda.communityFilter.options[1].disabled, true);
+  assert.equal(agenda.communityFilter.options[2].disabled, false);
+  assert.equal(agenda.historyEntries.at(-1).url, '/eventos/?country=CO');
+  assert.deepEqual(agenda.cards.filter((card) => !card.hidden).map((card) => card.dataset.eventId), ['event-0', 'event-1']);
+
+  agenda.history.back();
+  assert.equal(agenda.countryFilter.value, 'AR', 'back restores the prior country');
+  assert.equal(agenda.communityFilter.value, 'community-ar', 'back restores the compatible community');
+  assert.deepEqual(agenda.cards.filter((card) => !card.hidden).map((card) => card.dataset.eventId), ['event-0', 'event-2']);
+  assert.equal(agenda.cards[0].dataset.eventCommunities, 'community-ar|community-co', 'co-host metadata stays intact');
+
+  agenda.clear.click();
+  assert.equal(agenda.countryFilter.value, '');
+  assert.equal(agenda.communityFilter.value, '');
+  assert.equal(agenda.historyEntries.at(-1).url, '/eventos/');
+  assert.equal(agenda.communityFilter.options[1].disabled, false);
+  assert.equal(agenda.communityFilter.options[2].disabled, false);
 });

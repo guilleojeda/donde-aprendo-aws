@@ -36,11 +36,14 @@ if (agenda && empty) {
   });
   const allowedFilters = Object.fromEntries(['mode', 'country', 'city', 'community']
     .map((field) => [field, new Set([...(controls[field]?.options ?? [])].map((option) => option.value))]));
+  const communityCountries = new Map([...(controls.community?.options ?? [])]
+    .filter((option) => option.value)
+    .map((option) => [option.value, option.dataset.eventCountry ?? '']));
   const countriesForCity = new Map([...(controls.city?.options ?? [])]
     .filter((option) => option.value)
     .map((option) => [option.value, new Set(option.dataset.eventCountries?.split('|').filter(Boolean)
       ?? [option.value.split(':')[0]])]));
-  const allowed = { ...allowedFilters, countriesForCity };
+  const allowed = { ...allowedFilters, communityCountries, countriesForCity };
   let expiryTimer;
   let limit = 12;
 
@@ -59,6 +62,14 @@ if (agenda && empty) {
       option.hidden = option.disabled;
     }
     if (controls.city?.selectedOptions[0]?.disabled) controls.city.value = '';
+  };
+  const updateCommunityOptions = () => {
+    const country = controls.country?.value ?? '';
+    for (const option of [...(controls.community?.options ?? [])].slice(1)) {
+      option.disabled = Boolean(country && option.dataset.eventCountry !== country);
+      option.hidden = option.disabled;
+    }
+    if (controls.community?.selectedOptions[0]?.disabled) controls.community.value = '';
   };
   const syncSecondaryDisclosure = (followViewport = false) => {
     const active = secondaryEventAgendaFilterCount(currentFilters());
@@ -84,6 +95,7 @@ if (agenda && empty) {
   const readUrl = () => {
     setFilters(parseEventAgendaSearch(location.search, allowed));
     updateCityOptions();
+    updateCommunityOptions();
     syncSecondaryDisclosure(true);
   };
   const writeUrl = (method = 'pushState', keepHash = false) => {
@@ -149,6 +161,7 @@ if (agenda && empty) {
     if (!card || Date.parse(card.dataset.eventEndsAt) <= Date.now()) return;
     setFilters(emptyFilters);
     updateCityOptions();
+    updateCommunityOptions();
     syncSecondaryDisclosure(true);
     writeUrl('replaceState', true);
     limit = Math.max(limit, cards.indexOf(card) + 1);
@@ -164,7 +177,10 @@ if (agenda && empty) {
   revealEventHash();
   for (const control of Object.values(controls)) {
     control?.addEventListener('change', () => {
-      if (control === controls.country) updateCityOptions();
+      if (control === controls.country) {
+        updateCityOptions();
+        updateCommunityOptions();
+      }
       limit = 12;
       syncSecondaryDisclosure();
       writeUrl();
@@ -174,6 +190,7 @@ if (agenda && empty) {
   clear?.addEventListener('click', () => {
     setFilters(emptyFilters);
     updateCityOptions();
+    updateCommunityOptions();
     limit = 12;
     syncSecondaryDisclosure();
     writeUrl();

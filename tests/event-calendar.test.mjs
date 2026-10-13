@@ -40,6 +40,7 @@ test('agenda filters validate URL values, preserve unrelated parameters and matc
     country: new Set(['', 'CO', 'AR']),
     city: new Set(['', 'CO:Bogotá', 'AR:Córdoba']),
     community: new Set(['', 'community-co', 'community-ar']),
+    communityCountries: new Map([['community-co', 'CO'], ['community-ar', 'AR']]),
   };
   const filters = parseEventAgendaSearch('?utm_source=community&from=2026-10-17&to=2026-10-20&mode=in-person&country=CO&city=CO%3ABogot%C3%A1&community=community-co', allowed);
   assert.deepEqual(filters, { from: '2026-10-17', to: '2026-10-20', mode: 'in-person', country: 'CO', city: 'CO:Bogotá', community: 'community-co' });
@@ -49,6 +50,9 @@ test('agenda filters validate URL values, preserve unrelated parameters and matc
   assert.deepEqual(parseEventAgendaSearch(`?${saved}`, allowed), filters);
   assert.deepEqual(parseEventAgendaSearch('?from=2026-02-30&mode=unknown&country=AR&city=CO%3ABogot%C3%A1&community=unknown', allowed),
     { from: '', to: '', mode: '', country: 'AR', city: '', community: '' });
+  assert.deepEqual(parseEventAgendaSearch('?country=AR&community=community-co', allowed),
+    { from: '', to: '', mode: '', country: 'AR', city: '', community: '' },
+    'A country filter clears a community whose resource belongs to another country.');
   const cohostCityAllowed = {
     ...allowed,
     city: new Set([...allowed.city, 'PE:Lima']),

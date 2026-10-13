@@ -24,13 +24,15 @@ export function parseEventAgendaSearch(search, allowed) {
   const cityMatchesCountry = countriesForCity
     ? countriesForCity.has(country)
     : city.startsWith(`${country}:`);
+  const communityMatchesCountry = !country || !community || !allowed.communityCountries
+    || allowed.communityCountries.get(community) === country;
   return {
     from: validDate(query.get('from') ?? '') ? query.get('from') : '',
     to: validDate(query.get('to') ?? '') ? query.get('to') : '',
     mode: allowed.mode.has(query.get('mode')) ? query.get('mode') : '',
     country,
     city: country && city && !cityMatchesCountry ? '' : city,
-    community,
+    community: communityMatchesCountry ? community : '',
   };
 }
 

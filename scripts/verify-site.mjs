@@ -418,7 +418,7 @@ for (const route of eventCountryRoutes) {
   assert.match(html, /<h1>Eventos AWS en [^<]+<\/h1>/u);
   assert.doesNotMatch(html, /no necesariamente el lugar de cada encuentro|99[.,]99/u);
   assert.match(html, /data-event-list/u);
-  assert.doesNotMatch(html, /\bdata-event-country(?:\s|=)/u, 'A national agenda navigates by country page instead of a country filter.');
+  assert.doesNotMatch(html, /<select\b[^>]*\bdata-event-country(?:\s|=)/u, 'A national agenda navigates by country page instead of a country filter.');
   assert.match(html, /data-event-empty/u, 'The page has an initial empty state for when its events expire.');
   const breadcrumb = html.match(/<nav class="community-breadcrumb"[^>]*>([\s\S]*?)<\/nav>/u)?.[1] ?? '';
   assert.match(breadcrumb, />Inicio</u);
@@ -503,6 +503,10 @@ if (fixtureBuild) {
   assert.match(events, /href="\/comunidades\/peru\/#resource-fixture-community"/);
   assert.match(events, /<option value="CO"[^>]*>Colombia<\/option>/, 'The global agenda filter includes a co-host country.');
   assert.match(events, /<option value="CR"[^>]*>Costa Rica<\/option>/, 'The global agenda filter keeps published countries with no upcoming events.');
+  assert.match(events, /<option value="fixture-community" data-event-country="PE"[^>]*>/,
+    'Global community options carry the published Peru country metadata.');
+  assert.match(events, /<option value="fixture-student-colombia" data-event-country="CO"[^>]*>/,
+    'Global community options carry the published Colombia country metadata.');
   assert.match(events, /<option value="PE:Lima" data-event-countries="PE\|CO"[^>]*>/,
     'Representative city options remain compatible with co-host countries.');
   const globalEventCards = [...events.matchAll(/<li id="event-fixture-event"[^>]*>/gu)];
@@ -519,8 +523,13 @@ if (fixtureBuild) {
   assert.doesNotMatch(read('eventos/colombia/index.html'), /id="event-fixture-online-event"/);
   assert.doesNotMatch(read('eventos/argentina/index.html'), /id="event-fixture-event"/);
   assert.match(read('eventos/peru/index.html'), /href="\/comunidades\/colombia\/#resource-fixture-student-colombia"/);
-  assert.match(read('eventos/colombia/index.html'), /href="\/comunidades\/colombia\/#resource-fixture-student-colombia"/,
+  const colombiaAgenda = read('eventos/colombia/index.html');
+  assert.match(colombiaAgenda, /href="\/comunidades\/colombia\/#resource-fixture-student-colombia"/,
     'A country agenda card makes its known co-host community visible.');
+  assert.match(colombiaAgenda, /<option value="fixture-student-colombia" data-event-country="CO"[^>]*>/,
+    'The Colombia agenda exposes its Colombia community metadata.');
+  assert.doesNotMatch(colombiaAgenda, /<option value="fixture-community"[^>]*>/,
+    'The Colombia agenda excludes the Peru co-host from its community options.');
   assert.match(read('eventos/argentina/index.html'), /id="event-fixture-online-event"/);
   for (const [slug, expectedIds] of Object.entries({
     argentina: ['fixture-online-event'], colombia: ['fixture-event'],
