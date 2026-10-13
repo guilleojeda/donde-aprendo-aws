@@ -18,7 +18,7 @@ const controls = {
   from: filterFields?.querySelector('[data-event-from]'),
   to: filterFields?.querySelector('[data-event-to]'),
   mode: filterFields?.querySelector('[data-event-mode]'),
-  country: filterFields?.querySelector('[data-event-country]'),
+  country: filterFields?.querySelector('select[data-event-country]'),
   community: filterFields?.querySelector('[data-event-community]'),
   city: filterFields?.querySelector('[data-event-city]'),
 };
