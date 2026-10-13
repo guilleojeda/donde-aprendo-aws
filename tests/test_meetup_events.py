@@ -187,6 +187,27 @@ class MeetupEventsTests(unittest.TestCase):
         self.assertEqual(imported['communityId'], 'meetup-36431225')
         self.assertEqual(imported['city'], 'Córdoba')
 
+    def test_existing_argentina_girls_event_refreshes_stale_dates_with_same_feed_modified_at(self):
+        prior = meetup.map_event(GIRLS_GROUP, meetup.parse_feed(GIRLS_ICAL, GIRLS_GROUP)[0], GIRLS_PAGE)
+        prior['startsAt'] = '2000-01-01T19:00:00-03:00'
+        prior['endsAt'] = '2000-01-01T21:00:00-03:00'
+        table = FakeTable([prior])
+        with patch.object(meetup, 'timezone_from_feed', return_value=meetup.parse_feed(GIRLS_ICAL, GIRLS_GROUP)), \
+             patch.object(meetup, 'fetch_event_page', return_value=GIRLS_PAGE):
+            first = meetup.synchronize(table=table, groups=[dict(GIRLS_GROUP)])
+        self.assertEqual(first['changed'], 1)
+        refreshed = table.existing['meetup-event-316882965']
+        self.assertEqual(refreshed['startsAt'], GIRLS_PAGE['startDate'])
+        self.assertEqual(refreshed['endsAt'], GIRLS_PAGE['endDate'])
+        self.assertEqual(refreshed['country'], 'AR')
+        self.assertEqual(refreshed['communityId'], 'meetup-36431225')
+
+        with patch.object(meetup, 'timezone_from_feed', return_value=meetup.parse_feed(GIRLS_ICAL, GIRLS_GROUP)), \
+             patch.object(meetup, 'fetch_event_page', return_value=GIRLS_PAGE):
+            second = meetup.synchronize(table=table, groups=[dict(GIRLS_GROUP)])
+        self.assertEqual(second['changed'], 0)
+        self.assertEqual(len(table.updates), 1)
+
     def test_cancelled_event_page_retracts_existing_event(self):
         prior = meetup.map_event(GROUP, meetup.parse_feed(ICAL, GROUP)[0], PAGE)
         cancelled = dict(PAGE, eventStatus='https://schema.org/EventCancelled')
