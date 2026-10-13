@@ -80,7 +80,10 @@ function createEventCards(count, {
 function createAgenda({
   count, now = Date.parse('2026-10-05T12:00:00Z'), alternateModes = false,
   expiringFirst = false, filter = '', withCommunityFilters = false,
-  eventCountriesByCard = [], eventCommunitiesByCard = [],
+  nationalAgenda = false, communityOptions = [
+    { value: 'community-ar', dataset: { eventCountry: 'AR' } },
+    { value: 'community-co', dataset: { eventCountry: 'CO' } },
+  ], eventCountriesByCard = [], eventCommunitiesByCard = [],
 }) {
   let clock = now;
   let nextTimer = 0;
@@ -103,18 +106,17 @@ function createAgenda({
   const summary = new MockElement(document, { dataset: { eventSummaryIntro: 'Hay', eventSummaryEmpty: 'No hay eventos.' } });
   const modeFilter = new MockElement(document, { tagName: 'SELECT' });
   modeFilter.options = ['', 'online', 'in-person'].map((value) => ({ value, dataset: {} }));
-  const countryFilter = withCommunityFilters ? new MockElement(document, { tagName: 'SELECT' }) : null;
+  const countryFilter = withCommunityFilters && !nationalAgenda ? new MockElement(document, { tagName: 'SELECT' }) : null;
   const communityFilter = withCommunityFilters ? new MockElement(document, { tagName: 'SELECT' }) : null;
   if (countryFilter) countryFilter.options = ['', 'AR', 'CO'].map((value) => ({ value, dataset: {} }));
-  if (communityFilter) communityFilter.options = [
-    { value: '', dataset: {} },
-    { value: 'community-ar', dataset: { eventCountry: 'AR' } },
-    { value: 'community-co', dataset: { eventCountry: 'CO' } },
-  ];
+  if (communityFilter) communityFilter.options = [{ value: '', dataset: {} }, ...communityOptions];
   const filterFields = new MockElement(document);
   filterFields.querySelector = (selector) => ({
     '[data-event-mode]': modeFilter,
-    '[data-event-country]': countryFilter,
+    // Preserve the old selector's DOM behavior so the national regression test
+    // would fail if the script starts treating the first community option as a country control.
+    '[data-event-country]': countryFilter ?? communityFilter?.options[1] ?? null,
+    'select[data-event-country]': countryFilter,
     '[data-event-community]': communityFilter,
   }[selector] ?? null);
   const clear = withCommunityFilters ? new MockElement(document, { tagName: 'BUTTON' }) : null;
@@ -262,4 +264,33 @@ test('community options follow country filters, normalize history, and keep co-h
   assert.equal(agenda.historyEntries.at(-1).url, '/eventos/');
   assert.equal(agenda.communityFilter.options[1].disabled, false);
   assert.equal(agenda.communityFilter.options[2].disabled, false);
+});
+
+test('national agendas preserve and filter their first community option without a country control', () => {
+  const agenda = createAgenda({
+    count: 3,
+    withCommunityFilters: true,
+    nationalAgenda: true,
+    communityOptions: [
+      { value: 'community-girls', dataset: { eventCountry: 'AR' } },
+      { value: 'community-co', dataset: { eventCountry: 'CO' } },
+    ],
+    eventCountriesByCard: ['AR', 'AR|CO', 'AR'],
+    eventCommunitiesByCard: ['community-girls', 'community-co', 'community-girls'],
+  });
+
+  assert.equal(agenda.countryFilter, null, 'National agendas have no country control.');
+  assert.equal(agenda.communityFilter.options[1].value, 'community-girls');
+  agenda.communityFilter.value = 'community-girls';
+  agenda.communityFilter.emit('change');
+  assert.deepEqual(agenda.cards.filter((card) => !card.hidden).map((card) => card.dataset.eventId), ['event-0', 'event-2']);
+  assert.equal(agenda.historyEntries.at(-1).url, '/eventos/?community=community-girls');
+
+  agenda.clear.click();
+  assert.equal(agenda.communityFilter.options[1].value, 'community-girls', 'Clear does not mutate the first community option.');
+  assert.equal(agenda.communityFilter.value, '');
+  assert.equal(agenda.historyEntries.at(-1).url, '/eventos/');
+  agenda.history.back();
+  assert.equal(agenda.communityFilter.value, 'community-girls', 'Back restores the first community selection.');
+  assert.equal(agenda.communityFilter.options[1].value, 'community-girls');
 });
