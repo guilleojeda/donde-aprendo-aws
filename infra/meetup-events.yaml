@@ -39,7 +39,12 @@ Resources:
                   ForAllValues:StringEquals:
                     dynamodb:Attributes:
                       - id
+                      - recordType
                       - title
+                      - description
+                      - startsAt
+                      - endsAt
+                      - timeZone
                       - url
                       - country
                       - kind
@@ -48,7 +53,10 @@ Resources:
                       - sourceModifiedAt
                       - autoSync
                       - organizer
+                      - mode
+                      - registrationUrl
                       - communityId
+                      - place
                       - city
                   StringEquals:
                     dynamodb:Select: SPECIFIC_ATTRIBUTES

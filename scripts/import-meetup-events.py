@@ -24,6 +24,17 @@ ACCOUNT_ID = '719535286359'
 TABLE_NAME = 'donde-aprendo-aws-catalog'
 MEETUP_HOST = 'www.meetup.com'
 
+# These are the fields owned by the Meetup synchronizer.  Keeping the list
+# explicit makes the read projection and the equality check follow the same
+# contract while leaving unrelated editor fields untouched.
+SYNC_OWNED_FIELDS = (
+    'recordType', 'title', 'description', 'startsAt', 'endsAt', 'timeZone',
+    'organizer', 'mode', 'registrationUrl', 'country', 'communityId',
+    'published', 'sourceGroupId', 'sourceModifiedAt', 'autoSync', 'place',
+    'city',
+)
+OPTIONAL_SYNC_FIELDS = ('place', 'city')
+
 
 class JsonLdScripts(HTMLParser):
     def __init__(self):
@@ -234,14 +245,11 @@ def fetch_event_page(entry):
 
 def load_existing_events(table):
     events = {}
+    projection_fields = ('id',) + SYNC_OWNED_FIELDS
     params = {
-        'ProjectionExpression': '#id,#sourceGroupId,#sourceModifiedAt,#published,#autoSync,#country,#organizer,#communityId,#city',
+        'ProjectionExpression': ','.join(f'#{field}' for field in projection_fields),
         'Select': 'SPECIFIC_ATTRIBUTES',
-        'ExpressionAttributeNames': {
-            '#id': 'id', '#sourceGroupId': 'sourceGroupId', '#sourceModifiedAt': 'sourceModifiedAt',
-            '#published': 'published', '#autoSync': 'autoSync', '#country': 'country', '#organizer': 'organizer',
-            '#communityId': 'communityId', '#city': 'city',
-        },
+        'ExpressionAttributeNames': {f'#{field}': field for field in projection_fields},
     }
     while True:
         page = table.scan(**params)
@@ -252,6 +260,11 @@ def load_existing_events(table):
             break
         params['ExclusiveStartKey'] = page['LastEvaluatedKey']
     return events
+
+
+def sync_fields_equal(record, existing):
+    """Return whether the mapped public/source fields already match."""
+    return all(existing.get(field) == record.get(field) for field in SYNC_OWNED_FIELDS)
 
 
 def update_source_event(table, record, existing):
@@ -266,7 +279,7 @@ def update_source_event(table, record, existing):
             raise
     if existing.get('autoSync') is False:
         return False
-    fields = [(key, value) for key, value in record.items() if key != 'id']
+    fields = [(key, record[key]) for key in SYNC_OWNED_FIELDS if key in record]
     names = {'#id': 'id', '#owner': 'sourceGroupId', '#sync': 'autoSync'}
     values = {':owner': record['sourceGroupId'], ':enabled': True}
     changes = []
@@ -278,9 +291,14 @@ def update_source_event(table, record, existing):
         changes.append(f'{alias} = {parameter}')
     try:
         expression = 'SET ' + ', '.join(changes)
-        if existing.get('city') and 'city' not in record:
-            names['#oldCity'] = 'city'
-            expression += ' REMOVE #oldCity'
+        removed = []
+        for field in OPTIONAL_SYNC_FIELDS:
+            if field in existing and field not in record:
+                alias = f'#old{field[0].upper()}{field[1:]}'
+                names[alias] = field
+                removed.append(alias)
+        if removed:
+            expression += ' REMOVE ' + ', '.join(removed)
         table.update_item(Key={'id': record['id']}, UpdateExpression=expression,
                           ConditionExpression='attribute_exists(#id) AND #owner = :owner '
                                               'AND (attribute_not_exists(#sync) OR #sync = :enabled)',
@@ -342,10 +360,6 @@ def synchronize(table=None, groups=None, dry_run=False):
             prior = existing.get(record_id)
             if prior and prior.get('autoSync') is False:
                 continue
-            if (prior and prior.get('published') is True and prior.get('sourceModifiedAt') == entry['modified']
-                    and prior.get('country') == group['country'] and prior.get('organizer') == group['name']
-                    and prior.get('communityId') == f'meetup-{group["id"]}'):
-                continue
             pending.append((group, entry, prior))
 
     records = []
@@ -358,7 +372,8 @@ def synchronize(table=None, groups=None, dry_run=False):
             try:
                 record = map_event(group, entry, future.result())
                 if record is not None:
-                    records.append((record, prior))
+                    if prior is None or not sync_fields_equal(record, prior):
+                        records.append((record, prior))
                 elif prior is not None:
                     cancelled.append(prior)
             except Exception as error:

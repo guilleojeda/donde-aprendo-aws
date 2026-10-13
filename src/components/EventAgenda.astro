@@ -45,8 +45,13 @@ const communitiesByEventId = new Map(agendaGroups.map(({ event, events: groupEve
 ]));
 const eventCommunities = [...new Map(agendaGroups.flatMap(({ events: groupEvents }) => groupEvents
   .filter((event) => event.communityId && communityById.has(event.communityId))
-  .map((event) => [event.communityId!, communityById.get(event.communityId!)!.title] as const))).entries()]
-  .sort((left, right) => left[1].localeCompare(right[1], 'es', { sensitivity: 'base' }));
+  .map((event) => {
+    const community = communityById.get(event.communityId!)!;
+    return [community.id, { title: community.title, country: community.country }] as const;
+  }))).entries()]
+  .map(([id, community]) => ({ id, ...community }))
+  .filter((community) => !country || community.country === country)
+  .sort((left, right) => left.title.localeCompare(right.title, 'es', { sensitivity: 'base' }));
 const recordingsByEvent = new Map<string, CatalogResource[]>();
 for (const recording of resources.filter((resource) => resource.eventId)) {
   const recordings = recordingsByEvent.get(recording.eventId!) ?? [];
@@ -104,7 +109,7 @@ const pastRecorded = events.filter((event) => Date.parse(event.endsAt) <= Date.n
             </select></label>}
             <label for="event-community">Comunidad <select id="event-community" data-event-community>
               <option value="">Todas las comunidades</option>
-              {eventCommunities.map(([id, title]) => <option value={id}>{title}</option>)}
+              {eventCommunities.map(({ id, title, country: communityCountry }) => <option value={id} data-event-country={communityCountry}>{title}</option>)}
             </select></label>
             {!(modes?.length === 1 && modes[0] === 'online') && <label for="event-city">Ciudad del evento <select id="event-city" data-event-city disabled={eventCities.length === 0}>
               <option value="">{eventCities.length ? 'Todas las ciudades' : 'Sin ciudades confirmadas'}</option>
