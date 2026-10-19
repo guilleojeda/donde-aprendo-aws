@@ -510,11 +510,13 @@ for (const path of ['eventos/index.html', ...eventCountryRoutes.map(({ htmlPath 
   assert.match(checkbox, /\btype="checkbox"/u);
   assert.match(checkbox, /\bchecked(?:\s|=|$)/u, `A fresh HTML document includes ended events: ${path}`);
   assert.match(html, /Incluir eventos finalizados/u);
+  assert.match(html, /<noscript>\s*<p\b[^>]*>Se muestran todos los eventos publicados\.[\s\S]*?JavaScript\./u,
+    `The static agenda explains that interactive filtering requires JavaScript: ${path}`);
   assert.doesNotMatch(html, /<h2\b[^>]*>\s*Próximos eventos\s*<\/h2>/u,
     `The agenda heading also describes the visible ended events: ${path}`);
   assert.doesNotMatch(html, /event-agenda__archive|id="event-archive-title"/u,
     `Recordings are integrated in event cards instead of a second archive: ${path}`);
-  const ids = [...html.matchAll(/\bid="([^"]+)"/gu)].map(([, id]) => id);
+  const ids = [...html.matchAll(/\sid="([^"]+)"/gu)].map(([, id]) => id);
   assert.equal(new Set(ids).size, ids.length, `No duplicated event fragment or other HTML ID: ${path}`);
 }
 for (const field of ['from', 'to', 'mode', 'country', 'community', 'city']) assert.match(events, new RegExp(`data-event-${field}`));
@@ -534,6 +536,8 @@ if (fixtureBuild) {
   assert.equal(globalEventCards.length, 1, 'A cross-posted event appears once in the overall agenda.');
   const globalAliases = globalEventCards[0][0].match(/data-event-alias-ids="([^"]+)"/u)?.[1].split('|') ?? [];
   assert.ok(globalAliases.includes('fixture-event-colombia'), 'SSR exposes the co-host alias consumed by fragment navigation.');
+  assert.match(events, /<span id="event-fixture-event-colombia"\s/u,
+    'The co-host fragment also has a native HTML destination without JavaScript.');
   assert.match(events, /data-event-countries="PE\|CO"/);
   assert.match(home, /href="\/eventos\/peru\/#event-fixture-event"/);
   assert.match(home, /href="\/eventos\/argentina\/#event-fixture-online-event"/);

@@ -11,6 +11,8 @@ import {
 } from '../src/lib/event-agenda-filter.mjs';
 import { trackRegistrationClick } from '../src/lib/event-analytics.mjs';
 import { eventAgendaSummaryText, nextEventAgendaTransition } from '../src/lib/event-agenda-summary.mjs';
+import { eventGroupsForAgenda } from '../src/lib/event-agenda-groups.mjs';
+import { eventLocalDate } from '../src/lib/events.mjs';
 
 const script = readFileSync(new URL('../src/scripts/event-agenda.js', import.meta.url), 'utf8')
   .replace(/^import \{[\s\S]*?\} from '[^']+';\s*/gmu, '');
@@ -53,6 +55,10 @@ class MockElement {
   }
 
   scrollIntoView(options) { this.scrollIntoViewCalls.push(options); }
+
+  contains(element) {
+    return element === this || this.children.some((child) => child.contains(element));
+  }
 }
 
 function createEventCards(count, {
@@ -62,7 +68,7 @@ function createEventCards(count, {
   return Array.from({ length: count }, (_, index) => {
     const spec = events[index] ?? {};
     const mode = alternateModes && index % 2 ? 'online' : 'in-person';
-    const startsAt = spec.startsAt ?? (expiringFirst && index === 0 ? now - 10_000 : now + 10_000);
+    const startsAt = spec.startsAt ?? (expiringFirst && index === 0 ? now - 10_000 : now + 10_000 + index);
     const endsAt = spec.endsAt ?? (expiringFirst && index === 0 ? now + 500 : now + 100_000);
     const card = new MockElement(null, {
       tagName: 'LI',
@@ -81,15 +87,42 @@ function createEventCards(count, {
       },
     });
     card.id = `event-${card.dataset.eventId}`;
-    card.status = new MockElement(card.document, { textContent: '' });
-    card.registration = new MockElement(card.document, { textContent: 'Inscribirme' });
-    card.registration.href = spec.registrationUrl ?? `https://example.test/events/${index}`;
-    card.querySelector = (selector) => ({
-      '[data-event-status]': card.status,
-      '[data-event-registration]': card.registration,
-      '[data-visitor-time]': null,
-      '[data-visitor-time-value]': null,
-    }[selector] ?? null);
+    // The public markup now keeps one view per co-host inside the occurrence.
+    // Expand the existing aggregate fixture metadata into those member views.
+    const countries = card.dataset.eventCountries.split('|').filter(Boolean);
+    const communities = card.dataset.eventCommunities.split('|').filter(Boolean);
+    const aliases = card.dataset.eventAliasIds.split('|').filter(Boolean);
+    card.members = Array.from({ length: Math.max(countries.length, communities.length, aliases.length + 1, 1) }, (_, memberIndex) => {
+      const view = new MockElement(null, {
+        tagName: 'ARTICLE',
+        hidden: memberIndex > 0,
+        dataset: {
+          eventMemberId: memberIndex === 0 ? card.dataset.eventId : aliases[memberIndex - 1] ?? `${card.dataset.eventId}-cohost-${memberIndex}`,
+          memberStartsAt: card.dataset.eventStartsAt,
+          memberEndsAt: card.dataset.eventEndsAt,
+          memberTimeZone: card.dataset.eventTimeZone,
+          memberMode: card.dataset.eventMode,
+          country: countries[memberIndex] ?? countries[0] ?? '',
+          memberCity: card.dataset.eventCity.replace(/^[^:]*:/u, ''),
+          memberCommunityId: communities[memberIndex] ?? communities[0] ?? '',
+        },
+      });
+      view.status = new MockElement(null);
+      view.registration = new MockElement(null, { textContent: 'Inscribirme' });
+      view.registration.href = spec.registrationUrl ?? `https://example.test/events/${index}`;
+      view.querySelector = (selector) => ({
+        '[data-event-status]': view.status,
+        '[data-event-registration]': view.registration,
+        '[data-visitor-time]': null,
+        '[data-visitor-time-value]': null,
+      }[selector] ?? null);
+      view.children = [view.status, view.registration];
+      return view;
+    });
+    card.children = card.members;
+    card.status = card.members[0].status;
+    card.registration = card.members[0].registration;
+    card.querySelectorAll = (selector) => selector === '[data-event-member-id]' ? card.members : [];
     return card;
   });
 }
@@ -116,16 +149,32 @@ function createAgenda({
   });
   for (const card of cards) {
     card.document = document;
-    card.status.document = document;
-    card.registration.document = document;
+    for (const member of card.members) {
+      member.document = document;
+      member.status.document = document;
+      member.registration.document = document;
+    }
   }
 
   const agenda = new MockElement(document, { tagName: 'OL' });
-  agenda.querySelectorAll = (selector) => selector === '[data-event-ends-at]' ? cards : [];
-  const empty = new MockElement(document, { hidden: true, dataset: { eventNoUpcoming: 'Sin próximos eventos.' } });
+  agenda.children = [...cards];
+  agenda.querySelectorAll = (selector) => selector === '[data-event-ends-at]' ? agenda.children : [];
+  agenda.append = (...children) => {
+    for (const child of children) {
+      if (child.contains(document.activeElement)) document.activeElement = document.body;
+      agenda.children = agenda.children.filter((item) => item !== child);
+      agenda.children.push(child);
+    }
+  };
+  const empty = new MockElement(document, {
+    hidden: true,
+    dataset: { eventNoMatches: 'No hay eventos que coincidan con estos filtros.' },
+  });
   const more = new MockElement(document, { tagName: 'BUTTON', hidden: true });
   const countLabel = new MockElement(document);
-  const summary = new MockElement(document, { dataset: { eventSummaryIntro: 'Hay', eventSummaryEmpty: 'No hay eventos.' } });
+  const summary = new MockElement(document, {
+    dataset: { eventSummaryIntro: 'Hay', eventSummaryEmpty: 'No hay eventos publicados en esta agenda.' },
+  });
   const modeFilter = new MockElement(document, { tagName: 'SELECT' });
   modeFilter.options = ['', 'online', 'in-person'].map((value) => ({ value, dataset: {} }));
   const countryFilter = withCommunityFilters && !nationalAgenda ? new MockElement(document, { tagName: 'SELECT' }) : null;
@@ -206,10 +255,10 @@ function createAgenda({
   }
 
   runInNewContext(script, {
-    document, window, location, history,
+    document, window, location, history, URLSearchParams,
     eventMatchesFilters, parseEventAgendaSearch, secondaryEventAgendaFilterCount,
     serializeEventAgendaSearch, shouldOpenEventAgendaSecondaryFilters, trackRegistrationClick,
-    eventAgendaSummaryText, nextEventAgendaTransition,
+    eventAgendaSummaryText, nextEventAgendaTransition, eventGroupsForAgenda, eventLocalDate,
     Date: ClockDate,
     localStorage: storage,
     sessionStorage: storage,
@@ -285,6 +334,17 @@ test('pagination uses the active filter and expiry refreshes never take focus', 
   assert.equal(agenda.document.activeElement, agenda.cards[26], 'Show More focuses the next event in the filtered active set');
   assert.equal(agenda.cards[25].hidden, true, 'an event outside the selected mode stays hidden');
   assert.equal(agenda.more.hidden, true);
+});
+
+test('expiry leaves focus inside an unaffected event card', () => {
+  const agenda = createAgenda({ count: 2, expiringFirst: true, includeEnded: false });
+  agenda.cards[1].registration.focus();
+  agenda.advanceTime(501);
+  assert.equal(agenda.fireNextTimer(), true);
+  assert.equal(agenda.cards[0].hidden, true);
+  assert.equal(agenda.cards[1].hidden, false);
+  assert.equal(agenda.document.activeElement, agenda.cards[1].registration,
+    'hiding an earlier event must not detach and blur the still-visible focused card');
 });
 
 test('the checkbox defaults on, stays session-local across filters/history, and the summary counts the selection', () => {
@@ -438,6 +498,8 @@ test('a past-only agenda has a non-empty summary while included, and no result w
   agenda.includeEnded.emit('change');
   assert.equal(agenda.countLabel.textContent, '0 eventos');
   assert.match(agenda.summary.textContent, /No hay/u);
+  assert.match(agenda.summary.textContent, /coincidan con estos filtros/u,
+    'excluding published past events must not claim that the catalog is empty');
   assert.equal(agenda.empty.hidden, false);
   assert.equal(agenda.cards.every((card) => card.hidden), true);
 });
@@ -500,6 +562,17 @@ test('a past co-host fragment reopens its group and clears only its incompatible
   assert.equal(agenda.historyEntries.at(-1).method, 'replaceState', 'revealing a fragment does not create a history entry');
 });
 
+test('a fragment reveals an occurrence beyond the first page', () => {
+  const agenda = createAgenda({ count: 30 });
+  assert.equal(agenda.cards[25].hidden, true);
+  agenda.changeHash('#event-event-25');
+  assert.equal(agenda.cards[25].hidden, false);
+  assert.equal(agenda.document.activeElement, agenda.cards[25]);
+  assert.equal(agenda.cards[25].scrollIntoViewCalls.length, 1);
+  assert.equal(agenda.countLabel.textContent, '30 eventos', 'revealing a later card does not truncate the selection');
+  assert.equal(agenda.location.hash, '#event-event-25');
+});
+
 test('community options follow country filters, normalize history, and keep co-host data', () => {
   const agenda = createAgenda({
     count: 3,
@@ -526,12 +599,15 @@ test('community options follow country filters, normalize history, and keep co-h
   assert.equal(agenda.communityFilter.options[1].disabled, true);
   assert.equal(agenda.communityFilter.options[2].disabled, false);
   assert.equal(agenda.historyEntries.at(-1).url, '/eventos/?country=CO');
-  assert.deepEqual(agenda.cards.filter((card) => !card.hidden).map((card) => card.dataset.eventId), ['event-0', 'event-1']);
+  assert.deepEqual(agenda.cards.filter((card) => !card.hidden).map((card) => card.id.slice('event-'.length)), ['event-0', 'event-1']);
+  assert.equal(agenda.cards[0].dataset.eventId, 'event-0-cohost-1', 'the visible member switches to the matching co-host');
+  assert.equal(agenda.cards[0].members[1].hidden, false);
+  assert.equal(agenda.cards[0].members[0].hidden, true);
 
   agenda.history.back();
   assert.equal(agenda.countryFilter.value, 'AR', 'back restores the prior country');
   assert.equal(agenda.communityFilter.value, 'community-ar', 'back restores the compatible community');
-  assert.deepEqual(agenda.cards.filter((card) => !card.hidden).map((card) => card.dataset.eventId), ['event-0', 'event-2']);
+  assert.deepEqual(agenda.cards.filter((card) => !card.hidden).map((card) => card.id.slice('event-'.length)), ['event-0', 'event-2']);
   assert.equal(agenda.cards[0].dataset.eventCommunities, 'community-ar|community-co', 'co-host metadata stays intact');
 
   agenda.clear.click();
