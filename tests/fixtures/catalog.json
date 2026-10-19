@@ -258,5 +258,22 @@
     "communityId": "fixture-community-argentina",
     "registrationUrl": "https://example.com/evento/pasado-argentina",
     "published": true
+  },
+  {
+    "recordType": "event",
+    "id": "fixture-past-unrecorded",
+    "title": "Taller anterior de AWS en Lima",
+    "description": "Evento público finalizado sin grabación.",
+    "startsAt": "2025-09-12T18:00:00-05:00",
+    "endsAt": "2025-09-12T20:00:00-05:00",
+    "timeZone": "America/Lima",
+    "organizer": "Comunidad de ejemplo",
+    "mode": "hybrid",
+    "place": "Auditorio de prueba",
+    "city": "Lima",
+    "country": "PE",
+    "communityId": "fixture-community",
+    "registrationUrl": "https://example.com/evento/pasado-sin-grabacion",
+    "published": true
   }
 ]
