@@ -105,10 +105,12 @@ def parse_feed(text, group):
             if not match or parsed.scheme != 'https' or parsed.hostname != MEETUP_HOST \
                     or not re.fullmatch(rf'/{re.escape(expected_slug)}/events/{match.group(1)}/?', parsed.path, re.I):
                 raise ValueError(f'Invalid Meetup event in feed of {group["id"]}')
-            if current.get('STATUS') != 'CANCELLED':
-                modified = current.get('LAST-MODIFIED') or sha256(
-                    json.dumps(current, sort_keys=True).encode('utf-8')).hexdigest()
-                events.append({'id': match.group(1), 'url': url, 'modified': modified})
+            modified = current.get('LAST-MODIFIED') or sha256(
+                json.dumps(current, sort_keys=True).encode('utf-8')).hexdigest()
+            event = {'id': match.group(1), 'url': url, 'modified': modified}
+            if current.get('STATUS') == 'CANCELLED':
+                event['cancelled'] = True
+            events.append(event)
             current = None
         elif current is not None and ':' in line:
             key, value = line.split(':', 1)
@@ -152,8 +154,6 @@ def map_event(group, entry, page):
     end = datetime.fromisoformat(page['endDate'])
     if start.tzinfo is None or end.tzinfo is None or end <= start:
         raise ValueError(f'Invalid event dates: {entry["id"]}')
-    if end <= datetime.now(timezone.utc):
-        return None
     attendance = page.get('eventAttendanceMode', '')
     mode = {
         'https://schema.org/OnlineEventAttendanceMode': 'online',
@@ -262,12 +262,26 @@ def load_existing_events(table):
     return events
 
 
-def sync_fields_equal(record, existing):
+def event_has_ended(record):
+    """Return whether the record's end is at or before the current UTC time."""
+    value = record.get('endsAt')
+    if not isinstance(value, str):
+        return False
+    try:
+        end = datetime.fromisoformat(value.replace('Z', '+00:00'))
+        return end <= datetime.now(timezone.utc)
+    except (TypeError, ValueError):
+        return False
+
+
+def sync_fields_equal(record, existing, preserve_published=False):
     """Return whether the mapped public/source fields already match."""
-    return all(existing.get(field) == record.get(field) for field in SYNC_OWNED_FIELDS)
+    fields = (field for field in SYNC_OWNED_FIELDS
+              if not (preserve_published and field == 'published'))
+    return all(existing.get(field) == record.get(field) for field in fields)
 
 
-def update_source_event(table, record, existing):
+def update_source_event(table, record, existing, preserve_published=False):
     if existing is None:
         try:
             table.put_item(Item=record, ConditionExpression='attribute_not_exists(#id)',
@@ -279,7 +293,8 @@ def update_source_event(table, record, existing):
             raise
     if existing.get('autoSync') is False:
         return False
-    fields = [(key, record[key]) for key in SYNC_OWNED_FIELDS if key in record]
+    fields = [(key, record[key]) for key in SYNC_OWNED_FIELDS
+              if key in record and not (preserve_published and key == 'published')]
     names = {'#id': 'id', '#owner': 'sourceGroupId', '#sync': 'autoSync'}
     values = {':owner': record['sourceGroupId'], ':enabled': True}
     changes = []
@@ -310,17 +325,25 @@ def update_source_event(table, record, existing):
         raise
 
 
-def unpublish_source_event(table, existing):
+def unpublish_source_event(table, existing, check_ends_at=False):
     if not existing.get('sourceGroupId') or existing.get('autoSync') is False or existing.get('published') is not True:
         return False
+    names = {'#published': 'published', '#sync': 'autoSync', '#owner': 'sourceGroupId'}
+    values = {':false': False, ':true': True, ':owner': existing['sourceGroupId']}
+    condition = '#published = :true AND #sync = :true AND #owner = :owner'
+    if check_ends_at:
+        names['#ends'] = 'endsAt'
+        if 'endsAt' in existing:
+            values[':ends'] = existing['endsAt']
+            condition += ' AND #ends = :ends'
+        else:
+            condition += ' AND attribute_not_exists(#ends)'
     try:
         table.update_item(Key={'id': existing['id']},
                           UpdateExpression='SET #published = :false',
-                          ConditionExpression='#published = :true AND #sync = :true AND #owner = :owner',
-                          ExpressionAttributeNames={'#published': 'published', '#sync': 'autoSync',
-                                                    '#owner': 'sourceGroupId'},
-                          ExpressionAttributeValues={':false': False, ':true': True,
-                                                     ':owner': existing['sourceGroupId']})
+                          ConditionExpression=condition,
+                          ExpressionAttributeNames=names,
+                          ExpressionAttributeValues=values)
         return True
     except Exception as error:
         if getattr(error, 'response', {}).get('Error', {}).get('Code') == 'ConditionalCheckFailedException':
@@ -351,6 +374,8 @@ def synchronize(table=None, groups=None, dry_run=False):
 
     pending = []
     seen = set()
+    upcoming_event_ids = set()
+    cancelled = []
     for group, entries in sorted(feeds.values(), key=lambda item: item[0]['id']):
         for entry in entries:
             record_id = f'meetup-event-{entry["id"]}'
@@ -358,12 +383,16 @@ def synchronize(table=None, groups=None, dry_run=False):
                 continue
             seen.add(record_id)
             prior = existing.get(record_id)
+            if entry.get('cancelled'):
+                if prior is not None:
+                    cancelled.append(prior)
+                continue
+            upcoming_event_ids.add(record_id)
             if prior and prior.get('autoSync') is False:
                 continue
             pending.append((group, entry, prior))
 
     records = []
-    cancelled = []
     with ThreadPoolExecutor(max_workers=8) as executor:
         futures = {executor.submit(fetch_event_page, entry): (group, entry, prior)
                    for group, entry, prior in pending}
@@ -372,8 +401,12 @@ def synchronize(table=None, groups=None, dry_run=False):
             try:
                 record = map_event(group, entry, future.result())
                 if record is not None:
-                    if prior is None or not sync_fields_equal(record, prior):
-                        records.append((record, prior))
+                    preserve_published = event_has_ended(record) and prior is not None
+                    if prior is None:
+                        if not event_has_ended(record):
+                            records.append((record, prior, False))
+                    elif not sync_fields_equal(record, prior, preserve_published):
+                        records.append((record, prior, preserve_published))
                 elif prior is not None:
                     cancelled.append(prior)
             except Exception as error:
@@ -383,8 +416,8 @@ def synchronize(table=None, groups=None, dry_run=False):
     changed = 0
     skipped = 0
     if not dry_run and table is not None:
-        for record, prior in records:
-            if update_source_event(table, record, prior):
+        for record, prior, preserve_published in records:
+            if update_source_event(table, record, prior, preserve_published):
                 changed += 1
             else:
                 skipped += 1
@@ -394,11 +427,15 @@ def synchronize(table=None, groups=None, dry_run=False):
         for prior in existing.values():
             source = prior.get('sourceGroupId', '')
             group_id = source.removeprefix('meetup-')
-            if prior['id'] not in seen and (source not in active_group_ids or
-                                            group_id in feeds and group_id not in failed_group_ids):
+            source_removed = source not in active_group_ids
+            source_absent = group_id in feeds and group_id not in failed_group_ids
+            if prior['id'] not in seen and source_removed:
                 if unpublish_source_event(table, prior):
                     changed += 1
-    return {'groups': len(groups), 'feedsRead': len(feeds), 'upcomingEvents': len(seen),
+            elif prior['id'] not in seen and source_absent and not event_has_ended(prior):
+                if unpublish_source_event(table, prior, check_ends_at=True):
+                    changed += 1
+    return {'groups': len(groups), 'feedsRead': len(feeds), 'upcomingEvents': len(upcoming_event_ids),
             'changed': changed, 'skipped': skipped, 'failures': failures, 'dryRun': dry_run}
 
 
