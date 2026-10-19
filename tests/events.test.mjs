@@ -132,9 +132,11 @@ test('agenda group selection filters members together and chooses a live matchin
   ];
   const groups = eventApi.uniqueEventGroups(members);
   const upcomingGroups = uniqueUpcomingEventGroups(members, '2026-10-17T13:00:00Z');
-  assert.equal(upcomingGroups[0].event.id, 'b-live-match',
+  assert.equal(upcomingGroups[0].event.id, 'a-filter-only',
     'upcoming wrappers filter ended co-hosts before choosing a representative');
-  assert.deepEqual(upcomingGroups[0].events.map(({ id }) => id).sort(), ['b-live-match', 'z-live-match']);
+  assert.deepEqual(upcomingGroups[0].events.map(({ id }) => id).sort(), [
+    'a-filter-only', 'a-route-only', 'b-live-match', 'z-live-match',
+  ]);
   const options = {
     communityById: new Map(),
     country: 'CO',
