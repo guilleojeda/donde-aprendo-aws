@@ -4,8 +4,8 @@ Parameters:
   CognitoDomainPrefix:
     Type: String
     Description: Globally unique Cognito prefix domain for the account user pool
-    AllowedPattern: '^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$'
-    ConstraintDescription: Use 1-63 lowercase letters, digits, and hyphens; start and end with a letter or digit.
+    AllowedPattern: '^(?!.*(?:aws|amazon|cognito))[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$'
+    ConstraintDescription: Use 1-63 lowercase letters, digits, and hyphens; start and end with a letter or digit, and exclude aws, amazon, and cognito.
   SesFromAddress:
     Type: String
     Description: Verified sender address or display-name address for the SES identity in us-east-1
