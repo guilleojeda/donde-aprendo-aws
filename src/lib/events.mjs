@@ -80,36 +80,46 @@ export function upcomingEvents(events, now = new Date()) {
     .sort((left, right) => Date.parse(left.startsAt) - Date.parse(right.startsAt) || left.id.localeCompare(right.id));
 }
 
-/** Group co-hosted listings while keeping the same single representative per event. */
-export function uniqueUpcomingEventGroups(events, now = new Date()) {
+/** Group co-hosted listings for every published date, keeping a single representative per occurrence. */
+export function uniqueEventGroups(events) {
   const groups = [];
-  const groupByUrl = new Map();
+  const groupByRegistration = new Map();
   // A title/start/country can have multiple physical venue groups.
   const groupBySession = new Map();
-  for (const event of upcomingEvents(events, now)) {
+  const orderedEvents = [...events].sort((left, right) =>
+    Date.parse(left.startsAt) - Date.parse(right.startsAt) || left.id.localeCompare(right.id));
+
+  for (const event of orderedEvents) {
     const url = new URL(event.registrationUrl);
     const canonicalUrl = `${url.origin}${url.pathname.replace(/\/$/u, '')}`;
+    const start = Date.parse(event.startsAt);
+    const registrationIdentity = JSON.stringify([canonicalUrl, start]);
     const title = normalizeEventText(event.title);
     const locationScope = event.mode === 'online' ? 'online' : (event.country ?? 'unspecified');
-    const session = `${Date.parse(event.startsAt)}:${title}:${locationScope}`;
+    const session = `${start}:${title}:${locationScope}`;
     const sessionGroups = groupBySession.get(session) ?? [];
     const matchingSession = sessionGroups.find((group) => group.events.every((item) => sameEventVenue(item, event)));
-    const existingGroup = groupByUrl.get(canonicalUrl) ?? matchingSession;
+    const existingGroup = groupByRegistration.get(registrationIdentity) ?? matchingSession;
     if (existingGroup) {
       existingGroup.events.push(event);
       // Preserve every co-host URL as a strong identity for later listings.
-      groupByUrl.set(canonicalUrl, existingGroup);
+      groupByRegistration.set(registrationIdentity, existingGroup);
       if (!sessionGroups.includes(existingGroup)) sessionGroups.push(existingGroup);
       groupBySession.set(session, sessionGroups);
       continue;
     }
     const group = { event, events: [event] };
     groups.push(group);
-    groupByUrl.set(canonicalUrl, group);
+    groupByRegistration.set(registrationIdentity, group);
     sessionGroups.push(group);
     groupBySession.set(session, sessionGroups);
   }
   return groups;
+}
+
+/** Group only events that are upcoming or in progress before choosing a representative. */
+export function uniqueUpcomingEventGroups(events, now = new Date()) {
+  return uniqueEventGroups(upcomingEvents(events, now));
 }
 
 /** Show a co-hosted Meetup event once even when groups post separate listings. */

@@ -38,6 +38,7 @@ export function parseEventAgendaSearch(search, allowed) {
 
 export function serializeEventAgendaSearch(search, filters) {
   const query = new URLSearchParams(search);
+  query.delete('includeEnded');
   for (const field of FIELDS) {
     query.delete(field);
     if (filters[field]) query.set(field, filters[field]);
@@ -45,10 +46,10 @@ export function serializeEventAgendaSearch(search, filters) {
   return query.toString();
 }
 
-export function eventMatchesFilters(event, filters, now = Date.now()) {
+export function eventMatchesFilters(event, filters, now = Date.now(), includeEnded = false) {
   const communities = event.communities ?? (event.community ? [event.community] : []);
   const countries = event.countries ?? (event.country ? [event.country] : []);
-  return Date.parse(event.endsAt) > now
+  return (includeEnded || Date.parse(event.endsAt) > now)
     && (!filters.from || event.localDate >= filters.from)
     && (!filters.to || event.localDate <= filters.to)
     && (!filters.mode || event.mode === filters.mode)

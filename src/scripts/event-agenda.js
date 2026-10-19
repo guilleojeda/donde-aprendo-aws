@@ -1,5 +1,6 @@
+import { eventGroupsForAgenda } from '../lib/event-agenda-groups.mjs';
+import { eventLocalDate } from '../lib/events.mjs';
 import {
-  eventMatchesFilters,
   parseEventAgendaSearch,
   secondaryEventAgendaFilterCount,
   serializeEventAgendaSearch,
@@ -13,6 +14,7 @@ const empty = document.querySelector('[data-event-empty]');
 const filterFields = document.querySelector('.event-agenda__filters');
 const secondaryDisclosure = document.querySelector('[data-event-secondary-disclosure]');
 const secondaryDisclosureLabel = document.querySelector('[data-event-secondary-label]');
+const includeEndedControl = document.querySelector('[data-event-include-ended]');
 const mobileDisclosure = window.matchMedia('(max-width: 640px)');
 const controls = {
   from: filterFields?.querySelector('[data-event-from]'),
@@ -27,10 +29,33 @@ const more = document.querySelector('[data-event-more]');
 const count = document.querySelector('[data-event-count]');
 const factSummary = document.querySelector('[data-event-summary]');
 const emptyFilters = { from: '', to: '', mode: '', country: '', city: '', community: '' };
+const filterFieldsInOrder = Object.keys(emptyFilters);
 
 if (agenda && empty) {
   const cards = [...agenda.querySelectorAll('[data-event-ends-at]')];
-  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const groups = cards.map((card) => {
+    const events = [...card.querySelectorAll('[data-event-member-id]')].map((view) => ({
+      id: view.dataset.eventMemberId,
+      startsAt: view.dataset.memberStartsAt,
+      endsAt: view.dataset.memberEndsAt,
+      timeZone: view.dataset.memberTimeZone,
+      mode: view.dataset.memberMode,
+      country: view.dataset.country || undefined,
+      city: view.dataset.memberCity || '',
+      communityId: view.dataset.memberCommunityId || undefined,
+      view,
+    }));
+    return {
+      card,
+      event: events.find((event) => event.id === card.dataset.eventId) ?? events[0],
+      events,
+    };
+  });
+  const allEvents = groups.flatMap((group) => group.events);
+  const routeCountry = agenda.dataset.eventContextCountry || undefined;
+  const routeModes = (agenda.dataset.eventContextModes ?? '').split('|').filter(Boolean);
+  const knownEventIds = new Set((agenda.dataset.eventKnownIds ?? '').split('|').filter(Boolean));
+  const visitorZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const visitorTime = new Intl.DateTimeFormat('es', {
     day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false, timeZoneName: 'short',
   });
@@ -89,7 +114,9 @@ if (agenda && empty) {
     if (!factSummary) return;
     factSummary.textContent = eventAgendaSummaryText(events, now, {
       intro: factSummary.dataset.eventSummaryIntro ?? 'En la agenda de eventos AWS hay',
-      emptyMessage: factSummary.dataset.eventSummaryEmpty ?? 'No hay próximos eventos publicados en esta agenda.',
+      emptyMessage: allEvents.length > 0
+        ? empty.dataset.eventNoMatches ?? 'No hay eventos que coincidan con estos filtros.'
+        : factSummary.dataset.eventSummaryEmpty ?? 'No hay eventos publicados en esta agenda.',
     });
   };
   const readUrl = () => {
@@ -102,79 +129,190 @@ if (agenda && empty) {
     const query = serializeEventAgendaSearch(location.search, currentFilters());
     history[method](null, '', `${location.pathname}${query ? `?${query}` : ''}${keepHash ? location.hash : ''}`);
   };
+  const selectGroups = (sourceGroups, filters, includeEnded, now) => eventGroupsForAgenda(sourceGroups, {
+    communityById: new Map(),
+    country: routeCountry,
+    modes: routeModes.length ? routeModes : undefined,
+    filters,
+    includeEnded,
+    now,
+  });
 
-  for (const card of cards) {
-    const row = card.querySelector('[data-visitor-time]');
-    const value = card.querySelector('[data-visitor-time-value]');
-    if (row && value) {
-      const start = new Date(row.dataset.startsAt);
-      const end = new Date(row.dataset.endsAt);
-      value.textContent = `${visitorTime.format(start)} – ${visitorTime.format(end)} (${zone})`;
-      row.hidden = false;
+  for (const group of groups) {
+    for (const member of group.events) {
+      const row = member.view.querySelector('[data-visitor-time]');
+      const value = member.view.querySelector('[data-visitor-time-value]');
+      if (row && value) {
+        const start = new Date(member.startsAt);
+        const end = new Date(member.endsAt);
+        value.textContent = `${visitorTime.format(start)} – ${visitorTime.format(end)} (${visitorZone})`;
+        row.hidden = false;
+      }
+      member.view.querySelector('[data-event-registration]')?.addEventListener('click', () => {
+        if (Date.parse(member.endsAt) <= Date.now()) return;
+        trackRegistrationClick(window, {
+          id: member.id,
+          mode: member.mode,
+          country: member.country,
+        });
+      });
     }
-    card.querySelector('[data-event-registration]')?.addEventListener('click', () => {
-      trackRegistrationClick(window, { id: card.dataset.eventId, mode: card.dataset.eventMode, country: card.dataset.country });
-    });
+  }
+
+  function updateMemberState(member, now) {
+    const end = Date.parse(member.endsAt);
+    const start = Date.parse(member.startsAt);
+    const finalized = end <= now;
+    const status = member.view.querySelector('[data-event-status]');
+    const registration = member.view.querySelector('[data-event-registration]');
+    if (status) status.textContent = finalized ? 'Finalizado' : start <= now ? 'En curso' : 'Próximo';
+    if (registration) registration.textContent = finalized ? 'Ver evento' : 'Inscribirme';
+  }
+
+  function applyRepresentative(group, member) {
+    for (const item of group.events) item.view.hidden = item.id !== member.id;
+    const { card } = group;
+    const country = member.country ?? '';
+    card.dataset.eventId = member.id;
+    card.dataset.eventStartsAt = member.startsAt;
+    card.dataset.eventEndsAt = member.endsAt;
+    card.dataset.eventTimeZone = member.timeZone;
+    card.dataset.eventMode = member.mode;
+    card.dataset.country = country;
+    card.dataset.eventDate = eventLocalDate(member.startsAt, member.timeZone);
+    card.dataset.eventCity = member.city ? `${country}:${member.city}` : '';
+    card.dataset.eventCountries = [...new Set(group.events.map((item) => item.country).filter(Boolean))].join('|');
+    card.dataset.eventCommunities = [...new Set(group.events.map((item) => item.communityId).filter(Boolean))].join('|');
+  }
+
+  function currentCardOrder() {
+    return [...agenda.querySelectorAll('[data-event-ends-at]')];
+  }
+
+  function syncCardOrder(matchingGroups) {
+    const selectedCards = new Set(matchingGroups.map((group) => group.card));
+    const orderedCards = matchingGroups.map((group) => group.card);
+    const before = currentCardOrder().filter((card) => selectedCards.has(card));
+    // Hidden cards do not affect reading order. Moving their visible siblings
+    // merely to put them last can blur a link during an automatic expiry.
+    if (before.every((card, index) => card === orderedCards[index])) return;
+    const focused = document.activeElement;
+    agenda.append(...orderedCards);
+    if (focused && document.activeElement !== focused) focused.focus({ preventScroll: true });
   }
 
   function refresh() {
     clearTimeout(expiryTimer);
     const now = Date.now();
-    const events = cards.map((card) => ({
-      id: card.dataset.eventId,
-      startsAt: card.dataset.eventStartsAt,
-      endsAt: card.dataset.eventEndsAt,
-      timeZone: card.dataset.eventTimeZone,
-      localDate: card.dataset.eventDate,
-      mode: card.dataset.eventMode,
-      country: card.dataset.country,
-      countries: (card.dataset.eventCountries ?? card.dataset.country ?? '').split('|').filter(Boolean),
-      city: card.dataset.eventCity,
-      communities: (card.dataset.eventCommunities ?? '').split('|').filter(Boolean),
-    }));
-    updateFactSummary(events, now);
+    for (const member of allEvents) updateMemberState(member, now);
+
     const filters = currentFilters();
-    let matching = 0;
-    let active = 0;
-    for (const [index, card] of cards.entries()) {
-      const event = events[index];
-      const end = Date.parse(event.endsAt);
-      if (end > now) active += 1;
-      if (eventMatchesFilters(event, filters, now)) {
-        card.hidden = matching >= limit;
-        matching += 1;
-      } else card.hidden = true;
+    const includeEnded = Boolean(includeEndedControl?.checked);
+    const matchingGroups = selectGroups(groups, filters, includeEnded, now);
+    const matchingByCard = new Map(matchingGroups.map((group) => [group.card, group]));
+    for (const group of groups) {
+      const selected = matchingByCard.get(group.card);
+      group.card.hidden = !selected || matchingGroups.indexOf(selected) >= limit;
+      if (selected) applyRepresentative(group, selected.event);
     }
-    empty.hidden = matching > 0;
-    empty.textContent = active === 0
-      ? (empty.dataset.eventNoUpcoming ?? 'No hay próximos eventos publicados. Vuelve pronto para ver nuevas fechas.')
-      : 'No hay eventos que coincidan con estos filtros. Prueba con otras fechas o limpia los filtros.';
-    if (more) more.hidden = matching <= limit;
-    if (count) count.textContent = `${matching} ${matching === 1 ? 'evento' : 'eventos'}`;
-    const nextTransition = nextEventAgendaTransition(events, now);
-    if (nextTransition !== null) expiryTimer = setTimeout(refresh, Math.min(Math.max(nextTransition - now, 1), 2_147_483_647));
+    syncCardOrder(matchingGroups);
+
+    const selectedEvents = matchingGroups.map((group) => group.event);
+    updateFactSummary(selectedEvents, now);
+    empty.hidden = matchingGroups.length > 0;
+    if (empty.hidden === false) {
+      empty.textContent = allEvents.length > 0
+        ? empty.dataset.eventNoMatches ?? 'No hay eventos que coincidan con estos filtros.'
+        : empty.dataset.eventNoEvents ?? 'No hay eventos publicados en esta agenda.';
+    }
+    if (more) more.hidden = matchingGroups.length <= limit;
+    if (count) count.textContent = `${matchingGroups.length} ${matchingGroups.length === 1 ? 'evento' : 'eventos'}`;
+
+    const nextTransition = nextEventAgendaTransition(allEvents, now);
+    if (nextTransition !== null) {
+      expiryTimer = setTimeout(refresh, Math.min(Math.max(nextTransition - now, 1), 2_147_483_647));
+    }
+    return matchingGroups;
   }
+
+  function combinations(fields, size, start = 0, chosen = [], result = []) {
+    if (chosen.length === size) {
+      result.push([...chosen]);
+      return result;
+    }
+    for (let index = start; index < fields.length; index += 1) {
+      chosen.push(fields[index]);
+      combinations(fields, size, index + 1, chosen, result);
+      chosen.pop();
+    }
+    return result;
+  }
+
+  function compatibleFilters(group, filters, now) {
+    const selectedFields = filterFieldsInOrder.filter((field) => Boolean(filters[field]));
+    for (let retained = selectedFields.length; retained >= 0; retained -= 1) {
+      for (const fields of combinations(selectedFields, retained)) {
+        const compatible = { ...emptyFilters };
+        for (const field of fields) compatible[field] = filters[field];
+        if (selectGroups([group], compatible, true, now).length > 0) return compatible;
+      }
+    }
+    return { ...emptyFilters };
+  }
+
+  const fallbackToGlobalAgenda = (eventId) => {
+    if (!knownEventIds.has(eventId) || location.pathname === '/eventos/') return false;
+    const filters = currentFilters();
+    if (routeCountry && !filters.country) filters.country = routeCountry;
+    if (routeModes.length === 1 && !filters.mode) filters.mode = routeModes[0];
+    const query = serializeEventAgendaSearch(location.search, filters);
+    window.location.href = `/eventos/${query ? `?${query}` : ''}#event-${eventId}`;
+    return true;
+  };
 
   const revealEventHash = () => {
     if (!location.hash.startsWith('#event-')) return;
-    const card = cards.find((item) => `#${item.id}` === location.hash);
-    if (!card || Date.parse(card.dataset.eventEndsAt) <= Date.now()) return;
-    setFilters(emptyFilters);
-    updateCityOptions();
-    updateCommunityOptions();
-    syncSecondaryDisclosure(true);
-    writeUrl('replaceState', true);
-    limit = Math.max(limit, cards.indexOf(card) + 1);
+    const eventId = location.hash.slice('#event-'.length);
+    const group = groups.find((item) => item.card.id === `event-${eventId}`
+      || (item.card.dataset.eventAliasIds ?? '').split('|').includes(eventId));
+    if (!group) {
+      fallbackToGlobalAgenda(eventId);
+      return;
+    }
+
+    const now = Date.now();
+    const targetMember = group.events.find((member) => member.id === eventId);
+    if (targetMember && Date.parse(targetMember.endsAt) <= now && includeEndedControl && !includeEndedControl.checked) {
+      includeEndedControl.checked = true;
+    }
+    const before = currentFilters();
+    const after = compatibleFilters(group, before, now);
+    const changed = filterFieldsInOrder.some((field) => before[field] !== after[field]);
+    if (changed) {
+      setFilters(after);
+      updateCityOptions();
+      updateCommunityOptions();
+      syncSecondaryDisclosure(true);
+    }
+
+    const matchingGroups = refresh();
+    const groupIndex = matchingGroups.findIndex((item) => item.card === group.card);
+    if (groupIndex < 0) return;
+    limit = Math.max(limit, groupIndex + 1);
     refresh();
+    if (changed || new URLSearchParams(location.search).has('includeEnded')) writeUrl('replaceState', true);
     requestAnimationFrame(() => {
-      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      card.focus({ preventScroll: true });
+      group.card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      group.card.focus({ preventScroll: true });
     });
   };
 
+  if (includeEndedControl) includeEndedControl.checked = true;
   readUrl();
+  if (new URLSearchParams(location.search).has('includeEnded')) writeUrl('replaceState', true);
   refresh();
   revealEventHash();
+
   for (const control of Object.values(controls)) {
     control?.addEventListener('change', () => {
       if (control === controls.country) {
@@ -187,6 +325,10 @@ if (agenda && empty) {
       refresh();
     });
   }
+  includeEndedControl?.addEventListener('change', () => {
+    limit = 12;
+    refresh();
+  });
   clear?.addEventListener('click', () => {
     setFilters(emptyFilters);
     updateCityOptions();
@@ -199,8 +341,8 @@ if (agenda && empty) {
   more?.addEventListener('click', () => {
     const previouslyVisible = new Set(cards.filter((card) => !card.hidden));
     limit += 12;
-    refresh();
-    cards.find((card) => !card.hidden && !previouslyVisible.has(card))?.focus();
+    const matchingGroups = refresh();
+    matchingGroups.find((group) => !group.card.hidden && !previouslyVisible.has(group.card))?.card.focus();
   });
   window.addEventListener('hashchange', revealEventHash);
   window.addEventListener('popstate', () => { limit = 12; readUrl(); refresh(); revealEventHash(); });
