@@ -6,6 +6,7 @@ frontend:
         - nvm install "$(cat .nvmrc)"
         - nvm use "$(cat .nvmrc)"
         - npm ci
+        - test -n "$ACCOUNT_ORIGIN" && test -n "$COGNITO_ISSUER" && test -n "$COGNITO_CLIENT_ID" && test -n "$COGNITO_DOMAIN" && test -n "$ACCOUNTS_TABLE"
         - npm run check
         - npm test
     build:
@@ -13,8 +14,11 @@ frontend:
         - npm run build
         - npm run verify:blog
         - npm run verify:site
+        - npm prune --omit=dev
+        - mv node_modules ./.amplify-hosting/compute/default/node_modules
+        - npm run verify:hosting
   artifacts:
-    baseDirectory: dist
+    baseDirectory: .amplify-hosting
     files:
       - '**/*'
   cache:

@@ -9,10 +9,11 @@ import { sortResources } from '../src/lib/directory-filter.mjs';
 import { communityFaqItems, eventFaqItems } from '../src/lib/page-faq-content.mjs';
 import { EVENT_COLLECTIONS } from '../src/lib/event-collections.mjs';
 import { LEARNING_PATHS, learningPathHref } from '../src/lib/learning-paths.mjs';
+import { siteOutputRoot } from './lib/site-output.mjs';
 
 const production = process.env.PUBLIC_PRODUCTION === 'true';
 const mediaOrigin = new URL(process.env.PUBLIC_SITE_ORIGIN || `https://${deployment.branchName}.${deployment.appId}.amplifyapp.com`).origin;
-const dist = resolve('dist');
+const dist = siteOutputRoot;
 const routes = JSON.parse(readFileSync('tests/fixtures/blog-routes.json', 'utf8'));
 const sections = ['aprender', 'creadores', 'comunidades', 'eventos'];
 const read = (path) => readFileSync(resolve(dist, path), 'utf8');
@@ -70,7 +71,9 @@ assert.deepEqual([...locations].sort(), expectedLocations);
 assert.deepEqual(eventCountryRoutes.map(({ country }) => country).sort(), countryRoutes.map(({ country }) => country).sort(),
   'Event country routes match the countries with published communities.');
 assert.equal(new Set(locations).size, expectedLocations.length, 'Sitemap URLs must be unique.');
-assert.deepEqual([...allHtmlPaths].sort(), [...pagePaths, '404.html'].sort(), 'Every generated HTML page must be checked, with no unexpected event detail routes.');
+assert.deepEqual([...allHtmlPaths].sort(), [...pagePaths].sort(), 'Every prerendered public HTML page must be checked, with no runtime page or unexpected event detail route.');
+assert.ok(!existsSync(resolve(dist, '404.html')), 'The 404 page must be rendered by compute, not emitted as static HTML.');
+assert.ok(!existsSync(resolve(dist, 'cuenta/index.html')), 'The account page must never be emitted as static HTML.');
 for (const path of resourceDirectoryPaths) {
   const size = statSync(resolve(dist, path)).size;
   assert.ok(size <= 2_000_000, `Resource directory HTML must stay within 2,000,000 bytes: ${path} is ${size.toLocaleString('en')} bytes.`);
@@ -93,7 +96,7 @@ for (const path of allHtmlPaths) {
     assert.ok(!metadata.has(name), `Duplicate metadata ${name}: ${path}`);
     metadata.set(name, decode(attributes.match(/\bcontent="([^"]*)"/)?.[1] ?? ''));
   }
-  const expectedRobots = !production || path === '404.html'
+  const expectedRobots = !production
     ? 'noindex, nofollow'
     : path === 'buscar/index.html' ? 'noindex, follow' : undefined;
   assert.equal(metadata.get('robots'), expectedRobots, `Indexing and link-following mode: ${path}`);
@@ -114,7 +117,7 @@ for (const path of allHtmlPaths) {
   if (article) assert.match(metadata.get('article:published_time'), /^\d{4}-\d{2}-\d{2}T/, `Article publication time: ${path}`);
   if (path === 'buscar/index.html') {
     assert.ok(!sitemapLastmods.has(metadata.get('og:url')), 'The search utility must not be in the sitemap.');
-  } else if (path !== '404.html') {
+  } else {
     const canonical = metadata.get('og:url');
     assert.ok(sitemapLastmods.has(canonical), `Page must be represented in the sitemap: ${path}`);
     const expectedLastmod = article ? metadata.get('article:modified_time') : undefined;
@@ -164,8 +167,6 @@ for (const path of pagePaths) {
   assert.equal(analyticsTags.length, production ? 1 : 0, `Analytics tag count: ${path}`);
 }
 
-const notFound = read('404.html');
-assert.match(notFound, /<meta name="robots" content="noindex, nofollow"/);
 const home = read('index.html');
 assert.match(home, /<title>Aprende AWS en español \| ¿Dónde Aprendo AWS\?<\/title>/);
 assert.match(home, /Encuentra recursos, rutas de aprendizaje, comunidades y próximos eventos para aprender AWS en español\./);

@@ -16,6 +16,7 @@ interface Props {
   author?: BlogContributor;
   noindex?: boolean;
   nofollow?: boolean;
+  analytics?: boolean;
 }
 
 const {
@@ -29,6 +30,7 @@ const {
   author,
   noindex = false,
   nofollow = false,
+  analytics = true,
 } = Astro.props;
 
 // Preview media must resolve on the owned host before the domain cutover.
@@ -81,7 +83,7 @@ const articleSchema = publishedTimestamp && canonical && imageUrl
     <meta name="twitter:image" content={imageUrl} />
     <meta name="twitter:image:alt" content={socialImageAlt} />
     {articleSchema && <script type="application/ld+json" set:html={articleSchema} />}
-    {productionBuild && <script is:inline src="/assets/analytics.js" defer />}
+    {productionBuild && analytics && <script is:inline src="/assets/analytics.js" defer />}
     <link rel="icon" type="image/svg+xml" href="/assets/site-favicon.svg" />
     <link rel="icon" type="image/png" href="/assets/site-favicon.png" sizes="120x120" />
     <link rel="preload" href="/assets/fonts/fira-sans/latin-400.woff2" as="font" type="font/woff2" crossorigin />

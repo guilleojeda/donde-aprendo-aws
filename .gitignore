@@ -1,6 +1,7 @@
 /.work/
 /node_modules/
 /dist/
+/.amplify-hosting/
 /build/
 /.astro/
 .env

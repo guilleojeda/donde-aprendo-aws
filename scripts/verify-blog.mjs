@@ -6,8 +6,9 @@ import { BLOG_CONTRIBUTORS } from '../src/lib/blog-contributors.mjs';
 import { createBlogMetadataSchema, contributorStructuredData, formatBlogDate } from '../src/lib/blog-metadata.mjs';
 import deployment from '../config/deployment.json' with { type: 'json' };
 import { LEARNING_PATHS, learningPathHref } from '../src/lib/learning-paths.mjs';
+import { siteOutputRoot } from './lib/site-output.mjs';
 
-const dist = resolve('dist');
+const dist = siteOutputRoot;
 const production = process.env.PUBLIC_PRODUCTION === 'true';
 const mediaOrigin = new URL(process.env.PUBLIC_SITE_ORIGIN || `https://${deployment.branchName}.${deployment.appId}.amplifyapp.com`).origin;
 const expected = JSON.parse(readFileSync('tests/fixtures/blog-index.json', 'utf8'));
@@ -251,11 +252,11 @@ assert.equal(relatedCardCount, declaredRelatedCardCount, 'Every declared related
 
 // Only the shared, built navigation module is permitted alongside article
 // structured data; scripts embedded in imported article bodies stay rejected.
-const navigationScripts = new Set([...read('404.html').matchAll(/<script\b[^>]*type="module"[^>]*>[\s\S]*?<\/script>/g)].map(([script]) => script));
+const navigationScripts = new Set([...index.matchAll(/<script\b[^>]*type="module"[^>]*>[\s\S]*?<\/script>/g)].map(([script]) => script));
 assert.ok(navigationScripts.size > 0, 'Shared mobile navigation module is missing');
 const expectedNavigation = [['/', 'Inicio'], ['/aprender/', 'Aprender'], ['/recorridos/', 'Rutas'],
   ['/creadores/', 'Creadores'], ['/comunidades/', 'Comunidades'], ['/eventos/', 'Eventos'],
-  ['/blog/', 'Blog'], ['/buscar/', 'Buscar'], ['/#cta_form-01-839181', 'Comparte un recurso']];
+  ['/blog/', 'Blog'], ['/buscar/', 'Buscar'], ['/cuenta/', 'Mi cuenta'], ['/#cta_form-01-839181', 'Comparte un recurso']];
 for (const html of allPages) {
   const navigation = html.match(/<div class="site-nav__menu"[^>]*>([\s\S]*?)<\/div>/)?.[1] ?? '';
   const links = [...navigation.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)]
@@ -265,7 +266,7 @@ for (const html of allPages) {
   assert.ok(noScriptNavigation, 'No-JavaScript shared navigation is missing from the blog page.');
   const noScriptLinks = [...noScriptNavigation.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)]
     .map(([, href, text]) => [decode(href), decode(text.replace(/<[^>]+>/g, '').trim())]);
-  assert.deepEqual(noScriptLinks, expectedNavigation, 'No-JavaScript menu must preserve all nine destinations and labels.');
+  assert.deepEqual(noScriptLinks, expectedNavigation, 'No-JavaScript menu must preserve every shared destination and label.');
   assert.match(html, /aria-controls="site-menu"/, 'Mobile menu must control the shared navigation');
   assert.match(html, /aria-expanded="false"/, 'Mobile menu starts closed');
   if (production) {

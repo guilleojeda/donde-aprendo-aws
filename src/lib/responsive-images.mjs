@@ -298,6 +298,7 @@ export function responsiveImagesIntegration() {
     name: 'responsive-static-images',
     hooks: {
       'astro:build:done': async ({ dir, logger }) => {
+        // `dir` is Astro's configured client output, which Amplify sets to `.amplify-hosting/static`.
         const result = await processResponsiveImages({ outputDir: fileURLToPath(dir) });
         logger.info(`Processed ${result.images} local images across ${result.pages} HTML pages (${result.uniqueImages} unique files, ${result.variants} size variants, ${result.webpImages} smaller WebP sources).`);
       },
