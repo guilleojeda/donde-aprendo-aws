@@ -261,11 +261,13 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
   }
 
   .event-agenda__share {
-    position: relative;
     flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
   }
 
-  .event-agenda__share-menu { position: relative; }
+  .event-agenda__share-menu { text-align: right; }
 
   .event-agenda__share-toggle {
     display: inline-flex;
@@ -287,13 +289,10 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
   .event-agenda__share-menu[open] > .event-agenda__share-toggle::after { content: '▴'; }
 
   .event-agenda__share-menu-list {
-    position: absolute;
-    z-index: 4;
-    top: calc(100% + 5px);
-    right: 0;
     display: grid;
     min-width: 170px;
     gap: 3px;
+    margin-top: 5px;
     padding: 6px;
     border: 1px solid var(--color-line);
     border-radius: 8px;
@@ -329,10 +328,6 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
   .event-agenda__share-menu-item:disabled { color: var(--color-muted); cursor: wait; }
 
   .event-agenda__share-status {
-    position: absolute;
-    top: calc(100% + 6px);
-    right: 0;
-    z-index: 3;
     width: max-content;
     max-width: min(320px, 78vw);
     margin: 0;
@@ -526,8 +521,6 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
     .event-agenda__heading { flex-wrap: wrap; }
 
     .event-agenda__share { margin-left: auto; }
-
-    .event-agenda__share-status { right: 0; left: auto; text-align: right; }
 
     .event-agenda__period-controls {
       grid-template-columns: 1fr;
