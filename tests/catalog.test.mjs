@@ -142,7 +142,64 @@ test('exhausts paginated scans and sends the continuation key', async () => {
   assert.match(pages.calls[0].ProjectionExpression, /published/);
   assert.match(pages.calls[0].ProjectionExpression, /#registrationUrl/);
   assert.match(pages.calls[0].ProjectionExpression, /#eventId/);
+  assert.match(pages.calls[0].ProjectionExpression, /#venueCountry/);
+  assert.match(pages.calls[0].ProjectionExpression, /#city/);
+  assert.equal(pages.calls[0].ExpressionAttributeNames['#venueCountry'], 'venueCountry');
+  assert.equal(pages.calls[0].ExpressionAttributeNames['#city'], 'city');
+  assert.equal(pages.calls[0].ProjectionExpression.includes('*'), false);
   assert.equal(pages.calls[0].ConsistentRead, true);
+});
+
+test('projects physical venue country separately from organizer country and only exposes community city', () => {
+  const event = {
+    recordType: 'event', id: 'event-us-venue', title: 'AWS presencial',
+    description: 'Una sesión en una sede de Estados Unidos.',
+    startsAt: '2026-10-20T18:00:00Z', endsAt: '2026-10-20T20:00:00Z', timeZone: 'UTC',
+    organizer: 'Comunidad argentina', mode: 'in-person', registrationUrl: 'https://example.test/event',
+    place: 'Centro de eventos', country: 'AR', venueCountry: 'US', city: 'Seattle',
+    communityId: 'meetup-123', published: true, editorNote: 'private sentinel',
+  };
+  const community = record({
+    id: 'meetup-123', kind: 'community', format: 'User Group', topics: ['Comunidad'], country: 'AR', city: 'Córdoba',
+    contactEmail: 'private@example.test',
+  });
+  const contentWithUnapprovedCity = record({ id: 'resource-city', city: 'must stay private' });
+  const projected = projectPublishedCatalog([event, community, contentWithUnapprovedCity]);
+  const publicEvent = projected.find(({ id }) => id === event.id);
+  const publicCommunity = projected.find(({ id }) => id === community.id);
+  const publicContent = projected.find(({ id }) => id === contentWithUnapprovedCity.id);
+
+  assert.equal(publicEvent.country, 'AR');
+  assert.equal(publicEvent.venueCountry, 'US');
+  assert.equal(publicEvent.city, 'Seattle');
+  assert.equal(JSON.stringify(publicEvent).includes('private sentinel'), false);
+  assert.equal(publicCommunity.country, 'AR');
+  assert.equal(publicCommunity.city, 'Córdoba');
+  assert.equal(JSON.stringify(publicCommunity).includes('private@example.test'), false);
+  assert.equal(Object.hasOwn(publicContent, 'city'), false);
+});
+
+test('validates community city and venue country without changing organizer-country rules', () => {
+  const community = (city) => record({
+    id: 'community-city', kind: 'community', format: 'User Group', topics: ['Comunidad'], city,
+  });
+  const event = (overrides = {}) => ({
+    recordType: 'event', id: 'event-venue-country', title: 'AWS presencial', description: '',
+    startsAt: '2026-10-20T18:00:00Z', endsAt: '2026-10-20T20:00:00Z', timeZone: 'UTC',
+    organizer: 'Comunidad', mode: 'in-person', registrationUrl: 'https://example.test/event',
+    place: 'Centro de eventos', country: 'AR', published: true, ...overrides,
+  });
+
+  assert.equal(projectPublishedCatalog([community('x'.repeat(100))])[0].city, 'x'.repeat(100));
+  for (const city of ['  Córdoba', 'Córdoba  ', 'x'.repeat(101), 'Córdoba\n']) {
+    assert.throws(() => projectPublishedCatalog([community(city)]), /invalid city/);
+  }
+  assert.equal(projectPublishedCatalog([event({ venueCountry: 'US' })])[0].venueCountry, 'US');
+  for (const venueCountry of ['us', 'USA', ' U S', '1A', '']) {
+    assert.throws(() => projectPublishedCatalog([event({ venueCountry })]), /invalid venueCountry/);
+  }
+  assert.throws(() => projectPublishedCatalog([event({ country: 'US' })]), /invalid country/);
+  assert.throws(() => projectPublishedCatalog([event({ mode: 'online', venueCountry: 'US' })]), /invalid venueCountry/);
 });
 
 test('fails on a later page instead of returning a partial catalog', async () => {
@@ -222,25 +279,29 @@ test('uses an explicitly selected fixture and rejects conflicting source config'
         format: 'User Group',
         topics: ['Arquitectura'],
         country: 'PE',
+        city: 'Lima',
       },
     ]);
     const allowedResourceFields = new Set([
       'id', 'title', 'url', 'description', 'category', 'order', 'featured', 'kind', 'format', 'topics',
-      'addedAt', 'country', 'level', 'sourceId', 'communityId', 'eventId',
+      'addedAt', 'country', 'city', 'level', 'sourceId', 'communityId', 'eventId',
     ]);
     assert.ok(fixtureResources.every((resource) => Object.keys(resource).every((field) => allowedResourceFields.has(field))));
-    assert.deepEqual(fixtureResources.slice(3).map(({ id, kind, format, country, topics }) => [id, kind, format, country, topics]), [
-      ['fixture-community-argentina', 'community', 'User Group', 'AR', ['Arquitectura']],
-      ['fixture-student-argentina', 'community', 'Student Builder Group', 'AR', ['Seguridad']],
-      ['fixture-student-colombia', 'community', 'Student Builder Group', 'CO', ['Comunidad']],
-      ['fixture-no-country-community', 'community', 'Comunidad en línea', undefined, []],
-      ['fixture-community-costa-rica', 'community', 'User Group', 'CR', []],
-      ['fixture-no-country-reference', 'content', 'Artículo', undefined, ['Comunidad']],
-      ['fixture-recording-argentina', 'content', 'Video', 'AR', ['Comunidad']],
-      ['fixture-recording-costa-rica', 'content', 'Video', 'CR', ['Comunidad']],
+    assert.deepEqual(fixtureResources.slice(3).map(({ id, kind, format, country, city, topics }) => [id, kind, format, country, city, topics]), [
+      ['fixture-community-argentina', 'community', 'User Group', 'AR', 'Córdoba', ['Arquitectura']],
+      ['fixture-student-argentina', 'community', 'Student Builder Group', 'AR', undefined, ['Seguridad']],
+      ['fixture-student-colombia', 'community', 'Student Builder Group', 'CO', 'Bogotá', ['Comunidad']],
+      ['fixture-no-country-community', 'community', 'Comunidad en línea', undefined, undefined, []],
+      ['fixture-community-costa-rica', 'community', 'User Group', 'CR', undefined, []],
+      ['fixture-no-country-reference', 'content', 'Artículo', undefined, undefined, ['Comunidad']],
+      ['fixture-recording-argentina', 'content', 'Video', 'AR', undefined, ['Comunidad']],
+      ['fixture-recording-costa-rica', 'content', 'Video', 'CR', undefined, ['Comunidad']],
     ]);
-    assert.deepEqual(fixtureCatalog.filter((item) => item.recordType === 'event').map((item) => item.id),
+    const publicEvents = fixtureCatalog.filter((item) => item.recordType === 'event');
+    assert.deepEqual(publicEvents.map((item) => item.id),
       ['fixture-event', 'fixture-event-colombia', 'fixture-online-event', 'fixture-past-argentina', 'fixture-past-costa-rica', 'fixture-past-unrecorded']);
+    assert.equal(publicEvents.find(({ id }) => id === 'fixture-event-colombia').venueCountry, 'PE');
+    assert.equal(publicEvents.find(({ id }) => id === 'fixture-past-unrecorded').city, undefined);
     assert.throws(
       () => resolveCatalogConfig({ fixturePath, tableName: 'catalog' }),
       /Catalog source conflict/,

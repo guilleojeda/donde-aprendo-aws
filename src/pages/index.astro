@@ -17,8 +17,9 @@ const catalog = await loadSiteCatalog() as Array<CatalogResource | CatalogEvent>
 const resources = catalog.filter((record): record is CatalogResource => record.recordType !== 'event');
 const events = catalog.filter((record): record is CatalogEvent => record.recordType === 'event');
 const countryPages = communityCountryPages(resources);
+const communityById = new Map(resources.filter((resource) => resource.kind === 'community').map((resource) => [resource.id, resource]));
 const recommended = recommendedResources(resources, 4) as CatalogResource[];
-const upcomingEvents = uniqueUpcomingEvents(events);
+const upcomingEvents = uniqueUpcomingEvents(events, new Date(), communityById);
 const upcoming = upcomingEvents.slice(0, 3) as CatalogEvent[];
 const counts = Object.fromEntries(Object.keys(RESOURCE_PATHS).map((kind) => [kind, resources.filter((resource) => resource.kind === kind).length]));
 const legacyResourceRoutes = Object.fromEntries(resources.map((resource) => [resource.id, RESOURCE_PATHS[resource.kind as keyof typeof RESOURCE_PATHS]]));
@@ -127,7 +128,7 @@ const routeData = JSON.stringify(legacyResourceRoutes).replaceAll('<', '\\u003c'
       <div class="site-container">
         <div class="section-heading"><div><p class="home-eyebrow">Agenda</p><h2 id="home-events-title">Próximos eventos</h2><p>Elige un encuentro para aprender y conectar.</p></div><a href="/eventos/">Ver agenda completa</a></div>
         {upcoming.length > 0 ? <ol class="home-upcoming-events">
-          {upcoming.map((event) => <li><a href={eventHref(event, countryPages, resources)}>
+          {upcoming.map((event) => <li><a href={eventHref(event, countryPages, resources, communityById)}>
             <time datetime={event.startsAt}>{eventDateLabel(event.startsAt, event.timeZone)}</time>
             <strong>{event.title}</strong>
             <span>{event.organizer}</span>

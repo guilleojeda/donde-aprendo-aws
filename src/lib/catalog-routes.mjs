@@ -1,4 +1,5 @@
 import { communityCountryPath, eventCountryPath } from './community-country-pages.mjs';
+import { effectiveEventLocation } from './event-location.mjs';
 
 export const RESOURCE_PATHS = Object.freeze({
   content: '/aprender/',
@@ -14,9 +15,10 @@ export function resourceHref(resource) {
   return `${path}#resource-${resource.id}`;
 }
 
-export function eventHref(event, countryPages = [], resources = []) {
-  const organizerCommunity = resources.find((resource) => resource.kind === 'community' && resource.id === event.communityId);
-  const country = event.country ?? organizerCommunity?.country;
+export function eventHref(event, countryPages = [], resources = [], communityById = new Map(
+  resources.filter((resource) => resource.kind === 'community').map((resource) => [resource.id, resource]),
+)) {
+  const { country } = effectiveEventLocation(event, communityById);
   const nationalPath = country && countryPages.some((page) => page.country === country)
     ? eventCountryPath(country)
     : undefined;

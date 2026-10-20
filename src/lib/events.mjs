@@ -1,3 +1,6 @@
+import { COUNTRY_LABELS } from './resource-discovery.mjs';
+import { effectiveEventLocation } from './event-location.mjs';
+
 const EVENT_MODES = new Set(['online', 'in-person', 'hybrid']);
 const EVENT_FIELDS = ['id', 'title', 'description', 'startsAt', 'endsAt', 'timeZone', 'organizer', 'mode', 'registrationUrl'];
 const EVENT_DATE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/u;
@@ -9,15 +12,18 @@ function normalizeEventText(value) {
 }
 
 /** Match physical listings only when their published venue agrees; city can be absent. */
-function sameEventVenue(left, right) {
+function sameEventVenue(left, right, communityById) {
   if (left.mode === 'online' || right.mode === 'online') return left.mode === right.mode;
 
   const leftPlace = normalizeEventText(left.place ?? '');
   const rightPlace = normalizeEventText(right.place ?? '');
   if (!leftPlace || leftPlace !== rightPlace) return false;
 
-  const leftCity = normalizeEventText(left.city ?? '');
-  const rightCity = normalizeEventText(right.city ?? '');
+  const leftLocation = effectiveEventLocation(left, communityById);
+  const rightLocation = effectiveEventLocation(right, communityById);
+  if (leftLocation.country !== rightLocation.country) return false;
+  const leftCity = normalizeEventText(leftLocation.city);
+  const rightCity = normalizeEventText(rightLocation.city);
   return !leftCity || !rightCity || leftCity === rightCity;
 }
 
@@ -26,7 +32,7 @@ export function projectPublicEvent(item, index, validateUrl) {
   for (const field of EVENT_FIELDS) {
     if (!Object.hasOwn(item, field)) throw new Error(`${label} is missing event field ${field}`);
   }
-  const event = Object.fromEntries(['recordType', ...EVENT_FIELDS, 'place', 'country', 'city', 'communityId']
+  const event = Object.fromEntries(['recordType', ...EVENT_FIELDS, 'place', 'country', 'venueCountry', 'city', 'communityId']
     .filter((field) => Object.hasOwn(item, field)).map((field) => [field, item[field]]));
   if (event.recordType !== 'event') throw new Error(`${label} has an invalid record type`);
   for (const field of ['id', 'title', 'organizer']) {
@@ -61,9 +67,14 @@ export function projectPublicEvent(item, index, validateUrl) {
   if (event.country !== undefined && !Object.hasOwn(COUNTRY_LABELS, event.country)) {
     throw new Error(`${label} has an invalid country`);
   }
+  if (event.venueCountry !== undefined && (event.mode === 'online'
+      || typeof event.venueCountry !== 'string' || event.venueCountry.length !== 2
+      || !/^[A-Z]{2}$/u.test(event.venueCountry))) {
+    throw new Error(`${label} has an invalid venueCountry`);
+  }
   if (event.city !== undefined && (event.mode === 'online' || typeof event.city !== 'string'
       || !event.city.trim() || event.city.trim() !== event.city || event.city.length > 100
-      || /[\r\n\u0000-\u001f]/u.test(event.city))) {
+      || /[\r\n\u0000-\u001f\u007f]/u.test(event.city))) {
     throw new Error(`${label} has an invalid city`);
   }
   if (event.communityId !== undefined && !RESOURCE_ID.test(event.communityId)) {
@@ -81,10 +92,10 @@ export function upcomingEvents(events, now = new Date()) {
 }
 
 /** Group co-hosted listings for every published date, keeping a single representative per occurrence. */
-export function uniqueEventGroups(events) {
+export function uniqueEventGroups(events, communityById = new Map()) {
   const groups = [];
   const groupByRegistration = new Map();
-  // A title/start/country can have multiple physical venue groups.
+  // A title/start/physical-country can have multiple venue groups.
   const groupBySession = new Map();
   const orderedEvents = [...events].sort((left, right) =>
     Date.parse(left.startsAt) - Date.parse(right.startsAt) || left.id.localeCompare(right.id));
@@ -95,10 +106,12 @@ export function uniqueEventGroups(events) {
     const start = Date.parse(event.startsAt);
     const registrationIdentity = JSON.stringify([canonicalUrl, start]);
     const title = normalizeEventText(event.title);
-    const locationScope = event.mode === 'online' ? 'online' : (event.country ?? 'unspecified');
+    const locationScope = event.mode === 'online'
+      ? 'online'
+      : (effectiveEventLocation(event, communityById).country || 'unspecified');
     const session = `${start}:${title}:${locationScope}`;
     const sessionGroups = groupBySession.get(session) ?? [];
-    const matchingSession = sessionGroups.find((group) => group.events.every((item) => sameEventVenue(item, event)));
+    const matchingSession = sessionGroups.find((group) => group.events.every((item) => sameEventVenue(item, event, communityById)));
     const existingGroup = groupByRegistration.get(registrationIdentity) ?? matchingSession;
     if (existingGroup) {
       existingGroup.events.push(event);
@@ -118,13 +131,13 @@ export function uniqueEventGroups(events) {
 }
 
 /** Group only events that are upcoming or in progress before choosing a representative. */
-export function uniqueUpcomingEventGroups(events, now = new Date()) {
-  return uniqueEventGroups(upcomingEvents(events, now));
+export function uniqueUpcomingEventGroups(events, now = new Date(), communityById = new Map()) {
+  return uniqueEventGroups(upcomingEvents(events, now), communityById);
 }
 
 /** Show a co-hosted Meetup event once even when groups post separate listings. */
-export function uniqueUpcomingEvents(events, now = new Date()) {
-  return uniqueUpcomingEventGroups(events, now).map(({ event }) => event);
+export function uniqueUpcomingEvents(events, now = new Date(), communityById = new Map()) {
+  return uniqueUpcomingEventGroups(events, now, communityById).map(({ event }) => event);
 }
 
 export function eventDateLabel(instant, timeZone) {
@@ -143,4 +156,3 @@ export function eventTimeLabel(instant, timeZone) {
   return new Intl.DateTimeFormat('es', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone, timeZoneName: 'short' })
     .format(new Date(instant));
 }
-import { COUNTRY_LABELS } from './resource-discovery.mjs';

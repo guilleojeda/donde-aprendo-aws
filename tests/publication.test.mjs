@@ -12,6 +12,16 @@ function record(overrides = {}) {
   };
 }
 
+function eventRecord(overrides = {}) {
+  return {
+    recordType: 'event', id: 'meetup-event-location', title: 'AWS en Seattle', description: 'Evento presencial',
+    startsAt: '2026-10-20T18:00:00Z', endsAt: '2026-10-20T20:00:00Z', timeZone: 'UTC',
+    organizer: 'Comunidad argentina', mode: 'in-person', registrationUrl: 'https://example.com/event',
+    place: 'Centro de eventos', country: 'AR', venueCountry: 'US', city: 'Seattle', published: true,
+    ...overrides,
+  };
+}
+
 function setup(items, initialState = {}) {
   let state = { ...initialState };
   const calls = [];
@@ -59,6 +69,22 @@ test('hash changes for approved public edits and hides, not private or pending e
   ])), baseline);
   assert.notEqual(fingerprintPublicCatalog(projectPublishedCatalog([record({ description: 'Editado' })])), baseline);
   assert.notEqual(fingerprintPublicCatalog(projectPublishedCatalog([record({ published: false })])), baseline);
+});
+
+test('hash changes when only the public venue country or community city changes', () => {
+  const community = record({ id: 'meetup-123', kind: 'community', format: 'User Group', country: 'AR', city: 'Córdoba' });
+  const items = [eventRecord(), community];
+  const baseline = fingerprintPublicCatalog(projectPublishedCatalog(items));
+
+  assert.notEqual(fingerprintPublicCatalog(projectPublishedCatalog([
+    eventRecord({ venueCountry: 'CA' }), community,
+  ])), baseline);
+  assert.notEqual(fingerprintPublicCatalog(projectPublishedCatalog([
+    eventRecord(), { ...community, city: 'Rosario' },
+  ])), baseline);
+  assert.equal(fingerprintPublicCatalog(projectPublishedCatalog([
+    eventRecord({ editorNote: 'private edit' }), { ...community, contactEmail: 'private@example.test' },
+  ])), baseline);
 });
 
 test('hash does not depend on DynamoDB scan order', () => {

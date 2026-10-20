@@ -44,7 +44,8 @@ const countryLabel = (country: string) => COUNTRY_LABELS[country as keyof typeof
 const levelLabel = (level: string) => LEVEL_LABELS[level as keyof typeof LEVEL_LABELS] ?? level;
 const countryPages = communityCountryPages(allResources);
 const agendaPath = country ? eventCountryPath(country) : undefined;
-const upcomingEventGroups = kind === 'community' ? uniqueUpcomingEventGroups(events) : [];
+const communityById = new Map(allResources.filter((resource) => resource.kind === 'community').map((resource) => [resource.id, resource]));
+const upcomingEventGroups = kind === 'community' ? uniqueUpcomingEventGroups(events, new Date(), communityById) : [];
 const omitFacet = (facet: 'format' | 'topic' | 'country' | 'level') => omittedFacets.includes(facet);
 const formats = [...new Set(resources.map((resource) => resource.format))]
   .sort((left, right) => left.localeCompare(right, 'es', { sensitivity: 'base' }));
@@ -104,7 +105,7 @@ for (const group of upcomingEventGroups) {
         <h1 id="directory-title">{title}</h1>
         <p>{intro}</p>
         {kind === 'community' && country && agendaPath && <p class="community-country-events">
-          <a href={agendaPath}>Consultar agenda de eventos organizados por comunidades de {countryLabel(country)}</a>
+          <a href={agendaPath}>Consultar agenda de {countryLabel(country)}: asistencia presencial allí y participación online desde cualquier país</a>
         </p>}
       </header>
 

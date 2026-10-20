@@ -42,6 +42,11 @@ export function validateDiscoveryMetadata(record, index = 0) {
   if (record.country !== undefined && !Object.hasOwn(COUNTRY_LABELS, record.country)) {
     throw new Error(`${label} has an invalid country`);
   }
+  if (record.city !== undefined && (record.kind !== 'community' || typeof record.city !== 'string'
+      || !record.city.trim() || record.city.trim() !== record.city || record.city.length > 100
+      || /[\r\n\u0000-\u001f\u007f]/u.test(record.city))) {
+    throw new Error(`${label} has an invalid city`);
+  }
   if (record.level !== undefined && (
     record.kind !== 'content' || !Object.hasOwn(LEVEL_LABELS, record.level)
   )) throw new Error(`${label} has an invalid level`);

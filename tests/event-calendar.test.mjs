@@ -34,18 +34,18 @@ test('calendar download preserves the event instants, URL and escaped UTF-8 text
   assert.doesNotMatch(eventCalendar({ ...event, mode: 'online', place: undefined }), /LOCATION:/u);
 });
 
-test('agenda filters validate facet values, preserve unrelated parameters and match mode and city', () => {
+test('agenda filters apply route defaults only when a query field is absent', () => {
   const allowed = {
-    mode: new Set(['', 'online', 'in-person']),
-    country: new Set(['', 'CO', 'AR']),
+    mode: new Set(['', 'online', 'in-person', 'hybrid']),
+    country: new Set(['', 'CO', 'AR', 'PE']),
     city: new Set(['', 'CO:Bogotá', 'AR:Córdoba']),
-    community: new Set(['', 'community-co', 'community-ar']),
-    communityCountries: new Map([['community-co', 'CO'], ['community-ar', 'AR']]),
+    community: new Set(['', 'community-co', 'community-ar', 'community-pe']),
   };
-  const filters = parseEventAgendaSearch('?utm_source=community&view=month&date=2026-10-17&tz=UTC&from=2026-10-17&to=2026-10-20&mode=in-person&country=CO&city=CO%3ABogot%C3%A1&community=community-co', allowed);
+  const defaults = { country: 'AR', mode: 'online' };
+  const filters = parseEventAgendaSearch('?utm_source=community&view=month&date=2026-10-17&tz=UTC&from=2026-10-17&to=2026-10-20&mode=in-person&country=CO&city=CO%3ABogot%C3%A1&community=community-co', allowed, defaults);
   assert.deepEqual(filters, { mode: 'in-person', country: 'CO', city: 'CO:Bogotá', community: 'community-co' });
   const saved = serializeEventAgendaSearch(
-    '?utm_source=community&country=AR&view=month&date=2026-10-17&tz=UTC&from=2026-10-17&to=2026-10-20&includeEnded=0', filters,
+    '?utm_source=community&country=AR&view=month&date=2026-10-17&tz=UTC&from=2026-10-17&to=2026-10-20&includeEnded=0', filters, defaults,
   );
   assert.equal(new URLSearchParams(saved).get('utm_source'), 'community');
   assert.equal(new URLSearchParams(saved).get('community'), 'community-co');
@@ -55,33 +55,103 @@ test('agenda filters validate facet values, preserve unrelated parameters and ma
   assert.equal(new URLSearchParams(saved).has('from'), false);
   assert.equal(new URLSearchParams(saved).has('to'), false);
   assert.equal(new URLSearchParams(saved).has('includeEnded'), false);
-  assert.deepEqual(parseEventAgendaSearch(`?${saved}`, allowed), filters);
+  assert.deepEqual(parseEventAgendaSearch(`?${saved}`, allowed, defaults), filters);
+
+  const explicitEmpty = serializeEventAgendaSearch('?view=week&date=2026-10-19&tz=UTC', {
+    mode: '', country: '', city: '', community: '',
+  }, defaults);
+  const explicitEmptyQuery = new URLSearchParams(explicitEmpty);
+  assert.equal(explicitEmptyQuery.has('mode'), true);
+  assert.equal(explicitEmptyQuery.get('mode'), '', 'mode= overrides the route modality');
+  assert.equal(explicitEmptyQuery.has('country'), true);
+  assert.equal(explicitEmptyQuery.get('country'), '', 'country= overrides the route country');
+  assert.deepEqual(parseEventAgendaSearch(`?${explicitEmpty}`, allowed, defaults), {
+    mode: '', country: '', city: '', community: '',
+  });
+
+  const routeDefaults = serializeEventAgendaSearch('', {
+    mode: 'online', country: 'AR', city: '', community: '',
+  }, defaults);
+  assert.equal(new URLSearchParams(routeDefaults).has('mode'), false,
+    'a selected value equal to the route default can stay implicit');
+  assert.equal(new URLSearchParams(routeDefaults).has('country'), false);
+  assert.deepEqual(parseEventAgendaSearch(`?${routeDefaults}`, allowed, defaults), {
+    mode: 'online', country: 'AR', city: '', community: '',
+  });
+});
+
+test('agenda filter values validate public identities and location formats independently', () => {
+  const allowed = {
+    mode: new Set(['', 'online', 'in-person', 'hybrid']),
+    country: new Set(['', 'CO', 'AR', 'PE']),
+    // This is only the current resource catalog; a valid city need not appear in it.
+    city: new Set(['', 'CO:Bogotá', 'AR:Córdoba']),
+    community: new Set(['', 'community-co', 'community-ar', 'community-pe']),
+  };
+
   assert.deepEqual(parseEventAgendaSearch('?from=2026-02-30&mode=unknown&country=AR&city=CO%3ABogot%C3%A1&community=unknown', allowed),
     { mode: '', country: 'AR', city: '', community: '' },
     'legacy date parameters do not become facet filters');
-  assert.deepEqual(parseEventAgendaSearch('?country=AR&community=community-co', allowed),
-    { mode: '', country: 'AR', city: '', community: '' },
-    'A country filter clears a community whose resource belongs to another country.');
-  const cohostCityAllowed = {
-    ...allowed,
-    city: new Set([...allowed.city, 'PE:Lima']),
-    countriesForCity: new Map([['PE:Lima', new Set(['PE', 'CO'])]]),
-  };
-  assert.deepEqual(parseEventAgendaSearch('?country=CO&city=PE%3ALima', cohostCityAllowed), {
-    mode: '', country: 'CO', city: 'PE:Lima', community: '',
-  }, 'The representative city remains valid for an event co-hosted by Colombia.');
-  assert.deepEqual(parseEventAgendaSearch('?country=AR&city=PE%3ALima', cohostCityAllowed), {
+  assert.deepEqual(parseEventAgendaSearch('?mode=hybrid', allowed), {
+    mode: 'hybrid', country: '', city: '', community: '',
+  }, 'the legacy hybrid-only query remains readable');
+  assert.deepEqual(parseEventAgendaSearch('?country=AR&community=community-co', allowed), {
+    mode: '', country: 'AR', city: '', community: 'community-co',
+  }, 'a community identity remains valid independently of its physical country');
+  assert.deepEqual(parseEventAgendaSearch('?city=PE%3ALima', allowed), {
+    mode: '', country: '', city: 'PE:Lima', community: '',
+  }, 'a well-formed city remains selectable even when absent from the resource catalog');
+  assert.deepEqual(parseEventAgendaSearch('?country=AR&city=PE%3ALima', allowed), {
     mode: '', country: 'AR', city: '', community: '',
-  }, 'A city from an incompatible country is cleared.');
-  const card = { endsAt: event.endsAt, localDate: '2026-10-17', mode: 'in-person', country: 'CO', city: 'CO:Bogotá', communities: ['community-co', 'community-ar'] };
-  assert.equal(eventMatchesFilters(card, filters, Date.parse('2026-10-17T11:00:00Z')), true);
-  assert.equal(eventMatchesFilters(card, { ...filters, community: 'community-ar' }, Date.parse('2026-10-17T11:00:00Z')), true);
-  assert.equal(eventMatchesFilters(card, { ...filters, community: 'other-community' }, Date.parse('2026-10-17T11:00:00Z')), false);
-  const cohostedCard = { ...card, country: 'PE', countries: ['PE', 'CO'] };
-  assert.equal(eventMatchesFilters(cohostedCard, { ...filters, country: 'CO' }, Date.parse('2026-10-17T11:00:00Z')), true,
-    'The global country filter includes co-host countries while retaining one representative card.');
-  assert.equal(eventMatchesFilters(cohostedCard, { ...filters, country: 'AR' }, Date.parse('2026-10-17T11:00:00Z')), false);
-  assert.equal(eventMatchesFilters(card, filters, Date.parse('2026-10-17T13:00:00Z')), false);
+  }, 'an explicitly selected country clears an incompatible city');
+
+  const longCity = `AR:${'a'.repeat(100)}`;
+  assert.equal(parseEventAgendaSearch(`?city=${encodeURIComponent(longCity)}`, allowed).city, longCity,
+    'a city may contain up to 100 text characters after its country prefix');
+  for (const city of [
+    'ar:cordoba', 'ARG:Córdoba', 'AR:', 'Córdoba', ':Córdoba',
+    `AR:${'a'.repeat(101)}`, 'AR:Cor\ndoba', 'AR:San\tJuan', 'AR:\u0000',
+  ]) {
+    assert.equal(parseEventAgendaSearch(`?city=${encodeURIComponent(city)}`, allowed).city, '',
+      `malformed city ${JSON.stringify(city)} is discarded`);
+  }
+  assert.deepEqual(parseEventAgendaSearch('?mode=unknown&country=ar&city=AR%3AC%C3%B3rdoba', allowed, {
+    country: 'CO', mode: 'online',
+  }), { mode: 'online', country: 'CO', city: '', community: '' },
+  'malformed or unknown values fall back to route defaults and clear incompatible cities');
+});
+
+test('online and combined selections treat location as a physical filter only', () => {
+  const now = Date.parse('2026-10-17T11:00:00Z');
+  const filters = { mode: '', country: 'AR', city: 'AR:Córdoba', community: '' };
+  const remote = {
+    endsAt: event.endsAt, mode: 'online', country: 'CO', city: '', communities: ['community-co'],
+  };
+  const hybridAbroad = {
+    endsAt: event.endsAt, mode: 'hybrid', country: 'CO', city: 'CO:Bogotá', communities: ['community-co'],
+  };
+  const inPersonAbroad = {
+    endsAt: event.endsAt, mode: 'in-person', country: 'CO', city: 'CO:Bogotá', communities: ['community-co'],
+  };
+  const hybridLocal = {
+    endsAt: event.endsAt, mode: 'hybrid', country: 'AR', city: 'AR:Córdoba', communities: ['community-co'],
+  };
+
+  assert.equal(eventMatchesFilters(remote, filters, now), true,
+    'combined mode includes online events from any country despite a physical location selection');
+  assert.equal(eventMatchesFilters(hybridAbroad, filters, now), true,
+    'combined mode includes an out-of-location hybrid through its remote participation');
+  assert.equal(eventMatchesFilters(inPersonAbroad, filters, now), false,
+    'combined mode excludes an in-person event outside the selected physical location');
+  assert.equal(eventMatchesFilters(hybridAbroad, { ...filters, mode: 'online' }, now), true,
+    'online mode includes hybrids globally and ignores the retained location');
+  assert.equal(eventMatchesFilters(inPersonAbroad, { ...filters, mode: 'online' }, now), false);
+  assert.equal(eventMatchesFilters(hybridAbroad, { ...filters, mode: 'in-person' }, now), false,
+    'in-person mode requires the hybrid venue to match the selected location');
+  assert.equal(eventMatchesFilters(hybridLocal, { ...filters, community: 'community-co' }, now), true,
+    'physical location and community identity are independent facets');
+  assert.equal(eventMatchesFilters(hybridLocal, { ...filters, mode: 'hybrid', community: '' }, now), true,
+    'the legacy hybrid-only query keeps selecting hybrid events');
 });
 
 test('ended events are included only when requested, with the end instant treated as finalizado', () => {
@@ -103,7 +173,7 @@ test('ended events are included only when requested, with the end instant treate
   assert.equal(eventMatchesFilters(ended, filters, atEnd, false), false);
 });
 
-test('mobile secondary agenda filters open for active URL filters and stay compact otherwise', () => {
+test('secondary agenda filters open for community selections, not primary location controls', () => {
   const allowed = {
     mode: new Set(['', 'online', 'in-person']),
     country: new Set(['', 'CO']),
@@ -118,8 +188,16 @@ test('mobile secondary agenda filters open for active URL filters and stay compa
   const active = parseEventAgendaSearch(
     '?mode=in-person&country=CO&city=CO%3ABogot%C3%A1&community=community-co', allowed,
   );
-  assert.equal(secondaryEventAgendaFilterCount(active), 4);
+  assert.equal(secondaryEventAgendaFilterCount(active), 1,
+    'only the community facet contributes to the secondary-filter count');
   assert.equal(shouldOpenEventAgendaSecondaryFilters(active, true), true);
+
+  const primaryOnly = parseEventAgendaSearch('?mode=in-person&country=CO&city=CO%3ABogot%C3%A1', allowed);
+  assert.equal(secondaryEventAgendaFilterCount(primaryOnly), 0,
+    'mode and physical location stay outside the secondary filters');
+  assert.equal(shouldOpenEventAgendaSecondaryFilters(primaryOnly, true), false);
+  assert.equal(shouldOpenEventAgendaSecondaryFilters(primaryOnly, false), true,
+    'the disclosure remains open by default on desktop');
 });
 
 test('registration telemetry uses only public facets and stays off preview hosts', () => {

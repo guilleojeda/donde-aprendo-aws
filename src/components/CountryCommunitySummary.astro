@@ -1,6 +1,7 @@
 ---
 import type { CatalogResource } from '../types/catalog';
 import { resourceHref } from '../lib/catalog-routes.mjs';
+import { communityCountryPath } from '../lib/community-country-pages.mjs';
 import { COUNTRY_LABELS } from '../lib/resource-discovery.mjs';
 
 interface Props {
@@ -10,12 +11,13 @@ interface Props {
 
 const { country, communities } = Astro.props;
 const countryName = COUNTRY_LABELS[country as keyof typeof COUNTRY_LABELS] ?? country;
+const directoryPath = communityCountryPath(country) ?? '/comunidades/';
 ---
 
 <section class="event-country-communities" aria-labelledby="event-country-communities-title">
   <div class="event-country-communities__heading">
     <h2 id="event-country-communities-title">Comunidades AWS en {countryName}</h2>
-    <p>Conoce las comunidades organizadoras y sus canales de participación.</p>
+    <p>Comunidades AWS con sede en {countryName}. Explora más en el <a href={directoryPath}>directorio de comunidades de {countryName}</a>.</p>
   </div>
   <ul>
     {communities.map((community) => <li>

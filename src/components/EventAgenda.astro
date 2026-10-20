@@ -1,9 +1,9 @@
 ---
 import { eventDateLabel, eventLocalDate, eventTimeLabel, uniqueEventGroups } from '../lib/events.mjs';
-import { COUNTRY_LABELS } from '../lib/resource-discovery.mjs';
 import { eventCalendarHref, resourceHref } from '../lib/catalog-routes.mjs';
 import { communityCountryPages } from '../lib/community-country-pages.mjs';
-import { eventGroupCountries, eventGroupsForAgenda, organizerCountry } from '../lib/event-agenda-groups.mjs';
+import { eventGroupsForAgenda, organizerCountry } from '../lib/event-agenda-groups.mjs';
+import { effectiveEventLocation, eventCountryLabel } from '../lib/event-location.mjs';
 import { eventAgendaSummaryText } from '../lib/event-agenda-summary.mjs';
 import ReportLink from './ReportLink.astro';
 import type { CatalogEvent, CatalogResource } from '../types/catalog';
@@ -13,47 +13,45 @@ interface Props { events: CatalogEvent[]; resources: CatalogResource[]; country?
 const { events, resources, country, modes } = Astro.props;
 const communityById = new Map(resources.filter((resource) => resource.kind === 'community').map((resource) => [resource.id, resource]));
 const renderTime = new Date();
-const allGroups = uniqueEventGroups(events) as Array<{ event: CatalogEvent; events: CatalogEvent[] }>;
-const contextGroups = eventGroupsForAgenda(allGroups, {
-  communityById, country, modes, filters: {}, includeEnded: true, now: renderTime,
+const allGroups = uniqueEventGroups(events, communityById) as Array<{ event: CatalogEvent; events: CatalogEvent[] }>;
+const defaultMode = modes?.includes('online')
+  ? 'online'
+  : modes?.includes('in-person') ? 'in-person' : '';
+const defaultFilters: { mode: CatalogEvent['mode'] | ''; country: string; city: string; community: string } = {
+  mode: defaultMode, country: country ?? '', city: '', community: '',
+};
+const defaultGroups = eventGroupsForAgenda(allGroups, {
+  communityById, filters: defaultFilters, includeEnded: true, now: renderTime,
 }) as typeof allGroups;
-const isInContext = (event: CatalogEvent) =>
-  (!country || organizerCountry(event, communityById) === country)
-  && (!modes || modes.includes(event.mode));
-const contextEvents = [...new Map(contextGroups.flatMap((group) => group.events)
-  .filter(isInContext).map((event) => [event.id, event])).values()];
-const eventCountriesByGroup = (group: { event: CatalogEvent; events: CatalogEvent[] }) => eventGroupCountries(group, communityById);
-const countryLabel = (country: string) => COUNTRY_LABELS[country as keyof typeof COUNTRY_LABELS] ?? country;
+const defaultRepresentatives = new Map(defaultGroups.map((group) => [group.events, group.event]));
+const countryLabel = (country: string) => eventCountryLabel(country);
 const countryPages = communityCountryPages(resources) as Array<{ country: string }>;
 const allOrganizerCountries = new Set<string>(countryPages.map((page) => page.country));
-for (const group of allGroups) for (const organizerCountryCode of eventCountriesByGroup(group)) allOrganizerCountries.add(organizerCountryCode);
+for (const group of allGroups) for (const event of group.events) {
+  const location = effectiveEventLocation(event, communityById);
+  if (location.country) allOrganizerCountries.add(location.country);
+}
+for (const community of communityById.values()) if (community.country) allOrganizerCountries.add(community.country);
 const eventCountries = [...allOrganizerCountries]
   .sort((left, right) => countryLabel(left).localeCompare(countryLabel(right), 'es'));
 const timeZones = [...new Set(['UTC', ...Intl.supportedValuesOf('timeZone')])]
   .sort((left, right) => left.localeCompare(right, 'es'));
 const modeLabel = { online: 'En línea', 'in-person': 'Presencial', hybrid: 'Híbrido' } as const;
-const cityOptions = new Map<string, { key: string; city: string; country?: string; organizerCountries: Set<string> }>();
-for (const event of contextEvents) {
-  if (!event.city) continue;
-  const countryCode = organizerCountry(event, communityById) ?? '';
-  const key = `${countryCode}:${event.city}`;
-  const option = cityOptions.get(key) ?? { key, city: event.city, country: countryCode || undefined, organizerCountries: new Set<string>() };
-  if (countryCode) option.organizerCountries.add(countryCode);
-  cityOptions.set(key, option);
+const cityOptions = new Map<string, { key: string; city: string; country: string }>();
+const addCity = (countryCode: string, city: string) => {
+  if (!/^[A-Z]{2}$/u.test(countryCode) || !city || city.length > 100 || city.trim() !== city
+      || /[\u0000-\u001f\u007f]/u.test(city)) return;
+  cityOptions.set(`${countryCode}:${city}`, { key: `${countryCode}:${city}`, city, country: countryCode });
+};
+for (const community of communityById.values()) addCity(community.country ?? '', community.city ?? '');
+for (const group of allGroups) for (const event of group.events) {
+  const location = effectiveEventLocation(event, communityById);
+  addCity(location.country, location.city);
 }
 const eventCities = [...cityOptions.values()]
-  .map(({ organizerCountries, ...city }) => ({ ...city, organizerCountries: [...organizerCountries] }))
-  .sort((left, right) => left.city.localeCompare(right.city, 'es') || (left.country ?? '').localeCompare(right.country ?? ''));
-const eventModes = (Object.keys(modeLabel) as Array<keyof typeof modeLabel>)
-  .filter((mode) => contextEvents.some((event) => event.mode === mode));
-const eventCommunities = [...new Map(contextEvents
-  .filter((event) => event.communityId && communityById.has(event.communityId))
-  .map((event) => {
-    const community = communityById.get(event.communityId!)!;
-    return [community.id, { title: community.title, country: community.country }] as const;
-  })).entries()]
-  .map(([id, community]) => ({ id, ...community }))
-  .filter((community) => !country || community.country === country)
+  .sort((left, right) => left.city.localeCompare(right.city, 'es') || left.country.localeCompare(right.country, 'es'));
+const eventCommunities = [...communityById.values()]
+  .map(({ id, title, country: communityCountry, city }) => ({ id, title, country: communityCountry, city }))
   .sort((left, right) => left.title.localeCompare(right.title, 'es', { sensitivity: 'base' }));
 const recordingsByEvent = new Map<string, CatalogResource[]>();
 for (const recording of resources.filter((resource) => resource.eventId)) {
@@ -63,20 +61,10 @@ for (const recording of resources.filter((resource) => resource.eventId)) {
 }
 const recordingForGroup = (group: { event: CatalogEvent; events: CatalogEvent[] }) =>
   group.events.flatMap((event) => recordingsByEvent.get(event.id) ?? [])[0];
-const countryName = country ? countryLabel(country) : undefined;
-const eventModePhrase = modes?.length === 1 && modes[0] === 'online'
-  ? 'en línea'
-  : modes?.includes('in-person') && modes.includes('hybrid') ? 'presenciales o híbridos' : undefined;
-const eventFactsIntro = countryName
-  ? `En la agenda de ${countryName} hay`
-  : eventModePhrase ? `En la agenda de eventos ${eventModePhrase} hay` : 'En la agenda de eventos AWS hay';
-const emptyFacts = countryName
-  ? `No hay eventos publicados organizados por comunidades de ${countryName}.`
-  : eventModePhrase
-    ? `No hay eventos ${eventModePhrase} publicados.`
-  : 'No hay eventos publicados en esta agenda.';
+const eventFactsIntro = 'En la agenda de eventos AWS hay';
+const emptyFacts = 'No hay eventos publicados en esta agenda.';
 const emptyHint = 'No hay eventos que coincidan con estos filtros. Prueba con otras opciones o limpia los filtros.';
-const eventFactsText = eventAgendaSummaryText(contextGroups.map(({ event }) => event), renderTime, {
+const eventFactsText = eventAgendaSummaryText(defaultGroups.map(({ event }) => event), renderTime, {
   intro: eventFactsIntro, emptyMessage: emptyFacts,
 });
 const eventStatus = (event: CatalogEvent, now: Date) => {
@@ -108,28 +96,31 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
         </div>
       </div>
       <div class="event-agenda__filters">
+        <div class="event-agenda__primary-fields">
+          <label for="event-mode">Modalidad <select id="event-mode" data-event-mode>
+            <option value="" selected={defaultMode === ''}>Presencial + online</option>
+            <option value="online" selected={defaultMode === 'online'}>Solo online</option>
+            <option value="in-person" selected={defaultMode === 'in-person'}>Solo presencial</option>
+          </select></label>
+          <label for="event-country">País de asistencia presencial <select id="event-country" data-event-country>
+            <option value="" selected={!country}>Todos los países</option>
+            {eventCountries.map((code) => <option value={code} selected={code === country}>{countryLabel(code)}</option>)}
+          </select></label>
+          <label for="event-city">Ciudad de asistencia presencial <select id="event-city" data-event-city>
+            <option value="">Todas las ciudades</option>
+            {eventCities.map((item) => <option value={item.key} data-event-countries={item.country}>
+              {item.city} · {countryLabel(item.country)}
+            </option>)}
+          </select></label>
+        </div>
         <label class="event-agenda__include-ended"><input type="checkbox" data-event-include-ended checked /> Incluir eventos finalizados</label>
         <details class="event-agenda__secondary-filters" data-event-secondary-disclosure open>
           <summary><span data-event-secondary-label>Más filtros</span></summary>
           <div class="event-agenda__secondary-fields">
-            {modes?.length !== 1 && <label for="event-mode">Modalidad <select id="event-mode" data-event-mode>
-              <option value="">Todas</option>
-              {eventModes.map((mode) => <option value={mode}>{modeLabel[mode]}</option>)}
-            </select></label>}
-            {!country && <label for="event-country">País de la comunidad organizadora <select id="event-country" data-event-country>
-              <option value="">Todos los países</option>
-              {eventCountries.map((code) => <option value={code}>{countryLabel(code)}</option>)}
-            </select></label>}
             <label for="event-community">Comunidad <select id="event-community" data-event-community>
               <option value="">Todas las comunidades</option>
-              {eventCommunities.map(({ id, title, country: communityCountry }) => <option value={id} data-event-country={communityCountry}>{title}</option>)}
+              {eventCommunities.map(({ id, title, country: communityCountry, city }) => <option value={id} data-event-country={communityCountry} data-event-city={city}>{title}</option>)}
             </select></label>
-            {!(modes?.length === 1 && modes[0] === 'online') && <label for="event-city">Ciudad del evento <select id="event-city" data-event-city disabled={eventCities.length === 0}>
-              <option value="">{eventCities.length ? 'Todas las ciudades' : 'Sin ciudades confirmadas'}</option>
-              {eventCities.map((item) => <option value={item.key} data-event-countries={item.organizerCountries.join('|')}>
-                {item.city}{item.organizerCountries.length ? ` · grupos de ${item.organizerCountries.map(countryLabel).join(' y ')}` : ''}
-              </option>)}
-            </select></label>}
             <label class="event-agenda__zone" for="event-zone">Zona horaria
               <select id="event-zone" data-event-zone>
                 {timeZones.map((timeZone) => <option value={timeZone} selected={timeZone === 'UTC'}>{timeZone}</option>)}
@@ -140,18 +131,18 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
       </div>
       <div class="event-agenda__filter-summary"><button type="button" data-event-clear>Limpiar filtros</button><span data-event-count aria-live="polite"></span></div>
     </div>
-    <noscript><p>Se muestran todos los eventos publicados. Para filtrar la agenda, activa JavaScript.</p></noscript>
+    <noscript><p>Se muestra la selección inicial de esta ruta, con eventos publicados de todas las fechas. Activa JavaScript para cambiar modalidad y ubicación y consultar la agenda por semana o mes.</p></noscript>
     <ol
       class="event-agenda__list"
       data-event-list
-      data-event-context-country={country ?? ''}
-      data-event-context-modes={modes?.join('|') ?? ''}
+      data-event-default-country={country ?? ''}
+      data-event-default-mode={defaultMode}
       data-event-known-ids={[...new Set(allGroups.flatMap((group) => group.events.map((event) => event.id)))].join('|')}
     >
-      {contextGroups.map((group) => {
-        const { event } = group;
+      {allGroups.map((group) => {
+        const event = defaultRepresentatives.get(group.events) ?? group.event;
+        const selectedByDefault = defaultRepresentatives.has(group.events);
         const recording = recordingForGroup(group);
-        const eventCountries = eventCountriesByGroup(group);
         const eventCommunities = [...new Set(group.events.map((item) => item.communityId).filter((id): id is string => Boolean(id)))];
         const aliasIds = group.events.map((item) => item.id).join('|');
         const organizers = [...new Map(group.events.map((cohost) => {
@@ -168,11 +159,12 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
           data-event-id={event.id}
           data-event-date={eventLocalDate(event.startsAt, event.timeZone)}
           data-event-mode={event.mode}
-          data-country={organizerCountry(event, communityById) ?? ''}
-          data-event-countries={eventCountries.join('|')}
+          data-country={effectiveEventLocation(event, communityById).country}
+          data-event-countries={[...new Set(group.events.map((item) => effectiveEventLocation(item, communityById).country).filter(Boolean))].join('|')}
           data-event-communities={eventCommunities.join('|')}
-          data-event-city={event.city ? `${organizerCountry(event, communityById) ?? ''}:${event.city}` : ''}
+          data-event-city={effectiveEventLocation(event, communityById).city ? `${effectiveEventLocation(event, communityById).country}:${effectiveEventLocation(event, communityById).city}` : ''}
           data-event-alias-ids={aliasIds}
+          hidden={!selectedByDefault}
           tabindex="-1"
         >
           {group.events.filter((member) => member.id !== event.id).map((member) => (
@@ -180,7 +172,16 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
           ))}
           {group.events.map((member) => {
             const memberCountry = organizerCountry(member, communityById) ?? '';
+            const memberLocation = effectiveEventLocation(member, communityById);
+            const displayedPlace = [member.place, memberLocation.city, memberLocation.country ? countryLabel(memberLocation.country) : '']
+              .filter(Boolean).join(' · ');
             const memberStatus = eventStatus(member, renderTime);
+            const defaultHasLocation = Boolean(defaultFilters.country || defaultFilters.city);
+            const defaultLocationMatches = (!defaultFilters.country || memberLocation.country === defaultFilters.country)
+              && (!defaultFilters.city || `${memberLocation.country}:${memberLocation.city}` === defaultFilters.city);
+            const hybridParticipation = defaultMode === 'online' || (!defaultMode && defaultHasLocation && !defaultLocationMatches)
+              ? 'Participación remota'
+              : defaultMode === 'in-person' ? 'Participación presencial' : 'Participación presencial y remota';
             return <article
               data-event-member-id={member.id}
               data-member-starts-at={member.startsAt}
@@ -188,6 +189,7 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
               data-member-time-zone={member.timeZone}
               data-member-mode={member.mode}
               data-country={memberCountry}
+              data-member-venue-country={member.venueCountry ?? ''}
               data-member-city={member.city ?? ''}
               data-member-community-id={member.communityId ?? ''}
               hidden={member.id !== event.id}
@@ -195,6 +197,9 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
               <div class="event-card__date">
                 <time datetime={member.startsAt} data-event-date-label>{eventDateLabel(member.startsAt, member.timeZone)}</time>
                 <span>{modeLabel[member.mode]}</span>
+                {member.mode === 'hybrid' && <span data-event-participation>
+                  {hybridParticipation}
+                </span>}
                 <span data-event-status>{memberStatus}</span>
               </div>
               <h3>{member.title}</h3>
@@ -205,7 +210,7 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
                 <div><dt>Organiza</dt><dd>{organizers.map(({ community, name }, index) => <span>
                   {index > 0 && '; '}{community ? <a href={resourceHref(community)}>{name}</a> : name}
                 </span>)}</dd></div>
-                {member.place && <div><dt>Lugar</dt><dd>{member.place}</dd></div>}
+                {displayedPlace && <div><dt>Lugar</dt><dd>{displayedPlace}</dd></div>}
               </dl>
               <div class="event-card__links">
                 <a href={member.registrationUrl} target="_blank" rel="noopener noreferrer" data-event-registration>{memberStatus === 'Finalizado' ? 'Ver evento' : 'Inscribirme'}</a>
@@ -218,16 +223,16 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
         </li>;
       })}
     </ol>
-    {contextGroups.length > 12 && <button class="event-agenda__more" type="button" data-event-more hidden>Mostrar más eventos</button>}
+    {allGroups.length > 12 && <button class="event-agenda__more" type="button" data-event-more hidden>Mostrar más eventos</button>}
     <p
       class="event-agenda__empty"
       data-event-empty
       data-event-no-matches={emptyHint}
       data-event-no-events={emptyFacts}
       role="status"
-      hidden={contextGroups.length > 0}
+      hidden={defaultGroups.length > 0}
     >
-      {contextGroups.length > 0 ? emptyHint : emptyFacts}
+      {defaultGroups.length > 0 ? emptyHint : emptyFacts}
     </p>
   </div>
 </section>
@@ -247,6 +252,33 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
 
   .event-agenda__filters {
     grid-template-columns: 1fr;
+  }
+
+  .event-agenda__primary-fields {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .event-agenda__primary-fields label,
+  .event-agenda__secondary-fields label {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+    color: var(--color-ink);
+    font-size: 13px;
+    font-weight: 650;
+  }
+
+  .event-agenda__primary-fields select,
+  .event-agenda__secondary-fields select {
+    width: 100%;
+    min-height: 42px;
+    padding: 7px 9px;
+    border: 1px solid var(--color-control);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--color-ink);
   }
 
   .event-agenda__secondary-fields {
@@ -374,7 +406,7 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
   }
 
   .event-agenda__secondary-fields {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     margin-top: 10px;
   }
 
@@ -469,6 +501,11 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
     .event-agenda__secondary-fields {
       grid-template-columns: 1fr;
       margin-top: 10px;
+    }
+
+    .event-agenda__primary-fields {
+      grid-template-columns: 1fr;
+      gap: 10px;
     }
 
     :global(.event-page--agenda) {

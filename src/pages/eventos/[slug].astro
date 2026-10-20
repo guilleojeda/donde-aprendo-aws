@@ -50,10 +50,10 @@ if (!path || (pageType === 'country' && (!countryName || communities.length === 
   throw new Error(`No event page is available for ${country ?? collectionKey ?? 'unknown route'}`);
 }
 const title = collection?.title ?? `Eventos AWS en ${countryName} | ¿Dónde Aprendo AWS?`;
-const description = collection?.description ?? `Eventos AWS en ${countryName}, organizados por comunidades de ese país. Encuentra encuentros en línea, presenciales e híbridos y consulta fechas, horarios e inscripción.`;
+const description = collection?.description ?? `Eventos AWS en ${countryName}: asistencia presencial y participación online de comunidades de cualquier país. Consulta fechas, horarios e inscripción.`;
 const canonical = new URL(path, 'https://dondeaprendoaws.com').href;
 const heading = collection ? collection.label : `Eventos AWS en ${countryName}`;
-const intro = collection?.intro ?? `Consulta por semana o mes los eventos publicados por comunidades AWS de ${countryName}, incluidos los finalizados: modalidad, fechas, horarios y enlaces al evento.`;
+const intro = collection?.intro ?? `Consulta eventos presenciales en ${countryName} y eventos con participación online, incluidos los finalizados. Revisa modalidad, fechas, horarios y enlaces al evento.`;
 const collectionModes = collection?.modes as readonly CatalogEvent['mode'][] | undefined;
 const collectionLinks = [
   { path: '/eventos/', label: 'Todos los eventos' },
@@ -75,13 +75,13 @@ const faqItems = eventFaqItems({ countryName, collectionKey });
       </ol>
     </nav>
     <header class="directory-hero">
-      <h1>{heading}</h1>
-      <p>{intro}</p>
+      <h1 data-event-page-heading>{heading}</h1>
+      <p data-event-page-intro>{intro}</p>
     </header>
     <CountryNavigation pages={countryPages} section="eventos" currentCountry={country} />
     <CollectionNavigation links={collectionLinks} currentPath={collection?.path} label="Colecciones de eventos" />
     <EventAgenda events={events} resources={resources} country={country} modes={collectionModes} />
-    {country && <PageFactSummary text={communityFactText(communities, countryName)} label={`Comunidades organizadoras en ${countryName}`} />}
+    {country && <PageFactSummary text={communityFactText(communities, countryName)} label={`Comunidades de ${countryName}`} />}
     {country && <CountryCommunitySummary country={country} communities={communities} />}
     <PageFaq items={faqItems} id={country ? 'event-country-faq' : `event-${collectionKey}-faq`} />
   </main>

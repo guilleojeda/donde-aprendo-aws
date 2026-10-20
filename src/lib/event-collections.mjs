@@ -2,11 +2,11 @@
 export const EVENT_COLLECTIONS = Object.freeze({
   online: Object.freeze({
     path: '/eventos/online/',
-    label: 'Eventos AWS online',
-    title: 'Eventos AWS online | ¿Dónde Aprendo AWS?',
-    description: 'Encuentra eventos AWS online publicados, incluidos los finalizados, organizados por comunidades de Latinoamérica. Consulta fechas, horarios, comunidad organizadora y enlaces al evento.',
-    intro: 'Explora eventos AWS online publicados, incluidos los finalizados, de comunidades de Latinoamérica. En cada ficha encuentras fecha, horario, comunidad organizadora y enlaces al evento.',
-    modes: Object.freeze(['online']),
+    label: 'Eventos AWS online e híbridos',
+    title: 'Eventos AWS online e híbridos | ¿Dónde Aprendo AWS?',
+    description: 'Encuentra eventos AWS publicados con participación online, incluidos los híbridos y los finalizados, organizados por comunidades de Latinoamérica. Consulta fechas, horarios, comunidad organizadora y enlaces al evento.',
+    intro: 'Explora eventos AWS publicados con participación online, incluidos los híbridos y los finalizados, de comunidades de Latinoamérica. En cada ficha encuentras fecha, horario, comunidad organizadora y enlaces al evento.',
+    modes: Object.freeze(['online', 'hybrid']),
   }),
   presenciales: Object.freeze({
     path: '/eventos/presenciales/',

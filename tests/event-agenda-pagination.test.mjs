@@ -21,6 +21,13 @@ try {
 } catch (error) {
   if (error?.code !== 'ERR_MODULE_NOT_FOUND' || error.url !== periodModuleUrl.href) throw error;
 }
+const eventLocationModuleUrl = new URL('../src/lib/event-location.mjs', import.meta.url);
+let eventLocationApi = {};
+try {
+  eventLocationApi = await import(eventLocationModuleUrl.href);
+} catch (error) {
+  if (error?.code !== 'ERR_MODULE_NOT_FOUND' || error.url !== eventLocationModuleUrl.href) throw error;
+}
 const script = readFileSync(new URL('../src/scripts/event-agenda.js', import.meta.url), 'utf8')
   .replace(/^import \{[\s\S]*?\} from '[^']+';\s*/gmu, '');
 
@@ -29,7 +36,7 @@ class MockElement {
     this.document = document;
     this.tagName = tagName;
     this.dataset = dataset;
-    this.value = value;
+    this._value = '';
     this.hidden = hidden;
     this.checked = checked;
     this.children = [];
@@ -38,6 +45,15 @@ class MockElement {
     this.options = [];
     this.scrollIntoViewCalls = [];
     this.attributes = new Map();
+    this.value = value;
+  }
+
+  get value() { return this._value; }
+  set value(value) {
+    const next = String(value ?? '');
+    this._value = this.tagName === 'SELECT' && next && !this.options.some((option) => option.value === next)
+      ? ''
+      : next;
   }
 
   get selectedOptions() {
@@ -109,6 +125,7 @@ function createEventCards(count, {
         eventDate: spec.localDate ?? '2026-10-05',
         eventMode: spec.mode ?? mode,
         country: spec.country ?? 'AR',
+        eventVenueCountry: spec.venueCountry ?? '',
         eventCountries: spec.countries ?? eventCountriesByCard[index] ?? spec.country ?? 'AR',
         eventCommunities: spec.communities ?? eventCommunitiesByCard[index] ?? '',
         eventCity: spec.city ?? '',
@@ -133,6 +150,7 @@ function createEventCards(count, {
           memberTimeZone: memberSpec.timeZone ?? card.dataset.eventTimeZone,
           memberMode: memberSpec.mode ?? card.dataset.eventMode,
           country: memberSpec.country ?? countries[memberIndex] ?? countries[0] ?? '',
+          memberVenueCountry: memberSpec.venueCountry ?? (memberIndex === 0 ? card.dataset.eventVenueCountry : ''),
           memberCity: memberSpec.city ?? card.dataset.eventCity.replace(/^[^:]*:/u, ''),
           memberCommunityId: memberSpec.communityId ?? communities[memberIndex] ?? communities[0] ?? '',
         },
@@ -142,15 +160,17 @@ function createEventCards(count, {
       view.registration.href = spec.registrationUrl ?? `https://example.test/events/${index}`;
       view.dateLabel = new MockElement(null);
       view.timeLabel = new MockElement(null);
+      view.participationLabel = new MockElement(null);
       view.querySelector = (selector) => ({
         '[data-event-status]': view.status,
         '[data-event-registration]': view.registration,
         '[data-event-date-label]': view.dateLabel,
         '[data-event-time-label]': view.timeLabel,
+        '[data-event-participation]': view.participationLabel,
         '[data-visitor-time]': null,
         '[data-visitor-time-value]': null,
       }[selector] ?? null);
-      view.children = [view.status, view.registration, view.dateLabel, view.timeLabel];
+      view.children = [view.status, view.registration, view.dateLabel, view.timeLabel, view.participationLabel];
       return view;
     });
     card.children = card.members;
@@ -163,13 +183,16 @@ function createEventCards(count, {
 
 function createAgenda({
   count, now = Date.parse('2026-10-05T12:00:00Z'), alternateModes = false,
-  expiringFirst = false, filter = '', withCommunityFilters = false,
-  nationalAgenda = false, communityOptions = [
-    { value: 'community-ar', dataset: { eventCountry: 'AR' } },
-    { value: 'community-co', dataset: { eventCountry: 'CO' } },
+  expiringFirst = false, filter = '', communityOptions = [
+    { value: 'community-ar', dataset: { eventCountry: 'AR', eventCity: 'Córdoba' } },
+    { value: 'community-co', dataset: { eventCountry: 'CO', eventCity: 'Bogotá' } },
   ], eventCountriesByCard = [], eventCommunitiesByCard = [], events = [], includeEnded = true,
   hostname = 'dondeaprendoaws.com', visitorTimeZone = 'UTC', pathname = '/eventos/', hash = '',
-  routeCountry = '', routeModes = [], additionalKnownEventIds = [],
+  defaultCountry = '', defaultMode = '', additionalKnownEventIds = [],
+  cityOptions = [
+    { value: 'AR:Córdoba', dataset: { eventCountries: 'AR' } },
+    { value: 'CO:Bogotá', dataset: { eventCountries: 'CO' } },
+  ],
 }) {
   let clock = now;
   let nextTimer = 0;
@@ -199,8 +222,8 @@ function createAgenda({
     tagName: 'OL',
     dataset: {
       eventKnownIds: knownEventIds.join('|'),
-      eventContextCountry: routeCountry,
-      eventContextModes: routeModes.join('|'),
+      eventDefaultCountry: defaultCountry,
+      eventDefaultMode: defaultMode,
     },
   });
   agenda.children = [...cards];
@@ -218,8 +241,21 @@ function createAgenda({
   });
   const more = new MockElement(document, { tagName: 'BUTTON', hidden: true });
   const countLabel = new MockElement(document);
+  const routeCountryLabel = { AR: 'Argentina', CO: 'Colombia', PE: 'Perú' }[defaultCountry];
+  document.title = 'Eventos AWS | ¿Dónde Aprendo AWS?';
+  const pageHeading = new MockElement(document, {
+    textContent: routeCountryLabel ? `Eventos AWS en ${routeCountryLabel}` : 'Eventos AWS publicados',
+  });
+  const pageIntro = new MockElement(document, {
+    textContent: routeCountryLabel
+      ? `Consulta eventos organizados por comunidades de ${routeCountryLabel}.`
+      : 'Consulta eventos de comunidades AWS de Latinoamérica.',
+  });
   const summary = new MockElement(document, {
-    dataset: { eventSummaryIntro: 'Hay', eventSummaryEmpty: 'No hay eventos publicados en esta agenda.' },
+    dataset: {
+      eventSummaryIntro: 'En la agenda de eventos AWS hay',
+      eventSummaryEmpty: 'No hay eventos publicados en esta agenda.',
+    },
   });
   const viewButtons = ['week', 'month'].map((view) => {
     const button = new MockElement(document, {
@@ -247,36 +283,45 @@ function createAgenda({
   const zoneFilter = new MockElement(document, { tagName: 'SELECT' });
   zoneFilter.options = ['UTC', 'America/Bogota', 'America/New_York', 'Asia/Tokyo']
     .map((value) => ({ value, dataset: {} }));
-  const routeLinks = ['/eventos/', '/eventos/argentina/', '/eventos/online/', '/eventos/presenciales/']
-    .map((href) => {
-      const link = new MockElement(document, { tagName: 'A', dataset: { eventAgendaRoute: 'true' } });
+  const routeLinks = [
+    { href: '/eventos/', dataset: {}, target: '' },
+    { href: '/eventos/argentina/', dataset: { eventAgendaCountry: 'AR' }, target: '' },
+    { href: '/eventos/colombia/', dataset: { eventAgendaCountry: 'CO' }, target: '_blank' },
+    { href: '/eventos/online/', dataset: { eventAgendaModes: 'online' }, target: '' },
+    { href: '/eventos/presenciales/', dataset: { eventAgendaModes: 'in-person' }, target: '' },
+  ].map(({ href, dataset, target }) => {
+      const link = new MockElement(document, { tagName: 'A', dataset: { eventAgendaRoute: 'true', ...dataset } });
       link.href = href;
+      link.target = target;
+      link.rel = target === '_blank' ? 'noopener noreferrer' : '';
       return link;
     });
   const unrelatedRouteLink = new MockElement(document, { tagName: 'A' });
   unrelatedRouteLink.href = '/aprender/';
   const modeFilter = new MockElement(document, { tagName: 'SELECT' });
   modeFilter.options = ['', 'online', 'in-person'].map((value) => ({ value, dataset: {} }));
-  const countryFilter = withCommunityFilters && !nationalAgenda ? new MockElement(document, { tagName: 'SELECT' }) : null;
-  const communityFilter = withCommunityFilters ? new MockElement(document, { tagName: 'SELECT' }) : null;
-  if (countryFilter) countryFilter.options = ['', 'AR', 'CO'].map((value) => ({ value, dataset: {} }));
-  if (communityFilter) communityFilter.options = [{ value: '', dataset: {} }, ...communityOptions];
+  const countryFilter = new MockElement(document, { tagName: 'SELECT' });
+  countryFilter.options = ['', 'AR', 'CO', 'PE'].map((value) => ({ value, dataset: {} }));
+  const cityFilter = new MockElement(document, { tagName: 'SELECT' });
+  cityFilter.options = [{ value: '', dataset: {} }, ...cityOptions];
+  const communityFilter = new MockElement(document, { tagName: 'SELECT' });
+  communityFilter.options = [{ value: '', dataset: {} }, ...communityOptions];
   const filterFields = new MockElement(document);
   filterFields.querySelector = (selector) => ({
     '[data-event-mode]': modeFilter,
-    // Preserve the old selector's DOM behavior so the national regression test
-    // would fail if the script starts treating the first community option as a country control.
-    '[data-event-country]': countryFilter ?? communityFilter?.options[1] ?? null,
+    '[data-event-country]': countryFilter,
     'select[data-event-country]': countryFilter,
     '[data-event-community]': communityFilter,
+    '[data-event-city]': cityFilter,
     '[data-event-zone]': zoneFilter,
   }[selector] ?? null);
-  const clear = withCommunityFilters ? new MockElement(document, { tagName: 'BUTTON' }) : null;
+  const clear = new MockElement(document, { tagName: 'BUTTON' });
   const includeEndedFilter = new MockElement(document, {
     tagName: 'INPUT', checked: true,
   });
   const elements = new Map([
     ['[data-event-list]', agenda], ['[data-event-empty]', empty], ['.event-agenda__filters', filterFields],
+    ['[data-event-page-heading]', pageHeading], ['[data-event-page-intro]', pageIntro],
     ['[data-event-secondary-disclosure]', null], ['[data-event-secondary-label]', null],
     ['[data-event-clear]', clear], ['[data-event-more]', more], ['[data-event-count]', countLabel],
     ['[data-event-summary]', summary],
@@ -367,6 +412,7 @@ function createAgenda({
     eventMatchesFilters, parseEventAgendaSearch, secondaryEventAgendaFilterCount,
     serializeEventAgendaSearch, shouldOpenEventAgendaSecondaryFilters, trackRegistrationClick,
     eventAgendaSummaryText, nextEventAgendaTransition, eventGroupsForAgenda,
+    effectiveEventLocation: eventLocationApi.effectiveEventLocation,
     eventDateLabel, eventLocalDate, eventTimeLabel,
     ...eventAgendaPeriodApi, Intl: controlledIntl,
     Date: ClockDate,
@@ -386,7 +432,8 @@ function createAgenda({
   }
 
   return {
-    cards, countLabel, document, empty, modeFilter, more, countryFilter, communityFilter, clear,
+    cards, countLabel, document, empty, modeFilter, more, countryFilter, cityFilter, communityFilter, clear,
+    pageHeading, pageIntro,
     get children() { return agenda.children; },
     viewButtons, previousPeriod, nextPeriod, periodLabel, zoneFilter, routeLinks, unrelatedRouteLink, window,
     includeEnded: includeEndedFilter, summary, historyEntries, history, location, storageCalls, telemetryCalls,
@@ -454,7 +501,6 @@ test('legacy date ranges open their first date as a week and normalize the URL',
 test('view changes, month navigation, clear, and history preserve the period reference and local checkbox', () => {
   const agenda = createAgenda({
     count: 0,
-    withCommunityFilters: true,
     filter: '?utm_source=period-test&view=week&date=2026-10-01&tz=UTC&mode=online&country=AR&community=community-ar&includeEnded=0',
   });
   const initialHistoryLength = agenda.historyEntries.length;
@@ -585,7 +631,6 @@ test('an empty period retains valid filters and clear changes only filters', () 
   const agenda = createAgenda({
     count: 1,
     now,
-    withCommunityFilters: true,
     filter: '?view=week&date=2026-10-05&tz=UTC&mode=online&country=AR&community=community-ar',
     events: [
       { id: 'next-week', startsAt: '2026-10-12T01:00:00Z', endsAt: '2026-10-12T02:00:00Z', mode: 'online', country: 'AR', communities: 'community-ar' },
@@ -620,17 +665,270 @@ test('an empty period retains valid filters and clear changes only filters', () 
   assert.equal(agenda.includeEnded.checked, false);
 });
 
-test('navigation links carry the current period and zone without rewriting unrelated links', () => {
+test('route defaults yield to query overrides and online keeps the physical location inactive', () => {
+  const agenda = createAgenda({
+    count: 4,
+    pathname: '/eventos/argentina/',
+    defaultCountry: 'AR',
+    defaultMode: 'in-person',
+    filter: '?view=week&date=2026-10-05&tz=UTC&country=CO&city=CO%3ABogot%C3%A1&mode=in-person',
+    events: [
+      {
+        id: 'organizer-ar-venue-co', mode: 'in-person', country: 'AR', venueCountry: 'CO',
+        city: 'Bogotá', communities: 'community-ar',
+      },
+      {
+        id: 'organizer-co-venue-ar', mode: 'hybrid', country: 'CO', venueCountry: 'AR',
+        city: 'Córdoba', communities: 'community-co',
+      },
+      { id: 'remote-co', mode: 'online', country: 'CO', communities: 'community-co' },
+      {
+        id: 'organizer-ar-venue-ar', mode: 'in-person', country: 'AR', venueCountry: 'AR',
+        city: 'Córdoba', communities: 'community-ar',
+      },
+    ],
+  });
+
+  assert.ok(agenda.modeFilter && agenda.countryFilter && agenda.cityFilter && agenda.communityFilter,
+    'national routes keep every agenda filter control available');
+  assert.equal(agenda.modeFilter.value, 'in-person');
+  assert.equal(agenda.countryFilter.value, 'CO', 'the explicit country overrides the Argentina route default');
+  assert.equal(agenda.cityFilter.value, 'CO:Bogotá');
+  assert.deepEqual(agenda.cards.filter((card) => !card.hidden).map((card) => card.dataset.eventId), ['organizer-ar-venue-co'],
+    'the physical venue determines location even when its organizer is from another country');
+  assert.doesNotMatch(agenda.pageHeading.textContent, /Argentina/u,
+    'the page heading follows the query selection instead of the original route');
+  assert.doesNotMatch(agenda.pageIntro.textContent, /Argentina/u,
+    'the page introduction does not retain a contradictory route country');
+
+  agenda.modeFilter.value = 'online';
+  agenda.modeFilter.emit('change');
+  assert.equal(agenda.countryFilter.value, 'CO', 'online retains the selected country');
+  assert.equal(agenda.cityFilter.value, 'CO:Bogotá', 'online retains the selected city');
+  assert.equal(agenda.countryFilter.disabled, true);
+  assert.equal(agenda.cityFilter.disabled, true);
+  assert.deepEqual(agenda.cards.filter((card) => !card.hidden).map((card) => card.dataset.eventId), [
+    'organizer-co-venue-ar', 'remote-co',
+  ], 'online includes remote and hybrid events globally, including the hybrid outside Bogotá');
+  const remoteHybrid = agenda.cards.find((card) => card.dataset.eventId === 'organizer-co-venue-ar');
+  assert.match(remoteHybrid.members[0].participationLabel.textContent, /participación remota/iu,
+    'an out-of-location hybrid identifies the remote way it matched the online selection');
+  const onlineUrl = new URL(agenda.historyEntries.at(-1).url, 'https://dondeaprendoaws.com');
+  assert.equal(onlineUrl.pathname, '/eventos/argentina/', 'changing filters keeps the current route');
+  assert.equal(onlineUrl.searchParams.get('country'), 'CO');
+  assert.equal(onlineUrl.searchParams.get('city'), 'CO:Bogotá');
+  assert.equal(onlineUrl.searchParams.get('mode'), 'online');
+
+  agenda.modeFilter.value = 'in-person';
+  agenda.modeFilter.emit('change');
+  assert.equal(agenda.countryFilter.disabled, false);
+  assert.equal(agenda.cityFilter.disabled, false);
+  assert.equal(agenda.countryFilter.value, 'CO');
+  assert.equal(agenda.cityFilter.value, 'CO:Bogotá');
+  assert.deepEqual(agenda.cards.filter((card) => !card.hidden).map((card) => card.dataset.eventId), ['organizer-ar-venue-co']);
+
+  agenda.history.back();
+  assert.equal(agenda.modeFilter.value, 'online');
+  assert.equal(agenda.countryFilter.disabled, true);
+  assert.equal(agenda.cityFilter.disabled, true);
+  agenda.history.forward();
+  assert.equal(agenda.modeFilter.value, 'in-person');
+  assert.equal(agenda.countryFilter.value, 'CO');
+  assert.equal(agenda.cityFilter.value, 'CO:Bogotá');
+});
+
+test('a query-overridden national route reveals an event fragment without switching routes', () => {
+  const agenda = createAgenda({
+    count: 1,
+    pathname: '/eventos/argentina/',
+    defaultCountry: 'AR',
+    defaultMode: 'in-person',
+    filter: '?view=week&date=2026-10-05&tz=UTC&country=CO&mode=online',
+    hash: '#event-remote-co',
+    events: [{ id: 'remote-co', mode: 'online', country: 'CO', communities: 'community-co' }],
+  });
+
+  assert.equal(agenda.cards[0].hidden, false,
+    'the effective query selection controls fragment eligibility on a national route');
+  assert.equal(agenda.document.activeElement, agenda.cards[0]);
+  assert.equal(agenda.location.pathname, '/eventos/argentina/');
+  assert.equal(agenda.location.hash, '#event-remote-co');
+  assert.equal(agenda.window.location.href, '', 'a compatible query override does not trigger a global-route fallback');
+});
+
+test('an omitted query mode uses the route default and normalizes away its duplicate value', () => {
+  const agenda = createAgenda({
+    count: 3,
+    pathname: '/eventos/online/',
+    defaultMode: 'online',
+    events: [
+      { id: 'pure-online', mode: 'online', country: 'CO' },
+      { id: 'remote-hybrid', mode: 'hybrid', country: 'AR', venueCountry: 'AR', city: 'Córdoba' },
+      { id: 'physical-only', mode: 'in-person', country: 'AR', venueCountry: 'AR', city: 'Córdoba' },
+    ],
+  });
+
+  assert.ok(agenda.modeFilter && agenda.countryFilter && agenda.cityFilter && agenda.communityFilter,
+    'the online collection route also keeps every agenda filter control available');
+  assert.equal(agenda.modeFilter.value, 'online');
+  assert.equal(new URLSearchParams(agenda.location.search).has('mode'), false,
+    'the route supplies its modality without storing a duplicate override');
+  assert.deepEqual(agenda.cards.filter((card) => !card.hidden).map((card) => card.dataset.eventId), [
+    'pure-online', 'remote-hybrid',
+  ]);
+});
+
+test('a valid city absent from the catalog is represented and incompatible cities are discarded', () => {
+  const city = 'AR:San Juan';
+  const agenda = createAgenda({ count: 0, filter: `?country=AR&city=${encodeURIComponent(city)}` });
+
+  assert.equal(agenda.cityFilter.value, city);
+  assert.equal(agenda.cityFilter.selectedOptions[0]?.value, city,
+    'the selected city is represented by a selectable option even when no resource provides it');
+  assert.equal(agenda.cityFilter.options.some((option) => option.value === city), true);
+
+  const incompatible = createAgenda({ count: 0, filter: '?country=CO&city=AR%3ASan%20Juan' });
+  assert.equal(incompatible.cityFilter.value, '');
+  assert.equal(incompatible.cityFilter.options.some((option) => option.value === city), false);
+});
+
+test('a community without matching events remains selectable independently of physical country', () => {
+  const agenda = createAgenda({
+    count: 1,
+    filter: '?country=AR&community=community-pe',
+    communityOptions: [
+      { value: 'community-ar', dataset: { eventCountry: 'AR', eventCity: 'Córdoba' } },
+      { value: 'community-co', dataset: { eventCountry: 'CO', eventCity: 'Bogotá' } },
+      { value: 'community-pe', dataset: { eventCountry: 'PE', eventCity: 'Lima' } },
+    ],
+    events: [{ id: 'argentina-event', mode: 'in-person', country: 'AR', venueCountry: 'AR', communities: 'community-ar' }],
+  });
+
+  assert.equal(agenda.countLabel.textContent, '0 eventos');
+  assert.equal(agenda.communityFilter.value, 'community-pe');
+  assert.equal(agenda.communityFilter.selectedOptions[0]?.value, 'community-pe');
+  assert.equal(agenda.communityFilter.options[3].disabled, false);
+  assert.equal(agenda.communityFilter.options[3].hidden, false);
+  assert.equal(new URLSearchParams(agenda.location.search).get('community'), 'community-pe');
+  assert.equal(agenda.empty.hidden, false);
+
+  const reloaded = createAgenda({
+    count: 1,
+    filter: agenda.location.search,
+    communityOptions: [
+      { value: 'community-ar', dataset: { eventCountry: 'AR', eventCity: 'Córdoba' } },
+      { value: 'community-co', dataset: { eventCountry: 'CO', eventCity: 'Bogotá' } },
+      { value: 'community-pe', dataset: { eventCountry: 'PE', eventCity: 'Lima' } },
+    ],
+    events: [{ id: 'argentina-event', mode: 'in-person', country: 'AR', venueCountry: 'AR', communities: 'community-ar' }],
+  });
+  assert.equal(reloaded.communityFilter.value, 'community-pe');
+  assert.equal(reloaded.countLabel.textContent, '0 eventos',
+    'reload does not discard a published community identity when its period has no matching cards');
+});
+
+test('clear writes empty overrides for route defaults and reload preserves combined no-location selection', () => {
+  const defaults = createAgenda({
+    count: 0,
+    pathname: '/eventos/argentina/',
+    defaultCountry: 'AR',
+    filter: '?view=month&date=2026-10-01&tz=UTC&country=AR&city=AR%3AC%C3%B3rdoba&community=community-ar',
+  });
+  defaults.includeEnded.checked = false;
+  defaults.clear.click();
+  let query = new URLSearchParams(defaults.location.search);
+  assert.equal(query.has('country'), true);
+  assert.equal(query.get('country'), '', 'country= clears the national route default');
+  assert.equal(query.has('city'), false);
+  assert.equal(query.has('community'), false);
+  assert.equal(query.get('view'), 'month');
+  assert.equal(query.get('date'), '2026-10-01');
+  assert.equal(query.get('tz'), 'UTC');
+  assert.equal(defaults.includeEnded.checked, false);
+
+  const afterNationalReload = createAgenda({
+    count: 0, pathname: '/eventos/argentina/', defaultCountry: 'AR',
+    filter: defaults.location.search,
+  });
+  assert.equal(afterNationalReload.countryFilter.value, '');
+
+  const online = createAgenda({
+    count: 0,
+    pathname: '/eventos/online/',
+    defaultMode: 'online',
+    filter: '?view=week&date=2026-10-05&tz=UTC&mode=online&country=AR&city=AR%3AC%C3%B3rdoba',
+  });
+  online.includeEnded.checked = false;
+  online.clear.click();
+  query = new URLSearchParams(online.location.search);
+  assert.equal(query.has('mode'), true);
+  assert.equal(query.get('mode'), '', 'mode= clears the online route default');
+  assert.equal(query.has('country'), false);
+  assert.equal(query.has('city'), false);
+  assert.equal(query.get('view'), 'week');
+  assert.equal(query.get('date'), '2026-10-05');
+  assert.equal(query.get('tz'), 'UTC');
+  assert.equal(online.includeEnded.checked, false);
+
+  const afterOnlineReload = createAgenda({
+    count: 0, pathname: '/eventos/online/', defaultMode: 'online',
+    filter: online.location.search,
+  });
+  assert.equal(afterOnlineReload.modeFilter.value, '', 'reload honors the explicit combined-mode override');
+});
+
+test('navigation links replace only the destination facet and keep native anchor paths', () => {
   const agenda = createAgenda({
     count: 0,
-    filter: '?utm_source=keep&view=week&date=2026-10-05&tz=UTC&mode=online',
+    filter: '?utm_source=keep&view=week&date=2026-10-05&tz=UTC&mode=online&country=AR&city=AR%3AC%C3%B3rdoba&community=community-ar',
   });
+  const [globalLink, argentinaLink, colombiaLink, onlineLink, inPersonLink] = agenda.routeLinks;
+  const globalUrl = new URL(globalLink.href, 'https://dondeaprendoaws.com');
+  assert.equal(globalUrl.pathname, '/eventos/');
+  assert.equal(globalUrl.searchParams.get('country'), 'AR');
+  assert.equal(globalUrl.searchParams.get('city'), 'AR:Córdoba');
+  assert.equal(globalUrl.searchParams.get('mode'), 'online');
+  assert.equal(globalUrl.searchParams.get('community'), 'community-ar');
+
+  const argentinaUrl = new URL(argentinaLink.href, 'https://dondeaprendoaws.com');
+  assert.equal(argentinaUrl.pathname, '/eventos/argentina/');
+  assert.equal(argentinaUrl.searchParams.get('country') ?? 'AR', 'AR');
+  assert.equal(argentinaUrl.searchParams.get('city'), 'AR:Córdoba');
+  assert.equal(argentinaUrl.searchParams.get('community'), 'community-ar');
+  assert.equal(argentinaUrl.searchParams.get('mode'), 'online');
+
+  const colombiaUrl = new URL(colombiaLink.href, 'https://dondeaprendoaws.com');
+  assert.equal(colombiaUrl.pathname, '/eventos/colombia/');
+  assert.equal(colombiaUrl.searchParams.get('country') ?? 'CO', 'CO');
+  assert.equal(colombiaUrl.searchParams.get('city'), null, 'a city incompatible with the destination country is cleared');
+  assert.equal(colombiaUrl.searchParams.get('community'), 'community-ar',
+    'a country destination preserves a community identity from another country');
+  assert.equal(colombiaUrl.searchParams.get('mode'), 'online');
+
+  const onlineUrl = new URL(onlineLink.href, 'https://dondeaprendoaws.com');
+  assert.equal(onlineUrl.pathname, '/eventos/online/');
+  assert.equal(onlineUrl.searchParams.get('country'), 'AR');
+  assert.equal(onlineUrl.searchParams.get('city'), 'AR:Córdoba');
+  assert.equal(onlineUrl.searchParams.get('community'), 'community-ar');
+  assert.equal(onlineUrl.searchParams.get('mode') ?? 'online', 'online');
+
+  const inPersonUrl = new URL(inPersonLink.href, 'https://dondeaprendoaws.com');
+  assert.equal(inPersonUrl.pathname, '/eventos/presenciales/');
+  assert.equal(inPersonUrl.searchParams.get('country'), 'AR');
+  assert.equal(inPersonUrl.searchParams.get('city'), 'AR:Córdoba');
+  assert.equal(inPersonUrl.searchParams.get('community'), 'community-ar');
+  assert.equal(inPersonUrl.searchParams.get('mode') ?? 'in-person', 'in-person');
+
   for (const link of agenda.routeLinks) {
     const url = new URL(link.href, 'https://dondeaprendoaws.com');
     assert.equal(url.searchParams.get('view'), 'week');
     assert.equal(url.searchParams.get('date'), '2026-10-05');
     assert.equal(url.searchParams.get('tz'), 'UTC');
+    assert.equal(url.searchParams.get('utm_source'), 'keep');
+    assert.equal(link.listeners.has('click'), false, 'route links keep native anchor navigation');
   }
+  assert.equal(colombiaLink.target, '_blank', 'the script preserves a route link opened in a new tab');
+  assert.equal(colombiaLink.rel, 'noopener noreferrer');
   assert.equal(agenda.unrelatedRouteLink.href, '/aprender/');
 
   agenda.nextPeriod.click();
@@ -643,11 +941,36 @@ test('navigation links carry the current period and zone without rewriting unrel
   assert.equal(agenda.unrelatedRouteLink.href, '/aprender/');
 });
 
+test('a route default uses combined mode unless an explicit legacy mode overrides it', () => {
+  const normal = createAgenda({
+    count: 0,
+    pathname: '/eventos/online/',
+    defaultMode: 'online',
+  });
+  assert.equal(normal.modeFilter.value, 'online');
+  assert.equal(normal.modeFilter.options.some((option) => option.value === 'hybrid'), false,
+    'hybrid has no permanent primary-mode option');
+
+  const legacyHybrid = createAgenda({
+    count: 3,
+    filter: '?mode=hybrid',
+    events: [
+      { id: 'old-physical', mode: 'in-person', country: 'AR', venueCountry: 'AR', city: 'Córdoba' },
+      { id: 'old-hybrid', mode: 'hybrid', country: 'CO', venueCountry: 'CO', city: 'Bogotá' },
+      { id: 'old-online', mode: 'online', country: 'CO' },
+    ],
+  });
+  assert.equal(legacyHybrid.modeFilter.value, 'hybrid');
+  assert.equal(legacyHybrid.modeFilter.selectedOptions[0]?.value, 'hybrid',
+    'the legacy value remains represented while the old URL is active');
+  assert.deepEqual(legacyHybrid.cards.filter((card) => !card.hidden).map((card) => card.dataset.eventId), ['old-hybrid']);
+  assert.equal(new URLSearchParams(legacyHybrid.location.search).get('mode'), 'hybrid');
+});
+
 test('an out-of-period co-host fragment opens its start period and keeps compatible filters', () => {
   const agenda = createAgenda({
     count: 1,
     now: Date.parse('2026-10-05T12:00:00Z'),
-    withCommunityFilters: true,
     filter: '?view=week&date=2026-10-05&tz=America%2FArgentina%2FCordoba&mode=online&country=AR&community=community-ar',
     hash: '#event-cohost',
     events: [
@@ -720,7 +1043,7 @@ test('a route fallback for a known fragment retains view, reference date and zon
   const agenda = createAgenda({
     count: 0,
     pathname: '/eventos/argentina/',
-    routeCountry: 'AR',
+    defaultCountry: 'AR',
     additionalKnownEventIds: ['event-outside-route'],
     filter: '?utm_source=route&view=month&date=2026-10-01&tz=America%2FBogota&country=AR&includeEnded=0',
     hash: '#event-event-outside-route',
@@ -1033,7 +1356,6 @@ test('a past co-host fragment reopens its group and clears only its incompatible
   const agenda = createAgenda({
     count: 2,
     now,
-    withCommunityFilters: true,
     includeEnded: false,
     filter: '?country=CO&mode=in-person&community=community-co',
     events: [
@@ -1076,51 +1398,46 @@ test('a fragment reveals an occurrence beyond the first page', () => {
   assert.equal(agenda.location.hash, '#event-event-25');
 });
 
-test('community options follow country filters, normalize history, and keep co-host data', () => {
+test('community identity stays selected across country changes and history', () => {
   const agenda = createAgenda({
     count: 3,
-    withCommunityFilters: true,
     filter: '?country=AR&community=community-co',
-    eventCountriesByCard: ['AR|CO', 'CO', 'AR'],
-    eventCommunitiesByCard: ['community-ar|community-co', 'community-co', 'community-ar'],
+    events: [
+      { id: 'community-co-in-ar', mode: 'hybrid', country: 'CO', venueCountry: 'AR', city: 'Córdoba', communities: 'community-co' },
+      { id: 'community-co-in-co', mode: 'in-person', country: 'CO', venueCountry: 'CO', city: 'Bogotá', communities: 'community-co' },
+      { id: 'community-ar-in-ar', mode: 'in-person', country: 'AR', venueCountry: 'AR', city: 'Córdoba', communities: 'community-ar' },
+    ],
   });
 
   assert.equal(agenda.countryFilter.value, 'AR');
-  assert.equal(agenda.communityFilter.value, '', 'an incompatible URL community is cleared before filtering');
-  assert.equal(agenda.communityFilter.options[2].disabled, true);
-  assert.equal(agenda.cards[0].hidden, false, 'the co-hosted card still matches Argentina');
+  assert.equal(agenda.communityFilter.value, 'community-co',
+    'a community remains selected even when its organizer country differs from the physical location');
+  assert.equal(agenda.communityFilter.options[2].disabled, false);
+  assert.equal(agenda.cards[0].hidden, false, 'physical Argentina location and Colombia community can match together');
   assert.equal(agenda.cards[1].hidden, true);
-  assert.equal(agenda.cards[2].hidden, false);
+  assert.equal(agenda.cards[2].hidden, true);
 
-  agenda.communityFilter.value = 'community-ar';
-  agenda.communityFilter.emit('change');
+  agenda.countryFilter.value = 'CO';
+  agenda.countryFilter.emit('change');
+  assert.equal(agenda.communityFilter.value, 'community-co', 'changing physical country preserves community identity');
+  assert.equal(agenda.communityFilter.options[1].disabled, false);
+  assert.equal(agenda.communityFilter.options[2].disabled, false);
+  assert.equal(agenda.cards[0].hidden, false, 'combined attendance retains the hybrid through global remote access');
+  assert.equal(agenda.cards[1].hidden, false);
+  assert.equal(agenda.cards[2].hidden, true);
   const communityUrl = new URL(agenda.historyEntries.at(-1).url, 'https://dondeaprendoaws.com');
   assert.equal(communityUrl.pathname, '/eventos/');
-  assert.equal(communityUrl.searchParams.get('country'), 'AR');
-  assert.equal(communityUrl.searchParams.get('community'), 'community-ar');
+  assert.equal(communityUrl.searchParams.get('country'), 'CO');
+  assert.equal(communityUrl.searchParams.get('community'), 'community-co');
   assert.ok(communityUrl.searchParams.has('view'));
   assert.ok(communityUrl.searchParams.has('date'));
   assert.ok(communityUrl.searchParams.has('tz'));
 
-  agenda.countryFilter.value = 'CO';
-  agenda.countryFilter.emit('change');
-  assert.equal(agenda.communityFilter.value, '', 'changing country clears the incompatible community');
-  assert.equal(agenda.communityFilter.options[1].disabled, true);
-  assert.equal(agenda.communityFilter.options[2].disabled, false);
-  const countryUrl = new URL(agenda.historyEntries.at(-1).url, 'https://dondeaprendoaws.com');
-  assert.equal(countryUrl.pathname, '/eventos/');
-  assert.equal(countryUrl.searchParams.get('country'), 'CO');
-  assert.equal(countryUrl.searchParams.has('view'), true);
-  assert.deepEqual(agenda.cards.filter((card) => !card.hidden).map((card) => card.id.slice('event-'.length)), ['event-0', 'event-1']);
-  assert.equal(agenda.cards[0].dataset.eventId, 'event-0-cohost-1', 'the visible member switches to the matching co-host');
-  assert.equal(agenda.cards[0].members[1].hidden, false);
-  assert.equal(agenda.cards[0].members[0].hidden, true);
-
   agenda.history.back();
-  assert.equal(agenda.countryFilter.value, 'AR', 'back restores the prior country');
-  assert.equal(agenda.communityFilter.value, 'community-ar', 'back restores the compatible community');
-  assert.deepEqual(agenda.cards.filter((card) => !card.hidden).map((card) => card.id.slice('event-'.length)), ['event-0', 'event-2']);
-  assert.equal(agenda.cards[0].dataset.eventCommunities, 'community-ar|community-co', 'co-host metadata stays intact');
+  assert.equal(agenda.countryFilter.value, 'AR', 'back restores the prior physical country');
+  assert.equal(agenda.communityFilter.value, 'community-co', 'back restores the independent community selection');
+  assert.equal(agenda.cards[0].hidden, false);
+  assert.equal(agenda.cards[1].hidden, true);
 
   agenda.clear.click();
   assert.equal(agenda.countryFilter.value, '');
@@ -1136,21 +1453,31 @@ test('community options follow country filters, normalize history, and keep co-h
   assert.equal(agenda.communityFilter.options[2].disabled, false);
 });
 
-test('national agendas preserve and filter their first community option without a country control', () => {
+test('all route types keep the full primary location and community controls', () => {
   const agenda = createAgenda({
     count: 3,
-    withCommunityFilters: true,
-    nationalAgenda: true,
+    pathname: '/eventos/argentina/',
+    defaultCountry: 'AR',
     communityOptions: [
-      { value: 'community-girls', dataset: { eventCountry: 'AR' } },
-      { value: 'community-co', dataset: { eventCountry: 'CO' } },
+      { value: 'community-girls', dataset: { eventCountry: 'AR', eventCity: 'Córdoba' } },
+      { value: 'community-co', dataset: { eventCountry: 'CO', eventCity: 'Bogotá' } },
     ],
-    eventCountriesByCard: ['AR', 'AR|CO', 'AR'],
-    eventCommunitiesByCard: ['community-girls', 'community-co', 'community-girls'],
+    events: [
+      { id: 'event-0', mode: 'in-person', country: 'AR', venueCountry: 'AR', city: 'Córdoba', communities: 'community-girls' },
+      { id: 'event-1', mode: 'in-person', country: 'CO', venueCountry: 'CO', city: 'Bogotá', communities: 'community-co' },
+      { id: 'event-2', mode: 'in-person', country: 'AR', venueCountry: 'AR', city: 'Córdoba', communities: 'community-girls' },
+    ],
   });
 
-  assert.equal(agenda.countryFilter, null, 'National agendas have no country control.');
+  assert.ok(agenda.modeFilter);
+  assert.ok(agenda.countryFilter, 'a national route still offers the location country control');
+  assert.ok(agenda.cityFilter, 'a national route still offers the city control');
+  assert.ok(agenda.communityFilter);
+  assert.equal(agenda.countryFilter.value, 'AR', 'an omitted country query uses the national route default');
+  assert.deepEqual(agenda.cards.filter((card) => !card.hidden).map((card) => card.dataset.eventId), ['event-0', 'event-2']);
   assert.equal(agenda.communityFilter.options[1].value, 'community-girls');
+  assert.equal(agenda.communityFilter.options[2].disabled, false,
+    'resource communities remain available independently of the route country');
   agenda.communityFilter.value = 'community-girls';
   agenda.communityFilter.emit('change');
   assert.deepEqual(agenda.cards.filter((card) => !card.hidden).map((card) => card.dataset.eventId), ['event-0', 'event-2']);
@@ -1164,7 +1491,8 @@ test('national agendas preserve and filter their first community option without 
   assert.equal(agenda.communityFilter.options[1].value, 'community-girls', 'Clear does not mutate the first community option.');
   assert.equal(agenda.communityFilter.value, '');
   const clearedNationalUrl = new URL(agenda.historyEntries.at(-1).url, 'https://dondeaprendoaws.com');
-  assert.equal(clearedNationalUrl.pathname, '/eventos/');
+  assert.equal(clearedNationalUrl.pathname, '/eventos/argentina/');
+  assert.equal(clearedNationalUrl.searchParams.get('country'), '', 'Clear explicitly overrides the national default location');
   assert.equal(clearedNationalUrl.searchParams.has('community'), false);
   assert.equal(clearedNationalUrl.searchParams.has('view'), true);
   assert.equal(clearedNationalUrl.searchParams.has('date'), true);
@@ -1172,4 +1500,75 @@ test('national agendas preserve and filter their first community option without 
   agenda.history.back();
   assert.equal(agenda.communityFilter.value, 'community-girls', 'Back restores the first community selection.');
   assert.equal(agenda.communityFilter.options[1].value, 'community-girls');
+});
+
+test('the client represents a valid country and city even when neither appears in the catalog', () => {
+  const agenda = createAgenda({ count: 0, filter: '?country=US&city=US%3AAnchorage' });
+
+  assert.equal(agenda.countryFilter.value, 'US');
+  assert.equal(agenda.countryFilter.options.some((option) => option.value === 'US'), true);
+  assert.equal(agenda.cityFilter.value, 'US:Anchorage');
+  assert.equal(agenda.cityFilter.options.some((option) => option.value === 'US:Anchorage'), true);
+  const query = new URLSearchParams(agenda.location.search);
+  assert.equal(query.get('country'), 'US');
+  assert.equal(query.get('city'), 'US:Anchorage');
+  assert.equal(agenda.countLabel.textContent, '0 eventos');
+});
+
+test('the client uses a published community city when the event has no explicit city', () => {
+  const agenda = createAgenda({
+    count: 1,
+    filter: '?mode=in-person&country=CO&city=CO%3ABogot%C3%A1&community=community-co',
+    events: [{
+      id: 'community-city-fallback', mode: 'in-person', country: 'CO', communities: 'community-co',
+    }],
+  });
+
+  assert.equal(agenda.countLabel.textContent, '1 evento');
+  assert.equal(agenda.cards[0].hidden, false,
+    'an absent raw member city is left undefined so effectiveEventLocation can use the published community city');
+});
+
+test('an implicit national location default falls back globally for an incompatible event fragment', () => {
+  const agenda = createAgenda({
+    count: 1,
+    pathname: '/eventos/argentina/',
+    defaultCountry: 'AR',
+    hash: '#event-physical-co',
+    events: [{
+      id: 'physical-co', mode: 'in-person', country: 'CO', venueCountry: 'CO',
+      city: 'Bogotá', communities: 'community-co',
+    }],
+  });
+  const fallback = new URL(agenda.window.location.href, 'https://dondeaprendoaws.com');
+
+  assert.equal(fallback.pathname, '/eventos/');
+  assert.equal(fallback.hash, '#event-physical-co');
+  assert.equal(fallback.searchParams.has('country'), false,
+    'the incompatible implicit route location is cleared on the global destination');
+  assert.equal(fallback.searchParams.has('view'), true);
+  assert.equal(fallback.searchParams.has('date'), true);
+  assert.equal(fallback.searchParams.has('tz'), true);
+});
+
+test('an implicit online default falls back globally for a physical-only event fragment', () => {
+  const agenda = createAgenda({
+    count: 1,
+    pathname: '/eventos/online/',
+    defaultMode: 'online',
+    hash: '#event-physical-ar',
+    events: [{
+      id: 'physical-ar', mode: 'in-person', country: 'AR', venueCountry: 'AR',
+      city: 'Córdoba', communities: 'community-ar',
+    }],
+  });
+  const fallback = new URL(agenda.window.location.href, 'https://dondeaprendoaws.com');
+
+  assert.equal(fallback.pathname, '/eventos/');
+  assert.equal(fallback.hash, '#event-physical-ar');
+  assert.equal(fallback.searchParams.has('mode'), false,
+    'the incompatible implicit online default is cleared on the global destination');
+  assert.equal(fallback.searchParams.has('view'), true);
+  assert.equal(fallback.searchParams.has('date'), true);
+  assert.equal(fallback.searchParams.has('tz'), true);
 });

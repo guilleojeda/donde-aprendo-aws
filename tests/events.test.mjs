@@ -5,6 +5,7 @@ import * as eventApi from '../src/lib/events.mjs';
 import { eventDateLabel, eventLocalDate, eventTimeLabel, upcomingEvents, uniqueUpcomingEventGroups, uniqueUpcomingEvents } from '../src/lib/events.mjs';
 import { eventMatchesFilters } from '../src/lib/event-agenda-filter.mjs';
 import { eventGroupCountries, eventGroupsForAgenda } from '../src/lib/event-agenda-groups.mjs';
+import { createEventAgendaPeriod } from '../src/lib/event-agenda-period.mjs';
 import { fingerprintPublicCatalog } from '../src/lib/publication.mjs';
 
 const event = (overrides = {}) => ({
@@ -24,6 +25,9 @@ test('projects published event details and excludes private submission data', ()
   assert.equal(JSON.stringify(visible).includes('private@example.test'), false);
   assert.equal(Object.hasOwn(visible, 'published'), false);
   assert.equal(projectPublishedCatalog([event({ country: 'PY' })])[0].country, 'PY');
+  const [usVenue] = projectPublishedCatalog([event({ country: 'AR', venueCountry: 'US', city: 'Boston' })]);
+  assert.equal(usVenue.country, 'AR');
+  assert.equal(usVenue.venueCountry, 'US', 'the venue country is public independently of the organizer country enum');
   const [placed] = projectPublishedCatalog([event({ city: 'San Lorenzo', communityId: 'meetup-123', sourceGroupId: 'internal-only' })]);
   assert.equal(placed.city, 'San Lorenzo');
   assert.equal(placed.communityId, 'meetup-123');
@@ -54,6 +58,8 @@ test('rejects invalid event dates, zones, venues and registration links', () => 
     { country: 'XX' },
     { city: '  San Lorenzo' },
     { city: 'Ciudad\nOtra' },
+    { venueCountry: 'us' },
+    { venueCountry: 'USA' },
     { communityId: 'bad id' },
     { mode: 'online', city: 'San Lorenzo' },
   ]) assert.throws(() => projectPublishedCatalog([event(changed)]));
@@ -139,8 +145,6 @@ test('agenda group selection filters members together and chooses a live matchin
   ]);
   const options = {
     communityById: new Map(),
-    country: 'CO',
-    modes: ['hybrid'],
     now: '2026-10-17T13:00:00Z',
     filters: {
       mode: 'hybrid', country: 'CO', city: 'CO:Cali', community: 'community-co',
@@ -193,6 +197,146 @@ test('keeps separate physical sessions with the same title, start and organizer 
   assert.deepEqual(groups.map(({ events }) => events.length), [1, 1, 1]);
 });
 
+test('groups by effective physical country using community context in the general and upcoming wrappers', () => {
+  const communityById = new Map([
+    ['community-co', { country: 'CO', city: 'Bogotá' }],
+  ]);
+  const shared = {
+    title: 'Sesión en el mismo auditorio', startsAt: '2026-10-20T08:00:00Z',
+    endsAt: '2026-10-20T10:00:00Z', mode: 'in-person', place: 'Auditorio central',
+  };
+  const communityFallback = event({
+    ...shared, id: 'a-community-fallback', country: undefined, city: undefined,
+    communityId: 'community-co', registrationUrl: 'https://example.test/community-fallback',
+  });
+  const explicitVenue = event({
+    ...shared, id: 'b-explicit-venue', country: 'AR', venueCountry: 'CO', city: 'Bogotá',
+    registrationUrl: 'https://example.test/explicit-venue',
+  });
+  const otherPhysicalCountry = event({
+    ...shared, id: 'c-other-physical-country', country: 'AR', city: 'Córdoba',
+    registrationUrl: 'https://example.test/other-country',
+  });
+  const rows = [otherPhysicalCountry, explicitVenue, communityFallback];
+
+  const groups = eventApi.uniqueEventGroups(rows, communityById);
+  assert.deepEqual(groups.map(({ events }) => events.map(({ id }) => id)), [
+    ['a-community-fallback', 'b-explicit-venue'], ['c-other-physical-country'],
+  ]);
+  assert.deepEqual(eventGroupCountries(groups[0], communityById), ['CO'],
+    'location options use the venue country rather than a co-host organizer country');
+
+  const upcomingGroups = uniqueUpcomingEventGroups(rows, '2026-10-19T00:00:00Z', communityById);
+  assert.deepEqual(upcomingGroups.map(({ events }) => events.length), [2, 1]);
+  assert.deepEqual(uniqueUpcomingEvents(rows, '2026-10-19T00:00:00Z', communityById)
+    .map(({ id }) => id), ['a-community-fallback', 'c-other-physical-country']);
+});
+
+test('agenda mode and location filters select local physical and global remote attendance once', () => {
+  const communityById = new Map();
+  const start = '2026-10-20T08:00:00Z';
+  const common = { startsAt: start, endsAt: '2026-10-20T10:00:00Z' };
+  const rows = [
+    event({ ...common, id: 'ar-physical', title: 'AR físico', mode: 'in-person', country: 'AR', city: 'Córdoba', registrationUrl: 'https://example.test/ar-physical' }),
+    event({ ...common, id: 'ar-hybrid', title: 'AR híbrido', mode: 'hybrid', country: 'AR', city: 'Córdoba', registrationUrl: 'https://example.test/ar-hybrid' }),
+    event({ ...common, id: 'co-physical-same-city-name', title: 'CO físico', mode: 'in-person', country: 'AR', venueCountry: 'CO', city: 'Córdoba', registrationUrl: 'https://example.test/co-physical' }),
+    event({ ...common, id: 'co-hybrid', title: 'CO híbrido', mode: 'hybrid', country: 'AR', venueCountry: 'CO', city: 'Bogotá', registrationUrl: 'https://example.test/co-hybrid' }),
+    event({ ...common, id: 'remote', title: 'Remoto', mode: 'online', country: 'CO', city: undefined, registrationUrl: 'https://example.test/remote' }),
+    event({ ...common, id: 'ar-physical-other-city', title: 'AR otra ciudad', mode: 'in-person', country: 'AR', city: 'Rosario', registrationUrl: 'https://example.test/ar-other-city' }),
+  ];
+  const groups = eventApi.uniqueEventGroups(rows, communityById);
+  const select = (filters, extra = {}) => eventGroupsForAgenda(groups, {
+    communityById, now: '2026-10-19T00:00:00Z', filters, ...extra,
+  }).map(({ event: representative }) => representative.id);
+
+  assert.deepEqual(select({ mode: 'in-person', country: 'AR', city: 'AR:Córdoba' }), [
+    'ar-hybrid', 'ar-physical',
+  ], 'presencial selects local physical and hybrid attendance, disambiguated by country and city');
+  assert.deepEqual(select({ mode: 'online', country: 'AR', city: 'AR:Córdoba' }), [
+    'ar-hybrid', 'co-hybrid', 'remote',
+  ], 'online includes remote and hybrid attendance globally, even when a location is retained');
+  assert.deepEqual(select({ mode: '', country: 'AR', city: 'AR:Córdoba' }), [
+    'ar-hybrid', 'ar-physical', 'co-hybrid', 'remote',
+  ], 'the combined mode unions local physical with global remote possibilities without duplicating hybrids');
+  assert.deepEqual(select({ mode: 'hybrid', country: 'AR', city: 'AR:Córdoba' }), [
+    'ar-hybrid', 'co-hybrid',
+  ], 'the legacy hybrid mode stays exclusive while retaining both hybrid attendance options');
+  assert.equal(new Set(select({ mode: '', country: 'AR', city: 'AR:Córdoba' })).size, 4);
+
+  assert.deepEqual(select(
+    { mode: 'in-person', country: 'AR', city: 'AR:Córdoba' },
+    { country: 'CO', modes: ['online'] },
+  ), ['ar-hybrid', 'ar-physical'], 'selection is driven by explicit filters, not hidden route country or mode restrictions');
+});
+
+test('community selection and every other condition must match the same co-host member', () => {
+  const members = [
+    event({
+      id: 'a-co-community-ar-venue', title: 'Sesión compartida', mode: 'in-person', country: 'CO',
+      venueCountry: 'AR', city: 'Córdoba', communityId: 'community-co',
+      startsAt: '2026-10-20T08:00:00Z', endsAt: '2026-10-20T10:00:00Z',
+      registrationUrl: 'https://example.test/community-venue',
+    }),
+    event({
+      id: 'b-ar-community-same-venue', title: 'Sesión compartida', mode: 'in-person', country: 'AR',
+      venueCountry: 'AR', city: 'Córdoba', communityId: 'community-ar',
+      startsAt: '2026-10-20T08:00:00Z', endsAt: '2026-10-20T10:00:00Z',
+      registrationUrl: 'https://example.test/community-venue?source=cohost',
+    }),
+  ];
+  const [group] = eventApi.uniqueEventGroups(members);
+  const options = {
+    now: '2026-10-19T00:00:00Z',
+    filters: { mode: 'in-person', country: 'AR', city: 'AR:Córdoba', community: 'community-co' },
+  };
+
+  const [selected] = eventGroupsForAgenda([group], options);
+  assert.equal(selected.event.id, 'a-co-community-ar-venue',
+    'a Colombia community may host an event physically in Argentina and supply the matching representative');
+  assert.deepEqual(selected.events.map(({ id }) => id), ['a-co-community-ar-venue', 'b-ar-community-same-venue'],
+    'the displayed card retains every co-host listing');
+
+  const falseMatch = [{ ...group, events: members.map((member) => ({ ...member })) }];
+  falseMatch[0].events[0].venueCountry = 'CO';
+  falseMatch[0].events[0].city = 'Bogotá';
+  assert.deepEqual(eventGroupsForAgenda(falseMatch, options), [],
+    'location on one member cannot combine with community on another member');
+});
+
+test('agenda selection excludes ended and out-of-period members independently', () => {
+  const period = createEventAgendaPeriod({ view: 'week', date: '2026-10-17', timeZone: 'UTC' });
+  const rows = [
+    event({
+      id: 'ended-inside-period', title: 'Finalizado dentro', mode: 'in-person', country: 'AR', city: 'Córdoba',
+      startsAt: '2026-10-17T07:00:00Z', endsAt: '2026-10-17T08:00:00Z',
+      registrationUrl: 'https://example.test/ended-inside-period',
+    }),
+    event({
+      id: 'active-inside-period', title: 'Activo dentro', mode: 'in-person', country: 'AR', city: 'Córdoba',
+      startsAt: '2026-10-17T09:00:00Z', endsAt: '2026-10-17T10:00:00Z',
+      registrationUrl: 'https://example.test/active-inside-period',
+    }),
+    event({
+      id: 'active-outside-period', title: 'Activo fuera', mode: 'in-person', country: 'AR', city: 'Córdoba',
+      startsAt: '2026-10-19T00:00:00Z', endsAt: '2026-10-19T02:00:00Z',
+      registrationUrl: 'https://example.test/active-outside-period',
+    }),
+  ];
+  const groups = eventApi.uniqueEventGroups(rows);
+  const options = {
+    period, includeEnded: false, now: '2026-10-17T09:30:00Z',
+    filters: { mode: '', country: 'AR', city: 'AR:Córdoba' },
+  };
+
+  assert.deepEqual(eventGroupsForAgenda(groups, options).map(({ event: representative }) => representative.id),
+    ['active-inside-period']);
+  assert.deepEqual(eventGroupsForAgenda(groups, { ...options, now: '2026-10-17T11:00:00Z' }), [],
+    'once the in-period event ends, neither ended events nor an active event outside the period returns');
+  assert.deepEqual(eventGroupsForAgenda(groups, { ...options, includeEnded: true, now: '2026-10-17T11:00:00Z' })
+    .map(({ event: representative }) => representative.id), ['ended-inside-period', 'active-inside-period'],
+  'including ended events does not widen the selected period');
+});
+
 test('groups cross-posts at the same physical venue across normalized text and optional city', () => {
   const cordoba = event({
     id: 'event-session-cordoba', title: 'Taller en Acción', country: 'AR', mode: 'in-person',
@@ -215,7 +359,9 @@ test('groups cross-posts at the same physical venue across normalized text and o
   assert.equal(accepted.length, 3);
   assert.equal(group.events.length, 3);
   assert.deepEqual(eventGroupCountries(group, new Map()), ['AR']);
-  assert.equal(eventGroupsForAgenda([group], { communityById: new Map(), country: 'AR' }).length, 1);
+  assert.equal(eventGroupsForAgenda([group], {
+    communityById: new Map(), filters: { country: 'AR' },
+  }).length, 1);
 });
 
 test('canonical registration URLs retain physical co-hosts across countries and query variants', () => {
@@ -232,7 +378,9 @@ test('canonical registration URLs retain physical co-hosts across countries and 
   );
 
   assert.deepEqual(eventGroupCountries(group, new Map()).sort(), ['AR', 'CO']);
-  assert.equal(eventGroupsForAgenda([group], { communityById: new Map(), country: 'CO' }).length, 1);
+  assert.equal(eventGroupsForAgenda([group], {
+    communityById: new Map(), filters: { country: 'CO' },
+  }).length, 1);
 });
 
 test('keeps same-session cross-posts connected to every canonical registration URL', () => {
@@ -260,15 +408,15 @@ test('keeps same-session cross-posts connected to every canonical registration U
 
 test('a canonical co-host from another country does not split the session alias', () => {
   const first = event({
-    id: 'event-mixed-url-first', title: 'Sesión presencial', country: 'PY', city: 'Asunción',
+    id: 'event-mixed-url-first', title: 'Sesión presencial', country: 'PY', venueCountry: 'PY', city: 'Asunción',
     place: 'Centro de Convenciones', registrationUrl: 'https://example.test/first',
   });
   const cohost = event({
-    id: 'event-mixed-url-cohost', title: 'Sesión presencial', country: 'AR', city: 'Asunción',
+    id: 'event-mixed-url-cohost', title: 'Sesión presencial', country: 'AR', venueCountry: 'PY', city: 'Asunción',
     place: 'Centro de Convenciones', registrationUrl: 'https://example.test/first?source=cohost',
   });
   const laterCrossPost = event({
-    id: 'event-mixed-url-later', title: 'Sesión presencial', country: 'PY', city: 'Asunción',
+    id: 'event-mixed-url-later', title: 'Sesión presencial', country: 'PY', venueCountry: 'PY', city: 'Asunción',
     place: 'Centro de Convenciones', registrationUrl: 'https://example.test/another',
   });
   const groups = uniqueUpcomingEventGroups(

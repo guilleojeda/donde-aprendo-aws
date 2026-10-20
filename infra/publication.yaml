@@ -69,6 +69,7 @@ Resources:
                       - mode
                       - place
                       - city
+                      - venueCountry
                       - registrationUrl
                       - published
                   StringEquals:

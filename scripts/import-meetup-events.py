@@ -31,9 +31,9 @@ SYNC_OWNED_FIELDS = (
     'recordType', 'title', 'description', 'startsAt', 'endsAt', 'timeZone',
     'organizer', 'mode', 'registrationUrl', 'country', 'communityId',
     'published', 'sourceGroupId', 'sourceModifiedAt', 'autoSync', 'place',
-    'city',
+    'city', 'venueCountry',
 )
-OPTIONAL_SYNC_FIELDS = ('place', 'city')
+OPTIONAL_SYNC_FIELDS = ('place', 'city', 'venueCountry')
 
 
 class JsonLdScripts(HTMLParser):
@@ -146,6 +146,34 @@ def clean_description(value):
     return text[:240].rstrip()
 
 
+def venue_country_code(value, event_id):
+    if value is None:
+        return None
+    if isinstance(value, str):
+        candidates = [value]
+        has_value = bool(value.strip())
+    elif isinstance(value, dict):
+        candidates = [value.get('identifier'), value.get('name')]
+        has_candidate_value = any(candidate is not None and not (
+            isinstance(candidate, str) and not candidate.strip()
+        ) for candidate in candidates)
+        country_type = value.get('@type')
+        has_unknown_metadata = bool(set(value) - {'@type', 'identifier', 'name'})
+        has_non_country_type = country_type not in (None, 'Country')
+        has_value = has_candidate_value or has_unknown_metadata or has_non_country_type
+    else:
+        raise ValueError(f'Invalid address country for event {event_id}')
+
+    for candidate in candidates:
+        if isinstance(candidate, str):
+            code = candidate.strip()
+            if re.fullmatch(r'[A-Za-z]{2}', code, re.ASCII):
+                return code.upper()
+    if not has_value:
+        return None
+    raise ValueError(f'Invalid address country for event {event_id}')
+
+
 def map_event(group, entry, page):
     if page.get('eventStatus') not in ('https://schema.org/EventScheduled',
                                        'https://schema.org/EventRescheduled'):
@@ -162,20 +190,25 @@ def map_event(group, entry, page):
     }.get(attendance)
     if mode is None:
         raise ValueError(f'Unknown event mode: {entry["id"]}')
-    location = page.get('location') or {}
-    if isinstance(location, list):
-        location = next((item for item in location if item.get('@type') == 'Place'), {})
-    address = location.get('address') or {}
-    if not isinstance(address, dict):
-        address = {}
-    place = ', '.join(dict.fromkeys(part.strip() for part in [
-        location.get('name') or '', address.get('streetAddress') or '',
-    ] if isinstance(part, str) and part.strip()))
-    locality = address.get('addressLocality')
-    city = locality.strip() if isinstance(locality, str) else ''
-    if (len(city) > 100 or re.search(r'[\x00-\x1f\x7f]', city)
-            or city.casefold() in {'tbd', 'to be determined', 'por definir', 'online', 'en línea'}):
-        city = ''
+    place = ''
+    city = ''
+    venue_country = None
+    if mode != 'online':
+        location = page.get('location') or {}
+        if isinstance(location, list):
+            location = next((item for item in location if item.get('@type') == 'Place'), {})
+        address = location.get('address') or {}
+        if not isinstance(address, dict):
+            address = {}
+        venue_country = venue_country_code(address.get('addressCountry'), entry['id'])
+        place = ', '.join(dict.fromkeys(part.strip() for part in [
+            location.get('name') or '', address.get('streetAddress') or '',
+        ] if isinstance(part, str) and part.strip()))
+        locality = address.get('addressLocality')
+        city = locality.strip() if isinstance(locality, str) else ''
+        if (len(city) > 100 or re.search(r'[\x00-\x1f\x7f]', city)
+                or city.casefold() in {'tbd', 'to be determined', 'por definir', 'online', 'en línea'}):
+            city = ''
     record = {
         'recordType': 'event',
         'id': f'meetup-event-{entry["id"]}',
@@ -198,6 +231,8 @@ def map_event(group, entry, page):
         record['place'] = place or 'Consulta el lugar en Meetup'
         if city:
             record['city'] = city
+        if venue_country:
+            record['venueCountry'] = venue_country
     return record
 
 
