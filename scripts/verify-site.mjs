@@ -77,6 +77,30 @@ for (const path of resourceDirectoryPaths) {
 }
 
 const decode = (value) => value.replaceAll('&amp;', '&').replaceAll('&quot;', '"').replaceAll('&#39;', "'").replaceAll('&#x27;', "'").replaceAll('&lt;', '<').replaceAll('&gt;', '>');
+const hasHtmlAttribute = (attributes, name) => new RegExp(`(?:^|\\s)${name}(?=\\s|=|$)`, 'iu').test(attributes);
+const htmlElementsWithAttribute = (source, attributeName, expectedTagName) => {
+  const matches = [];
+  for (const match of source.matchAll(/<([a-z][a-z0-9-]*)\b([^>]*)>/giu)) {
+    const [, tagName, attributes] = match;
+    if (expectedTagName && tagName.toLowerCase() !== expectedTagName) continue;
+    if (!hasHtmlAttribute(attributes, attributeName)) continue;
+
+    const tagBoundary = new RegExp(`<\\/?${tagName}(?=[\\s>])[^>]*>`, 'giu');
+    const contentStart = match.index + match[0].length;
+    tagBoundary.lastIndex = contentStart;
+    let depth = 1;
+    let token;
+    while ((token = tagBoundary.exec(source))) {
+      if (token[0].startsWith('</')) depth -= 1;
+      else if (!token[0].endsWith('/>')) depth += 1;
+      if (depth === 0) {
+        matches.push({ attributes, content: source.slice(contentStart, token.index) });
+        break;
+      }
+    }
+  }
+  return matches;
+};
 const defaultSocialImage = readFileSync(resolve(dist, 'assets/site-social.png'));
 assert.deepEqual(defaultSocialImage.subarray(0, 8), Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), 'The default social image must be a PNG.');
 assert.equal(defaultSocialImage.readUInt32BE(16), 1200, 'Default social image width.');
@@ -531,6 +555,50 @@ for (const path of ['eventos/index.html', ...eventCountryRoutes.map(({ htmlPath 
     `The effective selection can update the page heading: ${path}`);
   assert.match(html, /<p\b[^>]*\bdata-event-page-intro(?:\s|=|>)/u,
     `The effective selection can update the page introduction: ${path}`);
+  const shareWrapper = htmlElementsWithAttribute(html, 'data-event-share-controls');
+  assert.equal(shareWrapper.length, 1, `Every agenda has one share-controls wrapper: ${path}`);
+  assert.ok(hasHtmlAttribute(shareWrapper[0]?.attributes ?? '', 'hidden'),
+    `Share actions stay inert until their client-generated URLs are ready: ${path}`);
+  const shareWrapperContent = shareWrapper[0]?.content ?? '';
+  const shareMenus = htmlElementsWithAttribute(shareWrapperContent, 'data-event-share-menu', 'details');
+  assert.equal(shareMenus.length, 1, `Every agenda uses a native details menu inside its hidden wrapper: ${path}`);
+  const shareMenu = shareMenus[0];
+  assert.doesNotMatch(shareMenu?.attributes ?? '', /\brole="menu"/u,
+    `The native disclosure does not claim custom ARIA menu behavior: ${path}`);
+  assert.doesNotMatch(shareMenu?.content ?? '', /\brole="menuitem"/u,
+    `Share actions retain their native anchor and button semantics: ${path}`);
+  const summary = shareMenu?.content.match(/<summary\b([^>]*)>([\s\S]*?)<\/summary>/u);
+  assert.ok(summary, `Every share menu has a native summary control: ${path}`);
+  assert.ok(hasHtmlAttribute(summary[1], 'data-event-share-toggle'));
+  assert.equal(decode(summary[2].replace(/<[^>]*>/gu, '')).trim(), 'Compartir');
+  const shareLinks = [...shareMenu.content.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gu)]
+    .map(([, attributes, content]) => ({
+      label: decode(content.replace(/<[^>]*>/gu, '')).trim(),
+      attributes,
+      href: decode(attributes.match(/\bhref="([^"]*)"/u)?.[1] ?? ''),
+    }));
+  for (const label of ['X', 'LinkedIn']) {
+    const link = shareLinks.find((item) => item.label === label);
+    assert.ok(link, `Every share menu offers ${label} as a native anchor: ${path}`);
+    assert.match(link.attributes, /\btarget="_blank"/u);
+    assert.match(link.attributes, /\brel="[^"]*\bnoopener\b[^"]*"/u);
+    assert.match(link.attributes, /\brel="[^"]*\bnoreferrer\b[^"]*"/u);
+    assert.ok(link.href, `${label} has a client-ready href attribute: ${path}`);
+    assert.doesNotMatch(link.href, /^javascript:/iu, `${label} does not use a JavaScript URL: ${path}`);
+  }
+  const copyButton = [...shareMenu.content.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/gu)]
+    .find(([, , content]) => decode(content.replace(/<[^>]*>/gu, '')).trim() === 'Copiar');
+  assert.ok(copyButton, `Every share menu offers a Copy button: ${path}`);
+  assert.match(copyButton[1], /\btype="button"/u);
+  const shareStatuses = htmlElementsWithAttribute(shareWrapperContent, 'data-event-share-status');
+  assert.equal(shareStatuses.length, 1, `Every share wrapper has one status region: ${path}`);
+  const shareStatus = shareStatuses[0]?.attributes ?? '';
+  assert.match(shareStatus, /\brole="status"/u);
+  assert.match(shareStatus, /\baria-live="polite"/u);
+  assert.doesNotMatch(html, /<(?:textarea|dialog|pre)\b|\brole="dialog"/iu,
+    `Sharing does not insert an intermediate text preview or dialog: ${path}`);
+  assert.doesNotMatch(html, /Comparte esta selección|Texto listo para copiar|Vista previa de la agenda/iu,
+    `The retired share-preview section and copy are absent: ${path}`);
   const secondary = html.match(/<details\b[^>]*\bdata-event-secondary-disclosure[^>]*>([\s\S]*?)<\/details>/u)?.[1] ?? '';
   for (const field of ['mode', 'country', 'city']) {
     const select = [...html.matchAll(/<select\b([^>]*)>([\s\S]*?)<\/select>/gu)]
@@ -581,6 +649,18 @@ for (const path of ['eventos/index.html', ...eventCountryRoutes.map(({ htmlPath 
   `The time-zone control has a visible label: ${path}`);
   for (const [, memberAttributes, content] of html.matchAll(/<article\b([^>]*)>([\s\S]*?)<\/article>/gu)) {
     if (!/\bdata-event-member-id=/u.test(memberAttributes)) continue;
+    assert.match(memberAttributes, /\bdata-member-title="[^"]+"/u,
+      `Each member exposes its title to the shared text model: ${path}`);
+    assert.match(memberAttributes, /\bdata-member-registration-url="https?:\/\/[^"]+"/u,
+      `Each member exposes its original registration URL to the shared text model: ${path}`);
+    const shareTitle = decode(memberAttributes.match(/\bdata-member-title="([^"]*)"/u)?.[1] ?? '');
+    const visibleTitle = decode(content.match(/<h3\b[^>]*>([\s\S]*?)<\/h3>/u)?.[1]?.replace(/<[^>]*>/gu, '') ?? '');
+    assert.equal(shareTitle, visibleTitle, `The shared title is the member's actual public title: ${path}`);
+    const shareRegistration = decode(memberAttributes.match(/\bdata-member-registration-url="([^"]*)"/u)?.[1] ?? '');
+    const registrationAttributes = [...content.matchAll(/<a\b([^>]*)>/gu)]
+      .map(([, attributes]) => attributes).find((attributes) => hasHtmlAttribute(attributes, 'data-event-registration')) ?? '';
+    assert.equal(shareRegistration, decode(registrationAttributes.match(/\bhref="([^"]*)"/u)?.[1] ?? ''),
+      `The shared registration URL is the member's original destination: ${path}`);
     assert.match(content, /\bdata-event-date-label(?:\s|=|>)/u,
       `Each co-host view can display its date in the agenda zone: ${path}`);
     assert.match(content, /\bdata-event-time-label(?:\s|=|>)/u,
