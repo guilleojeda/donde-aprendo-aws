@@ -45,7 +45,7 @@ class MockElement {
     this.dataset = dataset;
     this._value = '';
     this.hidden = hidden;
-    this.disabled = false;
+    if (tagName !== 'A') this.disabled = false;
     this.checked = checked;
     this.children = [];
     this.listeners = new Map();
