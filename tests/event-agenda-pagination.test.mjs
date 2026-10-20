@@ -28,6 +28,13 @@ try {
 } catch (error) {
   if (error?.code !== 'ERR_MODULE_NOT_FOUND' || error.url !== eventLocationModuleUrl.href) throw error;
 }
+const eventAgendaShareModuleUrl = new URL('../src/lib/event-agenda-share.mjs', import.meta.url);
+let eventAgendaShareApi = {};
+try {
+  eventAgendaShareApi = await import(eventAgendaShareModuleUrl.href);
+} catch (error) {
+  if (error?.code !== 'ERR_MODULE_NOT_FOUND' || error.url !== eventAgendaShareModuleUrl.href) throw error;
+}
 const script = readFileSync(new URL('../src/scripts/event-agenda.js', import.meta.url), 'utf8')
   .replace(/^import \{[\s\S]*?\} from '[^']+';\s*/gmu, '');
 
@@ -38,6 +45,7 @@ class MockElement {
     this.dataset = dataset;
     this._value = '';
     this.hidden = hidden;
+    if (tagName !== 'A') this.disabled = false;
     this.checked = checked;
     this.children = [];
     this.listeners = new Map();
@@ -93,8 +101,13 @@ class MockElement {
   focus() { this.document.activeElement = this; }
 
   click() {
-    if (this.hidden) return;
+    if (this.hidden || this.disabled || this.parentElement?.hidden || this.parentElement?.parentElement?.hidden) return;
+    if (this.parentElement?.tagName === 'DETAILS' && !this.parentElement.open && this.tagName !== 'SUMMARY') return;
     this.focus();
+    if (this.tagName === 'SUMMARY' && this.parentElement?.tagName === 'DETAILS') {
+      this.parentElement.open = !this.parentElement.open;
+      this.parentElement.emit('toggle');
+    }
     this.emit('click');
   }
 
@@ -153,11 +166,13 @@ function createEventCards(count, {
           memberVenueCountry: memberSpec.venueCountry ?? (memberIndex === 0 ? card.dataset.eventVenueCountry : ''),
           memberCity: memberSpec.city ?? card.dataset.eventCity.replace(/^[^:]*:/u, ''),
           memberCommunityId: memberSpec.communityId ?? communities[memberIndex] ?? communities[0] ?? '',
+          memberTitle: memberSpec.title ?? (memberIndex === 0 ? spec.title : undefined) ?? `Evento de agenda ${index + 1}${memberIndex ? ` · comunidad ${memberIndex + 1}` : ''}`,
+          memberRegistrationUrl: memberSpec.registrationUrl ?? spec.registrationUrl ?? `https://example.test/events/${index}${memberIndex ? `/community-${memberIndex + 1}` : ''}`,
         },
       });
       view.status = new MockElement(null);
       view.registration = new MockElement(null, { textContent: 'Inscribirme' });
-      view.registration.href = spec.registrationUrl ?? `https://example.test/events/${index}`;
+      view.registration.href = view.dataset.memberRegistrationUrl;
       view.dateLabel = new MockElement(null);
       view.timeLabel = new MockElement(null);
       view.participationLabel = new MockElement(null);
@@ -188,7 +203,7 @@ function createAgenda({
     { value: 'community-co', dataset: { eventCountry: 'CO', eventCity: 'Bogotá' } },
   ], eventCountriesByCard = [], eventCommunitiesByCard = [], events = [], includeEnded = true,
   hostname = 'dondeaprendoaws.com', visitorTimeZone = 'UTC', pathname = '/eventos/', hash = '',
-  defaultCountry = '', defaultMode = '', additionalKnownEventIds = [],
+  defaultCountry = '', defaultMode = '', additionalKnownEventIds = [], clipboard,
   cityOptions = [
     { value: 'AR:Córdoba', dataset: { eventCountries: 'AR' } },
     { value: 'CO:Bogotá', dataset: { eventCountries: 'CO' } },
@@ -319,6 +334,28 @@ function createAgenda({
   const includeEndedFilter = new MockElement(document, {
     tagName: 'INPUT', checked: true,
   });
+  const shareControls = new MockElement(document, { hidden: true });
+  const shareMenu = new MockElement(document, { tagName: 'DETAILS' });
+  shareMenu.open = false;
+  const shareToggle = new MockElement(document, { tagName: 'SUMMARY', textContent: 'Compartir' });
+  const xShareLink = new MockElement(document, { tagName: 'A', textContent: 'X' });
+  xShareLink.href = '/eventos/';
+  xShareLink.target = '_blank';
+  xShareLink.rel = 'noopener noreferrer';
+  const linkedinShareLink = new MockElement(document, { tagName: 'A', textContent: 'LinkedIn' });
+  linkedinShareLink.href = '/eventos/';
+  linkedinShareLink.target = '_blank';
+  linkedinShareLink.rel = 'noopener noreferrer';
+  const copyButton = new MockElement(document, { tagName: 'BUTTON', textContent: 'Copiar' });
+  copyButton.type = 'button';
+  const shareStatus = new MockElement(document);
+  shareStatus.setAttribute('role', 'status');
+  shareStatus.setAttribute('aria-live', 'polite');
+  shareToggle.parentElement = shareMenu;
+  shareMenu.children = [shareToggle, xShareLink, linkedinShareLink, copyButton];
+  shareControls.children = [shareMenu, shareStatus];
+  for (const child of shareMenu.children) child.parentElement = shareMenu;
+  for (const child of shareControls.children) child.parentElement = shareControls;
   const elements = new Map([
     ['[data-event-list]', agenda], ['[data-event-empty]', empty], ['.event-agenda__filters', filterFields],
     ['[data-event-page-heading]', pageHeading], ['[data-event-page-intro]', pageIntro],
@@ -332,6 +369,13 @@ function createAgenda({
     ['[data-event-period-next]', nextPeriod],
     ['[data-event-period-label]', periodLabel],
     ['[data-event-zone]', zoneFilter],
+    ['[data-event-share-controls]', shareControls],
+    ['[data-event-share-menu]', shareMenu],
+    ['[data-event-share-toggle]', shareToggle],
+    ['[data-event-share-x]', xShareLink],
+    ['[data-event-share-linkedin]', linkedinShareLink],
+    ['[data-event-share-copy]', copyButton],
+    ['[data-event-share-status]', shareStatus],
   ]);
   document.querySelector = (selector) => elements.get(selector) ?? null;
   document.querySelectorAll = (selector) => {
@@ -341,6 +385,11 @@ function createAgenda({
   };
   document.createElement = (tagName) => new MockElement(document, { tagName: String(tagName).toUpperCase() });
   document.addEventListener = (type, handler) => document.listeners.set(type, handler);
+  document.dispatchEvent = (event) => {
+    const result = document.listeners.get(event.type)?.(event);
+    windowListeners.get(event.type)?.(event);
+    return result;
+  };
 
   const windowListeners = new Map();
   const window = {
@@ -349,6 +398,24 @@ function createAgenda({
     location: { hostname, href: '' },
     gtag: (...args) => telemetryCalls.push(args),
   };
+  const navigator = {};
+  const clipboardCalls = [];
+  const windowOpenCalls = [];
+  const setClipboard = (api) => {
+    if (api === undefined) {
+      delete navigator.clipboard;
+      return;
+    }
+    navigator.clipboard = {
+      writeText(...args) {
+        clipboardCalls.push(args);
+        return api.writeText(...args);
+      },
+    };
+  };
+  if (clipboard !== undefined) setClipboard(clipboard);
+  window.navigator = navigator;
+  window.open = (...args) => { windowOpenCalls.push(args); return {}; };
   const storage = {
     getItem(key) { storageCalls.push(['getItem', key]); return null; },
     setItem(key, value) { storageCalls.push(['setItem', key, value]); },
@@ -357,6 +424,14 @@ function createAgenda({
   window.localStorage = storage;
   window.sessionStorage = storage;
   const location = { pathname, search: filter, hash };
+  let assignedWindowHref = '';
+  Object.defineProperties(window.location, {
+    origin: { get: () => `https://${hostname}` },
+    href: {
+      get: () => assignedWindowHref || `https://${hostname}${location.pathname}${location.search}${location.hash}`,
+      set: (value) => { assignedWindowHref = new URL(String(value), `https://${hostname}`).href; },
+    },
+  });
   const historyEntries = [];
   const historyUrls = [filter];
   let historyIndex = 0;
@@ -413,7 +488,9 @@ function createAgenda({
     serializeEventAgendaSearch, shouldOpenEventAgendaSecondaryFilters, trackRegistrationClick,
     eventAgendaSummaryText, nextEventAgendaTransition, eventGroupsForAgenda,
     effectiveEventLocation: eventLocationApi.effectiveEventLocation,
+    buildEventAgendaShare: eventAgendaShareApi.buildEventAgendaShare,
     eventDateLabel, eventLocalDate, eventTimeLabel,
+    navigator,
     ...eventAgendaPeriodApi, Intl: controlledIntl,
     Date: ClockDate,
     localStorage: storage,
@@ -434,6 +511,8 @@ function createAgenda({
   return {
     cards, countLabel, document, empty, modeFilter, more, countryFilter, cityFilter, communityFilter, clear,
     pageHeading, pageIntro,
+    shareControls, shareMenu, shareToggle, xShareLink, linkedinShareLink, copyButton, shareStatus,
+    navigator, clipboardCalls, windowOpenCalls, setClipboard,
     get children() { return agenda.children; },
     viewButtons, previousPeriod, nextPeriod, periodLabel, zoneFilter, routeLinks, unrelatedRouteLink, window,
     includeEnded: includeEndedFilter, summary, historyEntries, history, location, storageCalls, telemetryCalls,
@@ -753,7 +832,10 @@ test('a query-overridden national route reveals an event fragment without switch
   assert.equal(agenda.document.activeElement, agenda.cards[0]);
   assert.equal(agenda.location.pathname, '/eventos/argentina/');
   assert.equal(agenda.location.hash, '#event-remote-co');
-  assert.equal(agenda.window.location.href, '', 'a compatible query override does not trigger a global-route fallback');
+  const browserUrl = new URL(agenda.window.location.href);
+  assert.equal(browserUrl.pathname, '/eventos/argentina/', 'a compatible query override does not trigger a global-route fallback');
+  assert.equal(browserUrl.search, agenda.location.search);
+  assert.equal(browserUrl.hash, '#event-remote-co');
 });
 
 test('an omitted query mode uses the route default and normalizes away its duplicate value', () => {
@@ -1571,4 +1653,506 @@ test('an implicit online default falls back globally for a physical-only event f
   assert.equal(fallback.searchParams.has('view'), true);
   assert.equal(fallback.searchParams.has('date'), true);
   assert.equal(fallback.searchParams.has('tz'), true);
+});
+
+function embeddedAgendaUrl(link, parameter = 'url') {
+  const intent = new URL(link.href, 'https://dondeaprendoaws.com');
+  const value = intent.searchParams.get(parameter);
+  assert.ok(value, `${intent.hostname} link carries the fixed agenda URL`);
+  return new URL(value, 'https://dondeaprendoaws.com');
+}
+
+function activateShareMenu(agenda) {
+  const enter = { key: 'Enter', defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } };
+  agenda.shareToggle.emit('keydown', enter);
+  if (!enter.defaultPrevented) agenda.shareToggle.click();
+}
+
+function makeClipboard(writeText) {
+  return { writeText };
+}
+
+test('X and LinkedIn are direct safe links that work without clipboard or popup calls', () => {
+  const agenda = createAgenda({
+    count: 2,
+    filter: '?view=week&date=2026-10-05&tz=UTC&mode=online&country=AR&city=AR%3AC%C3%B3rdoba',
+    events: [
+      { id: 'share-one', title: 'Primera charla', mode: 'online', startsAt: '2026-10-06T15:00:00Z', endsAt: '2026-10-06T16:00:00Z' },
+      { id: 'share-two', title: 'Segundo taller', mode: 'online', startsAt: '2026-10-07T16:00:00Z', endsAt: '2026-10-07T17:00:00Z' },
+    ],
+  });
+
+  assert.equal(agenda.shareControls.hidden, false, 'JavaScript enables the server-hidden share controls');
+  assert.equal(agenda.shareMenu.tagName, 'DETAILS');
+  assert.equal(agenda.shareToggle.tagName, 'SUMMARY');
+  activateShareMenu(agenda);
+  assert.equal(agenda.shareMenu.open, true, 'the native summary control opens the menu with keyboard activation');
+
+  const x = new URL(agenda.xShareLink.href, 'https://dondeaprendoaws.com');
+  const linkedin = new URL(agenda.linkedinShareLink.href);
+  assert.equal(x.origin, 'https://x.com');
+  assert.equal(x.pathname, '/intent/tweet');
+  assert.equal(linkedin.origin, 'https://www.linkedin.com');
+  assert.equal(linkedin.pathname, '/sharing/share-offsite/');
+  for (const link of [agenda.xShareLink, agenda.linkedinShareLink]) {
+    assert.equal(link.target, '_blank');
+    assert.match(link.rel, /\bnoopener\b/u);
+    assert.match(link.rel, /\bnoreferrer\b/u);
+    assert.doesNotMatch(link.href, /^javascript:/iu);
+  }
+  const xText = x.searchParams.get('text') ?? '';
+  assert.ok(xText, 'X receives its own short summary');
+  assert.match(xText, /2026/u, 'the X summary identifies the selected period');
+  assert.match(xText, /\b2\b/u, 'the X summary gives the number of selected occurrences');
+  assert.match(xText, /online|en\s+l[ií]nea/iu, 'the X summary describes online attendance');
+  assert.match(xText, /UTC/u, 'the X summary identifies the selected time zone');
+  assert.equal(linkedin.searchParams.has('text'), false, 'LinkedIn receives a URL without a text-copy step');
+  assert.equal(embeddedAgendaUrl(agenda.xShareLink).href, embeddedAgendaUrl(agenda.linkedinShareLink).href);
+
+  const beforeUrl = agenda.location.search;
+  const beforeHistory = agenda.historyEntries.length;
+  agenda.xShareLink.click();
+  agenda.linkedinShareLink.click();
+  assert.equal(agenda.clipboardCalls.length, 0, 'social links do not wait for or invoke clipboard access');
+  assert.equal(agenda.windowOpenCalls.length, 0, 'native anchors open the destination without window.open');
+  assert.equal(agenda.location.search, beforeUrl, 'opening a composer does not change the agenda query');
+  assert.equal(agenda.historyEntries.length, beforeHistory);
+});
+
+test('Copy writes the complete unpaginated plain-text selection, including a remote foreign hybrid', async () => {
+  let resolveCopy;
+  const pendingCopy = new Promise((resolve) => { resolveCopy = resolve; });
+  const events = Array.from({ length: 14 }, (_, index) => ({
+    id: `complete-share-${index + 1}`,
+    title: `Agenda completa ${index + 1}`,
+    mode: index === 13 ? 'hybrid' : 'online',
+    country: index === 13 ? 'CO' : 'AR',
+    venueCountry: index === 13 ? 'CO' : '',
+    city: index === 13 ? 'Bogotá' : '',
+    communities: index === 13 ? 'community-co' : 'community-ar',
+    startsAt: `2026-10-${String(6 + (index % 5)).padStart(2, '0')}T15:${String(index).padStart(2, '0')}:00Z`,
+    endsAt: `2026-10-${String(6 + (index % 5)).padStart(2, '0')}T16:${String(index).padStart(2, '0')}:00Z`,
+    registrationUrl: `https://example.test/registro/${index + 1}`,
+  }));
+  const agenda = createAgenda({
+    count: events.length,
+    filter: '?view=week&date=2026-10-05&tz=America%2FBogota&mode=online&country=AR&city=AR%3AC%C3%B3rdoba',
+    events,
+    clipboard: makeClipboard(() => pendingCopy),
+  });
+
+  assert.equal(agenda.countLabel.textContent, '14 eventos');
+  assert.equal(agenda.cards.filter((card) => !card.hidden).length, 12, 'the rendered list remains paginated');
+  assert.equal(agenda.more.hidden, false);
+  activateShareMenu(agenda);
+  agenda.copyButton.click();
+
+  assert.equal(agenda.clipboardCalls.length, 1, 'one click calls writeText immediately, before the promise settles');
+  const copied = agenda.clipboardCalls[0][0];
+  assert.equal(typeof copied, 'string');
+  assert.ok(copied.length > 500, 'the output is the full agenda, not a compact preview');
+  for (const event of events) {
+    assert.ok(copied.includes(event.title), `The copied agenda contains ${event.title}, including results beyond the first page.`);
+    assert.ok(copied.includes(event.registrationUrl), `The copied agenda preserves ${event.id}'s registration URL.`);
+  }
+  assert.match(copied, /participación remota/iu,
+    'a hybrid venue in Colombia reached through Solo online is identified as remote participation');
+  assert.match(copied, /America\/Bogota/u, 'the copied schedule identifies its selected IANA time zone');
+  assert.doesNotMatch(copied, /<[^>]+>/u, 'clipboard content is plain text');
+  assert.doesNotMatch(agenda.shareStatus.textContent, /copiad|se copió/iu,
+    'the interface does not report success while the write is pending');
+  assert.equal(agenda.copyButton.disabled, true, 'only the Copy action is disabled while one write is pending');
+  assert.equal(agenda.modeFilter.disabled, false);
+  assert.equal(agenda.xShareLink.disabled, undefined);
+  assert.equal(agenda.linkedinShareLink.disabled, undefined);
+  assert.deepEqual(agenda.shareControls.children, [agenda.shareMenu, agenda.shareStatus],
+    'copy does not reveal an intermediate preview or textarea');
+
+  resolveCopy();
+  await pendingCopy;
+  assert.match(agenda.shareStatus.textContent, /copiad|se copió/iu,
+    'success is announced only after writeText resolves');
+  assert.equal(agenda.copyButton.disabled, false);
+  assert.equal(agenda.shareMenu.open, false);
+  assert.equal(agenda.document.activeElement, agenda.shareToggle, 'successful copy closes the menu and returns focus');
+});
+
+test('a pending copy keeps its captured selection truthful while filters and direct links stay usable', async () => {
+  let resolveCopy;
+  const pendingCopy = new Promise((resolve) => { resolveCopy = resolve; });
+  const agenda = createAgenda({
+    count: 3,
+    filter: '?view=week&date=2026-10-05&tz=UTC&mode=online&country=AR&city=AR%3AC%C3%B3rdoba',
+    events: [
+      { id: 'captured-online', title: 'Selección inicial remota', mode: 'online', country: 'MX', startsAt: '2026-10-06T15:00:00Z', endsAt: '2026-10-06T16:00:00Z' },
+      { id: 'captured-hybrid', title: 'Híbrido remoto extranjero', mode: 'hybrid', country: 'CO', venueCountry: 'CO', city: 'Bogotá', startsAt: '2026-10-06T16:00:00Z', endsAt: '2026-10-06T17:00:00Z' },
+      { id: 'new-physical', title: 'Selección presencial nueva', mode: 'in-person', country: 'AR', venueCountry: 'AR', city: 'Córdoba', startsAt: '2026-10-06T17:00:00Z', endsAt: '2026-10-06T18:00:00Z' },
+    ],
+    clipboard: makeClipboard(() => pendingCopy),
+  });
+  activateShareMenu(agenda);
+  agenda.copyButton.click();
+
+  assert.equal(agenda.clipboardCalls.length, 1);
+  const capturedText = agenda.clipboardCalls[0][0];
+  assert.match(capturedText, /Selección inicial remota/u);
+  assert.doesNotMatch(capturedText, /Selección presencial nueva/u);
+  assert.equal(agenda.copyButton.disabled, true);
+
+  const previousHistoryLength = agenda.historyEntries.length;
+  agenda.modeFilter.value = 'in-person';
+  agenda.modeFilter.emit('change');
+  assert.equal(agenda.countLabel.textContent, '1 evento', 'the rest of the agenda remains usable while copying');
+  assert.equal(agenda.cards.find((card) => card.dataset.eventId === 'new-physical').hidden, false);
+  assert.equal(agenda.copyButton.disabled, true);
+  const linkAfterFilterChange = embeddedAgendaUrl(agenda.xShareLink);
+  assert.equal(linkAfterFilterChange.searchParams.get('mode'), 'in-person');
+  assert.equal(agenda.historyEntries.length, previousHistoryLength + 1);
+
+  agenda.xShareLink.click();
+  agenda.linkedinShareLink.click();
+  assert.equal(agenda.clipboardCalls.length, 1, 'social links do not wait for a pending clipboard operation');
+  assert.equal(agenda.windowOpenCalls.length, 0);
+  agenda.copyButton.click();
+  assert.equal(agenda.clipboardCalls.length, 1, 'a second write cannot race the pending copy');
+
+  resolveCopy();
+  await pendingCopy;
+  assert.match(agenda.shareStatus.textContent, /anterior|capturad|Selección inicial remota/iu,
+    'the result identifies the selection that was copied when the button was pressed');
+  assert.doesNotMatch(agenda.shareStatus.textContent, /Selección presencial nueva/u,
+    'the result does not imply that the current, changed selection was copied');
+  assert.equal(agenda.copyButton.disabled, false);
+});
+
+test('a rejected clipboard write reports an error and the same action can be retried', async () => {
+  let rejectFirst;
+  let resolveSecond;
+  let writeNumber = 0;
+  const first = new Promise((_resolve, reject) => { rejectFirst = reject; });
+  const second = new Promise((resolve) => { resolveSecond = resolve; });
+  const agenda = createAgenda({
+    count: 1,
+    events: [{ id: 'retry-event', title: 'Evento para reintentar' }],
+    clipboard: makeClipboard(() => (++writeNumber === 1 ? first : second)),
+  });
+  activateShareMenu(agenda);
+  agenda.copyButton.click();
+  assert.doesNotMatch(agenda.shareStatus.textContent, /copiad|se copió/iu);
+  rejectFirst(new Error('permission denied'));
+  await first.catch(() => {});
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.match(agenda.shareStatus.textContent, /no se pudo|no se puede|error|portapapeles|permiso/iu);
+  assert.doesNotMatch(agenda.shareStatus.textContent, /copiad|se copió/iu);
+  assert.equal(agenda.copyButton.disabled, false, 'a rejected write re-enables Copy');
+  assert.deepEqual(agenda.shareControls.children, [agenda.shareMenu, agenda.shareStatus]);
+
+  agenda.copyButton.click();
+  assert.equal(agenda.clipboardCalls.length, 2, 'the same Copy action can retry once');
+  resolveSecond();
+  await second;
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.match(agenda.shareStatus.textContent, /copiad|se copió/iu);
+});
+
+test('missing clipboard support reports failure and allows a later retry', async () => {
+  const agenda = createAgenda({
+    count: 1,
+    events: [{ id: 'clipboard-missing', title: 'Portapapeles no disponible' }],
+  });
+  activateShareMenu(agenda);
+  agenda.copyButton.click();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.match(agenda.shareStatus.textContent, /no se pudo|no se puede|error|portapapeles|disponible/iu);
+  assert.doesNotMatch(agenda.shareStatus.textContent, /copiad|se copió/iu);
+  assert.equal(agenda.clipboardCalls.length, 0);
+  assert.deepEqual(agenda.shareControls.children, [agenda.shareMenu, agenda.shareStatus]);
+
+  let resolveRetry;
+  const retry = new Promise((resolve) => { resolveRetry = resolve; });
+  agenda.setClipboard(makeClipboard(() => retry));
+  agenda.copyButton.click();
+  assert.equal(agenda.clipboardCalls.length, 1);
+  resolveRetry();
+  await retry;
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.match(agenda.shareStatus.textContent, /copiad|se copió/iu);
+});
+
+test('fixed share links follow selection, period, zone, history and reload without checkbox or fragment', async () => {
+  const events = [
+    { id: 'share-remote-co', title: 'Online Colombia', mode: 'online', country: 'CO', communities: 'community-co' },
+    { id: 'share-physical-co', title: 'Presencial Bogotá', mode: 'in-person', country: 'CO', venueCountry: 'CO', city: 'Bogotá', communities: 'community-co' },
+    { id: 'share-physical-ar', title: 'Presencial Córdoba', mode: 'in-person', country: 'AR', venueCountry: 'AR', city: 'Córdoba', communities: 'community-ar' },
+  ];
+  const agenda = createAgenda({
+    count: events.length,
+    pathname: '/eventos/argentina/',
+    defaultCountry: 'AR',
+    defaultMode: 'in-person',
+    filter: '?view=week&date=2026-10-05&tz=UTC&mode=online&country=CO&city=CO%3ABogot%C3%A1&community=community-co&includeEnded=0&tracking=retained#event-share-remote-co',
+    events,
+    clipboard: makeClipboard(async () => {}),
+  });
+  const x = new URL(agenda.xShareLink.href, 'https://dondeaprendoaws.com');
+  const initialSharedUrl = embeddedAgendaUrl(agenda.xShareLink);
+  assert.equal(x.origin, 'https://x.com');
+  assert.equal(x.searchParams.get('url'), initialSharedUrl.href);
+  assert.equal(embeddedAgendaUrl(agenda.linkedinShareLink).href, initialSharedUrl.href);
+  assert.equal(initialSharedUrl.pathname, '/eventos/', 'share always targets the route with no implicit defaults');
+  assert.equal(initialSharedUrl.searchParams.get('view'), 'week');
+  assert.equal(initialSharedUrl.searchParams.get('date'), '2026-10-05');
+  assert.equal(initialSharedUrl.searchParams.get('tz'), 'UTC');
+  assert.equal(initialSharedUrl.searchParams.get('mode'), 'online');
+  assert.equal(initialSharedUrl.searchParams.get('country'), 'CO');
+  assert.equal(initialSharedUrl.searchParams.get('city'), 'CO:Bogotá');
+  assert.equal(initialSharedUrl.searchParams.get('community'), 'community-co');
+  assert.equal(initialSharedUrl.searchParams.has('includeEnded'), false);
+  assert.equal(initialSharedUrl.searchParams.has('tracking'), false);
+  assert.equal(initialSharedUrl.hash, '', 'the shared URL does not preserve an event fragment');
+
+  activateShareMenu(agenda);
+  agenda.copyButton.click();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.match(agenda.shareStatus.textContent, /copiad|se copió/iu);
+
+  agenda.viewButtons[1].click();
+  assert.equal(agenda.shareStatus.textContent, '', 'changing the query clears an old copy confirmation');
+  agenda.nextPeriod.click();
+  agenda.zoneFilter.value = 'America/Bogota';
+  agenda.zoneFilter.emit('change');
+  agenda.communityFilter.value = '';
+  agenda.communityFilter.emit('change');
+  const changedShare = embeddedAgendaUrl(agenda.xShareLink);
+  const currentQuery = new URLSearchParams(agenda.location.search);
+  for (const key of ['view', 'date', 'tz', 'mode', 'country', 'city']) {
+    assert.equal(changedShare.searchParams.get(key), currentQuery.get(key), `Sharing follows current ${key}.`);
+  }
+  assert.equal(changedShare.searchParams.has('community'), false, 'clearing a facet updates the fixed link');
+  assert.equal(changedShare.hash, '');
+
+  agenda.history.back();
+  const afterBack = embeddedAgendaUrl(agenda.xShareLink);
+  assert.equal(afterBack.searchParams.get('community'), 'community-co', 'back restores the previous facet in the share link');
+  agenda.history.forward();
+  const afterForward = embeddedAgendaUrl(agenda.xShareLink);
+  assert.equal(afterForward.searchParams.has('community'), false, 'forward updates the link to the cleared facet');
+  agenda.changeHash('#event-share-remote-co');
+  assert.equal(embeddedAgendaUrl(agenda.xShareLink).hash, '', 'hashchange never puts a forced-event fragment in the share URL');
+  activateShareMenu(agenda);
+  agenda.copyButton.click();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(agenda.clipboardCalls.length, 2,
+    'refreshes and history changes do not duplicate the Copy action handler');
+
+  const reload = createAgenda({
+    count: events.length,
+    pathname: afterForward.pathname,
+    filter: afterForward.search,
+    events,
+  });
+  assert.equal(reload.includeEnded.checked, true, 'a recipient opens with finalized events included by default');
+  assert.equal(reload.modeFilter.value, afterForward.searchParams.get('mode'));
+  assert.equal(reload.countryFilter.value, afterForward.searchParams.get('country'));
+  assert.equal(reload.cityFilter.value, afterForward.searchParams.get('city'));
+  assert.equal(reload.communityFilter.value, '');
+  assert.equal(reload.zoneFilter.value, afterForward.searchParams.get('tz'));
+  assert.equal(embeddedAgendaUrl(reload.xShareLink).href, afterForward.href,
+    'reloading the fixed URL reproduces its period and selected facets');
+});
+
+test('explicit empty route overrides share as the resolved global selection without restoring route defaults', () => {
+  const agenda = createAgenda({
+    count: 1,
+    pathname: '/eventos/argentina/',
+    defaultCountry: 'AR',
+    defaultMode: 'in-person',
+    filter: '?view=week&date=2026-10-05&tz=UTC&country=&mode=',
+    events: [{ id: 'empty-override', title: 'Combinado sin ubicación', mode: 'online', country: 'CO' }],
+  });
+  const share = embeddedAgendaUrl(agenda.xShareLink);
+
+  assert.equal(agenda.countryFilter.value, '', 'an explicit empty country remains effective');
+  assert.equal(agenda.modeFilter.value, '', 'an explicit empty mode remains combined');
+  assert.equal(share.pathname, '/eventos/');
+  assert.equal(share.searchParams.get('view'), 'week');
+  assert.equal(share.searchParams.get('date'), '2026-10-05');
+  assert.equal(share.searchParams.get('tz'), 'UTC');
+  assert.equal(share.searchParams.has('country'), false);
+  assert.equal(share.searchParams.has('mode'), false);
+});
+
+test('a co-hosted occurrence shares the visible representative schedule and its own registration URL', async () => {
+  const agenda = createAgenda({
+    count: 1,
+    clipboard: makeClipboard(async () => {}),
+    filter: '?view=week&date=2026-10-05&tz=UTC&community=community-co',
+    events: [{
+      id: 'cohost-ar',
+      aliasIds: 'cohost-co',
+      countries: 'AR|CO',
+      communities: 'community-ar|community-co',
+      members: [
+        { id: 'cohost-ar', country: 'AR', communityId: 'community-ar', title: 'Horario organizador Argentina', registrationUrl: 'https://example.test/registro/ar', startsAt: '2026-10-06T14:00:00Z', endsAt: '2026-10-06T15:00:00Z' },
+        { id: 'cohost-co', country: 'CO', communityId: 'community-co', title: 'Horario organizador Colombia', registrationUrl: 'https://example.test/registro/co', startsAt: '2026-10-06T16:00:00Z', endsAt: '2026-10-06T17:30:00Z' },
+      ],
+    }],
+  });
+  const visibleMember = agenda.cards[0].members.find((member) => !member.hidden);
+  assert.equal(visibleMember.dataset.eventMemberId, 'cohost-co');
+  assert.equal(agenda.cards[0].hidden, false);
+  activateShareMenu(agenda);
+  agenda.copyButton.click();
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(agenda.clipboardCalls.length, 1);
+  const copied = agenda.clipboardCalls[0][0];
+  assert.match(copied, /Horario organizador Colombia/u);
+  assert.match(copied, /16:00/u);
+  assert.match(copied, /17:30/u);
+  assert.doesNotMatch(copied, /14:00|15:00/u,
+    'the copied schedule uses the visible Colombian representative rather than the Argentine co-host');
+  assert.match(copied, /https:\/\/example\.test\/registro\/co/u);
+  assert.doesNotMatch(copied, /Horario organizador Argentina|registro\/ar/u,
+    'copy uses the same representative that the card shows, with that member’s own schedule and URL');
+  assert.equal(agenda.countLabel.textContent, '1 evento', 'co-hosting remains one displayed and shared occurrence');
+});
+
+test('an empty selection remains explicitly shareable with its period and filters', async () => {
+  const agenda = createAgenda({
+    count: 1,
+    filter: '?view=week&date=2026-11-02&tz=UTC&mode=online&country=AR',
+    events: [{ id: 'outside-selected-period', title: 'Evento de octubre', startsAt: '2026-10-06T15:00:00Z', endsAt: '2026-10-06T16:00:00Z' }],
+    clipboard: makeClipboard(async () => {}),
+  });
+  assert.equal(agenda.countLabel.textContent, '0 eventos');
+  assert.equal(agenda.copyButton.disabled, false, 'an empty result does not disable sharing');
+  activateShareMenu(agenda);
+  agenda.copyButton.click();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(agenda.clipboardCalls.length, 1);
+  assert.match(agenda.clipboardCalls[0][0], /0\s+(?:eventos|resultados)/iu);
+  const shared = embeddedAgendaUrl(agenda.xShareLink);
+  assert.equal(shared.searchParams.get('date'), '2026-11-02');
+  assert.equal(shared.searchParams.get('mode'), 'online');
+  assert.equal(shared.searchParams.get('country'), 'AR');
+  assert.match(new URL(agenda.xShareLink.href, 'https://dondeaprendoaws.com').searchParams.get('text') ?? '', /0\s+(?:eventos|resultados)/iu);
+});
+
+test('checkbox changes, recipient reload and event expiry update the copied agenda but never enter the share URL', async () => {
+  const now = Date.parse('2026-10-05T12:00:00Z');
+  const events = [
+    { id: 'already-ended', title: 'Evento ya finalizado', mode: 'online', startsAt: now - 120_000, endsAt: now - 60_000 },
+    { id: 'ending-soon', title: 'Evento que finaliza', mode: 'online', startsAt: now - 60_000, endsAt: now + 1_000 },
+    { id: 'still-upcoming', title: 'Evento que continúa', mode: 'online', startsAt: now + 60_000, endsAt: now + 120_000 },
+  ];
+  const clipboard = makeClipboard(async () => {});
+  const agenda = createAgenda({
+    count: events.length,
+    now,
+    filter: '?view=week&date=2026-10-05&tz=UTC&mode=online',
+    events,
+    clipboard,
+  });
+  const shareBeforeCheckbox = embeddedAgendaUrl(agenda.xShareLink).href;
+  agenda.includeEnded.checked = false;
+  agenda.includeEnded.emit('change');
+  assert.equal(embeddedAgendaUrl(agenda.xShareLink).href, shareBeforeCheckbox,
+    'the fixed URL deliberately excludes the sender’s local checkbox state');
+  activateShareMenu(agenda);
+  agenda.copyButton.click();
+  await new Promise((resolve) => setImmediate(resolve));
+  let copied = agenda.clipboardCalls.at(-1)[0];
+  assert.doesNotMatch(copied, /Evento ya finalizado/u);
+  assert.match(copied, /Evento que continúa/u);
+
+  const shared = embeddedAgendaUrl(agenda.xShareLink);
+  const recipient = createAgenda({
+    count: events.length,
+    now,
+    pathname: shared.pathname,
+    filter: shared.search,
+    events,
+    clipboard: makeClipboard(async () => {}),
+  });
+  assert.equal(recipient.includeEnded.checked, true);
+  assert.equal(recipient.cards.find((card) => card.dataset.eventId === 'already-ended').hidden, false,
+    'the receiving page reopens with the finalized event included');
+  activateShareMenu(recipient);
+  recipient.copyButton.click();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.match(recipient.clipboardCalls[0][0], /Evento ya finalizado/u);
+
+  agenda.includeEnded.checked = true;
+  agenda.includeEnded.emit('change');
+  assert.equal(embeddedAgendaUrl(agenda.xShareLink).href, shareBeforeCheckbox);
+  agenda.advanceTime(2_000);
+  assert.equal(agenda.fireNextTimer(), true, 'the scheduled event-state transition refreshes the agenda');
+  activateShareMenu(agenda);
+  agenda.copyButton.click();
+  await new Promise((resolve) => setImmediate(resolve));
+  copied = agenda.clipboardCalls.at(-1)[0];
+  assert.match(copied, /Evento que finaliza/u);
+  assert.match(copied, /Finalizado/u, 'copy reflects the event’s new finalized state after expiry');
+});
+
+test('the native share menu closes with Escape, restores focus and leaves agenda state untouched', () => {
+  const agenda = createAgenda({
+    count: 1,
+    filter: '?view=week&date=2026-10-05&tz=UTC&mode=online',
+    events: [{ id: 'keyboard-share', title: 'Teclado' }],
+  });
+  const currentSearch = agenda.location.search;
+  const historyLength = agenda.historyEntries.length;
+  activateShareMenu(agenda);
+  assert.equal(agenda.shareMenu.open, true);
+  assert.equal(agenda.document.activeElement, agenda.shareToggle);
+  const escape = { key: 'Escape', defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } };
+  agenda.shareMenu.emit('keydown', escape);
+  assert.equal(agenda.shareMenu.open, false, 'Escape closes the native disclosure');
+  assert.equal(agenda.document.activeElement, agenda.shareToggle, 'focus returns to the menu summary');
+  assert.equal(escape.defaultPrevented, true);
+  assert.equal(agenda.location.search, currentSearch);
+  assert.equal(agenda.historyEntries.length, historyLength);
+
+  agenda.shareToggle.click();
+  assert.equal(agenda.shareMenu.open, true);
+  agenda.modeFilter.focus();
+  agenda.document.dispatchEvent({ type: 'click', target: agenda.modeFilter });
+  assert.equal(agenda.shareMenu.open, false, 'an outside click closes the disclosure');
+  assert.equal(agenda.document.activeElement, agenda.modeFilter);
+  assert.equal(agenda.location.search, currentSearch, 'closing the menu outside does not change filters');
+  assert.equal(agenda.historyEntries.length, historyLength);
+});
+
+test('a pending copy preserves focus moved to an agenda filter before it resolves', async () => {
+  let resolveCopy;
+  const pendingCopy = new Promise((resolve) => { resolveCopy = resolve; });
+  const agenda = createAgenda({
+    count: 2,
+    filter: '?view=week&date=2026-10-05&tz=UTC&mode=online',
+    events: [
+      { id: 'focus-online', title: 'Evento remoto', mode: 'online', startsAt: '2026-10-06T15:00:00Z', endsAt: '2026-10-06T16:00:00Z' },
+      { id: 'focus-in-person', title: 'Evento presencial', mode: 'in-person', country: 'AR', venueCountry: 'AR', city: 'Córdoba', startsAt: '2026-10-06T16:00:00Z', endsAt: '2026-10-06T17:00:00Z' },
+    ],
+    clipboard: makeClipboard(() => pendingCopy),
+  });
+  activateShareMenu(agenda);
+  agenda.copyButton.click();
+  assert.equal(agenda.clipboardCalls.length, 1);
+  assert.equal(agenda.document.activeElement, agenda.shareToggle,
+    'pending work keeps focus on the visible disclosure control while Copy is disabled');
+
+  agenda.modeFilter.focus();
+  agenda.modeFilter.value = 'in-person';
+  agenda.modeFilter.emit('change');
+  assert.equal(agenda.document.activeElement, agenda.modeFilter);
+
+  resolveCopy();
+  await pendingCopy;
+  assert.equal(agenda.document.activeElement, agenda.modeFilter,
+    'copy completion does not move focus away from a filter used while the write was pending');
+  assert.match(agenda.shareStatus.textContent, /anterior|selección/iu);
+  assert.equal(agenda.shareMenu.open, false);
+  assert.equal(agenda.copyButton.disabled, false);
 });

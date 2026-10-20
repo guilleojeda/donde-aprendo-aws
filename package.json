@@ -29,7 +29,8 @@
     "@aws-sdk/client-sts": "3.1138.0",
     "@aws-sdk/lib-dynamodb": "3.1138.0",
     "astro": "7.3.4",
-    "csv-parse": "7.0.2"
+    "csv-parse": "7.0.2",
+    "twitter-text": "3.1.0"
   },
   "devDependencies": {
     "@astrojs/check": "0.9.10",
