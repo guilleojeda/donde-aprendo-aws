@@ -2123,3 +2123,35 @@ test('the native share menu closes with Escape, restores focus and leaves agenda
   assert.equal(agenda.location.search, currentSearch, 'closing the menu outside does not change filters');
   assert.equal(agenda.historyEntries.length, historyLength);
 });
+
+test('a pending copy preserves focus moved to an agenda filter before it resolves', async () => {
+  let resolveCopy;
+  const pendingCopy = new Promise((resolve) => { resolveCopy = resolve; });
+  const agenda = createAgenda({
+    count: 2,
+    filter: '?view=week&date=2026-10-05&tz=UTC&mode=online',
+    events: [
+      { id: 'focus-online', title: 'Evento remoto', mode: 'online', startsAt: '2026-10-06T15:00:00Z', endsAt: '2026-10-06T16:00:00Z' },
+      { id: 'focus-in-person', title: 'Evento presencial', mode: 'in-person', country: 'AR', venueCountry: 'AR', city: 'Córdoba', startsAt: '2026-10-06T16:00:00Z', endsAt: '2026-10-06T17:00:00Z' },
+    ],
+    clipboard: makeClipboard(() => pendingCopy),
+  });
+  activateShareMenu(agenda);
+  agenda.copyButton.click();
+  assert.equal(agenda.clipboardCalls.length, 1);
+  assert.equal(agenda.document.activeElement, agenda.shareToggle,
+    'pending work keeps focus on the visible disclosure control while Copy is disabled');
+
+  agenda.modeFilter.focus();
+  agenda.modeFilter.value = 'in-person';
+  agenda.modeFilter.emit('change');
+  assert.equal(agenda.document.activeElement, agenda.modeFilter);
+
+  resolveCopy();
+  await pendingCopy;
+  assert.equal(agenda.document.activeElement, agenda.modeFilter,
+    'copy completion does not move focus away from a filter used while the write was pending');
+  assert.match(agenda.shareStatus.textContent, /anterior|selección/iu);
+  assert.equal(agenda.shareMenu.open, false);
+  assert.equal(agenda.copyButton.disabled, false);
+});

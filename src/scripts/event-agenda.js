@@ -16,6 +16,7 @@ import {
 } from '../lib/event-agenda-filter.mjs';
 import { trackRegistrationClick } from '../lib/event-analytics.mjs';
 import { eventAgendaSummaryText, nextEventAgendaTransition } from '../lib/event-agenda-summary.mjs';
+import { buildEventAgendaShare } from '../lib/event-agenda-share.mjs';
 
 const agenda = document.querySelector('[data-event-list]');
 const empty = document.querySelector('[data-event-empty]');
@@ -41,6 +42,13 @@ const count = document.querySelector('[data-event-count]');
 const factSummary = document.querySelector('[data-event-summary]');
 const pageHeading = document.querySelector('[data-event-page-heading]');
 const pageIntro = document.querySelector('[data-event-page-intro]');
+const shareControls = document.querySelector('[data-event-share-controls]');
+const shareMenu = document.querySelector('[data-event-share-menu]');
+const shareToggle = document.querySelector('[data-event-share-toggle]');
+const xShareLink = document.querySelector('[data-event-share-x]');
+const linkedinShareLink = document.querySelector('[data-event-share-linkedin]');
+const copyButton = document.querySelector('[data-event-share-copy]');
+const shareStatus = document.querySelector('[data-event-share-status]');
 const emptyFilters = { mode: '', country: '', city: '', community: '' };
 const filterFieldsInOrder = Object.keys(emptyFilters);
 const agendaRouteLinks = [...document.querySelectorAll('a[data-event-agenda-route]')];
@@ -59,6 +67,8 @@ if (agenda && empty) {
       venueCountry: view.dataset.memberVenueCountry || undefined,
       city: view.dataset.memberCity || undefined,
       communityId: view.dataset.memberCommunityId || undefined,
+      title: view.dataset.memberTitle,
+      registrationUrl: view.dataset.memberRegistrationUrl,
       view,
     }));
     return {
@@ -88,6 +98,10 @@ if (agenda && empty) {
     community: new Set([...(controls.community?.options ?? [])].map((option) => option.value)),
   };
   let expiryTimer;
+  let latestShare;
+  let lastShareSignature;
+  let shareRevision = 0;
+  let copyPending = false;
   let limit = 12;
   const visitorZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   let period = parseEventAgendaPeriod(location.search, { timeZone: visitorZone, now: Date.now() });
@@ -240,6 +254,33 @@ if (agenda && empty) {
     period: selectedPeriod,
   });
 
+  function updateShareControls(selection, filters, now) {
+    if (!shareControls || !xShareLink || !linkedinShareLink) return;
+    const nextShare = buildEventAgendaShare({
+      selection,
+      period,
+      filters,
+      communityById,
+      url: window.location.href,
+      now,
+    });
+    xShareLink.setAttribute('href', nextShare.xHref);
+    linkedinShareLink.setAttribute('href', nextShare.linkedInHref);
+
+    const signature = JSON.stringify([
+      nextShare.url,
+      Boolean(includeEndedControl?.checked),
+      nextShare.text,
+    ]);
+    if (lastShareSignature !== undefined && lastShareSignature !== signature) {
+      shareRevision += 1;
+      if (shareStatus) shareStatus.textContent = '';
+    }
+    lastShareSignature = signature;
+    latestShare = nextShare;
+    shareControls.hidden = false;
+  }
+
   function routeDefaultsFor(link) {
     const linkHref = routeLinkBases.get(link) ?? link.href ?? '';
     const path = new URL(linkHref, window.location.origin || `https://${window.location.hostname}`).pathname;
@@ -390,6 +431,7 @@ if (agenda && empty) {
     const selectedEvents = matchingGroups.map((group) => group.event);
     updatePageCopy(filters);
     updateFactSummary(selectedEvents, now);
+    updateShareControls(matchingGroups, filters, now);
     empty.hidden = matchingGroups.length > 0;
     if (empty.hidden === false) {
       empty.textContent = allEvents.length > 0
@@ -527,6 +569,82 @@ if (agenda && empty) {
   updateRouteLinks();
   refresh();
   revealEventHash();
+
+  const closeShareMenu = (returnFocus = false) => {
+    if (!shareMenu) return;
+    shareMenu.open = false;
+    if (returnFocus) shareToggle?.focus({ preventScroll: true });
+  };
+  const copyFailureMessage = 'No se pudo copiar al portapapeles. Inténtalo de nuevo.';
+  copyButton?.addEventListener('click', () => {
+    if (copyPending) return;
+    refresh();
+    const capturedShare = latestShare;
+    if (!capturedShare || typeof capturedShare.text !== 'string') {
+      if (shareStatus) shareStatus.textContent = copyFailureMessage;
+      return;
+    }
+
+    if (shareStatus) shareStatus.textContent = '';
+    const clipboard = window.navigator?.clipboard;
+    if (typeof clipboard?.writeText !== 'function') {
+      if (shareStatus) shareStatus.textContent = 'No se pudo copiar: el portapapeles no está disponible en este navegador.';
+      return;
+    }
+
+    const capturedRevision = shareRevision;
+    copyPending = true;
+    copyButton.disabled = true;
+    const recoverCopyFailure = () => {
+      if (shareStatus) shareStatus.textContent = copyFailureMessage;
+      copyPending = false;
+      copyButton.disabled = false;
+    };
+    let write;
+    try {
+      write = clipboard.writeText(capturedShare.text);
+    } catch {
+      recoverCopyFailure();
+      return;
+    }
+    if (!write || typeof write.then !== 'function') {
+      recoverCopyFailure();
+      return;
+    }
+    if (shareStatus) shareStatus.textContent = 'Copiando la agenda al portapapeles…';
+    shareToggle?.focus({ preventScroll: true });
+    write.then(
+      () => {
+        const changedWhileCopying = shareRevision !== capturedRevision;
+        if (shareStatus) {
+          shareStatus.textContent = changedWhileCopying
+            ? 'Se copió la selección anterior; la agenda cambió mientras se copiaba.'
+            : 'Agenda copiada al portapapeles.';
+        }
+        closeShareMenu(Boolean(shareMenu?.contains(document.activeElement)));
+        copyPending = false;
+        copyButton.disabled = false;
+      },
+      () => {
+        recoverCopyFailure();
+      },
+    );
+  });
+
+  shareMenu?.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || !shareMenu.open) return;
+    event.preventDefault();
+    closeShareMenu(true);
+  });
+  shareMenu?.addEventListener('toggle', () => {
+    if (shareMenu.open) refresh();
+  });
+  for (const link of [xShareLink, linkedinShareLink]) {
+    link?.addEventListener('click', () => closeShareMenu(true));
+  }
+  document.addEventListener('click', (event) => {
+    if (shareMenu?.open && !shareControls?.contains(event.target)) closeShareMenu();
+  });
 
   for (const button of viewButtons) {
     button.addEventListener('click', () => {

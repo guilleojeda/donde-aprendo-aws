@@ -81,6 +81,17 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
         <h2 id="event-agenda-title">Eventos publicados</h2>
         <p>Ordenados por fecha de inicio.</p>
       </div>
+      <div class="event-agenda__share" data-event-share-controls hidden>
+        <details class="event-agenda__share-menu" data-event-share-menu>
+          <summary class="event-agenda__share-toggle" data-event-share-toggle>Compartir</summary>
+          <div class="event-agenda__share-menu-list" role="group" aria-label="Opciones para compartir">
+            <a class="event-agenda__share-menu-item" data-event-share-x href="https://x.com/intent/tweet?url=https%3A%2F%2Fdondeaprendoaws.com%2Feventos%2F" target="_blank" rel="noopener noreferrer">X</a>
+            <a class="event-agenda__share-menu-item" data-event-share-linkedin href="https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fdondeaprendoaws.com%2Feventos%2F" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+            <button class="event-agenda__share-menu-item" data-event-share-copy type="button">Copiar</button>
+          </div>
+        </details>
+        <p class="event-agenda__share-status" data-event-share-status role="status" aria-live="polite"></p>
+      </div>
     </div>
     <p class="event-agenda__facts" data-event-summary data-event-summary-intro={eventFactsIntro} data-event-summary-empty={emptyFacts} aria-live="polite">{eventFactsText}</p>
     <div class="event-agenda__filter-area">
@@ -192,6 +203,8 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
               data-member-venue-country={member.venueCountry ?? ''}
               data-member-city={member.city ?? ''}
               data-member-community-id={member.communityId ?? ''}
+              data-member-title={member.title}
+              data-member-registration-url={member.registrationUrl}
               hidden={member.id !== event.id}
             >
               <div class="event-card__date">
@@ -240,6 +253,97 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
 <script src="../scripts/event-agenda.js"></script>
 
 <style>
+  .event-agenda__heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .event-agenda__share {
+    position: relative;
+    flex: 0 0 auto;
+  }
+
+  .event-agenda__share-menu { position: relative; }
+
+  .event-agenda__share-toggle {
+    display: inline-flex;
+    min-height: 40px;
+    align-items: center;
+    padding: 8px 12px;
+    border: 1px solid var(--color-control);
+    border-radius: 7px;
+    background: #fff;
+    color: var(--color-ink);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 650;
+    list-style: none;
+  }
+
+  .event-agenda__share-toggle::-webkit-details-marker { display: none; }
+  .event-agenda__share-toggle::after { content: '▾'; margin-left: 7px; font-size: 12px; }
+  .event-agenda__share-menu[open] > .event-agenda__share-toggle::after { content: '▴'; }
+
+  .event-agenda__share-menu-list {
+    position: absolute;
+    z-index: 4;
+    top: calc(100% + 5px);
+    right: 0;
+    display: grid;
+    min-width: 170px;
+    gap: 3px;
+    padding: 6px;
+    border: 1px solid var(--color-line);
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 4px 14px #26345724;
+  }
+
+  .event-agenda__share-menu-item {
+    display: flex;
+    width: 100%;
+    min-height: 40px;
+    align-items: center;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 5px;
+    background: #fff;
+    color: var(--color-ink);
+    cursor: pointer;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 650;
+    text-align: left;
+    text-decoration: none;
+  }
+
+  .event-agenda__share-menu-item:hover { background: #edf1f8; }
+  .event-agenda__share-menu-item:focus-visible,
+  .event-agenda__share-toggle:focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+
+  .event-agenda__share-menu-item:disabled { color: var(--color-muted); cursor: wait; }
+
+  .event-agenda__share-status {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 3;
+    width: max-content;
+    max-width: min(320px, 78vw);
+    margin: 0;
+    color: var(--color-text);
+    font-size: 12px;
+    line-height: 1.4;
+    text-align: right;
+  }
+
+  .event-agenda__share-status:not(:empty) { margin-top: 5px; }
+
   .event-agenda__facts {
     margin: 12px 0 0;
     padding: 10px 14px;
@@ -419,6 +523,12 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
   }
 
   @media (max-width: 640px) {
+    .event-agenda__heading { flex-wrap: wrap; }
+
+    .event-agenda__share { margin-left: auto; }
+
+    .event-agenda__share-status { right: 0; left: auto; text-align: right; }
+
     .event-agenda__period-controls {
       grid-template-columns: 1fr;
       gap: 10px;
