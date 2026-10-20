@@ -25,7 +25,9 @@ const sectionLabel = section === 'eventos' ? 'eventos' : 'comunidades';
     <ul>
       {pages.map((page) => {
         const path = `/${section}/${page.slug}/`;
-        return <li><a href={path} aria-current={page.country === currentCountry ? 'page' : undefined}>
+        return <li><a href={path} aria-current={page.country === currentCountry ? 'page' : undefined}
+          data-event-agenda-route={section === 'eventos' ? '' : undefined}
+          data-event-agenda-country={section === 'eventos' ? page.country : undefined}>
           {page.label}{showCounts && <span>({page.count})</span>}
         </a></li>;
       })}

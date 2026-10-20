@@ -32,12 +32,12 @@ const navigationLinks = [
 
     <noscript>
       <div class="site-nav__noscript-menu">
-        {navigationLinks.map((link) => <a class={link.className} href={link.href}>{link.label}</a>)}
+        {navigationLinks.map((link) => <a class={link.className} href={link.href} data-event-agenda-route={link.href === '/eventos/' ? '' : undefined}>{link.label}</a>)}
       </div>
     </noscript>
 
     <div class="site-nav__menu" id="site-menu">
-      {navigationLinks.map((link) => <a class={link.className} href={link.href}>{link.label}</a>)}
+      {navigationLinks.map((link) => <a class={link.className} href={link.href} data-event-agenda-route={link.href === '/eventos/' ? '' : undefined}>{link.label}</a>)}
     </div>
   </nav>
 </header>

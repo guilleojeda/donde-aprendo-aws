@@ -673,6 +673,30 @@ test('an out-of-period co-host fragment opens its start period and keeps compati
   assert.equal(agenda.historyEntries.at(-1).method, 'replaceState');
 });
 
+test('a fragment outside the period keeps it when another co-host already overlaps', () => {
+  const agenda = createAgenda({
+    count: 1,
+    now: Date.parse('2026-10-05T12:00:00Z'),
+    filter: '?view=week&date=2026-10-05&tz=UTC',
+    hash: '#event-short',
+    events: [{
+      id: 'long',
+      aliasIds: 'short',
+      startsAt: '2026-10-04T23:00:00Z',
+      endsAt: '2026-10-05T01:00:00Z',
+      members: [
+        { startsAt: '2026-10-04T23:00:00Z', endsAt: '2026-10-05T01:00:00Z' },
+        { startsAt: '2026-10-04T23:00:00Z', endsAt: '2026-10-04T23:30:00Z' },
+      ],
+    }],
+  });
+
+  assert.equal(new URLSearchParams(agenda.location.search).get('date'), '2026-10-05');
+  assert.equal(agenda.location.hash, '#event-short');
+  assert.equal(agenda.cards[0].hidden, false);
+  assert.equal(agenda.document.activeElement, agenda.cards[0]);
+});
+
 test('unknown fragments do not change the period or filters', () => {
   const agenda = createAgenda({
     count: 1,

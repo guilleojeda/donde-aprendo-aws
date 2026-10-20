@@ -29,6 +29,8 @@ const allOrganizerCountries = new Set<string>(countryPages.map((page) => page.co
 for (const group of allGroups) for (const organizerCountryCode of eventCountriesByGroup(group)) allOrganizerCountries.add(organizerCountryCode);
 const eventCountries = [...allOrganizerCountries]
   .sort((left, right) => countryLabel(left).localeCompare(countryLabel(right), 'es'));
+const timeZones = [...new Set(['UTC', ...Intl.supportedValuesOf('timeZone')])]
+  .sort((left, right) => left.localeCompare(right, 'es'));
 const modeLabel = { online: 'En línea', 'in-person': 'Presencial', hybrid: 'Híbrido' } as const;
 const cityOptions = new Map<string, { key: string; city: string; country?: string; organizerCountries: Set<string> }>();
 for (const event of contextEvents) {
@@ -94,12 +96,19 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
     </div>
     <p class="event-agenda__facts" data-event-summary data-event-summary-intro={eventFactsIntro} data-event-summary-empty={emptyFacts} aria-live="polite">{eventFactsText}</p>
     <div class="event-agenda__filter-area">
-      <div class="event-agenda__filters">
-        <div class="event-agenda__date-filters">
-          <label class="event-agenda__include-ended"><input type="checkbox" data-event-include-ended checked /> Incluir eventos finalizados</label>
-          <label for="event-from">Desde <input id="event-from" type="date" data-event-from /></label>
-          <label for="event-to">Hasta <input id="event-to" type="date" data-event-to /></label>
+      <div class="event-agenda__period-controls">
+        <div class="event-agenda__period-views" role="group" aria-label="Vista del período">
+          <button type="button" data-event-view="week" aria-pressed="true">Semana</button>
+          <button type="button" data-event-view="month" aria-pressed="false">Mes</button>
         </div>
+        <div class="event-agenda__period-navigation" role="group" aria-label="Navegación del período">
+          <button type="button" data-event-period-prev aria-label="Anterior">←</button>
+          <p class="event-agenda__period-label" data-event-period-label aria-live="polite">Activa JavaScript para elegir un período.</p>
+          <button type="button" data-event-period-next aria-label="Siguiente">→</button>
+        </div>
+      </div>
+      <div class="event-agenda__filters">
+        <label class="event-agenda__include-ended"><input type="checkbox" data-event-include-ended checked /> Incluir eventos finalizados</label>
         <details class="event-agenda__secondary-filters" data-event-secondary-disclosure open>
           <summary><span data-event-secondary-label>Más filtros</span></summary>
           <div class="event-agenda__secondary-fields">
@@ -121,10 +130,14 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
                 {item.city}{item.organizerCountries.length ? ` · grupos de ${item.organizerCountries.map(countryLabel).join(' y ')}` : ''}
               </option>)}
             </select></label>}
+            <label class="event-agenda__zone" for="event-zone">Zona horaria
+              <select id="event-zone" data-event-zone>
+                {timeZones.map((timeZone) => <option value={timeZone} selected={timeZone === 'UTC'}>{timeZone}</option>)}
+              </select>
+            </label>
           </div>
         </details>
       </div>
-      <p class="event-agenda__filter-note">Fechas de inicio en la zona del organizador.</p>
       <div class="event-agenda__filter-summary"><button type="button" data-event-clear>Limpiar filtros</button><span data-event-count aria-live="polite"></span></div>
     </div>
     <noscript><p>Se muestran todos los eventos publicados. Para filtrar la agenda, activa JavaScript.</p></noscript>
@@ -180,15 +193,15 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
               hidden={member.id !== event.id}
             >
               <div class="event-card__date">
-                <time datetime={member.startsAt}>{eventDateLabel(member.startsAt, member.timeZone)}</time>
+                <time datetime={member.startsAt} data-event-date-label>{eventDateLabel(member.startsAt, member.timeZone)}</time>
                 <span>{modeLabel[member.mode]}</span>
                 <span data-event-status>{memberStatus}</span>
               </div>
               <h3>{member.title}</h3>
               <p class="event-card__description">{member.description}</p>
               <dl class="event-card__details">
-                <div><dt>Horario</dt><dd><time datetime={member.startsAt}>{eventTimeLabel(member.startsAt, member.timeZone)}</time> – <time datetime={member.endsAt}>{eventTimeLabel(member.endsAt, member.timeZone)}</time> · horario del organizador</dd></div>
-                <div data-visitor-time data-starts-at={member.startsAt} data-ends-at={member.endsAt} hidden><dt>En tu zona</dt><dd data-visitor-time-value></dd></div>
+                <div><dt>Horario</dt><dd><time datetime={member.startsAt} data-event-time-label>{eventTimeLabel(member.startsAt, member.timeZone)}</time> – <time datetime={member.endsAt} data-event-time-end-label>{eventTimeLabel(member.endsAt, member.timeZone)}</time></dd></div>
+                <div><dt>Horario del organizador</dt><dd>{eventDateLabel(member.startsAt, member.timeZone)} · <time datetime={member.startsAt}>{eventTimeLabel(member.startsAt, member.timeZone)}</time> – <time datetime={member.endsAt}>{eventTimeLabel(member.endsAt, member.timeZone)}</time></dd></div>
                 <div><dt>Organiza</dt><dd>{organizers.map(({ community, name }, index) => <span>
                   {index > 0 && '; '}{community ? <a href={resourceHref(community)}>{name}</a> : name}
                 </span>)}</dd></div>
@@ -236,18 +249,102 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
     grid-template-columns: 1fr;
   }
 
-  .event-agenda__date-filters,
   .event-agenda__secondary-fields {
     display: grid;
     gap: 10px;
   }
 
-  .event-agenda__date-filters {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .event-agenda__period-controls {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+    padding: 14px 0;
+    border-top: 1px solid var(--color-line);
+    border-bottom: 1px solid var(--color-line);
   }
 
-  .event-agenda__date-filters input {
+  .event-agenda__period-views {
+    display: inline-flex;
+    gap: 3px;
+    padding: 4px;
+    border-radius: 9px;
+    background: #f0f2f5;
+  }
+
+  .event-agenda__period-views button,
+  .event-agenda__period-navigation button {
+    min-height: 40px;
+    border: 1px solid var(--color-control);
+    border-radius: 7px;
+    background: #fff;
+    color: var(--color-ink);
+    cursor: pointer;
+    font-weight: 650;
+  }
+
+  .event-agenda__period-views button {
+    min-width: 80px;
+    padding: 7px 12px;
+    border-color: transparent;
+    background: transparent;
+    color: var(--color-muted);
+  }
+
+  .event-agenda__period-views button[aria-pressed="true"] {
+    background: #fff;
+    color: var(--color-ink);
+    box-shadow: 0 1px 4px #26345722;
+  }
+
+  .event-agenda__period-navigation {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     min-width: 0;
+  }
+
+  .event-agenda__period-navigation button {
+    flex: 0 0 42px;
+    width: 42px;
+    padding: 6px;
+    font-size: 18px;
+  }
+
+  .event-agenda__period-label {
+    flex: 1;
+    min-width: 168px;
+    margin: 0;
+    color: var(--color-ink);
+    font-size: 16px;
+    font-weight: 700;
+    text-align: center;
+  }
+
+  .event-agenda__zone {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+    color: var(--color-ink);
+    font-size: 13px;
+    font-weight: 650;
+  }
+
+  .event-agenda__secondary-fields .event-agenda__zone {
+    grid-column: 1 / -1;
+    max-width: 320px;
+  }
+
+  .event-agenda__zone select {
+    width: 100%;
+    min-height: 40px;
+    padding: 7px 9px;
+    border: 1px solid var(--color-control);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--color-ink);
   }
 
   .event-agenda__filters .event-agenda__include-ended {
@@ -290,6 +387,31 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
   }
 
   @media (max-width: 640px) {
+    .event-agenda__period-controls {
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .event-agenda__period-views {
+      display: flex;
+      width: fit-content;
+      max-width: 100%;
+    }
+
+    .event-agenda__period-views button {
+      flex: 1;
+    }
+
+    .event-agenda__period-navigation {
+      justify-content: space-between;
+      width: 100%;
+    }
+
+    .event-agenda__period-label {
+      min-width: 0;
+      font-size: 14px;
+    }
+
     :global(.event-page--agenda .directory-hero) {
       margin: 0 auto 14px;
       text-align: left;
@@ -349,10 +471,6 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
       margin-top: 10px;
     }
 
-    .event-agenda__date-filters input {
-      font-size: 13px;
-    }
-
     :global(.event-page--agenda) {
       padding-top: 12px;
     }
@@ -367,8 +485,10 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
   }
 
   @media (max-width: 359px) {
-    .event-agenda__date-filters {
-      grid-template-columns: 1fr;
+    .event-agenda__period-views button {
+      min-width: 0;
+      padding-right: 10px;
+      padding-left: 10px;
     }
   }
 </style>

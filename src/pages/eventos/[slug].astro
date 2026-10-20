@@ -53,12 +53,12 @@ const title = collection?.title ?? `Eventos AWS en ${countryName} | ¿Dónde Apr
 const description = collection?.description ?? `Eventos AWS en ${countryName}, organizados por comunidades de ese país. Encuentra encuentros en línea, presenciales e híbridos y consulta fechas, horarios e inscripción.`;
 const canonical = new URL(path, 'https://dondeaprendoaws.com').href;
 const heading = collection ? collection.label : `Eventos AWS en ${countryName}`;
-const intro = collection?.intro ?? `Consulta los eventos publicados por comunidades AWS de ${countryName}, incluidos los finalizados: modalidad, fechas, horarios y enlaces al evento.`;
+const intro = collection?.intro ?? `Consulta por semana o mes los eventos publicados por comunidades AWS de ${countryName}, incluidos los finalizados: modalidad, fechas, horarios y enlaces al evento.`;
 const collectionModes = collection?.modes as readonly CatalogEvent['mode'][] | undefined;
 const collectionLinks = [
   { path: '/eventos/', label: 'Todos los eventos' },
-  ...Object.values(EVENT_COLLECTIONS).map(({ path: collectionPath, label }) => ({
-    path: collectionPath, label,
+  ...Object.values(EVENT_COLLECTIONS).map(({ path: collectionPath, label, modes }) => ({
+    path: collectionPath, label, eventModes: modes,
   })),
 ];
 const faqItems = eventFaqItems({ countryName, collectionKey });
@@ -70,7 +70,7 @@ const faqItems = eventFaqItems({ countryName, collectionKey });
     <nav class="community-breadcrumb" aria-label="Ruta de navegación">
       <ol>
         <li><a href="/">Inicio</a></li>
-        <li><a href="/eventos/">Eventos</a></li>
+        <li><a href="/eventos/" data-event-agenda-route>Eventos</a></li>
         <li aria-current="page">{collection?.label ?? countryName}</li>
       </ol>
     </nav>

@@ -1,4 +1,4 @@
-const FIELDS = ['from', 'to', 'mode', 'country', 'city', 'community'];
+const FIELDS = ['mode', 'country', 'city', 'community'];
 const SECONDARY_FIELDS = ['mode', 'country', 'city', 'community'];
 
 export function secondaryEventAgendaFilterCount(filters) {
@@ -7,12 +7,6 @@ export function secondaryEventAgendaFilterCount(filters) {
 
 export function shouldOpenEventAgendaSecondaryFilters(filters, isMobile) {
   return secondaryEventAgendaFilterCount(filters) > 0 || !isMobile;
-}
-
-function validDate(value) {
-  if (!/^\d{4}-\d{2}-\d{2}$/u.test(value)) return false;
-  const date = new Date(`${value}T00:00:00Z`);
-  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
 export function parseEventAgendaSearch(search, allowed) {
@@ -27,8 +21,6 @@ export function parseEventAgendaSearch(search, allowed) {
   const communityMatchesCountry = !country || !community || !allowed.communityCountries
     || allowed.communityCountries.get(community) === country;
   return {
-    from: validDate(query.get('from') ?? '') ? query.get('from') : '',
-    to: validDate(query.get('to') ?? '') ? query.get('to') : '',
     mode: allowed.mode.has(query.get('mode')) ? query.get('mode') : '',
     country,
     city: country && city && !cityMatchesCountry ? '' : city,
@@ -38,7 +30,7 @@ export function parseEventAgendaSearch(search, allowed) {
 
 export function serializeEventAgendaSearch(search, filters) {
   const query = new URLSearchParams(search);
-  query.delete('includeEnded');
+  for (const key of ['from', 'to', 'includeEnded']) query.delete(key);
   for (const field of FIELDS) {
     query.delete(field);
     if (filters[field]) query.set(field, filters[field]);
@@ -50,8 +42,6 @@ export function eventMatchesFilters(event, filters, now = Date.now(), includeEnd
   const communities = event.communities ?? (event.community ? [event.community] : []);
   const countries = event.countries ?? (event.country ? [event.country] : []);
   return (includeEnded || Date.parse(event.endsAt) > now)
-    && (!filters.from || event.localDate >= filters.from)
-    && (!filters.to || event.localDate <= filters.to)
     && (!filters.mode || event.mode === filters.mode)
     && (!filters.country || countries.includes(filters.country))
     && (!filters.community || communities.includes(filters.community))
