@@ -3,11 +3,11 @@ import test from 'node:test';
 import { uniqueUpcomingEventGroups } from '../src/lib/events.mjs';
 import { EVENT_COLLECTIONS, eventCollectionForPath, eventGroupsForModes } from '../src/lib/event-collections.mjs';
 
-test('event collection routes have unique copy and disjoint published mode scopes', () => {
+test('event collection routes preserve their paths and include hybrid participation in both scopes', () => {
   const collections = Object.values(EVENT_COLLECTIONS);
   assert.deepEqual(collections.map(({ path }) => path), ['/eventos/online/', '/eventos/presenciales/']);
   assert.equal(new Set(collections.map(({ path }) => path)).size, collections.length);
-  assert.deepEqual(EVENT_COLLECTIONS.online.modes, ['online']);
+  assert.deepEqual(EVENT_COLLECTIONS.online.modes, ['online', 'hybrid']);
   assert.deepEqual(EVENT_COLLECTIONS.presenciales.modes, ['in-person', 'hybrid']);
   assert.deepEqual(new Set(collections.flatMap(({ modes }) => modes)), new Set(['online', 'in-person', 'hybrid']));
   for (const collection of collections) {
@@ -32,6 +32,10 @@ test('mode collections select after deduplication and retain all co-host listing
       timeZone: 'UTC', mode: 'hybrid', place: 'Centro', registrationUrl: 'https://example.test/hybrid', country: 'PE', communityId: 'community-pe',
     },
     {
+      id: 'event-hybrid-cohost', title: 'Meetup híbrido', startsAt: '2099-01-02T18:00:00Z', endsAt: '2099-01-02T19:00:00Z',
+      timeZone: 'UTC', mode: 'hybrid', place: 'Centro', registrationUrl: 'https://example.test/hybrid?ref=cohost', country: 'PE', communityId: 'community-pe-cohost',
+    },
+    {
       id: 'event-in-person', title: 'Meetup presencial', startsAt: '2099-01-03T18:00:00Z', endsAt: '2099-01-03T19:00:00Z',
       timeZone: 'UTC', mode: 'in-person', place: 'Centro', registrationUrl: 'https://example.test/in-person', country: 'CL', communityId: 'community-cl',
     },
@@ -41,8 +45,12 @@ test('mode collections select after deduplication and retain all co-host listing
   const inPerson = eventGroupsForModes(allGroups, EVENT_COLLECTIONS.presenciales.modes);
 
   assert.equal(allGroups.length, 3);
-  assert.deepEqual(online.map(({ event }) => event.id), ['event-online']);
+  assert.deepEqual(online.map(({ event }) => event.id), ['event-online', 'event-hybrid']);
   assert.deepEqual(online[0].events.map(({ communityId }) => communityId), ['community-ar', 'community-co']);
+  assert.deepEqual(online[1].events.map(({ id }) => id), ['event-hybrid', 'event-hybrid-cohost'],
+    'an online collection keeps all co-host listings for one hybrid occurrence');
   assert.deepEqual(inPerson.map(({ event }) => event.id), ['event-hybrid', 'event-in-person']);
+  assert.equal(inPerson.filter(({ event }) => event.id === 'event-hybrid').length, 1,
+    'the hybrid occurrence appears once within each collection');
   assert.equal(eventGroupsForModes(allGroups, undefined), allGroups);
 });

@@ -199,9 +199,9 @@ test('agenda selection requires one matching member to overlap the period and ke
   const startsAt = '2026-09-27T22:00:00Z';
   const shared = { title: 'Sesión coorganizada', startsAt, timeZone: 'UTC', registrationUrl: 'https://example.test/session' };
   const members = [
-    { ...shared, id: 'a-boundary', endsAt: '2026-09-28T00:00:00Z', mode: 'hybrid', country: 'CO', city: 'Cali', communityId: 'community-co' },
+    { ...shared, id: 'a-boundary', endsAt: '2026-09-28T00:00:00Z', mode: 'in-person', country: 'CO', city: 'Cali', communityId: 'community-co' },
     { ...shared, id: 'b-filter-only', endsAt: '2026-10-02T00:00:00Z', mode: 'in-person', country: 'AR', city: 'Cali', communityId: 'community-co' },
-    { ...shared, id: 'z-crosses-start', endsAt: '2026-10-01T00:00:00Z', mode: 'hybrid', country: 'CO', city: 'Cali', communityId: 'community-co' },
+    { ...shared, id: 'z-crosses-start', endsAt: '2026-10-01T00:00:00Z', mode: 'in-person', country: 'CO', city: 'Cali', communityId: 'community-co' },
   ];
   const groups = uniqueEventGroups(members);
   for (const group of groups) {
@@ -211,8 +211,8 @@ test('agenda selection requires one matching member to overlap the period and ke
   }
   Object.freeze(groups);
   const options = {
-    communityById: new Map(), country: 'CO', modes: ['hybrid'], period,
-    filters: { mode: 'hybrid', country: 'CO', city: 'CO:Cali', community: 'community-co' },
+    communityById: new Map(), period,
+    filters: { mode: 'in-person', country: 'CO', city: 'CO:Cali', community: 'community-co' },
     now: '2026-10-10T00:00:00Z',
   };
 
