@@ -1757,7 +1757,7 @@ test('Copy writes the complete unpaginated plain-text selection, including a rem
   }
   assert.match(copied, /participación remota/iu,
     'a hybrid venue in Colombia reached through Solo online is identified as remote participation');
-  assert.match(copied, /Bogotá|UTC/iu, 'the copied schedule identifies its selected time zone');
+  assert.match(copied, /America\/Bogota/u, 'the copied schedule identifies its selected IANA time zone');
   assert.doesNotMatch(copied, /<[^>]+>/u, 'clipboard content is plain text');
   assert.doesNotMatch(agenda.shareStatus.textContent, /copiad|se copió/iu,
     'the interface does not report success while the write is pending');
@@ -1985,6 +1985,7 @@ test('explicit empty route overrides share as the resolved global selection with
 test('a co-hosted occurrence shares the visible representative schedule and its own registration URL', async () => {
   const agenda = createAgenda({
     count: 1,
+    clipboard: makeClipboard(async () => {}),
     filter: '?view=week&date=2026-10-05&tz=UTC&community=community-co',
     events: [{
       id: 'cohost-ar',
