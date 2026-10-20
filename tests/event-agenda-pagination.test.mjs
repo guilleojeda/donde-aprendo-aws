@@ -67,6 +67,7 @@ function createEventCards(count, {
 } = {}) {
   return Array.from({ length: count }, (_, index) => {
     const spec = events[index] ?? {};
+    const memberSpecs = spec.members ?? [];
     const mode = alternateModes && index % 2 ? 'online' : 'in-person';
     const startsAt = spec.startsAt ?? (expiringFirst && index === 0 ? now - 10_000 : now + 10_000 + index);
     const endsAt = spec.endsAt ?? (expiringFirst && index === 0 ? now + 500 : now + 100_000);
@@ -92,19 +93,20 @@ function createEventCards(count, {
     const countries = card.dataset.eventCountries.split('|').filter(Boolean);
     const communities = card.dataset.eventCommunities.split('|').filter(Boolean);
     const aliases = card.dataset.eventAliasIds.split('|').filter(Boolean);
-    card.members = Array.from({ length: Math.max(countries.length, communities.length, aliases.length + 1, 1) }, (_, memberIndex) => {
+    card.members = Array.from({ length: Math.max(countries.length, communities.length, aliases.length + 1, memberSpecs.length, 1) }, (_, memberIndex) => {
+      const memberSpec = memberSpecs[memberIndex] ?? {};
       const view = new MockElement(null, {
         tagName: 'ARTICLE',
         hidden: memberIndex > 0,
         dataset: {
           eventMemberId: memberIndex === 0 ? card.dataset.eventId : aliases[memberIndex - 1] ?? `${card.dataset.eventId}-cohost-${memberIndex}`,
-          memberStartsAt: card.dataset.eventStartsAt,
-          memberEndsAt: card.dataset.eventEndsAt,
-          memberTimeZone: card.dataset.eventTimeZone,
-          memberMode: card.dataset.eventMode,
-          country: countries[memberIndex] ?? countries[0] ?? '',
-          memberCity: card.dataset.eventCity.replace(/^[^:]*:/u, ''),
-          memberCommunityId: communities[memberIndex] ?? communities[0] ?? '',
+          memberStartsAt: new Date(memberSpec.startsAt ?? startsAt).toISOString(),
+          memberEndsAt: new Date(memberSpec.endsAt ?? endsAt).toISOString(),
+          memberTimeZone: memberSpec.timeZone ?? card.dataset.eventTimeZone,
+          memberMode: memberSpec.mode ?? card.dataset.eventMode,
+          country: memberSpec.country ?? countries[memberIndex] ?? countries[0] ?? '',
+          memberCity: memberSpec.city ?? card.dataset.eventCity.replace(/^[^:]*:/u, ''),
+          memberCommunityId: memberSpec.communityId ?? communities[memberIndex] ?? communities[0] ?? '',
         },
       });
       view.status = new MockElement(null);
@@ -345,6 +347,37 @@ test('expiry leaves focus inside an unaffected event card', () => {
   assert.equal(agenda.cards[1].hidden, false);
   assert.equal(agenda.document.activeElement, agenda.cards[1].registration,
     'hiding an earlier event must not detach and blur the still-visible focused card');
+});
+
+test('expiry keeps the focused twelfth card visible when a co-host representative reorders ahead of it', () => {
+  const now = Date.parse('2026-10-05T12:00:00Z');
+  const startsAt = now - 10_000;
+  const events = [
+    ...'abcdefghijk'.split('').map((id) => ({
+      id, startsAt, endsAt: now + 100_000,
+    })),
+    { id: 'm', startsAt, endsAt: now + 100_000 },
+    {
+      id: 'z-short', startsAt, endsAt: now + 500,
+      aliasIds: 'a-ended',
+      members: [
+        { id: 'z-short', startsAt, endsAt: now + 500 },
+        { id: 'a-ended', startsAt, endsAt: now - 1_000 },
+      ],
+    },
+  ];
+  const agenda = createAgenda({ count: events.length, now, events });
+  const focusedLink = agenda.cards.find((card) => card.dataset.eventId === 'm').registration;
+
+  assert.equal(agenda.cards.filter((card) => !card.hidden).length, 12);
+  focusedLink.focus();
+  agenda.advanceTime(501);
+  assert.equal(agenda.fireNextTimer(), true);
+
+  assert.equal(agenda.cards.find((card) => card.dataset.eventId === 'm').hidden, false,
+    'the selected group is kept visible after the newly ended co-host moves before it');
+  assert.equal(agenda.document.activeElement, focusedLink,
+    'expiry and reordering preserve the same focused link without moving focus elsewhere');
 });
 
 test('the checkbox defaults on, stays session-local across filters/history, and the summary counts the selection', () => {

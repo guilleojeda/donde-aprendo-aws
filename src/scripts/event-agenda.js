@@ -204,11 +204,15 @@ if (agenda && empty) {
   function refresh() {
     clearTimeout(expiryTimer);
     const now = Date.now();
+    const focusedElement = document.activeElement;
+    const focusedCard = focusedElement && groups.find(({ card }) => card.contains(focusedElement))?.card;
     for (const member of allEvents) updateMemberState(member, now);
 
     const filters = currentFilters();
     const includeEnded = Boolean(includeEndedControl?.checked);
     const matchingGroups = selectGroups(groups, filters, includeEnded, now);
+    const focusedGroupIndex = matchingGroups.findIndex((group) => group.card === focusedCard);
+    if (focusedGroupIndex >= limit) limit = focusedGroupIndex + 1;
     const matchingByCard = new Map(matchingGroups.map((group) => [group.card, group]));
     for (const group of groups) {
       const selected = matchingByCard.get(group.card);
