@@ -5,11 +5,13 @@ import { once } from 'node:events';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import test from 'node:test';
+import { configuredAccountOrigin } from '../src/lib/amplify-security.mjs';
 
 const root = resolve('.');
 const previewScript = resolve(root, 'scripts/preview.mjs');
 const runtimeEntry = resolve(root, '.amplify-hosting/compute/default/entry.mjs');
 const hasBuiltPreview = existsSync(runtimeEntry) && existsSync(resolve(root, '.amplify-hosting/static/index.html'));
+const accountOrigin = configuredAccountOrigin();
 
 test('the built mixed preview serves prerendered routes and runtime routes over HTTP', async (t) => {
   assert.ok(hasBuiltPreview, 'Run `npm run build` before verifying the built preview.');
@@ -20,11 +22,11 @@ test('the built mixed preview serves prerendered routes and runtime routes over 
     cwd: root,
     env: {
       ...process.env,
-      ACCOUNT_ORIGIN: 'https://dondeaprendoaws.com',
-      COGNITO_ISSUER: 'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_preview',
-      COGNITO_CLIENT_ID: 'preview-client-id',
-      COGNITO_DOMAIN: 'https://preview.auth.us-east-1.amazoncognito.com',
-      ACCOUNTS_TABLE: 'preview-accounts',
+      ACCOUNT_ORIGIN: accountOrigin,
+      COGNITO_ISSUER: process.env.COGNITO_ISSUER ?? 'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_preview',
+      COGNITO_CLIENT_ID: process.env.COGNITO_CLIENT_ID ?? 'preview-client-id',
+      COGNITO_DOMAIN: process.env.COGNITO_DOMAIN ?? 'https://preview.auth.us-east-1.amazoncognito.com',
+      ACCOUNTS_TABLE: process.env.ACCOUNTS_TABLE ?? 'preview-accounts',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -76,7 +78,7 @@ test('the built mixed preview serves prerendered routes and runtime routes over 
   assert.match(account.headers.get('cache-control') ?? '', /no-store/u);
   const accountHtml = await account.text();
   assert.ok(accountHtml.includes('<h1>Tu cuenta</h1>'), 'The account route is rendered by Compute.');
-  assert.match(accountHtml, /<meta name="robots" content="noindex(?:,\s*follow)?"/u);
+  assert.match(accountHtml, /<meta name="robots" content="noindex(?:,\s*(?:no)?follow)?"/u);
 
   const asset = await fetch(new URL('/assets/site-social.png', baseUrl));
   assert.equal(asset.status, 200);

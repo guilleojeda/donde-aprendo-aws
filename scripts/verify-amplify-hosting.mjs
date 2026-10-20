@@ -5,11 +5,14 @@ import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
+import { configuredAccountOrigin } from '../src/lib/amplify-security.mjs';
 import { siteOutputRoot } from './lib/site-output.mjs';
 
 const root = resolve('.amplify-hosting');
 const computeRoot = resolve(root, 'compute/default');
 const manifest = JSON.parse(readFileSync(resolve(root, 'deploy-manifest.json'), 'utf8'));
+const accountOrigin = configuredAccountOrigin();
+const accountHost = new URL(accountOrigin).host;
 const allowedRuntimeEnvironment = [
   'ACCOUNT_ORIGIN',
   'COGNITO_ISSUER',
@@ -159,9 +162,9 @@ try {
     method: 'POST',
     redirect: 'manual',
     headers: {
-      origin: 'https://dondeaprendoaws.com',
-      host: 'dondeaprendoaws.com',
-      'x-forwarded-host': 'dondeaprendoaws.com',
+      origin: accountOrigin,
+      host: accountHost,
+      'x-forwarded-host': accountHost,
       'x-forwarded-proto': 'https',
       'content-type': 'application/x-www-form-urlencoded',
     },
@@ -170,7 +173,7 @@ try {
   });
   assert.equal(logoutResponse.status, 303, 'A same-origin anonymous logout passes Astro origin protection.');
   const logoutLocation = new URL(logoutResponse.headers.get('location') ?? '');
-  assert.equal(logoutLocation.origin, 'https://dondeaprendoaws.com', 'Anonymous logout redirects only to the canonical site origin.');
+  assert.equal(logoutLocation.origin, accountOrigin, 'Anonymous logout redirects only to the configured account origin.');
   assert.equal(logoutLocation.pathname, '/cuenta/', 'Anonymous logout returns to the account page.');
 
   const missingResponse = await fetch(new URL('/runtime-route-that-does-not-exist', origin), {

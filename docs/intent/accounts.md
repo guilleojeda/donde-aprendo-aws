@@ -51,3 +51,6 @@ El directorio y el blog siguen prerenderizados en Amplify. Cuenta y 404 se
 resuelven por petición mediante el adaptador comunitario de Astro. Los rewrites
 de secciones estáticas, el artefacto y la configuración de hosting deben ser
 compatibles entre sí; revertir sólo el código no restaura reglas de app.
+El origen HTTPS de cuenta configura tanto los retornos de autenticación como
+el hostname de proxy que Astro acepta. Cambiar ese origen requiere compilar
+el artefacto con el mismo valor y autorizar sus URLs exactas en Cognito.
