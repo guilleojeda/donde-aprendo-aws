@@ -1,5 +1,12 @@
 import { eventGroupsForAgenda } from '../lib/event-agenda-groups.mjs';
-import { eventLocalDate } from '../lib/events.mjs';
+import { eventDateLabel, eventLocalDate, eventTimeLabel } from '../lib/events.mjs';
+import {
+  createEventAgendaPeriod,
+  eventOverlapsAgendaPeriod,
+  parseEventAgendaPeriod,
+  serializeEventAgendaPeriod,
+  shiftEventAgendaPeriod,
+} from '../lib/event-agenda-period.mjs';
 import {
   parseEventAgendaSearch,
   secondaryEventAgendaFilterCount,
@@ -15,10 +22,13 @@ const filterFields = document.querySelector('.event-agenda__filters');
 const secondaryDisclosure = document.querySelector('[data-event-secondary-disclosure]');
 const secondaryDisclosureLabel = document.querySelector('[data-event-secondary-label]');
 const includeEndedControl = document.querySelector('[data-event-include-ended]');
+const viewButtons = [...document.querySelectorAll('[data-event-view]')];
+const previousPeriod = document.querySelector('[data-event-period-prev]');
+const nextPeriod = document.querySelector('[data-event-period-next]');
+const periodLabel = document.querySelector('[data-event-period-label]');
+const timeZoneControl = document.querySelector('[data-event-zone]');
 const mobileDisclosure = window.matchMedia('(max-width: 640px)');
 const controls = {
-  from: filterFields?.querySelector('[data-event-from]'),
-  to: filterFields?.querySelector('[data-event-to]'),
   mode: filterFields?.querySelector('[data-event-mode]'),
   country: filterFields?.querySelector('select[data-event-country]'),
   community: filterFields?.querySelector('[data-event-community]'),
@@ -28,8 +38,10 @@ const clear = document.querySelector('[data-event-clear]');
 const more = document.querySelector('[data-event-more]');
 const count = document.querySelector('[data-event-count]');
 const factSummary = document.querySelector('[data-event-summary]');
-const emptyFilters = { from: '', to: '', mode: '', country: '', city: '', community: '' };
+const emptyFilters = { mode: '', country: '', city: '', community: '' };
 const filterFieldsInOrder = Object.keys(emptyFilters);
+const agendaRouteLinks = [...document.querySelectorAll('a[data-event-agenda-route]')];
+const routeLinkBases = new Map(agendaRouteLinks.map((link) => [link, link.getAttribute('href') ?? link.href]));
 
 if (agenda && empty) {
   const cards = [...agenda.querySelectorAll('[data-event-ends-at]')];
@@ -55,12 +67,10 @@ if (agenda && empty) {
   const routeCountry = agenda.dataset.eventContextCountry || undefined;
   const routeModes = (agenda.dataset.eventContextModes ?? '').split('|').filter(Boolean);
   const knownEventIds = new Set((agenda.dataset.eventKnownIds ?? '').split('|').filter(Boolean));
-  const visitorZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const visitorTime = new Intl.DateTimeFormat('es', {
-    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false, timeZoneName: 'short',
-  });
   const allowedFilters = Object.fromEntries(['mode', 'country', 'city', 'community']
     .map((field) => [field, new Set([...(controls[field]?.options ?? [])].map((option) => option.value))]));
+  if (routeCountry) allowedFilters.country.add(routeCountry);
+  for (const mode of routeModes) allowedFilters.mode.add(mode);
   const communityCountries = new Map([...(controls.community?.options ?? [])]
     .filter((option) => option.value)
     .map((option) => [option.value, option.dataset.eventCountry ?? '']));
@@ -71,12 +81,16 @@ if (agenda && empty) {
   const allowed = { ...allowedFilters, communityCountries, countriesForCity };
   let expiryTimer;
   let limit = 12;
+  const hiddenFilters = {};
+  const visitorZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  let period = parseEventAgendaPeriod(location.search, { timeZone: visitorZone, now: Date.now() });
 
   const currentFilters = () => Object.fromEntries(Object.entries(controls)
-    .map(([field, control]) => [field, control?.value ?? '']));
+    .map(([field, control]) => [field, control ? control.value : hiddenFilters[field] ?? '']));
   const setFilters = (filters) => {
     for (const [field, control] of Object.entries(controls)) {
       if (control) control.value = filters[field] ?? '';
+      else hiddenFilters[field] = filters[field] ?? '';
     }
   };
   const updateCityOptions = () => {
@@ -110,6 +124,36 @@ if (agenda && empty) {
       }
     }
   };
+  const syncPeriodControls = () => {
+    if (timeZoneControl) timeZoneControl.value = period.timeZone;
+    for (const button of viewButtons) {
+      button.setAttribute('aria-pressed', String(button.dataset.eventView === period.view));
+    }
+    if (periodLabel) {
+      if (period.view === 'month') {
+        const month = new Intl.DateTimeFormat('es', {
+          month: 'long', year: 'numeric', timeZone: period.timeZone,
+        }).format(new Date(period.start));
+        periodLabel.textContent = `${month} · ${period.timeZone}`;
+      } else {
+        const formatDate = new Intl.DateTimeFormat('es', {
+          day: 'numeric', month: 'long', year: 'numeric', timeZone: period.timeZone,
+        });
+        periodLabel.textContent = `Semana del ${formatDate.format(new Date(period.start))} al ${formatDate.format(new Date(period.end - 1))} · ${period.timeZone}`;
+      }
+    }
+  };
+  const ensureTimeZoneOption = (timeZone) => {
+    if (!timeZoneControl || [...timeZoneControl.options].some((option) => option.value === timeZone)) return;
+    const option = document.createElement('option');
+    option.value = timeZone;
+    option.textContent = timeZone;
+    timeZoneControl.append(option);
+  };
+  const serializeAgendaQuery = (search, filters, selectedPeriod = period) => {
+    const withPeriod = serializeEventAgendaPeriod(search, selectedPeriod);
+    return serializeEventAgendaSearch(withPeriod, filters);
+  };
   const updateFactSummary = (events, now) => {
     if (!factSummary) return;
     factSummary.textContent = eventAgendaSummaryText(events, now, {
@@ -117,37 +161,78 @@ if (agenda && empty) {
       emptyMessage: allEvents.length > 0
         ? empty.dataset.eventNoMatches ?? 'No hay eventos que coincidan con estos filtros.'
         : factSummary.dataset.eventSummaryEmpty ?? 'No hay eventos publicados en esta agenda.',
+      timeZone: period.timeZone,
     });
   };
   const readUrl = () => {
+    period = parseEventAgendaPeriod(location.search, { timeZone: visitorZone, now: Date.now() });
+    ensureTimeZoneOption(period.timeZone);
     setFilters(parseEventAgendaSearch(location.search, allowed));
     updateCityOptions();
     updateCommunityOptions();
     syncSecondaryDisclosure(true);
+    syncPeriodControls();
   };
   const writeUrl = (method = 'pushState', keepHash = false) => {
-    const query = serializeEventAgendaSearch(location.search, currentFilters());
+    const query = serializeAgendaQuery(location.search, currentFilters());
     history[method](null, '', `${location.pathname}${query ? `?${query}` : ''}${keepHash ? location.hash : ''}`);
+    updateRouteLinks();
   };
-  const selectGroups = (sourceGroups, filters, includeEnded, now) => eventGroupsForAgenda(sourceGroups, {
+  const selectGroups = (sourceGroups, filters, includeEnded, now, selectedPeriod = period) => eventGroupsForAgenda(sourceGroups, {
     communityById: new Map(),
     country: routeCountry,
     modes: routeModes.length ? routeModes : undefined,
     filters,
     includeEnded,
     now,
+    period: selectedPeriod,
   });
+
+  function compatibleRouteFilters(filters, link) {
+    const selected = { ...filters };
+    const destinationCountry = link.dataset.eventAgendaCountry;
+    const destinationModes = (link.dataset.eventAgendaModes ?? '').split('|').filter(Boolean);
+    if (destinationCountry) {
+      if (selected.country && selected.country !== destinationCountry) selected.country = '';
+      const cityCountries = countriesForCity.get(selected.city);
+      const cityMatchesCountry = cityCountries
+        ? cityCountries.has(destinationCountry)
+        : selected.city.startsWith(`${destinationCountry}:`);
+      if (selected.city && !cityMatchesCountry) selected.city = '';
+      const communityCountry = communityCountries.get(selected.community);
+      if (selected.community && communityCountry && communityCountry !== destinationCountry) selected.community = '';
+    }
+    if (destinationModes.length && selected.mode && !destinationModes.includes(selected.mode)) selected.mode = '';
+    return selected;
+  }
+
+  function updateRouteLinks() {
+    const currentQuery = new URLSearchParams(location.search);
+    const stateKeys = new Set(['view', 'date', 'tz', 'from', 'to', 'includeEnded', 'mode', 'country', 'city', 'community']);
+    const currentFilters = parseEventAgendaSearch(location.search, allowed);
+    for (const link of agendaRouteLinks) {
+      const baseHref = routeLinkBases.get(link);
+      if (!baseHref) continue;
+      const origin = window.location.origin || `https://${window.location.hostname}`;
+      const url = new URL(baseHref, origin);
+      const query = new URLSearchParams(url.search);
+      for (const [key, value] of currentQuery) {
+        if (!stateKeys.has(key) && !query.has(key)) query.append(key, value);
+      }
+      const targetFilters = parseEventAgendaSearch(query, allowed);
+      const mergedFilters = { ...targetFilters };
+      for (const field of filterFieldsInOrder) {
+        if (currentFilters[field]) mergedFilters[field] = currentFilters[field];
+      }
+      const compatible = compatibleRouteFilters(mergedFilters, link);
+      const nextQuery = serializeAgendaQuery(query.toString(), compatible);
+      url.search = nextQuery;
+      link.setAttribute('href', `${url.pathname}${url.search}${url.hash}`);
+    }
+  }
 
   for (const group of groups) {
     for (const member of group.events) {
-      const row = member.view.querySelector('[data-visitor-time]');
-      const value = member.view.querySelector('[data-visitor-time-value]');
-      if (row && value) {
-        const start = new Date(member.startsAt);
-        const end = new Date(member.endsAt);
-        value.textContent = `${visitorTime.format(start)} – ${visitorTime.format(end)} (${visitorZone})`;
-        row.hidden = false;
-      }
       member.view.querySelector('[data-event-registration]')?.addEventListener('click', () => {
         if (Date.parse(member.endsAt) <= Date.now()) return;
         trackRegistrationClick(window, {
@@ -165,8 +250,14 @@ if (agenda && empty) {
     const finalized = end <= now;
     const status = member.view.querySelector('[data-event-status]');
     const registration = member.view.querySelector('[data-event-registration]');
+    const dateLabel = member.view.querySelector('[data-event-date-label]');
+    const startTimeLabel = member.view.querySelector('[data-event-time-label]');
+    const endTimeLabel = member.view.querySelector('[data-event-time-end-label]');
     if (status) status.textContent = finalized ? 'Finalizado' : start <= now ? 'En curso' : 'Próximo';
     if (registration) registration.textContent = finalized ? 'Ver evento' : 'Inscribirme';
+    if (dateLabel) dateLabel.textContent = eventDateLabel(member.startsAt, period.timeZone);
+    if (startTimeLabel) startTimeLabel.textContent = eventTimeLabel(member.startsAt, period.timeZone);
+    if (endTimeLabel) endTimeLabel.textContent = eventTimeLabel(member.endsAt, period.timeZone);
   }
 
   function applyRepresentative(group, member) {
@@ -179,7 +270,7 @@ if (agenda && empty) {
     card.dataset.eventTimeZone = member.timeZone;
     card.dataset.eventMode = member.mode;
     card.dataset.country = country;
-    card.dataset.eventDate = eventLocalDate(member.startsAt, member.timeZone);
+    card.dataset.eventDate = eventLocalDate(member.startsAt, period.timeZone);
     card.dataset.eventCity = member.city ? `${country}:${member.city}` : '';
     card.dataset.eventCountries = [...new Set(group.events.map((item) => item.country).filter(Boolean))].join('|');
     card.dataset.eventCommunities = [...new Set(group.events.map((item) => item.communityId).filter(Boolean))].join('|');
@@ -226,7 +317,7 @@ if (agenda && empty) {
     empty.hidden = matchingGroups.length > 0;
     if (empty.hidden === false) {
       empty.textContent = allEvents.length > 0
-        ? empty.dataset.eventNoMatches ?? 'No hay eventos que coincidan con estos filtros.'
+        ? `${empty.dataset.eventNoMatches ?? 'No hay eventos que coincidan con estos filtros.'} Período: ${periodLabel?.textContent ?? ''}.`
         : empty.dataset.eventNoEvents ?? 'No hay eventos publicados en esta agenda.';
     }
     if (more) more.hidden = matchingGroups.length <= limit;
@@ -252,13 +343,13 @@ if (agenda && empty) {
     return result;
   }
 
-  function compatibleFilters(group, filters, now) {
+  function compatibleFilters(group, filters, now, selectedPeriod = period) {
     const selectedFields = filterFieldsInOrder.filter((field) => Boolean(filters[field]));
     for (let retained = selectedFields.length; retained >= 0; retained -= 1) {
       for (const fields of combinations(selectedFields, retained)) {
         const compatible = { ...emptyFilters };
         for (const field of fields) compatible[field] = filters[field];
-        if (selectGroups([group], compatible, true, now).length > 0) return compatible;
+        if (selectGroups([group], compatible, true, now, selectedPeriod).length > 0) return compatible;
       }
     }
     return { ...emptyFilters };
@@ -267,10 +358,12 @@ if (agenda && empty) {
   const fallbackToGlobalAgenda = (eventId) => {
     if (!knownEventIds.has(eventId) || location.pathname === '/eventos/') return false;
     const filters = currentFilters();
-    if (routeCountry && !filters.country) filters.country = routeCountry;
-    if (routeModes.length === 1 && !filters.mode) filters.mode = routeModes[0];
-    const query = serializeEventAgendaSearch(location.search, filters);
-    window.location.href = `/eventos/${query ? `?${query}` : ''}#event-${eventId}`;
+    const explicitQuery = new URLSearchParams(location.search);
+    for (const field of filterFieldsInOrder) {
+      if (explicitQuery.has(field)) filters[field] = explicitQuery.get(field) ?? '';
+    }
+    const preservedQuery = serializeAgendaQuery(location.search, filters);
+    window.location.href = `/eventos/${preservedQuery ? `?${preservedQuery}` : ''}#event-${eventId}`;
     return true;
   };
 
@@ -286,13 +379,35 @@ if (agenda && empty) {
 
     const now = Date.now();
     const targetMember = group.events.find((member) => member.id === eventId);
+    if (targetMember && ((routeCountry && targetMember.country !== routeCountry)
+      || (routeModes.length && !routeModes.includes(targetMember.mode)))) {
+      fallbackToGlobalAgenda(eventId);
+      return;
+    }
     if (targetMember && Date.parse(targetMember.endsAt) <= now && includeEndedControl && !includeEndedControl.checked) {
       includeEndedControl.checked = true;
     }
+    const currentSelection = selectGroups([group], currentFilters(), Boolean(includeEndedControl?.checked), now, period);
+    const targetPeriod = targetMember && currentSelection.length === 0 && !eventOverlapsAgendaPeriod(targetMember, period)
+      ? createEventAgendaPeriod({
+        view: period.view,
+        date: eventLocalDate(targetMember.startsAt, period.timeZone),
+        timeZone: period.timeZone,
+        now,
+      })
+      : period;
+    const periodChanged = targetPeriod.view !== period.view
+      || targetPeriod.date !== period.date
+      || targetPeriod.timeZone !== period.timeZone;
+    if (periodChanged) {
+      period = targetPeriod;
+      ensureTimeZoneOption(period.timeZone);
+      syncPeriodControls();
+    }
     const before = currentFilters();
-    const after = compatibleFilters(group, before, now);
-    const changed = filterFieldsInOrder.some((field) => before[field] !== after[field]);
-    if (changed) {
+    const after = compatibleFilters(group, before, now, period);
+    const filtersChanged = filterFieldsInOrder.some((field) => before[field] !== after[field]);
+    if (filtersChanged) {
       setFilters(after);
       updateCityOptions();
       updateCommunityOptions();
@@ -304,7 +419,9 @@ if (agenda && empty) {
     if (groupIndex < 0) return;
     limit = Math.max(limit, groupIndex + 1);
     refresh();
-    if (changed || new URLSearchParams(location.search).has('includeEnded')) writeUrl('replaceState', true);
+    if (periodChanged || filtersChanged || new URLSearchParams(location.search).has('includeEnded')) {
+      writeUrl('replaceState', true);
+    }
     requestAnimationFrame(() => {
       group.card.scrollIntoView({ behavior: 'smooth', block: 'center' });
       group.card.focus({ preventScroll: true });
@@ -313,9 +430,51 @@ if (agenda && empty) {
 
   if (includeEndedControl) includeEndedControl.checked = true;
   readUrl();
-  if (new URLSearchParams(location.search).has('includeEnded')) writeUrl('replaceState', true);
+  const normalizedQuery = serializeAgendaQuery(location.search, currentFilters());
+  if (normalizedQuery !== new URLSearchParams(location.search).toString()) writeUrl('replaceState', true);
+  updateRouteLinks();
   refresh();
   revealEventHash();
+
+  for (const button of viewButtons) {
+    button.addEventListener('click', () => {
+      const view = button.dataset.eventView;
+      if (view !== 'week' && view !== 'month') return;
+      period = createEventAgendaPeriod({ view, date: period.date, timeZone: period.timeZone, now: Date.now() });
+      limit = 12;
+      syncPeriodControls();
+      writeUrl();
+      refresh();
+    });
+  }
+  previousPeriod?.addEventListener('click', () => {
+    period = shiftEventAgendaPeriod(period, -1);
+    limit = 12;
+    syncPeriodControls();
+    writeUrl();
+    refresh();
+  });
+  nextPeriod?.addEventListener('click', () => {
+    period = shiftEventAgendaPeriod(period, 1);
+    limit = 12;
+    syncPeriodControls();
+    writeUrl();
+    refresh();
+  });
+  timeZoneControl?.addEventListener('change', () => {
+    const timeZone = timeZoneControl.value;
+    try {
+      new Intl.DateTimeFormat('en-US', { timeZone });
+    } catch {
+      timeZoneControl.value = period.timeZone;
+      return;
+    }
+    period = createEventAgendaPeriod({ view: period.view, date: period.date, timeZone, now: Date.now() });
+    limit = 12;
+    syncPeriodControls();
+    writeUrl();
+    refresh();
+  });
 
   for (const control of Object.values(controls)) {
     control?.addEventListener('change', () => {
@@ -349,7 +508,13 @@ if (agenda && empty) {
     matchingGroups.find((group) => !group.card.hidden && !previouslyVisible.has(group.card))?.card.focus();
   });
   window.addEventListener('hashchange', revealEventHash);
-  window.addEventListener('popstate', () => { limit = 12; readUrl(); refresh(); revealEventHash(); });
+  window.addEventListener('popstate', () => {
+    limit = 12;
+    readUrl();
+    updateRouteLinks();
+    refresh();
+    revealEventHash();
+  });
   mobileDisclosure.addEventListener('change', () => syncSecondaryDisclosure(true));
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
 }

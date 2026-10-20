@@ -34,7 +34,7 @@ test('calendar download preserves the event instants, URL and escaped UTF-8 text
   assert.doesNotMatch(eventCalendar({ ...event, mode: 'online', place: undefined }), /LOCATION:/u);
 });
 
-test('agenda filters validate URL values, preserve unrelated parameters and match date, mode and city', () => {
+test('agenda filters validate facet values, preserve unrelated parameters and match mode and city', () => {
   const allowed = {
     mode: new Set(['', 'online', 'in-person']),
     country: new Set(['', 'CO', 'AR']),
@@ -42,16 +42,25 @@ test('agenda filters validate URL values, preserve unrelated parameters and matc
     community: new Set(['', 'community-co', 'community-ar']),
     communityCountries: new Map([['community-co', 'CO'], ['community-ar', 'AR']]),
   };
-  const filters = parseEventAgendaSearch('?utm_source=community&from=2026-10-17&to=2026-10-20&mode=in-person&country=CO&city=CO%3ABogot%C3%A1&community=community-co', allowed);
-  assert.deepEqual(filters, { from: '2026-10-17', to: '2026-10-20', mode: 'in-person', country: 'CO', city: 'CO:Bogotá', community: 'community-co' });
-  const saved = serializeEventAgendaSearch('?utm_source=community&country=AR', filters);
+  const filters = parseEventAgendaSearch('?utm_source=community&view=month&date=2026-10-17&tz=UTC&from=2026-10-17&to=2026-10-20&mode=in-person&country=CO&city=CO%3ABogot%C3%A1&community=community-co', allowed);
+  assert.deepEqual(filters, { mode: 'in-person', country: 'CO', city: 'CO:Bogotá', community: 'community-co' });
+  const saved = serializeEventAgendaSearch(
+    '?utm_source=community&country=AR&view=month&date=2026-10-17&tz=UTC&from=2026-10-17&to=2026-10-20&includeEnded=0', filters,
+  );
   assert.equal(new URLSearchParams(saved).get('utm_source'), 'community');
   assert.equal(new URLSearchParams(saved).get('community'), 'community-co');
+  assert.equal(new URLSearchParams(saved).get('view'), 'month');
+  assert.equal(new URLSearchParams(saved).get('date'), '2026-10-17');
+  assert.equal(new URLSearchParams(saved).get('tz'), 'UTC');
+  assert.equal(new URLSearchParams(saved).has('from'), false);
+  assert.equal(new URLSearchParams(saved).has('to'), false);
+  assert.equal(new URLSearchParams(saved).has('includeEnded'), false);
   assert.deepEqual(parseEventAgendaSearch(`?${saved}`, allowed), filters);
   assert.deepEqual(parseEventAgendaSearch('?from=2026-02-30&mode=unknown&country=AR&city=CO%3ABogot%C3%A1&community=unknown', allowed),
-    { from: '', to: '', mode: '', country: 'AR', city: '', community: '' });
+    { mode: '', country: 'AR', city: '', community: '' },
+    'legacy date parameters do not become facet filters');
   assert.deepEqual(parseEventAgendaSearch('?country=AR&community=community-co', allowed),
-    { from: '', to: '', mode: '', country: 'AR', city: '', community: '' },
+    { mode: '', country: 'AR', city: '', community: '' },
     'A country filter clears a community whose resource belongs to another country.');
   const cohostCityAllowed = {
     ...allowed,
@@ -59,14 +68,13 @@ test('agenda filters validate URL values, preserve unrelated parameters and matc
     countriesForCity: new Map([['PE:Lima', new Set(['PE', 'CO'])]]),
   };
   assert.deepEqual(parseEventAgendaSearch('?country=CO&city=PE%3ALima', cohostCityAllowed), {
-    from: '', to: '', mode: '', country: 'CO', city: 'PE:Lima', community: '',
+    mode: '', country: 'CO', city: 'PE:Lima', community: '',
   }, 'The representative city remains valid for an event co-hosted by Colombia.');
   assert.deepEqual(parseEventAgendaSearch('?country=AR&city=PE%3ALima', cohostCityAllowed), {
-    from: '', to: '', mode: '', country: 'AR', city: '', community: '',
+    mode: '', country: 'AR', city: '', community: '',
   }, 'A city from an incompatible country is cleared.');
   const card = { endsAt: event.endsAt, localDate: '2026-10-17', mode: 'in-person', country: 'CO', city: 'CO:Bogotá', communities: ['community-co', 'community-ar'] };
   assert.equal(eventMatchesFilters(card, filters, Date.parse('2026-10-17T11:00:00Z')), true);
-  assert.equal(eventMatchesFilters(card, { ...filters, from: '2026-10-18' }, Date.parse('2026-10-17T11:00:00Z')), false);
   assert.equal(eventMatchesFilters(card, { ...filters, community: 'community-ar' }, Date.parse('2026-10-17T11:00:00Z')), true);
   assert.equal(eventMatchesFilters(card, { ...filters, community: 'other-community' }, Date.parse('2026-10-17T11:00:00Z')), false);
   const cohostedCard = { ...card, country: 'PE', countries: ['PE', 'CO'] };
@@ -81,7 +89,7 @@ test('ended events are included only when requested, with the end instant treate
     endsAt: '2026-10-17T10:00:00Z', localDate: '2026-10-17', mode: 'online',
     country: 'CO', city: '', communities: ['community-co'],
   };
-  const filters = { from: '', to: '', mode: '', country: '', city: '', community: '' };
+  const filters = { mode: '', country: '', city: '', community: '' };
   const afterEnd = Date.parse('2026-10-17T10:00:00.001Z');
   const atEnd = Date.parse(ended.endsAt);
 

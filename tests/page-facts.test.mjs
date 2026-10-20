@@ -139,3 +139,19 @@ test('event summary reports events in progress without calling their start the n
 test('invalid event-fact reference time is rejected', () => {
   assert.throws(() => summarizeUpcomingEvents([], Number.NaN), /Invalid event summary reference time/u);
 });
+
+test('the next event summary uses the agenda zone when the local date differs from the organizer date', () => {
+  const next = event({
+    startsAt: '2026-10-05T00:30:00Z', endsAt: '2026-10-05T01:30:00Z',
+    timeZone: 'Asia/Tokyo',
+  });
+  const copy = { intro: 'En la agenda hay', emptyMessage: 'Sin eventos' };
+  const inCordoba = eventAgendaSummaryText([next], now, {
+    ...copy, timeZone: 'America/Argentina/Cordoba',
+  });
+  const inTokyo = eventAgendaSummaryText([next], now, { ...copy, timeZone: 'Asia/Tokyo' });
+  assert.match(inCordoba, /4 de octubre de 2026/u,
+    'The summary must use the same civil date as the agenda cards and period.');
+  assert.match(inTokyo, /5 de octubre de 2026/u);
+  assert.equal(eventAgendaSummaryText([], now, { ...copy, timeZone: 'UTC' }), 'Sin eventos');
+});

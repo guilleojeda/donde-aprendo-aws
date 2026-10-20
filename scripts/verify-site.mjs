@@ -510,6 +510,51 @@ for (const path of ['eventos/index.html', ...eventCountryRoutes.map(({ htmlPath 
   assert.match(checkbox, /\btype="checkbox"/u);
   assert.match(checkbox, /\bchecked(?:\s|=|$)/u, `A fresh HTML document includes ended events: ${path}`);
   assert.match(html, /Incluir eventos finalizados/u);
+  const viewButtons = [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/gu)];
+  for (const [view, label] of [['week', 'Semana'], ['month', 'Mes']]) {
+    const matches = viewButtons.filter(([, attributes]) => attributes.includes(`data-event-view="${view}"`));
+    assert.equal(matches.length, 1, `Every agenda offers one ${label} view: ${path}`);
+    const button = matches[0];
+    assert.ok(button, `Every agenda offers the ${label} view: ${path}`);
+    assert.match(button[1], /\btype="button"/u);
+    assert.match(button[1], /\baria-pressed="(?:true|false)"/u, `The view has an accessible selected state: ${path}`);
+    assert.equal(decode(button[2].replace(/<[^>]*>/gu, '')).trim(), label);
+  }
+  for (const [direction, accessibleName] of [['prev', /anterior/iu], ['next', /siguiente/iu]]) {
+    const button = viewButtons.find(([, attributes]) => new RegExp(`\\bdata-event-period-${direction}(?:\\s|=|$)`, 'u').test(attributes));
+    assert.ok(button, `Every agenda can navigate to the ${direction} period: ${path}`);
+    assert.match(button[1], /\btype="button"/u);
+    const label = button[1].match(/\baria-label="([^"]+)"/u)?.[1]
+      ?? button[2].replace(/<[^>]*>/gu, '');
+    assert.match(decode(label), accessibleName, `Period arrows have an accessible name: ${path}`);
+  }
+  assert.match(html, /data-event-period-label(?:\s|=|>)/u, `The consulted period has a visible label: ${path}`);
+  const zoneControl = [...html.matchAll(/<(?:select|input)\b([^>]*)>/gu)]
+    .find(([, attributes]) => /\bdata-event-zone(?:\s|=|$)/u.test(attributes));
+  assert.ok(zoneControl, `Every agenda exposes its IANA time-zone control: ${path}`);
+  const zoneId = zoneControl[1].match(/(?:^|\s)id="([^"]+)"/u)?.[1];
+  assert.ok(zoneId, `The time-zone control has an ID for its label: ${path}`);
+  assert.ok([...html.matchAll(/<label\b([^>]*)>([\s\S]*?)<\/label>/gu)]
+    .some(([, attributes, content]) => attributes.includes(`for="${zoneId}"`) && /zona horaria/iu.test(content)),
+  `The time-zone control has a visible label: ${path}`);
+  for (const [, memberAttributes, content] of html.matchAll(/<article\b([^>]*)>([\s\S]*?)<\/article>/gu)) {
+    if (!/\bdata-event-member-id=/u.test(memberAttributes)) continue;
+    assert.match(content, /\bdata-event-date-label(?:\s|=|>)/u,
+      `Each co-host view can display its date in the agenda zone: ${path}`);
+    assert.match(content, /\bdata-event-time-label(?:\s|=|>)/u,
+      `Each co-host view can display its times in the same agenda zone: ${path}`);
+  }
+  assert.doesNotMatch(html, /\bdata-event-(?:from|to)(?:\s|=|>)/u, `Week/month replaces the custom date range: ${path}`);
+  assert.doesNotMatch(html, /Fechas de inicio en la zona del organizador|Rango personalizado|La semana que viene|El mes que viene/u,
+    `The agenda does not retain obsolete date-range copy or navigation: ${path}`);
+  for (const [, attributes, content] of html.matchAll(/<nav\b([^>]*)>([\s\S]*?)<\/nav>/gu)) {
+    if (!/class="[^"]*(?:community-country-nav|collection-navigation)/u.test(attributes)) continue;
+    for (const [, linkAttributes] of content.matchAll(/<a\b([^>]*)>/gu)) {
+      if (!/\bhref="\/eventos\/(?:[a-z-]+\/)?"/u.test(linkAttributes)) continue;
+      assert.match(linkAttributes, /\bdata-event-agenda-route(?:\s|=|$)/u,
+        `Agenda navigation links can preserve the consulted period and zone: ${path}`);
+    }
+  }
   assert.match(html, /<noscript>\s*<p\b[^>]*>Se muestran todos los eventos publicados\.[\s\S]*?JavaScript\./u,
     `The static agenda explains that interactive filtering requires JavaScript: ${path}`);
   assert.doesNotMatch(html, /<h2\b[^>]*>\s*Próximos eventos\s*<\/h2>/u,
@@ -519,7 +564,7 @@ for (const path of ['eventos/index.html', ...eventCountryRoutes.map(({ htmlPath 
   const ids = [...html.matchAll(/\sid="([^"]+)"/gu)].map(([, id]) => id);
   assert.equal(new Set(ids).size, ids.length, `No duplicated event fragment or other HTML ID: ${path}`);
 }
-for (const field of ['from', 'to', 'mode', 'country', 'community', 'city']) assert.match(events, new RegExp(`data-event-${field}`));
+for (const field of ['mode', 'country', 'community', 'city']) assert.match(events, new RegExp(`data-event-${field}`));
 if (fixtureBuild) {
   assert.match(events, /data-event-city="PE:Lima"/);
   assert.match(events, /data-event-communities="fixture-community\|fixture-student-colombia"/);

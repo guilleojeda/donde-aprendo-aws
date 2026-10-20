@@ -19,9 +19,9 @@ export function eventCountNoun(count) {
 /** Build the visible fact line from the same event cards the agenda currently exposes.
  * @param {Array<{ startsAt: string, endsAt: string, id?: string, timeZone?: string }>} events
  * @param {Date | number} now
- * @param {{ intro: string, emptyMessage: string }} copy
+ * @param {{ intro: string, emptyMessage: string, timeZone?: string }} copy
  */
-export function eventAgendaSummaryText(events, now, { intro, emptyMessage }) {
+export function eventAgendaSummaryText(events, now, { intro, emptyMessage, timeZone }) {
   const facts = summarizeUpcomingEvents(events, now);
   const timestamp = now instanceof Date ? now.getTime() : Number(now);
   const finalizedCount = events.filter((event) => Date.parse(event.endsAt) <= timestamp).length;
@@ -46,7 +46,7 @@ export function eventAgendaSummaryText(events, now, { intro, emptyMessage }) {
     ? `${intro} ${events.length} ${eventCountNoun(events.length)}: ${statusText}`
     : `${intro} ${upcomingCount} ${eventCountNoun(upcomingCount)} próximo${upcomingCount === 1 ? '' : 's'}`;
   if (facts.nextEvent) {
-    const nextDate = eventDateLabel(facts.nextEvent.startsAt, facts.nextEvent.timeZone);
+    const nextDate = eventDateLabel(facts.nextEvent.startsAt, timeZone ?? facts.nextEvent.timeZone);
     sentence += `; el próximo comienza el ${nextDate}`;
   }
   return `${sentence}.`;

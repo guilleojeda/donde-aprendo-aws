@@ -26,6 +26,7 @@ export function communityFaqItems({ countryName, agendaPath = '/eventos/' } = {}
 
 export function eventFaqItems({ countryName, collectionKey } = {}) {
   const historyHelp = 'La agenda incluye finalizados; desmarca Incluir eventos finalizados para ver sólo próximos y en curso. La opción vuelve a activarse al abrir o recargar la agenda.';
+  const zoneHelp = 'Las fechas y horas principales usan la zona horaria seleccionada en la agenda. Puedes cambiarla en Más filtros; las semanas y los meses usan esa misma zona. La ficha conserva también el horario del organizador como referencia.';
   if (countryName) return [
     {
       question: `¿Cómo me inscribo a un evento en ${countryName}?`,
@@ -33,7 +34,7 @@ export function eventFaqItems({ countryName, collectionKey } = {}) {
     },
     {
       question: '¿En qué zona horaria se muestran los horarios?',
-      answer: 'La ficha indica el horario de la comunidad organizadora y, cuando el navegador lo permite, también lo muestra en tu zona horaria.',
+      answer: zoneHelp,
     },
     {
       question: '¿Puedo guardar un evento en mi calendario?',
@@ -47,7 +48,7 @@ export function eventFaqItems({ countryName, collectionKey } = {}) {
     },
     {
       question: '¿En qué zona horaria se muestran los horarios?',
-      answer: 'Primero se muestra la hora de la comunidad organizadora; el navegador puede mostrar también la conversión a tu zona horaria.',
+      answer: zoneHelp,
     },
     {
       question: '¿Puedo guardar la fecha en mi calendario?',
@@ -75,7 +76,7 @@ export function eventFaqItems({ countryName, collectionKey } = {}) {
     },
     {
       question: '¿En qué zona horaria se muestran los horarios?',
-      answer: 'Primero se muestra la hora de la comunidad organizadora; el navegador puede mostrar también la conversión a tu zona horaria.',
+      answer: zoneHelp,
     },
     {
       question: '¿Puedo guardar un evento en mi calendario?',
