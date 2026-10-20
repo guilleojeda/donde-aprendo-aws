@@ -36,6 +36,10 @@ test('preserves only an explicitly reviewed group city and validates its public 
   }
 });
 
+test('rejects DEL control characters in reviewed community cities', () => {
+  assert.throws(() => mapMeetupCommunities({ groups: [group({ city: 'Lima\u007f' })] }), /invalid city/);
+});
+
 test('import checks account and skips existing records without overwriting them', async () => {
   const records = [{ id: 'meetup-1', city: 'Mendoza' }, { id: 'meetup-2', city: 'Córdoba' }];
   const existing = new Map([['meetup-2', { id: 'meetup-2', city: 'Rosario', editorNote: 'keep' }]]);

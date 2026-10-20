@@ -79,3 +79,10 @@ test('effective location does not mutate frozen event or community facts', () =>
   assert.deepEqual(community, { country: 'AR', city: 'Córdoba' },
     'resolving a foreign venue does not rewrite the community location');
 });
+
+test('country labels use Spanish Intl names and fall back to the code when unknown', () => {
+  assert.ok(eventLocationApi, 'src/lib/event-location.mjs must export the country label helper');
+  assert.equal(typeof eventLocationApi.eventCountryLabel, 'function');
+  assert.equal(eventLocationApi.eventCountryLabel('US'), 'Estados Unidos');
+  assert.equal(eventLocationApi.eventCountryLabel('XX'), 'XX');
+});

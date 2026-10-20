@@ -794,6 +794,59 @@ class MeetupEventsTests(unittest.TestCase):
                                   refreshed['published'], refreshed['editorNote']),
                                  (1, False, False, True, 'keep this private field'))
 
+    def test_online_event_ignores_unreadable_physical_address_country(self):
+        entry = meetup.parse_feed(ICAL, GROUP)[0]
+        physical_location = {
+            '@type': 'Place',
+            'name': 'Ignored venue',
+            'address': {
+                'streetAddress': 'Ignored address',
+                'addressLocality': 'Ignored city',
+                'addressCountry': 'United States',
+            },
+        }
+        online_page = dict(
+            PAGE,
+            eventAttendanceMode='https://schema.org/OnlineEventAttendanceMode',
+            location=physical_location,
+        )
+
+        record = meetup.map_event(GROUP, entry, online_page)
+
+        self.assertEqual(record['mode'], 'online')
+        self.assertEqual(record['country'], GROUP['country'])
+        for field in ('place', 'city', 'venueCountry'):
+            self.assertNotIn(field, record)
+
+    def test_unsupported_address_country_objects_fail_and_preserve_existing_event(self):
+        entry = meetup.parse_feed(ICAL, GROUP)[0]
+        unsupported_values = (
+            {'@type': 'Country', '@id': 'https://example.test/countries/US'},
+            {'alternateName': 'United States'},
+        )
+        for address_country in unsupported_values:
+            with self.subTest(address_country=address_country):
+                address = dict(PAGE['location']['address'], addressCountry=address_country)
+                page = dict(PAGE, location=dict(PAGE['location'], address=address))
+                with self.assertRaises(ValueError):
+                    meetup.map_event(GROUP, entry, page)
+
+        prior = existing_event(published=True, starts_at=PAGE['startDate'], ends_at=PAGE['endDate'])
+        prior['venueCountry'] = 'US'
+        table = FakeTable([prior])
+        invalid_address = dict(PAGE['location']['address'], addressCountry=unsupported_values[0])
+        invalid_page = dict(PAGE, location=dict(PAGE['location'], address=invalid_address))
+        with patch.object(meetup, 'timezone_from_feed', return_value=[entry]), \
+                patch.object(meetup, 'fetch_event_page', return_value=invalid_page):
+            result = meetup.synchronize(table=table, groups=[dict(GROUP)])
+
+        preserved = table.existing['meetup-event-456']
+        self.assertEqual(result['changed'], 0)
+        self.assertEqual(len(result['failures']), 1)
+        self.assertEqual((preserved['country'], preserved['venueCountry'], preserved['published']),
+                         ('CO', 'US', True))
+        self.assertEqual(table.updates, [])
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -1422,7 +1422,7 @@ test('community identity stays selected across country changes and history', () 
   assert.equal(agenda.communityFilter.value, 'community-co', 'changing physical country preserves community identity');
   assert.equal(agenda.communityFilter.options[1].disabled, false);
   assert.equal(agenda.communityFilter.options[2].disabled, false);
-  assert.equal(agenda.cards[0].hidden, true);
+  assert.equal(agenda.cards[0].hidden, false, 'combined attendance retains the hybrid through global remote access');
   assert.equal(agenda.cards[1].hidden, false);
   assert.equal(agenda.cards[2].hidden, true);
   const communityUrl = new URL(agenda.historyEntries.at(-1).url, 'https://dondeaprendoaws.com');
@@ -1500,4 +1500,75 @@ test('all route types keep the full primary location and community controls', ()
   agenda.history.back();
   assert.equal(agenda.communityFilter.value, 'community-girls', 'Back restores the first community selection.');
   assert.equal(agenda.communityFilter.options[1].value, 'community-girls');
+});
+
+test('the client represents a valid country and city even when neither appears in the catalog', () => {
+  const agenda = createAgenda({ count: 0, filter: '?country=US&city=US%3AAnchorage' });
+
+  assert.equal(agenda.countryFilter.value, 'US');
+  assert.equal(agenda.countryFilter.options.some((option) => option.value === 'US'), true);
+  assert.equal(agenda.cityFilter.value, 'US:Anchorage');
+  assert.equal(agenda.cityFilter.options.some((option) => option.value === 'US:Anchorage'), true);
+  const query = new URLSearchParams(agenda.location.search);
+  assert.equal(query.get('country'), 'US');
+  assert.equal(query.get('city'), 'US:Anchorage');
+  assert.equal(agenda.countLabel.textContent, '0 eventos');
+});
+
+test('the client uses a published community city when the event has no explicit city', () => {
+  const agenda = createAgenda({
+    count: 1,
+    filter: '?mode=in-person&country=CO&city=CO%3ABogot%C3%A1&community=community-co',
+    events: [{
+      id: 'community-city-fallback', mode: 'in-person', country: 'CO', communities: 'community-co',
+    }],
+  });
+
+  assert.equal(agenda.countLabel.textContent, '1 evento');
+  assert.equal(agenda.cards[0].hidden, false,
+    'an absent raw member city is left undefined so effectiveEventLocation can use the published community city');
+});
+
+test('an implicit national location default falls back globally for an incompatible event fragment', () => {
+  const agenda = createAgenda({
+    count: 1,
+    pathname: '/eventos/argentina/',
+    defaultCountry: 'AR',
+    hash: '#event-physical-co',
+    events: [{
+      id: 'physical-co', mode: 'in-person', country: 'CO', venueCountry: 'CO',
+      city: 'Bogotá', communities: 'community-co',
+    }],
+  });
+  const fallback = new URL(agenda.window.location.href, 'https://dondeaprendoaws.com');
+
+  assert.equal(fallback.pathname, '/eventos/');
+  assert.equal(fallback.hash, '#event-physical-co');
+  assert.equal(fallback.searchParams.has('country'), false,
+    'the incompatible implicit route location is cleared on the global destination');
+  assert.equal(fallback.searchParams.has('view'), true);
+  assert.equal(fallback.searchParams.has('date'), true);
+  assert.equal(fallback.searchParams.has('tz'), true);
+});
+
+test('an implicit online default falls back globally for a physical-only event fragment', () => {
+  const agenda = createAgenda({
+    count: 1,
+    pathname: '/eventos/online/',
+    defaultMode: 'online',
+    hash: '#event-physical-ar',
+    events: [{
+      id: 'physical-ar', mode: 'in-person', country: 'AR', venueCountry: 'AR',
+      city: 'Córdoba', communities: 'community-ar',
+    }],
+  });
+  const fallback = new URL(agenda.window.location.href, 'https://dondeaprendoaws.com');
+
+  assert.equal(fallback.pathname, '/eventos/');
+  assert.equal(fallback.hash, '#event-physical-ar');
+  assert.equal(fallback.searchParams.has('mode'), false,
+    'the incompatible implicit online default is cleared on the global destination');
+  assert.equal(fallback.searchParams.has('view'), true);
+  assert.equal(fallback.searchParams.has('date'), true);
+  assert.equal(fallback.searchParams.has('tz'), true);
 });

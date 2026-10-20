@@ -237,12 +237,12 @@ test('agenda mode and location filters select local physical and global remote a
   const start = '2026-10-20T08:00:00Z';
   const common = { startsAt: start, endsAt: '2026-10-20T10:00:00Z' };
   const rows = [
-    event({ ...common, id: 'ar-physical', title: 'AR físico', mode: 'in-person', country: 'AR', city: 'Córdoba' }),
-    event({ ...common, id: 'ar-hybrid', title: 'AR híbrido', mode: 'hybrid', country: 'AR', city: 'Córdoba' }),
-    event({ ...common, id: 'co-physical-same-city-name', title: 'CO físico', mode: 'in-person', country: 'AR', venueCountry: 'CO', city: 'Córdoba' }),
-    event({ ...common, id: 'co-hybrid', title: 'CO híbrido', mode: 'hybrid', country: 'AR', venueCountry: 'CO', city: 'Bogotá' }),
-    event({ ...common, id: 'remote', title: 'Remoto', mode: 'online', country: 'CO', city: undefined }),
-    event({ ...common, id: 'ar-physical-other-city', title: 'AR otra ciudad', mode: 'in-person', country: 'AR', city: 'Rosario' }),
+    event({ ...common, id: 'ar-physical', title: 'AR físico', mode: 'in-person', country: 'AR', city: 'Córdoba', registrationUrl: 'https://example.test/ar-physical' }),
+    event({ ...common, id: 'ar-hybrid', title: 'AR híbrido', mode: 'hybrid', country: 'AR', city: 'Córdoba', registrationUrl: 'https://example.test/ar-hybrid' }),
+    event({ ...common, id: 'co-physical-same-city-name', title: 'CO físico', mode: 'in-person', country: 'AR', venueCountry: 'CO', city: 'Córdoba', registrationUrl: 'https://example.test/co-physical' }),
+    event({ ...common, id: 'co-hybrid', title: 'CO híbrido', mode: 'hybrid', country: 'AR', venueCountry: 'CO', city: 'Bogotá', registrationUrl: 'https://example.test/co-hybrid' }),
+    event({ ...common, id: 'remote', title: 'Remoto', mode: 'online', country: 'CO', city: undefined, registrationUrl: 'https://example.test/remote' }),
+    event({ ...common, id: 'ar-physical-other-city', title: 'AR otra ciudad', mode: 'in-person', country: 'AR', city: 'Rosario', registrationUrl: 'https://example.test/ar-other-city' }),
   ];
   const groups = eventApi.uniqueEventGroups(rows, communityById);
   const select = (filters, extra = {}) => eventGroupsForAgenda(groups, {
@@ -408,15 +408,15 @@ test('keeps same-session cross-posts connected to every canonical registration U
 
 test('a canonical co-host from another country does not split the session alias', () => {
   const first = event({
-    id: 'event-mixed-url-first', title: 'Sesión presencial', country: 'PY', city: 'Asunción',
+    id: 'event-mixed-url-first', title: 'Sesión presencial', country: 'PY', venueCountry: 'PY', city: 'Asunción',
     place: 'Centro de Convenciones', registrationUrl: 'https://example.test/first',
   });
   const cohost = event({
-    id: 'event-mixed-url-cohost', title: 'Sesión presencial', country: 'AR', city: 'Asunción',
+    id: 'event-mixed-url-cohost', title: 'Sesión presencial', country: 'AR', venueCountry: 'PY', city: 'Asunción',
     place: 'Centro de Convenciones', registrationUrl: 'https://example.test/first?source=cohost',
   });
   const laterCrossPost = event({
-    id: 'event-mixed-url-later', title: 'Sesión presencial', country: 'PY', city: 'Asunción',
+    id: 'event-mixed-url-later', title: 'Sesión presencial', country: 'PY', venueCountry: 'PY', city: 'Asunción',
     place: 'Centro de Convenciones', registrationUrl: 'https://example.test/another',
   });
   const groups = uniqueUpcomingEventGroups(
