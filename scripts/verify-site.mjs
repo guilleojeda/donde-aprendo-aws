@@ -530,8 +530,10 @@ if (fixtureBuild) {
     'Global community options carry the published Peru country metadata.');
   assert.match(events, /<option value="fixture-student-colombia" data-event-country="CO"[^>]*>/,
     'Global community options carry the published Colombia country metadata.');
-  assert.match(events, /<option value="PE:Lima" data-event-countries="PE\|CO"[^>]*>/,
-    'Representative city options remain compatible with co-host countries.');
+  assert.match(events, /<option value="PE:Lima" data-event-countries="PE"[^>]*>/,
+    'The Peru city option belongs to the Peru member.');
+  assert.match(events, /<option value="CO:Lima" data-event-countries="CO"[^>]*>/,
+    'The Colombia city option belongs to the Colombia member.');
   const globalEventCards = [...events.matchAll(/<li id="event-fixture-event"[^>]*>/gu)];
   assert.equal(globalEventCards.length, 1, 'A cross-posted event appears once in the overall agenda.');
   const globalAliases = globalEventCards[0][0].match(/data-event-alias-ids="([^"]+)"/u)?.[1].split('|') ?? [];
