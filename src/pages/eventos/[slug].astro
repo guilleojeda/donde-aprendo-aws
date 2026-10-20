@@ -53,7 +53,7 @@ const title = collection?.title ?? `Eventos AWS en ${countryName} | ¿Dónde Apr
 const description = collection?.description ?? `Eventos AWS en ${countryName}, organizados por comunidades de ese país. Encuentra encuentros en línea, presenciales e híbridos y consulta fechas, horarios e inscripción.`;
 const canonical = new URL(path, 'https://dondeaprendoaws.com').href;
 const heading = collection ? collection.label : `Eventos AWS en ${countryName}`;
-const intro = collection?.intro ?? `Consulta próximos eventos organizados por comunidades AWS de ${countryName}: modalidad, fechas, horarios e inscripción.`;
+const intro = collection?.intro ?? `Consulta los eventos publicados por comunidades AWS de ${countryName}, incluidos los finalizados: modalidad, fechas, horarios y enlaces al evento.`;
 const collectionModes = collection?.modes as readonly CatalogEvent['mode'][] | undefined;
 const collectionLinks = [
   { path: '/eventos/', label: 'Todos los eventos' },

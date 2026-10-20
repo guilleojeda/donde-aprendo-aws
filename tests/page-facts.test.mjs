@@ -116,7 +116,7 @@ test('event summary reports events in progress without calling their start the n
   assert.match(eventAgendaSummaryText([endedAtBoundary, running, future], now, {
     intro: 'En la agenda de Argentina hay',
     emptyMessage: 'No hay eventos.',
-  }), /^En la agenda de Argentina hay 2 eventos \(1 en curso\); el próximo comienza el /u);
+  }), /^En la agenda de Argentina hay 3 eventos: 1 próximo, 1 en curso y 1 finalizado; el próximo comienza el /u);
 
   const onlyRunning = eventAgendaSummaryText([running], now, {
     intro: 'En la agenda de Argentina hay',

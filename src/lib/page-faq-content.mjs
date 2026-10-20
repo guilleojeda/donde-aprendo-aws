@@ -25,10 +25,11 @@ export function communityFaqItems({ countryName, agendaPath = '/eventos/' } = {}
 }
 
 export function eventFaqItems({ countryName, collectionKey } = {}) {
+  const historyHelp = 'La agenda incluye finalizados; desmarca Incluir eventos finalizados para ver sólo próximos y en curso. La opción vuelve a activarse al abrir o recargar la agenda.';
   if (countryName) return [
     {
       question: `¿Cómo me inscribo a un evento en ${countryName}?`,
-      answer: 'Usa el enlace Inscribirme de la ficha; la inscripción y sus condiciones se gestionan desde la página del organizador.',
+      answer: `Usa Inscribirme para los eventos próximos o en curso; la inscripción y sus condiciones se gestionan desde la página del organizador. En los finalizados, Ver evento permite consultar su página original. ${historyHelp}`,
     },
     {
       question: '¿En qué zona horaria se muestran los horarios?',
@@ -42,7 +43,7 @@ export function eventFaqItems({ countryName, collectionKey } = {}) {
   if (collectionKey === 'online') return [
     {
       question: '¿Cómo recibo el acceso a un evento en línea?',
-      answer: 'Abre Inscribirme en la ficha para consultar el registro y las instrucciones que publique su organizador.',
+      answer: `Abre Inscribirme para consultar el registro y las instrucciones del organizador. Si el evento ya finalizó, Ver evento abre su página original. ${historyHelp}`,
     },
     {
       question: '¿En qué zona horaria se muestran los horarios?',
@@ -60,7 +61,7 @@ export function eventFaqItems({ countryName, collectionKey } = {}) {
     },
     {
       question: '¿Cómo me inscribo?',
-      answer: 'Usa Inscribirme en la ficha para abrir el registro y revisar las indicaciones del organizador.',
+      answer: `Usa Inscribirme para abrir el registro y revisar las indicaciones del organizador. En los finalizados, Ver evento abre la página original. ${historyHelp}`,
     },
     {
       question: '¿Puedo guardar la fecha en mi calendario?',
@@ -70,7 +71,7 @@ export function eventFaqItems({ countryName, collectionKey } = {}) {
   return [
     {
       question: '¿Cómo me inscribo a un evento?',
-      answer: 'Usa el enlace Inscribirme de la ficha para abrir la página de registro del organizador.',
+      answer: `Usa Inscribirme para abrir la página de registro del organizador. En los finalizados, Ver evento permite consultar su página original. ${historyHelp}`,
     },
     {
       question: '¿En qué zona horaria se muestran los horarios?',

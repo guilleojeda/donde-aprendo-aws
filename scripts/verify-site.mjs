@@ -348,9 +348,15 @@ const globalEventAttributes = [...read('eventos/index.html').matchAll(/<li\b([^>
   .map(([, before, id, after]) => ({ id, mode: `${before}${after}`.match(/data-event-mode="([^"]+)"/u)?.[1] }));
 for (const collection of Object.values(EVENT_COLLECTIONS)) {
   const html = read(`${collection.path.slice(1)}index.html`);
-  const expected = globalEventAttributes.filter(({ mode }) => collection.modes.includes(mode)).map(({ id }) => id);
-  const actual = [...html.matchAll(/data-event-id="([^"]+)"/gu)].map(([, id]) => id);
-  assert.deepEqual(actual, expected, `Exact fixed-mode SSR subset: ${collection.path}`);
+  const cards = [...html.matchAll(/<li\b([^>]*)\bdata-event-id="([^"]+)"([^>]*)>/gu)]
+    .map(([, before, id, after]) => ({ id, mode: `${before}${after}`.match(/data-event-mode="([^"]+)"/u)?.[1] }));
+  assert.ok(cards.every(({ mode }) => collection.modes.includes(mode)), `Fixed-mode SSR members: ${collection.path}`);
+  if (fixtureBuild) {
+    const expected = collection.path === '/eventos/online/'
+      ? ['fixture-past-argentina', 'fixture-past-costa-rica', 'fixture-online-event']
+      : ['fixture-past-unrecorded', 'fixture-event'];
+    assert.deepEqual(cards.map(({ id }) => id), expected, `Exact public SSR subset, including history: ${collection.path}`);
+  }
   assert.ok(html.includes(`href="https://dondeaprendoaws.com${collection.path}"`));
   assert.match(html, /data-event-empty/u);
   verifyFaq(html, eventFaqItems({ collectionKey: collection.path.includes('/online/') ? 'online' : 'presenciales' }), collection.path);
@@ -496,6 +502,23 @@ if (fixtureBuild) {
 const events = read('eventos/index.html');
 assert.match(events, /data-event-list/);
 assert.match(events, /data-event-empty/);
+for (const path of ['eventos/index.html', ...eventCountryRoutes.map(({ htmlPath }) => htmlPath), ...Object.values(EVENT_COLLECTIONS).map(({ path }) => `${path.slice(1)}index.html`)]) {
+  const html = read(path);
+  const checkbox = [...html.matchAll(/<input\b([^>]*)>/gu)]
+    .map(([, attributes]) => attributes).find((attributes) => /\bdata-event-include-ended(?:\s|=|$)/u.test(attributes));
+  assert.ok(checkbox, `Every public agenda offers the ended-event checkbox: ${path}`);
+  assert.match(checkbox, /\btype="checkbox"/u);
+  assert.match(checkbox, /\bchecked(?:\s|=|$)/u, `A fresh HTML document includes ended events: ${path}`);
+  assert.match(html, /Incluir eventos finalizados/u);
+  assert.match(html, /<noscript>\s*<p\b[^>]*>Se muestran todos los eventos publicados\.[\s\S]*?JavaScript\./u,
+    `The static agenda explains that interactive filtering requires JavaScript: ${path}`);
+  assert.doesNotMatch(html, /<h2\b[^>]*>\s*Próximos eventos\s*<\/h2>/u,
+    `The agenda heading also describes the visible ended events: ${path}`);
+  assert.doesNotMatch(html, /event-agenda__archive|id="event-archive-title"/u,
+    `Recordings are integrated in event cards instead of a second archive: ${path}`);
+  const ids = [...html.matchAll(/\sid="([^"]+)"/gu)].map(([, id]) => id);
+  assert.equal(new Set(ids).size, ids.length, `No duplicated event fragment or other HTML ID: ${path}`);
+}
 for (const field of ['from', 'to', 'mode', 'country', 'community', 'city']) assert.match(events, new RegExp(`data-event-${field}`));
 if (fixtureBuild) {
   assert.match(events, /data-event-city="PE:Lima"/);
@@ -507,18 +530,24 @@ if (fixtureBuild) {
     'Global community options carry the published Peru country metadata.');
   assert.match(events, /<option value="fixture-student-colombia" data-event-country="CO"[^>]*>/,
     'Global community options carry the published Colombia country metadata.');
-  assert.match(events, /<option value="PE:Lima" data-event-countries="PE\|CO"[^>]*>/,
-    'Representative city options remain compatible with co-host countries.');
+  assert.match(events, /<option value="PE:Lima" data-event-countries="PE"[^>]*>/,
+    'The Peru city option belongs to the Peru member.');
+  assert.match(events, /<option value="CO:Lima" data-event-countries="CO"[^>]*>/,
+    'The Colombia city option belongs to the Colombia member.');
   const globalEventCards = [...events.matchAll(/<li id="event-fixture-event"[^>]*>/gu)];
   assert.equal(globalEventCards.length, 1, 'A cross-posted event appears once in the overall agenda.');
+  const globalAliases = globalEventCards[0][0].match(/data-event-alias-ids="([^"]+)"/u)?.[1].split('|') ?? [];
+  assert.ok(globalAliases.includes('fixture-event-colombia'), 'SSR exposes the co-host alias consumed by fragment navigation.');
+  assert.match(events, /<span id="event-fixture-event-colombia"\s/u,
+    'The co-host fragment also has a native HTML destination without JavaScript.');
   assert.match(events, /data-event-countries="PE\|CO"/);
   assert.match(home, /href="\/eventos\/peru\/#event-fixture-event"/);
   assert.match(home, /href="\/eventos\/argentina\/#event-fixture-online-event"/);
   assert.match(events, /href="\/eventos\/fixture-event\.ics"/);
   assert.match(events, /mailto:contact@dondeaprendoaws\.com\?subject=[^"\s]+fixture-event/);
   assert.match(read('eventos/peru/index.html'), /id="event-fixture-event"/);
-  assert.match(read('eventos/colombia/index.html'), /id="event-fixture-event"/,
-    'The same co-hosted event appears in each organizer country page.');
+  assert.match(read('eventos/colombia/index.html'), /data-event-id="fixture-event-colombia"/,
+    'A national agenda displays the matching co-host while preserving the full group.');
   assert.doesNotMatch(read('eventos/peru/index.html'), /id="event-fixture-online-event"/);
   assert.doesNotMatch(read('eventos/colombia/index.html'), /id="event-fixture-online-event"/);
   assert.doesNotMatch(read('eventos/argentina/index.html'), /id="event-fixture-event"/);
@@ -532,20 +561,47 @@ if (fixtureBuild) {
     'The Colombia agenda excludes the Peru co-host from its community options.');
   assert.match(read('eventos/argentina/index.html'), /id="event-fixture-online-event"/);
   for (const [slug, expectedIds] of Object.entries({
-    argentina: ['fixture-online-event'], colombia: ['fixture-event'],
-    'costa-rica': [], peru: ['fixture-event'],
+    argentina: ['fixture-past-argentina', 'fixture-online-event'], colombia: ['fixture-event-colombia'],
+    'costa-rica': ['fixture-past-costa-rica'], peru: ['fixture-past-unrecorded', 'fixture-event'],
   })) {
     const ids = [...read(`eventos/${slug}/index.html`).matchAll(/\bdata-event-id="([^"]+)"/gu)]
       .map(([, id]) => id);
-    assert.deepEqual(ids, expectedIds, `The initial ${slug} HTML contains exactly its upcoming events.`);
+    assert.deepEqual(ids, expectedIds, `The initial ${slug} HTML contains all its public occurrences, including ended ones.`);
   }
   assert.doesNotMatch(read('eventos/costa-rica/index.html'), /id="event-fixture-event"/);
-  assert.match(read('eventos/costa-rica/index.html'), /No hay próximos eventos publicados organizados por comunidades de Costa Rica/);
+  assert.doesNotMatch(read('eventos/costa-rica/index.html'), /No hay próximos eventos publicados organizados por comunidades de Costa Rica/,
+    'An agenda containing a public ended event does not describe itself as empty.');
   assert.match(read('eventos/costa-rica/index.html'), /href="\/aprender\/#resource-fixture-recording-costa-rica"/);
   assert.doesNotMatch(read('eventos/costa-rica/index.html'), /href="\/aprender\/#resource-fixture-recording-argentina"/,
     'A national past-event archive excludes recordings from other organizer countries.');
   assert.match(read('eventos/argentina/index.html'), /href="\/aprender\/#resource-fixture-recording-argentina"/);
   assert.doesNotMatch(read('eventos/argentina/index.html'), /href="\/aprender\/#resource-fixture-recording-costa-rica"/);
+  assert.deepEqual(globalEventAttributes.map(({ id }) => id), [
+    'fixture-past-argentina', 'fixture-past-costa-rica', 'fixture-past-unrecorded', 'fixture-event', 'fixture-online-event',
+  ], 'The global HTML exposes every public occurrence once, including history without requiring JavaScript.');
+  const unrecordedCard = [...events.matchAll(/<li\b[^>]*data-event-id="([^"]+)"[^>]*>([\s\S]*?)<\/li>/gu)]
+    .find(([, id]) => id === 'fixture-past-unrecorded')?.[2];
+  assert.ok(unrecordedCard, 'A public ended event does not require a recording to appear.');
+  assert.match(unrecordedCard, /Finalizado/u);
+  assert.doesNotMatch(unrecordedCard, /Ver grabación/u);
+  for (const [id, recordingId] of [
+    ['fixture-past-argentina', 'fixture-recording-argentina'],
+    ['fixture-past-costa-rica', 'fixture-recording-costa-rica'],
+  ]) {
+    const card = [...events.matchAll(/<li\b[^>]*data-event-id="([^"]+)"[^>]*>([\s\S]*?)<\/li>/gu)]
+      .find(([, cardId]) => cardId === id)?.[2];
+    assert.ok(card, `Ended event has a full list card: ${id}`);
+    assert.match(card, /Finalizado/u);
+    assert.match(card, /data-event-registration[^>]*>\s*Ver evento/u);
+    assert.ok(card.includes(`href="/aprender/#resource-${recordingId}"`), 'Recording remains linked from its event.');
+    assert.equal((events.match(new RegExp(`href="/aprender/#resource-${recordingId}"`, 'gu')) ?? []).length, 1,
+      'The recording link appears once, inside the event card.');
+    const calendar = read(`eventos/${id}.ics`).replace(/\r\n /gu, '');
+    assert.ok(calendar.includes(`UID:${id}@dondeaprendoaws.com\r\n`));
+    assert.ok(!searchIndex.some((entry) => entry.type === 'event' && entry.url.endsWith(`#event-${id}`)), 'Search keeps upcoming events only.');
+    assert.ok(!home.includes(`#event-${id}`), 'The homepage preview keeps upcoming events only.');
+  }
+  assert.ok(read('eventos/fixture-event-colombia.ics').includes('UID:fixture-event-colombia@dondeaprendoaws.com'));
   assert.equal(searchIndex.find(({ title }) => title === 'Encuentro AWS en Lima')?.url, '/eventos/peru/#event-fixture-event');
   assert.equal(searchIndex.find(({ title }) => title === 'Charla de AWS en línea')?.url, '/eventos/argentina/#event-fixture-online-event');
   const calendar = read('eventos/fixture-event.ics');

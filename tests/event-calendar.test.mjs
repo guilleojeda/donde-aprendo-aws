@@ -76,6 +76,25 @@ test('agenda filters validate URL values, preserve unrelated parameters and matc
   assert.equal(eventMatchesFilters(card, filters, Date.parse('2026-10-17T13:00:00Z')), false);
 });
 
+test('ended events are included only when requested, with the end instant treated as finalizado', () => {
+  const ended = {
+    endsAt: '2026-10-17T10:00:00Z', localDate: '2026-10-17', mode: 'online',
+    country: 'CO', city: '', communities: ['community-co'],
+  };
+  const filters = { from: '', to: '', mode: '', country: '', city: '', community: '' };
+  const afterEnd = Date.parse('2026-10-17T10:00:00.001Z');
+  const atEnd = Date.parse(ended.endsAt);
+
+  assert.equal(eventMatchesFilters(ended, filters, afterEnd), false,
+    'the existing default still selects only events that have not ended');
+  assert.equal(eventMatchesFilters(ended, filters, afterEnd, false), false);
+  assert.equal(eventMatchesFilters(ended, filters, afterEnd, true), true,
+    'the agenda can include a published event after its end');
+  assert.equal(eventMatchesFilters(ended, filters, atEnd, true), true,
+    'endsAt equal to now is already finalizado but remains visible when selected');
+  assert.equal(eventMatchesFilters(ended, filters, atEnd, false), false);
+});
+
 test('mobile secondary agenda filters open for active URL filters and stay compact otherwise', () => {
   const allowed = {
     mode: new Set(['', 'online', 'in-person']),

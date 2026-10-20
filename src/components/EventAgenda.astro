@@ -1,5 +1,5 @@
 ---
-import { eventDateLabel, eventLocalDate, eventTimeLabel, uniqueUpcomingEventGroups } from '../lib/events.mjs';
+import { eventDateLabel, eventLocalDate, eventTimeLabel, uniqueEventGroups } from '../lib/events.mjs';
 import { COUNTRY_LABELS } from '../lib/resource-discovery.mjs';
 import { eventCalendarHref, resourceHref } from '../lib/catalog-routes.mjs';
 import { communityCountryPages } from '../lib/community-country-pages.mjs';
@@ -13,42 +13,43 @@ interface Props { events: CatalogEvent[]; resources: CatalogResource[]; country?
 const { events, resources, country, modes } = Astro.props;
 const communityById = new Map(resources.filter((resource) => resource.kind === 'community').map((resource) => [resource.id, resource]));
 const renderTime = new Date();
-const upcomingGroups = uniqueUpcomingEventGroups(events, renderTime) as Array<{ event: CatalogEvent; events: CatalogEvent[] }>;
+const allGroups = uniqueEventGroups(events) as Array<{ event: CatalogEvent; events: CatalogEvent[] }>;
+const contextGroups = eventGroupsForAgenda(allGroups, {
+  communityById, country, modes, filters: {}, includeEnded: true, now: renderTime,
+}) as typeof allGroups;
+const isInContext = (event: CatalogEvent) =>
+  (!country || organizerCountry(event, communityById) === country)
+  && (!modes || modes.includes(event.mode));
+const contextEvents = [...new Map(contextGroups.flatMap((group) => group.events)
+  .filter(isInContext).map((event) => [event.id, event])).values()];
 const eventCountriesByGroup = (group: { event: CatalogEvent; events: CatalogEvent[] }) => eventGroupCountries(group, communityById);
 const countryLabel = (country: string) => COUNTRY_LABELS[country as keyof typeof COUNTRY_LABELS] ?? country;
 const countryPages = communityCountryPages(resources) as Array<{ country: string }>;
 const allOrganizerCountries = new Set<string>(countryPages.map((page) => page.country));
-for (const group of upcomingGroups) for (const organizerCountryCode of eventCountriesByGroup(group)) allOrganizerCountries.add(organizerCountryCode);
+for (const group of allGroups) for (const organizerCountryCode of eventCountriesByGroup(group)) allOrganizerCountries.add(organizerCountryCode);
 const eventCountries = [...allOrganizerCountries]
   .sort((left, right) => countryLabel(left).localeCompare(countryLabel(right), 'es'));
-const agendaGroups = eventGroupsForAgenda(upcomingGroups, { communityById, country, modes }) as typeof upcomingGroups;
-const upcoming = agendaGroups.map(({ event }) => event);
 const modeLabel = { online: 'En línea', 'in-person': 'Presencial', hybrid: 'Híbrido' } as const;
 const cityOptions = new Map<string, { key: string; city: string; country?: string; organizerCountries: Set<string> }>();
-for (const group of agendaGroups) {
-  const event = group.event;
+for (const event of contextEvents) {
   if (!event.city) continue;
   const countryCode = organizerCountry(event, communityById) ?? '';
   const key = `${countryCode}:${event.city}`;
   const option = cityOptions.get(key) ?? { key, city: event.city, country: countryCode || undefined, organizerCountries: new Set<string>() };
-  for (const code of eventCountriesByGroup(group)) option.organizerCountries.add(code);
+  if (countryCode) option.organizerCountries.add(countryCode);
   cityOptions.set(key, option);
 }
 const eventCities = [...cityOptions.values()]
   .map(({ organizerCountries, ...city }) => ({ ...city, organizerCountries: [...organizerCountries] }))
   .sort((left, right) => left.city.localeCompare(right.city, 'es') || (left.country ?? '').localeCompare(right.country ?? ''));
 const eventModes = (Object.keys(modeLabel) as Array<keyof typeof modeLabel>)
-  .filter((mode) => upcoming.some((event) => event.mode === mode));
-const communitiesByEventId = new Map(agendaGroups.map(({ event, events: groupEvents }) => [
-  event.id,
-  [...new Set(groupEvents.map((item) => item.communityId).filter((id): id is string => Boolean(id)))],
-]));
-const eventCommunities = [...new Map(agendaGroups.flatMap(({ events: groupEvents }) => groupEvents
+  .filter((mode) => contextEvents.some((event) => event.mode === mode));
+const eventCommunities = [...new Map(contextEvents
   .filter((event) => event.communityId && communityById.has(event.communityId))
   .map((event) => {
     const community = communityById.get(event.communityId!)!;
     return [community.id, { title: community.title, country: community.country }] as const;
-  }))).entries()]
+  })).entries()]
   .map(([id, community]) => ({ id, ...community }))
   .filter((community) => !country || community.country === country)
   .sort((left, right) => left.title.localeCompare(right.title, 'es', { sensitivity: 'base' }));
@@ -68,31 +69,34 @@ const eventFactsIntro = countryName
   ? `En la agenda de ${countryName} hay`
   : eventModePhrase ? `En la agenda de eventos ${eventModePhrase} hay` : 'En la agenda de eventos AWS hay';
 const emptyFacts = countryName
-  ? `No hay próximos eventos publicados organizados por comunidades de ${countryName}.`
+  ? `No hay eventos publicados organizados por comunidades de ${countryName}.`
   : eventModePhrase
-    ? `No hay próximos eventos ${eventModePhrase} publicados.`
-  : 'No hay próximos eventos publicados en esta agenda.';
-const emptyHint = 'Vuelve a consultar esta agenda para ver nuevas fechas.';
-const eventFactsText = eventAgendaSummaryText(upcoming, renderTime, { intro: eventFactsIntro, emptyMessage: emptyFacts });
-const pastRecorded = events.filter((event) => Date.parse(event.endsAt) <= Date.now()
-  && (!modes || modes.includes(event.mode))
-  && (!country || organizerCountry(event, communityById) === country)
-  && recordingsByEvent.has(event.id))
-  .sort((left, right) => Date.parse(right.startsAt) - Date.parse(left.startsAt));
+    ? `No hay eventos ${eventModePhrase} publicados.`
+  : 'No hay eventos publicados en esta agenda.';
+const emptyHint = 'No hay eventos que coincidan con estos filtros. Prueba con otras opciones o limpia los filtros.';
+const eventFactsText = eventAgendaSummaryText(contextGroups.map(({ event }) => event), renderTime, {
+  intro: eventFactsIntro, emptyMessage: emptyFacts,
+});
+const eventStatus = (event: CatalogEvent, now: Date) => {
+  if (Date.parse(event.endsAt) <= now.getTime()) return 'Finalizado';
+  if (Date.parse(event.startsAt) <= now.getTime()) return 'En curso';
+  return 'Próximo';
+};
 ---
 
 <section class="event-agenda" id="eventos" aria-labelledby="event-agenda-title">
   <div>
     <div class="event-agenda__heading">
       <div>
-        <h2 id="event-agenda-title">Próximos eventos</h2>
+        <h2 id="event-agenda-title">Eventos publicados</h2>
         <p>Ordenados por fecha de inicio.</p>
       </div>
     </div>
     <p class="event-agenda__facts" data-event-summary data-event-summary-intro={eventFactsIntro} data-event-summary-empty={emptyFacts} aria-live="polite">{eventFactsText}</p>
-    {(upcoming.length > 0 || (!country && eventCountries.length > 0)) && <div class="event-agenda__filter-area">
+    <div class="event-agenda__filter-area">
       <div class="event-agenda__filters">
         <div class="event-agenda__date-filters">
+          <label class="event-agenda__include-ended"><input type="checkbox" data-event-include-ended checked /> Incluir eventos finalizados</label>
           <label for="event-from">Desde <input id="event-from" type="date" data-event-from /></label>
           <label for="event-to">Hasta <input id="event-to" type="date" data-event-to /></label>
         </div>
@@ -122,59 +126,96 @@ const pastRecorded = events.filter((event) => Date.parse(event.endsAt) <= Date.n
       </div>
       <p class="event-agenda__filter-note">Fechas de inicio en la zona del organizador.</p>
       <div class="event-agenda__filter-summary"><button type="button" data-event-clear>Limpiar filtros</button><span data-event-count aria-live="polite"></span></div>
-    </div>}
-    <ol class="event-agenda__list" data-event-list>
-      {agendaGroups.map((group) => {
+    </div>
+    <noscript><p>Se muestran todos los eventos publicados. Para filtrar la agenda, activa JavaScript.</p></noscript>
+    <ol
+      class="event-agenda__list"
+      data-event-list
+      data-event-context-country={country ?? ''}
+      data-event-context-modes={modes?.join('|') ?? ''}
+      data-event-known-ids={[...new Set(allGroups.flatMap((group) => group.events.map((event) => event.id)))].join('|')}
+    >
+      {contextGroups.map((group) => {
         const { event } = group;
         const recording = recordingForGroup(group);
         const eventCountries = eventCountriesByGroup(group);
+        const eventCommunities = [...new Set(group.events.map((item) => item.communityId).filter((id): id is string => Boolean(id)))];
+        const aliasIds = group.events.map((item) => item.id).join('|');
         const organizers = [...new Map(group.events.map((cohost) => {
           const community = communityById.get(cohost.communityId ?? '');
           const name = community?.title ?? cohost.organizer;
           return [community?.id ?? name, { community, name }] as const;
         })).values()];
-        return <li id={`event-${event.id}`} class="event-card" data-event-id={event.id} data-event-starts-at={event.startsAt} data-event-ends-at={event.endsAt} data-event-time-zone={event.timeZone} data-event-date={eventLocalDate(event.startsAt, event.timeZone)} data-event-mode={event.mode} data-country={organizerCountry(event, communityById) ?? ''} data-event-countries={eventCountries.join('|')} data-event-communities={communitiesByEventId.get(event.id)?.join('|') ?? ''} data-event-city={event.city ? `${organizerCountry(event, communityById) ?? ''}:${event.city}` : ''} tabindex="-1">
-          <article>
-            <div class="event-card__date">
-              <time datetime={event.startsAt}>{eventDateLabel(event.startsAt, event.timeZone)}</time>
-              <span>{modeLabel[event.mode]}</span>
-            </div>
-            <h3>{event.title}</h3>
-            <p class="event-card__description">{event.description}</p>
-            <dl class="event-card__details">
-              <div><dt>Horario</dt><dd><time datetime={event.startsAt}>{eventTimeLabel(event.startsAt, event.timeZone)}</time> – <time datetime={event.endsAt}>{eventTimeLabel(event.endsAt, event.timeZone)}</time> · horario del organizador</dd></div>
-              <div data-visitor-time data-starts-at={event.startsAt} data-ends-at={event.endsAt} hidden><dt>En tu zona</dt><dd data-visitor-time-value></dd></div>
-              <div><dt>Organiza</dt><dd>{organizers.map(({ community, name }, index) => <span>
-                {index > 0 && '; '}{community ? <a href={resourceHref(community)}>{name}</a> : name}
-              </span>)}</dd></div>
-              {event.place && <div><dt>Lugar</dt><dd>{event.place}</dd></div>}
-            </dl>
-            <div class="event-card__links">
-              <a href={event.registrationUrl} target="_blank" rel="noopener noreferrer" data-event-registration>Inscribirme <span aria-hidden="true">↗</span></a>
-              <a href={eventCalendarHref(event)} download={`${event.id}.ics`}>Agregar al calendario (.ics)</a>
-              {recording && <a href={resourceHref(recording)}>Ver grabación</a>}
-            </div>
-            <p class="event-card__report"><ReportLink title={event.title} recordId={event.id} targetUrl={event.registrationUrl} /></p>
-          </article>
+        return <li
+          id={`event-${event.id}`}
+          class="event-card"
+          data-event-starts-at={event.startsAt}
+          data-event-ends-at={event.endsAt}
+          data-event-time-zone={event.timeZone}
+          data-event-id={event.id}
+          data-event-date={eventLocalDate(event.startsAt, event.timeZone)}
+          data-event-mode={event.mode}
+          data-country={organizerCountry(event, communityById) ?? ''}
+          data-event-countries={eventCountries.join('|')}
+          data-event-communities={eventCommunities.join('|')}
+          data-event-city={event.city ? `${organizerCountry(event, communityById) ?? ''}:${event.city}` : ''}
+          data-event-alias-ids={aliasIds}
+          tabindex="-1"
+        >
+          {group.events.filter((member) => member.id !== event.id).map((member) => (
+            <span id={`event-${member.id}`} class="event-card__alias-anchor" aria-hidden="true"></span>
+          ))}
+          {group.events.map((member) => {
+            const memberCountry = organizerCountry(member, communityById) ?? '';
+            const memberStatus = eventStatus(member, renderTime);
+            return <article
+              data-event-member-id={member.id}
+              data-member-starts-at={member.startsAt}
+              data-member-ends-at={member.endsAt}
+              data-member-time-zone={member.timeZone}
+              data-member-mode={member.mode}
+              data-country={memberCountry}
+              data-member-city={member.city ?? ''}
+              data-member-community-id={member.communityId ?? ''}
+              hidden={member.id !== event.id}
+            >
+              <div class="event-card__date">
+                <time datetime={member.startsAt}>{eventDateLabel(member.startsAt, member.timeZone)}</time>
+                <span>{modeLabel[member.mode]}</span>
+                <span data-event-status>{memberStatus}</span>
+              </div>
+              <h3>{member.title}</h3>
+              <p class="event-card__description">{member.description}</p>
+              <dl class="event-card__details">
+                <div><dt>Horario</dt><dd><time datetime={member.startsAt}>{eventTimeLabel(member.startsAt, member.timeZone)}</time> – <time datetime={member.endsAt}>{eventTimeLabel(member.endsAt, member.timeZone)}</time> · horario del organizador</dd></div>
+                <div data-visitor-time data-starts-at={member.startsAt} data-ends-at={member.endsAt} hidden><dt>En tu zona</dt><dd data-visitor-time-value></dd></div>
+                <div><dt>Organiza</dt><dd>{organizers.map(({ community, name }, index) => <span>
+                  {index > 0 && '; '}{community ? <a href={resourceHref(community)}>{name}</a> : name}
+                </span>)}</dd></div>
+                {member.place && <div><dt>Lugar</dt><dd>{member.place}</dd></div>}
+              </dl>
+              <div class="event-card__links">
+                <a href={member.registrationUrl} target="_blank" rel="noopener noreferrer" data-event-registration>{memberStatus === 'Finalizado' ? 'Ver evento' : 'Inscribirme'}</a>
+                <a href={eventCalendarHref(member)} download={`${member.id}.ics`}>Agregar al calendario (.ics)</a>
+                {recording && <a href={resourceHref(recording)}>Ver grabación</a>}
+              </div>
+              <p class="event-card__report"><ReportLink title={member.title} recordId={member.id} targetUrl={member.registrationUrl} /></p>
+            </article>;
+          })}
         </li>;
       })}
     </ol>
-    {upcoming.length > 12 && <button class="event-agenda__more" type="button" data-event-more hidden>Mostrar más eventos</button>}
-    <p class="event-agenda__empty" data-event-empty data-event-no-upcoming={emptyHint} role="status" hidden={upcoming.length > 0}>
-      {emptyHint}
+    {contextGroups.length > 12 && <button class="event-agenda__more" type="button" data-event-more hidden>Mostrar más eventos</button>}
+    <p
+      class="event-agenda__empty"
+      data-event-empty
+      data-event-no-matches={emptyHint}
+      data-event-no-events={emptyFacts}
+      role="status"
+      hidden={contextGroups.length > 0}
+    >
+      {contextGroups.length > 0 ? emptyHint : emptyFacts}
     </p>
-    {pastRecorded.length > 0 && <div class="event-agenda__archive" aria-labelledby="event-archive-title">
-      <h3 id="event-archive-title">Grabaciones de eventos anteriores</h3>
-      <ul>
-        {pastRecorded.map((event) => {
-            const recording = recordingsByEvent.get(event.id)![0];
-          return <li id={`event-${event.id}`}>
-            <span><time datetime={event.startsAt}>{eventDateLabel(event.startsAt, event.timeZone)}</time> · {event.title}</span>
-            <a href={resourceHref(recording)}>Ver grabación</a>
-          </li>;
-        })}
-      </ul>
-    </div>}
   </div>
 </section>
 
@@ -207,6 +248,32 @@ const pastRecorded = events.filter((event) => Date.parse(event.endsAt) <= Date.n
 
   .event-agenda__date-filters input {
     min-width: 0;
+  }
+
+  .event-agenda__filters .event-agenda__include-ended {
+    display: flex;
+    grid-column: 1 / -1;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    width: fit-content;
+    cursor: pointer;
+  }
+
+  .event-agenda__filters .event-agenda__include-ended input[type="checkbox"] {
+    flex: 0 0 20px;
+    width: 20px;
+    height: 20px;
+    min-height: 20px;
+    min-width: 20px;
+    margin: 0;
+    padding: 0;
+    accent-color: #263457;
+  }
+
+  .event-card__alias-anchor {
+    display: block;
+    height: 0;
   }
 
   .event-agenda__secondary-fields {

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { projectPublishedCatalog } from '../src/lib/catalog.mjs';
+import * as eventApi from '../src/lib/events.mjs';
 import { eventDateLabel, eventLocalDate, eventTimeLabel, upcomingEvents, uniqueUpcomingEventGroups, uniqueUpcomingEvents } from '../src/lib/events.mjs';
 import { eventMatchesFilters } from '../src/lib/event-agenda-filter.mjs';
 import { eventGroupCountries, eventGroupsForAgenda } from '../src/lib/event-agenda-groups.mjs';
@@ -65,6 +66,102 @@ test('shows a cross-posted session once while keeping different sessions', () =>
   const later = event({ id: 'meetup-event-789', title: 'Otra charla', registrationUrl: 'https://www.meetup.com/other-ug/events/789/' });
   assert.deepEqual(uniqueUpcomingEvents([later, crossPost, sameUrl, first], '2026-10-01T00:00:00Z').map(({ id }) => id),
     ['event-manual', 'meetup-event-789']);
+});
+
+test('general grouping keeps past events and separates reused registration URLs by start', () => {
+  assert.equal(typeof eventApi.uniqueEventGroups, 'function',
+    'events.mjs must export uniqueEventGroups(events) for the public agenda');
+
+  const past = event({
+    id: 'event-past', title: 'Serie de talleres', startsAt: '2026-10-10T08:00:00Z', endsAt: '2026-10-10T10:00:00Z',
+    registrationUrl: 'https://example.test/series/session?source=past', place: 'Auditorio',
+  });
+  const pastCohost = event({
+    id: 'event-past-cohost', title: 'Serie de talleres', startsAt: '2026-10-10T08:00:00Z', endsAt: '2026-10-10T10:00:00Z',
+    registrationUrl: 'https://cohost.test/series/session', place: 'auditorio', communityId: 'community-past-cohost',
+  });
+  const sameInstantAlias = event({
+    id: 'event-past-url-alias', title: 'Tema con otro título', startsAt: '2026-10-10T05:00:00-03:00', endsAt: '2026-10-10T07:00:00-03:00',
+    registrationUrl: 'https://example.test/series/session/?source=alternate-time', place: 'Auditorio',
+  });
+  const future = event({
+    id: 'event-z-future', title: 'Serie de talleres', startsAt: '2026-10-20T08:00:00Z', endsAt: '2026-10-20T10:00:00Z',
+    registrationUrl: 'https://example.test/series/session/?source=future', place: 'Auditorio',
+  });
+  const secondFuture = event({
+    id: 'event-a-second-future', title: 'Serie de talleres', startsAt: '2026-10-27T08:00:00Z', endsAt: '2026-10-27T10:00:00Z',
+    registrationUrl: 'https://example.test/series/session?source=second-future', place: 'Auditorio',
+  });
+  const rows = [secondFuture, sameInstantAlias, pastCohost, future, past];
+  const before = structuredClone(rows);
+
+  const groups = eventApi.uniqueEventGroups(rows);
+
+  assert.deepEqual(rows, before, 'grouping must not reorder or mutate the input');
+  assert.deepEqual(groups.map(({ event: representative }) => representative.id), [
+    'event-past', 'event-z-future', 'event-a-second-future',
+  ]);
+  assert.deepEqual(groups.map(({ events: members }) => members.map(({ id }) => id).sort()), [
+    ['event-past', 'event-past-cohost', 'event-past-url-alias'], ['event-z-future'], ['event-a-second-future'],
+  ]);
+
+  const upcoming = uniqueUpcomingEventGroups(rows, '2026-10-19T00:00:00Z');
+  assert.deepEqual(upcoming.map(({ event: representative }) => representative.id), [
+    'event-z-future', 'event-a-second-future',
+  ], 'upcoming wrappers must remove ended members before they can become representatives');
+  assert.deepEqual(uniqueUpcomingEvents(rows, '2026-10-19T00:00:00Z').map(({ id }) => id), [
+    'event-z-future', 'event-a-second-future',
+  ]);
+});
+
+test('agenda group selection filters members together and chooses a live matching representative', () => {
+  assert.equal(typeof eventApi.uniqueEventGroups, 'function',
+    'events.mjs must export uniqueEventGroups(events) before agenda groups can include history');
+
+  const startsAt = '2026-10-17T08:00:00Z';
+  const common = {
+    title: 'Sesión coorganizada', startsAt, timeZone: 'UTC',
+    registrationUrl: 'https://example.test/shared-session',
+  };
+  const members = [
+    event({ ...common, id: 'a-ended-match', endsAt: '2026-10-17T12:00:00Z', mode: 'hybrid', country: 'CO', city: 'Cali', communityId: 'community-co' }),
+    event({ ...common, id: 'a-route-only', endsAt: '2026-10-17T18:00:00Z', mode: 'hybrid', country: 'CO', city: 'Bogotá', communityId: 'community-other' }),
+    event({ ...common, id: 'a-filter-only', endsAt: '2026-10-17T18:00:00Z', mode: 'in-person', country: 'AR', city: 'Cali', communityId: 'community-co' }),
+    event({ ...common, id: 'z-live-match', endsAt: '2026-10-17T20:00:00Z', mode: 'hybrid', country: 'CO', city: 'Cali', communityId: 'community-co' }),
+    event({ ...common, id: 'b-live-match', endsAt: '2026-10-17T19:00:00Z', mode: 'hybrid', country: 'CO', city: 'Cali', communityId: 'community-co' }),
+  ];
+  const groups = eventApi.uniqueEventGroups(members);
+  const upcomingGroups = uniqueUpcomingEventGroups(members, '2026-10-17T13:00:00Z');
+  assert.equal(upcomingGroups[0].event.id, 'a-filter-only',
+    'upcoming wrappers filter ended co-hosts before choosing a representative');
+  assert.deepEqual(upcomingGroups[0].events.map(({ id }) => id).sort(), [
+    'a-filter-only', 'a-route-only', 'b-live-match', 'z-live-match',
+  ]);
+  const options = {
+    communityById: new Map(),
+    country: 'CO',
+    modes: ['hybrid'],
+    now: '2026-10-17T13:00:00Z',
+    filters: {
+      mode: 'hybrid', country: 'CO', city: 'CO:Cali', community: 'community-co',
+    },
+  };
+
+  const withoutCompleteMember = [{ ...groups[0], events: members.slice(1, 3) }];
+  assert.deepEqual(eventGroupsForAgenda(withoutCompleteMember, options), [],
+    'country/mode from one member and city/community from another cannot satisfy one selection');
+
+  const [selected] = eventGroupsForAgenda(groups, options);
+  assert.equal(selected.event.id, 'b-live-match',
+    'a matching non-ended member wins; ties use start then ID');
+  assert.deepEqual(selected.events.map(({ id }) => id).sort(), members.map(({ id }) => id).sort(),
+    'the card retains every co-host even when its displayed member is selected by filters');
+
+  const afterLiveEnds = eventGroupsForAgenda(groups, { ...options, now: '2026-10-17T21:00:00Z' });
+  assert.equal(afterLiveEnds[0].event.id, 'a-ended-match',
+    'with ended events included, the deterministic matching representative remains available');
+  assert.deepEqual(eventGroupsForAgenda(groups, { ...options, now: '2026-10-17T21:00:00Z', includeEnded: false }), [],
+    'disabling ended events removes the group when no matching member remains active');
 });
 
 test('keeps separate physical sessions with the same title, start and organizer country', () => {

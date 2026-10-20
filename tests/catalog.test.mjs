@@ -240,7 +240,7 @@ test('uses an explicitly selected fixture and rejects conflicting source config'
       ['fixture-recording-costa-rica', 'content', 'Video', 'CR', ['Comunidad']],
     ]);
     assert.deepEqual(fixtureCatalog.filter((item) => item.recordType === 'event').map((item) => item.id),
-      ['fixture-event', 'fixture-event-colombia', 'fixture-online-event', 'fixture-past-argentina', 'fixture-past-costa-rica']);
+      ['fixture-event', 'fixture-event-colombia', 'fixture-online-event', 'fixture-past-argentina', 'fixture-past-costa-rica', 'fixture-past-unrecorded']);
     assert.throws(
       () => resolveCatalogConfig({ fixturePath, tableName: 'catalog' }),
       /Catalog source conflict/,
