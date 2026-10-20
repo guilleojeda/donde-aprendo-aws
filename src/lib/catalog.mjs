@@ -44,6 +44,7 @@ const SCAN_EXPRESSION_NAMES = Object.freeze({
   '#mode': 'mode',
   '#place': 'place',
   '#city': 'city',
+  '#venueCountry': 'venueCountry',
   '#registrationUrl': 'registrationUrl',
 });
 
@@ -118,7 +119,7 @@ export async function scanCatalogItems(scanPage, tableName) {
       TableName: tableName,
       Select: 'SPECIFIC_ATTRIBUTES',
       ConsistentRead: true,
-      ProjectionExpression: '#id,#title,#url,#description,#category,#order,#featured,#kind,#format,#topics,#addedAt,#country,#level,#sourceId,#communityId,#eventId,#recordType,#startsAt,#endsAt,#timeZone,#organizer,#mode,#place,#city,#registrationUrl,published',
+      ProjectionExpression: '#id,#title,#url,#description,#category,#order,#featured,#kind,#format,#topics,#addedAt,#country,#level,#sourceId,#communityId,#eventId,#recordType,#startsAt,#endsAt,#timeZone,#organizer,#mode,#place,#city,#venueCountry,#registrationUrl,published',
       ExpressionAttributeNames: SCAN_EXPRESSION_NAMES,
     };
     if (exclusiveStartKey !== undefined) {
@@ -201,6 +202,7 @@ export function projectPublicRecord(item, index = 0) {
     }
   }
 
+  const taxonomy = validateTaxonomy(hasAnyTaxonomy(item) ? item : classifyLegacyResource(item), index);
   const record = {
     id: item.id,
     title: item.title,
@@ -209,8 +211,9 @@ export function projectPublicRecord(item, index = 0) {
     category: item.category,
     order: item.order,
     featured: item.featured,
-    ...validateTaxonomy(hasAnyTaxonomy(item) ? item : classifyLegacyResource(item), index),
+    ...taxonomy,
     ...Object.fromEntries(DISCOVERY_FIELDS.filter((field) => Object.hasOwn(item, field)).map((field) => [field, item[field]])),
+    ...(taxonomy.kind === 'community' && Object.hasOwn(item, 'city') ? { city: item.city } : {}),
   };
   validatePublicRecord(record, index);
   return record;

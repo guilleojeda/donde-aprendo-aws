@@ -58,6 +58,7 @@ Resources:
                       - communityId
                       - place
                       - city
+                      - venueCountry
                   StringEquals:
                     dynamodb:Select: SPECIFIC_ATTRIBUTES
               - Effect: Allow

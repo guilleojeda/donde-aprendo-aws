@@ -1,3 +1,4 @@
+import { effectiveEventLocation } from './event-location.mjs';
 import { eventMatchesFilters } from './event-agenda-filter.mjs';
 import { eventOverlapsAgendaPeriod } from './event-agenda-period.mjs';
 
@@ -6,37 +7,34 @@ import { eventOverlapsAgendaPeriod } from './event-agenda-period.mjs';
  * @typedef {import('../types/catalog').CatalogResource} CatalogResource
  * @typedef {{mode?: CatalogEvent['mode'] | '', country?: string, city?: string, community?: string}} EventAgendaFilters
  * @typedef {{view: 'week' | 'month', date: string, timeZone: string, start: number, end: number}} EventAgendaPeriod
- * @typedef {{communityById?: Map<string, CatalogResource>, country?: string, modes?: readonly CatalogEvent['mode'][], filters?: EventAgendaFilters, includeEnded?: boolean, now?: Date | string | number, period?: EventAgendaPeriod}} EventAgendaOptions
+ * @typedef {{communityById?: Map<string, CatalogResource>, filters?: EventAgendaFilters, includeEnded?: boolean, now?: Date | string | number, period?: EventAgendaPeriod}} EventAgendaOptions
  */
 
+/** Organizer country remains available for directory and analytics semantics. */
 export function organizerCountry(event, communityById = new Map()) {
   return event.country ?? communityById.get(event.communityId ?? '')?.country;
 }
 
-export function eventGroupCountries(group, communityById) {
-  return [...new Set(group.events.map((event) => organizerCountry(event, communityById))
-    .filter((country) => Boolean(country)))];
+/** Return physical countries represented by group members, without remote-only countries. */
+export function eventGroupCountries(group, communityById = new Map()) {
+  return [...new Set(group.events.map((event) => effectiveEventLocation(event, communityById).country)
+    .filter(Boolean))];
 }
 
 function eventForAgendaFilters(event, communityById) {
-  const country = organizerCountry(event, communityById);
+  const location = effectiveEventLocation(event, communityById);
   return {
     ...event,
-    country,
-    countries: country ? [country] : [],
-    city: event.city ? `${country ?? ''}:${event.city}` : '',
+    country: location.country,
+    city: location.country && location.city ? `${location.country}:${location.city}` : '',
     communities: event.communityId ? [event.communityId] : [],
   };
 }
 
-/**
- * Filter a group when one member satisfies the complete agenda selection; keep every co-host.
- * @param {EventAgendaOptions} [options]
- */
+/** Filter each member as a whole; retain all co-host listings and choose a matching representative. */
+/** @param {{event: CatalogEvent, events: CatalogEvent[]}[]} groups @param {EventAgendaOptions} [options] */
 export function eventGroupsForAgenda(groups, options = {}) {
-  const {
-    country, modes, filters = {}, includeEnded = true, now = new Date(), period,
-  } = options;
+  const { filters = {}, includeEnded = true, now = new Date(), period } = options;
   /** @type {Map<string, CatalogResource>} */
   const communityById = options.communityById ?? new Map();
   const timestamp = now instanceof Date ? now.getTime() : new Date(now).getTime();
@@ -45,9 +43,7 @@ export function eventGroupsForAgenda(groups, options = {}) {
 
   for (const group of groups) {
     const matchingEvents = group.events.filter((event) =>
-      (!country || organizerCountry(event, communityById) === country)
-      && (!modes || modes.includes(event.mode))
-      && (!period || eventOverlapsAgendaPeriod(event, period))
+      (!period || eventOverlapsAgendaPeriod(event, period))
       && eventMatchesFilters(eventForAgendaFilters(event, communityById), filters, timestamp, includeEnded))
       .sort((left, right) =>
         Date.parse(left.startsAt) - Date.parse(right.startsAt) || left.id.localeCompare(right.id));

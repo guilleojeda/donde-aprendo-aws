@@ -1,4 +1,5 @@
 import { eventGroupsForAgenda } from '../lib/event-agenda-groups.mjs';
+import { effectiveEventLocation, eventCountryLabel } from '../lib/event-location.mjs';
 import { eventDateLabel, eventLocalDate, eventTimeLabel } from '../lib/events.mjs';
 import {
   createEventAgendaPeriod,
@@ -38,6 +39,8 @@ const clear = document.querySelector('[data-event-clear]');
 const more = document.querySelector('[data-event-more]');
 const count = document.querySelector('[data-event-count]');
 const factSummary = document.querySelector('[data-event-summary]');
+const pageHeading = document.querySelector('[data-event-page-heading]');
+const pageIntro = document.querySelector('[data-event-page-intro]');
 const emptyFilters = { mode: '', country: '', city: '', community: '' };
 const filterFieldsInOrder = Object.keys(emptyFilters);
 const agendaRouteLinks = [...document.querySelectorAll('a[data-event-agenda-route]')];
@@ -53,7 +56,8 @@ if (agenda && empty) {
       timeZone: view.dataset.memberTimeZone,
       mode: view.dataset.memberMode,
       country: view.dataset.country || undefined,
-      city: view.dataset.memberCity || '',
+      venueCountry: view.dataset.memberVenueCountry || undefined,
+      city: view.dataset.memberCity || undefined,
       communityId: view.dataset.memberCommunityId || undefined,
       view,
     }));
@@ -64,33 +68,77 @@ if (agenda && empty) {
     };
   });
   const allEvents = groups.flatMap((group) => group.events);
-  const routeCountry = agenda.dataset.eventContextCountry || undefined;
-  const routeModes = (agenda.dataset.eventContextModes ?? '').split('|').filter(Boolean);
+  const routeDefaults = {
+    country: agenda.dataset.eventDefaultCountry ?? '',
+    mode: agenda.dataset.eventDefaultMode ?? '',
+  };
   const knownEventIds = new Set((agenda.dataset.eventKnownIds ?? '').split('|').filter(Boolean));
-  const allowedFilters = Object.fromEntries(['mode', 'country', 'city', 'community']
-    .map((field) => [field, new Set([...(controls[field]?.options ?? [])].map((option) => option.value))]));
-  if (routeCountry) allowedFilters.country.add(routeCountry);
-  for (const mode of routeModes) allowedFilters.mode.add(mode);
-  const communityCountries = new Map([...(controls.community?.options ?? [])]
+  const communityById = new Map([...(controls.community?.options ?? [])]
     .filter((option) => option.value)
-    .map((option) => [option.value, option.dataset.eventCountry ?? '']));
-  const countriesForCity = new Map([...(controls.city?.options ?? [])]
-    .filter((option) => option.value)
-    .map((option) => [option.value, new Set(option.dataset.eventCountries?.split('|').filter(Boolean)
-      ?? [option.value.split(':')[0]])]));
-  const allowed = { ...allowedFilters, communityCountries, countriesForCity };
+    .map((option) => [option.value, {
+      id: option.value,
+      title: option.textContent ?? '',
+      country: option.dataset.eventCountry ?? '',
+      city: option.dataset.eventCity ?? '',
+    }]));
+  const allowed = {
+    mode: new Set(['', 'online', 'in-person', 'hybrid']),
+    country: new Set([...(controls.country?.options ?? [])].map((option) => option.value)),
+    city: new Set([...(controls.city?.options ?? [])].map((option) => option.value)),
+    community: new Set([...(controls.community?.options ?? [])].map((option) => option.value)),
+  };
   let expiryTimer;
   let limit = 12;
-  const hiddenFilters = {};
   const visitorZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   let period = parseEventAgendaPeriod(location.search, { timeZone: visitorZone, now: Date.now() });
+  const originalPageTitle = document.title;
+  const originalHeading = pageHeading?.textContent ?? '';
+  const originalIntro = pageIntro?.textContent ?? '';
+
+  const ensureModeOption = (mode) => {
+    if (!controls.mode || !mode || [...controls.mode.options].some((option) => option.value === mode)) return;
+    const option = document.createElement('option');
+    option.value = mode;
+    option.textContent = mode === 'hybrid' ? 'Híbrido (enlace anterior)' : mode;
+    controls.mode.append(option);
+  };
+  const ensureCountryOption = (country) => {
+    if (!controls.country || !country || [...controls.country.options].some((option) => option.value === country)) return;
+    const option = document.createElement('option');
+    option.value = country;
+    option.textContent = typeof eventCountryLabel === 'function' ? eventCountryLabel(country) : country;
+    controls.country.append(option);
+    allowed.country.add(country);
+  };
+  const ensureCityOption = (city) => {
+    if (!controls.city || !city || [...controls.city.options].some((option) => option.value === city)) return;
+    const country = city.slice(0, 2);
+    const option = document.createElement('option');
+    option.value = city;
+    option.dataset.eventCountries = country;
+    option.textContent = `${city.slice(3)} · ${country}`;
+    controls.city.append(option);
+    allowed.city.add(city);
+  };
+  function updatePageCopy(filters) {
+    const differsFromRouteDefault = filters.country !== routeDefaults.country || filters.mode !== routeDefaults.mode;
+    if (pageHeading) pageHeading.textContent = differsFromRouteDefault ? 'Eventos AWS publicados' : originalHeading;
+    if (pageIntro) {
+      pageIntro.textContent = differsFromRouteDefault
+        ? 'Consulta los eventos publicados y elige modalidad y ubicación de asistencia.'
+        : originalIntro;
+    }
+    document.title = differsFromRouteDefault ? 'Eventos AWS | ¿Dónde Aprendo AWS?' : originalPageTitle;
+  }
 
   const currentFilters = () => Object.fromEntries(Object.entries(controls)
-    .map(([field, control]) => [field, control ? control.value : hiddenFilters[field] ?? '']));
+    .map(([field, control]) => [field, control?.value ?? '']));
   const setFilters = (filters) => {
+    ensureModeOption(filters.mode);
+    ensureCountryOption(filters.country);
+    ensureCityOption(filters.city);
     for (const [field, control] of Object.entries(controls)) {
       if (control) control.value = filters[field] ?? '';
-      else hiddenFilters[field] = filters[field] ?? '';
     }
   };
   const updateCityOptions = () => {
@@ -103,12 +151,15 @@ if (agenda && empty) {
     if (controls.city?.selectedOptions[0]?.disabled) controls.city.value = '';
   };
   const updateCommunityOptions = () => {
-    const country = controls.country?.value ?? '';
     for (const option of [...(controls.community?.options ?? [])].slice(1)) {
-      option.disabled = Boolean(country && option.dataset.eventCountry !== country);
-      option.hidden = option.disabled;
+      option.disabled = false;
+      option.hidden = false;
     }
-    if (controls.community?.selectedOptions[0]?.disabled) controls.community.value = '';
+  };
+  const updateLocationControls = () => {
+    const inactive = controls.mode?.value === 'online';
+    if (controls.country) controls.country.disabled = inactive;
+    if (controls.city) controls.city.disabled = inactive;
   };
   const syncSecondaryDisclosure = (followViewport = false) => {
     const active = secondaryEventAgendaFilterCount(currentFilters());
@@ -152,7 +203,7 @@ if (agenda && empty) {
   };
   const serializeAgendaQuery = (search, filters, selectedPeriod = period) => {
     const withPeriod = serializeEventAgendaPeriod(search, selectedPeriod);
-    return serializeEventAgendaSearch(withPeriod, filters);
+    return serializeEventAgendaSearch(withPeriod, filters, routeDefaults);
   };
   const updateFactSummary = (events, now) => {
     if (!factSummary) return;
@@ -167,9 +218,12 @@ if (agenda && empty) {
   const readUrl = () => {
     period = parseEventAgendaPeriod(location.search, { timeZone: visitorZone, now: Date.now() });
     ensureTimeZoneOption(period.timeZone);
-    setFilters(parseEventAgendaSearch(location.search, allowed));
+    const filters = parseEventAgendaSearch(location.search, allowed, routeDefaults);
+    setFilters(filters);
     updateCityOptions();
     updateCommunityOptions();
+    updateLocationControls();
+    updatePageCopy(filters);
     syncSecondaryDisclosure(true);
     syncPeriodControls();
   };
@@ -179,37 +233,46 @@ if (agenda && empty) {
     updateRouteLinks();
   };
   const selectGroups = (sourceGroups, filters, includeEnded, now, selectedPeriod = period) => eventGroupsForAgenda(sourceGroups, {
-    communityById: new Map(),
-    country: routeCountry,
-    modes: routeModes.length ? routeModes : undefined,
+    communityById,
     filters,
     includeEnded,
     now,
     period: selectedPeriod,
   });
 
-  function compatibleRouteFilters(filters, link) {
+  function routeDefaultsFor(link) {
+    const linkHref = routeLinkBases.get(link) ?? link.href ?? '';
+    const path = new URL(linkHref, window.location.origin || `https://${window.location.hostname}`).pathname;
+    const destinationCountry = link.dataset.eventAgendaCountry ?? '';
+    const declaredModes = (link.dataset.eventAgendaModes ?? '').split('|').filter(Boolean);
+    const declaredMode = link.dataset.eventAgendaMode
+      ?? (declaredModes.length === 1 && declaredModes[0] === 'online' ? 'online'
+        : declaredModes.includes('in-person') ? 'in-person' : '');
+    return {
+      country: destinationCountry,
+      mode: declaredMode || (path === '/eventos/online/' ? 'online'
+        : path === '/eventos/presenciales/' ? 'in-person' : ''),
+    };
+  }
+
+  function compatibleRouteFilters(filters, link, destinationDefaults) {
     const selected = { ...filters };
     const destinationCountry = link.dataset.eventAgendaCountry;
-    const destinationModes = (link.dataset.eventAgendaModes ?? '').split('|').filter(Boolean);
     if (destinationCountry) {
-      if (selected.country && selected.country !== destinationCountry) selected.country = '';
-      const cityCountries = countriesForCity.get(selected.city);
-      const cityMatchesCountry = cityCountries
-        ? cityCountries.has(destinationCountry)
-        : selected.city.startsWith(`${destinationCountry}:`);
-      if (selected.city && !cityMatchesCountry) selected.city = '';
-      const communityCountry = communityCountries.get(selected.community);
-      if (selected.community && communityCountry && communityCountry !== destinationCountry) selected.community = '';
+      selected.country = destinationCountry;
+      if (selected.city && !selected.city.startsWith(`${destinationCountry}:`)) selected.city = '';
     }
-    if (destinationModes.length && selected.mode && !destinationModes.includes(selected.mode)) selected.mode = '';
+    if (link.dataset.eventAgendaModes || link.dataset.eventAgendaMode) {
+      // Collection links replace only the modality facet.
+      selected.mode = destinationDefaults.mode;
+    }
     return selected;
   }
 
   function updateRouteLinks() {
     const currentQuery = new URLSearchParams(location.search);
     const stateKeys = new Set(['view', 'date', 'tz', 'from', 'to', 'includeEnded', 'mode', 'country', 'city', 'community']);
-    const currentFilters = parseEventAgendaSearch(location.search, allowed);
+    const currentFilters = parseEventAgendaSearch(location.search, allowed, routeDefaults);
     for (const link of agendaRouteLinks) {
       const baseHref = routeLinkBases.get(link);
       if (!baseHref) continue;
@@ -219,13 +282,11 @@ if (agenda && empty) {
       for (const [key, value] of currentQuery) {
         if (!stateKeys.has(key) && !query.has(key)) query.append(key, value);
       }
-      const targetFilters = parseEventAgendaSearch(query, allowed);
-      const mergedFilters = { ...targetFilters };
-      for (const field of filterFieldsInOrder) {
-        if (currentFilters[field]) mergedFilters[field] = currentFilters[field];
-      }
-      const compatible = compatibleRouteFilters(mergedFilters, link);
-      const nextQuery = serializeAgendaQuery(query.toString(), compatible);
+      const targetDefaults = routeDefaultsFor(link);
+      const compatible = compatibleRouteFilters(currentFilters, link, targetDefaults);
+      const nextQuery = serializeEventAgendaSearch(
+        serializeEventAgendaPeriod(query.toString(), period), compatible, targetDefaults,
+      );
       url.search = nextQuery;
       link.setAttribute('href', `${url.pathname}${url.search}${url.hash}`);
     }
@@ -253,17 +314,31 @@ if (agenda && empty) {
     const dateLabel = member.view.querySelector('[data-event-date-label]');
     const startTimeLabel = member.view.querySelector('[data-event-time-label]');
     const endTimeLabel = member.view.querySelector('[data-event-time-end-label]');
+    const participation = member.view.querySelector('[data-event-participation]');
     if (status) status.textContent = finalized ? 'Finalizado' : start <= now ? 'En curso' : 'Próximo';
     if (registration) registration.textContent = finalized ? 'Ver evento' : 'Inscribirme';
     if (dateLabel) dateLabel.textContent = eventDateLabel(member.startsAt, period.timeZone);
     if (startTimeLabel) startTimeLabel.textContent = eventTimeLabel(member.startsAt, period.timeZone);
     if (endTimeLabel) endTimeLabel.textContent = eventTimeLabel(member.endsAt, period.timeZone);
+    if (participation && member.mode === 'hybrid') {
+      const filters = currentFilters();
+      const physical = effectiveEventLocation(member, communityById);
+      const hasLocation = Boolean(filters.country || filters.city);
+      const locationMatches = (!filters.country || physical.country === filters.country)
+        && (!filters.city || `${physical.country}:${physical.city}` === filters.city);
+      participation.textContent = filters.mode === 'online'
+        || ((filters.mode === '' || filters.mode === 'hybrid') && hasLocation && !locationMatches)
+        ? 'Participación remota'
+        : filters.mode === 'in-person' ? 'Participación presencial'
+          : 'Participación presencial y remota';
+    }
   }
 
   function applyRepresentative(group, member) {
     for (const item of group.events) item.view.hidden = item.id !== member.id;
     const { card } = group;
-    const country = member.country ?? '';
+    const physical = effectiveEventLocation(member, communityById);
+    const country = physical.country ?? '';
     card.dataset.eventId = member.id;
     card.dataset.eventStartsAt = member.startsAt;
     card.dataset.eventEndsAt = member.endsAt;
@@ -271,8 +346,8 @@ if (agenda && empty) {
     card.dataset.eventMode = member.mode;
     card.dataset.country = country;
     card.dataset.eventDate = eventLocalDate(member.startsAt, period.timeZone);
-    card.dataset.eventCity = member.city ? `${country}:${member.city}` : '';
-    card.dataset.eventCountries = [...new Set(group.events.map((item) => item.country).filter(Boolean))].join('|');
+    card.dataset.eventCity = physical.city ? `${country}:${physical.city}` : '';
+    card.dataset.eventCountries = [...new Set(group.events.map((item) => effectiveEventLocation(item, communityById).country).filter(Boolean))].join('|');
     card.dataset.eventCommunities = [...new Set(group.events.map((item) => item.communityId).filter(Boolean))].join('|');
   }
 
@@ -313,6 +388,7 @@ if (agenda && empty) {
     syncCardOrder(matchingGroups);
 
     const selectedEvents = matchingGroups.map((group) => group.event);
+    updatePageCopy(filters);
     updateFactSummary(selectedEvents, now);
     empty.hidden = matchingGroups.length > 0;
     if (empty.hidden === false) {
@@ -355,14 +431,30 @@ if (agenda && empty) {
     return { ...emptyFilters };
   }
 
-  const fallbackToGlobalAgenda = (eventId) => {
+  function conflictsWithImplicitRouteDefault(member, now) {
+    const query = new URLSearchParams(location.search);
+    const implicitFilters = { ...emptyFilters };
+    if (!query.has('country')) implicitFilters.country = routeDefaults.country;
+    if (!query.has('mode')) implicitFilters.mode = routeDefaults.mode;
+    return eventGroupsForAgenda([{ event: member, events: [member] }], {
+      communityById,
+      filters: implicitFilters,
+      includeEnded: true,
+      now,
+    }).length === 0;
+  }
+
+  const fallbackToGlobalAgenda = (eventId, targetGroup) => {
     if (!knownEventIds.has(eventId) || location.pathname === '/eventos/') return false;
     const filters = currentFilters();
     const explicitQuery = new URLSearchParams(location.search);
     for (const field of filterFieldsInOrder) {
       if (explicitQuery.has(field)) filters[field] = explicitQuery.get(field) ?? '';
     }
-    const preservedQuery = serializeAgendaQuery(location.search, filters);
+    const globalFilters = targetGroup ? compatibleFilters(targetGroup, filters, Date.now(), null) : filters;
+    const preservedQuery = serializeEventAgendaSearch(
+      serializeEventAgendaPeriod(location.search, period), globalFilters, { country: '', mode: '' },
+    );
     window.location.href = `/eventos/${preservedQuery ? `?${preservedQuery}` : ''}#event-${eventId}`;
     return true;
   };
@@ -379,9 +471,8 @@ if (agenda && empty) {
 
     const now = Date.now();
     const targetMember = group.events.find((member) => member.id === eventId);
-    if (targetMember && ((routeCountry && targetMember.country !== routeCountry)
-      || (routeModes.length && !routeModes.includes(targetMember.mode)))) {
-      fallbackToGlobalAgenda(eventId);
+    if (targetMember && conflictsWithImplicitRouteDefault(targetMember, now)) {
+      fallbackToGlobalAgenda(eventId, group);
       return;
     }
     if (targetMember && Date.parse(targetMember.endsAt) <= now && includeEndedControl && !includeEndedControl.checked) {
@@ -411,6 +502,7 @@ if (agenda && empty) {
       setFilters(after);
       updateCityOptions();
       updateCommunityOptions();
+      updateLocationControls();
       syncSecondaryDisclosure(true);
     }
 
@@ -480,8 +572,8 @@ if (agenda && empty) {
     control?.addEventListener('change', () => {
       if (control === controls.country) {
         updateCityOptions();
-        updateCommunityOptions();
       }
+      if (control === controls.mode) updateLocationControls();
       limit = 12;
       syncSecondaryDisclosure();
       writeUrl();
@@ -496,6 +588,8 @@ if (agenda && empty) {
     setFilters(emptyFilters);
     updateCityOptions();
     updateCommunityOptions();
+    updateLocationControls();
+    updatePageCopy(emptyFilters);
     limit = 12;
     syncSecondaryDisclosure();
     writeUrl();
