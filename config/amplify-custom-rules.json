@@ -10,74 +10,14 @@
     "status": "301"
   },
   {
-    "source": "/blog",
-    "target": "/blog/",
-    "status": "301"
-  },
-  {
-    "source": "/blog/<slug>",
-    "target": "/blog/<slug>/",
-    "status": "301"
-  },
-  {
-    "source": "/aprender",
-    "target": "/aprender/",
-    "status": "301"
-  },
-  {
-    "source": "/aprender/<collection>",
-    "target": "/aprender/<collection>/",
-    "status": "301"
-  },
-  {
-    "source": "/creadores",
-    "target": "/creadores/",
-    "status": "301"
-  },
-  {
-    "source": "/creadores/<collection>",
-    "target": "/creadores/<collection>/",
-    "status": "301"
-  },
-  {
-    "source": "/comunidades",
-    "target": "/comunidades/",
-    "status": "301"
-  },
-  {
-    "source": "/comunidades/<country>",
-    "target": "/comunidades/<country>/",
-    "status": "301"
-  },
-  {
-    "source": "/eventos",
-    "target": "/eventos/",
-    "status": "301"
-  },
-  {
-    "source": "/eventos/<country>",
-    "target": "/eventos/<country>/",
-    "status": "301"
-  },
-  {
-    "source": "/recorridos",
-    "target": "/recorridos/",
-    "status": "301"
-  },
-  {
-    "source": "/recorridos/<slug>",
-    "target": "/recorridos/<slug>/",
-    "status": "301"
-  },
-  {
-    "source": "/buscar",
-    "target": "/buscar/",
-    "status": "301"
-  },
-  {
     "source": "/",
     "target": "/index.html",
     "status": "200"
+  },
+  {
+    "source": "/blog",
+    "target": "/blog/",
+    "status": "301"
   },
   {
     "source": "/blog/",
@@ -85,9 +25,19 @@
     "status": "200"
   },
   {
+    "source": "/blog/<slug>",
+    "target": "/blog/<slug>/",
+    "status": "301"
+  },
+  {
     "source": "/blog/<slug>/",
     "target": "/blog/<slug>/index.html",
     "status": "200"
+  },
+  {
+    "source": "/aprender",
+    "target": "/aprender/",
+    "status": "301"
   },
   {
     "source": "/aprender/",
@@ -95,9 +45,19 @@
     "status": "200"
   },
   {
+    "source": "/aprender/<collection>",
+    "target": "/aprender/<collection>/",
+    "status": "301"
+  },
+  {
     "source": "/aprender/<collection>/",
     "target": "/aprender/<collection>/index.html",
     "status": "200"
+  },
+  {
+    "source": "/creadores",
+    "target": "/creadores/",
+    "status": "301"
   },
   {
     "source": "/creadores/",
@@ -105,9 +65,19 @@
     "status": "200"
   },
   {
+    "source": "/creadores/<collection>",
+    "target": "/creadores/<collection>/",
+    "status": "301"
+  },
+  {
     "source": "/creadores/<collection>/",
     "target": "/creadores/<collection>/index.html",
     "status": "200"
+  },
+  {
+    "source": "/comunidades",
+    "target": "/comunidades/",
+    "status": "301"
   },
   {
     "source": "/comunidades/",
@@ -115,9 +85,19 @@
     "status": "200"
   },
   {
+    "source": "/comunidades/<country>",
+    "target": "/comunidades/<country>/",
+    "status": "301"
+  },
+  {
     "source": "/comunidades/<country>/",
     "target": "/comunidades/<country>/index.html",
     "status": "200"
+  },
+  {
+    "source": "/eventos",
+    "target": "/eventos/",
+    "status": "301"
   },
   {
     "source": "/eventos/",
@@ -130,14 +110,29 @@
     "status": "200"
   },
   {
+    "source": "/recorridos",
+    "target": "/recorridos/",
+    "status": "301"
+  },
+  {
     "source": "/recorridos/",
     "target": "/recorridos/index.html",
     "status": "200"
   },
   {
+    "source": "/recorridos/<slug>",
+    "target": "/recorridos/<slug>/",
+    "status": "301"
+  },
+  {
     "source": "/recorridos/<slug>/",
     "target": "/recorridos/<slug>/index.html",
     "status": "200"
+  },
+  {
+    "source": "/buscar",
+    "target": "/buscar/",
+    "status": "301"
   },
   {
     "source": "/buscar/",

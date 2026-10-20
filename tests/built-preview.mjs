@@ -87,4 +87,25 @@ test('the built mixed preview serves prerendered routes and runtime routes over 
   const missing = await fetch(new URL('/preview-no-existe/', baseUrl));
   assert.equal(missing.status, 404);
   assert.ok((await missing.text()).includes('<h1>Página no encontrada</h1>'), 'Unknown routes receive the runtime 404 page.');
+
+  const eventPage = await fetch(new URL('/eventos/', baseUrl));
+  assert.equal(eventPage.status, 200);
+  const eventHtml = await eventPage.text();
+  const calendarPath = eventHtml.match(/href="(\/eventos\/[^"?#]+\.ics)"/u)?.[1];
+  assert.ok(calendarPath, 'The rendered event page contains a calendar download link.');
+
+  const canonicalEventDetail = await fetch(new URL('/eventos/argentina/?from=preview', baseUrl));
+  assert.equal(canonicalEventDetail.status, 200);
+  assert.match(canonicalEventDetail.headers.get('content-type') ?? '', /^text\/html(?:;|$)/u);
+  assert.match(await canonicalEventDetail.text(), /<h1>Eventos AWS en Argentina<\/h1>/u);
+
+  const calendar = await fetch(new URL(calendarPath, baseUrl), { redirect: 'manual' });
+  assert.equal(calendar.status, 200);
+  assert.equal(calendar.headers.get('location'), null, 'A calendar file is served without a trailing-slash redirect.');
+  // Amplify static hosting supplies the production MIME for generated .ics objects.
+  assert.match(await calendar.text(), /^BEGIN:VCALENDAR\r\nVERSION:2\.0\r\n/u);
+
+  const missingCalendar = await fetch(new URL('/eventos/no-such-file.ics', baseUrl), { redirect: 'manual' });
+  assert.equal(missingCalendar.status, 404);
+  assert.equal(missingCalendar.headers.get('location'), null, 'A missing calendar file remains a direct 404.');
 });

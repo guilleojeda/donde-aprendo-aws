@@ -135,12 +135,15 @@ function sanitizedRuntimeOutput() {
   return output.length > 8_000 ? `${output.slice(-8_000)}\n[earlier runtime output omitted]` : output;
 }
 
-async function getWhenReady(path) {
+async function getWhenReady(path, options = {}) {
   const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
     if (child.exitCode !== null) throw new Error('Amplify compute exited before accepting requests.');
     try {
-      return await fetch(new URL(path, origin), { signal: AbortSignal.timeout(1000) });
+      return await fetch(new URL(path, origin), {
+        ...options,
+        signal: options.signal ?? AbortSignal.timeout(1000),
+      });
     } catch {
       await delay(50);
     }
@@ -175,6 +178,11 @@ try {
   const logoutLocation = new URL(logoutResponse.headers.get('location') ?? '');
   assert.equal(logoutLocation.origin, accountOrigin, 'Anonymous logout redirects only to the configured account origin.');
   assert.equal(logoutLocation.pathname, '/cuenta/', 'Anonymous logout returns to the account page.');
+
+  const eventDetailResponse = await getWhenReady('/eventos/argentina?from=verify', { redirect: 'manual' });
+  assert.equal(eventDetailResponse.status, 301, 'Native event detail routing adds the canonical trailing slash.');
+  assert.equal(eventDetailResponse.headers.get('location'), '/eventos/argentina/?from=verify',
+    'Native event detail redirects preserve the query string.');
 
   const missingResponse = await fetch(new URL('/runtime-route-that-does-not-exist', origin), {
     signal: AbortSignal.timeout(3000),
