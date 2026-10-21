@@ -12,7 +12,6 @@ import {
   parseEventAgendaSearch,
   secondaryEventAgendaFilterCount,
   serializeEventAgendaSearch,
-  shouldOpenEventAgendaSecondaryFilters,
 } from '../lib/event-agenda-filter.mjs';
 import { trackRegistrationClick } from '../lib/event-analytics.mjs';
 import { eventAgendaSummaryText, nextEventAgendaTransition } from '../lib/event-agenda-summary.mjs';
@@ -27,9 +26,9 @@ const includeEndedControl = document.querySelector('[data-event-include-ended]')
 const viewButtons = [...document.querySelectorAll('[data-event-view]')];
 const previousPeriod = document.querySelector('[data-event-period-prev]');
 const nextPeriod = document.querySelector('[data-event-period-next]');
+const currentWeekButton = document.querySelector('[data-event-current-week]');
 const periodLabel = document.querySelector('[data-event-period-label]');
 const timeZoneControl = document.querySelector('[data-event-zone]');
-const mobileDisclosure = window.matchMedia('(max-width: 640px)');
 const controls = {
   mode: filterFields?.querySelector('[data-event-mode]'),
   country: filterFields?.querySelector('select[data-event-country]'),
@@ -45,6 +44,7 @@ const pageIntro = document.querySelector('[data-event-page-intro]');
 const shareControls = document.querySelector('[data-event-share-controls]');
 const shareMenu = document.querySelector('[data-event-share-menu]');
 const shareToggle = document.querySelector('[data-event-share-toggle]');
+const countryDisclosure = document.querySelector('[data-event-country-disclosure]');
 const xShareLink = document.querySelector('[data-event-share-x]');
 const linkedinShareLink = document.querySelector('[data-event-share-linkedin]');
 const copyButton = document.querySelector('[data-event-share-copy]');
@@ -137,11 +137,9 @@ if (agenda && empty) {
   function updatePageCopy(filters) {
     const differsFromRouteDefault = filters.country !== routeDefaults.country || filters.mode !== routeDefaults.mode;
     if (pageHeading) pageHeading.textContent = differsFromRouteDefault ? 'Eventos AWS publicados' : originalHeading;
-    if (pageIntro) {
-      pageIntro.textContent = differsFromRouteDefault
-        ? 'Consulta los eventos publicados y elige modalidad y ubicación de asistencia.'
-        : originalIntro;
-    }
+    if (pageIntro) pageIntro.textContent = differsFromRouteDefault
+      ? 'Filtra por modalidad y ubicación de asistencia.'
+      : originalIntro;
     document.title = differsFromRouteDefault ? 'Eventos AWS | ¿Dónde Aprendo AWS?' : originalPageTitle;
   }
 
@@ -175,18 +173,12 @@ if (agenda && empty) {
     if (controls.country) controls.country.disabled = inactive;
     if (controls.city) controls.city.disabled = inactive;
   };
-  const syncSecondaryDisclosure = (followViewport = false) => {
+  const syncSecondaryDisclosure = () => {
     const active = secondaryEventAgendaFilterCount(currentFilters());
     if (secondaryDisclosureLabel) {
       secondaryDisclosureLabel.textContent = active
         ? `Más filtros (${active} ${active === 1 ? 'activo' : 'activos'})`
         : 'Más filtros';
-    }
-    if (secondaryDisclosure) {
-      if (active > 0) secondaryDisclosure.open = true;
-      else if (followViewport) {
-        secondaryDisclosure.open = shouldOpenEventAgendaSecondaryFilters(currentFilters(), mobileDisclosure.matches);
-      }
     }
   };
   const syncPeriodControls = () => {
@@ -238,7 +230,8 @@ if (agenda && empty) {
     updateCommunityOptions();
     updateLocationControls();
     updatePageCopy(filters);
-    syncSecondaryDisclosure(true);
+    syncSecondaryDisclosure();
+    if (secondaryDisclosure) secondaryDisclosure.open = false;
     syncPeriodControls();
   };
   const writeUrl = (method = 'pushState', keepHash = false) => {
@@ -356,33 +349,74 @@ if (agenda && empty) {
     const startTimeLabel = member.view.querySelector('[data-event-time-label]');
     const endTimeLabel = member.view.querySelector('[data-event-time-end-label]');
     const participation = member.view.querySelector('[data-event-participation]');
+    const place = member.view.querySelector('[data-event-place]');
     if (status) status.textContent = finalized ? 'Finalizado' : start <= now ? 'En curso' : 'Próximo';
     if (registration) registration.textContent = finalized ? 'Ver evento' : 'Inscribirme';
     if (dateLabel) dateLabel.textContent = eventDateLabel(member.startsAt, period.timeZone);
     if (startTimeLabel) startTimeLabel.textContent = eventTimeLabel(member.startsAt, period.timeZone);
     if (endTimeLabel) endTimeLabel.textContent = eventEndTimeLabel(member.startsAt, member.endsAt, period.timeZone);
-    if (participation && member.mode === 'hybrid') {
+    let remoteParticipation = false;
+    if (member.mode === 'hybrid') {
       const filters = currentFilters();
       const physical = effectiveEventLocation(member, communityById);
       const hasLocation = Boolean(filters.country || filters.city);
       const locationMatches = (!filters.country || physical.country === filters.country)
         && (!filters.city || normalizeEventCityKey(`${physical.country}:${physical.city}`) === normalizeEventCityKey(filters.city));
-      participation.textContent = filters.mode === 'online'
-        || ((filters.mode === '' || filters.mode === 'hybrid') && hasLocation && !locationMatches)
+      remoteParticipation = filters.mode === 'online'
+        || ((filters.mode === '' || filters.mode === 'hybrid') && hasLocation && !locationMatches);
+      if (participation) participation.textContent = remoteParticipation
         ? 'Participación remota'
         : filters.mode === 'in-person' ? 'Participación presencial'
           : 'Participación presencial y remota';
     }
+    if (place) place.hidden = member.mode === 'hybrid' && remoteParticipation;
+  }
+
+  function focusedMemberTarget(view, focused) {
+    const detailToggle = view.querySelector('[data-event-detail-toggle]');
+    if (focused === detailToggle) return { type: 'detail-toggle' };
+    const registration = view.querySelector('[data-event-registration]');
+    if (focused === registration) return { type: 'registration' };
+    if (focused?.tagName !== 'A') return null;
+
+    const label = focused.getAttribute('aria-label') || focused.textContent.trim();
+    return {
+      type: 'link',
+      label,
+      index: [...view.querySelectorAll('a')].indexOf(focused),
+    };
+  }
+
+  function correspondingMemberTarget(view, target) {
+    if (!target) return null;
+    if (target.type === 'detail-toggle') return view.querySelector('[data-event-detail-toggle]');
+    if (target.type === 'registration') return view.querySelector('[data-event-registration]');
+    const links = [...view.querySelectorAll('a')];
+    return links.find((link) => (link.getAttribute('aria-label') || link.textContent.trim()) === target.label)
+      ?? links[target.index]
+      ?? null;
   }
 
   function applyRepresentative(group, member) {
     const focused = document.activeElement;
-    const previousView = group.events.find((item) => item.view.contains(focused))?.view;
-    // Member views render the same actions in the same order. Keep that action
-    // focused when expiry replaces its view, before the browser drops focus.
-    const focusedAction = previousView && previousView !== member.view
-      ? [...previousView.querySelectorAll('a')].indexOf(focused) : -1;
-    for (const item of group.events) item.view.hidden = item.id !== member.id;
+    const previousMember = group.events.find((item) => !item.view.hidden);
+    const representativeChanges = previousMember && previousMember.view !== member.view;
+    const focusWasInPreviousMember = representativeChanges && previousMember.view.contains(focused);
+    const target = focusWasInPreviousMember ? correspondingMemberTarget(
+      member.view,
+      focusedMemberTarget(previousMember.view, focused),
+    ) : null;
+    const previousDetails = representativeChanges ? previousMember.view.querySelector('[data-event-detail]') : null;
+    const nextDetails = representativeChanges ? member.view.querySelector('[data-event-detail]') : null;
+
+    // Reveal the replacement and its details before transferring focus. Hiding
+    // the old member afterwards avoids losing focus during expiry or re-filtering.
+    member.view.hidden = false;
+    if (previousDetails && nextDetails) nextDetails.open = previousDetails.open;
+    target?.focus({ preventScroll: true });
+    for (const item of group.events) {
+      if (item.id !== member.id) item.view.hidden = true;
+    }
     const { card } = group;
     const physical = effectiveEventLocation(member, communityById);
     const country = physical.country ?? '';
@@ -396,10 +430,6 @@ if (agenda && empty) {
     card.dataset.eventCity = physical.city ? `${country}:${physical.city}` : '';
     card.dataset.eventCountries = [...new Set(group.events.map((item) => effectiveEventLocation(item, communityById).country).filter(Boolean))].join('|');
     card.dataset.eventCommunities = [...new Set(group.events.map((item) => item.communityId).filter(Boolean))].join('|');
-    if (focusedAction >= 0) {
-      const replacement = [...member.view.querySelectorAll('a')][focusedAction] ?? card;
-      replacement.focus({ preventScroll: true });
-    }
   }
 
   function currentCardOrder() {
@@ -416,6 +446,30 @@ if (agenda && empty) {
     const focused = document.activeElement;
     agenda.append(...orderedCards);
     if (focused && document.activeElement !== focused) focused.focus({ preventScroll: true });
+  }
+
+  function updateDayHeadings(matchingGroups) {
+    for (const group of groups) {
+      const heading = group.card.querySelector('[data-event-day-heading]');
+      if (heading) heading.hidden = true;
+    }
+
+    const visibleDays = new Set();
+    for (const { card, event } of matchingGroups.slice(0, limit)) {
+      const heading = card.querySelector('[data-event-day-heading]');
+      if (!heading) continue;
+      const day = eventLocalDate(event.startsAt, period.timeZone);
+      heading.dataset.eventDay = day;
+      const date = heading.querySelector('time');
+      if (date) {
+        date.setAttribute('datetime', day);
+        date.textContent = eventDateLabel(event.startsAt, period.timeZone);
+      }
+      if (!visibleDays.has(day)) {
+        heading.hidden = false;
+        visibleDays.add(day);
+      }
+    }
   }
 
   function refresh() {
@@ -438,6 +492,7 @@ if (agenda && empty) {
       group.card.hidden = !selected || matchingGroups.indexOf(selected) >= limit;
       if (selected) applyRepresentative(group, selected.event);
     }
+    updateDayHeadings(matchingGroups);
     syncCardOrder(matchingGroups);
 
     const selectedEvents = matchingGroups.map((group) => group.event);
@@ -558,7 +613,8 @@ if (agenda && empty) {
       updateCityOptions();
       updateCommunityOptions();
       updateLocationControls();
-      syncSecondaryDisclosure(true);
+      syncSecondaryDisclosure();
+      if (secondaryDisclosure) secondaryDisclosure.open = false;
     }
 
     const matchingGroups = refresh();
@@ -588,6 +644,94 @@ if (agenda && empty) {
     shareMenu.open = false;
     if (returnFocus) shareToggle?.focus({ preventScroll: true });
   };
+
+  const disclosurePanels = [
+    {
+      details: shareMenu,
+      boundary: shareMenu,
+      toggle: shareToggle,
+      content: shareMenu?.querySelector('.event-agenda__share-menu-list'),
+    },
+    {
+      details: secondaryDisclosure,
+      boundary: secondaryDisclosure,
+      content: secondaryDisclosure?.querySelector('.event-agenda__secondary-fields'),
+    },
+    {
+      details: countryDisclosure,
+      boundary: countryDisclosure,
+      content: countryDisclosure?.querySelector('ul'),
+    },
+  ].filter(({ details }) => details);
+  const disclosureToggle = ({ details, toggle }) => toggle
+    ?? [...details.children].find((child) => child.tagName === 'SUMMARY')
+    ?? details.querySelector('summary');
+  const clearDisclosurePanelPosition = ({ details }) => {
+    details.style.removeProperty('--event-agenda-panel-max-height');
+    details.removeAttribute('data-event-panel-placement');
+  };
+  const positionDisclosurePanel = (panel) => {
+    if (!panel.details.open || !panel.content) return;
+    const toggle = disclosureToggle(panel);
+    if (!toggle) return;
+
+    const { top, bottom } = toggle.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    const gap = 4;
+    const margin = 8;
+    const availableBelow = Math.max(0, viewportHeight - bottom - gap - margin);
+    const availableAbove = Math.max(0, top - gap - margin);
+    const contentHeight = panel.content.scrollHeight;
+    const placement = contentHeight <= availableBelow || availableBelow >= availableAbove
+      ? 'below'
+      : 'above';
+    const availableHeight = placement === 'below' ? availableBelow : availableAbove;
+
+    panel.details.dataset.eventPanelPlacement = placement;
+    panel.details.style.setProperty('--event-agenda-panel-max-height', `${Math.floor(availableHeight)}px`);
+  };
+  const closeDisclosure = (panel, returnFocus = false) => {
+    panel.details.open = false;
+    clearDisclosurePanelPosition(panel);
+    if (returnFocus) disclosureToggle(panel)?.focus({ preventScroll: true });
+  };
+
+  for (const panel of disclosurePanels) {
+    panel.details.open = false;
+    clearDisclosurePanelPosition(panel);
+    panel.details.addEventListener('toggle', () => {
+      if (panel.details.open) positionDisclosurePanel(panel);
+      else clearDisclosurePanelPosition(panel);
+    });
+    panel.details.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || !panel.details.open) return;
+      event.preventDefault();
+      closeDisclosure(panel, true);
+    });
+  }
+
+  document.addEventListener('focusout', (event) => {
+    const movingToThemeToggle = event.relatedTarget?.closest?.('[data-theme-toggle]');
+    for (const panel of disclosurePanels) {
+      if (!panel.details.open) continue;
+      if (movingToThemeToggle) continue;
+      if (!panel.details.contains(event.relatedTarget)) closeDisclosure(panel);
+    }
+  });
+
+  document.addEventListener('click', (event) => {
+    if (event.target?.closest?.('[data-theme-toggle]')) return;
+    for (const panel of disclosurePanels) {
+      if (panel.details.open && !panel.boundary?.contains(event.target)) closeDisclosure(panel);
+    }
+  });
+
+  const repositionOpenDisclosurePanels = () => {
+    for (const panel of disclosurePanels) positionDisclosurePanel(panel);
+  };
+  window.addEventListener('resize', repositionOpenDisclosurePanels);
+  window.addEventListener('scroll', repositionOpenDisclosurePanels);
+
   const copyFailureMessage = 'No se pudo copiar al portapapeles. Inténtalo de nuevo.';
   copyButton?.addEventListener('click', () => {
     if (copyPending) return;
@@ -644,23 +788,12 @@ if (agenda && empty) {
     );
   });
 
-  shareMenu?.addEventListener('keydown', (event) => {
-    if (event.key !== 'Escape' || !shareMenu.open) return;
-    event.preventDefault();
-    closeShareMenu(true);
-  });
   shareMenu?.addEventListener('toggle', () => {
     if (shareMenu.open) refresh();
   });
   for (const link of [xShareLink, linkedinShareLink]) {
     link?.addEventListener('click', () => closeShareMenu(true));
   }
-  document.addEventListener('click', (event) => {
-    if (shareMenu?.open
-      && !shareControls?.contains(event.target)
-      && !event.target?.closest?.('[data-theme-toggle]')) closeShareMenu();
-  });
-
   for (const button of viewButtons) {
     button.addEventListener('click', () => {
       const view = button.dataset.eventView;
@@ -681,6 +814,19 @@ if (agenda && empty) {
   });
   nextPeriod?.addEventListener('click', () => {
     period = shiftEventAgendaPeriod(period, 1);
+    limit = 12;
+    syncPeriodControls();
+    writeUrl();
+    refresh();
+  });
+  currentWeekButton?.addEventListener('click', () => {
+    const now = Date.now();
+    period = createEventAgendaPeriod({
+      view: 'week',
+      date: eventLocalDate(now, period.timeZone),
+      timeZone: period.timeZone,
+      now,
+    });
     limit = 12;
     syncPeriodControls();
     writeUrl();
@@ -742,6 +888,5 @@ if (agenda && empty) {
     refresh();
     revealEventHash();
   });
-  mobileDisclosure.addEventListener('change', () => syncSecondaryDisclosure(true));
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
 }

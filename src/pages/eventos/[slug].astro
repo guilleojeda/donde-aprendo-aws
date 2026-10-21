@@ -53,12 +53,18 @@ const title = collection?.title ?? `Eventos AWS en ${countryName} | ¿Dónde Apr
 const description = collection?.description ?? `Eventos AWS en ${countryName}: asistencia presencial y participación online de comunidades de cualquier país. Consulta fechas, horarios e inscripción.`;
 const canonical = new URL(path, 'https://dondeaprendoaws.com').href;
 const heading = collection ? collection.label : `Eventos AWS en ${countryName}`;
-const intro = collection?.intro ?? `Consulta eventos presenciales en ${countryName} y eventos con participación online, incluidos los finalizados. Revisa modalidad, fechas, horarios y enlaces al evento.`;
+const intro = collection
+  ? collectionKey === 'online'
+    ? 'Eventos con participación online, incluidos los híbridos.'
+    : 'Eventos con participación presencial, incluidos los híbridos.'
+  : `Eventos presenciales en ${countryName} y online desde cualquier país.`;
 const collectionModes = collection?.modes as readonly CatalogEvent['mode'][] | undefined;
 const collectionLinks = [
-  { path: '/eventos/', label: 'Todos los eventos' },
-  ...Object.values(EVENT_COLLECTIONS).map(({ path: collectionPath, label, modes }) => ({
-    path: collectionPath, label, eventModes: modes,
+  { path: '/eventos/', label: 'Todos' },
+  ...Object.values(EVENT_COLLECTIONS).map(({ path: collectionPath, modes }) => ({
+    path: collectionPath,
+    label: modes.includes('online') ? 'Online + híbridos' : 'Presenciales + híbridos',
+    eventModes: modes,
   })),
 ];
 const faqItems = eventFaqItems({ countryName, collectionKey });
