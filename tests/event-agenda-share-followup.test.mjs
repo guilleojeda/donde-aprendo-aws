@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { eventGroupsForAgenda } from '../src/lib/event-agenda-groups.mjs';
 import { buildEventAgendaShare } from '../src/lib/event-agenda-share.mjs';
 import { createEventAgendaPeriod } from '../src/lib/event-agenda-period.mjs';
 
@@ -102,7 +103,7 @@ test('uses singular grammar for one-result X and LinkedIn summaries', () => {
     mode: 'hybrid', country: 'AR', venueCountry: 'AR', city: 'Córdoba',
     startsAt: '2026-10-21T13:00:00.000Z', endsAt: '2026-10-21T14:00:00.000Z',
   }), hybridFilters);
-  assert.match(post(hybrid.xHref), /1 evento híbrido en Córdoba, Argentina/u);
+  assert.match(post(hybrid.xHref), /1 evento híbrido, presencial en Córdoba, Argentina, y online/u);
 
   const oversized = share(period, event('one-linkedin', {
     title: 'Título largo '.repeat(400), mode: 'in-person', country: 'AR', venueCountry: 'AR', city: 'Córdoba',
@@ -125,6 +126,32 @@ test('uses singular grammar for one-result X and LinkedIn summaries', () => {
     period, filters: hybridFilters, url: sourceUrl, now,
   });
   const hybridLinkedIn = post(hybridOverflow.linkedInHref);
-  assert.match(hybridLinkedIn, /2 eventos híbridos en Córdoba, Argentina/u);
+  assert.match(hybridLinkedIn, /2 eventos híbridos, presenciales en Córdoba, Argentina, y opciones online/u);
   assert.doesNotMatch(hybridLinkedIn, /2 eventos eventos/u);
+});
+
+test('describes legacy hybrid mode as local physical access plus global online access', () => {
+  const period = createEventAgendaPeriod({
+    view: 'week', date: '2026-10-19', timeZone: 'America/Argentina/Cordoba',
+  });
+  const filters = { mode: 'hybrid', country: 'AR', city: 'AR:Córdoba', community: '' };
+  const local = event('legacy-local', {
+    title: 'Híbrido local', mode: 'hybrid', country: 'AR', venueCountry: 'AR', city: 'Córdoba',
+    place: 'Centro Córdoba', startsAt: '2026-10-21T13:00:00.000Z', endsAt: '2026-10-21T14:00:00.000Z',
+  });
+  const foreign = event('legacy-foreign', {
+    title: 'Híbrido remoto Colombia', mode: 'hybrid', country: 'CO', venueCountry: 'CO', city: 'Bogotá',
+    place: 'Centro Bogotá', startsAt: '2026-10-22T13:00:00.000Z', endsAt: '2026-10-22T14:00:00.000Z',
+  });
+  const selection = eventGroupsForAgenda(
+    [local, foreign].map((selectedEvent) => ({ event: selectedEvent, events: [selectedEvent] })),
+    { filters, period, includeEnded: true, now },
+  );
+  assert.deepEqual(selection.map(({ event: selectedEvent }) => selectedEvent.id), ['legacy-local', 'legacy-foreign']);
+  const result = buildEventAgendaShare({ selection, period, filters, url: sourceUrl, now });
+
+  assert.match(result.text, /Híbridos, presenciales en Córdoba, Argentina, y online\./u);
+  assert.match(post(result.linkedInHref), /Híbridos, presenciales en Córdoba, Argentina, y opciones online\./u);
+  assert.match(post(result.xHref), /2 eventos híbridos, presenciales en Córdoba, Argentina, y online\./u);
+  assert.match(post(result.linkedInHref), /Híbrido remoto Colombia - Online \(evento híbrido\)/u);
 });
