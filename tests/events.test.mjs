@@ -120,6 +120,91 @@ test('general grouping keeps past events and separates reused registration URLs 
   ]);
 });
 
+test('keeps distinct Forms registrations separate in the agenda and upcoming wrappers', () => {
+  const startsAt = '2099-01-01T10:00:00Z';
+  const endsAt = '2099-01-01T12:00:00Z';
+  const cordoba = event({
+    id: 'event-forms-cordoba', title: 'Taller presencial de AWS Lambda', country: 'AR', city: 'Córdoba',
+    place: 'Auditorio Córdoba', startsAt, endsAt,
+    registrationUrl: 'https://forms.office.com/Pages/ResponsePage.aspx?id=form-cordoba&source=agenda&ref=calendar',
+  });
+  const rosario = event({
+    id: 'event-forms-rosario', title: 'Taller presencial de AWS Lambda', country: 'AR', city: 'Rosario',
+    place: 'Universidad de Rosario', startsAt, endsAt,
+    registrationUrl: 'https://forms.office.com/Pages/ResponsePage.aspx?id=form-rosario&source=agenda&ref=calendar',
+  });
+  const events = [cordoba, rosario];
+
+  const groups = eventApi.uniqueEventGroups(events);
+  assert.deepEqual(groups.map(({ events: members }) => members.map(({ id }) => id)), [
+    ['event-forms-cordoba'], ['event-forms-rosario'],
+  ]);
+  assert.deepEqual(eventGroupsForAgenda(groups, {
+    now: '2098-01-01T00:00:00Z', includeEnded: true, filters: {},
+  }).map(({ event: representative }) => representative.id), [
+    'event-forms-cordoba', 'event-forms-rosario',
+  ]);
+  assert.deepEqual(uniqueUpcomingEventGroups(events, '2098-01-01T00:00:00Z')
+    .map(({ event: representative }) => representative.id), [
+    'event-forms-cordoba', 'event-forms-rosario',
+  ]);
+  assert.deepEqual(uniqueUpcomingEvents(events, '2098-01-01T00:00:00Z').map(({ id }) => id), [
+    'event-forms-cordoba', 'event-forms-rosario',
+  ]);
+  assert.deepEqual(groups.flatMap(({ events: members }) => members.map(({ registrationUrl }) => registrationUrl)),
+    events.map(({ registrationUrl }) => registrationUrl), 'grouping keeps each original registration URL intact');
+});
+
+test('ignores only source and ref when identifying shared registration links', () => {
+  const startsAt = '2099-01-01T10:00:00Z';
+  const endsAt = '2099-01-01T12:00:00Z';
+  const cordoba = event({
+    id: 'event-shared-form-cordoba', title: 'Taller de AWS en Córdoba', country: 'AR', city: 'Córdoba',
+    place: 'Auditorio Córdoba', startsAt, endsAt,
+    registrationUrl: 'https://forms.office.com/Pages/ResponsePage.aspx/?id=shared-form&event=registration-42&lang=es&source=agenda&ref=calendar',
+  });
+  const bogota = event({
+    id: 'event-shared-form-bogota', title: 'Encuentro AWS en Bogotá', country: 'CO', city: 'Bogotá',
+    place: 'Centro Bogotá', startsAt, endsAt,
+    registrationUrl: 'https://forms.office.com/Pages/ResponsePage.aspx?id=shared-form&event=registration-42&lang=es&ref=community&source=social',
+  });
+  const events = [cordoba, bogota];
+  const before = structuredClone(events);
+
+  const groups = eventApi.uniqueEventGroups(events);
+
+  assert.equal(groups.length, 1, 'tracking variants of one form keep a strong registration identity');
+  assert.deepEqual(groups[0].events.map(({ id }) => id), ['event-shared-form-bogota', 'event-shared-form-cordoba']);
+  assert.deepEqual(groups[0].events.map(({ id, registrationUrl }) => [id, registrationUrl]), [
+    ['event-shared-form-bogota', bogota.registrationUrl],
+    ['event-shared-form-cordoba', cordoba.registrationUrl],
+  ], 'co-host URLs remain unchanged for registration and calendar consumers');
+  assert.deepEqual(events, before, 'grouping does not rewrite the original event records');
+});
+
+test('retains id, event, lang, other query values and query order in registration identity', () => {
+  const startsAt = '2099-01-01T10:00:00Z';
+  const endsAt = '2099-01-01T12:00:00Z';
+  const registrations = [
+    'id=form&event=101&lang=es&source=agenda',
+    'id=form&event=102&lang=es&source=agenda',
+    'id=form&event=101&lang=en&source=agenda',
+    'id=other-form&event=101&lang=es&source=agenda',
+    'id=form&event=101&lang=es&campaign=spring',
+    'event=101&id=form&lang=es&source=agenda',
+  ].map((query, index) => event({
+    id: `event-form-${index}`,
+    title: 'Taller presencial de AWS Lambda', country: 'AR', city: 'Córdoba',
+    place: `Auditorio ${index + 1}`, startsAt, endsAt,
+    registrationUrl: `https://forms.office.com/Pages/ResponsePage.aspx?${query}`,
+  }));
+
+  const groups = eventApi.uniqueEventGroups(registrations);
+
+  assert.equal(groups.length, registrations.length,
+    'different id, event, lang, other parameter values, or retained parameter order prevent a strong match');
+});
+
 test('merges registration and session identities when a listing bridges two groups', () => {
   const startsAt = '2026-10-20T08:00:00Z';
   const endsAt = '2026-10-20T18:00:00Z';

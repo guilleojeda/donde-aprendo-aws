@@ -54,3 +54,27 @@ test('mode collections select after deduplication and retain all co-host listing
     'the hybrid occurrence appears once within each collection');
   assert.equal(eventGroupsForModes(allGroups, undefined), allGroups);
 });
+
+test('physical collections keep registrations with different Forms IDs as separate events', () => {
+  const startsAt = '2099-01-01T18:00:00Z';
+  const endsAt = '2099-01-01T20:00:00Z';
+  const events = [
+    {
+      id: 'event-forms-cordoba', title: 'Taller presencial de AWS Lambda', startsAt, endsAt,
+      timeZone: 'America/Argentina/Cordoba', mode: 'in-person', place: 'Auditorio Córdoba',
+      country: 'AR', city: 'Córdoba', communityId: 'community-cordoba',
+      registrationUrl: 'https://forms.office.com/Pages/ResponsePage.aspx?id=form-cordoba&source=agenda&ref=calendar',
+    },
+    {
+      id: 'event-forms-rosario', title: 'Taller presencial de AWS Lambda', startsAt, endsAt,
+      timeZone: 'America/Argentina/Cordoba', mode: 'in-person', place: 'Universidad de Rosario',
+      country: 'AR', city: 'Rosario', communityId: 'community-rosario',
+      registrationUrl: 'https://forms.office.com/Pages/ResponsePage.aspx?id=form-rosario&source=agenda&ref=calendar',
+    },
+  ];
+
+  const groups = uniqueUpcomingEventGroups(events, '2098-01-01T00:00:00Z');
+  const physical = eventGroupsForModes(groups, EVENT_COLLECTIONS.presenciales.modes);
+
+  assert.deepEqual(physical.map(({ event }) => event.id), ['event-forms-cordoba', 'event-forms-rosario']);
+});

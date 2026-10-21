@@ -136,7 +136,9 @@ export function uniqueEventGroups(events, communityById = new Map()) {
 
   for (const event of orderedEvents) {
     const url = new URL(event.registrationUrl);
-    const canonicalUrl = `${url.origin}${url.pathname.replace(/\/$/u, '')}`;
+    url.searchParams.delete('source');
+    url.searchParams.delete('ref');
+    const canonicalUrl = `${url.origin}${url.pathname.replace(/\/$/u, '')}${url.search}`;
     const start = Date.parse(event.startsAt);
     const registrationIdentity = JSON.stringify([canonicalUrl, start]);
     const title = normalizeEventText(event.title);

@@ -224,6 +224,36 @@ class MeetupEventsTests(unittest.TestCase):
         html = '<script type="application/ld+json">' + json.dumps(PAGE) + '</script>'
         self.assertEqual(meetup.parse_event_page(html, EVENT_URL)['name'], 'AWS en acción')
 
+    def test_map_event_rejects_missing_empty_or_nonstring_title_and_trims_valid_title(self):
+        entry = meetup.parse_feed(ICAL, GROUP)[0]
+        invalid_names = ('missing', '', '   ', None, 42, [], '\ufeff', ' \ufeff \t', '\t\ufeff\ufeff ')
+        for name in invalid_names:
+            with self.subTest(name=name):
+                page = dict(PAGE)
+                if name == 'missing':
+                    page.pop('name')
+                else:
+                    page['name'] = name
+                with self.assertRaisesRegex(ValueError, 'event title'):
+                    meetup.map_event(GROUP, entry, page)
+
+        valid_names = (
+            ('  Encuentro AWS  \n', 'Encuentro AWS'),
+            ('\ufeff \tEncuentro AWS \ufeff\n', 'Encuentro AWS'),
+        )
+        for name, expected in valid_names:
+            with self.subTest(valid_name=name):
+                titled = meetup.map_event(GROUP, entry, dict(PAGE, name=name))
+                self.assertEqual(titled['title'], expected)
+
+    def test_nonpublishable_event_status_does_not_require_a_title(self):
+        entry = meetup.parse_feed(ICAL, GROUP)[0]
+        for status in (EVENT_CANCELLED, EVENT_MOVED_ONLINE, EVENT_POSTPONED):
+            with self.subTest(status=status):
+                page = dict(PAGE, eventStatus=status)
+                page.pop('name')
+                self.assertIsNone(meetup.map_event(GROUP, entry, page))
+
     def test_empty_calendar_is_a_valid_feed(self):
         empty_feed = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n'
         self.assertEqual(meetup.parse_feed(empty_feed, GROUP), [])
@@ -595,6 +625,44 @@ class MeetupEventsTests(unittest.TestCase):
         self.assertTrue(table.existing['meetup-event-456']['published'])
         self.assertTrue(table.existing['meetup-event-789']['published'])
         self.assertIn('meetup-event-999', table.existing)
+
+    def test_invalid_title_preserves_prior_past_or_future_record_while_healthy_group_syncs(self):
+        healthy_group = {
+            'id': '999', 'url': 'https://www.meetup.com/aws-test/', 'name': 'AWS Test',
+            'country': 'CO', 'timeZone': 'America/Bogota',
+        }
+        current_entry = meetup.parse_feed(ICAL, GROUP)[0]
+        healthy_entry = dict(current_entry, id='999',
+                             url='https://www.meetup.com/aws-test/events/999/')
+        invalid_names = ('   ', '\ufeff', ' \ufeff \t')
+
+        for age, (start, end) in EVENT_DATES.items():
+            for was_published in (True, False):
+                for invalid_name in invalid_names:
+                    with self.subTest(age=age, published=was_published, name=invalid_name):
+                        prior = existing_event(published=was_published, starts_at=start, ends_at=end)
+                        prior['editorNote'] = 'keep this private field'
+                        table = FakeTable([prior])
+
+                        def feed(group):
+                            return [current_entry] if group['id'] == '123' else [healthy_entry]
+
+                        def page(entry):
+                            if entry['id'] == '456':
+                                return dict(PAGE, name=invalid_name, startDate=start, endDate=end)
+                            return dict(PAGE, url=entry['url'])
+
+                        with patch.object(meetup, 'timezone_from_feed', side_effect=feed), \
+                                patch.object(meetup, 'fetch_event_page', side_effect=page):
+                            result = meetup.synchronize(table=table, groups=[dict(GROUP), healthy_group])
+
+                        self.assertEqual(result['changed'], 1)
+                        self.assertEqual(len(result['failures']), 1)
+                        self.assertIn('event title', result['failures'][0].lower())
+                        self.assertEqual(table.existing['meetup-event-456'], prior)
+                        self.assertIn('meetup-event-999', table.existing)
+                        self.assertEqual(len(table.puts), 1)
+                        self.assertEqual(table.updates, [])
 
     def test_absence_retraction_does_not_clobber_a_concurrent_reschedule_of_ends_at(self):
         prior_end = '2099-01-01T20:00:00-05:00'
