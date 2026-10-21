@@ -17,14 +17,18 @@ const resources = catalog.filter((record): record is CatalogResource => record.r
 const events = catalog.filter((record): record is CatalogEvent => record.recordType === 'event');
 const countryPages = communityCountryPages(resources);
 const collectionLinks = [
-  ...Object.values(EVENT_COLLECTIONS).map(({ path, label, modes }) => ({ path, label, eventModes: modes })),
+  ...Object.values(EVENT_COLLECTIONS).map(({ path, modes }) => ({
+    path,
+    label: modes.includes('online') ? 'Online + híbridos' : 'Presenciales + híbridos',
+    eventModes: modes,
+  })),
 ];
 const faqItems = eventFaqItems();
 ---
 <BaseLayout title="Eventos AWS en Latinoamérica | ¿Dónde Aprendo AWS?" description="Encuentra eventos en línea, presenciales e híbridos organizados por comunidades AWS de Latinoamérica. Consulta fechas, horarios y enlaces de inscripción." canonical="https://dondeaprendoaws.com/eventos/">
   <SiteHeader />
   <main id="contenido" tabindex="-1" class="event-page event-page--agenda site-container">
-    <header class="directory-hero"><h1 data-event-page-heading>Eventos AWS en Latinoamérica</h1><p data-event-page-intro>Consulta por semana o mes los encuentros publicados de comunidades AWS, incluidos los finalizados. Explora opciones en línea, presenciales e híbridas, con fechas, horarios y enlaces al evento.</p></header>
+    <header class="directory-hero"><h1 data-event-page-heading>Eventos AWS en Latinoamérica</h1><p data-event-page-intro>Encuentros de comunidades AWS en Latinoamérica.</p></header>
     <CountryNavigation pages={countryPages} section="eventos" />
     <CollectionNavigation links={collectionLinks} label="Colecciones de eventos" />
     <EventAgenda events={events} resources={resources} />

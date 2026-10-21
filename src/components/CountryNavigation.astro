@@ -20,7 +20,7 @@ const sectionLabel = section === 'eventos' ? 'eventos' : 'comunidades';
 ---
 
 {pages.length > 0 && <nav class="community-country-nav" aria-label={section === 'eventos' ? 'Agendas por país' : 'Comunidades por país'}>
-  <details>
+  <details data-event-country-disclosure={section === 'eventos' ? '' : undefined}>
     <summary>{currentCountry ? `Cambiar de país · ${currentLabel}` : `Explora ${sectionLabel} por país · ${pages.length} países`}</summary>
     <ul>
       {pages.map((page) => {

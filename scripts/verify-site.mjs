@@ -463,7 +463,7 @@ for (const route of eventCountryRoutes) {
   assert.match(html, /<h1\b[^>]*>Eventos AWS en [^<]+<\/h1>/u);
   assert.doesNotMatch(html, /no necesariamente el lugar de cada encuentro|99[.,]99/u);
   assert.match(html, /data-event-list/u);
-  assert.match(html, /<select\b[^>]*\bdata-event-country(?:\s|=)/u, 'A national route exposes its location default as an editable filter.');
+  assert.match(html, /<select\b[^>]*\bdata-event-country(?:\s|=|>)/u, 'A national route exposes its location default as an editable filter.');
   assert.match(html, /data-event-empty/u, 'The page has an initial empty state for when its events expire.');
   const breadcrumb = html.match(/<nav class="community-breadcrumb"[^>]*>([\s\S]*?)<\/nav>/u)?.[1] ?? '';
   assert.match(breadcrumb, />Inicio</u);
@@ -604,7 +604,7 @@ for (const path of ['eventos/index.html', ...eventCountryRoutes.map(({ htmlPath 
     const select = [...html.matchAll(/<select\b([^>]*)>([\s\S]*?)<\/select>/gu)]
       .find(([, attrs]) => new RegExp(`\\bdata-event-${field}(?:\\s|=|$)`, 'u').test(attrs));
     assert.ok(select, `Every agenda exposes the ${field} primary control: ${path}`);
-    assert.doesNotMatch(secondary, new RegExp(`<select\\b[^>]*\\bdata-event-${field}(?:\\s|=)`, 'u'),
+    assert.doesNotMatch(secondary, new RegExp(`<select\\b[^>]*\\bdata-event-${field}(?:\\s|=|>)`, 'u'),
       `Attendance and physical location stay outside More filters: ${path}`);
     if (field === 'mode') {
       for (const label of ['Solo online', 'Solo presencial', 'Presencial + online']) {
@@ -654,7 +654,7 @@ for (const path of ['eventos/index.html', ...eventCountryRoutes.map(({ htmlPath 
     assert.match(memberAttributes, /\bdata-member-registration-url="https?:\/\/[^"]+"/u,
       `Each member exposes its original registration URL to the shared text model: ${path}`);
     const shareTitle = decode(memberAttributes.match(/\bdata-member-title="([^"]*)"/u)?.[1] ?? '');
-    const visibleTitle = decode(content.match(/<h3\b[^>]*>([\s\S]*?)<\/h3>/u)?.[1]?.replace(/<[^>]*>/gu, '') ?? '');
+    const visibleTitle = decode(content.match(/<h4\b[^>]*>([\s\S]*?)<\/h4>/u)?.[1]?.replace(/<[^>]*>/gu, '') ?? '');
     assert.equal(shareTitle, visibleTitle, `The shared title is the member's actual public title: ${path}`);
     const shareRegistration = decode(memberAttributes.match(/\bdata-member-registration-url="([^"]*)"/u)?.[1] ?? '');
     const registrationAttributes = [...content.matchAll(/<a\b([^>]*)>/gu)]

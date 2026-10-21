@@ -40,10 +40,6 @@ export function secondaryEventAgendaFilterCount(filters) {
   return SECONDARY_FIELDS.filter((field) => Boolean(filters[field])).length;
 }
 
-export function shouldOpenEventAgendaSecondaryFilters(filters, isMobile) {
-  return secondaryEventAgendaFilterCount(filters) > 0 || !isMobile;
-}
-
 export function parseEventAgendaSearch(search, allowed, defaults = {}) {
   const query = new URLSearchParams(search);
   const parsed = Object.fromEntries(FIELDS.map((field) => {

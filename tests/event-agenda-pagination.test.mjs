@@ -7,7 +7,6 @@ import {
   parseEventAgendaSearch,
   secondaryEventAgendaFilterCount,
   serializeEventAgendaSearch,
-  shouldOpenEventAgendaSecondaryFilters,
 } from '../src/lib/event-agenda-filter.mjs';
 import { trackRegistrationClick } from '../src/lib/event-analytics.mjs';
 import { eventAgendaSummaryText, nextEventAgendaTransition } from '../src/lib/event-agenda-summary.mjs';
@@ -55,6 +54,11 @@ class MockElement {
     this.scrollIntoViewCalls = [];
     this.focusCalls = [];
     this.attributes = new Map();
+    this.style = {
+      properties: new Map(),
+      setProperty(name, value) { this.properties.set(name, String(value)); },
+      removeProperty(name) { this.properties.delete(name); },
+    };
     this.value = value;
   }
 
@@ -135,6 +139,7 @@ class MockElement {
 
   matches(selector) {
     if (selector === 'a') return this.tagName === 'A';
+    if (/^[a-z]+$/iu.test(selector)) return this.tagName === selector.toUpperCase();
     const attribute = /^\[data-([a-z0-9-]+)\]$/u.exec(selector);
     if (attribute) {
       const key = attribute[1].replace(/-([a-z])/gu, (_match, letter) => letter.toUpperCase());
@@ -234,6 +239,8 @@ function createEventCards(count, {
       dataset: { eventDayHeading: '', eventDay: spec.headingDate ?? '' },
       textContent: spec.headingLabel ?? '',
     });
+    card.dayDate = new MockElement(null, { tagName: 'TIME' });
+    card.dayHeading.append(card.dayDate);
     // Give each co-host its own detail disclosure and action links, as consumed by the agenda client.
     const countries = card.dataset.eventCountries.split('|').filter(Boolean);
     const communities = card.dataset.eventCommunities.split('|').filter(Boolean);
@@ -330,6 +337,7 @@ function createAgenda({
     card.document = document;
     card.parentElement = null;
     card.dayHeading.document = document;
+    card.dayDate.document = document;
     for (const member of card.members) {
       member.document = document;
       for (const child of [member.details, member.detailToggle, member.description, ...member.querySelectorAll('a')]) {
@@ -633,7 +641,7 @@ function createAgenda({
   runInNewContext(script, {
     document, window, location, history, URLSearchParams, URL,
     eventMatchesFilters, parseEventAgendaSearch, secondaryEventAgendaFilterCount,
-    serializeEventAgendaSearch, shouldOpenEventAgendaSecondaryFilters, trackRegistrationClick,
+    serializeEventAgendaSearch, trackRegistrationClick,
     eventAgendaSummaryText, nextEventAgendaTransition, eventGroupsForAgenda,
     effectiveEventLocation: eventLocationApi.effectiveEventLocation,
     normalizeEventCityKey: eventLocationApi.normalizeEventCityKey,
@@ -1770,6 +1778,40 @@ test('co-host replacement preserves disclosure state and focus on its summary or
     assert.equal(agenda.cards[0].dayHeading.dataset.eventDay, '2026-10-06',
       'the grouped heading follows the replacement occurrence start in the selected zone');
   }
+});
+
+test('co-host disclosure state follows the visible representative when focus is outside the card', () => {
+  const now = Date.parse('2026-10-05T12:00:00Z');
+  const agenda = createAgenda({
+    count: 1,
+    now,
+    filter: '?view=week&date=2026-10-05&tz=UTC',
+    events: [{
+      id: 'current-outside-focus',
+      aliasIds: 'future-outside-focus',
+      members: [
+        { startsAt: '2026-10-05T11:00:00Z', endsAt: now + 500 },
+        { startsAt: '2026-10-06T00:30:00Z', endsAt: '2026-10-06T02:00:00Z' },
+      ],
+    }],
+  });
+  const [current, future] = agenda.cards[0].members;
+  current.details.open = true;
+  agenda.modeFilter.focus();
+
+  agenda.advanceTime(501);
+  assert.equal(agenda.fireNextTimer(), true);
+  assert.equal(current.hidden, true);
+  assert.equal(future.hidden, false);
+  assert.equal(future.details.open, true, 'open details follow the replacement without requiring focus inside it');
+  assert.equal(agenda.document.activeElement, agenda.modeFilter, 'the refresh leaves unrelated focus in place');
+
+  future.details.open = false;
+  agenda.advanceTime(-501);
+  agenda.refreshVisibility();
+  assert.equal(current.hidden, false);
+  assert.equal(future.hidden, true);
+  assert.equal(current.details.open, false, 'a later closed state replaces stale state from an earlier representative');
 });
 
 test('the checkbox defaults on, stays session-local across filters/history, and the summary counts the selection', () => {
