@@ -63,6 +63,10 @@ GIRLS_PAGE = {
                  'address': {'streetAddress': 'Av. Siempre Viva 123', 'addressLocality': 'Córdoba'}},
 }
 CANCELLED_ICAL = ICAL.replace('STATUS:CONFIRMED', 'STATUS:CANCELLED')
+SCHEDULED_UTC_ICAL = ICAL.replace('TZID:America/Bogota\r\n', '').replace(
+    'STATUS:CONFIRMED\r\n',
+    'DTSTART:20990101T230000Z\r\nDTEND:20990102T010000Z\r\nSTATUS:CONFIRMED\r\n')
+CANCELLED_UTC_ICAL = SCHEDULED_UTC_ICAL.replace('STATUS:CONFIRMED', 'STATUS:CANCELLED')
 EVENT_CANCELLED = 'https://schema.org/EventCancelled'
 EVENT_MOVED_ONLINE = 'https://schema.org/EventMovedOnline'
 EVENT_POSTPONED = 'https://schema.org/EventPostponed'
@@ -533,6 +537,43 @@ class MeetupEventsTests(unittest.TestCase):
         self.assertEqual(result['changed'], 1)
         self.assertEqual(result['failures'], [])
         self.assertFalse(table.existing['meetup-event-456']['published'])
+
+    def test_cancelled_utc_feed_without_timezone_retracts_past_and_future_events(self):
+        for age, (start, end) in EVENT_DATES.items():
+            with self.subTest(age=age):
+                prior = existing_event(published=True, starts_at=start, ends_at=end)
+                table = FakeTable([prior])
+                group = dict(GROUP)
+                with patch.object(meetup, 'get_text', return_value=CANCELLED_UTC_ICAL) as get_text, \
+                        patch.object(meetup, 'fetch_event_page') as fetch_event_page:
+                    result = meetup.synchronize(table=table, groups=[group])
+
+                self.assertEqual(result['feedsRead'], 1)
+                self.assertEqual(result['changed'], 1)
+                self.assertEqual(result['failures'], [])
+                self.assertFalse(table.existing['meetup-event-456']['published'])
+                self.assertEqual(table.updates[0]['Key']['id'], 'meetup-event-456')
+                self.assertIsNone(group['timeZone'])
+                get_text.assert_called_once_with(meetup.group_feed_url(group))
+                fetch_event_page.assert_not_called()
+
+    def test_scheduled_utc_feed_without_timezone_still_preserves_published_event(self):
+        prior = existing_event(published=True, starts_at=PAGE['startDate'], ends_at=PAGE['endDate'])
+        table = FakeTable([prior])
+        group = dict(GROUP)
+        with patch.object(meetup, 'get_text', return_value=SCHEDULED_UTC_ICAL) as get_text, \
+                patch.object(meetup, 'fetch_event_page') as fetch_event_page:
+            result = meetup.synchronize(table=table, groups=[group])
+
+        self.assertEqual(result['feedsRead'], 0)
+        self.assertEqual(result['changed'], 0)
+        self.assertEqual(len(result['failures']), 1)
+        self.assertIn('Missing timezone in feed of 123', result['failures'][0])
+        self.assertTrue(table.existing['meetup-event-456']['published'])
+        self.assertEqual(table.updates, [])
+        self.assertEqual(group['timeZone'], GROUP['timeZone'])
+        get_text.assert_called_once_with(meetup.group_feed_url(group))
+        fetch_event_page.assert_not_called()
 
     def test_explicit_cancelled_feed_entry_without_prior_row_does_not_insert(self):
         table = FakeTable()

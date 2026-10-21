@@ -134,7 +134,7 @@ export function uniqueEventGroups(events, communityById = new Map()) {
   const groupBySession = new Map();
   const orderedEvents = [...events].sort(compareEvents);
 
-  for (const event of orderedEvents) {
+  const identities = orderedEvents.map((event) => {
     const url = new URL(event.registrationUrl);
     url.searchParams.delete('source');
     url.searchParams.delete('ref');
@@ -146,30 +146,36 @@ export function uniqueEventGroups(events, communityById = new Map()) {
       ? 'online'
       : (effectiveEventLocation(event, communityById).country || 'unspecified');
     const session = `${start}:${title}:${locationScope}`;
+    return { event, registrationIdentity, session };
+  });
+
+  // Complete every strong registration group before weak session matches can connect them.
+  for (const { event, registrationIdentity, session } of identities) {
+    let registrationGroup = groupByRegistration.get(registrationIdentity);
+    if (registrationGroup) {
+      registrationGroup.events.push(event);
+    } else {
+      registrationGroup = { event, events: [event] };
+      groups.push(registrationGroup);
+      groupByRegistration.set(registrationIdentity, registrationGroup);
+    }
+
     const sessionGroups = groupBySession.get(session) ?? [];
-    const registrationGroup = groupByRegistration.get(registrationIdentity);
-    const matchingSession = sessionGroups.find((group) => group !== registrationGroup
-      && group.events.every((item) => sameEventVenue(item, event, communityById))
-      && (!registrationGroup || compatiblePhysicalVenuesAcrossGroups(registrationGroup, group, communityById)));
-    let existingGroup = registrationGroup ?? matchingSession;
-    if (registrationGroup && matchingSession) {
-      existingGroup = mergeEventGroups(groups, groupByRegistration, groupBySession, registrationGroup, matchingSession);
-    }
-    if (existingGroup) {
-      existingGroup.events.push(event);
-      existingGroup.events.sort(compareEvents);
-      existingGroup.event = existingGroup.events[0];
-      // Preserve every co-host URL as a strong identity for later listings.
-      groupByRegistration.set(registrationIdentity, existingGroup);
-      if (!sessionGroups.includes(existingGroup)) sessionGroups.push(existingGroup);
-      groupBySession.set(session, sessionGroups);
-      continue;
-    }
-    const group = { event, events: [event] };
-    groups.push(group);
-    groupByRegistration.set(registrationIdentity, group);
-    sessionGroups.push(group);
+    if (!sessionGroups.includes(registrationGroup)) sessionGroups.push(registrationGroup);
     groupBySession.set(session, sessionGroups);
+  }
+
+  // Reconcile only when the complete physical facts of both strong groups agree.
+  for (const { event, registrationIdentity, session } of identities) {
+    while (true) {
+      const registrationGroup = groupByRegistration.get(registrationIdentity);
+      const sessionGroups = groupBySession.get(session) ?? [];
+      const matchingSession = sessionGroups.find((group) => group !== registrationGroup
+        && group.events.some((item) => sameEventVenue(item, event, communityById))
+        && compatiblePhysicalVenuesAcrossGroups(registrationGroup, group, communityById));
+      if (!matchingSession) break;
+      mergeEventGroups(groups, groupByRegistration, groupBySession, registrationGroup, matchingSession);
+    }
   }
   return groups.sort((left, right) => compareEvents(left.event, right.event));
 }

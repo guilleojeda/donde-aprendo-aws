@@ -309,7 +309,7 @@ def timezone_from_feed(group):
     text = get_text(group_feed_url(group))
     events = parse_feed(text, group)
     match = re.search(r'^TZID:([^\r\n]+)', text, re.M)
-    if events and not match:
+    if any(not event.get('cancelled') for event in events) and not match:
         raise ValueError(f'Missing timezone in feed of {group["id"]}')
     group['timeZone'] = match.group(1) if match else None
     if group['timeZone']:
