@@ -1655,11 +1655,29 @@ test('an implicit online default falls back globally for a physical-only event f
   assert.equal(fallback.searchParams.has('tz'), true);
 });
 
-function embeddedAgendaUrl(link, parameter = 'url') {
+function preparedShareText(link) {
   const intent = new URL(link.href, 'https://dondeaprendoaws.com');
-  const value = intent.searchParams.get(parameter);
-  assert.ok(value, `${intent.hostname} link carries the fixed agenda URL`);
-  return new URL(value, 'https://dondeaprendoaws.com');
+  assert.deepEqual([...intent.searchParams.keys()], ['text'],
+    `${intent.hostname} carries the complete prepared post in one text parameter`);
+  const text = intent.searchParams.get('text');
+  assert.ok(text, `${intent.hostname} link carries prepared post text`);
+  return text;
+}
+
+function embeddedAgendaUrl(link) {
+  const intent = new URL(link.href, 'https://dondeaprendoaws.com');
+  const text = preparedShareText(link);
+  const value = text.split('\n').at(-1);
+  assert.ok(value, `${intent.hostname} ends the prepared post with its agenda URL`);
+  assert.equal(text.split(value).length - 1, 1,
+    `${intent.hostname} includes the exact final agenda URL once in the post body`);
+  const agendaUrl = new URL(value);
+  assert.equal(agendaUrl.href, value, 'the extracted agenda URL is preserved exactly as serialized');
+  assert.equal(agendaUrl.pathname, '/eventos/', 'the prepared body links to the global agenda');
+  assert.equal(agendaUrl.hash, '', 'the prepared body does not carry an event fragment');
+  assert.equal(agendaUrl.searchParams.has('includeEnded'), false,
+    'the prepared URL does not serialize the sender checkbox');
+  return agendaUrl;
 }
 
 function activateShareMenu(agenda) {
@@ -1672,14 +1690,28 @@ function makeClipboard(writeText) {
   return { writeText };
 }
 
-test('X and LinkedIn are direct safe links that work without clipboard or popup calls', () => {
+async function captureShareActions(agenda) {
+  activateShareMenu(agenda);
+  const xText = preparedShareText(agenda.xShareLink);
+  const linkedinText = preparedShareText(agenda.linkedinShareLink);
+  const xUrl = embeddedAgendaUrl(agenda.xShareLink);
+  const linkedinUrl = embeddedAgendaUrl(agenda.linkedinShareLink);
+  assert.equal(xUrl.href, linkedinUrl.href, 'both social actions use the same current agenda selection');
+  agenda.copyButton.click();
+  await new Promise((resolve) => setImmediate(resolve));
+  return { xText, linkedinText, url: xUrl, copied: agenda.clipboardCalls.at(-1)?.[0] };
+}
+
+test('X and LinkedIn open native safe links with the approved prepared posts and complete global URL', async () => {
   const agenda = createAgenda({
-    count: 2,
-    filter: '?view=week&date=2026-10-05&tz=UTC&mode=online&country=AR&city=AR%3AC%C3%B3rdoba',
+    count: 3,
+    filter: '?view=week&date=2026-10-19&tz=America%2FArgentina%2FCordoba&country=AR&city=AR%3AC%C3%B3rdoba',
     events: [
-      { id: 'share-one', title: 'Primera charla', mode: 'online', startsAt: '2026-10-06T15:00:00Z', endsAt: '2026-10-06T16:00:00Z' },
-      { id: 'share-two', title: 'Segundo taller', mode: 'online', startsAt: '2026-10-07T16:00:00Z', endsAt: '2026-10-07T17:00:00Z' },
+      { id: 'share-one', title: 'Arquitecturas serverless', mode: 'online', startsAt: '2026-10-21T21:00:00Z', endsAt: '2026-10-21T22:00:00Z', registrationUrl: 'https://example.test/registro/serverless' },
+      { id: 'share-two', title: 'Meetup AWS Córdoba', mode: 'in-person', country: 'AR', venueCountry: 'AR', city: 'Córdoba', startsAt: '2026-10-22T22:00:00Z', endsAt: '2026-10-22T23:00:00Z', registrationUrl: 'https://example.test/registro/meetup' },
+      { id: 'share-three', title: 'Seguridad en AWS', mode: 'online', startsAt: '2026-10-24T14:00:00Z', endsAt: '2026-10-24T15:00:00Z', registrationUrl: 'https://example.test/registro/seguridad' },
     ],
+    clipboard: makeClipboard(async () => {}),
   });
 
   assert.equal(agenda.shareControls.hidden, false, 'JavaScript enables the server-hidden share controls');
@@ -1687,6 +1719,7 @@ test('X and LinkedIn are direct safe links that work without clipboard or popup 
   assert.equal(agenda.shareToggle.tagName, 'SUMMARY');
   activateShareMenu(agenda);
   assert.equal(agenda.shareMenu.open, true, 'the native summary control opens the menu with keyboard activation');
+  assert.equal(agenda.countLabel.textContent, '3 eventos', 'the user example fixture selects all three expected events');
 
   const x = new URL(agenda.xShareLink.href, 'https://dondeaprendoaws.com');
   const linkedin = new URL(agenda.linkedinShareLink.href);
@@ -1700,23 +1733,158 @@ test('X and LinkedIn are direct safe links that work without clipboard or popup 
     assert.match(link.rel, /\bnoreferrer\b/u);
     assert.doesNotMatch(link.href, /^javascript:/iu);
   }
-  const xText = x.searchParams.get('text') ?? '';
-  assert.ok(xText, 'X receives its own short summary');
-  assert.match(xText, /2026/u, 'the X summary identifies the selected period');
-  assert.match(xText, /\b2\b/u, 'the X summary gives the number of selected occurrences');
-  assert.match(xText, /online|en\s+l[ií]nea/iu, 'the X summary describes online attendance');
-  assert.match(xText, /UTC/u, 'the X summary identifies the selected time zone');
-  assert.equal(linkedin.searchParams.has('text'), false, 'LinkedIn receives a URL without a text-copy step');
-  assert.equal(embeddedAgendaUrl(agenda.xShareLink).href, embeddedAgendaUrl(agenda.linkedinShareLink).href);
+  const sharedUrl = embeddedAgendaUrl(agenda.xShareLink);
+  const xText = preparedShareText(agenda.xShareLink);
+  const linkedinText = preparedShareText(agenda.linkedinShareLink);
+  assert.equal(sharedUrl.href, embeddedAgendaUrl(agenda.linkedinShareLink).href);
+  assert.equal(xText, `Agenda de eventos para aprender AWS, 19-25 de octubre. 3 eventos presenciales en Córdoba, Argentina, y online.\n\nAgenda completa e inscripciones:\n${sharedUrl.href}`);
+  assert.equal(linkedinText, `Eventos para aprender AWS, del 19 al 25 de octubre. Presenciales en Córdoba, Argentina, y opciones online.\n- Mié 21/10, 18:00: Arquitecturas serverless - Online\n- Jue 22/10, 19:00: Meetup AWS Córdoba - Presencial\n- Sáb 24/10, 11:00: Seguridad en AWS - Online\n\nHorarios de Córdoba, Argentina (UTC-3).\n\nDetalles e inscripciones:\n${sharedUrl.href}`);
+  assert.deepEqual([...x.searchParams.keys()], ['text'], 'X receives the body and URL together, without a separate url parameter');
+  assert.deepEqual([...linkedin.searchParams.keys()], ['text'], 'LinkedIn receives the body and URL together, without a separate url parameter');
+  assert.equal(sharedUrl.searchParams.get('view'), 'week');
+  assert.equal(sharedUrl.searchParams.get('date'), '2026-10-19');
+  assert.equal(sharedUrl.searchParams.get('tz'), 'America/Argentina/Cordoba');
+  assert.equal(sharedUrl.searchParams.get('country'), 'AR');
+  assert.equal(sharedUrl.searchParams.get('city'), 'AR:Córdoba');
 
   const beforeUrl = agenda.location.search;
   const beforeHistory = agenda.historyEntries.length;
   agenda.xShareLink.click();
+  activateShareMenu(agenda);
   agenda.linkedinShareLink.click();
   assert.equal(agenda.clipboardCalls.length, 0, 'social links do not wait for or invoke clipboard access');
   assert.equal(agenda.windowOpenCalls.length, 0, 'native anchors open the destination without window.open');
   assert.equal(agenda.location.search, beforeUrl, 'opening a composer does not change the agenda query');
   assert.equal(agenda.historyEntries.length, beforeHistory);
+
+  activateShareMenu(agenda);
+  agenda.copyButton.click();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(agenda.clipboardCalls.length, 1);
+  assert.equal(agenda.clipboardCalls[0][0], `*Agenda eventos AWS, 19-25 de octubre*\nPresenciales en Córdoba, Argentina, y online.\nHorarios de Córdoba, Argentina (UTC-3).\n\n*Mié 21/10, 18:00*\nArquitecturas serverless\nOnline\nhttps://example.test/registro/serverless\n\n*Jue 22/10, 19:00*\nMeetup AWS Córdoba\nPresencial: Córdoba, Argentina\nhttps://example.test/registro/meetup\n\n*Sáb 24/10, 11:00*\nSeguridad en AWS\nOnline\nhttps://example.test/registro/seguridad\n\nConsultar la agenda completa:\n${sharedUrl.href}`);
+});
+
+test('prepared X, LinkedIn and copy data follows period, filters, checkbox, expiry and history changes', async () => {
+  const now = Date.parse('2026-10-20T12:00:00Z');
+  const events = [
+    { id: 'current-cordoba', title: 'Evento presencial Córdoba', mode: 'in-person', country: 'AR', venueCountry: 'AR', city: 'Córdoba', communities: 'community-ar', startsAt: '2026-10-21T15:00:00Z', endsAt: '2026-10-21T16:00:00Z' },
+    { id: 'closing-online', title: 'Cierre de hoy', mode: 'online', country: 'AR', communities: 'community-ar', startsAt: '2026-10-20T11:00:00Z', endsAt: '2026-10-20T12:00:30Z' },
+    { id: 'current-colombia', title: 'Evento remoto Colombia', mode: 'online', country: 'CO', communities: 'community-co', startsAt: '2026-10-22T15:00:00Z', endsAt: '2026-10-22T16:00:00Z' },
+    { id: 'next-buenos-aires', title: 'Presencial Buenos Aires', mode: 'in-person', country: 'AR', venueCountry: 'AR', city: 'Buenos Aires', communities: 'community-ar', startsAt: '2026-10-27T15:00:00Z', endsAt: '2026-10-27T16:00:00Z' },
+  ];
+  const agenda = createAgenda({
+    count: events.length,
+    now,
+    filter: '?view=week&date=2026-10-19&tz=UTC',
+    events,
+    clipboard: makeClipboard(async () => {}),
+  });
+  const assertActions = async (expectedTitles, absentTitles = []) => {
+    const actions = await captureShareActions(agenda);
+    assert.ok(actions.copied, 'Copy writes the current selection as text');
+    assert.ok(actions.copied.endsWith(`Consultar la agenda completa:\n${actions.url.href}`),
+      'Copy ends with the exact same global agenda URL as the social posts');
+    assert.equal(actions.copied.split(actions.url.href).length - 1, 1,
+      'Copy includes the selected agenda URL once');
+    assert.match(actions.xText, new RegExp(`\\b${expectedTitles.length}\\s+evento(?:s)?\\b`, 'u'),
+      'X summarizes the current full selection count');
+    for (const title of expectedTitles) {
+      assert.ok(actions.linkedinText.includes(title), `LinkedIn includes ${title} from the current selection`);
+      assert.ok(actions.copied.includes(title), `Copy includes ${title} from the current selection`);
+      assert.ok(!actions.xText.includes(title), `X keeps its approved summary short instead of enumerating ${title}`);
+    }
+    for (const title of absentTitles) {
+      assert.ok(!actions.linkedinText.includes(title), `LinkedIn excludes ${title} outside the current selection`);
+      assert.ok(!actions.copied.includes(title), `Copy excludes ${title} outside the current selection`);
+    }
+    return actions;
+  };
+
+  assert.equal(agenda.shareMenu.open, false, 'the initial share menu is closed');
+  assert.equal(agenda.countLabel.textContent, '3 eventos', 'the initial week selects its three in-period events');
+  let actions = await assertActions(['Evento presencial Córdoba', 'Cierre de hoy', 'Evento remoto Colombia'], ['Presencial Buenos Aires']);
+  assert.equal(agenda.shareMenu.open, false, 'copy closes the menu after capturing the prepared actions');
+  assert.equal(actions.url.searchParams.get('view'), 'week');
+  assert.equal(actions.url.searchParams.get('date'), '2026-10-19');
+
+  agenda.nextPeriod.click();
+  assert.equal(agenda.countLabel.textContent, '1 evento', 'the next week selects only its in-period event');
+  actions = await assertActions(['Presencial Buenos Aires'], ['Evento presencial Córdoba', 'Cierre de hoy', 'Evento remoto Colombia']);
+  assert.equal(actions.url.searchParams.get('date'), '2026-10-26', 'the prepared body follows the next week');
+  for (const text of [actions.xText, actions.linkedinText, actions.copied]) {
+    assert.match(text.split('\n')[0], /octubre.*noviembre/iu,
+      'all three headings name both months of the selected 26 October–1 November week');
+  }
+
+  agenda.viewButtons[1].click();
+  assert.equal(agenda.countLabel.textContent, '4 eventos', 'the month contains all four fixtures');
+  actions = await assertActions(events.map(({ title }) => title));
+  assert.equal(actions.url.searchParams.get('view'), 'month', 'the prepared body follows the month tab');
+  assert.equal(actions.url.searchParams.get('date'), '2026-10-26');
+  for (const text of [actions.xText, actions.linkedinText, actions.copied]) {
+    assert.match(text.split('\n')[0], /octubre de 2026/iu,
+      'all three headings follow the selected month instead of retaining the prior week');
+  }
+
+  agenda.zoneFilter.value = 'America/Bogota';
+  agenda.zoneFilter.emit('change');
+  agenda.countryFilter.value = 'AR';
+  agenda.countryFilter.emit('change');
+  agenda.cityFilter.value = 'AR:Córdoba';
+  agenda.cityFilter.emit('change');
+  agenda.communityFilter.value = 'community-ar';
+  agenda.communityFilter.emit('change');
+  actions = await assertActions(['Evento presencial Córdoba', 'Cierre de hoy'], ['Evento remoto Colombia', 'Presencial Buenos Aires']);
+  assert.equal(actions.url.searchParams.get('tz'), 'America/Bogota');
+  assert.equal(actions.url.searchParams.get('country'), 'AR');
+  assert.equal(actions.url.searchParams.get('city'), 'AR:Córdoba');
+  assert.equal(actions.url.searchParams.get('community'), 'community-ar');
+  assert.match(actions.linkedinText, /Mié 21\/10, 10:00/u,
+    'event dates and times use the selected zone');
+  assert.match(actions.copied, /10:00/u, 'Copy uses the same selected zone');
+
+  agenda.clear.click();
+  actions = await assertActions(events.map(({ title }) => title));
+  assert.equal(actions.url.searchParams.has('community'), false);
+  agenda.communityFilter.value = 'community-co';
+  agenda.communityFilter.emit('change');
+  actions = await assertActions(['Evento remoto Colombia'], ['Evento presencial Córdoba', 'Cierre de hoy', 'Presencial Buenos Aires']);
+  assert.equal(actions.url.searchParams.get('community'), 'community-co');
+
+  agenda.history.back();
+  actions = await assertActions(events.map(({ title }) => title));
+  assert.equal(actions.url.searchParams.has('community'), false,
+    'Back updates both prepared posts and Copy to the restored unfiltered selection');
+  agenda.history.back();
+  actions = await assertActions(['Evento presencial Córdoba', 'Cierre de hoy'], ['Evento remoto Colombia', 'Presencial Buenos Aires']);
+  assert.equal(actions.url.searchParams.get('community'), 'community-ar',
+    'another Back restores the prior community, location and prepared selection');
+
+  const urlBeforeExpiry = actions.url.href;
+  agenda.advanceTime(40_000);
+  assert.equal(agenda.fireNextTimer(), true, 'the scheduled transition refreshes an event that just ended');
+  actions = await assertActions(['Evento presencial Córdoba', 'Cierre de hoy']);
+  assert.match(actions.linkedinText, /Finalizado/u, 'LinkedIn marks the now-ended event');
+  assert.match(actions.copied, /Cierre de hoy[\s\S]*Finalizado/u, 'Copy marks the same event as finalized');
+
+  agenda.includeEnded.checked = false;
+  agenda.includeEnded.emit('change');
+  actions = await assertActions(['Evento presencial Córdoba'], ['Cierre de hoy']);
+  assert.equal(actions.url.href, urlBeforeExpiry, 'checkbox changes update prepared content without entering the shared URL');
+  assert.equal(actions.url.searchParams.has('includeEnded'), false);
+
+  const receiver = createAgenda({
+    count: events.length,
+    now: now + 40_000,
+    pathname: actions.url.pathname,
+    filter: actions.url.search,
+    events,
+    clipboard: makeClipboard(async () => {}),
+  });
+  assert.equal(receiver.includeEnded.checked, true, 'a recipient always reopens with finalized events included');
+  const receivedActions = await captureShareActions(receiver);
+  assert.ok(receivedActions.linkedinText.includes('Cierre de hoy'));
+  assert.match(receivedActions.copied, /Cierre de hoy[\s\S]*Finalizado/u);
 });
 
 test('Copy writes the complete unpaginated plain-text selection, including a remote foreign hybrid', async () => {
@@ -1744,6 +1912,15 @@ test('Copy writes the complete unpaginated plain-text selection, including a rem
   assert.equal(agenda.countLabel.textContent, '14 eventos');
   assert.equal(agenda.cards.filter((card) => !card.hidden).length, 12, 'the rendered list remains paginated');
   assert.equal(agenda.more.hidden, false);
+  const linkedinText = preparedShareText(agenda.linkedinShareLink);
+  const xText = preparedShareText(agenda.xShareLink);
+  const preparedUrl = embeddedAgendaUrl(agenda.linkedinShareLink);
+  assert.equal(preparedUrl.href, embeddedAgendaUrl(agenda.xShareLink).href);
+  assert.match(xText, /\b14\s+eventos\b/u);
+  for (const event of events) {
+    assert.ok(linkedinText.includes(event.title), `LinkedIn includes the unpaginated result ${event.title}`);
+    assert.ok(!xText.includes(event.title), 'X summarizes instead of enumerating events');
+  }
   activateShareMenu(agenda);
   agenda.copyButton.click();
 
@@ -1755,9 +1932,11 @@ test('Copy writes the complete unpaginated plain-text selection, including a rem
     assert.ok(copied.includes(event.title), `The copied agenda contains ${event.title}, including results beyond the first page.`);
     assert.ok(copied.includes(event.registrationUrl), `The copied agenda preserves ${event.id}'s registration URL.`);
   }
-  assert.match(copied, /participación remota/iu,
+  assert.match(copied, /Online\s+\(evento híbrido\)|participación remota/iu,
     'a hybrid venue in Colombia reached through Solo online is identified as remote participation');
-  assert.match(copied, /America\/Bogota/u, 'the copied schedule identifies its selected IANA time zone');
+  assert.doesNotMatch(copied, /^(?:Presencial|Participación presencial|Ubicación presencial):.*Bogotá/imu,
+    'remote hybrid participation does not present Bogotá as its physical venue');
+  assert.match(copied, /Bogotá.*UTC-5|America\/Bogota/u, 'the copied schedule identifies its selected time zone');
   assert.doesNotMatch(copied, /<[^>]+>/u, 'clipboard content is plain text');
   assert.doesNotMatch(agenda.shareStatus.textContent, /copiad|se copió/iu,
     'the interface does not report success while the write is pending');
@@ -1775,6 +1954,48 @@ test('Copy writes the complete unpaginated plain-text selection, including a rem
   assert.equal(agenda.copyButton.disabled, false);
   assert.equal(agenda.shareMenu.open, false);
   assert.equal(agenda.document.activeElement, agenda.shareToggle, 'successful copy closes the menu and returns focus');
+});
+
+test('an oversized LinkedIn post replaces every event line with the approved total summary while Copy stays complete', async () => {
+  const events = Array.from({ length: 40 }, (_, index) => {
+    const number = String(index + 1).padStart(2, '0');
+    const title = `Evento largo ${number} - Aprendizaje de servicios y arquitectura de AWS con ejercicios prácticos guiados para equipos de desarrollo`;
+    const day = String(10 + Math.floor(index / 2)).padStart(2, '0');
+    return {
+      id: `oversized-${number}`,
+      title,
+      mode: 'online',
+      startsAt: `2026-10-${day}T15:00:00Z`,
+      endsAt: `2026-10-${day}T16:00:00Z`,
+      registrationUrl: `https://example.test/registro/oversized-${number}`,
+    };
+  });
+  const agenda = createAgenda({
+    count: events.length,
+    filter: '?view=month&date=2026-10-05&tz=UTC&mode=online',
+    events,
+    clipboard: makeClipboard(async () => {}),
+  });
+
+  assert.equal(agenda.countLabel.textContent, '40 eventos');
+  assert.equal(agenda.cards.filter((card) => !card.hidden).length, 12,
+    'the visible page limit does not reduce either prepared output');
+  assert.ok(events.reduce((total, event) => total + event.title.length, 0) > 3_000,
+    'the full event titles alone exceed the approved conservative LinkedIn body limit');
+  const actions = await captureShareActions(agenda);
+  assert.match(actions.linkedinText, /\b40 eventos\b/u, 'the LinkedIn fallback reports the full selected count');
+  assert.match(actions.linkedinText, /La lista completa de eventos, horarios e inscripciones:/u,
+    'the LinkedIn fallback links to the complete agenda');
+  assert.match(actions.linkedinText, /UTC/u, 'the LinkedIn fallback preserves the selected time zone');
+  assert.match(actions.xText, /\b40\s+eventos\b/u);
+  for (const event of events) {
+    assert.ok(!actions.linkedinText.includes(event.title),
+      'an oversized LinkedIn body does not keep an arbitrary prefix or sample of the events');
+    assert.ok(!actions.xText.includes(event.title), 'X does not enumerate event titles');
+    assert.ok(actions.copied.includes(event.title), `Copy retains the complete title ${event.title}`);
+    assert.ok(actions.copied.includes(event.registrationUrl), `Copy retains ${event.id} registration URL`);
+  }
+  assert.ok(actions.copied.endsWith(`Consultar la agenda completa:\n${actions.url.href}`));
 });
 
 test('a pending copy keeps its captured selection truthful while filters and direct links stay usable', async () => {
@@ -1897,7 +2118,8 @@ test('fixed share links follow selection, period, zone, history and reload witho
   const x = new URL(agenda.xShareLink.href, 'https://dondeaprendoaws.com');
   const initialSharedUrl = embeddedAgendaUrl(agenda.xShareLink);
   assert.equal(x.origin, 'https://x.com');
-  assert.equal(x.searchParams.get('url'), initialSharedUrl.href);
+  assert.deepEqual([...x.searchParams.keys()], ['text']);
+  assert.equal(preparedShareText(agenda.xShareLink).split('\n').at(-1), initialSharedUrl.href);
   assert.equal(embeddedAgendaUrl(agenda.linkedinShareLink).href, initialSharedUrl.href);
   assert.equal(initialSharedUrl.pathname, '/eventos/', 'share always targets the route with no implicit defaults');
   assert.equal(initialSharedUrl.searchParams.get('view'), 'week');
@@ -2009,7 +2231,8 @@ test('a co-hosted occurrence shares the visible representative schedule and its 
   const copied = agenda.clipboardCalls[0][0];
   assert.match(copied, /Horario organizador Colombia/u);
   assert.match(copied, /16:00/u);
-  assert.match(copied, /17:30/u);
+  assert.doesNotMatch(copied, /17:30/u,
+    'the approved same-day format includes the representative start time without its end time');
   assert.doesNotMatch(copied, /14:00|15:00/u,
     'the copied schedule uses the visible Colombian representative rather than the Argentine co-host');
   assert.match(copied, /https:\/\/example\.test\/registro\/co/u);
@@ -2031,12 +2254,13 @@ test('an empty selection remains explicitly shareable with its period and filter
   agenda.copyButton.click();
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(agenda.clipboardCalls.length, 1);
-  assert.match(agenda.clipboardCalls[0][0], /0\s+(?:eventos|resultados)/iu);
+  assert.match(agenda.clipboardCalls[0][0], /No hay eventos que coincidan con estos filtros/iu,
+    'an empty selection is described with the approved no-matches wording');
   const shared = embeddedAgendaUrl(agenda.xShareLink);
   assert.equal(shared.searchParams.get('date'), '2026-11-02');
   assert.equal(shared.searchParams.get('mode'), 'online');
   assert.equal(shared.searchParams.get('country'), 'AR');
-  assert.match(new URL(agenda.xShareLink.href, 'https://dondeaprendoaws.com').searchParams.get('text') ?? '', /0\s+(?:eventos|resultados)/iu);
+  assert.match(preparedShareText(agenda.xShareLink), /0\s+(?:eventos|resultados)/iu);
 });
 
 test('checkbox changes, recipient reload and event expiry update the copied agenda but never enter the share URL', async () => {
@@ -2059,6 +2283,10 @@ test('checkbox changes, recipient reload and event expiry update the copied agen
   agenda.includeEnded.emit('change');
   assert.equal(embeddedAgendaUrl(agenda.xShareLink).href, shareBeforeCheckbox,
     'the fixed URL deliberately excludes the sender’s local checkbox state');
+  assert.match(preparedShareText(agenda.xShareLink), /\b2\s+eventos\b/u,
+    'X summarizes only the sender’s current checkbox selection');
+  assert.doesNotMatch(preparedShareText(agenda.linkedinShareLink), /Evento ya finalizado/u,
+    'LinkedIn excludes a finalized event when the sender unchecks it');
   activateShareMenu(agenda);
   agenda.copyButton.click();
   await new Promise((resolve) => setImmediate(resolve));
@@ -2078,6 +2306,8 @@ test('checkbox changes, recipient reload and event expiry update the copied agen
   assert.equal(recipient.includeEnded.checked, true);
   assert.equal(recipient.cards.find((card) => card.dataset.eventId === 'already-ended').hidden, false,
     'the receiving page reopens with the finalized event included');
+  assert.match(preparedShareText(recipient.linkedinShareLink), /Evento ya finalizado/u,
+    'the receiving social post is prepared from the recipient’s default checked selection');
   activateShareMenu(recipient);
   recipient.copyButton.click();
   await new Promise((resolve) => setImmediate(resolve));
@@ -2088,12 +2318,16 @@ test('checkbox changes, recipient reload and event expiry update the copied agen
   assert.equal(embeddedAgendaUrl(agenda.xShareLink).href, shareBeforeCheckbox);
   agenda.advanceTime(2_000);
   assert.equal(agenda.fireNextTimer(), true, 'the scheduled event-state transition refreshes the agenda');
+  assert.equal(embeddedAgendaUrl(agenda.xShareLink).href, shareBeforeCheckbox,
+    'expiry changes prepared content without adding a temporal state to the URL');
   activateShareMenu(agenda);
   agenda.copyButton.click();
   await new Promise((resolve) => setImmediate(resolve));
   copied = agenda.clipboardCalls.at(-1)[0];
   assert.match(copied, /Evento que finaliza/u);
   assert.match(copied, /Finalizado/u, 'copy reflects the event’s new finalized state after expiry');
+  assert.match(preparedShareText(agenda.linkedinShareLink), /Evento que finaliza[\s\S]*Finalizado/u,
+    'LinkedIn reflects the same event expiry as Copy');
 });
 
 test('the native share menu closes with Escape, restores focus and leaves agenda state untouched', () => {
