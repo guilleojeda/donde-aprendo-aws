@@ -217,6 +217,10 @@ def map_event(group, entry, page):
         return None
     if event_status not in PUBLISHABLE_EVENT_STATUSES:
         raise ValueError(f'Unknown event status: {entry["id"]}')
+    name = page.get('name')
+    title = re.sub(r'^[\s\ufeff]+|[\s\ufeff]+$', '', name) if isinstance(name, str) else ''
+    if not title:
+        raise ValueError(f'Missing or invalid event title: {entry["id"]}')
     start = datetime.fromisoformat(page['startDate'])
     end = datetime.fromisoformat(page['endDate'])
     if start.tzinfo is None or end.tzinfo is None or end <= start:
@@ -251,7 +255,7 @@ def map_event(group, entry, page):
     record = {
         'recordType': 'event',
         'id': f'meetup-event-{entry["id"]}',
-        'title': page['name'].strip(),
+        'title': title,
         'description': clean_description(page.get('description')),
         'startsAt': start.isoformat(timespec='seconds'),
         'endsAt': end.isoformat(timespec='seconds'),
