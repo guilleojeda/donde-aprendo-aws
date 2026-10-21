@@ -1,6 +1,6 @@
 import { eventGroupsForAgenda } from '../lib/event-agenda-groups.mjs';
-import { effectiveEventLocation, eventCountryLabel } from '../lib/event-location.mjs';
-import { eventDateLabel, eventLocalDate, eventTimeLabel } from '../lib/events.mjs';
+import { effectiveEventLocation, eventCountryLabel, normalizeEventCityKey } from '../lib/event-location.mjs';
+import { eventDateLabel, eventEndTimeLabel, eventLocalDate, eventTimeLabel } from '../lib/events.mjs';
 import {
   createEventAgendaPeriod,
   eventOverlapsAgendaPeriod,
@@ -360,13 +360,13 @@ if (agenda && empty) {
     if (registration) registration.textContent = finalized ? 'Ver evento' : 'Inscribirme';
     if (dateLabel) dateLabel.textContent = eventDateLabel(member.startsAt, period.timeZone);
     if (startTimeLabel) startTimeLabel.textContent = eventTimeLabel(member.startsAt, period.timeZone);
-    if (endTimeLabel) endTimeLabel.textContent = eventTimeLabel(member.endsAt, period.timeZone);
+    if (endTimeLabel) endTimeLabel.textContent = eventEndTimeLabel(member.startsAt, member.endsAt, period.timeZone);
     if (participation && member.mode === 'hybrid') {
       const filters = currentFilters();
       const physical = effectiveEventLocation(member, communityById);
       const hasLocation = Boolean(filters.country || filters.city);
       const locationMatches = (!filters.country || physical.country === filters.country)
-        && (!filters.city || `${physical.country}:${physical.city}` === filters.city);
+        && (!filters.city || normalizeEventCityKey(`${physical.country}:${physical.city}`) === normalizeEventCityKey(filters.city));
       participation.textContent = filters.mode === 'online'
         || ((filters.mode === '' || filters.mode === 'hybrid') && hasLocation && !locationMatches)
         ? 'Participación remota'
@@ -376,6 +376,12 @@ if (agenda && empty) {
   }
 
   function applyRepresentative(group, member) {
+    const focused = document.activeElement;
+    const previousView = group.events.find((item) => item.view.contains(focused))?.view;
+    // Member views render the same actions in the same order. Keep that action
+    // focused when expiry replaces its view, before the browser drops focus.
+    const focusedAction = previousView && previousView !== member.view
+      ? [...previousView.querySelectorAll('a')].indexOf(focused) : -1;
     for (const item of group.events) item.view.hidden = item.id !== member.id;
     const { card } = group;
     const physical = effectiveEventLocation(member, communityById);
@@ -390,6 +396,10 @@ if (agenda && empty) {
     card.dataset.eventCity = physical.city ? `${country}:${physical.city}` : '';
     card.dataset.eventCountries = [...new Set(group.events.map((item) => effectiveEventLocation(item, communityById).country).filter(Boolean))].join('|');
     card.dataset.eventCommunities = [...new Set(group.events.map((item) => item.communityId).filter(Boolean))].join('|');
+    if (focusedAction >= 0) {
+      const replacement = [...member.view.querySelectorAll('a')][focusedAction] ?? card;
+      replacement.focus({ preventScroll: true });
+    }
   }
 
   function currentCardOrder() {

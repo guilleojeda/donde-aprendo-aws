@@ -34,6 +34,15 @@ SYNC_OWNED_FIELDS = (
     'city', 'venueCountry',
 )
 OPTIONAL_SYNC_FIELDS = ('place', 'city', 'venueCountry')
+PUBLISHABLE_EVENT_STATUSES = frozenset((
+    'https://schema.org/EventScheduled',
+    'https://schema.org/EventRescheduled',
+))
+NONPUBLISHABLE_EVENT_STATUSES = frozenset((
+    'https://schema.org/EventCancelled',
+    'https://schema.org/EventMovedOnline',
+    'https://schema.org/EventPostponed',
+))
 
 
 class JsonLdScripts(HTMLParser):
@@ -175,9 +184,13 @@ def venue_country_code(value, event_id):
 
 
 def map_event(group, entry, page):
-    if page.get('eventStatus') not in ('https://schema.org/EventScheduled',
-                                       'https://schema.org/EventRescheduled'):
+    event_status = page.get('eventStatus')
+    if not isinstance(event_status, str):
+        raise ValueError(f'Missing or invalid event status: {entry["id"]}')
+    if event_status in NONPUBLISHABLE_EVENT_STATUSES:
         return None
+    if event_status not in PUBLISHABLE_EVENT_STATUSES:
+        raise ValueError(f'Unknown event status: {entry["id"]}')
     start = datetime.fromisoformat(page['startDate'])
     end = datetime.fromisoformat(page['endDate'])
     if start.tzinfo is None or end.tzinfo is None or end <= start:

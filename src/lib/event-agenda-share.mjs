@@ -1,7 +1,7 @@
 import parseTweet from 'twitter-text/dist/parseTweet.js';
 import { serializeEventAgendaSearch } from './event-agenda-filter.mjs';
 import { serializeEventAgendaPeriod } from './event-agenda-period.mjs';
-import { effectiveEventLocation, eventCountryLabel } from './event-location.mjs';
+import { effectiveEventLocation, eventCountryLabel, normalizeEventCityKey } from './event-location.mjs';
 
 const X_INTENT = 'https://x.com/intent/tweet';
 const LINKEDIN_INTENT = 'https://www.linkedin.com/sharing/share-offsite/';
@@ -147,8 +147,10 @@ function eventAttendanceLabel(event, filters, communityById) {
   const location = effectiveEventLocation(event, communityById);
   const selected = selectedLocation(filters);
   if ((filters.mode ?? '') === 'in-person') return 'Presencial';
+  const selectedCityKey = normalizeEventCityKey(`${selected.country}:${selected.city}`);
+  const eventCityKey = normalizeEventCityKey(`${location.country}:${location.city}`);
   const outsideSelectedLocation = (selected.country && selected.country !== location.country)
-    || (selected.city && selected.city !== location.city);
+    || (selected.city && selectedCityKey !== eventCityKey);
   if ((filters.mode ?? '') === 'online' || outsideSelectedLocation) return 'Online (evento híbrido)';
   return 'Presencial y online';
 }
