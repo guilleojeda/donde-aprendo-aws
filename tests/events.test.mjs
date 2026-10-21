@@ -6,6 +6,7 @@ import { eventDateLabel, eventEndTimeLabel, eventLocalDate, eventTimeLabel, upco
 import { eventMatchesFilters } from '../src/lib/event-agenda-filter.mjs';
 import { eventGroupCountries, eventGroupsForAgenda } from '../src/lib/event-agenda-groups.mjs';
 import { createEventAgendaPeriod } from '../src/lib/event-agenda-period.mjs';
+import { buildEventAgendaShare } from '../src/lib/event-agenda-share.mjs';
 import { fingerprintPublicCatalog } from '../src/lib/publication.mjs';
 
 const event = (overrides = {}) => ({
@@ -314,6 +315,154 @@ test('a bridge cannot use an unknown city or venue to join incompatible physical
   ], 'the bridge does not join separate physical venues even when city and title match');
 });
 
+test('reconciles online and hybrid cohosts while preserving separate venues and occurrences', () => {
+  const startsAt = '2026-10-21T21:00:00Z';
+  const endsAt = '2026-10-21T23:00:00Z';
+  const common = {
+    title: 'AWS Community Day', startsAt, endsAt,
+    timeZone: 'America/Argentina/Cordoba', organizer: 'Comunidad AWS', country: 'AR', city: 'Córdoba',
+    place: 'Auditorio principal',
+  };
+  const listings = [
+    event({
+      ...common, id: 'a-host-remote', mode: 'online', place: undefined, city: undefined,
+      communityId: 'community-a', registrationUrl: 'https://events.example.test/day',
+    }),
+    event({
+      ...common, id: 'b-host-hybrid', mode: 'hybrid', communityId: 'community-b',
+      registrationUrl: 'https://events.example.test/day?source=cohost&ref=community',
+    }),
+    event({
+      ...common, id: 'c-cohost-hybrid', mode: 'hybrid', communityId: 'community-c',
+      registrationUrl: 'https://meetup.example.test/community-c/events/123',
+    }),
+    event({
+      ...common, id: 'd-cohost-remote', mode: 'online', place: undefined, city: undefined,
+      communityId: 'community-d', registrationUrl: 'https://meetup.example.test/community-d/events/456',
+    }),
+    event({
+      ...common, id: 'e-distinct-venue', mode: 'hybrid', place: 'Salón secundario',
+      communityId: 'community-e', registrationUrl: 'https://meetup.example.test/community-e/events/789',
+    }),
+    event({
+      ...common, id: 'f-later-occurrence', mode: 'online', place: undefined, city: undefined,
+      startsAt: '2026-10-28T21:00:00Z', endsAt: '2026-10-28T23:00:00Z',
+      communityId: 'community-f', registrationUrl: 'https://events.example.test/day?source=later',
+    }),
+  ];
+  const publicEvents = projectPublishedCatalog(listings.map((listing) => Object.fromEntries(
+    Object.entries(listing).filter(([, value]) => value !== undefined),
+  )));
+  assert.equal(publicEvents.length, 6);
+
+  const allGroups = eventApi.uniqueEventGroups(publicEvents);
+  assert.deepEqual(allGroups.map(({ events: members }) => members.map(({ id }) => id)), [
+    ['a-host-remote', 'b-host-hybrid', 'c-cohost-hybrid', 'd-cohost-remote'],
+    ['e-distinct-venue'],
+    ['f-later-occurrence'],
+  ], 'a compatible mixed-mode occurrence groups all cohosts while a different venue and start stay separate');
+
+  const period = createEventAgendaPeriod({
+    view: 'week', date: '2026-10-21', timeZone: 'America/Argentina/Cordoba',
+  });
+  const now = '2026-10-20T12:00:00Z';
+  const filters = { mode: '', country: 'AR', city: 'AR:Córdoba', community: '' };
+  const cohostGroups = eventApi.uniqueEventGroups(publicEvents.slice(0, 4));
+  const selection = eventGroupsForAgenda(cohostGroups, { period, filters, now, includeEnded: true });
+  assert.equal(selection.length, 1, 'the combined agenda selects the cohosted occurrence once');
+  assert.deepEqual(selection[0].events.map(({ id }) => id), [
+    'a-host-remote', 'b-host-hybrid', 'c-cohost-hybrid', 'd-cohost-remote',
+  ], 'selection retains all four projected cohost listings');
+  const share = buildEventAgendaShare({
+    selection, period, filters, url: 'https://dondeaprendoaws.com/eventos/', now,
+  });
+  assert.equal(share.text.split('AWS Community Day').length - 1, 1,
+    'Copy lists the occurrence once');
+  assert.match(new URL(share.xHref).searchParams.get('text'), /1 evento presencial en Córdoba, Argentina, y online/u,
+    'the share count uses occurrences rather than cohost records');
+
+  const byId = new Map(publicEvents.map((listing) => [listing.id, listing]));
+  const bridgeRows = [
+    { ...byId.get('c-cohost-hybrid'), id: 'a-session-hybrid' },
+    { ...byId.get('d-cohost-remote'), id: 'b-session-online' },
+    { ...byId.get('a-host-remote'), id: 'c-registration-online' },
+    { ...byId.get('b-host-hybrid'), id: 'd-registration-hybrid' },
+    { ...byId.get('c-cohost-hybrid'), id: 'e-post-bridge-hybrid', registrationUrl: 'https://meetup.example.test/community-e/events/101' },
+    { ...byId.get('d-cohost-remote'), id: 'f-post-bridge-online', registrationUrl: 'https://meetup.example.test/community-f/events/102' },
+  ];
+  assert.deepEqual(eventApi.uniqueEventGroups(bridgeRows).map(({ events: members }) => members.map(({ id }) => id)), [[
+    'a-session-hybrid', 'b-session-online', 'c-registration-online', 'd-registration-hybrid',
+    'e-post-bridge-hybrid', 'f-post-bridge-online',
+  ]], 'a registration match bridges prior physical and online sessions and reconciled session maps keep accepting cohosts');
+});
+
+test('builds complete registration groups before reconciling weak online session matches', () => {
+  const startsAt = '2026-10-21T21:00:00Z';
+  const endsAt = '2026-10-21T23:00:00Z';
+  const common = {
+    title: 'AWS Community Day', startsAt, endsAt, timeZone: 'UTC', country: 'AR',
+    place: 'Auditorio principal',
+  };
+  const projectRows = (ids) => projectPublishedCatalog([
+    event({
+      ...common, id: ids.a, mode: 'online', city: undefined, place: undefined,
+      registrationUrl: 'https://example.com/shared?source=a',
+    }),
+    event({
+      ...common, id: ids.b, mode: 'hybrid', city: 'Córdoba',
+      registrationUrl: 'https://example.com/shared?ref=b',
+    }),
+    event({
+      ...common, id: ids.c, mode: 'online', city: undefined, place: undefined,
+      registrationUrl: 'https://example.com/stranger',
+    }),
+    event({
+      ...common, id: ids.d, mode: 'hybrid', city: 'Rosario',
+      registrationUrl: 'https://example.com/stranger',
+    }),
+  ].map((listing) => Object.fromEntries(
+    Object.entries(listing).filter(([, value]) => value !== undefined),
+  )));
+  const scenarios = [
+    {
+      name: 'both strong pairs precede the second online and physical listings',
+      ids: { a: 'a-remote', b: 'b-physical', c: 'c-stranger-remote', d: 'd-stranger-physical' },
+      groups: [['a-remote', 'b-physical'], ['c-stranger-remote', 'd-stranger-physical']],
+      selected: ['a-remote', 'c-stranger-remote'],
+    },
+    {
+      name: 'the second online listing sorts before the first physical alias',
+      ids: { a: 'a-remote', b: 'c-physical', c: 'b-stranger-remote', d: 'd-stranger-physical' },
+      groups: [['a-remote', 'c-physical'], ['b-stranger-remote', 'd-stranger-physical']],
+      selected: ['a-remote', 'b-stranger-remote'],
+    },
+    {
+      name: 'both complete strong pairs sort before the online session match',
+      ids: { a: 'b-remote', b: 'a-physical', c: 'd-stranger-remote', d: 'c-stranger-physical' },
+      groups: [['a-physical', 'b-remote'], ['c-stranger-physical', 'd-stranger-remote']],
+      selected: ['a-physical', 'c-stranger-physical'],
+    },
+  ];
+  const period = createEventAgendaPeriod({
+    view: 'week', date: '2026-10-21', timeZone: 'America/Argentina/Cordoba',
+  });
+  const filters = { mode: '', country: 'AR', city: 'AR:Córdoba', community: '' };
+  const now = '2026-10-20T12:00:00Z';
+  const actual = scenarios.map(({ name, ids }) => {
+    const groups = eventApi.uniqueEventGroups(projectRows(ids));
+    const selected = eventGroupsForAgenda(groups, { period, filters, now, includeEnded: true });
+    return {
+      name,
+      groups: groups.map(({ events: members }) => members.map(({ id }) => id)),
+      selectedRepresentatives: selected.map(({ event: representative }) => representative.id),
+    };
+  });
+
+  assert.deepEqual(actual, scenarios.map(({ name, groups, selected }) => ({
+    name, groups, selectedRepresentatives: selected,
+  })), 'weak online matches must not join two physically incompatible strong registrations');
+});
+
 test('agenda group selection filters members together and chooses a live matching representative', () => {
   assert.equal(typeof eventApi.uniqueEventGroups, 'function',
     'events.mjs must export uniqueEventGroups(events) before agenda groups can include history');
@@ -577,7 +726,7 @@ test('canonical registration URLs retain physical co-hosts across countries and 
   }).length, 1);
 });
 
-test('keeps same-session cross-posts connected to every canonical registration URL', () => {
+test('rejects an incompatible weak bridge but retains its canonical registration cohosts', () => {
   const first = event({
     id: 'event-a-first', title: 'AWS en Acción', country: 'AR', city: 'Córdoba',
     place: 'Auditorio Córdoba', registrationUrl: 'https://www.meetup.com/group/events/501',
@@ -594,10 +743,12 @@ test('keeps same-session cross-posts connected to every canonical registration U
     projectPublishedCatalog([sameCanonicalUrl, crossPost, first]), '2026-10-05T12:00:00Z',
   );
 
-  assert.equal(groups.length, 1);
-  assert.deepEqual(groups[0].events.map(({ id }) => id), [
-    'event-a-first', 'event-b-cross-post', 'event-c-same-url',
-  ]);
+  assert.deepEqual(groups.map(({ events: members }) => members.map(({ id }) => id)), [
+    ['event-a-first'], ['event-b-cross-post', 'event-c-same-url'],
+  ], 'the weak Córdoba session stays separate while B and C retain their shared strong registration identity');
+  assert.deepEqual(groups.flatMap(({ events: members }) => members.map(({ registrationUrl }) => registrationUrl)), [
+    first.registrationUrl, crossPost.registrationUrl, sameCanonicalUrl.registrationUrl,
+  ], 'each strong cohost retains its original registration URL');
 });
 
 test('a canonical co-host from another country does not split the session alias', () => {
