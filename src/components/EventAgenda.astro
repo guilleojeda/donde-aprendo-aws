@@ -275,10 +275,10 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
     min-height: 40px;
     align-items: center;
     padding: 8px 12px;
-    border: 1px solid var(--color-control);
+    border: 1px solid var(--color-border-control);
     border-radius: 7px;
-    background: #fff;
-    color: var(--color-ink);
+    background: var(--color-surface);
+    color: var(--color-heading);
     cursor: pointer;
     font-size: 14px;
     font-weight: 650;
@@ -295,10 +295,10 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
     gap: 3px;
     margin-top: 5px;
     padding: 6px;
-    border: 1px solid var(--color-line);
+    border: 1px solid var(--color-border);
     border-radius: 8px;
-    background: #fff;
-    box-shadow: 0 4px 14px #26345724;
+    background: var(--color-surface-raised);
+    box-shadow: 0 4px 14px var(--color-shadow);
   }
 
   .event-agenda__share-menu-item {
@@ -309,8 +309,8 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
     padding: 8px 10px;
     border: 0;
     border-radius: 5px;
-    background: #fff;
-    color: var(--color-ink);
+    background: var(--color-surface);
+    color: var(--color-heading);
     cursor: pointer;
     font: inherit;
     font-size: 14px;
@@ -319,14 +319,14 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
     text-decoration: none;
   }
 
-  .event-agenda__share-menu-item:hover { background: #edf1f8; }
+  .event-agenda__share-menu-item:hover { background: var(--color-surface-subtle); }
   .event-agenda__share-menu-item:focus-visible,
   .event-agenda__share-toggle:focus-visible {
-    outline: 2px solid var(--color-ink);
+    outline: 2px solid var(--color-focus);
     outline-offset: 2px;
   }
 
-  .event-agenda__share-menu-item:disabled { color: var(--color-muted); cursor: wait; }
+  .event-agenda__share-menu-item:disabled { color: var(--color-text-muted); cursor: wait; }
 
   .event-agenda__share-status {
     width: max-content;
@@ -344,8 +344,8 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
     margin: 12px 0 0;
     padding: 10px 14px;
     border-radius: 8px;
-    background: #edf1f8;
-    color: #303b51;
+    background: var(--color-accent-surface);
+    color: var(--color-accent-text);
     font-size: 14px;
     line-height: 1.55;
   }
@@ -365,7 +365,7 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
     display: grid;
     gap: 6px;
     min-width: 0;
-    color: var(--color-ink);
+    color: var(--color-heading);
     font-size: 13px;
     font-weight: 650;
   }
@@ -375,10 +375,10 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
     width: 100%;
     min-height: 42px;
     padding: 7px 9px;
-    border: 1px solid var(--color-control);
+    border: 1px solid var(--color-border-control);
     border-radius: 6px;
-    background: #fff;
-    color: var(--color-ink);
+    background: var(--color-field);
+    color: var(--color-heading);
   }
 
   .event-agenda__secondary-fields {
@@ -393,8 +393,8 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
     gap: 12px;
     margin-top: 16px;
     padding: 14px 0;
-    border-top: 1px solid var(--color-line);
-    border-bottom: 1px solid var(--color-line);
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
   }
 
   .event-agenda__period-views {
@@ -402,16 +402,16 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
     gap: 3px;
     padding: 4px;
     border-radius: 9px;
-    background: #f0f2f5;
+    background: var(--color-surface-subtle);
   }
 
   .event-agenda__period-views button,
   .event-agenda__period-navigation button {
     min-height: 40px;
-    border: 1px solid var(--color-control);
+    border: 1px solid var(--color-border-control);
     border-radius: 7px;
-    background: #fff;
-    color: var(--color-ink);
+    background: var(--color-surface);
+    color: var(--color-heading);
     cursor: pointer;
     font-weight: 650;
   }
@@ -421,13 +421,13 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
     padding: 7px 12px;
     border-color: transparent;
     background: transparent;
-    color: var(--color-muted);
+    color: var(--color-text-muted);
   }
 
   .event-agenda__period-views button[aria-pressed="true"] {
-    background: #fff;
-    color: var(--color-ink);
-    box-shadow: 0 1px 4px #26345722;
+    background: var(--color-surface);
+    color: var(--color-heading);
+    box-shadow: 0 1px 4px var(--color-shadow);
   }
 
   .event-agenda__period-navigation {
@@ -449,7 +449,7 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
     flex: 1;
     min-width: 168px;
     margin: 0;
-    color: var(--color-ink);
+    color: var(--color-heading);
     font-size: 16px;
     font-weight: 700;
     text-align: center;
@@ -459,7 +459,7 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
     display: grid;
     gap: 6px;
     min-width: 0;
-    color: var(--color-ink);
+    color: var(--color-heading);
     font-size: 13px;
     font-weight: 650;
   }
@@ -473,10 +473,10 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
     width: 100%;
     min-height: 40px;
     padding: 7px 9px;
-    border: 1px solid var(--color-control);
+    border: 1px solid var(--color-border-control);
     border-radius: 6px;
-    background: #fff;
-    color: var(--color-ink);
+    background: var(--color-field);
+    color: var(--color-heading);
   }
 
   .event-agenda__filters .event-agenda__include-ended {
@@ -497,7 +497,7 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
     min-width: 20px;
     margin: 0;
     padding: 0;
-    accent-color: #263457;
+    accent-color: var(--color-primary);
   }
 
   .event-card__alias-anchor {
@@ -589,16 +589,16 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
       align-items: center;
       width: fit-content;
       padding: 4px 10px;
-      border: 1px solid #b6bfce;
+      border: 1px solid var(--color-border-control);
       border-radius: 6px;
-      background: #fff;
-      color: #263457;
+      background: var(--color-surface);
+      color: var(--color-heading);
       cursor: pointer;
       font-weight: 700;
     }
 
     .event-agenda__secondary-filters summary:focus-visible {
-      outline: 2px solid #263457;
+      outline: 2px solid var(--color-focus);
       outline-offset: 2px;
     }
 

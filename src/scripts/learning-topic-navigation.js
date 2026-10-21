@@ -4,10 +4,17 @@ export function setupLearningTopicDisclosure(documentObject) {
   if (!disclosure) return;
 
   const summary = disclosure.querySelector('summary');
+  const isThemeToggleTarget = (target) => Boolean(target?.closest?.('[data-theme-toggle]'));
 
-  disclosure.addEventListener('focusout', (event) => {
-    if (event.relatedTarget && disclosure.contains(event.relatedTarget)) return;
-    disclosure.open = false;
+  documentObject.addEventListener('focusout', (event) => {
+    if (!disclosure.open) return;
+
+    const focusLeavesManagedArea = disclosure.contains(event.target) || isThemeToggleTarget(event.target);
+    if (!focusLeavesManagedArea) return;
+
+    const nextTargetStaysInManagedArea = disclosure.contains(event.relatedTarget)
+      || isThemeToggleTarget(event.relatedTarget);
+    if (!nextTargetStaysInManagedArea) disclosure.open = false;
   });
 
   documentObject.addEventListener('keydown', (event) => {
@@ -22,6 +29,8 @@ export function setupLearningTopicDisclosure(documentObject) {
   }, { capture: true });
 
   documentObject.addEventListener('click', (event) => {
-    if (disclosure.open && !disclosure.contains(event.target)) disclosure.open = false;
+    if (disclosure.open && !disclosure.contains(event.target) && !isThemeToggleTarget(event.target)) {
+      disclosure.open = false;
+    }
   });
 }

@@ -89,6 +89,14 @@ class MockElement {
     this.attributes.set(name, String(value));
     if (name === 'href') this.href = String(value);
   }
+  hasAttribute(name) { return this.attributes.has(name); }
+  closest(selector) {
+    assert.equal(selector, '[data-theme-toggle]', 'the fake implements only the public theme-toggle selector');
+    for (let element = this; element; element = element.parentElement) {
+      if (element.hasAttribute('data-theme-toggle')) return element;
+    }
+    return null;
+  }
   getAttribute(name) { return name === 'href' ? this.href ?? null : this.attributes.get(name) ?? null; }
   removeAttribute(name) {
     this.attributes.delete(name);
@@ -371,6 +379,10 @@ function createAgenda({
   const shareStatus = new MockElement(document);
   shareStatus.setAttribute('role', 'status');
   shareStatus.setAttribute('aria-live', 'polite');
+  const themeToggle = new MockElement(document, { tagName: 'BUTTON' });
+  themeToggle.setAttribute('data-theme-toggle', '');
+  const themeIcon = new MockElement(document, { tagName: 'SVG' });
+  themeIcon.parentElement = themeToggle;
   shareToggle.parentElement = shareMenu;
   shareMenu.children = [shareToggle, xShareLink, linkedinShareLink, copyButton];
   shareControls.children = [shareMenu, shareStatus];
@@ -533,6 +545,7 @@ function createAgenda({
     cards, countLabel, document, empty, modeFilter, more, countryFilter, cityFilter, communityFilter, clear,
     pageHeading, pageIntro,
     shareControls, shareMenu, shareToggle, xShareLink, linkedinShareLink, copyButton, shareStatus,
+    themeToggle, themeIcon,
     navigator, clipboardCalls, windowOpenCalls, setClipboard,
     get children() { return agenda.children; },
     viewButtons, previousPeriod, nextPeriod, periodLabel, zoneFilter, routeLinks, unrelatedRouteLink, window,
@@ -2426,6 +2439,11 @@ test('the native share menu closes with Escape, restores focus and leaves agenda
 
   agenda.shareToggle.click();
   assert.equal(agenda.shareMenu.open, true);
+  agenda.themeToggle.click();
+  agenda.document.dispatchEvent({ type: 'click', target: agenda.themeIcon });
+  assert.equal(agenda.shareMenu.open, true, 'clicking the theme toggle SVG leaves sharing open');
+  assert.equal(agenda.document.activeElement, agenda.themeToggle, 'the theme toggle keeps natural focus');
+
   agenda.modeFilter.focus();
   agenda.document.dispatchEvent({ type: 'click', target: agenda.modeFilter });
   assert.equal(agenda.shareMenu.open, false, 'an outside click closes the disclosure');
