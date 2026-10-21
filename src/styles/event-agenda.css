@@ -283,7 +283,8 @@
 }
 
 .event-agenda__secondary-fields {
-  left: 0;
+  left: auto;
+  right: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 11px;
@@ -814,6 +815,11 @@
   .event-agenda__secondary-filters {
     grid-column: 1;
     justify-self: start;
+  }
+
+  .event-agenda__secondary-fields {
+    right: auto;
+    left: 0;
   }
 
   .event-agenda__include-ended {

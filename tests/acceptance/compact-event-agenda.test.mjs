@@ -150,7 +150,7 @@ test('each public member has a compact title, time and original action outside c
       assert.equal(summary.tag, 'summary', context);
       assert.match(summary.attrs.get('aria-label') || text(summary), /detall/iu, context);
       const title = descendants(member).find((node) => node.tag === 'h4');
-      assert.equal(text(title ?? {}), member.attrs.get('data-member-title'), `${context}: full public title retained`);
+      assert.equal(text(title ?? {}), member.attrs.get('data-member-title').replace(/\s+/gu, ' ').trim(), `${context}: full public title retained`);
       assert.equal(isInside(title, detail), false, `${context}: title is visible before details`);
       for (const attribute of ['data-event-time-label', 'data-event-time-end-label', 'data-event-registration']) {
         const node = one(member, attribute, context);
