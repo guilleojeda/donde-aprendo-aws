@@ -91,8 +91,10 @@ function contextLabel(filters, style, count) {
   if (mode === 'online') return 'Online';
   if (mode === 'in-person') return `${singular ? 'Presencial' : 'Presenciales'}${location ? ` en ${location}` : ''}`;
   if (mode === 'hybrid') {
-    const label = singular ? 'Híbrido' : count === undefined ? 'Eventos híbridos' : 'Híbridos';
-    return `${label}${location ? ` en ${location}` : ''}`;
+    const label = singular ? 'Híbrido' : 'Híbridos';
+    const physical = singular ? 'presencial' : 'presenciales';
+    const online = style === 'linkedin' ? 'opciones online' : 'online';
+    return `${label}, ${physical}${location ? ` en ${location}` : ''}, y ${online}`;
   }
   if (!location) return style === 'linkedin'
     ? `${singular ? 'Presencial' : 'Presenciales'} y opciones online`
@@ -114,7 +116,7 @@ function xContext(filters, count, cityOverride) {
   if (mode === 'online') return `${countLabel(count)} online`;
   const eventKind = count === 1 ? 'evento' : 'eventos';
   if (mode === 'in-person') return `${count} ${eventKind} ${count === 1 ? 'presencial' : 'presenciales'}${location ? ` en ${location}` : ''}`;
-  if (mode === 'hybrid') return `${count} ${eventKind} ${count === 1 ? 'híbrido' : 'híbridos'}${location ? ` en ${location}` : ''}`;
+  if (mode === 'hybrid') return `${count} ${eventKind} ${count === 1 ? 'híbrido' : 'híbridos'}, ${count === 1 ? 'presencial' : 'presenciales'}${location ? ` en ${location}` : ''}, y online`;
   return `${count} ${eventKind} ${count === 1 ? 'presencial' : 'presenciales'}${location ? ` en ${location}` : ''}, y online`;
 }
 
