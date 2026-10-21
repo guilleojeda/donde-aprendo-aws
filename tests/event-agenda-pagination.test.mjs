@@ -2231,7 +2231,8 @@ test('a co-hosted occurrence shares the visible representative schedule and its 
   const copied = agenda.clipboardCalls[0][0];
   assert.match(copied, /Horario organizador Colombia/u);
   assert.match(copied, /16:00/u);
-  assert.match(copied, /17:30/u);
+  assert.doesNotMatch(copied, /17:30/u,
+    'the approved same-day format includes the representative start time without its end time');
   assert.doesNotMatch(copied, /14:00|15:00/u,
     'the copied schedule uses the visible Colombian representative rather than the Argentine co-host');
   assert.match(copied, /https:\/\/example\.test\/registro\/co/u);
