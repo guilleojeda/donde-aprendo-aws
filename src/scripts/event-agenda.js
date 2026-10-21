@@ -431,6 +431,8 @@ if (agenda && empty) {
     const focusedGroupIndex = matchingGroups.findIndex((group) => group.card === focusedCard);
     if (focusedGroupIndex >= limit) limit = focusedGroupIndex + 1;
     const matchingByCard = new Map(matchingGroups.map((group) => [group.card, group]));
+    const focusedItemWillBeHidden = (focusedCard && !matchingByCard.has(focusedCard))
+      || (focusedElement === more && matchingGroups.length <= limit);
     for (const group of groups) {
       const selected = matchingByCard.get(group.card);
       group.card.hidden = !selected || matchingGroups.indexOf(selected) >= limit;
@@ -450,6 +452,7 @@ if (agenda && empty) {
     }
     if (more) more.hidden = matchingGroups.length <= limit;
     if (count) count.textContent = `${matchingGroups.length} ${matchingGroups.length === 1 ? 'evento' : 'eventos'}`;
+    if (focusedItemWillBeHidden) includeEndedControl?.focus({ preventScroll: true });
 
     const nextTransition = nextEventAgendaTransition(allEvents, now);
     if (nextTransition !== null) {

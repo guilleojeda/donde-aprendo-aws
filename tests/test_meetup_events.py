@@ -224,6 +224,25 @@ class MeetupEventsTests(unittest.TestCase):
         html = '<script type="application/ld+json">' + json.dumps(PAGE) + '</script>'
         self.assertEqual(meetup.parse_event_page(html, EVENT_URL)['name'], 'AWS en acción')
 
+    def test_empty_calendar_is_a_valid_feed(self):
+        empty_feed = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n'
+        self.assertEqual(meetup.parse_feed(empty_feed, GROUP), [])
+
+    def test_feed_parser_rejects_incomplete_or_misnested_calendar_components(self):
+        event_block = ICAL[ICAL.index('BEGIN:VEVENT\r\n'):
+                           ICAL.index('END:VEVENT\r\n') + len('END:VEVENT\r\n')]
+        malformed_feeds = {
+            'missing event end': ICAL.replace('END:VEVENT\r\n', ''),
+            'missing calendar end': ICAL.replace('END:VCALENDAR\r\n', ''),
+            'event outside calendar': 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n' + event_block,
+            'calendar ends inside event': ICAL.replace('END:VEVENT\r\nEND:VCALENDAR', 'END:VCALENDAR'),
+            'nested event': ICAL.replace('BEGIN:VEVENT\r\n', 'BEGIN:VEVENT\r\nBEGIN:VEVENT\r\n'),
+        }
+        for description, feed in malformed_feeds.items():
+            with self.subTest(description=description):
+                with self.assertRaisesRegex(ValueError, 'Invalid iCalendar feed'):
+                    meetup.parse_feed(feed, GROUP)
+
     def test_structured_address_country_maps_to_venue_country_without_changing_organizer_country(self):
         cases = (
             (' us ', 'US'),
@@ -725,6 +744,35 @@ class MeetupEventsTests(unittest.TestCase):
                 self.assertEqual(result['changed'], 0)
                 self.assertEqual(len(result['failures']), 1)
                 self.assertTrue(table.existing['meetup-event-456']['published'])
+
+    def test_malformed_feed_preserves_past_and_future_events_while_healthy_group_syncs(self):
+        past = existing_event(published=True)
+        future = existing_event(published=True, starts_at='2099-01-02T18:00:00-05:00',
+                                ends_at='2099-01-02T20:00:00-05:00')
+        future['id'] = 'meetup-event-789'
+        table = FakeTable([past, future])
+        healthy_group = {
+            'id': '999', 'url': 'https://www.meetup.com/aws-test/', 'name': 'AWS Test',
+            'country': 'CO', 'timeZone': 'America/Bogota',
+        }
+        broken_feed = ICAL.replace('END:VEVENT\r\n', '')
+        healthy_url = 'https://www.meetup.com/aws-test/events/999/'
+        healthy_feed = ICAL.replace(EVENT_URL, healthy_url).replace('456', '999')
+
+        def feed(group):
+            source = broken_feed if group['id'] == '123' else healthy_feed
+            return meetup.parse_feed(source, group)
+
+        with patch.object(meetup, 'timezone_from_feed', side_effect=feed), \
+                patch.object(meetup, 'fetch_event_page', side_effect=lambda entry: dict(PAGE, url=entry['url'])):
+            result = meetup.synchronize(table=table, groups=[dict(GROUP), healthy_group])
+
+        self.assertEqual(result['changed'], 1)
+        self.assertEqual(len(result['failures']), 1)
+        self.assertIn('Feed 123:', result['failures'][0])
+        self.assertTrue(table.existing['meetup-event-456']['published'])
+        self.assertTrue(table.existing['meetup-event-789']['published'])
+        self.assertIn('meetup-event-999', table.existing)
 
     def test_unchanged_event_refreshes_detail_but_skips_write_and_editor_suppression_survives(self):
         prior = meetup.map_event(GROUP, meetup.parse_feed(ICAL, GROUP)[0], PAGE)

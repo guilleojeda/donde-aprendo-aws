@@ -52,6 +52,7 @@ class MockElement {
     this.textContent = textContent;
     this.options = [];
     this.scrollIntoViewCalls = [];
+    this.focusCalls = [];
     this.attributes = new Map();
     this.value = value;
   }
@@ -108,7 +109,10 @@ class MockElement {
     return (this.listeners.get(type) ?? []).map((handler) => handler(event));
   }
 
-  focus() { this.document.activeElement = this; }
+  focus(options) {
+    this.focusCalls.push(options);
+    this.document.activeElement = this;
+  }
 
   click() {
     if (this.hidden || this.disabled || this.parentElement?.hidden || this.parentElement?.parentElement?.hidden) return;
@@ -1239,6 +1243,60 @@ test('expiry leaves focus inside an unaffected event card', () => {
   assert.equal(agenda.cards[1].hidden, false);
   assert.equal(agenda.document.activeElement, agenda.cards[1].registration,
     'hiding an earlier event must not detach and blur the still-visible focused card');
+});
+
+test('expiry sends focus to the visible ended-events control when the focused card leaves selection', () => {
+  const agenda = createAgenda({ count: 1, expiringFirst: true, includeEnded: false });
+  agenda.cards[0].registration.focus();
+  agenda.advanceTime(501);
+
+  assert.equal(agenda.fireNextTimer(), true);
+  assert.equal(agenda.cards[0].hidden, true, 'the ended card leaves selection with the checkbox off');
+  assert.equal(agenda.document.activeElement, agenda.includeEnded,
+    'focus lands on a stable visible control after its card disappears');
+  assert.equal(agenda.includeEnded.checked, false, 'moving focus does not toggle the checkbox');
+  assert.equal(agenda.includeEnded.focusCalls.at(-1)?.preventScroll, true,
+    'the fallback does not scroll the page');
+});
+
+test('expiry sends focus to the visible ended-events control when Show More disappears', () => {
+  const agenda = createAgenda({ count: 13, expiringFirst: true, includeEnded: false });
+  assert.equal(agenda.more.hidden, false);
+  agenda.more.focus();
+  agenda.advanceTime(501);
+
+  assert.equal(agenda.fireNextTimer(), true);
+  assert.equal(agenda.more.hidden, true, 'the final page control disappears when only twelve events remain');
+  assert.equal(agenda.document.activeElement, agenda.includeEnded,
+    'focus lands on a stable visible control after Show More disappears');
+  assert.equal(agenda.includeEnded.checked, false, 'moving focus does not toggle the checkbox');
+  assert.equal(agenda.includeEnded.focusCalls.at(-1)?.preventScroll, true,
+    'the fallback does not scroll the page');
+});
+
+test('expiry leaves focus on the card when ended events remain included', () => {
+  const agenda = createAgenda({ count: 1, expiringFirst: true, includeEnded: true });
+  const focusedAction = agenda.cards[0].registration;
+  focusedAction.focus();
+  agenda.advanceTime(501);
+
+  assert.equal(agenda.fireNextTimer(), true);
+  assert.equal(agenda.cards[0].hidden, false);
+  assert.equal(agenda.includeEnded.checked, true);
+  assert.equal(agenda.document.activeElement, focusedAction,
+    'an included event remains focused when its state changes to Finalizado');
+});
+
+test('expiry does not steal focus from an unrelated agenda control', () => {
+  const agenda = createAgenda({ count: 1, expiringFirst: true, includeEnded: false });
+  agenda.modeFilter.focus();
+  agenda.advanceTime(501);
+
+  assert.equal(agenda.fireNextTimer(), true);
+  assert.equal(agenda.cards[0].hidden, true);
+  assert.equal(agenda.document.activeElement, agenda.modeFilter,
+    'an automatic refresh leaves focus on the filter that was already focused');
+  assert.equal(agenda.includeEnded.focusCalls.length, 0);
 });
 
 test('expiry keeps the focused twelfth card visible when a co-host representative reorders ahead of it', () => {

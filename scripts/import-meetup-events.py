@@ -98,32 +98,58 @@ def unfold_ical(text):
 
 def parse_feed(text, group):
     lines = unfold_ical(text)
-    if not lines or lines[0] != 'BEGIN:VCALENDAR' or 'END:VCALENDAR' not in lines:
+    while lines and lines[-1] == '':
+        lines.pop()
+    if not lines or lines[0] != 'BEGIN:VCALENDAR' or lines[-1] != 'END:VCALENDAR':
         raise ValueError(f'Invalid iCalendar feed for {group["id"]}')
     events = []
+    components = []
+    calendar_seen = False
     current = None
     for line in lines:
-        if line == 'BEGIN:VEVENT':
-            current = {}
-        elif line == 'END:VEVENT' and current is not None:
-            uid = current.get('UID', '')
-            match = re.fullmatch(r'event_(\d+)@meetup\.com', uid)
-            url = current.get('URL', '')
-            parsed = urlparse(url)
-            expected_slug = urlparse(group['url']).path.strip('/')
-            if not match or parsed.scheme != 'https' or parsed.hostname != MEETUP_HOST \
-                    or not re.fullmatch(rf'/{re.escape(expected_slug)}/events/{match.group(1)}/?', parsed.path, re.I):
-                raise ValueError(f'Invalid Meetup event in feed of {group["id"]}')
-            modified = current.get('LAST-MODIFIED') or sha256(
-                json.dumps(current, sort_keys=True).encode('utf-8')).hexdigest()
-            event = {'id': match.group(1), 'url': url, 'modified': modified}
-            if current.get('STATUS') == 'CANCELLED':
-                event['cancelled'] = True
-            events.append(event)
-            current = None
+        if line.startswith('BEGIN:'):
+            component = line[len('BEGIN:'):]
+            if not components:
+                if line != 'BEGIN:VCALENDAR' or calendar_seen:
+                    raise ValueError(f'Invalid iCalendar feed for {group["id"]}')
+                calendar_seen = True
+            elif component == 'VCALENDAR':
+                raise ValueError(f'Invalid iCalendar feed for {group["id"]}')
+            elif component == 'VEVENT':
+                if components != ['VCALENDAR']:
+                    raise ValueError(f'Invalid iCalendar feed for {group["id"]}')
+                current = {}
+            components.append(component)
+        elif line.startswith('END:'):
+            component = line[len('END:'):]
+            if not components or components[-1] != component:
+                raise ValueError(f'Invalid iCalendar feed for {group["id"]}')
+            if component == 'VCALENDAR' and (components != ['VCALENDAR'] or current is not None):
+                raise ValueError(f'Invalid iCalendar feed for {group["id"]}')
+            if component == 'VEVENT':
+                if components != ['VCALENDAR', 'VEVENT'] or current is None:
+                    raise ValueError(f'Invalid iCalendar feed for {group["id"]}')
+                uid = current.get('UID', '')
+                match = re.fullmatch(r'event_(\d+)@meetup\.com', uid)
+                url = current.get('URL', '')
+                parsed = urlparse(url)
+                expected_slug = urlparse(group['url']).path.strip('/')
+                if not match or parsed.scheme != 'https' or parsed.hostname != MEETUP_HOST \
+                        or not re.fullmatch(rf'/{re.escape(expected_slug)}/events/{match.group(1)}/?', parsed.path, re.I):
+                    raise ValueError(f'Invalid Meetup event in feed of {group["id"]}')
+                modified = current.get('LAST-MODIFIED') or sha256(
+                    json.dumps(current, sort_keys=True).encode('utf-8')).hexdigest()
+                event = {'id': match.group(1), 'url': url, 'modified': modified}
+                if current.get('STATUS') == 'CANCELLED':
+                    event['cancelled'] = True
+                events.append(event)
+                current = None
+            components.pop()
         elif current is not None and ':' in line:
             key, value = line.split(':', 1)
             current[key.split(';', 1)[0]] = value
+    if components or not calendar_seen:
+        raise ValueError(f'Invalid iCalendar feed for {group["id"]}')
     return events
 
 
