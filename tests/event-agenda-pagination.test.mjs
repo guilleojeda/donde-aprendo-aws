@@ -48,6 +48,7 @@ class MockElement {
     if (tagName !== 'A') this.disabled = false;
     this.checked = checked;
     this.children = [];
+    this.parentElement = null;
     this.listeners = new Map();
     this.textContent = textContent;
     this.options = [];
@@ -88,6 +89,10 @@ class MockElement {
   setAttribute(name, value) {
     this.attributes.set(name, String(value));
     if (name === 'href') this.href = String(value);
+    if (name.startsWith('data-')) {
+      const key = name.slice(5).replace(/-([a-z])/gu, (_match, letter) => letter.toUpperCase());
+      this.dataset[key] = String(value);
+    }
   }
   hasAttribute(name) { return this.attributes.has(name); }
   closest(selector) {
@@ -101,11 +106,26 @@ class MockElement {
   removeAttribute(name) {
     this.attributes.delete(name);
     if (name === 'href') delete this.href;
+    if (name.startsWith('data-')) {
+      const key = name.slice(5).replace(/-([a-z])/gu, (_match, letter) => letter.toUpperCase());
+      delete this.dataset[key];
+    }
   }
 
   append(...children) {
-    this.children.push(...children);
-    if (this.tagName === 'SELECT') this.options.push(...children);
+    for (const child of children) {
+      if (child.parentElement) {
+        const previousParent = child.parentElement;
+        previousParent.children = previousParent.children.filter((item) => item !== child);
+        if (previousParent.tagName === 'SELECT') {
+          previousParent.options = previousParent.options.filter((item) => item !== child);
+        }
+      }
+      this.children = this.children.filter((item) => item !== child);
+      this.children.push(child);
+      child.parentElement = this;
+      if (this.tagName === 'SELECT' && !this.options.includes(child)) this.options.push(child);
+    }
   }
 
   appendChild(child) {
@@ -113,17 +133,60 @@ class MockElement {
     return child;
   }
 
+  matches(selector) {
+    if (selector === 'a') return this.tagName === 'A';
+    const attribute = /^\[data-([a-z0-9-]+)\]$/u.exec(selector);
+    if (attribute) {
+      const key = attribute[1].replace(/-([a-z])/gu, (_match, letter) => letter.toUpperCase());
+      return Object.hasOwn(this.dataset, key);
+    }
+    const taggedAttribute = /^(\w+)\[data-([a-z0-9-]+)\]$/u.exec(selector);
+    if (taggedAttribute) {
+      const key = taggedAttribute[2].replace(/-([a-z])/gu, (_match, letter) => letter.toUpperCase());
+      return this.tagName === taggedAttribute[1].toUpperCase() && Object.hasOwn(this.dataset, key);
+    }
+    return false;
+  }
+
+  querySelectorAll(selector) {
+    const matches = [];
+    const visit = (parent) => {
+      for (const child of parent.children) {
+        if (child.matches(selector)) matches.push(child);
+        visit(child);
+      }
+    };
+    visit(this);
+    return matches;
+  }
+
+  querySelector(selector) { return this.querySelectorAll(selector)[0] ?? null; }
+
   emit(type, event = {}) {
     return (this.listeners.get(type) ?? []).map((handler) => handler(event));
   }
 
+  emitBubbling(type, event = {}) {
+    if (!Object.hasOwn(event, 'target')) event.target = this;
+    for (let element = this; element; element = element.parentElement) {
+      event.currentTarget = element;
+      element.emit(type, event);
+    }
+    this.document?.dispatchEvent(event);
+  }
+
   focus(options) {
     this.focusCalls.push(options);
+    const previous = this.document?.activeElement;
+    if (previous === this) return;
     this.document.activeElement = this;
+    previous?.emitBubbling('focusout', { type: 'focusout', target: previous, relatedTarget: this });
   }
 
   click() {
-    if (this.hidden || this.disabled || this.parentElement?.hidden || this.parentElement?.parentElement?.hidden) return;
+    for (let element = this; element; element = element.parentElement) {
+      if (element.hidden || element.disabled) return;
+    }
     if (this.parentElement?.tagName === 'DETAILS' && !this.parentElement.open && this.tagName !== 'SUMMARY') return;
     this.focus();
     if (this.tagName === 'SUMMARY' && this.parentElement?.tagName === 'DETAILS') {
@@ -135,9 +198,7 @@ class MockElement {
 
   scrollIntoView(options) { this.scrollIntoViewCalls.push(options); }
 
-  contains(element) {
-    return element === this || this.children.some((child) => child.contains(element));
-  }
+  contains(element) { return element === this || this.children.some((child) => child.contains(element)); }
 }
 
 function createEventCards(count, {
@@ -168,8 +229,12 @@ function createEventCards(count, {
       },
     });
     card.id = `event-${card.dataset.eventId}`;
-    // The public markup now keeps one view per co-host inside the occurrence.
-    // Expand the existing aggregate fixture metadata into those member views.
+    card.dayHeading = new MockElement(null, {
+      tagName: 'H3',
+      dataset: { eventDayHeading: '', eventDay: spec.headingDate ?? '' },
+      textContent: spec.headingLabel ?? '',
+    });
+    // Give each co-host its own detail disclosure and action links, as consumed by the agenda client.
     const countries = card.dataset.eventCountries.split('|').filter(Boolean);
     const communities = card.dataset.eventCommunities.split('|').filter(Boolean);
     const aliases = card.dataset.eventAliasIds.split('|').filter(Boolean);
@@ -199,6 +264,13 @@ function createEventCards(count, {
       view.calendar.href = `/eventos/${view.dataset.eventMemberId}.ics`;
       view.report = new MockElement(null, { tagName: 'A', textContent: 'Reportar dato incorrecto' });
       view.report.href = `mailto:contact@example.test?body=${view.dataset.eventMemberId}`;
+      view.recording = new MockElement(null, { tagName: 'A', textContent: 'Ver grabación' });
+      view.recording.href = `/aprender/?eventId=${view.dataset.eventMemberId}`;
+      view.details = new MockElement(null, { tagName: 'DETAILS', dataset: { eventDetail: '' } });
+      view.details.open = false;
+      view.detailToggle = new MockElement(null, { tagName: 'SUMMARY', dataset: { eventDetailToggle: '' }, textContent: 'Detalles' });
+      view.description = new MockElement(null, { textContent: memberSpec.description ?? `Descripción de ${view.dataset.eventMemberId}` });
+      view.details.append(view.detailToggle, view.description, view.calendar, view.recording, view.report);
       view.dateLabel = new MockElement(null);
       view.timeLabel = new MockElement(null);
       view.endTimeLabel = new MockElement(null);
@@ -210,17 +282,22 @@ function createEventCards(count, {
         '[data-event-time-label]': view.timeLabel,
         '[data-event-time-end-label]': view.endTimeLabel,
         '[data-event-participation]': view.participationLabel,
+        '[data-event-detail]': view.details,
+        '[data-event-detail-toggle]': view.detailToggle,
         '[data-visitor-time]': null,
         '[data-visitor-time-value]': null,
-      }[selector] ?? null);
-      view.querySelectorAll = (selector) => selector === 'a' ? [view.registration, view.calendar, view.report] : [];
-      view.children = [view.status, view.registration, view.calendar, view.report, view.dateLabel, view.timeLabel, view.endTimeLabel, view.participationLabel];
+      }[selector] ?? MockElement.prototype.querySelector.call(view, selector));
+      view.querySelectorAll = (selector) => MockElement.prototype.querySelectorAll.call(view, selector);
+      view.append(view.status, view.registration, view.dateLabel, view.timeLabel, view.endTimeLabel, view.participationLabel, view.details);
       return view;
     });
-    card.children = card.members;
+    card.children = [card.dayHeading, ...card.members];
+    card.dayHeading.parentElement = card;
+    for (const member of card.members) member.parentElement = card;
     card.status = card.members[0].status;
     card.registration = card.members[0].registration;
-    card.querySelectorAll = (selector) => selector === '[data-event-member-id]' ? card.members : [];
+    card.querySelectorAll = (selector) => selector === '[data-event-member-id]'
+      ? card.members : MockElement.prototype.querySelectorAll.call(card, selector);
     return card;
   });
 }
@@ -251,9 +328,13 @@ function createAgenda({
   });
   for (const card of cards) {
     card.document = document;
+    card.parentElement = null;
+    card.dayHeading.document = document;
     for (const member of card.members) {
       member.document = document;
-      for (const child of member.children) child.document = document;
+      for (const child of [member.details, member.detailToggle, member.description, ...member.querySelectorAll('a')]) {
+        child.document = document;
+      }
     }
   }
 
@@ -270,13 +351,12 @@ function createAgenda({
     },
   });
   agenda.children = [...cards];
-  agenda.querySelectorAll = (selector) => selector === '[data-event-ends-at]' ? agenda.children : [];
+  for (const card of agenda.children) card.parentElement = agenda;
   agenda.append = (...children) => {
     for (const child of children) {
       if (child.contains(document.activeElement)) document.activeElement = document.body;
-      agenda.children = agenda.children.filter((item) => item !== child);
-      agenda.children.push(child);
     }
+    MockElement.prototype.append.apply(agenda, children);
   };
   const empty = new MockElement(document, {
     hidden: true,
@@ -324,8 +404,9 @@ function createAgenda({
   nextPeriod.setAttribute('aria-label', 'Siguiente');
   const periodLabel = new MockElement(document);
   const zoneFilter = new MockElement(document, { tagName: 'SELECT' });
-  zoneFilter.options = ['UTC', 'America/Bogota', 'America/New_York', 'Asia/Tokyo']
+  zoneFilter.options = ['UTC', 'America/Bogota', 'America/New_York', 'America/Argentina/Cordoba', 'Asia/Tokyo']
     .map((value) => ({ value, dataset: {} }));
+  const secondaryZone = zoneFilter;
   const routeLinks = [
     { href: '/eventos/', dataset: {}, target: '' },
     { href: '/eventos/argentina/', dataset: { eventAgendaCountry: 'AR' }, target: '' },
@@ -349,6 +430,14 @@ function createAgenda({
   cityFilter.options = [{ value: '', dataset: {} }, ...cityOptions];
   const communityFilter = new MockElement(document, { tagName: 'SELECT' });
   communityFilter.options = [{ value: '', dataset: {} }, ...communityOptions];
+  const secondaryDisclosure = new MockElement(document, { tagName: 'DETAILS' });
+  secondaryDisclosure.open = false;
+  const secondaryDisclosureToggle = new MockElement(document, { tagName: 'SUMMARY', textContent: 'Más filtros' });
+  const secondaryLabel = new MockElement(document, { dataset: { eventSecondaryLabel: '' }, textContent: 'Más filtros' });
+  const secondaryFields = new MockElement(document);
+  secondaryDisclosureToggle.append(secondaryLabel);
+  secondaryFields.append(communityFilter, zoneFilter);
+  secondaryDisclosure.append(secondaryDisclosureToggle, secondaryFields);
   const filterFields = new MockElement(document);
   filterFields.querySelector = (selector) => ({
     '[data-event-mode]': modeFilter,
@@ -382,16 +471,21 @@ function createAgenda({
   const themeToggle = new MockElement(document, { tagName: 'BUTTON' });
   themeToggle.setAttribute('data-theme-toggle', '');
   const themeIcon = new MockElement(document, { tagName: 'SVG' });
-  themeIcon.parentElement = themeToggle;
+  themeToggle.append(themeIcon);
   shareToggle.parentElement = shareMenu;
   shareMenu.children = [shareToggle, xShareLink, linkedinShareLink, copyButton];
   shareControls.children = [shareMenu, shareStatus];
   for (const child of shareMenu.children) child.parentElement = shareMenu;
   for (const child of shareControls.children) child.parentElement = shareControls;
+  const currentWeekButton = new MockElement(document, {
+    tagName: 'BUTTON', dataset: { eventCurrentWeek: '' }, textContent: 'Semana actual',
+  });
+  currentWeekButton.type = 'button';
   const elements = new Map([
     ['[data-event-list]', agenda], ['[data-event-empty]', empty], ['.event-agenda__filters', filterFields],
     ['[data-event-page-heading]', pageHeading], ['[data-event-page-intro]', pageIntro],
-    ['[data-event-secondary-disclosure]', null], ['[data-event-secondary-label]', null],
+    ['[data-event-secondary-disclosure]', secondaryDisclosure], ['[data-event-secondary-label]', secondaryLabel],
+    ['[data-event-current-week]', currentWeekButton],
     ['[data-event-clear]', clear], ['[data-event-more]', more], ['[data-event-count]', countLabel],
     ['[data-event-summary]', summary],
     ['[data-event-include-ended]', includeEndedFilter],
@@ -416,16 +510,33 @@ function createAgenda({
     return [];
   };
   document.createElement = (tagName) => new MockElement(document, { tagName: String(tagName).toUpperCase() });
-  document.addEventListener = (type, handler) => document.listeners.set(type, handler);
+  document.addEventListener = (type, handler) => {
+    const handlers = document.listeners.get(type) ?? [];
+    handlers.push(handler);
+    document.listeners.set(type, handlers);
+  };
   document.dispatchEvent = (event) => {
-    const result = document.listeners.get(event.type)?.(event);
+    event.currentTarget = document;
+    let result;
+    for (const handler of document.listeners.get(event.type) ?? []) result = handler(event);
     windowListeners.get(event.type)?.(event);
     return result;
   };
 
   const windowListeners = new Map();
+  const mediaListeners = [];
+  const mobileDisclosure = {
+    matches: false,
+    addEventListener(type, handler) {
+      if (type === 'change') mediaListeners.push(handler);
+    },
+    setMatches(matches) {
+      this.matches = Boolean(matches);
+      for (const listener of mediaListeners) listener({ matches: this.matches });
+    },
+  };
   const window = {
-    matchMedia: () => ({ matches: false, addEventListener() {} }),
+    matchMedia: () => mobileDisclosure,
     addEventListener: (type, handler) => windowListeners.set(type, handler),
     location: { hostname, href: '' },
     gtag: (...args) => telemetryCalls.push(args),
@@ -465,11 +576,16 @@ function createAgenda({
     },
   });
   const historyEntries = [];
-  const historyUrls = [filter];
+  const historyUrls = [`${pathname}${filter}${hash}`];
   let historyIndex = 0;
   const applyUrl = (url) => {
     const hashStart = url.indexOf('#');
     const queryStart = url.indexOf('?');
+    const pathEnd = queryStart === -1
+      ? (hashStart === -1 ? url.length : hashStart)
+      : hashStart === -1 ? queryStart : Math.min(queryStart, hashStart);
+    const nextPath = url.slice(0, pathEnd);
+    if (nextPath.startsWith('/')) location.pathname = nextPath;
     location.search = queryStart === -1
       ? ''
       : url.slice(queryStart, hashStart === -1 ? undefined : hashStart);
@@ -543,15 +659,19 @@ function createAgenda({
 
   return {
     cards, countLabel, document, empty, modeFilter, more, countryFilter, cityFilter, communityFilter, clear,
-    pageHeading, pageIntro,
+    pageHeading, pageIntro, secondaryDisclosure, secondaryDisclosureToggle, secondaryLabel, secondaryFields,
+    secondaryZone,
     shareControls, shareMenu, shareToggle, xShareLink, linkedinShareLink, copyButton, shareStatus,
     themeToggle, themeIcon,
     navigator, clipboardCalls, windowOpenCalls, setClipboard,
     get children() { return agenda.children; },
     viewButtons, previousPeriod, nextPeriod, periodLabel, zoneFilter, routeLinks, unrelatedRouteLink, window,
+    currentWeekButton,
     includeEnded: includeEndedFilter, summary, historyEntries, history, location, storageCalls, telemetryCalls,
     advanceTime(ms) { clock += ms; },
-    refreshVisibility() { document.listeners.get('visibilitychange')?.(); },
+    refreshVisibility() {
+      for (const handler of document.listeners.get('visibilitychange') ?? []) handler();
+    },
     fireNextTimer() {
       const [timerId, timer] = [...timers.entries()].sort((left, right) => left[1].delay - right[1].delay)[0] ?? [];
       if (!timer) return false;
@@ -563,7 +683,35 @@ function createAgenda({
       location.hash = hash;
       windowListeners.get('hashchange')?.();
     },
+    setViewportMobile(matches) { mobileDisclosure.setMatches(matches); },
   };
+}
+
+function expectAgendaDayHeadings(agenda, timeZone) {
+  const visibleCards = agenda.children.filter((card) => !card.hidden);
+  const seenDays = new Set();
+  const expectedHeadings = [];
+  for (const card of visibleCards) {
+    const heading = card.querySelector('[data-event-day-heading]');
+    assert.ok(heading, `occurrence ${card.dataset.eventId} keeps a semantic day heading in the DOM`);
+    assert.equal(heading.tagName, 'H3');
+    const day = eventLocalDate(card.dataset.eventStartsAt, timeZone);
+    assert.equal(heading.dataset.eventDay, day,
+      `heading follows the occurrence start day ${day} in ${timeZone}`);
+    const isFirstVisibleOccurrence = !seenDays.has(day);
+    assert.equal(heading.hidden, !isFirstVisibleOccurrence,
+      `only the first visible occurrence on ${day} has a visible heading`);
+    if (isFirstVisibleOccurrence) {
+      expectedHeadings.push(day);
+      seenDays.add(day);
+    }
+  }
+  const visibleHeadings = visibleCards
+    .filter((card) => !card.querySelector('[data-event-day-heading]').hidden)
+    .map((card) => card.querySelector('[data-event-day-heading]').dataset.eventDay);
+  assert.deepEqual(visibleHeadings, expectedHeadings,
+    'visible headings match the selected occurrence days without duplicates or orphan rows');
+  return expectedHeadings;
 }
 
 test('a new agenda chooses this week in the selected zone and falls back from invalid zones', () => {
@@ -591,6 +739,179 @@ test('a new agenda chooses this week in the selected zone and falls back from in
   const fallbackQuery = new URLSearchParams(invalidVisitor.location.search);
   assert.equal(fallbackQuery.get('tz'), 'UTC', 'an invalid browser zone falls back to UTC');
   assert.equal(fallbackQuery.get('date'), '2026-01-01');
+});
+
+test('Semana actual uses the selected zone, preserves query and checkbox state, and participates in history', () => {
+  const now = Date.parse('2026-01-01T01:00:00Z');
+  for (const [timeZone, expectedDate] of [
+    ['UTC', '2026-01-01'],
+    ['America/Argentina/Cordoba', '2025-12-31'],
+  ]) {
+    const agenda = createAgenda({
+      count: 0,
+      now,
+      filter: `?campaign=week-test&view=month&date=2025-12-15&tz=${encodeURIComponent(timeZone)}&mode=in-person&country=AR&city=AR%3AC%C3%B3rdoba&community=community-ar`,
+      hash: '#previous-anchor',
+    });
+    agenda.includeEnded.checked = false;
+    const startingQuery = new URLSearchParams(agenda.location.search);
+
+    agenda.currentWeekButton.click();
+
+    let query = new URLSearchParams(agenda.location.search);
+    assert.equal(query.get('view'), 'week');
+    assert.equal(query.get('date'), expectedDate,
+      `today is calculated in ${timeZone}, including the New Year boundary`);
+    assert.equal(query.get('tz'), timeZone);
+    for (const key of ['campaign', 'mode', 'country', 'city', 'community']) {
+      assert.equal(query.get(key), startingQuery.get(key), `${key} survives navigation to the current week`);
+    }
+    assert.equal(agenda.includeEnded.checked, false, 'the session-local ended-events checkbox is preserved');
+    assert.equal(agenda.location.hash, '', 'current-week navigation clears the prior fragment');
+    assert.equal(agenda.historyEntries.at(-1)?.method, 'pushState');
+    assert.ok(!agenda.historyEntries.at(-1)?.url.includes('#'));
+
+    agenda.history.back();
+    query = new URLSearchParams(agenda.location.search);
+    assert.equal(query.get('view'), 'month');
+    assert.equal(query.get('date'), '2025-12-15');
+    assert.equal(agenda.location.hash, '#previous-anchor', 'Back restores the prior fragment and period');
+    assert.equal(agenda.includeEnded.checked, false);
+    agenda.history.forward();
+    query = new URLSearchParams(agenda.location.search);
+    assert.equal(query.get('view'), 'week');
+    assert.equal(query.get('date'), expectedDate);
+    assert.equal(agenda.location.hash, '', 'Forward returns to the hash-free current-week entry');
+    assert.equal(agenda.includeEnded.checked, false);
+  }
+
+  const events = Array.from({ length: 27 }, (_, index) => ({
+    id: `january-event-${index}`,
+    startsAt: now + 10_000 + index,
+    endsAt: now + 3_600_000 + index,
+    localDate: '2026-01-01',
+  }));
+  const agenda = createAgenda({
+    count: events.length,
+    now,
+    events,
+    filter: '?view=month&date=2026-01-15&tz=UTC',
+  });
+  assert.equal(agenda.cards.filter((card) => !card.hidden).length, 12);
+  assert.equal(agenda.countLabel.textContent, '27 eventos');
+  agenda.more.click();
+  assert.equal(agenda.cards.filter((card) => !card.hidden).length, 24);
+  assert.equal(agenda.countLabel.textContent, '27 eventos');
+
+  agenda.currentWeekButton.click();
+  assert.equal(new URLSearchParams(agenda.location.search).get('view'), 'week');
+  assert.equal(new URLSearchParams(agenda.location.search).get('date'), '2026-01-01');
+  assert.equal(agenda.cards.filter((card) => !card.hidden).length, 12,
+    'navigating to the current week restores the first page');
+  assert.equal(agenda.countLabel.textContent, '27 eventos', 'pagination does not truncate the selected total');
+});
+
+test('secondary filters stay closed on boot and across query, filtering, history, and viewport changes', () => {
+  const agenda = createAgenda({
+    count: 1,
+    filter: '?view=week&date=2026-10-05&tz=UTC&mode=in-person&country=AR&city=AR%3AC%C3%B3rdoba&community=community-ar',
+  });
+  assert.equal(agenda.secondaryDisclosure.open, false,
+    'an active community query is indicated without opening Secondary filters');
+  assert.equal(agenda.secondaryLabel.textContent, 'Más filtros (1 activo)');
+
+  agenda.setViewportMobile(true);
+  assert.equal(agenda.secondaryDisclosure.open, false, 'resizing to mobile does not auto-open the disclosure');
+  agenda.setViewportMobile(false);
+  assert.equal(agenda.secondaryDisclosure.open, false, 'resizing back to desktop does not auto-open it');
+
+  agenda.communityFilter.value = '';
+  agenda.communityFilter.emit('change');
+  assert.equal(agenda.secondaryDisclosure.open, false, 'changing a secondary filter does not open its disclosure');
+  assert.equal(agenda.secondaryLabel.textContent, 'Más filtros');
+  agenda.history.back();
+  assert.equal(agenda.secondaryDisclosure.open, false, 'restoring an active community query stays closed');
+  assert.equal(agenda.secondaryLabel.textContent, 'Más filtros (1 activo)');
+  agenda.communityFilter.value = '';
+  agenda.communityFilter.emit('change');
+  agenda.communityFilter.value = 'community-ar';
+  agenda.communityFilter.emit('change');
+  assert.equal(agenda.secondaryDisclosure.open, false, 'selecting an active secondary filter keeps it closed');
+  assert.equal(agenda.secondaryLabel.textContent, 'Más filtros (1 activo)');
+  agenda.setViewportMobile(true);
+  assert.equal(agenda.secondaryDisclosure.open, false, 'resize with active history state stays closed');
+});
+
+test('More options stays open through Tab to theme, then closes on focusout without stealing focus', () => {
+  const agenda = createAgenda({
+    count: 1,
+    filter: '?view=week&date=2026-10-05&tz=UTC&mode=online',
+  });
+  const queryBefore = agenda.location.search;
+  const historyBefore = agenda.historyEntries.length;
+  const cardsBefore = [...agenda.children];
+  const moreBefore = agenda.more.hidden;
+  const focusoutTransitions = [];
+  agenda.document.addEventListener('focusout', (event) => {
+    focusoutTransitions.push([event.target, event.relatedTarget]);
+  });
+
+  // Closed-on-load is covered separately; isolate focusout behavior here.
+  agenda.secondaryDisclosure.open = false;
+  agenda.secondaryDisclosureToggle.click();
+  assert.equal(agenda.secondaryDisclosure.open, true);
+  assert.equal(agenda.document.activeElement, agenda.secondaryDisclosureToggle);
+  const tab = { key: 'Tab', defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } };
+  agenda.secondaryDisclosure.emit('keydown', tab);
+  assert.equal(tab.defaultPrevented, false, 'Tab remains native');
+  agenda.communityFilter.focus();
+  assert.equal(agenda.secondaryDisclosure.open, true);
+  agenda.secondaryZone.focus();
+  assert.equal(agenda.document.activeElement, agenda.secondaryZone);
+  assert.equal(agenda.secondaryDisclosure.open, true);
+
+  agenda.themeToggle.focus();
+  assert.equal(agenda.document.activeElement, agenda.themeToggle);
+  assert.equal(agenda.themeToggle.hidden, false);
+  assert.equal(agenda.secondaryDisclosure.open, true,
+    'focus moving from an internal filter to the theme toggle does not close More options');
+  agenda.themeToggle.click();
+  agenda.document.dispatchEvent({ type: 'click', target: agenda.themeIcon });
+  assert.equal(agenda.secondaryDisclosure.open, true,
+    'a click whose target is inside the theme toggle does not close More options');
+
+  agenda.modeFilter.focus();
+  assert.equal(agenda.secondaryDisclosure.open, false,
+    'moving focus out from the theme toggle to an outer control closes More options');
+  assert.equal(agenda.document.activeElement, agenda.modeFilter,
+    'closing More options does not steal focus from the outer control');
+  assert.ok(focusoutTransitions.some(([target, relatedTarget]) => target === agenda.secondaryZone
+    && relatedTarget === agenda.themeToggle));
+  assert.ok(focusoutTransitions.some(([target, relatedTarget]) => target === agenda.themeToggle
+    && relatedTarget === agenda.modeFilter));
+
+  assert.deepEqual(agenda.children, cardsBefore, 'opening filters does not reorder or replace agenda occurrences');
+  assert.equal(agenda.more.hidden, moreBefore);
+  assert.equal(agenda.location.search, queryBefore);
+  assert.equal(agenda.historyEntries.length, historyBefore);
+
+  agenda.secondaryDisclosureToggle.click();
+  agenda.secondaryDisclosureToggle.focus();
+  const escape = { key: 'Escape', defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } };
+  agenda.secondaryDisclosure.emit('keydown', escape);
+  assert.equal(agenda.secondaryDisclosure.open, false);
+  assert.equal(agenda.document.activeElement, agenda.secondaryDisclosureToggle,
+    'Escape closes the disclosure and restores focus to its summary');
+  assert.equal(escape.defaultPrevented, true);
+
+  agenda.secondaryDisclosureToggle.click();
+  agenda.document.dispatchEvent({ type: 'click', target: agenda.modeFilter });
+  assert.equal(agenda.secondaryDisclosure.open, false, 'an outside click closes the disclosure');
+  assert.equal(agenda.document.activeElement, agenda.secondaryDisclosureToggle,
+    'outside click closure does not move focus on its own');
+  assert.equal(agenda.location.search, queryBefore);
+  assert.equal(agenda.historyEntries.length, historyBefore);
+  assert.deepEqual(agenda.children, cardsBefore);
 });
 
 test('legacy date ranges open their first date as a week and normalize the URL', () => {
@@ -737,6 +1058,81 @@ test('week and month selections use zone-aware overlap boundaries and main event
   assert.ok(utcDateDigits.includes('12'), 'the primary date changes with the selected zone');
   assert.ok(utcTimeDigits.some((digit) => Number(digit) === 2) && utcTimeDigits.includes('30'),
     'the primary time changes with the selected zone');
+});
+
+test('day headings group visible occurrence starts across pagination, filters, and timezone changes', () => {
+  const now = Date.parse('2026-10-05T12:00:00Z');
+  const events = [
+    {
+      id: 'starts-before-week', mode: 'online',
+      startsAt: '2026-10-02T20:00:00Z', endsAt: '2026-10-05T07:00:00Z',
+    },
+    ...Array.from({ length: 13 }, (_, index) => ({
+      id: `monday-${index}`, mode: index % 2 ? 'in-person' : 'online',
+      startsAt: new Date(Date.parse('2026-10-05T00:30:00Z') + index * 60_000).toISOString(),
+      endsAt: '2026-10-05T05:30:00Z',
+    })),
+    ...Array.from({ length: 5 }, (_, index) => ({
+      id: `tuesday-${index}`, mode: index % 2 ? 'in-person' : 'online',
+      startsAt: new Date(Date.parse('2026-10-06T12:00:00Z') + index * 60_000).toISOString(),
+      endsAt: '2026-10-06T13:00:00Z',
+    })),
+    ...Array.from({ length: 3 }, (_, index) => ({
+      id: `wednesday-${index}`, mode: index % 2 ? 'in-person' : 'online',
+      startsAt: new Date(Date.parse('2026-10-07T12:00:00Z') + index * 60_000).toISOString(),
+      endsAt: '2026-10-07T13:00:00Z',
+    })),
+    ...Array.from({ length: 2 }, (_, index) => ({
+      id: `thursday-${index}`, mode: index % 2 ? 'in-person' : 'online',
+      startsAt: new Date(Date.parse('2026-10-08T12:00:00Z') + index * 60_000).toISOString(),
+      endsAt: '2026-10-08T13:00:00Z',
+    })),
+  ];
+  const agenda = createAgenda({
+    count: events.length,
+    now,
+    events,
+    filter: '?view=week&date=2026-10-05&tz=UTC',
+  });
+
+  assert.equal(agenda.cards.length, 24);
+  assert.equal(agenda.cards[0].dataset.eventId, 'starts-before-week');
+  assert.equal(agenda.cards[0].hidden, false,
+    'a multi-day occurrence that starts before the period remains visible when it overlaps');
+  assert.deepEqual(expectAgendaDayHeadings(agenda, 'UTC'), ['2026-10-02', '2026-10-05'],
+    'the first page ends partway through Monday without adding a second day heading');
+
+  agenda.more.click();
+  assert.deepEqual(expectAgendaDayHeadings(agenda, 'UTC'), [
+    '2026-10-02', '2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08',
+  ], 'revealing the second batch adds each later day heading once');
+
+  agenda.modeFilter.value = 'online';
+  agenda.modeFilter.emit('change');
+  expectAgendaDayHeadings(agenda, 'UTC');
+
+  agenda.zoneFilter.value = 'America/Argentina/Cordoba';
+  agenda.zoneFilter.emit('change');
+  const headings = expectAgendaDayHeadings(agenda, 'America/Argentina/Cordoba');
+  assert.ok(headings.includes('2026-10-04'),
+    'the UTC-midnight starts move to the prior civil day around local midnight');
+  assert.equal(agenda.cards[0].hidden, false,
+    'the occurrence is retained by overlap even though its start day precedes the selected week');
+  assert.equal(agenda.cards[0].dayHeading.dataset.eventDay, '2026-10-02',
+    'the heading uses the true local start day without clamping to the period boundary');
+
+  agenda.communityFilter.value = 'community-co';
+  agenda.communityFilter.emit('change');
+  assert.equal(agenda.countLabel.textContent, '0 eventos');
+  assert.equal(agenda.cards.every((card) => card.hidden), true,
+    'no occurrence remains visible when the active community has no matching events');
+  assert.deepEqual(expectAgendaDayHeadings(agenda, 'America/Argentina/Cordoba'), [],
+    'an empty result has no visible or orphan day headings');
+  const visibleOrphanCount = agenda.children
+    .filter((card) => !card.hidden)
+    .flatMap((card) => card.querySelectorAll('[data-event-day-heading]'))
+    .filter((heading) => !heading.hidden).length;
+  assert.equal(visibleOrphanCount, 0);
 });
 
 test('an empty period retains valid filters and clear changes only filters', () => {
@@ -1343,6 +1739,39 @@ test('expiry keeps the focused twelfth card visible when a co-host representativ
     'expiry and reordering preserve the same focused link without moving focus elsewhere');
 });
 
+test('co-host replacement preserves disclosure state and focus on its summary or calendar action', () => {
+  const now = Date.parse('2026-10-05T12:00:00Z');
+  for (const action of ['detailToggle', 'calendar']) {
+    const agenda = createAgenda({
+      count: 1,
+      now,
+      filter: '?view=week&date=2026-10-05&tz=UTC',
+      events: [{
+        id: 'cohost-current-day',
+        aliasIds: 'cohost-next-day',
+        members: [
+          { startsAt: '2026-10-05T11:00:00Z', endsAt: now + 500 },
+          { startsAt: '2026-10-06T00:30:00Z', endsAt: '2026-10-06T02:00:00Z' },
+        ],
+      }],
+    });
+    const [current, next] = agenda.cards[0].members;
+    current.details.open = true;
+    current[action].focus();
+
+    agenda.advanceTime(501);
+    assert.equal(agenda.fireNextTimer(), true);
+
+    assert.equal(current.hidden, true);
+    assert.equal(next.hidden, false);
+    assert.equal(next.details.open, true, 'the replacement keeps the visitor’s expanded local details');
+    assert.equal(agenda.document.activeElement, next[action],
+      `${action} focus moves to the corresponding control in the co-host replacement`);
+    assert.equal(agenda.cards[0].dayHeading.dataset.eventDay, '2026-10-06',
+      'the grouped heading follows the replacement occurrence start in the selected zone');
+  }
+});
+
 test('the checkbox defaults on, stays session-local across filters/history, and the summary counts the selection', () => {
   const now = Date.parse('2026-10-05T12:00:00Z');
   const events = [
@@ -1566,6 +1995,8 @@ test('a fragment reveals an occurrence beyond the first page', () => {
   assert.equal(agenda.cards[25].scrollIntoViewCalls.length, 1);
   assert.equal(agenda.countLabel.textContent, '30 eventos', 'revealing a later card does not truncate the selection');
   assert.equal(agenda.location.hash, '#event-event-25');
+  assert.deepEqual(expectAgendaDayHeadings(agenda, 'UTC'), ['2026-10-05'],
+    'revealing an occurrence beyond the first batch keeps one day heading for the entire visible group');
 });
 
 test('community identity stays selected across country changes and history', () => {
@@ -2426,9 +2857,18 @@ test('the native share menu closes with Escape, restores focus and leaves agenda
   });
   const currentSearch = agenda.location.search;
   const historyLength = agenda.historyEntries.length;
+  const cardOrder = [...agenda.children];
+  const visibleCards = agenda.cards.filter((card) => !card.hidden);
+  const focusoutTransitions = [];
+  agenda.document.addEventListener('focusout', (event) => {
+    focusoutTransitions.push([event.target, event.relatedTarget]);
+  });
   activateShareMenu(agenda);
   assert.equal(agenda.shareMenu.open, true);
   assert.equal(agenda.document.activeElement, agenda.shareToggle);
+  assert.deepEqual(agenda.children, cardOrder, 'opening Share leaves occurrence nodes in their existing list order');
+  assert.deepEqual(agenda.cards.filter((card) => !card.hidden), visibleCards,
+    'opening Share does not change the visible event selection');
   const escape = { key: 'Escape', defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } };
   agenda.shareMenu.emit('keydown', escape);
   assert.equal(agenda.shareMenu.open, false, 'Escape closes the native disclosure');
@@ -2439,15 +2879,34 @@ test('the native share menu closes with Escape, restores focus and leaves agenda
 
   agenda.shareToggle.click();
   assert.equal(agenda.shareMenu.open, true);
+  const tab = { key: 'Tab', defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } };
+  agenda.shareToggle.emit('keydown', tab);
+  assert.equal(tab.defaultPrevented, false, 'Tab remains native inside Share');
+  agenda.copyButton.focus();
+  assert.equal(agenda.shareMenu.open, true, 'Tab focus inside Share keeps the menu open');
+  assert.equal(agenda.document.activeElement, agenda.copyButton);
+  agenda.themeToggle.focus();
+  assert.equal(agenda.shareMenu.open, true,
+    'focus moving from Share to the theme toggle does not close the menu');
   agenda.themeToggle.click();
   agenda.document.dispatchEvent({ type: 'click', target: agenda.themeIcon });
   assert.equal(agenda.shareMenu.open, true, 'clicking the theme toggle SVG leaves sharing open');
   assert.equal(agenda.document.activeElement, agenda.themeToggle, 'the theme toggle keeps natural focus');
-
   agenda.modeFilter.focus();
+  assert.equal(agenda.shareMenu.open, false,
+    'moving focus from the theme toggle to an outer control closes Share');
+  assert.equal(agenda.document.activeElement, agenda.modeFilter,
+    'closing Share does not steal focus from the outer control');
+  assert.ok(focusoutTransitions.some(([target, relatedTarget]) => target === agenda.copyButton
+    && relatedTarget === agenda.themeToggle));
+  assert.ok(focusoutTransitions.some(([target, relatedTarget]) => target === agenda.themeToggle
+    && relatedTarget === agenda.modeFilter));
+
+  agenda.shareToggle.click();
   agenda.document.dispatchEvent({ type: 'click', target: agenda.modeFilter });
   assert.equal(agenda.shareMenu.open, false, 'an outside click closes the disclosure');
-  assert.equal(agenda.document.activeElement, agenda.modeFilter);
+  assert.equal(agenda.document.activeElement, agenda.shareToggle,
+    'outside click closure does not move focus on its own');
   assert.equal(agenda.location.search, currentSearch, 'closing the menu outside does not change filters');
   assert.equal(agenda.historyEntries.length, historyLength);
 });
@@ -2494,6 +2953,7 @@ test('a representative expiry keeps each focused action on its replacement in th
       }],
     });
     const [before, after] = agenda.cards[0].members;
+    if (action !== 'registration') before.details.open = true;
     before[action].focus();
     assert.equal(agenda.document.activeElement, before[action]);
     agenda.advanceTime(2_000);

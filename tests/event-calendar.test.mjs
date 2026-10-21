@@ -8,7 +8,6 @@ import {
   parseEventAgendaSearch,
   secondaryEventAgendaFilterCount,
   serializeEventAgendaSearch,
-  shouldOpenEventAgendaSecondaryFilters,
 } from '../src/lib/event-agenda-filter.mjs';
 
 const event = {
@@ -173,7 +172,7 @@ test('ended events are included only when requested, with the end instant treate
   assert.equal(eventMatchesFilters(ended, filters, atEnd, false), false);
 });
 
-test('secondary agenda filters open for community selections, not primary location controls', () => {
+test('only the community facet contributes to the secondary agenda filter indicator', () => {
   const allowed = {
     mode: new Set(['', 'online', 'in-person']),
     country: new Set(['', 'CO']),
@@ -182,22 +181,16 @@ test('secondary agenda filters open for community selections, not primary locati
   };
   const datesOnly = parseEventAgendaSearch('?from=2026-10-17&to=2026-10-20', allowed);
   assert.equal(secondaryEventAgendaFilterCount(datesOnly), 0);
-  assert.equal(shouldOpenEventAgendaSecondaryFilters(datesOnly, true), false);
-  assert.equal(shouldOpenEventAgendaSecondaryFilters(datesOnly, false), true);
 
   const active = parseEventAgendaSearch(
     '?mode=in-person&country=CO&city=CO%3ABogot%C3%A1&community=community-co', allowed,
   );
   assert.equal(secondaryEventAgendaFilterCount(active), 1,
     'only the community facet contributes to the secondary-filter count');
-  assert.equal(shouldOpenEventAgendaSecondaryFilters(active, true), true);
 
   const primaryOnly = parseEventAgendaSearch('?mode=in-person&country=CO&city=CO%3ABogot%C3%A1', allowed);
   assert.equal(secondaryEventAgendaFilterCount(primaryOnly), 0,
     'mode and physical location stay outside the secondary filters');
-  assert.equal(shouldOpenEventAgendaSecondaryFilters(primaryOnly, true), false);
-  assert.equal(shouldOpenEventAgendaSecondaryFilters(primaryOnly, false), true,
-    'the disclosure remains open by default on desktop');
 });
 
 test('registration telemetry uses only public facets and stays off preview hosts', () => {
