@@ -1,5 +1,5 @@
 import { COUNTRY_LABELS } from './resource-discovery.mjs';
-import { effectiveEventLocation } from './event-location.mjs';
+import { effectiveEventLocation, normalizeEventCityKey } from './event-location.mjs';
 
 const EVENT_MODES = new Set(['online', 'in-person', 'hybrid']);
 const EVENT_FIELDS = ['id', 'title', 'description', 'startsAt', 'endsAt', 'timeZone', 'organizer', 'mode', 'registrationUrl'];
@@ -9,6 +9,10 @@ const RESOURCE_ID = /^[A-Za-z0-9_-]{1,128}$/u;
 function normalizeEventText(value) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/gu, '').toLocaleLowerCase('es')
     .replace(/[^a-z0-9]+/gu, ' ').trim();
+}
+
+function compareEvents(left, right) {
+  return Date.parse(left.startsAt) - Date.parse(right.startsAt) || left.id.localeCompare(right.id);
 }
 
 /** Match physical listings only when their published venue agrees; city can be absent. */
@@ -22,9 +26,40 @@ function sameEventVenue(left, right, communityById) {
   const leftLocation = effectiveEventLocation(left, communityById);
   const rightLocation = effectiveEventLocation(right, communityById);
   if (leftLocation.country !== rightLocation.country) return false;
-  const leftCity = normalizeEventText(leftLocation.city);
-  const rightCity = normalizeEventText(rightLocation.city);
+  const cityKey = ({ country, city }) => {
+    if (!city) return '';
+    return country
+      ? normalizeEventCityKey(`${country}:${city}`)
+      : normalizeEventText(city);
+  };
+  const leftCity = cityKey(leftLocation);
+  const rightCity = cityKey(rightLocation);
   return !leftCity || !rightCity || leftCity === rightCity;
+}
+
+/** Keep strong registration matches while preventing a weak session match from bridging incompatible venues. */
+function compatiblePhysicalVenuesAcrossGroups(left, right, communityById) {
+  return left.events.every((leftEvent) => right.events.every((rightEvent) =>
+    leftEvent.mode === 'online' || rightEvent.mode === 'online'
+      || sameEventVenue(leftEvent, rightEvent, communityById)));
+}
+
+function mergeEventGroups(groups, groupByRegistration, groupBySession, left, right) {
+  const [kept, removed] = compareEvents(left.event, right.event) <= 0 ? [left, right] : [right, left];
+  kept.events.push(...removed.events);
+  kept.events.sort(compareEvents);
+  kept.event = kept.events[0];
+
+  for (const [identity, group] of groupByRegistration) {
+    if (group === removed) groupByRegistration.set(identity, kept);
+  }
+  for (const sessionGroups of groupBySession.values()) {
+    const updatedGroups = [...new Set(sessionGroups.map((group) => group === removed ? kept : group))];
+    sessionGroups.splice(0, sessionGroups.length, ...updatedGroups);
+  }
+
+  groups.splice(groups.indexOf(removed), 1);
+  return kept;
 }
 
 export function projectPublicEvent(item, index, validateUrl) {
@@ -97,8 +132,7 @@ export function uniqueEventGroups(events, communityById = new Map()) {
   const groupByRegistration = new Map();
   // A title/start/physical-country can have multiple venue groups.
   const groupBySession = new Map();
-  const orderedEvents = [...events].sort((left, right) =>
-    Date.parse(left.startsAt) - Date.parse(right.startsAt) || left.id.localeCompare(right.id));
+  const orderedEvents = [...events].sort(compareEvents);
 
   for (const event of orderedEvents) {
     const url = new URL(event.registrationUrl);
@@ -111,10 +145,18 @@ export function uniqueEventGroups(events, communityById = new Map()) {
       : (effectiveEventLocation(event, communityById).country || 'unspecified');
     const session = `${start}:${title}:${locationScope}`;
     const sessionGroups = groupBySession.get(session) ?? [];
-    const matchingSession = sessionGroups.find((group) => group.events.every((item) => sameEventVenue(item, event, communityById)));
-    const existingGroup = groupByRegistration.get(registrationIdentity) ?? matchingSession;
+    const registrationGroup = groupByRegistration.get(registrationIdentity);
+    const matchingSession = sessionGroups.find((group) => group !== registrationGroup
+      && group.events.every((item) => sameEventVenue(item, event, communityById))
+      && (!registrationGroup || compatiblePhysicalVenuesAcrossGroups(registrationGroup, group, communityById)));
+    let existingGroup = registrationGroup ?? matchingSession;
+    if (registrationGroup && matchingSession) {
+      existingGroup = mergeEventGroups(groups, groupByRegistration, groupBySession, registrationGroup, matchingSession);
+    }
     if (existingGroup) {
       existingGroup.events.push(event);
+      existingGroup.events.sort(compareEvents);
+      existingGroup.event = existingGroup.events[0];
       // Preserve every co-host URL as a strong identity for later listings.
       groupByRegistration.set(registrationIdentity, existingGroup);
       if (!sessionGroups.includes(existingGroup)) sessionGroups.push(existingGroup);
@@ -127,7 +169,7 @@ export function uniqueEventGroups(events, communityById = new Map()) {
     sessionGroups.push(group);
     groupBySession.set(session, sessionGroups);
   }
-  return groups;
+  return groups.sort((left, right) => compareEvents(left.event, right.event));
 }
 
 /** Group only events that are upcoming or in progress before choosing a representative. */
@@ -155,4 +197,12 @@ export function eventLocalDate(instant, timeZone) {
 export function eventTimeLabel(instant, timeZone) {
   return new Intl.DateTimeFormat('es', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone, timeZoneName: 'short' })
     .format(new Date(instant));
+}
+
+/** Show the end time alone on the same local date, or add its date when the event spans dates. */
+export function eventEndTimeLabel(startsAt, endsAt, timeZone) {
+  const endTime = eventTimeLabel(endsAt, timeZone);
+  return eventLocalDate(startsAt, timeZone) === eventLocalDate(endsAt, timeZone)
+    ? endTime
+    : `${eventDateLabel(endsAt, timeZone)} · ${endTime}`;
 }

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { projectPublishedCatalog } from '../src/lib/catalog.mjs';
 import * as eventApi from '../src/lib/events.mjs';
-import { eventDateLabel, eventLocalDate, eventTimeLabel, upcomingEvents, uniqueUpcomingEventGroups, uniqueUpcomingEvents } from '../src/lib/events.mjs';
+import { eventDateLabel, eventEndTimeLabel, eventLocalDate, eventTimeLabel, upcomingEvents, uniqueUpcomingEventGroups, uniqueUpcomingEvents } from '../src/lib/events.mjs';
 import { eventMatchesFilters } from '../src/lib/event-agenda-filter.mjs';
 import { eventGroupCountries, eventGroupsForAgenda } from '../src/lib/event-agenda-groups.mjs';
 import { createEventAgendaPeriod } from '../src/lib/event-agenda-period.mjs';
@@ -118,6 +118,115 @@ test('general grouping keeps past events and separates reused registration URLs 
   assert.deepEqual(uniqueUpcomingEvents(rows, '2026-10-19T00:00:00Z').map(({ id }) => id), [
     'event-z-future', 'event-a-second-future',
   ]);
+});
+
+test('merges registration and session identities when a listing bridges two groups', () => {
+  const startsAt = '2026-10-20T08:00:00Z';
+  const endsAt = '2026-10-20T18:00:00Z';
+  const firstSession = event({
+    id: 'a-session-title', title: 'Serverless AWS', mode: 'online', startsAt, endsAt,
+    registrationUrl: 'https://example.test/register-a', communityId: 'community-a',
+  });
+  const secondRegistration = event({
+    id: 'b-registration-title', title: 'Meetup', mode: 'online', startsAt, endsAt,
+    registrationUrl: 'https://example.test/register-b', communityId: 'community-b',
+  });
+  const bridge = event({
+    id: 'c-bridge', title: 'Serverless AWS', mode: 'online', startsAt, endsAt,
+    registrationUrl: 'https://example.test/register-b?source=bridge', communityId: 'community-c',
+  });
+  const firstRegistrationAlias = event({
+    id: 'd-registration-a-alias', title: 'Another listing title', mode: 'online', startsAt, endsAt,
+    registrationUrl: 'https://example.test/register-a?source=alias', communityId: 'community-d',
+  });
+  const secondRegistrationAlias = event({
+    id: 'e-registration-b-alias', title: 'Yet another listing title', mode: 'online', startsAt, endsAt,
+    registrationUrl: 'https://example.test/register-b/?source=alias', communityId: 'community-e',
+  });
+  const reusedUrl = event({
+    id: 'f-next-occurrence', title: 'Serverless AWS', mode: 'online',
+    startsAt: '2026-10-27T08:00:00Z', endsAt: '2026-10-27T10:00:00Z',
+    registrationUrl: 'https://example.test/register-a?source=next', communityId: 'community-f',
+  });
+  const unrelated = event({
+    id: '0-unrelated', title: 'Another online session', mode: 'online', startsAt, endsAt,
+    registrationUrl: 'https://example.test/unrelated', communityId: 'community-0',
+  });
+  const rows = [reusedUrl, secondRegistrationAlias, bridge, unrelated, firstRegistrationAlias,
+    secondRegistration, firstSession];
+
+  const groups = eventApi.uniqueEventGroups(rows);
+
+  assert.deepEqual(groups.map(({ event: representative }) => representative.id), [
+    '0-unrelated', 'a-session-title', 'f-next-occurrence',
+  ], 'group order and representatives follow start instant then ID after a merge');
+  assert.deepEqual(groups[1].events.map(({ id }) => id), [
+    'a-session-title', 'b-registration-title', 'c-bridge', 'd-registration-a-alias', 'e-registration-b-alias',
+  ], 'the bridge retains both groups and later lookups through either old registration identity');
+  assert.deepEqual(groups[1].events.map(({ communityId }) => communityId), [
+    'community-a', 'community-b', 'community-c', 'community-d', 'community-e',
+  ], 'all co-host references survive the merge');
+  assert.deepEqual(groups[2].events.map(({ id }) => id), ['f-next-occurrence'],
+    'a canonical URL reused at another start remains a separate occurrence');
+  assert.deepEqual(eventApi.uniqueEventGroups([...rows].reverse()).map(({ event: representative, events }) => [
+    representative.id, events.map(({ id }) => id),
+  ]), groups.map(({ event: representative, events }) => [representative.id, events.map(({ id }) => id)]),
+  'representatives, member order and group order do not depend on catalog input order');
+
+  const upcoming = uniqueUpcomingEventGroups(rows, '2026-10-19T00:00:00Z');
+  assert.deepEqual(upcoming.map(({ event: representative }) => representative.id), [
+    '0-unrelated', 'a-session-title', 'f-next-occurrence',
+  ]);
+  assert.deepEqual(uniqueUpcomingEvents(rows, '2026-10-19T00:00:00Z').map(({ id }) => id), [
+    '0-unrelated', 'a-session-title', 'f-next-occurrence',
+  ]);
+
+  const endedBridge = { ...bridge, endsAt: '2026-10-20T10:00:00Z' };
+  const beforeUpcomingGrouping = uniqueUpcomingEventGroups(
+    [firstSession, secondRegistration, endedBridge], '2026-10-20T11:00:00Z',
+  );
+  assert.deepEqual(beforeUpcomingGrouping.map(({ event: representative, events: members }) => [
+    representative.id, members.map(({ id }) => id),
+  ]), [
+    ['a-session-title', ['a-session-title']],
+    ['b-registration-title', ['b-registration-title']],
+  ], 'upcoming wrappers discard an ended bridge before grouping the remaining listings');
+});
+
+test('a bridge cannot use an unknown city or venue to join incompatible physical groups', () => {
+  const startsAt = '2026-10-20T08:00:00Z';
+  const endsAt = '2026-10-20T10:00:00Z';
+  const cordoba = event({
+    id: 'a-cordoba-session', title: 'Sesión presencial', country: 'AR', city: 'Córdoba',
+    place: 'Centro de Convenciones', startsAt, endsAt, registrationUrl: 'https://example.test/cordoba',
+  });
+  const rosarioRegistration = event({
+    id: 'b-rosario-registration', title: 'Meetup', country: 'AR', city: 'Rosario',
+    place: 'Centro de Convenciones', startsAt, endsAt, registrationUrl: 'https://example.test/rosario',
+  });
+  const noCityBridge = event({
+    id: 'c-no-city-bridge', title: 'Sesión presencial', country: 'AR', city: undefined,
+    place: 'Centro de Convenciones', startsAt, endsAt,
+    registrationUrl: 'https://example.test/rosario?source=bridge',
+  });
+  const cityConflict = eventApi.uniqueEventGroups([cordoba, rosarioRegistration, noCityBridge]);
+  assert.deepEqual(cityConflict.map(({ events }) => events.map(({ id }) => id)), [
+    ['a-cordoba-session'], ['b-rosario-registration', 'c-no-city-bridge'],
+  ], 'the strong registration identity remains intact without letting the unknown city bridge Córdoba and Rosario');
+
+  const venueRegistration = event({
+    id: 'b-other-venue-registration', title: 'Meetup', country: 'AR', city: 'Córdoba',
+    place: 'Universidad Nacional', startsAt, endsAt, registrationUrl: 'https://example.test/other-venue',
+  });
+  const venueBridge = event({
+    id: 'c-venue-bridge', title: 'Sesión presencial', country: 'AR', city: 'Córdoba',
+    place: 'Centro de Convenciones', startsAt, endsAt,
+    registrationUrl: 'https://example.test/other-venue?source=bridge',
+  });
+  const venueConflict = eventApi.uniqueEventGroups([cordoba, venueRegistration, venueBridge]);
+  assert.deepEqual(venueConflict.map(({ events }) => events.map(({ id }) => id)), [
+    ['a-cordoba-session'], ['b-other-venue-registration', 'c-venue-bridge'],
+  ], 'the bridge does not join separate physical venues even when city and title match');
 });
 
 test('agenda group selection filters members together and chooses a live matching representative', () => {
@@ -481,6 +590,14 @@ test('formats the same instant in the event zone and another visitor zone', () =
   assert.match(eventTimeLabel('2026-10-17T08:00:00-03:00', 'America/Asuncion'), /08:00/);
   assert.match(eventTimeLabel('2026-10-17T08:00:00-03:00', 'America/Mexico_City'), /05:00/);
   assert.equal(eventLocalDate('2026-10-17T00:30:00Z', 'America/Mexico_City'), '2026-10-16');
+});
+
+test('labels event end dates only when their local calendar date differs', () => {
+  assert.equal(eventEndTimeLabel('2026-10-20T08:00:00Z', '2026-10-20T12:00:00Z', 'UTC'), '12:00 UTC');
+  assert.equal(eventEndTimeLabel('2026-10-31T23:00:00Z', '2026-11-01T00:30:00Z', 'UTC'),
+    '1 de noviembre de 2026 · 00:30 UTC');
+  assert.equal(eventEndTimeLabel('2026-12-31T23:30:00-03:00', '2027-01-01T00:30:00-03:00', 'America/Argentina/Cordoba'),
+    '1 de enero de 2027 · 00:30 GMT-3');
 });
 
 test('hourly publication hash changes at event expiry without a catalog edit', () => {

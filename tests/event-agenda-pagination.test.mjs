@@ -12,7 +12,7 @@ import {
 import { trackRegistrationClick } from '../src/lib/event-analytics.mjs';
 import { eventAgendaSummaryText, nextEventAgendaTransition } from '../src/lib/event-agenda-summary.mjs';
 import { eventGroupsForAgenda } from '../src/lib/event-agenda-groups.mjs';
-import { eventDateLabel, eventLocalDate, eventTimeLabel } from '../src/lib/events.mjs';
+import { eventDateLabel, eventEndTimeLabel, eventLocalDate, eventTimeLabel } from '../src/lib/events.mjs';
 
 const periodModuleUrl = new URL('../src/lib/event-agenda-period.mjs', import.meta.url);
 let eventAgendaPeriodApi = {};
@@ -57,6 +57,16 @@ class MockElement {
   }
 
   get value() { return this._value; }
+
+  get hidden() { return this._hidden ?? false; }
+  set hidden(value) {
+    this._hidden = Boolean(value);
+    const focused = this.document?.activeElement;
+    if (this._hidden && focused && (focused === this || this.children?.some((child) => child.contains(focused)))) {
+      this.document.activeElement = this.document.body;
+    }
+  }
+
   set value(value) {
     const next = String(value ?? '');
     this._value = this.tagName === 'SELECT' && next && !this.options.some((option) => option.value === next)
@@ -171,21 +181,28 @@ function createEventCards(count, {
         },
       });
       view.status = new MockElement(null);
-      view.registration = new MockElement(null, { textContent: 'Inscribirme' });
+      view.registration = new MockElement(null, { tagName: 'A', textContent: 'Inscribirme' });
       view.registration.href = view.dataset.memberRegistrationUrl;
+      view.calendar = new MockElement(null, { tagName: 'A', textContent: 'Agregar al calendario (.ics)' });
+      view.calendar.href = `/eventos/${view.dataset.eventMemberId}.ics`;
+      view.report = new MockElement(null, { tagName: 'A', textContent: 'Reportar dato incorrecto' });
+      view.report.href = `mailto:contact@example.test?body=${view.dataset.eventMemberId}`;
       view.dateLabel = new MockElement(null);
       view.timeLabel = new MockElement(null);
+      view.endTimeLabel = new MockElement(null);
       view.participationLabel = new MockElement(null);
       view.querySelector = (selector) => ({
         '[data-event-status]': view.status,
         '[data-event-registration]': view.registration,
         '[data-event-date-label]': view.dateLabel,
         '[data-event-time-label]': view.timeLabel,
+        '[data-event-time-end-label]': view.endTimeLabel,
         '[data-event-participation]': view.participationLabel,
         '[data-visitor-time]': null,
         '[data-visitor-time-value]': null,
       }[selector] ?? null);
-      view.children = [view.status, view.registration, view.dateLabel, view.timeLabel, view.participationLabel];
+      view.querySelectorAll = (selector) => selector === 'a' ? [view.registration, view.calendar, view.report] : [];
+      view.children = [view.status, view.registration, view.calendar, view.report, view.dateLabel, view.timeLabel, view.endTimeLabel, view.participationLabel];
       return view;
     });
     card.children = card.members;
@@ -224,8 +241,7 @@ function createAgenda({
     card.document = document;
     for (const member of card.members) {
       member.document = document;
-      member.status.document = document;
-      member.registration.document = document;
+      for (const child of member.children) child.document = document;
     }
   }
 
@@ -488,8 +504,9 @@ function createAgenda({
     serializeEventAgendaSearch, shouldOpenEventAgendaSecondaryFilters, trackRegistrationClick,
     eventAgendaSummaryText, nextEventAgendaTransition, eventGroupsForAgenda,
     effectiveEventLocation: eventLocationApi.effectiveEventLocation,
+    normalizeEventCityKey: eventLocationApi.normalizeEventCityKey,
     buildEventAgendaShare: eventAgendaShareApi.buildEventAgendaShare,
-    eventDateLabel, eventLocalDate, eventTimeLabel,
+    eventDateLabel, eventEndTimeLabel, eventLocalDate, eventTimeLabel,
     navigator,
     ...eventAgendaPeriodApi, Intl: controlledIntl,
     Date: ClockDate,
@@ -2389,4 +2406,61 @@ test('a pending copy preserves focus moved to an agenda filter before it resolve
   assert.match(agenda.shareStatus.textContent, /anterior|selección/iu);
   assert.equal(agenda.shareMenu.open, false);
   assert.equal(agenda.copyButton.disabled, false);
+});
+
+test('a representative expiry keeps each focused action on its replacement in the same occurrence', () => {
+  const now = Date.parse('2026-10-05T12:00:00Z');
+  for (const action of ['registration', 'calendar', 'report']) {
+    const agenda = createAgenda({
+      count: 1, now, events: [{
+        id: 'a-short', mode: 'online', startsAt: now - 3_600_000, endsAt: now + 1_000,
+        aliasIds: 'b-long', members: [{}, { endsAt: now + 3_600_000 }],
+      }],
+    });
+    const [before, after] = agenda.cards[0].members;
+    before[action].focus();
+    assert.equal(agenda.document.activeElement, before[action]);
+    agenda.advanceTime(2_000);
+    assert.equal(agenda.fireNextTimer(), true);
+    assert.equal(before.hidden, true);
+    assert.equal(after.hidden, false);
+    assert.equal(agenda.cards[0].hidden, false);
+    assert.equal(agenda.cards[0].dataset.eventId, 'b-long');
+    assert.equal(agenda.document.activeElement, after[action], `${action} stays on a visible equivalent action`);
+  }
+});
+
+test('multi-day card end labels retain their date and follow the selected zone', () => {
+  const agenda = createAgenda({
+    count: 1, now: Date.parse('2026-10-29T08:00:00Z'), filter: '?tz=UTC', events: [{
+      mode: 'online', startsAt: '2026-10-29T15:00:00Z', endsAt: '2026-10-30T21:00:00Z',
+    }],
+  });
+  const member = agenda.cards[0].members[0];
+  assert.equal(member.endTimeLabel.textContent, '30 de octubre de 2026 · 21:00 UTC');
+  agenda.zoneFilter.value = 'America/Bogota';
+  agenda.zoneFilter.emit('change');
+  assert.equal(member.endTimeLabel.textContent, '30 de octubre de 2026 · 16:00 GMT-5');
+
+  const midnight = createAgenda({
+    count: 1, now: Date.parse('2026-10-29T08:00:00Z'), filter: '?tz=UTC', events: [{
+      mode: 'online', startsAt: '2026-10-29T22:00:00Z', endsAt: '2026-10-30T02:00:00Z',
+    }],
+  });
+  assert.equal(midnight.cards[0].members[0].endTimeLabel.textContent, '30 de octubre de 2026 · 02:00 UTC');
+  midnight.zoneFilter.value = 'America/Bogota';
+  midnight.zoneFilter.emit('change');
+  assert.equal(midnight.cards[0].members[0].endTimeLabel.textContent, '21:00 GMT-5', 'same-day schedules keep only the end time');
+});
+
+test('a city alias preserves local hybrid participation and canonical selected URL', () => {
+  const agenda = createAgenda({
+    count: 1, filter: '?country=AR&city=AR%3ACordoba', events: [{
+      mode: 'hybrid', country: 'AR', city: 'AR:Cordoba',
+    }],
+  });
+  assert.equal(agenda.cityFilter.value, 'AR:Córdoba');
+  assert.equal(new URLSearchParams(agenda.location.search).get('city'), 'AR:Córdoba');
+  assert.equal(agenda.cards[0].hidden, false);
+  assert.equal(agenda.cards[0].members[0].participationLabel.textContent, 'Participación presencial y remota');
 });

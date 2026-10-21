@@ -1,9 +1,9 @@
 ---
-import { eventDateLabel, eventLocalDate, eventTimeLabel, uniqueEventGroups } from '../lib/events.mjs';
+import { eventDateLabel, eventEndTimeLabel, eventLocalDate, eventTimeLabel, uniqueEventGroups } from '../lib/events.mjs';
 import { eventCalendarHref, resourceHref } from '../lib/catalog-routes.mjs';
 import { communityCountryPages } from '../lib/community-country-pages.mjs';
 import { eventGroupsForAgenda, organizerCountry } from '../lib/event-agenda-groups.mjs';
-import { effectiveEventLocation, eventCountryLabel } from '../lib/event-location.mjs';
+import { effectiveEventLocation, eventCountryLabel, normalizeEventCityKey } from '../lib/event-location.mjs';
 import { eventAgendaSummaryText } from '../lib/event-agenda-summary.mjs';
 import ReportLink from './ReportLink.astro';
 import type { CatalogEvent, CatalogResource } from '../types/catalog';
@@ -41,7 +41,8 @@ const cityOptions = new Map<string, { key: string; city: string; country: string
 const addCity = (countryCode: string, city: string) => {
   if (!/^[A-Z]{2}$/u.test(countryCode) || !city || city.length > 100 || city.trim() !== city
       || /[\u0000-\u001f\u007f]/u.test(city)) return;
-  cityOptions.set(`${countryCode}:${city}`, { key: `${countryCode}:${city}`, city, country: countryCode });
+  const identity = normalizeEventCityKey(`${countryCode}:${city}`);
+  if (!cityOptions.has(identity)) cityOptions.set(identity, { key: `${countryCode}:${city}`, city, country: countryCode });
 };
 for (const community of communityById.values()) addCity(community.country ?? '', community.city ?? '');
 for (const group of allGroups) for (const event of group.events) {
@@ -189,7 +190,7 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
             const memberStatus = eventStatus(member, renderTime);
             const defaultHasLocation = Boolean(defaultFilters.country || defaultFilters.city);
             const defaultLocationMatches = (!defaultFilters.country || memberLocation.country === defaultFilters.country)
-              && (!defaultFilters.city || `${memberLocation.country}:${memberLocation.city}` === defaultFilters.city);
+              && (!defaultFilters.city || normalizeEventCityKey(`${memberLocation.country}:${memberLocation.city}`) === normalizeEventCityKey(defaultFilters.city));
             const hybridParticipation = defaultMode === 'online' || (!defaultMode && defaultHasLocation && !defaultLocationMatches)
               ? 'Participación remota'
               : defaultMode === 'in-person' ? 'Participación presencial' : 'Participación presencial y remota';
@@ -218,8 +219,8 @@ const eventStatus = (event: CatalogEvent, now: Date) => {
               <h3>{member.title}</h3>
               <p class="event-card__description">{member.description}</p>
               <dl class="event-card__details">
-                <div><dt>Horario</dt><dd><time datetime={member.startsAt} data-event-time-label>{eventTimeLabel(member.startsAt, member.timeZone)}</time> – <time datetime={member.endsAt} data-event-time-end-label>{eventTimeLabel(member.endsAt, member.timeZone)}</time></dd></div>
-                <div><dt>Horario del organizador</dt><dd>{eventDateLabel(member.startsAt, member.timeZone)} · <time datetime={member.startsAt}>{eventTimeLabel(member.startsAt, member.timeZone)}</time> – <time datetime={member.endsAt}>{eventTimeLabel(member.endsAt, member.timeZone)}</time></dd></div>
+                <div><dt>Horario</dt><dd><time datetime={member.startsAt} data-event-time-label>{eventTimeLabel(member.startsAt, member.timeZone)}</time> – <time datetime={member.endsAt} data-event-time-end-label>{eventEndTimeLabel(member.startsAt, member.endsAt, member.timeZone)}</time></dd></div>
+                <div><dt>Horario del organizador</dt><dd>{eventDateLabel(member.startsAt, member.timeZone)} · <time datetime={member.startsAt}>{eventTimeLabel(member.startsAt, member.timeZone)}</time> – <time datetime={member.endsAt}>{eventEndTimeLabel(member.startsAt, member.endsAt, member.timeZone)}</time></dd></div>
                 <div><dt>Organiza</dt><dd>{organizers.map(({ community, name }, index) => <span>
                   {index > 0 && '; '}{community ? <a href={resourceHref(community)}>{name}</a> : name}
                 </span>)}</dd></div>

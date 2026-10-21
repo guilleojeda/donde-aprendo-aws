@@ -1,3 +1,5 @@
+import { normalizeEventCityKey } from './event-location.mjs';
+
 const FIELDS = ['mode', 'country', 'city', 'community'];
 const SECONDARY_FIELDS = ['community'];
 const EVENT_MODES = new Set(['', 'online', 'in-person', 'hybrid']);
@@ -24,6 +26,16 @@ function routeDefault(field, defaults, allowed) {
   return validFilterValue(field, candidate, allowed) ? candidate : '';
 }
 
+function effectiveCityValue(value, allowed) {
+  if (!value) return value;
+  const cityKey = normalizeEventCityKey(value);
+  if (!cityKey) return value;
+  for (const allowedCity of allowed.city ?? []) {
+    if (validCity(allowedCity) && normalizeEventCityKey(allowedCity) === cityKey) return allowedCity;
+  }
+  return value;
+}
+
 export function secondaryEventAgendaFilterCount(filters) {
   return SECONDARY_FIELDS.filter((field) => Boolean(filters[field])).length;
 }
@@ -37,7 +49,8 @@ export function parseEventAgendaSearch(search, allowed, defaults = {}) {
   const parsed = Object.fromEntries(FIELDS.map((field) => {
     const fallback = routeDefault(field, defaults, allowed);
     const candidate = query.has(field) ? query.get(field) : fallback;
-    return [field, validFilterValue(field, candidate, allowed) ? candidate : fallback];
+    const value = validFilterValue(field, candidate, allowed) ? candidate : fallback;
+    return [field, field === 'city' ? effectiveCityValue(value, allowed) : value];
   }));
 
   if (parsed.country && parsed.city && parsed.city.slice(0, 2) !== parsed.country) parsed.city = '';
@@ -58,8 +71,10 @@ export function serializeEventAgendaSearch(search, filters, defaults = {}) {
 /** Match one normalized event member: country is physical and city is `CC:city`. */
 export function eventMatchesFilters(event, filters, now = Date.now(), includeEnded = false) {
   const communities = event.communities ?? (event.communityId ? [event.communityId] : event.community ? [event.community] : []);
+  const selectedCityKey = normalizeEventCityKey(filters.city ?? '');
+  const eventCityKey = normalizeEventCityKey(event.city ?? '');
   const locationMatches = (!filters.country || event.country === filters.country)
-    && (!filters.city || event.city === filters.city);
+    && (!filters.city || (selectedCityKey && selectedCityKey === eventCityKey));
   const remoteMatches = event.mode === 'online' || event.mode === 'hybrid';
   const physicalMatches = (event.mode === 'in-person' || event.mode === 'hybrid') && locationMatches;
   let modeMatches;
