@@ -656,7 +656,9 @@ if (agenda && empty) {
     link?.addEventListener('click', () => closeShareMenu(true));
   }
   document.addEventListener('click', (event) => {
-    if (shareMenu?.open && !shareControls?.contains(event.target)) closeShareMenu();
+    if (shareMenu?.open
+      && !shareControls?.contains(event.target)
+      && !event.target?.closest?.('[data-theme-toggle]')) closeShareMenu();
   });
 
   for (const button of viewButtons) {

@@ -1,0 +1,52 @@
+:root {
+  color-scheme: light;
+  --color-page: #FAF8F4;
+  --color-surface: #FFFFFF;
+  --color-surface-raised: #FFFFFF;
+  --color-surface-subtle: #F1F4F8;
+  --color-field: #FFFFFF;
+  --color-text: #48546A;
+  --color-text-muted: #606B7B;
+  --color-heading: #263457;
+  --color-link: #263457;
+  --color-link-hover: #172642;
+  --color-primary: #263457;
+  --color-primary-hover: #172642;
+  --color-on-primary: #FFFFFF;
+  --color-border: #D9DFE8;
+  --color-border-control: #8290A6;
+  --color-focus: #3154A2;
+  --color-accent-text: #A4470B;
+  --color-accent-surface: #FFF1E6;
+  --color-brand-orange: #E87722;
+  --color-success-surface: #E5EFE6;
+  --color-success-text: #24583A;
+  --color-error-surface: #F7E7E4;
+  --color-error-text: #8F252A;
+  --color-table-head: #F0EAE0;
+  --color-table-row-alt: #FAF7F0;
+  --color-shadow: rgb(38 52 87 / 16%);
+
+  --astro-code-background: #EEE8DD;
+  --astro-code-foreground: #26384A;
+  --astro-code-token-comment: #596575;
+  --astro-code-token-constant: #005F73;
+  --astro-code-token-function: #6B3FA0;
+  --astro-code-token-keyword: #9A3412;
+  --astro-code-token-parameter: #006B5E;
+  --astro-code-token-punctuation: #405267;
+  --astro-code-token-string: #226B43;
+  --astro-code-token-string-expression: #8A3D00;
+  --astro-code-token-link: #1D4ED8;
+  --astro-code-token-inserted: #176B3A;
+  --astro-code-token-deleted: #9B2C2C;
+  --astro-code-token-changed: #7A5800;
+}
+
+:root .site-logo--light {
+  opacity: 1;
+}
+
+:root .site-logo--dark {
+  opacity: 0;
+}

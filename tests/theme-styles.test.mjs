@@ -111,3 +111,20 @@ test('both themes define all syntax-highlight roles without literal fallbacks in
     assert.deepEqual(required.filter((property) => !defined.has(property)), [], `${path}: syntax colors must also belong to the theme`);
   }
 });
+
+test('theme role references resolve within each palette without cycles', () => {
+  for (const path of palettePaths) {
+    const definitions = new Map(palette(path));
+    const resolved = new Set();
+    const resolveRole = (name, chain = []) => {
+      assert.ok(definitions.has(name), `${path}: ${name} has no theme definition`);
+      assert.ok(!chain.includes(name), `${path}: cyclic theme reference ${[...chain, name].join(' → ')}`);
+      if (resolved.has(name)) return;
+      for (const [, reference] of definitions.get(name).matchAll(/var\(\s*(--[\w-]+)/gu)) {
+        resolveRole(reference, [...chain, name]);
+      }
+      resolved.add(name);
+    };
+    for (const name of definitions.keys()) resolveRole(name);
+  }
+});
