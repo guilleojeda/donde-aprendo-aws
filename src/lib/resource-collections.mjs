@@ -1,5 +1,6 @@
 /** Editorial collection pages over the published catalog. Content stays in the catalog. */
 import { resourceHref } from './catalog-routes.mjs';
+import { CERTIFICATIONS_OVERVIEW } from './certifications.mjs';
 
 export const RESOURCE_COLLECTIONS = Object.freeze([
   {
@@ -75,9 +76,7 @@ export const RESOURCE_COLLECTIONS = Object.freeze([
   },
   {
     id: 'certificaciones', path: '/aprender/certificaciones/', kind: 'content', label: 'Certificaciones',
-    title: 'Certificaciones AWS: recursos para estudiar en español',
-    description: 'Recursos de preparación, sesiones de estudio, experiencias y orientación en español sobre distintas certificaciones AWS.',
-    intro: 'Recursos para preparar exámenes de AWS.',
+    ...CERTIFICATIONS_OVERVIEW,
     selector: { topic: 'Certificaciones' },
     guide: {
       heading: 'Elige cómo estudiar para el examen',
@@ -88,22 +87,6 @@ export const RESOURCE_COLLECTIONS = Object.freeze([
         'Confirma que el contenido y los pasos para agendar sigan vigentes en la página oficial.',
       ],
       links: ['/aprender/cursos/', '/aprender/videos/', '/aprender/'],
-    },
-    faq: {
-      id: 'certificaciones-faq',
-      heading: 'Dudas sobre las certificaciones AWS',
-      items: [
-        {
-          question: '¿Esta colección prepara para todas las certificaciones AWS?',
-          answer: 'No. Reúne los recursos publicados sobre distintas certificaciones y temas generales de preparación. Consulta la guía oficial del examen que te interesa para confirmar su temario y versión.',
-          links: [{ label: 'Ver las guías oficiales de examen', href: 'https://docs.aws.amazon.com/aws-certification/latest/examguides/' }],
-        },
-        {
-          question: '¿Dónde confirmo el idioma y cómo agendo el examen?',
-          answer: 'La disponibilidad de idiomas, horarios y modalidades depende de cada examen y lugar. Consulta las opciones oficiales vigentes antes de reservar.',
-          links: [{ label: 'Consultar opciones y agendar un examen', href: 'https://aws.amazon.com/certification/certification-prep/testing/' }],
-        },
-      ],
     },
   },
   {
@@ -363,9 +346,9 @@ export const RESOURCE_COLLECTIONS = Object.freeze([
 const CERTIFICATION_PURPOSES = Object.freeze([
   { id: 'cloud-practitioner', label: 'Cloud Practitioner', description: 'Materiales de estudio y experiencias sobre Cloud Practitioner.' },
   { id: 'ai-practitioner', label: 'AI Practitioner', description: 'Materiales de estudio y experiencias sobre AI Practitioner.' },
-  { id: 'solutions-architect', label: 'Solutions Architect', description: 'Recursos sobre Solutions Architect. Revisa cada ficha para conocer el examen al que corresponde.' },
+  { id: 'solutions-architect', label: 'Solutions Architect', description: 'Materiales de Solutions Architect Associate y Professional. Comprueba el nivel y la versión antes de usarlos.' },
   { id: 'developer-associate', label: 'Developer Associate', description: 'Recursos sobre Developer Associate.' },
-  { id: 'sysops', label: 'SysOps', description: 'Recursos sobre SysOps Administrator.' },
+  { id: 'sysops', label: 'SysOps', description: 'Materiales históricos de SysOps Administrator, el examen anterior. No equivalen a preparación revisada para CloudOps Engineer.' },
   { id: 'ai-business-strategist', label: 'AI Business Strategist', description: 'Recursos sobre AI Business Strategist.' },
   { id: 'advanced-networking', label: 'Advanced Networking', description: 'Recursos sobre Advanced Networking.' },
   { id: 'multiple-exams', label: 'Varios exámenes', description: 'Materiales que abarcan distintas certificaciones AWS.' },

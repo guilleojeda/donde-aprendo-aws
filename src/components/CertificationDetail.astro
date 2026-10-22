@@ -1,0 +1,167 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import SiteHeader from './SiteHeader.astro';
+import SiteFooter from './SiteFooter.astro';
+import PageFaq from './PageFaq.astro';
+import '../styles/certifications.css';
+import type { CertificationRecord, ResolvedCertificationPage } from '../types/certifications';
+
+interface Props {
+  page: ResolvedCertificationPage;
+  credential: CertificationRecord;
+}
+
+const { page, credential } = Astro.props;
+const mapHref = '/aprender/certificaciones/';
+const libraryHref = `${mapHref}?group=${encodeURIComponent(page.library.group)}#certificaciones-materiales`;
+const examStatus = credential.exams.find(({ code }) => code === page.exam.code);
+if (!examStatus) throw new Error(`Exam ${page.exam.code} is missing from ${credential.name}.`);
+const formatDate = (value: string) => new Date(`${value}T00:00:00.000Z`).toLocaleDateString('es-AR', {
+  day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
+});
+const facts = [
+  { label: 'Código del examen', value: page.exam.code },
+  { label: 'Experiencia recomendada por AWS', value: page.exam.experience },
+  { label: 'Requisitos', value: page.exam.requirements },
+  { label: 'Duración', value: page.exam.duration },
+  { label: 'Formato y preguntas', value: page.exam.questions },
+  { label: 'Precio base', value: page.exam.price },
+  { label: 'Idiomas', value: page.exam.languages },
+  { label: 'Vigencia', value: page.exam.validity },
+  { label: 'Puntaje de aprobación', value: page.exam.passingScore },
+];
+const sourceLinks = [
+  { label: `Información oficial de ${credential.name}`, href: credential.officialUrl },
+  { label: 'Guía oficial del examen', href: page.exam.guideUrl },
+  ...(page.sources ?? []),
+].filter((source, index, sources) => sources.findIndex(({ href }) => href === source.href) === index);
+---
+
+<BaseLayout title={`${page.title} | ¿Dónde Aprendo AWS?`} description={page.description} canonical={`https://dondeaprendoaws.com${page.path}`}>
+  <SiteHeader />
+  <main id="contenido" tabindex="-1" class="certification-detail site-container">
+    <nav class="certification-detail__breadcrumbs" aria-label="Ruta de navegación">
+      <ol>
+        <li><a href="/">Inicio</a></li>
+        <li><a href="/aprender/">Aprender AWS</a></li>
+        <li><a href={mapHref}>Certificaciones</a></li>
+        <li><span aria-current="page">{credential.name}</span></li>
+      </ol>
+    </nav>
+
+    <header class="certification-detail__hero">
+      <p class="certification-detail__eyebrow">Preparación por examen</p>
+      <h1>{page.title}</h1>
+      <p>{page.intro}</p>
+      <nav class="certification-jumps" aria-label="En esta página">
+        <a href="#certification-exam">El examen</a>
+        <a href="#certification-domains">Qué evalúa</a>
+        <a href="#certification-preparation">Cómo prepararte</a>
+        <a href="#certification-resources">Recursos seleccionados</a>
+        <a href={`#${page.faq.id}-title`}>Preguntas frecuentes</a>
+      </nav>
+    </header>
+
+    <section class="certification-detail__section" id="certification-exam" aria-labelledby="certification-exam-title">
+      <div class="certification-detail__section-heading">
+        <div>
+          <p class="certification-detail__eyebrow">Antes de agendar</p>
+          <h2 id="certification-exam-title">El examen</h2>
+        </div>
+        <div class="certification-detail__exam-status">
+          <span class="certification-detail__exam-code">{page.exam.code}</span>
+          <span class="certification-detail__exam-label">{examStatus.status}</span>
+        </div>
+      </div>
+      {examStatus.note && <p class="certification-detail__exam-note">{examStatus.note}</p>}
+      <dl class="certification-detail__facts">
+        {facts.map(({ label, value }) => <div>
+          <dt>{label}</dt>
+          <dd>{value}</dd>
+        </div>)}
+      </dl>
+      <p class="certification-detail__review">
+        Información oficial revisada el <time datetime={credential.reviewedAt}>{formatDate(credential.reviewedAt)}</time>.
+      </p>
+      <p class="certification-detail__sources">
+        {sourceLinks.map((source, index) => <>
+          {index > 0 && <span aria-hidden="true"> · </span>}
+          <a href={source.href}>{source.label}</a>
+        </>)}
+      </p>
+    </section>
+
+    <section class="certification-detail__section" id="certification-domains" aria-labelledby="certification-domains-title">
+      <div class="certification-detail__section-heading">
+        <div>
+          <p class="certification-detail__eyebrow">Alcance oficial</p>
+          <h2 id="certification-domains-title">Qué evalúa</h2>
+        </div>
+      </div>
+      <ul class="certification-detail__domains">
+        {page.domains.map((domain) => <li>
+          <span>{domain.name}</span>
+          <strong>{domain.weight}%</strong>
+        </li>)}
+      </ul>
+      <p><a href={page.exam.guideUrl}>Consulta el detalle y los objetivos de la guía oficial del examen</a>.</p>
+    </section>
+
+    <section class="certification-detail__section" id="certification-preparation" aria-labelledby="certification-preparation-title">
+      <div class="certification-detail__section-heading">
+        <div>
+          <p class="certification-detail__eyebrow">Un orden para empezar</p>
+          <h2 id="certification-preparation-title">Cómo prepararte</h2>
+        </div>
+      </div>
+      <ol class="certification-detail__steps">
+        {page.preparation.map((step) => <li>
+          <h3>{step.title}</h3>
+          <p>{step.body}</p>
+        </li>)}
+      </ol>
+    </section>
+
+    <section class="certification-detail__section" id="certification-resources" aria-labelledby="certification-resources-title">
+      <div class="certification-detail__section-heading">
+        <div>
+          <p class="certification-detail__eyebrow">Punto de partida y profundización</p>
+          <h2 id="certification-resources-title">Recursos seleccionados</h2>
+        </div>
+      </div>
+      <ul class="certification-detail__resources">
+        {page.officialPreparation.map((resource) => <li class="certification-resource certification-resource--official">
+          <p class="certification-resource__kind">Preparación oficial</p>
+          <h3><a href={resource.href}>{resource.title}</a></h3>
+          <p>{resource.note}</p>
+        </li>)}
+        {page.selections.map((selection) => <li class="certification-resource">
+          <p class="certification-resource__kind">
+            {selection.type === 'blog' ? 'Artículo del sitio' : 'Recurso seleccionado'}
+            {selection.examCode && <> · {selection.examCode}</>}
+          </p>
+          <h3><a href={selection.href}>{selection.title}</a></h3>
+          <p class="certification-resource__purpose">{selection.purpose}</p>
+          <p>{selection.scope}</p>
+          {(selection.language || selection.access) && <p class="certification-resource__meta">
+            {selection.language && <span>Idioma comprobado: {selection.language}</span>}
+            {selection.language && selection.access && <span aria-hidden="true"> · </span>}
+            {selection.access && <span>Acceso: {selection.access}</span>}
+          </p>}
+          <p class="certification-resource__review">Revisado para {selection.examCode} el <time datetime={selection.reviewedAt}>{formatDate(selection.reviewedAt)}</time>.</p>
+        </li>)}
+      </ul>
+      {page.selections.length === 0 && <p class="certification-detail__empty-selection">
+        La preparación oficial y la guía del examen siguen disponibles arriba. La biblioteca reúne otros materiales publicados para explorar.
+      </p>}
+    </section>
+
+    <PageFaq items={page.faq.items} heading={page.faq.heading} id={page.faq.id} />
+
+    <nav class="certification-detail__backlinks" aria-label="Seguir explorando certificaciones">
+      <a href={`${mapHref}#certificaciones-mapa`}>Ver el mapa completo de certificaciones</a>
+      <a href={libraryHref}>{page.library.label}</a>
+    </nav>
+  </main>
+  <SiteFooter />
+</BaseLayout>
