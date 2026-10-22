@@ -59,10 +59,10 @@ const canonical = new URL(path, 'https://dondeaprendoaws.com').href;
   <SiteHeader />
   <Directory title={`Comunidades AWS en ${countryLabel}`} intro={intro} kind="community" resources={resources} allResources={allResources} events={events} country={country}>
     <div slot="before-filters" class="collection-page__editorial">
-      <PageFactSummary text={communityFactText(resources, countryLabel)} label={`Resumen de comunidades en ${countryLabel}`} />
       <CollectionNavigation links={communityCollectionLinks} label="Tipos de comunidades AWS" />
     </div>
     <div slot="after-results" class="collection-page__after-results">
+      <PageFactSummary text={communityFactText(resources, countryLabel)} label={`Resumen de comunidades en ${countryLabel}`} />
       <CollectionGuide guide={guide} links={guideLinks} />
       <PageFaq items={faqItems} id="community-country-faq" />
     </div>
