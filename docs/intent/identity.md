@@ -51,11 +51,12 @@ Los títulos y encabezados propios usan mayúsculas de oración y «español» e
 minúscula; los nombres de servicios y las siglas conservan su capitalización.
 Los títulos, nombres y descripciones externos del catálogo y las citas literales
 conservan la voz de sus autores. DynamoDB sigue siendo el dueño del catálogo.
-La portada presenta orientación, accesos por familia y objetivo, recomendaciones
-y eventos reales, además del formulario moderado y su FAQ. Las cinco respuestas
-para aprender permanecen visibles. No existe una sección de socios ni un
-componente de patrocinio que la sustituya; el pie conserva sus vínculos
-editoriales y sociales ordinarios.
+La portada prioriza una presentación breve y cuatro accesos completos a Aprender,
+Creadores y canales, Comunidades y Eventos. Después ofrece accesos por objetivo,
+las cuatro rutas editoriales, recomendaciones y eventos reales; luego conserva
+las cinco respuestas para aprender, el formulario moderado y su FAQ. No existe
+una sección de socios ni un componente de patrocinio que la sustituya; el pie
+conserva sus vínculos editoriales y sociales ordinarios.
 
 El rediseño conserva rutas, enlaces compartibles, filtros, búsqueda privada,
 agenda y zonas horarias, calendario, campos del formulario y recibo real. Los
