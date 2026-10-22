@@ -6,11 +6,18 @@ class FakeElement {
   constructor(name, document) {
     this.name = name;
     this.document = document;
+    this.ownerDocument = document;
+    this.dataset = {};
+    this.style = {};
     this.listeners = new Map();
     this.children = new Set();
     this.attributes = new Set();
     this.parentElement = null;
     this.open = false;
+  }
+
+  getBoundingClientRect() {
+    return { left: 24, right: 124, top: 24, bottom: 64, width: 100, height: 40 };
   }
 
   addEventListener(type, listener) {
@@ -54,9 +61,19 @@ class FakeElement {
 }
 
 function createNavigation() {
+  const viewListeners = new Map();
   const document = {
     activeElement: null,
     listeners: new Map(),
+    documentElement: { clientWidth: 1024, clientHeight: 768 },
+    defaultView: {
+      requestAnimationFrame(callback) { callback(); },
+      addEventListener(type, listener) {
+        const listeners = viewListeners.get(type) ?? [];
+        listeners.push(listener);
+        viewListeners.set(type, listeners);
+      },
+    },
     addEventListener(type, listener, options) {
       const listeners = this.listeners.get(type) ?? [];
       listeners.push({ listener, options });
@@ -72,6 +89,7 @@ function createNavigation() {
   };
   const disclosure = new FakeElement('disclosure', document);
   const summary = new FakeElement('summary', document);
+  const panel = new FakeElement('panel', document);
   const firstTopic = new FakeElement('first-topic', document);
   const lastTopic = new FakeElement('last-topic', document);
   const sort = new FakeElement('resource-sort', document);
@@ -80,12 +98,14 @@ function createNavigation() {
   themeToggle.setAttribute('data-theme-toggle');
   const themeIcon = new FakeElement('theme-icon', document);
   disclosure.append(summary);
-  disclosure.append(firstTopic);
-  disclosure.append(lastTopic);
+  disclosure.append(panel);
+  panel.append(firstTopic);
+  panel.append(lastTopic);
   themeToggle.append(themeIcon);
   disclosure.querySelector = (selector) => {
-    assert.equal(selector, 'summary');
-    return summary;
+    if (selector === 'summary') return summary;
+    if (selector === '[data-directory-overlay-panel]') return panel;
+    assert.fail(`Unsupported disclosure selector: ${selector}`);
   };
 
   setupLearningTopicDisclosure(document);

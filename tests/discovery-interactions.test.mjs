@@ -6,6 +6,7 @@ import { directoryGroupMembership, directoryListEntries, filterResources, sortRe
 import { parseDirectorySearch, resetDirectorySearchForReveal, serializeDirectorySearch } from '../src/lib/directory-url.mjs';
 import { COUNTRY_LABELS, LEVEL_LABELS } from '../src/lib/resource-discovery.mjs';
 import { aggregateSearchData, searchIndex, TYPE_LABELS } from '../src/lib/unified-search.mjs';
+import { positionDirectoryOverlay } from '../src/scripts/directory-overlay.js';
 
 const directoryScript = readFileSync(new URL('../src/scripts/directory.js', import.meta.url), 'utf8')
   .replace(/^import .*;\s*$/gmu, '');
@@ -23,17 +24,29 @@ class MockElement {
     this.children = [];
     this.attributes = new Map();
     this.listeners = new Map();
-    this.textContent = '';
+    this._textContent = '';
+    this.parentElement = null;
+    this.open = false;
+    this.options = [];
+    this.scrollIntoViewCalls = [];
+    this.focusCalls = [];
   }
 
   append(...children) {
     for (const child of children) {
-      if (child instanceof MockFragment) this.children.push(...child.children);
-      else this.children.push(child);
+      const appended = child instanceof MockFragment ? [...child.children] : [child];
+      for (const element of appended) {
+        if (element.parentElement) {
+          element.parentElement.children = element.parentElement.children.filter((candidate) => candidate !== element);
+        }
+        element.parentElement = this;
+        this.children.push(element);
+      }
     }
   }
 
   replaceChildren(...children) {
+    for (const child of this.children) child.parentElement = null;
     this.children = [];
     this.append(...children);
   }
@@ -44,8 +57,57 @@ class MockElement {
     this.listeners.set(type, handlers);
   }
 
+  matches(selector) {
+    return selector.split(',').some((rawSelector) => {
+      const candidate = rawSelector.trim();
+      const tagName = candidate.match(/^[a-z][a-z0-9-]*/iu)?.[0]?.toUpperCase();
+      if (tagName && this.tagName !== tagName) return false;
+      const classes = [...candidate.matchAll(/\.([a-z0-9_-]+)/giu)].map((match) => match[1]);
+      const classNames = String(this.className ?? '').split(/\s+/u).filter(Boolean);
+      if (classes.some((className) => !classNames.includes(className))) return false;
+      const attributes = [...candidate.matchAll(/\[data-([a-z0-9-]+)\]/giu)];
+      if (attributes.some(([, name]) => !Object.hasOwn(
+        this.dataset,
+        name.replace(/-([a-z])/gu, (_match, letter) => letter.toUpperCase()),
+      ))) return false;
+      return Boolean(tagName || classes.length || attributes.length);
+    });
+  }
+
+  querySelectorAll(selector) {
+    const matches = [];
+    for (const child of this.children) {
+      if (child.matches(selector)) matches.push(child);
+      matches.push(...child.querySelectorAll(selector));
+    }
+    return matches;
+  }
+
+  querySelector(selector) { return this.querySelectorAll(selector)[0] ?? null; }
+
   emit(type, event = {}) {
-    return (this.listeners.get(type) ?? []).map((handler) => handler(event));
+    const dispatched = {
+      ...event,
+      type,
+      target: event.target ?? this,
+      bubbles: event.bubbles ?? true,
+      defaultPrevented: event.defaultPrevented ?? false,
+      preventDefault: event.preventDefault ?? function preventDefault() { this.defaultPrevented = true; },
+      stopPropagation: event.stopPropagation ?? function stopPropagation() { this.propagationStopped = true; },
+    };
+    const path = [];
+    for (let element = this; element; element = element.parentElement) path.push(element);
+    if (!path.includes(this.document)) path.push(this.document);
+    const results = [];
+    for (const currentTarget of path) {
+      dispatched.currentTarget = currentTarget;
+      const handlers = currentTarget === this.document
+        ? this.document.listeners?.get(type) ?? []
+        : currentTarget.listeners.get(type) ?? [];
+      for (const handler of handlers) results.push(handler(dispatched));
+      if (dispatched.propagationStopped || (currentTarget !== this && !dispatched.bubbles)) break;
+    }
+    return results;
   }
 
   async emitAsync(type, event = {}) {
@@ -55,13 +117,44 @@ class MockElement {
   setAttribute(name, value) { this.attributes.set(name, value); }
   getAttribute(name) { return this.attributes.get(name) ?? null; }
 
-  focus() { this.document.activeElement = this; }
+  focus(options = {}) {
+    this.focusCalls.push(options);
+    const previous = this.document.activeElement;
+    if (previous === this) return;
+    this.document.activeElement = this;
+    previous?.emit('focusout', { relatedTarget: this });
+    this.emit('focusin', { relatedTarget: previous });
+  }
 
   click() {
     if (this.hidden) return;
-    this.focus();
+    if (['A', 'BUTTON', 'INPUT', 'SELECT', 'SUMMARY'].includes(this.tagName)) this.focus();
     this.emit('click');
+    if (this.tagName === 'SUMMARY' && this.parentElement?.tagName === 'DETAILS') {
+      this.parentElement.open = !this.parentElement.open;
+    }
   }
+
+  contains(target) {
+    return target === this || this.children.some((child) => child.contains(target));
+  }
+
+  closest(selector) {
+    for (let element = this; element; element = element.parentElement) {
+      if (selector === '[data-theme-toggle]' && Object.hasOwn(element.dataset, 'themeToggle')) return element;
+      if (selector === '[data-filter-disclosure]' && Object.hasOwn(element.dataset, 'filterDisclosure')) return element;
+      if (selector === 'summary' && element.tagName === 'SUMMARY') return element;
+    }
+    return null;
+  }
+
+  scrollIntoView(options) { this.scrollIntoViewCalls.push(options); }
+
+  get textContent() {
+    return this.children.length ? this.children.map((child) => child.textContent).join('') : this._textContent;
+  }
+
+  set textContent(value) { this._textContent = String(value); }
 }
 
 class MockFragment {
@@ -69,21 +162,51 @@ class MockFragment {
   append(...children) { this.children.push(...children); }
 }
 
-function createDirectory({ count, resources, initialSearch = '' } = {}) {
+function createDirectory({
+  count, resources, initialSearch = '', kind = 'content', facets = ['format', 'topic', 'country', 'level'], primaryFacets = [],
+  defaultSort = 'recommended', resourceGroups = [],
+} = {}) {
   resources ??= Array.from({ length: count }, (_, index) => ({
     title: `recurso ${index}`, category: 'Curso', format: 'Curso', topics: [],
   }));
-  const document = { activeElement: null, body: null };
+  const document = { activeElement: null, body: null, listeners: new Map() };
   document.body = new MockElement(document, { tagName: 'BODY' });
   document.activeElement = document.body;
 
-  const controls = new MockElement(document);
-  const search = new MockElement(document, { tagName: 'INPUT' });
-  const format = new MockElement(document, { tagName: 'SELECT' });
-  format.options = [{ value: '' }, { value: 'Curso' }, { value: 'Video' }];
-  controls.querySelector = (selector) => selector === '[data-resource-search]' ? search
-    : selector === '[data-format-filter]' ? format : null;
-  const list = new MockElement(document, { tagName: 'UL', dataset: { kind: 'content', resourceGroups: '[]' } });
+  const controls = new MockElement(document, { dataset: { directoryControls: '' } });
+  const search = new MockElement(document, { tagName: 'INPUT', dataset: { resourceSearch: '' } });
+  const facetOptions = {
+    format: kind === 'community'
+      ? ['', 'User Group', 'Student Builder Group', 'Grupo de estudio', 'Comunidad en línea']
+      : ['', 'Curso', 'Video', 'Artículo'],
+    topic: ['', 'Comunidad', 'Seguridad', 'Serverless', 'Redes'],
+    country: ['', 'AR', 'PE', 'CO'],
+    level: ['', 'inicial', 'intermedio', 'avanzado'],
+    group: ['', ...resourceGroups.map(({ id }) => id)],
+  };
+  const facetSelectors = {
+    format: '[data-format-filter]', topic: '[data-topic-filter]', country: '[data-country-filter]',
+    level: '[data-level-filter]', group: '[data-group-filter]',
+  };
+  const facetAttributes = {
+    format: 'formatFilter', topic: 'topicFilter', country: 'countryFilter', level: 'levelFilter', group: 'groupFilter',
+  };
+  const facetControls = Object.fromEntries(Object.entries(facetSelectors).map(([field]) => [
+    field, new MockElement(document, { tagName: 'SELECT', dataset: { [facetAttributes[field]]: '' } }),
+  ]));
+  for (const [field, control] of Object.entries(facetControls)) {
+    control.options = facetOptions[field].map((value) => ({ value }));
+  }
+  const details = new MockElement(document, { tagName: 'DETAILS', dataset: { filterDisclosure: '' } });
+  const summary = Object.assign(new MockElement(document, { tagName: 'SUMMARY' }), { textContent: 'Filtros adicionales' });
+  const facetFields = new MockElement(document, { tagName: 'DIV' });
+  details.append(summary, facetFields);
+  for (const field of facets) facetFields.append(facetControls[field]);
+  const primaryControls = primaryFacets.map((field) => facetControls[field]);
+  controls.append(search, ...(resourceGroups.length ? [facetControls.group] : []), ...primaryControls, details);
+  const list = new MockElement(document, {
+    tagName: 'UL', dataset: { kind, resourceList: '', resourceGroups: JSON.stringify(resourceGroups) },
+  });
   const cards = resources.map((resource, index) => {
     const card = new MockElement(document, {
       tagName: 'LI',
@@ -114,26 +237,77 @@ function createDirectory({ count, resources, initialSearch = '' } = {}) {
       : selector === '.resource-card__related a' ? related : [];
     return card;
   });
+  list.append(...cards);
   list.querySelectorAll = (selector) => selector === '[data-resource-index]' ? cards : [];
-  const showMoreWrap = new MockElement(document, { hidden: true });
-  const showMore = new MockElement(document, { tagName: 'BUTTON' });
-  const resultCount = new MockElement(document, { dataset: { countSingular: 'recurso', countPlural: 'recursos' } });
-  const noResults = new MockElement(document, { hidden: true });
+  const sort = new MockElement(document, { tagName: 'SELECT', dataset: { defaultSort, sortFilter: '' } });
+  sort.options = ['recommended', 'directory', 'recent', 'purpose'].map((value) => ({ value }));
+  const themeToggle = new MockElement(document, { tagName: 'BUTTON', dataset: { themeToggle: '' } });
+  const showMoreWrap = new MockElement(document, { hidden: true, dataset: { showMoreWrap: '' } });
+  const showMore = new MockElement(document, { tagName: 'BUTTON', dataset: { showMore: '' } });
+  showMoreWrap.append(showMore);
+  const resultCount = new MockElement(document, {
+    dataset: { resultCount: '', countSingular: 'recurso', countPlural: 'recursos' },
+  });
+  const noResults = new MockElement(document, { hidden: true, dataset: { noResults: '' } });
   const selectors = new Map([
-    ['[data-directory-controls]', controls], ['[data-resource-list]', list], ['[data-sort-filter]', null],
+    ['[data-directory-controls]', controls], ['[data-resource-list]', list], ['[data-sort-filter]', sort],
     ['[data-no-results]', noResults], ['[data-result-count]', resultCount], ['[data-show-more]', showMore],
-    ['[data-show-more-wrap]', showMoreWrap],
+    ['[data-show-more-wrap]', showMoreWrap], ['[data-theme-toggle]', themeToggle],
   ]);
-  const documentListeners = new Map();
+  document.body.append(controls, sort, list, resultCount, noResults, showMoreWrap, themeToggle);
   document.querySelector = (selector) => selectors.get(selector) ?? null;
-  document.querySelectorAll = () => [];
+  document.querySelectorAll = (selector) => document.body.querySelectorAll(selector);
   document.createElement = (tagName) => new MockElement(document, { tagName: tagName.toUpperCase() });
   document.createDocumentFragment = () => new MockFragment();
-  document.addEventListener = (type, handler) => documentListeners.set(type, handler);
-  const location = { pathname: '/aprender/', search: initialSearch, hash: '' };
-  const history = { pushState() {}, replaceState() {} };
+  document.addEventListener = (type, handler) => {
+    const handlers = document.listeners.get(type) ?? [];
+    handlers.push(handler);
+    document.listeners.set(type, handlers);
+  };
+  const initialUrl = new URL(`/aprender/${initialSearch}`, 'https://example.test');
+  const location = { pathname: initialUrl.pathname, search: initialUrl.search, hash: initialUrl.hash };
+  const entries = [`${location.pathname}${location.search}${location.hash}`];
+  let historyIndex = 0;
+  const applyUrl = (url) => {
+    const parsed = new URL(url, 'https://example.test');
+    location.pathname = parsed.pathname;
+    location.search = parsed.search;
+    location.hash = parsed.hash;
+  };
   const windowListeners = new Map();
-  const window = { addEventListener: (type, handler) => windowListeners.set(type, handler) };
+  const window = {
+    addEventListener(type, handler) {
+      const handlers = windowListeners.get(type) ?? [];
+      handlers.push(handler);
+      windowListeners.set(type, handlers);
+    },
+    emit(type, event = {}) {
+      return (windowListeners.get(type) ?? []).map((handler) => handler(event));
+    },
+  };
+  const history = {
+    entries,
+    pushCalls: [],
+    replaceCalls: [],
+    pushState(_state, _title, url) {
+      this.pushCalls.push(String(url));
+      entries.splice(historyIndex + 1);
+      entries.push(String(url));
+      historyIndex = entries.length - 1;
+      applyUrl(url);
+    },
+    replaceState(_state, _title, url) {
+      this.replaceCalls.push(String(url));
+      entries[historyIndex] = String(url);
+      applyUrl(url);
+    },
+    back() {
+      if (historyIndex === 0) return;
+      historyIndex -= 1;
+      applyUrl(entries[historyIndex]);
+      window.emit('popstate', { state: null });
+    },
+  };
   let lastFilteredRecords = [];
 
   runInNewContext(directoryScript, {
@@ -145,13 +319,20 @@ function createDirectory({ count, resources, initialSearch = '' } = {}) {
     },
     sortResources, COUNTRY_LABELS, LEVEL_LABELS,
     parseDirectorySearch, resetDirectorySearchForReveal, serializeDirectorySearch,
-    requestAnimationFrame: (callback) => callback(), URL,
+    requestAnimationFrame: (callback) => callback(), URL, Set, positionDirectoryOverlay,
   });
 
   return {
-    document, search, format, list, cards, showMore, showMoreWrap, resultCount, noResults,
+    document, controls, search, format: facetControls.format, topic: facetControls.topic,
+    country: facetControls.country, level: facetControls.level, group: facetControls.group,
+    sort, details, summary, facetFields, themeToggle, list, cards, showMore, showMoreWrap, resultCount, noResults,
+    location, history, window,
     get records() { return lastFilteredRecords; },
   };
+}
+
+function visibleDirectoryCards(directory) {
+  return directory.cards.filter((card) => !card.hidden);
 }
 
 function makeSearchIndex(count) {
@@ -350,6 +531,266 @@ test('directory search keeps the former empty-field slots for the published miss
   directory.search.emit('input');
   assert.deepEqual(directory.cards.map(({ hidden }) => !hidden), [false],
     'A query cannot bridge the empty country slot between topic and level fields.');
+});
+
+test('certification directory filters start closed and count its applicable active facets', () => {
+  const resourceGroups = [
+    { id: 'exam-a', label: 'Examen A', resourceIds: ['1'], filterResourceIds: ['0', '1'] },
+    { id: 'exam-b', label: 'Examen B', resourceIds: ['2'], filterResourceIds: ['0', '2'] },
+    { id: 'multiple-exams', label: 'Varios exámenes', resourceIds: ['0'] },
+  ];
+  const directory = createDirectory({
+    facets: ['format', 'country', 'level'],
+    defaultSort: 'purpose',
+    resourceGroups,
+    initialSearch: '?campaign=fall&q=CloudTrail&format=Video&country=PE&level=intermedio&group=exam-a&sort=recent',
+    resources: [
+      {
+        title: 'Guía CloudTrail práctica', description: 'AWS y auditoría', category: 'Guías', format: 'Video',
+        topics: ['Seguridad'], country: 'PE', level: 'intermedio', levelLabel: 'Intermedio',
+      },
+      {
+        title: 'CloudTrail curso relacionado', description: 'AWS y auditoría', category: 'Guías', format: 'Video',
+        topics: ['Seguridad'], country: 'AR', level: 'intermedio', levelLabel: 'Intermedio',
+      },
+      {
+        title: 'CloudTrail curso de examen B', description: 'AWS y auditoría', category: 'Guías', format: 'Video',
+        topics: ['Seguridad'], country: 'PE', level: 'intermedio', levelLabel: 'Intermedio',
+      },
+    ],
+  });
+
+  assert.equal(directory.group.value, 'exam-a');
+  assert.equal(directory.country.value, 'PE', 'the country facet restores its shareable route state');
+  assert.deepEqual(visibleDirectoryCards(directory), [directory.cards[0]],
+    'the mixed-exam record matches the selected group with all the active facets and query');
+  assert.deepEqual(directory.records[0].groupIds, ['exam-a', 'exam-b', 'multiple-exams'],
+    'group membership comes from the real mixed-exam filter metadata');
+  assert.deepEqual(directory.records[1].groupIds, ['exam-a'], 'the other exam-A resource has valid single-exam membership');
+  assert.deepEqual(directory.records[2].groupIds, ['exam-b'], 'the remaining resource belongs only to exam B');
+
+  assert.equal(directory.details.open, false, 'restored URL facets do not open the native disclosure');
+  assert.match(directory.summary.textContent, /\b3\b/u,
+    'the summary counts format, country, and level but excludes query, sort, and the primary exam group');
+
+  directory.summary.click();
+  directory.level.value = 'avanzado';
+  directory.level.emit('change');
+  assert.equal(directory.details.open, true, 'changing a facet while using the panel does not dismiss it');
+  assert.match(directory.summary.textContent, /\b3\b/u, 'the count reflects selected secondary facets, not matching result count');
+  assert.equal(visibleDirectoryCards(directory).length, 0);
+
+  directory.summary.click();
+  directory.history.back();
+  assert.equal(directory.level.value, 'intermedio', 'popstate restores the secondary facet control');
+  assert.equal(directory.group.value, 'exam-a', 'popstate restores the primary exam control');
+  assert.equal(visibleDirectoryCards(directory).length, 1, 'popstate restores results with the selected URL state');
+  assert.equal(directory.details.open, false, 'restoring active facets never forces the disclosure back open');
+  assert.match(directory.summary.textContent, /\b3\b/u, 'the active facet count is restored while the panel stays closed');
+});
+
+test('the community directory counts format and topic while its primary country filters results', () => {
+  const directory = createDirectory({
+    kind: 'community',
+    facets: ['format', 'topic'],
+    primaryFacets: ['country'],
+    resources: [
+      { title: 'AWS User Group Perú', category: 'Comunidad', format: 'User Group', topics: ['Comunidad'], country: 'PE' },
+      { title: 'Grupo estudiantil Perú', category: 'Comunidad', format: 'Student Builder Group', topics: ['Redes'], country: 'PE' },
+      { title: 'AWS User Group Argentina', category: 'Comunidad', format: 'User Group', topics: ['Comunidad'], country: 'AR' },
+    ],
+  });
+  assert.equal(directory.controls.querySelector('[data-group-filter]'), null, 'community directories have no exam-group control');
+  assert.equal(directory.controls.querySelector('[data-level-filter]'), null, 'community directories have no level control');
+  directory.country.value = 'PE';
+  directory.country.emit('change');
+  directory.summary.click();
+
+  for (const { control, value } of [
+    { control: directory.format, value: 'User Group' },
+    { control: directory.topic, value: 'Comunidad' },
+  ]) {
+    control.focus();
+    control.value = value;
+    control.emit('change');
+  }
+
+  assert.equal(directory.country.value, 'PE', 'the route country remains selected outside the secondary panel');
+  assert.equal(visibleDirectoryCards(directory).length, 1, 'country, format, and topic combine in the real community result flow');
+  assert.match(directory.summary.textContent, /\b2\b/u,
+    'the visible count includes the selected format and topic but excludes primary country');
+});
+
+test('Escape closes an open directory filter disclosure and restores focus only when Escape is inside it', () => {
+  const directory = createDirectory({ count: 2 });
+  directory.summary.click();
+  directory.format.focus();
+  directory.format.emit('keydown', { key: 'Escape' });
+
+  assert.equal(directory.details.open, false, 'Escape from a filter closes the disclosure');
+  assert.equal(directory.document.activeElement, directory.summary, 'Escape inside returns focus to the disclosure summary');
+
+  directory.summary.click();
+  directory.document.activeElement = directory.document.body;
+  directory.document.body.emit('keydown', { key: 'Escape' });
+  assert.equal(directory.details.open, false, 'Escape outside also dismisses an open disclosure');
+  assert.equal(directory.document.activeElement, directory.document.body, 'Escape outside preserves the existing focus destination');
+});
+
+test('directory filter focus departure preserves destination focus and the shared theme-toggle exemption', () => {
+  const directory = createDirectory({ count: 2 });
+  const outsideButton = new MockElement(directory.document, { tagName: 'BUTTON' });
+
+  directory.summary.click();
+  directory.format.focus();
+  directory.format.value = 'Video';
+  directory.format.emit('change');
+  directory.themeToggle.click();
+  assert.equal(directory.details.open, true, 'focus and click on the shared theme toggle leave the disclosure open');
+  assert.equal(directory.format.value, 'Video', 'theme interaction preserves the selected facet');
+  assert.equal(directory.document.activeElement, directory.themeToggle, 'theme interaction keeps focus on its own control');
+
+  directory.format.focus();
+  outsideButton.focus();
+  assert.equal(directory.details.open, false, 'Tab or another focus move outside closes the disclosure');
+  assert.equal(directory.document.activeElement, outsideButton, 'closing on focusout does not steal the next focus');
+});
+
+test('directory filter clicks stay open inside and dismiss on an outside click without moving focus', () => {
+  const directory = createDirectory({ count: 2 });
+  const outsideArea = new MockElement(directory.document, { tagName: 'DIV' });
+
+  directory.summary.click();
+  directory.topic.click();
+  assert.equal(directory.details.open, true, 'clicks inside the native disclosure do not close it');
+  directory.summary.click();
+  assert.equal(directory.details.open, false, 'the summary keeps native toggle behavior');
+
+  directory.summary.click();
+  const focusBeforeOutsideClick = directory.document.activeElement;
+  outsideArea.click();
+  assert.equal(directory.details.open, false, 'a click outside closes the disclosure');
+  assert.equal(directory.document.activeElement, focusBeforeOutsideClick, 'an outside click on a non-focusable area preserves focus');
+});
+
+test('directory facet changes reset Show More, preserve unrelated URL parameters, and popstate restores controls and results', () => {
+  const resources = Array.from({ length: 25 }, (_, index) => ({
+    title: `AWS recurso ${index}`,
+    description: 'Guía práctica para aprender',
+    category: 'Cursos y videos',
+    format: index % 2 === 0 ? 'Curso' : 'Video',
+    topics: index % 2 === 0 ? ['Seguridad'] : ['Redes'],
+    country: index % 2 === 0 ? 'AR' : 'PE',
+    level: index % 2 === 0 ? 'intermedio' : 'inicial',
+    addedAt: `2026-10-${String(index + 1).padStart(2, '0')}`,
+  }));
+  const directory = createDirectory({ resources, initialSearch: '?campaign=q4&sort=recent' });
+  assert.equal(visibleDirectoryCards(directory).length, 12);
+
+  directory.showMore.click();
+  assert.equal(visibleDirectoryCards(directory).length, 24);
+  assert.equal(directory.document.activeElement, directory.list.children[12], 'the first newly shown result receives focus');
+  directory.showMore.click();
+  assert.equal(visibleDirectoryCards(directory).length, 25);
+  assert.equal(directory.document.activeElement, directory.list.children[24], 'the final short page receives focus');
+
+  directory.summary.click();
+  directory.format.focus();
+  directory.format.value = 'Curso';
+  directory.format.emit('change');
+  assert.equal(directory.history.pushCalls.length, 1, 'a facet change creates a history entry');
+  assert.equal(visibleDirectoryCards(directory).length, 12, 'a filter change resets the reveal limit to one page');
+  assert.equal(directory.document.activeElement, directory.format, 'filtering keeps focus in the changed control');
+  assert.equal(directory.details.open, true, 'changing a facet does not close the panel being used');
+  directory.summary.click();
+
+  directory.search.focus();
+  directory.search.value = 'AWS recurso 24';
+  directory.search.emit('input');
+  assert.equal(directory.history.replaceCalls.length, 1, 'typing replaces the current history entry');
+  let params = new URLSearchParams(directory.location.search);
+  assert.equal(params.get('campaign'), 'q4', 'search preserves unrelated query parameters');
+  assert.equal(params.get('format'), 'Curso');
+  assert.equal(params.get('q'), 'AWS recurso 24');
+
+  directory.sort.value = 'directory';
+  directory.sort.emit('change');
+  assert.equal(directory.history.pushCalls.length, 2, 'an explicit sort change creates a history entry');
+  assert.equal(new URLSearchParams(directory.location.search).get('campaign'), 'q4');
+  directory.history.back();
+
+  params = new URLSearchParams(directory.location.search);
+  assert.equal(directory.search.value, 'AWS recurso 24', 'popstate restores the query control');
+  assert.equal(directory.format.value, 'Curso', 'popstate restores the selected facet');
+  assert.equal(directory.sort.value, 'recent', 'popstate restores the prior sort');
+  assert.equal(params.get('campaign'), 'q4');
+  assert.equal(visibleDirectoryCards(directory).length, 1, 'popstate restores the result set');
+  assert.equal(directory.details.open, false, 'popstate keeps the secondary panel closed with active filters');
+});
+
+test('directory sort choices flatten and restore exam headings using the production directory flow', () => {
+  const directory = createDirectory({
+    defaultSort: 'purpose',
+    resourceGroups: [
+      { id: 'exam-a', label: 'Examen A', description: 'Grupo A', resourceIds: ['0', '2'] },
+      { id: 'exam-b', label: 'Examen B', description: 'Grupo B', resourceIds: ['1'] },
+    ],
+    resources: [
+      { title: 'Primero', format: 'Curso', topics: [], addedAt: '2026-10-01' },
+      { title: 'Segundo', format: 'Curso', topics: [], addedAt: '2026-10-03' },
+      { title: 'Tercero', format: 'Curso', topics: [], addedAt: '2026-10-02' },
+    ],
+  });
+  const headings = () => directory.list.children.filter((child) => Object.hasOwn(child.dataset, 'resourceGroupHeading'));
+
+  assert.equal(directory.sort.value, 'purpose');
+  assert.equal(headings().length, 2, 'the default exam sort renders one heading per contiguous group');
+  directory.sort.value = 'recent';
+  directory.sort.emit('change');
+  assert.equal(headings().length, 0, 'an alternative sort flattens exam headings');
+  assert.deepEqual(directory.list.children.map((child) => child.id), ['resource-1', 'resource-2', 'resource-0']);
+  directory.sort.value = 'purpose';
+  directory.sort.emit('change');
+  assert.equal(headings().length, 2, 'returning to the default exam sort restores headings');
+});
+
+test('directory resource hashes reveal and focus hidden cards while preserving sort; unknown hashes preserve filters', () => {
+  const resources = Array.from({ length: 25 }, (_, index) => ({
+    title: `CloudTrail recurso ${index}`, format: 'Curso', topics: ['Seguridad'], country: 'AR',
+    level: 'intermedio', addedAt: `2026-10-${String(index + 1).padStart(2, '0')}`,
+  }));
+  const resourceGroups = [{
+    id: 'exam-a', label: 'Examen A', resourceIds: resources.map((_, index) => String(index)),
+  }];
+  const activeSearch = '?campaign=hash-test&q=CloudTrail&format=Curso&topic=Seguridad&country=AR&level=intermedio&group=exam-a&sort=recent';
+  const initialHash = createDirectory({ resources, resourceGroups, initialSearch: `${activeSearch}#resource-24` });
+
+  assert.equal(initialHash.cards[24].hidden, false, 'a deep-linked resource past the first page becomes visible on load');
+  assert.equal(initialHash.document.activeElement, initialHash.cards[24], 'the loaded hash target receives focus');
+  assert.equal(initialHash.cards[24].scrollIntoViewCalls.length, 1, 'the loaded hash target is brought into view');
+  assert.equal(initialHash.location.hash, '#resource-24');
+  assert.equal(initialHash.details.open, false, 'revealing a hash target leaves secondary filters closed');
+  let params = new URLSearchParams(initialHash.location.search);
+  assert.equal(params.get('campaign'), 'hash-test');
+  assert.equal(params.get('sort'), 'recent', 'revealing a resource preserves the chosen sort');
+  for (const field of ['q', 'format', 'topic', 'country', 'level', 'group']) {
+    assert.equal(params.has(field), false, `revealing a resource clears the incompatible ${field} filter`);
+  }
+  assert.equal(visibleDirectoryCards(initialHash).length, 25);
+
+  const changedHash = createDirectory({ resources, resourceGroups, initialSearch: activeSearch });
+  changedHash.location.hash = '#resource-24';
+  changedHash.window.emit('hashchange');
+  assert.equal(changedHash.cards[24].hidden, false, 'a later hash change reveals a target outside the initial page');
+  assert.equal(changedHash.document.activeElement, changedHash.cards[24]);
+  assert.equal(changedHash.details.open, false);
+  assert.equal(new URLSearchParams(changedHash.location.search).get('sort'), 'recent');
+
+  const unknownHash = createDirectory({ resources, initialSearch: '?q=CloudTrail&format=Curso&sort=recent#resource-inexistente' });
+  assert.equal(unknownHash.search.value, 'CloudTrail', 'an unknown hash does not clear the search');
+  assert.equal(unknownHash.format.value, 'Curso', 'an unknown hash does not clear selected filters');
+  assert.equal(visibleDirectoryCards(unknownHash).length, 12, 'an unknown resource hash does not reveal a later page');
+  assert.equal(unknownHash.cards[12].hidden, true);
 });
 
 test('search Show More focuses each new page while initial short results stay unfocused', async () => {

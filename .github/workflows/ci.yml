@@ -22,15 +22,26 @@ jobs:
       - run: npm run smoke:submission
       - run: npm run package:publication
       - run: python3 scripts/package-meetup-events.py
+      - name: Prepare enriched directory fixture
+        run: node tests/fixtures/compact-directory-catalog.mjs > "$RUNNER_TEMP/compact-directory-catalog.json"
       - run: npm run build
         env:
-          CATALOG_FIXTURE: tests/fixtures/catalog.json
+          CATALOG_FIXTURE: ${{ runner.temp }}/compact-directory-catalog.json
           PUBLIC_SUBMISSION_API_URL: https://api.example.invalid/submissions
+          PUBLIC_PRODUCTION: 'false'
+          PUBLIC_SITE_ORIGIN: https://main.d33kh9d3cyassq.amplifyapp.com
       - run: npm run verify:blog
+        env:
+          PUBLIC_PRODUCTION: 'false'
+          PUBLIC_SITE_ORIGIN: https://main.d33kh9d3cyassq.amplifyapp.com
       - run: npm run verify:site
+        env:
+          DIRECTORY_ACCEPTANCE_FIXTURE_MODE: enriched
+          PUBLIC_PRODUCTION: 'false'
+          PUBLIC_SITE_ORIGIN: https://main.d33kh9d3cyassq.amplifyapp.com
       - run: npm run build
         env:
-          CATALOG_FIXTURE: tests/fixtures/catalog.json
+          CATALOG_FIXTURE: ${{ runner.temp }}/compact-directory-catalog.json
           PUBLIC_SUBMISSION_API_URL: https://api.example.invalid/submissions
           PUBLIC_PRODUCTION: 'true'
           PUBLIC_SITE_ORIGIN: https://dondeaprendoaws.com
@@ -40,5 +51,6 @@ jobs:
           PUBLIC_SITE_ORIGIN: https://dondeaprendoaws.com
       - run: npm run verify:site
         env:
+          DIRECTORY_ACCEPTANCE_FIXTURE_MODE: enriched
           PUBLIC_PRODUCTION: 'true'
           PUBLIC_SITE_ORIGIN: https://dondeaprendoaws.com

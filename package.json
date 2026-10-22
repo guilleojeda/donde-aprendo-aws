@@ -11,7 +11,7 @@
     "build": "astro build",
     "verify:blog": "node scripts/verify-blog.mjs && node scripts/verify-responsive-images.mjs",
     "verify:images": "node scripts/verify-responsive-images.mjs",
-    "verify:site": "node scripts/verify-site.mjs && node --test tests/acceptance/site-themes.test.mjs tests/acceptance/compact-event-agenda.test.mjs tests/acceptance/compact-home.test.mjs",
+    "verify:site": "node scripts/verify-site.mjs && node --test tests/acceptance/site-themes.test.mjs tests/acceptance/compact-event-agenda.test.mjs tests/acceptance/compact-home.test.mjs tests/acceptance/compact-directories.test.mjs",
     "preview": "astro preview",
     "check": "astro check",
     "test": "node --test tests/*.test.mjs",
