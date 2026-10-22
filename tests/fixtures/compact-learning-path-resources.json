@@ -1,0 +1,41 @@
+[
+  {
+    "id": "catalog-f8a1bdedb229541186365e6bf325ed7f",
+    "title": "Qué es AWS: conceptos y servicios para empezar a aprender computación en la nube",
+    "url": "https://example.com/acceptance/path-first-resource",
+    "description": "Recurso sintético para comprobar el primer paso de una ruta.",
+    "category": "Otros",
+    "kind": "content",
+    "format": "Video",
+    "topics": ["Fundamentos"],
+    "order": 0,
+    "featured": false,
+    "published": true
+  },
+  {
+    "id": "catalog-08facfe178c25c04cfb53fb1e179894a",
+    "title": "Identidad y permisos en AWS: usuarios, roles y políticas de IAM",
+    "url": "https://example.com/acceptance/path-shared-resource",
+    "description": "Recurso sintético compartido por las rutas de primeros pasos y seguridad.",
+    "category": "Seguridad",
+    "kind": "content",
+    "format": "Artículo",
+    "topics": ["Seguridad"],
+    "order": 0,
+    "featured": false,
+    "published": true
+  },
+  {
+    "id": "catalog-0b83d84a42b3ec5866fe9945a2903dcd",
+    "title": "Recurso de ruta retirado",
+    "url": "https://example.com/acceptance/path-withdrawn-resource",
+    "description": "No debe aparecer entre los pasos públicos.",
+    "category": "Seguridad",
+    "kind": "content",
+    "format": "Video",
+    "topics": ["Seguridad"],
+    "order": 0,
+    "featured": false,
+    "published": false
+  }
+]
