@@ -257,10 +257,7 @@ test('selected collection pages expose only their useful FAQ and early route gui
   const levelFaq = byPath.get('/aprender/cursos/').faq.items.find(({ question }) => question === '¿Cómo encuentro cursos de AWS para mi nivel?');
   assert.equal(levelFaq.answer, 'Abre Filtros y elige el nivel que buscas. Si estás empezando, puedes elegir Inicial. Cuando una ficha no indique nivel, consulta su descripción y el programa del proveedor antes de decidir.');
   assert.doesNotMatch(levelFaq.answer, /cuenta|duraci[oó]n|cargos|precio/iu);
-  assert.equal(byPath.get('/aprender/certificaciones/').intro,
-    'Recursos para preparar exámenes de AWS.');
-  assert.ok(groupCertificationResources([{ id: 'x', title: 'Solutions Architect' }])
-    .find(({ id }) => id === 'solutions-architect').description.includes('conocer el examen al que corresponde'));
+  // Certification editorial intent is covered by certifications-overview.test.mjs.
   for (const [path, expectedRoute] of [
     ['/aprender/serverless/', '/recorridos/serverless/'],
     ['/aprender/seguridad/', '/recorridos/seguridad/'],

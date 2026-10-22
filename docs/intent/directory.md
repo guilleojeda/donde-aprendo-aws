@@ -79,7 +79,7 @@ The homepage provides five brief, always-visible answers for learners before the
 
 ## Content ownership
 
-DynamoDB is the single authoritative catalog. Site templates, assets, and blog article files belong in Git. Approved catalog records are not copied into Git for ongoing editing. The versioned Latin American Meetup directory is a reviewed seed for the initial import; it does not override later edits to the live catalog.
+DynamoDB is the single authoritative resource catalog. Site templates, assets, blog article files and [certification editorial guidance](certifications.md) belong in Git. Certification selections reference published resource IDs; they do not copy the catalog title, destination or publication permission. Approved catalog records are not copied into Git for ongoing editing. The versioned Latin American Meetup directory is a reviewed seed for the initial import; it does not override later edits to the live catalog.
 
 The directory does not accept payments or sponsorships. Recommendations are selected manually by the owner; the `featured` flag records that choice. Only articles in this site's blog are own content. The owner's channels and other resources are ordinary catalog resources and receive the same treatment as other entries. Each resource directory states this policy in its selection explanation and links to the blog. This native disclosure sits below the results and their reveal-more control, including empty-result states, and is closed on initial load. The `#directory-criteria` anchor targets the disclosure itself so a shared URL does not automatically expand its contents; visitors can open it when needed.
 

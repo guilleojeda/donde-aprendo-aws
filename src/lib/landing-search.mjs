@@ -1,6 +1,7 @@
 import { RESOURCE_COLLECTIONS, resolveResourceCollectionFaq } from './resource-collections.mjs';
 import { EVENT_COLLECTIONS } from './event-collections.mjs';
 import { communityCountryPages, eventCountryPath } from './community-country-pages.mjs';
+import { getCertificationPages } from './certifications.mjs';
 import { COUNTRY_LABELS } from './resource-discovery.mjs';
 
 /** Page destinations, distinct from individual cards and their expiry. */
@@ -11,6 +12,9 @@ export function landingSearchPages(resources) {
     { path: '/comunidades/', title: 'Comunidades AWS de Latinoamérica', description: 'Encuentra AWS User Groups y Student Builder Groups por país para aprender y participar.', label: 'Directorio de comunidades' },
     { path: '/eventos/', title: 'Próximos eventos AWS en Latinoamérica', description: 'Agenda de meetups, charlas y encuentros AWS por país, fecha y modalidad.', label: 'Agenda de eventos' },
     ...RESOURCE_COLLECTIONS,
+    ...getCertificationPages().map((page) => ({ ...page, label: `Preparar ${page.name}`,
+      search: [page.exam.code, ...page.domains.map(({ name }) => name),
+        ...page.preparation.flatMap(({ title, body }) => [title, body])].join(' ') })),
     ...Object.values(EVENT_COLLECTIONS),
     ...communityCountryPages(resources).flatMap(({ country, path }) => {
       const name = COUNTRY_LABELS[country];

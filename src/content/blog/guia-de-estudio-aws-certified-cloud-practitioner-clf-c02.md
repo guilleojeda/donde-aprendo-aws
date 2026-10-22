@@ -4,7 +4,7 @@ description: "Prepara el examen CLF-C02 con los dominios oficiales, un método p
 author: "guille-ojeda"
 publishedAt: "2024-05-04"
 publishedTimestamp: "2024-05-04T02:21:52.821Z"
-modifiedTimestamp: "2026-10-06T16:00:55-03:00"
+modifiedTimestamp: "2026-10-22T16:27:58-03:00"
 review:
   date: "2026-10-06"
 cover: "/assets/blog/editorial-certificacion.png"
@@ -20,11 +20,11 @@ related:
 
 Para estudiar para **AWS Certified Cloud Practitioner (CLF-C02)**, empieza por la guía oficial vigente. Convierte cada objetivo en una pregunta que puedas explicar, practica con situaciones nuevas y usa tus errores para elegir qué repasar. Reserva el examen cuando puedas justificar tus respuestas y hayas comprobado las condiciones para rendir; ningún curso ni porcentaje de un simulacro garantiza el resultado.
 
-Al 6 de octubre de 2026, AWS publica CLF-C02 como el examen vigente de Cloud Practitioner. Comprueba de nuevo el código y la guía antes de comenzar, porque el alcance puede cambiar. Si primero necesitas elegir materiales, la [guía de recursos para Cloud Practitioner en español](/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/) reúne cursos, grabaciones, práctica y comunidades. Esta página se concentra en cómo estudiar con esos recursos y decidir cuándo presentarte.
+Al 6 de octubre de 2026, AWS publica CLF-C02 como el examen vigente de Cloud Practitioner. Comprueba de nuevo el código y la guía antes de comenzar, porque el alcance puede cambiar. Si primero necesitas elegir materiales, la [guía de recursos para Cloud Practitioner en español](/blog/recursos-en-espanol-para-certificacion-aws-cloud-practitioner/) reúne cursos, grabaciones, práctica y comunidades. Para los datos actuales del examen, abre la [guía de AWS Certified Cloud Practitioner (CLF-C02)](/aprender/certificaciones/cloud-practitioner/). Esta página se concentra en cómo estudiar y decidir cuándo presentarte.
 
 ## Qué evalúa CLF-C02
 
-AWS describe Cloud Practitioner como una certificación de nivel fundacional para demostrar conocimiento general de la nube, sus servicios y su terminología. No hay requisitos previos formales para obtener una certificación de AWS. La guía plantea un perfil con hasta seis meses de exposición a AWS y recomienda conocimientos de nube, seguridad, servicios principales y economía; ese perfil es una orientación de preparación, no una condición de inscripción.
+AWS describe Cloud Practitioner como una certificación de nivel fundacional para demostrar conocimiento general de la nube, sus servicios y su terminología. Para diferenciar el perfil recomendado de los requisitos formales, consulta la ficha de [AWS Cloud Practitioner (CLF-C02)](/aprender/certificaciones/cloud-practitioner/); la experiencia sugerida orienta la preparación y no debe confundirse con una condición de inscripción.
 
 La guía vigente distribuye el contenido puntuado entre cuatro dominios:
 
@@ -90,7 +90,7 @@ Cuando revises una respuesta, registra algo más que “correcta” o “incorre
 | Error por un detalle del caso | Subraya qué condición cambia la decisión |
 | Duda sobre un dato actual | Contrástalo con la guía o documentación oficial |
 
-AWS informa el resultado en una escala de 100 a 1000. La puntuación mínima de aprobación de CLF-C02 es 700 y AWS usa una puntuación escalada; 700 no significa que haya una conversión fija de 70 % de aciertos. El modelo es compensatorio, así que no necesitas aprobar cada dominio por separado. Usa los resultados por dominio para localizar lagunas, no para inventar un puntaje mínimo personal que AWS no publica.
+La [ficha de AWS Cloud Practitioner (CLF-C02)](/aprender/certificaciones/cloud-practitioner/) reúne la escala y la puntuación mínima vigentes. No conviertas el resultado de un simulacro en una predicción: úsalo para localizar lagunas y practicar cómo explicas los conceptos.
 
 ## Decide cuándo reservar
 
@@ -99,31 +99,15 @@ No existe un número de horas, una cantidad de preguntas acertadas o un porcenta
 - Puedes explicar los objetivos de la guía que más te costaban sin depender de una respuesta memorizada.
 - Resuelves preguntas nuevas y justificas tanto la opción elegida como las alternativas que descartas.
 - Volviste a revisar las lagunas recurrentes en los cuatro dominios, prestando atención a su peso y a tus dificultades.
-- Conoces el formato, el idioma y la modalidad disponibles para tu cita; el costo y los requisitos encajan con tu plan.
+- Conoces el formato, el idioma y la modalidad disponibles para tu cita; el costo y los requisitos encajan con tu plan. Comprueba esos datos en la [ficha de Cloud Practitioner (CLF-C02)](/aprender/certificaciones/cloud-practitioner/) y en las condiciones de Pearson VUE.
 
 AWS recomienda evaluar la preparación con su examen oficial de práctica, que requiere suscripción. Si decides hacerlo, úsalo como una señal adicional y como oportunidad para practicar con una puntuación escalada; el resultado no puede garantizar el del examen supervisado. Repetir el mismo banco puede medir memoria, así que combina los resultados con tu capacidad de explicar objetivos y aplicar conceptos a casos nuevos.
 
 ## Formato, costo y condiciones del examen
 
-Confirma estos datos en las [páginas oficiales de Cloud Practitioner](https://aws.amazon.com/es/certification/certified-cloud-practitioner/) y de [políticas para candidatos](https://aws.amazon.com/es/certification/policies/before-testing/), porque los precios, la disponibilidad de citas y las condiciones pueden cambiar.
+La versión, los dominios, el formato, la duración, la puntuación, los idiomas, la modalidad, el precio, la vigencia y los requisitos actuales están reunidos en la [guía de AWS Certified Cloud Practitioner (CLF-C02)](/aprender/certificaciones/cloud-practitioner/). Contrasta allí los datos con la [ficha oficial del examen](https://aws.amazon.com/es/certification/certified-cloud-practitioner/) y las [políticas para candidatos](https://aws.amazon.com/es/certification/policies/before-testing/) antes de reservar; AWS puede actualizar las condiciones y la disponibilidad de citas.
 
-| Dato | Información publicada por AWS |
-|---|---|
-| Versión | CLF-C02, según la guía vigente consultada |
-| Duración y preguntas | 90 minutos y 65 preguntas; hay preguntas de opción única y de respuesta múltiple |
-| Preguntas que puntúan | 50 afectan la puntuación; 15 no tienen puntaje y no se identifican durante el examen |
-| Preguntas sin responder | Se califican como incorrectas; no hay penalización por adivinar |
-| Aprobación | 700 puntos en una escala de 100 a 1000; la puntuación es escalada |
-| Idiomas del examen | Incluye español de América Latina y español de España |
-| Modalidad | Centro Pearson VUE o examen supervisado en línea |
-| Precio de referencia | 100 USD por intento para el nivel fundacional; pueden aplicarse impuestos y el precio local puede variar |
-| Vigencia | La certificación es válida durante tres años desde la fecha en que se obtiene |
-
-AWS no exige completar un curso ni presentar experiencia laboral como requisito previo. Para reservar, crea o usa una cuenta de AWS Certification siguiendo las [instrucciones vigentes para candidatos](https://aws.amazon.com/es/certification/policies/before-testing/). AWS indica que el acceso se configura con un ID de creador de AWS (AWS Builder ID) y que la cuenta de certificación es independiente de la cuenta donde creas servicios de AWS. Al rendir, tendrás que presentar una identificación oficial válida; los documentos aceptados dependen de tu residencia y de si eliges un centro o supervisión en línea. Revisa los requisitos y la confirmación de Pearson VUE antes de la cita.
-
-AWS ofrece adaptaciones razonables para personas con discapacidades documentadas, coordinadas con el proveedor del examen. Deben solicitarse antes de programar cada examen. Si rindes en inglés y no eres hablante nativo, puedes solicitar la adaptación ESL +30, que agrega 30 minutos; revisa los pasos y condiciones en la política vigente.
-
-Si no apruebas, AWS pide esperar 14 días calendario antes de volver a rendir y cobra el precio completo por cada intento, según su [política posterior al examen](https://aws.amazon.com/es/certification/policies/after-testing/). La certificación dura tres años desde que la obtienes; cuando se acerque el vencimiento, confirma en tu cuenta las opciones que AWS ofrezca entonces para mantenerla activa. Un curso puede acompañar tu preparación y entregar su propio certificado de finalización, pero la AWS Certification se obtiene al aprobar el examen supervisado. Para distinguir esos documentos, consulta [qué recibes al terminar un curso de AWS](/blog/aws-curso-certificado-guia-basica/).
+Si necesitas adaptaciones para rendir, revisa las condiciones oficiales y coordínalas con el proveedor antes de programar el examen. Un curso puede acompañar tu preparación y entregar su propio certificado de finalización, pero la AWS Certification se obtiene al aprobar el examen supervisado. Para distinguir esos documentos, consulta [qué recibes al terminar un curso de AWS](/blog/aws-curso-certificado-guia-basica/).
 
 ## Estudia acompañado y sigue actividades
 

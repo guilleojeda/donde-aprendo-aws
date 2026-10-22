@@ -1,6 +1,6 @@
 # ¿Dónde Aprendo AWS?
 
-Static directory, dedicated learning, creator, community and event pages, guided learning paths, blog archive, and unified search built with Astro and hosted on AWS Amplify. Published communities with a known country also get static community and event pages from the same DynamoDB catalog snapshot; `/comunidades/` remains the complete directory and `/eventos/` the overall agenda. DynamoDB owns the catalog; site code, learning paths and blog articles are files in Git. Codex is an editing tool, not a content store.
+Static directory, dedicated learning, creator, community and event pages, guided learning paths, blog archive, and unified search built with Astro and hosted on AWS Amplify. Published communities with a known country also get static community and event pages from the same DynamoDB catalog snapshot; `/comunidades/` remains the complete directory and `/eventos/` the overall agenda. DynamoDB owns the resource catalog; site code, learning paths, certification guidance and blog articles are files in Git. Codex is an editing tool, not a content store.
 
 The production site is https://dondeaprendoaws.com/. Its contribution form stores pending submissions through the owned API and shows the resulting reference ID and submission date. Resource and event cards include a contextual link to report incorrect data by email. `/blog/` presents six selected articles and links to the other 190 articles in a dated archive. `/recorridos/` links to existing blog and approved catalog entries in four editorial sequences. `/buscar/` searches those articles, paths and the approved catalog using a build-generated public index. Community cards link to their country's stable agenda and retain their community-specific event filter when upcoming events are available. The `www` and default Amplify hostnames redirect to the apex. Google Analytics uses the existing `G-3NXS6QFKHZ` property and loads only on the apex.
 
@@ -32,6 +32,10 @@ Do not set `CATALOG_FIXTURE` for an Amplify deployment or combine it with `CATAL
 Edit the article Markdown files in `src/content/blog/` and keep their images in `public/assets/blog/`. Frontmatter controls title, date, description, cover image, related cards, and the current index order. HTML blocks in articles preserve source structures such as figures and tables. See [blog behavior](docs/intent/blog.md) for the content contract.
 
 The production build uses `PUBLIC_SITE_ORIGIN=https://dondeaprendoaws.com` for absolute social-image URLs; canonical URLs use the same domain. Avoid reintroducing Unicorn or SEObot scripts or remote media in article files.
+
+## Certification editing
+
+`/aprender/certificaciones/` shows the complete reviewed AWS credential offer and keeps the resource library below it. Cloud Practitioner, Solutions Architect Associate and AI Practitioner have their own preparation pages. Edit facts, sources, guidance, FAQs and selection context in `src/lib/certifications.mjs`; resource titles, URLs and publication still belong to DynamoDB, referenced by ID. The [certification contract and maintenance steps](docs/intent/certifications.md) explain review dates, exam transitions and how withdrawals or changed destinations affect a selection.
 
 ## Production hosting
 

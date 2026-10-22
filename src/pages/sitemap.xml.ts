@@ -5,6 +5,7 @@ import { communityCountryPages, eventCountryPath } from '../lib/community-countr
 import type { CatalogEvent, CatalogResource } from '../types/catalog';
 import { RESOURCE_COLLECTIONS } from '../lib/resource-collections.mjs';
 import { EVENT_COLLECTIONS } from '../lib/event-collections.mjs';
+import { getCertificationPages } from '../lib/certifications.mjs';
 import { LEARNING_PATHS, learningPathHref } from '../lib/learning-paths.mjs';
 
 export const GET: APIRoute = async ({ site }) => {
@@ -20,6 +21,7 @@ export const GET: APIRoute = async ({ site }) => {
     ...['/', '/aprender/', '/recorridos/', '/creadores/', '/comunidades/', '/eventos/', '/blog/']
       .map((path) => ({ path })),
     ...[...RESOURCE_COLLECTIONS, ...Object.values(EVENT_COLLECTIONS)].map(({ path }) => ({ path })),
+    ...getCertificationPages().map(({ path }) => ({ path })),
     ...LEARNING_PATHS.map(({ id }) => ({ path: learningPathHref(id) })),
     ...communityCountryPages(resources).flatMap(({ country, path }) => [
       { path },

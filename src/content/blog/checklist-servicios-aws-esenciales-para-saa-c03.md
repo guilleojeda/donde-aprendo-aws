@@ -4,7 +4,7 @@ description: "Qué servicios de AWS estudiar para SAA-C03 y cómo elegirlos seg�
 author: "guille-ojeda"
 publishedAt: "2025-04-03"
 publishedTimestamp: "2025-04-03T01:53:13.640000+00:00"
-modifiedTimestamp: "2026-10-05T20:34:07-03:00"
+modifiedTimestamp: "2026-10-22T16:27:58-03:00"
 review:
   date: "2026-10-05"
 cover: "/assets/blog/editorial-certificacion.png"
@@ -14,13 +14,13 @@ related: []
 
 ---
 
-<p><strong>¿Qué servicios de AWS estudiar para SAA-C03?</strong> La respuesta depende de los requisitos del escenario. El examen AWS Certified Solutions Architect – Associate evalúa si puedes elegir y combinar servicios para diseñar una solución segura, resiliente, de buen rendimiento y con costos adecuados. Esta checklist organiza los servicios por las decisiones que debes poder justificar, en lugar de presentar una lista para memorizar.</p>
+<p><strong>¿Qué servicios de AWS estudiar para SAA-C03?</strong> La respuesta depende de los requisitos del escenario. El examen AWS Certified Solutions Architect – Associate evalúa si puedes elegir y combinar servicios para diseñar una solución segura, resiliente, de buen rendimiento y con costos adecuados. Esta checklist organiza los servicios por las decisiones que debes poder justificar, en lugar de presentar una lista para memorizar. Para los datos vigentes del examen, consulta la <a href="/aprender/certificaciones/solutions-architect-associate/">guía de AWS Solutions Architect Associate (SAA-C03)</a>.</p>
 
 <p>La <a href="https://docs.aws.amazon.com/es_es/aws-certification/latest/solutions-architect-associate-03/solutions-architect-associate-03.html" target="_blank" rel="noopener noreferrer">guía oficial vigente de SAA-C03</a> es la referencia para confirmar objetivos y servicios dentro del alcance. Vuelve a consultarla antes de estudiar o reservar: AWS puede actualizar sus guías y exámenes.</p>
 
 <h2>Qué debes saber del examen SAA-C03</h2>
 
-<p>AWS identifica actualmente el examen como SAA-C03. Su guía organiza el contenido puntuado en cuatro dominios:</p>
+<p>La guía oficial organiza el contenido puntuado de SAA-C03 en cuatro dominios:</p>
 
 <ul>
 <li><strong>Diseñar arquitecturas seguras: 30 %.</strong></li>
@@ -29,7 +29,7 @@ related: []
 <li><strong>Diseñar arquitecturas con optimización de costos: 20 %.</strong></li>
 </ul>
 
-<p>La <a href="https://aws.amazon.com/es/certification/certified-solutions-architect-associate/" target="_blank" rel="noopener noreferrer">página oficial del examen</a> indica una duración de 130 minutos, 65 preguntas de opción múltiple o respuesta múltiple y disponibilidad en español (Latinoamérica) y español (España), además de otros idiomas. La guía aclara que 50 preguntas afectan la puntuación y que otras 15 no se califican; estas últimas no se identifican durante el examen. AWS informa el resultado en una escala de 100 a 1.000, con 720 como puntuación mínima para aprobar.</p>
+<p>La ficha de <a href="/aprender/certificaciones/solutions-architect-associate/">AWS Solutions Architect Associate (SAA-C03)</a> reúne la duración, el formato, los idiomas, la puntuación y el precio vigentes. Confírmalos allí y en la <a href="https://aws.amazon.com/es/certification/certified-solutions-architect-associate/" target="_blank" rel="noopener noreferrer">página oficial del examen</a> antes de reservar.</p>
 
 <p>Los porcentajes corresponden al contenido puntuado; no son una meta independiente para cada dominio. El resultado se determina sobre el examen completo. La guía también distingue los servicios dentro y fuera del alcance, así que una lista breve nunca sustituye el temario oficial.</p>
 

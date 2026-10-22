@@ -1,0 +1,72 @@
+---
+import { CERTIFICATIONS, CERTIFICATIONS_OVERVIEW, certificationHref } from '../lib/certifications.mjs';
+import '../styles/certifications.css';
+import type { CertificationRecord } from '../types/certifications';
+
+interface Source {
+  label: string;
+  href: string;
+}
+
+const credentials = CERTIFICATIONS as CertificationRecord[];
+const sources = CERTIFICATIONS_OVERVIEW.sources as Source[];
+const categoryGroups = [...new Set(credentials.map(({ category }) => category))]
+  .map((category) => ({ category, credentials: credentials.filter((credential) => credential.category === category) }));
+const formatDate = (value: string) => new Date(`${value}T00:00:00.000Z`).toLocaleDateString('es-AR', {
+  day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
+});
+---
+
+<nav class="certification-jumps" aria-label="En esta página">
+  <a href="#certificaciones-mapa">Todas las certificaciones</a>
+  <a href="#certificaciones-materiales">Explorar materiales</a>
+  <a href="#certificaciones-faq-title">Preguntas frecuentes</a>
+</nav>
+
+<section class="certification-map" id="certificaciones-mapa" aria-labelledby="certification-map-title">
+  <header class="certification-map__header">
+    <div>
+      <p class="certification-map__eyebrow">Oferta oficial</p>
+      <h2 id="certification-map-title">Todas las certificaciones</h2>
+    </div>
+    <p>Las categorías indican el tipo de credencial; no forman una secuencia obligatoria.</p>
+  </header>
+
+  <div class="certification-map__categories">
+    {categoryGroups.map(({ category, credentials: group }) => <section class="certification-category" aria-labelledby={`certification-category-${category.toLowerCase().replaceAll(/[^a-z0-9]+/gu, '-')}`}>
+      <h3 id={`certification-category-${category.toLowerCase().replaceAll(/[^a-z0-9]+/gu, '-')}`}>{category}</h3>
+      <ul>
+        {group.map((credential) => <li class="certification-row">
+          <div class="certification-row__copy">
+            <h4>{credential.name}</h4>
+            <div class="certification-row__exams" role="group" aria-label={`Exámenes y estado de ${credential.name}`}>
+              {credential.exams.map((exam) => <p class="certification-row__exam">
+                <span class="certification-row__code">{exam.code}</span>
+                <span class="certification-row__status">{exam.status}</span>
+                {exam.note && <span class="certification-row__note">{exam.note}</span>}
+              </p>)}
+            </div>
+            <p class="certification-row__purpose">{credential.purpose}</p>
+            <p class="certification-row__review">Datos oficiales revisados el <time datetime={credential.reviewedAt}>{formatDate(credential.reviewedAt)}</time>.</p>
+          </div>
+          <div class="certification-row__actions">
+            {credential.page && <a class="certification-row__guide" href={certificationHref(credential.id) as string} aria-label={`Guía y recursos de ${credential.name}`}>
+              Guía y recursos<span aria-hidden="true"> →</span>
+            </a>}
+            <a class="certification-row__official" href={credential.officialUrl}>
+              Fuente oficial<span aria-hidden="true"> ↗</span>
+              <span class="sr-only">: {credential.name}</span>
+            </a>
+          </div>
+        </li>)}
+      </ul>
+    </section>)}
+  </div>
+
+  <footer class="certification-map__sources" aria-label="Fuentes de la oferta y sus cambios">
+    <h3>Fuentes oficiales y anuncios</h3>
+    <ul>
+      {sources.map((source) => <li><a href={source.href}>{source.label}</a></li>)}
+    </ul>
+  </footer>
+</section>

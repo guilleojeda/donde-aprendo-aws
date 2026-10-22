@@ -8,6 +8,7 @@ import { RESOURCE_COLLECTIONS, learningCollectionNavigation, resourceCollectionR
 import { sortResources } from '../src/lib/directory-filter.mjs';
 import { communityFaqItems, eventFaqItems } from '../src/lib/page-faq-content.mjs';
 import { EVENT_COLLECTIONS } from '../src/lib/event-collections.mjs';
+import { getCertificationPages } from '../src/lib/certifications.mjs';
 import { LEARNING_PATHS, learningPathHref } from '../src/lib/learning-paths.mjs';
 
 const production = process.env.PUBLIC_PRODUCTION === 'true';
@@ -37,6 +38,8 @@ const allDistFiles = filesUnder(dist);
 const allHtmlPaths = allDistFiles.filter((path) => path.endsWith('.html')).map((path) => relative(dist, path).replaceAll('\\', '/'));
 const collections = [...RESOURCE_COLLECTIONS, ...Object.values(EVENT_COLLECTIONS)];
 const collectionHtmlPaths = collections.map(({ path }) => `${path.slice(1)}index.html`);
+const certificationPages = getCertificationPages();
+const certificationDetailPaths = certificationPages.map(({ path }) => `${path.slice(1)}index.html`);
 const learningDetailPaths = LEARNING_PATHS.map(({ id }) => `${learningPathHref(id).slice(1)}index.html`);
 const isCountryRoute = (path, section) => new RegExp(`^${section}/[^/]+/index\\.html$`, 'u').test(path) && !collectionHtmlPaths.includes(path);
 const communityCountryRoutePaths = allHtmlPaths.filter((path) => isCountryRoute(path, 'comunidades'));
@@ -54,7 +57,7 @@ const routeCountries = (paths, section) => paths.map((htmlPath) => {
 const countryRoutes = routeCountries(communityCountryRoutePaths, 'comunidades');
 const eventCountryRoutes = routeCountries(eventCountryRoutePaths, 'eventos');
 const pagePaths = ['index.html', ...sections.map((section) => `${section}/index.html`), 'recorridos/index.html', 'blog/index.html', 'buscar/index.html',
-  ...routes.map(({ slug }) => `blog/${slug}/index.html`), ...communityCountryRoutePaths, ...eventCountryRoutePaths, ...collectionHtmlPaths, ...learningDetailPaths];
+  ...routes.map(({ slug }) => `blog/${slug}/index.html`), ...communityCountryRoutePaths, ...eventCountryRoutePaths, ...collectionHtmlPaths, ...learningDetailPaths, ...certificationDetailPaths];
 const expectedLocations = [
   'https://dondeaprendoaws.com/',
   ...sections.map((section) => `https://dondeaprendoaws.com/${section}/`),
@@ -64,6 +67,7 @@ const expectedLocations = [
   'https://dondeaprendoaws.com/recorridos/',
   ...collections.map(({ path }) => `https://dondeaprendoaws.com${path}`),
   ...LEARNING_PATHS.map(({ id }) => `https://dondeaprendoaws.com${learningPathHref(id)}`),
+  ...certificationPages.map(({ path }) => `https://dondeaprendoaws.com${path}`),
   ...routes.map(({ slug }) => `https://dondeaprendoaws.com/blog/${slug}/`),
 ].sort();
 assert.deepEqual([...locations].sort(), expectedLocations);
@@ -222,7 +226,7 @@ const searchIndex = JSON.parse(read('search-index.json'));
 assert.equal(searchIndex.filter((entry) => entry.type === 'article').length, routes.length);
 assert.equal(searchIndex.filter((entry) => entry.type === 'path').length, 4);
 for (const { id } of LEARNING_PATHS) assert.ok(searchIndex.some((entry) => entry.type === 'path' && entry.url === learningPathHref(id)));
-for (const { path } of collections) assert.ok(searchIndex.some((entry) => entry.type === 'collection' && entry.url === path), `Collection discoverability: ${path}`);
+for (const { path } of [...collections, ...certificationPages]) assert.ok(searchIndex.some((entry) => entry.type === 'collection' && entry.url === path), `Collection discoverability: ${path}`);
 assert.ok(searchIndex.every((entry) => /^\/(?:blog|aprender|recorridos|creadores|comunidades|eventos)\//.test(entry.url)));
 assert.doesNotMatch(JSON.stringify(searchIndex), /submitterEmail|submitterName|contactEmail/);
 
