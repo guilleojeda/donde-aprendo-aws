@@ -92,8 +92,8 @@ const review = post.data.review && {
         <div class="blog-related__cards">
           {related.map((link) => (
             <a class="blog-related__card" href={link.url}>
-              <img src={link.image} alt={link.imageAlt} loading="lazy" />
               <h3>{link.title}</h3>
+              <img src={link.image} alt={link.imageAlt} loading="lazy" />
             </a>
           ))}
         </div>

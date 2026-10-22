@@ -4,16 +4,14 @@
 }
 
 .blog-index__intro {
-  max-width: 800px;
-  margin: 0 auto 56px;
-  padding-top: 64px;
+  margin: 0 0 32px;
+  padding-top: 40px;
 }
 
 .blog-index__intro h1 {
-  max-width: 16ch;
   margin: 0 0 16px;
   color: var(--color-heading);
-  font-size: clamp(2rem, 4vw, 3rem);
+  font-size: clamp(2rem, 3vw, 2.5rem);
   font-weight: 700;
   line-height: 1.12;
   text-wrap: balance;
@@ -55,7 +53,7 @@
 
 .blog-index section > h2,
 .blog-archive > h2 {
-  margin: 0 0 24px;
+  margin: 0 0 20px;
   color: var(--color-heading);
   font-size: 30px;
   line-height: 1.2;
@@ -64,7 +62,7 @@
 .blog-index__cards,
 .blog-related__cards {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 24px;
 }
 
@@ -74,7 +72,7 @@
   min-width: 0;
   flex-direction: column;
   border: 1px solid var(--color-border);
-  border-radius: 16px;
+  border-radius: 12px;
   background: var(--color-surface);
   color: var(--color-text);
   text-decoration: none;
@@ -87,18 +85,31 @@
 }
 
 .blog-card picture,
-.blog-card > img,
-.blog-related__card picture,
-.blog-related__card > img {
+.blog-related__card picture {
   display: block;
-  width: 100%;
+  width: 200px;
+  max-width: calc(100% - 32px);
+  margin: 0 16px 16px;
   overflow: hidden;
-  border-radius: 15px 15px 0 0;
+  border-radius: 8px;
   background: var(--color-surface-subtle);
 }
 
-.blog-card img,
-.blog-related__card img {
+.blog-card > img,
+.blog-related__card > img {
+  display: block;
+  width: 200px;
+  max-width: calc(100% - 32px);
+  height: auto;
+  aspect-ratio: 1.84;
+  margin: 0 16px 16px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--color-surface-subtle);
+}
+
+.blog-card picture img,
+.blog-related__card picture img {
   display: block;
   width: 100%;
   height: auto;
@@ -109,7 +120,7 @@
 .blog-card h3,
 .blog-related__card h3 {
   margin: 0;
-  padding: 16px 18px 20px;
+  padding: 14px 16px 12px;
   color: var(--color-heading);
   font-size: 19px;
   font-weight: 700;
@@ -488,11 +499,6 @@
 }
 
 @media (max-width: 900px) {
-  .blog-index__cards,
-  .blog-related__cards {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .blog-archive__year ul {
     gap: 10px 16px;
   }
@@ -504,7 +510,7 @@
   }
 
   .blog-index__intro {
-    margin-bottom: 40px;
+    margin-bottom: 24px;
     padding-top: 40px;
   }
 
@@ -566,10 +572,5 @@
 
   .blog-related {
     margin-bottom: 72px;
-  }
-
-  .blog-card h3,
-  .blog-related__card h3 {
-    padding-inline: 16px;
   }
 }

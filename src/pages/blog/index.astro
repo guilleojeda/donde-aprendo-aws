@@ -28,26 +28,26 @@ if (posts.some((post, index) => post.data.indexOrder !== index + 1)) {
   <main id="contenido" tabindex="-1" class="blog-index" aria-label="Artículos del blog">
     <header class="blog-index__intro">
       <h1>Guías y tutoriales AWS en español</h1>
-      <p>El blog de Dónde Aprendo AWS reúne {allPosts.length} artículos sobre Amazon Web Services. Elige una lectura destacada, <a href="#blog-archive-title">explora el archivo por año</a> o <a href="/buscar/">busca un tema</a>.</p>
-      <nav class="blog-index__routes" aria-label="Leer con una ruta de aprendizaje">
-        <span>¿Quieres leer en orden?</span>
-        <a href="/recorridos/primeros-pasos/">Primeros pasos</a>
-        <a href="/recorridos/serverless/">Serverless</a>
-        <a href="/recorridos/seguridad/">Seguridad</a>
-        <a href="/recorridos/ia-generativa/">IA generativa</a>
-      </nav>
+      <p>{allPosts.length} artículos de AWS en español. Empieza por una lectura destacada, <a href="#blog-archive-title">explora el archivo por año</a> o <a href="/buscar/">busca un tema</a>.</p>
     </header>
     <section aria-labelledby="blog-selected-title">
       <h2 id="blog-selected-title">Artículos destacados</h2>
       <div class="blog-index__cards">
         {posts.map((post) => (
           <a class="blog-card" href={`/blog/${post.id}/`}>
-            <img src={post.data.cover} alt={post.data.coverAlt} loading={post.data.indexOrder === 1 ? 'eager' : 'lazy'} />
             <h3>{post.data.title}</h3>
+            <img src={post.data.cover} alt={post.data.coverAlt} loading={post.data.indexOrder === 1 ? 'eager' : 'lazy'} />
           </a>
         ))}
       </div>
     </section>
+    <nav class="blog-index__routes" aria-label="Leer con una ruta de aprendizaje">
+      <span>¿Quieres leer en orden?</span>
+      <a href="/recorridos/primeros-pasos/">Primeros pasos</a>
+      <a href="/recorridos/serverless/">Serverless</a>
+      <a href="/recorridos/seguridad/">Seguridad</a>
+      <a href="/recorridos/ia-generativa/">IA generativa</a>
+    </nav>
     <section class="blog-archive" aria-labelledby="blog-archive-title">
       <h2 id="blog-archive-title">Archivo de artículos</h2>
       <p>Todos los demás artículos publicados, ordenados por fecha.</p>
