@@ -6,6 +6,7 @@ import { directoryGroupMembership, directoryListEntries, filterResources, sortRe
 import { parseDirectorySearch, resetDirectorySearchForReveal, serializeDirectorySearch } from '../src/lib/directory-url.mjs';
 import { COUNTRY_LABELS, LEVEL_LABELS } from '../src/lib/resource-discovery.mjs';
 import { aggregateSearchData, searchIndex, TYPE_LABELS } from '../src/lib/unified-search.mjs';
+import { positionDirectoryOverlay } from '../src/scripts/directory-overlay.js';
 
 const directoryScript = readFileSync(new URL('../src/scripts/directory.js', import.meta.url), 'utf8')
   .replace(/^import .*;\s*$/gmu, '');
@@ -318,7 +319,7 @@ function createDirectory({
     },
     sortResources, COUNTRY_LABELS, LEVEL_LABELS,
     parseDirectorySearch, resetDirectorySearchForReveal, serializeDirectorySearch,
-    requestAnimationFrame: (callback) => callback(), URL,
+    requestAnimationFrame: (callback) => callback(), URL, Set, positionDirectoryOverlay,
   });
 
   return {
@@ -605,8 +606,9 @@ test('the community directory counts format and topic while its primary country 
   directory.country.emit('change');
   directory.summary.click();
 
-  for (const [control, value] of [
-    [directory.format, 'User Group'], [directory.topic, 'Comunidad'],
+  for (const { control, value } of [
+    { control: directory.format, value: 'User Group' },
+    { control: directory.topic, value: 'Comunidad' },
   ]) {
     control.focus();
     control.value = value;
