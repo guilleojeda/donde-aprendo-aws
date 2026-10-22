@@ -11,6 +11,7 @@ import { communityCountryPages } from '../lib/community-country-pages.mjs';
 import { recommendedResources } from '../lib/resource-discovery.mjs';
 import { KIND_LABELS } from '../lib/resource-taxonomy.mjs';
 import { eventDateLabel, uniqueUpcomingEvents } from '../lib/events.mjs';
+import { LEARNING_PATHS, learningPathHref } from '../lib/learning-paths.mjs';
 import type { CatalogEvent, CatalogResource } from '../types/catalog';
 
 const catalog = await loadSiteCatalog() as Array<CatalogResource | CatalogEvent>;
@@ -21,7 +22,6 @@ const communityById = new Map(resources.filter((resource) => resource.kind === '
 const recommended = recommendedResources(resources, 4) as CatalogResource[];
 const upcomingEvents = uniqueUpcomingEvents(events, new Date(), communityById);
 const upcoming = upcomingEvents.slice(0, 3) as CatalogEvent[];
-const counts = Object.fromEntries(Object.keys(RESOURCE_PATHS).map((kind) => [kind, resources.filter((resource) => resource.kind === kind).length]));
 const legacyResourceRoutes = Object.fromEntries(resources.map((resource) => [resource.id, RESOURCE_PATHS[resource.kind as keyof typeof RESOURCE_PATHS]]));
 const routeData = JSON.stringify(legacyResourceRoutes).replaceAll('<', '\\u003c');
 ---
@@ -47,62 +47,41 @@ const routeData = JSON.stringify(legacyResourceRoutes).replaceAll('<', '\\u003c'
   </script>
 
   <main id="contenido" tabindex="-1" class="home-page">
-    <section class="home-hero" aria-labelledby="home-title">
+    <header class="home-intro site-container">
+      <h1 id="home-title">¿Dónde aprendemos AWS?</h1>
+      <p>Guías, recorridos, comunidades y encuentros para aprender en español.</p>
+    </header>
+
+    <section class="home-primary-choices" aria-label="Explorar el sitio">
       <div class="site-container">
-        <div class="home-hero__grid">
-          <div class="home-hero__copy">
-            <p class="home-eyebrow">Aprende a tu ritmo, con la comunidad</p>
-            <h1 id="home-title">Encuentra tu camino para aprender AWS.</h1>
-            <p class="home-hero__lead">Cursos, videos y guías en español. Rutas para empezar y comunidades para seguir aprendiendo.</p>
-            <div class="home-hero__actions">
-              <a class="button button--dark" href="/aprender/">Explorar recursos</a>
-              <a class="button button--outline" href="/recorridos/primeros-pasos/">Empezar desde cero</a>
-            </div>
-            <p class="home-hero__note">Elige una pregunta, encuentra un punto de partida y sigue por el camino que te sirva.</p>
-          </div>
-          <div class="home-hero__figure" aria-hidden="true">
-            <span class="home-hero__orbit home-hero__orbit--a"></span>
-            <span class="home-hero__orbit home-hero__orbit--b"></span>
-            <span class="site-brand__mark home-hero__mark">
-              <img class="site-logo--light" src="/assets/site-logo.svg" alt="" width="154" height="180" />
-              <img class="site-logo--dark" src="/assets/site-logo-white.svg" alt="" width="154" height="180" />
-            </span>
-            <div class="home-hero__caption"><strong>Un recorrido, muchas formas de aprender</strong><span>Empieza por aquí</span></div>
-          </div>
-        </div>
-        <div class="home-stats" aria-label="Contenido disponible en el directorio">
-          <div class="home-stat"><strong>{new Intl.NumberFormat('es').format(counts.content)}</strong><span>recursos</span></div>
-          <div class="home-stat"><strong>{new Intl.NumberFormat('es').format(counts.source)}</strong><span>fuentes</span></div>
-          <div class="home-stat"><strong>{new Intl.NumberFormat('es').format(counts.community)}</strong><span>comunidades</span></div>
-          <div class="home-stat"><strong>{new Intl.NumberFormat('es').format(upcomingEvents.length)}</strong><span>próximos eventos</span></div>
-        </div>
+        <nav class="home-family-grid" aria-label="Secciones principales">
+          <a class="home-family-card" href="/aprender/">
+            <span class="home-family-card__label">Aprender</span>
+            <strong>Cursos, videos y recursos</strong>
+            <span>Explora contenido para aprender AWS en español.</span>
+          </a>
+          <a class="home-family-card" href="/creadores/">
+            <span class="home-family-card__label">Creadores y canales</span>
+            <strong>Descubre blogs y canales</strong>
+            <span>Encuentra fuentes para seguir aprendiendo.</span>
+          </a>
+          <a class="home-family-card" href="/comunidades/">
+            <span class="home-family-card__label">Comunidades</span>
+            <strong>Aprende con otras personas</strong>
+            <span>Encuentra grupos y comunidades de AWS.</span>
+          </a>
+          <a class="home-family-card" href="/eventos/">
+            <span class="home-family-card__label">Eventos</span>
+            <strong>Consulta la agenda</strong>
+            <span>Explora encuentros en línea y presenciales.</span>
+          </a>
+        </nav>
       </div>
     </section>
 
-    <section class="home-section home-section--compact" aria-labelledby="home-families-title">
+    <section class="home-section home-section--compact" aria-label="Explorar por objetivo">
       <div class="site-container">
-        <div class="section-heading">
-          <div><p class="home-eyebrow">Explora por tipo</p><h2 id="home-families-title">¿Qué te gustaría encontrar?</h2><p>Ve directo a una colección, una persona o un encuentro.</p></div>
-        </div>
-        <nav class="home-family-grid" aria-label="Explorar por tipo">
-          <a class="home-family-card" href="/aprender/">
-            <svg class="home-family-card__icon" viewBox="0 0 32 32" aria-hidden="true"><path d="M6 5.5h13.5A4.5 4.5 0 0 1 24 10v16H10a4 4 0 0 1-4-4V5.5Zm0 16.7A4 4 0 0 1 10 19h14M12 10h8m-8 4h8" /></svg>
-            <strong>Aprender</strong><span>Artículos, videos, cursos y herramientas.</span>
-          </a>
-          <a class="home-family-card" href="/creadores/">
-            <svg class="home-family-card__icon" viewBox="0 0 32 32" aria-hidden="true"><rect x="4.5" y="6" width="23" height="20" rx="3" /><path d="m13 11 7 5-7 5z" /></svg>
-            <strong>Creadores y canales</strong><span>Blogs, canales, podcasts y newsletters.</span>
-          </a>
-          <a class="home-family-card" href="/comunidades/">
-            <svg class="home-family-card__icon" viewBox="0 0 32 32" aria-hidden="true"><circle cx="12" cy="11" r="4" /><circle cx="23" cy="12" r="3" /><path d="M4.5 26v-2a7.5 7.5 0 0 1 15 0v2zm16 0v-2a6 6 0 0 1 7-5.9" /></svg>
-            <strong>Comunidades</strong><span>Grupos para aprender y compartir.</span>
-          </a>
-          <a class="home-family-card" href="/eventos/">
-            <svg class="home-family-card__icon" viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="7" width="22" height="21" rx="3" /><path d="M10 4.5v5m12-5v5M5 13h22m-17 5h4m-4 5h9" /></svg>
-            <strong>Eventos</strong><span>Charlas y encuentros de la comunidad.</span>
-          </a>
-        </nav>
-        <nav class="home-goals" aria-label="Explorar por objetivo">
+        <nav class="home-goals" aria-label="Objetivos de aprendizaje">
           <strong>¿Ya tienes un objetivo?</strong>
           <a href="/aprender/certificaciones/">Certificaciones</a>
           <a href="/aprender/serverless/">Serverless</a>
@@ -112,7 +91,21 @@ const routeData = JSON.stringify(legacyResourceRoutes).replaceAll('<', '\\u003c'
       </div>
     </section>
 
-    <LearnerGuide />
+    <section class="home-section" aria-labelledby="home-paths-title">
+      <div class="site-container">
+        <div class="section-heading">
+          <div><p class="home-eyebrow">Aprendizaje guiado</p><h2 id="home-paths-title">Recorridos para aprender</h2><p>Elige una ruta para empezar o avanzar con un tema.</p></div>
+          <a href="/recorridos/">Ver los 4 recorridos</a>
+        </div>
+        <nav class="home-path-grid" aria-label="Recorridos para aprender AWS">
+          {LEARNING_PATHS.map((path) => <a class="home-path-card" href={learningPathHref(path.id)}>
+            <span class="home-path-card__audience">{path.audience}</span>
+            <strong>{path.title}</strong>
+            <p>{path.intro}</p>
+          </a>)}
+        </nav>
+      </div>
+    </section>
 
     {recommended.length > 0 && <section class="home-section" aria-labelledby="home-recommended-title">
       <div class="site-container">
@@ -139,6 +132,8 @@ const routeData = JSON.stringify(legacyResourceRoutes).replaceAll('<', '\\u003c'
         </ol> : <p class="home-empty-state">No hay próximos eventos publicados. Vuelve pronto para consultar nuevas fechas.</p>}
       </div>
     </section>
+
+    <LearnerGuide />
 
     <ContributionForm />
     <Faq />
