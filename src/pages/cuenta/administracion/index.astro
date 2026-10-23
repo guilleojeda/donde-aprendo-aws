@@ -1,0 +1,174 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import SiteHeader from '../../../components/SiteHeader.astro';
+import SiteFooter from '../../../components/SiteFooter.astro';
+import '../../../styles/account.css';
+import '../../../styles/creators.css';
+import { CREATOR_PRIVATE_HEADERS, loadCreatorAdmin, safeJsonForScript } from '../_creator-page';
+import { FORMATS_BY_KIND, KIND_LABELS, TOPICS } from '../../../lib/resource-taxonomy.mjs';
+
+export const prerender = false;
+
+const result = await loadCreatorAdmin(Astro.request);
+Astro.response.status = result.status;
+for (const [name, value] of Object.entries(CREATOR_PRIVATE_HEADERS)) Astro.response.headers.set(name, value);
+
+const pendingClaims = result.data?.claims.filter((claim) => claim.status !== 'resolved') ?? [];
+const initial = safeJsonForScript({
+  resources: result.data?.resources ?? [],
+  profiles: result.data?.profiles ?? [],
+  claims: pendingClaims,
+});
+const formats = [...new Set(Object.values(FORMATS_BY_KIND).flat())];
+const message = result.status === 401
+  ? 'Inicia sesión con tu cuenta administrativa.'
+  : result.status === 403
+    ? 'Esta cuenta no tiene acceso a administración.'
+    : 'No pudimos cargar la información. Inténtalo de nuevo en unos minutos.';
+---
+
+<BaseLayout title="Administración de creadores | ¿Dónde Aprendo AWS?" description="Revisión y moderación de páginas y recursos de creadores." noindex nofollow analytics={false}>
+  <SiteHeader />
+  {result.status === 200 && result.data && result.principal.csrfToken ? (
+    <main id="contenido" class="creator-account site-container" tabindex="-1" data-creator-admin data-csrf={result.principal.csrfToken}>
+      <header class="creator-account__header">
+        <p class="creator-profile__eyebrow">Administración</p>
+        <h1>Creadores y recursos</h1>
+        <p>Revisa la clasificación y visibilidad del directorio, las páginas y las solicitudes de vinculación.</p>
+      </header>
+      <div class="creator-account__status" data-admin-status role="status" aria-live="polite" hidden></div>
+
+      <section class="creator-card creator-admin__section" aria-labelledby="admin-resources-title">
+        <p class="creator-profile__eyebrow">Directorio</p>
+        <h2 id="admin-resources-title">Recursos</h2>
+        {result.data.resources.length > 0 ? (
+          <ul class="creator-admin__list">
+            {result.data.resources.map((resource) => {
+              const id = String(resource.id ?? '');
+              const title = String(resource.title ?? 'Recurso sin título');
+              const url = typeof resource.url === 'string' ? resource.url : '';
+              const hidden = resource.hidden === true;
+              const approval = typeof resource.directoryApproval === 'string'
+                ? resource.directoryApproval
+                : resource.published === true ? 'approved' : 'pending';
+              const topics = Array.isArray(resource.topics) ? resource.topics.filter((topic): topic is string => typeof topic === 'string') : [];
+              return (
+                <li class="creator-admin__item" data-admin-resource={id}>
+                  <h3>{title}</h3>
+                  <p><a href={url} target="_blank" rel="noopener noreferrer">{url}</a></p>
+                  <p>Estado: {hidden ? 'oculto' : approval === 'approved' ? 'aprobado' : approval === 'revoked' ? 'aprobación revocada' : 'pendiente'}{resource.directoryControl === 'creator' ? ' · selección por creador' : ' · control editorial'}</p>
+                  {typeof resource.description === 'string' && <p>{resource.description}</p>}
+                  <form class="creator-admin__classification" data-classification-form>
+                    <label>Categoría<input name="category" value={String(resource.category ?? '')} required /></label>
+                    <label>Tipo
+                      <select name="kind" required>
+                        <option value="" disabled selected={!['content', 'source', 'community'].includes(String(resource.kind ?? ''))}>Selecciona un tipo</option>
+                        {Object.entries(KIND_LABELS).map(([value, label]) => <option value={value} selected={resource.kind === value}>{label}</option>)}
+                      </select>
+                    </label>
+                    <label>Formato
+                      <select name="format" required>
+                        <option value="" disabled selected={!formats.includes(String(resource.format ?? ''))}>Selecciona un formato</option>
+                        {formats.map((format) => <option value={format} selected={resource.format === format}>{format}</option>)}
+                      </select>
+                    </label>
+                    <label>Temas (hasta 3, separados por coma)
+                      <input name="topics" list={`creator-topics-${id}`} value={topics.join(', ')} />
+                      <datalist id={`creator-topics-${id}`}>
+                        {TOPICS.map((topic) => <option value={topic} />)}
+                      </datalist>
+                    </label>
+                    <button class="button button--outline" type="submit">Guardar clasificación</button>
+                    <p class="creator-form__status" data-item-status role="status" aria-live="polite"></p>
+                  </form>
+                  <div class="creator-admin__actions">
+                    {approval !== 'approved' && <button class="button button--dark" type="button" data-resource-action="aprobar">Aprobar para el directorio</button>}
+                    {approval === 'approved' && <button class="button button--outline" type="button" data-resource-action="revocar">Revocar aprobación</button>}
+                    {!hidden && <button class="button button--outline" type="button" data-resource-action="ocultar">Ocultar recurso</button>}
+                    {hidden && <button class="button button--outline" type="button" data-resource-action="restaurar">Restaurar recurso</button>}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        ) : <p class="creator-empty-state">No hay recursos para revisar.</p>}
+      </section>
+
+      <section class="creator-card creator-admin__section" aria-labelledby="admin-profiles-title">
+        <p class="creator-profile__eyebrow">Páginas personales</p>
+        <h2 id="admin-profiles-title">Perfiles</h2>
+        {result.data.profiles.length > 0 ? (
+          <ul class="creator-admin__list">
+            {result.data.profiles.map((profile) => {
+              const hidden = profile.hidden === true;
+              const id = String(profile.id ?? '');
+              const slug = typeof profile.slug === 'string' ? profile.slug : '';
+              return (
+                <li class="creator-admin__item" data-admin-profile={id}>
+                  <h3>{String(profile.displayName ?? 'Perfil sin nombre')}</h3>
+                  {slug && <p><a href={`/c/${encodeURIComponent(slug)}/`}>/c/{slug}/</a></p>}
+                  <p>Estado: {hidden ? 'oculto' : profile.published === true ? 'publicado' : 'borrador'}</p>
+                  {hidden
+                    ? <button class="button button--outline" type="button" data-profile-action="restaurar">Restaurar perfil</button>
+                    : <button class="button button--outline" type="button" data-profile-action="ocultar">Ocultar perfil</button>}
+                  <p class="creator-form__status" data-item-status role="status" aria-live="polite"></p>
+                </li>
+              );
+            })}
+          </ul>
+        ) : <p class="creator-empty-state">No hay perfiles para revisar.</p>}
+      </section>
+
+      <section class="creator-card creator-admin__section" aria-labelledby="admin-claims-title">
+        <p class="creator-profile__eyebrow">Propiedad del contenido</p>
+        <h2 id="admin-claims-title">Solicitudes de vinculación</h2>
+        {pendingClaims.length > 0 ? (
+          <ul class="creator-admin__list">
+            {pendingClaims.map((claim) => {
+              const claimId = String(claim.id ?? claim.claimId ?? '');
+              const resourceIds = Array.isArray(claim.resourceIds) ? claim.resourceIds.filter((id): id is string => typeof id === 'string') : [];
+              const evidence = typeof claim.evidence === 'string' ? claim.evidence : '';
+              return (
+                <li class="creator-admin__item" data-admin-claim={claimId}>
+                  <h3>Solicitud {claimId}</h3>
+                  <p>Estado: {String(claim.status ?? 'pendiente de revisión')} · Recursos indicados: {resourceIds.length}</p>
+                  <p>Source ID: {String(claim.sourceId ?? 'No indicado')}</p>
+                  {evidence && <div class="creator-admin__claim-evidence"><strong>Referencia privada</strong><br />{evidence}</div>}
+                  <form data-claim-resolution>
+                    <fieldset class="creator-admin__claim-resources">
+                      <legend>Selecciona los IDs exactos que verificaste</legend>
+                      {resourceIds.map((resourceId) => (
+                        <label><input type="checkbox" name="resourceIds" value={resourceId} checked />{resourceId}</label>
+                      ))}
+                    </fieldset>
+                    <label class="creator-check creator-admin__review-confirm"><input type="checkbox" name="reviewed" required /><span>Confirmo que revisé la referencia y los recursos seleccionados.</span></label>
+                    <button class="button button--dark" type="submit">Vincular recursos seleccionados</button>
+                    <p class="creator-form__status" data-item-status role="status" aria-live="polite"></p>
+                  </form>
+                </li>
+              );
+            })}
+          </ul>
+        ) : <p class="creator-empty-state">No hay solicitudes pendientes.</p>}
+      </section>
+
+      <a class="creator-account__back" href="/cuenta/">Volver a mi cuenta</a>
+      <script type="application/json" id="creator-admin-data" set:html={initial}></script>
+    </main>
+  ) : (
+    <main id="contenido" class="creator-account site-container" tabindex="-1">
+      <section class="creator-message" role="alert" aria-labelledby="creator-admin-error-title">
+        <p class="creator-profile__eyebrow">Administración</p>
+        <h1 id="creator-admin-error-title">{result.status === 401 ? 'Inicia sesión' : result.status === 403 ? 'Acceso restringido' : 'No pudimos cargar administración'}</h1>
+        <p>{message}</p>
+        <a class="button button--dark" href={result.status === 401 ? '/cuenta/ingresar/' : '/cuenta/'}>{result.status === 401 ? 'Ingresar' : 'Volver a mi cuenta'}</a>
+        {result.status === 503 && <a class="button button--outline" href="/cuenta/administracion/">Reintentar</a>}
+      </section>
+    </main>
+  )}
+  <SiteFooter />
+</BaseLayout>
+
+<script>
+  import '../../../scripts/creator-admin';
+</script>

@@ -5,6 +5,7 @@ import {
   createSubmissionHandler,
   MAX_SUBMISSION_BODY_BYTES,
 } from '../src/api/submission.mjs';
+import { currentUrlReservation, currentUrlReservationId } from '../src/lib/catalog-url.mjs';
 
 const BASE_SUBMISSION = Object.freeze({
   email: 'ana@example.invalid',
@@ -29,19 +30,34 @@ function responseBody(result) {
 }
 
 function handlerWithWriter(writer, options = {}) {
+  const records = options.records ?? new Map();
+  const writes = [];
   return createSubmissionHandler({
     tableName: 'donde-aprendo-aws-catalog',
-    putItem: writer,
+    getItem: async ({ Key }) => ({ Item: records.get(Key.id) }),
+    transactWrite: async (params) => {
+      writes.push(params);
+      await writer(params);
+      const puts = params.TransactItems.map(({ Put }) => Put);
+      if (puts.some(({ Item }) => records.has(Item.id))) {
+        const error = new Error('transaction condition failed');
+        error.name = 'TransactionCanceledException';
+        error.CancellationReasons = [{ Code: 'ConditionalCheckFailed' }];
+        throw error;
+      }
+      for (const { Item } of puts) records.set(Item.id, { ...Item });
+    },
     now: () => '2026-09-23T12:34:56.000Z',
+    resourceId: options.resourceId ?? (() => 'resource-submission-1'),
     ...options,
   });
 }
 
 test('writes a pending public record with private contact fields and returns 201 after the write', async () => {
-  const writes = [];
+  let write;
   const handler = handlerWithWriter(async (params) => {
     await Promise.resolve();
-    writes.push(params);
+    write = params;
   });
 
   const result = await handler(request());
@@ -50,15 +66,17 @@ test('writes a pending public record with private contact fields and returns 201
   assert.deepEqual(responseBody(result), {
     ok: true,
     code: 'created',
-    id: 'catalog-0ffc336102cd336f1b209b3f2a90ece0',
+    id: 'resource-submission-1',
     submittedAt: '2026-09-23T12:34:56.000Z',
   });
-  assert.equal(writes.length, 1);
-  assert.equal(writes[0].TableName, 'donde-aprendo-aws-catalog');
-  assert.equal(writes[0].ConditionExpression, 'attribute_not_exists(#id)');
-  assert.deepEqual(writes[0].ExpressionAttributeNames, { '#id': 'id' });
-  assert.deepEqual(writes[0].Item, {
-    id: 'catalog-0ffc336102cd336f1b209b3f2a90ece0',
+  assert.equal(write.TransactItems.length, 2);
+  const resourcePut = write.TransactItems[0].Put;
+  const reservationPut = write.TransactItems[1].Put;
+  assert.equal(resourcePut.TableName, 'donde-aprendo-aws-catalog');
+  assert.equal(resourcePut.ConditionExpression, 'attribute_not_exists(#id)');
+  assert.deepEqual(resourcePut.ExpressionAttributeNames, { '#id': 'id' });
+  assert.deepEqual(resourcePut.Item, {
+    id: 'resource-submission-1',
     title: BASE_SUBMISSION.title,
     url: BASE_SUBMISSION.url,
     description: BASE_SUBMISSION.text,
@@ -72,26 +90,29 @@ test('writes a pending public record with private contact fields and returns 201
     submittedAt: '2026-09-23T12:34:56.000Z',
     submitterName: BASE_SUBMISSION.full_name,
     submitterEmail: BASE_SUBMISSION.email,
+    version: 1,
   });
-  assert.equal(Object.hasOwn(writes[0].Item, 'website'), false);
-  assert.equal(Object.hasOwn(writes[0].Item, 'email'), false);
+  assert.equal(reservationPut.Item.id, currentUrlReservationId(BASE_SUBMISSION.url));
+  assert.deepEqual(reservationPut.Item, currentUrlReservation(BASE_SUBMISSION.url, 'resource-submission-1'));
+  assert.equal(Object.hasOwn(resourcePut.Item, 'website'), false);
+  assert.equal(Object.hasOwn(resourcePut.Item, 'email'), false);
   assert.equal(result.body.includes(BASE_SUBMISSION.email), false);
   assert.equal(result.body.includes(BASE_SUBMISSION.full_name), false);
   assert.equal(result.body.includes(BASE_SUBMISSION.url), false);
 });
 
 test('accepts the new kind, format, and topic fields as a pending submission', async () => {
-  const writes = [];
-  const handler = handlerWithWriter(async (params) => { writes.push(params); });
+  let resource;
+  const handler = handlerWithWriter(async (params) => { resource = params.TransactItems[0].Put.Item; });
   const { Category, ...base } = BASE_SUBMISSION;
   const result = await handler({
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ ...base, kind: 'content', format: 'Video', topics: ['Seguridad', 'Fundamentos'] }),
   });
   assert.equal(result.statusCode, 201);
-  assert.equal(writes[0].Item.published, false);
-  assert.equal(writes[0].Item.category, 'Seguridad');
-  assert.deepEqual(writes[0].Item.topics, ['Seguridad', 'Fundamentos']);
+  assert.equal(resource.published, false);
+  assert.equal(resource.category, 'Seguridad');
+  assert.deepEqual(resource.topics, ['Seguridad', 'Fundamentos']);
 });
 
 test('rejects invalid new taxonomy before writing', async () => {
@@ -109,12 +130,12 @@ test('rejects invalid new taxonomy before writing', async () => {
   assert.equal(writes, 0);
 });
 
-test('returns 409 for a conditional duplicate without exposing submitted values', async () => {
-  const handler = handlerWithWriter(async () => {
-    const error = new Error('DynamoDB detail must stay private');
-    error.name = 'ConditionalCheckFailedException';
-    throw error;
-  });
+test('returns 409 for a literal URL duplicate without exposing submitted values', async () => {
+  const records = new Map([
+    ['resource-existing', { id: 'resource-existing', url: BASE_SUBMISSION.url }],
+    [currentUrlReservationId(BASE_SUBMISSION.url), currentUrlReservation(BASE_SUBMISSION.url, 'resource-existing')],
+  ]);
+  const handler = handlerWithWriter(async () => assert.fail('duplicate URL must be detected before the transaction'), { records });
 
   const result = await handler(request());
 
@@ -214,8 +235,8 @@ test('rejects an overlong field even when the request stays under the body limit
 });
 
 test('accepts the API Gateway base64 body form and still stores only pending data', async () => {
-  const writes = [];
-  const handler = handlerWithWriter(async (params) => { writes.push(params); });
+  let resource;
+  const handler = handlerWithWriter(async (params) => { resource = params.TransactItems[0].Put.Item; });
   const body = Buffer.from(JSON.stringify(BASE_SUBMISSION), 'utf8').toString('base64');
 
   const result = await handler({
@@ -225,8 +246,8 @@ test('accepts the API Gateway base64 body form and still stores only pending dat
   });
 
   assert.equal(result.statusCode, 201);
-  assert.equal(writes[0].Item.published, false);
-  assert.equal(writes[0].Item.url, BASE_SUBMISSION.url);
+  assert.equal(resource.published, false);
+  assert.equal(resource.url, BASE_SUBMISSION.url);
 });
 
 test('returns a storage error when the deployed table is not configured', async () => {

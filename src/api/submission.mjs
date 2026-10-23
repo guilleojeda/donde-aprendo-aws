@@ -1,8 +1,6 @@
-import { DEFAULT_AWS_REGION } from '../lib/catalog.mjs';
-import {
-  isConditionalPutConflict,
-  stableCatalogId,
-} from '../lib/catalog-import.mjs';
+import { randomUUID } from 'node:crypto';
+import { DEFAULT_AWS_REGION, validateCatalogUrl } from '../lib/catalog.mjs';
+import { putCatalogResourceOnce, createDynamoCatalogAccess } from '../lib/catalog-resource-writer.mjs';
 import { SUBMISSION_CATEGORIES } from '../lib/submission-categories.mjs';
 import { classifyLegacyResource, legacyCategoryFor, validateTaxonomy } from '../lib/resource-taxonomy.mjs';
 
@@ -38,11 +36,13 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
  * importing this module never requires AWS credentials.
  */
 export function createSubmissionHandler(options = {}) {
-  const putItem = options.putItem;
   const now = options.now ?? (() => new Date().toISOString());
   const tableName = options.tableName;
   const region = options.region ?? process.env.AWS_REGION ?? DEFAULT_AWS_REGION;
-  let defaultPutItem;
+  const getItem = options.getItem;
+  const transactWrite = options.transactWrite;
+  const resourceId = options.resourceId ?? (() => `resource-${randomUUID()}`);
+  let defaultAccess;
 
   return async function submissionHandler(event = {}) {
     let submission;
@@ -58,7 +58,7 @@ export function createSubmissionHandler(options = {}) {
     }
 
     const item = {
-      id: stableCatalogId(submission.url),
+      id: resourceId(),
       title: submission.title,
       url: submission.url,
       description: submission.text,
@@ -73,20 +73,22 @@ export function createSubmissionHandler(options = {}) {
     };
 
     try {
-      const writer = putItem ?? (defaultPutItem ??= await createDynamoWriter(region));
-      if (typeof writer !== 'function') {
-        return response(500, 'storage_error');
+      const access = getItem && transactWrite
+        ? { getItem, transactWrite }
+        : (defaultAccess ??= await createDynamoCatalogAccess({ region }));
+      let result;
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        if (attempt > 0) item.id = resourceId();
+        result = await putCatalogResourceOnce({ tableName: resolvedTableName, item, ...access });
+        if (result.status !== 'id-exists') break;
       }
-      await writer({
-        TableName: resolvedTableName,
-        Item: item,
-        ConditionExpression: 'attribute_not_exists(#id)',
-        ExpressionAttributeNames: { '#id': 'id' },
-      });
-    } catch (error) {
-      if (isConditionalPutConflict(error)) {
+      if (result?.status === 'duplicate' || result?.status === 'collision') {
         return response(409, 'duplicate');
       }
+      if (result?.status !== 'created') return response(500, 'storage_error');
+      item.id = result.item.id;
+      item.version = result.item.version;
+    } catch (error) {
       return response(500, 'storage_error');
     }
 
@@ -138,10 +140,8 @@ function parseSubmissionRequest(event) {
     throw requestError(400, 'invalid_request');
   }
   try {
-    // stableCatalogId calls the shared catalog URL validator. Keeping the URL
-    // unchanged here preserves query strings and makes duplicate detection
-    // match imported records exactly.
-    stableCatalogId(payload.url);
+    // Preserve the exact literal for URL uniqueness, including query strings.
+    validateCatalogUrl(payload.url);
   } catch {
     throw requestError(400, 'invalid_request');
   }
@@ -253,13 +253,4 @@ function response(statusCode, code, details = {}) {
     headers: { 'content-type': 'application/json; charset=utf-8' },
     body: JSON.stringify({ ok: statusCode === 201, code, ...details }),
   };
-}
-
-async function createDynamoWriter(region) {
-  const [{ DynamoDBClient }, { DynamoDBDocumentClient, PutCommand }] = await Promise.all([
-    import('@aws-sdk/client-dynamodb'),
-    import('@aws-sdk/lib-dynamodb'),
-  ]);
-  const client = DynamoDBDocumentClient.from(new DynamoDBClient({ region }));
-  return (params) => client.send(new PutCommand(params));
 }

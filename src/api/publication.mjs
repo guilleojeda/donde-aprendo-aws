@@ -43,7 +43,12 @@ export async function handler() {
       }));
     },
     run: () => synchronizePublication({
-      loadPublicCatalog: () => loadCatalog({ tableName, region, docClient: catalog }),
+      loadPublicCatalog: () => loadCatalog({
+        tableName,
+        creatorTableName: process.env.CREATOR_PROFILES_TABLE,
+        region,
+        docClient: catalog,
+      }),
       readState: async () => {
         const { Item } = await catalog.send(new GetCommand({
           TableName: tableName,

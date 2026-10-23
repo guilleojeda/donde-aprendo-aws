@@ -1,0 +1,94 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import SiteHeader from '../../components/SiteHeader.astro';
+import SiteFooter from '../../components/SiteFooter.astro';
+import CreatorPublicProfile from '../../components/CreatorPublicProfile.astro';
+import '../../styles/creators.css';
+import { getCreatorRuntime } from '../../lib/creator-runtime.mjs';
+import type { CreatorProfileDTO, CreatorLinkDTO } from '../../types/creators';
+
+export const prerender = false;
+
+const siteOrigin = 'https://dondeaprendoaws.com';
+const rawPath = Astro.url.pathname.startsWith('/c/') ? Astro.url.pathname.slice('/c/'.length) : '';
+const slash = rawPath.indexOf('/');
+const rawSlug = slash < 0 ? rawPath : rawPath.slice(0, slash);
+let slug = '';
+let malformedSlug = false;
+try {
+  slug = decodeURIComponent(rawSlug);
+} catch {
+  malformedSlug = true;
+}
+const remainder = slash < 0 ? '' : rawPath.slice(slash);
+const suffix = remainder === '/' ? '' : remainder;
+Astro.response.headers.set('Cache-Control', 'no-store');
+
+let status: 200 | 404 | 503 = 404;
+let profile: CreatorProfileDTO | undefined;
+let links: CreatorLinkDTO[] = [];
+
+if (malformedSlug) {
+  status = 404;
+} else if (slug) {
+  try {
+    const runtime = await getCreatorRuntime();
+    const result = await runtime.service.readPublicProfile(slug, {
+      suffix,
+      search: Astro.url.search,
+    });
+    if (result.status === 308 && typeof result.redirectTo === 'string') {
+      Astro.response.status = 308;
+      Astro.response.headers.set('Location', result.redirectTo);
+      return new Response(null, { status: 308, headers: Astro.response.headers });
+    }
+    if (result.status === 503) {
+      status = 503;
+    } else if (result.status === 200 && !suffix && result.profile) {
+      status = 200;
+      profile = result.profile as CreatorProfileDTO;
+      links = Array.isArray(result.links) ? result.links as CreatorLinkDTO[] : [];
+    }
+  } catch {
+    status = 503;
+  }
+}
+
+Astro.response.status = status;
+const canonical = profile ? `${siteOrigin}/c/${encodeURIComponent(profile.slug)}/` : undefined;
+const title = profile ? `${profile.displayName} | Creador de AWS` : status === 503 ? 'Página temporalmente no disponible' : 'Creador no encontrado';
+const description = profile
+  ? profile.bio?.trim() || `Conoce los recursos de AWS que comparte ${profile.displayName}.`
+  : status === 503
+    ? 'No pudimos cargar esta página. Inténtalo de nuevo en unos minutos.'
+    : 'No encontramos esta página de creador.';
+const image = profile?.photo?.url?.startsWith('/media/fotos/')
+  ? profile.photo.url
+  : profile?.photo?.version !== undefined
+    ? `/media/fotos/${encodeURIComponent(profile.id)}/${encodeURIComponent(String(profile.photo.version))}.webp`
+    : undefined;
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  canonical={canonical}
+  image={image}
+  imageAlt={image && profile ? `Foto de ${profile.displayName}` : undefined}
+  noindex={status !== 200}
+>
+  <SiteHeader />
+  <main id="contenido" class="creator-page site-container" tabindex="-1">
+    {status === 200 && profile ? (
+      <CreatorPublicProfile profile={profile} links={links} />
+    ) : (
+      <section class="creator-message" role={status === 503 ? 'alert' : 'status'} aria-labelledby="creator-message-title">
+        <p class="creator-profile__eyebrow">¿Dónde Aprendo AWS?</p>
+        <h1 id="creator-message-title">{status === 503 ? 'No pudimos cargar esta página' : 'No encontramos a este creador'}</h1>
+        <p>{status === 503 ? 'Inténtalo de nuevo en unos minutos.' : 'Revisa la dirección o vuelve a conocer a la comunidad.'}</p>
+        <a class="button button--dark" href={status === 503 ? Astro.url.pathname : '/creadores/'}>{status === 503 ? 'Reintentar' : 'Explorar creadores'}</a>
+      </section>
+    )}
+  </main>
+  <SiteFooter />
+</BaseLayout>

@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 const PRODUCT_MODULE = new URL('../../src/lib/creator-pages.mjs', import.meta.url);
 
 export const SITE_ORIGIN = 'https://dondeaprendoaws.com';
@@ -75,7 +77,8 @@ export function createDocumentStore() {
     },
     async get(key) {
       before('get', { key });
-      return copy(documents.get(key) ?? null);
+      const value = documents.get(key);
+      return value === undefined ? null : copy({ ...value, version: value.version ?? 0 });
     },
     async list(prefix) {
       before('list', { prefix });
@@ -87,7 +90,7 @@ export function createDocumentStore() {
       before('transact', { checks, puts, deletes });
       for (const { key, version } of checks) {
         const current = documents.get(key);
-        if (version === null ? current !== undefined : current?.version !== version) return false;
+        if (version === null ? current !== undefined : current === undefined || (current.version ?? 0) !== version) return false;
       }
       for (const key of deletes) documents.delete(key);
       for (const { key, value } of puts) documents.set(key, copy(value));
@@ -98,9 +101,17 @@ export function createDocumentStore() {
 
 /** Seed a logical catalog record for acceptance scenarios involving legacy data. */
 export async function seedResource(store, resource) {
+  // Legacy scenarios start after the approved current-URL backfill, just as
+  // production must before the new writers are activated. No ownership or
+  // eligibility decisions belong to this fixture.
+  const url = resource.url ?? resource.registrationUrl;
+  const urlKey = `url:${createHash('sha256').update(url, 'utf8').digest('hex')}`;
   const result = await store.transact({
-    checks: [{ key: `resource:${resource.id}`, version: null }],
-    puts: [{ key: `resource:${resource.id}`, value: copy(resource) }],
+    checks: [{ key: `resource:${resource.id}`, version: null }, { key: urlKey, version: null }],
+    puts: [
+      { key: `resource:${resource.id}`, value: copy({ ...resource, version: resource.version ?? 0 }) },
+      { key: urlKey, value: { recordType: 'urlReservation', url, status: 'reserved', resourceId: resource.id, version: 1 } },
+    ],
   });
   if (!result) throw new Error(`fixture resource already exists: ${resource.id}`);
 }

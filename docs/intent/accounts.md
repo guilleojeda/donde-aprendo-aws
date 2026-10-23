@@ -47,10 +47,28 @@ transacción distribuida que deshaga la contraseña si falla esa escritura;
 operación debe investigar un error del trigger. La revocación tampoco deshace
 acciones que ya estaban autorizadas.
 
-El directorio y el blog siguen prerenderizados en Amplify. Cuenta y 404 se
-resuelven por petición mediante el adaptador comunitario de Astro. Los rewrites
-de secciones estáticas, el artefacto y la configuración de hosting deben ser
+El directorio y el blog siguen prerenderizados en Amplify. Los perfiles
+públicos, las páginas de cuenta, editor y administración, sus APIs y los 404
+se resuelven por petición mediante el adaptador comunitario de Astro; el
+perfil público no espera un build para reflejar sus datos. Los rewrites de
+secciones estáticas, el artefacto y la configuración de hosting deben ser
 compatibles entre sí; revertir sólo el código no restaura reglas de app.
 El origen HTTPS de cuenta configura tanto los retornos de autenticación como
 el hostname de proxy que Astro acepta. Cambiar ese origen requiere compilar
 el artefacto con el mismo valor y autorizar sus URLs exactas en Cognito.
+
+## Páginas y administración de creadores
+
+La cuenta y su permiso de administración viven en el registro privado de
+`ACCOUNTS_TABLE`. Registrarse o verificar el correo no crea ni publica una
+ficha; la publicación se hace aparte desde `/cuenta/creador/`. Las reglas del
+perfil, enlaces compartidos, reclamaciones, fotos, analítica y selección para
+el directorio están en [páginas de creadores](creator-pages.md).
+
+`/cuenta/administracion/` sólo admite una sesión cuyo registro privado tenga
+`isAdmin: true`. El alta inicial de una persona administradora requiere una
+operación controlada sobre la cuenta ya existente, identificada por su
+identidad Cognito (emisor más `sub`) y su registro interno. No se asigna el
+permiso por correo, nombre público ni dato enviado por el navegador. No hay
+grupo de Cognito ni formulario de autoasignación. La identidad interna y el
+correo no se copian al catálogo ni a páginas públicas.

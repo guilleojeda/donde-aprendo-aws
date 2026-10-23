@@ -46,6 +46,23 @@ const SCAN_EXPRESSION_NAMES = Object.freeze({
   '#city': 'city',
   '#venueCountry': 'venueCountry',
   '#registrationUrl': 'registrationUrl',
+  '#directoryControl': 'directoryControl',
+  '#hidden': 'hidden',
+  '#approvalRevoked': 'approvalRevoked',
+});
+
+const CREATOR_SCAN_EXPRESSION_NAMES = Object.freeze({
+  '#pk': 'pk',
+  '#sk': 'sk',
+  '#recordType': 'recordType',
+  '#id': 'id',
+  '#profileId': 'profileId',
+  '#resourceId': 'resourceId',
+  '#published': 'published',
+  '#hidden': 'hidden',
+  '#selectedForDirectory': 'selectedForDirectory',
+  '#selected': 'selected',
+  '#slug': 'slug',
 });
 
 /**
@@ -59,17 +76,33 @@ export async function loadCatalog(options = {}) {
   const config = resolveCatalogConfig(options);
 
   let items;
+  let creatorState;
   if (config.fixturePath) {
-    items = await loadFixture(config.fixturePath);
+    const fixture = await loadFixture(config.fixturePath);
+    if (Array.isArray(fixture)) {
+      items = fixture;
+    } else {
+      items = fixture.items;
+      creatorState = { profiles: fixture.profiles, placements: fixture.placements };
+    }
   } else {
     const scanPage = options.scanPage ?? createDynamoScanPage({
       region: config.region,
       docClient: options.docClient,
     });
     items = await scanCatalogItems(scanPage, config.tableName);
+    if (config.creatorTableName) {
+      const scanCreatorPage = options.scanCreatorPage ?? createDynamoScanPage({
+        region: config.region,
+        docClient: options.creatorDocClient ?? options.docClient,
+      });
+      creatorState = normalizeCreatorRows(await scanCreatorItems(scanCreatorPage, config.creatorTableName));
+    }
   }
 
-  return projectPublishedCatalog(items);
+  return creatorState === undefined
+    ? projectPublishedCatalog(items)
+    : projectPublishedCatalog(items, creatorState);
 }
 
 /**
@@ -80,6 +113,7 @@ export async function loadCatalog(options = {}) {
 export function resolveCatalogConfig(options = {}, env = process.env) {
   const fixturePath = valueOrUndefined(options.fixturePath ?? env.CATALOG_FIXTURE);
   const tableName = valueOrUndefined(options.tableName ?? env.CATALOG_TABLE);
+  const creatorTableName = valueOrUndefined(options.creatorTableName ?? env.CREATOR_PROFILES_TABLE);
   const region = valueOrUndefined(options.region ?? env.AWS_REGION) ?? DEFAULT_AWS_REGION;
 
   if (fixturePath && tableName) {
@@ -88,11 +122,11 @@ export function resolveCatalogConfig(options = {}, env = process.env) {
   if (!fixturePath && !tableName) {
     throw new Error('Catalog source missing: set CATALOG_TABLE or explicitly set CATALOG_FIXTURE');
   }
-  if (fixturePath && options.scanPage) {
+  if (fixturePath && (options.scanPage || options.scanCreatorPage)) {
     throw new Error('Catalog source conflict: a fixture cannot be used with a live scan reader');
   }
 
-  return { fixturePath, tableName, region };
+  return { fixturePath, tableName, creatorTableName, region };
 }
 
 /**
@@ -119,7 +153,7 @@ export async function scanCatalogItems(scanPage, tableName) {
       TableName: tableName,
       Select: 'SPECIFIC_ATTRIBUTES',
       ConsistentRead: true,
-      ProjectionExpression: '#id,#title,#url,#description,#category,#order,#featured,#kind,#format,#topics,#addedAt,#country,#level,#sourceId,#communityId,#eventId,#recordType,#startsAt,#endsAt,#timeZone,#organizer,#mode,#place,#city,#venueCountry,#registrationUrl,published',
+      ProjectionExpression: '#id,#title,#url,#description,#category,#order,#featured,#kind,#format,#topics,#addedAt,#country,#level,#sourceId,#communityId,#eventId,#recordType,#startsAt,#endsAt,#timeZone,#organizer,#mode,#place,#city,#venueCountry,#registrationUrl,#directoryControl,#hidden,#approvalRevoked,published',
       ExpressionAttributeNames: SCAN_EXPRESSION_NAMES,
     };
     if (exclusiveStartKey !== undefined) {
@@ -159,14 +193,115 @@ export async function scanCatalogItems(scanPage, tableName) {
   return items;
 }
 
+/** Read only public profile and placement controls from the separate table. */
+export async function scanCreatorItems(scanPage, tableName) {
+  if (typeof scanPage !== 'function') throw new TypeError('Creator-state scan reader must be a function');
+  if (!tableName) throw new Error('Creator-state scan requires a table name');
+
+  const items = [];
+  let exclusiveStartKey;
+  let pageNumber = 0;
+  const seenKeys = new Set();
+  do {
+    pageNumber += 1;
+    const params = {
+      TableName: tableName,
+      Select: 'SPECIFIC_ATTRIBUTES',
+      ConsistentRead: true,
+      ProjectionExpression: '#pk,#sk,#recordType,#id,#profileId,#resourceId,#published,#hidden,#selectedForDirectory,#selected,#slug',
+      ExpressionAttributeNames: CREATOR_SCAN_EXPRESSION_NAMES,
+    };
+    if (exclusiveStartKey !== undefined) params.ExclusiveStartKey = exclusiveStartKey;
+    let page;
+    try {
+      page = await scanPage(params);
+    } catch (error) {
+      throw new Error(`Creator-state scan failed on page ${pageNumber}: ${error?.message ?? String(error)}`, { cause: error });
+    }
+    if (!page || !Array.isArray(page.Items)) {
+      throw new Error(`Creator-state scan returned malformed page ${pageNumber}: Items must be an array`);
+    }
+    items.push(...page.Items);
+    const nextKey = page.LastEvaluatedKey;
+    if (nextKey !== undefined && nextKey !== null && (typeof nextKey !== 'object' || Array.isArray(nextKey))) {
+      throw new Error(`Creator-state scan returned a malformed pagination key on page ${pageNumber}`);
+    }
+    if (nextKey && typeof nextKey === 'object' && Object.keys(nextKey).length > 0) {
+      const fingerprint = JSON.stringify(nextKey);
+      if (seenKeys.has(fingerprint)) throw new Error(`Creator-state scan repeated a pagination key on page ${pageNumber}`);
+      seenKeys.add(fingerprint);
+      exclusiveStartKey = nextKey;
+    } else {
+      exclusiveStartKey = undefined;
+    }
+  } while (exclusiveStartKey !== undefined);
+  return items;
+}
+
+export function normalizeCreatorRows(rows) {
+  if (!Array.isArray(rows)) throw new TypeError('Creator-state source must return an array of records');
+  const profiles = [];
+  const placements = [];
+  for (const [index, row] of rows.entries()) {
+    if (!row || typeof row !== 'object' || Array.isArray(row)) {
+      throw new Error(`Creator-state record ${index + 1} is not an object`);
+    }
+    if (row.recordType === 'profile') {
+      const pkId = typeof row.pk === 'string' && row.pk.startsWith('PROFILE#') ? row.pk.slice(8) : undefined;
+      const id = row.id ?? pkId;
+      if (typeof id !== 'string' || id.length === 0 || (pkId && pkId !== id)) {
+        throw new Error(`Creator-state profile ${index + 1} has an invalid ID`);
+      }
+      if (typeof row.published !== 'boolean') throw new Error(`Creator-state profile ${index + 1} has a malformed published flag`);
+      if (Object.hasOwn(row, 'hidden') && typeof row.hidden !== 'boolean') {
+        throw new Error(`Creator-state profile ${index + 1} has a malformed hidden flag`);
+      }
+      if (Object.hasOwn(row, 'slug') && typeof row.slug !== 'string') {
+        throw new Error(`Creator-state profile ${index + 1} has a malformed slug`);
+      }
+      profiles.push({ id, published: row.published, hidden: row.hidden ?? false, ...(row.slug === undefined ? {} : { slug: row.slug }) });
+    } else if (row.recordType === 'placement') {
+      const pkId = typeof row.pk === 'string' && row.pk.startsWith('PROFILE#') ? row.pk.slice(8) : undefined;
+      const profileId = row.profileId ?? pkId;
+      if (typeof profileId !== 'string' || profileId.length === 0 || (pkId && pkId !== profileId)
+          || typeof row.resourceId !== 'string' || row.resourceId.length === 0) {
+        throw new Error(`Creator-state placement ${index + 1} has invalid identifiers`);
+      }
+      const selectionField = Object.hasOwn(row, 'selectedForDirectory') ? 'selectedForDirectory' : 'selected';
+      const selected = row[selectionField];
+      if (typeof selected !== 'boolean') throw new Error(`Creator-state placement ${index + 1} has a malformed selection flag`);
+      placements.push({ profileId, resourceId: row.resourceId, selected });
+    } else if (typeof row.sk === 'string' && row.sk.startsWith('PLACEMENT#')) {
+      throw new Error(`Creator-state placement ${index + 1} has an invalid record type`);
+    } else if (row.pk?.startsWith?.('PROFILE#') && row.sk === 'META') {
+      throw new Error(`Creator-state profile ${index + 1} has an invalid record type`);
+    }
+  }
+  return { profiles, placements };
+}
+
 /**
  * Keep only the intentionally public fields from records published by the
  * owner. A malformed publication flag is an input error; a missing flag is
  * treated as unpublished and therefore is not eligible for projection.
  */
-export function projectPublishedCatalog(items) {
+export function projectPublishedCatalog(items, creatorState) {
   if (!Array.isArray(items)) {
     throw new TypeError('Catalog source must return an array of records');
+  }
+
+  const creatorResources = items.filter((item) => item && typeof item === 'object' && !Array.isArray(item)
+    && item.directoryControl === 'creator');
+  if (creatorResources.length > 0 && creatorState === undefined) {
+    throw new Error('Creator directory state is required to project creator-controlled resources');
+  }
+  const state = normalizeCreatorState(creatorState ?? { profiles: [], placements: [] });
+  const profilesById = new Map(state.profiles.map((profile) => [profile.id, profile]));
+  const placementsByResource = new Map();
+  for (const placement of state.placements) {
+    const list = placementsByResource.get(placement.resourceId) ?? [];
+    list.push(placement);
+    placementsByResource.set(placement.resourceId, list);
   }
 
   const records = [];
@@ -174,11 +309,30 @@ export function projectPublishedCatalog(items) {
     if (!item || typeof item !== 'object' || Array.isArray(item)) {
       throw new Error(`Catalog record ${index + 1} is not an object`);
     }
+    if ((typeof item.id === 'string' && item.id.startsWith('__')) || item.recordType === 'urlReservation') continue;
     if (Object.hasOwn(item, 'published') && typeof item.published !== 'boolean') {
       throw new Error(`Catalog record ${index + 1} has a malformed published flag`);
     }
-    if (item.published !== true) {
+    if (Object.hasOwn(item, 'hidden') && typeof item.hidden !== 'boolean') {
+      throw new Error(`Catalog record ${index + 1} has a malformed hidden flag`);
+    }
+    if (Object.hasOwn(item, 'approvalRevoked') && typeof item.approvalRevoked !== 'boolean') {
+      throw new Error(`Catalog record ${index + 1} has a malformed approval revocation flag`);
+    }
+    if (Object.hasOwn(item, 'directoryControl') && !['creator', 'editorial'].includes(item.directoryControl)) {
+      throw new Error(`Catalog record ${index + 1} has an invalid directory control`);
+    }
+    if (item.published !== true || item.approvalRevoked === true) {
       continue;
+    }
+    if (item.hidden === true) continue;
+    if (item.directoryControl === 'creator') {
+      const eligible = (placementsByResource.get(item.id) ?? []).some((placement) => {
+        if (!placement.selected) return false;
+        const profile = profilesById.get(placement.profileId);
+        return profile?.published === true && profile.hidden === false;
+      });
+      if (!eligible) continue;
     }
 
     const record = projectPublicRecord(item, index);
@@ -187,6 +341,39 @@ export function projectPublishedCatalog(items) {
 
   records.sort(compareCatalogRecords);
   return records;
+}
+
+function normalizeCreatorState(state) {
+  if (!state || typeof state !== 'object' || Array.isArray(state)
+      || !Array.isArray(state.profiles) || !Array.isArray(state.placements)) {
+    throw new TypeError('Creator directory state must contain profile and placement arrays');
+  }
+  const profileIds = new Set();
+  const profiles = state.profiles.map((profile, index) => {
+    if (!profile || typeof profile !== 'object' || Array.isArray(profile)
+        || typeof profile.id !== 'string' || profile.id.length === 0
+        || typeof profile.published !== 'boolean'
+        || (Object.hasOwn(profile, 'hidden') && typeof profile.hidden !== 'boolean')) {
+      throw new Error(`Creator directory profile ${index + 1} is malformed`);
+    }
+    if (profileIds.has(profile.id)) throw new Error(`Creator directory profile ${index + 1} is duplicated`);
+    profileIds.add(profile.id);
+    return { id: profile.id, published: profile.published, hidden: profile.hidden ?? false };
+  });
+  const placementKeys = new Set();
+  const placements = state.placements.map((placement, index) => {
+    if (!placement || typeof placement !== 'object' || Array.isArray(placement)
+        || typeof placement.profileId !== 'string' || placement.profileId.length === 0
+        || typeof placement.resourceId !== 'string' || placement.resourceId.length === 0
+        || typeof placement.selected !== 'boolean') {
+      throw new Error(`Creator directory placement ${index + 1} is malformed`);
+    }
+    const key = JSON.stringify([placement.profileId, placement.resourceId]);
+    if (placementKeys.has(key)) throw new Error(`Creator directory placement ${index + 1} is duplicated`);
+    placementKeys.add(key);
+    return { profileId: placement.profileId, resourceId: placement.resourceId, selected: placement.selected };
+  });
+  return { profiles, placements };
 }
 
 /**
@@ -291,8 +478,10 @@ export async function loadFixture(fixturePath) {
   } catch (error) {
     throw new Error(`Catalog fixture is not valid JSON: ${fixturePath}`, { cause: error });
   }
-  if (!Array.isArray(items)) {
-    throw new Error(`Catalog fixture must contain an array: ${fixturePath}`);
+  if (Array.isArray(items)) return items;
+  if (!items || typeof items !== 'object' || Array.isArray(items)
+      || !Array.isArray(items.items) || !Array.isArray(items.profiles) || !Array.isArray(items.placements)) {
+    throw new Error(`Catalog fixture must contain an array or an object with items, profiles, and placements: ${fixturePath}`);
   }
   return items;
 }

@@ -1,0 +1,109 @@
+---
+import type { CreatorLinkDTO, CreatorProfileDTO } from '../types/creators';
+
+interface Props {
+  profile: CreatorProfileDTO;
+  links: CreatorLinkDTO[];
+}
+
+const { profile, links } = Astro.props;
+const socialLabels = {
+  instagram: 'Instagram',
+  x: 'X',
+  linkedin: 'LinkedIn',
+  awsBuilder: 'AWS Builder Center',
+  website: 'Sitio web',
+} as const;
+function safeHttpUrl(value: string | undefined) {
+  if (!value) return undefined;
+  try {
+    const parsed = new URL(value);
+    return ['http:', 'https:'].includes(parsed.protocol) && !parsed.username && !parsed.password
+      ? { href: parsed.href, hostname: parsed.hostname }
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+const socials = Object.entries(profile.socials ?? {}).flatMap(([key, value]) => {
+  if (!(key in socialLabels) || typeof value !== 'string') return [];
+  const destination = safeHttpUrl(value);
+  if (!destination) return [];
+  const socialKey = key as keyof typeof socialLabels;
+  return [{ key: socialKey, label: socialLabels[socialKey], url: destination.href }];
+});
+const photoPath = profile.photo?.url?.startsWith('/media/fotos/')
+  ? profile.photo.url
+  : profile.photo?.version !== undefined
+    ? `/media/fotos/${encodeURIComponent(profile.id)}/${encodeURIComponent(String(profile.photo.version))}.webp`
+    : undefined;
+---
+
+<section
+  class="creator-profile"
+  data-creator-profile
+  data-creator-id={profile.id}
+  data-creator-slug={profile.slug}
+  aria-labelledby="creator-name"
+>
+  <header class="creator-profile__header">
+    {photoPath && <img class="creator-profile__photo" src={photoPath} alt={`Foto de ${profile.displayName}`} width="160" height="160" fetchpriority="high" />}
+    <div class="creator-profile__identity">
+      <p class="creator-profile__eyebrow">Creador de la comunidad AWS</p>
+      <h1 id="creator-name">{profile.displayName}</h1>
+      {(profile.city || profile.country) && <p class="creator-profile__location">{[profile.city, profile.country].filter(Boolean).join(', ')}</p>}
+      {profile.programs.length > 0 && (
+        <ul class="creator-profile__programs" aria-label="Programas de AWS">
+          {profile.programs.map((program) => <li>{program}</li>)}
+        </ul>
+      )}
+    </div>
+  </header>
+
+  {profile.bio && <p class="creator-profile__bio">{profile.bio}</p>}
+
+  {socials.length > 0 && (
+    <nav class="creator-profile__socials" aria-label="Redes y sitio web">
+      {socials.map(({ key, label, url }) => (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          data-creator-link-id={`social:${key === 'awsBuilder' ? 'aws-builder' : key}`}
+        >
+          {label}
+        </a>
+      ))}
+    </nav>
+  )}
+
+  <section class="creator-profile__links" aria-labelledby="creator-links-title">
+    <div class="creator-profile__section-heading">
+      <div>
+        <p class="creator-profile__eyebrow">Contenido recomendado</p>
+        <h2 id="creator-links-title">Enlaces de {profile.displayName}</h2>
+      </div>
+      <span>{links.length} {links.length === 1 ? 'recurso' : 'recursos'}</span>
+    </div>
+    {links.length > 0 ? (
+      <ul class="creator-profile__link-list">
+        {links.map((link) => (
+          <li class:list={["creator-profile__link-card", link.featured && 'creator-profile__link-card--featured']}>
+            {link.featured && <p class="creator-profile__featured">Destacado</p>}
+            <h3>{safeHttpUrl(link.url)
+              ? <a href={safeHttpUrl(link.url)?.href} target="_blank" rel="noopener noreferrer" data-creator-link-id={link.placementId}>{link.title}</a>
+              : link.title}</h3>
+            {link.description && <p>{link.description}</p>}
+            <span class="creator-profile__link-url">{safeHttpUrl(link.url)?.hostname ?? 'Enlace no disponible'}</span>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <p class="creator-profile__empty">Pronto habrá recursos compartidos por {profile.displayName}.</p>
+    )}
+  </section>
+</section>
+
+<script>
+  import '../scripts/creator-profile-analytics';
+</script>

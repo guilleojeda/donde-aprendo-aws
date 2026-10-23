@@ -32,7 +32,7 @@ Resources:
               StringEquals:
                 aws:SourceAccount: !Ref AWS::AccountId
       Policies:
-        - PolicyName: ReadCatalog
+        - PolicyName: ReadPublicDirectoryState
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
@@ -69,7 +69,30 @@ Resources:
                       - city
                       - venueCountry
                       - registrationUrl
+                      - directoryControl
+                      - hidden
+                      - approvalRevoked
                       - published
+                  StringEquals:
+                    dynamodb:Select: SPECIFIC_ATTRIBUTES
+              - Effect: Allow
+                Action:
+                  - dynamodb:Scan
+                Resource: !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/donde-aprendo-aws-profiles
+                Condition:
+                  ForAllValues:StringEquals:
+                    dynamodb:Attributes:
+                      - pk
+                      - sk
+                      - recordType
+                      - id
+                      - profileId
+                      - resourceId
+                      - published
+                      - hidden
+                      - selectedForDirectory
+                      - selected
+                      - slug
                   StringEquals:
                     dynamodb:Select: SPECIFIC_ATTRIBUTES
       Tags:

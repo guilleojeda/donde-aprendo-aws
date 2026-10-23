@@ -29,19 +29,21 @@
   "dependencies": {
     "@aws-sdk/client-amplify": "3.1138.0",
     "@aws-sdk/client-dynamodb": "3.1138.0",
+    "@aws-sdk/client-s3": "3.1138.0",
     "@aws-sdk/client-sts": "3.1138.0",
     "@aws-sdk/lib-dynamodb": "3.1138.0",
+    "@aws-sdk/s3-presigned-post": "3.1138.0",
     "astro": "7.3.4",
     "astro-aws-amplify": "0.6.0",
     "csv-parse": "7.0.2",
     "openid-client": "6.8.8",
+    "sharp": "0.35.5",
     "twitter-text": "3.1.0"
   },
   "devDependencies": {
     "@astrojs/check": "0.9.10",
     "@types/node": "24.13.6",
     "esbuild": "0.28.2",
-    "sharp": "0.35.4",
     "typescript": "5.9.3",
     "yaml": "2.9.1"
   }

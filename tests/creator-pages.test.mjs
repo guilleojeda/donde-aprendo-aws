@@ -271,14 +271,15 @@ test('creator accounts are isolated and private account or admin fields cannot c
   await createProfile(harness, 'creator-b', { displayName: 'Bea', slug: 'bea' });
   const aLink = await addLink(harness, 'creator-a');
   const bLink = await addLink(harness, 'creator-b', { url: 'https://example.com/bea' });
-  const aPlacement = (await responseJson(aLink)).link.placementId;
+  const aLinkBody = await responseJson(aLink);
+  const aPlacement = aLinkBody.link.placementId;
   const bPlacement = (await responseJson(bLink)).link.placementId;
 
   const crossEdit = await api(harness, `/api/creador/enlaces/${bPlacement}`, 'creator-a', {
     method: 'PATCH', body: { selectedForDirectory: false },
   });
   assert.ok([403, 404].includes(crossEdit.status));
-  const fakeAdmin = await api(harness, `/api/admin/recursos/${(await responseJson(aLink)).link.resourceId}/aprobar`, 'creator-a', {
+  const fakeAdmin = await api(harness, `/api/admin/recursos/${aLinkBody.link.resourceId}/aprobar`, 'creator-a', {
     method: 'POST', body: { isAdmin: true, accountId: 'private-account-admin' },
   });
   assert.equal(fakeAdmin.status, 403);

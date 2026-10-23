@@ -81,17 +81,88 @@ class FakeTable:
         self.existing = {item['id']: dict(item) for item in (existing or [])}
         self.puts = []
         self.updates = []
+        self.transactions = []
+        self.gets = []
         self.before_update = None
+        self.name = 'catalog-test'
+        self.meta = SimpleNamespace(client=SimpleNamespace(transact_write_items=self.transact_write_items))
 
     def scan(self, **_kwargs):
         return {'Items': [dict(item) for item in self.existing.values()]}
 
-    def put_item(self, **kwargs):
-        item = kwargs['Item']
-        if item['id'] in self.existing:
-            raise self.conditional_failure()
-        self.puts.append(item)
-        self.existing[item['id']] = dict(item)
+    def get_item(self, **kwargs):
+        self.gets.append(kwargs)
+        item = self.existing.get(kwargs['Key']['id'])
+        if item is None:
+            return {}
+        if 'ProjectionExpression' in kwargs:
+            fields = kwargs['ExpressionAttributeNames'].values()
+            item = {field: item[field] for field in fields if field in item}
+        return {'Item': dict(item)}
+
+    def transact_write_items(self, *, TransactItems):
+        """Model the resource client's DynamoDB document-form parameter hook."""
+        self.transactions.append(TransactItems)
+        for action in TransactItems:
+            kind, operation = next(iter(action.items()))
+            self.assert_document_form(operation)
+            if kind == 'Put':
+                item = self.existing.get(operation['Item']['id'])
+                if operation['ConditionExpression'] == 'attribute_not_exists(#id)':
+                    if item is not None:
+                        raise self.conditional_failure()
+                elif not self.condition_holds({
+                    'ConditionExpression': operation['ConditionExpression'],
+                    'ExpressionAttributeNames': operation['ExpressionAttributeNames'],
+                    'ExpressionAttributeValues': operation.get('ExpressionAttributeValues', {}),
+                }, item):
+                    raise self.conditional_failure()
+            elif kind in ('Update', 'Delete'):
+                item = self.existing.get(operation['Key']['id'])
+                if not self.condition_holds({
+                    'ConditionExpression': operation['ConditionExpression'],
+                    'ExpressionAttributeNames': operation['ExpressionAttributeNames'],
+                    'ExpressionAttributeValues': operation.get('ExpressionAttributeValues', {}),
+                }, item):
+                    raise self.conditional_failure()
+            else:
+                raise AssertionError(f'unknown transaction operation {kind}')
+        for action in TransactItems:
+            kind, operation = next(iter(action.items()))
+            if kind == 'Put':
+                item = dict(operation['Item'])
+                if item.get('recordType') == 'event':
+                    self.puts.append(item)
+                self.existing[item['id']] = item
+            elif kind == 'Update':
+                self.update_item(
+                    Key=operation['Key'],
+                    UpdateExpression=operation['UpdateExpression'],
+                    ConditionExpression=operation['ConditionExpression'],
+                    ExpressionAttributeNames=operation['ExpressionAttributeNames'],
+                    ExpressionAttributeValues=operation['ExpressionAttributeValues'],
+                )
+            else:
+                self.existing.pop(operation['Key']['id'], None)
+
+    @staticmethod
+    def assert_document_form(operation):
+        """The boto3 resource client accepts Python values before its serializer."""
+        attribute_value_types = {'S', 'N', 'BOOL', 'NULL', 'M', 'L', 'B', 'SS', 'NS', 'BS'}
+
+        def assert_value(value, location):
+            if isinstance(value, dict):
+                if len(value) == 1 and next(iter(value)) in attribute_value_types:
+                    raise AssertionError(f'{location} was pre-serialized instead of document-form: {value!r}')
+                for field, nested in value.items():
+                    assert_value(nested, f'{location}.{field}')
+            elif isinstance(value, list):
+                for index, nested in enumerate(value):
+                    assert_value(nested, f'{location}[{index}]')
+
+        for field in ('Item', 'Key', 'ExpressionAttributeValues'):
+            if field in operation:
+                assert_value(operation[field], field)
 
     def update_item(self, **kwargs):
         self.updates.append(kwargs)
@@ -383,10 +454,71 @@ class MeetupEventsTests(unittest.TestCase):
             first = meetup.synchronize(table=table, groups=[dict(GROUP)])
         self.assertEqual(first['changed'], 1)
         self.assertEqual(len(table.puts), 1)
+        event = table.existing['meetup-event-456']
+        reservation_id = f'__url#{meetup.current_url_hash(EVENT_URL)}'
+        self.assertEqual(event['version'], 1)
+        self.assertEqual(table.existing[reservation_id], {
+            'id': reservation_id, 'recordType': 'urlReservation', 'url': EVENT_URL,
+            'status': 'reserved', 'resourceId': 'meetup-event-456', 'version': 1,
+        })
+        self.assertEqual(len(table.transactions), 1)
         with patch.object(meetup, 'timezone_from_feed', return_value=[]):
             second = meetup.synchronize(table=table, groups=[dict(GROUP)])
         self.assertEqual(second['changed'], 1)
         self.assertFalse(table.existing['meetup-event-456']['published'])
+        self.assertEqual(table.existing['meetup-event-456']['version'], 2)
+        self.assertIn(reservation_id, table.existing)
+
+    def test_registration_url_change_moves_the_reservation_with_the_event_atomically(self):
+        prior = existing_event(published=True, starts_at=PAGE['startDate'], ends_at=PAGE['endDate'])
+        prior['version'] = 1
+        old_url = prior['registrationUrl']
+        old_reservation = meetup.current_url_reservation(old_url, prior['id'])
+        table = FakeTable([prior, old_reservation])
+        new_url = old_url + '?ref=updated'
+        entry = {'id': '456', 'url': new_url, 'modified': '20990102T000000Z'}
+        page = dict(PAGE, url=new_url, name='Encuentro actualizado')
+        with patch.object(meetup, 'timezone_from_feed', return_value=[entry]), \
+                patch.object(meetup, 'fetch_event_page', return_value=page):
+            result = meetup.synchronize(table=table, groups=[dict(GROUP)])
+
+        new_reservation_id = f'__url#{meetup.current_url_hash(new_url)}'
+        self.assertEqual(result['changed'], 1)
+        self.assertNotIn(old_reservation['id'], table.existing)
+        self.assertEqual(table.existing[new_reservation_id]['resourceId'], prior['id'])
+        self.assertEqual(table.existing[prior['id']]['registrationUrl'], new_url)
+        self.assertEqual(table.existing[prior['id']]['version'], 2)
+        self.assertEqual(len(table.transactions), 1)
+
+    def test_new_event_with_a_reserved_url_is_reported_and_not_inserted(self):
+        reservation = meetup.current_url_reservation(EVENT_URL, 'another-resource')
+        table = FakeTable([{'id': 'another-resource', 'url': EVENT_URL}, reservation])
+        with patch.object(meetup, 'timezone_from_feed', return_value=meetup.parse_feed(ICAL, GROUP)), \
+                patch.object(meetup, 'fetch_event_page', return_value=PAGE):
+            result = meetup.synchronize(table=table, groups=[dict(GROUP)])
+
+        self.assertEqual(result['changed'], 0)
+        self.assertEqual(result['conflicts'], [{'id': 'meetup-event-456', 'url': EVENT_URL, 'status': 'duplicate'}])
+        self.assertNotIn('meetup-event-456', table.existing)
+
+    def test_reservation_validation_reads_only_referenced_url_fields(self):
+        resource = {'id': 'meetup-event-existing', 'recordType': 'event', 'registrationUrl': EVENT_URL,
+                    'submitterEmail': 'private@example.invalid'}
+        reservation = meetup.current_url_reservation(EVENT_URL, resource['id'])
+        table = FakeTable([resource, reservation])
+
+        self.assertEqual(meetup.read_reservation(table, EVENT_URL), reservation)
+        self.assertEqual([list(call['ExpressionAttributeNames'].values()) for call in table.gets], [
+            ['id', 'recordType', 'url', 'status', 'version', 'resourceId', 'resourceIds'],
+            ['id', 'recordType', 'url', 'registrationUrl'],
+        ])
+        self.assertTrue(all(call['ConsistentRead'] for call in table.gets))
+        self.assertFalse(any('submitterEmail' in call['ExpressionAttributeNames'].values() for call in table.gets))
+
+    def test_reservation_to_missing_event_is_an_inconsistent_catalog_error(self):
+        table = FakeTable([meetup.current_url_reservation(EVENT_URL, 'missing-resource')])
+        with self.assertRaisesRegex(RuntimeError, 'missing or inconsistent resource'):
+            meetup.read_reservation(table, EVENT_URL)
 
     def test_ended_events_missing_from_healthy_feed_keep_both_publication_values_without_hourly_writes(self):
         published = existing_event(published=True)

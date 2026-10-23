@@ -47,6 +47,62 @@ Resources:
       Tags:
         - Key: Project
           Value: donde-aprendo-aws
+  CreatorProfilesTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: donde-aprendo-aws-profiles
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      Tags:
+        - Key: Project
+          Value: donde-aprendo-aws
+  CreatorPhotosBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub donde-aprendo-aws-creator-photos-${AWS::AccountId}
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - POST
+            AllowedOrigins:
+              - https://dondeaprendoaws.com
+            MaxAge: 300
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireTemporaryCreatorPhotoUploads
+            Status: Enabled
+            Prefix: photos/tmp/
+            ExpirationInDays: 1
+      Tags:
+        - Key: Project
+          Value: donde-aprendo-aws
   PasswordResetLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -220,6 +276,41 @@ Resources:
                   - dynamodb:UpdateItem
                   - dynamodb:DeleteItem
                 Resource: !GetAtt AccountsTable.Arn
+        - PolicyName: AccessCreatorApplicationRecords
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:ConditionCheckItem
+                Resource: !GetAtt CreatorProfilesTable.Arn
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Scan
+                  - dynamodb:ConditionCheckItem
+                Resource: !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/donde-aprendo-aws-catalog
+        - PolicyName: AccessCreatorPhotoObjects
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource:
+                  - !Sub '${CreatorPhotosBucket.Arn}/photos/tmp/*'
+                  - !Sub '${CreatorPhotosBucket.Arn}/photos/final/*'
       Tags:
         - Key: Project
           Value: donde-aprendo-aws
@@ -236,6 +327,12 @@ Outputs:
   AccountsTableName:
     Description: Private account, login-attempt, and session table
     Value: !Ref AccountsTable
+  CreatorProfilesTableName:
+    Description: Private profiles, placements, aliases, and claims table
+    Value: !Ref CreatorProfilesTable
+  CreatorPhotosBucketName:
+    Description: Private creator photo upload and final-variant bucket
+    Value: !Ref CreatorPhotosBucket
   AccountsComputeRoleArn:
     Description: IAM role to associate with Amplify SSR compute
     Value: !GetAtt AccountsComputeRole.Arn

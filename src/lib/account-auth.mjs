@@ -271,6 +271,8 @@ export function createAccountAuth({ origin, issuer, clientId, cognitoDomain, sto
     return {
       state: 'authenticated',
       account: { email: account.email },
+      accountId: sha256(JSON.stringify([record.identity.issuer, record.identity.sub])),
+      isAdmin: account.isAdmin === true,
       csrfToken: record.csrfToken,
       expiresAt: record.expiresAt,
       record,
@@ -287,6 +289,24 @@ export function createAccountAuth({ origin, issuer, clientId, cognitoDomain, sto
         account: result.account,
         csrfToken: result.csrfToken,
         expiresAt: result.expiresAt,
+      };
+    } catch {
+      return { state: 'unavailable' };
+    }
+  }
+
+  // Server-only authorization projection; the account page keeps getSession's
+  // narrower contract and never serializes private ownership or permissions.
+  async function getPrincipal(request) {
+    try {
+      const result = await resolveSession(request);
+      if (result.state !== 'authenticated') return { state: result.state };
+      return {
+        state: 'authenticated',
+        accountId: result.accountId,
+        csrfToken: result.csrfToken,
+        expiresAt: result.expiresAt,
+        isAdmin: result.isAdmin,
       };
     } catch {
       return { state: 'unavailable' };
@@ -461,5 +481,5 @@ export function createAccountAuth({ origin, issuer, clientId, cognitoDomain, sto
     return new Response(null, { status: 404, headers: privateHeaders() });
   }
 
-  return { handle, getSession };
+  return { handle, getSession, getPrincipal };
 }
