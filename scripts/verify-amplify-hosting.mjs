@@ -211,6 +211,27 @@ try {
   const accountRobots = accountHtml.match(/<meta name="robots" content="([^"]+)"/u)?.[1];
   assert.ok(accountRobots?.split(',').map((directive) => directive.trim()).includes('noindex'), 'Account page is not indexable.');
 
+  const rejectedLogoutResponse = await fetch(new URL('/cuenta/salir/', origin), {
+    method: 'POST',
+    redirect: 'manual',
+    headers: {
+      origin: 'https://attacker.example',
+      host: accountHost,
+      'x-forwarded-host': accountHost,
+      'x-forwarded-proto': 'https',
+      'content-type': 'application/x-www-form-urlencoded',
+    },
+    body: '',
+    signal: AbortSignal.timeout(3000),
+  });
+  assert.equal(rejectedLogoutResponse.status, 403, 'A cross-origin logout is rejected by Astro origin protection.');
+  assert.match(rejectedLogoutResponse.headers.get('cache-control') ?? '', /private[^\r\n]*no-store|no-store[^\r\n]*private/iu,
+    'Cross-origin account-operation errors are private and not cached.');
+  assert.equal(rejectedLogoutResponse.headers.get('location'), null,
+    'A rejected cross-origin logout does not redirect.');
+  assert.equal(rejectedLogoutResponse.headers.get('set-cookie'), null,
+    'A rejected cross-origin logout does not change session cookies.');
+
   const logoutResponse = await fetch(new URL('/cuenta/salir/', origin), {
     method: 'POST',
     redirect: 'manual',
