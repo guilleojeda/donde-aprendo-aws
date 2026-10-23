@@ -1,56 +1,60 @@
 ---
-import { eventDateLabel, eventLocalDate, eventTimeLabel, uniqueUpcomingEventGroups } from '../lib/events.mjs';
-import { COUNTRY_LABELS } from '../lib/resource-discovery.mjs';
+import { eventDateLabel, eventEndTimeLabel, eventLocalDate, eventTimeLabel, uniqueEventGroups } from '../lib/events.mjs';
 import { eventCalendarHref, resourceHref } from '../lib/catalog-routes.mjs';
 import { communityCountryPages } from '../lib/community-country-pages.mjs';
-import { eventGroupCountries, eventGroupsForAgenda, organizerCountry } from '../lib/event-agenda-groups.mjs';
+import { eventGroupsForAgenda, organizerCountry } from '../lib/event-agenda-groups.mjs';
+import { effectiveEventLocation, eventCountryLabel, normalizeEventCityKey } from '../lib/event-location.mjs';
 import { eventAgendaSummaryText } from '../lib/event-agenda-summary.mjs';
 import ReportLink from './ReportLink.astro';
 import type { CatalogEvent, CatalogResource } from '../types/catalog';
+import '../styles/event-agenda.css';
 
 interface Props { events: CatalogEvent[]; resources: CatalogResource[]; country?: string; modes?: readonly CatalogEvent['mode'][]; }
 
 const { events, resources, country, modes } = Astro.props;
 const communityById = new Map(resources.filter((resource) => resource.kind === 'community').map((resource) => [resource.id, resource]));
 const renderTime = new Date();
-const upcomingGroups = uniqueUpcomingEventGroups(events, renderTime) as Array<{ event: CatalogEvent; events: CatalogEvent[] }>;
-const eventCountriesByGroup = (group: { event: CatalogEvent; events: CatalogEvent[] }) => eventGroupCountries(group, communityById);
-const countryLabel = (country: string) => COUNTRY_LABELS[country as keyof typeof COUNTRY_LABELS] ?? country;
+const allGroups = uniqueEventGroups(events, communityById) as Array<{ event: CatalogEvent; events: CatalogEvent[] }>;
+const defaultMode = modes?.includes('online')
+  ? 'online'
+  : modes?.includes('in-person') ? 'in-person' : '';
+const defaultFilters: { mode: CatalogEvent['mode'] | ''; country: string; city: string; community: string } = {
+  mode: defaultMode, country: country ?? '', city: '', community: '',
+};
+const defaultGroups = eventGroupsForAgenda(allGroups, {
+  communityById, filters: defaultFilters, includeEnded: true, now: renderTime,
+}) as typeof allGroups;
+const defaultRepresentatives = new Map(defaultGroups.map((group) => [group.events, group.event]));
+const defaultVisibleDays = new Set<string>();
+const countryLabel = (country: string) => eventCountryLabel(country);
 const countryPages = communityCountryPages(resources) as Array<{ country: string }>;
 const allOrganizerCountries = new Set<string>(countryPages.map((page) => page.country));
-for (const group of upcomingGroups) for (const organizerCountryCode of eventCountriesByGroup(group)) allOrganizerCountries.add(organizerCountryCode);
+for (const group of allGroups) for (const event of group.events) {
+  const location = effectiveEventLocation(event, communityById);
+  if (location.country) allOrganizerCountries.add(location.country);
+}
+for (const community of communityById.values()) if (community.country) allOrganizerCountries.add(community.country);
 const eventCountries = [...allOrganizerCountries]
   .sort((left, right) => countryLabel(left).localeCompare(countryLabel(right), 'es'));
-const agendaGroups = eventGroupsForAgenda(upcomingGroups, { communityById, country, modes }) as typeof upcomingGroups;
-const upcoming = agendaGroups.map(({ event }) => event);
+const timeZones = [...new Set(['UTC', ...Intl.supportedValuesOf('timeZone')])]
+  .sort((left, right) => left.localeCompare(right, 'es'));
 const modeLabel = { online: 'En línea', 'in-person': 'Presencial', hybrid: 'Híbrido' } as const;
-const cityOptions = new Map<string, { key: string; city: string; country?: string; organizerCountries: Set<string> }>();
-for (const group of agendaGroups) {
-  const event = group.event;
-  if (!event.city) continue;
-  const countryCode = organizerCountry(event, communityById) ?? '';
-  const key = `${countryCode}:${event.city}`;
-  const option = cityOptions.get(key) ?? { key, city: event.city, country: countryCode || undefined, organizerCountries: new Set<string>() };
-  for (const code of eventCountriesByGroup(group)) option.organizerCountries.add(code);
-  cityOptions.set(key, option);
+const cityOptions = new Map<string, { key: string; city: string; country: string }>();
+const addCity = (countryCode: string, city: string) => {
+  if (!/^[A-Z]{2}$/u.test(countryCode) || !city || city.length > 100 || city.trim() !== city
+      || /[\u0000-\u001f\u007f]/u.test(city)) return;
+  const identity = normalizeEventCityKey(`${countryCode}:${city}`);
+  if (!cityOptions.has(identity)) cityOptions.set(identity, { key: `${countryCode}:${city}`, city, country: countryCode });
+};
+for (const community of communityById.values()) addCity(community.country ?? '', community.city ?? '');
+for (const group of allGroups) for (const event of group.events) {
+  const location = effectiveEventLocation(event, communityById);
+  addCity(location.country, location.city);
 }
 const eventCities = [...cityOptions.values()]
-  .map(({ organizerCountries, ...city }) => ({ ...city, organizerCountries: [...organizerCountries] }))
-  .sort((left, right) => left.city.localeCompare(right.city, 'es') || (left.country ?? '').localeCompare(right.country ?? ''));
-const eventModes = (Object.keys(modeLabel) as Array<keyof typeof modeLabel>)
-  .filter((mode) => upcoming.some((event) => event.mode === mode));
-const communitiesByEventId = new Map(agendaGroups.map(({ event, events: groupEvents }) => [
-  event.id,
-  [...new Set(groupEvents.map((item) => item.communityId).filter((id): id is string => Boolean(id)))],
-]));
-const eventCommunities = [...new Map(agendaGroups.flatMap(({ events: groupEvents }) => groupEvents
-  .filter((event) => event.communityId && communityById.has(event.communityId))
-  .map((event) => {
-    const community = communityById.get(event.communityId!)!;
-    return [community.id, { title: community.title, country: community.country }] as const;
-  }))).entries()]
-  .map(([id, community]) => ({ id, ...community }))
-  .filter((community) => !country || community.country === country)
+  .sort((left, right) => left.city.localeCompare(right.city, 'es') || left.country.localeCompare(right.country, 'es'));
+const eventCommunities = [...communityById.values()]
+  .map(({ id, title, country: communityCountry, city }) => ({ id, title, country: communityCountry, city }))
   .sort((left, right) => left.title.localeCompare(right.title, 'es', { sensitivity: 'base' }));
 const recordingsByEvent = new Map<string, CatalogResource[]>();
 for (const recording of resources.filter((resource) => resource.eventId)) {
@@ -60,248 +64,221 @@ for (const recording of resources.filter((resource) => resource.eventId)) {
 }
 const recordingForGroup = (group: { event: CatalogEvent; events: CatalogEvent[] }) =>
   group.events.flatMap((event) => recordingsByEvent.get(event.id) ?? [])[0];
-const countryName = country ? countryLabel(country) : undefined;
-const eventModePhrase = modes?.length === 1 && modes[0] === 'online'
-  ? 'en línea'
-  : modes?.includes('in-person') && modes.includes('hybrid') ? 'presenciales o híbridos' : undefined;
-const eventFactsIntro = countryName
-  ? `En la agenda de ${countryName} hay`
-  : eventModePhrase ? `En la agenda de eventos ${eventModePhrase} hay` : 'En la agenda de eventos AWS hay';
-const emptyFacts = countryName
-  ? `No hay próximos eventos publicados organizados por comunidades de ${countryName}.`
-  : eventModePhrase
-    ? `No hay próximos eventos ${eventModePhrase} publicados.`
-  : 'No hay próximos eventos publicados en esta agenda.';
-const emptyHint = 'Vuelve a consultar esta agenda para ver nuevas fechas.';
-const eventFactsText = eventAgendaSummaryText(upcoming, renderTime, { intro: eventFactsIntro, emptyMessage: emptyFacts });
-const pastRecorded = events.filter((event) => Date.parse(event.endsAt) <= Date.now()
-  && (!modes || modes.includes(event.mode))
-  && (!country || organizerCountry(event, communityById) === country)
-  && recordingsByEvent.has(event.id))
-  .sort((left, right) => Date.parse(right.startsAt) - Date.parse(left.startsAt));
+const eventFactsIntro = 'En la agenda de eventos AWS hay';
+const emptyFacts = 'No hay eventos publicados en esta agenda.';
+const emptyHint = 'No hay eventos que coincidan con estos filtros. Prueba con otras opciones o limpia los filtros.';
+const eventFactsText = eventAgendaSummaryText(defaultGroups.map(({ event }) => event), renderTime, {
+  intro: eventFactsIntro, emptyMessage: emptyFacts,
+});
+const eventStatus = (event: CatalogEvent, now: Date) => {
+  if (Date.parse(event.endsAt) <= now.getTime()) return 'Finalizado';
+  if (Date.parse(event.startsAt) <= now.getTime()) return 'En curso';
+  return 'Próximo';
+};
+const utcDayHeading = (instant: string) => {
+  const label = new Intl.DateTimeFormat('es', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
+  }).format(new Date(instant));
+  return label.charAt(0).toLocaleUpperCase('es') + label.slice(1);
+};
 ---
 
 <section class="event-agenda" id="eventos" aria-labelledby="event-agenda-title">
-  <div>
-    <div class="event-agenda__heading">
-      <div>
-        <h2 id="event-agenda-title">Próximos eventos</h2>
-        <p>Ordenados por fecha de inicio.</p>
-      </div>
-    </div>
-    <p class="event-agenda__facts" data-event-summary data-event-summary-intro={eventFactsIntro} data-event-summary-empty={emptyFacts} aria-live="polite">{eventFactsText}</p>
-    {(upcoming.length > 0 || (!country && eventCountries.length > 0)) && <div class="event-agenda__filter-area">
-      <div class="event-agenda__filters">
-        <div class="event-agenda__date-filters">
-          <label for="event-from">Desde <input id="event-from" type="date" data-event-from /></label>
-          <label for="event-to">Hasta <input id="event-to" type="date" data-event-to /></label>
+  <div class="event-agenda__toolbar">
+    <h2 id="event-agenda-title">Agenda de eventos</h2>
+    <div class="event-agenda__share" data-event-share-controls hidden>
+      <details class="event-agenda__share-menu" data-event-share-menu>
+        <summary class="event-agenda__share-toggle" data-event-share-toggle>Compartir</summary>
+        <div class="event-agenda__share-menu-list" role="group" aria-label="Opciones para compartir">
+          <a class="event-agenda__share-menu-item" data-event-share-x href="https://x.com/intent/tweet?url=https%3A%2F%2Fdondeaprendoaws.com%2Feventos%2F" target="_blank" rel="noopener noreferrer">X</a>
+          <a class="event-agenda__share-menu-item" data-event-share-linkedin href="https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fdondeaprendoaws.com%2Feventos%2F" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+          <button class="event-agenda__share-menu-item" data-event-share-copy type="button">Copiar</button>
         </div>
-        <details class="event-agenda__secondary-filters" data-event-secondary-disclosure open>
-          <summary><span data-event-secondary-label>Más filtros</span></summary>
-          <div class="event-agenda__secondary-fields">
-            {modes?.length !== 1 && <label for="event-mode">Modalidad <select id="event-mode" data-event-mode>
-              <option value="">Todas</option>
-              {eventModes.map((mode) => <option value={mode}>{modeLabel[mode]}</option>)}
-            </select></label>}
-            {!country && <label for="event-country">País de la comunidad organizadora <select id="event-country" data-event-country>
-              <option value="">Todos los países</option>
-              {eventCountries.map((code) => <option value={code}>{countryLabel(code)}</option>)}
-            </select></label>}
-            <label for="event-community">Comunidad <select id="event-community" data-event-community>
-              <option value="">Todas las comunidades</option>
-              {eventCommunities.map(({ id, title, country: communityCountry }) => <option value={id} data-event-country={communityCountry}>{title}</option>)}
-            </select></label>
-            {!(modes?.length === 1 && modes[0] === 'online') && <label for="event-city">Ciudad del evento <select id="event-city" data-event-city disabled={eventCities.length === 0}>
-              <option value="">{eventCities.length ? 'Todas las ciudades' : 'Sin ciudades confirmadas'}</option>
-              {eventCities.map((item) => <option value={item.key} data-event-countries={item.organizerCountries.join('|')}>
-                {item.city}{item.organizerCountries.length ? ` · grupos de ${item.organizerCountries.map(countryLabel).join(' y ')}` : ''}
-              </option>)}
-            </select></label>}
-          </div>
-        </details>
-      </div>
-      <p class="event-agenda__filter-note">Fechas de inicio en la zona del organizador.</p>
-      <div class="event-agenda__filter-summary"><button type="button" data-event-clear>Limpiar filtros</button><span data-event-count aria-live="polite"></span></div>
-    </div>}
-    <ol class="event-agenda__list" data-event-list>
-      {agendaGroups.map((group) => {
-        const { event } = group;
-        const recording = recordingForGroup(group);
-        const eventCountries = eventCountriesByGroup(group);
-        const organizers = [...new Map(group.events.map((cohost) => {
-          const community = communityById.get(cohost.communityId ?? '');
-          const name = community?.title ?? cohost.organizer;
-          return [community?.id ?? name, { community, name }] as const;
-        })).values()];
-        return <li id={`event-${event.id}`} class="event-card" data-event-id={event.id} data-event-starts-at={event.startsAt} data-event-ends-at={event.endsAt} data-event-time-zone={event.timeZone} data-event-date={eventLocalDate(event.startsAt, event.timeZone)} data-event-mode={event.mode} data-country={organizerCountry(event, communityById) ?? ''} data-event-countries={eventCountries.join('|')} data-event-communities={communitiesByEventId.get(event.id)?.join('|') ?? ''} data-event-city={event.city ? `${organizerCountry(event, communityById) ?? ''}:${event.city}` : ''} tabindex="-1">
-          <article>
-            <div class="event-card__date">
-              <time datetime={event.startsAt}>{eventDateLabel(event.startsAt, event.timeZone)}</time>
-              <span>{modeLabel[event.mode]}</span>
-            </div>
-            <h3>{event.title}</h3>
-            <p class="event-card__description">{event.description}</p>
-            <dl class="event-card__details">
-              <div><dt>Horario</dt><dd><time datetime={event.startsAt}>{eventTimeLabel(event.startsAt, event.timeZone)}</time> – <time datetime={event.endsAt}>{eventTimeLabel(event.endsAt, event.timeZone)}</time> · horario del organizador</dd></div>
-              <div data-visitor-time data-starts-at={event.startsAt} data-ends-at={event.endsAt} hidden><dt>En tu zona</dt><dd data-visitor-time-value></dd></div>
-              <div><dt>Organiza</dt><dd>{organizers.map(({ community, name }, index) => <span>
-                {index > 0 && '; '}{community ? <a href={resourceHref(community)}>{name}</a> : name}
-              </span>)}</dd></div>
-              {event.place && <div><dt>Lugar</dt><dd>{event.place}</dd></div>}
-            </dl>
-            <div class="event-card__links">
-              <a href={event.registrationUrl} target="_blank" rel="noopener noreferrer" data-event-registration>Inscribirme <span aria-hidden="true">↗</span></a>
-              <a href={eventCalendarHref(event)} download={`${event.id}.ics`}>Agregar al calendario (.ics)</a>
-              {recording && <a href={resourceHref(recording)}>Ver grabación</a>}
-            </div>
-            <p class="event-card__report"><ReportLink title={event.title} recordId={event.id} targetUrl={event.registrationUrl} /></p>
-          </article>
-        </li>;
-      })}
-    </ol>
-    {upcoming.length > 12 && <button class="event-agenda__more" type="button" data-event-more hidden>Mostrar más eventos</button>}
-    <p class="event-agenda__empty" data-event-empty data-event-no-upcoming={emptyHint} role="status" hidden={upcoming.length > 0}>
-      {emptyHint}
-    </p>
-    {pastRecorded.length > 0 && <div class="event-agenda__archive" aria-labelledby="event-archive-title">
-      <h3 id="event-archive-title">Grabaciones de eventos anteriores</h3>
-      <ul>
-        {pastRecorded.map((event) => {
-            const recording = recordingsByEvent.get(event.id)![0];
-          return <li id={`event-${event.id}`}>
-            <span><time datetime={event.startsAt}>{eventDateLabel(event.startsAt, event.timeZone)}</time> · {event.title}</span>
-            <a href={resourceHref(recording)}>Ver grabación</a>
-          </li>;
-        })}
-      </ul>
-    </div>}
+      </details>
+      <p class="event-agenda__share-status" data-event-share-status role="status" aria-live="polite"></p>
+    </div>
   </div>
+  <div class="event-agenda__filter-area">
+    <div class="event-agenda__filters">
+      <div class="event-agenda__primary-fields">
+        <label for="event-mode">Modalidad <select id="event-mode" data-event-mode>
+          <option value="" selected={defaultMode === ''}>Presencial + online</option>
+          <option value="online" selected={defaultMode === 'online'}>Solo online</option>
+          <option value="in-person" selected={defaultMode === 'in-person'}>Solo presencial</option>
+        </select></label>
+        <label for="event-country">País presencial <select id="event-country" data-event-country>
+          <option value="" selected={!country}>Todos los países</option>
+          {eventCountries.map((code) => <option value={code} selected={code === country}>{countryLabel(code)}</option>)}
+        </select></label>
+        <label for="event-city">Ciudad presencial <select id="event-city" data-event-city>
+          <option value="">Todas las ciudades</option>
+          {eventCities.map((item) => <option value={item.key} data-event-countries={item.country}>
+            {item.city} · {countryLabel(item.country)}
+          </option>)}
+        </select></label>
+      </div>
+      <details class="event-agenda__secondary-filters" data-event-secondary-disclosure>
+        <summary><span data-event-secondary-label>Más filtros</span></summary>
+        <div class="event-agenda__secondary-fields">
+          <label for="event-community">Comunidad <select id="event-community" data-event-community>
+            <option value="">Todas las comunidades</option>
+            {eventCommunities.map(({ id, title, country: communityCountry, city }) => <option value={id} data-event-country={communityCountry} data-event-city={city}>{title}</option>)}
+          </select></label>
+          <label for="event-zone">Zona horaria
+            <select id="event-zone" data-event-zone>
+              {timeZones.map((timeZone) => <option value={timeZone} selected={timeZone === 'UTC'}>{timeZone}</option>)}
+            </select>
+          </label>
+        </div>
+      </details>
+      <label class="event-agenda__include-ended"><input type="checkbox" data-event-include-ended checked /> Incluir eventos finalizados</label>
+    </div>
+    <div class="event-agenda__filter-summary">
+      <button type="button" data-event-clear>Limpiar filtros</button>
+      <span data-event-count aria-live="polite"></span>
+    </div>
+  </div>
+  <div class="event-agenda__period-controls">
+    <div class="event-agenda__period-navigation" role="group" aria-label="Navegación del período">
+      <button type="button" data-event-period-prev aria-label="Período anterior">←</button>
+      <button type="button" data-event-current-week>Semana actual</button>
+      <button type="button" data-event-period-next aria-label="Período siguiente">→</button>
+    </div>
+    <p class="event-agenda__period-label" data-event-period-label aria-live="polite">Activa JavaScript para elegir un período · zona UTC.</p>
+    <div class="event-agenda__period-views" role="group" aria-label="Vista del período">
+      <button type="button" data-event-view="week" aria-pressed="true">Semana</button>
+      <button type="button" data-event-view="month" aria-pressed="false">Mes</button>
+    </div>
+  </div>
+  <noscript><p class="event-agenda__noscript">Se muestra la selección inicial de esta ruta, con eventos publicados de todas las fechas. Activa JavaScript para cambiar modalidad y ubicación y consultar la agenda por semana o mes.</p></noscript>
+  <ol
+    class="event-agenda__list"
+    data-event-list
+    data-event-default-country={country ?? ''}
+    data-event-default-mode={defaultMode}
+    data-event-known-ids={[...new Set(allGroups.flatMap((group) => group.events.map((event) => event.id)))].join('|')}
+  >
+    {allGroups.map((group) => {
+      const event = defaultRepresentatives.get(group.events) ?? group.event;
+      const selectedByDefault = defaultRepresentatives.has(group.events);
+      const utcDay = eventLocalDate(event.startsAt, 'UTC');
+      const showDayHeading = selectedByDefault && !defaultVisibleDays.has(utcDay);
+      if (showDayHeading) defaultVisibleDays.add(utcDay);
+      const recording = recordingForGroup(group);
+      const eventCommunities = [...new Set(group.events.map((item) => item.communityId).filter((id): id is string => Boolean(id)))];
+      const aliasIds = group.events.map((item) => item.id).join('|');
+      const organizers = [...new Map(group.events.map((cohost) => {
+        const community = communityById.get(cohost.communityId ?? '');
+        const name = community?.title ?? cohost.organizer;
+        return [community?.id ?? name, { community, name }] as const;
+      })).values()];
+      return <li
+        id={`event-${event.id}`}
+        class="event-card"
+        data-event-starts-at={event.startsAt}
+        data-event-ends-at={event.endsAt}
+        data-event-time-zone={event.timeZone}
+        data-event-id={event.id}
+        data-event-date={eventLocalDate(event.startsAt, 'UTC')}
+        data-event-mode={event.mode}
+        data-country={effectiveEventLocation(event, communityById).country}
+        data-event-countries={[...new Set(group.events.map((item) => effectiveEventLocation(item, communityById).country).filter(Boolean))].join('|')}
+        data-event-communities={eventCommunities.join('|')}
+        data-event-city={effectiveEventLocation(event, communityById).city ? `${effectiveEventLocation(event, communityById).country}:${effectiveEventLocation(event, communityById).city}` : ''}
+        data-event-alias-ids={aliasIds}
+        hidden={!selectedByDefault}
+        tabindex="-1"
+      >
+        <h3 class="event-agenda__day-heading" data-event-day-heading data-event-day={utcDay} hidden={!showDayHeading}>
+          <time datetime={utcDay}>{utcDayHeading(event.startsAt)}</time>
+        </h3>
+        {group.events.filter((member) => member.id !== event.id).map((member) => (
+          <span id={`event-${member.id}`} class="event-card__alias-anchor" aria-hidden="true"></span>
+        ))}
+        {group.events.map((member) => {
+          const memberCountry = organizerCountry(member, communityById) ?? '';
+          const memberLocation = effectiveEventLocation(member, communityById);
+          const fullPlace = member.mode === 'online' ? '' : [member.place, memberLocation.city, memberLocation.country ? countryLabel(memberLocation.country) : '']
+            .filter(Boolean).join(' · ');
+          const locationContext = [memberLocation.city, memberLocation.country ? countryLabel(memberLocation.country) : '']
+            .filter(Boolean).join(' · ');
+          const displayedPlace = member.mode === 'online' ? '' : locationContext || member.place || '';
+          const memberStatus = eventStatus(member, renderTime);
+          const defaultHasLocation = Boolean(defaultFilters.country || defaultFilters.city);
+          const defaultLocationMatches = (!defaultFilters.country || memberLocation.country === defaultFilters.country)
+            && (!defaultFilters.city || normalizeEventCityKey(`${memberLocation.country}:${memberLocation.city}`) === normalizeEventCityKey(defaultFilters.city));
+          const hybridParticipation = defaultMode === 'online' || (!defaultMode && defaultHasLocation && !defaultLocationMatches)
+            ? 'Participación remota'
+            : defaultMode === 'in-person' ? 'Participación presencial' : 'Participación presencial y remota';
+          return <article
+            data-event-member-id={member.id}
+            data-member-starts-at={member.startsAt}
+            data-member-ends-at={member.endsAt}
+            data-member-time-zone={member.timeZone}
+            data-member-mode={member.mode}
+            data-country={memberCountry}
+            data-member-venue-country={member.venueCountry ?? ''}
+            data-member-city={member.city ?? ''}
+            data-member-community-id={member.communityId ?? ''}
+            data-member-title={member.title}
+            data-member-registration-url={member.registrationUrl}
+            hidden={member.id !== event.id}
+          >
+            <div class="event-card__timing">
+              <time class="event-agenda__visually-hidden" datetime={member.startsAt} data-event-date-label>{eventDateLabel(member.startsAt, 'UTC')}</time>
+              <time class="event-card__time-start" datetime={member.startsAt} data-event-time-label>{eventTimeLabel(member.startsAt, 'UTC')}</time>
+              <span class="event-card__time-separator" aria-hidden="true">–</span>
+              <time class="event-card__time-end" datetime={member.endsAt} data-event-time-end-label>{eventEndTimeLabel(member.startsAt, member.endsAt, 'UTC')}</time>
+            </div>
+            <div class="event-card__main">
+              <h4 data-event-title>{member.title}</h4>
+              <div class="event-card__meta">
+                <span class="event-card__mode">{modeLabel[member.mode]}</span>
+                {member.mode === 'hybrid' && <span data-event-participation>{hybridParticipation}</span>}
+                <span data-event-status>{memberStatus}</span>
+                {displayedPlace && <span data-event-place hidden={member.mode === 'hybrid' && hybridParticipation === 'Participación remota'}>{displayedPlace}</span>}
+              </div>
+            </div>
+            <div class="event-card__actions">
+              <details class="event-card__detail" data-event-detail>
+                <summary data-event-detail-toggle>Detalles</summary>
+                <div class="event-card__detail-content">
+                  <p class="event-card__description">{member.description}</p>
+                  <dl class="event-card__details">
+                    <div><dt>Horario del organizador</dt><dd>{eventDateLabel(member.startsAt, member.timeZone)} · <time datetime={member.startsAt}>{eventTimeLabel(member.startsAt, member.timeZone)}</time> – <time datetime={member.endsAt}>{eventEndTimeLabel(member.startsAt, member.endsAt, member.timeZone)}</time></dd></div>
+                    <div><dt>Organiza</dt><dd>{organizers.map(({ community, name }, index) => <span>
+                      {index > 0 && '; '}{community ? <a href={resourceHref(community)}>{name}</a> : name}
+                    </span>)}</dd></div>
+                    {fullPlace && <div><dt>Lugar</dt><dd>{fullPlace}</dd></div>}
+                  </dl>
+                  <div class="event-card__detail-links">
+                    <a href={eventCalendarHref(member)} download={`${member.id}.ics`}>Agregar al calendario (.ics)</a>
+                    {recording && <a href={resourceHref(recording)}>Ver grabación</a>}
+                  </div>
+                  <p class="event-card__report"><ReportLink title={member.title} recordId={member.id} targetUrl={member.registrationUrl} /></p>
+                </div>
+              </details>
+              <div class="event-card__links">
+                <a href={member.registrationUrl} target="_blank" rel="noopener noreferrer" data-event-registration>{memberStatus === 'Finalizado' ? 'Ver evento' : 'Inscribirme'}</a>
+              </div>
+            </div>
+          </article>;
+        })}
+      </li>;
+    })}
+  </ol>
+  {allGroups.length > 12 && <button class="event-agenda__more" type="button" data-event-more hidden>Mostrar más eventos</button>}
+  <p
+    class="event-agenda__empty"
+    data-event-empty
+    data-event-no-matches={emptyHint}
+    data-event-no-events={emptyFacts}
+    role="status"
+    hidden={defaultGroups.length > 0}
+  >
+    {defaultGroups.length > 0 ? emptyHint : emptyFacts}
+  </p>
+  <p class="event-agenda__facts" data-event-summary data-event-summary-intro={eventFactsIntro} data-event-summary-empty={emptyFacts} aria-live="polite">{eventFactsText}</p>
 </section>
 
 <script src="../scripts/event-agenda.js"></script>
-
-<style>
-  .event-agenda__facts {
-    margin: 12px 0 0;
-    padding: 10px 14px;
-    border-radius: 8px;
-    background: #edf1f8;
-    color: #303b51;
-    font-size: 14px;
-    line-height: 1.55;
-  }
-
-  .event-agenda__filters {
-    grid-template-columns: 1fr;
-  }
-
-  .event-agenda__date-filters,
-  .event-agenda__secondary-fields {
-    display: grid;
-    gap: 10px;
-  }
-
-  .event-agenda__date-filters {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .event-agenda__date-filters input {
-    min-width: 0;
-  }
-
-  .event-agenda__secondary-fields {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    margin-top: 10px;
-  }
-
-  .event-agenda__secondary-filters summary {
-    display: none;
-  }
-
-  .event-agenda__secondary-filters:not([open]) > .event-agenda__secondary-fields {
-    display: none;
-  }
-
-  @media (max-width: 640px) {
-    :global(.event-page--agenda .directory-hero) {
-      margin: 0 auto 14px;
-      text-align: left;
-    }
-
-    :global(.event-page--agenda .directory-hero h1) {
-      margin: 12px 0 6px;
-      font-size: 1.875em;
-      line-height: 1.16;
-    }
-
-    :global(.event-page--agenda .directory-hero p) {
-      max-width: 100%;
-      font-size: 1em;
-      line-height: 1.45;
-    }
-
-    :global(.event-page--agenda .community-breadcrumb) {
-      margin: 4px 0 10px;
-      font-size: 12px;
-    }
-
-    :global(.event-page--agenda .community-country-nav) {
-      margin: 0 auto 8px;
-    }
-
-    :global(.event-page--agenda .collection-navigation ul) {
-      gap: 6px;
-    }
-
-    :global(.event-page--agenda .collection-navigation a) {
-      gap: 0;
-      padding: 8px 12px;
-    }
-
-    .event-agenda__secondary-filters summary {
-      display: flex;
-      min-height: 44px;
-      align-items: center;
-      width: fit-content;
-      padding: 4px 10px;
-      border: 1px solid #b6bfce;
-      border-radius: 6px;
-      background: #fff;
-      color: #263457;
-      cursor: pointer;
-      font-weight: 700;
-    }
-
-    .event-agenda__secondary-filters summary:focus-visible {
-      outline: 2px solid #263457;
-      outline-offset: 2px;
-    }
-
-    .event-agenda__secondary-fields {
-      grid-template-columns: 1fr;
-      margin-top: 10px;
-    }
-
-    .event-agenda__date-filters input {
-      font-size: 13px;
-    }
-
-    :global(.event-page--agenda) {
-      padding-top: 12px;
-    }
-
-    .event-agenda {
-      padding: 18px 14px;
-    }
-
-    .event-agenda__filter-area {
-      margin-top: 12px;
-    }
-  }
-
-  @media (max-width: 359px) {
-    .event-agenda__date-filters {
-      grid-template-columns: 1fr;
-    }
-  }
-</style>

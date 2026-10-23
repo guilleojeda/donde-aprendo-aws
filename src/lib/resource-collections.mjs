@@ -1,5 +1,6 @@
 /** Editorial collection pages over the published catalog. Content stays in the catalog. */
 import { resourceHref } from './catalog-routes.mjs';
+import { CERTIFICATIONS_OVERVIEW } from './certifications.mjs';
 
 export const RESOURCE_COLLECTIONS = Object.freeze([
   {
@@ -34,7 +35,7 @@ export const RESOURCE_COLLECTIONS = Object.freeze([
         },
         {
           question: '¿Cómo encuentro cursos de AWS para mi nivel?',
-          answer: 'Abre Filtros adicionales y elige el nivel que buscas. Si estás empezando, puedes elegir Inicial. Cuando una ficha no indique nivel, consulta su descripción y el programa del proveedor antes de decidir.',
+          answer: 'Abre Filtros y elige el nivel que buscas. Si estás empezando, puedes elegir Inicial. Cuando una ficha no indique nivel, consulta su descripción y el programa del proveedor antes de decidir.',
         },
       ],
     },
@@ -75,9 +76,7 @@ export const RESOURCE_COLLECTIONS = Object.freeze([
   },
   {
     id: 'certificaciones', path: '/aprender/certificaciones/', kind: 'content', label: 'Certificaciones',
-    title: 'Certificaciones AWS: recursos para estudiar en español',
-    description: 'Recursos de preparación, sesiones de estudio, experiencias y orientación en español sobre distintas certificaciones AWS.',
-    intro: 'Encuentra materiales de preparación, sesiones de estudio y experiencias sobre distintas certificaciones AWS. Elige un examen o explora los recursos generales.',
+    ...CERTIFICATIONS_OVERVIEW,
     selector: { topic: 'Certificaciones' },
     guide: {
       heading: 'Elige cómo estudiar para el examen',
@@ -89,28 +88,12 @@ export const RESOURCE_COLLECTIONS = Object.freeze([
       ],
       links: ['/aprender/cursos/', '/aprender/videos/', '/aprender/'],
     },
-    faq: {
-      id: 'certificaciones-faq',
-      heading: 'Dudas sobre las certificaciones AWS',
-      items: [
-        {
-          question: '¿Esta colección prepara para todas las certificaciones AWS?',
-          answer: 'No. Reúne los recursos publicados sobre distintas certificaciones y temas generales de preparación. Consulta la guía oficial del examen que te interesa para confirmar su temario y versión.',
-          links: [{ label: 'Ver las guías oficiales de examen', href: 'https://docs.aws.amazon.com/aws-certification/latest/examguides/' }],
-        },
-        {
-          question: '¿Dónde confirmo el idioma y cómo agendo el examen?',
-          answer: 'La disponibilidad de idiomas, horarios y modalidades depende de cada examen y lugar. Consulta las opciones oficiales vigentes antes de reservar.',
-          links: [{ label: 'Consultar opciones y agendar un examen', href: 'https://aws.amazon.com/certification/certification-prep/testing/' }],
-        },
-      ],
-    },
   },
   {
     id: 'serverless', path: '/aprender/serverless/', kind: 'content', label: 'Serverless',
     title: 'Recursos y tutoriales de serverless en AWS',
     description: 'Explora tutoriales y recursos en español sobre AWS Lambda, API Gateway, Step Functions y aplicaciones serverless.',
-    intro: 'Explora recursos para aprender arquitectura serverless en AWS, desde funciones hasta APIs y flujos de trabajo. Elige una práctica según lo que quieras conectar o automatizar.',
+    intro: 'Aprende a crear funciones, APIs y flujos serverless en AWS.',
     selector: { topic: 'Serverless' },
     guide: {
       heading: 'Cómo recorrer los recursos serverless',
@@ -122,13 +105,13 @@ export const RESOURCE_COLLECTIONS = Object.freeze([
       ],
       links: ['/aprender/cursos/', '/aprender/'],
     },
-    earlyRoute: { path: '/recorridos/serverless/', label: 'Sigue la ruta serverless', text: '¿Prefieres aprender paso a paso?' },
+    earlyRoute: { path: '/recorridos/serverless/', label: 'Ruta serverless', text: 'Paso a paso:' },
   },
   {
     id: 'seguridad', path: '/aprender/seguridad/', kind: 'content', label: 'Seguridad',
     title: 'Recursos para aprender seguridad en AWS',
     description: 'Encuentra recursos en español para estudiar identidad, permisos y prácticas de seguridad en AWS.',
-    intro: 'Reunimos recursos sobre seguridad en AWS para estudiar identidad, permisos y protección de cargas de trabajo. Puedes empezar por los controles de cuenta y avanzar hacia servicios y patrones.',
+    intro: 'Aprende sobre identidad, permisos y protección de aplicaciones en AWS.',
     selector: { topic: 'Seguridad' },
     guide: {
       heading: 'Un orden práctico para estudiar seguridad',
@@ -140,13 +123,13 @@ export const RESOURCE_COLLECTIONS = Object.freeze([
       ],
       links: ['/aprender/cursos/', '/aprender/'],
     },
-    earlyRoute: { path: '/recorridos/seguridad/', label: 'Sigue la ruta de seguridad', text: '¿Prefieres aprender paso a paso?' },
+    earlyRoute: { path: '/recorridos/seguridad/', label: 'Ruta de seguridad', text: 'Paso a paso:' },
   },
   {
     id: 'ia-generativa', path: '/aprender/ia-generativa/', kind: 'content', label: 'IA generativa',
     title: 'IA generativa en AWS: cursos, videos y recursos',
     description: 'Explora cursos, ejemplos y tutoriales en español sobre Amazon Bedrock, Strands Agents y Bedrock AgentCore.',
-    intro: 'Explora cursos, ejemplos y tutoriales de IA generativa en AWS, con foco en Amazon Bedrock y agentes con Strands Agents o Bedrock AgentCore.',
+    intro: 'Explora Amazon Bedrock y agentes con Strands Agents o AgentCore.',
     selector: { generativeAI: true },
     guide: {
       heading: 'Elige recursos según lo que quieres construir',
@@ -158,13 +141,13 @@ export const RESOURCE_COLLECTIONS = Object.freeze([
       ],
       links: ['/aprender/cursos/', '/aprender/'],
     },
-    earlyRoute: { path: '/recorridos/ia-generativa/', label: 'Sigue la ruta de IA generativa', text: '¿Prefieres aprender paso a paso?' },
+    earlyRoute: { path: '/recorridos/ia-generativa/', label: 'Ruta de IA generativa', text: 'Paso a paso:' },
   },
   {
     id: 'fundamentos', path: '/aprender/fundamentos/', kind: 'content', label: 'Fundamentos',
     title: 'Fundamentos de AWS: recursos para empezar',
     description: 'Explora recursos en español sobre los conceptos y servicios que ayudan a comprender AWS y cómo empezar a usar la nube.',
-    intro: 'Revisa recursos sobre conceptos básicos de la nube, servicios de AWS y primeros pasos con una cuenta. Elige una explicación o práctica según lo que quieras comprender.',
+    intro: 'Empieza por los conceptos de la nube y los servicios básicos de AWS.',
     selector: { topic: 'Fundamentos' },
     guide: {
       heading: 'Cómo empezar por los fundamentos de AWS',
@@ -176,7 +159,7 @@ export const RESOURCE_COLLECTIONS = Object.freeze([
       ],
       links: ['/aprender/cursos/', '/aprender/arquitectura/', '/aprender/'],
     },
-    earlyRoute: { path: '/recorridos/primeros-pasos/', label: 'Sigue la ruta para aprender desde cero', text: '¿Prefieres una secuencia paso a paso?' },
+    earlyRoute: { path: '/recorridos/primeros-pasos/', label: 'AWS desde cero', text: 'Paso a paso:' },
   },
   {
     id: 'arquitectura', path: '/aprender/arquitectura/', kind: 'content', label: 'Arquitectura',
@@ -363,9 +346,9 @@ export const RESOURCE_COLLECTIONS = Object.freeze([
 const CERTIFICATION_PURPOSES = Object.freeze([
   { id: 'cloud-practitioner', label: 'Cloud Practitioner', description: 'Materiales de estudio y experiencias sobre Cloud Practitioner.' },
   { id: 'ai-practitioner', label: 'AI Practitioner', description: 'Materiales de estudio y experiencias sobre AI Practitioner.' },
-  { id: 'solutions-architect', label: 'Solutions Architect', description: 'Recursos sobre Solutions Architect. Revisa cada ficha para conocer el examen al que corresponde.' },
+  { id: 'solutions-architect', label: 'Solutions Architect', description: 'Materiales de Solutions Architect Associate y Professional. Comprueba el nivel y la versión antes de usarlos.' },
   { id: 'developer-associate', label: 'Developer Associate', description: 'Recursos sobre Developer Associate.' },
-  { id: 'sysops', label: 'SysOps', description: 'Recursos sobre SysOps Administrator.' },
+  { id: 'sysops', label: 'SysOps', description: 'Materiales históricos de SysOps Administrator, el examen anterior. No equivalen a preparación revisada para CloudOps Engineer.' },
   { id: 'ai-business-strategist', label: 'AI Business Strategist', description: 'Recursos sobre AI Business Strategist.' },
   { id: 'advanced-networking', label: 'Advanced Networking', description: 'Recursos sobre Advanced Networking.' },
   { id: 'multiple-exams', label: 'Varios exámenes', description: 'Materiales que abarcan distintas certificaciones AWS.' },

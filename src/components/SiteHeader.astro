@@ -17,7 +17,10 @@ const navigationLinks = [
 <header class="site-header">
   <nav class="site-nav site-container" aria-label="Navegación principal">
     <a class="site-nav__brand" href="/" aria-label="Inicio: ¿Dónde Aprendo AWS?">
-      <img src="/assets/site-logo.svg" alt="" width="34" height="40" />
+      <span class="site-brand__mark" aria-hidden="true">
+        <img class="site-logo--light" src="/assets/site-logo.svg" alt="" width="34" height="40" />
+        <img class="site-logo--dark" src="/assets/site-logo-white.svg" alt="" width="34" height="40" />
+      </span>
       <span>¿Dónde Aprendo AWS?</span>
     </a>
 
@@ -31,20 +34,36 @@ const navigationLinks = [
       <span></span><span></span><span></span>
     </button>
 
+    <div class="site-theme-slot">
+      <button
+        class="site-theme-toggle"
+        type="button"
+        data-theme-toggle
+        hidden
+        aria-label="Modo oscuro"
+        aria-pressed="false"
+      >
+        <svg class="site-theme-toggle__icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+          <path d="M20.2 15.3A8.4 8.4 0 0 1 8.7 3.8 8.5 8.5 0 1 0 20.2 15.3Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" />
+        </svg>
+      </button>
+    </div>
+
     <noscript>
       <div class="site-nav__noscript-menu">
-        {navigationLinks.map((link) => <a class={link.className} href={link.href}>{link.label}</a>)}
+        {navigationLinks.map((link) => <a class={link.className} href={link.href} data-event-agenda-route={link.href === '/eventos/' ? '' : undefined}>{link.label}</a>)}
       </div>
     </noscript>
 
     <div class="site-nav__menu" id="site-menu">
-      {navigationLinks.map((link) => <a class={link.className} href={link.href}>{link.label}</a>)}
+      {navigationLinks.map((link) => <a class={link.className} href={link.href} data-event-agenda-route={link.href === '/eventos/' ? '' : undefined}>{link.label}</a>)}
     </div>
   </nav>
 </header>
 
 <script>
   const toggle = document.querySelector<HTMLButtonElement>('.site-nav__toggle');
+  const themeToggle = document.querySelector<HTMLButtonElement>('[data-theme-toggle]');
   const menu = document.querySelector<HTMLDivElement>('#site-menu');
   const brand = document.querySelector<HTMLAnchorElement>('.site-nav__brand');
   const mobileMenuMedia = window.matchMedia('(max-width: 1100px)');
@@ -98,7 +117,7 @@ const navigationLinks = [
       }
       if (event.key !== 'Tab') return;
 
-      const focusable = [toggle, ...menu.querySelectorAll<HTMLAnchorElement>('a[href]')];
+      const focusable = [toggle, ...(themeToggle ? [themeToggle] : []), ...menu.querySelectorAll<HTMLAnchorElement>('a[href]')];
       const activeIndex = focusable.findIndex((element) => element === document.activeElement);
       if (activeIndex === -1) {
         event.preventDefault();

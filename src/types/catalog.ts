@@ -11,6 +11,7 @@ export interface CatalogResource {
   topics: string[];
   addedAt?: string;
   country?: string;
+  city?: string;
   level?: string;
   sourceId?: string;
   communityId?: string;
@@ -31,6 +32,7 @@ export interface CatalogEvent {
   place?: string;
   city?: string;
   country?: string;
+  venueCountry?: string;
   communityId?: string;
   registrationUrl: string;
 }

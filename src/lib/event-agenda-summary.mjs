@@ -19,17 +19,34 @@ export function eventCountNoun(count) {
 /** Build the visible fact line from the same event cards the agenda currently exposes.
  * @param {Array<{ startsAt: string, endsAt: string, id?: string, timeZone?: string }>} events
  * @param {Date | number} now
- * @param {{ intro: string, emptyMessage: string }} copy
+ * @param {{ intro: string, emptyMessage: string, timeZone?: string }} copy
  */
-export function eventAgendaSummaryText(events, now, { intro, emptyMessage }) {
+export function eventAgendaSummaryText(events, now, { intro, emptyMessage, timeZone }) {
   const facts = summarizeUpcomingEvents(events, now);
-  if (facts.count === 0) return emptyMessage;
+  const timestamp = now instanceof Date ? now.getTime() : Number(now);
+  const finalizedCount = events.filter((event) => Date.parse(event.endsAt) <= timestamp).length;
+  if (events.length === 0) return emptyMessage;
 
-  let sentence = `${intro} ${facts.count} ${eventCountNoun(facts.count)}`;
-  if (facts.inProgressCount === facts.count) sentence += ' en curso';
-  else if (facts.inProgressCount > 0) sentence += ` (${facts.inProgressCount} en curso)`;
+  const upcomingCount = facts.count - facts.inProgressCount;
+  if (facts.count === 0) {
+    return `${intro} ${events.length} ${eventCountNoun(events.length)} finalizado${events.length === 1 ? '' : 's'}.`;
+  }
+  if (finalizedCount === 0 && upcomingCount === 0) {
+    return `${intro} ${facts.inProgressCount} ${eventCountNoun(facts.inProgressCount)} en curso.`;
+  }
+
+  const statusCounts = [];
+  if (upcomingCount > 0) statusCounts.push(`${upcomingCount} próximo${upcomingCount === 1 ? '' : 's'}`);
+  if (facts.inProgressCount > 0) statusCounts.push(`${facts.inProgressCount} en curso`);
+  if (finalizedCount > 0) statusCounts.push(`${finalizedCount} finalizado${finalizedCount === 1 ? '' : 's'}`);
+  const statusText = statusCounts.length > 1
+    ? `${statusCounts.slice(0, -1).join(', ')} y ${statusCounts.at(-1)}`
+    : statusCounts[0];
+  let sentence = statusCounts.length > 1
+    ? `${intro} ${events.length} ${eventCountNoun(events.length)}: ${statusText}`
+    : `${intro} ${upcomingCount} ${eventCountNoun(upcomingCount)} próximo${upcomingCount === 1 ? '' : 's'}`;
   if (facts.nextEvent) {
-    const nextDate = eventDateLabel(facts.nextEvent.startsAt, facts.nextEvent.timeZone);
+    const nextDate = eventDateLabel(facts.nextEvent.startsAt, timeZone ?? facts.nextEvent.timeZone);
     sentence += `; el próximo comienza el ${nextDate}`;
   }
   return `${sentence}.`;

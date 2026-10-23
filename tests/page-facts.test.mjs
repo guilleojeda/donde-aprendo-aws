@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { communityFactText, communityFormatCounts, communityFormatSummary } from '../src/lib/community-page-facts.mjs';
-import { eventGroupCountries, eventGroupsForAgenda } from '../src/lib/event-agenda-groups.mjs';
+import { eventGroupsForAgenda } from '../src/lib/event-agenda-groups.mjs';
 import { eventAgendaSummaryText, eventCountNoun, nextEventAgendaTransition, summarizeUpcomingEvents } from '../src/lib/event-agenda-summary.mjs';
 import { uniqueUpcomingEventGroups } from '../src/lib/events.mjs';
 import { communityFaqItems, eventFaqItems } from '../src/lib/page-faq-content.mjs';
@@ -41,6 +41,19 @@ test('event FAQ variants keep their questions distinct for country and mode agen
   }
 });
 
+test('agenda FAQs describe physical location and global remote access instead of organizer-country restrictions', () => {
+  const national = eventFaqItems({ countryName: 'Argentina' }).map(({ answer }) => answer).join(' ');
+  assert.match(national, /presencial/iu);
+  assert.match(national, /cualquier país/iu);
+  assert.match(national, /online|en línea/iu);
+  const community = communityFaqItems({ countryName: 'Argentina', agendaPath: '/eventos/argentina/' })
+    .map(({ answer }) => answer).join(' ');
+  assert.match(community, /presencial/iu, 'Community directory FAQs describe the actual national agenda destination.');
+  assert.match(community, /cualquier país/iu);
+  const online = eventFaqItems({ collectionKey: 'online' }).map(({ answer }) => answer).join(' ');
+  assert.match(online, /híbridos/iu, 'Remote participation includes published hybrid events.');
+});
+
 function event(overrides = {}) {
   return {
     id: 'event-pe',
@@ -55,7 +68,7 @@ function event(overrides = {}) {
   };
 }
 
-test('national agenda scope follows all co-host organizers after one shared event is deduplicated', () => {
+test('national attendance includes a global online occurrence once with all its co-hosts', () => {
   const communities = new Map([
     ['community-pe', { id: 'community-pe', country: 'PE' }],
     ['community-co', { id: 'community-co', country: 'CO' }],
@@ -64,11 +77,12 @@ test('national agenda scope follows all co-host organizers after one shared even
   const cohost = event({ id: 'event-co', communityId: 'community-co', country: 'CO' });
   const groups = uniqueUpcomingEventGroups([cohost, primary], now);
   assert.equal(groups.length, 1);
-  assert.deepEqual(eventGroupCountries(groups[0], communities).sort(), ['CO', 'PE']);
-  const coAgenda = eventGroupsForAgenda(groups, { communityById: communities, country: 'CO' });
+  const coAgenda = eventGroupsForAgenda(groups, { communityById: communities, filters: { country: 'CO' } });
   assert.equal(coAgenda.length, 1);
+  assert.deepEqual(coAgenda[0].events.map(({ communityId }) => communityId), ['community-co', 'community-pe']);
   assert.equal(summarizeUpcomingEvents(coAgenda.map(({ event: item }) => item), now).count, 1);
-  assert.equal(eventGroupsForAgenda(groups, { communityById: communities, country: 'AR' }).length, 0);
+  assert.equal(eventGroupsForAgenda(groups, { communityById: communities, filters: { country: 'AR' } }).length, 1,
+    'Physical country never excludes a remote occurrence in the combined selection.');
 });
 
 test('event facts select the next active event and change to zero after expiry', () => {
@@ -116,7 +130,7 @@ test('event summary reports events in progress without calling their start the n
   assert.match(eventAgendaSummaryText([endedAtBoundary, running, future], now, {
     intro: 'En la agenda de Argentina hay',
     emptyMessage: 'No hay eventos.',
-  }), /^En la agenda de Argentina hay 2 eventos \(1 en curso\); el próximo comienza el /u);
+  }), /^En la agenda de Argentina hay 3 eventos: 1 próximo, 1 en curso y 1 finalizado; el próximo comienza el /u);
 
   const onlyRunning = eventAgendaSummaryText([running], now, {
     intro: 'En la agenda de Argentina hay',
@@ -138,4 +152,20 @@ test('event summary reports events in progress without calling their start the n
 
 test('invalid event-fact reference time is rejected', () => {
   assert.throws(() => summarizeUpcomingEvents([], Number.NaN), /Invalid event summary reference time/u);
+});
+
+test('the next event summary uses the agenda zone when the local date differs from the organizer date', () => {
+  const next = event({
+    startsAt: '2026-10-05T00:30:00Z', endsAt: '2026-10-05T01:30:00Z',
+    timeZone: 'Asia/Tokyo',
+  });
+  const copy = { intro: 'En la agenda hay', emptyMessage: 'Sin eventos' };
+  const inCordoba = eventAgendaSummaryText([next], now, {
+    ...copy, timeZone: 'America/Argentina/Cordoba',
+  });
+  const inTokyo = eventAgendaSummaryText([next], now, { ...copy, timeZone: 'Asia/Tokyo' });
+  assert.match(inCordoba, /4 de octubre de 2026/u,
+    'The summary must use the same civil date as the agenda cards and period.');
+  assert.match(inTokyo, /5 de octubre de 2026/u);
+  assert.equal(eventAgendaSummaryText([], now, { ...copy, timeZone: 'UTC' }), 'Sin eventos');
 });

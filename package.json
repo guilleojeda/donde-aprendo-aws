@@ -11,7 +11,7 @@
     "build": "astro build",
     "verify:blog": "node scripts/verify-blog.mjs && node scripts/verify-responsive-images.mjs",
     "verify:images": "node scripts/verify-responsive-images.mjs",
-    "verify:site": "node scripts/verify-site.mjs",
+    "verify:site": "node scripts/verify-site.mjs && node --test tests/acceptance/site-themes.test.mjs tests/acceptance/compact-event-agenda.test.mjs tests/acceptance/compact-home.test.mjs tests/acceptance/compact-directories.test.mjs tests/acceptance/compact-blog.test.mjs tests/acceptance/compact-learning-paths.test.mjs tests/acceptance/certifications-overview.test.mjs tests/acceptance/certification-details.test.mjs",
     "verify:hosting": "node scripts/verify-amplify-hosting.mjs",
     "preview": "node scripts/preview.mjs",
     "verify:preview": "node --test tests/built-preview.mjs",
@@ -34,7 +34,8 @@
     "astro": "7.3.4",
     "astro-aws-amplify": "0.6.0",
     "csv-parse": "7.0.2",
-    "openid-client": "6.8.8"
+    "openid-client": "6.8.8",
+    "twitter-text": "3.1.0"
   },
   "devDependencies": {
     "@astrojs/check": "0.9.10",

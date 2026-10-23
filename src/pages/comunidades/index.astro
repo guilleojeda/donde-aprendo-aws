@@ -36,10 +36,10 @@ const faqItems = communityFaqItems();
   <SiteHeader />
   <Directory title="Comunidades AWS en Latinoamérica" intro="Explora comunidades AWS por país y tipo de grupo; consulta sus formatos, temas y enlaces disponibles." kind="community" resources={resources} allResources={allResources} events={events}>
     <div slot="before-filters" class="collection-page__editorial">
-      <PageFactSummary text={communityFactText(resources)} label="Resumen de comunidades" />
       <CollectionNavigation links={communityCollectionLinks} label="Tipos de comunidades AWS" />
     </div>
     <div slot="after-results" class="collection-page__after-results">
+      <PageFactSummary text={communityFactText(resources)} label="Resumen de comunidades" />
       <CollectionGuide guide={guide} links={guideLinks} />
       <PageFaq items={faqItems} id="community-page-faq" />
     </div>

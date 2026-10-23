@@ -48,6 +48,7 @@ export function mapMeetupCommunities(directory) {
       country: group.country,
       published: true,
     };
+    if (Object.hasOwn(group, 'city')) record.city = group.city;
     projectPublicRecord(record, index);
     return record;
   });

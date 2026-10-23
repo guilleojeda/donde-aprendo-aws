@@ -61,6 +61,19 @@ assert.deepEqual(runtimeEnvironmentNames, [...allowedRuntimeEnvironment].sort(),
 assert.doesNotMatch(runtimeEnvironment, /AWS_(?:ACCESS_KEY_ID|SECRET_ACCESS_KEY|SESSION_TOKEN)|-----BEGIN [A-Z ]*PRIVATE KEY-----/u,
   'The runtime environment file does not contain credentials.');
 
+function assertRuntimeTheme(html, label) {
+  const head = html.match(/<head\b[^>]*>[\s\S]*?<\/head>/iu)?.[0] ?? '';
+  assert.ok(head, `${label} response has a document head.`);
+  for (const id of ['site-theme-light', 'site-theme-dark']) {
+    const styles = [...html.matchAll(new RegExp(`<style\\b[^>]*\\bid="${id}"[^>]*>[\\s\\S]*?<\\/style>`, 'giu'))];
+    assert.equal(styles.length, 1, `${label} includes exactly one ${id} palette.`);
+    assert.ok(head.includes(styles[0][0]), `${label} keeps ${id} in the document head.`);
+  }
+  const controllers = [...html.matchAll(/<script\b[^>]*\bid="site-theme-controller"[^>]*>[\s\S]*?<\/script>/giu)];
+  assert.equal(controllers.length, 1, `${label} includes exactly one shared theme controller.`);
+  assert.ok(head.includes(controllers[0][0]), `${label} keeps the theme controller in the document head.`);
+}
+
 for (const path of ['sitemap.xml', 'search-index.json', 'robots.txt']) {
   const file = resolve(siteOutputRoot, path);
   assert.ok(statSync(file, { throwIfNoEntry: false })?.isFile(), `Static public file is included in the Amplify output: ${path}`);
@@ -156,6 +169,7 @@ try {
   const accountResponse = await getWhenReady('/cuenta/');
   const accountHtml = await accountResponse.text();
   assert.equal(accountResponse.status, 200, 'Anonymous account route is handled by the runtime.');
+  assertRuntimeTheme(accountHtml, 'Account');
   assert.match(accountResponse.headers.get('cache-control') ?? '', /private[^\r\n]*no-store|no-store[^\r\n]*private/iu,
     'Account responses are private and not cached.');
   const accountRobots = accountHtml.match(/<meta name="robots" content="([^"]+)"/u)?.[1];
@@ -189,6 +203,7 @@ try {
   });
   const missingHtml = await missingResponse.text();
   assert.equal(missingResponse.status, 404, 'Unknown routes retain the actual 404 status.');
+  assertRuntimeTheme(missingHtml, 'Runtime 404');
   assert.match(missingHtml, /Página no encontrada/u, 'Unknown routes use the site 404 presentation.');
   assert.match(missingHtml, /<meta name="robots" content="noindex, nofollow"/u, 'The runtime 404 is not indexable.');
 } catch (error) {

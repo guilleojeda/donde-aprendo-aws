@@ -8,6 +8,7 @@ import { RESOURCE_COLLECTIONS, learningCollectionNavigation, resourceCollectionR
 import { sortResources } from '../src/lib/directory-filter.mjs';
 import { communityFaqItems, eventFaqItems } from '../src/lib/page-faq-content.mjs';
 import { EVENT_COLLECTIONS } from '../src/lib/event-collections.mjs';
+import { getCertificationPages } from '../src/lib/certifications.mjs';
 import { LEARNING_PATHS, learningPathHref } from '../src/lib/learning-paths.mjs';
 import { siteOutputRoot } from './lib/site-output.mjs';
 
@@ -38,6 +39,8 @@ const allDistFiles = filesUnder(dist);
 const allHtmlPaths = allDistFiles.filter((path) => path.endsWith('.html')).map((path) => relative(dist, path).replaceAll('\\', '/'));
 const collections = [...RESOURCE_COLLECTIONS, ...Object.values(EVENT_COLLECTIONS)];
 const collectionHtmlPaths = collections.map(({ path }) => `${path.slice(1)}index.html`);
+const certificationPages = getCertificationPages();
+const certificationDetailPaths = certificationPages.map(({ path }) => `${path.slice(1)}index.html`);
 const learningDetailPaths = LEARNING_PATHS.map(({ id }) => `${learningPathHref(id).slice(1)}index.html`);
 const isCountryRoute = (path, section) => new RegExp(`^${section}/[^/]+/index\\.html$`, 'u').test(path) && !collectionHtmlPaths.includes(path);
 const communityCountryRoutePaths = allHtmlPaths.filter((path) => isCountryRoute(path, 'comunidades'));
@@ -55,7 +58,7 @@ const routeCountries = (paths, section) => paths.map((htmlPath) => {
 const countryRoutes = routeCountries(communityCountryRoutePaths, 'comunidades');
 const eventCountryRoutes = routeCountries(eventCountryRoutePaths, 'eventos');
 const pagePaths = ['index.html', ...sections.map((section) => `${section}/index.html`), 'recorridos/index.html', 'blog/index.html', 'buscar/index.html',
-  ...routes.map(({ slug }) => `blog/${slug}/index.html`), ...communityCountryRoutePaths, ...eventCountryRoutePaths, ...collectionHtmlPaths, ...learningDetailPaths];
+  ...routes.map(({ slug }) => `blog/${slug}/index.html`), ...communityCountryRoutePaths, ...eventCountryRoutePaths, ...collectionHtmlPaths, ...learningDetailPaths, ...certificationDetailPaths];
 const expectedLocations = [
   'https://dondeaprendoaws.com/',
   ...sections.map((section) => `https://dondeaprendoaws.com/${section}/`),
@@ -65,6 +68,7 @@ const expectedLocations = [
   'https://dondeaprendoaws.com/recorridos/',
   ...collections.map(({ path }) => `https://dondeaprendoaws.com${path}`),
   ...LEARNING_PATHS.map(({ id }) => `https://dondeaprendoaws.com${learningPathHref(id)}`),
+  ...certificationPages.map(({ path }) => `https://dondeaprendoaws.com${path}`),
   ...routes.map(({ slug }) => `https://dondeaprendoaws.com/blog/${slug}/`),
 ].sort();
 assert.deepEqual([...locations].sort(), expectedLocations);
@@ -80,6 +84,30 @@ for (const path of resourceDirectoryPaths) {
 }
 
 const decode = (value) => value.replaceAll('&amp;', '&').replaceAll('&quot;', '"').replaceAll('&#39;', "'").replaceAll('&#x27;', "'").replaceAll('&lt;', '<').replaceAll('&gt;', '>');
+const hasHtmlAttribute = (attributes, name) => new RegExp(`(?:^|\\s)${name}(?=\\s|=|$)`, 'iu').test(attributes);
+const htmlElementsWithAttribute = (source, attributeName, expectedTagName) => {
+  const matches = [];
+  for (const match of source.matchAll(/<([a-z][a-z0-9-]*)\b([^>]*)>/giu)) {
+    const [, tagName, attributes] = match;
+    if (expectedTagName && tagName.toLowerCase() !== expectedTagName) continue;
+    if (!hasHtmlAttribute(attributes, attributeName)) continue;
+
+    const tagBoundary = new RegExp(`<\\/?${tagName}(?=[\\s>])[^>]*>`, 'giu');
+    const contentStart = match.index + match[0].length;
+    tagBoundary.lastIndex = contentStart;
+    let depth = 1;
+    let token;
+    while ((token = tagBoundary.exec(source))) {
+      if (token[0].startsWith('</')) depth -= 1;
+      else if (!token[0].endsWith('/>')) depth += 1;
+      if (depth === 0) {
+        matches.push({ attributes, content: source.slice(contentStart, token.index) });
+        break;
+      }
+    }
+  }
+  return matches;
+};
 const defaultSocialImage = readFileSync(resolve(dist, 'assets/site-social.png'));
 assert.deepEqual(defaultSocialImage.subarray(0, 8), Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), 'The default social image must be a PNG.');
 assert.equal(defaultSocialImage.readUInt32BE(16), 1200, 'Default social image width.');
@@ -199,7 +227,7 @@ const searchIndex = JSON.parse(read('search-index.json'));
 assert.equal(searchIndex.filter((entry) => entry.type === 'article').length, routes.length);
 assert.equal(searchIndex.filter((entry) => entry.type === 'path').length, 4);
 for (const { id } of LEARNING_PATHS) assert.ok(searchIndex.some((entry) => entry.type === 'path' && entry.url === learningPathHref(id)));
-for (const { path } of collections) assert.ok(searchIndex.some((entry) => entry.type === 'collection' && entry.url === path), `Collection discoverability: ${path}`);
+for (const { path } of [...collections, ...certificationPages]) assert.ok(searchIndex.some((entry) => entry.type === 'collection' && entry.url === path), `Collection discoverability: ${path}`);
 assert.ok(searchIndex.every((entry) => /^\/(?:blog|aprender|recorridos|creadores|comunidades|eventos)\//.test(entry.url)));
 assert.doesNotMatch(JSON.stringify(searchIndex), /submitterEmail|submitterName|contactEmail/);
 
@@ -345,13 +373,28 @@ for (const { question, answer } of resolvedCourseFaq) {
 }
 verifyFaq(read('comunidades/index.html'), communityFaqItems(), '/comunidades/');
 verifyFaq(read('eventos/index.html'), eventFaqItems(), '/eventos/');
-const globalEventAttributes = [...read('eventos/index.html').matchAll(/<li\b([^>]*)\bdata-event-id="([^"]+)"([^>]*)>/gu)]
-  .map(([, before, id, after]) => ({ id, mode: `${before}${after}`.match(/data-event-mode="([^"]+)"/u)?.[1] }));
+const agendaCards = (html) => [...html.matchAll(/<li\b([^>]*\bdata-event-id="([^"]+)"[^>]*)>([\s\S]*?)<\/li>/gu)]
+  .map(([, attributes, id, body]) => ({
+    id, body, attributes,
+    members: [...body.matchAll(/data-event-member-id="([^"]+)"/gu)].map(([, memberId]) => memberId).sort(),
+    mode: attributes.match(/data-event-mode="([^"]+)"/u)?.[1],
+    hidden: /(?:^|\s)hidden(?:\s|=|$)/u.test(attributes),
+  }));
+const agendaSignatures = (cards) => cards.map(({ members }) => members.join('|')).sort();
+const globalEventAttributes = agendaCards(read('eventos/index.html'));
 for (const collection of Object.values(EVENT_COLLECTIONS)) {
   const html = read(`${collection.path.slice(1)}index.html`);
-  const expected = globalEventAttributes.filter(({ mode }) => collection.modes.includes(mode)).map(({ id }) => id);
-  const actual = [...html.matchAll(/data-event-id="([^"]+)"/gu)].map(([, id]) => id);
-  assert.deepEqual(actual, expected, `Exact fixed-mode SSR subset: ${collection.path}`);
+  const cards = agendaCards(html);
+  const visible = cards.filter(({ hidden }) => !hidden);
+  assert.deepEqual(agendaSignatures(cards), agendaSignatures(globalEventAttributes),
+    `Every collection retains the public catalog for explicit query overrides: ${collection.path}`);
+  assert.ok(visible.every(({ mode }) => collection.modes.includes(mode)), `Default attendance SSR members: ${collection.path}`);
+  if (fixtureBuild) {
+    const expected = collection.path === '/eventos/online/'
+      ? ['fixture-past-argentina', 'fixture-past-costa-rica', 'fixture-past-unrecorded', 'fixture-online-event']
+      : ['fixture-past-unrecorded', 'fixture-event'];
+    assert.deepEqual(visible.map(({ id }) => id), expected, `Default public attendance subset, including history: ${collection.path}`);
+  }
   assert.ok(html.includes(`href="https://dondeaprendoaws.com${collection.path}"`));
   assert.match(html, /data-event-empty/u);
   verifyFaq(html, eventFaqItems({ collectionKey: collection.path.includes('/online/') ? 'online' : 'presenciales' }), collection.path);
@@ -412,14 +455,20 @@ for (const route of eventCountryRoutes) {
   const html = read(route.htmlPath);
   const countryName = COUNTRY_LABELS[route.country];
   verifyFaq(html, eventFaqItems({ countryName }), route.path);
+  const attendanceIntro = decode(html.match(/<p\b[^>]*data-event-page-intro[^>]*>([\s\S]*?)<\/p>/u)?.[1] ?? '');
+  assert.match(attendanceIntro, /presencial/iu, 'A national agenda describes physical attendance at its location.');
+  assert.ok(attendanceIntro.includes(countryName), 'The default physical country is explicit in the national introduction.');
+  assert.match(attendanceIntro, /online|en línea/iu, 'The national introduction also describes remote participation.');
+  assert.doesNotMatch(html, /Comunidades organizadoras en /u,
+    'The static country-community block is a directory link, not an assertion about every selected event organizer.');
   const communitiesForCountry = generalCommunities.filter((card) => card.country === route.country);
   const summary = html.match(/<section class="event-country-communities"[^>]*>([\s\S]*?)<\/section>/u)?.[1] ?? '';
   assert.ok(summary, `Country agenda links back to its published communities: ${route.path}`);
   for (const community of communitiesForCountry) assert.ok(summary.includes(`href="${resourceLinkFor(community.id, route.country)}"`));
-  assert.match(html, /<h1>Eventos AWS en [^<]+<\/h1>/u);
+  assert.match(html, /<h1\b[^>]*>Eventos AWS en [^<]+<\/h1>/u);
   assert.doesNotMatch(html, /no necesariamente el lugar de cada encuentro|99[.,]99/u);
   assert.match(html, /data-event-list/u);
-  assert.doesNotMatch(html, /<select\b[^>]*\bdata-event-country(?:\s|=)/u, 'A national agenda navigates by country page instead of a country filter.');
+  assert.match(html, /<select\b[^>]*\bdata-event-country(?:\s|=|>)/u, 'A national route exposes its location default as an editable filter.');
   assert.match(html, /data-event-empty/u, 'The page has an initial empty state for when its events expire.');
   const breadcrumb = html.match(/<nav class="community-breadcrumb"[^>]*>([\s\S]*?)<\/nav>/u)?.[1] ?? '';
   assert.match(breadcrumb, />Inicio</u);
@@ -458,19 +507,21 @@ if (fixtureBuild) {
     ['fixture-community-costa-rica', 'User Group'],
   ]);
   assert.match(read('comunidades/colombia/index.html'), /1 Student Builder Group/);
-  assert.match(read('comunidades/colombia/index.html'), /href="\/eventos\/colombia\/"[^>]*>Consultar agenda de eventos organizados por comunidades de Colombia/);
-  assert.match(read('comunidades/costa-rica/index.html'), /href="\/eventos\/costa-rica\/"[^>]*>Consultar agenda de eventos organizados por comunidades de Costa Rica/,
-    'A country with no upcoming events still has a stable agenda destination.');
-  assert.match(read('comunidades/argentina/index.html'), /href="\/eventos\/argentina\/"[^>]*>Consultar agenda de eventos organizados por comunidades de Argentina/);
-  assert.match(read('comunidades/peru/index.html'), /href="\/eventos\/peru\/"[^>]*>Consultar agenda de eventos organizados por comunidades de Perú/);
+  for (const [slug, countryName] of Object.entries({ colombia: 'Colombia', 'costa-rica': 'Costa Rica', argentina: 'Argentina', peru: 'Perú' })) {
+    const html = read(`comunidades/${slug}/index.html`);
+    assert.match(html, new RegExp(`href="/eventos/${slug}/"[^>]*>Consultar agenda[^<]*${countryName}`, 'u'),
+      'Every country community page retains its native agenda destination, including countries without upcoming physical events.');
+    assert.doesNotMatch(html, /eventos organizados por comunidades de/u,
+      'The national attendance agenda is not presented as an exclusive organizer-country selection.');
+  }
   assert.match(communities, /id="resource-fixture-student-argentina"/);
   assert.doesNotMatch(communities, /fixture-unpublished-community/);
   assert.match(learn, /https:\/\/example\.com\/curso\?utm_source=fixture&amp;lang=es/);
   assert.match(learn, /href="\/creadores\/#resource-fixture-source"/);
   assert.match(learn, /href="\/comunidades\/peru\/#resource-fixture-community"/);
   assert.match(learn, /href="\/comunidades\/#resource-fixture-no-country-community"/);
-  assert.match(learn, /href="\/eventos\/costa-rica\/#event-fixture-past-costa-rica"/);
-  assert.match(learn, /href="\/eventos\/argentina\/#event-fixture-past-argentina"/);
+  assert.match(learn, /href="\/eventos\/#event-fixture-past-costa-rica"/);
+  assert.match(learn, /href="\/eventos\/#event-fixture-past-argentina"/);
   assert.equal(searchIndex.find(({ title }) => title === 'Comunidad de ejemplo')?.url, '/comunidades/peru/#resource-fixture-community');
   assert.equal(searchIndex.find(({ title }) => title === 'Comunidad sin país confirmado')?.url, '/comunidades/#resource-fixture-no-country-community');
   assert.match(featuredCard, /<time datetime="2026-09-25">25 de septiembre de 2026<\/time>/);
@@ -497,7 +548,152 @@ if (fixtureBuild) {
 const events = read('eventos/index.html');
 assert.match(events, /data-event-list/);
 assert.match(events, /data-event-empty/);
-for (const field of ['from', 'to', 'mode', 'country', 'community', 'city']) assert.match(events, new RegExp(`data-event-${field}`));
+for (const path of ['eventos/index.html', ...eventCountryRoutes.map(({ htmlPath }) => htmlPath), ...Object.values(EVENT_COLLECTIONS).map(({ path }) => `${path.slice(1)}index.html`)]) {
+  const html = read(path);
+  const checkbox = [...html.matchAll(/<input\b([^>]*)>/gu)]
+    .map(([, attributes]) => attributes).find((attributes) => /\bdata-event-include-ended(?:\s|=|$)/u.test(attributes));
+  assert.ok(checkbox, `Every public agenda offers the ended-event checkbox: ${path}`);
+  assert.match(checkbox, /\btype="checkbox"/u);
+  assert.match(checkbox, /\bchecked(?:\s|=|$)/u, `A fresh HTML document includes ended events: ${path}`);
+  assert.match(html, /Incluir eventos finalizados/u);
+  assert.match(html, /<h1\b[^>]*\bdata-event-page-heading(?:\s|=|>)/u,
+    `The effective selection can update the page heading: ${path}`);
+  assert.match(html, /<p\b[^>]*\bdata-event-page-intro(?:\s|=|>)/u,
+    `The effective selection can update the page introduction: ${path}`);
+  const shareWrapper = htmlElementsWithAttribute(html, 'data-event-share-controls');
+  assert.equal(shareWrapper.length, 1, `Every agenda has one share-controls wrapper: ${path}`);
+  assert.ok(hasHtmlAttribute(shareWrapper[0]?.attributes ?? '', 'hidden'),
+    `Share actions stay inert until their client-generated URLs are ready: ${path}`);
+  const shareWrapperContent = shareWrapper[0]?.content ?? '';
+  const shareMenus = htmlElementsWithAttribute(shareWrapperContent, 'data-event-share-menu', 'details');
+  assert.equal(shareMenus.length, 1, `Every agenda uses a native details menu inside its hidden wrapper: ${path}`);
+  const shareMenu = shareMenus[0];
+  assert.doesNotMatch(shareMenu?.attributes ?? '', /\brole="menu"/u,
+    `The native disclosure does not claim custom ARIA menu behavior: ${path}`);
+  assert.doesNotMatch(shareMenu?.content ?? '', /\brole="menuitem"/u,
+    `Share actions retain their native anchor and button semantics: ${path}`);
+  const summary = shareMenu?.content.match(/<summary\b([^>]*)>([\s\S]*?)<\/summary>/u);
+  assert.ok(summary, `Every share menu has a native summary control: ${path}`);
+  assert.ok(hasHtmlAttribute(summary[1], 'data-event-share-toggle'));
+  assert.equal(decode(summary[2].replace(/<[^>]*>/gu, '')).trim(), 'Compartir');
+  const shareLinks = [...shareMenu.content.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gu)]
+    .map(([, attributes, content]) => ({
+      label: decode(content.replace(/<[^>]*>/gu, '')).trim(),
+      attributes,
+      href: decode(attributes.match(/\bhref="([^"]*)"/u)?.[1] ?? ''),
+    }));
+  for (const label of ['X', 'LinkedIn']) {
+    const link = shareLinks.find((item) => item.label === label);
+    assert.ok(link, `Every share menu offers ${label} as a native anchor: ${path}`);
+    assert.match(link.attributes, /\btarget="_blank"/u);
+    assert.match(link.attributes, /\brel="[^"]*\bnoopener\b[^"]*"/u);
+    assert.match(link.attributes, /\brel="[^"]*\bnoreferrer\b[^"]*"/u);
+    assert.ok(link.href, `${label} has a client-ready href attribute: ${path}`);
+    assert.doesNotMatch(link.href, /^javascript:/iu, `${label} does not use a JavaScript URL: ${path}`);
+  }
+  const copyButton = [...shareMenu.content.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/gu)]
+    .find(([, , content]) => decode(content.replace(/<[^>]*>/gu, '')).trim() === 'Copiar');
+  assert.ok(copyButton, `Every share menu offers a Copy button: ${path}`);
+  assert.match(copyButton[1], /\btype="button"/u);
+  const shareStatuses = htmlElementsWithAttribute(shareWrapperContent, 'data-event-share-status');
+  assert.equal(shareStatuses.length, 1, `Every share wrapper has one status region: ${path}`);
+  const shareStatus = shareStatuses[0]?.attributes ?? '';
+  assert.match(shareStatus, /\brole="status"/u);
+  assert.match(shareStatus, /\baria-live="polite"/u);
+  assert.doesNotMatch(html, /<(?:textarea|dialog|pre)\b|\brole="dialog"/iu,
+    `Sharing does not insert an intermediate text preview or dialog: ${path}`);
+  assert.doesNotMatch(html, /Comparte esta selección|Texto listo para copiar|Vista previa de la agenda/iu,
+    `The retired share-preview section and copy are absent: ${path}`);
+  const secondary = html.match(/<details\b[^>]*\bdata-event-secondary-disclosure[^>]*>([\s\S]*?)<\/details>/u)?.[1] ?? '';
+  for (const field of ['mode', 'country', 'city']) {
+    const select = [...html.matchAll(/<select\b([^>]*)>([\s\S]*?)<\/select>/gu)]
+      .find(([, attrs]) => new RegExp(`\\bdata-event-${field}(?:\\s|=|$)`, 'u').test(attrs));
+    assert.ok(select, `Every agenda exposes the ${field} primary control: ${path}`);
+    assert.doesNotMatch(secondary, new RegExp(`<select\\b[^>]*\\bdata-event-${field}(?:\\s|=|>)`, 'u'),
+      `Attendance and physical location stay outside More filters: ${path}`);
+    if (field === 'mode') {
+      for (const label of ['Solo online', 'Solo presencial', 'Presencial + online']) {
+        assert.ok(select[2].includes(label), `All attendance choices are available: ${label} on ${path}`);
+      }
+      assert.doesNotMatch(select[2], /<option[^>]*value="hybrid"/u,
+        `The exclusive hybrid mode is a query compatibility value, not a fourth primary choice: ${path}`);
+    }
+  }
+  for (const field of ['community', 'zone']) assert.match(secondary, new RegExp(`data-event-${field}`, 'u'));
+  assert.doesNotMatch(html, /País de la comunidad organizadora|Ubicación del organizador|Ubicación presencial:|La ubicación limita la asistencia presencial/u,
+    `The attendance controls and cards omit superseded organizer-location copy: ${path}`);
+  assert.deepEqual(agendaSignatures(agendaCards(html)), agendaSignatures(globalEventAttributes),
+    `Explicit query selection is not limited to a hidden route subset: ${path}`);
+
+  const viewButtons = [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/gu)];
+  for (const [view, label] of [['week', 'Semana'], ['month', 'Mes']]) {
+    const matches = viewButtons.filter(([, attributes]) => attributes.includes(`data-event-view="${view}"`));
+    assert.equal(matches.length, 1, `Every agenda offers one ${label} view: ${path}`);
+    const button = matches[0];
+    assert.ok(button, `Every agenda offers the ${label} view: ${path}`);
+    assert.match(button[1], /\btype="button"/u);
+    assert.match(button[1], /\baria-pressed="(?:true|false)"/u, `The view has an accessible selected state: ${path}`);
+    assert.equal(decode(button[2].replace(/<[^>]*>/gu, '')).trim(), label);
+  }
+  for (const [direction, accessibleName] of [['prev', /anterior/iu], ['next', /siguiente/iu]]) {
+    const button = viewButtons.find(([, attributes]) => new RegExp(`\\bdata-event-period-${direction}(?:\\s|=|$)`, 'u').test(attributes));
+    assert.ok(button, `Every agenda can navigate to the ${direction} period: ${path}`);
+    assert.match(button[1], /\btype="button"/u);
+    const label = button[1].match(/\baria-label="([^"]+)"/u)?.[1]
+      ?? button[2].replace(/<[^>]*>/gu, '');
+    assert.match(decode(label), accessibleName, `Period arrows have an accessible name: ${path}`);
+  }
+  assert.match(html, /data-event-period-label(?:\s|=|>)/u, `The consulted period has a visible label: ${path}`);
+  const zoneControl = [...html.matchAll(/<(?:select|input)\b([^>]*)>/gu)]
+    .find(([, attributes]) => /\bdata-event-zone(?:\s|=|$)/u.test(attributes));
+  assert.ok(zoneControl, `Every agenda exposes its IANA time-zone control: ${path}`);
+  const zoneId = zoneControl[1].match(/(?:^|\s)id="([^"]+)"/u)?.[1];
+  assert.ok(zoneId, `The time-zone control has an ID for its label: ${path}`);
+  assert.ok([...html.matchAll(/<label\b([^>]*)>([\s\S]*?)<\/label>/gu)]
+    .some(([, attributes, content]) => attributes.includes(`for="${zoneId}"`) && /zona horaria/iu.test(content)),
+  `The time-zone control has a visible label: ${path}`);
+  for (const [, memberAttributes, content] of html.matchAll(/<article\b([^>]*)>([\s\S]*?)<\/article>/gu)) {
+    if (!/\bdata-event-member-id=/u.test(memberAttributes)) continue;
+    assert.match(memberAttributes, /\bdata-member-title="[^"]+"/u,
+      `Each member exposes its title to the shared text model: ${path}`);
+    assert.match(memberAttributes, /\bdata-member-registration-url="https?:\/\/[^"]+"/u,
+      `Each member exposes its original registration URL to the shared text model: ${path}`);
+    const shareTitle = decode(memberAttributes.match(/\bdata-member-title="([^"]*)"/u)?.[1] ?? '');
+    const visibleTitle = decode(content.match(/<h4\b[^>]*>([\s\S]*?)<\/h4>/u)?.[1]?.replace(/<[^>]*>/gu, '') ?? '');
+    assert.equal(shareTitle, visibleTitle, `The shared title is the member's actual public title: ${path}`);
+    const shareRegistration = decode(memberAttributes.match(/\bdata-member-registration-url="([^"]*)"/u)?.[1] ?? '');
+    const registrationAttributes = [...content.matchAll(/<a\b([^>]*)>/gu)]
+      .map(([, attributes]) => attributes).find((attributes) => hasHtmlAttribute(attributes, 'data-event-registration')) ?? '';
+    assert.equal(shareRegistration, decode(registrationAttributes.match(/\bhref="([^"]*)"/u)?.[1] ?? ''),
+      `The shared registration URL is the member's original destination: ${path}`);
+    assert.match(content, /\bdata-event-date-label(?:\s|=|>)/u,
+      `Each co-host view can display its date in the agenda zone: ${path}`);
+    assert.match(content, /\bdata-event-time-label(?:\s|=|>)/u,
+      `Each co-host view can display its times in the same agenda zone: ${path}`);
+  }
+  assert.doesNotMatch(html, /\bdata-event-(?:from|to)(?:\s|=|>)/u, `Week/month replaces the custom date range: ${path}`);
+  assert.doesNotMatch(html, /Fechas de inicio en la zona del organizador|Rango personalizado|La semana que viene|El mes que viene/u,
+    `The agenda does not retain obsolete date-range copy or navigation: ${path}`);
+  for (const [, attributes, content] of html.matchAll(/<nav\b([^>]*)>([\s\S]*?)<\/nav>/gu)) {
+    if (!/class="[^"]*(?:community-country-nav|collection-navigation)/u.test(attributes)) continue;
+    for (const [, linkAttributes] of content.matchAll(/<a\b([^>]*)>/gu)) {
+      if (!/\bhref="\/eventos\/(?:[a-z-]+\/)?"/u.test(linkAttributes)) continue;
+      assert.match(linkAttributes, /\bdata-event-agenda-route(?:\s|=|$)/u,
+        `Agenda navigation links can preserve the consulted period and zone: ${path}`);
+    }
+  }
+  const noScriptHelp = decode(html.match(/<noscript>\s*<p\b[^>]*>([\s\S]*?)<\/p>\s*<\/noscript>/u)?.[1] ?? '');
+  assert.match(noScriptHelp, /publicados/iu, `The notice describes the initial published selection: ${path}`);
+  assert.match(noScriptHelp, /semana|mes|período/iu, `The notice distinguishes interactive period selection from static defaults: ${path}`);
+  assert.match(noScriptHelp, /JavaScript/u, `The static agenda explains how to use interactive filtering: ${path}`);
+  assert.doesNotMatch(html, /<h2\b[^>]*>\s*Próximos eventos\s*<\/h2>/u,
+    `The agenda heading also describes the visible ended events: ${path}`);
+  assert.doesNotMatch(html, /event-agenda__archive|id="event-archive-title"/u,
+    `Recordings are integrated in event cards instead of a second archive: ${path}`);
+  const ids = [...html.matchAll(/\sid="([^"]+)"/gu)].map(([, id]) => id);
+  assert.equal(new Set(ids).size, ids.length, `No duplicated event fragment or other HTML ID: ${path}`);
+}
+for (const field of ['mode', 'country', 'community', 'city']) assert.match(events, new RegExp(`data-event-${field}`));
 if (fixtureBuild) {
   assert.match(events, /data-event-city="PE:Lima"/);
   assert.match(events, /data-event-communities="fixture-community\|fixture-student-colombia"/);
@@ -508,47 +704,69 @@ if (fixtureBuild) {
     'Global community options carry the published Peru country metadata.');
   assert.match(events, /<option value="fixture-student-colombia" data-event-country="CO"[^>]*>/,
     'Global community options carry the published Colombia country metadata.');
-  assert.match(events, /<option value="PE:Lima" data-event-countries="PE\|CO"[^>]*>/,
-    'Representative city options remain compatible with co-host countries.');
+  assert.match(events, /<option value="PE:Lima"[^>]*>[^<]*Lima[^<]*Perú<\/option>/u,
+    'Physical city labels disambiguate city and country without organizer-country wording.');
+  assert.doesNotMatch(events, /<option value="CO:Lima"/u,
+    'A Peru venue does not become a Colombia city because a co-host comes from Colombia.');
+  const fallbackMember = events.match(/<article\b[^>]*data-event-member-id="fixture-past-unrecorded"[^>]*>([\s\S]*?)<\/article>/u)?.[1] ?? '';
+  assert.match(fallbackMember, /Lima/u, 'Cards show the known community city when the event does not supply one.');
   const globalEventCards = [...events.matchAll(/<li id="event-fixture-event"[^>]*>/gu)];
   assert.equal(globalEventCards.length, 1, 'A cross-posted event appears once in the overall agenda.');
-  assert.match(events, /data-event-countries="PE\|CO"/);
+  const globalAliases = globalEventCards[0][0].match(/data-event-alias-ids="([^"]+)"/u)?.[1].split('|') ?? [];
+  assert.ok(globalAliases.includes('fixture-event-colombia'), 'SSR exposes the co-host alias consumed by fragment navigation.');
+  assert.match(events, /<span id="event-fixture-event-colombia"\s/u,
+    'The co-host fragment also has a native HTML destination without JavaScript.');
+  assert.match(globalEventCards[0][0], /data-event-countries="PE"/u,
+    'The shared physical occurrence exposes its Peru venue without treating Colombia as a second venue.');
   assert.match(home, /href="\/eventos\/peru\/#event-fixture-event"/);
-  assert.match(home, /href="\/eventos\/argentina\/#event-fixture-online-event"/);
+  assert.match(home, /href="\/eventos\/#event-fixture-online-event"/);
   assert.match(events, /href="\/eventos\/fixture-event\.ics"/);
   assert.match(events, /mailto:contact@dondeaprendoaws\.com\?subject=[^"\s]+fixture-event/);
   assert.match(read('eventos/peru/index.html'), /id="event-fixture-event"/);
-  assert.match(read('eventos/colombia/index.html'), /id="event-fixture-event"/,
-    'The same co-hosted event appears in each organizer country page.');
-  assert.doesNotMatch(read('eventos/peru/index.html'), /id="event-fixture-online-event"/);
-  assert.doesNotMatch(read('eventos/colombia/index.html'), /id="event-fixture-online-event"/);
-  assert.doesNotMatch(read('eventos/argentina/index.html'), /id="event-fixture-event"/);
-  assert.match(read('eventos/peru/index.html'), /href="\/comunidades\/colombia\/#resource-fixture-student-colombia"/);
-  const colombiaAgenda = read('eventos/colombia/index.html');
-  assert.match(colombiaAgenda, /href="\/comunidades\/colombia\/#resource-fixture-student-colombia"/,
-    'A country agenda card makes its known co-host community visible.');
-  assert.match(colombiaAgenda, /<option value="fixture-student-colombia" data-event-country="CO"[^>]*>/,
-    'The Colombia agenda exposes its Colombia community metadata.');
-  assert.doesNotMatch(colombiaAgenda, /<option value="fixture-community"[^>]*>/,
-    'The Colombia agenda excludes the Peru co-host from its community options.');
-  assert.match(read('eventos/argentina/index.html'), /id="event-fixture-online-event"/);
+  const remoteDefaults = ['fixture-past-argentina', 'fixture-past-costa-rica', 'fixture-past-unrecorded', 'fixture-online-event'];
   for (const [slug, expectedIds] of Object.entries({
-    argentina: ['fixture-online-event'], colombia: ['fixture-event'],
-    'costa-rica': [], peru: ['fixture-event'],
+    argentina: remoteDefaults, colombia: remoteDefaults, 'costa-rica': remoteDefaults,
+    peru: ['fixture-past-argentina', 'fixture-past-costa-rica', 'fixture-past-unrecorded', 'fixture-event', 'fixture-online-event'],
   })) {
-    const ids = [...read(`eventos/${slug}/index.html`).matchAll(/\bdata-event-id="([^"]+)"/gu)]
-      .map(([, id]) => id);
-    assert.deepEqual(ids, expectedIds, `The initial ${slug} HTML contains exactly its upcoming events.`);
+    const html = read(`eventos/${slug}/index.html`);
+    const visible = agendaCards(html).filter(({ hidden }) => !hidden);
+    assert.deepEqual(visible.map(({ id }) => id), expectedIds,
+      `Default ${slug} attendance combines local physical events with remote access from any country.`);
+    for (const communityId of ['fixture-community', 'fixture-student-colombia', 'fixture-community-argentina']) {
+      assert.match(html, new RegExp(`<option value="${communityId}"`, 'u'),
+        `Community options are independent of the physical location on ${slug}.`);
+    }
+    assert.match(html, /href="\/aprender\/#resource-fixture-recording-argentina"/u);
+    assert.match(html, /href="\/aprender\/#resource-fixture-recording-costa-rica"/u);
   }
-  assert.doesNotMatch(read('eventos/costa-rica/index.html'), /id="event-fixture-event"/);
-  assert.match(read('eventos/costa-rica/index.html'), /No hay próximos eventos publicados organizados por comunidades de Costa Rica/);
-  assert.match(read('eventos/costa-rica/index.html'), /href="\/aprender\/#resource-fixture-recording-costa-rica"/);
-  assert.doesNotMatch(read('eventos/costa-rica/index.html'), /href="\/aprender\/#resource-fixture-recording-argentina"/,
-    'A national past-event archive excludes recordings from other organizer countries.');
-  assert.match(read('eventos/argentina/index.html'), /href="\/aprender\/#resource-fixture-recording-argentina"/);
-  assert.doesNotMatch(read('eventos/argentina/index.html'), /href="\/aprender\/#resource-fixture-recording-costa-rica"/);
+  assert.deepEqual(globalEventAttributes.map(({ id }) => id), [
+    'fixture-past-argentina', 'fixture-past-costa-rica', 'fixture-past-unrecorded', 'fixture-event', 'fixture-online-event',
+  ], 'The global HTML exposes every public occurrence once, including history without requiring JavaScript.');
+  const unrecordedCard = [...events.matchAll(/<li\b[^>]*data-event-id="([^"]+)"[^>]*>([\s\S]*?)<\/li>/gu)]
+    .find(([, id]) => id === 'fixture-past-unrecorded')?.[2];
+  assert.ok(unrecordedCard, 'A public ended event does not require a recording to appear.');
+  assert.match(unrecordedCard, /Finalizado/u);
+  assert.doesNotMatch(unrecordedCard, /Ver grabación/u);
+  for (const [id, recordingId] of [
+    ['fixture-past-argentina', 'fixture-recording-argentina'],
+    ['fixture-past-costa-rica', 'fixture-recording-costa-rica'],
+  ]) {
+    const card = [...events.matchAll(/<li\b[^>]*data-event-id="([^"]+)"[^>]*>([\s\S]*?)<\/li>/gu)]
+      .find(([, cardId]) => cardId === id)?.[2];
+    assert.ok(card, `Ended event has a full list card: ${id}`);
+    assert.match(card, /Finalizado/u);
+    assert.match(card, /data-event-registration[^>]*>\s*Ver evento/u);
+    assert.ok(card.includes(`href="/aprender/#resource-${recordingId}"`), 'Recording remains linked from its event.');
+    assert.equal((events.match(new RegExp(`href="/aprender/#resource-${recordingId}"`, 'gu')) ?? []).length, 1,
+      'The recording link appears once, inside the event card.');
+    const calendar = read(`eventos/${id}.ics`).replace(/\r\n /gu, '');
+    assert.ok(calendar.includes(`UID:${id}@dondeaprendoaws.com\r\n`));
+    assert.ok(!searchIndex.some((entry) => entry.type === 'event' && entry.url.endsWith(`#event-${id}`)), 'Search keeps upcoming events only.');
+    assert.ok(!home.includes(`#event-${id}`), 'The homepage preview keeps upcoming events only.');
+  }
+  assert.ok(read('eventos/fixture-event-colombia.ics').includes('UID:fixture-event-colombia@dondeaprendoaws.com'));
   assert.equal(searchIndex.find(({ title }) => title === 'Encuentro AWS en Lima')?.url, '/eventos/peru/#event-fixture-event');
-  assert.equal(searchIndex.find(({ title }) => title === 'Charla de AWS en línea')?.url, '/eventos/argentina/#event-fixture-online-event');
+  assert.equal(searchIndex.find(({ title }) => title === 'Charla de AWS en línea')?.url, '/eventos/#event-fixture-online-event');
   const calendar = read('eventos/fixture-event.ics');
   assert.match(calendar, /DTSTART:20990101T230000Z\r\nDTEND:20990102T010000Z/);
   assert.match(calendar, /URL:https:\/\/example\.com\/encuentro\?source=fixture/);

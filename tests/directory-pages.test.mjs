@@ -30,6 +30,17 @@ test('section links preserve stable card anchors', () => {
   assert.throws(() => resourceHref({ id: 'bad', kind: 'unknown' }), /Unknown resource kind/);
 });
 
+test('event destinations follow the physical venue while remote and unsupported routes stay global', () => {
+  const countryPages = [{ country: 'AR' }, { country: 'PE' }];
+  const event = { id: 'travelling', mode: 'in-person', country: 'AR', venueCountry: 'PE', city: 'Lima' };
+  assert.equal(eventHref(event, countryPages), '/eventos/peru/#event-travelling');
+  assert.equal(eventHref({ ...event, venueCountry: 'US' }, countryPages), '/eventos/#event-travelling');
+  assert.equal(eventHref({ id: 'remote', mode: 'online', country: 'AR' }, countryPages), '/eventos/#event-remote');
+  assert.equal(eventHref({ id: 'fallback', mode: 'hybrid', communityId: 'community-ar' }, countryPages, [
+    { id: 'community-ar', kind: 'community', country: 'AR', city: 'Córdoba' },
+  ]), '/eventos/argentina/#event-fallback');
+});
+
 test('directory filters round-trip through shareable URLs without losing unrelated parameters', () => {
   const original = '?utm_source=community&q=Cómo%20usar%20IAM&format=Video&topic=Seguridad&country=AR&level=inicial&sort=recent';
   const parsed = parseDirectorySearch(original, allowed);

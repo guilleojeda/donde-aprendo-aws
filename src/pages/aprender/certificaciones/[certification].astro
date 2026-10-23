@@ -1,0 +1,43 @@
+---
+import { getCollection } from 'astro:content';
+import CertificationDetail from '../../../components/CertificationDetail.astro';
+import { loadSiteCatalog } from '../../../lib/site-catalog.mjs';
+import {
+  CERTIFICATIONS,
+  certificationHref,
+  getCertificationPages,
+  resolveCertificationSelections,
+} from '../../../lib/certifications.mjs';
+import type { CatalogEvent, CatalogResource } from '../../../types/catalog';
+import type {
+  CertificationPage,
+  CertificationRecord,
+  ResolvedCertificationPage,
+  ResolvedCertificationSelection,
+} from '../../../types/certifications';
+
+export async function getStaticPaths() {
+  const [catalog, posts] = await Promise.all([loadSiteCatalog(), getCollection('blog')]);
+  const resources = (catalog as Array<CatalogResource | CatalogEvent>)
+    .filter((record): record is CatalogResource => record.recordType !== 'event');
+  const credentials = CERTIFICATIONS as CertificationRecord[];
+  const pages = getCertificationPages() as CertificationPage[];
+
+  return pages.map((page) => {
+    const credential = credentials.find((item) => item.page && certificationHref(item.id) === page.path);
+    if (!credential) throw new Error(`Certification page has no matching credential: ${page.path}`);
+    const selections = resolveCertificationSelections(page.selections, resources, posts) as ResolvedCertificationSelection[];
+    const resolvedPage = { ...page, selections } as ResolvedCertificationPage;
+    const slug = page.path.split('/').filter(Boolean).at(-1);
+    if (!slug) throw new Error(`Certification page has no route slug: ${page.path}`);
+    return {
+      params: { certification: slug },
+      props: { page: resolvedPage, credential },
+    };
+  });
+}
+
+const { page, credential } = Astro.props as { page: ResolvedCertificationPage; credential: CertificationRecord };
+---
+
+<CertificationDetail page={page} credential={credential} />

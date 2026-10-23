@@ -15,6 +15,11 @@ export default defineConfig({
       'ACCOUNTS_TABLE',
     ],
   }),
+  markdown: {
+    shikiConfig: {
+      theme: 'css-variables',
+    },
+  },
   site: 'https://dondeaprendoaws.com',
   output: 'static',
   security: {

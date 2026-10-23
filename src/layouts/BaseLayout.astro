@@ -1,6 +1,9 @@
 ---
 import '../styles/site.css';
 import '../styles/fonts.css';
+import lightTheme from '../styles/themes/light.css?raw';
+import darkTheme from '../styles/themes/dark.css?raw';
+import themeController from '../scripts/theme.js?raw';
 import deployment from '../../config/deployment.json';
 import { contributorStructuredData } from '../lib/blog-metadata.mjs';
 import type { BlogContributor } from '../lib/blog-metadata.mjs';
@@ -88,6 +91,9 @@ const articleSchema = publishedTimestamp && canonical && imageUrl
     <link rel="icon" type="image/png" href="/assets/site-favicon.png" sizes="120x120" />
     <link rel="preload" href="/assets/fonts/fira-sans/latin-400.woff2" as="font" type="font/woff2" crossorigin />
     <title>{title}</title>
+    <style is:inline id="site-theme-light" set:html={lightTheme}></style>
+    <style is:inline id="site-theme-dark" media="(prefers-color-scheme: dark)" set:html={darkTheme}></style>
+    <script is:inline id="site-theme-controller" set:html={themeController}></script>
   </head>
   <body>
     <a class="skip-link" href="#contenido">Saltar al contenido</a>

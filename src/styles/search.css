@@ -18,7 +18,7 @@
 .search-page__header h1 {
   max-width: 760px;
   margin: 0 0 14px;
-  color: var(--color-ink);
+  color: var(--color-heading);
   font-size: clamp(2rem, 5vw, 3.1rem);
   letter-spacing: -0.035em;
   line-height: 1.1;
@@ -34,15 +34,15 @@
 
 .search-form {
   padding: 20px;
-  border: 1px solid var(--color-line);
+  border: 1px solid var(--color-border);
   border-radius: 16px;
-  background: var(--color-panel);
+  background: var(--color-surface-subtle);
 }
 
 .search-form label {
   display: block;
   margin-bottom: 9px;
-  color: var(--color-ink);
+  color: var(--color-heading);
   font-size: 15px;
   font-weight: 500;
 }
@@ -60,27 +60,27 @@
   min-width: 0;
   min-height: 48px;
   padding: 10px 12px;
-  border: 1px solid var(--color-control);
+  border: 1px solid var(--color-border-control);
   border-radius: 8px;
-  background: var(--color-surface);
+  background: var(--color-field);
   color: var(--color-text);
   font-size: 15px;
 }
 
 .search-form input::placeholder {
-  color: var(--color-muted);
+  color: var(--color-text-muted);
   opacity: 1;
 }
 
 .search-form input:hover,
 .search-form select:hover {
-  border-color: var(--color-ink);
+  border-color: var(--color-border-control);
 }
 
 .search-form input:focus-visible,
 .search-form select:focus-visible {
-  border-color: var(--color-ink);
-  outline: 3px solid #3154A2;
+  border-color: var(--color-focus);
+  outline: 3px solid var(--color-focus);
   outline-offset: 2px;
 }
 
@@ -91,10 +91,10 @@
   align-items: center;
   justify-content: center;
   padding: 11px 18px;
-  border: 1px solid var(--color-ink);
+  border: 1px solid var(--color-primary);
   border-radius: 8px;
-  background: var(--color-ink);
-  color: var(--color-surface);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
   font-size: 15px;
   font-weight: 500;
   line-height: 1.25;
@@ -106,13 +106,13 @@
 .search-form button:focus-visible,
 .search-results__more:hover,
 .search-results__more:focus-visible {
-  border-color: var(--color-ink-hover);
-  background: var(--color-ink-hover);
+  border-color: var(--color-focus);
+  background: var(--color-primary-hover);
 }
 
 .search-form button:focus-visible,
 .search-results__more:focus-visible {
-  outline: 3px solid #3154A2;
+  outline: 3px solid var(--color-focus);
   outline-offset: 3px;
 }
 
@@ -122,7 +122,7 @@
 
 .search-results h2 {
   margin: 0 0 12px;
-  color: var(--color-ink);
+  color: var(--color-heading);
   font-size: clamp(1.5rem, 3vw, 1.8rem);
   letter-spacing: -0.02em;
 }
@@ -130,7 +130,7 @@
 .search-results [role='status'] {
   min-height: 26px;
   margin: 0;
-  color: var(--color-muted);
+  color: var(--color-text-muted);
   font-size: 15px;
 }
 
@@ -145,7 +145,7 @@
 .search-results li a {
   display: block;
   padding: 20px 22px;
-  border: 1px solid var(--color-line);
+  border: 1px solid var(--color-border);
   border-radius: 16px;
   background: var(--color-surface);
   color: var(--color-text);
@@ -156,27 +156,27 @@
 .search-results li a:hover,
 .search-results li a:focus-visible {
   transform: translateY(-1px);
-  border-color: var(--color-control);
+  border-color: var(--color-border-control);
   background: var(--color-surface);
   color: var(--color-text);
 }
 
 .search-results li a:focus-visible {
-  outline: 3px solid #3154A2;
+  outline: 3px solid var(--color-focus);
   outline-offset: 3px;
 }
 
 .search-results li span {
   display: block;
   margin-bottom: 8px;
-  color: var(--color-accent);
+  color: var(--color-accent-text);
   font-size: 13px;
   font-weight: 500;
 }
 
 .search-results li strong {
   display: block;
-  color: var(--color-ink);
+  color: var(--color-heading);
   font-size: 19px;
   line-height: 1.3;
 }

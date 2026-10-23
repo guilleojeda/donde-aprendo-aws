@@ -1,0 +1,23 @@
+{
+  "asOf": "2026-10-22",
+  "sources": [
+    "https://aws.amazon.com/certification/",
+    "https://docs.aws.amazon.com/aws-certification/latest/examguides/",
+    "https://aws.amazon.com/blogs/training-and-certification/september-2026-new-offerings/"
+  ],
+  "certifications": [
+    { "name": "Cloud Practitioner", "category": "Foundational", "codes": ["CLF-C02"], "state": "disponible" },
+    { "name": "AI Practitioner", "category": "Foundational", "codes": ["AIF-C01"], "state": "disponible" },
+    { "name": "Solutions Architect", "category": "Associate", "codes": ["SAA-C03"], "state": "disponible" },
+    { "name": "CloudOps Engineer", "category": "Associate", "codes": ["SOA-C03"], "state": "disponible" },
+    { "name": "Developer", "category": "Associate", "codes": ["DVA-C02", "DVA-C03"], "state": "actualizaci[oó]n anunciada" },
+    { "name": "Data Engineer", "category": "Associate", "codes": ["DEA-C01"], "state": "disponible" },
+    { "name": "Machine Learning Engineer", "category": "Associate", "codes": ["MLA-C01", "MLA-C02"], "state": "beta" },
+    { "name": "Solutions Architect", "category": "Professional", "codes": ["SAP-C02", "SAP-C03"], "state": "actualizaci[oó]n anunciada" },
+    { "name": "DevOps Engineer", "category": "Professional", "codes": ["DOP-C02"], "state": "disponible" },
+    { "name": "Generative AI Developer", "category": "Professional", "codes": ["AIP-C01"], "state": "disponible" },
+    { "name": "Security", "category": "Specialty", "codes": ["SCS-C03"], "state": "disponible" },
+    { "name": "Advanced Networking", "category": "Specialty", "codes": ["ANS-C01"], "state": "retiro anunciado" },
+    { "name": "AI Business Strategist", "category": "Business", "codes": ["AIB-C01"], "state": "beta" }
+  ]
+}

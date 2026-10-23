@@ -6,7 +6,7 @@ import { siteOutputRoot } from './lib/site-output.mjs';
 
 const dist = siteOutputRoot;
 const webpSavingsThreshold = 0.1;
-const blogCardSizes = '(max-width: 600px) calc(100vw - 48px), (max-width: 900px) calc((100vw - 72px) / 2), (max-width: 1232px) calc((100vw - 96px) / 3), 379px';
+const blogCardSizes = '200px';
 const blogArticleBodySizes = '(max-width: 600px) calc(100vw - 32px), (max-width: 728px) calc(100vw - 48px), 680px';
 
 function getAttributes(tag) {

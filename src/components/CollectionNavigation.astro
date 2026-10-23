@@ -5,6 +5,7 @@ interface CollectionLink {
   path: string;
   label: string;
   description?: string;
+  eventModes?: readonly string[];
 }
 
 interface Props {
@@ -33,7 +34,7 @@ const { links, currentPath, label = 'Explorar por formato o tema', learningNavig
           <span>Temas y objetivos</span>
           {learningNavigation.activeTopic && <span class="collection-navigation__active-topic">{learningNavigation.activeTopic}</span>}
         </summary>
-        <div class="collection-navigation__menu">
+        <div class="collection-navigation__menu" data-directory-overlay-panel data-overlay-align="end">
           <ul class="collection-navigation__topics-list">
             {learningNavigation.topics.map((link) => <li>
               <a href={link.path} aria-current={link.path === learningNavigation.currentPath ? 'page' : undefined}>{link.label}</a>
@@ -46,7 +47,9 @@ const { links, currentPath, label = 'Explorar por formato o tema', learningNavig
 </nav> : links.length > 0 && <nav class="collection-navigation" aria-label={label}>
   <ul>
     {links.map((link) => <li>
-      <a href={link.path} aria-current={link.path === currentPath ? 'page' : undefined}>
+      <a href={link.path} aria-current={link.path === currentPath ? 'page' : undefined}
+        data-event-agenda-route={link.path.startsWith('/eventos/') ? '' : undefined}
+        data-event-agenda-modes={link.eventModes?.join('|')}>
         <span>{link.label}</span>
         {link.description && <small>{link.description}</small>}
       </a>

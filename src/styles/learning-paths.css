@@ -11,7 +11,7 @@
 
 .learning-paths__eyebrow {
   margin: 0 0 10px;
-  color: var(--color-muted);
+  color: var(--color-text-muted);
   font-size: 0.84rem;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -20,7 +20,7 @@
 .learning-paths__intro h1,
 .learning-path-detail__intro h1 {
   margin: 0;
-  color: var(--color-ink);
+  color: var(--color-heading);
   font-size: clamp(2rem, 4vw, 3rem);
   letter-spacing: -0.03em;
   line-height: 1.1;
@@ -48,7 +48,7 @@
   flex-direction: column;
   align-items: flex-start;
   padding: 24px;
-  border: 1px solid var(--color-line);
+  border: 1px solid var(--color-border);
   border-radius: 16px;
   background: var(--color-surface);
   color: var(--color-text);
@@ -60,8 +60,8 @@
 .learning-paths__index > a:focus-visible,
 .learning-path-detail__step:hover,
 .learning-path-detail__step:focus-visible {
-  border-color: var(--color-control);
-  box-shadow: 0 8px 24px rgb(38 52 87 / 9%);
+  border-color: var(--color-border-control);
+  box-shadow: 0 8px 24px var(--color-shadow);
 }
 
 .learning-paths__index > a:hover,
@@ -73,13 +73,13 @@
 .learning-path-detail__step:focus-visible,
 .learning-path-detail__breadcrumbs a:focus-visible,
 .learning-path-detail__related a:focus-visible {
-  outline: 3px solid var(--color-ink);
+  outline: 3px solid var(--color-focus);
   outline-offset: 3px;
 }
 
 .learning-paths__index .learning-paths__audience {
   display: block;
-  color: var(--color-muted);
+  color: var(--color-text-muted);
   font-size: 0.88rem;
   font-weight: 700;
 }
@@ -87,7 +87,7 @@
 .learning-paths__index strong {
   display: block;
   margin: 12px 0 9px;
-  color: var(--color-ink);
+  color: var(--color-heading);
   font-size: 1.3rem;
   line-height: 1.35;
 }
@@ -106,7 +106,7 @@
   gap: 12px;
   margin-top: auto;
   padding-top: 19px;
-  color: var(--color-ink);
+  color: var(--color-heading);
   font-size: 0.88rem;
   font-weight: 700;
 }
@@ -118,12 +118,13 @@
 
 .learning-path-detail {
   max-width: 1040px;
-  padding-block: 10px 88px;
+  padding-block: 4px 72px;
 }
 
 .learning-path-detail__breadcrumbs {
-  margin: 5px 0 26px;
-  color: var(--color-muted);
+  max-width: 850px;
+  margin: 0 auto 16px;
+  color: var(--color-text-muted);
   font-size: 0.9rem;
 }
 
@@ -138,29 +139,31 @@
 
 .learning-path-detail__breadcrumbs li + li::before {
   padding-right: 10px;
-  color: var(--color-muted);
+  color: var(--color-text-muted);
   content: '›';
 }
 
 .learning-path-detail__breadcrumbs a {
-  color: var(--color-ink);
+  color: var(--color-link);
   text-underline-offset: 3px;
 }
 
-.learning-path-detail__breadcrumbs [aria-current='page'] {
-  color: var(--color-ink);
+.learning-path-detail__intro,
+.learning-path-detail__steps,
+.learning-path-detail__guidance {
+  max-width: 850px;
+  margin-inline: auto;
 }
 
 .learning-path-detail__intro {
-  max-width: 900px;
-  margin: 0 0 36px;
+  margin-bottom: 20px;
   padding: 0;
   text-align: left;
 }
 
 .learning-path-detail__summary {
   max-width: 760px;
-  margin: 12px 0 0;
+  margin: 8px 0 0;
   color: var(--color-text);
   font-size: 17px;
   line-height: 1.6;
@@ -168,15 +171,10 @@
 
 .learning-path-detail__guidance {
   max-width: 760px;
-  margin: 12px 0 0;
-  color: var(--color-muted);
+  margin-top: 18px;
+  color: var(--color-text-muted);
   font-size: 15px;
   line-height: 1.55;
-}
-
-.learning-path-detail__steps {
-  max-width: 850px;
-  margin-inline: auto;
 }
 
 .learning-path-detail__section-heading {
@@ -184,12 +182,12 @@
   align-items: end;
   justify-content: space-between;
   gap: 18px;
-  margin-bottom: 18px;
+  margin-bottom: 12px;
 }
 
 .learning-path-detail__section-heading h2 {
   margin: 0;
-  color: var(--color-ink);
+  color: var(--color-heading);
   font-size: clamp(1.6rem, 3vw, 2rem);
   line-height: 1.2;
 }
@@ -198,8 +196,8 @@
   flex: none;
   padding: 7px 11px;
   border-radius: 99px;
-  background: var(--color-panel);
-  color: var(--color-ink);
+  background: var(--color-surface-subtle);
+  color: var(--color-heading);
   font-size: 0.88rem;
   font-weight: 700;
 }
@@ -210,11 +208,6 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  counter-reset: path-step;
-}
-
-.learning-path-detail__steps li {
-  counter-increment: path-step;
 }
 
 .learning-path-detail__step {
@@ -222,9 +215,9 @@
   grid-template-columns: 48px minmax(0, 1fr) 22px;
   align-items: center;
   gap: 16px;
-  min-height: 112px;
-  padding: 20px 22px;
-  border: 1px solid var(--color-line);
+  min-height: 0;
+  padding: 16px 20px;
+  border: 1px solid var(--color-border);
   border-radius: 16px;
   background: var(--color-surface);
   color: inherit;
@@ -238,25 +231,25 @@
   height: 44px;
   place-items: center;
   border-radius: 50%;
-  background: var(--color-panel);
-  color: var(--color-ink);
+  background: var(--color-surface-subtle);
+  color: var(--color-heading);
   font-size: 0.92rem;
   font-weight: 700;
 }
 
 .learning-path-detail__step-copy {
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .learning-path-detail__step-type {
-  color: var(--color-muted);
+  color: var(--color-text-muted);
   font-size: 0.83rem;
   font-weight: 700;
 }
 
 .learning-path-detail__step-copy strong {
-  color: var(--color-ink);
+  color: var(--color-heading);
   font-size: 1.1rem;
   line-height: 1.35;
 }
@@ -268,7 +261,7 @@
 }
 
 .learning-path-detail__step-arrow {
-  color: var(--color-ink);
+  color: var(--color-heading);
   font-size: 1.1rem;
 }
 
@@ -279,12 +272,12 @@
   gap: 12px 28px;
   margin: 38px auto 0;
   padding-top: 22px;
-  border-top: 1px solid var(--color-line);
+  border-top: 1px solid var(--color-border);
   text-align: center;
 }
 
 .learning-path-detail__related a {
-  color: var(--color-ink);
+  color: var(--color-link);
   font-weight: 700;
   line-height: 1.5;
   text-underline-offset: 3px;
@@ -306,16 +299,26 @@
   }
 
   .learning-path-detail {
-    padding-block: 8px 60px;
+    padding-block: 4px 60px;
   }
 
   .learning-path-detail__breadcrumbs {
-    margin-bottom: 20px;
+    margin-bottom: 14px;
   }
 
   .learning-path-detail__intro {
-    margin-bottom: 34px;
+    margin-bottom: 18px;
     padding: 0;
+  }
+
+  .learning-path-detail__summary {
+    margin-top: 7px;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  .learning-path-detail__guidance {
+    margin-top: 16px;
   }
 }
 
@@ -325,13 +328,14 @@
   }
 
   .learning-path-detail__section-heading > span {
-    margin-top: 19px;
+    margin-top: 1px;
+    padding: 6px 9px;
   }
 
   .learning-path-detail__step {
     grid-template-columns: 36px minmax(0, 1fr);
-    gap: 13px;
-    padding: 17px 14px;
+    gap: 11px;
+    padding: 14px 12px;
   }
 
   .learning-path-detail__step-number {

@@ -4,7 +4,7 @@ description: "Elige un examen AWS según tu perfil, arma un plan con la guía of
 author: "guille-ojeda"
 publishedAt: "2024-01-23"
 publishedTimestamp: "2024-01-23T17:34:37.557Z"
-modifiedTimestamp: "2026-10-06T10:14:29-03:00"
+modifiedTimestamp: "2026-10-22T16:27:58-03:00"
 review:
   date: "2026-10-06"
 cover: "/assets/blog/editorial-certificacion.png"
@@ -13,7 +13,7 @@ ogImage: "/assets/blog/editorial-certificacion.png"
 related: []
 ---
 
-Para prepararte para una certificación AWS, elige primero el examen que corresponde al trabajo que quieres demostrar. Después usa su guía vigente como lista de objetivos, estudia las lagunas que encuentres, practica con preguntas y escenarios, y reserva el examen cuando puedas explicar tus decisiones. Hacer un curso puede ayudar, pero AWS no lo exige y terminarlo no equivale a obtener la certificación.
+Para prepararte para una certificación AWS, elige primero el examen que corresponde al trabajo que quieres demostrar. Después usa su guía vigente como lista de objetivos, estudia las lagunas que encuentres, practica con preguntas y escenarios, y reserva el examen cuando puedas explicar tus decisiones. Hacer un curso puede ayudar, pero AWS no lo exige y terminarlo no equivale a obtener la certificación. Si aún comparas opciones, el [mapa completo de certificaciones AWS](/aprender/certificaciones/#certificaciones-mapa) te permite revisar la oferta antes de elegir una preparación.
 
 No hay un curso, un simulacro ni una cantidad de horas que garantice aprobar. La meta es entender los conceptos y saber aplicarlos a situaciones nuevas, no memorizar respuestas. Esta guía te ayuda a elegir una ruta, organizar el estudio, encontrar apoyo en español y revisar las condiciones del examen antes de pagar.
 
@@ -23,10 +23,10 @@ Los códigos, idiomas y fechas de transición mencionados aquí se comprobaron e
 
 Empieza por el área en la que quieres trabajar. Estas cinco rutas cubren necesidades distintas; no hace falta rendir una certificación Foundational antes de un examen Associate si tu experiencia ya corresponde al rol.
 
-- **Conocer la nube o empezar sin experiencia técnica:** [AWS Certified Cloud Practitioner](https://aws.amazon.com/certification/certified-cloud-practitioner/) valida una comprensión general de AWS. La guía vigente al 6 de octubre de 2026 es **CLF-C02**. Puede servir a principiantes y a personas de áreas no técnicas que necesitan entender la nube.
-- **Entender usos de IA y machine learning en AWS:** [AWS Certified AI Practitioner](https://aws.amazon.com/certification/certified-ai-practitioner/) cubre conceptos y casos de uso de IA, ML e IA generativa. La guía vigente al revisar este artículo es **AIF-C01**. Es una ruta de fundamentos; por sí sola no acredita que puedas construir soluciones de IA en producción.
+- **Conocer la nube o empezar sin experiencia técnica:** [AWS Certified Cloud Practitioner](https://aws.amazon.com/certification/certified-cloud-practitioner/) valida una comprensión general de AWS. La guía vigente al 6 de octubre de 2026 es **CLF-C02**. Puede servir a principiantes y a personas de áreas no técnicas que necesitan entender la nube. Consulta la [guía de preparación de AWS Cloud Practitioner (CLF-C02)](/aprender/certificaciones/cloud-practitioner/) para revisar los datos actuales y empezar a estudiar.
+- **Entender usos de IA y machine learning en AWS:** [AWS Certified AI Practitioner](https://aws.amazon.com/certification/certified-ai-practitioner/) cubre conceptos y casos de uso de IA, ML e IA generativa. La guía vigente al revisar este artículo es **AIF-C01**. Es una ruta de fundamentos; por sí sola no acredita que puedas construir soluciones de IA en producción. Consulta la [guía de preparación de AWS AI Practitioner (AIF-C01)](/aprender/certificaciones/ai-practitioner/) para revisar el examen y sus recursos.
 - **Desarrollar aplicaciones:** [AWS Certified Developer – Associate](https://aws.amazon.com/es/certification/certified-developer-associate/) corresponde a quienes desarrollan, despliegan y mantienen aplicaciones con AWS. Al **6 de octubre de 2026**, AWS aún ofrece **DVA-C02** y anuncia que abrirá la inscripción de **DVA-C03 el 27 de octubre**, con entrega general prevista para el 1 de diciembre. El [anuncio oficial de septiembre](https://aws.amazon.com/blogs/training-and-certification/september-2026-new-offerings/) da el 30 de noviembre como último día para DVA-C02; la ficha oficial en español indica el 1 de diciembre. Si vas a rendir DVA-C02, planea hacerlo a más tardar el 30 de noviembre y confirma el turno en Pearson VUE.
-- **Diseñar soluciones en la nube:** [AWS Certified Solutions Architect – Associate](https://aws.amazon.com/certification/certified-solutions-architect-associate/) se enfoca en decisiones de arquitectura, como seguridad, resiliencia, rendimiento y costo. La guía que AWS publica actualmente es **SAA-C03**.
+- **Diseñar soluciones en la nube:** [AWS Certified Solutions Architect – Associate](https://aws.amazon.com/certification/certified-solutions-architect-associate/) se enfoca en decisiones de arquitectura, como seguridad, resiliencia, rendimiento y costo. La guía que AWS publica actualmente es **SAA-C03**. Consulta la [guía de preparación de AWS Solutions Architect Associate (SAA-C03)](/aprender/certificaciones/solutions-architect-associate/) para conocer los datos actuales y recursos seleccionados.
 - **Operar cargas de trabajo:** [AWS Certified CloudOps Engineer – Associate](https://aws.amazon.com/certification/certified-cloudops-engineer-associate/) cubre operaciones, monitorización, automatización, redes y continuidad. La versión actual es **SOA-C03**; el examen SysOps **SOA-C02 tuvo su última fecha de rendición el 29 de septiembre de 2025**, según el [anuncio de transición de AWS](https://aws.amazon.com/blogs/training-and-certification/exam-update-and-new-name-for-operations-certification/). Al revisar este artículo, la página de AWS lista inglés, japonés, coreano y chino simplificado, no español; indica que coreano y chino simplificado dejarán de ofrecerse después del 19 de noviembre de 2026.
 
 Los nombres, códigos y calendarios pueden cambiar. Antes de empezar y antes de reservar, consulta el [índice oficial de guías de examen](https://docs.aws.amazon.com/aws-certification/latest/examguides/) y la página de la certificación elegida. Si un curso muestra otro código, puede cubrir una versión anterior aunque mantenga un título parecido.
@@ -97,19 +97,19 @@ Los datos cambian según el examen y el lugar donde rindas. Verifícalos en la p
 
 ### ¿Cuánto cuesta un examen AWS?
 
-Según las [preguntas frecuentes de AWS Certification](https://aws.amazon.com/certification/faqs/), los exámenes Foundational y Business cuestan **100 USD**, los Associate **150 USD** y los Professional y Specialty **300 USD**. Es el precio por intento; pueden aplicarse impuestos y algunas monedas locales tienen precios publicados distintos. Comprueba el total de tu turno al registrarte.
+El precio base y el total pueden variar por examen, moneda e impuestos. Consulta la ficha vigente de [Cloud Practitioner (CLF-C02)](/aprender/certificaciones/cloud-practitioner/), [AI Practitioner (AIF-C01)](/aprender/certificaciones/ai-practitioner/) o [Solutions Architect Associate (SAA-C03)](/aprender/certificaciones/solutions-architect-associate/), y confirma el importe final en las [políticas oficiales de AWS Certification](https://aws.amazon.com/certification/faqs/) antes de registrarte.
 
 ### ¿Cuánto dura y qué formato tiene?
 
-La duración, la cantidad de preguntas, los tipos de respuesta y la puntuación dependen del examen. Por ejemplo, AWS publica para Cloud Practitioner CLF-C02 una duración de **90 minutos** y **65 preguntas** de opción múltiple o respuesta múltiple. Revisa la ficha y la guía del examen que elegiste; no extrapoles esos datos a otra certificación.
+La duración, la cantidad de preguntas, los tipos de respuesta y la puntuación dependen del examen. Revisa esos datos en la ficha de [Cloud Practitioner (CLF-C02)](/aprender/certificaciones/cloud-practitioner/), [AI Practitioner (AIF-C01)](/aprender/certificaciones/ai-practitioner/) o [Solutions Architect Associate (SAA-C03)](/aprender/certificaciones/solutions-architect-associate/); para otros exámenes, consulta su guía oficial. No extrapoles los datos de una certificación a otra.
 
 ### ¿Puedo rendir en español o desde casa?
 
-Cada examen tiene su propia lista de idiomas. La supervisión en línea también tiene idiomas y horarios de disponibilidad propios, que no siempre coinciden con los idiomas del examen. Por ejemplo, la ficha actual de CloudOps Associate no ofrece preguntas en español, aunque sí hay supervisión en español latinoamericano para citas en línea en ciertos horarios. Comprueba ambos datos por separado en la [ficha de tu examen](https://aws.amazon.com/certification/) y en las [opciones de evaluación](https://aws.amazon.com/certification/certification-prep/testing/).
+Cada examen tiene su propia lista de idiomas. La supervisión en línea también tiene idiomas y horarios de disponibilidad propios, que no siempre coinciden con los idiomas del examen. Comprueba ambos datos por separado en la ficha de [Cloud Practitioner (CLF-C02)](/aprender/certificaciones/cloud-practitioner/), [AI Practitioner (AIF-C01)](/aprender/certificaciones/ai-practitioner/) o [Solutions Architect Associate (SAA-C03)](/aprender/certificaciones/solutions-architect-associate/), y en las [opciones de evaluación de AWS](https://aws.amazon.com/certification/certification-prep/testing/). Para otros exámenes, consulta la ficha oficial correspondiente.
 
 Los exámenes se programan mediante Pearson VUE, en un centro de evaluación o con supervisión en línea cuando la opción esté disponible para tu examen. Para reservar, inicia sesión en tu cuenta de AWS Certification, selecciona **Schedule New Exam**, elige **Schedule with Pearson VUE** y sigue los pasos para elegir modalidad, idioma, fecha y hora. La cuenta de certificación es distinta de una cuenta de servicios AWS. Revisa también los requisitos de identificación y las condiciones del proveedor antes de confirmar.
 
-AWS permite reprogramar o cancelar sin cargo hasta **24 horas antes** de la cita. Dentro de ese plazo ya no puedes cambiarla; si no te presentas, puedes perder el pago. Lee las [políticas de AWS antes de rendir](https://aws.amazon.com/certification/policies/before-testing/) y el correo de confirmación de Pearson VUE.
+Las condiciones para cambiar o cancelar una cita dependen de las políticas vigentes y del proveedor; revísalas antes de confirmar el turno y conserva el correo de Pearson VUE.
 
 ## Preguntas frecuentes
 
@@ -119,7 +119,7 @@ No. AWS recomienda prepararse, pero no exige completar un curso. Elige formació
 
 ### ¿Qué pasa si no apruebo el examen?
 
-Debes esperar **14 días calendario** antes de volver a rendir. AWS no limita la cantidad de intentos, pero cada nuevo intento requiere pagar la tarifa de inscripción vigente. Consulta la política completa en las [preguntas frecuentes oficiales](https://aws.amazon.com/certification/faqs/).
+El plazo para volver a rendir y el pago de un nuevo intento se rigen por la política de AWS vigente. Consulta las [preguntas frecuentes oficiales](https://aws.amazon.com/certification/faqs/) y la política [después del examen](https://aws.amazon.com/certification/policies/after-testing/) antes de reservar otro intento.
 
 ### ¿El curso o simulacro me da la certificación?
 

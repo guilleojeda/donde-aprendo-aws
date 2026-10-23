@@ -4,7 +4,7 @@ description: "Compara Cloud Practitioner, AI Practitioner y certificaciones Asso
 author: "guille-ojeda"
 publishedAt: "2024-01-24"
 publishedTimestamp: "2024-01-24T01:43:07.262Z"
-modifiedTimestamp: "2026-10-05T20:31:27-03:00"
+modifiedTimestamp: "2026-10-22T16:27:58-03:00"
 review:
   date: "2026-10-05"
 cover: "/assets/blog/editorial-certificacion.png"
@@ -31,13 +31,13 @@ Si llegaste buscando un «curso AWS con certificado», revisa [qué acredita cad
 
 ## Qué examen considerar según tu objetivo
 
-La siguiente comparación reúne opciones para una primera elección, no un orden obligatorio ni todo el catálogo. Los códigos corresponden a las [guías oficiales disponibles](https://docs.aws.amazon.com/aws-certification/latest/examguides/), revisadas para este artículo en octubre de 2026.
+La siguiente comparación reúne opciones para una primera elección, no un orden obligatorio ni todo el catálogo. Los códigos corresponden a las [guías oficiales disponibles](https://docs.aws.amazon.com/aws-certification/latest/examguides/), revisadas para este artículo en octubre de 2026. Para recorrer la oferta completa, consulta el [mapa de certificaciones AWS](/aprender/certificaciones/#certificaciones-mapa).
 
 | Si tu objetivo es… | Opción para evaluar | Qué distingue su alcance |
 |---|---|---|
-| Entender los servicios principales, seguridad y costos de AWS | [Cloud Practitioner, CLF-C02](https://aws.amazon.com/es/certification/certified-cloud-practitioner/) | Conocimiento general, independiente de un rol técnico específico |
-| Comprender IA, aprendizaje automático e IA generativa en AWS | [AI Practitioner, AIF-C01](https://aws.amazon.com/es/certification/certified-ai-practitioner/) | Conceptos y casos de uso; no equivale a ingeniería de modelos |
-| Diseñar soluciones y comparar alternativas | [Solutions Architect – Associate, SAA-C03](https://aws.amazon.com/es/certification/certified-solutions-architect-associate/) | Decisiones de arquitectura según necesidades de seguridad, disponibilidad, rendimiento y costo |
+| Entender los servicios principales, seguridad y costos de AWS | [Cloud Practitioner, CLF-C02](https://aws.amazon.com/es/certification/certified-cloud-practitioner/). Consulta la [guía de preparación de AWS Cloud Practitioner (CLF-C02)](/aprender/certificaciones/cloud-practitioner/). | Conocimiento general, independiente de un rol técnico específico |
+| Comprender IA, aprendizaje automático e IA generativa en AWS | [AI Practitioner, AIF-C01](https://aws.amazon.com/es/certification/certified-ai-practitioner/). Consulta la [guía de preparación de AWS AI Practitioner (AIF-C01)](/aprender/certificaciones/ai-practitioner/). | Conceptos y casos de uso; no equivale a ingeniería de modelos |
+| Diseñar soluciones y comparar alternativas | [Solutions Architect – Associate, SAA-C03](https://aws.amazon.com/es/certification/certified-solutions-architect-associate/). Consulta la [guía de preparación de AWS Solutions Architect Associate (SAA-C03)](/aprender/certificaciones/solutions-architect-associate/). | Decisiones de arquitectura según necesidades de seguridad, disponibilidad, rendimiento y costo |
 | Crear, desplegar y depurar aplicaciones | [Developer – Associate, DVA-C02](https://aws.amazon.com/es/certification/certified-developer-associate/) | Desarrollo y mantenimiento de aplicaciones en AWS |
 | Implementar, monitorear y operar cargas de trabajo | [CloudOps Engineer – Associate, SOA-C03](https://aws.amazon.com/es/certification/certified-cloudops-engineer-associate/) | Operaciones, redes, seguridad, continuidad y optimización |
 | Implementar y mantener procesos de datos | [Data Engineer – Associate, DEA-C01](https://aws.amazon.com/es/certification/certified-data-engineer-associate/) | Canalizaciones, almacenamiento, calidad, operación y seguridad de datos |
@@ -75,11 +75,11 @@ Professional y Specialty pueden corresponder a personas con experiencia avanzada
 
 ## Idioma, modalidad y presupuesto también importan
 
-Puedes estudiar con una comunidad en español aunque el examen de tu rol no esté disponible en ese idioma. Confirma esto antes de invertir tiempo: **Cloud Practitioner, AI Practitioner y Solutions Architect – Associate ofrecen español de Latinoamérica y de España; Developer – Associate ofrece español de Latinoamérica. CloudOps no ofrece español actualmente.** Revisa la ficha de cada examen para el resto de las opciones.
+Puedes estudiar con una comunidad en español aunque el examen de tu rol no esté disponible en ese idioma. Los idiomas del examen, el formato y los datos para reservar dependen de cada credencial y pueden cambiar; consulta la información vigente de [Cloud Practitioner (CLF-C02)](/aprender/certificaciones/cloud-practitioner/), [AI Practitioner (AIF-C01)](/aprender/certificaciones/ai-practitioner/) o [Solutions Architect Associate (SAA-C03)](/aprender/certificaciones/solutions-architect-associate/) según tu elección. Para otras certificaciones, revisa la ficha oficial de AWS.
 
 El idioma del examen y el idioma de la supervisión en línea son elecciones distintas. AWS ofrece [centros Pearson VUE y exámenes supervisados en línea](https://aws.amazon.com/certification/certification-prep/testing/); la disponibilidad de citas y los requisitos del proveedor también cuentan.
 
-Los [precios base publicados por AWS](https://aws.amazon.com/es/certification/policies/before-testing/) son **100 USD para Foundational y Business, 150 USD para Associate y 300 USD para Professional o Specialty**. Pueden aplicarse impuestos; AWS publica importes para algunas monedas locales. Confirma el total al reservar, en lugar de convertir por tu cuenta un precio en dólares y asumir que será el cargo final. Los exámenes beta pueden tener condiciones distintas.
+El precio base depende del examen; pueden aplicarse impuestos y AWS publica importes en algunas monedas locales. Confirma el total en las [políticas oficiales para candidatos](https://aws.amazon.com/es/certification/policies/before-testing/) y al reservar, sin asumir que una conversión de moneda será el cargo final. Las fichas de [Cloud Practitioner (CLF-C02)](/aprender/certificaciones/cloud-practitioner/), [AI Practitioner (AIF-C01)](/aprender/certificaciones/ai-practitioner/) y [Solutions Architect Associate (SAA-C03)](/aprender/certificaciones/solutions-architect-associate/) reúnen el precio de referencia de cada examen.
 
 Puedes empezar a estudiar con los [materiales gratuitos en español](/blog/certificacion-aws-gratis-materiales-de-estudio/) y organizarte con el [plan de preparación sin pagar cursos](/blog/certificacion-de-aws-preparacion-sin-costo/). El curso, la práctica en infraestructura y el examen son gastos separados. Un descuento o cupón solo cuenta cuando sus condiciones se aplican a tu caso.
 
@@ -91,11 +91,7 @@ Al 5 de octubre de 2026, **[El camino para certificarte con AWS](https://www.mee
 
 ## Vigencia y recertificación: considera el mantenimiento
 
-Las certificaciones AWS tienen **tres años de validez**. La [página oficial de recertificación](https://aws.amazon.com/es/certification/recertification/) distingue renovar por tres años de mantener determinadas credenciales un año adicional mediante actividades específicas de Skill Builder con suscripción.
-
-Para Cloud Practitioner, AWS publica la opción gratuita **Cloud Quest: Recertify Cloud Practitioner**, volver a aprobar el examen o aprobar un Associate o Professional. Para otras credenciales, existen combinaciones específicas: Solutions Architect – Professional puede recertificar Solutions Architect – Associate; DevOps Engineer – Professional puede recertificar Developer y CloudOps/SysOps. No cualquier examen superior renueva cualquier credencial.
-
-Debes tener la certificación vigente para usar sus opciones de renovación o mantenimiento. Comprueba los requisitos exactos de la tuya antes de que venza; terminar cursos ordinarios no crea por sí solo una recertificación.
+El período de vigencia y las opciones para renovar o mantener una credencial dependen de la certificación y de las reglas de AWS vigentes. Antes de inscribirte, y de nuevo cuando se acerque el vencimiento, consulta la ficha de [Cloud Practitioner (CLF-C02)](/aprender/certificaciones/cloud-practitioner/), [AI Practitioner (AIF-C01)](/aprender/certificaciones/ai-practitioner/) o [Solutions Architect Associate (SAA-C03)](/aprender/certificaciones/solutions-architect-associate/) y la [información oficial de recertificación](https://aws.amazon.com/es/certification/recertification/). Terminar cursos ordinarios no crea por sí solo una recertificación.
 
 ## Preguntas frecuentes
 

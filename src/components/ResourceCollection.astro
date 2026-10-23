@@ -6,6 +6,7 @@ import Directory from './Directory.astro';
 import CollectionNavigation from './CollectionNavigation.astro';
 import CollectionGuide from './CollectionGuide.astro';
 import PageFaq from './PageFaq.astro';
+import CertificationMap from './CertificationMap.astro';
 import { loadSiteCatalog } from '../lib/site-catalog.mjs';
 import { RESOURCE_COLLECTIONS, groupCertificationResources, learningCollectionNavigation, lookupResourceCollection, resourceCollectionResources, resolveResourceCollectionFaq } from '../lib/resource-collections.mjs';
 import type { CatalogEvent, CatalogResource } from '../types/catalog';
@@ -31,6 +32,7 @@ interface Props {
 const { path } = Astro.props;
 const collection = lookupResourceCollection(path) as Collection | undefined;
 if (!collection) throw new Error(`Unknown resource collection: ${path}`);
+const isCertificationCollection = collection.id === 'certificaciones';
 const catalog = await loadSiteCatalog() as Array<CatalogResource | CatalogEvent>;
 const allResources = catalog.filter((record): record is CatalogResource => record.recordType !== 'event');
 const events = catalog.filter((record): record is CatalogEvent => record.recordType === 'event');
@@ -97,6 +99,12 @@ const canonical = `https://dondeaprendoaws.com${collection.path}`;
       {collection.earlyRoute && <p class="collection-route-callout">
         {collection.earlyRoute.text} <a href={collection.earlyRoute.path}>{collection.earlyRoute.label}<span aria-hidden="true"> →</span></a>
       </p>}
+      {isCertificationCollection && <CertificationMap />}
+      {isCertificationCollection && <section class="certification-library-intro" id="certificaciones-materiales" aria-labelledby="certification-library-title">
+        <p class="certification-detail__eyebrow">Biblioteca de recursos</p>
+        <h2 id="certification-library-title">Explorar materiales sobre certificaciones</h2>
+        <p>Busca guías, cursos, videos y otros materiales publicados. Revisa el examen y el nivel que cubren; las selecciones de preparación editorial se explican en las fichas de Cloud Practitioner, Solutions Architect Associate y AI Practitioner.</p>
+      </section>}
       {collection.kind === 'content'
         ? <CollectionNavigation links={[]} learningNavigation={learningCollectionNavigation(collection.path)} />
         : <CollectionNavigation links={siblingLinks} currentPath={collection.path} />}

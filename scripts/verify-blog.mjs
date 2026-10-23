@@ -30,6 +30,32 @@ const attributesOf = (tag) => {
   }
   return attributes;
 };
+const scriptElements = (html) => [...html.matchAll(/<script\b[^>]*>[\s\S]*?<\/script>/gi)].map((match) => {
+  const full = match[0];
+  const openTag = full.match(/^<script\b[^>]*>/i)?.[0] ?? '';
+  return { full, openTag, attributes: attributesOf(openTag) };
+});
+const assertThemeController = (html, path, expected) => {
+  const head = html.match(/<head\b[^>]*>[\s\S]*?<\/head>/i)?.[0] ?? '';
+  const controllers = scriptElements(html)
+    .filter(({ attributes }) => attributes.get('id') === 'site-theme-controller');
+  assert.equal(controllers.length, 1, `Exactly one shared theme controller: ${path}`);
+  const [element] = controllers;
+  assert.equal(element.attributes.get('id'), 'site-theme-controller', `Theme controller id: ${path}`);
+  assert.ok(head.includes(element.full), `Theme controller must stay in the head: ${path}`);
+  const type = element.attributes.get('type');
+  assert.ok(type === undefined || /^(?:text|application)\/javascript$/i.test(type),
+    `Theme controller must be a classic script: ${path}`);
+  assert.deepEqual([...element.attributes.keys()].sort(),
+    type === undefined ? ['id'] : ['id', 'type'], `Theme controller has only its shared inline-script attributes: ${path}`);
+  assert.equal(element.attributes.has('src'), false, `Theme controller is inline: ${path}`);
+  assert.equal(element.attributes.has('defer'), false, `Theme controller runs early: ${path}`);
+  assert.equal(element.attributes.has('async'), false, `Theme controller preserves document order: ${path}`);
+  if (expected !== undefined) {
+    assert.equal(element.full, expected, `Theme controller matches the shared 404 script: ${path}`);
+  }
+  return element;
+};
 const assertCoverImage = (card, { cover, coverAlt, label }) => {
   const imageTag = card.match(/<img\b[^>]*\/?\s*>/u)?.[0] ?? '';
   assert.ok(imageTag, `Cover image is missing: ${label}`);
@@ -250,9 +276,13 @@ const declaredRelatedCardCount = [...sourceBySlug.values()]
   .reduce((count, article) => count + (article.data.related?.length ?? 0), 0);
 assert.equal(relatedCardCount, declaredRelatedCardCount, 'Every declared related card must retain its destination, title, cover and alternative.');
 
-// Only the shared, built navigation module is permitted alongside article
-// structured data; scripts embedded in imported article bodies stay rejected.
-const navigationScripts = new Set([...index.matchAll(/<script\b[^>]*type="module"[^>]*>[\s\S]*?<\/script>/g)].map(([script]) => script));
+// Only the shared theme controller and navigation module are permitted
+// alongside structured data; scripts embedded in imported article bodies stay rejected.
+const sharedPage = read('index.html');
+const themeController = assertThemeController(sharedPage, 'index.html');
+
+const navigationScripts = new Set([...sharedPage.matchAll(/<script\b[^>]*type="module"[^>]*>[\s\S]*?<\/script>/g)]
+  .map(([script]) => script));
 assert.ok(navigationScripts.size > 0, 'Shared mobile navigation module is missing');
 const expectedNavigation = [['/', 'Inicio'], ['/aprender/', 'Aprender'], ['/recorridos/', 'Rutas'],
   ['/creadores/', 'Creadores'], ['/comunidades/', 'Comunidades'], ['/eventos/', 'Eventos'],
@@ -269,6 +299,7 @@ for (const html of allPages) {
   assert.deepEqual(noScriptLinks, expectedNavigation, 'No-JavaScript menu must preserve every shared destination and label.');
   assert.match(html, /aria-controls="site-menu"/, 'Mobile menu must control the shared navigation');
   assert.match(html, /aria-expanded="false"/, 'Mobile menu starts closed');
+  assertThemeController(html, 'blog page', themeController.full);
   if (production) {
     assert.doesNotMatch(html, /<meta name="robots" content="noindex, nofollow"/);
   } else {
@@ -277,15 +308,19 @@ for (const html of allPages) {
   assert.doesNotMatch(html, /(?:unicornplatform\.com|seobotai\.com|mars-images\.imgix\.net|googletagmanager\.com)/i);
   assert.doesNotMatch(html, /<a\b[^>]*href="\s*javascript:/i);
   assert.doesNotMatch(html, /\son[a-z]+\s*=/i);
-  for (const [script, attributes] of html.matchAll(/<script\b([^>]*)>[\s\S]*?<\/script>/gi)) {
-    if (production && /\bsrc="\/assets\/analytics\.js"/.test(attributes)) {
+  for (const { full: script, openTag, attributes } of scriptElements(html)) {
+    if (production && /\bsrc="\/assets\/analytics\.js"/.test(openTag)) {
       continue;
     }
-    if (/\btype="module"/.test(attributes)) {
+    if (attributes.get('id') === 'site-theme-controller') {
+      assert.equal(script, themeController.full, 'Theme controller matches the shared early script');
+      continue;
+    }
+    if (/\btype="module"/.test(openTag)) {
       assert.ok(navigationScripts.has(script), 'Blog module must be the same built navigation used outside articles');
       continue;
     }
-    assert.match(attributes, /\btype="application\/ld\+json"/, 'Inline blog scripts must be inert structured data.');
+    assert.match(openTag, /\btype="application\/ld\+json"/, 'Inline blog scripts must be inert structured data.');
   }
   for (const [, src] of html.matchAll(/<iframe\b[^>]*\bsrc="([^"]+)"/gi)) {
     assert.match(src, /^https:\/\/www\.youtube(?:-nocookie)?\.com\/embed\//, `Unexpected video embed: ${src}`);

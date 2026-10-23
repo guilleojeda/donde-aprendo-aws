@@ -14,7 +14,10 @@ const resourceLinks = [
     <div class="site-footer__top">
       <div class="site-footer__column site-footer__info">
         <a class="site-footer__brand" href="/" aria-label="Inicio: ¿Dónde Aprendo AWS?">
-          <img src="/assets/site-logo.svg" alt="" width="30" height="36" />
+          <span class="site-brand__mark" aria-hidden="true">
+            <img class="site-logo--light" src="/assets/site-logo.svg" alt="" width="30" height="36" />
+            <img class="site-logo--dark" src="/assets/site-logo-white.svg" alt="" width="30" height="36" />
+          </span>
           <span>¿Dónde Aprendo AWS?</span>
         </a>
         <p>Dónde Aprendo AWS reúne recursos en español, creadores, comunidades y eventos para aprender Amazon Web Services.</p>
@@ -22,7 +25,7 @@ const resourceLinks = [
           <li><a href="/aprender/cursos/">Cursos AWS</a></li>
           <li><a href="/recorridos/">Rutas de aprendizaje</a></li>
           <li><a href="/comunidades/">Comunidades por país</a></li>
-          <li><a href="/eventos/">Próximos eventos</a></li>
+          <li><a href="/eventos/" data-event-agenda-route>Próximos eventos</a></li>
         </ul>
       </div>
       <div class="site-footer__column">

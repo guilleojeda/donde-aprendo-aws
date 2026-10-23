@@ -4,7 +4,7 @@ description: "Qué estudiar para AWS Certified Cloud Practitioner (CLF-C02): dom
 author: "guille-ojeda"
 publishedAt: "2024-01-28"
 publishedTimestamp: "2024-01-28T00:31:55.771Z"
-modifiedTimestamp: "2026-10-05T00:34:04-03:00"
+modifiedTimestamp: "2026-10-22T16:27:58-03:00"
 review:
   date: "2026-10-05"
   note: "Versión del examen y recursos revisados: CLF-C02."
@@ -25,9 +25,11 @@ related:
 
 La guía oficial del **AWS Certified Cloud Practitioner (CLF-C02)** define qué estudiar; un curso puede ayudarte a entenderlo y las preguntas de práctica muestran qué conviene repasar. A la fecha de esta revisión, AWS sigue publicando CLF-C02 como la versión vigente del examen.
 
-No necesitas completar un curso ni tener experiencia laboral previa para presentar el examen. AWS recomienda conocimientos y experiencia acordes con los objetivos, pero no establece requisitos previos para obtener sus certificaciones. Aquí encontrarás recursos en español y una forma de combinarlos sin estudiar cada curso ni cada grabación disponibles.
+La ficha de [AWS Certified Cloud Practitioner (CLF-C02)](/aprender/certificaciones/cloud-practitioner/) distingue el perfil recomendado de los requisitos formales para rendir. Aquí encontrarás recursos en español y una forma de combinarlos sin estudiar cada curso ni cada grabación disponibles.
 
 **Para empezar hoy:** descarga la [guía oficial del CLF-C02 en español, en PDF](https://docs.aws.amazon.com/es_es/aws-certification/latest/cloud-practitioner-02/cloud-practitioner-02.pdf) y marca los temas que todavía no puedes explicar. Puedes seguir el curso autoguiado oficial o estudiar con las [grabaciones del Cloud Practitioner Challenge de AWS User Group Medellín](https://www.youtube.com/playlist?list=PLhbdvasxz8wwO-b9nlRBYYzY6n5CvSOvj). Si estás comparando cursos y certificados de finalización, consulta también esta [guía para elegir un curso de AWS](https://dondeaprendoaws.com/blog/aws-curso-certificado-guia-basica/).
+
+Para consultar los datos vigentes del examen y una selección de preparación, abre la [guía de AWS Certified Cloud Practitioner (CLF-C02)](/aprender/certificaciones/cloud-practitioner/). Este artículo conserva su foco en los recursos en español y en cómo aprovecharlos.
 
 ## Qué necesitas aprender para Cloud Practitioner
 
@@ -194,25 +196,9 @@ Lleva una duda concreta a esas conversaciones. “Entiendo que RDS administra pa
 
 ## Lo que debes saber antes de rendir
 
-Según la [ficha oficial de AWS Certified Cloud Practitioner](https://aws.amazon.com/es/certification/certified-cloud-practitioner/):
+La versión, el formato, la duración, las opciones de idioma y modalidad, la puntuación, el precio y la vigencia pueden cambiar. Consulta esos datos en la [guía de AWS Certified Cloud Practitioner (CLF-C02)](/aprender/certificaciones/cloud-practitioner/) y contrástalos con la [ficha oficial del examen](https://aws.amazon.com/es/certification/certified-cloud-practitioner/) y las [políticas para candidatos](https://aws.amazon.com/es/certification/policies/before-testing/) antes de reservar. La disponibilidad de citas depende del idioma, el horario y el proveedor.
 
-| Dato | Condición publicada |
-|---|---|
-| Versión del examen | CLF-C02 |
-| Duración | 90 minutos |
-| Preguntas | 65: 50 cuentan para el puntaje y 15 no tienen puntaje; opción única o respuesta múltiple |
-| Idioma | Disponible en español de Latinoamérica y de España |
-| Precio base | 100 USD por intento; pueden aplicarse impuestos |
-| Modalidad | Centro Pearson VUE o supervisión en línea |
-| Vigencia de la certificación | 3 años |
-
-La calificación mínima es **700 en una escala de 100 a 1000**. No equivale a una regla de “70% de respuestas correctas”: AWS utiliza una puntuación escalada. La guía explica el sistema de calificación y aclara que solo necesitas aprobar el puntaje total, no cada dominio por separado.
-
-Aunque AWS ofrece supervisión en línea, las citas disponibles dependen del idioma y el horario. La página de inscripción publica actualmente franjas específicas para Español (América Latina); revisa las opciones en Pearson VUE antes de pagar, sobre todo si quieres rendir en español de España.
-
-Estudiar con materiales gratuitos no incluye automáticamente el pago del examen. Comprueba los [precios y las condiciones de AWS](https://aws.amazon.com/es/certification/policies/before-testing/) al reservar.
-
-La certificación tiene una vigencia de **tres años**. Si ya la tienes, consulta las [opciones oficiales vigentes de renovación y mantenimiento](https://aws.amazon.com/certification/recertification/) y sus requisitos antes de que venza.
+Estudiar con materiales gratuitos no incluye el pago del examen. Comprueba el importe final y las condiciones de tu cita al inscribirte.
 
 ## Tu próximo paso
 

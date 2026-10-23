@@ -31,9 +31,18 @@ SYNC_OWNED_FIELDS = (
     'recordType', 'title', 'description', 'startsAt', 'endsAt', 'timeZone',
     'organizer', 'mode', 'registrationUrl', 'country', 'communityId',
     'published', 'sourceGroupId', 'sourceModifiedAt', 'autoSync', 'place',
-    'city',
+    'city', 'venueCountry',
 )
-OPTIONAL_SYNC_FIELDS = ('place', 'city')
+OPTIONAL_SYNC_FIELDS = ('place', 'city', 'venueCountry')
+PUBLISHABLE_EVENT_STATUSES = frozenset((
+    'https://schema.org/EventScheduled',
+    'https://schema.org/EventRescheduled',
+))
+NONPUBLISHABLE_EVENT_STATUSES = frozenset((
+    'https://schema.org/EventCancelled',
+    'https://schema.org/EventMovedOnline',
+    'https://schema.org/EventPostponed',
+))
 
 
 class JsonLdScripts(HTMLParser):
@@ -89,32 +98,58 @@ def unfold_ical(text):
 
 def parse_feed(text, group):
     lines = unfold_ical(text)
-    if not lines or lines[0] != 'BEGIN:VCALENDAR' or 'END:VCALENDAR' not in lines:
+    while lines and lines[-1] == '':
+        lines.pop()
+    if not lines or lines[0] != 'BEGIN:VCALENDAR' or lines[-1] != 'END:VCALENDAR':
         raise ValueError(f'Invalid iCalendar feed for {group["id"]}')
     events = []
+    components = []
+    calendar_seen = False
     current = None
     for line in lines:
-        if line == 'BEGIN:VEVENT':
-            current = {}
-        elif line == 'END:VEVENT' and current is not None:
-            uid = current.get('UID', '')
-            match = re.fullmatch(r'event_(\d+)@meetup\.com', uid)
-            url = current.get('URL', '')
-            parsed = urlparse(url)
-            expected_slug = urlparse(group['url']).path.strip('/')
-            if not match or parsed.scheme != 'https' or parsed.hostname != MEETUP_HOST \
-                    or not re.fullmatch(rf'/{re.escape(expected_slug)}/events/{match.group(1)}/?', parsed.path, re.I):
-                raise ValueError(f'Invalid Meetup event in feed of {group["id"]}')
-            modified = current.get('LAST-MODIFIED') or sha256(
-                json.dumps(current, sort_keys=True).encode('utf-8')).hexdigest()
-            event = {'id': match.group(1), 'url': url, 'modified': modified}
-            if current.get('STATUS') == 'CANCELLED':
-                event['cancelled'] = True
-            events.append(event)
-            current = None
+        if line.startswith('BEGIN:'):
+            component = line[len('BEGIN:'):]
+            if not components:
+                if line != 'BEGIN:VCALENDAR' or calendar_seen:
+                    raise ValueError(f'Invalid iCalendar feed for {group["id"]}')
+                calendar_seen = True
+            elif component == 'VCALENDAR':
+                raise ValueError(f'Invalid iCalendar feed for {group["id"]}')
+            elif component == 'VEVENT':
+                if components != ['VCALENDAR']:
+                    raise ValueError(f'Invalid iCalendar feed for {group["id"]}')
+                current = {}
+            components.append(component)
+        elif line.startswith('END:'):
+            component = line[len('END:'):]
+            if not components or components[-1] != component:
+                raise ValueError(f'Invalid iCalendar feed for {group["id"]}')
+            if component == 'VCALENDAR' and (components != ['VCALENDAR'] or current is not None):
+                raise ValueError(f'Invalid iCalendar feed for {group["id"]}')
+            if component == 'VEVENT':
+                if components != ['VCALENDAR', 'VEVENT'] or current is None:
+                    raise ValueError(f'Invalid iCalendar feed for {group["id"]}')
+                uid = current.get('UID', '')
+                match = re.fullmatch(r'event_(\d+)@meetup\.com', uid)
+                url = current.get('URL', '')
+                parsed = urlparse(url)
+                expected_slug = urlparse(group['url']).path.strip('/')
+                if not match or parsed.scheme != 'https' or parsed.hostname != MEETUP_HOST \
+                        or not re.fullmatch(rf'/{re.escape(expected_slug)}/events/{match.group(1)}/?', parsed.path, re.I):
+                    raise ValueError(f'Invalid Meetup event in feed of {group["id"]}')
+                modified = current.get('LAST-MODIFIED') or sha256(
+                    json.dumps(current, sort_keys=True).encode('utf-8')).hexdigest()
+                event = {'id': match.group(1), 'url': url, 'modified': modified}
+                if current.get('STATUS') == 'CANCELLED':
+                    event['cancelled'] = True
+                events.append(event)
+                current = None
+            components.pop()
         elif current is not None and ':' in line:
             key, value = line.split(':', 1)
             current[key.split(';', 1)[0]] = value
+    if components or not calendar_seen:
+        raise ValueError(f'Invalid iCalendar feed for {group["id"]}')
     return events
 
 
@@ -146,10 +181,46 @@ def clean_description(value):
     return text[:240].rstrip()
 
 
-def map_event(group, entry, page):
-    if page.get('eventStatus') not in ('https://schema.org/EventScheduled',
-                                       'https://schema.org/EventRescheduled'):
+def venue_country_code(value, event_id):
+    if value is None:
         return None
+    if isinstance(value, str):
+        candidates = [value]
+        has_value = bool(value.strip())
+    elif isinstance(value, dict):
+        candidates = [value.get('identifier'), value.get('name')]
+        has_candidate_value = any(candidate is not None and not (
+            isinstance(candidate, str) and not candidate.strip()
+        ) for candidate in candidates)
+        country_type = value.get('@type')
+        has_unknown_metadata = bool(set(value) - {'@type', 'identifier', 'name'})
+        has_non_country_type = country_type not in (None, 'Country')
+        has_value = has_candidate_value or has_unknown_metadata or has_non_country_type
+    else:
+        raise ValueError(f'Invalid address country for event {event_id}')
+
+    for candidate in candidates:
+        if isinstance(candidate, str):
+            code = candidate.strip()
+            if re.fullmatch(r'[A-Za-z]{2}', code, re.ASCII):
+                return code.upper()
+    if not has_value:
+        return None
+    raise ValueError(f'Invalid address country for event {event_id}')
+
+
+def map_event(group, entry, page):
+    event_status = page.get('eventStatus')
+    if not isinstance(event_status, str):
+        raise ValueError(f'Missing or invalid event status: {entry["id"]}')
+    if event_status in NONPUBLISHABLE_EVENT_STATUSES:
+        return None
+    if event_status not in PUBLISHABLE_EVENT_STATUSES:
+        raise ValueError(f'Unknown event status: {entry["id"]}')
+    name = page.get('name')
+    title = re.sub(r'^[\s\ufeff]+|[\s\ufeff]+$', '', name) if isinstance(name, str) else ''
+    if not title:
+        raise ValueError(f'Missing or invalid event title: {entry["id"]}')
     start = datetime.fromisoformat(page['startDate'])
     end = datetime.fromisoformat(page['endDate'])
     if start.tzinfo is None or end.tzinfo is None or end <= start:
@@ -162,24 +233,29 @@ def map_event(group, entry, page):
     }.get(attendance)
     if mode is None:
         raise ValueError(f'Unknown event mode: {entry["id"]}')
-    location = page.get('location') or {}
-    if isinstance(location, list):
-        location = next((item for item in location if item.get('@type') == 'Place'), {})
-    address = location.get('address') or {}
-    if not isinstance(address, dict):
-        address = {}
-    place = ', '.join(dict.fromkeys(part.strip() for part in [
-        location.get('name') or '', address.get('streetAddress') or '',
-    ] if isinstance(part, str) and part.strip()))
-    locality = address.get('addressLocality')
-    city = locality.strip() if isinstance(locality, str) else ''
-    if (len(city) > 100 or re.search(r'[\x00-\x1f\x7f]', city)
-            or city.casefold() in {'tbd', 'to be determined', 'por definir', 'online', 'en línea'}):
-        city = ''
+    place = ''
+    city = ''
+    venue_country = None
+    if mode != 'online':
+        location = page.get('location') or {}
+        if isinstance(location, list):
+            location = next((item for item in location if item.get('@type') == 'Place'), {})
+        address = location.get('address') or {}
+        if not isinstance(address, dict):
+            address = {}
+        venue_country = venue_country_code(address.get('addressCountry'), entry['id'])
+        place = ', '.join(dict.fromkeys(part.strip() for part in [
+            location.get('name') or '', address.get('streetAddress') or '',
+        ] if isinstance(part, str) and part.strip()))
+        locality = address.get('addressLocality')
+        city = locality.strip() if isinstance(locality, str) else ''
+        if (len(city) > 100 or re.search(r'[\x00-\x1f\x7f]', city)
+                or city.casefold() in {'tbd', 'to be determined', 'por definir', 'online', 'en línea'}):
+            city = ''
     record = {
         'recordType': 'event',
         'id': f'meetup-event-{entry["id"]}',
-        'title': page['name'].strip(),
+        'title': title,
         'description': clean_description(page.get('description')),
         'startsAt': start.isoformat(timespec='seconds'),
         'endsAt': end.isoformat(timespec='seconds'),
@@ -198,6 +274,8 @@ def map_event(group, entry, page):
         record['place'] = place or 'Consulta el lugar en Meetup'
         if city:
             record['city'] = city
+        if venue_country:
+            record['venueCountry'] = venue_country
     return record
 
 
@@ -231,7 +309,7 @@ def timezone_from_feed(group):
     text = get_text(group_feed_url(group))
     events = parse_feed(text, group)
     match = re.search(r'^TZID:([^\r\n]+)', text, re.M)
-    if events and not match:
+    if any(not event.get('cancelled') for event in events) and not match:
         raise ValueError(f'Missing timezone in feed of {group["id"]}')
     group['timeZone'] = match.group(1) if match else None
     if group['timeZone']:

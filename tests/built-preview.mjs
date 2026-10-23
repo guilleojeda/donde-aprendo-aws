@@ -97,7 +97,7 @@ test('the built mixed preview serves prerendered routes and runtime routes over 
   const canonicalEventDetail = await fetch(new URL('/eventos/argentina/?from=preview', baseUrl));
   assert.equal(canonicalEventDetail.status, 200);
   assert.match(canonicalEventDetail.headers.get('content-type') ?? '', /^text\/html(?:;|$)/u);
-  assert.match(await canonicalEventDetail.text(), /<h1>Eventos AWS en Argentina<\/h1>/u);
+  assert.match(await canonicalEventDetail.text(), /<h1\b[^>]*>Eventos AWS en Argentina<\/h1>/u);
 
   const calendar = await fetch(new URL(calendarPath, baseUrl), { redirect: 'manual' });
   assert.equal(calendar.status, 200);

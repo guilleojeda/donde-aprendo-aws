@@ -1,9 +1,61 @@
 import { directoryGroupMembership, directoryListEntries, filterResources, sortResources } from '../lib/directory-filter.mjs';
 import { parseDirectorySearch, resetDirectorySearchForReveal, serializeDirectorySearch } from '../lib/directory-url.mjs';
 import { COUNTRY_LABELS, LEVEL_LABELS } from '../lib/resource-discovery.mjs';
+import { positionDirectoryOverlay } from './directory-overlay.js';
 
 const controls = document.querySelector('[data-directory-controls]');
 const list = document.querySelector('[data-resource-list]');
+
+const disclosures = [
+  ...document.querySelectorAll('[data-filter-disclosure]'),
+  ...document.querySelectorAll('[data-directory-route-disclosure]'),
+];
+const isThemeToggle = (target) => Boolean(target?.closest?.('[data-theme-toggle]'));
+
+const positionOpenDisclosures = () => disclosures.forEach(positionDirectoryOverlay);
+
+for (const disclosure of disclosures) {
+  disclosure.dataset.directoryOverlayReady = '';
+  disclosure.addEventListener('toggle', () => {
+    if (disclosure.open) requestAnimationFrame(() => positionDirectoryOverlay(disclosure));
+  });
+}
+
+if (disclosures.length) {
+  document.addEventListener('focusout', (event) => {
+    for (const disclosure of disclosures) {
+      if (!disclosure.open || (!disclosure.contains(event.target) && !isThemeToggle(event.target))) continue;
+      if (!disclosure.contains(event.relatedTarget) && !isThemeToggle(event.relatedTarget)) disclosure.open = false;
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    const openDisclosures = disclosures.filter((disclosure) => disclosure.open);
+    if (!openDisclosures.length) return;
+
+    const focusedDisclosure = openDisclosures.find((disclosure) => disclosure.contains(event.target));
+    if (focusedDisclosure) {
+      event.preventDefault();
+      event.stopPropagation();
+      focusedDisclosure.open = false;
+      focusedDisclosure.querySelector('summary')?.focus();
+      return;
+    }
+
+    for (const disclosure of openDisclosures) disclosure.open = false;
+  }, { capture: true });
+
+  document.addEventListener('click', (event) => {
+    if (isThemeToggle(event.target)) return;
+    for (const disclosure of disclosures) {
+      if (disclosure.open && !disclosure.contains(event.target)) disclosure.open = false;
+    }
+  });
+
+  window.addEventListener('resize', positionOpenDisclosures);
+  window.addEventListener('scroll', positionOpenDisclosures, true);
+}
 
 if (controls && list) {
   const search = controls.querySelector('[data-resource-search]');
@@ -79,10 +131,6 @@ if (controls && list) {
       if (select) select.value = state[field];
     }
     if (sortSelect) sortSelect.value = state.sort;
-    if (controls.querySelector('[data-filter-disclosure]')
-      && (state.format || state.topic || state.country || state.level)) {
-      controls.querySelector('[data-filter-disclosure]').open = true;
-    }
   };
 
   const update = () => {
@@ -123,6 +171,14 @@ if (controls && list) {
       const remaining = matching.length - limit;
       showMoreWrap.hidden = remaining <= 0;
       showMore.textContent = `Mostrar ${Math.min(pageSize, Math.max(0, remaining))} más`;
+    }
+    const filterDisclosure = controls.querySelector('[data-filter-disclosure]');
+    const filterSummary = filterDisclosure?.querySelector('summary');
+    if (filterSummary) {
+      const label = filterSummary.dataset.filterSummaryLabel || 'Filtros';
+      const activeFacets = [...filterDisclosure.querySelectorAll('select')]
+        .filter((select) => select.value !== '').length;
+      filterSummary.textContent = activeFacets ? `${label} (${activeFacets})` : label;
     }
     return matching;
   };

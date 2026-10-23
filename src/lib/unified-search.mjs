@@ -1,4 +1,5 @@
 import { eventHref, resourceHref } from './catalog-routes.mjs';
+import { effectiveEventLocation } from './event-location.mjs';
 import { normalizeSearch } from './directory-filter.mjs';
 import { uniqueUpcomingEvents } from './events.mjs';
 import { communityCountryPages } from './community-country-pages.mjs';
@@ -75,20 +76,31 @@ export function buildSearchIndex(posts, catalog, learningPaths = [], landingPage
       search: markdownHeadings(post.body),
     }));
 
-  const visibleEvents = new Set(uniqueUpcomingEvents(catalog.filter((record) => record.recordType === 'event')));
+  const eventRecords = catalog.filter((record) => record.recordType === 'event');
+  const communityById = new Map(catalog.filter((record) => record.kind === 'community')
+    .map((community) => [community.id, community]));
+  const visibleEvents = new Set(uniqueUpcomingEvents(eventRecords, undefined, communityById));
   const countryPages = communityCountryPages(catalog);
   const records = catalog.filter((record) => record.recordType !== 'event' || visibleEvents.has(record))
-    .map((record) => record.recordType === 'event'
-    ? {
-        type: 'event',
-        title: record.title,
-        description: record.description,
-        url: eventHref(record, countryPages, catalog),
-        meta: record.organizer,
-        metadata: [record.place, record.city, record.country].filter(Boolean).join(' '),
-        endsAt: record.endsAt,
+    .map((record) => {
+      if (record.recordType === 'event') {
+        const location = effectiveEventLocation(record, communityById);
+        return {
+          type: 'event',
+          title: record.title,
+          description: record.description,
+          url: eventHref(record, countryPages, catalog, communityById),
+          meta: record.organizer,
+          metadata: [...new Set([
+          record.place,
+          location.city || record.city,
+          location.country,
+          record.country,
+          ].filter(Boolean))].join(' '),
+          endsAt: record.endsAt,
+        };
       }
-    : {
+      return {
         type: record.kind,
         title: record.title,
         description: record.description,
@@ -96,7 +108,8 @@ export function buildSearchIndex(posts, catalog, learningPaths = [], landingPage
         meta: record.format,
         topics: [record.category, ...record.topics].filter(Boolean),
         metadata: [record.country, record.level].filter(Boolean).join(' '),
-      });
+      };
+    });
 
   const paths = learningPaths.map((path) => ({
     type: 'path',

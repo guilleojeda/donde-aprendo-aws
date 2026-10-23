@@ -25,7 +25,8 @@
     "country": "PE",
     "order": 8,
     "featured": false,
-    "published": true
+    "published": true,
+    "city": "Lima"
   },
   {
     "id": "fixture-community-argentina",
@@ -39,7 +40,8 @@
     "country": "AR",
     "order": 7,
     "featured": false,
-    "published": true
+    "published": true,
+    "city": "Córdoba"
   },
   {
     "id": "fixture-student-argentina",
@@ -67,7 +69,8 @@
     "country": "CO",
     "order": 5,
     "featured": false,
-    "published": true
+    "published": true,
+    "city": "Bogotá"
   },
   {
     "id": "fixture-community-costa-rica",
@@ -213,7 +216,8 @@
     "country": "CO",
     "communityId": "fixture-student-colombia",
     "registrationUrl": "https://example.com/encuentro?source=fixture",
-    "published": true
+    "published": true,
+    "venueCountry": "PE"
   },
   {
     "recordType": "event",
@@ -257,6 +261,22 @@
     "country": "AR",
     "communityId": "fixture-community-argentina",
     "registrationUrl": "https://example.com/evento/pasado-argentina",
+    "published": true
+  },
+  {
+    "recordType": "event",
+    "id": "fixture-past-unrecorded",
+    "title": "Taller anterior de AWS en Lima",
+    "description": "Evento público finalizado sin grabación.",
+    "startsAt": "2025-09-12T18:00:00-05:00",
+    "endsAt": "2025-09-12T20:00:00-05:00",
+    "timeZone": "America/Lima",
+    "organizer": "Comunidad de ejemplo",
+    "mode": "hybrid",
+    "place": "Auditorio de prueba",
+    "country": "PE",
+    "communityId": "fixture-community",
+    "registrationUrl": "https://example.com/evento/pasado-sin-grabacion",
     "published": true
   }
 ]

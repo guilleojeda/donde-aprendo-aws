@@ -7,7 +7,7 @@ import sharp from 'sharp';
 const candidateWidths = [360, 640, 720, 960, 1280, 1360, 1920];
 const responsiveAssetDirectory = 'assets/responsive-images';
 const imagePipelineVersion = 'responsive-images-v2-q90-webp10-byte-ceiling';
-const blogCardSizes = '(max-width: 600px) calc(100vw - 48px), (max-width: 900px) calc((100vw - 72px) / 2), (max-width: 1232px) calc((100vw - 96px) / 3), 379px';
+const blogCardSizes = '200px';
 const blogArticleBodySizes = '(max-width: 600px) calc(100vw - 32px), (max-width: 728px) calc(100vw - 48px), 680px';
 
 const decodeAttribute = (value) => value
