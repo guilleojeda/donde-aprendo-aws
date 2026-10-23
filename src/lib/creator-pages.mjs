@@ -1070,7 +1070,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
 
   async function route(request, principal) {
     const url = new URL(request.url);
-    const path = url.pathname;
+    const path = url.pathname.replace(/\/$/, '');
 
     if (path === '/api/creador/perfil') {
       if (request.method === 'GET') return jsonResponse(await creatorEditor(principal));

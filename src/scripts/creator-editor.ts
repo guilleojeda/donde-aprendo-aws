@@ -70,7 +70,7 @@ async function api(path: string, method: string, body?: unknown): Promise<Respon
   if (serializedBody !== undefined && new TextEncoder().encode(serializedBody).byteLength > MAX_REQUEST_BYTES) {
     throw new Error(REQUEST_TOO_LARGE);
   }
-  return fetch(path, {
+  return fetch(`${path.replace(/\/$/, '')}/`, {
     method,
     credentials: 'same-origin',
     headers: {
