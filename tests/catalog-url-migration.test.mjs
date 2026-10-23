@@ -94,3 +94,63 @@ test('refuses mutation outside the target AWS account', async () => {
     getCallerIdentity: async () => ({ Account: '000000000000' }),
   }), /account guard failed/);
 });
+
+test('bounds migration concurrency, drains on error, and resumes partial writes idempotently', async () => {
+  const seed = Array.from({ length: 12 }, (_, index) => ({
+    id: `legacy-${String(index).padStart(2, '0')}`,
+    url: `https://example.test/resource/${index}`,
+    published: index % 2 === 0,
+  }));
+  const table = catalogTable(seed, 50);
+  let active = 0;
+  let peakActive = 0;
+  let reservationPutsStarted = 0;
+  const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+  const track = async (operation, milliseconds) => {
+    active += 1;
+    peakActive = Math.max(peakActive, active);
+    try {
+      await delay(milliseconds);
+      return await operation();
+    } finally {
+      active -= 1;
+    }
+  };
+  const firstRunAccess = {
+    ...table,
+    updateItem: (params) => track(() => table.updateItem(params), 4),
+    getItem: (params) => track(() => table.getItem(params), 2),
+    putItem: (params) => {
+      reservationPutsStarted += 1;
+      if (params.Item.url === 'https://example.test/resource/3') {
+        return track(async () => { throw new Error('injected reservation failure'); }, 1);
+      }
+      return track(() => table.putItem(params), 12);
+    },
+  };
+
+  await assert.rejects(
+    migrateCatalogUrlReservations({ tableName: 'catalog', ...firstRunAccess }),
+    (error) => {
+      assert.match(error.message, /injected reservation failure/);
+      assert.equal(active, 0, 'migration waits for all in-flight requests before rejecting');
+      return true;
+    },
+  );
+  assert.equal(peakActive, 8, 'migration runs at the configured concurrency limit');
+  assert.equal(reservationPutsStarted, 8, 'no reservation writes start after the first error');
+  assert.equal(seed.every((item) => table.items.get(item.id).published === item.published), true);
+  assert.equal(seed.every((item) => table.items.get(item.id).version === 0), true);
+  const reservationsAfterFailure = [...table.items.values()].filter((item) => item.recordType === 'urlReservation');
+  assert.equal(reservationsAfterFailure.length, 7, 'successful in-flight writes remain safe to resume');
+
+  const resumed = await migrateCatalogUrlReservations({ tableName: 'catalog', ...table });
+  assert.equal(resumed.versionsBackfilled, 0);
+  assert.equal(resumed.reservationsWritten, 5);
+  assert.equal(resumed.reservationsVerified, seed.length);
+  assert.equal([...table.items.values()].filter((item) => item.recordType === 'urlReservation').length, seed.length);
+
+  const repeated = await migrateCatalogUrlReservations({ tableName: 'catalog', ...table });
+  assert.equal(repeated.reservationsWritten, 0);
+  assert.equal(repeated.versionsBackfilled, 0);
+});

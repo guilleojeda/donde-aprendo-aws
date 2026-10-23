@@ -5,6 +5,7 @@ import { currentUrlCollision, currentUrlReservation, currentUrlReservationId, cu
 import { DEFAULT_AWS_REGION, validateCatalogUrl } from '../src/lib/catalog.mjs';
 
 export const TARGET_ACCOUNT_ID = '719535286359';
+const MIGRATION_CONCURRENCY = 8;
 
 export function buildCatalogUrlInventory(items) {
   if (!Array.isArray(items)) throw new TypeError('Catalog migration inventory must be an array');
@@ -130,9 +131,7 @@ export async function migrateCatalogUrlReservations({ tableName, scanPage, getIt
   if (initial.hashCollisions.length > 0) {
     throw new Error(`SHA-256 URL key collision requires manual resolution: ${JSON.stringify(initial.hashCollisions)}`);
   }
-  let versionsBackfilled = 0;
-  let reservationsWritten = 0;
-  for (const id of initial.missingVersions) {
+  const backfills = await mapWithConcurrency(initial.missingVersions, async (id) => {
     try {
       await updateItem({
         TableName: tableName,
@@ -142,19 +141,21 @@ export async function migrateCatalogUrlReservations({ tableName, scanPage, getIt
         ExpressionAttributeNames: { '#id': 'id', '#version': 'version' },
         ExpressionAttributeValues: { ':zero': 0 },
       });
-      versionsBackfilled += 1;
+      return true;
     } catch (error) {
       if (!isConditionalConflict(error)) throw error;
       const current = await readItem(getItem, tableName, id);
       if (!current || !Number.isSafeInteger(current.version) || current.version < 0) {
         throw new Error(`Catalog migration could not backfill version for ${id}`, { cause: error });
       }
+      return false;
     }
-  }
+  });
+  const versionsBackfilled = backfills.filter(Boolean).length;
 
-  for (const expected of initial.reservations) {
+  const reservationWrites = await mapWithConcurrency(initial.reservations, async (expected) => {
     const current = await readItem(getItem, tableName, expected.id);
-    if (reservationMatches(current, expected)) continue;
+    if (reservationMatches(current, expected)) return false;
     if (current && !canReconcile(current, expected)) {
       throw new Error(`Catalog URL reservation ${expected.id} conflicts with the inventory; preserved existing data`);
     }
@@ -188,24 +189,26 @@ export async function migrateCatalogUrlReservations({ tableName, scanPage, getIt
       });
     try {
       await operation();
-      reservationsWritten += 1;
+      return true;
     } catch (error) {
       if (!isConditionalConflict(error)) throw error;
       const after = await readItem(getItem, tableName, expected.id);
       if (!reservationMatches(after, expected)) {
         throw new Error(`Catalog URL reservation ${expected.id} changed during migration`, { cause: error });
       }
+      return false;
     }
-  }
+  });
+  const reservationsWritten = reservationWrites.filter(Boolean).length;
 
   const final = buildCatalogUrlInventory(await scanCatalogMigrationItems(scanPage, tableName));
   if (final.missingVersions.length > 0) {
     throw new Error(`Catalog migration version coverage is incomplete for ${final.missingVersions.join(', ')}`);
   }
-  for (const expected of final.reservations) {
+  await mapWithConcurrency(final.reservations, async (expected) => {
     const actual = await readItem(getItem, tableName, expected.id);
     if (!reservationMatches(actual, expected)) throw new Error(`Catalog URL reservation coverage is incomplete for ${expected.url}`);
-  }
+  });
   const expectedReservationIds = new Set(final.reservations.map(({ id }) => id));
   for (const actual of final.reservationItems) {
     const expected = final.reservations.find(({ id }) => id === actual.id);
@@ -223,6 +226,36 @@ export async function migrateCatalogUrlReservations({ tableName, scanPage, getIt
     reservationsVerified: final.reservations.length,
     collisions: final.collisions,
   };
+}
+
+async function mapWithConcurrency(items, mapper, concurrency = MIGRATION_CONCURRENCY) {
+  if (items.length === 0) return [];
+  const results = new Array(items.length);
+  let nextIndex = 0;
+  let failed = false;
+  let firstError;
+
+  async function worker() {
+    while (!failed) {
+      const index = nextIndex;
+      nextIndex += 1;
+      if (index >= items.length) return;
+      try {
+        results[index] = await mapper(items[index], index);
+      } catch (error) {
+        if (!failed) {
+          failed = true;
+          firstError = error;
+        }
+        return;
+      }
+    }
+  }
+
+  const workerCount = Math.min(concurrency, items.length);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  if (failed) throw firstError;
+  return results;
 }
 
 function reservationMatches(actual, expected) {
