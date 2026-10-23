@@ -5,8 +5,9 @@ import test from 'node:test';
 import { communityCountryPages } from '../../src/lib/community-country-pages.mjs';
 import { RESOURCE_COLLECTIONS, groupCertificationResources, learningCollectionNavigation } from '../../src/lib/resource-collections.mjs';
 import { FORMATS_BY_KIND } from '../../src/lib/resource-taxonomy.mjs';
+import { siteOutputRoot } from '../../scripts/lib/site-output.mjs';
 
-const dist = resolve('dist');
+const dist = siteOutputRoot;
 const fixtureMode = process.env.DIRECTORY_ACCEPTANCE_FIXTURE_MODE ?? '';
 assert.ok(['', 'enriched', 'empty'].includes(fixtureMode),
   'DIRECTORY_ACCEPTANCE_FIXTURE_MODE must be omitted, "enriched", or "empty".');

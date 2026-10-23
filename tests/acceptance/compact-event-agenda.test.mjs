@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { join, relative, resolve } from 'node:path';
+import { join, relative } from 'node:path';
 import test from 'node:test';
+import { siteOutputRoot } from '../../scripts/lib/site-output.mjs';
 
 // These assertions inspect the public HTML. Geometry and native focus still
 // require direct verification in a browser.
-const dist = resolve('dist');
+const dist = siteOutputRoot;
 assert.ok(existsSync(join(dist, 'eventos/index.html')), 'Build the site before running agenda HTML acceptance.');
 const files = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
   const path = join(dir, entry.name);

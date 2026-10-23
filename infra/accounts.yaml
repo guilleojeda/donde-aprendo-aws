@@ -1,0 +1,250 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creator account authentication and private account storage
+Parameters:
+  CognitoDomainPrefix:
+    Type: String
+    Description: Globally unique Cognito prefix domain for the account user pool
+    AllowedPattern: '^(?!.*(?:aws|amazon|cognito))[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$'
+    ConstraintDescription: Use 1-63 lowercase letters, digits, and hyphens; start and end with a letter or digit, and exclude aws, amazon, and cognito.
+  SesFromAddress:
+    Type: String
+    Description: Verified sender address or display-name address for the SES identity in us-east-1
+  SesReplyToAddress:
+    Type: String
+    Description: Reply-to email address for account messages
+  SesSourceArn:
+    Type: String
+    Description: ARN of the verified SES email address or domain identity in us-east-1
+    AllowedPattern: '^arn:aws:ses:us-east-1:[0-9]{12}:identity/.+$'
+    ConstraintDescription: Use an SES identity ARN in us-east-1 from this AWS account.
+  ArtifactBucket:
+    Type: String
+    Description: Existing private DeploymentArtifacts bucket name
+  ArtifactKey:
+    Type: String
+    Description: Content-addressed password-reset ZIP key produced by package-password-reset
+    AllowedPattern: '^password-reset/[0-9a-f]{64}\.zip$'
+    ConstraintDescription: Use password-reset/<sha256>.zip from the package-password-reset output.
+Resources:
+  AccountsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: donde-aprendo-aws-accounts
+      BillingMode: PAY_PER_REQUEST
+      # Use ACCOUNT#, ATTEMPT#, and SESSION# namespaces in this string key.
+      # The ttl value is an absolute Unix epoch timestamp in seconds.
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      Tags:
+        - Key: Project
+          Value: donde-aprendo-aws
+  PasswordResetLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/donde-aprendo-aws-password-reset
+      RetentionInDays: 14
+      Tags:
+        - Key: Project
+          Value: donde-aprendo-aws
+  PasswordResetRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: Update account authentication boundary after a Cognito password reset
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: AdvanceAccountAuthenticationBoundary
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: dynamodb:UpdateItem
+                Resource: !GetAtt AccountsTable.Arn
+                Condition:
+                  ForAllValues:StringLike:
+                    dynamodb:LeadingKeys:
+                      - 'ACCOUNT#*'
+        - PolicyName: WritePasswordResetLogs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !GetAtt PasswordResetLogGroup.Arn
+      Tags:
+        - Key: Project
+          Value: donde-aprendo-aws
+  PasswordResetFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: PasswordResetLogGroup
+    Properties:
+      FunctionName: donde-aprendo-aws-password-reset
+      Runtime: nodejs24.x
+      Handler: index.handler
+      Role: !GetAtt PasswordResetRole.Arn
+      Code:
+        S3Bucket: !Ref ArtifactBucket
+        S3Key: !Ref ArtifactKey
+      Environment:
+        Variables:
+          ACCOUNTS_TABLE: !Ref AccountsTable
+      MemorySize: 128
+      Timeout: 10
+      Tags:
+        - Key: Project
+          Value: donde-aprendo-aws
+  PasswordResetInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref PasswordResetFunction
+      Principal: cognito-idp.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+      SourceArn: !GetAtt UserPool.Arn
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      UserPoolName: donde-aprendo-aws-accounts
+      UserPoolTier: ESSENTIALS
+      UsernameAttributes:
+        - email
+      UsernameConfiguration:
+        CaseSensitive: false
+      AutoVerifiedAttributes:
+        - email
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      EmailConfiguration:
+        EmailSendingAccount: DEVELOPER
+        From: !Ref SesFromAddress
+        ReplyToEmailAddress: !Ref SesReplyToAddress
+        SourceArn: !Ref SesSourceArn
+      VerificationMessageTemplate:
+        DefaultEmailOption: CONFIRM_WITH_CODE
+        EmailSubject: Código de seguridad de Dónde Aprendo AWS
+        EmailMessage: 'Usa este código de seguridad para continuar en Dónde Aprendo AWS: {####}'
+      MfaConfiguration: 'OFF'
+      Policies:
+        SignInPolicy:
+          AllowedFirstAuthFactors:
+            - PASSWORD
+      LambdaConfig:
+        PostConfirmation: !GetAtt PasswordResetFunction.Arn
+      UserPoolTags:
+        Project: donde-aprendo-aws
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: donde-aprendo-aws-accounts-web
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows:
+        - code
+      AllowedOAuthScopes:
+        - openid
+        - email
+      CallbackURLs:
+        - https://dondeaprendoaws.com/cuenta/callback/
+      LogoutURLs:
+        - https://dondeaprendoaws.com/cuenta/
+      SupportedIdentityProviders:
+        - COGNITO
+      ReadAttributes:
+        - email
+        - email_verified
+      WriteAttributes:
+        - email
+      PreventUserExistenceErrors: ENABLED
+      EnableTokenRevocation: true
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Ref CognitoDomainPrefix
+      ManagedLoginVersion: 2
+      UserPoolId: !Ref UserPool
+  ManagedLoginBranding:
+    Type: AWS::Cognito::ManagedLoginBranding
+    DependsOn: UserPoolDomain
+    Properties:
+      ClientId: !Ref UserPoolClient
+      UseCognitoProvidedValues: true
+      UserPoolId: !Ref UserPool
+  AccountsComputeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: Read and update private account application records from Amplify SSR compute
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: amplify.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnLike:
+                aws:SourceArn: !Sub arn:${AWS::Partition}:amplify:${AWS::Region}:${AWS::AccountId}:apps/d33kh9d3cyassq/branches/main
+      Policies:
+        - PolicyName: AccessAccountApplicationRecords
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                Resource: !GetAtt AccountsTable.Arn
+      Tags:
+        - Key: Project
+          Value: donde-aprendo-aws
+Outputs:
+  AccountsIssuer:
+    Description: Cognito OIDC issuer for the account user pool
+    Value: !Sub 'https://cognito-idp.${AWS::Region}.${AWS::URLSuffix}/${UserPool}'
+  AccountsClientId:
+    Description: Public OAuth client identifier
+    Value: !Ref UserPoolClient
+  AccountsDomain:
+    Description: Managed Login domain base URL
+    Value: !Sub https://${CognitoDomainPrefix}.auth.${AWS::Region}.amazoncognito.com
+  AccountsTableName:
+    Description: Private account, login-attempt, and session table
+    Value: !Ref AccountsTable
+  AccountsComputeRoleArn:
+    Description: IAM role to associate with Amplify SSR compute
+    Value: !GetAtt AccountsComputeRole.Arn
+  AccountsUserPoolId:
+    Value: !Ref UserPool
+  PasswordResetFunctionName:
+    Value: !Ref PasswordResetFunction
+  ManagedLoginBrandingId:
+    Value: !Ref ManagedLoginBranding
+  DeploymentArtifactsBucket:
+    Description: Existing bucket containing the password-reset Lambda artifact
+    Value: !Ref ArtifactBucket

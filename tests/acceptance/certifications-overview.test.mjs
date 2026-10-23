@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import test from 'node:test';
 import offer from '../fixtures/certification-offer.json' with { type: 'json' };
 import { lookupResourceCollection, resolveResourceCollectionFaq } from '../../src/lib/resource-collections.mjs';
+import { siteOutputRoot } from '../../scripts/lib/site-output.mjs';
 
 // These checks inspect public build output. Responsive layout, focus, filtering
 // and factual correctness are also exercised directly as described in plan.md.
-const dist = resolve('dist');
+const dist = siteOutputRoot;
 const route = '/aprender/certificaciones/';
 assert.ok(existsSync(join(dist, route.slice(1), 'index.html')), 'Build the site before certification acceptance.');
 const html = readFileSync(join(dist, route.slice(1), 'index.html'), 'utf8');

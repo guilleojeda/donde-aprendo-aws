@@ -1,0 +1,117 @@
+.account-page {
+  padding-block: clamp(44px, 8vw, 88px) clamp(56px, 10vw, 112px);
+}
+
+.account-page__content {
+  width: min(100%, 680px);
+  margin-inline: auto;
+}
+
+.account-page__header {
+  margin-bottom: 28px;
+}
+
+.account-page__eyebrow {
+  margin: 0 0 8px;
+  color: var(--color-accent-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.account-page__header h1 {
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 2.75rem);
+  letter-spacing: -0.03em;
+}
+
+.account-card,
+.account-message {
+  padding: clamp(22px, 5vw, 36px);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  box-shadow: 0 12px 36px var(--color-shadow);
+}
+
+.account-card h2,
+.account-message h2 {
+  margin: 0 0 10px;
+  font-size: clamp(1.35rem, 3vw, 1.65rem);
+}
+
+.account-card > p,
+.account-message > p {
+  margin: 0 0 20px;
+}
+
+.account-message--error {
+  border-color: var(--color-error-text);
+  background: var(--color-error-surface);
+}
+
+.account-message--error h2 {
+  color: var(--color-error-text);
+}
+
+.account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.account-card__recovery {
+  margin: 22px 0 0 !important;
+}
+
+.account-details {
+  margin: 24px 0;
+}
+
+.account-details > div {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.7fr) minmax(0, 1.3fr);
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.account-details > div:first-child {
+  border-top: 1px solid var(--color-border);
+}
+
+.account-details dt {
+  color: var(--color-text-muted);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.account-details dd {
+  margin: 0;
+  color: var(--color-heading);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.account-logout .button {
+  cursor: pointer;
+}
+
+.account-message .button {
+  margin-top: 2px;
+}
+
+@media (max-width: 520px) {
+  .account-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .account-actions .button {
+    width: 100%;
+  }
+
+  .account-details > div {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+}

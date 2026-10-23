@@ -4,9 +4,10 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
+import { siteOutputRoot } from '../../scripts/lib/site-output.mjs';
 
 const repository = process.cwd();
-const dist = resolve(repository, 'dist');
+const dist = siteOutputRoot;
 const samSlug = 'aws-sam-guia-basica-para-aplicaciones-serverless';
 const samPath = `blog/${samSlug}/index.html`;
 const samSourcePath = resolve(repository, `src/content/blog/${samSlug}.md`);
@@ -21,6 +22,7 @@ const navigation = [
   ['/eventos/', 'Eventos'],
   ['/blog/', 'Blog'],
   ['/buscar/', 'Buscar'],
+  ['/cuenta/', 'Mi cuenta'],
   ['/#cta_form-01-839181', 'Comparte un recurso'],
 ];
 
@@ -85,7 +87,7 @@ if (htmlPaths.length === 0) {
 
 test('every built HTML document has the shared theme controls in its head', () => {
   assert.ok(htmlPaths.length > 0);
-  const sharedDocument = readFileSync(resolve(dist, '404.html'), 'utf8');
+  const sharedDocument = readFileSync(resolve(dist, 'index.html'), 'utf8');
   const sharedTags = [
     ...themeIds.map((id) => findElementById(sharedDocument, 'style', id)[0]?.full),
     findElementById(sharedDocument, 'script', controllerId)[0]?.full,
@@ -144,7 +146,7 @@ test('every built HTML document has the shared theme controls in its head', () =
         const href = decode(parseAttributes(`<a ${attributes}>`).get('href') ?? '');
         return [href, decode(text.replace(/<[^>]*>/gu, '').trim())];
       });
-    assert.deepEqual(menuLinks, navigation, `All nine shared navigation destinations remain available: ${path}`);
+    assert.deepEqual(menuLinks, navigation, `All ten shared navigation destinations remain available: ${path}`);
 
     const brand = html.match(/<a\b[^>]*class="[^"]*\bsite-nav__brand\b[^"]*"[^>]*>[\s\S]*?<\/a>/iu)?.[0] ?? '';
     assert.ok(brand, `Header brand link is missing: ${path}`);
@@ -211,7 +213,7 @@ test('the blog verifier accepts a valid build and rejects controller mutations i
   const sourceArticlePath = resolve(dist, samPath);
   const sourceArticle = readFileSync(sourceArticlePath, 'utf8');
   const tempRoot = mkdtempSync(join(tmpdir(), 'site-theme-acceptance-'));
-  const tempDist = resolve(tempRoot, 'dist');
+  const tempDist = resolve(tempRoot, '.amplify-hosting/static');
   const tempArticlePath = resolve(tempDist, samPath);
   const tempArticle = () => readFileSync(tempArticlePath, 'utf8');
   const writeTempArticle = (html) => writeFileSync(tempArticlePath, html);
@@ -231,7 +233,7 @@ test('the blog verifier accepts a valid build and rejects controller mutations i
   const outputOf = (result) => `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
 
   try {
-    mkdirSync(tempDist);
+    mkdirSync(tempDist, { recursive: true });
     for (const entry of readdirSync(dist, { withFileTypes: true })) {
       const sourcePath = resolve(dist, entry.name);
       const targetPath = resolve(tempDist, entry.name);

@@ -22,6 +22,7 @@ jobs:
       - run: npm run smoke:submission
       - run: npm run package:publication
       - run: python3 scripts/package-meetup-events.py
+      - run: npm run package:password-reset
       - name: Prepare enriched directory fixture
         run: node tests/fixtures/compact-directory-catalog.mjs > "$RUNNER_TEMP/compact-directory-catalog.json"
       - run: npm run build
@@ -30,6 +31,11 @@ jobs:
           PUBLIC_SUBMISSION_API_URL: https://api.example.invalid/submissions
           PUBLIC_PRODUCTION: 'false'
           PUBLIC_SITE_ORIGIN: https://main.d33kh9d3cyassq.amplifyapp.com
+          ACCOUNT_ORIGIN: https://dondeaprendoaws.com
+          COGNITO_ISSUER: https://cognito-idp.us-east-1.amazonaws.com/us-east-1_EXAMPLE
+          COGNITO_CLIENT_ID: example-client-id
+          COGNITO_DOMAIN: https://example.auth.us-east-1.amazoncognito.com
+          ACCOUNTS_TABLE: example-accounts
       - run: npm run verify:blog
         env:
           PUBLIC_PRODUCTION: 'false'
@@ -45,6 +51,11 @@ jobs:
           PUBLIC_SUBMISSION_API_URL: https://api.example.invalid/submissions
           PUBLIC_PRODUCTION: 'true'
           PUBLIC_SITE_ORIGIN: https://dondeaprendoaws.com
+          ACCOUNT_ORIGIN: https://dondeaprendoaws.com
+          COGNITO_ISSUER: https://cognito-idp.us-east-1.amazonaws.com/us-east-1_EXAMPLE
+          COGNITO_CLIENT_ID: example-client-id
+          COGNITO_DOMAIN: https://example.auth.us-east-1.amazoncognito.com
+          ACCOUNTS_TABLE: example-accounts
       - run: npm run verify:blog
         env:
           PUBLIC_PRODUCTION: 'true'
@@ -54,3 +65,7 @@ jobs:
           DIRECTORY_ACCEPTANCE_FIXTURE_MODE: enriched
           PUBLIC_PRODUCTION: 'true'
           PUBLIC_SITE_ORIGIN: https://dondeaprendoaws.com
+      - run: npm prune --omit=dev
+      - run: mv node_modules ./.amplify-hosting/compute/default/node_modules
+      - run: npm run verify:hosting
+      - run: npm run verify:preview

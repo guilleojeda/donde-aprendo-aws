@@ -4,10 +4,11 @@ import { resolve } from 'node:path';
 import test from 'node:test';
 import { FORMATS_BY_KIND, KIND_LABELS } from '../../src/lib/resource-taxonomy.mjs';
 import { LEARNING_PATHS, learningPathHref } from '../../src/lib/learning-paths.mjs';
+import { siteOutputRoot } from '../../scripts/lib/site-output.mjs';
 
 // These checks cover public HTML structure. Responsive geometry and first-view
 // legibility need direct browser verification.
-const htmlPath = resolve('dist/index.html');
+const htmlPath = resolve(siteOutputRoot, 'index.html');
 assert.ok(existsSync(htmlPath), 'Build the site before running compact home acceptance.');
 
 const decode = (value) => value.replace(/&#(?:x([\da-f]+)|(\d+));/giu,

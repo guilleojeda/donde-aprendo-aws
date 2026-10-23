@@ -1,6 +1,6 @@
 # ¿Dónde Aprendo AWS?
 
-Static directory, dedicated learning, creator, community and event pages, guided learning paths, blog archive, and unified search built with Astro and hosted on AWS Amplify. Published communities with a known country also get static community and event pages from the same DynamoDB catalog snapshot; `/comunidades/` remains the complete directory and `/eventos/` the overall agenda. DynamoDB owns the resource catalog; site code, learning paths, certification guidance and blog articles are files in Git. Codex is an editing tool, not a content store.
+Static directory, dedicated learning, creator, community and event pages, guided learning paths, certification guidance, blog archive, and unified search built with Astro and hosted on AWS Amplify. Public directory and blog pages remain prerendered; `/cuenta/`, authentication operations and 404 responses run on demand. Published communities with a known country also get static community and event pages from the same DynamoDB catalog snapshot; `/comunidades/` remains the complete directory and `/eventos/` the overall agenda. DynamoDB owns the resource catalog; site code, learning paths, certification guidance and blog articles are files in Git. Codex is an editing tool, not a content store.
 
 The production site is https://dondeaprendoaws.com/. Its contribution form stores pending submissions through the owned API and shows the resulting reference ID and submission date. Resource and event cards include a contextual link to report incorrect data by email. `/blog/` presents six selected articles and links to the other 190 articles in a dated archive. `/recorridos/` links to existing blog and approved catalog entries in four editorial sequences. `/buscar/` searches those articles, paths and the approved catalog using a build-generated public index. Community cards link to their country's stable agenda and retain their community-specific event filter when upcoming events are available. The `www` and default Amplify hostnames redirect to the apex. Google Analytics uses the existing `G-3NXS6QFKHZ` property and loads only on the apex.
 
@@ -23,7 +23,9 @@ AWS_REGION=us-east-1 CATALOG_TABLE=donde-aprendo-aws-catalog PUBLIC_SUBMISSION_A
 npm run preview
 ```
 
-After either static build, run `npm run verify:blog` and `npm run verify:site` to check the featured and archive links, all 196 article routes, search index, owned assets, sitemap, indexing mode, and Analytics tags. Pass the same `PUBLIC_PRODUCTION` and `PUBLIC_SITE_ORIGIN` values to the verifiers that you used for the build. CI tests both preview and production build modes; Amplify checks its active mode after each build.
+`npm run preview` serves the mixed build locally on `127.0.0.1:4321`, including prerendered pages and Compute routes; use `-- --port PORT` to change the port. It needs a completed build. It rewrites existing static directory paths locally; production hostname redirects and Amplify custom rules must be checked on the deployed site. `npm run verify:preview` exercises this command's built HTTP output after building.
+
+After either build, run `npm run verify:blog` and `npm run verify:site` to check the featured and archive links, all 196 article routes, search index, owned assets, sitemap, indexing mode, and Analytics tags. The static client is `.amplify-hosting/static`. Pass the same `PUBLIC_PRODUCTION` and `PUBLIC_SITE_ORIGIN` values to the verifiers that you used for the build. CI tests both preview and production build modes; Amplify checks its active mode after each build. The deployment also packages production dependencies in `.amplify-hosting/compute/default/node_modules` and runs `npm run verify:hosting` against the built server, not Astro's development server.
 
 Do not set `CATALOG_FIXTURE` for an Amplify deployment or combine it with `CATALOG_TABLE`. Never commit credentials, submission contact information, or raw database dumps.
 
@@ -39,9 +41,13 @@ The production build uses `PUBLIC_SITE_ORIGIN=https://dondeaprendoaws.com` for a
 
 ## Production hosting
 
-The `main` Amplify branch has `PUBLIC_PRODUCTION=true` and `PUBLIC_SITE_ORIGIN=https://dondeaprendoaws.com`. Its build emits indexable content pages and a sitemap containing fixed site pages, blog articles, and community and event country pages generated from currently published communities; the search utility at `/buscar/` is excluded with `noindex, follow`. The country-page count follows the published catalog and is not fixed in code or documentation. The single Analytics loader runs only on the apex hostname. Amplify manages the apex and `www` DNS records and certificate; `www` and `main.d33kh9d3cyassq.amplifyapp.com` redirect to the apex, preserving paths. Keep those branch variables and redirects when updating the app. The ordered rules in `config/amplify-custom-rules.json` also use Amplify’s `404-200` rewrite to serve `/404.html` for missing URLs with HTTP 404 while preserving the requested URL. Apply them to the existing app with `aws amplify update-app --region us-east-1 --app-id d33kh9d3cyassq --custom-rules file://config/amplify-custom-rules.json`; Git builds do not apply app-level routing rules. After a routing update, verify a genuinely missing URL, existing pages and assets, and both canonical hostname redirects. An hourly publication check starts a fresh build when approved public catalog data changes.
+The `main` Amplify branch has `PUBLIC_PRODUCTION=true` and `PUBLIC_SITE_ORIGIN=https://dondeaprendoaws.com`. Its build emits indexable content pages and a sitemap containing fixed site pages, blog articles, and community and event country pages generated from currently published communities; `/buscar/` is excluded with `noindex, follow`, and `/cuenta/` is private and excluded. The country-page count follows the published catalog. Analytics loads only on the apex and is omitted from account pages. Amplify manages the apex and `www` DNS records and certificate; `www` and `main.d33kh9d3cyassq.amplifyapp.com` redirect to the apex, preserving paths and queries.
 
-The submission stack permits both the apex and default Amplify origins. Preserve its Lambda artifact key and catalog table when updating CORS or code. If a content deployment fails, Amplify keeps the prior deployed revision; inspect the failed job before starting another. Check the custom-domain association, redirects, Route 53 apex/`www` records, and email records before changing hosting. A previous successful Amplify revision can be rebuilt from Git if a new content revision regresses.
+Hosting uses platform `WEB_COMPUTE`, the community `astro-aws-amplify` adapter and explicit Node 24 runtime. The ordered rules in `config/amplify-custom-rules.json` rewrite fixed public route families to their static `index.html` files, retaining canonical-host and trailing-slash redirects. Account and unknown routes reach Compute. There is no `404-200` catchall: Astro renders missing-page HTML with HTTP 404 while retaining the requested URL. `/assets/*` is reserved to Static by the adapter and has no Compute fallback. Apply app routing explicitly with `aws amplify update-app --region us-east-1 --app-id d33kh9d3cyassq --custom-rules file://config/amplify-custom-rules.json`; Git builds do not apply those rules. After a routing update, verify missing routes/files, existing pages/assets and canonical redirects. An hourly publication check still starts a fresh build when approved catalog data changes.
+
+Keep exact index rewrites before parameterized detail redirects: Amplify can match an empty parameter at an index path. Event detail slash normalization uses Astro's native routing so the same directory's `.ics` files reach Static without acquiring a trailing slash. Check calendar MIME on Amplify itself; the local adapter serves these files as generic binary content.
+
+The submission stack permits both the apex and default Amplify origins. Preserve its Lambda artifact key and catalog table when updating CORS or code. If a deployment fails, Amplify keeps the prior deployed revision; inspect that job before starting another. Before changing hosting, retain its platform, app/branch variables, roles, routing and prior artifact/revision. Recovery from a hosting migration must restore that compatible set, not just rebuild an old commit against new rules. Check custom-domain association, apex/`www` DNS and existing email records before changing hosting.
 
 ## AWS setup
 
@@ -61,6 +67,32 @@ aws cloudformation deploy \
 The template creates the on-demand catalog table, an Amplify role that can scan only the public attributes, and a private bucket for Lambda deployment artifacts. The table and bucket are retained if the stack is removed. Amplify's one-time GitHub connection is configured through its supported GitHub App flow; hosting does not need a custom repository-access service or an embedded access token.
 
 Amplify is connected in `us-east-1` to `guilleojeda/donde-aprendo-aws`, branch `main`, with `CATALOG_TABLE=donde-aprendo-aws-catalog` and the role from `AmplifyBuildRoleArn`. Set `PUBLIC_SUBMISSION_API_URL` to the full endpoint output by the submission stack, preserving `CATALOG_TABLE`. The loader uses Amplify's AWS region or the configured us-east-1 default; do not create a custom AWS_-prefixed Amplify environment variable. Use `amplify.yml` for the build. The app ID is in `config/deployment.json`. Keep the existing custom domain unchanged until the full migration is verified.
+
+## Account configuration and deployment
+
+`/cuenta/` uses Cognito Essentials Managed Login in Spanish and SES transactional email. Registration, verification/re-send, login, logout and password recovery do not publish a creator page or assign catalog ownership. See [account behavior](docs/intent/accounts.md) for session, privacy and reset guarantees.
+
+Before opening registration, verify the owned sender domain in SES `us-east-1`, add only its required DKIM CNAME records, and obtain production access. Preserve existing MX/TXT and other DKIM records. A verified domain in the SES sandbox is insufficient: users outside verified identities cannot receive their codes. Check `aws sesv2 get-account` and `get-email-identity`; a denied production request needs resolution through its AWS Support case. Do not silently switch to Cognito's limited default sender or verify every recipient as a substitute for open registration.
+
+Package the reset trigger with `npm run package:password-reset`. Read `build/password-reset.json`, upload its ZIP to the existing `DeploymentArtifactsBucket` under its exact `s3Key`, and prepare a CloudFormation change set for `infra/accounts.yaml`, stack `donde-aprendo-aws-accounts`. Parameters are `ArtifactBucket`, `ArtifactKey`, `CognitoDomainPrefix`, `SesSourceArn`, `SesFromAddress` and `SesReplyToAddress`. Use the verified domain identity ARN and `contact@dondeaprendoaws.com` for sender/reply-to. Review the change set before execution. The stack retains its private table and User Pool on removal; it does not replace or grant access to the existing catalog.
+
+Read the stack outputs and set these server variables on the intended Amplify branch:
+
+| Variable | Value |
+|---|---|
+| `ACCOUNT_ORIGIN` | `https://dondeaprendoaws.com` |
+| `COGNITO_ISSUER` | `AccountsIssuer` output, including `https://` |
+| `COGNITO_CLIENT_ID` | `AccountsClientId` output |
+| `COGNITO_DOMAIN` | `AccountsDomain` output, including `https://` |
+| `ACCOUNTS_TABLE` | `AccountsTableName` output |
+
+These identifiers are not credentials. The adapter copies exactly this allowlist into the private compute `.env`; it never copies the entire build environment. Associate `AccountsComputeRoleArn` with the `main` branch, preserve the existing build role and variables, and use `WEB_COMPUTE`. The compute role has access only to the account table; the build/publication readers do not gain access to private accounts. Do not attach that production authority to pull-request previews. Callback and logout URLs are fixed to the apex.
+
+`ACCOUNT_ORIGIN` must be an HTTPS origin and must match the build configuration, runtime configuration and exact Cognito callback/logout URLs. Astro's trusted proxy hostname and the built-runtime checks use that same value. An isolated test deployment needs its own narrowly scoped compute role and exact allowed URLs; remove that temporary configuration when the deployment is retired.
+
+Local/CI fixture builds use explicit synthetic values for these five variables, as shown in the workflow, without contacting Cognito or sending emails. `npm test` exercises OIDC validation using signed test tokens and simulated transport. Full login/email/reset verification requires the deployed origin and real controlled mailboxes. The built-runtime check starts the packaged server and verifies private account responses, proxy-aware logout and real 404 behavior.
+
+The reset Lambda's log group is `/aws/lambda/donde-aprendo-aws-password-reset`. If recovery reports a trigger failure, inspect that invocation and the account's durable reset boundary; Cognito password changes and the private table are not one transaction. Never log passwords, codes, raw cookies or full user records. Release verification must show that old sessions lose access after recovery and that another account remains unaffected.
 
 ## Submission API deployment
 

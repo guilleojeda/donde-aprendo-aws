@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import test from 'node:test';
 import { parse as parseYaml } from 'yaml';
 import { LEARNING_PATHS, learningPathHref } from '../../src/lib/learning-paths.mjs';
+import { siteOutputRoot } from '../../scripts/lib/site-output.mjs';
 
 // Public HTML proves sequence, content and reading order. First-view legibility,
 // responsive layout and keyboard navigation require direct browser verification.
-const dist = resolve('dist');
+const dist = siteOutputRoot;
 assert.ok(existsSync(join(dist, 'recorridos/index.html')), 'Build the site before running learning-path acceptance.');
 const read = (route) => readFileSync(join(dist, route.slice(1), 'index.html'), 'utf8');
 const search = JSON.parse(readFileSync(join(dist, 'search-index.json'), 'utf8'));

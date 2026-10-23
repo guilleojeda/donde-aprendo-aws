@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import test from 'node:test';
+import { siteOutputRoot } from '../../scripts/lib/site-output.mjs';
 
-const dist = resolve('dist');
+const dist = siteOutputRoot;
 const mapRoute = '/aprender/certificaciones/';
 const certificationPages = [
   {

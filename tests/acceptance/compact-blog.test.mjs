@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import test from 'node:test';
 import { parse as parseYaml } from 'yaml';
 import { LEARNING_PATHS, learningPathHref } from '../../src/lib/learning-paths.mjs';
+import { siteOutputRoot } from '../../scripts/lib/site-output.mjs';
 
 // Generated HTML proves reading order and navigation. First-view legibility,
 // image prominence, responsive columns and the 680px reading column need a browser.
-const dist = resolve('dist/blog');
+const dist = join(siteOutputRoot, 'blog');
 assert.ok(existsSync(join(dist, 'index.html')), 'Build the site before running compact blog acceptance.');
 const index = readFileSync(join(dist, 'index.html'), 'utf8');
 const featured = JSON.parse(readFileSync('tests/fixtures/blog-index.json', 'utf8'));
