@@ -165,6 +165,16 @@ const certificationRecords = [
           language: 'Español',
           access: 'Artículo público del sitio.',
         },
+        {
+          type: 'blog',
+          id: 'recursos-en-espanol-para-certificacion-aws-cloud-practitioner',
+          examCode: 'CLF-C02',
+          purpose: 'Orientar la elección de materiales en español para construir fundamentos de CLF-C02, resolver dudas por tema y practicar.',
+          scope: 'Artículo que reúne cursos, grabaciones comunitarias, guías y práctica, y propone contrastar temas y datos cambiantes con la guía oficial. Las grabaciones tienen fechas diversas; la selección no verifica cada video ni garantiza cobertura total o aprobación.',
+          reviewedAt: '2026-10-23',
+          language: 'Artículo en español; algunos recursos enlazados pueden estar en inglés.',
+          access: 'Artículo público del sitio; el acceso y los requisitos de los recursos externos varían según su proveedor.',
+        },
       ],
       faq: {
         id: 'cloud-practitioner-faq',
