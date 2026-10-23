@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
   CERTIFICATIONS,
   CERTIFICATIONS_OVERVIEW,
   getCertificationPages,
+  resolveCertificationSelections,
 } from '../src/lib/certifications.mjs';
 
 const faqGroups = [
@@ -33,6 +35,34 @@ test('exam FAQs remain useful without any selected local material', () => {
         assert.ok(!faqText.includes(selection.reviewedUrl), `${certification.id}: FAQ must not link to a selected resource`);
       }
     }
+  }
+});
+
+test('CLF resolves its Spanish resources guide and study plan from their owning blog articles', () => {
+  const planSlug = 'guia-de-estudio-aws-certified-cloud-practitioner-clf-c02';
+  const resourcesSlug = 'recursos-en-espanol-para-certificacion-aws-cloud-practitioner';
+  const clf = CERTIFICATIONS.find(({ id }) => id === 'cloud-practitioner');
+  const selections = clf.page.selections;
+  const requiredSlugs = [planSlug, resourcesSlug];
+  const blogSelections = requiredSlugs.map((id) => {
+    const selection = selections.find((item) => item.type === 'blog' && item.id === id);
+    assert.ok(selection, `CLF selection exists for ${id}`);
+    return selection;
+  });
+
+  const posts = requiredSlugs.map((id) => {
+    const article = readFileSync(new URL(`../src/content/blog/${id}.md`, import.meta.url), 'utf8');
+    const title = article.match(/^title:\s*"([^"]+)"$/mu)?.[1];
+    assert.ok(title, `${id}: article owner supplies its title`);
+    return { id, data: { title } };
+  });
+  const resolved = resolveCertificationSelections(blogSelections, [], posts);
+
+  for (const post of posts) {
+    const destination = `/blog/${post.id}/`;
+    const result = resolved.find(({ href }) => href === destination);
+    assert.ok(result, `${post.id}: resolves to its blog destination`);
+    assert.equal(result.title, post.data.title, `${post.id}: title comes from the article owner`);
   }
 });
 
