@@ -6,6 +6,7 @@ import '../../../styles/account.css';
 import '../../../styles/creators.css';
 import { CREATOR_PRIVATE_HEADERS, loadCreatorAdmin, safeJsonForScript } from '../_creator-page';
 import { FORMATS_BY_KIND, KIND_LABELS, TOPICS } from '../../../lib/resource-taxonomy.mjs';
+import { adminResourcePageHref } from '../../../lib/creator-admin-pagination.mjs';
 
 export const prerender = false;
 
@@ -14,6 +15,12 @@ Astro.response.status = result.status;
 for (const [name, value] of Object.entries(CREATOR_PRIVATE_HEADERS)) Astro.response.headers.set(name, value);
 
 const pendingClaims = result.data?.claims.filter((claim) => claim.status !== 'resolved') ?? [];
+const resourcePage = result.data?.resourcePage;
+const resourcePageHref = (page: number) => adminResourcePageHref({
+  query: resourcePage?.query ?? '',
+  state: resourcePage?.state ?? 'pending',
+  page,
+});
 const initial = safeJsonForScript({
   resources: result.data?.resources ?? [],
   profiles: result.data?.profiles ?? [],
@@ -41,6 +48,31 @@ const message = result.status === 401
       <section class="creator-card creator-admin__section" aria-labelledby="admin-resources-title">
         <p class="creator-profile__eyebrow">Directorio</p>
         <h2 id="admin-resources-title">Recursos</h2>
+        {resourcePage && (
+          <>
+            <form class="creator-admin__resource-filters" method="get" action="/cuenta/administracion/" role="search">
+              <label>Buscar por ID, título o URL
+                <input type="search" name="q" value={resourcePage.query} maxlength="200" />
+              </label>
+              <label>Estado
+                <select name="state">
+                  <option value="pending" selected={resourcePage.state === 'pending'}>Pendientes ({resourcePage.stateCounts.pending})</option>
+                  <option value="approved" selected={resourcePage.state === 'approved'}>Aprobados ({resourcePage.stateCounts.approved})</option>
+                  <option value="revoked" selected={resourcePage.state === 'revoked'}>Aprobación revocada ({resourcePage.stateCounts.revoked})</option>
+                  <option value="hidden" selected={resourcePage.state === 'hidden'}>Ocultos ({resourcePage.stateCounts.hidden})</option>
+                  <option value="all" selected={resourcePage.state === 'all'}>Todos ({resourcePage.stateCounts.all})</option>
+                </select>
+              </label>
+              <button class="button button--dark" type="submit">Buscar y filtrar</button>
+              <a href={adminResourcePageHref({ query: '', state: 'all', page: 1 })}>Ver todos</a>
+            </form>
+            <p class="creator-admin__resource-count" role="status">
+              {resourcePage.totalFiltered > 0
+                ? `Mostrando ${resourcePage.firstVisible}–${resourcePage.lastVisible} de ${resourcePage.totalFiltered} resultados (${resourcePage.totalResources} recursos en total).`
+                : `No hay recursos que coincidan (${resourcePage.totalResources} recursos en total).`}
+            </p>
+          </>
+        )}
         {result.data.resources.length > 0 ? (
           <ul class="creator-admin__list">
             {result.data.resources.map((resource) => {
@@ -58,29 +90,31 @@ const message = result.status === 401
                   <p><a href={url} target="_blank" rel="noopener noreferrer">{url}</a></p>
                   <p>Estado: {hidden ? 'oculto' : approval === 'approved' ? 'aprobado' : approval === 'revoked' ? 'aprobación revocada' : 'pendiente'}{resource.directoryControl === 'creator' ? ' · selección por creador' : ' · control editorial'}</p>
                   {typeof resource.description === 'string' && <p>{resource.description}</p>}
-                  <form class="creator-admin__classification" data-classification-form>
-                    <label>Categoría<input name="category" value={String(resource.category ?? '')} required /></label>
-                    <label>Tipo
-                      <select name="kind" required>
-                        <option value="" disabled selected={!['content', 'source', 'community'].includes(String(resource.kind ?? ''))}>Selecciona un tipo</option>
-                        {Object.entries(KIND_LABELS).map(([value, label]) => <option value={value} selected={resource.kind === value}>{label}</option>)}
-                      </select>
-                    </label>
-                    <label>Formato
-                      <select name="format" required>
-                        <option value="" disabled selected={!formats.includes(String(resource.format ?? ''))}>Selecciona un formato</option>
-                        {formats.map((format) => <option value={format} selected={resource.format === format}>{format}</option>)}
-                      </select>
-                    </label>
-                    <label>Temas (hasta 3, separados por coma)
-                      <input name="topics" list={`creator-topics-${id}`} value={topics.join(', ')} />
-                      <datalist id={`creator-topics-${id}`}>
-                        {TOPICS.map((topic) => <option value={topic} />)}
-                      </datalist>
-                    </label>
-                    <button class="button button--outline" type="submit">Guardar clasificación</button>
-                    <p class="creator-form__status" data-item-status role="status" aria-live="polite"></p>
-                  </form>
+                  {resource.recordType === 'event'
+                    ? <p>Los eventos se revisan sin clasificación de recursos.</p>
+                    : <form class="creator-admin__classification" data-classification-form>
+                      <label>Categoría<input name="category" value={String(resource.category ?? '')} required /></label>
+                      <label>Tipo
+                        <select name="kind" required>
+                          <option value="" disabled selected={!['content', 'source', 'community'].includes(String(resource.kind ?? ''))}>Selecciona un tipo</option>
+                          {Object.entries(KIND_LABELS).map(([value, label]) => <option value={value} selected={resource.kind === value}>{label}</option>)}
+                        </select>
+                      </label>
+                      <label>Formato
+                        <select name="format" required>
+                          <option value="" disabled selected={!formats.includes(String(resource.format ?? ''))}>Selecciona un formato</option>
+                          {formats.map((format) => <option value={format} selected={resource.format === format}>{format}</option>)}
+                        </select>
+                      </label>
+                      <label>Temas (hasta 3, separados por coma)
+                        <input name="topics" list={`creator-topics-${id}`} value={topics.join(', ')} />
+                        <datalist id={`creator-topics-${id}`}>
+                          {TOPICS.map((topic) => <option value={topic} />)}
+                        </datalist>
+                      </label>
+                      <button class="button button--outline" type="submit">Guardar clasificación</button>
+                      <p class="creator-form__status" data-item-status role="status" aria-live="polite"></p>
+                    </form>}
                   <div class="creator-admin__actions">
                     {approval !== 'approved' && <button class="button button--dark" type="button" data-resource-action="aprobar">Aprobar para el directorio</button>}
                     {approval === 'approved' && <button class="button button--outline" type="button" data-resource-action="revocar">Revocar aprobación</button>}
@@ -91,7 +125,20 @@ const message = result.status === 401
               );
             })}
           </ul>
-        ) : <p class="creator-empty-state">No hay recursos para revisar.</p>}
+        ) : <p class="creator-empty-state">No hay recursos para estos filtros.</p>}
+        {resourcePage && resourcePage.pageCount > 1 && (
+          <nav class="creator-admin__pagination" aria-label="Paginación de recursos">
+            <p>Página {resourcePage.page} de {resourcePage.pageCount}</p>
+            <div>
+              {resourcePage.page > 1
+                ? <a class="button button--outline" href={resourcePageHref(resourcePage.page - 1)}>Página anterior</a>
+                : <span aria-disabled="true">Página anterior</span>}
+              {resourcePage.page < resourcePage.pageCount
+                ? <a class="button button--outline" href={resourcePageHref(resourcePage.page + 1)}>Página siguiente</a>
+                : <span aria-disabled="true">Página siguiente</span>}
+            </div>
+          </nav>
+        )}
       </section>
 
       <section class="creator-card creator-admin__section" aria-labelledby="admin-profiles-title">

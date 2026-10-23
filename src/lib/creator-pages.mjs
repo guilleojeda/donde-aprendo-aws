@@ -25,6 +25,7 @@ const TEXT_FIELD_LIMITS = new Map([
   ['evidence', 2000],
 ]);
 const SOCIAL_FIELD_LIMIT = 500;
+const FALLBACK_RESOURCE_READ_CONCURRENCY = 20;
 
 class ApiError extends Error {
   constructor(status, code, message) {
@@ -289,6 +290,7 @@ function assertKnownFields(body, allowed, protectedFields = new Set()) {
 function cleanAdminResource(resource) {
   return {
     id: resource.id,
+    ...(resource.recordType === 'event' ? { recordType: 'event' } : {}),
     title: resource.title,
     url: currentResourceUrl(resource),
     ...(typeof resource.description === 'string' ? { description: resource.description } : {}),
@@ -396,13 +398,48 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     return placements;
   }
 
+  async function resourcesById(ids) {
+    const uniqueIds = [...new Set(ids)];
+    if (uniqueIds.length === 0) return new Map();
+
+    let resources;
+    if (typeof store.getResources === 'function') {
+      resources = await store.getResources(uniqueIds);
+      if (!(resources instanceof Map) || resources.size !== uniqueIds.length) {
+        fail(503, 'INVALID_RESOURCE_BATCH', 'resource batch read returned an incomplete result');
+      }
+    } else {
+      // Acceptance stores expose only get/list/transact. Keep their compatibility
+      // path bounded; production uses the store's strongly consistent BatchGet.
+      resources = new Map();
+      for (let offset = 0; offset < uniqueIds.length; offset += FALLBACK_RESOURCE_READ_CONCURRENCY) {
+        const batch = uniqueIds.slice(offset, offset + FALLBACK_RESOURCE_READ_CONCURRENCY);
+        const values = await Promise.all(batch.map(async (id) => [id, await store.get(`resource:${id}`)]));
+        for (const [id, resource] of values) {
+          if (!resource) fail(503, 'MISSING_RESOURCE', 'a referenced resource is missing');
+          resources.set(id, resource);
+        }
+      }
+    }
+
+    for (const id of uniqueIds) {
+      const resource = resources.get(id);
+      if (!resource || resource.id !== id) fail(503, 'MISSING_RESOURCE', 'a referenced resource is missing or malformed');
+    }
+    return resources;
+  }
+
   async function profileLinks(profileId, { includeHiddenResources = false } = {}) {
     const placements = await getPlacements(profileId);
-    const links = [];
+    const resourceIds = [];
     for (const placement of placements) {
       if (typeof placement.resourceId !== 'string') fail(503, 'INVALID_PLACEMENT', 'placement resource ID is invalid');
-      const resource = await store.get(`resource:${placement.resourceId}`);
-      if (!resource || resource.id !== placement.resourceId) fail(503, 'MISSING_RESOURCE', 'placement points to missing resource data');
+      resourceIds.push(placement.resourceId);
+    }
+    const resources = await resourcesById(resourceIds);
+    const links = [];
+    for (const placement of placements) {
+      const resource = resources.get(placement.resourceId);
       if (Object.hasOwn(resource, 'hidden') && typeof resource.hidden !== 'boolean') fail(503, 'INVALID_RESOURCE', 'resource hidden state is malformed');
       if (resource.hidden === true && !includeHiddenResources) continue;
       links.push(publicLink(placement, resource));
@@ -415,12 +452,17 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     if (!profile) return { profile: null, links: [], editableResources: [], claims: [] };
     const links = await profileLinks(profile.id, { includeHiddenResources: true });
     const editorRefs = await store.list(`editor:${profile.id}:`);
-    const editableResources = [];
+    const resourceIds = [];
     for (const row of editorRefs) {
       const reference = row.value;
       if (!reference || reference.profileId !== profile.id || typeof reference.resourceId !== 'string') fail(503, 'INVALID_EDITOR_REFERENCE', 'editor reference is malformed');
-      const resource = await store.get(`resource:${reference.resourceId}`);
-      if (!resource) fail(503, 'MISSING_RESOURCE', 'editor reference points to missing resource data');
+      resourceIds.push(reference.resourceId);
+    }
+    const resources = await resourcesById(resourceIds);
+    const editableResources = [];
+    for (const row of editorRefs) {
+      const reference = row.value;
+      const resource = resources.get(reference.resourceId);
       if (resource?.editorProfileId === profile.id) {
         editableResources.push({
           id: resource.id,

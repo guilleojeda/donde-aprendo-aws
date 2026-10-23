@@ -1,4 +1,5 @@
 import { getCreatorRuntime } from '../../lib/creator-runtime.mjs';
+import { selectAdminResources } from '../../lib/creator-admin-pagination.mjs';
 import type {
   CreatorClaimDTO,
   CreatorEditableResourceDTO,
@@ -25,6 +26,18 @@ export interface CreatorEditorLoad {
 
 export interface CreatorAdminData {
   resources: Record<string, unknown>[];
+  resourcePage: {
+    query: string;
+    state: string;
+    page: number;
+    pageSize: number;
+    pageCount: number;
+    totalFiltered: number;
+    totalResources: number;
+    firstVisible: number;
+    lastVisible: number;
+    stateCounts: { all: number; pending: number; approved: number; revoked: number; hidden: number };
+  };
   profiles: Record<string, unknown>[];
   claims: Record<string, unknown>[];
 }
@@ -200,6 +213,7 @@ function readAdminResources(value: unknown): CreatorAdminData['resources'] {
     directoryApproval: item.directoryApproval,
     directoryControl: item.directoryControl,
     hidden: item.hidden,
+    recordType: item.recordType,
     category: item.category,
     kind: item.kind,
     format: item.format,
@@ -309,11 +323,25 @@ export async function loadCreatorAdmin(request: Request): Promise<CreatorAdminLo
     ]);
     const failing = [resources, profiles, claims].find((response) => response.status !== 200 || response.body === undefined);
     if (failing) return { principal, status: failing.status };
+    const allResources = readAdminResources(resources.body);
+    const selected = selectAdminResources(allResources, new URL(request.url).searchParams);
     return {
       principal,
       status: 200,
       data: {
-        resources: readAdminResources(resources.body),
+        resources: selected.resources,
+        resourcePage: {
+          query: selected.query,
+          state: selected.state,
+          page: selected.page,
+          pageSize: selected.pageSize,
+          pageCount: selected.pageCount,
+          totalFiltered: selected.totalFiltered,
+          totalResources: selected.totalResources,
+          firstVisible: selected.firstVisible,
+          lastVisible: selected.lastVisible,
+          stateCounts: selected.stateCounts,
+        },
         profiles: readAdminProfiles(profiles.body),
         claims: readAdminClaims(claims.body),
       },

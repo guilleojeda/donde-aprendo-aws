@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
   DynamoDBDocumentClient,
+  BatchGetCommand,
   GetCommand,
   QueryCommand,
   ScanCommand,
@@ -9,6 +10,9 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 
 const MAX_TRANSACTION_ACTIONS = 100;
+const MAX_BATCH_GET_KEYS = 100;
+const MAX_UNPROCESSED_RETRIES = 3;
+const BATCH_GET_RETRY_DELAYS_MS = [10, 20, 40];
 
 function sha256(value) {
   return createHash('sha256').update(value, 'utf8').digest('hex');
@@ -201,6 +205,88 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
     }
   }
 
+  async function getResources(ids) {
+    if (!Array.isArray(ids) || ids.some((id) => typeof id !== 'string' || id.length === 0)) {
+      throw new TypeError('resource IDs must be a list of non-empty strings');
+    }
+    const uniqueIds = [...new Set(ids)];
+    const resources = new Map();
+    if (uniqueIds.length === 0) return resources;
+
+    const projection = resourceProjection();
+    for (let offset = 0; offset < uniqueIds.length; offset += MAX_BATCH_GET_KEYS) {
+      const batchIds = uniqueIds.slice(offset, offset + MAX_BATCH_GET_KEYS);
+      const expected = new Set(batchIds);
+      let pendingKeys = batchIds.map((id) => ({ id }));
+      let retries = 0;
+
+      while (pendingKeys.length > 0) {
+        const response = await documentClient.send(new BatchGetCommand({
+          RequestItems: {
+            [tables.catalog]: {
+              Keys: pendingKeys,
+              ConsistentRead: true,
+              ...projection,
+            },
+          },
+        }));
+        if (!response || typeof response !== 'object' || Array.isArray(response)) {
+          throw new Error('DynamoDB batch read response is malformed');
+        }
+
+        const rawResponses = response.Responses;
+        if (rawResponses !== undefined && (!rawResponses || typeof rawResponses !== 'object' || Array.isArray(rawResponses))) {
+          throw new Error('DynamoDB batch read Responses is malformed');
+        }
+        if (rawResponses && Object.keys(rawResponses).some((table) => table !== tables.catalog)) {
+          throw new Error('DynamoDB batch read returned an unexpected table');
+        }
+        const items = rawResponses?.[tables.catalog] ?? [];
+        if (!Array.isArray(items)) throw new Error('DynamoDB batch read items are malformed');
+        const requested = new Set(pendingKeys.map(({ id }) => id));
+        for (const item of items) {
+          if (!item || typeof item !== 'object' || Array.isArray(item)
+            || typeof item.id !== 'string' || !requested.has(item.id) || !expected.has(item.id)
+            || resources.has(item.id)) {
+            throw new Error('DynamoDB batch read returned an unexpected or duplicate resource');
+          }
+          resources.set(item.id, cleanItem(item));
+        }
+
+        const rawUnprocessed = response.UnprocessedKeys;
+        if (rawUnprocessed !== undefined && (!rawUnprocessed || typeof rawUnprocessed !== 'object' || Array.isArray(rawUnprocessed))) {
+          throw new Error('DynamoDB batch read UnprocessedKeys is malformed');
+        }
+        if (rawUnprocessed && Object.keys(rawUnprocessed).some((table) => table !== tables.catalog)) {
+          throw new Error('DynamoDB batch read returned an unexpected unprocessed table');
+        }
+        const unprocessed = rawUnprocessed?.[tables.catalog];
+        if (unprocessed === undefined) break;
+        if (!unprocessed || typeof unprocessed !== 'object' || Array.isArray(unprocessed) || !Array.isArray(unprocessed.Keys)) {
+          throw new Error('DynamoDB batch read unprocessed keys are malformed');
+        }
+        if (unprocessed.Keys.length === 0) break;
+
+        const seenKeys = new Set();
+        for (const key of unprocessed.Keys) {
+          if (!key || typeof key !== 'object' || Array.isArray(key)
+            || typeof key.id !== 'string' || !requested.has(key.id) || seenKeys.has(key.id)) {
+            throw new Error('DynamoDB batch read returned an invalid unprocessed key');
+          }
+          seenKeys.add(key.id);
+        }
+        if (retries >= MAX_UNPROCESSED_RETRIES) throw new Error('DynamoDB batch read exceeded unprocessed key retries');
+        await new Promise((resolve) => setTimeout(resolve, BATCH_GET_RETRY_DELAYS_MS[retries]));
+        retries += 1;
+        pendingKeys = unprocessed.Keys;
+      }
+    }
+
+    const missing = uniqueIds.filter((id) => !resources.has(id));
+    if (missing.length > 0) throw new Error(`DynamoDB batch read is missing expected resources: ${missing.join(', ')}`);
+    return resources;
+  }
+
   function profileScan(prefix) {
     if (prefix === 'profile:') {
       const projection = profileProjection();
@@ -303,6 +389,7 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
     },
 
     list,
+    getResources,
 
     async transact({ checks = [], puts = [], deletes = [] } = {}) {
       if (!Array.isArray(checks) || !Array.isArray(puts) || !Array.isArray(deletes)) throw new TypeError('transaction inputs must be arrays');

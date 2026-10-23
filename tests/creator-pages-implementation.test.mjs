@@ -173,7 +173,9 @@ test('valid events can be approved again without resource taxonomy and creator U
   assert.equal(publicProfile.links[0].url, currentUrl);
   assert.equal(publicProfile.links[0].directoryApproval, 'approved');
   const adminResources = await api(harness, '/api/admin/recursos', 'admin');
-  assert.equal((await responseJson(adminResources)).resources.find(({ id }) => id === 'event-verified').url, currentUrl);
+  const eventDto = (await responseJson(adminResources)).resources.find(({ id }) => id === 'event-verified');
+  assert.equal(eventDto.url, currentUrl);
+  assert.equal(eventDto.recordType, 'event');
 });
 
 test('creator text limits reject oversized fields before storage and accept each configured boundary', async () => {
@@ -231,4 +233,49 @@ test('oversized JSON bodies are rejected before storage access', async () => {
   assert.equal(response.status, 413);
   assert.equal((await responseJson(response)).error, 'BODY_TOO_LARGE');
   assert.equal(harness.store.calls.length, 0, 'body size must be checked before any storage access');
+});
+
+test('public profile reads all linked resources through one complete batch and keeps link order', async () => {
+  const harness = await createCreatorPagesHarness();
+  await createProfile(harness, 'creator-a', 'ana');
+  const published = await api(harness, '/api/creador/perfil/publicar', 'creator-a', { method: 'POST', body: {} });
+  assert.equal(published.status, 200);
+
+  const resourceIds = [];
+  for (const [title, slug] of [['Uno', 'uno'], ['Dos', 'dos'], ['Tres', 'tres']]) {
+    const response = await api(harness, '/api/creador/enlaces', 'creator-a', {
+      method: 'POST', body: { title, url: `https://example.com/${slug}` },
+    });
+    assert.equal(response.status, 201);
+    resourceIds.push((await responseJson(response)).link.resourceId);
+  }
+
+  const get = harness.store.get.bind(harness.store);
+  const batches = [];
+  harness.store.getResources = async (ids) => {
+    batches.push([...ids]);
+    return new Map(await Promise.all(ids.map(async (id) => [id, await get(`resource:${id}`)])));
+  };
+
+  const page = await harness.service.readPublicProfile('ana');
+  assert.equal(page.status, 200);
+  assert.deepEqual(batches, [resourceIds]);
+  assert.deepEqual(page.links.map(({ title }) => title), ['Uno', 'Dos', 'Tres']);
+});
+
+test('profile reads fail with 503 when a resource batch omits an expected linked resource', async () => {
+  const harness = await createCreatorPagesHarness();
+  await createProfile(harness, 'creator-a', 'ana');
+  const published = await api(harness, '/api/creador/perfil/publicar', 'creator-a', { method: 'POST', body: {} });
+  assert.equal(published.status, 200);
+  const added = await api(harness, '/api/creador/enlaces', 'creator-a', {
+    method: 'POST', body: { title: 'Recurso', url: 'https://example.com/resource' },
+  });
+  assert.equal(added.status, 201);
+
+  harness.store.getResources = async () => new Map();
+  const page = await harness.service.readPublicProfile('ana');
+  assert.deepEqual(page, { status: 503 }, 'a missing item must not produce a partial public model');
+  const editor = await api(harness, '/api/creador/perfil', 'creator-a');
+  assert.equal(editor.status, 503);
 });

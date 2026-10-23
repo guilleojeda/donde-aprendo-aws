@@ -22,7 +22,7 @@ const creatorTableActions = [
 ].sort();
 const referencedResourceFields = ['id', 'recordType', 'url', 'registrationUrl'];
 const catalogTableActions = [
-  'dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:UpdateItem', 'dynamodb:DeleteItem',
+  'dynamodb:GetItem', 'dynamodb:BatchGetItem', 'dynamodb:PutItem', 'dynamodb:UpdateItem', 'dynamodb:DeleteItem',
   'dynamodb:Scan', 'dynamodb:ConditionCheckItem',
 ].sort();
 

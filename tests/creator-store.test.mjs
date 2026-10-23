@@ -180,6 +180,71 @@ test('list pagination treats only absent, null, or empty cursors as terminal and
   }
 });
 
+test('getResources batch gets all IDs in strongly consistent projected chunks of at most 100', async () => {
+  const ids = Array.from({ length: 201 }, (_, index) => `resource-${index}`);
+  ids.push(ids[0]);
+  const { client, calls } = fakeClient(async (command) => {
+    assert.equal(commandName(command), 'BatchGetCommand');
+    const [table, request] = Object.entries(command.input.RequestItems)[0];
+    assert.equal(table, 'catalog-test');
+    assert.ok(request.Keys.length <= 100);
+    assert.equal(request.ConsistentRead, true);
+    assert.ok(request.ProjectionExpression.includes('#r0'));
+    assert.ok(Object.values(request.ExpressionAttributeNames).includes('registrationUrl'));
+    assert.doesNotMatch(Object.values(request.ExpressionAttributeNames).join(','), /accountId|email|evidence/);
+    return { Responses: { [table]: request.Keys.map(({ id }) => ({ id, title: `Title ${id}`, version: 1 })).reverse() } };
+  });
+  const store = createCreatorStore({ ...TABLES, client });
+  const resources = await store.getResources(ids);
+
+  assert.equal(calls.length, 3);
+  assert.deepEqual(calls.map((command) => command.input.RequestItems['catalog-test'].Keys.length), [100, 100, 1]);
+  assert.equal(resources.size, 201);
+  assert.equal(resources.get('resource-200').title, 'Title resource-200');
+});
+
+test('getResources retries UnprocessedKeys within a bounded budget and returns a complete map', async () => {
+  let callCount = 0;
+  const { client, calls } = fakeClient(async (command) => {
+    callCount += 1;
+    const table = Object.keys(command.input.RequestItems)[0];
+    if (callCount === 1) {
+      return {
+        Responses: { [table]: [{ id: 'ready', title: 'Ready' }] },
+        UnprocessedKeys: { [table]: { Keys: [{ id: 'retry' }] } },
+      };
+    }
+    return { Responses: { [table]: [{ id: 'retry', title: 'Retried' }] } };
+  });
+  const store = createCreatorStore({ ...TABLES, client });
+  const resources = await store.getResources(['ready', 'retry']);
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls[1].input.RequestItems['catalog-test'].Keys, [{ id: 'retry' }]);
+  assert.equal(resources.get('retry').title, 'Retried');
+
+  const { client: stuckClient, calls: stuckCalls } = fakeClient(async (command) => {
+    const [table, request] = Object.entries(command.input.RequestItems)[0];
+    return { UnprocessedKeys: { [table]: { Keys: request.Keys } } };
+  });
+  const stuckStore = createCreatorStore({ ...TABLES, client: stuckClient });
+  await assert.rejects(stuckStore.getResources(['stuck']), /exceeded unprocessed key retries/);
+  assert.equal(stuckCalls.length, 4, 'one initial request and at most three retries');
+});
+
+test('getResources rejects incomplete and malformed DynamoDB responses rather than returning partial data', async () => {
+  const malformedResponses = [
+    null,
+    { Responses: { 'catalog-test': 'not-an-item-list' } },
+    { Responses: { 'catalog-test': [] } },
+    { UnprocessedKeys: { 'catalog-test': { Keys: 'not-a-key-list' } } },
+  ];
+  for (const response of malformedResponses) {
+    const { client } = fakeClient(async () => response);
+    const store = createCreatorStore({ ...TABLES, client });
+    await assert.rejects(store.getResources(['expected']), /malformed|missing expected resources/);
+  }
+});
+
 test('transactions merge CAS checks with writes and preserve absent, legacy-zero, and version conditions', async () => {
   const { client, calls } = fakeClient(async () => ({}));
   const store = createCreatorStore({ ...TABLES, client });

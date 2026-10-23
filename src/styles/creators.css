@@ -742,6 +742,67 @@
   margin-top: 26px;
 }
 
+.creator-admin__resource-filters {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.5fr) minmax(180px, 0.8fr) auto auto;
+  align-items: end;
+  gap: 12px;
+  margin-top: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.creator-admin__resource-filters label {
+  display: grid;
+  gap: 5px;
+  color: var(--color-heading);
+  font-weight: 700;
+}
+
+.creator-admin__resource-filters input,
+.creator-admin__resource-filters select {
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--color-border-control);
+  border-radius: 7px;
+  background: var(--color-field);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.creator-admin__resource-filters > a {
+  color: var(--color-link);
+  font-weight: 700;
+}
+
+.creator-admin__resource-count {
+  color: var(--color-text-muted);
+}
+
+.creator-admin__pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.creator-admin__pagination p {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.creator-admin__pagination > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.creator-admin__pagination [aria-disabled="true"] {
+  color: var(--color-text-muted);
+}
+
 .creator-admin__list {
   display: grid;
   gap: 14px;
@@ -831,12 +892,18 @@
 @media (max-width: 700px) {
   .creator-form__grid,
   .creator-social-fields,
-  .creator-admin__classification {
+  .creator-admin__classification,
+  .creator-admin__resource-filters {
     grid-template-columns: minmax(0, 1fr);
   }
 
   .creator-social-fields legend {
     grid-column: auto;
+  }
+
+  .creator-admin__pagination {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .creator-profile__header {
