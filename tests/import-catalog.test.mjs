@@ -8,6 +8,7 @@ import {
   parseCatalogTsv,
   stableCatalogId,
 } from '../src/lib/catalog-import.mjs';
+import { currentUrlReservationId } from '../src/lib/catalog-url.mjs';
 
 const TSV_HEADERS = 'title\turl\ttext\tCategory\tHide\tRank\timgUrl\tOrder\tDestacado';
 
@@ -106,15 +107,18 @@ Two\thttps://example.test/two\tOriginal two\tBlog\t\t\t\t2\t
   const options = {
     tableName: 'catalog',
     getCallerIdentity: async () => ({ Account: '719535286359' }),
-    putItem: async (params) => {
-      writes.push(params);
-      if (store.has(params.Item.id)) {
-        const error = new Error('already exists');
-        error.name = 'ConditionalCheckFailedException';
-        throw error;
-      }
-      store.set(params.Item.id, { ...params.Item });
-    },
+      getItem: async ({ Key }) => ({ Item: store.get(Key.id) }),
+      transactWrite: async (params) => {
+        writes.push(params);
+        const items = params.TransactItems.map(({ Put }) => Put.Item);
+        if (items.some((item) => store.has(item.id))) {
+          const error = new Error('already exists');
+          error.name = 'TransactionCanceledException';
+          error.CancellationReasons = [{ Code: 'ConditionalCheckFailed' }];
+          throw error;
+        }
+        for (const item of items) store.set(item.id, { ...item });
+      },
   };
 
   assert.deepEqual(await importCatalog(records, options), { total: 2, created: 2, skipped: 0 });
@@ -124,8 +128,37 @@ Two\thttps://example.test/two\tOriginal two\tBlog\t\t\t\t2\t
   assert.deepEqual(await importCatalog(records, options), { total: 2, created: 0, skipped: 2 });
   assert.equal(store.get(records[0].id).description, 'Owner edit');
   assert.equal(store.get(records[0].id).published, false);
-  assert.equal(writes[0].ConditionExpression, 'attribute_not_exists(#id)');
-  assert.deepEqual(writes[0].ExpressionAttributeNames, { '#id': 'id' });
+  assert.equal(writes[0].TransactItems.length, 2);
+  assert.ok(writes.every(({ TransactItems }) => TransactItems.some(({ Put }) => Put.Item.id.startsWith('__url#'))));
+  assert.equal(store.get(currentUrlReservationId(records[0].url)).resourceId, records[0].id);
+});
+
+test('reports a different resource that claims an already-reserved literal URL', async () => {
+  const [first] = mapTsvRows(parseCatalogTsv(`${TSV_HEADERS}\nOne\thttps://example.test/shared?a=1&b=2\tDescription\tCurso\t\t\t\t1\t\n`));
+  const records = [first, { ...first, id: 'catalog-independent-id', title: 'Other resource' }];
+  const store = new Map();
+  const result = await importCatalog(records, {
+    tableName: 'catalog',
+    getCallerIdentity: async () => ({ Account: '719535286359' }),
+    getItem: async ({ Key }) => ({ Item: store.get(Key.id) }),
+    transactWrite: async ({ TransactItems }) => {
+      const items = TransactItems.map(({ Put }) => Put.Item);
+      if (items.some(({ id }) => store.has(id))) {
+        const error = new Error('conditional transaction conflict');
+        error.name = 'TransactionCanceledException';
+        error.CancellationReasons = [{ Code: 'ConditionalCheckFailed' }];
+        throw error;
+      }
+      for (const item of items) store.set(item.id, { ...item });
+    },
+  });
+
+  assert.deepEqual(result, {
+    total: 2, created: 1, skipped: 1,
+    conflicts: [{ id: 'catalog-independent-id', url: first.url, status: 'duplicate', resourceIds: [first.id] }],
+  });
+  assert.equal(store.get(currentUrlReservationId(first.url)).resourceId, first.id);
+  assert.equal(store.has('catalog-independent-id'), false);
 });
 
 test('real imports require a table while dry runs do not', async () => {

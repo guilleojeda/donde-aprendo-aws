@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { once } from 'node:events';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:net';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -21,6 +21,9 @@ const allowedRuntimeEnvironment = [
   'COGNITO_CLIENT_ID',
   'COGNITO_DOMAIN',
   'ACCOUNTS_TABLE',
+  'CATALOG_TABLE',
+  'CREATOR_PROFILES_TABLE',
+  'CREATOR_PHOTOS_BUCKET',
 ];
 const runtimeEnvironment = readFileSync(resolve(computeRoot, '.env'), 'utf8');
 const runtimeEnvironmentNames = runtimeEnvironment.split(/\r?\n/u)
@@ -59,7 +62,15 @@ assert.deepEqual(manifest.computeResources, [{
 }], 'Amplify compute uses the explicit Node 24 runtime.');
 assert.ok(existsSync(resolve(computeRoot, 'entry.mjs')), 'The compute entry point is present.');
 assert.ok(existsSync(resolve(computeRoot, 'node_modules')), 'Compute dependencies are packaged with the runtime.');
-assert.deepEqual(runtimeEnvironmentNames, [...allowedRuntimeEnvironment].sort(), 'Only the approved account runtime variables are packaged.');
+const nativePhotoCheck = spawnSync(process.execPath, ['--input-type=module', '--eval',
+  'import sharp from "sharp"; const b = await sharp({create:{width:2,height:2,channels:3,background:{r:30,g:40,b:50}}}).webp().toBuffer(); if ((await sharp(b).metadata()).format !== "webp") process.exit(1);',
+], { cwd: computeRoot, encoding: 'utf8' });
+assert.equal(nativePhotoCheck.status, 0,
+  `The packaged Sharp native binary must decode and encode WebP on this deployment platform: ${nativePhotoCheck.stderr}`);
+assert.ok(runtimeEnvironmentNames.every((name) => allowedRuntimeEnvironment.includes(name)),
+  'Only the approved runtime variables are packaged.');
+assert.ok(allowedRuntimeEnvironment.filter((name) => name !== 'CATALOG_TABLE').every((name) => runtimeEnvironmentNames.includes(name)),
+  'All runtime configuration is packaged; fixture builds omit the mutually exclusive live catalog table.');
 assert.doesNotMatch(runtimeEnvironment, /AWS_(?:ACCESS_KEY_ID|SECRET_ACCESS_KEY|SESSION_TOKEN)|-----BEGIN [A-Z ]*PRIVATE KEY-----/u,
   'The runtime environment file does not contain credentials.');
 
@@ -122,6 +133,8 @@ if (existsSync(resolve(siteOutputRoot, 'eventos/fixture-event.ics'))) {
 }
 assert.ok(!existsSync(resolve(siteOutputRoot, '404.html')), 'The 404 page is not prerendered.');
 assert.ok(!existsSync(resolve(siteOutputRoot, 'cuenta/index.html')), 'The account page is not prerendered.');
+assert.ok(!existsSync(resolve(siteOutputRoot, 'cuenta/creador/index.html')), 'The creator editor is not prerendered.');
+assert.ok(!existsSync(resolve(siteOutputRoot, 'cuenta/administracion/index.html')), 'Administration is not prerendered.');
 
 function directoryBytes(directory) {
   return readdirSync(directory, { withFileTypes: true }).reduce((total, entry) => {
@@ -150,6 +163,9 @@ const childEnvironment = {
   ...(process.env.PATH ? { PATH: process.env.PATH } : {}),
   ...(process.env.HOME ? { HOME: process.env.HOME } : {}),
   NODE_ENV: 'production',
+  // Fixture builds cannot set a live catalog table. Supply an inert identifier
+  // here to exercise anonymous SSR boundaries without contacting DynamoDB.
+  CATALOG_TABLE: 'hosting-verification-catalog',
   HOST: '127.0.0.1',
   PORT: String(port),
 };
@@ -210,6 +226,38 @@ try {
     'Account responses are private and not cached.');
   const accountRobots = accountHtml.match(/<meta name="robots" content="([^"]+)"/u)?.[1];
   assert.ok(accountRobots?.split(',').map((directive) => directive.trim()).includes('noindex'), 'Account page is not indexable.');
+
+  for (const path of ['/cuenta/creador/', '/cuenta/administracion/']) {
+    const response = await getWhenReady(path);
+    const html = await response.text();
+    assert.equal(response.status, 401, `${path} requires a real session.`);
+    assert.match(response.headers.get('cache-control') ?? '', /private.*no-store/iu);
+    assert.match(html, /noindex/u);
+    assert.doesNotMatch(html, /src="\/assets\/analytics\.js"/u, 'Private creator pages do not load Analytics.');
+    assertRuntimeTheme(html, path);
+  }
+  for (const path of ['/api/creador/perfil/', '/api/admin/recursos/', '/api/creador/foto/autorizar/']) {
+    const isPhoto = path.includes('/foto/');
+    const response = await fetch(new URL(path, origin), {
+      method: isPhoto ? 'POST' : 'GET',
+      headers: { origin: accountOrigin, host: accountHost, 'x-forwarded-host': accountHost, 'x-forwarded-proto': 'https', 'content-type': 'application/json' },
+      ...(isPhoto ? { body: '{"version":1}' } : {}),
+      signal: AbortSignal.timeout(3000),
+    });
+    assert.equal(response.status, 401, `${path} requires a real session.`);
+    assert.match(response.headers.get('cache-control') ?? '', /private.*no-store/iu);
+  }
+  const malformedCreator = await getWhenReady('/c/a/');
+  assert.equal(malformedCreator.status, 404, 'An invalid public slug has a real 404.');
+  assert.match(malformedCreator.headers.get('cache-control') ?? '', /no-store/iu);
+  const malformedPhoto = await getWhenReady('/media/fotos/invalid.id/unknown.webp');
+  assert.equal(malformedPhoto.status, 404, 'The media route rejects arbitrary identifiers.');
+  const rejectedCreatorWrite = await fetch(new URL('/api/creador/perfil/', origin), {
+    method: 'POST', headers: { origin: 'https://attacker.example', host: accountHost, 'x-forwarded-host': accountHost, 'x-forwarded-proto': 'https', 'content-type': 'application/x-www-form-urlencoded' },
+    body: '', signal: AbortSignal.timeout(3000),
+  });
+  assert.equal(rejectedCreatorWrite.status, 403, 'Astro rejects a cross-origin creator write before dispatch.');
+  assert.match(rejectedCreatorWrite.headers.get('cache-control') ?? '', /private.*no-store/iu);
 
   const rejectedLogoutResponse = await fetch(new URL('/cuenta/salir/', origin), {
     method: 'POST',

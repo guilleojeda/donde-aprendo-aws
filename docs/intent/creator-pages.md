@@ -1,0 +1,49 @@
+# Páginas de creadores
+
+Cada cuenta puede mantener una página pública independiente de su registro. La página reúne identidad, enlaces y redes en una plantilla compartible; no permite HTML libre ni diseño personalizado. Cada cuenta tiene un perfil; la persona debe guardarlo y luego publicarlo de forma explícita.
+
+## Perfil público
+
+La ruta canónica es `/c/<slug>/`. El slug se elige por separado del nombre visible, admite de 3 a 40 letras ASCII minúsculas, números y guiones simples entre segmentos, y se puede cambiar desde el editor. El ID del perfil permanece estable. Las rutas anteriores son aliases que responden con una redirección permanente `308`, conservando sufijo y query.
+
+Nombre visible y slug son obligatorios para publicar. Ciudad, país, biografía, foto, programas y redes son opcionales. Los programas admitidos son `User Group Leaders`, `Community Builders` y `Heroes`; son declaraciones de la persona, no acreditaciones verificadas. Las redes y el sitio web aceptan URLs HTTP(S) completas para Instagram, X, LinkedIn, AWS Builder Center y sitio web o newsletter. Estos campos de perfil no se convierten en fichas del directorio. El formulario limita nombre visible a 120 caracteres, ciudad y país a 100, biografía a 2000 y cada URL social a 500.
+
+El perfil se renderiza por petición desde el estado actual del servicio y devuelve HTML con canonical, título, descripción, imagen social y enlaces presentes sin JavaScript. No se comparte en caché. Una ficha ausente, en borrador u oculta responde 404; una falla del servicio responde 503 sin mostrar datos parciales. El HTML público sólo contiene los datos declarados para compartir; la identidad de cuenta, el correo y los permisos permanecen privados.
+
+## Enlaces compartidos
+
+Cada enlace se muestra públicamente en el perfil aunque todavía no esté aprobado para el directorio o la persona lo haya excluido de allí. La persona administra su colocación: orden, destacado y selección para el directorio. Destacarlo en su perfil no otorga la recomendación editorial `featured` del catálogo.
+
+El catálogo conserva una ficha única por URL literal actual, incluidos query strings y barras finales. Varios perfiles pueden tener su propia colocación de la misma ficha. Al crear una URL nueva, quien la agrega obtiene edición inicial de título, URL y descripción; al reutilizar una URL existente no se obtiene permiso para modificarla. Si se cambia la URL, el ID del recurso se conserva y las futuras referencias usan el destino vigente. Los títulos admiten 200 caracteres, las URLs hasta 2048 y las descripciones hasta 2000; las escrituras JSON se limitan a 32 KiB. Quitar una colocación no elimina la referencia de edición del perfil: la persona aún puede modificar el recurso propio y volver a incorporarlo.
+
+Una cuenta no demuestra que su titular controle una fuente o URL existente. Para reclamar recursos del catálogo, el creador envía los IDs exactos y puede añadir una referencia privada como nota o URL. `sourceId` y la referencia admiten hasta 2000 caracteres cada uno. La referencia no produce una verificación automática. Una persona administradora debe revisar manualmente la evidencia y seleccionar los IDs concretos que vincula; un nombre, `sourceId` o correo no da propiedad automática sobre recursos relacionados.
+
+## Elegibilidad y moderación del directorio
+
+El perfil y el directorio tienen publicación separada. Una URL nueva queda seleccionada por defecto para el directorio, pero pendiente de aprobación. El creador puede desmarcarla sin ocultarla de su perfil.
+
+Para una ficha bajo control del creador, el directorio la incluye sólo cuando se cumplen todas estas condiciones: `published=true`, `approvalRevoked` no es `true`, la ficha no está oculta, y al menos una colocación seleccionada pertenece a un perfil publicado y no oculto. El catálogo publica una sola ficha aunque varios perfiles la seleccionen. Quitar la selección de un perfil no retira la de otros; si ninguna colocación elegible la mantiene, la ficha sale del directorio. Volver a seleccionar una ficha cuya aprobación siga vigente la reincorpora sin otra revisión.
+
+Los registros legados que aún conservan control editorial siguen la regla editorial existente: `published=true`, ausencia de revocación (`approvalRevoked` no es `true`) y ausencia de ocultamiento. Referenciarlos desde un perfil no los vincula ni cambia quién los controla. La vinculación administrativa explícita cambia la elegibilidad al modelo de selección por creadores y conserva la aprobación vigente.
+
+Administración separa tres acciones: aprobar o revocar la inclusión global del recurso en el directorio, ocultar o restaurar una ficha pública, y ocultar o restaurar un perfil. Aprobar establece `published=true` y borra `approvalRevoked`; revocar establece `published=false` y `approvalRevoked=true`, para que una sincronización no vuelva a publicar la ficha sin una decisión administrativa explícita. Revocar aprobación excluye la ficha del directorio pero conserva sus enlaces en los perfiles. Ocultar una ficha la retira también de los perfiles. Ocultar un perfil lo hace responder 404 y deja de contar para la elegibilidad del directorio.
+
+## Edición y administración
+
+El editor está en `/cuenta/creador/`. Guarda borradores y permite publicar explícitamente el perfil, modificar sus datos, administrar enlaces, reutilizar referencias editables y presentar solicitudes de vinculación. Los cambios usan versiones del modelo; un conflicto requiere recargar antes de volver a guardar. Los errores de sesión, permisos, validación, conflicto o disponibilidad se muestran sin tratar un guardado fallido como exitoso.
+
+La administración está en `/cuenta/administracion/`, requiere sesión y el permiso privado `isAdmin`, y expone controles mínimos para clasificación, aprobación/revocación, ocultamiento/restauración y vinculación de solicitudes revisadas. Los recursos se muestran de 25 en 25, con búsqueda por ID, título o URL y filtros de pendientes, aprobados, revocados, ocultos o todos; el filtrado y la paginación usan GET y funcionan sin JavaScript. Los eventos no requieren clasificación de recursos. No es un CMS general ni existe una pantalla para autoasignarse ese permiso. Los datos de reclamación y su evidencia no aparecen en perfiles públicos.
+
+Las páginas y APIs privadas son `private, no-store`, noindex y sin captura analítica. Las escrituras requieren el origen esperado y CSRF de la sesión. Las APIs bajo `/api/creador/` y `/api/admin/` derivan propietario y rol de la sesión validada, no de permisos enviados desde el navegador.
+
+## Fotos
+
+La cuenta autoriza una carga limitada en `POST /api/creador/foto/autorizar`; el navegador envía el archivo directamente al POST firmado de S3 y finaliza con `POST /api/creador/foto/finalizar`. Sólo se admiten JPEG, PNG y WebP de hasta 15 MiB y 40 megapíxeles. El servicio aplica orientación, crea una variante WebP de hasta 512 píxeles por lado y elimina metadatos antes de actualizar el perfil. Los originales no se sirven públicamente; la variante final se entrega en `/media/fotos/<profileId>/<version>.webp` con caché inmutable versionada. Si la carga o finalización falla, la foto anterior se conserva. Los objetos temporales vencen mediante lifecycle. Si el acuse de una escritura de perfil queda ambiguo, la variante final inmutable se retiene porque el perfil podría ya referenciarla; no tiene expiración. Reconsiderar la limpieza sólo si se observan huérfanos con costo material.
+
+## Captura y límites
+
+En la página pública de producción se envían los eventos GA4 `creator_view` con `creator_id` y `creator_link_click` con `creator_id` y `link_id`. Los links de red usan IDs estables como `social:instagram`. Los parámetros propios de estos eventos no incluyen nombre, URL de destino, texto libre, correo ni identidad de inicio de sesión. La medición base de GA4 puede seguir adjuntando sus parámetros normales de página, como `page_location` y `page_title`, que contienen la ruta y el título público. Editor, administración, vistas previas y hosts alternativos no cuentan; Analytics no detiene ni retrasa la navegación.
+
+GA4 puede tardar 24–48 horas en procesar datos y no recibe todas las interacciones si JavaScript está bloqueado o no se permite el envío. No hay una pantalla de estadísticas ni series de visitas/clics materializadas en esta entrega; esas capacidades no se pueden inferir de los eventos capturados. Tampoco se reconstruye historial anterior a la captura. Las series de contenido y su búsqueda no están materializadas.
+
+Los cambios del perfil se reflejan en su HTML por petición sin esperar un build. La inclusión o retirada del directorio sigue siendo un snapshot: el publicador revisa cambios cada hora y el sitio necesita además completar una compilación Amplify correcta. Por eso el directorio puede tardar hasta una hora más la compilación; un build activo o fallido puede ampliar esa demora. Una publicación manual del sitio puede adelantarla.

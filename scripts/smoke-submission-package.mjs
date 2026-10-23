@@ -1,27 +1,51 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-let receivedPut = false;
+let itemReads = 0;
+let receivedTransaction = false;
+let resourceId;
 const server = createServer(async (request, response) => {
   try {
-    assert.equal(request.headers['x-amz-target'], 'DynamoDB_20120810.PutItem');
     const chunks = [];
     for await (const chunk of request) chunks.push(chunk);
     const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-    assert.equal(body.TableName, 'smoke-catalog');
-    assert.deepEqual(body.Item.published, { BOOL: false });
-    assert.deepEqual(body.Item.submitterEmail, { S: 'tester@example.invalid' });
-    receivedPut = true;
-    response.writeHead(400, { 'content-type': 'application/x-amz-json-1.0' });
-    response.end(JSON.stringify({
-      __type: 'com.amazonaws.dynamodb.v20120810#ConditionalCheckFailedException',
-      message: 'Existing URL',
-    }));
+    const target = request.headers['x-amz-target'];
+    if (target === 'DynamoDB_20120810.GetItem') {
+      assert.equal(body.TableName, 'smoke-catalog');
+      if (itemReads === 0) {
+        assert.match(body.Key.id.S, /^resource-/u);
+        resourceId = body.Key.id.S;
+      } else {
+        assert.equal(body.Key.id.S, `__url#${createHash('sha256').update('https://example.invalid/smoke').digest('hex')}`);
+      }
+      itemReads += 1;
+      response.writeHead(200, { 'content-type': 'application/x-amz-json-1.0' });
+      response.end('{}');
+      return;
+    }
+    assert.equal(target, 'DynamoDB_20120810.TransactWriteItems');
+    assert.equal(body.TransactItems.length, 2);
+    const [resourcePut, reservationPut] = body.TransactItems.map(({ Put }) => Put);
+    assert.equal(resourcePut.Item.id.S, resourceId, 'the checked resource ID is the one committed');
+    assert.equal(resourcePut.TableName, 'smoke-catalog');
+    assert.equal(reservationPut.TableName, 'smoke-catalog');
+    assert.deepEqual(resourcePut.Item.published, { BOOL: false });
+    assert.deepEqual(resourcePut.Item.submitterEmail, { S: 'tester@example.invalid' });
+    assert.deepEqual(resourcePut.Item.version, { N: '1' });
+    assert.deepEqual(reservationPut.Item.id, {
+      S: `__url#${createHash('sha256').update('https://example.invalid/smoke').digest('hex')}`,
+    });
+    assert.deepEqual(reservationPut.Item.resourceId, resourcePut.Item.id);
+    assert.deepEqual(reservationPut.Item.status, { S: 'reserved' });
+    receivedTransaction = true;
+    response.writeHead(200, { 'content-type': 'application/x-amz-json-1.0' });
+    response.end('{}');
   } catch (error) {
     response.writeHead(500, { 'content-type': 'text/plain' });
     response.end(error.message);
@@ -54,11 +78,12 @@ try {
     }),
   });
 
-  assert.equal(receivedPut, true, 'Bundled handler never reached DynamoDB');
-  assert.equal(result.statusCode, 409);
-  assert.deepEqual(JSON.parse(result.body), { ok: false, code: 'duplicate' });
+  assert.equal(itemReads, 2, 'Bundled handler did not read both deterministic keys');
+  assert.equal(receivedTransaction, true, 'Bundled handler never reached DynamoDB transaction');
+  assert.equal(result.statusCode, 201);
+  assert.equal(JSON.parse(result.body).ok, true);
   const metadata = JSON.parse(await readFile('build/submission.json', 'utf8'));
-  console.log(JSON.stringify({ packagedHandler: true, putReachedMock: true, statusCode: result.statusCode, artifactSha256: metadata.sha256 }));
+  console.log(JSON.stringify({ packagedHandler: true, transactionReachedMock: true, statusCode: result.statusCode, artifactSha256: metadata.sha256 }));
 } finally {
   await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
 }

@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 
 import { parse } from 'csv-parse/sync';
 
+import { putCatalogResourceOnce, createDynamoCatalogAccess } from './catalog-resource-writer.mjs';
 import {
   DEFAULT_AWS_REGION,
   validateCatalogUrl,
@@ -106,8 +107,8 @@ export function stableCatalogId(url) {
 }
 
 /**
- * Insert initial records with a conditional put. Existing IDs are skipped so
- * owner edits and publication decisions survive a rerun.
+ * Insert initial records with atomic URL reservations. Existing IDs are skipped
+ * so owner edits and publication decisions survive a rerun.
  */
 export async function importCatalog(records, options = {}) {
   const tableName = options.tableName;
@@ -148,40 +149,33 @@ export async function importCatalog(records, options = {}) {
     throw new Error(`Catalog import account guard failed: expected ${accountId}, got ${identity?.Account ?? 'unknown'}`);
   }
 
-  const putItem = options.putItem ?? await createDynamoWriter({
-    region: options.region ?? DEFAULT_AWS_REGION,
-    docClient: options.docClient,
-  });
+  const access = options.getItem && options.transactWrite
+    ? { getItem: options.getItem, transactWrite: options.transactWrite }
+    : await createDynamoCatalogAccess({
+      region: options.region ?? DEFAULT_AWS_REGION,
+      docClient: options.docClient,
+    });
 
   let created = 0;
   let skipped = 0;
+  const conflicts = [];
   for (const record of importItems) {
-    const params = {
-      TableName: tableName,
-      Item: record,
-      ConditionExpression: 'attribute_not_exists(#id)',
-      ExpressionAttributeNames: { '#id': 'id' },
-    };
     try {
-      await putItem(params);
-      created += 1;
-    } catch (error) {
-      if (isConditionalPutConflict(error)) {
+      const result = await putCatalogResourceOnce({ tableName, item: record, ...access });
+      if (result.status === 'created') created += 1;
+      else if (result.status === 'id-exists') skipped += 1;
+      else {
         skipped += 1;
-        continue;
+        conflicts.push({ id: record.id, url: record.url, status: result.status, resourceIds: result.resourceIds });
       }
+    } catch (error) {
       throw new Error(`Catalog import failed while writing ${record.id}: ${error?.message ?? String(error)}`, {
         cause: error,
       });
     }
   }
 
-  return { total: records.length, created, skipped };
-}
-
-export function isConditionalPutConflict(error) {
-  return error?.name === 'ConditionalCheckFailedException'
-    || error?.code === 'ConditionalCheckFailedException';
+  return { total: records.length, created, skipped, ...(conflicts.length ? { conflicts } : {}) };
 }
 
 export function parseFeatured(value, index = 0) {
@@ -210,17 +204,4 @@ async function createCallerIdentityReader(options) {
   const { STSClient, GetCallerIdentityCommand } = await import('@aws-sdk/client-sts');
   const client = new STSClient({ region: options.region ?? DEFAULT_AWS_REGION });
   return async () => client.send(new GetCallerIdentityCommand({}));
-}
-
-async function createDynamoWriter({ region, docClient }) {
-  const { PutCommand } = await import('@aws-sdk/lib-dynamodb');
-  let client = docClient;
-  if (!client) {
-    const [{ DynamoDBClient }, { DynamoDBDocumentClient }] = await Promise.all([
-      import('@aws-sdk/client-dynamodb'),
-      import('@aws-sdk/lib-dynamodb'),
-    ]);
-    client = DynamoDBDocumentClient.from(new DynamoDBClient({ region }));
-  }
-  return (params) => client.send(new PutCommand(params));
 }

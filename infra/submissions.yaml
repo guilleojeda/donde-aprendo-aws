@@ -27,13 +27,30 @@ Resources:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: WritePendingCatalog
+        - PolicyName: WritePendingCatalogResourceAndUrlReservation
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
               - Effect: Allow
-                Action: dynamodb:PutItem
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
                 Resource: !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${CatalogTableName}
+                Condition:
+                  ForAllValues:StringLike:
+                    dynamodb:LeadingKeys:
+                      - resource-*
+                      - __url#*
+              - Effect: Allow
+                Action: dynamodb:GetItem
+                Resource: !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${CatalogTableName}
+                Condition:
+                  ForAllValues:StringEquals:
+                    dynamodb:Attributes:
+                      - id
+                      - recordType
+                      - url
+                      - registrationUrl
         - PolicyName: WriteFunctionLogs
           PolicyDocument:
             Version: '2012-10-17'

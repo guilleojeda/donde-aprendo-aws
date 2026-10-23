@@ -1,0 +1,281 @@
+---
+import type { CreatorEditorDTO } from '../types/creators';
+import { safeJsonForScript } from '../pages/cuenta/_creator-page';
+
+interface Props {
+  data: CreatorEditorDTO;
+  csrfToken: string;
+}
+
+const { data, csrfToken } = Astro.props;
+const profile = data.profile;
+const linkedResourceIds = new Set(data.links.map((link) => link.resourceId));
+const editableResourceIds = new Set(data.editableResources.map((resource) => resource.id));
+const sortedLinks = [...data.links].sort((left, right) => Number(right.featured) - Number(left.featured) || left.position - right.position);
+const initialData = safeJsonForScript(data);
+const photoPath = profile?.photo?.url?.startsWith('/media/fotos/')
+  ? profile.photo.url
+  : profile?.photo?.version !== undefined
+    ? `/media/fotos/${encodeURIComponent(profile.id)}/${encodeURIComponent(String(profile.photo.version))}.webp`
+    : undefined;
+---
+
+<main id="contenido" class="creator-account site-container" tabindex="-1" data-creator-editor data-csrf={csrfToken}>
+  <header class="creator-account__header">
+    <p class="creator-profile__eyebrow">Mi cuenta</p>
+    <h1>Tu página de creador</h1>
+    <p>Completa tu perfil y comparte los recursos que ayudan a aprender AWS.</p>
+  </header>
+
+  <div class="creator-account__status" data-page-status role="status" aria-live="polite" hidden></div>
+
+  {profile?.published && !profile.hidden && (
+    <section class="creator-account__published" aria-label="Página publicada">
+      <div>
+        <strong>Tu página está publicada</strong>
+        <p>Los cambios del perfil y tus enlaces se ven al guardar.</p>
+      </div>
+      <a class="button button--outline" href={`/c/${encodeURIComponent(profile.slug)}/`}>Abrir página</a>
+      <button class="button button--outline" type="button" data-copy-profile-url data-url={`https://dondeaprendoaws.com/c/${encodeURIComponent(profile.slug)}/`}>Copiar enlace</button>
+      <p class="creator-form__status" data-copy-status role="status" aria-live="polite"></p>
+    </section>
+  )}
+
+  {profile?.published && profile.hidden && (
+    <p class="creator-account__notice" role="status">La página está temporalmente oculta por administración. Puedes actualizar tus datos.</p>
+  )}
+
+  <section class="creator-card" aria-labelledby="creator-profile-form-title">
+    <div class="creator-card__heading">
+      <div>
+        <p class="creator-profile__eyebrow">Identidad pública</p>
+        <h2 id="creator-profile-form-title">Datos del perfil</h2>
+      </div>
+      {photoPath && <img class="creator-editor__photo" src={photoPath} alt="Foto actual del perfil" width="72" height="72" />}
+    </div>
+    <p class="creator-card__help">El nombre visible y la dirección son independientes. Guardar crea un borrador; publicar requiere una acción aparte.</p>
+    <form class="creator-form" data-profile-form>
+      <div class="creator-form__grid">
+        <div class="creator-form__field">
+          <label for="creator-display-name">Nombre visible</label>
+          <input id="creator-display-name" name="displayName" autocomplete="name" maxlength="120" required value={profile?.displayName ?? ''} aria-describedby="creator-display-name-help" />
+          <p class="creator-form__help" id="creator-display-name-help">Hasta 120 caracteres.</p>
+        </div>
+        <div class="creator-form__field">
+          <label for="creator-slug">Dirección de tu página</label>
+          <div class="creator-slug-input"><span aria-hidden="true">/c/</span><input id="creator-slug" name="slug" required minlength="3" maxlength="40" pattern="[a-z0-9]([a-z0-9-]{1,38}[a-z0-9])" autocomplete="off" autocapitalize="none" spellcheck="false" value={profile?.slug ?? ''} aria-describedby="creator-slug-help" /></div>
+          <p class="creator-form__help" id="creator-slug-help">3–40 caracteres: minúsculas, números y guiones; sin guion al inicio o al final.</p>
+        </div>
+        <div class="creator-form__field">
+          <label for="creator-city">Ciudad <span>(opcional)</span></label>
+          <input id="creator-city" name="city" autocomplete="address-level2" maxlength="100" value={profile?.city ?? ''} aria-describedby="creator-city-help" />
+          <p class="creator-form__help" id="creator-city-help">Hasta 100 caracteres.</p>
+        </div>
+        <div class="creator-form__field">
+          <label for="creator-country">País <span>(opcional)</span></label>
+          <input id="creator-country" name="country" autocomplete="country-name" maxlength="100" value={profile?.country ?? ''} aria-describedby="creator-country-help" />
+          <p class="creator-form__help" id="creator-country-help">Hasta 100 caracteres.</p>
+        </div>
+        <fieldset class="creator-form__field creator-form__field--full creator-programs">
+          <legend>Programas de AWS <span>(opcional, puedes elegir varios)</span></legend>
+          {(['User Group Leaders', 'Community Builders', 'Heroes'] as const).map((program) => (
+            <label class="creator-check" for={`program-${program.toLowerCase().replaceAll(' ', '-')}`}>
+              <input id={`program-${program.toLowerCase().replaceAll(' ', '-')}`} type="checkbox" name="programs" value={program} checked={profile?.programs.includes(program)} />
+              <span>{program}</span>
+            </label>
+          ))}
+        </fieldset>
+        <div class="creator-form__field creator-form__field--full">
+          <label for="creator-bio">Sobre ti <span>(opcional)</span></label>
+          <textarea id="creator-bio" name="bio" rows="4" maxlength="2000" aria-describedby="creator-bio-help">{profile?.bio ?? ''}</textarea>
+          <p class="creator-form__help" id="creator-bio-help">Hasta 2000 caracteres.</p>
+        </div>
+        <fieldset class="creator-form__field creator-form__field--full creator-social-fields">
+          <legend>Redes y sitio web <span>(URL completa, opcional; hasta 500 caracteres por URL)</span></legend>
+          {[
+            ['instagram', 'Instagram', profile?.socials.instagram],
+            ['x', 'X', profile?.socials.x],
+            ['linkedin', 'LinkedIn', profile?.socials.linkedin],
+            ['awsBuilder', 'AWS Builder Center', profile?.socials.awsBuilder],
+            ['website', 'Sitio web o newsletter', profile?.socials.website],
+          ].map(([key, label, value]) => (
+            <div class="creator-form__field" data-social-field={key}>
+              <label for={`social-${key}`}>{label}</label>
+              <input id={`social-${key}`} name={`social-${key}`} type="url" inputmode="url" autocomplete="url" placeholder="https://" maxlength="500" value={value} />
+            </div>
+          ))}
+        </fieldset>
+      </div>
+
+      <div class="creator-form__actions">
+        <button class="button button--dark" type="submit" data-save-profile>Guardar cambios</button>
+        {profile && !profile.published && <button class="button button--outline" type="button" data-publish-profile>Publicar mi página</button>}
+      </div>
+      <p class="creator-form__status" data-profile-status role="status" aria-live="polite"></p>
+    </form>
+
+    <section class="creator-photo" aria-labelledby="creator-photo-title">
+      <div class="creator-photo__copy">
+        <h3 id="creator-photo-title">Foto de perfil</h3>
+        <p>JPEG, PNG o WebP. Máximo 15 MiB y 40 megapíxeles. La foto anterior seguirá visible si la carga falla.</p>
+      </div>
+      {photoPath && <img class="creator-editor__photo creator-editor__photo--large" src={photoPath} alt="Foto actual del perfil" width="112" height="112" data-current-photo />}
+      <form class="creator-photo__form" data-photo-form>
+        <label for="creator-photo-file">Elegir una foto</label>
+        <input id="creator-photo-file" type="file" accept="image/jpeg,image/png,image/webp" required disabled={!profile} data-busy-control />
+        <button class="button button--outline" type="submit" data-upload-photo disabled={!profile}>Subir y guardar foto</button>
+        <p class="creator-form__status" data-photo-status role="status" aria-live="polite"></p>
+      </form>
+      {!profile && <p class="creator-form__help">Guarda primero los datos del perfil para subir una foto.</p>}
+    </section>
+  </section>
+
+  <section class="creator-card creator-links-editor" aria-labelledby="creator-links-editor-title">
+    <div class="creator-card__heading">
+      <div>
+        <p class="creator-profile__eyebrow">Tu contenido</p>
+        <h2 id="creator-links-editor-title">Tus enlaces</h2>
+      </div>
+    </div>
+    <p class="creator-card__help">Los enlaces se muestran en tu página al guardar. La selección del directorio es independiente y puede tardar hasta una hora más la publicación del sitio. Los títulos admiten 200 caracteres, las descripciones 2000 y las URLs completas hasta 2048.</p>
+    {!profile && <p class="creator-account__notice" role="status">Guarda primero tu perfil para agregar enlaces o solicitar la vinculación de contenido existente.</p>}
+    <form class="creator-form creator-add-link" data-add-link-form>
+      <h3>Agregar un enlace</h3>
+      <fieldset class="creator-form__fieldset" disabled={!profile}>
+        <legend>Datos del enlace</legend>
+        <div class="creator-form__grid">
+          <div class="creator-form__field">
+            <label for="creator-link-title">Título</label>
+            <input id="creator-link-title" name="title" maxlength="200" required />
+          </div>
+          <div class="creator-form__field">
+            <label for="creator-link-url">URL completa</label>
+            <input id="creator-link-url" name="url" type="url" inputmode="url" placeholder="https://" maxlength="2048" required />
+          </div>
+          <div class="creator-form__field creator-form__field--full">
+            <label for="creator-link-description">Descripción <span>(opcional)</span></label>
+            <textarea id="creator-link-description" name="description" rows="2" maxlength="2000"></textarea>
+          </div>
+        </div>
+        <button class="button button--dark" type="submit">Agregar enlace</button>
+      </fieldset>
+      <p class="creator-form__status" data-link-create-status role="status" aria-live="polite"></p>
+    </form>
+
+    <section class="creator-links-list" aria-labelledby="creator-links-current-title">
+      <h3 id="creator-links-current-title">Enlaces de tu página</h3>
+      {sortedLinks.length > 0 ? (
+        <ol class="creator-link-editor-list">
+          {sortedLinks.map((link) => {
+            const editable = editableResourceIds.has(link.resourceId);
+            const group = sortedLinks.filter((candidate) => candidate.featured === link.featured);
+            const groupIndex = group.findIndex((candidate) => candidate.placementId === link.placementId);
+            return (
+              <li class="creator-link-editor-card" data-placement-id={link.placementId} data-resource-id={link.resourceId}>
+                <div class="creator-link-editor-card__main">
+                  {editable ? (
+                    <form class="creator-form creator-resource-form" data-resource-form>
+                      <label for={`resource-title-${link.resourceId}`}>Título</label>
+                      <input id={`resource-title-${link.resourceId}`} name="title" maxlength="200" required value={link.title} />
+                      <label for={`resource-url-${link.resourceId}`}>URL</label>
+                      <input id={`resource-url-${link.resourceId}`} name="url" type="url" maxlength="2048" required value={link.url} />
+                      <label for={`resource-description-${link.resourceId}`}>Descripción</label>
+                      <textarea id={`resource-description-${link.resourceId}`} name="description" rows="2" maxlength="2000">{link.description ?? ''}</textarea>
+                      <button class="button button--outline" type="submit">Guardar ficha</button>
+                    </form>
+                  ) : (
+                    <div>
+                      <h4>{link.title}</h4>
+                      <a class="creator-link-editor-card__url" href={link.url} target="_blank" rel="noopener noreferrer">{link.url}</a>
+                      {link.description && <p>{link.description}</p>}
+                      <p class="creator-link-editor-card__resource-id">ID del recurso: <code>{link.resourceId}</code> <button type="button" data-copy-resource-id data-resource-id-value={link.resourceId}>Copiar ID</button></p>
+                      <p class="creator-card__help">Esta ficha la administra otra persona; puedes usarla en tu página y controlar tus opciones.</p>
+                    </div>
+                  )}
+                  <p class="creator-link-editor-card__approval">Directorio: {link.directoryApproval === 'approved' ? 'aprobado' : link.directoryApproval === 'revoked' ? 'aprobación revocada' : 'pendiente de revisión'}</p>
+                </div>
+                <div class="creator-link-editor-card__controls">
+                  <button class="button button--outline" type="button" data-move="up" disabled={groupIndex === 0} aria-label={`Mover arriba: ${link.title}`}>Subir</button>
+                  <button class="button button--outline" type="button" data-move="down" disabled={groupIndex === group.length - 1} aria-label={`Mover abajo: ${link.title}`}>Bajar</button>
+                  <label class="creator-check"><input type="checkbox" data-featured checked={link.featured} /><span>Destacar en mi página</span></label>
+                  <label class="creator-check"><input type="checkbox" data-directory checked={link.selectedForDirectory} /><span>Proponer al directorio</span></label>
+                  <button class="creator-link-editor-card__remove" type="button" data-remove-link>Quitar de mi página</button>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      ) : (
+        <p class="creator-empty-state">Todavía no agregaste enlaces. Puedes comenzar con un artículo, curso, video o newsletter.</p>
+      )}
+    </section>
+
+    {data.editableResources.filter((resource) => !linkedResourceIds.has(resource.id)).length > 0 && (
+      <section class="creator-retained-resources" aria-labelledby="creator-retained-title">
+        <h3 id="creator-retained-title">Fichas que puedes volver a agregar</h3>
+        <p>Quitar un enlace no elimina la ficha que administras.</p>
+        <ul>
+          {data.editableResources.filter((resource) => !linkedResourceIds.has(resource.id)).map((resource) => (
+            <li data-retained-resource-id={resource.id} data-resource-id={resource.id}>
+              <form class="creator-form creator-resource-form" data-resource-form>
+                <label for={`retained-title-${resource.id}`}>Título</label>
+                <input id={`retained-title-${resource.id}`} name="title" maxlength="200" required value={resource.title} />
+                <label for={`retained-url-${resource.id}`}>URL</label>
+                <input id={`retained-url-${resource.id}`} name="url" type="url" maxlength="2048" required value={resource.url} />
+                <label for={`retained-description-${resource.id}`}>Descripción</label>
+                <textarea id={`retained-description-${resource.id}`} name="description" rows="2" maxlength="2000">{resource.description ?? ''}</textarea>
+                <button class="button button--outline" type="submit">Guardar ficha</button>
+              </form>
+              <button class="button button--outline" type="button" data-readd-link>Volver a agregar</button>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
+
+    <p class="creator-form__status" data-links-status role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="creator-card creator-claims" aria-labelledby="creator-claims-title">
+    <p class="creator-profile__eyebrow">Contenido existente</p>
+    <h2 id="creator-claims-title">Solicitar una vinculación</h2>
+    <p class="creator-card__help">Si administras una ficha del catálogo, indica los IDs exactos, el source ID y una referencia privada que permita revisar el vínculo. Enviar una solicitud no concede acceso de edición.</p>
+    {data.claims.length > 0 && (
+      <ul class="creator-claims__list" aria-label="Tus solicitudes">
+        {data.claims.map((claim) => <li>{claim.resourceIds.join(', ')} — {claim.status ?? 'pendiente de revisión'}</li>)}
+      </ul>
+    )}
+    <form class="creator-form" data-claim-form>
+      <fieldset class="creator-form__fieldset" disabled={!profile}>
+        <legend>Datos de la solicitud</legend>
+        <div class="creator-form__grid">
+          <div class="creator-form__field creator-form__field--full">
+            <label for="creator-claim-resources">IDs exactos de recursos</label>
+            <input id="creator-claim-resources" name="resourceIds" placeholder="id-1, id-2" required aria-describedby="creator-claim-resources-help" />
+            <p class="creator-form__help" id="creator-claim-resources-help">Separa los IDs exactos con comas. La solicitud completa admite hasta 32 KiB.</p>
+          </div>
+          <div class="creator-form__field">
+            <label for="creator-claim-source">Source ID <span>(si lo conoces)</span></label>
+            <input id="creator-claim-source" name="sourceId" maxlength="2000" aria-describedby="creator-claim-source-help" />
+            <p class="creator-form__help" id="creator-claim-source-help">Hasta 2000 caracteres.</p>
+          </div>
+          <div class="creator-form__field creator-form__field--full">
+            <label for="creator-claim-evidence">Referencia de control <span>(opcional; privada)</span></label>
+            <textarea id="creator-claim-evidence" name="evidence" rows="3" maxlength="2000" placeholder="Una URL o nota para que administración pueda revisar tu solicitud." aria-describedby="creator-claim-evidence-help"></textarea>
+            <p class="creator-form__help" id="creator-claim-evidence-help">Hasta 2000 caracteres. La referencia sólo la ve administración.</p>
+          </div>
+        </div>
+        <button class="button button--outline" type="submit">Enviar solicitud</button>
+      </fieldset>
+      <p class="creator-form__status" data-claim-status role="status" aria-live="polite"></p>
+    </form>
+  </section>
+
+  <a class="creator-account__back" href="/cuenta/">Volver a mi cuenta</a>
+
+  <script type="application/json" id="creator-editor-data" set:html={initialData}></script>
+</main>
+
+<script>
+  import '../scripts/creator-editor';
+</script>

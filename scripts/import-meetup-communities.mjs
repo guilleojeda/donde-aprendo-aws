@@ -3,6 +3,7 @@
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { isMainThread } from 'node:worker_threads';
+import { createDynamoCatalogAccess, putCatalogResourceOnce } from '../src/lib/catalog-resource-writer.mjs';
 import { mapMeetupCommunities } from '../src/lib/meetup-communities.mjs';
 import { TARGET_ACCOUNT_ID } from '../src/lib/catalog-import.mjs';
 
@@ -19,32 +20,27 @@ export async function importMeetupCommunities(records, options = {}) {
     throw new Error(`Wrong AWS account: expected ${TARGET_ACCOUNT_ID}, got ${identity?.Account ?? 'unknown'}`);
   }
 
-  let put = options.put;
-  if (!put) {
-    const [{ DynamoDBClient }, { DynamoDBDocumentClient, PutCommand }] = await Promise.all([
-      import('@aws-sdk/client-dynamodb'), import('@aws-sdk/lib-dynamodb'),
-    ]);
-    const client = DynamoDBDocumentClient.from(new DynamoDBClient({ region: options.region ?? 'us-east-1' }));
-    put = (item) => client.send(new PutCommand({
-      TableName: options.tableName,
-      Item: item,
-      ConditionExpression: 'attribute_not_exists(#id)',
-      ExpressionAttributeNames: { '#id': 'id' },
-    }));
-  }
+  const access = options.getItem && options.transactWrite
+    ? { getItem: options.getItem, transactWrite: options.transactWrite }
+    : await createDynamoCatalogAccess({ region: options.region ?? 'us-east-1', docClient: options.docClient });
 
   let created = 0;
   let skipped = 0;
+  const conflicts = [];
   for (const record of records) {
     try {
-      await put(record);
-      created += 1;
+      const result = await putCatalogResourceOnce({ tableName: options.tableName, item: record, ...access });
+      if (result.status === 'created') created += 1;
+      else if (result.status === 'id-exists') skipped += 1;
+      else {
+        skipped += 1;
+        conflicts.push({ id: record.id, url: record.url, status: result.status, resourceIds: result.resourceIds });
+      }
     } catch (error) {
-      if (error?.name === 'ConditionalCheckFailedException') skipped += 1;
-      else throw new Error(`Failed to import ${record.id}: ${error?.message ?? String(error)}`, { cause: error });
+      throw new Error(`Failed to import ${record.id}: ${error?.message ?? String(error)}`, { cause: error });
     }
   }
-  return { total: records.length, created, skipped };
+  return { total: records.length, created, skipped, ...(conflicts.length ? { conflicts } : {}) };
 }
 
 export async function main(args = process.argv.slice(2)) {

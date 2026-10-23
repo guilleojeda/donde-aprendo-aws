@@ -13,6 +13,9 @@ export default defineConfig({
       'COGNITO_CLIENT_ID',
       'COGNITO_DOMAIN',
       'ACCOUNTS_TABLE',
+      'CATALOG_TABLE',
+      'CREATOR_PROFILES_TABLE',
+      'CREATOR_PHOTOS_BUCKET',
     ],
   }),
   markdown: {

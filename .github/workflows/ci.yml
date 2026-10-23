@@ -36,6 +36,8 @@ jobs:
           COGNITO_CLIENT_ID: example-client-id
           COGNITO_DOMAIN: https://example.auth.us-east-1.amazoncognito.com
           ACCOUNTS_TABLE: example-accounts
+          CREATOR_PROFILES_TABLE: example-profiles
+          CREATOR_PHOTOS_BUCKET: example-photos
       - run: npm run verify:blog
         env:
           PUBLIC_PRODUCTION: 'false'
@@ -56,6 +58,8 @@ jobs:
           COGNITO_CLIENT_ID: example-client-id
           COGNITO_DOMAIN: https://example.auth.us-east-1.amazoncognito.com
           ACCOUNTS_TABLE: example-accounts
+          CREATOR_PROFILES_TABLE: example-profiles
+          CREATOR_PHOTOS_BUCKET: example-photos
       - run: npm run verify:blog
         env:
           PUBLIC_PRODUCTION: 'true'

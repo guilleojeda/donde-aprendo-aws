@@ -6,7 +6,7 @@ frontend:
         - nvm install "$(cat .nvmrc)"
         - nvm use "$(cat .nvmrc)"
         - npm ci
-        - test -n "$ACCOUNT_ORIGIN" && test -n "$COGNITO_ISSUER" && test -n "$COGNITO_CLIENT_ID" && test -n "$COGNITO_DOMAIN" && test -n "$ACCOUNTS_TABLE"
+        - test -n "$ACCOUNT_ORIGIN" && test -n "$COGNITO_ISSUER" && test -n "$COGNITO_CLIENT_ID" && test -n "$COGNITO_DOMAIN" && test -n "$ACCOUNTS_TABLE" && test -n "$CATALOG_TABLE" && test -n "$CREATOR_PROFILES_TABLE" && test -n "$CREATOR_PHOTOS_BUCKET"
         - npm run check
         - npm test
     build:

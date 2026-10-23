@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 import { mapMeetupCommunities } from '../src/lib/meetup-communities.mjs';
 import { importMeetupCommunities } from '../scripts/import-meetup-communities.mjs';
+import { currentUrlReservationId } from '../src/lib/catalog-url.mjs';
 
 function group(overrides = {}) {
   return {
@@ -41,25 +42,68 @@ test('rejects DEL control characters in reviewed community cities', () => {
 });
 
 test('import checks account and skips existing records without overwriting them', async () => {
-  const records = [{ id: 'meetup-1', city: 'Mendoza' }, { id: 'meetup-2', city: 'Córdoba' }];
+  const records = [
+    { id: 'meetup-1', url: 'https://www.meetup.com/aws-mendoza/', city: 'Mendoza' },
+    { id: 'meetup-2', url: 'https://www.meetup.com/aws-cordoba/', city: 'Córdoba' },
+  ];
   const existing = new Map([['meetup-2', { id: 'meetup-2', city: 'Rosario', editorNote: 'keep' }]]);
   const writes = [];
   const result = await importMeetupCommunities(records, {
     tableName: 'test-table',
     getIdentity: async () => ({ Account: '719535286359' }),
-    put: async (record) => {
-      writes.push({ ...record });
-      if (existing.has(record.id)) throw { name: 'ConditionalCheckFailedException' };
-      existing.set(record.id, { ...record });
+    getItem: async ({ Key }) => ({ Item: existing.get(Key.id) }),
+    transactWrite: async (params) => {
+      writes.push(params);
+      const items = params.TransactItems.map(({ Put }) => Put.Item);
+      if (items.some((item) => existing.has(item.id))) {
+        const error = new Error('conditional transaction conflict');
+        error.name = 'TransactionCanceledException';
+        error.CancellationReasons = [{ Code: 'ConditionalCheckFailed' }];
+        throw error;
+      }
+      for (const item of items) existing.set(item.id, { ...item });
     },
   });
   assert.deepEqual(result, { total: 2, created: 1, skipped: 1 });
-  assert.deepEqual(writes, records);
-  assert.deepEqual(existing.get('meetup-1'), records[0]);
+  assert.equal(writes.length, 1);
+  assert.deepEqual(writes[0].TransactItems.map(({ Put }) => Put.Item.id), [
+    'meetup-1', currentUrlReservationId(records[0].url),
+  ]);
+  assert.equal(existing.get('meetup-1').city, 'Mendoza');
+  assert.equal(existing.get(currentUrlReservationId(records[0].url)).resourceId, 'meetup-1');
   assert.deepEqual(existing.get('meetup-2'), { id: 'meetup-2', city: 'Rosario', editorNote: 'keep' });
   await assert.rejects(importMeetupCommunities(records, {
     tableName: 'test-table',
     getIdentity: async () => ({ Account: '000000000000' }),
-    put: async () => assert.fail('must not write'),
+    getItem: async () => assert.fail('must not read'),
+    transactWrite: async () => assert.fail('must not write'),
   }), /Wrong AWS account/);
+});
+
+test('Meetup import reports a duplicate URL without merging the second ID', async () => {
+  const url = 'https://www.meetup.com/aws-bogota/';
+  const records = [{ id: 'meetup-1', url }, { id: 'meetup-2', url }];
+  const items = new Map();
+  const result = await importMeetupCommunities(records, {
+    tableName: 'catalog',
+    getIdentity: async () => ({ Account: '719535286359' }),
+    getItem: async ({ Key }) => ({ Item: items.get(Key.id) }),
+    transactWrite: async ({ TransactItems }) => {
+      const writes = TransactItems.map(({ Put }) => Put.Item);
+      if (writes.some(({ id }) => items.has(id))) {
+        const error = new Error('transaction conflict');
+        error.name = 'TransactionCanceledException';
+        error.CancellationReasons = [{ Code: 'ConditionalCheckFailed' }];
+        throw error;
+      }
+      for (const item of writes) items.set(item.id, item);
+    },
+  });
+
+  assert.deepEqual(result, {
+    total: 2, created: 1, skipped: 1,
+    conflicts: [{ id: 'meetup-2', url, status: 'duplicate', resourceIds: ['meetup-1'] }],
+  });
+  assert.equal(items.get(currentUrlReservationId(url)).resourceId, 'meetup-1');
+  assert.equal(items.has('meetup-2'), false);
 });
