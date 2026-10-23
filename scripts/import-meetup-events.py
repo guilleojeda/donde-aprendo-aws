@@ -11,6 +11,7 @@ from hashlib import sha256
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import as_completed
 from datetime import datetime, timezone
+from decimal import Decimal
 from html import unescape
 from html.parser import HTMLParser
 import json
@@ -393,9 +394,17 @@ def current_url_reservation(url, resource_id):
 
 def resource_version(item):
     version = item.get('version', 0)
-    if isinstance(version, bool) or not isinstance(version, int) or version < 0:
+    if isinstance(version, bool):
         raise ValueError(f'Invalid catalog version for {item.get("id", "unknown resource")}')
-    return version
+    if isinstance(version, int):
+        normalized = version
+    elif isinstance(version, Decimal) and version.is_finite() and version == version.to_integral_value():
+        normalized = int(version)
+    else:
+        raise ValueError(f'Invalid catalog version for {item.get("id", "unknown resource")}')
+    if normalized < 0 or normalized > 9007199254740991:
+        raise ValueError(f'Invalid catalog version for {item.get("id", "unknown resource")}')
+    return normalized
 
 
 def version_condition_expression(version):

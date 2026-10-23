@@ -6,6 +6,7 @@ import re
 import sys
 import unittest
 from datetime import datetime, timezone
+from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -271,6 +272,24 @@ class MeetupEventsTests(unittest.TestCase):
         self.assertTrue(any(re.search(rf'{re.escape(sync_alias)}\s*=\s*{re.escape(parameter)}', expression)
                             for parameter in sync_placeholders))
         self.assertRegex(expression, rf'attribute_not_exists\({re.escape(sync_alias)}\)')
+
+    def test_resource_version_normalizes_boto3_decimals_and_rejects_invalid_numbers(self):
+        self.assertEqual(meetup.resource_version({'id': 'legacy', 'version': Decimal('0')}), 0)
+        self.assertEqual(meetup.resource_version({'id': 'legacy', 'version': Decimal('2.000')}), 2)
+        for invalid in (
+            Decimal('1.5'), Decimal('NaN'), Decimal('Infinity'), Decimal('-Infinity'),
+            Decimal('-1'), Decimal('9007199254740992'), True, 1.5, '2',
+        ):
+            with self.subTest(version=invalid):
+                with self.assertRaisesRegex(ValueError, 'Invalid catalog version'):
+                    meetup.resource_version({'id': 'legacy', 'version': invalid})
+
+    def test_existing_boto3_decimal_version_is_readable_and_normalized_for_cas(self):
+        prior = existing_event(published=True)
+        prior['version'] = Decimal('0')
+        table = FakeTable([prior])
+        loaded = meetup.load_existing_events(table)
+        self.assertEqual(meetup.resource_version(loaded['meetup-event-456']), 0)
 
     def test_live_sync_skips_brazil_and_english_language_group(self):
         groups = [

@@ -279,3 +279,25 @@ test('profile reads fail with 503 when a resource batch omits an expected linked
   const editor = await api(harness, '/api/creador/perfil', 'creator-a');
   assert.equal(editor.status, 503);
 });
+
+
+test('canonical trailing-slash API routes support creator writes and admin moderation', async () => {
+  const harness = await createCreatorPagesHarness();
+  const saved = await api(harness, '/api/creador/perfil/', 'creator-a', {
+    method: 'PUT', body: { displayName: 'Ana', slug: 'ana-canonica' },
+  });
+  assert.equal(saved.status, 200);
+  assert.equal((await api(harness, '/api/creador/perfil/', 'creator-a')).status, 200);
+  assert.equal((await api(harness, '/api/creador/perfil/publicar/', 'creator-a', { method: 'POST', body: {} })).status, 200);
+  const added = await api(harness, '/api/creador/enlaces/', 'creator-a', {
+    method: 'POST', body: { title: 'Guía', url: 'https://example.com/canonical' },
+  });
+  assert.equal(added.status, 201);
+  const { link } = await responseJson(added);
+  assert.equal((await api(harness, `/api/creador/enlaces/${link.placementId}/`, 'creator-a', {
+    method: 'PATCH', body: { selectedForDirectory: false },
+  })).status, 200);
+  assert.equal((await api(harness, '/api/admin/recursos/', 'admin')).status, 200);
+  assert.equal((await api(harness, `/api/admin/recursos/${link.resourceId}/ocultar/`, 'admin', { method: 'POST', body: {} })).status, 200);
+  assert.equal((await api(harness, `/api/creador/enlaces/${link.placementId}/`, 'creator-a', { method: 'DELETE' })).status, 204);
+});
