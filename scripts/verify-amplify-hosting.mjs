@@ -6,11 +6,13 @@ import { createServer } from 'node:net';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { configuredAccountOrigin } from '../src/lib/amplify-security.mjs';
+import { getCertificationPages } from '../src/lib/certifications.mjs';
 import { siteOutputRoot } from './lib/site-output.mjs';
 
 const root = resolve('.amplify-hosting');
 const computeRoot = resolve(root, 'compute/default');
 const manifest = JSON.parse(readFileSync(resolve(root, 'deploy-manifest.json'), 'utf8'));
+const routingRules = JSON.parse(readFileSync(resolve('config/amplify-custom-rules.json'), 'utf8'));
 const accountOrigin = configuredAccountOrigin();
 const accountHost = new URL(accountOrigin).host;
 const allowedRuntimeEnvironment = [
@@ -61,6 +63,32 @@ assert.deepEqual(runtimeEnvironmentNames, [...allowedRuntimeEnvironment].sort(),
 assert.doesNotMatch(runtimeEnvironment, /AWS_(?:ACCESS_KEY_ID|SECRET_ACCESS_KEY|SESSION_TOKEN)|-----BEGIN [A-Z ]*PRIVATE KEY-----/u,
   'The runtime environment file does not contain credentials.');
 
+const routeRule = (source, status) => routingRules.find((rule) => rule.source === source && rule.status === status);
+const certificationMapRedirect = routeRule('/aprender/certificaciones', '301');
+const certificationMapRewrite = routeRule('/aprender/certificaciones/', '200');
+const certificationDetailRedirect = routeRule('/aprender/certificaciones/<exam>', '301');
+const certificationDetailRewrite = routeRule('/aprender/certificaciones/<exam>/', '200');
+assert.deepEqual(certificationMapRedirect?.target, '/aprender/certificaciones/',
+  'The certification map URL without a slash redirects to its canonical path.');
+assert.deepEqual(certificationMapRewrite?.target, '/aprender/certificaciones/index.html',
+  'The certification map is served from its exact static index before the nested exam rule.');
+assert.deepEqual(certificationDetailRedirect?.target, '/aprender/certificaciones/<exam>/',
+  'Slashless certification exam URLs redirect to the canonical path without changing the query string.');
+assert.deepEqual(certificationDetailRewrite?.target, '/aprender/certificaciones/<exam>/index.html',
+  'Certification exam pages rewrite to their generated static HTML.');
+assert.ok(!certificationDetailRedirect.target.includes('?'),
+  'The canonical redirect leaves the original query string available for forwarding.');
+assert.ok(routingRules.indexOf(certificationMapRewrite) < routingRules.indexOf(certificationDetailRedirect),
+  'The exact certification index route precedes the parameterized exam route.');
+assert.ok(routingRules.indexOf(certificationDetailRedirect) < routingRules.indexOf(certificationDetailRewrite),
+  'Canonical exam redirects precede the static detail rewrite.');
+assert.ok(routingRules.indexOf(certificationDetailRedirect) < routingRules.findIndex((rule) =>
+  rule.source === '/aprender/<collection>' && rule.status === '301'),
+  'The nested exam redirect precedes the broader collection redirect.');
+assert.ok(routingRules.indexOf(certificationDetailRewrite) < routingRules.findIndex((rule) =>
+  rule.source === '/aprender/<collection>/' && rule.status === '200'),
+  'The nested exam rewrite precedes the broader collection rewrite.');
+
 function assertRuntimeTheme(html, label) {
   const head = html.match(/<head\b[^>]*>[\s\S]*?<\/head>/iu)?.[0] ?? '';
   assert.ok(head, `${label} response has a document head.`);
@@ -77,6 +105,14 @@ function assertRuntimeTheme(html, label) {
 for (const path of ['sitemap.xml', 'search-index.json', 'robots.txt']) {
   const file = resolve(siteOutputRoot, path);
   assert.ok(statSync(file, { throwIfNoEntry: false })?.isFile(), `Static public file is included in the Amplify output: ${path}`);
+}
+const certificationMapFile = resolve(siteOutputRoot, 'aprender/certificaciones/index.html');
+assert.ok(statSync(certificationMapFile, { throwIfNoEntry: false })?.isFile(),
+  'Certification map is present in the static Amplify inventory.');
+for (const { path } of getCertificationPages()) {
+  const file = resolve(siteOutputRoot, `${path.slice(1)}index.html`);
+  assert.ok(statSync(file, { throwIfNoEntry: false })?.isFile(),
+    `Registered certification detail is present in the static Amplify inventory: ${path}`);
 }
 const calendarFiles = readdirSync(resolve(siteOutputRoot, 'eventos')).filter((name) => name.endsWith('.ics'));
 if (existsSync(resolve(siteOutputRoot, 'eventos/fixture-event.ics'))) {

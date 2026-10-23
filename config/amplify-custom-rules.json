@@ -45,6 +45,26 @@
     "status": "200"
   },
   {
+    "source": "/aprender/certificaciones",
+    "target": "/aprender/certificaciones/",
+    "status": "301"
+  },
+  {
+    "source": "/aprender/certificaciones/",
+    "target": "/aprender/certificaciones/index.html",
+    "status": "200"
+  },
+  {
+    "source": "/aprender/certificaciones/<exam>",
+    "target": "/aprender/certificaciones/<exam>/",
+    "status": "301"
+  },
+  {
+    "source": "/aprender/certificaciones/<exam>/",
+    "target": "/aprender/certificaciones/<exam>/index.html",
+    "status": "200"
+  },
+  {
     "source": "/aprender/<collection>",
     "target": "/aprender/<collection>/",
     "status": "301"

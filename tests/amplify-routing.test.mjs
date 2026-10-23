@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { getCertificationPages } from '../src/lib/certifications.mjs';
 
 const rules = JSON.parse(await readFile(new URL('../config/amplify-custom-rules.json', import.meta.url), 'utf8'));
 
@@ -54,6 +55,35 @@ test('prerendered route families keep index rewrites ordered and leave event rou
   assert.deepEqual(matchingRule('/buscar', '301')?.target, '/buscar/');
   assert.deepEqual(matchingRule('/buscar/', '200')?.target, '/buscar/index.html');
   assert.deepEqual(matchingRule('/', '200')?.target, '/index.html');
+
+  const certificationMapRedirect = matchingRule('/aprender/certificaciones', '301');
+  const certificationMapRewrite = matchingRule('/aprender/certificaciones/', '200');
+  const certificationDetailRedirect = matchingRule('/aprender/certificaciones/<exam>', '301');
+  const certificationDetailRewrite = matchingRule('/aprender/certificaciones/<exam>/', '200');
+  assert.deepEqual(certificationMapRedirect?.target, '/aprender/certificaciones/');
+  assert.deepEqual(certificationMapRewrite?.target, '/aprender/certificaciones/index.html');
+  assert.deepEqual(certificationDetailRedirect?.target, '/aprender/certificaciones/<exam>/');
+  assert.deepEqual(certificationDetailRewrite?.target, '/aprender/certificaciones/<exam>/index.html');
+  assert.ok(rules.indexOf(certificationMapRedirect) < rules.indexOf(certificationDetailRedirect),
+    'The exact certification map redirect must precede the nested exam parameter.');
+  assert.ok(rules.indexOf(certificationMapRewrite) < rules.indexOf(certificationDetailRedirect),
+    'The exact certification index rewrite must win before an empty exam parameter can redirect it.');
+  assert.ok(rules.indexOf(certificationMapRewrite) < rules.indexOf(certificationDetailRewrite),
+    'The exact certification index rewrite must win before an empty exam parameter can serve the wrong index.');
+  assert.ok(rules.indexOf(certificationDetailRedirect) < rules.indexOf(certificationDetailRewrite),
+    'Slashless exam URLs canonicalize before the static detail rewrite.');
+  const collectionRedirect = matchingRule('/aprender/<collection>', '301');
+  const collectionRewrite = matchingRule('/aprender/<collection>/', '200');
+  assert.ok(rules.indexOf(certificationDetailRedirect) < rules.indexOf(collectionRedirect),
+    'The nested exam rule precedes the broader collection redirect.');
+  assert.ok(rules.indexOf(certificationDetailRewrite) < rules.indexOf(collectionRewrite),
+    'The nested exam rewrite precedes the broader collection rewrite.');
+  assert.ok(!certificationMapRedirect.target.includes('?') && !certificationDetailRedirect.target.includes('?'),
+    'Canonical redirects leave request query parameters available for forwarding.');
+  for (const { path } of getCertificationPages()) {
+    assert.match(path, /^\/aprender\/certificaciones\/[^/]+\/$/u,
+      'Every registered detail route belongs to the statically served exam family.');
+  }
 
   assert.equal(matchingRule('/eventos/<event>.ics', '200'), undefined,
     'Amplify does not support a named placeholder with a filename suffix; native routing must receive .ics requests');
