@@ -319,6 +319,30 @@ test('el editor ofrece CRUD de series y selección de capítulos desde enlaces y
   // Browser direct-use verification must prove that these controls reorder only the selected series and leave profile order and featured state intact; the API ordering test covers persistence isolation.
 });
 
+test('los tres campos de slug usan un patrón nativo válido y coherente con el servidor', async () => {
+  const html = await render('src/components/CreatorEditor.astro', {
+    data: editorData(),
+    csrfToken: 'csrf-test-token',
+  });
+  const slugInputs = [...html.matchAll(/<input\b(?=[^>]*\bname="slug")[^>]*>/gi)].map(([tag]) => tag);
+  assert.equal(slugInputs.length, 2 + editorData().series.length,
+    'the profile, series creation, and each series edit form expose a slug field');
+  for (const tag of slugInputs) {
+    assert.match(tag, /\bminlength="3"/);
+    assert.match(tag, /\bmaxlength="40"/);
+    const pattern = tag.match(/\bpattern="([^"]+)"/)?.[1];
+    assert.ok(pattern, 'each slug field must expose browser-native validation');
+    const helpId = tag.match(/\baria-describedby="([^"]+)"/)?.[1];
+    assert.ok(helpId, 'each slug field must reference its validation guidance');
+    assert.match(html, new RegExp(`<p\\b[^>]*\\bid="${helpId}"[^>]*>[^<]*sin espacios ni guiones repetidos[^<]*<\\/p>`));
+    let nativePattern;
+    assert.doesNotThrow(() => { nativePattern = new RegExp(`^(?:${pattern})$`, 'v'); },
+      'the HTML pattern must compile with the browser v flag');
+    for (const valid of ['ana', 'serie-2026', 'abc-1-def']) assert.equal(nativePattern.test(valid), true);
+    for (const invalid of ['bad slug', 'bad--slug', '-bad-slug', 'bad-slug-']) assert.equal(nativePattern.test(invalid), false);
+  }
+});
+
 test('el editor sin perfil invita a guardarlo antes de usar series y no activa acciones de serie', async () => {
   const html = await render('src/components/CreatorEditor.astro', {
     data: editorData({ withProfile: false }),

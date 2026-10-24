@@ -82,8 +82,8 @@ function linkVisibilityText(link: CreatorEditorDTO['links'][number]) {
         </div>
         <div class="creator-form__field">
           <label for="creator-slug">Dirección de tu página</label>
-          <div class="creator-slug-input"><span aria-hidden="true">/c/</span><input id="creator-slug" name="slug" required minlength="3" maxlength="40" pattern="[a-z0-9]([a-z0-9-]{1,38}[a-z0-9])" autocomplete="off" autocapitalize="none" spellcheck="false" value={profile?.slug ?? ''} aria-describedby="creator-slug-help" /></div>
-          <p class="creator-form__help" id="creator-slug-help">3–40 caracteres: minúsculas, números y guiones; sin guion al inicio o al final.</p>
+          <div class="creator-slug-input"><span aria-hidden="true">/c/</span><input id="creator-slug" name="slug" required minlength="3" maxlength="40" pattern="[a-z0-9]+(-[a-z0-9]+)*" autocomplete="off" autocapitalize="none" spellcheck="false" value={profile?.slug ?? ''} aria-describedby="creator-slug-help" /></div>
+          <p class="creator-form__help" id="creator-slug-help">3–40 caracteres: minúsculas, números y guiones; sin espacios ni guiones repetidos, ni al inicio ni al final.</p>
         </div>
         <div class="creator-form__field">
           <label for="creator-city">Ciudad <span>(opcional)</span></label>
@@ -120,7 +120,8 @@ function linkVisibilityText(link: CreatorEditorDTO['links'][number]) {
           ].map(([key, label, value]) => (
             <div class="creator-form__field" data-social-field={key}>
               <label for={`social-${key}`}>{label}</label>
-              <input id={`social-${key}`} name={`social-${key}`} type="url" inputmode="url" autocomplete="url" placeholder="https://" maxlength="500" value={value} />
+              <input id={`social-${key}`} name={`social-${key}`} type="url" inputmode="url" autocomplete="url" placeholder="https://" maxlength="500" value={value} aria-describedby={`social-${key}-help`} />
+              <p class="creator-form__help" id={`social-${key}-help`}>Usa una URL HTTP o HTTPS sin usuario ni contraseña.</p>
             </div>
           ))}
         </fieldset>
@@ -277,8 +278,8 @@ function linkVisibilityText(link: CreatorEditorDTO['links'][number]) {
           </div>
           <div class="creator-form__field">
             <label for="creator-series-create-slug">Dirección de la serie</label>
-            <div class="creator-slug-input"><span aria-hidden="true">/series/</span><input id="creator-series-create-slug" name="slug" required minlength="3" maxlength="40" pattern="[a-z0-9]([a-z0-9-]{1,38}[a-z0-9])" autocomplete="off" autocapitalize="none" spellcheck="false" data-series-slug-suggestion aria-describedby="creator-series-create-slug-help" /></div>
-            <p class="creator-form__help" id="creator-series-create-slug-help">3–40 caracteres: minúsculas, números y guiones. Puedes cambiarla después.</p>
+            <div class="creator-slug-input"><span aria-hidden="true">/series/</span><input id="creator-series-create-slug" name="slug" required minlength="3" maxlength="40" pattern="[a-z0-9]+(-[a-z0-9]+)*" autocomplete="off" autocapitalize="none" spellcheck="false" data-series-slug-suggestion aria-describedby="creator-series-create-slug-help" /></div>
+            <p class="creator-form__help" id="creator-series-create-slug-help">3–40 caracteres: minúsculas, números y guiones; sin espacios ni guiones repetidos, ni al inicio ni al final. Puedes cambiarla después.</p>
           </div>
           <div class="creator-form__field creator-form__field--full">
             <label for="creator-series-create-description">Descripción de la serie <span>(opcional)</span></label>
@@ -324,7 +325,8 @@ function linkVisibilityText(link: CreatorEditorDTO['links'][number]) {
                       </div>
                       <div class="creator-form__field">
                         <label for={`creator-series-${series.id}-slug`}>Dirección de la serie</label>
-                        <div class="creator-slug-input"><span aria-hidden="true">/series/</span><input id={`creator-series-${series.id}-slug`} name="slug" required minlength="3" maxlength="40" pattern="[a-z0-9]([a-z0-9-]{1,38}[a-z0-9])" autocomplete="off" autocapitalize="none" spellcheck="false" value={series.slug} /></div>
+                        <div class="creator-slug-input"><span aria-hidden="true">/series/</span><input id={`creator-series-${series.id}-slug`} name="slug" required minlength="3" maxlength="40" pattern="[a-z0-9]+(-[a-z0-9]+)*" autocomplete="off" autocapitalize="none" spellcheck="false" value={series.slug} aria-describedby={`creator-series-${series.id}-slug-help`} /></div>
+                        <p class="creator-form__help" id={`creator-series-${series.id}-slug-help`}>3–40 caracteres: minúsculas, números y guiones; sin espacios ni guiones repetidos, ni al inicio ni al final.</p>
                       </div>
                       <div class="creator-form__field creator-form__field--full">
                         <label for={`creator-series-${series.id}-description`}>Descripción de la serie <span>(opcional)</span></label>

@@ -73,13 +73,25 @@ test('a partial admin claim stays partial until every requested resource is link
   assert.equal(first.status, 200);
   const pending = await api(harness, '/api/admin/reclamaciones', 'admin');
   assert.equal((await responseJson(pending)).claims[0].status, 'partial');
-  assert.equal((await harness.store.get('resource:claim-a')).editorProfileId, (await harness.store.get('account-profile:private-account-a')).profileId);
+  const profileId = (await harness.store.get('account-profile:private-account-a')).profileId;
+  assert.equal((await harness.store.get('resource:claim-a')).editorProfileId, profileId);
   assert.equal((await harness.store.get('resource:claim-b')).directoryControl, 'editorial');
+  let profile = await harness.store.get(`profile:${profileId}`);
+  let placements = await harness.store.list(`placement:${profileId}:`);
+  assert.equal(placements.length, 1);
+  assert.equal(placements[0].value.version, profile.version,
+    'admin linking initializes its placement at the same monotonic version as the profile transaction');
 
   const second = await api(harness, '/api/admin/reclamaciones/vincular', 'admin', {
     method: 'POST', body: { accountId: 'private-account-a', sourceId: 'ana-channel', resourceIds: ['claim-b'] },
   });
   assert.equal(second.status, 200);
+  profile = await harness.store.get(`profile:${profileId}`);
+  placements = await harness.store.list(`placement:${profileId}:`);
+  assert.equal(placements.length, 2);
+  assert.ok(placements.every(({ value }) => value.version <= profile.version),
+    'existing and newly linked placements never advance beyond their profile version');
+  assert.equal(placements.find(({ value }) => value.resourceId === 'claim-b').value.version, profile.version);
   const resolved = await api(harness, '/api/admin/reclamaciones', 'admin');
   assert.equal((await responseJson(resolved)).claims[0].status, 'resolved');
 
@@ -212,7 +224,7 @@ test('creator text limits reject oversized fields before storage and accept each
       city: 'C'.repeat(100),
       country: 'P'.repeat(100),
       bio: 'B'.repeat(2000),
-      socials: { instagram: 'I'.repeat(500) },
+      socials: { instagram: `https://example.com/${'i'.repeat(500 - 'https://example.com/'.length)}` },
     },
   });
   assert.equal(profileResponse.status, 200, 'profile fields at their maximum length remain valid');

@@ -143,7 +143,15 @@ function validateProfileFields(body, previous) {
     const socials = {};
     for (const [key, value] of Object.entries(body.socials)) {
       if (!SOCIALS.has(key)) fail(422, 'INVALID_SOCIALS', `unsupported social field: ${key}`);
-      socials[key] = textField(value, `socials.${key}`);
+      const url = textField(value, `socials.${key}`);
+      if (url) {
+        try {
+          validateCatalogUrl(url);
+        } catch {
+          fail(422, 'INVALID_SOCIAL_URL', `socials.${key} must be a safe HTTP or HTTPS URL without credentials`);
+        }
+      }
+      socials[key] = url;
     }
     next.socials = socials;
   } else if (!previous) next.socials = {};
@@ -664,13 +672,13 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       });
       if (!ok) {
         const latestOwner = await store.get(accountKey(principal.accountId));
-        if (latestOwner) return saveProfile(principal, body);
+        if (latestOwner) fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before saving');
         fail(409, 'PROFILE_CONFLICT', 'profile or slug changed while saving');
       }
       return { profile: cleanPublicProfile(created) };
     }
 
-    if (expectedVersion !== undefined && expectedVersion !== profile.version) fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before saving');
+    if (expectedVersion === undefined || expectedVersion !== profile.version) fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before saving');
     if (profile.published === true && (!fields.displayName.trim() || !fields.slug)) {
       fail(422, 'PROFILE_INCOMPLETE', 'a published profile must keep its display name and URL name');
     }
@@ -957,11 +965,11 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       const stableId = placementId(profile.id, resource.id);
       const existing = await store.get(placementKey(profile.id, stableId));
       if (existing) return { link: await buildLinkDto(existing), created: false };
+      const updatedProfile = { ...profile, version: profile.version + 1, updatedAt: timestamp() };
       const nextPlacement = {
         recordType: 'placement', id: stableId, profileId: profile.id, resourceId: resource.id,
-        position: maxPosition + 10, featured: false, selectedForDirectory, version: 1,
+        position: maxPosition + 10, featured: false, selectedForDirectory, version: updatedProfile.version,
       };
-      const updatedProfile = { ...profile, version: profile.version + 1, updatedAt: timestamp() };
       const ok = await store.transact({
         checks: [
           { key: profileKey(profile.id), version: profile.version },
@@ -1001,11 +1009,11 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       autoSync: false,
       version: 1,
     };
+    const updatedProfile = { ...profile, version: profile.version + 1, updatedAt: timestamp() };
     const placement = {
       recordType: 'placement', id: stableId, profileId: profile.id, resourceId,
-      position: maxPosition + 10, featured: false, selectedForDirectory, version: 1,
+      position: maxPosition + 10, featured: false, selectedForDirectory, version: updatedProfile.version,
     };
-    const updatedProfile = { ...profile, version: profile.version + 1, updatedAt: timestamp() };
     const ok = await store.transact({
       checks: [
         { key, version: null },
@@ -1330,6 +1338,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         const eKey = editorKey(profile.id, resourceId);
         const currentPlacement = await store.get(pKey);
         const currentEditor = await store.get(eKey);
+        const nextProfileVersion = profile.version + 1;
         const hasEditor = resource.directoryControl === 'creator' && resource.editorProfileId === profile.id;
         const alreadyLinked = hasEditor && currentPlacement && currentEditor;
         if (alreadyLinked) {
@@ -1358,13 +1367,13 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
           const all = await getPlacements(profile.id);
           const maxPosition = all.reduce((maximum, item) => Math.max(maximum, item.position), 0);
           checks.push({ key: pKey, version: null });
-          puts.push({ key: pKey, value: { recordType: 'placement', id, profileId: profile.id, resourceId, position: maxPosition + 10, featured: false, selectedForDirectory: true, version: 1 } });
+          puts.push({ key: pKey, value: { recordType: 'placement', id, profileId: profile.id, resourceId, position: maxPosition + 10, featured: false, selectedForDirectory: true, version: nextProfileVersion } });
         }
         if (puts.length === 0) {
           didLink.push(resourceId);
           continue;
         }
-        const updatedProfile = { ...profile, version: profile.version + 1, updatedAt: timestamp() };
+        const updatedProfile = { ...profile, version: nextProfileVersion, updatedAt: timestamp() };
         puts.push({ key: profileKey(profile.id), value: updatedProfile });
         const ok = await store.transact({ checks, puts });
         if (!ok) fail(409, 'CLAIM_CONFLICT', `resource ${resourceId} changed while linking`);
