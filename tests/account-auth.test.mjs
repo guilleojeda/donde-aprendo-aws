@@ -332,6 +332,7 @@ test('disabled accounts cannot establish a session and getSession reports disabl
   assertSafeFailureRedirect(response, 'acceso-invalido');
   assert.equal(store.calls.filter(({ operation }) => operation === 'putSession').length, 1);
   assert.deepEqual(await harness.auth.getSession(sessionRequest(firstLogin.sessionCookie)), { state: 'disabled' });
+  assert.deepEqual(await harness.auth.getPrincipal(sessionRequest(firstLogin.sessionCookie)), { state: 'disabled' });
 });
 
 test('login attempt and session storage failures return safe unavailable states', async () => {
@@ -424,6 +425,81 @@ test('logout storage failure does not claim success or clear the still-valid ses
 
   assertSafeFailureRedirect(response, 'no-disponible');
   assert.equal((await harness.auth.getSession(sessionRequest(sessionCookie))).state, 'authenticated');
+  assert.equal(responseCookies(response).some((value) => cookieName(value) === cookieName(sessionCookie) && /max-age=0/i.test(value)), false);
+  assertNoCredentialLeak(response);
+});
+
+test('disabled logout revokes the existing session before reactivation can replay it', async () => {
+  const store = createAccountStore();
+  const harness = await createAccountHarness({ store });
+  const { sessionCookie } = await authenticate(harness);
+  const session = await harness.auth.getSession(sessionRequest(sessionCookie));
+  const account = await store.getAccount(makeIdentity());
+  store.seedAccount({ ...account, active: false });
+
+  assert.deepEqual(await harness.auth.getSession(sessionRequest(sessionCookie)), { state: 'disabled' });
+  const response = await harness.auth.handle(makeRequest('/cuenta/salir/', {
+    method: 'POST',
+    headers: { cookie: cookiePair(sessionCookie), origin: ORIGIN },
+    body: new URLSearchParams({ csrfToken: session.csrfToken }),
+  }));
+
+  assertCognitoLogoutRedirect(response);
+  assert.equal(store.calls.filter(({ operation }) => operation === 'deleteSession').length, 1);
+  assert.equal((await harness.auth.getSession(sessionRequest(sessionCookie))).state, 'anonymous');
+  assert.ok(responseCookies(response).some((value) => cookieName(value) === cookieName(sessionCookie) && /max-age=0/i.test(value)));
+
+  store.seedAccount({ ...account, active: true });
+  assert.equal((await harness.auth.getSession(sessionRequest(sessionCookie))).state, 'anonymous');
+});
+
+test('disabled logout preserves the session when origin or CSRF validation fails', async () => {
+  const store = createAccountStore();
+  const harness = await createAccountHarness({ store });
+  const { sessionCookie } = await authenticate(harness);
+  const session = await harness.auth.getSession(sessionRequest(sessionCookie));
+  const account = await store.getAccount(makeIdentity());
+  store.seedAccount({ ...account, active: false });
+  const cookie = cookiePair(sessionCookie);
+  const invalidRequests = [
+    makeRequest('/cuenta/salir/', {
+      method: 'POST',
+      headers: { cookie, origin: 'https://evil.invalid' },
+      body: new URLSearchParams({ csrfToken: session.csrfToken }),
+    }),
+    makeRequest('/cuenta/salir/', {
+      method: 'POST',
+      headers: { cookie, origin: ORIGIN },
+      body: new URLSearchParams({ csrfToken: 'wrong-token' }),
+    }),
+  ];
+
+  for (const request of invalidRequests) {
+    const response = await harness.auth.handle(request);
+    assertPrivateNoStore(response);
+    assert.equal(response.status, 403);
+    assert.equal((await harness.auth.getSession(sessionRequest(sessionCookie))).state, 'disabled');
+  }
+  assert.equal(store.calls.filter(({ operation }) => operation === 'deleteSession').length, 0);
+});
+
+test('disabled logout storage failure keeps the session and does not claim completion', async () => {
+  const store = createAccountStore();
+  const harness = await createAccountHarness({ store });
+  const { sessionCookie } = await authenticate(harness);
+  const session = await harness.auth.getSession(sessionRequest(sessionCookie));
+  const account = await store.getAccount(makeIdentity());
+  store.seedAccount({ ...account, active: false });
+  store.failNext('deleteSession', new Error('private disabled delete detail'));
+
+  const response = await harness.auth.handle(makeRequest('/cuenta/salir/', {
+    method: 'POST',
+    headers: { cookie: cookiePair(sessionCookie), origin: ORIGIN },
+    body: new URLSearchParams({ csrfToken: session.csrfToken }),
+  }));
+
+  assertSafeFailureRedirect(response, 'no-disponible');
+  assert.equal((await harness.auth.getSession(sessionRequest(sessionCookie))).state, 'disabled');
   assert.equal(responseCookies(response).some((value) => cookieName(value) === cookieName(sessionCookie) && /max-age=0/i.test(value)), false);
   assertNoCredentialLeak(response);
 });

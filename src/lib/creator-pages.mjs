@@ -1,7 +1,5 @@
 import { createHash } from 'node:crypto';
-import { validateCatalogUrl } from './catalog.mjs';
-import { validateTaxonomy } from './resource-taxonomy.mjs';
-import { projectPublicEvent } from './events.mjs';
+import { projectPublicRecord, validateCatalogUrl } from './catalog.mjs';
 import { currentUrlKey } from './catalog-url.mjs';
 
 const PROGRAMS = new Set(['User Group Leaders', 'Community Builders', 'Heroes']);
@@ -56,6 +54,11 @@ function hash(value) {
 
 function currentResourceUrl(resource) {
   return resource.recordType === 'event' ? resource.registrationUrl : resource.url;
+}
+
+function isCatalogResource(resource) {
+  return isRecord(resource) && typeof resource.id === 'string' && !resource.id.startsWith('__')
+    && (resource.recordType === undefined || resource.recordType === 'event');
 }
 
 function placementId(profileId, resourceId) {
@@ -557,6 +560,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     for (const id of uniqueIds) {
       const resource = resources.get(id);
       if (!resource || resource.id !== id) fail(503, 'MISSING_RESOURCE', 'a referenced resource is missing or malformed');
+      if (!isCatalogResource(resource)) fail(503, 'INVALID_RESOURCE', 'a referenced catalog row is not a resource');
     }
     return resources;
   }
@@ -938,6 +942,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
   async function buildLinkDto(placement) {
     const resource = await store.get(`resource:${placement.resourceId}`);
     if (!resource || resource.id !== placement.resourceId) fail(503, 'MISSING_RESOURCE', 'placement points to missing resource data');
+    if (!isCatalogResource(resource)) fail(503, 'INVALID_RESOURCE', 'placement points to a non-resource catalog row');
     return publicLink(placement, resource, { includeModerationState: true });
   }
 
@@ -946,6 +951,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     checks = [],
     returnExistingOnConflict = true,
   } = {}) {
+    if (!isCatalogResource(resource)) fail(503, 'INVALID_RESOURCE', 'a catalog control row cannot be attached as a resource');
     const stableId = placementId(profile.id, resource.id);
     const existing = await store.get(placementKey(profile.id, stableId));
     if (existing) {
@@ -998,7 +1004,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     const expectedVersion = validVersion(body.resourceVersion);
     const profile = await getRequiredOwnerProfile(principal);
     const resource = await store.get(`resource:${body.resourceId}`);
-    if (!resource || resource.id !== body.resourceId) fail(404, 'RESOURCE_NOT_FOUND', 'resource does not exist');
+    if (!resource || resource.id !== body.resourceId || !isCatalogResource(resource)) fail(404, 'RESOURCE_NOT_FOUND', 'resource does not exist');
     if (resource.editorProfileId !== profile.id || resource.directoryControl !== 'creator') {
       fail(403, 'RESOURCE_EDIT_FORBIDDEN', 'this profile does not edit the resource');
     }
@@ -1054,7 +1060,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       if (reservation.status === 'collision') fail(409, 'URL_COLLISION', 'this URL needs administrative review');
       if (reservation.status !== 'reserved' || typeof reservation.resourceId !== 'string') fail(503, 'INVALID_URL_RESERVATION', 'URL reservation is malformed');
       const resource = await store.get(`resource:${reservation.resourceId}`);
-      if (!resource || resource.id !== reservation.resourceId || currentResourceUrl(resource) !== url) {
+      if (!resource || resource.id !== reservation.resourceId || !isCatalogResource(resource) || currentResourceUrl(resource) !== url) {
         fail(503, 'URL_INDEX_MISMATCH', 'URL reservation does not match the current resource');
       }
       return attachExistingResource(profile, resource, {
@@ -1196,7 +1202,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     const profile = await getRequiredOwnerProfile(principal);
     const key = `resource:${resourceId}`;
     const resource = await store.get(key);
-    if (!resource) fail(404, 'RESOURCE_NOT_FOUND', 'resource does not exist');
+    if (!resource || !isCatalogResource(resource)) fail(404, 'RESOURCE_NOT_FOUND', 'resource does not exist');
     if (resource.editorProfileId !== profile.id || resource.directoryControl !== 'creator') fail(403, 'RESOURCE_EDIT_FORBIDDEN', 'this profile does not edit the resource');
     const expectedVersion = validVersion(body.version, { optional: true });
     if (expectedVersion !== undefined && expectedVersion !== resource.version) fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before saving');
@@ -1286,7 +1292,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     assertKnownFields(body, ADMIN_RESOURCE_FIELDS);
     const key = `resource:${resourceId}`;
     const resource = await store.get(key);
-    if (!resource) fail(404, 'RESOURCE_NOT_FOUND', 'resource does not exist');
+    if (!resource || !isCatalogResource(resource)) fail(404, 'RESOURCE_NOT_FOUND', 'resource does not exist');
     const expectedVersion = validVersion(body.version, { optional: true });
     if (expectedVersion !== undefined && expectedVersion !== resource.version) fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before saving');
     const updated = { ...resource };
@@ -1299,7 +1305,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     }
     if (!Object.keys(body).some((field) => ADMIN_RESOURCE_FIELDS.has(field))) fail(422, 'EMPTY_UPDATE', 'classification fields are required');
     try {
-      validateTaxonomy(updated);
+      projectPublicRecord(updated);
     } catch {
       fail(422, 'INVALID_CLASSIFICATION', 'resource classification is incomplete or invalid');
     }
@@ -1313,15 +1319,11 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
   async function adminResourceAction(resourceId, action) {
     const key = `resource:${resourceId}`;
     const resource = await store.get(key);
-    if (!resource) fail(404, 'RESOURCE_NOT_FOUND', 'resource does not exist');
+    if (!resource || !isCatalogResource(resource)) fail(404, 'RESOURCE_NOT_FOUND', 'resource does not exist');
     const updated = { ...resource, version: resource.version + 1, updatedAt: timestamp() };
     if (action === 'aprobar') {
       try {
-        if (resource.recordType === 'event') projectPublicEvent(resource, 0, validateCatalogUrl);
-        else {
-          validateTaxonomy(resource);
-          if (typeof resource.category !== 'string' || !resource.category.trim()) throw new Error('resource category is missing');
-        }
+        projectPublicRecord(resource);
       } catch {
         fail(422, resource.recordType === 'event' ? 'INVALID_EVENT' : 'INVALID_CLASSIFICATION',
           resource.recordType === 'event' ? 'event data is incomplete or invalid' : 'classify this resource before approving it');
@@ -1362,6 +1364,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     for (const id of resourceIds) {
       const resource = await store.get(`resource:${id}`);
       if (!resource) fail(404, 'RESOURCE_NOT_FOUND', `resource ${id} does not exist`);
+      if (!isCatalogResource(resource)) fail(422, 'INVALID_RESOURCE_IDS', `resource ${id} is not a catalog resource`);
     }
     const sourceId = body.sourceId === undefined ? undefined : textField(body.sourceId, 'sourceId');
     const evidence = body.evidence === undefined || body.evidence === '' ? undefined : textField(body.evidence, 'evidence');
@@ -1402,6 +1405,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     for (const resourceId of requestedIds) {
       const resource = await store.get(`resource:${resourceId}`);
       if (!resource) fail(404, 'RESOURCE_NOT_FOUND', `resource ${resourceId} does not exist`);
+      if (!isCatalogResource(resource)) fail(422, 'EXACT_RESOURCES_REQUIRED', `resource ${resourceId} is not a catalog resource`);
       if ((resource.editorProfileId && resource.editorProfileId !== profile.id)
         || (resource.directoryControl === 'creator' && resource.editorProfileId !== profile.id)) {
         fail(409, 'RESOURCE_ALREADY_CLAIMED', `resource ${resourceId} has another editor`);

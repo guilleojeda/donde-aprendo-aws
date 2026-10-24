@@ -262,7 +262,16 @@ export function createAccountAuth({ origin, issuer, clientId, cognitoDomain, sto
 
     const account = await store.getAccount(record.identity);
     if (!account) return { state: 'anonymous' };
-    if (account.active !== true) return { state: 'disabled' };
+    if (account.active !== true) {
+      // A disabled account cannot authorize requests, but its still-valid
+      // session must retain enough server-only data for a confirmed logout to
+      // revoke it before the cookie is cleared.
+      return {
+        state: 'disabled',
+        csrfToken: record.csrfToken,
+        sessionKey: `SESSION#${sha256(rawSession)}`,
+      };
+    }
     if (!Number.isSafeInteger(record.epoch) || record.epoch !== account.epoch
       || !Number.isFinite(record.createdAt) || record.createdAt <= (account.authValidAfter ?? 0)) {
       return { state: 'anonymous' };
@@ -416,7 +425,7 @@ export function createAccountAuth({ origin, issuer, clientId, cognitoDomain, sto
       return failure('no-disponible');
     }
     if (current.state === 'unavailable') return failure('no-disponible');
-    if (current.state !== 'authenticated') {
+    if (current.state !== 'authenticated' && current.state !== 'disabled') {
       return redirect(`${accountOrigin}/cuenta/`, [clearCookie(SESSION_COOKIE)]);
     }
 

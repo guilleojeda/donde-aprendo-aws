@@ -77,7 +77,6 @@ function publicReadFixture(placementRecordType) {
   };
   const resource = {
     id: resourceId,
-    recordType: 'resource',
     title: 'Capítulo visible',
     url: 'https://example.com/chapter',
     published: true,
