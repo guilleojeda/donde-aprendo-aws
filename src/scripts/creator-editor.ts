@@ -3,6 +3,7 @@ import type {
   CreatorLinkDTO,
   CreatorProfileDTO,
 } from '../types/creators';
+import { creatorEditorFailureMessage } from '../lib/creator-editor-errors';
 import { creatorSeriesFailureMessage } from '../lib/creator-series-editor-errors';
 
 const root = document.querySelector<HTMLElement>('[data-creator-editor]');
@@ -36,6 +37,7 @@ const pageStatus = root?.querySelector<HTMLElement>('[data-page-status]');
 const MAX_REQUEST_BYTES = 32 * 1024;
 const REQUEST_TOO_LARGE = 'creator-request-too-large';
 const SERIES_FOCUS_PREFIX = 'creator-series-';
+const PHOTO_FINALIZATION_UNCONFIRMED = 'No pudimos confirmar si la foto se guardó. Recarga la página para comprobar cuál está activa antes de volver a intentarlo.';
 
 function restoreSeriesFocus() {
   const hash = window.location.hash;
@@ -70,7 +72,7 @@ function statusText(status: number): string {
   if (status === 401) return 'Tu sesión terminó. Inicia sesión y vuelve a intentarlo.';
   if (status === 403) return 'Tu cuenta no tiene permiso para completar esta acción.';
   if (status === 409) return 'Otra edición guardó una versión más reciente. Tus datos siguen en el formulario; revisa el estado antes de volver a guardar.';
-  if (status === 422) return 'Revisa los campos señalados e inténtalo de nuevo.';
+  if (status === 422) return 'El servicio no acepta alguno de estos datos. Revisa la información e inténtalo de nuevo; tus datos siguen en el formulario.';
   if (status === 413) return 'La solicitud supera el límite de 32 KiB. Reduce la cantidad de IDs o la referencia e inténtalo de nuevo.';
   if (status === 503 || status >= 500) return 'No pudimos guardar los cambios. Tus datos siguen en el formulario; inténtalo de nuevo en unos minutos.';
   return 'No pudimos completar la acción. Revisa los datos e inténtalo de nuevo.';
@@ -120,7 +122,8 @@ function linksStatus() {
 
 async function finishWrite(response: Response, statusTarget: Element | null | undefined, successMessage: string) {
   if (!response.ok) {
-    announceError(response.status, statusTarget);
+    const message = await creatorEditorFailureMessage(response, statusText(response.status));
+    announce(statusTarget, message, 'error');
     return false;
   }
   announce(statusTarget, successMessage, 'success');
@@ -357,18 +360,21 @@ if (root && state && csrfToken) {
       const placementId = item?.dataset.placementId;
       const direction = button.dataset.move;
       const current = placementId ? linkByPlacement(placementId) : undefined;
-      if (!current || (direction !== 'up' && direction !== 'down')) return;
+      if (!current || current.placementVersion === undefined || (direction !== 'up' && direction !== 'down')) return;
       const group = [...(state?.links ?? [])]
         .filter((link) => link.featured === current.featured)
         .sort((left, right) => left.position - right.position);
       const index = group.findIndex((link) => link.placementId === current.placementId);
       const target = group[index + (direction === 'up' ? -1 : 1)];
       if (!target) return;
+      const profileVersion = currentProfileVersion();
+      if (profileVersion === undefined) return;
       button.disabled = true;
       try {
         const response = await api(`/api/creador/enlaces/${encodeURIComponent(current.placementId)}`, 'PATCH', {
           position: target.position,
-          ...(current.placementVersion !== undefined ? { version: current.placementVersion } : {}),
+          version: current.placementVersion,
+          profileVersion,
         });
         if (!response.ok) {
           announceError(response.status, linksStatus());
@@ -436,9 +442,8 @@ if (root && state && csrfToken) {
       button.disabled = true;
       try {
         const response = await api('/api/creador/enlaces', 'POST', {
-          title: resource.title,
-          url: resource.url,
-          ...(resource.description ? { description: resource.description } : {}),
+          resourceId: resource.id,
+          resourceVersion: resource.version,
         });
         await finishWrite(response, linksStatus(), 'Recurso agregado nuevamente a tu página.');
       } catch {
@@ -660,6 +665,7 @@ if (root && state && csrfToken) {
       return;
     }
     setBusy(photoForm, true);
+    let finalizationRequested = false;
     try {
       const authorize = await api('/api/creador/foto/autorizar', 'POST', { version: currentProfile.version });
       if (!authorize.ok) {
@@ -687,18 +693,26 @@ if (root && state && csrfToken) {
         announce(photoStatus, 'No pudimos subir la foto. La imagen anterior sigue activa; puedes intentarlo otra vez.', 'error');
         return;
       }
+      finalizationRequested = true;
       const finish = await api('/api/creador/foto/finalizar', 'POST', {
         uploadId: upload.uploadId,
         version: currentProfile.version,
       });
       if (!finish.ok) {
-        announceError(finish.status, photoStatus);
+        if (finish.status >= 500) {
+          announce(photoStatus, PHOTO_FINALIZATION_UNCONFIRMED, 'error');
+        } else {
+          announceError(finish.status, photoStatus);
+        }
         return;
       }
       announce(photoStatus, 'Foto guardada.', 'success');
       window.location.reload();
     } catch (error) {
-      announce(photoStatus, requestFailureMessage(error, 'No pudimos completar la carga. La imagen anterior sigue activa; inténtalo de nuevo.'), 'error');
+      const fallback = finalizationRequested
+        ? PHOTO_FINALIZATION_UNCONFIRMED
+        : 'No pudimos completar la carga. La imagen anterior sigue activa; inténtalo de nuevo.';
+      announce(photoStatus, requestFailureMessage(error, fallback), 'error');
     } finally {
       setBusy(photoForm, false);
     }

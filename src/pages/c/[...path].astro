@@ -29,6 +29,7 @@ try {
 const remainder = slash < 0 ? '' : rawPath.slice(slash);
 const suffix = remainder === '/' ? '' : remainder;
 const seriesMatch = remainder.match(/^\/series\/([^/]+)\/?$/);
+const unsupportedSuffix = remainder !== '' && remainder !== '/' && !seriesMatch;
 let seriesSlug = '';
 let malformedSeriesSlug = false;
 try {
@@ -44,7 +45,7 @@ let links: CreatorPublicLinkDTO[] = [];
 let publicSeries: CreatorPublicSeriesSummaryDTO[] = [];
 let pageSeries: CreatorSeriesDTO | undefined;
 
-if (malformedSlug || malformedSeriesSlug) {
+if (malformedSlug || malformedSeriesSlug || unsupportedSuffix) {
   status = 404;
 } else if (slug) {
   try {

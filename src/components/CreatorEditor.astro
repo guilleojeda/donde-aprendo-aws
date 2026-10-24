@@ -137,7 +137,7 @@ function linkVisibilityText(link: CreatorEditorDTO['links'][number]) {
     <section class="creator-photo" aria-labelledby="creator-photo-title">
       <div class="creator-photo__copy">
         <h3 id="creator-photo-title">Foto de perfil</h3>
-        <p>JPEG, PNG o WebP. Máximo 15 MiB y 40 megapíxeles. La foto anterior seguirá visible si la carga falla.</p>
+        <p>JPEG, PNG o WebP. Máximo 15 MiB y 40 megapíxeles. Si la carga se detiene antes de guardar, la foto anterior se conserva. Si no podemos confirmar el guardado, recarga la página para comprobar cuál quedó activa.</p>
       </div>
       {photoPath && <img class="creator-editor__photo creator-editor__photo--large" src={photoPath} alt="Foto actual del perfil" width="112" height="112" data-current-photo />}
       <form class="creator-photo__form" data-photo-form>
