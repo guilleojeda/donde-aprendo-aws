@@ -24,7 +24,17 @@ const allowedRuntimeEnvironment = [
   'CATALOG_TABLE',
   'CREATOR_PROFILES_TABLE',
   'CREATOR_PHOTOS_BUCKET',
+  'GA4_PROPERTY_ID',
+  'GA4_CREDENTIALS_SECRET_ARN',
+  'CREATOR_ANALYTICS_CAPTURE_STARTED_AT',
 ];
+const optionalRuntimeEnvironment = new Set([
+  'CATALOG_TABLE',
+  'GA4_PROPERTY_ID',
+  'GA4_CREDENTIALS_SECRET_ARN',
+  'CREATOR_ANALYTICS_CAPTURE_STARTED_AT',
+]);
+const requiredRuntimeEnvironment = allowedRuntimeEnvironment.filter((name) => !optionalRuntimeEnvironment.has(name));
 const runtimeEnvironment = readFileSync(resolve(computeRoot, '.env'), 'utf8');
 const runtimeEnvironmentNames = runtimeEnvironment.split(/\r?\n/u)
   .filter((line) => line.trim() && !line.trim().startsWith('#'))
@@ -69,8 +79,8 @@ assert.equal(nativePhotoCheck.status, 0,
   `The packaged Sharp native binary must decode and encode WebP on this deployment platform: ${nativePhotoCheck.stderr}`);
 assert.ok(runtimeEnvironmentNames.every((name) => allowedRuntimeEnvironment.includes(name)),
   'Only the approved runtime variables are packaged.');
-assert.ok(allowedRuntimeEnvironment.filter((name) => name !== 'CATALOG_TABLE').every((name) => runtimeEnvironmentNames.includes(name)),
-  'All runtime configuration is packaged; fixture builds omit the mutually exclusive live catalog table.');
+assert.ok(requiredRuntimeEnvironment.every((name) => runtimeEnvironmentNames.includes(name)),
+  'All baseline runtime configuration is packaged; catalog and creator analytics configuration are optional.');
 assert.doesNotMatch(runtimeEnvironment, /AWS_(?:ACCESS_KEY_ID|SECRET_ACCESS_KEY|SESSION_TOKEN)|-----BEGIN [A-Z ]*PRIVATE KEY-----/u,
   'The runtime environment file does not contain credentials.');
 
