@@ -153,6 +153,25 @@ function currentProfileVersion(): number | undefined {
   return state?.profile?.version;
 }
 
+function validateSocialUrls(form: HTMLFormElement): boolean {
+  const message = 'Ingresa una URL HTTP o HTTPS sin usuario ni contraseña.';
+  const fields = form.querySelectorAll<HTMLInputElement>('input[name^="social-"]');
+  for (const field of fields) {
+    const value = field.value.trim();
+    let error = '';
+    if (value) {
+      try {
+        const url = new URL(value);
+        if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) error = message;
+      } catch {
+        error = message;
+      }
+    }
+    field.setCustomValidity(error);
+  }
+  return form.reportValidity();
+}
+
 function profileSavedMessage(): string {
   if (state?.profile?.published && !state.profile.hidden) {
     return 'Perfil guardado. Si tu página ya está publicada, el cambio queda visible enseguida.';
@@ -205,10 +224,13 @@ if (root && state && csrfToken) {
   const profileForm = root.querySelector<HTMLFormElement>('[data-profile-form]');
   const profileStatus = root.querySelector<HTMLElement>('[data-profile-status]');
   const publishButton = root.querySelector<HTMLButtonElement>('[data-publish-profile]');
+  profileForm?.querySelectorAll<HTMLInputElement>('input[name^="social-"]').forEach((field) => {
+    field.addEventListener('input', () => field.setCustomValidity(''));
+  });
 
   profileForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
-    if (!profileForm.reportValidity()) return;
+    if (!validateSocialUrls(profileForm)) return;
     const values = new FormData(profileForm);
     const socials: Record<string, string> = {};
     for (const key of ['instagram', 'x', 'linkedin', 'awsBuilder', 'website']) {
