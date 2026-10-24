@@ -308,7 +308,7 @@ function cleanAdminResource(resource) {
   };
 }
 
-export function createCreatorPagesService({ store, authenticate, origin, now = Date.now, createId } = {}) {
+export function createCreatorPagesService({ store, authenticate, origin, now = Date.now, createId, statistics } = {}) {
   if (!store || typeof store.get !== 'function' || typeof store.list !== 'function' || typeof store.transact !== 'function') {
     throw new TypeError('store must implement get, list, and transact');
   }
@@ -1071,6 +1071,50 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
   async function route(request, principal) {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/$/, '');
+
+    if (path === '/api/creador/estadisticas') {
+      requireMethod(request, 'GET');
+
+      const allowedParameters = new Set(['periodo', 'pagina']);
+      for (const name of url.searchParams.keys()) {
+        if (!allowedParameters.has(name)) fail(400, 'INVALID_STATISTICS_QUERY', 'query contains an unsupported parameter');
+      }
+
+      const periods = url.searchParams.getAll('periodo');
+      const pages = url.searchParams.getAll('pagina');
+      if (periods.length > 1 || pages.length > 1) {
+        fail(400, 'INVALID_STATISTICS_QUERY', 'query parameters must not be repeated');
+      }
+
+      const rawPeriod = periods[0] ?? '7';
+      if (rawPeriod !== '7' && rawPeriod !== '30') {
+        fail(400, 'INVALID_STATISTICS_PERIOD', 'periodo must be 7 or 30');
+      }
+      const period = Number(rawPeriod);
+      const rawPage = pages[0] ?? '1';
+      if (!/^\d+$/.test(rawPage)) fail(400, 'INVALID_STATISTICS_PAGE', 'pagina must be a positive integer');
+      const page = Number(rawPage);
+      if (!Number.isSafeInteger(page) || page < 1) {
+        fail(400, 'INVALID_STATISTICS_PAGE', 'pagina must be a positive integer');
+      }
+
+      const { profile } = await ownerProfile(principal);
+      if (!profile) return jsonResponse({ state: 'no-profile', period, page });
+      if (typeof profile.published !== 'boolean') fail(503, 'INVALID_PROFILE', 'profile publication state is malformed');
+      if (!profile.published) return jsonResponse({ state: 'not-published', period, page });
+      if (!statistics || typeof statistics.read !== 'function') {
+        fail(503, 'STATISTICS_UNAVAILABLE', 'statistics are temporarily unavailable');
+      }
+
+      let report;
+      try {
+        report = await statistics.read({ profileId: profile.id, period, page });
+      } catch {
+        fail(503, 'STATISTICS_UNAVAILABLE', 'statistics are temporarily unavailable');
+      }
+      if (!isRecord(report)) fail(503, 'STATISTICS_UNAVAILABLE', 'statistics are temporarily unavailable');
+      return jsonResponse(report);
+    }
 
     if (path === '/api/creador/perfil') {
       if (request.method === 'GET') return jsonResponse(await creatorEditor(principal));

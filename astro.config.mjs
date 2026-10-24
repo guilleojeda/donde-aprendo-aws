@@ -16,6 +16,9 @@ export default defineConfig({
       'CATALOG_TABLE',
       'CREATOR_PROFILES_TABLE',
       'CREATOR_PHOTOS_BUCKET',
+      'GA4_PROPERTY_ID',
+      'GA4_CREDENTIALS_SECRET_ARN',
+      'CREATOR_ANALYTICS_CAPTURE_STARTED_AT',
     ],
   }),
   markdown: {

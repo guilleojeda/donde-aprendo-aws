@@ -25,6 +25,10 @@ Parameters:
     Description: Content-addressed password-reset ZIP key produced by package-password-reset
     AllowedPattern: '^password-reset/[0-9a-f]{64}\.zip$'
     ConstraintDescription: Use password-reset/<sha256>.zip from the package-password-reset output.
+  Ga4ReaderSecretArn:
+    Type: String
+    Description: Secrets Manager ARN containing the read-only GA4 service account JSON
+    AllowedPattern: '^arn:aws:secretsmanager:us-east-1:[0-9]{12}:secret:.+$'
 Resources:
   AccountsTable:
     Type: AWS::DynamoDB::Table
@@ -64,6 +68,9 @@ Resources:
           KeyType: HASH
         - AttributeName: sk
           KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
       Tags:
         - Key: Project
           Value: donde-aprendo-aws
@@ -312,6 +319,13 @@ Resources:
                 Resource:
                   - !Sub '${CreatorPhotosBucket.Arn}/photos/tmp/*'
                   - !Sub '${CreatorPhotosBucket.Arn}/photos/final/*'
+        - PolicyName: ReadCreatorStatisticsCredentials
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref Ga4ReaderSecretArn
       Tags:
         - Key: Project
           Value: donde-aprendo-aws

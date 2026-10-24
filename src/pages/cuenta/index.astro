@@ -137,6 +137,7 @@ Astro.response.status = pageState === 'acceso-invalido' || pageState === 'cancel
           </dl>
           <div class="account-actions">
             <a class="button button--outline" href="/cuenta/creador/">Crear o editar mi página de creador</a>
+            <a class="button button--dark" href="/cuenta/estadisticas/">Ver estadísticas</a>
           </div>
           <form method="post" action="/cuenta/salir/" class="account-logout">
             <input type="hidden" name="csrfToken" value={session.csrfToken} />

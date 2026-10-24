@@ -27,6 +27,11 @@ const photoPath = profile?.photo?.url?.startsWith('/media/fotos/')
     <p>Completa tu perfil y comparte los recursos que ayudan a aprender AWS.</p>
   </header>
 
+  <nav class="creator-account__nav" aria-label="Gestión de creador">
+    <a class="button button--outline" href="/cuenta/estadisticas/">Ver estadísticas</a>
+    <a href="/cuenta/">Volver a mi cuenta</a>
+  </nav>
+
   <div class="creator-account__status" data-page-status role="status" aria-live="polite" hidden></div>
 
   {profile?.published && !profile.hidden && (

@@ -1,0 +1,316 @@
+---
+import type { CreatorStatisticsPageLoad } from '../pages/cuenta/_statistics-page';
+import { getStatisticsLinkLabel, isIdentifiableStatisticsLinkId } from '../lib/creator-statistics-labels';
+
+interface Props {
+  result: CreatorStatisticsPageLoad;
+}
+
+const { result } = Astro.props;
+const report = result.report;
+const editor = result.editor;
+const query = `periodo=${result.period}&pagina=${result.page}`;
+const retryHref = `/cuenta/estadisticas/?${query}`;
+function formatCount(value: number | null): string {
+  return value === null ? 'Datos limitados' : new Intl.NumberFormat('es-AR').format(value);
+}
+
+function formatDailyCount(value: number | null): string {
+  return value === null ? 'Sin datos' : new Intl.NumberFormat('es-AR').format(value);
+}
+
+function formatDate(value: string): string {
+  return new Intl.DateTimeFormat('es-AR', { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(`${value}T12:00:00Z`));
+}
+
+function formatDateTime(value: string, timeZone: string): string {
+  return new Intl.DateTimeFormat('es-AR', { dateStyle: 'long', timeStyle: 'short', timeZone }).format(new Date(value));
+}
+
+function warningSection(value: string): string {
+  const sections: Record<string, string> = {
+    visits: 'Visitas y visitantes',
+    daily: 'Actividad diaria',
+    links: 'Clics por enlace',
+    sources: 'Fuentes de sesión',
+    clicks: 'Clics totales',
+  };
+  return Object.hasOwn(sections, value) ? sections[value] : 'Estadísticas';
+}
+
+function warningMessage(code: string): string {
+  const messages: Record<string, string> = {
+    thresholding: 'Google Analytics limitó los datos de esta sección; algunas cifras pueden faltar.',
+    sampling: 'Esta sección se calculó con una muestra de los datos disponibles.',
+    'other-row': 'Google Analytics agrupó parte del detalle en “(other)”.',
+    restricted: 'Google Analytics restringió parte del detalle de esta sección.',
+    'data-loss': 'Google Analytics informó una pérdida de detalle en esta sección.',
+  };
+  return Object.hasOwn(messages, code)
+    ? messages[code]
+    : 'Google Analytics informó que esta sección puede estar incompleta.';
+}
+
+function hasSectionWarning(section: string): boolean {
+  return report?.warnings.some((warning) => warning.section === section) ?? false;
+}
+
+function dateInZone(value: string, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date(value));
+  const values = Object.fromEntries(parts.map(({ type, value: part }) => [type, part]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+const chartValues = report?.daily.flatMap(({ views, clicks }) => [views, clicks]).filter((value): value is number => value !== null) ?? [];
+const chartMaximum = Math.max(1, ...chartValues);
+const chartStartX = 55;
+const chartEndX = 662;
+const chartBaseline = 142;
+const chartHeight = 104;
+const chartSlot = report ? (chartEndX - chartStartX) / report.daily.length : 0;
+const barWidth = Math.min(15, Math.max(3, chartSlot * 0.34));
+const linkPageCount = report ? Math.max(1, Math.ceil(report.links.totalRows / report.links.pageSize)) : 1;
+const previousPage = report ? (report.page > linkPageCount ? linkPageCount : Math.max(1, report.page - 1)) : 1;
+const nextPage = report ? report.page + 1 : 1;
+const allDailyValuesMissing = report?.daily.every(({ views, clicks }) => views === null && clicks === null) ?? false;
+const beforeCapture = report && allDailyValuesMissing
+  ? report.daily.every(({ date }) => date < dateInZone(report.captureStartedAt, report.range.timeZone))
+  : false;
+const dailyEmptyMessage = hasSectionWarning('daily')
+  ? 'Google Analytics limitó el detalle diario; no se puede confirmar la actividad de cada día.'
+  : beforeCapture
+    ? 'No hay datos reconstruibles para los días anteriores al inicio observado de la captura.'
+    : 'No hay cifras diarias disponibles para este período.';
+const linksEmptyMessage = report && (hasSectionWarning('links') || report.totals.clicks === null)
+  ? 'Google Analytics limitó el detalle de clics por enlace; el total del período puede incluir actividad sin detalle visible.'
+  : report?.totals.clicks === 0
+    ? 'No se registraron clics por enlace durante este período.'
+    : 'Hay clics totales registrados, pero no se devolvieron filas de detalle por enlace.';
+const sourcesEmptyMessage = report && (hasSectionWarning('sources') || report.totals.views === null)
+  ? 'Google Analytics limitó el detalle de fuentes de sesión; no se puede confirmar que no haya orígenes en este período.'
+  : 'No hay filas de fuente/medio de sesión registradas para este período.';
+---
+
+<main id="contenido" class="creator-account creator-statistics site-container" tabindex="-1">
+  <header class="creator-account__header">
+    <p class="creator-profile__eyebrow">Mi cuenta</p>
+    <h1>Estadísticas de tu página</h1>
+    <p>Consulta las visitas registradas, los clics en tus enlaces y cómo llegaron las sesiones.</p>
+  </header>
+
+  {result.principal.state === 'authenticated' && (
+    <nav class="creator-account__nav" aria-label="Gestión de creador">
+      <a class="button button--outline" href="/cuenta/creador/">Editar mi página y enlaces</a>
+      <a href="/cuenta/">Volver a mi cuenta</a>
+    </nav>
+  )}
+
+  {result.status === 401 ? (
+    <section class="creator-message" role="alert" aria-labelledby="creator-statistics-login-title">
+      <h2 id="creator-statistics-login-title">Inicia sesión para ver tus estadísticas</h2>
+      <p>Las estadísticas sólo están disponibles para quien administra esta página.</p>
+      <a class="button button--dark" href="/cuenta/ingresar/">Ingresar</a>
+    </section>
+  ) : result.status === 403 ? (
+    <section class="creator-message creator-message--error" role="alert" aria-labelledby="creator-statistics-disabled-title">
+      <h2 id="creator-statistics-disabled-title">Esta cuenta está desactivada</h2>
+      <p>Si necesitas ayuda, contacta al equipo.</p>
+      <a class="button button--outline" href="mailto:contact@dondeaprendoaws.com">Contactar</a>
+    </section>
+  ) : result.state === 'invalid-query' ? (
+    <section class="creator-message creator-message--error" role="alert" aria-labelledby="creator-statistics-query-title">
+      <h2 id="creator-statistics-query-title">El período o la página no son válidos</h2>
+      <p>Elige 7 o 30 días y una página de enlaces válida.</p>
+      <a class="button button--outline" href="/cuenta/estadisticas/">Abrir estadísticas</a>
+    </section>
+  ) : result.state === 'unavailable' || result.status !== 200 ? (
+    <section class="creator-message creator-message--error" role="alert" aria-labelledby="creator-statistics-unavailable-title">
+      <h2 id="creator-statistics-unavailable-title">No pudimos cargar tus estadísticas</h2>
+      <p>Inténtalo de nuevo en unos minutos. Tus datos guardados no cambian por este error.</p>
+      <a class="button button--outline" href={retryHref}>Reintentar</a>
+    </section>
+  ) : result.state === 'no-profile' ? (
+    <section class="creator-message" aria-labelledby="creator-statistics-no-profile-title">
+      <h2 id="creator-statistics-no-profile-title">Todavía no tienes una página de creador</h2>
+      <p>Crea tu perfil y publícalo para iniciar la medición de visitas y clics.</p>
+      <a class="button button--dark" href="/cuenta/creador/">Crear mi página</a>
+    </section>
+  ) : result.state === 'not-published' ? (
+    <section class="creator-message" aria-labelledby="creator-statistics-draft-title">
+      <h2 id="creator-statistics-draft-title">Publica tu página para empezar a medir</h2>
+      <p>El registro comienza al publicar. Los datos anteriores a la captura no se reconstruyen.</p>
+      <a class="button button--dark" href="/cuenta/creador/">Editar y publicar mi página</a>
+    </section>
+  ) : report ? (
+    <>
+      <form class="creator-statistics__period" method="get" action="/cuenta/estadisticas/">
+        <label for="creator-statistics-period">Período</label>
+        <select id="creator-statistics-period" name="periodo">
+          <option value="7" selected={result.period === 7}>Últimos 7 días</option>
+          <option value="30" selected={result.period === 30}>Últimos 30 días</option>
+        </select>
+        <input type="hidden" name="pagina" value="1" />
+        <button class="button button--outline" type="submit">Ver período</button>
+      </form>
+
+      <section class="creator-statistics__metadata" aria-label="Período y actualización de datos">
+        <p><strong>Período:</strong> {formatDate(report.range.startDate)}–{formatDate(report.range.endDate)} · zona {report.range.timeZone}</p>
+        <p><strong>Captura observada desde:</strong> <time datetime={report.captureStartedAt}>{formatDateTime(report.captureStartedAt, report.range.timeZone)}</time></p>
+        <p><strong>Última actualización:</strong> <time datetime={report.updatedAt}>{formatDateTime(report.updatedAt, report.range.timeZone)}</time></p>
+      </section>
+
+      {report.freshness === 'stale' && (
+        <p class="creator-statistics__notice" role="status">No pudimos actualizar el informe. Mostramos la última lectura exitosa; el período corresponde a las fechas indicadas arriba.</p>
+      )}
+
+      <section class="creator-statistics__totals" aria-label="Totales del período">
+        <article class="creator-statistics__metric">
+          <h2>Visitas</h2>
+          <p>{formatCount(report.totals.views)}</p>
+          <small>Vistas registradas de tu página.</small>
+        </article>
+        <article class="creator-statistics__metric">
+          <h2>Visitantes estimados</h2>
+          <p>{formatCount(report.totals.visitors)}</p>
+          <small>Estimación de Google Analytics; no identifica personas con exactitud.</small>
+        </article>
+        <article class="creator-statistics__metric">
+          <h2>Clics en enlaces</h2>
+          <p>{formatCount(report.totals.clicks)}</p>
+          <small>Total del período, independiente de la página de enlaces.</small>
+        </article>
+      </section>
+
+      <p class="creator-statistics__notice">Los datos recientes pueden ser provisionales durante 24–48 horas. La medición puede quedar incompleta si un navegador bloquea JavaScript o Google Analytics.</p>
+
+      {report.warnings.length > 0 && (
+        <section class="creator-statistics__warnings" aria-labelledby="creator-statistics-warnings-title">
+          <h2 id="creator-statistics-warnings-title">Límites de estos datos</h2>
+          <ul>
+            {report.warnings.map((warning) => <li><strong>{warningSection(warning.section)}:</strong> {warningMessage(warning.code)}</li>)}
+          </ul>
+        </section>
+      )}
+
+      <section class="creator-statistics__panel" aria-labelledby="creator-statistics-daily-title">
+        <div class="creator-statistics__panel-heading">
+          <div>
+            <p class="creator-profile__eyebrow">Actividad</p>
+            <h2 id="creator-statistics-daily-title">Visitas y clics por día</h2>
+          </div>
+          <ul class="creator-statistics__legend" aria-label="Series del gráfico">
+            <li><span class="creator-statistics__legend-swatch creator-statistics__legend-swatch--views" aria-hidden="true"></span>Visitas</li>
+            <li><span class="creator-statistics__legend-swatch creator-statistics__legend-swatch--clicks" aria-hidden="true"></span>Clics</li>
+          </ul>
+        </div>
+        {chartValues.length > 0 ? (
+          <svg class="creator-statistics__chart" viewBox="0 0 700 170" role="img" aria-labelledby="creator-statistics-chart-title creator-statistics-chart-description">
+            <title id="creator-statistics-chart-title">Gráfico diario de visitas y clics</title>
+            <desc id="creator-statistics-chart-description">Cada par de barras representa visitas y clics de una fecha. La tabla siguiente contiene los valores exactos.</desc>
+            <line class="creator-statistics__gridline" x1="48" y1="38" x2="668" y2="38" />
+            <line class="creator-statistics__gridline" x1="48" y1="90" x2="668" y2="90" />
+            <line class="creator-statistics__axis" x1="48" y1={chartBaseline} x2="668" y2={chartBaseline} />
+            <text class="creator-statistics__chart-label creator-statistics__chart-scale" x="42" y="42" text-anchor="end">{new Intl.NumberFormat('es-AR').format(chartMaximum)}</text>
+            <text class="creator-statistics__chart-label creator-statistics__chart-scale" x="42" y="94" text-anchor="end">{new Intl.NumberFormat('es-AR').format(Math.round(chartMaximum / 2))}</text>
+            <text class="creator-statistics__chart-label creator-statistics__chart-scale" x="42" y="146" text-anchor="end">0</text>
+            {report.daily.map((day, index) => {
+              const center = chartStartX + chartSlot * (index + 0.5);
+              const viewHeight = day.views === null ? 0 : (day.views / chartMaximum) * chartHeight;
+              const clickHeight = day.clicks === null ? 0 : (day.clicks / chartMaximum) * chartHeight;
+              const yView = chartBaseline - viewHeight;
+              const yClick = chartBaseline - clickHeight;
+              return (
+                <g>
+                  {day.views !== null && <rect class="creator-statistics__bar creator-statistics__bar--views" x={center - barWidth - 1} y={yView} width={barWidth} height={Math.max(day.views === 0 ? 1 : 0, viewHeight)} rx="1" />}
+                  {day.clicks !== null && <rect class="creator-statistics__bar creator-statistics__bar--clicks" x={center + 1} y={yClick} width={barWidth} height={Math.max(day.clicks === 0 ? 1 : 0, clickHeight)} rx="1" />}
+                </g>
+              );
+            })}
+            <text class="creator-statistics__chart-label" x={chartStartX} y="162">{formatDate(report.range.startDate)}</text>
+            <text class="creator-statistics__chart-label" x="668" y="162" text-anchor="end">{formatDate(report.range.endDate)}</text>
+          </svg>
+        ) : (
+          <p class="creator-empty-state">{dailyEmptyMessage}</p>
+        )}
+        <div class="creator-statistics__table-wrap" role="region" aria-label="Tabla de visitas y clics por día; desplazamiento horizontal disponible" tabindex="0">
+          <table class="creator-statistics__table">
+            <caption>Valores diarios de visitas y clics. “Sin datos” señala que no hay una cifra disponible para esa fecha.</caption>
+            <thead><tr><th scope="col">Fecha ({report.range.timeZone})</th><th scope="col">Visitas</th><th scope="col">Clics</th></tr></thead>
+            <tbody>
+              {report.daily.map((day) => (
+                <tr>
+                  <th scope="row"><time datetime={day.date}>{formatDate(day.date)}</time></th>
+                  <td>{formatDailyCount(day.views)}</td>
+                  <td>{formatDailyCount(day.clicks)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <div class="creator-statistics__detail-grid">
+        <section class="creator-statistics__panel" aria-labelledby="creator-statistics-links-title">
+          <div class="creator-statistics__panel-heading">
+            <div>
+              <p class="creator-profile__eyebrow">Contenido</p>
+              <h2 id="creator-statistics-links-title">Clics por enlace</h2>
+            </div>
+            {hasSectionWarning('links')
+              ? <p class="creator-statistics__panel-count">Detalle limitado por Google Analytics.</p>
+              : <p class="creator-statistics__panel-count">Filas de detalle: {new Intl.NumberFormat('es-AR').format(report.links.totalRows)}</p>}
+          </div>
+          {report.links.rows.length > 0 ? (
+            <ol class="creator-statistics__link-list">
+              {report.links.rows.map((row) => {
+                const isCurrentLink = editor?.links.some(({ placementId }) => placementId === row.linkId) ?? false;
+                return (
+                  <li>
+                    <span class="creator-statistics__link-label">{getStatisticsLinkLabel(row.linkId, editor)}</span>
+                    {isIdentifiableStatisticsLinkId(row.linkId) && !isCurrentLink && <small>ID de enlace: <code>{row.linkId}</code></small>}
+                    <strong>{formatCount(row.clicks)} {row.clicks === 1 ? 'clic' : 'clics'}</strong>
+                  </li>
+                );
+              })}
+            </ol>
+          ) : (
+            <p class="creator-empty-state">{report.links.totalRows === 0 ? linksEmptyMessage : 'No hay filas para esta página de enlaces.'}</p>
+          )}
+          {(linkPageCount > 1 || report.page > linkPageCount) && (
+            <nav class="creator-statistics__pagination" aria-label="Páginas de clics por enlace">
+              <span>{report.page > linkPageCount ? 'Esta página ya no tiene resultados.' : `Página ${report.page} de ${linkPageCount}`}</span>
+              {report.page > 1 && report.page <= linkPageCount && <a href={`/cuenta/estadisticas/?periodo=${report.period}&pagina=${previousPage}`}>Anterior</a>}
+              {report.page < linkPageCount && <a href={`/cuenta/estadisticas/?periodo=${report.period}&pagina=${nextPage}`}>Siguiente</a>}
+              {report.page > linkPageCount && <a href={`/cuenta/estadisticas/?periodo=${report.period}&pagina=${linkPageCount}`}>{report.links.totalRows > 0 ? 'Última página con datos' : 'Volver a la primera página'}</a>}
+            </nav>
+          )}
+        </section>
+
+        <section class="creator-statistics__panel" aria-labelledby="creator-statistics-sources-title">
+          <div class="creator-statistics__panel-heading">
+            <div>
+              <p class="creator-profile__eyebrow">Adquisición</p>
+              <h2 id="creator-statistics-sources-title">Fuente/medio de sesión</h2>
+            </div>
+          </div>
+          <p class="creator-card__help">Indica cómo llegó una sesión a tu página; no es necesariamente la página que visitó justo antes.</p>
+          {report.sources.length > 0 ? (
+            <ol class="creator-statistics__source-list">
+              {report.sources.map((source) => <li><span>{source.sourceMedium}</span><strong>{formatCount(source.views)} {source.views === 1 ? 'visita' : 'visitas'}</strong></li>)}
+            </ol>
+          ) : (
+            <p class="creator-empty-state">{sourcesEmptyMessage}</p>
+          )}
+        </section>
+      </div>
+
+      <p class="creator-statistics__history-note">La captura de visitas comenzó en la fecha observada indicada arriba. No reconstruimos actividad anterior a esa captura ni a la existencia de este perfil.</p>
+      <p class="creator-statistics__footer-link"><a class="button button--outline" href="/cuenta/creador/">Gestionar enlaces y consultar su estado en el editor</a></p>
+    </>
+  ) : null}
+</main>
