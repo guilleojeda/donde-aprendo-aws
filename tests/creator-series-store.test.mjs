@@ -13,7 +13,8 @@ function copy(value) {
 }
 
 function physicalKey(table, key) {
-  return `${table}\u0000${key.pk ?? ''}\u0000${key.sk ?? ''}\u0000${key.id ?? ''}`;
+  const hasPartitionKey = Object.hasOwn(key, 'pk');
+  return `${table}\u0000${hasPartitionKey ? key.pk : ''}\u0000${hasPartitionKey ? (key.sk ?? '') : ''}\u0000${hasPartitionKey ? '' : (key.id ?? '')}`;
 }
 
 function physicalItemKey(table, item) {

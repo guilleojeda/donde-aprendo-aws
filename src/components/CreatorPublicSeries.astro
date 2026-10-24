@@ -1,0 +1,66 @@
+---
+import type { CreatorProfileDTO, CreatorPublicLinkDTO, CreatorSeriesDTO } from '../types/creators';
+
+interface Props {
+  profile: CreatorProfileDTO;
+  series: CreatorSeriesDTO;
+  links: CreatorPublicLinkDTO[];
+}
+
+const { profile, series, links } = Astro.props;
+
+function safeHttpUrl(value: string | undefined) {
+  if (!value) return undefined;
+  try {
+    const parsed = new URL(value);
+    return ['http:', 'https:'].includes(parsed.protocol) && !parsed.username && !parsed.password
+      ? { href: parsed.href, hostname: parsed.hostname }
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+---
+
+<section
+  class="creator-public-series"
+  data-creator-profile
+  data-creator-id={profile.id}
+  data-creator-slug={profile.slug}
+  aria-labelledby="creator-public-series-title"
+>
+  <nav class="creator-public-series__breadcrumbs" aria-label="Ruta de navegación">
+    <a href={`/c/${encodeURIComponent(profile.slug)}/`}>Volver al perfil de {profile.displayName}</a>
+  </nav>
+
+  <header class="creator-public-series__header">
+    <p class="creator-profile__eyebrow">Serie de {profile.displayName}</p>
+    <h1 id="creator-public-series-title">{series.name}</h1>
+    {series.description && <p class="creator-public-series__description">{series.description}</p>}
+    <p class="creator-public-series__creator">Creada por <a href={`/c/${encodeURIComponent(profile.slug)}/`}>{profile.displayName}</a></p>
+  </header>
+
+  <section class="creator-public-series__chapters" aria-labelledby="creator-public-series-chapters-title">
+    <h2 id="creator-public-series-chapters-title">Capítulos de la serie</h2>
+    <ol>
+      {links.map((link) => {
+        const destination = safeHttpUrl(link.url);
+        return (
+          <li>
+            <article class="creator-public-series__chapter">
+              <h3>{destination
+                ? <a href={destination.href} target="_blank" rel="noopener noreferrer" data-creator-link-id={link.placementId}>{link.title}</a>
+                : link.title}</h3>
+              {link.description && <p>{link.description}</p>}
+              <span>{destination?.hostname ?? 'Enlace no disponible'}</span>
+            </article>
+          </li>
+        );
+      })}
+    </ol>
+  </section>
+</section>
+
+<script>
+  import '../scripts/creator-profile-analytics';
+</script>

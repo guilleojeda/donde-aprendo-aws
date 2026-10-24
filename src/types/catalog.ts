@@ -1,3 +1,10 @@
+export interface CatalogSeriesAssociation {
+  seriesId: string;
+  name: string;
+  creatorName: string;
+  href: string;
+}
+
 export interface CatalogResource {
   id: string;
   title: string;
@@ -16,6 +23,7 @@ export interface CatalogResource {
   sourceId?: string;
   communityId?: string;
   eventId?: string;
+  series?: CatalogSeriesAssociation[];
   recordType?: undefined;
 }
 
@@ -35,4 +43,5 @@ export interface CatalogEvent {
   venueCountry?: string;
   communityId?: string;
   registrationUrl: string;
+  series?: CatalogSeriesAssociation[];
 }

@@ -82,6 +82,8 @@ if (controls && list) {
   const records = cards.map((card) => {
     const resourceId = card.id.replace(/^resource-/u, '');
     const relatedTitles = { source: '', community: '', event: '' };
+    const seriesLabels = [...card.querySelectorAll('[data-resource-series]')]
+      .map(({ textContent = '' }) => textContent.trim());
     for (const { textContent = '' } of card.querySelectorAll('.resource-card__related a')) {
       for (const [field, prefix] of [
         ['source', 'Autor o fuente: '], ['community', 'Comunidad: '], ['event', 'Grabación de: '],
@@ -105,7 +107,7 @@ if (controls && list) {
       level,
       addedAt: card.querySelector('time')?.getAttribute('datetime') ?? '',
       featured: card.dataset.featured === 'true',
-      search: `${card.querySelector('h3')?.textContent ?? ''} ${card.querySelector('.resource-card__description')?.textContent ?? ''} ${card.dataset.category ?? ''} ${metadata[0] ?? ''} ${topics.join(' ')} ${labels(country, COUNTRY_LABELS)} ${labels(level, LEVEL_LABELS)} ${relatedTitles.source} ${relatedTitles.community} ${relatedTitles.event}`,
+      search: `${card.querySelector('h3')?.textContent ?? ''} ${card.querySelector('.resource-card__description')?.textContent ?? ''} ${card.dataset.category ?? ''} ${metadata[0] ?? ''} ${topics.join(' ')} ${labels(country, COUNTRY_LABELS)} ${labels(level, LEVEL_LABELS)} ${relatedTitles.source} ${relatedTitles.community} ${relatedTitles.event}${seriesLabels.length ? ` ${seriesLabels.join(' ')}` : ''}`,
       purposeGroupId: groupByResourceId.get(resourceId)?.id,
       purposeGroupIndex: groupByResourceId.get(resourceId)?.groupIndex,
       purposeGroupLabel: groupByResourceId.get(resourceId)?.label,

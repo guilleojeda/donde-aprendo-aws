@@ -1,12 +1,14 @@
 ---
-import type { CreatorLinkDTO, CreatorProfileDTO } from '../types/creators';
+import type { CreatorProfileDTO, CreatorPublicLinkDTO, CreatorPublicSeriesSummaryDTO } from '../types/creators';
 
 interface Props {
   profile: CreatorProfileDTO;
-  links: CreatorLinkDTO[];
+  links: CreatorPublicLinkDTO[];
+  series: CreatorPublicSeriesSummaryDTO[];
 }
 
-const { profile, links } = Astro.props;
+const { profile, links, series } = Astro.props;
+const siteOrigin = 'https://dondeaprendoaws.com';
 const socialLabels = {
   instagram: 'Instagram',
   x: 'X',
@@ -20,6 +22,17 @@ function safeHttpUrl(value: string | undefined) {
     const parsed = new URL(value);
     return ['http:', 'https:'].includes(parsed.protocol) && !parsed.username && !parsed.password
       ? { href: parsed.href, hostname: parsed.hostname }
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+function safeSeriesPath(value: string | undefined) {
+  if (!value?.startsWith('/c/') || value.startsWith('//')) return undefined;
+  try {
+    const parsed = new URL(value, siteOrigin);
+    return parsed.origin === siteOrigin && parsed.pathname.startsWith('/c/') && !parsed.search && !parsed.hash
+      ? parsed.pathname
       : undefined;
   } catch {
     return undefined;
@@ -77,6 +90,30 @@ const photoPath = profile.photo?.url?.startsWith('/media/fotos/')
     </nav>
   )}
 
+  {series.length > 0 && (
+    <section class="creator-profile__series" aria-labelledby="creator-series-title">
+      <div class="creator-profile__section-heading">
+        <div>
+          <p class="creator-profile__eyebrow">Rutas de aprendizaje</p>
+          <h2 id="creator-series-title">Series de {profile.displayName}</h2>
+        </div>
+        <span>{series.length} {series.length === 1 ? 'serie' : 'series'}</span>
+      </div>
+      <ul class="creator-profile__series-list">
+        {series.map((item) => {
+          const href = safeSeriesPath(item.href);
+          return (
+            <li>
+              <h3>{href ? <a href={href}>{item.name}</a> : item.name}</h3>
+              {item.description && <p>{item.description}</p>}
+              <span>{item.chapterCount} {item.chapterCount === 1 ? 'capítulo' : 'capítulos'}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  )}
+
   <section class="creator-profile__links" aria-labelledby="creator-links-title">
     <div class="creator-profile__section-heading">
       <div>
@@ -94,6 +131,14 @@ const photoPath = profile.photo?.url?.startsWith('/media/fotos/')
               ? <a href={safeHttpUrl(link.url)?.href} target="_blank" rel="noopener noreferrer" data-creator-link-id={link.placementId}>{link.title}</a>
               : link.title}</h3>
             {link.description && <p>{link.description}</p>}
+            {link.series.length > 0 && (
+              <ul class="creator-profile__link-series" aria-label="Series relacionadas">
+                {link.series.map((tag) => {
+                  const href = safeSeriesPath(tag.href);
+                  return <li>{href ? <a href={href}>Serie {tag.name}</a> : <span>Serie {tag.name}</span>}</li>;
+                })}
+              </ul>
+            )}
             <span class="creator-profile__link-url">{safeHttpUrl(link.url)?.hostname ?? 'Enlace no disponible'}</span>
           </li>
         ))}
