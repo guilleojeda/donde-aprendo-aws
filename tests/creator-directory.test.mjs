@@ -154,3 +154,27 @@ test('a failed or incomplete creator-state read cannot publish a partial directo
     scanCreatorPage: async () => ({ LastEvaluatedKey: { pk: 'repeat' } }),
   }), /Items|page|incomplete|malformed|repeat/i);
 });
+
+test('private statistics cache records do not change public directory data, fields or hash', async () => {
+  const queries = [];
+  const rows = [
+    { ...profile('creator-a'), recordType: 'profile' },
+    { ...placement('creator-a'), recordType: 'placement' },
+    {
+      pk: 'ANALYTICS#creator-a', sk: 'GA4#424203315#v1#7#1', recordType: 'analyticsCache',
+      report: { privateStatisticsSentinel: 'private-statistics-report', totals: { views: 123456789 } },
+      updatedAt: 1792848000000, expiresAt: 1792851600000, retainUntil: 1793452800000, ttl: 1793452800,
+    },
+  ];
+  const actual = await loadCatalog({
+    tableName: 'catalog-test', creatorTableName: 'profiles-test',
+    scanPage: async () => ({ Items: [resource()] }),
+    scanCreatorPage: async (query) => { queries.push(query); return { Items: rows }; },
+  });
+  const expected = project();
+  assert.deepEqual(actual, expected);
+  assert.equal(fingerprintPublicCatalog(actual), fingerprintPublicCatalog(expected));
+  assert.doesNotMatch(JSON.stringify(actual), /private-statistics|123456789|analyticsCache/);
+  const attributes = Object.values(queries[0].ExpressionAttributeNames);
+  for (const name of ['report', 'totals', 'updatedAt', 'expiresAt', 'retainUntil', 'ttl']) assert.equal(attributes.includes(name), false, name);
+});

@@ -101,7 +101,7 @@ function assertProjectedTargetRead(statements, resourceNeedle) {
 test('accounts stack retains the PK/SK profiles table and a private temporary-photo bucket', async () => {
   const template = await readTemplate('accounts');
   assert.deepEqual(Object.keys(template.Parameters).sort(), [
-    'ArtifactBucket', 'ArtifactKey', 'CognitoDomainPrefix', 'SesFromAddress', 'SesReplyToAddress', 'SesSourceArn',
+    'ArtifactBucket', 'ArtifactKey', 'CognitoDomainPrefix', 'Ga4ReaderSecretArn', 'SesFromAddress', 'SesReplyToAddress', 'SesSourceArn',
   ]);
   assert.equal(template.Resources.UserPool.Properties.EmailConfiguration.From, 'SesFromAddress');
   assert.equal(template.Resources.UserPool.Properties.EmailConfiguration.ReplyToEmailAddress, 'SesReplyToAddress');
@@ -124,6 +124,8 @@ test('accounts stack retains the PK/SK profiles table and a private temporary-ph
     { AttributeName: 'pk', KeyType: 'HASH' },
     { AttributeName: 'sk', KeyType: 'RANGE' },
   ]);
+
+  assert.deepEqual(profiles.Properties.TimeToLiveSpecification, { AttributeName: 'ttl', Enabled: true });
 
   const bucket = template.Resources.CreatorPhotosBucket;
   assert.equal(bucket.Type, 'AWS::S3::Bucket');
@@ -173,6 +175,9 @@ test('Amplify compute gets app access to creator tables and only temporary/final
     '${CreatorPhotosBucket.Arn}/photos/tmp/*',
   ]);
   assert.equal(actions(photoPolicy).includes('s3:ListBucket'), false);
+  const analytics = findStatement(statements, 'Ga4ReaderSecretArn', 'secretsmanager:GetSecretValue');
+  assert.deepEqual(actions(analytics), ['secretsmanager:GetSecretValue']);
+  assert.equal(analytics.Resource, 'Ga4ReaderSecretArn');
 });
 
 test('static build and hourly publication scan only the catalog and public creator projections', async () => {
@@ -188,6 +193,8 @@ test('static build and hourly publication scan only the catalog and public creat
     [catalogTemplate, 'AmplifyBuildRole', 'Catalog.Arn'],
     [publicationTemplate, 'PublicationRole', 'table/${CatalogTableName}'],
   ]) {
+    assert.equal(policyStatements(template, roleName).some((statement) =>
+      actions(statement).some((action) => action.startsWith('secretsmanager:'))), false);
     const scans = scanStatements(template, roleName);
     assert.equal(scans.length, 2);
     const catalogScan = findStatement(scans, catalogResource, 'dynamodb:Scan');

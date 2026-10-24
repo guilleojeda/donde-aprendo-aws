@@ -132,6 +132,7 @@ export async function createCreatorPagesHarness(options = {}) {
     origin: SITE_ORIGIN,
     now: options.now ?? (() => now),
     createId: options.createId ?? (() => `fixture-id-${++id}`),
+    statistics: options.statistics,
     authenticate: options.authenticate ?? (async (request) => principals[request.headers.get('x-test-session')] ?? { state: 'anonymous' }),
   });
   return {

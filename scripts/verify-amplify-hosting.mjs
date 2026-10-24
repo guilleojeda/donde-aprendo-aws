@@ -134,6 +134,7 @@ if (existsSync(resolve(siteOutputRoot, 'eventos/fixture-event.ics'))) {
 assert.ok(!existsSync(resolve(siteOutputRoot, '404.html')), 'The 404 page is not prerendered.');
 assert.ok(!existsSync(resolve(siteOutputRoot, 'cuenta/index.html')), 'The account page is not prerendered.');
 assert.ok(!existsSync(resolve(siteOutputRoot, 'cuenta/creador/index.html')), 'The creator editor is not prerendered.');
+assert.ok(!existsSync(resolve(siteOutputRoot, 'cuenta/estadisticas/index.html')), 'Private creator statistics are not prerendered.');
 assert.ok(!existsSync(resolve(siteOutputRoot, 'cuenta/administracion/index.html')), 'Administration is not prerendered.');
 
 function directoryBytes(directory) {
@@ -227,7 +228,7 @@ try {
   const accountRobots = accountHtml.match(/<meta name="robots" content="([^"]+)"/u)?.[1];
   assert.ok(accountRobots?.split(',').map((directive) => directive.trim()).includes('noindex'), 'Account page is not indexable.');
 
-  for (const path of ['/cuenta/creador/', '/cuenta/administracion/']) {
+  for (const path of ['/cuenta/creador/', '/cuenta/administracion/', '/cuenta/estadisticas/']) {
     const response = await getWhenReady(path);
     const html = await response.text();
     assert.equal(response.status, 401, `${path} requires a real session.`);
@@ -236,7 +237,7 @@ try {
     assert.doesNotMatch(html, /src="\/assets\/analytics\.js"/u, 'Private creator pages do not load Analytics.');
     assertRuntimeTheme(html, path);
   }
-  for (const path of ['/api/creador/perfil/', '/api/admin/recursos/', '/api/creador/foto/autorizar/']) {
+  for (const path of ['/api/creador/perfil/', '/api/admin/recursos/', '/api/creador/foto/autorizar/', '/api/creador/estadisticas/']) {
     const isPhoto = path.includes('/foto/');
     const response = await fetch(new URL(path, origin), {
       method: isPhoto ? 'POST' : 'GET',
