@@ -941,7 +941,104 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     return publicLink(placement, resource, { includeModerationState: true });
   }
 
+  async function attachExistingResource(profile, resource, {
+    selectedForDirectory = true,
+    checks = [],
+    returnExistingOnConflict = true,
+  } = {}) {
+    const stableId = placementId(profile.id, resource.id);
+    const existing = await store.get(placementKey(profile.id, stableId));
+    if (existing) {
+      if (existing.id !== stableId || existing.profileId !== profile.id || existing.resourceId !== resource.id) {
+        fail(503, 'INVALID_PLACEMENT', 'existing placement does not match its resource');
+      }
+      return { link: await buildLinkDto(existing), created: false };
+    }
+
+    const placements = await getPlacements(profile.id);
+    const maxPosition = placements.reduce((maximum, item) => Math.max(maximum, Number.isSafeInteger(item.position) ? item.position : 0), 0);
+    const updatedProfile = { ...profile, version: profile.version + 1, updatedAt: timestamp() };
+    const placement = {
+      recordType: 'placement', id: stableId, profileId: profile.id, resourceId: resource.id,
+      position: maxPosition + 10, featured: false, selectedForDirectory, version: updatedProfile.version,
+    };
+    const ok = await store.transact({
+      checks: [
+        { key: profileKey(profile.id), version: profile.version },
+        { key: placementKey(profile.id, stableId), version: null },
+        ...checks,
+      ],
+      puts: [
+        { key: placementKey(profile.id, stableId), value: placement },
+        { key: profileKey(profile.id), value: updatedProfile },
+      ],
+    });
+    if (!ok) {
+      if (returnExistingOnConflict) {
+        const winner = await store.get(placementKey(profile.id, stableId));
+        if (winner?.id === stableId && winner.profileId === profile.id && winner.resourceId === resource.id) {
+          return { link: await buildLinkDto(winner), created: false };
+        }
+      }
+      fail(409, 'LINK_CONFLICT', 'link changed while adding');
+    }
+    return { link: await buildLinkDto(placement), created: true };
+  }
+
+  async function readdEditableResource(principal, body) {
+    for (const field of Object.keys(body)) {
+      if (field !== 'resourceId' && field !== 'resourceVersion') {
+        fail(400, 'MIXED_RESOURCE_INPUT', 're-adding an existing resource cannot include new-resource fields');
+      }
+    }
+    if (typeof body.resourceId !== 'string' || !body.resourceId || body.resourceId.length > 160) {
+      fail(422, 'INVALID_RESOURCE_ID', 'resourceId must identify an editable resource');
+    }
+    if (body.resourceVersion === undefined) fail(400, 'RESOURCE_VERSION_REQUIRED', 'resourceVersion is required when re-adding an existing resource');
+    const expectedVersion = validVersion(body.resourceVersion);
+    const profile = await getRequiredOwnerProfile(principal);
+    const resource = await store.get(`resource:${body.resourceId}`);
+    if (!resource || resource.id !== body.resourceId) fail(404, 'RESOURCE_NOT_FOUND', 'resource does not exist');
+    if (resource.editorProfileId !== profile.id || resource.directoryControl !== 'creator') {
+      fail(403, 'RESOURCE_EDIT_FORBIDDEN', 'this profile does not edit the resource');
+    }
+    const referenceKey = editorKey(profile.id, resource.id);
+    const reference = await store.get(referenceKey);
+    if (!reference || reference.recordType !== 'editorReference' || reference.profileId !== profile.id
+      || reference.resourceId !== resource.id || !Number.isSafeInteger(reference.version) || reference.version < 0) {
+      fail(403, 'RESOURCE_EDIT_FORBIDDEN', 'this profile does not edit the resource');
+    }
+    const resourceVersion = resource.version ?? 0;
+    if (!Number.isSafeInteger(resourceVersion) || resourceVersion < 0) fail(503, 'INVALID_RESOURCE', 'resource version is malformed');
+    if (expectedVersion !== resourceVersion) fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before re-adding it');
+
+    const url = currentResourceUrl(resource);
+    try {
+      validateCatalogUrl(url);
+    } catch {
+      fail(503, 'INVALID_RESOURCE', 'resource URL is malformed');
+    }
+    const reservationKey = currentUrlKey(url);
+    const reservation = await store.get(reservationKey);
+    if (!reservation || reservation.recordType !== 'urlReservation' || reservation.status !== 'reserved'
+      || reservation.url !== url || reservation.resourceId !== resource.id
+      || !Number.isSafeInteger(reservation.version) || reservation.version < 0) {
+      fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation does not match the editable resource');
+    }
+    return attachExistingResource(profile, resource, {
+      checks: [
+        { key: `resource:${resource.id}`, version: resourceVersion },
+        { key: reservationKey, version: reservation.version },
+        { key: referenceKey, version: reference.version },
+      ],
+      returnExistingOnConflict: false,
+    });
+  }
+
   async function addLink(principal, body) {
+    if (Object.hasOwn(body, 'resourceId') || Object.hasOwn(body, 'resourceVersion')) {
+      return readdEditableResource(principal, body);
+    }
     const profile = await getRequiredOwnerProfile(principal);
     assertKnownFields(body, new Set(['title', 'url', 'description', 'selectedForDirectory']));
     const title = textField(body.title, 'title');
@@ -950,8 +1047,6 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     const description = body.description === undefined ? '' : textField(body.description, 'description');
     if (body.selectedForDirectory !== undefined && typeof body.selectedForDirectory !== 'boolean') fail(422, 'INVALID_SELECTION', 'selectedForDirectory must be boolean');
     const selectedForDirectory = body.selectedForDirectory ?? true;
-    const placements = await getPlacements(profile.id);
-    const maxPosition = placements.reduce((maximum, item) => Math.max(maximum, Number.isSafeInteger(item.position) ? item.position : 0), 0);
     const key = currentUrlKey(url);
     const reservation = await store.get(key);
     if (reservation) {
@@ -962,38 +1057,16 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       if (!resource || resource.id !== reservation.resourceId || currentResourceUrl(resource) !== url) {
         fail(503, 'URL_INDEX_MISMATCH', 'URL reservation does not match the current resource');
       }
-      const stableId = placementId(profile.id, resource.id);
-      const existing = await store.get(placementKey(profile.id, stableId));
-      if (existing) return { link: await buildLinkDto(existing), created: false };
-      const updatedProfile = { ...profile, version: profile.version + 1, updatedAt: timestamp() };
-      const nextPlacement = {
-        recordType: 'placement', id: stableId, profileId: profile.id, resourceId: resource.id,
-        position: maxPosition + 10, featured: false, selectedForDirectory, version: updatedProfile.version,
-      };
-      const ok = await store.transact({
+      return attachExistingResource(profile, resource, {
+        selectedForDirectory,
         checks: [
-          { key: profileKey(profile.id), version: profile.version },
-          { key: placementKey(profile.id, stableId), version: null },
           { key, version: reservation.version },
           { key: `resource:${resource.id}`, version: resource.version ?? 0 },
         ],
-        puts: [
-          { key: placementKey(profile.id, stableId), value: nextPlacement },
-          { key: profileKey(profile.id), value: updatedProfile },
-        ],
       });
-      if (!ok) {
-        const winner = await store.get(placementKey(profile.id, stableId));
-        if (winner) return { link: await buildLinkDto(winner), created: false };
-        fail(409, 'LINK_CONFLICT', 'link changed while adding');
-      }
-      return { link: await buildLinkDto(nextPlacement), created: true };
     }
 
     const resourceId = `resource-${newId()}`;
-    const stableId = placementId(profile.id, resourceId);
-    const existsPlacement = await store.get(placementKey(profile.id, stableId));
-    if (existsPlacement) return { link: await buildLinkDto(existsPlacement), created: false };
     const resource = {
       id: resourceId,
       title,
@@ -1009,6 +1082,9 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       autoSync: false,
       version: 1,
     };
+    const placements = await getPlacements(profile.id);
+    const maxPosition = placements.reduce((maximum, item) => Math.max(maximum, Number.isSafeInteger(item.position) ? item.position : 0), 0);
+    const stableId = placementId(profile.id, resourceId);
     const updatedProfile = { ...profile, version: profile.version + 1, updatedAt: timestamp() };
     const placement = {
       recordType: 'placement', id: stableId, profileId: profile.id, resourceId,
@@ -1041,16 +1117,20 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
   }
 
   async function patchPlacement(principal, id, body) {
-    assertKnownFields(body, new Set(['position', 'featured', 'selectedForDirectory']), PROTECTED_PLACEMENT_FIELDS);
+    assertKnownFields(body, new Set(['position', 'featured', 'selectedForDirectory', 'profileVersion']), PROTECTED_PLACEMENT_FIELDS);
     const profile = await getRequiredOwnerProfile(principal);
     const key = placementKey(profile.id, id);
     const placement = await store.get(key);
     if (!placement || placement.id !== id || placement.profileId !== profile.id) fail(404, 'PLACEMENT_NOT_FOUND', 'placement does not belong to this profile');
     const expectedVersion = validVersion(body.version, { optional: true });
     if (expectedVersion !== undefined && expectedVersion !== placement.version) fail(409, 'PLACEMENT_CONFLICT', 'placement changed; reload before saving');
+    const expectedProfileVersion = validVersion(body.profileVersion, { optional: true });
     const changes = {};
     if (Object.hasOwn(body, 'position')) {
       if (!Number.isSafeInteger(body.position) || body.position < 0) fail(422, 'INVALID_POSITION', 'position must be a non-negative integer');
+      if (expectedVersion === undefined) fail(400, 'PLACEMENT_VERSION_REQUIRED', 'version is required when changing order');
+      if (expectedProfileVersion === undefined) fail(400, 'PROFILE_VERSION_REQUIRED', 'profileVersion is required when changing order');
+      if (expectedProfileVersion !== profile.version) fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before changing order');
       changes.position = body.position;
     }
     for (const field of ['featured', 'selectedForDirectory']) {

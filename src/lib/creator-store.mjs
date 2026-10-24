@@ -356,10 +356,21 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
         ...projection,
         ExpressionAttributeNames: { ...projection.ExpressionAttributeNames, '#pk': 'pk', '#sk': 'sk' },
       });
-      return rows.filter((row) => row.recordType === 'placement').map((row) => ({
-        key: `placement:${row.profileId}:${row.id}`,
-        value: cleanItem(row),
-      }));
+      return rows.map((row) => {
+        const storedProfileId = typeof row.pk === 'string' && row.pk.startsWith('PROFILE#')
+          ? row.pk.slice('PROFILE#'.length)
+          : '';
+        const placementId = typeof row.sk === 'string' && row.sk.startsWith('PLACEMENT#')
+          ? row.sk.slice('PLACEMENT#'.length)
+          : '';
+        if (!storedProfileId || storedProfileId.includes(':') || !placementId || placementId.includes(':')) {
+          throw new Error('DynamoDB placement query returned an invalid storage key');
+        }
+        return {
+          key: `placement:${storedProfileId}:${placementId}`,
+          value: cleanItem(row),
+        };
+      });
     }
     if (prefix.startsWith('editor:') && prefix !== 'editor:') {
       const match = prefix.match(/^editor:([^:]+):$/);
