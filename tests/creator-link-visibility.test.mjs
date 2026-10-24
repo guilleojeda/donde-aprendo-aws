@@ -125,6 +125,12 @@ async function renderEditor(data) {
   return container.renderToString(component, { props: { data, csrfToken: 'csrf-a' } });
 }
 
+function assertPerLinkVisibilityCopy(html) {
+  assert.match(html, /Cada enlace indica si está visible en tu página\./);
+  assert.doesNotMatch(html, /Los cambios del perfil y tus enlaces se ven al guardar\./);
+  assert.doesNotMatch(html, /Los enlaces se muestran en tu página al guardar\./);
+}
+
 async function loadEditorScript() {
   if (!editorScriptPromise) {
     editorScriptPromise = build({
@@ -330,6 +336,8 @@ test('the parsed editor DTO and SSR keep visibility separate from directory sele
   assert.equal(data.links[0].selectedForDirectory, true);
   assert.equal(data.links[0].directoryApproval, 'approved');
   let html = await renderEditor(data);
+  assertPerLinkVisibilityCopy(html);
+  assert.match(html, /Los cambios del perfil se reflejan al guardar\. Cada enlace indica si está visible en tu página\./);
   assert.match(html, /Visibilidad en tu página: Visible al público\./);
   assert.match(html, /Directorio: aprobado/);
   assert.match(html, /data-directory[^>]*checked/);
@@ -341,6 +349,7 @@ test('the parsed editor DTO and SSR keep visibility separate from directory sele
   assert.equal(data.links[0].selectedForDirectory, true);
   assert.equal(data.links[0].directoryApproval, 'approved');
   html = await renderEditor(data);
+  assertPerLinkVisibilityCopy(html);
   assert.match(html, /Visibilidad en tu página: Oculto por administración\./);
   assert.match(html, /Directorio: aprobado/);
   assert.match(html, /data-directory[^>]*checked/);
@@ -353,6 +362,7 @@ test('the parsed editor DTO and SSR keep visibility separate from directory sele
   assert.equal(data.links[0].selectedForDirectory, true);
   assert.equal(data.links[0].directoryApproval, 'approved');
   html = await renderEditor(data);
+  assertPerLinkVisibilityCopy(html);
   assert.match(html, /Visibilidad en tu página: Visible al público\./);
   assert.match(html, /Directorio: aprobado/);
 
@@ -361,6 +371,7 @@ test('the parsed editor DTO and SSR keep visibility separate from directory sele
   data = await loadEditorData(harness);
   assert.equal(data.profile.hidden, true);
   html = await renderEditor(data);
+  assertPerLinkVisibilityCopy(html);
   assert.match(html, /Visibilidad en tu página: No visible: la página está temporalmente oculta por administración\./);
   assert.doesNotMatch(html, /Visibilidad en tu página: Visible al público\./);
 });
@@ -371,6 +382,7 @@ test('the SSR editor describes a link on a draft profile as not yet public', asy
   const data = await loadEditorData(harness);
   assert.equal(data.profile.published, false);
   const html = await renderEditor(data);
+  assertPerLinkVisibilityCopy(html);
   assert.match(html, /Visibilidad en tu página: No visible todavía: publica tu página para compartir este enlace\./);
   assert.doesNotMatch(html, /Visibilidad en tu página: Visible al público\./);
 });
