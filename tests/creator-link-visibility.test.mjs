@@ -174,6 +174,33 @@ class TestForm extends TestElement {
   reportValidity() { return true; }
 }
 
+class TestSocialInput extends TestElement {
+  constructor(value) {
+    super();
+    this.value = value;
+    this.validationMessage = '';
+  }
+
+  setCustomValidity(message) {
+    this.validationMessage = message;
+  }
+}
+
+class TestProfileValidationForm extends TestForm {
+  constructor(input) {
+    super();
+    this.input = input;
+  }
+
+  querySelectorAll(selector) {
+    return selector === 'input[name^="social-"]' ? [this.input] : [];
+  }
+
+  reportValidity() {
+    return this.input.validationMessage === '';
+  }
+}
+
 class TestFormData {
   get(name) {
     return {
@@ -239,6 +266,69 @@ async function createEditorSuccessMessage({ action, published, hidden, linkHidde
   else await form.dispatch('submit');
   assert.equal(reloads, 1);
   return action === 'create-link' ? linkStatus.textContent : profileStatus.textContent;
+}
+
+async function validateProfileWebsite(value, retryWith) {
+  const input = new TestSocialInput(value);
+  const form = new TestProfileValidationForm(input);
+  const rootElement = new TestElement({ csrf: 'csrf-a' });
+  const profileStatus = new TestElement();
+  const initial = new TestElement();
+  initial.textContent = JSON.stringify({ profile: null, links: [], editableResources: [], claims: [], series: [] });
+  rootElement.querySelector = (selector) => ({
+    '[data-page-status]': new TestElement(),
+    '[data-profile-form]': form,
+    '[data-profile-status]': profileStatus,
+    '[data-publish-profile]': null,
+    '[data-copy-profile-url]': null,
+  }[selector] ?? null);
+  rootElement.querySelectorAll = () => [];
+  const document = {
+    querySelector: (selector) => selector === '[data-creator-editor]'
+      ? rootElement
+      : selector === '#creator-editor-data' ? initial : null,
+    querySelectorAll: () => [],
+    getElementById: () => null,
+  };
+  let fetches = 0;
+  let reloads = 0;
+  class ProfileFormData {
+    get(name) {
+      return {
+        displayName: 'Ana', slug: 'ana', city: '', country: '', bio: '',
+        'social-website': input.value,
+      }[name] ?? null;
+    }
+
+    getAll() { return []; }
+  }
+  const window = {
+    location: { hash: '', href: `${SITE_ORIGIN}/cuenta/creador/`, reload() { reloads += 1; } },
+    requestAnimationFrame(callback) { callback(); },
+    history: { replaceState() {} },
+  };
+  runInNewContext(await loadEditorScript(), {
+    document,
+    window,
+    HTMLElement: TestElement,
+    FormData: ProfileFormData,
+    Response,
+    TextEncoder,
+    URL,
+    fetch: async () => {
+      fetches += 1;
+      return new Response('{}', { status: 200 });
+    },
+  });
+  await form.dispatch('submit');
+  let retryMessage;
+  if (retryWith !== undefined) {
+    input.value = retryWith;
+    await input.dispatch('input');
+    retryMessage = input.validationMessage;
+    await form.dispatch('submit');
+  }
+  return { input, fetches, reloads, retryMessage };
 }
 
 async function api(harness, path, session = 'creator-a', options = {}) {
@@ -385,6 +475,38 @@ test('the SSR editor describes a link on a draft profile as not yet public', asy
   assertPerLinkVisibilityCopy(html);
   assert.match(html, /Visibilidad en tu página: No visible todavía: publica tu página para compartir este enlace\./);
   assert.doesNotMatch(html, /Visibilidad en tu página: Visible al público\./);
+});
+
+test('the profile editor gives each social URL an accessible HTTP(S)-only hint', async () => {
+  const harness = await visibilityHarness();
+  await createProfileAndLink(harness);
+  const html = await renderEditor(await loadEditorData(harness));
+  assert.match(html, /name="social-website"[^>]*aria-describedby="social-website-help"/);
+  assert.match(html, /id="social-website-help"[^>]*>Usa una URL HTTP o HTTPS sin usuario ni contraseña\./);
+});
+
+test('the real editor blocks unsafe social URLs in the field and preserves their value', async () => {
+  const ftp = await validateProfileWebsite('ftp://example.com/newsletter');
+  assert.equal(ftp.fetches, 0);
+  assert.equal(ftp.reloads, 0);
+  assert.equal(ftp.input.value, 'ftp://example.com/newsletter');
+  assert.match(ftp.input.validationMessage, /HTTP o HTTPS/);
+
+  const credentials = await validateProfileWebsite('https://person:secret@example.com/newsletter');
+  assert.equal(credentials.fetches, 0);
+  assert.equal(credentials.input.value, 'https://person:secret@example.com/newsletter');
+  assert.match(credentials.input.validationMessage, /sin usuario ni contraseña/);
+
+  const valid = await validateProfileWebsite('https://example.com/newsletter');
+  assert.equal(valid.input.validationMessage, '');
+  assert.equal(valid.fetches, 1);
+  assert.equal(valid.reloads, 1);
+
+  const corrected = await validateProfileWebsite('ftp://example.com/newsletter', 'https://example.com/newsletter');
+  assert.equal(corrected.retryMessage, '', 'editing the field clears its native custom error');
+  assert.equal(corrected.input.value, 'https://example.com/newsletter');
+  assert.equal(corrected.fetches, 1, 'corrected form data can be submitted');
+  assert.equal(corrected.reloads, 1);
 });
 
 test('the real editor script reports publication accurately for draft, hidden, and visible states', async () => {

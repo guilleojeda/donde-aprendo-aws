@@ -393,6 +393,8 @@ test('invalid series writes leave metadata, aliases, and profile version unchang
   const invalidCreates = [
     { name: '   ', slug: 'sin-nombre' },
     { name: 'Descripción inválida', slug: 'descripcion-invalida', description: { text: 'no es texto' } },
+    { name: 'Slug con espacios', slug: 'slug con espacios' },
+    { name: 'Slug con guiones repetidos', slug: 'slug--repetido' },
   ];
   for (const fields of invalidCreates) {
     const response = await api(harness, '/api/creador/series', 'creator-a', {
@@ -408,6 +410,16 @@ test('invalid series writes leave metadata, aliases, and profile version unchang
   });
   assertClientInputError(invalidPatch, 'invalid metadata patch');
   assert.equal(await harness.store.get(`series-alias:${profileId}:cambio-invalido`), null);
+
+  const invalidSlugPatch = await api(harness, `/api/creador/series/${encodeURIComponent(existing.id)}`, 'creator-a', {
+    method: 'PATCH',
+    body: {
+      version: before.series.find((series) => series.id === existing.id).version,
+      profileVersion: before.profileVersion,
+      slug: 'slug--repetido',
+    },
+  });
+  assertClientInputError(invalidSlugPatch, 'invalid slug metadata patch');
 
   const after = await listSeries(harness);
   assert.equal(after.profileVersion, before.profileVersion);

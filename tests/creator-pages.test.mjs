@@ -124,13 +124,64 @@ test('profile programs, optional fields, and social text do not require director
   assert.equal(body.link.directoryApproval, 'pending');
 });
 
+test('social URLs accept only safe HTTP or HTTPS addresses and leave the profile unchanged on failure', async () => {
+  const harness = await createCreatorPagesHarness();
+  const invalid = await saveProfile(harness, 'creator-a', {
+    displayName: 'Ana válida',
+    slug: 'ana-valida',
+    socials: { website: 'ftp://example.com/newsletter' },
+  });
+  assert.equal(invalid.status, 422);
+  assert.equal((await responseJson(invalid)).error, 'INVALID_SOCIAL_URL');
+  assert.equal((await editor(harness)).profile, null);
+
+  const saved = await saveProfile(harness, 'creator-a', {
+    displayName: 'Ana válida',
+    slug: 'ana-valida',
+    socials: { website: 'https://example.com/newsletter', instagram: 'http://example.com/ana' },
+  });
+  assert.equal(saved.status, 200);
+  const before = (await responseJson(saved)).profile;
+  const invalidUpdate = await saveProfile(harness, 'creator-a', {
+    displayName: 'Nombre que no debe guardarse',
+    slug: 'ruta-que-no-debe-guardarse',
+    socials: { website: 'https://user:secret@example.com/newsletter' },
+    version: before.version,
+  });
+  assert.equal(invalidUpdate.status, 422);
+  assert.equal((await responseJson(invalidUpdate)).error, 'INVALID_SOCIAL_URL');
+  const after = (await editor(harness)).profile;
+  assert.equal(after.displayName, before.displayName);
+  assert.equal(after.slug, before.slug);
+  assert.deepEqual(after.socials, before.socials);
+  assert.equal(after.version, before.version);
+
+  const cleared = await saveProfile(harness, 'creator-a', { socials: { website: '' }, version: before.version });
+  assert.equal(cleared.status, 200, 'an optional social URL may be cleared');
+});
+
+test('slug validation stays aligned with the allowed lowercase URL form', async () => {
+  for (const slug of ['bad slug', 'bad--slug', '-bad-slug', 'bad-slug-']) {
+    const harness = await createCreatorPagesHarness();
+    const response = await saveProfile(harness, 'creator-a', { displayName: 'Ana', slug });
+    assert.equal(response.status, 422, `${slug} must be rejected by the server`);
+    assert.equal((await editor(harness)).profile, null);
+  }
+
+  const harness = await createCreatorPagesHarness();
+  const response = await saveProfile(harness, 'creator-a', { displayName: 'Ana', slug: 'ana-2026' });
+  assert.equal(response.status, 200);
+  assert.equal((await responseJson(response)).profile.slug, 'ana-2026');
+});
+
 test('a slug conflict does not overwrite either profile, version, or stable public ID; old paths preserve suffix and query', async () => {
   const harness = await createCreatorPagesHarness();
   const first = await createProfile(harness, 'creator-a', { displayName: 'Ana', slug: 'ana' });
   await createProfile(harness, 'creator-b', { displayName: 'Bea', slug: 'bea' });
   const firstBefore = await editor(harness, 'creator-a');
+  const secondBefore = await editor(harness, 'creator-b');
 
-  const conflict = await saveProfile(harness, 'creator-b', { displayName: 'Bea cambiada', slug: 'ana' });
+  const conflict = await saveProfile(harness, 'creator-b', { displayName: 'Bea cambiada', slug: 'ana', version: secondBefore.profile.version });
   assert.equal(conflict.status, 409);
   const firstAfter = await editor(harness, 'creator-a');
   const secondAfter = await editor(harness, 'creator-b');
@@ -140,7 +191,7 @@ test('a slug conflict does not overwrite either profile, version, or stable publ
   assert.equal(secondAfter.profile.slug, 'bea');
   assert.equal(secondAfter.profile.displayName, 'Bea');
 
-  const changed = await saveProfile(harness, 'creator-a', { displayName: 'Ana nueva', slug: 'ana-nueva' });
+  const changed = await saveProfile(harness, 'creator-a', { displayName: 'Ana nueva', slug: 'ana-nueva', version: firstBefore.profile.version });
   assert.equal(changed.status, 200);
   const current = await harness.service.readPublicProfile('ana-nueva');
   assert.equal(current.status, 200);
@@ -166,11 +217,41 @@ test('concurrent profile saves cannot reserve the same slug for two accounts', a
   assert.equal((await harness.service.readPublicProfile('misma-ruta')).status, 404);
 });
 
+test('concurrent initial profile saves and a versionless retry cannot overwrite the winner', async () => {
+  const harness = await createCreatorPagesHarness();
+  const candidates = [
+    { displayName: 'Primera pestaña', slug: 'primera-pestana' },
+    { displayName: 'Segunda pestaña', slug: 'segunda-pestana' },
+  ];
+  const results = await Promise.all(candidates.map((fields) => api(harness, '/api/creador/perfil', 'creator-a', {
+    method: 'PUT', body: { ...fields, programs: [], socials: {} },
+  })));
+  assert.deepEqual(results.map(({ status }) => status).sort(), [200, 409]);
+  const winner = candidates[results.findIndex(({ status }) => status === 200)];
+  const loser = candidates[results.findIndex(({ status }) => status === 409)];
+  let current = (await editor(harness)).profile;
+  assert.equal(current.displayName, winner.displayName);
+  assert.equal(current.slug, winner.slug);
+  assert.equal(current.version, 1);
+  assert.equal((await harness.service.readPublicProfile(loser.slug)).status, 404);
+
+  const versionlessRetry = await api(harness, '/api/creador/perfil', 'creator-a', {
+    method: 'PUT', body: { displayName: 'Reintento antiguo', slug: 'ruta-del-reintento', programs: [], socials: {} },
+  });
+  assert.equal(versionlessRetry.status, 409);
+  current = (await editor(harness)).profile;
+  assert.equal(current.displayName, winner.displayName);
+  assert.equal(current.slug, winner.slug);
+  assert.equal(current.version, 1);
+  assert.equal((await harness.service.readPublicProfile('ruta-del-reintento')).status, 404);
+});
+
 test('all old slugs redirect directly to the latest name and cannot be claimed by another account', async () => {
   const harness = await createCreatorPagesHarness();
   const original = await createProfile(harness, 'creator-a', { slug: 'primero' });
-  await saveProfile(harness, 'creator-a', { slug: 'segundo' });
-  await saveProfile(harness, 'creator-a', { slug: 'tercero' });
+  const second = await saveProfile(harness, 'creator-a', { slug: 'segundo', version: original.version });
+  const third = await responseJson(second);
+  await saveProfile(harness, 'creator-a', { slug: 'tercero', version: third.profile.version });
   for (const slug of ['primero', 'segundo']) {
     const alias = await harness.service.readPublicProfile(slug, { suffix: '/series/guia/', search: '?ref=compartido' });
     assert.equal(alias.status, 308);
@@ -451,6 +532,41 @@ test('ordering, featured state, and directory selection belong to each placement
   assert.equal(bea.links[0].featured, placementBefore.featured);
   assert.equal(bea.links[0].selectedForDirectory, placementBefore.selectedForDirectory);
   assert.notEqual(aPlacement, bPlacement);
+});
+
+test('a removed and recreated placement rejects a stale version while keeping its stable ID', async () => {
+  const harness = await createCreatorPagesHarness();
+  await createProfile(harness, 'creator-a', { displayName: 'Ana', slug: 'ana' });
+  const first = await addLink(harness, 'creator-a', { url: 'https://example.com/recreated' });
+  const original = (await responseJson(first)).link;
+  const firstProfile = (await editor(harness)).profile;
+  assert.equal(original.placementVersion, firstProfile.version);
+
+  const changed = await api(harness, `/api/creador/enlaces/${original.placementId}`, 'creator-a', {
+    method: 'PATCH', body: { position: 2, featured: true, selectedForDirectory: false, version: original.placementVersion },
+  });
+  assert.equal(changed.status, 200);
+  const beforeRemove = (await responseJson(changed)).link;
+  await api(harness, `/api/creador/enlaces/${original.placementId}`, 'creator-a', { method: 'DELETE' });
+
+  const recreatedResponse = await addLink(harness, 'creator-a', { url: 'https://example.com/recreated' });
+  assert.equal(recreatedResponse.status, 201);
+  const recreated = (await responseJson(recreatedResponse)).link;
+  assert.equal(recreated.placementId, original.placementId);
+  assert.ok(recreated.placementVersion > beforeRemove.placementVersion);
+  const profileAfterRecreate = (await editor(harness)).profile;
+  assert.ok(recreated.placementVersion <= profileAfterRecreate.version);
+
+  const stalePatch = await api(harness, `/api/creador/enlaces/${recreated.placementId}`, 'creator-a', {
+    method: 'PATCH', body: { position: 0, featured: true, selectedForDirectory: false, version: original.placementVersion },
+  });
+  assert.equal(stalePatch.status, 409);
+  const after = (await editor(harness)).links[0];
+  assert.equal(after.placementId, original.placementId);
+  assert.equal(after.position, recreated.position);
+  assert.equal(after.featured, recreated.featured);
+  assert.equal(after.selectedForDirectory, recreated.selectedForDirectory);
+  assert.equal(after.placementVersion, recreated.placementVersion);
 });
 
 test('the public page puts featured content first and applies the chosen order within each group', async () => {
