@@ -52,7 +52,7 @@ function linkVisibilityText(link: CreatorEditorDTO['links'][number]) {
     <section class="creator-account__published" aria-label="Página publicada">
       <div>
         <strong>Tu página está publicada</strong>
-        <p>Los cambios del perfil y tus enlaces se ven al guardar.</p>
+        <p>Los cambios del perfil se reflejan al guardar. Cada enlace indica si está visible en tu página.</p>
       </div>
       <a class="button button--outline" href={`/c/${encodeURIComponent(profile.slug)}/`}>Abrir página</a>
       <button class="button button--outline" type="button" data-copy-profile-url data-url={`https://dondeaprendoaws.com/c/${encodeURIComponent(profile.slug)}/`}>Copiar enlace</button>
@@ -156,7 +156,7 @@ function linkVisibilityText(link: CreatorEditorDTO['links'][number]) {
         <h2 id="creator-links-editor-title">Tus enlaces</h2>
       </div>
     </div>
-    <p class="creator-card__help">Los enlaces se muestran en tu página al guardar. La selección del directorio es independiente y puede tardar hasta una hora más la publicación del sitio. Los títulos admiten 200 caracteres, las descripciones 2000 y las URLs completas hasta 2048.</p>
+    <p class="creator-card__help">Cada enlace indica si está visible en tu página. La selección del directorio es independiente y puede tardar hasta una hora más la publicación del sitio. Los títulos admiten 200 caracteres, las descripciones 2000 y las URLs completas hasta 2048.</p>
     {!profile && <p class="creator-account__notice" role="status">Guarda primero tu perfil para agregar enlaces o solicitar la vinculación de contenido existente.</p>}
     <form class="creator-form creator-add-link" data-add-link-form>
       <h3>Agregar un enlace</h3>
