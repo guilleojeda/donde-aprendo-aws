@@ -38,6 +38,9 @@ jobs:
           ACCOUNTS_TABLE: example-accounts
           CREATOR_PROFILES_TABLE: example-profiles
           CREATOR_PHOTOS_BUCKET: example-photos
+          GA4_PROPERTY_ID: '123456789'
+          GA4_CREDENTIALS_SECRET_ARN: 'arn:aws:secretsmanager:us-east-1:000000000000:secret:creator-statistics-ci-placeholder-abcdef'
+          CREATOR_ANALYTICS_CAPTURE_STARTED_AT: '2000-01-01T00:00:00.000Z'
       - run: npm run verify:blog
         env:
           PUBLIC_PRODUCTION: 'false'
@@ -60,6 +63,9 @@ jobs:
           ACCOUNTS_TABLE: example-accounts
           CREATOR_PROFILES_TABLE: example-profiles
           CREATOR_PHOTOS_BUCKET: example-photos
+          GA4_PROPERTY_ID: '123456789'
+          GA4_CREDENTIALS_SECRET_ARN: 'arn:aws:secretsmanager:us-east-1:000000000000:secret:creator-statistics-ci-placeholder-abcdef'
+          CREATOR_ANALYTICS_CAPTURE_STARTED_AT: '2000-01-01T00:00:00.000Z'
       - run: npm run verify:blog
         env:
           PUBLIC_PRODUCTION: 'true'
