@@ -153,6 +153,40 @@ function currentProfileVersion(): number | undefined {
   return state?.profile?.version;
 }
 
+function profileSavedMessage(): string {
+  if (state?.profile?.published && !state.profile.hidden) {
+    return 'Perfil guardado. Si tu página ya está publicada, el cambio queda visible enseguida.';
+  }
+  if (state?.profile?.published && state.profile.hidden) {
+    return 'Perfil guardado. La página sigue oculta por administración y no aparece al público.';
+  }
+  return 'Perfil guardado como borrador. Publica tu página para que el público vea los cambios.';
+}
+
+async function linkCreatedMessage(response: Response): Promise<string> {
+  const profile = state?.profile;
+  if (!profile?.published) {
+    return 'Enlace agregado a tu página. Publica tu página para que aparezca al público.';
+  }
+  if (profile.hidden) {
+    return 'Enlace agregado a tu página. La página sigue oculta por administración y no aparece al público.';
+  }
+
+  try {
+    const body: unknown = await response.clone().json();
+    const link = isRecord(body) ? body.link : undefined;
+    if (isRecord(link) && link.hidden === true) {
+      return 'Enlace agregado a tu página. El enlace está oculto por administración y no aparece al público.';
+    }
+    if (isRecord(link) && link.hidden === false) {
+      return 'Enlace agregado a tu página y visible en tu perfil público.';
+    }
+  } catch {
+    // A missing moderation value must not be described as public visibility.
+  }
+  return 'Enlace agregado a tu página. Revisa su estado antes de compartirlo.';
+}
+
 function seriesById(id: string) {
   return state?.series.find((series) => series.id === id);
 }
@@ -195,7 +229,7 @@ if (root && state && csrfToken) {
     setBusy(profileForm, true);
     try {
       const response = await api('/api/creador/perfil', 'PUT', profile);
-      await finishWrite(response, profileStatus, 'Perfil guardado. Si tu página ya está publicada, el cambio queda visible enseguida.');
+      await finishWrite(response, profileStatus, profileSavedMessage());
     } catch (error) {
       announce(profileStatus, requestFailureMessage(error, 'No pudimos conectar con el servicio. Tus datos siguen en el formulario; inténtalo de nuevo.'), 'error');
     } finally {
@@ -208,7 +242,9 @@ if (root && state && csrfToken) {
     publishButton.disabled = true;
     try {
       const response = await api('/api/creador/perfil/publicar', 'POST', { version: state.profile.version });
-      await finishWrite(response, profileStatus, 'Tu página ya está publicada.');
+      await finishWrite(response, profileStatus, state.profile.hidden
+        ? 'Tu página está publicada, pero sigue oculta por administración.'
+        : 'Tu página ya está publicada y visible al público.');
     } catch (error) {
       announce(profileStatus, requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
     } finally {
@@ -256,7 +292,7 @@ if (root && state && csrfToken) {
     setBusy(linkCreateForm, true);
     try {
       const response = await api('/api/creador/enlaces', 'POST', body);
-      await finishWrite(response, linkCreateStatus, 'Enlace agregado a tu página.');
+      await finishWrite(response, linkCreateStatus, await linkCreatedMessage(response));
     } catch (error) {
       announce(linkCreateStatus, requestFailureMessage(error, 'No pudimos conectar con el servicio. Tus datos siguen en el formulario; inténtalo de nuevo.'), 'error');
     } finally {
@@ -284,7 +320,7 @@ if (root && state && csrfToken) {
       setBusy(form, true);
       try {
         const response = await api(`/api/creador/recursos/${encodeURIComponent(resourceId)}`, 'PATCH', body);
-        await finishWrite(response, linksStatus(), 'Ficha guardada. El cambio ya aparece en los perfiles que usan este recurso.');
+        await finishWrite(response, linksStatus(), 'Ficha guardada para los perfiles que usan este recurso.');
       } catch (error) {
         announce(linksStatus(), requestFailureMessage(error, 'No pudimos conectar con el servicio. Tus datos siguen en el formulario; inténtalo de nuevo.'), 'error');
       } finally {

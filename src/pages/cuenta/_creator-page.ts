@@ -133,6 +133,7 @@ function readLink(value: unknown): CreatorLinkDTO {
   if (!placementId || !resourceId || title === undefined || url === undefined
     || position === undefined || resourceVersion === undefined
     || typeof item.featured !== 'boolean' || typeof item.selectedForDirectory !== 'boolean'
+    || typeof item.hidden !== 'boolean'
     || !Array.isArray(rawSeries)) {
     throw new TypeError('Un enlace recibido no tiene un formato válido.');
   }
@@ -157,6 +158,7 @@ function readLink(value: unknown): CreatorLinkDTO {
     featured: item.featured,
     position,
     selectedForDirectory: item.selectedForDirectory,
+    hidden: item.hidden,
     directoryApproval: text(item.directoryApproval) ?? 'pending',
     resourceVersion,
     ...(finiteNumber(item.placementVersion) !== undefined ? { placementVersion: finiteNumber(item.placementVersion) } : {}),

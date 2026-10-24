@@ -26,6 +26,7 @@ export interface CreatorLinkDTO {
   featured: boolean;
   position: number;
   selectedForDirectory: boolean;
+  hidden: boolean;
   directoryApproval: string;
   resourceVersion: number;
   placementVersion?: number;
