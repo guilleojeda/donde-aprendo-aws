@@ -14,7 +14,7 @@ const publicCatalogFields = [
 ];
 const publicCreatorFields = [
   'pk', 'sk', 'recordType', 'id', 'profileId', 'resourceId', 'published', 'hidden',
-  'selectedForDirectory', 'selected', 'slug',
+  'selectedForDirectory', 'selected', 'slug', 'displayName', 'name', 'series',
 ];
 const creatorTableActions = [
   'dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:UpdateItem', 'dynamodb:DeleteItem',

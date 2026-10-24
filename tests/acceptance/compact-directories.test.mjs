@@ -6,6 +6,7 @@ import { communityCountryPages } from '../../src/lib/community-country-pages.mjs
 import { RESOURCE_COLLECTIONS, groupCertificationResources, learningCollectionNavigation } from '../../src/lib/resource-collections.mjs';
 import { FORMATS_BY_KIND } from '../../src/lib/resource-taxonomy.mjs';
 import { siteOutputRoot } from '../../scripts/lib/site-output.mjs';
+import { searchIndex } from '../../src/lib/unified-search.mjs';
 
 const dist = siteOutputRoot;
 const fixtureMode = process.env.DIRECTORY_ACCEPTANCE_FIXTURE_MODE ?? '';
@@ -519,4 +520,22 @@ test('the explicit enriched build covers every content and creator collection pl
   for (const path of RESOURCE_COLLECTIONS.filter(({ kind }) => kind === 'community').map(({ path }) => path)) {
     assert.ok(cardsOn(pageAt(path)).length > 0, `${path}: the base fixture exercises this community type.`);
   }
+});
+
+test('the enriched build publishes selected series in HTML and search without leaking a withdrawn association', () => {
+  if (fixtureMode !== 'enriched') return;
+  const learn = pageAt('/aprender/');
+  const cards = cardsOn(learn).filter((card) => card.attrs.get('id') === 'resource-fixture-no-country-reference');
+  assert.equal(cards.length, 1, 'series associations never duplicate the resource card');
+  const links = find(cards[0], (node) => node.tag === 'a');
+  const seriesLink = links.find((node) => node.attrs.get('href') === '/c/fixture-series-ana/series/ruta-zafiro/');
+  assert.ok(seriesLink, 'the selected creator series is linked in the initial HTML');
+  assert.ok(text(seriesLink).includes('Ruta Zafiro de pruebas'));
+  assert.equal(text(cards[0]).includes('Ruta Opalo retirada'), false);
+  assert.equal(links.some((node) => node.attrs.get('href')?.includes('/ruta-opalo/')), false);
+
+  const index = JSON.parse(readFileSync(join(dist, 'search-index.json'), 'utf8'));
+  assert.deepEqual(searchIndex(index, 'Zafiro').map(({ url }) => url), ['/aprender/#resource-fixture-no-country-reference']);
+  assert.deepEqual(searchIndex(index, 'Opalo'), []);
+  assert.equal(JSON.stringify(index).includes('fixture-series-withdrawn'), false);
 });
