@@ -71,7 +71,7 @@ function announce(target: Element | null | undefined, message: string, kind: 'er
 function statusText(status: number): string {
   if (status === 401) return 'Tu sesión terminó. Inicia sesión y vuelve a intentarlo.';
   if (status === 403) return 'Tu cuenta no tiene permiso para completar esta acción.';
-  if (status === 409) return 'Otra edición guardó una versión más reciente. Tus datos siguen en el formulario; revisa el estado antes de volver a guardar.';
+  if (status === 409) return 'No pudimos completar el cambio porque hay un conflicto. Revisa el estado antes de volver a intentarlo.';
   if (status === 422) return 'El servicio no acepta alguno de estos datos. Revisa la información e inténtalo de nuevo; tus datos siguen en el formulario.';
   if (status === 413) return 'La solicitud supera el límite de 32 KiB. Reduce la cantidad de IDs o la referencia e inténtalo de nuevo.';
   if (status === 503 || status >= 500) return 'No pudimos guardar los cambios. Tus datos siguen en el formulario; inténtalo de nuevo en unos minutos.';

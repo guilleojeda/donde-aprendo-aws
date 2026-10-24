@@ -209,23 +209,38 @@ test('reordering sends the placement and profile versions observed by the editor
 
 async function runCorrectionFlow({ action, status: responseStatus, error, initialValue, correctedValue, fieldName }) {
   const field = { value: initialValue, setCustomValidity() {} };
+  const resourceId = 'resource-editing';
+  const resourceItem = new TestElement({ dataset: { resourceId } });
   const form = new TestElement({
     values: action === 'profile'
       ? { displayName: 'Ana', slug: field, city: '', country: '', bio: '' }
       : { title: 'Guía', url: field, description: '' },
+    selectors: action === 'resource-edit'
+      ? { 'closest:[data-resource-id]': resourceItem }
+      : {},
     lists: { 'input[name^="social-"]': [] },
   });
   const status = new TestElement();
   const { root } = baseRoot({
     selectors: action === 'profile'
       ? { '[data-profile-form]': form, '[data-profile-status]': status }
-      : { '[data-add-link-form]': form, '[data-link-create-status]': status },
+      : action === 'resource-edit'
+        ? { '[data-links-status]': status }
+        : { '[data-add-link-form]': form, '[data-link-create-status]': status },
+    lists: action === 'resource-edit' ? { '[data-resource-form]': [form] } : {},
   });
   const reloads = { count: 0 };
   const requests = [];
   let call = 0;
 
   await runEditor({
+    data: action === 'resource-edit' ? editorData({
+      links: [{
+        placementId: 'placement-editing', resourceId, title: 'Guía', url: initialValue,
+        description: '', featured: false, position: 0, selectedForDirectory: false,
+        hidden: false, directoryApproval: 'pending', resourceVersion: 29, series: [],
+      }],
+    }) : editorData(),
     root,
     reloads,
     fetch: async (url, options) => {
@@ -265,7 +280,23 @@ test('profile slug conflicts and unsafe link URLs give actionable feedback and a
   assert.match(url.status, /visible en tu perfil público/);
 });
 
-test('unknown semantic errors keep safe generic conflict guidance and retain the form value', async () => {
+test('resource URL conflicts and colliding link URLs explain the cause and allow corrected retries', async () => {
+  const taken = await runCorrectionFlow({
+    action: 'resource-edit', status: 409, error: 'URL_TAKEN',
+    initialValue: 'https://example.com/used', correctedValue: 'https://example.com/new', fieldName: 'url',
+  });
+  assert.equal(taken.errorMessage, 'Esa URL ya está asociada a otra ficha. Elige una URL diferente.');
+  assert.match(taken.status, /Ficha guardada/);
+
+  const collision = await runCorrectionFlow({
+    action: 'link', status: 409, error: 'URL_COLLISION',
+    initialValue: 'https://example.com/under-review', correctedValue: 'https://example.com/other', fieldName: 'url',
+  });
+  assert.equal(collision.errorMessage, 'Esta URL requiere una revisión de administración y no se puede agregar ahora. Puedes probar con otra URL.');
+  assert.match(collision.status, /visible en tu perfil público/);
+});
+
+test('unknown and unreadable conflict responses keep cause-neutral guidance and retain the form value', async () => {
   const field = { value: 'slug-en-conflicto', setCustomValidity() {} };
   const form = new TestElement({
     values: { displayName: 'Ana', slug: field, city: '', country: '', bio: '' },
@@ -274,15 +305,31 @@ test('unknown semantic errors keep safe generic conflict guidance and retain the
   const status = new TestElement();
   const { root } = baseRoot({ selectors: { '[data-profile-form]': form, '[data-profile-status]': status } });
   const reloads = { count: 0 };
+  let responseIndex = 0;
 
   await runEditor({
     root,
     reloads,
-    fetch: async () => Response.json({ error: 'FUTURE_CONFLICT' }, { status: 409 }),
+    fetch: async () => {
+      responseIndex += 1;
+      if (responseIndex === 1) return Response.json({ error: 'PROFILE_CONFLICT' }, { status: 409 });
+      if (responseIndex === 2) return Response.json({ error: 'FUTURE_CONFLICT' }, { status: 409 });
+      return new Response('not json', { status: 409 });
+    },
   });
   await form.dispatch('submit');
 
-  assert.match(status.textContent, /Otra edición guardó una versión más reciente/);
+  assert.equal(status.textContent, 'No pudimos completar el cambio porque hay un conflicto. Revisa el estado antes de volver a intentarlo.');
+  assert.equal(field.value, 'slug-en-conflicto');
+  assert.equal(reloads.count, 0);
+
+  await form.dispatch('submit');
+  assert.equal(status.textContent, 'No pudimos completar el cambio porque hay un conflicto. Revisa el estado antes de volver a intentarlo.');
+  assert.equal(field.value, 'slug-en-conflicto');
+  assert.equal(reloads.count, 0);
+
+  await form.dispatch('submit');
+  assert.equal(status.textContent, 'No pudimos completar el cambio porque hay un conflicto. Revisa el estado antes de volver a intentarlo.');
   assert.equal(field.value, 'slug-en-conflicto');
   assert.equal(reloads.count, 0);
 });
