@@ -35,8 +35,8 @@ test('catalog and publication scan allowlists expose only the public fields, inc
     const profileAttributes = allowlists.find((set) => set.includes('recordType') && set.includes('profileId'));
     assert.ok(profileAttributes, `${path} includes the creator-state projection`);
     assert.deepEqual(profileAttributes.sort(), [
-      'hidden', 'id', 'pk', 'profileId', 'published', 'recordType', 'resourceId', 'selected',
-      'selectedForDirectory', 'sk', 'slug',
+      'displayName', 'hidden', 'id', 'name', 'pk', 'profileId', 'published', 'recordType', 'resourceId', 'selected',
+      'selectedForDirectory', 'series', 'sk', 'slug',
     ]);
   }
 });

@@ -7,6 +7,8 @@ import type {
   CreatorLinkDTO,
   CreatorProfileDTO,
   CreatorProgram,
+  CreatorSeriesDTO,
+  CreatorSeriesMembershipDTO,
   CreatorSocial,
 } from '../../types/creators';
 
@@ -127,10 +129,24 @@ function readLink(value: unknown): CreatorLinkDTO {
   const url = text(item.url);
   const position = finiteNumber(item.position);
   const resourceVersion = finiteNumber(item.resourceVersion);
+  const rawSeries = item.series === undefined ? [] : item.series;
   if (!placementId || !resourceId || title === undefined || url === undefined
     || position === undefined || resourceVersion === undefined
-    || typeof item.featured !== 'boolean' || typeof item.selectedForDirectory !== 'boolean') {
+    || typeof item.featured !== 'boolean' || typeof item.selectedForDirectory !== 'boolean'
+    || !Array.isArray(rawSeries)) {
     throw new TypeError('Un enlace recibido no tiene un formato válido.');
+  }
+  const series = rawSeries.map((value): CreatorSeriesMembershipDTO => {
+    const membership = record(value);
+    const seriesId = nonEmptyText(membership?.seriesId);
+    const seriesPosition = finiteNumber(membership?.position);
+    if (!seriesId || seriesPosition === undefined || seriesPosition < 0) {
+      throw new TypeError('Una pertenencia de serie recibida no tiene un formato válido.');
+    }
+    return { seriesId, position: seriesPosition };
+  });
+  if (new Set(series.map(({ seriesId }) => seriesId)).size !== series.length) {
+    throw new TypeError('Un enlace recibido repite su pertenencia a una serie.');
   }
   return {
     placementId,
@@ -144,6 +160,26 @@ function readLink(value: unknown): CreatorLinkDTO {
     directoryApproval: text(item.directoryApproval) ?? 'pending',
     resourceVersion,
     ...(finiteNumber(item.placementVersion) !== undefined ? { placementVersion: finiteNumber(item.placementVersion) } : {}),
+    series,
+  };
+}
+
+function readSeries(value: unknown): CreatorSeriesDTO {
+  const item = record(value);
+  if (!item) throw new TypeError('Una serie recibida no tiene un formato válido.');
+  const id = nonEmptyText(item.id);
+  const name = text(item.name);
+  const slug = text(item.slug);
+  const version = finiteNumber(item.version);
+  if (!id || name === undefined || slug === undefined || version === undefined) {
+    throw new TypeError('Una serie recibida no tiene un formato válido.');
+  }
+  return {
+    id,
+    name,
+    slug,
+    ...(typeof item.description === 'string' ? { description: item.description } : {}),
+    version,
   };
 }
 
@@ -184,11 +220,14 @@ function readEditorData(value: unknown): CreatorEditorDTO {
   if (!item || !Array.isArray(item.links) || !Array.isArray(item.editableResources) || !Array.isArray(item.claims)) {
     throw new TypeError('No pudimos leer los datos del perfil.');
   }
+  const rawSeries = item.series === undefined ? [] : item.series;
+  if (!Array.isArray(rawSeries)) throw new TypeError('La lista de series recibida no tiene un formato válido.');
   return {
     profile: readProfile(item.profile),
     links: item.links.map(readLink),
     editableResources: item.editableResources.map(readEditableResource),
     claims: item.claims.map(readClaim),
+    series: rawSeries.map(readSeries),
   };
 }
 

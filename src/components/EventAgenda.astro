@@ -64,6 +64,11 @@ for (const recording of resources.filter((resource) => resource.eventId)) {
 }
 const recordingForGroup = (group: { event: CatalogEvent; events: CatalogEvent[] }) =>
   group.events.flatMap((event) => recordingsByEvent.get(event.id) ?? [])[0];
+const seriesForGroup = (group: { events: CatalogEvent[] }) => {
+  const byId = new Map(group.events.flatMap((event) => event.series ?? [])
+    .map((series) => [series.seriesId, series] as const));
+  return [...byId.values()].sort((left, right) => left.seriesId < right.seriesId ? -1 : left.seriesId > right.seriesId ? 1 : 0);
+};
 const eventFactsIntro = 'En la agenda de eventos AWS hay';
 const emptyFacts = 'No hay eventos publicados en esta agenda.';
 const emptyHint = 'No hay eventos que coincidan con estos filtros. Prueba con otras opciones o limpia los filtros.';
@@ -165,6 +170,7 @@ const utcDayHeading = (instant: string) => {
       const showDayHeading = selectedByDefault && !defaultVisibleDays.has(utcDay);
       if (showDayHeading) defaultVisibleDays.add(utcDay);
       const recording = recordingForGroup(group);
+      const eventSeries = seriesForGroup(group);
       const eventCommunities = [...new Set(group.events.map((item) => item.communityId).filter((id): id is string => Boolean(id)))];
       const aliasIds = group.events.map((item) => item.id).join('|');
       const organizers = [...new Map(group.events.map((cohost) => {
@@ -192,6 +198,9 @@ const utcDayHeading = (instant: string) => {
         <h3 class="event-agenda__day-heading" data-event-day-heading data-event-day={utcDay} hidden={!showDayHeading}>
           <time datetime={utcDay}>{utcDayHeading(event.startsAt)}</time>
         </h3>
+        {eventSeries.length > 0 && <nav class="event-card__series" aria-label="Series de esta ocurrencia">
+          {eventSeries.map((series) => <a href={series.href}>Serie {series.name} · {series.creatorName}</a>)}
+        </nav>}
         {group.events.filter((member) => member.id !== event.id).map((member) => (
           <span id={`event-${member.id}`} class="event-card__alias-anchor" aria-hidden="true"></span>
         ))}

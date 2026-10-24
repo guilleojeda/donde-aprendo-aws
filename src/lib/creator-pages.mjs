@@ -13,8 +13,10 @@ const PROTECTED_PROFILE_FIELDS = new Set([
 const PROTECTED_PLACEMENT_FIELDS = new Set(['published', 'directoryApproval', 'directoryControl', 'editorProfileId', 'accountId', 'isAdmin']);
 const ADMIN_RESOURCE_FIELDS = new Set(['category', 'kind', 'format', 'topics']);
 const MAX_REQUEST_BODY_BYTES = 32 * 1024;
+const MAX_DYNAMODB_ITEM_BYTES = 400 * 1024;
 const TEXT_FIELD_LIMITS = new Map([
   ['displayName', 120],
+  ['name', 120],
   ['city', 100],
   ['country', 100],
   ['bio', 2000],
@@ -202,10 +204,50 @@ function publicLink(placement, resource) {
     featured: placement.featured,
     position: placement.position,
     selectedForDirectory: placement.selectedForDirectory,
+    series: [],
     directoryApproval: approvalState(resource),
     resourceVersion: resource.version ?? 0,
     placementVersion: placement.version ?? 0,
   };
+}
+
+function dynamoDbValueSize(value, name = '') {
+  if (value === undefined) return 0;
+  if (value instanceof Uint8Array) fail(503, 'INVALID_PLACEMENT', 'placement contains an unsupported stored value');
+  const attributeNameSize = Buffer.byteLength(name, 'utf8');
+  if (typeof value === 'string') return attributeNameSize + Buffer.byteLength(value, 'utf8');
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const coefficient = String(value).toLowerCase().split('e')[0];
+    const significantDigits = coefficient.replace(/[^0-9]/g, '').replace(/^0+/, '').replace(/0+$/, '').length || 1;
+    return attributeNameSize + 1 + Math.ceil(significantDigits / 2);
+  }
+  if (typeof value === 'boolean' || value === null) return attributeNameSize + 1;
+  if (Array.isArray(value)) {
+    return attributeNameSize + 3 + value.filter((item) => item !== undefined)
+      .reduce((total, item) => total + 1 + dynamoDbValueSize(item), 0);
+  }
+  if (isRecord(value)) {
+    return attributeNameSize + 3 + Object.entries(value).filter(([, item]) => item !== undefined).reduce(
+      (total, [key, item]) => total + 1 + dynamoDbValueSize(item, key), 0,
+    );
+  }
+  fail(503, 'INVALID_PLACEMENT', 'placement contains an unsupported stored value');
+}
+
+function dynamoDbItemSize(item) {
+  return Object.entries(item).filter(([, value]) => value !== undefined)
+    .reduce((total, [name, value]) => total + dynamoDbValueSize(value, name), 0);
+}
+
+function assertPlacementFits(profileId, placement) {
+  const item = {
+    ...placement,
+    pk: `PROFILE#${profileId}`,
+    sk: `PLACEMENT#${placement.id}`,
+  };
+  if (dynamoDbItemSize(item) > MAX_DYNAMODB_ITEM_BYTES) {
+    fail(422, 'PLACEMENT_TOO_LARGE', 'series membership would exceed DynamoDB’s 400 KiB item limit');
+  }
 }
 
 function sortLinks(links) {
@@ -320,6 +362,8 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
   const accountKey = (accountId) => `account-profile:${accountId}`;
   const profileKey = (profileId) => `profile:${profileId}`;
   const aliasKey = (slug) => `alias:${slug}`;
+  const seriesKey = (profileId, id) => `series:${profileId}:${id}`;
+  const seriesAliasKey = (profileId, slug) => `series-alias:${profileId}:${slug}`;
   const placementKey = (profileId, id) => `placement:${profileId}:${id}`;
   const editorKey = (profileId, resourceId) => `editor:${profileId}:${resourceId}`;
   const claimKey = (id) => `claim:${id}`;
@@ -390,12 +434,88 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     for (const row of rows) {
       if (!row || !row.value || typeof row.key !== 'string') fail(503, 'INVALID_PLACEMENT', 'placement list is malformed');
       const placement = row.value;
-      if (placement.profileId !== profileId || typeof placement.id !== 'string' || row.key !== placementKey(profileId, placement.id)) {
+      if (placement.recordType !== 'placement' || placement.profileId !== profileId || typeof placement.id !== 'string' || row.key !== placementKey(profileId, placement.id)) {
         fail(503, 'INVALID_PLACEMENT', 'placement list contains an unrelated row');
       }
       placements.push(placement);
     }
     return placements;
+  }
+
+  function cleanSeries(record, profileId, expectedId) {
+    if (!record || record.recordType !== 'series' || record.profileId !== profileId
+      || typeof record.id !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(record.id)
+      || (expectedId !== undefined && record.id !== expectedId)
+      || typeof record.name !== 'string' || !record.name.trim() || record.name !== record.name.trim()
+      || record.name.length > 120 || typeof record.slug !== 'string'
+      || !Number.isSafeInteger(record.version) || record.version < 1) {
+      fail(503, 'INVALID_SERIES', 'series metadata is malformed');
+    }
+    try {
+      if (normalizeSlug(record.slug) !== record.slug) throw new Error('non-canonical slug');
+    } catch {
+      fail(503, 'INVALID_SERIES', 'series metadata is malformed');
+    }
+    if (Object.hasOwn(record, 'description')
+      && (typeof record.description !== 'string' || record.description !== record.description.trim() || record.description.length > 2000)) {
+      fail(503, 'INVALID_SERIES', 'series metadata is malformed');
+    }
+    return {
+      id: record.id,
+      name: record.name,
+      slug: record.slug,
+      ...(record.description !== undefined ? { description: record.description } : {}),
+      version: record.version,
+    };
+  }
+
+  function validateSeriesAlias(alias, profileId, slug) {
+    if (!alias || alias.recordType !== 'seriesAlias' || alias.profileId !== profileId
+      || alias.slug !== slug || typeof alias.seriesId !== 'string'
+      || !/^[A-Za-z0-9_-]{1,128}$/.test(alias.seriesId)
+      || !Number.isSafeInteger(alias.version) || alias.version < 1) {
+      fail(503, 'INVALID_SERIES_ALIAS', 'series alias is malformed');
+    }
+    return alias;
+  }
+
+  async function getSeries(profileId, id) {
+    const record = await store.get(seriesKey(profileId, id));
+    return record ? cleanSeries(record, profileId, id) : null;
+  }
+
+  async function seriesForProfile(profileId) {
+    const rows = await store.list(`series:${profileId}:`);
+    const series = [];
+    for (const row of rows) {
+      if (!row || typeof row.key !== 'string' || !row.value
+        || !row.key.startsWith(`series:${profileId}:`)) {
+        fail(503, 'INVALID_SERIES_LIST', 'series list is malformed');
+      }
+      const id = row.key.slice(`series:${profileId}:`.length);
+      if (!id || row.key !== seriesKey(profileId, id)) fail(503, 'INVALID_SERIES_LIST', 'series list contains an unrelated row');
+      series.push(cleanSeries(row.value, profileId, id));
+    }
+    series.sort((left, right) => left.name.localeCompare(right.name) || left.id.localeCompare(right.id));
+    return series;
+  }
+
+  function placementSeriesMap(placement, currentSeriesIds) {
+    if (!Object.hasOwn(placement, 'series')) return {};
+    if (!isRecord(placement.series)) fail(503, 'INVALID_PLACEMENT', 'series membership map is malformed');
+    const result = {};
+    for (const [id, membership] of Object.entries(placement.series)) {
+      if (!/^[A-Za-z0-9_-]{1,128}$/.test(id)) fail(503, 'INVALID_PLACEMENT', 'series membership ID is malformed');
+      // References left behind by a deleted series are inert and are removed on
+      // the next save to this placement.
+      if (!currentSeriesIds.has(id)) continue;
+      if (!isRecord(membership) || Object.keys(membership).length !== 1
+        || !Number.isSafeInteger(membership.position) || membership.position < 0) {
+        fail(503, 'INVALID_PLACEMENT', 'series membership is malformed');
+      }
+      result[id] = { position: membership.position };
+    }
+    return result;
   }
 
   async function resourcesById(ids) {
@@ -429,7 +549,10 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     return resources;
   }
 
-  async function profileLinks(profileId, { includeHiddenResources = false } = {}) {
+  async function profileLinks(profileId, { includeHiddenResources = false, series = undefined, publicTags = false, profileSlug = '' } = {}) {
+    const currentSeries = series ?? await seriesForProfile(profileId);
+    const seriesById = new Map(currentSeries.map((item) => [item.id, item]));
+    const currentSeriesIds = new Set(seriesById.keys());
     const placements = await getPlacements(profileId);
     const resourceIds = [];
     for (const placement of placements) {
@@ -440,17 +563,30 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     const links = [];
     for (const placement of placements) {
       const resource = resources.get(placement.resourceId);
+      const memberships = placementSeriesMap(placement, currentSeriesIds);
       if (Object.hasOwn(resource, 'hidden') && typeof resource.hidden !== 'boolean') fail(503, 'INVALID_RESOURCE', 'resource hidden state is malformed');
       if (resource.hidden === true && !includeHiddenResources) continue;
-      links.push(publicLink(placement, resource));
+      const link = publicLink(placement, resource);
+      link.series = Object.entries(memberships)
+        .map(([seriesId, membership]) => {
+          const item = seriesById.get(seriesId);
+          if (!item) return null;
+          return publicTags
+            ? { seriesId, position: membership.position, name: item.name, href: `/c/${encodeURIComponent(profileSlug)}/series/${encodeURIComponent(item.slug)}/` }
+            : { seriesId, position: membership.position };
+        })
+        .filter(Boolean)
+        .sort((left, right) => left.position - right.position || left.seriesId.localeCompare(right.seriesId));
+      links.push(link);
     }
     return sortLinks(links);
   }
 
   async function creatorEditor(principal) {
     const { profile } = await ownerProfile(principal);
-    if (!profile) return { profile: null, links: [], editableResources: [], claims: [] };
-    const links = await profileLinks(profile.id, { includeHiddenResources: true });
+    if (!profile) return { profile: null, links: [], editableResources: [], claims: [], series: [] };
+    const series = await seriesForProfile(profile.id);
+    const links = await profileLinks(profile.id, { includeHiddenResources: true, series });
     const editorRefs = await store.list(`editor:${profile.id}:`);
     const resourceIds = [];
     for (const row of editorRefs) {
@@ -491,7 +627,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         });
       }
     }
-    return { profile: cleanPublicProfile(profile), links, editableResources, claims };
+    return { profile: cleanPublicProfile(profile), links, editableResources, claims, series };
   }
 
   async function saveProfile(principal, body) {
@@ -550,6 +686,228 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     }
     if (!await store.transact({ checks, puts })) fail(409, 'PROFILE_CONFLICT', 'profile or slug changed while saving');
     return { profile: cleanPublicProfile(updated) };
+  }
+
+  function requireCurrentProfileVersion(body, profile) {
+    const expectedVersion = validVersion(body.profileVersion);
+    if (expectedVersion !== profile.version) fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before saving');
+    return expectedVersion;
+  }
+
+  async function listCreatorSeries(principal) {
+    const profile = await getRequiredOwnerProfile(principal);
+    const series = await seriesForProfile(profile.id);
+    return { series, profileVersion: profile.version };
+  }
+
+  async function readSeriesAlias(profileId, slug) {
+    const alias = await store.get(seriesAliasKey(profileId, slug));
+    return alias ? validateSeriesAlias(alias, profileId, slug) : null;
+  }
+
+  function validateSeriesInput(body, previous = {}) {
+    const next = { ...previous };
+    if (Object.hasOwn(body, 'name')) {
+      next.name = textField(body.name, 'name');
+      if (!next.name) fail(422, 'INVALID_NAME', 'name is required');
+    } else if (!previous.name) {
+      fail(422, 'INVALID_NAME', 'name is required');
+    }
+    if (Object.hasOwn(body, 'slug')) next.slug = normalizeSlug(body.slug);
+    else if (!previous.slug) fail(422, 'INVALID_SLUG', 'slug is required');
+    if (Object.hasOwn(body, 'description')) next.description = textField(body.description, 'description');
+    return next;
+  }
+
+  async function createCreatorSeries(principal, body) {
+    assertKnownFields(body, new Set(['name', 'slug', 'description', 'profileVersion']));
+    const profile = await getRequiredOwnerProfile(principal);
+    requireCurrentProfileVersion(body, profile);
+    const fields = validateSeriesInput(body);
+    const alias = await readSeriesAlias(profile.id, fields.slug);
+    if (alias) fail(409, 'SERIES_SLUG_TAKEN', 'series slug is already reserved');
+
+    const id = newId();
+    const created = {
+      recordType: 'series', id, profileId: profile.id, name: fields.name, slug: fields.slug,
+      ...(fields.description !== undefined ? { description: fields.description } : {}),
+      version: 1, createdAt: timestamp(), updatedAt: timestamp(),
+    };
+    const reserved = { recordType: 'seriesAlias', seriesId: id, profileId: profile.id, slug: fields.slug, version: 1 };
+    const updatedProfile = { ...profile, version: profile.version + 1, updatedAt: timestamp() };
+    const ok = await store.transact({
+      checks: [
+        { key: profileKey(profile.id), version: profile.version },
+        { key: seriesKey(profile.id, id), version: null },
+        { key: seriesAliasKey(profile.id, fields.slug), version: null },
+      ],
+      puts: [
+        { key: seriesKey(profile.id, id), value: created },
+        { key: seriesAliasKey(profile.id, fields.slug), value: reserved },
+        { key: profileKey(profile.id), value: updatedProfile },
+      ],
+    });
+    if (!ok) fail(409, 'SERIES_CONFLICT', 'profile or series slug changed while saving');
+    return { series: cleanSeries(created, profile.id, id), profileVersion: updatedProfile.version };
+  }
+
+  async function patchCreatorSeries(principal, id, body) {
+    assertKnownFields(body, new Set(['name', 'slug', 'description', 'profileVersion']));
+    const profile = await getRequiredOwnerProfile(principal);
+    requireCurrentProfileVersion(body, profile);
+    const expectedSeriesVersion = validVersion(body.version);
+    const stored = await store.get(seriesKey(profile.id, id));
+    if (!stored || stored.profileId !== profile.id || stored.id !== id) fail(404, 'SERIES_NOT_FOUND', 'series does not belong to this profile');
+    const current = cleanSeries(stored, profile.id, id);
+    if (expectedSeriesVersion !== current.version) fail(409, 'SERIES_CONFLICT', 'series changed; reload before saving');
+    if (!['name', 'slug', 'description'].some((field) => Object.hasOwn(body, field))) {
+      fail(422, 'EMPTY_UPDATE', 'series metadata fields are required');
+    }
+    const fields = validateSeriesInput(body, current);
+    const slugChanged = fields.slug !== current.slug;
+    const checks = [
+      { key: profileKey(profile.id), version: profile.version },
+      { key: seriesKey(profile.id, id), version: current.version },
+    ];
+    const puts = [];
+    if (slugChanged) {
+      const alias = await readSeriesAlias(profile.id, fields.slug);
+      if (alias && alias.seriesId !== id) fail(409, 'SERIES_SLUG_TAKEN', 'series slug is already reserved');
+      if (!alias) {
+        checks.push({ key: seriesAliasKey(profile.id, fields.slug), version: null });
+        puts.push({ key: seriesAliasKey(profile.id, fields.slug), value: { recordType: 'seriesAlias', seriesId: id, profileId: profile.id, slug: fields.slug, version: 1 } });
+      }
+    }
+    const updated = {
+      ...stored,
+      name: fields.name,
+      slug: fields.slug,
+      ...(fields.description !== undefined ? { description: fields.description } : {}),
+      version: current.version + 1,
+      updatedAt: timestamp(),
+    };
+    if (fields.description === undefined) delete updated.description;
+    const updatedProfile = { ...profile, version: profile.version + 1, updatedAt: timestamp() };
+    puts.push({ key: seriesKey(profile.id, id), value: updated }, { key: profileKey(profile.id), value: updatedProfile });
+    if (!await store.transact({ checks, puts })) fail(409, 'SERIES_CONFLICT', 'profile or series changed while saving');
+    return { series: cleanSeries(updated, profile.id, id), profileVersion: updatedProfile.version };
+  }
+
+  async function deleteCreatorSeries(principal, id, body) {
+    assertKnownFields(body, new Set(['profileVersion']));
+    const profile = await getRequiredOwnerProfile(principal);
+    requireCurrentProfileVersion(body, profile);
+    const expectedSeriesVersion = validVersion(body.version);
+    const stored = await store.get(seriesKey(profile.id, id));
+    if (!stored || stored.profileId !== profile.id || stored.id !== id) fail(404, 'SERIES_NOT_FOUND', 'series does not belong to this profile');
+    const series = cleanSeries(stored, profile.id, id);
+    if (expectedSeriesVersion !== series.version) fail(409, 'SERIES_CONFLICT', 'series changed; reload before saving');
+    const updatedProfile = { ...profile, version: profile.version + 1, updatedAt: timestamp() };
+    if (!await store.transact({
+      checks: [{ key: profileKey(profile.id), version: profile.version }, { key: seriesKey(profile.id, id), version: series.version }],
+      puts: [{ key: profileKey(profile.id), value: updatedProfile }],
+      deletes: [seriesKey(profile.id, id)],
+    })) fail(409, 'SERIES_CONFLICT', 'profile or series changed while deleting');
+  }
+
+  async function changeSeriesChapter(principal, seriesId, placementId, body, operation) {
+    const allowed = operation === 'move' ? new Set(['profileVersion', 'direction']) : new Set(['profileVersion']);
+    assertKnownFields(body, allowed);
+    if (Object.hasOwn(body, 'version')) fail(400, 'UNKNOWN_FIELD', 'unsupported field: version');
+    const profile = await getRequiredOwnerProfile(principal);
+    requireCurrentProfileVersion(body, profile);
+    const series = await getSeries(profile.id, seriesId);
+    if (!series) fail(404, 'SERIES_NOT_FOUND', 'series does not belong to this profile');
+    if (operation === 'move' && body.direction !== 'up' && body.direction !== 'down') {
+      fail(422, 'INVALID_DIRECTION', 'direction must be up or down');
+    }
+    const key = placementKey(profile.id, placementId);
+    const placement = await store.get(key);
+    if (!placement || placement.recordType !== 'placement' || placement.id !== placementId || placement.profileId !== profile.id) {
+      fail(404, 'PLACEMENT_NOT_FOUND', 'placement does not belong to this profile');
+    }
+    const allSeries = await seriesForProfile(profile.id);
+    const seriesById = new Map(allSeries.map((item) => [item.id, item]));
+    const activeIds = new Set(seriesById.keys());
+    const currentMap = placementSeriesMap(placement, activeIds);
+    const hadStaleReferences = isRecord(placement.series) && Object.keys(placement.series).some((id) => !activeIds.has(id));
+    const hasMembership = Object.hasOwn(currentMap, seriesId);
+    if (operation !== 'add' && !hasMembership) fail(404, 'SERIES_MEMBERSHIP_NOT_FOUND', 'placement is not in this series');
+
+    const placements = await getPlacements(profile.id);
+    const members = [];
+    for (const candidate of placements) {
+      const map = placementSeriesMap(candidate, activeIds);
+      if (Object.hasOwn(map, seriesId)) members.push({ placement: candidate, map });
+    }
+    members.sort((left, right) => left.map[seriesId].position - right.map[seriesId].position
+      || left.placement.id.localeCompare(right.placement.id));
+
+    const updatedPlacements = new Map();
+    const targetMap = currentMap;
+    if (operation === 'add' && hasMembership) {
+      if (!hadStaleReferences) return { status: 200 };
+      updatedPlacements.set(placementId, { ...placement, series: targetMap });
+    } else if (operation === 'add') {
+      const maxPosition = members.reduce((maximum, member) => Math.max(maximum, member.map[seriesId].position), -10);
+      if (maxPosition > Number.MAX_SAFE_INTEGER - 10) fail(503, 'INVALID_PLACEMENT', 'series chapter order is malformed');
+      targetMap[seriesId] = { position: maxPosition + 10 };
+      updatedPlacements.set(placementId, { ...placement, series: targetMap });
+    } else if (operation === 'remove') {
+      delete targetMap[seriesId];
+      const updated = { ...placement };
+      if (Object.keys(targetMap).length > 0) updated.series = targetMap;
+      else delete updated.series;
+      updatedPlacements.set(placementId, updated);
+    } else if (operation === 'move') {
+      const index = members.findIndex((member) => member.placement.id === placementId);
+      const neighborIndex = index + (body.direction === 'up' ? -1 : 1);
+      if (neighborIndex < 0 || neighborIndex >= members.length) {
+        if (!hadStaleReferences) return { status: 200 };
+        updatedPlacements.set(placementId, { ...placement, series: targetMap });
+      } else {
+        const target = members[index];
+        const neighbor = members[neighborIndex];
+        const targetOld = target.map[seriesId].position;
+        const neighborOld = neighbor.map[seriesId].position;
+        let targetNext = neighborOld;
+        let neighborNext = targetOld;
+        if (targetOld === neighborOld) {
+          if (body.direction === 'up') {
+            targetNext = Math.max(0, targetOld - 1);
+            neighborNext = targetNext === targetOld ? targetOld + 1 : targetOld;
+          } else {
+            neighborNext = targetOld;
+            targetNext = targetOld + 1;
+          }
+        }
+        if (!Number.isSafeInteger(targetNext) || !Number.isSafeInteger(neighborNext) || targetNext < 0 || neighborNext < 0) {
+          fail(503, 'INVALID_PLACEMENT', 'series chapter order is malformed');
+        }
+        const updatedTargetMap = target.map;
+        const updatedNeighborMap = neighbor.map;
+        updatedTargetMap[seriesId] = { position: targetNext };
+        updatedNeighborMap[seriesId] = { position: neighborNext };
+        updatedPlacements.set(target.placement.id, { ...target.placement, series: updatedTargetMap });
+        updatedPlacements.set(neighbor.placement.id, { ...neighbor.placement, series: updatedNeighborMap });
+      }
+    }
+
+    const nextVersion = profile.version + 1;
+    const updatedProfile = { ...profile, version: nextVersion, updatedAt: timestamp() };
+    const checks = [
+      { key: profileKey(profile.id), version: profile.version },
+      { key: seriesKey(profile.id, seriesId), version: series.version },
+    ];
+    const puts = [{ key: profileKey(profile.id), value: updatedProfile }];
+    for (const [id, updated] of updatedPlacements) {
+      updated.version = (updated.version ?? 0) + 1;
+      assertPlacementFits(profile.id, updated);
+      checks.push({ key: placementKey(profile.id, id), version: updated.version - 1 });
+      puts.push({ key: placementKey(profile.id, id), value: updated });
+    }
+    if (!await store.transact({ checks, puts })) fail(409, 'SERIES_CONFLICT', 'profile, series, or chapter changed while saving');
+    return { status: 200 };
   }
 
   async function publishProfile(principal, body) {
@@ -702,10 +1060,13 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       const other = all.find((item) => item.id !== id && item.position === changes.position && item.featured === placement.featured);
       if (other) {
         const otherKey = placementKey(profile.id, other.id);
+        const updatedOther = { ...other, position: placement.position, version: other.version + 1 };
+        assertPlacementFits(profile.id, updatedOther);
         checks.push({ key: otherKey, version: other.version });
-        puts.push({ key: otherKey, value: { ...other, position: placement.position, version: other.version + 1 } });
+        puts.push({ key: otherKey, value: updatedOther });
       }
     }
+    assertPlacementFits(profile.id, updated);
     puts.push({ key, value: updated });
     const updatedProfile = { ...profile, version: profile.version + 1, updatedAt: timestamp() };
     puts.push({ key: profileKey(profile.id), value: updatedProfile });
@@ -713,11 +1074,22 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     return { link: await buildLinkDto(updated) };
   }
 
-  async function deletePlacement(principal, id) {
+  async function deletePlacement(principal, id, body = {}) {
+    assertKnownFields(body, new Set(['profileVersion']));
     const profile = await getRequiredOwnerProfile(principal);
     const key = placementKey(profile.id, id);
     const placement = await store.get(key);
     if (!placement || placement.id !== id || placement.profileId !== profile.id) fail(404, 'PLACEMENT_NOT_FOUND', 'placement does not belong to this profile');
+    const expectedProfileVersion = body.profileVersion === undefined ? undefined : validVersion(body.profileVersion);
+    if (expectedProfileVersion !== undefined && expectedProfileVersion !== profile.version) {
+      fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before saving');
+    }
+    const currentSeries = await seriesForProfile(profile.id);
+    const activeIds = new Set(currentSeries.map((item) => item.id));
+    const memberships = placementSeriesMap(placement, activeIds);
+    if (Object.keys(memberships).length > 0 && expectedProfileVersion === undefined) {
+      fail(400, 'PROFILE_VERSION_REQUIRED', 'profileVersion is required when removing a placement with series chapters');
+    }
     const updatedProfile = { ...profile, version: profile.version + 1, updatedAt: timestamp() };
     const ok = await store.transact({
       checks: [{ key: profileKey(profile.id), version: profile.version }, { key, version: placement.version }],
@@ -1037,6 +1409,18 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     return { linkedResourceIds: didLink };
   }
 
+  function publicSeriesSummaries(profile, series, links) {
+    return series.map((item) => {
+      const chapterCount = links.reduce((count, link) => count + Number(link.series.some((tag) => tag.seriesId === item.id)), 0);
+      if (chapterCount === 0) return null;
+      return {
+        ...item,
+        chapterCount,
+        href: `/c/${encodeURIComponent(profile.slug)}/series/${encodeURIComponent(item.slug)}/`,
+      };
+    }).filter(Boolean);
+  }
+
   async function readPublicProfile(slugValue, { suffix = '', search = '' } = {}) {
     try {
       let slug;
@@ -1049,7 +1433,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       if (typeof search !== 'string' || (search && (!search.startsWith('?') || /[\u0000-\u001f\u007f]/.test(search)))) return { status: 404 };
       const alias = await store.get(aliasKey(slug));
       if (!alias) return { status: 404 };
-      if (typeof alias.profileId !== 'string') fail(503, 'INVALID_ALIAS', 'profile alias is malformed');
+      if (alias.recordType !== 'profileAlias' || alias.slug !== slug || typeof alias.profileId !== 'string') fail(503, 'INVALID_ALIAS', 'profile alias is malformed');
       const profile = await store.get(profileKey(alias.profileId));
       if (!profile || profile.id !== alias.profileId) fail(503, 'INVALID_ALIAS', 'profile alias points to missing data');
       if (Object.hasOwn(profile, 'hidden') && typeof profile.hidden !== 'boolean') fail(503, 'INVALID_PROFILE', 'profile hidden state is malformed');
@@ -1061,8 +1445,56 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         const pathSuffix = suffix || '/';
         return { status: 308, redirectTo: `/c/${encodeURIComponent(profile.slug)}${pathSuffix}${search}` };
       }
-      const links = await profileLinks(profile.id);
-      return { status: 200, profile: cleanPublicProfile(profile), links };
+      const series = await seriesForProfile(profile.id);
+      const links = await profileLinks(profile.id, { series, publicTags: true, profileSlug: profile.slug });
+      return { status: 200, profile: cleanPublicProfile(profile), links, series: publicSeriesSummaries(profile, series, links) };
+    } catch {
+      return { status: 503 };
+    }
+  }
+
+  async function readPublicSeries(profileSlugValue, seriesSlugValue, { search = '' } = {}) {
+    try {
+      let profileSlug;
+      let seriesSlug;
+      try {
+        profileSlug = normalizeSlug(profileSlugValue);
+        seriesSlug = normalizeSlug(seriesSlugValue);
+      } catch {
+        return { status: 404 };
+      }
+      if (typeof search !== 'string' || (search && (!search.startsWith('?') || /[\u0000-\u001f\u007f]/.test(search)))) return { status: 404 };
+      const profileAlias = await store.get(aliasKey(profileSlug));
+      if (!profileAlias) return { status: 404 };
+      if (profileAlias.recordType !== 'profileAlias' || profileAlias.slug !== profileSlug || typeof profileAlias.profileId !== 'string') fail(503, 'INVALID_ALIAS', 'profile alias is malformed');
+      const profile = await store.get(profileKey(profileAlias.profileId));
+      if (!profile || profile.id !== profileAlias.profileId) fail(503, 'INVALID_ALIAS', 'profile alias points to missing data');
+      if (Object.hasOwn(profile, 'hidden') && typeof profile.hidden !== 'boolean') fail(503, 'INVALID_PROFILE', 'profile hidden state is malformed');
+      if (typeof profile.published !== 'boolean' || typeof profile.slug !== 'string') fail(503, 'INVALID_PROFILE', 'profile publication state is malformed');
+      if (profile.hidden === true || profile.published !== true) return { status: 404 };
+      try { normalizeSlug(profile.slug); } catch { fail(503, 'INVALID_PROFILE', 'profile slug is malformed'); }
+
+      const seriesAlias = await readSeriesAlias(profile.id, seriesSlug);
+      if (!seriesAlias) return { status: 404 };
+      const series = await getSeries(profile.id, seriesAlias.seriesId);
+      // Retained aliases whose series was deleted remain reserved but are no
+      // longer public.
+      if (!series) return { status: 404 };
+      const allSeries = await seriesForProfile(profile.id);
+      const links = await profileLinks(profile.id, { series: allSeries, publicTags: true, profileSlug: profile.slug });
+      const chapters = links.filter((link) => link.series.some((tag) => tag.seriesId === series.id))
+        .sort((left, right) => left.series.find((tag) => tag.seriesId === series.id).position
+          - right.series.find((tag) => tag.seriesId === series.id).position
+          || left.placementId.localeCompare(right.placementId));
+      if (chapters.length === 0) return { status: 404 };
+      const canonicalProfile = profile.slug;
+      if (canonicalProfile !== profileSlug || series.slug !== seriesSlug) {
+        return {
+          status: 308,
+          redirectTo: `/c/${encodeURIComponent(canonicalProfile)}/series/${encodeURIComponent(series.slug)}/${search}`,
+        };
+      }
+      return { status: 200, profile: cleanPublicProfile(profile), series, links: chapters };
     } catch {
       return { status: 503 };
     }
@@ -1125,6 +1557,41 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       }
       fail(405, 'METHOD_NOT_ALLOWED', 'method not allowed');
     }
+    if (path === '/api/creador/series') {
+      if (request.method === 'GET') return jsonResponse(await listCreatorSeries(principal));
+      if (request.method === 'POST') {
+        requireWriteRequest(request, principal);
+        const body = await parseRequestBody(request);
+        if (Object.hasOwn(body, 'version')) fail(400, 'UNKNOWN_FIELD', 'unsupported field: version');
+        return jsonResponse(await createCreatorSeries(principal, body), 201);
+      }
+      fail(405, 'METHOD_NOT_ALLOWED', 'method not allowed');
+    }
+    const seriesChapterMatch = path.match(/^\/api\/creador\/series\/([^/]+)\/capitulos\/([^/]+)$/);
+    if (seriesChapterMatch) {
+      const seriesId = decodeSegment(seriesChapterMatch[1]);
+      const chapterId = decodeSegment(seriesChapterMatch[2]);
+      if (!['PUT', 'PATCH', 'DELETE'].includes(request.method)) fail(405, 'METHOD_NOT_ALLOWED', 'method not allowed');
+      requireWriteRequest(request, principal);
+      const body = await parseRequestBody(request);
+      const operation = request.method === 'PUT' ? 'add' : request.method === 'DELETE' ? 'remove' : 'move';
+      const result = await changeSeriesChapter(principal, seriesId, chapterId, body, operation);
+      return request.method === 'DELETE' ? emptyResponse() : jsonResponse(result);
+    }
+    const seriesMatch = path.match(/^\/api\/creador\/series\/([^/]+)$/);
+    if (seriesMatch) {
+      const id = decodeSegment(seriesMatch[1]);
+      if (request.method === 'PATCH') {
+        requireWriteRequest(request, principal);
+        return jsonResponse(await patchCreatorSeries(principal, id, await parseRequestBody(request)));
+      }
+      if (request.method === 'DELETE') {
+        requireWriteRequest(request, principal);
+        await deleteCreatorSeries(principal, id, await parseRequestBody(request));
+        return emptyResponse();
+      }
+      fail(405, 'METHOD_NOT_ALLOWED', 'method not allowed');
+    }
     if (path === '/api/creador/perfil/publicar') {
       requireMethod(request, 'POST');
       requireWriteRequest(request, principal);
@@ -1141,7 +1608,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       const id = decodeSegment(placementMatch[1]);
       if (request.method === 'DELETE') {
         requireWriteRequest(request, principal);
-        await deletePlacement(principal, id);
+        await deletePlacement(principal, id, request.body ? await parseRequestBody(request) : {});
         return emptyResponse();
       }
       if (request.method === 'PATCH') {
@@ -1213,5 +1680,6 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       }
     },
     readPublicProfile,
+    readPublicSeries,
   };
 }

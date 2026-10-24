@@ -29,6 +29,41 @@ export interface CreatorLinkDTO {
   directoryApproval: string;
   resourceVersion: number;
   placementVersion?: number;
+  series: CreatorSeriesMembershipDTO[];
+}
+
+export interface CreatorSeriesMembershipDTO {
+  seriesId: string;
+  position: number;
+}
+
+export interface CreatorSeriesDTO {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  version: number;
+}
+
+export interface CreatorPublicSeriesSummaryDTO extends CreatorSeriesDTO {
+  chapterCount: number;
+  href: string;
+}
+
+export interface CreatorPublicSeriesTagDTO {
+  seriesId: string;
+  name: string;
+  href: string;
+  position: number;
+}
+
+export interface CreatorPublicLinkDTO {
+  placementId: string;
+  title: string;
+  url: string;
+  description?: string;
+  featured: boolean;
+  series: CreatorPublicSeriesTagDTO[];
 }
 
 export interface CreatorEditableResourceDTO {
@@ -53,4 +88,5 @@ export interface CreatorEditorDTO {
   links: CreatorLinkDTO[];
   editableResources: CreatorEditableResourceDTO[];
   claims: CreatorClaimDTO[];
+  series: CreatorSeriesDTO[];
 }

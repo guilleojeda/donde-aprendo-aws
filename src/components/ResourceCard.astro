@@ -20,6 +20,7 @@ interface Resource {
   sourceId?: string;
   communityId?: string;
   eventId?: string;
+  series?: Array<{ seriesId: string; name: string; creatorName: string; href: string }>;
 }
 
 interface Event { id: string; title: string; country?: string; }
@@ -82,6 +83,9 @@ const addedAtLabel = (date: string) => new Intl.DateTimeFormat('es', {
     {resource.kind === 'community' && hasUpcomingCommunityEvents && <a href={`/eventos/?community=${encodeURIComponent(resource.id)}`}>
       Ver eventos de esta comunidad
     </a>}
+    {resource.series?.map((series) => <a data-resource-series href={series.href}>
+      Serie {series.name} · {series.creatorName}
+    </a>)}
     <ReportLink title={resource.title} recordId={resource.id} targetUrl={resource.url} />
   </div>
 </li>

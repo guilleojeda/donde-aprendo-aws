@@ -49,11 +49,28 @@ function showNextPage({ focusFirstResult = false } = {}) {
     const title = document.createElement('strong');
     const description = document.createElement('p');
     link.href = result.url;
+    link.className = 'search-results__result-link';
     label.textContent = TYPE_LABELS[result.type] ?? 'Recurso';
     title.textContent = result.title;
     description.textContent = result.description;
     link.append(label, title, description);
     item.append(link);
+    if (result.series?.length) {
+      const seriesLinks = document.createElement('div');
+      seriesLinks.className = 'search-results__series-links';
+      seriesLinks.setAttribute('role', 'group');
+      seriesLinks.setAttribute('aria-label', result.type === 'event'
+        ? 'Series de esta ocurrencia'
+        : 'Series de este recurso');
+      for (const series of result.series) {
+        const seriesLink = document.createElement('a');
+        seriesLink.className = 'search-results__series-link';
+        seriesLink.href = series.href;
+        seriesLink.textContent = `Serie ${series.name} · ${series.creatorName}`;
+        seriesLinks.append(seriesLink);
+      }
+      item.append(seriesLinks);
+    }
     list.append(item);
     firstLink ??= link;
   }

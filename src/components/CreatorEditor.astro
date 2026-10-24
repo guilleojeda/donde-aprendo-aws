@@ -13,6 +13,14 @@ const linkedResourceIds = new Set(data.links.map((link) => link.resourceId));
 const editableResourceIds = new Set(data.editableResources.map((resource) => resource.id));
 const sortedLinks = [...data.links].sort((left, right) => Number(right.featured) - Number(left.featured) || left.position - right.position);
 const initialData = safeJsonForScript(data);
+function seriesChapters(seriesId: string) {
+  return data.links.filter((link) => link.series?.some((item) => item.seriesId === seriesId))
+    .sort((left, right) => {
+      const leftPosition = left.series?.find((item) => item.seriesId === seriesId)?.position ?? 0;
+      const rightPosition = right.series?.find((item) => item.seriesId === seriesId)?.position ?? 0;
+      return leftPosition - rightPosition || left.placementId.localeCompare(right.placementId);
+    });
+}
 const photoPath = profile?.photo?.url?.startsWith('/media/fotos/')
   ? profile.photo.url
   : profile?.photo?.version !== undefined
@@ -239,6 +247,142 @@ const photoPath = profile?.photo?.url?.startsWith('/media/fotos/')
     )}
 
     <p class="creator-form__status" data-links-status role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="creator-card creator-series-editor" aria-labelledby="creator-series-editor-title">
+    <div class="creator-card__heading">
+      <div>
+        <p class="creator-profile__eyebrow">Rutas de aprendizaje</p>
+        <h2 id="creator-series-editor-title" tabindex="-1">Tus series</h2>
+      </div>
+    </div>
+    <p class="creator-card__help">Agrupa enlaces que ya están en tu página, ordénalos como capítulos y comparte la ruta. Una serie aparece públicamente cuando tu página está publicada y tiene capítulos visibles.</p>
+    {!profile && <p class="creator-account__notice" role="status">Guarda primero tu perfil para crear y administrar series.</p>}
+
+    <form class="creator-form creator-series-editor__create" data-series-create-form>
+      <fieldset class="creator-form__fieldset" disabled={!profile}>
+        <legend>Crear una serie</legend>
+        <div class="creator-form__grid">
+          <div class="creator-form__field">
+            <label for="creator-series-create-name">Nombre de la serie</label>
+            <input id="creator-series-create-name" name="name" maxlength="120" required data-series-name-suggestion aria-describedby="creator-series-create-name-help" />
+            <p class="creator-form__help" id="creator-series-create-name-help">El título y la dirección son independientes.</p>
+          </div>
+          <div class="creator-form__field">
+            <label for="creator-series-create-slug">Dirección de la serie</label>
+            <div class="creator-slug-input"><span aria-hidden="true">/series/</span><input id="creator-series-create-slug" name="slug" required minlength="3" maxlength="40" pattern="[a-z0-9]([a-z0-9-]{1,38}[a-z0-9])" autocomplete="off" autocapitalize="none" spellcheck="false" data-series-slug-suggestion aria-describedby="creator-series-create-slug-help" /></div>
+            <p class="creator-form__help" id="creator-series-create-slug-help">3–40 caracteres: minúsculas, números y guiones. Puedes cambiarla después.</p>
+          </div>
+          <div class="creator-form__field creator-form__field--full">
+            <label for="creator-series-create-description">Descripción de la serie <span>(opcional)</span></label>
+            <textarea id="creator-series-create-description" name="description" rows="2" maxlength="2000" aria-describedby="creator-series-create-description-help"></textarea>
+            <p class="creator-form__help" id="creator-series-create-description-help">Hasta 2000 caracteres.</p>
+          </div>
+        </div>
+        <button class="button button--dark" type="submit" disabled={!profile} aria-disabled={!profile ? 'true' : undefined}>Crear serie</button>
+      </fieldset>
+      <p class="creator-form__status" data-series-create-status role="status" aria-live="polite"></p>
+    </form>
+
+    {data.series.length > 0 ? (
+      <ol class="creator-series-editor__list">
+        {data.series.map((series) => {
+          const chapters = seriesChapters(series.id);
+          const seriesPath = profile
+            ? `/c/${encodeURIComponent(profile.slug)}/series/${encodeURIComponent(series.slug)}/`
+            : undefined;
+          const absoluteSeriesUrl = seriesPath ? `https://dondeaprendoaws.com${seriesPath}` : undefined;
+          const availableLinks = data.links.filter((link) => !link.series?.some((item) => item.seriesId === series.id));
+          return (
+            <li class="creator-series-editor__item">
+              <section aria-labelledby={`creator-series-${series.id}-title`} data-series-id={series.id}>
+                <div class="creator-series-editor__heading">
+                  <h3 id={`creator-series-${series.id}-title`}>{series.name}</h3>
+                  {seriesPath && <a href={seriesPath}>Abrir serie</a>}
+                </div>
+                {seriesPath && (
+                  <p class="creator-series-editor__url">
+                    Dirección: <code>{seriesPath}</code>
+                    <button class="creator-series-editor__copy" type="button" data-copy-series-url data-url={absoluteSeriesUrl}>Copiar dirección</button>
+                  </p>
+                )}
+
+                <form class="creator-form creator-series-editor__metadata" data-series-form>
+                  <fieldset class="creator-form__fieldset" disabled={!profile}>
+                    <legend>Datos de la serie</legend>
+                    <div class="creator-form__grid">
+                      <div class="creator-form__field">
+                        <label for={`creator-series-${series.id}-name`}>Nombre de la serie</label>
+                        <input id={`creator-series-${series.id}-name`} name="name" maxlength="120" required value={series.name} />
+                      </div>
+                      <div class="creator-form__field">
+                        <label for={`creator-series-${series.id}-slug`}>Dirección de la serie</label>
+                        <div class="creator-slug-input"><span aria-hidden="true">/series/</span><input id={`creator-series-${series.id}-slug`} name="slug" required minlength="3" maxlength="40" pattern="[a-z0-9]([a-z0-9-]{1,38}[a-z0-9])" autocomplete="off" autocapitalize="none" spellcheck="false" value={series.slug} /></div>
+                      </div>
+                      <div class="creator-form__field creator-form__field--full">
+                        <label for={`creator-series-${series.id}-description`}>Descripción de la serie <span>(opcional)</span></label>
+                        <textarea id={`creator-series-${series.id}-description`} name="description" rows="2" maxlength="2000">{series.description ?? ''}</textarea>
+                      </div>
+                    </div>
+                    <button class="button button--outline" type="submit">Guardar cambios</button>
+                  </fieldset>
+                  <p class="creator-form__status" data-series-form-status role="status" aria-live="polite"></p>
+                </form>
+
+                <section class="creator-series-editor__chapter-section" aria-labelledby={`creator-series-${series.id}-chapters-title`}>
+                  <h4 id={`creator-series-${series.id}-chapters-title`} tabindex="-1">Capítulos de {series.name}</h4>
+                  {chapters.length > 0 ? (
+                    <ol class="creator-series-editor__chapters">
+                      {chapters.map((link, index) => (
+                        <li id={`creator-series-chapter-${series.id}-${link.placementId}`} tabindex="-1" data-series-chapter data-series-placement-id={link.placementId}>
+                          <div>
+                            <strong>{link.title}</strong>
+                            {link.description && <p>{link.description}</p>}
+                          </div>
+                          <div class="creator-series-editor__chapter-controls">
+                            <button id={`creator-series-order-${series.id}-${link.placementId}-up`} class="button button--outline" type="button" data-series-move="up" disabled={!profile || index === 0 ? 'disabled' : undefined} aria-label={`Subir ${link.title} en ${series.name}`}>Subir</button>
+                            <button id={`creator-series-order-${series.id}-${link.placementId}-down`} class="button button--outline" type="button" data-series-move="down" disabled={!profile || index === chapters.length - 1 ? 'disabled' : undefined} aria-label={`Bajar ${link.title} en ${series.name}`}>Bajar</button>
+                            <button class="creator-link-editor-card__remove" type="button" data-series-remove-chapter disabled={!profile ? 'disabled' : undefined} aria-label={`Quitar ${link.title} de ${series.name}`}>Quitar capítulo</button>
+                          </div>
+                        </li>
+                      ))}
+                    </ol>
+                  ) : (
+                    <p class="creator-empty-state">Agrega un capítulo para que la serie aparezca en tu página pública.</p>
+                  )}
+                  {data.links.length > 0 ? (
+                    <form class="creator-series-editor__add-chapter" data-series-add-chapter-form>
+                      <fieldset class="creator-form__fieldset" disabled={!profile}>
+                        <legend>Agregar capítulo existente</legend>
+                        <div class="creator-form__field">
+                          <label for={`creator-series-${series.id}-placement`}>Enlace de tu página</label>
+                          <select id={`creator-series-${series.id}-placement`} name="placementId" required>
+                            <option value="">Elige un enlace</option>
+                            {data.links.map((link) => {
+                              const alreadyIncluded = link.series?.some((item) => item.seriesId === series.id) ?? false;
+                              return <option value={link.placementId} disabled={alreadyIncluded}>{link.title}{alreadyIncluded ? ' (ya está en esta serie)' : ''}</option>;
+                            })}
+                          </select>
+                        </div>
+                        <button class="button button--outline" type="submit" disabled={!profile || availableLinks.length === 0} aria-disabled={!profile || availableLinks.length === 0 ? 'true' : undefined}>Agregar capítulo</button>
+                      </fieldset>
+                      {availableLinks.length === 0 && <p class="creator-form__help">Todos los enlaces actuales ya forman parte de esta serie.</p>}
+                    </form>
+                  ) : (
+                    <p class="creator-form__help">Agrega un enlace a tu página para poder seleccionarlo como capítulo.</p>
+                  )}
+                </section>
+                <p class="creator-series-editor__delete-help">Eliminar la serie conserva los enlaces de tu página y su selección para el directorio.</p>
+                <button class="creator-link-editor-card__remove" type="button" data-delete-series data-focus-after-delete="creator-series-editor-title" disabled={!profile} aria-disabled={!profile ? 'true' : undefined}>Eliminar serie</button>
+                <p class="creator-form__status" data-series-status role="status" aria-live="polite"></p>
+              </section>
+            </li>
+          );
+        })}
+      </ol>
+    ) : (
+      <p class="creator-empty-state">Todavía no tienes series. Crea una y luego agrega capítulos desde los enlaces de tu página.</p>
+    )}
   </section>
 
   <section class="creator-card creator-claims" aria-labelledby="creator-claims-title">

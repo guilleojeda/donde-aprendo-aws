@@ -63,6 +63,9 @@ const CREATOR_SCAN_EXPRESSION_NAMES = Object.freeze({
   '#selectedForDirectory': 'selectedForDirectory',
   '#selected': 'selected',
   '#slug': 'slug',
+  '#displayName': 'displayName',
+  '#name': 'name',
+  '#series': 'series',
 });
 
 /**
@@ -83,7 +86,11 @@ export async function loadCatalog(options = {}) {
       items = fixture;
     } else {
       items = fixture.items;
-      creatorState = { profiles: fixture.profiles, placements: fixture.placements };
+      creatorState = {
+        profiles: fixture.profiles,
+        placements: fixture.placements,
+        ...(fixture.series === undefined ? {} : { series: fixture.series }),
+      };
     }
   } else {
     const scanPage = options.scanPage ?? createDynamoScanPage({
@@ -193,7 +200,7 @@ export async function scanCatalogItems(scanPage, tableName) {
   return items;
 }
 
-/** Read only public profile and placement controls from the separate table. */
+/** Read only the public profile, placement, and series projection from the separate table. */
 export async function scanCreatorItems(scanPage, tableName) {
   if (typeof scanPage !== 'function') throw new TypeError('Creator-state scan reader must be a function');
   if (!tableName) throw new Error('Creator-state scan requires a table name');
@@ -208,7 +215,7 @@ export async function scanCreatorItems(scanPage, tableName) {
       TableName: tableName,
       Select: 'SPECIFIC_ATTRIBUTES',
       ConsistentRead: true,
-      ProjectionExpression: '#pk,#sk,#recordType,#id,#profileId,#resourceId,#published,#hidden,#selectedForDirectory,#selected,#slug',
+      ProjectionExpression: '#pk,#sk,#recordType,#id,#profileId,#resourceId,#published,#hidden,#selectedForDirectory,#selected,#slug,#displayName,#name,#series',
       ExpressionAttributeNames: CREATOR_SCAN_EXPRESSION_NAMES,
     };
     if (exclusiveStartKey !== undefined) params.ExclusiveStartKey = exclusiveStartKey;
@@ -242,6 +249,7 @@ export function normalizeCreatorRows(rows) {
   if (!Array.isArray(rows)) throw new TypeError('Creator-state source must return an array of records');
   const profiles = [];
   const placements = [];
+  const series = [];
   for (const [index, row] of rows.entries()) {
     if (!row || typeof row !== 'object' || Array.isArray(row)) {
       throw new Error(`Creator-state record ${index + 1} is not an object`);
@@ -259,7 +267,16 @@ export function normalizeCreatorRows(rows) {
       if (Object.hasOwn(row, 'slug') && typeof row.slug !== 'string') {
         throw new Error(`Creator-state profile ${index + 1} has a malformed slug`);
       }
-      profiles.push({ id, published: row.published, hidden: row.hidden ?? false, ...(row.slug === undefined ? {} : { slug: row.slug }) });
+      if (Object.hasOwn(row, 'displayName') && typeof row.displayName !== 'string') {
+        throw new Error(`Creator-state profile ${index + 1} has a malformed display name`);
+      }
+      profiles.push({
+        id,
+        published: row.published,
+        hidden: row.hidden ?? false,
+        ...(row.displayName === undefined ? {} : { displayName: row.displayName }),
+        ...(row.slug === undefined ? {} : { slug: row.slug }),
+      });
     } else if (row.recordType === 'placement') {
       const pkId = typeof row.pk === 'string' && row.pk.startsWith('PROFILE#') ? row.pk.slice(8) : undefined;
       const profileId = row.profileId ?? pkId;
@@ -270,14 +287,32 @@ export function normalizeCreatorRows(rows) {
       const selectionField = Object.hasOwn(row, 'selectedForDirectory') ? 'selectedForDirectory' : 'selected';
       const selected = row[selectionField];
       if (typeof selected !== 'boolean') throw new Error(`Creator-state placement ${index + 1} has a malformed selection flag`);
-      placements.push({ profileId, resourceId: row.resourceId, selected });
+      placements.push({
+        profileId,
+        resourceId: row.resourceId,
+        selected,
+        ...(Object.hasOwn(row, 'series') ? { series: row.series } : {}),
+      });
+    } else if (row.recordType === 'series') {
+      const pkId = typeof row.pk === 'string' && row.pk.startsWith('PROFILE#') ? row.pk.slice(8) : undefined;
+      const skId = typeof row.sk === 'string' && row.sk.startsWith('SERIES#') ? row.sk.slice(7) : undefined;
+      const id = row.id ?? skId;
+      const profileId = row.profileId ?? pkId;
+      if (!pkId || !skId || !id || id !== skId || profileId !== pkId
+          || typeof row.name !== 'string' || !row.name.trim() || row.name.trim() !== row.name
+          || typeof row.slug !== 'string' || !isPublicSlug(row.slug)) {
+        throw new Error(`Creator-state series ${index + 1} has invalid public metadata`);
+      }
+      series.push({ id, profileId, name: row.name, slug: row.slug });
     } else if (typeof row.sk === 'string' && row.sk.startsWith('PLACEMENT#')) {
       throw new Error(`Creator-state placement ${index + 1} has an invalid record type`);
+    } else if (typeof row.sk === 'string' && row.sk.startsWith('SERIES#')) {
+      throw new Error(`Creator-state series ${index + 1} has an invalid record type`);
     } else if (row.pk?.startsWith?.('PROFILE#') && row.sk === 'META') {
       throw new Error(`Creator-state profile ${index + 1} has an invalid record type`);
     }
   }
-  return { profiles, placements };
+  return { profiles, placements, ...(series.length ? { series } : {}) };
 }
 
 /**
@@ -297,6 +332,7 @@ export function projectPublishedCatalog(items, creatorState) {
   }
   const state = normalizeCreatorState(creatorState ?? { profiles: [], placements: [] });
   const profilesById = new Map(state.profiles.map((profile) => [profile.id, profile]));
+  const seriesById = new Map(state.series.map((series) => [series.id, series]));
   const placementsByResource = new Map();
   for (const placement of state.placements) {
     const list = placementsByResource.get(placement.resourceId) ?? [];
@@ -326,8 +362,9 @@ export function projectPublishedCatalog(items, creatorState) {
       continue;
     }
     if (item.hidden === true) continue;
+    const placements = placementsByResource.get(item.id) ?? [];
     if (item.directoryControl === 'creator') {
-      const eligible = (placementsByResource.get(item.id) ?? []).some((placement) => {
+      const eligible = placements.some((placement) => {
         if (!placement.selected) return false;
         const profile = profilesById.get(placement.profileId);
         return profile?.published === true && profile.hidden === false;
@@ -336,6 +373,8 @@ export function projectPublishedCatalog(items, creatorState) {
     }
 
     const record = projectPublicRecord(item, index);
+    const series = projectEligibleSeries(placements, profilesById, seriesById);
+    if (series.length) record.series = series;
     records.push(record);
   }
 
@@ -348,6 +387,9 @@ function normalizeCreatorState(state) {
       || !Array.isArray(state.profiles) || !Array.isArray(state.placements)) {
     throw new TypeError('Creator directory state must contain profile and placement arrays');
   }
+  if (state.series !== undefined && !Array.isArray(state.series)) {
+    throw new TypeError('Creator directory series must be an array when supplied');
+  }
   const profileIds = new Set();
   const profiles = state.profiles.map((profile, index) => {
     if (!profile || typeof profile !== 'object' || Array.isArray(profile)
@@ -358,7 +400,19 @@ function normalizeCreatorState(state) {
     }
     if (profileIds.has(profile.id)) throw new Error(`Creator directory profile ${index + 1} is duplicated`);
     profileIds.add(profile.id);
-    return { id: profile.id, published: profile.published, hidden: profile.hidden ?? false };
+    if (Object.hasOwn(profile, 'displayName') && typeof profile.displayName !== 'string') {
+      throw new Error(`Creator directory profile ${index + 1} has a malformed display name`);
+    }
+    if (Object.hasOwn(profile, 'slug') && typeof profile.slug !== 'string') {
+      throw new Error(`Creator directory profile ${index + 1} has a malformed slug`);
+    }
+    return {
+      id: profile.id,
+      published: profile.published,
+      hidden: profile.hidden ?? false,
+      ...(profile.displayName === undefined ? {} : { displayName: profile.displayName }),
+      ...(profile.slug === undefined ? {} : { slug: profile.slug }),
+    };
   });
   const placementKeys = new Set();
   const placements = state.placements.map((placement, index) => {
@@ -371,9 +425,69 @@ function normalizeCreatorState(state) {
     const key = JSON.stringify([placement.profileId, placement.resourceId]);
     if (placementKeys.has(key)) throw new Error(`Creator directory placement ${index + 1} is duplicated`);
     placementKeys.add(key);
-    return { profileId: placement.profileId, resourceId: placement.resourceId, selected: placement.selected };
+    return {
+      profileId: placement.profileId,
+      resourceId: placement.resourceId,
+      selected: placement.selected,
+      ...(Object.hasOwn(placement, 'series') ? { series: normalizePlacementSeries(placement.series, index) } : {}),
+    };
   });
-  return { profiles, placements };
+  const seriesIds = new Set();
+  const series = (state.series ?? []).map((entry, index) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)
+        || typeof entry.id !== 'string' || !entry.id || entry.id.trim() !== entry.id
+        || typeof entry.profileId !== 'string' || !entry.profileId || entry.profileId.trim() !== entry.profileId
+        || typeof entry.name !== 'string' || !entry.name.trim() || entry.name.trim() !== entry.name
+        || typeof entry.slug !== 'string' || !isPublicSlug(entry.slug)) {
+      throw new Error(`Creator directory series ${index + 1} is malformed`);
+    }
+    if (seriesIds.has(entry.id)) throw new Error(`Creator directory series ${index + 1} is duplicated`);
+    seriesIds.add(entry.id);
+    return { id: entry.id, profileId: entry.profileId, name: entry.name, slug: entry.slug };
+  });
+  return { profiles, placements, series };
+}
+
+function normalizePlacementSeries(value, index) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`Creator directory placement ${index + 1} has a malformed series map`);
+  }
+  return Object.fromEntries(Object.entries(value).map(([seriesId, membership]) => {
+    if (!seriesId || seriesId.trim() !== seriesId || !membership || typeof membership !== 'object'
+        || Array.isArray(membership) || !Number.isSafeInteger(membership.position) || membership.position < 0) {
+      throw new Error(`Creator directory placement ${index + 1} has a malformed series membership`);
+    }
+    return [seriesId, { position: membership.position }];
+  }));
+}
+
+function projectEligibleSeries(placements, profilesById, seriesById) {
+  const associationsById = new Map();
+  for (const placement of placements) {
+    if (!placement.selected) continue;
+    const profile = profilesById.get(placement.profileId);
+    if (profile?.published !== true || profile.hidden !== false) continue;
+    for (const seriesId of Object.keys(placement.series ?? {})) {
+      const series = seriesById.get(seriesId);
+      if (!series || series.profileId !== profile.id) continue;
+      if (typeof profile.displayName !== 'string' || !profile.displayName.trim()
+          || typeof profile.slug !== 'string' || !isPublicSlug(profile.slug)) {
+        throw new Error(`Creator directory profile ${profile.id} is missing public series identity`);
+      }
+      associationsById.set(seriesId, {
+        seriesId,
+        name: series.name,
+        creatorName: profile.displayName,
+        href: `/c/${profile.slug}/series/${series.slug}/`,
+      });
+    }
+  }
+  return [...associationsById.values()].sort((left, right) => left.seriesId < right.seriesId ? -1 : left.seriesId > right.seriesId ? 1 : 0);
+}
+
+function isPublicSlug(value) {
+  return typeof value === 'string' && value.length >= 3 && value.length <= 40
+    && /^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(value);
 }
 
 /**
@@ -480,7 +594,8 @@ export async function loadFixture(fixturePath) {
   }
   if (Array.isArray(items)) return items;
   if (!items || typeof items !== 'object' || Array.isArray(items)
-      || !Array.isArray(items.items) || !Array.isArray(items.profiles) || !Array.isArray(items.placements)) {
+      || !Array.isArray(items.items) || !Array.isArray(items.profiles) || !Array.isArray(items.placements)
+      || (items.series !== undefined && !Array.isArray(items.series))) {
     throw new Error(`Catalog fixture must contain an array or an object with items, profiles, and placements: ${fixturePath}`);
   }
   return items;

@@ -16,7 +16,8 @@ function isEditorData(value: unknown): value is CreatorEditorDTO {
     && (value.profile === null || isRecord(value.profile))
     && Array.isArray(value.links)
     && Array.isArray(value.editableResources)
-    && Array.isArray(value.claims);
+    && Array.isArray(value.claims)
+    && Array.isArray(value.series);
 }
 
 let state: CreatorEditorDTO | undefined;
@@ -33,6 +34,29 @@ const csrfToken = root?.dataset.csrf;
 const pageStatus = root?.querySelector<HTMLElement>('[data-page-status]');
 const MAX_REQUEST_BYTES = 32 * 1024;
 const REQUEST_TOO_LARGE = 'creator-request-too-large';
+const SERIES_FOCUS_PREFIX = 'creator-series-';
+
+function restoreSeriesFocus() {
+  const hash = window.location.hash;
+  if (!hash.startsWith(`#${SERIES_FOCUS_PREFIX}`)) return;
+  let targetId: string;
+  try {
+    targetId = decodeURIComponent(hash.slice(1));
+  } catch {
+    return;
+  }
+  if (!targetId.startsWith(SERIES_FOCUS_PREFIX)) return;
+  const target = document.getElementById(targetId);
+  if (!target) return;
+  window.requestAnimationFrame(() => {
+    target.focus();
+    const url = new URL(window.location.href);
+    url.hash = '';
+    window.history.replaceState(null, '', `${url.pathname}${url.search}`);
+  });
+}
+
+restoreSeriesFocus();
 
 function announce(target: Element | null | undefined, message: string, kind: 'error' | 'success' | 'info' = 'info') {
   if (!(target instanceof HTMLElement)) return;
@@ -101,6 +125,44 @@ async function finishWrite(response: Response, statusTarget: Element | null | un
   announce(statusTarget, successMessage, 'success');
   window.location.reload();
   return true;
+}
+
+async function finishSeriesWrite(
+  response: Response,
+  statusTarget: Element | null | undefined,
+  successMessage: string,
+  focusId?: string,
+) {
+  if (!response.ok) {
+    announceError(response.status, statusTarget);
+    return false;
+  }
+  announce(statusTarget, successMessage, 'success');
+  if (focusId) window.location.hash = focusId;
+  window.location.reload();
+  return true;
+}
+
+function seriesStatus(element: Element): HTMLElement | null {
+  return element.closest<HTMLElement>('[data-series-id]')?.querySelector<HTMLElement>('[data-series-status]') ?? null;
+}
+
+function currentProfileVersion(): number | undefined {
+  return state?.profile?.version;
+}
+
+function seriesById(id: string) {
+  return state?.series.find((series) => series.id === id);
+}
+
+function suggestedSlug(value: string): string {
+  return value.normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40)
+    .replace(/-+$/g, '');
 }
 
 if (root && state && csrfToken) {
@@ -291,9 +353,11 @@ if (root && state && csrfToken) {
       const item = button.closest<HTMLElement>('[data-placement-id]');
       const placementId = item?.dataset.placementId;
       if (!placementId) return;
+      const profileVersion = currentProfileVersion();
       button.disabled = true;
       try {
-        const response = await api(`/api/creador/enlaces/${encodeURIComponent(placementId)}`, 'DELETE');
+        const response = await api(`/api/creador/enlaces/${encodeURIComponent(placementId)}`, 'DELETE',
+          profileVersion === undefined ? undefined : { profileVersion });
         await finishWrite(response, linksStatus(), 'Enlace quitado de tu página. La ficha que administras sigue disponible para volver a agregarla.');
       } catch (error) {
         announce(linksStatus(), requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
@@ -319,6 +383,173 @@ if (root && state && csrfToken) {
         await finishWrite(response, linksStatus(), 'Recurso agregado nuevamente a tu página.');
       } catch {
         announce(linksStatus(), 'No pudimos conectar con el servicio. Inténtalo de nuevo.', 'error');
+      } finally {
+        button.disabled = false;
+      }
+    });
+  });
+
+  const seriesCreateForm = root.querySelector<HTMLFormElement>('[data-series-create-form]');
+  const seriesCreateStatus = seriesCreateForm?.querySelector<HTMLElement>('[data-series-create-status]');
+  const seriesNameInput = seriesCreateForm?.querySelector<HTMLInputElement>('[data-series-name-suggestion]');
+  const seriesSlugInput = seriesCreateForm?.querySelector<HTMLInputElement>('[data-series-slug-suggestion]');
+  let seriesSlugEdited = (seriesSlugInput?.value.length ?? 0) > 0;
+  seriesSlugInput?.addEventListener('input', () => { seriesSlugEdited = true; });
+  seriesNameInput?.addEventListener('input', () => {
+    if (seriesSlugInput && !seriesSlugEdited) seriesSlugInput.value = suggestedSlug(seriesNameInput.value);
+  });
+
+  seriesCreateForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!seriesCreateForm.reportValidity()) return;
+    const profileVersion = currentProfileVersion();
+    if (profileVersion === undefined) return;
+    const values = new FormData(seriesCreateForm);
+    const name = String(values.get('name') ?? '').trim();
+    const slug = String(values.get('slug') ?? '').trim();
+    const description = String(values.get('description') ?? '').trim();
+    const body = { name, slug, ...(description ? { description } : {}), profileVersion };
+    setBusy(seriesCreateForm, true);
+    try {
+      const response = await api('/api/creador/series', 'POST', body);
+      await finishSeriesWrite(response, seriesCreateStatus, 'Serie creada. Ahora puedes agregar capítulos desde los enlaces de tu página.');
+    } catch (error) {
+      announce(seriesCreateStatus, requestFailureMessage(error, 'No pudimos crear la serie. Tus datos siguen en el formulario; inténtalo de nuevo.'), 'error');
+    } finally {
+      setBusy(seriesCreateForm, false);
+    }
+  });
+
+  root.querySelectorAll<HTMLFormElement>('[data-series-form]').forEach((form) => {
+    const status = form.querySelector<HTMLElement>('[data-series-form-status]');
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!form.reportValidity()) return;
+      const seriesId = form.closest<HTMLElement>('[data-series-id]')?.dataset.seriesId;
+      const series = seriesId ? seriesById(seriesId) : undefined;
+      const profileVersion = currentProfileVersion();
+      if (!series || profileVersion === undefined) return;
+      const values = new FormData(form);
+      const body = {
+        version: series.version,
+        profileVersion,
+        name: String(values.get('name') ?? '').trim(),
+        slug: String(values.get('slug') ?? '').trim(),
+        description: String(values.get('description') ?? '').trim(),
+      };
+      setBusy(form, true);
+      try {
+        const response = await api(`/api/creador/series/${encodeURIComponent(series.id)}`, 'PATCH', body);
+        await finishSeriesWrite(response, status, 'Cambios guardados.');
+      } catch (error) {
+        announce(status, requestFailureMessage(error, 'No pudimos guardar la serie. Tus datos siguen en el formulario; inténtalo de nuevo.'), 'error');
+      } finally {
+        setBusy(form, false);
+      }
+    });
+  });
+
+  root.querySelectorAll<HTMLButtonElement>('[data-copy-series-url]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const url = button.dataset.url;
+      if (!url) return;
+      const status = button.closest<HTMLElement>('[data-series-id]')?.querySelector<HTMLElement>('[data-series-status]');
+      try {
+        await navigator.clipboard.writeText(url);
+        announce(status, 'Dirección copiada.', 'success');
+      } catch {
+        announce(status, `Copia esta dirección: ${url}`, 'info');
+      }
+    });
+  });
+
+  root.querySelectorAll<HTMLFormElement>('[data-series-add-chapter-form]').forEach((form) => {
+    const fieldset = form.querySelector<HTMLFieldSetElement>('fieldset');
+    const status = form.closest<HTMLElement>('[data-series-id]')?.querySelector<HTMLElement>('[data-series-status]');
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!form.reportValidity()) return;
+      const seriesId = form.closest<HTMLElement>('[data-series-id]')?.dataset.seriesId;
+      const profileVersion = currentProfileVersion();
+      const placementId = String(new FormData(form).get('placementId') ?? '');
+      if (!seriesId || !placementId || profileVersion === undefined) return;
+      const current = linkByPlacement(placementId);
+      if (!current || current.series.some((item) => item.seriesId === seriesId)) return;
+      if (fieldset) fieldset.disabled = true;
+      try {
+        const response = await api(`/api/creador/series/${encodeURIComponent(seriesId)}/capitulos/${encodeURIComponent(placementId)}`, 'PUT', { profileVersion });
+        await finishSeriesWrite(response, status, `Se agregó ${current.title} a la serie.`);
+      } catch (error) {
+        announce(status, requestFailureMessage(error, 'No pudimos agregar el capítulo. Inténtalo de nuevo.'), 'error');
+      } finally {
+        if (fieldset) fieldset.disabled = false;
+      }
+    });
+  });
+
+  root.querySelectorAll<HTMLButtonElement>('[data-series-move]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const section = button.closest<HTMLElement>('[data-series-id]');
+      const seriesId = section?.dataset.seriesId;
+      const item = button.closest<HTMLElement>('[data-series-chapter]');
+      const placementId = item?.dataset.seriesPlacementId;
+      const direction = button.dataset.seriesMove;
+      const profileVersion = currentProfileVersion();
+      if (!seriesId || !placementId || (direction !== 'up' && direction !== 'down') || profileVersion === undefined) return;
+      button.disabled = true;
+      try {
+        const response = await api(`/api/creador/series/${encodeURIComponent(seriesId)}/capitulos/${encodeURIComponent(placementId)}`, 'PATCH', {
+          profileVersion,
+          direction,
+        });
+        await finishSeriesWrite(response, seriesStatus(button), 'Orden de capítulos actualizado.', item?.id);
+      } catch (error) {
+        announce(seriesStatus(button), requestFailureMessage(error, 'No pudimos cambiar el orden. Inténtalo de nuevo.'), 'error');
+      } finally {
+        button.disabled = false;
+      }
+    });
+  });
+
+  root.querySelectorAll<HTMLButtonElement>('[data-series-remove-chapter]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const section = button.closest<HTMLElement>('[data-series-id]');
+      const seriesId = section?.dataset.seriesId;
+      const item = button.closest<HTMLElement>('[data-series-chapter]');
+      const placementId = item?.dataset.seriesPlacementId;
+      const profileVersion = currentProfileVersion();
+      if (!seriesId || !placementId || profileVersion === undefined) return;
+      button.disabled = true;
+      try {
+        const response = await api(`/api/creador/series/${encodeURIComponent(seriesId)}/capitulos/${encodeURIComponent(placementId)}`, 'DELETE', { profileVersion });
+        const focusId = section?.querySelector<HTMLElement>('[id$="-chapters-title"]')?.id;
+        await finishSeriesWrite(response, seriesStatus(button), 'Capítulo quitado de esta serie. El enlace permanece en tu página y en otras series.', focusId);
+      } catch (error) {
+        announce(seriesStatus(button), requestFailureMessage(error, 'No pudimos quitar el capítulo. Inténtalo de nuevo.'), 'error');
+      } finally {
+        button.disabled = false;
+      }
+    });
+  });
+
+  root.querySelectorAll<HTMLButtonElement>('[data-delete-series]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const section = button.closest<HTMLElement>('[data-series-id]');
+      const seriesId = section?.dataset.seriesId;
+      const series = seriesId ? seriesById(seriesId) : undefined;
+      const profileVersion = currentProfileVersion();
+      if (!series || profileVersion === undefined) return;
+      const confirmed = window.confirm(`¿Eliminar la serie «${series.name}»? Se conservarán los enlaces de tu página y su selección para el directorio.`);
+      if (!confirmed) return;
+      button.disabled = true;
+      try {
+        const response = await api(`/api/creador/series/${encodeURIComponent(series.id)}`, 'DELETE', {
+          version: series.version,
+          profileVersion,
+        });
+        await finishSeriesWrite(response, seriesStatus(button), 'Serie eliminada. Tus enlaces y su selección para el directorio siguen en tu página.', 'creator-series-editor-title');
+      } catch (error) {
+        announce(seriesStatus(button), requestFailureMessage(error, 'No pudimos eliminar la serie. Inténtalo de nuevo.'), 'error');
       } finally {
         button.disabled = false;
       }

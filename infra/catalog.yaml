@@ -93,6 +93,9 @@ Resources:
                       - selectedForDirectory
                       - selected
                       - slug
+                      - displayName
+                      - name
+                      - series
                   StringEquals:
                     dynamodb:Select: SPECIFIC_ATTRIBUTES
       Tags:

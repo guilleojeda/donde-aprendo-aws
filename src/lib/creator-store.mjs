@@ -51,6 +51,26 @@ function logicalKey(key) {
     const slug = identityPart(key, 'alias:', 'slug');
     return { table: 'profiles', key: { pk: `SLUG#${slug}`, sk: 'META' }, id: slug, type: 'alias' };
   }
+  if (key.startsWith('series-alias:')) {
+    const { profileId, id: slug } = parseProfileAndId(key, 'series-alias:', 'series alias');
+    return {
+      table: 'profiles',
+      key: { pk: `PROFILE#${profileId}`, sk: `SERIES_SLUG#${slug}` },
+      profileId,
+      id: slug,
+      type: 'seriesAlias',
+    };
+  }
+  if (key.startsWith('series:')) {
+    const { profileId, id } = parseProfileAndId(key, 'series:', 'series');
+    return {
+      table: 'profiles',
+      key: { pk: `PROFILE#${profileId}`, sk: `SERIES#${id}` },
+      profileId,
+      id,
+      type: 'series',
+    };
+  }
   if (key.startsWith('placement:')) {
     const { profileId, id } = parseProfileAndId(key, 'placement:', 'placement');
     return { table: 'profiles', key: { pk: `PROFILE#${profileId}`, sk: `PLACEMENT#${id}` }, profileId, id, type: 'placement' };
@@ -157,9 +177,15 @@ function profileProjection() {
 }
 
 function placementProjection() {
-  const fields = ['pk', 'sk', 'recordType', 'id', 'profileId', 'resourceId', 'position', 'featured', 'selectedForDirectory', 'version'];
+  const fields = ['pk', 'sk', 'recordType', 'id', 'profileId', 'resourceId', 'position', 'featured', 'selectedForDirectory', 'series', 'version'];
   const names = Object.fromEntries(fields.map((field, index) => [`#p${index}`, field]));
   return { ProjectionExpression: fields.map((_, index) => `#p${index}`).join(', '), ExpressionAttributeNames: names };
+}
+
+function seriesProjection() {
+  const fields = ['pk', 'sk', 'recordType', 'id', 'profileId', 'name', 'slug', 'description', 'version'];
+  const names = Object.fromEntries(fields.map((field, index) => [`#s${index}`, field]));
+  return { ProjectionExpression: fields.map((_, index) => `#s${index}`).join(', '), ExpressionAttributeNames: names };
 }
 
 function resourceProjection() {
@@ -301,6 +327,23 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
 
   async function list(prefix) {
     if (typeof prefix !== 'string') throw new TypeError('prefix must be a string');
+    if (prefix.startsWith('series:') && prefix !== 'series:') {
+      const match = prefix.match(/^series:([^:]+):$/);
+      const profileId = match?.[1];
+      if (!profileId) throw new TypeError('series query requires a profile ID and trailing separator');
+      const projection = seriesProjection();
+      const rows = await readPages(QueryCommand, tables.profiles, {
+        ConsistentRead: true,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :sk)',
+        ExpressionAttributeValues: { ':pk': `PROFILE#${profileId}`, ':sk': 'SERIES#' },
+        ...projection,
+        ExpressionAttributeNames: { ...projection.ExpressionAttributeNames, '#pk': 'pk', '#sk': 'sk' },
+      });
+      return rows.map((row) => {
+        const id = typeof row.sk === 'string' && row.sk.startsWith('SERIES#') ? row.sk.slice('SERIES#'.length) : '';
+        return { key: `series:${profileId}:${id}`, value: cleanItem(row) };
+      });
+    }
     if (prefix.startsWith('placement:') && prefix !== 'placement:') {
       const match = prefix.match(/^placement:([^:]+):$/);
       const profileId = match?.[1];

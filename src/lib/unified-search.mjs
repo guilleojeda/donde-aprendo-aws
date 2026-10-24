@@ -1,7 +1,7 @@
 import { eventHref, resourceHref } from './catalog-routes.mjs';
 import { effectiveEventLocation } from './event-location.mjs';
 import { normalizeSearch } from './directory-filter.mjs';
-import { uniqueUpcomingEvents } from './events.mjs';
+import { uniqueUpcomingEventGroups } from './events.mjs';
 import { communityCountryPages } from './community-country-pages.mjs';
 import { learningPathHref } from './learning-paths.mjs';
 
@@ -63,6 +63,20 @@ function markdownHeadings(body = '') {
   return [...markdown, ...html].join(' ');
 }
 
+function seriesForRecords(records) {
+  const byId = new Map();
+  for (const record of records) {
+    for (const association of record.series ?? []) {
+      if (association?.seriesId && !byId.has(association.seriesId)) byId.set(association.seriesId, association);
+    }
+  }
+  return [...byId.values()].sort((left, right) => left.seriesId < right.seriesId ? -1 : left.seriesId > right.seriesId ? 1 : 0);
+}
+
+function seriesSearchText(associations) {
+  return associations.map(({ name, creatorName }) => `${name} ${creatorName}`).join(' ');
+}
+
 /** Only public, bounded text is written to the downloadable index. */
 export function buildSearchIndex(posts, catalog, learningPaths = [], landingPages = []) {
   const articles = [...posts]
@@ -79,12 +93,15 @@ export function buildSearchIndex(posts, catalog, learningPaths = [], landingPage
   const eventRecords = catalog.filter((record) => record.recordType === 'event');
   const communityById = new Map(catalog.filter((record) => record.kind === 'community')
     .map((community) => [community.id, community]));
-  const visibleEvents = new Set(uniqueUpcomingEvents(eventRecords, undefined, communityById));
+  const eventGroups = new Map(uniqueUpcomingEventGroups(eventRecords, undefined, communityById)
+    .map((group) => [group.event, group]));
+  const visibleEvents = new Set(eventGroups.keys());
   const countryPages = communityCountryPages(catalog);
   const records = catalog.filter((record) => record.recordType !== 'event' || visibleEvents.has(record))
     .map((record) => {
       if (record.recordType === 'event') {
         const location = effectiveEventLocation(record, communityById);
+        const series = seriesForRecords(eventGroups.get(record)?.events ?? [record]);
         return {
           type: 'event',
           title: record.title,
@@ -98,8 +115,10 @@ export function buildSearchIndex(posts, catalog, learningPaths = [], landingPage
           record.country,
           ].filter(Boolean))].join(' '),
           endsAt: record.endsAt,
+          ...(series.length ? { series, search: seriesSearchText(series) } : {}),
         };
       }
+      const series = record.series ?? [];
       return {
         type: record.kind,
         title: record.title,
@@ -108,6 +127,7 @@ export function buildSearchIndex(posts, catalog, learningPaths = [], landingPage
         meta: record.format,
         topics: [record.category, ...record.topics].filter(Boolean),
         metadata: [record.country, record.level].filter(Boolean).join(' '),
+        ...(series.length ? { series, search: seriesSearchText(series) } : {}),
       };
     });
 
