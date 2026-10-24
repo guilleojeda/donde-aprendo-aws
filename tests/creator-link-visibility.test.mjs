@@ -536,3 +536,17 @@ test('the real editor script reports publication accurately for draft, hidden, a
   assert.match(publishHiddenDraft, /publicada, pero sigue oculta por administración/);
   assert.doesNotMatch(publishHiddenDraft, /visible al público/);
 });
+
+test('the photo upload help explains how to check an unconfirmed save', async () => {
+  const html = await renderEditor({
+    profile: {
+      id: 'profile-a', displayName: 'Ana', slug: 'ana', programs: [], socials: {},
+      published: false, hidden: false, version: 1,
+    },
+    links: [], editableResources: [], claims: [], series: [],
+  });
+
+  assert.match(html, /Si la carga se detiene antes de guardar, la foto anterior se conserva\./);
+  assert.match(html, /Si no podemos confirmar el guardado, recarga la página para comprobar cuál quedó activa\./);
+  assert.doesNotMatch(html, /La foto anterior seguirá visible si la carga falla\./);
+});

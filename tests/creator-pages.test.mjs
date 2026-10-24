@@ -341,6 +341,88 @@ test('changing a resource URL preserves its ID, resolves references by the curre
   assert.notEqual((await responseJson(oldUrlNewResource)).link.resourceId, resource.resourceId);
 });
 
+test('re-adding an editable resource uses its current version and URL, and repeated requests keep one placement', async () => {
+  const harness = await createCreatorPagesHarness();
+  await createProfile(harness, 'creator-a', { displayName: 'Ana', slug: 'ana' });
+  const initial = await addLink(harness, 'creator-a', {
+    title: 'Guía retenida', url: 'https://example.com/readd-old',
+  });
+  const original = (await responseJson(initial)).link;
+  const profileBeforeRemove = (await editor(harness)).profile;
+  const removed = await api(harness, `/api/creador/enlaces/${original.placementId}`, 'creator-a', {
+    method: 'DELETE', body: { profileVersion: profileBeforeRemove.version },
+  });
+  assert.equal(removed.status, 204);
+
+  const staleEditor = await editor(harness);
+  const resourceEdit = await api(harness, `/api/creador/recursos/${original.resourceId}`, 'creator-a', {
+    method: 'PATCH', body: { url: 'https://example.com/readd-current', version: original.resourceVersion },
+  });
+  assert.equal(resourceEdit.status, 200);
+  const currentResource = (await editor(harness)).editableResources.find(({ id }) => id === original.resourceId);
+  assert.equal(currentResource.url, 'https://example.com/readd-current');
+
+  const beforeStaleReadd = {
+    resources: await harness.store.list('resource:'),
+    reservations: await harness.store.list('url:'),
+    placements: await harness.store.list(`placement:${staleEditor.profile.id}:`),
+    profile: (await editor(harness)).profile,
+  };
+  const missingVersion = await api(harness, '/api/creador/enlaces', 'creator-a', {
+    method: 'POST', body: { resourceId: original.resourceId },
+  });
+  assert.equal(missingVersion.status, 400);
+  const staleReadd = await api(harness, '/api/creador/enlaces', 'creator-a', {
+    method: 'POST', body: { resourceId: original.resourceId, resourceVersion: staleEditor.editableResources[0].version },
+  });
+  assert.equal(staleReadd.status, 409);
+  assert.deepEqual(await harness.store.list('resource:'), beforeStaleReadd.resources);
+  assert.deepEqual(await harness.store.list('url:'), beforeStaleReadd.reservations);
+  assert.deepEqual(await harness.store.list(`placement:${staleEditor.profile.id}:`), beforeStaleReadd.placements);
+  assert.deepEqual((await editor(harness)).profile, beforeStaleReadd.profile);
+
+  const mixedRequest = await api(harness, '/api/creador/enlaces', 'creator-a', {
+    method: 'POST', body: { resourceId: original.resourceId, resourceVersion: currentResource.version, title: currentResource.title, url: currentResource.url },
+  });
+  assert.equal(mixedRequest.status, 400);
+
+  const readdedResponse = await api(harness, '/api/creador/enlaces', 'creator-a', {
+    method: 'POST', body: { resourceId: original.resourceId, resourceVersion: currentResource.version },
+  });
+  assert.equal(readdedResponse.status, 201);
+  const readded = (await responseJson(readdedResponse)).link;
+  assert.equal(readded.resourceId, original.resourceId);
+  assert.equal(readded.placementId, original.placementId);
+  assert.equal(readded.title, currentResource.title);
+  assert.equal(readded.url, currentResource.url);
+  assert.equal(readded.resourceVersion, currentResource.version);
+
+  const duplicate = await api(harness, '/api/creador/enlaces', 'creator-a', {
+    method: 'POST', body: { resourceId: original.resourceId, resourceVersion: currentResource.version },
+  });
+  assert.equal(duplicate.status, 200);
+  assert.equal((await responseJson(duplicate)).link.placementId, original.placementId);
+  assert.equal((await harness.store.list('resource:')).length, 1);
+  assert.equal((await harness.store.list(`placement:${staleEditor.profile.id}:`)).length, 1);
+  const currentReservation = await harness.store.list('url:');
+  assert.equal(currentReservation.length, 1);
+  assert.equal(currentReservation[0].value.url, currentResource.url);
+});
+
+test('re-adding another creator’s editable resource is rejected without creating a placement', async () => {
+  const harness = await createCreatorPagesHarness();
+  await createProfile(harness, 'creator-a', { displayName: 'Ana', slug: 'ana' });
+  await createProfile(harness, 'creator-b', { displayName: 'Bea', slug: 'bea' });
+  const created = await addLink(harness, 'creator-a', { url: 'https://example.com/foreign-readd' });
+  const resource = (await responseJson(created)).link;
+  const attempt = await api(harness, '/api/creador/enlaces', 'creator-b', {
+    method: 'POST', body: { resourceId: resource.resourceId, resourceVersion: resource.resourceVersion },
+  });
+  assert.equal(attempt.status, 403);
+  assert.equal((await editor(harness, 'creator-b')).links.length, 0);
+  assert.equal((await editor(harness, 'creator-a')).links.length, 1);
+});
+
 test('creator accounts are isolated and private account or admin fields cannot come from the request body', async () => {
   const harness = await createCreatorPagesHarness();
   const forged = await saveProfile(harness, 'creator-a', {
@@ -518,9 +600,14 @@ test('ordering, featured state, and directory selection belong to each placement
   const bPlacement = (await responseJson(b)).link.placementId;
   const beaBefore = await harness.service.readPublicProfile('bea');
   const placementBefore = beaBefore.links[0];
+  const anaBefore = await editor(harness, 'creator-a');
+  const aLinkBefore = anaBefore.links[0];
 
   const update = await api(harness, `/api/creador/enlaces/${aPlacement}`, 'creator-a', {
-    method: 'PATCH', body: { position: 7, featured: true, selectedForDirectory: false },
+    method: 'PATCH', body: {
+      position: 7, version: aLinkBefore.placementVersion, profileVersion: anaBefore.profile.version,
+      featured: true, selectedForDirectory: false,
+    },
   });
   assert.equal(update.status, 200);
   const ana = await harness.service.readPublicProfile('ana');
@@ -543,7 +630,10 @@ test('a removed and recreated placement rejects a stale version while keeping it
   assert.equal(original.placementVersion, firstProfile.version);
 
   const changed = await api(harness, `/api/creador/enlaces/${original.placementId}`, 'creator-a', {
-    method: 'PATCH', body: { position: 2, featured: true, selectedForDirectory: false, version: original.placementVersion },
+    method: 'PATCH', body: {
+      position: 2, featured: true, selectedForDirectory: false,
+      version: original.placementVersion, profileVersion: firstProfile.version,
+    },
   });
   assert.equal(changed.status, 200);
   const beforeRemove = (await responseJson(changed)).link;
@@ -558,7 +648,10 @@ test('a removed and recreated placement rejects a stale version while keeping it
   assert.ok(recreated.placementVersion <= profileAfterRecreate.version);
 
   const stalePatch = await api(harness, `/api/creador/enlaces/${recreated.placementId}`, 'creator-a', {
-    method: 'PATCH', body: { position: 0, featured: true, selectedForDirectory: false, version: original.placementVersion },
+    method: 'PATCH', body: {
+      position: 0, featured: true, selectedForDirectory: false,
+      version: original.placementVersion, profileVersion: firstProfile.version,
+    },
   });
   assert.equal(stalePatch.status, 409);
   const after = (await editor(harness)).links[0];
@@ -578,13 +671,59 @@ test('the public page puts featured content first and applies the chosen order w
     links.push((await responseJson(response)).link);
   }
   for (const [index, position, featured] of [[0, 30, true], [1, 20, false], [2, 10, false]]) {
+    const current = await editor(harness, 'creator-a');
+    const target = current.links.find(({ placementId }) => placementId === links[index].placementId);
     const response = await api(harness, `/api/creador/enlaces/${links[index].placementId}`, 'creator-a', {
-      method: 'PATCH', body: { position, featured },
+      method: 'PATCH', body: {
+        position, featured, version: target.placementVersion, profileVersion: current.profile.version,
+      },
     });
     assert.equal(response.status, 200);
   }
   const page = await harness.service.readPublicProfile('ana');
   assert.deepEqual(page.links.map(({ resourceId }) => resourceId), [links[0].resourceId, links[2].resourceId, links[1].resourceId]);
+});
+
+test('a stale order change cannot move a neighbor from an older profile snapshot and can be retried against current order', async () => {
+  const harness = await createCreatorPagesHarness();
+  await createProfile(harness, 'creator-a', { slug: 'ana' });
+  for (const title of ['A', 'B', 'C']) await addLink(harness, 'creator-a', { title, url: `https://example.com/stale-order-${title}` });
+  const observed = await editor(harness, 'creator-a');
+  const [a, b, c] = observed.links;
+  const missingProfileVersion = await api(harness, `/api/creador/enlaces/${a.placementId}`, 'creator-a', {
+    method: 'PATCH', body: { position: b.position, version: a.placementVersion },
+  });
+  assert.equal(missingProfileVersion.status, 400);
+  assert.deepEqual((await editor(harness, 'creator-a')).links.map(({ title }) => title), ['A', 'B', 'C']);
+
+  const firstMove = await api(harness, `/api/creador/enlaces/${b.placementId}`, 'creator-a', {
+    method: 'PATCH', body: { position: c.position, version: b.placementVersion, profileVersion: observed.profile.version },
+  });
+  assert.equal(firstMove.status, 200);
+  const afterFirstMove = await editor(harness, 'creator-a');
+  assert.deepEqual(afterFirstMove.links.map(({ title }) => title), ['A', 'C', 'B']);
+
+  const beforeStaleMove = afterFirstMove.links.map(({ placementId, position, placementVersion }) => ({ placementId, position, placementVersion }));
+  const staleMove = await api(harness, `/api/creador/enlaces/${a.placementId}`, 'creator-a', {
+    method: 'PATCH', body: { position: b.position, version: a.placementVersion, profileVersion: observed.profile.version },
+  });
+  assert.equal(staleMove.status, 409);
+  const afterStaleMove = await editor(harness, 'creator-a');
+  assert.deepEqual(afterStaleMove.links.map(({ title }) => title), ['A', 'C', 'B']);
+  assert.deepEqual(
+    afterStaleMove.links.map(({ placementId, position, placementVersion }) => ({ placementId, position, placementVersion })),
+    beforeStaleMove,
+  );
+
+  const currentA = afterStaleMove.links.find(({ placementId }) => placementId === a.placementId);
+  const currentC = afterStaleMove.links.find(({ title }) => title === 'C');
+  const retry = await api(harness, `/api/creador/enlaces/${currentA.placementId}`, 'creator-a', {
+    method: 'PATCH', body: {
+      position: currentC.position, version: currentA.placementVersion, profileVersion: afterStaleMove.profile.version,
+    },
+  });
+  assert.equal(retry.status, 200);
+  assert.deepEqual((await editor(harness, 'creator-a')).links.map(({ title }) => title), ['C', 'A', 'B']);
 });
 
 test('selection and approval stay separate: reselecting preserves approval, revoking never hides a profile link', async () => {
