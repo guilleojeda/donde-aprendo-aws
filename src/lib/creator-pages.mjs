@@ -181,8 +181,11 @@ function cleanPublicProfile(profile) {
   return result;
 }
 
-function publicLink(placement, resource) {
+function publicLink(placement, resource, { includeModerationState = false } = {}) {
   const url = currentResourceUrl(resource);
+  if (includeModerationState && Object.hasOwn(resource, 'hidden') && typeof resource.hidden !== 'boolean') {
+    fail(503, 'INVALID_LINK', 'link moderation state is malformed');
+  }
   if (typeof resource.id !== 'string' || typeof resource.title !== 'string' || typeof url !== 'string'
     || typeof placement.position !== 'number' || !Number.isSafeInteger(placement.position)
     || typeof placement.featured !== 'boolean' || typeof placement.selectedForDirectory !== 'boolean'
@@ -204,6 +207,7 @@ function publicLink(placement, resource) {
     featured: placement.featured,
     position: placement.position,
     selectedForDirectory: placement.selectedForDirectory,
+    ...(includeModerationState ? { hidden: resource.hidden === true } : {}),
     series: [],
     directoryApproval: approvalState(resource),
     resourceVersion: resource.version ?? 0,
@@ -566,7 +570,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       const memberships = placementSeriesMap(placement, currentSeriesIds);
       if (Object.hasOwn(resource, 'hidden') && typeof resource.hidden !== 'boolean') fail(503, 'INVALID_RESOURCE', 'resource hidden state is malformed');
       if (resource.hidden === true && !includeHiddenResources) continue;
-      const link = publicLink(placement, resource);
+      const link = publicLink(placement, resource, { includeModerationState: includeHiddenResources });
       link.series = Object.entries(memberships)
         .map(([seriesId, membership]) => {
           const item = seriesById.get(seriesId);
@@ -926,7 +930,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
   async function buildLinkDto(placement) {
     const resource = await store.get(`resource:${placement.resourceId}`);
     if (!resource || resource.id !== placement.resourceId) fail(503, 'MISSING_RESOURCE', 'placement points to missing resource data');
-    return publicLink(placement, resource);
+    return publicLink(placement, resource, { includeModerationState: true });
   }
 
   async function addLink(principal, body) {

@@ -12,7 +12,7 @@ El perfil se renderiza por petición desde el estado actual del servicio y devue
 
 ## Enlaces compartidos
 
-Cada enlace se muestra públicamente en el perfil aunque todavía no esté aprobado para el directorio o la persona lo haya excluido de allí. La persona administra su colocación: orden, destacado y selección para el directorio. Destacarlo en su perfil no otorga la recomendación editorial `featured` del catálogo.
+Un enlace aparece en la página pública cuando el perfil está publicado y visible y el recurso no está oculto. Esa visibilidad es independiente de la selección y aprobación para el directorio: un enlace pendiente o desmarcado puede seguir en la página. La persona administra su colocación: orden, destacado y selección para el directorio. Destacarlo en su perfil no otorga la recomendación editorial `featured` del catálogo. El editor muestra por separado la visibilidad en la página, la selección y la aprobación; ocultar un recurso por administración no cambia los otros dos estados y sólo administración puede restaurarlo.
 
 El catálogo conserva una ficha única por URL literal actual, incluidos query strings y barras finales. Varios perfiles pueden tener su propia colocación de la misma ficha. Al crear una URL nueva, quien la agrega obtiene edición inicial de título, URL y descripción; al reutilizar una URL existente no se obtiene permiso para modificarla. Si se cambia la URL, el ID del recurso se conserva y las futuras referencias usan el destino vigente. Los títulos admiten 200 caracteres, las URLs hasta 2048 y las descripciones hasta 2000; las escrituras JSON se limitan a 32 KiB. Quitar una colocación no elimina la referencia de edición del perfil: la persona aún puede modificar el recurso propio y volver a incorporarlo.
 

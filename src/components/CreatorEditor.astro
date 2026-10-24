@@ -26,6 +26,12 @@ const photoPath = profile?.photo?.url?.startsWith('/media/fotos/')
   : profile?.photo?.version !== undefined
     ? `/media/fotos/${encodeURIComponent(profile.id)}/${encodeURIComponent(String(profile.photo.version))}.webp`
     : undefined;
+function linkVisibilityText(link: CreatorEditorDTO['links'][number]) {
+  if (link.hidden) return 'Oculto por administración.';
+  if (!profile?.published) return 'No visible todavía: publica tu página para compartir este enlace.';
+  if (profile.hidden) return 'No visible: la página está temporalmente oculta por administración.';
+  return 'Visible al público.';
+}
 ---
 
 <main id="contenido" class="creator-account site-container" tabindex="-1" data-creator-editor data-csrf={csrfToken}>
@@ -205,6 +211,7 @@ const photoPath = profile?.photo?.url?.startsWith('/media/fotos/')
                       <p class="creator-card__help">Esta ficha la administra otra persona; puedes usarla en tu página y controlar tus opciones.</p>
                     </div>
                   )}
+                  <p class="creator-link-editor-card__visibility">Visibilidad en tu página: {linkVisibilityText(link)}</p>
                   <p class="creator-link-editor-card__approval">Directorio: {link.directoryApproval === 'approved' ? 'aprobado' : link.directoryApproval === 'revoked' ? 'aprobación revocada' : 'pendiente de revisión'}</p>
                 </div>
                 <div class="creator-link-editor-card__controls">
