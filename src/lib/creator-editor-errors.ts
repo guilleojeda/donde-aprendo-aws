@@ -11,6 +11,12 @@ export async function creatorEditorFailureMessage(response: Response, fallback: 
     if (response.status === 409 && error === 'SLUG_TAKEN') {
       return 'Esa dirección ya está reservada. Elige otra dirección para tu página.';
     }
+    if (response.status === 409 && error === 'URL_TAKEN') {
+      return 'Esa URL ya está asociada a otra ficha. Elige una URL diferente.';
+    }
+    if (response.status === 409 && error === 'URL_COLLISION') {
+      return 'Esta URL requiere una revisión de administración y no se puede agregar ahora. Puedes probar con otra URL.';
+    }
     if (response.status === 422 && error === 'INVALID_URL') {
       return 'La URL debe comenzar con http:// o https:// y no incluir usuario ni contraseña.';
     }
