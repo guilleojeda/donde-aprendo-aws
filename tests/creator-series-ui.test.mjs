@@ -94,6 +94,7 @@ function link(placementId, title, overrides = {}) {
     featured: false,
     position: 0,
     selectedForDirectory: false,
+    hidden: false,
     directoryApproval: 'pending',
     resourceVersion: 1,
     placementVersion: 1,
