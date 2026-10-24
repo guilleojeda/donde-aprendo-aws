@@ -3,6 +3,7 @@ import type {
   CreatorLinkDTO,
   CreatorProfileDTO,
 } from '../types/creators';
+import { creatorSeriesFailureMessage } from '../lib/creator-series-editor-errors';
 
 const root = document.querySelector<HTMLElement>('[data-creator-editor]');
 const initial = document.querySelector<HTMLScriptElement>('#creator-editor-data');
@@ -134,7 +135,8 @@ async function finishSeriesWrite(
   focusId?: string,
 ) {
   if (!response.ok) {
-    announceError(response.status, statusTarget);
+    const message = await creatorSeriesFailureMessage(response, statusText(response.status));
+    announce(statusTarget, message, 'error');
     return false;
   }
   announce(statusTarget, successMessage, 'success');
