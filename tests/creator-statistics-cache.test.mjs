@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { callApi, createCreatorPagesHarness, sessionCsrf } from './fixtures/creator-pages.mjs';
 
 const moduleResult = await import('../src/lib/creator-statistics.mjs').then(
   (value) => ({ value }),
@@ -33,16 +34,17 @@ function localDate(now, timeZone) {
 }
 
 function reportFor(input, now = INITIAL_NOW, overrides = {}) {
-  const timeZone = 'America/Los_Angeles';
+  const { timeZone: requestedTimeZone, ...reportOverrides } = overrides;
+  const timeZone = requestedTimeZone ?? 'America/Los_Angeles';
   const endDate = localDate(now, timeZone);
   const days = input.period === 30 ? 30 : 7;
   const start = new Date(`${endDate}T00:00:00.000Z`);
   start.setUTCDate(start.getUTCDate() - days + 1);
   const startDate = start.toISOString().slice(0, 10);
-  const totals = overrides.totals ?? { views: 12, visitors: 8, clicks: 3 };
+  const totals = reportOverrides.totals ?? { views: 12, visitors: 8, clicks: 3 };
   const captureStartedAt = '2026-10-23T23:38:00.000Z';
   const firstMeasuredDate = localDate(Date.parse(captureStartedAt), timeZone);
-  const daily = overrides.daily ?? Array.from({ length: days }, (_, index) => {
+  const daily = reportOverrides.daily ?? Array.from({ length: days }, (_, index) => {
     const date = new Date(`${startDate}T00:00:00.000Z`);
     date.setUTCDate(date.getUTCDate() + index);
     const dateString = date.toISOString().slice(0, 10);
@@ -53,7 +55,7 @@ function reportFor(input, now = INITIAL_NOW, overrides = {}) {
       clicks: beforeMeasurement ? null : index === days - 1 ? totals.clicks : 0,
     };
   });
-  const linkOverrides = overrides.links ?? {};
+  const linkOverrides = reportOverrides.links ?? {};
   const totalRows = linkOverrides.totalRows ?? 1;
   const rows = linkOverrides.rows ?? (input.page === 1 && totalRows > 0
     ? [{ linkId: 'placement-test', title: 'Enlace de ejemplo', clicks: totals.clicks }]
@@ -76,7 +78,7 @@ function reportFor(input, now = INITIAL_NOW, overrides = {}) {
     sources: [],
     warnings: [],
     captureStartedAt,
-    ...overrides,
+    ...reportOverrides,
   };
 }
 
@@ -234,6 +236,108 @@ test('a fresh entry whose date window ended at local midnight is refreshed using
   assert.equal(afterMidnight.range.endDate, '2026-10-24');
   assert.equal(calls.length, 2);
   assert.equal(afterMidnight.updatedAt, new Date(clock).toISOString());
+});
+
+test('an authenticated request after property midnight does not join a fresh result for the prior window', async () => {
+  const beforeMidnight = Date.parse('2026-10-25T02:59:59.999Z');
+  const afterMidnight = Date.parse('2026-10-25T03:00:00.001Z');
+  let clock = beforeMidnight;
+  let releaseGet;
+  const getGate = new Promise((resolve) => { releaseGet = resolve; });
+  let cacheGetStarted;
+  const getStarted = new Promise((resolve) => { cacheGetStarted = resolve; });
+  let cacheGets = 0;
+  const query = { profileId: 'fixture-id-1', period: 7, page: 1 };
+  const previous = reportFor(query, beforeMidnight, { timeZone: 'America/Buenos_Aires' });
+  const cache = {
+    async get() {
+      cacheGets += 1;
+      cacheGetStarted();
+      await getGate;
+      return envelope(previous, { updatedAt: beforeMidnight - 10 * 60 * 1000 });
+    },
+    async put() {},
+  };
+  const providerReads = [];
+  const cachedStatistics = api()({
+    reader: {
+      async read(input) {
+        providerReads.push(structuredClone(input));
+        return reportFor(input, clock, { timeZone: 'America/Buenos_Aires' });
+      },
+    },
+    cache,
+    now: () => clock,
+  });
+  let statisticsReads = 0;
+  let secondStatisticsRead;
+  const secondReadStarted = new Promise((resolve) => { secondStatisticsRead = resolve; });
+  const statistics = {
+    read(input) {
+      statisticsReads += 1;
+      if (statisticsReads === 2) secondStatisticsRead();
+      return cachedStatistics.read(input);
+    },
+  };
+  const harness = await createCreatorPagesHarness({ statistics });
+  const saved = await callApi(harness, '/api/creador/perfil', {
+    session: 'creator-a',
+    method: 'PUT',
+    csrf: sessionCsrf['creator-a'],
+    body: { displayName: 'Creador de prueba', slug: 'creador-de-prueba' },
+  });
+  assert.equal(saved.status, 200);
+  const published = await callApi(harness, '/api/creador/perfil/publicar', {
+    session: 'creator-a',
+    method: 'POST',
+    csrf: sessionCsrf['creator-a'],
+    body: {},
+  });
+  assert.equal(published.status, 200);
+
+  const firstRequest = callApi(harness, '/api/creador/estadisticas/', { session: 'creator-a' });
+  await getStarted;
+  clock = afterMidnight;
+  const secondRequest = callApi(harness, '/api/creador/estadisticas/', { session: 'creator-a' });
+  await secondReadStarted;
+  releaseGet();
+
+  const [firstResponse, secondResponse] = await Promise.all([firstRequest, secondRequest]);
+  const [first, second] = await Promise.all([firstResponse.json(), secondResponse.json()]);
+
+  assert.equal(firstResponse.status, 200);
+  assert.equal(secondResponse.status, 200);
+  assert.equal(first.freshness, 'fresh');
+  assert.equal(second.freshness, 'fresh');
+  assert.equal(first.range.endDate, '2026-10-25');
+  assert.equal(second.range.endDate, '2026-10-25');
+  assert.equal(cacheGets, 1, 'both authenticated requests should coalesce the same cache read');
+  assert.deepEqual(providerReads, [query], 'the prior-day cache value must trigger one current-window provider read');
+});
+
+test('a cache write that crosses property midnight gets one coalesced current-window re-read', async () => {
+  const beforeMidnight = Date.parse('2026-10-25T02:59:59.999Z');
+  const afterMidnight = Date.parse('2026-10-25T03:00:00.001Z');
+  let clock = beforeMidnight;
+  let cachePuts = 0;
+  const { calls, reader } = makeReader((input) => reportFor(input, clock, {
+    timeZone: 'America/Buenos_Aires',
+  }));
+  const cache = {
+    async get() { return undefined; },
+    async put() {
+      cachePuts += 1;
+      if (cachePuts === 1) clock = afterMidnight;
+    },
+  };
+  const service = api()({ reader, cache, now: () => clock });
+
+  const result = await service.read({ profileId: 'creator-a', period: 7 });
+
+  assert.equal(calls.length, 2, 'only one bounded re-read should follow the midnight-crossing cache write');
+  assert.equal(cachePuts, 2);
+  assert.equal(result.freshness, 'fresh');
+  assert.equal(result.range.endDate, '2026-10-25');
 });
 
 test('provider failure returns the retained last success as stale without mutating or replacing its original window', async () => {

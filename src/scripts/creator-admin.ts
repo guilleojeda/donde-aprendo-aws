@@ -1,3 +1,5 @@
+import { createCreatorFormState, type FormValueSnapshot } from './creator-form-state';
+
 interface CreatorAdminState {
   resources: Record<string, unknown>[];
   profiles: Record<string, unknown>[];
@@ -31,7 +33,9 @@ if (initial?.textContent) {
   }
 }
 
+const formState = root ? createCreatorFormState(root) : undefined;
 const csrfToken = root?.dataset.csrf;
+let activeWriteRequests = 0;
 
 function announce(target: Element | null | undefined, message: string, kind: 'error' | 'success' = 'success') {
   if (!(target instanceof HTMLElement)) return;
@@ -47,6 +51,20 @@ function errorMessage(status: number): string {
   if (status === 413) return 'La solicitud supera el límite de 32 KiB. Reduce los IDs seleccionados e inténtalo de nuevo.';
   if (status === 503 || status >= 500) return 'No pudimos guardar el cambio. Inténtalo de nuevo en unos minutos.';
   return 'No pudimos completar la acción. Revisa los datos e inténtalo de nuevo.';
+}
+
+async function responseErrorMessage(response: Response): Promise<string> {
+  if (response.status !== 409) return errorMessage(response.status);
+  try {
+    const payload: unknown = await response.clone().json();
+    const code = isRecord(payload) && typeof payload.error === 'string' ? payload.error : '';
+    if (['PROFILE_CONFLICT', 'RESOURCE_CONFLICT', 'CLAIM_CONFLICT'].includes(code)) {
+      return errorMessage(response.status);
+    }
+  } catch {
+    // Keep the neutral fallback for a conflict without a recognized code.
+  }
+  return 'No pudimos completar el cambio porque hay un conflicto. Revisa el estado antes de volver a intentarlo.';
 }
 
 function requestFailureMessage(error: unknown, fallback: string): string {
@@ -78,15 +96,80 @@ async function api(path: string, method: string, body?: unknown): Promise<Respon
   if (serializedBody !== undefined && new TextEncoder().encode(serializedBody).byteLength > MAX_REQUEST_BYTES) {
     throw new Error(REQUEST_TOO_LARGE);
   }
-  return fetch(`${path.replace(/\/$/, '')}/`, {
-    method,
-    credentials: 'same-origin',
-    headers: {
-      'x-csrf-token': csrfToken,
-      ...(body === undefined ? {} : { 'content-type': 'application/json' }),
-    },
-    ...(serializedBody === undefined ? {} : { body: serializedBody }),
-  });
+  const write = method !== 'GET';
+  if (write) activeWriteRequests += 1;
+  try {
+    return await fetch(`${path.replace(/\/$/, '')}/`, {
+      method,
+      credentials: 'same-origin',
+      headers: {
+        'x-csrf-token': csrfToken,
+        ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+      },
+      ...(serializedBody === undefined ? {} : { body: serializedBody }),
+    });
+  } finally {
+    if (write) activeWriteRequests -= 1;
+  }
+}
+
+async function refreshAdminState(response: Response): Promise<boolean> {
+  try {
+    const payload: unknown = await response.clone().json();
+    if (!isRecord(payload) || !state) return false;
+    if (isRecord(payload.resource) && typeof payload.resource.id === 'string') {
+      const updatedResource = payload.resource;
+      state.resources = state.resources.map((resource) => resource.id === updatedResource.id
+        ? updatedResource
+        : resource);
+    }
+    if (isRecord(payload.profile) && typeof payload.profile.id === 'string') {
+      const updatedProfile = payload.profile;
+      state.profiles = state.profiles.map((profile) => profile.id === updatedProfile.id
+        ? updatedProfile
+        : profile);
+    }
+    if (Array.isArray(payload.linkedResourceIds)) {
+      const [resourcesResponse, claimsResponse] = await Promise.all([
+        api('/api/admin/recursos', 'GET'),
+        api('/api/admin/reclamaciones', 'GET'),
+      ]);
+      if (!resourcesResponse.ok || !claimsResponse.ok) return false;
+      const [resourcesBody, claimsBody]: unknown[] = await Promise.all([
+        resourcesResponse.json(), claimsResponse.json(),
+      ]);
+      if (!isRecord(resourcesBody) || !Array.isArray(resourcesBody.resources)
+        || !isRecord(claimsBody) || !Array.isArray(claimsBody.claims)) return false;
+      state.resources = resourcesBody.resources as Record<string, unknown>[];
+      state.claims = claimsBody.claims.filter((claim): claim is Record<string, unknown> =>
+        isRecord(claim) && claim.status !== 'resolved');
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function finishAdminWrite(
+  response: Response,
+  target: Element | null | undefined,
+  successMessage: string,
+  submittedValues?: FormValueSnapshot,
+) {
+  formState?.commit(submittedValues);
+  const hasPendingChanges = formState?.hasPendingChanges() ?? false;
+  if (hasPendingChanges || activeWriteRequests > 0) {
+    const refreshed = await refreshAdminState(response);
+    const message = hasPendingChanges
+      ? refreshed
+        ? `${successMessage} Conservamos los cambios que aún no enviaste; puedes seguir editándolos y guardarlos.`
+        : `${successMessage} No pudimos actualizar el estado. Conservamos los cambios sin enviar; cópialos o anótalos antes de recargar. Después de recargar, vuelve a ingresarlos y guárdalos.`
+      : `${successMessage} Conservamos la página abierta mientras termina otra acción. Recarga después para ver el estado actualizado.`;
+    announce(target, message);
+    return;
+  }
+  announce(target, successMessage);
+  window.location.reload();
 }
 
 function busy(form: HTMLFormElement, value: boolean) {
@@ -121,15 +204,15 @@ if (root && state && csrfToken) {
         topics: topicValues,
         ...(version !== undefined ? { version } : {}),
       };
+      const submittedValues = formState?.capture(form);
       busy(form, true);
       try {
         const response = await api(`/api/admin/recursos/${encodeURIComponent(resourceId)}`, 'PATCH', body);
         if (!response.ok) {
-          announce(itemStatus(item), errorMessage(response.status), 'error');
+          announce(itemStatus(item), await responseErrorMessage(response), 'error');
           return;
         }
-        announce(itemStatus(item), 'Clasificación guardada.');
-        window.location.reload();
+        await finishAdminWrite(response, itemStatus(item), 'Clasificación guardada.', submittedValues);
       } catch (error) {
         announce(itemStatus(item), requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
       } finally {
@@ -148,17 +231,16 @@ if (root && state && csrfToken) {
       try {
         const response = await api(`/api/admin/recursos/${encodeURIComponent(resourceId)}/${action}`, 'POST', {});
         if (!response.ok) {
-          announce(itemStatus(item), errorMessage(response.status), 'error');
+          announce(itemStatus(item), await responseErrorMessage(response), 'error');
           return;
         }
-        announce(itemStatus(item), action === 'aprobar'
+        await finishAdminWrite(response, itemStatus(item), action === 'aprobar'
           ? 'Recurso aprobado para el directorio.'
           : action === 'revocar'
             ? 'Aprobación revocada. El enlace puede seguir visible en páginas de creadores.'
             : action === 'ocultar'
               ? 'Recurso oculto en las páginas públicas.'
               : 'Recurso restaurado.');
-        window.location.reload();
       } catch (error) {
         announce(itemStatus(item), requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
       } finally {
@@ -177,11 +259,10 @@ if (root && state && csrfToken) {
       try {
         const response = await api(`/api/admin/perfiles/${encodeURIComponent(profileId)}/${action}`, 'POST', {});
         if (!response.ok) {
-          announce(itemStatus(item), errorMessage(response.status), 'error');
+          announce(itemStatus(item), await responseErrorMessage(response), 'error');
           return;
         }
-        announce(itemStatus(item), action === 'ocultar' ? 'Perfil oculto.' : 'Perfil restaurado.');
-        window.location.reload();
+        await finishAdminWrite(response, itemStatus(item), action === 'ocultar' ? 'Perfil oculto.' : 'Perfil restaurado.');
       } catch (error) {
         announce(itemStatus(item), requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
       } finally {
@@ -203,6 +284,7 @@ if (root && state && csrfToken) {
       if (claimResourceIds.length !== claim.resourceIds.length) return;
       const allowedIds = new Set(claimResourceIds);
       const values = new FormData(form);
+      const submittedValues = formState?.capture(form);
       const selectedIds = values.getAll('resourceIds').map(String);
       if (selectedIds.length === 0 || selectedIds.some((id) => !allowedIds.has(id))) {
         announce(itemStatus(item), 'Selecciona uno o más IDs incluidos en la solicitud.', 'error');
@@ -235,11 +317,10 @@ if (root && state && csrfToken) {
               : `Los recursos ya vinculados son: ${linkedIds.join(', ')}. Recarga para actualizar el estado de la solicitud.`, 'error');
             return;
           }
-          announce(itemStatus(item), errorMessage(response.status), 'error');
+          announce(itemStatus(item), await responseErrorMessage(response), 'error');
           return;
         }
-        announce(itemStatus(item), 'Recursos vinculados a la cuenta.');
-        window.location.reload();
+        await finishAdminWrite(response, itemStatus(item), 'Recursos vinculados a la cuenta.', submittedValues);
       } catch (error) {
         announce(itemStatus(item), requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
       } finally {

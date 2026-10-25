@@ -228,6 +228,7 @@ class TestElement {
   }
 
   querySelectorAll(selector) {
+    if (selector === 'input, textarea, select') return this.fields ?? this.controls;
     if (selector === 'button' || selector === 'input[name="resourceIds"]') return this.controls;
     return [];
   }
@@ -243,6 +244,10 @@ class TestElement {
     this.attributes.set(name, value);
   }
 
+  getAttribute(name) {
+    return this.attributes.get(name) ?? null;
+  }
+
   async dispatch(type) {
     const event = { preventDefault() {} };
     for (const listener of this.listeners.get(type) ?? []) await listener(event);
@@ -255,7 +260,9 @@ class TestForm extends TestElement {
 
 class TestFormData {
   constructor(form) { this.form = form; }
-  get() { return null; }
+  get(name) {
+    return this.form.fields?.find((field) => field.name === name)?.value ?? null;
+  }
   getAll(name) { return name === 'resourceIds' ? ['resource-feedback'] : []; }
 }
 
@@ -347,6 +354,9 @@ async function executeAdminScript(html) {
       requests.push({ url, init });
       const next = responses.shift();
       if (next instanceof Error) throw next;
+      if (typeof next === 'object' && next !== null && 'status' in next) {
+        return Response.json(next.body ?? {}, { status: next.status });
+      }
       return new Response('{}', { status: next });
     },
   });
@@ -384,7 +394,8 @@ test('la moderación de eventos muestra fallos recuperables y conserva los formu
     [503, 'No pudimos guardar el cambio. Inténtalo de nuevo en unos minutos.'],
     [401, 'Tu sesión terminó. Inicia sesión y vuelve a intentarlo.'],
     [403, 'Esta cuenta no tiene permiso para completar esta acción.'],
-    [409, 'El registro cambió desde la última lectura. Recarga la página antes de volver a guardar.'],
+    [{ status: 409, body: { error: 'RESOURCE_CONFLICT' } }, 'El registro cambió desde la última lectura. Recarga la página antes de volver a guardar.'],
+    [{ status: 409, body: { error: 'FUTURE_CONFLICT' } }, 'No pudimos completar el cambio porque hay un conflicto. Revisa el estado antes de volver a intentarlo.'],
     [422, 'Revisa la clasificación o los IDs seleccionados e inténtalo de nuevo.'],
     [new Error('offline'), 'No pudimos conectar con el servicio. Inténtalo de nuevo.'],
   ];
@@ -422,4 +433,76 @@ test('la moderación de eventos muestra fallos recuperables y conserva los formu
 
   assert.ok(page.requests.every(({ init }) => init.method === 'POST'));
   assert.ok(page.requests.every(({ init }) => init.headers['x-csrf-token'] === 'csrf-feedback'));
+});
+
+test('la clasificación conserva una corrección durante el guardado y recarga con la versión actualizada', async () => {
+  const resourceRow = new TestElement({ dataset: { adminResource: 'resource-feedback' }, rowType: 'resource', rowId: 'resource-feedback' });
+  const itemStatus = new TestElement();
+  resourceRow.status = itemStatus;
+  const fields = [
+    { tagName: 'INPUT', type: 'text', name: 'category', value: 'Otros' },
+    { tagName: 'INPUT', type: 'text', name: 'kind', value: 'content' },
+    { tagName: 'INPUT', type: 'text', name: 'format', value: 'Artículo' },
+    { tagName: 'INPUT', type: 'text', name: 'topics', value: '' },
+  ];
+  const form = new TestForm({ rowType: 'resource', rowId: 'resource-feedback', row: resourceRow, controls: [] });
+  form.fields = fields;
+  form.querySelectorAll = (selector) => selector === 'input, textarea, select' ? fields
+    : selector === 'datalist option' ? [] : [];
+  for (const field of fields) field.form = form;
+  form.querySelector = (selector) => selector === '[data-item-status]' ? itemStatus : null;
+  resourceRow.querySelector = (selector) => selector === '[data-item-status]' ? itemStatus : null;
+
+  const root = new TestElement({ dataset: { csrf: 'csrf-a' } });
+  root.controls = fields;
+  root.querySelectorAll = (selector) => selector === '[data-classification-form]' ? [form]
+    : selector === 'input, textarea, select' ? fields : [];
+  const initial = new TestElement();
+  initial.textContent = JSON.stringify({
+    resources: [{ id: 'resource-feedback', version: 1 }], profiles: [], claims: [],
+  });
+  const requests = [];
+  let resolveFirstSave;
+  let reloads = 0;
+  const source = await loadAdminScript();
+  runInNewContext(source, {
+    document: {
+      querySelector: (selector) => selector === '[data-creator-admin]' ? root
+        : selector === '#creator-admin-data' ? initial : null,
+    },
+    window: { location: { reload() { reloads += 1; } } },
+    HTMLElement: TestElement,
+    FormData: TestFormData,
+    Response,
+    TextEncoder,
+    fetch: async (url, options) => {
+      requests.push({ url, options });
+      if (options.method === 'GET') {
+        if (url.includes('/recursos/')) return Response.json({ resources: [{ id: 'resource-feedback', version: 2 }] });
+        if (url.includes('/perfiles/')) return Response.json({ profiles: [] });
+        return Response.json({ claims: [] });
+      }
+      if (requests.filter((request) => request.options.method === 'PATCH').length === 1) {
+        return new Promise((resolve) => { resolveFirstSave = resolve; });
+      }
+      return Response.json({ resource: { id: 'resource-feedback', version: 3 } });
+    },
+  });
+
+  const pending = form.dispatch('submit');
+  await Promise.resolve();
+  fields[0].value = 'Certificaciones';
+  resolveFirstSave(Response.json({ resource: { id: 'resource-feedback', version: 2 } }));
+  await pending;
+
+  assert.equal(JSON.parse(requests[0].options.body).category, 'Otros');
+  assert.equal(fields[0].value, 'Certificaciones');
+  assert.equal(reloads, 0, 'the correction stays visible after the first successful request');
+  assert.match(itemStatus.textContent, /Conservamos los cambios que aún no enviaste/);
+
+  await form.dispatch('submit');
+  const patches = requests.filter((request) => request.options.method === 'PATCH');
+  assert.equal(JSON.parse(patches[1].options.body).category, 'Certificaciones');
+  assert.equal(JSON.parse(patches[1].options.body).version, 2, 'the refreshed resource version is used');
+  assert.equal(reloads, 1, 'the page reloads after the corrected classification is saved');
 });

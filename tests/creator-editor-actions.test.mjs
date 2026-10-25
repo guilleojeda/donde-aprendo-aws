@@ -41,6 +41,7 @@ class TestElement {
   querySelector(selector) { return this.selectors[selector] ?? null; }
   querySelectorAll(selector) { return this.lists[selector] ?? []; }
   setAttribute(name, value) { this.attributes.set(name, value); }
+  getAttribute(name) { return this.attributes.get(name) ?? null; }
   reportValidity() { return true; }
   closest(selector) { return this.selectors[`closest:${selector}`] ?? null; }
 
@@ -296,7 +297,7 @@ test('resource URL conflicts and colliding link URLs explain the cause and allow
   assert.match(collision.status, /visible en tu perfil público/);
 });
 
-test('unknown and unreadable conflict responses keep cause-neutral guidance and retain the form value', async () => {
+test('known version conflicts require a reload while unknown conflicts stay neutral and retain the form value', async () => {
   const field = { value: 'slug-en-conflicto', setCustomValidity() {} };
   const form = new TestElement({
     values: { displayName: 'Ana', slug: field, city: '', country: '', bio: '' },
@@ -306,11 +307,13 @@ test('unknown and unreadable conflict responses keep cause-neutral guidance and 
   const { root } = baseRoot({ selectors: { '[data-profile-form]': form, '[data-profile-status]': status } });
   const reloads = { count: 0 };
   let responseIndex = 0;
+  const submittedVersions = [];
 
   await runEditor({
     root,
     reloads,
-    fetch: async () => {
+    fetch: async (_url, options) => {
+      submittedVersions.push(JSON.parse(options.body).version);
       responseIndex += 1;
       if (responseIndex === 1) return Response.json({ error: 'PROFILE_CONFLICT' }, { status: 409 });
       if (responseIndex === 2) return Response.json({ error: 'FUTURE_CONFLICT' }, { status: 409 });
@@ -319,7 +322,7 @@ test('unknown and unreadable conflict responses keep cause-neutral guidance and 
   });
   await form.dispatch('submit');
 
-  assert.equal(status.textContent, 'No pudimos completar el cambio porque hay un conflicto. Revisa el estado antes de volver a intentarlo.');
+  assert.equal(status.textContent, 'El perfil, recurso o enlace cambió desde que abriste la página. Recárgala antes de volver a guardar.');
   assert.equal(field.value, 'slug-en-conflicto');
   assert.equal(reloads.count, 0);
 
@@ -332,6 +335,248 @@ test('unknown and unreadable conflict responses keep cause-neutral guidance and 
   assert.equal(status.textContent, 'No pudimos completar el cambio porque hay un conflicto. Revisa el estado antes de volver a intentarlo.');
   assert.equal(field.value, 'slug-en-conflicto');
   assert.equal(reloads.count, 0);
+  assert.deepEqual(submittedVersions, [37, 37, 37], 'a conflict never silently advances the stale version');
+});
+
+test('a profile save keeps later edits in that form and refreshes its version before retrying', async () => {
+  const field = { tagName: 'INPUT', type: 'text', value: 'Ana enviada', name: 'displayName', setCustomValidity() {} };
+  const form = new TestElement({
+    values: { displayName: field, slug: 'ana', city: '', country: '', bio: '' },
+    lists: { 'input[name^="social-"]': [], 'input, textarea, select': [field] },
+  });
+  field.form = form;
+  const status = new TestElement();
+  const { root } = baseRoot({
+    selectors: { '[data-profile-form]': form, '[data-profile-status]': status },
+    lists: { 'input, textarea, select': [field] },
+  });
+  const reloads = { count: 0 };
+  const requests = [];
+  let resolveFirstSave;
+
+  await runEditor({
+    root,
+    reloads,
+    fetch: async (url, options) => {
+      requests.push({ url, options });
+      if (options.method === 'GET') return Response.json(editorData({ profile: { ...editorData().profile, version: 38 } }));
+      if (requests.filter((request) => request.options.method === 'PUT').length === 1) {
+        return new Promise((resolve) => { resolveFirstSave = resolve; });
+      }
+      return Response.json({ profile: { version: 39 } });
+    },
+  });
+
+  const pending = form.dispatch('submit');
+  await Promise.resolve();
+  field.value = 'Ana corrección posterior';
+  resolveFirstSave(Response.json({ profile: { version: 38 } }));
+  await pending;
+
+  assert.equal(JSON.parse(requests[0].options.body).displayName, 'Ana enviada');
+  assert.equal(field.value, 'Ana corrección posterior');
+  assert.equal(reloads.count, 0, 'the first success leaves the edited value in place');
+  assert.match(status.textContent, /Conservamos los cambios que aún no enviaste/);
+
+  await form.dispatch('submit');
+  assert.equal(JSON.parse(requests[2].options.body).displayName, 'Ana corrección posterior');
+  assert.equal(JSON.parse(requests[2].options.body).version, 38, 'the retry uses the refreshed profile version');
+  assert.equal(reloads.count, 1, 'the page refreshes after all edits have been saved');
+});
+
+test('a failed save keeps edits made while the request was pending and reports the failure', async () => {
+  const field = { tagName: 'INPUT', type: 'text', value: 'Ana enviada', name: 'displayName', setCustomValidity() {} };
+  const form = new TestElement({
+    values: { displayName: field, slug: 'ana', city: '', country: '', bio: '' },
+    lists: { 'input[name^="social-"]': [], 'input, textarea, select': [field] },
+  });
+  field.form = form;
+  const status = new TestElement();
+  const { root } = baseRoot({
+    selectors: { '[data-profile-form]': form, '[data-profile-status]': status },
+    lists: { 'input, textarea, select': [field] },
+  });
+  const reloads = { count: 0 };
+  let resolveSave;
+  await runEditor({
+    root,
+    reloads,
+    fetch: async () => new Promise((resolve) => { resolveSave = resolve; }),
+  });
+
+  const pending = form.dispatch('submit');
+  await Promise.resolve();
+  field.value = 'Ana corrección tras fallo';
+  resolveSave(Response.json({ error: 'SERVICE_UNAVAILABLE' }, { status: 503 }));
+  await pending;
+
+  assert.equal(field.value, 'Ana corrección tras fallo');
+  assert.match(status.textContent, /No pudimos guardar los cambios/);
+  assert.equal(reloads.count, 0, 'a failed request never reloads the page');
+});
+
+test('saving the profile preserves an edited series form and gives that save the refreshed profile version', async () => {
+  const profileField = { tagName: 'INPUT', type: 'text', value: 'Ana enviada', name: 'displayName', setCustomValidity() {} };
+  const profileForm = new TestElement({
+    values: { displayName: profileField, slug: 'ana', city: '', country: '', bio: '' },
+    lists: { 'input[name^="social-"]': [], 'input, textarea, select': [profileField] },
+  });
+  const seriesName = { tagName: 'INPUT', type: 'text', value: 'Lambda', name: 'name' };
+  const seriesSlug = { tagName: 'INPUT', type: 'text', value: 'lambda', name: 'slug' };
+  const seriesDescription = { tagName: 'TEXTAREA', value: '', name: 'description' };
+  const seriesStatus = new TestElement();
+  const seriesSection = new TestElement({ dataset: { seriesId: 'series-a' }, selectors: { '[data-series-status]': seriesStatus } });
+  const seriesForm = new TestElement({
+    values: { name: seriesName, slug: seriesSlug, description: seriesDescription },
+    selectors: { 'closest:[data-series-id]': seriesSection, '[data-series-form-status]': seriesStatus },
+    lists: { 'input, textarea, select': [seriesName, seriesSlug, seriesDescription] },
+  });
+  for (const control of [profileField, seriesName, seriesSlug, seriesDescription]) control.form = control === profileField ? profileForm : seriesForm;
+  const status = new TestElement();
+  const { root } = baseRoot({
+    selectors: { '[data-profile-form]': profileForm, '[data-profile-status]': status },
+    lists: {
+      '[data-series-form]': [seriesForm],
+      'input, textarea, select': [profileField, seriesName, seriesSlug, seriesDescription],
+    },
+  });
+  const reloads = { count: 0 };
+  const requests = [];
+  const data = editorData({ series: [{ id: 'series-a', name: 'Lambda', slug: 'lambda', description: '', version: 4 }] });
+  let resolveProfileSave;
+
+  await runEditor({
+    data,
+    root,
+    reloads,
+    fetch: async (url, options) => {
+      requests.push({ url, options });
+      if (options.method === 'GET') return Response.json({ ...data, profile: { ...data.profile, version: 38 } });
+      if (url.includes('/perfil/')) return new Promise((resolve) => { resolveProfileSave = resolve; });
+      return Response.json({ profile: { version: 39 }, series: { id: 'series-a', version: 5 } });
+    },
+  });
+
+  const savingProfile = profileForm.dispatch('submit');
+  await Promise.resolve();
+  seriesName.value = 'Lambda corregida';
+  seriesSlug.value = 'lambda-corregida';
+  seriesDescription.value = 'Descripción corregida';
+  resolveProfileSave(Response.json({ profile: { version: 38 } }));
+  await savingProfile;
+  assert.equal(seriesName.value, 'Lambda corregida');
+  assert.equal(reloads.count, 0, 'a different pending form prevents the success reload');
+  assert.match(status.textContent, /Conservamos los cambios que aún no enviaste/);
+
+  await seriesForm.dispatch('submit');
+  const seriesRequest = requests.find((request) => request.url.includes('/series/series-a/'));
+  assert.ok(seriesRequest);
+  assert.equal(JSON.parse(seriesRequest.options.body).profileVersion, 38);
+  assert.equal(JSON.parse(seriesRequest.options.body).version, 4);
+  assert.equal(JSON.parse(seriesRequest.options.body).name, 'Lambda corregida');
+  assert.equal(reloads.count, 1, 'saving the pending series completes the refresh');
+});
+
+test('a second photo with matching file metadata stays selected after the first photo finishes', async () => {
+  const firstFile = new File(['A'], 'profile.png', { type: 'image/png', lastModified: 123 });
+  const secondFile = new File(['B'], 'profile.png', { type: 'image/png', lastModified: 123 });
+  assert.equal(firstFile.name, secondFile.name);
+  assert.equal(firstFile.size, secondFile.size);
+  assert.equal(firstFile.lastModified, secondFile.lastModified);
+  assert.equal(await firstFile.text(), 'A');
+  assert.equal(await secondFile.text(), 'B');
+  assert.notEqual(firstFile, secondFile, 'the byte contents belong to distinct File selections');
+
+  const profileField = { tagName: 'INPUT', type: 'text', value: 'Ana', name: 'displayName', setCustomValidity() {} };
+  const profileForm = new TestElement({
+    values: { displayName: profileField, slug: 'ana', city: '', country: '', bio: '' },
+    lists: { 'input[name^="social-"]': [], 'input, textarea, select': [profileField] },
+  });
+  profileField.form = profileForm;
+  const fileInput = { tagName: 'INPUT', type: 'file', files: [firstFile], disabled: false };
+  const photoForm = new TestElement({
+    selectors: { 'input[type="file"]': fileInput },
+    lists: {
+      'input, textarea, select': [fileInput],
+      'button, input[data-busy-control]': [fileInput],
+    },
+  });
+  fileInput.form = photoForm;
+  const profileStatus = new TestElement();
+  const photoStatus = new TestElement();
+  const { root } = baseRoot({
+    selectors: {
+      '[data-profile-form]': profileForm,
+      '[data-profile-status]': profileStatus,
+      '[data-photo-form]': photoForm,
+      '[data-photo-status]': photoStatus,
+    },
+    lists: { 'input, textarea, select': [profileField, fileInput] },
+  });
+  const initialProfile = { ...editorData().profile, version: 37 };
+  const requests = [];
+  let profileVersion = 37;
+  let finalizationCount = 0;
+  let resolveFirstFinalization;
+  const reloads = { count: 0 };
+
+  await runEditor({
+    data: editorData({ profile: initialProfile }),
+    root,
+    reloads,
+    fetch: async (url, options = {}) => {
+      requests.push({ url, options });
+      if (url === '/api/creador/foto/autorizar/') {
+        return Response.json({
+          uploadId: `upload-${finalizationCount + 1}`,
+          post: { url: 'https://storage.example/upload', fields: {} },
+        });
+      }
+      if (url === 'https://storage.example/upload') return new Response(null, { status: 204 });
+      if (url === '/api/creador/foto/finalizar/') {
+        finalizationCount += 1;
+        profileVersion += 1;
+        return finalizationCount === 1
+          ? new Promise((resolve) => { resolveFirstFinalization = resolve; })
+          : Response.json({});
+      }
+      if (url === '/api/creador/perfil/' && options.method === 'GET') {
+        return Response.json(editorData({ profile: { ...initialProfile, version: profileVersion } }));
+      }
+      if (url === '/api/creador/perfil/' && options.method === 'PUT') {
+        profileVersion += 1;
+        return Response.json({ profile: { ...initialProfile, version: profileVersion } });
+      }
+      return new Response('not found', { status: 404 });
+    },
+  });
+
+  const firstPhotoSave = photoForm.dispatch('submit');
+  while (!resolveFirstFinalization) await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(fileInput.disabled, true, 'the file field remains disabled during its own upload');
+  profileField.value = 'Ana corregida mientras finaliza la foto';
+  resolveFirstFinalization(Response.json({}));
+  await firstPhotoSave;
+
+  assert.equal(fileInput.files[0], firstFile);
+  assert.equal(reloads.count, 0, 'the first photo does not reload over the pending profile correction');
+  assert.match(photoStatus.textContent, /Conservamos los cambios que aún no enviaste/);
+
+  fileInput.files = [secondFile];
+  assert.equal(fileInput.disabled, false, 'the next selection is available after the first upload');
+  await profileForm.dispatch('submit');
+  assert.equal(fileInput.files[0], secondFile);
+  assert.equal(reloads.count, 0, 'metadata equality must not hide the second file selection');
+  assert.match(profileStatus.textContent, /Conservamos los cambios que aún no enviaste/);
+
+  await photoForm.dispatch('submit');
+  const profileBody = requests.find(({ url, options }) => url === '/api/creador/perfil/' && options.method === 'PUT');
+  const secondAuthorization = requests.filter(({ url }) => url === '/api/creador/foto/autorizar/')[1];
+  assert.equal(JSON.parse(profileBody.options.body).version, 38);
+  assert.equal(JSON.parse(secondAuthorization.options.body).version, 39);
+  assert.equal(finalizationCount, 2, 'the replacement photo can finish its upload and finalization');
+  assert.equal(fileInput.files[0], secondFile);
+  assert.equal(reloads.count, 1, 'the page refreshes only after the replacement is saved');
 });
 
 test('a lost photo finalization acknowledgement reports an unknown result after the real service commits', async () => {

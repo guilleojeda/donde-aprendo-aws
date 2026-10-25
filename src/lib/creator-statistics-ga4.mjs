@@ -426,7 +426,7 @@ function eventValue(row, name) {
 }
 
 function readEventTotals(report, metric) {
-  if (report.rowsOmitted && report.warnings.length > 0) return null;
+  if (report.rows.length === 0 && report.warnings.length > 0) return null;
   if (reportHasUnknownValues(report)) return null;
   if (report.rows.length === 0) return 0;
   return eventValue(report.rows[0], metric);

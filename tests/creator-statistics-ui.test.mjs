@@ -6,8 +6,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 import { transform } from '@astrojs/compiler-rs';
 import { experimental_AstroContainer } from 'astro/container';
+import { createCachedCreatorStatistics } from '../src/lib/creator-statistics.mjs';
+import { createGA4StatisticsReader } from '../src/lib/creator-statistics-ga4.mjs';
 import { getStatisticsLinkLabel, isIdentifiableStatisticsLinkId } from '../src/lib/creator-statistics-labels.ts';
 import { parseCreatorStatisticsReady } from '../src/lib/creator-statistics-response.ts';
+import { callApi, createCreatorPagesHarness, sessionCsrf } from './fixtures/creator-pages.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const componentPath = path.join(root, 'src/components/CreatorStatistics.astro');
@@ -90,6 +93,17 @@ async function render(value) {
   return container.renderToString(component, { props: { result: pageResult(value) } });
 }
 
+function explicitEmptyReport(dimensions, metrics, metadata = {}) {
+  return {
+    dimensionHeaders: dimensions.map((name) => ({ name })),
+    metricHeaders: metrics.map((name) => ({ name, type: 'TYPE_INTEGER' })),
+    rows: [],
+    rowCount: 0,
+    metadata: { timeZone: 'America/Buenos_Aires', ...metadata },
+    propertyQuota: { tokensPerDay: { consumed: 1, remaining: 199_999 } },
+  };
+}
+
 test('Google Analytics grouped, missing, and blank link IDs remain non-identifying in the parser and rendered dashboard', async () => {
   const linkRows = [
     { linkId: '(other)', clicks: 8 },
@@ -150,6 +164,81 @@ test('valid zero reports retain their empty activity messages', async () => {
   assert.match(html, /<td>0<\/td>/);
   assert.match(html, /class="creator-statistics__table-wrap"[^>]*role="region"[^>]*tabindex="0"/);
   assert.doesNotMatch(html, /No hay cifras diarias disponibles|Google Analytics limitó el detalle/);
+});
+
+test('explicit empty limited GA4 results stay unknown through the authenticated API, cache, parser, and dashboard', async () => {
+  const reports = [
+    explicitEmptyReport([], ['eventCount', 'totalUsers'], { dataLossFromOtherRow: true }),
+    explicitEmptyReport(['date', 'eventName'], ['eventCount'], {
+      samplingMetadatas: [{ samplesReadCount: '20', samplingSpaceSize: '100' }],
+    }),
+    explicitEmptyReport(['customEvent:link_id'], ['eventCount'], { dataLossFromOtherRow: true }),
+    explicitEmptyReport(['sessionSourceMedium'], ['eventCount'], {
+      samplingMetadatas: [{ samplesReadCount: '20', samplingSpaceSize: '100' }],
+    }),
+    explicitEmptyReport([], ['eventCount'], {
+      samplingMetadatas: [{ samplesReadCount: '20', samplingSpaceSize: '100' }],
+    }),
+  ];
+  let cached;
+  let providerReads = 0;
+  const now = Date.parse('2026-10-24T15:00:00.000Z');
+  const reader = createGA4StatisticsReader({
+    propertyId: '424203315',
+    captureStartedAt: '2026-10-23T23:38:00Z',
+    now: () => now,
+    getAccessToken: async () => 'fixture-access-token',
+    fetch: async () => {
+      providerReads += 1;
+      return Response.json({ reports });
+    },
+  });
+  const statistics = createCachedCreatorStatistics({
+    reader,
+    now: () => now,
+    cache: {
+      async get() { return cached === undefined ? undefined : structuredClone(cached); },
+      async put(_key, value) { cached = structuredClone(value); },
+    },
+  });
+  const harness = await createCreatorPagesHarness({ statistics });
+  const saved = await callApi(harness, '/api/creador/perfil', {
+    session: 'creator-a',
+    method: 'PUT',
+    csrf: sessionCsrf['creator-a'],
+    body: { displayName: 'Creador de analítica', slug: 'creador-de-analitica' },
+  });
+  assert.equal(saved.status, 200);
+  const { profile } = await saved.json();
+  const published = await callApi(harness, '/api/creador/perfil/publicar', {
+    session: 'creator-a',
+    method: 'POST',
+    csrf: sessionCsrf['creator-a'],
+    body: {},
+  });
+  assert.equal(published.status, 200);
+
+  const response = await callApi(harness, '/api/creador/estadisticas/', { session: 'creator-a' });
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('cache-control'), 'private, no-store');
+  const body = await response.json();
+  assert.deepEqual(body.totals, { views: null, visitors: null, clicks: null });
+  assert.deepEqual(cached.report.totals, body.totals, 'unknown values must remain cacheable as unknown');
+
+  const warmedResponse = await callApi(harness, '/api/creador/estadisticas/', { session: 'creator-a' });
+  assert.equal(warmedResponse.status, 200);
+  assert.deepEqual((await warmedResponse.json()).totals, body.totals);
+  assert.equal(providerReads, 1, 'the valid limited response should be reused from cache');
+
+  const parsed = parseCreatorStatisticsReady(body, 7, 1, profile.id);
+  assert.ok(parsed, 'the authenticated API payload with nullable totals is a valid ready report');
+  const html = await render(parsed);
+  const totals = html.match(/<section class="creator-statistics__totals"[^]*?<\/section>/)?.[0];
+  assert.ok(totals);
+  assert.equal((totals.match(/Datos limitados/g) ?? []).length, 3);
+  assert.doesNotMatch(totals, /<p>0<\/p>/);
+  assert.match(html, /Google Analytics agrupó parte del detalle en “\(other\)”/);
+  assert.match(html, /Esta sección se calculó con una muestra de los datos disponibles/);
 });
 
 test('an empty page after results shrink keeps a route back to the last page with data', async () => {

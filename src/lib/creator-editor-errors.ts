@@ -8,6 +8,9 @@ export async function creatorEditorFailureMessage(response: Response, fallback: 
   if (response.status !== 409 && response.status !== 422) return fallback;
   try {
     const error = responseErrorCode(await response.clone().json());
+    if (response.status === 409 && ['PROFILE_CONFLICT', 'RESOURCE_CONFLICT', 'PLACEMENT_CONFLICT'].includes(error ?? '')) {
+      return 'El perfil, recurso o enlace cambió desde que abriste la página. Recárgala antes de volver a guardar.';
+    }
     if (response.status === 409 && error === 'SLUG_TAKEN') {
       return 'Esa dirección ya está reservada. Elige otra dirección para tu página.';
     }

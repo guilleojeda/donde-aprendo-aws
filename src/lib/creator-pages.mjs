@@ -44,10 +44,6 @@ function isRecord(value) {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function copy(value) {
-  return structuredClone(value);
-}
-
 function hash(value) {
   return createHash('sha256').update(value, 'utf8').digest('hex');
 }
@@ -171,20 +167,75 @@ function validateResourceUrl(url) {
 
 function cleanPublicProfile(profile) {
   if (typeof profile.id !== 'string' || !profile.id || typeof profile.displayName !== 'string'
-    || typeof profile.slug !== 'string' || !Number.isSafeInteger(profile.version) || profile.version < 0
+    || profile.displayName.length > TEXT_FIELD_LIMITS.get('displayName')
+    || typeof profile.slug !== 'string' || profile.slug.length > 40
+    || !Number.isSafeInteger(profile.version) || profile.version < 0
     || typeof profile.published !== 'boolean' || typeof profile.hidden !== 'boolean') {
     fail(503, 'INVALID_PROFILE', 'profile data is malformed');
   }
+
+  const optionalText = {};
+  for (const field of ['city', 'country', 'bio']) {
+    if (!Object.hasOwn(profile, field)) continue;
+    const value = profile[field];
+    if (typeof value !== 'string' || value.length > TEXT_FIELD_LIMITS.get(field)) {
+      fail(503, 'INVALID_PROFILE', 'profile data is malformed');
+    }
+    optionalText[field] = value;
+  }
+
+  let programs = [];
+  if (Object.hasOwn(profile, 'programs')) {
+    if (!Array.isArray(profile.programs) || profile.programs.some((program) => typeof program !== 'string' || !PROGRAMS.has(program))) {
+      fail(503, 'INVALID_PROFILE', 'profile data is malformed');
+    }
+    programs = [...profile.programs];
+  }
+
+  let socials = {};
+  if (Object.hasOwn(profile, 'socials')) {
+    if (!isRecord(profile.socials)) fail(503, 'INVALID_PROFILE', 'profile data is malformed');
+    socials = {};
+    for (const [key, url] of Object.entries(profile.socials)) {
+      if (!SOCIALS.has(key) || typeof url !== 'string' || url.length > SOCIAL_FIELD_LIMIT) {
+        fail(503, 'INVALID_PROFILE', 'profile data is malformed');
+      }
+      if (url) {
+        try {
+          validateCatalogUrl(url);
+        } catch {
+          fail(503, 'INVALID_PROFILE', 'profile data is malformed');
+        }
+      }
+      socials[key] = url;
+    }
+  }
+
+  let photo;
+  if (Object.hasOwn(profile, 'photo')) {
+    const storedPhoto = profile.photo;
+    const validVersion = (typeof storedPhoto?.version === 'string'
+      && /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(storedPhoto.version))
+      || (Number.isSafeInteger(storedPhoto?.version) && storedPhoto.version >= 0);
+    if (!isRecord(storedPhoto) || !validVersion) fail(503, 'INVALID_PROFILE', 'profile data is malformed');
+    photo = { version: storedPhoto.version };
+    if (Object.hasOwn(storedPhoto, 'url')) {
+      const url = storedPhoto.url;
+      if (typeof url !== 'string' || url !== `/media/fotos/${profile.id}/${String(storedPhoto.version)}.webp`) {
+        fail(503, 'INVALID_PROFILE', 'profile data is malformed');
+      }
+      photo.url = url;
+    }
+  }
+
   const result = {
     id: profile.id,
     displayName: profile.displayName,
     slug: profile.slug,
-    ...(profile.city !== undefined ? { city: profile.city } : {}),
-    ...(profile.country !== undefined ? { country: profile.country } : {}),
-    programs: Array.isArray(profile.programs) ? [...profile.programs] : [],
-    ...(profile.bio !== undefined ? { bio: profile.bio } : {}),
-    socials: isRecord(profile.socials) ? { ...profile.socials } : {},
-    ...(profile.photo !== undefined ? { photo: copy(profile.photo) } : {}),
+    ...optionalText,
+    programs,
+    socials,
+    ...(photo ? { photo } : {}),
     published: profile.published === true,
     hidden: profile.hidden === true,
     version: profile.version,
@@ -194,6 +245,9 @@ function cleanPublicProfile(profile) {
 
 function publicLink(placement, resource, { includeModerationState = false } = {}) {
   const url = currentResourceUrl(resource);
+  if (Object.hasOwn(resource, 'description') && typeof resource.description !== 'string') {
+    fail(503, 'INVALID_LINK', 'link description is malformed');
+  }
   if (includeModerationState && Object.hasOwn(resource, 'hidden') && typeof resource.hidden !== 'boolean') {
     fail(503, 'INVALID_LINK', 'link moderation state is malformed');
   }
@@ -1538,13 +1592,15 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       if (typeof profile.slug !== 'string') fail(503, 'INVALID_PROFILE', 'profile slug is malformed');
       if (profile.hidden === true || profile.published !== true) return { status: 404 };
       try { normalizeSlug(profile.slug); } catch { fail(503, 'INVALID_PROFILE', 'profile slug is malformed'); }
+      const publicProfile = cleanPublicProfile(profile);
+      if (!publicProfile.displayName.trim()) fail(503, 'INVALID_PROFILE', 'profile display name is malformed');
       if (profile.slug !== slug) {
         const pathSuffix = suffix || '/';
         return { status: 308, redirectTo: `/c/${encodeURIComponent(profile.slug)}${pathSuffix}${search}` };
       }
       const series = await seriesForProfile(profile.id);
       const links = await profileLinks(profile.id, { series, publicTags: true, profileSlug: profile.slug });
-      return { status: 200, profile: cleanPublicProfile(profile), links, series: publicSeriesSummaries(profile, series, links) };
+      return { status: 200, profile: publicProfile, links, series: publicSeriesSummaries(profile, series, links) };
     } catch {
       return { status: 503 };
     }
@@ -1570,6 +1626,8 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       if (typeof profile.published !== 'boolean' || typeof profile.slug !== 'string') fail(503, 'INVALID_PROFILE', 'profile publication state is malformed');
       if (profile.hidden === true || profile.published !== true) return { status: 404 };
       try { normalizeSlug(profile.slug); } catch { fail(503, 'INVALID_PROFILE', 'profile slug is malformed'); }
+      const publicProfile = cleanPublicProfile(profile);
+      if (!publicProfile.displayName.trim()) fail(503, 'INVALID_PROFILE', 'profile display name is malformed');
 
       const seriesAlias = await readSeriesAlias(profile.id, seriesSlug);
       if (!seriesAlias) return { status: 404 };
@@ -1591,7 +1649,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
           redirectTo: `/c/${encodeURIComponent(canonicalProfile)}/series/${encodeURIComponent(series.slug)}/${search}`,
         };
       }
-      return { status: 200, profile: cleanPublicProfile(profile), series, links: chapters };
+      return { status: 200, profile: publicProfile, series, links: chapters };
     } catch {
       return { status: 503 };
     }

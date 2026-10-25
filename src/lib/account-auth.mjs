@@ -11,6 +11,7 @@ import {
 } from 'openid-client';
 
 const LOGIN_ATTEMPT_MS = 10 * 60 * 1000;
+const OIDC_CLOCK_TOLERANCE_SECONDS = 30;
 const SESSION_MS = 7 * 24 * 60 * 60 * 1000;
 const SESSION_COOKIE = 'da_session';
 const BROWSER_COOKIE = 'da_oauth';
@@ -375,6 +376,13 @@ export function createAccountAuth({ origin, issuer, clientId, cognitoDomain, sto
       || !Number.isSafeInteger(authTimeMs)) {
       return failure('acceso-invalido');
     }
+    // prompt=login is browser-visible and can be changed. Bind the signed
+    // authentication time to this server-side attempt, at OIDC second precision.
+    const attemptStartedAt = Math.floor((attempt.expiresAt - LOGIN_ATTEMPT_MS) / 1000);
+    if (claims.auth_time < attemptStartedAt
+      || claims.auth_time > Math.floor(currentTime() / 1000) + OIDC_CLOCK_TOLERANCE_SECONDS) {
+      return failure('acceso-invalido');
+    }
 
     let account;
     try {
@@ -411,6 +419,13 @@ export function createAccountAuth({ origin, issuer, clientId, cognitoDomain, sto
     return redirect(`${accountOrigin}/cuenta/`, [sessionCookie(rawSession, expiresAt)]);
   }
 
+  function finishProviderLogout() {
+    const logoutUrl = new URL('/logout', providerOrigin);
+    logoutUrl.searchParams.set('client_id', clientId);
+    logoutUrl.searchParams.set('logout_uri', `${accountOrigin}/cuenta/`);
+    return redirect(logoutUrl.href, [clearCookie(SESSION_COOKIE)]);
+  }
+
   async function logout(request) {
     if (request.headers.get('origin') !== accountOrigin) {
       return new Response(null, { status: 403, headers: privateHeaders() });
@@ -426,7 +441,9 @@ export function createAccountAuth({ origin, issuer, clientId, cognitoDomain, sto
     }
     if (current.state === 'unavailable') return failure('no-disponible');
     if (current.state !== 'authenticated' && current.state !== 'disabled') {
-      return redirect(`${accountOrigin}/cuenta/`, [clearCookie(SESSION_COOKIE)]);
+      // A strongly consistent read can confirm a prior deletion even when its
+      // acknowledgement was lost. The retry must still close the provider SSO.
+      return finishProviderLogout();
     }
 
     const contentType = request.headers.get('content-type') ?? '';
@@ -450,10 +467,7 @@ export function createAccountAuth({ origin, issuer, clientId, cognitoDomain, sto
     } catch {
       return failure('no-disponible');
     }
-    const logoutUrl = new URL('/logout', providerOrigin);
-    logoutUrl.searchParams.set('client_id', clientId);
-    logoutUrl.searchParams.set('logout_uri', `${accountOrigin}/cuenta/`);
-    return redirect(logoutUrl.href, [clearCookie(SESSION_COOKIE)]);
+    return finishProviderLogout();
   }
 
   async function handle(request) {

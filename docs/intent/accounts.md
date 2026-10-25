@@ -19,6 +19,12 @@ entrada y retorno son fijos. Un callback sólo puede consumirse una vez; fallar,
 cancelar o vencer permite iniciar otro acceso sin exponer códigos ni el error
 privado del proveedor.
 
+El callback contrasta `auth_time` firmado con el inicio del intento guardado
+en servidor, a precisión de segundos. No basta enviar `prompt=login` en un
+enlace que el navegador puede modificar. Una autenticación válida durante el
+intento sigue siendo válida si el retorno tarda, dentro de los diez minutos
+del intento; no se impone otro plazo corto para completar el recorrido.
+
 La identidad es emisor más `sub`, independientemente del correo. La cookie de
 sesión es opaca, limitada al host, `Secure`, `HttpOnly`, `SameSite=Lax`, con
 siete días absolutos de duración. Consultarla no extiende su vencimiento.
@@ -36,6 +42,8 @@ Cerrar sesión requiere POST, origen válido y token CSRF de esa sesión. Se
 confirma su revocación antes de borrar la cookie y terminar la sesión de
 Cognito. Repetir la salida es seguro; reutilizar una cookie revocada no da
 acceso. Un fallo al revocar no se comunica como salida completada.
+Si un reintento confirma que la sesión local ya no existe, completa de todas
+formas el cierre de Cognito. Una lectura fallida no confirma la revocación.
 
 El trigger `PostConfirmation_ConfirmForgotPassword` avanza la versión y el
 límite de autenticación de la cuenta. Las sesiones anteriores fallan en su
