@@ -3,6 +3,8 @@ const FRESHNESS_MS = 60 * 60 * 1000;
 const RETENTION_MS = 7 * 24 * FRESHNESS_MS;
 const LINK_PAGE_SIZE = 100;
 const COUNTERS = ['views', 'visitors', 'clicks'];
+// Only read() owns the bounded retry for this internal result.
+const WINDOW_CHANGED = Symbol('statistics window changed');
 
 function isObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -50,6 +52,14 @@ function localDate(timeZone, milliseconds) {
   } catch {
     return null;
   }
+}
+
+function isCurrentWindow(report, milliseconds) {
+  return localDate(report.range.timeZone, milliseconds) === report.range.endDate;
+}
+
+function isFreshAt(report, updatedAt, milliseconds) {
+  return milliseconds < updatedAt + FRESHNESS_MS && isCurrentWindow(report, milliseconds);
 }
 
 function validReport(report, key) {
@@ -137,14 +147,17 @@ export function createCachedCreatorStatistics({ reader, cache, now = Date.now } 
     let at = validNow(now);
     let previous;
     try {
-      previous = validEnvelope(await cache.get(key), key, at);
+      const cached = await cache.get(key);
+      at = validNow(now);
+      previous = validEnvelope(cached, key, at);
     } catch {
       // The cache is an optimization. A read outage must not block the provider.
       previous = null;
+      at = validNow(now);
     }
 
     if (previous && at < previous.expiresAt
-      && localDate(previous.report.range.timeZone, at) === previous.report.range.endDate) {
+      && isCurrentWindow(previous.report, at)) {
       return response(previous.report, 'fresh', previous.updatedAt);
     }
 
@@ -159,6 +172,9 @@ export function createCachedCreatorStatistics({ reader, cache, now = Date.now } 
     }
 
     const updatedAt = validNow(now);
+    if (!isCurrentWindow(report, updatedAt)) {
+      return { [WINDOW_CHANGED]: true, report, updatedAt };
+    }
     const envelope = {
       schemaVersion: SCHEMA_VERSION,
       report: structuredClone(report),
@@ -171,20 +187,36 @@ export function createCachedCreatorStatistics({ reader, cache, now = Date.now } 
     } catch {
       // A healthy provider response remains useful when the persistent cache is down.
     }
+    const completedAt = validNow(now);
+    if (!isFreshAt(report, updatedAt, completedAt)) {
+      return { [WINDOW_CHANGED]: true, report, updatedAt };
+    }
     return response(report, 'fresh', updatedAt);
   }
 
-  function read(input) {
+  async function read(input) {
     const key = normalizeKey(input);
     const fingerprint = JSON.stringify([key.profileId, key.period, key.page]);
-    let shared = inFlight.get(fingerprint);
-    if (!shared) {
-      shared = readOnce(key).finally(() => {
-        if (inFlight.get(fingerprint) === shared) inFlight.delete(fingerprint);
-      });
-      inFlight.set(fingerprint, shared);
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      let shared = inFlight.get(fingerprint);
+      if (!shared) {
+        shared = readOnce(key).finally(() => {
+          if (inFlight.get(fingerprint) === shared) inFlight.delete(fingerprint);
+        });
+        inFlight.set(fingerprint, shared);
+      }
+      const value = await shared;
+      const checkedAt = validNow(now);
+      if (value[WINDOW_CHANGED]) {
+        if (attempt === 1) return response(value.report, 'stale', value.updatedAt);
+        continue;
+      }
+      const updatedAt = Date.parse(value.updatedAt);
+      if (value.freshness !== 'fresh' || isFreshAt(value, updatedAt, checkedAt)) {
+        return structuredClone(value);
+      }
+      if (attempt === 1) return { ...structuredClone(value), freshness: 'stale' };
     }
-    return shared.then((value) => structuredClone(value));
   }
 
   return { read };

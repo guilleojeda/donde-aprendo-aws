@@ -37,6 +37,16 @@ function report(dimensions, metrics, values, rowCount = values.length) {
   };
 }
 
+function explicitEmptyReport(dimensions, metrics, metadata = {}) {
+  return {
+    dimensionHeaders: dimensions.map((name) => ({ name })),
+    metricHeaders: metrics.map((name) => ({ name, type: 'TYPE_INTEGER' })),
+    rows: [],
+    rowCount: 0,
+    metadata: { timeZone: TIME_ZONE, ...metadata },
+  };
+}
+
 function reader({ reports, now = () => NOW, fetch: fetchImpl } = {}) {
   return createGA4StatisticsReader({
     propertyId: PROPERTY,
@@ -118,6 +128,50 @@ test('protobuf-default empty reports with GA4 limits stay ready with unknown met
     { section: 'sources', code: 'restricted' },
     { section: 'clicks', code: 'data-loss' },
   ]);
+});
+
+test('explicit empty reports with other-row or sampling limits leave totals unknown', async () => {
+  for (const [code, limited] of [
+    ['other-row', { dataLossFromOtherRow: true }],
+    ['sampling', { samplingMetadatas: [{ samplesReadCount: '20', samplingSpaceSize: '100' }] }],
+  ]) {
+    const reports = [
+      explicitEmptyReport([], ['eventCount', 'totalUsers'], limited),
+      explicitEmptyReport(['date', 'eventName'], ['eventCount'], limited),
+      explicitEmptyReport(['customEvent:link_id'], ['eventCount'], limited),
+      explicitEmptyReport(['sessionSourceMedium'], ['eventCount'], limited),
+      explicitEmptyReport([], ['eventCount'], limited),
+    ];
+    const result = await reader({ reports }).read({ profileId: PROFILE, period: 7, page: 1 });
+
+    assert.deepEqual(result.totals, { views: null, visitors: null, clicks: null }, code);
+    assert.ok(result.daily.filter(({ date }) => date >= '2026-10-23')
+      .every(({ views, clicks }) => views === null && clicks === null), code);
+    assert.ok(result.warnings.some(({ code: warningCode }) => warningCode === code));
+  }
+});
+
+test('sampled reports with returned rows retain their numeric observations', async () => {
+  const reports = [
+    report([], ['eventCount', 'totalUsers'], [[[], [4, 3]]]),
+    report(['date', 'eventName'], ['eventCount'], [
+      [['20261024', 'creator_view'], [4]],
+      [['20261024', 'creator_link_click'], [3]],
+    ]),
+    report(['customEvent:link_id'], ['eventCount'], [[['placement-a'], [3]]]),
+    report(['sessionSourceMedium'], ['eventCount'], [[['newsletter / email'], [4]]]),
+    report([], ['eventCount'], [[[], [3]]]),
+  ];
+  for (const item of reports) {
+    item.metadata.samplingMetadatas = [{ samplesReadCount: '20', samplingSpaceSize: '100' }];
+  }
+
+  const result = await reader({ reports }).read({ profileId: PROFILE, period: 7, page: 1 });
+
+  assert.deepEqual(result.totals, { views: 4, visitors: 3, clicks: 3 });
+  assert.deepEqual(result.daily.at(-1), { date: '2026-10-24', views: 4, clicks: 3 });
+  assert.deepEqual(result.links.rows, [{ linkId: 'placement-a', clicks: 3 }]);
+  assert.deepEqual(result.sources, [{ sourceMedium: 'newsletter / email', views: 4 }]);
 });
 
 test('partial empty shapes, emptyReason and malformed metadata are unavailable', async () => {

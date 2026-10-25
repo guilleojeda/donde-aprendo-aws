@@ -5,6 +5,7 @@ import type {
 } from '../types/creators';
 import { creatorEditorFailureMessage } from '../lib/creator-editor-errors';
 import { creatorSeriesFailureMessage } from '../lib/creator-series-editor-errors';
+import { createCreatorFormState, type FormValueSnapshot } from './creator-form-state';
 
 const root = document.querySelector<HTMLElement>('[data-creator-editor]');
 const initial = document.querySelector<HTMLScriptElement>('#creator-editor-data');
@@ -32,12 +33,14 @@ if (root && initial?.textContent) {
   }
 }
 
+const formState = root ? createCreatorFormState(root) : undefined;
 const csrfToken = root?.dataset.csrf;
 const pageStatus = root?.querySelector<HTMLElement>('[data-page-status]');
 const MAX_REQUEST_BYTES = 32 * 1024;
 const REQUEST_TOO_LARGE = 'creator-request-too-large';
 const SERIES_FOCUS_PREFIX = 'creator-series-';
 const PHOTO_FINALIZATION_UNCONFIRMED = 'No pudimos confirmar si la foto se guardó. Recarga la página para comprobar cuál está activa antes de volver a intentarlo.';
+let activeWriteRequests = 0;
 
 function restoreSeriesFocus() {
   const hash = window.location.hash;
@@ -97,15 +100,21 @@ async function api(path: string, method: string, body?: unknown): Promise<Respon
   if (serializedBody !== undefined && new TextEncoder().encode(serializedBody).byteLength > MAX_REQUEST_BYTES) {
     throw new Error(REQUEST_TOO_LARGE);
   }
-  return fetch(`${path.replace(/\/$/, '')}/`, {
-    method,
-    credentials: 'same-origin',
-    headers: {
-      'x-csrf-token': csrfToken,
-      ...(body === undefined ? {} : { 'content-type': 'application/json' }),
-    },
-    ...(serializedBody === undefined ? {} : { body: serializedBody }),
-  });
+  const write = method !== 'GET';
+  if (write) activeWriteRequests += 1;
+  try {
+    return await fetch(`${path.replace(/\/$/, '')}/`, {
+      method,
+      credentials: 'same-origin',
+      headers: {
+        'x-csrf-token': csrfToken,
+        ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+      },
+      ...(serializedBody === undefined ? {} : { body: serializedBody }),
+    });
+  } finally {
+    if (write) activeWriteRequests -= 1;
+  }
 }
 
 function announceError(status: number, target: Element | null | undefined) {
@@ -120,15 +129,57 @@ function linksStatus() {
   return root?.querySelector<HTMLElement>('[data-links-status]');
 }
 
-async function finishWrite(response: Response, statusTarget: Element | null | undefined, successMessage: string) {
+async function refreshEditorState(): Promise<boolean> {
+  try {
+    const response = await api('/api/creador/perfil', 'GET');
+    if (!response.ok) return false;
+    const refreshed: unknown = await response.json();
+    if (!isEditorData(refreshed)) return false;
+    state = refreshed;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function finishSuccessfulWrite(
+  statusTarget: Element | null | undefined,
+  successMessage: string,
+  submittedValues?: FormValueSnapshot,
+  focusId?: string,
+) {
+  formState?.commit(submittedValues);
+  const hasPendingChanges = formState?.hasPendingChanges() ?? false;
+  if (hasPendingChanges || activeWriteRequests > 0) {
+    if (focusId) window.location.hash = focusId;
+    const refreshed = await refreshEditorState();
+    const message = hasPendingChanges
+      ? refreshed
+        ? `${successMessage} Conservamos los cambios que aún no enviaste; puedes seguir editándolos y guardarlos.`
+        : `${successMessage} No pudimos actualizar el estado. Conservamos los cambios sin enviar; cópialos o anótalos antes de recargar. Después de recargar, vuelve a ingresarlos y guárdalos.`
+      : `${successMessage} Conservamos la página abierta mientras termina otra acción. Recarga después para ver el estado actualizado.`;
+    announce(statusTarget, message, 'success');
+    return true;
+  }
+
+  announce(statusTarget, successMessage, 'success');
+  if (focusId) window.location.hash = focusId;
+  window.location.reload();
+  return true;
+}
+
+async function finishWrite(
+  response: Response,
+  statusTarget: Element | null | undefined,
+  successMessage: string,
+  submittedValues?: FormValueSnapshot,
+) {
   if (!response.ok) {
     const message = await creatorEditorFailureMessage(response, statusText(response.status));
     announce(statusTarget, message, 'error');
     return false;
   }
-  announce(statusTarget, successMessage, 'success');
-  window.location.reload();
-  return true;
+  return finishSuccessfulWrite(statusTarget, successMessage, submittedValues);
 }
 
 async function finishSeriesWrite(
@@ -136,16 +187,14 @@ async function finishSeriesWrite(
   statusTarget: Element | null | undefined,
   successMessage: string,
   focusId?: string,
+  submittedValues?: FormValueSnapshot,
 ) {
   if (!response.ok) {
     const message = await creatorSeriesFailureMessage(response, statusText(response.status));
     announce(statusTarget, message, 'error');
     return false;
   }
-  announce(statusTarget, successMessage, 'success');
-  if (focusId) window.location.hash = focusId;
-  window.location.reload();
-  return true;
+  return finishSuccessfulWrite(statusTarget, successMessage, submittedValues, focusId);
 }
 
 function seriesStatus(element: Element): HTMLElement | null {
@@ -235,6 +284,7 @@ if (root && state && csrfToken) {
     event.preventDefault();
     if (!validateSocialUrls(profileForm)) return;
     const values = new FormData(profileForm);
+    const submittedValues = formState?.capture(profileForm);
     const socials: Record<string, string> = {};
     for (const key of ['instagram', 'x', 'linkedin', 'awsBuilder', 'website']) {
       const value = String(values.get(`social-${key}`) ?? '').trim();
@@ -254,7 +304,7 @@ if (root && state && csrfToken) {
     setBusy(profileForm, true);
     try {
       const response = await api('/api/creador/perfil', 'PUT', profile);
-      await finishWrite(response, profileStatus, profileSavedMessage());
+      await finishWrite(response, profileStatus, profileSavedMessage(), submittedValues);
     } catch (error) {
       announce(profileStatus, requestFailureMessage(error, 'No pudimos conectar con el servicio. Tus datos siguen en el formulario; inténtalo de nuevo.'), 'error');
     } finally {
@@ -309,6 +359,7 @@ if (root && state && csrfToken) {
     event.preventDefault();
     if (!linkCreateForm.reportValidity()) return;
     const values = new FormData(linkCreateForm);
+    const submittedValues = formState?.capture(linkCreateForm);
     const body = {
       title: String(values.get('title') ?? '').trim(),
       url: String(values.get('url') ?? '').trim(),
@@ -317,7 +368,7 @@ if (root && state && csrfToken) {
     setBusy(linkCreateForm, true);
     try {
       const response = await api('/api/creador/enlaces', 'POST', body);
-      await finishWrite(response, linkCreateStatus, await linkCreatedMessage(response));
+      await finishWrite(response, linkCreateStatus, await linkCreatedMessage(response), submittedValues);
     } catch (error) {
       announce(linkCreateStatus, requestFailureMessage(error, 'No pudimos conectar con el servicio. Tus datos siguen en el formulario; inténtalo de nuevo.'), 'error');
     } finally {
@@ -336,6 +387,7 @@ if (root && state && csrfToken) {
       const version = link?.resourceVersion ?? retained?.version;
       if (!resourceId || version === undefined) return;
       const values = new FormData(form);
+      const submittedValues = formState?.capture(form);
       const body = {
         title: String(values.get('title') ?? '').trim(),
         url: String(values.get('url') ?? '').trim(),
@@ -345,7 +397,7 @@ if (root && state && csrfToken) {
       setBusy(form, true);
       try {
         const response = await api(`/api/creador/recursos/${encodeURIComponent(resourceId)}`, 'PATCH', body);
-        await finishWrite(response, linksStatus(), 'Ficha guardada para los perfiles que usan este recurso.');
+        await finishWrite(response, linksStatus(), 'Ficha guardada para los perfiles que usan este recurso.', submittedValues);
       } catch (error) {
         announce(linksStatus(), requestFailureMessage(error, 'No pudimos conectar con el servicio. Tus datos siguen en el formulario; inténtalo de nuevo.'), 'error');
       } finally {
@@ -376,12 +428,7 @@ if (root && state && csrfToken) {
           version: current.placementVersion,
           profileVersion,
         });
-        if (!response.ok) {
-          announceError(response.status, linksStatus());
-          return;
-        }
-        announce(linksStatus(), 'Orden actualizado.', 'success');
-        window.location.reload();
+        await finishWrite(response, linksStatus(), 'Orden actualizado.');
       } catch (error) {
         announce(linksStatus(), requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
       } finally {
@@ -400,11 +447,12 @@ if (root && state && csrfToken) {
       const body = checkbox.matches('[data-featured]')
         ? { featured: checkbox.checked, ...(current.placementVersion !== undefined ? { version: current.placementVersion } : {}) }
         : { selectedForDirectory: checkbox.checked, ...(current.placementVersion !== undefined ? { version: current.placementVersion } : {}) };
+      const submittedValues = formState?.capture(checkbox);
       try {
         const response = await api(`/api/creador/enlaces/${encodeURIComponent(placementId)}`, 'PATCH', body);
         await finishWrite(response, linksStatus(), checkbox.matches('[data-directory]')
           ? 'Selección guardada. La página se actualiza ahora; el directorio puede tardar hasta una hora más la publicación del sitio.'
-          : 'Preferencia guardada.');
+          : 'Preferencia guardada.', submittedValues);
       } catch (error) {
         announce(linksStatus(), requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
         checkbox.checked = !checkbox.checked;
@@ -470,6 +518,7 @@ if (root && state && csrfToken) {
     const profileVersion = currentProfileVersion();
     if (profileVersion === undefined) return;
     const values = new FormData(seriesCreateForm);
+    const submittedValues = formState?.capture(seriesCreateForm);
     const name = String(values.get('name') ?? '').trim();
     const slug = String(values.get('slug') ?? '').trim();
     const description = String(values.get('description') ?? '').trim();
@@ -477,7 +526,7 @@ if (root && state && csrfToken) {
     setBusy(seriesCreateForm, true);
     try {
       const response = await api('/api/creador/series', 'POST', body);
-      await finishSeriesWrite(response, seriesCreateStatus, 'Serie creada. Ahora puedes agregar capítulos desde los enlaces de tu página.');
+      await finishSeriesWrite(response, seriesCreateStatus, 'Serie creada. Ahora puedes agregar capítulos desde los enlaces de tu página.', undefined, submittedValues);
     } catch (error) {
       announce(seriesCreateStatus, requestFailureMessage(error, 'No pudimos crear la serie. Tus datos siguen en el formulario; inténtalo de nuevo.'), 'error');
     } finally {
@@ -495,6 +544,7 @@ if (root && state && csrfToken) {
       const profileVersion = currentProfileVersion();
       if (!series || profileVersion === undefined) return;
       const values = new FormData(form);
+      const submittedValues = formState?.capture(form);
       const body = {
         version: series.version,
         profileVersion,
@@ -505,7 +555,7 @@ if (root && state && csrfToken) {
       setBusy(form, true);
       try {
         const response = await api(`/api/creador/series/${encodeURIComponent(series.id)}`, 'PATCH', body);
-        await finishSeriesWrite(response, status, 'Cambios guardados.');
+        await finishSeriesWrite(response, status, 'Cambios guardados.', undefined, submittedValues);
       } catch (error) {
         announce(status, requestFailureMessage(error, 'No pudimos guardar la serie. Tus datos siguen en el formulario; inténtalo de nuevo.'), 'error');
       } finally {
@@ -536,14 +586,16 @@ if (root && state && csrfToken) {
       if (!form.reportValidity()) return;
       const seriesId = form.closest<HTMLElement>('[data-series-id]')?.dataset.seriesId;
       const profileVersion = currentProfileVersion();
-      const placementId = String(new FormData(form).get('placementId') ?? '');
+      const values = new FormData(form);
+      const submittedValues = formState?.capture(form);
+      const placementId = String(values.get('placementId') ?? '');
       if (!seriesId || !placementId || profileVersion === undefined) return;
       const current = linkByPlacement(placementId);
       if (!current || current.series.some((item) => item.seriesId === seriesId)) return;
       if (fieldset) fieldset.disabled = true;
       try {
         const response = await api(`/api/creador/series/${encodeURIComponent(seriesId)}/capitulos/${encodeURIComponent(placementId)}`, 'PUT', { profileVersion });
-        await finishSeriesWrite(response, status, `Se agregó ${current.title} a la serie.`);
+        await finishSeriesWrite(response, status, `Se agregó ${current.title} a la serie.`, undefined, submittedValues);
       } catch (error) {
         announce(status, requestFailureMessage(error, 'No pudimos agregar el capítulo. Inténtalo de nuevo.'), 'error');
       } finally {
@@ -627,6 +679,7 @@ if (root && state && csrfToken) {
     event.preventDefault();
     if (!claimForm.reportValidity()) return;
     const values = new FormData(claimForm);
+    const submittedValues = formState?.capture(claimForm);
     const resourceIds = String(values.get('resourceIds') ?? '').split(',').map((id) => id.trim()).filter(Boolean);
     const uniqueResourceIds = [...new Set(resourceIds)];
     if (uniqueResourceIds.length === 0 || uniqueResourceIds.length !== resourceIds.length) {
@@ -643,7 +696,7 @@ if (root && state && csrfToken) {
     setBusy(claimForm, true);
     try {
       const response = await api('/api/creador/reclamaciones', 'POST', body);
-      await finishWrite(response, claimStatus, 'Solicitud enviada para revisión. La solicitud no cambia los permisos mientras se verifica.');
+      await finishWrite(response, claimStatus, 'Solicitud enviada para revisión. La solicitud no cambia los permisos mientras se verifica.', submittedValues);
     } catch (error) {
       announce(claimStatus, requestFailureMessage(error, 'No pudimos conectar con el servicio. Tus datos siguen en el formulario; inténtalo de nuevo.'), 'error');
     } finally {
@@ -664,6 +717,7 @@ if (root && state && csrfToken) {
       announce(photoStatus, 'Elige una imagen JPEG, PNG o WebP de hasta 15 MiB.', 'error');
       return;
     }
+    const submittedValues = formState?.capture(photoForm);
     setBusy(photoForm, true);
     let finalizationRequested = false;
     try {
@@ -706,8 +760,7 @@ if (root && state && csrfToken) {
         }
         return;
       }
-      announce(photoStatus, 'Foto guardada.', 'success');
-      window.location.reload();
+      await finishWrite(finish, photoStatus, 'Foto guardada.', submittedValues);
     } catch (error) {
       const fallback = finalizationRequested
         ? PHOTO_FINALIZATION_UNCONFIRMED
