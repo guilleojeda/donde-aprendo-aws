@@ -523,6 +523,8 @@ test('la moderación de eventos muestra fallos recuperables y conserva los formu
   page.responses.push(503, 200);
   await claimForm.dispatch('submit');
   assert.equal(page.claimRows[0].status.textContent, 'No pudimos guardar el cambio. Inténtalo de nuevo en unos minutos.');
+  assert.ok(claimForm.fields.every((control) => !control.disabled), 'a rejected request restores its editable selections');
+  assert.equal(claimForm.controls.at(-1).disabled, false, 'a rejected request restores its submit control');
   await claimForm.dispatch('submit');
   assert.equal(page.claimRows[0].status.textContent, 'Recursos vinculados a la cuenta.');
 
@@ -577,6 +579,57 @@ test('R9 partial claim freezes only that form, retains receipts, and allows safe
     'the partial response receipt advances only the resource version used by the other form');
   assert.equal(JSON.parse(page.requests[1].init.body).category, 'Certificaciones');
   assert.equal(page.reloads(), 1, 'saving the remaining pending form enables the safe refresh');
+});
+
+test('successful claim resolution pauses its selection and preserves another saveable draft', async () => {
+  const html = await renderAdminPage({ claimRecords: [{
+    id: 'claim-delayed', accountId: 'owner', resourceIds: ['resource-feedback', 'resource-two'],
+    sourceId: 'ana-feedback', status: 'pending',
+  }] });
+  let releaseClaim;
+  const delayedClaim = new Promise((resolve) => { releaseClaim = resolve; });
+  let requestNumber = 0;
+  const page = await executeAdminScript(html, {
+    fetchImpl: async () => {
+      requestNumber += 1;
+      if (requestNumber === 1) return delayedClaim;
+      return Response.json({
+        resource: { id: 'resource-feedback', category: 'Certificaciones', kind: 'content', format: 'Artículo', topics: [] },
+        versionChanges: [{ entity: 'resource', id: 'resource-feedback', before: 2, after: 3 }],
+      });
+    },
+  });
+  const claimForm = page.claimForms[0];
+  const [linkedResource, secondResource] = claimForm.fields;
+  const classification = page.classificationForms.find((form) => form.rowId === 'resource-feedback');
+  assert.ok(classification);
+  const [category, kind, format] = classification.fields;
+
+  const resolution = claimForm.dispatch('submit');
+  const claimPausedDuringRequest = claimForm.fields.every((control) => control.disabled);
+  assert.notEqual(category.disabled, true, 'other form fields remain editable during the request');
+  category.value = 'Certificaciones';
+  kind.value = 'content';
+  format.value = 'Artículo';
+  releaseClaim(Response.json({
+    linkedResourceIds: ['resource-feedback', 'resource-two'],
+    versionChanges: [{ entity: 'resource', id: 'resource-feedback', before: 1, after: 2 }],
+  }));
+  await resolution;
+
+  assert.equal(claimPausedDuringRequest, true, 'claim choices cannot diverge from the submitted IDs while awaiting the response');
+  assert.deepEqual(JSON.parse(page.requests[0].init.body).resourceIds, ['resource-feedback', 'resource-two']);
+  assert.equal(linkedResource.checked, true);
+  assert.equal(secondResource.checked, true);
+  assert.ok(claimForm.fields.every((control) => control.disabled), 'the resolved claim stays frozen until refresh');
+  assert.notEqual(category.disabled, true, 'the unrelated classification draft remains usable');
+
+  await classification.dispatch('submit');
+  assert.deepEqual(JSON.parse(page.requests[1].init.body), {
+    category: 'Certificaciones', kind: 'content', format: 'Artículo', topics: [], version: 2,
+  }, 'the unrelated form uses the claim receipt before saving its draft');
+  assert.equal(page.requests.length, 2, 'the submitted claim is not replayed while resolving the unrelated draft');
+  assert.equal(page.reloads(), 1, 'saving the remaining draft completes the safe refresh');
 });
 
 test('invalid initial admin data exposes its recovery feedback', async () => {

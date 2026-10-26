@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
+import { parse as parseYaml } from 'yaml';
 import deployment from '../config/deployment.json' with { type: 'json' };
 import { COUNTRY_SLUGS } from '../src/lib/community-country-pages.mjs';
 import { COUNTRY_LABELS } from '../src/lib/resource-discovery.mjs';
@@ -15,6 +16,13 @@ import { siteOutputRoot } from './lib/site-output.mjs';
 const production = process.env.PUBLIC_PRODUCTION === 'true';
 const mediaOrigin = new URL(process.env.PUBLIC_SITE_ORIGIN || `https://${deployment.branchName}.${deployment.appId}.amplifyapp.com`).origin;
 const dist = siteOutputRoot;
+const customHeaders = parseYaml(readFileSync('customHttp.yml', 'utf8'));
+assert.deepEqual(customHeaders, {
+  customHeaders: [{
+    pattern: '/catalog-publication.json',
+    headers: [{ key: 'Cache-Control', value: 'no-store, max-age=0' }],
+  }],
+}, 'Only the exact publication manifest path receives its no-store response header.');
 const routes = JSON.parse(readFileSync('tests/fixtures/blog-routes.json', 'utf8'));
 const sections = ['aprender', 'creadores', 'comunidades', 'eventos'];
 const read = (path) => readFileSync(resolve(dist, path), 'utf8');
@@ -224,6 +232,12 @@ assert.match(searchPage, /data-search-status/);
 assert.match(searchPage, /data-search-results/);
 assert.doesNotMatch(searchPage, /name="query"/, 'Search text must not be submitted in a URL.');
 const searchIndex = JSON.parse(read('search-index.json'));
+const publicationManifest = JSON.parse(read('catalog-publication.json'));
+assert.deepEqual(Object.keys(publicationManifest).sort(), ['hash', 'version'], 'Publication manifest contains only its public version and hash.');
+assert.equal(publicationManifest.version, 1, 'Publication manifest schema version.');
+assert.match(publicationManifest.hash, /^[a-f0-9]{64}$/u, 'Publication manifest uses a SHA-256 catalog hash.');
+assert.doesNotMatch(JSON.stringify(publicationManifest), /submitter|contactEmail|private|public-resource|public-event/u,
+  'Publication manifest does not expose catalog records or private data.');
 assert.equal(searchIndex.filter((entry) => entry.type === 'article').length, routes.length);
 assert.equal(searchIndex.filter((entry) => entry.type === 'path').length, 4);
 for (const { id } of LEARNING_PATHS) assert.ok(searchIndex.some((entry) => entry.type === 'path' && entry.url === learningPathHref(id)));

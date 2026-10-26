@@ -155,6 +155,7 @@ Resources:
           CREATOR_PROFILES_TABLE: donde-aprendo-aws-profiles
           AMPLIFY_APP_ID: !Ref AmplifyAppId
           AMPLIFY_BRANCH: !Ref AmplifyBranchName
+          PUBLICATION_MANIFEST_URL: https://dondeaprendoaws.com/catalog-publication.json
       MemorySize: 128
       Timeout: 30
       Tags:

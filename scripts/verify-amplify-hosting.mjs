@@ -123,10 +123,14 @@ function assertRuntimeTheme(html, label) {
   assert.ok(head.includes(controllers[0][0]), `${label} keeps the theme controller in the document head.`);
 }
 
-for (const path of ['sitemap.xml', 'search-index.json', 'robots.txt']) {
+for (const path of ['sitemap.xml', 'search-index.json', 'catalog-publication.json', 'robots.txt']) {
   const file = resolve(siteOutputRoot, path);
   assert.ok(statSync(file, { throwIfNoEntry: false })?.isFile(), `Static public file is included in the Amplify output: ${path}`);
 }
+const publicationManifest = JSON.parse(readFileSync(resolve(siteOutputRoot, 'catalog-publication.json'), 'utf8'));
+assert.deepEqual(Object.keys(publicationManifest).sort(), ['hash', 'version'], 'Amplify output keeps the publication proof minimal.');
+assert.equal(publicationManifest.version, 1, 'Amplify output uses the supported publication manifest version.');
+assert.match(publicationManifest.hash, /^[a-f0-9]{64}$/u, 'Amplify output includes a SHA-256 catalog hash.');
 const certificationMapFile = resolve(siteOutputRoot, 'aprender/certificaciones/index.html');
 assert.ok(statSync(certificationMapFile, { throwIfNoEntry: false })?.isFile(),
   'Certification map is present in the static Amplify inventory.');

@@ -365,6 +365,9 @@ if (root && state && csrfToken) {
         announce(itemStatus(item), 'Selecciona uno o más IDs incluidos en la solicitud.', 'error');
         return;
       }
+      const selectionControls = [...form.querySelectorAll<HTMLInputElement>('input[name="resourceIds"]')];
+      const selectionDisabled = selectionControls.map((control) => control.disabled);
+      selectionControls.forEach((control) => { control.disabled = true; });
       busy(form, true);
       try {
         const response = await api('/api/admin/reclamaciones/vincular', 'POST', {
@@ -405,6 +408,9 @@ if (root && state && csrfToken) {
       } catch (error) {
         announce(itemStatus(item), requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
       } finally {
+        selectionControls.forEach((control, index) => {
+          if (!control.hasAttribute('data-creator-stale')) control.disabled = selectionDisabled[index] ?? false;
+        });
         busy(form, false);
       }
     });
