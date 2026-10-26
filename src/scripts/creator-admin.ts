@@ -1,4 +1,5 @@
 import { createCreatorFormState, type FormValueSnapshot } from './creator-form-state';
+import { createCreatorSessionRecovery } from './creator-session-recovery';
 import { createCreatorWriteGuard, readCreatorVersionChanges, type CreatorVersionChange } from './creator-write-state';
 
 interface CreatorAdminState {
@@ -36,7 +37,12 @@ if (initial?.textContent) {
 
 const formState = root ? createCreatorFormState(root) : undefined;
 const writeGuard = root ? createCreatorWriteGuard(root) : undefined;
-const csrfToken = root?.dataset.csrf;
+let csrfToken = root?.dataset.csrf;
+const sessionRecovery = root ? createCreatorSessionRecovery({
+  root,
+  isWriteActive: () => writeGuard?.isActive() ?? false,
+  updateCsrf: (token) => { csrfToken = token; },
+}) : undefined;
 
 function announce(target: Element | null | undefined, message: string, kind: 'error' | 'success' = 'success') {
   if (!(target instanceof HTMLElement)) return;
@@ -45,8 +51,10 @@ function announce(target: Element | null | undefined, message: string, kind: 'er
 }
 
 function errorMessage(status: number): string {
-  if (status === 401) return 'Tu sesión terminó. Inicia sesión y vuelve a intentarlo.';
-  if (status === 403) return 'Esta cuenta no tiene permiso para completar esta acción.';
+  if (status === 401) return sessionRecovery?.writeFailureMessage() ?? 'Tu sesión terminó. Inicia sesión y vuelve a intentarlo.';
+  if (status === 403) return sessionRecovery?.blocksWrites()
+    ? sessionRecovery.writeFailureMessage()
+    : 'Esta cuenta no tiene permiso para completar esta acción.';
   if (status === 409) return 'El registro cambió desde la última lectura. Recarga la página antes de volver a guardar.';
   if (status === 422) return 'Revisa la clasificación o los IDs seleccionados e inténtalo de nuevo.';
   if (status === 413) return 'La solicitud supera el límite de 32 KiB. Reduce los IDs seleccionados e inténtalo de nuevo.';
@@ -99,7 +107,7 @@ async function api(path: string, method: string, body?: unknown): Promise<Respon
   if (serializedBody !== undefined && new TextEncoder().encode(serializedBody).byteLength > MAX_REQUEST_BYTES) {
     throw new Error(REQUEST_TOO_LARGE);
   }
-  return fetch(`${path.replace(/\/$/, '')}/`, {
+  const response = await fetch(`${path.replace(/\/$/, '')}/`, {
     method,
     credentials: 'same-origin',
     headers: {
@@ -108,10 +116,19 @@ async function api(path: string, method: string, body?: unknown): Promise<Respon
     },
     ...(serializedBody === undefined ? {} : { body: serializedBody }),
   });
+  await sessionRecovery?.observeWriteResponse(response);
+  return response;
 }
 
 function onWrite(target: EventTarget, type: string, action: (event: Event) => Promise<void> | void) {
-  target.addEventListener(type, (event) => writeGuard?.run(event, () => action(event)));
+  target.addEventListener(type, (event) => {
+    if (sessionRecovery?.blocksWrites()) {
+      event.preventDefault();
+      sessionRecovery.announceBlocked();
+      return;
+    }
+    return writeGuard?.run(event, () => action(event));
+  });
 }
 
 function applyVersionChanges(changes: CreatorVersionChange[]) {
@@ -365,7 +382,8 @@ if (root && state && csrfToken) {
           announce(itemStatus(item), await responseErrorMessage(response), 'error');
           return;
         }
-        markAdminActionsStale('[data-resource-action], [data-profile-action], [data-claim-resolution] button, [data-claim-resolution] input[name="resourceIds"]');
+        markAdminActionsStale('[data-resource-action], [data-profile-action]');
+        markAdminActionsStale('[data-claim-resolution] button, [data-claim-resolution] input[name="resourceIds"]', item ?? form);
         await finishAdminWrite(response, itemStatus(item), 'Recursos vinculados a la cuenta.', submittedValues, { structural: true });
       } catch (error) {
         announce(itemStatus(item), requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');

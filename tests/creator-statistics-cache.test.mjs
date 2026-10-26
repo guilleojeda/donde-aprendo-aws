@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createGA4StatisticsReader } from '../src/lib/creator-statistics-ga4.mjs';
+import { createGA4TokenProvider } from '../src/lib/creator-statistics-token.mjs';
 import { callApi, createCreatorPagesHarness, sessionCsrf } from './fixtures/creator-pages.mjs';
 
 const moduleResult = await import('../src/lib/creator-statistics.mjs').then(
@@ -10,6 +12,11 @@ const moduleResult = await import('../src/lib/creator-statistics.mjs').then(
 const HOUR = 60 * 60 * 1000;
 const SEVEN_DAYS = 7 * 24 * HOUR;
 const INITIAL_NOW = Date.parse('2026-10-24T02:30:00.000Z');
+const TOKEN_CREDENTIALS = {
+  type: 'service_account',
+  client_email: 'statistics@fixture.invalid',
+  private_key: 'fixture-private-key',
+};
 
 function api() {
   assert.equal(
@@ -80,6 +87,39 @@ function reportFor(input, now = INITIAL_NOW, overrides = {}) {
     captureStartedAt,
     ...reportOverrides,
   };
+}
+
+function analyticsReport(request) {
+  const dimensions = request.dimensions?.map(({ name }) => name) ?? [];
+  const metrics = request.metrics.map(({ name }) => name);
+  const values = dimensions.length === 0
+    ? [[[], metrics.includes('totalUsers') ? [5, 3] : [8]]]
+    : [];
+  return {
+    dimensionHeaders: dimensions.map((name) => ({ name })),
+    metricHeaders: metrics.map((name) => ({ name, type: 'TYPE_INTEGER' })),
+    rows: values.map(([dimensionValues, metricValues]) => ({
+      dimensionValues: dimensionValues.map((value) => ({ value })),
+      metricValues: metricValues.map((value) => ({ value: String(value) })),
+    })),
+    rowCount: values.length,
+    metadata: { timeZone: 'America/Los_Angeles' },
+    propertyQuota: { tokensPerHour: { consumed: 1, remaining: 39_999 } },
+  };
+}
+
+function ga4Reader(tokenProvider, onFetch = () => {}) {
+  return createGA4StatisticsReader({
+    propertyId: '424203315',
+    captureStartedAt: '2026-10-23T23:38:00Z',
+    now: () => INITIAL_NOW,
+    getAccessToken: () => tokenProvider.getAccessToken(),
+    fetch: async (_url, options) => {
+      onFetch();
+      const { requests } = JSON.parse(options.body);
+      return Response.json({ reports: requests.map(analyticsReport) });
+    },
+  });
 }
 
 function makeReader(read = (input) => reportFor(input)) {
@@ -527,4 +567,83 @@ test('simultaneous identical requests coalesce while requests for another creato
   assert.equal(a1.creatorId, 'creator-a');
   assert.equal(a2.creatorId, 'creator-a');
   assert.equal(b.creatorId, 'creator-b');
+});
+
+test('a rejected OAuth request releases shared reads for stale fallback and later recovery', async () => {
+  const query = { profileId: 'creator-a', period: 7, page: 1 };
+  const cache = makeCache();
+  cache.seed(query, envelope(reportFor(query), {
+    updatedAt: INITIAL_NOW - 2 * HOUR,
+    expiresAt: INITIAL_NOW - HOUR,
+    retainUntil: INITIAL_NOW - 2 * HOUR + SEVEN_DAYS,
+  }));
+  let rejectFirstToken;
+  let tokenStarted;
+  const firstTokenRequest = new Promise((_, reject) => { rejectFirstToken = reject; });
+  const started = new Promise((resolve) => { tokenStarted = resolve; });
+  let tokenRequests = 0;
+  let reportRequests = 0;
+  const tokenProvider = createGA4TokenProvider({
+    loadCredentials: async () => structuredClone(TOKEN_CREDENTIALS),
+    createAuth: () => ({
+      getAccessToken: async () => {
+        tokenRequests += 1;
+        if (tokenRequests === 1) {
+          tokenStarted();
+          return firstTokenRequest;
+        }
+        return 'recovered-private-token';
+      },
+    }),
+  });
+  const reader = ga4Reader(tokenProvider, () => { reportRequests += 1; });
+  const { service } = makeService({ reader, cache });
+
+  const first = service.read(query);
+  await started;
+  const second = service.read(query);
+  await new Promise((resolve) => setImmediate(resolve));
+  rejectFirstToken(new Error('OAuth transport timed out'));
+
+  const staleResults = await Promise.all([first, second]);
+  assert.ok(staleResults.every(({ freshness }) => freshness === 'stale'));
+  assert.equal(cache.calls.gets.length, 1, 'The matching reads share one cache/provider operation.');
+  assert.equal(tokenRequests, 1);
+  assert.equal(reportRequests, 0, 'The reporting request waits for the rejected token transport.');
+
+  const recovered = await service.read(query);
+  assert.equal(recovered.freshness, 'fresh');
+  assert.equal(tokenRequests, 2, 'A later read reaches the token provider after the rejected request.');
+  assert.equal(reportRequests, 1);
+  assert.equal(cache.calls.puts.length, 1);
+  assert.deepEqual(recovered.totals, { views: 5, visitors: 3, clicks: 8 });
+});
+
+test('without retained data a rejected OAuth request reports unavailable and a later read recovers', async () => {
+  const query = { profileId: 'creator-a', period: 7, page: 1 };
+  let tokenRequests = 0;
+  const tokenProvider = createGA4TokenProvider({
+    loadCredentials: async () => structuredClone(TOKEN_CREDENTIALS),
+    createAuth: () => ({
+      getAccessToken: async () => {
+        tokenRequests += 1;
+        if (tokenRequests === 1) throw new Error('OAuth transport timed out');
+        return 'recovered-private-token';
+      },
+    }),
+  });
+  let reportRequests = 0;
+  const reader = ga4Reader(tokenProvider, () => { reportRequests += 1; });
+  const { service, cache } = makeService({ reader });
+
+  await assert.rejects(service.read(query), /GA4 statistics are temporarily unavailable\./);
+  assert.equal(cache.calls.gets.length, 1);
+  assert.equal(cache.calls.puts.length, 0);
+  assert.equal(reportRequests, 0);
+
+  const recovered = await service.read(query);
+  assert.equal(recovered.freshness, 'fresh');
+  assert.equal(tokenRequests, 2);
+  assert.equal(reportRequests, 1);
+  assert.equal(cache.calls.puts.length, 1);
 });

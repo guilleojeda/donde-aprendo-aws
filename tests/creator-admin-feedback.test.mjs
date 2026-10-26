@@ -7,6 +7,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 import { transform } from '@astrojs/compiler-rs';
 import { experimental_AstroContainer } from 'astro/container';
+import { createCreatorHttpHandler } from '../src/lib/creator-http.mjs';
+import { creatorPageSessionBinding } from '../src/lib/creator-session-context.mjs';
+import { createCreatorPagesHarness, SITE_ORIGIN } from './fixtures/creator-pages.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const scratchParent = path.join(root, '.work/creator-pages');
@@ -132,14 +135,14 @@ async function loadAdminPage() {
   return adminPagePromise;
 }
 
-async function renderAdminPage() {
+async function renderAdminPage({ claimRecords = claims } = {}) {
   const service = {
     async handle(request) {
       const pathname = new URL(request.url).pathname;
       const data = {
         '/api/admin/recursos': { resources },
         '/api/admin/perfiles': { profiles },
-        '/api/admin/reclamaciones': { claims },
+        '/api/admin/reclamaciones': { claims: claimRecords },
       }[pathname];
       return data
         ? Response.json(data)
@@ -149,7 +152,7 @@ async function renderAdminPage() {
   globalThis.__adminFeedbackTestRuntime = {
     service,
     auth: {
-      getPrincipal: async () => ({ state: 'authenticated', isAdmin: true, csrfToken: 'csrf-feedback' }),
+      getPrincipal: async () => ({ state: 'authenticated', accountId: 'admin-feedback', isAdmin: true, csrfToken: 'csrf-feedback' }),
     },
   };
   const page = await loadAdminPage();
@@ -204,17 +207,20 @@ async function writeBrowserFixture(html) {
 }
 
 class TestElement {
-  constructor({ dataset = {}, status, rowType, rowId, row, controls = [] } = {}) {
+  constructor({ dataset = {}, status, rowType, rowId, row, controls = [], selectors = {} } = {}) {
     this.dataset = dataset;
     this.status = status;
     this.rowType = rowType;
     this.rowId = rowId;
     this.row = row;
     this.controls = controls;
+    this.selectors = selectors;
     this.listeners = new Map();
     this.attributes = new Map();
     this.disabled = false;
     this.textContent = '';
+    this.checked = false;
+    this.hidden = true;
   }
 
   addEventListener(type, listener) {
@@ -224,12 +230,14 @@ class TestElement {
   }
 
   querySelector(selector) {
-    return selector === '[data-item-status]' ? this.status ?? null : null;
+    return selector === '[data-item-status]' ? this.status ?? null : this.selectors?.[selector] ?? null;
   }
 
   querySelectorAll(selector) {
     if (selector === 'input, textarea, select') return this.fields ?? this.controls;
-    if (selector === 'button' || selector === 'input[name="resourceIds"]') return this.controls;
+    if (selector === 'button' || selector === 'input[name="resourceIds"]'
+      || selector === '[data-claim-resolution] button, [data-claim-resolution] input[name="resourceIds"]') return this.controls;
+    if (selector === '[data-creator-stale]') return this.controls.filter((control) => control.hasAttribute('data-creator-stale'));
     return [];
   }
 
@@ -248,6 +256,10 @@ class TestElement {
     return this.attributes.get(name) ?? null;
   }
 
+  hasAttribute(name) {
+    return this.attributes.has(name);
+  }
+
   async dispatch(type) {
     const event = { preventDefault() {} };
     for (const listener of this.listeners.get(type) ?? []) await listener(event);
@@ -263,7 +275,12 @@ class TestFormData {
   get(name) {
     return this.form.fields?.find((field) => field.name === name)?.value ?? null;
   }
-  getAll(name) { return name === 'resourceIds' ? ['resource-feedback'] : []; }
+  getAll(name) {
+    if (name !== 'resourceIds') return [];
+    return this.form.fields
+      ? this.form.fields.filter((field) => field.name === name && field.checked).map((field) => field.value)
+      : ['resource-feedback'];
+  }
 }
 
 function renderedRows(html, rowType, attribute) {
@@ -288,15 +305,17 @@ function renderedRows(html, rowType, attribute) {
   return rows;
 }
 
-async function executeAdminScript(html) {
+async function executeAdminScript(html, { fetchImpl } = {}) {
   const rootAttributes = html.match(/<main\b[^>]*\bdata-csrf="([^"]+)"[^>]*>/)?.[0];
   assert.ok(rootAttributes, 'la página real debe incluir el contenedor y CSRF administrativos');
   const csrf = rootAttributes.match(/\bdata-csrf="([^"]+)"/)?.[1];
+  const sessionBinding = rootAttributes.match(/\bdata-session-binding="([^"]+)"/)?.[1];
   const dataJson = html.match(/<script\b[^>]*id="creator-admin-data"[^>]*>([\s\S]*?)<\/script>/)?.[1];
   assert.ok(dataJson, 'la página real debe emitir el estado para el script administrativo');
   const resourcesRows = renderedRows(html, 'resource', 'data-admin-resource');
   const profileRows = renderedRows(html, 'profile', 'data-admin-profile');
   const claimRows = renderedRows(html, 'claim', 'data-admin-claim');
+  const adminData = JSON.parse(dataJson);
   const resourceButtons = [];
   for (const { id, html: rowHtml, row } of resourcesRows) {
     for (const match of rowHtml.matchAll(/data-resource-action="([^"]+)"/g)) {
@@ -314,23 +333,66 @@ async function executeAdminScript(html) {
       }));
     }
   }
-  const claimForms = claimRows.map(({ id }) => new TestForm({
-    rowType: 'claim',
-    rowId: id,
-    row: claimRows.find((entry) => entry.id === id)?.row,
-  }));
+  const claimForms = claimRows.map(({ id, row }) => {
+    const claim = adminData.claims.find((candidate) => candidate.id === id || candidate.claimId === id);
+    const checkboxes = (Array.isArray(claim?.resourceIds) ? claim.resourceIds : []).map((value) => {
+      const checkbox = new TestElement();
+      checkbox.tagName = 'INPUT';
+      checkbox.type = 'checkbox';
+      checkbox.name = 'resourceIds';
+      checkbox.value = value;
+      checkbox.checked = true;
+      return checkbox;
+    });
+    const submit = new TestElement();
+    submit.tagName = 'BUTTON';
+    const controls = [...checkboxes, submit];
+    const form = new TestForm({ rowType: 'claim', rowId: id, row, controls });
+    form.fields = checkboxes;
+    for (const checkbox of checkboxes) checkbox.form = form;
+    row.controls = controls;
+    return form;
+  });
   const classificationForms = resourcesRows
     .filter(({ html: rowHtml }) => /data-classification-form/.test(rowHtml))
     .map(({ id }) => new TestForm({
       rowType: 'resource', rowId: id,
       row: resourcesRows.find((entry) => entry.id === id)?.row,
     }));
-  const rootElement = new TestElement({ dataset: { csrf } });
+  const refreshButton = new TestElement();
+  refreshButton.tagName = 'BUTTON';
+  const sessionRecoveryStatus = new TestElement();
+  const sessionRecoverySignIn = new TestElement();
+  const sessionRecoveryCheck = new TestElement();
+  sessionRecoveryCheck.tagName = 'BUTTON';
+  const sessionRecoveryShell = new TestElement();
+  const transition = new TestElement();
+  const transitionShell = new TestElement();
+  const allControls = [
+    ...resourceButtons, ...profileButtons, ...claimForms.flatMap((form) => form.controls), refreshButton, sessionRecoveryCheck,
+  ];
+  const rootElement = new TestElement({
+    dataset: { csrf, sessionBinding },
+    controls: allControls,
+    selectors: {
+      '[data-refresh-view]': refreshButton,
+      '[data-view-transition]': transition,
+      '[data-view-transition-shell]': transitionShell,
+      '[data-session-recovery-shell]': sessionRecoveryShell,
+      '[data-session-recovery-status]': sessionRecoveryStatus,
+      '[data-session-recovery-sign-in]': sessionRecoverySignIn,
+      '[data-session-recovery-check]': sessionRecoveryCheck,
+    },
+  });
+  rootElement.fields = claimForms.flatMap((form) => form.fields ?? []);
   rootElement.querySelectorAll = (selector) => ({
+    'input, textarea, select': rootElement.fields,
     '[data-classification-form]': classificationForms,
     '[data-resource-action]': resourceButtons,
     '[data-profile-action]': profileButtons,
     '[data-claim-resolution]': claimForms,
+    'button, input[type="file"], input[data-busy-control], [data-featured], [data-directory], [data-creator-stale]': allControls,
+    '[data-creator-stale]': allControls.filter((control) => control.hasAttribute('data-creator-stale')),
   }[selector] ?? []);
   const initial = new TestElement();
   initial.textContent = dataJson;
@@ -352,6 +414,7 @@ async function executeAdminScript(html) {
     TextEncoder,
     fetch: async (url, init) => {
       requests.push({ url, init });
+      if (fetchImpl) return fetchImpl(url, init);
       const next = responses.shift();
       if (next instanceof Error) throw next;
       if (typeof next === 'object' && next !== null && 'status' in next) {
@@ -360,7 +423,16 @@ async function executeAdminScript(html) {
       return new Response('{}', { status: next });
     },
   });
-  return { resourcesRows, profileRows, claimRows, resourceButtons, profileButtons, claimForms, responses, requests, reloads: () => reloads };
+  return {
+    resourcesRows, profileRows, claimRows, resourceButtons, profileButtons, claimForms,
+    refreshButton, transition, responses, requests, reloads: () => reloads,
+    sessionBinding,
+    sessionRecovery: { shell: sessionRecoveryShell, status: sessionRecoveryStatus, signIn: sessionRecoverySignIn, check: sessionRecoveryCheck },
+  };
+}
+
+async function settleSessionCheck() {
+  await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 test('la moderación de eventos muestra fallos recuperables y conserva los formularios de otros registros', async () => {
@@ -392,7 +464,6 @@ test('la moderación de eventos muestra fallos recuperables y conserva los formu
 
   const eventFailures = [
     [503, 'No pudimos guardar el cambio. Inténtalo de nuevo en unos minutos.'],
-    [401, 'Tu sesión terminó. Inicia sesión y vuelve a intentarlo.'],
     [403, 'Esta cuenta no tiene permiso para completar esta acción.'],
     [{ status: 409, body: { error: 'RESOURCE_CONFLICT' } }, 'El registro cambió desde la última lectura. Recarga la página antes de volver a guardar.'],
     [{ status: 409, body: { error: 'FUTURE_CONFLICT' } }, 'No pudimos completar el cambio porque hay un conflicto. Revisa el estado antes de volver a intentarlo.'],
@@ -433,6 +504,95 @@ test('la moderación de eventos muestra fallos recuperables y conserva los formu
 
   assert.ok(page.requests.every(({ init }) => init.method === 'POST'));
   assert.ok(page.requests.every(({ init }) => init.headers['x-csrf-token'] === 'csrf-feedback'));
+});
+
+test('la recuperación administrativa rechaza un cambio de rol sin desbloquear escrituras', async () => {
+  const auth = { current: { state: 'authenticated', accountId: 'admin-feedback', csrfToken: 'csrf-feedback', isAdmin: true } };
+  const harness = await createCreatorPagesHarness({ authenticate: async () => auth.current });
+  const handler = createCreatorHttpHandler({
+    service: harness.service,
+    auth: { getPrincipal: async () => auth.current },
+    origin: SITE_ORIGIN,
+  });
+  const statuses = [];
+  const page = await executeAdminScript(await renderAdminPage(), {
+    fetchImpl: async (url, init = {}) => {
+      const target = new URL(url, SITE_ORIGIN);
+      const headers = new Headers(init.headers);
+      if (target.origin === SITE_ORIGIN) headers.set('origin', SITE_ORIGIN);
+      const response = await handler(new Request(target, { ...init, headers }));
+      statuses.push(response.status);
+      return response;
+    },
+  });
+  assert.ok(page.resourceButtons[0]);
+  assert.equal(page.sessionBinding, creatorPageSessionBinding(auth.current), 'the rendered admin page binds recovery to the original admin role');
+
+  auth.current = { state: 'anonymous' };
+  await page.resourceButtons[0].dispatch('click');
+  assert.equal(statuses[0], 401);
+  assert.equal(page.sessionRecovery.signIn.hidden, false);
+  assert.equal(page.sessionRecovery.check.hidden, false);
+
+  auth.current = { state: 'authenticated', accountId: 'admin-feedback', csrfToken: 'csrf-renewed', isAdmin: false };
+  await page.sessionRecovery.check.dispatch('click');
+  await settleSessionCheck();
+  assert.equal(statuses[1], 409, 'the actual session handler compares the immutable account-and-role binding');
+  assert.match(page.sessionRecovery.status.textContent, /otra cuenta o tiene otros permisos/);
+
+  await page.resourceButtons[1].dispatch('click');
+  assert.equal(statuses.length, 2, 'a role mismatch keeps all administrative writes blocked');
+  assert.equal(page.requests.length, 2);
+  assert.equal(page.reloads(), 0);
+});
+
+test('la misma administración renueva CSRF y completa una acción sólo después de volver a pulsarla', async () => {
+  const accountId = 'admin-feedback';
+  const auth = { current: { state: 'authenticated', accountId, csrfToken: 'csrf-feedback', isAdmin: true } };
+  const harness = await createCreatorPagesHarness({ authenticate: async () => auth.current });
+  const seeded = await harness.store.transact({
+    checks: [{ key: 'profile:profile-feedback', version: null }],
+    puts: [{ key: 'profile:profile-feedback', value: {
+      id: 'profile-feedback', displayName: 'Ana', slug: 'ana-feedback', published: true, hidden: false, version: 1,
+    } }],
+  });
+  assert.equal(seeded, true);
+  const handler = createCreatorHttpHandler({
+    service: harness.service,
+    auth: { getPrincipal: async () => auth.current },
+    origin: SITE_ORIGIN,
+  });
+  const statuses = [];
+  const page = await executeAdminScript(await renderAdminPage(), {
+    fetchImpl: async (url, init = {}) => {
+      const target = new URL(url, SITE_ORIGIN);
+      const headers = new Headers(init.headers);
+      if (target.origin === SITE_ORIGIN) headers.set('origin', SITE_ORIGIN);
+      const response = await handler(new Request(target, { ...init, headers }));
+      statuses.push(response.status);
+      return response;
+    },
+  });
+  const hideProfile = page.profileButtons[0];
+  assert.ok(hideProfile);
+
+  auth.current = { state: 'anonymous' };
+  await hideProfile.dispatch('click');
+  assert.equal(statuses[0], 401);
+  assert.equal(hideProfile.disabled, false, 'the rejected action remains available for an explicit retry');
+
+  auth.current = { state: 'authenticated', accountId, csrfToken: 'csrf-admin-renewed', isAdmin: true };
+  await page.sessionRecovery.check.dispatch('click');
+  await settleSessionCheck();
+  assert.equal(statuses[1], 200);
+  assert.equal(page.requests.length, 2, 'session confirmation does not replay the rejected moderation action');
+  assert.match(page.sessionRecovery.status.textContent, /Sesión comprobada/);
+
+  await hideProfile.dispatch('click');
+  assert.equal(statuses[2], 200);
+  assert.equal(page.requests[2].url, '/api/admin/perfiles/profile-feedback/ocultar/');
+  assert.equal(page.requests[2].init.headers['x-csrf-token'], 'csrf-admin-renewed');
+  assert.equal(page.reloads(), 1, 'the action reloads only after its explicit successful retry');
 });
 
 test('la clasificación conserva una corrección durante el guardado y recarga con la versión actualizada', async () => {
@@ -505,4 +665,45 @@ test('la clasificación conserva una corrección durante el guardado y recarga c
   assert.equal(JSON.parse(patches[1].options.body).version, 2, 'the committed receipt advances this form version');
   assert.equal(requests.some((request) => request.options.method === 'GET'), false, 'a later GET never adopts unseen classification versions');
   assert.equal(reloads, 1, 'the page reloads after the corrected classification is saved');
+});
+
+test('resolver una reclamación deja editables y guardables las selecciones exactas de otra', async () => {
+  const page = await executeAdminScript(await renderAdminPage({ claimRecords: [
+    {
+      id: 'claim-a', accountId: 'owner-a', resourceIds: ['resource-a'],
+      sourceId: 'source-a', evidence: 'https://example.com/a', status: 'pending',
+    },
+    {
+      id: 'claim-b', accountId: 'owner-b', resourceIds: ['resource-b1', 'resource-b2'],
+      sourceId: 'source-b', evidence: 'https://example.com/b', status: 'pending',
+    },
+  ] }));
+  const claimA = page.claimForms.find((form) => form.rowId === 'claim-a');
+  const claimB = page.claimForms.find((form) => form.rowId === 'claim-b');
+  assert.ok(claimA);
+  assert.ok(claimB);
+  const submitA = claimA.controls.at(-1);
+  const [resourceB1, resourceB2] = claimB.fields;
+  const submitB = claimB.controls.at(-1);
+  resourceB2.checked = false;
+
+  page.responses.push(
+    { status: 200, body: { versionChanges: [] } },
+    { status: 200, body: { versionChanges: [] } },
+  );
+  await claimA.dispatch('submit');
+
+  assert.equal(resourceB2.checked, false, 'the exact reviewed subset remains selected');
+  assert.equal(resourceB2.disabled, false, 'another claim selection remains editable');
+  assert.equal(submitB.disabled, false, 'another claim can still be submitted');
+  await page.refreshButton.dispatch('click');
+  assert.equal(page.reloads(), 0, 'the safe refresh preserves the pending selection');
+  assert.match(page.transition.textContent, /Guarda los cambios pendientes o revierte/);
+
+  await claimB.dispatch('submit');
+  assert.deepEqual(JSON.parse(page.requests[0].init.body).resourceIds, ['resource-a']);
+  assert.deepEqual(JSON.parse(page.requests[1].init.body).resourceIds, ['resource-b1']);
+  assert.equal(resourceB1.checked, true);
+  assert.equal(page.reloads(), 1, 'saving the other exact-ID selection completes the refresh');
+  assert.equal(submitA.disabled, true, 'the resolved claim itself stays paused until refresh');
 });
