@@ -47,6 +47,10 @@ function linkVisibilityText(link: CreatorEditorDTO['links'][number]) {
   </nav>
 
   <div class="creator-account__status" data-page-status role="status" aria-live="polite" hidden></div>
+  <div class="creator-account__status" data-view-transition-shell hidden>
+    <p data-view-transition role="status" aria-live="polite" hidden></p>
+    <button class="button button--outline" type="button" data-refresh-view>Actualizar vista</button>
+  </div>
 
   {profile?.published && !profile.hidden && (
     <section class="creator-account__published" aria-label="Página publicada">
