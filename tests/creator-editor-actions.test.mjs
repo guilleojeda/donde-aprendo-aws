@@ -3,6 +3,7 @@ import test from 'node:test';
 import { runInNewContext } from 'node:vm';
 import { build } from 'esbuild';
 import { createCreatorHttpHandler } from '../src/lib/creator-http.mjs';
+import { creatorPageSessionBinding } from '../src/lib/creator-session-context.mjs';
 import { createCreatorPhotoHarness, rasterPhotoFixtures } from './fixtures/creator-photos.mjs';
 import { callApi, createCreatorPagesHarness, sessionCsrf, SITE_ORIGIN } from './fixtures/creator-pages.mjs';
 
@@ -66,6 +67,7 @@ class TestFormData {
   }
 
   get(name) {
+    if (this.values.has(name)) return this.values.get(name);
     const value = this.form?.values[name];
     return value && typeof value === 'object' && 'value' in value ? value.value : value ?? null;
   }
@@ -98,6 +100,7 @@ async function runEditor({ data = editorData(), root, fetch, reloads }) {
     getElementById: () => null,
   };
   const window = {
+    confirm() { return true; },
     location: {
       hash: '',
       href: 'https://dondeaprendoaws.com/cuenta/creador/',
@@ -131,6 +134,85 @@ function baseRoot(overrides = {}) {
     lists: overrides.lists,
   });
   return { root, linksStatus };
+}
+
+function enableSessionRecovery(root, binding, { fields = [], buttons = [] } = {}) {
+  const shell = new TestElement();
+  const status = new TestElement();
+  const signIn = new TestElement();
+  const check = new TestElement();
+  check.tagName = 'BUTTON';
+  check.hidden = true;
+  signIn.hidden = true;
+  root.dataset.sessionBinding = binding;
+  Object.assign(root.selectors, {
+    '[data-session-recovery-shell]': shell,
+    '[data-session-recovery-status]': status,
+    '[data-session-recovery-sign-in]': signIn,
+    '[data-session-recovery-check]': check,
+  });
+  root.lists['input, textarea, select'] = fields;
+  root.lists['button, input[type="file"], input[data-busy-control], [data-featured], [data-directory], [data-creator-stale]'] = [
+    ...buttons, check,
+  ];
+  return { shell, status, signIn, check };
+}
+
+function profileEditorForm(profile) {
+  const displayName = new TestElement();
+  Object.assign(displayName, { tagName: 'INPUT', type: 'text', name: 'displayName', value: profile?.displayName ?? 'Ana' });
+  const slug = new TestElement();
+  Object.assign(slug, { tagName: 'INPUT', type: 'text', name: 'slug', value: profile?.slug ?? 'ana-nueva' });
+  const form = new TestElement({
+    values: { displayName, slug, city: profile?.city ?? '', country: profile?.country ?? '', bio: profile?.bio ?? '' },
+    lists: { 'input[name^="social-"]': [], 'input, textarea, select': [displayName, slug] },
+  });
+  displayName.form = form;
+  slug.form = form;
+  return { form, displayName, slug, fields: [displayName, slug] };
+}
+
+async function fetchCreatorHandler(handler, requests, url, options = {}) {
+  const target = new URL(url, SITE_ORIGIN);
+  const headers = new Headers(options.headers);
+  if (target.origin === SITE_ORIGIN) headers.set('origin', SITE_ORIGIN);
+  const response = await handler(new Request(target, { ...options, headers }));
+  const error = response.status >= 400 ? await response.clone().json().catch(() => null) : undefined;
+  requests.push({
+    path: target.pathname,
+    method: options.method ?? 'GET',
+    body: typeof options.body === 'string' ? JSON.parse(options.body) : undefined,
+    csrf: headers.get('x-csrf-token'),
+    binding: headers.get('x-creator-page-binding'),
+    status: response.status,
+    ...(error === undefined ? {} : { error }),
+  });
+  return response;
+}
+
+async function mountSessionEditor({ harness, auth, data, root, fields, buttons = [], fetchOverride, photos, store = harness.store }) {
+  const recovery = enableSessionRecovery(root, creatorPageSessionBinding(auth.current), { fields, buttons });
+  const http = createCreatorHttpHandler({
+    service: harness.service,
+    photos,
+    auth: { getPrincipal: async () => auth.current },
+    store,
+    origin: SITE_ORIGIN,
+  });
+  const requests = [];
+  const reloads = { count: 0 };
+  const defaultFetch = (url, options) => fetchCreatorHandler(http, requests, url, options);
+  await runEditor({
+    data, root, reloads,
+    fetch: (url, options) => fetchOverride
+      ? fetchOverride(defaultFetch, requests, url, options)
+      : defaultFetch(url, options),
+  });
+  return { recovery, requests, reloads, http };
+}
+
+async function settleSessionCheck() {
+  await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 test('readding a retained resource sends its exact identity and observed resource version', async () => {
@@ -880,6 +962,282 @@ test('reverting pending fields allows the explicit structural refresh', async ()
   assert.equal(reloads.count, 1, 'manual refresh is safe once all pending fields match their baselines');
 });
 
+function seriesDeleteFixture({ profileCorrection = false } = {}) {
+  const name = new TestElement();
+  Object.assign(name, { tagName: 'INPUT', type: 'text', value: 'Mi serie', name: 'name' });
+  const slug = new TestElement();
+  Object.assign(slug, { tagName: 'INPUT', type: 'text', value: 'mi-serie', name: 'slug' });
+  const description = new TestElement();
+  Object.assign(description, { tagName: 'TEXTAREA', value: '', name: 'description' });
+  const metadataStatus = new TestElement();
+  const seriesStatus = new TestElement();
+  const saveButton = new TestElement();
+  saveButton.tagName = 'BUTTON';
+  const seriesForm = new TestElement({
+    values: { name, slug, description },
+    selectors: { '[data-series-form-status]': metadataStatus },
+    lists: {
+      'input, textarea, select': [name, slug, description],
+      'input, textarea, select, button': [name, slug, description, saveButton],
+    },
+  });
+  for (const field of [name, slug, description]) field.form = seriesForm;
+  const section = new TestElement({
+    dataset: { seriesId: 'series-a' },
+    selectors: { '[data-series-form]': seriesForm, '[data-series-status]': seriesStatus },
+  });
+  seriesForm.selectors['closest:[data-series-id]'] = section;
+  const deleteButton = new TestElement({ selectors: { 'closest:[data-series-id]': section } });
+  deleteButton.tagName = 'BUTTON';
+  const transition = new TestElement();
+  const refresh = new TestElement();
+  refresh.tagName = 'BUTTON';
+  const profileField = { tagName: 'INPUT', type: 'text', value: 'Ana', name: 'displayName', disabled: false };
+  const profileSaveButton = new TestElement();
+  profileSaveButton.tagName = 'BUTTON';
+  const profileStatus = new TestElement();
+  const profileForm = new TestElement({
+    values: { displayName: profileField, slug: 'ana', city: '', country: '', bio: '' },
+    selectors: { 'input[name^="social-"]': [] },
+    lists: { 'input, textarea, select': [profileField] },
+  });
+  profileField.form = profileForm;
+  const shell = new TestElement();
+  const root = new TestElement({
+    dataset: { csrf: 'csrf-a' },
+    selectors: {
+      '[data-profile-form]': profileCorrection ? profileForm : null,
+      '[data-profile-status]': profileStatus,
+      '[data-series-form]': seriesForm,
+      '[data-view-transition]': transition,
+      '[data-view-transition-shell]': shell,
+      '[data-refresh-view]': refresh,
+    },
+    lists: {
+      '[data-delete-series]': [deleteButton],
+      '[data-series-form]': [seriesForm],
+      'input, textarea, select': profileCorrection
+        ? [profileField, name, slug, description]
+        : [name, slug, description],
+      'button, input[type="file"], input[data-busy-control], [data-featured], [data-directory], [data-creator-stale]': [
+        deleteButton, saveButton, profileSaveButton, profileField, name, slug, description, refresh,
+      ],
+      '[data-move], [data-remove-link], [data-featured], [data-directory], [data-readd-link], [data-series-add-chapter-form] button, [data-series-move], [data-series-remove-chapter], [data-delete-series]': [deleteButton],
+    },
+  });
+  return {
+    root, name, slug, description, metadataStatus, seriesStatus, saveButton,
+    deleteButton, transition, refresh, profileField, profileForm, profileStatus,
+  };
+}
+
+test('a failed series deletion leaves its metadata usable and reports only the failure', async () => {
+  const fixture = seriesDeleteFixture();
+  const reloads = { count: 0 };
+  await runEditor({
+    data: editorData({ series: [{ id: 'series-a', name: 'Mi serie', slug: 'mi-serie', version: 4 }] }),
+    root: fixture.root,
+    reloads,
+    fetch: async () => Response.json({ error: 'SERVICE_UNAVAILABLE' }, { status: 503 }),
+  });
+
+  await fixture.deleteButton.dispatch('click');
+
+  assert.equal(fixture.name.disabled, false);
+  assert.equal(fixture.saveButton.disabled, false);
+  assert.doesNotMatch(fixture.metadataStatus.textContent, /se eliminó/);
+  assert.match(fixture.seriesStatus.textContent, /No pudimos guardar/);
+  assert.equal(fixture.deleteButton.disabled, false, 'the failed action can be retried');
+  assert.equal(reloads.count, 0);
+});
+
+test('a successful series deletion rebases its disabled draft and preserves other pending corrections', async () => {
+  const fixture = seriesDeleteFixture({ profileCorrection: true });
+  const reloads = { count: 0 };
+  let resolveDelete;
+  const requests = [];
+  await runEditor({
+    data: editorData({ series: [{ id: 'series-a', name: 'Mi serie', slug: 'mi-serie', version: 4 }] }),
+    root: fixture.root,
+    reloads,
+    fetch: async (url, options) => {
+      requests.push({ url, options });
+      if (url.includes('/series/series-a/')) {
+        return new Promise((resolve) => { resolveDelete = resolve; });
+      }
+      return Response.json({
+        profile: { ...editorData().profile, displayName: 'Ana corregida', version: 39 },
+        versionChanges: [{ entity: 'profile', id: 'profile-a', before: 38, after: 39 }],
+      });
+    },
+  });
+
+  fixture.profileField.value = 'Ana corregida';
+  const deleting = fixture.deleteButton.dispatch('click');
+  await Promise.resolve();
+  fixture.name.value = 'Corrección durante la solicitud';
+  resolveDelete(new Response(null, { status: 204, headers: {
+    'Creator-Write-Versions': JSON.stringify([
+      { entity: 'profile', id: 'profile-a', before: 37, after: 38 },
+      { entity: 'series', id: 'series-a', before: 4, after: 5 },
+    ]),
+  } }));
+  await deleting;
+
+  assert.equal(fixture.name.value, 'Corrección durante la solicitud', 'the entered value remains visible until refresh');
+  assert.equal(fixture.name.disabled, true, 'deleted series metadata cannot be submitted');
+  assert.match(fixture.metadataStatus.textContent, /ya se eliminó/);
+  assert.equal(fixture.profileField.value, 'Ana corregida', 'a different pending correction survives');
+  await fixture.refresh.dispatch('click');
+  assert.equal(reloads.count, 0, 'refresh remains blocked by the still-editable profile correction');
+  assert.match(fixture.transition.textContent, /Guarda los cambios pendientes o revierte/);
+
+  await fixture.profileForm.dispatch('submit');
+  assert.equal(requests.length, 2);
+  assert.equal(JSON.parse(requests[1].options.body).displayName, 'Ana corregida');
+  assert.equal(reloads.count, 1, 'saving the remaining correction completes the safe refresh');
+});
+
+test('a late edit in the deleted series no longer blocks explicit refresh by itself', async () => {
+  const fixture = seriesDeleteFixture({ profileCorrection: true });
+  const reloads = { count: 0 };
+  let resolveDelete;
+  await runEditor({
+    data: editorData({ series: [{ id: 'series-a', name: 'Mi serie', slug: 'mi-serie', version: 4 }] }),
+    root: fixture.root,
+    reloads,
+    fetch: async () => new Promise((resolve) => { resolveDelete = resolve; }),
+  });
+
+  fixture.profileField.value = 'Corrección pendiente en el perfil';
+  const deleting = fixture.deleteButton.dispatch('click');
+  await Promise.resolve();
+  fixture.name.value = 'Corrección durante la solicitud';
+  resolveDelete(new Response(null, { status: 204, headers: {
+    'Creator-Write-Versions': JSON.stringify([{ entity: 'profile', id: 'profile-a', before: 37, after: 38 }]),
+  } }));
+  await deleting;
+  assert.equal(fixture.name.disabled, true);
+  await fixture.refresh.dispatch('click');
+  assert.equal(reloads.count, 0, 'an unrelated correction still blocks refresh');
+  assert.equal(fixture.profileField.value, 'Corrección pendiente en el perfil');
+  fixture.profileField.value = 'Ana';
+  await fixture.refresh.dispatch('click');
+  assert.equal(reloads.count, 1, 'the deleted draft does not leave a disabled pending field blocking refresh');
+});
+
+test('featuring a link with another pending edit pauses controls that depend on the new order', async () => {
+  const principal = { state: 'authenticated', accountId: 'private-account-a', csrfToken: 'csrf-a', isAdmin: false };
+  const harness = await createCreatorPagesHarness({ authenticate: async () => principal });
+  const apiCall = (path, method, body) => callApi(harness, path, {
+    method,
+    csrf: 'csrf-a',
+    ...(body === undefined ? {} : { body }),
+  });
+  const profileResponse = await apiCall('/api/creador/perfil', 'PUT', {
+    displayName: 'Ana', slug: 'ana', programs: [], socials: {},
+  });
+  assert.equal(profileResponse.status, 200);
+  const created = [];
+  for (const title of ['B', 'C', 'A']) {
+    const response = await apiCall('/api/creador/enlaces', 'POST', {
+      title, url: `https://example.com/${title}`,
+    });
+    assert.equal(response.status, 201);
+    created.push((await response.json()).link);
+  }
+  const a = created[2];
+  const c = created[1];
+  const featuredA = await apiCall(`/api/creador/enlaces/${a.placementId}`, 'PATCH', {
+    version: a.placementVersion, featured: true,
+  });
+  assert.equal(featuredA.status, 200);
+  const initial = await (await apiCall('/api/creador/perfil')).json();
+  const sortedTitles = (links) => [...links]
+    .sort((left, right) => Number(right.featured) - Number(left.featured) || left.position - right.position)
+    .map((link) => link.title);
+  assert.deepEqual(sortedTitles(initial.links), ['A', 'B', 'C']);
+
+  const profileField = {
+    tagName: 'INPUT', type: 'text', name: 'displayName', value: initial.profile.displayName,
+    setCustomValidity() {},
+  };
+  const profileForm = new TestElement({
+    values: {
+      displayName: profileField, slug: initial.profile.slug, city: '', country: '', bio: '',
+    },
+    lists: { 'input[name^="social-"]': [], 'input, textarea, select': [profileField] },
+  });
+  profileField.form = profileForm;
+  const item = new TestElement({ dataset: { placementId: c.placementId } });
+  const featured = new TestElement({ dataset: { featured: '' } });
+  featured.tagName = 'INPUT';
+  featured.type = 'checkbox';
+  featured.setAttribute('data-featured', '');
+  featured.selectors['closest:[data-placement-id]'] = item;
+  const moveUp = new TestElement({
+    dataset: { move: 'up' },
+    selectors: { 'closest:[data-placement-id]': item },
+  });
+  moveUp.tagName = 'BUTTON';
+  const profileSave = new TestElement();
+  profileSave.tagName = 'BUTTON';
+  const refresh = new TestElement();
+  refresh.tagName = 'BUTTON';
+  const linksStatus = new TestElement();
+  const transition = new TestElement();
+  const root = new TestElement({
+    dataset: { csrf: 'csrf-a' },
+    selectors: {
+      '[data-profile-form]': profileForm,
+      '[data-profile-status]': new TestElement(),
+      '[data-links-status]': linksStatus,
+      '[data-view-transition]': transition,
+      '[data-view-transition-shell]': new TestElement(),
+      '[data-refresh-view]': refresh,
+    },
+    lists: {
+      '[data-featured], [data-directory]': [featured],
+      '[data-move]': [moveUp],
+      '[data-move], [data-remove-link], [data-featured], [data-directory], [data-readd-link], [data-series-add-chapter-form] button, [data-series-move], [data-series-remove-chapter], [data-delete-series]': [moveUp, featured],
+      'input, textarea, select': [profileField, featured],
+      'button, input[type="file"], input[data-busy-control], [data-featured], [data-directory], [data-creator-stale]': [profileSave, moveUp, featured, refresh],
+    },
+  });
+  const requests = [];
+  const reloads = { count: 0 };
+  await runEditor({
+    data: initial,
+    root,
+    reloads,
+    fetch: async (url, options) => {
+      const headers = new Headers(options.headers);
+      headers.set('origin', SITE_ORIGIN);
+      const response = await harness.service.handle(new Request(new URL(url, SITE_ORIGIN), { ...options, headers }));
+      requests.push({ url, status: response.status });
+      return response;
+    },
+  });
+
+  profileField.value = 'Ana con una corrección pendiente';
+  featured.checked = true;
+  await featured.dispatch('change');
+  const updated = await (await apiCall('/api/creador/perfil')).json();
+  assert.deepEqual(sortedTitles(updated.links), ['C', 'A', 'B'], 'the real service changes the rendered featured order');
+  assert.equal(requests.length, 1, 'the feature action is the only write');
+  assert.equal(profileField.value, 'Ana con una corrección pendiente');
+  assert.equal(root.querySelector('[data-view-transition-shell]').hidden, false);
+  assert.equal(featured.disabled, true, 'the checkbox is stale until the page is refreshed');
+  assert.equal(moveUp.disabled, true, 'move controls based on the old order are stale too');
+  await refresh.dispatch('click');
+  assert.equal(reloads.count, 0, 'the pending profile correction is protected from refresh');
+  assert.match(transition.textContent, /Guarda los cambios pendientes o revierte/);
+
+  profileField.value = initial.profile.displayName;
+  await refresh.dispatch('click');
+  assert.equal(reloads.count, 1, 'refresh is available after the unrelated correction is reverted');
+});
+
 test('a mismatched write receipt exposes a safe refresh without disabling valid metadata forms', async () => {
   const fixture = seriesTransitionFixture();
   const reloads = { count: 0 };
@@ -1166,4 +1524,212 @@ test('real photo HTTP version conflicts at authorization and finalization tell t
   assert.equal(finalizationConflict.requests.filter(({ url }) => url.endsWith('/finalizar/')).length, 1);
   assert.match(finalizationConflict.photoStatus.textContent, /Recarga antes de volver a intentar la foto/);
   assert.equal(finalizationConflict.reloads.count, 0, 'a real commit-time conflict does not discard the selected file');
+});
+
+test('the same account can renew CSRF and manually save a retained profile correction', async () => {
+  const auth = { current: { state: 'authenticated', accountId: 'private-session-a', csrfToken: 'csrf-old', isAdmin: false } };
+  const harness = await createCreatorPagesHarness({ authenticate: async () => auth.current });
+  const created = await callApi(harness, '/api/creador/perfil', {
+    method: 'PUT', csrf: 'csrf-old',
+    body: { displayName: 'Ana', slug: 'ana-session', programs: [], socials: {} },
+  });
+  assert.equal(created.status, 200);
+  const initial = await (await callApi(harness, '/api/creador/perfil')).json();
+  const form = profileEditorForm(initial.profile);
+  const status = new TestElement();
+  const { root } = baseRoot({ selectors: { '[data-profile-form]': form.form, '[data-profile-status]': status } });
+  const saveButton = new TestElement();
+  saveButton.tagName = 'BUTTON';
+  const fixture = await mountSessionEditor({ harness, auth, data: initial, root, fields: form.fields, buttons: [saveButton] });
+
+  auth.current = { state: 'anonymous' };
+  form.displayName.value = 'Ana con una corrección';
+  await form.form.dispatch('submit');
+  assert.equal(fixture.requests[0].status, 401);
+  assert.match(status.textContent, /conservamos tus cambios/i);
+  assert.equal(fixture.recovery.signIn.hidden, false);
+  assert.equal(fixture.recovery.check.hidden, false);
+
+  auth.current = { state: 'authenticated', accountId: 'private-session-a', csrfToken: 'csrf-renewed', isAdmin: false };
+  await fixture.recovery.check.dispatch('click');
+  await settleSessionCheck();
+  assert.equal(fixture.requests.length, 2, 'the session check sends no profile write');
+  assert.deepEqual(fixture.requests[1], {
+    path: '/api/creador/sesion/', method: 'GET', body: undefined,
+    csrf: null, binding: creatorPageSessionBinding(auth.current), status: 200,
+  });
+  assert.equal(form.displayName.value, 'Ana con una corrección');
+  assert.equal((await (await callApi(harness, '/api/creador/perfil')).json()).profile.version, initial.profile.version,
+    'session renewal does not advance the version shown by the form');
+
+  await form.form.dispatch('submit');
+  assert.equal(fixture.requests.length, 3);
+  assert.equal(fixture.requests[2].path, '/api/creador/perfil/');
+  assert.equal(fixture.requests[2].csrf, 'csrf-renewed');
+  assert.equal(fixture.requests[2].body.version, initial.profile.version);
+  assert.equal(fixture.requests[2].body.displayName, 'Ana con una corrección');
+  assert.equal(fixture.reloads.count, 1);
+  assert.match(fixture.recovery.status.textContent, /Sesión comprobada/);
+});
+
+test('session checks retry after a temporary 503 and retain the selected photo until a manual upload', async () => {
+  const accountId = 'private-photo-recovery';
+  const auth = { current: { state: 'authenticated', accountId, csrfToken: 'csrf-old', isAdmin: false } };
+  const harness = await createCreatorPagesHarness({ authenticate: async () => auth.current });
+  const seeded = await harness.store.transact({
+    checks: [
+      { key: 'profile:profile-session-photo', version: null },
+      { key: `account-profile:${accountId}`, version: null },
+    ],
+    puts: [
+      { key: 'profile:profile-session-photo', value: { id: 'profile-session-photo', displayName: 'Ana', slug: 'ana-session-photo', version: 1 } },
+      { key: `account-profile:${accountId}`, value: { profileId: 'profile-session-photo', version: 1 } },
+    ],
+  });
+  assert.equal(seeded, true);
+  const photos = await createCreatorPhotoHarness({ profiles: [{ id: 'profile-session-photo', version: 1 }] });
+  const { jpeg } = await rasterPhotoFixtures();
+  const file = new File([jpeg], 'perfil.jpg', { type: 'image/jpeg' });
+  const fileInput = new TestElement();
+  Object.assign(fileInput, { tagName: 'INPUT', type: 'file', files: [file] });
+  const photoStatus = new TestElement();
+  const photoForm = new TestElement({ selectors: { 'input[type="file"]': fileInput } });
+  const profile = {
+    id: 'profile-session-photo', displayName: 'Ana', slug: 'ana-session-photo', programs: [], socials: {},
+    published: true, hidden: false, version: 1,
+  };
+  const { root } = baseRoot({ selectors: { '[data-photo-form]': photoForm, '[data-photo-status]': photoStatus } });
+  let directUploads = 0;
+  const fixture = await mountSessionEditor({
+    harness, auth, photos: photos.service, data: editorData({ profile }), root, fields: [], buttons: [fileInput],
+    fetchOverride: async (defaultFetch, requests, url, options) => {
+      if (url === 'https://creator-photos.example.invalid/') {
+        directUploads += 1;
+        photos.objects.seed(options.body.get('key'), jpeg);
+        return new Response(null, { status: 204 });
+      }
+      return defaultFetch(url, options);
+    },
+  });
+
+  auth.current = { state: 'anonymous' };
+  await photoForm.dispatch('submit');
+  assert.equal(fixture.requests[0].status, 401);
+  assert.equal(fileInput.files[0], file);
+  assert.equal(directUploads, 0);
+
+  auth.current = { state: 'unavailable' };
+  await fixture.recovery.check.dispatch('click');
+  await settleSessionCheck();
+  assert.equal(fixture.requests[1].status, 503);
+  assert.equal(fixture.recovery.check.disabled, false, 'a transient recovery failure can be retried');
+  assert.equal(fileInput.files[0], file);
+
+  auth.current = { state: 'authenticated', accountId, csrfToken: 'csrf-renewed', isAdmin: false };
+  await fixture.recovery.check.dispatch('click');
+  await settleSessionCheck();
+  assert.equal(fixture.requests[2].status, 200);
+  assert.equal(fixture.requests.length, 3, 'checking the session does not replay photo authorization');
+  assert.equal(fileInput.files[0], file);
+
+  await photoForm.dispatch('submit');
+  assert.equal(fixture.requests[3].path, '/api/creador/foto/autorizar/');
+  assert.equal(fixture.requests[3].status, 200, `photo authorization failed: ${JSON.stringify(fixture.requests[3])}`);
+  assert.equal(fixture.requests[3].csrf, 'csrf-renewed');
+  assert.ok(fixture.requests[4], `manual photo retry did not finalize: ${photoStatus.textContent}; direct uploads=${directUploads}`);
+  assert.equal(fixture.requests[4].path, '/api/creador/foto/finalizar/');
+  assert.equal(fixture.requests[4].status, 200, `photo finalization failed: ${JSON.stringify(fixture.requests[4])}`);
+  assert.equal(fixture.requests[4].csrf, 'csrf-renewed');
+  assert.equal(directUploads, 1);
+  assert.equal(fileInput.files[0], file);
+  assert.equal(fixture.reloads.count, 1);
+  assert.equal(photos.store && (await photos.store.get('profile:profile-session-photo')).version, 2);
+  assert.match(photoStatus.textContent, /Foto guardada/);
+});
+
+test('a content conflict after session recovery keeps the form correction and old observed version', async () => {
+  const auth = { current: { state: 'authenticated', accountId: 'private-session-conflict', csrfToken: 'csrf-old', isAdmin: false } };
+  const harness = await createCreatorPagesHarness({ authenticate: async () => auth.current });
+  const created = await callApi(harness, '/api/creador/perfil', {
+    method: 'PUT', csrf: 'csrf-old',
+    body: { displayName: 'Ana', slug: 'ana-session-conflict', programs: [], socials: {} },
+  });
+  assert.equal(created.status, 200);
+  const initial = await (await callApi(harness, '/api/creador/perfil')).json();
+  const form = profileEditorForm(initial.profile);
+  const status = new TestElement();
+  const { root } = baseRoot({ selectors: { '[data-profile-form]': form.form, '[data-profile-status]': status } });
+  const fixture = await mountSessionEditor({ harness, auth, data: initial, root, fields: form.fields });
+
+  auth.current = { state: 'anonymous' };
+  form.displayName.value = 'Corrección local conservada';
+  await form.form.dispatch('submit');
+  auth.current = { state: 'authenticated', accountId: 'private-session-conflict', csrfToken: 'csrf-renewed', isAdmin: false };
+  await fixture.recovery.check.dispatch('click');
+  await settleSessionCheck();
+  const remote = await callApi(harness, '/api/creador/perfil', {
+    method: 'PUT', csrf: 'csrf-renewed',
+    body: {
+      displayName: 'Cambio guardado desde otra página', slug: initial.profile.slug,
+      city: initial.profile.city ?? '', country: initial.profile.country ?? '', bio: initial.profile.bio ?? '',
+      programs: initial.profile.programs ?? [], socials: initial.profile.socials ?? {}, version: initial.profile.version,
+    },
+  });
+  assert.equal(remote.status, 200);
+
+  await form.form.dispatch('submit');
+  assert.equal(fixture.requests.at(-1).body.version, initial.profile.version);
+  assert.equal(fixture.requests.at(-1).csrf, 'csrf-renewed');
+  assert.equal(form.displayName.value, 'Corrección local conservada');
+  assert.match(status.textContent, /Recárgala antes de volver a guardar/);
+  assert.equal(fixture.reloads.count, 0, 'recovery does not adopt the remotely changed version');
+});
+
+test('a profile-less editor resumes create-only saving for the same account', async () => {
+  const auth = { current: { state: 'authenticated', accountId: 'private-session-first', csrfToken: 'csrf-old', isAdmin: false } };
+  const harness = await createCreatorPagesHarness({ authenticate: async () => auth.current });
+  const initial = await (await callApi(harness, '/api/creador/perfil')).json();
+  assert.equal(initial.profile, null);
+  const form = profileEditorForm(null);
+  const status = new TestElement();
+  const { root } = baseRoot({ selectors: { '[data-profile-form]': form.form, '[data-profile-status]': status } });
+  const fixture = await mountSessionEditor({ harness, auth, data: initial, root, fields: form.fields });
+
+  auth.current = { state: 'anonymous' };
+  form.displayName.value = 'Ana nueva';
+  await form.form.dispatch('submit');
+  auth.current = { state: 'authenticated', accountId: 'private-session-first', csrfToken: 'csrf-new', isAdmin: false };
+  await fixture.recovery.check.dispatch('click');
+  await settleSessionCheck();
+  assert.equal(fixture.requests.length, 2, 'recovery authenticates the principal without reading a profile');
+  await form.form.dispatch('submit');
+
+  assert.equal(fixture.requests[2].method, 'PUT');
+  assert.equal(fixture.requests[2].csrf, 'csrf-new');
+  assert.equal(Object.hasOwn(fixture.requests[2].body, 'version'), false);
+  assert.equal(fixture.requests[2].body.displayName, 'Ana nueva');
+  assert.equal(fixture.reloads.count, 1);
+});
+
+test('a different account cannot resume a profile-less editor', async () => {
+  const auth = { current: { state: 'authenticated', accountId: 'private-session-original', csrfToken: 'csrf-old', isAdmin: false } };
+  const harness = await createCreatorPagesHarness({ authenticate: async () => auth.current });
+  const initial = await (await callApi(harness, '/api/creador/perfil')).json();
+  const form = profileEditorForm(null);
+  const status = new TestElement();
+  const { root } = baseRoot({ selectors: { '[data-profile-form]': form.form, '[data-profile-status]': status } });
+  const fixture = await mountSessionEditor({ harness, auth, data: initial, root, fields: form.fields });
+
+  auth.current = { state: 'anonymous' };
+  form.displayName.value = 'Corrección privada conservada';
+  await form.form.dispatch('submit');
+  auth.current = { state: 'authenticated', accountId: 'private-session-other', csrfToken: 'csrf-other', isAdmin: false };
+  await fixture.recovery.check.dispatch('click');
+  await settleSessionCheck();
+  assert.equal(fixture.requests[1].status, 409);
+  assert.match(fixture.recovery.status.textContent, /otra cuenta o tiene otros permisos/);
+  await form.form.dispatch('submit');
+  assert.equal(fixture.requests.length, 2, 'the mismatching account receives no retained write');
+  assert.equal(form.displayName.value, 'Corrección privada conservada');
+  assert.equal(fixture.reloads.count, 0);
 });

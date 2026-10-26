@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
+import { generateKeyPairSync } from 'node:crypto';
+import { createRequire } from 'node:module';
 import test from 'node:test';
+
+const { Gaxios } = createRequire(import.meta.url)('gaxios');
 
 const moduleResult = await import('../src/lib/creator-statistics-token.mjs').then(
   (value) => ({ value }), (error) => ({ error }),
@@ -79,4 +83,59 @@ test('a failed secret read or empty token is unavailable and a later request can
     createAuth: () => ({ getAccessToken: async () => null }),
   });
   await assert.rejects(empty.getAccessToken());
+});
+
+test('a stalled real JWT OAuth request receives the bounded transporter timeout and rejects', async () => {
+  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const nativeRequest = Gaxios.prototype.request;
+  const timeoutDescriptor = Object.getOwnPropertyDescriptor(AbortSignal, 'timeout');
+  const transportRequests = [];
+  const configuredTimeouts = [];
+
+  Gaxios.prototype.request = function (options) {
+    return nativeRequest.call(this, {
+      ...options,
+      fetchImplementation: async (url, request) => {
+        transportRequests.push({
+          url: String(url),
+          timeout: request.timeout,
+          signal: request.signal,
+        });
+        return new Promise((resolve, reject) => {
+          if (request.signal.aborted) {
+            reject(request.signal.reason);
+            return;
+          }
+          request.signal.addEventListener('abort', () => reject(request.signal.reason), { once: true });
+        });
+      },
+    });
+  };
+  AbortSignal.timeout = (milliseconds) => {
+    configuredTimeouts.push(milliseconds);
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(new DOMException('Timed out', 'TimeoutError')), 5);
+    return controller.signal;
+  };
+
+  try {
+    const provider = factory()({
+      loadCredentials: async () => ({
+        type: 'service_account',
+        client_email: 'statistics@fixture.invalid',
+        private_key: privateKey.export({ type: 'pkcs8', format: 'pem' }),
+      }),
+    });
+
+    await assert.rejects(provider.getAccessToken(), /GA4 authentication is unavailable\./);
+  } finally {
+    Gaxios.prototype.request = nativeRequest;
+    Object.defineProperty(AbortSignal, 'timeout', timeoutDescriptor);
+  }
+
+  assert.deepEqual(configuredTimeouts, [3_000, 3_000]);
+  assert.equal(transportRequests.length, 2, 'The OAuth transport performs at most one retry.');
+  assert.ok(transportRequests.every(({ url }) => url === 'https://oauth2.googleapis.com/token'));
+  assert.ok(transportRequests.every(({ timeout, signal }) => timeout === 3_000 && signal instanceof AbortSignal));
+  assert.ok(transportRequests.every(({ signal }) => signal.aborted), 'Both stalled transport attempts are aborted.');
 });

@@ -5,9 +5,10 @@ import { safeJsonForScript } from '../pages/cuenta/_creator-page';
 interface Props {
   data: CreatorEditorDTO;
   csrfToken: string;
+  sessionBinding: string;
 }
 
-const { data, csrfToken } = Astro.props;
+const { data, csrfToken, sessionBinding } = Astro.props;
 const profile = data.profile;
 const linkedResourceIds = new Set(data.links.map((link) => link.resourceId));
 const editableResourceIds = new Set(data.editableResources.map((resource) => resource.id));
@@ -34,7 +35,7 @@ function linkVisibilityText(link: CreatorEditorDTO['links'][number]) {
 }
 ---
 
-<main id="contenido" class="creator-account site-container" tabindex="-1" data-creator-editor data-csrf={csrfToken}>
+<main id="contenido" class="creator-account site-container" tabindex="-1" data-creator-editor data-csrf={csrfToken} data-session-binding={sessionBinding}>
   <header class="creator-account__header">
     <p class="creator-profile__eyebrow">Mi cuenta</p>
     <h1>Tu página de creador</h1>
@@ -47,6 +48,11 @@ function linkVisibilityText(link: CreatorEditorDTO['links'][number]) {
   </nav>
 
   <div class="creator-account__status" data-page-status role="status" aria-live="polite" hidden></div>
+  <div class="creator-account__status" data-session-recovery-shell hidden>
+    <p data-session-recovery-status role="status" aria-live="polite" hidden></p>
+    <a class="button button--outline" data-session-recovery-sign-in href="/cuenta/ingresar/" target="_blank" rel="noopener noreferrer" hidden>Ingresar en otra pestaña</a>
+    <button class="button button--outline" type="button" data-session-recovery-check hidden>Comprobar sesión</button>
+  </div>
   <div class="creator-account__status" data-view-transition-shell hidden>
     <p data-view-transition role="status" aria-live="polite" hidden></p>
     <button class="button button--outline" type="button" data-refresh-view>Actualizar vista</button>

@@ -27,8 +27,8 @@ const explanation = result.status === 401
 
 <BaseLayout title="Editar mi página | ¿Dónde Aprendo AWS?" description="Administra tu perfil y enlaces de creador." noindex nofollow analytics={false}>
   <SiteHeader />
-  {result.status === 200 && result.data && result.principal.csrfToken ? (
-    <CreatorEditor data={result.data} csrfToken={result.principal.csrfToken} />
+  {result.status === 200 && result.data && result.principal.csrfToken && result.principal.sessionBinding ? (
+    <CreatorEditor data={result.data} csrfToken={result.principal.csrfToken} sessionBinding={result.principal.sessionBinding} />
   ) : (
     <main id="contenido" class="creator-account site-container" tabindex="-1">
       <section class="creator-message" role="alert" aria-labelledby="creator-editor-error-title">

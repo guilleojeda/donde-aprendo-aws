@@ -61,6 +61,9 @@ export function createCreatorWriteGuard(root: HTMLElement) {
   }
 
   return {
+    isActive(): boolean {
+      return active;
+    },
     async run(event: Event, action: () => Promise<void> | void): Promise<void> {
       if (active) {
         event.preventDefault();

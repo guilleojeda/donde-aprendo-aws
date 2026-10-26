@@ -1,4 +1,5 @@
 import { getCreatorRuntime } from '../../lib/creator-runtime.mjs';
+import { creatorPageSessionBinding } from '../../lib/creator-session-context.mjs';
 import { selectAdminResources } from '../../lib/creator-admin-pagination.mjs';
 import type {
   CreatorClaimDTO,
@@ -17,6 +18,7 @@ export type CreatorPrincipalState = 'authenticated' | 'anonymous' | 'disabled' |
 export interface CreatorPagePrincipal {
   state: CreatorPrincipalState;
   csrfToken?: string;
+  sessionBinding?: string;
   isAdmin: boolean;
 }
 
@@ -292,10 +294,16 @@ async function loadPrincipal(request: Request): Promise<CreatorPagePrincipal> {
     const item = record(result);
     const state = item?.state;
     if (item && state === 'authenticated') {
+      const sessionBinding = creatorPageSessionBinding(item);
+      if (!sessionBinding || typeof item.csrfToken !== 'string' || item.csrfToken.trim().length === 0
+        || typeof item.isAdmin !== 'boolean') {
+        return { state: 'unavailable', isAdmin: false };
+      }
       return {
         state,
-        ...(typeof item.csrfToken === 'string' ? { csrfToken: item.csrfToken } : {}),
-        isAdmin: item.isAdmin === true,
+        csrfToken: item.csrfToken,
+        sessionBinding,
+        isAdmin: item.isAdmin,
       };
     }
     if (state === 'anonymous' || state === 'disabled' || state === 'unavailable') {

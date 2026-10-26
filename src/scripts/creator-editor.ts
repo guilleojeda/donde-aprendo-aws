@@ -6,6 +6,7 @@ import type {
 import { creatorEditorFailureMessage } from '../lib/creator-editor-errors';
 import { creatorSeriesFailureMessage } from '../lib/creator-series-editor-errors';
 import { createCreatorFormState, type FormValueSnapshot } from './creator-form-state';
+import { createCreatorSessionRecovery } from './creator-session-recovery';
 import { createCreatorWriteGuard, readCreatorVersionChanges, type CreatorVersionChange } from './creator-write-state';
 
 const root = document.querySelector<HTMLElement>('[data-creator-editor]');
@@ -36,7 +37,12 @@ if (root && initial?.textContent) {
 
 const formState = root ? createCreatorFormState(root) : undefined;
 const writeGuard = root ? createCreatorWriteGuard(root) : undefined;
-const csrfToken = root?.dataset.csrf;
+let csrfToken = root?.dataset.csrf;
+const sessionRecovery = root ? createCreatorSessionRecovery({
+  root,
+  isWriteActive: () => writeGuard?.isActive() ?? false,
+  updateCsrf: (token) => { csrfToken = token; },
+}) : undefined;
 const pageStatus = root?.querySelector<HTMLElement>('[data-page-status]');
 const MAX_REQUEST_BYTES = 32 * 1024;
 const REQUEST_TOO_LARGE = 'creator-request-too-large';
@@ -73,8 +79,10 @@ function announce(target: Element | null | undefined, message: string, kind: 'er
 }
 
 function statusText(status: number): string {
-  if (status === 401) return 'Tu sesión terminó. Inicia sesión y vuelve a intentarlo.';
-  if (status === 403) return 'Tu cuenta no tiene permiso para completar esta acción.';
+  if (status === 401) return sessionRecovery?.writeFailureMessage() ?? 'Tu sesión terminó. Inicia sesión y vuelve a intentarlo.';
+  if (status === 403) return sessionRecovery?.blocksWrites()
+    ? sessionRecovery.writeFailureMessage()
+    : 'Tu cuenta no tiene permiso para completar esta acción.';
   if (status === 409) return 'No pudimos completar el cambio porque hay un conflicto. Revisa el estado antes de volver a intentarlo.';
   if (status === 422) return 'El servicio no acepta alguno de estos datos. Revisa la información e inténtalo de nuevo; tus datos siguen en el formulario.';
   if (status === 413) return 'La solicitud supera el límite de 32 KiB. Reduce la cantidad de IDs o la referencia e inténtalo de nuevo.';
@@ -93,7 +101,14 @@ function setBusy(form: HTMLFormElement, busy: boolean) {
 }
 
 function onWrite(target: EventTarget, type: string, action: (event: Event) => Promise<void> | void) {
-  target.addEventListener(type, (event) => writeGuard?.run(event, () => action(event)));
+  target.addEventListener(type, (event) => {
+    if (sessionRecovery?.blocksWrites()) {
+      event.preventDefault();
+      sessionRecovery.announceBlocked();
+      return;
+    }
+    return writeGuard?.run(event, () => action(event));
+  });
 }
 
 async function api(path: string, method: string, body?: unknown): Promise<Response> {
@@ -102,7 +117,7 @@ async function api(path: string, method: string, body?: unknown): Promise<Respon
   if (serializedBody !== undefined && new TextEncoder().encode(serializedBody).byteLength > MAX_REQUEST_BYTES) {
     throw new Error(REQUEST_TOO_LARGE);
   }
-  return fetch(`${path.replace(/\/$/, '')}/`, {
+  const response = await fetch(`${path.replace(/\/$/, '')}/`, {
     method,
     credentials: 'same-origin',
     headers: {
@@ -111,6 +126,8 @@ async function api(path: string, method: string, body?: unknown): Promise<Respon
     },
     ...(serializedBody === undefined ? {} : { body: serializedBody }),
   });
+  await sessionRecovery?.observeWriteResponse(response);
+  return response;
 }
 
 async function photoErrorMessage(response: Response): Promise<string> {
@@ -585,7 +602,11 @@ if (root && state && csrfToken) {
         const response = await api(`/api/creador/enlaces/${encodeURIComponent(placementId)}`, 'PATCH', body);
         await finishWrite(response, linksStatus(), checkbox.matches('[data-directory]')
           ? 'Selección guardada. La página se actualiza ahora; el directorio puede tardar hasta una hora más la publicación del sitio.'
-          : 'Preferencia guardada.', submittedValues, { ownEntity: 'placement', ownId: placementId });
+          : 'Preferencia guardada.', submittedValues, {
+          structural: checkbox.matches('[data-featured]'),
+          ownEntity: 'placement',
+          ownId: placementId,
+        });
       } catch (error) {
         announce(linksStatus(), requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
         checkbox.checked = !checkbox.checked;
@@ -796,19 +817,20 @@ if (root && state && csrfToken) {
       const confirmed = window.confirm(`¿Eliminar la serie «${series.name}»? Se conservarán los enlaces de tu página y su selección para el directorio.`);
       if (!confirmed) return;
       const deletedForm = section?.querySelector<HTMLFormElement>('[data-series-form]');
-      const deletedValues = deletedForm ? formState?.capture(deletedForm) : undefined;
       button.disabled = true;
       try {
         const response = await api(`/api/creador/series/${encodeURIComponent(series.id)}`, 'DELETE', {
           version: series.version,
           profileVersion,
         });
-        deletedForm?.querySelectorAll<HTMLElement>('input, textarea, select, button').forEach((control) => {
-          control.setAttribute('data-creator-stale', 'true');
-        });
-        writeGuard?.markStale('[data-creator-stale]');
-        announce(deletedForm?.querySelector('[data-series-form-status]'), 'Esta serie se eliminó. Actualiza la vista; sus datos ya no se pueden guardar.', 'info');
-        await finishSeriesWrite(response, seriesStatus(button), 'Serie eliminada. Tus enlaces y su selección para el directorio siguen en tu página.', 'creator-series-editor-title', deletedValues, { structural: true });
+        if (response.ok && deletedForm) {
+          deletedForm.querySelectorAll<HTMLElement>('input, textarea, select, button').forEach((control) => {
+            control.setAttribute('data-creator-stale', 'true');
+          });
+          writeGuard?.markStale('[data-creator-stale]');
+          announce(deletedForm.querySelector('[data-series-form-status]'), 'La serie ya se eliminó. Sus campos de metadatos ya no se pueden guardar; actualiza la vista después de guardar las otras correcciones.', 'info');
+        }
+        await finishSeriesWrite(response, seriesStatus(button), 'Serie eliminada. Tus enlaces y su selección para el directorio siguen en tu página.', 'creator-series-editor-title', deletedForm ? formState?.capture(deletedForm) : undefined, { structural: true });
       } catch (error) {
         announce(seriesStatus(button), requestFailureMessage(error, 'No pudimos eliminar la serie. Inténtalo de nuevo.'), 'error');
       } finally {

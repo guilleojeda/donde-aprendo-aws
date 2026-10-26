@@ -1,5 +1,6 @@
 const ANALYTICS_READONLY_SCOPE = 'https://www.googleapis.com/auth/analytics.readonly';
 const UNAVAILABLE_MESSAGE = 'GA4 authentication is unavailable.';
+const TOKEN_TRANSPORT_TIMEOUT_MS = 3_000;
 
 function isServiceAccountCredentials(value) {
   return value !== null
@@ -18,6 +19,10 @@ async function createGoogleAuthClient({ credentials, scopes }) {
     email: credentials.client_email,
     key: credentials.private_key,
     scopes,
+    transporterOptions: {
+      timeout: TOKEN_TRANSPORT_TIMEOUT_MS,
+      retryConfig: { retry: 1, noResponseRetries: 1 },
+    },
   });
 }
 

@@ -1,3 +1,5 @@
+import { creatorPageSessionBinding, isCreatorPageSessionBinding } from './creator-session-context.mjs';
+
 const PRIVATE_HEADERS = {
   'content-type': 'application/json; charset=utf-8',
   'cache-control': 'private, no-store',
@@ -6,6 +8,49 @@ const PRIVATE_HEADERS = {
 
 function json(value, status = 200) {
   return new Response(JSON.stringify(value), { status, headers: PRIVATE_HEADERS });
+}
+
+function sessionJson(value, status = 200, additionalHeaders = {}) {
+  return new Response(JSON.stringify(value), {
+    status,
+    headers: {
+      ...PRIVATE_HEADERS,
+      'referrer-policy': 'no-referrer',
+      ...additionalHeaders,
+    },
+  });
+}
+
+async function creatorSessionContext(request, auth) {
+  if (request.method !== 'GET') {
+    return sessionJson({ error: 'METHOD_NOT_ALLOWED' }, 405, { allow: 'GET' });
+  }
+
+  let principal;
+  try {
+    principal = await auth.getPrincipal(request);
+  } catch {
+    return sessionJson({ error: 'AUTH_UNAVAILABLE' }, 503);
+  }
+
+  if (principal?.state === 'anonymous') return sessionJson({ error: 'AUTH_REQUIRED' }, 401);
+  if (principal?.state === 'disabled') return sessionJson({ error: 'ACCOUNT_DISABLED' }, 403);
+  if (principal?.state !== 'authenticated') return sessionJson({ error: 'AUTH_UNAVAILABLE' }, 503);
+
+  const currentBinding = creatorPageSessionBinding(principal);
+  if (!currentBinding || typeof principal.csrfToken !== 'string' || principal.csrfToken.trim().length === 0) {
+    return sessionJson({ error: 'AUTH_UNAVAILABLE' }, 503);
+  }
+
+  const requestedBinding = request.headers.get('x-creator-page-binding');
+  if (!isCreatorPageSessionBinding(requestedBinding)) {
+    return sessionJson({ error: 'INVALID_CONTEXT' }, 422);
+  }
+  if (requestedBinding !== currentBinding) {
+    return sessionJson({ error: 'SESSION_CONTEXT_CHANGED' }, 409);
+  }
+
+  return sessionJson({ csrfToken: principal.csrfToken });
 }
 
 async function smallJson(request) {
@@ -43,10 +88,11 @@ function photoErrorStatus(error) {
   return 503;
 }
 
-/** HTTP ownership and CSRF boundary for photo operations; other APIs use the domain service. */
+/** Session recovery and the photo ownership/CSRF boundary; domain APIs retain their own guards. */
 export function createCreatorHttpHandler({ service, photos, auth, store, origin }) {
   return async function handle(request) {
     const pathname = new URL(request.url).pathname.replace(/\/$/, '');
+    if (pathname === '/api/creador/sesion') return creatorSessionContext(request, auth);
     if (!['/api/creador/foto/autorizar', '/api/creador/foto/finalizar'].includes(pathname)) {
       return service.handle(request);
     }
