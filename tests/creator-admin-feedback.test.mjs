@@ -9,7 +9,7 @@ import { transform } from '@astrojs/compiler-rs';
 import { experimental_AstroContainer } from 'astro/container';
 import { createCreatorHttpHandler } from '../src/lib/creator-http.mjs';
 import { creatorPageSessionBinding } from '../src/lib/creator-session-context.mjs';
-import { createCreatorPagesHarness, SITE_ORIGIN } from './fixtures/creator-pages.mjs';
+import { callApi, createCreatorPagesHarness, seedResource, SITE_ORIGIN } from './fixtures/creator-pages.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const scratchParent = path.join(root, '.work/creator-pages');
@@ -372,12 +372,26 @@ async function executeAdminScript(html, { fetchImpl, initialData } = {}) {
         rowType: 'resource', rowId: id,
         row: resourcesRows.find((entry) => entry.id === id)?.row,
       });
+      const saveButton = new TestElement();
+      saveButton.tagName = 'BUTTON';
       form.fields = fields;
-      form.querySelectorAll = (selector) => selector === 'input, textarea, select' ? fields : [];
+      form.controls = [saveButton];
+      form.saveButton = saveButton;
+      form.querySelectorAll = (selector) => selector === 'input, textarea, select' ? fields
+        : selector === 'button' ? form.controls : [];
       form.querySelector = (selector) => selector === '[data-item-status]' ? form.row?.status ?? null : null;
       for (const field of fields) field.form = form;
       return form;
     });
+  for (const { id, row } of resourcesRows) {
+    row.controls = [
+      ...classificationForms.filter((form) => form.rowId === id).flatMap((form) => form.controls),
+      ...resourceButtons.filter((button) => button.rowId === id),
+    ];
+  }
+  for (const { id, row } of profileRows) {
+    row.controls = profileButtons.filter((button) => button.rowId === id);
+  }
   const refreshButton = new TestElement();
   refreshButton.tagName = 'BUTTON';
   const sessionRecoveryStatus = new TestElement();
@@ -389,7 +403,8 @@ async function executeAdminScript(html, { fetchImpl, initialData } = {}) {
   const transitionShell = new TestElement();
   const adminStatus = new TestElement();
   const allControls = [
-    ...resourceButtons, ...profileButtons, ...claimForms.flatMap((form) => form.controls), refreshButton, sessionRecoveryCheck,
+    ...resourceButtons, ...profileButtons, ...classificationForms.flatMap((form) => form.controls),
+    ...claimForms.flatMap((form) => form.controls), refreshButton, sessionRecoveryCheck,
   ];
   const rootElement = new TestElement({
     dataset: { csrf, sessionBinding },
@@ -412,6 +427,9 @@ async function executeAdminScript(html, { fetchImpl, initialData } = {}) {
     '[data-resource-action]': resourceButtons,
     '[data-profile-action]': profileButtons,
     '[data-claim-resolution]': claimForms,
+    '[data-admin-resource]': resourcesRows.map(({ row }) => row),
+    '[data-admin-profile]': profileRows.map(({ row }) => row),
+    'button:not([data-refresh-view]), [data-featured], [data-directory]': allControls.filter((control) => control !== refreshButton),
     'button, input[type="file"], input[data-busy-control], [data-featured], [data-directory], [data-creator-stale]': allControls,
     '[data-creator-stale]': allControls.filter((control) => control.hasAttribute('data-creator-stale')),
   }[selector] ?? []);
@@ -579,6 +597,127 @@ test('R9 partial claim freezes only that form, retains receipts, and allows safe
     'the partial response receipt advances only the resource version used by the other form');
   assert.equal(JSON.parse(page.requests[1].init.body).category, 'Certificaciones');
   assert.equal(page.reloads(), 1, 'saving the remaining pending form enables the safe refresh');
+});
+
+test('R11 partial claim with one receipt gap pauses only stale records and recovers before saving the unrelated draft', async () => {
+  const auth = { current: { state: 'authenticated', accountId: 'admin-feedback', csrfToken: 'csrf-feedback', isAdmin: true } };
+  const creatorPrincipal = { state: 'authenticated', accountId: 'private-account-a', csrfToken: 'csrf-a', isAdmin: false };
+  const harness = await createCreatorPagesHarness({
+    authenticate: async (request) => request.headers.get('x-test-session') === 'admin'
+      ? auth.current
+      : request.headers.get('x-test-session') === 'creator-a' ? creatorPrincipal : { state: 'anonymous' },
+  });
+  const created = await callApi(harness, '/api/creador/perfil', {
+    method: 'PUT', session: 'creator-a', csrf: 'csrf-a',
+    body: { displayName: 'Ana', slug: 'ana-admin-r11', programs: [], socials: {} },
+  });
+  assert.equal(created.status, 200);
+  for (const id of ['resource-r11-a', 'resource-r11-b', 'resource-r11-c']) {
+    await seedResource(harness.store, {
+      id, title: id, url: `https://example.com/${id}`, description: '', category: 'Otros',
+      kind: 'content', format: 'Artículo', topics: [], order: 1, featured: false, published: false,
+      directoryApproval: 'pending', directoryControl: 'editorial', hidden: false, version: 1,
+    });
+  }
+  const initialClaim = await callApi(harness, '/api/creador/reclamaciones', {
+    method: 'POST', session: 'creator-a', csrf: 'csrf-a', body: { resourceIds: ['resource-r11-a', 'resource-r11-c'] },
+  });
+  assert.equal(initialClaim.status, 202);
+  const changedElsewhere = await callApi(harness, '/api/admin/recursos/resource-r11-a', {
+    method: 'PATCH', session: 'admin', csrf: 'csrf-feedback', body: { category: 'Certificaciones', version: 1 },
+  });
+  assert.equal(changedElsewhere.status, 200);
+
+  const transact = harness.store.transact.bind(harness.store);
+  harness.store.transact = async (operation) => {
+    if (operation.puts?.some(({ key }) => key === 'resource:resource-r11-c')) {
+      throw new Error('controlled failure after resource A committed');
+    }
+    return transact(operation);
+  };
+  const actualPartial = await callApi(harness, '/api/admin/reclamaciones/vincular', {
+    method: 'POST', session: 'admin', csrf: 'csrf-feedback',
+    body: { accountId: 'private-account-a', resourceIds: ['resource-r11-a', 'resource-r11-c'] },
+  });
+  assert.equal(actualPartial.status, 503, 'the current service returns the partial-write failure');
+  const partialPayload = await actualPartial.clone().json();
+  assert.deepEqual(partialPayload.linkedResourceIds, ['resource-r11-a']);
+  assert.ok(partialPayload.versionChanges.some((change) => change.entity === 'resource'
+    && change.id === 'resource-r11-a' && change.before === 2 && change.after === 3));
+  assert.equal((await harness.store.get('resource:resource-r11-b')).version, 1, 'B remains at the version observed by the page');
+
+  const handler = createCreatorHttpHandler({
+    service: harness.service,
+    auth: { getPrincipal: async () => auth.current },
+    origin: SITE_ORIGIN,
+  });
+  const resourceRecord = (id) => ({
+    id, title: id, url: `https://example.com/${id}`, description: '', recordType: 'resource', category: 'Otros',
+    kind: 'content', format: 'Artículo', topics: [], published: false, directoryApproval: 'pending',
+    directoryControl: 'editorial', hidden: false, version: 1,
+  });
+  const html = await renderAdminPage({
+    claimRecords: [{ id: 'claim-r11', accountId: 'private-account-a', resourceIds: ['resource-r11-a', 'resource-r11-c'], status: 'pending' }],
+    resourceRecords: ['resource-r11-a', 'resource-r11-b', 'resource-r11-c'].map(resourceRecord),
+  });
+  let rejectFirstSave = true;
+  const page = await executeAdminScript(html, {
+    fetchImpl: async (url, init = {}) => {
+      const target = new URL(url, SITE_ORIGIN);
+      if (target.pathname === '/api/admin/reclamaciones/vincular/' && init.method === 'POST') return actualPartial;
+      if (target.pathname === '/api/admin/recursos/resource-r11-b/' && init.method === 'PATCH' && rejectFirstSave) {
+        rejectFirstSave = false;
+        return Response.json({ error: 'AUTH_REQUIRED' }, { status: 401 });
+      }
+      const headers = new Headers(init.headers);
+      headers.set('origin', SITE_ORIGIN);
+      headers.set('x-test-session', 'admin');
+      return handler(new Request(target, { ...init, headers }));
+    },
+  });
+  const claimForm = page.claimForms[0];
+  const [linkedA, remainingC] = claimForm.fields;
+  const rowA = page.resourcesRows.find(({ id }) => id === 'resource-r11-a');
+  const rowB = page.resourcesRows.find(({ id }) => id === 'resource-r11-b');
+  const rowAClassification = page.classificationForms.find((form) => form.rowId === 'resource-r11-a');
+  const rowBClassification = page.classificationForms.find((form) => form.rowId === 'resource-r11-b');
+  assert.ok(rowA && rowB && rowAClassification && rowBClassification);
+  rowBClassification.fields[0].value = 'Certificaciones';
+
+  await claimForm.dispatch('submit');
+  assert.deepEqual(JSON.parse(page.requests[0].init.body).resourceIds, ['resource-r11-a', 'resource-r11-c']);
+  assert.equal(linkedA.checked, true);
+  assert.equal(remainingC.checked, true, 'the unresolved claim selection remains available for inspection only');
+  assert.equal(claimForm.controls.at(-1).disabled, true, 'the partial request cannot be submitted again before refresh');
+  assert.equal(rowAClassification.saveButton.disabled, true, 'the classification form with a receipt gap cannot overwrite stale A');
+  assert.equal(rowA.row.controls.filter((control) => control.tagName === 'BUTTON').every((button) => button.disabled), true,
+    'administrative actions for A are paused because its current state was not observed');
+  assert.equal(rowBClassification.saveButton.disabled, false, 'B remains independently saveable');
+  assert.equal(page.sessionRecovery.check.disabled, false, 'the receipt gap does not freeze session recovery');
+  assert.equal(page.transition.hidden, false, 'partial-write instructions stay visible');
+
+  await page.refreshButton.dispatch('click');
+  assert.equal(page.reloads(), 0, 'the pending B correction still blocks refresh until it is resolved');
+  assert.match(page.transition.textContent, /Guarda los cambios pendientes o revierte/);
+
+  await rowBClassification.dispatch('submit');
+  assert.equal(page.sessionRecovery.check.hidden, false, 'the simulated expired session exposes recovery');
+  assert.equal(page.sessionRecovery.check.disabled, false, 'recovery is available after the partial write');
+  assert.equal(rowBClassification.saveButton.disabled, false, 'the unrelated form stays usable after its rejected request');
+  auth.current = { state: 'authenticated', accountId: 'admin-feedback', csrfToken: 'csrf-admin-renewed', isAdmin: true };
+  await page.sessionRecovery.check.dispatch('click');
+  await settleSessionCheck();
+  assert.match(page.sessionRecovery.status.textContent, /Sesión comprobada/);
+  assert.equal(page.sessionRecovery.check.hidden, true, 'session recovery finishes without requiring a page reload');
+
+  await rowBClassification.dispatch('submit');
+  assert.equal(JSON.parse(page.requests.at(-1).init.body).version, 1, 'B uses only its own still-current observed version');
+  assert.equal(JSON.parse(page.requests.at(-1).init.body).category, 'Certificaciones');
+  assert.equal(page.requests.at(-1).init.headers['x-csrf-token'], 'csrf-admin-renewed');
+  assert.equal((await harness.store.get('resource:resource-r11-b')).category, 'Certificaciones', 'the current service persisted B');
+  assert.equal(page.reloads(), 1, 'saving the retained B draft enables the safe refresh');
+  assert.equal(page.requests.filter(({ url }) => url.includes('/api/admin/reclamaciones/vincular/')).length, 1,
+    'the partial claim is not automatically replayed during recovery');
 });
 
 test('successful claim resolution pauses its selection and preserves another saveable draft', async () => {

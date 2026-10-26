@@ -1,5 +1,10 @@
 const PRODUCTION_ORIGIN = 'https://dondeaprendoaws.com';
 
+export function isPrivatePath(pathname) {
+  return ['/cuenta', '/api/creador', '/api/admin']
+    .some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
 function parseHttpsOrigin(value) {
   let parsed;
   try {

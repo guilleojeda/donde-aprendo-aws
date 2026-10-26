@@ -513,6 +513,109 @@ test('a failed save keeps edits made while the request was pending and reports t
   assert.equal(reloads.count, 0, 'a failed request never reloads the page');
 });
 
+test('a rejected directory checkbox rolls back before a confirmed removal and preserves another draft', async () => {
+  const principal = { state: 'authenticated', accountId: 'private-account-a', csrfToken: sessionCsrf['creator-a'], isAdmin: false };
+  const harness = await createCreatorPagesHarness({ authenticate: async () => principal });
+  const created = await callApi(harness, '/api/creador/perfil', {
+    method: 'PUT', session: 'creator-a', csrf: sessionCsrf['creator-a'],
+    body: { displayName: 'Ana', slug: 'ana-rejected-directory', programs: [], socials: {} },
+  });
+  assert.equal(created.status, 200);
+  const added = await callApi(harness, '/api/creador/enlaces', {
+    method: 'POST', session: 'creator-a', csrf: sessionCsrf['creator-a'],
+    body: { title: 'A', url: 'https://example.com/ana-rejected-directory' },
+  });
+  assert.equal(added.status, 201);
+  const initial = await (await callApi(harness, '/api/creador/perfil', { session: 'creator-a' })).json();
+  const link = initial.links[0];
+  assert.equal(link.selectedForDirectory, true, 'the fixture starts with the directory selection confirmed');
+
+  const profileField = { tagName: 'INPUT', type: 'text', name: 'displayName', value: 'Ana', setCustomValidity() {} };
+  const profileForm = new TestElement({
+    values: { displayName: profileField, slug: 'ana-rejected-directory', city: '', country: '', bio: '' },
+    lists: { 'input[name^="social-"]': [], 'input, textarea, select': [profileField] },
+  });
+  profileField.form = profileForm;
+  const placement = new TestElement({ dataset: { placementId: link.placementId } });
+  const checkbox = new TestElement({ selectors: { 'closest:[data-placement-id]': placement } });
+  Object.assign(checkbox, { tagName: 'INPUT', type: 'checkbox', checked: true });
+  checkbox.setAttribute('data-directory', '');
+  const remove = new TestElement({ selectors: { 'closest:[data-placement-id]': placement } });
+  remove.tagName = 'BUTTON';
+  remove.setAttribute('data-remove-link', '');
+  const profileSave = new TestElement();
+  profileSave.tagName = 'BUTTON';
+  const refresh = new TestElement();
+  refresh.tagName = 'BUTTON';
+  const transition = new TestElement();
+  const linksStatus = new TestElement();
+  const staleSelector = '[data-move], [data-remove-link], [data-featured], [data-directory], [data-readd-link], [data-series-add-chapter-form] button, [data-series-move], [data-series-remove-chapter], [data-delete-series]';
+  const root = new TestElement({
+    dataset: { csrf: sessionCsrf['creator-a'] },
+    selectors: {
+      '[data-profile-form]': profileForm,
+      '[data-profile-status]': new TestElement(),
+      '[data-links-status]': linksStatus,
+      '[data-view-transition]': transition,
+      '[data-view-transition-shell]': new TestElement(),
+      '[data-refresh-view]': refresh,
+    },
+    lists: {
+      '[data-featured], [data-directory]': [checkbox],
+      '[data-remove-link]': [remove],
+      'input, textarea, select': [profileField, checkbox],
+      [staleSelector]: [checkbox, remove],
+      'button, input[type="file"], input[data-busy-control], [data-featured], [data-directory], [data-creator-stale]': [profileSave, checkbox, remove, refresh],
+    },
+  });
+  const requests = [];
+  const reloads = { count: 0 };
+  await runEditor({
+    data: initial,
+    root,
+    reloads,
+    fetch: async (url, options) => {
+      const request = { url, method: options.method, body: options.body ? JSON.parse(options.body) : undefined };
+      requests.push(request);
+      if (options.method === 'PATCH') return Response.json({ error: 'UNAVAILABLE' }, { status: 503 });
+      const response = await callApi(harness, url, {
+        method: options.method,
+        session: 'creator-a',
+        csrf: sessionCsrf['creator-a'],
+        ...(request.body === undefined ? {} : { body: request.body }),
+      });
+      request.status = response.status;
+      return response;
+    },
+  });
+
+  profileField.value = 'Corrección que debe conservarse';
+  checkbox.checked = false;
+  await checkbox.dispatch('change');
+  assert.equal(checkbox.checked, true, 'HTTP 503 restores the last confirmed checkbox value');
+  assert.equal(profileField.value, 'Corrección que debe conservarse', 'the failed checkbox leaves other drafts untouched');
+  assert.match(linksStatus.textContent, /No pudimos guardar los cambios/);
+  const afterRejected = await (await callApi(harness, '/api/creador/perfil', { session: 'creator-a' })).json();
+  assert.equal(afterRejected.links[0].selectedForDirectory, true, 'the failed PATCH did not persist its selection');
+
+  await remove.dispatch('click');
+  const afterRemoved = await (await callApi(harness, '/api/creador/perfil', { session: 'creator-a' })).json();
+  assert.equal(afterRemoved.links.length, 0, 'the service confirmed the structural removal');
+  assert.equal(checkbox.checked, true, 'the removed placement does not retain the rejected draft');
+  assert.equal(checkbox.disabled, true, 'old structural controls pause while the unrelated profile draft remains');
+  assert.equal(profileField.value, 'Corrección que debe conservarse');
+  await refresh.dispatch('click');
+  assert.equal(reloads.count, 0, 'the unrelated draft still protects explicit refresh');
+  assert.match(transition.textContent, /Guarda los cambios pendientes o revierte/);
+
+  await profileForm.dispatch('submit');
+  assert.equal(requests.map(({ method }) => method).join(','), 'PATCH,DELETE,PUT', 'the failed checkbox is not retried or replayed');
+  assert.equal(requests[2].body.displayName, 'Corrección que debe conservarse');
+  assert.equal(reloads.count, 1, 'saving the retained draft resolves the transition and refreshes safely');
+  const storedProfile = await harness.store.get('profile:fixture-id-1');
+  assert.equal(storedProfile.displayName, 'Corrección que debe conservarse');
+});
+
 test('one active write blocks a second submission while text edits stay available and original disabled state returns', async () => {
   const field = { tagName: 'INPUT', type: 'text', value: 'Ana enviada', name: 'displayName', disabled: false, setCustomValidity() {} };
   const submitButton = new TestElement();
