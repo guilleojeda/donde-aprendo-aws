@@ -477,22 +477,21 @@ test('la clasificación conserva una corrección durante el guardado y recarga c
     TextEncoder,
     fetch: async (url, options) => {
       requests.push({ url, options });
-      if (options.method === 'GET') {
-        if (url.includes('/recursos/')) return Response.json({ resources: [{ id: 'resource-feedback', version: 2 }] });
-        if (url.includes('/perfiles/')) return Response.json({ profiles: [] });
-        return Response.json({ claims: [] });
-      }
       if (requests.filter((request) => request.options.method === 'PATCH').length === 1) {
         return new Promise((resolve) => { resolveFirstSave = resolve; });
       }
-      return Response.json({ resource: { id: 'resource-feedback', version: 3 } });
+      return Response.json({ resource: { id: 'resource-feedback', version: 3 }, versionChanges: [
+        { entity: 'resource', id: 'resource-feedback', before: 2, after: 3 },
+      ] });
     },
   });
 
   const pending = form.dispatch('submit');
   await Promise.resolve();
   fields[0].value = 'Certificaciones';
-  resolveFirstSave(Response.json({ resource: { id: 'resource-feedback', version: 2 } }));
+  resolveFirstSave(Response.json({ resource: { id: 'resource-feedback', category: 'Otros', kind: 'content', format: 'Artículo', topics: [], version: 2 }, versionChanges: [
+    { entity: 'resource', id: 'resource-feedback', before: 1, after: 2 },
+  ] }));
   await pending;
 
   assert.equal(JSON.parse(requests[0].options.body).category, 'Otros');
@@ -503,6 +502,7 @@ test('la clasificación conserva una corrección durante el guardado y recarga c
   await form.dispatch('submit');
   const patches = requests.filter((request) => request.options.method === 'PATCH');
   assert.equal(JSON.parse(patches[1].options.body).category, 'Certificaciones');
-  assert.equal(JSON.parse(patches[1].options.body).version, 2, 'the refreshed resource version is used');
+  assert.equal(JSON.parse(patches[1].options.body).version, 2, 'the committed receipt advances this form version');
+  assert.equal(requests.some((request) => request.options.method === 'GET'), false, 'a later GET never adopts unseen classification versions');
   assert.equal(reloads, 1, 'the page reloads after the corrected classification is saved');
 });

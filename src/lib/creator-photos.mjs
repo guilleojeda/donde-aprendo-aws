@@ -195,7 +195,12 @@ export function createCreatorPhotoService(dependencies) {
       if (!upload || upload.profileId !== profileId) throw fail('UPLOAD_NOT_FOUND', 'upload does not belong to this profile');
       if (upload.expectedVersion !== expectedVersion) throw fail('PROFILE_VERSION_CONFLICT', 'upload version does not match');
 
-      if (upload.state === 'complete') return { photo: upload.photo };
+      if (upload.state === 'complete') {
+        return {
+          photo: upload.photo,
+          versionChanges: [{ entity: 'profile', id: profileId, before: expectedVersion, after: expectedVersion + 1 }],
+        };
+      }
       if (upload.state !== 'pending') throw fail('UPLOAD_NOT_PENDING', 'upload cannot be finalized');
 
       const timestamp = now();
@@ -239,7 +244,10 @@ export function createCreatorPhotoService(dependencies) {
       } catch (error) {
         const currentUpload = await store.get(uploadKey).catch(() => null);
         if (currentUpload?.state === 'complete' && currentUpload.finalKey === finalKey) {
-          return { photo: currentUpload.photo };
+          return {
+            photo: currentUpload.photo,
+            versionChanges: [{ entity: 'profile', id: profileId, before: expectedVersion, after: expectedVersion + 1 }],
+          };
         }
         // An interrupted acknowledgement does not prove that DynamoDB aborted.
         // Keep this immutable, bounded variant when the outcome is uncertain;
@@ -250,7 +258,10 @@ export function createCreatorPhotoService(dependencies) {
       if (!committed) {
         const currentUpload = await store.get(uploadKey).catch(() => null);
         if (currentUpload?.state === 'complete' && currentUpload.finalKey === finalKey) {
-          return { photo: currentUpload.photo };
+          return {
+            photo: currentUpload.photo,
+            versionChanges: [{ entity: 'profile', id: profileId, before: expectedVersion, after: expectedVersion + 1 }],
+          };
         }
         // A concurrent finalizer can have selected these same processed bytes.
         // Only discard our variant after observing a different completed one.
@@ -262,7 +273,10 @@ export function createCreatorPhotoService(dependencies) {
 
       // S3 lifecycle is the fallback if removing the private temporary object fails.
       await objects.delete(upload.key).catch(() => {});
-      return { photo };
+      return {
+        photo,
+        versionChanges: [{ entity: 'profile', id: profileId, before: expectedVersion, after: nextProfile.version }],
+      };
     },
 
     async readPhoto({ profileId: rawProfileId, version: rawVersion } = {}) {

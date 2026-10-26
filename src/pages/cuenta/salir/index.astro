@@ -1,0 +1,99 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import SiteHeader from '../../../components/SiteHeader.astro';
+import SiteFooter from '../../../components/SiteFooter.astro';
+import '../../../styles/account.css';
+import { getAccountAuth } from '../../../lib/account-runtime.mjs';
+import { readLogoutRetryCsrf } from '../../../lib/account-auth.mjs';
+
+export const prerender = false;
+
+let submittedCsrfToken: string | undefined;
+let retryLogout = false;
+let pageStatus = 405;
+let pageMessage = 'Vuelve a tu cuenta para intentarlo de nuevo.';
+
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+Astro.response.headers.set('Referrer-Policy', 'no-referrer');
+Astro.response.headers.set('X-Content-Type-Options', 'nosniff');
+
+if (Astro.request.method === 'POST') {
+  let result: Response;
+  try {
+    const auth = await getAccountAuth();
+    result = await auth.handle(Astro.request);
+  } catch {
+    result = new Response(null, {
+      status: 503,
+      headers: {
+        'Cache-Control': 'private, no-store',
+        'Referrer-Policy': 'no-referrer',
+        'X-Content-Type-Options': 'nosniff',
+      },
+    });
+  }
+
+  const location = result.headers.get('location');
+  if (result.status === 303 && location) {
+    try {
+      const target = new URL(location, Astro.url);
+      const retryCsrf = readLogoutRetryCsrf(result);
+      if (target.pathname === '/cuenta/' && target.searchParams.get('estado') === 'no-disponible'
+        && typeof retryCsrf === 'string' && retryCsrf.length > 0) {
+        retryLogout = true;
+        submittedCsrfToken = retryCsrf;
+      }
+    } catch {
+      retryLogout = false;
+    }
+  }
+
+  if (retryLogout) {
+    pageStatus = 503;
+    pageMessage = 'Inténtalo de nuevo para confirmar el cierre de sesión.';
+  } else {
+    pageStatus = result.status;
+    result.headers.forEach((value, name) => {
+      if (name !== 'content-type') Astro.response.headers.set(name, value);
+    });
+    pageMessage = result.status === 403
+      ? 'No pudimos validar el cierre de sesión. Vuelve a tu cuenta para intentarlo de nuevo.'
+      : 'No pudimos completar el cierre de sesión. Vuelve a tu cuenta para intentarlo de nuevo.';
+  }
+} else {
+  Astro.response.headers.set('Allow', 'POST');
+}
+
+Astro.response.status = pageStatus;
+---
+
+<BaseLayout
+  title="Cerrar sesión | ¿Dónde Aprendo AWS?"
+  description="Cierre de sesión de ¿Dónde Aprendo AWS?"
+  noindex
+  analytics={false}
+>
+  <SiteHeader />
+  <main id="contenido" tabindex="-1" class="account-page site-container">
+    <div class="account-page__content">
+      <header class="account-page__header">
+        <p class="account-page__eyebrow">¿Dónde Aprendo AWS?</p>
+        <h1>Cerrar sesión</h1>
+      </header>
+
+      <section class="account-message account-message--error" role="alert" aria-labelledby="logout-error-title">
+        <h2 id="logout-error-title">{retryLogout ? 'No pudimos confirmar el cierre de sesión' : 'No pudimos completar el cierre de sesión'}</h2>
+        <p>{pageMessage}</p>
+        {retryLogout && submittedCsrfToken ? (
+          <form method="post" action="/cuenta/salir/" class="account-logout">
+            <input type="hidden" name="csrfToken" value={submittedCsrfToken} />
+            <button class="button button--dark" type="submit">Reintentar cierre de sesión</button>
+          </form>
+        ) : (
+          <a class="button button--dark" href="/cuenta/">Volver a mi cuenta</a>
+        )}
+      </section>
+    </div>
+  </main>
+  <SiteFooter />
+</BaseLayout>

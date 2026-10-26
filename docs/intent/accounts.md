@@ -42,6 +42,9 @@ Cerrar sesión requiere POST, origen válido y token CSRF de esa sesión. Se
 confirma su revocación antes de borrar la cookie y terminar la sesión de
 Cognito. Repetir la salida es seguro; reutilizar una cookie revocada no da
 acceso. Un fallo al revocar no se comunica como salida completada.
+Si falla la escritura, la respuesta ofrece una acción POST privada y sin
+almacenamiento en caché para reintentar con el token CSRF ya validado; no se
+guarda una autorización de salida adicional.
 Si un reintento confirma que la sesión local ya no existe, completa de todas
 formas el cierre de Cognito. Una lectura fallida no confirma la revocación.
 

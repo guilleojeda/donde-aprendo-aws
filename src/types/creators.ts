@@ -2,6 +2,15 @@ export type CreatorProgram = 'User Group Leaders' | 'Community Builders' | 'Hero
 
 export type CreatorSocial = 'instagram' | 'x' | 'linkedin' | 'awsBuilder' | 'website';
 
+export type CreatorVersionEntity = 'profile' | 'resource' | 'placement' | 'series';
+
+export interface CreatorVersionChange {
+  entity: CreatorVersionEntity;
+  id: string;
+  before: number;
+  after: number;
+}
+
 export interface CreatorProfileDTO {
   id: string;
   displayName: string;

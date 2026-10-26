@@ -74,6 +74,15 @@ function validVersion(value, { optional = false } = {}) {
   return value;
 }
 
+function versionChange(entity, id, before, after) {
+  if (before === after) return null;
+  return { entity, id, before, after };
+}
+
+function versionChanges(...changes) {
+  return changes.filter(Boolean);
+}
+
 function normalizeSlug(value) {
   if (typeof value !== 'string') fail(422, 'INVALID_SLUG', 'slug is required');
   const slug = value.trim();
@@ -334,8 +343,18 @@ function jsonResponse(value, status = 200) {
   return new Response(value === null ? null : JSON.stringify(value), { status, headers });
 }
 
-function emptyResponse() {
-  return new Response(null, { status: 204, headers: { 'cache-control': 'private, no-store', 'x-content-type-options': 'nosniff' } });
+function writeJsonResponse(value, status = 200) {
+  const { versionChanges: changes = [], ...payload } = value;
+  return jsonResponse({ ...payload, versionChanges: changes }, status);
+}
+
+function writeEmptyResponse(changes = []) {
+  const headers = new Headers({
+    'cache-control': 'private, no-store',
+    'x-content-type-options': 'nosniff',
+    'Creator-Write-Versions': JSON.stringify(changes),
+  });
+  return new Response(null, { status: 204, headers });
 }
 
 async function parseRequestBody(request) {
@@ -733,12 +752,19 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         if (latestOwner) fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before saving');
         fail(409, 'PROFILE_CONFLICT', 'profile or slug changed while saving');
       }
-      return { profile: cleanPublicProfile(created) };
+      return {
+        profile: cleanPublicProfile(created),
+        versionChanges: versionChanges(versionChange('profile', id, 0, created.version)),
+      };
     }
 
     if (expectedVersion === undefined || expectedVersion !== profile.version) fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before saving');
     if (profile.published === true && (!fields.displayName.trim() || !fields.slug)) {
       fail(422, 'PROFILE_INCOMPLETE', 'a published profile must keep its display name and URL name');
+    }
+    const profileFields = ['displayName', 'slug', 'city', 'country', 'bio', 'programs', 'socials'];
+    if (profileFields.every((field) => JSON.stringify(fields[field]) === JSON.stringify(profile[field]))) {
+      return { profile: cleanPublicProfile(profile), versionChanges: [] };
     }
     const slugChanged = fields.slug !== profile.slug;
     let aliasToCreate;
@@ -755,7 +781,10 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       puts.push({ key: aliasKey(fields.slug), value: aliasToCreate });
     }
     if (!await store.transact({ checks, puts })) fail(409, 'PROFILE_CONFLICT', 'profile or slug changed while saving');
-    return { profile: cleanPublicProfile(updated) };
+    return {
+      profile: cleanPublicProfile(updated),
+      versionChanges: versionChanges(versionChange('profile', profile.id, profile.version, updated.version)),
+    };
   }
 
   function requireCurrentProfileVersion(body, profile) {
@@ -818,7 +847,14 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       ],
     });
     if (!ok) fail(409, 'SERIES_CONFLICT', 'profile or series slug changed while saving');
-    return { series: cleanSeries(created, profile.id, id), profileVersion: updatedProfile.version };
+    return {
+      series: cleanSeries(created, profile.id, id),
+      profileVersion: updatedProfile.version,
+      versionChanges: versionChanges(
+        versionChange('profile', profile.id, profile.version, updatedProfile.version),
+        versionChange('series', id, 0, created.version),
+      ),
+    };
   }
 
   async function patchCreatorSeries(principal, id, body) {
@@ -834,6 +870,9 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       fail(422, 'EMPTY_UPDATE', 'series metadata fields are required');
     }
     const fields = validateSeriesInput(body, current);
+    if (['name', 'slug', 'description'].every((field) => fields[field] === current[field])) {
+      return { series: current, profileVersion: profile.version, versionChanges: [] };
+    }
     const slugChanged = fields.slug !== current.slug;
     const checks = [
       { key: profileKey(profile.id), version: profile.version },
@@ -860,7 +899,14 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     const updatedProfile = { ...profile, version: profile.version + 1, updatedAt: timestamp() };
     puts.push({ key: seriesKey(profile.id, id), value: updated }, { key: profileKey(profile.id), value: updatedProfile });
     if (!await store.transact({ checks, puts })) fail(409, 'SERIES_CONFLICT', 'profile or series changed while saving');
-    return { series: cleanSeries(updated, profile.id, id), profileVersion: updatedProfile.version };
+    return {
+      series: cleanSeries(updated, profile.id, id),
+      profileVersion: updatedProfile.version,
+      versionChanges: versionChanges(
+        versionChange('profile', profile.id, profile.version, updatedProfile.version),
+        versionChange('series', id, current.version, updated.version),
+      ),
+    };
   }
 
   async function deleteCreatorSeries(principal, id, body) {
@@ -878,6 +924,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       puts: [{ key: profileKey(profile.id), value: updatedProfile }],
       deletes: [seriesKey(profile.id, id)],
     })) fail(409, 'SERIES_CONFLICT', 'profile or series changed while deleting');
+    return versionChanges(versionChange('profile', profile.id, profile.version, updatedProfile.version));
   }
 
   async function changeSeriesChapter(principal, seriesId, placementId, body, operation) {
@@ -977,7 +1024,13 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       puts.push({ key: placementKey(profile.id, id), value: updated });
     }
     if (!await store.transact({ checks, puts })) fail(409, 'SERIES_CONFLICT', 'profile, series, or chapter changed while saving');
-    return { status: 200 };
+    return {
+      status: 200,
+      versionChanges: versionChanges(
+        versionChange('profile', profile.id, profile.version, updatedProfile.version),
+        ...[...updatedPlacements.values()].map((updated) => versionChange('placement', updated.id, updated.version - 1, updated.version)),
+      ),
+    };
   }
 
   async function publishProfile(principal, body) {
@@ -986,11 +1039,14 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     if (expectedVersion !== undefined && expectedVersion !== profile.version) fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before publishing');
     if (typeof profile.displayName !== 'string' || !profile.displayName.trim()) fail(422, 'PROFILE_INCOMPLETE', 'display name is required before publication');
     normalizeSlug(profile.slug);
-    if (profile.published === true) return { profile: cleanPublicProfile(profile) };
+    if (profile.published === true) return { profile: cleanPublicProfile(profile), versionChanges: [] };
     const updated = { ...profile, published: true, version: profile.version + 1, updatedAt: timestamp() };
     const ok = await store.transact({ checks: [{ key: profileKey(profile.id), version: profile.version }], puts: [{ key: profileKey(profile.id), value: updated }] });
     if (!ok) fail(409, 'PROFILE_CONFLICT', 'profile changed while publishing');
-    return { profile: cleanPublicProfile(updated) };
+    return {
+      profile: cleanPublicProfile(updated),
+      versionChanges: versionChanges(versionChange('profile', profile.id, profile.version, updated.version)),
+    };
   }
 
   async function buildLinkDto(placement) {
@@ -1012,7 +1068,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       if (existing.id !== stableId || existing.profileId !== profile.id || existing.resourceId !== resource.id) {
         fail(503, 'INVALID_PLACEMENT', 'existing placement does not match its resource');
       }
-      return { link: await buildLinkDto(existing), created: false };
+      return { link: await buildLinkDto(existing), created: false, versionChanges: [] };
     }
 
     const placements = await getPlacements(profile.id);
@@ -1042,7 +1098,13 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       }
       fail(409, 'LINK_CONFLICT', 'link changed while adding');
     }
-    return { link: await buildLinkDto(placement), created: true };
+    return {
+      link: await buildLinkDto(placement), created: true,
+      versionChanges: versionChanges(
+        versionChange('profile', profile.id, profile.version, updatedProfile.version),
+        versionChange('placement', stableId, 0, placement.version),
+      ),
+    };
   }
 
   async function readdEditableResource(principal, body) {
@@ -1173,7 +1235,14 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       }
       fail(409, 'URL_CONFLICT', 'URL or profile changed while adding');
     }
-    return { link: await buildLinkDto(placement), created: true };
+    return {
+      link: await buildLinkDto(placement), created: true,
+      versionChanges: versionChanges(
+        versionChange('profile', profile.id, profile.version, updatedProfile.version),
+        versionChange('resource', resourceId, 0, resource.version),
+        versionChange('placement', stableId, 0, placement.version),
+      ),
+    };
   }
 
   async function patchPlacement(principal, id, body) {
@@ -1200,6 +1269,9 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       }
     }
     if (Object.keys(changes).length === 0) fail(422, 'EMPTY_UPDATE', 'no placement fields were provided');
+    if (Object.entries(changes).every(([field, value]) => placement[field] === value)) {
+      return { link: await buildLinkDto(placement), versionChanges: [] };
+    }
 
     const puts = [];
     const checks = [
@@ -1223,7 +1295,15 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     const updatedProfile = { ...profile, version: profile.version + 1, updatedAt: timestamp() };
     puts.push({ key: profileKey(profile.id), value: updatedProfile });
     if (!await store.transact({ checks, puts })) fail(409, 'PLACEMENT_CONFLICT', 'placement changed while saving');
-    return { link: await buildLinkDto(updated) };
+    const neighbor = puts.find(({ key: putKey }) => putKey !== key && putKey.startsWith(`placement:${profile.id}:`))?.value;
+    return {
+      link: await buildLinkDto(updated),
+      versionChanges: versionChanges(
+        versionChange('profile', profile.id, profile.version, updatedProfile.version),
+        versionChange('placement', id, placement.version, updated.version),
+        neighbor ? versionChange('placement', neighbor.id, neighbor.version - 1, neighbor.version) : null,
+      ),
+    };
   }
 
   async function deletePlacement(principal, id, body = {}) {
@@ -1249,6 +1329,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       deletes: [key],
     });
     if (!ok) fail(409, 'PLACEMENT_CONFLICT', 'placement changed while removing');
+    return versionChanges(versionChange('profile', profile.id, profile.version, updatedProfile.version));
   }
 
   async function patchCreatorResource(principal, resourceId, body) {
@@ -1274,6 +1355,12 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       changedFields[urlField] = nextUrl;
     }
     if (Object.keys(changedFields).length === 0) fail(422, 'EMPTY_UPDATE', 'no resource fields were provided');
+    if (Object.entries(changedFields).every(([field, value]) => resource[field] === value)) {
+      return {
+        resource: { id: resource.id, title: resource.title, url: currentResourceUrl(resource), description: resource.description, version: resource.version ?? 0 },
+        versionChanges: [],
+      };
+    }
     const updated = { ...resource, ...changedFields, version: resource.version + 1, updatedAt: timestamp() };
     const oldUrl = currentResourceUrl(resource);
     if (nextUrl !== undefined && nextUrl !== oldUrl) {
@@ -1307,7 +1394,10 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       const ok = await store.transact({ checks: [{ key, version: resource.version }], puts: [{ key, value: updated }] });
       if (!ok) fail(409, 'RESOURCE_CONFLICT', 'resource changed while saving');
     }
-    return { resource: { id: updated.id, title: updated.title, url: currentResourceUrl(updated), description: updated.description, version: updated.version } };
+    return {
+      resource: { id: updated.id, title: updated.title, url: currentResourceUrl(updated), description: updated.description, version: updated.version },
+      versionChanges: versionChanges(versionChange('resource', resourceId, resource.version ?? 0, updated.version)),
+    };
   }
 
   async function adminResourceList() {
@@ -1363,18 +1453,25 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     } catch {
       fail(422, 'INVALID_CLASSIFICATION', 'resource classification is incomplete or invalid');
     }
+    if (['category', 'kind', 'format', 'topics'].every((field) =>
+      JSON.stringify(updated[field]) === JSON.stringify(resource[field]))) {
+      return { resource: cleanAdminResource(resource), versionChanges: [] };
+    }
     updated.version = resource.version + 1;
     updated.updatedAt = timestamp();
     const ok = await store.transact({ checks: [{ key, version: resource.version }], puts: [{ key, value: updated }] });
     if (!ok) fail(409, 'RESOURCE_CONFLICT', 'resource changed while saving');
-    return { resource: cleanAdminResource(updated) };
+    return {
+      resource: cleanAdminResource(updated),
+      versionChanges: versionChanges(versionChange('resource', resourceId, resource.version ?? 0, updated.version)),
+    };
   }
 
   async function adminResourceAction(resourceId, action) {
     const key = `resource:${resourceId}`;
     const resource = await store.get(key);
     if (!resource || !isCatalogResource(resource)) fail(404, 'RESOURCE_NOT_FOUND', 'resource does not exist');
-    const updated = { ...resource, version: resource.version + 1, updatedAt: timestamp() };
+    const updated = { ...resource };
     if (action === 'aprobar') {
       try {
         projectPublicRecord(resource);
@@ -1390,9 +1487,17 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     } else if (action === 'ocultar') updated.hidden = true;
     else if (action === 'restaurar') updated.hidden = false;
     else fail(404, 'ACTION_NOT_FOUND', 'action does not exist');
+    if (['published', 'approvalRevoked', 'hidden'].every((field) => updated[field] === resource[field])) {
+      return { resource: cleanAdminResource(resource), versionChanges: [] };
+    }
+    updated.version = (resource.version ?? 0) + 1;
+    updated.updatedAt = timestamp();
     const ok = await store.transact({ checks: [{ key, version: resource.version }], puts: [{ key, value: updated }] });
     if (!ok) fail(409, 'RESOURCE_CONFLICT', 'resource changed while applying action');
-    return { resource: cleanAdminResource(updated) };
+    return {
+      resource: cleanAdminResource(updated),
+      versionChanges: versionChanges(versionChange('resource', resourceId, resource.version ?? 0, updated.version)),
+    };
   }
 
   async function adminProfileAction(profileId, action) {
@@ -1400,10 +1505,15 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     const profile = await store.get(key);
     if (!profile) fail(404, 'PROFILE_NOT_FOUND', 'profile does not exist');
     if (action !== 'ocultar' && action !== 'restaurar') fail(404, 'ACTION_NOT_FOUND', 'action does not exist');
-    const updated = { ...profile, hidden: action === 'ocultar', version: profile.version + 1, updatedAt: timestamp() };
+    const hidden = action === 'ocultar';
+    if ((profile.hidden === true) === hidden) return { profile: cleanPublicProfile(profile), versionChanges: [] };
+    const updated = { ...profile, hidden, version: profile.version + 1, updatedAt: timestamp() };
     const ok = await store.transact({ checks: [{ key, version: profile.version }], puts: [{ key, value: updated }] });
     if (!ok) fail(409, 'PROFILE_CONFLICT', 'profile changed while applying action');
-    return { profile: cleanPublicProfile(updated) };
+    return {
+      profile: cleanPublicProfile(updated),
+      versionChanges: versionChanges(versionChange('profile', profileId, profile.version, updated.version)),
+    };
   }
 
   async function createClaim(principal, body) {
@@ -1467,6 +1577,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       resources.set(resourceId, resource);
     }
     const didLink = [];
+    const committedVersionChanges = [];
     try {
       for (const resourceId of requestedIds) {
         const resourceKey = `resource:${resourceId}`;
@@ -1488,14 +1599,16 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
           { key: profileKey(profile.id), version: profile.version },
         ];
         const puts = [];
+        let resourceUpdated = null;
         if (!hasEditor) {
-          puts.push({ key: resourceKey, value: {
+          resourceUpdated = {
             ...resource,
             directoryControl: 'creator',
             editorProfileId: profile.id,
             autoSync: false,
             version: (resource.version ?? 0) + 1,
-          } });
+          };
+          puts.push({ key: resourceKey, value: resourceUpdated });
         }
         if (!currentEditor) {
           checks.push({ key: eKey, version: null });
@@ -1515,6 +1628,13 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         puts.push({ key: profileKey(profile.id), value: updatedProfile });
         const ok = await store.transact({ checks, puts });
         if (!ok) fail(409, 'CLAIM_CONFLICT', `resource ${resourceId} changed while linking`);
+        committedVersionChanges.push(versionChange('profile', profile.id, profile.version, updatedProfile.version));
+        if (resourceUpdated) {
+          committedVersionChanges.push(versionChange('resource', resourceId, resource.version ?? 0, resourceUpdated.version));
+        }
+        if (!currentPlacement) {
+          committedVersionChanges.push(versionChange('placement', id, 0, nextProfileVersion));
+        }
         profile.version = updatedProfile.version;
         didLink.push(resourceId);
       }
@@ -1548,16 +1668,16 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     } catch (error) {
       if (didLink.length > 0) {
         if (error instanceof ApiError) {
-          error.details = { linkedResourceIds: didLink };
+          error.details = { linkedResourceIds: didLink, versionChanges: committedVersionChanges };
           throw error;
         }
         const partial = new ApiError(503, 'PARTIAL_CLAIM_WRITE', 'some resources were linked before storage became unavailable');
-        partial.details = { linkedResourceIds: didLink };
+        partial.details = { linkedResourceIds: didLink, versionChanges: committedVersionChanges };
         throw partial;
       }
       throw error;
     }
-    return { linkedResourceIds: didLink };
+    return { linkedResourceIds: didLink, versionChanges: committedVersionChanges };
   }
 
   function publicSeriesSummaries(profile, series, links) {
@@ -1708,7 +1828,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       if (request.method === 'PUT') {
         requireWriteRequest(request, principal);
         const body = await parseRequestBody(request);
-        return jsonResponse(await saveProfile(principal, body));
+        return writeJsonResponse(await saveProfile(principal, body));
       }
       fail(405, 'METHOD_NOT_ALLOWED', 'method not allowed');
     }
@@ -1718,7 +1838,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         requireWriteRequest(request, principal);
         const body = await parseRequestBody(request);
         if (Object.hasOwn(body, 'version')) fail(400, 'UNKNOWN_FIELD', 'unsupported field: version');
-        return jsonResponse(await createCreatorSeries(principal, body), 201);
+        return writeJsonResponse(await createCreatorSeries(principal, body), 201);
       }
       fail(405, 'METHOD_NOT_ALLOWED', 'method not allowed');
     }
@@ -1731,44 +1851,44 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       const body = await parseRequestBody(request);
       const operation = request.method === 'PUT' ? 'add' : request.method === 'DELETE' ? 'remove' : 'move';
       const result = await changeSeriesChapter(principal, seriesId, chapterId, body, operation);
-      return request.method === 'DELETE' ? emptyResponse() : jsonResponse(result);
+      return request.method === 'DELETE' ? writeEmptyResponse(result.versionChanges) : writeJsonResponse(result);
     }
     const seriesMatch = path.match(/^\/api\/creador\/series\/([^/]+)$/);
     if (seriesMatch) {
       const id = decodeSegment(seriesMatch[1]);
       if (request.method === 'PATCH') {
         requireWriteRequest(request, principal);
-        return jsonResponse(await patchCreatorSeries(principal, id, await parseRequestBody(request)));
+        return writeJsonResponse(await patchCreatorSeries(principal, id, await parseRequestBody(request)));
       }
       if (request.method === 'DELETE') {
         requireWriteRequest(request, principal);
-        await deleteCreatorSeries(principal, id, await parseRequestBody(request));
-        return emptyResponse();
+        const changes = await deleteCreatorSeries(principal, id, await parseRequestBody(request));
+        return writeEmptyResponse(changes);
       }
       fail(405, 'METHOD_NOT_ALLOWED', 'method not allowed');
     }
     if (path === '/api/creador/perfil/publicar') {
       requireMethod(request, 'POST');
       requireWriteRequest(request, principal);
-      return jsonResponse(await publishProfile(principal, await parseRequestBody(request)));
+      return writeJsonResponse(await publishProfile(principal, await parseRequestBody(request)));
     }
     if (path === '/api/creador/enlaces') {
       requireMethod(request, 'POST');
       requireWriteRequest(request, principal);
       const result = await addLink(principal, await parseRequestBody(request));
-      return jsonResponse(result, result.created ? 201 : 200);
+      return writeJsonResponse(result, result.created ? 201 : 200);
     }
     const placementMatch = path.match(/^\/api\/creador\/enlaces\/([^/]+)$/);
     if (placementMatch) {
       const id = decodeSegment(placementMatch[1]);
       if (request.method === 'DELETE') {
         requireWriteRequest(request, principal);
-        await deletePlacement(principal, id, request.body ? await parseRequestBody(request) : {});
-        return emptyResponse();
+        const changes = await deletePlacement(principal, id, request.body ? await parseRequestBody(request) : {});
+        return writeEmptyResponse(changes);
       }
       if (request.method === 'PATCH') {
         requireWriteRequest(request, principal);
-        return jsonResponse(await patchPlacement(principal, id, await parseRequestBody(request)));
+        return writeJsonResponse(await patchPlacement(principal, id, await parseRequestBody(request)));
       }
       fail(405, 'METHOD_NOT_ALLOWED', 'method not allowed');
     }
@@ -1776,12 +1896,12 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     if (creatorResourceMatch) {
       requireMethod(request, 'PATCH');
       requireWriteRequest(request, principal);
-      return jsonResponse(await patchCreatorResource(principal, decodeSegment(creatorResourceMatch[1]), await parseRequestBody(request)));
+      return writeJsonResponse(await patchCreatorResource(principal, decodeSegment(creatorResourceMatch[1]), await parseRequestBody(request)));
     }
     if (path === '/api/creador/reclamaciones') {
       requireMethod(request, 'POST');
       requireWriteRequest(request, principal);
-      return jsonResponse(await createClaim(principal, await parseRequestBody(request)), 202);
+      return writeJsonResponse(await createClaim(principal, await parseRequestBody(request)), 202);
     }
 
     if (path === '/api/admin/recursos' || path === '/api/admin/perfiles' || path === '/api/admin/reclamaciones') {
@@ -1795,7 +1915,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       requireMethod(request, 'POST');
       requireAdmin(principal);
       requireWriteRequest(request, principal);
-      return jsonResponse(await linkClaim(await parseRequestBody(request)));
+      return writeJsonResponse(await linkClaim(await parseRequestBody(request)));
     }
     const adminResourceMatch = path.match(/^\/api\/admin\/recursos\/([^/]+)(?:\/(aprobar|revocar|ocultar|restaurar))?$/);
     if (adminResourceMatch) {
@@ -1805,18 +1925,18 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       if (action) {
         requireMethod(request, 'POST');
         requireWriteRequest(request, principal);
-        return jsonResponse(await adminResourceAction(resourceId, action));
+        return writeJsonResponse(await adminResourceAction(resourceId, action));
       }
       requireMethod(request, 'PATCH');
       requireWriteRequest(request, principal);
-      return jsonResponse(await patchAdminResource(resourceId, await parseRequestBody(request)));
+      return writeJsonResponse(await patchAdminResource(resourceId, await parseRequestBody(request)));
     }
     const adminProfileMatch = path.match(/^\/api\/admin\/perfiles\/([^/]+)\/(ocultar|restaurar)$/);
     if (adminProfileMatch) {
       requireMethod(request, 'POST');
       requireAdmin(principal);
       requireWriteRequest(request, principal);
-      return jsonResponse(await adminProfileAction(decodeSegment(adminProfileMatch[1]), adminProfileMatch[2]));
+      return writeJsonResponse(await adminProfileAction(decodeSegment(adminProfileMatch[1]), adminProfileMatch[2]));
     }
     return jsonResponse({ error: 'NOT_FOUND', message: 'route not found' }, 404);
   }

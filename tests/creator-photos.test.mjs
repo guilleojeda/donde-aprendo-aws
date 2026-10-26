@@ -144,6 +144,22 @@ test('a signed upload is exact, short-lived, size-limited, and publishes only a 
   assert.deepEqual(finalPuts[0].bytes, photo.body);
 });
 
+test('photo finalization and recovered acknowledgement return the original committed profile versions', async () => {
+  const { jpeg } = await rasterPhotoFixtures();
+  const harness = await createCreatorPhotoHarness();
+  const upload = await startUpload(harness, 'creator-a', 1, jpeg);
+
+  const committed = await harness.service.finalizeUpload({ profileId: 'creator-a', uploadId: upload.uploadId, expectedVersion: 1 });
+  assert.deepEqual(committed.versionChanges, [
+    { entity: 'profile', id: 'creator-a', before: 1, after: 2 },
+  ]);
+  assert.equal((await profileRecord(harness)).version, 2);
+
+  const recovered = await harness.service.finalizeUpload({ profileId: 'creator-a', uploadId: upload.uploadId, expectedVersion: 1 });
+  assert.deepEqual(recovered.versionChanges, committed.versionChanges, 'a replay reports the original commit receipt, not a fresh read');
+  assert.equal((await profileRecord(harness)).version, 2, 'replay does not increment the profile again');
+});
+
 test('an upload created for one profile cannot be finalized through another profile', async () => {
   const { jpeg } = await rasterPhotoFixtures();
   const harness = await createCreatorPhotoHarness({

@@ -1,4 +1,5 @@
 import { createCreatorFormState, type FormValueSnapshot } from './creator-form-state';
+import { createCreatorWriteGuard, readCreatorVersionChanges, type CreatorVersionChange } from './creator-write-state';
 
 interface CreatorAdminState {
   resources: Record<string, unknown>[];
@@ -34,8 +35,8 @@ if (initial?.textContent) {
 }
 
 const formState = root ? createCreatorFormState(root) : undefined;
+const writeGuard = root ? createCreatorWriteGuard(root) : undefined;
 const csrfToken = root?.dataset.csrf;
-let activeWriteRequests = 0;
 
 function announce(target: Element | null | undefined, message: string, kind: 'error' | 'success' = 'success') {
   if (!(target instanceof HTMLElement)) return;
@@ -73,17 +74,19 @@ function requestFailureMessage(error: unknown, fallback: string): string {
     : fallback;
 }
 
-async function partiallyLinkedResourceIds(response: Response, requestedIds: string[]): Promise<string[]> {
-  if (response.status !== 409 && response.status !== 503) return [];
+async function partialLinkDetails(response: Response, requestedIds: string[]): Promise<{ ids: string[]; changes: CreatorVersionChange[] | null }> {
+  if (response.status !== 409 && response.status !== 503) return { ids: [], changes: null };
   let body: unknown;
   try {
-    body = await response.json();
+    body = await response.clone().json();
   } catch {
-    return [];
+    return { ids: [], changes: null };
   }
-  if (!isRecord(body) || !Array.isArray(body.linkedResourceIds)) return [];
+  if (!isRecord(body) || !Array.isArray(body.linkedResourceIds)) return { ids: [], changes: null };
   const requested = new Set(requestedIds);
-  return body.linkedResourceIds.filter((id): id is string => typeof id === 'string' && requested.has(id));
+  const ids = body.linkedResourceIds.filter((id): id is string => typeof id === 'string' && requested.has(id));
+  const changes = await readCreatorVersionChanges(response);
+  return { ids, changes };
 }
 
 function itemStatus(item: Element | null | undefined) {
@@ -96,58 +99,84 @@ async function api(path: string, method: string, body?: unknown): Promise<Respon
   if (serializedBody !== undefined && new TextEncoder().encode(serializedBody).byteLength > MAX_REQUEST_BYTES) {
     throw new Error(REQUEST_TOO_LARGE);
   }
-  const write = method !== 'GET';
-  if (write) activeWriteRequests += 1;
+  return fetch(`${path.replace(/\/$/, '')}/`, {
+    method,
+    credentials: 'same-origin',
+    headers: {
+      'x-csrf-token': csrfToken,
+      ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+    },
+    ...(serializedBody === undefined ? {} : { body: serializedBody }),
+  });
+}
+
+function onWrite(target: EventTarget, type: string, action: (event: Event) => Promise<void> | void) {
+  target.addEventListener(type, (event) => writeGuard?.run(event, () => action(event)));
+}
+
+function applyVersionChanges(changes: CreatorVersionChange[]) {
+  let gap = false;
+  for (const change of changes) {
+    const items = change.entity === 'profile' ? state?.profiles : change.entity === 'resource' ? state?.resources : [];
+    const item = items?.find((candidate) => candidate.id === change.id);
+    if (!item) continue;
+    if (item.version !== change.before) {
+      gap = true;
+      continue;
+    }
+    item.version = change.after;
+  }
+  return gap;
+}
+
+async function responsePayload(response: Response): Promise<Record<string, unknown> | null> {
   try {
-    return await fetch(`${path.replace(/\/$/, '')}/`, {
-      method,
-      credentials: 'same-origin',
-      headers: {
-        'x-csrf-token': csrfToken,
-        ...(body === undefined ? {} : { 'content-type': 'application/json' }),
-      },
-      ...(serializedBody === undefined ? {} : { body: serializedBody }),
-    });
-  } finally {
-    if (write) activeWriteRequests -= 1;
+    const value: unknown = await response.clone().json();
+    return isRecord(value) ? value : null;
+  } catch {
+    return null;
   }
 }
 
-async function refreshAdminState(response: Response): Promise<boolean> {
-  try {
-    const payload: unknown = await response.clone().json();
-    if (!isRecord(payload) || !state) return false;
-    if (isRecord(payload.resource) && typeof payload.resource.id === 'string') {
-      const updatedResource = payload.resource;
-      state.resources = state.resources.map((resource) => resource.id === updatedResource.id
-        ? updatedResource
-        : resource);
+function updateOwnedContent(payload: Record<string, unknown> | null, entity: 'classification' | 'resource-action' | 'profile-action' | undefined, id?: string) {
+  if (!state || !payload || !entity || !id) return;
+  if (entity === 'classification' && isRecord(payload.resource)) {
+    const returned = payload.resource;
+    const current = state.resources.find((item) => item.id === id);
+    if (current) {
+      for (const field of ['category', 'kind', 'format', 'topics']) {
+        if (Object.hasOwn(returned, field)) current[field] = returned[field];
+      }
     }
-    if (isRecord(payload.profile) && typeof payload.profile.id === 'string') {
-      const updatedProfile = payload.profile;
-      state.profiles = state.profiles.map((profile) => profile.id === updatedProfile.id
-        ? updatedProfile
-        : profile);
-    }
-    if (Array.isArray(payload.linkedResourceIds)) {
-      const [resourcesResponse, claimsResponse] = await Promise.all([
-        api('/api/admin/recursos', 'GET'),
-        api('/api/admin/reclamaciones', 'GET'),
-      ]);
-      if (!resourcesResponse.ok || !claimsResponse.ok) return false;
-      const [resourcesBody, claimsBody]: unknown[] = await Promise.all([
-        resourcesResponse.json(), claimsResponse.json(),
-      ]);
-      if (!isRecord(resourcesBody) || !Array.isArray(resourcesBody.resources)
-        || !isRecord(claimsBody) || !Array.isArray(claimsBody.claims)) return false;
-      state.resources = resourcesBody.resources as Record<string, unknown>[];
-      state.claims = claimsBody.claims.filter((claim): claim is Record<string, unknown> =>
-        isRecord(claim) && claim.status !== 'resolved');
-    }
-    return true;
-  } catch {
-    return false;
   }
+  if (entity === 'resource-action' && isRecord(payload.resource)) {
+    const returned = payload.resource;
+    const current = state.resources.find((item) => item.id === id);
+    if (current) {
+      for (const field of ['published', 'directoryApproval', 'directoryControl', 'hidden']) {
+        if (Object.hasOwn(returned, field)) current[field] = returned[field];
+      }
+    }
+  }
+  if (entity === 'profile-action' && isRecord(payload.profile)) {
+    const returned = payload.profile;
+    const current = state.profiles.find((item) => item.id === id);
+    if (current && Object.hasOwn(returned, 'hidden')) current.hidden = returned.hidden;
+  }
+}
+
+function markAdminActionsStale(selector: string, within: ParentNode = root as HTMLElement) {
+  within.querySelectorAll<HTMLElement>(selector).forEach((control) => {
+    control.setAttribute('data-creator-stale', 'true');
+  });
+  writeGuard?.markStale('[data-creator-stale]');
+}
+
+function showViewTransition(message: string) {
+  const shell = root?.querySelector<HTMLElement>('[data-view-transition-shell]');
+  if (shell) shell.hidden = false;
+  const status = root?.querySelector<HTMLElement>('[data-view-transition]');
+  announce(status, message, 'success');
 }
 
 async function finishAdminWrite(
@@ -155,16 +184,22 @@ async function finishAdminWrite(
   target: Element | null | undefined,
   successMessage: string,
   submittedValues?: FormValueSnapshot,
+  options: { structural?: boolean; entity?: 'classification' | 'resource-action' | 'profile-action'; id?: string } = {},
 ) {
+  const changes = await readCreatorVersionChanges(response);
+  const receiptGap = changes === null || applyVersionChanges(changes);
+  const payload = await responsePayload(response);
+  if (!receiptGap) updateOwnedContent(payload, options.entity, options.id);
   formState?.commit(submittedValues);
   const hasPendingChanges = formState?.hasPendingChanges() ?? false;
-  if (hasPendingChanges || activeWriteRequests > 0) {
-    const refreshed = await refreshAdminState(response);
-    const message = hasPendingChanges
-      ? refreshed
-        ? `${successMessage} Conservamos los cambios que aún no enviaste; puedes seguir editándolos y guardarlos.`
-        : `${successMessage} No pudimos actualizar el estado. Conservamos los cambios sin enviar; cópialos o anótalos antes de recargar. Después de recargar, vuelve a ingresarlos y guárdalos.`
-      : `${successMessage} Conservamos la página abierta mientras termina otra acción. Recarga después para ver el estado actualizado.`;
+  if (hasPendingChanges) {
+    let message = `${successMessage} Conservamos los cambios que aún no enviaste; puedes seguir editándolos y guardarlos.`;
+    if (receiptGap) {
+      showViewTransition(`${successMessage} El recibo no coincide con las versiones que esta página observó. Conservamos tus campos; revisa cualquier conflicto antes de actualizar la vista. Guarda otros cambios válidos o revierte los pendientes. Si un formulario da conflicto, copia su corrección antes de actualizar.`);
+      message = `${successMessage} El recibo no coincide con una versión que esta página observó. Conservamos los cambios pendientes y habilitamos una actualización segura cuando los guardes o reviertas.`;
+    } else if (options.structural) {
+      showViewTransition(`${successMessage} Guarda o revierte los cambios pendientes; la página se actualizará cuando termines. Tus campos se conservan.`);
+    }
     announce(target, message);
     return;
   }
@@ -174,14 +209,19 @@ async function finishAdminWrite(
 
 function busy(form: HTMLFormElement, value: boolean) {
   form.setAttribute('aria-busy', String(value));
-  form.querySelectorAll<HTMLButtonElement>('button').forEach((button) => {
-    button.disabled = value;
-  });
 }
 
 if (root && state && csrfToken) {
+  const refreshViewButton = root.querySelector<HTMLButtonElement>('[data-refresh-view]');
+  refreshViewButton?.addEventListener('click', () => {
+    if (formState?.hasPendingChanges()) {
+      announce(root.querySelector('[data-view-transition]'), 'Guarda los cambios pendientes o revierte manualmente tus campos antes de actualizar la vista.', 'error');
+      return;
+    }
+    window.location.reload();
+  });
   root.querySelectorAll<HTMLFormElement>('[data-classification-form]').forEach((form) => {
-    form.addEventListener('submit', async (event) => {
+    onWrite(form, 'submit', async (event) => {
       event.preventDefault();
       if (!form.reportValidity()) return;
       const item = form.closest<HTMLElement>('[data-admin-resource]');
@@ -212,7 +252,7 @@ if (root && state && csrfToken) {
           announce(itemStatus(item), await responseErrorMessage(response), 'error');
           return;
         }
-        await finishAdminWrite(response, itemStatus(item), 'Clasificación guardada.', submittedValues);
+        await finishAdminWrite(response, itemStatus(item), 'Clasificación guardada.', submittedValues, { entity: 'classification', id: resourceId });
       } catch (error) {
         announce(itemStatus(item), requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
       } finally {
@@ -222,7 +262,7 @@ if (root && state && csrfToken) {
   });
 
   root.querySelectorAll<HTMLButtonElement>('[data-resource-action]').forEach((button) => {
-    button.addEventListener('click', async () => {
+    onWrite(button, 'click', async () => {
       const item = button.closest<HTMLElement>('[data-admin-resource]');
       const resourceId = item?.dataset.adminResource;
       const action = button.dataset.resourceAction;
@@ -234,13 +274,14 @@ if (root && state && csrfToken) {
           announce(itemStatus(item), await responseErrorMessage(response), 'error');
           return;
         }
+        if (item) markAdminActionsStale('[data-resource-action]', item);
         await finishAdminWrite(response, itemStatus(item), action === 'aprobar'
           ? 'Recurso aprobado para el directorio.'
           : action === 'revocar'
             ? 'Aprobación revocada. El enlace puede seguir visible en páginas de creadores.'
             : action === 'ocultar'
               ? 'Recurso oculto en las páginas públicas.'
-              : 'Recurso restaurado.');
+              : 'Recurso restaurado.', undefined, { structural: true, entity: 'resource-action', id: resourceId });
       } catch (error) {
         announce(itemStatus(item), requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
       } finally {
@@ -250,7 +291,7 @@ if (root && state && csrfToken) {
   });
 
   root.querySelectorAll<HTMLButtonElement>('[data-profile-action]').forEach((button) => {
-    button.addEventListener('click', async () => {
+    onWrite(button, 'click', async () => {
       const item = button.closest<HTMLElement>('[data-admin-profile]');
       const profileId = item?.dataset.adminProfile;
       const action = button.dataset.profileAction;
@@ -262,7 +303,8 @@ if (root && state && csrfToken) {
           announce(itemStatus(item), await responseErrorMessage(response), 'error');
           return;
         }
-        await finishAdminWrite(response, itemStatus(item), action === 'ocultar' ? 'Perfil oculto.' : 'Perfil restaurado.');
+        if (item) markAdminActionsStale('[data-profile-action]', item);
+        await finishAdminWrite(response, itemStatus(item), action === 'ocultar' ? 'Perfil oculto.' : 'Perfil restaurado.', undefined, { structural: true, entity: 'profile-action', id: profileId });
       } catch (error) {
         announce(itemStatus(item), requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
       } finally {
@@ -272,7 +314,7 @@ if (root && state && csrfToken) {
   });
 
   root.querySelectorAll<HTMLFormElement>('[data-claim-resolution]').forEach((form) => {
-    form.addEventListener('submit', async (event) => {
+    onWrite(form, 'submit', async (event) => {
       event.preventDefault();
       if (!form.reportValidity()) return;
       const item = form.closest<HTMLElement>('[data-admin-claim]');
@@ -290,10 +332,6 @@ if (root && state && csrfToken) {
         announce(itemStatus(item), 'Selecciona uno o más IDs incluidos en la solicitud.', 'error');
         return;
       }
-      const resourceCheckboxes = [...form.querySelectorAll<HTMLInputElement>('input[name="resourceIds"]')];
-      const disabledBeforeRequest = new Set(resourceCheckboxes.filter((checkbox) => checkbox.disabled));
-      const linkedDuringRequest = new Set<string>();
-      resourceCheckboxes.forEach((checkbox) => { checkbox.disabled = true; });
       busy(form, true);
       try {
         const response = await api('/api/admin/reclamaciones/vincular', 'POST', {
@@ -302,16 +340,23 @@ if (root && state && csrfToken) {
           resourceIds: selectedIds,
         });
         if (!response.ok) {
-          const linkedIds = await partiallyLinkedResourceIds(response, selectedIds);
+          const { ids: linkedIds, changes } = await partialLinkDetails(response, selectedIds);
+          if (changes) {
+            const receiptGap = applyVersionChanges(changes);
+            if (receiptGap) writeGuard?.markStale('button:not([data-refresh-view]), [data-featured], [data-directory]');
+          }
           if (linkedIds.length > 0) {
             const linked = new Set(linkedIds);
             form.querySelectorAll<HTMLInputElement>('input[name="resourceIds"]').forEach((checkbox) => {
               if (linked.has(checkbox.value)) {
                 checkbox.checked = true;
-                linkedDuringRequest.add(checkbox.value);
+                checkbox.setAttribute('data-creator-stale', 'true');
               }
             });
+            markAdminActionsStale('[data-claim-resolution] button', item ?? form);
+            markAdminActionsStale('[data-claim-resolution] input[name="resourceIds"]', item ?? form);
             const remainingIds = selectedIds.filter((id) => !linked.has(id));
+            showViewTransition('La vinculación se completó parcialmente. Actualiza la vista antes de resolver otra vez esta solicitud.');
             announce(itemStatus(item), remainingIds.length > 0
               ? `Vinculación parcial. Ya vinculados: ${linkedIds.join(', ')}. Pendientes: ${remainingIds.join(', ')}. Los checks de los pendientes se conservaron; recarga para actualizar el estado y reintenta sólo esos IDs.`
               : `Los recursos ya vinculados son: ${linkedIds.join(', ')}. Recarga para actualizar el estado de la solicitud.`, 'error');
@@ -320,14 +365,12 @@ if (root && state && csrfToken) {
           announce(itemStatus(item), await responseErrorMessage(response), 'error');
           return;
         }
-        await finishAdminWrite(response, itemStatus(item), 'Recursos vinculados a la cuenta.', submittedValues);
+        markAdminActionsStale('[data-resource-action], [data-profile-action], [data-claim-resolution] button, [data-claim-resolution] input[name="resourceIds"]');
+        await finishAdminWrite(response, itemStatus(item), 'Recursos vinculados a la cuenta.', submittedValues, { structural: true });
       } catch (error) {
         announce(itemStatus(item), requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
       } finally {
         busy(form, false);
-        resourceCheckboxes.forEach((checkbox) => {
-          checkbox.disabled = disabledBeforeRequest.has(checkbox) || linkedDuringRequest.has(checkbox.value);
-        });
       }
     });
   });

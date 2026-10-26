@@ -44,6 +44,10 @@ const message = result.status === 401
         <p>Revisa la clasificación y visibilidad del directorio, las páginas y las solicitudes de vinculación.</p>
       </header>
       <div class="creator-account__status" data-admin-status role="status" aria-live="polite" hidden></div>
+      <div class="creator-account__status" data-view-transition-shell hidden>
+        <p data-view-transition role="status" aria-live="polite" hidden></p>
+        <button class="button button--outline" type="button" data-refresh-view>Actualizar vista</button>
+      </div>
 
       <section class="creator-card creator-admin__section" aria-labelledby="admin-resources-title">
         <p class="creator-profile__eyebrow">Directorio</p>

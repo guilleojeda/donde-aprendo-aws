@@ -16,6 +16,7 @@ const SESSION_MS = 7 * 24 * 60 * 60 * 1000;
 const SESSION_COOKIE = 'da_session';
 const BROWSER_COOKIE = 'da_oauth';
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+const LOGOUT_RETRY_CSRF = Symbol.for('donde-aprendo-aws.logout-retry-csrf');
 const ROUTES = new Set([
   '/cuenta/ingresar/',
   '/cuenta/registro/',
@@ -25,6 +26,12 @@ const ROUTES = new Set([
 ]);
 
 class OidcUnavailableError extends Error {}
+
+// Carries an already validated CSRF token to the Astro route without putting
+// it in an HTTP header, body, URL, or another persisted location.
+export function readLogoutRetryCsrf(response) {
+  return response?.[LOGOUT_RETRY_CSRF];
+}
 
 function opaqueToken() {
   return randomBytes(32).toString('base64url');
@@ -458,14 +465,17 @@ export function createAccountAuth({ origin, issuer, clientId, cognitoDomain, sto
     if (Buffer.byteLength(body) > 8192) return new Response(null, { status: 413, headers: privateHeaders() });
     const parameters = new URLSearchParams(body);
     const csrfValues = parameters.getAll('csrfToken');
-    if (csrfValues.length !== 1 || !constantTimeEqual(csrfValues[0], current.csrfToken)) {
+    if (csrfValues.length !== 1 || !TOKEN_PATTERN.test(current.csrfToken)
+      || !constantTimeEqual(csrfValues[0], current.csrfToken)) {
       return new Response(null, { status: 403, headers: privateHeaders() });
     }
 
     try {
       await store.deleteSession(current.sessionKey);
     } catch {
-      return failure('no-disponible');
+      const response = failure('no-disponible');
+      Object.defineProperty(response, LOGOUT_RETRY_CSRF, { value: current.csrfToken });
+      return response;
     }
     return finishProviderLogout();
   }

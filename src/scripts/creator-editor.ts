@@ -6,6 +6,7 @@ import type {
 import { creatorEditorFailureMessage } from '../lib/creator-editor-errors';
 import { creatorSeriesFailureMessage } from '../lib/creator-series-editor-errors';
 import { createCreatorFormState, type FormValueSnapshot } from './creator-form-state';
+import { createCreatorWriteGuard, readCreatorVersionChanges, type CreatorVersionChange } from './creator-write-state';
 
 const root = document.querySelector<HTMLElement>('[data-creator-editor]');
 const initial = document.querySelector<HTMLScriptElement>('#creator-editor-data');
@@ -34,13 +35,13 @@ if (root && initial?.textContent) {
 }
 
 const formState = root ? createCreatorFormState(root) : undefined;
+const writeGuard = root ? createCreatorWriteGuard(root) : undefined;
 const csrfToken = root?.dataset.csrf;
 const pageStatus = root?.querySelector<HTMLElement>('[data-page-status]');
 const MAX_REQUEST_BYTES = 32 * 1024;
 const REQUEST_TOO_LARGE = 'creator-request-too-large';
 const SERIES_FOCUS_PREFIX = 'creator-series-';
 const PHOTO_FINALIZATION_UNCONFIRMED = 'No pudimos confirmar si la foto se guardó. Recarga la página para comprobar cuál está activa antes de volver a intentarlo.';
-let activeWriteRequests = 0;
 
 function restoreSeriesFocus() {
   const hash = window.location.hash;
@@ -89,9 +90,10 @@ function requestFailureMessage(error: unknown, fallback: string): string {
 
 function setBusy(form: HTMLFormElement, busy: boolean) {
   form.setAttribute('aria-busy', String(busy));
-  form.querySelectorAll<HTMLButtonElement | HTMLInputElement>('button, input[data-busy-control]').forEach((control) => {
-    control.disabled = busy;
-  });
+}
+
+function onWrite(target: EventTarget, type: string, action: (event: Event) => Promise<void> | void) {
+  target.addEventListener(type, (event) => writeGuard?.run(event, () => action(event)));
 }
 
 async function api(path: string, method: string, body?: unknown): Promise<Response> {
@@ -100,25 +102,26 @@ async function api(path: string, method: string, body?: unknown): Promise<Respon
   if (serializedBody !== undefined && new TextEncoder().encode(serializedBody).byteLength > MAX_REQUEST_BYTES) {
     throw new Error(REQUEST_TOO_LARGE);
   }
-  const write = method !== 'GET';
-  if (write) activeWriteRequests += 1;
-  try {
-    return await fetch(`${path.replace(/\/$/, '')}/`, {
-      method,
-      credentials: 'same-origin',
-      headers: {
-        'x-csrf-token': csrfToken,
-        ...(body === undefined ? {} : { 'content-type': 'application/json' }),
-      },
-      ...(serializedBody === undefined ? {} : { body: serializedBody }),
-    });
-  } finally {
-    if (write) activeWriteRequests -= 1;
-  }
+  return fetch(`${path.replace(/\/$/, '')}/`, {
+    method,
+    credentials: 'same-origin',
+    headers: {
+      'x-csrf-token': csrfToken,
+      ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+    },
+    ...(serializedBody === undefined ? {} : { body: serializedBody }),
+  });
 }
 
-function announceError(status: number, target: Element | null | undefined) {
-  announce(target, statusText(status), 'error');
+async function photoErrorMessage(response: Response): Promise<string> {
+  if (response.status === 409) {
+    const payload = await responsePayload(response);
+    if (payload?.error === 'PROFILE_VERSION_CONFLICT') {
+      return 'El perfil cambió desde que abriste esta página. Recarga antes de volver a intentar la foto.';
+    }
+    return statusText(response.status);
+  }
+  return statusText(response.status);
 }
 
 function linkByPlacement(id: string): CreatorLinkDTO | undefined {
@@ -129,35 +132,155 @@ function linksStatus() {
   return root?.querySelector<HTMLElement>('[data-links-status]');
 }
 
-async function refreshEditorState(): Promise<boolean> {
+function observedVersion(change: CreatorVersionChange): number | undefined {
+  if (!state) return undefined;
+  if (change.entity === 'profile') return state.profile?.id === change.id ? state.profile.version : undefined;
+  if (change.entity === 'series') return state.series.find((item) => item.id === change.id)?.version;
+  if (change.entity === 'placement') return state.links.find((item) => item.placementId === change.id)?.placementVersion;
+  const link = state.links.find((item) => item.resourceId === change.id);
+  if (link) return link.resourceVersion;
+  return state.editableResources.find((item) => item.id === change.id)?.version;
+}
+
+function applyVersionChanges(changes: CreatorVersionChange[]) {
+  let gap = false;
+  for (const change of changes) {
+    const observed = observedVersion(change);
+    if (observed === undefined) continue;
+    if (observed !== change.before) {
+      gap = true;
+      continue;
+    }
+    if (!state) continue;
+    if (change.entity === 'profile' && state.profile?.id === change.id) state.profile.version = change.after;
+    if (change.entity === 'series') {
+      const series = state.series.find((item) => item.id === change.id);
+      if (series) series.version = change.after;
+    }
+    if (change.entity === 'placement') {
+      const link = state.links.find((item) => item.placementId === change.id);
+      if (link) link.placementVersion = change.after;
+    }
+    if (change.entity === 'resource') {
+      state.links.filter((item) => item.resourceId === change.id).forEach((item) => { item.resourceVersion = change.after; });
+      const resource = state.editableResources.find((item) => item.id === change.id);
+      if (resource) resource.version = change.after;
+    }
+  }
+  return gap;
+}
+
+async function responsePayload(response: Response): Promise<Record<string, unknown> | null> {
   try {
-    const response = await api('/api/creador/perfil', 'GET');
-    if (!response.ok) return false;
-    const refreshed: unknown = await response.json();
-    if (!isEditorData(refreshed)) return false;
-    state = refreshed;
-    return true;
+    const value: unknown = await response.clone().json();
+    return isRecord(value) ? value : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
+function updateOwnedContent(entity: CreatorVersionChange['entity'] | undefined, id: string | undefined, payload: Record<string, unknown> | null) {
+  if (!state || !entity || !id || !payload) return;
+  if (entity === 'profile' && isRecord(payload.profile) && (!id || payload.profile.id === id)) {
+    state.profile = payload.profile as unknown as CreatorProfileDTO;
+    setCopyProfileUrl();
+  } else if (entity === 'profile' && isRecord(payload.photo) && state.profile?.id === id) {
+    state.profile.photo = payload.photo as CreatorProfileDTO['photo'];
+  } else if (entity === 'resource' && isRecord(payload.resource) && payload.resource.id === id) {
+    const resource = payload.resource;
+    state.links.filter((link) => link.resourceId === id).forEach((link) => {
+      if (typeof resource.title === 'string') link.title = resource.title;
+      if (typeof resource.url === 'string') link.url = resource.url;
+      if (typeof resource.description === 'string') link.description = resource.description;
+    });
+    const retained = state.editableResources.find((item) => item.id === id);
+    if (retained) {
+      if (typeof resource.title === 'string') retained.title = resource.title;
+      if (typeof resource.url === 'string') retained.url = resource.url;
+      if (typeof resource.description === 'string') retained.description = resource.description;
+    }
+  } else if (entity === 'series' && isRecord(payload.series) && payload.series.id === id) {
+    const index = state.series.findIndex((series) => series.id === id);
+    if (index >= 0) {
+      state.series[index] = payload.series as unknown as CreatorEditorDTO['series'][number];
+      root?.querySelectorAll<HTMLButtonElement>('[data-copy-series-url]').forEach((button) => {
+        if (button.closest<HTMLElement>('[data-series-id]')?.dataset.seriesId === id) {
+          const profileSlug = state?.profile?.slug;
+          const seriesSlug = state?.series.find((series) => series.id === id)?.slug;
+          if (profileSlug && seriesSlug) button.dataset.url = `${new URL(window.location.href).origin}/c/${encodeURIComponent(profileSlug)}/series/${encodeURIComponent(seriesSlug)}/`;
+        }
+      });
+    }
+  } else if (entity === 'placement' && isRecord(payload.link) && payload.link.placementId === id) {
+    const index = state.links.findIndex((link) => link.placementId === id);
+    if (index >= 0) {
+      const current = state.links[index];
+      for (const field of ['featured', 'selectedForDirectory'] as const) {
+        if (typeof payload.link[field] === 'boolean') current[field] = payload.link[field] as boolean;
+      }
+      if (typeof payload.link.position === 'number') current.position = payload.link.position;
+    }
+  }
+}
+
+function createdProfileId(
+  entity: CreatorVersionChange['entity'] | undefined,
+  id: string | undefined,
+  payload: Record<string, unknown> | null,
+  changes: CreatorVersionChange[] | null,
+): string | undefined {
+  if (!state || id || entity !== 'profile' || state.profile !== null || !payload || !isRecord(payload.profile)
+    || typeof payload.profile.id !== 'string') return id;
+  const profileId = payload.profile.id;
+  return changes?.some((change) => change.entity === 'profile'
+    && change.id === profileId && change.before === 0 && change.after === 1)
+    ? profileId
+    : undefined;
+}
+
+function markStructuralControlsStale() {
+  writeGuard?.markStale('[data-move], [data-remove-link], [data-featured], [data-directory], [data-readd-link], [data-series-add-chapter-form] button, [data-series-move], [data-series-remove-chapter], [data-delete-series]');
+}
+
+function showViewTransition(message: string) {
+  const shell = root?.querySelector<HTMLElement>('[data-view-transition-shell]');
+  if (shell) shell.hidden = false;
+  const banner = root?.querySelector<HTMLElement>('[data-view-transition]');
+  announce(banner, message);
+  markStructuralControlsStale();
+}
+
+function setCopyProfileUrl() {
+  const button = root?.querySelector<HTMLButtonElement>('[data-copy-profile-url]');
+  const slug = state?.profile?.slug;
+  if (button && slug) button.dataset.url = `${new URL(window.location.href).origin}/c/${encodeURIComponent(slug)}/`;
+}
+
 async function finishSuccessfulWrite(
+  response: Response,
   statusTarget: Element | null | undefined,
   successMessage: string,
   submittedValues?: FormValueSnapshot,
   focusId?: string,
+  options: { structural?: boolean; ownEntity?: CreatorVersionChange['entity']; ownId?: string; pendingMessage?: string } = {},
 ) {
+  const changes = await readCreatorVersionChanges(response);
+  const receiptGap = changes === null || applyVersionChanges(changes);
+  const payload = await responsePayload(response);
+  if (!receiptGap) updateOwnedContent(options.ownEntity, createdProfileId(options.ownEntity, options.ownId, payload, changes), payload);
   formState?.commit(submittedValues);
   const hasPendingChanges = formState?.hasPendingChanges() ?? false;
-  if (hasPendingChanges || activeWriteRequests > 0) {
+  if (hasPendingChanges) {
     if (focusId) window.location.hash = focusId;
-    const refreshed = await refreshEditorState();
-    const message = hasPendingChanges
-      ? refreshed
-        ? `${successMessage} Conservamos los cambios que aún no enviaste; puedes seguir editándolos y guardarlos.`
-        : `${successMessage} No pudimos actualizar el estado. Conservamos los cambios sin enviar; cópialos o anótalos antes de recargar. Después de recargar, vuelve a ingresarlos y guárdalos.`
-      : `${successMessage} Conservamos la página abierta mientras termina otra acción. Recarga después para ver el estado actualizado.`;
+    let message = options.pendingMessage
+      ?? `${successMessage} Conservamos los cambios que aún no enviaste; puedes seguir editándolos y guardarlos.`;
+    if (receiptGap) {
+      showViewTransition(`${successMessage} El recibo no coincide con las versiones que esta página observó. Conservamos tus campos; las acciones que dependen de la lista quedaron pausadas. Guarda otros cambios válidos o revierte los pendientes antes de actualizar la vista. Si un formulario da conflicto, copia su corrección antes de actualizar.`);
+      message = `${successMessage} El recibo no coincide con una versión que esta página observó. Conservamos los cambios pendientes y habilitamos una actualización segura cuando los guardes o reviertas.`;
+    } else if (options.structural) {
+      showViewTransition(options.pendingMessage
+        ?? `${successMessage} Guarda o revierte los cambios pendientes; la página se actualizará cuando termines. Tus campos se conservan.`);
+    }
     announce(statusTarget, message, 'success');
     return true;
   }
@@ -173,13 +296,14 @@ async function finishWrite(
   statusTarget: Element | null | undefined,
   successMessage: string,
   submittedValues?: FormValueSnapshot,
+  options: { structural?: boolean; ownEntity?: CreatorVersionChange['entity']; ownId?: string; pendingMessage?: string } = {},
 ) {
   if (!response.ok) {
     const message = await creatorEditorFailureMessage(response, statusText(response.status));
     announce(statusTarget, message, 'error');
     return false;
   }
-  return finishSuccessfulWrite(statusTarget, successMessage, submittedValues);
+  return finishSuccessfulWrite(response, statusTarget, successMessage, submittedValues, undefined, options);
 }
 
 async function finishSeriesWrite(
@@ -188,13 +312,14 @@ async function finishSeriesWrite(
   successMessage: string,
   focusId?: string,
   submittedValues?: FormValueSnapshot,
+  options: { structural?: boolean; ownEntity?: CreatorVersionChange['entity']; ownId?: string; pendingMessage?: string } = {},
 ) {
   if (!response.ok) {
     const message = await creatorSeriesFailureMessage(response, statusText(response.status));
     announce(statusTarget, message, 'error');
     return false;
   }
-  return finishSuccessfulWrite(statusTarget, successMessage, submittedValues, focusId);
+  return finishSuccessfulWrite(response, statusTarget, successMessage, submittedValues, focusId, options);
 }
 
 function seriesStatus(element: Element): HTMLElement | null {
@@ -273,6 +398,14 @@ function suggestedSlug(value: string): string {
 }
 
 if (root && state && csrfToken) {
+  const refreshViewButton = root.querySelector<HTMLButtonElement>('[data-refresh-view]');
+  refreshViewButton?.addEventListener('click', () => {
+    if (formState?.hasPendingChanges()) {
+      announce(root.querySelector('[data-view-transition]'), 'Guarda los cambios pendientes o revierte manualmente tus campos antes de actualizar la vista.');
+      return;
+    }
+    window.location.reload();
+  });
   const profileForm = root.querySelector<HTMLFormElement>('[data-profile-form]');
   const profileStatus = root.querySelector<HTMLElement>('[data-profile-status]');
   const publishButton = root.querySelector<HTMLButtonElement>('[data-publish-profile]');
@@ -280,7 +413,7 @@ if (root && state && csrfToken) {
     field.addEventListener('input', () => field.setCustomValidity(''));
   });
 
-  profileForm?.addEventListener('submit', async (event) => {
+  if (profileForm) onWrite(profileForm, 'submit', async (event) => {
     event.preventDefault();
     if (!validateSocialUrls(profileForm)) return;
     const values = new FormData(profileForm);
@@ -304,7 +437,7 @@ if (root && state && csrfToken) {
     setBusy(profileForm, true);
     try {
       const response = await api('/api/creador/perfil', 'PUT', profile);
-      await finishWrite(response, profileStatus, profileSavedMessage(), submittedValues);
+      await finishWrite(response, profileStatus, profileSavedMessage(), submittedValues, { ownEntity: 'profile', ownId: state?.profile?.id });
     } catch (error) {
       announce(profileStatus, requestFailureMessage(error, 'No pudimos conectar con el servicio. Tus datos siguen en el formulario; inténtalo de nuevo.'), 'error');
     } finally {
@@ -312,14 +445,14 @@ if (root && state && csrfToken) {
     }
   });
 
-  publishButton?.addEventListener('click', async () => {
+  if (publishButton) onWrite(publishButton, 'click', async () => {
     if (!state?.profile) return;
     publishButton.disabled = true;
     try {
       const response = await api('/api/creador/perfil/publicar', 'POST', { version: state.profile.version });
       await finishWrite(response, profileStatus, state.profile.hidden
         ? 'Tu página está publicada, pero sigue oculta por administración.'
-        : 'Tu página ya está publicada y visible al público.');
+        : 'Tu página ya está publicada y visible al público.', undefined, { ownEntity: 'profile', ownId: state.profile.id });
     } catch (error) {
       announce(profileStatus, requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
     } finally {
@@ -355,7 +488,7 @@ if (root && state && csrfToken) {
 
   const linkCreateForm = root.querySelector<HTMLFormElement>('[data-add-link-form]');
   const linkCreateStatus = root.querySelector<HTMLElement>('[data-link-create-status]');
-  linkCreateForm?.addEventListener('submit', async (event) => {
+  if (linkCreateForm) onWrite(linkCreateForm, 'submit', async (event) => {
     event.preventDefault();
     if (!linkCreateForm.reportValidity()) return;
     const values = new FormData(linkCreateForm);
@@ -368,7 +501,7 @@ if (root && state && csrfToken) {
     setBusy(linkCreateForm, true);
     try {
       const response = await api('/api/creador/enlaces', 'POST', body);
-      await finishWrite(response, linkCreateStatus, await linkCreatedMessage(response), submittedValues);
+      await finishWrite(response, linkCreateStatus, await linkCreatedMessage(response), submittedValues, { structural: true });
     } catch (error) {
       announce(linkCreateStatus, requestFailureMessage(error, 'No pudimos conectar con el servicio. Tus datos siguen en el formulario; inténtalo de nuevo.'), 'error');
     } finally {
@@ -377,7 +510,7 @@ if (root && state && csrfToken) {
   });
 
   root.querySelectorAll<HTMLFormElement>('[data-resource-form]').forEach((form) => {
-    form.addEventListener('submit', async (event) => {
+    onWrite(form, 'submit', async (event) => {
       event.preventDefault();
       if (!form.reportValidity()) return;
       const item = form.closest<HTMLElement>('[data-resource-id]');
@@ -397,7 +530,7 @@ if (root && state && csrfToken) {
       setBusy(form, true);
       try {
         const response = await api(`/api/creador/recursos/${encodeURIComponent(resourceId)}`, 'PATCH', body);
-        await finishWrite(response, linksStatus(), 'Ficha guardada para los perfiles que usan este recurso.', submittedValues);
+        await finishWrite(response, linksStatus(), 'Ficha guardada para los perfiles que usan este recurso.', submittedValues, { ownEntity: 'resource', ownId: resourceId });
       } catch (error) {
         announce(linksStatus(), requestFailureMessage(error, 'No pudimos conectar con el servicio. Tus datos siguen en el formulario; inténtalo de nuevo.'), 'error');
       } finally {
@@ -407,7 +540,7 @@ if (root && state && csrfToken) {
   });
 
   root.querySelectorAll<HTMLButtonElement>('[data-move]').forEach((button) => {
-    button.addEventListener('click', async () => {
+    onWrite(button, 'click', async () => {
       const item = button.closest<HTMLElement>('[data-placement-id]');
       const placementId = item?.dataset.placementId;
       const direction = button.dataset.move;
@@ -428,7 +561,7 @@ if (root && state && csrfToken) {
           version: current.placementVersion,
           profileVersion,
         });
-        await finishWrite(response, linksStatus(), 'Orden actualizado.');
+        await finishWrite(response, linksStatus(), 'Orden actualizado.', undefined, { structural: true, ownEntity: 'placement', ownId: current.placementId });
       } catch (error) {
         announce(linksStatus(), requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
       } finally {
@@ -438,7 +571,7 @@ if (root && state && csrfToken) {
   });
 
   root.querySelectorAll<HTMLInputElement>('[data-featured], [data-directory]').forEach((checkbox) => {
-    checkbox.addEventListener('change', async () => {
+    onWrite(checkbox, 'change', async () => {
       const item = checkbox.closest<HTMLElement>('[data-placement-id]');
       const placementId = item?.dataset.placementId;
       const current = placementId ? linkByPlacement(placementId) : undefined;
@@ -452,7 +585,7 @@ if (root && state && csrfToken) {
         const response = await api(`/api/creador/enlaces/${encodeURIComponent(placementId)}`, 'PATCH', body);
         await finishWrite(response, linksStatus(), checkbox.matches('[data-directory]')
           ? 'Selección guardada. La página se actualiza ahora; el directorio puede tardar hasta una hora más la publicación del sitio.'
-          : 'Preferencia guardada.', submittedValues);
+          : 'Preferencia guardada.', submittedValues, { ownEntity: 'placement', ownId: placementId });
       } catch (error) {
         announce(linksStatus(), requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
         checkbox.checked = !checkbox.checked;
@@ -463,7 +596,7 @@ if (root && state && csrfToken) {
   });
 
   root.querySelectorAll<HTMLButtonElement>('[data-remove-link]').forEach((button) => {
-    button.addEventListener('click', async () => {
+    onWrite(button, 'click', async () => {
       const item = button.closest<HTMLElement>('[data-placement-id]');
       const placementId = item?.dataset.placementId;
       if (!placementId) return;
@@ -472,7 +605,7 @@ if (root && state && csrfToken) {
       try {
         const response = await api(`/api/creador/enlaces/${encodeURIComponent(placementId)}`, 'DELETE',
           profileVersion === undefined ? undefined : { profileVersion });
-        await finishWrite(response, linksStatus(), 'Enlace quitado de tu página. La ficha que administras sigue disponible para volver a agregarla.');
+        await finishWrite(response, linksStatus(), 'Enlace quitado de tu página. La ficha que administras sigue disponible para volver a agregarla.', undefined, { structural: true });
       } catch (error) {
         announce(linksStatus(), requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
       } finally {
@@ -482,7 +615,7 @@ if (root && state && csrfToken) {
   });
 
   root.querySelectorAll<HTMLButtonElement>('[data-readd-link]').forEach((button) => {
-    button.addEventListener('click', async () => {
+    onWrite(button, 'click', async () => {
       const item = button.closest<HTMLElement>('[data-retained-resource-id]');
       const resourceId = item?.dataset.retainedResourceId;
       const resource = state?.editableResources.find((candidate) => candidate.id === resourceId);
@@ -493,7 +626,7 @@ if (root && state && csrfToken) {
           resourceId: resource.id,
           resourceVersion: resource.version,
         });
-        await finishWrite(response, linksStatus(), 'Recurso agregado nuevamente a tu página.');
+        await finishWrite(response, linksStatus(), 'Recurso agregado nuevamente a tu página.', undefined, { structural: true });
       } catch {
         announce(linksStatus(), 'No pudimos conectar con el servicio. Inténtalo de nuevo.', 'error');
       } finally {
@@ -512,7 +645,7 @@ if (root && state && csrfToken) {
     if (seriesSlugInput && !seriesSlugEdited) seriesSlugInput.value = suggestedSlug(seriesNameInput.value);
   });
 
-  seriesCreateForm?.addEventListener('submit', async (event) => {
+  if (seriesCreateForm) onWrite(seriesCreateForm, 'submit', async (event) => {
     event.preventDefault();
     if (!seriesCreateForm.reportValidity()) return;
     const profileVersion = currentProfileVersion();
@@ -526,7 +659,11 @@ if (root && state && csrfToken) {
     setBusy(seriesCreateForm, true);
     try {
       const response = await api('/api/creador/series', 'POST', body);
-      await finishSeriesWrite(response, seriesCreateStatus, 'Serie creada. Ahora puedes agregar capítulos desde los enlaces de tu página.', undefined, submittedValues);
+      const createdMessage = 'Serie creada. Ahora puedes agregar capítulos desde los enlaces de tu página.';
+      await finishSeriesWrite(response, seriesCreateStatus, createdMessage, undefined, submittedValues, {
+        structural: true,
+        pendingMessage: 'Serie creada. Para agregar capítulos, guarda los cambios pendientes en los otros formularios; la página se actualizará cuando termines. Tus campos se conservan.',
+      });
     } catch (error) {
       announce(seriesCreateStatus, requestFailureMessage(error, 'No pudimos crear la serie. Tus datos siguen en el formulario; inténtalo de nuevo.'), 'error');
     } finally {
@@ -536,7 +673,7 @@ if (root && state && csrfToken) {
 
   root.querySelectorAll<HTMLFormElement>('[data-series-form]').forEach((form) => {
     const status = form.querySelector<HTMLElement>('[data-series-form-status]');
-    form.addEventListener('submit', async (event) => {
+    onWrite(form, 'submit', async (event) => {
       event.preventDefault();
       if (!form.reportValidity()) return;
       const seriesId = form.closest<HTMLElement>('[data-series-id]')?.dataset.seriesId;
@@ -555,7 +692,7 @@ if (root && state && csrfToken) {
       setBusy(form, true);
       try {
         const response = await api(`/api/creador/series/${encodeURIComponent(series.id)}`, 'PATCH', body);
-        await finishSeriesWrite(response, status, 'Cambios guardados.', undefined, submittedValues);
+        await finishSeriesWrite(response, status, 'Cambios guardados.', undefined, submittedValues, { ownEntity: 'series', ownId: series.id });
       } catch (error) {
         announce(status, requestFailureMessage(error, 'No pudimos guardar la serie. Tus datos siguen en el formulario; inténtalo de nuevo.'), 'error');
       } finally {
@@ -581,7 +718,7 @@ if (root && state && csrfToken) {
   root.querySelectorAll<HTMLFormElement>('[data-series-add-chapter-form]').forEach((form) => {
     const fieldset = form.querySelector<HTMLFieldSetElement>('fieldset');
     const status = form.closest<HTMLElement>('[data-series-id]')?.querySelector<HTMLElement>('[data-series-status]');
-    form.addEventListener('submit', async (event) => {
+    onWrite(form, 'submit', async (event) => {
       event.preventDefault();
       if (!form.reportValidity()) return;
       const seriesId = form.closest<HTMLElement>('[data-series-id]')?.dataset.seriesId;
@@ -595,7 +732,7 @@ if (root && state && csrfToken) {
       if (fieldset) fieldset.disabled = true;
       try {
         const response = await api(`/api/creador/series/${encodeURIComponent(seriesId)}/capitulos/${encodeURIComponent(placementId)}`, 'PUT', { profileVersion });
-        await finishSeriesWrite(response, status, `Se agregó ${current.title} a la serie.`, undefined, submittedValues);
+        await finishSeriesWrite(response, status, `Se agregó ${current.title} a la serie.`, undefined, submittedValues, { structural: true });
       } catch (error) {
         announce(status, requestFailureMessage(error, 'No pudimos agregar el capítulo. Inténtalo de nuevo.'), 'error');
       } finally {
@@ -605,7 +742,7 @@ if (root && state && csrfToken) {
   });
 
   root.querySelectorAll<HTMLButtonElement>('[data-series-move]').forEach((button) => {
-    button.addEventListener('click', async () => {
+    onWrite(button, 'click', async () => {
       const section = button.closest<HTMLElement>('[data-series-id]');
       const seriesId = section?.dataset.seriesId;
       const item = button.closest<HTMLElement>('[data-series-chapter]');
@@ -619,7 +756,7 @@ if (root && state && csrfToken) {
           profileVersion,
           direction,
         });
-        await finishSeriesWrite(response, seriesStatus(button), 'Orden de capítulos actualizado.', item?.id);
+        await finishSeriesWrite(response, seriesStatus(button), 'Orden de capítulos actualizado.', item?.id, undefined, { structural: true });
       } catch (error) {
         announce(seriesStatus(button), requestFailureMessage(error, 'No pudimos cambiar el orden. Inténtalo de nuevo.'), 'error');
       } finally {
@@ -629,7 +766,7 @@ if (root && state && csrfToken) {
   });
 
   root.querySelectorAll<HTMLButtonElement>('[data-series-remove-chapter]').forEach((button) => {
-    button.addEventListener('click', async () => {
+    onWrite(button, 'click', async () => {
       const section = button.closest<HTMLElement>('[data-series-id]');
       const seriesId = section?.dataset.seriesId;
       const item = button.closest<HTMLElement>('[data-series-chapter]');
@@ -640,7 +777,7 @@ if (root && state && csrfToken) {
       try {
         const response = await api(`/api/creador/series/${encodeURIComponent(seriesId)}/capitulos/${encodeURIComponent(placementId)}`, 'DELETE', { profileVersion });
         const focusId = section?.querySelector<HTMLElement>('[id$="-chapters-title"]')?.id;
-        await finishSeriesWrite(response, seriesStatus(button), 'Capítulo quitado de esta serie. El enlace permanece en tu página y en otras series.', focusId);
+        await finishSeriesWrite(response, seriesStatus(button), 'Capítulo quitado de esta serie. El enlace permanece en tu página y en otras series.', focusId, undefined, { structural: true });
       } catch (error) {
         announce(seriesStatus(button), requestFailureMessage(error, 'No pudimos quitar el capítulo. Inténtalo de nuevo.'), 'error');
       } finally {
@@ -650,7 +787,7 @@ if (root && state && csrfToken) {
   });
 
   root.querySelectorAll<HTMLButtonElement>('[data-delete-series]').forEach((button) => {
-    button.addEventListener('click', async () => {
+    onWrite(button, 'click', async () => {
       const section = button.closest<HTMLElement>('[data-series-id]');
       const seriesId = section?.dataset.seriesId;
       const series = seriesId ? seriesById(seriesId) : undefined;
@@ -658,13 +795,20 @@ if (root && state && csrfToken) {
       if (!series || profileVersion === undefined) return;
       const confirmed = window.confirm(`¿Eliminar la serie «${series.name}»? Se conservarán los enlaces de tu página y su selección para el directorio.`);
       if (!confirmed) return;
+      const deletedForm = section?.querySelector<HTMLFormElement>('[data-series-form]');
+      const deletedValues = deletedForm ? formState?.capture(deletedForm) : undefined;
       button.disabled = true;
       try {
         const response = await api(`/api/creador/series/${encodeURIComponent(series.id)}`, 'DELETE', {
           version: series.version,
           profileVersion,
         });
-        await finishSeriesWrite(response, seriesStatus(button), 'Serie eliminada. Tus enlaces y su selección para el directorio siguen en tu página.', 'creator-series-editor-title');
+        deletedForm?.querySelectorAll<HTMLElement>('input, textarea, select, button').forEach((control) => {
+          control.setAttribute('data-creator-stale', 'true');
+        });
+        writeGuard?.markStale('[data-creator-stale]');
+        announce(deletedForm?.querySelector('[data-series-form-status]'), 'Esta serie se eliminó. Actualiza la vista; sus datos ya no se pueden guardar.', 'info');
+        await finishSeriesWrite(response, seriesStatus(button), 'Serie eliminada. Tus enlaces y su selección para el directorio siguen en tu página.', 'creator-series-editor-title', deletedValues, { structural: true });
       } catch (error) {
         announce(seriesStatus(button), requestFailureMessage(error, 'No pudimos eliminar la serie. Inténtalo de nuevo.'), 'error');
       } finally {
@@ -675,7 +819,7 @@ if (root && state && csrfToken) {
 
   const claimForm = root.querySelector<HTMLFormElement>('[data-claim-form]');
   const claimStatus = root.querySelector<HTMLElement>('[data-claim-status]');
-  claimForm?.addEventListener('submit', async (event) => {
+  if (claimForm) onWrite(claimForm, 'submit', async (event) => {
     event.preventDefault();
     if (!claimForm.reportValidity()) return;
     const values = new FormData(claimForm);
@@ -696,7 +840,7 @@ if (root && state && csrfToken) {
     setBusy(claimForm, true);
     try {
       const response = await api('/api/creador/reclamaciones', 'POST', body);
-      await finishWrite(response, claimStatus, 'Solicitud enviada para revisión. La solicitud no cambia los permisos mientras se verifica.', submittedValues);
+      await finishWrite(response, claimStatus, 'Solicitud enviada para revisión. La solicitud no cambia los permisos mientras se verifica.', submittedValues, { structural: true });
     } catch (error) {
       announce(claimStatus, requestFailureMessage(error, 'No pudimos conectar con el servicio. Tus datos siguen en el formulario; inténtalo de nuevo.'), 'error');
     } finally {
@@ -706,7 +850,7 @@ if (root && state && csrfToken) {
 
   const photoForm = root.querySelector<HTMLFormElement>('[data-photo-form]');
   const photoStatus = root.querySelector<HTMLElement>('[data-photo-status]');
-  photoForm?.addEventListener('submit', async (event) => {
+  if (photoForm) onWrite(photoForm, 'submit', async (event) => {
     event.preventDefault();
     if (!photoForm.reportValidity()) return;
     const file = photoForm.querySelector<HTMLInputElement>('input[type="file"]')?.files?.[0];
@@ -723,7 +867,7 @@ if (root && state && csrfToken) {
     try {
       const authorize = await api('/api/creador/foto/autorizar', 'POST', { version: currentProfile.version });
       if (!authorize.ok) {
-        announceError(authorize.status, photoStatus);
+        announce(photoStatus, await photoErrorMessage(authorize), 'error');
         return;
       }
       const upload: unknown = await authorize.json();
@@ -756,11 +900,11 @@ if (root && state && csrfToken) {
         if (finish.status >= 500) {
           announce(photoStatus, PHOTO_FINALIZATION_UNCONFIRMED, 'error');
         } else {
-          announceError(finish.status, photoStatus);
+          announce(photoStatus, await photoErrorMessage(finish), 'error');
         }
         return;
       }
-      await finishWrite(finish, photoStatus, 'Foto guardada.', submittedValues);
+      await finishWrite(finish, photoStatus, 'Foto guardada.', submittedValues, { ownEntity: 'profile', ownId: currentProfile.id });
     } catch (error) {
       const fallback = finalizationRequested
         ? PHOTO_FINALIZATION_UNCONFIRMED
