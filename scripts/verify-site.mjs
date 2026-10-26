@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
+import { parse as parseYaml } from 'yaml';
 import deployment from '../config/deployment.json' with { type: 'json' };
 import { COUNTRY_SLUGS } from '../src/lib/community-country-pages.mjs';
 import { COUNTRY_LABELS } from '../src/lib/resource-discovery.mjs';
@@ -15,6 +16,13 @@ import { siteOutputRoot } from './lib/site-output.mjs';
 const production = process.env.PUBLIC_PRODUCTION === 'true';
 const mediaOrigin = new URL(process.env.PUBLIC_SITE_ORIGIN || `https://${deployment.branchName}.${deployment.appId}.amplifyapp.com`).origin;
 const dist = siteOutputRoot;
+const customHeaders = parseYaml(readFileSync('customHttp.yml', 'utf8'));
+assert.deepEqual(customHeaders, {
+  customHeaders: [{
+    pattern: '/catalog-publication.json',
+    headers: [{ key: 'Cache-Control', value: 'no-store, max-age=0' }],
+  }],
+}, 'Only the exact publication manifest path receives its no-store response header.');
 const routes = JSON.parse(readFileSync('tests/fixtures/blog-routes.json', 'utf8'));
 const sections = ['aprender', 'creadores', 'comunidades', 'eventos'];
 const read = (path) => readFileSync(resolve(dist, path), 'utf8');

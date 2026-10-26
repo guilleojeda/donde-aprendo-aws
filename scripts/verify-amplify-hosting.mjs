@@ -5,20 +5,12 @@ import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:net';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { parse as parseYaml } from 'yaml';
 import { configuredAccountOrigin } from '../src/lib/amplify-security.mjs';
 import { getCertificationPages } from '../src/lib/certifications.mjs';
 import { siteOutputRoot } from './lib/site-output.mjs';
 
 const root = resolve('.amplify-hosting');
 const computeRoot = resolve(root, 'compute/default');
-const customHeaders = parseYaml(readFileSync(resolve('customHttp.yml'), 'utf8'));
-assert.deepEqual(customHeaders, {
-  customHeaders: [{
-    pattern: '/catalog-publication.json',
-    headers: [{ key: 'Cache-Control', value: 'no-store, max-age=0' }],
-  }],
-}, 'Only the exact publication manifest path receives its no-store response header.');
 const manifest = JSON.parse(readFileSync(resolve(root, 'deploy-manifest.json'), 'utf8'));
 const routingRules = JSON.parse(readFileSync(resolve('config/amplify-custom-rules.json'), 'utf8'));
 const accountOrigin = configuredAccountOrigin();
