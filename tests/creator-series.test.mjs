@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import {
   callApi,
   createCreatorPagesHarness,
+  readAdminRecord,
   responseJson,
   sessionCsrf,
 } from './fixtures/creator-pages.mjs';
@@ -11,6 +12,10 @@ const PROFILE_SLUGS = { 'creator-a': 'ana-series', 'creator-b': 'bea-series' };
 
 async function api(harness, path, session = 'creator-a', { method = 'GET', body, csrf = sessionCsrf[session] } = {}) {
   return callApi(harness, path, { session, csrf, method, ...(body === undefined ? {} : { body }) });
+}
+
+async function adminVersion(harness, type, id) {
+  return (await readAdminRecord(harness, type, id)).version;
 }
 
 async function saveProfile(harness, session = 'creator-a', fields = {}) {
@@ -260,7 +265,9 @@ test('public series show pending and unselected links, hide hidden resources, an
   assert.equal((await assignChapter(harness, draftSeries.id, draftLink.placementId, { session: 'creator-b' })).status, 200);
   assert.equal((await publicSeries(harness, PROFILE_SLUGS['creator-b'], 'borrador-serie')).status, 404);
 
-  const hiddenResource = await api(harness, `/api/admin/recursos/${encodeURIComponent(hidden.resourceId)}/ocultar`, 'admin', { method: 'POST', body: {} });
+  const hiddenResource = await api(harness, `/api/admin/recursos/${encodeURIComponent(hidden.resourceId)}/ocultar`, 'admin', {
+    method: 'POST', body: { version: await adminVersion(harness, 'resource', hidden.resourceId) },
+  });
   assert.equal(hiddenResource.status, 200);
   const page = await publicSeries(harness, PROFILE_SLUGS['creator-a'], 'publica');
   assert.equal(page.status, 200);
@@ -269,10 +276,14 @@ test('public series show pending and unselected links, hide hidden resources, an
   assert.equal(page.links[1].selectedForDirectory, false);
 
   const profileId = (await editor(harness)).profile.id;
-  const profileHidden = await api(harness, `/api/admin/perfiles/${encodeURIComponent(profileId)}/ocultar`, 'admin', { method: 'POST', body: {} });
+  const profileHidden = await api(harness, `/api/admin/perfiles/${encodeURIComponent(profileId)}/ocultar`, 'admin', {
+    method: 'POST', body: { version: await adminVersion(harness, 'profile', profileId) },
+  });
   assert.equal(profileHidden.status, 200);
   assert.equal((await publicSeries(harness, PROFILE_SLUGS['creator-a'], 'publica')).status, 404);
-  const profileRestored = await api(harness, `/api/admin/perfiles/${encodeURIComponent(profileId)}/restaurar`, 'admin', { method: 'POST', body: {} });
+  const profileRestored = await api(harness, `/api/admin/perfiles/${encodeURIComponent(profileId)}/restaurar`, 'admin', {
+    method: 'POST', body: { version: await adminVersion(harness, 'profile', profileId) },
+  });
   assert.equal(profileRestored.status, 200);
   assert.equal((await publicSeries(harness, PROFILE_SLUGS['creator-a'], 'publica')).status, 200);
 

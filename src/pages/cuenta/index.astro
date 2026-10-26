@@ -9,7 +9,7 @@ export const prerender = false;
 
 type AccountSession =
   | { state: 'anonymous' }
-  | { state: 'disabled' }
+  | { state: 'disabled'; csrfToken?: string }
   | { state: 'unavailable' }
   | { state: 'authenticated'; account: { email: string }; csrfToken: string; expiresAt: number };
 
@@ -17,8 +17,13 @@ function readAccountSession(value: unknown): AccountSession {
   if (typeof value !== 'object' || value === null) return { state: 'unavailable' };
 
   const session = value as Record<string, unknown>;
-  if (session.state === 'anonymous' || session.state === 'disabled' || session.state === 'unavailable') {
+  if (session.state === 'anonymous' || session.state === 'unavailable') {
     return { state: session.state };
+  }
+  if (session.state === 'disabled') {
+    return typeof session.csrfToken === 'string' && session.csrfToken.length > 0
+      ? { state: 'disabled', csrfToken: session.csrfToken }
+      : { state: 'disabled' };
   }
 
   if (session.state !== 'authenticated' || typeof session.account !== 'object' || session.account === null) {
@@ -150,6 +155,15 @@ Astro.response.status = pageState === 'acceso-invalido' || pageState === 'cancel
         <section class="account-message account-message--error" role="alert" aria-labelledby="account-disabled-title">
           <h2 id="account-disabled-title">Esta cuenta está desactivada</h2>
           <p>Si necesitas ayuda, <a href="mailto:contact@dondeaprendoaws.com">contacta al equipo</a>.</p>
+          {session.csrfToken && (
+            <>
+              <p>Puedes cerrar la sesión en este navegador.</p>
+              <form method="post" action="/cuenta/salir/" class="account-logout">
+                <input type="hidden" name="csrfToken" value={session.csrfToken} />
+                <button class="button button--dark" type="submit">Cerrar sesión</button>
+              </form>
+            </>
+          )}
         </section>
       )}
     </div>

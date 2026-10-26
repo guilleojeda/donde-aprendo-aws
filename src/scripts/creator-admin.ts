@@ -46,8 +46,14 @@ const sessionRecovery = root ? createCreatorSessionRecovery({
 
 function announce(target: Element | null | undefined, message: string, kind: 'error' | 'success' = 'success') {
   if (!(target instanceof HTMLElement)) return;
+  target.hidden = false;
   target.textContent = message;
   target.dataset.kind = kind;
+}
+
+function observedVersion(record: Record<string, unknown> | undefined): number | undefined {
+  const version = record?.version;
+  return typeof version === 'number' && Number.isSafeInteger(version) && version >= 0 ? version : undefined;
 }
 
 function errorMessage(status: number): string {
@@ -284,9 +290,14 @@ if (root && state && csrfToken) {
       const resourceId = item?.dataset.adminResource;
       const action = button.dataset.resourceAction;
       if (!resourceId || !['aprobar', 'revocar', 'ocultar', 'restaurar'].includes(action ?? '')) return;
+      const resource = state?.resources.find((candidate) => candidate.id === resourceId);
+      if (!resource) return;
       button.disabled = true;
       try {
-        const response = await api(`/api/admin/recursos/${encodeURIComponent(resourceId)}/${action}`, 'POST', {});
+        const version = observedVersion(resource);
+        const response = await api(`/api/admin/recursos/${encodeURIComponent(resourceId)}/${action}`, 'POST', {
+          ...(version === undefined ? {} : { version }),
+        });
         if (!response.ok) {
           announce(itemStatus(item), await responseErrorMessage(response), 'error');
           return;
@@ -313,9 +324,14 @@ if (root && state && csrfToken) {
       const profileId = item?.dataset.adminProfile;
       const action = button.dataset.profileAction;
       if (!profileId || !['ocultar', 'restaurar'].includes(action ?? '')) return;
+      const profile = state?.profiles.find((candidate) => candidate.id === profileId);
+      if (!profile) return;
       button.disabled = true;
       try {
-        const response = await api(`/api/admin/perfiles/${encodeURIComponent(profileId)}/${action}`, 'POST', {});
+        const version = observedVersion(profile);
+        const response = await api(`/api/admin/perfiles/${encodeURIComponent(profileId)}/${action}`, 'POST', {
+          ...(version === undefined ? {} : { version }),
+        });
         if (!response.ok) {
           announce(itemStatus(item), await responseErrorMessage(response), 'error');
           return;
@@ -372,6 +388,7 @@ if (root && state && csrfToken) {
             });
             markAdminActionsStale('[data-claim-resolution] button', item ?? form);
             markAdminActionsStale('[data-claim-resolution] input[name="resourceIds"]', item ?? form);
+            formState?.commit(formState.capture(form));
             const remainingIds = selectedIds.filter((id) => !linked.has(id));
             showViewTransition('La vinculación se completó parcialmente. Actualiza la vista antes de resolver otra vez esta solicitud.');
             announce(itemStatus(item), remainingIds.length > 0

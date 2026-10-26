@@ -300,6 +300,12 @@ export function createAccountAuth({ origin, issuer, clientId, cognitoDomain, sto
   async function getSession(request) {
     try {
       const result = await resolveSession(request);
+      if (result.state === 'disabled') {
+        // Expose only the validated token the page needs to close this session.
+        return typeof result.csrfToken === 'string' && TOKEN_PATTERN.test(result.csrfToken)
+          ? { state: 'disabled', csrfToken: result.csrfToken }
+          : { state: 'disabled' };
+      }
       if (result.state !== 'authenticated') return { state: result.state };
       return {
         state: 'authenticated',
@@ -312,8 +318,8 @@ export function createAccountAuth({ origin, issuer, clientId, cognitoDomain, sto
     }
   }
 
-  // Server-only authorization projection; the account page keeps getSession's
-  // narrower contract and never serializes private ownership or permissions.
+  // Server-only authorization projection; the account page never serializes
+  // private ownership or permissions.
   async function getPrincipal(request) {
     try {
       const result = await resolveSession(request);

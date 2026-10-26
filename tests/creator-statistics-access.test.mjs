@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   callApi,
   createCreatorPagesHarness,
+  readAdminRecord,
   responseJson,
   sessionCsrf,
 } from './fixtures/creator-pages.mjs';
@@ -35,6 +36,10 @@ async function api(harness, path, session, options = {}) {
     ...(session && sessionCsrf[session] ? { csrf: sessionCsrf[session] } : {}),
     ...options,
   });
+}
+
+async function adminVersion(harness, type, id) {
+  return (await readAdminRecord(harness, type, id)).version;
 }
 
 async function createProfile(harness, session = 'creator-a', { publish = true } = {}) {
@@ -180,7 +185,7 @@ test('hidden published profile remains readable by its owner and admin cannot se
   const harness = await createCreatorPagesHarness({ statistics });
   const profile = await createProfile(harness);
   const hidden = await api(harness, `/api/admin/perfiles/${profile.id}/ocultar`, 'admin', {
-    method: 'POST', body: {},
+    method: 'POST', body: { version: await adminVersion(harness, 'profile', profile.id) },
   });
   assert.equal(hidden.status, 200);
 

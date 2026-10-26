@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import {
   callApi,
   createCreatorPagesHarness,
+  readAdminRecord,
   responseJson,
   sessionCsrf,
 } from './fixtures/creator-pages.mjs';
@@ -11,6 +12,10 @@ const profileSlug = 'regresion-series';
 
 async function api(harness, path, { session = 'creator-a', method = 'GET', body } = {}) {
   return callApi(harness, path, { session, csrf: sessionCsrf[session], method, ...(body === undefined ? {} : { body }) });
+}
+
+async function adminVersion(harness, type, id) {
+  return (await readAdminRecord(harness, type, id)).version;
 }
 
 async function createPublishedProfile(harness) {
@@ -68,7 +73,7 @@ test('a renamed series alias is not redirected when the series has no visible ch
 
   assert.equal((await chapter(harness, series.id, link.placementId)).status, 200);
   const hidden = await api(harness, `/api/admin/recursos/${encodeURIComponent(link.resourceId)}/ocultar`, {
-    session: 'admin', method: 'POST', body: {},
+    session: 'admin', method: 'POST', body: { version: await adminVersion(harness, 'resource', link.resourceId) },
   });
   assert.equal(hidden.status, 200);
   assert.equal((await harness.service.readPublicSeries(profileSlug, 'serie-temporal')).status, 404);

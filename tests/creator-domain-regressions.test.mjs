@@ -95,7 +95,7 @@ test('admin approval rejects a pending non-projectable record before writing and
   const beforeInvalid = await harness.store.get('resource:pending-invalid-approval');
   const writesBeforeInvalid = harness.store.calls.filter(({ operation }) => operation === 'transact').length;
   const invalidApproval = await documentApi(harness, '/api/admin/recursos/pending-invalid-approval/aprobar', 'admin', {
-    method: 'POST', body: {},
+    method: 'POST', body: { version: 1 },
   });
   assert.equal(invalidApproval.status, 422);
   assert.equal((await responseJson(invalidApproval)).error, 'INVALID_CLASSIFICATION');
@@ -118,7 +118,7 @@ test('admin approval rejects a pending non-projectable record before writing and
     directoryControl: 'editorial',
   });
   const validApproval = await documentApi(harness, '/api/admin/recursos/pending-valid-approval/aprobar', 'admin', {
-    method: 'POST', body: {},
+    method: 'POST', body: { version: 1 },
   });
   assert.equal(validApproval.status, 200);
   assert.equal((await harness.store.get('resource:pending-valid-approval')).published, true);
@@ -140,7 +140,7 @@ test('admin approval rejects a pending non-projectable record before writing and
     directoryControl: 'editorial',
   });
   const validEvent = await documentApi(harness, '/api/admin/recursos/pending-valid-event/aprobar', 'admin', {
-    method: 'POST', body: {},
+    method: 'POST', body: { version: 1 },
   });
   assert.equal(validEvent.status, 200);
   assert.equal((await harness.store.get('resource:pending-valid-event')).published, true);

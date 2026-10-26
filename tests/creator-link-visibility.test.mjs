@@ -10,6 +10,7 @@ import { experimental_AstroContainer } from 'astro/container';
 import {
   callApi,
   createCreatorPagesHarness,
+  readAdminRecord,
   responseJson,
   sessionCsrf,
   SITE_ORIGIN,
@@ -339,6 +340,10 @@ async function api(harness, path, session = 'creator-a', options = {}) {
   });
 }
 
+async function adminVersion(harness, type, id) {
+  return (await readAdminRecord(harness, type, id)).version;
+}
+
 async function createProfileAndLink(harness, { published = true, slug = 'ana', session = 'creator-a' } = {}) {
   const saved = await api(harness, '/api/creador/perfil', session, {
     method: 'PUT', body: { displayName: 'Ana', slug },
@@ -364,7 +369,9 @@ test('the creator editor reports moderation hiding independently from directory 
     },
   });
   assert.equal(classified.status, 200);
-  const approved = await api(harness, `/api/admin/recursos/${link.resourceId}/aprobar`, 'admin', { method: 'POST', body: {} });
+  const approved = await api(harness, `/api/admin/recursos/${link.resourceId}/aprobar`, 'admin', {
+    method: 'POST', body: { version: await adminVersion(harness, 'resource', link.resourceId) },
+  });
   assert.equal(approved.status, 200);
 
   const visible = await responseJson(await api(harness, '/api/creador/perfil'));
@@ -372,14 +379,18 @@ test('the creator editor reports moderation hiding independently from directory 
   assert.equal(visible.links[0].selectedForDirectory, true);
   assert.equal(visible.links[0].directoryApproval, 'approved');
 
-  await api(harness, `/api/admin/recursos/${link.resourceId}/ocultar`, 'admin', { method: 'POST', body: {} });
+  await api(harness, `/api/admin/recursos/${link.resourceId}/ocultar`, 'admin', {
+    method: 'POST', body: { version: await adminVersion(harness, 'resource', link.resourceId) },
+  });
   const hidden = await responseJson(await api(harness, '/api/creador/perfil'));
   assert.equal(hidden.links[0].hidden, true);
   assert.equal(hidden.links[0].selectedForDirectory, true);
   assert.equal(hidden.links[0].directoryApproval, 'approved');
   assert.equal((await harness.service.readPublicProfile('guia')).links.length, 0);
 
-  await api(harness, `/api/admin/recursos/${link.resourceId}/restaurar`, 'admin', { method: 'POST', body: {} });
+  await api(harness, `/api/admin/recursos/${link.resourceId}/restaurar`, 'admin', {
+    method: 'POST', body: { version: await adminVersion(harness, 'resource', link.resourceId) },
+  });
   const restored = await responseJson(await api(harness, '/api/creador/perfil'));
   assert.equal(restored.links[0].hidden, false);
   assert.equal(restored.links[0].selectedForDirectory, true);
@@ -392,7 +403,9 @@ test('the creator editor reports moderation hiding independently from directory 
 test('adding an already hidden shared resource returns its moderation state privately', async () => {
   const harness = await createCreatorPagesHarness();
   const original = await createProfileAndLink(harness);
-  const hide = await api(harness, `/api/admin/recursos/${original.resourceId}/ocultar`, 'admin', { method: 'POST', body: {} });
+  const hide = await api(harness, `/api/admin/recursos/${original.resourceId}/ocultar`, 'admin', {
+    method: 'POST', body: { version: await adminVersion(harness, 'resource', original.resourceId) },
+  });
   assert.equal(hide.status, 200);
   await createProfileAndLink(harness, { slug: 'bea', session: 'creator-b' });
 
@@ -418,7 +431,9 @@ test('the parsed editor DTO and SSR keep visibility separate from directory sele
     },
   });
   assert.equal(classified.status, 200);
-  const approved = await api(harness, `/api/admin/recursos/${link.resourceId}/aprobar`, 'admin', { method: 'POST', body: {} });
+  const approved = await api(harness, `/api/admin/recursos/${link.resourceId}/aprobar`, 'admin', {
+    method: 'POST', body: { version: await adminVersion(harness, 'resource', link.resourceId) },
+  });
   assert.equal(approved.status, 200);
 
   let data = await loadEditorData(harness);
@@ -432,7 +447,9 @@ test('the parsed editor DTO and SSR keep visibility separate from directory sele
   assert.match(html, /Directorio: aprobado/);
   assert.match(html, /data-directory[^>]*checked/);
 
-  const hide = await api(harness, `/api/admin/recursos/${link.resourceId}/ocultar`, 'admin', { method: 'POST', body: {} });
+  const hide = await api(harness, `/api/admin/recursos/${link.resourceId}/ocultar`, 'admin', {
+    method: 'POST', body: { version: await adminVersion(harness, 'resource', link.resourceId) },
+  });
   assert.equal(hide.status, 200);
   data = await loadEditorData(harness);
   assert.equal(data.links[0].hidden, true);
@@ -445,7 +462,9 @@ test('the parsed editor DTO and SSR keep visibility separate from directory sele
   assert.match(html, /data-directory[^>]*checked/);
   assert.equal((await harness.service.readPublicProfile('ana')).links.length, 0);
 
-  const restore = await api(harness, `/api/admin/recursos/${link.resourceId}/restaurar`, 'admin', { method: 'POST', body: {} });
+  const restore = await api(harness, `/api/admin/recursos/${link.resourceId}/restaurar`, 'admin', {
+    method: 'POST', body: { version: await adminVersion(harness, 'resource', link.resourceId) },
+  });
   assert.equal(restore.status, 200);
   data = await loadEditorData(harness);
   assert.equal(data.links[0].hidden, false);
@@ -456,7 +475,9 @@ test('the parsed editor DTO and SSR keep visibility separate from directory sele
   assert.match(html, /Visibilidad en tu página: Visible al público\./);
   assert.match(html, /Directorio: aprobado/);
 
-  const profileHide = await api(harness, `/api/admin/perfiles/${data.profile.id}/ocultar`, 'admin', { method: 'POST', body: {} });
+  const profileHide = await api(harness, `/api/admin/perfiles/${data.profile.id}/ocultar`, 'admin', {
+    method: 'POST', body: { version: await adminVersion(harness, 'profile', data.profile.id) },
+  });
   assert.equal(profileHide.status, 200);
   data = await loadEditorData(harness);
   assert.equal(data.profile.hidden, true);
