@@ -135,13 +135,13 @@ async function loadAdminPage() {
   return adminPagePromise;
 }
 
-async function renderAdminPage({ claimRecords = claims } = {}) {
+async function renderAdminPage({ claimRecords = claims, resourceRecords = resources, profileRecords = profiles } = {}) {
   const service = {
     async handle(request) {
       const pathname = new URL(request.url).pathname;
       const data = {
-        '/api/admin/recursos': { resources },
-        '/api/admin/perfiles': { profiles },
+        '/api/admin/recursos': { resources: resourceRecords },
+        '/api/admin/perfiles': { profiles: profileRecords },
         '/api/admin/reclamaciones': { claims: claimRecords },
       }[pathname];
       return data
@@ -235,8 +235,13 @@ class TestElement {
 
   querySelectorAll(selector) {
     if (selector === 'input, textarea, select') return this.fields ?? this.controls;
-    if (selector === 'button' || selector === 'input[name="resourceIds"]'
-      || selector === '[data-claim-resolution] button, [data-claim-resolution] input[name="resourceIds"]') return this.controls;
+    if (selector === 'button' || selector === '[data-claim-resolution] button') {
+      return this.controls.filter((control) => control.tagName === 'BUTTON');
+    }
+    if (selector === 'input[name="resourceIds"]' || selector === '[data-claim-resolution] input[name="resourceIds"]') {
+      return this.controls.filter((control) => control.tagName === 'INPUT' && control.name === 'resourceIds');
+    }
+    if (selector === '[data-claim-resolution] button, [data-claim-resolution] input[name="resourceIds"]') return this.controls;
     if (selector === '[data-creator-stale]') return this.controls.filter((control) => control.hasAttribute('data-creator-stale'));
     return [];
   }
@@ -305,7 +310,7 @@ function renderedRows(html, rowType, attribute) {
   return rows;
 }
 
-async function executeAdminScript(html, { fetchImpl } = {}) {
+async function executeAdminScript(html, { fetchImpl, initialData } = {}) {
   const rootAttributes = html.match(/<main\b[^>]*\bdata-csrf="([^"]+)"[^>]*>/)?.[0];
   assert.ok(rootAttributes, 'la página real debe incluir el contenedor y CSRF administrativos');
   const csrf = rootAttributes.match(/\bdata-csrf="([^"]+)"/)?.[1];
@@ -355,10 +360,24 @@ async function executeAdminScript(html, { fetchImpl } = {}) {
   });
   const classificationForms = resourcesRows
     .filter(({ html: rowHtml }) => /data-classification-form/.test(rowHtml))
-    .map(({ id }) => new TestForm({
-      rowType: 'resource', rowId: id,
-      row: resourcesRows.find((entry) => entry.id === id)?.row,
-    }));
+    .map(({ id }) => {
+      const resource = adminData.resources.find((candidate) => candidate.id === id);
+      const fields = [
+        { tagName: 'INPUT', type: 'text', name: 'category', value: String(resource?.category ?? '') },
+        { tagName: 'SELECT', type: 'select-one', name: 'kind', value: String(resource?.kind ?? '') },
+        { tagName: 'SELECT', type: 'select-one', name: 'format', value: String(resource?.format ?? '') },
+        { tagName: 'INPUT', type: 'text', name: 'topics', value: Array.isArray(resource?.topics) ? resource.topics.join(', ') : '' },
+      ];
+      const form = new TestForm({
+        rowType: 'resource', rowId: id,
+        row: resourcesRows.find((entry) => entry.id === id)?.row,
+      });
+      form.fields = fields;
+      form.querySelectorAll = (selector) => selector === 'input, textarea, select' ? fields : [];
+      form.querySelector = (selector) => selector === '[data-item-status]' ? form.row?.status ?? null : null;
+      for (const field of fields) field.form = form;
+      return form;
+    });
   const refreshButton = new TestElement();
   refreshButton.tagName = 'BUTTON';
   const sessionRecoveryStatus = new TestElement();
@@ -368,6 +387,7 @@ async function executeAdminScript(html, { fetchImpl } = {}) {
   const sessionRecoveryShell = new TestElement();
   const transition = new TestElement();
   const transitionShell = new TestElement();
+  const adminStatus = new TestElement();
   const allControls = [
     ...resourceButtons, ...profileButtons, ...claimForms.flatMap((form) => form.controls), refreshButton, sessionRecoveryCheck,
   ];
@@ -378,13 +398,14 @@ async function executeAdminScript(html, { fetchImpl } = {}) {
       '[data-refresh-view]': refreshButton,
       '[data-view-transition]': transition,
       '[data-view-transition-shell]': transitionShell,
+      '[data-admin-status]': adminStatus,
       '[data-session-recovery-shell]': sessionRecoveryShell,
       '[data-session-recovery-status]': sessionRecoveryStatus,
       '[data-session-recovery-sign-in]': sessionRecoverySignIn,
       '[data-session-recovery-check]': sessionRecoveryCheck,
     },
   });
-  rootElement.fields = claimForms.flatMap((form) => form.fields ?? []);
+  rootElement.fields = [...claimForms, ...classificationForms].flatMap((form) => form.fields ?? []);
   rootElement.querySelectorAll = (selector) => ({
     'input, textarea, select': rootElement.fields,
     '[data-classification-form]': classificationForms,
@@ -395,11 +416,12 @@ async function executeAdminScript(html, { fetchImpl } = {}) {
     '[data-creator-stale]': allControls.filter((control) => control.hasAttribute('data-creator-stale')),
   }[selector] ?? []);
   const initial = new TestElement();
-  initial.textContent = dataJson;
+  initial.textContent = initialData ?? dataJson;
   const document = {
     querySelector: (selector) => selector === '[data-creator-admin]'
       ? rootElement
-      : selector === '#creator-admin-data' ? initial : null,
+      : selector === '#creator-admin-data' ? initial
+        : selector === '[data-admin-status]' ? adminStatus : null,
   };
   const responses = [];
   const requests = [];
@@ -424,8 +446,8 @@ async function executeAdminScript(html, { fetchImpl } = {}) {
     },
   });
   return {
-    resourcesRows, profileRows, claimRows, resourceButtons, profileButtons, claimForms,
-    refreshButton, transition, responses, requests, reloads: () => reloads,
+    resourcesRows, profileRows, claimRows, resourceButtons, profileButtons, claimForms, classificationForms,
+    refreshButton, transition, transitionShell, adminStatus, responses, requests, reloads: () => reloads,
     sessionBinding,
     sessionRecovery: { shell: sessionRecoveryShell, status: sessionRecoveryStatus, signIn: sessionRecoverySignIn, check: sessionRecoveryCheck },
   };
@@ -481,6 +503,8 @@ test('la moderación de eventos muestra fallos recuperables y conserva los formu
   }
   page.responses.push(200);
   await eventButton.dispatch('click');
+  assert.deepEqual(JSON.parse(page.requests[6].init.body), { version: 1 },
+    'resource moderation sends the version retained in the rendered admin state');
   assert.equal(eventDomRow.status.textContent, 'Recurso aprobado para el directorio.');
   assert.equal(page.reloads(), 1, 'un éxito debe conservar la recarga existente');
 
@@ -504,6 +528,63 @@ test('la moderación de eventos muestra fallos recuperables y conserva los formu
 
   assert.ok(page.requests.every(({ init }) => init.method === 'POST'));
   assert.ok(page.requests.every(({ init }) => init.headers['x-csrf-token'] === 'csrf-feedback'));
+  assert.deepEqual(JSON.parse(page.requests.find(({ url }) => url.includes('/recursos/resource-feedback/')).init.body), { version: 1 });
+  assert.deepEqual(JSON.parse(page.requests.find(({ url }) => url.includes('/perfiles/profile-feedback/')).init.body), { version: 1 });
+});
+
+test('R9 partial claim freezes only that form, retains receipts, and allows safe refresh after another save', async () => {
+  const html = await renderAdminPage({ claimRecords: [{
+    id: 'claim-partial', accountId: 'owner', resourceIds: ['resource-feedback', 'resource-two', 'resource-three'], status: 'pending',
+  }] });
+  const page = await executeAdminScript(html);
+  const claimForm = page.claimForms[0];
+  const [linkedResource, failedResource, uncheckedResource] = claimForm.fields;
+  const classification = page.classificationForms.find((form) => form.rowId === 'resource-feedback');
+  assert.ok(classification);
+  const [category, kind, format] = classification.fields;
+  category.value = 'Certificaciones';
+  kind.value = 'content';
+  format.value = 'Artículo';
+  uncheckedResource.checked = false;
+
+  page.responses.push({ status: 503, body: { linkedResourceIds: ['resource-feedback'], versionChanges: [
+    { entity: 'resource', id: 'resource-feedback', before: 1, after: 2 },
+    { entity: 'profile', id: 'profile-feedback', before: 1, after: 2 },
+  ] } });
+  await claimForm.dispatch('submit');
+
+  assert.deepEqual(JSON.parse(page.requests[0].init.body).resourceIds, ['resource-feedback', 'resource-two'],
+    'the request contains only the exact checked IDs');
+  assert.equal(linkedResource.checked, true);
+  assert.equal(failedResource.checked, true);
+  assert.equal(uncheckedResource.checked, false, 'an unchecked ID stays unchecked after the partial response');
+  assert.ok(claimForm.fields.every((control) => control.disabled), 'the stale claim selections remain disabled until refresh');
+  assert.equal(claimForm.controls.at(-1).disabled, true);
+  assert.equal(page.transition.hidden, false, 'partial-link recovery instructions are visible');
+  assert.equal(page.transitionShell.hidden, false, 'the transition container is visible too');
+
+  await page.refreshButton.dispatch('click');
+  assert.equal(page.reloads(), 0, 'the unrelated classification edit still blocks refresh');
+  assert.equal(page.transition.hidden, false, 'the blocked-refresh reason is visible');
+  assert.match(page.transition.textContent, /Guarda los cambios pendientes o revierte/);
+
+  page.responses.push({ status: 200, body: {
+    resource: { id: 'resource-feedback', version: 3 },
+    versionChanges: [{ entity: 'resource', id: 'resource-feedback', before: 2, after: 3 }],
+  } });
+  await classification.dispatch('submit');
+  assert.equal(JSON.parse(page.requests[1].init.body).version, 2,
+    'the partial response receipt advances only the resource version used by the other form');
+  assert.equal(JSON.parse(page.requests[1].init.body).category, 'Certificaciones');
+  assert.equal(page.reloads(), 1, 'saving the remaining pending form enables the safe refresh');
+});
+
+test('invalid initial admin data exposes its recovery feedback', async () => {
+  const html = await renderAdminPage();
+  assert.match(html, /data-admin-status[^>]*hidden/);
+  const page = await executeAdminScript(html, { initialData: 'invalid JSON' });
+  assert.equal(page.adminStatus.hidden, false, 'the admin error is visible after script validation fails');
+  assert.match(page.adminStatus.textContent, /No pudimos leer los datos de administración/);
 });
 
 test('la recuperación administrativa rechaza un cambio de rol sin desbloquear escrituras', async () => {

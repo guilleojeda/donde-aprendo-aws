@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import {
   callApi,
   createCreatorPagesHarness,
+  readAdminRecord,
   responseJson,
   seedResource,
   sessionCsrf,
@@ -14,6 +15,10 @@ async function api(harness, path, session = 'creator-a', options = {}) {
     csrf: sessionCsrf[session],
     ...options,
   });
+}
+
+async function adminVersion(harness, type, id) {
+  return (await readAdminRecord(harness, type, id)).version;
 }
 
 async function saveProfile(harness, session = 'creator-a', fields = {}) {
@@ -733,12 +738,14 @@ test('selection and approval stay separate: reselecting preserves approval, revo
   const { resourceId, resourceVersion, placementId } = (await responseJson(created)).link;
 
   const incompleteApproval = await api(harness, `/api/admin/recursos/${resourceId}/aprobar`, 'admin', {
-    method: 'POST', body: { published: true },
+    method: 'POST', body: { version: resourceVersion },
   });
   assert.equal(incompleteApproval.status, 422);
   const classified = await classifyResource(harness, resourceId, resourceVersion);
   assert.equal(classified.status, 200);
-  const approve = await api(harness, `/api/admin/recursos/${resourceId}/aprobar`, 'admin', { method: 'POST', body: {} });
+  const approve = await api(harness, `/api/admin/recursos/${resourceId}/aprobar`, 'admin', {
+    method: 'POST', body: { version: await adminVersion(harness, 'resource', resourceId) },
+  });
   assert.equal(approve.status, 200);
   const approvedLink = (await editor(harness)).links[0];
   const editApproved = await api(harness, `/api/creador/recursos/${resourceId}`, 'creator-a', {
@@ -761,7 +768,9 @@ test('selection and approval stay separate: reselecting preserves approval, revo
   current = await editor(harness);
   assert.equal(current.links[0].directoryApproval, 'approved');
 
-  const revoke = await api(harness, `/api/admin/recursos/${resourceId}/revocar`, 'admin', { method: 'POST', body: {} });
+  const revoke = await api(harness, `/api/admin/recursos/${resourceId}/revocar`, 'admin', {
+    method: 'POST', body: { version: await adminVersion(harness, 'resource', resourceId) },
+  });
   assert.equal(revoke.status, 200);
   const afterRevoke = await harness.service.readPublicProfile('ana');
   assert.equal(afterRevoke.status, 200);
@@ -775,22 +784,139 @@ test('hiding a profile and hiding a resource have separate public effects', asyn
   const added = await addLink(harness);
   const { resourceId } = (await responseJson(added)).link;
 
-  const hideProfile = await api(harness, `/api/admin/perfiles/${profile.id}/ocultar`, 'admin', { method: 'POST', body: {} });
+  const hideProfile = await api(harness, `/api/admin/perfiles/${profile.id}/ocultar`, 'admin', {
+    method: 'POST', body: { version: await adminVersion(harness, 'profile', profile.id) },
+  });
   assert.equal(hideProfile.status, 200);
   assert.equal((await harness.service.readPublicProfile('ana')).status, 404);
-  const showProfile = await api(harness, `/api/admin/perfiles/${profile.id}/restaurar`, 'admin', { method: 'POST', body: {} });
+  const showProfile = await api(harness, `/api/admin/perfiles/${profile.id}/restaurar`, 'admin', {
+    method: 'POST', body: { version: await adminVersion(harness, 'profile', profile.id) },
+  });
   assert.equal(showProfile.status, 200);
 
-  const hideResource = await api(harness, `/api/admin/recursos/${resourceId}/ocultar`, 'admin', { method: 'POST', body: {} });
+  const hideResource = await api(harness, `/api/admin/recursos/${resourceId}/ocultar`, 'admin', {
+    method: 'POST', body: { version: await adminVersion(harness, 'resource', resourceId) },
+  });
   assert.equal(hideResource.status, 200);
   const page = await harness.service.readPublicProfile('ana');
   assert.equal(page.status, 200);
   assert.equal(page.profile.published, true);
   assert.equal(page.profile.hidden, false);
   assert.equal(page.links.length, 0);
-  const restoreResource = await api(harness, `/api/admin/recursos/${resourceId}/restaurar`, 'admin', { method: 'POST', body: {} });
+  const restoreResource = await api(harness, `/api/admin/recursos/${resourceId}/restaurar`, 'admin', {
+    method: 'POST', body: { version: await adminVersion(harness, 'resource', resourceId) },
+  });
   assert.equal(restoreResource.status, 200);
   assert.equal((await harness.service.readPublicProfile('ana')).links.length, 1);
+});
+
+test('admin moderation validates observed versions for every resource and profile action', async () => {
+  const harness = await createCreatorPagesHarness();
+  const profile = await createProfile(harness, 'creator-a', { displayName: 'Ana', slug: 'ana-moderation' });
+  const created = await addLink(harness);
+  const { resourceId, resourceVersion } = (await responseJson(created)).link;
+  assert.equal((await classifyResource(harness, resourceId, resourceVersion)).status, 200);
+
+  const actions = [
+    ['resource', resourceId, 'aprobar'],
+    ['resource', resourceId, 'revocar'],
+    ['resource', resourceId, 'ocultar'],
+    ['resource', resourceId, 'restaurar'],
+    ['profile', profile.id, 'ocultar'],
+    ['profile', profile.id, 'restaurar'],
+  ];
+  const actionPath = (type, id, action) => type === 'resource'
+    ? `/api/admin/recursos/${encodeURIComponent(id)}/${action}`
+    : `/api/admin/perfiles/${encodeURIComponent(id)}/${action}`;
+
+  const writesBeforeInvalid = harness.store.calls.filter(({ operation }) => operation === 'transact').length;
+  for (const [type, id, action] of actions) {
+    for (const options of [
+      { method: 'POST' },
+      { method: 'POST', body: { version: '1' } },
+      { method: 'POST', body: { version: -1 } },
+    ]) {
+      const invalid = await api(harness, actionPath(type, id, action), 'admin', options);
+      assert.equal(invalid.status, 422, `${type} ${action} rejects a missing or invalid version`);
+    }
+  }
+  assert.equal(harness.store.calls.filter(({ operation }) => operation === 'transact').length, writesBeforeInvalid,
+    'missing and malformed versions must not write');
+
+  for (const [type, id, action] of actions) {
+    const before = await readAdminRecord(harness, type, id);
+    const observedVersion = before.version;
+    const updated = await api(harness, actionPath(type, id, action), 'admin', {
+      method: 'POST', body: { version: observedVersion },
+    });
+    assert.equal(updated.status, 200, `${type} ${action} accepts its current observed version`);
+    const result = await responseJson(updated);
+    assert.deepEqual(result.versionChanges, [{
+      entity: type, id, before: observedVersion, after: observedVersion + 1,
+    }]);
+    const transaction = harness.store.calls.findLast(({ operation, input }) => operation === 'transact'
+      && input.puts.some((put) => put.key === `${type}:${id}`));
+    assert.equal(transaction?.input.checks.find((check) => check.key === `${type}:${id}`)?.version, observedVersion,
+      'the transaction compares the version that the administrator observed');
+
+    const writesAfterChange = harness.store.calls.filter(({ operation }) => operation === 'transact').length;
+    const idempotent = await api(harness, actionPath(type, id, action), 'admin', {
+      method: 'POST', body: { version: observedVersion + 1 },
+    });
+    assert.equal(idempotent.status, 200, `${type} ${action} accepts a valid repeat`);
+    assert.deepEqual((await responseJson(idempotent)).versionChanges, []);
+    assert.equal(harness.store.calls.filter(({ operation }) => operation === 'transact').length, writesAfterChange,
+      'a valid idempotent repeat does not create another version');
+
+    const staleWrites = harness.store.calls.filter(({ operation }) => operation === 'transact').length;
+    const staleIdempotent = await api(harness, actionPath(type, id, action), 'admin', {
+      method: 'POST', body: { version: observedVersion },
+    });
+    assert.equal(staleIdempotent.status, 409, `${type} ${action} rejects a stale request even when its target state is current`);
+    assert.equal(harness.store.calls.filter(({ operation }) => operation === 'transact').length, staleWrites,
+      'a stale action is rejected before writing');
+  }
+
+  await seedResource(harness.store, {
+    id: 'legacy-version-zero', title: 'Recurso legado', url: 'https://example.com/legacy-zero', published: false,
+  });
+  const legacyAction = await api(harness, '/api/admin/recursos/legacy-version-zero/ocultar', 'admin', {
+    method: 'POST', body: { version: 0 },
+  });
+  assert.equal(legacyAction.status, 200, 'version 0 remains a valid observed version for legacy resources');
+  assert.deepEqual((await responseJson(legacyAction)).versionChanges, [
+    { entity: 'resource', id: 'legacy-version-zero', before: 0, after: 1 },
+  ]);
+});
+
+test('a stale tab cannot restore an approval after another admin revoked it', async () => {
+  const harness = await createCreatorPagesHarness();
+  await createProfile(harness, 'creator-a', { displayName: 'Ana', slug: 'ana-stale-admin' });
+  const created = await addLink(harness);
+  const { resourceId, resourceVersion } = (await responseJson(created)).link;
+  assert.equal((await classifyResource(harness, resourceId, resourceVersion)).status, 200);
+  const observedByBothTabs = await adminVersion(harness, 'resource', resourceId);
+
+  const approved = await api(harness, `/api/admin/recursos/${resourceId}/aprobar`, 'admin', {
+    method: 'POST', body: { version: observedByBothTabs },
+  });
+  assert.equal(approved.status, 200);
+  const revoked = await api(harness, `/api/admin/recursos/${resourceId}/revocar`, 'admin', {
+    method: 'POST', body: { version: await adminVersion(harness, 'resource', resourceId) },
+  });
+  assert.equal(revoked.status, 200);
+  const beforeStaleClick = await harness.store.get(`resource:${resourceId}`);
+  assert.equal(beforeStaleClick.published, false);
+  assert.equal(beforeStaleClick.approvalRevoked, true);
+
+  const writesBeforeStaleClick = harness.store.calls.filter(({ operation }) => operation === 'transact').length;
+  const staleApprove = await api(harness, `/api/admin/recursos/${resourceId}/aprobar`, 'admin', {
+    method: 'POST', body: { version: observedByBothTabs },
+  });
+  assert.equal(staleApprove.status, 409);
+  assert.equal(harness.store.calls.filter(({ operation }) => operation === 'transact').length, writesBeforeStaleClick);
+  assert.deepEqual(await harness.store.get(`resource:${resourceId}`), beforeStaleClick,
+    'the later revocation remains intact after the older tab acts');
 });
 
 test('referencing a legacy editorial resource does not claim it or transfer editor authority', async () => {

@@ -74,6 +74,14 @@ function validVersion(value, { optional = false } = {}) {
   return value;
 }
 
+function requiredModerationVersion(body) {
+  assertKnownFields(body, new Set());
+  if (!Number.isSafeInteger(body.version) || body.version < 0) {
+    fail(422, 'INVALID_VERSION', 'version must be a non-negative integer');
+  }
+  return body.version;
+}
+
 function versionChange(entity, id, before, after) {
   if (before === after) return null;
   return { entity, id, before, after };
@@ -1467,10 +1475,13 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     };
   }
 
-  async function adminResourceAction(resourceId, action) {
+  async function adminResourceAction(resourceId, action, body) {
+    const observedVersion = requiredModerationVersion(body);
     const key = `resource:${resourceId}`;
     const resource = await store.get(key);
     if (!resource || !isCatalogResource(resource)) fail(404, 'RESOURCE_NOT_FOUND', 'resource does not exist');
+    const currentVersion = resource.version ?? 0;
+    if (observedVersion !== currentVersion) fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before applying action');
     const updated = { ...resource };
     if (action === 'aprobar') {
       try {
@@ -1490,29 +1501,32 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     if (['published', 'approvalRevoked', 'hidden'].every((field) => updated[field] === resource[field])) {
       return { resource: cleanAdminResource(resource), versionChanges: [] };
     }
-    updated.version = (resource.version ?? 0) + 1;
+    updated.version = observedVersion + 1;
     updated.updatedAt = timestamp();
-    const ok = await store.transact({ checks: [{ key, version: resource.version }], puts: [{ key, value: updated }] });
+    const ok = await store.transact({ checks: [{ key, version: observedVersion }], puts: [{ key, value: updated }] });
     if (!ok) fail(409, 'RESOURCE_CONFLICT', 'resource changed while applying action');
     return {
       resource: cleanAdminResource(updated),
-      versionChanges: versionChanges(versionChange('resource', resourceId, resource.version ?? 0, updated.version)),
+      versionChanges: versionChanges(versionChange('resource', resourceId, observedVersion, updated.version)),
     };
   }
 
-  async function adminProfileAction(profileId, action) {
+  async function adminProfileAction(profileId, action, body) {
+    const observedVersion = requiredModerationVersion(body);
     const key = profileKey(profileId);
     const profile = await store.get(key);
     if (!profile) fail(404, 'PROFILE_NOT_FOUND', 'profile does not exist');
+    const currentVersion = profile.version ?? 0;
+    if (observedVersion !== currentVersion) fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before applying action');
     if (action !== 'ocultar' && action !== 'restaurar') fail(404, 'ACTION_NOT_FOUND', 'action does not exist');
     const hidden = action === 'ocultar';
     if ((profile.hidden === true) === hidden) return { profile: cleanPublicProfile(profile), versionChanges: [] };
-    const updated = { ...profile, hidden, version: profile.version + 1, updatedAt: timestamp() };
-    const ok = await store.transact({ checks: [{ key, version: profile.version }], puts: [{ key, value: updated }] });
+    const updated = { ...profile, hidden, version: observedVersion + 1, updatedAt: timestamp() };
+    const ok = await store.transact({ checks: [{ key, version: observedVersion }], puts: [{ key, value: updated }] });
     if (!ok) fail(409, 'PROFILE_CONFLICT', 'profile changed while applying action');
     return {
       profile: cleanPublicProfile(updated),
-      versionChanges: versionChanges(versionChange('profile', profileId, profile.version, updated.version)),
+      versionChanges: versionChanges(versionChange('profile', profileId, observedVersion, updated.version)),
     };
   }
 
@@ -1925,7 +1939,8 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       if (action) {
         requireMethod(request, 'POST');
         requireWriteRequest(request, principal);
-        return writeJsonResponse(await adminResourceAction(resourceId, action));
+        const body = request.body ? await parseRequestBody(request) : {};
+        return writeJsonResponse(await adminResourceAction(resourceId, action, body));
       }
       requireMethod(request, 'PATCH');
       requireWriteRequest(request, principal);
@@ -1936,7 +1951,8 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       requireMethod(request, 'POST');
       requireAdmin(principal);
       requireWriteRequest(request, principal);
-      return writeJsonResponse(await adminProfileAction(decodeSegment(adminProfileMatch[1]), adminProfileMatch[2]));
+      const body = request.body ? await parseRequestBody(request) : {};
+      return writeJsonResponse(await adminProfileAction(decodeSegment(adminProfileMatch[1]), adminProfileMatch[2], body));
     }
     return jsonResponse({ error: 'NOT_FOUND', message: 'route not found' }, 404);
   }

@@ -48,6 +48,11 @@ guarda una autorización de salida adicional.
 Si un reintento confirma que la sesión local ya no existe, completa de todas
 formas el cierre de Cognito. Una lectura fallida no confirma la revocación.
 
+Si se desactiva una cuenta mientras conserva una sesión vigente, `/cuenta/`
+responde 403 y no muestra datos privados ni acciones de gestión, pero permite
+cerrar esa misma sesión mediante POST con su CSRF. Una vez revocada, la sesión
+no vuelve a autorizar al reactivar la cuenta.
+
 El trigger `PostConfirmation_ConfirmForgotPassword` avanza la versión y el
 límite de autenticación de la cuenta. Las sesiones anteriores fallan en su
 siguiente autorización; los callbacks autenticados antes o en el segundo del

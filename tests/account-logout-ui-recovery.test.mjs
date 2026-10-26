@@ -8,11 +8,11 @@ import { transform } from '@astrojs/compiler-rs';
 import { experimental_AstroContainer } from 'astro/container';
 import {
   COGNITO_DOMAIN, ORIGIN, TEST_EMAIL, completeLogin, cookiePair,
-  createAccountHarness, location, makeRequest, responseCookies, sessionRequest,
+  createAccountHarness, location, makeIdentity, makeRequest, responseCookies, sessionRequest,
 } from './fixtures/account-auth.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const scratchParent = path.join(root, '.work/creator-pages/repair-r7/logout');
+const scratchParent = path.join(root, '.work/creator-pages/repair-r9/logout');
 await mkdir(scratchParent, { recursive: true });
 const tempDir = await mkdtemp(path.join(scratchParent, 'astro-test-'));
 const accountSource = path.join(root, 'src/pages/cuenta/index.astro');
@@ -145,6 +145,70 @@ test('the Astro logout error offers a real retry that confirms revocation and co
   assert.equal(harness.store.sessions.size, 0);
   assert.ok(responseCookies(retryResponse).some((cookie) => cookie.startsWith('da_session=;') && /Max-Age=0/i.test(cookie)));
   assert.ok(responseCookies(retryResponse).every((cookie) => !/Path=\/cuenta\//i.test(cookie)));
+});
+
+test('a reloaded disabled account page offers a protected logout with retry and the revoked cookie stays anonymous after reactivation', async () => {
+  const harness = await createAccountHarness();
+  const { login } = await signedInPage(harness);
+  const account = await harness.store.getAccount(makeIdentity());
+  harness.store.seedAccount({ ...account, active: false });
+
+  const disabledResponse = await render(accountPage, sessionRequest(login.sessionCookie));
+  const disabledHtml = await disabledResponse.text();
+  assert.equal(disabledResponse.status, 403);
+  assert.match(disabledResponse.headers.get('cache-control') ?? '', /private.*no-store/i);
+  assert.match(disabledHtml, /Esta cuenta está desactivada/);
+  assert.doesNotMatch(disabledHtml, new RegExp(TEST_EMAIL));
+  assert.doesNotMatch(disabledHtml, /href="\/cuenta\/(?:administracion|creador|estadisticas)\//);
+  assert.equal(actionFrom(disabledHtml), '/cuenta/salir/');
+  const disabledCsrfToken = csrfFrom(disabledHtml);
+  assert.equal(disabledCsrfToken, (await harness.auth.getSession(sessionRequest(login.sessionCookie))).csrfToken);
+
+  const rejectedRequests = [
+    logoutPost(login.sessionCookie, disabledCsrfToken, 'https://other.invalid'),
+    makeRequest('/cuenta/salir/', {
+      method: 'POST',
+      headers: { cookie: cookiePair(login.sessionCookie), origin: ORIGIN },
+      body: new URLSearchParams(),
+    }),
+  ];
+  for (const request of rejectedRequests) {
+    const rejected = await render(logoutPage, request);
+    const rejectedHtml = await rejected.text();
+    assert.equal(rejected.status, 403);
+    assert.match(rejected.headers.get('cache-control') ?? '', /private.*no-store/i);
+    assert.equal(responseCookies(rejected).length, 0);
+    assert.doesNotMatch(rejectedHtml, /name="csrfToken"/);
+    assert.equal((await harness.auth.getSession(sessionRequest(login.sessionCookie))).state, 'disabled');
+  }
+  assert.equal(harness.store.calls.filter(({ operation }) => operation === 'deleteSession').length, 0);
+
+  harness.store.failNext('deleteSession', new Error('controlled disabled-session write failure'));
+  const failedLogout = await render(logoutPage, submitRenderedLogoutForm(login.sessionCookie, disabledHtml));
+  const failedLogoutHtml = await failedLogout.text();
+  assert.equal(failedLogout.status, 503);
+  assert.equal(failedLogout.headers.get('location'), null);
+  assert.equal(responseCookies(failedLogout).length, 0);
+  assert.match(failedLogoutHtml, /No pudimos confirmar el cierre de sesión/);
+  assert.equal(actionFrom(failedLogoutHtml), '/cuenta/salir/');
+  assert.equal(csrfFrom(failedLogoutHtml), disabledCsrfToken);
+  assert.doesNotMatch(failedLogoutHtml, new RegExp(TEST_EMAIL));
+  assert.equal(harness.store.sessions.size, 1);
+
+  const logoutResponse = await render(logoutPage, submitRenderedLogoutForm(login.sessionCookie, failedLogoutHtml));
+  assert.equal(logoutResponse.status, 303);
+  assert.equal(location(logoutResponse).origin, COGNITO_DOMAIN);
+  assert.equal(location(logoutResponse).pathname, '/logout');
+  assert.equal(harness.store.sessions.size, 0);
+  assert.ok(responseCookies(logoutResponse).some((cookie) => cookie.startsWith('da_session=;') && /Max-Age=0/i.test(cookie)));
+
+  harness.store.seedAccount({ ...account, active: true });
+  const afterReactivation = await render(accountPage, sessionRequest(login.sessionCookie));
+  const afterReactivationHtml = await afterReactivation.text();
+  assert.equal(afterReactivation.status, 200);
+  assert.match(afterReactivationHtml, /Accede o crea una cuenta/);
+  assert.doesNotMatch(afterReactivationHtml, new RegExp(TEST_EMAIL));
+  assert.equal((await harness.auth.getSession(sessionRequest(login.sessionCookie))).state, 'anonymous');
 });
 
 test('the Astro route preserves GET 405 and no-cookie redirect behavior', async () => {

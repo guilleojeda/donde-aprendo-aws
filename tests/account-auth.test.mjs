@@ -319,19 +319,22 @@ test('callback replay and concurrent callback requests consume an attempt only o
   assert.equal(harness.store.calls.filter(({ operation }) => operation === 'ensureAccount').length, 1);
 });
 
-test('disabled accounts cannot establish a session and getSession reports disabled', async () => {
+test('disabled accounts cannot establish a session and getSession exposes only the logout CSRF token', async () => {
   const store = createAccountStore();
   const harness = await createAccountHarness({ store });
   const firstLogin = await authenticate(harness);
   const account = await store.getAccount(makeIdentity());
   store.seedAccount({ ...account, active: false });
 
-  assert.deepEqual(await harness.auth.getSession(sessionRequest(firstLogin.sessionCookie)), { state: 'disabled' });
+  const disabledSession = await harness.auth.getSession(sessionRequest(firstLogin.sessionCookie));
+  assert.equal(disabledSession.state, 'disabled');
+  assert.equal(disabledSession.csrfToken, [...store.sessions.values()][0].csrfToken);
+  assert.deepEqual(Object.keys(disabledSession).sort(), ['csrfToken', 'state']);
   const nextLogin = await startLogin(harness);
   const response = await harness.auth.handle(callbackRequest(nextLogin));
   assertSafeFailureRedirect(response, 'acceso-invalido');
   assert.equal(store.calls.filter(({ operation }) => operation === 'putSession').length, 1);
-  assert.deepEqual(await harness.auth.getSession(sessionRequest(firstLogin.sessionCookie)), { state: 'disabled' });
+  assert.equal((await harness.auth.getSession(sessionRequest(firstLogin.sessionCookie))).state, 'disabled');
   assert.deepEqual(await harness.auth.getPrincipal(sessionRequest(firstLogin.sessionCookie)), { state: 'disabled' });
 });
 
@@ -437,7 +440,7 @@ test('disabled logout revokes the existing session before reactivation can repla
   const account = await store.getAccount(makeIdentity());
   store.seedAccount({ ...account, active: false });
 
-  assert.deepEqual(await harness.auth.getSession(sessionRequest(sessionCookie)), { state: 'disabled' });
+  assert.equal((await harness.auth.getSession(sessionRequest(sessionCookie))).state, 'disabled');
   const response = await harness.auth.handle(makeRequest('/cuenta/salir/', {
     method: 'POST',
     headers: { cookie: cookiePair(sessionCookie), origin: ORIGIN },

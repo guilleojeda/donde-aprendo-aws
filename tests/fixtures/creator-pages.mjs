@@ -177,3 +177,17 @@ export const sessionCsrf = {
   'creator-b': 'csrf-b',
   admin: 'csrf-admin',
 };
+
+export async function readAdminRecord(harness, type, id) {
+  const selection = type === 'resource' ? { path: 'recursos', collection: 'resources' }
+    : type === 'profile' ? { path: 'perfiles', collection: 'profiles' } : null;
+  if (!selection) throw new TypeError(`unsupported admin record type: ${type}`);
+  const response = await callApi(harness, `/api/admin/${selection.path}`, {
+    session: 'admin', csrf: sessionCsrf.admin,
+  });
+  if (!response.ok) throw new Error(`could not read admin ${selection.collection}: HTTP ${response.status}`);
+  const body = await responseJson(response);
+  const record = body[selection.collection]?.find((candidate) => candidate.id === id);
+  if (!record) throw new Error(`admin ${selection.collection} did not contain ${id}`);
+  return record;
+}

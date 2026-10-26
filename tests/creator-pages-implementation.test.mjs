@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import {
   callApi,
   createCreatorPagesHarness,
+  readAdminRecord,
   responseJson,
   seedResource,
   sessionCsrf,
@@ -11,6 +12,10 @@ import {
 
 async function api(harness, path, session, options = {}) {
   return callApi(harness, path, { session, csrf: sessionCsrf[session], ...options });
+}
+
+async function adminVersion(harness, type, id) {
+  return (await readAdminRecord(harness, type, id)).version;
 }
 
 async function createProfile(harness, session, slug) {
@@ -144,11 +149,17 @@ test('valid events can be approved again without resource taxonomy and creator U
     directoryControl: 'editorial',
   });
 
-  const approve = await api(harness, '/api/admin/recursos/event-verified/aprobar', 'admin', { method: 'POST', body: {} });
+  const approve = await api(harness, '/api/admin/recursos/event-verified/aprobar', 'admin', {
+    method: 'POST', body: { version: 1 },
+  });
   assert.equal(approve.status, 200, 'event validation must not invent a content taxonomy');
-  const revoke = await api(harness, '/api/admin/recursos/event-verified/revocar', 'admin', { method: 'POST', body: {} });
+  const revoke = await api(harness, '/api/admin/recursos/event-verified/revocar', 'admin', {
+    method: 'POST', body: { version: 2 },
+  });
   assert.equal(revoke.status, 200);
-  const restore = await api(harness, '/api/admin/recursos/event-verified/aprobar', 'admin', { method: 'POST', body: {} });
+  const restore = await api(harness, '/api/admin/recursos/event-verified/aprobar', 'admin', {
+    method: 'POST', body: { version: 3 },
+  });
   assert.equal(restore.status, 200);
   assert.equal((await harness.store.get('resource:event-verified')).registrationUrl, oldUrl);
 
@@ -310,6 +321,8 @@ test('canonical trailing-slash API routes support creator writes and admin moder
     method: 'PATCH', body: { selectedForDirectory: false },
   })).status, 200);
   assert.equal((await api(harness, '/api/admin/recursos/', 'admin')).status, 200);
-  assert.equal((await api(harness, `/api/admin/recursos/${link.resourceId}/ocultar/`, 'admin', { method: 'POST', body: {} })).status, 200);
+  assert.equal((await api(harness, `/api/admin/recursos/${link.resourceId}/ocultar/`, 'admin', {
+    method: 'POST', body: { version: await adminVersion(harness, 'resource', link.resourceId) },
+  })).status, 200);
   assert.equal((await api(harness, `/api/creador/enlaces/${link.placementId}/`, 'creator-a', { method: 'DELETE' })).status, 204);
 });
