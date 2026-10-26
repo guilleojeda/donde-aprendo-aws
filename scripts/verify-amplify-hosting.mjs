@@ -326,6 +326,15 @@ try {
   assertRuntimeTheme(missingHtml, 'Runtime 404');
   assert.match(missingHtml, /Página no encontrada/u, 'Unknown routes use the site 404 presentation.');
   assert.match(missingHtml, /<meta name="robots" content="noindex, nofollow"/u, 'The runtime 404 is not indexable.');
+
+  for (const path of ['/cuenta/runtime-route-that-does-not-exist/', '/cuenta/creador/unknown/', '/cuenta/administracion/unknown/']) {
+    const response = await getWhenReady(path);
+    const html = await response.text();
+    assert.equal(response.status, 404, `${path} retains its missing-route status.`);
+    assert.match(response.headers.get('cache-control') ?? '', /private.*no-store/iu);
+    assert.match(html, /<meta name="robots" content="noindex, nofollow"/u);
+    assert.doesNotMatch(html, /src="\/assets\/analytics\.js"/u, 'Private 404 responses do not load Analytics.');
+  }
 } catch (error) {
   runtimeError = error;
 } finally {

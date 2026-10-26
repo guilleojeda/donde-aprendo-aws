@@ -20,7 +20,7 @@ const logoutSource = path.join(root, 'src/pages/cuenta/salir/index.astro');
 const container = await experimental_AstroContainer.create({ astroConfig: { site: ORIGIN } });
 
 await build({
-  entryPoints: { account: accountSource, logout: logoutSource },
+  entryPoints: { account: accountSource, logout: logoutSource, notFound: path.join(root, 'src/pages/404.astro') },
   outdir: tempDir,
   bundle: true,
   platform: 'node',
@@ -60,9 +60,10 @@ await build({
   }],
 });
 
-const [{ default: accountPage }, { default: logoutPage }] = await Promise.all([
+const [{ default: accountPage }, { default: logoutPage }, { default: notFoundPage }] = await Promise.all([
   import(pathToFileURL(path.join(tempDir, 'account.mjs'))),
   import(pathToFileURL(path.join(tempDir, 'logout.mjs'))),
+  import(pathToFileURL(path.join(tempDir, 'notFound.mjs'))),
 ]);
 
 after(async () => {
@@ -73,6 +74,20 @@ after(async () => {
 async function render(page, request) {
   return container.renderToResponse(page, { request, partial: false });
 }
+
+test('the real 404 layout excludes Analytics for private paths while public missing pages retain measurement', async () => {
+  for (const pathname of ['/cuenta', '/cuenta/', '/cuenta/desconocida/', '/api/creador/desconocida/', '/api/admin/desconocida/']) {
+    const response = await render(notFoundPage, new Request(`${ORIGIN}${pathname}?referencia=local`));
+    const html = await response.text();
+    assert.match(html, /Página no encontrada/);
+    assert.match(html, /noindex, nofollow/);
+    assert.doesNotMatch(html, /src="\/assets\/analytics\.js"/, pathname);
+  }
+  for (const pathname of ['/runtime-route-that-does-not-exist/', '/cuentanos/', '/api/creadores/']) {
+    const response = await render(notFoundPage, new Request(`${ORIGIN}${pathname}`));
+    assert.match(await response.text(), /src="\/assets\/analytics\.js"/, pathname);
+  }
+});
 
 function csrfFrom(html) {
   const match = html.match(/<input\b(?=[^>]*\bname="csrfToken")(?=[^>]*\bvalue="([A-Za-z0-9_-]{43})")[^>]*>/);

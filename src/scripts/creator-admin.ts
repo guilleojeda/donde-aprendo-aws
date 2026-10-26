@@ -138,18 +138,18 @@ function onWrite(target: EventTarget, type: string, action: (event: Event) => Pr
 }
 
 function applyVersionChanges(changes: CreatorVersionChange[]) {
-  let gap = false;
+  const gaps: CreatorVersionChange[] = [];
   for (const change of changes) {
     const items = change.entity === 'profile' ? state?.profiles : change.entity === 'resource' ? state?.resources : [];
     const item = items?.find((candidate) => candidate.id === change.id);
     if (!item) continue;
     if (item.version !== change.before) {
-      gap = true;
+      gaps.push(change);
       continue;
     }
     item.version = change.after;
   }
-  return gap;
+  return gaps;
 }
 
 async function responsePayload(response: Response): Promise<Record<string, unknown> | null> {
@@ -210,7 +210,7 @@ async function finishAdminWrite(
   options: { structural?: boolean; entity?: 'classification' | 'resource-action' | 'profile-action'; id?: string } = {},
 ) {
   const changes = await readCreatorVersionChanges(response);
-  const receiptGap = changes === null || applyVersionChanges(changes);
+  const receiptGap = changes === null || applyVersionChanges(changes).length > 0;
   const payload = await responsePayload(response);
   if (!receiptGap) updateOwnedContent(payload, options.entity, options.id);
   formState?.commit(submittedValues);
@@ -378,8 +378,16 @@ if (root && state && csrfToken) {
         if (!response.ok) {
           const { ids: linkedIds, changes } = await partialLinkDetails(response, selectedIds);
           if (changes) {
-            const receiptGap = applyVersionChanges(changes);
-            if (receiptGap) writeGuard?.markStale('button:not([data-refresh-view]), [data-featured], [data-directory]');
+            const receiptGaps = applyVersionChanges(changes);
+            for (const change of receiptGaps) {
+              const entity = change.entity === 'resource' ? 'resource' : change.entity === 'profile' ? 'profile' : undefined;
+              if (!entity) continue;
+              const selector = entity === 'resource' ? '[data-admin-resource]' : '[data-admin-profile]';
+              const datasetKey = entity === 'resource' ? 'adminResource' : 'adminProfile';
+              const row = Array.from(root.querySelectorAll<HTMLElement>(selector))
+                .find((candidate) => candidate.dataset[datasetKey] === change.id);
+              if (row) markAdminActionsStale('button', row);
+            }
           }
           if (linkedIds.length > 0) {
             const linked = new Set(linkedIds);

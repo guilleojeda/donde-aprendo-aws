@@ -593,6 +593,7 @@ if (root && state && csrfToken) {
       const placementId = item?.dataset.placementId;
       const current = placementId ? linkByPlacement(placementId) : undefined;
       if (!current || !placementId) return;
+      const previousValue = checkbox.matches('[data-featured]') ? current.featured : current.selectedForDirectory;
       checkbox.disabled = true;
       const body = checkbox.matches('[data-featured]')
         ? { featured: checkbox.checked, ...(current.placementVersion !== undefined ? { version: current.placementVersion } : {}) }
@@ -600,16 +601,17 @@ if (root && state && csrfToken) {
       const submittedValues = formState?.capture(checkbox);
       try {
         const response = await api(`/api/creador/enlaces/${encodeURIComponent(placementId)}`, 'PATCH', body);
-        await finishWrite(response, linksStatus(), checkbox.matches('[data-directory]')
+        const saved = await finishWrite(response, linksStatus(), checkbox.matches('[data-directory]')
           ? 'Selección guardada. La página se actualiza ahora; el directorio puede tardar hasta una hora más la publicación del sitio.'
           : 'Preferencia guardada.', submittedValues, {
           structural: checkbox.matches('[data-featured]'),
           ownEntity: 'placement',
           ownId: placementId,
         });
+        if (!saved) checkbox.checked = previousValue;
       } catch (error) {
         announce(linksStatus(), requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
-        checkbox.checked = !checkbox.checked;
+        checkbox.checked = previousValue;
       } finally {
         checkbox.disabled = false;
       }
