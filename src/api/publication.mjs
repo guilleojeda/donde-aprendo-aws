@@ -3,7 +3,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { randomUUID } from 'node:crypto';
 import { loadCatalog } from '../lib/catalog.mjs';
-import { synchronizePublication, withPublicationLock } from '../lib/publication.mjs';
+import { readPublishedCatalogHash, synchronizePublication, withPublicationLock } from '../lib/publication.mjs';
 
 export const PUBLICATION_STATE_ID = '__system#publication';
 
@@ -11,6 +11,7 @@ export async function handler() {
   const tableName = requiredEnvironment('CATALOG_TABLE');
   const appId = requiredEnvironment('AMPLIFY_APP_ID');
   const branchName = requiredEnvironment('AMPLIFY_BRANCH');
+  const manifestUrl = requiredEnvironment('PUBLICATION_MANIFEST_URL');
   const region = process.env.AWS_REGION || 'us-east-1';
   const catalog = DynamoDBDocumentClient.from(new DynamoDBClient({ region }));
   const amplify = new AmplifyClient({ region });
@@ -49,6 +50,7 @@ export async function handler() {
         region,
         docClient: catalog,
       }),
+      readPublishedHash: () => readPublishedCatalogHash({ manifestUrl }),
       readState: async () => {
         const { Item } = await catalog.send(new GetCommand({
           TableName: tableName,
@@ -57,29 +59,29 @@ export async function handler() {
         }));
         return Item;
       },
-      markStarted: async (jobId, hash) => {
+      markStarted: async (jobId) => {
         await catalog.send(new UpdateCommand({
           TableName: tableName,
           Key: { id: PUBLICATION_STATE_ID },
-          UpdateExpression: 'SET pendingJobId = :jobId, pendingHash = :hash REMOVE lastFailureJobId, lastFailureStatus',
+          UpdateExpression: 'SET pendingJobId = :jobId REMOVE publishedHash, pendingHash, lastFailureJobId, lastFailureStatus',
           ConditionExpression: 'attribute_not_exists(pendingJobId)',
-          ExpressionAttributeValues: { ':jobId': jobId, ':hash': hash },
+          ExpressionAttributeValues: { ':jobId': jobId },
         }));
       },
-      markSucceeded: async (jobId, hash) => {
+      markSucceeded: async (jobId) => {
         await catalog.send(new UpdateCommand({
           TableName: tableName,
           Key: { id: PUBLICATION_STATE_ID },
-          UpdateExpression: 'SET publishedHash = :hash REMOVE pendingJobId, pendingHash',
-          ConditionExpression: 'pendingJobId = :jobId AND pendingHash = :hash',
-          ExpressionAttributeValues: { ':jobId': jobId, ':hash': hash },
+          UpdateExpression: 'REMOVE pendingJobId, publishedHash, pendingHash',
+          ConditionExpression: 'pendingJobId = :jobId',
+          ExpressionAttributeValues: { ':jobId': jobId },
         }));
       },
       markFailed: async (jobId, status) => {
         await catalog.send(new UpdateCommand({
           TableName: tableName,
           Key: { id: PUBLICATION_STATE_ID },
-          UpdateExpression: 'SET lastFailureJobId = :jobId, lastFailureStatus = :status REMOVE pendingJobId, pendingHash',
+          UpdateExpression: 'SET lastFailureJobId = :jobId, lastFailureStatus = :status REMOVE pendingJobId, publishedHash, pendingHash',
           ConditionExpression: 'pendingJobId = :jobId',
           ExpressionAttributeValues: { ':jobId': jobId, ':status': status },
         }));

@@ -224,6 +224,12 @@ assert.match(searchPage, /data-search-status/);
 assert.match(searchPage, /data-search-results/);
 assert.doesNotMatch(searchPage, /name="query"/, 'Search text must not be submitted in a URL.');
 const searchIndex = JSON.parse(read('search-index.json'));
+const publicationManifest = JSON.parse(read('catalog-publication.json'));
+assert.deepEqual(Object.keys(publicationManifest).sort(), ['hash', 'version'], 'Publication manifest contains only its public version and hash.');
+assert.equal(publicationManifest.version, 1, 'Publication manifest schema version.');
+assert.match(publicationManifest.hash, /^[a-f0-9]{64}$/u, 'Publication manifest uses a SHA-256 catalog hash.');
+assert.doesNotMatch(JSON.stringify(publicationManifest), /submitter|contactEmail|private|public-resource|public-event/u,
+  'Publication manifest does not expose catalog records or private data.');
 assert.equal(searchIndex.filter((entry) => entry.type === 'article').length, routes.length);
 assert.equal(searchIndex.filter((entry) => entry.type === 'path').length, 4);
 for (const { id } of LEARNING_PATHS) assert.ok(searchIndex.some((entry) => entry.type === 'path' && entry.url === learningPathHref(id)));

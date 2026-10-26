@@ -5,12 +5,20 @@ import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:net';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
+import { parse as parseYaml } from 'yaml';
 import { configuredAccountOrigin } from '../src/lib/amplify-security.mjs';
 import { getCertificationPages } from '../src/lib/certifications.mjs';
 import { siteOutputRoot } from './lib/site-output.mjs';
 
 const root = resolve('.amplify-hosting');
 const computeRoot = resolve(root, 'compute/default');
+const customHeaders = parseYaml(readFileSync(resolve('customHttp.yml'), 'utf8'));
+assert.deepEqual(customHeaders, {
+  customHeaders: [{
+    pattern: '/catalog-publication.json',
+    headers: [{ key: 'Cache-Control', value: 'no-store, max-age=0' }],
+  }],
+}, 'Only the exact publication manifest path receives its no-store response header.');
 const manifest = JSON.parse(readFileSync(resolve(root, 'deploy-manifest.json'), 'utf8'));
 const routingRules = JSON.parse(readFileSync(resolve('config/amplify-custom-rules.json'), 'utf8'));
 const accountOrigin = configuredAccountOrigin();
@@ -123,10 +131,14 @@ function assertRuntimeTheme(html, label) {
   assert.ok(head.includes(controllers[0][0]), `${label} keeps the theme controller in the document head.`);
 }
 
-for (const path of ['sitemap.xml', 'search-index.json', 'robots.txt']) {
+for (const path of ['sitemap.xml', 'search-index.json', 'catalog-publication.json', 'robots.txt']) {
   const file = resolve(siteOutputRoot, path);
   assert.ok(statSync(file, { throwIfNoEntry: false })?.isFile(), `Static public file is included in the Amplify output: ${path}`);
 }
+const publicationManifest = JSON.parse(readFileSync(resolve(siteOutputRoot, 'catalog-publication.json'), 'utf8'));
+assert.deepEqual(Object.keys(publicationManifest).sort(), ['hash', 'version'], 'Amplify output keeps the publication proof minimal.');
+assert.equal(publicationManifest.version, 1, 'Amplify output uses the supported publication manifest version.');
+assert.match(publicationManifest.hash, /^[a-f0-9]{64}$/u, 'Amplify output includes a SHA-256 catalog hash.');
 const certificationMapFile = resolve(siteOutputRoot, 'aprender/certificaciones/index.html');
 assert.ok(statSync(certificationMapFile, { throwIfNoEntry: false })?.isFile(),
   'Certification map is present in the static Amplify inventory.');
