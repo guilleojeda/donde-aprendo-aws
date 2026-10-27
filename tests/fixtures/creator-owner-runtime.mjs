@@ -14,13 +14,13 @@ function sessionId(request) {
  * Runs the real creator-page service and HTTP boundary against one mutable principal
  * map. SSR and API requests identify the same test session through the da_session cookie.
  */
-export async function createCreatorOwnerRuntime() {
+export async function createCreatorOwnerRuntime({ statistics } = {}) {
   const sessions = new Map();
   const serviceCalls = [];
   const accountCalls = [];
   let overrideServiceResponse;
   const getPrincipal = async (request) => sessions.get(sessionId(request))?.principal ?? { state: 'anonymous' };
-  const pages = await createCreatorPagesHarness({ authenticate: getPrincipal });
+  const pages = await createCreatorPagesHarness({ authenticate: getPrincipal, statistics });
 
   const service = {
     async handle(request) {
