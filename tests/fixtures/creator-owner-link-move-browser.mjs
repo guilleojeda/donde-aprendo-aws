@@ -11,12 +11,14 @@ export function createOwnerLinkMoveSurface(options = {}) {
   targetPosition.setAttribute('min', '1');
   const moveContext = new SurfaceElement({ dataset: { linkMoveContext: '' } });
   const moveStatus = new SurfaceElement({ dataset: { ownerFormStatus: 'mover-enlace' } });
+  const suggestion = new SurfaceElement({ tagName: 'BUTTON', type: 'button', dataset: { linkMoveSuggestion: '' } });
+  const suggestionShell = new SurfaceElement({ dataset: { linkMoveSuggestionShell: '' }, lists: [suggestion] });
   const save = new SurfaceElement({ tagName: 'BUTTON', type: 'submit', textContent: 'Guardar movimiento' });
   const cancel = new SurfaceElement({ tagName: 'BUTTON', type: 'button', dataset: { ownerCancel: '' }, textContent: 'Cancelar' });
   const form = new SurfaceElement({
     tagName: 'FORM',
     dataset: { ownerForm: 'mover-enlace' },
-    lists: [moveContext, targetPosition, moveStatus, surface.conflict, save, cancel],
+    lists: [moveContext, targetPosition, moveStatus, suggestionShell, surface.conflict, save, cancel],
   });
   form.elements = [targetPosition, moveStatus, save, cancel];
   form.hidden = true;
@@ -33,6 +35,8 @@ export function createOwnerLinkMoveSurface(options = {}) {
     moveConflict: surface.conflict,
     targetPosition,
     moveStatus,
+    moveSuggestion: suggestion,
+    moveSuggestionShell: suggestionShell,
     moveSave: save,
     moveCancel: cancel,
   };
@@ -47,6 +51,7 @@ export function ensureMoveActions(surface) {
       dataset: { linkMove: '', placementId: row.dataset.linkRow },
       textContent: 'Mover a la posición…',
     });
+    move.ownerDocument = surface.document;
     row.append(move);
   }
 }

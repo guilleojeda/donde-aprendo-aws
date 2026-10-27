@@ -103,11 +103,15 @@ const visibleFilters = [query.serie !== 'todos', query.directorio !== 'todos', q
                   <td class="creator-owner__link-status" data-label="Directorio">
                   <span>{link.selectedForDirectory ? 'Propuesta al directorio' : 'No propuesta'}</span>
                   <span>{directoryLabels[link.directoryApproval] ?? 'Sin revisión'}</span>
-                    <span>{data.profile?.hidden ? 'Página oculta por administración' : !data.profile?.published ? 'No pública hasta publicar' : link.hidden ? 'Oculta en la página pública' : 'Visible en la página pública'}</span>
+                    {data.profile?.hidden && <span>Página oculta por administración</span>}
+                    {!data.profile?.hidden && !data.profile?.published && <span>Página no pública hasta publicar</span>}
+                    {link.hidden && <span>Ficha oculta en la página pública</span>}
+                    {!link.hidden && data.profile?.published && !data.profile.hidden && <span>Visible en la página pública</span>}
                 </td>
                   <td data-label="Destacado">{link.featured ? 'Destacado' : 'Sin destacar'}</td>
                 <td class="creator-owner__link-actions" data-label="Acciones">
                   <button class="button button--outline" type="button" data-link-edit data-placement-id={link.placementId}>{own ? 'Editar ficha' : 'Editar opciones'}</button>
+                  <button class="button button--outline" type="button" data-link-move data-placement-id={link.placementId} aria-label="Mover a la posición">Mover a la posición…</button>
                   <button class="button button--outline" type="button" data-link-remove data-placement-id={link.placementId}>Quitar de tu página</button>
                 </td>
               </tr>;

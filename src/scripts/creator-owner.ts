@@ -4,6 +4,7 @@ import { createCreatorSessionRecovery } from './creator-session-recovery';
 import { createCreatorWriteGuard, readCreatorVersionChanges } from './creator-write-state';
 import {
   creatorOwnerLinksCountLabel,
+  creatorOwnerLinkGroup,
   creatorOwnerLinksHref,
   creatorOwnerLinksQueryFromForm,
   DEFAULT_CREATOR_OWNER_LINKS_QUERY,
@@ -67,7 +68,7 @@ const formState = root ? createCreatorFormState(root) : undefined;
 const writeGuard = root ? createCreatorWriteGuard(root) : undefined;
 let csrfToken = root?.dataset.csrf;
 let activeForm: HTMLFormElement | undefined;
-let activeEditor: 'datos' | 'redes' | 'foto' | 'enlace' | 'alta-enlace' | undefined;
+let activeEditor: 'datos' | 'redes' | 'foto' | 'enlace' | 'alta-enlace' | 'mover-enlace' | undefined;
 let returnFocus: HTMLElement | undefined;
 let pendingExitAction: (() => void) | undefined;
 let conflictProfile: CreatorProfileDTO | undefined;
@@ -76,6 +77,10 @@ let conflictLinkData: CreatorEditorDTO | undefined;
 let linkContextRevision = 0;
 let linkCompareGeneration = 0;
 let conflictLinkContextRevision: number | undefined;
+let activeMoveContext: { placementId: string } | undefined;
+let moveContextRevision = 0;
+let moveCompareGeneration = 0;
+let moveComparisonData: CreatorEditorDTO | undefined;
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
 let manualSlug = false;
 let photoUploadId: string | undefined;
@@ -267,6 +272,12 @@ function hideDialogForms() {
 
 function showDialogForm(form: HTMLFormElement, name: NonNullable<typeof activeEditor>, title: string, trigger?: HTMLElement) {
   if (!dialog) return;
+  if (name !== 'mover-enlace') {
+    moveContextRevision += 1;
+    moveCompareGeneration += 1;
+    moveComparisonData = undefined;
+    activeMoveContext = undefined;
+  }
   hideDialogForms();
   form.hidden = false;
   setHidden(exitPrompt, true);
@@ -333,6 +344,65 @@ function openLinkContext(trigger: HTMLElement) {
   showDialogForm(form, 'enlace', resource ? `Editar ficha: ${link.title}` : `Editar opciones: ${link.title}`, trigger);
 }
 
+function moveForm(): HTMLFormElement | null {
+  return formFor('mover-enlace') ?? root?.querySelector<HTMLFormElement>('[data-link-move-form]') ?? null;
+}
+
+function movePositionInput(form: HTMLFormElement): HTMLInputElement | null {
+  return form.querySelector<HTMLInputElement>('input[name="targetPosition"]');
+}
+
+function setMoveDescription(form: HTMLFormElement, link: CreatorLinkDTO) {
+  const group = creatorOwnerLinkGroup(state?.links ?? [], link.featured);
+  const currentIndex = group.findIndex(({ placementId }) => placementId === link.placementId);
+  const input = movePositionInput(form);
+  const context = form.querySelector<HTMLElement>('[data-link-move-context]');
+  if (!input || !context || currentIndex < 0) return;
+  const requested = Number(input.value);
+  const groupName = link.featured ? 'Destacados' : 'Sin destacar';
+  input.setAttribute('min', '1');
+  input.setAttribute('max', String(group.length));
+  if (!Number.isSafeInteger(requested) || requested < 1 || requested > group.length) {
+    context.textContent = `${groupName}: elige una posición del 1 al ${group.length}.`;
+    return;
+  }
+  const withoutTarget = group.filter(({ placementId }) => placementId !== link.placementId);
+  const insertionIndex = requested - 1;
+  const previous = withoutTarget[insertionIndex - 1];
+  const next = withoutTarget[insertionIndex];
+  const neighbors = [
+    previous ? `Después de «${previous.title}»` : 'Al inicio del grupo',
+    next ? `Antes de «${next.title}»` : 'Al final del grupo',
+  ];
+  context.textContent = `${groupName}: posición ${requested} de ${group.length}. ${neighbors.join('. ')}.`;
+}
+
+function openMoveContext(trigger: HTMLElement) {
+  if (!state?.profile || !dialog) return;
+  const row = trigger.closest<HTMLElement>('[data-link-row]');
+  const placementId = trigger.dataset.placementId || row?.dataset.linkRow;
+  const link = state.links.find((item) => item.placementId === placementId);
+  const form = moveForm();
+  if (!link || !form) return;
+  const group = creatorOwnerLinkGroup(state.links, link.featured);
+  const index = group.findIndex(({ placementId: id }) => id === link.placementId);
+  if (index < 0) return;
+  moveContextRevision += 1;
+  moveCompareGeneration += 1;
+  moveComparisonData = undefined;
+  activeMoveContext = { placementId: link.placementId };
+  clearConflict(form);
+  clearAnnouncement(statusFor('mover-enlace'));
+  setHidden(form.querySelector('[data-link-move-suggestion-shell]'), true);
+  const suggestion = form.querySelector<HTMLButtonElement>('[data-link-move-suggestion]');
+  if (suggestion) delete suggestion.dataset.viablePosition;
+  const input = movePositionInput(form);
+  if (input) input.value = String(index + 1);
+  setMoveDescription(form, link);
+  formState?.commit(capture(form));
+  showDialogForm(form, 'mover-enlace', `Mover enlace: ${link.title}`, trigger);
+}
+
 function openAddLink(trigger: HTMLElement) {
   if (!state?.profile || !dialog) return;
   const form = addLinkForm();
@@ -381,10 +451,11 @@ function createLinkRow(link: CreatorLinkDTO): HTMLTableRowElement {
   const statusValues = [
     link.selectedForDirectory ? 'Propuesta al directorio' : 'No propuesta',
     ({ pending: 'Pendiente', approved: 'Aprobado', revoked: 'Revocado' } as Record<string, string>)[link.directoryApproval] ?? 'Sin revisión',
-    state?.profile?.hidden ? 'Página oculta por administración'
-      : !state?.profile?.published ? 'No pública hasta publicar'
-        : link.hidden ? 'Oculta en la página pública' : 'Visible en la página pública',
   ];
+  if (state?.profile?.hidden) statusValues.push('Página oculta por administración');
+  else if (!state?.profile?.published) statusValues.push('Página no pública hasta publicar');
+  if (link.hidden) statusValues.push('Ficha oculta en la página pública');
+  else if (state?.profile?.published && !state.profile.hidden) statusValues.push('Visible en la página pública');
   statusValues.forEach((value) => { const item = document.createElement('span'); item.textContent = value; statusCell.append(item); });
   row.append(statusCell);
 
@@ -402,13 +473,20 @@ function createLinkRow(link: CreatorLinkDTO): HTMLTableRowElement {
   edit.dataset.linkEdit = '';
   edit.dataset.placementId = link.placementId;
   edit.textContent = state?.editableResources.some(({ id }) => id === link.resourceId) ? 'Editar ficha' : 'Editar opciones';
+  const move = document.createElement('button');
+  move.className = 'button button--outline';
+  move.type = 'button';
+  move.dataset.linkMove = '';
+  move.dataset.placementId = link.placementId;
+  move.setAttribute('aria-label', 'Mover a la posición');
+  move.textContent = 'Mover a la posición…';
   const remove = document.createElement('button');
   remove.className = 'button button--outline';
   remove.type = 'button';
   remove.dataset.linkRemove = '';
   remove.dataset.placementId = link.placementId;
   remove.textContent = 'Quitar de tu página';
-  actions.append(edit, remove);
+  actions.append(edit, move, remove);
   row.append(actions);
   return row;
 }
@@ -829,6 +907,9 @@ function runPendingExitAction() {
 function closeDialog({ navigate = true }: { navigate?: boolean } = {}) {
   linkContextRevision += 1;
   linkCompareGeneration += 1;
+  moveContextRevision += 1;
+  moveCompareGeneration += 1;
+  moveComparisonData = undefined;
   if (!hasPendingChanges() && !sessionRecovery?.blocksWrites()) clearRecoveryNotice();
   if (activeEditor) clearConflict(formFor(activeEditor) ?? undefined);
   if (dialog?.open) dialog.close();
@@ -839,6 +920,7 @@ function closeDialog({ navigate = true }: { navigate?: boolean } = {}) {
   }
   activeEditor = undefined;
   activeLinkContext = undefined;
+  activeMoveContext = undefined;
   if (activeForm !== formFor('crear')) activeForm = undefined;
   clearConflict(undefined);
   const focus = returnFocus;
@@ -911,6 +993,14 @@ function resetForm(name: string, form: HTMLFormElement) {
     if (url) url.value = '';
     if (description) description.value = '';
     if (selected) selected.checked = true;
+  } else if (name === 'mover-enlace') {
+    const target = activeMoveContext && state?.links.find(({ placementId }) => placementId === activeMoveContext?.placementId);
+    const group = target ? creatorOwnerLinkGroup(state?.links ?? [], target.featured) : [];
+    const input = movePositionInput(form);
+    const currentIndex = target ? group.findIndex(({ placementId }) => placementId === target.placementId) : -1;
+    if (input && currentIndex >= 0) input.value = String(currentIndex + 1);
+    if (target) setMoveDescription(form, target);
+    setHidden(form.querySelector('[data-link-move-suggestion-shell]'), true);
   } else if (state?.profile) {
     setFormFromProfile(form, name, state.profile);
   }
@@ -1093,6 +1183,97 @@ function showLinkConflict(form: HTMLFormElement, message = 'El enlace cambió de
   announceWrite('enlace', statusMessage(409), 'error');
 }
 
+function moveComparisonIsCurrent(
+  form: HTMLFormElement,
+  placementId: string,
+  revision: number,
+  generation: number,
+): boolean {
+  return generation === moveCompareGeneration
+    && revision === moveContextRevision
+    && activeForm === form
+    && activeEditor === 'mover-enlace'
+    && !form.hidden
+    && activeMoveContext?.placementId === placementId;
+}
+
+function showMoveConflict(form: HTMLFormElement, message = 'El orden cambió desde que abriste este movimiento. Compara el orden guardado con tu destino antes de decidir cómo seguir.') {
+  const conflict = form.querySelector<HTMLElement>('[data-owner-conflict]');
+  setHidden(conflict, false);
+  const copy = conflict?.querySelector<HTMLElement>('[data-owner-conflict-copy]');
+  if (copy) copy.textContent = message;
+  setHidden(conflict?.querySelector('[data-owner-comparison]'), true);
+  setHidden(conflict?.querySelector('[data-owner-adopt]'), true);
+  moveComparisonData = undefined;
+  announceWrite('mover-enlace', 'El orden guardado cambió desde que abriste este movimiento. Compara antes de elegir cómo seguir.', 'error');
+}
+
+async function compareSavedMove(form: HTMLFormElement) {
+  const context = activeMoveContext;
+  const profileId = state?.profile?.id;
+  if (!context || !profileId) return;
+  const revision = moveContextRevision;
+  const generation = ++moveCompareGeneration;
+  announceWrite('mover-enlace', 'Consultando el orden guardado…', 'info');
+  try {
+    const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
+    if (response.status === 401) await sessionRecovery?.observeWriteResponse(response);
+    if (!moveComparisonIsCurrent(form, context.placementId, revision, generation)) return;
+    if (!response.ok) {
+      announceWrite('mover-enlace', response.status === 401 ? sessionRecovery?.writeFailureMessage() ?? statusMessage(401) : 'No pudimos leer el orden guardado. Tu destino sigue aquí.', 'error');
+      return;
+    }
+    const payload = await responsePayload(response);
+    if (!moveComparisonIsCurrent(form, context.placementId, revision, generation)) return;
+    if (!payload || !isOwnerData(payload) || payload.profile?.id !== profileId) {
+      announceWrite('mover-enlace', 'No pudimos confirmar que la respuesta corresponde a esta página. Conservamos tu destino.', 'error');
+      return;
+    }
+    const target = payload.links.find(({ placementId }) => placementId === context.placementId);
+    if (!target) {
+      announceWrite('mover-enlace', 'Este enlace ya no está en la página. Conservamos tu destino para que decidas cómo seguir.', 'error');
+      return;
+    }
+    const savedGroup = creatorOwnerLinkGroup(payload.links, target.featured);
+    const savedOrdinal = savedGroup.findIndex(({ placementId }) => placementId === target.placementId) + 1;
+    const requested = movePositionInput(form)?.value ?? '';
+    const order = savedGroup.map((link, index) => `${index + 1}. ${link.title}${link.hidden ? ' (oculto)' : ''}`).join('\n');
+    const comparison = form.querySelector<HTMLElement>('[data-owner-comparison]');
+    if (comparison) comparison.textContent = `Grupo guardado: ${target.featured ? 'Destacados' : 'Sin destacar'} (${savedGroup.length} enlaces).\nPosición guardada: ${savedOrdinal}. Tu destino: ${requested || '—'}.\nOrden guardado:\n${order}`;
+    setHidden(comparison, false);
+    setHidden(form.querySelector('[data-owner-adopt]'), false);
+    moveComparisonData = payload;
+    announceWrite('mover-enlace', 'Compara el orden y elige expresamente si quieres usar las versiones guardadas.', 'info');
+  } catch {
+    if (moveComparisonIsCurrent(form, context.placementId, revision, generation)) {
+      announceWrite('mover-enlace', 'No pudimos conectar para leer el orden guardado. Tu destino sigue aquí.', 'error');
+    }
+  }
+}
+
+function adoptSavedMove(form: HTMLFormElement) {
+  const context = activeMoveContext;
+  const adopted = moveComparisonData;
+  if (!context || !adopted || activeEditor !== 'mover-enlace' || activeForm !== form || form.hidden
+    || !state?.profile || adopted.profile?.id !== state.profile.id) return;
+  if (!adopted.links.some(({ placementId }) => placementId === context.placementId)) return;
+  const targetPositionInput = movePositionInput(form);
+  const requested = targetPositionInput?.value;
+  state.profile = adopted.profile;
+  state.links = adopted.links;
+  state.editableResources = adopted.editableResources;
+  state.series = adopted.series;
+  adopted.links.forEach(({ resourceId, placementId }) => placementIdByResource.set(resourceId, placementId));
+  root?.setAttribute('data-profile-version', String(adopted.profile.version));
+  renderOwnerLinksAfterCollectionChange();
+  if (targetPositionInput && requested !== undefined) targetPositionInput.value = requested;
+  const target = state.links.find(({ placementId }) => placementId === context.placementId);
+  if (target) setMoveDescription(form, target);
+  clearConflict(form);
+  moveComparisonData = undefined;
+  announceWrite('mover-enlace', 'Adoptaste expresamente el orden y las versiones guardadas. Tu destino sigue en el formulario para que decidas si quieres guardarlo.', 'success');
+}
+
 function updateLinkState(next: CreatorLinkDTO, profileVersion: number) {
   if (!state?.profile) return;
   placementIdByResource.set(next.resourceId, next.placementId);
@@ -1249,6 +1430,147 @@ async function saveLinkForm(form: HTMLFormElement) {
     maybeExitAfterSave(unchanged);
   } catch {
     announceWrite('enlace', 'No pudimos confirmar la respuesta del servicio. La edición sigue abierta; comprueba el estado antes de volver a guardar.', 'error');
+  } finally {
+    form.removeAttribute('aria-busy');
+  }
+}
+
+function restoreMoveFocus(placementId: string) {
+  const row = [...(root?.querySelectorAll<HTMLElement>('[data-link-row]') ?? [])]
+    .find((item) => item.dataset.linkRow === placementId);
+  returnFocus = row?.querySelector<HTMLElement>('[data-link-move]')
+    ?? root?.querySelector<HTMLElement>('[data-link-search]')
+    ?? undefined;
+}
+
+async function saveMoveForm(form: HTMLFormElement) {
+  const context = activeMoveContext;
+  const ownerState = state;
+  const profile = ownerState?.profile;
+  const targetPositionInput = movePositionInput(form);
+  const target = context && ownerState?.links.find(({ placementId }) => placementId === context.placementId);
+  const targetPlacementVersion = target?.placementVersion;
+  if (!ownerState || !profile || !target || !targetPositionInput
+    || typeof targetPlacementVersion !== 'number' || !Number.isSafeInteger(targetPlacementVersion) || targetPlacementVersion < 0) {
+    announceWrite('mover-enlace', 'Vuelve a abrir el enlace para cargar el orden y sus versiones actuales.', 'error');
+    return;
+  }
+  const group = creatorOwnerLinkGroup(ownerState.links, target.featured);
+  const targetPosition = Number(targetPositionInput.value);
+  if (!form.reportValidity() || !Number.isSafeInteger(targetPosition)
+    || targetPosition < 1 || targetPosition > group.length) return;
+
+  moveCompareGeneration += 1;
+  moveComparisonData = undefined;
+  const snapshot = capture(form);
+  setHidden(form.querySelector('[data-link-move-suggestion-shell]'), true);
+  form.setAttribute('aria-busy', 'true');
+  try {
+    const response = await jsonRequest(`/api/creador/enlaces/${encodeURIComponent(target.placementId)}/mover`, 'POST', {
+      profileVersion: profile.version,
+      placementVersion: targetPlacementVersion,
+      targetPosition,
+    });
+    if (!response.ok) {
+      if (response.status === 409) {
+        showMoveConflict(form);
+      } else if (response.status === 422) {
+        const payload = await responsePayload(response);
+        const viablePosition = payload?.error === 'ORDER_MOVE_LIMIT' && Number.isSafeInteger(payload.viablePosition)
+          ? Number(payload.viablePosition)
+          : undefined;
+        const currentGroup = creatorOwnerLinkGroup(ownerState.links, target.featured);
+        const currentIndex = currentGroup.findIndex(({ placementId }) => placementId === target.placementId);
+        const towardRequested = viablePosition !== undefined && currentIndex >= 0
+          && viablePosition >= 1 && viablePosition <= currentGroup.length
+          && viablePosition !== currentIndex + 1
+          && Math.abs(viablePosition - (currentIndex + 1)) < Math.abs(targetPosition - (currentIndex + 1));
+        const suggestionShell = form.querySelector<HTMLElement>('[data-link-move-suggestion-shell]');
+        const suggestion = form.querySelector<HTMLButtonElement>('[data-link-move-suggestion]');
+        if (towardRequested && suggestion && suggestionShell) {
+          suggestion.dataset.viablePosition = String(viablePosition);
+          suggestion.textContent = `Usar posición intermedia ${viablePosition}`;
+          setHidden(suggestionShell, false);
+        }
+        announceWrite('mover-enlace', payload?.error === 'ORDER_MOVE_LIMIT'
+          ? 'Ese movimiento supera el límite de una sola operación. Conservamos el destino solicitado; puedes elegir una posición intermedia y guardar de nuevo.'
+          : statusMessage(422), 'error');
+      } else announceWrite('mover-enlace', statusMessage(response.status), 'error');
+      return;
+    }
+
+    const payload = await responsePayload(response);
+    const changes = await readCreatorVersionChanges(response);
+    const rawLinks = payload?.links;
+    const candidates = Array.isArray(rawLinks) && rawLinks.every(isCreatorLink) ? rawLinks : undefined;
+    const byId = new Map((candidates ?? []).map((link) => [link.placementId, link]));
+    const nextTarget = byId.get(target.placementId);
+    const changedCandidates = [...byId.values()].filter((candidate) => {
+      const current = ownerState.links.find(({ placementId }) => placementId === candidate.placementId);
+      return current && current.position !== candidate.position;
+    });
+    const candidateIdsExpected = new Set([target.placementId, ...changedCandidates.map(({ placementId }) => placementId)]);
+    const candidateSetMatches = candidates !== undefined && byId.size === candidates.length
+      && byId.size === candidateIdsExpected.size
+      && [...candidateIdsExpected].every((id) => byId.has(id));
+    const groupCandidatesValid = [...byId.values()].every((candidate) => {
+      const current = ownerState.links.find(({ placementId }) => placementId === candidate.placementId);
+      return current !== undefined && typeof current.placementVersion === 'number'
+        && Number.isSafeInteger(current.placementVersion) && current.placementVersion >= 0
+        && candidate.resourceId === current.resourceId
+        && candidate.featured === current.featured
+        && candidate.position >= 0
+        && candidate.series.length === current.series.length
+        && JSON.stringify(candidate.series) === JSON.stringify(current.series)
+        && candidate.placementVersion === current.placementVersion + Number(candidate.position !== current.position);
+    });
+    const resultingGroup = group.map((link) => {
+      const candidate = byId.get(link.placementId);
+      return candidate ? { ...link, position: candidate.position } : link;
+    }).sort((left, right) => left.position - right.position || left.placementId.localeCompare(right.placementId));
+    const resultingOrdinal = resultingGroup.findIndex(({ placementId }) => placementId === target.placementId) + 1;
+    const expectedChanges: Array<{ entity: 'profile' | 'placement'; id: string; before: number; after: number }> = [];
+    if (changedCandidates.length) {
+      expectedChanges.push({ entity: 'profile', id: profile.id, before: profile.version, after: profile.version + 1 });
+      for (const candidate of changedCandidates) {
+        const current = ownerState.links.find(({ placementId }) => placementId === candidate.placementId);
+        if (current && typeof current.placementVersion === 'number') {
+          expectedChanges.push({ entity: 'placement', id: current.placementId, before: current.placementVersion, after: current.placementVersion + 1 });
+        }
+      }
+    }
+    const valid = response.status === 200 && payload !== null && Array.isArray(rawLinks)
+      && isCreatorLink(nextTarget) && candidateSetMatches && groupCandidatesValid
+      && resultingOrdinal === targetPosition && changesEqual(changes, expectedChanges);
+    if (!valid) {
+      showMoveConflict(form, 'La respuesta no coincide con el orden o las versiones observadas. Conservamos el destino y no adoptamos datos sin confirmar.');
+      announceWrite('mover-enlace', 'No pudimos comprobar el recibo del movimiento. Conservamos tu destino para revisarlo antes de volver a guardar.', 'error');
+      return;
+    }
+
+    const changedById = new Map([...byId.values()].map((candidate) => [candidate.placementId, candidate]));
+    ownerState.links = ownerState.links.map((current) => {
+      const candidate = changedById.get(current.placementId);
+      return candidate
+        ? { ...current, position: candidate.position, placementVersion: candidate.placementVersion }
+        : current;
+    });
+    const nextProfileVersion = changedCandidates.length ? profile.version + 1 : profile.version;
+    ownerState.profile = { ...profile, version: nextProfileVersion };
+    root?.setAttribute('data-profile-version', String(nextProfileVersion));
+    renderOwnerLinks();
+    const updatedTarget = ownerState.links.find(({ placementId }) => placementId === target.placementId);
+    if (updatedTarget) setMoveDescription(form, updatedTarget);
+    restoreMoveFocus(target.placementId);
+    clearConflict(form);
+    clearRecoveryNotice();
+    const unchanged = submitWasUnchanged(snapshot);
+    if (unchanged) {
+      announceWrite('mover-enlace', changedCandidates.length ? 'Orden guardado.' : 'Ese enlace ya estaba en esa posición.', 'success');
+    } else announceWrite('mover-enlace', 'Orden guardado. Conservamos el destino que cambiaste mientras se guardaba; revísalo antes de volver a guardar.', 'success');
+    maybeExitAfterSave(unchanged);
+  } catch {
+    announceWrite('mover-enlace', 'No pudimos confirmar la respuesta del servicio. El formulario conserva el destino; comprueba el orden antes de volver a guardar.', 'error');
   } finally {
     form.removeAttribute('aria-busy');
   }
@@ -1873,6 +2195,14 @@ if (root && state && csrfToken && dialog) {
       await saveAddedLink(addForm);
     });
   }
+  const movementForm = moveForm();
+  if (movementForm) {
+    onWrite(movementForm, async (event) => {
+      event.preventDefault();
+      activeForm = movementForm;
+      await saveMoveForm(movementForm);
+    });
+  }
 
   restoreLinksFromLocation();
 
@@ -1897,6 +2227,12 @@ if (root && state && csrfToken && dialog) {
     const form = control.form;
     const name = form?.dataset.ownerForm;
     if (!form || !name) return;
+    if (name === 'mover-enlace' && control.name === 'targetPosition' && activeMoveContext) {
+      const target = state?.links.find(({ placementId }) => placementId === activeMoveContext?.placementId);
+      if (target) setMoveDescription(form, target);
+      control.setCustomValidity?.('');
+      return;
+    }
     if (name === 'crear') {
       activeForm = form;
       if (control.name === 'slug') manualSlug = true;
@@ -1923,6 +2259,22 @@ if (root && state && csrfToken && dialog) {
   root.addEventListener('click', (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
+    const moveSuggestion = target.closest<HTMLButtonElement>('[data-link-move-suggestion]');
+    if (moveSuggestion) {
+      event.preventDefault();
+      const form = moveForm();
+      const input = form && movePositionInput(form);
+      const requested = Number(moveSuggestion.dataset.viablePosition);
+      const link = activeMoveContext && state?.links.find(({ placementId }) => placementId === activeMoveContext?.placementId);
+      const group = link ? creatorOwnerLinkGroup(state?.links ?? [], link.featured) : [];
+      if (!form || activeEditor !== 'mover-enlace' || !input || !Number.isSafeInteger(requested)
+        || requested < 1 || requested > group.length || !link) return;
+      input.value = String(requested);
+      input.setCustomValidity('');
+      setMoveDescription(form, link);
+      input.focus();
+      return;
+    }
     const addOpen = target.closest<HTMLElement>('[data-link-add-open]');
     if (addOpen) {
       event.preventDefault();
@@ -1935,6 +2287,17 @@ if (root && state && csrfToken && dialog) {
       event.preventDefault();
       if (hasPendingChanges()) showExitPrompt(() => openLinkContext(linkEdit), linkEdit);
       else openLinkContext(linkEdit);
+      return;
+    }
+    const linkMove = target.closest<HTMLElement>('[data-link-move]');
+    if (linkMove) {
+      event.preventDefault();
+      if (writeGuard?.isActive()) {
+        showExitPrompt(undefined, linkMove);
+        return;
+      }
+      if (hasPendingChanges()) showExitPrompt(() => openMoveContext(linkMove), linkMove);
+      else openMoveContext(linkMove);
       return;
     }
     const removeLink = target.closest<HTMLElement>('[data-link-remove]');
@@ -1995,6 +2358,11 @@ if (root && state && csrfToken && dialog) {
       void compareSavedLink(activeForm);
       return;
     }
+    if (compareButton && activeForm && activeEditor === 'mover-enlace') {
+      event.preventDefault();
+      void compareSavedMove(activeForm);
+      return;
+    }
     if (compareButton && activeForm && (conflictName === 'crear' || activeEditor === 'datos' || activeEditor === 'redes')) {
       event.preventDefault();
       void compareSavedVersion(activeForm, conflictName === 'crear' ? 'crear' : activeEditor as 'datos' | 'redes');
@@ -2004,6 +2372,11 @@ if (root && state && csrfToken && dialog) {
     if (adoptButton && activeForm && activeEditor === 'enlace') {
       event.preventDefault();
       adoptSavedLink(activeForm);
+      return;
+    }
+    if (adoptButton && activeForm && activeEditor === 'mover-enlace') {
+      event.preventDefault();
+      adoptSavedMove(activeForm);
       return;
     }
     if (adoptButton && activeForm && (conflictName === 'crear' || activeEditor === 'datos' || activeEditor === 'redes')) {

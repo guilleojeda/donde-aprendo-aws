@@ -33,7 +33,11 @@ function defaultProfile() {
 
 export function createOwnerLinksSurface({ profile = defaultProfile(), links = [], editableResources = [], series = [], search = '', query = {} } = {}) {
   const document = { activeElement: null, listeners: new Map() };
-  document.createElement = (tagName) => new BrowserElement({ tagName });
+  document.createElement = (tagName) => {
+    const element = new BrowserElement({ tagName });
+    element.ownerDocument = document;
+    return element;
+  };
   const ownerButtons = ['datos', 'redes', 'foto'].map((name) => new BrowserElement({ tagName: 'BUTTON', dataset: { ownerEdit: name } }));
   const dataForm = form([
     control('displayName', profile.displayName), control('slug', profile.slug),

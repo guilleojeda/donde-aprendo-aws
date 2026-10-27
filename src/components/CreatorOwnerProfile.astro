@@ -146,7 +146,7 @@ function safeSocialUrl(value: string | undefined): string | undefined {
 
       {profile && view === 'enlaces' && <CreatorOwnerActivity profile={profile} />}
       <nav class="creator-owner__link-tools" aria-label="Otras herramientas de creador">
-        <a class="button button--outline" data-owner-navigation href="/cuenta/creador/">Orden, series y solicitudes</a>
+        <a class="button button--outline" data-owner-navigation href="/cuenta/creador/">Series y solicitudes</a>
         <a
           class="button button--outline"
           data-owner-navigation
@@ -274,6 +274,26 @@ function safeSocialUrl(value: string | undefined): string | undefined {
           <details class="creator-owner__link-help"><summary>Sobre el directorio</summary><p>La propuesta requiere aprobación. Quitarla no quita el enlace de tu página; la actualización del directorio puede demorar.</p></details>
           <p class="creator-owner__status" data-link-add-status role="status" aria-live="polite"></p>
           <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit">Agregar enlace</button><button class="button button--outline" type="button" data-owner-cancel>Cancelar</button></div>
+        </form>
+
+        <form class="creator-owner__form" data-owner-form="mover-enlace" data-link-move-form hidden aria-label="Mover enlace a una posición">
+          <p class="creator-owner__move-context" id="owner-link-move-context" data-link-move-context aria-live="polite"></p>
+          <div class="creator-owner__field">
+            <label for="owner-link-target-position">Posición dentro del grupo</label>
+            <input id="owner-link-target-position" name="targetPosition" type="number" min="1" step="1" required inputmode="numeric" aria-describedby="owner-link-move-context" />
+          </div>
+          <p class="creator-owner__status" data-owner-form-status="mover-enlace" role="status" aria-live="polite"></p>
+          <div data-link-move-suggestion-shell hidden>
+            <button class="button button--outline" type="button" data-link-move-suggestion></button>
+          </div>
+          <section class="creator-owner__conflict" data-owner-conflict data-link-move-conflict hidden aria-labelledby="owner-link-move-conflict-title">
+            <h3 id="owner-link-move-conflict-title">El orden cambió</h3>
+            <p data-owner-conflict-copy></p>
+            <button class="button button--outline" type="button" data-owner-compare>Comparar con el orden guardado</button>
+            <div data-owner-comparison hidden></div>
+            <button class="button button--outline" type="button" data-owner-adopt hidden>Usar las versiones guardadas</button>
+          </section>
+          <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit">Guardar posición</button><button class="button button--outline" type="button" data-owner-cancel>Cancelar</button></div>
         </form>
 
         <div class="creator-owner__exit" data-owner-exit-prompt hidden role="alertdialog" aria-labelledby="owner-exit-title" aria-describedby="owner-exit-copy">
