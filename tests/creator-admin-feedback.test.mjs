@@ -980,3 +980,109 @@ test('resolver una reclamación deja editables y guardables las selecciones exac
   assert.equal(page.reloads(), 1, 'saving the other exact-ID selection completes the refresh');
   assert.equal(submitA.disabled, true, 'the resolved claim itself stays paused until refresh');
 });
+
+test('R12 successful claim receipt gap pauses only the stale row and preserves B through session recovery', async () => {
+  const auth = { current: { state: 'authenticated', accountId: 'admin-feedback', csrfToken: 'csrf-feedback', isAdmin: true } };
+  const creator = { state: 'authenticated', accountId: 'private-account-a', csrfToken: 'csrf-a', isAdmin: false };
+  const harness = await createCreatorPagesHarness({
+    authenticate: async (request) => request.headers.get('x-test-session') === 'admin' ? auth.current : creator,
+  });
+  const created = await callApi(harness, '/api/creador/perfil', {
+    method: 'PUT', session: 'creator-a', csrf: 'csrf-a',
+    body: { displayName: 'Ana', slug: 'ana-admin-r12', programs: [], socials: {} },
+  });
+  assert.equal(created.status, 200);
+
+  const resourceRecord = (id) => ({
+    id, title: id, url: `https://example.com/${id}`, description: '', category: 'Otros',
+    kind: 'content', format: 'Artículo', topics: [], order: 1, featured: false, published: false,
+    directoryApproval: 'pending', directoryControl: 'editorial', hidden: false, version: 1,
+  });
+  for (const id of ['resource-r12-a', 'resource-r12-b']) {
+    await seedResource(harness.store, resourceRecord(id));
+  }
+  const claim = await callApi(harness, '/api/creador/reclamaciones', {
+    method: 'POST', session: 'creator-a', csrf: 'csrf-a', body: { resourceIds: ['resource-r12-a'] },
+  });
+  assert.equal(claim.status, 202);
+  const changedBeforePageLoad = await callApi(harness, '/api/admin/recursos/resource-r12-a', {
+    method: 'PATCH', session: 'admin', csrf: 'csrf-feedback', body: { category: 'Certificaciones', version: 1 },
+  });
+  assert.equal(changedBeforePageLoad.status, 200);
+
+  const handler = createCreatorHttpHandler({
+    service: harness.service,
+    auth: { getPrincipal: async () => auth.current },
+    origin: SITE_ORIGIN,
+  });
+  const html = await renderAdminPage({
+    claimRecords: [{ id: 'claim-r12', accountId: creator.accountId, resourceIds: ['resource-r12-a'], status: 'pending' }],
+    resourceRecords: ['resource-r12-a', 'resource-r12-b'].map(resourceRecord),
+  });
+  const statuses = [];
+  let claimReceipt;
+  let expireFirstSave = true;
+  const page = await executeAdminScript(html, {
+    fetchImpl: async (url, init = {}) => {
+      const target = new URL(url, SITE_ORIGIN);
+      if (target.pathname === '/api/admin/recursos/resource-r12-b/' && init.method === 'PATCH' && expireFirstSave) {
+        expireFirstSave = false;
+        statuses.push({ method: init.method, path: target.pathname, status: 401 });
+        return Response.json({ error: 'AUTH_REQUIRED' }, { status: 401 });
+      }
+      const headers = new Headers(init.headers);
+      headers.set('origin', SITE_ORIGIN);
+      headers.set('x-test-session', 'admin');
+      const response = await handler(new Request(target, { ...init, headers }));
+      if (target.pathname === '/api/admin/reclamaciones/vincular/' && response.status === 200) {
+        claimReceipt = await response.clone().json();
+      }
+      statuses.push({ method: init.method ?? 'GET', path: target.pathname, status: response.status });
+      return response;
+    },
+  });
+  assert.equal(page.sessionBinding, creatorPageSessionBinding(auth.current), 'the rendered page binds recovery to the original admin account and role');
+
+  const claimForm = page.claimForms[0];
+  const rowA = page.resourcesRows.find(({ id }) => id === 'resource-r12-a');
+  const rowB = page.resourcesRows.find(({ id }) => id === 'resource-r12-b');
+  const classificationA = page.classificationForms.find((form) => form.rowId === 'resource-r12-a');
+  const classificationB = page.classificationForms.find((form) => form.rowId === 'resource-r12-b');
+  assert.ok(claimForm && rowA && rowB && classificationA && classificationB);
+  classificationA.fields[0].value = 'Seguridad';
+  classificationB.fields[0].value = 'Certificaciones';
+
+  await claimForm.dispatch('submit');
+  assert.deepEqual(statuses.map(({ status }) => status), [200], 'the service successfully links A and returns its A2→3 receipt');
+  assert.ok(claimReceipt.versionChanges.some((change) => change.entity === 'resource'
+    && change.id === 'resource-r12-a' && change.before === 2 && change.after === 3));
+  assert.equal((await harness.store.get('resource:resource-r12-a')).version, 3);
+  assert.equal(classificationA.fields[0].value, 'Seguridad', 'A keeps the unsubmitted correction after the receipt gap');
+  assert.equal(classificationA.saveButton.disabled, true, 'A cannot submit a classification based on the page-observed version 1');
+  const actionsA = rowA.row.controls.filter((control) => control.dataset.resourceAction);
+  assert.ok(actionsA.length > 0, 'A exposes administrative actions in the rendered row');
+  assert.equal(rowA.row.controls.filter((control) => control.tagName === 'BUTTON').every((button) => button.disabled), true,
+    'all administrative actions in A are paused until refresh');
+  assert.equal(classificationB.fields[0].value, 'Certificaciones');
+  assert.equal(classificationB.saveButton.disabled, false, 'B remains independently saveable');
+
+  await classificationB.dispatch('submit');
+  assert.deepEqual(statuses.map(({ status }) => status), [200, 401], 'the first B save expires the session without replaying A');
+  assert.equal(classificationB.saveButton.disabled, false, 'the rejected B draft remains available');
+  auth.current = { state: 'authenticated', accountId: 'admin-feedback', csrfToken: 'csrf-admin-renewed', isAdmin: true };
+  await page.sessionRecovery.check.dispatch('click');
+  await settleSessionCheck();
+  assert.deepEqual(statuses.map(({ status }) => status), [200, 401, 200], 'session recovery checks the session without resending a write');
+  assert.match(page.sessionRecovery.status.textContent, /Sesión comprobada/);
+  assert.equal(page.sessionRecovery.check.hidden, true);
+
+  await classificationB.dispatch('submit');
+  assert.deepEqual(statuses.map(({ status }) => status), [200, 401, 200, 200]);
+  assert.deepEqual(JSON.parse(page.requests.at(-1).init.body), {
+    category: 'Certificaciones', kind: 'content', format: 'Artículo', topics: [], version: 1,
+  }, 'B uses only its own version and its preserved classification draft');
+  assert.equal(page.requests.at(-1).init.headers['x-csrf-token'], 'csrf-admin-renewed');
+  assert.equal((await harness.store.get('resource:resource-r12-b')).category, 'Certificaciones');
+  assert.equal(page.requests.filter(({ url }) => url.includes('/api/admin/reclamaciones/vincular/')).length, 1,
+    'the successful claim is never replayed during session recovery or the B save');
+});

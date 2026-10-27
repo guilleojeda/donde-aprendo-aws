@@ -195,6 +195,20 @@ function markAdminActionsStale(selector: string, within: ParentNode = root as HT
   writeGuard?.markStale('[data-creator-stale]');
 }
 
+function pauseAdminRows(records: readonly Pick<CreatorVersionChange, 'entity' | 'id'>[]) {
+  if (!root) return;
+  for (const { entity, id } of records) {
+    const selector = entity === 'resource' ? '[data-admin-resource]'
+      : entity === 'profile' ? '[data-admin-profile]' : undefined;
+    const datasetKey = entity === 'resource' ? 'adminResource'
+      : entity === 'profile' ? 'adminProfile' : undefined;
+    if (!selector || !datasetKey) continue;
+    const row = Array.from(root.querySelectorAll<HTMLElement>(selector))
+      .find((candidate) => candidate.dataset[datasetKey] === id);
+    if (row) markAdminActionsStale('button', row);
+  }
+}
+
 function showViewTransition(message: string) {
   const shell = root?.querySelector<HTMLElement>('[data-view-transition-shell]');
   if (shell) shell.hidden = false;
@@ -207,10 +221,16 @@ async function finishAdminWrite(
   target: Element | null | undefined,
   successMessage: string,
   submittedValues?: FormValueSnapshot,
-  options: { structural?: boolean; entity?: 'classification' | 'resource-action' | 'profile-action'; id?: string } = {},
+  options: {
+    structural?: boolean;
+    entity?: 'classification' | 'resource-action' | 'profile-action';
+    id?: string;
+  } = {},
 ) {
   const changes = await readCreatorVersionChanges(response);
-  const receiptGap = changes === null || applyVersionChanges(changes).length > 0;
+  const receiptGaps = changes === null ? [] : applyVersionChanges(changes);
+  const receiptGap = changes === null || receiptGaps.length > 0;
+  pauseAdminRows(receiptGaps);
   const payload = await responsePayload(response);
   if (!receiptGap) updateOwnedContent(payload, options.entity, options.id);
   formState?.commit(submittedValues);
@@ -379,15 +399,7 @@ if (root && state && csrfToken) {
           const { ids: linkedIds, changes } = await partialLinkDetails(response, selectedIds);
           if (changes) {
             const receiptGaps = applyVersionChanges(changes);
-            for (const change of receiptGaps) {
-              const entity = change.entity === 'resource' ? 'resource' : change.entity === 'profile' ? 'profile' : undefined;
-              if (!entity) continue;
-              const selector = entity === 'resource' ? '[data-admin-resource]' : '[data-admin-profile]';
-              const datasetKey = entity === 'resource' ? 'adminResource' : 'adminProfile';
-              const row = Array.from(root.querySelectorAll<HTMLElement>(selector))
-                .find((candidate) => candidate.dataset[datasetKey] === change.id);
-              if (row) markAdminActionsStale('button', row);
-            }
+            pauseAdminRows(receiptGaps);
           }
           if (linkedIds.length > 0) {
             const linked = new Set(linkedIds);
@@ -412,7 +424,9 @@ if (root && state && csrfToken) {
         }
         markAdminActionsStale('[data-resource-action], [data-profile-action]');
         markAdminActionsStale('[data-claim-resolution] button, [data-claim-resolution] input[name="resourceIds"]', item ?? form);
-        await finishAdminWrite(response, itemStatus(item), 'Recursos vinculados a la cuenta.', submittedValues, { structural: true });
+        await finishAdminWrite(response, itemStatus(item), 'Recursos vinculados a la cuenta.', submittedValues, {
+          structural: true,
+        });
       } catch (error) {
         announce(itemStatus(item), requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
       } finally {
