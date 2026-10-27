@@ -2,6 +2,7 @@
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import SiteHeader from '../../../components/SiteHeader.astro';
 import SiteFooter from '../../../components/SiteFooter.astro';
+import AccountLogout from '../../../components/AccountLogout.astro';
 import '../../../styles/account.css';
 import { getAccountAuth } from '../../../lib/account-runtime.mjs';
 import { readLogoutRetryCsrf } from '../../../lib/account-auth.mjs';
@@ -34,6 +35,34 @@ if (Astro.request.method === 'POST') {
   }
 
   const location = result.headers.get('location');
+  const wantsJson = Astro.request.headers.get('accept')?.split(',')
+    .some((type) => type.trim().split(';')[0] === 'application/json');
+  if (wantsJson) {
+    const headers = new Headers(result.headers);
+    headers.delete('location');
+    headers.set('X-Robots-Tag', 'noindex, nofollow');
+    const retryCsrf = readLogoutRetryCsrf(result);
+    let destination: URL | undefined;
+    try {
+      if (result.status === 303 && location) destination = new URL(location, Astro.url);
+    } catch { /* An invalid destination must never claim a completed logout. */ }
+
+    if (destination && !destination.username && !destination.password
+      && (destination.protocol === 'https:' || destination.origin === Astro.url.origin)
+      && !(destination.pathname === '/cuenta/' && destination.searchParams.get('estado') === 'no-disponible')) {
+      // The auth service constructs this destination only after confirmed
+      // revocation (or a consistent read confirming that no session remains).
+      return Response.json({ redirect: destination.href }, { status: 200, headers });
+    }
+    const status = result.status >= 400 ? result.status : 503;
+    return Response.json({
+      message: typeof retryCsrf === 'string'
+        ? 'No pudimos confirmar el cierre de sesión. Inténtalo de nuevo.'
+        : status === 403
+          ? 'No pudimos validar el cierre de sesión. Vuelve a tu cuenta para intentarlo de nuevo.'
+          : 'No pudimos completar el cierre de sesión. Inténtalo de nuevo.',
+    }, { status, headers });
+  }
   if (result.status === 303 && location) {
     try {
       const target = new URL(location, Astro.url);
@@ -85,10 +114,7 @@ Astro.response.status = pageStatus;
         <h2 id="logout-error-title">{retryLogout ? 'No pudimos confirmar el cierre de sesión' : 'No pudimos completar el cierre de sesión'}</h2>
         <p>{pageMessage}</p>
         {retryLogout && submittedCsrfToken ? (
-          <form method="post" action="/cuenta/salir/" class="account-logout">
-            <input type="hidden" name="csrfToken" value={submittedCsrfToken} />
-            <button class="button button--dark" type="submit">Reintentar cierre de sesión</button>
-          </form>
+          <AccountLogout csrfToken={submittedCsrfToken} label="Reintentar cierre de sesión" buttonClass="button button--dark" />
         ) : (
           <a class="button button--dark" href="/cuenta/">Volver a mi cuenta</a>
         )}

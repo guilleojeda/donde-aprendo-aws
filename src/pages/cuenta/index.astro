@@ -3,6 +3,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import SiteHeader from '../../components/SiteHeader.astro';
 import SiteFooter from '../../components/SiteFooter.astro';
 import CreatorOwnerProfile from '../../components/CreatorOwnerProfile.astro';
+import AccountLogout from '../../components/AccountLogout.astro';
 import '../../styles/account.css';
 import '../../styles/creator-owner.css';
 import { getAccountAuth } from '../../lib/account-runtime.mjs';
@@ -171,10 +172,7 @@ const publicOrigin = import.meta.env.PUBLIC_SITE_ORIGIN || Astro.url.origin;
             {disabledCsrf && (
               <>
                 <p>Puedes cerrar la sesión en este navegador.</p>
-                <form method="post" action="/cuenta/salir/" class="account-logout">
-                  <input type="hidden" name="csrfToken" value={disabledCsrf} />
-                  <button class="button button--dark" type="submit">Cerrar sesión</button>
-                </form>
+                <AccountLogout csrfToken={disabledCsrf} buttonClass="button button--dark" />
               </>
             )}
           </section>

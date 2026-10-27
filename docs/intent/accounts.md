@@ -1,7 +1,7 @@
 # Cuentas
 
 Una persona puede crear una cuenta abierta, verificar su correo, ingresar,
-cerrar sesión y recuperar acceso con otra contraseña desde «Mi cuenta».
+cerrar sesión y recuperar acceso con otra contraseña desde «Mi página».
 Registrarse no publica una ficha ni adjudica recursos del catálogo. El correo
 de acceso es privado; nombre público y propiedad de contenido no se deducen
 de él.
@@ -42,6 +42,11 @@ Cerrar sesión requiere POST, origen válido y token CSRF de esa sesión. Se
 confirma su revocación antes de borrar la cookie y terminar la sesión de
 Cognito. Repetir la salida es seguro; reutilizar una cookie revocada no da
 acceso. Un fallo al revocar no se comunica como salida completada.
+El formulario usa JavaScript para enviar el POST con el origen del navegador
+y sin Referer, conservando `no-referrer` en las páginas privadas. La respuesta
+JSON confirma el destino antes de navegar a Cognito; no se sigue una
+redirección del POST mediante fetch. Sin JavaScript se explica que debe
+activarse para cerrar la sesión desde esta página.
 Si falla la escritura, la respuesta ofrece una acción POST privada y sin
 almacenamiento en caché para reintentar con el token CSRF ya validado; no se
 guarda una autorización de salida adicional.

@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 import { transform } from '@astrojs/compiler-rs';
 import { experimental_AstroContainer } from 'astro/container';
+import { createOriginCheckMiddleware } from '../node_modules/astro/dist/core/app/origin-check.js';
 import {
   COGNITO_DOMAIN, ORIGIN, TEST_EMAIL, completeLogin, cookiePair,
   createAccountHarness, location, makeIdentity, makeRequest, responseCookies, sessionRequest,
@@ -100,6 +101,14 @@ after(async () => {
 
 async function render(page, request) {
   return container.renderToResponse(page, { request, partial: false });
+}
+
+// The Astro container deliberately skips this production middleware. Exercise
+// the installed gate as well so fabricated valid-Origin forms cannot hide a
+// browser transport regression again.
+const originGate = createOriginCheckMiddleware();
+function renderWithOriginGate(page, request) {
+  return originGate({ request, url: new URL(request.url), isPrerendered: false }, () => render(page, request));
 }
 
 test('the real 404 layout excludes Analytics for private paths while public missing pages retain measurement', async () => {
@@ -361,4 +370,86 @@ test('a failed delete keeps an actionable retry, while invalid or cross-origin s
   assert.equal(location(retryResponse).origin, COGNITO_DOMAIN);
   assert.equal(location(retryResponse).pathname, '/logout');
   assert.equal(harness.store.sessions.size, 0);
+});
+
+function jsonLogout(sessionCookie, csrfToken, origin = ORIGIN) {
+  return makeRequest('/cuenta/salir/', {
+    method: 'POST',
+    headers: { cookie: cookiePair(sessionCookie), origin, accept: 'application/json' },
+    body: new URLSearchParams({ csrfToken }),
+  });
+}
+
+test('negotiated logout passes the real Astro origin gate and returns its confirmed provider destination with cookie cleanup', async () => {
+  const harness = await createAccountHarness();
+  const { login, csrfToken } = await signedInPage(harness);
+  for (const origin of ['null', 'https://other.invalid']) {
+    const rejected = await renderWithOriginGate(logoutPage, jsonLogout(login.sessionCookie, csrfToken, origin));
+    assert.equal(rejected.status, 403);
+    assert.match(await rejected.text(), /Cross-site POST/);
+    assert.equal(harness.store.sessions.size, 1);
+  }
+  const invalidCsrf = await renderWithOriginGate(logoutPage, jsonLogout(login.sessionCookie, 'invalid-token'));
+  assert.equal(invalidCsrf.status, 403);
+  assert.equal(responseCookies(invalidCsrf).length, 0);
+  assert.equal(harness.store.sessions.size, 1);
+
+  const response = await renderWithOriginGate(logoutPage, jsonLogout(login.sessionCookie, csrfToken));
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  const target = new URL(payload.redirect);
+  assert.equal(target.origin, COGNITO_DOMAIN);
+  assert.equal(target.pathname, '/logout');
+  assert.equal(target.searchParams.get('logout_uri'), `${ORIGIN}/cuenta/`);
+  assert.equal(response.headers.get('location'), null);
+  assert.equal(response.headers.get('referrer-policy'), 'no-referrer');
+  assert.match(response.headers.get('cache-control'), /private.*no-store/);
+  assert.equal(response.headers.get('x-robots-tag'), 'noindex, nofollow');
+  assert.equal(harness.store.sessions.size, 0);
+  assert.ok(responseCookies(response).some((cookie) => cookie.startsWith('da_session=;') && /Max-Age=0/i.test(cookie)));
+  assert.doesNotMatch(JSON.stringify(payload), new RegExp(`${csrfToken}|${TEST_EMAIL}`));
+});
+
+test('negotiated disabled logout retains retry on failed revocation and completes after a lost acknowledgement', async () => {
+  const harness = await createAccountHarness();
+  const { login, csrfToken } = await signedInPage(harness);
+  const account = await harness.store.getAccount(makeIdentity());
+  harness.store.seedAccount({ ...account, active: false });
+  const deleteSession = harness.store.deleteSession.bind(harness.store);
+  let loseAcknowledgement = true;
+  harness.store.deleteSession = async (key) => {
+    await deleteSession(key);
+    if (loseAcknowledgement) {
+      loseAcknowledgement = false;
+      throw new Error('controlled lost acknowledgement');
+    }
+  };
+  const failed = await renderWithOriginGate(logoutPage, jsonLogout(login.sessionCookie, csrfToken));
+  assert.equal(failed.status, 503);
+  assert.equal(responseCookies(failed).length, 0);
+  const payload = await failed.json();
+  assert.match(payload.message, /No pudimos confirmar/);
+  assert.equal(payload.redirect, undefined);
+  assert.doesNotMatch(JSON.stringify(payload), new RegExp(csrfToken));
+  const retry = await renderWithOriginGate(logoutPage, jsonLogout(login.sessionCookie, csrfToken));
+  assert.equal(retry.status, 200);
+  assert.equal(new URL((await retry.json()).redirect).origin, COGNITO_DOMAIN);
+  assert.ok(responseCookies(retry).some((cookie) => /Max-Age=0/i.test(cookie)));
+});
+
+test('negotiated logout never returns a success destination on an unavailable session or runtime', async () => {
+  const harness = await createAccountHarness();
+  const { login, csrfToken } = await signedInPage(harness);
+  harness.store.failNext('getSession');
+  for (const runtimeAvailable of [true, false]) {
+    if (!runtimeAvailable) delete globalThis.__logoutUiAuth;
+    const response = await renderWithOriginGate(logoutPage, jsonLogout(login.sessionCookie, csrfToken));
+    assert.equal(response.status, 503);
+    assert.equal(response.headers.get('location'), null);
+    assert.equal(responseCookies(response).length, 0);
+    const payload = await response.json();
+    assert.equal(payload.redirect, undefined);
+    assert.doesNotMatch(JSON.stringify(payload), new RegExp(csrfToken));
+    assert.equal(harness.store.sessions.size, 1);
+  }
 });
