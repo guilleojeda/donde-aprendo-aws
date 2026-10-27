@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { SurfaceElement } from './fixtures/creator-owner-browser-dom.mjs';
 import {
   createLinksApi,
   createOwnerLinksSurface,
@@ -531,6 +532,104 @@ test('la búsqueda AJAX conserva filtros y foco, clampa la página y no escribe,
   assert.ok(!nonMatchRow || nonMatchRow.hidden, 'the non-matching row is hidden or removed from the current page');
   assert.equal(writes(requests).length, 0);
   assert.equal(requests.some(({ path }) => /analytics|ga4|medicion|\/api\/creador\/estadisticas/i.test(path)), false);
+});
+
+test('aplicar una consulta ya abierta no duplica historial y Back/Forward restaura filtros y filas', async () => {
+  const links = [
+    sharedLink({
+      placementId: 'placement-approved-history', resourceId: 'resource-approved-history',
+      title: 'Guía aprobada', url: 'https://example.invalid/approved-history', position: 0,
+      directoryApproval: 'approved',
+    }),
+    sharedLink({
+      placementId: 'placement-revoked-history', resourceId: 'resource-revoked-history',
+      title: 'Guía revocada', url: 'https://example.invalid/revoked-history', position: 1,
+      directoryApproval: 'revoked',
+    }),
+  ];
+  const surface = createOwnerLinksSurface({ links });
+  const popstateListeners = [];
+  const historyEntries = [surface.window.location.href];
+  let historyIndex = 0;
+  surface.window.addEventListener = (type, listener) => {
+    if (type === 'popstate') popstateListeners.push(listener);
+  };
+  const setHistoryLocation = (url) => {
+    surface.window.location.href = new URL(String(url), surface.window.location.href).href;
+  };
+  surface.window.history = {
+    pushState(_state, _title, url) {
+      surface.historyCalls.push({ method: 'pushState', url: String(url) });
+      historyEntries.splice(historyIndex + 1);
+      historyEntries.push(new URL(String(url), surface.window.location.href).href);
+      historyIndex++;
+      surface.window.location.href = historyEntries[historyIndex];
+    },
+    replaceState(_state, _title, url) {
+      surface.historyCalls.push({ method: 'replaceState', url: String(url) });
+      historyEntries[historyIndex] = new URL(String(url), surface.window.location.href).href;
+      surface.window.location.href = historyEntries[historyIndex];
+    },
+    back() {
+      if (historyIndex === 0) return;
+      historyIndex--;
+      setHistoryLocation(historyEntries[historyIndex]);
+      for (const listener of popstateListeners) listener({ type: 'popstate' });
+    },
+    forward() {
+      if (historyIndex >= historyEntries.length - 1) return;
+      historyIndex++;
+      setHistoryLocation(historyEntries[historyIndex]);
+      for (const listener of popstateListeners) listener({ type: 'popstate' });
+    },
+  };
+  const api = createLinksApi({ surface });
+  const requests = await mountOwnerLinks({ surface, fetch: api.fetch });
+
+  const filterForm = new SurfaceElement({ tagName: 'FORM', dataset: { linkFilters: '' } });
+  const fields = [
+    new SurfaceElement({ tagName: 'INPUT', name: 'vista', value: 'enlaces' }),
+    new SurfaceElement({ tagName: 'INPUT', name: 'paginaEnlaces', value: '1' }),
+    surface.searchInput,
+    new SurfaceElement({ tagName: 'SELECT', name: 'serie', value: 'todos' }),
+    new SurfaceElement({ tagName: 'SELECT', name: 'directorio', value: 'todos' }),
+    new SurfaceElement({ tagName: 'SELECT', name: 'destacado', value: 'todos' }),
+    new SurfaceElement({ tagName: 'SELECT', name: 'orden', value: 'pagina' }),
+    new SurfaceElement({ tagName: 'BUTTON', type: 'submit' }),
+  ];
+  filterForm.elements = fields;
+  filterForm.append(...fields);
+  for (const field of fields) {
+    field.form = filterForm;
+    field.ownerDocument = surface.document;
+  }
+  surface.root.append(filterForm);
+
+  const directory = filterForm.querySelector('[name="directorio"]');
+  directory.value = 'revocados';
+  await directory.dispatch('change');
+  const approvedRow = rowFor(surface, links[0].placementId);
+  assert.ok(!approvedRow || approvedRow.hidden, 'the non-matching row is removed or hidden');
+  assert.equal(rowFor(surface, links[1].placementId).hidden, false);
+
+  await filterForm.dispatch('submit');
+  const pushes = () => surface.historyCalls.filter(({ method }) => method === 'pushState');
+  assert.equal(pushes().length, 1, 'Apply does not push the same query opened by the select change');
+  assert.equal(new URL(surface.window.location.href).searchParams.get('directorio'), 'revocados');
+  assert.equal(writes(requests).length, 0);
+
+  surface.window.history.back();
+  assert.equal(new URL(surface.window.location.href).searchParams.get('directorio'), null);
+  assert.equal(directory.value, 'todos');
+  assert.equal(rowFor(surface, links[0].placementId).hidden, false);
+  assert.equal(rowFor(surface, links[1].placementId).hidden, false);
+
+  surface.window.history.forward();
+  assert.equal(new URL(surface.window.location.href).searchParams.get('directorio'), 'revocados');
+  assert.equal(directory.value, 'revocados');
+  const approvedRowAfterForward = rowFor(surface, links[0].placementId);
+  assert.ok(!approvedRowAfterForward || approvedRowAfterForward.hidden, 'forward restores the same filtered collection');
+  assert.equal(rowFor(surface, links[1].placementId).hidden, false);
 });
 
 test('quitar la última fila de la página final actualiza URL y página a la vez', async () => {

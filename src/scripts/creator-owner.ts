@@ -535,8 +535,9 @@ function ownerLinkMatchesCurrentQuery(placementId: string): boolean {
 function updateLinksQuery(query: CreatorOwnerLinksQuery, historyMode: 'push' | 'replace' = 'push') {
   const effectiveQuery = renderOwnerLinks(query) ?? query;
   const href = creatorOwnerLinksHref(effectiveQuery, effectiveQuery.paginaEnlaces);
-  if (historyMode === 'push') window.history.pushState({}, '', href);
-  else window.history.replaceState({}, '', href);
+  if (historyMode === 'push') {
+    if (href !== `${window.location.pathname}${window.location.search}`) window.history.pushState({}, '', href);
+  } else window.history.replaceState({}, '', href);
   const filterForm = root?.querySelector<HTMLFormElement>('[data-link-filters]');
   if (filterForm) {
     const page = field(filterForm, 'paginaEnlaces');
