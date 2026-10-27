@@ -554,6 +554,32 @@ test('un acuse perdido después del commit conserva la foto anterior en pantalla
     'checking the result does not replay the upload or finalization');
 });
 
+test('volver a abrir la edición de foto limpia los avisos de éxito del formulario y de la página', async () => {
+  const data = await createHarness();
+  data.mount = mount(data);
+  await openPhotoEditor(data);
+  await data.surface.forms.foto.dispatch('submit');
+
+  const finalize = pathRequests(data.mount.requests, '/api/creador/foto/finalizar', 'POST');
+  assert.equal(finalize.length, 1);
+  assert.equal(finalize[0].status, 200, 'the real local photo service completed the save');
+  assert.equal(data.surface.controls.photoStatus.hidden, false);
+  assert.equal(data.surface.controls.pageStatus.hidden, false);
+  assert.match(data.surface.controls.photoStatus.textContent, /Foto guardada/i);
+  assert.match(data.surface.controls.pageStatus.textContent, /Foto guardada/i);
+
+  await data.surface.controls.editPhoto.dispatch('click');
+
+  assert.equal(data.surface.controls.dialog.open, true, 'the owner can reopen the same unit after save');
+  for (const status of [data.surface.controls.photoStatus, data.surface.controls.pageStatus]) {
+    assert.equal(status.hidden, true, 'the old notice is hidden when the form opens again');
+    assert.equal(status.textContent, '');
+    assert.equal(status.dataset.kind, undefined);
+  }
+  const saved = await data.runtime.pages.store.get(`profile:${data.profile.id}`);
+  assert.equal(saved.photo.version, pathRequests(data.mount.requests, '/api/creador/foto/autorizar', 'POST')[0].payload.uploadId);
+});
+
 test('descartar una corrección de foto limpia el archivo y deja el diálogo sin cambios pendientes', async () => {
   const data = await createHarness();
   data.mount = mount(data);

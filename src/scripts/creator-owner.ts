@@ -81,6 +81,13 @@ function announce(target: Element | null | undefined, message: string, kind: 'er
   target.hidden = false;
 }
 
+function clearAnnouncement(target: HTMLElement | null | undefined) {
+  if (!target) return;
+  target.textContent = '';
+  target.hidden = true;
+  delete target.dataset.kind;
+}
+
 function clearRecoveryNotice() {
   if (!root) return;
   root.querySelectorAll<HTMLElement>('[data-session-recovery-shell]').forEach((shell) => { shell.hidden = true; });
@@ -453,11 +460,7 @@ function resetForm(name: string, form: HTMLFormElement) {
   }
   const statusName = name === 'crear' ? '[data-owner-create-status]' : `[data-owner-form-status="${name}"]`;
   const status = root?.querySelector<HTMLElement>(statusName);
-  if (status) {
-    status.textContent = '';
-    status.hidden = true;
-    delete status.dataset.kind;
-  }
+  clearAnnouncement(status);
   formState?.commit(capture(form));
 }
 
@@ -481,6 +484,8 @@ function openEditor(name: 'datos' | 'redes' | 'foto', trigger: HTMLElement) {
   }
   const form = formFor(name);
   if (!form) return;
+  clearAnnouncement(statusFor(name));
+  clearAnnouncement(pageStatus);
   const title = root?.querySelector<HTMLElement>('[data-owner-dialog-title]');
   if (title) title.textContent = name === 'datos' ? 'Editar datos' : name === 'redes' ? 'Editar redes' : 'Editar foto';
   for (const other of ['datos', 'redes', 'foto'] as const) {
