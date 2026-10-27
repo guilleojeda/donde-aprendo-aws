@@ -159,8 +159,9 @@ function enableSessionRecovery(root, binding, { fields = [], buttons = [] } = {}
 }
 
 function profileEditorForm(profile) {
-  const displayName = new TestElement();
-  Object.assign(displayName, { tagName: 'INPUT', type: 'text', name: 'displayName', value: profile?.displayName ?? 'Ana' });
+  const displayName = Object.assign(new TestElement(), {
+    tagName: 'INPUT', type: 'text', name: 'displayName', value: profile?.displayName ?? 'Ana',
+  });
   const slug = new TestElement();
   Object.assign(slug, { tagName: 'INPUT', type: 'text', name: 'slug', value: profile?.slug ?? 'ana-nueva' });
   const form = new TestElement({
@@ -1673,6 +1674,98 @@ test('the same account can renew CSRF and manually save a retained profile corre
   assert.equal(fixture.requests[2].body.displayName, 'Ana con una corrección');
   assert.equal(fixture.reloads.count, 1);
   assert.match(fixture.recovery.status.textContent, /Sesión comprobada/);
+});
+
+test('session-blocked immediate checkbox changes restore observed values before a structural save', async () => {
+  const accountId = 'private-session-checkbox-recovery';
+  const auth = { current: { state: 'authenticated', accountId, csrfToken: 'csrf-old', isAdmin: false } };
+  const harness = await createCreatorPagesHarness({ authenticate: async () => auth.current });
+  const created = await callApi(harness, '/api/creador/perfil', {
+    method: 'PUT', csrf: 'csrf-old',
+    body: { displayName: 'Ana', slug: 'ana-checkbox-recovery', programs: [], socials: {} },
+  });
+  assert.equal(created.status, 200);
+  const added = await callApi(harness, '/api/creador/enlaces', {
+    method: 'POST', csrf: 'csrf-old',
+    body: { title: 'Enlace recuperado', url: 'https://example.com/session-checkbox-recovery' },
+  });
+  assert.equal(added.status, 201);
+  const initial = await (await callApi(harness, '/api/creador/perfil')).json();
+  const form = profileEditorForm(initial.profile);
+  const placement = new TestElement({ dataset: { placementId: initial.links[0].placementId } });
+  const featured = new TestElement({ selectors: { 'closest:[data-placement-id]': placement } });
+  Object.assign(featured, { tagName: 'INPUT', type: 'checkbox', checked: false, form: form.form });
+  featured.setAttribute('data-featured', '');
+  const directory = new TestElement({ selectors: { 'closest:[data-placement-id]': placement } });
+  Object.assign(directory, { tagName: 'INPUT', type: 'checkbox', checked: true, form: form.form });
+  directory.setAttribute('data-directory', '');
+  const remove = new TestElement({ selectors: { 'closest:[data-placement-id]': placement } });
+  remove.tagName = 'BUTTON';
+  remove.setAttribute('data-remove-link', '');
+  const save = new TestElement();
+  save.tagName = 'BUTTON';
+  const refresh = new TestElement();
+  refresh.tagName = 'BUTTON';
+  const transition = new TestElement();
+  const staleSelector = '[data-move], [data-remove-link], [data-featured], [data-directory], [data-readd-link], [data-series-add-chapter-form] button, [data-series-move], [data-series-remove-chapter], [data-delete-series]';
+  const { root } = baseRoot({
+    selectors: {
+      '[data-profile-form]': form.form,
+      '[data-profile-status]': new TestElement(),
+      '[data-view-transition]': transition,
+      '[data-view-transition-shell]': new TestElement(),
+      '[data-refresh-view]': refresh,
+    },
+    lists: {
+      '[data-featured], [data-directory]': [featured, directory],
+      '[data-remove-link]': [remove],
+      [staleSelector]: [featured, directory, remove],
+    },
+  });
+  const fixture = await mountSessionEditor({
+    harness,
+    auth,
+    data: initial,
+    root,
+    fields: [...form.fields, featured, directory],
+    buttons: [save, refresh, remove, featured, directory],
+  });
+
+  form.displayName.value = 'Ana pendiente';
+  auth.current = { state: 'anonymous' };
+  await form.form.dispatch('submit');
+  assert.equal(fixture.requests[0].status, 401);
+
+  featured.checked = true;
+  await featured.dispatch('change');
+  directory.checked = false;
+  await directory.dispatch('change');
+  assert.equal(featured.checked, false, 'a rejected featured change restores the observed false value');
+  assert.equal(directory.checked, true, 'a rejected directory change restores the observed true value');
+  assert.equal(fixture.requests.length, 1, 'blocked immediate changes send no PATCH and are not replayed');
+
+  auth.current = { state: 'authenticated', accountId, csrfToken: 'csrf-renewed', isAdmin: false };
+  await fixture.recovery.check.dispatch('click');
+  await settleSessionCheck();
+  assert.equal(fixture.requests[1].path, '/api/creador/sesion/');
+  assert.equal(fixture.requests[1].status, 200);
+  assert.equal(fixture.requests.length, 2, 'session recovery checks identity without replaying the failed write');
+
+  await remove.dispatch('click');
+  assert.equal(fixture.requests[2].method, 'DELETE');
+  assert.equal(fixture.requests[2].status, 204);
+  assert.equal(featured.disabled, true, 'removing the placement freezes its stale controls');
+  assert.equal(directory.disabled, true, 'removing the placement freezes its stale controls');
+  assert.equal(featured.checked, false);
+  assert.equal(directory.checked, true);
+
+  await form.form.dispatch('submit');
+  assert.equal(fixture.requests[3].method, 'PUT');
+  assert.equal(fixture.requests[3].status, 200);
+  assert.equal(fixture.requests.length, 4, 'the only writes are the failed save, removal, and explicit retry');
+  assert.equal((await (await callApi(harness, '/api/creador/perfil')).json()).profile.displayName, 'Ana pendiente');
+  assert.equal(fixture.reloads.count, 1, 'saving the last editable change safely refreshes the removed placement');
+  assert.match(transition.textContent, /Enlace quitado/);
 });
 
 test('session checks retry after a temporary 503 and retain the selected photo until a manual upload', async () => {

@@ -100,10 +100,16 @@ function setBusy(form: HTMLFormElement, busy: boolean) {
   form.setAttribute('aria-busy', String(busy));
 }
 
-function onWrite(target: EventTarget, type: string, action: (event: Event) => Promise<void> | void) {
+function onWrite(
+  target: EventTarget,
+  type: string,
+  action: (event: Event) => Promise<void> | void,
+  onBlocked?: () => void,
+) {
   target.addEventListener(type, (event) => {
     if (sessionRecovery?.blocksWrites()) {
       event.preventDefault();
+      onBlocked?.();
       sessionRecovery.announceBlocked();
       return;
     }
@@ -143,6 +149,17 @@ async function photoErrorMessage(response: Response): Promise<string> {
 
 function linkByPlacement(id: string): CreatorLinkDTO | undefined {
   return state?.links.find((link) => link.placementId === id);
+}
+
+function immediateCheckboxState(checkbox: HTMLInputElement) {
+  const placementId = checkbox.closest<HTMLElement>('[data-placement-id]')?.dataset.placementId;
+  const link = placementId ? linkByPlacement(placementId) : undefined;
+  if (!placementId || !link) return undefined;
+  return {
+    placementId,
+    link,
+    value: checkbox.matches('[data-featured]') ? link.featured : link.selectedForDirectory,
+  };
 }
 
 function linksStatus() {
@@ -589,11 +606,9 @@ if (root && state && csrfToken) {
 
   root.querySelectorAll<HTMLInputElement>('[data-featured], [data-directory]').forEach((checkbox) => {
     onWrite(checkbox, 'change', async () => {
-      const item = checkbox.closest<HTMLElement>('[data-placement-id]');
-      const placementId = item?.dataset.placementId;
-      const current = placementId ? linkByPlacement(placementId) : undefined;
-      if (!current || !placementId) return;
-      const previousValue = checkbox.matches('[data-featured]') ? current.featured : current.selectedForDirectory;
+      const observed = immediateCheckboxState(checkbox);
+      if (!observed) return;
+      const { placementId, link: current, value: previousValue } = observed;
       checkbox.disabled = true;
       const body = checkbox.matches('[data-featured]')
         ? { featured: checkbox.checked, ...(current.placementVersion !== undefined ? { version: current.placementVersion } : {}) }
@@ -615,6 +630,9 @@ if (root && state && csrfToken) {
       } finally {
         checkbox.disabled = false;
       }
+    }, () => {
+      const observedValue = immediateCheckboxState(checkbox)?.value;
+      if (observedValue !== undefined) checkbox.checked = observedValue;
     });
   });
 
