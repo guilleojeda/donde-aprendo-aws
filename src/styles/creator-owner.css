@@ -213,6 +213,12 @@
   font-weight: 700;
 }
 
+.creator-owner__activity-content {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
 .creator-owner__activity-totals {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
