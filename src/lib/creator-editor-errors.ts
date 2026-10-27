@@ -8,6 +8,9 @@ export async function creatorEditorFailureMessage(response: Response, fallback: 
   if (response.status !== 409 && response.status !== 422) return fallback;
   try {
     const error = responseErrorCode(await response.clone().json());
+    if (response.status === 409 && error === 'PLACEMENT_ORDER_EXHAUSTED') {
+      return 'No hay una posición válida para agregar otro enlace a esta página. Es necesario corregir su orden antes de volver a intentarlo.';
+    }
     if (response.status === 409 && ['PROFILE_CONFLICT', 'RESOURCE_CONFLICT', 'PLACEMENT_CONFLICT'].includes(error ?? '')) {
       return 'El perfil, recurso o enlace cambió desde que abriste la página. Recárgala antes de volver a guardar.';
     }

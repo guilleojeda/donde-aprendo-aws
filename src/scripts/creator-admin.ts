@@ -73,6 +73,9 @@ async function responseErrorMessage(response: Response): Promise<string> {
   try {
     const payload: unknown = await response.clone().json();
     const code = isRecord(payload) && typeof payload.error === 'string' ? payload.error : '';
+    if (code === 'PLACEMENT_ORDER_EXHAUSTED') {
+      return 'No hay una posición válida para agregar otro enlace a esta página. Es necesario corregir su orden antes de volver a intentarlo.';
+    }
     if (['PROFILE_CONFLICT', 'RESOURCE_CONFLICT', 'CLAIM_CONFLICT'].includes(code)) {
       return errorMessage(response.status);
     }

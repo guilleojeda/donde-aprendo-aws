@@ -23,3 +23,8 @@ test('slug and URL conflicts keep their specific correction guidance', async () 
   assert.equal(await creatorEditorFailureMessage(conflict('URL_TAKEN'), neutralMessage),
     'Esa URL ya está asociada a otra ficha. Elige una URL diferente.');
 });
+
+test('exhausted placement order reports the required correction instead of suggesting a different URL', async () => {
+  assert.equal(await creatorEditorFailureMessage(conflict('PLACEMENT_ORDER_EXHAUSTED'), neutralMessage),
+    'No hay una posición válida para agregar otro enlace a esta página. Es necesario corregir su orden antes de volver a intentarlo.');
+});

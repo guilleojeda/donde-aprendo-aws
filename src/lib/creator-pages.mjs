@@ -341,6 +341,17 @@ function sortLinks(links) {
     || left.position - right.position || left.placementId.localeCompare(right.placementId));
 }
 
+function nextPlacementPosition(placements) {
+  const maximum = placements.reduce((current, item) => Math.max(
+    current,
+    Number.isSafeInteger(item.position) ? item.position : 0,
+  ), 0);
+  if (maximum > Number.MAX_SAFE_INTEGER - 10) {
+    fail(409, 'PLACEMENT_ORDER_EXHAUSTED', 'profile placement order has no safe append position');
+  }
+  return maximum + 10;
+}
+
 function jsonResponse(value, status = 200) {
   const headers = new Headers({
     'content-type': 'application/json; charset=utf-8',
@@ -1080,11 +1091,10 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     }
 
     const placements = await getPlacements(profile.id);
-    const maxPosition = placements.reduce((maximum, item) => Math.max(maximum, Number.isSafeInteger(item.position) ? item.position : 0), 0);
     const updatedProfile = { ...profile, version: profile.version + 1, updatedAt: timestamp() };
     const placement = {
       recordType: 'placement', id: stableId, profileId: profile.id, resourceId: resource.id,
-      position: maxPosition + 10, featured: false, selectedForDirectory, version: updatedProfile.version,
+      position: nextPlacementPosition(placements), featured: false, selectedForDirectory, version: updatedProfile.version,
     };
     const ok = await store.transact({
       checks: [
@@ -1213,12 +1223,12 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       version: 1,
     };
     const placements = await getPlacements(profile.id);
-    const maxPosition = placements.reduce((maximum, item) => Math.max(maximum, Number.isSafeInteger(item.position) ? item.position : 0), 0);
+    const position = nextPlacementPosition(placements);
     const stableId = placementId(profile.id, resourceId);
     const updatedProfile = { ...profile, version: profile.version + 1, updatedAt: timestamp() };
     const placement = {
       recordType: 'placement', id: stableId, profileId: profile.id, resourceId,
-      position: maxPosition + 10, featured: false, selectedForDirectory, version: updatedProfile.version,
+      position, featured: false, selectedForDirectory, version: updatedProfile.version,
     };
     const ok = await store.transact({
       checks: [
@@ -1630,9 +1640,9 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         }
         if (!currentPlacement) {
           const all = await getPlacements(profile.id);
-          const maxPosition = all.reduce((maximum, item) => Math.max(maximum, item.position), 0);
+          const position = nextPlacementPosition(all);
           checks.push({ key: pKey, version: null });
-          puts.push({ key: pKey, value: { recordType: 'placement', id, profileId: profile.id, resourceId, position: maxPosition + 10, featured: false, selectedForDirectory: true, version: nextProfileVersion } });
+          puts.push({ key: pKey, value: { recordType: 'placement', id, profileId: profile.id, resourceId, position, featured: false, selectedForDirectory: true, version: nextProfileVersion } });
         }
         if (puts.length === 0) {
           didLink.push(resourceId);

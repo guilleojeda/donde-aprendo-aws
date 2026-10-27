@@ -552,6 +552,22 @@ test('la moderación de eventos muestra fallos recuperables y conserva los formu
   assert.deepEqual(JSON.parse(page.requests.find(({ url }) => url.includes('/perfiles/profile-feedback/')).init.body), { version: 1 });
 });
 
+test('claim rejected for exhausted placement order explains the failure and retains editable selections', async () => {
+  const page = await executeAdminScript(await renderAdminPage());
+  const form = page.claimForms[0];
+  assert.ok(form);
+  page.responses.push({ status: 409, body: { error: 'PLACEMENT_ORDER_EXHAUSTED' } });
+
+  await form.dispatch('submit');
+
+  assert.equal(page.claimRows[0].status.textContent,
+    'No hay una posición válida para agregar otro enlace a esta página. Es necesario corregir su orden antes de volver a intentarlo.');
+  assert.equal(page.claimRows[0].status.dataset.kind, 'error');
+  assert.ok(form.fields.every((control) => !control.disabled));
+  assert.equal(form.controls.at(-1).disabled, false);
+  assert.equal(page.reloads(), 0);
+});
+
 test('R9 partial claim freezes only that form, retains receipts, and allows safe refresh after another save', async () => {
   const html = await renderAdminPage({ claimRecords: [{
     id: 'claim-partial', accountId: 'owner', resourceIds: ['resource-feedback', 'resource-two', 'resource-three'], status: 'pending',

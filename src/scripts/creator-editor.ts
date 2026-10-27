@@ -843,14 +843,14 @@ if (root && state && csrfToken) {
           version: series.version,
           profileVersion,
         });
-        if (response.ok && deletedForm) {
-          deletedForm.querySelectorAll<HTMLElement>('input, textarea, select, button').forEach((control) => {
+        if (response.ok && section) {
+          section.querySelectorAll<HTMLElement>('input, textarea, select, button').forEach((control) => {
             control.setAttribute('data-creator-stale', 'true');
           });
           writeGuard?.markStale('[data-creator-stale]');
-          announce(deletedForm.querySelector('[data-series-form-status]'), 'La serie ya se eliminó. Sus campos de metadatos ya no se pueden guardar; actualiza la vista después de guardar las otras correcciones.', 'info');
+          announce(deletedForm?.querySelector('[data-series-form-status]'), 'La serie ya se eliminó. Sus controles ya no se pueden guardar; actualiza la vista después de guardar las otras correcciones.', 'info');
         }
-        await finishSeriesWrite(response, seriesStatus(button), 'Serie eliminada. Tus enlaces y su selección para el directorio siguen en tu página.', 'creator-series-editor-title', deletedForm ? formState?.capture(deletedForm) : undefined, { structural: true });
+        await finishSeriesWrite(response, seriesStatus(button), 'Serie eliminada. Tus enlaces y su selección para el directorio siguen en tu página.', 'creator-series-editor-title', section ? formState?.capture(section) : undefined, { structural: true });
       } catch (error) {
         announce(seriesStatus(button), requestFailureMessage(error, 'No pudimos eliminar la serie. Inténtalo de nuevo.'), 'error');
       } finally {

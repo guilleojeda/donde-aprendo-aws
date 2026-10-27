@@ -1066,17 +1066,20 @@ test('reverting pending fields allows the explicit structural refresh', async ()
   assert.equal(reloads.count, 1, 'manual refresh is safe once all pending fields match their baselines');
 });
 
-function seriesDeleteFixture({ profileCorrection = false } = {}) {
-  const name = new TestElement();
-  Object.assign(name, { tagName: 'INPUT', type: 'text', value: 'Mi serie', name: 'name' });
+function seriesDeleteFixture({ profileCorrection = false, profile = {}, seriesId = 'series-a', series = {} } = {}) {
+  const name = Object.assign(new TestElement(), { tagName: 'INPUT', type: 'text', value: series.name ?? 'Mi serie', name: 'name' });
   const slug = new TestElement();
-  Object.assign(slug, { tagName: 'INPUT', type: 'text', value: 'mi-serie', name: 'slug' });
+  Object.assign(slug, { tagName: 'INPUT', type: 'text', value: series.slug ?? 'mi-serie', name: 'slug' });
   const description = new TestElement();
-  Object.assign(description, { tagName: 'TEXTAREA', value: '', name: 'description' });
+  Object.assign(description, { tagName: 'TEXTAREA', value: series.description ?? '', name: 'description' });
   const metadataStatus = new TestElement();
   const seriesStatus = new TestElement();
   const saveButton = new TestElement();
   saveButton.tagName = 'BUTTON';
+  const chapterSelect = Object.assign(new TestElement(), { tagName: 'SELECT', value: '', name: 'placementId' });
+  const addChapterButton = new TestElement();
+  addChapterButton.tagName = 'BUTTON';
+  const chapterFieldset = new TestElement();
   const seriesForm = new TestElement({
     values: { name, slug, description },
     selectors: { '[data-series-form-status]': metadataStatus },
@@ -1086,22 +1089,37 @@ function seriesDeleteFixture({ profileCorrection = false } = {}) {
     },
   });
   for (const field of [name, slug, description]) field.form = seriesForm;
+  const chapterForm = new TestElement({
+    values: { placementId: chapterSelect },
+    selectors: { fieldset: chapterFieldset },
+    lists: {
+      'input, textarea, select': [chapterSelect],
+      'input, textarea, select, button': [chapterSelect, addChapterButton],
+    },
+  });
+  chapterSelect.form = chapterForm;
   const section = new TestElement({
-    dataset: { seriesId: 'series-a' },
+    dataset: { seriesId },
     selectors: { '[data-series-form]': seriesForm, '[data-series-status]': seriesStatus },
+    lists: {
+      'input, textarea, select': [name, slug, description, chapterSelect],
+      'input, textarea, select, button': [name, slug, description, saveButton, chapterSelect, addChapterButton],
+    },
   });
   seriesForm.selectors['closest:[data-series-id]'] = section;
+  chapterForm.selectors['closest:[data-series-id]'] = section;
   const deleteButton = new TestElement({ selectors: { 'closest:[data-series-id]': section } });
   deleteButton.tagName = 'BUTTON';
   const transition = new TestElement();
   const refresh = new TestElement();
   refresh.tagName = 'BUTTON';
-  const profileField = { tagName: 'INPUT', type: 'text', value: 'Ana', name: 'displayName', disabled: false };
+  const profileField = { tagName: 'INPUT', type: 'text', value: profile.displayName ?? 'Ana', name: 'displayName', disabled: false };
   const profileSaveButton = new TestElement();
   profileSaveButton.tagName = 'BUTTON';
   const profileStatus = new TestElement();
+  const linksStatus = new TestElement();
   const profileForm = new TestElement({
-    values: { displayName: profileField, slug: 'ana', city: '', country: '', bio: '' },
+    values: { displayName: profileField, slug: profile.slug ?? 'ana', city: profile.city ?? '', country: profile.country ?? '', bio: profile.bio ?? '' },
     selectors: { 'input[name^="social-"]': [] },
     lists: { 'input, textarea, select': [profileField] },
   });
@@ -1112,7 +1130,10 @@ function seriesDeleteFixture({ profileCorrection = false } = {}) {
     selectors: {
       '[data-profile-form]': profileCorrection ? profileForm : null,
       '[data-profile-status]': profileStatus,
+      '[data-links-status]': linksStatus,
       '[data-series-form]': seriesForm,
+      '[data-series-add-chapter-form]': chapterForm,
+      '[data-delete-series]': deleteButton,
       '[data-view-transition]': transition,
       '[data-view-transition-shell]': shell,
       '[data-refresh-view]': refresh,
@@ -1120,20 +1141,234 @@ function seriesDeleteFixture({ profileCorrection = false } = {}) {
     lists: {
       '[data-delete-series]': [deleteButton],
       '[data-series-form]': [seriesForm],
+      '[data-series-add-chapter-form]': [chapterForm],
       'input, textarea, select': profileCorrection
-        ? [profileField, name, slug, description]
-        : [name, slug, description],
+        ? [profileField, name, slug, description, chapterSelect]
+        : [name, slug, description, chapterSelect],
       'button, input[type="file"], input[data-busy-control], [data-featured], [data-directory], [data-creator-stale]': [
-        deleteButton, saveButton, profileSaveButton, profileField, name, slug, description, refresh,
+        deleteButton, saveButton, profileSaveButton, profileField, name, slug, description, chapterSelect, addChapterButton, refresh,
       ],
-      '[data-move], [data-remove-link], [data-featured], [data-directory], [data-readd-link], [data-series-add-chapter-form] button, [data-series-move], [data-series-remove-chapter], [data-delete-series]': [deleteButton],
+      '[data-move], [data-remove-link], [data-featured], [data-directory], [data-readd-link], [data-series-add-chapter-form] button, [data-series-move], [data-series-remove-chapter], [data-delete-series]': [deleteButton, addChapterButton],
     },
   });
   return {
     root, name, slug, description, metadataStatus, seriesStatus, saveButton,
-    deleteButton, transition, refresh, profileField, profileForm, profileStatus,
+    chapterSelect, chapterForm, addChapterButton, section, deleteButton, transition, refresh,
+    profileField, profileForm, profileStatus, linksStatus,
+    fields: profileCorrection ? [profileField, name, slug, description, chapterSelect] : [name, slug, description, chapterSelect],
+    buttons: [deleteButton, saveButton, profileSaveButton, addChapterButton, refresh],
   };
 }
+
+function addOtherSeriesDraft(fixture, series) {
+  const name = Object.assign(new TestElement(), { tagName: 'INPUT', type: 'text', name: 'name', value: series.name });
+  const slug = Object.assign(new TestElement(), { tagName: 'INPUT', type: 'text', name: 'slug', value: series.slug });
+  const description = Object.assign(new TestElement(), { tagName: 'TEXTAREA', name: 'description', value: series.description ?? '' });
+  const status = new TestElement();
+  const saveButton = new TestElement();
+  saveButton.tagName = 'BUTTON';
+  const section = new TestElement({
+    dataset: { seriesId: series.id },
+    selectors: { '[data-series-status]': status },
+  });
+  const form = new TestElement({
+    values: { name, slug, description },
+    selectors: {
+      '[data-series-form-status]': status,
+      'closest:[data-series-id]': section,
+    },
+    lists: {
+      'input, textarea, select': [name, slug, description],
+      'input, textarea, select, button': [name, slug, description, saveButton],
+    },
+  });
+  section.selectors['[data-series-form]'] = form;
+  for (const field of [name, slug, description]) field.form = form;
+  fixture.root.lists['[data-series-form]'].push(form);
+  fixture.root.lists['input, textarea, select'].push(name, slug, description);
+  fixture.root.lists['button, input[type="file"], input[data-busy-control], [data-featured], [data-directory], [data-creator-stale]'].push(name, slug, description, saveButton);
+  fixture.fields.push(name, slug, description);
+  fixture.buttons.push(saveButton);
+  return { section, form, name, slug, description, status, saveButton };
+}
+
+function addResourceDraft(fixture, link) {
+  const title = Object.assign(new TestElement(), { tagName: 'INPUT', type: 'text', name: 'title', value: link.title });
+  const url = Object.assign(new TestElement(), { tagName: 'INPUT', type: 'url', name: 'url', value: link.url });
+  const description = Object.assign(new TestElement(), { tagName: 'TEXTAREA', name: 'description', value: link.description ?? '' });
+  const saveButton = new TestElement();
+  saveButton.tagName = 'BUTTON';
+  const resource = new TestElement({ dataset: { resourceId: link.resourceId } });
+  const form = new TestElement({
+    values: { title, url, description },
+    selectors: { 'closest:[data-resource-id]': resource },
+    lists: {
+      'input, textarea, select': [title, url, description],
+      'input, textarea, select, button': [title, url, description, saveButton],
+    },
+  });
+  for (const field of [title, url, description]) field.form = form;
+  fixture.root.lists['[data-resource-form]'] = [form];
+  fixture.root.lists['input, textarea, select'].push(title, url, description);
+  fixture.root.lists['button, input[type="file"], input[data-busy-control], [data-featured], [data-directory], [data-creator-stale]'].push(title, url, description, saveButton);
+  fixture.fields.push(title, url, description);
+  fixture.buttons.push(saveButton);
+  return { resource, form, title, url, description, saveButton };
+}
+
+async function createSeriesDeleteEditor({ otherDrafts = false, fetchOverride } = {}) {
+  const auth = { current: {
+    state: 'authenticated', accountId: 'private-account-a', csrfToken: sessionCsrf['creator-a'], isAdmin: false,
+  } };
+  const harness = await createCreatorPagesHarness({ authenticate: async () => auth.current });
+  const api = (path, method, body) => callApi(harness, path, {
+    session: 'creator-a', csrf: auth.current.csrfToken, method,
+    ...(body === undefined ? {} : { body }),
+  });
+  assert.equal((await api('/api/creador/perfil', 'PUT', {
+    displayName: 'Ana', slug: 'ana-nueva', programs: [], socials: {},
+  })).status, 200);
+  for (const [index, title] of ['Capítulo', ...(otherDrafts ? ['Otro capítulo'] : [])].entries()) {
+    assert.equal((await api('/api/creador/enlaces', 'POST', {
+      title, url: `https://example.com/series-delete-${index}`,
+    })).status, 201);
+  }
+  let data = await (await api('/api/creador/perfil')).json();
+  const mainCreated = await api('/api/creador/series', 'POST', {
+    name: 'Mi serie', slug: 'mi-serie', profileVersion: data.profile.version,
+  });
+  assert.equal(mainCreated.status, 201);
+  if (otherDrafts) {
+    data = await (await api('/api/creador/perfil')).json();
+    const otherCreated = await api('/api/creador/series', 'POST', {
+      name: 'Otra serie', slug: 'otra-serie', profileVersion: data.profile.version,
+    });
+    assert.equal(otherCreated.status, 201);
+  }
+  data = await (await api('/api/creador/perfil')).json();
+  const mainSeries = data.series.find(({ slug }) => slug === 'mi-serie');
+  const otherSeries = data.series.find(({ slug }) => slug === 'otra-serie');
+  const fixture = seriesDeleteFixture({
+    profileCorrection: true,
+    profile: data.profile,
+    seriesId: mainSeries.id,
+    series: mainSeries,
+  });
+  if (otherSeries) fixture.otherSeries = addOtherSeriesDraft(fixture, otherSeries);
+  if (otherDrafts) fixture.resourceDraft = addResourceDraft(fixture, data.links[0]);
+  const page = await mountSessionEditor({
+    harness, auth, data, root: fixture.root, fields: fixture.fields,
+    buttons: [...fixture.buttons, ...fixture.fields], fetchOverride,
+  });
+  return { auth, harness, data, api, fixture, page, mainSeries, otherSeries };
+}
+
+test('confirmed deletion discards the separate chapter selection and reloads once', async () => {
+  const editor = await createSeriesDeleteEditor();
+  const { fixture, page, data, api } = editor;
+  fixture.chapterSelect.value = data.links[0].placementId;
+
+  await fixture.deleteButton.dispatch('click');
+
+  assert.equal(page.requests.length, 1);
+  assert.equal(page.requests[0].status, 204, 'the in-memory creator service confirms deletion');
+  assert.equal((await (await api('/api/creador/perfil')).json()).series.length, 0);
+  assert.equal(page.reloads.count, 1, 'the deleted series selector alone cannot block the safe refresh');
+  assert.equal(fixture.chapterSelect.disabled, true, 'the selector belongs to the deleted series');
+  assert.equal(fixture.addChapterButton.disabled, true, 'the deleted series chapter action stays paused');
+});
+
+test('confirmed deletion keeps other profile, series, and resource drafts saveable', async () => {
+  let releaseDelete;
+  let markDeleteStarted;
+  const deleteStarted = new Promise((resolve) => { markDeleteStarted = resolve; });
+  const deleteGate = new Promise((resolve) => { releaseDelete = resolve; });
+  const editor = await createSeriesDeleteEditor({
+    otherDrafts: true,
+    fetchOverride: async (defaultFetch, _requests, url, options) => {
+      if (options.method === 'DELETE') {
+        markDeleteStarted();
+        await deleteGate;
+      }
+      return defaultFetch(url, options);
+    },
+  });
+  const { fixture, page, data, harness } = editor;
+  fixture.chapterSelect.value = data.links[0].placementId;
+  fixture.profileField.value = 'Ana corregida';
+  fixture.otherSeries.description.value = 'Descripción de otra serie';
+  fixture.resourceDraft.description.value = 'Descripción del recurso';
+
+  const deleting = fixture.deleteButton.dispatch('click');
+  await deleteStarted;
+  fixture.chapterSelect.value = '';
+  assert.equal(fixture.chapterSelect.disabled, false, 'the series controls stay editable while DELETE is pending');
+  assert.equal(fixture.otherSeries.description.disabled, false);
+  releaseDelete();
+  await deleting;
+
+  assert.equal(page.requests[0].status, 204);
+  assert.equal(fixture.chapterSelect.value, '', 'the selector value edited during DELETE remains visible');
+  assert.equal(fixture.chapterSelect.disabled, true, 'series controls stop being editable only after success');
+  assert.equal(fixture.profileField.value, 'Ana corregida');
+  assert.equal(fixture.otherSeries.description.value, 'Descripción de otra serie');
+  assert.equal(fixture.resourceDraft.description.value, 'Descripción del recurso');
+  assert.equal(fixture.otherSeries.saveButton.disabled, false);
+  assert.equal(fixture.resourceDraft.saveButton.disabled, false);
+  assert.equal(page.reloads.count, 0, 'the other drafts remain pending after the series controls are discarded');
+
+  await fixture.profileForm.dispatch('submit');
+  assert.equal(page.requests[1].status, 200);
+  assert.equal(page.requests[1].body.displayName, 'Ana corregida');
+  assert.equal(page.reloads.count, 0, 'saving the profile leaves the other two drafts pending');
+
+  await fixture.otherSeries.form.dispatch('submit');
+  assert.equal(page.requests[2].status, 200);
+  assert.equal(page.requests[2].body.description, 'Descripción de otra serie');
+  assert.equal(page.reloads.count, 0, 'saving the other series leaves the resource draft pending');
+
+  await fixture.resourceDraft.form.dispatch('submit');
+  assert.equal(page.requests[3].status, 200);
+  assert.equal(page.requests[3].body.description, 'Descripción del recurso');
+  assert.equal((await harness.store.get(`resource:${data.links[0].resourceId}`)).description, 'Descripción del recurso');
+  assert.equal(page.reloads.count, 1, 'saving the last unrelated draft completes the safe refresh once');
+});
+
+test('a rejected series deletion keeps late metadata and chapter edits editable and pending', async () => {
+  let releaseDelete;
+  let markDeleteStarted;
+  const deleteStarted = new Promise((resolve) => { markDeleteStarted = resolve; });
+  const deleteGate = new Promise((resolve) => { releaseDelete = resolve; });
+  const editor = await createSeriesDeleteEditor({
+    fetchOverride: async (_defaultFetch, _requests, _url, options) => {
+      if (options.method === 'DELETE') {
+        markDeleteStarted();
+        await deleteGate;
+        return Response.json({ error: 'SERVICE_UNAVAILABLE' }, { status: 503 });
+      }
+      throw new Error(`unexpected request: ${options.method}`);
+    },
+  });
+  const { fixture, page } = editor;
+  const deleting = fixture.deleteButton.dispatch('click');
+  await deleteStarted;
+  fixture.name.value = 'Corrección tardía';
+  fixture.chapterSelect.value = editor.data.links[0].placementId;
+  assert.equal(fixture.chapterSelect.disabled, false, 'the chapter selector remains editable while DELETE is pending');
+  releaseDelete();
+  await deleting;
+
+  assert.match(fixture.seriesStatus.textContent, /No pudimos guardar/);
+  assert.equal(fixture.name.value, 'Corrección tardía');
+  assert.equal(fixture.name.disabled, false);
+  assert.equal(fixture.saveButton.disabled, false);
+  assert.equal(fixture.chapterSelect.value, editor.data.links[0].placementId);
+  assert.equal(fixture.chapterSelect.disabled, false);
+  assert.equal(fixture.addChapterButton.disabled, false);
+  await fixture.refresh.dispatch('click');
+  assert.equal(page.reloads.count, 0, 'both late corrections remain pending after rejection');
+  assert.match(fixture.transition.textContent, /Guarda los cambios pendientes o revierte/);
+});
 
 test('a failed series deletion leaves its metadata usable and reports only the failure', async () => {
   const fixture = seriesDeleteFixture();
