@@ -40,7 +40,7 @@ let csrfToken = root?.dataset.csrf;
 let activeForm: HTMLFormElement | undefined;
 let activeEditor: 'datos' | 'redes' | 'foto' | undefined;
 let returnFocus: HTMLElement | undefined;
-let pendingNavigation: string | undefined;
+let pendingExitAction: (() => void) | undefined;
 let conflictProfile: CreatorProfileDTO | undefined;
 let manualSlug = false;
 let photoUploadId: string | undefined;
@@ -54,7 +54,15 @@ const sessionRecovery = root ? createCreatorSessionRecovery({
   root,
   ...(dialog ? { additionalRoot: dialog } : {}),
   isWriteActive: () => writeGuard?.isActive() ?? false,
-  updateCsrf: (token) => { csrfToken = token; },
+  updateCsrf: (token) => {
+    csrfToken = token;
+    const logoutForm = root.querySelector<HTMLFormElement>('[data-account-logout]');
+    const logoutToken = logoutForm?.querySelector<HTMLInputElement>('input[name="csrfToken"]');
+    if (logoutForm && logoutToken) {
+      logoutToken.value = token;
+      formState?.commit(formState.capture(logoutForm));
+    }
+  },
 }) : undefined;
 const SOCIALS: Array<{ key: CreatorSocial; label: string }> = [
   { key: 'instagram', label: 'Instagram' },
@@ -153,13 +161,14 @@ async function jsonRequest(path: string, method: string, body?: unknown): Promis
   return response;
 }
 
-function runProfileFormAction(event: Event, action: ProfileFormAction) {
+async function runProfileFormAction(event: Event, action: ProfileFormAction) {
   if (sessionRecovery?.blocksWrites()) {
     event.preventDefault();
     sessionRecovery.announceBlocked();
     return;
   }
-  return writeGuard?.run(event, () => action(event));
+  await writeGuard?.run(event, () => action(event));
+  if (!dialog?.open) runPendingExitAction();
 }
 
 function onWrite(form: HTMLFormElement | null, action: ProfileFormAction) {
@@ -392,6 +401,13 @@ function hydrateInactiveForms(active?: HTMLFormElement) {
   }
 }
 
+function runPendingExitAction() {
+  if (writeGuard?.isActive() || hasPendingChanges()) return;
+  const action = pendingExitAction;
+  pendingExitAction = undefined;
+  action?.();
+}
+
 function closeDialog({ navigate = true }: { navigate?: boolean } = {}) {
   if (!hasPendingChanges() && !sessionRecovery?.blocksWrites()) clearRecoveryNotice();
   if (activeEditor) clearConflict(formFor(activeEditor) ?? undefined);
@@ -407,23 +423,19 @@ function closeDialog({ navigate = true }: { navigate?: boolean } = {}) {
   const focus = returnFocus;
   returnFocus = undefined;
   if (focus && focus.isConnected) window.requestAnimationFrame(() => focus.focus());
-  if (navigate && pendingNavigation) {
-    const destination = pendingNavigation;
-    pendingNavigation = undefined;
-    window.location.assign(destination);
-  }
+  if (navigate) runPendingExitAction();
 }
 
 function hasPendingChanges(): boolean {
   return formState?.hasPendingChanges() ?? false;
 }
 
-function showExitPrompt(destination?: string, trigger?: HTMLElement) {
+function showExitPrompt(afterExit?: () => void, trigger?: HTMLElement) {
   if (writeGuard?.isActive()) {
     announceWrite(activeEditor, 'Estamos guardando la acción iniciada. Espera a que termine antes de salir.', 'info');
     return;
   }
-  pendingNavigation = destination;
+  pendingExitAction = afterExit;
   if (trigger) returnFocus = trigger;
   setHidden(exitPrompt, false);
   setHidden(exitPrompt?.querySelector('[data-owner-exit-save]'), false);
@@ -520,12 +532,7 @@ function maybeExitAfterSave(noPendingChanges: boolean) {
     setHidden(root?.querySelector('[data-owner-create-panel]'), true);
     activeForm = undefined;
   }
-  if (activeEditor) closeDialog();
-  else if (pendingNavigation) {
-    const destination = pendingNavigation;
-    pendingNavigation = undefined;
-    window.location.assign(destination);
-  }
+  if (activeEditor || pendingExitAction) closeDialog();
 }
 
 async function saveProfileForm(form: HTMLFormElement, name: 'crear' | 'datos' | 'redes') {
@@ -849,7 +856,7 @@ function handleExitChoice(choice: 'save' | 'discard' | 'continue', event?: Event
       const first = current?.querySelector<HTMLElement>('input:not([type="hidden"]), textarea, button');
       first?.focus?.();
     }
-    pendingNavigation = undefined;
+    pendingExitAction = undefined;
     return;
   }
   if (choice === 'save') {
@@ -873,6 +880,15 @@ if (root && state && csrfToken && dialog) {
   const dataForm = formFor('datos');
   const socialForm = formFor('redes');
   const photoForm = formFor('foto');
+
+  root.addEventListener('account:logout', (event) => {
+    if (writeGuard?.isActive() || hasPendingChanges()) {
+      event.preventDefault();
+      const logoutForm = event.target instanceof HTMLFormElement ? event.target : undefined;
+      const trigger = logoutForm?.querySelector<HTMLButtonElement>('button[type="submit"]') ?? undefined;
+      showExitPrompt(() => logoutForm?.requestSubmit(), trigger);
+    }
+  });
 
   if (createForm) {
     const form = createForm;
@@ -1026,7 +1042,7 @@ if (root && state && csrfToken && dialog) {
     const navigation = target.closest<HTMLAnchorElement>('a[data-owner-navigation]');
     if (navigation && hasPendingChanges()) {
       event.preventDefault();
-      showExitPrompt(navigation.href, navigation);
+      showExitPrompt(() => window.location.assign(navigation.href), navigation);
     }
   });
 

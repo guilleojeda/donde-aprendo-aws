@@ -1,0 +1,20 @@
+---
+interface Props {
+  csrfToken: string;
+  label?: string;
+  buttonClass?: string;
+}
+
+const { csrfToken, label = 'Cerrar sesión', buttonClass } = Astro.props;
+---
+
+<form method="post" action="/cuenta/salir/" class="account-logout" data-account-logout>
+  <input type="hidden" name="csrfToken" value={csrfToken} />
+  <button class={buttonClass} type="submit" disabled>{label}</button>
+  <p data-account-logout-status role="status" aria-live="polite" hidden></p>
+  <noscript><p>Activa JavaScript para cerrar la sesión en este navegador.</p></noscript>
+</form>
+
+<script>
+  import '../scripts/account-logout';
+</script>

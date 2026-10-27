@@ -1,6 +1,7 @@
 ---
 import type { CreatorEditorDTO, CreatorProgram, CreatorSocial } from '../types/creators';
 import { safeJsonForScript } from '../pages/cuenta/_creator-page';
+import AccountLogout from './AccountLogout.astro';
 
 interface Props {
   data: CreatorEditorDTO;
@@ -54,10 +55,7 @@ function safeSocialUrl(value: string | undefined): string | undefined {
       <div class="creator-owner__account-popover">
         <p class="creator-owner__email">{accountEmail}</p>
         {isAdmin && <a href="/cuenta/administracion/">Administración</a>}
-        <form method="post" action="/cuenta/salir/">
-          <input type="hidden" name="csrfToken" value={logoutCsrfToken} />
-          <button type="submit">Cerrar sesión</button>
-        </form>
+        <AccountLogout csrfToken={logoutCsrfToken} />
       </div>
     </details>
   </div>
