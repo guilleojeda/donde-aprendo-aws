@@ -347,6 +347,17 @@ test('consultas de informe inválidas no alcanzan GA y dejan el marco owner util
   assert.deepEqual(reads, []);
 });
 
+test('una consulta estadística inválida conserva el error 400 aunque la cuenta todavía no tenga perfil', async () => {
+  await reset({ noProfile: true });
+  const { response, html } = await render({ search: '?vista=estadisticas&periodo=8' });
+  assert.equal(response.status, 400);
+  assertPrivate(response, html);
+  assert.match(text(html), /El período o la página no son válidos/);
+  assert.match(html, /role="alert"[^>]*aria-labelledby="creator-statistics-query-title"/);
+  assert.deepEqual(serviceQueries, []);
+  assert.deepEqual(reads, []);
+});
+
 test('una página vacía tras reducirse filas conserva vuelta al detalle interno válido', async () => {
   await reset();
   readReport = ({ profileId, period, page }) => activityReport({ creatorId: profileId, period, page,

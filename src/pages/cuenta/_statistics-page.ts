@@ -26,10 +26,22 @@ function record(value: unknown): Record<string, unknown> | undefined {
     : undefined;
 }
 
-function periodAndPage(search: URLSearchParams): { period: 7 | 30; page: number } | undefined {
+export interface CreatorStatisticsSelection {
+  period: 7 | 30;
+  page: number;
+}
+
+export function readCreatorStatisticsSelection(
+  search: URLSearchParams,
+  { ownerView = false }: { ownerView?: boolean } = {},
+): CreatorStatisticsSelection | undefined {
+  const allowed = ownerView ? new Set(['vista', 'periodo', 'pagina']) : new Set(['periodo', 'pagina']);
   for (const key of search.keys()) {
-    if (key !== 'periodo' && key !== 'pagina') return undefined;
+    if (!allowed.has(key)) return undefined;
   }
+  const views = search.getAll('vista');
+  if (ownerView && (views.length !== 1 || views[0] !== 'estadisticas')) return undefined;
+  if (!ownerView && views.length > 0) return undefined;
   const periods = search.getAll('periodo');
   const pages = search.getAll('pagina');
   if (periods.length > 1 || pages.length > 1) return undefined;
@@ -50,14 +62,24 @@ function readStateResponse(value: unknown, period: 7 | 30, page: number): 'no-pr
     : undefined;
 }
 
-export async function loadCreatorStatisticsPage(request: Request): Promise<CreatorStatisticsPageLoad> {
-  const selected = periodAndPage(new URL(request.url).searchParams);
+export async function loadCreatorStatisticsPage(
+  request: Request,
+  existingEditor?: Awaited<ReturnType<typeof loadCreatorEditor>>,
+): Promise<CreatorStatisticsPageLoad> {
+  const selected = readCreatorStatisticsSelection(new URL(request.url).searchParams, { ownerView: true });
   if (!selected) {
-    const principal: CreatorPagePrincipal = { state: 'unavailable', isAdmin: false };
-    return { principal, status: 400, state: 'invalid-query', period: 7, page: 1 };
+    const principal: CreatorPagePrincipal = existingEditor?.principal ?? { state: 'unavailable', isAdmin: false };
+    return {
+      principal,
+      status: 400,
+      state: 'invalid-query',
+      period: 7,
+      page: 1,
+      ...(existingEditor?.data ? { editor: existingEditor.data } : {}),
+    };
   }
 
-  const editorResult = await loadCreatorEditor(request);
+  const editorResult = existingEditor ?? await loadCreatorEditor(request);
   if (editorResult.status !== 200 || !editorResult.data) {
     return {
       principal: editorResult.principal,
@@ -65,6 +87,13 @@ export async function loadCreatorStatisticsPage(request: Request): Promise<Creat
       state: 'unavailable',
       ...selected,
     };
+  }
+
+  if (!editorResult.data.profile) {
+    return { principal: editorResult.principal, status: 200, state: 'no-profile', ...selected, editor: editorResult.data };
+  }
+  if (!editorResult.data.profile.published) {
+    return { principal: editorResult.principal, status: 200, state: 'not-published', ...selected, editor: editorResult.data };
   }
 
   try {

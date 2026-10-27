@@ -39,6 +39,7 @@ class Element {
   requestSubmit() { void this.emit('submit'); }
   setAttribute(name, value) { this[name] = value; }
   getAttribute(name) { return this[name] ?? null; }
+  hasAttribute(name) { return this.getAttribute(name) !== null; }
   removeAttribute(name) { delete this[name]; }
   matches(selector) {
     return selector.split(',').some((part) => {

@@ -29,6 +29,8 @@ export class ActivityElement {
 
   get href() { return this.getAttribute('href') ?? ''; }
   set href(value) { this.setAttribute('href', value); }
+  get dateTime() { return this.getAttribute('datetime') ?? ''; }
+  set dateTime(value) { this.setAttribute('datetime', value); }
 
   append(...elements) {
     for (const element of elements) {

@@ -4,7 +4,9 @@ import SiteHeader from '../../components/SiteHeader.astro';
 import SiteFooter from '../../components/SiteFooter.astro';
 import CreatorOwnerProfile from '../../components/CreatorOwnerProfile.astro';
 import AccountLogout from '../../components/AccountLogout.astro';
+import { loadCreatorStatisticsPage } from './_statistics-page';
 import '../../styles/account.css';
+import '../../styles/creators.css';
 import '../../styles/creator-owner.css';
 import { getAccountAuth } from '../../lib/account-runtime.mjs';
 import { CREATOR_PRIVATE_HEADERS, loadCreatorEditor } from './_creator-page';
@@ -54,6 +56,8 @@ const recognizedCallbackState = callbackState === 'acceso-invalido' || callbackS
 
 let session: AccountSession = { state: 'unavailable' };
 let owner: Awaited<ReturnType<typeof loadCreatorEditor>> | undefined;
+let ownerView: 'enlaces' | 'estadisticas' = 'enlaces';
+let statistics: Awaited<ReturnType<typeof loadCreatorStatisticsPage>> | undefined;
 Astro.response.headers.set('Cache-Control', 'private, no-store');
 
 if (!recognizedCallbackState) {
@@ -83,6 +87,8 @@ for (const [name, value] of Object.entries(CREATOR_PRIVATE_HEADERS)) Astro.respo
 const ownerIsReady = Boolean(session.state === 'authenticated' && owner
   && owner.status === 200 && owner.data && owner.principal.state === 'authenticated'
   && owner.principal.csrfToken && owner.principal.sessionBinding);
+const requestedViews = Astro.url.searchParams.getAll('vista');
+if (requestedViews.includes('estadisticas') && ownerIsReady) ownerView = 'estadisticas';
 const ownerLoadStatus = owner && owner.status !== 200 ? owner.status : 503;
 const pageState = recognizedCallbackState ?? (session.state === 'authenticated'
   ? ownerIsReady ? 'owner' : `owner-${ownerLoadStatus}`
@@ -96,6 +102,11 @@ Astro.response.status = pageState === 'acceso-invalido' || pageState === 'cancel
       : pageState === 'owner-401'
         ? 401
         : 200;
+
+if (ownerView === 'estadisticas' && owner) {
+  statistics = await loadCreatorStatisticsPage(Astro.request, owner);
+  Astro.response.status = statistics.status;
+}
 
 const disabledCsrf = session.state === 'disabled' ? session.csrfToken : undefined;
 const publicOrigin = import.meta.env.PUBLIC_SITE_ORIGIN || Astro.url.origin;
@@ -119,6 +130,8 @@ const publicOrigin = import.meta.env.PUBLIC_SITE_ORIGIN || Astro.url.origin;
       sessionBinding={owner.principal.sessionBinding}
       isAdmin={owner.principal.isAdmin}
       publicOrigin={publicOrigin}
+      view={ownerView}
+      statistics={statistics}
     />
   ) : (
     <main id="contenido" tabindex="-1" class="account-page site-container">

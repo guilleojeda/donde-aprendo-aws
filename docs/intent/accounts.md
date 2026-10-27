@@ -84,7 +84,11 @@ La cuenta y su permiso de administración viven en el registro privado de
 `ACCOUNTS_TABLE`. Registrarse o verificar el correo no crea ni publica una
 página. Tras ingresar, `/cuenta/` abre el espacio privado «Tu página», donde
 la persona puede crear o editar su perfil y publicarlo explícitamente. La
-gestión de enlaces, series y solicitudes que aún no fue migrada permanece en
+vista principal consulta de forma asíncrona un resumen de actividad y su
+detalle SSR vive en el mismo espacio en `/cuenta/?vista=estadisticas&periodo=7|30&pagina=N`.
+El GET anterior `/cuenta/estadisticas/` redirige al detalle conservando
+períodos y páginas válidos; las operaciones POST no se redirigen. La gestión
+de enlaces, series y solicitudes que aún no fue migrada permanece en
 `/cuenta/creador/`; sus rutas de regreso llevan a `/cuenta/`. Las reglas de
 perfiles, enlaces compartidos, reclamaciones, fotos, analítica y selección para
 el directorio están en [páginas de creadores](creator-pages.md).

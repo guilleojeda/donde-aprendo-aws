@@ -1,22 +1,41 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import SiteHeader from '../../../components/SiteHeader.astro';
-import SiteFooter from '../../../components/SiteFooter.astro';
-import CreatorStatistics from '../../../components/CreatorStatistics.astro';
 import '../../../styles/account.css';
 import '../../../styles/creators.css';
 import { CREATOR_PRIVATE_HEADERS } from '../_creator-page';
-import { loadCreatorStatisticsPage } from '../_statistics-page';
+import { readCreatorStatisticsSelection } from '../_statistics-page';
 
 export const prerender = false;
 
-const result = await loadCreatorStatisticsPage(Astro.request);
-Astro.response.status = result.status;
 for (const [name, value] of Object.entries(CREATOR_PRIVATE_HEADERS)) Astro.response.headers.set(name, value);
+
+const selection = readCreatorStatisticsSelection(new URL(Astro.request.url).searchParams);
+const getRequest = Astro.request.method === 'GET';
+
+if (getRequest && selection) {
+  const target = new URL('/cuenta/', Astro.url);
+  target.searchParams.set('vista', 'estadisticas');
+  target.searchParams.set('periodo', String(selection.period));
+  target.searchParams.set('pagina', String(selection.page));
+  const response = Astro.redirect(`${target.pathname}${target.search}`, 302);
+  for (const [name, value] of Object.entries(CREATOR_PRIVATE_HEADERS)) response.headers.set(name, value);
+  return response;
+}
+
+const methodNotAllowed = !getRequest;
+Astro.response.status = methodNotAllowed ? 405 : 400;
+if (methodNotAllowed) Astro.response.headers.set('Allow', 'GET');
 ---
 
-<BaseLayout title="Estadísticas de mi página | ¿Dónde Aprendo AWS?" description="Consulta las visitas, los clics y el origen de las sesiones de tu página de creador." noindex nofollow analytics={false}>
+<BaseLayout title="Estadísticas de mi página | ¿Dónde Aprendo AWS?" description="Acceso a las estadísticas de tu página de creador." noindex nofollow analytics={false}>
   <SiteHeader />
-  <CreatorStatistics result={result} />
-  <SiteFooter />
+  <main id="contenido" class="creator-account site-container" tabindex="-1">
+    <section class="creator-message creator-message--error" role="alert" aria-labelledby="legacy-statistics-title">
+      <p class="creator-profile__eyebrow">Tu página</p>
+      <h1 id="legacy-statistics-title">{methodNotAllowed ? 'Esta dirección sólo admite consultas' : 'El período o la página no son válidos'}</h1>
+      <p>{methodNotAllowed ? 'Abre las estadísticas desde Tu página.' : 'Elige 7 o 30 días y una página de enlaces válida.'}</p>
+      <a class="button button--outline" href="/cuenta/?vista=estadisticas&amp;periodo=7&amp;pagina=1">Abrir estadísticas</a>
+    </section>
+  </main>
 </BaseLayout>
