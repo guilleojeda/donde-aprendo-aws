@@ -4,7 +4,9 @@ import { safeJsonForScript } from '../pages/cuenta/_creator-page';
 import type { CreatorStatisticsPageLoad } from '../pages/cuenta/_statistics-page';
 import AccountLogout from './AccountLogout.astro';
 import CreatorOwnerActivity from './CreatorOwnerActivity.astro';
+import CreatorOwnerLinks from './CreatorOwnerLinks.astro';
 import CreatorStatistics from './CreatorStatistics.astro';
+import { DEFAULT_CREATOR_OWNER_LINKS_QUERY, type CreatorOwnerLinksQuery } from '../lib/creator-owner-links';
 
 type OwnerView = 'enlaces' | 'estadisticas';
 
@@ -17,10 +19,12 @@ interface Props {
   isAdmin: boolean;
   publicOrigin: string;
   view: OwnerView;
+  linksQuery?: CreatorOwnerLinksQuery;
+  linksQueryError?: string;
   statistics?: CreatorStatisticsPageLoad;
 }
 
-const { data, accountEmail, logoutCsrfToken, csrfToken, sessionBinding, isAdmin, publicOrigin, view, statistics } = Astro.props;
+const { data, accountEmail, logoutCsrfToken, csrfToken, sessionBinding, isAdmin, publicOrigin, view, linksQuery = DEFAULT_CREATOR_OWNER_LINKS_QUERY, linksQueryError, statistics } = Astro.props;
 const profile = data.profile;
 const initialStatisticsPeriod = statistics?.period ?? 30;
 const photoPath = profile?.photo?.version !== undefined
@@ -141,6 +145,15 @@ function safeSocialUrl(value: string | undefined): string | undefined {
       </section>
 
       {profile && view === 'enlaces' && <CreatorOwnerActivity profile={profile} />}
+      <nav class="creator-owner__link-tools" aria-label="Otras herramientas de creador">
+        <a class="button button--outline" data-owner-navigation href="/cuenta/creador/">Orden, series y solicitudes</a>
+        <a
+          class="button button--outline"
+          data-owner-navigation
+          href={view === 'estadisticas' ? '/cuenta/?vista=enlaces' : '/cuenta/?vista=estadisticas&periodo=30&pagina=1'}
+        >{view === 'estadisticas' ? 'Volver a tu página' : 'Ver estadísticas'}</a>
+      </nav>
+      {view === 'enlaces' && <CreatorOwnerLinks data={data} query={linksQuery} queryError={linksQueryError} />}
       {profile && view === 'estadisticas' && (
         statistics && statistics.state !== 'no-profile' && statistics.state !== 'not-published'
           ? <CreatorStatistics result={statistics} />
@@ -176,21 +189,6 @@ function safeSocialUrl(value: string | undefined): string | undefined {
         <p class="creator-owner__empty" data-owner-no-socials hidden={Boolean(profile && socials.some(({ key }) => safeSocialUrl(profile.socials[key])))}>Aún no agregaste redes o enlaces externos.</p>
       </section>
 
-      <section class="creator-owner__work" aria-labelledby="owner-work-title">
-        <div>
-          <p class="creator-owner__eyebrow">Sigue desde aquí</p>
-          <h2 id="owner-work-title">Tu contenido</h2>
-          <p>Gestiona tus enlaces y series o consulta las estadísticas de tu página.</p>
-        </div>
-        <nav aria-label="Herramientas de creador">
-          <a class="button button--outline" data-owner-navigation href="/cuenta/creador/">Administrar enlaces y series</a>
-          <a
-            class="button button--outline"
-            data-owner-navigation
-            href={view === 'estadisticas' ? '/cuenta/?vista=enlaces' : '/cuenta/?vista=estadisticas&periodo=30&pagina=1'}
-          >{view === 'estadisticas' ? 'Volver a tu página' : 'Ver estadísticas'}</a>
-        </nav>
-      </section>
     </div>
 
     <dialog class="creator-owner__dialog" data-owner-dialog aria-labelledby="creator-owner-dialog-title">
@@ -240,6 +238,42 @@ function safeSocialUrl(value: string | undefined): string | undefined {
           <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit">Subir y guardar foto</button><button class="button button--outline" type="button" data-owner-cancel>Cancelar</button></div>
           <p class="creator-owner__status" data-owner-form-status="foto" role="status" aria-live="polite"></p>
           <button class="button button--outline" type="button" data-owner-check-photo hidden>Comprobar qué foto quedó activa</button>
+        </form>
+
+        <form class="creator-owner__form" data-owner-form="enlace" data-link-edit-form hidden>
+          <fieldset class="creator-owner__field creator-owner__link-fields" data-link-metadata-fields>
+            <legend>Ficha del contenido</legend>
+            <details class="creator-owner__link-help"><summary>Sobre esta ficha</summary><p>El título, la URL y la descripción actualizan la ficha del catálogo; otros creadores que la referencien también verán esos cambios.</p></details>
+            <div class="creator-owner__field"><label for="owner-link-title">Título</label><input id="owner-link-title" name="title" maxlength="200" required /></div>
+            <div class="creator-owner__field"><label for="owner-link-url">URL</label><input id="owner-link-url" name="url" type="url" inputmode="url" maxlength="2048" required /></div>
+            <div class="creator-owner__field"><label for="owner-link-description">Descripción <span>(opcional)</span></label><textarea id="owner-link-description" name="description" rows="4" maxlength="2000"></textarea></div>
+          </fieldset>
+          <fieldset class="creator-owner__field creator-owner__link-fields" data-link-options>
+            <legend>Opciones de tu página</legend>
+            <label><input type="checkbox" name="featured" /><span>Destacar en tu página</span></label>
+            <label><input type="checkbox" name="selectedForDirectory" /><span>Proponer al directorio</span></label>
+            <details class="creator-owner__link-help"><summary>Sobre el directorio</summary><p>La propuesta requiere aprobación. Quitarla no quita el enlace de tu página; la actualización del directorio puede demorar.</p></details>
+          </fieldset>
+          <p class="creator-owner__status" data-owner-form-status="enlace" role="status" aria-live="polite"></p>
+          <section class="creator-owner__conflict" data-owner-conflict data-link-conflict hidden aria-labelledby="owner-link-conflict-title">
+            <h3 id="owner-link-conflict-title">El enlace cambió</h3>
+            <p data-owner-conflict-copy></p>
+            <button class="button button--outline" type="button" data-owner-compare>Comparar con lo guardado</button>
+            <div data-owner-comparison hidden></div>
+            <button class="button button--outline" type="button" data-owner-adopt hidden>Usar la versión guardada</button>
+          </section>
+          <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit">Guardar cambios</button><button class="button button--outline" type="button" data-owner-cancel>Cancelar</button></div>
+        </form>
+
+        <form class="creator-owner__form" data-owner-form="alta-enlace" data-link-add-form hidden>
+          <p>Agrega una URL a tu página. La propuesta al directorio queda seleccionada inicialmente y puedes quitarla antes de guardar.</p>
+          <div class="creator-owner__field"><label for="owner-add-link-title">Título</label><input id="owner-add-link-title" name="title" maxlength="200" required /></div>
+          <div class="creator-owner__field"><label for="owner-add-link-url">URL</label><input id="owner-add-link-url" name="url" type="url" inputmode="url" maxlength="2048" required /></div>
+          <div class="creator-owner__field"><label for="owner-add-link-description">Descripción <span>(opcional)</span></label><textarea id="owner-add-link-description" name="description" rows="4" maxlength="2000"></textarea></div>
+          <label class="creator-owner__link-checkbox"><input type="checkbox" name="selectedForDirectory" checked /><span>Proponer al directorio</span></label>
+          <details class="creator-owner__link-help"><summary>Sobre el directorio</summary><p>La propuesta requiere aprobación. Quitarla no quita el enlace de tu página; la actualización del directorio puede demorar.</p></details>
+          <p class="creator-owner__status" data-link-add-status role="status" aria-live="polite"></p>
+          <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit">Agregar enlace</button><button class="button button--outline" type="button" data-owner-cancel>Cancelar</button></div>
         </form>
 
         <div class="creator-owner__exit" data-owner-exit-prompt hidden role="alertdialog" aria-labelledby="owner-exit-title" aria-describedby="owner-exit-copy">

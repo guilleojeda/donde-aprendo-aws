@@ -54,10 +54,12 @@ export function createOwnerLinksSurface({ profile = defaultProfile(), links = []
   const editStatus = new BrowserElement({ dataset: { linkEditStatus: '', ownerFormStatus: 'enlace' } });
   const comparison = new BrowserElement({ dataset: { ownerComparison: '' } });
   comparison.hidden = true;
+  const adoptLink = new BrowserElement({ tagName: 'BUTTON', dataset: { ownerAdopt: '' }, textContent: 'Usar la versión guardada' });
+  adoptLink.hidden = true;
   const conflict = new BrowserElement({ dataset: { ownerConflict: '', linkConflict: '' }, lists: [
     new BrowserElement({ dataset: { ownerConflictCopy: '' } }),
     new BrowserElement({ tagName: 'BUTTON', dataset: { ownerCompare: '' } }),
-    comparison,
+    comparison, adoptLink,
   ] });
   conflict.hidden = true;
   const linkCancel = new BrowserElement({ tagName: 'BUTTON', dataset: { ownerCancel: '', linkCancel: '' } });
@@ -101,9 +103,10 @@ export function createOwnerLinksSurface({ profile = defaultProfile(), links = []
     row.title = title;
     return row;
   });
-  const table = new BrowserElement({ dataset: { ownerLinks: '' }, lists: rowElements });
+  const tableBody = new BrowserElement({ tagName: 'TBODY', dataset: { linkRows: '' }, lists: rowElements });
+  const table = new BrowserElement({ tagName: 'TABLE', dataset: { ownerLinks: '' }, lists: [tableBody] });
   const searchInput = new BrowserElement({ tagName: 'INPUT', name: 'buscar', value: search, dataset: { linkSearch: '' } });
-  table.append(searchInput);
+  const addOpen = new BrowserElement({ tagName: 'BUTTON', dataset: { linkAddOpen: '' }, textContent: 'Agregar enlace' });
 
   const addFields = [
     control('title'), control('url'), control('description', '', { tagName: 'TEXTAREA' }),
@@ -137,12 +140,12 @@ export function createOwnerLinksSurface({ profile = defaultProfile(), links = []
   checkSession.hidden = true;
   const navigation = new BrowserElement({ tagName: 'A', dataset: { ownerNavigation: '' } });
   navigation.setAttribute('href', '/cuenta/?vista=estadisticas&periodo=30&pagina=1');
-  const linksRegion = new BrowserElement({ lists: [table, addForm, retainedLinks] });
+  const linksRegion = new BrowserElement({ lists: [table, searchInput, addOpen, addForm, retainedLinks] });
   const root = new BrowserElement({ dataset: {
     csrf: 'csrf-a', sessionBinding: 'a'.repeat(64), publicOrigin: SITE_ORIGIN, profileVersion: String(profile.version),
   }, lists: [
-    ...ownerButtons, publish, pageStatus, copyStatus, linksRegion, dialog, navigation,
-    sessionShell, sessionStatus, signIn, checkSession,
+    ...ownerButtons, publish, pageStatus, copyStatus, sessionShell, sessionStatus, signIn, checkSession,
+    linksRegion, dialog, navigation,
   ] });
   root.ownerDocument = document;
   for (const element of root.descendants()) element.ownerDocument = document;
@@ -183,10 +186,10 @@ export function createOwnerLinksSurface({ profile = defaultProfile(), links = []
   };
   return {
     root, profile, links, editableResources, series,
-    dialog, dialogTitle, linkEditForm, linkFields, linkStatus: editStatus, conflict, comparison,
+    dialog, dialogTitle, linkEditForm, linkFields, linkStatus: editStatus, conflict, comparison, adoptLink,
     metadataPanel, optionsPanel,
     linkCancel, linkSubmit, dataForm, exitPrompt, exitSave, exitDiscard, exitContinue,
-    rows: rowElements, table, searchInput, addForm, addFields, addStatus, availableResources,
+    rows: rowElements, table, searchInput, addOpen, addForm, addFields, addStatus, availableResources,
     retainedLinks,
     publish, pageStatus, sessionShell, sessionStatus, signIn, checkSession,
     document, documentListeners, window, historyCalls, confirmCalls,
@@ -240,7 +243,7 @@ export async function mountOwnerLinks({ surface, fetch: fetchImpl }) {
     document: surface.document, window: surface.window,
     Element: BrowserElement, HTMLElement: BrowserElement,
     HTMLFormElement: BrowserElement, HTMLDialogElement: BrowserElement,
-    FormData: BrowserFormData, Response, Request, Headers, URL, File, Blob,
+    FormData: BrowserFormData, Response, Request, Headers, URL, URLSearchParams, File, Blob,
     TextEncoder, Event, fetch: wrappedFetch, setTimeout, clearTimeout, queueMicrotask,
   });
   return requests;

@@ -7,6 +7,7 @@ import { build } from 'esbuild';
 import { transform } from '@astrojs/compiler-rs';
 import { experimental_AstroContainer } from 'astro/container';
 import { createCreatorOwnerRuntime, SITE_ORIGIN } from './fixtures/creator-owner-runtime.mjs';
+import { createOwnerLinksSurface, mountOwnerLinks, settle } from './fixtures/creator-owner-links-browser.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const scratch = path.join(root, '.work/creator-owner-experience/planning/phase3');
@@ -254,6 +255,19 @@ test('la tabla distingue cero y un enlace, y ofrece alta por URL desde Tu págin
   assert.match(visibleText(one.html), /\b1\b/, 'the owner sees one matching link and its total');
   assert.match(one.html, /destacado|destacar/i);
   assert.match(one.html, /directorio/i);
+});
+
+test('el estado vacío SSR queda visible sin JavaScript y singulariza un enlace', async () => {
+  await resetRuntime();
+  await createProfile();
+  const empty = await render();
+  const emptyMessage = empty.html.match(/<p\b([^>]*\bdata-link-empty\b[^>]*)>/i);
+  assert.ok(emptyMessage);
+  assert.doesNotMatch(emptyMessage[1], /\bhidden(?:\s|=|>)/i);
+  assert.match(visibleText(empty.html), /todavía no agregaste enlaces/i);
+  await addLink({ title: 'Una ficha', url: 'https://links.example/una-ficha' });
+  const one = await render();
+  assert.match(visibleText(one.html), /1 coincidencia de 1 enlace/i);
 });
 
 test('50 enlaces se dividen en dos páginas de 25 sin límite de producto', async () => {
@@ -537,17 +551,19 @@ test('una ficha propia retirada sigue accesible en el contenido secundario para 
   assert.equal(rowsIn(html).length, 0, 'the retired placement no longer appears as a current link');
   assert.match(visibleText(html), /Contenido que puedes volver a agregar/i);
   assert.match(visibleText(html), /Recurso propio conservado/);
-  const retained = html.match(/<(?:section|details|div)\b([^>]*\bdata-owner-retained-links\b[^>]*)>([\s\S]*?)<\/(?:section|details|div)>/i);
-  assert.ok(retained, 'reusable owned resources have a secondary owner section');
-  const retainedItem = retained[2].match(/<(?:li|div)\b(?=[^>]*\bdata-retained-resource(?:\s|=|>))([^>]*)>([\s\S]*?)<\/(?:li|div)>/i);
-  assert.ok(retainedItem, 'each retained editable resource has a distinct secondary item');
+  const retainedMatch = html.match(/<(section|details|div)\b(?=[^>]*\bdata-owner-retained-links\b)([^>]*)>([\s\S]*?)<\/\1>/i);
+  assert.ok(retainedMatch, 'reusable owned resources have a secondary owner section');
+  const retained = [retainedMatch[0], retainedMatch[2], retainedMatch[3]];
+  const retainedItemMatch = retained[2].match(/<(li|div)\b(?=[^>]*\bdata-retained-resource(?:\s|=|>))([^>]*)>([\s\S]*?)<\/\1>/i);
+  assert.ok(retainedItemMatch, 'each retained editable resource has a distinct secondary item');
+  const retainedItem = [retainedItemMatch[0], retainedItemMatch[2], retainedItemMatch[3]];
   assert.match(retainedItem[1], new RegExp(`data-retained-resource="${link.resourceId}"`));
   assert.match(retainedItem[2], /data-link-edit/);
   assert.match(visibleText(retainedItem[2]), /Editar ficha/i, 'the retained resource can still be edited contextually');
-  const reinclude = retainedItem[2].match(/<(?:button|a)\b([^>]*\bdata-link-reinclude\b[^>]*)>([\s\S]*?)<\/(?:button|a)>/i);
+  const reinclude = retainedItem[2].match(/<(button|a)\b([^>]*\bdata-link-reinclude\b[^>]*)>([\s\S]*?)<\/\1>/i);
   assert.ok(reinclude, 'the retained resource has a re-add action');
-  assert.match(visibleText(reinclude[2]), /volver a agregar|reincorporar/i);
-  assert.match(reinclude[1], new RegExp(`(?:data-resource-id|data-resource-id-value)="${link.resourceId}"`));
+  assert.match(visibleText(reinclude[3]), /volver a agregar|reincorporar/i);
+  assert.match(reinclude[2], new RegExp(`(?:data-resource-id|data-resource-id-value)="${link.resourceId}"`));
   assert.doesNotMatch(reinclude[1], /https?:/i, 're-add identity is the observed resource ID, not its old URL');
   assert.doesNotMatch(retainedItem[2], /<form\b/i, 'retained resources do not each expose an open metadata form');
 
@@ -560,6 +576,102 @@ test('una ficha propia retirada sigue accesible en el contenido secundario para 
     'the contextual re-add surface has the current observed resource version');
   assert.equal(initialData.links.some(({ placementId }) => placementId === link.placementId), false);
   assert.equal(profile.id, current.profile.id);
+});
+
+test('agregar la URL ya existente de otro perfil conserva su ficha y acepta el recibo profile+placement real', async () => {
+  await resetRuntime();
+  await createProfile({ session: 'creator-b', slug: 'bea-enlaces' });
+  const shared = await addLink({
+    session: 'creator-b', title: 'Ficha original de Bea',
+    url: 'https://links.example/ficha-compartida-existente',
+  });
+  await createProfile();
+  const owner = await editorData();
+  const surface = createOwnerLinksSurface({
+    profile: owner.profile, links: owner.links,
+    editableResources: owner.editableResources, series: owner.series,
+  });
+  const requests = await mountOwnerLinks({ surface, fetch: (request) => runtime.fetchApi(request.url.pathname, {
+    method: request.method,
+    headers: Object.fromEntries(request.headers.entries()),
+    body: request.body === undefined ? undefined : JSON.stringify(request.body),
+  }, { session: 'creator-a' }) });
+
+  await surface.addOpen.dispatch('click');
+  const value = (name, input) => {
+    const control = surface.addForm.elements.find((item) => item.name === name);
+    control.value = input;
+    return control;
+  };
+  value('title', 'Título local que no reemplaza el original');
+  value('url', shared.url);
+  value('description', 'Descripción local que no reemplaza el original');
+  await surface.addForm.dispatch('submit');
+  await settle();
+
+  const post = requests.find(({ method, path }) => method === 'POST' && path === '/api/creador/enlaces');
+  assert.equal(post.status, 201);
+  assert.deepEqual(post.body, {
+    title: 'Título local que no reemplaza el original',
+    url: shared.url,
+    description: 'Descripción local que no reemplaza el original',
+    selectedForDirectory: true,
+  });
+  assert.equal(surface.dialog.open, false, 'a verified attachment closes the shared add dialog');
+  assert.equal(surface.addStatus.dataset.kind, 'success', 'the compatible attach receipt is not reported as an error');
+
+  const attached = await editorData();
+  assert.equal(attached.links.length, 1);
+  assert.equal(attached.links[0].resourceId, shared.resourceId);
+  assert.equal(attached.links[0].title, 'Ficha original de Bea');
+  assert.equal(attached.links[0].description, '');
+  assert.equal(attached.links[0].selectedForDirectory, true);
+  assert.equal(attached.editableResources.some(({ id }) => id === shared.resourceId), false,
+    'sharing the existing resource does not grant metadata authority');
+  const row = surface.table.querySelectorAll('[data-link-row]').find(({ dataset }) => dataset.linkRow === attached.links[0].placementId);
+  assert.ok(row);
+  assert.equal(row.querySelector('[data-link-edit]').textContent, 'Editar opciones');
+  const original = await editorData('creator-b');
+  assert.equal(original.links[0].title, 'Ficha original de Bea');
+});
+
+test('guardar sólo destacado conserva una descripción opcional ausente con el API real', async () => {
+  await resetRuntime();
+  await createProfile();
+  const link = await addLink({ title: 'Ficha sin descripción', url: 'https://links.example/sin-descripcion' });
+  const key = `resource:${link.resourceId}`;
+  const resource = await runtime.pages.store.get(key);
+  const { description: _description, ...resourceWithoutDescription } = resource;
+  assert.equal(await runtime.pages.store.transact({
+    checks: [{ key, version: resource.version }],
+    puts: [{ key, value: resourceWithoutDescription }],
+  }), true);
+  const owner = await editorData();
+  assert.equal(owner.links[0].description, undefined);
+  const surface = createOwnerLinksSurface({
+    profile: owner.profile, links: owner.links,
+    editableResources: owner.editableResources, series: owner.series,
+  });
+  const requests = await mountOwnerLinks({ surface, fetch: (request, options) => runtime.fetchApi(request.path, options) });
+
+  const edit = surface.table.querySelector('[data-link-row]')?.querySelector('[data-link-edit]');
+  await edit.dispatch('click');
+  const featured = surface.linkEditForm.elements.find((item) => item.name === 'featured');
+  featured.checked = true;
+  await surface.linkEditForm.dispatch('submit');
+  await settle();
+
+  const patch = requests.find(({ method, path }) => method === 'PATCH' && path.endsWith('/editar'));
+  assert.equal(patch.status, 200);
+  assert.deepEqual(Object.keys(patch.body).sort(), [
+    'featured', 'placementVersion', 'profileVersion', 'resourceVersion', 'selectedForDirectory',
+  ]);
+  assert.equal(surface.linkStatus.dataset.kind, 'success');
+  assert.equal(surface.dialog.open, false);
+  const latest = await editorData();
+  assert.equal(latest.links[0].featured, true);
+  assert.equal(latest.links[0].description, undefined);
+  assert.equal(latest.links[0].resourceVersion, link.resourceVersion);
 });
 
 test('la fila conserva títulos extensos y escapa contenido malicioso en el SSR privado', async () => {

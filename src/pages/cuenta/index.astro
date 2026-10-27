@@ -3,6 +3,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import SiteHeader from '../../components/SiteHeader.astro';
 import SiteFooter from '../../components/SiteFooter.astro';
 import CreatorOwnerProfile from '../../components/CreatorOwnerProfile.astro';
+import { DEFAULT_CREATOR_OWNER_LINKS_QUERY, parseCreatorOwnerLinksQuery } from '../../lib/creator-owner-links';
 import AccountLogout from '../../components/AccountLogout.astro';
 import { loadCreatorStatisticsPage } from './_statistics-page';
 import '../../styles/account.css';
@@ -57,6 +58,8 @@ const recognizedCallbackState = callbackState === 'acceso-invalido' || callbackS
 let session: AccountSession = { state: 'unavailable' };
 let owner: Awaited<ReturnType<typeof loadCreatorEditor>> | undefined;
 let ownerView: 'enlaces' | 'estadisticas' = 'enlaces';
+let ownerLinksQuery = DEFAULT_CREATOR_OWNER_LINKS_QUERY;
+let ownerLinksQueryError: string | undefined;
 let statistics: Awaited<ReturnType<typeof loadCreatorStatisticsPage>> | undefined;
 Astro.response.headers.set('Cache-Control', 'private, no-store');
 
@@ -89,6 +92,11 @@ const ownerIsReady = Boolean(session.state === 'authenticated' && owner
   && owner.principal.csrfToken && owner.principal.sessionBinding);
 const requestedViews = Astro.url.searchParams.getAll('vista');
 if (requestedViews.includes('estadisticas') && ownerIsReady) ownerView = 'estadisticas';
+if (ownerView === 'enlaces' && owner?.data) {
+  const parsedLinksQuery = parseCreatorOwnerLinksQuery(Astro.url.searchParams, owner.data.series);
+  if (parsedLinksQuery.valid) ownerLinksQuery = parsedLinksQuery.query;
+  else ownerLinksQueryError = parsedLinksQuery.reason;
+}
 const ownerLoadStatus = owner && owner.status !== 200 ? owner.status : 503;
 const pageState = recognizedCallbackState ?? (session.state === 'authenticated'
   ? ownerIsReady ? 'owner' : `owner-${ownerLoadStatus}`
@@ -102,6 +110,8 @@ Astro.response.status = pageState === 'acceso-invalido' || pageState === 'cancel
       : pageState === 'owner-401'
         ? 401
         : 200;
+
+if (ownerLinksQueryError && ownerView === 'enlaces' && ownerIsReady) Astro.response.status = 400;
 
 if (ownerView === 'estadisticas' && owner) {
   statistics = await loadCreatorStatisticsPage(Astro.request, owner);
@@ -131,6 +141,8 @@ const publicOrigin = import.meta.env.PUBLIC_SITE_ORIGIN || Astro.url.origin;
       isAdmin={owner.principal.isAdmin}
       publicOrigin={publicOrigin}
       view={ownerView}
+      linksQuery={ownerLinksQuery}
+      linksQueryError={ownerLinksQueryError}
       statistics={statistics}
     />
   ) : (

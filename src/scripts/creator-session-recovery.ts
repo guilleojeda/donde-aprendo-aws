@@ -95,7 +95,7 @@ export function createCreatorSessionRecovery({ root, additionalRoot, isWriteActi
         && typeof payload?.csrfToken === 'string' && payload.csrfToken.trim().length > 0) {
         updateCsrf(payload.csrfToken);
         recoveryRequired = undefined;
-        announce('Sesión comprobada. Tus cambios siguen aquí; vuelve a guardar la acción que quieras completar.');
+        announce('Sesión comprobada. Tus cambios siguen aquí; puedes volver a guardar la acción que quieras completar.');
         signInLinks.forEach((signInLink) => { signInLink.hidden = true; });
         checkButtons.forEach((checkButton) => { checkButton.hidden = true; });
         return;

@@ -241,6 +241,47 @@ test('409 conserva la edición y una comparación explícita muestra los valores
   assert.equal(requests.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length, 1);
 });
 
+test('una comparación tardía de A no aparece ni se adopta sobre la edición posterior de B', async () => {
+  const first = editableLink({ resourceId: 'resource-a', placementId: 'placement-a', title: 'Título A' });
+  const second = editableLink({ resourceId: 'resource-b', placementId: 'placement-b', title: 'Título B', position: 1 });
+  const editableResources = [first, second].map((link) => ({
+    id: link.resourceId, title: link.title, url: link.url,
+    description: link.description, version: link.resourceVersion,
+  }));
+  let resolveComparison;
+  const pendingComparison = new Promise((resolve) => { resolveComparison = resolve; });
+  const { surface, api, requests } = await mountCase({ links: [first, second], editableResources, override: (request) => {
+    if (request.method === 'PATCH') return jsonResponse({ error: 'LINK_CONFLICT' }, 409);
+    if (request.method === 'GET' && request.path === '/api/creador/perfil') return pendingComparison;
+    return undefined;
+  } });
+
+  await openLink(surface, first.placementId);
+  editControl(surface, 'title').value = 'Corrección local de A';
+  await saveLink(surface);
+  await surface.conflict.querySelector('[data-owner-compare]').dispatch('click');
+  await settle();
+  await surface.linkCancel.dispatch('click');
+  await surface.exitDiscard.dispatch('click');
+  await openLink(surface, second.placementId);
+  editControl(surface, 'title').value = 'Corrección local de B';
+
+  resolveComparison(jsonResponse({
+    profile: api.profile, links: api.links, editableResources: api.editableResources, claims: [], series: [],
+  }));
+  await settle();
+  assert.equal(editControl(surface, 'title').value, 'Corrección local de B');
+  assert.equal(surface.conflict.hidden, true, 'A’s late compare cannot reopen the conflict panel for B');
+  assert.equal(surface.comparison.textContent, '', 'A’s values are not displayed as B’s comparison');
+  assert.equal(surface.adoptLink.hidden, true, 'A’s read cannot expose adoption while B is active');
+
+  await saveLink(surface);
+  await surface.adoptLink.dispatch('click');
+  assert.equal(editControl(surface, 'title').value, 'Corrección local de B');
+  assert.equal(surface.comparison.textContent, '', 'the late A response cannot be adopted over B');
+  assert.equal(writes(requests).length, 2, 'each explicit save sent once; compare remained read-only');
+});
+
 for (const failure of [
   { name: '401', status: 401, body: { error: 'UNAUTHENTICATED' } },
   { name: 'CSRF', status: 403, body: { error: 'CSRF_REJECTED' } },
@@ -297,6 +338,36 @@ test('otra cuenta o cambio de rol mantiene bloqueado el mismo borrador y no escr
   assert.equal(writes(requests).length, 1, 'the changed identity cannot send a second write');
   assert.equal(api.snapshot().links[0].description, link.description);
   assert.equal(editControl(surface, 'description').value, 'Se conserva');
+});
+
+test('la recuperación bloquea quitar y reincorporar después de un rechazo de sesión', async (context) => {
+  await context.test('quitar', async () => {
+    const link = editableLink();
+    const { surface, requests } = await ownedScenario({ link, override: (request) =>
+      request.method === 'PATCH' ? jsonResponse({ error: 'UNAUTHENTICATED' }, 401) : undefined });
+    await openLink(surface, link.placementId);
+    editControl(surface, 'title').value = 'Edición no enviada';
+    await saveLink(surface);
+    await surface.linkCancel.dispatch('click');
+    await surface.exitDiscard.dispatch('click');
+    const remove = rowFor(surface, link.placementId).querySelector('[data-link-remove]');
+    await remove.dispatch('click');
+    await settle();
+    assert.equal(writes(requests).length, 1, 'the owner recovery guard blocks a second mutation before confirmation');
+    assert.equal(surface.confirmCalls.length, 0);
+  });
+
+  await context.test('reincorporar', async () => {
+    const resource = editableResource();
+    const { surface, requests } = await mountCase({ editableResources: [resource], override: (request) =>
+      request.method === 'POST' ? jsonResponse({ error: 'UNAUTHENTICATED' }, 401) : undefined });
+    const reinclude = surface.availableResources[0].querySelector('[data-link-reinclude]');
+    await reinclude.dispatch('click');
+    await settle();
+    await reinclude.dispatch('click');
+    await settle();
+    assert.equal(writes(requests).length, 1, 'the owner recovery guard blocks the retry without sending another POST');
+  });
 });
 
 test('una respuesta incierta o un recibo incompatible no confirma guardado ni cierra el editor', async (context) => {
@@ -432,7 +503,7 @@ test('la búsqueda AJAX conserva filtros y foco, clampa la página y no escribe,
   const nonMatch = sharedLink({
     placementId: stablePlacementId('resource-networking'), resourceId: 'resource-networking',
     title: 'Networking Guide', url: 'https://example.invalid/networking', position: 51,
-    featured: true, directoryApproval: 'pending', series: [{ seriesId: 'serie-1', position: 1 }],
+    featured: true, directoryApproval: 'pending', series: [],
   });
   links.push(nonMatch);
   const { surface, requests } = await mountCase({
@@ -462,6 +533,21 @@ test('la búsqueda AJAX conserva filtros y foco, clampa la página y no escribe,
   assert.equal(requests.some(({ path }) => /analytics|ga4|medicion|\/api\/creador\/estadisticas/i.test(path)), false);
 });
 
+test('quitar la última fila de la página final actualiza URL y página a la vez', async () => {
+  const links = Array.from({ length: 26 }, (_, index) => sharedLink({
+    placementId: `placement-final-${index}`, resourceId: `resource-final-${index}`,
+    title: `Título ${index}`, url: `https://example.invalid/final-${index}`, position: index,
+  }));
+  const { surface } = await mountCase({ links, query: { paginaEnlaces: '2' } });
+  assert.equal(surface.table.querySelectorAll('[data-link-row]').length, 1);
+  surface.setConfirmResult(true);
+  await rowFor(surface, links[25].placementId).querySelector('[data-link-remove]').dispatch('click');
+  await settle();
+  assert.equal(surface.table.querySelectorAll('[data-link-row]').length, 25);
+  assert.equal(new URL(surface.window.location.href).searchParams.get('paginaEnlaces'), '1');
+  assert.equal(surface.searchInput.ownerDocument.activeElement, surface.searchInput);
+});
+
 test('al guardar, una fila que deja de coincidir con la búsqueda sale sin perder el control de la tabla', async () => {
   const link = editableLink({ title: 'Guía Lambda' });
   const { surface, requests } = await ownedScenario({ link, search: 'Lambda' });
@@ -474,6 +560,50 @@ test('al guardar, una fila que deja de coincidir con la búsqueda sale sin perde
   assert.equal(surface.table.hidden, false, 'the stable table controller remains usable');
   assert.equal(new URL(surface.window.location.href).searchParams.get('buscar'), 'Lambda');
   assert.equal(writes(requests).length, 1);
+});
+
+test('guardar fuera del filtro conserva la consulta y lo anuncia junto al estado de guardado', async () => {
+  const link = editableLink({ title: 'Guía Lambda' });
+  const { surface } = await ownedScenario({ link, search: 'Lambda' });
+  await openLink(surface, link.placementId);
+  editControl(surface, 'title').value = 'Guía de redes';
+  await saveLink(surface);
+  assert.equal(new URL(surface.window.location.href).searchParams.get('buscar'), 'Lambda');
+  assert.match(surface.linkStatus.textContent, /Cambios guardados.*no coincide con los filtros actuales/i);
+});
+
+test('una fila que cambia a otra página pero sigue en la selección no anuncia que quedó fuera de filtros', async () => {
+  const links = Array.from({ length: 26 }, (_, index) => {
+    const resourceId = `resource-title-order-${index}`;
+    const shared = sharedLink({
+      placementId: `placement-title-order-${index}`, resourceId,
+      title: `Guía ${String(index).padStart(2, '0')}`,
+      url: `https://example.invalid/title-order-${index}`, position: index,
+    });
+    return index === 0 ? editableLink({ ...shared, description: 'Descripción', resourceVersion: 3, placementVersion: 8 }) : shared;
+  });
+  const link = links[0];
+  const { surface } = await ownedScenario({
+    link, links,
+    query: { orden: 'titulo-desc', paginaEnlaces: '2' },
+  });
+  await openLink(surface, link.placementId);
+  editControl(surface, 'title').value = 'Guía Z arriba';
+  await saveLink(surface);
+  assert.equal(new URL(surface.window.location.href).searchParams.get('paginaEnlaces'), '2');
+  assert.equal(rowFor(surface, link.placementId), undefined, 'the sorted row moved to the first page');
+  assert.doesNotMatch(surface.linkStatus.textContent, /no coincide con los filtros actuales/i);
+});
+
+test('agregar un enlace que no coincide con el filtro lo anuncia sin alterar la consulta', async () => {
+  const { surface } = await mountCase({ links: [], query: { directorio: 'no-propuestos' } });
+  await surface.addOpen.dispatch('click');
+  addControl(surface, 'title').value = 'Propuesta nueva';
+  addControl(surface, 'url').value = 'https://example.invalid/propuesta-nueva';
+  await surface.addForm.dispatch('submit');
+  await settle();
+  assert.equal(new URL(surface.window.location.href).searchParams.get('directorio'), 'no-propuestos');
+  assert.match(surface.addStatus.textContent, /Enlace agregado.*no coincide con los filtros actuales/i);
 });
 
 for (const selectedForDirectory of [true, false]) {

@@ -33,10 +33,14 @@ export class SurfaceElement {
     this.listeners.set(type, listeners);
   }
 
-  append(child) {
-    if (!(child instanceof SurfaceElement)) return;
-    child.parentElement = this;
-    this.lists.push(child);
+  append(...children) {
+    for (const child of children) {
+      if (!(child instanceof SurfaceElement)) continue;
+      if (child.parentElement) child.parentElement.lists = child.parentElement.lists.filter((item) => item !== child);
+      child.parentElement = this;
+      child.isConnected = true;
+      this.lists.push(child);
+    }
   }
 
   remove() {

@@ -102,12 +102,10 @@ function onWrite(
   target: EventTarget,
   type: string,
   action: (event: Event) => Promise<void> | void,
-  onBlocked?: () => void,
 ) {
   target.addEventListener(type, (event) => {
     if (sessionRecovery?.blocksWrites()) {
       event.preventDefault();
-      onBlocked?.();
       sessionRecovery.announceBlocked();
       return;
     }
@@ -136,17 +134,6 @@ async function api(path: string, method: string, body?: unknown): Promise<Respon
 
 function linkByPlacement(id: string): CreatorLinkDTO | undefined {
   return state?.links.find((link) => link.placementId === id);
-}
-
-function immediateCheckboxState(checkbox: HTMLInputElement) {
-  const placementId = checkbox.closest<HTMLElement>('[data-placement-id]')?.dataset.placementId;
-  const link = placementId ? linkByPlacement(placementId) : undefined;
-  if (!placementId || !link) return undefined;
-  return {
-    placementId,
-    link,
-    value: checkbox.matches('[data-featured]') ? link.featured : link.selectedForDirectory,
-  };
 }
 
 function linksStatus() {
@@ -325,30 +312,6 @@ function currentProfileVersion(): number | undefined {
   return state?.profile?.version;
 }
 
-async function linkCreatedMessage(response: Response): Promise<string> {
-  const profile = state?.profile;
-  if (!profile?.published) {
-    return 'Enlace agregado a tu página. Publica tu página para que aparezca al público.';
-  }
-  if (profile.hidden) {
-    return 'Enlace agregado a tu página. La página sigue oculta por administración y no aparece al público.';
-  }
-
-  try {
-    const body: unknown = await response.clone().json();
-    const link = isRecord(body) ? body.link : undefined;
-    if (isRecord(link) && link.hidden === true) {
-      return 'Enlace agregado a tu página. El enlace está oculto por administración y no aparece al público.';
-    }
-    if (isRecord(link) && link.hidden === false) {
-      return 'Enlace agregado a tu página y visible en tu perfil público.';
-    }
-  } catch {
-    // A missing moderation value must not be described as public visibility.
-  }
-  return 'Enlace agregado a tu página. Revisa su estado antes de compartirlo.';
-}
-
 function seriesById(id: string) {
   return state?.series.find((series) => series.id === id);
 }
@@ -385,59 +348,6 @@ if (root && state && csrfToken) {
     });
   });
 
-  const linkCreateForm = root.querySelector<HTMLFormElement>('[data-add-link-form]');
-  const linkCreateStatus = root.querySelector<HTMLElement>('[data-link-create-status]');
-  if (linkCreateForm) onWrite(linkCreateForm, 'submit', async (event) => {
-    event.preventDefault();
-    if (!linkCreateForm.reportValidity()) return;
-    const values = new FormData(linkCreateForm);
-    const submittedValues = formState?.capture(linkCreateForm);
-    const body = {
-      title: String(values.get('title') ?? '').trim(),
-      url: String(values.get('url') ?? '').trim(),
-      description: String(values.get('description') ?? '').trim(),
-    };
-    setBusy(linkCreateForm, true);
-    try {
-      const response = await api('/api/creador/enlaces', 'POST', body);
-      await finishWrite(response, linkCreateStatus, await linkCreatedMessage(response), submittedValues, { structural: true });
-    } catch (error) {
-      announce(linkCreateStatus, requestFailureMessage(error, 'No pudimos conectar con el servicio. Tus datos siguen en el formulario; inténtalo de nuevo.'), 'error');
-    } finally {
-      setBusy(linkCreateForm, false);
-    }
-  });
-
-  root.querySelectorAll<HTMLFormElement>('[data-resource-form]').forEach((form) => {
-    onWrite(form, 'submit', async (event) => {
-      event.preventDefault();
-      if (!form.reportValidity()) return;
-      const item = form.closest<HTMLElement>('[data-resource-id]');
-      const resourceId = item?.dataset.resourceId;
-      const link = state?.links.find((candidate) => candidate.resourceId === resourceId);
-      const retained = state?.editableResources.find((candidate) => candidate.id === resourceId);
-      const version = link?.resourceVersion ?? retained?.version;
-      if (!resourceId || version === undefined) return;
-      const values = new FormData(form);
-      const submittedValues = formState?.capture(form);
-      const body = {
-        title: String(values.get('title') ?? '').trim(),
-        url: String(values.get('url') ?? '').trim(),
-        description: String(values.get('description') ?? '').trim(),
-        version,
-      };
-      setBusy(form, true);
-      try {
-        const response = await api(`/api/creador/recursos/${encodeURIComponent(resourceId)}`, 'PATCH', body);
-        await finishWrite(response, linksStatus(), 'Ficha guardada para los perfiles que usan este recurso.', submittedValues, { ownEntity: 'resource', ownId: resourceId });
-      } catch (error) {
-        announce(linksStatus(), requestFailureMessage(error, 'No pudimos conectar con el servicio. Tus datos siguen en el formulario; inténtalo de nuevo.'), 'error');
-      } finally {
-        setBusy(form, false);
-      }
-    });
-  });
-
   root.querySelectorAll<HTMLButtonElement>('[data-move]').forEach((button) => {
     onWrite(button, 'click', async () => {
       const item = button.closest<HTMLElement>('[data-placement-id]');
@@ -463,78 +373,6 @@ if (root && state && csrfToken) {
         await finishWrite(response, linksStatus(), 'Orden actualizado.', undefined, { structural: true, ownEntity: 'placement', ownId: current.placementId });
       } catch (error) {
         announce(linksStatus(), requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
-      } finally {
-        button.disabled = false;
-      }
-    });
-  });
-
-  root.querySelectorAll<HTMLInputElement>('[data-featured], [data-directory]').forEach((checkbox) => {
-    onWrite(checkbox, 'change', async () => {
-      const observed = immediateCheckboxState(checkbox);
-      if (!observed) return;
-      const { placementId, link: current, value: previousValue } = observed;
-      checkbox.disabled = true;
-      const body = checkbox.matches('[data-featured]')
-        ? { featured: checkbox.checked, ...(current.placementVersion !== undefined ? { version: current.placementVersion } : {}) }
-        : { selectedForDirectory: checkbox.checked, ...(current.placementVersion !== undefined ? { version: current.placementVersion } : {}) };
-      const submittedValues = formState?.capture(checkbox);
-      try {
-        const response = await api(`/api/creador/enlaces/${encodeURIComponent(placementId)}`, 'PATCH', body);
-        const saved = await finishWrite(response, linksStatus(), checkbox.matches('[data-directory]')
-          ? 'Selección guardada. La página se actualiza ahora; el directorio puede tardar hasta una hora más la publicación del sitio.'
-          : 'Preferencia guardada.', submittedValues, {
-          structural: checkbox.matches('[data-featured]'),
-          ownEntity: 'placement',
-          ownId: placementId,
-        });
-        if (!saved) checkbox.checked = previousValue;
-      } catch (error) {
-        announce(linksStatus(), requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
-        checkbox.checked = previousValue;
-      } finally {
-        checkbox.disabled = false;
-      }
-    }, () => {
-      const observedValue = immediateCheckboxState(checkbox)?.value;
-      if (observedValue !== undefined) checkbox.checked = observedValue;
-    });
-  });
-
-  root.querySelectorAll<HTMLButtonElement>('[data-remove-link]').forEach((button) => {
-    onWrite(button, 'click', async () => {
-      const item = button.closest<HTMLElement>('[data-placement-id]');
-      const placementId = item?.dataset.placementId;
-      if (!placementId) return;
-      const profileVersion = currentProfileVersion();
-      button.disabled = true;
-      try {
-        const response = await api(`/api/creador/enlaces/${encodeURIComponent(placementId)}`, 'DELETE',
-          profileVersion === undefined ? undefined : { profileVersion });
-        await finishWrite(response, linksStatus(), 'Enlace quitado de tu página. La ficha que administras sigue disponible para volver a agregarla.', undefined, { structural: true });
-      } catch (error) {
-        announce(linksStatus(), requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
-      } finally {
-        button.disabled = false;
-      }
-    });
-  });
-
-  root.querySelectorAll<HTMLButtonElement>('[data-readd-link]').forEach((button) => {
-    onWrite(button, 'click', async () => {
-      const item = button.closest<HTMLElement>('[data-retained-resource-id]');
-      const resourceId = item?.dataset.retainedResourceId;
-      const resource = state?.editableResources.find((candidate) => candidate.id === resourceId);
-      if (!resource) return;
-      button.disabled = true;
-      try {
-        const response = await api('/api/creador/enlaces', 'POST', {
-          resourceId: resource.id,
-          resourceVersion: resource.version,
-        });
-        await finishWrite(response, linksStatus(), 'Recurso agregado nuevamente a tu página.', undefined, { structural: true });
-      } catch {
-        announce(linksStatus(), 'No pudimos conectar con el servicio. Inténtalo de nuevo.', 'error');
       } finally {
         button.disabled = false;
       }

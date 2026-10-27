@@ -10,6 +10,18 @@ const PROTECTED_PROFILE_FIELDS = new Set([
 ]);
 const PROTECTED_PLACEMENT_FIELDS = new Set(['published', 'directoryApproval', 'directoryControl', 'editorProfileId', 'accountId', 'isAdmin']);
 const ADMIN_RESOURCE_FIELDS = new Set(['category', 'kind', 'format', 'topics']);
+const CREATOR_RESOURCE_FIELDS = new Set(['title', 'url', 'description']);
+const ATOMIC_LINK_FIELDS = new Set([
+  'profileVersion', 'placementVersion', 'resourceVersion', 'title', 'url', 'description',
+  'featured', 'selectedForDirectory',
+]);
+const ATOMIC_LINK_METADATA_FIELDS = new Set(['title', 'url', 'description']);
+const PROTECTED_ATOMIC_LINK_FIELDS = new Set([
+  ...PROTECTED_PROFILE_FIELDS,
+  ...PROTECTED_PLACEMENT_FIELDS,
+  ...ADMIN_RESOURCE_FIELDS,
+  'hidden', 'approvalRevoked', 'ownerAccountId', 'resourceId', 'placementId', 'profileId',
+]);
 const MAX_REQUEST_BODY_BYTES = 32 * 1024;
 const MAX_DYNAMODB_ITEM_BYTES = 400 * 1024;
 const TEXT_FIELD_LIMITS = new Map([
@@ -535,6 +547,140 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     return result.profile;
   }
 
+  function storedVersion(value, entity, { legacyZero = false } = {}) {
+    if (value === undefined && legacyZero) return 0;
+    if (!Number.isSafeInteger(value) || value < 0) fail(503, `INVALID_${entity.toUpperCase()}`, `${entity} version is malformed`);
+    return value;
+  }
+
+  function nextVersion(value, entity) {
+    if (value >= Number.MAX_SAFE_INTEGER) fail(409, `${entity.toUpperCase()}_VERSION_EXHAUSTED`, `${entity} version cannot be incremented safely`);
+    return value + 1;
+  }
+
+  function assertAtomicLinkFields(body) {
+    for (const field of Object.keys(body)) {
+      if (PROTECTED_ATOMIC_LINK_FIELDS.has(field)) fail(400, 'FORBIDDEN_FIELD', `${field} is managed by the service`);
+      if (field === 'version' || !ATOMIC_LINK_FIELDS.has(field)) fail(400, 'UNKNOWN_FIELD', `unsupported field: ${field}`);
+    }
+  }
+
+  function creatorResourceChanges(resource, body) {
+    const changes = {};
+    if (Object.hasOwn(body, 'title')) {
+      const title = textField(body.title, 'title');
+      if (!title) fail(422, 'INVALID_TITLE', 'title is required');
+      changes.title = title;
+    }
+    if (Object.hasOwn(body, 'url')) {
+      const field = resource.recordType === 'event' ? 'registrationUrl' : 'url';
+      changes[field] = validateResourceUrl(body.url);
+    }
+    if (Object.hasOwn(body, 'description')) changes.description = textField(body.description, 'description');
+    return changes;
+  }
+
+  function placementChangesFromBody(body, { allowPosition = false } = {}) {
+    const changes = {};
+    if (Object.hasOwn(body, 'position')) {
+      if (!allowPosition) fail(400, 'UNKNOWN_FIELD', 'unsupported field: position');
+      if (!Number.isSafeInteger(body.position) || body.position < 0) fail(422, 'INVALID_POSITION', 'position must be a non-negative integer');
+      changes.position = body.position;
+    }
+    for (const field of ['featured', 'selectedForDirectory']) {
+      if (!Object.hasOwn(body, field)) continue;
+      if (typeof body[field] !== 'boolean') fail(422, 'INVALID_PLACEMENT', `${field} must be boolean`);
+      changes[field] = body[field];
+    }
+    return changes;
+  }
+
+  function buildPlacementMutation(profileId, placement, requestedChanges) {
+    const key = placementKey(profileId, placement.id);
+    const before = storedVersion(placement.version, 'placement', { legacyZero: true });
+    const changes = Object.fromEntries(Object.entries(requestedChanges)
+      .filter(([field, value]) => placement[field] !== value));
+    if (Object.keys(changes).length === 0) {
+      return { placement, before, changed: false, checks: [{ key, version: before }], puts: [] };
+    }
+    const updated = { ...placement, ...changes, version: nextVersion(before, 'placement') };
+    assertPlacementFits(profileId, updated);
+    return {
+      placement: updated,
+      before,
+      changed: true,
+      checks: [{ key, version: before }],
+      puts: [{ key, value: updated }],
+    };
+  }
+
+  async function buildCreatorResourceMutation(resource, requestedChanges) {
+    const key = `resource:${resource.id}`;
+    const before = storedVersion(resource.version, 'resource', { legacyZero: true });
+    const changes = Object.fromEntries(Object.entries(requestedChanges)
+      .filter(([field, value]) => resource[field] !== value));
+    const resourceCheck = { key, version: before };
+    if (Object.keys(changes).length === 0) {
+      return { resource, before, changed: false, checks: [resourceCheck], puts: [], deletes: [] };
+    }
+
+    const updated = { ...resource, ...changes, version: nextVersion(before, 'resource'), updatedAt: timestamp() };
+    const urlField = resource.recordType === 'event' ? 'registrationUrl' : 'url';
+    const oldUrl = currentResourceUrl(resource);
+    if (typeof oldUrl !== 'string') fail(503, 'INVALID_RESOURCE', 'resource URL is malformed');
+    const nextUrl = Object.hasOwn(changes, urlField) ? changes[urlField] : undefined;
+    if (nextUrl === undefined || nextUrl === oldUrl) {
+      return {
+        resource: updated,
+        before,
+        changed: true,
+        checks: [resourceCheck],
+        puts: [{ key, value: updated }],
+        deletes: [],
+      };
+    }
+
+    const nextKey = currentUrlKey(nextUrl);
+    const reservation = await store.get(nextKey);
+    if (reservation && (reservation.url !== nextUrl || reservation.resourceId !== resource.id || reservation.status !== 'reserved')) {
+      fail(409, 'URL_TAKEN', 'another resource already uses this URL');
+    }
+    const previousKey = currentUrlKey(oldUrl);
+    const previousReservation = await store.get(previousKey);
+    if (!previousReservation || previousReservation.url !== oldUrl || previousReservation.resourceId !== resource.id) {
+      fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation is missing or inconsistent');
+    }
+    if (nextKey === previousKey) fail(422, 'INVALID_URL', 'current URL could not be changed');
+
+    const nextReservationVersion = reservation
+      ? storedVersion(reservation.version, 'resource', { legacyZero: true })
+      : null;
+    const previousReservationVersion = storedVersion(previousReservation.version, 'resource', { legacyZero: true });
+    const nextReservationRecord = {
+      id: `__url#${hash(nextUrl)}`,
+      recordType: 'urlReservation',
+      url: nextUrl,
+      status: 'reserved',
+      resourceId: resource.id,
+      version: reservation ? nextVersion(nextReservationVersion, 'resource') : 1,
+    };
+    return {
+      resource: updated,
+      before,
+      changed: true,
+      checks: [
+        resourceCheck,
+        { key: nextKey, version: nextReservationVersion },
+        { key: previousKey, version: previousReservationVersion },
+      ],
+      puts: [
+        { key, value: updated },
+        { key: nextKey, value: nextReservationRecord },
+      ],
+      deletes: [previousKey],
+    };
+  }
+
   async function getPlacements(profileId) {
     const rows = await store.list(`placement:${profileId}:`);
     const placements = [];
@@ -625,6 +771,26 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     return result;
   }
 
+  function linkDtoFromRecords(placement, resource, seriesById, currentSeriesIds, {
+    includeModerationState = false,
+    publicTags = false,
+    profileSlug = '',
+  } = {}) {
+    const memberships = placementSeriesMap(placement, currentSeriesIds);
+    const link = publicLink(placement, resource, { includeModerationState });
+    link.series = Object.entries(memberships)
+      .map(([seriesId, membership]) => {
+        const item = seriesById.get(seriesId);
+        if (!item) return null;
+        return publicTags
+          ? { seriesId, position: membership.position, name: item.name, href: `/c/${encodeURIComponent(profileSlug)}/series/${encodeURIComponent(item.slug)}/` }
+          : { seriesId, position: membership.position };
+      })
+      .filter(Boolean)
+      .sort((left, right) => left.position - right.position || left.seriesId.localeCompare(right.seriesId));
+    return link;
+  }
+
   async function resourcesById(ids) {
     const uniqueIds = [...new Set(ids)];
     if (uniqueIds.length === 0) return new Map();
@@ -671,20 +837,13 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     const links = [];
     for (const placement of placements) {
       const resource = resources.get(placement.resourceId);
-      const memberships = placementSeriesMap(placement, currentSeriesIds);
       if (Object.hasOwn(resource, 'hidden') && typeof resource.hidden !== 'boolean') fail(503, 'INVALID_RESOURCE', 'resource hidden state is malformed');
       if (resource.hidden === true && !includeHiddenResources) continue;
-      const link = publicLink(placement, resource, { includeModerationState: includeHiddenResources });
-      link.series = Object.entries(memberships)
-        .map(([seriesId, membership]) => {
-          const item = seriesById.get(seriesId);
-          if (!item) return null;
-          return publicTags
-            ? { seriesId, position: membership.position, name: item.name, href: `/c/${encodeURIComponent(profileSlug)}/series/${encodeURIComponent(item.slug)}/` }
-            : { seriesId, position: membership.position };
-        })
-        .filter(Boolean)
-        .sort((left, right) => left.position - right.position || left.seriesId.localeCompare(right.seriesId));
+      const link = linkDtoFromRecords(placement, resource, seriesById, currentSeriesIds, {
+        includeModerationState: includeHiddenResources,
+        publicTags,
+        profileSlug,
+      });
       links.push(link);
     }
     return sortLinks(links);
@@ -1263,6 +1422,80 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     };
   }
 
+  async function editLink(principal, id, body) {
+    assertAtomicLinkFields(body);
+    const profile = await getRequiredOwnerProfile(principal);
+    const expectedProfileVersion = body.profileVersion === undefined
+      ? fail(400, 'PROFILE_VERSION_REQUIRED', 'profileVersion is required')
+      : validVersion(body.profileVersion);
+    const expectedPlacementVersion = body.placementVersion === undefined
+      ? fail(400, 'PLACEMENT_VERSION_REQUIRED', 'placementVersion is required')
+      : validVersion(body.placementVersion);
+    const expectedResourceVersion = body.resourceVersion === undefined
+      ? fail(400, 'RESOURCE_VERSION_REQUIRED', 'resourceVersion is required')
+      : validVersion(body.resourceVersion);
+
+    const profileVersion = storedVersion(profile.version, 'profile');
+    const placementKeyValue = placementKey(profile.id, id);
+    const placement = await store.get(placementKeyValue);
+    if (!placement || placement.id !== id || placement.profileId !== profile.id) {
+      fail(404, 'PLACEMENT_NOT_FOUND', 'placement does not belong to this profile');
+    }
+    if (expectedProfileVersion !== profileVersion) fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before saving');
+    const placementVersion = storedVersion(placement.version, 'placement', { legacyZero: true });
+    if (expectedPlacementVersion !== placementVersion) fail(409, 'PLACEMENT_CONFLICT', 'placement changed; reload before saving');
+
+    const resource = await store.get(`resource:${placement.resourceId}`);
+    if (!resource || resource.id !== placement.resourceId || !isCatalogResource(resource)) {
+      fail(503, 'MISSING_RESOURCE', 'placement points to missing resource data');
+    }
+    const resourceVersion = storedVersion(resource.version, 'resource', { legacyZero: true });
+    if (expectedResourceVersion !== resourceVersion) fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before saving');
+
+    const includesMetadata = [...ATOMIC_LINK_METADATA_FIELDS].some((field) => Object.hasOwn(body, field));
+    if (includesMetadata && (resource.editorProfileId !== profile.id || resource.directoryControl !== 'creator')) {
+      fail(403, 'RESOURCE_EDIT_FORBIDDEN', 'this profile does not edit the resource');
+    }
+
+    const resourceChanges = creatorResourceChanges(resource, body);
+    const placementChanges = placementChangesFromBody(body);
+    const resourceMutation = await buildCreatorResourceMutation(resource, resourceChanges);
+    const placementMutation = buildPlacementMutation(profile.id, placement, placementChanges);
+    const changed = resourceMutation.changed || placementMutation.changed;
+    const updatedProfile = changed
+      ? { ...profile, version: nextVersion(profileVersion, 'profile'), updatedAt: timestamp() }
+      : profile;
+    const currentSeries = await seriesForProfile(profile.id);
+    const seriesById = new Map(currentSeries.map((item) => [item.id, item]));
+    const currentSeriesIds = new Set(seriesById.keys());
+    const link = linkDtoFromRecords(placementMutation.placement, resourceMutation.resource, seriesById, currentSeriesIds, {
+      includeModerationState: true,
+    });
+    const checks = [
+      { key: profileKey(profile.id), version: profileVersion },
+      ...resourceMutation.checks,
+      ...placementMutation.checks,
+    ];
+    const puts = [
+      ...resourceMutation.puts,
+      ...placementMutation.puts,
+      ...(changed ? [{ key: profileKey(profile.id), value: updatedProfile }] : []),
+    ];
+    const deletes = [...resourceMutation.deletes];
+    if (!await store.transact({ checks, puts, deletes })) {
+      fail(409, 'LINK_CONFLICT', 'link changed while saving');
+    }
+
+    return {
+      link,
+      versionChanges: changed ? versionChanges(
+        versionChange('profile', profile.id, profileVersion, updatedProfile.version),
+        versionChange('resource', resource.id, resourceVersion, resourceMutation.resource.version ?? 0),
+        versionChange('placement', placement.id, placementVersion, placementMutation.placement.version ?? 0),
+      ) : [],
+    };
+  }
+
   async function patchPlacement(principal, id, body) {
     assertKnownFields(body, new Set(['position', 'featured', 'selectedForDirectory', 'profileVersion']), PROTECTED_PLACEMENT_FIELDS);
     const profile = await getRequiredOwnerProfile(principal);
@@ -1272,45 +1505,34 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     const expectedVersion = validVersion(body.version, { optional: true });
     if (expectedVersion !== undefined && expectedVersion !== placement.version) fail(409, 'PLACEMENT_CONFLICT', 'placement changed; reload before saving');
     const expectedProfileVersion = validVersion(body.profileVersion, { optional: true });
-    const changes = {};
+    const changes = placementChangesFromBody(body, { allowPosition: true });
     if (Object.hasOwn(body, 'position')) {
-      if (!Number.isSafeInteger(body.position) || body.position < 0) fail(422, 'INVALID_POSITION', 'position must be a non-negative integer');
       if (expectedVersion === undefined) fail(400, 'PLACEMENT_VERSION_REQUIRED', 'version is required when changing order');
       if (expectedProfileVersion === undefined) fail(400, 'PROFILE_VERSION_REQUIRED', 'profileVersion is required when changing order');
       if (expectedProfileVersion !== profile.version) fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before changing order');
-      changes.position = body.position;
-    }
-    for (const field of ['featured', 'selectedForDirectory']) {
-      if (Object.hasOwn(body, field)) {
-        if (typeof body[field] !== 'boolean') fail(422, 'INVALID_PLACEMENT', `${field} must be boolean`);
-        changes[field] = body[field];
-      }
     }
     if (Object.keys(changes).length === 0) fail(422, 'EMPTY_UPDATE', 'no placement fields were provided');
-    if (Object.entries(changes).every(([field, value]) => placement[field] === value)) {
+    const mutation = buildPlacementMutation(profile.id, placement, changes);
+    if (!mutation.changed) {
       return { link: await buildLinkDto(placement), versionChanges: [] };
     }
 
-    const puts = [];
     const checks = [
       { key: profileKey(profile.id), version: profile.version },
-      { key, version: placement.version },
+      ...mutation.checks,
     ];
-    let updated = { ...placement, ...changes, version: placement.version + 1 };
+    const puts = [...mutation.puts];
     if (Object.hasOwn(changes, 'position') && changes.position !== placement.position) {
       const all = await getPlacements(profile.id);
       const other = all.find((item) => item.id !== id && item.position === changes.position && item.featured === placement.featured);
       if (other) {
-        const otherKey = placementKey(profile.id, other.id);
-        const updatedOther = { ...other, position: placement.position, version: other.version + 1 };
-        assertPlacementFits(profile.id, updatedOther);
-        checks.push({ key: otherKey, version: other.version });
-        puts.push({ key: otherKey, value: updatedOther });
+        const neighborMutation = buildPlacementMutation(profile.id, other, { position: placement.position });
+        checks.push(...neighborMutation.checks);
+        puts.push(...neighborMutation.puts);
       }
     }
-    assertPlacementFits(profile.id, updated);
-    puts.push({ key, value: updated });
-    const updatedProfile = { ...profile, version: profile.version + 1, updatedAt: timestamp() };
+    const updated = mutation.placement;
+    const updatedProfile = { ...profile, version: nextVersion(profile.version, 'profile'), updatedAt: timestamp() };
     puts.push({ key: profileKey(profile.id), value: updatedProfile });
     if (!await store.transact({ checks, puts })) fail(409, 'PLACEMENT_CONFLICT', 'placement changed while saving');
     const neighbor = puts.find(({ key: putKey }) => putKey !== key && putKey.startsWith(`placement:${profile.id}:`))?.value;
@@ -1318,8 +1540,8 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       link: await buildLinkDto(updated),
       versionChanges: versionChanges(
         versionChange('profile', profile.id, profile.version, updatedProfile.version),
-        versionChange('placement', id, placement.version, updated.version),
-        neighbor ? versionChange('placement', neighbor.id, neighbor.version - 1, neighbor.version) : null,
+        versionChange('placement', id, mutation.before, updated.version),
+        neighbor ? versionChange('placement', neighbor.id, storedVersion(neighbor.version, 'placement', { legacyZero: true }) - 1, neighbor.version) : null,
       ),
     };
   }
@@ -1351,70 +1573,30 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
   }
 
   async function patchCreatorResource(principal, resourceId, body) {
-    assertKnownFields(body, new Set(['title', 'url', 'description']));
+    assertKnownFields(body, CREATOR_RESOURCE_FIELDS);
     const profile = await getRequiredOwnerProfile(principal);
-    const key = `resource:${resourceId}`;
-    const resource = await store.get(key);
+    const resource = await store.get(`resource:${resourceId}`);
     if (!resource || !isCatalogResource(resource)) fail(404, 'RESOURCE_NOT_FOUND', 'resource does not exist');
     if (resource.editorProfileId !== profile.id || resource.directoryControl !== 'creator') fail(403, 'RESOURCE_EDIT_FORBIDDEN', 'this profile does not edit the resource');
     const expectedVersion = validVersion(body.version, { optional: true });
-    if (expectedVersion !== undefined && expectedVersion !== resource.version) fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before saving');
-    const changedFields = {};
-    if (Object.hasOwn(body, 'title')) {
-      const title = textField(body.title, 'title');
-      if (!title) fail(422, 'INVALID_TITLE', 'title is required');
-      changedFields.title = title;
-    }
-    if (Object.hasOwn(body, 'description')) changedFields.description = textField(body.description, 'description');
-    let nextUrl;
-    const urlField = resource.recordType === 'event' ? 'registrationUrl' : 'url';
-    if (Object.hasOwn(body, 'url')) {
-      nextUrl = validateResourceUrl(body.url);
-      changedFields[urlField] = nextUrl;
-    }
+    const resourceVersion = storedVersion(resource.version, 'resource', { legacyZero: true });
+    if (expectedVersion !== undefined && expectedVersion !== resourceVersion) fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before saving');
+    const changedFields = creatorResourceChanges(resource, body);
     if (Object.keys(changedFields).length === 0) fail(422, 'EMPTY_UPDATE', 'no resource fields were provided');
-    if (Object.entries(changedFields).every(([field, value]) => resource[field] === value)) {
+    const mutation = await buildCreatorResourceMutation(resource, changedFields);
+    if (!mutation.changed) {
       return {
-        resource: { id: resource.id, title: resource.title, url: currentResourceUrl(resource), description: resource.description, version: resource.version ?? 0 },
+        resource: { id: resource.id, title: resource.title, url: currentResourceUrl(resource), description: resource.description, version: resourceVersion },
         versionChanges: [],
       };
     }
-    const updated = { ...resource, ...changedFields, version: resource.version + 1, updatedAt: timestamp() };
-    const oldUrl = currentResourceUrl(resource);
-    if (nextUrl !== undefined && nextUrl !== oldUrl) {
-      const nextKey = currentUrlKey(nextUrl);
-      const reservation = await store.get(nextKey);
-      if (reservation && (reservation.url !== nextUrl || reservation.resourceId !== resource.id || reservation.status !== 'reserved')) {
-        fail(409, 'URL_TAKEN', 'another resource already uses this URL');
-      }
-      const previousKey = currentUrlKey(oldUrl);
-      const previousReservation = await store.get(previousKey);
-      if (!previousReservation || previousReservation.url !== oldUrl || previousReservation.resourceId !== resource.id) {
-        fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation is missing or inconsistent');
-      }
-      if (nextKey === previousKey) fail(422, 'INVALID_URL', 'current URL could not be changed');
-      const checks = [
-        { key, version: resource.version },
-        { key: nextKey, version: reservation?.version ?? null },
-        { key: previousKey, version: previousReservation.version },
-      ];
-      const nextReservationRecord = {
-        id: `__url#${hash(nextUrl)}`, recordType: 'urlReservation', url: nextUrl, status: 'reserved', resourceId,
-        version: reservation ? reservation.version + 1 : 1,
-      };
-      const ok = await store.transact({
-        checks,
-        puts: [{ key, value: updated }, { key: nextKey, value: nextReservationRecord }],
-        deletes: [previousKey],
-      });
-      if (!ok) fail(409, 'RESOURCE_CONFLICT', 'resource or URL changed while saving');
-    } else {
-      const ok = await store.transact({ checks: [{ key, version: resource.version }], puts: [{ key, value: updated }] });
-      if (!ok) fail(409, 'RESOURCE_CONFLICT', 'resource changed while saving');
+    if (!await store.transact({ checks: mutation.checks, puts: mutation.puts, deletes: mutation.deletes })) {
+      fail(409, 'RESOURCE_CONFLICT', 'resource or URL changed while saving');
     }
+    const updated = mutation.resource;
     return {
       resource: { id: updated.id, title: updated.title, url: currentResourceUrl(updated), description: updated.description, version: updated.version },
-      versionChanges: versionChanges(versionChange('resource', resourceId, resource.version ?? 0, updated.version)),
+      versionChanges: versionChanges(versionChange('resource', resourceId, resourceVersion, updated.version)),
     };
   }
 
@@ -1901,6 +2083,12 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       requireWriteRequest(request, principal);
       const result = await addLink(principal, await parseRequestBody(request));
       return writeJsonResponse(result, result.created ? 201 : 200);
+    }
+    const linkEditMatch = path.match(/^\/api\/creador\/enlaces\/([^/]+)\/editar$/);
+    if (linkEditMatch) {
+      requireMethod(request, 'PATCH');
+      requireWriteRequest(request, principal);
+      return writeJsonResponse(await editLink(principal, decodeSegment(linkEditMatch[1]), await parseRequestBody(request)));
     }
     const placementMatch = path.match(/^\/api\/creador\/enlaces\/([^/]+)$/);
     if (placementMatch) {
