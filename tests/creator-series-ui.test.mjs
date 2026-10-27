@@ -405,7 +405,10 @@ test('el dashboard identifica que las visitas incluyen la página y las series',
   });
 
   assert.match(visibleText(html), /Tu página y tus series/i);
-  assert.match(html, /<h1[^>]*>Estadísticas de tu página<\/h1>/);
+  assert.match(html, /<h[2-6][^>]*>Estadísticas de tu página<\/h[2-6]>/,
+    'the statistics fragment belongs below the owner page heading');
+  assert.doesNotMatch(html, /<main\b/,
+    'the integrated report no longer creates another standalone work area');
 });
 
 async function loadTrackerSource() {

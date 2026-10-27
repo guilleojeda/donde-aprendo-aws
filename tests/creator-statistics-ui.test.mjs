@@ -251,5 +251,12 @@ test('an empty page after results shrink keeps a route back to the last page wit
   assert.match(html, /Esta página ya no tiene resultados/);
   assert.doesNotMatch(html, /Página 2 de 1/);
   assert.match(html, /Última página con datos/);
-  assert.match(html, /href="\/cuenta\/estadisticas\/\?periodo=7&amp;pagina=1"/);
+  const recoveryHref = [...html.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)]
+    .find(([, , contents]) => /Última página con datos/.test(contents))?.[1];
+  assert.ok(recoveryHref);
+  const recoveryUrl = new URL(recoveryHref.replaceAll('&amp;', '&'), 'https://dondeaprendoaws.com');
+  assert.equal(recoveryUrl.pathname, '/cuenta/');
+  assert.equal(recoveryUrl.searchParams.get('vista'), 'estadisticas');
+  assert.equal(recoveryUrl.searchParams.get('periodo'), '7');
+  assert.equal(recoveryUrl.searchParams.get('pagina'), '1');
 });

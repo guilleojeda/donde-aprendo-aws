@@ -172,7 +172,175 @@
 
 .creator-owner__profile {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
+  min-width: 0;
+}
+
+.creator-owner__profile > * {
+  min-width: 0;
+}
+
+.creator-owner__activity {
+  display: grid;
+  gap: 18px;
+  width: min(100%, 760px);
+  min-width: 0;
+  max-width: 100%;
+  margin-inline: auto;
+  padding: clamp(20px, 4vw, 32px);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface);
+  box-shadow: 0 10px 32px var(--color-shadow);
+}
+
+.creator-owner__activity > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.creator-owner__activity h2 {
+  margin: 0;
+  color: var(--color-heading);
+  font-size: clamp(1.3rem, 4vw, 1.7rem);
+}
+
+.creator-owner__activity-detail {
+  flex: 0 0 auto;
+  font-weight: 700;
+}
+
+.creator-owner__activity-totals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.creator-owner__activity-totals > div {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface-subtle);
+}
+
+.creator-owner__activity-totals span {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.creator-owner__activity-totals strong {
+  color: var(--color-heading);
+  font-size: clamp(1.35rem, 4vw, 1.8rem);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.creator-owner__activity-context,
+.creator-owner__activity-feedback {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 20px;
+}
+
+.creator-owner__activity-context p,
+.creator-owner__activity-feedback p,
+.creator-owner__activity-empty {
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.creator-owner__activity-context p > span:first-child {
+  color: var(--color-heading);
+  font-weight: 700;
+}
+
+.creator-owner__activity-controls,
+.creator-owner__activity-controls fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.creator-owner__activity-controls fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.creator-owner__activity-controls legend {
+  float: left;
+  margin-inline-end: 8px;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.creator-owner__activity-controls button {
+  min-height: 40px;
+  padding: 7px 12px;
+  border: 1px solid var(--color-border-control);
+  border-radius: 999px;
+  background: var(--color-field);
+  color: var(--color-text);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+}
+
+.creator-owner__activity-controls button[aria-pressed="true"] {
+  border-color: var(--color-accent-text);
+  background: var(--color-accent-surface);
+  color: var(--color-accent-text);
+}
+
+.creator-owner__activity a:focus-visible,
+.creator-owner__activity button:focus-visible,
+.creator-owner__activity summary:focus-visible,
+.creator-owner .creator-statistics a:focus-visible,
+.creator-owner .creator-statistics button:focus-visible,
+.creator-owner .creator-statistics select:focus-visible,
+.creator-owner .creator-statistics summary:focus-visible,
+.creator-owner .creator-statistics__table-wrap:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.creator-owner__activity-feedback {
+  justify-content: flex-start;
+  min-height: 24px;
+}
+
+.creator-owner__activity-feedback [data-kind="error"] {
+  color: var(--color-error-text);
+}
+
+.creator-owner__activity-help {
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+
+.creator-owner__activity-help summary {
+  width: fit-content;
+  color: var(--color-link);
+  cursor: pointer;
+  font-weight: 600;
+  text-underline-offset: 0.18em;
+}
+
+.creator-owner__activity-help p {
+  max-width: 60ch;
+  margin: 10px 0 0;
 }
 
 .creator-owner__identity {
@@ -569,6 +737,27 @@
 
   .creator-owner__identity-heading {
     align-items: flex-start;
+  }
+
+  .creator-owner__activity > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .creator-owner__activity-totals {
+    grid-template-columns: 1fr;
+  }
+
+  .creator-owner__activity-controls,
+  .creator-owner__activity-controls fieldset {
+    align-items: stretch;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .creator-owner__activity-controls legend {
+    float: none;
+    margin-bottom: 4px;
   }
 
   .creator-owner__photo {

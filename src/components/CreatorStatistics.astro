@@ -10,7 +10,8 @@ const { result } = Astro.props;
 const report = result.report;
 const editor = result.editor;
 const query = `periodo=${result.period}&pagina=${result.page}`;
-const retryHref = `/cuenta/estadisticas/?${query}`;
+const detailHref = `/cuenta/?vista=estadisticas&${query}`;
+const retryHref = detailHref;
 function formatCount(value: number | null): string {
   return value === null ? 'Datos limitados' : new Intl.NumberFormat('es-AR').format(value);
 }
@@ -25,17 +26,6 @@ function formatDate(value: string): string {
 
 function formatDateTime(value: string, timeZone: string): string {
   return new Intl.DateTimeFormat('es-AR', { dateStyle: 'long', timeStyle: 'short', timeZone }).format(new Date(value));
-}
-
-function warningSection(value: string): string {
-  const sections: Record<string, string> = {
-    visits: 'Visitas y visitantes',
-    daily: 'Actividad diaria',
-    links: 'Clics por enlace',
-    sources: 'Fuentes de sesión',
-    clicks: 'Clics totales',
-  };
-  return Object.hasOwn(sections, value) ? sections[value] : 'Estadísticas';
 }
 
 function warningMessage(code: string): string {
@@ -96,19 +86,15 @@ const sourcesEmptyMessage = report && (hasSectionWarning('sources') || report.to
   : 'No hay filas de fuente/medio de sesión registradas para este período.';
 ---
 
-<main id="contenido" class="creator-account creator-statistics site-container" tabindex="-1">
-  <header class="creator-account__header">
-    <p class="creator-profile__eyebrow">Tu página</p>
-    <h1>Estadísticas de tu página</h1>
-    <p>Consulta las visitas registradas, los clics en tus enlaces y cómo llegaron las sesiones.</p>
+<section class="creator-statistics" data-owner-statistics aria-labelledby="creator-statistics-title">
+  <header class="creator-statistics__heading">
+    <div>
+      <p class="creator-profile__eyebrow">Actividad</p>
+      <h2 id="creator-statistics-title">Estadísticas de tu página</h2>
+      <p>Visitas, visitantes estimados y clics en los enlaces de tu página.</p>
+    </div>
+    <a href="/cuenta/?vista=enlaces" data-owner-navigation>Volver a Tu página</a>
   </header>
-
-  {result.principal.state === 'authenticated' && (
-    <nav class="creator-account__nav" aria-label="Gestión de creador">
-      <a class="button button--outline" href="/cuenta/creador/">Gestionar enlaces y series</a>
-      <a href="/cuenta/">Volver a Tu página</a>
-    </nav>
-  )}
 
   {result.status === 401 ? (
     <section class="creator-message" role="alert" aria-labelledby="creator-statistics-login-title">
@@ -126,29 +112,30 @@ const sourcesEmptyMessage = report && (hasSectionWarning('sources') || report.to
     <section class="creator-message creator-message--error" role="alert" aria-labelledby="creator-statistics-query-title">
       <h2 id="creator-statistics-query-title">El período o la página no son válidos</h2>
       <p>Elige 7 o 30 días y una página de enlaces válida.</p>
-      <a class="button button--outline" href="/cuenta/estadisticas/">Abrir estadísticas</a>
+      <a class="button button--outline" href="/cuenta/?vista=estadisticas&amp;periodo=7&amp;pagina=1" data-owner-navigation>Abrir estadísticas</a>
     </section>
   ) : result.state === 'unavailable' || result.status !== 200 ? (
     <section class="creator-message creator-message--error" role="alert" aria-labelledby="creator-statistics-unavailable-title">
       <h2 id="creator-statistics-unavailable-title">No pudimos cargar tus estadísticas</h2>
       <p>Inténtalo de nuevo en unos minutos. Tus datos guardados no cambian por este error.</p>
-      <a class="button button--outline" href={retryHref}>Reintentar</a>
+      <a class="button button--outline" href={retryHref} data-owner-navigation>Reintentar</a>
     </section>
   ) : result.state === 'no-profile' ? (
     <section class="creator-message" aria-labelledby="creator-statistics-no-profile-title">
       <h2 id="creator-statistics-no-profile-title">Todavía no tienes una página de creador</h2>
       <p>Crea tu perfil y publícalo para iniciar la medición de visitas y clics.</p>
-      <a class="button button--dark" href="/cuenta/">Crear mi página</a>
+      <a class="button button--dark" href="/cuenta/?vista=enlaces" data-owner-navigation>Crear mi página</a>
     </section>
   ) : result.state === 'not-published' ? (
     <section class="creator-message" aria-labelledby="creator-statistics-draft-title">
       <h2 id="creator-statistics-draft-title">Publica tu página para empezar a medir</h2>
       <p>El registro comienza al publicar. Los datos anteriores a la captura no se reconstruyen.</p>
-      <a class="button button--dark" href="/cuenta/">Editar y publicar mi página</a>
+      <a class="button button--dark" href="/cuenta/?vista=enlaces" data-owner-navigation>Editar y publicar mi página</a>
     </section>
   ) : report ? (
     <>
-      <form class="creator-statistics__period" method="get" action="/cuenta/estadisticas/">
+      <form class="creator-statistics__period" method="get" action="/cuenta/" data-owner-navigation>
+        <input type="hidden" name="vista" value="estadisticas" />
         <label for="creator-statistics-period">Período</label>
         <select id="creator-statistics-period" name="periodo">
           <option value="7" selected={result.period === 7}>Últimos 7 días</option>
@@ -158,7 +145,7 @@ const sourcesEmptyMessage = report && (hasSectionWarning('sources') || report.to
         <button class="button button--outline" type="submit">Ver período</button>
       </form>
 
-      <section class="creator-statistics__metadata" aria-label="Período y actualización de datos">
+        <section class="creator-statistics__metadata" aria-label="Período y actualización de datos">
         <p><strong>Período:</strong> {formatDate(report.range.startDate)}–{formatDate(report.range.endDate)} · zona {report.range.timeZone}</p>
         <p><strong>Captura observada desde:</strong> <time datetime={report.captureStartedAt}>{formatDateTime(report.captureStartedAt, report.range.timeZone)}</time></p>
         <p><strong>Última actualización:</strong> <time datetime={report.updatedAt}>{formatDateTime(report.updatedAt, report.range.timeZone)}</time></p>
@@ -171,33 +158,33 @@ const sourcesEmptyMessage = report && (hasSectionWarning('sources') || report.to
       <section class="creator-statistics__totals" aria-label="Totales del período">
         <article class="creator-statistics__metric">
           <h2>Visitas</h2>
-          <p>{formatCount(report.totals.views)}</p>
+          <p data-owner-activity-total="views">{formatCount(report.totals.views)}</p>
           <small>Vistas registradas de tu página.</small>
+          {hasSectionWarning('visits') && <small class="creator-statistics__inline-notice">{warningMessage(report.warnings.find((warning) => warning.section === 'visits')?.code ?? '')}</small>}
         </article>
         <article class="creator-statistics__metric">
           <h2>Visitantes estimados</h2>
-          <p>{formatCount(report.totals.visitors)}</p>
+          <p data-owner-activity-total="visitors">{formatCount(report.totals.visitors)}</p>
           <small>Estimación de Google Analytics; no identifica personas con exactitud.</small>
+          {hasSectionWarning('visits') && <small class="creator-statistics__inline-notice">{warningMessage(report.warnings.find((warning) => warning.section === 'visits')?.code ?? '')}</small>}
         </article>
         <article class="creator-statistics__metric">
           <h2>Clics en enlaces</h2>
-          <p>{formatCount(report.totals.clicks)}</p>
+          <p data-owner-activity-total="clicks">{formatCount(report.totals.clicks)}</p>
           <small>Total del período, independiente de la página de enlaces.</small>
+          {hasSectionWarning('clicks') && <small class="creator-statistics__inline-notice">{warningMessage(report.warnings.find((warning) => warning.section === 'clicks')?.code ?? '')}</small>}
         </article>
       </section>
 
-      <p class="creator-statistics__scope">Las cifras de visitas y clics incluyen <strong>tu página y tus series</strong>. Los visitantes estimados se cuentan en conjunto, no una vez por cada subpágina.</p>
-
-      <p class="creator-statistics__notice">Los datos recientes pueden ser provisionales durante 24–48 horas. La medición puede quedar incompleta si un navegador bloquea JavaScript o Google Analytics.</p>
-
-      {report.warnings.length > 0 && (
-        <section class="creator-statistics__warnings" aria-labelledby="creator-statistics-warnings-title">
-          <h2 id="creator-statistics-warnings-title">Límites de estos datos</h2>
-          <ul>
-            {report.warnings.map((warning) => <li><strong>{warningSection(warning.section)}:</strong> {warningMessage(warning.code)}</li>)}
-          </ul>
-        </section>
-      )}
+      <details class="creator-statistics__help">
+        <summary>Sobre estas estadísticas</summary>
+        <div>
+          <p>Las visitas y los clics incluyen tu página y tus series. Los visitantes estimados se cuentan en conjunto, no una vez por cada subpágina.</p>
+          <p>La captura empieza en la fecha observada indicada arriba. No reconstruimos actividad anterior a esa captura ni a la existencia de tu perfil.</p>
+          <p>En la tabla, «Sin datos» indica que no se recibió una cifra para esa fecha; no significa cero actividad medida.</p>
+          <p>Los datos recientes pueden tardar 24–48 horas en procesarse. La medición puede quedar incompleta si un navegador bloquea JavaScript o Google Analytics.</p>
+        </div>
+      </details>
 
       <section class="creator-statistics__panel" aria-labelledby="creator-statistics-daily-title">
         <div class="creator-statistics__panel-heading">
@@ -210,6 +197,7 @@ const sourcesEmptyMessage = report && (hasSectionWarning('sources') || report.to
             <li><span class="creator-statistics__legend-swatch creator-statistics__legend-swatch--clicks" aria-hidden="true"></span>Clics</li>
           </ul>
         </div>
+        {hasSectionWarning('daily') && <p class="creator-statistics__inline-notice">{warningMessage(report.warnings.find((warning) => warning.section === 'daily')?.code ?? '')}</p>}
         {chartValues.length > 0 ? (
           <svg class="creator-statistics__chart" viewBox="0 0 700 170" role="img" aria-labelledby="creator-statistics-chart-title creator-statistics-chart-description">
             <title id="creator-statistics-chart-title">Gráfico diario de visitas y clics</title>
@@ -241,7 +229,7 @@ const sourcesEmptyMessage = report && (hasSectionWarning('sources') || report.to
         )}
         <div class="creator-statistics__table-wrap" role="region" aria-label="Tabla de visitas y clics por día; desplazamiento horizontal disponible" tabindex="0">
           <table class="creator-statistics__table">
-            <caption>Valores diarios de visitas y clics. “Sin datos” señala que no hay una cifra disponible para esa fecha.</caption>
+            <caption>Actividad diaria</caption>
             <thead><tr><th scope="col">Fecha ({report.range.timeZone})</th><th scope="col">Visitas</th><th scope="col">Clics</th></tr></thead>
             <tbody>
               {report.daily.map((day) => (
@@ -267,6 +255,7 @@ const sourcesEmptyMessage = report && (hasSectionWarning('sources') || report.to
               ? <p class="creator-statistics__panel-count">Detalle limitado por Google Analytics.</p>
               : <p class="creator-statistics__panel-count">Filas de detalle: {new Intl.NumberFormat('es-AR').format(report.links.totalRows)}</p>}
           </div>
+          {hasSectionWarning('links') && <p class="creator-statistics__inline-notice">{warningMessage(report.warnings.find((warning) => warning.section === 'links')?.code ?? '')}</p>}
           {report.links.rows.length > 0 ? (
             <ol class="creator-statistics__link-list">
               {report.links.rows.map((row) => {
@@ -286,9 +275,9 @@ const sourcesEmptyMessage = report && (hasSectionWarning('sources') || report.to
           {(linkPageCount > 1 || report.page > linkPageCount) && (
             <nav class="creator-statistics__pagination" aria-label="Páginas de clics por enlace">
               <span>{report.page > linkPageCount ? 'Esta página ya no tiene resultados.' : `Página ${report.page} de ${linkPageCount}`}</span>
-              {report.page > 1 && report.page <= linkPageCount && <a href={`/cuenta/estadisticas/?periodo=${report.period}&pagina=${previousPage}`}>Anterior</a>}
-              {report.page < linkPageCount && <a href={`/cuenta/estadisticas/?periodo=${report.period}&pagina=${nextPage}`}>Siguiente</a>}
-              {report.page > linkPageCount && <a href={`/cuenta/estadisticas/?periodo=${report.period}&pagina=${linkPageCount}`}>{report.links.totalRows > 0 ? 'Última página con datos' : 'Volver a la primera página'}</a>}
+              {report.page > 1 && report.page <= linkPageCount && <a href={`/cuenta/?vista=estadisticas&periodo=${report.period}&pagina=${previousPage}`} data-owner-navigation>Anterior</a>}
+              {report.page < linkPageCount && <a href={`/cuenta/?vista=estadisticas&periodo=${report.period}&pagina=${nextPage}`} data-owner-navigation>Siguiente</a>}
+              {report.page > linkPageCount && <a href={`/cuenta/?vista=estadisticas&periodo=${report.period}&pagina=${linkPageCount}`} data-owner-navigation>{report.links.totalRows > 0 ? 'Última página con datos' : 'Volver a la primera página'}</a>}
             </nav>
           )}
         </section>
@@ -300,6 +289,7 @@ const sourcesEmptyMessage = report && (hasSectionWarning('sources') || report.to
               <h2 id="creator-statistics-sources-title">Fuente/medio de sesión</h2>
             </div>
           </div>
+          {hasSectionWarning('sources') && <p class="creator-statistics__inline-notice">{warningMessage(report.warnings.find((warning) => warning.section === 'sources')?.code ?? '')}</p>}
           <p class="creator-card__help">Indica cómo llegó una sesión a tu página; no es necesariamente la página que visitó justo antes.</p>
           {report.sources.length > 0 ? (
             <ol class="creator-statistics__source-list">
@@ -311,8 +301,7 @@ const sourcesEmptyMessage = report && (hasSectionWarning('sources') || report.to
         </section>
       </div>
 
-      <p class="creator-statistics__history-note">La captura de visitas comenzó en la fecha observada indicada arriba. No reconstruimos actividad anterior a esa captura ni a la existencia de este perfil.</p>
-      <p class="creator-statistics__footer-link"><a class="button button--outline" href="/cuenta/creador/">Gestionar enlaces y series</a></p>
+      <p class="creator-statistics__footer-link"><a class="button button--outline" href="/cuenta/creador/" data-owner-navigation>Gestionar enlaces y series</a></p>
     </>
   ) : null}
-</main>
+</section>

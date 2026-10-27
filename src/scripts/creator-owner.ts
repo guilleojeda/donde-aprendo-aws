@@ -277,11 +277,33 @@ function updateSocials(profile: CreatorProfileDTO) {
   setHidden(root?.querySelector('[data-owner-no-socials]'), hasSocial);
 }
 
+function updateActivityProfile(profile: CreatorProfileDTO | null) {
+  const activity = root?.querySelector<HTMLElement>('[data-owner-activity]');
+  if (!activity) return;
+  const profileState = profile?.hidden ? 'hidden' : profile?.published ? 'published' : profile ? 'draft' : 'none';
+  const canReadActivity = Boolean(profile?.published);
+  activity.dataset.ownerProfileState = profileState;
+  activity.dataset.ownerCreatorId = profile?.id ?? '';
+  setHidden(activity.querySelector('[data-owner-activity-content]'), !canReadActivity);
+  const empty = activity.querySelector<HTMLElement>('[data-owner-activity-empty]');
+  if (empty) {
+    empty.textContent = profile
+      ? 'La actividad empieza cuando publiques tu página.'
+      : 'Prepara y publica tu página para comenzar a medir la actividad.';
+    setHidden(empty, canReadActivity);
+  }
+  activity.querySelectorAll<HTMLElement>('[data-owner-activity-detail]').forEach((link) => { link.hidden = !canReadActivity; });
+  if (typeof activity.dispatchEvent === 'function' && typeof Event === 'function') {
+    activity.dispatchEvent(new Event('creator-owner:profile-updated'));
+  }
+}
+
 function updateProfileView() {
   const profile = state?.profile;
   if (!root) return;
   setHidden(root.querySelector('[data-owner-create-panel]'), Boolean(profile));
   setHidden(root.querySelector('[data-owner-profile]'), !profile);
+  updateActivityProfile(profile ?? null);
   if (!profile) return;
 
   textAt('[data-owner-name]', profile.displayName);
@@ -888,6 +910,17 @@ if (root && state && csrfToken && dialog) {
       const trigger = logoutForm?.querySelector<HTMLButtonElement>('button[type="submit"]') ?? undefined;
       showExitPrompt(() => logoutForm?.requestSubmit(), trigger);
     }
+  });
+
+  root.addEventListener('submit', (event) => {
+    const navigation = event.target;
+    if (!(navigation instanceof HTMLFormElement) || !navigation.hasAttribute('data-owner-navigation') || !hasPendingChanges()) return;
+    event.preventDefault();
+    const submitter = (event as SubmitEvent).submitter;
+    showExitPrompt(
+      () => navigation.requestSubmit(),
+      submitter instanceof HTMLElement ? submitter : undefined,
+    );
   });
 
   if (createForm) {

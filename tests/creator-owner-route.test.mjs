@@ -170,13 +170,12 @@ test('la ruta Astro real abre la identidad propia, protege el HTML y sólo enlaz
   assert.doesNotMatch(html, /href="\/cuenta\/creador\/"[^>]*>\s*(?:Crear o editar|Editar mi página)/i,
     'ordinary profile work no longer requires opening the old editor route');
   assert.doesNotMatch(text, /Vista previa|Previsualizar/i);
-  assert.doesNotMatch(html, /<table\b|role="table"|data-creator-statistics/,
-    'phase 1 does not add the links table or a statistics panel');
-  assert.doesNotMatch(text, /Visitas|Visitantes estimados|Clics|Estadísticas del período/i);
+  assert.doesNotMatch(html, /<table\b|role="table"/,
+    'the ordinary owner entry does not yet include the links table or the full report detail');
   assert.doesNotMatch(html, /analytics\.js|gtag\(|google-analytics/i,
     'the private owner route does not load audience measurement');
   assert.ok(!runtime.serviceCalls.some(({ path }) => /\/estadisticas\/?$/.test(path)),
-    'the route never asks the service for statistics');
+    'the ordinary owner SSR never waits for statistics; the phase 2 summary loads separately');
   assert.match(html, /\/cuenta\/salir\//, 'logout remains reachable from the owner shell');
   assert.match(html, /csrfToken/i, 'logout remains a protected POST form');
   assert.ok(runtime.serviceCalls.some(({ path }) => path.replace(/\/$/, '') === '/api/creador/perfil'));

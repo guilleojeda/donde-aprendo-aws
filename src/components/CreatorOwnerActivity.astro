@@ -1,0 +1,76 @@
+---
+import type { CreatorProfileDTO } from '../types/creators';
+
+interface Props {
+  profile: CreatorProfileDTO | null;
+  initialPeriod?: 7 | 30;
+}
+
+const { profile, initialPeriod = 30 } = Astro.props;
+const profileState = profile?.hidden ? 'hidden' : profile?.published ? 'published' : profile ? 'draft' : 'none';
+const canReadActivity = Boolean(profile?.published);
+---
+
+<section
+  class="creator-owner__activity"
+  data-owner-activity
+  data-owner-profile-state={profileState}
+  data-owner-creator-id={profile?.id ?? ''}
+  data-owner-activity-initial-period={initialPeriod}
+  aria-labelledby="owner-activity-title"
+>
+  <header class="creator-owner__section-heading">
+    <div>
+      <p class="creator-owner__eyebrow">Actividad</p>
+      <h2 id="owner-activity-title">Estadísticas de tu página</h2>
+    </div>
+    <a
+      class="creator-owner__activity-detail"
+      data-owner-activity-detail
+      data-owner-navigation
+      href={`/cuenta/?vista=estadisticas&periodo=${initialPeriod}&pagina=1`}
+      hidden={!canReadActivity}
+    >Ver detalle</a>
+  </header>
+
+  <div data-owner-activity-content hidden={!canReadActivity}>
+      <div class="creator-owner__activity-totals" data-owner-activity-total-group aria-label={`Totales de los últimos ${initialPeriod} días`}>
+        <div><span>Visitas</span><strong data-owner-activity-total="views">—</strong></div>
+        <div><span>Visitantes estimados</span><strong data-owner-activity-total="visitors">—</strong></div>
+        <div><span>Clics en enlaces</span><strong data-owner-activity-total="clicks">—</strong></div>
+      </div>
+
+      <div class="creator-owner__activity-context">
+        <p>
+          <span>Período:</span>
+          <time data-owner-activity-start></time>–<time data-owner-activity-end></time>
+          <span data-owner-activity-time-zone></span>
+        </p>
+        <p>Última actualización: <time data-owner-activity-updated></time></p>
+      </div>
+
+      <div class="creator-owner__activity-controls">
+        <fieldset>
+          <legend>Período del resumen</legend>
+          <button type="button" data-owner-activity-period="7" aria-pressed={initialPeriod === 7}>7 días</button>
+          <button type="button" data-owner-activity-period="30" aria-pressed={initialPeriod === 30}>30 días</button>
+        </fieldset>
+      </div>
+
+      <div class="creator-owner__activity-feedback" data-owner-activity-feedback>
+        <p data-owner-activity-status role="status" aria-live="polite">Cargando estadísticas…</p>
+        <button class="button button--outline" type="button" data-owner-activity-retry hidden>Reintentar</button>
+      </div>
+      <noscript><p class="creator-owner__activity-empty">El resumen necesita JavaScript. El detalle estadístico también está disponible sin JavaScript.</p></noscript>
+
+      <details class="creator-owner__activity-help">
+        <summary>Sobre estas estadísticas</summary>
+        <p>Las visitas y los clics reúnen tu página y tus series. Los visitantes son estimados por Google Analytics y no identifican personas con exactitud.</p>
+        <p>La captura empieza en la fecha observada. No se reconstruye la actividad anterior a esa captura ni a la existencia de tu perfil.</p>
+        <p>Los datos recientes pueden tardar 24–48 horas en procesarse. La medición puede quedar incompleta si un navegador bloquea JavaScript o Google Analytics.</p>
+      </details>
+  </div>
+  <p class="creator-owner__activity-empty" data-owner-activity-empty hidden={canReadActivity}>
+      {profile ? 'La actividad empieza cuando publiques tu página.' : 'Prepara y publica tu página para comenzar a medir la actividad.'}
+  </p>
+</section>

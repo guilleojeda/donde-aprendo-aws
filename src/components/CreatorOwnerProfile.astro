@@ -1,7 +1,12 @@
 ---
 import type { CreatorEditorDTO, CreatorProgram, CreatorSocial } from '../types/creators';
 import { safeJsonForScript } from '../pages/cuenta/_creator-page';
+import type { CreatorStatisticsPageLoad } from '../pages/cuenta/_statistics-page';
 import AccountLogout from './AccountLogout.astro';
+import CreatorOwnerActivity from './CreatorOwnerActivity.astro';
+import CreatorStatistics from './CreatorStatistics.astro';
+
+type OwnerView = 'enlaces' | 'estadisticas';
 
 interface Props {
   data: CreatorEditorDTO;
@@ -11,10 +16,13 @@ interface Props {
   sessionBinding: string;
   isAdmin: boolean;
   publicOrigin: string;
+  view: OwnerView;
+  statistics?: CreatorStatisticsPageLoad;
 }
 
-const { data, accountEmail, logoutCsrfToken, csrfToken, sessionBinding, isAdmin, publicOrigin } = Astro.props;
+const { data, accountEmail, logoutCsrfToken, csrfToken, sessionBinding, isAdmin, publicOrigin, view, statistics } = Astro.props;
 const profile = data.profile;
+const initialStatisticsPeriod = statistics?.period ?? 30;
 const photoPath = profile?.photo?.version !== undefined
   ? `/media/fotos/${encodeURIComponent(profile.id)}/${encodeURIComponent(String(profile.photo.version))}.webp`
   : undefined;
@@ -94,6 +102,12 @@ function safeSocialUrl(value: string | undefined): string | undefined {
       </form>
     </section>
 
+    {!profile && view === 'estadisticas' && statistics?.state === 'invalid-query' ? (
+      <CreatorStatistics result={statistics} />
+    ) : !profile ? (
+      <CreatorOwnerActivity profile={null} initialPeriod={initialStatisticsPeriod} />
+    ) : null}
+
     <div class="creator-owner__profile" data-owner-profile hidden={!profile}>
       <section class="creator-owner__identity" aria-labelledby="owner-profile-name">
         <div class="creator-owner__identity-heading">
@@ -125,6 +139,13 @@ function safeSocialUrl(value: string | undefined): string | undefined {
         {profile && !profile.published && !profile.hidden && <button class="button button--dark" type="button" data-owner-publish>Publicar página</button>}
         <p class="creator-owner__status" data-owner-copy-status role="status" aria-live="polite"></p>
       </section>
+
+      {profile && view === 'enlaces' && <CreatorOwnerActivity profile={profile} />}
+      {profile && view === 'estadisticas' && (
+        statistics && statistics.state !== 'no-profile' && statistics.state !== 'not-published'
+          ? <CreatorStatistics result={statistics} />
+          : <CreatorOwnerActivity profile={profile} initialPeriod={initialStatisticsPeriod} />
+      )}
 
       <section class="creator-owner__details" aria-labelledby="owner-details-title">
         <div class="creator-owner__section-heading">
@@ -163,7 +184,11 @@ function safeSocialUrl(value: string | undefined): string | undefined {
         </div>
         <nav aria-label="Herramientas de creador">
           <a class="button button--outline" data-owner-navigation href="/cuenta/creador/">Administrar enlaces y series</a>
-          <a class="button button--outline" data-owner-navigation href="/cuenta/estadisticas/">Ver estadísticas</a>
+          <a
+            class="button button--outline"
+            data-owner-navigation
+            href={view === 'estadisticas' ? '/cuenta/?vista=enlaces' : '/cuenta/?vista=estadisticas&periodo=30&pagina=1'}
+          >{view === 'estadisticas' ? 'Volver a tu página' : 'Ver estadísticas'}</a>
         </nav>
       </section>
     </div>
@@ -232,4 +257,5 @@ function safeSocialUrl(value: string | undefined): string | undefined {
 
 <script>
   import '../scripts/creator-owner.ts';
+  import '../scripts/creator-owner-activity.ts';
 </script>

@@ -254,7 +254,7 @@ function ownerSurface({ profile = null, initialData = {}, csrfToken = 'csrf-a', 
   exitDiscard.hidden = true;
   exitContinue.hidden = true;
   const internalNavigation = new SurfaceElement({ tagName: 'A', dataset: { ownerNavigation: '' } });
-  internalNavigation.setAttribute('href', '/cuenta/estadisticas/');
+  internalNavigation.setAttribute('href', '/cuenta/?vista=estadisticas&periodo=30&pagina=1');
   const sessionShell = new SurfaceElement();
   sessionShell.hidden = true;
   const sessionStatus = new SurfaceElement();

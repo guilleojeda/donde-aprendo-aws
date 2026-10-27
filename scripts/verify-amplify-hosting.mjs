@@ -242,7 +242,7 @@ try {
   const accountRobots = accountHtml.match(/<meta name="robots" content="([^"]+)"/u)?.[1];
   assert.ok(accountRobots?.split(',').map((directive) => directive.trim()).includes('noindex'), 'Account page is not indexable.');
 
-  for (const path of ['/cuenta/creador/', '/cuenta/administracion/', '/cuenta/estadisticas/']) {
+  for (const path of ['/cuenta/creador/', '/cuenta/administracion/']) {
     const response = await getWhenReady(path);
     const html = await response.text();
     assert.equal(response.status, 401, `${path} requires a real session.`);
@@ -251,6 +251,23 @@ try {
     assert.doesNotMatch(html, /src="\/assets\/analytics\.js"/u, 'Private creator pages do not load Analytics.');
     assertRuntimeTheme(html, path);
   }
+  const legacyStatistics = await getWhenReady('/cuenta/estadisticas/?periodo=30&pagina=2', { redirect: 'manual' });
+  assert.ok([301, 302, 303, 307, 308].includes(legacyStatistics.status), 'Old statistics bookmarks redirect to the owner workspace.');
+  const statisticsTarget = new URL(legacyStatistics.headers.get('location'), origin);
+  assert.equal(statisticsTarget.origin, origin, 'The compatibility route stays on this host.');
+  assert.equal(statisticsTarget.pathname, '/cuenta/');
+  assert.equal(statisticsTarget.searchParams.get('vista'), 'estadisticas');
+  assert.equal(statisticsTarget.searchParams.get('periodo'), '30');
+  assert.equal(statisticsTarget.searchParams.get('pagina'), '2');
+  assert.match(legacyStatistics.headers.get('cache-control') ?? '', /private.*no-store/iu);
+  assert.equal(legacyStatistics.headers.get('referrer-policy'), 'no-referrer');
+  const statisticsEntry = await getWhenReady(`${statisticsTarget.pathname}${statisticsTarget.search}`);
+  const statisticsEntryHtml = await statisticsEntry.text();
+  assert.equal(statisticsEntry.status, 200, 'An anonymous statistics visit uses the normal owner sign-in entry.');
+  assert.match(statisticsEntry.headers.get('cache-control') ?? '', /private.*no-store/iu);
+  assert.match(statisticsEntryHtml, /noindex/u);
+  assert.doesNotMatch(statisticsEntryHtml, /src="\/assets\/analytics\.js"/u);
+  assertRuntimeTheme(statisticsEntryHtml, 'Statistics owner entry');
   for (const path of ['/api/creador/perfil/', '/api/admin/recursos/', '/api/creador/foto/autorizar/', '/api/creador/estadisticas/']) {
     const isPhoto = path.includes('/foto/');
     const response = await fetch(new URL(path, origin), {
