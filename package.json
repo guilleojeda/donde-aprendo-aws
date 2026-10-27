@@ -11,7 +11,7 @@
     "build": "astro build",
     "verify:blog": "node scripts/verify-blog.mjs && node scripts/verify-responsive-images.mjs",
     "verify:images": "node scripts/verify-responsive-images.mjs",
-    "verify:site": "node scripts/verify-site.mjs && node --test tests/acceptance/site-themes.test.mjs tests/acceptance/compact-event-agenda.test.mjs tests/acceptance/compact-home.test.mjs tests/acceptance/compact-directories.test.mjs tests/acceptance/compact-blog.test.mjs tests/acceptance/compact-learning-paths.test.mjs tests/acceptance/certifications-overview.test.mjs tests/acceptance/certification-details.test.mjs",
+    "verify:site": "node scripts/verify-site.mjs && node --test tests/acceptance/site-themes.test.mjs tests/acceptance/compact-event-agenda.test.mjs tests/acceptance/compact-home.test.mjs tests/acceptance/compact-directories.test.mjs tests/acceptance/compact-blog.test.mjs tests/acceptance/article-index.test.mjs tests/acceptance/compact-learning-paths.test.mjs tests/acceptance/certifications-overview.test.mjs tests/acceptance/certification-details.test.mjs",
     "verify:hosting": "node scripts/verify-amplify-hosting.mjs",
     "preview": "node scripts/preview.mjs",
     "verify:preview": "node --test tests/built-preview.mjs",
