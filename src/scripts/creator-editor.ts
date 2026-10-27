@@ -348,37 +348,6 @@ if (root && state && csrfToken) {
     });
   });
 
-  root.querySelectorAll<HTMLButtonElement>('[data-move]').forEach((button) => {
-    onWrite(button, 'click', async () => {
-      const item = button.closest<HTMLElement>('[data-placement-id]');
-      const placementId = item?.dataset.placementId;
-      const direction = button.dataset.move;
-      const current = placementId ? linkByPlacement(placementId) : undefined;
-      if (!current || current.placementVersion === undefined || (direction !== 'up' && direction !== 'down')) return;
-      const group = [...(state?.links ?? [])]
-        .filter((link) => link.featured === current.featured)
-        .sort((left, right) => left.position - right.position);
-      const index = group.findIndex((link) => link.placementId === current.placementId);
-      const target = group[index + (direction === 'up' ? -1 : 1)];
-      if (!target) return;
-      const profileVersion = currentProfileVersion();
-      if (profileVersion === undefined) return;
-      button.disabled = true;
-      try {
-        const response = await api(`/api/creador/enlaces/${encodeURIComponent(current.placementId)}`, 'PATCH', {
-          position: target.position,
-          version: current.placementVersion,
-          profileVersion,
-        });
-        await finishWrite(response, linksStatus(), 'Orden actualizado.', undefined, { structural: true, ownEntity: 'placement', ownId: current.placementId });
-      } catch (error) {
-        announce(linksStatus(), requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
-      } finally {
-        button.disabled = false;
-      }
-    });
-  });
-
   const seriesCreateForm = root.querySelector<HTMLFormElement>('[data-series-create-form]');
   const seriesCreateStatus = seriesCreateForm?.querySelector<HTMLElement>('[data-series-create-status]');
   const seriesNameInput = seriesCreateForm?.querySelector<HTMLInputElement>('[data-series-name-suggestion]');

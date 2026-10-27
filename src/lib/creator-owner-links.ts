@@ -106,6 +106,10 @@ function comparePlacement(left: CreatorLinkDTO, right: CreatorLinkDTO): number {
     || left.placementId.localeCompare(right.placementId);
 }
 
+export function creatorOwnerLinkGroup(links: readonly CreatorLinkDTO[], featured: boolean): CreatorLinkDTO[] {
+  return links.filter((link) => link.featured === featured).sort(comparePlacement);
+}
+
 function compareTitle(left: CreatorLinkDTO, right: CreatorLinkDTO, direction: 1 | -1): number {
   const titleOrder = left.title.localeCompare(right.title, 'es', { sensitivity: 'base' });
   return titleOrder === 0

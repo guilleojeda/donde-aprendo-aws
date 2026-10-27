@@ -180,7 +180,7 @@ test('la ruta Astro real abre la identidad propia, protege el HTML y sólo enlaz
   assert.equal(profile.slug, 'ana-lambda-actual');
 });
 
-test('la ruta residual conserva orden, series y reclamaciones sin duplicar los formularios reemplazados', async () => {
+test('la ruta residual deja mover enlaces a Tu página y conserva series, capítulos y reclamaciones', async () => {
   await resetRuntime();
   await createProfile({ slug: 'ana-contenido' });
   const addedLink = await api('/api/creador/enlaces/', {
@@ -188,6 +188,11 @@ test('la ruta residual conserva orden, series y reclamaciones sin duplicar los f
     url: 'https://example.invalid/guia-que-se-conserva',
   }, { method: 'POST' });
   assert.ok(addedLink.link);
+  const secondLink = await api('/api/creador/enlaces/', {
+    title: 'Otro capítulo que se conserva',
+    url: 'https://example.invalid/otro-capitulo-que-se-conserva',
+  }, { method: 'POST' });
+  assert.ok(secondLink.link);
   const current = await api('/api/creador/perfil/', undefined, { method: 'GET' });
   const createdSeries = await api('/api/creador/series/', {
     name: 'Ruta que se conserva',
@@ -195,14 +200,25 @@ test('la ruta residual conserva orden, series y reclamaciones sin duplicar los f
     profileVersion: current.profile.version,
   }, { method: 'POST' });
   assert.ok(createdSeries.series);
+  let seriesProfileVersion = (await api('/api/creador/perfil/', undefined, { method: 'GET' })).profile.version;
+  await api(`/api/creador/series/${createdSeries.series.id}/capitulos/${addedLink.link.placementId}`, {
+    profileVersion: seriesProfileVersion,
+  }, { method: 'PUT' });
+  seriesProfileVersion = (await api('/api/creador/perfil/', undefined, { method: 'GET' })).profile.version;
+  await api(`/api/creador/series/${createdSeries.series.id}/capitulos/${secondLink.link.placementId}`, {
+    profileVersion: seriesProfileVersion,
+  }, { method: 'PUT' });
 
   const { response, html } = await renderPage(editorRoute, { pathname: '/cuenta/creador/' });
   const text = visibleText(html);
   assert.equal(response.status, 200);
   assert.match(text, /Guía que se conserva/);
+  assert.match(text, /Otro capítulo que se conserva/);
   assert.match(text, /Ruta que se conserva/);
   assert.match(text, /Crear serie/);
-  assert.match(html, /data-move=/, 'the old route retains public-order controls until phase 4');
+  assert.doesNotMatch(html, /\bdata-move=/, 'link position actions now live in the owner table');
+  assert.doesNotMatch(html, /\bdata-link-order-form/i);
+  assert.match(html, /\bdata-series-move=/, 'chapter ordering remains available in the residual route');
   assert.match(html, /data-claim-form/, 'the existing claim flow remains until phase 6');
   assert.doesNotMatch(html, /data-add-link-form|data-resource-form/,
     'link creation and resource editing now belong to the owner table');

@@ -27,8 +27,8 @@ function seriesChapters(seriesId: string) {
 <main id="contenido" class="creator-account site-container" tabindex="-1" data-creator-editor data-csrf={csrfToken} data-session-binding={sessionBinding}>
   <header class="creator-account__header">
     <p class="creator-profile__eyebrow">Gestión de contenido</p>
-    <h1>Orden, series y solicitudes</h1>
-    <p>Ajusta el orden de tu página, administra series y revisa tus solicitudes de vinculación.</p>
+    <h1>Series y solicitudes</h1>
+    <p>Administra tus series y revisa tus solicitudes de vinculación.</p>
   </header>
 
   <nav class="creator-account__nav" aria-label="Gestión de creador">
@@ -51,7 +51,7 @@ function seriesChapters(seriesId: string) {
     <div class="creator-card__heading">
       <div>
         <p class="creator-profile__eyebrow">Tu contenido</p>
-        <h2 id="creator-links-editor-title">Orden de tu página</h2>
+        <h2 id="creator-links-editor-title">Enlaces de tu página</h2>
       </div>
     </div>
     <section class="creator-links-list" aria-labelledby="creator-links-current-title">
@@ -60,8 +60,6 @@ function seriesChapters(seriesId: string) {
         <ol class="creator-link-editor-list">
           {sortedLinks.map((link) => {
             const editable = editableResourceIds.has(link.resourceId);
-            const group = sortedLinks.filter((candidate) => candidate.featured === link.featured);
-            const groupIndex = group.findIndex((candidate) => candidate.placementId === link.placementId);
             return (
               <li class="creator-link-editor-card" data-placement-id={link.placementId} data-resource-id={link.resourceId}>
                 <div class="creator-link-editor-card__main">
@@ -70,11 +68,6 @@ function seriesChapters(seriesId: string) {
                   {link.featured && <span class="creator-link-editor-card__approval">Destacado</span>}
                   {link.hidden && <span class="creator-link-editor-card__approval">Oculto por administración</span>}
                   {!editable && <p class="creator-link-editor-card__resource-id">ID del recurso: <code>{link.resourceId}</code> <button type="button" data-copy-resource-id data-resource-id-value={link.resourceId}>Copiar ID</button></p>}
-                </div>
-                <div class="creator-link-editor-card__controls">
-                  <button class="button button--outline" type="button" data-move="up" disabled={groupIndex === 0} aria-label={`Mover arriba: ${link.title}`}>Subir</button>
-                  <button class="button button--outline" type="button" data-move="down" disabled={groupIndex === group.length - 1} aria-label={`Mover abajo: ${link.title}`}>Bajar</button>
-
                 </div>
               </li>
             );

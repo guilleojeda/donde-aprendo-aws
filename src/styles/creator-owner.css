@@ -950,6 +950,17 @@
   opacity: 0.65;
 }
 
+.creator-owner__move-context {
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.creator-owner__form [data-link-move-suggestion-shell] {
+  display: flex;
+}
+
 @media (max-width: 640px) {
   .creator-owner__account-bar {
     width: min(calc(100% - 32px), 1120px);
