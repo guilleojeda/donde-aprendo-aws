@@ -286,7 +286,7 @@ const navigationScripts = new Set([...sharedPage.matchAll(/<script\b[^>]*type="m
 assert.ok(navigationScripts.size > 0, 'Shared mobile navigation module is missing');
 const expectedNavigation = [['/', 'Inicio'], ['/aprender/', 'Aprender'], ['/recorridos/', 'Rutas'],
   ['/creadores/', 'Creadores'], ['/comunidades/', 'Comunidades'], ['/eventos/', 'Eventos'],
-  ['/blog/', 'Blog'], ['/buscar/', 'Buscar'], ['/cuenta/', 'Mi cuenta'], ['/#cta_form-01-839181', 'Comparte un recurso']];
+  ['/blog/', 'Blog'], ['/buscar/', 'Buscar'], ['/cuenta/', 'Mi página'], ['/#cta_form-01-839181', 'Comparte un recurso']];
 for (const html of allPages) {
   const navigation = html.match(/<div class="site-nav__menu"[^>]*>([\s\S]*?)<\/div>/)?.[1] ?? '';
   const links = [...navigation.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)]

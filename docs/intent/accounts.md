@@ -77,8 +77,11 @@ el artefacto con el mismo valor y autorizar sus URLs exactas en Cognito.
 
 La cuenta y su permiso de administración viven en el registro privado de
 `ACCOUNTS_TABLE`. Registrarse o verificar el correo no crea ni publica una
-ficha; la publicación se hace aparte desde `/cuenta/creador/`. Las reglas del
-perfil, enlaces compartidos, reclamaciones, fotos, analítica y selección para
+página. Tras ingresar, `/cuenta/` abre el espacio privado «Tu página», donde
+la persona puede crear o editar su perfil y publicarlo explícitamente. La
+gestión de enlaces, series y solicitudes que aún no fue migrada permanece en
+`/cuenta/creador/`; sus rutas de regreso llevan a `/cuenta/`. Las reglas de
+perfiles, enlaces compartidos, reclamaciones, fotos, analítica y selección para
 el directorio están en [páginas de creadores](creator-pages.md).
 
 `/cuenta/administracion/` sólo admite una sesión cuyo registro privado tenga

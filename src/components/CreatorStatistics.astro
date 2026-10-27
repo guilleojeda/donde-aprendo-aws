@@ -98,15 +98,15 @@ const sourcesEmptyMessage = report && (hasSectionWarning('sources') || report.to
 
 <main id="contenido" class="creator-account creator-statistics site-container" tabindex="-1">
   <header class="creator-account__header">
-    <p class="creator-profile__eyebrow">Mi cuenta</p>
+    <p class="creator-profile__eyebrow">Tu página</p>
     <h1>Estadísticas de tu página</h1>
     <p>Consulta las visitas registradas, los clics en tus enlaces y cómo llegaron las sesiones.</p>
   </header>
 
   {result.principal.state === 'authenticated' && (
     <nav class="creator-account__nav" aria-label="Gestión de creador">
-      <a class="button button--outline" href="/cuenta/creador/">Editar mi página y enlaces</a>
-      <a href="/cuenta/">Volver a mi cuenta</a>
+      <a class="button button--outline" href="/cuenta/creador/">Gestionar enlaces y series</a>
+      <a href="/cuenta/">Volver a Tu página</a>
     </nav>
   )}
 
@@ -138,13 +138,13 @@ const sourcesEmptyMessage = report && (hasSectionWarning('sources') || report.to
     <section class="creator-message" aria-labelledby="creator-statistics-no-profile-title">
       <h2 id="creator-statistics-no-profile-title">Todavía no tienes una página de creador</h2>
       <p>Crea tu perfil y publícalo para iniciar la medición de visitas y clics.</p>
-      <a class="button button--dark" href="/cuenta/creador/">Crear mi página</a>
+      <a class="button button--dark" href="/cuenta/">Crear mi página</a>
     </section>
   ) : result.state === 'not-published' ? (
     <section class="creator-message" aria-labelledby="creator-statistics-draft-title">
       <h2 id="creator-statistics-draft-title">Publica tu página para empezar a medir</h2>
       <p>El registro comienza al publicar. Los datos anteriores a la captura no se reconstruyen.</p>
-      <a class="button button--dark" href="/cuenta/creador/">Editar y publicar mi página</a>
+      <a class="button button--dark" href="/cuenta/">Editar y publicar mi página</a>
     </section>
   ) : report ? (
     <>
@@ -312,7 +312,7 @@ const sourcesEmptyMessage = report && (hasSectionWarning('sources') || report.to
       </div>
 
       <p class="creator-statistics__history-note">La captura de visitas comenzó en la fecha observada indicada arriba. No reconstruimos actividad anterior a esa captura ni a la existencia de este perfil.</p>
-      <p class="creator-statistics__footer-link"><a class="button button--outline" href="/cuenta/creador/">Gestionar enlaces y consultar su estado en el editor</a></p>
+      <p class="creator-statistics__footer-link"><a class="button button--outline" href="/cuenta/creador/">Gestionar enlaces y series</a></p>
     </>
   ) : null}
 </main>

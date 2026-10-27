@@ -38,6 +38,32 @@ await build({
         contents: 'export function getAccountAuth() { return globalThis.__logoutUiAuth; }',
         loader: 'js',
       }));
+      api.onLoad({ filter: /\/creator-runtime\.mjs$/ }, () => ({
+        contents: `
+          function sessionId(request) {
+            const cookie = request.headers.get('cookie') ?? '';
+            const value = cookie.split(';').map((part) => part.trim())
+              .find((part) => part.startsWith('da_session='));
+            return value ? decodeURIComponent(value.slice('da_session='.length)) : undefined;
+          }
+          export async function getCreatorRuntime() {
+            return {
+              auth: {
+                async getPrincipal(request) {
+                  return globalThis.__logoutUiCreatorSessions?.get(sessionId(request))
+                    ?? { state: 'anonymous' };
+                },
+              },
+              service: {
+                async handle() {
+                  return Response.json({ profile: null, links: [], editableResources: [], claims: [], series: [] });
+                },
+              },
+            };
+          }
+        `,
+        loader: 'js',
+      }));
       api.onResolve({ filter: /\?raw$/ }, ({ path: requested, resolveDir }) => ({
         path: path.resolve(resolveDir, requested.slice(0, -4)),
         namespace: 'account-ui-raw',
@@ -68,6 +94,7 @@ const [{ default: accountPage }, { default: logoutPage }, { default: notFoundPag
 
 after(async () => {
   delete globalThis.__logoutUiAuth;
+  delete globalThis.__logoutUiCreatorSessions;
   await rm(tempDir, { recursive: true, force: true });
 });
 
@@ -120,6 +147,9 @@ function submitRenderedLogoutForm(sessionCookie, html) {
 async function signedInPage(harness) {
   const login = await completeLogin(harness);
   globalThis.__logoutUiAuth = harness.auth;
+  const creatorPrincipal = await harness.auth.getPrincipal(sessionRequest(login.sessionCookie));
+  const creatorSessionId = decodeURIComponent(cookiePair(login.sessionCookie).slice('da_session='.length));
+  globalThis.__logoutUiCreatorSessions = new Map([[creatorSessionId, creatorPrincipal]]);
   const pageResponse = await render(accountPage, sessionRequest(login.sessionCookie));
   assert.equal(pageResponse.status, 200);
   return { login, pageResponse, csrfToken: csrfFrom(await pageResponse.text()) };

@@ -22,7 +22,7 @@ const navigation = [
   ['/eventos/', 'Eventos'],
   ['/blog/', 'Blog'],
   ['/buscar/', 'Buscar'],
-  ['/cuenta/', 'Mi cuenta'],
+  ['/cuenta/', 'Mi página'],
   ['/#cta_form-01-839181', 'Comparte un recurso'],
 ];
 

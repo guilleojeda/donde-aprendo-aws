@@ -10,32 +10,38 @@ import { CREATOR_PRIVATE_HEADERS, loadCreatorEditor } from '../_creator-page';
 export const prerender = false;
 
 const result = await loadCreatorEditor(Astro.request);
+if (result.status === 200 && result.data?.profile === null) {
+  const response = Astro.redirect('/cuenta/');
+  for (const [name, value] of Object.entries(CREATOR_PRIVATE_HEADERS)) response.headers.set(name, value);
+  return response;
+}
+
 Astro.response.status = result.status;
 for (const [name, value] of Object.entries(CREATOR_PRIVATE_HEADERS)) Astro.response.headers.set(name, value);
 
 const heading = result.status === 401
-  ? 'Inicia sesión para editar tu página'
+  ? 'Inicia sesión para gestionar tu contenido'
   : result.status === 403
     ? 'Esta cuenta está desactivada'
-    : 'No pudimos cargar el editor';
+    : 'No pudimos cargar tu contenido';
 const explanation = result.status === 401
-  ? 'Accede a tu cuenta para crear o actualizar tu página de creador.'
+  ? 'Accede a tu cuenta para gestionar los enlaces y las series de tu página.'
   : result.status === 403
     ? 'Si necesitas ayuda, contacta al equipo.'
-    : 'Inténtalo de nuevo en unos minutos. Tus cambios guardados se conservan.';
+    : 'Inténtalo de nuevo en unos minutos.';
 ---
 
-<BaseLayout title="Editar mi página | ¿Dónde Aprendo AWS?" description="Administra tu perfil y enlaces de creador." noindex nofollow analytics={false}>
+<BaseLayout title="Gestionar contenido | ¿Dónde Aprendo AWS?" description="Administra los enlaces, las series y las solicitudes de tu página de creador." noindex nofollow analytics={false}>
   <SiteHeader />
   {result.status === 200 && result.data && result.principal.csrfToken && result.principal.sessionBinding ? (
     <CreatorEditor data={result.data} csrfToken={result.principal.csrfToken} sessionBinding={result.principal.sessionBinding} />
   ) : (
     <main id="contenido" class="creator-account site-container" tabindex="-1">
       <section class="creator-message" role="alert" aria-labelledby="creator-editor-error-title">
-        <p class="creator-profile__eyebrow">Mi cuenta</p>
+        <p class="creator-profile__eyebrow">Gestión de contenido</p>
         <h1 id="creator-editor-error-title">{heading}</h1>
         <p>{explanation}</p>
-        <a class="button button--dark" href={result.status === 401 ? '/cuenta/ingresar/' : '/cuenta/'}>{result.status === 401 ? 'Ingresar' : 'Volver a mi cuenta'}</a>
+        <a class="button button--dark" href={result.status === 401 ? '/cuenta/ingresar/' : '/cuenta/'}>{result.status === 401 ? 'Ingresar' : 'Volver a Tu página'}</a>
         {result.status === 503 && <a class="button button--outline" href="/cuenta/creador/">Reintentar</a>}
       </section>
     </main>

@@ -319,40 +319,55 @@ test('el editor ofrece CRUD de series y selección de capítulos desde enlaces y
   // Browser direct-use verification must prove that these controls reorder only the selected series and leave profile order and featured state intact; the API ordering test covers persistence isolation.
 });
 
-test('los tres campos de slug usan un patrón nativo válido y coherente con el servidor', async () => {
-  const html = await render('src/components/CreatorEditor.astro', {
+test('los slugs de propietario y series usan un patrón nativo válido y coherente con el servidor', async () => {
+  const ownerHtml = await render('src/components/CreatorOwnerProfile.astro', {
+    data: editorData(),
+    accountEmail: 'ana@example.invalid',
+    logoutCsrfToken: 'logout-csrf',
+    csrfToken: 'csrf-test-token',
+    sessionBinding: 'binding-test',
+    isAdmin: false,
+    publicOrigin: 'https://dondeaprendoaws.com',
+  });
+  const editorHtml = await render('src/components/CreatorEditor.astro', {
     data: editorData(),
     csrfToken: 'csrf-test-token',
   });
-  const slugInputs = [...html.matchAll(/<input\b(?=[^>]*\bname="slug")[^>]*>/gi)].map(([tag]) => tag);
-  assert.equal(slugInputs.length, 2 + editorData().series.length,
-    'the profile, series creation, and each series edit form expose a slug field');
+  const ownerSlugs = [...ownerHtml.matchAll(/<input\b(?=[^>]*\bname="slug")[^>]*>/gi)].map(([tag]) => tag);
+  const seriesSlugs = [...editorHtml.matchAll(/<input\b(?=[^>]*\bname="slug")[^>]*>/gi)].map(([tag]) => tag);
+  const slugInputs = [...ownerSlugs, ...seriesSlugs];
+  assert.equal(ownerSlugs.length, 2, 'the owner page has create and contextual profile slug inputs');
+  assert.equal(seriesSlugs.length, 1 + editorData().series.length,
+    'the residual editor keeps the series creation and per-series edit fields');
+  assert.match(ownerHtml, /3–40 caracteres/);
   for (const tag of slugInputs) {
     assert.match(tag, /\bminlength="3"/);
     assert.match(tag, /\bmaxlength="40"/);
     const pattern = tag.match(/\bpattern="([^"]+)"/)?.[1];
     assert.ok(pattern, 'each slug field must expose browser-native validation');
-    const helpId = tag.match(/\baria-describedby="([^"]+)"/)?.[1];
-    assert.ok(helpId, 'each slug field must reference its validation guidance');
-    assert.match(html, new RegExp(`<p\\b[^>]*\\bid="${helpId}"[^>]*>[^<]*sin espacios ni guiones repetidos[^<]*<\\/p>`));
     let nativePattern;
     assert.doesNotThrow(() => { nativePattern = new RegExp(`^(?:${pattern})$`, 'v'); },
       'the HTML pattern must compile with the browser v flag');
     for (const valid of ['ana', 'serie-2026', 'abc-1-def']) assert.equal(nativePattern.test(valid), true);
     for (const invalid of ['bad slug', 'bad--slug', '-bad-slug', 'bad-slug-']) assert.equal(nativePattern.test(invalid), false);
   }
+  for (const tag of seriesSlugs) {
+    const helpId = tag.match(/\baria-describedby="([^"]+)"/)?.[1];
+    assert.ok(helpId, 'each series slug field must reference its validation guidance');
+    assert.match(editorHtml, new RegExp(`<p\\b[^>]*\\bid="${helpId}"[^>]*>[^<]*sin espacios ni guiones repetidos[^<]*<\\/p>`));
+  }
 });
 
-test('el editor sin perfil invita a guardarlo antes de usar series y no activa acciones de serie', async () => {
+test('la gestión residual de series no duplica formularios de perfil ni foto', async () => {
   const html = await render('src/components/CreatorEditor.astro', {
-    data: editorData({ withProfile: false }),
+    data: editorData(),
     csrfToken: 'csrf-test-token',
   });
 
-  assert.match(html, /Guarda primero tu perfil/);
-  const activeSeriesButtons = [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/gi)]
-    .filter(([, attributes, label]) => /serie|capítulo/i.test(visibleText(label)) && !/\bdisabled(?:\s|=|>)/i.test(attributes));
-  assert.deepEqual(activeSeriesButtons, [], 'series and chapter actions are absent or disabled until the profile exists');
+  assert.match(visibleText(html), /Volver a Tu página/);
+  assert.match(visibleText(html), /Crear una serie/);
+  assert.doesNotMatch(html, /data-profile-form|data-photo-form/,
+    'profile setup and editing now belong to /cuenta/; this route keeps residual content management');
   assert.doesNotMatch(html, /data-creator-profile/, 'private editor markup does not opt into public profile tracking');
 });
 
