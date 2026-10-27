@@ -170,8 +170,6 @@ test('la ruta Astro real abre la identidad propia, protege el HTML y sólo enlaz
   assert.doesNotMatch(html, /href="\/cuenta\/creador\/"[^>]*>\s*(?:Crear o editar|Editar mi página)/i,
     'ordinary profile work no longer requires opening the old editor route');
   assert.doesNotMatch(text, /Vista previa|Previsualizar/i);
-  assert.doesNotMatch(html, /<table\b|role="table"/,
-    'the ordinary owner entry does not yet include the links table or the full report detail');
   assert.doesNotMatch(html, /analytics\.js|gtag\(|google-analytics/i,
     'the private owner route does not load audience measurement');
   assert.ok(!runtime.serviceCalls.some(({ path }) => /\/estadisticas\/?$/.test(path)),
@@ -182,7 +180,7 @@ test('la ruta Astro real abre la identidad propia, protege el HTML y sólo enlaz
   assert.equal(profile.slug, 'ana-lambda-actual');
 });
 
-test('la ruta residual conserva alta de enlaces y series mientras elimina los formularios duplicados de perfil', async () => {
+test('la ruta residual conserva orden, series y reclamaciones sin duplicar los formularios reemplazados', async () => {
   await resetRuntime();
   await createProfile({ slug: 'ana-contenido' });
   const addedLink = await api('/api/creador/enlaces/', {
@@ -203,8 +201,11 @@ test('la ruta residual conserva alta de enlaces y series mientras elimina los fo
   assert.equal(response.status, 200);
   assert.match(text, /Guía que se conserva/);
   assert.match(text, /Ruta que se conserva/);
-  assert.match(text, /Agregar enlace/);
   assert.match(text, /Crear serie/);
+  assert.match(html, /data-move=/, 'the old route retains public-order controls until phase 4');
+  assert.match(html, /data-claim-form/, 'the existing claim flow remains until phase 6');
+  assert.doesNotMatch(html, /data-add-link-form|data-resource-form/,
+    'link creation and resource editing now belong to the owner table');
   assert.doesNotMatch(html, /data-profile-form|data-photo-form/,
     'the residual content editor no longer duplicates profile and photo management');
   assert.doesNotMatch(text, /Publicar página/);

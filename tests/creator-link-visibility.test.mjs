@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
-import { runInNewContext } from 'node:vm';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 import { transform } from '@astrojs/compiler-rs';
@@ -15,6 +14,14 @@ import {
   sessionCsrf,
   SITE_ORIGIN,
 } from './fixtures/creator-pages.mjs';
+import {
+  createLinksApi,
+  createOwnerLinksSurface,
+  jsonResponse,
+  mountOwnerLinks,
+  settle,
+  stablePlacementId,
+} from './fixtures/creator-owner-links-browser.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const scratchParent = path.join(root, '.work/creator-pages');
@@ -22,9 +29,7 @@ await mkdir(scratchParent, { recursive: true });
 const tempDir = await mkdtemp(path.join(scratchParent, 'repair-link-visibility-test-'));
 const container = await experimental_AstroContainer.create();
 let creatorPageModulePromise;
-let editorComponentPromise;
 let ownerComponentPromise;
-let editorScriptPromise;
 let residualRoutePromise;
 
 after(async () => {
@@ -167,40 +172,7 @@ test('la ruta residual sin perfil redirige a Tu página y conserva los encabezad
   assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
 });
 
-async function renderEditor(data) {
-  if (!editorComponentPromise) {
-    const outputPath = path.join(tempDir, 'creator-editor-component.mjs');
-    editorComponentPromise = (async () => {
-      await build({
-        entryPoints: [path.join(root, 'src/components/CreatorEditor.astro')],
-        outfile: outputPath,
-        bundle: true,
-        platform: 'node',
-        format: 'esm',
-        packages: 'external',
-        plugins: [{
-          name: 'render-creator-editor',
-          setup(api) {
-            api.onLoad({ filter: /\.astro$/ }, async ({ path: filename }) => ({
-              contents: transform(await readFile(filename, 'utf8'), {
-                filename,
-                internalURL: 'astro/compiler-runtime',
-                resultScopedSlot: true,
-                resolvePath: (specifier) => specifier,
-              }).code,
-              loader: 'js',
-            }));
-          },
-        }],
-      });
-      return (await import(pathToFileURL(outputPath).href)).default;
-    })();
-  }
-  const component = await editorComponentPromise;
-  return container.renderToString(component, { props: { data, csrfToken: 'csrf-a' } });
-}
-
-async function renderOwner(data) {
+async function renderOwner(data, view = 'perfil') {
   if (!ownerComponentPromise) {
     const outputPath = path.join(tempDir, 'creator-owner-profile.mjs');
     ownerComponentPromise = (async () => {
@@ -232,6 +204,7 @@ async function renderOwner(data) {
   const component = await ownerComponentPromise;
   return container.renderToString(component, { props: {
     data,
+    view,
     accountEmail: 'ana@example.invalid',
     logoutCsrfToken: 'logout-csrf',
     csrfToken: 'csrf-a',
@@ -239,114 +212,6 @@ async function renderOwner(data) {
     isAdmin: false,
     publicOrigin: SITE_ORIGIN,
   } });
-}
-
-function assertPerLinkVisibilityCopy(html) {
-  assert.match(html, /Cada enlace indica si está visible en tu página\./);
-  assert.doesNotMatch(html, /Los cambios del perfil se reflejan al guardar\./);
-  assert.doesNotMatch(html, /Los cambios del perfil y tus enlaces se ven al guardar\./);
-  assert.doesNotMatch(html, /Los enlaces se muestran en tu página al guardar\./);
-}
-
-async function loadEditorScript() {
-  if (!editorScriptPromise) {
-    editorScriptPromise = build({
-      entryPoints: [path.join(root, 'src/scripts/creator-editor.ts')],
-      bundle: true,
-      write: false,
-      platform: 'browser',
-      format: 'iife',
-      target: 'es2022',
-    }).then(({ outputFiles }) => outputFiles[0].text);
-  }
-  return editorScriptPromise;
-}
-
-class TestElement {
-  constructor(dataset = {}) {
-    this.dataset = dataset;
-    this.listeners = new Map();
-    this.hidden = true;
-    this.textContent = '';
-    this.attributes = new Map();
-  }
-
-  addEventListener(type, listener) {
-    const listeners = this.listeners.get(type) ?? [];
-    listeners.push(listener);
-    this.listeners.set(type, listeners);
-  }
-
-  querySelector() { return null; }
-  querySelectorAll() { return []; }
-  setAttribute(name, value) { this.attributes.set(name, value); }
-
-  async dispatch(type) {
-    const event = { preventDefault() {} };
-    for (const listener of this.listeners.get(type) ?? []) await listener(event);
-  }
-}
-
-class TestForm extends TestElement {
-  reportValidity() { return true; }
-}
-
-class TestFormData {
-  get(name) {
-    return {
-      title: 'Guía', url: 'https://example.com/guia', description: '',
-      displayName: 'Ana', slug: 'ana', city: '', country: '', bio: '',
-    }[name] ?? null;
-  }
-
-  getAll() { return []; }
-}
-
-async function createEditorSuccessMessage({ published, hidden, linkHidden = false }) {
-  const rootElement = new TestElement({ csrf: 'csrf-a' });
-  const form = new TestForm();
-  const linkStatus = new TestElement();
-  const initial = new TestElement();
-  initial.textContent = JSON.stringify({
-    profile: {
-      id: 'profile-a', displayName: 'Ana', slug: 'ana', programs: [], socials: {},
-      published, hidden, version: 1,
-    },
-    links: [], editableResources: [], claims: [], series: [],
-  });
-  rootElement.querySelector = (selector) => ({
-    '[data-page-status]': new TestElement(),
-    '[data-add-link-form]': form,
-    '[data-link-create-status]': linkStatus,
-  }[selector] ?? null);
-  rootElement.querySelectorAll = () => [];
-  const document = {
-    querySelector: (selector) => selector === '[data-creator-editor]'
-      ? rootElement
-      : selector === '#creator-editor-data' ? initial : null,
-    querySelectorAll: () => [],
-    getElementById: () => null,
-  };
-  let reloads = 0;
-  const window = {
-    location: { hash: '', href: `${SITE_ORIGIN}/cuenta/creador/`, reload() { reloads += 1; } },
-    requestAnimationFrame(callback) { callback(); },
-    history: { replaceState() {} },
-  };
-  const source = await loadEditorScript();
-  runInNewContext(source, {
-    document,
-    window,
-    HTMLElement: TestElement,
-    FormData: TestFormData,
-    Response,
-    TextEncoder,
-    URL,
-    fetch: async () => new Response(JSON.stringify({ link: { hidden: linkHidden } }), { status: 201 }),
-  });
-  await form.dispatch('submit');
-  assert.equal(reloads, 1);
-  return linkStatus.textContent;
 }
 
 async function api(harness, path, session = 'creator-a', options = {}) {
@@ -359,6 +224,40 @@ async function api(harness, path, session = 'creator-a', options = {}) {
 
 async function adminVersion(harness, type, id) {
   return (await readAdminRecord(harness, type, id)).version;
+}
+
+async function ownerAddStatus({ published = true, hidden = false, linkHidden = false } = {}) {
+  const profile = {
+    id: 'creator-1', displayName: 'Ana Creadora', slug: 'ana-creadora', version: 14,
+    published, hidden, city: '', country: '', bio: '', programs: [], socials: {},
+  };
+  const surface = createOwnerLinksSurface({ profile });
+  const api = createLinksApi({ surface, override: (request, state) => {
+    if (!linkHidden || request.method !== 'POST' || request.path !== '/api/creador/enlaces') return undefined;
+    const resourceId = 'resource-added-1';
+    const placementId = stablePlacementId(resourceId);
+    return jsonResponse({
+      link: {
+        placementId, resourceId, title: request.body.title, url: request.body.url,
+        description: request.body.description ?? '', featured: false, position: 0,
+        selectedForDirectory: request.body.selectedForDirectory ?? true, hidden: true,
+        directoryApproval: 'pending', resourceVersion: 1, placementVersion: 1, series: [],
+      },
+      created: true,
+      versionChanges: [
+        { entity: 'profile', id: state.profile.id, before: state.profile.version, after: state.profile.version + 1 },
+        { entity: 'resource', id: resourceId, before: 0, after: 1 },
+        { entity: 'placement', id: placementId, before: 0, after: 1 },
+      ],
+    }, 201);
+  } });
+  await mountOwnerLinks({ surface, fetch: api.fetch });
+  const field = (name) => surface.addForm.elements.find((item) => item.name === name);
+  field('title').value = 'Guía';
+  field('url').value = 'https://example.com/guia';
+  await surface.addForm.dispatch('submit');
+  await settle();
+  return surface.addStatus.textContent;
 }
 
 async function createProfileAndLink(harness, { published = true, slug = 'ana', session = 'creator-a' } = {}) {
@@ -439,7 +338,7 @@ test('adding an already hidden shared resource returns its moderation state priv
   assert.equal(publicPage.links.some(({ resourceId }) => resourceId === original.resourceId), false);
 });
 
-test('the parsed editor DTO and SSR keep visibility separate from directory selection and approval', async () => {
+test('the owner SSR keeps hiding, directory approval, and selection as compact separate states', async () => {
   const harness = await visibilityHarness();
   const link = await createProfileAndLink(harness);
   const classified = await api(harness, `/api/admin/recursos/${link.resourceId}`, 'admin', {
@@ -457,13 +356,12 @@ test('the parsed editor DTO and SSR keep visibility separate from directory sele
   assert.equal(data.links[0].hidden, false, 'the loader parser carries visible state into the typed editor DTO');
   assert.equal(data.links[0].selectedForDirectory, true);
   assert.equal(data.links[0].directoryApproval, 'approved');
-  let html = await renderEditor(data);
-  assertPerLinkVisibilityCopy(html);
-  assert.doesNotMatch(html, /Los cambios del perfil se reflejan al guardar\./,
-    'the residual content editor no longer suggests that it owns profile saves');
-  assert.match(html, /Visibilidad en tu página: Visible al público\./);
-  assert.match(html, /Directorio: aprobado/);
-  assert.match(html, /data-directory[^>]*checked/);
+  let html = await renderOwner(data, 'enlaces');
+  assert.match(html, /Guía/);
+  assert.match(html, /Propuest[oa]/i, 'selection remains visible in the compact owner table');
+  assert.match(html, /Aprobado/i, 'approval remains distinct from the creator selection');
+  assert.doesNotMatch(html, /Cada enlace indica si está visible/);
+  assert.doesNotMatch(html, /Visibilidad en tu página:/);
 
   const hide = await api(harness, `/api/admin/recursos/${link.resourceId}/ocultar`, 'admin', {
     method: 'POST', body: { version: await adminVersion(harness, 'resource', link.resourceId) },
@@ -473,11 +371,10 @@ test('the parsed editor DTO and SSR keep visibility separate from directory sele
   assert.equal(data.links[0].hidden, true);
   assert.equal(data.links[0].selectedForDirectory, true);
   assert.equal(data.links[0].directoryApproval, 'approved');
-  html = await renderEditor(data);
-  assertPerLinkVisibilityCopy(html);
-  assert.match(html, /Visibilidad en tu página: Oculto por administración\./);
-  assert.match(html, /Directorio: aprobado/);
-  assert.match(html, /data-directory[^>]*checked/);
+  html = await renderOwner(data, 'enlaces');
+  assert.match(html, /Ocult[oa](?: por administración)?/i);
+  assert.match(html, /Propuest[oa]/i);
+  assert.match(html, /Aprobado/i);
   assert.equal((await harness.service.readPublicProfile('ana')).links.length, 0);
 
   const restore = await api(harness, `/api/admin/recursos/${link.resourceId}/restaurar`, 'admin', {
@@ -488,10 +385,9 @@ test('the parsed editor DTO and SSR keep visibility separate from directory sele
   assert.equal(data.links[0].hidden, false);
   assert.equal(data.links[0].selectedForDirectory, true);
   assert.equal(data.links[0].directoryApproval, 'approved');
-  html = await renderEditor(data);
-  assertPerLinkVisibilityCopy(html);
-  assert.match(html, /Visibilidad en tu página: Visible al público\./);
-  assert.match(html, /Directorio: aprobado/);
+  html = await renderOwner(data, 'enlaces');
+  assert.match(html, /Propuest[oa]/i);
+  assert.match(html, /Aprobado/i);
 
   const profileHide = await api(harness, `/api/admin/perfiles/${data.profile.id}/ocultar`, 'admin', {
     method: 'POST', body: { version: await adminVersion(harness, 'profile', data.profile.id) },
@@ -499,21 +395,22 @@ test('the parsed editor DTO and SSR keep visibility separate from directory sele
   assert.equal(profileHide.status, 200);
   data = await loadEditorData(harness);
   assert.equal(data.profile.hidden, true);
-  html = await renderEditor(data);
-  assertPerLinkVisibilityCopy(html);
-  assert.match(html, /Visibilidad en tu página: No visible: la página está temporalmente oculta por administración\./);
-  assert.doesNotMatch(html, /Visibilidad en tu página: Visible al público\./);
+  html = await renderOwner(data, 'enlaces');
+  assert.match(html, /Oculta/);
+  assert.match(html, /Aprobado/i);
 });
 
-test('the SSR editor describes a link on a draft profile as not yet public', async () => {
+test('the owner SSR labels a draft profile without the old per-link visibility paragraph', async () => {
   const harness = await visibilityHarness();
   await createProfileAndLink(harness, { published: false });
   const data = await loadEditorData(harness);
   assert.equal(data.profile.published, false);
-  const html = await renderEditor(data);
-  assertPerLinkVisibilityCopy(html);
-  assert.match(html, /Visibilidad en tu página: No visible todavía: publica tu página para compartir este enlace\./);
-  assert.doesNotMatch(html, /Visibilidad en tu página: Visible al público\./);
+  const html = await renderOwner(data);
+  assert.match(html, /Borrador/);
+  const publicLink = html.match(/<a\b[^>]*data-owner-public-link[^>]*>/);
+  assert.ok(!publicLink || /\shidden(?:\s|>)/.test(publicLink[0]),
+    'a draft profile does not expose a public link action');
+  assert.doesNotMatch(html, /Cada enlace indica si está visible/);
 });
 
 test('the owner editor labels social URLs and explains their HTTP(S) format', async () => {
@@ -528,21 +425,21 @@ test('the owner editor labels social URLs and explains their HTTP(S) format', as
 
 // Retired case: The custom validator belonged to the old combined profile form. The owner editor uses labelled `type="url"` controls and its profile API keeps the authoritative HTTP(S)-without-credentials validation.
 
-test('the residual editor reports link visibility accurately for draft, hidden, and visible states', async () => {
-  const draft = await createEditorSuccessMessage({ published: false, hidden: false });
-  assert.match(draft, /Publica tu página para que aparezca al público/);
-  assert.doesNotMatch(draft, /visible en tu perfil público/);
+test('el alta owner comunica el estado y nunca afirma que un enlace de borrador u oculto es público', async () => {
+  const draft = await ownerAddStatus({ published: false });
+  assert.match(draft, /publica/i);
+  assert.doesNotMatch(draft, /visible.*públic|públic.*visible/i);
 
-  const hiddenProfile = await createEditorSuccessMessage({ published: true, hidden: true });
-  assert.match(hiddenProfile, /sigue oculta por administración y no aparece al público/);
-  assert.doesNotMatch(hiddenProfile, /visible en tu perfil público/);
+  const hiddenProfile = await ownerAddStatus({ hidden: true });
+  assert.match(hiddenProfile, /ocult/i);
+  assert.doesNotMatch(hiddenProfile, /visible.*públic|públic.*visible/i);
 
-  const hiddenLink = await createEditorSuccessMessage({ published: true, hidden: false, linkHidden: true });
-  assert.match(hiddenLink, /El enlace está oculto por administración y no aparece al público/);
-  assert.doesNotMatch(hiddenLink, /visible en tu perfil público/);
+  const hiddenLink = await ownerAddStatus({ linkHidden: true });
+  assert.match(hiddenLink, /ocult/i);
+  assert.doesNotMatch(hiddenLink, /visible.*públic|públic.*visible/i);
 
-  const visible = await createEditorSuccessMessage({ published: true, hidden: false });
-  assert.match(visible, /visible en tu perfil público/);
+  const visible = await ownerAddStatus();
+  assert.match(visible, /visible.*públic|públic.*visible/i);
 });
 
 test('the owner photo editor provides a check action for an uncertain save', async () => {
