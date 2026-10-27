@@ -23,7 +23,9 @@ const tempDir = await mkdtemp(path.join(scratchParent, 'repair-link-visibility-t
 const container = await experimental_AstroContainer.create();
 let creatorPageModulePromise;
 let editorComponentPromise;
+let ownerComponentPromise;
 let editorScriptPromise;
+let residualRoutePromise;
 
 after(async () => {
   delete globalThis.__creatorPageTestRuntime;
@@ -74,6 +76,52 @@ async function loadCreatorPageModule() {
   return creatorPageModulePromise;
 }
 
+async function loadResidualEditorRoute() {
+  if (!residualRoutePromise) {
+    const outputPath = path.join(tempDir, 'creator-editor-route.mjs');
+    residualRoutePromise = (async () => {
+      await build({
+        entryPoints: [path.join(root, 'src/pages/cuenta/creador/index.astro')],
+        outfile: outputPath,
+        bundle: true,
+        platform: 'node',
+        format: 'esm',
+        packages: 'external',
+        define: {
+          'import.meta.env.PUBLIC_PRODUCTION': '"true"',
+          'import.meta.env.PUBLIC_SITE_ORIGIN': JSON.stringify(SITE_ORIGIN),
+        },
+        plugins: [{
+          name: 'render-residual-editor-route',
+          setup(api) {
+            api.onResolve({ filter: /creator-runtime\.mjs$/ }, () => ({ path: 'creator-runtime', namespace: 'creator-runtime-fixture' }));
+            api.onLoad({ filter: /.*/, namespace: 'creator-runtime-fixture' }, () => ({
+              contents: 'export function getCreatorRuntime() { return globalThis.__creatorPageTestRuntime; }',
+              loader: 'js',
+            }));
+            api.onResolve({ filter: /\?raw$/ }, ({ path: requested, resolveDir }) => ({
+              path: path.resolve(resolveDir, requested.slice(0, -4)), namespace: 'raw',
+            }));
+            api.onLoad({ filter: /.*/, namespace: 'raw' }, () => ({ contents: 'export default "";', loader: 'js' }));
+            api.onLoad({ filter: /\.css$/ }, () => ({ contents: '', loader: 'js' }));
+            api.onLoad({ filter: /\.astro$/ }, async ({ path: filename }) => ({
+              contents: transform(await readFile(filename, 'utf8'), {
+                filename,
+                internalURL: 'astro/compiler-runtime',
+                resultScopedSlot: true,
+                resolvePath: (specifier) => specifier,
+              }).code,
+              loader: 'js',
+            }));
+          },
+        }],
+      });
+      return (await import(pathToFileURL(outputPath).href)).default;
+    })();
+  }
+  return residualRoutePromise;
+}
+
 async function loadEditorData(harness) {
   const creatorPage = await loadCreatorPageModule();
   globalThis.__creatorPageTestRuntime = {
@@ -92,6 +140,32 @@ async function loadEditorData(harness) {
   assert.ok(result.data);
   return result.data;
 }
+
+test('la ruta residual sin perfil redirige a Tu página y conserva los encabezados privados', async () => {
+  const harness = await visibilityHarness();
+  const editorRoute = await loadResidualEditorRoute();
+  globalThis.__creatorPageTestRuntime = {
+    service: harness.service,
+    auth: {
+      getPrincipal: async (request) => (request.headers.get('cookie') === 'creator-session=creator-a'
+        ? principals['creator-a']
+        : { state: 'anonymous' }),
+    },
+  };
+
+  const response = await container.renderToResponse(editorRoute, {
+    request: new Request(`${SITE_ORIGIN}/cuenta/creador/`, {
+      headers: { cookie: 'creator-session=creator-a' },
+    }),
+    partial: false,
+  });
+
+  assert.equal(response.status, 302);
+  assert.equal(response.headers.get('location'), '/cuenta/');
+  assert.match(response.headers.get('cache-control') ?? '', /private.*no-store/i);
+  assert.equal(response.headers.get('referrer-policy'), 'no-referrer');
+  assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
+});
 
 async function renderEditor(data) {
   if (!editorComponentPromise) {
@@ -126,8 +200,50 @@ async function renderEditor(data) {
   return container.renderToString(component, { props: { data, csrfToken: 'csrf-a' } });
 }
 
+async function renderOwner(data) {
+  if (!ownerComponentPromise) {
+    const outputPath = path.join(tempDir, 'creator-owner-profile.mjs');
+    ownerComponentPromise = (async () => {
+      await build({
+        entryPoints: [path.join(root, 'src/components/CreatorOwnerProfile.astro')],
+        outfile: outputPath,
+        bundle: true,
+        platform: 'node',
+        format: 'esm',
+        packages: 'external',
+        plugins: [{
+          name: 'render-creator-owner-profile',
+          setup(api) {
+            api.onLoad({ filter: /\.astro$/ }, async ({ path: filename }) => ({
+              contents: transform(await readFile(filename, 'utf8'), {
+                filename,
+                internalURL: 'astro/compiler-runtime',
+                resultScopedSlot: true,
+                resolvePath: (specifier) => specifier,
+              }).code,
+              loader: 'js',
+            }));
+          },
+        }],
+      });
+      return (await import(pathToFileURL(outputPath).href)).default;
+    })();
+  }
+  const component = await ownerComponentPromise;
+  return container.renderToString(component, { props: {
+    data,
+    accountEmail: 'ana@example.invalid',
+    logoutCsrfToken: 'logout-csrf',
+    csrfToken: 'csrf-a',
+    sessionBinding: 'binding-a',
+    isAdmin: false,
+    publicOrigin: SITE_ORIGIN,
+  } });
+}
+
 function assertPerLinkVisibilityCopy(html) {
   assert.match(html, /Cada enlace indica si está visible en tu página\./);
+  assert.doesNotMatch(html, /Los cambios del perfil se reflejan al guardar\./);
   assert.doesNotMatch(html, /Los cambios del perfil y tus enlaces se ven al guardar\./);
   assert.doesNotMatch(html, /Los enlaces se muestran en tu página al guardar\./);
 }
@@ -175,33 +291,6 @@ class TestForm extends TestElement {
   reportValidity() { return true; }
 }
 
-class TestSocialInput extends TestElement {
-  constructor(value) {
-    super();
-    this.value = value;
-    this.validationMessage = '';
-  }
-
-  setCustomValidity(message) {
-    this.validationMessage = message;
-  }
-}
-
-class TestProfileValidationForm extends TestForm {
-  constructor(input) {
-    super();
-    this.input = input;
-  }
-
-  querySelectorAll(selector) {
-    return selector === 'input[name^="social-"]' ? [this.input] : [];
-  }
-
-  reportValidity() {
-    return this.input.validationMessage === '';
-  }
-}
-
 class TestFormData {
   get(name) {
     return {
@@ -213,12 +302,10 @@ class TestFormData {
   getAll() { return []; }
 }
 
-async function createEditorSuccessMessage({ action, published, hidden, linkHidden = false }) {
+async function createEditorSuccessMessage({ published, hidden, linkHidden = false }) {
   const rootElement = new TestElement({ csrf: 'csrf-a' });
   const form = new TestForm();
-  const profileStatus = new TestElement();
   const linkStatus = new TestElement();
-  const publishButton = new TestElement();
   const initial = new TestElement();
   initial.textContent = JSON.stringify({
     profile: {
@@ -229,11 +316,7 @@ async function createEditorSuccessMessage({ action, published, hidden, linkHidde
   });
   rootElement.querySelector = (selector) => ({
     '[data-page-status]': new TestElement(),
-    '[data-profile-form]': action === 'save-profile' ? form : null,
-    '[data-profile-status]': profileStatus,
-    '[data-publish-profile]': action === 'publish-profile' ? publishButton : null,
-    '[data-copy-profile-url]': null,
-    '[data-add-link-form]': action === 'create-link' ? form : null,
+    '[data-add-link-form]': form,
     '[data-link-create-status]': linkStatus,
   }[selector] ?? null);
   rootElement.querySelectorAll = () => [];
@@ -259,77 +342,11 @@ async function createEditorSuccessMessage({ action, published, hidden, linkHidde
     Response,
     TextEncoder,
     URL,
-    fetch: async () => action === 'create-link'
-      ? new Response(JSON.stringify({ link: { hidden: linkHidden } }), { status: 201 })
-      : new Response('{}', { status: 200 }),
-  });
-  if (action === 'publish-profile') await publishButton.dispatch('click');
-  else await form.dispatch('submit');
-  assert.equal(reloads, 1);
-  return action === 'create-link' ? linkStatus.textContent : profileStatus.textContent;
-}
-
-async function validateProfileWebsite(value, retryWith) {
-  const input = new TestSocialInput(value);
-  const form = new TestProfileValidationForm(input);
-  const rootElement = new TestElement({ csrf: 'csrf-a' });
-  const profileStatus = new TestElement();
-  const initial = new TestElement();
-  initial.textContent = JSON.stringify({ profile: null, links: [], editableResources: [], claims: [], series: [] });
-  rootElement.querySelector = (selector) => ({
-    '[data-page-status]': new TestElement(),
-    '[data-profile-form]': form,
-    '[data-profile-status]': profileStatus,
-    '[data-publish-profile]': null,
-    '[data-copy-profile-url]': null,
-  }[selector] ?? null);
-  rootElement.querySelectorAll = () => [];
-  const document = {
-    querySelector: (selector) => selector === '[data-creator-editor]'
-      ? rootElement
-      : selector === '#creator-editor-data' ? initial : null,
-    querySelectorAll: () => [],
-    getElementById: () => null,
-  };
-  let fetches = 0;
-  let reloads = 0;
-  class ProfileFormData {
-    get(name) {
-      return {
-        displayName: 'Ana', slug: 'ana', city: '', country: '', bio: '',
-        'social-website': input.value,
-      }[name] ?? null;
-    }
-
-    getAll() { return []; }
-  }
-  const window = {
-    location: { hash: '', href: `${SITE_ORIGIN}/cuenta/creador/`, reload() { reloads += 1; } },
-    requestAnimationFrame(callback) { callback(); },
-    history: { replaceState() {} },
-  };
-  runInNewContext(await loadEditorScript(), {
-    document,
-    window,
-    HTMLElement: TestElement,
-    FormData: ProfileFormData,
-    Response,
-    TextEncoder,
-    URL,
-    fetch: async () => {
-      fetches += 1;
-      return new Response('{}', { status: 200 });
-    },
+    fetch: async () => new Response(JSON.stringify({ link: { hidden: linkHidden } }), { status: 201 }),
   });
   await form.dispatch('submit');
-  let retryMessage;
-  if (retryWith !== undefined) {
-    input.value = retryWith;
-    await input.dispatch('input');
-    retryMessage = input.validationMessage;
-    await form.dispatch('submit');
-  }
-  return { input, fetches, reloads, retryMessage };
+  assert.equal(reloads, 1);
+  return linkStatus.textContent;
 }
 
 async function api(harness, path, session = 'creator-a', options = {}) {
@@ -442,7 +459,8 @@ test('the parsed editor DTO and SSR keep visibility separate from directory sele
   assert.equal(data.links[0].directoryApproval, 'approved');
   let html = await renderEditor(data);
   assertPerLinkVisibilityCopy(html);
-  assert.match(html, /Los cambios del perfil se reflejan al guardar\. Cada enlace indica si está visible en tu página\./);
+  assert.doesNotMatch(html, /Los cambios del perfil se reflejan al guardar\./,
+    'the residual content editor no longer suggests that it owns profile saves');
   assert.match(html, /Visibilidad en tu página: Visible al público\./);
   assert.match(html, /Directorio: aprobado/);
   assert.match(html, /data-directory[^>]*checked/);
@@ -498,76 +516,46 @@ test('the SSR editor describes a link on a draft profile as not yet public', asy
   assert.doesNotMatch(html, /Visibilidad en tu página: Visible al público\./);
 });
 
-test('the profile editor gives each social URL an accessible HTTP(S)-only hint', async () => {
+test('the owner editor labels social URLs and explains their HTTP(S) format', async () => {
   const harness = await visibilityHarness();
   await createProfileAndLink(harness);
-  const html = await renderEditor(await loadEditorData(harness));
-  assert.match(html, /name="social-website"[^>]*aria-describedby="social-website-help"/);
-  assert.match(html, /id="social-website-help"[^>]*>Usa una URL HTTP o HTTPS sin usuario ni contraseña\./);
+  const html = await renderOwner(await loadEditorData(harness));
+  assert.match(html, /data-owner-form="redes"/);
+  assert.match(html, /Las direcciones deben ser URL HTTP o HTTPS completas/);
+  assert.match(html, /<label[^>]+for="owner-social-website"[^>]*>Sitio web o newsletter<\/label>/);
+  assert.match(html, /<input[^>]+id="owner-social-website"[^>]+type="url"/);
 });
 
-test('the real editor blocks unsafe social URLs in the field and preserves their value', async () => {
-  const ftp = await validateProfileWebsite('ftp://example.com/newsletter');
-  assert.equal(ftp.fetches, 0);
-  assert.equal(ftp.reloads, 0);
-  assert.equal(ftp.input.value, 'ftp://example.com/newsletter');
-  assert.match(ftp.input.validationMessage, /HTTP o HTTPS/);
+// Retired case: The custom validator belonged to the old combined profile form. The owner editor uses labelled `type="url"` controls and its profile API keeps the authoritative HTTP(S)-without-credentials validation.
 
-  const credentials = await validateProfileWebsite('https://person:secret@example.com/newsletter');
-  assert.equal(credentials.fetches, 0);
-  assert.equal(credentials.input.value, 'https://person:secret@example.com/newsletter');
-  assert.match(credentials.input.validationMessage, /sin usuario ni contraseña/);
-
-  const valid = await validateProfileWebsite('https://example.com/newsletter');
-  assert.equal(valid.input.validationMessage, '');
-  assert.equal(valid.fetches, 1);
-  assert.equal(valid.reloads, 1);
-
-  const corrected = await validateProfileWebsite('ftp://example.com/newsletter', 'https://example.com/newsletter');
-  assert.equal(corrected.retryMessage, '', 'editing the field clears its native custom error');
-  assert.equal(corrected.input.value, 'https://example.com/newsletter');
-  assert.equal(corrected.fetches, 1, 'corrected form data can be submitted');
-  assert.equal(corrected.reloads, 1);
-});
-
-test('the real editor script reports publication accurately for draft, hidden, and visible states', async () => {
-  const draft = await createEditorSuccessMessage({ action: 'create-link', published: false, hidden: false });
+test('the residual editor reports link visibility accurately for draft, hidden, and visible states', async () => {
+  const draft = await createEditorSuccessMessage({ published: false, hidden: false });
   assert.match(draft, /Publica tu página para que aparezca al público/);
   assert.doesNotMatch(draft, /visible en tu perfil público/);
 
-  const hiddenProfile = await createEditorSuccessMessage({ action: 'create-link', published: true, hidden: true });
+  const hiddenProfile = await createEditorSuccessMessage({ published: true, hidden: true });
   assert.match(hiddenProfile, /sigue oculta por administración y no aparece al público/);
   assert.doesNotMatch(hiddenProfile, /visible en tu perfil público/);
 
-  const hiddenLink = await createEditorSuccessMessage({ action: 'create-link', published: true, hidden: false, linkHidden: true });
+  const hiddenLink = await createEditorSuccessMessage({ published: true, hidden: false, linkHidden: true });
   assert.match(hiddenLink, /El enlace está oculto por administración y no aparece al público/);
   assert.doesNotMatch(hiddenLink, /visible en tu perfil público/);
 
-  const visible = await createEditorSuccessMessage({ action: 'create-link', published: true, hidden: false });
+  const visible = await createEditorSuccessMessage({ published: true, hidden: false });
   assert.match(visible, /visible en tu perfil público/);
-
-  const savedDraft = await createEditorSuccessMessage({ action: 'save-profile', published: false, hidden: false });
-  assert.match(savedDraft, /guardado como borrador/);
-  assert.doesNotMatch(savedDraft, /queda visible enseguida/);
-  const savedHidden = await createEditorSuccessMessage({ action: 'save-profile', published: true, hidden: true });
-  assert.match(savedHidden, /sigue oculta por administración y no aparece al público/);
-  assert.doesNotMatch(savedHidden, /queda visible enseguida/);
-
-  const publishHiddenDraft = await createEditorSuccessMessage({ action: 'publish-profile', published: false, hidden: true });
-  assert.match(publishHiddenDraft, /publicada, pero sigue oculta por administración/);
-  assert.doesNotMatch(publishHiddenDraft, /visible al público/);
 });
 
-test('the photo upload help explains how to check an unconfirmed save', async () => {
-  const html = await renderEditor({
+test('the owner photo editor provides a check action for an uncertain save', async () => {
+  const html = await renderOwner({
     profile: {
       id: 'profile-a', displayName: 'Ana', slug: 'ana', programs: [], socials: {},
-      published: false, hidden: false, version: 1,
+      published: false, hidden: false, version: 1, photo: { version: 1 },
     },
     links: [], editableResources: [], claims: [], series: [],
   });
 
-  assert.match(html, /Si la carga se detiene antes de guardar, la foto anterior se conserva\./);
-  assert.match(html, /Si no podemos confirmar el guardado, recarga la página para comprobar cuál quedó activa\./);
-  assert.doesNotMatch(html, /La foto anterior seguirá visible si la carga falla\./);
+  assert.match(html, /La foto se guarda sólo cuando termina la carga\./);
+  assert.match(html, /data-owner-check-photo[^>]*>Comprobar qué foto quedó activa/);
+  assert.match(html, /data-owner-check-photo[^>]*hidden/,
+    'the check action starts hidden until the owner controller observes an uncertain upload result');
 });

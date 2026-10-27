@@ -1,0 +1,237 @@
+---
+import type { CreatorEditorDTO, CreatorProgram, CreatorSocial } from '../types/creators';
+import { safeJsonForScript } from '../pages/cuenta/_creator-page';
+
+interface Props {
+  data: CreatorEditorDTO;
+  accountEmail: string;
+  logoutCsrfToken: string;
+  csrfToken: string;
+  sessionBinding: string;
+  isAdmin: boolean;
+  publicOrigin: string;
+}
+
+const { data, accountEmail, logoutCsrfToken, csrfToken, sessionBinding, isAdmin, publicOrigin } = Astro.props;
+const profile = data.profile;
+const photoPath = profile?.photo?.version !== undefined
+  ? `/media/fotos/${encodeURIComponent(profile.id)}/${encodeURIComponent(String(profile.photo.version))}.webp`
+  : undefined;
+const canonicalPath = profile ? `/c/${encodeURIComponent(profile.slug)}/` : undefined;
+const canonicalUrl = canonicalPath ? new URL(canonicalPath, publicOrigin).href : undefined;
+const socials: Array<{ key: CreatorSocial; label: string }> = [
+  { key: 'instagram', label: 'Instagram' },
+  { key: 'x', label: 'X' },
+  { key: 'linkedin', label: 'LinkedIn' },
+  { key: 'awsBuilder', label: 'AWS Builder Center' },
+  { key: 'website', label: 'Sitio web o newsletter' },
+];
+const programs: CreatorProgram[] = ['User Group Leaders', 'Community Builders', 'Heroes'];
+const initialData = safeJsonForScript({ ...data, csrfToken, sessionBinding });
+
+function safeSocialUrl(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    const parsed = new URL(value);
+    return ['http:', 'https:'].includes(parsed.protocol) && !parsed.username && !parsed.password
+      ? parsed.href.replace(/["<>]/g, (character) => encodeURIComponent(character))
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+---
+
+<div class="creator-owner" data-creator-owner data-owner-root data-csrf={csrfToken} data-session-binding={sessionBinding} data-public-origin={publicOrigin}>
+  <div class="creator-owner__account-bar">
+    <a class="creator-owner__back" href="/" aria-label="Volver al sitio">Volver al sitio</a>
+    <details class="creator-owner__account-menu">
+      <summary aria-label="Abrir menú de cuenta">
+        <img class="creator-owner__avatar" src={photoPath} alt="" width="36" height="36" data-owner-avatar hidden={!photoPath} />
+        <span class="creator-owner__avatar creator-owner__avatar--initials" aria-hidden="true" data-owner-avatar-initial hidden={Boolean(photoPath)}>{profile?.displayName.slice(0, 1).toUpperCase() ?? accountEmail.slice(0, 1).toUpperCase()}</span>
+        <span>Cuenta</span>
+      </summary>
+      <div class="creator-owner__account-popover">
+        <p class="creator-owner__email">{accountEmail}</p>
+        {isAdmin && <a href="/cuenta/administracion/">Administración</a>}
+        <form method="post" action="/cuenta/salir/">
+          <input type="hidden" name="csrfToken" value={logoutCsrfToken} />
+          <button type="submit">Cerrar sesión</button>
+        </form>
+      </div>
+    </details>
+  </div>
+
+  <main id="contenido" class="creator-owner__main site-container" tabindex="-1">
+    <header class="creator-owner__page-heading">
+      <p class="creator-owner__eyebrow">Espacio de creador</p>
+      <h1>Tu página</h1>
+      <p>Administra tu página y comparte su enlace cuando esté visible.</p>
+    </header>
+
+    <div class="creator-owner__status" data-owner-status role="status" aria-live="polite" hidden></div>
+    <div class="creator-owner__status" data-session-recovery-shell hidden>
+      <p data-session-recovery-status role="status" aria-live="polite" hidden></p>
+      <a class="button button--outline" data-session-recovery-sign-in href="/cuenta/ingresar/" target="_blank" rel="noopener noreferrer" hidden>Ingresar en otra pestaña</a>
+      <button class="button button--outline" type="button" data-session-recovery-check hidden>Comprobar sesión</button>
+    </div>
+
+    <section class="creator-owner__create" data-owner-create-panel hidden={Boolean(profile)} aria-labelledby="creator-owner-create-title">
+      <p class="creator-owner__eyebrow">Primer paso</p>
+      <h2 id="creator-owner-create-title">Prepara tu página</h2>
+      <p>El nombre y la dirección se pueden elegir por separado. Al crearla queda como borrador; publicar es una acción posterior.</p>
+      <form class="creator-owner__form" data-owner-form="crear">
+        <div class="creator-owner__field">
+          <label for="owner-create-name">Nombre visible</label>
+          <input id="owner-create-name" name="displayName" autocomplete="name" maxlength="120" required />
+        </div>
+        <div class="creator-owner__field">
+          <label for="owner-create-slug">Dirección de tu página</label>
+          <div class="creator-owner__slug-field"><span aria-hidden="true">/c/</span><input id="owner-create-slug" name="slug" required minlength="3" maxlength="40" pattern="[a-z0-9]+(-[a-z0-9]+)*" autocomplete="off" autocapitalize="none" spellcheck="false" /></div>
+          <small>3–40 caracteres: minúsculas, números y guiones sencillos.</small>
+        </div>
+        <button class="button button--dark" type="submit">Crear borrador</button>
+        <p class="creator-owner__status" data-owner-create-status role="status" aria-live="polite"></p>
+        <section class="creator-owner__conflict" data-owner-conflict hidden aria-labelledby="owner-create-conflict-title"><h3 id="owner-create-conflict-title">La página cambió</h3><p data-owner-conflict-copy>Otra pestaña pudo crear la página mientras editabas. Compara los datos guardados antes de elegir cómo seguir.</p><button class="button button--outline" type="button" data-owner-compare>Comparar con lo guardado</button><div data-owner-comparison hidden></div><button class="button button--outline" type="button" data-owner-adopt hidden>Usar la versión guardada</button></section>
+      </form>
+    </section>
+
+    <div class="creator-owner__profile" data-owner-profile hidden={!profile}>
+      <section class="creator-owner__identity" aria-labelledby="owner-profile-name">
+        <div class="creator-owner__identity-heading">
+          <img class="creator-owner__photo" src={photoPath} alt="Foto de perfil" width="96" height="96" data-owner-photo hidden={!photoPath} />
+          <div class="creator-owner__photo creator-owner__photo--placeholder" aria-hidden="true" data-owner-photo-placeholder hidden={Boolean(photoPath)}>{profile?.displayName.slice(0, 1).toUpperCase() ?? ''}</div>
+          <div class="creator-owner__identity-copy">
+            <p class="creator-owner__eyebrow">Identidad pública</p>
+            <h2 id="owner-profile-name" data-owner-name>{profile?.displayName}</h2>
+            <p class="creator-owner__slug" data-owner-slug>{canonicalPath}</p>
+            <span class="creator-owner__badge" data-owner-state hidden={!profile || (profile.published && !profile.hidden)}>{profile?.hidden ? 'Oculta' : 'Borrador'}</span>
+          </div>
+        </div>
+        <div class="creator-owner__profile-actions">
+          <button class="button button--outline" type="button" data-owner-edit="datos">Editar datos</button>
+          <button class="button button--outline" type="button" data-owner-edit="redes">Editar redes</button>
+          <button class="button button--outline" type="button" data-owner-edit="foto">Editar foto</button>
+        </div>
+        <p class="creator-owner__status" data-owner-profile-status role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="creator-owner__public" aria-label="Página pública" data-owner-public>
+        <p data-owner-public-copy hidden={!profile?.published || profile.hidden}>Tu página está publicada y visible.</p>
+        <p data-owner-hidden-copy hidden={!profile?.hidden}>La página está oculta por administración. Puedes editar tus datos; sólo administración puede cambiar su visibilidad.</p>
+        <p data-owner-draft-copy hidden={!profile || profile.published}>Tu página está en borrador. Puedes completar el perfil y publicarla cuando esté lista.</p>
+        {profile?.published && !profile.hidden && <>
+          <a class="button button--outline" data-owner-public-link href={canonicalUrl} target="_blank" rel="noopener noreferrer" aria-label="Ver página pública (abre en otra pestaña)">Ver página pública <span aria-hidden="true">↗</span></a>
+          <button class="button button--outline" type="button" data-owner-copy data-url={canonicalUrl}>Copiar enlace</button>
+        </>}
+        {profile && !profile.published && !profile.hidden && <button class="button button--dark" type="button" data-owner-publish>Publicar página</button>}
+        <p class="creator-owner__status" data-owner-copy-status role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="creator-owner__details" aria-labelledby="owner-details-title">
+        <div class="creator-owner__section-heading">
+          <div>
+            <p class="creator-owner__eyebrow">Tu identidad</p>
+            <h2 id="owner-details-title">Sobre ti</h2>
+          </div>
+        </div>
+        <dl class="creator-owner__facts">
+          <div><dt>Ubicación</dt><dd data-owner-location>{[profile?.city, profile?.country].filter(Boolean).join(', ') || 'Sin ubicación agregada'}</dd></div>
+          <div><dt>Programas de AWS</dt><dd data-owner-programs>{profile?.programs.length ? profile.programs.join(', ') : 'Sin programas agregados'}</dd></div>
+        </dl>
+        <p class="creator-owner__bio" data-owner-bio>{profile?.bio || 'Agrega una presentación breve para contar quién eres.'}</p>
+      </section>
+
+      <section class="creator-owner__socials" aria-labelledby="owner-socials-title">
+        <div class="creator-owner__section-heading">
+          <div>
+            <p class="creator-owner__eyebrow">Dónde encontrarte</p>
+            <h2 id="owner-socials-title">Redes y sitio web</h2>
+          </div>
+        </div>
+        <ul data-owner-social-list>
+          {socials.map(({ key, label }) => (
+            <li data-owner-social={key} hidden={!safeSocialUrl(profile?.socials[key])}><a href={safeSocialUrl(profile?.socials[key])} target="_blank" rel="noopener noreferrer"><span data-owner-social-label>{label}</span><span class="creator-owner__social-url" data-owner-social-url>{safeSocialUrl(profile?.socials[key])}</span></a></li>
+          ))}
+        </ul>
+        <p class="creator-owner__empty" data-owner-no-socials hidden={Boolean(profile && socials.some(({ key }) => safeSocialUrl(profile.socials[key])))}>Aún no agregaste redes o enlaces externos.</p>
+      </section>
+
+      <section class="creator-owner__work" aria-labelledby="owner-work-title">
+        <div>
+          <p class="creator-owner__eyebrow">Sigue desde aquí</p>
+          <h2 id="owner-work-title">Tu contenido</h2>
+          <p>Gestiona tus enlaces y series o consulta las estadísticas de tu página.</p>
+        </div>
+        <nav aria-label="Herramientas de creador">
+          <a class="button button--outline" data-owner-navigation href="/cuenta/creador/">Administrar enlaces y series</a>
+          <a class="button button--outline" data-owner-navigation href="/cuenta/estadisticas/">Ver estadísticas</a>
+        </nav>
+      </section>
+    </div>
+
+    <dialog class="creator-owner__dialog" data-owner-dialog aria-labelledby="creator-owner-dialog-title">
+      <div class="creator-owner__dialog-panel">
+        <header class="creator-owner__dialog-heading">
+          <div>
+            <p class="creator-owner__eyebrow">Tu página</p>
+            <h2 id="creator-owner-dialog-title" data-owner-dialog-title>Editar datos</h2>
+          </div>
+          <button class="creator-owner__close" type="button" data-owner-close aria-label="Cerrar edición">×</button>
+        </header>
+
+        <div class="creator-owner__status" data-session-recovery-shell hidden>
+          <p data-session-recovery-status role="status" aria-live="polite" hidden></p>
+          <a class="button button--outline" data-session-recovery-sign-in href="/cuenta/ingresar/" target="_blank" rel="noopener noreferrer" hidden>Ingresar en otra pestaña</a>
+          <button class="button button--outline" type="button" data-session-recovery-check hidden>Comprobar sesión</button>
+        </div>
+
+        <form class="creator-owner__form" data-owner-form="datos" hidden>
+          <div class="creator-owner__field"><label for="owner-display-name">Nombre visible</label><input id="owner-display-name" name="displayName" autocomplete="name" maxlength="120" required /></div>
+          <div class="creator-owner__field"><label for="owner-slug">Dirección de tu página</label><div class="creator-owner__slug-field"><span aria-hidden="true">/c/</span><input id="owner-slug" name="slug" required minlength="3" maxlength="40" pattern="[a-z0-9]+(-[a-z0-9]+)*" autocomplete="off" autocapitalize="none" spellcheck="false" /></div><small>3–40 caracteres: minúsculas, números y guiones sencillos. Cambiarla conserva la dirección anterior como alias.</small></div>
+          <div class="creator-owner__field"><label for="owner-city">Ciudad <span>(opcional)</span></label><input id="owner-city" name="city" autocomplete="address-level2" maxlength="100" /></div>
+          <div class="creator-owner__field"><label for="owner-country">País <span>(opcional)</span></label><input id="owner-country" name="country" autocomplete="country-name" maxlength="100" /></div>
+          <fieldset class="creator-owner__field creator-owner__programs"><legend>Programas de AWS <span>(opcional)</span></legend>
+            {programs.map((program) => <label for={`owner-program-${program.toLowerCase().replaceAll(' ', '-')}`}><input id={`owner-program-${program.toLowerCase().replaceAll(' ', '-')}`} type="checkbox" name="programs" value={program} /><span>{program}</span></label>)}
+          </fieldset>
+          <div class="creator-owner__field"><label for="owner-bio">Sobre ti <span>(opcional)</span></label><textarea id="owner-bio" name="bio" rows="5" maxlength="2000"></textarea><small>Hasta 2000 caracteres.</small></div>
+          <input name="version" type="hidden" />
+          <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit">Guardar datos</button><button class="button button--outline" type="button" data-owner-cancel>Cancelar</button></div>
+          <p class="creator-owner__status" data-owner-form-status="datos" role="status" aria-live="polite"></p>
+          <section class="creator-owner__conflict" data-owner-conflict hidden aria-labelledby="owner-conflict-title"><h3 id="owner-conflict-title">El perfil cambió</h3><p data-owner-conflict-copy></p><button class="button button--outline" type="button" data-owner-compare>Comparar con lo guardado</button><div data-owner-comparison hidden></div><button class="button button--outline" type="button" data-owner-adopt hidden>Usar la versión guardada</button></section>
+        </form>
+
+        <form class="creator-owner__form" data-owner-form="redes" hidden>
+          <p>Las direcciones deben ser URL HTTP o HTTPS completas. Deja un campo vacío para quitar esa red.</p>
+          {socials.map(({ key, label }) => <div class="creator-owner__field"><label for={`owner-social-${key}`}>{label}</label><input id={`owner-social-${key}`} name={`social-${key}`} type="url" inputmode="url" autocomplete="url" placeholder="https://" maxlength="500" /></div>)}
+          <input name="version" type="hidden" />
+          <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit">Guardar redes</button><button class="button button--outline" type="button" data-owner-cancel>Cancelar</button></div>
+          <p class="creator-owner__status" data-owner-form-status="redes" role="status" aria-live="polite"></p>
+          <section class="creator-owner__conflict" data-owner-conflict hidden aria-labelledby="owner-social-conflict-title"><h3 id="owner-social-conflict-title">El perfil cambió</h3><p data-owner-conflict-copy></p><button class="button button--outline" type="button" data-owner-compare>Comparar con lo guardado</button><div data-owner-comparison hidden></div><button class="button button--outline" type="button" data-owner-adopt hidden>Usar la versión guardada</button></section>
+        </form>
+
+        <form class="creator-owner__form" data-owner-form="foto" hidden>
+          <p>JPEG, PNG o WebP; hasta 15 MiB y 40 megapíxeles. La foto se guarda sólo cuando termina la carga.</p>
+          <img class="creator-owner__photo creator-owner__photo--preview" src={photoPath} alt="Foto actual del perfil" width="112" height="112" data-owner-photo-preview hidden={!photoPath} />
+          <div class="creator-owner__field"><label for="owner-photo-file">Elegir una foto</label><input id="owner-photo-file" name="photo" type="file" accept="image/jpeg,image/png,image/webp" required data-busy-control /></div>
+          <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit">Subir y guardar foto</button><button class="button button--outline" type="button" data-owner-cancel>Cancelar</button></div>
+          <p class="creator-owner__status" data-owner-form-status="foto" role="status" aria-live="polite"></p>
+          <button class="button button--outline" type="button" data-owner-check-photo hidden>Comprobar qué foto quedó activa</button>
+        </form>
+
+        <div class="creator-owner__exit" data-owner-exit-prompt hidden role="alertdialog" aria-labelledby="owner-exit-title" aria-describedby="owner-exit-copy">
+          <h3 id="owner-exit-title">Tienes cambios sin guardar</h3>
+          <p id="owner-exit-copy">Puedes guardar, descartar esta corrección o seguir editando.</p>
+          <div class="creator-owner__dialog-actions"><button class="button button--dark" type="button" data-owner-exit-save>Guardar y salir</button><button class="button button--outline" type="button" data-owner-exit-discard>Descartar cambios</button><button class="button button--outline" type="button" data-owner-exit-continue>Seguir editando</button></div>
+        </div>
+      </div>
+    </dialog>
+
+    <script type="application/json" id="creator-owner-data" set:html={initialData} />
+  </main>
+  <footer class="creator-owner__help"><a href="mailto:contact@dondeaprendoaws.com">¿Necesitas ayuda? Contacta al equipo.</a></footer>
+</div>
+
+<script>
+  import '../scripts/creator-owner.ts';
+</script>

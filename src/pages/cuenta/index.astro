@@ -2,8 +2,11 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import SiteHeader from '../../components/SiteHeader.astro';
 import SiteFooter from '../../components/SiteFooter.astro';
+import CreatorOwnerProfile from '../../components/CreatorOwnerProfile.astro';
 import '../../styles/account.css';
+import '../../styles/creator-owner.css';
 import { getAccountAuth } from '../../lib/account-runtime.mjs';
+import { CREATOR_PRIVATE_HEADERS, loadCreatorEditor } from './_creator-page';
 
 export const prerender = false;
 
@@ -17,9 +20,7 @@ function readAccountSession(value: unknown): AccountSession {
   if (typeof value !== 'object' || value === null) return { state: 'unavailable' };
 
   const session = value as Record<string, unknown>;
-  if (session.state === 'anonymous' || session.state === 'unavailable') {
-    return { state: session.state };
-  }
+  if (session.state === 'anonymous' || session.state === 'unavailable') return { state: session.state };
   if (session.state === 'disabled') {
     return typeof session.csrfToken === 'string' && session.csrfToken.length > 0
       ? { state: 'disabled', csrfToken: session.csrfToken }
@@ -31,14 +32,9 @@ function readAccountSession(value: unknown): AccountSession {
   }
 
   const account = session.account as Record<string, unknown>;
-  if (
-    typeof account.email !== 'string' ||
-    account.email.length === 0 ||
-    typeof session.csrfToken !== 'string' ||
-    session.csrfToken.length === 0 ||
-    typeof session.expiresAt !== 'number' ||
-    !Number.isFinite(session.expiresAt)
-  ) {
+  if (typeof account.email !== 'string' || account.email.length === 0
+    || typeof session.csrfToken !== 'string' || session.csrfToken.length === 0
+    || typeof session.expiresAt !== 'number' || !Number.isFinite(session.expiresAt)) {
     return { state: 'unavailable' };
   }
 
@@ -55,9 +51,10 @@ const recognizedCallbackState = callbackState === 'acceso-invalido' || callbackS
   ? callbackState
   : undefined;
 
+let session: AccountSession = { state: 'unavailable' };
+let owner: Awaited<ReturnType<typeof loadCreatorEditor>> | undefined;
 Astro.response.headers.set('Cache-Control', 'private, no-store');
 
-let session: AccountSession = { state: 'unavailable' };
 if (!recognizedCallbackState) {
   try {
     const auth = await getAccountAuth();
@@ -65,108 +62,134 @@ if (!recognizedCallbackState) {
   } catch {
     session = { state: 'unavailable' };
   }
+
+  if (session.state === 'authenticated') {
+    try {
+      owner = await loadCreatorEditor(Astro.request);
+    } catch {
+      owner = undefined;
+    }
+    if (!owner || owner.status !== 200 || !owner.data || owner.principal.state !== 'authenticated'
+      || !owner.principal.csrfToken || !owner.principal.sessionBinding) {
+      for (const [name, value] of Object.entries(CREATOR_PRIVATE_HEADERS)) Astro.response.headers.set(name, value);
+      Astro.response.status = owner?.status && owner.status !== 200 ? owner.status : 503;
+    }
+  }
 }
 
-const pageState = recognizedCallbackState ?? session.state;
+for (const [name, value] of Object.entries(CREATOR_PRIVATE_HEADERS)) Astro.response.headers.set(name, value);
+
+const ownerIsReady = Boolean(session.state === 'authenticated' && owner
+  && owner.status === 200 && owner.data && owner.principal.state === 'authenticated'
+  && owner.principal.csrfToken && owner.principal.sessionBinding);
+const ownerLoadStatus = owner && owner.status !== 200 ? owner.status : 503;
+const pageState = recognizedCallbackState ?? (session.state === 'authenticated'
+  ? ownerIsReady ? 'owner' : `owner-${ownerLoadStatus}`
+  : session.state);
 Astro.response.status = pageState === 'acceso-invalido' || pageState === 'cancelado'
   ? 400
-  : pageState === 'no-disponible' || pageState === 'unavailable'
+  : pageState === 'no-disponible' || pageState === 'unavailable' || pageState.startsWith('owner-') && pageState !== 'owner-401' && pageState !== 'owner-403'
     ? 503
-    : pageState === 'disabled'
+    : pageState === 'disabled' || pageState === 'owner-403'
       ? 403
-      : 200;
+      : pageState === 'owner-401'
+        ? 401
+        : 200;
+
+const disabledCsrf = session.state === 'disabled' ? session.csrfToken : undefined;
+const publicOrigin = import.meta.env.PUBLIC_SITE_ORIGIN || Astro.url.origin;
 ---
 
 <BaseLayout
-  title="Mi cuenta | ¿Dónde Aprendo AWS?"
-  description="Accede a tu cuenta de ¿Dónde Aprendo AWS?"
+  title={ownerIsReady ? 'Tu página | ¿Dónde Aprendo AWS?' : 'Mi cuenta | ¿Dónde Aprendo AWS?'}
+  description={ownerIsReady ? 'Administra tu página de creador.' : 'Accede a tu cuenta de ¿Dónde Aprendo AWS?'}
   noindex
+  nofollow
   analytics={false}
 >
   <SiteHeader />
-  <main id="contenido" tabindex="-1" class="account-page site-container">
-    <div class="account-page__content">
-      <header class="account-page__header">
-        <p class="account-page__eyebrow">¿Dónde Aprendo AWS?</p>
-        <h1>Tu cuenta</h1>
-      </header>
 
-      {recognizedCallbackState === 'acceso-invalido' && (
-        <section class="account-message account-message--error" role="alert" aria-labelledby="account-error-title">
-          <h2 id="account-error-title">No pudimos confirmar el acceso</h2>
-          <p>El enlace pudo vencer o ya se usó. Vuelve a intentarlo para acceder a tu cuenta.</p>
-          <a class="button button--dark" href="/cuenta/ingresar/">Volver a ingresar</a>
-        </section>
-      )}
+  {ownerIsReady && session.state === 'authenticated' && owner?.data && owner.principal.state === 'authenticated' && owner.principal.csrfToken && owner.principal.sessionBinding ? (
+    <CreatorOwnerProfile
+      data={owner.data}
+      accountEmail={session.account.email}
+      logoutCsrfToken={session.csrfToken}
+      csrfToken={owner.principal.csrfToken}
+      sessionBinding={owner.principal.sessionBinding}
+      isAdmin={owner.principal.isAdmin}
+      publicOrigin={publicOrigin}
+    />
+  ) : (
+    <main id="contenido" tabindex="-1" class="account-page site-container">
+      <div class="account-page__content">
+        {recognizedCallbackState === 'acceso-invalido' && (
+          <section class="account-message account-message--error" role="alert" aria-labelledby="account-error-title">
+            <h1 id="account-error-title">No pudimos confirmar el acceso</h1>
+            <p>El enlace pudo vencer o ya se usó. Vuelve a intentarlo para acceder a tu cuenta.</p>
+            <a class="button button--dark" href="/cuenta/ingresar/">Volver a ingresar</a>
+          </section>
+        )}
 
-      {recognizedCallbackState === 'cancelado' && (
-        <section class="account-message" role="status" aria-labelledby="account-cancelled-title">
-          <h2 id="account-cancelled-title">Cancelaste el acceso</h2>
-          <p>Puedes volver a intentarlo cuando quieras.</p>
-          <a class="button button--dark" href="/cuenta/ingresar/">Volver a ingresar</a>
-        </section>
-      )}
+        {recognizedCallbackState === 'cancelado' && (
+          <section class="account-message" role="status" aria-labelledby="account-cancelled-title">
+            <h1 id="account-cancelled-title">Cancelaste el acceso</h1>
+            <p>Puedes volver a intentarlo cuando quieras.</p>
+            <a class="button button--dark" href="/cuenta/ingresar/">Volver a ingresar</a>
+          </section>
+        )}
 
-      {(recognizedCallbackState === 'no-disponible' || pageState === 'unavailable') && (
-        <section class="account-message account-message--error" role="alert" aria-labelledby="account-unavailable-title">
-          <h2 id="account-unavailable-title">No pudimos cargar tu cuenta</h2>
-          <p>Inténtalo de nuevo en unos minutos.</p>
-          <a class="button button--dark" href="/cuenta/">Reintentar</a>
-        </section>
-      )}
+        {(recognizedCallbackState === 'no-disponible' || pageState === 'unavailable' || pageState.startsWith('owner-') && pageState !== 'owner-401' && pageState !== 'owner-403') && (
+          <section class="account-message account-message--error" role="alert" aria-labelledby="account-unavailable-title">
+            <h1 id="account-unavailable-title">{recognizedCallbackState === 'no-disponible' || pageState === 'unavailable' ? 'No pudimos cargar tu cuenta' : 'No pudimos cargar tu página'}</h1>
+            <p>Inténtalo de nuevo en unos minutos. No pudimos confirmar si tienes una página todavía.</p>
+            <a class="button button--dark" href="/cuenta/">Reintentar</a>
+          </section>
+        )}
 
-      {!recognizedCallbackState && session.state === 'anonymous' && (
-        <section class="account-card" aria-labelledby="account-access-title">
-          <h2 id="account-access-title">Accede o crea una cuenta</h2>
-          <p>Ingresa para consultar tu cuenta o crea una con tu correo electrónico.</p>
-          <div class="account-actions">
-            <a class="button button--dark" href="/cuenta/ingresar/">Ingresar</a>
-            <a class="button button--outline" href="/cuenta/registro/">Crear cuenta</a>
-          </div>
-          <p class="account-card__recovery"><a href="/cuenta/recuperar/">¿Olvidaste tu contraseña?</a></p>
-        </section>
-      )}
-
-      {!recognizedCallbackState && session.state === 'authenticated' && (
-        <section class="account-card" aria-labelledby="account-details-title">
-          <h2 id="account-details-title">Tu información</h2>
-          <dl class="account-details">
-            <div>
-              <dt>Correo electrónico</dt>
-              <dd>{session.account.email}</dd>
+        {!recognizedCallbackState && session.state === 'anonymous' && (
+          <>
+            <header class="account-page__header">
+              <p class="account-page__eyebrow">¿Dónde Aprendo AWS?</p>
+              <h1>Tu cuenta</h1>
+            </header>
+            <section class="account-card" aria-labelledby="account-access-title">
+            <h2 id="account-access-title">Accede o crea una cuenta</h2>
+            <p>Ingresa para preparar tu página de creador.</p>
+            <div class="account-actions">
+              <a class="button button--dark" href="/cuenta/ingresar/">Ingresar</a>
+              <a class="button button--outline" href="/cuenta/registro/">Crear cuenta</a>
             </div>
-            <div>
-              <dt>Estado de la cuenta</dt>
-              <dd>Activa</dd>
-            </div>
-          </dl>
-          <div class="account-actions">
-            <a class="button button--outline" href="/cuenta/creador/">Crear o editar mi página de creador</a>
-            <a class="button button--dark" href="/cuenta/estadisticas/">Ver estadísticas</a>
-          </div>
-          <form method="post" action="/cuenta/salir/" class="account-logout">
-            <input type="hidden" name="csrfToken" value={session.csrfToken} />
-            <button class="button button--dark" type="submit">Cerrar sesión</button>
-          </form>
-        </section>
-      )}
+            <p class="account-card__recovery"><a href="/cuenta/recuperar/">¿Olvidaste tu contraseña?</a></p>
+            </section>
+          </>
+        )}
 
-      {!recognizedCallbackState && session.state === 'disabled' && (
-        <section class="account-message account-message--error" role="alert" aria-labelledby="account-disabled-title">
-          <h2 id="account-disabled-title">Esta cuenta está desactivada</h2>
-          <p>Si necesitas ayuda, <a href="mailto:contact@dondeaprendoaws.com">contacta al equipo</a>.</p>
-          {session.csrfToken && (
-            <>
-              <p>Puedes cerrar la sesión en este navegador.</p>
-              <form method="post" action="/cuenta/salir/" class="account-logout">
-                <input type="hidden" name="csrfToken" value={session.csrfToken} />
-                <button class="button button--dark" type="submit">Cerrar sesión</button>
-              </form>
-            </>
-          )}
-        </section>
-      )}
-    </div>
-  </main>
-  <SiteFooter />
+        {!recognizedCallbackState && session.state === 'disabled' && (
+          <section class="account-message account-message--error" role="alert" aria-labelledby="account-disabled-title">
+            <h1 id="account-disabled-title">Esta cuenta está desactivada</h1>
+            <p>Si necesitas ayuda, <a href="mailto:contact@dondeaprendoaws.com">contacta al equipo</a>.</p>
+            {disabledCsrf && (
+              <>
+                <p>Puedes cerrar la sesión en este navegador.</p>
+                <form method="post" action="/cuenta/salir/" class="account-logout">
+                  <input type="hidden" name="csrfToken" value={disabledCsrf} />
+                  <button class="button button--dark" type="submit">Cerrar sesión</button>
+                </form>
+              </>
+            )}
+          </section>
+        )}
+
+        {(pageState === 'owner-401' || pageState === 'owner-403') && (
+          <section class="account-message account-message--error" role="alert" aria-labelledby="owner-load-error-title">
+            <h1 id="owner-load-error-title">{pageState === 'owner-403' ? 'Esta cuenta está desactivada' : 'No pudimos confirmar tu sesión'}</h1>
+            <p>{pageState === 'owner-403' ? 'Si necesitas ayuda, contacta al equipo.' : 'Vuelve a ingresar para consultar tu página.'}</p>
+            <a class="button button--dark" href={pageState === 'owner-403' ? '/cuenta/' : '/cuenta/ingresar/'}>{pageState === 'owner-403' ? 'Reintentar' : 'Ingresar'}</a>
+          </section>
+        )}
+      </div>
+    </main>
+  )}
+
+  {!ownerIsReady && <SiteFooter />}
 </BaseLayout>

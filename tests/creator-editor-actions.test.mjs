@@ -4,7 +4,6 @@ import { runInNewContext } from 'node:vm';
 import { build } from 'esbuild';
 import { createCreatorHttpHandler } from '../src/lib/creator-http.mjs';
 import { creatorPageSessionBinding } from '../src/lib/creator-session-context.mjs';
-import { createCreatorPhotoHarness, rasterPhotoFixtures } from './fixtures/creator-photos.mjs';
 import { callApi, createCreatorPagesHarness, sessionCsrf, SITE_ORIGIN } from './fixtures/creator-pages.mjs';
 
 let editorBundlePromise;
@@ -158,35 +157,18 @@ function enableSessionRecovery(root, binding, { fields = [], buttons = [] } = {}
   return { shell, status, signIn, check };
 }
 
-function profileEditorForm(profile) {
-  const displayName = Object.assign(new TestElement(), {
-    tagName: 'INPUT', type: 'text', name: 'displayName', value: profile?.displayName ?? 'Ana',
-  });
-  const slug = new TestElement();
-  Object.assign(slug, { tagName: 'INPUT', type: 'text', name: 'slug', value: profile?.slug ?? 'ana-nueva' });
-  const form = new TestElement({
-    values: { displayName, slug, city: profile?.city ?? '', country: profile?.country ?? '', bio: profile?.bio ?? '' },
-    lists: { 'input[name^="social-"]': [], 'input, textarea, select': [displayName, slug] },
-  });
-  displayName.form = form;
-  slug.form = form;
-  return { form, displayName, slug, fields: [displayName, slug] };
-}
-
-async function fetchCreatorHandler(handler, requests, url, options = {}) {
-  const target = new URL(url, SITE_ORIGIN);
+async function fetchCreatorHandler(handler, requests, path, options = {}) {
+  const url = new URL(path, SITE_ORIGIN);
   const headers = new Headers(options.headers);
-  if (target.origin === SITE_ORIGIN) headers.set('origin', SITE_ORIGIN);
-  const response = await handler(new Request(target, { ...options, headers }));
-  const error = response.status >= 400 ? await response.clone().json().catch(() => null) : undefined;
+  headers.set('origin', SITE_ORIGIN);
+  const response = await handler(new Request(url, { ...options, headers }));
   requests.push({
-    path: target.pathname,
-    method: options.method ?? 'GET',
-    body: typeof options.body === 'string' ? JSON.parse(options.body) : undefined,
-    csrf: headers.get('x-csrf-token'),
-    binding: headers.get('x-creator-page-binding'),
+    url: path,
+    path: url.pathname,
+    method: options.method,
     status: response.status,
-    ...(error === undefined ? {} : { error }),
+    csrf: headers.get('x-csrf-token'),
+    ...(options.body ? { body: JSON.parse(options.body) } : {}),
   });
   return response;
 }
@@ -304,9 +286,7 @@ async function runCorrectionFlow({ action, status: responseStatus, error, initia
   const resourceId = 'resource-editing';
   const resourceItem = new TestElement({ dataset: { resourceId } });
   const form = new TestElement({
-    values: action === 'profile'
-      ? { displayName: 'Ana', slug: field, city: '', country: '', bio: '' }
-      : { title: 'Guía', url: field, description: '' },
+    values: { title: 'Guía', url: field, description: '' },
     selectors: action === 'resource-edit'
       ? { 'closest:[data-resource-id]': resourceItem }
       : {},
@@ -314,11 +294,9 @@ async function runCorrectionFlow({ action, status: responseStatus, error, initia
   });
   const status = new TestElement();
   const { root } = baseRoot({
-    selectors: action === 'profile'
-      ? { '[data-profile-form]': form, '[data-profile-status]': status }
-      : action === 'resource-edit'
-        ? { '[data-links-status]': status }
-        : { '[data-add-link-form]': form, '[data-link-create-status]': status },
+    selectors: action === 'resource-edit'
+      ? { '[data-links-status]': status }
+      : { '[data-add-link-form]': form, '[data-link-create-status]': status },
     lists: action === 'resource-edit' ? { '[data-resource-form]': [form] } : {},
   });
   const reloads = { count: 0 };
@@ -356,14 +334,7 @@ async function runCorrectionFlow({ action, status: responseStatus, error, initia
   return { errorMessage, status: status.textContent };
 }
 
-test('profile slug conflicts and unsafe link URLs give actionable feedback and allow correction', async () => {
-  const slug = await runCorrectionFlow({
-    action: 'profile', status: 409, error: 'SLUG_TAKEN',
-    initialValue: 'ya-reservada', correctedValue: 'ana-nueva', fieldName: 'slug',
-  });
-  assert.equal(slug.errorMessage, 'Esa dirección ya está reservada. Elige otra dirección para tu página.');
-  assert.match(slug.status, /Perfil guardado/);
-
+test('unsafe link URLs give actionable feedback and allow correction', async () => {
   const url = await runCorrectionFlow({
     action: 'link', status: 422, error: 'INVALID_URL',
     initialValue: 'ftp://example.com/guia', correctedValue: 'https://example.com/guia', fieldName: 'url',
@@ -388,133 +359,13 @@ test('resource URL conflicts and colliding link URLs explain the cause and allow
   assert.match(collision.status, /visible en tu perfil público/);
 });
 
-test('known version conflicts require a reload while unknown conflicts stay neutral and retain the form value', async () => {
-  const field = { value: 'slug-en-conflicto', setCustomValidity() {} };
-  const form = new TestElement({
-    values: { displayName: 'Ana', slug: field, city: '', country: '', bio: '' },
-    lists: { 'input[name^="social-"]': [] },
-  });
-  const status = new TestElement();
-  const { root } = baseRoot({ selectors: { '[data-profile-form]': form, '[data-profile-status]': status } });
-  const reloads = { count: 0 };
-  let responseIndex = 0;
-  const submittedVersions = [];
+// Retired case: The old profile form and its conflict handler moved to the contextual owner controller; the owner-controller acceptance suite covers 409 without adopting an unseen version.
 
-  await runEditor({
-    root,
-    reloads,
-    fetch: async (_url, options) => {
-      submittedVersions.push(JSON.parse(options.body).version);
-      responseIndex += 1;
-      if (responseIndex === 1) return Response.json({ error: 'PROFILE_CONFLICT' }, { status: 409 });
-      if (responseIndex === 2) return Response.json({ error: 'FUTURE_CONFLICT' }, { status: 409 });
-      return new Response('not json', { status: 409 });
-    },
-  });
-  await form.dispatch('submit');
+// Retired case: Profile edits now run in the separate owner controller; its accepted caller tests preserve late edits and retry against the write receipt.
 
-  assert.equal(status.textContent, 'El perfil, recurso o enlace cambió desde que abriste la página. Recárgala antes de volver a guardar.');
-  assert.equal(field.value, 'slug-en-conflicto');
-  assert.equal(reloads.count, 0);
+// Retired case: The profile form no longer runs in this residual editor; the owner-controller acceptance suite covers failed saves and preserved corrections.
 
-  await form.dispatch('submit');
-  assert.equal(status.textContent, 'No pudimos completar el cambio porque hay un conflicto. Revisa el estado antes de volver a intentarlo.');
-  assert.equal(field.value, 'slug-en-conflicto');
-  assert.equal(reloads.count, 0);
-
-  await form.dispatch('submit');
-  assert.equal(status.textContent, 'No pudimos completar el cambio porque hay un conflicto. Revisa el estado antes de volver a intentarlo.');
-  assert.equal(field.value, 'slug-en-conflicto');
-  assert.equal(reloads.count, 0);
-  assert.deepEqual(submittedVersions, [37, 37, 37], 'a conflict never silently advances the stale version');
-});
-
-test('a profile save keeps later edits in that form and refreshes its version before retrying', async () => {
-  const field = { tagName: 'INPUT', type: 'text', value: 'Ana enviada', name: 'displayName', setCustomValidity() {} };
-  const form = new TestElement({
-    values: { displayName: field, slug: 'ana', city: '', country: '', bio: '' },
-    lists: { 'input[name^="social-"]': [], 'input, textarea, select': [field] },
-  });
-  field.form = form;
-  const status = new TestElement();
-  const { root } = baseRoot({
-    selectors: { '[data-profile-form]': form, '[data-profile-status]': status },
-    lists: { 'input, textarea, select': [field] },
-  });
-  const reloads = { count: 0 };
-  const requests = [];
-  let resolveFirstSave;
-  let putCount = 0;
-
-  await runEditor({
-    root,
-    reloads,
-    fetch: async (url, options) => {
-      requests.push({ url, options });
-      putCount += 1;
-      if (putCount === 1) {
-        return new Promise((resolve) => { resolveFirstSave = resolve; });
-      }
-      const body = JSON.parse(options.body);
-      return Response.json({ profile: { ...editorData().profile, ...body, version: 39 }, versionChanges: [
-        { entity: 'profile', id: 'profile-a', before: 38, after: 39 },
-      ] });
-    },
-  });
-
-  const pending = form.dispatch('submit');
-  await Promise.resolve();
-  field.value = 'Ana corrección posterior';
-  const firstBody = JSON.parse(requests[0].options.body);
-  resolveFirstSave(Response.json({ profile: { ...editorData().profile, ...firstBody, version: 38 }, versionChanges: [
-    { entity: 'profile', id: 'profile-a', before: 37, after: 38 },
-  ] }));
-  await pending;
-
-  assert.equal(JSON.parse(requests[0].options.body).displayName, 'Ana enviada');
-  assert.equal(field.value, 'Ana corrección posterior');
-  assert.equal(reloads.count, 0, 'the first success leaves the edited value in place');
-  assert.match(status.textContent, /Conservamos los cambios que aún no enviaste/);
-
-  await form.dispatch('submit');
-  assert.equal(JSON.parse(requests[1].options.body).displayName, 'Ana corrección posterior');
-  assert.equal(JSON.parse(requests[1].options.body).version, 38, 'the retry uses the version from its own commit receipt');
-  assert.equal(requests.some((request) => request.options.method === 'GET'), false, 'no GET adopts an unseen version');
-  assert.equal(reloads.count, 1, 'the page refreshes after all edits have been saved');
-});
-
-test('a failed save keeps edits made while the request was pending and reports the failure', async () => {
-  const field = { tagName: 'INPUT', type: 'text', value: 'Ana enviada', name: 'displayName', setCustomValidity() {} };
-  const form = new TestElement({
-    values: { displayName: field, slug: 'ana', city: '', country: '', bio: '' },
-    lists: { 'input[name^="social-"]': [], 'input, textarea, select': [field] },
-  });
-  field.form = form;
-  const status = new TestElement();
-  const { root } = baseRoot({
-    selectors: { '[data-profile-form]': form, '[data-profile-status]': status },
-    lists: { 'input, textarea, select': [field] },
-  });
-  const reloads = { count: 0 };
-  let resolveSave;
-  await runEditor({
-    root,
-    reloads,
-    fetch: async () => new Promise((resolve) => { resolveSave = resolve; }),
-  });
-
-  const pending = form.dispatch('submit');
-  await Promise.resolve();
-  field.value = 'Ana corrección tras fallo';
-  resolveSave(Response.json({ error: 'SERVICE_UNAVAILABLE' }, { status: 503 }));
-  await pending;
-
-  assert.equal(field.value, 'Ana corrección tras fallo');
-  assert.match(status.textContent, /No pudimos guardar los cambios/);
-  assert.equal(reloads.count, 0, 'a failed request never reloads the page');
-});
-
-test('a rejected directory checkbox rolls back before a confirmed removal and preserves another draft', async () => {
+test('a rejected directory checkbox rolls back before a confirmed removal without replaying the failed action', async () => {
   const principal = { state: 'authenticated', accountId: 'private-account-a', csrfToken: sessionCsrf['creator-a'], isAdmin: false };
   const harness = await createCreatorPagesHarness({ authenticate: async () => principal });
   const created = await callApi(harness, '/api/creador/perfil', {
@@ -531,12 +382,6 @@ test('a rejected directory checkbox rolls back before a confirmed removal and pr
   const link = initial.links[0];
   assert.equal(link.selectedForDirectory, true, 'the fixture starts with the directory selection confirmed');
 
-  const profileField = { tagName: 'INPUT', type: 'text', name: 'displayName', value: 'Ana', setCustomValidity() {} };
-  const profileForm = new TestElement({
-    values: { displayName: profileField, slug: 'ana-rejected-directory', city: '', country: '', bio: '' },
-    lists: { 'input[name^="social-"]': [], 'input, textarea, select': [profileField] },
-  });
-  profileField.form = profileForm;
   const placement = new TestElement({ dataset: { placementId: link.placementId } });
   const checkbox = new TestElement({ selectors: { 'closest:[data-placement-id]': placement } });
   Object.assign(checkbox, { tagName: 'INPUT', type: 'checkbox', checked: true });
@@ -544,8 +389,6 @@ test('a rejected directory checkbox rolls back before a confirmed removal and pr
   const remove = new TestElement({ selectors: { 'closest:[data-placement-id]': placement } });
   remove.tagName = 'BUTTON';
   remove.setAttribute('data-remove-link', '');
-  const profileSave = new TestElement();
-  profileSave.tagName = 'BUTTON';
   const refresh = new TestElement();
   refresh.tagName = 'BUTTON';
   const transition = new TestElement();
@@ -554,8 +397,6 @@ test('a rejected directory checkbox rolls back before a confirmed removal and pr
   const root = new TestElement({
     dataset: { csrf: sessionCsrf['creator-a'] },
     selectors: {
-      '[data-profile-form]': profileForm,
-      '[data-profile-status]': new TestElement(),
       '[data-links-status]': linksStatus,
       '[data-view-transition]': transition,
       '[data-view-transition-shell]': new TestElement(),
@@ -564,9 +405,9 @@ test('a rejected directory checkbox rolls back before a confirmed removal and pr
     lists: {
       '[data-featured], [data-directory]': [checkbox],
       '[data-remove-link]': [remove],
-      'input, textarea, select': [profileField, checkbox],
+      'input, textarea, select': [checkbox],
       [staleSelector]: [checkbox, remove],
-      'button, input[type="file"], input[data-busy-control], [data-featured], [data-directory], [data-creator-stale]': [profileSave, checkbox, remove, refresh],
+      'button, input[type="file"], input[data-busy-control], [data-featured], [data-directory], [data-creator-stale]': [checkbox, remove, refresh],
     },
   });
   const requests = [];
@@ -590,11 +431,9 @@ test('a rejected directory checkbox rolls back before a confirmed removal and pr
     },
   });
 
-  profileField.value = 'Corrección que debe conservarse';
   checkbox.checked = false;
   await checkbox.dispatch('change');
   assert.equal(checkbox.checked, true, 'HTTP 503 restores the last confirmed checkbox value');
-  assert.equal(profileField.value, 'Corrección que debe conservarse', 'the failed checkbox leaves other drafts untouched');
   assert.match(linksStatus.textContent, /No pudimos guardar los cambios/);
   const afterRejected = await (await callApi(harness, '/api/creador/perfil', { session: 'creator-a' })).json();
   assert.equal(afterRejected.links[0].selectedForDirectory, true, 'the failed PATCH did not persist its selection');
@@ -603,22 +442,13 @@ test('a rejected directory checkbox rolls back before a confirmed removal and pr
   const afterRemoved = await (await callApi(harness, '/api/creador/perfil', { session: 'creator-a' })).json();
   assert.equal(afterRemoved.links.length, 0, 'the service confirmed the structural removal');
   assert.equal(checkbox.checked, true, 'the removed placement does not retain the rejected draft');
-  assert.equal(checkbox.disabled, true, 'old structural controls pause while the unrelated profile draft remains');
-  assert.equal(profileField.value, 'Corrección que debe conservarse');
-  await refresh.dispatch('click');
-  assert.equal(reloads.count, 0, 'the unrelated draft still protects explicit refresh');
-  assert.match(transition.textContent, /Guarda los cambios pendientes o revierte/);
-
-  await profileForm.dispatch('submit');
-  assert.equal(requests.map(({ method }) => method).join(','), 'PATCH,DELETE,PUT', 'the failed checkbox is not retried or replayed');
-  assert.equal(requests[2].body.displayName, 'Corrección que debe conservarse');
-  assert.equal(reloads.count, 1, 'saving the retained draft resolves the transition and refreshes safely');
-  const storedProfile = await harness.store.get('profile:fixture-id-1');
-  assert.equal(storedProfile.displayName, 'Corrección que debe conservarse');
+  assert.equal(requests.map(({ method }) => method).join(','), 'PATCH,DELETE', 'the failed checkbox is not retried or replayed');
+  assert.equal(reloads.count, 1, 'the confirmed removal refreshes the residual editor');
 });
 
-test('one active write blocks a second submission while text edits stay available and original disabled state returns', async () => {
-  const field = { tagName: 'INPUT', type: 'text', value: 'Ana enviada', name: 'displayName', disabled: false, setCustomValidity() {} };
+test('one active resource write blocks a second action while edits stay available and disabled state returns', async () => {
+  const resourceId = 'resource-one-write';
+  const field = { tagName: 'INPUT', type: 'text', value: 'Título enviado', name: 'title', disabled: false, setCustomValidity() {} };
   const submitButton = new TestElement();
   submitButton.tagName = 'BUTTON';
   const originallyDisabled = new TestElement();
@@ -629,16 +459,19 @@ test('one active write blocks a second submission while text edits stay availabl
   immediateCheckbox.type = 'checkbox';
   immediateCheckbox.setAttribute('data-featured', '');
   immediateCheckbox.checked = false;
+  const resourceItem = new TestElement({ dataset: { resourceId } });
   const form = new TestElement({
-    values: { displayName: field, slug: 'ana', city: '', country: '', bio: '' },
-    lists: { 'input[name^="social-"]': [], 'input, textarea, select': [field] },
+    values: { title: field, url: 'https://example.com/one-write', description: '' },
+    selectors: { 'closest:[data-resource-id]': resourceItem },
+    lists: { 'input, textarea, select': [field] },
   });
   field.form = form;
   const status = new TestElement();
   const root = new TestElement({
     dataset: { csrf: 'csrf-a' },
-    selectors: { '[data-profile-form]': form, '[data-profile-status]': status },
+    selectors: { '[data-links-status]': status },
     lists: {
+      '[data-resource-form]': [form],
       'input, textarea, select': [field],
       '[data-featured], [data-directory]': [immediateCheckbox],
       'button, input[type="file"], input[data-busy-control], [data-featured], [data-directory], [data-creator-stale]': [submitButton, originallyDisabled, immediateCheckbox],
@@ -648,12 +481,13 @@ test('one active write blocks a second submission while text edits stay availabl
   let finishRequest;
   let calls = 0;
   await runEditor({
+    data: editorData({ editableResources: [{ id: resourceId, title: 'Título enviado', url: 'https://example.com/one-write', description: '', version: 1 }] }),
     root, reloads,
     fetch: async (_path, options) => {
       calls += 1;
       return new Promise((resolve) => { finishRequest = () => resolve(Response.json({
-        profile: { ...editorData().profile, displayName: JSON.parse(options.body).displayName, version: 38 },
-        versionChanges: [{ entity: 'profile', id: 'profile-a', before: 37, after: 38 }],
+        resource: { id: resourceId, ...JSON.parse(options.body) },
+        versionChanges: [{ entity: 'resource', id: resourceId, before: 1, after: 2 }],
       })); });
     },
   });
@@ -662,140 +496,22 @@ test('one active write blocks a second submission while text edits stay availabl
   await Promise.resolve();
   assert.equal(submitButton.disabled, true);
   assert.equal(immediateCheckbox.disabled, true);
-  assert.equal(field.disabled, false, 'text corrections remain editable during the request');
-  field.value = 'Ana corregida después del envío';
+  assert.equal(field.disabled, false, 'content corrections remain editable during the request');
+  field.value = 'Título corregido después del envío';
   await form.dispatch('submit');
   assert.equal(calls, 1, 'the second submit does not dispatch or queue a write');
   finishRequest();
   await first;
-  assert.equal(field.value, 'Ana corregida después del envío');
+  assert.equal(field.value, 'Título corregido después del envío');
   assert.equal(submitButton.disabled, false);
   assert.equal(originallyDisabled.disabled, true, 'the button that began disabled retains its original boundary');
   assert.equal(immediateCheckbox.disabled, false, 'the immediate checkbox returns to its original enabled state');
   assert.equal(reloads.count, 0);
 });
 
-test('a correction during first profile creation retries against the version created by that save', async () => {
-  const harness = await createCreatorPagesHarness();
-  const displayName = { tagName: 'INPUT', type: 'text', name: 'displayName', value: 'Ana enviada', setCustomValidity() {} };
-  const slug = { tagName: 'INPUT', type: 'text', name: 'slug', value: 'ana-enviada' };
-  const fields = { displayName, slug, city: '', country: '', bio: '' };
-  const form = new TestElement({ values: fields, lists: { 'input[name^="social-"]': [], 'input, textarea, select': [displayName, slug] } });
-  displayName.form = form;
-  slug.form = form;
-  const status = new TestElement();
-  const { root } = baseRoot({
-    selectors: { '[data-profile-form]': form, '[data-profile-status]': status },
-    lists: { 'input, textarea, select': [displayName, slug] },
-  });
-  const reloads = { count: 0 };
-  const writes = [];
-  let releaseFirst;
+// Retired case: Profile creation moved to /cuenta/; the owner-controller acceptance suite covers correction after first creation.
 
-  await runEditor({
-    data: editorData({ profile: null }),
-    root,
-    reloads,
-    fetch: async (url, options) => {
-      assert.equal(url, '/api/creador/perfil/');
-      const body = JSON.parse(options.body);
-      writes.push(body);
-      const response = await callApi(harness, url, {
-        session: 'creator-a', csrf: sessionCsrf['creator-a'], method: 'PUT', body,
-      });
-      if (writes.length === 1) return new Promise((resolve) => { releaseFirst = () => resolve(response); });
-      return response;
-    },
-  });
-
-  const firstSave = form.dispatch('submit');
-  while (!releaseFirst) await new Promise((resolve) => setTimeout(resolve, 0));
-  displayName.value = 'Ana corregida mientras se guarda';
-  releaseFirst();
-  await firstSave;
-  assert.equal(writes[0].version, undefined, 'initial creation has no observed profile version');
-  assert.equal(status.textContent.includes('Conservamos los cambios'), true);
-  assert.equal(reloads.count, 0);
-
-  await form.dispatch('submit');
-  assert.equal(writes[1].version, 1, 'the correction uses the profile version created by the first save');
-  assert.equal(writes[1].displayName, 'Ana corregida mientras se guarda');
-  assert.equal(reloads.count, 1, 'the page refreshes after the correction is committed');
-});
-
-test('the real editor keeps an external resource version stale across an unrelated profile save', async () => {
-  const harness = await createCreatorPagesHarness();
-  const profileResponse = await callApi(harness, '/api/creador/perfil', {
-    session: 'creator-a', csrf: sessionCsrf['creator-a'], method: 'PUT',
-    body: { displayName: 'Ana', slug: 'ana-ui-receipt' },
-  });
-  assert.equal(profileResponse.status, 200);
-  const addResponse = await callApi(harness, '/api/creador/enlaces', {
-    session: 'creator-a', csrf: sessionCsrf['creator-a'], method: 'POST',
-    body: { title: 'Título inicial', url: 'https://example.com/ui-receipt', description: 'Descripción inicial' },
-  });
-  const initialLink = (await addResponse.json()).link;
-  const initial = await (await callApi(harness, '/api/creador/perfil', { session: 'creator-a' })).json();
-
-  const fields = Object.fromEntries(['displayName', 'slug', 'city', 'country', 'bio'].map((name) => {
-    const value = name === 'displayName' ? initial.profile.displayName : initial.profile[name] ?? '';
-    return [name, { tagName: 'INPUT', type: 'text', name, value, setCustomValidity() {} }];
-  }));
-  const profileForm = new TestElement({ values: fields, lists: { 'input[name^="social-"]': [], 'input, textarea, select': Object.values(fields) } });
-  Object.values(fields).forEach((field) => { field.form = profileForm; });
-  const resourceId = initialLink.resourceId;
-  const resourceItem = new TestElement({ dataset: { resourceId } });
-  const resourceFields = {
-    title: { tagName: 'INPUT', type: 'text', name: 'title', value: initialLink.title },
-    url: { tagName: 'INPUT', type: 'text', name: 'url', value: initialLink.url },
-    description: { tagName: 'TEXTAREA', name: 'description', value: initialLink.description },
-  };
-  const resourceForm = new TestElement({
-    values: resourceFields,
-    selectors: { 'closest:[data-resource-id]': resourceItem },
-    lists: { 'input, textarea, select': Object.values(resourceFields) },
-  });
-  Object.values(resourceFields).forEach((field) => { field.form = resourceForm; });
-  const profileStatus = new TestElement();
-  const resourceStatus = new TestElement();
-  const root = new TestElement({
-    dataset: { csrf: sessionCsrf['creator-a'] },
-    selectors: { '[data-profile-form]': profileForm, '[data-profile-status]': profileStatus, '[data-links-status]': resourceStatus },
-    lists: {
-      '[data-resource-form]': [resourceForm],
-      'input, textarea, select': [...Object.values(fields), ...Object.values(resourceFields)],
-    },
-  });
-  const writes = [];
-  const reloads = { count: 0 };
-  const realApi = (path, options) => callApi(harness, path, {
-    session: 'creator-a', csrf: sessionCsrf['creator-a'], method: options.method,
-    ...(options.body ? { body: JSON.parse(options.body) } : {}),
-  });
-  await runEditor({ data: initial, root, reloads, fetch: async (path, options) => {
-    writes.push({ path, method: options.method, body: options.body ? JSON.parse(options.body) : undefined });
-    return realApi(path, options);
-  } });
-
-  const external = await callApi(harness, `/api/creador/recursos/${resourceId}`, {
-    session: 'creator-a', csrf: sessionCsrf['creator-a'], method: 'PATCH',
-    body: { title: 'Título externo', version: initialLink.resourceVersion },
-  });
-  assert.equal(external.status, 200);
-  fields.displayName.value = 'Ana local';
-  resourceFields.description.value = 'Descripción pendiente';
-  await profileForm.dispatch('submit');
-  assert.equal(reloads.count, 0, 'the pending resource correction remains in the current page');
-  assert.equal(profileStatus.textContent.includes('Conservamos los cambios'), true);
-
-  await resourceForm.dispatch('submit');
-  assert.deepEqual(writes.map(({ method }) => method), ['PUT', 'PATCH'], 'the editor does not GET and adopt unseen resource versions');
-  assert.equal(writes[1].body.version, initialLink.resourceVersion);
-  assert.match(resourceStatus.textContent, /Recárgala antes de volver a guardar/);
-  const stored = await harness.store.get(`resource:${resourceId}`);
-  assert.equal(stored.title, 'Título externo');
-  assert.equal(stored.description, 'Descripción inicial');
-});
+// Retired case: The unrelated profile save no longer runs in the residual content editor. The still-applicable resource/placement separation remains covered by the adjacent test that proves a placement receipt cannot adopt a resource version hidden from its form.
 
 test('a placement response cannot adopt an external resource version hidden from its form', async () => {
   const harness = await createCreatorPagesHarness();
@@ -877,201 +593,189 @@ test('a placement response cannot adopt an external resource version hidden from
   assert.equal(stored.description, 'Descripción inicial');
 });
 
-test('saving the profile preserves an edited series form and gives that save the refreshed profile version', async () => {
-  const profileField = { tagName: 'INPUT', type: 'text', value: 'Ana enviada', name: 'displayName', setCustomValidity() {} };
-  const profileForm = new TestElement({
-    values: { displayName: profileField, slug: 'ana', city: '', country: '', bio: '' },
-    lists: { 'input[name^="social-"]': [], 'input, textarea, select': [profileField] },
-  });
-  const seriesName = { tagName: 'INPUT', type: 'text', value: 'Lambda', name: 'name' };
-  const seriesSlug = { tagName: 'INPUT', type: 'text', value: 'lambda', name: 'slug' };
-  const seriesDescription = { tagName: 'TEXTAREA', value: '', name: 'description' };
-  const seriesStatus = new TestElement();
-  const seriesSection = new TestElement({ dataset: { seriesId: 'series-a' }, selectors: { '[data-series-status]': seriesStatus } });
-  const seriesForm = new TestElement({
-    values: { name: seriesName, slug: seriesSlug, description: seriesDescription },
-    selectors: { 'closest:[data-series-id]': seriesSection, '[data-series-form-status]': seriesStatus },
-    lists: { 'input, textarea, select': [seriesName, seriesSlug, seriesDescription] },
-  });
-  for (const control of [profileField, seriesName, seriesSlug, seriesDescription]) control.form = control === profileField ? profileForm : seriesForm;
-  const status = new TestElement();
-  const { root } = baseRoot({
-    selectors: { '[data-profile-form]': profileForm, '[data-profile-status]': status },
+function seriesCreateTransitionFixture() {
+  const resourceId = 'resource-transition';
+  const resourceItem = new TestElement({ dataset: { resourceId } });
+  const resourceFields = {
+    title: Object.assign(new TestElement(), { tagName: 'INPUT', type: 'text', name: 'title', value: 'Capítulo' }),
+    url: Object.assign(new TestElement(), { tagName: 'INPUT', type: 'url', name: 'url', value: 'https://example.com/transition' }),
+    description: Object.assign(new TestElement(), { tagName: 'TEXTAREA', name: 'description', value: '' }),
+  };
+  const resourceSaveButton = new TestElement();
+  resourceSaveButton.tagName = 'BUTTON';
+  const resourceForm = new TestElement({
+    values: resourceFields,
+    selectors: { 'closest:[data-resource-id]': resourceItem },
     lists: {
-      '[data-series-form]': [seriesForm],
-      'input, textarea, select': [profileField, seriesName, seriesSlug, seriesDescription],
+      'input, textarea, select': Object.values(resourceFields),
+      'input, textarea, select, button': [...Object.values(resourceFields), resourceSaveButton],
     },
   });
-  const reloads = { count: 0 };
-  const requests = [];
-  const data = editorData({ series: [{ id: 'series-a', name: 'Lambda', slug: 'lambda', description: '', version: 4 }] });
-  let resolveProfileSave;
+  Object.values(resourceFields).forEach((field) => { field.form = resourceForm; });
 
-  await runEditor({
-    data,
-    root,
-    reloads,
-    fetch: async (url, options) => {
-      requests.push({ url, options });
-      if (url.includes('/perfil/')) return new Promise((resolve) => { resolveProfileSave = resolve; });
-      return Response.json({ series: { id: 'series-a', name: 'Lambda corregida', slug: 'lambda-corregida', description: 'Descripción corregida', version: 5 }, versionChanges: [
-        { entity: 'profile', id: 'profile-a', before: 38, after: 39 },
-        { entity: 'series', id: 'series-a', before: 4, after: 5 },
-      ] });
-    },
-  });
-
-  const savingProfile = profileForm.dispatch('submit');
-  await Promise.resolve();
-  seriesName.value = 'Lambda corregida';
-  seriesSlug.value = 'lambda-corregida';
-  seriesDescription.value = 'Descripción corregida';
-  const submittedProfile = JSON.parse(requests[0].options.body);
-  resolveProfileSave(Response.json({ profile: { ...data.profile, ...submittedProfile, version: 38 }, versionChanges: [
-    { entity: 'profile', id: 'profile-a', before: 37, after: 38 },
-  ] }));
-  await savingProfile;
-  assert.equal(seriesName.value, 'Lambda corregida');
-  assert.equal(reloads.count, 0, 'a different pending form prevents the success reload');
-  assert.match(status.textContent, /Conservamos los cambios que aún no enviaste/);
-
-  await seriesForm.dispatch('submit');
-  const seriesRequest = requests.find((request) => request.url.includes('/series/series-a/'));
-  assert.ok(seriesRequest);
-  assert.equal(JSON.parse(seriesRequest.options.body).profileVersion, 38);
-  assert.equal(JSON.parse(seriesRequest.options.body).version, 4);
-  assert.equal(requests.some((request) => request.options.method === 'GET'), false, 'series metadata keeps its own observed version');
-  assert.equal(JSON.parse(seriesRequest.options.body).name, 'Lambda corregida');
-  assert.equal(reloads.count, 1, 'saving the pending series completes the refresh');
-});
-
-function seriesTransitionFixture() {
-  const profileField = { tagName: 'INPUT', type: 'text', value: 'Ana', name: 'displayName', setCustomValidity() {} };
-  const profileSaveButton = new TestElement();
-  profileSaveButton.tagName = 'BUTTON';
-  const profileForm = new TestElement({
-    values: { displayName: profileField, slug: 'ana', city: '', country: '', bio: '' },
-    lists: { button: [profileSaveButton], 'input[name^="social-"]': [], 'input, textarea, select': [profileField] },
-  });
-  profileField.form = profileForm;
-  const name = { tagName: 'INPUT', type: 'text', value: '', name: 'name' };
-  const slug = { tagName: 'INPUT', type: 'text', value: '', name: 'slug' };
-  const description = { tagName: 'TEXTAREA', value: '', name: 'description' };
+  const name = Object.assign(new TestElement(), { tagName: 'INPUT', type: 'text', name: 'name', value: '' });
+  const slug = Object.assign(new TestElement(), { tagName: 'INPUT', type: 'text', name: 'slug', value: '' });
+  const description = Object.assign(new TestElement(), { tagName: 'TEXTAREA', name: 'description', value: '' });
   const seriesStatus = new TestElement();
-  const seriesForm = new TestElement({
+  const seriesCreateForm = new TestElement({
     values: { name, slug, description },
-    selectors: { '[data-series-create-status]': seriesStatus },
+    selectors: {
+      '[data-series-create-status]': seriesStatus,
+      '[data-series-name-suggestion]': name,
+      '[data-series-slug-suggestion]': slug,
+    },
     lists: { 'input, textarea, select': [name, slug, description] },
   });
-  for (const field of [name, slug, description]) field.form = seriesForm;
+  for (const field of [name, slug, description]) field.form = seriesCreateForm;
+
   const transition = new TestElement();
   const refresh = new TestElement();
+  refresh.tagName = 'BUTTON';
   const moveButton = new TestElement({ dataset: { move: 'up' } });
+  moveButton.tagName = 'BUTTON';
   const root = new TestElement({
     dataset: { csrf: 'csrf-a' },
     selectors: {
-      '[data-profile-form]': profileForm,
-      '[data-profile-status]': new TestElement(),
-      '[data-series-create-form]': seriesForm,
+      '[data-resource-form]': resourceForm,
+      '[data-series-create-form]': seriesCreateForm,
       '[data-view-transition]': transition,
       '[data-view-transition-shell]': new TestElement(),
       '[data-refresh-view]': refresh,
     },
     lists: {
+      '[data-resource-form]': [resourceForm],
+      '[data-series-create-form]': [seriesCreateForm],
       '[data-series-form]': [],
       '[data-series-add-chapter-form]': [],
       '[data-series-add-chapter-form] button': [],
       '[data-move]': [moveButton],
       '[data-move], [data-remove-link], [data-featured], [data-directory], [data-readd-link], [data-series-add-chapter-form] button, [data-series-move], [data-series-remove-chapter], [data-delete-series]': [moveButton],
-      'input, textarea, select': [profileField, name, slug, description],
-      'button, input[type="file"], input[data-busy-control], [data-featured], [data-directory], [data-creator-stale]': [profileSaveButton, moveButton],
+      'input, textarea, select': [...Object.values(resourceFields), name, slug, description],
+      'button, input[type="file"], input[data-busy-control], [data-featured], [data-directory], [data-creator-stale]': [resourceSaveButton, refresh, moveButton],
     },
   });
-  return { root, profileForm, profileField, profileSaveButton, seriesForm, name, slug, description, seriesStatus, transition, refresh, moveButton };
+  return { root, resourceId, resourceFields, resourceForm, resourceSaveButton, seriesCreateForm, name, slug, description, seriesStatus, transition, refresh, moveButton };
 }
 
-test('creating the first series keeps pending fields and offers a truthful safe refresh transition', async () => {
-  const fixture = seriesTransitionFixture();
-  const reloads = { count: 0 };
-  const initial = editorData({
-    profile: { ...editorData().profile, id: 'profile-a', slug: 'ana', version: 37 },
-    links: [{ placementId: 'placement-a', resourceId: 'resource-a', title: 'Capítulo existente', url: 'https://example.com/chapter', description: '', featured: false, position: 10, selectedForDirectory: true, hidden: false, directoryApproval: 'pending', resourceVersion: 1, placementVersion: 1, series: [] }],
+function seriesTransitionData(profileVersion = 37) {
+  return editorData({
+    profile: { ...editorData().profile, id: 'profile-a', slug: 'ana', version: profileVersion },
+    links: [{
+      placementId: 'placement-a', resourceId: 'resource-transition', title: 'Capítulo',
+      url: 'https://example.com/transition', description: '', featured: false, position: 10,
+      selectedForDirectory: true, hidden: false, directoryApproval: 'pending',
+      resourceVersion: 1, placementVersion: 1, series: [],
+    }],
+    editableResources: [{
+      id: 'resource-transition', title: 'Capítulo', url: 'https://example.com/transition', description: '', version: 1,
+    }],
   });
-  let profileVersion = 37;
+}
+
+test('crear una serie conserva un borrador de recurso y exige completar o revertir antes de actualizar', async () => {
+  const fixture = seriesCreateTransitionFixture();
+  const initial = seriesTransitionData();
+  const reloads = { count: 0 };
   const writes = [];
   await runEditor({
     data: initial,
     root: fixture.root,
     reloads,
     fetch: async (path, options) => {
-      writes.push({ path, method: options.method, body: options.body ? JSON.parse(options.body) : undefined });
-      if (path === '/api/creador/series/') {
-        profileVersion += 1;
-        return Response.json({ series: { id: 'series-a', name: 'Mi serie', slug: 'mi-serie', version: 1 }, profileVersion, versionChanges: [
+      const body = options.body ? JSON.parse(options.body) : undefined;
+      writes.push({ path, method: options.method, body });
+      if (path === '/api/creador/series/') return Response.json({
+        series: { id: 'series-a', name: 'Mi serie', slug: 'mi-serie', version: 1 },
+        versionChanges: [
           { entity: 'profile', id: 'profile-a', before: 37, after: 38 },
           { entity: 'series', id: 'series-a', before: 0, after: 1 },
-        ] }, { status: 201 });
-      }
-      if (path === '/api/creador/perfil/') {
-        const body = JSON.parse(options.body);
-        profileVersion += 1;
-        return Response.json({ profile: { ...initial.profile, ...body, version: profileVersion }, versionChanges: [
-          { entity: 'profile', id: 'profile-a', before: profileVersion - 1, after: profileVersion },
-        ] });
-      }
+        ],
+      }, { status: 201 });
+      if (path === `/api/creador/recursos/${fixture.resourceId}/`) return Response.json({
+        resource: { id: fixture.resourceId, title: body.title, url: body.url, description: body.description },
+        versionChanges: [{ entity: 'resource', id: fixture.resourceId, before: 1, after: 2 }],
+      });
       return new Response('{}', { status: 404 });
     },
   });
 
-  fixture.profileField.value = 'Nombre pendiente';
+  fixture.resourceFields.description.value = 'Corrección de recurso pendiente';
   fixture.name.value = 'Mi serie';
   fixture.slug.value = 'mi-serie';
-  await fixture.seriesForm.dispatch('submit');
-  const expected = 'Serie creada. Para agregar capítulos, guarda los cambios pendientes en los otros formularios; la página se actualizará cuando termines. Tus campos se conservan.';
-  assert.equal(fixture.seriesStatus.textContent, expected);
-  assert.equal(fixture.transition.textContent, expected);
-  assert.doesNotMatch(fixture.seriesStatus.textContent, /Ahora puedes agregar capítulos/);
-  assert.equal(fixture.profileField.value, 'Nombre pendiente');
+  await fixture.seriesCreateForm.dispatch('submit');
+  assert.match(fixture.seriesStatus.textContent, /guarda los cambios pendientes en los otros formularios/);
+  assert.equal(fixture.resourceFields.description.value, 'Corrección de recurso pendiente');
   assert.equal(reloads.count, 0);
-  assert.equal(fixture.moveButton.disabled, true, 'actions that depend on the old list are disabled');
-  assert.equal(fixture.root.querySelectorAll('[data-series-add-chapter-form]').length, 0, 'new chapter controls are not claimed to exist yet');
-
+  assert.equal(fixture.moveButton.disabled, true, 'the list-derived controls wait for the created series to be rendered');
   await fixture.refresh.dispatch('click');
-  assert.equal(reloads.count, 0, 'Actualizar vista cannot discard pending fields');
-  assert.match(fixture.transition.textContent, /Guarda los cambios pendientes o revierte/);
+  assert.equal(reloads.count, 0, 'refresh cannot discard the resource correction');
 
-  await fixture.profileForm.dispatch('submit');
-  const profileWrite = writes.find((write) => write.path === '/api/creador/perfil/');
-  assert.equal(profileWrite.body.displayName, 'Nombre pendiente');
-  assert.equal(profileWrite.body.version, 38, 'the profile correction uses the matching series-creation receipt');
-  assert.equal(reloads.count, 1, 'saving the last pending form automatically refreshes the structural controls');
+  await fixture.resourceForm.dispatch('submit');
+  assert.equal(writes.length, 2);
+  assert.equal(writes[0].body.profileVersion, 37);
+  assert.equal(writes[1].body.description, 'Corrección de recurso pendiente');
+  assert.equal(writes[1].body.version, 1);
+  assert.equal(reloads.count, 1, 'saving the remaining residual form safely refreshes the list');
 });
 
-test('reverting pending fields allows the explicit structural refresh', async () => {
-  const fixture = seriesTransitionFixture();
+test('revertir el borrador residual permite actualizar tras crear la serie', async () => {
+  const fixture = seriesCreateTransitionFixture();
   const reloads = { count: 0 };
   await runEditor({
-    data: editorData(), root: fixture.root, reloads,
-    fetch: async () => Response.json({ series: { id: 'series-a', name: 'Mi serie', slug: 'mi-serie', version: 1 }, versionChanges: [
-      { entity: 'profile', id: 'profile-a', before: 37, after: 38 },
-      { entity: 'series', id: 'series-a', before: 0, after: 1 },
-    ] }, { status: 201 }),
+    data: seriesTransitionData(), root: fixture.root, reloads,
+    fetch: async () => Response.json({
+      series: { id: 'series-a', name: 'Mi serie', slug: 'mi-serie', version: 1 },
+      versionChanges: [
+        { entity: 'profile', id: 'profile-a', before: 37, after: 38 },
+        { entity: 'series', id: 'series-a', before: 0, after: 1 },
+      ],
+    }, { status: 201 }),
   });
-  fixture.profileField.value = 'Nombre pendiente';
+  fixture.resourceFields.description.value = 'Borrador de recurso';
   fixture.name.value = 'Mi serie';
   fixture.slug.value = 'mi-serie';
-  await fixture.seriesForm.dispatch('submit');
-  fixture.profileField.value = 'Ana';
+  await fixture.seriesCreateForm.dispatch('submit');
+  fixture.resourceFields.description.value = '';
   await fixture.refresh.dispatch('click');
-  assert.equal(reloads.count, 1, 'manual refresh is safe once all pending fields match their baselines');
+  assert.equal(reloads.count, 1, 'manual refresh is safe after reverting the other residual form');
 });
 
-function seriesDeleteFixture({ profileCorrection = false, profile = {}, seriesId = 'series-a', series = {} } = {}) {
+test('un recibo incompatible conserva el recurso ajeno y permite su guardado', async () => {
+  const fixture = seriesCreateTransitionFixture();
+  const reloads = { count: 0 };
+  await runEditor({
+    data: seriesTransitionData(),
+    root: fixture.root,
+    reloads,
+    fetch: async () => Response.json({
+      series: { id: 'series-a', name: 'Mi serie', slug: 'mi-serie', version: 1 },
+      versionChanges: [
+        { entity: 'profile', id: 'profile-a', before: 36, after: 37 },
+        { entity: 'series', id: 'series-a', before: 0, after: 1 },
+      ],
+    }, { status: 201 }),
+  });
+  fixture.resourceFields.description.value = 'Corrección pendiente';
+  fixture.name.value = 'Mi serie';
+  fixture.slug.value = 'mi-serie';
+  await fixture.seriesCreateForm.dispatch('submit');
+  assert.match(fixture.transition.textContent, /El recibo no coincide/);
+  assert.equal(fixture.resourceFields.description.value, 'Corrección pendiente');
+  assert.equal(fixture.resourceSaveButton.disabled, false, 'independent content edits remain available');
+  await fixture.refresh.dispatch('click');
+  assert.equal(reloads.count, 0, 'the receipt gap cannot discard the pending resource correction');
+  fixture.resourceFields.description.value = '';
+  await fixture.refresh.dispatch('click');
+  assert.equal(reloads.count, 1, 'refresh is available after the residual correction is reverted');
+});
+
+function seriesDeleteFixture({ seriesId = 'series-a', series = {} } = {}) {
   const name = Object.assign(new TestElement(), { tagName: 'INPUT', type: 'text', value: series.name ?? 'Mi serie', name: 'name' });
   const slug = new TestElement();
   Object.assign(slug, { tagName: 'INPUT', type: 'text', value: series.slug ?? 'mi-serie', name: 'slug' });
-  const description = new TestElement();
-  Object.assign(description, { tagName: 'TEXTAREA', value: series.description ?? '', name: 'description' });
+  const description = Object.assign(new TestElement(), {
+    tagName: 'TEXTAREA', value: series.description ?? '', name: 'description',
+  });
   const metadataStatus = new TestElement();
   const seriesStatus = new TestElement();
   const saveButton = new TestElement();
@@ -1113,23 +817,11 @@ function seriesDeleteFixture({ profileCorrection = false, profile = {}, seriesId
   const transition = new TestElement();
   const refresh = new TestElement();
   refresh.tagName = 'BUTTON';
-  const profileField = { tagName: 'INPUT', type: 'text', value: profile.displayName ?? 'Ana', name: 'displayName', disabled: false };
-  const profileSaveButton = new TestElement();
-  profileSaveButton.tagName = 'BUTTON';
-  const profileStatus = new TestElement();
   const linksStatus = new TestElement();
-  const profileForm = new TestElement({
-    values: { displayName: profileField, slug: profile.slug ?? 'ana', city: profile.city ?? '', country: profile.country ?? '', bio: profile.bio ?? '' },
-    selectors: { 'input[name^="social-"]': [] },
-    lists: { 'input, textarea, select': [profileField] },
-  });
-  profileField.form = profileForm;
   const shell = new TestElement();
   const root = new TestElement({
     dataset: { csrf: 'csrf-a' },
     selectors: {
-      '[data-profile-form]': profileCorrection ? profileForm : null,
-      '[data-profile-status]': profileStatus,
       '[data-links-status]': linksStatus,
       '[data-series-form]': seriesForm,
       '[data-series-add-chapter-form]': chapterForm,
@@ -1142,21 +834,19 @@ function seriesDeleteFixture({ profileCorrection = false, profile = {}, seriesId
       '[data-delete-series]': [deleteButton],
       '[data-series-form]': [seriesForm],
       '[data-series-add-chapter-form]': [chapterForm],
-      'input, textarea, select': profileCorrection
-        ? [profileField, name, slug, description, chapterSelect]
-        : [name, slug, description, chapterSelect],
+      'input, textarea, select': [name, slug, description, chapterSelect],
       'button, input[type="file"], input[data-busy-control], [data-featured], [data-directory], [data-creator-stale]': [
-        deleteButton, saveButton, profileSaveButton, profileField, name, slug, description, chapterSelect, addChapterButton, refresh,
+        deleteButton, saveButton, name, slug, description, chapterSelect, addChapterButton, refresh,
       ],
       '[data-move], [data-remove-link], [data-featured], [data-directory], [data-readd-link], [data-series-add-chapter-form] button, [data-series-move], [data-series-remove-chapter], [data-delete-series]': [deleteButton, addChapterButton],
     },
   });
   return {
-    root, name, slug, description, metadataStatus, seriesStatus, saveButton,
+    root, name, slug, description, seriesForm, metadataStatus, seriesStatus, saveButton,
     chapterSelect, chapterForm, addChapterButton, section, deleteButton, transition, refresh,
-    profileField, profileForm, profileStatus, linksStatus,
-    fields: profileCorrection ? [profileField, name, slug, description, chapterSelect] : [name, slug, description, chapterSelect],
-    buttons: [deleteButton, saveButton, profileSaveButton, addChapterButton, refresh],
+    linksStatus,
+    fields: [name, slug, description, chapterSelect],
+    buttons: [deleteButton, saveButton, addChapterButton, refresh],
   };
 }
 
@@ -1249,8 +939,6 @@ async function createSeriesDeleteEditor({ otherDrafts = false, fetchOverride } =
   const mainSeries = data.series.find(({ slug }) => slug === 'mi-serie');
   const otherSeries = data.series.find(({ slug }) => slug === 'otra-serie');
   const fixture = seriesDeleteFixture({
-    profileCorrection: true,
-    profile: data.profile,
     seriesId: mainSeries.id,
     series: mainSeries,
   });
@@ -1263,9 +951,74 @@ async function createSeriesDeleteEditor({ otherDrafts = false, fetchOverride } =
   return { auth, harness, data, api, fixture, page, mainSeries, otherSeries };
 }
 
+test('una página residual abierta conserva su versión y protege la edición de serie tras guardar el perfil en otra ruta', async () => {
+  const editor = await createSeriesDeleteEditor();
+  const { api, data, fixture, page } = editor;
+  const externalProfileSave = await api('/api/creador/perfil', 'PUT', {
+    displayName: 'Ana actualizada desde Tu página',
+    slug: data.profile.slug,
+    city: data.profile.city ?? '',
+    country: data.profile.country ?? '',
+    bio: data.profile.bio ?? '',
+    programs: data.profile.programs ?? [],
+    socials: data.profile.socials ?? {},
+    version: data.profile.version,
+  });
+  assert.equal(externalProfileSave.status, 200);
+
+  fixture.description.value = 'Corrección local que debe conservarse';
+  await fixture.seriesForm.dispatch('submit');
+
+  assert.equal(page.requests.length, 1);
+  assert.equal(page.requests[0].body.profileVersion, data.profile.version,
+    'the residual page sends only the profile version it originally observed');
+  assert.equal(page.requests[0].status, 409,
+    'a profile edit from /cuenta/ makes the open residual series form stale');
+  assert.equal(fixture.description.value, 'Corrección local que debe conservarse');
+  assert.match(fixture.metadataStatus.textContent, /perfil cambió desde que abriste la página/i);
+  assert.equal(page.reloads.count, 0, 'the stale residual form is never refreshed away');
+});
+
+test('una escritura de serie avanza el recibo del perfil sin adoptar la versión ajena del recurso', async () => {
+  const editor = await createSeriesDeleteEditor({ otherDrafts: true });
+  const { fixture, page, data, api } = editor;
+  const link = data.links[0];
+  const resourceId = link.resourceId;
+  const external = await api(`/api/creador/recursos/${resourceId}`, 'PATCH', {
+    title: 'Título externo', version: link.resourceVersion,
+  });
+  assert.equal(external.status, 200);
+
+  fixture.description.value = 'Descripción nueva de la serie';
+  fixture.resourceDraft.description.value = 'Descripción local pendiente';
+  await fixture.seriesForm.dispatch('submit');
+  assert.equal(page.requests[0].body.profileVersion, data.profile.version,
+    'series metadata starts from its observed profile version');
+  assert.equal(page.reloads.count, 0, 'the resource correction stays open after the series save');
+  const afterSeriesSave = await (await api('/api/creador/perfil', 'GET')).json();
+
+  fixture.chapterSelect.value = link.placementId;
+  await fixture.chapterForm.dispatch('submit');
+  assert.equal(page.requests[1].method, 'PUT');
+  assert.equal(page.requests[1].body.profileVersion, afterSeriesSave.profile.version,
+    'the residual controller applied the profile version from the series write receipt');
+  assert.equal(page.reloads.count, 0, 'the unrelated resource correction remains pending');
+
+  await fixture.resourceDraft.form.dispatch('submit');
+  assert.equal(page.requests[2].body.version, link.resourceVersion,
+    'a series receipt does not adopt the newer resource version the form never observed');
+  assert.match(fixture.linksStatus.textContent, /Recárgala antes de volver a guardar/);
+  const stored = await editor.harness.store.get(`resource:${resourceId}`);
+  assert.equal(stored.title, 'Título externo');
+  assert.equal(stored.description, link.description);
+  assert.equal(fixture.resourceDraft.description.value, 'Descripción local pendiente');
+});
+
 test('confirmed deletion discards the separate chapter selection and reloads once', async () => {
   const editor = await createSeriesDeleteEditor();
   const { fixture, page, data, api } = editor;
+  assert.equal(fixture.deleteButton.listeners.get('click')?.length, 1,
+    'the residual series delete control has its real editor handler');
   fixture.chapterSelect.value = data.links[0].placementId;
 
   await fixture.deleteButton.dispatch('click');
@@ -1278,7 +1031,7 @@ test('confirmed deletion discards the separate chapter selection and reloads onc
   assert.equal(fixture.addChapterButton.disabled, true, 'the deleted series chapter action stays paused');
 });
 
-test('confirmed deletion keeps other profile, series, and resource drafts saveable', async () => {
+test('confirmed deletion keeps other series and resource drafts saveable and advances the profile receipt', async () => {
   let releaseDelete;
   let markDeleteStarted;
   const deleteStarted = new Promise((resolve) => { markDeleteStarted = resolve; });
@@ -1293,9 +1046,8 @@ test('confirmed deletion keeps other profile, series, and resource drafts saveab
       return defaultFetch(url, options);
     },
   });
-  const { fixture, page, data, harness } = editor;
+  const { fixture, page, data, harness, api } = editor;
   fixture.chapterSelect.value = data.links[0].placementId;
-  fixture.profileField.value = 'Ana corregida';
   fixture.otherSeries.description.value = 'Descripción de otra serie';
   fixture.resourceDraft.description.value = 'Descripción del recurso';
 
@@ -1310,26 +1062,23 @@ test('confirmed deletion keeps other profile, series, and resource drafts saveab
   assert.equal(page.requests[0].status, 204);
   assert.equal(fixture.chapterSelect.value, '', 'the selector value edited during DELETE remains visible');
   assert.equal(fixture.chapterSelect.disabled, true, 'series controls stop being editable only after success');
-  assert.equal(fixture.profileField.value, 'Ana corregida');
   assert.equal(fixture.otherSeries.description.value, 'Descripción de otra serie');
   assert.equal(fixture.resourceDraft.description.value, 'Descripción del recurso');
   assert.equal(fixture.otherSeries.saveButton.disabled, false);
   assert.equal(fixture.resourceDraft.saveButton.disabled, false);
   assert.equal(page.reloads.count, 0, 'the other drafts remain pending after the series controls are discarded');
 
-  await fixture.profileForm.dispatch('submit');
-  assert.equal(page.requests[1].status, 200);
-  assert.equal(page.requests[1].body.displayName, 'Ana corregida');
-  assert.equal(page.reloads.count, 0, 'saving the profile leaves the other two drafts pending');
-
+  const savedProfile = await (await api('/api/creador/perfil', 'GET')).json();
   await fixture.otherSeries.form.dispatch('submit');
-  assert.equal(page.requests[2].status, 200);
-  assert.equal(page.requests[2].body.description, 'Descripción de otra serie');
+  assert.equal(page.requests[1].status, 200);
+  assert.equal(page.requests[1].body.description, 'Descripción de otra serie');
+  assert.equal(page.requests[1].body.profileVersion, savedProfile.profile.version,
+    'the residual editor applied the profile version advanced by the deleted series receipt');
   assert.equal(page.reloads.count, 0, 'saving the other series leaves the resource draft pending');
 
   await fixture.resourceDraft.form.dispatch('submit');
-  assert.equal(page.requests[3].status, 200);
-  assert.equal(page.requests[3].body.description, 'Descripción del recurso');
+  assert.equal(page.requests[2].status, 200);
+  assert.equal(page.requests[2].body.description, 'Descripción del recurso');
   assert.equal((await harness.store.get(`resource:${data.links[0].resourceId}`)).description, 'Descripción del recurso');
   assert.equal(page.reloads.count, 1, 'saving the last unrelated draft completes the safe refresh once');
 });
@@ -1390,8 +1139,8 @@ test('a failed series deletion leaves its metadata usable and reports only the f
   assert.equal(reloads.count, 0);
 });
 
-test('a successful series deletion rebases its disabled draft and preserves other pending corrections', async () => {
-  const fixture = seriesDeleteFixture({ profileCorrection: true });
+test('a successful series deletion discards its late metadata draft before refreshing', async () => {
+  const fixture = seriesDeleteFixture();
   const reloads = { count: 0 };
   let resolveDelete;
   const requests = [];
@@ -1404,14 +1153,10 @@ test('a successful series deletion rebases its disabled draft and preserves othe
       if (url.includes('/series/series-a/')) {
         return new Promise((resolve) => { resolveDelete = resolve; });
       }
-      return Response.json({
-        profile: { ...editorData().profile, displayName: 'Ana corregida', version: 39 },
-        versionChanges: [{ entity: 'profile', id: 'profile-a', before: 38, after: 39 }],
-      });
+      return new Response('{}', { status: 404 });
     },
   });
 
-  fixture.profileField.value = 'Ana corregida';
   const deleting = fixture.deleteButton.dispatch('click');
   await Promise.resolve();
   fixture.name.value = 'Corrección durante la solicitud';
@@ -1426,44 +1171,11 @@ test('a successful series deletion rebases its disabled draft and preserves othe
   assert.equal(fixture.name.value, 'Corrección durante la solicitud', 'the entered value remains visible until refresh');
   assert.equal(fixture.name.disabled, true, 'deleted series metadata cannot be submitted');
   assert.match(fixture.metadataStatus.textContent, /ya se eliminó/);
-  assert.equal(fixture.profileField.value, 'Ana corregida', 'a different pending correction survives');
-  await fixture.refresh.dispatch('click');
-  assert.equal(reloads.count, 0, 'refresh remains blocked by the still-editable profile correction');
-  assert.match(fixture.transition.textContent, /Guarda los cambios pendientes o revierte/);
-
-  await fixture.profileForm.dispatch('submit');
-  assert.equal(requests.length, 2);
-  assert.equal(JSON.parse(requests[1].options.body).displayName, 'Ana corregida');
-  assert.equal(reloads.count, 1, 'saving the remaining correction completes the safe refresh');
+  assert.equal(requests.length, 1, 'the stale series metadata is not resubmitted after deletion');
+  assert.equal(reloads.count, 1, 'the deleted form no longer blocks the structural refresh');
 });
 
-test('a late edit in the deleted series no longer blocks explicit refresh by itself', async () => {
-  const fixture = seriesDeleteFixture({ profileCorrection: true });
-  const reloads = { count: 0 };
-  let resolveDelete;
-  await runEditor({
-    data: editorData({ series: [{ id: 'series-a', name: 'Mi serie', slug: 'mi-serie', version: 4 }] }),
-    root: fixture.root,
-    reloads,
-    fetch: async () => new Promise((resolve) => { resolveDelete = resolve; }),
-  });
-
-  fixture.profileField.value = 'Corrección pendiente en el perfil';
-  const deleting = fixture.deleteButton.dispatch('click');
-  await Promise.resolve();
-  fixture.name.value = 'Corrección durante la solicitud';
-  resolveDelete(new Response(null, { status: 204, headers: {
-    'Creator-Write-Versions': JSON.stringify([{ entity: 'profile', id: 'profile-a', before: 37, after: 38 }]),
-  } }));
-  await deleting;
-  assert.equal(fixture.name.disabled, true);
-  await fixture.refresh.dispatch('click');
-  assert.equal(reloads.count, 0, 'an unrelated correction still blocks refresh');
-  assert.equal(fixture.profileField.value, 'Corrección pendiente en el perfil');
-  fixture.profileField.value = 'Ana';
-  await fixture.refresh.dispatch('click');
-  assert.equal(reloads.count, 1, 'the deleted draft does not leave a disabled pending field blocking refresh');
-});
+// Retired case: This paired a late series edit with a pending profile form, both hosted by the old editor. The successful-deletion test above now proves that a late edit in the deleted residual form is discarded and does not block refresh.
 
 test('featuring a link with another pending edit pauses controls that depend on the new order', async () => {
   const principal = { state: 'authenticated', accountId: 'private-account-a', csrfToken: 'csrf-a', isAdmin: false };
@@ -1497,17 +1209,19 @@ test('featuring a link with another pending edit pauses controls that depend on 
     .map((link) => link.title);
   assert.deepEqual(sortedTitles(initial.links), ['A', 'B', 'C']);
 
-  const profileField = {
-    tagName: 'INPUT', type: 'text', name: 'displayName', value: initial.profile.displayName,
-    setCustomValidity() {},
+  const resourceId = c.resourceId;
+  const resourceItem = new TestElement({ dataset: { resourceId } });
+  const resourceFields = {
+    title: { tagName: 'INPUT', type: 'text', name: 'title', value: c.title },
+    url: { tagName: 'INPUT', type: 'url', name: 'url', value: c.url },
+    description: { tagName: 'TEXTAREA', name: 'description', value: c.description },
   };
-  const profileForm = new TestElement({
-    values: {
-      displayName: profileField, slug: initial.profile.slug, city: '', country: '', bio: '',
-    },
-    lists: { 'input[name^="social-"]': [], 'input, textarea, select': [profileField] },
+  const resourceForm = new TestElement({
+    values: resourceFields,
+    selectors: { 'closest:[data-resource-id]': resourceItem },
+    lists: { 'input, textarea, select': Object.values(resourceFields) },
   });
-  profileField.form = profileForm;
+  Object.values(resourceFields).forEach((field) => { field.form = resourceForm; });
   const item = new TestElement({ dataset: { placementId: c.placementId } });
   const featured = new TestElement({ dataset: { featured: '' } });
   featured.tagName = 'INPUT';
@@ -1519,8 +1233,8 @@ test('featuring a link with another pending edit pauses controls that depend on 
     selectors: { 'closest:[data-placement-id]': item },
   });
   moveUp.tagName = 'BUTTON';
-  const profileSave = new TestElement();
-  profileSave.tagName = 'BUTTON';
+  const resourceSave = new TestElement();
+  resourceSave.tagName = 'BUTTON';
   const refresh = new TestElement();
   refresh.tagName = 'BUTTON';
   const linksStatus = new TestElement();
@@ -1528,19 +1242,19 @@ test('featuring a link with another pending edit pauses controls that depend on 
   const root = new TestElement({
     dataset: { csrf: 'csrf-a' },
     selectors: {
-      '[data-profile-form]': profileForm,
-      '[data-profile-status]': new TestElement(),
+      '[data-resource-form]': resourceForm,
       '[data-links-status]': linksStatus,
       '[data-view-transition]': transition,
       '[data-view-transition-shell]': new TestElement(),
       '[data-refresh-view]': refresh,
     },
     lists: {
+      '[data-resource-form]': [resourceForm],
       '[data-featured], [data-directory]': [featured],
       '[data-move]': [moveUp],
       '[data-move], [data-remove-link], [data-featured], [data-directory], [data-readd-link], [data-series-add-chapter-form] button, [data-series-move], [data-series-remove-chapter], [data-delete-series]': [moveUp, featured],
-      'input, textarea, select': [profileField, featured],
-      'button, input[type="file"], input[data-busy-control], [data-featured], [data-directory], [data-creator-stale]': [profileSave, moveUp, featured, refresh],
+      'input, textarea, select': [...Object.values(resourceFields), featured],
+      'button, input[type="file"], input[data-busy-control], [data-featured], [data-directory], [data-creator-stale]': [resourceSave, moveUp, featured, refresh],
     },
   });
   const requests = [];
@@ -1558,358 +1272,26 @@ test('featuring a link with another pending edit pauses controls that depend on 
     },
   });
 
-  profileField.value = 'Ana con una corrección pendiente';
+  resourceFields.description.value = 'Descripción con una corrección pendiente';
   featured.checked = true;
   await featured.dispatch('change');
   const updated = await (await apiCall('/api/creador/perfil')).json();
   assert.deepEqual(sortedTitles(updated.links), ['C', 'A', 'B'], 'the real service changes the rendered featured order');
   assert.equal(requests.length, 1, 'the feature action is the only write');
-  assert.equal(profileField.value, 'Ana con una corrección pendiente');
+  assert.equal(resourceFields.description.value, 'Descripción con una corrección pendiente');
   assert.equal(root.querySelector('[data-view-transition-shell]').hidden, false);
   assert.equal(featured.disabled, true, 'the checkbox is stale until the page is refreshed');
   assert.equal(moveUp.disabled, true, 'move controls based on the old order are stale too');
   await refresh.dispatch('click');
-  assert.equal(reloads.count, 0, 'the pending profile correction is protected from refresh');
+  assert.equal(reloads.count, 0, 'the pending resource correction is protected from refresh');
   assert.match(transition.textContent, /Guarda los cambios pendientes o revierte/);
 
-  profileField.value = initial.profile.displayName;
+  resourceFields.description.value = c.description;
   await refresh.dispatch('click');
   assert.equal(reloads.count, 1, 'refresh is available after the unrelated correction is reverted');
 });
 
-test('a mismatched write receipt exposes a safe refresh without disabling valid metadata forms', async () => {
-  const fixture = seriesTransitionFixture();
-  const reloads = { count: 0 };
-  await runEditor({
-    data: editorData(),
-    root: fixture.root,
-    reloads,
-    fetch: async () => Response.json({
-      series: { id: 'series-a', name: 'Mi serie', slug: 'mi-serie', version: 1 },
-      versionChanges: [
-        { entity: 'profile', id: 'profile-a', before: 36, after: 37 },
-        { entity: 'series', id: 'series-a', before: 0, after: 1 },
-      ],
-    }, { status: 201 }),
-  });
-
-  fixture.profileField.value = 'Corrección pendiente';
-  fixture.name.value = 'Mi serie';
-  fixture.slug.value = 'mi-serie';
-  await fixture.seriesForm.dispatch('submit');
-
-  assert.equal(fixture.root.querySelector('[data-view-transition-shell]').hidden, false);
-  assert.match(fixture.transition.textContent, /El recibo no coincide/);
-  assert.equal(fixture.profileField.value, 'Corrección pendiente');
-  assert.equal(fixture.profileSaveButton.disabled, false, 'a metadata form remains available for a valid independent save');
-  assert.equal(fixture.moveButton.disabled, true, 'actions over the stale list stay paused');
-  assert.equal(fixture.refresh.disabled, false, 'the user can reach the explicit refresh transition');
-
-  await fixture.refresh.dispatch('click');
-  assert.equal(reloads.count, 0, 'refresh cannot discard the pending correction');
-  assert.match(fixture.transition.textContent, /Guarda los cambios pendientes o revierte/);
-  fixture.profileField.value = 'Ana';
-  await fixture.refresh.dispatch('click');
-  assert.equal(reloads.count, 1, 'refresh becomes safe after manually reverting the pending correction');
-});
-
-test('a second photo with matching file metadata stays selected after the first photo finishes', async () => {
-  const firstFile = new File(['A'], 'profile.png', { type: 'image/png', lastModified: 123 });
-  const secondFile = new File(['B'], 'profile.png', { type: 'image/png', lastModified: 123 });
-  assert.equal(firstFile.name, secondFile.name);
-  assert.equal(firstFile.size, secondFile.size);
-  assert.equal(firstFile.lastModified, secondFile.lastModified);
-  assert.equal(await firstFile.text(), 'A');
-  assert.equal(await secondFile.text(), 'B');
-  assert.notEqual(firstFile, secondFile, 'the byte contents belong to distinct File selections');
-
-  const profileField = { tagName: 'INPUT', type: 'text', value: 'Ana', name: 'displayName', setCustomValidity() {} };
-  const profileForm = new TestElement({
-    values: { displayName: profileField, slug: 'ana', city: '', country: '', bio: '' },
-    lists: { 'input[name^="social-"]': [], 'input, textarea, select': [profileField] },
-  });
-  profileField.form = profileForm;
-  const fileInput = { tagName: 'INPUT', type: 'file', files: [firstFile], disabled: false };
-  const photoForm = new TestElement({
-    selectors: { 'input[type="file"]': fileInput },
-    lists: {
-      'input, textarea, select': [fileInput],
-      'button, input[data-busy-control]': [fileInput],
-      'button, input[data-busy-control], [data-featured], [data-directory], [data-creator-stale]': [fileInput],
-      'button, input[type="file"], input[data-busy-control], [data-featured], [data-directory], [data-creator-stale]': [fileInput],
-    },
-  });
-  fileInput.form = photoForm;
-  const profileStatus = new TestElement();
-  const photoStatus = new TestElement();
-  const { root } = baseRoot({
-    selectors: {
-      '[data-profile-form]': profileForm,
-      '[data-profile-status]': profileStatus,
-      '[data-photo-form]': photoForm,
-      '[data-photo-status]': photoStatus,
-    },
-    lists: {
-      'input, textarea, select': [profileField, fileInput],
-      'button, input[data-busy-control], [data-featured], [data-directory], [data-creator-stale]': [fileInput],
-      'button, input[type="file"], input[data-busy-control], [data-featured], [data-directory], [data-creator-stale]': [fileInput],
-    },
-  });
-  const initialProfile = { ...editorData().profile, version: 37 };
-  const requests = [];
-  let profileVersion = 37;
-  let finalizationCount = 0;
-  let resolveFirstFinalization;
-  const reloads = { count: 0 };
-
-  await runEditor({
-    data: editorData({ profile: initialProfile }),
-    root,
-    reloads,
-    fetch: async (url, options = {}) => {
-      requests.push({ url, options });
-      if (url === '/api/creador/foto/autorizar/') {
-        return Response.json({
-          uploadId: `upload-${finalizationCount + 1}`,
-          post: { url: 'https://storage.example/upload', fields: {} },
-        });
-      }
-      if (url === 'https://storage.example/upload') return new Response(null, { status: 204 });
-      if (url === '/api/creador/foto/finalizar/') {
-        finalizationCount += 1;
-        const before = profileVersion;
-        profileVersion += 1;
-        const result = Response.json({ photo: { version: `upload-${finalizationCount}` }, versionChanges: [
-          { entity: 'profile', id: 'profile-a', before, after: profileVersion },
-        ] });
-        return finalizationCount === 1
-          ? new Promise((resolve) => { resolveFirstFinalization = resolve; })
-          : result;
-      }
-      if (url === '/api/creador/perfil/' && options.method === 'PUT') {
-        profileVersion += 1;
-        const body = JSON.parse(options.body);
-        return Response.json({ profile: { ...initialProfile, ...body, version: profileVersion }, versionChanges: [
-          { entity: 'profile', id: 'profile-a', before: profileVersion - 1, after: profileVersion },
-        ] });
-      }
-      return new Response('not found', { status: 404 });
-    },
-  });
-
-  const firstPhotoSave = photoForm.dispatch('submit');
-  while (!resolveFirstFinalization) await new Promise((resolve) => setTimeout(resolve, 0));
-  assert.equal(fileInput.disabled, true, 'the file field remains disabled during its own upload');
-  profileField.value = 'Ana corregida mientras finaliza la foto';
-  resolveFirstFinalization(Response.json({ photo: { version: 'upload-1' }, versionChanges: [
-    { entity: 'profile', id: 'profile-a', before: 37, after: 38 },
-  ] }));
-  await firstPhotoSave;
-
-  assert.equal(fileInput.files[0], firstFile);
-  assert.equal(reloads.count, 0, 'the first photo does not reload over the pending profile correction');
-  assert.match(photoStatus.textContent, /Conservamos los cambios que aún no enviaste/);
-
-  fileInput.files = [secondFile];
-  assert.equal(fileInput.disabled, false, 'the next selection is available after the first upload');
-  await profileForm.dispatch('submit');
-  assert.equal(fileInput.files[0], secondFile);
-  assert.equal(reloads.count, 0, 'metadata equality must not hide the second file selection');
-  assert.match(profileStatus.textContent, /Conservamos los cambios que aún no enviaste/);
-
-  await photoForm.dispatch('submit');
-  const profileBody = requests.find(({ url, options }) => url === '/api/creador/perfil/' && options.method === 'PUT');
-  const secondAuthorization = requests.filter(({ url }) => url === '/api/creador/foto/autorizar/')[1];
-  assert.equal(JSON.parse(profileBody.options.body).version, 38);
-  assert.equal(JSON.parse(secondAuthorization.options.body).version, 39);
-  assert.equal(finalizationCount, 2, 'the replacement photo can finish its upload and finalization');
-  assert.equal(fileInput.files[0], secondFile);
-  assert.equal(reloads.count, 1, 'the page refreshes only after the replacement is saved');
-});
-
-test('a lost photo finalization acknowledgement reports an unknown result after the real service commits', async () => {
-  const oldPhoto = { version: 'old-photo' };
-  const harness = await createCreatorPhotoHarness({
-    profiles: [{ id: 'creator-a', version: 1, photo: oldPhoto }],
-  });
-  const { jpeg } = await rasterPhotoFixtures();
-  const file = { type: 'image/jpeg', size: jpeg.length };
-  const fileInput = { files: [file] };
-  const photoStatus = new TestElement();
-  const photoForm = new TestElement({ selectors: { 'input[type="file"]': fileInput } });
-  const { root } = baseRoot({ selectors: { '[data-photo-form]': photoForm, '[data-photo-status]': photoStatus } });
-  const initialData = editorData({ profile: {
-    id: 'creator-a', displayName: 'Ana', slug: 'ana', programs: [], socials: {},
-    published: true, hidden: false, version: 1, photo: oldPhoto,
-  } });
-  const reloads = { count: 0 };
-  let upload;
-  let committed = false;
-
-  await runEditor({
-    data: initialData,
-    root,
-    reloads,
-    fetch: async (url, options) => {
-      if (url === '/api/creador/foto/autorizar/') {
-        upload = await harness.service.beginUpload({
-          profileId: 'creator-a', expectedVersion: JSON.parse(options.body).version,
-        });
-        return Response.json(upload);
-      }
-      if (url === upload.post.url) {
-        harness.objects.seed(options.body.values.get('key'), jpeg);
-        return new Response(null, { status: 204 });
-      }
-      if (url === '/api/creador/foto/finalizar/') {
-        const body = JSON.parse(options.body);
-        await harness.service.finalizeUpload({
-          profileId: 'creator-a', uploadId: body.uploadId, expectedVersion: body.version,
-        });
-        committed = true;
-        throw new TypeError('response lost after commit');
-      }
-      throw new Error(`Unexpected editor request: ${url}`);
-    },
-  });
-
-  await photoForm.dispatch('submit');
-  const profile = await harness.store.get('profile:creator-a');
-  assert.equal(committed, true);
-  assert.equal(profile.version, 2);
-  assert.equal(profile.photo.version, upload.uploadId);
-  assert.notDeepEqual(profile.photo, oldPhoto, 'the service committed the new immutable photo reference');
-  const photo = await harness.service.readPhoto({ profileId: 'creator-a', version: upload.uploadId });
-  assert.ok(photo?.body.length > 0, 'the newly committed photo remains readable');
-  assert.match(photoStatus.textContent, /No pudimos confirmar si la foto se guardó/);
-  assert.match(photoStatus.textContent, /Recarga la página para comprobar cuál está activa/);
-  assert.doesNotMatch(photoStatus.textContent, /la foto anterior sigue activa/i);
-  assert.equal(reloads.count, 0);
-});
-
-test('real photo HTTP version conflicts at authorization and finalization tell the editor to reload', async () => {
-  const { jpeg } = await rasterPhotoFixtures();
-
-  async function photoHttpHarness(photoVersion) {
-    const pages = await createCreatorPagesHarness();
-    const seeded = await pages.store.transact({
-      checks: [
-        { key: 'profile:profile-a', version: null },
-        { key: 'account-profile:private-account-a', version: null },
-      ],
-      puts: [
-        { key: 'profile:profile-a', value: { id: 'profile-a', displayName: 'Ana', slug: 'ana', version: photoVersion } },
-        { key: 'account-profile:private-account-a', value: { profileId: 'profile-a', version: 1 } },
-      ],
-    });
-    assert.equal(seeded, true);
-    const photos = await createCreatorPhotoHarness({ profiles: [{ id: 'profile-a', version: photoVersion }] });
-    const handler = createCreatorHttpHandler({
-      service: pages.service,
-      photos: photos.service,
-      auth: { async getPrincipal() { return { state: 'authenticated', accountId: 'private-account-a', csrfToken: 'csrf-a' }; } },
-      store: pages.store,
-      origin: SITE_ORIGIN,
-    });
-    return { pages, photos, handler };
-  }
-
-  async function runPhoto({ photoVersion, advanceBeforeFinalize = false }) {
-    const harness = await photoHttpHarness(photoVersion);
-    const file = new File([jpeg], 'profile.jpg', { type: 'image/jpeg' });
-    const fileInput = { files: [file], disabled: false };
-    const photoStatus = new TestElement();
-    const photoForm = new TestElement({ selectors: { 'input[type="file"]': fileInput } });
-    const { root } = baseRoot({ selectors: { '[data-photo-form]': photoForm, '[data-photo-status]': photoStatus } });
-    const reloads = { count: 0 };
-    const requests = [];
-
-    await runEditor({
-      data: editorData({ profile: { id: 'profile-a', displayName: 'Ana', slug: 'ana', programs: [], socials: {}, published: true, hidden: false, version: 37 } }),
-      root,
-      reloads,
-      fetch: async (url, options = {}) => {
-        requests.push({ url, options });
-        if (url === 'https://creator-photos.example.invalid/') {
-          harness.photos.objects.seed(options.body.get('key'), jpeg);
-          return new Response(null, { status: 204 });
-        }
-        if (url.startsWith('/api/creador/foto/') && url.endsWith('/finalizar/') && advanceBeforeFinalize) {
-          const current = await harness.photos.store.get('profile:profile-a');
-          const advanced = await harness.photos.store.transact({
-            checks: [{ key: 'profile:profile-a', version: current.version }],
-            puts: [{ key: 'profile:profile-a', value: { ...current, version: current.version + 1 } }],
-          });
-          assert.equal(advanced, true, 'simulate a valid profile write between photo authorization and commit');
-        }
-        const headers = new Headers(options.headers);
-        headers.set('origin', SITE_ORIGIN);
-        return harness.handler(new Request(new URL(url, SITE_ORIGIN), { ...options, headers }));
-      },
-    });
-
-    await photoForm.dispatch('submit');
-    return { ...harness, photoStatus, reloads, requests };
-  }
-
-  const authorizationConflict = await runPhoto({ photoVersion: 38 });
-  assert.equal(authorizationConflict.requests.filter(({ url }) => url.endsWith('/autorizar/')).length, 1);
-  assert.equal(authorizationConflict.requests.some(({ url }) => url === 'https://creator-photos.example.invalid/'), false);
-  assert.match(authorizationConflict.photoStatus.textContent, /Recarga antes de volver a intentar la foto/);
-  assert.equal(authorizationConflict.reloads.count, 0, 'the known conflict gives the creator an explicit choice to reload');
-
-  const finalizationConflict = await runPhoto({ photoVersion: 37, advanceBeforeFinalize: true });
-  assert.equal(finalizationConflict.requests.some(({ url }) => url === 'https://creator-photos.example.invalid/'), true);
-  assert.equal(finalizationConflict.requests.filter(({ url }) => url.endsWith('/finalizar/')).length, 1);
-  assert.match(finalizationConflict.photoStatus.textContent, /Recarga antes de volver a intentar la foto/);
-  assert.equal(finalizationConflict.reloads.count, 0, 'a real commit-time conflict does not discard the selected file');
-});
-
-test('the same account can renew CSRF and manually save a retained profile correction', async () => {
-  const auth = { current: { state: 'authenticated', accountId: 'private-session-a', csrfToken: 'csrf-old', isAdmin: false } };
-  const harness = await createCreatorPagesHarness({ authenticate: async () => auth.current });
-  const created = await callApi(harness, '/api/creador/perfil', {
-    method: 'PUT', csrf: 'csrf-old',
-    body: { displayName: 'Ana', slug: 'ana-session', programs: [], socials: {} },
-  });
-  assert.equal(created.status, 200);
-  const initial = await (await callApi(harness, '/api/creador/perfil')).json();
-  const form = profileEditorForm(initial.profile);
-  const status = new TestElement();
-  const { root } = baseRoot({ selectors: { '[data-profile-form]': form.form, '[data-profile-status]': status } });
-  const saveButton = new TestElement();
-  saveButton.tagName = 'BUTTON';
-  const fixture = await mountSessionEditor({ harness, auth, data: initial, root, fields: form.fields, buttons: [saveButton] });
-
-  auth.current = { state: 'anonymous' };
-  form.displayName.value = 'Ana con una corrección';
-  await form.form.dispatch('submit');
-  assert.equal(fixture.requests[0].status, 401);
-  assert.match(status.textContent, /conservamos tus cambios/i);
-  assert.equal(fixture.recovery.signIn.hidden, false);
-  assert.equal(fixture.recovery.check.hidden, false);
-
-  auth.current = { state: 'authenticated', accountId: 'private-session-a', csrfToken: 'csrf-renewed', isAdmin: false };
-  await fixture.recovery.check.dispatch('click');
-  await settleSessionCheck();
-  assert.equal(fixture.requests.length, 2, 'the session check sends no profile write');
-  assert.deepEqual(fixture.requests[1], {
-    path: '/api/creador/sesion/', method: 'GET', body: undefined,
-    csrf: null, binding: creatorPageSessionBinding(auth.current), status: 200,
-  });
-  assert.equal(form.displayName.value, 'Ana con una corrección');
-  assert.equal((await (await callApi(harness, '/api/creador/perfil')).json()).profile.version, initial.profile.version,
-    'session renewal does not advance the version shown by the form');
-
-  await form.form.dispatch('submit');
-  assert.equal(fixture.requests.length, 3);
-  assert.equal(fixture.requests[2].path, '/api/creador/perfil/');
-  assert.equal(fixture.requests[2].csrf, 'csrf-renewed');
-  assert.equal(fixture.requests[2].body.version, initial.profile.version);
-  assert.equal(fixture.requests[2].body.displayName, 'Ana con una corrección');
-  assert.equal(fixture.reloads.count, 1);
-  assert.match(fixture.recovery.status.textContent, /Sesión comprobada/);
-});
+// Retired case: The only dirty metadata form in this receipt-gap test was the now-removed profile form. Residual receipts and multi-form dirty-state behavior remain exercised by series and resource callers below.
 
 test('session-blocked immediate checkbox changes restore observed values before a structural save', async () => {
   const accountId = 'private-session-checkbox-recovery';
@@ -1926,13 +1308,25 @@ test('session-blocked immediate checkbox changes restore observed values before 
   });
   assert.equal(added.status, 201);
   const initial = await (await callApi(harness, '/api/creador/perfil')).json();
-  const form = profileEditorForm(initial.profile);
+  const resourceId = initial.links[0].resourceId;
+  const resourceItem = new TestElement({ dataset: { resourceId } });
+  const resourceFields = {
+    title: { tagName: 'INPUT', type: 'text', name: 'title', value: initial.links[0].title },
+    url: { tagName: 'INPUT', type: 'url', name: 'url', value: initial.links[0].url },
+    description: { tagName: 'TEXTAREA', name: 'description', value: initial.links[0].description ?? '' },
+  };
+  const resourceForm = new TestElement({
+    values: resourceFields,
+    selectors: { 'closest:[data-resource-id]': resourceItem },
+    lists: { 'input, textarea, select': Object.values(resourceFields) },
+  });
+  Object.values(resourceFields).forEach((field) => { field.form = resourceForm; });
   const placement = new TestElement({ dataset: { placementId: initial.links[0].placementId } });
   const featured = new TestElement({ selectors: { 'closest:[data-placement-id]': placement } });
-  Object.assign(featured, { tagName: 'INPUT', type: 'checkbox', checked: false, form: form.form });
+  Object.assign(featured, { tagName: 'INPUT', type: 'checkbox', checked: false, form: resourceForm });
   featured.setAttribute('data-featured', '');
   const directory = new TestElement({ selectors: { 'closest:[data-placement-id]': placement } });
-  Object.assign(directory, { tagName: 'INPUT', type: 'checkbox', checked: true, form: form.form });
+  Object.assign(directory, { tagName: 'INPUT', type: 'checkbox', checked: true, form: resourceForm });
   directory.setAttribute('data-directory', '');
   const remove = new TestElement({ selectors: { 'closest:[data-placement-id]': placement } });
   remove.tagName = 'BUTTON';
@@ -1945,16 +1339,18 @@ test('session-blocked immediate checkbox changes restore observed values before 
   const staleSelector = '[data-move], [data-remove-link], [data-featured], [data-directory], [data-readd-link], [data-series-add-chapter-form] button, [data-series-move], [data-series-remove-chapter], [data-delete-series]';
   const { root } = baseRoot({
     selectors: {
-      '[data-profile-form]': form.form,
-      '[data-profile-status]': new TestElement(),
+      '[data-links-status]': new TestElement(),
+      '[data-resource-form]': resourceForm,
       '[data-view-transition]': transition,
       '[data-view-transition-shell]': new TestElement(),
       '[data-refresh-view]': refresh,
     },
     lists: {
+      '[data-resource-form]': [resourceForm],
       '[data-featured], [data-directory]': [featured, directory],
       '[data-remove-link]': [remove],
       [staleSelector]: [featured, directory, remove],
+      'input, textarea, select': [...Object.values(resourceFields), featured, directory],
     },
   });
   const fixture = await mountSessionEditor({
@@ -1962,13 +1358,13 @@ test('session-blocked immediate checkbox changes restore observed values before 
     auth,
     data: initial,
     root,
-    fields: [...form.fields, featured, directory],
+    fields: [...Object.values(resourceFields), featured, directory],
     buttons: [save, refresh, remove, featured, directory],
   });
 
-  form.displayName.value = 'Ana pendiente';
+  resourceFields.description.value = 'Corrección que queda lista para reintentar';
   auth.current = { state: 'anonymous' };
-  await form.form.dispatch('submit');
+  await resourceForm.dispatch('submit');
   assert.equal(fixture.requests[0].status, 401);
 
   featured.checked = true;
@@ -1994,173 +1390,80 @@ test('session-blocked immediate checkbox changes restore observed values before 
   assert.equal(featured.checked, false);
   assert.equal(directory.checked, true);
 
-  await form.form.dispatch('submit');
-  assert.equal(fixture.requests[3].method, 'PUT');
+  await resourceForm.dispatch('submit');
+  assert.equal(fixture.requests[3].method, 'PATCH');
+  assert.equal(fixture.requests[3].path, `/api/creador/recursos/${resourceId}/`);
   assert.equal(fixture.requests[3].status, 200);
   assert.equal(fixture.requests.length, 4, 'the only writes are the failed save, removal, and explicit retry');
-  assert.equal((await (await callApi(harness, '/api/creador/perfil')).json()).profile.displayName, 'Ana pendiente');
+  assert.equal((await harness.store.get(`resource:${resourceId}`)).description, 'Corrección que queda lista para reintentar');
   assert.equal(fixture.reloads.count, 1, 'saving the last editable change safely refreshes the removed placement');
   assert.match(transition.textContent, /Enlace quitado/);
 });
 
-test('session checks retry after a temporary 503 and retain the selected photo until a manual upload', async () => {
-  const accountId = 'private-photo-recovery';
+test('a resource conflict after session recovery keeps its correction and original observed version', async () => {
+  const accountId = 'private-session-resource-conflict';
   const auth = { current: { state: 'authenticated', accountId, csrfToken: 'csrf-old', isAdmin: false } };
   const harness = await createCreatorPagesHarness({ authenticate: async () => auth.current });
-  const seeded = await harness.store.transact({
-    checks: [
-      { key: 'profile:profile-session-photo', version: null },
-      { key: `account-profile:${accountId}`, version: null },
-    ],
-    puts: [
-      { key: 'profile:profile-session-photo', value: { id: 'profile-session-photo', displayName: 'Ana', slug: 'ana-session-photo', version: 1 } },
-      { key: `account-profile:${accountId}`, value: { profileId: 'profile-session-photo', version: 1 } },
-    ],
+  const created = await callApi(harness, '/api/creador/perfil', {
+    method: 'PUT', csrf: 'csrf-old',
+    body: { displayName: 'Ana', slug: 'ana-session-resource-conflict', programs: [], socials: {} },
   });
-  assert.equal(seeded, true);
-  const photos = await createCreatorPhotoHarness({ profiles: [{ id: 'profile-session-photo', version: 1 }] });
-  const { jpeg } = await rasterPhotoFixtures();
-  const file = new File([jpeg], 'perfil.jpg', { type: 'image/jpeg' });
-  const fileInput = new TestElement();
-  Object.assign(fileInput, { tagName: 'INPUT', type: 'file', files: [file] });
-  const photoStatus = new TestElement();
-  const photoForm = new TestElement({ selectors: { 'input[type="file"]': fileInput } });
-  const profile = {
-    id: 'profile-session-photo', displayName: 'Ana', slug: 'ana-session-photo', programs: [], socials: {},
-    published: true, hidden: false, version: 1,
+  assert.equal(created.status, 200);
+  const added = await callApi(harness, '/api/creador/enlaces', {
+    method: 'POST', csrf: 'csrf-old',
+    body: { title: 'Título inicial', url: 'https://example.com/session-resource-conflict' },
+  });
+  assert.equal(added.status, 201);
+  const initial = await (await callApi(harness, '/api/creador/perfil')).json();
+  const resource = initial.editableResources[0];
+  assert.ok(resource);
+
+  const resourceItem = new TestElement({ dataset: { resourceId: resource.id } });
+  const fields = {
+    title: { tagName: 'INPUT', type: 'text', name: 'title', value: resource.title },
+    url: { tagName: 'INPUT', type: 'url', name: 'url', value: resource.url },
+    description: { tagName: 'TEXTAREA', name: 'description', value: resource.description ?? '' },
   };
-  const { root } = baseRoot({ selectors: { '[data-photo-form]': photoForm, '[data-photo-status]': photoStatus } });
-  let directUploads = 0;
+  const form = new TestElement({
+    values: fields,
+    selectors: { 'closest:[data-resource-id]': resourceItem },
+    lists: { 'input, textarea, select': Object.values(fields) },
+  });
+  Object.values(fields).forEach((field) => { field.form = form; });
+  const { root } = baseRoot({ lists: { '[data-resource-form]': [form] } });
   const fixture = await mountSessionEditor({
-    harness, auth, photos: photos.service, data: editorData({ profile }), root, fields: [], buttons: [fileInput],
-    fetchOverride: async (defaultFetch, requests, url, options) => {
-      if (url === 'https://creator-photos.example.invalid/') {
-        directUploads += 1;
-        photos.objects.seed(options.body.get('key'), jpeg);
-        return new Response(null, { status: 204 });
-      }
-      return defaultFetch(url, options);
-    },
+    harness, auth, data: initial, root, fields: Object.values(fields), buttons: [form],
   });
 
+  fields.title.value = 'Corrección local conservada';
   auth.current = { state: 'anonymous' };
-  await photoForm.dispatch('submit');
+  await form.dispatch('submit');
   assert.equal(fixture.requests[0].status, 401);
-  assert.equal(fileInput.files[0], file);
-  assert.equal(directUploads, 0);
-
-  auth.current = { state: 'unavailable' };
-  await fixture.recovery.check.dispatch('click');
-  await settleSessionCheck();
-  assert.equal(fixture.requests[1].status, 503);
-  assert.equal(fixture.recovery.check.disabled, false, 'a transient recovery failure can be retried');
-  assert.equal(fileInput.files[0], file);
 
   auth.current = { state: 'authenticated', accountId, csrfToken: 'csrf-renewed', isAdmin: false };
   await fixture.recovery.check.dispatch('click');
   await settleSessionCheck();
-  assert.equal(fixture.requests[2].status, 200);
-  assert.equal(fixture.requests.length, 3, 'checking the session does not replay photo authorization');
-  assert.equal(fileInput.files[0], file);
+  assert.equal(fixture.requests[1].path, '/api/creador/sesion/');
+  assert.equal(fixture.requests[1].status, 200);
 
-  await photoForm.dispatch('submit');
-  assert.equal(fixture.requests[3].path, '/api/creador/foto/autorizar/');
-  assert.equal(fixture.requests[3].status, 200, `photo authorization failed: ${JSON.stringify(fixture.requests[3])}`);
-  assert.equal(fixture.requests[3].csrf, 'csrf-renewed');
-  assert.ok(fixture.requests[4], `manual photo retry did not finalize: ${photoStatus.textContent}; direct uploads=${directUploads}`);
-  assert.equal(fixture.requests[4].path, '/api/creador/foto/finalizar/');
-  assert.equal(fixture.requests[4].status, 200, `photo finalization failed: ${JSON.stringify(fixture.requests[4])}`);
-  assert.equal(fixture.requests[4].csrf, 'csrf-renewed');
-  assert.equal(directUploads, 1);
-  assert.equal(fileInput.files[0], file);
-  assert.equal(fixture.reloads.count, 1);
-  assert.equal(photos.store && (await photos.store.get('profile:profile-session-photo')).version, 2);
-  assert.match(photoStatus.textContent, /Foto guardada/);
-});
-
-test('a content conflict after session recovery keeps the form correction and old observed version', async () => {
-  const auth = { current: { state: 'authenticated', accountId: 'private-session-conflict', csrfToken: 'csrf-old', isAdmin: false } };
-  const harness = await createCreatorPagesHarness({ authenticate: async () => auth.current });
-  const created = await callApi(harness, '/api/creador/perfil', {
-    method: 'PUT', csrf: 'csrf-old',
-    body: { displayName: 'Ana', slug: 'ana-session-conflict', programs: [], socials: {} },
+  const external = await callApi(harness, `/api/creador/recursos/${resource.id}`, {
+    method: 'PATCH', csrf: 'csrf-renewed',
+    body: { title: 'Título externo', url: resource.url, description: resource.description ?? '', version: resource.version },
   });
-  assert.equal(created.status, 200);
-  const initial = await (await callApi(harness, '/api/creador/perfil')).json();
-  const form = profileEditorForm(initial.profile);
-  const status = new TestElement();
-  const { root } = baseRoot({ selectors: { '[data-profile-form]': form.form, '[data-profile-status]': status } });
-  const fixture = await mountSessionEditor({ harness, auth, data: initial, root, fields: form.fields });
+  assert.equal(external.status, 200);
+  await form.dispatch('submit');
 
-  auth.current = { state: 'anonymous' };
-  form.displayName.value = 'Corrección local conservada';
-  await form.form.dispatch('submit');
-  auth.current = { state: 'authenticated', accountId: 'private-session-conflict', csrfToken: 'csrf-renewed', isAdmin: false };
-  await fixture.recovery.check.dispatch('click');
-  await settleSessionCheck();
-  const remote = await callApi(harness, '/api/creador/perfil', {
-    method: 'PUT', csrf: 'csrf-renewed',
-    body: {
-      displayName: 'Cambio guardado desde otra página', slug: initial.profile.slug,
-      city: initial.profile.city ?? '', country: initial.profile.country ?? '', bio: initial.profile.bio ?? '',
-      programs: initial.profile.programs ?? [], socials: initial.profile.socials ?? {}, version: initial.profile.version,
-    },
-  });
-  assert.equal(remote.status, 200);
-
-  await form.form.dispatch('submit');
-  assert.equal(fixture.requests.at(-1).body.version, initial.profile.version);
-  assert.equal(fixture.requests.at(-1).csrf, 'csrf-renewed');
-  assert.equal(form.displayName.value, 'Corrección local conservada');
-  assert.match(status.textContent, /Recárgala antes de volver a guardar/);
-  assert.equal(fixture.reloads.count, 0, 'recovery does not adopt the remotely changed version');
+  const retry = fixture.requests.at(-1);
+  assert.equal(retry.path, `/api/creador/recursos/${resource.id}/`);
+  assert.equal(retry.status, 409);
+  assert.equal(retry.body.version, resource.version, 'session recovery does not adopt an external resource version');
+  assert.equal(retry.csrf, 'csrf-renewed');
+  assert.equal(fields.title.value, 'Corrección local conservada');
+  assert.equal(fixture.reloads.count, 0, 'the stale write cannot refresh away the correction');
 });
 
-test('a profile-less editor resumes create-only saving for the same account', async () => {
-  const auth = { current: { state: 'authenticated', accountId: 'private-session-first', csrfToken: 'csrf-old', isAdmin: false } };
-  const harness = await createCreatorPagesHarness({ authenticate: async () => auth.current });
-  const initial = await (await callApi(harness, '/api/creador/perfil')).json();
-  assert.equal(initial.profile, null);
-  const form = profileEditorForm(null);
-  const status = new TestElement();
-  const { root } = baseRoot({ selectors: { '[data-profile-form]': form.form, '[data-profile-status]': status } });
-  const fixture = await mountSessionEditor({ harness, auth, data: initial, root, fields: form.fields });
+// Migrated from the removed profile form to the residual resource form above: session recovery must keep its stale observed version and local correction after another page changes the record.
 
-  auth.current = { state: 'anonymous' };
-  form.displayName.value = 'Ana nueva';
-  await form.form.dispatch('submit');
-  auth.current = { state: 'authenticated', accountId: 'private-session-first', csrfToken: 'csrf-new', isAdmin: false };
-  await fixture.recovery.check.dispatch('click');
-  await settleSessionCheck();
-  assert.equal(fixture.requests.length, 2, 'recovery authenticates the principal without reading a profile');
-  await form.form.dispatch('submit');
+// Retired case: Profile creation and its recovery now belong to /cuenta/; the owner-controller acceptance suite covers this first-create recovery.
 
-  assert.equal(fixture.requests[2].method, 'PUT');
-  assert.equal(fixture.requests[2].csrf, 'csrf-new');
-  assert.equal(Object.hasOwn(fixture.requests[2].body, 'version'), false);
-  assert.equal(fixture.requests[2].body.displayName, 'Ana nueva');
-  assert.equal(fixture.reloads.count, 1);
-});
-
-test('a different account cannot resume a profile-less editor', async () => {
-  const auth = { current: { state: 'authenticated', accountId: 'private-session-original', csrfToken: 'csrf-old', isAdmin: false } };
-  const harness = await createCreatorPagesHarness({ authenticate: async () => auth.current });
-  const initial = await (await callApi(harness, '/api/creador/perfil')).json();
-  const form = profileEditorForm(null);
-  const status = new TestElement();
-  const { root } = baseRoot({ selectors: { '[data-profile-form]': form.form, '[data-profile-status]': status } });
-  const fixture = await mountSessionEditor({ harness, auth, data: initial, root, fields: form.fields });
-
-  auth.current = { state: 'anonymous' };
-  form.displayName.value = 'Corrección privada conservada';
-  await form.form.dispatch('submit');
-  auth.current = { state: 'authenticated', accountId: 'private-session-other', csrfToken: 'csrf-other', isAdmin: false };
-  await fixture.recovery.check.dispatch('click');
-  await settleSessionCheck();
-  assert.equal(fixture.requests[1].status, 409);
-  assert.match(fixture.recovery.status.textContent, /otra cuenta o tiene otros permisos/);
-  await form.form.dispatch('submit');
-  assert.equal(fixture.requests.length, 2, 'the mismatching account receives no retained write');
-  assert.equal(form.displayName.value, 'Corrección privada conservada');
-  assert.equal(fixture.reloads.count, 0);
-});
+// Retired case: Profile creation and its authority recovery now belong to /cuenta/; the owner-controller acceptance suite rejects a different account and role.

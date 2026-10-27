@@ -1,7 +1,6 @@
 import type {
   CreatorEditorDTO,
   CreatorLinkDTO,
-  CreatorProfileDTO,
 } from '../types/creators';
 import { creatorEditorFailureMessage } from '../lib/creator-editor-errors';
 import { creatorSeriesFailureMessage } from '../lib/creator-series-editor-errors';
@@ -47,7 +46,6 @@ const pageStatus = root?.querySelector<HTMLElement>('[data-page-status]');
 const MAX_REQUEST_BYTES = 32 * 1024;
 const REQUEST_TOO_LARGE = 'creator-request-too-large';
 const SERIES_FOCUS_PREFIX = 'creator-series-';
-const PHOTO_FINALIZATION_UNCONFIRMED = 'No pudimos confirmar si la foto se guardó. Recarga la página para comprobar cuál está activa antes de volver a intentarlo.';
 
 function restoreSeriesFocus() {
   const hash = window.location.hash;
@@ -136,17 +134,6 @@ async function api(path: string, method: string, body?: unknown): Promise<Respon
   return response;
 }
 
-async function photoErrorMessage(response: Response): Promise<string> {
-  if (response.status === 409) {
-    const payload = await responsePayload(response);
-    if (payload?.error === 'PROFILE_VERSION_CONFLICT') {
-      return 'El perfil cambió desde que abriste esta página. Recarga antes de volver a intentar la foto.';
-    }
-    return statusText(response.status);
-  }
-  return statusText(response.status);
-}
-
 function linkByPlacement(id: string): CreatorLinkDTO | undefined {
   return state?.links.find((link) => link.placementId === id);
 }
@@ -215,12 +202,7 @@ async function responsePayload(response: Response): Promise<Record<string, unkno
 
 function updateOwnedContent(entity: CreatorVersionChange['entity'] | undefined, id: string | undefined, payload: Record<string, unknown> | null) {
   if (!state || !entity || !id || !payload) return;
-  if (entity === 'profile' && isRecord(payload.profile) && (!id || payload.profile.id === id)) {
-    state.profile = payload.profile as unknown as CreatorProfileDTO;
-    setCopyProfileUrl();
-  } else if (entity === 'profile' && isRecord(payload.photo) && state.profile?.id === id) {
-    state.profile.photo = payload.photo as CreatorProfileDTO['photo'];
-  } else if (entity === 'resource' && isRecord(payload.resource) && payload.resource.id === id) {
+  if (entity === 'resource' && isRecord(payload.resource) && payload.resource.id === id) {
     const resource = payload.resource;
     state.links.filter((link) => link.resourceId === id).forEach((link) => {
       if (typeof resource.title === 'string') link.title = resource.title;
@@ -257,21 +239,6 @@ function updateOwnedContent(entity: CreatorVersionChange['entity'] | undefined, 
   }
 }
 
-function createdProfileId(
-  entity: CreatorVersionChange['entity'] | undefined,
-  id: string | undefined,
-  payload: Record<string, unknown> | null,
-  changes: CreatorVersionChange[] | null,
-): string | undefined {
-  if (!state || id || entity !== 'profile' || state.profile !== null || !payload || !isRecord(payload.profile)
-    || typeof payload.profile.id !== 'string') return id;
-  const profileId = payload.profile.id;
-  return changes?.some((change) => change.entity === 'profile'
-    && change.id === profileId && change.before === 0 && change.after === 1)
-    ? profileId
-    : undefined;
-}
-
 function markStructuralControlsStale() {
   writeGuard?.markStale('[data-move], [data-remove-link], [data-featured], [data-directory], [data-readd-link], [data-series-add-chapter-form] button, [data-series-move], [data-series-remove-chapter], [data-delete-series]');
 }
@@ -282,12 +249,6 @@ function showViewTransition(message: string) {
   const banner = root?.querySelector<HTMLElement>('[data-view-transition]');
   announce(banner, message);
   markStructuralControlsStale();
-}
-
-function setCopyProfileUrl() {
-  const button = root?.querySelector<HTMLButtonElement>('[data-copy-profile-url]');
-  const slug = state?.profile?.slug;
-  if (button && slug) button.dataset.url = `${new URL(window.location.href).origin}/c/${encodeURIComponent(slug)}/`;
 }
 
 async function finishSuccessfulWrite(
@@ -301,7 +262,7 @@ async function finishSuccessfulWrite(
   const changes = await readCreatorVersionChanges(response);
   const receiptGap = changes === null || applyVersionChanges(changes);
   const payload = await responsePayload(response);
-  if (!receiptGap) updateOwnedContent(options.ownEntity, createdProfileId(options.ownEntity, options.ownId, payload, changes), payload);
+  if (!receiptGap) updateOwnedContent(options.ownEntity, options.ownId, payload);
   formState?.commit(submittedValues);
   const hasPendingChanges = formState?.hasPendingChanges() ?? false;
   if (hasPendingChanges) {
@@ -364,35 +325,6 @@ function currentProfileVersion(): number | undefined {
   return state?.profile?.version;
 }
 
-function validateSocialUrls(form: HTMLFormElement): boolean {
-  const message = 'Ingresa una URL HTTP o HTTPS sin usuario ni contraseña.';
-  const fields = form.querySelectorAll<HTMLInputElement>('input[name^="social-"]');
-  for (const field of fields) {
-    const value = field.value.trim();
-    let error = '';
-    if (value) {
-      try {
-        const url = new URL(value);
-        if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) error = message;
-      } catch {
-        error = message;
-      }
-    }
-    field.setCustomValidity(error);
-  }
-  return form.reportValidity();
-}
-
-function profileSavedMessage(): string {
-  if (state?.profile?.published && !state.profile.hidden) {
-    return 'Perfil guardado. Si tu página ya está publicada, el cambio queda visible enseguida.';
-  }
-  if (state?.profile?.published && state.profile.hidden) {
-    return 'Perfil guardado. La página sigue oculta por administración y no aparece al público.';
-  }
-  return 'Perfil guardado como borrador. Publica tu página para que el público vea los cambios.';
-}
-
 async function linkCreatedMessage(response: Response): Promise<string> {
   const profile = state?.profile;
   if (!profile?.published) {
@@ -440,73 +372,6 @@ if (root && state && csrfToken) {
     }
     window.location.reload();
   });
-  const profileForm = root.querySelector<HTMLFormElement>('[data-profile-form]');
-  const profileStatus = root.querySelector<HTMLElement>('[data-profile-status]');
-  const publishButton = root.querySelector<HTMLButtonElement>('[data-publish-profile]');
-  profileForm?.querySelectorAll<HTMLInputElement>('input[name^="social-"]').forEach((field) => {
-    field.addEventListener('input', () => field.setCustomValidity(''));
-  });
-
-  if (profileForm) onWrite(profileForm, 'submit', async (event) => {
-    event.preventDefault();
-    if (!validateSocialUrls(profileForm)) return;
-    const values = new FormData(profileForm);
-    const submittedValues = formState?.capture(profileForm);
-    const socials: Record<string, string> = {};
-    for (const key of ['instagram', 'x', 'linkedin', 'awsBuilder', 'website']) {
-      const value = String(values.get(`social-${key}`) ?? '').trim();
-      if (value) socials[key] = value;
-    }
-    const profile: Record<string, unknown> = {
-      displayName: String(values.get('displayName') ?? '').trim(),
-      slug: String(values.get('slug') ?? '').trim(),
-      city: String(values.get('city') ?? '').trim(),
-      country: String(values.get('country') ?? '').trim(),
-      programs: values.getAll('programs').map(String),
-      bio: String(values.get('bio') ?? '').trim(),
-      socials,
-    };
-    if (state?.profile) profile.version = state.profile.version;
-
-    setBusy(profileForm, true);
-    try {
-      const response = await api('/api/creador/perfil', 'PUT', profile);
-      await finishWrite(response, profileStatus, profileSavedMessage(), submittedValues, { ownEntity: 'profile', ownId: state?.profile?.id });
-    } catch (error) {
-      announce(profileStatus, requestFailureMessage(error, 'No pudimos conectar con el servicio. Tus datos siguen en el formulario; inténtalo de nuevo.'), 'error');
-    } finally {
-      setBusy(profileForm, false);
-    }
-  });
-
-  if (publishButton) onWrite(publishButton, 'click', async () => {
-    if (!state?.profile) return;
-    publishButton.disabled = true;
-    try {
-      const response = await api('/api/creador/perfil/publicar', 'POST', { version: state.profile.version });
-      await finishWrite(response, profileStatus, state.profile.hidden
-        ? 'Tu página está publicada, pero sigue oculta por administración.'
-        : 'Tu página ya está publicada y visible al público.', undefined, { ownEntity: 'profile', ownId: state.profile.id });
-    } catch (error) {
-      announce(profileStatus, requestFailureMessage(error, 'No pudimos conectar con el servicio. Inténtalo de nuevo.'), 'error');
-    } finally {
-      publishButton.disabled = false;
-    }
-  });
-
-  const copyButton = root.querySelector<HTMLButtonElement>('[data-copy-profile-url]');
-  copyButton?.addEventListener('click', async () => {
-    const url = copyButton.dataset.url;
-    if (!url) return;
-    const publishedStatus = root.querySelector<HTMLElement>('[data-copy-status]');
-    try {
-      await navigator.clipboard.writeText(url);
-      announce(publishedStatus, 'Enlace copiado.', 'success');
-    } catch {
-      announce(publishedStatus, `Copia este enlace: ${url}`, 'info');
-    }
-  });
-
   root.querySelectorAll<HTMLButtonElement>('[data-copy-resource-id]').forEach((button) => {
     button.addEventListener('click', async () => {
       const resourceId = button.dataset.resourceIdValue;
@@ -890,72 +755,6 @@ if (root && state && csrfToken) {
     }
   });
 
-  const photoForm = root.querySelector<HTMLFormElement>('[data-photo-form]');
-  const photoStatus = root.querySelector<HTMLElement>('[data-photo-status]');
-  if (photoForm) onWrite(photoForm, 'submit', async (event) => {
-    event.preventDefault();
-    if (!photoForm.reportValidity()) return;
-    const file = photoForm.querySelector<HTMLInputElement>('input[type="file"]')?.files?.[0];
-    const currentProfile: CreatorProfileDTO | null = state?.profile ?? null;
-    if (!file || !currentProfile) return;
-    const supportedType = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type);
-    if (!supportedType || file.size > 15 * 1024 * 1024) {
-      announce(photoStatus, 'Elige una imagen JPEG, PNG o WebP de hasta 15 MiB.', 'error');
-      return;
-    }
-    const submittedValues = formState?.capture(photoForm);
-    setBusy(photoForm, true);
-    let finalizationRequested = false;
-    try {
-      const authorize = await api('/api/creador/foto/autorizar', 'POST', { version: currentProfile.version });
-      if (!authorize.ok) {
-        announce(photoStatus, await photoErrorMessage(authorize), 'error');
-        return;
-      }
-      const upload: unknown = await authorize.json();
-      if (!isRecord(upload) || typeof upload.uploadId !== 'string' || !isRecord(upload.post)
-        || typeof upload.post.url !== 'string' || !isRecord(upload.post.fields)) {
-        announce(photoStatus, 'No pudimos preparar la carga de la foto. La imagen anterior sigue activa.', 'error');
-        return;
-      }
-      const formData = new FormData();
-      for (const [key, value] of Object.entries(upload.post.fields)) {
-        if (typeof value === 'string') formData.append(key, value);
-      }
-      formData.append('file', file);
-      const sent = await fetch(upload.post.url, {
-        method: 'POST',
-        mode: 'cors',
-        credentials: 'omit',
-        body: formData,
-      });
-      if (!sent.ok) {
-        announce(photoStatus, 'No pudimos subir la foto. La imagen anterior sigue activa; puedes intentarlo otra vez.', 'error');
-        return;
-      }
-      finalizationRequested = true;
-      const finish = await api('/api/creador/foto/finalizar', 'POST', {
-        uploadId: upload.uploadId,
-        version: currentProfile.version,
-      });
-      if (!finish.ok) {
-        if (finish.status >= 500) {
-          announce(photoStatus, PHOTO_FINALIZATION_UNCONFIRMED, 'error');
-        } else {
-          announce(photoStatus, await photoErrorMessage(finish), 'error');
-        }
-        return;
-      }
-      await finishWrite(finish, photoStatus, 'Foto guardada.', submittedValues, { ownEntity: 'profile', ownId: currentProfile.id });
-    } catch (error) {
-      const fallback = finalizationRequested
-        ? PHOTO_FINALIZATION_UNCONFIRMED
-        : 'No pudimos completar la carga. La imagen anterior sigue activa; inténtalo de nuevo.';
-      announce(photoStatus, requestFailureMessage(error, fallback), 'error');
-    } finally {
-      setBusy(photoForm, false);
-    }
-  });
 } else if (root) {
   announce(pageStatus, 'No pudimos leer los datos de tu página. Recarga para volver a intentarlo.', 'error');
 }
