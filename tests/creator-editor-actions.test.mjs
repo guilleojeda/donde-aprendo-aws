@@ -198,52 +198,126 @@ async function settleSessionCheck() {
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-test('reordering sends the placement and profile versions observed by the editor', async () => {
-  const currentItem = new TestElement({ dataset: { placementId: 'placement-current' } });
-  const button = new TestElement({
-    dataset: { move: 'up' },
-    selectors: { 'closest:[data-placement-id]': currentItem },
-  });
+async function createRealSeriesMove({ direction = 'up', currentLinkIndex = 1, withPendingDraft = false } = {}) {
+  const principal = { state: 'authenticated', accountId: 'private-account-a', csrfToken: 'csrf-a', isAdmin: false };
+  const harness = await createCreatorPagesHarness({ authenticate: async () => principal });
+  const call = async (path, method = 'GET', body) => {
+    const response = await callApi(harness, path, {
+      session: 'creator-a', method, csrf: 'csrf-a', ...(body === undefined ? {} : { body }),
+    });
+    const payload = await response.json().catch(() => null);
+    assert.ok(response.ok, `${method} ${path} returned HTTP ${response.status}: ${JSON.stringify(payload)}`);
+    return payload;
+  };
+
+  await call('/api/creador/perfil/', 'PUT', { displayName: 'Ana', slug: 'ana', programs: [], socials: {} });
+  const links = [];
+  for (const title of ['Capítulo uno', 'Capítulo dos']) {
+    links.push((await call('/api/creador/enlaces/', 'POST', {
+      title, url: `https://example.com/series-move/${encodeURIComponent(title)}`,
+    })).link);
+  }
+  let current = await call('/api/creador/perfil/');
+  const series = (await call('/api/creador/series/', 'POST', {
+    name: 'Serie real', slug: 'serie-real', profileVersion: current.profile.version,
+  })).series;
+  for (const link of links) {
+    current = await call('/api/creador/perfil/');
+    await call(`/api/creador/series/${series.id}/capitulos/${link.placementId}`, 'PUT', {
+      profileVersion: current.profile.version,
+    });
+  }
+  const initial = await call('/api/creador/perfil/');
+  const currentLink = initial.links.find(({ placementId }) => placementId === links[currentLinkIndex].placementId);
+  const chapter = new TestElement({ dataset: { seriesPlacementId: currentLink.placementId } });
+  chapter.id = 'chapter-two';
   const status = new TestElement();
-  const { root } = baseRoot({
-    selectors: { '[data-links-status]': status },
-    lists: { '[data-move]': [button] },
+  const section = new TestElement({ dataset: { seriesId: series.id }, selectors: { '[data-series-status]': status } });
+  const button = new TestElement({
+    dataset: { seriesMove: direction },
+    selectors: {
+      'closest:[data-series-id]': section,
+      'closest:[data-series-chapter]': chapter,
+    },
   });
+  button.tagName = 'BUTTON';
+  const transition = new TestElement();
+  const shell = new TestElement();
+  const refresh = new TestElement();
+  refresh.tagName = 'BUTTON';
+  const { root } = baseRoot({
+    selectors: {
+      '[data-view-transition]': transition,
+      '[data-view-transition-shell]': shell,
+      '[data-refresh-view]': refresh,
+    },
+    lists: {
+      '[data-series-move]': [button],
+      '[data-move], [data-remove-link], [data-featured], [data-directory], [data-readd-link], [data-series-add-chapter-form] button, [data-series-move], [data-series-remove-chapter], [data-delete-series]': [button],
+      'button, input[type="file"], input[data-busy-control], [data-featured], [data-directory], [data-creator-stale]': [button, refresh],
+    },
+  });
+  const seriesDraft = withPendingDraft ? attachSeriesMetadataForm(root, series) : undefined;
   const reloads = { count: 0 };
   const requests = [];
-
   await runEditor({
-    data: editorData({
-      links: [
-        {
-          placementId: 'placement-target', resourceId: 'resource-a', position: 3, featured: false,
-          resourceVersion: 6, placementVersion: 8,
-        },
-        {
-          placementId: 'placement-current', resourceId: 'resource-b', position: 9, featured: false,
-          resourceVersion: 11, placementVersion: 23,
-        },
-      ],
-    }),
+    data: initial,
     root,
     reloads,
     fetch: async (url, options) => {
-      requests.push({ url, ...options });
-      return Response.json({}, { status: 200 });
+      const headers = new Headers(options.headers);
+      headers.set('origin', SITE_ORIGIN);
+      const response = await harness.service.handle(new Request(new URL(url, SITE_ORIGIN), { ...options, headers }));
+      requests.push({
+        url,
+        method: options.method,
+        status: response.status,
+        ...(options.body ? { body: JSON.parse(options.body) } : {}),
+      });
+      return response;
     },
   });
 
+  return { harness, call, initial, links, series, currentLink, button, status, transition, shell, refresh, seriesDraft, requests, reloads };
+}
+
+test('el movimiento residual de capítulo envía el perfil observado y confirma las versiones reales de placement', async () => {
+  const scenario = await createRealSeriesMove({ direction: 'up' });
+  const { call, initial, series, links, currentLink, button, status, requests, reloads } = scenario;
+  const initialMemberships = initial.links.map((link) => ({
+    id: link.placementId,
+    position: link.series.find((item) => item.seriesId === series.id).position,
+    placementVersion: link.placementVersion,
+  }));
+
   await button.dispatch('click');
   assert.equal(requests.length, 1);
-  assert.equal(requests[0].url, '/api/creador/enlaces/placement-current/');
+  assert.equal(requests[0].url, `/api/creador/series/${series.id}/capitulos/${currentLink.placementId}/`);
   assert.equal(requests[0].method, 'PATCH');
-  assert.deepEqual(JSON.parse(requests[0].body), { position: 3, version: 23, profileVersion: 37 });
-  assert.equal(status.textContent, 'Orden actualizado.');
+  assert.deepEqual(requests[0].body, { profileVersion: initial.profile.version, direction: 'up' });
+  assert.equal(requests[0].status, 200);
+  assert.equal(status.textContent, 'Orden de capítulos actualizado.');
   assert.equal(reloads.count, 1);
+
+  const updated = await call('/api/creador/perfil/');
+  assert.equal(updated.profile.version, initial.profile.version + 1);
+  assert.equal(updated.series.find(({ id }) => id === series.id).version, series.version,
+    'chapter order uses the series version observed by the service without changing series metadata');
+  const updatedMemberships = updated.links.map((link) => ({
+    id: link.placementId,
+    position: link.series.find((item) => item.seriesId === series.id).position,
+    placementVersion: link.placementVersion,
+  }));
+  assert.deepEqual(updatedMemberships.map(({ position }) => position).sort((a, b) => a - b), [0, 10]);
+  assert.ok(updatedMemberships.every(({ placementVersion }, index) =>
+    placementVersion === initialMemberships[index].placementVersion + 1));
+  assert.deepEqual(updated.links.map(({ position }) => position), initial.links.map(({ position }) => position),
+    'moving a chapter leaves public link positions unchanged');
+  assert.equal(links.length, 2);
 });
 
-// Retired resource and placement UI actions are covered by the owner-link controller suite;
-// their version, authorization, and transactional contracts remain in API-focused suites.
+// Owner resource editing/re-add remains covered by the owner-link controller suite;
+// legacy placement PATCH compatibility remains covered by creator-pages API tests.
 
 function attachSeriesMetadataForm(root, series) {
   const name = Object.assign(new TestElement(), { tagName: 'INPUT', type: 'text', name: 'name', value: series.name });
@@ -290,13 +364,13 @@ function seriesCreateTransitionFixture(existingSeries) {
   const transition = new TestElement();
   const refresh = new TestElement();
   refresh.tagName = 'BUTTON';
-  const moveButton = new TestElement({ dataset: { move: 'up' } });
+  const moveButton = new TestElement({ dataset: { seriesMove: 'down' } });
   moveButton.tagName = 'BUTTON';
   const { root } = baseRoot({
     lists: {
       '[data-series-create-form]': [seriesCreateForm],
       '[data-series-form]': [],
-      '[data-move]': [moveButton],
+      '[data-series-move]': [moveButton],
       '[data-move], [data-remove-link], [data-featured], [data-directory], [data-readd-link], [data-series-add-chapter-form] button, [data-series-move], [data-series-remove-chapter], [data-delete-series]': [moveButton],
       'input, textarea, select': [name, slug, description],
       'button, input[type="file"], input[data-busy-control], [data-featured], [data-directory], [data-creator-stale]': [refresh, moveButton],
@@ -323,7 +397,7 @@ function seriesTransitionData(profileVersion = 37) {
         placementId: 'placement-a', resourceId: 'resource-transition', title: 'Capítulo',
         url: 'https://example.com/transition', description: '', featured: false, position: 10,
         selectedForDirectory: true, hidden: false, directoryApproval: 'pending',
-        resourceVersion: 1, placementVersion: 1, series: [],
+        resourceVersion: 1, placementVersion: 1, series: [{ seriesId: 'series-existing', position: 10 }],
       }],
       series: [existingSeries],
     }),
@@ -368,7 +442,7 @@ test('crear una serie conserva un borrador de otra serie y exige guardarlo o rev
   assert.match(fixture.seriesStatus.textContent, /guarda los cambios pendientes en los otros formularios/);
   assert.equal(fixture.otherSeries.description.value, 'Corrección de serie pendiente');
   assert.equal(reloads.count, 0);
-  assert.equal(fixture.moveButton.disabled, true, 'list controls wait for the created series to be rendered');
+  assert.equal(fixture.moveButton.disabled, true, 'series chapter controls wait for the created series to be rendered');
   await fixture.refresh.dispatch('click');
   assert.equal(reloads.count, 0, 'refresh cannot discard the series correction');
 
@@ -778,96 +852,34 @@ test('a successful series deletion discards its late metadata draft before refre
 
 // Retired case: This paired a late series edit with a pending profile form, both hosted by the old editor. The successful-deletion test above now proves that a late edit in the deleted residual form is discarded and does not block refresh.
 
-test('reordenar con un borrador de serie conserva la corrección y pausa controles del orden anterior', async () => {
-  const principal = { state: 'authenticated', accountId: 'private-account-a', csrfToken: 'csrf-a', isAdmin: false };
-  const harness = await createCreatorPagesHarness({ authenticate: async () => principal });
-  const apiCall = (path, method, body) => callApi(harness, path, {
-    method,
-    csrf: 'csrf-a',
-    ...(body === undefined ? {} : { body }),
-  });
-  const profileResponse = await apiCall('/api/creador/perfil', 'PUT', {
-    displayName: 'Ana', slug: 'ana', programs: [], socials: {},
-  });
-  assert.equal(profileResponse.status, 200);
-  const created = [];
-  for (const title of ['B', 'C', 'A']) {
-    const response = await apiCall('/api/creador/enlaces', 'POST', {
-      title, url: `https://example.com/${title}`,
-    });
-    assert.equal(response.status, 201);
-    created.push((await response.json()).link);
-  }
-  const a = created[2];
-  const c = created[1];
-  const featuredA = await apiCall(`/api/creador/enlaces/${a.placementId}`, 'PATCH', {
-    version: a.placementVersion, featured: true,
-  });
-  assert.equal(featuredA.status, 200);
-  const beforeSeries = await (await apiCall('/api/creador/perfil')).json();
-  const createdSeries = await apiCall('/api/creador/series', 'POST', {
-    name: 'Otra serie', slug: 'otra-serie', profileVersion: beforeSeries.profile.version,
-  });
-  assert.equal(createdSeries.status, 201);
-  const initial = await (await apiCall('/api/creador/perfil')).json();
-  const sortedTitles = (links) => [...links]
-    .sort((left, right) => Number(right.featured) - Number(left.featured) || left.position - right.position)
-    .map((link) => link.title);
-  assert.deepEqual(sortedTitles(initial.links), ['A', 'B', 'C']);
+test('mover un capítulo con borrador de serie conserva la corrección y pausa el refresh hasta guardar o revertir', async () => {
+  const scenario = await createRealSeriesMove({ direction: 'down', currentLinkIndex: 0, withPendingDraft: true });
+  const { call, initial, links, series, button, shell, transition, refresh, seriesDraft, requests, reloads } = scenario;
+  const chapterOrder = (profile) => profile.links
+    .filter((link) => link.series.some((item) => item.seriesId === series.id))
+    .sort((left, right) => left.series.find((item) => item.seriesId === series.id).position
+      - right.series.find((item) => item.seriesId === series.id).position)
+    .map((link) => link.placementId);
+  const beforePositions = initial.links.map(({ placementId, position, featured }) => ({ placementId, position, featured }));
+  assert.deepEqual(chapterOrder(initial), links.map(({ placementId }) => placementId));
+  seriesDraft.description.value = 'Descripción de serie todavía sin guardar';
 
-  const item = new TestElement({ dataset: { placementId: c.placementId } });
-  const moveUp = new TestElement({
-    dataset: { move: 'up' },
-    selectors: { 'closest:[data-placement-id]': item },
-  });
-  moveUp.tagName = 'BUTTON';
-  const refresh = new TestElement();
-  refresh.tagName = 'BUTTON';
-  const linksStatus = new TestElement();
-  const transition = new TestElement();
-  const { root } = baseRoot({
-    selectors: {
-      '[data-links-status]': linksStatus,
-      '[data-view-transition]': transition,
-      '[data-view-transition-shell]': new TestElement(),
-      '[data-refresh-view]': refresh,
-    },
-    lists: {
-      '[data-move]': [moveUp],
-      '[data-move], [data-remove-link], [data-featured], [data-directory], [data-readd-link], [data-series-add-chapter-form] button, [data-series-move], [data-series-remove-chapter], [data-delete-series]': [moveUp],
-      'input, textarea, select': [],
-      'button, input[type="file"], input[data-busy-control], [data-featured], [data-directory], [data-creator-stale]': [moveUp, refresh],
-    },
-  });
-  const seriesDraft = attachSeriesMetadataForm(root, initial.series[0]);
-  const requests = [];
-  const reloads = { count: 0 };
-  await runEditor({
-    data: initial,
-    root,
-    reloads,
-    fetch: async (url, options) => {
-      const headers = new Headers(options.headers);
-      headers.set('origin', SITE_ORIGIN);
-      const response = await harness.service.handle(new Request(new URL(url, SITE_ORIGIN), { ...options, headers }));
-      requests.push({ url, status: response.status });
-      return response;
-    },
-  });
-
-  seriesDraft.description.value = 'Descripción con una corrección pendiente';
-  await moveUp.dispatch('click');
-  const updated = await (await apiCall('/api/creador/perfil')).json();
-  assert.deepEqual(sortedTitles(updated.links), ['A', 'C', 'B'], 'the real service changes only the observed non-featured order');
-  assert.equal(requests.length, 1, 'the explicit reorder action is the only write');
-  assert.equal(seriesDraft.description.value, 'Descripción con una corrección pendiente');
-  assert.equal(root.querySelector('[data-view-transition-shell]').hidden, false);
-  assert.equal(moveUp.disabled, true, 'move controls based on the old order are stale too');
+  await button.dispatch('click');
+  const updated = await call('/api/creador/perfil/');
+  assert.deepEqual(chapterOrder(updated), [links[1].placementId, links[0].placementId],
+    'the actual service reorders chapters within their series');
+  assert.deepEqual(updated.links.map(({ placementId, position, featured }) => ({ placementId, position, featured })), beforePositions,
+    'chapter ordering does not change public placement order or featured groups');
+  assert.equal(requests.length, 1, 'the chapter move is one explicit write');
+  assert.deepEqual(requests[0].body, { profileVersion: initial.profile.version, direction: 'down' });
+  assert.equal(seriesDraft.description.value, 'Descripción de serie todavía sin guardar');
+  assert.equal(shell.hidden, false);
+  assert.equal(button.disabled, true, 'the stale chapter action pauses after a structural write');
   await refresh.dispatch('click');
   assert.equal(reloads.count, 0, 'the pending series correction is protected from refresh');
   assert.match(transition.textContent, /Guarda los cambios pendientes o revierte/);
 
-  seriesDraft.description.value = initial.series[0].description ?? '';
+  seriesDraft.description.value = initial.series.find(({ id }) => id === series.id).description ?? '';
   await refresh.dispatch('click');
   assert.equal(reloads.count, 1, 'refresh is available after the series correction is reverted');
 });
