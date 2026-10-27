@@ -10,7 +10,6 @@ interface Props {
 
 const { data, csrfToken, sessionBinding } = Astro.props;
 const profile = data.profile;
-const linkedResourceIds = new Set(data.links.map((link) => link.resourceId));
 const editableResourceIds = new Set(data.editableResources.map((resource) => resource.id));
 const sortedLinks = [...data.links].sort((left, right) => Number(right.featured) - Number(left.featured) || left.position - right.position);
 const initialData = safeJsonForScript(data);
@@ -22,19 +21,14 @@ function seriesChapters(seriesId: string) {
       return leftPosition - rightPosition || left.placementId.localeCompare(right.placementId);
     });
 }
-function linkVisibilityText(link: CreatorEditorDTO['links'][number]) {
-  if (link.hidden) return 'Oculto por administración.';
-  if (!profile?.published) return 'No visible todavía: publica tu página para compartir este enlace.';
-  if (profile.hidden) return 'No visible: la página está temporalmente oculta por administración.';
-  return 'Visible al público.';
-}
+
 ---
 
 <main id="contenido" class="creator-account site-container" tabindex="-1" data-creator-editor data-csrf={csrfToken} data-session-binding={sessionBinding}>
   <header class="creator-account__header">
     <p class="creator-profile__eyebrow">Gestión de contenido</p>
-    <h1>Enlaces y series</h1>
-    <p>Administra los enlaces, el orden, las series y las solicitudes de vinculación de tu página.</p>
+    <h1>Orden, series y solicitudes</h1>
+    <p>Ajusta el orden de tu página, administra series y revisa tus solicitudes de vinculación.</p>
   </header>
 
   <nav class="creator-account__nav" aria-label="Gestión de creador">
@@ -57,34 +51,9 @@ function linkVisibilityText(link: CreatorEditorDTO['links'][number]) {
     <div class="creator-card__heading">
       <div>
         <p class="creator-profile__eyebrow">Tu contenido</p>
-        <h2 id="creator-links-editor-title">Tus enlaces</h2>
+        <h2 id="creator-links-editor-title">Orden de tu página</h2>
       </div>
     </div>
-    <p class="creator-card__help">Cada enlace indica si está visible en tu página. La selección del directorio es independiente y puede tardar hasta una hora más la publicación del sitio. Los títulos admiten 200 caracteres, las descripciones 2000 y las URLs completas hasta 2048.</p>
-    {!profile && <p class="creator-account__notice" role="status">Guarda primero tu perfil para agregar enlaces o solicitar la vinculación de contenido existente.</p>}
-    <form class="creator-form creator-add-link" data-add-link-form>
-      <h3>Agregar un enlace</h3>
-      <fieldset class="creator-form__fieldset" disabled={!profile}>
-        <legend>Datos del enlace</legend>
-        <div class="creator-form__grid">
-          <div class="creator-form__field">
-            <label for="creator-link-title">Título</label>
-            <input id="creator-link-title" name="title" maxlength="200" required />
-          </div>
-          <div class="creator-form__field">
-            <label for="creator-link-url">URL completa</label>
-            <input id="creator-link-url" name="url" type="url" inputmode="url" placeholder="https://" maxlength="2048" required />
-          </div>
-          <div class="creator-form__field creator-form__field--full">
-            <label for="creator-link-description">Descripción <span>(opcional)</span></label>
-            <textarea id="creator-link-description" name="description" rows="2" maxlength="2000"></textarea>
-          </div>
-        </div>
-        <button class="button button--dark" type="submit">Agregar enlace</button>
-      </fieldset>
-      <p class="creator-form__status" data-link-create-status role="status" aria-live="polite"></p>
-    </form>
-
     <section class="creator-links-list" aria-labelledby="creator-links-current-title">
       <h3 id="creator-links-current-title">Enlaces de tu página</h3>
       {sortedLinks.length > 0 ? (
@@ -96,66 +65,25 @@ function linkVisibilityText(link: CreatorEditorDTO['links'][number]) {
             return (
               <li class="creator-link-editor-card" data-placement-id={link.placementId} data-resource-id={link.resourceId}>
                 <div class="creator-link-editor-card__main">
-                  {editable ? (
-                    <form class="creator-form creator-resource-form" data-resource-form>
-                      <label for={`resource-title-${link.resourceId}`}>Título</label>
-                      <input id={`resource-title-${link.resourceId}`} name="title" maxlength="200" required value={link.title} />
-                      <label for={`resource-url-${link.resourceId}`}>URL</label>
-                      <input id={`resource-url-${link.resourceId}`} name="url" type="url" maxlength="2048" required value={link.url} />
-                      <label for={`resource-description-${link.resourceId}`}>Descripción</label>
-                      <textarea id={`resource-description-${link.resourceId}`} name="description" rows="2" maxlength="2000">{link.description ?? ''}</textarea>
-                      <button class="button button--outline" type="submit">Guardar ficha</button>
-                    </form>
-                  ) : (
-                    <div>
-                      <h4>{link.title}</h4>
-                      <a class="creator-link-editor-card__url" href={link.url} target="_blank" rel="noopener noreferrer">{link.url}</a>
-                      {link.description && <p>{link.description}</p>}
-                      <p class="creator-link-editor-card__resource-id">ID del recurso: <code>{link.resourceId}</code> <button type="button" data-copy-resource-id data-resource-id-value={link.resourceId}>Copiar ID</button></p>
-                      <p class="creator-card__help">Esta ficha la administra otra persona; puedes usarla en tu página y controlar tus opciones.</p>
-                    </div>
-                  )}
-                  <p class="creator-link-editor-card__visibility">Visibilidad en tu página: {linkVisibilityText(link)}</p>
-                  <p class="creator-link-editor-card__approval">Directorio: {link.directoryApproval === 'approved' ? 'aprobado' : link.directoryApproval === 'revoked' ? 'aprobación revocada' : 'pendiente de revisión'}</p>
+                  <h4>{link.title}</h4>
+                  <a class="creator-link-editor-card__url" href={link.url} target="_blank" rel="noopener noreferrer">{link.url}</a>
+                  {link.featured && <span class="creator-link-editor-card__approval">Destacado</span>}
+                  {link.hidden && <span class="creator-link-editor-card__approval">Oculto por administración</span>}
+                  {!editable && <p class="creator-link-editor-card__resource-id">ID del recurso: <code>{link.resourceId}</code> <button type="button" data-copy-resource-id data-resource-id-value={link.resourceId}>Copiar ID</button></p>}
                 </div>
                 <div class="creator-link-editor-card__controls">
                   <button class="button button--outline" type="button" data-move="up" disabled={groupIndex === 0} aria-label={`Mover arriba: ${link.title}`}>Subir</button>
                   <button class="button button--outline" type="button" data-move="down" disabled={groupIndex === group.length - 1} aria-label={`Mover abajo: ${link.title}`}>Bajar</button>
-                  <label class="creator-check"><input type="checkbox" data-featured checked={link.featured} /><span>Destacar en mi página</span></label>
-                  <label class="creator-check"><input type="checkbox" data-directory checked={link.selectedForDirectory} /><span>Proponer al directorio</span></label>
-                  <button class="creator-link-editor-card__remove" type="button" data-remove-link>Quitar de mi página</button>
+
                 </div>
               </li>
             );
           })}
         </ol>
       ) : (
-        <p class="creator-empty-state">Todavía no agregaste enlaces. Puedes comenzar con un artículo, curso, video o newsletter.</p>
+        <p class="creator-empty-state">Todavía no agregaste enlaces. Puedes agregarlos desde Tu página.</p>
       )}
     </section>
-
-    {data.editableResources.filter((resource) => !linkedResourceIds.has(resource.id)).length > 0 && (
-      <section class="creator-retained-resources" aria-labelledby="creator-retained-title">
-        <h3 id="creator-retained-title">Fichas que puedes volver a agregar</h3>
-        <p>Quitar un enlace no elimina la ficha que administras.</p>
-        <ul>
-          {data.editableResources.filter((resource) => !linkedResourceIds.has(resource.id)).map((resource) => (
-            <li data-retained-resource-id={resource.id} data-resource-id={resource.id}>
-              <form class="creator-form creator-resource-form" data-resource-form>
-                <label for={`retained-title-${resource.id}`}>Título</label>
-                <input id={`retained-title-${resource.id}`} name="title" maxlength="200" required value={resource.title} />
-                <label for={`retained-url-${resource.id}`}>URL</label>
-                <input id={`retained-url-${resource.id}`} name="url" type="url" maxlength="2048" required value={resource.url} />
-                <label for={`retained-description-${resource.id}`}>Descripción</label>
-                <textarea id={`retained-description-${resource.id}`} name="description" rows="2" maxlength="2000">{resource.description ?? ''}</textarea>
-                <button class="button button--outline" type="submit">Guardar ficha</button>
-              </form>
-              <button class="button button--outline" type="button" data-readd-link>Volver a agregar</button>
-            </li>
-          ))}
-        </ul>
-      </section>
-    )}
 
     <p class="creator-form__status" data-links-status role="status" aria-live="polite"></p>
   </section>

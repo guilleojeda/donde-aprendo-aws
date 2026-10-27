@@ -1,0 +1,140 @@
+---
+import type { CreatorEditorDTO } from '../types/creators';
+import {
+  creatorOwnerLinksCountLabel,
+  creatorOwnerLinksHref,
+  selectCreatorOwnerLinks,
+  type CreatorOwnerLinksQuery,
+} from '../lib/creator-owner-links';
+
+interface Props {
+  data: CreatorEditorDTO;
+  query: CreatorOwnerLinksQuery;
+  queryError?: string;
+}
+
+const { data, query, queryError } = Astro.props;
+const selection = selectCreatorOwnerLinks(data.links, data.series, query);
+const activeResourceIds = new Set(data.links.map(({ resourceId }) => resourceId));
+const retainedResources = data.editableResources.filter(({ id }) => !activeResourceIds.has(id));
+const directoryLabels: Record<string, string> = {
+  pending: 'Pendiente',
+  approved: 'Aprobado',
+  revoked: 'Revocado',
+};
+const cleanQueryUrl = '/cuenta/?vista=enlaces';
+const visibleFilters = [query.serie !== 'todos', query.directorio !== 'todos', query.destacado !== 'todos', query.orden !== 'pagina']
+  .filter(Boolean).length;
+---
+
+<section class="creator-owner__links" data-owner-links aria-labelledby="owner-links-title" data-links-count={data.links.length}>
+  <header class="creator-owner__section-heading creator-owner__links-heading">
+    <div>
+      <p class="creator-owner__eyebrow">Contenido de tu página</p>
+      <h2 id="owner-links-title">Enlaces</h2>
+      <p data-link-count>{creatorOwnerLinksCountLabel(selection.totalMatches, selection.totalLinks)}</p>
+    </div>
+    <button class="button button--dark" type="button" data-link-add-open>Agregar enlace</button>
+  </header>
+
+  {queryError ? (
+    <div class="creator-owner__links-error" role="alert">
+      <p>La búsqueda o los filtros de la URL no son válidos. No mostramos la colección como si estuviera vacía.</p>
+      <a class="button button--outline" href={cleanQueryUrl}>Limpiar búsqueda y filtros</a>
+    </div>
+  ) : (
+    <>
+      <form class="creator-owner__link-filters" method="get" action="/cuenta/" data-link-filters>
+        <input type="hidden" name="vista" value="enlaces" />
+        <input type="hidden" name="paginaEnlaces" value={selection.query.paginaEnlaces} />
+        <div class="creator-owner__field creator-owner__link-search">
+          <label for="owner-link-search">Buscar título, URL o serie</label>
+          <input id="owner-link-search" type="search" name="buscar" value={selection.query.buscar} data-link-search autocomplete="off" />
+        </div>
+        <label class="creator-owner__field"><span>Serie</span>
+          <select name="serie">
+            <option value="todos" selected={selection.query.serie === 'todos'}>Todas las series</option>
+            {data.series.map((series) => <option value={series.id} selected={selection.query.serie === series.id}>{series.name}</option>)}
+          </select>
+        </label>
+        <label class="creator-owner__field"><span>Directorio</span>
+          <select name="directorio">
+            <option value="todos" selected={selection.query.directorio === 'todos'}>Todos los estados</option>
+            <option value="propuestos" selected={selection.query.directorio === 'propuestos'}>Propuestos</option>
+            <option value="no-propuestos" selected={selection.query.directorio === 'no-propuestos'}>No propuestos</option>
+            <option value="pendientes" selected={selection.query.directorio === 'pendientes'}>Pendientes</option>
+            <option value="aprobados" selected={selection.query.directorio === 'aprobados'}>Aprobados</option>
+            <option value="revocados" selected={selection.query.directorio === 'revocados'}>Revocados</option>
+            <option value="ocultos" selected={selection.query.directorio === 'ocultos'}>Ocultos</option>
+          </select>
+        </label>
+        <label class="creator-owner__field"><span>Destacados</span>
+          <select name="destacado">
+            <option value="todos" selected={selection.query.destacado === 'todos'}>Todos</option>
+            <option value="si" selected={selection.query.destacado === 'si'}>Destacados</option>
+            <option value="no" selected={selection.query.destacado === 'no'}>No destacados</option>
+          </select>
+        </label>
+        <label class="creator-owner__field"><span>Orden de consulta</span>
+          <select name="orden">
+            <option value="pagina" selected={selection.query.orden === 'pagina'}>Orden de tu página</option>
+            <option value="titulo-asc" selected={selection.query.orden === 'titulo-asc'}>Título A–Z</option>
+            <option value="titulo-desc" selected={selection.query.orden === 'titulo-desc'}>Título Z–A</option>
+          </select>
+        </label>
+        <button class="button button--outline creator-owner__filter-submit" type="submit">Aplicar filtros</button>
+      </form>
+
+      {visibleFilters > 0 && <p class="creator-owner__filter-note">El orden de consulta sólo organiza esta tabla; no cambia el orden público de tu página.</p>}
+
+      <div class="creator-owner__table-scroll" tabindex="0" aria-label="Tabla de enlaces">
+        <table class="creator-owner__link-table">
+          <thead><tr><th scope="col">Contenido</th><th scope="col">Series</th><th scope="col">Directorio</th><th scope="col">Destacado</th><th scope="col">Acciones</th></tr></thead>
+          <tbody data-link-rows>
+            {selection.rows.map((link) => {
+              const own = data.editableResources.some(({ id }) => id === link.resourceId);
+              const seriesNames = link.series.map(({ seriesId }) => data.series.find(({ id }) => id === seriesId)?.name).filter(Boolean);
+              return <tr data-link-row={link.placementId}>
+                <th scope="row">
+                  <span class="creator-owner__link-title" data-link-title>{link.title}</span>
+                  <span class="creator-owner__link-url">{new URL(link.url).host}</span>
+                </th>
+                <td data-label="Series">{seriesNames.length ? seriesNames.join(', ') : 'Sin serie'}</td>
+                  <td class="creator-owner__link-status" data-label="Directorio">
+                  <span>{link.selectedForDirectory ? 'Propuesta al directorio' : 'No propuesta'}</span>
+                  <span>{directoryLabels[link.directoryApproval] ?? 'Sin revisión'}</span>
+                    <span>{data.profile?.hidden ? 'Página oculta por administración' : !data.profile?.published ? 'No pública hasta publicar' : link.hidden ? 'Oculta en la página pública' : 'Visible en la página pública'}</span>
+                </td>
+                  <td data-label="Destacado">{link.featured ? 'Destacado' : 'Sin destacar'}</td>
+                <td class="creator-owner__link-actions" data-label="Acciones">
+                  <button class="button button--outline" type="button" data-link-edit data-placement-id={link.placementId}>{own ? 'Editar ficha' : 'Editar opciones'}</button>
+                  <button class="button button--outline" type="button" data-link-remove data-placement-id={link.placementId}>Quitar de tu página</button>
+                </td>
+              </tr>;
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p class="creator-owner__empty" data-link-empty hidden={selection.rows.length > 0}>{selection.totalMatches ? 'No hay enlaces en esta página de resultados.' : data.links.length ? 'No hay enlaces que coincidan con estos filtros.' : 'Todavía no agregaste enlaces.'}</p>
+
+      <nav class="creator-owner__link-pagination" aria-label="Páginas de enlaces" data-link-pagination>
+        <span>Página {selection.query.paginaEnlaces} de {selection.pageCount}</span>
+        {selection.query.paginaEnlaces > 1 && <a class="button button--outline" data-link-page href={creatorOwnerLinksHref(selection.query, selection.query.paginaEnlaces - 1)}>Anterior</a>}
+        {selection.query.paginaEnlaces < selection.pageCount && <a class="button button--outline" data-link-page href={creatorOwnerLinksHref(selection.query, selection.query.paginaEnlaces + 1)}>Siguiente</a>}
+      </nav>
+    </>
+  )}
+
+  <section class="creator-owner__retained" data-owner-retained-links aria-labelledby="owner-retained-title" hidden={!retainedResources.length}>
+    <h3 id="owner-retained-title">Contenido que puedes volver a agregar</h3>
+    <ul data-retained-resources>
+      {retainedResources.map((resource) => <li data-retained-resource={resource.id}>
+        <span><strong>{resource.title}</strong><span class="creator-owner__link-url">{new URL(resource.url).host}</span></span>
+        <div class="creator-owner__link-actions">
+          <button class="button button--outline" type="button" data-link-edit data-resource-id={resource.id}>Editar ficha</button>
+          <button class="button button--outline" type="button" data-link-reinclude data-resource-id={resource.id} data-resource-version={resource.version}>Volver a agregar</button>
+        </div>
+      </li>)}
+    </ul>
+  </section>
+</section>
