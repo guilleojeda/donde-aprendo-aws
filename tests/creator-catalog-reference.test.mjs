@@ -590,11 +590,11 @@ for (const raceField of ['resource', 'reservation', 'profile']) {
     const selected = resource(`catalog-reference-race-${raceField}`, `https://catalog.example/race-${raceField}`);
     await seedResource(harness.store, selected);
     const stateBefore = await ownerLinkWriteState(harness, profile.id, [selected.url]);
+    const targetPlacement = `placement:${profile.id}:${placementId(profile.id, selected.id)}`;
     const rawTransact = harness.store.transact.bind(harness.store);
     let raced = false;
     harness.store.transact = async (transaction) => {
       const checkKeys = (transaction.checks ?? []).map(({ key }) => key);
-      const targetPlacement = `placement:${profile.id}:${placementId(profile.id, selected.id)}`;
       if (!raced && transaction.puts?.some(({ key }) => key === targetPlacement)
         && checkKeys.includes(`profile:${profile.id}`)
         && checkKeys.includes(`resource:${selected.id}`)
