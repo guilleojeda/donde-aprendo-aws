@@ -1303,8 +1303,9 @@ function closeDialog({ navigate = true }: { navigate?: boolean } = {}) {
   clearConflict(undefined);
   const focus = returnFocus;
   returnFocus = undefined;
-  const fallbackFocus = currentSeriesQuery()
-    ? root?.querySelector<HTMLElement>('[data-chapter-search]') ?? root?.querySelector<HTMLElement>('[data-series-search]')
+  const seriesQuery = currentSeriesQuery();
+  const fallbackFocus = seriesQuery
+    ? root?.querySelector<HTMLElement>(seriesQuery.serie ? '[data-chapter-search]' : '[data-series-search]')
     : root?.querySelector<HTMLElement>('[data-link-search]');
   if (focus && focus.isConnected) window.requestAnimationFrame(() => focus.focus());
   else if (fallbackFocus) window.requestAnimationFrame(() => fallbackFocus.focus());
@@ -1452,6 +1453,7 @@ function updateProfileState(profile: CreatorProfileDTO) {
   state.profile = profile;
   root?.setAttribute('data-profile-version', String(profile.version));
   updateProfileView();
+  renderOwnerSeries();
 }
 
 function maybeExitAfterSave(noPendingChanges: boolean) {

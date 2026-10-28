@@ -137,6 +137,108 @@ test('una corrección tardía al crear queda vinculada a la serie recién creada
   assert.equal(api.state.series[0].description, 'Corrección tardía');
 });
 
+test('publicar y cambiar el slug refresca los enlaces públicos de series en la vista activa', async () => {
+  const draft = profile({ published: false, slug: 'ana-series' });
+  const targetSeries = series('public-context', { slug: 'ruta-publica' });
+  const link = chapter(0, [{ seriesId: targetSeries.id, position: 0 }]);
+  const { surface, api, requests } = await mountOwnerSeriesController({
+    profile: draft, links: [link], series: [targetSeries],
+    override: (request, state) => {
+      if (request.method === 'POST' && request.path === '/api/creador/perfil/publicar') {
+        const before = state.profile.version;
+        state.profile.published = true;
+        state.profile.version += 1;
+        return jsonResponse({ profile: { ...state.profile }, versionChanges: [
+          { entity: 'profile', id: state.profile.id, before, after: state.profile.version },
+       ] });
+      }
+      if (request.method === 'PUT' && request.path === '/api/creador/perfil') {
+        const before = state.profile.version;
+        state.profile.displayName = request.body.displayName;
+        state.profile.slug = request.body.slug;
+        state.profile.city = request.body.city;
+        state.profile.country = request.body.country;
+        state.profile.bio = request.body.bio;
+        state.profile.programs = request.body.programs;
+        state.profile.version += 1;
+        return jsonResponse({ profile: { ...state.profile }, versionChanges: [
+          { entity: 'profile', id: state.profile.id, before, after: state.profile.version },
+       ] });
+      }
+      return undefined;
+    },
+  });
+
+  assert.equal(seriesRow(surface, targetSeries.id).querySelectorAll('a')
+    .some((anchor) => anchor.textContent === 'Abrir serie pública'), false, 'a draft series has no public link');
+  await surface.publish.dispatch('click');
+  await settle();
+
+  const listPublicLink = seriesRow(surface, targetSeries.id).querySelectorAll('a')
+    .find((anchor) => anchor.textContent === 'Abrir serie pública');
+  assert.ok(listPublicLink, 'publication adds the public series action while the list is open');
+  assert.equal(listPublicLink.href, '/c/ana-series/series/ruta-publica/');
+
+  await seriesRow(surface, targetSeries.id).querySelector('[data-series-chapters]').dispatch('click');
+  assert.equal(surface.chapterRegion.hidden, false);
+  const editProfile = surface.root.querySelector('[data-owner-edit="datos"]');
+  await editProfile.dispatch('click');
+  const slug = surface.dataForm.elements.find(({ name }) => name === 'slug');
+  slug.value = 'ana-cursos';
+  await slug.dispatch('input');
+  await surface.dataForm.dispatch('submit');
+  await settle();
+
+  assert.equal(api.state.profile.slug, 'ana-cursos');
+  const refreshedListLink = seriesRow(surface, targetSeries.id).querySelectorAll('a')
+    .find((anchor) => anchor.textContent === 'Abrir serie pública');
+  assert.equal(refreshedListLink.href, '/c/ana-cursos/series/ruta-publica/');
+  assert.equal(surface.chapterRegion.querySelector('[data-series-public]').href, '/c/ana-cursos/series/ruta-publica/');
+  assert.match(surface.window.location.href, new RegExp(`serie=${targetSeries.id}`), 'the selected series query stays open after profile updates');
+  assert.equal(requests.filter(({ path }) => path === '/api/creador/perfil/publicar').length, 1);
+  assert.equal(requests.filter(({ method, path }) => method === 'PUT' && path === '/api/creador/perfil').length, 1);
+});
+
+test('al guardar desde la lista, el foco vuelve al buscador visible si el trigger se desconecta al renderizar', async () => {
+  const existing = series('focus-series-list');
+  const { surface } = await mountOwnerSeriesController({ profile: profile(), series: [existing] });
+  const row = seriesRow(surface, existing.id);
+  const trigger = row.querySelector('[data-series-edit]');
+  const removeRow = row.remove.bind(row);
+  row.remove = () => {
+    // SurfaceElement does not propagate disconnection to descendants like a real DOM tree.
+    trigger.isConnected = false;
+    removeRow();
+  };
+
+  await trigger.dispatch('click');
+  surface.seriesFormFields.description.value = 'Descripción actualizada';
+  await surface.seriesFormFields.description.dispatch('input');
+  await submit(surface.seriesForm);
+
+  assert.equal(trigger.isConnected, false, 'the focused row action was replaced by the render');
+  assert.equal(surface.chapterRegion.hidden, true);
+  assert.equal(surface.document.activeElement, surface.seriesSearch, 'focus returns to the search in the visible list');
+  assert.notEqual(surface.document.activeElement, surface.chapterSearch, 'the hidden chapter search is not focused');
+  assert.equal(seriesRow(surface, existing.id).id, existing.id, 'the rebuilt row retains its public fragment ID');
+});
+
+test('un trigger desconectado dentro de capítulos usa el buscador de capítulos como fallback', async () => {
+  const targetSeries = series('focus-series-chapters');
+  const link = chapter(0, [{ seriesId: targetSeries.id, position: 0 }]);
+  const { surface } = await mountOwnerSeriesController({
+    profile: profile(), links: [link], series: [targetSeries], query: { serie: targetSeries.id },
+  });
+  const trigger = chapterRow(surface, link.placementId).querySelector('[data-chapter-move]');
+  await trigger.dispatch('click');
+  // Force the post-render native state; the test DOM keeps descendants connected after a parent removal.
+  trigger.isConnected = false;
+  await surface.moveForm.querySelector('[data-owner-cancel]').dispatch('click');
+
+  assert.equal(surface.document.activeElement, surface.chapterSearch, 'focus follows the selected chapter view');
+  assert.notEqual(surface.document.activeElement, surface.seriesSearch);
+});
+
 test('la búsqueda pasa de resultados a cero coincidencias y vuelve a mostrar las series', async () => {
   const seriesList = [series('search-a'), series('search-b')];
   const { surface, requests } = await mountOwnerSeriesController({ profile: profile(), series: seriesList });
