@@ -3,7 +3,7 @@ frontend:
   phases:
     preBuild:
       commands:
-        - nvm install "$(cat .nvmrc)"
+        - NVM_NODEJS_ORG_MIRROR=https://nodejs.org/download/release nvm install "$(cat .nvmrc)"
         - nvm use "$(cat .nvmrc)"
         - npm ci
         - test -n "$ACCOUNT_ORIGIN" && test -n "$COGNITO_ISSUER" && test -n "$COGNITO_CLIENT_ID" && test -n "$COGNITO_DOMAIN" && test -n "$ACCOUNTS_TABLE" && test -n "$CATALOG_TABLE" && test -n "$CREATOR_PROFILES_TABLE" && test -n "$CREATOR_PHOTOS_BUCKET"
