@@ -289,6 +289,66 @@ test('adoptar la comparación de una serie conserva la corrección y mantiene la
   assert.equal(writes(requests).length, 1, 'canceling after adoption does not send a write');
 });
 
+test('descartar una edición nueva limpia el anuncio de una comparación anterior que terminó fuera de contexto', async () => {
+  const existing = series('compare-status-a');
+  let releaseRead;
+  let markReadStarted;
+  const readGate = new Promise((resolve) => { releaseRead = resolve; });
+  const readStarted = new Promise((resolve) => { markReadStarted = resolve; });
+  let holdRead = true;
+  const { surface, requests } = await mountOwnerSeriesController({
+    profile: profile(), series: [existing],
+    override: async (request, state, snapshot) => {
+      if (request.method === 'PATCH') {
+        state.profile.version += 1;
+        state.series[0].version += 1;
+        state.series[0].description = 'Descripción remota';
+        return jsonResponse({ error: 'SERIES_CONFLICT' }, 409);
+      }
+      if (request.method === 'GET' && request.path === '/api/creador/perfil' && holdRead) {
+        holdRead = false;
+        markReadStarted();
+        await readGate;
+        return jsonResponse(snapshot());
+      }
+      return undefined;
+    },
+  });
+
+  await seriesRow(surface, existing.id).querySelector('[data-series-edit]').dispatch('click');
+  surface.seriesFormFields.description.value = 'Corrección local A';
+  await surface.seriesFormFields.description.dispatch('input');
+  await submit(surface.seriesForm);
+  await surface.seriesFormConflict.querySelector('[data-owner-compare]').dispatch('click');
+  await readStarted;
+  assert.equal(surface.seriesFormStatus.textContent, 'Consultando la serie guardada…');
+  assert.notEqual(surface.pageStatus.textContent, 'Consultando la serie guardada…', 'transient read feedback belongs to the active series form');
+
+  await surface.seriesForm.querySelector('[data-owner-cancel]').dispatch('click');
+  await surface.exitDiscard.dispatch('click');
+  assert.equal(surface.dialog.open, false);
+  await surface.seriesCreateOpen.dispatch('click');
+  surface.seriesFormFields.name.value = 'Ruta nueva B';
+  surface.seriesFormFields.slug.value = 'ruta-nueva-b';
+  surface.seriesFormFields.description.value = 'Descripción local B';
+  await surface.seriesFormFields.slug.dispatch('input');
+  await surface.seriesFormFields.description.dispatch('input');
+
+  releaseRead();
+  await settle();
+  const completedRead = requests.find(({ method, path }) => method === 'GET' && path === '/api/creador/perfil');
+  assert.equal(completedRead.status, 200, 'A’s owner read completed after the next editor opened');
+  assert.equal(surface.seriesFormFields.name.value, 'Ruta nueva B');
+  assert.equal(surface.seriesFormFields.slug.value, 'ruta-nueva-b');
+  assert.equal(surface.seriesFormFields.description.value, 'Descripción local B');
+
+  await surface.seriesForm.querySelector('[data-owner-cancel]').dispatch('click');
+  await surface.exitDiscard.dispatch('click');
+  assert.equal(surface.dialog.open, false);
+  assert.equal(surface.pageStatus.textContent, '', 'discarding B leaves no loading announcement from A');
+  assert.equal(surface.pageStatus.hidden, true);
+});
+
 test('adoptar el orden completo incorpora altas y bajas y conserva el destino pendiente', async () => {
   const targetSeries = series('membership-adopt');
   const a = chapter(0, [{ seriesId: targetSeries.id, position: 0 }]);
@@ -466,4 +526,315 @@ test('adoptar un snapshot incorpora un capítulo remoto antes de validar el sigu
   assert.equal(api.state.links.length, 4);
   assert.ok(api.state.links.find(({ placementId }) => placementId === added.placementId)
     .series.some(({ seriesId }) => seriesId === targetSeries.id));
+});
+
+test('un slug reservado de serie conserva la edición, muestra el error local y permite corregirla', async (t) => {
+  await t.test('crear', async () => {
+    const reserved = series('slug-already-reserved', { slug: 'reservado' });
+    let rejectFirstCreate = true;
+    const { surface, api, requests } = await mountOwnerSeriesController({
+      profile: profile(), series: [reserved],
+      override: (request) => {
+        if (request.method !== 'POST' || request.path !== '/api/creador/series' || !rejectFirstCreate) return undefined;
+        rejectFirstCreate = false;
+        return jsonResponse({ error: 'SERIES_SLUG_TAKEN' }, 409);
+      },
+    });
+
+    await surface.seriesCreateOpen.dispatch('click');
+    surface.seriesFormFields.name.value = 'Ruta nueva';
+    surface.seriesFormFields.slug.value = reserved.slug;
+    await surface.seriesFormFields.slug.dispatch('input');
+    await submit(surface.seriesForm);
+
+    assert.equal(surface.seriesForm.hidden, false);
+    assert.equal(surface.seriesFormFields.slug.value, reserved.slug);
+    assert.equal(surface.seriesFormStatus.textContent, 'La dirección de esta serie ya está reservada. Elige otra dirección.');
+    assert.equal(surface.seriesFormConflict.hidden, true, 'a reserved slug does not open a version comparison for a nonexistent series');
+    assert.equal(surface.seriesFormConflict.querySelector('[data-owner-comparison]').hidden, true);
+    assert.equal(surface.seriesFormConflict.querySelector('[data-owner-adopt]').hidden, true);
+    assert.equal(writes(requests).length, 1);
+
+    surface.seriesFormFields.slug.value = 'ruta-libre';
+    await surface.seriesFormFields.slug.dispatch('input');
+    await submit(surface.seriesForm);
+    assert.equal(writes(requests).length, 2);
+    assert.equal(api.state.series.some(({ slug }) => slug === 'ruta-libre'), true, 'the corrected value can be saved immediately');
+    assert.equal(surface.seriesForm.hidden, true);
+  });
+
+  await t.test('editar', async () => {
+    const existing = series('series-to-rename');
+    const reserved = series('other-series', { slug: 'reservado' });
+    let rejectFirstPatch = true;
+    const { surface, api, requests } = await mountOwnerSeriesController({
+      profile: profile(), series: [existing, reserved],
+      override: (request) => {
+        if (request.method !== 'PATCH' || !rejectFirstPatch) return undefined;
+        rejectFirstPatch = false;
+        return jsonResponse({ error: 'SERIES_SLUG_TAKEN' }, 409);
+      },
+    });
+
+    await seriesRow(surface, existing.id).querySelector('[data-series-edit]').dispatch('click');
+    surface.seriesFormFields.slug.value = reserved.slug;
+    await surface.seriesFormFields.slug.dispatch('input');
+    await submit(surface.seriesForm);
+
+    assert.equal(surface.seriesForm.hidden, false);
+    assert.equal(surface.seriesFormFields.slug.value, reserved.slug);
+    assert.equal(surface.seriesFormStatus.textContent, 'La dirección de esta serie ya está reservada. Elige otra dirección.');
+    assert.equal(surface.seriesFormConflict.hidden, true);
+    assert.equal(surface.seriesFormConflict.querySelector('[data-owner-comparison]').hidden, true);
+    assert.equal(surface.seriesFormConflict.querySelector('[data-owner-adopt]').hidden, true);
+    assert.equal(writes(requests).length, 1);
+
+    surface.seriesFormFields.slug.value = 'ruta-libre';
+    await surface.seriesFormFields.slug.dispatch('input');
+    await submit(surface.seriesForm);
+    assert.equal(writes(requests).length, 2);
+    assert.equal(api.state.series.find(({ id }) => id === existing.id).slug, 'ruta-libre');
+    assert.equal(surface.seriesForm.hidden, true);
+  });
+});
+
+test('un recibo de pertenencia incompatible bloquea mutaciones y sólo reintenta la lectura', async () => {
+  const targetSeries = series('uncertain-receipt');
+  const link = chapter(0);
+  let reads = 0;
+  const { surface, api, requests } = await mountOwnerSeriesController({
+    profile: profile(), links: [link], series: [targetSeries], query: { serie: targetSeries.id },
+    override: (request, state) => {
+      if (request.method === 'PUT' && request.path.endsWith(`/capitulos/${link.placementId}`)) {
+        const serverLink = state.links[0];
+        const beforeProfile = state.profile.version;
+        const beforePlacement = serverLink.placementVersion;
+        state.profile.version += 1;
+        serverLink.placementVersion += 1;
+        serverLink.series.push({ seriesId: targetSeries.id, position: 0 });
+        return jsonResponse({ status: 200, versionChanges: [
+          { entity: 'profile', id: 'wrong-profile', before: beforeProfile, after: state.profile.version },
+          { entity: 'placement', id: 'wrong-placement', before: beforePlacement, after: serverLink.placementVersion },
+        ] });
+      }
+      if (request.method === 'GET' && request.path === '/api/creador/perfil' && ++reads === 1) {
+        return jsonResponse({ error: 'UNAVAILABLE' }, 503);
+      }
+      return undefined;
+    },
+  });
+
+  const add = chapterRow(surface, link.placementId).querySelector('[data-chapter-add]');
+  await add.dispatch('click');
+  await settle();
+  assert.equal(api.state.links[0].series.some(({ seriesId }) => seriesId === targetSeries.id), true, 'the server committed despite the incompatible receipt');
+  assert.equal(reads, 0, 'an incompatible receipt requires an explicit state check before any GET');
+  assert.equal(surface.reconcileRetry.hidden, false, 'an incompatible receipt exposes an explicit read action');
+  assert.equal(surface.reconcileRetry.textContent, 'Comprobar la lista');
+  assert.equal(add.disabled, true, 'the original action stays visibly disabled after the write guard resets');
+  assert.match(surface.addChapterStatus.textContent, /no pudimos confirmar|no sabemos|lectura/i);
+  assert.doesNotMatch(surface.addChapterStatus.textContent, /el cambio quedó confirmado|se agregó/i);
+
+  await add.dispatch('click');
+  assert.equal(writes(requests).filter(({ method }) => method === 'PUT').length, 1, 'a disabled stale control cannot repeat the mutation');
+  assert.equal(reads, 0, 'the blocked click does not start an automatic read');
+  await surface.reconcileRetry.dispatch('click');
+  await settle();
+
+  assert.equal(writes(requests).filter(({ method }) => method === 'PUT').length, 1);
+  assert.equal(reads, 1, 'only the explicit check reads, and it may be retried after an unavailable response');
+  assert.equal(surface.reconcileRetry.hidden, false);
+  assert.equal(surface.reconcileRetry.textContent, 'Volver a comprobar la lista');
+  assert.equal(add.disabled, true);
+  await surface.reconcileRetry.dispatch('click');
+  await settle();
+  assert.equal(writes(requests).filter(({ method }) => method === 'PUT').length, 1);
+  assert.equal(requests.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length, 2);
+  assert.ok(chapterRow(surface, link.placementId).querySelector('[data-chapter-remove]'), 'the successful read adopts the current membership');
+  assert.equal(chapterRow(surface, link.placementId).querySelector('[data-chapter-remove]').disabled, false);
+  assert.equal(surface.reconcileRetry.hidden, true);
+  assert.match(surface.addChapterStatus.textContent, /lista está actualizada|comprueba la pertenencia/i);
+});
+
+test('si el transporte falla después de un commit, comprueba la lista antes de volver a habilitar acciones', async () => {
+  const targetSeries = series('uncertain-transport');
+  const link = chapter(0);
+  let releaseRead;
+  let markReadStarted;
+  const readGate = new Promise((resolve) => { releaseRead = resolve; });
+  const readStarted = new Promise((resolve) => { markReadStarted = resolve; });
+  let holdRead = true;
+  const { surface, api, requests } = await mountOwnerSeriesController({
+    profile: profile(), links: [link], series: [targetSeries], query: { serie: targetSeries.id },
+    override: async (request, state) => {
+      if (request.method === 'PUT' && request.path.endsWith(`/capitulos/${link.placementId}`)) {
+        state.profile.version += 1;
+        state.links[0].placementVersion += 1;
+        state.links[0].series.push({ seriesId: targetSeries.id, position: 0 });
+        throw new Error('connection lost after commit');
+      }
+      if (request.method === 'GET' && request.path === '/api/creador/perfil' && holdRead) {
+        holdRead = false;
+        markReadStarted();
+        await readGate;
+      }
+      return undefined;
+    },
+  });
+
+  const add = chapterRow(surface, link.placementId).querySelector('[data-chapter-add]');
+  await add.dispatch('click');
+  await settle();
+  assert.equal(requests.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length, 0,
+    'a lost transport response never triggers an automatic state adoption');
+  assert.equal(surface.reconcileRetry.hidden, false);
+  assert.equal(surface.reconcileRetry.textContent, 'Comprobar la lista');
+  assert.equal(add.disabled, true, 'mutations stay unavailable while the read is pending');
+  await add.dispatch('click');
+  assert.equal(writes(requests).filter(({ method }) => method === 'PUT').length, 1);
+
+  await surface.reconcileRetry.dispatch('click');
+  await readStarted;
+  assert.equal(add.disabled, true, 'the explicit read keeps mutations unavailable until it completes');
+  await add.dispatch('click');
+  assert.equal(writes(requests).filter(({ method }) => method === 'PUT').length, 1);
+  releaseRead();
+  await settle();
+  assert.equal(api.state.links[0].series.some(({ seriesId }) => seriesId === targetSeries.id), true);
+  assert.equal(writes(requests).filter(({ method }) => method === 'PUT').length, 1);
+  assert.equal(requests.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length, 1);
+  assert.ok(chapterRow(surface, link.placementId).querySelector('[data-chapter-remove]'));
+  assert.equal(surface.reconcileRetry.hidden, true);
+  assert.doesNotMatch(surface.addChapterStatus.textContent, /el cambio quedó confirmado|se agregó/i,
+    'the read proves current state without claiming the transport-failed write was confirmed');
+  assert.match(surface.addChapterStatus.textContent, /comprueba la pertenencia/i);
+});
+
+test('un 409 de Agregar o Quitar vuelve a leer el estado y permite reintentar con versiones actuales', async (t) => {
+  await t.test('Agregar', async () => {
+    const targetSeries = series('membership-conflict-add');
+    const link = chapter(0);
+    let rejectFirst = true;
+    const { surface, api, requests } = await mountOwnerSeriesController({
+      profile: profile(), links: [link], series: [targetSeries], query: { serie: targetSeries.id },
+      override: (request, state) => {
+        if (request.method !== 'PUT' || !rejectFirst) return undefined;
+        rejectFirst = false;
+        state.profile.version += 1;
+        return jsonResponse({ error: 'PROFILE_CONFLICT' }, 409);
+      },
+    });
+
+    await chapterRow(surface, link.placementId).querySelector('[data-chapter-add]').dispatch('click');
+    await settle();
+    assert.equal(requests[0].status, 409);
+    assert.equal(requests.length, 1, 'a conflict does not read/adopt until the user asks to check the list');
+    assert.equal(surface.reconcileRetry.hidden, false);
+    assert.equal(surface.reconcileRetry.textContent, 'Comprobar la lista');
+    assert.equal(chapterRow(surface, link.placementId).querySelector('[data-chapter-add]').disabled, true);
+    assert.equal(api.state.links[0].series.some(({ seriesId }) => seriesId === targetSeries.id), false);
+
+    await surface.reconcileRetry.dispatch('click');
+    await settle();
+    assert.equal(requests[1].method, 'GET');
+    assert.equal(chapterRow(surface, link.placementId).querySelector('[data-chapter-add]').disabled, false);
+
+    await chapterRow(surface, link.placementId).querySelector('[data-chapter-add]').dispatch('click');
+    await settle();
+    assert.equal(writes(requests).filter(({ method }) => method === 'PUT').length, 2);
+    assert.equal(requests[2].method, 'PUT');
+    assert.equal(requests[2].body.profileVersion, 15, 'the retry follows the explicit read and uses its new version');
+    assert.ok(chapterRow(surface, link.placementId).querySelector('[data-chapter-remove]'));
+    assert.equal(api.state.links[0].series.some(({ seriesId }) => seriesId === targetSeries.id), true);
+  });
+
+  await t.test('Quitar', async () => {
+    const targetSeries = series('membership-conflict-remove');
+    const link = chapter(0, [{ seriesId: targetSeries.id, position: 0 }]);
+    let rejectFirst = true;
+    const { surface, api, requests } = await mountOwnerSeriesController({
+      profile: profile(), links: [link], series: [targetSeries], query: { serie: targetSeries.id },
+      override: (request, state) => {
+        if (request.method !== 'DELETE' || !rejectFirst) return undefined;
+        rejectFirst = false;
+        state.profile.version += 1;
+        return jsonResponse({ error: 'PROFILE_CONFLICT' }, 409);
+      },
+    });
+
+    await chapterRow(surface, link.placementId).querySelector('[data-chapter-remove]').dispatch('click');
+    await settle();
+    assert.equal(requests[0].status, 409);
+    assert.equal(requests.length, 1, 'a removal conflict does not read/adopt until the user asks to check the list');
+    assert.equal(surface.reconcileRetry.hidden, false);
+    assert.equal(surface.reconcileRetry.textContent, 'Comprobar la lista');
+    assert.equal(chapterRow(surface, link.placementId).querySelector('[data-chapter-remove]').disabled, true);
+    assert.equal(api.state.links[0].series.some(({ seriesId }) => seriesId === targetSeries.id), true);
+
+    await surface.reconcileRetry.dispatch('click');
+    await settle();
+    assert.equal(requests[1].method, 'GET');
+    assert.equal(chapterRow(surface, link.placementId).querySelector('[data-chapter-remove]').disabled, false);
+
+    await chapterRow(surface, link.placementId).querySelector('[data-chapter-remove]').dispatch('click');
+    await settle();
+    assert.equal(writes(requests).filter(({ method }) => method === 'DELETE').length, 2);
+    assert.equal(requests[2].method, 'DELETE');
+    assert.equal(requests[2].body.profileVersion, 15, 'the retry follows the explicit read and uses its new version');
+    assert.ok(chapterRow(surface, link.placementId).querySelector('[data-chapter-add]'));
+    assert.equal(api.state.links[0].series.some(({ seriesId }) => seriesId === targetSeries.id), false);
+  });
+});
+
+test('filtros, páginas e historial conservan bloqueadas las acciones mientras falta comprobar la lista', async () => {
+  const targetSeries = series('pending-render');
+  const links = Array.from({ length: 27 }, (_, index) => chapter(index,
+    [0, 1, 25].includes(index) ? [{ seriesId: targetSeries.id, position: index * 10 }] : []));
+  const requestedPlacement = links[2].placementId;
+  const { surface, requests } = await mountOwnerSeriesController({
+    profile: profile(), links, series: [targetSeries], query: { serie: targetSeries.id },
+    override: (request) => request.method === 'PUT' && request.path.endsWith(`/capitulos/${requestedPlacement}`)
+      ? jsonResponse({ error: 'UNAVAILABLE' }, 503)
+      : undefined,
+  });
+  const actionButtons = () => surface.chapterRegion.querySelectorAll('[data-chapter-add], [data-chapter-remove], [data-chapter-move]');
+  const assertAllChapterActionsDisabled = (context) => {
+    const buttons = actionButtons();
+    assert.ok(buttons.length > 0, `${context}: the chapter rows remain rendered`);
+    assert.ok(buttons.every((button) => button.disabled), `${context}: every newly rendered membership action stays disabled`);
+  };
+
+  await chapterRow(surface, requestedPlacement).querySelector('[data-chapter-add]').dispatch('click');
+  await settle();
+  assert.equal(surface.reconcileRetry.textContent, 'Comprobar la lista');
+  assertAllChapterActionsDisabled('after uncertain response');
+
+  const chapterFilters = surface.chapterRegion.querySelector('[data-series-chapter-filters]');
+  await chapterFilters.dispatch('submit');
+  assertAllChapterActionsDisabled('after applying the filters');
+
+  const pageTwo = surface.chapterPagination.querySelectorAll('[data-series-chapter-page]')
+    .find((link) => new URL(link.href, surface.window.location.href).searchParams.get('paginaCapitulos') === '2');
+  assert.ok(pageTwo, 'the second chapter page is available');
+  await pageTwo.dispatch('click');
+  assertAllChapterActionsDisabled('after moving to page two');
+  assert.equal(chapterRow(surface, links[25].placementId).querySelector('[data-chapter-move]').disabled, true);
+
+  surface.window.history.back();
+  assertAllChapterActionsDisabled('after browser Back');
+  surface.window.history.forward();
+  assertAllChapterActionsDisabled('after browser Forward');
+
+  const move = chapterRow(surface, links[25].placementId).querySelector('[data-chapter-move]');
+  await move.dispatch('click');
+  assert.equal(surface.moveForm.hidden, true, 'the move dialog cannot open while the membership result is unresolved');
+  assert.equal(writes(requests).filter(({ method, path }) => method === 'POST' && path.endsWith('/mover')).length, 0,
+    'filtering, pagination and attempted movement cannot send a move before the explicit check');
+  assert.equal(requests.filter(({ method }) => method === 'GET').length, 0, 'navigation and filtering do not read automatically');
+
+  await surface.reconcileRetry.dispatch('click');
+  await settle();
+  assert.equal(requests.filter(({ method }) => method === 'GET').length, 1, 'only the explicit check reads the saved state');
+  assert.equal(surface.reconcileRetry.hidden, true);
+  assert.ok(actionButtons().some((button) => !button.disabled), 'a successful explicit read restores chapter actions');
 });
