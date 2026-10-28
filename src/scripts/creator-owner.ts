@@ -2,6 +2,7 @@ import type { CreatorEditableResourceDTO, CreatorEditorDTO, CreatorLinkDTO, Crea
 import { createCreatorFormState, type FormValueSnapshot } from './creator-form-state';
 import { createCreatorSessionRecovery } from './creator-session-recovery';
 import { createCreatorWriteGuard, readCreatorVersionChanges, type CreatorVersionChange } from './creator-write-state';
+import { creatorSeriesFailureMessage } from '../lib/creator-series-editor-errors';
 import {
   creatorOwnerLinksCountLabel,
   creatorOwnerLinkGroup,
@@ -139,6 +140,8 @@ let chapterMoveCompareGeneration = 0;
 let chapterMoveComparisonData: CreatorEditorDTO | undefined;
 let seriesSlugManuallyEdited = false;
 let seriesReconcileReadPending = false;
+type SeriesReconcileOutcome = 'confirmed' | 'uncertain' | 'conflict';
+let seriesReconcileOutcome: SeriesReconcileOutcome = 'confirmed';
 let manualSlug = false;
 let photoUploadId: string | undefined;
 type ProfileFormAction = (event: Event) => Promise<void> | void;
@@ -266,6 +269,7 @@ async function runProfileFormAction(event: Event, action: ProfileFormAction) {
     return;
   }
   await writeGuard?.run(event, () => action(event));
+  if (seriesReconcileReadPending) setChapterActionsUnavailable(true);
   if (!dialog?.open) runPendingExitAction();
 }
 
@@ -533,6 +537,7 @@ function renderOwnerSeries(query = currentSeriesQuery()): CreatorOwnerSeriesQuer
     if (chapterList) {
       chapterList.querySelectorAll<HTMLElement>('[data-chapter-row]').forEach((row) => row.remove());
       for (const link of chapterSelection.rows) chapterList.append(createOwnerChapterRow(link, selectedSeries.id, completeOrder));
+      setChapterActionsUnavailable(seriesReconcileReadPending);
     }
     setSeriesPageLinks(chapterView.querySelector<HTMLElement>('[data-chapter-pagination]'), 'seriesChapterPage', chapterSelection.query, chapterSelection.query.paginaCapitulos, chapterSelection.pageCount);
     const selectedEdit = chapterView.querySelector<HTMLButtonElement>('[data-series-edit]');
@@ -714,6 +719,7 @@ function openSeriesEditor(trigger: HTMLElement, seriesId?: string) {
   const context = form.querySelector<HTMLElement>('[data-series-form-context]');
   if (context) context.textContent = item ? `Editando «${item.name}».` : 'El nombre y la dirección de la serie se guardan juntos.';
   clearAnnouncement(statusFor('serie'));
+  clearAnnouncement(pageStatus);
   formState?.commit(capture(form));
   showDialogForm(form, 'serie', item ? `Editar serie: ${item.name}` : 'Crear serie', trigger);
 }
@@ -744,6 +750,7 @@ function setChapterMoveDescription(form: HTMLFormElement, seriesId: string, plac
 }
 
 function openChapterMove(trigger: HTMLElement) {
+  if (seriesReconcileReadPending) return;
   if (!state?.profile || !dialog) return;
   const seriesId = trigger.closest<HTMLElement>('[data-owner-series-chapters]')?.dataset.seriesId
     || currentSeriesQuery()?.serie;
@@ -1629,8 +1636,13 @@ async function saveSeriesForm(form: HTMLFormElement) {
   try {
     const response = await jsonRequest(path, existing ? 'PATCH' : 'POST', body);
     if (!response.ok) {
-      if (response.status === 409) showSeriesConflict(form);
-      else announceWrite('serie', statusMessage(response.status), 'error');
+      if (response.status === 409) {
+        const failure = await responsePayload(response);
+        if (failure?.error === 'SERIES_SLUG_TAKEN') {
+          clearSeriesConflict(form);
+          announceWrite('serie', await creatorSeriesFailureMessage(response, statusMessage(response.status)), 'error');
+        } else showSeriesConflict(form);
+      } else announceWrite('serie', statusMessage(response.status), 'error');
       return;
     }
     const payload = await responsePayload(response);
@@ -1698,7 +1710,7 @@ async function compareSavedSeries(form: HTMLFormElement) {
   seriesComparisonData = undefined;
   setHidden(form.querySelector('[data-owner-adopt]'), true);
   setHidden(form.querySelector('[data-owner-comparison]'), true);
-  announceWrite('serie', 'Consultando la serie guardada…', 'info');
+  announce(statusFor('serie'), 'Consultando la serie guardada…', 'info');
   try {
     const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
     if (response.status === 401) await sessionRecovery?.observeWriteResponse(response);
@@ -1798,6 +1810,10 @@ function showChapterMoveConflict(form: HTMLFormElement, message = 'El orden de e
 }
 
 async function saveChapterMoveForm(form: HTMLFormElement) {
+  if (seriesReconcileReadPending) {
+    announceWrite('mover-capitulo', 'Comprueba la lista antes de mover otro capítulo.', 'info');
+    return;
+  }
   const context = activeChapterMoveContext;
   const profile = state?.profile;
   const series = context ? seriesById(context.seriesId) : undefined;
@@ -2458,20 +2474,42 @@ function seriesStatus(): HTMLElement | null {
 }
 
 function setChapterActionsUnavailable(unavailable: boolean) {
+  const disabled = unavailable || seriesReconcileReadPending;
   root?.querySelectorAll<HTMLButtonElement>('[data-chapter-add], [data-chapter-remove], [data-chapter-move]').forEach((button) => {
-    button.disabled = unavailable;
+    button.disabled = disabled;
   });
 }
 
-async function reconcileChapterMutation(status: HTMLElement | null, successMessage: string, focusPlacementId: string) {
+function requireChapterStateCheck(status: HTMLElement | null, outcome: 'uncertain' | 'conflict', message: string) {
   const retry = root?.querySelector<HTMLButtonElement>('[data-series-reconcile-retry]');
   seriesReconcileReadPending = true;
+  seriesReconcileOutcome = outcome;
   setChapterActionsUnavailable(true);
-  if (retry) retry.hidden = false;
-  announce(status, `${successMessage} El cambio quedó confirmado; estamos actualizando la lista.`, 'success');
+  if (retry) {
+    retry.textContent = 'Comprobar la lista';
+    retry.hidden = false;
+  }
+  announce(status, message, 'info');
+}
+
+async function reconcileConfirmedChapterMutation(
+  status: HTMLElement | null,
+  focusPlacementId: string,
+  messages: { pending: string; unavailable: string; complete: string },
+) {
+  const retry = root?.querySelector<HTMLButtonElement>('[data-series-reconcile-retry]');
+  seriesReconcileReadPending = true;
+  seriesReconcileOutcome = 'confirmed';
+  setChapterActionsUnavailable(true);
+  if (retry) {
+    retry.textContent = 'Volver a consultar la lista';
+    retry.hidden = true;
+  }
+  announce(status, messages.pending, 'success');
   const reconciled = await reconcileOwnerData();
   if (!reconciled) {
-    announce(status, `${successMessage} El cambio quedó confirmado, pero no pudimos actualizar la lista. Puedes volver a consultar sin repetirlo.`, 'error');
+    if (retry) retry.hidden = false;
+    announce(status, messages.unavailable, 'error');
     return false;
   }
   seriesReconcileReadPending = false;
@@ -2485,7 +2523,7 @@ async function reconcileChapterMutation(status: HTMLElement | null, successMessa
   restoreChapterFocus(focusPlacementId);
   const focus = returnFocus;
   if (focus?.isConnected) window.requestAnimationFrame(() => focus.focus());
-  announce(status, successMessage, 'success');
+  announce(status, messages.complete, 'success');
   return true;
 }
 
@@ -2493,12 +2531,23 @@ async function retrySeriesReconcile() {
   if (!seriesReconcileReadPending) return;
   const status = seriesStatus();
   const retry = root?.querySelector<HTMLButtonElement>('[data-series-reconcile-retry]');
-  if (retry) retry.disabled = true;
-  announce(status, 'Volviendo a consultar la lista…', 'info');
+  if (retry) {
+    retry.disabled = true;
+    retry.textContent = seriesReconcileOutcome === 'confirmed' ? 'Consultando la lista…' : 'Comprobando la lista…';
+  }
+  announce(status, seriesReconcileOutcome === 'confirmed' ? 'Volviendo a consultar la lista…' : 'Comprobando la lista…', 'info');
   const reconciled = await reconcileOwnerData();
-  if (retry) retry.disabled = false;
+  if (retry) {
+    retry.disabled = false;
+    retry.textContent = seriesReconcileOutcome === 'confirmed' ? 'Volver a consultar la lista' : 'Volver a comprobar la lista';
+  }
   if (!reconciled) {
-    announce(status, 'La lectura sigue sin estar disponible. El cambio anterior está confirmado; puedes volver a consultar.', 'error');
+    const message = seriesReconcileOutcome === 'confirmed'
+      ? 'La lectura sigue sin estar disponible. El cambio anterior está confirmado; puedes volver a consultar.'
+      : seriesReconcileOutcome === 'conflict'
+        ? 'La lectura sigue sin estar disponible. No se pudo aplicar el cambio; vuelve a consultar antes de intentarlo de nuevo.'
+        : 'La lectura sigue sin estar disponible. No sabemos si el cambio se guardó; vuelve a consultar antes de intentarlo de nuevo.';
+    announce(status, message, 'error');
     return;
   }
   seriesReconcileReadPending = false;
@@ -2509,7 +2558,10 @@ async function retrySeriesReconcile() {
     const effective = renderOwnerSeries(query);
     if (effective) updateSeriesQuery(effective, 'replace');
   }
-  announce(status, 'La lista ya está actualizada.', 'success');
+  const message = seriesReconcileOutcome === 'confirmed'
+    ? 'La lista ya está actualizada.'
+    : 'La lista está actualizada. Comprueba la pertenencia antes de continuar.';
+  announce(status, message, seriesReconcileOutcome === 'confirmed' ? 'success' : 'info');
 }
 
 async function mutateChapterMembership(placementId: string, action: 'add' | 'remove') {
@@ -2523,9 +2575,20 @@ async function mutateChapterMembership(placementId: string, action: 'add' | 'rem
   if ((action === 'add' && member) || (action === 'remove' && !member)) return;
   const status = seriesStatus();
   const method = action === 'add' ? 'PUT' : 'DELETE';
+  const actionDescription = action === 'add' ? `agregar «${link.title}» a ${series.name}` : `quitar «${link.title}» de ${series.name}`;
+  const uncertainMessage = `No pudimos confirmar si se pudo ${actionDescription}. Comprueba la lista antes de intentar otra acción.`;
+  const conflictMessage = `El estado cambió al intentar ${actionDescription}. Comprueba la lista antes de volver a intentarlo.`;
   try {
     const response = await jsonRequest(`/api/creador/series/${encodeURIComponent(series.id)}/capitulos/${encodeURIComponent(link.placementId)}`, method, { profileVersion: profile.version });
     if (!response.ok) {
+      if (response.status === 409) {
+        requireChapterStateCheck(status, 'conflict', conflictMessage);
+        return;
+      }
+      if (response.status >= 500) {
+        requireChapterStateCheck(status, 'uncertain', uncertainMessage);
+        return;
+      }
       announceWrite('mover-capitulo', statusMessage(response.status), 'error');
       announce(status, statusMessage(response.status), 'error');
       return;
@@ -2539,7 +2602,7 @@ async function mutateChapterMembership(placementId: string, action: 'add' | 'rem
     ];
     const statusMatches = action === 'add' ? response.status === 200 && payload?.status === 200 : response.status === 204;
     if (!statusMatches || placementVersion === undefined || !changesEqual(changes, expected)) {
-      announce(status, 'No pudimos comprobar el recibo del cambio de capítulo. Conservamos la lista y no repetimos la acción.', 'error');
+      requireChapterStateCheck(status, 'uncertain', uncertainMessage);
       return;
     }
     ownerState.profile = { ...profile, version: profile.version + 1 };
@@ -2548,12 +2611,17 @@ async function mutateChapterMembership(placementId: string, action: 'add' | 'rem
       : current);
     root?.setAttribute('data-profile-version', String(profile.version + 1));
     clearRecoveryNotice();
-    const result = await reconcileChapterMutation(status, action === 'add'
+    const successMessage = action === 'add'
       ? `Se agregó «${link.title}» a ${series.name}.`
-      : `Se quitó «${link.title}» de esta serie. El enlace permanece en tu página y en las demás series.`, link.placementId);
+      : `Se quitó «${link.title}» de esta serie. El enlace permanece en tu página y en las demás series.`;
+    const result = await reconcileConfirmedChapterMutation(status, link.placementId, {
+      pending: `${successMessage} El cambio quedó confirmado; estamos actualizando la lista.`,
+      unavailable: `${successMessage} El cambio quedó confirmado, pero no pudimos actualizar la lista. Puedes volver a consultar sin repetirlo.`,
+      complete: successMessage,
+    });
     if (!result) return;
   } catch {
-    announce(status, 'No pudimos confirmar la respuesta del servicio. Revisa la lista antes de volver a intentarlo.', 'error');
+    requireChapterStateCheck(status, 'uncertain', uncertainMessage);
   }
 }
 
