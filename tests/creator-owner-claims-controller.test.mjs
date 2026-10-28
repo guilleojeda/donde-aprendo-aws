@@ -59,7 +59,9 @@ function catalogCheckbox(row) {
 async function selectResource(surface, resourceId) {
   let row = claimCatalogRows(surface).find((candidate) => rowResourceId(candidate) === resourceId);
   if (!row) {
-    await submitCatalogSearch(surface, resourceId);
+    const publicItem = surface.index.find(({ id }) => id === resourceId);
+    assert.ok(publicItem, `public fixture includes ${resourceId}`);
+    await submitCatalogSearch(surface, publicItem.url);
     await waitFor(() => claimCatalogRows(surface).some((candidate) => rowResourceId(candidate) === resourceId),
       `catalog search renders ${resourceId}`);
     row = claimCatalogRows(surface).find((candidate) => rowResourceId(candidate) === resourceId);
@@ -222,7 +224,7 @@ test('selección de solicitudes conserva recursos distintos con la misma URL al 
   assert.deepEqual(normalizedResources(write.body.resources), normalizedResources(expected),
     'selected catalog pairs stay exact and textarea URLs become separate URL-only resources');
   assert.equal(write.body.evidence, 'Evidencia opcional y privada');
-  assert.doesNotMatch(JSON.stringify(write.body), /profileVersion|title|description|sourceId|resourceIds/i,
+  assert.doesNotMatch(JSON.stringify(write.body), /"(?:profileVersion|title|description|sourceId|resourceIds)"\s*:/i,
     'the request includes no profile version, catalog metadata, legacy source ID or joined ID list');
   assert.equal(byPath(requests, '/api/creador/referencias', 'POST').length, 0,
     'requesting edit permission does not call Add to my page');
@@ -281,7 +283,10 @@ test('una ficha compartida se puede preseleccionar por su URL aunque no esté en
       ? Response.json({ error: 'temporarily-unavailable' }, { status: 503 })
       : undefined,
   });
-  await surface.rows[0].claimOpen.dispatch('click');
+  const sharedAction = surface.root.querySelectorAll('[data-claim-open]')
+    .find(({ dataset }) => dataset.resourceId === 'resource-hidden-shared');
+  assert.ok(sharedAction, 'the mounted shared row retains its request action');
+  await sharedAction.dispatch('click');
   await waitFor(() => !surface.claimForm.hidden && !surface.catalogView.hidden,
     'the shared link request action opens the common request form');
   await waitFor(() => byPath(requests, INDEX_PATH, 'GET').length === 1);
@@ -342,7 +347,8 @@ test('409 por un par observado viejo requiere revisar el índice y volver a conf
   } else {
     await surface.catalogRetry.dispatch('click');
   }
-  await waitFor(() => indexReads >= 2 && claimCatalogRows(surface).length === 1,
+  await waitFor(() => indexReads >= 2 && claimCatalogRows(surface).length === 1
+    && textOf(claimCatalogRows(surface)[0]).includes('Título público actual'),
     'the owner can review the updated public pair');
   assert.match(textOf(claimCatalogRows(surface)[0]), /Título público actual/);
   assert.equal(byPath(requests, CLAIM_PATH, 'POST').length, 1);
@@ -633,6 +639,9 @@ test('401 y CSRF requieren recuperación de la misma sesión y reintento manual;
       assert.ok(check && !check.hidden, 'session recovery is available in the active dialog');
       await check.dispatch('click');
       await waitFor(() => byPath(requests, '/api/creador/sesion', 'GET').length === 1);
+      await waitFor(() => /Sesión comprobada|otra cuenta o tiene otros permisos/i.test(
+        surface.dialog.querySelector('[data-session-recovery-status]').textContent),
+      'the asynchronous session check completes before deciding whether to retry');
       assert.equal(requests.find(({ path }) => path === '/api/creador/sesion').headers.get('X-Creator-Page-Binding'),
         PRIVATE_BINDING);
       assert.equal(byPath(requests, CLAIM_PATH, 'POST').length, 1,

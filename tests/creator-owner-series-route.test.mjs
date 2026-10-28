@@ -241,7 +241,7 @@ test('la navegación privada conserva accesos a Enlaces, Estadísticas y Solicit
   assertPrivate(result.response, result.html);
   contains(result.html, /vista=enlaces/, 'the owner can return to links');
   contains(result.html, /vista=estadisticas[^" ]*periodo=30[^" ]*pagina=1/, 'statistics retains its own query contract');
-  contains(result.html, /cuenta\/creador\//, 'the secondary claims workflow remains reachable');
+  contains(result.html, /vista=solicitudes/, 'the secondary claims workflow remains reachable inside Tu página');
   contains(visibleText(result.html), /Solicitudes/, 'the secondary route is labeled for claims');
   for (const name of ['datos', 'redes', 'foto']) {
     assert.equal(forms(result.html).filter(({ attrs }) => new RegExp(`data-owner-form="${name}"`, 'i').test(attrs)).length, 1,

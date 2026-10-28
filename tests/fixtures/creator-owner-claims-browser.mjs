@@ -55,6 +55,8 @@ export function createCreatorOwnerClaimsSurface({
 } = {}) {
   const surface = createCreatorOwnerCatalogSurface({ profile, links, editableResources, series, query, index });
   const { root, dialog, catalogView, document } = surface;
+  surface.catalogSearchForm.setAttribute('id', 'owner-catalog-search-form');
+  surface.catalogSearchForm.setAttribute('method', 'get');
   const initial = document.getElementById('creator-owner-data');
   const initialData = JSON.parse(initial.textContent);
   initialData.claims = structuredClone(claims);
@@ -145,6 +147,7 @@ export function createCreatorOwnerClaimsSurface({
   return {
     ...surface,
     root, document, dialog, catalogView, claimsSection, requestEdit,
+    navigation: root.querySelectorAll('a').find(({ dataset }) => dataset.ownerNavigation !== undefined),
     claimForm, claimUrls, claimEvidence, claimStatus, claimCheck, claimSubmit, claimCancel,
     claimHistory, claimListRows,
   };
