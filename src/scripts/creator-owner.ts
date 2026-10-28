@@ -158,6 +158,8 @@ let catalogNeedsRefresh = false;
 let catalogComparisonData: CreatorEditorDTO | undefined;
 let catalogComparisonGeneration = 0;
 let catalogSubmitting = false;
+let catalogSubmittingResourceId: string | undefined;
+let catalogSubmittingDirectory: boolean | undefined;
 let catalogConflictKind: 'profile' | 'link' | 'receipt' | undefined;
 let catalogProfileCompared = false;
 let catalogIndexRefreshed = false;
@@ -429,7 +431,10 @@ function renderCatalogResults() {
   const pageCount = Math.max(1, Math.ceil(matches.length / 25));
   catalogPageNumber = Math.min(Math.max(1, catalogPageNumber), pageCount);
   const visible = matches.slice((catalogPageNumber - 1) * 25, catalogPageNumber * 25);
-  if (count) count.textContent = `${matches.length} ${matches.length === 1 ? 'resultado' : 'resultados'}`;
+  if (count) {
+    setHidden(count, catalogEntries === undefined);
+    if (catalogEntries !== undefined) count.textContent = `${matches.length} ${matches.length === 1 ? 'resultado' : 'resultados'}`;
+  }
   if (pageLabel) pageLabel.textContent = `Página ${catalogPageNumber} de ${pageCount}`;
   if (previous) previous.disabled = catalogPageNumber <= 1;
   if (next) next.disabled = catalogPageNumber >= pageCount;
@@ -479,6 +484,8 @@ async function loadCatalog({ refresh = false }: { refresh?: boolean } = {}): Pro
   if (catalogLoad) return catalogLoad;
   const retry = catalogControl<HTMLButtonElement>('[data-catalog-retry]');
   if (retry) retry.hidden = true;
+  setHidden(catalogControl('[data-catalog-count]'), catalogEntries === undefined);
+  setHidden(catalogControl('[data-catalog-empty]'), true);
   announce(statusFor('referencia'), refresh ? 'Actualizando el catálogo…' : 'Cargando el catálogo…', 'info');
   catalogPanel()?.setAttribute('aria-busy', 'true');
   const request = (async () => {
@@ -514,6 +521,11 @@ async function loadCatalog({ refresh = false }: { refresh?: boolean } = {}): Pro
       announce(statusFor('referencia'), 'Catálogo actualizado. Revisa el recurso antes de volver a agregarlo.', 'info');
     } else if (parsed.length === 0) {
       announce(statusFor('referencia'), 'El catálogo no tiene recursos disponibles en este momento.', 'info');
+    } else if (catalogSearchQuery) {
+      const matches = parsed.filter((item) => catalogMatchesQuery(item, catalogSearchQuery)).length;
+      announce(statusFor('referencia'), matches
+        ? `${matches} ${matches === 1 ? 'resultado' : 'resultados'} para la búsqueda.`
+        : 'No hay recursos que coincidan con la búsqueda.', 'info');
     } else {
       clearAnnouncement(statusFor('referencia'));
     }
@@ -552,25 +564,72 @@ function openCatalog(trigger: HTMLElement) {
   void loadCatalog();
 }
 
+function reopenCatalogSelection(resourceId: string, searchQuery: string, pageNumber: number) {
+  const trigger = catalogControl<HTMLElement>('[data-catalog-open]');
+  const item = catalogEntries?.find((candidate) => candidate.id === resourceId);
+  if (!trigger || !item) {
+    announce(statusFor('referencia'), 'La ficha que elegiste ya no está disponible en este catálogo. Actualízalo antes de continuar.', 'error');
+    return;
+  }
+  openCatalog(trigger);
+  catalogSearchQuery = searchQuery;
+  catalogPageNumber = pageNumber;
+  const search = catalogControl<HTMLInputElement>('[data-catalog-search]');
+  if (search) search.value = searchQuery;
+  catalogSelection = item;
+  catalogSelectionCurrent = true;
+  catalogSelectionBaseline = undefined;
+  const matches = (catalogEntries ?? []).filter((candidate) => catalogMatchesQuery(candidate, catalogSearchQuery));
+  const matchIndex = matches.findIndex((candidate) => candidate.id === resourceId);
+  if (matchIndex >= 0) catalogPageNumber = Math.floor(matchIndex / 25) + 1;
+  const form = catalogForm();
+  const directory = form && field(form, 'selectedForDirectory') as HTMLInputElement | null;
+  catalogDirectoryBaseline = directory?.checked ?? true;
+  renderCatalogResults();
+  const selected = [...(catalogControl<HTMLUListElement>('[data-catalog-results]')?.querySelectorAll<HTMLElement>('[data-catalog-row]') ?? [])]
+    .find((row) => row.dataset.catalogRow === resourceId)
+    ?.querySelector<HTMLElement>('[data-catalog-select]');
+  if (selected) window.requestAnimationFrame(() => selected.focus());
+}
+
 function selectCatalogItem(target: HTMLInputElement) {
+  const row = target.closest<HTMLElement>('[data-catalog-row]');
+  const resourceId = row?.dataset.catalogRow;
+  if (!resourceId) return;
   if (!target.checked) {
-    const row = target.closest<HTMLElement>('[data-catalog-row]');
-    if (row?.dataset.catalogRow === catalogSelection?.id) catalogSelection = undefined;
+    if (resourceId === catalogSelection?.id) catalogSelection = undefined;
   } else {
-    const row = target.closest<HTMLElement>('[data-catalog-row]');
-    const id = row?.dataset.catalogRow;
-    const item = catalogEntries?.find((candidate) => candidate.id === id);
+    if (pendingCatalogOptionCorrection && resourceId !== pendingCatalogOptionCorrection.resourceId) {
+      target.checked = false;
+      const trigger = catalogControl<HTMLElement>('[data-catalog-open]');
+      const searchQuery = catalogSearchQuery;
+      const pageNumber = catalogPageNumber;
+      showExitPrompt(() => reopenCatalogSelection(resourceId, searchQuery, pageNumber), trigger ?? undefined);
+      return;
+    }
+    const directory = field(catalogForm(), 'selectedForDirectory') as HTMLInputElement | null;
+    const currentDirectory = directory?.checked ?? catalogSubmittingDirectory;
+    const submittedLink = catalogSubmittingResourceId
+      ? state?.links.find(({ resourceId: id }) => id === catalogSubmittingResourceId)
+      : undefined;
+    const directoryCorrectionPending = catalogSubmittingDirectory !== undefined
+      && currentDirectory !== catalogSubmittingDirectory
+      && (!submittedLink || currentDirectory !== submittedLink.selectedForDirectory);
+    if (catalogSubmitting && catalogSubmittingResourceId !== resourceId && directoryCorrectionPending) {
+      target.checked = false;
+      announce(statusFor('referencia'), 'Espera a que termine de agregar esta ficha antes de cambiar de selección; su opción todavía está en revisión.', 'info');
+      return;
+    }
+    const item = catalogEntries?.find((candidate) => candidate.id === resourceId);
     if (!item) return;
     catalogSelection = item;
     catalogSelectionCurrent = true;
   }
   renderCatalogResults();
-  const selectedRow = catalogSelection
-    ? [...(catalogControl<HTMLUListElement>('[data-catalog-results]')?.querySelectorAll<HTMLElement>('[data-catalog-row]') ?? [])]
-      .find((row) => row.dataset.catalogRow === catalogSelection?.id)
-    : undefined;
-  const selected = selectedRow?.querySelector<HTMLElement>('[data-catalog-select]');
-  if (selected) window.requestAnimationFrame(() => selected.focus());
+  const focusRow = [...(catalogControl<HTMLUListElement>('[data-catalog-results]')?.querySelectorAll<HTMLElement>('[data-catalog-row]') ?? [])]
+    .find((candidate) => candidate.dataset.catalogRow === resourceId);
+  const focusTarget = focusRow?.querySelector<HTMLElement>('[data-catalog-select]');
+  if (focusTarget) window.requestAnimationFrame(() => focusTarget.focus());
 }
 
 function resetCatalogReference(form: HTMLFormElement) {
@@ -935,8 +994,47 @@ function restoreCatalogReferenceNotice() {
   lastCatalogReferenceMessage = undefined;
 }
 
-function openCatalogCorrectionOptions(trigger: HTMLElement): boolean {
+function refreshPendingCatalogOptionCorrection() {
   const correction = pendingCatalogOptionCorrection;
+  if (!correction) return undefined;
+  const link = state?.links.find(({ placementId }) => placementId === correction.placementId);
+  const directory = field(catalogForm(), 'selectedForDirectory') as HTMLInputElement | null;
+  if (!link || !directory) return correction;
+  catalogDirectoryBaseline = link.selectedForDirectory;
+  pendingCatalogOptionCorrection = directory.checked === link.selectedForDirectory
+    ? undefined
+    : { ...correction, selectedForDirectory: directory.checked };
+  return pendingCatalogOptionCorrection;
+}
+
+function updateCatalogOptionCorrection() {
+  if (catalogSubmitting) return;
+  const previousCorrection = pendingCatalogOptionCorrection;
+  let correction = refreshPendingCatalogOptionCorrection();
+  const directory = field(catalogForm(), 'selectedForDirectory') as HTMLInputElement | null;
+  if (!correction && catalogSelection && directory) {
+    const link = state?.links.find(({ resourceId }) => resourceId === catalogSelection?.id);
+    if (link) {
+      catalogDirectoryBaseline = link.selectedForDirectory;
+      if (directory.checked !== link.selectedForDirectory) {
+        correction = {
+          resourceId: link.resourceId,
+          placementId: link.placementId,
+          selectedForDirectory: directory.checked,
+        };
+        pendingCatalogOptionCorrection = correction;
+      }
+    }
+  }
+  setCatalogSelectionLabel();
+  if (correction) return;
+  if (!previousCorrection) return;
+  if (!hasPendingChanges()) catalogResetSelectionOnNextOpen = true;
+  announce(statusFor('referencia'), 'La opción de la propuesta vuelve a coincidir con la que está guardada.', 'info');
+}
+
+function openCatalogCorrectionOptions(trigger: HTMLElement): boolean {
+  const correction = refreshPendingCatalogOptionCorrection();
   if (!correction || !state?.profile || !dialog) return false;
   const link = state.links.find(({ placementId }) => placementId === correction.placementId);
   if (!link || link.resourceId !== correction.resourceId) {
@@ -1667,11 +1765,9 @@ function closeDialog({ navigate = true }: { navigate?: boolean } = {}) {
 }
 
 function hasPendingChanges(): boolean {
-  const changedControls = formState?.hasPendingChanges() ?? false;
-  if (activeEditor !== 'referencia' || activeForm !== catalogForm()) return changedControls;
+  if (activeEditor !== 'referencia' || activeForm !== catalogForm()) return formState?.hasPendingChanges() ?? false;
   const directory = field(activeForm, 'selectedForDirectory') as HTMLInputElement | null;
-  return changedControls
-    || catalogConflictKind !== undefined
+  return catalogConflictKind !== undefined
     || catalogNeedsRefresh
     || !catalogSelectionCurrent
     || pendingCatalogOptionCorrection !== undefined
@@ -3329,6 +3425,8 @@ async function saveCatalogReference(form: HTMLFormElement) {
   const requestedForDirectory = directory?.checked ?? true;
   const profile = state.profile;
   catalogSubmitting = true;
+  catalogSubmittingResourceId = item.id;
+  catalogSubmittingDirectory = requestedForDirectory;
   form.setAttribute('aria-busy', 'true');
   setCatalogSelectionLabel();
   try {
@@ -3384,17 +3482,19 @@ async function saveCatalogReference(form: HTMLFormElement) {
       const currentDirectory = directory?.checked ?? requestedForDirectory;
       const sameSelection = sameCatalogSelection(catalogSelectionKey(), submittedSelection);
       const directoryChangedDuringRequest = currentDirectory !== requestedForDirectory;
-      if (sameSelection && directoryChangedDuringRequest && currentDirectory !== link.selectedForDirectory) {
-        pendingCatalogOptionCorrection = {
-          resourceId: link.resourceId,
-          placementId: link.placementId,
-          selectedForDirectory: currentDirectory,
-        };
+      if (sameSelection) {
         catalogDirectoryBaseline = link.selectedForDirectory;
-      } else {
         pendingCatalogOptionCorrection = undefined;
-        catalogDirectoryBaseline = currentDirectory;
-        if (directoryChangedDuringRequest) formState?.commit(capture(form));
+        if (directoryChangedDuringRequest && currentDirectory !== link.selectedForDirectory) {
+          pendingCatalogOptionCorrection = {
+            resourceId: link.resourceId,
+            placementId: link.placementId,
+            selectedForDirectory: currentDirectory,
+          };
+        } else if (!directoryChangedDuringRequest && directory && currentDirectory !== link.selectedForDirectory) {
+          directory.checked = link.selectedForDirectory;
+        }
+        if (!pendingCatalogOptionCorrection) formState?.commit(capture(form));
       }
       setCatalogSelectionLabel();
       const unchanged = !hasPendingChanges();
@@ -3424,14 +3524,16 @@ async function saveCatalogReference(form: HTMLFormElement) {
     catalogSelectionBaseline = submittedSelection;
     const currentDirectory = directory?.checked ?? requestedForDirectory;
     const sameSelection = sameCatalogSelection(catalogSelectionKey(), submittedSelection);
-    if (sameSelection && currentDirectory !== link.selectedForDirectory) {
-      pendingCatalogOptionCorrection = {
+    if (sameSelection) {
+      catalogDirectoryBaseline = link.selectedForDirectory;
+      pendingCatalogOptionCorrection = currentDirectory === link.selectedForDirectory ? undefined : {
         resourceId: link.resourceId,
         placementId: link.placementId,
         selectedForDirectory: currentDirectory,
       };
+    } else {
+      pendingCatalogOptionCorrection = undefined;
     }
-    catalogDirectoryBaseline = link.selectedForDirectory;
     setCatalogSelectionLabel();
     const unchanged = !hasPendingChanges();
     if (unchanged) {
@@ -3446,7 +3548,9 @@ async function saveCatalogReference(form: HTMLFormElement) {
       announceWrite('enlace', message, 'info');
       announce(statusFor('referencia'), message, 'info');
     } else {
-      const message = 'La referencia se agregó. Conservamos la corrección que hiciste durante el envío; revísala y guárdala en las opciones de esta colocación.';
+      const message = sameSelection
+        ? 'La referencia se agregó. Conservamos la corrección que hiciste durante el envío; revísala y guárdala en las opciones de esta colocación.'
+        : 'La referencia se agregó. Conservamos la selección que elegiste durante el envío; agrégala cuando quieras.';
       lastCatalogReferenceMessage = message;
       announceWrite('enlace', message, 'info');
       announce(statusFor('referencia'), message, 'info');
@@ -3456,6 +3560,8 @@ async function saveCatalogReference(form: HTMLFormElement) {
     showCatalogReceiptConflict(form);
   } finally {
     catalogSubmitting = false;
+    catalogSubmittingResourceId = undefined;
+    catalogSubmittingDirectory = undefined;
     form.removeAttribute('aria-busy');
     setCatalogSelectionLabel();
   }
@@ -3893,6 +3999,7 @@ if (root && state && csrfToken && dialog) {
       event.preventDefault();
       catalogSearchQuery = String(field(navigation, 'buscarCatalogo')?.value ?? '').trim();
       catalogPageNumber = 1;
+      if (catalogEntries === undefined || catalogNeedsRefresh) return;
       renderCatalogResults();
       const matches = (catalogEntries ?? []).filter((item) => catalogMatchesQuery(item, catalogSearchQuery)).length;
       announce(statusFor('referencia'), matches
@@ -4112,6 +4219,10 @@ if (root && state && csrfToken && dialog) {
     const target = event.target;
     if (target instanceof HTMLElement && target.tagName === 'INPUT' && target.matches('[data-catalog-select]')) {
       selectCatalogItem(target as HTMLInputElement);
+      return;
+    }
+    if (target instanceof HTMLElement && target.tagName === 'INPUT' && target.matches('[data-catalog-directory]')) {
+      updateCatalogOptionCorrection();
     }
   });
 
