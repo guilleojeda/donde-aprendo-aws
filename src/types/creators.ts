@@ -84,6 +84,15 @@ export interface CreatorEditableResourceDTO {
   version: number;
 }
 
+export type CreatorCatalogResourceType = 'content' | 'source' | 'community' | 'event';
+
+export interface CreatorCatalogSelectionDTO {
+  id: string;
+  title: string;
+  url: string;
+  tipo: CreatorCatalogResourceType;
+}
+
 export interface CreatorClaimDTO {
   id: string;
   resourceIds: string[];

@@ -34,7 +34,10 @@ const visibleFilters = [query.serie !== 'todos', query.directorio !== 'todos', q
       <h2 id="owner-links-title">Enlaces</h2>
       <p data-link-count>{creatorOwnerLinksCountLabel(selection.totalMatches, selection.totalLinks)}</p>
     </div>
-    <button class="button button--dark" type="button" data-link-add-open>Agregar enlace</button>
+    <div class="creator-owner__link-actions">
+      <button class="button button--outline" type="button" data-catalog-open>Buscar en el catálogo</button>
+      <button class="button button--dark" type="button" data-link-add-open>Agregar enlace</button>
+    </div>
   </header>
 
   {queryError ? (

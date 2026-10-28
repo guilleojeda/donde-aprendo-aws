@@ -1356,15 +1356,30 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     selectedForDirectory = true,
     checks = [],
     returnExistingOnConflict = true,
+    checkExistingConditions = false,
+    linkDtoBuilder = buildLinkDto,
   } = {}) {
     if (!isCatalogResource(resource)) fail(503, 'INVALID_RESOURCE', 'a catalog control row cannot be attached as a resource');
     const stableId = placementId(profile.id, resource.id);
-    const existing = await store.get(placementKey(profile.id, stableId));
+    const stablePlacementKey = placementKey(profile.id, stableId);
+    const existing = await store.get(stablePlacementKey);
     if (existing) {
       if (existing.id !== stableId || existing.profileId !== profile.id || existing.resourceId !== resource.id) {
         fail(503, 'INVALID_PLACEMENT', 'existing placement does not match its resource');
       }
-      return { link: await buildLinkDto(existing), created: false, versionChanges: [] };
+      if (checkExistingConditions) {
+        const placementVersion = storedVersion(existing.version, 'placement', { legacyZero: true });
+        const ok = await store.transact({
+          checks: [
+            { key: profileKey(profile.id), version: storedVersion(profile.version, 'profile') },
+            ...checks,
+            { key: stablePlacementKey, version: placementVersion },
+          ],
+          puts: [],
+        });
+        if (!ok) fail(409, 'LINK_CONFLICT', 'link changed while checking the existing reference');
+      }
+      return { link: await linkDtoBuilder(existing, resource), created: false, versionChanges: [] };
     }
 
     const placements = await getPlacements(profile.id);
@@ -1386,15 +1401,15 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     });
     if (!ok) {
       if (returnExistingOnConflict) {
-        const winner = await store.get(placementKey(profile.id, stableId));
+        const winner = await store.get(stablePlacementKey);
         if (winner?.id === stableId && winner.profileId === profile.id && winner.resourceId === resource.id) {
-          return { link: await buildLinkDto(winner), created: false };
+          return { link: await linkDtoBuilder(winner, resource), created: false };
         }
       }
       fail(409, 'LINK_CONFLICT', 'link changed while adding');
     }
     return {
-      link: await buildLinkDto(placement), created: true,
+      link: await linkDtoBuilder(placement, resource), created: true,
       versionChanges: versionChanges(
         versionChange('profile', profile.id, profile.version, updatedProfile.version),
         versionChange('placement', stableId, 0, placement.version),
@@ -1449,6 +1464,76 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         { key: referenceKey, version: reference.version },
       ],
       returnExistingOnConflict: false,
+    });
+  }
+
+  async function referenceResource(principal, body) {
+    if (Object.hasOwn(body, 'version')) fail(400, 'UNKNOWN_FIELD', 'unsupported field: version');
+    assertKnownFields(body, new Set(['resourceId', 'url', 'profileVersion', 'selectedForDirectory']));
+    if (typeof body.resourceId !== 'string' || body.resourceId.length === 0) {
+      fail(422, 'INVALID_RESOURCE_ID', 'resourceId must identify a catalog resource');
+    }
+    if (body.profileVersion === undefined) fail(400, 'PROFILE_VERSION_REQUIRED', 'profileVersion is required');
+    const expectedProfileVersion = validVersion(body.profileVersion);
+    const url = validateResourceUrl(body.url);
+    if (body.selectedForDirectory !== undefined && typeof body.selectedForDirectory !== 'boolean') {
+      fail(422, 'INVALID_SELECTION', 'selectedForDirectory must be boolean');
+    }
+    const selectedForDirectory = body.selectedForDirectory ?? true;
+
+    const profile = await getRequiredOwnerProfile(principal);
+    const profileVersion = storedVersion(profile.version, 'profile');
+    if (expectedProfileVersion !== profileVersion) {
+      fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before referencing catalog content');
+    }
+
+    const resourceKey = `resource:${body.resourceId}`;
+    const resource = await store.get(resourceKey);
+    if (!resource || resource.id !== body.resourceId || !isCatalogResource(resource)) {
+      fail(404, 'RESOURCE_NOT_FOUND', 'resource does not exist');
+    }
+    const resourceVersion = storedVersion(resource.version, 'resource', { legacyZero: true });
+    const currentUrl = currentResourceUrl(resource);
+    try {
+      validateResourceUrl(currentUrl);
+    } catch {
+      fail(503, 'INVALID_RESOURCE', 'resource URL is malformed');
+    }
+    if (url !== currentUrl) {
+      fail(409, 'RESOURCE_CONFLICT', 'resource changed; reload before referencing catalog content');
+    }
+
+    const reservationKey = currentUrlKey(url);
+    const reservation = await store.get(reservationKey);
+    if (reservation?.status === 'collision') {
+      fail(409, 'URL_COLLISION', 'this URL needs administrative review');
+    }
+    if (!reservation || reservation.recordType !== 'urlReservation' || reservation.status !== 'reserved'
+      || reservation.url !== url || reservation.resourceId !== resource.id) {
+      fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation does not match the selected resource');
+    }
+    const reservationVersion = storedVersion(reservation.version, 'resource');
+
+    const currentSeries = await seriesForProfile(profile.id);
+    const seriesById = new Map(currentSeries.map((series) => [series.id, series]));
+    const currentSeriesIds = new Set(seriesById.keys());
+    const linkDtoBuilder = (placement, currentResource) => linkDtoFromRecords(
+      placement,
+      currentResource,
+      seriesById,
+      currentSeriesIds,
+      { includeModerationState: true },
+    );
+
+    return attachExistingResource(profile, resource, {
+      selectedForDirectory,
+      checks: [
+        { key: resourceKey, version: resourceVersion },
+        { key: reservationKey, version: reservationVersion },
+      ],
+      returnExistingOnConflict: false,
+      checkExistingConditions: true,
+      linkDtoBuilder,
     });
   }
 
@@ -2665,6 +2750,12 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       requireMethod(request, 'POST');
       requireWriteRequest(request, principal);
       return writeJsonResponse(await publishProfile(principal, await parseRequestBody(request)));
+    }
+    if (path === '/api/creador/referencias') {
+      requireMethod(request, 'POST');
+      requireWriteRequest(request, principal);
+      const result = await referenceResource(principal, await parseRequestBody(request));
+      return writeJsonResponse(result, result.created ? 201 : 200);
     }
     if (path === '/api/creador/enlaces') {
       requireMethod(request, 'POST');
