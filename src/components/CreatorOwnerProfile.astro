@@ -5,10 +5,12 @@ import type { CreatorStatisticsPageLoad } from '../pages/cuenta/_statistics-page
 import AccountLogout from './AccountLogout.astro';
 import CreatorOwnerActivity from './CreatorOwnerActivity.astro';
 import CreatorOwnerLinks from './CreatorOwnerLinks.astro';
+import CreatorOwnerSeries from './CreatorOwnerSeries.astro';
 import CreatorStatistics from './CreatorStatistics.astro';
 import { DEFAULT_CREATOR_OWNER_LINKS_QUERY, type CreatorOwnerLinksQuery } from '../lib/creator-owner-links';
+import { DEFAULT_CREATOR_OWNER_SERIES_QUERY, type CreatorOwnerSeriesQuery } from '../lib/creator-owner-series';
 
-type OwnerView = 'enlaces' | 'estadisticas';
+type OwnerView = 'enlaces' | 'series' | 'estadisticas';
 
 interface Props {
   data: CreatorEditorDTO;
@@ -21,10 +23,12 @@ interface Props {
   view: OwnerView;
   linksQuery?: CreatorOwnerLinksQuery;
   linksQueryError?: string;
+  seriesQuery?: CreatorOwnerSeriesQuery;
+  seriesQueryError?: string;
   statistics?: CreatorStatisticsPageLoad;
 }
 
-const { data, accountEmail, logoutCsrfToken, csrfToken, sessionBinding, isAdmin, publicOrigin, view, linksQuery = DEFAULT_CREATOR_OWNER_LINKS_QUERY, linksQueryError, statistics } = Astro.props;
+const { data, accountEmail, logoutCsrfToken, csrfToken, sessionBinding, isAdmin, publicOrigin, view, linksQuery = DEFAULT_CREATOR_OWNER_LINKS_QUERY, linksQueryError, seriesQuery = DEFAULT_CREATOR_OWNER_SERIES_QUERY, seriesQueryError, statistics } = Astro.props;
 const profile = data.profile;
 const initialStatisticsPeriod = statistics?.period ?? 30;
 const photoPath = profile?.photo?.version !== undefined
@@ -144,16 +148,15 @@ function safeSocialUrl(value: string | undefined): string | undefined {
         <p class="creator-owner__status" data-owner-copy-status role="status" aria-live="polite"></p>
       </section>
 
-      {profile && view === 'enlaces' && <CreatorOwnerActivity profile={profile} />}
-      <nav class="creator-owner__link-tools" aria-label="Otras herramientas de creador">
-        <a class="button button--outline" data-owner-navigation href="/cuenta/creador/">Series y solicitudes</a>
-        <a
-          class="button button--outline"
-          data-owner-navigation
-          href={view === 'estadisticas' ? '/cuenta/?vista=enlaces' : '/cuenta/?vista=estadisticas&periodo=30&pagina=1'}
-        >{view === 'estadisticas' ? 'Volver a tu página' : 'Ver estadísticas'}</a>
+      {profile && (view === 'enlaces' || view === 'series') && <CreatorOwnerActivity profile={profile} />}
+      <nav class="creator-owner__link-tools" aria-label="Secciones de Tu página">
+        <a class="button button--outline" data-owner-navigation aria-current={view === 'enlaces' ? 'page' : undefined} href="/cuenta/?vista=enlaces">Enlaces</a>
+        <a class="button button--outline" data-owner-navigation aria-current={view === 'series' ? 'page' : undefined} href="/cuenta/?vista=series">Series</a>
+        <a class="button button--outline" data-owner-navigation aria-current={view === 'estadisticas' ? 'page' : undefined} href="/cuenta/?vista=estadisticas&amp;periodo=30&amp;pagina=1">Estadísticas</a>
+        <a class="button button--outline" data-owner-navigation href="/cuenta/creador/">Solicitudes</a>
       </nav>
       {view === 'enlaces' && <CreatorOwnerLinks data={data} query={linksQuery} queryError={linksQueryError} />}
+      {view === 'series' && <CreatorOwnerSeries data={data} query={seriesQuery} queryError={seriesQueryError} />}
       {profile && view === 'estadisticas' && (
         statistics && statistics.state !== 'no-profile' && statistics.state !== 'not-published'
           ? <CreatorStatistics result={statistics} />
@@ -292,6 +295,35 @@ function safeSocialUrl(value: string | undefined): string | undefined {
             <button class="button button--outline" type="button" data-owner-compare>Comparar con el orden guardado</button>
             <div data-owner-comparison hidden></div>
             <button class="button button--outline" type="button" data-owner-adopt hidden>Usar las versiones guardadas</button>
+          </section>
+          <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit">Guardar posición</button><button class="button button--outline" type="button" data-owner-cancel>Cancelar</button></div>
+        </form>
+
+        <form class="creator-owner__form" data-owner-form="serie" data-series-form hidden>
+          <p class="creator-owner__form-context" data-series-form-context></p>
+          <div class="creator-owner__field"><label for="owner-series-name">Nombre de la serie</label><input id="owner-series-name" name="name" maxlength="120" required data-series-name-suggestion /></div>
+          <div class="creator-owner__field"><label for="owner-series-slug">Dirección de la serie</label><div class="creator-owner__slug-field"><span aria-hidden="true">/series/</span><input id="owner-series-slug" name="slug" required minlength="3" maxlength="40" pattern="[a-z0-9]+(-[a-z0-9]+)*" autocomplete="off" autocapitalize="none" spellcheck="false" data-series-slug-suggestion /></div><small>3–40 caracteres: minúsculas, números y guiones sencillos.</small></div>
+          <div class="creator-owner__field"><label for="owner-series-description">Descripción <span>(opcional)</span></label><textarea id="owner-series-description" name="description" rows="4" maxlength="2000"></textarea></div>
+          <p class="creator-owner__status" data-owner-form-status="serie" role="status" aria-live="polite"></p>
+          <section class="creator-owner__conflict" data-owner-conflict data-series-conflict hidden aria-labelledby="owner-series-conflict-title">
+            <h3 id="owner-series-conflict-title">La serie cambió</h3><p data-owner-conflict-copy></p>
+            <button class="button button--outline" type="button" data-owner-compare>Comparar con lo guardado</button>
+            <div data-owner-comparison hidden></div>
+            <button class="button button--outline" type="button" data-owner-adopt hidden>Usar la versión guardada</button>
+          </section>
+          <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit">Guardar serie</button><button class="button button--outline" type="button" data-owner-cancel>Cancelar</button></div>
+        </form>
+
+        <form class="creator-owner__form" data-owner-form="mover-capitulo" data-chapter-move-form hidden aria-label="Mover capítulo en la serie">
+          <p class="creator-owner__move-context" data-chapter-move-context aria-live="polite"></p>
+          <div class="creator-owner__field"><label for="owner-chapter-target-position">Posición en esta serie</label><input id="owner-chapter-target-position" name="targetPosition" type="number" min="1" step="1" required inputmode="numeric" aria-describedby="owner-chapter-move-context" /></div>
+          <p class="creator-owner__status" data-owner-form-status="mover-capitulo" role="status" aria-live="polite"></p>
+          <div data-chapter-move-suggestion-shell hidden><button class="button button--outline" type="button" data-chapter-move-suggestion></button></div>
+          <section class="creator-owner__conflict" data-owner-conflict data-chapter-move-conflict hidden aria-labelledby="owner-chapter-conflict-title">
+            <h3 id="owner-chapter-conflict-title">El orden de capítulos cambió</h3><p data-owner-conflict-copy></p>
+            <button class="button button--outline" type="button" data-owner-compare>Comparar con el orden guardado</button>
+            <div data-owner-comparison hidden></div>
+            <button class="button button--outline" type="button" data-owner-adopt hidden>Usar el orden guardado</button>
           </section>
           <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit">Guardar posición</button><button class="button button--outline" type="button" data-owner-cancel>Cancelar</button></div>
         </form>

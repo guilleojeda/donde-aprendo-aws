@@ -792,9 +792,13 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     };
   }
 
-  async function getPlacements(profileId) {
-    const rows = await store.list(`placement:${profileId}:`);
+  async function getPlacements(profileId, { includeStoredVersionPresence = false } = {}) {
+    const rows = await store.list(
+      `placement:${profileId}:`,
+      includeStoredVersionPresence ? { includeStoredVersionPresence: true } : undefined,
+    );
     const placements = [];
+    const placementsWithoutStoredVersion = new Set();
     for (const row of rows) {
       if (!row || !row.value || typeof row.key !== 'string') fail(503, 'INVALID_PLACEMENT', 'placement list is malformed');
       const placement = row.value;
@@ -802,8 +806,11 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         fail(503, 'INVALID_PLACEMENT', 'placement list contains an unrelated row');
       }
       placements.push(placement);
+      if (includeStoredVersionPresence && row.storedVersionPresent === false) {
+        placementsWithoutStoredVersion.add(placement.id);
+      }
     }
-    return placements;
+    return includeStoredVersionPresence ? { placements, placementsWithoutStoredVersion } : placements;
   }
 
   function cleanSeries(record, profileId, expectedId) {
@@ -1816,6 +1823,256 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     throw error;
   }
 
+  async function moveSeriesChapter(principal, seriesId, placementId, body) {
+    const allowed = new Set(['profileVersion', 'seriesVersion', 'placementVersion', 'targetPosition']);
+    assertKnownFields(body, allowed);
+    if (Object.hasOwn(body, 'version')) fail(400, 'UNKNOWN_FIELD', 'unsupported field: version');
+    for (const field of ['profileVersion', 'seriesVersion', 'placementVersion', 'targetPosition']) {
+      if (body[field] === undefined) fail(400, `${field.toUpperCase()}_REQUIRED`, `${field} is required`);
+    }
+
+    const expectedProfileVersion = validVersion(body.profileVersion);
+    const expectedSeriesVersion = validVersion(body.seriesVersion);
+    const expectedPlacementVersion = validVersion(body.placementVersion);
+    if (!Number.isSafeInteger(body.targetPosition) || body.targetPosition < 1) {
+      fail(422, 'INVALID_POSITION', 'targetPosition must be a positive ordinal');
+    }
+
+    const profile = await getRequiredOwnerProfile(principal);
+    const profileVersion = storedVersion(profile.version, 'profile');
+    if (expectedProfileVersion !== profileVersion) fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before moving');
+
+    const storedSeries = await store.get(seriesKey(profile.id, seriesId));
+    if (!storedSeries || storedSeries.profileId !== profile.id || storedSeries.id !== seriesId) {
+      fail(404, 'SERIES_NOT_FOUND', 'series does not belong to this profile');
+    }
+    const selectedSeries = cleanSeries(storedSeries, profile.id, seriesId);
+    if (expectedSeriesVersion !== selectedSeries.version) fail(409, 'SERIES_CONFLICT', 'series changed; reload before moving');
+
+    const series = await seriesForProfile(profile.id);
+    const seriesById = new Map(series.map((item) => [item.id, item]));
+    seriesById.set(seriesId, selectedSeries);
+    const currentSeriesIds = new Set(seriesById.keys());
+    const { placements, placementsWithoutStoredVersion } = await getPlacements(profile.id, {
+      includeStoredVersionPresence: true,
+    });
+    const target = placements.find((placement) => placement.id === placementId);
+    if (!target) fail(404, 'PLACEMENT_NOT_FOUND', 'placement does not belong to this profile');
+    const targetVersion = storedVersion(target.version, 'placement', { legacyZero: true });
+    if (expectedPlacementVersion !== targetVersion) fail(409, 'PLACEMENT_CONFLICT', 'placement changed; reload before moving');
+
+    const members = [];
+    const placementById = new Map();
+    for (const placement of placements) {
+      const memberships = placementSeriesMap(placement, currentSeriesIds);
+      placementById.set(placement.id, placement);
+      if (Object.hasOwn(memberships, seriesId)) {
+        members.push({ id: placement.id, position: memberships[seriesId].position });
+      }
+    }
+    if (!Object.hasOwn(target.series ?? {}, seriesId)) {
+      fail(404, 'SERIES_MEMBERSHIP_NOT_FOUND', 'placement is not in this series');
+    }
+    members.sort((left, right) => compareOrderPosition(left.position, left.id, right.position, right.id));
+    const currentIndex = members.findIndex((placement) => placement.id === placementId);
+    if (currentIndex < 0) fail(404, 'SERIES_MEMBERSHIP_NOT_FOUND', 'placement is not in this series');
+    if (body.targetPosition > members.length) fail(422, 'INVALID_POSITION', 'targetPosition exceeds the series membership');
+
+    const desired = [...members];
+    desired.splice(currentIndex, 1);
+    desired.splice(body.targetPosition - 1, 0, members[currentIndex]);
+    const sameOrder = desired.every((placement, index) => placement.id === members[index].id);
+    const physicalProfileSize = (value) => dynamoDbItemSize({
+      ...value,
+      pk: `PROFILE#${profile.id}`,
+      sk: 'META',
+    });
+    const physicalSeriesSize = dynamoDbItemSize({
+      ...storedSeries,
+      pk: `PROFILE#${profile.id}`,
+      sk: `SERIES#${seriesId}`,
+    });
+    const placementSizeCache = new Map();
+    const physicalPlacementSize = (placement) => {
+      if (!placementSizeCache.has(placement.id)) {
+        const normalizedSize = dynamoDbItemSize({
+          ...placement,
+          pk: `PROFILE#${profile.id}`,
+          sk: `PLACEMENT#${placement.id}`,
+        });
+        placementSizeCache.set(placement.id, placementsWithoutStoredVersion.has(placement.id)
+          ? normalizedSize - dynamoDbNumberSize(placement.version, 'version')
+          : normalizedSize);
+      }
+      return placementSizeCache.get(placement.id);
+    };
+    const moveLimitError = (viablePosition) => {
+      const error = new ApiError(422, 'ORDER_MOVE_LIMIT', 'the order move exceeds DynamoDB transaction limits');
+      if (viablePosition !== undefined) error.details = { viablePosition };
+      return error;
+    };
+    const currentTargetCheck = { key: placementKey(profile.id, placementId), version: targetVersion };
+    const seriesCheck = { key: seriesKey(profile.id, seriesId), version: expectedSeriesVersion };
+
+    if (sameOrder) {
+      const profileBytes = physicalProfileSize(profile);
+      const targetBytes = physicalPlacementSize(target);
+      if (profileBytes > MAX_DYNAMODB_ITEM_BYTES || physicalSeriesSize > MAX_DYNAMODB_ITEM_BYTES
+        || targetBytes > MAX_DYNAMODB_ITEM_BYTES
+        || profileBytes + physicalSeriesSize + targetBytes > MAX_DYNAMODB_TRANSACTION_BYTES) {
+        throw moveLimitError();
+      }
+      const link = await makeSeriesMoveResponseLink(target, seriesById, currentSeriesIds);
+      if (!await store.transact({
+        checks: [
+          { key: profileKey(profile.id), version: profileVersion },
+          seriesCheck,
+          currentTargetCheck,
+        ],
+      })) fail(409, 'SERIES_CONFLICT', 'profile, series, or chapter changed while moving');
+      return { links: [link], versionChanges: [] };
+    }
+
+    const updatedProfile = {
+      ...profile,
+      version: nextVersion(profileVersion, 'profile'),
+      updatedAt: timestamp(),
+    };
+    const profileBytes = physicalProfileSize(updatedProfile);
+    let foundVersionExhaustion = false;
+    const candidatePlacementSizeCache = new Map();
+    const physicalCandidatePlacementSize = (placement, position) => {
+      const cacheKey = `${placement.id}\u0000${position}`;
+      if (candidatePlacementSizeCache.has(cacheKey)) return candidatePlacementSizeCache.get(cacheKey);
+      const version = storedVersion(placement.version, 'placement', { legacyZero: true });
+      if (version >= Number.MAX_SAFE_INTEGER) {
+        foundVersionExhaustion = true;
+        return null;
+      }
+      const oldPosition = placement.series[seriesId].position;
+      const oldVersionBytes = placementsWithoutStoredVersion.has(placement.id)
+        ? 0
+        : dynamoDbNumberSize(placement.version, 'version');
+      const size = physicalPlacementSize(placement)
+        - dynamoDbNumberSize(oldPosition, 'position')
+        - oldVersionBytes
+        + dynamoDbNumberSize(position, 'position')
+        + dynamoDbNumberSize(version + 1, 'version');
+      candidatePlacementSizeCache.set(cacheKey, size);
+      return size;
+    };
+    const evaluateCandidate = (candidate) => {
+      const targetChanged = candidate.positionChanges.some((change) => change.placementId === placementId);
+      const actionCount = 2 + candidate.positionChanges.length + (targetChanged ? 0 : 1);
+      if (actionCount > 100) return null;
+
+      let candidateBytes = profileBytes + physicalSeriesSize;
+      for (const change of candidate.positionChanges) {
+        const placement = placementById.get(change.placementId);
+        const itemSize = physicalCandidatePlacementSize(placement, change.position);
+        if (itemSize === null || itemSize > MAX_DYNAMODB_ITEM_BYTES) return null;
+        candidateBytes += itemSize;
+      }
+      if (!targetChanged) {
+        const targetBytes = physicalPlacementSize(target);
+        if (targetBytes > MAX_DYNAMODB_ITEM_BYTES) return null;
+        candidateBytes += targetBytes;
+      }
+      if (profileBytes > MAX_DYNAMODB_ITEM_BYTES || physicalSeriesSize > MAX_DYNAMODB_ITEM_BYTES
+        || candidateBytes > MAX_DYNAMODB_TRANSACTION_BYTES) return null;
+
+      return {
+        ...candidate,
+        targetChanged,
+        candidateBytes,
+        targetDisplacement: Math.abs(candidate.targetPosition - members[currentIndex].position),
+      };
+    };
+    const findPlan = (ordinal) => {
+      let best = null;
+      for (const candidate of placementMovePositionCandidates(members, placementId, ordinal)) {
+        if (best && candidate.windowLength > best.windowLength) break;
+        const evaluated = evaluateCandidate(candidate);
+        if (!evaluated) continue;
+        if (!best || evaluated.positionChanges.length < best.positionChanges.length
+          || (evaluated.positionChanges.length === best.positionChanges.length
+            && evaluated.candidateBytes < best.candidateBytes)
+          || (evaluated.positionChanges.length === best.positionChanges.length
+            && evaluated.candidateBytes === best.candidateBytes
+            && evaluated.targetDisplacement < best.targetDisplacement)) {
+          best = evaluated;
+        }
+      }
+      return best;
+    };
+
+    const plan = findPlan(body.targetPosition);
+    if (plan) {
+      let mutations;
+      try {
+        mutations = plan.positionChanges.map((change) => {
+          const placement = placementById.get(change.placementId);
+          return buildPlacementMutation(profile.id, placement, {
+            series: {
+              ...placement.series,
+              [seriesId]: { ...placement.series[seriesId], position: change.position },
+            },
+          });
+        });
+      } catch (error) {
+        if (error instanceof ApiError && error.code === 'PLACEMENT_TOO_LARGE') throw moveLimitError();
+        throw error;
+      }
+      const changedPlacements = mutations.map((mutation) => mutation.placement);
+      const updatedPlacements = new Map(changedPlacements.map((placement) => [placement.id, placement]));
+      const responsePlacements = [target, ...changedPlacements.filter((placement) => placement.id !== placementId)]
+        .map((placement) => updatedPlacements.get(placement.id) ?? placement);
+      const links = await Promise.all(responsePlacements.map((placement) =>
+        makeSeriesMoveResponseLink(placement, seriesById, currentSeriesIds)));
+      const checks = [
+        { key: profileKey(profile.id), version: profileVersion },
+        seriesCheck,
+        ...mutations.flatMap((mutation) => mutation.checks),
+        ...(!plan.targetChanged ? [currentTargetCheck] : []),
+      ];
+      const puts = [
+        ...mutations.flatMap((mutation) => mutation.puts),
+        { key: profileKey(profile.id), value: updatedProfile },
+      ];
+      if (!await store.transact({ checks, puts })) fail(409, 'SERIES_CONFLICT', 'profile, series, or chapter changed while moving');
+      return {
+        links,
+        versionChanges: versionChanges(
+          versionChange('profile', profile.id, profileVersion, updatedProfile.version),
+          ...mutations.map((mutation) => versionChange(
+            'placement', mutation.placement.id, mutation.before, mutation.placement.version,
+          )),
+        ),
+      };
+    }
+
+    const currentOrdinal = currentIndex + 1;
+    const direction = Math.sign(body.targetPosition - currentOrdinal);
+    let viablePosition;
+    for (let ordinal = body.targetPosition - direction; direction !== 0 && ordinal !== currentOrdinal; ordinal -= direction) {
+      if (findPlan(ordinal)) {
+        viablePosition = ordinal;
+        break;
+      }
+    }
+    if (foundVersionExhaustion && viablePosition === undefined) {
+      fail(409, 'PLACEMENT_VERSION_EXHAUSTED', 'placement version cannot be incremented safely');
+    }
+    throw moveLimitError(viablePosition);
+  }
+
+  async function makeSeriesMoveResponseLink(placement, seriesById, currentSeriesIds) {
+    const resource = await store.get(`resource:${placement.resourceId}`);
+    if (!resource || resource.id !== placement.resourceId) fail(503, 'MISSING_RESOURCE', 'placement points to missing resource data');
+    if (!isCatalogResource(resource)) fail(503, 'INVALID_RESOURCE', 'placement points to a non-resource catalog row');
+    return linkDtoFromRecords(placement, resource, seriesById, currentSeriesIds, { includeModerationState: true });
+  }
+
   async function patchPlacement(principal, id, body) {
     assertKnownFields(body, new Set(['position', 'featured', 'selectedForDirectory', 'profileVersion']), PROTECTED_PLACEMENT_FIELDS);
     const profile = await getRequiredOwnerProfile(principal);
@@ -2367,6 +2624,17 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         return writeJsonResponse(await createCreatorSeries(principal, body), 201);
       }
       fail(405, 'METHOD_NOT_ALLOWED', 'method not allowed');
+    }
+    const seriesChapterMoveMatch = path.match(/^\/api\/creador\/series\/([^/]+)\/capitulos\/([^/]+)\/mover$/);
+    if (seriesChapterMoveMatch) {
+      requireMethod(request, 'POST');
+      requireWriteRequest(request, principal);
+      return writeJsonResponse(await moveSeriesChapter(
+        principal,
+        decodeSegment(seriesChapterMoveMatch[1]),
+        decodeSegment(seriesChapterMoveMatch[2]),
+        await parseRequestBody(request),
+      ));
     }
     const seriesChapterMatch = path.match(/^\/api\/creador\/series\/([^/]+)\/capitulos\/([^/]+)$/);
     if (seriesChapterMatch) {

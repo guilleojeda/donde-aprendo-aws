@@ -179,6 +179,166 @@
   min-width: 0;
 }
 
+.creator-owner__link-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: min(100%, 760px);
+  margin-inline: auto;
+}
+
+.creator-owner__link-tools [aria-current="page"] {
+  border-color: var(--color-accent-text);
+  font-weight: 700;
+}
+
+.creator-owner__series {
+  display: grid;
+  gap: 18px;
+  width: min(100%, 900px);
+  min-width: 0;
+  margin-inline: auto;
+  padding: clamp(20px, 4vw, 32px);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface);
+  box-shadow: 0 10px 32px var(--color-shadow);
+}
+
+.creator-owner__series > header,
+.creator-owner__series-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.creator-owner__series h2,
+.creator-owner__series h3,
+.creator-owner__series h4 {
+  min-width: 0;
+  margin: 0;
+  color: var(--color-heading);
+  overflow-wrap: anywhere;
+}
+
+.creator-owner__series h2 { font-size: clamp(1.35rem, 3vw, 1.8rem); }
+.creator-owner__series h3 { font-size: clamp(1.1rem, 2.5vw, 1.35rem); }
+.creator-owner__series h4 { font-size: 1rem; }
+
+.creator-owner__series-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(140px, 0.45fr) auto;
+  align-items: end;
+  gap: 10px 14px;
+}
+
+.creator-owner__series-filters label {
+  color: var(--color-heading);
+  font-weight: 700;
+}
+
+.creator-owner__series-filters input,
+.creator-owner__series-filters select {
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 11px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.creator-owner__series-filters input:focus-visible,
+.creator-owner__series-filters select:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.creator-owner__series-count,
+.creator-owner__series-context p,
+.creator-owner__series-copy p,
+.creator-owner__chapter-copy p {
+  margin: 5px 0 0;
+  color: var(--color-text-muted);
+}
+
+.creator-owner__series-list,
+.creator-owner__chapter-list {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.creator-owner__series-row,
+.creator-owner__chapter {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface-subtle);
+}
+
+.creator-owner__series-copy,
+.creator-owner__chapter-copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.creator-owner__series-actions,
+.creator-owner__chapter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.creator-owner__chapter-copy > a {
+  display: inline-block;
+  max-width: 100%;
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+}
+
+.creator-owner__series-context {
+  justify-content: start;
+}
+
+.creator-owner__series-context > div {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.creator-owner__pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.creator-owner__pagination > span {
+  margin-inline-end: auto;
+  color: var(--color-text-muted);
+}
+
+.creator-owner__empty {
+  margin: 0;
+  padding: 16px;
+  border: 1px dashed var(--color-border);
+  border-radius: 10px;
+  color: var(--color-text-muted);
+}
+
 .creator-owner__activity {
   display: grid;
   gap: 18px;
@@ -1024,6 +1184,26 @@
 
   .creator-owner__link-filters {
     grid-template-columns: 1fr;
+  }
+
+  .creator-owner__series-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .creator-owner__series-row,
+  .creator-owner__chapter {
+    flex-direction: column;
+  }
+
+  .creator-owner__series-actions,
+  .creator-owner__chapter-actions {
+    justify-content: stretch;
+    width: 100%;
+  }
+
+  .creator-owner__series-actions .button,
+  .creator-owner__chapter-actions .button {
+    flex: 1 1 160px;
   }
 
   .creator-owner__links-heading,
