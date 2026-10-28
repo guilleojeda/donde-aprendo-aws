@@ -100,10 +100,12 @@ test('sin enlaces no hay movimiento; con 1, 50 y 58 enlaces cada fila SSR ofrece
   assert.equal(moveForm(fiftyEight.html).body.match(/name="targetPosition"/gi)?.length, 1);
 });
 
-test('mover no reintroduce controles de orden viejos y conserva las acciones residuales de series y solicitudes', async () => {
+test('la ruta residual conserva IDs compartidos y solicitudes, sin controles de serie o capítulo', async () => {
   await app.resetRuntime();
+  await app.createProfile({ session: 'creator-b', slug: 'bea-mover-residual' });
+  const shared = await app.addLink({ session: 'creator-b', index: 0, title: 'Guía compartida', url: 'https://move.example/shared' });
   await app.createProfile({ slug: 'ana-mover-residual' });
-  const first = await app.addLink({ index: 0, title: 'Capítulo uno' });
+  const first = await app.addLink({ index: 0, title: 'Guía compartida', url: 'https://move.example/shared' });
   const second = await app.addLink({ index: 1, title: 'Capítulo dos' });
   const series = await app.createSeries();
   await app.assignChapter(series.id, first.placementId);
@@ -117,11 +119,15 @@ test('mover no reintroduce controles de orden viejos y conserva las acciones res
 
   const residual = await app.render({ pathname: '/cuenta/creador/' });
   assertPrivate(residual.response, residual.html);
-  assert.match(visibleText(residual.html), /Capítulo uno|Capítulo dos/);
-  assert.match(visibleText(residual.html), /Serie conservada/);
+  assert.match(visibleText(residual.html), /Guía compartida|Capítulo dos/);
+  assert.doesNotMatch(visibleText(residual.html), /Serie conservada|Crear serie/,
+    'series management now lives under the owner view');
+  assert.match(residual.html, new RegExp(`data-resource-id-value="${shared.resourceId}"`),
+    'the shared resource ID remains available to the claims workflow');
   assert.doesNotMatch(residual.html, /\bdata-move=/i, 'placement order controls are removed from the legacy route too');
   assert.doesNotMatch(residual.html, /\bdata-link-order-form/i);
-  assert.match(residual.html, /\bdata-series-move=/i, 'chapter ordering remains available until its planned phase');
+  assert.doesNotMatch(residual.html, /\bdata-series-(?:create-form|form|move|add-chapter-form|remove-chapter)|\bdata-delete-series/i,
+    'the legacy route no longer renders series or chapter controls');
   assert.match(residual.html, /\bdata-claim-form/i, 'claims remain available until their planned phase');
 });
 

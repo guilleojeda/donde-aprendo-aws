@@ -325,8 +325,11 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
     throw new TypeError(`unsupported profile scan prefix: ${prefix}`);
   }
 
-  async function list(prefix) {
+  async function list(prefix, { includeStoredVersionPresence = false } = {}) {
     if (typeof prefix !== 'string') throw new TypeError('prefix must be a string');
+    if (includeStoredVersionPresence && !/^placement:[^:]+:$/.test(prefix)) {
+      throw new TypeError('stored version presence is available only for a profile placement query');
+    }
     if (prefix.startsWith('series:') && prefix !== 'series:') {
       const match = prefix.match(/^series:([^:]+):$/);
       const profileId = match?.[1];
@@ -369,6 +372,7 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
         return {
           key: `placement:${storedProfileId}:${placementId}`,
           value: cleanItem(row),
+          ...(includeStoredVersionPresence ? { storedVersionPresent: Object.hasOwn(row, 'version') } : {}),
         };
       });
     }

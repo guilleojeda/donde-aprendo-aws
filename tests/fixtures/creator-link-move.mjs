@@ -22,7 +22,7 @@ function storageKey(value) {
 
 // DynamoDB stored-attribute accounting for the actual command images below.
 // This measures the request; it does not decide the move window or its oracle.
-function storedAttributeBytes(value, name = '') {
+function storedValueBytes(value, name = '') {
   if (value === undefined) return 0;
   const nameBytes = Buffer.byteLength(name, 'utf8');
   if (typeof value === 'string') return nameBytes + Buffer.byteLength(value, 'utf8');
@@ -34,13 +34,19 @@ function storedAttributeBytes(value, name = '') {
   if (typeof value === 'boolean' || value === null) return nameBytes + 1;
   if (Array.isArray(value)) {
     return nameBytes + 3 + value.filter((item) => item !== undefined)
-      .reduce((sum, item) => sum + 1 + storedAttributeBytes(item), 0);
+      .reduce((sum, item) => sum + 1 + storedValueBytes(item), 0);
   }
   if (typeof value === 'object') {
     return nameBytes + 3 + Object.entries(value).filter(([, item]) => item !== undefined)
-      .reduce((sum, [key, item]) => sum + 1 + storedAttributeBytes(item, key), 0);
+      .reduce((sum, [key, item]) => sum + 1 + storedValueBytes(item, key), 0);
   }
   throw new TypeError('unsupported test item value');
+}
+
+// A DynamoDB item is the sum of its root attributes, not a Map attribute.
+export function storedAttributeBytes(item) {
+  return Object.entries(item).filter(([, value]) => value !== undefined)
+    .reduce((sum, [name, value]) => sum + storedValueBytes(value, name), 0);
 }
 
 function transactionImageBytes(actions, read) {

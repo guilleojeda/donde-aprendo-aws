@@ -1,0 +1,160 @@
+---
+import type { CreatorEditorDTO } from '../types/creators';
+import {
+  creatorOwnerChapterOrder,
+  creatorOwnerSeriesHref,
+  selectCreatorOwnerChapters,
+  selectCreatorOwnerSeries,
+  type CreatorOwnerSeriesQuery,
+} from '../lib/creator-owner-series';
+
+interface Props {
+  data: CreatorEditorDTO;
+  query: CreatorOwnerSeriesQuery;
+  queryError?: string;
+}
+
+const { data, query, queryError } = Astro.props;
+const seriesSelection = selectCreatorOwnerSeries(data.series, query);
+const selectedSeries = data.series.find(({ id }) => id === query.serie);
+const chapterSelection = selectedSeries ? selectCreatorOwnerChapters(data, query) : undefined;
+const chapterPositions = new Map<string, number>();
+if (selectedSeries && chapterSelection) {
+  chapterSelection.completeOrder.forEach((link, index) => chapterPositions.set(link.placementId, index + 1));
+}
+const seriesPageHref = (page: number) => creatorOwnerSeriesHref({ ...seriesSelection.query, paginaSeries: page });
+const chapterPageHref = (page: number) => creatorOwnerSeriesHref({ ...query, paginaCapitulos: page });
+const seriesCountLabel = `${seriesSelection.totalMatches} ${seriesSelection.totalMatches === 1 ? 'serie' : 'series'}`;
+const chapterCountLabel = `${chapterSelection?.totalMatches ?? 0} ${(chapterSelection?.totalMatches ?? 0) === 1 ? 'coincidencia' : 'coincidencias'} de ${data.links.length} ${(data.links.length === 1) ? 'enlace' : 'enlaces'}`;
+const selectedChapterIds = new Set(chapterSelection?.completeOrder.map(({ placementId }) => placementId) ?? []);
+const canPublishSeries = Boolean(data.profile?.published && !data.profile.hidden);
+const chaptersBase = selectedSeries ? creatorOwnerChapterOrder(data.links, selectedSeries.id) : [];
+const publicSeriesPath = selectedSeries && canPublishSeries && data.profile && chaptersBase.some((link) => !link.hidden)
+  ? `/c/${encodeURIComponent(data.profile.slug)}/series/${encodeURIComponent(selectedSeries.slug)}/`
+  : undefined;
+---
+
+<section class="creator-owner__series" data-owner-series aria-labelledby="owner-series-title">
+  <header class="creator-owner__section-heading">
+    <div>
+      <p class="creator-owner__eyebrow">Rutas de aprendizaje</p>
+      <h2 id="owner-series-title">Series</h2>
+    </div>
+    <button class="button button--dark" type="button" data-series-create-open>Crear serie</button>
+  </header>
+
+  {queryError && <p class="creator-owner__status creator-owner__status--error" data-series-query-error role="alert">La consulta de series no es válida. Revisa la serie, el filtro o la página seleccionada.</p>}
+
+  <section class="creator-owner__chapter-view" data-owner-series-chapters hidden={Boolean(queryError) || !selectedSeries} aria-labelledby="owner-series-chapters-title">
+    <header class="creator-owner__series-context">
+      <a class="button button--outline" data-series-back href={creatorOwnerSeriesHref({ ...query, serie: '', buscarCapitulos: '', pertenencia: 'todos', paginaCapitulos: 1 })}>Volver a series</a>
+      <div>
+        <h3 id="owner-series-chapters-title" data-series-context-name>{selectedSeries?.name ?? ''}</h3>
+        <p data-series-chapter-summary>{chaptersBase.length} {chaptersBase.length === 1 ? 'capítulo guardado' : 'capítulos guardados'} en el orden completo.</p>
+      </div>
+      <button class="button button--outline" type="button" data-series-edit data-series-id={selectedSeries?.id ?? ''}>Editar serie</button>
+    </header>
+    <p>
+      <a
+        data-series-public
+        href={publicSeriesPath}
+        hidden={!publicSeriesPath}
+      >Abrir serie pública</a>
+    </p>
+    <form class="creator-owner__series-filters" method="get" action="/cuenta/" data-series-chapter-filters>
+      <input type="hidden" name="vista" value="series" />
+      <input type="hidden" name="serie" value={selectedSeries?.id ?? query.serie} />
+      <input type="hidden" name="buscarSeries" value={query.buscarSeries} />
+      <input type="hidden" name="paginaSeries" value={query.paginaSeries} />
+      <label for="owner-chapter-search">Buscar en tus enlaces</label>
+      <input id="owner-chapter-search" name="buscarCapitulos" type="search" value={query.buscarCapitulos} data-chapter-search autocomplete="off" />
+      <label for="owner-chapter-membership">Pertenencia</label>
+      <select id="owner-chapter-membership" name="pertenencia" data-chapter-membership>
+        <option value="todos" selected={query.pertenencia === 'todos'}>Todos los enlaces</option>
+        <option value="incluidos" selected={query.pertenencia === 'incluidos'}>Incluidos</option>
+        <option value="disponibles" selected={query.pertenencia === 'disponibles'}>Disponibles</option>
+      </select>
+      <input type="hidden" name="paginaCapitulos" value={chapterSelection?.query.paginaCapitulos ?? 1} />
+      <button class="button button--outline" type="submit">Aplicar filtros</button>
+    </form>
+    <p class="creator-owner__series-count" data-chapter-count>{chapterCountLabel}</p>
+    <ol class="creator-owner__chapter-list" data-chapter-rows>
+      {chapterSelection?.rows.map((link) => {
+        const position = chapterPositions.get(link.placementId);
+        const included = selectedChapterIds.has(link.placementId);
+        return (
+          <li class="creator-owner__chapter" data-chapter-row={link.placementId} data-placement-id={link.placementId}>
+            <div class="creator-owner__chapter-copy">
+              <h4>{link.title}</h4>
+              <a href={link.url} target="_blank" rel="noopener noreferrer">{link.url}</a>
+              <p>{included ? `Incluido en la posición ${position} de ${chaptersBase.length}` : 'Disponible para agregar'}</p>
+              {link.hidden && <span class="creator-owner__badge">Oculto en catálogo</span>}
+            </div>
+            <div class="creator-owner__chapter-actions">
+              {included ? (
+                <>
+                  <button class="button button--outline" type="button" data-chapter-move data-placement-id={link.placementId}>Mover capítulo</button>
+                  <button class="button button--outline" type="button" data-chapter-remove data-placement-id={link.placementId}>Quitar capítulo</button>
+                </>
+              ) : (
+                <button class="button button--outline" type="button" data-chapter-add data-placement-id={link.placementId}>Agregar capítulo</button>
+              )}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+    <p class="creator-owner__empty" data-chapter-empty hidden={!chapterSelection || chapterSelection.rows.length > 0}>
+      {chapterSelection?.totalMatches ? 'No hay enlaces en esta página.' : 'No hay enlaces que coincidan con esta búsqueda y pertenencia.'}
+    </p>
+    <nav class="creator-owner__pagination" data-chapter-pagination aria-label="Páginas de enlaces">
+      <span>Página {chapterSelection?.query.paginaCapitulos ?? 1} de {chapterSelection?.pageCount ?? 1}</span>
+      {chapterSelection && chapterSelection.query.paginaCapitulos > 1 && <a class="button button--outline" data-series-chapter-page href={chapterPageHref(chapterSelection.query.paginaCapitulos - 1)}>Anterior</a>}
+      {chapterSelection && chapterSelection.query.paginaCapitulos < chapterSelection.pageCount && <a class="button button--outline" data-series-chapter-page href={chapterPageHref(chapterSelection.query.paginaCapitulos + 1)}>Siguiente</a>}
+    </nav>
+    <p class="creator-owner__status" data-series-write-status role="status" aria-live="polite"></p>
+    <button class="button button--outline" type="button" data-series-reconcile-retry hidden>Volver a consultar la lista</button>
+  </section>
+  <section class="creator-owner__series-list-view" data-owner-series-list-view hidden={Boolean(queryError) || Boolean(query.serie)}>
+      <form class="creator-owner__series-filters" method="get" action="/cuenta/" data-series-filters>
+        <input type="hidden" name="vista" value="series" />
+        <label for="owner-series-search">Buscar series</label>
+        <input id="owner-series-search" name="buscarSeries" type="search" value={query.buscarSeries} data-series-search autocomplete="off" />
+        <input type="hidden" name="paginaSeries" value={seriesSelection.query.paginaSeries} />
+        <button class="button button--outline" type="submit">Aplicar búsqueda</button>
+      </form>
+      <p class="creator-owner__series-count" data-series-count>{seriesCountLabel}</p>
+      <ul class="creator-owner__series-list" data-owner-series-list>
+        {seriesSelection.rows.map((series) => {
+          const visibleCount = data.links.filter((link) => !link.hidden
+            && link.series.some((membership) => membership.seriesId === series.id)).length;
+          const publicPath = canPublishSeries && visibleCount > 0 && data.profile
+            ? `/c/${encodeURIComponent(data.profile.slug)}/series/${encodeURIComponent(series.slug)}/` : undefined;
+          return (
+            <li class="creator-owner__series-row" id={series.id} data-owner-series-row={series.id} data-series-id={series.id}>
+              <div class="creator-owner__series-copy">
+                <h3>{series.name}</h3>
+                <p>{series.slug}</p>
+                <p>{visibleCount} {visibleCount === 1 ? 'capítulo visible' : 'capítulos visibles'}</p>
+              </div>
+              <div class="creator-owner__series-actions">
+                <button class="button button--outline" type="button" data-series-edit data-series-id={series.id}>Editar</button>
+                <a class="button button--outline" data-series-chapters data-series-id={series.id} href={creatorOwnerSeriesHref({ ...query, serie: series.id, buscarCapitulos: '', pertenencia: 'todos', paginaCapitulos: 1 })}>Gestionar capítulos</a>
+                <button class="button button--outline" type="button" data-series-delete data-series-id={series.id}>Eliminar</button>
+                {publicPath && <a class="button button--outline" href={publicPath}>Abrir serie pública</a>}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <p class="creator-owner__empty" data-series-empty hidden={seriesSelection.rows.length > 0}>
+        {seriesSelection.totalMatches ? 'No hay series en esta página.' : 'No hay series que coincidan con la búsqueda.'}
+      </p>
+      <nav class="creator-owner__pagination" data-series-pagination aria-label="Páginas de series">
+        <span>Página {seriesSelection.query.paginaSeries} de {seriesSelection.pageCount}</span>
+        {seriesSelection.query.paginaSeries > 1 && <a class="button button--outline" data-series-page href={seriesPageHref(seriesSelection.query.paginaSeries - 1)}>Anterior</a>}
+        {seriesSelection.query.paginaSeries < seriesSelection.pageCount && <a class="button button--outline" data-series-page href={seriesPageHref(seriesSelection.query.paginaSeries + 1)}>Siguiente</a>}
+      </nav>
+      <p class="creator-owner__status" data-series-write-status role="status" aria-live="polite"></p>
+  </section>
+</section>

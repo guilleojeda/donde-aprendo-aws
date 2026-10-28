@@ -1,4 +1,4 @@
-import type { CreatorEditableResourceDTO, CreatorEditorDTO, CreatorLinkDTO, CreatorProfileDTO, CreatorProgram, CreatorSocial } from '../types/creators';
+import type { CreatorEditableResourceDTO, CreatorEditorDTO, CreatorLinkDTO, CreatorProfileDTO, CreatorProgram, CreatorSeriesDTO, CreatorSocial } from '../types/creators';
 import { createCreatorFormState, type FormValueSnapshot } from './creator-form-state';
 import { createCreatorSessionRecovery } from './creator-session-recovery';
 import { createCreatorWriteGuard, readCreatorVersionChanges } from './creator-write-state';
@@ -12,6 +12,16 @@ import {
   selectCreatorOwnerLinks,
   type CreatorOwnerLinksQuery,
 } from '../lib/creator-owner-links';
+import {
+  creatorOwnerChapterOrder,
+  creatorOwnerSeriesHref,
+  creatorOwnerSeriesQueryFromForm,
+  DEFAULT_CREATOR_OWNER_SERIES_QUERY,
+  parseCreatorOwnerSeriesQuery,
+  selectCreatorOwnerChapters,
+  selectCreatorOwnerSeries,
+  type CreatorOwnerSeriesQuery,
+} from '../lib/creator-owner-series';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -42,13 +52,49 @@ function isCreatorLink(value: unknown): value is CreatorLinkDTO {
     && typeof value.directoryApproval === 'string'
     && Number.isSafeInteger(value.resourceVersion) && Number(value.resourceVersion) >= 0
     && Number.isSafeInteger(value.placementVersion) && Number(value.placementVersion) >= 0
-    && Array.isArray(value.series);
+    && Array.isArray(value.series) && value.series.every((membership) => isRecord(membership)
+      && typeof membership.seriesId === 'string' && membership.seriesId.length > 0
+      && Number.isSafeInteger(membership.position) && Number(membership.position) >= 0);
 }
 
 function isEditableResource(value: unknown): value is CreatorEditableResourceDTO {
   return isRecord(value) && typeof value.id === 'string' && value.id.length > 0
     && typeof value.title === 'string' && typeof value.url === 'string'
     && Number.isSafeInteger(value.version) && Number(value.version) >= 0;
+}
+
+function isCreatorSeries(value: unknown): value is CreatorSeriesDTO {
+  return isRecord(value) && typeof value.id === 'string' && value.id.length > 0
+    && typeof value.name === 'string' && typeof value.slug === 'string'
+    && (value.description === undefined || typeof value.description === 'string')
+    && Number.isSafeInteger(value.version) && Number(value.version) >= 1;
+}
+
+function isAdoptableOwnerData(value: unknown): value is CreatorEditorDTO & { profile: CreatorProfileDTO } {
+  if (!isOwnerData(value) || !value.profile) return false;
+  const linkIds = new Set<string>();
+  const seriesIds = new Set<string>();
+  const resourceIds = new Set<string>();
+  const claimIds = new Set<string>();
+  for (const link of value.links) {
+    if (!isCreatorLink(link) || linkIds.has(link.placementId)) return false;
+    linkIds.add(link.placementId);
+  }
+  for (const item of value.series) {
+    if (!isCreatorSeries(item) || seriesIds.has(item.id)) return false;
+    seriesIds.add(item.id);
+  }
+  for (const resource of value.editableResources) {
+    if (!isEditableResource(resource) || resourceIds.has(resource.id)) return false;
+    resourceIds.add(resource.id);
+  }
+  for (const claim of value.claims) {
+    if (!isRecord(claim) || typeof claim.id !== 'string' || !claim.id
+      || claimIds.has(claim.id) || !Array.isArray(claim.resourceIds)
+      || !claim.resourceIds.every((id) => typeof id === 'string')) return false;
+    claimIds.add(claim.id);
+  }
+  return true;
 }
 
 const root = document.querySelector<HTMLElement>('[data-creator-owner]');
@@ -68,7 +114,7 @@ const formState = root ? createCreatorFormState(root) : undefined;
 const writeGuard = root ? createCreatorWriteGuard(root) : undefined;
 let csrfToken = root?.dataset.csrf;
 let activeForm: HTMLFormElement | undefined;
-let activeEditor: 'datos' | 'redes' | 'foto' | 'enlace' | 'alta-enlace' | 'mover-enlace' | undefined;
+let activeEditor: 'datos' | 'redes' | 'foto' | 'enlace' | 'alta-enlace' | 'mover-enlace' | 'serie' | 'mover-capitulo' | undefined;
 let returnFocus: HTMLElement | undefined;
 let pendingExitAction: (() => void) | undefined;
 let conflictProfile: CreatorProfileDTO | undefined;
@@ -82,6 +128,17 @@ let moveContextRevision = 0;
 let moveCompareGeneration = 0;
 let moveComparisonData: CreatorEditorDTO | undefined;
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
+let seriesSearchTimer: ReturnType<typeof setTimeout> | undefined;
+let activeSeriesContext: { seriesId?: string } | undefined;
+let seriesContextRevision = 0;
+let seriesCompareGeneration = 0;
+let seriesComparisonData: CreatorEditorDTO | undefined;
+let activeChapterMoveContext: { seriesId: string; placementId: string } | undefined;
+let chapterMoveContextRevision = 0;
+let chapterMoveCompareGeneration = 0;
+let chapterMoveComparisonData: CreatorEditorDTO | undefined;
+let seriesSlugManuallyEdited = false;
+let seriesReconcileReadPending = false;
 let manualSlug = false;
 let photoUploadId: string | undefined;
 type ProfileFormAction = (event: Event) => Promise<void> | void;
@@ -278,6 +335,18 @@ function showDialogForm(form: HTMLFormElement, name: NonNullable<typeof activeEd
     moveComparisonData = undefined;
     activeMoveContext = undefined;
   }
+  if (name !== 'mover-capitulo') {
+    chapterMoveContextRevision += 1;
+    chapterMoveCompareGeneration += 1;
+    chapterMoveComparisonData = undefined;
+    activeChapterMoveContext = undefined;
+  }
+  if (name !== 'serie') {
+    seriesContextRevision += 1;
+    seriesCompareGeneration += 1;
+    seriesComparisonData = undefined;
+    activeSeriesContext = undefined;
+  }
   hideDialogForms();
   form.hidden = false;
   setHidden(exitPrompt, true);
@@ -289,6 +358,256 @@ function showDialogForm(form: HTMLFormElement, name: NonNullable<typeof activeEd
   dialog.showModal();
   const first = form.querySelector<HTMLElement>('input:not([type="hidden"]), textarea, button');
   window.requestAnimationFrame(() => first?.focus?.());
+}
+
+function seriesForm(): HTMLFormElement | null {
+  return formFor('serie') ?? root?.querySelector<HTMLFormElement>('[data-series-form]') ?? null;
+}
+
+function chapterMoveForm(): HTMLFormElement | null {
+  return formFor('mover-capitulo') ?? root?.querySelector<HTMLFormElement>('[data-chapter-move-form]') ?? null;
+}
+
+function currentSeriesQuery(): CreatorOwnerSeriesQuery | undefined {
+  const params = new URL(window.location.href).searchParams;
+  if (params.get('vista') !== 'series') return undefined;
+  const parsed = parseCreatorOwnerSeriesQuery(params, state?.series ?? []);
+  return parsed.valid ? parsed.query : undefined;
+}
+
+function seriesElement<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string): HTMLElementTagNameMap[K] {
+  const node = document.createElement(tag);
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function clearElementChildren(node: HTMLElement) {
+  const children = [...((node as HTMLElement & { children?: HTMLCollection }).children ?? (node as HTMLElement & { lists?: HTMLElement[] }).lists ?? [])];
+  children.forEach((child) => child.remove());
+}
+
+function replaceElementContents(target: HTMLElement, fresh: HTMLElement) {
+  target.className = fresh.className;
+  clearElementChildren(target);
+  target.textContent = '';
+  for (const [key, value] of Object.entries(fresh.dataset)) target.dataset[key] = value;
+  for (const child of [...((fresh as HTMLElement & { children?: HTMLCollection }).children ?? (fresh as HTMLElement & { lists?: HTMLElement[] }).lists ?? [])]) target.append(child);
+}
+
+function setSeriesPageLinks(nav: HTMLElement | null | undefined, attribute: 'seriesPage' | 'seriesChapterPage', query: CreatorOwnerSeriesQuery, page: number, pageCount: number) {
+  if (!nav) return;
+  nav.querySelectorAll<HTMLAnchorElement>(`[data-${attribute.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}]`).forEach((item) => item.remove());
+  const add = (label: string, nextPage: number) => {
+    const link = seriesElement('a', label);
+    link.className = 'button button--outline';
+    link.dataset[attribute] = '';
+    link.href = creatorOwnerSeriesHref({ ...query, ...(attribute === 'seriesPage' ? { paginaSeries: nextPage } : { paginaCapitulos: nextPage }) });
+    nav.append(link);
+  };
+  if (page > 1) add('Anterior', page - 1);
+  if (page < pageCount) add('Siguiente', page + 1);
+  const label = nav.querySelector<HTMLElement>('span');
+  if (label) label.textContent = `Página ${page} de ${pageCount}`;
+}
+
+function createOwnerSeriesRow(series: CreatorSeriesDTO, query: CreatorOwnerSeriesQuery): HTMLElement {
+  const row = seriesElement('li');
+  row.className = 'creator-owner__series-row';
+  row.id = series.id;
+  row.dataset.ownerSeriesRow = series.id;
+  row.dataset.seriesId = series.id;
+  const copy = seriesElement('div');
+  copy.className = 'creator-owner__series-copy';
+  const title = seriesElement('h3', series.name);
+  const slug = seriesElement('p', series.slug);
+  const count = state?.links.filter((link) => !link.hidden && link.series.some((membership) => membership.seriesId === series.id)).length ?? 0;
+  copy.append(title, slug, seriesElement('p', `${count} ${count === 1 ? 'capítulo visible' : 'capítulos visibles'}`));
+  const actions = seriesElement('div');
+  actions.className = 'creator-owner__series-actions';
+  const edit = seriesElement('button', 'Editar');
+  edit.type = 'button'; edit.className = 'button button--outline'; edit.dataset.seriesEdit = ''; edit.dataset.seriesId = series.id;
+  const chapters = seriesElement('a', 'Gestionar capítulos');
+  chapters.className = 'button button--outline'; chapters.dataset.seriesChapters = ''; chapters.dataset.seriesId = series.id;
+  chapters.href = creatorOwnerSeriesHref({ ...query, serie: series.id, buscarCapitulos: '', pertenencia: 'todos', paginaCapitulos: 1 });
+  const remove = seriesElement('button', 'Eliminar');
+  remove.type = 'button'; remove.className = 'button button--outline'; remove.dataset.seriesDelete = ''; remove.dataset.seriesId = series.id;
+  actions.append(edit, chapters, remove);
+  if (state?.profile?.published && !state.profile.hidden && count > 0) {
+    const publicLink = seriesElement('a', 'Abrir serie pública');
+    publicLink.className = 'button button--outline';
+    publicLink.href = `/c/${encodeURIComponent(state.profile.slug)}/series/${encodeURIComponent(series.slug)}/`;
+    actions.append(publicLink);
+  }
+  row.append(copy, actions);
+  return row;
+}
+
+function createOwnerChapterRow(link: CreatorLinkDTO, seriesId: string, completeOrder: CreatorLinkDTO[]): HTMLElement {
+  const row = seriesElement('li');
+  row.className = 'creator-owner__chapter';
+  row.dataset.chapterRow = link.placementId;
+  row.dataset.placementId = link.placementId;
+  const membership = link.series.find((item) => item.seriesId === seriesId);
+  const copy = seriesElement('div');
+  copy.className = 'creator-owner__chapter-copy';
+  copy.append(seriesElement('h4', link.title));
+  const url = seriesElement('a', link.url);
+  url.href = link.url; url.target = '_blank'; url.rel = 'noopener noreferrer';
+  copy.append(url);
+  if (membership) {
+    const ordinal = completeOrder.findIndex(({ placementId }) => placementId === link.placementId) + 1;
+    copy.append(seriesElement('p', `Incluido en la posición ${ordinal} de ${completeOrder.length}`));
+  } else copy.append(seriesElement('p', 'Disponible para agregar'));
+  if (link.hidden) copy.append(seriesElement('span', 'Oculto en catálogo'));
+  const actions = seriesElement('div');
+  actions.className = 'creator-owner__chapter-actions';
+  if (membership) {
+    const move = seriesElement('button', 'Mover capítulo');
+    move.type = 'button'; move.className = 'button button--outline'; move.dataset.chapterMove = ''; move.dataset.placementId = link.placementId;
+    const remove = seriesElement('button', 'Quitar capítulo');
+    remove.type = 'button'; remove.className = 'button button--outline'; remove.dataset.chapterRemove = ''; remove.dataset.placementId = link.placementId;
+    actions.append(move, remove);
+  } else {
+    const add = seriesElement('button', 'Agregar capítulo');
+    add.type = 'button'; add.className = 'button button--outline'; add.dataset.chapterAdd = ''; add.dataset.placementId = link.placementId;
+    actions.append(add);
+  }
+  row.append(copy, actions);
+  return row;
+}
+
+function renderOwnerSeries(query = currentSeriesQuery()): CreatorOwnerSeriesQuery | undefined {
+  if (!root || !state || !query) return undefined;
+  const selection = selectCreatorOwnerSeries(state.series, query);
+  const listView = root.querySelector<HTMLElement>('[data-owner-series-list-view]');
+  const chapterView = root.querySelector<HTMLElement>('[data-owner-series-chapters]');
+  const seriesList = listView?.querySelector<HTMLElement>('[data-owner-series-list]');
+  const seriesCount = listView?.querySelector<HTMLElement>('[data-series-count]');
+  const seriesSearch = listView?.querySelector<HTMLInputElement>('[data-series-search]');
+  const seriesPage = listView?.querySelector<HTMLInputElement>('[name="paginaSeries"]');
+  const seriesEmpty = listView?.querySelector<HTMLElement>('[data-series-empty]');
+  if (seriesSearch) seriesSearch.value = selection.query.buscarSeries;
+  if (seriesPage) seriesPage.value = String(selection.query.paginaSeries);
+  if (seriesCount) seriesCount.textContent = `${selection.totalMatches} ${selection.totalMatches === 1 ? 'serie' : 'series'}`;
+  if (seriesEmpty) {
+    seriesEmpty.textContent = selection.totalMatches ? 'No hay series en esta página.' : 'No hay series que coincidan con la búsqueda.';
+    setHidden(seriesEmpty, selection.rows.length > 0);
+  }
+  if (seriesList) {
+    const oldRows = new Map([...seriesList.querySelectorAll<HTMLElement>('[data-owner-series-row]')]
+      .map((row) => [row.dataset.ownerSeriesRow ?? '', row]));
+    for (const row of oldRows.values()) if (!selection.rows.some(({ id }) => id === row.dataset.ownerSeriesRow)) row.remove();
+    for (const item of selection.rows) {
+      const fresh = createOwnerSeriesRow(item, selection.query);
+      const existing = oldRows.get(item.id);
+      if (existing) {
+        replaceElementContents(existing, fresh);
+        existing.setAttribute('data-owner-series-row', item.id);
+        existing.setAttribute('data-series-id', item.id);
+        existing.setAttribute('id', item.id);
+      } else seriesList.append(fresh);
+    }
+    for (const item of selection.rows) {
+      const row = [...seriesList.querySelectorAll<HTMLElement>('[data-owner-series-row]')]
+        .find((candidate) => candidate.dataset.ownerSeriesRow === item.id);
+      if (row) seriesList.append(row);
+    }
+  }
+  setSeriesPageLinks(listView?.querySelector<HTMLElement>('[data-series-pagination]'), 'seriesPage', selection.query, selection.query.paginaSeries, selection.pageCount);
+
+  const selectedSeries = state.series.find(({ id }) => id === query.serie);
+  const seriesMatches = Boolean(selectedSeries);
+  setHidden(listView, seriesMatches);
+  setHidden(chapterView, !seriesMatches);
+  if (seriesMatches && selectedSeries && chapterView) {
+    const contextName = chapterView.querySelector<HTMLElement>('[data-series-context-name]');
+    if (contextName) contextName.textContent = selectedSeries.name;
+    const back = chapterView.querySelector<HTMLAnchorElement>('[data-series-back]');
+    if (back) back.href = creatorOwnerSeriesHref({ ...query, serie: '', buscarCapitulos: '', pertenencia: 'todos', paginaCapitulos: 1 });
+    const publicLink = chapterView.querySelector<HTMLAnchorElement>('[data-series-public]');
+    const hasVisibleChapter = state.links.some((link) => !link.hidden
+      && link.series.some((membership) => membership.seriesId === selectedSeries.id));
+    const publicPath = state.profile?.published && !state.profile.hidden && hasVisibleChapter
+      ? `/c/${encodeURIComponent(state.profile.slug)}/series/${encodeURIComponent(selectedSeries.slug)}/`
+      : undefined;
+    if (publicLink) {
+      if (publicPath) publicLink.href = publicPath;
+      else publicLink.removeAttribute('href');
+      setHidden(publicLink, !publicPath);
+    }
+    const chapterSearch = chapterView.querySelector<HTMLInputElement>('[data-chapter-search]');
+    const membershipFilter = chapterView.querySelector<HTMLSelectElement>('[data-chapter-membership]');
+    const chapterSeries = chapterView.querySelector<HTMLInputElement>('[name="serie"]');
+    const chapterSeriesSearch = chapterView.querySelector<HTMLInputElement>('[name="buscarSeries"]');
+    const chapterSeriesPage = chapterView.querySelector<HTMLInputElement>('[name="paginaSeries"]');
+    const chapterPage = chapterView.querySelector<HTMLInputElement>('[name="paginaCapitulos"]');
+    if (chapterSearch) chapterSearch.value = query.buscarCapitulos;
+    if (membershipFilter) membershipFilter.value = query.pertenencia;
+    if (chapterSeries) chapterSeries.value = selectedSeries.id;
+    if (chapterSeriesSearch) chapterSeriesSearch.value = query.buscarSeries;
+    if (chapterSeriesPage) chapterSeriesPage.value = String(query.paginaSeries);
+    const chapterSelection = selectCreatorOwnerChapters(state, query);
+    if (chapterPage) chapterPage.value = String(chapterSelection.query.paginaCapitulos);
+    const chapterCount = chapterView.querySelector<HTMLElement>('[data-chapter-count]');
+    if (chapterCount) chapterCount.textContent = `${chapterSelection.totalMatches} ${chapterSelection.totalMatches === 1 ? 'coincidencia' : 'coincidencias'} de ${state.links.length} ${state.links.length === 1 ? 'enlace' : 'enlaces'}`;
+    const chapterSummary = chapterView.querySelector<HTMLElement>('[data-series-chapter-summary]');
+    if (chapterSummary) chapterSummary.textContent = `${chapterSelection.completeOrder.length} ${chapterSelection.completeOrder.length === 1 ? 'capítulo guardado' : 'capítulos guardados'} en el orden completo.`;
+    const chapterList = chapterView.querySelector<HTMLElement>('[data-chapter-rows]');
+    const completeOrder = chapterSelection.completeOrder;
+    const chapterEmpty = chapterView.querySelector<HTMLElement>('[data-chapter-empty]');
+    if (chapterEmpty) {
+      chapterEmpty.textContent = chapterSelection.totalMatches ? 'No hay enlaces en esta página.' : 'No hay enlaces que coincidan con esta búsqueda y pertenencia.';
+      setHidden(chapterEmpty, chapterSelection.rows.length > 0);
+    }
+    if (chapterList) {
+      const oldRows = new Map([...chapterList.querySelectorAll<HTMLElement>('[data-chapter-row]')]
+        .map((row) => [row.dataset.chapterRow ?? '', row]));
+      for (const row of oldRows.values()) if (!chapterSelection.rows.some(({ placementId }) => placementId === row.dataset.chapterRow)) row.remove();
+      for (const link of chapterSelection.rows) {
+        const fresh = createOwnerChapterRow(link, selectedSeries.id, completeOrder);
+        const existing = oldRows.get(link.placementId);
+        if (existing) {
+          replaceElementContents(existing, fresh);
+          existing.setAttribute('data-chapter-row', link.placementId);
+          existing.setAttribute('data-placement-id', link.placementId);
+        } else chapterList.append(fresh);
+      }
+      for (const link of chapterSelection.rows) {
+        const row = [...chapterList.querySelectorAll<HTMLElement>('[data-chapter-row]')]
+          .find((candidate) => candidate.dataset.chapterRow === link.placementId);
+        if (row) chapterList.append(row);
+      }
+    }
+    setSeriesPageLinks(chapterView.querySelector<HTMLElement>('[data-chapter-pagination]'), 'seriesChapterPage', chapterSelection.query, chapterSelection.query.paginaCapitulos, chapterSelection.pageCount);
+    const selectedEdit = chapterView.querySelector<HTMLButtonElement>('[data-series-edit]');
+    if (selectedEdit) selectedEdit.dataset.seriesId = selectedSeries.id;
+    const selectedEditLabel = selectedEdit;
+    if (selectedEditLabel) selectedEditLabel.textContent = `Editar ${selectedSeries.name}`;
+  }
+  return seriesMatches && selectedSeries ? selectCreatorOwnerChapters(state, query).query : selection.query;
+}
+
+function updateSeriesQuery(query: CreatorOwnerSeriesQuery, historyMode: 'push' | 'replace' = 'push') {
+  const effective = renderOwnerSeries(query) ?? query;
+  const href = creatorOwnerSeriesHref(effective);
+  const current = `${window.location.pathname}${window.location.search}`;
+  if (href !== current) {
+    if (historyMode === 'push') window.history.pushState({}, '', href);
+    else window.history.replaceState({}, '', href);
+  }
+  return effective;
+}
+
+function restoreSeriesFromLocation() {
+  if (!state || new URL(window.location.href).searchParams.get('vista') !== 'series') return false;
+  const parsed = parseCreatorOwnerSeriesQuery(new URL(window.location.href).searchParams, state.series);
+  if (!parsed.valid) return true;
+  const effective = renderOwnerSeries(parsed.query);
+  if (effective) {
+    const href = creatorOwnerSeriesHref(effective);
+    if (`${window.location.pathname}${window.location.search}` !== href) window.history.replaceState({}, '', href);
+  }
+  return true;
 }
 
 function setLinkFormValues(
@@ -401,6 +720,100 @@ function openMoveContext(trigger: HTMLElement) {
   setMoveDescription(form, link);
   formState?.commit(capture(form));
   showDialogForm(form, 'mover-enlace', `Mover enlace: ${link.title}`, trigger);
+}
+
+function seriesById(id: string | undefined): CreatorSeriesDTO | undefined {
+  return id ? state?.series.find((item) => item.id === id) : undefined;
+}
+
+function clearSeriesConflict(form: HTMLFormElement) {
+  seriesCompareGeneration += 1;
+  seriesComparisonData = undefined;
+  const conflict = form.querySelector<HTMLElement>('[data-series-conflict]');
+  setHidden(conflict, true);
+  const comparison = conflict?.querySelector<HTMLElement>('[data-owner-comparison]');
+  if (comparison) comparison.textContent = '';
+  setHidden(comparison, true);
+  setHidden(conflict?.querySelector('[data-owner-adopt]'), true);
+}
+
+function openSeriesEditor(trigger: HTMLElement, seriesId?: string) {
+  if (!state?.profile || !dialog) return;
+  const item = seriesById(seriesId);
+  if (seriesId && !item) return;
+  const form = seriesForm();
+  if (!form) return;
+  const name = field(form, 'name');
+  const slug = field(form, 'slug');
+  const description = field(form, 'description');
+  if (name) name.value = item?.name ?? '';
+  if (slug) slug.value = item?.slug ?? '';
+  if (description) description.value = item?.description ?? '';
+  activeLinkContext = undefined;
+  linkContextRevision += 1;
+  activeSeriesContext = item ? { seriesId: item.id } : {};
+  seriesContextRevision += 1;
+  seriesSlugManuallyEdited = Boolean(item);
+  clearSeriesConflict(form);
+  const context = form.querySelector<HTMLElement>('[data-series-form-context]');
+  if (context) context.textContent = item ? `Editando «${item.name}».` : 'El nombre y la dirección de la serie se guardan juntos.';
+  clearAnnouncement(statusFor('serie'));
+  formState?.commit(capture(form));
+  showDialogForm(form, 'serie', item ? `Editar serie: ${item.name}` : 'Crear serie', trigger);
+}
+
+function setChapterMoveDescription(form: HTMLFormElement, seriesId: string, placementId: string) {
+  if (!state) return;
+  const target = state.links.find(({ placementId: id }) => id === placementId);
+  const series = seriesById(seriesId);
+  const input = field(form, 'targetPosition');
+  const context = form.querySelector<HTMLElement>('[data-chapter-move-context]');
+  if (!target || !series || !input || !context) return;
+  const order = creatorOwnerChapterOrder(state.links, seriesId);
+  const currentIndex = order.findIndex(({ placementId: id }) => id === placementId);
+  if (currentIndex < 0) return;
+  input.setAttribute('min', '1');
+  input.setAttribute('max', String(order.length));
+  const requested = Number(input.value);
+  if (!Number.isSafeInteger(requested) || requested < 1 || requested > order.length) {
+    context.textContent = `${series.name}: posición ${currentIndex + 1} de ${order.length}. Elige un ordinal de 1 a ${order.length}; se cuentan todos los capítulos, incluidos los ocultos.`;
+    return;
+  }
+  const withoutTarget = order.filter(({ placementId: id }) => id !== placementId);
+  const previous = withoutTarget[requested - 2];
+  const next = withoutTarget[requested - 1];
+  const neighbors = [previous ? `Después de «${previous.title}»` : 'Al inicio de la serie',
+    next ? `Antes de «${next.title}»` : 'Al final de la serie'];
+  context.textContent = `${series.name}: posición actual ${currentIndex + 1} de ${order.length}; destino ${requested} de ${order.length}. ${neighbors.join('. ')}.`;
+}
+
+function openChapterMove(trigger: HTMLElement) {
+  if (!state?.profile || !dialog) return;
+  const seriesId = trigger.closest<HTMLElement>('[data-owner-series-chapters]')?.dataset.seriesId
+    || currentSeriesQuery()?.serie;
+  const placementId = trigger.dataset.placementId || trigger.closest<HTMLElement>('[data-chapter-row]')?.dataset.chapterRow;
+  const series = seriesById(seriesId);
+  const link = state.links.find(({ placementId: id }) => id === placementId);
+  const form = chapterMoveForm();
+  if (!series || !link || !form || !link.series.some((item) => item.seriesId === series.id)) return;
+  const order = creatorOwnerChapterOrder(state.links, series.id);
+  const index = order.findIndex(({ placementId: id }) => id === link.placementId);
+  if (index < 0) return;
+  activeChapterMoveContext = { seriesId: series.id, placementId: link.placementId };
+  chapterMoveContextRevision += 1;
+  chapterMoveCompareGeneration += 1;
+  chapterMoveComparisonData = undefined;
+  activeSeriesContext = undefined;
+  clearConflict(form);
+  const target = field(form, 'targetPosition');
+  if (target) target.value = String(index + 1);
+  setHidden(form.querySelector('[data-chapter-move-suggestion-shell]'), true);
+  const suggestion = form.querySelector<HTMLButtonElement>('[data-chapter-move-suggestion]');
+  if (suggestion) delete suggestion.dataset.viablePosition;
+  setChapterMoveDescription(form, series.id, link.placementId);
+  clearAnnouncement(statusFor('mover-capitulo'));
+  formState?.commit(capture(form));
+  showDialogForm(form, 'mover-capitulo', `Mover capítulo: ${link.title}`, trigger);
 }
 
 function openAddLink(trigger: HTMLElement) {
@@ -629,6 +1042,7 @@ function updateLinksQuery(query: CreatorOwnerLinksQuery, historyMode: 'push' | '
 }
 
 function restoreLinksFromLocation() {
+  if (restoreSeriesFromLocation()) return;
   const parsed = parseCreatorOwnerLinksQuery(new URL(window.location.href).searchParams, state?.series ?? []);
   if (!parsed.valid) return;
   const effective = renderOwnerLinks(parsed.query);
@@ -910,6 +1324,12 @@ function closeDialog({ navigate = true }: { navigate?: boolean } = {}) {
   moveContextRevision += 1;
   moveCompareGeneration += 1;
   moveComparisonData = undefined;
+  seriesContextRevision += 1;
+  seriesCompareGeneration += 1;
+  seriesComparisonData = undefined;
+  chapterMoveContextRevision += 1;
+  chapterMoveCompareGeneration += 1;
+  chapterMoveComparisonData = undefined;
   if (!hasPendingChanges() && !sessionRecovery?.blocksWrites()) clearRecoveryNotice();
   if (activeEditor) clearConflict(formFor(activeEditor) ?? undefined);
   if (dialog?.open) dialog.close();
@@ -921,11 +1341,15 @@ function closeDialog({ navigate = true }: { navigate?: boolean } = {}) {
   activeEditor = undefined;
   activeLinkContext = undefined;
   activeMoveContext = undefined;
+  activeSeriesContext = undefined;
+  activeChapterMoveContext = undefined;
   if (activeForm !== formFor('crear')) activeForm = undefined;
   clearConflict(undefined);
   const focus = returnFocus;
   returnFocus = undefined;
-  const fallbackFocus = root?.querySelector<HTMLElement>('[data-link-search]');
+  const fallbackFocus = currentSeriesQuery()
+    ? root?.querySelector<HTMLElement>('[data-chapter-search]') ?? root?.querySelector<HTMLElement>('[data-series-search]')
+    : root?.querySelector<HTMLElement>('[data-link-search]');
   if (focus && focus.isConnected) window.requestAnimationFrame(() => focus.focus());
   else if (fallbackFocus) window.requestAnimationFrame(() => fallbackFocus.focus());
   if (navigate) runPendingExitAction();
@@ -1001,6 +1425,23 @@ function resetForm(name: string, form: HTMLFormElement) {
     if (input && currentIndex >= 0) input.value = String(currentIndex + 1);
     if (target) setMoveDescription(form, target);
     setHidden(form.querySelector('[data-link-move-suggestion-shell]'), true);
+  } else if (name === 'serie') {
+    const item = seriesById(activeSeriesContext?.seriesId);
+    const nameInput = field(form, 'name');
+    const slug = field(form, 'slug');
+    const description = field(form, 'description');
+    if (nameInput) nameInput.value = item?.name ?? '';
+    if (slug) slug.value = item?.slug ?? '';
+    if (description) description.value = item?.description ?? '';
+    clearSeriesConflict(form);
+  } else if (name === 'mover-capitulo') {
+    const context = activeChapterMoveContext;
+    const order = context ? creatorOwnerChapterOrder(state?.links ?? [], context.seriesId) : [];
+    const currentIndex = context ? order.findIndex(({ placementId }) => placementId === context.placementId) : -1;
+    const target = field(form, 'targetPosition');
+    if (target && currentIndex >= 0) target.value = String(currentIndex + 1);
+    if (context) setChapterMoveDescription(form, context.seriesId, context.placementId);
+    setHidden(form.querySelector('[data-chapter-move-suggestion-shell]'), true);
   } else if (state?.profile) {
     setFormFromProfile(form, name, state.profile);
   }
@@ -1173,6 +1614,459 @@ function changesEqual(
     const observed = byKey.get(key(change));
     return observed?.before === change.before && observed.after === change.after;
   });
+}
+
+function versionChangesMatch(
+  actual: Awaited<ReturnType<typeof readCreatorVersionChanges>>,
+  expected: Array<{ entity: string; id: string; before: number; after: number }>,
+): boolean {
+  if (!actual || actual.length !== expected.length) return false;
+  const byKey = new Map(actual.map((change) => [`${change.entity}:${change.id}`, change]));
+  return expected.every((change) => {
+    const observed = byKey.get(`${change.entity}:${change.id}`);
+    return observed?.before === change.before && observed.after === change.after;
+  });
+}
+
+function updateSeriesState(next: CreatorSeriesDTO, profileVersion: number) {
+  if (!state?.profile) return;
+  const exists = state.series.some(({ id }) => id === next.id);
+  state.series = exists
+    ? state.series.map((item) => item.id === next.id ? next : item)
+    : [...state.series, next];
+  state.profile = { ...state.profile, version: profileVersion };
+  root?.setAttribute('data-profile-version', String(profileVersion));
+  renderOwnerLinksAfterCollectionChange();
+  renderOwnerSeries();
+}
+
+function showSeriesConflict(form: HTMLFormElement, message = 'La serie cambió desde que abriste esta edición. Compara lo guardado con tu corrección antes de decidir cómo seguir.') {
+  const conflict = form.querySelector<HTMLElement>('[data-series-conflict]');
+  setHidden(conflict, false);
+  const copy = conflict?.querySelector<HTMLElement>('[data-owner-conflict-copy]');
+  if (copy) copy.textContent = message;
+  setHidden(conflict?.querySelector('[data-owner-comparison]'), true);
+  setHidden(conflict?.querySelector('[data-owner-adopt]'), true);
+  seriesComparisonData = undefined;
+  announceWrite('serie', statusMessage(409), 'error');
+}
+
+async function saveSeriesForm(form: HTMLFormElement) {
+  const profile = state?.profile;
+  const context = activeSeriesContext;
+  const existing = seriesById(context?.seriesId);
+  if (!profile || !context) {
+    announceWrite('serie', 'Vuelve a abrir la serie para cargar sus versiones actuales.', 'error');
+    return;
+  }
+  if (context.seriesId && !existing) {
+    announceWrite('serie', 'La serie ya no está disponible. Actualiza la lista antes de crear o editar otra.', 'error');
+    return;
+  }
+  if (!form.reportValidity()) return;
+  const submitted = capture(form);
+  const values = new FormData(form);
+  const name = String(values.get('name') ?? '').trim();
+  const slug = String(values.get('slug') ?? '').trim();
+  const description = String(values.get('description') ?? '').trim();
+  if (!name || !slug) return;
+  const changed = !existing || name !== existing.name || slug !== existing.slug || description !== (existing.description ?? '');
+  const path = existing
+    ? `/api/creador/series/${encodeURIComponent(existing.id)}`
+    : '/api/creador/series';
+  const body = existing
+    ? { version: existing.version, profileVersion: profile.version, name, slug, description }
+    : { name, slug, ...(description ? { description } : {}), profileVersion: profile.version };
+  form.setAttribute('aria-busy', 'true');
+  seriesCompareGeneration += 1;
+  seriesComparisonData = undefined;
+  try {
+    const response = await jsonRequest(path, existing ? 'PATCH' : 'POST', body);
+    if (!response.ok) {
+      if (response.status === 409) showSeriesConflict(form);
+      else announceWrite('serie', statusMessage(response.status), 'error');
+      return;
+    }
+    const payload = await responsePayload(response);
+    const changes = await readCreatorVersionChanges(response);
+    const next = payload?.series;
+    const expected = changed
+      ? [
+        { entity: 'profile', id: profile.id, before: profile.version, after: profile.version + 1 },
+        { entity: 'series', id: existing?.id ?? (isRecord(next) && typeof next.id === 'string' ? next.id : ''), before: existing?.version ?? 0, after: (existing?.version ?? 0) + 1 },
+      ]
+      : [];
+    const valid = payload !== null && isCreatorSeries(next)
+      && (existing ? next.id === existing.id && response.status === 200 : !state?.series.some(({ id }) => id === next.id) && next.version === 1 && response.status === 201)
+      && next.name === name && next.slug === slug && (next.description ?? '') === description
+      && next.version === (existing?.version ?? 0) + Number(changed)
+      && versionChangesMatch(changes, expected);
+    if (!valid || !isCreatorSeries(next)) {
+      showSeriesConflict(form, 'La respuesta no coincide con las versiones y los datos de esta serie. Conservamos tu edición para revisarla.');
+      announceWrite('serie', 'No pudimos comprobar el recibo de la serie. Conservamos tu edición y no la marcamos como guardada.', 'error');
+      return;
+    }
+    const profileVersion = profile.version + Number(changed);
+    if (!existing) {
+      activeSeriesContext = { seriesId: next.id };
+      seriesContextRevision += 1;
+      seriesCompareGeneration += 1;
+      seriesComparisonData = undefined;
+    }
+    updateSeriesState(next, profileVersion);
+    clearRecoveryNotice();
+    const unchanged = submitWasUnchanged(submitted);
+    if (unchanged) {
+      const nameField = field(form, 'name');
+      const slugField = field(form, 'slug');
+      const descriptionField = field(form, 'description');
+      if (nameField) nameField.value = next.name;
+      if (slugField) slugField.value = next.slug;
+      if (descriptionField) descriptionField.value = next.description ?? '';
+      formState?.commit(capture(form));
+      announceWrite('serie', existing ? 'Cambios guardados.' : 'Serie creada. Ya puedes agregarle capítulos.', 'success');
+    } else {
+      formState?.commit(submitted);
+      announceWrite('serie', `${existing ? 'Serie guardada.' : 'Serie creada.'} Conservamos la corrección que escribiste mientras se guardaba; revísala antes de volver a guardar.`, 'success');
+    }
+    maybeExitAfterSave(unchanged);
+  } catch {
+    announceWrite('serie', 'No pudimos confirmar la respuesta del servicio. La edición sigue abierta; comprueba el estado antes de volver a guardar.', 'error');
+  } finally {
+    form.removeAttribute('aria-busy');
+  }
+}
+
+function seriesComparisonIsCurrent(form: HTMLFormElement, seriesId: string | undefined, revision: number, generation: number): boolean {
+  return generation === seriesCompareGeneration && revision === seriesContextRevision
+    && activeForm === form && activeEditor === 'serie' && !form.hidden
+    && activeSeriesContext?.seriesId === seriesId;
+}
+
+async function compareSavedSeries(form: HTMLFormElement) {
+  if (!activeSeriesContext || !state?.profile) return;
+  const context = { ...activeSeriesContext };
+  const profileId = state.profile.id;
+  const revision = seriesContextRevision;
+  const generation = ++seriesCompareGeneration;
+  seriesComparisonData = undefined;
+  setHidden(form.querySelector('[data-owner-adopt]'), true);
+  setHidden(form.querySelector('[data-owner-comparison]'), true);
+  announceWrite('serie', 'Consultando la serie guardada…', 'info');
+  try {
+    const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
+    if (response.status === 401) await sessionRecovery?.observeWriteResponse(response);
+    if (!seriesComparisonIsCurrent(form, context.seriesId, revision, generation)) return;
+    if (!response.ok) {
+      announceWrite('serie', response.status === 401 ? sessionRecovery?.writeFailureMessage() ?? statusMessage(401) : 'No pudimos leer la serie guardada. Tu corrección sigue aquí.', 'error');
+      return;
+    }
+    const payload = await responsePayload(response);
+    if (!seriesComparisonIsCurrent(form, context.seriesId, revision, generation)) return;
+    if (!payload || !isAdoptableOwnerData(payload) || payload.profile.id !== profileId) {
+      announceWrite('serie', 'No pudimos confirmar que los datos guardados correspondan a esta página. Conservamos tu edición.', 'error');
+      return;
+    }
+    const saved = context.seriesId ? payload.series.find(({ id }) => id === context.seriesId) : undefined;
+    if (context.seriesId && !saved) {
+      announceWrite('serie', 'Esta serie ya no existe en la lista guardada. Conservamos los campos para que decidas cómo seguir.', 'error');
+      return;
+    }
+    const comparison = form.querySelector<HTMLElement>('[data-owner-comparison]');
+    if (comparison) {
+      comparison.textContent = saved
+        ? `Serie guardada, versión ${saved.version}.\nNombre guardado: ${saved.name || '—'} | Tu corrección: ${String(field(form, 'name')?.value ?? '') || '—'}\nDirección guardada: ${saved.slug || '—'} | Tu corrección: ${String(field(form, 'slug')?.value ?? '') || '—'}\nDescripción guardada: ${saved.description || '—'} | Tu corrección: ${String(field(form, 'description')?.value ?? '') || '—'}`
+        : 'No hay una serie guardada con esta dirección. Corrige el nombre o la dirección antes de volver a guardar.';
+    }
+    setHidden(comparison, false);
+    setHidden(form.querySelector('[data-owner-adopt]'), Boolean(!saved));
+    seriesComparisonData = payload;
+    announceWrite('serie', 'Compara los valores y elige expresamente si quieres usar la versión guardada.', 'info');
+  } catch {
+    if (seriesComparisonIsCurrent(form, context.seriesId, revision, generation)) {
+      announceWrite('serie', 'No pudimos conectar para leer la serie guardada. Tu corrección sigue aquí.', 'error');
+    }
+  }
+}
+
+function adoptSavedSeries(form: HTMLFormElement) {
+  const context = activeSeriesContext;
+  const payload = seriesComparisonData;
+  if (!context || !payload || activeForm !== form || activeEditor !== 'serie' || form.hidden
+    || !isAdoptableOwnerData(payload) || !state?.profile || payload.profile.id !== state.profile.id) return;
+  const saved = context.seriesId ? payload.series.find(({ id }) => id === context.seriesId) : undefined;
+  if (context.seriesId && !saved) return;
+  const current = seriesById(context.seriesId);
+  const name = field(form, 'name');
+  const slug = field(form, 'slug');
+  const description = field(form, 'description');
+  const localValues = {
+    name: name?.value ?? '',
+    slug: slug?.value ?? '',
+    description: description?.value ?? '',
+  };
+  if (saved) {
+    const localCorrections = {
+      name: current && localValues.name !== current.name ? localValues.name : undefined,
+      slug: current && localValues.slug !== current.slug ? localValues.slug : undefined,
+      description: current && localValues.description !== (current.description ?? '') ? localValues.description : undefined,
+    };
+    if (name) name.value = saved.name;
+    if (slug) slug.value = saved.slug;
+    if (description) description.value = saved.description ?? '';
+    formState?.commit(capture(form));
+    if (name && localCorrections.name !== undefined) name.value = localCorrections.name;
+    if (slug && localCorrections.slug !== undefined) slug.value = localCorrections.slug;
+    if (description && localCorrections.description !== undefined) description.value = localCorrections.description;
+    seriesSlugManuallyEdited = true;
+    const formContext = form.querySelector<HTMLElement>('[data-series-form-context]');
+    if (formContext) formContext.textContent = `Editando «${saved.name}».`;
+  }
+  adoptOwnerSnapshot(payload, form);
+  clearSeriesConflict(form);
+  announceWrite('serie', 'Adoptaste expresamente la versión guardada. Tus campos siguen en el formulario para decidir qué guardar.', 'success');
+}
+
+function chapterMovePositionInput(form: HTMLFormElement): HTMLInputElement | null {
+  return form.querySelector<HTMLInputElement>('input[name="targetPosition"]');
+}
+
+function chapterMoveIsCurrent(form: HTMLFormElement, context: { seriesId: string; placementId: string }, revision: number, generation?: number): boolean {
+  return activeForm === form && activeEditor === 'mover-capitulo' && !form.hidden
+    && activeChapterMoveContext?.seriesId === context.seriesId
+    && activeChapterMoveContext.placementId === context.placementId
+    && revision === chapterMoveContextRevision
+    && (generation === undefined || generation === chapterMoveCompareGeneration);
+}
+
+function showChapterMoveConflict(form: HTMLFormElement, message = 'El orden de esta serie cambió desde que abriste el movimiento. Compara el estado guardado con tu destino antes de decidir cómo seguir.') {
+  const conflict = form.querySelector<HTMLElement>('[data-chapter-move-conflict]')
+    ?? form.querySelector<HTMLElement>('[data-owner-conflict]');
+  setHidden(conflict, false);
+  const copy = conflict?.querySelector<HTMLElement>('[data-owner-conflict-copy]');
+  if (copy) copy.textContent = message;
+  setHidden(conflict?.querySelector('[data-owner-comparison]'), true);
+  setHidden(conflict?.querySelector('[data-owner-adopt]'), true);
+  chapterMoveComparisonData = undefined;
+  announceWrite('mover-capitulo', statusMessage(409), 'error');
+}
+
+async function saveChapterMoveForm(form: HTMLFormElement) {
+  const context = activeChapterMoveContext;
+  const profile = state?.profile;
+  const series = context ? seriesById(context.seriesId) : undefined;
+  const target = context ? state?.links.find(({ placementId }) => placementId === context.placementId) : undefined;
+  const input = chapterMovePositionInput(form);
+  const placementVersion = target?.placementVersion;
+  if (!context || !profile || !series || !target || !input || typeof placementVersion !== 'number'
+    || !Number.isSafeInteger(placementVersion) || placementVersion < 0
+    || !target.series.some((item) => item.seriesId === series.id)) {
+    announceWrite('mover-capitulo', 'Vuelve a abrir el capítulo para cargar la serie y sus versiones actuales.', 'error');
+    return;
+  }
+  const order = creatorOwnerChapterOrder(state?.links ?? [], series.id);
+  const requested = Number(input.value);
+  if (!form.reportValidity() || !Number.isSafeInteger(requested) || requested < 1 || requested > order.length) return;
+  const submitted = capture(form);
+  chapterMoveCompareGeneration += 1;
+  chapterMoveComparisonData = undefined;
+  setHidden(form.querySelector('[data-chapter-move-suggestion-shell]'), true);
+  form.setAttribute('aria-busy', 'true');
+  try {
+    const response = await jsonRequest(`/api/creador/series/${encodeURIComponent(series.id)}/capitulos/${encodeURIComponent(target.placementId)}/mover`, 'POST', {
+      profileVersion: profile.version,
+      seriesVersion: series.version,
+      placementVersion,
+      targetPosition: requested,
+    });
+    if (!chapterMoveIsCurrent(form, context, chapterMoveContextRevision)) return;
+    if (!response.ok) {
+      if (response.status === 409) showChapterMoveConflict(form);
+      else if (response.status === 422) {
+        const payload = await responsePayload(response);
+        const suggestionPosition = payload?.error === 'ORDER_MOVE_LIMIT' && Number.isSafeInteger(payload.viablePosition)
+          ? Number(payload.viablePosition) : undefined;
+        const currentIndex = order.findIndex(({ placementId }) => placementId === target.placementId);
+        const usable = suggestionPosition !== undefined && suggestionPosition >= 1 && suggestionPosition <= order.length
+          && suggestionPosition !== currentIndex + 1
+          && Math.abs(suggestionPosition - (currentIndex + 1)) < Math.abs(requested - (currentIndex + 1));
+        const shell = form.querySelector<HTMLElement>('[data-chapter-move-suggestion-shell]');
+        const suggestion = form.querySelector<HTMLButtonElement>('[data-chapter-move-suggestion]');
+        if (usable && suggestion && shell) {
+          suggestion.dataset.viablePosition = String(suggestionPosition);
+          suggestion.textContent = `Usar posición intermedia ${suggestionPosition}`;
+          setHidden(shell, false);
+        }
+        announceWrite('mover-capitulo', payload?.error === 'ORDER_MOVE_LIMIT'
+          ? 'Ese movimiento supera el límite de una operación. Conservamos tu destino; puedes elegir una posición intermedia y guardar de nuevo.'
+          : statusMessage(422), 'error');
+      } else announceWrite('mover-capitulo', statusMessage(response.status), 'error');
+      return;
+    }
+    const payload = await responsePayload(response);
+    const changes = await readCreatorVersionChanges(response);
+    const raw = payload?.links;
+    const candidates = Array.isArray(raw) && raw.every(isCreatorLink) ? raw : undefined;
+    const byId = new Map((candidates ?? []).map((link) => [link.placementId, link]));
+    const changedCandidates: CreatorLinkDTO[] = [];
+    let candidatesValid = candidates !== undefined && byId.size === candidates.length && byId.has(target.placementId);
+    for (const candidate of byId.values()) {
+      const current = state?.links.find(({ placementId }) => placementId === candidate.placementId);
+      const beforeMembership = current?.series.find((item) => item.seriesId === series.id);
+      const nextMembership = candidate.series.find((item) => item.seriesId === series.id);
+      const otherMembershipsBefore = current?.series.filter((item) => item.seriesId !== series.id) ?? [];
+      const otherMembershipsAfter = candidate.series.filter((item) => item.seriesId !== series.id);
+      if (!current || !beforeMembership || !nextMembership || current.resourceId !== candidate.resourceId
+        || JSON.stringify(otherMembershipsBefore) !== JSON.stringify(otherMembershipsAfter)
+        || !Number.isSafeInteger(nextMembership.position) || nextMembership.position < 0
+        || typeof current.placementVersion !== 'number' || !Number.isSafeInteger(current.placementVersion)
+        || candidate.placementVersion !== current.placementVersion + Number(nextMembership.position !== beforeMembership.position)) {
+        candidatesValid = false;
+        continue;
+      }
+      if (nextMembership.position !== beforeMembership.position) changedCandidates.push(candidate);
+    }
+    const expectedIds = new Set([target.placementId, ...changedCandidates.map(({ placementId }) => placementId)]);
+    candidatesValid = candidatesValid && byId.size === expectedIds.size && [...expectedIds].every((id) => byId.has(id));
+    const resultingOrder = order.map((link) => {
+      const candidate = byId.get(link.placementId);
+      const current = link.series.find((item) => item.seriesId === series.id);
+      const candidateMembership = candidate?.series.find((item) => item.seriesId === series.id);
+      return { link, position: candidateMembership?.position ?? current?.position ?? 0 };
+    }).sort((left, right) => left.position - right.position || left.link.placementId.localeCompare(right.link.placementId));
+    const resultingOrdinal = resultingOrder.findIndex(({ link }) => link.placementId === target.placementId) + 1;
+    const expectedChanges: Array<{ entity: string; id: string; before: number; after: number }> = [];
+    if (changedCandidates.length) {
+      expectedChanges.push({ entity: 'profile', id: profile.id, before: profile.version, after: profile.version + 1 });
+      for (const candidate of changedCandidates) {
+        const current = state?.links.find(({ placementId }) => placementId === candidate.placementId);
+        if (current?.placementVersion !== undefined) expectedChanges.push({ entity: 'placement', id: current.placementId, before: current.placementVersion, after: current.placementVersion + 1 });
+      }
+    }
+    const nextTarget = byId.get(target.placementId);
+    const targetMembership = nextTarget?.series.find((item) => item.seriesId === series.id);
+    if (!payload || !Array.isArray(raw) || !nextTarget || !targetMembership || !candidatesValid
+      || resultingOrdinal !== requested || !versionChangesMatch(changes, expectedChanges)) {
+      showChapterMoveConflict(form, 'La respuesta no coincide con el orden y las versiones observadas. Conservamos el destino y no adoptamos datos sin confirmar.');
+      announceWrite('mover-capitulo', 'No pudimos comprobar el recibo del movimiento. Conservamos el destino para revisarlo antes de volver a guardar.', 'error');
+      return;
+    }
+    const updates = new Map([...byId.values()].map((candidate) => [candidate.placementId, candidate]));
+    state!.links = state!.links.map((current) => {
+      const candidate = updates.get(current.placementId);
+      if (!candidate) return current;
+      const candidateMembership = candidate.series.find((item) => item.seriesId === series.id);
+      const seriesMemberships = candidateMembership
+        ? current.series.map((item) => item.seriesId === series.id ? { ...item, position: candidateMembership.position } : item)
+        : current.series;
+      return { ...current, series: seriesMemberships, placementVersion: candidate.placementVersion };
+    });
+    const changed = changedCandidates.length > 0;
+    state!.profile = { ...profile, version: profile.version + Number(changed) };
+    root?.setAttribute('data-profile-version', String(state!.profile.version));
+    const effective = renderOwnerSeries(currentSeriesQuery());
+    if (effective) updateSeriesQuery(effective, 'replace');
+    const currentInputValue = input.value;
+    const unchanged = submitWasUnchanged(submitted);
+    if (unchanged) {
+      const currentOrder = creatorOwnerChapterOrder(state!.links, series.id);
+      const currentIndex = currentOrder.findIndex(({ placementId }) => placementId === target.placementId);
+      input.value = String(currentIndex + 1);
+      setChapterMoveDescription(form, series.id, target.placementId);
+      formState?.commit(capture(form));
+      announceWrite('mover-capitulo', changed ? 'Orden de capítulos guardado.' : 'Ese capítulo ya estaba en esa posición.', 'success');
+      restoreChapterFocus(target.placementId);
+    } else {
+      input.value = currentInputValue;
+      formState?.commit(submitted);
+      setChapterMoveDescription(form, series.id, target.placementId);
+      announceWrite('mover-capitulo', 'Orden guardado. Conservamos el destino que corregiste mientras se guardaba; revísalo antes de volver a guardar.', 'success');
+    }
+    clearRecoveryNotice();
+    maybeExitAfterSave(unchanged);
+  } catch {
+    announceWrite('mover-capitulo', 'No pudimos confirmar la respuesta del servicio. El destino sigue en el formulario; comprueba el orden antes de volver a guardar.', 'error');
+  } finally {
+    form.removeAttribute('aria-busy');
+  }
+}
+
+function restoreChapterFocus(placementId: string) {
+  const row = [...(root?.querySelectorAll<HTMLElement>('[data-chapter-row]') ?? [])]
+    .find((item) => item.dataset.chapterRow === placementId);
+  const trigger = row?.querySelector<HTMLElement>('[data-chapter-move]') ?? row?.querySelector<HTMLElement>('[data-chapter-add]');
+  returnFocus = trigger ?? root?.querySelector<HTMLElement>('[data-chapter-search]') ?? root?.querySelector<HTMLElement>('[data-series-search]') ?? undefined;
+}
+
+async function compareSavedChapterMove(form: HTMLFormElement) {
+  const context = activeChapterMoveContext;
+  const profileId = state?.profile?.id;
+  if (!context || !profileId) return;
+  const copy = { ...context };
+  const revision = chapterMoveContextRevision;
+  const generation = ++chapterMoveCompareGeneration;
+  chapterMoveComparisonData = undefined;
+  setHidden(form.querySelector('[data-owner-adopt]'), true);
+  setHidden(form.querySelector('[data-owner-comparison]'), true);
+  announceWrite('mover-capitulo', 'Consultando el orden guardado…', 'info');
+  try {
+    const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
+    if (response.status === 401) await sessionRecovery?.observeWriteResponse(response);
+    if (!chapterMoveIsCurrent(form, copy, revision, generation)) return;
+    if (!response.ok) {
+      announceWrite('mover-capitulo', response.status === 401 ? sessionRecovery?.writeFailureMessage() ?? statusMessage(401) : 'No pudimos leer el orden guardado. Tu destino sigue aquí.', 'error');
+      return;
+    }
+    const payload = await responsePayload(response);
+    if (!chapterMoveIsCurrent(form, copy, revision, generation)) return;
+    if (!payload || !isAdoptableOwnerData(payload) || payload.profile.id !== profileId) {
+      announceWrite('mover-capitulo', 'No pudimos confirmar que el estado guardado corresponda a esta página. Conservamos tu destino.', 'error');
+      return;
+    }
+    const target = payload.links.find(({ placementId }) => placementId === copy.placementId);
+    const savedSeries = payload.series.find(({ id }) => id === copy.seriesId);
+    if (!target || !savedSeries || !target.series.some(({ seriesId }) => seriesId === copy.seriesId)) {
+      announceWrite('mover-capitulo', 'La serie o el capítulo ya no están disponibles para comparar. Conservamos tu destino.', 'error');
+      return;
+    }
+    const order = creatorOwnerChapterOrder(payload.links, copy.seriesId);
+    const ordinal = order.findIndex(({ placementId }) => placementId === copy.placementId) + 1;
+    const requested = chapterMovePositionInput(form)?.value ?? '';
+    const list = order.map((link, index) => `${index + 1}. ${link.title}${link.hidden ? ' (oculto)' : ''}`).join('\n');
+    const comparison = form.querySelector<HTMLElement>('[data-owner-comparison]');
+    if (comparison) comparison.textContent = `Serie guardada: ${savedSeries.name} (${order.length} capítulos).\nPosición guardada: ${ordinal}. Tu destino: ${requested || '—'}.\nOrden guardado:\n${list}`;
+    setHidden(comparison, false);
+    setHidden(form.querySelector('[data-owner-adopt]'), false);
+    chapterMoveComparisonData = payload;
+    announceWrite('mover-capitulo', 'Compara el orden y elige expresamente si quieres usar las versiones guardadas.', 'info');
+  } catch {
+    if (chapterMoveIsCurrent(form, copy, revision, generation)) announceWrite('mover-capitulo', 'No pudimos conectar para leer el orden guardado. Tu destino sigue aquí.', 'error');
+  }
+}
+
+function adoptSavedChapterMove(form: HTMLFormElement) {
+  const context = activeChapterMoveContext;
+  const payload = chapterMoveComparisonData;
+  const input = chapterMovePositionInput(form);
+  const requested = input?.value;
+  if (!context || !payload || !input || !isAdoptableOwnerData(payload) || !state?.profile
+    || activeForm !== form || activeEditor !== 'mover-capitulo' || form.hidden
+    || payload.profile.id !== state.profile.id
+    || !chapterMoveIsCurrent(form, context, chapterMoveContextRevision)) return;
+  const savedSeries = payload.series.find(({ id }) => id === context.seriesId);
+  if (!savedSeries || !payload.links.some(({ placementId, series }) => placementId === context.placementId
+    && series.some((item) => item.seriesId === context.seriesId))) return;
+  const savedOrder = creatorOwnerChapterOrder(payload.links, context.seriesId);
+  const savedOrdinal = savedOrder.findIndex(({ placementId }) => placementId === context.placementId) + 1;
+  if (savedOrdinal < 1) return;
+  adoptOwnerSnapshot(payload, form);
+  input.value = String(savedOrdinal);
+  formState?.commit(capture(form));
+  if (requested !== undefined) input.value = requested;
+  setChapterMoveDescription(form, context.seriesId, context.placementId);
+  clearConflict(form);
+  chapterMoveComparisonData = undefined;
+  announceWrite('mover-capitulo', 'Adoptaste expresamente el orden guardado. Tu destino sigue en el formulario para que decidas si quieres guardarlo.', 'success');
 }
 
 function showLinkConflict(form: HTMLFormElement, message = 'El enlace cambió desde que abriste esta edición. Compara lo guardado con tu corrección antes de decidir cómo seguir.') {
@@ -1589,9 +2483,175 @@ async function reconcileOwnerData(): Promise<boolean> {
     state.series = payload.series;
     payload.links.forEach(({ resourceId, placementId }) => placementIdByResource.set(resourceId, placementId));
     updateProfileView();
+    renderOwnerLinksAfterCollectionChange();
+    renderOwnerSeries();
     return true;
   } catch {
     return false;
+  }
+}
+
+function adoptOwnerSnapshot(payload: CreatorEditorDTO, active?: HTMLFormElement) {
+  if (!payload.profile) return;
+  state = payload;
+  placementIdByResource.clear();
+  payload.links.forEach(({ resourceId, placementId }) => placementIdByResource.set(resourceId, placementId));
+  root?.setAttribute('data-profile-version', String(payload.profile.version));
+  updateProfileView();
+  hydrateInactiveForms(active);
+  const query = currentSeriesQuery();
+  if (query) updateSeriesQuery(query, 'replace');
+}
+
+function seriesStatus(): HTMLElement | null {
+  const selected = currentSeriesQuery()?.serie;
+  return selected
+    ? root?.querySelector<HTMLElement>('[data-owner-series-chapters] [data-series-write-status]')
+      ?? root?.querySelector<HTMLElement>('[data-owner-form-status="capitulo"]') ?? null
+    : root?.querySelector<HTMLElement>('[data-owner-series-list-view] [data-series-write-status]') ?? null;
+}
+
+function setChapterActionsUnavailable(unavailable: boolean) {
+  root?.querySelectorAll<HTMLButtonElement>('[data-chapter-add], [data-chapter-remove], [data-chapter-move]').forEach((button) => {
+    button.disabled = unavailable;
+  });
+}
+
+async function reconcileChapterMutation(status: HTMLElement | null, successMessage: string, focusPlacementId: string) {
+  const retry = root?.querySelector<HTMLButtonElement>('[data-series-reconcile-retry]');
+  seriesReconcileReadPending = true;
+  setChapterActionsUnavailable(true);
+  if (retry) retry.hidden = false;
+  announce(status, `${successMessage} El cambio quedó confirmado; estamos actualizando la lista.`, 'success');
+  const reconciled = await reconcileOwnerData();
+  if (!reconciled) {
+    announce(status, `${successMessage} El cambio quedó confirmado, pero no pudimos actualizar la lista. Puedes volver a consultar sin repetirlo.`, 'error');
+    return false;
+  }
+  seriesReconcileReadPending = false;
+  if (retry) retry.hidden = true;
+  setChapterActionsUnavailable(false);
+  const query = currentSeriesQuery();
+  if (query) {
+    const effective = renderOwnerSeries(query);
+    if (effective) updateSeriesQuery(effective, 'replace');
+  }
+  restoreChapterFocus(focusPlacementId);
+  const focus = returnFocus;
+  if (focus?.isConnected) window.requestAnimationFrame(() => focus.focus());
+  announce(status, successMessage, 'success');
+  return true;
+}
+
+async function retrySeriesReconcile() {
+  if (!seriesReconcileReadPending) return;
+  const status = seriesStatus();
+  const retry = root?.querySelector<HTMLButtonElement>('[data-series-reconcile-retry]');
+  if (retry) retry.disabled = true;
+  announce(status, 'Volviendo a consultar la lista…', 'info');
+  const reconciled = await reconcileOwnerData();
+  if (retry) retry.disabled = false;
+  if (!reconciled) {
+    announce(status, 'La lectura sigue sin estar disponible. El cambio anterior está confirmado; puedes volver a consultar.', 'error');
+    return;
+  }
+  seriesReconcileReadPending = false;
+  if (retry) retry.hidden = true;
+  setChapterActionsUnavailable(false);
+  const query = currentSeriesQuery();
+  if (query) {
+    const effective = renderOwnerSeries(query);
+    if (effective) updateSeriesQuery(effective, 'replace');
+  }
+  announce(status, 'La lista ya está actualizada.', 'success');
+}
+
+async function mutateChapterMembership(placementId: string, action: 'add' | 'remove') {
+  const query = currentSeriesQuery();
+  const ownerState = state;
+  const profile = ownerState?.profile;
+  const series = seriesById(query?.serie);
+  const link = ownerState?.links.find(({ placementId: id }) => id === placementId);
+  if (!query || !profile || !series || !link || seriesReconcileReadPending) return;
+  const member = link.series.some(({ seriesId }) => seriesId === series.id);
+  if ((action === 'add' && member) || (action === 'remove' && !member)) return;
+  const status = seriesStatus();
+  const method = action === 'add' ? 'PUT' : 'DELETE';
+  try {
+    const response = await jsonRequest(`/api/creador/series/${encodeURIComponent(series.id)}/capitulos/${encodeURIComponent(link.placementId)}`, method, { profileVersion: profile.version });
+    if (!response.ok) {
+      announceWrite('mover-capitulo', statusMessage(response.status), 'error');
+      announce(status, statusMessage(response.status), 'error');
+      return;
+    }
+    const payload = response.status === 204 ? null : await responsePayload(response);
+    const changes = await readCreatorVersionChanges(response);
+    const placementVersion = link.placementVersion;
+    const expected = placementVersion === undefined ? [] : [
+      { entity: 'profile', id: profile.id, before: profile.version, after: profile.version + 1 },
+      { entity: 'placement', id: link.placementId, before: placementVersion, after: placementVersion + 1 },
+    ];
+    const statusMatches = action === 'add' ? response.status === 200 && payload?.status === 200 : response.status === 204;
+    if (!statusMatches || placementVersion === undefined || !versionChangesMatch(changes, expected)) {
+      announce(status, 'No pudimos comprobar el recibo del cambio de capítulo. Conservamos la lista y no repetimos la acción.', 'error');
+      return;
+    }
+    ownerState.profile = { ...profile, version: profile.version + 1 };
+    ownerState.links = ownerState.links.map((current) => current.placementId === link.placementId
+      ? { ...current, placementVersion: placementVersion + 1 }
+      : current);
+    root?.setAttribute('data-profile-version', String(profile.version + 1));
+    clearRecoveryNotice();
+    const result = await reconcileChapterMutation(status, action === 'add'
+      ? `Se agregó «${link.title}» a ${series.name}.`
+      : `Se quitó «${link.title}» de esta serie. El enlace permanece en tu página y en las demás series.`, link.placementId);
+    if (!result) return;
+  } catch {
+    announce(status, 'No pudimos confirmar la respuesta del servicio. Revisa la lista antes de volver a intentarlo.', 'error');
+  }
+}
+
+async function deleteOwnerSeries(seriesId: string) {
+  const ownerState = state;
+  const profile = ownerState?.profile;
+  const series = seriesById(seriesId);
+  if (!profile || !series) return;
+  if (!window.confirm(`¿Eliminar la serie «${series.name}»? Se conservarán los enlaces de tu página, sus opciones y las demás series.`)) return;
+  try {
+    const response = await jsonRequest(`/api/creador/series/${encodeURIComponent(series.id)}`, 'DELETE', {
+      version: series.version, profileVersion: profile.version,
+    });
+    if (!response.ok) {
+      announceWrite('serie', statusMessage(response.status), 'error');
+      announce(seriesStatus(), statusMessage(response.status), 'error');
+      return;
+    }
+    const changes = await readCreatorVersionChanges(response);
+    if (response.status !== 204 || !versionChangesMatch(changes, [
+      { entity: 'profile', id: profile.id, before: profile.version, after: profile.version + 1 },
+    ])) {
+      announceWrite('serie', 'No pudimos comprobar el recibo de eliminación. Conservamos la serie y sus controles.', 'error');
+      announce(seriesStatus(), 'No pudimos comprobar el recibo de eliminación. Conservamos la serie y sus controles.', 'error');
+      return;
+    }
+    ownerState.profile = { ...profile, version: profile.version + 1 };
+    ownerState.series = ownerState.series.filter(({ id }) => id !== series.id);
+    ownerState.links = ownerState.links.map((link) => ({
+      ...link,
+      series: link.series.filter((membership) => membership.seriesId !== series.id),
+    }));
+    root?.setAttribute('data-profile-version', String(profile.version + 1));
+    clearRecoveryNotice();
+    const current = currentSeriesQuery();
+    if (current?.serie === series.id) {
+      updateSeriesQuery({ ...current, serie: '', buscarCapitulos: '', pertenencia: 'todos', paginaCapitulos: 1 }, 'replace');
+    } else renderOwnerSeries(current);
+    await reconcileOwnerData();
+    announce(seriesStatus(), 'Serie eliminada. Tus enlaces, opciones y las otras series siguen en tu página.', 'success');
+    const search = root?.querySelector<HTMLElement>('[data-series-search]');
+    if (search?.isConnected) window.requestAnimationFrame(() => search.focus());
+  } catch {
+    announce(seriesStatus(), 'No pudimos confirmar la respuesta del servicio. La serie sigue en la lista; comprueba el estado antes de volver a intentarlo.', 'error');
   }
 }
 
@@ -2137,6 +3197,22 @@ if (root && state && csrfToken && dialog) {
       updateLinksQuery(query);
       return;
     }
+    if (navigation.hasAttribute('data-series-filters')) {
+      event.preventDefault();
+      const current = currentSeriesQuery() ?? DEFAULT_CREATOR_OWNER_SERIES_QUERY;
+      const query = creatorOwnerSeriesQueryFromForm(navigation, current);
+      query.paginaSeries = 1;
+      updateSeriesQuery(query);
+      return;
+    }
+    if (navigation.hasAttribute('data-series-chapter-filters')) {
+      event.preventDefault();
+      const current = currentSeriesQuery() ?? DEFAULT_CREATOR_OWNER_SERIES_QUERY;
+      const query = creatorOwnerSeriesQueryFromForm(navigation, current);
+      query.paginaCapitulos = 1;
+      updateSeriesQuery(query);
+      return;
+    }
     if (!navigation.hasAttribute('data-owner-navigation') || !hasPendingChanges()) return;
     event.preventDefault();
     const submitter = (event as SubmitEvent).submitter;
@@ -2204,6 +3280,23 @@ if (root && state && csrfToken && dialog) {
     });
   }
 
+  const ownerSeriesForm = seriesForm();
+  if (ownerSeriesForm) {
+    onWrite(ownerSeriesForm, async (event) => {
+      event.preventDefault();
+      activeForm = ownerSeriesForm;
+      await saveSeriesForm(ownerSeriesForm);
+    });
+  }
+  const ownerChapterMoveForm = chapterMoveForm();
+  if (ownerChapterMoveForm) {
+    onWrite(ownerChapterMoveForm, async (event) => {
+      event.preventDefault();
+      activeForm = ownerChapterMoveForm;
+      await saveChapterMoveForm(ownerChapterMoveForm);
+    });
+  }
+
   restoreLinksFromLocation();
 
   root.addEventListener('input', (event) => {
@@ -2224,6 +3317,26 @@ if (root && state && csrfToken && dialog) {
       }, 120);
       return;
     }
+    if (control.matches('[data-series-search]')) {
+      if (seriesSearchTimer) clearTimeout(seriesSearchTimer);
+      seriesSearchTimer = setTimeout(() => {
+        const query = currentSeriesQuery();
+        if (!query) return;
+        updateSeriesQuery({ ...query, buscarSeries: control.value, paginaSeries: 1 }, 'replace');
+        control.focus();
+      }, 120);
+      return;
+    }
+    if (control.matches('[data-chapter-search]')) {
+      if (seriesSearchTimer) clearTimeout(seriesSearchTimer);
+      seriesSearchTimer = setTimeout(() => {
+        const query = currentSeriesQuery();
+        if (!query) return;
+        updateSeriesQuery({ ...query, buscarCapitulos: control.value, paginaCapitulos: 1 }, 'replace');
+        control.focus();
+      }, 120);
+      return;
+    }
     const form = control.form;
     const name = form?.dataset.ownerForm;
     if (!form || !name) return;
@@ -2232,6 +3345,19 @@ if (root && state && csrfToken && dialog) {
       if (target) setMoveDescription(form, target);
       control.setCustomValidity?.('');
       return;
+    }
+    if (name === 'mover-capitulo' && control.name === 'targetPosition' && activeChapterMoveContext) {
+      setChapterMoveDescription(form, activeChapterMoveContext.seriesId, activeChapterMoveContext.placementId);
+      control.setCustomValidity?.('');
+      return;
+    }
+    if (name === 'serie') {
+      activeForm = form;
+      if (control.name === 'slug') seriesSlugManuallyEdited = true;
+      if (control.name === 'name' && !seriesSlugManuallyEdited) {
+        const slug = field(form, 'slug');
+        if (slug) slug.value = suggestedSlug(control.value);
+      }
     }
     if (name === 'crear') {
       activeForm = form;
@@ -2249,6 +3375,14 @@ if (root && state && csrfToken && dialog) {
     if (!(target instanceof HTMLElement) || target.tagName !== 'SELECT') return;
     const control = target as HTMLSelectElement;
     const filterForm = control.form;
+    if (filterForm?.hasAttribute('data-series-chapter-filters')) {
+      if (seriesSearchTimer) clearTimeout(seriesSearchTimer);
+      const current = currentSeriesQuery() ?? DEFAULT_CREATOR_OWNER_SERIES_QUERY;
+      const query = creatorOwnerSeriesQueryFromForm(filterForm, current);
+      query.paginaCapitulos = 1;
+      updateSeriesQuery(query);
+      return;
+    }
     if (!filterForm?.hasAttribute('data-link-filters')) return;
     if (searchTimer) clearTimeout(searchTimer);
     const query = creatorOwnerLinksQueryFromForm(filterForm, currentLinksQuery());
@@ -2259,6 +3393,102 @@ if (root && state && csrfToken && dialog) {
   root.addEventListener('click', (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
+    const chapterSuggestion = target.closest<HTMLButtonElement>('[data-chapter-move-suggestion]');
+    if (chapterSuggestion) {
+      event.preventDefault();
+      const form = chapterMoveForm();
+      const input = form && chapterMovePositionInput(form);
+      const requested = Number(chapterSuggestion.dataset.viablePosition);
+      const context = activeChapterMoveContext;
+      const order = context ? creatorOwnerChapterOrder(state?.links ?? [], context.seriesId) : [];
+      if (!form || !input || !context || activeEditor !== 'mover-capitulo'
+        || !Number.isSafeInteger(requested) || requested < 1 || requested > order.length) return;
+      input.value = String(requested);
+      input.setCustomValidity('');
+      setChapterMoveDescription(form, context.seriesId, context.placementId);
+      input.focus();
+      return;
+    }
+    const reconcileRetry = target.closest<HTMLButtonElement>('[data-series-reconcile-retry]');
+    if (reconcileRetry) {
+      event.preventDefault();
+      void retrySeriesReconcile();
+      return;
+    }
+    const seriesCreate = target.closest<HTMLElement>('[data-series-create-open]');
+    if (seriesCreate) {
+      event.preventDefault();
+      if (hasPendingChanges()) showExitPrompt(() => openSeriesEditor(seriesCreate), seriesCreate);
+      else openSeriesEditor(seriesCreate);
+      return;
+    }
+    const seriesEdit = target.closest<HTMLElement>('[data-series-edit]');
+    if (seriesEdit) {
+      event.preventDefault();
+      const seriesId = seriesEdit.dataset.seriesId;
+      if (hasPendingChanges()) showExitPrompt(() => openSeriesEditor(seriesEdit, seriesId), seriesEdit);
+      else openSeriesEditor(seriesEdit, seriesId);
+      return;
+    }
+    const chapterNavigation = target.closest<HTMLAnchorElement>('[data-series-chapters]');
+    if (chapterNavigation) {
+      event.preventDefault();
+      const seriesId = chapterNavigation.dataset.seriesId;
+      const current = currentSeriesQuery();
+      if (!seriesId || !current) return;
+      const next = { ...current, serie: seriesId, buscarCapitulos: '', pertenencia: 'todos' as const, paginaCapitulos: 1 };
+      if (hasPendingChanges()) showExitPrompt(() => updateSeriesQuery(next), chapterNavigation);
+      else updateSeriesQuery(next);
+      return;
+    }
+    const seriesPageLink = target.closest<HTMLAnchorElement>('[data-series-page], [data-series-chapter-page], [data-series-back]');
+    if (seriesPageLink) {
+      event.preventDefault();
+      const parsed = parseCreatorOwnerSeriesQuery(new URL(seriesPageLink.href, window.location.href).searchParams, state?.series ?? []);
+      if (parsed.valid) updateSeriesQuery(parsed.query);
+      return;
+    }
+    const chapterMove = target.closest<HTMLElement>('[data-chapter-move]');
+    if (chapterMove) {
+      event.preventDefault();
+      if (writeGuard?.isActive()) {
+        showExitPrompt(undefined, chapterMove);
+        return;
+      }
+      if (hasPendingChanges()) showExitPrompt(() => openChapterMove(chapterMove), chapterMove);
+      else openChapterMove(chapterMove);
+      return;
+    }
+    const chapterAdd = target.closest<HTMLElement>('[data-chapter-add]');
+    if (chapterAdd) {
+      event.preventDefault();
+      const placementId = chapterAdd.dataset.placementId || chapterAdd.closest<HTMLElement>('[data-chapter-row]')?.dataset.chapterRow;
+      if (!placementId || seriesReconcileReadPending) return;
+      const action = () => { void runProfileFormAction(event, () => mutateChapterMembership(placementId, 'add')); };
+      if (hasPendingChanges()) showExitPrompt(action, chapterAdd);
+      else action();
+      return;
+    }
+    const chapterRemove = target.closest<HTMLElement>('[data-chapter-remove]');
+    if (chapterRemove) {
+      event.preventDefault();
+      const placementId = chapterRemove.dataset.placementId || chapterRemove.closest<HTMLElement>('[data-chapter-row]')?.dataset.chapterRow;
+      if (!placementId || seriesReconcileReadPending) return;
+      const action = () => { void runProfileFormAction(event, () => mutateChapterMembership(placementId, 'remove')); };
+      if (hasPendingChanges()) showExitPrompt(action, chapterRemove);
+      else action();
+      return;
+    }
+    const seriesDelete = target.closest<HTMLElement>('[data-series-delete]');
+    if (seriesDelete) {
+      event.preventDefault();
+      const id = seriesDelete.dataset.seriesId;
+      if (!id) return;
+      const action = () => { void runProfileFormAction(event, () => deleteOwnerSeries(id)); };
+      if (hasPendingChanges()) showExitPrompt(action, seriesDelete);
+      else action();
+      return;
+    }
     const moveSuggestion = target.closest<HTMLButtonElement>('[data-link-move-suggestion]');
     if (moveSuggestion) {
       event.preventDefault();
@@ -2353,6 +3583,16 @@ if (root && state && csrfToken && dialog) {
     if (exitContinue) { event.preventDefault(); handleExitChoice('continue'); return; }
     const compareButton = target.closest('[data-owner-compare]');
     const conflictName = activeForm?.dataset.ownerForm;
+    if (compareButton && activeForm && activeEditor === 'serie') {
+      event.preventDefault();
+      void compareSavedSeries(activeForm);
+      return;
+    }
+    if (compareButton && activeForm && activeEditor === 'mover-capitulo') {
+      event.preventDefault();
+      void compareSavedChapterMove(activeForm);
+      return;
+    }
     if (compareButton && activeForm && activeEditor === 'enlace') {
       event.preventDefault();
       void compareSavedLink(activeForm);
@@ -2369,6 +3609,16 @@ if (root && state && csrfToken && dialog) {
       return;
     }
     const adoptButton = target.closest('[data-owner-adopt]');
+    if (adoptButton && activeForm && activeEditor === 'serie') {
+      event.preventDefault();
+      adoptSavedSeries(activeForm);
+      return;
+    }
+    if (adoptButton && activeForm && activeEditor === 'mover-capitulo') {
+      event.preventDefault();
+      adoptSavedChapterMove(activeForm);
+      return;
+    }
     if (adoptButton && activeForm && activeEditor === 'enlace') {
       event.preventDefault();
       adoptSavedLink(activeForm);
