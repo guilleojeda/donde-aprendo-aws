@@ -1,7 +1,7 @@
 import type { CreatorEditableResourceDTO, CreatorEditorDTO, CreatorLinkDTO, CreatorProfileDTO, CreatorProgram, CreatorSeriesDTO, CreatorSocial } from '../types/creators';
 import { createCreatorFormState, type FormValueSnapshot } from './creator-form-state';
 import { createCreatorSessionRecovery } from './creator-session-recovery';
-import { createCreatorWriteGuard, readCreatorVersionChanges } from './creator-write-state';
+import { createCreatorWriteGuard, readCreatorVersionChanges, type CreatorVersionChange } from './creator-write-state';
 import {
   creatorOwnerLinksCountLabel,
   creatorOwnerLinkGroup,
@@ -381,19 +381,6 @@ function seriesElement<K extends keyof HTMLElementTagNameMap>(tag: K, text?: str
   return node;
 }
 
-function clearElementChildren(node: HTMLElement) {
-  const children = [...((node as HTMLElement & { children?: HTMLCollection }).children ?? (node as HTMLElement & { lists?: HTMLElement[] }).lists ?? [])];
-  children.forEach((child) => child.remove());
-}
-
-function replaceElementContents(target: HTMLElement, fresh: HTMLElement) {
-  target.className = fresh.className;
-  clearElementChildren(target);
-  target.textContent = '';
-  for (const [key, value] of Object.entries(fresh.dataset)) target.dataset[key] = value;
-  for (const child of [...((fresh as HTMLElement & { children?: HTMLCollection }).children ?? (fresh as HTMLElement & { lists?: HTMLElement[] }).lists ?? [])]) target.append(child);
-}
-
 function setSeriesPageLinks(nav: HTMLElement | null | undefined, attribute: 'seriesPage' | 'seriesChapterPage', query: CreatorOwnerSeriesQuery, page: number, pageCount: number) {
   if (!nav) return;
   nav.querySelectorAll<HTMLAnchorElement>(`[data-${attribute.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}]`).forEach((item) => item.remove());
@@ -494,24 +481,8 @@ function renderOwnerSeries(query = currentSeriesQuery()): CreatorOwnerSeriesQuer
     setHidden(seriesEmpty, selection.rows.length > 0);
   }
   if (seriesList) {
-    const oldRows = new Map([...seriesList.querySelectorAll<HTMLElement>('[data-owner-series-row]')]
-      .map((row) => [row.dataset.ownerSeriesRow ?? '', row]));
-    for (const row of oldRows.values()) if (!selection.rows.some(({ id }) => id === row.dataset.ownerSeriesRow)) row.remove();
-    for (const item of selection.rows) {
-      const fresh = createOwnerSeriesRow(item, selection.query);
-      const existing = oldRows.get(item.id);
-      if (existing) {
-        replaceElementContents(existing, fresh);
-        existing.setAttribute('data-owner-series-row', item.id);
-        existing.setAttribute('data-series-id', item.id);
-        existing.setAttribute('id', item.id);
-      } else seriesList.append(fresh);
-    }
-    for (const item of selection.rows) {
-      const row = [...seriesList.querySelectorAll<HTMLElement>('[data-owner-series-row]')]
-        .find((candidate) => candidate.dataset.ownerSeriesRow === item.id);
-      if (row) seriesList.append(row);
-    }
+    seriesList.querySelectorAll<HTMLElement>('[data-owner-series-row]').forEach((row) => row.remove());
+    for (const item of selection.rows) seriesList.append(createOwnerSeriesRow(item, selection.query));
   }
   setSeriesPageLinks(listView?.querySelector<HTMLElement>('[data-series-pagination]'), 'seriesPage', selection.query, selection.query.paginaSeries, selection.pageCount);
 
@@ -560,23 +531,8 @@ function renderOwnerSeries(query = currentSeriesQuery()): CreatorOwnerSeriesQuer
       setHidden(chapterEmpty, chapterSelection.rows.length > 0);
     }
     if (chapterList) {
-      const oldRows = new Map([...chapterList.querySelectorAll<HTMLElement>('[data-chapter-row]')]
-        .map((row) => [row.dataset.chapterRow ?? '', row]));
-      for (const row of oldRows.values()) if (!chapterSelection.rows.some(({ placementId }) => placementId === row.dataset.chapterRow)) row.remove();
-      for (const link of chapterSelection.rows) {
-        const fresh = createOwnerChapterRow(link, selectedSeries.id, completeOrder);
-        const existing = oldRows.get(link.placementId);
-        if (existing) {
-          replaceElementContents(existing, fresh);
-          existing.setAttribute('data-chapter-row', link.placementId);
-          existing.setAttribute('data-placement-id', link.placementId);
-        } else chapterList.append(fresh);
-      }
-      for (const link of chapterSelection.rows) {
-        const row = [...chapterList.querySelectorAll<HTMLElement>('[data-chapter-row]')]
-          .find((candidate) => candidate.dataset.chapterRow === link.placementId);
-        if (row) chapterList.append(row);
-      }
+      chapterList.querySelectorAll<HTMLElement>('[data-chapter-row]').forEach((row) => row.remove());
+      for (const link of chapterSelection.rows) chapterList.append(createOwnerChapterRow(link, selectedSeries.id, completeOrder));
     }
     setSeriesPageLinks(chapterView.querySelector<HTMLElement>('[data-chapter-pagination]'), 'seriesChapterPage', chapterSelection.query, chapterSelection.query.paginaCapitulos, chapterSelection.pageCount);
     const selectedEdit = chapterView.querySelector<HTMLButtonElement>('[data-series-edit]');
@@ -1347,8 +1303,9 @@ function closeDialog({ navigate = true }: { navigate?: boolean } = {}) {
   clearConflict(undefined);
   const focus = returnFocus;
   returnFocus = undefined;
-  const fallbackFocus = currentSeriesQuery()
-    ? root?.querySelector<HTMLElement>('[data-chapter-search]') ?? root?.querySelector<HTMLElement>('[data-series-search]')
+  const seriesQuery = currentSeriesQuery();
+  const fallbackFocus = seriesQuery
+    ? root?.querySelector<HTMLElement>(seriesQuery.serie ? '[data-chapter-search]' : '[data-series-search]')
     : root?.querySelector<HTMLElement>('[data-link-search]');
   if (focus && focus.isConnected) window.requestAnimationFrame(() => focus.focus());
   else if (fallbackFocus) window.requestAnimationFrame(() => fallbackFocus.focus());
@@ -1496,6 +1453,7 @@ function updateProfileState(profile: CreatorProfileDTO) {
   state.profile = profile;
   root?.setAttribute('data-profile-version', String(profile.version));
   updateProfileView();
+  renderOwnerSeries();
 }
 
 function maybeExitAfterSave(noPendingChanges: boolean) {
@@ -1605,25 +1563,13 @@ async function saveProfileForm(form: HTMLFormElement, name: 'crear' | 'datos' | 
 
 function changesEqual(
   actual: Awaited<ReturnType<typeof readCreatorVersionChanges>>,
-  expected: Array<{ entity: 'profile' | 'resource' | 'placement'; id: string; before: number; after: number }>,
+  expected: CreatorVersionChange[],
 ): boolean {
   if (!actual || actual.length !== expected.length) return false;
   const key = (change: { entity: string; id: string }) => `${change.entity}:${change.id}`;
   const byKey = new Map(actual.map((change) => [key(change), change]));
   return expected.every((change) => {
     const observed = byKey.get(key(change));
-    return observed?.before === change.before && observed.after === change.after;
-  });
-}
-
-function versionChangesMatch(
-  actual: Awaited<ReturnType<typeof readCreatorVersionChanges>>,
-  expected: Array<{ entity: string; id: string; before: number; after: number }>,
-): boolean {
-  if (!actual || actual.length !== expected.length) return false;
-  const byKey = new Map(actual.map((change) => [`${change.entity}:${change.id}`, change]));
-  return expected.every((change) => {
-    const observed = byKey.get(`${change.entity}:${change.id}`);
     return observed?.before === change.before && observed.after === change.after;
   });
 }
@@ -1690,7 +1636,7 @@ async function saveSeriesForm(form: HTMLFormElement) {
     const payload = await responsePayload(response);
     const changes = await readCreatorVersionChanges(response);
     const next = payload?.series;
-    const expected = changed
+    const expected: CreatorVersionChange[] = changed
       ? [
         { entity: 'profile', id: profile.id, before: profile.version, after: profile.version + 1 },
         { entity: 'series', id: existing?.id ?? (isRecord(next) && typeof next.id === 'string' ? next.id : ''), before: existing?.version ?? 0, after: (existing?.version ?? 0) + 1 },
@@ -1700,7 +1646,7 @@ async function saveSeriesForm(form: HTMLFormElement) {
       && (existing ? next.id === existing.id && response.status === 200 : !state?.series.some(({ id }) => id === next.id) && next.version === 1 && response.status === 201)
       && next.name === name && next.slug === slug && (next.description ?? '') === description
       && next.version === (existing?.version ?? 0) + Number(changed)
-      && versionChangesMatch(changes, expected);
+      && changesEqual(changes, expected);
     if (!valid || !isCreatorSeries(next)) {
       showSeriesConflict(form, 'La respuesta no coincide con las versiones y los datos de esta serie. Conservamos tu edición para revisarla.');
       announceWrite('serie', 'No pudimos comprobar el recibo de la serie. Conservamos tu edición y no la marcamos como guardada.', 'error');
@@ -1935,7 +1881,7 @@ async function saveChapterMoveForm(form: HTMLFormElement) {
       return { link, position: candidateMembership?.position ?? current?.position ?? 0 };
     }).sort((left, right) => left.position - right.position || left.link.placementId.localeCompare(right.link.placementId));
     const resultingOrdinal = resultingOrder.findIndex(({ link }) => link.placementId === target.placementId) + 1;
-    const expectedChanges: Array<{ entity: string; id: string; before: number; after: number }> = [];
+    const expectedChanges: CreatorVersionChange[] = [];
     if (changedCandidates.length) {
       expectedChanges.push({ entity: 'profile', id: profile.id, before: profile.version, after: profile.version + 1 });
       for (const candidate of changedCandidates) {
@@ -1946,7 +1892,7 @@ async function saveChapterMoveForm(form: HTMLFormElement) {
     const nextTarget = byId.get(target.placementId);
     const targetMembership = nextTarget?.series.find((item) => item.seriesId === series.id);
     if (!payload || !Array.isArray(raw) || !nextTarget || !targetMembership || !candidatesValid
-      || resultingOrdinal !== requested || !versionChangesMatch(changes, expectedChanges)) {
+      || resultingOrdinal !== requested || !changesEqual(changes, expectedChanges)) {
       showChapterMoveConflict(form, 'La respuesta no coincide con el orden y las versiones observadas. Conservamos el destino y no adoptamos datos sin confirmar.');
       announceWrite('mover-capitulo', 'No pudimos comprobar el recibo del movimiento. Conservamos el destino para revisarlo antes de volver a guardar.', 'error');
       return;
@@ -2423,7 +2369,7 @@ async function saveMoveForm(form: HTMLFormElement) {
       return candidate ? { ...link, position: candidate.position } : link;
     }).sort((left, right) => left.position - right.position || left.placementId.localeCompare(right.placementId));
     const resultingOrdinal = resultingGroup.findIndex(({ placementId }) => placementId === target.placementId) + 1;
-    const expectedChanges: Array<{ entity: 'profile' | 'placement'; id: string; before: number; after: number }> = [];
+    const expectedChanges: CreatorVersionChange[] = [];
     if (changedCandidates.length) {
       expectedChanges.push({ entity: 'profile', id: profile.id, before: profile.version, after: profile.version + 1 });
       for (const candidate of changedCandidates) {
@@ -2587,12 +2533,12 @@ async function mutateChapterMembership(placementId: string, action: 'add' | 'rem
     const payload = response.status === 204 ? null : await responsePayload(response);
     const changes = await readCreatorVersionChanges(response);
     const placementVersion = link.placementVersion;
-    const expected = placementVersion === undefined ? [] : [
+    const expected: CreatorVersionChange[] = placementVersion === undefined ? [] : [
       { entity: 'profile', id: profile.id, before: profile.version, after: profile.version + 1 },
       { entity: 'placement', id: link.placementId, before: placementVersion, after: placementVersion + 1 },
     ];
     const statusMatches = action === 'add' ? response.status === 200 && payload?.status === 200 : response.status === 204;
-    if (!statusMatches || placementVersion === undefined || !versionChangesMatch(changes, expected)) {
+    if (!statusMatches || placementVersion === undefined || !changesEqual(changes, expected)) {
       announce(status, 'No pudimos comprobar el recibo del cambio de capítulo. Conservamos la lista y no repetimos la acción.', 'error');
       return;
     }
@@ -2627,7 +2573,7 @@ async function deleteOwnerSeries(seriesId: string) {
       return;
     }
     const changes = await readCreatorVersionChanges(response);
-    if (response.status !== 204 || !versionChangesMatch(changes, [
+    if (response.status !== 204 || !changesEqual(changes, [
       { entity: 'profile', id: profile.id, before: profile.version, after: profile.version + 1 },
     ])) {
       announceWrite('serie', 'No pudimos comprobar el recibo de eliminación. Conservamos la serie y sus controles.', 'error');
