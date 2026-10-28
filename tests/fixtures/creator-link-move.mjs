@@ -22,7 +22,7 @@ function storageKey(value) {
 
 // DynamoDB stored-attribute accounting for the actual command images below.
 // This measures the request; it does not decide the move window or its oracle.
-function storedAttributeBytes(value, name = '') {
+export function storedAttributeBytes(value, name = '') {
   if (value === undefined) return 0;
   const nameBytes = Buffer.byteLength(name, 'utf8');
   if (typeof value === 'string') return nameBytes + Buffer.byteLength(value, 'utf8');

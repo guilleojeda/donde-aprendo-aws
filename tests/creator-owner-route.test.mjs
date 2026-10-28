@@ -69,6 +69,7 @@ let runtime;
 async function resetRuntime() {
   runtime = await createCreatorOwnerRuntime();
   runtime.setSession('creator-a');
+  runtime.setSession('creator-b');
   runtime.setSession('admin');
   return runtime;
 }
@@ -180,12 +181,17 @@ test('la ruta Astro real abre la identidad propia, protege el HTML y sólo enlaz
   assert.equal(profile.slug, 'ana-lambda-actual');
 });
 
-test('la ruta residual deja mover enlaces a Tu página y conserva series, capítulos y reclamaciones', async () => {
+test('la ruta residual conserva referencias compartidas e IDs para reclamaciones, sin gestionar series', async () => {
   await resetRuntime();
+  await api('/api/creador/perfil/', {
+    displayName: 'Bea de Lambda', slug: 'bea-contenido', city: '', country: '', bio: '', programs: [], socials: {},
+  }, { method: 'PUT', session: 'creator-b' });
+  const shared = await api('/api/creador/enlaces/', {
+    title: 'Guía compartida que se conserva', url: 'https://example.invalid/guia-compartida',
+  }, { method: 'POST', session: 'creator-b' });
   await createProfile({ slug: 'ana-contenido' });
   const addedLink = await api('/api/creador/enlaces/', {
-    title: 'Guía que se conserva',
-    url: 'https://example.invalid/guia-que-se-conserva',
+    title: 'Guía compartida que se conserva', url: 'https://example.invalid/guia-compartida',
   }, { method: 'POST' });
   assert.ok(addedLink.link);
   const secondLink = await api('/api/creador/enlaces/', {
@@ -212,13 +218,16 @@ test('la ruta residual deja mover enlaces a Tu página y conserva series, capít
   const { response, html } = await renderPage(editorRoute, { pathname: '/cuenta/creador/' });
   const text = visibleText(html);
   assert.equal(response.status, 200);
-  assert.match(text, /Guía que se conserva/);
+  assert.match(text, /Guía compartida que se conserva/);
   assert.match(text, /Otro capítulo que se conserva/);
-  assert.match(text, /Ruta que se conserva/);
-  assert.match(text, /Crear serie/);
+  assert.doesNotMatch(text, /Ruta que se conserva|Crear serie/,
+    'series and chapter management now live in the owner view');
+  assert.match(html, new RegExp(`data-resource-id-value="${shared.link.resourceId}"`),
+    'a shared reference retains its resource ID for the claims workflow');
   assert.doesNotMatch(html, /\bdata-move=/, 'link position actions now live in the owner table');
   assert.doesNotMatch(html, /\bdata-link-order-form/i);
-  assert.match(html, /\bdata-series-move=/, 'chapter ordering remains available in the residual route');
+  assert.doesNotMatch(html, /\bdata-series-(?:create-form|form|move|add-chapter-form|remove-chapter)|\bdata-delete-series/i,
+    'the residual route no longer owns series or chapter controls');
   assert.match(html, /data-claim-form/, 'the existing claim flow remains until phase 6');
   assert.doesNotMatch(html, /data-add-link-form|data-resource-form/,
     'link creation and resource editing now belong to the owner table');
