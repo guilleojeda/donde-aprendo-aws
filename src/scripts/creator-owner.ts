@@ -140,6 +140,7 @@ if (root && initial?.textContent) {
 const placementIdByResource = new Map((state?.links ?? []).map(({ resourceId, placementId }) => [resourceId, placementId]));
 const CATALOG_INDEX_PATH = '/catalog-selection.json';
 const CATALOG_TYPES = new Set(['content', 'source', 'community', 'event']);
+const OWNER_HISTORY_INDEX_KEY = 'creatorOwnerHistoryIndex';
 
 const formState = root ? createCreatorFormState(root) : undefined;
 const writeGuard = root ? createCreatorWriteGuard(root) : undefined;
@@ -148,6 +149,16 @@ let activeForm: HTMLFormElement | undefined;
 let activeEditor: 'datos' | 'redes' | 'foto' | 'enlace' | 'alta-enlace' | 'referencia' | 'reclamacion' | 'mover-enlace' | 'serie' | 'mover-capitulo' | undefined;
 let returnFocus: HTMLElement | undefined;
 let pendingExitAction: (() => void) | undefined;
+let ownerHistoryIndex = 0;
+let ownerHistoryRestoreIndex: number | undefined;
+let pendingOwnerHistoryNavigation: {
+  fromIndex: number;
+  toIndex: number;
+  restoring: boolean;
+  cancelled: boolean;
+  proceed: boolean;
+} | undefined;
+let focusOwnerLocationAfterHistory = false;
 let conflictProfile: CreatorProfileDTO | undefined;
 let activeLinkContext: { kind: 'placement'; placementId: string } | { kind: 'resource'; resourceId: string } | undefined;
 let conflictLinkData: CreatorEditorDTO | undefined;
@@ -206,6 +217,8 @@ let claimNeedsRefresh = false;
 let claimSubmitting = false;
 let claimChecking = false;
 type ProfileFormAction = (event: Event) => Promise<void> | void;
+type AddedLinkDraft = { title: string; url: string; description: string; selectedForDirectory: boolean };
+let uncertainAddedLinkDraft: AddedLinkDraft | undefined;
 const profileFormActions = new WeakMap<HTMLFormElement, ProfileFormAction>();
 
 const dialog = root?.querySelector<HTMLDialogElement>('[data-owner-dialog]');
@@ -933,7 +946,27 @@ function resetAddedLinkForm(form: HTMLFormElement) {
   if (url) url.value = '';
   if (description) description.value = '';
   if (selected) selected.checked = true;
+  uncertainAddedLinkDraft = undefined;
   formState?.commit(capture(form));
+}
+
+function readAddedLinkDraft(form: HTMLFormElement): AddedLinkDraft {
+  return {
+    title: String(field(form, 'title')?.value ?? ''),
+    url: String(field(form, 'url')?.value ?? ''),
+    description: String(field(form, 'description')?.value ?? ''),
+    selectedForDirectory: Boolean((field(form, 'selectedForDirectory') as HTMLInputElement | null)?.checked),
+  };
+}
+
+function sameAddedLinkDraft(left: AddedLinkDraft, right: AddedLinkDraft): boolean {
+  return left.title === right.title && left.url.trim() === right.url.trim()
+    && left.description === right.description
+    && left.selectedForDirectory === right.selectedForDirectory;
+}
+
+function markAddedLinkUncertain(draft: AddedLinkDraft) {
+  if (uncertainAddedLinkDraft?.url.trim() !== draft.url.trim()) uncertainAddedLinkDraft = draft;
 }
 
 function hideDialogForms() {
@@ -1160,13 +1193,133 @@ function renderOwnerSeries(query = currentSeriesQuery()): CreatorOwnerSeriesQuer
   return seriesMatches && selectedSeries ? selectCreatorOwnerChapters(state, query).query : selection.query;
 }
 
+function ownerHistoryState(index: number): Record<string, unknown> {
+  const current = isRecord(window.history?.state) ? window.history.state : {};
+  return { ...current, [OWNER_HISTORY_INDEX_KEY]: index };
+}
+
+function ownerHistoryIndexFrom(value: unknown): number | undefined {
+  if (!isRecord(value)) return undefined;
+  const index = value[OWNER_HISTORY_INDEX_KEY];
+  return typeof index === 'number' && Number.isSafeInteger(index) && index >= 0 ? index : undefined;
+}
+
+function initializeOwnerHistory() {
+  if (typeof window.history?.replaceState !== 'function') {
+    ownerHistoryIndex = 0;
+    return;
+  }
+  ownerHistoryIndex = ownerHistoryIndexFrom(window.history.state) ?? 0;
+  window.history.replaceState(ownerHistoryState(ownerHistoryIndex), '', window.location.href);
+}
+
+function pushOwnerHistory(href: string) {
+  if (typeof window.history?.pushState !== 'function') return;
+  ownerHistoryIndex += 1;
+  window.history.pushState(ownerHistoryState(ownerHistoryIndex), '', href);
+}
+
+function replaceOwnerHistory(href: string) {
+  if (typeof window.history?.replaceState !== 'function') return;
+  window.history.replaceState(ownerHistoryState(ownerHistoryIndex), '', href);
+}
+
+function focusRestoredOwnerLocation() {
+  const params = new URL(window.location.href).searchParams;
+  const selector = params.get('vista') === 'series'
+    ? params.get('serie') ? '[data-chapter-search]' : '[data-series-search]'
+    : '[data-link-search]';
+  const target = root?.querySelector<HTMLElement>(selector);
+  if (target) window.requestAnimationFrame(() => target.focus());
+}
+
+function completePendingOwnerHistoryNavigation() {
+  const navigation = pendingOwnerHistoryNavigation;
+  if (!navigation) return;
+  if (navigation.restoring) {
+    navigation.proceed = true;
+    return;
+  }
+  pendingOwnerHistoryNavigation = undefined;
+  ownerHistoryIndex = navigation.fromIndex;
+  const delta = navigation.toIndex - navigation.fromIndex;
+  if (delta === 0) {
+    ownerHistoryIndex = navigation.toIndex;
+    restoreLinksFromLocation();
+    focusRestoredOwnerLocation();
+    return;
+  }
+  if (typeof window.history?.go !== 'function') return;
+  focusOwnerLocationAfterHistory = true;
+  window.history.go(delta);
+}
+
+function handleOwnerPopstate(event: PopStateEvent) {
+  const targetIndex = ownerHistoryIndexFrom(event?.state);
+  const hasPendingEditorChanges = Boolean(dialog?.open && activeEditor && hasPendingChanges());
+  if (targetIndex !== undefined && targetIndex === ownerHistoryRestoreIndex) {
+    ownerHistoryIndex = targetIndex;
+    ownerHistoryRestoreIndex = undefined;
+    const pending = pendingOwnerHistoryNavigation;
+    if (pending?.fromIndex === targetIndex) {
+      pending.restoring = false;
+      if (pending.cancelled) pendingOwnerHistoryNavigation = undefined;
+      else if (pending.proceed) {
+        pending.proceed = false;
+        completePendingOwnerHistoryNavigation();
+      }
+    }
+    return;
+  }
+  if (targetIndex === undefined) {
+    if (hasPendingEditorChanges) showExitPrompt(() => restoreLinksFromLocation());
+    else restoreLinksFromLocation();
+    return;
+  }
+  if (targetIndex === ownerHistoryIndex) {
+    restoreLinksFromLocation();
+    return;
+  }
+
+  if (hasPendingEditorChanges) {
+    if (writeGuard?.isActive()) {
+      announceWrite(activeEditor, 'La escritura ya empezó. Espera a que termine antes de cambiar la vista.', 'info');
+      if (typeof window.history?.go !== 'function') return;
+      ownerHistoryRestoreIndex = ownerHistoryIndex;
+      window.history.go(ownerHistoryIndex - targetIndex);
+      return;
+    }
+    const fromIndex = ownerHistoryIndex;
+    pendingOwnerHistoryNavigation = {
+      fromIndex,
+      toIndex: targetIndex,
+      restoring: true,
+      cancelled: false,
+      proceed: false,
+    };
+    pendingExitAction = completePendingOwnerHistoryNavigation;
+    showExitPrompt();
+    if (typeof window.history?.go !== 'function') return;
+    ownerHistoryRestoreIndex = fromIndex;
+    window.history.go(fromIndex - targetIndex);
+    return;
+  }
+
+  ownerHistoryIndex = targetIndex;
+  restoreLinksFromLocation();
+  if (focusOwnerLocationAfterHistory) {
+    focusOwnerLocationAfterHistory = false;
+    focusRestoredOwnerLocation();
+  }
+}
+
 function updateSeriesQuery(query: CreatorOwnerSeriesQuery, historyMode: 'push' | 'replace' = 'push') {
   const effective = renderOwnerSeries(query) ?? query;
   const href = creatorOwnerSeriesHref(effective);
   const current = `${window.location.pathname}${window.location.search}`;
   if (href !== current) {
-    if (historyMode === 'push') window.history.pushState({}, '', href);
-    else window.history.replaceState({}, '', href);
+    if (historyMode === 'push') pushOwnerHistory(href);
+    else replaceOwnerHistory(href);
   }
   return effective;
 }
@@ -1178,7 +1331,7 @@ function restoreSeriesFromLocation() {
   const effective = renderOwnerSeries(parsed.query);
   if (effective) {
     const href = creatorOwnerSeriesHref(effective);
-    if (`${window.location.pathname}${window.location.search}` !== href) window.history.replaceState({}, '', href);
+    if (`${window.location.pathname}${window.location.search}` !== href) replaceOwnerHistory(href);
   }
   return true;
 }
@@ -1240,6 +1393,33 @@ function openLinkContext(trigger: HTMLElement, correction?: { placementId: strin
   }
   showDialogForm(form, 'enlace', resource ? `Editar ficha: ${link.title}` : `Editar opciones: ${link.title}`, trigger);
   restoreCatalogReferenceNotice();
+}
+
+function continueAddedLinkInEditor(
+  sourceForm: HTMLFormElement,
+  link: CreatorLinkDTO,
+  correction: { title: string; url: string; description: string; selectedForDirectory: boolean },
+): 'editable' | 'shared' | undefined {
+  const form = linkForm();
+  if (!form || !state) return undefined;
+  const row = [...(root?.querySelectorAll<HTMLElement>('[data-link-row]') ?? [])]
+    .find((item) => item.dataset.linkRow === link.placementId);
+  const trigger = row?.querySelector<HTMLElement>('[data-link-edit]') ?? document.createElement('button');
+  if (!row) trigger.dataset.placementId = link.placementId;
+  const canEditMetadata = state.editableResources.some(({ id }) => id === link.resourceId);
+  openLinkContext(trigger, { placementId: link.placementId, selectedForDirectory: correction.selectedForDirectory });
+  if (activeForm !== form || activeEditor !== 'enlace'
+    || activeLinkContext?.kind !== 'placement' || activeLinkContext.placementId !== link.placementId) return undefined;
+  if (canEditMetadata) {
+    for (const name of ['title', 'url', 'description'] as const) {
+      const input = field(form, name);
+      if (input) input.value = correction[name];
+    }
+  }
+  const selected = field(form, 'selectedForDirectory') as HTMLInputElement | null;
+  if (selected) selected.checked = correction.selectedForDirectory;
+  resetAddedLinkForm(sourceForm);
+  return canEditMetadata ? 'editable' : 'shared';
 }
 
 function restoreCatalogReferenceNotice() {
@@ -1698,8 +1878,8 @@ function updateLinksQuery(query: CreatorOwnerLinksQuery, historyMode: 'push' | '
   const effectiveQuery = renderOwnerLinks(query) ?? query;
   const href = creatorOwnerLinksHref(effectiveQuery, effectiveQuery.paginaEnlaces);
   if (historyMode === 'push') {
-    if (href !== `${window.location.pathname}${window.location.search}`) window.history.pushState({}, '', href);
-  } else window.history.replaceState({}, '', href);
+    if (href !== `${window.location.pathname}${window.location.search}`) pushOwnerHistory(href);
+  } else replaceOwnerHistory(href);
   const filterForm = root?.querySelector<HTMLFormElement>('[data-link-filters]');
   if (filterForm) {
     const page = field(filterForm, 'paginaEnlaces');
@@ -1726,7 +1906,7 @@ function restoreLinksFromLocation() {
     }
   }
   if (effective.paginaEnlaces !== parsed.query.paginaEnlaces) {
-    window.history.replaceState({}, '', creatorOwnerLinksHref(effective));
+    replaceOwnerHistory(creatorOwnerLinksHref(effective));
   }
 }
 
@@ -2054,7 +2234,10 @@ function showExitPrompt(afterExit?: () => void, trigger?: HTMLElement) {
     announceWrite(activeEditor, 'Estamos guardando la acción iniciada. Espera a que termine antes de salir.', 'info');
     return;
   }
-  pendingExitAction = afterExit;
+  if (afterExit !== undefined) {
+    if (pendingOwnerHistoryNavigation) pendingOwnerHistoryNavigation = undefined;
+    pendingExitAction = afterExit;
+  } else if (!pendingOwnerHistoryNavigation) pendingExitAction = undefined;
   if (trigger) returnFocus = trigger;
   setHidden(exitPrompt, false);
   setHidden(exitPrompt?.querySelector('[data-owner-exit-save]'), false);
@@ -3415,15 +3598,41 @@ async function saveAddedLink(form: HTMLFormElement) {
   const description = String(data.get('description') ?? '').trim();
   const selectedForDirectory = Boolean((field(form, 'selectedForDirectory') as HTMLInputElement | null)?.checked);
   if (!form.reportValidity()) return;
+  const draft = readAddedLinkDraft(form);
   form.setAttribute('aria-busy', 'true');
   try {
+    const uncertainDraft = uncertainAddedLinkDraft;
+    if (uncertainDraft && uncertainDraft.url.trim() !== url) {
+      if (!await reconcileOwnerData()) {
+        announceWrite('alta-enlace', 'No pudimos comprobar si la URL del intento anterior ya está en tu página. Conservamos tus cambios y no agregamos la URL corregida hasta confirmar el estado.', 'error');
+        return;
+      }
+      const uncertainLink = state?.links.find((item) => item.url === uncertainDraft.url.trim());
+      if (uncertainLink) {
+        const currentDraft = readAddedLinkDraft(form);
+        const continuation = continueAddedLinkInEditor(form, uncertainLink, currentDraft);
+        if (continuation) {
+          announceWrite('enlace', continuation === 'editable'
+            ? 'La URL del intento anterior ya está en tu página. Conservamos la corrección en la edición de la ficha para que la guardes.'
+            : 'La URL del intento anterior ya está en tu página. La ficha compartida conserva sus datos; sólo puedes editar sus opciones.', 'info');
+        } else announceWrite('alta-enlace', 'La URL del intento anterior ya está en tu página. Conservamos los cambios; vuelve a abrir su edición antes de agregar otra URL.', 'error');
+        return;
+      }
+      uncertainAddedLinkDraft = undefined;
+      if (!submitWasUnchanged(snapshot)) {
+        announceWrite('alta-enlace', 'La URL del intento anterior no está en tu página. Conservamos la corrección que escribiste mientras comprobábamos; vuelve a guardar para agregarla.', 'info');
+        return;
+      }
+    }
     const response = await jsonRequest('/api/creador/enlaces', 'POST', { title, url, description, selectedForDirectory });
     if (!response.ok) {
+      if (response.status >= 500) markAddedLinkUncertain(draft);
       announceWrite('alta-enlace', statusMessage(response.status), 'error');
       return;
     }
     const payload = await responsePayload(response);
     if (!payload || !isCreatorLink(payload.link)) {
+      markAddedLinkUncertain(draft);
       announceWrite('alta-enlace', 'El servicio respondió sin una ficha que podamos verificar. Conservamos el formulario; comprueba el estado antes de volver a enviarlo.', 'error');
       return;
     }
@@ -3431,16 +3640,31 @@ async function saveAddedLink(form: HTMLFormElement) {
     if (payload.created !== true) {
       const changes = await readCreatorVersionChanges(response);
       if (response.status !== 200 || !changesEqual(changes, [])) {
+        markAddedLinkUncertain(draft);
         announceWrite('alta-enlace', 'El servicio encontró una URL existente, pero no pudimos verificar su respuesta. Conservamos el formulario para revisar la lista.', 'error');
         return;
       }
       if (!await reconcileOwnerData()) {
+        markAddedLinkUncertain(draft);
         announceWrite('alta-enlace', 'El enlace ya existía o la solicitud anterior pudo completarse. Conservamos el formulario y no cambiamos sus opciones; actualiza la lista antes de volver a intentar.', 'error');
         return;
       }
       const unchanged = submitWasUnchanged(snapshot);
+      const currentDraft = readAddedLinkDraft(form);
+      const correctionAfterUncertain = Boolean(uncertainAddedLinkDraft
+        && uncertainAddedLinkDraft.url.trim() === url
+        && !sameAddedLinkDraft(currentDraft, uncertainAddedLinkDraft));
       const existing = state?.links.find((item) => item.url === url);
       const matchesCurrentQuery = existing ? ownerLinkMatchesCurrentQuery(existing.placementId) : true;
+      if ((!unchanged || correctionAfterUncertain) && existing) {
+        const continuation = continueAddedLinkInEditor(form, existing, currentDraft);
+        if (continuation) {
+          announceWrite('enlace', continuation === 'editable'
+            ? 'Ese enlace ya estaba en tu página. Conservamos tus correcciones en la edición de la ficha para que las guardes.'
+            : 'Ese enlace ya estaba en tu página. La ficha compartida conserva su título, URL y descripción; sólo puedes editar sus opciones.', 'info');
+          return;
+        }
+      }
       if (unchanged) {
         resetAddedLinkForm(form);
         restoreLinkFocus(existing ? { kind: 'placement', placementId: existing.placementId } : undefined);
@@ -3471,6 +3695,7 @@ async function saveAddedLink(form: HTMLFormElement) {
       && (!placementIdByResource.has(link.resourceId) || placementIdByResource.get(link.resourceId) === link.placementId)
       && changesEqual(changes, expectedChanges);
     if (!validReceipt) {
+      markAddedLinkUncertain(draft);
       announceWrite('alta-enlace', 'No pudimos comprobar el recibo del enlace. Conservamos el formulario para revisar el estado antes de volver a enviarlo.', 'error');
       return;
     }
@@ -3500,10 +3725,21 @@ async function saveAddedLink(form: HTMLFormElement) {
       announceWrite('alta-enlace', `${result}${visibility}${filterMessage}`, 'success');
     } else {
       const filterMessage = matchesCurrentQuery ? '' : ' El enlace guardado no coincide con los filtros actuales.';
-      announceWrite('alta-enlace', `Enlace agregado. Conservamos la corrección que escribiste durante el guardado; revísala antes de seguir.${visibility}${filterMessage}`, 'success');
+      const continuation = continueAddedLinkInEditor(form, link, {
+        title: String(field(form, 'title')?.value ?? ''),
+        url: String(field(form, 'url')?.value ?? ''),
+        description: String(field(form, 'description')?.value ?? ''),
+        selectedForDirectory: Boolean((field(form, 'selectedForDirectory') as HTMLInputElement | null)?.checked),
+      });
+      if (continuation === 'editable') {
+        announceWrite('enlace', `Enlace agregado. Conservamos la corrección que escribiste durante el guardado; revísala y guárdala en la edición de la ficha.${visibility}${filterMessage}`, 'success');
+      } else if (continuation === 'shared') {
+        announceWrite('enlace', `Enlace agregado. La ficha compartida conserva su título, URL y descripción; sólo puedes editar sus opciones.${visibility}${filterMessage}`, 'info');
+      } else announceWrite('alta-enlace', `Enlace agregado. Conservamos la corrección que escribiste durante el guardado; revísala antes de seguir.${visibility}${filterMessage}`, 'success');
     }
     maybeExitAfterSave(unchanged);
   } catch {
+    markAddedLinkUncertain(draft);
     announceWrite('alta-enlace', 'No pudimos confirmar la respuesta del servicio. El formulario sigue abierto; puedes reintentar la URL, que se resolverá sin duplicar su ficha.', 'error');
   } finally {
     form.removeAttribute('aria-busy');
@@ -4430,6 +4666,10 @@ function handleExitChoice(choice: 'save' | 'discard' | 'continue', event?: Event
       first?.focus?.();
     }
     pendingExitAction = undefined;
+    if (pendingOwnerHistoryNavigation) {
+      pendingOwnerHistoryNavigation.cancelled = true;
+      if (!pendingOwnerHistoryNavigation.restoring) pendingOwnerHistoryNavigation = undefined;
+    }
     return;
   }
   if (choice === 'save') {
@@ -4448,6 +4688,7 @@ function handleExitChoice(choice: 'save' | 'discard' | 'continue', event?: Event
 }
 
 if (root && state && csrfToken && dialog) {
+  initializeOwnerHistory();
   updateProfileView();
   const createForm = formFor('crear');
   const dataForm = formFor('datos');
@@ -5094,7 +5335,7 @@ if (root && state && csrfToken && dialog) {
     if (!hasPendingChanges()) return;
     event.preventDefault();
   });
-  window.addEventListener('popstate', () => restoreLinksFromLocation());
+  window.addEventListener('popstate', (event) => handleOwnerPopstate(event));
 
 } else if (root) {
   announce(pageStatus, 'No pudimos leer los datos de tu página. Recarga para volver a intentarlo.', 'error');
