@@ -59,7 +59,7 @@ function safeSocialUrl(value: string | undefined): string | undefined {
 }
 ---
 
-<div class="creator-owner" data-creator-owner data-owner-root data-csrf={csrfToken} data-session-binding={sessionBinding} data-public-origin={publicOrigin}>
+<div class="creator-owner" data-creator-owner data-owner-root data-csrf={csrfToken} data-session-binding={sessionBinding} data-public-origin={publicOrigin} data-profile-version={profile?.version}>
   <div class="creator-owner__account-bar">
     <a class="creator-owner__back" href="/" aria-label="Volver al sitio">Volver al sitio</a>
     <details class="creator-owner__account-menu">
@@ -278,6 +278,46 @@ function safeSocialUrl(value: string | undefined): string | undefined {
           <p class="creator-owner__status" data-link-add-status role="status" aria-live="polite"></p>
           <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit">Agregar enlace</button><button class="button button--outline" type="button" data-owner-cancel>Cancelar</button></div>
         </form>
+
+        <section class="creator-owner__catalog" data-owner-catalog hidden aria-label="Buscar contenido publicado">
+          <form class="creator-owner__catalog-search" method="get" data-catalog-search-form role="search">
+            <div class="creator-owner__field">
+              <label for="owner-catalog-search">Buscar por título o URL</label>
+              <input id="owner-catalog-search" type="search" name="buscarCatalogo" data-catalog-search autocomplete="off" />
+            </div>
+            <button class="button button--outline" type="submit" data-catalog-search-submit>Buscar</button>
+          </form>
+          <p class="creator-owner__status" data-catalog-status role="status" aria-live="polite"></p>
+          <button class="button button--outline" type="button" data-catalog-retry hidden>Reintentar carga del catálogo</button>
+          <form class="creator-owner__form creator-owner__catalog-reference" data-owner-form="referencia" data-catalog-reference-form method="get" hidden>
+            <p data-catalog-count aria-live="polite">0 resultados</p>
+            <ul class="creator-owner__catalog-results" data-catalog-results aria-label="Resultados del catálogo"></ul>
+            <p class="creator-owner__empty" data-catalog-empty hidden>No hay recursos que coincidan con la búsqueda.</p>
+            <p class="creator-owner__catalog-selected" data-catalog-selected-count aria-live="polite">Ningún recurso seleccionado.</p>
+            <nav class="creator-owner__catalog-pagination" aria-label="Páginas del catálogo">
+              <button class="button button--outline" type="button" data-catalog-page="previous" disabled>Anterior</button>
+              <span data-catalog-page-label aria-live="polite">Página 1 de 1</span>
+              <button class="button button--outline" type="button" data-catalog-page="next" disabled>Siguiente</button>
+            </nav>
+            <label class="creator-owner__link-checkbox creator-owner__catalog-directory">
+              <input type="checkbox" name="selectedForDirectory" data-catalog-directory checked />
+              <span>Proponer al directorio</span>
+            </label>
+            <details class="creator-owner__link-help"><summary>Sobre el directorio</summary><p>La propuesta requiere aprobación. Agregar una referencia no concede permiso para editar la ficha compartida.</p></details>
+            <button class="button button--outline" type="button" data-catalog-correction-open hidden>Revisar opciones de esta colocación</button>
+            <section class="creator-owner__conflict" data-owner-conflict data-catalog-conflict hidden aria-labelledby="owner-catalog-conflict-title">
+              <h4 id="owner-catalog-conflict-title">Revisa el estado guardado</h4>
+              <p data-owner-conflict-copy></p>
+              <button class="button button--outline" type="button" data-owner-compare>Comparar con lo guardado</button>
+              <div data-owner-comparison hidden></div>
+              <button class="button button--outline" type="button" data-owner-adopt hidden>Usar la versión guardada</button>
+            </section>
+            <div class="creator-owner__dialog-actions">
+              <button class="button button--dark" type="submit" data-catalog-reference disabled>Agregar a mi página</button>
+              <button class="button button--outline" type="button" data-owner-cancel data-catalog-cancel>Cancelar</button>
+            </div>
+          </form>
+        </section>
 
         <form class="creator-owner__form" data-owner-form="mover-enlace" data-link-move-form hidden aria-label="Mover enlace a una posición">
           <p class="creator-owner__move-context" id="owner-link-move-context" data-link-move-context aria-live="polite"></p>

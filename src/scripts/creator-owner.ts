@@ -1,4 +1,4 @@
-import type { CreatorEditableResourceDTO, CreatorEditorDTO, CreatorLinkDTO, CreatorProfileDTO, CreatorProgram, CreatorSeriesDTO, CreatorSocial } from '../types/creators';
+import type { CreatorCatalogSelectionDTO, CreatorEditableResourceDTO, CreatorEditorDTO, CreatorLinkDTO, CreatorProfileDTO, CreatorProgram, CreatorSeriesDTO, CreatorSocial } from '../types/creators';
 import { createCreatorFormState, type FormValueSnapshot } from './creator-form-state';
 import { createCreatorSessionRecovery } from './creator-session-recovery';
 import { createCreatorWriteGuard, readCreatorVersionChanges, type CreatorVersionChange } from './creator-write-state';
@@ -110,12 +110,14 @@ if (root && initial?.textContent) {
   }
 }
 const placementIdByResource = new Map((state?.links ?? []).map(({ resourceId, placementId }) => [resourceId, placementId]));
+const CATALOG_INDEX_PATH = '/catalog-selection.json';
+const CATALOG_TYPES = new Set(['content', 'source', 'community', 'event']);
 
 const formState = root ? createCreatorFormState(root) : undefined;
 const writeGuard = root ? createCreatorWriteGuard(root) : undefined;
 let csrfToken = root?.dataset.csrf;
 let activeForm: HTMLFormElement | undefined;
-let activeEditor: 'datos' | 'redes' | 'foto' | 'enlace' | 'alta-enlace' | 'mover-enlace' | 'serie' | 'mover-capitulo' | undefined;
+let activeEditor: 'datos' | 'redes' | 'foto' | 'enlace' | 'alta-enlace' | 'referencia' | 'mover-enlace' | 'serie' | 'mover-capitulo' | undefined;
 let returnFocus: HTMLElement | undefined;
 let pendingExitAction: (() => void) | undefined;
 let conflictProfile: CreatorProfileDTO | undefined;
@@ -144,6 +146,25 @@ type SeriesReconcileOutcome = 'confirmed' | 'uncertain' | 'conflict';
 let seriesReconcileOutcome: SeriesReconcileOutcome = 'confirmed';
 let manualSlug = false;
 let photoUploadId: string | undefined;
+let catalogEntries: CreatorCatalogSelectionDTO[] | undefined;
+let catalogLoad: Promise<void> | undefined;
+let catalogSelection: CreatorCatalogSelectionDTO | undefined;
+let catalogSelectionCurrent = true;
+let catalogSelectionBaseline: string | undefined;
+let catalogDirectoryBaseline = true;
+let catalogSearchQuery = '';
+let catalogPageNumber = 1;
+let catalogNeedsRefresh = false;
+let catalogComparisonData: CreatorEditorDTO | undefined;
+let catalogComparisonGeneration = 0;
+let catalogSubmitting = false;
+let catalogConflictKind: 'profile' | 'link' | 'receipt' | undefined;
+let catalogProfileCompared = false;
+let catalogIndexRefreshed = false;
+let pendingCatalogOptionCorrection: { resourceId: string; placementId: string; selectedForDirectory: boolean } | undefined;
+let catalogResetSelectionOnNextOpen = false;
+let activeCatalogCorrectionPlacementId: string | undefined;
+let lastCatalogReferenceMessage: string | undefined;
 type ProfileFormAction = (event: Event) => Promise<void> | void;
 const profileFormActions = new WeakMap<HTMLFormElement, ProfileFormAction>();
 
@@ -213,6 +234,7 @@ function clearRecoveryNotice() {
 function statusFor(name: string | undefined): HTMLElement | null {
   if (name === 'crear') return root?.querySelector<HTMLElement>('[data-owner-create-status]') ?? null;
   if (name === 'alta-enlace') return root?.querySelector<HTMLElement>('[data-link-add-status]') ?? null;
+  if (name === 'referencia') return root?.querySelector<HTMLElement>('[data-catalog-status]') ?? null;
   return name ? root?.querySelector<HTMLElement>(`[data-owner-form-status="${name}"]`) ?? null
     : root?.querySelector<HTMLElement>('[data-owner-profile-status]') ?? null;
 }
@@ -269,6 +291,7 @@ async function runProfileFormAction(event: Event, action: ProfileFormAction) {
     return;
   }
   await writeGuard?.run(event, () => action(event));
+  if (event.target === catalogForm()) setCatalogSelectionLabel();
   if (seriesReconcileReadPending) setChapterActionsUnavailable(true);
   if (!dialog?.open) runPendingExitAction();
 }
@@ -315,6 +338,279 @@ function addLinkForm(): HTMLFormElement | null {
   return form;
 }
 
+function catalogForm(): HTMLFormElement | null {
+  return formFor('referencia') ?? root?.querySelector<HTMLFormElement>('[data-catalog-reference-form]') ?? null;
+}
+
+function catalogPanel(): HTMLElement | null {
+  return root?.querySelector<HTMLElement>('[data-owner-catalog]') ?? null;
+}
+
+function catalogControl<T extends HTMLElement>(selector: string): T | null {
+  return root?.querySelector<T>(selector) ?? null;
+}
+
+function catalogSelectionKey(item = catalogSelection): string | undefined {
+  return item ? `${item.id}\n${item.url}` : undefined;
+}
+
+function sameCatalogSelection(left: string | undefined, right: string | undefined): boolean {
+  return left === right;
+}
+
+function isCatalogItem(value: unknown): value is CreatorCatalogSelectionDTO {
+  if (!isRecord(value) || Object.keys(value).sort().join(',') !== 'id,tipo,title,url'
+    || typeof value.id !== 'string' || value.id.length === 0
+    || typeof value.title !== 'string' || value.title.trim().length === 0
+    || typeof value.url !== 'string' || !CATALOG_TYPES.has(String(value.tipo))) return false;
+  try {
+    const url = new URL(value.url);
+    return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password;
+  } catch {
+    return false;
+  }
+}
+
+function parseCatalogIndex(value: unknown): CreatorCatalogSelectionDTO[] | undefined {
+  if (!Array.isArray(value) || !value.every(isCatalogItem)) return undefined;
+  const ids = new Set<string>();
+  for (const item of value) {
+    if (ids.has(item.id)) return undefined;
+    ids.add(item.id);
+  }
+  return value;
+}
+
+function setCatalogSelectionLabel() {
+  const selected = catalogControl<HTMLElement>('[data-catalog-selected-count]');
+  const selectionIsVisible = [...(catalogControl<HTMLUListElement>('[data-catalog-results]')
+    ?.querySelectorAll<HTMLElement>('[data-catalog-row]') ?? [])]
+    .some((row) => row.dataset.catalogRow === catalogSelection?.id);
+  if (selected) selected.textContent = catalogSelection
+    ? selectionIsVisible ? '1 recurso seleccionado.' : `1 recurso seleccionado: ${catalogSelection.title}`
+    : 'Ningún recurso seleccionado.';
+  const submit = catalogControl<HTMLButtonElement>('[data-catalog-reference]');
+  const unavailable = !catalogSelection || !catalogSelectionCurrent || catalogNeedsRefresh
+    || catalogConflictKind !== undefined || pendingCatalogOptionCorrection !== undefined;
+  if (submit) {
+    if (unavailable) submit.setAttribute('data-creator-stale', 'true');
+    else submit.removeAttribute('data-creator-stale');
+    submit.disabled = unavailable || catalogSubmitting;
+  }
+  const correction = catalogControl<HTMLButtonElement>('[data-catalog-correction-open]');
+  if (correction) {
+    const link = pendingCatalogOptionCorrection
+      ? state?.links.find(({ placementId }) => placementId === pendingCatalogOptionCorrection?.placementId)
+      : undefined;
+    correction.hidden = !pendingCatalogOptionCorrection;
+    correction.textContent = link ? `Revisar opciones de «${link.title}»` : 'Revisar opciones de esta colocación';
+  }
+}
+
+function catalogMatchesQuery(item: CreatorCatalogSelectionDTO, query: string): boolean {
+  if (!query) return true;
+  const normalized = query.toLocaleLowerCase();
+  return item.title.toLocaleLowerCase().includes(normalized)
+    || item.url.toLocaleLowerCase().includes(normalized);
+}
+
+function renderCatalogResults() {
+  const results = catalogControl<HTMLUListElement>('[data-catalog-results]');
+  const count = catalogControl<HTMLElement>('[data-catalog-count]');
+  const empty = catalogControl<HTMLElement>('[data-catalog-empty]');
+  const previous = catalogControl<HTMLButtonElement>('[data-catalog-page="previous"]');
+  const next = catalogControl<HTMLButtonElement>('[data-catalog-page="next"]');
+  const pageLabel = catalogControl<HTMLElement>('[data-catalog-page-label]');
+  if (!results) return;
+  results.querySelectorAll<HTMLElement>('[data-catalog-row]').forEach((row) => row.remove());
+  const matches = catalogNeedsRefresh
+    ? []
+    : (catalogEntries ?? []).filter((item) => catalogMatchesQuery(item, catalogSearchQuery));
+  const pageCount = Math.max(1, Math.ceil(matches.length / 25));
+  catalogPageNumber = Math.min(Math.max(1, catalogPageNumber), pageCount);
+  const visible = matches.slice((catalogPageNumber - 1) * 25, catalogPageNumber * 25);
+  if (count) count.textContent = `${matches.length} ${matches.length === 1 ? 'resultado' : 'resultados'}`;
+  if (pageLabel) pageLabel.textContent = `Página ${catalogPageNumber} de ${pageCount}`;
+  if (previous) previous.disabled = catalogPageNumber <= 1;
+  if (next) next.disabled = catalogPageNumber >= pageCount;
+  if (empty) {
+    empty.textContent = catalogNeedsRefresh
+      ? 'Actualiza el catálogo para revisar la ficha seleccionada.'
+      : matches.length ? 'No hay recursos en esta página.' : 'No hay recursos que coincidan con la búsqueda.';
+    setHidden(empty, matches.length !== 0 || catalogEntries === undefined);
+  }
+  visible.forEach((item) => {
+    const row = document.createElement('li');
+    row.className = 'creator-owner__catalog-row';
+    row.dataset.catalogRow = item.id;
+    const label = document.createElement('label');
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.dataset.catalogSelect = '';
+    checkbox.checked = catalogSelection?.id === item.id;
+    checkbox.setAttribute('aria-label', `Seleccionar ${item.title}`);
+    const copy = document.createElement('span');
+    copy.className = 'creator-owner__catalog-item';
+    const title = document.createElement('strong');
+    title.textContent = item.title;
+    const url = document.createElement('span');
+    url.textContent = item.url;
+    copy.append(title, url);
+    label.append(checkbox, copy);
+    row.append(label);
+    results.append(row);
+  });
+  setCatalogSelectionLabel();
+}
+
+function showCatalogLoadError(message: string) {
+  announce(statusFor('referencia'), message, 'error');
+  setHidden(catalogControl('[data-catalog-retry]'), false);
+  const empty = catalogControl<HTMLElement>('[data-catalog-empty]');
+  setHidden(empty, true);
+  setCatalogSelectionLabel();
+}
+
+async function loadCatalog({ refresh = false }: { refresh?: boolean } = {}): Promise<void> {
+  if (!refresh && catalogEntries) {
+    renderCatalogResults();
+    return;
+  }
+  if (catalogLoad) return catalogLoad;
+  const retry = catalogControl<HTMLButtonElement>('[data-catalog-retry]');
+  if (retry) retry.hidden = true;
+  announce(statusFor('referencia'), refresh ? 'Actualizando el catálogo…' : 'Cargando el catálogo…', 'info');
+  catalogPanel()?.setAttribute('aria-busy', 'true');
+  const request = (async () => {
+    const wasStale = catalogNeedsRefresh;
+    const response = await fetch(CATALOG_INDEX_PATH, { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
+    if (!response.ok) throw new Error('catalog-unavailable');
+    let value: unknown;
+    try { value = await response.json(); } catch { throw new Error('catalog-malformed'); }
+    const parsed = parseCatalogIndex(value);
+    if (!parsed) throw new Error('catalog-malformed');
+    catalogEntries = parsed;
+    catalogNeedsRefresh = false;
+    catalogSelectionCurrent = true;
+    if (catalogConflictKind === 'link') {
+      catalogIndexRefreshed = true;
+      if (catalogProfileCompared) catalogConflictKind = undefined;
+    }
+    if (catalogSelection) {
+      const refreshed = parsed.find(({ id }) => id === catalogSelection?.id);
+      if (refreshed) {
+        const changedUrl = refreshed.url !== catalogSelection.url;
+        catalogSelection = refreshed;
+        announce(statusFor('referencia'), changedUrl
+          ? 'La URL observada cambió. Revisa la ficha y pulsa «Agregar a mi página» para confirmar la referencia actual.'
+          : wasStale
+            ? 'Catálogo actualizado. Revisa la ficha y pulsa «Agregar a mi página» para confirmar la referencia.'
+            : '', 'info');
+      } else {
+        catalogSelectionCurrent = false;
+        announce(statusFor('referencia'), 'El recurso seleccionado ya no aparece en el catálogo. Elige otra ficha antes de continuar.', 'error');
+      }
+    } else if (wasStale) {
+      announce(statusFor('referencia'), 'Catálogo actualizado. Revisa el recurso antes de volver a agregarlo.', 'info');
+    } else if (parsed.length === 0) {
+      announce(statusFor('referencia'), 'El catálogo no tiene recursos disponibles en este momento.', 'info');
+    } else {
+      clearAnnouncement(statusFor('referencia'));
+    }
+    renderCatalogResults();
+    setCatalogSelectionLabel();
+    if (retry) retry.hidden = true;
+  })();
+  const handled = request.catch((error: unknown) => {
+    showCatalogLoadError(error instanceof Error && error.message === 'catalog-malformed'
+      ? 'No pudimos leer el catálogo. El servicio respondió con un formato inesperado; vuelve a intentarlo.'
+      : 'No pudimos cargar el catálogo. Puedes volver a intentarlo.');
+  }).finally(() => {
+    if (catalogLoad === handled) catalogLoad = undefined;
+    catalogPanel()?.removeAttribute('aria-busy');
+  });
+  catalogLoad = handled;
+  await handled;
+}
+
+function openCatalog(trigger: HTMLElement) {
+  if (!state?.profile || !dialog) return;
+  const form = catalogForm();
+  if (!form) return;
+  if (activeEditor === 'referencia' && !form.hidden) {
+    void loadCatalog();
+    return;
+  }
+  resetCatalogIntentAfterConfirmedSave(form);
+  catalogComparisonGeneration += 1;
+  catalogComparisonData = undefined;
+  const directory = field(form, 'selectedForDirectory') as HTMLInputElement | null;
+  catalogSelectionBaseline = catalogSelectionKey();
+  catalogDirectoryBaseline = directory?.checked ?? true;
+  setHidden(catalogPanel(), false);
+  showDialogForm(form, 'referencia', 'Buscar en el catálogo', trigger);
+  void loadCatalog();
+}
+
+function selectCatalogItem(target: HTMLInputElement) {
+  if (!target.checked) {
+    const row = target.closest<HTMLElement>('[data-catalog-row]');
+    if (row?.dataset.catalogRow === catalogSelection?.id) catalogSelection = undefined;
+  } else {
+    const row = target.closest<HTMLElement>('[data-catalog-row]');
+    const id = row?.dataset.catalogRow;
+    const item = catalogEntries?.find((candidate) => candidate.id === id);
+    if (!item) return;
+    catalogSelection = item;
+    catalogSelectionCurrent = true;
+  }
+  renderCatalogResults();
+  const selectedRow = catalogSelection
+    ? [...(catalogControl<HTMLUListElement>('[data-catalog-results]')?.querySelectorAll<HTMLElement>('[data-catalog-row]') ?? [])]
+      .find((row) => row.dataset.catalogRow === catalogSelection?.id)
+    : undefined;
+  const selected = selectedRow?.querySelector<HTMLElement>('[data-catalog-select]');
+  if (selected) window.requestAnimationFrame(() => selected.focus());
+}
+
+function resetCatalogReference(form: HTMLFormElement) {
+  catalogSelection = undefined;
+  catalogSelectionCurrent = true;
+  catalogSearchQuery = '';
+  catalogPageNumber = 1;
+  const search = catalogControl<HTMLInputElement>('[data-catalog-search]');
+  if (search) search.value = '';
+  const directory = field(form, 'selectedForDirectory') as HTMLInputElement | null;
+  if (directory) directory.checked = true;
+  catalogSelectionBaseline = undefined;
+  catalogDirectoryBaseline = true;
+  catalogNeedsRefresh = false;
+  catalogComparisonData = undefined;
+  catalogConflictKind = undefined;
+  catalogProfileCompared = false;
+  catalogIndexRefreshed = false;
+  pendingCatalogOptionCorrection = undefined;
+  clearConflict(form);
+  clearAnnouncement(statusFor('referencia'));
+  renderCatalogResults();
+}
+
+function resetCatalogIntentAfterConfirmedSave(form: HTMLFormElement): boolean {
+  if (!catalogResetSelectionOnNextOpen || catalogLoad || catalogSubmitting
+    || pendingCatalogOptionCorrection || catalogConflictKind || catalogNeedsRefresh || !catalogSelectionCurrent) return false;
+  catalogResetSelectionOnNextOpen = false;
+  catalogSelection = undefined;
+  catalogSelectionCurrent = true;
+  const directory = field(form, 'selectedForDirectory') as HTMLInputElement | null;
+  if (directory) directory.checked = true;
+  catalogSelectionBaseline = undefined;
+  catalogDirectoryBaseline = true;
+  clearAnnouncement(statusFor('referencia'));
+  formState?.commit(capture(form));
+  renderCatalogResults();
+  return true;
+}
+
 function resetAddedLinkForm(form: HTMLFormElement) {
   const title = field(form, 'title');
   const url = field(form, 'url');
@@ -352,6 +648,7 @@ function showDialogForm(form: HTMLFormElement, name: NonNullable<typeof activeEd
     activeSeriesContext = undefined;
   }
   hideDialogForms();
+  setHidden(catalogPanel(), name !== 'referencia');
   form.hidden = false;
   setHidden(exitPrompt, true);
   const heading = root?.querySelector<HTMLElement>('[data-owner-dialog-title]');
@@ -359,8 +656,10 @@ function showDialogForm(form: HTMLFormElement, name: NonNullable<typeof activeEd
   activeForm = form;
   activeEditor = name;
   returnFocus = trigger ?? returnFocus;
-  dialog.showModal();
-  const first = form.querySelector<HTMLElement>('input:not([type="hidden"]), textarea, button');
+  if (!dialog.open) dialog.showModal();
+  const first = name === 'referencia'
+    ? catalogControl<HTMLElement>('[data-catalog-search]')
+    : form.querySelector<HTMLElement>('input:not([type="hidden"]), textarea, button');
   window.requestAnimationFrame(() => first?.focus?.());
 }
 
@@ -598,11 +897,11 @@ function setLinkFormValues(
   formState?.commit(capture(form));
 }
 
-function openLinkContext(trigger: HTMLElement) {
+function openLinkContext(trigger: HTMLElement, correction?: { placementId: string; selectedForDirectory: boolean }) {
   if (!state?.profile || !dialog) return;
   const resourceId = trigger.dataset.resourceId;
   const row = trigger.closest<HTMLElement>('[data-link-row]');
-  const placementId = trigger.dataset.placementId || row?.dataset.linkRow;
+  const placementId = trigger.dataset.placementId || row?.dataset.linkRow || correction?.placementId;
   const form = linkForm();
   if (!form) return;
 
@@ -613,6 +912,7 @@ function openLinkContext(trigger: HTMLElement) {
     activeLinkContext = { kind: 'resource', resourceId };
     setLinkFormValues(form, resource, 'resource');
     showDialogForm(form, 'enlace', `Editar ficha: ${resource.title}`, trigger);
+    restoreCatalogReferenceNotice();
     return;
   }
   const link = state.links.find((item) => item.placementId === placementId);
@@ -621,7 +921,50 @@ function openLinkContext(trigger: HTMLElement) {
   linkContextRevision += 1;
   activeLinkContext = { kind: 'placement', placementId: link.placementId };
   setLinkFormValues(form, link, resource ? 'placement-own' : 'placement-shared');
+  if (correction) {
+    const selectedForDirectory = field(form, 'selectedForDirectory') as HTMLInputElement | null;
+    if (selectedForDirectory) selectedForDirectory.checked = correction.selectedForDirectory;
+  }
   showDialogForm(form, 'enlace', resource ? `Editar ficha: ${link.title}` : `Editar opciones: ${link.title}`, trigger);
+  restoreCatalogReferenceNotice();
+}
+
+function restoreCatalogReferenceNotice() {
+  if (!lastCatalogReferenceMessage) return;
+  announce(statusFor('enlace'), lastCatalogReferenceMessage, 'success');
+  lastCatalogReferenceMessage = undefined;
+}
+
+function openCatalogCorrectionOptions(trigger: HTMLElement): boolean {
+  const correction = pendingCatalogOptionCorrection;
+  if (!correction || !state?.profile || !dialog) return false;
+  const link = state.links.find(({ placementId }) => placementId === correction.placementId);
+  if (!link || link.resourceId !== correction.resourceId) {
+    announce(statusFor('referencia'), 'La colocación ya no está disponible. Actualiza tu página antes de revisar sus opciones.', 'error');
+    return false;
+  }
+  lastCatalogReferenceMessage = undefined;
+  openLinkContext(trigger, correction);
+  if (activeEditor !== 'enlace' || activeLinkContext?.kind !== 'placement'
+    || activeLinkContext.placementId !== correction.placementId) return false;
+  pendingCatalogOptionCorrection = undefined;
+  activeCatalogCorrectionPlacementId = correction.placementId;
+  const catalog = catalogForm();
+  const directory = catalog && field(catalog, 'selectedForDirectory') as HTMLInputElement | null;
+  if (catalogSelection?.id === correction.resourceId && directory) directory.checked = true;
+  catalogSelectionBaseline = catalogSelectionKey();
+  catalogDirectoryBaseline = directory?.checked ?? true;
+  if (catalog) formState?.commit(capture(catalog));
+  setCatalogSelectionLabel();
+  announceWrite('enlace', 'La referencia ya está en tu página. Esta propuesta sigue sin guardar; confirma el cambio en las opciones de la colocación.', 'info');
+  return true;
+}
+
+async function savePendingCatalogOptionCorrection() {
+  const trigger = catalogControl<HTMLElement>('[data-catalog-correction-open]');
+  const form = linkForm();
+  if (!trigger || !form || !openCatalogCorrectionOptions(trigger)) return;
+  await saveLinkForm(form);
 }
 
 function moveForm(): HTMLFormElement | null {
@@ -1293,6 +1636,9 @@ function closeDialog({ navigate = true }: { navigate?: boolean } = {}) {
   chapterMoveContextRevision += 1;
   chapterMoveCompareGeneration += 1;
   chapterMoveComparisonData = undefined;
+  catalogComparisonGeneration += 1;
+  catalogComparisonData = undefined;
+  activeCatalogCorrectionPlacementId = undefined;
   if (!hasPendingChanges() && !sessionRecovery?.blocksWrites()) clearRecoveryNotice();
   if (activeEditor) clearConflict(formFor(activeEditor) ?? undefined);
   if (dialog?.open) dialog.close();
@@ -1301,6 +1647,7 @@ function closeDialog({ navigate = true }: { navigate?: boolean } = {}) {
     const form = formFor(activeEditor);
     if (form) form.hidden = true;
   }
+  setHidden(catalogPanel(), true);
   activeEditor = undefined;
   activeLinkContext = undefined;
   activeMoveContext = undefined;
@@ -1320,7 +1667,16 @@ function closeDialog({ navigate = true }: { navigate?: boolean } = {}) {
 }
 
 function hasPendingChanges(): boolean {
-  return formState?.hasPendingChanges() ?? false;
+  const changedControls = formState?.hasPendingChanges() ?? false;
+  if (activeEditor !== 'referencia' || activeForm !== catalogForm()) return changedControls;
+  const directory = field(activeForm, 'selectedForDirectory') as HTMLInputElement | null;
+  return changedControls
+    || catalogConflictKind !== undefined
+    || catalogNeedsRefresh
+    || !catalogSelectionCurrent
+    || pendingCatalogOptionCorrection !== undefined
+    || !sameCatalogSelection(catalogSelectionKey(), catalogSelectionBaseline)
+    || (directory?.checked ?? true) !== catalogDirectoryBaseline;
 }
 
 function showExitPrompt(afterExit?: () => void, trigger?: HTMLElement) {
@@ -1381,6 +1737,8 @@ function resetForm(name: string, form: HTMLFormElement) {
     if (url) url.value = '';
     if (description) description.value = '';
     if (selected) selected.checked = true;
+  } else if (name === 'referencia') {
+    resetCatalogReference(form);
   } else if (name === 'mover-enlace') {
     const target = activeMoveContext && state?.links.find(({ placementId }) => placementId === activeMoveContext?.placementId);
     const group = target ? creatorOwnerLinkGroup(state?.links ?? [], target.featured) : [];
@@ -2276,6 +2634,10 @@ async function saveLinkForm(form: HTMLFormElement) {
     const matchesCurrentQuery = ownerLinkMatchesCurrentQuery(next.placementId);
     clearRecoveryNotice();
     const unchanged = submitWasUnchanged(snapshot);
+    if (unchanged && changed && activeCatalogCorrectionPlacementId === current.placementId) {
+      catalogResetSelectionOnNextOpen = true;
+      activeCatalogCorrectionPlacementId = undefined;
+    }
     if (unchanged) {
       setLinkFormValues(form, next, canEditMetadata ? 'placement-own' : 'placement-shared');
       restoreLinkFocus(context);
@@ -2776,6 +3138,329 @@ async function saveAddedLink(form: HTMLFormElement) {
   }
 }
 
+function showCatalogProfileConflict(form: HTMLFormElement) {
+  catalogConflictKind = 'profile';
+  catalogProfileCompared = false;
+  catalogIndexRefreshed = false;
+  const conflict = form.querySelector<HTMLElement>('[data-catalog-conflict]');
+  const copy = conflict?.querySelector<HTMLElement>('[data-owner-conflict-copy]');
+  if (copy) copy.textContent = 'La versión de tu página cambió. Compara su estado y elige expresamente si quieres usarla antes de volver a intentar agregar esta ficha.';
+  setHidden(conflict, false);
+  setHidden(conflict?.querySelector('[data-owner-comparison]'), true);
+  setHidden(conflict?.querySelector('[data-owner-adopt]'), true);
+  catalogComparisonData = undefined;
+  setCatalogSelectionLabel();
+  announceWrite('referencia', statusMessage(409), 'error');
+}
+
+function showCatalogLinkConflict(form: HTMLFormElement) {
+  catalogConflictKind = 'link';
+  catalogProfileCompared = false;
+  catalogIndexRefreshed = false;
+  const conflict = form.querySelector<HTMLElement>('[data-catalog-conflict]');
+  const copy = conflict?.querySelector<HTMLElement>('[data-owner-conflict-copy]');
+  if (copy) copy.textContent = 'El catálogo o las opciones de tu página cambiaron durante la referencia. No la reenviamos. Compara el estado guardado y actualiza el catálogo antes de volver a intentarlo.';
+  setHidden(conflict, false);
+  setHidden(conflict?.querySelector('[data-owner-comparison]'), true);
+  setHidden(conflict?.querySelector('[data-owner-adopt]'), true);
+  const retry = catalogControl<HTMLButtonElement>('[data-catalog-retry]');
+  if (retry) {
+    retry.textContent = 'Actualizar catálogo';
+    retry.hidden = false;
+  }
+  catalogComparisonData = undefined;
+  setCatalogSelectionLabel();
+  announceWrite('referencia', 'La referencia encontró cambios concurrentes. Compara tu página y actualiza el catálogo; no se volvió a enviar.', 'error');
+}
+
+function showCatalogReceiptConflict(form: HTMLFormElement) {
+  catalogConflictKind = 'receipt';
+  catalogProfileCompared = false;
+  catalogIndexRefreshed = false;
+  const conflict = form.querySelector<HTMLElement>('[data-catalog-conflict]');
+  const copy = conflict?.querySelector<HTMLElement>('[data-owner-conflict-copy]');
+  if (copy) copy.textContent = 'No pudimos confirmar si la referencia se guardó. Compara el estado de tu página antes de decidir si vuelves a intentarlo.';
+  setHidden(conflict, false);
+  setHidden(conflict?.querySelector('[data-owner-comparison]'), true);
+  setHidden(conflict?.querySelector('[data-owner-adopt]'), true);
+  catalogComparisonData = undefined;
+  setCatalogSelectionLabel();
+  announceWrite('referencia', 'No pudimos comprobar el recibo. Conservamos la selección y no se reenviará automáticamente; compara tu página antes de continuar.', 'error');
+}
+
+async function compareCatalogProfile(form: HTMLFormElement) {
+  const currentProfile = state?.profile;
+  if (!currentProfile || activeEditor !== 'referencia' || activeForm !== form) return;
+  const generation = ++catalogComparisonGeneration;
+  const profileId = currentProfile.id;
+  announceWrite('referencia', 'Consultando la versión guardada de tu página…', 'info');
+  try {
+    const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
+    if (generation !== catalogComparisonGeneration || activeEditor !== 'referencia' || activeForm !== form) return;
+    if (response.status === 401) await sessionRecovery?.observeWriteResponse(response);
+    if (generation !== catalogComparisonGeneration || activeEditor !== 'referencia' || activeForm !== form) return;
+    if (!response.ok) {
+      announceWrite('referencia', response.status === 401
+        ? sessionRecovery?.writeFailureMessage() ?? statusMessage(401)
+        : 'No pudimos leer la versión guardada. Conservamos tu selección; puedes intentarlo de nuevo.', 'error');
+      return;
+    }
+    const payload = await responsePayload(response);
+    if (generation !== catalogComparisonGeneration || activeEditor !== 'referencia' || activeForm !== form) return;
+    if (!isAdoptableOwnerData(payload) || payload.profile?.id !== profileId) {
+      announceWrite('referencia', 'No pudimos confirmar que la versión guardada corresponde a esta página. Conservamos tu selección.', 'error');
+      return;
+    }
+    catalogProfileCompared = true;
+    const profileChanged = payload.profile.version !== currentProfile.version;
+    const comparison = form.querySelector<HTMLElement>('[data-owner-comparison]');
+    if (comparison) {
+      comparison.textContent = `Versión guardada de tu página: ${payload.profile.version}.\nNombre: ${payload.profile.displayName}.\nLa ficha seleccionada y la opción del directorio se conservaron para que decidas cómo continuar.`;
+      comparison.classList.add('creator-owner__comparison');
+    }
+    setHidden(comparison, false);
+    setHidden(form.querySelector('[data-owner-adopt]'), !profileChanged);
+    catalogComparisonData = payload;
+    if (!profileChanged && catalogConflictKind === 'profile') {
+      catalogConflictKind = undefined;
+      announceWrite('referencia', 'La página no cambió. Revisaste el estado; puedes volver a intentar la referencia manualmente.', 'info');
+    } else if (!profileChanged && catalogConflictKind === 'receipt') {
+      catalogConflictKind = undefined;
+      announceWrite('referencia', 'El perfil no cambió. Conservamos la ficha y su propuesta; puedes volver a intentar la referencia manualmente.', 'info');
+    } else if (!profileChanged && catalogConflictKind === 'link') {
+      if (catalogIndexRefreshed) {
+        catalogConflictKind = undefined;
+        announceWrite('referencia', 'El perfil no cambió y el catálogo está actualizado. Revisa la ficha y vuelve a intentar manualmente.', 'info');
+      } else {
+        announceWrite('referencia', 'El perfil no cambió. Actualiza el catálogo y revisa la ficha antes de volver a intentar.', 'info');
+      }
+    } else {
+      announceWrite('referencia', 'Revisa el estado guardado y elige «Usar la versión guardada» antes de volver a intentar.', 'info');
+    }
+    setCatalogSelectionLabel();
+  } catch {
+    if (generation === catalogComparisonGeneration && activeEditor === 'referencia' && activeForm === form) {
+      announceWrite('referencia', 'No pudimos conectar para leer la versión guardada. Tu selección sigue aquí.', 'error');
+    }
+  }
+}
+
+function adoptCatalogProfile(form: HTMLFormElement) {
+  const payload = catalogComparisonData;
+  if (activeEditor !== 'referencia' || activeForm !== form || !payload
+    || !isAdoptableOwnerData(payload) || payload.profile?.id !== state?.profile?.id) return;
+  adoptOwnerSnapshot(payload, form);
+  catalogComparisonData = undefined;
+  catalogComparisonGeneration += 1;
+  catalogConflictKind = undefined;
+  catalogProfileCompared = false;
+  catalogIndexRefreshed = false;
+  const retry = catalogControl<HTMLButtonElement>('[data-catalog-retry]');
+  if (retry) retry.hidden = true;
+  const conflict = form.querySelector<HTMLElement>('[data-catalog-conflict]');
+  setHidden(conflict, true);
+  const comparison = conflict?.querySelector<HTMLElement>('[data-owner-comparison]');
+  if (comparison) comparison.textContent = '';
+  setHidden(comparison, true);
+  setHidden(conflict?.querySelector('[data-owner-adopt]'), true);
+  setCatalogSelectionLabel();
+  announceWrite('referencia', 'Usaste la versión guardada. La ficha seleccionada y la propuesta al directorio siguen aquí; pulsa «Agregar a mi página» para volver a intentar.', 'success');
+}
+
+function catalogReferenceReceiptIsValid(
+  response: Response,
+  payload: Record<string, unknown> | null,
+  changes: Awaited<ReturnType<typeof readCreatorVersionChanges>>,
+  item: CreatorCatalogSelectionDTO,
+  requestedForDirectory: boolean,
+  profile: CreatorProfileDTO,
+): payload is Record<string, unknown> & { link: CreatorLinkDTO } {
+  if (!payload || !isCreatorLink(payload.link) || payload.link.resourceId !== item.id
+    || payload.link.url !== item.url || payload.link.selectedForDirectory !== requestedForDirectory
+    || payload.link.featured || payload.link.series.length !== 0) return false;
+  const maximumPosition = state?.links.reduce((maximum, link) => Math.max(maximum, link.position), -1) ?? -1;
+  return response.status === 201 && payload.created === true
+    && !state?.links.some(({ resourceId }) => resourceId === item.id)
+    && payload.link.position > maximumPosition
+    && (!placementIdByResource.has(item.id) || placementIdByResource.get(item.id) === payload.link.placementId)
+    && changesEqual(changes, [
+      { entity: 'profile', id: profile.id, before: profile.version, after: profile.version + 1 },
+      { entity: 'placement', id: payload.link.placementId, before: 0, after: payload.link.placementVersion ?? -1 },
+    ]);
+}
+
+function catalogDuplicateReceiptIsValid(
+  response: Response,
+  payload: Record<string, unknown> | null,
+  changes: Awaited<ReturnType<typeof readCreatorVersionChanges>>,
+  item: CreatorCatalogSelectionDTO,
+): payload is Record<string, unknown> & { link: CreatorLinkDTO } {
+  if (!payload || response.status !== 200 || payload.created !== false || !changesEqual(changes, [])
+    || !isCreatorLink(payload.link) || payload.link.resourceId !== item.id || payload.link.url !== item.url) return false;
+  const existing = state?.links.find(({ resourceId }) => resourceId === item.id);
+  return (!existing || existing.placementId === payload.link.placementId)
+    && (!placementIdByResource.has(item.id) || placementIdByResource.get(item.id) === payload.link.placementId);
+}
+
+async function saveCatalogReference(form: HTMLFormElement) {
+  if (!state?.profile) {
+    announceWrite('referencia', 'Primero crea el borrador de tu página para agregar contenido.', 'error');
+    return;
+  }
+  if (pendingCatalogOptionCorrection) {
+    await savePendingCatalogOptionCorrection();
+    return;
+  }
+  if (catalogSubmitting) return;
+  if (catalogConflictKind) {
+    announceWrite('referencia', 'Compara el estado guardado y completa la recuperación indicada antes de volver a intentar.', 'error');
+    return;
+  }
+  const item = catalogSelection;
+  const directory = field(form, 'selectedForDirectory') as HTMLInputElement | null;
+  if (!item || !catalogSelectionCurrent || catalogNeedsRefresh
+    || !catalogEntries?.some(({ id, url }) => id === item.id && url === item.url)) {
+    announceWrite('referencia', 'Elige una ficha vigente del catálogo antes de agregarla a tu página.', 'error');
+    return;
+  }
+  if (!form.reportValidity()) return;
+  const snapshot = capture(form);
+  const submittedSelection = catalogSelectionKey(item);
+  const requestedForDirectory = directory?.checked ?? true;
+  const profile = state.profile;
+  catalogSubmitting = true;
+  form.setAttribute('aria-busy', 'true');
+  setCatalogSelectionLabel();
+  try {
+    const response = await jsonRequest('/api/creador/referencias', 'POST', {
+      resourceId: item.id,
+      url: item.url,
+      profileVersion: profile.version,
+      selectedForDirectory: requestedForDirectory,
+    });
+    const payload = await responsePayload(response);
+    if (response.status === 409 && ['STALE_RESOURCE_REFERENCE', 'RESOURCE_CONFLICT'].includes(String(payload?.error))) {
+      catalogNeedsRefresh = true;
+      catalogSelectionCurrent = false;
+      const retry = catalogControl<HTMLButtonElement>('[data-catalog-retry]');
+      if (retry) retry.hidden = false;
+      announceWrite('referencia', 'La URL observada pudo cambiar. Actualiza el catálogo y revisa la ficha antes de volver a intentarlo.', 'error');
+      renderCatalogResults();
+      return;
+    }
+    if (response.status === 409 && payload?.error === 'PROFILE_CONFLICT') {
+      showCatalogProfileConflict(form);
+      return;
+    }
+    if (response.status === 409 && payload?.error === 'LINK_CONFLICT') {
+      showCatalogLinkConflict(form);
+      return;
+    }
+    if (!response.ok) {
+      announceWrite('referencia', response.status === 403
+        ? 'No pudimos completar la referencia con esta cuenta. Conservamos la selección para que revises el acceso antes de continuar.'
+        : statusMessage(response.status), 'error');
+      return;
+    }
+    if (!payload || !isCreatorLink(payload.link) || payload.link.resourceId !== item.id || payload.link.url !== item.url) {
+      showCatalogReceiptConflict(form);
+      return;
+    }
+    const changes = await readCreatorVersionChanges(response);
+    if (payload.created === false) {
+      if (!catalogDuplicateReceiptIsValid(response, payload, changes, item)) {
+        showCatalogReceiptConflict(form);
+        return;
+      }
+      const link = payload.link;
+      const existingIndex = state.links.findIndex(({ resourceId }) => resourceId === item.id);
+      if (existingIndex >= 0) state.links[existingIndex] = link;
+      else state.links.push(link);
+      placementIdByResource.set(link.resourceId, link.placementId);
+      renderOwnerLinksAfterCollectionChange();
+      clearRecoveryNotice();
+      formState?.commit(snapshot);
+      catalogSelectionBaseline = submittedSelection;
+      const currentDirectory = directory?.checked ?? requestedForDirectory;
+      const sameSelection = sameCatalogSelection(catalogSelectionKey(), submittedSelection);
+      const directoryChangedDuringRequest = currentDirectory !== requestedForDirectory;
+      if (sameSelection && directoryChangedDuringRequest && currentDirectory !== link.selectedForDirectory) {
+        pendingCatalogOptionCorrection = {
+          resourceId: link.resourceId,
+          placementId: link.placementId,
+          selectedForDirectory: currentDirectory,
+        };
+        catalogDirectoryBaseline = link.selectedForDirectory;
+      } else {
+        pendingCatalogOptionCorrection = undefined;
+        catalogDirectoryBaseline = currentDirectory;
+        if (directoryChangedDuringRequest) formState?.commit(capture(form));
+      }
+      setCatalogSelectionLabel();
+      const unchanged = !hasPendingChanges();
+      catalogResetSelectionOnNextOpen = unchanged;
+      const message = pendingCatalogOptionCorrection
+        ? 'Ese contenido ya estaba en tu página. Conservamos sus opciones actuales; revisa la propuesta en las opciones de esta colocación.'
+        : 'Ese contenido ya estaba en tu página. Conservamos su ficha, opciones, posición y series.';
+      lastCatalogReferenceMessage = message;
+      announceWrite('enlace', message, 'success');
+      announce(statusFor('referencia'), message, 'success');
+      if (unchanged) restoreLinkFocus({ kind: 'placement', placementId: link.placementId });
+      maybeExitAfterSave(unchanged);
+      return;
+    }
+    if (!catalogReferenceReceiptIsValid(response, payload, changes, item, requestedForDirectory, profile)) {
+      showCatalogReceiptConflict(form);
+      return;
+    }
+    const link = payload.link;
+    state.links.push(link);
+    placementIdByResource.set(link.resourceId, link.placementId);
+    state.profile = { ...profile, version: profile.version + 1 };
+    root?.setAttribute('data-profile-version', String(state.profile.version));
+    renderOwnerLinksAfterCollectionChange();
+    clearRecoveryNotice();
+    formState?.commit(snapshot);
+    catalogSelectionBaseline = submittedSelection;
+    const currentDirectory = directory?.checked ?? requestedForDirectory;
+    const sameSelection = sameCatalogSelection(catalogSelectionKey(), submittedSelection);
+    if (sameSelection && currentDirectory !== link.selectedForDirectory) {
+      pendingCatalogOptionCorrection = {
+        resourceId: link.resourceId,
+        placementId: link.placementId,
+        selectedForDirectory: currentDirectory,
+      };
+    }
+    catalogDirectoryBaseline = link.selectedForDirectory;
+    setCatalogSelectionLabel();
+    const unchanged = !hasPendingChanges();
+    if (unchanged) {
+      catalogResetSelectionOnNextOpen = true;
+      const message = 'Contenido agregado a tu página. La ficha compartida conserva sus datos editoriales.';
+      lastCatalogReferenceMessage = message;
+      announceWrite('enlace', message, 'success');
+      announce(statusFor('referencia'), message, 'success');
+    } else if (pendingCatalogOptionCorrection) {
+      const message = 'La referencia se agregó. La propuesta al directorio que cambiaste durante el envío sigue sin guardar; revisa las opciones de esta colocación.';
+      lastCatalogReferenceMessage = message;
+      announceWrite('enlace', message, 'info');
+      announce(statusFor('referencia'), message, 'info');
+    } else {
+      const message = 'La referencia se agregó. Conservamos la corrección que hiciste durante el envío; revísala y guárdala en las opciones de esta colocación.';
+      lastCatalogReferenceMessage = message;
+      announceWrite('enlace', message, 'info');
+      announce(statusFor('referencia'), message, 'info');
+    }
+    maybeExitAfterSave(unchanged);
+  } catch {
+    showCatalogReceiptConflict(form);
+  } finally {
+    catalogSubmitting = false;
+    form.removeAttribute('aria-busy');
+    setCatalogSelectionLabel();
+  }
+}
+
 async function reincludeResource(resourceId: string, observedVersion: number) {
   if (!state?.profile) return;
   const resource = state.editableResources.find(({ id }) => id === resourceId);
@@ -3204,6 +3889,17 @@ if (root && state && csrfToken && dialog) {
   root.addEventListener('submit', (event) => {
     const navigation = event.target;
     if (!(navigation instanceof HTMLFormElement)) return;
+    if (navigation.hasAttribute('data-catalog-search-form')) {
+      event.preventDefault();
+      catalogSearchQuery = String(field(navigation, 'buscarCatalogo')?.value ?? '').trim();
+      catalogPageNumber = 1;
+      renderCatalogResults();
+      const matches = (catalogEntries ?? []).filter((item) => catalogMatchesQuery(item, catalogSearchQuery)).length;
+      announce(statusFor('referencia'), matches
+        ? `${matches} ${matches === 1 ? 'resultado' : 'resultados'} para la búsqueda.`
+        : 'No hay recursos que coincidan con la búsqueda.', 'info');
+      return;
+    }
     if (navigation.hasAttribute('data-link-filters')) {
       event.preventDefault();
       const query = creatorOwnerLinksQueryFromForm(navigation, currentLinksQuery());
@@ -3283,6 +3979,14 @@ if (root && state && csrfToken && dialog) {
       event.preventDefault();
       activeForm = addForm;
       await saveAddedLink(addForm);
+    });
+  }
+  const reference = catalogForm();
+  if (reference) {
+    onWrite(reference, async (event) => {
+      event.preventDefault();
+      activeForm = reference;
+      await saveCatalogReference(reference);
     });
   }
   const movementForm = moveForm();
@@ -3404,9 +4108,48 @@ if (root && state && csrfToken && dialog) {
     updateLinksQuery(query);
   });
 
+  root.addEventListener('change', (event) => {
+    const target = event.target;
+    if (target instanceof HTMLElement && target.tagName === 'INPUT' && target.matches('[data-catalog-select]')) {
+      selectCatalogItem(target as HTMLInputElement);
+    }
+  });
+
   root.addEventListener('click', (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
+    const catalogOpenButton = target.closest<HTMLElement>('[data-catalog-open]');
+    if (catalogOpenButton) {
+      event.preventDefault();
+      if (hasPendingChanges()) showExitPrompt(() => openCatalog(catalogOpenButton), catalogOpenButton);
+      else openCatalog(catalogOpenButton);
+      return;
+    }
+    const catalogRetryButton = target.closest<HTMLButtonElement>('[data-catalog-retry]');
+    if (catalogRetryButton) {
+      event.preventDefault();
+      void loadCatalog({ refresh: true });
+      return;
+    }
+    const catalogPageButton = target.closest<HTMLButtonElement>('[data-catalog-page]');
+    if (catalogPageButton) {
+      event.preventDefault();
+      const direction = catalogPageButton.dataset.catalogPage;
+      const matches = (catalogEntries ?? []).filter((item) => catalogMatchesQuery(item, catalogSearchQuery));
+      const pageCount = Math.max(1, Math.ceil(matches.length / 25));
+      if (direction === 'previous') catalogPageNumber = Math.max(1, catalogPageNumber - 1);
+      if (direction === 'next') catalogPageNumber = Math.min(pageCount, catalogPageNumber + 1);
+      renderCatalogResults();
+      const focusTarget = catalogControl<HTMLButtonElement>(`[data-catalog-page="${direction}"]`);
+      focusTarget?.focus();
+      return;
+    }
+    const catalogCorrectionOpen = target.closest<HTMLButtonElement>('[data-catalog-correction-open]');
+    if (catalogCorrectionOpen) {
+      event.preventDefault();
+      openCatalogCorrectionOptions(catalogCorrectionOpen);
+      return;
+    }
     const chapterSuggestion = target.closest<HTMLButtonElement>('[data-chapter-move-suggestion]');
     if (chapterSuggestion) {
       event.preventDefault();
@@ -3597,6 +4340,11 @@ if (root && state && csrfToken && dialog) {
     if (exitContinue) { event.preventDefault(); handleExitChoice('continue'); return; }
     const compareButton = target.closest('[data-owner-compare]');
     const conflictName = activeForm?.dataset.ownerForm;
+    if (compareButton && activeForm && activeEditor === 'referencia') {
+      event.preventDefault();
+      void compareCatalogProfile(activeForm);
+      return;
+    }
     if (compareButton && activeForm && activeEditor === 'serie') {
       event.preventDefault();
       void compareSavedSeries(activeForm);
@@ -3623,6 +4371,11 @@ if (root && state && csrfToken && dialog) {
       return;
     }
     const adoptButton = target.closest('[data-owner-adopt]');
+    if (adoptButton && activeForm && activeEditor === 'referencia') {
+      event.preventDefault();
+      adoptCatalogProfile(activeForm);
+      return;
+    }
     if (adoptButton && activeForm && activeEditor === 'serie') {
       event.preventDefault();
       adoptSavedSeries(activeForm);

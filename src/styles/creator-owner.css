@@ -187,6 +187,119 @@
   margin-inline: auto;
 }
 
+.creator-owner__links-heading .creator-owner__link-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.creator-owner__catalog,
+.creator-owner__catalog-reference {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.creator-owner__catalog-search {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+}
+
+.creator-owner__catalog-search .creator-owner__field {
+  flex: 1 1 auto;
+}
+
+.creator-owner__catalog-search input {
+  width: 100%;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--color-border-control);
+  border-radius: 8px;
+  background: var(--color-field);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.creator-owner__catalog-results {
+  display: grid;
+  gap: 10px;
+  max-height: min(46vh, 440px);
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.creator-owner__catalog-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface-subtle);
+}
+
+.creator-owner__catalog-row label {
+  display: flex;
+  align-items: start;
+  gap: 10px;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.creator-owner__catalog-row input[type="checkbox"],
+.creator-owner__catalog-directory input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  margin: 2px 0 0;
+  accent-color: var(--color-accent-text);
+}
+
+.creator-owner__catalog-item {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.creator-owner__catalog-item strong,
+.creator-owner__catalog-item span {
+  overflow-wrap: anywhere;
+}
+
+.creator-owner__catalog-item strong {
+  color: var(--color-heading);
+}
+
+.creator-owner__catalog-item span {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.creator-owner__catalog-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.creator-owner__catalog-pagination span,
+.creator-owner__catalog-selected {
+  color: var(--color-text-muted);
+}
+
+.creator-owner__catalog-directory {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+}
+
 .creator-owner__link-tools [aria-current="page"] {
   border-color: var(--color-accent-text);
   font-weight: 700;
