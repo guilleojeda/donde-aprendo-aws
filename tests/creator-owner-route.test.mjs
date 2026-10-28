@@ -74,10 +74,11 @@ async function resetRuntime() {
   return runtime;
 }
 
-async function renderPage(page, { session = 'creator-a', pathname = '/cuenta/', search = '' } = {}) {
+async function renderPage(page, { session = 'creator-a', pathname = '/cuenta/', search = '', method = 'GET' } = {}) {
   globalThis[runtimeStateKey] = { runtime };
+  const baseRequest = runtime.request(pathname, { session, search });
   const response = await container.renderToResponse(page, {
-    request: runtime.request(pathname, { session, search }),
+    request: method === 'GET' ? baseRequest : new Request(baseRequest, { method }),
     partial: false,
   });
   return { response, html: await response.text() };
@@ -181,7 +182,7 @@ test('la ruta Astro real abre la identidad propia, protege el HTML y sólo enlaz
   assert.equal(profile.slug, 'ana-lambda-actual');
 });
 
-test('la ruta residual conserva referencias compartidas e IDs para reclamaciones, sin gestionar series', async () => {
+test('el acceso antiguo lleva a Solicitudes sin duplicar gestión ni alterar enlaces o series', async () => {
   await resetRuntime();
   await api('/api/creador/perfil/', {
     displayName: 'Bea de Lambda', slug: 'bea-contenido', city: '', country: '', bio: '', programs: [], socials: {},
@@ -215,25 +216,61 @@ test('la ruta residual conserva referencias compartidas e IDs para reclamaciones
     profileVersion: seriesProfileVersion,
   }, { method: 'PUT' });
 
+  const before = await api('/api/creador/perfil/', undefined, { method: 'GET' });
+  assert.equal(before.links.some(({ resourceId }) => resourceId === shared.link.resourceId), true);
+  assert.equal(before.series.length, 1);
   const { response, html } = await renderPage(editorRoute, { pathname: '/cuenta/creador/' });
-  const text = visibleText(html);
-  assert.equal(response.status, 200);
-  assert.match(text, /Guía compartida que se conserva/);
-  assert.match(text, /Otro capítulo que se conserva/);
-  assert.doesNotMatch(text, /Ruta que se conserva|Crear serie/,
-    'series and chapter management now live in the owner view');
-  assert.match(html, new RegExp(`data-resource-id-value="${shared.link.resourceId}"`),
-    'a shared reference retains its resource ID for the claims workflow');
-  assert.doesNotMatch(html, /\bdata-move=/, 'link position actions now live in the owner table');
-  assert.doesNotMatch(html, /\bdata-link-order-form/i);
-  assert.doesNotMatch(html, /\bdata-series-(?:create-form|form|move|add-chapter-form|remove-chapter)|\bdata-delete-series/i,
-    'the residual route no longer owns series or chapter controls');
-  assert.match(html, /data-claim-form/, 'the existing claim flow remains until phase 6');
-  assert.doesNotMatch(html, /data-add-link-form|data-resource-form/,
-    'link creation and resource editing now belong to the owner table');
-  assert.doesNotMatch(html, /data-profile-form|data-photo-form/,
-    'the residual content editor no longer duplicates profile and photo management');
-  assert.doesNotMatch(text, /Publicar página/);
+  assert.equal(response.status, 302);
+  assert.equal(response.headers.get('location'), '/cuenta/?vista=solicitudes');
+  assert.match(response.headers.get('cache-control') ?? '', /private.*no-store/);
+  assert.doesNotMatch(html, /data-creator-editor|data-claim-form|data-resource-id-value/,
+    'the old URL no longer renders a second management surface or internal-ID instructions');
+  assert.deepEqual(await api('/api/creador/perfil/', undefined, { method: 'GET' }), before,
+    'redirecting preserves the existing references, options and series');
+  const owner = await render();
+  assert.match(visibleText(owner.html), /Guía compartida que se conserva/);
+  assert.match(visibleText(owner.html), /Otro capítulo que se conserva/);
+  assert.doesNotMatch(owner.html, /data-add-link-form|data-resource-form|data-profile-form|data-photo-form/,
+    'the owner surface retains contextual management rather than the old wall of forms');
+});
+
+test('GET del acceso antiguo redirige sin leer identidad ni contenido y descarta parámetros viejos', async () => {
+  await resetRuntime();
+  let privateReads = 0;
+  runtime.auth.getPrincipal = async () => { privateReads += 1; throw new Error('The compatibility GET must not read private identity.'); };
+  runtime.accountAuth.getSession = async () => { privateReads += 1; throw new Error('The target route owns authentication.'); };
+  for (const session of [null, 'creator-a', 'admin', 'expired-session']) {
+    const result = await renderPage(editorRoute, {
+      pathname: '/cuenta/creador/', session,
+      search: '?next=https%3A%2F%2Foutside.example.invalid%2F&sourceId=private-source&resourceIds=private-id&vista=series',
+    });
+    assert.equal(result.response.status, 302);
+    assert.equal(result.response.headers.get('location'), '/cuenta/?vista=solicitudes');
+    assert.match(result.response.headers.get('cache-control') ?? '', /private.*no-store/);
+    assert.equal(result.response.headers.get('referrer-policy'), 'no-referrer');
+    assert.equal(result.response.headers.get('x-content-type-options'), 'nosniff');
+    assert.doesNotMatch(result.html, /private-source|private-id|outside\.example\.invalid|data-creator-editor|data-claim-form/);
+  }
+  assert.equal(privateReads, 0);
+  assert.deepEqual(runtime.serviceCalls, []);
+});
+
+test('POST y otros métodos del acceso antiguo no redirigen ni ejecutan escrituras', async () => {
+  await resetRuntime();
+  await createProfile();
+  const before = await api('/api/creador/perfil/', undefined, { method: 'GET' });
+  runtime.serviceCalls.length = 0;
+  for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
+    const result = await renderPage(editorRoute, { pathname: '/cuenta/creador/', method });
+    assert.equal(result.response.status, 405, method);
+    assert.equal(result.response.headers.get('allow'), 'GET');
+    assert.equal(result.response.headers.has('location'), false);
+    assert.match(result.response.headers.get('cache-control') ?? '', /private.*no-store/);
+    assert.equal(result.response.headers.get('referrer-policy'), 'no-referrer');
+    assert.doesNotMatch(result.html, /data-creator-editor|data-claim-form|src="\/assets\/analytics\.js"/);
+  }
+  assert.deepEqual(runtime.serviceCalls, [], 'the compatibility route never proxies a page POST to a private API');
+  assert.deepEqual(await api('/api/creador/perfil/', undefined, { method: 'GET' }), before);
 });
 
 test('sin perfil, la entrada directa ofrece la preparación mínima y no una cuenta vacía ni acciones públicas', async () => {

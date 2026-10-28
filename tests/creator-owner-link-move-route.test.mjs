@@ -100,7 +100,7 @@ test('sin enlaces no hay movimiento; con 1, 50 y 58 enlaces cada fila SSR ofrece
   assert.equal(moveForm(fiftyEight.html).body.match(/name="targetPosition"/gi)?.length, 1);
 });
 
-test('la ruta residual conserva IDs compartidos y solicitudes, sin controles de serie o capítulo', async () => {
+test('el acceso antiguo redirige a Solicitudes y conserva el orden administrado desde Tu página', async () => {
   await app.resetRuntime();
   await app.createProfile({ session: 'creator-b', slug: 'bea-mover-residual' });
   const shared = await app.addLink({ session: 'creator-b', index: 0, title: 'Guía compartida', url: 'https://move.example/shared' });
@@ -117,17 +117,14 @@ test('la ruta residual conserva IDs compartidos y solicitudes, sin controles de 
   assert.doesNotMatch(owner.html, /\bdata-move=/i, 'the owner table no longer exposes up/down swap controls');
   assert.doesNotMatch(owner.html, /\bdata-link-order-form/i);
 
+  const before = await app.api('/api/creador/perfil/', undefined, { method: 'GET' });
+  assert.equal(before.links.some(({ resourceId }) => resourceId === shared.resourceId), true);
   const residual = await app.render({ pathname: '/cuenta/creador/' });
-  assertPrivate(residual.response, residual.html);
-  assert.match(visibleText(residual.html), /Guía compartida|Capítulo dos/);
-  assert.doesNotMatch(visibleText(residual.html), /Serie conservada|Crear serie/,
-    'series management now lives under the owner view');
-  assert.match(residual.html, new RegExp(`data-resource-id-value="${shared.resourceId}"`),
-    'the shared resource ID remains available to the claims workflow');
-  assert.doesNotMatch(residual.html, /\bdata-move=/i, 'placement order controls are removed from the legacy route too');
-  assert.doesNotMatch(residual.html, /\bdata-link-order-form/i);
-  assert.doesNotMatch(residual.html, /\bdata-series-(?:create-form|form|move|add-chapter-form|remove-chapter)|\bdata-delete-series/i,
-    'the legacy route no longer renders series or chapter controls');
-  assert.match(residual.html, /\bdata-claim-form/i, 'claims remain available until their planned phase');
+  assert.equal(residual.response.status, 302);
+  assert.equal(residual.response.headers.get('location'), '/cuenta/?vista=solicitudes');
+  assert.match(residual.response.headers.get('cache-control') ?? '', /private.*no-store/);
+  assert.doesNotMatch(residual.html, /\bdata-creator-editor|\bdata-claim-form|\bdata-resource-id-value/i);
+  assert.deepEqual(await app.api('/api/creador/perfil/', undefined, { method: 'GET' }), before,
+    'the redirect does not change placements, public order or chapter memberships');
 });
 

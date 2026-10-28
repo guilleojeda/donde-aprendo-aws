@@ -146,7 +146,7 @@ async function loadEditorData(harness) {
   return result.data;
 }
 
-test('la ruta residual sin perfil redirige a Tu página y conserva los encabezados privados', async () => {
+test('la ruta antigua conserva el destino Solicitudes también sin perfil y mantiene encabezados privados', async () => {
   const harness = await visibilityHarness();
   const editorRoute = await loadResidualEditorRoute();
   globalThis.__creatorPageTestRuntime = {
@@ -166,7 +166,7 @@ test('la ruta residual sin perfil redirige a Tu página y conserva los encabezad
   });
 
   assert.equal(response.status, 302);
-  assert.equal(response.headers.get('location'), '/cuenta/');
+  assert.equal(response.headers.get('location'), '/cuenta/?vista=solicitudes');
   assert.match(response.headers.get('cache-control') ?? '', /private.*no-store/i);
   assert.equal(response.headers.get('referrer-policy'), 'no-referrer');
   assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
