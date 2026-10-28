@@ -3,6 +3,7 @@ import { creatorPageSessionBinding } from '../../lib/creator-session-context.mjs
 import { selectAdminResources } from '../../lib/creator-admin-pagination.mjs';
 import type {
   CreatorClaimDTO,
+  CreatorClaimResourceDTO,
   CreatorEditableResourceDTO,
   CreatorEditorDTO,
   CreatorLinkDTO,
@@ -200,6 +201,29 @@ function readEditableResource(value: unknown): CreatorEditableResourceDTO {
   return { id, title, url, ...(typeof item.description === 'string' ? { description: item.description } : {}), version };
 }
 
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item): item is string => typeof item === 'string');
+}
+
+function readClaimResources(value: unknown, resourceIds: unknown): CreatorClaimResourceDTO[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || !isStringArray(resourceIds) || value.length === 0 || value.length !== resourceIds.length) {
+    throw new TypeError('Los destinos de una solicitud recibida no tienen un formato válido.');
+  }
+  return value.map((candidate, index) => {
+    const item = record(candidate);
+    if (!item || Object.keys(item).length !== 2 || !Object.hasOwn(item, 'resourceId') || !Object.hasOwn(item, 'url')) {
+      throw new TypeError('Los destinos de una solicitud recibida no tienen un formato válido.');
+    }
+    const resourceId = nonEmptyText(item.resourceId);
+    const url = nonEmptyText(item.url);
+    if (!resourceId || resourceId !== resourceIds[index] || !url || url.length > 2048) {
+      throw new TypeError('Los destinos de una solicitud recibida no tienen un formato válido.');
+    }
+    return { resourceId, url };
+  });
+}
+
 function readClaim(value: unknown): CreatorClaimDTO {
   const item = record(value);
   if (!item) throw new TypeError('Una solicitud de vinculación recibida no tiene un formato válido.');
@@ -209,9 +233,11 @@ function readClaim(value: unknown): CreatorClaimDTO {
   }
   const resourceIds = item.resourceIds.filter((idValue): idValue is string => typeof idValue === 'string');
   if (resourceIds.length !== item.resourceIds.length) throw new TypeError('Una solicitud de vinculación recibida no tiene un formato válido.');
+  const resources = readClaimResources(item.resources, resourceIds);
   return {
     id,
     resourceIds,
+    ...(resources ? { resources } : {}),
     ...(typeof item.sourceId === 'string' ? { sourceId: item.sourceId } : {}),
     ...(typeof item.status === 'string' ? { status: item.status } : {}),
     ...(finiteNumber(item.createdAt) !== undefined ? { createdAt: finiteNumber(item.createdAt) } : {}),
@@ -276,15 +302,19 @@ function readAdminProfiles(value: unknown): CreatorAdminData['profiles'] {
 }
 
 function readAdminClaims(value: unknown): CreatorAdminData['claims'] {
-  return listFrom(value, 'claims').map((item) => ({
-    id: item.id ?? item.claimId,
-    accountId: item.accountId,
-    resourceIds: item.resourceIds,
-    sourceId: item.sourceId,
-    evidence: item.evidence,
-    status: item.status,
-    createdAt: item.createdAt,
-  }));
+  return listFrom(value, 'claims').map((item) => {
+    const resources = readClaimResources(item.resources, item.resourceIds);
+    return {
+      id: item.id ?? item.claimId,
+      accountId: item.accountId,
+      resourceIds: item.resourceIds,
+      ...(resources ? { resources } : {}),
+      sourceId: item.sourceId,
+      evidence: item.evidence,
+      status: item.status,
+      createdAt: item.createdAt,
+    };
+  });
 }
 
 async function loadPrincipal(request: Request): Promise<CreatorPagePrincipal> {

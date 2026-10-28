@@ -93,9 +93,15 @@ export interface CreatorCatalogSelectionDTO {
   tipo: CreatorCatalogResourceType;
 }
 
+export interface CreatorClaimResourceDTO {
+  resourceId: string;
+  url: string;
+}
+
 export interface CreatorClaimDTO {
   id: string;
   resourceIds: string[];
+  resources?: CreatorClaimResourceDTO[];
   sourceId?: string;
   status?: string;
   createdAt?: number;

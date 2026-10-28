@@ -160,7 +160,8 @@ export function createOwnerLinksSurface({ profile = defaultProfile(), links = []
   document.querySelector = (selector) => selector === '[data-creator-owner]' || selector === '[data-owner-root]' ? root
     : selector === '#creator-owner-data' ? initial : null;
   document.querySelectorAll = (selector) => root.querySelectorAll(selector);
-  document.getElementById = (id) => id === 'creator-owner-data' ? initial : null;
+  document.getElementById = (id) => id === 'creator-owner-data' ? initial
+    : root.descendants().find((element) => element.getAttribute('id') === id) ?? null;
   document.addEventListener = (type, listener) => documentListeners.set(type, listener);
   document.listeners = documentListeners;
   root.parentElement = document;

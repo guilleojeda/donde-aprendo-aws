@@ -195,6 +195,31 @@ function validateResourceUrl(url) {
   }
 }
 
+function storedClaimResources(claim) {
+  if (!Object.hasOwn(claim, 'resources')) return undefined;
+  if (!Array.isArray(claim.resourceIds) || !Array.isArray(claim.resources)
+    || claim.resources.length === 0 || claim.resources.length !== claim.resourceIds.length
+    || new Set(claim.resourceIds).size !== claim.resourceIds.length) {
+    fail(503, 'INVALID_CLAIM', 'claim resource observations are malformed');
+  }
+
+  return claim.resources.map((value, index) => {
+    if (!isRecord(value) || Object.keys(value).length !== 2
+      || !Object.hasOwn(value, 'resourceId') || !Object.hasOwn(value, 'url')
+      || typeof value.resourceId !== 'string' || !value.resourceId
+      || value.resourceId !== claim.resourceIds[index]
+      || typeof value.url !== 'string' || value.url.length > TEXT_FIELD_LIMITS.get('url')) {
+      fail(503, 'INVALID_CLAIM', 'claim resource observations are malformed');
+    }
+    try {
+      validateCatalogUrl(value.url);
+    } catch {
+      fail(503, 'INVALID_CLAIM', 'claim resource observations are malformed');
+    }
+    return { resourceId: value.resourceId, url: value.url };
+  });
+}
+
 function cleanPublicProfile(profile) {
   if (typeof profile.id !== 'string' || !profile.id || typeof profile.displayName !== 'string'
     || profile.displayName.length > TEXT_FIELD_LIMITS.get('displayName')
@@ -1002,9 +1027,11 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       const claim = await store.get(claimKey(reference.id));
       if (!claim) fail(503, 'MISSING_CLAIM', 'claim reference points to missing claim data');
       if (claim && claim.profileId === profile.id) {
+        const resources = storedClaimResources(claim);
         claims.push({
           id: claim.id,
           resourceIds: Array.isArray(claim.resourceIds) ? [...claim.resourceIds] : [],
+          ...(resources ? { resources } : {}),
           ...(typeof claim.sourceId === 'string' ? { sourceId: claim.sourceId } : {}),
           ...(typeof claim.status === 'string' ? { status: claim.status } : {}),
           ...(Number.isSafeInteger(claim.createdAt) ? { createdAt: claim.createdAt } : {}),
@@ -2281,17 +2308,21 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
 
   async function adminClaimList() {
     const rows = await store.list('claim:');
-    return rows.map(({ value }) => ({
-      id: value.id,
-      accountId: value.accountId,
-      profileId: value.profileId,
-      resourceIds: Array.isArray(value.resourceIds) ? [...value.resourceIds] : [],
-      ...(typeof value.sourceId === 'string' ? { sourceId: value.sourceId } : {}),
-      ...(typeof value.evidence === 'string' ? { evidence: value.evidence } : {}),
-      status: value.status,
-      createdAt: value.createdAt,
-      version: value.version ?? 0,
-    }));
+    return rows.map(({ value }) => {
+      const resources = storedClaimResources(value);
+      return {
+        id: value.id,
+        accountId: value.accountId,
+        profileId: value.profileId,
+        resourceIds: Array.isArray(value.resourceIds) ? [...value.resourceIds] : [],
+        ...(resources ? { resources } : {}),
+        ...(typeof value.sourceId === 'string' ? { sourceId: value.sourceId } : {}),
+        ...(typeof value.evidence === 'string' ? { evidence: value.evidence } : {}),
+        status: value.status,
+        createdAt: value.createdAt,
+        version: value.version ?? 0,
+      };
+    });
   }
 
   async function patchAdminResource(resourceId, body) {
@@ -2384,29 +2415,144 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     };
   }
 
+  async function claimResourcesById(ids) {
+    const uniqueIds = [...new Set(ids)];
+    const resources = new Map();
+    for (let offset = 0; offset < uniqueIds.length; offset += FALLBACK_RESOURCE_READ_CONCURRENCY) {
+      const batch = uniqueIds.slice(offset, offset + FALLBACK_RESOURCE_READ_CONCURRENCY);
+      const values = await Promise.all(batch.map(async (id) => [id, await store.get(`resource:${id}`)]));
+      for (const [id, resource] of values) {
+        if (resource) resources.set(id, resource);
+      }
+    }
+    return resources;
+  }
+
+  async function claimResourceIdForUrl(url) {
+    const reservation = await store.get(currentUrlKey(url));
+    if (!reservation) fail(404, 'RESOURCE_NOT_FOUND', 'no catalog resource is reserved for this URL');
+    if (reservation.recordType !== 'urlReservation' || reservation.url !== url) {
+      fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation is inconsistent');
+    }
+    if (!Number.isSafeInteger(reservation.version) || reservation.version < 1) {
+      fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation is inconsistent');
+    }
+    if (reservation.status === 'collision') {
+      const ids = reservation.resourceIds;
+      if (!Array.isArray(ids) || ids.length < 2
+        || ids.some((id) => typeof id !== 'string' || !id || id.startsWith('__'))
+        || new Set(ids).size !== ids.length) {
+        fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation is inconsistent');
+      }
+      fail(409, 'URL_COLLISION', 'this URL needs administrative review');
+    }
+    if (reservation.status !== 'reserved' || typeof reservation.resourceId !== 'string'
+      || !reservation.resourceId || reservation.resourceId.startsWith('__')) {
+      fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation is inconsistent');
+    }
+    return reservation.resourceId;
+  }
+
   async function createClaim(principal, body) {
     const profile = await getRequiredOwnerProfile(principal);
-    assertKnownFields(body, new Set(['resourceIds', 'sourceId', 'evidence']));
-    if (!Array.isArray(body.resourceIds) || body.resourceIds.length === 0
-      || body.resourceIds.some((id) => typeof id !== 'string' || !id || id.includes(':'))
-      || new Set(body.resourceIds).size !== body.resourceIds.length) {
-      fail(422, 'INVALID_RESOURCE_IDS', 'resourceIds must contain exact unique resource IDs');
+    const usesResources = Object.hasOwn(body, 'resources');
+    const usesResourceIds = Object.hasOwn(body, 'resourceIds');
+    if (usesResources && Object.hasOwn(body, 'version')) {
+      fail(400, 'UNKNOWN_FIELD', 'unsupported field: version');
     }
-    const resourceIds = [...body.resourceIds];
-    for (const id of resourceIds) {
-      const resource = await store.get(`resource:${id}`);
-      if (!resource) fail(404, 'RESOURCE_NOT_FOUND', `resource ${id} does not exist`);
-      if (!isCatalogResource(resource)) fail(422, 'INVALID_RESOURCE_IDS', `resource ${id} is not a catalog resource`);
+    assertKnownFields(body, new Set(['resources', 'resourceIds', 'sourceId', 'evidence']));
+    if (usesResources === usesResourceIds) {
+      fail(422, 'INVALID_CLAIM_SELECTION', 'provide exactly one of resources or resourceIds');
     }
     const sourceId = body.sourceId === undefined ? undefined : textField(body.sourceId, 'sourceId');
     const evidence = body.evidence === undefined || body.evidence === '' ? undefined : textField(body.evidence, 'evidence');
+
+    let submittedResources;
+    if (usesResources) {
+      if (!Array.isArray(body.resources) || body.resources.length === 0) {
+        fail(422, 'INVALID_CLAIM_RESOURCES', 'resources must contain at least one target');
+      }
+      submittedResources = body.resources.map((value) => {
+        if (!isRecord(value)) fail(422, 'INVALID_CLAIM_RESOURCES', 'each resource must contain a URL and optional exact resource ID');
+        if (Object.hasOwn(value, 'version')) fail(400, 'UNKNOWN_FIELD', 'unsupported field: version');
+        assertKnownFields(value, new Set(['resourceId', 'url']));
+        if (!Object.hasOwn(value, 'url')) fail(422, 'INVALID_CLAIM_RESOURCES', 'each resource URL is required');
+        const url = validateResourceUrl(value.url);
+        let resourceId;
+        if (Object.hasOwn(value, 'resourceId')) {
+          if (typeof value.resourceId !== 'string' || !value.resourceId) {
+            fail(422, 'INVALID_RESOURCE_ID', 'resourceId must identify a catalog resource');
+          }
+          resourceId = value.resourceId;
+        }
+        return { ...(resourceId ? { resourceId } : {}), url };
+      });
+    } else if (!Array.isArray(body.resourceIds) || body.resourceIds.length === 0
+      || body.resourceIds.some((id) => typeof id !== 'string' || !id)
+      || new Set(body.resourceIds).size !== body.resourceIds.length) {
+      fail(422, 'INVALID_RESOURCE_IDS', 'resourceIds must contain exact unique resource IDs');
+    }
+
+    let resourceIds;
+    let resources;
+    if (usesResources) {
+      const resolvedIds = [];
+      for (const target of submittedResources) {
+        resolvedIds.push(target.resourceId ?? await claimResourceIdForUrl(target.url));
+      }
+      const records = await claimResourcesById(resolvedIds);
+      const resolved = submittedResources.map((target, index) => {
+        const resourceId = resolvedIds[index];
+        const resource = records.get(resourceId);
+        if (!resource) {
+          if (target.resourceId !== undefined) fail(404, 'RESOURCE_NOT_FOUND', 'selected catalog resource does not exist');
+          fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation points to missing catalog data');
+        }
+        if (resource.id !== resourceId) fail(503, 'INVALID_RESOURCE', 'catalog resource identity is inconsistent');
+        if (!isCatalogResource(resource)) {
+          if (target.resourceId !== undefined) fail(422, 'INVALID_RESOURCE_IDS', 'selected record is not a catalog resource');
+          fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation does not point to a catalog resource');
+        }
+        const currentUrl = currentResourceUrl(resource);
+        try {
+          validateCatalogUrl(currentUrl);
+        } catch {
+          fail(503, 'INVALID_RESOURCE', 'catalog resource URL is malformed');
+        }
+        if (currentUrl !== target.url) {
+          if (target.resourceId !== undefined) fail(409, 'RESOURCE_CONFLICT', 'selected resource URL changed; review the current catalog entry');
+          fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation does not match the catalog resource');
+        }
+        return { resourceId, url: target.url };
+      });
+
+      const unique = new Map();
+      for (const target of resolved) {
+        if (!unique.has(target.resourceId)) unique.set(target.resourceId, target);
+      }
+      resources = [...unique.values()];
+      resourceIds = resources.map(({ resourceId }) => resourceId);
+    } else {
+      resourceIds = [...body.resourceIds];
+      for (const id of resourceIds) {
+        const resource = await store.get(`resource:${id}`);
+        if (!resource) fail(404, 'RESOURCE_NOT_FOUND', `resource ${id} does not exist`);
+        if (resource.id !== id) fail(503, 'INVALID_RESOURCE', 'catalog resource identity is inconsistent');
+        if (!isCatalogResource(resource)) fail(422, 'INVALID_RESOURCE_IDS', 'resourceIds may reference catalog resources only');
+      }
+    }
+
     const id = newId();
     const createdAt = timestamp();
     const claim = {
       recordType: 'claim', id, accountId: principal.accountId, profileId: profile.id,
-      resourceIds, ...(sourceId ? { sourceId } : {}), ...(evidence ? { evidence } : {}),
+      resourceIds, ...(resources ? { resources } : {}), ...(sourceId ? { sourceId } : {}), ...(evidence ? { evidence } : {}),
       status: 'pending', createdAt, version: 1,
     };
+    const physicalClaim = { ...claim, pk: 'ADMIN#CLAIMS', sk: `CLAIM#${id}` };
+    if (dynamoDbItemSize(physicalClaim) > MAX_DYNAMODB_ITEM_BYTES) {
+      fail(422, 'CLAIM_TOO_LARGE', 'claim exceeds DynamoDB’s 400 KiB item limit');
+    }
     const ok = await store.transact({
       checks: [
         { key: claimKey(id), version: null },
@@ -2418,13 +2564,21 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       ],
     });
     if (!ok) fail(409, 'CLAIM_CONFLICT', 'claim changed while saving');
-    return { claim: { id, resourceIds, ...(sourceId ? { sourceId } : {}), ...(evidence ? { evidence } : {}), status: 'pending', createdAt } };
+    return { claim: {
+      id,
+      resourceIds,
+      ...(resources ? { resources } : {}),
+      ...(sourceId ? { sourceId } : {}),
+      ...(evidence ? { evidence } : {}),
+      status: 'pending',
+      createdAt,
+    } };
   }
 
   async function linkClaim(body) {
     assertKnownFields(body, new Set(['accountId', 'resourceIds', 'sourceId']));
     if (typeof body.accountId !== 'string' || !body.accountId || !Array.isArray(body.resourceIds)
-      || body.resourceIds.length === 0 || body.resourceIds.some((id) => typeof id !== 'string' || !id || id.includes(':'))
+      || body.resourceIds.length === 0 || body.resourceIds.some((id) => typeof id !== 'string' || !id)
       || new Set(body.resourceIds).size !== body.resourceIds.length) {
       fail(422, 'EXACT_RESOURCES_REQUIRED', 'accountId and exact unique resourceIds are required');
     }
@@ -2437,6 +2591,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     for (const resourceId of requestedIds) {
       const resource = await store.get(`resource:${resourceId}`);
       if (!resource) fail(404, 'RESOURCE_NOT_FOUND', `resource ${resourceId} does not exist`);
+      if (resource.id !== resourceId) fail(503, 'INVALID_RESOURCE', 'catalog resource identity is inconsistent');
       if (!isCatalogResource(resource)) fail(422, 'EXACT_RESOURCES_REQUIRED', `resource ${resourceId} is not a catalog resource`);
       if ((resource.editorProfileId && resource.editorProfileId !== profile.id)
         || (resource.directoryControl === 'creator' && resource.editorProfileId !== profile.id)) {

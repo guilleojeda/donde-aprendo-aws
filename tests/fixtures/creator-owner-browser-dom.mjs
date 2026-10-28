@@ -122,6 +122,7 @@ export class SurfaceElement {
   setAttribute(name, value) {
     this.attributes.set(name, String(value));
     if (name.startsWith('data-')) this.dataset[name.slice(5).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())] = String(value);
+    if (name === 'form') this.form = this.ownerDocument?.getElementById?.(String(value)) ?? null;
     if (name === 'class') this.className = String(value);
   }
 

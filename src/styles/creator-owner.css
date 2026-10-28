@@ -293,6 +293,32 @@
   color: var(--color-text-muted);
 }
 
+.creator-owner__claim-selection {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.creator-owner__claim-selection li {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-subtle);
+}
+
+.creator-owner__claim-selection li > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .creator-owner__catalog-directory {
   display: flex;
   align-items: center;
@@ -303,6 +329,82 @@
 .creator-owner__link-tools [aria-current="page"] {
   border-color: var(--color-accent-text);
   font-weight: 700;
+}
+
+.creator-owner__claims {
+  display: grid;
+  gap: 18px;
+  width: min(100%, 900px);
+  min-width: 0;
+  margin-inline: auto;
+  padding: clamp(20px, 4vw, 32px);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface);
+  box-shadow: 0 10px 32px var(--color-shadow);
+}
+
+.creator-owner__claims-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.creator-owner__claims-heading p:last-child {
+  margin: 8px 0 0;
+  color: var(--color-text-muted);
+}
+
+.creator-owner__claim-history,
+.creator-owner__claim-resources {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.creator-owner__claim-record {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface-subtle);
+}
+
+.creator-owner__claim-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.creator-owner__claim-heading strong {
+  color: var(--color-heading);
+}
+
+.creator-owner__claim-heading time,
+.creator-owner__claim-evidence {
+  color: var(--color-text-muted);
+}
+
+.creator-owner__claim-resources li,
+.creator-owner__claim-evidence {
+  overflow-wrap: anywhere;
+}
+
+.creator-owner__claim-evidence {
+  margin: 0;
+  padding: 10px 12px;
+  border-inline-start: 3px solid var(--color-border-control);
+  background: var(--color-surface);
+  white-space: pre-wrap;
 }
 
 .creator-owner__series {

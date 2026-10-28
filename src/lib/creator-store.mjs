@@ -195,7 +195,7 @@ function resourceProjection() {
 }
 
 function claimProjection() {
-  const fields = ['pk', 'sk', 'recordType', 'id', 'profileId', 'accountId', 'resourceIds', 'sourceId', 'evidence', 'status', 'createdAt', 'updatedAt', 'version'];
+  const fields = ['pk', 'sk', 'recordType', 'id', 'profileId', 'accountId', 'resourceIds', 'resources', 'sourceId', 'evidence', 'status', 'createdAt', 'updatedAt', 'version'];
   const names = Object.fromEntries(fields.map((field, index) => [`#c${index}`, field]));
   return { ProjectionExpression: fields.map((_, index) => `#c${index}`).join(', '), ExpressionAttributeNames: names };
 }

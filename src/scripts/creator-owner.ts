@@ -1,4 +1,4 @@
-import type { CreatorCatalogSelectionDTO, CreatorEditableResourceDTO, CreatorEditorDTO, CreatorLinkDTO, CreatorProfileDTO, CreatorProgram, CreatorSeriesDTO, CreatorSocial } from '../types/creators';
+import type { CreatorCatalogSelectionDTO, CreatorClaimDTO, CreatorClaimResourceDTO, CreatorEditableResourceDTO, CreatorEditorDTO, CreatorLinkDTO, CreatorProfileDTO, CreatorProgram, CreatorSeriesDTO, CreatorSocial } from '../types/creators';
 import { createCreatorFormState, type FormValueSnapshot } from './creator-form-state';
 import { createCreatorSessionRecovery } from './creator-session-recovery';
 import { createCreatorWriteGuard, readCreatorVersionChanges, type CreatorVersionChange } from './creator-write-state';
@@ -28,6 +28,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function isSafeClaimUrl(value: string): boolean {
+  if (!value || value.length > 2048) return false;
+  try {
+    const url = new URL(value);
+    return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password;
+  } catch {
+    return false;
+  }
+}
+
 function isProfile(value: unknown): value is CreatorProfileDTO {
   return isRecord(value)
     && typeof value.id === 'string' && value.id.length > 0
@@ -37,10 +47,28 @@ function isProfile(value: unknown): value is CreatorProfileDTO {
     && Array.isArray(value.programs) && isRecord(value.socials);
 }
 
+function isCreatorClaim(value: unknown): value is CreatorClaimDTO {
+  if (!isRecord(value) || typeof value.id !== 'string' || value.id.length === 0
+    || !Array.isArray(value.resourceIds) || !value.resourceIds.every((id) => typeof id === 'string')) return false;
+  if (value.resources !== undefined) {
+    if (!Array.isArray(value.resources)) return false;
+    const observedIds = new Set<string>();
+    for (const candidate of value.resources) {
+      if (!isRecord(candidate) || Object.keys(candidate).sort().join(',') !== 'resourceId,url'
+        || typeof candidate.resourceId !== 'string' || !value.resourceIds.includes(candidate.resourceId)
+        || observedIds.has(candidate.resourceId) || typeof candidate.url !== 'string' || !isSafeClaimUrl(candidate.url)) return false;
+      observedIds.add(candidate.resourceId);
+    }
+  }
+  return (value.status === undefined || typeof value.status === 'string')
+    && (value.createdAt === undefined || (typeof value.createdAt === 'number' && Number.isFinite(value.createdAt)))
+    && (value.evidence === undefined || typeof value.evidence === 'string');
+}
+
 function isOwnerData(value: unknown): value is CreatorEditorDTO {
   return isRecord(value) && (value.profile === null || isProfile(value.profile))
     && Array.isArray(value.links) && Array.isArray(value.editableResources)
-    && Array.isArray(value.claims) && Array.isArray(value.series);
+    && Array.isArray(value.claims) && value.claims.every(isCreatorClaim) && Array.isArray(value.series);
 }
 
 function isCreatorLink(value: unknown): value is CreatorLinkDTO {
@@ -117,7 +145,7 @@ const formState = root ? createCreatorFormState(root) : undefined;
 const writeGuard = root ? createCreatorWriteGuard(root) : undefined;
 let csrfToken = root?.dataset.csrf;
 let activeForm: HTMLFormElement | undefined;
-let activeEditor: 'datos' | 'redes' | 'foto' | 'enlace' | 'alta-enlace' | 'referencia' | 'mover-enlace' | 'serie' | 'mover-capitulo' | undefined;
+let activeEditor: 'datos' | 'redes' | 'foto' | 'enlace' | 'alta-enlace' | 'referencia' | 'reclamacion' | 'mover-enlace' | 'serie' | 'mover-capitulo' | undefined;
 let returnFocus: HTMLElement | undefined;
 let pendingExitAction: (() => void) | undefined;
 let conflictProfile: CreatorProfileDTO | undefined;
@@ -167,6 +195,16 @@ let pendingCatalogOptionCorrection: { resourceId: string; placementId: string; s
 let catalogResetSelectionOnNextOpen = false;
 let activeCatalogCorrectionPlacementId: string | undefined;
 let lastCatalogReferenceMessage: string | undefined;
+type ClaimSelection = CreatorClaimResourceDTO & { title?: string };
+let claimSelection = new Map<string, ClaimSelection>();
+let claimSelectionRevisions = new Map<string, number>();
+let claimSelectionBaseline = '';
+let claimUrlsBaseline = '';
+let claimEvidenceBaseline = '';
+let claimStalePairs = new Set<string>();
+let claimNeedsRefresh = false;
+let claimSubmitting = false;
+let claimChecking = false;
 type ProfileFormAction = (event: Event) => Promise<void> | void;
 const profileFormActions = new WeakMap<HTMLFormElement, ProfileFormAction>();
 
@@ -237,6 +275,7 @@ function statusFor(name: string | undefined): HTMLElement | null {
   if (name === 'crear') return root?.querySelector<HTMLElement>('[data-owner-create-status]') ?? null;
   if (name === 'alta-enlace') return root?.querySelector<HTMLElement>('[data-link-add-status]') ?? null;
   if (name === 'referencia') return root?.querySelector<HTMLElement>('[data-catalog-status]') ?? null;
+  if (name === 'reclamacion') return claimForm()?.querySelector<HTMLElement>('[data-claim-status]') ?? null;
   return name ? root?.querySelector<HTMLElement>(`[data-owner-form-status="${name}"]`) ?? null
     : root?.querySelector<HTMLElement>('[data-owner-profile-status]') ?? null;
 }
@@ -289,7 +328,7 @@ async function jsonRequest(path: string, method: string, body?: unknown): Promis
 async function runProfileFormAction(event: Event, action: ProfileFormAction) {
   if (sessionRecovery?.blocksWrites()) {
     event.preventDefault();
-    sessionRecovery.announceBlocked();
+    if (activeEditor !== 'reclamacion') sessionRecovery.announceBlocked();
     return;
   }
   await writeGuard?.run(event, () => action(event));
@@ -344,6 +383,10 @@ function catalogForm(): HTMLFormElement | null {
   return formFor('referencia') ?? root?.querySelector<HTMLFormElement>('[data-catalog-reference-form]') ?? null;
 }
 
+function claimForm(): HTMLFormElement | null {
+  return formFor('reclamacion') ?? root?.querySelector<HTMLFormElement>('[data-claim-form]') ?? null;
+}
+
 function catalogPanel(): HTMLElement | null {
   return root?.querySelector<HTMLElement>('[data-owner-catalog]') ?? null;
 }
@@ -356,8 +399,115 @@ function catalogSelectionKey(item = catalogSelection): string | undefined {
   return item ? `${item.id}\n${item.url}` : undefined;
 }
 
+function claimSelectionSignature(selection = claimSelection): string {
+  return [...selection.values()]
+    .map(({ resourceId, url }) => `${resourceId}\n${url}`)
+    .sort()
+    .join('\n\u0000\n');
+}
+
+function claimStatusLabel(status: string | undefined): string {
+  if (!status) return 'Solicitud recibida';
+  const labels: Record<string, string> = {
+    pending: 'Pendiente',
+    approved: 'Aprobada',
+    rejected: 'Rechazada',
+    revoked: 'Revocada',
+    resolved: 'Resuelta',
+    partial: 'Parcialmente resuelta',
+  };
+  return labels[status] ?? status;
+}
+
+function claimResourceLabel(claim: CreatorClaimDTO, resourceId: string): string {
+  const own = state?.editableResources.find(({ id }) => id === resourceId);
+  if (own) return own.title;
+  const ownLink = state?.links.find(({ resourceId: id }) => id === resourceId);
+  if (ownLink) return ownLink.title;
+  const publicItem = catalogEntries?.find(({ id }) => id === resourceId);
+  if (publicItem) return publicItem.title;
+  return claim.resources?.find(({ resourceId: id }) => id === resourceId)?.url ?? 'Contenido solicitado';
+}
+
+function renderClaimHistory() {
+  const history = root?.querySelector<HTMLElement>('[data-claim-history]');
+  if (!history || !state) return;
+  history.querySelectorAll<HTMLElement>('[data-claim-record]').forEach((record) => record.remove());
+  history.querySelectorAll<HTMLElement>('[data-claim-empty]').forEach((record) => record.remove());
+  if (!state.claims.length) {
+    const empty = document.createElement('li');
+    empty.className = 'creator-owner__empty';
+    empty.dataset.claimEmpty = '';
+    empty.textContent = 'No tienes solicitudes todavía.';
+    history.append(empty);
+    return;
+  }
+  state.claims.forEach((claim) => {
+    const record = document.createElement('li');
+    record.className = 'creator-owner__claim-record';
+    record.dataset.claimRecord = claim.id;
+    const heading = document.createElement('div');
+    heading.className = 'creator-owner__claim-heading';
+    const status = document.createElement('strong');
+    status.dataset.claimStatus = '';
+    status.textContent = claimStatusLabel(claim.status);
+    heading.append(status);
+    if (claim.createdAt !== undefined) {
+      const date = new Date(claim.createdAt);
+      if (Number.isFinite(date.getTime())) {
+        const time = document.createElement('time');
+        time.dataset.claimDate = '';
+        time.dateTime = date.toISOString();
+        time.textContent = new Intl.DateTimeFormat('es', {
+          dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC',
+        }).format(date);
+        heading.append(time);
+      }
+    }
+    const resources = document.createElement('ul');
+    resources.className = 'creator-owner__claim-resources';
+    claim.resourceIds.forEach((resourceId) => {
+      const item = document.createElement('li');
+      item.dataset.claimResourceId = resourceId;
+      item.textContent = claimResourceLabel(claim, resourceId);
+      resources.append(item);
+    });
+    record.append(heading, resources);
+    if (claim.evidence !== undefined) {
+      const evidence = document.createElement('p');
+      evidence.className = 'creator-owner__claim-evidence';
+      evidence.dataset.claimEvidenceText = '';
+      evidence.textContent = claim.evidence;
+      record.append(evidence);
+    }
+    history.append(record);
+  });
+}
+
 function sameCatalogSelection(left: string | undefined, right: string | undefined): boolean {
   return left === right;
+}
+
+function renderClaimSelection() {
+  const list = catalogControl<HTMLUListElement>('[data-claim-selection]');
+  if (!list) return;
+  list.querySelectorAll<HTMLElement>('[data-claim-selection-item]').forEach((item) => item.remove());
+  list.hidden = activeEditor !== 'reclamacion' || claimSelection.size === 0;
+  if (list.hidden) return;
+  claimSelection.forEach((item) => {
+    const row = document.createElement('li');
+    row.dataset.claimSelectionItem = '';
+    const label = document.createElement('span');
+    label.textContent = item.title ? `${item.title} — ${item.url}` : item.url;
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'button button--outline';
+    remove.dataset.claimDeselect = item.resourceId;
+    remove.setAttribute('aria-label', `Quitar ${item.title ?? item.url} de la selección`);
+    remove.textContent = 'Quitar';
+    row.append(label, remove);
+    list.append(row);
+  });
 }
 
 function isCatalogItem(value: unknown): value is CreatorCatalogSelectionDTO {
@@ -384,13 +534,20 @@ function parseCatalogIndex(value: unknown): CreatorCatalogSelectionDTO[] | undef
 }
 
 function setCatalogSelectionLabel() {
+  renderClaimSelection();
   const selected = catalogControl<HTMLElement>('[data-catalog-selected-count]');
+  if (activeEditor === 'reclamacion') {
+    if (selected) selected.textContent = claimSelection.size === 0
+      ? 'Ningún recurso seleccionado.'
+      : `${claimSelection.size} ${claimSelection.size === 1 ? 'recurso seleccionado.' : 'recursos seleccionados.'}`;
+  } else {
   const selectionIsVisible = [...(catalogControl<HTMLUListElement>('[data-catalog-results]')
     ?.querySelectorAll<HTMLElement>('[data-catalog-row]') ?? [])]
     .some((row) => row.dataset.catalogRow === catalogSelection?.id);
   if (selected) selected.textContent = catalogSelection
     ? selectionIsVisible ? '1 recurso seleccionado.' : `1 recurso seleccionado: ${catalogSelection.title}`
     : 'Ningún recurso seleccionado.';
+  }
   const submit = catalogControl<HTMLButtonElement>('[data-catalog-reference]');
   const unavailable = !catalogSelection || !catalogSelectionCurrent || catalogNeedsRefresh
     || catalogConflictKind !== undefined || pendingCatalogOptionCorrection !== undefined;
@@ -452,8 +609,11 @@ function renderCatalogResults() {
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.dataset.catalogSelect = '';
-    checkbox.checked = catalogSelection?.id === item.id;
-    checkbox.setAttribute('aria-label', `Seleccionar ${item.title}`);
+    checkbox.setAttribute('form', 'owner-catalog-search-form');
+    checkbox.checked = activeEditor === 'reclamacion'
+      ? claimSelection.has(item.id)
+      : catalogSelection?.id === item.id;
+    checkbox.setAttribute('aria-label', `${activeEditor === 'reclamacion' ? 'Solicitar edición de' : 'Seleccionar'} ${item.title}`);
     const copy = document.createElement('span');
     copy.className = 'creator-owner__catalog-item';
     const title = document.createElement('strong');
@@ -471,6 +631,8 @@ function renderCatalogResults() {
 function showCatalogLoadError(message: string) {
   announce(statusFor('referencia'), message, 'error');
   setHidden(catalogControl('[data-catalog-retry]'), false);
+  announce(root?.querySelector<HTMLElement>('[data-claim-index-status]'), message, 'error');
+  setHidden(root?.querySelector('[data-claim-index-retry]'), false);
   const empty = catalogControl<HTMLElement>('[data-catalog-empty]');
   setHidden(empty, true);
   setCatalogSelectionLabel();
@@ -484,9 +646,11 @@ async function loadCatalog({ refresh = false }: { refresh?: boolean } = {}): Pro
   if (catalogLoad) return catalogLoad;
   const retry = catalogControl<HTMLButtonElement>('[data-catalog-retry]');
   if (retry) retry.hidden = true;
+  setHidden(root?.querySelector('[data-claim-index-retry]'), true);
   setHidden(catalogControl('[data-catalog-count]'), catalogEntries === undefined);
   setHidden(catalogControl('[data-catalog-empty]'), true);
   announce(statusFor('referencia'), refresh ? 'Actualizando el catálogo…' : 'Cargando el catálogo…', 'info');
+  announce(root?.querySelector<HTMLElement>('[data-claim-index-status]'), refresh ? 'Actualizando el catálogo…' : 'Cargando el catálogo…', 'info');
   catalogPanel()?.setAttribute('aria-busy', 'true');
   const request = (async () => {
     const wasStale = catalogNeedsRefresh;
@@ -499,6 +663,19 @@ async function loadCatalog({ refresh = false }: { refresh?: boolean } = {}): Pro
     catalogEntries = parsed;
     catalogNeedsRefresh = false;
     catalogSelectionCurrent = true;
+    if (claimNeedsRefresh) {
+      claimNeedsRefresh = false;
+      const staleItem = [...claimStalePairs]
+        .map((resourceId) => parsed.find((item) => item.id === resourceId))
+        .find((item): item is CreatorCatalogSelectionDTO => Boolean(item));
+      if (staleItem) {
+        catalogSearchQuery = staleItem.title;
+        catalogPageNumber = 1;
+        const search = catalogControl<HTMLInputElement>('[data-catalog-search]');
+        if (search) search.value = staleItem.title;
+      }
+      announce(statusFor('reclamacion'), 'Catálogo actualizado. Quita y vuelve a seleccionar las fichas cuya URL cambió para confirmar la observación actual.', 'info');
+    }
     if (catalogConflictKind === 'link') {
       catalogIndexRefreshed = true;
       if (catalogProfileCompared) catalogConflictKind = undefined;
@@ -529,8 +706,11 @@ async function loadCatalog({ refresh = false }: { refresh?: boolean } = {}): Pro
     } else {
       clearAnnouncement(statusFor('referencia'));
     }
+    clearAnnouncement(root?.querySelector<HTMLElement>('[data-claim-index-status]'));
+    setHidden(root?.querySelector('[data-claim-index-retry]'), true);
     renderCatalogResults();
     setCatalogSelectionLabel();
+    renderClaimHistory();
     if (retry) retry.hidden = true;
   })();
   const handled = request.catch((error: unknown) => {
@@ -564,6 +744,64 @@ function openCatalog(trigger: HTMLElement) {
   void loadCatalog();
 }
 
+function resetClaimIntent(form: HTMLFormElement) {
+  claimSelection.clear();
+  claimSelectionRevisions.clear();
+  claimSelectionBaseline = '';
+  claimStalePairs.clear();
+  claimNeedsRefresh = false;
+  const urls = field(form, 'knownUrls');
+  const evidence = field(form, 'evidence');
+  if (urls) urls.value = '';
+  if (evidence) evidence.value = '';
+  claimUrlsBaseline = '';
+  claimEvidenceBaseline = '';
+  const check = root?.querySelector<HTMLButtonElement>('[data-claim-check]');
+  if (check) check.hidden = true;
+  clearAnnouncement(statusFor('reclamacion'));
+  setCatalogSelectionLabel();
+  renderCatalogResults();
+  formState?.commit(capture(form));
+}
+
+function openClaimRequest(trigger: HTMLElement) {
+  const form = claimForm();
+  if (!form || !dialog) return;
+  if (!state?.profile) {
+    announce(pageStatus, 'Primero crea el borrador de tu página para solicitar edición.', 'info');
+    return;
+  }
+  if (activeEditor === 'reclamacion' && !form.hidden) {
+    addSharedRowSelection(trigger);
+    return;
+  }
+  claimSelectionBaseline = claimSelectionSignature();
+  claimUrlsBaseline = field(form, 'knownUrls')?.value ?? '';
+  claimEvidenceBaseline = field(form, 'evidence')?.value ?? '';
+  setHidden(catalogPanel(), false);
+  showDialogForm(form, 'reclamacion', 'Solicitar edición', trigger);
+  addSharedRowSelection(trigger);
+  setCatalogSelectionLabel();
+  renderCatalogResults();
+  void loadCatalog();
+}
+
+function addSharedRowSelection(trigger: HTMLElement) {
+  const resourceId = trigger.dataset.resourceId;
+  const url = trigger.dataset.url;
+  if (!resourceId || !url) return;
+  const link = state?.links.find((item) => item.resourceId === resourceId && item.url === url);
+  if (!link || state?.editableResources.some(({ id }) => id === resourceId)) {
+    announce(statusFor('reclamacion'), 'La ficha compartida cambió. Actualiza Enlaces antes de solicitar edición.', 'error');
+    return;
+  }
+  if (!claimSelection.has(resourceId)) {
+    claimSelection.set(resourceId, { resourceId, url, title: link.title });
+    claimSelectionRevisions.set(resourceId, (claimSelectionRevisions.get(resourceId) ?? 0) + 1);
+    setCatalogSelectionLabel();
+  }
+}
+
 function reopenCatalogSelection(resourceId: string, searchQuery: string, pageNumber: number) {
   const trigger = catalogControl<HTMLElement>('[data-catalog-open]');
   const item = catalogEntries?.find((candidate) => candidate.id === resourceId);
@@ -593,6 +831,22 @@ function reopenCatalogSelection(resourceId: string, searchQuery: string, pageNum
 }
 
 function selectCatalogItem(target: HTMLInputElement) {
+  if (activeEditor === 'reclamacion') {
+    const row = target.closest<HTMLElement>('[data-catalog-row]');
+    const resourceId = row?.dataset.catalogRow;
+    const item = resourceId ? catalogEntries?.find(({ id }) => id === resourceId) : undefined;
+    if (!resourceId || !item) return;
+    if (!target.checked) {
+      claimSelection.delete(resourceId);
+      claimStalePairs.delete(resourceId);
+    } else {
+      claimSelection.set(resourceId, { resourceId, url: item.url, title: item.title });
+    }
+    claimSelectionRevisions.set(resourceId, (claimSelectionRevisions.get(resourceId) ?? 0) + 1);
+    setCatalogSelectionLabel();
+    target.setAttribute('aria-label', `${target.checked ? 'Quitar solicitud de edición de' : 'Solicitar edición de'} ${item.title}`);
+    return;
+  }
   const row = target.closest<HTMLElement>('[data-catalog-row]');
   const resourceId = row?.dataset.catalogRow;
   if (!resourceId) return;
@@ -707,7 +961,7 @@ function showDialogForm(form: HTMLFormElement, name: NonNullable<typeof activeEd
     activeSeriesContext = undefined;
   }
   hideDialogForms();
-  setHidden(catalogPanel(), name !== 'referencia');
+  setHidden(catalogPanel(), name !== 'referencia' && name !== 'reclamacion');
   form.hidden = false;
   setHidden(exitPrompt, true);
   const heading = root?.querySelector<HTMLElement>('[data-owner-dialog-title]');
@@ -716,7 +970,7 @@ function showDialogForm(form: HTMLFormElement, name: NonNullable<typeof activeEd
   activeEditor = name;
   returnFocus = trigger ?? returnFocus;
   if (!dialog.open) dialog.showModal();
-  const first = name === 'referencia'
+  const first = name === 'referencia' || name === 'reclamacion'
     ? catalogControl<HTMLElement>('[data-catalog-search]')
     : form.querySelector<HTMLElement>('input:not([type="hidden"]), textarea, button');
   window.requestAnimationFrame(() => first?.focus?.());
@@ -1289,7 +1543,20 @@ function createLinkRow(link: CreatorLinkDTO): HTMLTableRowElement {
   edit.type = 'button';
   edit.dataset.linkEdit = '';
   edit.dataset.placementId = link.placementId;
-  edit.textContent = state?.editableResources.some(({ id }) => id === link.resourceId) ? 'Editar ficha' : 'Editar opciones';
+  const ownsResource = state?.editableResources.some(({ id }) => id === link.resourceId) ?? false;
+  edit.textContent = ownsResource ? 'Editar ficha' : 'Editar opciones';
+  if (!ownsResource) {
+    const request = document.createElement('button');
+    request.className = 'button button--outline';
+    request.type = 'button';
+    request.dataset.claimOpen = '';
+    request.dataset.placementId = link.placementId;
+    request.dataset.resourceId = link.resourceId;
+    request.dataset.url = link.url;
+    request.setAttribute('aria-label', `Solicitar edición de ${link.title}`);
+    request.textContent = 'Solicitar edición';
+    actions.append(request);
+  }
   const move = document.createElement('button');
   move.className = 'button button--outline';
   move.type = 'button';
@@ -1765,6 +2032,13 @@ function closeDialog({ navigate = true }: { navigate?: boolean } = {}) {
 }
 
 function hasPendingChanges(): boolean {
+  if (activeEditor === 'reclamacion' && activeForm === claimForm()) {
+    const form = activeForm;
+    return claimSelectionSignature() !== claimSelectionBaseline
+      || (field(form, 'knownUrls')?.value ?? '') !== claimUrlsBaseline
+      || (field(form, 'evidence')?.value ?? '') !== claimEvidenceBaseline
+      || claimStalePairs.size > 0 || claimNeedsRefresh;
+  }
   if (activeEditor !== 'referencia' || activeForm !== catalogForm()) return formState?.hasPendingChanges() ?? false;
   const directory = field(activeForm, 'selectedForDirectory') as HTMLInputElement | null;
   return catalogConflictKind !== undefined
@@ -1835,6 +2109,8 @@ function resetForm(name: string, form: HTMLFormElement) {
     if (selected) selected.checked = true;
   } else if (name === 'referencia') {
     resetCatalogReference(form);
+  } else if (name === 'reclamacion') {
+    resetClaimIntent(form);
   } else if (name === 'mover-enlace') {
     const target = activeMoveContext && state?.links.find(({ placementId }) => placementId === activeMoveContext?.placementId);
     const group = target ? creatorOwnerLinkGroup(state?.links ?? [], target.featured) : [];
@@ -3398,6 +3674,201 @@ function catalogDuplicateReceiptIsValid(
     && (!placementIdByResource.has(item.id) || placementIdByResource.get(item.id) === payload.link.placementId);
 }
 
+function parseClaimUrls(value: string): string[] | undefined {
+  const urls = value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  return urls.every(isSafeClaimUrl) ? urls : undefined;
+}
+
+function confirmedClaimReceipt(
+  response: Response,
+  payload: Record<string, unknown> | null,
+  changes: Awaited<ReturnType<typeof readCreatorVersionChanges>>,
+  submitted: Array<{ resourceId?: string; url: string }>,
+  evidence: string | undefined,
+): CreatorClaimDTO | undefined {
+  if (response.status !== 202 || !payload || changes === null || changes.length !== 0
+    || Object.keys(payload).sort().join(',') !== 'claim,versionChanges'
+    || !isRecord(payload.claim)) return undefined;
+  const claim = payload.claim;
+  const claimKeys = Object.keys(claim).sort().join(',');
+  if (!['createdAt,id,resourceIds,resources,status', 'createdAt,evidence,id,resourceIds,resources,status'].includes(claimKeys)
+    || typeof claim.id !== 'string' || !claim.id
+    || !Array.isArray(claim.resourceIds) || !claim.resourceIds.every((id) => typeof id === 'string' && id.length > 0)
+    || claim.status !== 'pending'
+    || typeof claim.createdAt !== 'number' || !Number.isFinite(claim.createdAt) || claim.createdAt <= 0
+    || (claim.evidence !== undefined && typeof claim.evidence !== 'string')
+    || (evidence === undefined ? claim.evidence !== undefined : claim.evidence !== evidence)) return undefined;
+
+  const resourceIds = claim.resourceIds;
+  if (!Array.isArray(claim.resources) || claim.resources.length !== resourceIds.length) return undefined;
+  const received: CreatorClaimResourceDTO[] = [];
+  for (const [index, candidate] of claim.resources.entries()) {
+    if (!isRecord(candidate) || Object.keys(candidate).sort().join(',') !== 'resourceId,url'
+      || typeof candidate.resourceId !== 'string' || candidate.resourceId !== resourceIds[index]
+      || typeof candidate.url !== 'string' || !isSafeClaimUrl(candidate.url)) return undefined;
+    received.push({ resourceId: candidate.resourceId, url: candidate.url });
+  }
+  if (new Set(resourceIds).size !== resourceIds.length) return undefined;
+  const selected = submitted.filter((item): item is CreatorClaimResourceDTO => typeof item.resourceId === 'string');
+  const suppliedUrls = new Set(submitted.filter(({ resourceId }) => resourceId === undefined).map(({ url }) => url));
+  for (const pair of selected) {
+    if (!received.some(({ resourceId, url }) => resourceId === pair.resourceId && url === pair.url)) return undefined;
+  }
+  for (const pair of received) {
+    const isSelectedPair = selected.some(({ resourceId, url }) => resourceId === pair.resourceId && url === pair.url);
+    if (!isSelectedPair && !suppliedUrls.has(pair.url)) return undefined;
+  }
+  for (const url of suppliedUrls) {
+    if (selected.some((pair) => pair.url === url)) continue;
+    if (!received.some((pair) => pair.url === url)) return undefined;
+  }
+  if (received.length > submitted.length || received.length < selected.length) return undefined;
+  return {
+    id: claim.id,
+    resourceIds,
+    resources: received,
+    status: 'pending',
+    createdAt: claim.createdAt,
+    ...(typeof claim.evidence === 'string' ? { evidence: claim.evidence } : {}),
+  };
+}
+
+async function submitClaimForm(form: HTMLFormElement) {
+  if (claimSubmitting) return;
+  if (!state?.profile) {
+    announceWrite('reclamacion', 'Primero prepara tu página para solicitar edición.', 'error');
+    return;
+  }
+  if (claimNeedsRefresh || [...claimSelection.keys()].some((resourceId) => claimStalePairs.has(resourceId))) {
+    announceWrite('reclamacion', 'Actualiza el catálogo y vuelve a seleccionar cada ficha cuyo destino pudo cambiar.', 'error');
+    setHidden(catalogControl('[data-catalog-retry]'), false);
+    return;
+  }
+  if (!form.reportValidity()) return;
+  const urlsField = field(form, 'knownUrls');
+  const evidenceField = field(form, 'evidence');
+  const rawUrls = urlsField?.value ?? '';
+  const urls = parseClaimUrls(rawUrls);
+  if (!urls) {
+    announceWrite('reclamacion', 'Revisa las URLs: cada línea debe ser una dirección HTTP o HTTPS completa, sin usuario ni contraseña, de hasta 2048 caracteres.', 'error');
+    return;
+  }
+  const rawEvidence = evidenceField?.value ?? '';
+  if (rawEvidence.length > 2000) {
+    announceWrite('reclamacion', 'El contexto privado puede tener hasta 2000 caracteres.', 'error');
+    return;
+  }
+  const evidence = rawEvidence.trim() ? rawEvidence : undefined;
+  const selectedResources = [...claimSelection.values()].map(({ resourceId, url }) => ({ resourceId, url }));
+  const submitted = [...selectedResources, ...urls.map((url) => ({ url }))];
+  if (submitted.length === 0) {
+    announceWrite('reclamacion', 'Selecciona una ficha o agrega al menos una URL conocida.', 'error');
+    return;
+  }
+
+  const selectionRevisions = new Map([...claimSelection.keys()].map((resourceId) => [resourceId, claimSelectionRevisions.get(resourceId) ?? 0]));
+  const requestBody = { resources: submitted, ...(evidence === undefined ? {} : { evidence }) };
+  const check = root?.querySelector<HTMLButtonElement>('[data-claim-check]');
+  claimSubmitting = true;
+  form.setAttribute('aria-busy', 'true');
+  if (check) check.hidden = true;
+  try {
+    const response = await jsonRequest('/api/creador/reclamaciones', 'POST', requestBody);
+    const payload = await responsePayload(response);
+    if (response.status === 409 && ['RESOURCE_CONFLICT', 'RESOURCE_URL_CONFLICT', 'STALE_RESOURCE_REFERENCE'].includes(String(payload?.error))) {
+      claimStalePairs = new Set(selectedResources.map(({ resourceId }) => resourceId));
+      claimNeedsRefresh = claimStalePairs.size > 0;
+      const retry = catalogControl<HTMLButtonElement>('[data-catalog-retry]');
+      if (retry) retry.hidden = !claimNeedsRefresh;
+      announceWrite('reclamacion', claimNeedsRefresh
+        ? 'El destino de una ficha seleccionada pudo cambiar. Actualiza el catálogo, quita la selección anterior y vuelve a elegir la ficha vigente.'
+        : 'La URL necesita revisión. Corrígela manualmente antes de volver a enviar.', 'error');
+      return;
+    }
+    if (!response.ok) {
+      if (response.status >= 500) {
+        if (check) check.hidden = false;
+        announceWrite('reclamacion', 'No pudimos confirmar si la solicitud llegó al servicio. Conservamos el formulario; comprueba Solicitudes antes de volver a intentar.', 'error');
+        return;
+      }
+      const message = response.status === 404
+        ? 'No encontramos una URL o ficha seleccionada. Conservamos la solicitud para que corrijas las URLs conocidas.'
+        : response.status === 409
+          ? 'La solicitud necesita revisión. Conservamos tus selecciones y URLs para que las compruebes antes de continuar.'
+          : response.status === 403
+            ? 'Esta cuenta no puede enviar la solicitud. Conservamos el contexto para que revises el acceso.'
+            : statusMessage(response.status);
+      announceWrite('reclamacion', message, 'error');
+      return;
+    }
+    const changes = await readCreatorVersionChanges(response);
+    const confirmed = confirmedClaimReceipt(response, payload, changes, submitted, evidence);
+    if (!confirmed) {
+      if (check) check.hidden = false;
+      announceWrite('reclamacion', 'No pudimos confirmar esta respuesta. Conservamos el formulario; comprueba Solicitudes antes de volver a intentar.', 'error');
+      return;
+    }
+
+    state.claims = [...state.claims, confirmed];
+    renderClaimHistory();
+    selectionRevisions.forEach((revision, resourceId) => {
+      const current = claimSelection.get(resourceId);
+      if (current && claimSelectionRevisions.get(resourceId) === revision
+        && selectedResources.some((item) => item.resourceId === resourceId && item.url === current.url)) {
+        claimSelection.delete(resourceId);
+        claimStalePairs.delete(resourceId);
+      }
+    });
+    if ((urlsField?.value ?? '') === rawUrls && urlsField) urlsField.value = '';
+    if ((evidenceField?.value ?? '') === rawEvidence && evidenceField) evidenceField.value = '';
+    claimSelectionBaseline = '';
+    claimUrlsBaseline = '';
+    claimEvidenceBaseline = '';
+    setCatalogSelectionLabel();
+    renderCatalogResults();
+    announceWrite('reclamacion', 'Solicitud enviada. La revisión no agrega contenido ni concede permiso de edición.', 'success');
+    maybeExitAfterSave(!hasPendingChanges());
+  } catch {
+    if (check) check.hidden = false;
+    announceWrite('reclamacion', 'No pudimos confirmar si la solicitud llegó al servicio. Conservamos el formulario; comprueba Solicitudes antes de volver a intentar.', 'error');
+  } finally {
+    claimSubmitting = false;
+    form.removeAttribute('aria-busy');
+  }
+}
+
+async function checkClaimHistory() {
+  if (claimChecking) return;
+  const check = root?.querySelector<HTMLButtonElement>('[data-claim-check]');
+  const claimIdsAtReadStart = new Set(state?.claims.map(({ id }) => id) ?? []);
+  claimChecking = true;
+  if (check) check.disabled = true;
+  try {
+    const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
+    if (!response.ok) {
+      announceWrite('reclamacion', `No pudimos comprobar Solicitudes (${response.status}). Conservamos el formulario.`, 'error');
+      return;
+    }
+    let payload: unknown;
+    try { payload = await response.json(); } catch { payload = undefined; }
+    if (!isOwnerData(payload) || !state?.profile || payload.profile?.id !== state.profile.id) {
+      announceWrite('reclamacion', 'La respuesta de Solicitudes no coincide con esta página. Conservamos el formulario para que revises la cuenta activa.', 'error');
+      return;
+    }
+    const readClaimIds = new Set(payload.claims.map(({ id }) => id));
+    const confirmedDuringRead = state.claims.filter(({ id }) =>
+      !claimIdsAtReadStart.has(id) && !readClaimIds.has(id));
+    state.claims = [...payload.claims, ...confirmedDuringRead];
+    renderClaimHistory();
+    announceWrite('reclamacion', 'Solicitudes comprobadas. El formulario que estabas preparando sigue disponible.', 'success');
+  } catch {
+    announceWrite('reclamacion', 'No pudimos comprobar Solicitudes. Conservamos el formulario para intentarlo más tarde.', 'error');
+  } finally {
+    claimChecking = false;
+    if (check) check.disabled = false;
+  }
+}
+
 async function saveCatalogReference(form: HTMLFormElement) {
   if (!state?.profile) {
     announceWrite('referencia', 'Primero crea el borrador de tu página para agregar contenido.', 'error');
@@ -4096,6 +4567,14 @@ if (root && state && csrfToken && dialog) {
       await saveCatalogReference(reference);
     });
   }
+  const requestClaim = claimForm();
+  if (requestClaim) {
+    onWrite(requestClaim, async (event) => {
+      event.preventDefault();
+      activeForm = requestClaim;
+      await submitClaimForm(requestClaim);
+    });
+  }
   const movementForm = moveForm();
   if (movementForm) {
     onWrite(movementForm, async (event) => {
@@ -4123,6 +4602,8 @@ if (root && state && csrfToken && dialog) {
   }
 
   restoreLinksFromLocation();
+  renderClaimHistory();
+  if (root.querySelector('[data-owner-claims]')) void loadCatalog();
 
   root.addEventListener('input', (event) => {
     const target = event.target;
@@ -4226,9 +4707,33 @@ if (root && state && csrfToken && dialog) {
     }
   });
 
-  root.addEventListener('click', (event) => {
+  root.addEventListener('click', async (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
+    const claimOpenButton = target.closest<HTMLElement>('[data-claim-open]');
+    if (claimOpenButton) {
+      event.preventDefault();
+      if (hasPendingChanges()) showExitPrompt(() => openClaimRequest(claimOpenButton), claimOpenButton);
+      else openClaimRequest(claimOpenButton);
+      return;
+    }
+    const claimDeselectButton = target.closest<HTMLButtonElement>('[data-claim-deselect]');
+    if (claimDeselectButton) {
+      event.preventDefault();
+      const resourceId = claimDeselectButton.dataset.claimDeselect;
+      if (!resourceId || !claimSelection.delete(resourceId)) return;
+      claimSelectionRevisions.set(resourceId, (claimSelectionRevisions.get(resourceId) ?? 0) + 1);
+      claimStalePairs.delete(resourceId);
+      setCatalogSelectionLabel();
+      renderCatalogResults();
+      return;
+    }
+    const claimCheckButton = target.closest<HTMLButtonElement>('[data-claim-check]');
+    if (claimCheckButton) {
+      event.preventDefault();
+      void checkClaimHistory();
+      return;
+    }
     const catalogOpenButton = target.closest<HTMLElement>('[data-catalog-open]');
     if (catalogOpenButton) {
       event.preventDefault();
@@ -4236,10 +4741,10 @@ if (root && state && csrfToken && dialog) {
       else openCatalog(catalogOpenButton);
       return;
     }
-    const catalogRetryButton = target.closest<HTMLButtonElement>('[data-catalog-retry]');
+    const catalogRetryButton = target.closest<HTMLButtonElement>('[data-catalog-retry], [data-claim-index-retry]');
     if (catalogRetryButton) {
       event.preventDefault();
-      void loadCatalog({ refresh: true });
+      await loadCatalog({ refresh: true });
       return;
     }
     const catalogPageButton = target.closest<HTMLButtonElement>('[data-catalog-page]');

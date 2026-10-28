@@ -101,7 +101,7 @@ const pages = fixedPages.map((item) => ({ ...item, ...pageAt(item.route, item.fi
 const cardsOn = (page) => {
   const lists = byAttribute(page.main, 'data-resource-list', '').filter((node) => node.tag === 'ul');
   if (!lists.length) return [];
-  return find(lists[0], (node) => node.tag === 'li' && /^resource-[\w-]+$/u.test(node.attrs?.get('id') ?? ''));
+  return find(lists[0], (node) => node.tag === 'li' && has(node, 'data-resource-index') && (node.attrs?.get('id') ?? '').startsWith('resource-'));
 };
 const listOn = (page) => byAttribute(page.main, 'data-resource-list', '').find((node) => node.tag === 'ul');
 const staticEmptyMessage = (page) => find(page.main, (node) => node.tag === 'p' && node.attrs?.get('role') === 'status'
