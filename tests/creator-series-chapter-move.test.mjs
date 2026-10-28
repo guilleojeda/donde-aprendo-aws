@@ -278,6 +278,15 @@ test('58 capítulos usan todo el orden de la serie, cuentan ocultos y destacados
       { id: OTHER_SERIES, profileId: OWNER, version: 8 },
     ],
   });
+  harness.mock.seed('profiles-test', {
+    pk: `PROFILE#${OWNER}`,
+    sk: 'SERIES_SLUG#serie-prueba',
+    recordType: 'seriesAlias',
+    seriesId: SERIES,
+    profileId: OWNER,
+    slug: 'serie-prueba',
+    version: 1,
+  });
   const before = rawSnapshot(harness, {
     seriesIds: [SERIES, OTHER_SERIES], placementIds: ids, resourceIds: ids.map((id) => `resource-${id}`),
   });

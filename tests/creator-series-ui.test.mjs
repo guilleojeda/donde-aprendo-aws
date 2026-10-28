@@ -272,7 +272,10 @@ test('los slugs del perfil owner usan un patrón nativo válido y coherente con 
     isAdmin: false,
     publicOrigin: 'https://dondeaprendoaws.com',
   });
-  const ownerSlugs = [...ownerHtml.matchAll(/<input\b(?=[^>]*\bname="slug")[^>]*>/gi)].map(([tag]) => tag);
+  const profileForms = [...ownerHtml.matchAll(/<form\b([^>]*)>([\s\S]*?)<\/form>/gi)]
+    .filter(([, attrs]) => /\bdata-owner-form="(?:crear|datos)"/i.test(attrs));
+  const ownerSlugs = profileForms.flatMap(([, , body]) =>
+    [...body.matchAll(/<input\b(?=[^>]*\bname="slug")[^>]*>/gi)].map(([tag]) => tag));
   assert.equal(ownerSlugs.length, 2, 'the owner page has create and contextual profile slug inputs');
   assert.match(ownerHtml, /3–40 caracteres/);
   for (const tag of ownerSlugs) {
