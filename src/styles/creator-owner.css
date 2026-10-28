@@ -229,9 +229,13 @@
 
 .creator-owner__series-filters {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(140px, 0.45fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
   gap: 10px 14px;
+}
+
+.creator-owner__series-filters--chapters {
+  grid-template-columns: minmax(0, 1fr) minmax(140px, 0.45fr) auto;
 }
 
 .creator-owner__series-filters label {
