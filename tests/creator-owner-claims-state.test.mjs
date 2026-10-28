@@ -1,5 +1,12 @@
 import assert from 'node:assert/strict';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { test } from 'node:test';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { build } from 'esbuild';
+import { transform } from '@astrojs/compiler-rs';
+import { experimental_AstroContainer } from 'astro/container';
 import {
   createCreatorOwnerClaimsSurface,
   mountCreatorOwnerClaims,
@@ -199,4 +206,79 @@ test('Guardar y salir cierra la solicitud después de quitar una ficha compartid
   assert.match(surface.claimStatus.textContent, /Solicitud enviada/i);
   assert.equal(requests.filter(({ path, method }) => path === CLAIM_PATH && method === 'POST').length, 1,
     'closing after success does not replay the request');
+});
+
+test('la etiqueta parcial se muestra en el componente SSR real y en el historial hidratado', async () => {
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+  const componentPath = path.join(repoRoot, 'src/components/CreatorOwnerClaims.astro');
+  const testsDir = path.dirname(fileURLToPath(import.meta.url));
+  const tempDir = await mkdtemp(path.join(testsDir, '.creator-owner-claims-status-ssr-'));
+  let html;
+  try {
+    await build({
+      entryPoints: { claims: componentPath },
+      outdir: tempDir,
+      bundle: true,
+      platform: 'node',
+      format: 'esm',
+      packages: 'external',
+      outExtension: { '.js': '.mjs' },
+      plugins: [{
+        name: 'creator-owner-claims-status-ssr',
+        setup(api) {
+          api.onLoad({ filter: /\.astro$/ }, async ({ path: filename }) => ({
+            contents: (await transform(await readFile(filename, 'utf8'), {
+              filename,
+              internalURL: 'astro/compiler-runtime',
+              resultScopedSlot: true,
+              resolvePath: (specifier) => specifier,
+            })).code,
+            loader: 'js',
+          }));
+        },
+      }],
+    });
+    const component = (await import(pathToFileURL(path.join(tempDir, 'claims.mjs')).href)).default;
+    const container = await experimental_AstroContainer.create({ astroConfig: { site: 'https://dondeaprendo.example.invalid' } });
+    html = await container.renderToString(component, { props: { data: {
+      profile: null,
+      links: [{ resourceId: 'resource-own', title: 'Ficha propia', url: 'https://owner.example.invalid/own' }],
+      editableResources: [{ id: 'resource-own', title: 'Ficha propia', url: 'https://owner.example.invalid/own', description: '', version: 1 }],
+      claims: [{
+        id: 'claim-partial-ssr',
+        resourceIds: ['resource-own', 'resource-private'],
+        resources: [
+          { resourceId: 'resource-own', url: 'https://owner.example.invalid/own' },
+          { resourceId: 'resource-private', url: 'https://submitted.example.invalid/private' },
+        ],
+        status: 'partial',
+        createdAt: Date.UTC(2026, 9, 28, 12),
+      }],
+      series: [],
+    } } });
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+  assert.match(html, /<strong\b[^>]*data-claim-status[^>]*>Parcialmente resuelta<\/strong>/,
+    'the actual SSR component translates the partial status');
+  assert.match(html, /Ficha propia/);
+  assert.match(html, /https:\/\/submitted\.example\.invalid\/private/);
+  assert.doesNotMatch(html, />\s*partial\s*</i);
+
+  const surface = createCreatorOwnerClaimsSurface({
+    query: { vista: 'solicitudes' },
+    claims: [{
+      id: 'claim-partial-client',
+      resourceIds: ['resource-private'],
+      resources: [{ resourceId: 'resource-private', url: 'https://submitted.example.invalid/private' }],
+      status: 'partial',
+      createdAt: Date.UTC(2026, 9, 28, 12),
+    }],
+    index: [],
+  });
+  await mountCreatorOwnerClaims({ surface });
+  const record = surface.claimHistory.querySelector('[data-claim-record="claim-partial-client"]');
+  assert.equal(record.querySelector('[data-claim-status]').textContent, 'Parcialmente resuelta',
+    'the bundled owner controller keeps the translated status when it renders history');
+  assert.doesNotMatch(visibleText(surface), /\bpartial\b/i);
 });

@@ -415,6 +415,7 @@ function claimStatusLabel(status: string | undefined): string {
     rejected: 'Rechazada',
     revoked: 'Revocada',
     resolved: 'Resuelta',
+    partial: 'Parcialmente resuelta',
   };
   return labels[status] ?? status;
 }
