@@ -36,33 +36,100 @@ function ownerDto(state) {
   };
 }
 
-function makeSeriesRow(series) {
+function normalizeSearch(value) {
+  return String(value).trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es');
+}
+
+function ownerSeriesHref(query) {
+  const params = new URLSearchParams();
+  params.set('vista', 'series');
+  if (query.buscarSeries) params.set('buscarSeries', query.buscarSeries);
+  params.set('paginaSeries', String(query.paginaSeries));
+  if (query.serie) params.set('serie', query.serie);
+  if (query.buscarCapitulos) params.set('buscarCapitulos', query.buscarCapitulos);
+  if (query.pertenencia !== 'todos') params.set('pertenencia', query.pertenencia);
+  if (query.serie) params.set('paginaCapitulos', String(query.paginaCapitulos));
+  return `/cuenta/?${params.toString()}`;
+}
+
+function makeSeriesRow(series, profile, visibleCount, query) {
   const row = new SurfaceElement({ tagName: 'LI', dataset: { ownerSeriesRow: series.id, seriesId: series.id } });
-  const edit = new SurfaceElement({ tagName: 'BUTTON', dataset: { seriesEdit: '', seriesId: series.id }, textContent: `Editar ${series.name}` });
-  const chapters = new SurfaceElement({ tagName: 'A', dataset: { seriesChapters: '', seriesId: series.id }, textContent: `Gestionar capítulos de ${series.name}` });
-  const remove = new SurfaceElement({ tagName: 'BUTTON', dataset: { seriesDelete: '', seriesId: series.id }, textContent: `Eliminar ${series.name}` });
-  row.append(edit, chapters, remove);
+  row.className = 'creator-owner__series-row';
+  row.setAttribute('id', series.id);
+  const copy = new SurfaceElement({ tagName: 'DIV', textContent: '' });
+  copy.className = 'creator-owner__series-copy';
+  copy.append(
+    new SurfaceElement({ tagName: 'H3', textContent: series.name }),
+    new SurfaceElement({ tagName: 'P', textContent: series.slug }),
+    new SurfaceElement({ tagName: 'P', textContent: `${visibleCount} ${visibleCount === 1 ? 'capítulo visible' : 'capítulos visibles'}` }),
+  );
+  const actions = new SurfaceElement({ tagName: 'DIV' });
+  actions.className = 'creator-owner__series-actions';
+  const edit = new SurfaceElement({ tagName: 'BUTTON', type: 'button', dataset: { seriesEdit: '', seriesId: series.id }, textContent: 'Editar' });
+  const chapters = new SurfaceElement({ tagName: 'A', dataset: { seriesChapters: '', seriesId: series.id }, textContent: 'Gestionar capítulos' });
+  chapters.href = ownerSeriesHref({ ...query, serie: series.id, buscarCapitulos: '', pertenencia: 'todos', paginaCapitulos: 1 });
+  const remove = new SurfaceElement({ tagName: 'BUTTON', type: 'button', dataset: { seriesDelete: '', seriesId: series.id }, textContent: 'Eliminar' });
+  actions.append(edit, chapters, remove);
+  if (profile?.published && !profile.hidden && visibleCount > 0) {
+    const publicLink = new SurfaceElement({ tagName: 'A', textContent: 'Abrir serie pública' });
+    publicLink.href = `/c/${encodeURIComponent(profile.slug)}/series/${encodeURIComponent(series.slug)}/`;
+    actions.append(publicLink);
+  }
+  row.append(copy, actions);
   return row;
 }
 
-function makeChapterRow(link, seriesId) {
+function makeChapterRow(link, seriesId, completeOrder) {
   const membership = link.series.find((item) => item.seriesId === seriesId);
-  const row = new SurfaceElement({ tagName: 'LI', dataset: { chapterRow: link.placementId, placementId: link.placementId }, textContent: `${link.title} ${link.url}` });
-  row.link = link;
-  row.membership = membership;
+  const row = new SurfaceElement({ tagName: 'LI', dataset: { chapterRow: link.placementId, placementId: link.placementId } });
+  row.className = 'creator-owner__chapter';
+  const copy = new SurfaceElement({ tagName: 'DIV' });
+  copy.className = 'creator-owner__chapter-copy';
+  copy.append(new SurfaceElement({ tagName: 'H4', textContent: link.title }));
+  const url = new SurfaceElement({ tagName: 'A', textContent: link.url });
+  url.href = link.url;
+  url.target = '_blank';
+  url.rel = 'noopener noreferrer';
+  copy.append(url);
   if (membership) {
-    const move = new SurfaceElement({ tagName: 'BUTTON', dataset: { chapterMove: '', placementId: link.placementId }, textContent: `Mover ${link.title}` });
-    const remove = new SurfaceElement({ tagName: 'BUTTON', dataset: { chapterRemove: '', placementId: link.placementId }, textContent: `Quitar ${link.title}` });
-    row.append(move, remove);
-  } else {
-    const add = new SurfaceElement({ tagName: 'BUTTON', dataset: { chapterAdd: '', placementId: link.placementId }, textContent: `Agregar ${link.title}` });
-    row.append(add);
-  }
+    const ordinal = completeOrder.findIndex(({ placementId }) => placementId === link.placementId) + 1;
+    copy.append(new SurfaceElement({ tagName: 'P', textContent: `Incluido en la posición ${ordinal} de ${completeOrder.length}` }));
+  } else copy.append(new SurfaceElement({ tagName: 'P', textContent: 'Disponible para agregar' }));
+  if (link.hidden) copy.append(new SurfaceElement({ tagName: 'SPAN', textContent: 'Oculto en catálogo' }));
+  const actions = new SurfaceElement({ tagName: 'DIV' });
+  actions.className = 'creator-owner__chapter-actions';
+  if (membership) {
+    actions.append(
+      new SurfaceElement({ tagName: 'BUTTON', type: 'button', dataset: { chapterMove: '', placementId: link.placementId }, textContent: 'Mover capítulo' }),
+      new SurfaceElement({ tagName: 'BUTTON', type: 'button', dataset: { chapterRemove: '', placementId: link.placementId }, textContent: 'Quitar capítulo' }),
+    );
+  } else actions.append(new SurfaceElement({ tagName: 'BUTTON', type: 'button', dataset: { chapterAdd: '', placementId: link.placementId }, textContent: 'Agregar capítulo' }));
+  row.append(copy, actions);
   return row;
+}
+
+function pagination(query, page, pageCount, attribute) {
+  const nav = new SurfaceElement({ tagName: 'NAV', dataset: { [attribute]: '' } });
+  const label = new SurfaceElement({ tagName: 'SPAN', textContent: `Página ${page} de ${pageCount}` });
+  nav.append(label);
+  const pageQueryKey = attribute === 'seriesPagination' ? 'paginaSeries' : 'paginaCapitulos';
+  const pageDataKey = attribute === 'seriesPagination' ? 'seriesPage' : 'seriesChapterPage';
+  const add = (text, nextPage) => {
+    const link = new SurfaceElement({ tagName: 'A', dataset: { [pageDataKey]: '' }, textContent: text });
+    link.href = ownerSeriesHref({ ...query, [pageQueryKey]: nextPage });
+    nav.append(link);
+  };
+  if (page > 1) add('Anterior', page - 1);
+  if (page < pageCount) add('Siguiente', page + 1);
+  return nav;
 }
 
 function createOwnerSeriesSurface({ profile, links = [], editableResources = [], claims = [], series = [], query = {} } = {}) {
-  const selectedSeriesId = query.serie ?? '';
+  const initialQuery = {
+    buscarSeries: query.buscarSeries ?? '', paginaSeries: Number(query.paginaSeries ?? 1),
+    serie: query.serie ?? '', buscarCapitulos: query.buscarCapitulos ?? '',
+    pertenencia: query.pertenencia ?? 'todos', paginaCapitulos: Number(query.paginaCapitulos ?? 1),
+  };
   const surface = createOwnerLinksSurface({ profile, links, editableResources, series, query: { vista: 'series', ...query } });
   wireHistory(surface);
   const initial = surface.document.getElementById('creator-owner-data');
@@ -71,64 +138,154 @@ function createOwnerSeriesSurface({ profile, links = [], editableResources = [],
     csrfToken: 'csrf-a', sessionBinding: 'a'.repeat(64),
   });
 
-  const navigation = new SurfaceElement({ dataset: { ownerSeriesNavigation: '' } });
   const seriesRegion = new SurfaceElement({ dataset: { ownerSeries: '' } });
+  seriesRegion.className = 'creator-owner__series';
+  seriesRegion.setAttribute('aria-labelledby', 'owner-series-title');
+  const seriesHeader = new SurfaceElement({ tagName: 'HEADER' });
+  const seriesTitle = new SurfaceElement({ tagName: 'H2', textContent: 'Series' });
+  seriesTitle.setAttribute('id', 'owner-series-title');
+  const seriesCreate = new SurfaceElement({ tagName: 'BUTTON', type: 'button', dataset: { seriesCreateOpen: '' }, textContent: 'Crear serie' });
+  seriesHeader.append(seriesTitle, seriesCreate);
+  const listView = new SurfaceElement({ tagName: 'SECTION', dataset: { ownerSeriesListView: '' } });
+  listView.className = 'creator-owner__series-list-view';
+  listView.hidden = Boolean(initialQuery.serie);
   const seriesFilter = new SurfaceElement({ tagName: 'FORM', dataset: { seriesFilters: '' } });
-  const seriesSearch = input('buscarSeries', String(query.buscarSeries ?? ''), 'search', { seriesSearch: '' });
-  const seriesPage = input('paginaSeries', String(query.paginaSeries ?? '1'), 'hidden');
+  seriesFilter.setAttribute('method', 'get');
+  seriesFilter.setAttribute('action', '/cuenta/');
+  const seriesView = input('vista', 'series', 'hidden');
+  const seriesSearch = input('buscarSeries', String(initialQuery.buscarSeries), 'search', { seriesSearch: '' });
+  seriesSearch.setAttribute('id', 'owner-series-search');
+  seriesSearch.setAttribute('autocomplete', 'off');
+  const seriesSearchLabel = new SurfaceElement({ tagName: 'LABEL', textContent: 'Buscar series' });
+  seriesSearchLabel.setAttribute('for', 'owner-series-search');
+  const seriesPage = input('paginaSeries', String(initialQuery.paginaSeries), 'hidden');
   const seriesApply = new SurfaceElement({ tagName: 'BUTTON', type: 'submit', textContent: 'Aplicar búsqueda' });
-  seriesSearch.form = seriesFilter;
-  seriesPage.form = seriesFilter;
-  seriesFilter.elements = [seriesSearch, seriesPage];
-  seriesFilter.append(seriesSearch, seriesPage, seriesApply);
-  const normalizedSeriesSearch = String(query.buscarSeries ?? '').trim().toLocaleLowerCase();
-  const matchingSeries = series.filter((item) => `${item.name} ${item.slug}`.toLocaleLowerCase().includes(normalizedSeriesSearch))
-    .sort((left, right) => left.name.localeCompare(right.name) || left.id.localeCompare(right.id));
-  const seriesPageNumber = Math.max(1, Number.parseInt(String(query.paginaSeries ?? '1'), 10) || 1);
+  for (const control of [seriesView, seriesSearch, seriesPage]) control.form = seriesFilter;
+  seriesFilter.elements = [seriesView, seriesSearch, seriesPage];
+  seriesFilter.append(seriesView, seriesSearchLabel, seriesSearch, seriesPage, seriesApply);
+  const normalizedSeriesSearch = normalizeSearch(initialQuery.buscarSeries);
+  const matchingSeries = series.filter((item) => normalizeSearch(`${item.name} ${item.slug}`).includes(normalizedSeriesSearch))
+    .sort((left, right) => left.name.localeCompare(right.name, 'es', { sensitivity: 'base' }) || left.id.localeCompare(right.id));
+  const seriesPageCount = Math.max(1, Math.ceil(matchingSeries.length / 25));
+  const seriesPageNumber = Math.min(seriesPageCount, Math.max(1, initialQuery.paginaSeries));
   const seriesPageRows = matchingSeries.slice((seriesPageNumber - 1) * 25, seriesPageNumber * 25);
-  const seriesList = new SurfaceElement({ tagName: 'UL', dataset: { ownerSeriesList: '' }, lists: seriesPageRows.map(makeSeriesRow) });
-  const seriesCount = new SurfaceElement({ dataset: { seriesCount: '' }, textContent: `${matchingSeries.length} series` });
-  const createSeries = new SurfaceElement({ tagName: 'BUTTON', dataset: { seriesCreateOpen: '' }, textContent: 'Crear serie' });
-  seriesRegion.append(seriesFilter, seriesCount, createSeries, seriesList);
-
-  const chapterRegion = new SurfaceElement({ dataset: { ownerSeriesChapters: '' } });
-  chapterRegion.hidden = !selectedSeriesId;
-  const chapterFilter = new SurfaceElement({ tagName: 'FORM', dataset: { chapterFilters: '' } });
-  const chapterSearch = input('buscarCapitulos', String(query.buscarCapitulos ?? ''), 'search', { chapterSearch: '' });
-  const membershipFilter = new SurfaceElement({ tagName: 'SELECT', name: 'pertenencia', value: String(query.pertenencia ?? 'todos') });
-  const chapterPage = input('paginaCapitulos', String(query.paginaCapitulos ?? '1'), 'hidden');
-  for (const control of [chapterSearch, membershipFilter, chapterPage]) control.form = chapterFilter;
-  chapterFilter.elements = [chapterSearch, membershipFilter, chapterPage];
-  chapterFilter.append(chapterSearch, membershipFilter, chapterPage);
-  const back = new SurfaceElement({ tagName: 'A', dataset: { seriesBack: '' }, textContent: 'Volver a series' });
-  const chapterList = new SurfaceElement({ tagName: 'OL', dataset: { chapterRows: '' } });
-  const selected = series.find(({ id }) => id === selectedSeriesId);
-  if (selected) {
-    const normalizedChapterSearch = String(query.buscarCapitulos ?? '').trim().toLocaleLowerCase();
-    const membershipFilter = String(query.pertenencia ?? 'todos');
-    const chapterMatches = links.filter((link) => {
-      const belongs = link.series.some((item) => item.seriesId === selectedSeriesId);
-      if (membershipFilter === 'incluidos' && !belongs) return false;
-      if (membershipFilter === 'disponibles' && belongs) return false;
-      return `${link.title} ${link.url}`.toLocaleLowerCase().includes(normalizedChapterSearch);
-    }).sort((left, right) => left.title.localeCompare(right.title) || left.placementId.localeCompare(right.placementId));
-    const chapterPageNumber = Math.max(1, Number.parseInt(String(query.paginaCapitulos ?? '1'), 10) || 1);
-    const pageRows = chapterMatches.slice((chapterPageNumber - 1) * 25, chapterPageNumber * 25);
-    for (const link of pageRows) chapterList.append(makeChapterRow(link, selectedSeriesId));
+  const seriesList = new SurfaceElement({ tagName: 'UL', dataset: { ownerSeriesList: '' } });
+  for (const item of seriesPageRows) {
+    const visibleCount = links.filter((link) => !link.hidden && link.series.some(({ seriesId }) => seriesId === item.id)).length;
+    seriesList.append(makeSeriesRow(item, profile, visibleCount, initialQuery));
   }
-  chapterRegion.append(back, chapterFilter, chapterList);
-  surface.root.append(navigation, seriesRegion, chapterRegion);
+  const seriesCount = new SurfaceElement({ dataset: { seriesCount: '' }, textContent: `${matchingSeries.length} series` });
+  const seriesEmpty = new SurfaceElement({ tagName: 'P', dataset: { seriesEmpty: '' }, textContent: matchingSeries.length ? 'No hay series en esta página.' : 'No hay series que coincidan con la búsqueda.' });
+  seriesEmpty.hidden = seriesPageRows.length > 0;
+  const seriesPagination = pagination(initialQuery, seriesPageNumber, seriesPageCount, 'seriesPagination');
+  const seriesStatus = new SurfaceElement({ tagName: 'P', dataset: { seriesWriteStatus: '' } });
+  listView.append(seriesFilter, seriesCount, seriesList, seriesEmpty, seriesPagination, seriesStatus);
+  seriesRegion.append(seriesHeader);
 
-  const seriesFormName = input('name');
-  const seriesFormSlug = input('slug');
+  const chapterRegion = new SurfaceElement({ tagName: 'SECTION', dataset: { ownerSeriesChapters: '' } });
+  chapterRegion.className = 'creator-owner__chapter-view';
+  chapterRegion.hidden = !initialQuery.serie;
+  const selected = series.find(({ id }) => id === initialQuery.serie);
+  const chapterHeader = new SurfaceElement({ tagName: 'HEADER' });
+  const back = new SurfaceElement({ tagName: 'A', dataset: { seriesBack: '' }, textContent: 'Volver a series' });
+  back.href = ownerSeriesHref({ ...initialQuery, serie: '', buscarCapitulos: '', pertenencia: 'todos', paginaCapitulos: 1 });
+  const context = new SurfaceElement({ tagName: 'DIV' });
+  const contextName = new SurfaceElement({ tagName: 'H3', dataset: { seriesContextName: '' }, textContent: selected?.name ?? '' });
+  contextName.setAttribute('id', 'owner-series-chapters-title');
+  const contextCopy = new SurfaceElement({ tagName: 'P', dataset: { seriesChapterSummary: '' }, textContent: '' });
+  context.append(contextName, contextCopy);
+  const contextEdit = new SurfaceElement({ tagName: 'BUTTON', type: 'button', dataset: { seriesEdit: '', seriesId: selected?.id ?? '' }, textContent: selected ? `Editar ${selected.name}` : 'Editar serie' });
+  chapterHeader.append(back, context, contextEdit);
+  const publicLink = new SurfaceElement({ tagName: 'A', dataset: { seriesPublic: '' }, textContent: 'Abrir serie pública' });
+  const hasVisibleChapter = Boolean(selected && links.some((link) => !link.hidden
+    && link.series.some(({ seriesId }) => seriesId === selected.id)));
+  const publicPath = selected && profile?.published && !profile.hidden && hasVisibleChapter
+    ? `/c/${encodeURIComponent(profile.slug)}/series/${encodeURIComponent(selected.slug)}/` : undefined;
+  publicLink.hidden = !publicPath;
+  if (publicPath) publicLink.href = publicPath;
+  else publicLink.removeAttribute('href');
+  chapterHeader.append(publicLink);
+  const chapterFilter = new SurfaceElement({ tagName: 'FORM', dataset: { seriesChapterFilters: '' } });
+  chapterFilter.setAttribute('method', 'get');
+  chapterFilter.setAttribute('action', '/cuenta/');
+  const chapterView = input('vista', 'series', 'hidden');
+  const chapterSeries = input('serie', initialQuery.serie, 'hidden');
+  const chapterSeriesSearch = input('buscarSeries', initialQuery.buscarSeries, 'hidden');
+  const chapterSeriesPage = input('paginaSeries', String(initialQuery.paginaSeries), 'hidden');
+  const chapterSearch = input('buscarCapitulos', String(initialQuery.buscarCapitulos), 'search', { chapterSearch: '' });
+  chapterSearch.setAttribute('id', 'owner-chapter-search');
+  chapterSearch.setAttribute('autocomplete', 'off');
+  const chapterSearchLabel = new SurfaceElement({ tagName: 'LABEL', textContent: 'Buscar en tus enlaces' });
+  chapterSearchLabel.setAttribute('for', 'owner-chapter-search');
+  const membershipFilter = new SurfaceElement({ tagName: 'SELECT', name: 'pertenencia', value: String(initialQuery.pertenencia), dataset: { chapterMembership: '' } });
+  membershipFilter.setAttribute('id', 'owner-chapter-membership');
+  const membershipLabel = new SurfaceElement({ tagName: 'LABEL', textContent: 'Pertenencia' });
+  membershipLabel.setAttribute('for', 'owner-chapter-membership');
+  for (const [value, text] of [['todos', 'Todos los enlaces'], ['incluidos', 'Incluidos'], ['disponibles', 'Disponibles']]) {
+    const option = new SurfaceElement({ tagName: 'OPTION', value, textContent: text });
+    option.selected = value === initialQuery.pertenencia;
+    membershipFilter.append(option);
+  }
+  const chapterPage = input('paginaCapitulos', String(initialQuery.paginaCapitulos), 'hidden');
+  for (const control of [chapterView, chapterSeries, chapterSeriesSearch, chapterSeriesPage, chapterSearch, membershipFilter, chapterPage]) control.form = chapterFilter;
+  chapterFilter.elements = [chapterView, chapterSeries, chapterSeriesSearch, chapterSeriesPage, chapterSearch, membershipFilter, chapterPage];
+  chapterFilter.append(chapterView, chapterSeries, chapterSeriesSearch, chapterSeriesPage, chapterSearchLabel, chapterSearch, membershipLabel, membershipFilter, chapterPage);
+  const chapterCount = new SurfaceElement({ tagName: 'P', dataset: { chapterCount: '' } });
+  const chapterList = new SurfaceElement({ tagName: 'OL', dataset: { chapterRows: '' } });
+  const chapterEmpty = new SurfaceElement({ tagName: 'P', dataset: { chapterEmpty: '' } });
+  const chapterStatus = new SurfaceElement({ tagName: 'P', dataset: { seriesWriteStatus: '' } });
+  chapterStatus.setAttribute('role', 'status');
+  chapterStatus.setAttribute('aria-live', 'polite');
+  const reconcileRetry = new SurfaceElement({ tagName: 'BUTTON', type: 'button', dataset: { seriesReconcileRetry: '' }, textContent: 'Volver a consultar la lista' });
+  reconcileRetry.hidden = true;
+  const normalizedChapterSearch = normalizeSearch(initialQuery.buscarCapitulos);
+  const completeOrder = links.filter((link) => link.series.some(({ seriesId }) => seriesId === initialQuery.serie))
+    .sort((left, right) => left.series.find(({ seriesId }) => seriesId === initialQuery.serie).position
+      - right.series.find(({ seriesId }) => seriesId === initialQuery.serie).position
+      || left.placementId.localeCompare(right.placementId));
+  const chapterMatches = links.filter((link) => {
+    const included = link.series.some(({ seriesId }) => seriesId === initialQuery.serie);
+    if (initialQuery.pertenencia === 'incluidos' && !included) return false;
+    if (initialQuery.pertenencia === 'disponibles' && included) return false;
+    return !normalizedChapterSearch || normalizeSearch(`${link.title} ${link.url}`).includes(normalizedChapterSearch);
+  }).sort((left, right) => left.title.localeCompare(right.title, 'es', { sensitivity: 'base' })
+    || left.placementId.localeCompare(right.placementId));
+  const chapterPageCount = Math.max(1, Math.ceil(chapterMatches.length / 25));
+  const chapterPageNumber = Math.min(chapterPageCount, Math.max(1, initialQuery.paginaCapitulos));
+  const chapterPageRows = chapterMatches.slice((chapterPageNumber - 1) * 25, chapterPageNumber * 25);
+  for (const link of chapterPageRows) chapterList.append(makeChapterRow(link, initialQuery.serie, completeOrder));
+  chapterCount.textContent = `${chapterMatches.length} ${chapterMatches.length === 1 ? 'coincidencia' : 'coincidencias'} de ${links.length} ${links.length === 1 ? 'enlace' : 'enlaces'}`;
+  chapterEmpty.textContent = chapterMatches.length ? 'No hay enlaces en esta página.' : 'No hay enlaces que coincidan con esta búsqueda y pertenencia.';
+  chapterEmpty.hidden = chapterPageRows.length > 0;
+  contextCopy.textContent = `${completeOrder.length} ${completeOrder.length === 1 ? 'capítulo guardado' : 'capítulos guardados'} en el orden completo.`;
+  const chapterPagination = pagination(initialQuery, chapterPageNumber, chapterPageCount, 'chapterPagination');
+  chapterRegion.append(chapterHeader, chapterFilter, chapterCount, chapterList, chapterEmpty, chapterPagination, chapterStatus, reconcileRetry);
+  seriesRegion.append(chapterRegion, listView);
+  surface.root.append(seriesRegion);
+
+  const seriesFormContext = new SurfaceElement({ tagName: 'P', dataset: { seriesFormContext: '' } });
+  const seriesFormName = input('name', '', 'text', { seriesNameSuggestion: '' });
+  seriesFormName.setAttribute('id', 'owner-series-name');
+  seriesFormName.setAttribute('maxlength', '120');
+  seriesFormName.setAttribute('required', '');
+  const seriesFormSlug = input('slug', '', 'text', { seriesSlugSuggestion: '' });
+  seriesFormSlug.setAttribute('id', 'owner-series-slug');
+  seriesFormSlug.setAttribute('minlength', '3');
+  seriesFormSlug.setAttribute('maxlength', '40');
+  seriesFormSlug.setAttribute('pattern', '[a-z0-9]+(-[a-z0-9]+)*');
+  seriesFormSlug.setAttribute('required', '');
   const seriesFormDescription = new SurfaceElement({ tagName: 'TEXTAREA', name: 'description', value: '' });
+  seriesFormDescription.setAttribute('id', 'owner-series-description');
+  seriesFormDescription.setAttribute('maxlength', '2000');
   const seriesFormStatus = new SurfaceElement({ dataset: { ownerFormStatus: 'serie' } });
   const seriesFormSave = new SurfaceElement({ tagName: 'BUTTON', type: 'submit', textContent: 'Guardar serie' });
   const seriesFormCancel = new SurfaceElement({ tagName: 'BUTTON', dataset: { ownerCancel: '' }, textContent: 'Cancelar' });
   const seriesFormConflict = makeConflict('serie');
-  const seriesForm = appendForm(surface.dialog, 'serie', [seriesFormName, seriesFormSlug, seriesFormDescription, seriesFormStatus], [seriesFormConflict, seriesFormSave, seriesFormCancel]);
+  const seriesForm = appendForm(surface.dialog, 'serie', [seriesFormName, seriesFormSlug, seriesFormDescription, seriesFormStatus], [seriesFormContext, seriesFormConflict, seriesFormSave, seriesFormCancel]);
+  seriesForm.dataset.seriesForm = '';
 
   const moveContext = new SurfaceElement({ dataset: { chapterMoveContext: '' } });
+  moveContext.setAttribute('aria-live', 'polite');
   const targetPosition = input('targetPosition', '1', 'number');
   targetPosition.setAttribute('min', '1');
   const moveStatus = new SurfaceElement({ dataset: { ownerFormStatus: 'mover-capitulo' } });
@@ -138,26 +295,39 @@ function createOwnerSeriesSurface({ profile, links = [], editableResources = [],
   const moveCancel = new SurfaceElement({ tagName: 'BUTTON', dataset: { ownerCancel: '' }, textContent: 'Cancelar' });
   const moveConflict = makeConflict('mover-capitulo');
   const moveForm = appendForm(surface.dialog, 'mover-capitulo', [targetPosition, moveStatus], [moveContext, moveSuggestionShell, moveConflict, moveSave, moveCancel]);
+  moveForm.dataset.chapterMoveForm = '';
+  targetPosition.setAttribute('id', 'owner-chapter-target-position');
+  targetPosition.setAttribute('step', '1');
+  targetPosition.setAttribute('required', '');
 
-  const addChapterStatus = new SurfaceElement({ dataset: { ownerFormStatus: 'capitulo' } });
-  const reconcileRetry = new SurfaceElement({ tagName: 'BUTTON', dataset: { seriesReconcileRetry: '' }, textContent: 'Volver a consultar la serie' });
-  reconcileRetry.hidden = true;
-  chapterRegion.append(addChapterStatus, reconcileRetry);
   surface.ownerSeries = seriesRegion;
+  surface.root.selectors['[data-owner-series-chapters] [data-series-write-status]'] = chapterStatus;
+  surface.root.selectors['[data-owner-series-list-view] [data-series-write-status]'] = seriesStatus;
+  surface.seriesListView = listView;
   surface.seriesList = seriesList;
+  surface.seriesCount = seriesCount;
+  surface.seriesEmpty = seriesEmpty;
+  surface.seriesPagination = seriesPagination;
+  surface.seriesPage = seriesPage;
   surface.seriesFilter = seriesFilter;
   surface.seriesSearch = seriesSearch;
   surface.seriesApply = seriesApply;
-  surface.seriesCreateOpen = createSeries;
+  surface.seriesCreateOpen = seriesCreate;
   surface.seriesForm = seriesForm;
   surface.seriesFormFields = { name: seriesFormName, slug: seriesFormSlug, description: seriesFormDescription };
+  surface.seriesFormContext = seriesFormContext;
   surface.seriesFormStatus = seriesFormStatus;
   surface.seriesFormSave = seriesFormSave;
   surface.seriesFormConflict = seriesFormConflict;
-  surface.seriesRows = [...seriesList.querySelectorAll('[data-owner-series-row]')];
+  Object.defineProperty(surface, 'seriesRows', { get: () => seriesList.querySelectorAll('[data-owner-series-row]') });
   surface.chapterRegion = chapterRegion;
-  surface.chapterRows = chapterList.querySelectorAll('[data-chapter-row]');
+  Object.defineProperty(surface, 'chapterRows', { get: () => chapterList.querySelectorAll('[data-chapter-row]') });
   surface.chapterSearch = chapterSearch;
+  surface.chapterCount = chapterCount;
+  surface.chapterEmpty = chapterEmpty;
+  surface.chapterPagination = chapterPagination;
+  surface.chapterPage = chapterPage;
+  surface.chapterBack = back;
   surface.membershipFilter = membershipFilter;
   surface.targetPosition = targetPosition;
   surface.moveForm = moveForm;
@@ -166,7 +336,7 @@ function createOwnerSeriesSurface({ profile, links = [], editableResources = [],
   surface.moveSuggestion = moveSuggestion;
   surface.moveSuggestionShell = moveSuggestionShell;
   surface.moveSave = moveSave;
-  surface.addChapterStatus = addChapterStatus;
+  surface.addChapterStatus = chapterStatus;
   surface.reconcileRetry = reconcileRetry;
   for (const element of [
     ...seriesRegion.descendants(), ...chapterRegion.descendants(), ...surface.dialog.descendants(),
