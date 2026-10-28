@@ -478,8 +478,7 @@
 }
 
 .creator-form__field label,
-.creator-form__field legend,
-.creator-photo__form > label {
+.creator-form__field legend {
   color: var(--color-heading);
   font-weight: 700;
 }
@@ -492,8 +491,7 @@
 
 .creator-form__field input:not([type='checkbox']),
 .creator-form__field textarea,
-.creator-form__field select,
-.creator-photo__form input[type='file'] {
+.creator-form__field select {
   width: 100%;
   min-width: 0;
   padding: 11px 12px;
@@ -518,7 +516,6 @@
 .creator-form__field input:focus-visible,
 .creator-form__field textarea:focus-visible,
 .creator-form__field select:focus-visible,
-.creator-photo__form input:focus-visible,
 .creator-account button:focus-visible {
   outline: 3px solid var(--color-focus);
   outline-offset: 2px;
@@ -612,189 +609,6 @@
 
 .creator-form__status[data-kind='success'] {
   color: var(--color-success-text);
-}
-
-.creator-editor__photo {
-  width: 72px;
-  height: 72px;
-  border: 1px solid var(--color-border);
-  border-radius: 50%;
-  background: var(--color-surface-subtle);
-  object-fit: cover;
-}
-
-.creator-photo {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px 20px;
-  align-items: center;
-  margin-top: 28px;
-  padding-top: 22px;
-  border-top: 1px solid var(--color-border);
-}
-
-.creator-photo__copy h3 {
-  margin: 0;
-  color: var(--color-heading);
-  font-size: 1.15rem;
-}
-
-.creator-photo__copy p {
-  margin: 7px 0 0;
-  color: var(--color-text-muted);
-  font-size: 0.9rem;
-  line-height: 1.5;
-}
-
-.creator-editor__photo--large {
-  width: 112px;
-  height: 112px;
-}
-
-.creator-photo__form {
-  display: grid;
-  grid-column: 1 / -1;
-  gap: 10px;
-  justify-items: start;
-}
-
-.creator-photo__form .creator-form__status {
-  margin: 0;
-}
-
-.creator-series-editor {
-  display: grid;
-  gap: 18px;
-}
-
-.creator-series-editor__create,
-.creator-series-editor__metadata,
-.creator-series-editor__add-chapter {
-  display: grid;
-  gap: 12px;
-}
-
-.creator-series-editor__list {
-  display: grid;
-  gap: 16px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.creator-series-editor__item {
-  min-width: 0;
-  padding: clamp(16px, 3vw, 24px);
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  background: var(--color-surface-subtle);
-}
-
-.creator-series-editor__heading {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px 16px;
-}
-
-.creator-series-editor__heading h3 {
-  margin: 0;
-  color: var(--color-heading);
-  font-size: 1.25rem;
-  overflow-wrap: anywhere;
-}
-
-.creator-series-editor__heading a,
-.creator-series-editor__url button {
-  color: var(--color-link);
-  font-weight: 700;
-  text-underline-offset: 0.18em;
-}
-
-.creator-series-editor__url {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 8px;
-  margin: 10px 0 18px;
-  color: var(--color-text-muted);
-  overflow-wrap: anywhere;
-}
-
-.creator-series-editor__url code {
-  overflow-wrap: anywhere;
-}
-
-.creator-series-editor__copy {
-  border: 0;
-  padding: 0;
-  background: transparent;
-  font: inherit;
-  cursor: pointer;
-}
-
-.creator-series-editor__chapter-section {
-  display: grid;
-  gap: 12px;
-  margin-top: 22px;
-}
-
-.creator-series-editor__chapter-section h4 {
-  margin: 0;
-  color: var(--color-heading);
-  font-size: 1rem;
-}
-
-.creator-series-editor__chapters {
-  display: grid;
-  gap: 10px;
-  margin: 0;
-  padding-left: 24px;
-}
-
-.creator-series-editor__chapters li {
-  min-width: 0;
-  padding: 12px;
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  background: var(--color-surface);
-}
-
-.creator-series-editor__chapters strong,
-.creator-series-editor__chapters p {
-  overflow-wrap: anywhere;
-}
-
-.creator-series-editor__chapters p {
-  margin: 6px 0 0;
-  color: var(--color-text-muted);
-  line-height: 1.5;
-}
-
-.creator-series-editor__chapter-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.creator-series-editor__chapter-controls button:disabled,
-.creator-series-editor [data-delete-series]:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.creator-series-editor__add-chapter {
-  padding-top: 14px;
-  border-top: 1px solid var(--color-border);
-}
-
-.creator-series-editor__delete-help {
-  margin: 18px 0 8px;
-  color: var(--color-text-muted);
-  line-height: 1.5;
 }
 
 .creator-public-series {
@@ -1107,11 +921,6 @@
   .creator-message .button + .button {
     display: inline-block;
     margin: 10px 0 0;
-  }
-
-
-  .creator-series-editor__chapter-controls > button {
-    min-height: 42px;
   }
 }
 
