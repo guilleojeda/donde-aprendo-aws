@@ -208,6 +208,31 @@ test('Guardar y salir cierra la solicitud después de quitar una ficha compartid
     'closing after success does not replay the request');
 });
 
+test('un envío normal confirmado cierra el panel, restaura el foco y conserva la solicitud en el historial', async () => {
+  const surface = createCreatorOwnerClaimsSurface({ query: { vista: 'solicitudes' }, claims: [], index: [] });
+  const requests = await mountCreatorOwnerClaims({ surface });
+  await surface.requestEdit.dispatch('click');
+  await waitFor(() => !surface.claimForm.hidden, 'the request form opens from Solicitudes');
+  surface.claimUrls.value = 'https://known.example.invalid/normal-submit';
+
+  await submitClaim(surface);
+  await waitFor(() => requests.filter(({ path, method }) => path === CLAIM_PATH && method === 'POST').length === 1
+    && !surface.dialog.open, 'a confirmed normal submit closes the clean request panel');
+
+  const write = requests.find(({ path, method }) => path === CLAIM_PATH && method === 'POST');
+  assert.deepEqual(write.body.resources, [{ url: 'https://known.example.invalid/normal-submit' }]);
+  assert.equal(surface.document.activeElement, surface.requestEdit,
+    'closing restores focus to the Solicitar edición action that opened the panel');
+  assert.equal(surface.claimUrls.value, '');
+  assert.match(surface.pageStatus.textContent, /Solicitud enviada/i,
+    'the success announcement remains available after the panel closes');
+  const record = surface.claimHistory.querySelector('[data-claim-record="claim-created-1"]');
+  assert.ok(record, 'the confirmed request remains in the visible history');
+  assert.match(textOf(record), /https:\/\/known\.example\.invalid\/normal-submit/);
+  assert.equal(requests.filter(({ path, method }) => path === CLAIM_PATH && method === 'POST').length, 1,
+    'closing does not replay the confirmed request');
+});
+
 test('la etiqueta parcial se muestra en el componente SSR real y en el historial hidratado', async () => {
   const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   const componentPath = path.join(repoRoot, 'src/components/CreatorOwnerClaims.astro');

@@ -205,7 +205,6 @@ let claimStalePairs = new Set<string>();
 let claimNeedsRefresh = false;
 let claimSubmitting = false;
 let claimChecking = false;
-let claimCloseAfterSave = false;
 type ProfileFormAction = (event: Event) => Promise<void> | void;
 const profileFormActions = new WeakMap<HTMLFormElement, ProfileFormAction>();
 
@@ -3735,8 +3734,6 @@ function confirmedClaimReceipt(
 }
 
 async function submitClaimForm(form: HTMLFormElement) {
-  const closeAfterSave = claimCloseAfterSave;
-  claimCloseAfterSave = false;
   if (claimSubmitting) return;
   if (!state?.profile) {
     announceWrite('reclamacion', 'Primero prepara tu página para solicitar edición.', 'error');
@@ -3830,7 +3827,7 @@ async function submitClaimForm(form: HTMLFormElement) {
     setCatalogSelectionLabel();
     renderCatalogResults();
     announceWrite('reclamacion', 'Solicitud enviada. La revisión no agrega contenido ni concede permiso de edición.', 'success');
-    if (closeAfterSave || pendingExitAction) maybeExitAfterSave(!hasPendingChanges());
+    maybeExitAfterSave(!hasPendingChanges());
   } catch {
     if (check) check.hidden = false;
     announceWrite('reclamacion', 'No pudimos confirmar si la solicitud llegó al servicio. Conservamos el formulario; comprueba Solicitudes antes de volver a intentar.', 'error');
@@ -4441,12 +4438,8 @@ function handleExitChoice(choice: 'save' | 'discard' | 'continue', event?: Event
     if (!event) return;
     const action = profileFormActions.get(current);
     if (!action) return;
-    const savingClaim = current === claimForm();
-    if (savingClaim) claimCloseAfterSave = true;
     setHidden(exitPrompt, true);
-    void runProfileFormAction(event, action).finally(() => {
-      if (savingClaim) claimCloseAfterSave = false;
-    });
+    void runProfileFormAction(event, action);
     return;
   }
   if (current && currentName) resetForm(currentName, current);
