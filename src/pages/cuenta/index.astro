@@ -58,7 +58,7 @@ const recognizedCallbackState = callbackState === 'acceso-invalido' || callbackS
 
 let session: AccountSession = { state: 'unavailable' };
 let owner: Awaited<ReturnType<typeof loadCreatorEditor>> | undefined;
-let ownerView: 'enlaces' | 'series' | 'estadisticas' = 'enlaces';
+let ownerView: 'enlaces' | 'series' | 'estadisticas' | 'solicitudes' = 'enlaces';
 let ownerLinksQuery = DEFAULT_CREATOR_OWNER_LINKS_QUERY;
 let ownerLinksQueryError: string | undefined;
 let ownerSeriesQuery = DEFAULT_CREATOR_OWNER_SERIES_QUERY;
@@ -96,6 +96,7 @@ const ownerIsReady = Boolean(session.state === 'authenticated' && owner
 const requestedViews = Astro.url.searchParams.getAll('vista');
 if (requestedViews.includes('estadisticas') && ownerIsReady) ownerView = 'estadisticas';
 if (requestedViews.includes('series') && ownerIsReady) ownerView = 'series';
+if (requestedViews.includes('solicitudes') && ownerIsReady) ownerView = 'solicitudes';
 if (ownerView === 'enlaces' && owner?.data) {
   const parsedLinksQuery = parseCreatorOwnerLinksQuery(Astro.url.searchParams, owner.data.series);
   if (parsedLinksQuery.valid) ownerLinksQuery = parsedLinksQuery.query;

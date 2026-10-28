@@ -114,6 +114,7 @@ const visibleFilters = [query.serie !== 'todos', query.directorio !== 'todos', q
                   <td data-label="Destacado">{link.featured ? 'Destacado' : 'Sin destacar'}</td>
                 <td class="creator-owner__link-actions" data-label="Acciones">
                   <button class="button button--outline" type="button" data-link-edit data-placement-id={link.placementId}>{own ? 'Editar ficha' : 'Editar opciones'}</button>
+                  {!own && <button class="button button--outline" type="button" data-claim-open data-placement-id={link.placementId} data-resource-id={link.resourceId} data-url={link.url} aria-label={`Solicitar edición de ${link.title}`}>Solicitar edición</button>}
                   <button class="button button--outline" type="button" data-link-move data-placement-id={link.placementId} aria-label="Mover a la posición">Mover a la posición…</button>
                   <button class="button button--outline" type="button" data-link-remove data-placement-id={link.placementId}>Quitar de tu página</button>
                 </td>

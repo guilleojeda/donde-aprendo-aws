@@ -5,12 +5,13 @@ import type { CreatorStatisticsPageLoad } from '../pages/cuenta/_statistics-page
 import AccountLogout from './AccountLogout.astro';
 import CreatorOwnerActivity from './CreatorOwnerActivity.astro';
 import CreatorOwnerLinks from './CreatorOwnerLinks.astro';
+import CreatorOwnerClaims from './CreatorOwnerClaims.astro';
 import CreatorOwnerSeries from './CreatorOwnerSeries.astro';
 import CreatorStatistics from './CreatorStatistics.astro';
 import { DEFAULT_CREATOR_OWNER_LINKS_QUERY, type CreatorOwnerLinksQuery } from '../lib/creator-owner-links';
 import { DEFAULT_CREATOR_OWNER_SERIES_QUERY, type CreatorOwnerSeriesQuery } from '../lib/creator-owner-series';
 
-type OwnerView = 'enlaces' | 'series' | 'estadisticas';
+type OwnerView = 'enlaces' | 'series' | 'estadisticas' | 'solicitudes';
 
 interface Props {
   data: CreatorEditorDTO;
@@ -110,6 +111,13 @@ function safeSocialUrl(value: string | undefined): string | undefined {
       </form>
     </section>
 
+    {!profile && view === 'solicitudes' && <section class="creator-owner__claims creator-owner__claims-preparation" aria-labelledby="owner-claims-preparation-title">
+      <p class="creator-owner__eyebrow">Solicitudes</p>
+      <h2 id="owner-claims-preparation-title">Prepara tu página para solicitar edición</h2>
+      <p>Las solicitudes de edición se gestionan desde Tu página. Primero crea el borrador de tu perfil.</p>
+      <a class="button button--dark" href="#owner-create-name">Ir al formulario de borrador</a>
+    </section>}
+
     {!profile && view === 'estadisticas' && statistics?.state === 'invalid-query' ? (
       <CreatorStatistics result={statistics} />
     ) : !profile ? (
@@ -153,10 +161,11 @@ function safeSocialUrl(value: string | undefined): string | undefined {
         <a class="button button--outline" data-owner-navigation aria-current={view === 'enlaces' ? 'page' : undefined} href="/cuenta/?vista=enlaces">Enlaces</a>
         <a class="button button--outline" data-owner-navigation aria-current={view === 'series' ? 'page' : undefined} href="/cuenta/?vista=series">Series</a>
         <a class="button button--outline" data-owner-navigation aria-current={view === 'estadisticas' ? 'page' : undefined} href="/cuenta/?vista=estadisticas&amp;periodo=30&amp;pagina=1">Estadísticas</a>
-        <a class="button button--outline" data-owner-navigation href="/cuenta/creador/">Solicitudes</a>
+        <a class="button button--outline" data-owner-navigation aria-current={view === 'solicitudes' ? 'page' : undefined} href="/cuenta/?vista=solicitudes">Solicitudes</a>
       </nav>
       {view === 'enlaces' && <CreatorOwnerLinks data={data} query={linksQuery} queryError={linksQueryError} />}
       {view === 'series' && <CreatorOwnerSeries data={data} query={seriesQuery} queryError={seriesQueryError} />}
+      {view === 'solicitudes' && <CreatorOwnerClaims data={data} />}
       {profile && view === 'estadisticas' && (
         statistics && statistics.state !== 'no-profile' && statistics.state !== 'not-published'
           ? <CreatorStatistics result={statistics} />
@@ -280,7 +289,7 @@ function safeSocialUrl(value: string | undefined): string | undefined {
         </form>
 
         <section class="creator-owner__catalog" data-owner-catalog hidden aria-label="Buscar contenido publicado">
-          <form class="creator-owner__catalog-search" method="get" data-catalog-search-form role="search">
+          <form id="owner-catalog-search-form" class="creator-owner__catalog-search" method="get" data-catalog-search-form role="search">
             <div class="creator-owner__field">
               <label for="owner-catalog-search">Buscar por título o URL</label>
               <input id="owner-catalog-search" type="search" name="buscarCatalogo" data-catalog-search autocomplete="off" />
@@ -289,16 +298,17 @@ function safeSocialUrl(value: string | undefined): string | undefined {
           </form>
           <p class="creator-owner__status" data-catalog-status role="status" aria-live="polite"></p>
           <button class="button button--outline" type="button" data-catalog-retry hidden>Reintentar carga del catálogo</button>
+          <p data-catalog-count aria-live="polite" hidden>0 resultados</p>
+          <ul class="creator-owner__catalog-results" data-catalog-results aria-label="Resultados del catálogo"></ul>
+          <p class="creator-owner__empty" data-catalog-empty hidden>No hay recursos que coincidan con la búsqueda.</p>
+          <p class="creator-owner__catalog-selected" data-catalog-selected-count aria-live="polite">Ningún recurso seleccionado.</p>
+          <ul class="creator-owner__claim-selection" data-claim-selection hidden aria-label="Selección para solicitar edición"></ul>
+          <nav class="creator-owner__catalog-pagination" aria-label="Páginas del catálogo">
+            <button class="button button--outline" type="button" data-catalog-page="previous" disabled>Anterior</button>
+            <span data-catalog-page-label aria-live="polite">Página 1 de 1</span>
+            <button class="button button--outline" type="button" data-catalog-page="next" disabled>Siguiente</button>
+          </nav>
           <form class="creator-owner__form creator-owner__catalog-reference" data-owner-form="referencia" data-catalog-reference-form method="get" hidden>
-            <p data-catalog-count aria-live="polite">0 resultados</p>
-            <ul class="creator-owner__catalog-results" data-catalog-results aria-label="Resultados del catálogo"></ul>
-            <p class="creator-owner__empty" data-catalog-empty hidden>No hay recursos que coincidan con la búsqueda.</p>
-            <p class="creator-owner__catalog-selected" data-catalog-selected-count aria-live="polite">Ningún recurso seleccionado.</p>
-            <nav class="creator-owner__catalog-pagination" aria-label="Páginas del catálogo">
-              <button class="button button--outline" type="button" data-catalog-page="previous" disabled>Anterior</button>
-              <span data-catalog-page-label aria-live="polite">Página 1 de 1</span>
-              <button class="button button--outline" type="button" data-catalog-page="next" disabled>Siguiente</button>
-            </nav>
             <label class="creator-owner__link-checkbox creator-owner__catalog-directory">
               <input type="checkbox" name="selectedForDirectory" data-catalog-directory checked />
               <span>Proponer al directorio</span>
@@ -315,6 +325,24 @@ function safeSocialUrl(value: string | undefined): string | undefined {
             <div class="creator-owner__dialog-actions">
               <button class="button button--dark" type="submit" data-catalog-reference disabled>Agregar a mi página</button>
               <button class="button button--outline" type="button" data-owner-cancel data-catalog-cancel>Cancelar</button>
+            </div>
+          </form>
+          <form class="creator-owner__form creator-owner__claim-form" data-owner-form="reclamacion" data-claim-form hidden>
+            <p>Selecciona contenido del catálogo y agrega las URLs conocidas que quieras solicitar. Enviar una solicitud no agrega contenido a tu página ni concede permiso para editar.</p>
+            <div class="creator-owner__field">
+              <label for="owner-claim-urls">URLs conocidas <span>(opcional, una por línea)</span></label>
+              <textarea id="owner-claim-urls" name="knownUrls" rows="4" data-claim-urls autocomplete="url"></textarea>
+            </div>
+            <div class="creator-owner__field">
+              <label for="owner-claim-evidence">Contexto privado <span>(opcional)</span></label>
+              <textarea id="owner-claim-evidence" name="evidence" rows="3" maxlength="2000" data-claim-evidence></textarea>
+              <small>Hasta 2000 caracteres. Sólo lo ven quienes gestionan esta solicitud.</small>
+            </div>
+            <p class="creator-owner__status" data-owner-form-status="reclamacion" data-claim-status role="status" aria-live="polite"></p>
+            <button class="button button--outline" type="button" data-claim-check hidden>Comprobar solicitudes</button>
+            <div class="creator-owner__dialog-actions">
+              <button class="button button--dark" type="submit" data-claim-submit>Enviar solicitud</button>
+              <button class="button button--outline" type="button" data-owner-cancel data-claim-cancel>Cancelar</button>
             </div>
           </form>
         </section>

@@ -1,0 +1,69 @@
+---
+import type { CreatorClaimDTO, CreatorEditorDTO } from '../types/creators';
+
+interface Props {
+  data: CreatorEditorDTO;
+}
+
+const { data } = Astro.props;
+const ownTitles = new Map<string, string>();
+for (const resource of data.editableResources) ownTitles.set(resource.id, resource.title);
+for (const link of data.links) if (!ownTitles.has(link.resourceId)) ownTitles.set(link.resourceId, link.title);
+
+function claimStatus(claim: CreatorClaimDTO): string {
+  if (!claim.status) return 'Solicitud recibida';
+  const labels: Record<string, string> = {
+    pending: 'Pendiente',
+    approved: 'Aprobada',
+    rejected: 'Rechazada',
+    revoked: 'Revocada',
+    resolved: 'Resuelta',
+  };
+  return labels[claim.status] ?? claim.status;
+}
+
+function claimDate(value: number | undefined): { iso: string; label: string } | undefined {
+  if (value === undefined || !Number.isFinite(value)) return undefined;
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return undefined;
+  return {
+    iso: date.toISOString(),
+    label: new Intl.DateTimeFormat('es', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' }).format(date),
+  };
+}
+
+function resourceLabel(claim: CreatorClaimDTO, resourceId: string): string {
+  return ownTitles.get(resourceId)
+    ?? claim.resources?.find((resource) => resource.resourceId === resourceId)?.url
+    ?? 'Contenido solicitado';
+}
+---
+
+<section class="creator-owner__claims" data-owner-claims aria-labelledby="owner-claims-title">
+  <header class="creator-owner__section-heading creator-owner__claims-heading">
+    <div>
+      <p class="creator-owner__eyebrow">Acceso de edición</p>
+      <h2 id="owner-claims-title">Solicitudes</h2>
+      <p>Solicitar acceso no agrega contenido a tu página ni concede permiso para editar.</p>
+    </div>
+    <button class="button button--dark" type="button" data-claim-open data-claim-section-open>Solicitar edición</button>
+  </header>
+  <p class="creator-owner__status" data-claim-index-status role="status" aria-live="polite" hidden></p>
+  <button class="button button--outline" type="button" data-claim-index-retry hidden>Reintentar carga del catálogo</button>
+
+  <ul class="creator-owner__claim-history" data-claim-history>
+    {data.claims.length ? data.claims.map((claim) => {
+      const date = claimDate(claim.createdAt);
+      return <li class="creator-owner__claim-record" data-claim-record={claim.id}>
+        <div class="creator-owner__claim-heading">
+          <strong data-claim-status>{claimStatus(claim)}</strong>
+          {date && <time data-claim-date datetime={date.iso}>{date.label}</time>}
+        </div>
+        <ul class="creator-owner__claim-resources">
+          {claim.resourceIds.map((resourceId) => <li data-claim-resource-id={resourceId}>{resourceLabel(claim, resourceId)}</li>)}
+        </ul>
+        {claim.evidence !== undefined && <p class="creator-owner__claim-evidence" data-claim-evidence-text>{claim.evidence}</p>}
+      </li>;
+    }) : <li class="creator-owner__empty" data-claim-empty>No tienes solicitudes todavía.</li>}
+  </ul>
+</section>

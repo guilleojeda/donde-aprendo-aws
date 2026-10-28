@@ -184,6 +184,15 @@ const message = result.status === 401
               const claimId = String(claim.id ?? claim.claimId ?? '');
               const resourceIds = Array.isArray(claim.resourceIds) ? claim.resourceIds.filter((id): id is string => typeof id === 'string') : [];
               const evidence = typeof claim.evidence === 'string' ? claim.evidence : '';
+              const observations: unknown[] = Array.isArray(claim.resources) ? claim.resources : [];
+              const observedUrls = new Map<string, string>();
+              for (const item of observations) {
+                if (typeof item === 'object' && item !== null
+                  && 'resourceId' in item && typeof item.resourceId === 'string'
+                  && 'url' in item && typeof item.url === 'string') {
+                  observedUrls.set(item.resourceId, item.url);
+                }
+              }
               return (
                 <li class="creator-admin__item" data-admin-claim={claimId}>
                   <h3>Solicitud {claimId}</h3>
@@ -194,7 +203,10 @@ const message = result.status === 401
                     <fieldset class="creator-admin__claim-resources">
                       <legend>Selecciona los IDs exactos que verificaste</legend>
                       {resourceIds.map((resourceId) => (
-                        <label><input type="checkbox" name="resourceIds" value={resourceId} checked />{resourceId}</label>
+                        <label>
+                          <input type="checkbox" name="resourceIds" value={resourceId} checked />
+                          <span>{resourceId}{observedUrls.has(resourceId) && <><br /><small>{observedUrls.get(resourceId)}</small></>}</span>
+                        </label>
                       ))}
                     </fieldset>
                     <label class="creator-check creator-admin__review-confirm"><input type="checkbox" name="reviewed" required /><span>Confirmo que revisé la referencia y los recursos seleccionados.</span></label>
