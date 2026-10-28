@@ -1742,7 +1742,9 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
 
     const profile = await getRequiredOwnerProfile(principal);
     const profileVersion = storedVersion(profile.version, 'profile');
-    const allPlacements = await getPlacements(profile.id);
+    const { placements: allPlacements, placementsWithoutStoredVersion } = await getPlacements(profile.id, {
+      includeStoredVersionPresence: true,
+    });
     const target = allPlacements.find((placement) => placement.id === id);
     if (!target) fail(404, 'PLACEMENT_NOT_FOUND', 'placement does not belong to this profile');
     if (expectedProfileVersion !== profileVersion) fail(409, 'PROFILE_CONFLICT', 'profile changed; reload before moving');
@@ -1771,11 +1773,14 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     const placementSizeCache = new Map();
     const physicalPlacementSize = (placement) => {
       if (!placementSizeCache.has(placement.id)) {
-        placementSizeCache.set(placement.id, dynamoDbItemSize({
+        const normalizedSize = dynamoDbItemSize({
           ...placement,
           pk: `PROFILE#${profile.id}`,
           sk: `PLACEMENT#${placement.id}`,
-        }));
+        });
+        placementSizeCache.set(placement.id, placementsWithoutStoredVersion.has(placement.id)
+          ? normalizedSize - dynamoDbNumberSize(placement.version, 'version')
+          : normalizedSize);
       }
       return placementSizeCache.get(placement.id);
     };
@@ -1825,7 +1830,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         foundVersionExhaustion = true;
         return null;
       }
-      const originalVersionBytes = placement.version === undefined
+      const originalVersionBytes = placementsWithoutStoredVersion.has(placement.id)
         ? 0
         : dynamoDbNumberSize(placement.version, 'version');
       return physicalPlacementSize(placement)
