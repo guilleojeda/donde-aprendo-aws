@@ -160,6 +160,11 @@ let pendingOwnerHistoryNavigation: {
 } | undefined;
 let focusOwnerLocationAfterHistory = false;
 let conflictProfile: CreatorProfileDTO | undefined;
+let conflictProfileContext: { form: HTMLFormElement; name: 'crear' | 'datos' | 'redes'; contextRevision: number } | undefined;
+let ownerEditorRevision = 0;
+let createFormRevision = 0;
+let ownerWriteRevision = 0;
+let profileCompareGeneration = 0;
 let activeLinkContext: { kind: 'placement'; placementId: string } | { kind: 'resource'; resourceId: string } | undefined;
 let conflictLinkData: CreatorEditorDTO | undefined;
 let linkContextRevision = 0;
@@ -344,7 +349,10 @@ async function runProfileFormAction(event: Event, action: ProfileFormAction) {
     if (activeEditor !== 'reclamacion') sessionRecovery.announceBlocked();
     return;
   }
-  await writeGuard?.run(event, () => action(event));
+  await writeGuard?.run(event, async () => {
+    ownerWriteRevision += 1;
+    await action(event);
+  });
   if (event.target === catalogForm()) setCatalogSelectionLabel();
   if (seriesReconcileReadPending) setChapterActionsUnavailable(true);
   if (!dialog?.open) runPendingExitAction();
@@ -975,6 +983,7 @@ function hideDialogForms() {
 
 function showDialogForm(form: HTMLFormElement, name: NonNullable<typeof activeEditor>, title: string, trigger?: HTMLElement) {
   if (!dialog) return;
+  ownerEditorRevision += 1;
   if (name !== 'mover-enlace') {
     moveContextRevision += 1;
     moveCompareGeneration += 1;
@@ -2117,6 +2126,7 @@ function submitWasUnchanged(snapshot: FormValueSnapshot | undefined): boolean {
 
 function clearConflict(form: HTMLFormElement | undefined) {
   conflictProfile = undefined;
+  conflictProfileContext = undefined;
   conflictLinkData = undefined;
   conflictLinkContextRevision = undefined;
   linkCompareGeneration += 1;
@@ -2170,6 +2180,7 @@ function runPendingExitAction() {
 }
 
 function closeDialog({ navigate = true }: { navigate?: boolean } = {}) {
+  ownerEditorRevision += 1;
   linkContextRevision += 1;
   linkCompareGeneration += 1;
   moveContextRevision += 1;
@@ -2250,6 +2261,9 @@ function showExitPrompt(afterExit?: () => void, trigger?: HTMLElement) {
 
 function resetForm(name: string, form: HTMLFormElement) {
   if (name === 'crear') {
+    createFormRevision += 1;
+    profileCompareGeneration += 1;
+    clearConflict(form);
     if (state?.profile) {
       const displayName = field(form, 'displayName');
       const slug = field(form, 'slug');
@@ -2451,6 +2465,10 @@ async function saveProfileForm(form: HTMLFormElement, name: 'crear' | 'datos' | 
       return;
     }
     const unchanged = submitWasUnchanged(snapshot);
+    if (name === 'crear') {
+      createFormRevision += 1;
+      profileCompareGeneration += 1;
+    }
     updateProfileState(next);
     clearRecoveryNotice();
     hydrateInactiveForms(form);
@@ -3349,13 +3367,14 @@ async function saveMoveForm(form: HTMLFormElement) {
   }
 }
 
-async function reconcileOwnerData(): Promise<boolean> {
+async function reconcileOwnerData(canAdopt?: () => boolean): Promise<boolean> {
   try {
     const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
     if (response.status === 401) await sessionRecovery?.observeWriteResponse(response);
     if (!response.ok) return false;
     const payload = await responsePayload(response);
     if (!payload || !isOwnerData(payload) || !state?.profile || payload.profile?.id !== state.profile.id) return false;
+    if (canAdopt && !canAdopt()) return false;
     state.profile = payload.profile;
     state.links = payload.links;
     state.editableResources = payload.editableResources;
@@ -3453,12 +3472,23 @@ async function retrySeriesReconcile() {
     retry.textContent = seriesReconcileOutcome === 'confirmed' ? 'Consultando la lista…' : 'Comprobando la lista…';
   }
   announce(status, seriesReconcileOutcome === 'confirmed' ? 'Volviendo a consultar la lista…' : 'Comprobando la lista…', 'info');
-  const reconciled = await reconcileOwnerData();
+  const editorRevision = ownerEditorRevision;
+  const writeRevision = ownerWriteRevision;
+  const canAdopt = () => ownerEditorRevision === editorRevision
+    && activeForm === undefined && activeEditor === undefined
+    && !(formState?.hasPendingChanges() ?? false)
+    && ownerWriteRevision === writeRevision
+    && !(writeGuard?.isActive() ?? false);
+  const reconciled = await reconcileOwnerData(canAdopt);
   if (retry) {
     retry.disabled = false;
     retry.textContent = seriesReconcileOutcome === 'confirmed' ? 'Volver a consultar la lista' : 'Volver a comprobar la lista';
   }
   if (!reconciled) {
+    if (!canAdopt()) {
+      announce(status, 'No aplicamos esta lectura: hubo una edición o escritura mientras comprobábamos. Conservamos sus valores y versiones; vuelve a comprobar la lista.', 'info');
+      return;
+    }
     const message = seriesReconcileOutcome === 'confirmed'
       ? 'La lectura sigue sin estar disponible. El cambio anterior está confirmado; puedes volver a consultar.'
       : seriesReconcileOutcome === 'conflict'
@@ -3994,7 +4024,7 @@ async function submitClaimForm(form: HTMLFormElement) {
     announceWrite('reclamacion', 'El contexto privado puede tener hasta 2000 caracteres.', 'error');
     return;
   }
-  const evidence = rawEvidence.trim() ? rawEvidence : undefined;
+  const evidence = rawEvidence.trim() || undefined;
   const selectedResources = [...claimSelection.values()].map(({ resourceId, url }) => ({ resourceId, url }));
   const submitted = [...selectedResources, ...urls.map((url) => ({ url }))];
   if (submitted.length === 0) {
@@ -4445,6 +4475,23 @@ function profileMessage(profile: CreatorProfileDTO): string {
   return 'Perfil guardado como borrador. Publícalo cuando esté listo.';
 }
 
+function profileFormContextRevision(name: 'crear' | 'datos' | 'redes'): number {
+  return name === 'crear' ? createFormRevision : ownerEditorRevision;
+}
+
+function isActiveProfileFormContext(
+  form: HTMLFormElement,
+  name: 'crear' | 'datos' | 'redes',
+  contextRevision: number,
+): boolean {
+  if (activeForm !== form || form.hidden) return false;
+  if (name === 'crear') {
+    const panel = root?.querySelector<HTMLElement>('[data-owner-create-panel]');
+    return form === formFor('crear') && !panel?.hidden && createFormRevision === contextRevision;
+  }
+  return ownerEditorRevision === contextRevision && activeEditor === name;
+}
+
 function showConflictComparison(form: HTMLFormElement, current: CreatorProfileDTO, name: 'crear' | 'datos' | 'redes') {
   const compare = form.querySelector<HTMLElement>('[data-owner-comparison]');
   if (!compare) return;
@@ -4477,18 +4524,25 @@ function showConflictComparison(form: HTMLFormElement, current: CreatorProfileDT
   setHidden(compare, false);
   setHidden(form.querySelector('[data-owner-adopt]'), false);
   conflictProfile = current;
+  conflictProfileContext = { form, name, contextRevision: profileFormContextRevision(name) };
 }
 
 async function compareSavedVersion(form: HTMLFormElement, name: 'crear' | 'datos' | 'redes') {
+  const contextRevision = profileFormContextRevision(name);
+  const generation = ++profileCompareGeneration;
+  const isCurrent = () => generation === profileCompareGeneration
+    && isActiveProfileFormContext(form, name, contextRevision);
   announceWrite(name, 'Consultando la versión guardada…', 'info');
   try {
     const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
     if (response.status === 401) await sessionRecovery?.observeWriteResponse(response);
+    if (!isCurrent()) return;
     if (!response.ok) {
       announceWrite(name, response.status === 401 ? sessionRecovery?.writeFailureMessage() ?? statusMessage(401) : 'No pudimos leer la versión guardada. Tus cambios siguen aquí; inténtalo de nuevo.', 'error');
       return;
     }
     const payload = await responsePayload(response);
+    if (!isCurrent()) return;
     if (!payload || !Object.hasOwn(payload, 'profile')) {
       announceWrite(name, 'No pudimos confirmar que la versión guardada corresponde a esta página. Conservamos tu edición.', 'error');
       return;
@@ -4499,6 +4553,7 @@ async function compareSavedVersion(form: HTMLFormElement, name: 'crear' | 'datos
       setHidden(compare, false);
       setHidden(form.querySelector('[data-owner-adopt]'), true);
       conflictProfile = undefined;
+      conflictProfileContext = undefined;
       announceWrite(name, 'No se encontró una página para adoptar. Puedes corregir la dirección y volver a guardar.', 'info');
       return;
     }
@@ -4510,12 +4565,14 @@ async function compareSavedVersion(form: HTMLFormElement, name: 'crear' | 'datos
     showConflictComparison(form, payload.profile, name);
     announceWrite(name, 'Compara los valores y elige expresamente si quieres adoptar la versión guardada.', 'info');
   } catch {
-    announceWrite(name, 'No pudimos conectar para leer la versión guardada. Tus cambios siguen aquí.', 'error');
+    if (isCurrent()) announceWrite(name, 'No pudimos conectar para leer la versión guardada. Tus cambios siguen aquí.', 'error');
   }
 }
 
 function adoptSavedVersion(form: HTMLFormElement, name: 'crear' | 'datos' | 'redes') {
-  if (!conflictProfile) return;
+  if (!conflictProfile || !conflictProfileContext || conflictProfileContext.form !== form
+    || conflictProfileContext.name !== name
+    || !isActiveProfileFormContext(form, name, conflictProfileContext.contextRevision)) return;
   const adopted = conflictProfile;
   updateProfileState(adopted);
   if (name === 'crear') {
@@ -4537,12 +4594,17 @@ function validPhoto(photo: unknown): photo is NonNullable<CreatorProfileDTO['pho
 }
 
 async function checkPhotoStatus(form: HTMLFormElement) {
+  const editorRevision = ownerEditorRevision;
+  const isCurrent = () => ownerEditorRevision === editorRevision
+    && activeForm === form && activeEditor === 'foto' && !form.hidden;
   const checkButton = form.querySelector<HTMLButtonElement>('[data-owner-check-photo]');
   if (checkButton) checkButton.disabled = true;
   try {
     const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
     if (response.status === 401) await sessionRecovery?.observeWriteResponse(response);
+    if (!isCurrent()) return;
     const payload = response.ok ? await responsePayload(response) : null;
+    if (!isCurrent()) return;
     if (!payload || !isProfile(payload.profile) || payload.profile.id !== state?.profile?.id) {
       announceWrite('foto', response.status === 401 ? sessionRecovery?.writeFailureMessage() ?? PHOTO_UNCONFIRMED : PHOTO_UNCONFIRMED, 'error');
       return;
@@ -4564,7 +4626,7 @@ async function checkPhotoStatus(form: HTMLFormElement) {
     setHidden(checkButton, false);
     announceWrite('foto', 'La versión guardada ya está comprobada. La foto elegida sigue disponible; puedes iniciar una carga nueva si todavía quieres cambiarla.', 'info');
   } catch {
-    announceWrite('foto', PHOTO_UNCONFIRMED, 'error');
+    if (isCurrent()) announceWrite('foto', PHOTO_UNCONFIRMED, 'error');
   } finally {
     if (checkButton) checkButton.disabled = false;
   }
@@ -5278,6 +5340,7 @@ if (root && state && csrfToken && dialog) {
         return;
       }
       void writeGuard?.run(event, async () => {
+        ownerWriteRevision += 1;
         const status = statusFor(undefined);
         try {
           const response = await jsonRequest('/api/creador/perfil/publicar', 'POST', { version: profile.version });

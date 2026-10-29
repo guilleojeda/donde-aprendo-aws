@@ -1450,7 +1450,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         fail(400, 'MIXED_RESOURCE_INPUT', 're-adding an existing resource cannot include new-resource fields');
       }
     }
-    if (typeof body.resourceId !== 'string' || !body.resourceId || body.resourceId.length > 160) {
+    if (typeof body.resourceId !== 'string' || !body.resourceId) {
       fail(422, 'INVALID_RESOURCE_ID', 'resourceId must identify an editable resource');
     }
     if (body.resourceVersion === undefined) fail(400, 'RESOURCE_VERSION_REQUIRED', 'resourceVersion is required when re-adding an existing resource');

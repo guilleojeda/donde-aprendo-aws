@@ -383,7 +383,7 @@ function safeSocialUrl(value: string | undefined): string | undefined {
         </form>
 
         <form class="creator-owner__form" data-owner-form="mover-capitulo" data-chapter-move-form hidden aria-label="Mover capítulo en la serie">
-          <p class="creator-owner__move-context" data-chapter-move-context aria-live="polite"></p>
+          <p id="owner-chapter-move-context" class="creator-owner__move-context" data-chapter-move-context aria-live="polite"></p>
           <div class="creator-owner__field"><label for="owner-chapter-target-position">Posición en esta serie</label><input id="owner-chapter-target-position" name="targetPosition" type="number" min="1" step="1" required inputmode="numeric" aria-describedby="owner-chapter-move-context" /></div>
           <p class="creator-owner__status" data-owner-form-status="mover-capitulo" role="status" aria-live="polite"></p>
           <div data-chapter-move-suggestion-shell hidden><button class="button button--outline" type="button" data-chapter-move-suggestion></button></div>
