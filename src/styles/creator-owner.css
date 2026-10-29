@@ -1104,6 +1104,7 @@
 
 .creator-owner__links {
   display: grid;
+  container: owner-links / inline-size;
   gap: 20px;
   margin-block: 28px;
   padding-block: 28px;
@@ -1439,18 +1440,25 @@
   }
 
   .creator-owner__links-heading > .button,
-  .creator-owner__link-actions,
-  .creator-owner__link-actions .button,
+  .creator-owner__links-heading .creator-owner__link-actions,
+  .creator-owner__links-heading .creator-owner__link-actions .button,
   .creator-owner__link-tools,
   .creator-owner__link-tools .button,
   .creator-owner__filter-submit {
     width: 100%;
   }
 
-  .creator-owner__link-actions {
+  .creator-owner__links-heading .creator-owner__link-actions {
     flex-direction: column;
   }
 
+  .creator-owner__link-pagination > span {
+    width: 100%;
+  }
+}
+
+/* The table needs 760px plus its border, regardless of the viewport. */
+@container owner-links (max-width: 762px) {
   .creator-owner__table-scroll {
     overflow: visible;
     border: 0;
@@ -1498,11 +1506,13 @@
     content: attr(data-label);
   }
 
-  .creator-owner__link-actions {
+  .creator-owner__link-table .creator-owner__link-actions {
     min-width: 0;
+    width: 100%;
+    flex-direction: column;
   }
 
-  .creator-owner__link-pagination > span {
+  .creator-owner__link-table .creator-owner__link-actions .button {
     width: 100%;
   }
 }
