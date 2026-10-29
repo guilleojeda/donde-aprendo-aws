@@ -723,10 +723,11 @@ test('51 targets fit the existing two-action claim transaction and expanded phys
   const oversizedHarness = await createCreatorPagesHarness();
   const oversizedProfile = await createProfile(oversizedHarness, 'creator-a', 'claim-expanded-size');
   const expandedTargets = [];
-  for (let index = 0; index < 220; index += 1) {
-    const id = `large-${String(index).padStart(3, '0')}-${'x'.repeat(1890)}`;
-    assert.equal(Buffer.byteLength(id, 'utf8'), 1900, 'IDs stay below DynamoDB key limits');
-    const item = resource(id, `https://catalog.example/expanded/${index}`);
+  for (let index = 0; index < 800; index += 1) {
+    const prefix = `large-${String(index).padStart(4, '0')}-`;
+    const id = `${prefix}${'x'.repeat(256 - Buffer.byteLength(prefix, 'utf8'))}`;
+    assert.equal(Buffer.byteLength(id, 'utf8'), 256, 'each imported resource ID stays at the approved byte limit');
+    const item = resource(id, `https://a/${index.toString(36)}`);
     await seedResource(oversizedHarness.store, item);
     expandedTargets.push(item);
   }

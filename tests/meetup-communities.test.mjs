@@ -41,6 +41,13 @@ test('rejects DEL control characters in reviewed community cities', () => {
   assert.throws(() => mapMeetupCommunities({ groups: [group({ city: 'Lima\u007f' })] }), /invalid city/);
 });
 
+test('Meetup numeric community IDs retain the prefix within the 256-byte catalog limit', () => {
+  const boundary = mapMeetupCommunities({ groups: [group({ id: '9'.repeat(249) })] })[0];
+  assert.equal(boundary.id, `meetup-${'9'.repeat(249)}`);
+  assert.equal(Buffer.byteLength(boundary.id, 'utf8'), 256);
+  assert.throws(() => mapMeetupCommunities({ groups: [group({ id: '9'.repeat(250) })] }));
+});
+
 test('import checks account and skips existing records without overwriting them', async () => {
   const records = [
     { id: 'meetup-1', url: 'https://www.meetup.com/aws-mendoza/', city: 'Mendoza' },
@@ -106,4 +113,19 @@ test('Meetup import reports a duplicate URL without merging the second ID', asyn
   });
   assert.equal(items.get(currentUrlReservationId(url)).resourceId, 'meetup-1');
   assert.equal(items.has('meetup-2'), false);
+});
+
+test('Meetup import rejects overlong IDs before catalog reads or writes', async () => {
+  let reads = 0;
+  let writes = 0;
+  await assert.rejects(importMeetupCommunities([{
+    id: `meetup-${'9'.repeat(250)}`,
+    url: 'https://www.meetup.com/aws-overlong/',
+  }], {
+    tableName: 'catalog',
+    getIdentity: async () => ({ Account: '719535286359' }),
+    getItem: async () => { reads += 1; return {}; },
+    transactWrite: async () => { writes += 1; },
+  }));
+  assert.deepEqual([reads, writes], [0, 0]);
 });

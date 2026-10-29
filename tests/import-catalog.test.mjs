@@ -97,6 +97,25 @@ test('account guard runs before any import writes', async () => {
   assert.equal(writes, 0);
 });
 
+test('preflights imported resource ID bytes before identity checks or catalog access', async () => {
+  const records = mapTsvRows(parseCatalogTsv(`${TSV_HEADERS}\nTitle\thttps://example.test/item\tDescription\tCurso\t\t\t\t7\t\n`));
+  assert.equal(Buffer.byteLength(records[0].id, 'utf8'), 40, 'the existing catalog-hash ID format remains supported');
+  records[0].id = `${'é'.repeat(128)}a`;
+  assert.equal(Buffer.byteLength(records[0].id, 'utf8'), 257);
+
+  let identityReads = 0;
+  let catalogReads = 0;
+  let writes = 0;
+  await assert.rejects(importCatalog(records, {
+    tableName: 'catalog',
+    getCallerIdentity: async () => { identityReads += 1; return { Account: '719535286359' }; },
+    getItem: async () => { catalogReads += 1; return {}; },
+    transactWrite: async () => { writes += 1; },
+  }));
+  assert.deepEqual([identityReads, catalogReads, writes], [0, 0, 0],
+    'invalid source data is rejected before AWS identity, reads, or writes');
+});
+
 test('conditional import skips an edited or unpublished existing item', async () => {
   const records = mapTsvRows(parseCatalogTsv(`${TSV_HEADERS}
 One\thttps://example.test/one\tOriginal one\tCurso\t\t\t\t1\t

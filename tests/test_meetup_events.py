@@ -318,6 +318,26 @@ class MeetupEventsTests(unittest.TestCase):
         html = '<script type="application/ld+json">' + json.dumps(PAGE) + '</script>'
         self.assertEqual(meetup.parse_event_page(html, EVENT_URL)['name'], 'AWS en acción')
 
+    def test_meetup_numeric_event_ids_include_the_prefix_in_the_256_byte_limit(self):
+        boundary_entry = {'id': '9' * 243, 'url': EVENT_URL, 'modified': '20990101T000000Z'}
+        boundary_record = meetup.map_event(GROUP, boundary_entry, PAGE)
+        self.assertEqual(len(boundary_record['id'].encode('utf-8')), 256)
+        self.assertEqual(boundary_record['id'], f'meetup-event-{"9" * 243}')
+
+        oversized_entry = {'id': '9' * 244, 'url': EVENT_URL, 'modified': '20990101T000000Z'}
+        with self.assertRaises(ValueError):
+            meetup.map_event(GROUP, oversized_entry, PAGE)
+
+        table = FakeTable()
+        with patch.object(meetup, 'timezone_from_feed', return_value=[oversized_entry]), \
+                patch.object(meetup, 'fetch_event_page', return_value=PAGE):
+            result = meetup.synchronize(table=table, groups=[dict(GROUP)])
+        self.assertEqual(result['changed'], 0)
+        self.assertEqual(len(result['failures']), 1)
+        self.assertEqual(table.puts, [])
+        self.assertEqual(table.transactions, [])
+        self.assertEqual(table.updates, [])
+
     def test_map_event_rejects_missing_empty_or_nonstring_title_and_trims_valid_title(self):
         entry = meetup.parse_feed(ICAL, GROUP)[0]
         invalid_names = ('missing', '', '   ', None, 42, [], '\ufeff', ' \ufeff \t', '\t\ufeff\ufeff ')

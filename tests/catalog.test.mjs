@@ -98,6 +98,20 @@ test('projects only published public fields and sorts by descending order', () =
   assert.equal(JSON.stringify(result).includes('private-sentinel'), false);
 });
 
+test('catalog resource IDs use a 256-byte UTF-8 boundary', () => {
+  const asciiBoundary = 'x'.repeat(256);
+  const utf8Boundary = 'é'.repeat(128);
+  const utf8Oversized = `${utf8Boundary}a`;
+  assert.equal(Buffer.byteLength(asciiBoundary, 'utf8'), 256);
+  assert.equal(Buffer.byteLength(utf8Boundary, 'utf8'), 256);
+  assert.equal(Buffer.byteLength(utf8Oversized, 'utf8'), 257);
+
+  assert.equal(projectPublishedCatalog([record({ id: asciiBoundary })])[0].id, asciiBoundary);
+  assert.equal(projectPublishedCatalog([record({ id: utf8Boundary })])[0].id, utf8Boundary);
+  assert.throws(() => projectPublishedCatalog([record({ id: 'x'.repeat(257) })]));
+  assert.throws(() => projectPublishedCatalog([record({ id: utf8Oversized })]));
+});
+
 test('rejects malformed publication flags instead of coercing strings', () => {
   assert.throws(
     () => projectPublishedCatalog([record({ published: 'true' })]),
