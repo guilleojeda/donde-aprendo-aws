@@ -190,6 +190,7 @@ type SeriesReconcileOutcome = 'confirmed' | 'uncertain' | 'conflict';
 let seriesReconcileOutcome: SeriesReconcileOutcome = 'confirmed';
 let manualSlug = false;
 let photoUploadId: string | undefined;
+let photoUploadFile: File | undefined;
 let catalogEntries: CreatorCatalogSelectionDTO[] | undefined;
 let catalogLoad: Promise<void> | undefined;
 let catalogSelection: CreatorCatalogSelectionDTO | undefined;
@@ -2282,6 +2283,7 @@ function resetForm(name: string, form: HTMLFormElement) {
       photo.value = '';
     }
     photoUploadId = undefined;
+    photoUploadFile = undefined;
     setHidden(form.querySelector('[data-owner-check-photo]'), true);
   } else if (name === 'enlace') {
     const context = activeLinkContext;
@@ -3368,13 +3370,26 @@ async function saveMoveForm(form: HTMLFormElement) {
 }
 
 async function reconcileOwnerData(canAdopt?: () => boolean): Promise<boolean> {
+  const editorRevision = ownerEditorRevision;
+  const writeRevision = ownerWriteRevision;
+  const formAtReadStart = activeForm;
+  const editorAtReadStart = activeEditor;
+  const addLinkFormAtReadStart = formAtReadStart?.dataset.ownerForm === 'alta-enlace'
+    && editorAtReadStart === 'alta-enlace';
+  const canAdoptCurrentContext = () => ownerEditorRevision === editorRevision
+    && ownerWriteRevision === writeRevision
+    && (addLinkFormAtReadStart
+      ? activeForm === formAtReadStart && activeEditor === editorAtReadStart
+      : formAtReadStart === undefined && editorAtReadStart === undefined
+        && activeForm === undefined && activeEditor === undefined
+        && !(formState?.hasPendingChanges() ?? false));
   try {
     const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
     if (response.status === 401) await sessionRecovery?.observeWriteResponse(response);
     if (!response.ok) return false;
     const payload = await responsePayload(response);
     if (!payload || !isOwnerData(payload) || !state?.profile || payload.profile?.id !== state.profile.id) return false;
-    if (canAdopt && !canAdopt()) return false;
+    if (!canAdoptCurrentContext() || (canAdopt && !canAdopt())) return false;
     state.profile = payload.profile;
     state.links = payload.links;
     state.editableResources = payload.editableResources;
@@ -3486,6 +3501,13 @@ async function retrySeriesReconcile() {
   }
   if (!reconciled) {
     if (!canAdopt()) {
+      seriesReconcileReadPending = true;
+      setChapterActionsUnavailable(true);
+      if (retry) {
+        retry.disabled = false;
+        retry.textContent = seriesReconcileOutcome === 'confirmed' ? 'Volver a consultar la lista' : 'Volver a comprobar la lista';
+        retry.hidden = false;
+      }
       announce(status, 'No aplicamos esta lectura: hubo una edición o escritura mientras comprobábamos. Conservamos sus valores y versiones; vuelve a comprobar la lista.', 'info');
       return;
     }
@@ -3607,8 +3629,24 @@ async function deleteOwnerSeries(seriesId: string) {
     if (current?.serie === series.id) {
       updateSeriesQuery({ ...current, serie: '', buscarCapitulos: '', pertenencia: 'todos', paginaCapitulos: 1 }, 'replace');
     } else renderOwnerSeries(current);
-    await reconcileOwnerData();
-    announce(seriesStatus(), 'Serie eliminada. Tus enlaces, opciones y las otras series siguen en tu página.', 'success');
+    seriesReconcileReadPending = true;
+    seriesReconcileOutcome = 'confirmed';
+    setChapterActionsUnavailable(true);
+    const retry = root?.querySelector<HTMLButtonElement>('[data-series-reconcile-retry]');
+    if (retry) {
+      retry.textContent = 'Volver a consultar la lista';
+      retry.hidden = true;
+      retry.disabled = false;
+    }
+    if (await reconcileOwnerData()) {
+      seriesReconcileReadPending = false;
+      if (retry) retry.hidden = true;
+      setChapterActionsUnavailable(false);
+      announce(seriesStatus(), 'Serie eliminada. Tus enlaces, opciones y las otras series siguen en tu página.', 'success');
+    } else {
+      if (retry) retry.hidden = false;
+      announce(seriesStatus(), 'Serie eliminada. No pudimos actualizar la lista; puedes volver a consultarla antes de continuar.', 'info');
+    }
     const search = root?.querySelector<HTMLElement>('[data-series-search]');
     if (search?.isConnected) window.requestAnimationFrame(() => search.focus());
   } catch {
@@ -4111,8 +4149,11 @@ async function checkClaimHistory() {
   if (check) check.disabled = true;
   try {
     const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
+    if (response.status === 401) await sessionRecovery?.observeWriteResponse(response);
     if (!response.ok) {
-      announceWrite('reclamacion', `No pudimos comprobar Solicitudes (${response.status}). Conservamos el formulario.`, 'error');
+      announceWrite('reclamacion', response.status === 401
+        ? sessionRecovery?.writeFailureMessage() ?? statusMessage(401)
+        : `No pudimos comprobar Solicitudes (${response.status}). Conservamos el formulario.`, 'error');
       return;
     }
     let payload: unknown;
@@ -4324,7 +4365,7 @@ async function reincludeResource(resourceId: string, observedVersion: number) {
     }
     const link = payload.link;
     if (payload.created !== true) {
-      if (!await reconcileOwnerData()) announceWrite('enlace', 'El enlace ya estaba en tu página. Actualiza la lista para comprobar su estado.', 'error');
+      if (!await reconcileOwnerData()) announceWrite('enlace', 'El enlace ya está en tu página. No pudimos actualizar la lista; vuelve a seleccionar «Volver a agregar» cuando termines cualquier edición para comprobarla.', 'info');
       else announceWrite('enlace', 'El enlace ya estaba en tu página. No cambiamos sus opciones.', 'info');
       return;
     }
@@ -4595,7 +4636,9 @@ function validPhoto(photo: unknown): photo is NonNullable<CreatorProfileDTO['pho
 
 async function checkPhotoStatus(form: HTMLFormElement) {
   const editorRevision = ownerEditorRevision;
+  const writeRevision = ownerWriteRevision;
   const isCurrent = () => ownerEditorRevision === editorRevision
+    && ownerWriteRevision === writeRevision
     && activeForm === form && activeEditor === 'foto' && !form.hidden;
   const checkButton = form.querySelector<HTMLButtonElement>('[data-owner-check-photo]');
   if (checkButton) checkButton.disabled = true;
@@ -4612,8 +4655,18 @@ async function checkPhotoStatus(form: HTMLFormElement) {
     const latest = payload.profile;
     const currentVersion = state?.profile?.version;
     if (photoUploadId && String(latest.photo?.version) === photoUploadId) {
-      updateProfileState(latest);
       const input = field(form, 'photo') as HTMLInputElement | null;
+      const selectedFile = input?.files?.[0];
+      const acknowledgedFile = photoUploadFile;
+      photoUploadId = undefined;
+      photoUploadFile = undefined;
+      updateProfileState(latest);
+      if (selectedFile && selectedFile !== acknowledgedFile) {
+        if (latest.version !== currentVersion) hydrateInactiveForms(form);
+        setHidden(checkButton, true);
+        announceWrite('foto', 'La carga anterior quedó guardada. Conservamos la imagen nueva que elegiste; guárdala para cambiarla.', 'info');
+        return;
+      }
       if (input) input.value = '';
       formState?.commit(capture(form));
       setHidden(checkButton, true);
@@ -4628,7 +4681,7 @@ async function checkPhotoStatus(form: HTMLFormElement) {
   } catch {
     if (isCurrent()) announceWrite('foto', PHOTO_UNCONFIRMED, 'error');
   } finally {
-    if (checkButton) checkButton.disabled = false;
+    if (checkButton && !writeGuard?.isActive()) checkButton.disabled = false;
   }
 }
 
@@ -4646,6 +4699,7 @@ async function uploadPhoto(form: HTMLFormElement) {
   form.setAttribute('aria-busy', 'true');
   let finalizationRequested = false;
   photoUploadId = undefined;
+  photoUploadFile = undefined;
   setHidden(form.querySelector('[data-owner-check-photo]'), true);
   try {
     const authorize = await jsonRequest('/api/creador/foto/autorizar', 'POST', { version: expectedVersion });
@@ -4664,6 +4718,7 @@ async function uploadPhoto(form: HTMLFormElement) {
       return;
     }
     photoUploadId = upload.uploadId;
+    photoUploadFile = file;
     const formData = new FormData();
     for (const [key, value] of Object.entries(upload.post.fields)) {
       if (typeof value === 'string') formData.append(key, value);
@@ -4699,6 +4754,8 @@ async function uploadPhoto(form: HTMLFormElement) {
     }
     const updated = { ...profile, photo, version: matching.after };
     updateProfileState(updated);
+    photoUploadId = undefined;
+    photoUploadFile = undefined;
     clearRecoveryNotice();
     if (input) input.value = '';
     formState?.commit(capture(form));

@@ -117,7 +117,6 @@ const publicSeriesPath = selectedSeries && canPublishSeries && data.profile && c
       {chapterSelection && chapterSelection.query.paginaCapitulos < chapterSelection.pageCount && <a class="button button--outline" data-series-chapter-page href={chapterPageHref(chapterSelection.query.paginaCapitulos + 1)}>Siguiente</a>}
     </nav>
     <p class="creator-owner__status" data-series-write-status role="status" aria-live="polite"></p>
-    <button class="button button--outline" type="button" data-series-reconcile-retry hidden>Volver a consultar la lista</button>
   </section>
   <section class="creator-owner__series-list-view" data-owner-series-list-view hidden={Boolean(queryError) || Boolean(query.serie)}>
       <form class="creator-owner__series-filters" method="get" action="/cuenta/" data-series-filters>
@@ -163,4 +162,5 @@ const publicSeriesPath = selectedSeries && canPublishSeries && data.profile && c
       </nav>
       <p class="creator-owner__status" data-series-write-status role="status" aria-live="polite"></p>
   </section>
+  <button class="button button--outline" type="button" data-series-reconcile-retry hidden>Volver a consultar la lista</button>
 </section>

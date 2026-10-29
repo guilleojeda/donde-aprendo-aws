@@ -372,9 +372,16 @@ async function createHarness({ csrfToken = 'csrf-a', existingPhoto = false } = {
   return { runtime, photos, photoObjects, profile, surface, http };
 }
 
-function mount(harness, { failFirstAuthorize, loseFinalizeAck, changeAtDirectUpload } = {}) {
+function mount(harness, { failFirstAuthorize, loseFinalizeAck, changeAtDirectUpload, holdProfileRead } = {}) {
   let activeSession = 'creator-a';
   let rejectFirstAuthorize = failFirstAuthorize;
+  let profileReadHeld = false;
+  let profileReadStarted;
+  let releaseProfileRead;
+  const profileReadReady = holdProfileRead
+    ? new Promise((resolve) => { profileReadStarted = resolve; })
+    : Promise.resolve();
+  const waitForProfileRead = () => new Promise((resolve) => { releaseProfileRead = resolve; });
   const requests = [];
   const fetch = async (input, init = {}) => {
     const url = new URL(String(input), SITE_ORIGIN);
@@ -403,12 +410,31 @@ function mount(harness, { failFirstAuthorize, loseFinalizeAck, changeAtDirectUpl
       record.status = response.status;
       return response;
     }
-    const response = await harness.http(new Request(url, {
+    let response = await harness.http(new Request(url, {
       method,
       headers,
       ...(init.body === undefined ? {} : { body: init.body }),
     }));
     record.status = response.status;
+    if (record.path === '/api/creador/perfil' && method === 'GET' && holdProfileRead && !profileReadHeld) {
+      profileReadHeld = true;
+      if (holdProfileRead === 'fetch') {
+        profileReadStarted();
+        await waitForProfileRead();
+      } else if (holdProfileRead === 'json') {
+        const cloneResponse = response.clone.bind(response);
+        response.clone = () => {
+          const clone = cloneResponse();
+          const parseJson = clone.json.bind(clone);
+          clone.json = async () => {
+            profileReadStarted();
+            await waitForProfileRead();
+            return parseJson();
+          };
+          return clone;
+        };
+      }
+    }
     if (record.path === '/api/creador/foto/autorizar' && response.ok) {
       record.payload = await response.clone().json();
     }
@@ -442,6 +468,8 @@ function mount(harness, { failFirstAuthorize, loseFinalizeAck, changeAtDirectUpl
   return {
     requests,
     ready: mounted,
+    profileReadReady,
+    releaseProfileRead() { releaseProfileRead?.(); },
     setSession(id) { activeSession = id; },
   };
 }
@@ -552,6 +580,147 @@ test('un acuse perdido después del commit conserva la foto anterior en pantalla
   assert.equal(pathRequests(data.mount.requests, '/api/creador/foto/autorizar', 'POST').length, 1);
   assert.equal(pathRequests(data.mount.requests, '/api/creador/foto/finalizar', 'POST').length, 1,
     'checking the result does not replay the upload or finalization');
+});
+
+test('comprobar la foto A conserva la selección B y permite subirla después de confirmar A', async () => {
+  const data = await createHarness({ existingPhoto: true });
+  data.mount = mount(data, { loseFinalizeAck: true });
+  await openPhotoEditor(data);
+  const fileA = data.surface.controls.fileInput.files[0];
+  const bytesB = await sharp({
+    create: { width: 80, height: 60, channels: 3, background: { r: 230, g: 60, b: 20 } },
+  }).png().toBuffer();
+  const fileB = new File([bytesB], 'correction-B.png', { type: 'image/png' });
+
+  await data.surface.forms.foto.dispatch('submit');
+  assert.equal(pathRequests(data.mount.requests, '/api/creador/foto/finalizar', 'POST')[0].status, 503);
+  const committedA = await data.runtime.pages.store.get(`profile:${data.profile.id}`);
+  assert.notEqual(fileA, fileB);
+  data.surface.controls.fileInput.files = [fileB];
+
+  await clickCheckPhoto(data);
+
+  assert.equal(data.surface.root.dataset.profileVersion, String(committedA.version), 'the check confirms A against the saved profile');
+  assert.equal(data.surface.controls.photoImage.getAttribute('src'), `/media/fotos/${data.profile.id}/${committedA.photo.version}.webp`);
+  assert.equal(data.surface.controls.fileInput.files[0], fileB, 'the distinct correction selected before the check remains selected');
+  assert.equal(data.surface.controls.dialog.open, true, 'confirming A does not close the editor containing B');
+  assert.equal(data.surface.controls.checkPhoto.hidden, true, 'the completed check for A is no longer offered');
+  assert.match(data.surface.controls.photoStatus.textContent, /Conservamos la imagen nueva.*guárdala/i);
+  assert.equal(pathRequests(data.mount.requests, '/api/creador/foto/autorizar', 'POST').length, 1,
+    'the check does not start an upload for B');
+
+  await data.surface.forms.foto.dispatch('submit');
+
+  const authorizations = pathRequests(data.mount.requests, '/api/creador/foto/autorizar', 'POST');
+  const uploads = pathRequests(data.mount.requests, '/direct-photo-upload', 'POST');
+  const finalizations = pathRequests(data.mount.requests, '/api/creador/foto/finalizar', 'POST');
+  const saved = await data.runtime.pages.store.get(`profile:${data.profile.id}`);
+  assert.equal(authorizations.length, 2, 'B starts only after the owner submits it explicitly');
+  assert.equal(uploads.length, 2);
+  assert.equal(Buffer.compare(Buffer.from(await uploads[1].file.arrayBuffer()), bytesB), 0,
+    'the second upload sends the distinct selected pixels from B');
+  assert.equal(finalizations.length, 2);
+  assert.equal(finalizations[1].status, 503, 'the harness also drops B acknowledgement after commit');
+  assert.equal(saved.photo.version, authorizations[1].payload.uploadId);
+  assert.equal(data.surface.controls.fileInput.files[0], fileB, 'B remains selected while its own result is uncertain');
+  assert.equal(data.surface.controls.checkPhoto.hidden, false);
+});
+
+test('una respuesta JSON tardía de Foto no cruza cancelar y reabrir el editor', async () => {
+  const data = await createHarness();
+  data.mount = mount(data, { loseFinalizeAck: true, holdProfileRead: 'json' });
+  await openPhotoEditor(data);
+  await data.surface.forms.foto.dispatch('submit');
+  const committedA = await data.runtime.pages.store.get(`profile:${data.profile.id}`);
+  await clickCheckPhoto(data);
+  await data.mount.profileReadReady;
+
+  await data.surface.controls.cancelButton.dispatch('click');
+  assert.equal(data.surface.controls.exitPrompt.hidden, false, 'discarding the pending upload asks how to leave');
+  await data.surface.controls.exitDiscard.dispatch('click');
+  assert.equal(data.surface.controls.dialog.open, false);
+  await openPhotoEditor(data);
+  const bytesB = await sharp({
+    create: { width: 80, height: 60, channels: 3, background: { r: 230, g: 60, b: 20 } },
+  }).png().toBuffer();
+  const fileB = new File([bytesB], 'reopened-correction-B.png', { type: 'image/png' });
+  data.surface.controls.fileInput.files = [fileB];
+  data.mount.releaseProfileRead();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(data.surface.root.dataset.profileVersion, String(data.profile.version),
+    'the response started in the cancelled editor cannot advance the reopened editor version');
+  assert.equal(data.surface.controls.dialog.open, true);
+  assert.equal(data.surface.controls.fileInput.files[0], fileB,
+    'the late response cannot clear the different file chosen in the reopened editor');
+  assert.equal(data.surface.controls.checkPhoto.hidden, true,
+    'the cancelled check cannot expose or consume recovery state in the new editor');
+
+  await data.surface.forms.foto.dispatch('submit');
+  const firstBAttempt = pathRequests(data.mount.requests, '/api/creador/foto/autorizar', 'POST')[1];
+  assert.equal(firstBAttempt.status, 409, 'the reopened form still uses its originally observed version');
+  assert.equal(data.surface.controls.fileInput.files[0], fileB);
+  assert.equal(data.surface.controls.checkPhoto.hidden, false, 'the explicit conflict offers a fresh status check');
+  await clickCheckPhoto(data);
+  assert.equal(data.surface.root.dataset.profileVersion, String(committedA.version));
+  assert.equal(data.surface.controls.fileInput.files[0], fileB,
+    'the fresh status check adopts A without consuming B');
+
+  await data.surface.forms.foto.dispatch('submit');
+  const saved = await data.runtime.pages.store.get(`profile:${data.profile.id}`);
+  const authorizations = pathRequests(data.mount.requests, '/api/creador/foto/autorizar', 'POST');
+  assert.equal(authorizations.length, 3, 'only the owner-submitted 409 and later manual retry are added');
+  assert.equal(saved.photo.version, authorizations[2].payload.uploadId);
+  assert.equal(pathRequests(data.mount.requests, '/direct-photo-upload', 'POST').length, 2,
+    'the rejected stale-version attempt never sends B to the upload service');
+});
+
+test('un GET de Foto anterior no revierte un nuevo intento de carga en curso', async () => {
+  const data = await createHarness();
+  data.mount = mount(data, { loseFinalizeAck: true, holdProfileRead: 'fetch' });
+  await openPhotoEditor(data);
+  await data.surface.forms.foto.dispatch('submit');
+  const firstCommitted = await data.runtime.pages.store.get(`profile:${data.profile.id}`);
+  await clickCheckPhoto(data);
+  await data.mount.profileReadReady;
+
+  const bytesB = await sharp({
+    create: { width: 80, height: 60, channels: 3, background: { r: 230, g: 60, b: 20 } },
+  }).png().toBuffer();
+  const fileB = new File([bytesB], 'concurrent-correction-B.png', { type: 'image/png' });
+  data.surface.controls.fileInput.files = [fileB];
+  await data.surface.forms.foto.dispatch('submit');
+  const staleAttempt = pathRequests(data.mount.requests, '/api/creador/foto/autorizar', 'POST')[1];
+  assert.equal(staleAttempt.status, 409, 'B cannot start with the old profile version after A committed');
+  const stillCommittedA = await data.runtime.pages.store.get(`profile:${data.profile.id}`);
+  assert.equal(stillCommittedA.photo.version, firstCommitted.photo.version);
+  assert.equal(data.surface.controls.dialog.open, true, 'the lost acknowledgement keeps the active Foto context open');
+  assert.equal(data.surface.controls.fileInput.files[0], fileB);
+
+  data.mount.releaseProfileRead();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(data.surface.root.dataset.profileVersion, String(data.profile.version),
+    'the old response is ignored after a later write entered, even while its editor remains open');
+  assert.equal(data.surface.controls.photoImage.getAttribute('src'), null,
+    'the old check cannot advance the active editor after B started a write');
+  assert.equal(data.surface.controls.fileInput.files[0], fileB);
+  assert.match(data.surface.controls.photoStatus.textContent, /perfil cambió/i,
+    'the stale check does not replace the newer 409 recovery message');
+
+  await clickCheckPhoto(data);
+  assert.equal(data.surface.root.dataset.profileVersion, String(stillCommittedA.version));
+  assert.equal(data.surface.controls.photoImage.getAttribute('src'), `/media/fotos/${data.profile.id}/${stillCommittedA.photo.version}.webp`);
+  assert.equal(data.surface.controls.fileInput.files[0], fileB,
+    'the manual read reconciles A while keeping B for an explicit retry');
+
+  await data.surface.forms.foto.dispatch('submit');
+  const committedB = await data.runtime.pages.store.get(`profile:${data.profile.id}`);
+  assert.equal(committedB.photo.version, pathRequests(data.mount.requests, '/api/creador/foto/autorizar', 'POST')[2].payload.uploadId);
+  assert.equal(data.surface.controls.fileInput.files[0], fileB, 'B stays selected while its own acknowledgement is uncertain');
+  await clickCheckPhoto(data);
+  assert.equal(data.surface.root.dataset.profileVersion, String(committedB.version));
+  assert.equal(data.surface.controls.photoImage.getAttribute('src'), `/media/fotos/${data.profile.id}/${committedB.photo.version}.webp`);
+  assert.equal(data.surface.controls.fileInput.files.length, 0, 'the current B receipt is matched to its own selected File');
 });
 
 test('volver a abrir la edición de foto limpia los avisos de éxito del formulario y de la página', async () => {
