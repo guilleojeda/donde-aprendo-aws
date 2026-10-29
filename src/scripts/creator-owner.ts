@@ -177,9 +177,20 @@ let moveComparisonData: CreatorEditorDTO | undefined;
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
 let seriesSearchTimer: ReturnType<typeof setTimeout> | undefined;
 let activeSeriesContext: { seriesId?: string } | undefined;
+type SeriesCreateOutcome = 'conflict' | 'uncertain';
+type SeriesCreateAttempt = {
+  profileId: string;
+  profileVersion: number;
+  requestedSlug: string;
+  submitted: SeriesFormValues;
+  outcome?: SeriesCreateOutcome;
+};
+type SeriesFormValues = { name: string; slug: string; description: string };
+let activeSeriesCreateAttempt: SeriesCreateAttempt | undefined;
 let seriesContextRevision = 0;
 let seriesCompareGeneration = 0;
 let seriesComparisonData: CreatorEditorDTO | undefined;
+let seriesComparisonFormValues: SeriesFormValues | undefined;
 let activeChapterMoveContext: { seriesId: string; placementId: string } | undefined;
 let chapterMoveContextRevision = 0;
 let chapterMoveCompareGeneration = 0;
@@ -1057,7 +1068,9 @@ function showDialogForm(form: HTMLFormElement, name: NonNullable<typeof activeEd
     seriesContextRevision += 1;
     seriesCompareGeneration += 1;
     seriesComparisonData = undefined;
+    seriesComparisonFormValues = undefined;
     activeSeriesContext = undefined;
+    activeSeriesCreateAttempt = undefined;
   }
   hideDialogForms();
   setHidden(catalogPanel(), name !== 'referencia' && name !== 'reclamacion');
@@ -1640,10 +1653,32 @@ function seriesById(id: string | undefined): CreatorSeriesDTO | undefined {
   return id ? state?.series.find((item) => item.id === id) : undefined;
 }
 
+function setSeriesEditorIdentity(form: HTMLFormElement, item: CreatorSeriesDTO) {
+  const context = form.querySelector<HTMLElement>('[data-series-form-context]');
+  if (context) context.textContent = `Editando «${item.name}».`;
+  const title = root?.querySelector<HTMLElement>('[data-owner-dialog-title]');
+  if (title) title.textContent = `Editar serie: ${item.name}`;
+}
+
+function seriesFormValues(form: HTMLFormElement): SeriesFormValues {
+  return {
+    name: String(field(form, 'name')?.value ?? ''),
+    slug: String(field(form, 'slug')?.value ?? ''),
+    description: String(field(form, 'description')?.value ?? ''),
+  };
+}
+
+function sameSeriesFormValues(left: SeriesFormValues, right: SeriesFormValues): boolean {
+  return left.name === right.name && left.slug === right.slug && left.description === right.description;
+}
+
 function clearSeriesConflict(form: HTMLFormElement) {
   seriesCompareGeneration += 1;
   seriesComparisonData = undefined;
+  seriesComparisonFormValues = undefined;
   const conflict = form.querySelector<HTMLElement>('[data-series-conflict]');
+  const title = conflict?.querySelector('h3');
+  if (title) title.textContent = 'La serie cambió';
   setHidden(conflict, true);
   const comparison = conflict?.querySelector<HTMLElement>('[data-owner-comparison]');
   if (comparison) comparison.textContent = '';
@@ -1666,6 +1701,7 @@ function openSeriesEditor(trigger: HTMLElement, seriesId?: string) {
   activeLinkContext = undefined;
   linkContextRevision += 1;
   activeSeriesContext = item ? { seriesId: item.id } : {};
+  activeSeriesCreateAttempt = undefined;
   seriesContextRevision += 1;
   seriesSlugManuallyEdited = Boolean(item);
   clearSeriesConflict(form);
@@ -2283,6 +2319,7 @@ function closeDialog({ navigate = true }: { navigate?: boolean } = {}) {
   seriesContextRevision += 1;
   seriesCompareGeneration += 1;
   seriesComparisonData = undefined;
+  seriesComparisonFormValues = undefined;
   chapterMoveContextRevision += 1;
   chapterMoveCompareGeneration += 1;
   chapterMoveComparisonData = undefined;
@@ -2302,6 +2339,7 @@ function closeDialog({ navigate = true }: { navigate?: boolean } = {}) {
   activeLinkContext = undefined;
   activeMoveContext = undefined;
   activeSeriesContext = undefined;
+  activeSeriesCreateAttempt = undefined;
   activeChapterMoveContext = undefined;
   if (activeForm !== formFor('crear')) activeForm = undefined;
   clearConflict(undefined);
@@ -2613,15 +2651,22 @@ function updateSeriesState(next: CreatorSeriesDTO, profileVersion: number) {
   renderOwnerSeries();
 }
 
-function showSeriesConflict(form: HTMLFormElement, message = 'La serie cambió desde que abriste esta edición. Compara lo guardado con tu corrección antes de decidir cómo seguir.') {
+function showSeriesConflict(
+  form: HTMLFormElement,
+  message = 'La serie cambió desde que abriste esta edición. Compara lo guardado con tu corrección antes de decidir cómo seguir.',
+  status = statusMessage(409),
+) {
   const conflict = form.querySelector<HTMLElement>('[data-series-conflict]');
   setHidden(conflict, false);
+  const title = conflict?.querySelector('h3');
+  if (title) title.textContent = activeSeriesContext?.seriesId ? 'La serie cambió' : 'Revisar el alta';
   const copy = conflict?.querySelector<HTMLElement>('[data-owner-conflict-copy]');
   if (copy) copy.textContent = message;
   setHidden(conflict?.querySelector('[data-owner-comparison]'), true);
   setHidden(conflict?.querySelector('[data-owner-adopt]'), true);
   seriesComparisonData = undefined;
-  announceWrite('serie', statusMessage(409), 'error');
+  seriesComparisonFormValues = undefined;
+  announceWrite('serie', status, 'error');
 }
 
 async function saveSeriesForm(form: HTMLFormElement) {
@@ -2636,9 +2681,45 @@ async function saveSeriesForm(form: HTMLFormElement) {
     announceWrite('serie', 'La serie ya no está disponible. Actualiza la lista antes de crear o editar otra.', 'error');
     return;
   }
+  if (!context.seriesId && activeSeriesCreateAttempt) {
+    const conflict = form.querySelector<HTMLElement>('[data-series-conflict]');
+    const copy = conflict?.querySelector<HTMLElement>('[data-owner-conflict-copy]');
+    const previousComparison = seriesComparisonFormValues;
+    const currentValues = seriesFormValues(form);
+    const comparisonChanged = previousComparison !== undefined
+      && !sameSeriesFormValues(currentValues, previousComparison);
+    if (comparisonChanged) {
+      seriesComparisonData = undefined;
+      seriesComparisonFormValues = undefined;
+      setHidden(form.querySelector('[data-owner-comparison]'), true);
+      setHidden(form.querySelector('[data-owner-adopt]'), true);
+    }
+    const adopt = form.querySelector<HTMLButtonElement>('[data-owner-adopt]');
+    const cannotAdopt = Boolean(seriesComparisonData && adopt?.hidden);
+    setHidden(conflict, false);
+    const title = conflict?.querySelector('h3');
+    if (title) title.textContent = 'Revisar el alta';
+    if (copy && comparisonChanged) {
+      copy.textContent = 'Tus campos cambiaron después de la comparación. Compara de nuevo el alta original antes de decidir cómo seguir.';
+    } else if (copy && cannotAdopt) {
+      copy.textContent = 'No pudimos vincular el alta original a una serie actual. Conservamos tus campos; revisa la lista o descarta esta edición antes de iniciar otra.';
+    } else if (copy && !seriesComparisonData) {
+      copy.textContent = 'Compara el alta original con el estado guardado antes de volver a guardar. No repetiremos el alta desde estos campos.';
+    }
+    const message = comparisonChanged
+      ? 'Tus campos cambiaron después de la comparación. Vuelve a comparar antes de adoptar una versión.'
+      : cannotAdopt
+        ? 'No pudimos vincular el alta a una serie actual. Conservamos tus campos y no volveremos a enviarla.'
+        : seriesComparisonData
+          ? 'Adopta la versión que comparaste antes de guardar. El alta original no se volverá a enviar.'
+          : 'Compara el alta original antes de volver a guardar. No volveremos a enviarla.';
+    announceWrite('serie', message, 'info');
+    return;
+  }
   if (!form.reportValidity()) return;
   const submitted = capture(form);
   const values = new FormData(form);
+  const submittedFields = seriesFormValues(form);
   const name = String(values.get('name') ?? '').trim();
   const slug = String(values.get('slug') ?? '').trim();
   const description = String(values.get('description') ?? '').trim();
@@ -2650,19 +2731,42 @@ async function saveSeriesForm(form: HTMLFormElement) {
   const body = existing
     ? { version: existing.version, profileVersion: profile.version, name, slug, description }
     : { name, slug, ...(description ? { description } : {}), profileVersion: profile.version };
+  if (!existing) {
+    activeSeriesCreateAttempt = {
+      profileId: profile.id,
+      profileVersion: profile.version,
+      requestedSlug: slug,
+      submitted: submittedFields,
+    };
+  }
   form.setAttribute('aria-busy', 'true');
   seriesCompareGeneration += 1;
   seriesComparisonData = undefined;
+  seriesComparisonFormValues = undefined;
   try {
     const response = await jsonRequest(path, existing ? 'PATCH' : 'POST', body);
     if (!response.ok) {
       if (response.status === 409) {
         const failure = await responsePayload(response);
         if (failure?.error === 'SERIES_SLUG_TAKEN') {
+          activeSeriesCreateAttempt = undefined;
           clearSeriesConflict(form);
           announceWrite('serie', await creatorSeriesFailureMessage(response, statusMessage(response.status)), 'error');
-        } else showSeriesConflict(form);
-      } else announceWrite('serie', statusMessage(response.status), 'error');
+        } else {
+          if (!existing && activeSeriesCreateAttempt) activeSeriesCreateAttempt.outcome = 'conflict';
+          showSeriesConflict(form, existing
+            ? undefined
+            : 'La creación encontró un conflicto. Compara el estado actual y decide expresamente cómo seguir.');
+        }
+      } else if (!existing && (response.status === 408 || response.status >= 500)) {
+        if (activeSeriesCreateAttempt) activeSeriesCreateAttempt.outcome = 'uncertain';
+        showSeriesConflict(form,
+          'No pudimos confirmar si la serie se creó. Comprueba lo guardado antes de volver a intentar; no repetiremos el alta automáticamente.',
+          'No pudimos confirmar el alta. Compara el estado guardado antes de volver a intentar.');
+      } else {
+        if (!existing) activeSeriesCreateAttempt = undefined;
+        announceWrite('serie', statusMessage(response.status), 'error');
+      }
       return;
     }
     const payload = await responsePayload(response);
@@ -2680,16 +2784,21 @@ async function saveSeriesForm(form: HTMLFormElement) {
       && next.version === (existing?.version ?? 0) + Number(changed)
       && changesEqual(changes, expected);
     if (!valid || !isCreatorSeries(next)) {
-      showSeriesConflict(form, 'La respuesta no coincide con las versiones y los datos de esta serie. Conservamos tu edición para revisarla.');
-      announceWrite('serie', 'No pudimos comprobar el recibo de la serie. Conservamos tu edición y no la marcamos como guardada.', 'error');
+      if (!existing && activeSeriesCreateAttempt) activeSeriesCreateAttempt.outcome = 'uncertain';
+      showSeriesConflict(form,
+        'La respuesta no coincide con las versiones y los datos de esta serie. Conservamos tu edición para revisarla.',
+        'No pudimos comprobar el recibo. Conservamos tu edición y no la marcamos como guardada.');
       return;
     }
     const profileVersion = profile.version + Number(changed);
     if (!existing) {
       activeSeriesContext = { seriesId: next.id };
+      activeSeriesCreateAttempt = undefined;
       seriesContextRevision += 1;
       seriesCompareGeneration += 1;
       seriesComparisonData = undefined;
+      seriesComparisonFormValues = undefined;
+      setSeriesEditorIdentity(form, next);
     }
     updateSeriesState(next, profileVersion);
     clearRecoveryNotice();
@@ -2709,7 +2818,14 @@ async function saveSeriesForm(form: HTMLFormElement) {
     }
     maybeExitAfterSave(unchanged);
   } catch {
-    announceWrite('serie', 'No pudimos confirmar la respuesta del servicio. La edición sigue abierta; comprueba el estado antes de volver a guardar.', 'error');
+    if (!existing && activeSeriesCreateAttempt) {
+      activeSeriesCreateAttempt.outcome = 'uncertain';
+      showSeriesConflict(form,
+        'No pudimos confirmar si la serie se creó. Comprueba lo guardado antes de volver a intentar; no repetiremos el alta automáticamente.',
+        'No pudimos confirmar el alta. Compara el estado guardado antes de volver a intentar.');
+    } else {
+      announceWrite('serie', 'No pudimos confirmar la respuesta del servicio. La edición sigue abierta; comprueba el estado antes de volver a guardar.', 'error');
+    }
   } finally {
     form.removeAttribute('aria-busy');
   }
@@ -2721,13 +2837,21 @@ function seriesComparisonIsCurrent(form: HTMLFormElement, seriesId: string | und
     && activeSeriesContext?.seriesId === seriesId;
 }
 
+function canAdoptSeriesCreateProfile(attempt: SeriesCreateAttempt, profile: CreatorProfileDTO): boolean {
+  return attempt.profileId === profile.id
+    && ((attempt.outcome === 'conflict' && profile.version > attempt.profileVersion)
+      || (attempt.outcome === 'uncertain' && profile.version === attempt.profileVersion));
+}
+
 async function compareSavedSeries(form: HTMLFormElement) {
   if (!activeSeriesContext || !state?.profile) return;
   const context = { ...activeSeriesContext };
   const profileId = state.profile.id;
+  const createAttempt = !context.seriesId ? activeSeriesCreateAttempt : undefined;
   const revision = seriesContextRevision;
   const generation = ++seriesCompareGeneration;
   seriesComparisonData = undefined;
+  seriesComparisonFormValues = undefined;
   setHidden(form.querySelector('[data-owner-adopt]'), true);
   setHidden(form.querySelector('[data-owner-comparison]'), true);
   announce(statusFor('serie'), 'Consultando la serie guardada…', 'info');
@@ -2745,21 +2869,54 @@ async function compareSavedSeries(form: HTMLFormElement) {
       announceWrite('serie', 'No pudimos confirmar que los datos guardados correspondan a esta página. Conservamos tu edición.', 'error');
       return;
     }
-    const saved = context.seriesId ? payload.series.find(({ id }) => id === context.seriesId) : undefined;
+    if (!context.seriesId && (!createAttempt || createAttempt.profileId !== profileId || !createAttempt.outcome)) {
+      announceWrite('serie', 'No pudimos identificar el alta que quieres comprobar. Conservamos tus campos y no adoptamos otra versión.', 'error');
+      return;
+    }
+    const matches = context.seriesId
+      ? payload.series.filter(({ id }) => id === context.seriesId)
+      : payload.series.filter(({ slug }) => slug === createAttempt?.requestedSlug);
+    if (matches.length > 1) {
+      announceWrite('serie', 'Hay más de una serie con la dirección enviada. Conservamos tus campos y no adoptamos una versión ambigua.', 'error');
+      return;
+    }
+    const saved = matches[0];
     if (context.seriesId && !saved) {
       announceWrite('serie', 'Esta serie ya no existe en la lista guardada. Conservamos los campos para que decidas cómo seguir.', 'error');
       return;
     }
     const comparison = form.querySelector<HTMLElement>('[data-owner-comparison]');
+    const adopt = form.querySelector<HTMLButtonElement>('[data-owner-adopt]');
+    const comparedFields = seriesFormValues(form);
+    seriesComparisonFormValues = comparedFields;
+    let canAdoptProfileOnly = false;
     if (comparison) {
-      comparison.textContent = saved
-        ? `Serie guardada, versión ${saved.version}.\nNombre guardado: ${saved.name || '—'} | Tu corrección: ${String(field(form, 'name')?.value ?? '') || '—'}\nDirección guardada: ${saved.slug || '—'} | Tu corrección: ${String(field(form, 'slug')?.value ?? '') || '—'}\nDescripción guardada: ${saved.description || '—'} | Tu corrección: ${String(field(form, 'description')?.value ?? '') || '—'}`
-        : 'No hay una serie guardada con esta dirección. Corrige el nombre o la dirección antes de volver a guardar.';
+      if (saved) {
+        comparison.textContent = `Perfil guardado, versión ${payload.profile.version}. Serie guardada, versión ${saved.version}.\nNombre guardado: ${saved.name || '—'} | Tu corrección: ${comparedFields.name || '—'}\nDirección guardada: ${saved.slug || '—'} | Tu corrección: ${comparedFields.slug || '—'}\nDescripción guardada: ${saved.description || '—'} | Tu corrección: ${comparedFields.description || '—'}`;
+        if (adopt) adopt.textContent = 'Usar la versión guardada';
+      } else if (createAttempt && canAdoptSeriesCreateProfile(createAttempt, payload.profile)) {
+        canAdoptProfileOnly = true;
+        comparison.textContent = createAttempt.outcome === 'conflict'
+          ? `Perfil guardado, versión ${payload.profile.version}. No hay una serie activa con la dirección enviada «${createAttempt.requestedSlug}». Si se usó antes, esa dirección podría seguir reservada por un alias. Conservamos el nombre, la dirección y la descripción para un intento manual.`
+          : `Perfil guardado, versión ${payload.profile.version}. Esta comprobación no muestra una serie activa con la dirección enviada «${createAttempt.requestedSlug}» y el perfil sigue en la versión enviada. No vemos cambios que indiquen que el alta se guardó; conservamos tus campos para un intento manual.`;
+        if (adopt) adopt.textContent = 'Usar la versión actual del perfil';
+      } else if (createAttempt) {
+        if (payload.profile.version < createAttempt.profileVersion) {
+          comparison.textContent = `La lectura devolvió el perfil versión ${payload.profile.version}, anterior a la versión ${createAttempt.profileVersion} enviada. Conservamos tus campos y no adoptamos una versión posiblemente desactualizada.`;
+        } else if (createAttempt.outcome === 'conflict') {
+          comparison.textContent = `Perfil guardado, versión ${payload.profile.version}. El intento fue rechazado y no encontramos una serie activa con la dirección enviada «${createAttempt.requestedSlug}». Esa dirección aún podría estar reservada por un alias. Conservamos tus campos y no adoptamos una versión que no avance el perfil.`;
+        } else {
+          comparison.textContent = `Perfil guardado, versión ${payload.profile.version}. No encontramos una serie activa con la dirección inicial «${createAttempt.requestedSlug}». La serie pudo cambiar de dirección o eliminarse; las direcciones anteriores pueden seguir reservadas. Conservamos tus campos y no adoptamos un registro que no podemos identificar.`;
+        }
+        if (adopt) adopt.textContent = 'Usar la versión guardada';
+      }
     }
     setHidden(comparison, false);
-    setHidden(form.querySelector('[data-owner-adopt]'), Boolean(!saved));
+    setHidden(adopt, Boolean(!saved && !canAdoptProfileOnly));
     seriesComparisonData = payload;
-    announceWrite('serie', 'Compara los valores y elige expresamente si quieres usar la versión guardada.', 'info');
+    announceWrite('serie', saved || canAdoptProfileOnly
+      ? 'Compara los valores y elige expresamente qué versión quieres usar.'
+      : 'No podemos vincular con seguridad esta creación a una serie actual. Conservamos tus campos.', 'info');
   } catch {
     if (seriesComparisonIsCurrent(form, context.seriesId, revision, generation)) {
       announceWrite('serie', 'No pudimos conectar para leer la serie guardada. Tu corrección sigue aquí.', 'error');
@@ -2772,22 +2929,37 @@ function adoptSavedSeries(form: HTMLFormElement) {
   const payload = seriesComparisonData;
   if (!context || !payload || activeForm !== form || activeEditor !== 'serie' || form.hidden
     || !isAdoptableOwnerData(payload) || !state?.profile || payload.profile.id !== state.profile.id) return;
-  const saved = context.seriesId ? payload.series.find(({ id }) => id === context.seriesId) : undefined;
+  const createAttempt = !context.seriesId ? activeSeriesCreateAttempt : undefined;
+  if (!context.seriesId && (!createAttempt || createAttempt.profileId !== payload.profile.id || !createAttempt.outcome)) return;
+  const matches = context.seriesId
+    ? payload.series.filter(({ id }) => id === context.seriesId)
+    : payload.series.filter(({ slug }) => slug === createAttempt?.requestedSlug);
+  if (matches.length > 1) return;
+  const saved = matches[0];
   if (context.seriesId && !saved) return;
-  const current = seriesById(context.seriesId);
+  const canAdoptProfileOnly = Boolean(!context.seriesId && createAttempt
+    && canAdoptSeriesCreateProfile(createAttempt, payload.profile));
+  if (!saved && !canAdoptProfileOnly) return;
   const name = field(form, 'name');
   const slug = field(form, 'slug');
   const description = field(form, 'description');
-  const localValues = {
-    name: name?.value ?? '',
-    slug: slug?.value ?? '',
-    description: description?.value ?? '',
-  };
+  const currentFields = seriesFormValues(form);
+  if (!seriesComparisonFormValues
+    || !sameSeriesFormValues(currentFields, seriesComparisonFormValues)) {
+    seriesComparisonData = undefined;
+    seriesComparisonFormValues = undefined;
+    setHidden(form.querySelector('[data-owner-adopt]'), true);
+    announceWrite('serie', 'Tus campos cambiaron después de la comparación. Vuelve a comparar antes de adoptar una versión.', 'info');
+    return;
+  }
+  const current = seriesById(context.seriesId);
+  const localValues = currentFields;
   if (saved) {
+    const comparisonBase = current ?? createAttempt?.submitted;
     const localCorrections = {
-      name: current && localValues.name !== current.name ? localValues.name : undefined,
-      slug: current && localValues.slug !== current.slug ? localValues.slug : undefined,
-      description: current && localValues.description !== (current.description ?? '') ? localValues.description : undefined,
+      name: comparisonBase && localValues.name !== comparisonBase.name ? localValues.name : undefined,
+      slug: comparisonBase && localValues.slug !== comparisonBase.slug ? localValues.slug : undefined,
+      description: comparisonBase && localValues.description !== (comparisonBase.description ?? '') ? localValues.description : undefined,
     };
     if (name) name.value = saved.name;
     if (slug) slug.value = saved.slug;
@@ -2797,8 +2969,12 @@ function adoptSavedSeries(form: HTMLFormElement) {
     if (slug && localCorrections.slug !== undefined) slug.value = localCorrections.slug;
     if (description && localCorrections.description !== undefined) description.value = localCorrections.description;
     seriesSlugManuallyEdited = true;
-    const formContext = form.querySelector<HTMLElement>('[data-series-form-context]');
-    if (formContext) formContext.textContent = `Editando «${saved.name}».`;
+    setSeriesEditorIdentity(form, saved);
+    activeSeriesContext = { seriesId: saved.id };
+    activeSeriesCreateAttempt = undefined;
+    seriesContextRevision += 1;
+  } else {
+    activeSeriesCreateAttempt = undefined;
   }
   adoptOwnerSnapshot(payload, form);
   clearSeriesConflict(form);
