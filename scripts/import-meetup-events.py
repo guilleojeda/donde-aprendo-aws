@@ -24,6 +24,8 @@ from zoneinfo import ZoneInfo
 ACCOUNT_ID = '719535286359'
 TABLE_NAME = 'donde-aprendo-aws-catalog'
 MEETUP_HOST = 'www.meetup.com'
+MAX_CATALOG_RESOURCE_ID_BYTES = 256
+EVENT_RESOURCE_ID = re.compile(r'^[A-Za-z0-9_-]{1,128}$')
 
 # These are the fields owned by the Meetup synchronizer.  Keeping the list
 # explicit makes the read projection and the equality check follow the same
@@ -44,6 +46,32 @@ NONPUBLISHABLE_EVENT_STATUSES = frozenset((
     'https://schema.org/EventMovedOnline',
     'https://schema.org/EventPostponed',
 ))
+
+
+def validate_catalog_resource_id(value):
+    if not isinstance(value, str) or not value or len(value.encode('utf-8')) > MAX_CATALOG_RESOURCE_ID_BYTES:
+        raise ValueError(f'Catalog resource ID must be at most {MAX_CATALOG_RESOURCE_ID_BYTES} UTF-8 bytes')
+    return value
+
+
+def validate_event_resource_id(value, field='Meetup event resource ID'):
+    if not isinstance(value, str) or not EVENT_RESOURCE_ID.fullmatch(value):
+        raise ValueError(f'{field} must use 1 to 128 ASCII letters, digits, underscores, or hyphens')
+    return value
+
+
+def meetup_event_resource_id(event_id):
+    if not isinstance(event_id, str) or not event_id:
+        raise ValueError('Meetup event ID is invalid')
+    return validate_event_resource_id(validate_catalog_resource_id(f'meetup-event-{event_id}'))
+
+
+def validate_meetup_event_record(record):
+    validate_event_resource_id(validate_catalog_resource_id(record.get('id')))
+    for field in ('communityId', 'sourceGroupId'):
+        if field in record:
+            validate_event_resource_id(record[field], field)
+    return record
 
 
 def validate_catalog_url(value):
@@ -235,6 +263,8 @@ def map_event(group, entry, page):
         return None
     if event_status not in PUBLISHABLE_EVENT_STATUSES:
         raise ValueError(f'Unknown event status: {entry["id"]}')
+    resource_id = meetup_event_resource_id(entry.get('id'))
+    community_id = validate_event_resource_id(f'meetup-{group["id"]}', 'Meetup community ID')
     name = page.get('name')
     title = re.sub(r'^[\s\ufeff]+|[\s\ufeff]+$', '', name) if isinstance(name, str) else ''
     if not title:
@@ -272,7 +302,7 @@ def map_event(group, entry, page):
             city = ''
     record = {
         'recordType': 'event',
-        'id': f'meetup-event-{entry["id"]}',
+        'id': resource_id,
         'title': title,
         'description': clean_description(page.get('description')),
         'startsAt': start.isoformat(timespec='seconds'),
@@ -282,9 +312,9 @@ def map_event(group, entry, page):
         'mode': mode,
         'registrationUrl': entry['url'],
         'country': group['country'],
-        'communityId': f'meetup-{group["id"]}',
+        'communityId': community_id,
         'published': True,
-        'sourceGroupId': f'meetup-{group["id"]}',
+        'sourceGroupId': community_id,
         'sourceModifiedAt': entry['modified'],
         'autoSync': True,
     }
@@ -294,7 +324,7 @@ def map_event(group, entry, page):
             record['city'] = city
         if venue_country:
             record['venueCountry'] = venue_country
-    return record
+    return validate_meetup_event_record(record)
 
 
 def load_groups_from_file(path):
@@ -351,6 +381,7 @@ def load_existing_events(table):
         page = table.scan(**params)
         for item in page['Items']:
             if item.get('id', '').startswith('meetup-event-'):
+                validate_meetup_event_record(item)
                 resource_version(item)
                 if 'approvalRevoked' in item and not isinstance(item['approvalRevoked'], bool):
                     raise ValueError(f'Invalid approvalRevoked flag for {item["id"]}')
@@ -388,6 +419,7 @@ def current_url_hash(url):
 
 
 def current_url_reservation(url, resource_id):
+    validate_catalog_resource_id(resource_id)
     return {'id': f'__url#{current_url_hash(url)}', 'recordType': 'urlReservation',
             'url': url, 'status': 'reserved', 'resourceId': resource_id, 'version': 1}
 
@@ -451,6 +483,11 @@ def read_reservation(table, url):
                 raise RuntimeError(f'Malformed catalog URL collision for {url}')
         else:
             raise RuntimeError(f'Malformed catalog URL reservation for {url}')
+        try:
+            for resource_id in resource_ids:
+                validate_catalog_resource_id(resource_id)
+        except ValueError as error:
+            raise RuntimeError(f'Malformed catalog URL reservation for {url}') from error
         for resource_id in resource_ids:
             resource = read_projected_item(table, resource_id, ('id', 'recordType', 'url', 'registrationUrl'))
             if resource is None:
@@ -535,6 +572,7 @@ def update_expression(record, existing, preserve_published):
 
 
 def update_event_and_url_reservation(table, record, existing, preserve_published):
+    validate_meetup_event_record(record)
     old_url = existing.get('registrationUrl')
     new_url = record['registrationUrl']
     if not isinstance(old_url, str) or not isinstance(new_url, str):
@@ -603,6 +641,7 @@ def update_event_and_url_reservation(table, record, existing, preserve_published
 
 
 def update_source_event(table, record, existing, preserve_published=False):
+    validate_meetup_event_record(record)
     if existing is None:
         return create_source_event_with_url_reservation(table, record)
     current = existing
@@ -673,6 +712,7 @@ def update_source_event(table, record, existing, preserve_published=False):
 
 
 def create_source_event_with_url_reservation(table, record):
+    validate_meetup_event_record(record)
     reservation = current_url_reservation(record['registrationUrl'], record['id'])
     existing_reservation = read_reservation(table, record['registrationUrl'])
     if existing_reservation is not None:
@@ -702,6 +742,9 @@ def create_source_event_with_url_reservation(table, record):
 
 
 def unpublish_source_event(table, existing, check_ends_at=False):
+    validate_catalog_resource_id(existing.get('id'))
+    if existing.get('sourceGroupId'):
+        validate_event_resource_id(existing['sourceGroupId'], 'sourceGroupId')
     if not existing.get('sourceGroupId') or existing.get('autoSync') is False or existing.get('published') is not True:
         return False
     revoked = existing.get('approvalRevoked', False)
@@ -762,7 +805,12 @@ def synchronize(table=None, groups=None, dry_run=False):
     cancelled = []
     for group, entries in sorted(feeds.values(), key=lambda item: item[0]['id']):
         for entry in entries:
-            record_id = f'meetup-event-{entry["id"]}'
+            try:
+                record_id = meetup_event_resource_id(entry.get('id'))
+            except ValueError as error:
+                failures.append(f'Event {entry.get("id", "unknown")} in group {group["id"]}: {error}')
+                failed_group_ids.add(group['id'])
+                continue
             if record_id in seen:
                 continue
             seen.add(record_id)

@@ -101,6 +101,23 @@ test('writes a pending public record with private contact fields and returns 201
   assert.equal(result.body.includes(BASE_SUBMISSION.url), false);
 });
 
+test('rejects a generated submission ID over 256 UTF-8 bytes before catalog access', async () => {
+  let reads = 0;
+  let writes = 0;
+  const handler = createSubmissionHandler({
+    tableName: 'donde-aprendo-aws-catalog',
+    getItem: async () => { reads += 1; return {}; },
+    transactWrite: async () => { writes += 1; },
+    resourceId: () => `${'é'.repeat(128)}a`,
+  });
+  assert.equal(Buffer.byteLength(`${'é'.repeat(128)}a`, 'utf8'), 257);
+
+  const result = await handler(request());
+  assert.equal(result.statusCode, 500);
+  assert.deepEqual(responseBody(result), { ok: false, code: 'storage_error' });
+  assert.deepEqual([reads, writes], [0, 0]);
+});
+
 test('accepts the new kind, format, and topic fields as a pending submission', async () => {
   let resource;
   const handler = handlerWithWriter(async (params) => { resource = params.TransactItems[0].Put.Item; });

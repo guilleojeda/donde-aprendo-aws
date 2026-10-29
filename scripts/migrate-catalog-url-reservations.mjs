@@ -2,7 +2,11 @@
 
 import { pathToFileURL } from 'node:url';
 import { currentUrlCollision, currentUrlReservation, currentUrlReservationId, currentUrlKey } from '../src/lib/catalog-url.mjs';
-import { DEFAULT_AWS_REGION, validateCatalogUrl } from '../src/lib/catalog.mjs';
+import {
+  DEFAULT_AWS_REGION,
+  isCatalogResourceIdWithinLimit,
+  validateCatalogUrl,
+} from '../src/lib/catalog.mjs';
 
 export const TARGET_ACCOUNT_ID = '719535286359';
 const MIGRATION_CONCURRENCY = 8;
@@ -30,17 +34,20 @@ export function buildCatalogUrlInventory(items) {
       } catch (error) {
         throw new Error(`Catalog URL reservation ${item.id} has an invalid URL`, { cause: error });
       }
-      if (item.status === 'reserved' && (typeof item.resourceId !== 'string' || item.resourceId.length === 0)) {
+      if (item.status === 'reserved' && !isCatalogResourceIdWithinLimit(item.resourceId)) {
         throw new Error(`Catalog URL reservation ${item.id} has no resource ID`);
       }
       if (item.status === 'collision' && (!Array.isArray(item.resourceIds) || item.resourceIds.length < 2
-          || item.resourceIds.some((id) => typeof id !== 'string' || id.length === 0))) {
+          || item.resourceIds.some((id) => !isCatalogResourceIdWithinLimit(id)))) {
         throw new Error(`Catalog URL collision ${item.id} has invalid resource IDs`);
       }
       reservationItems.push(item);
       continue;
     }
     if (item.id.startsWith('__')) continue;
+    if (!isCatalogResourceIdWithinLimit(item.id)) {
+      throw new Error(`Catalog migration resource ${item.id} has an ID longer than 256 UTF-8 bytes`);
+    }
     if (item.recordType !== undefined && item.recordType !== 'event') {
       throw new Error(`Catalog migration record ${index + 1} has an unknown record type`);
     }

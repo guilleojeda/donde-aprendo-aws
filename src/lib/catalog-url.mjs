@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { isCatalogResourceIdWithinLimit } from './catalog.mjs';
 
 /** Hash the exact URL string as UTF-8; queries and trailing slashes are identity. */
 export function currentUrlHash(url) {
@@ -17,8 +18,8 @@ export function currentUrlReservationId(url) {
 }
 
 export function currentUrlReservation(url, resourceId) {
-  if (typeof resourceId !== 'string' || resourceId.length === 0) {
-    throw new TypeError('Current URL reservation requires a resource ID');
+  if (!isCatalogResourceIdWithinLimit(resourceId)) {
+    throw new TypeError('Current URL reservation requires a resource ID of at most 256 UTF-8 bytes');
   }
   return {
     id: currentUrlReservationId(url),
@@ -31,9 +32,11 @@ export function currentUrlReservation(url, resourceId) {
 }
 
 export function currentUrlCollision(url, resourceIds) {
-  if (!Array.isArray(resourceIds) || resourceIds.length < 2
-      || resourceIds.some((id) => typeof id !== 'string' || id.length === 0)) {
+  if (!Array.isArray(resourceIds) || resourceIds.length < 2) {
     throw new TypeError('Current URL collision requires at least two resource IDs');
+  }
+  if (resourceIds.some((id) => !isCatalogResourceIdWithinLimit(id))) {
+    throw new TypeError('Current URL collision resource IDs must be at most 256 UTF-8 bytes');
   }
   return {
     id: currentUrlReservationId(url),

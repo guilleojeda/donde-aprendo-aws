@@ -75,6 +75,24 @@ test('inventories every current URL, keeps duplicate legacy resources, and separ
   assert.equal(rerun.reservationsVerified, 2);
 });
 
+test('rejects over-limit resource and reservation IDs before migration writes', async () => {
+  for (const id of ['x'.repeat(257), `import:${'x'.repeat(1893)}`]) {
+    const resourceTable = catalogTable([{ id, url: 'https://example.test/over-limit' }]);
+    await assert.rejects(migrateCatalogUrlReservations({ tableName: 'catalog', ...resourceTable }));
+    assert.equal(resourceTable.calls.updates.length, 0);
+    assert.equal(resourceTable.calls.puts.length, 0);
+
+    const reservationTable = catalogTable([{
+      id: currentUrlReservationId('https://example.test/over-limit'),
+      recordType: 'urlReservation', url: 'https://example.test/over-limit', status: 'reserved',
+      resourceId: id, version: 1,
+    }]);
+    await assert.rejects(migrateCatalogUrlReservations({ tableName: 'catalog', ...reservationTable }));
+    assert.equal(reservationTable.calls.updates.length, 0);
+    assert.equal(reservationTable.calls.puts.length, 0);
+  }
+});
+
 test('dry-run requires the target account guard and does not mutate the table', async () => {
   const table = catalogTable([{ id: 'legacy', url: 'https://example.test/a?b=1' }]);
   const report = await main(['--table', 'catalog', '--dry-run'], {

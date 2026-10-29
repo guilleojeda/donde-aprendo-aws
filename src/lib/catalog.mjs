@@ -4,6 +4,12 @@ import { DISCOVERY_FIELDS, validateDiscoveryMetadata } from './resource-discover
 import { projectPublicEvent } from './events.mjs';
 
 export const DEFAULT_AWS_REGION = 'us-east-1';
+export const MAX_CATALOG_RESOURCE_ID_BYTES = 256;
+
+export function isCatalogResourceIdWithinLimit(id) {
+  return typeof id === 'string' && id.length > 0
+    && Buffer.byteLength(id, 'utf8') <= MAX_CATALOG_RESOURCE_ID_BYTES;
+}
 
 const PUBLIC_FIELDS = Object.freeze([
   'id',
@@ -281,7 +287,7 @@ export function normalizeCreatorRows(rows) {
       const pkId = typeof row.pk === 'string' && row.pk.startsWith('PROFILE#') ? row.pk.slice(8) : undefined;
       const profileId = row.profileId ?? pkId;
       if (typeof profileId !== 'string' || profileId.length === 0 || (pkId && pkId !== profileId)
-          || typeof row.resourceId !== 'string' || row.resourceId.length === 0) {
+          || !isCatalogResourceIdWithinLimit(row.resourceId)) {
         throw new Error(`Creator-state placement ${index + 1} has invalid identifiers`);
       }
       const selectionField = Object.hasOwn(row, 'selectedForDirectory') ? 'selectedForDirectory' : 'selected';
@@ -418,7 +424,7 @@ function normalizeCreatorState(state) {
   const placements = state.placements.map((placement, index) => {
     if (!placement || typeof placement !== 'object' || Array.isArray(placement)
         || typeof placement.profileId !== 'string' || placement.profileId.length === 0
-        || typeof placement.resourceId !== 'string' || placement.resourceId.length === 0
+        || !isCatalogResourceIdWithinLimit(placement.resourceId)
         || typeof placement.selected !== 'boolean') {
       throw new Error(`Creator directory placement ${index + 1} is malformed`);
     }
@@ -495,7 +501,12 @@ function isPublicSlug(value) {
  * no private or unknown fields, so callers can safely serialize it for HTML.
  */
 export function projectPublicRecord(item, index = 0) {
-  if (item.recordType === 'event') return projectPublicEvent(item, index, validateCatalogUrl);
+  if (item.recordType === 'event') {
+    if (!isCatalogResourceIdWithinLimit(item.id)) {
+      throw new Error(`Catalog record ${index + 1} has an ID longer than ${MAX_CATALOG_RESOURCE_ID_BYTES} UTF-8 bytes`);
+    }
+    return projectPublicEvent(item, index, validateCatalogUrl);
+  }
   if (item.recordType !== undefined) throw new Error(`Catalog record ${index + 1} has an invalid record type`);
   for (const field of LEGACY_REQUIRED_FIELDS) {
     if (!Object.hasOwn(item, field)) {
@@ -531,6 +542,9 @@ export function validatePublicRecord(record, index = 0) {
   }
   if (typeof record.id !== 'string' || record.id.length === 0 || record.id.trim() !== record.id) {
     throw new Error(`Catalog record ${index + 1} has an invalid id`);
+  }
+  if (!isCatalogResourceIdWithinLimit(record.id)) {
+    throw new Error(`Catalog record ${index + 1} has an ID longer than ${MAX_CATALOG_RESOURCE_ID_BYTES} UTF-8 bytes`);
   }
   if (typeof record.title !== 'string' || record.title.length === 0) {
     throw new Error(`Catalog record ${index + 1} has an invalid title`);

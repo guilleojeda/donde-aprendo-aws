@@ -108,8 +108,17 @@ export function createOwnerLinksSurface({ profile = defaultProfile(), links = []
     return row;
   });
   const tableBody = new BrowserElement({ tagName: 'TBODY', dataset: { linkRows: '' }, lists: rowElements });
-  const table = new BrowserElement({ tagName: 'TABLE', dataset: { ownerLinks: '' }, lists: [tableBody] });
+  const table = new BrowserElement({ tagName: 'TABLE', lists: [tableBody] });
   const searchInput = new BrowserElement({ tagName: 'INPUT', name: 'buscar', value: search, dataset: { linkSearch: '' } });
+  const seriesSelect = new BrowserElement({ tagName: 'SELECT', name: 'serie', value: query.serie ?? 'todos' });
+  const allSeriesOption = new BrowserElement({ tagName: 'OPTION', value: 'todos', textContent: 'Todas las series' });
+  seriesSelect.append(allSeriesOption);
+  series.forEach((item) => seriesSelect.append(new BrowserElement({ tagName: 'OPTION', value: item.id, textContent: item.name })));
+  const seriesFilter = new BrowserElement({ tagName: 'FORM', dataset: { linkFilters: '' } });
+  seriesFilter.elements = [seriesSelect];
+  seriesSelect.form = seriesFilter;
+  seriesFilter.setAttribute('method', 'get');
+  seriesFilter.setAttribute('action', '/cuenta/');
   const addOpen = new BrowserElement({ tagName: 'BUTTON', dataset: { linkAddOpen: '' }, textContent: 'Agregar enlace' });
 
   const addFields = [
@@ -120,12 +129,18 @@ export function createOwnerLinksSurface({ profile = defaultProfile(), links = []
   const addSubmit = new BrowserElement({ tagName: 'BUTTON', type: 'submit' });
   const addForm = form([...addFields, addStatus, addSubmit], { linkAddForm: '' });
   const availableResources = editableResources.map((resource) => {
+    let host = resource.url;
+    try { host = new URL(resource.url).host; } catch { /* retain the supplied URL text */ }
+    const summary = new BrowserElement({ tagName: 'SPAN', lists: [
+      new BrowserElement({ tagName: 'STRONG', textContent: resource.title }),
+      new BrowserElement({ tagName: 'SPAN', textContent: host }),
+    ] });
     const edit = new BrowserElement({ tagName: 'BUTTON', dataset: { linkEdit: '' }, textContent: `Editar ficha ${resource.title}` });
     const reinclude = new BrowserElement({
       tagName: 'BUTTON', dataset: { linkReinclude: '', resourceId: resource.id, resourceVersion: String(resource.version) },
       textContent: 'Volver a agregar',
     });
-    const retained = new BrowserElement({ dataset: { retainedResource: resource.id }, lists: [edit, reinclude] });
+    const retained = new BrowserElement({ dataset: { retainedResource: resource.id }, lists: [summary, edit, reinclude] });
     if (links.some((link) => link.resourceId === resource.id)) retained.hidden = true;
     retained.resource = resource;
     return retained;
@@ -144,7 +159,7 @@ export function createOwnerLinksSurface({ profile = defaultProfile(), links = []
   checkSession.hidden = true;
   const navigation = new BrowserElement({ tagName: 'A', dataset: { ownerNavigation: '' } });
   navigation.setAttribute('href', '/cuenta/?vista=estadisticas&periodo=30&pagina=1');
-  const linksRegion = new BrowserElement({ lists: [table, searchInput, addOpen, addForm, retainedLinks] });
+  const linksRegion = new BrowserElement({ dataset: { ownerLinks: '' }, lists: [table, searchInput, seriesSelect, addOpen, addForm, retainedLinks] });
   const root = new BrowserElement({ dataset: {
     csrf: 'csrf-a', sessionBinding: 'a'.repeat(64), publicOrigin: SITE_ORIGIN, profileVersion: String(profile.version),
   }, lists: [
@@ -194,7 +209,7 @@ export function createOwnerLinksSurface({ profile = defaultProfile(), links = []
     dialog, dialogTitle, linkEditForm, linkFields, linkStatus: editStatus, conflict, comparison, adoptLink,
     metadataPanel, optionsPanel,
     linkCancel, linkSubmit, dataForm, exitPrompt, exitSave, exitDiscard, exitContinue,
-    rows: rowElements, table, searchInput, addOpen, addForm, addFields, addStatus, availableResources,
+    rows: rowElements, table, searchInput, seriesFilter, seriesSelect, addOpen, addForm, addFields, addStatus, availableResources,
     retainedLinks,
     publish, pageStatus, sessionShell, sessionStatus, signIn, checkSession,
     document, documentListeners, window, historyCalls, confirmCalls,

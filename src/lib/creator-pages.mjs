@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { projectPublicRecord, validateCatalogUrl } from './catalog.mjs';
+import { isCatalogResourceIdWithinLimit, projectPublicRecord, validateCatalogUrl } from './catalog.mjs';
 import { currentUrlKey } from './catalog-url.mjs';
 
 const PROGRAMS = new Set(['User Group Leaders', 'Community Builders', 'Heroes']);
@@ -53,6 +53,12 @@ function fail(status, code, message) {
   throw new ApiError(status, code, message);
 }
 
+function requireCatalogResourceIdWithinLimit(id) {
+  if (!isCatalogResourceIdWithinLimit(id)) {
+    fail(422, 'INVALID_RESOURCE_ID', 'resourceId must be at most 256 UTF-8 bytes');
+  }
+}
+
 function isRecord(value) {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -66,7 +72,7 @@ function currentResourceUrl(resource) {
 }
 
 function isCatalogResource(resource) {
-  return isRecord(resource) && typeof resource.id === 'string' && !resource.id.startsWith('__')
+  return isRecord(resource) && isCatalogResourceIdWithinLimit(resource.id) && !resource.id.startsWith('__')
     && (resource.recordType === undefined || resource.recordType === 'event');
 }
 
@@ -1453,6 +1459,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     if (typeof body.resourceId !== 'string' || !body.resourceId) {
       fail(422, 'INVALID_RESOURCE_ID', 'resourceId must identify an editable resource');
     }
+    requireCatalogResourceIdWithinLimit(body.resourceId);
     if (body.resourceVersion === undefined) fail(400, 'RESOURCE_VERSION_REQUIRED', 'resourceVersion is required when re-adding an existing resource');
     const expectedVersion = validVersion(body.resourceVersion);
     const profile = await getRequiredOwnerProfile(principal);
@@ -1500,6 +1507,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     if (typeof body.resourceId !== 'string' || body.resourceId.length === 0) {
       fail(422, 'INVALID_RESOURCE_ID', 'resourceId must identify a catalog resource');
     }
+    requireCatalogResourceIdWithinLimit(body.resourceId);
     if (body.profileVersion === undefined) fail(400, 'PROFILE_VERSION_REQUIRED', 'profileVersion is required');
     const expectedProfileVersion = validVersion(body.profileVersion);
     const url = validateResourceUrl(body.url);
@@ -1581,7 +1589,10 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     if (reservation) {
       if (reservation.url !== url) fail(503, 'URL_INDEX_MISMATCH', 'URL reservation hash points to a different URL');
       if (reservation.status === 'collision') fail(409, 'URL_COLLISION', 'this URL needs administrative review');
-      if (reservation.status !== 'reserved' || typeof reservation.resourceId !== 'string') fail(503, 'INVALID_URL_RESERVATION', 'URL reservation is malformed');
+      if (reservation.status !== 'reserved' || typeof reservation.resourceId !== 'string' || !reservation.resourceId) {
+        fail(503, 'INVALID_URL_RESERVATION', 'URL reservation is malformed');
+      }
+      requireCatalogResourceIdWithinLimit(reservation.resourceId);
       const resource = await store.get(`resource:${reservation.resourceId}`);
       if (!resource || resource.id !== reservation.resourceId || !isCatalogResource(resource) || currentResourceUrl(resource) !== url) {
         fail(503, 'URL_INDEX_MISMATCH', 'URL reservation does not match the current resource');
@@ -2268,6 +2279,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
 
   async function patchCreatorResource(principal, resourceId, body) {
     assertKnownFields(body, CREATOR_RESOURCE_FIELDS);
+    requireCatalogResourceIdWithinLimit(resourceId);
     const profile = await getRequiredOwnerProfile(principal);
     const resource = await store.get(`resource:${resourceId}`);
     if (!resource || !isCatalogResource(resource)) fail(404, 'RESOURCE_NOT_FOUND', 'resource does not exist');
@@ -2332,6 +2344,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
 
   async function patchAdminResource(resourceId, body) {
     assertKnownFields(body, ADMIN_RESOURCE_FIELDS);
+    requireCatalogResourceIdWithinLimit(resourceId);
     const key = `resource:${resourceId}`;
     const resource = await store.get(key);
     if (!resource || !isCatalogResource(resource)) fail(404, 'RESOURCE_NOT_FOUND', 'resource does not exist');
@@ -2366,6 +2379,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
   }
 
   async function adminResourceAction(resourceId, action, body) {
+    requireCatalogResourceIdWithinLimit(resourceId);
     const observedVersion = requiredModerationVersion(body);
     const key = `resource:${resourceId}`;
     const resource = await store.get(key);
@@ -2488,12 +2502,13 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
           if (typeof value.resourceId !== 'string' || !value.resourceId) {
             fail(422, 'INVALID_RESOURCE_ID', 'resourceId must identify a catalog resource');
           }
+          requireCatalogResourceIdWithinLimit(value.resourceId);
           resourceId = value.resourceId;
         }
         return { ...(resourceId ? { resourceId } : {}), url };
       });
     } else if (!Array.isArray(body.resourceIds) || body.resourceIds.length === 0
-      || body.resourceIds.some((id) => typeof id !== 'string' || !id)
+      || body.resourceIds.some((id) => typeof id !== 'string' || !id || !isCatalogResourceIdWithinLimit(id))
       || new Set(body.resourceIds).size !== body.resourceIds.length) {
       fail(422, 'INVALID_RESOURCE_IDS', 'resourceIds must contain exact unique resource IDs');
     }
@@ -2503,7 +2518,9 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     if (usesResources) {
       const resolvedIds = [];
       for (const target of submittedResources) {
-        resolvedIds.push(target.resourceId ?? await claimResourceIdForUrl(target.url));
+        const resourceId = target.resourceId ?? await claimResourceIdForUrl(target.url);
+        requireCatalogResourceIdWithinLimit(resourceId);
+        resolvedIds.push(resourceId);
       }
       const records = await claimResourcesById(resolvedIds);
       const resolved = submittedResources.map((target, index) => {
@@ -2583,7 +2600,8 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
   async function linkClaim(body) {
     assertKnownFields(body, new Set(['accountId', 'resourceIds', 'sourceId']));
     if (typeof body.accountId !== 'string' || !body.accountId || !Array.isArray(body.resourceIds)
-      || body.resourceIds.length === 0 || body.resourceIds.some((id) => typeof id !== 'string' || !id)
+      || body.resourceIds.length === 0 || body.resourceIds.some((id) =>
+        typeof id !== 'string' || !id || !isCatalogResourceIdWithinLimit(id))
       || new Set(body.resourceIds).size !== body.resourceIds.length) {
       fail(422, 'EXACT_RESOURCES_REQUIRED', 'accountId and exact unique resourceIds are required');
     }

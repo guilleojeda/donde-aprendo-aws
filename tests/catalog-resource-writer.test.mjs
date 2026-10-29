@@ -129,3 +129,29 @@ test('fails on an inconsistent reservation instead of creating around it', async
   );
   assert.equal(catalog.writes.length, 0);
 });
+
+test('validates resource ID UTF-8 bytes before reading or writing', async () => {
+  const acceptedId = 'é'.repeat(128);
+  const rejectedId = `${acceptedId}a`;
+  assert.equal(acceptedId.length, 128);
+  assert.equal(Buffer.byteLength(acceptedId, 'utf8'), 256);
+  assert.equal(Buffer.byteLength(rejectedId, 'utf8'), 257);
+
+  let reads = 0;
+  let writes = 0;
+  const access = {
+    getItem: async () => { reads += 1; return {}; },
+    transactWrite: async () => { writes += 1; },
+  };
+  assert.equal((await putCatalogResourceOnce({
+    tableName: 'catalog', item: resource({ id: acceptedId, url: 'https://example.test/accepted-boundary' }), ...access,
+  })).status, 'created');
+  assert.deepEqual([reads, writes], [2, 1], 'the maximum byte length continues through normal reservation writes');
+
+  reads = 0;
+  writes = 0;
+  await assert.rejects(putCatalogResourceOnce({
+    tableName: 'catalog', item: resource({ id: rejectedId, url: 'https://example.test/rejected-boundary' }), ...access,
+  }));
+  assert.deepEqual([reads, writes], [0, 0], 'an ID above the limit is rejected before catalog reads or writes');
+});

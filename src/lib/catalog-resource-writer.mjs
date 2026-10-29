@@ -1,5 +1,5 @@
 import { currentUrlReservation, currentUrlReservationId } from './catalog-url.mjs';
-import { validateCatalogUrl } from './catalog.mjs';
+import { isCatalogResourceIdWithinLimit, validateCatalogUrl } from './catalog.mjs';
 
 /**
  * Atomically add a catalog item and its reservation for its current literal URL.
@@ -14,6 +14,9 @@ export async function putCatalogResourceOnce({ tableName, item, getItem, transac
       || typeof item.id !== 'string' || item.id.length === 0
       || typeof item.url !== 'string' || item.url.length === 0) {
     throw new TypeError('Catalog resource write requires an ID and current URL');
+  }
+  if (!isCatalogResourceIdWithinLimit(item.id)) {
+    throw new TypeError('Catalog resource ID must be at most 256 UTF-8 bytes');
   }
   validateCatalogUrl(item.url);
   if (typeof getItem !== 'function' || typeof transactWrite !== 'function') {

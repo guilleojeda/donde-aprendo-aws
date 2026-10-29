@@ -318,6 +318,69 @@ class MeetupEventsTests(unittest.TestCase):
         html = '<script type="application/ld+json">' + json.dumps(PAGE) + '</script>'
         self.assertEqual(meetup.parse_event_page(html, EVENT_URL)['name'], 'AWS en acción')
 
+    def test_meetup_generated_event_and_community_ids_keep_their_existing_128_character_schema(self):
+        boundary_entry = {'id': '9' * 115, 'url': EVENT_URL, 'modified': '20990101T000000Z'}
+        boundary_record = meetup.map_event(GROUP, boundary_entry, PAGE)
+        self.assertEqual(len(boundary_record['id']), 128)
+        self.assertEqual(boundary_record['id'], f'meetup-event-{"9" * 115}')
+
+        oversized_entry = {'id': '9' * 116, 'url': EVENT_URL, 'modified': '20990101T000000Z'}
+        with self.assertRaises(ValueError):
+            meetup.map_event(GROUP, oversized_entry, PAGE)
+
+        group_boundary = dict(GROUP, id='9' * 121)
+        group_record = meetup.map_event(group_boundary, {'id': '456', 'url': EVENT_URL, 'modified': '20990101T000000Z'}, PAGE)
+        self.assertEqual(len(group_record['communityId']), 128)
+        self.assertEqual(group_record['communityId'], group_record['sourceGroupId'])
+        invalid_group = dict(GROUP, id='9' * 122)
+        with self.assertRaises(ValueError):
+            meetup.map_event(invalid_group, {
+                'id': '456', 'url': EVENT_URL, 'modified': '20990101T000000Z',
+            }, PAGE)
+
+        generic_boundary = 'é' * 128
+        self.assertEqual(len(meetup.validate_catalog_resource_id(generic_boundary).encode('utf-8')), 256)
+        with self.assertRaisesRegex(ValueError, '256 UTF-8 bytes'):
+            meetup.validate_catalog_resource_id('é' * 129)
+
+        table = FakeTable()
+        oversized_record = dict(boundary_record, id=f'meetup-event-{"9" * 116}')
+        with self.assertRaises(ValueError):
+            meetup.create_source_event_with_url_reservation(table, oversized_record)
+        self.assertEqual(table.gets, [])
+        self.assertEqual(table.puts, [])
+        self.assertEqual(table.transactions, [])
+
+        for field in ('communityId', 'sourceGroupId'):
+            table = FakeTable()
+            bad_identity_record = dict(boundary_record, **{field: f'meetup-{"9" * 122}'})
+            with self.assertRaises(ValueError):
+                meetup.create_source_event_with_url_reservation(table, bad_identity_record)
+            self.assertEqual(table.gets, [])
+            self.assertEqual(table.puts, [])
+            self.assertEqual(table.transactions, [])
+
+        table = FakeTable()
+        with patch.object(meetup, 'timezone_from_feed', return_value=[oversized_entry]), \
+                patch.object(meetup, 'fetch_event_page', return_value=PAGE) as fetch_event_page:
+            result = meetup.synchronize(table=table, groups=[dict(GROUP)])
+        self.assertEqual(result['changed'], 0)
+        self.assertEqual(len(result['failures']), 1)
+        fetch_event_page.assert_not_called()
+        self.assertEqual(table.puts, [])
+        self.assertEqual(table.transactions, [])
+        self.assertEqual(table.updates, [])
+
+        table = FakeTable()
+        with patch.object(meetup, 'timezone_from_feed', return_value=[{'id': '456', 'url': EVENT_URL}]), \
+                patch.object(meetup, 'fetch_event_page', return_value=PAGE):
+            result = meetup.synchronize(table=table, groups=[invalid_group])
+        self.assertEqual(result['changed'], 0)
+        self.assertEqual(len(result['failures']), 1)
+        self.assertEqual(table.puts, [])
+        self.assertEqual(table.transactions, [])
+        self.assertEqual(table.updates, [])
+
     def test_map_event_rejects_missing_empty_or_nonstring_title_and_trims_valid_title(self):
         entry = meetup.parse_feed(ICAL, GROUP)[0]
         invalid_names = ('missing', '', '   ', None, 42, [], '\ufeff', ' \ufeff \t', '\t\ufeff\ufeff ')
@@ -538,6 +601,20 @@ class MeetupEventsTests(unittest.TestCase):
         table = FakeTable([meetup.current_url_reservation(EVENT_URL, 'missing-resource')])
         with self.assertRaisesRegex(RuntimeError, 'missing or inconsistent resource'):
             meetup.read_reservation(table, EVENT_URL)
+
+    def test_reservation_rejects_over_limit_resource_ids_before_reading_them(self):
+        resource_id = 'x' * 257
+        with self.assertRaisesRegex(ValueError, '256 UTF-8 bytes'):
+            meetup.current_url_reservation(EVENT_URL, resource_id)
+
+        reservation = {
+            'id': f'__url#{meetup.current_url_hash(EVENT_URL)}', 'recordType': 'urlReservation',
+            'url': EVENT_URL, 'status': 'reserved', 'resourceId': resource_id, 'version': 1,
+        }
+        table = FakeTable([reservation])
+        with self.assertRaisesRegex(RuntimeError, 'Malformed catalog URL reservation'):
+            meetup.read_reservation(table, EVENT_URL)
+        self.assertEqual(len(table.gets), 1, 'an invalid referenced ID is rejected before its catalog read')
 
     def test_ended_events_missing_from_healthy_feed_keep_both_publication_values_without_hourly_writes(self):
         published = existing_event(published=True)
