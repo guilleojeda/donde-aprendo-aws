@@ -450,3 +450,16 @@ test('la administración sólo aparece con el rol correspondiente y en la zona s
     'the administrative entry is secondary to the owner work area');
   assert.doesNotMatch(visibleText(administrator.html), /Accede o crea una cuenta/);
 });
+
+test('la respuesta incierta de publicación tiene controles de estado confirmados por SSR', async () => {
+  await resetRuntime();
+  await createProfile();
+  const { response, html } = await render();
+  assert.equal(response.status, 200);
+  assert.match(html, /<div\b[^>]*data-owner-status[^>]*role="status"[^>]*aria-live="polite"[^>]*hidden/i,
+    'the owner shell retains its general status region');
+  assert.match(html, /<p\b[^>]*data-owner-profile-status[^>]*role="status"[^>]*aria-live="polite"/i,
+    'publication feedback can use the existing local profile status region');
+  assert.match(html, /<button\b[^>]*data-owner-publish-check[^>]*hidden[^>]*>Comprobar estado guardado<\/button>/,
+    'the explicit saved-state check is present but hidden in ordinary SSR');
+});
