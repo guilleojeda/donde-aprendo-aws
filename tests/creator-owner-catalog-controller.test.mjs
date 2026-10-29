@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { createCreatorOwnerRuntime } from './fixtures/creator-owner-runtime.mjs';
 import {
   CATALOG_INDEX_PATH,
   createCreatorOwnerCatalogSurface,
@@ -49,6 +50,32 @@ async function mount({ index = [], links = [], apiLinks = links, editableResourc
   });
   const requests = await mountCreatorOwnerCatalog({ surface, index, apiLinks, respond });
   return { surface, requests };
+}
+
+async function ownerApi(runtime, path, body, method = 'PUT', session = 'creator-a') {
+  const csrfToken = session === 'creator-a' ? 'csrf-a' : `csrf-${session}`;
+  const response = await runtime.fetchApi(path, {
+    method,
+    headers: { 'content-type': 'application/json', 'x-csrf-token': csrfToken },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  }, { session });
+  assert.ok(response.ok, `${path}: ${response.status} ${await response.clone().text()}`);
+  return response;
+}
+
+async function ownerDto(runtime, session = 'creator-a') {
+  return (await ownerApi(runtime, '/api/creador/perfil/', undefined, 'GET', session)).json();
+}
+
+function respondWithRuntime(runtime) {
+  return (request) => {
+    if (!request.path.startsWith('/api/creador/')) return undefined;
+    return runtime.fetchApi(request.url, {
+      method: request.method,
+      headers: request.headers,
+      ...(request.body === undefined ? {} : { body: JSON.stringify(request.body) }),
+    });
+  };
 }
 
 async function openCatalog(surface, requests) {
@@ -238,6 +265,125 @@ test('referencia nueva adopta el recibo actual, conserva la selección de direct
   assert.equal(surface.root.dataset.profileVersion, String(profile.version + 1), 'the matching profile receipt is adopted');
   assert.match(surface.linkStatus.textContent, /agregado|enlace.*página/i);
   assert.equal(referenceWrites(requests).length, 1, 'the accepted current receipt is not replayed');
+});
+
+test('una referencia duplicada mantiene vigente la ficha editable al quitarla y reincorporarla', async () => {
+  const runtime = await createCreatorOwnerRuntime();
+  runtime.setSession('creator-a');
+  const profile = (await (await ownerApi(runtime, '/api/creador/perfil/', {
+    displayName: 'Ana', slug: 'ana-catalogo',
+  })).json()).profile;
+  const original = (await (await ownerApi(runtime, '/api/creador/enlaces/', {
+    title: 'Título anterior', url: 'https://example.invalid/ficha-vigente', description: 'Texto anterior',
+  }, 'POST')).json()).link;
+  const staleSnapshot = await ownerDto(runtime);
+  const updatedResource = await ownerApi(runtime, `/api/creador/recursos/${original.resourceId}/`, {
+    title: 'Título actual', description: 'Texto actual', version: original.resourceVersion,
+  }, 'PATCH');
+  assert.equal((await updatedResource.json()).resource.version, original.resourceVersion + 1);
+  const current = await ownerDto(runtime);
+  assert.equal(current.profile.version, staleSnapshot.profile.version,
+    'the independent resource PATCH leaves the profile version unchanged');
+  const item = {
+    id: original.resourceId, title: 'Título actual', url: original.url, tipo: 'content',
+  };
+  const surface = createCreatorOwnerCatalogSurface({
+    profile: current.profile, links: current.links, editableResources: current.editableResources,
+    series: current.series, index: [item],
+  });
+  surface.setConfirmResult(true);
+  let releaseDuplicate;
+  let signalDuplicate;
+  const duplicateResponseReady = new Promise((resolve) => { signalDuplicate = resolve; });
+  const respond = respondWithRuntime(runtime);
+  const requests = await mountCreatorOwnerCatalog({
+    surface, index: [item], respond: async (request) => {
+      const response = await respond(request);
+      if (request.method === 'POST' && request.path === '/api/creador/referencias') {
+        signalDuplicate();
+        return new Promise((resolve) => { releaseDuplicate = () => resolve(response); });
+      }
+      return response;
+    },
+  });
+
+  await openCatalog(surface, requests);
+  await selectCatalogItem(surface, item.id);
+  const submission = surface.referenceForm.dispatch('submit');
+  await duplicateResponseReady;
+  const originalRow = surface.root.querySelector(`[data-link-row="${original.placementId}"]`);
+  const editorButton = originalRow?.querySelector('[data-link-edit]');
+  assert.ok(editorButton?.disabled, 'the shared write guard keeps row editors unavailable until the duplicate response is applied');
+  assert.equal(surface.linkEditForm.hidden, true, 'the one-editor flow cannot leave a stale link editor open beside the reference write');
+  releaseDuplicate();
+  await submission;
+  await waitFor(() => referenceWrites(requests).length === 1, 'the duplicate reference reaches the real creator service');
+  assert.equal(referenceWrites(requests)[0].status, 200);
+  const currentRow = surface.root.querySelector(`[data-link-row="${original.placementId}"]`);
+  assert.match(elementText(currentRow), /Título actual/, 'the accepted duplicate DTO is shown in the active row');
+
+  await currentRow.querySelector('[data-link-remove]').dispatch('click');
+  await waitFor(() => requests.some(({ method, path, status }) =>
+    method === 'DELETE' && path === `/api/creador/enlaces/${original.placementId}` && status !== undefined),
+  'removal completes at the real creator service');
+  const removed = requests.find(({ method, path }) => method === 'DELETE' && path === `/api/creador/enlaces/${original.placementId}`);
+  assert.equal(removed?.status, 204, 'the own link is removed while its editable resource remains retained');
+  const retained = surface.retainedLinks.querySelector(`[data-retained-resource="${original.resourceId}"]`);
+  assert.ok(retained);
+  assert.match(elementText(retained), /Título actual/);
+  const reinclude = retained.querySelector('[data-link-reinclude]');
+  assert.equal(reinclude.dataset.resourceVersion, String(original.resourceVersion + 1));
+
+  await reinclude.dispatch('click');
+  await waitFor(() => requests.some(({ method, path, status }) =>
+    method === 'POST' && path === '/api/creador/enlaces' && status !== undefined),
+  're-add completes at the real creator service');
+  const readded = requests.find(({ method, path }) => method === 'POST' && path === '/api/creador/enlaces');
+  assert.equal(readded?.status, 201, 're-add uses the resource version already accepted from the duplicate DTO');
+  assert.equal(readded.body.resourceVersion, original.resourceVersion + 1);
+  const saved = await ownerDto(runtime);
+  assert.equal(saved.links.find(({ resourceId }) => resourceId === original.resourceId).title, 'Título actual');
+});
+
+test('una referencia duplicada compartida conserva su estado sin conceder edición', async () => {
+  const runtime = await createCreatorOwnerRuntime();
+  runtime.setSession('creator-a');
+  runtime.setSession('creator-b');
+  const ownerProfile = (await (await ownerApi(runtime, '/api/creador/perfil/', {
+    displayName: 'Ana', slug: 'ana-compartida',
+  })).json()).profile;
+  await ownerApi(runtime, '/api/creador/perfil/', {
+    displayName: 'Beto', slug: 'beto-compartido',
+  }, 'PUT', 'creator-b');
+  const shared = (await (await ownerApi(runtime, '/api/creador/enlaces/', {
+    title: 'Ficha de Beto', url: 'https://example.invalid/ficha-compartida', description: 'No editable por Ana',
+  }, 'POST', 'creator-b')).json()).link;
+  await ownerApi(runtime, '/api/creador/referencias/', {
+    resourceId: shared.resourceId, url: shared.url, profileVersion: ownerProfile.version, selectedForDirectory: true,
+  }, 'POST');
+  const current = await ownerDto(runtime);
+  assert.deepEqual(current.editableResources, [], 'the shared resource is absent from the owner edit list');
+  const item = { id: shared.resourceId, title: shared.title, url: shared.url, tipo: 'content' };
+  const surface = createCreatorOwnerCatalogSurface({
+    profile: current.profile, links: current.links, editableResources: current.editableResources,
+    series: current.series, index: [item],
+  });
+  const requests = await mountCreatorOwnerCatalog({
+    surface, index: [item], respond: respondWithRuntime(runtime),
+  });
+
+  await openCatalog(surface, requests);
+  await selectCatalogItem(surface, item.id);
+  await surface.referenceForm.dispatch('submit');
+  await waitFor(() => referenceWrites(requests).length === 1, 'the shared duplicate reference is accepted');
+  assert.equal(referenceWrites(requests)[0].status, 200);
+  assert.equal(surface.retainedLinks.querySelectorAll('[data-retained-resource]').length, 0);
+  const row = surface.root.querySelector(`[data-link-row="${current.links[0].placementId}"]`);
+  await row.querySelector('[data-link-edit]').dispatch('click');
+  assert.equal(surface.linkEditForm.dataset.linkEditKind, 'placement-shared');
+  assert.equal(surface.metadataPanel.hidden, true, 'shared metadata remains unavailable in the owner editor');
+  assert.equal((await ownerDto(runtime, 'creator-b')).editableResources.length, 1,
+    'the shared resource remains owned by its original creator');
 });
 
 test('el directorio es opcional y una corrección tardía del checkbox no se pierde ni crea otra referencia', async () => {

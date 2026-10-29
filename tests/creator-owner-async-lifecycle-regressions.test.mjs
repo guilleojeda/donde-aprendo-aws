@@ -14,12 +14,13 @@ import {
 } from './fixtures/creator-owner-claims-browser.mjs';
 import { SurfaceElement as Element } from './fixtures/creator-owner-browser-dom.mjs';
 
-async function api(runtime, path, body, method = 'PUT') {
+async function api(runtime, path, body, method = 'PUT', session = 'creator-a') {
+  const csrfToken = session === 'creator-a' ? 'csrf-a' : `csrf-${session}`;
   const response = await runtime.fetchApi(path, {
     method,
-    headers: { 'content-type': 'application/json', 'x-csrf-token': 'csrf-a' },
+    headers: { 'content-type': 'application/json', 'x-csrf-token': csrfToken },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  });
+  }, { session });
   assert.ok(response.ok, `${path}: ${response.status} ${await response.clone().text()}`);
   return response;
 }
@@ -41,8 +42,12 @@ function addProfileConflict(form) {
   return { compare, adopt, view, box };
 }
 
-function createInlineCreateSurface() {
-  const surface = createOwnerLinksSurface();
+function elementText(element) {
+  return [element?.textContent, ...(element?.descendants?.() ?? []).map(({ textContent }) => textContent)]
+    .filter(Boolean).join(' ');
+}
+
+function createInlineCreateSurface(surface = createOwnerLinksSurface()) {
   const initial = surface.document.getElementById('creator-owner-data');
   const dto = JSON.parse(initial.textContent);
   dto.profile = null;
@@ -465,6 +470,202 @@ test('el primer formulario Crear permite comparar y adoptar expresamente el perf
   assert.equal(surface.createPanel.hidden, true);
   assert.equal(requests.filter(({ method, path }) => method === 'PUT' && path === '/api/creador/perfil').length, 1,
     'explicit adoption does not replay the create write');
+});
+
+test('adoptar el primer perfil también carga su snapshot owner completo', async () => {
+  const runtime = await createCreatorOwnerRuntime();
+  runtime.setSession('creator-a');
+  const remote = (await (await api(runtime, '/api/creador/perfil/', {
+    displayName: 'Página guardada', slug: 'pagina-guardada',
+  })).json()).profile;
+  const link = (await (await api(runtime, '/api/creador/enlaces/', {
+    title: 'Guía guardada', url: 'https://example.invalid/guia-guardada', description: 'Ficha propia',
+  }, 'POST')).json()).link;
+  const otherLink = (await (await api(runtime, '/api/creador/enlaces/', {
+    title: 'Otra guía', url: 'https://example.invalid/otra-guia', description: 'Sin serie',
+  }, 'POST')).json()).link;
+  const beforeSeries = await ownerDto(runtime);
+  await api(runtime, '/api/creador/series/', {
+    name: 'Serie guardada', slug: 'serie-guardada', profileVersion: beforeSeries.profile.version,
+  }, 'POST');
+  const afterSeries = await ownerDto(runtime);
+  const remoteSeries = afterSeries.series[0];
+  await api(runtime, `/api/creador/series/${remoteSeries.id}/capitulos/${link.placementId}`, {
+    profileVersion: afterSeries.profile.version,
+  }, 'PUT');
+
+  const seriesSurface = createOwnerSeriesSurface({ profile: {
+    id: 'placeholder', displayName: '', slug: '', version: 0,
+    published: false, hidden: false, city: '', country: '', bio: '', programs: [], socials: {},
+  } });
+  const surface = createInlineCreateSurface(seriesSurface);
+  surface.window.location.href = `https://dondeaprendo.example.invalid/cuenta/?vista=enlaces&serie=${encodeURIComponent(remoteSeries.id)}`;
+  let reloads = 0;
+  surface.window.location.reload = () => { reloads += 1; };
+  const requests = await mountOwnerLinks({ surface, fetch: (request, options) => runtime.fetchApi(request.url, options) });
+
+  surface.createName.value = 'Borrador local';
+  await surface.createName.dispatch('input');
+  surface.createSlug.value = 'borrador-local';
+  await surface.createSlug.dispatch('input');
+  await surface.createForm.dispatch('submit');
+  assert.equal(requests[0].status, 409);
+  await surface.createCompare.dispatch('click');
+  await settle();
+  await settle();
+  assert.equal(surface.createAdopt.hidden, false, 'the saved first profile remains an explicit choice');
+  await surface.createAdopt.dispatch('click');
+
+  assert.equal(surface.createPanel.hidden, true);
+  assert.equal(surface.root.dataset.profileVersion, String((await ownerDto(runtime)).profile.version));
+  const row = surface.root.querySelector(`[data-link-row="${link.placementId}"]`);
+  assert.ok(row, 'the page shows the saved link from the compared owner DTO');
+  assert.match(elementText(row), /Guía guardada/);
+  assert.equal(surface.root.querySelector(`[data-link-row="${otherLink.placementId}"]`), null,
+    'the valid series query filters out the other saved link');
+  assert.deepEqual(surface.seriesSelect.querySelectorAll('option').map(({ value, textContent }) => ({ value, textContent })), [
+    { value: 'todos', textContent: 'Todas las series' },
+    { value: remoteSeries.id, textContent: 'Serie guardada' },
+  ], 'the series filter is rebuilt from the adopted owner DTO');
+  assert.equal(surface.seriesSelect.value, remoteSeries.id, 'adoption preserves a selected series that is now valid');
+  assert.equal(new URL(surface.window.location.href).searchParams.get('serie'), remoteSeries.id);
+  await surface.seriesSelect.dispatch('change');
+  assert.equal(surface.root.querySelectorAll('[data-link-row]').length, 1,
+    'the adopted series can be selected to filter the table without reloading');
+  surface.seriesSelect.value = 'todos';
+  await surface.seriesSelect.dispatch('change');
+  assert.equal(surface.root.querySelectorAll('[data-link-row]').length, 2,
+    'all links return when the series filter is reset');
+  assert.equal(reloads, 0, 'adoption and filter selection do not reload the document');
+
+  const activeRow = surface.root.querySelector(`[data-link-row="${link.placementId}"]`);
+  await activeRow.querySelector('[data-link-edit]').dispatch('click');
+  assert.equal(surface.metadataPanel.hidden, false,
+    'the adopted owner snapshot retains editable-resource authority for its own link');
+  assert.equal(surface.linkFields.find(({ name }) => name === 'title').value, 'Guía guardada');
+  assert.equal(requests.filter(({ method, path }) => method === 'PUT' && path === '/api/creador/perfil').length, 1,
+    'adopting the snapshot does not replay the create write');
+  assert.equal(remote.displayName, 'Página guardada');
+});
+
+test('un guardado Datos confirmado invalida comparaciones viejas y conserva correcciones tardías', async () => {
+  const runtime = await createCreatorOwnerRuntime();
+  runtime.setSession('creator-a');
+  runtime.setSession('creator-b');
+  await api(runtime, '/api/creador/perfil/', { displayName: 'Ana', slug: 'ana-original' });
+  await api(runtime, '/api/creador/perfil/', { displayName: 'Beto', slug: 'slug-ocupado' }, 'PUT', 'creator-b');
+  const initial = await ownerDto(runtime);
+  const surface = createOwnerLinksSurface(initial);
+  const conflict = addProfileConflict(surface.dataForm);
+  let releaseComparison;
+  let signalComparison;
+  const comparisonStarted = new Promise((resolve) => { signalComparison = resolve; });
+  let releaseSave;
+  let signalSave;
+  const saveStarted = new Promise((resolve) => { signalSave = resolve; });
+  const requests = await mountOwnerLinks({ surface, fetch: async (request, options) => {
+    if (request.path === '/api/creador/perfil' && request.method === 'GET') {
+      const response = await runtime.fetchApi(request.url, options);
+      signalComparison();
+      return new Promise((resolve) => { releaseComparison = () => resolve(response); });
+    }
+    if (request.path === '/api/creador/perfil' && request.method === 'PUT'
+      && request.body?.slug === 'ana-disponible') {
+      const response = await runtime.fetchApi(request.url, options);
+      signalSave();
+      return new Promise((resolve) => { releaseSave = () => resolve(response); });
+    }
+    return runtime.fetchApi(request.url, options);
+  } });
+
+  await surface.root.querySelector('[data-owner-edit="datos"]').dispatch('click');
+  const name = surface.dataForm.querySelector('[name="displayName"]');
+  const slug = surface.dataForm.querySelector('[name="slug"]');
+  name.value = 'Nombre del primer intento';
+  slug.value = 'slug-ocupado';
+  await surface.dataForm.dispatch('submit');
+  assert.equal(requests.find(({ method, path }) => method === 'PUT' && path === '/api/creador/perfil').status, 409);
+  await conflict.compare.dispatch('click');
+  await comparisonStarted;
+  assert.equal(typeof releaseComparison, 'function');
+
+  name.value = 'Nombre confirmado';
+  slug.value = 'ana-disponible';
+  const saving = surface.dataForm.dispatch('submit');
+  await saveStarted;
+  name.value = 'Corrección posterior';
+  await name.dispatch('input');
+  releaseSave();
+  await saving;
+
+  const saved = await ownerDto(runtime);
+  assert.equal(saved.profile.displayName, 'Nombre confirmado');
+  assert.equal(saved.profile.slug, 'ana-disponible');
+  assert.equal(name.value, 'Corrección posterior', 'the correction made during the write remains in the editor');
+  assert.equal(surface.root.dataset.profileVersion, String(saved.profile.version));
+  assert.equal(conflict.view.hidden, true, 'a confirmed profile write removes the superseded comparison');
+  assert.equal(conflict.adopt.hidden, true, 'the old version cannot be adopted after the write');
+
+  releaseComparison();
+  await settle();
+  await settle();
+  assert.equal(conflict.view.hidden, true, 'a comparison GET started before the write cannot reappear');
+  assert.equal(conflict.adopt.hidden, true);
+  assert.equal(name.value, 'Corrección posterior');
+  assert.equal((await ownerDto(runtime)).profile.version, saved.profile.version);
+});
+
+test('un guardado Datos borra una comparación ya presentada y bloquea su adopción', async () => {
+  const runtime = await createCreatorOwnerRuntime();
+  runtime.setSession('creator-a');
+  runtime.setSession('creator-b');
+  await api(runtime, '/api/creador/perfil/', { displayName: 'Ana', slug: 'ana-original' });
+  await api(runtime, '/api/creador/perfil/', { displayName: 'Beto', slug: 'slug-ocupado' }, 'PUT', 'creator-b');
+  const surface = createOwnerLinksSurface(await ownerDto(runtime));
+  const conflict = addProfileConflict(surface.dataForm);
+  let releaseSave;
+  let signalSave;
+  const saveStarted = new Promise((resolve) => { signalSave = resolve; });
+  const requests = await mountOwnerLinks({ surface, fetch: async (request, options) => {
+    if (request.path === '/api/creador/perfil' && request.method === 'PUT'
+      && request.body?.slug === 'ana-disponible') {
+      const response = await runtime.fetchApi(request.url, options);
+      signalSave();
+      return new Promise((resolve) => { releaseSave = () => resolve(response); });
+    }
+    return runtime.fetchApi(request.url, options);
+  } });
+
+  await surface.root.querySelector('[data-owner-edit="datos"]').dispatch('click');
+  const name = surface.dataForm.querySelector('[name="displayName"]');
+  const slug = surface.dataForm.querySelector('[name="slug"]');
+  name.value = 'Mi primera corrección';
+  slug.value = 'slug-ocupado';
+  await surface.dataForm.dispatch('submit');
+  assert.equal(requests.find(({ method, path }) => method === 'PUT' && path === '/api/creador/perfil').status, 409);
+  await conflict.compare.dispatch('click');
+  await settle();
+  await settle();
+  assert.equal(conflict.view.hidden, false, 'the conflict comparison has been presented before the save');
+  assert.equal(conflict.adopt.hidden, false);
+
+  name.value = 'Nombre confirmado';
+  slug.value = 'ana-disponible';
+  const saving = surface.dataForm.dispatch('submit');
+  await saveStarted;
+  name.value = 'Corrección tardía';
+  await name.dispatch('input');
+  releaseSave();
+  await saving;
+
+  const saved = await ownerDto(runtime);
+  assert.equal(saved.profile.displayName, 'Nombre confirmado');
+  assert.equal(name.value, 'Corrección tardía', 'the late correction stays in the open form');
+  assert.equal(conflict.view.hidden, true, 'the already presented v1 comparison is removed by v2');
+  assert.equal(conflict.adopt.hidden, true);
+  await conflict.adopt.dispatch('click');
+  assert.equal(surface.root.dataset.profileVersion, String(saved.profile.version));
+  assert.equal(name.value, 'Corrección tardía', 'the stale adoption action cannot replace the later correction');
 });
 
 test('cancelar y cambiar la corrección de Crear invalida la comparación que todavía espera', async () => {

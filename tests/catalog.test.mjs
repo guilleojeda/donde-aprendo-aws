@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 
 import {
   loadCatalog,
+  normalizeCreatorRows,
   projectPublishedCatalog,
   resolveCatalogConfig,
   validateCatalogUrl,
@@ -110,6 +111,24 @@ test('catalog resource IDs use a 256-byte UTF-8 boundary', () => {
   assert.equal(projectPublishedCatalog([record({ id: utf8Boundary })])[0].id, utf8Boundary);
   assert.throws(() => projectPublishedCatalog([record({ id: 'x'.repeat(257) })]));
   assert.throws(() => projectPublishedCatalog([record({ id: utf8Oversized })]));
+
+  const eventBeyondLimit = {
+    recordType: 'event', id: `meetup-event-${'9'.repeat(244)}`, title: 'Evento de prueba', description: '',
+    startsAt: '2099-01-01T10:00:00Z', endsAt: '2099-01-01T11:00:00Z', timeZone: 'UTC',
+    organizer: 'Comunidad', mode: 'in-person', registrationUrl: 'https://example.test/event',
+    place: 'Centro de eventos', published: true,
+  };
+  assert.equal(Buffer.byteLength(eventBeyondLimit.id, 'utf8'), 257);
+  assert.throws(() => projectPublishedCatalog([eventBeyondLimit]), /256 UTF-8 bytes/);
+
+  assert.throws(() => normalizeCreatorRows([{
+    pk: 'PROFILE#owner', sk: 'PLACEMENT#placement-1', recordType: 'placement', id: 'placement-1',
+    profileId: 'owner', resourceId: 'x'.repeat(257), selectedForDirectory: true,
+  }]));
+  assert.throws(() => projectPublishedCatalog([record({ directoryControl: 'creator' })], {
+    profiles: [{ id: 'owner', published: true }],
+    placements: [{ profileId: 'owner', resourceId: 'x'.repeat(257), selected: true }],
+  }));
 });
 
 test('rejects malformed publication flags instead of coercing strings', () => {

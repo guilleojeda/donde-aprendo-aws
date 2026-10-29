@@ -160,6 +160,7 @@ let pendingOwnerHistoryNavigation: {
 } | undefined;
 let focusOwnerLocationAfterHistory = false;
 let conflictProfile: CreatorProfileDTO | undefined;
+let conflictOwnerSnapshot: (CreatorEditorDTO & { profile: CreatorProfileDTO }) | undefined;
 let conflictProfileContext: { form: HTMLFormElement; name: 'crear' | 'datos' | 'redes'; contextRevision: number } | undefined;
 let ownerEditorRevision = 0;
 let createFormRevision = 0;
@@ -1930,6 +1931,21 @@ function renderOwnerLinks(query = currentLinksQuery()) {
   const body = table?.querySelector<HTMLTableSectionElement>('[data-link-rows]');
   if (!region || !table || !body) return undefined;
   const selected = selectCreatorOwnerLinks(state.links, state.series, query);
+  const seriesFilter = region.querySelector<HTMLSelectElement>('select[name="serie"]');
+  if (seriesFilter) {
+    seriesFilter.querySelectorAll<HTMLOptionElement>('option').forEach((option) => option.remove());
+    const allSeries = document.createElement('option');
+    allSeries.value = 'todos';
+    allSeries.textContent = 'Todas las series';
+    seriesFilter.append(allSeries);
+    state.series.forEach((series) => {
+      const option = document.createElement('option');
+      option.value = series.id;
+      option.textContent = series.name;
+      seriesFilter.append(option);
+    });
+    seriesFilter.value = selected.query.serie;
+  }
   table.querySelectorAll<HTMLTableRowElement>('[data-link-row]').forEach((row) => row.remove());
   selected.rows.forEach((link) => body.append(createLinkRow(link)));
   const empty = region.querySelector<HTMLElement>('[data-link-empty]');
@@ -1998,6 +2014,15 @@ function renderOwnerLinks(query = currentLinksQuery()) {
 }
 
 function renderOwnerLinksAfterCollectionChange() {
+  const params = new URL(window.location.href).searchParams;
+  const seriesFilters = params.getAll('serie');
+  const requestedSeries = seriesFilters.length === 1 ? seriesFilters[0] : undefined;
+  if (requestedSeries && requestedSeries !== 'todos'
+    && !state?.series.some(({ id }) => id === requestedSeries)) {
+    params.set('serie', 'todos');
+    const parsed = parseCreatorOwnerLinksQuery(params, state?.series ?? []);
+    if (parsed.valid) return updateLinksQuery(parsed.query, 'replace');
+  }
   const current = currentLinksQuery();
   const effective = renderOwnerLinks(current);
   if (effective && effective.paginaEnlaces !== current.paginaEnlaces) updateLinksQuery(effective, 'replace');
@@ -2254,18 +2279,24 @@ function submitWasUnchanged(snapshot: FormValueSnapshot | undefined): boolean {
   return !(formState?.hasPendingChanges() ?? false);
 }
 
-function clearConflict(form: HTMLFormElement | undefined) {
+function clearProfileConflict(form: HTMLFormElement | undefined) {
+  profileCompareGeneration += 1;
   conflictProfile = undefined;
+  conflictOwnerSnapshot = undefined;
   conflictProfileContext = undefined;
-  conflictLinkData = undefined;
-  conflictLinkContextRevision = undefined;
-  linkCompareGeneration += 1;
   const box = form?.querySelector<HTMLElement>('[data-owner-conflict]');
   setHidden(box, true);
   const comparison = box?.querySelector<HTMLElement>('[data-owner-comparison]');
   if (comparison) comparison.textContent = '';
   setHidden(comparison, true);
   setHidden(box?.querySelector('[data-owner-adopt]'), true);
+}
+
+function clearConflict(form: HTMLFormElement | undefined) {
+  clearProfileConflict(form);
+  conflictLinkData = undefined;
+  conflictLinkContextRevision = undefined;
+  linkCompareGeneration += 1;
 }
 
 function showConflict(form: HTMLFormElement | undefined, name: string | undefined) {
@@ -2592,10 +2623,8 @@ async function saveProfileForm(form: HTMLFormElement, name: 'crear' | 'datos' | 
       return;
     }
     const unchanged = submitWasUnchanged(snapshot);
-    if (name === 'crear') {
-      createFormRevision += 1;
-      profileCompareGeneration += 1;
-    }
+    if (name === 'crear') createFormRevision += 1;
+    clearProfileConflict(form);
     updateProfileState(next);
     clearRecoveryNotice();
     hydrateInactiveForms(form);
@@ -3321,17 +3350,26 @@ function adoptSavedMove(form: HTMLFormElement) {
   announceWrite('mover-enlace', 'Adoptaste expresamente el orden y las versiones guardadas. Tu destino sigue en el formulario para que decidas si quieres guardarlo.', 'success');
 }
 
+function updateEditableResourceFromLink(next: CreatorLinkDTO) {
+  if (!state) return;
+  const resourceIndex = state.editableResources.findIndex(({ id }) => id === next.resourceId);
+  // A reference DTO alone does not grant edit authority.
+  if (resourceIndex < 0) return;
+  const current = state.editableResources[resourceIndex];
+  state.editableResources[resourceIndex] = {
+    ...current,
+    title: next.title,
+    url: next.url,
+    description: next.description ?? '',
+    version: next.resourceVersion,
+  };
+}
+
 function updateLinkState(next: CreatorLinkDTO, profileVersion: number) {
   if (!state?.profile) return;
   placementIdByResource.set(next.resourceId, next.placementId);
   state.links = state.links.map((link) => link.placementId === next.placementId ? next : link);
-  const resourceIndex = state.editableResources.findIndex(({ id }) => id === next.resourceId);
-  if (resourceIndex >= 0) {
-    state.editableResources[resourceIndex] = {
-      id: next.resourceId, title: next.title, url: next.url,
-      description: next.description ?? '', version: next.resourceVersion,
-    };
-  }
+  updateEditableResourceFromLink(next);
   state.profile = { ...state.profile, version: profileVersion };
   root?.setAttribute('data-profile-version', String(profileVersion));
   renderOwnerLinksAfterCollectionChange();
@@ -4541,6 +4579,7 @@ async function saveCatalogReference(form: HTMLFormElement) {
       const existingIndex = state.links.findIndex(({ resourceId }) => resourceId === item.id);
       if (existingIndex >= 0) state.links[existingIndex] = link;
       else state.links.push(link);
+      updateEditableResourceFromLink(link);
       placementIdByResource.set(link.resourceId, link.placementId);
       renderOwnerLinksAfterCollectionChange();
       clearRecoveryNotice();
@@ -4819,7 +4858,12 @@ function isActiveProfileFormContext(
   return ownerEditorRevision === contextRevision && activeEditor === name;
 }
 
-function showConflictComparison(form: HTMLFormElement, current: CreatorProfileDTO, name: 'crear' | 'datos' | 'redes') {
+function showConflictComparison(
+  form: HTMLFormElement,
+  current: CreatorProfileDTO,
+  name: 'crear' | 'datos' | 'redes',
+  ownerSnapshot?: CreatorEditorDTO & { profile: CreatorProfileDTO },
+) {
   const compare = form.querySelector<HTMLElement>('[data-owner-comparison]');
   if (!compare) return;
   const lines: string[] = [`Versión guardada: ${current.version}.`];
@@ -4851,6 +4895,7 @@ function showConflictComparison(form: HTMLFormElement, current: CreatorProfileDT
   setHidden(compare, false);
   setHidden(form.querySelector('[data-owner-adopt]'), false);
   conflictProfile = current;
+  conflictOwnerSnapshot = ownerSnapshot;
   conflictProfileContext = { form, name, contextRevision: profileFormContextRevision(name) };
 }
 
@@ -4880,6 +4925,7 @@ async function compareSavedVersion(form: HTMLFormElement, name: 'crear' | 'datos
       setHidden(compare, false);
       setHidden(form.querySelector('[data-owner-adopt]'), true);
       conflictProfile = undefined;
+      conflictOwnerSnapshot = undefined;
       conflictProfileContext = undefined;
       announceWrite(name, 'No se encontró una página para adoptar. Puedes corregir la dirección y volver a guardar.', 'info');
       return;
@@ -4889,7 +4935,15 @@ async function compareSavedVersion(form: HTMLFormElement, name: 'crear' | 'datos
       announceWrite(name, 'No pudimos confirmar que la versión guardada corresponde a esta página. Conservamos tu edición.', 'error');
       return;
     }
-    showConflictComparison(form, payload.profile, name);
+    let ownerSnapshot: (CreatorEditorDTO & { profile: CreatorProfileDTO }) | undefined;
+    if (!state?.profile && name === 'crear') {
+      if (!isAdoptableOwnerData(payload)) {
+        announceWrite(name, 'La respuesta no contiene una página completa que podamos adoptar. Conservamos tu edición para que vuelvas a comparar.', 'error');
+        return;
+      }
+      ownerSnapshot = payload;
+    }
+    showConflictComparison(form, payload.profile, name, ownerSnapshot);
     announceWrite(name, 'Compara los valores y elige expresamente si quieres adoptar la versión guardada.', 'info');
   } catch {
     if (isCurrent()) announceWrite(name, 'No pudimos conectar para leer la versión guardada. Tus cambios siguen aquí.', 'error');
@@ -4901,8 +4955,13 @@ function adoptSavedVersion(form: HTMLFormElement, name: 'crear' | 'datos' | 'red
     || conflictProfileContext.name !== name
     || !isActiveProfileFormContext(form, name, conflictProfileContext.contextRevision)) return;
   const adopted = conflictProfile;
-  updateProfileState(adopted);
   if (name === 'crear') {
+    if (state?.profile && state.profile.id !== adopted.id) return;
+    if (!state?.profile) {
+      const snapshot = conflictOwnerSnapshot;
+      if (!snapshot || snapshot.profile.id !== adopted.id) return;
+      adoptOwnerSnapshot(snapshot, form);
+    } else updateProfileState(adopted);
     const displayName = field(form, 'displayName');
     const slug = field(form, 'slug');
     if (displayName) displayName.value = adopted.displayName;
@@ -4910,7 +4969,11 @@ function adoptSavedVersion(form: HTMLFormElement, name: 'crear' | 'datos' | 'red
     setHidden(root?.querySelector('[data-owner-create-panel]'), true);
     activeForm = undefined;
     hydrateInactiveForms();
-  } else setFormFromProfile(form, name, adopted);
+  } else {
+    if (!state?.profile || state.profile.id !== adopted.id) return;
+    updateProfileState(adopted);
+    setFormFromProfile(form, name, adopted);
+  }
   formState?.commit(capture(form));
   clearConflict(form);
   announceWrite(name, 'Adoptaste explícitamente la versión guardada. Puedes hacer otra corrección y volver a guardar.', 'success');

@@ -194,6 +194,24 @@ test('URL-only claim selection rejects a reservation for an over-limit resource 
   assert.deepEqual(await harness.store.list('placement:profile-move-a:'), []);
 });
 
+test('URL-only owner link rejects an over-limit reservation before reading its resource', async () => {
+  const harness = await createDynamoMoveHarness();
+  seedMoveProfile(harness.mock);
+  const resourceId = importedId(1900);
+  const url = 'https://catalog.example/too-long/url-only-owner-link';
+  seedMoveResource(harness.mock, { id: resourceId, title: 'Reserved long-ID case', url });
+  installPhysicalKeyLimits(harness.mock);
+
+  const readStart = harness.mock.calls.length;
+  const writeStart = harness.mock.transactions.length;
+  const result = await api(harness, '/api/creador/enlaces', { title: 'Nueva ficha', url });
+  assert.equal(result.status, 422, 'resolving a URL reservation does not create an impossible editor reference');
+  assert.deepEqual(catalogReadsSince(harness, readStart, new Set([resourceId])), []);
+  assert.deepEqual(writesSince(harness, writeStart), []);
+  assert.deepEqual(await harness.store.list('placement:profile-move-a:'), []);
+  assert.deepEqual(await harness.store.list('editor:profile-move-a:'), []);
+});
+
 test('a valid target followed by an over-limit target cannot partially save a mixed claim', async () => {
   const harness = await createDynamoMoveHarness();
   seedMoveProfile(harness.mock);

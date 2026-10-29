@@ -116,16 +116,18 @@ test('Meetup import reports a duplicate URL without merging the second ID', asyn
 });
 
 test('Meetup import rejects overlong IDs before catalog reads or writes', async () => {
+  let identityReads = 0;
   let reads = 0;
   let writes = 0;
-  await assert.rejects(importMeetupCommunities([{
-    id: `meetup-${'9'.repeat(250)}`,
-    url: 'https://www.meetup.com/aws-overlong/',
-  }], {
+  await assert.rejects(importMeetupCommunities([
+    { id: 'meetup-123', url: 'https://www.meetup.com/aws-valid/' },
+    { id: `meetup-${'9'.repeat(250)}`, url: 'https://www.meetup.com/aws-overlong/' },
+  ], {
     tableName: 'catalog',
-    getIdentity: async () => ({ Account: '719535286359' }),
+    getIdentity: async () => { identityReads += 1; return { Account: '719535286359' }; },
     getItem: async () => { reads += 1; return {}; },
     transactWrite: async () => { writes += 1; },
   }));
-  assert.deepEqual([reads, writes], [0, 0]);
+  assert.deepEqual([identityReads, reads, writes], [0, 0, 0],
+    'the later invalid group is rejected before a partial import or AWS call');
 });

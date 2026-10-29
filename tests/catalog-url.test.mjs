@@ -31,3 +31,13 @@ test('reservation and collision records use the shared physical key and version'
   });
   assert.throws(() => currentUrlCollision(url, ['only-one']), /at least two/);
 });
+
+test('URL reservation references enforce the complete resource ID byte limit', () => {
+  const url = 'https://example.test/over-limit';
+  const acceptedId = 'é'.repeat(128);
+  const rejectedId = `${acceptedId}a`;
+  assert.equal(Buffer.byteLength(acceptedId, 'utf8'), 256);
+  assert.equal(currentUrlReservation(url, acceptedId).resourceId, acceptedId);
+  assert.throws(() => currentUrlReservation(url, rejectedId), /256 UTF-8 bytes/);
+  assert.throws(() => currentUrlCollision(url, ['short-id', rejectedId]), /256 UTF-8 bytes/);
+});

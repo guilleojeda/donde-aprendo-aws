@@ -332,8 +332,9 @@ class MeetupEventsTests(unittest.TestCase):
         group_record = meetup.map_event(group_boundary, {'id': '456', 'url': EVENT_URL, 'modified': '20990101T000000Z'}, PAGE)
         self.assertEqual(len(group_record['communityId']), 128)
         self.assertEqual(group_record['communityId'], group_record['sourceGroupId'])
+        invalid_group = dict(GROUP, id='9' * 122)
         with self.assertRaises(ValueError):
-            meetup.map_event(dict(GROUP, id='9' * 122), {
+            meetup.map_event(invalid_group, {
                 'id': '456', 'url': EVENT_URL, 'modified': '20990101T000000Z',
             }, PAGE)
 
@@ -350,6 +351,15 @@ class MeetupEventsTests(unittest.TestCase):
         self.assertEqual(table.puts, [])
         self.assertEqual(table.transactions, [])
 
+        for field in ('communityId', 'sourceGroupId'):
+            table = FakeTable()
+            bad_identity_record = dict(boundary_record, **{field: f'meetup-{"9" * 122}'})
+            with self.assertRaises(ValueError):
+                meetup.create_source_event_with_url_reservation(table, bad_identity_record)
+            self.assertEqual(table.gets, [])
+            self.assertEqual(table.puts, [])
+            self.assertEqual(table.transactions, [])
+
         table = FakeTable()
         with patch.object(meetup, 'timezone_from_feed', return_value=[oversized_entry]), \
                 patch.object(meetup, 'fetch_event_page', return_value=PAGE) as fetch_event_page:
@@ -357,6 +367,16 @@ class MeetupEventsTests(unittest.TestCase):
         self.assertEqual(result['changed'], 0)
         self.assertEqual(len(result['failures']), 1)
         fetch_event_page.assert_not_called()
+        self.assertEqual(table.puts, [])
+        self.assertEqual(table.transactions, [])
+        self.assertEqual(table.updates, [])
+
+        table = FakeTable()
+        with patch.object(meetup, 'timezone_from_feed', return_value=[{'id': '456', 'url': EVENT_URL}]), \
+                patch.object(meetup, 'fetch_event_page', return_value=PAGE):
+            result = meetup.synchronize(table=table, groups=[invalid_group])
+        self.assertEqual(result['changed'], 0)
+        self.assertEqual(len(result['failures']), 1)
         self.assertEqual(table.puts, [])
         self.assertEqual(table.transactions, [])
         self.assertEqual(table.updates, [])

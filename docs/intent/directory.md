@@ -79,7 +79,7 @@ The homepage provides five brief, always-visible answers for learners before the
 
 ## Content ownership
 
-DynamoDB is the single authoritative resource catalog. Site templates, assets, blog article files and [certification editorial guidance](certifications.md) belong in Git. Certification selections reference published resource IDs; they do not copy the catalog title, destination or publication permission. Approved catalog records are not copied into Git for ongoing editing. The versioned Latin American Meetup directory is a reviewed seed for the initial import; it does not override later edits to the live catalog.
+DynamoDB is the single authoritative resource catalog. Site templates, assets, blog article files and [certification editorial guidance](certifications.md) belong in Git. Certification selections reference published resource IDs; they do not copy the catalog title, destination or publication permission. Approved catalog records are not copied into Git for ongoing editing. Complete catalog resource IDs have a 256-byte UTF-8 limit, including generated prefixes, in addition to the existing format rules for each record type. Imports and writes reject IDs outside either rule without truncating them; generic catalog identities may contain `:` and retain their exact value. The versioned Latin American Meetup directory is a reviewed seed for the initial import; it does not override later edits to the live catalog.
 
 ## Creator pages and shared eligibility
 
