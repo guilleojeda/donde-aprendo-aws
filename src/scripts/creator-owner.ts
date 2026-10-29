@@ -225,6 +225,8 @@ let claimChecking = false;
 type ProfileFormAction = (event: Event) => Promise<void> | void;
 type AddedLinkDraft = { title: string; url: string; description: string; selectedForDirectory: boolean };
 let uncertainAddedLinkDraft: AddedLinkDraft | undefined;
+let pendingSharedAddPlacementId: string | undefined;
+let uncertainPublishIntent: { profileId: string } | undefined;
 const profileFormActions = new WeakMap<HTMLFormElement, ProfileFormAction>();
 
 const dialog = root?.querySelector<HTMLDialogElement>('[data-owner-dialog]');
@@ -326,6 +328,52 @@ async function responsePayload(response: Response): Promise<Record<string, unkno
   } catch {
     return null;
   }
+}
+
+function clearUncertainPublication() {
+  uncertainPublishIntent = undefined;
+  const check = root?.querySelector<HTMLButtonElement>('[data-owner-publish-check]');
+  if (check) {
+    check.hidden = true;
+    check.disabled = false;
+  }
+}
+
+function announcePublicationStatus(message: string, kind: 'error' | 'success' | 'info' = 'info') {
+  const status = statusFor(undefined);
+  if (status) {
+    if (pageStatus && pageStatus !== status) clearAnnouncement(pageStatus);
+    announce(status, message, kind);
+    return;
+  }
+  announce(pageStatus, message, kind);
+}
+
+function requirePublicationCheck(profile: CreatorProfileDTO) {
+  uncertainPublishIntent = { profileId: profile.id };
+  setHidden(root?.querySelector('[data-owner-publish]'), true);
+  const check = root?.querySelector<HTMLButtonElement>('[data-owner-publish-check]');
+  if (check) {
+    check.disabled = false;
+    check.hidden = false;
+  }
+  announcePublicationStatus('No pudimos confirmar si la publicación se guardó. Comprueba el estado guardado antes de volver a intentarlo.');
+}
+
+function checkUncertainPublication() {
+  if (!uncertainPublishIntent) return;
+  if (writeGuard?.isActive()) {
+    announcePublicationStatus('Espera a que termine la acción antes de actualizar la página para comprobar el estado.');
+    return;
+  }
+  if (activeEditor !== undefined || activeForm !== undefined || hasPendingChanges()) {
+    announcePublicationStatus('Guarda o descarta tus correcciones antes de actualizar la página para comprobar el estado.');
+    return;
+  }
+  const button = root?.querySelector<HTMLButtonElement>('[data-owner-publish-check]');
+  if (button) button.disabled = true;
+  announcePublicationStatus('Actualizando esta página para comprobar el estado guardado; no se volverá a publicar.');
+  window.location.reload();
 }
 
 async function jsonRequest(path: string, method: string, body?: unknown): Promise<Response> {
@@ -951,10 +999,13 @@ function resetAddedLinkForm(form: HTMLFormElement) {
   const url = field(form, 'url');
   const description = field(form, 'description');
   const selected = field(form, 'selectedForDirectory') as HTMLInputElement | null;
+  const reviewOptions = form.querySelector<HTMLButtonElement>('[data-link-add-options]');
   if (title) title.value = '';
   if (url) url.value = '';
   if (description) description.value = '';
   if (selected) selected.checked = true;
+  if (reviewOptions) reviewOptions.hidden = true;
+  pendingSharedAddPlacementId = undefined;
   uncertainAddedLinkDraft = undefined;
   formState?.commit(capture(form));
 }
@@ -972,6 +1023,11 @@ function sameAddedLinkDraft(left: AddedLinkDraft, right: AddedLinkDraft): boolea
   return left.title === right.title && left.url.trim() === right.url.trim()
     && left.description === right.description
     && left.selectedForDirectory === right.selectedForDirectory;
+}
+
+function sameAddedLinkText(left: AddedLinkDraft, right: AddedLinkDraft): boolean {
+  return left.title === right.title && left.url.trim() === right.url.trim()
+    && left.description === right.description;
 }
 
 function markAddedLinkUncertain(draft: AddedLinkDraft) {
@@ -1409,14 +1465,26 @@ function continueAddedLinkInEditor(
   sourceForm: HTMLFormElement,
   link: CreatorLinkDTO,
   correction: { title: string; url: string; description: string; selectedForDirectory: boolean },
-): 'editable' | 'shared' | undefined {
+  preserveSharedTextCorrection = false,
+): 'editable' | 'shared' | 'shared-correction' | undefined {
   const form = linkForm();
   if (!form || !state) return undefined;
+  const canEditMetadata = state.editableResources.some(({ id }) => id === link.resourceId);
+  if (!canEditMetadata && preserveSharedTextCorrection) {
+    for (const name of ['title', 'url', 'description'] as const) {
+      const input = field(sourceForm, name);
+      if (input) input.value = correction[name];
+    }
+    pendingSharedAddPlacementId = link.placementId;
+    setHidden(sourceForm.querySelector('[data-link-add-options]'), false);
+    showDialogForm(sourceForm, 'alta-enlace', 'Revisar corrección de alta');
+    uncertainAddedLinkDraft = undefined;
+    return 'shared-correction';
+  }
   const row = [...(root?.querySelectorAll<HTMLElement>('[data-link-row]') ?? [])]
     .find((item) => item.dataset.linkRow === link.placementId);
   const trigger = row?.querySelector<HTMLElement>('[data-link-edit]') ?? document.createElement('button');
   if (!row) trigger.dataset.placementId = link.placementId;
-  const canEditMetadata = state.editableResources.some(({ id }) => id === link.resourceId);
   openLinkContext(trigger, { placementId: link.placementId, selectedForDirectory: correction.selectedForDirectory });
   if (activeForm !== form || activeEditor !== 'enlace'
     || activeLinkContext?.kind !== 'placement' || activeLinkContext.placementId !== link.placementId) return undefined;
@@ -1677,6 +1745,29 @@ function openAddLink(trigger: HTMLElement) {
   if (!activeForm || activeForm !== form) resetAddedLinkForm(form);
   formState?.commit(capture(form));
   showDialogForm(form, 'alta-enlace', 'Agregar enlace', trigger);
+}
+
+function reviewPendingSharedAddOptions(button: HTMLButtonElement) {
+  const placementId = pendingSharedAddPlacementId;
+  const link = placementId && state?.links.find(({ placementId: id }) => id === placementId);
+  if (!placementId || !link) {
+    announceWrite('alta-enlace', 'Ese enlace ya no está disponible en la lista. Conservamos tu corrección de alta.', 'error');
+    return;
+  }
+  const row = [...(root?.querySelectorAll<HTMLElement>('[data-link-row]') ?? [])]
+    .find((item) => item.dataset.linkRow === placementId);
+  const trigger = row?.querySelector<HTMLElement>('[data-link-edit]') ?? document.createElement('button');
+  if (!row) trigger.dataset.placementId = placementId;
+  const openOptions = () => {
+    const current = state?.links.find(({ placementId: id }) => id === placementId);
+    if (!current) {
+      announceWrite('alta-enlace', 'Ese enlace ya no está disponible en la lista. Conservamos tu corrección de alta.', 'error');
+      return;
+    }
+    openLinkContext(trigger);
+  };
+  if (hasPendingChanges()) showExitPrompt(openOptions, button);
+  else openOptions();
 }
 
 function currentLinksQuery(): CreatorOwnerLinksQuery {
@@ -2064,12 +2155,14 @@ function updateProfileView() {
   const publicLink = root.querySelector<HTMLAnchorElement>('[data-owner-public-link]') ?? createPublicAction('view') as HTMLAnchorElement | undefined;
   const copyButton = root.querySelector<HTMLButtonElement>('[data-owner-copy]') ?? createPublicAction('copy') as HTMLButtonElement | undefined;
   const publishButton = root.querySelector<HTMLButtonElement>('[data-owner-publish]') ?? createPublicAction('publish') as HTMLButtonElement | undefined;
+  const publishCheck = root.querySelector<HTMLButtonElement>('[data-owner-publish-check]');
   const visible = profile.published && !profile.hidden;
   setHidden(publicLink, !visible);
   setAnchor(publicLink, visible ? canonicalUrl(profile) : undefined);
   setHidden(copyButton, !visible);
   if (copyButton) copyButton.dataset.url = visible ? canonicalUrl(profile) : '';
-  setHidden(publishButton, !(!profile.published && !profile.hidden));
+  setHidden(publishButton, Boolean(uncertainPublishIntent) || !(!profile.published && !profile.hidden));
+  setHidden(publishCheck, !uncertainPublishIntent);
 
   const imageUrl = photoPath(profile);
   root.querySelectorAll<HTMLImageElement>('[data-owner-photo], [data-owner-photo-preview], [data-owner-avatar]').forEach((image) => {
@@ -2298,14 +2391,7 @@ function resetForm(name: string, form: HTMLFormElement) {
       if (resource) setLinkFormValues(form, resource, 'resource');
     }
   } else if (name === 'alta-enlace') {
-    const title = field(form, 'title');
-    const url = field(form, 'url');
-    const description = field(form, 'description');
-    const selected = field(form, 'selectedForDirectory') as HTMLInputElement | null;
-    if (title) title.value = '';
-    if (url) url.value = '';
-    if (description) description.value = '';
-    if (selected) selected.checked = true;
+    resetAddedLinkForm(form);
   } else if (name === 'referencia') {
     resetCatalogReference(form);
   } else if (name === 'reclamacion') {
@@ -2386,6 +2472,7 @@ function openEditor(name: 'datos' | 'redes' | 'foto', trigger: HTMLElement) {
 
 function updateProfileState(profile: CreatorProfileDTO) {
   if (!state) return;
+  if (uncertainPublishIntent?.profileId === profile.id) clearUncertainPublication();
   state.profile = profile;
   root?.setAttribute('data-profile-version', String(profile.version));
   updateProfileView();
@@ -3048,16 +3135,11 @@ function adoptSavedMove(form: HTMLFormElement) {
   if (!adopted.links.some(({ placementId }) => placementId === context.placementId)) return;
   const targetPositionInput = movePositionInput(form);
   const requested = targetPositionInput?.value;
-  state.profile = adopted.profile;
-  state.links = adopted.links;
-  state.editableResources = adopted.editableResources;
-  state.series = adopted.series;
-  adopted.links.forEach(({ resourceId, placementId }) => placementIdByResource.set(resourceId, placementId));
-  root?.setAttribute('data-profile-version', String(adopted.profile.version));
-  renderOwnerLinksAfterCollectionChange();
+  adoptOwnerSnapshot(adopted, form);
   if (targetPositionInput && requested !== undefined) targetPositionInput.value = requested;
   const target = state.links.find(({ placementId }) => placementId === context.placementId);
   if (target) setMoveDescription(form, target);
+  restoreMoveFocus(context.placementId);
   clearConflict(form);
   moveComparisonData = undefined;
   announceWrite('mover-enlace', 'Adoptaste expresamente el orden y las versiones guardadas. Tu destino sigue en el formulario para que decidas si quieres guardarlo.', 'success');
@@ -3678,11 +3760,14 @@ async function saveAddedLink(form: HTMLFormElement) {
       const uncertainLink = state?.links.find((item) => item.url === uncertainDraft.url.trim());
       if (uncertainLink) {
         const currentDraft = readAddedLinkDraft(form);
-        const continuation = continueAddedLinkInEditor(form, uncertainLink, currentDraft);
+        const continuation = continueAddedLinkInEditor(form, uncertainLink, currentDraft,
+          !sameAddedLinkText(currentDraft, uncertainDraft));
         if (continuation) {
-          announceWrite('enlace', continuation === 'editable'
+          announceWrite(continuation === 'shared-correction' ? 'alta-enlace' : 'enlace', continuation === 'editable'
             ? 'La URL del intento anterior ya está en tu página. Conservamos la corrección en la edición de la ficha para que la guardes.'
-            : 'La URL del intento anterior ya está en tu página. La ficha compartida conserva sus datos; sólo puedes editar sus opciones.', 'info');
+            : continuation === 'shared-correction'
+              ? 'La URL del intento anterior ya está en tu página. Conservamos aquí tu corrección de alta; la ficha compartida mantiene sus datos. Puedes guardarla o descartarla, y revisar las opciones por separado.'
+              : 'La URL del intento anterior ya está en tu página. La ficha compartida conserva sus datos; sólo puedes editar sus opciones.', 'info');
         } else announceWrite('alta-enlace', 'La URL del intento anterior ya está en tu página. Conservamos los cambios; vuelve a abrir su edición antes de agregar otra URL.', 'error');
         return;
       }
@@ -3717,19 +3802,45 @@ async function saveAddedLink(form: HTMLFormElement) {
         announceWrite('alta-enlace', 'El enlace ya existía o la solicitud anterior pudo completarse. Conservamos el formulario y no cambiamos sus opciones; actualiza la lista antes de volver a intentar.', 'error');
         return;
       }
-      const unchanged = submitWasUnchanged(snapshot);
       const currentDraft = readAddedLinkDraft(form);
+      const currentSharedLink = pendingSharedAddPlacementId
+        ? state?.links.find(({ placementId }) => placementId === pendingSharedAddPlacementId)
+        : undefined;
+      if (currentSharedLink?.placementId === payload.link.placementId) {
+        const textCorrection = !sameAddedLinkText(currentDraft, {
+          title: currentSharedLink.title,
+          url: currentSharedLink.url,
+          description: currentSharedLink.description ?? '',
+          selectedForDirectory: currentSharedLink.selectedForDirectory,
+        });
+        if (textCorrection) {
+          announceWrite('alta-enlace', 'La ficha compartida ya está en tu página y conserva sus datos. No guardamos esta corrección sobre ella; cambia la URL para agregar otra ficha, revisa las opciones o descarta la corrección.', 'info');
+          return;
+        }
+        if (currentDraft.selectedForDirectory !== currentSharedLink.selectedForDirectory) {
+          const continuation = continueAddedLinkInEditor(form, currentSharedLink, currentDraft);
+          if (continuation) {
+            announceWrite('enlace', 'La ficha compartida ya estaba en tu página. Conservamos la propuesta al directorio en sus opciones; guarda ese cambio por separado.', 'info');
+            return;
+          }
+        }
+      }
+      const unchanged = submitWasUnchanged(snapshot);
       const correctionAfterUncertain = Boolean(uncertainAddedLinkDraft
         && uncertainAddedLinkDraft.url.trim() === url
         && !sameAddedLinkDraft(currentDraft, uncertainAddedLinkDraft));
       const existing = state?.links.find((item) => item.url === url);
       const matchesCurrentQuery = existing ? ownerLinkMatchesCurrentQuery(existing.placementId) : true;
       if ((!unchanged || correctionAfterUncertain) && existing) {
-        const continuation = continueAddedLinkInEditor(form, existing, currentDraft);
+        const correctionBaseline = uncertainAddedLinkDraft ?? draft;
+        const continuation = continueAddedLinkInEditor(form, existing, currentDraft,
+          !sameAddedLinkText(currentDraft, correctionBaseline));
         if (continuation) {
-          announceWrite('enlace', continuation === 'editable'
+          announceWrite(continuation === 'shared-correction' ? 'alta-enlace' : 'enlace', continuation === 'editable'
             ? 'Ese enlace ya estaba en tu página. Conservamos tus correcciones en la edición de la ficha para que las guardes.'
-            : 'Ese enlace ya estaba en tu página. La ficha compartida conserva su título, URL y descripción; sólo puedes editar sus opciones.', 'info');
+            : continuation === 'shared-correction'
+              ? 'Ese enlace ya estaba en tu página. Conservamos aquí tu corrección de alta; la ficha compartida mantiene sus datos. Puedes guardarla o descartarla, y revisar las opciones por separado.'
+              : 'Ese enlace ya estaba en tu página. La ficha compartida conserva su título, URL y descripción; sólo puedes editar sus opciones.', 'info');
           return;
         }
       }
@@ -3798,9 +3909,11 @@ async function saveAddedLink(form: HTMLFormElement) {
         url: String(field(form, 'url')?.value ?? ''),
         description: String(field(form, 'description')?.value ?? ''),
         selectedForDirectory: Boolean((field(form, 'selectedForDirectory') as HTMLInputElement | null)?.checked),
-      });
+      }, !sameAddedLinkText(readAddedLinkDraft(form), draft));
       if (continuation === 'editable') {
         announceWrite('enlace', `Enlace agregado. Conservamos la corrección que escribiste durante el guardado; revísala y guárdala en la edición de la ficha.${visibility}${filterMessage}`, 'success');
+      } else if (continuation === 'shared-correction') {
+        announceWrite('alta-enlace', `Enlace compartido agregado. Conservamos aquí la corrección de alta; los datos de la ficha siguen protegidos. Puedes guardarla o descartarla y revisar las opciones por separado.${visibility}${filterMessage}`, 'info');
       } else if (continuation === 'shared') {
         announceWrite('enlace', `Enlace agregado. La ficha compartida conserva su título, URL y descripción; sólo puedes editar sus opciones.${visibility}${filterMessage}`, 'info');
       } else announceWrite('alta-enlace', `Enlace agregado. Conservamos la corrección que escribiste durante el guardado; revísala antes de seguir.${visibility}${filterMessage}`, 'success');
@@ -4488,13 +4601,9 @@ function adoptSavedLink(form: HTMLFormElement) {
   const context = activeLinkContext;
   const adopted = conflictLinkData;
   if (!state?.profile || adopted.profile?.id !== state.profile.id) return;
-  state.profile = adopted.profile;
-  state.links = adopted.links;
-  state.editableResources = adopted.editableResources;
-  state.series = adopted.series;
-  adopted.links.forEach(({ resourceId, placementId }) => placementIdByResource.set(resourceId, placementId));
-  root?.setAttribute('data-profile-version', String(adopted.profile.version));
-  renderOwnerLinksAfterCollectionChange();
+  if (context.kind === 'placement' && !adopted.links.some(({ placementId }) => placementId === context.placementId)) return;
+  if (context.kind === 'resource' && !adopted.editableResources.some(({ id }) => id === context.resourceId)) return;
+  adoptOwnerSnapshot(adopted, form);
   if (context.kind === 'placement') {
     const link = adopted.links.find(({ placementId }) => placementId === context.placementId);
     if (!link) return;
@@ -4505,6 +4614,7 @@ function adoptSavedLink(form: HTMLFormElement) {
     if (!resource) return;
     setLinkFormValues(form, resource, 'resource');
   }
+  restoreLinkFocus(context);
   clearConflict(form);
   formState?.commit(capture(form));
   announceWrite('enlace', 'Adoptaste expresamente la versión guardada. Si quieres, ahora puedes hacer otra corrección.', 'success');
@@ -5245,6 +5355,12 @@ if (root && state && csrfToken && dialog) {
       else openAddLink(addOpen);
       return;
     }
+    const addOptions = target.closest<HTMLButtonElement>('[data-link-add-options]');
+    if (addOptions) {
+      event.preventDefault();
+      reviewPendingSharedAddOptions(addOptions);
+      return;
+    }
     const linkEdit = target.closest<HTMLElement>('[data-link-edit]');
     if (linkEdit) {
       event.preventDefault();
@@ -5383,6 +5499,12 @@ if (root && state && csrfToken && dialog) {
       void checkPhotoStatus(activeForm);
       return;
     }
+    const publishCheck = target.closest<HTMLButtonElement>('[data-owner-publish-check]');
+    if (publishCheck) {
+      event.preventDefault();
+      void checkUncertainPublication();
+      return;
+    }
     const publish = target.closest<HTMLElement>('[data-owner-publish]');
     if (publish) {
       event.preventDefault();
@@ -5392,6 +5514,10 @@ if (root && state && csrfToken && dialog) {
       }
       const profile = state?.profile;
       if (!profile || profile.hidden || profile.published) return;
+      if (uncertainPublishIntent) {
+        announcePublicationStatus('Comprueba el estado guardado antes de volver a intentar publicar.');
+        return;
+      }
       if (sessionRecovery?.blocksWrites()) {
         sessionRecovery.announceBlocked();
         return;
@@ -5402,14 +5528,15 @@ if (root && state && csrfToken && dialog) {
         try {
           const response = await jsonRequest('/api/creador/perfil/publicar', 'POST', { version: profile.version });
           if (!response.ok) {
-            if (response.status === 409) announceWrite(undefined, statusMessage(409), 'error');
+            if (response.status >= 500) requirePublicationCheck(profile);
+            else if (response.status === 409) announceWrite(undefined, statusMessage(409), 'error');
             else announceWrite(undefined, statusMessage(response.status), 'error');
             return;
           }
           const payload = await responsePayload(response);
           const changes = await readCreatorVersionChanges(response);
           if (!payload || !isProfile(payload.profile) || !validateReceipt(payload, changes, profile, payload.profile)) {
-            announceWrite(undefined, 'No pudimos comprobar la versión de tu página después de publicar. Revisa su estado antes de compartirla.', 'error');
+            requirePublicationCheck(profile);
             return;
           }
           updateProfileState(payload.profile);
@@ -5417,7 +5544,7 @@ if (root && state && csrfToken && dialog) {
           hydrateInactiveForms();
           announce(status, payload.profile.hidden ? 'La página está publicada, pero sigue oculta por administración.' : 'Tu página ya está publicada y visible al público.', 'success');
         } catch {
-          announceWrite(undefined, 'No pudimos conectar para publicar. Tu página sigue como estaba; inténtalo de nuevo.', 'error');
+          requirePublicationCheck(profile);
         }
       });
       return;

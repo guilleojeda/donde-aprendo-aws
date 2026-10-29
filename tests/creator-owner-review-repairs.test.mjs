@@ -404,6 +404,12 @@ test('corrección tardía al agregar una ficha compartida sólo pasa por el edit
   const shared = sharedLink({ position: 0 });
   const surface = createOwnerLinksSurface({ links: [shared] });
   placeAddFormInOwnerDialog(surface);
+  const reviewOptions = surface.document.createElement('button');
+  reviewOptions.type = 'button';
+  reviewOptions.dataset.linkAddOptions = '';
+  reviewOptions.hidden = true;
+  reviewOptions.textContent = 'Revisar opciones del enlace compartido agregado';
+  surface.addForm.append(reviewOptions);
   const api = createLinksApi({ surface, override: (request) => {
     if (request.method === 'GET' && request.path === '/api/creador/perfil' && ++ownerReads === 1) {
       markOwnerReadStarted();
@@ -448,19 +454,42 @@ test('corrección tardía al agregar una ficha compartida sólo pasa por el edit
   await retry;
   await settle();
 
+  assert.equal(surface.addForm.hidden, false,
+    'the shared URL is confirmed without hiding the still-pending add correction');
+  assert.deepEqual({
+    title: addControl(surface, 'title').value,
+    url: addControl(surface, 'url').value,
+    description: addControl(surface, 'description').value,
+    selectedForDirectory: addControl(surface, 'selectedForDirectory').checked,
+  }, {
+    title: 'No reemplazar título compartido C',
+    url: 'https://example.invalid/shared-correction-c',
+    description: 'No reemplazar descripción compartida C',
+    selectedForDirectory: true,
+  }, 'the literal correction remains editable in the authorized add form');
+  assert.equal(reviewOptions.hidden, false,
+    'the owner can deliberately open the existing shared-placement options');
+  assert.equal(surface.linkEditForm.hidden, true);
+  assert.deepEqual(writes(requests).map(({ method }) => method), ['POST'],
+    'checking the uncertain request does not replay creation or write metadata');
+
+  await reviewOptions.dispatch('click');
+  assert.equal(surface.exitPrompt.hidden, false,
+    'the add correction must be saved, discarded, or kept in edit before switching to options');
+  await surface.exitDiscard.dispatch('click');
+  await settle();
+  assert.equal(surface.addForm.hidden, true);
+  assert.equal(addControl(surface, 'title').value, '', 'discard clears the retained correction explicitly');
   assert.equal(surface.linkEditForm.hidden, false,
-    'the confirmed duplicate is handed to its existing options editor');
+    'discarding the pending add correction then opens the existing shared options editor');
   assert.equal(surface.metadataPanel.hidden, true);
   assert.equal(surface.optionsPanel.hidden, false);
   assert.equal(editControl(surface, 'title').value, shared.title);
   assert.equal(editControl(surface, 'url').value, shared.url);
   assert.equal(editControl(surface, 'description').value, shared.description);
-  assert.equal(editControl(surface, 'selectedForDirectory').checked, true,
-    'the latest option correction is adopted after the delayed read');
-  assert.match(surface.linkStatus.textContent, /compartida|datos originales/i,
-    'the owner is told that shared metadata remains unchanged');
+  assert.equal(editControl(surface, 'selectedForDirectory').checked, shared.selectedForDirectory);
   assert.deepEqual(writes(requests).map(({ method }) => method), ['POST'],
-    'adopting the shared placement neither replays creation nor writes metadata');
+    'discarding or opening options does not submit the corrected URL');
 
   await surface.linkEditForm.dispatch('submit');
   await settle();

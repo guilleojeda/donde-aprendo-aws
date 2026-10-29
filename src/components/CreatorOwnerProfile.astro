@@ -153,6 +153,7 @@ function safeSocialUrl(value: string | undefined): string | undefined {
           <button class="button button--outline" type="button" data-owner-copy data-url={canonicalUrl}>Copiar enlace</button>
         </>}
         {profile && !profile.published && !profile.hidden && <button class="button button--dark" type="button" data-owner-publish>Publicar página</button>}
+        <button class="button button--outline" type="button" data-owner-publish-check hidden>Comprobar estado guardado</button>
         <p class="creator-owner__status" data-owner-copy-status role="status" aria-live="polite"></p>
       </section>
 
@@ -284,6 +285,7 @@ function safeSocialUrl(value: string | undefined): string | undefined {
           <div class="creator-owner__field"><label for="owner-add-link-description">Descripción <span>(opcional)</span></label><textarea id="owner-add-link-description" name="description" rows="4" maxlength="2000"></textarea></div>
           <label class="creator-owner__link-checkbox"><input type="checkbox" name="selectedForDirectory" checked /><span>Proponer al directorio</span></label>
           <details class="creator-owner__link-help"><summary>Sobre el directorio</summary><p>La propuesta requiere aprobación. Quitarla no quita el enlace de tu página; la actualización del directorio puede demorar.</p></details>
+          <button class="button button--outline" type="button" data-link-add-options hidden>Revisar opciones del enlace compartido agregado</button>
           <p class="creator-owner__status" data-link-add-status role="status" aria-live="polite"></p>
           <div class="creator-owner__dialog-actions"><button class="button button--dark" type="submit">Agregar enlace</button><button class="button button--outline" type="button" data-owner-cancel>Cancelar</button></div>
         </form>
