@@ -361,7 +361,10 @@ function announcePublicationStatus(message: string, kind: 'error' | 'success' | 
   announce(pageStatus, message, kind);
 }
 
-function requirePublicationCheck(profile: CreatorProfileDTO) {
+function requirePublicationCheck(
+  profile: CreatorProfileDTO,
+  message = 'No pudimos confirmar si la publicación se guardó. Comprueba el estado guardado antes de volver a intentarlo.',
+) {
   uncertainPublishIntent = { profileId: profile.id };
   setHidden(root?.querySelector('[data-owner-publish]'), true);
   const check = root?.querySelector<HTMLButtonElement>('[data-owner-publish-check]');
@@ -369,7 +372,7 @@ function requirePublicationCheck(profile: CreatorProfileDTO) {
     check.disabled = false;
     check.hidden = false;
   }
-  announcePublicationStatus('No pudimos confirmar si la publicación se guardó. Comprueba el estado guardado antes de volver a intentarlo.');
+  announcePublicationStatus(message);
 }
 
 function checkUncertainPublication() {
@@ -1193,7 +1196,31 @@ function createOwnerChapterRow(link: CreatorLinkDTO, seriesId: string, completeO
 }
 
 function renderOwnerSeries(query = currentSeriesQuery()): CreatorOwnerSeriesQuery | undefined {
-  if (!root || !state || !query) return undefined;
+  if (!root || !state) return undefined;
+  if (!query) {
+    const params = new URL(window.location.href).searchParams;
+    const selectedIds = params.getAll('serie');
+    const selectedId = selectedIds.length === 1 ? selectedIds[0] : undefined;
+    const selectedSeriesStillExists = selectedId && state.series.some(({ id }) => id === selectedId);
+    if (params.get('vista') !== 'series' || !selectedId || selectedSeriesStillExists) return undefined;
+    const activeElement = document.activeElement;
+    const retryControl = root.querySelector('[data-series-reconcile-retry]');
+    const restoreSeriesSearchFocus = activeElement instanceof HTMLElement
+      && (activeElement === retryControl || Boolean(activeElement.closest('[data-owner-series-chapters]')));
+    params.delete('serie');
+    params.delete('buscarCapitulos');
+    params.delete('pertenencia');
+    params.delete('paginaCapitulos');
+    const parsed = parseCreatorOwnerSeriesQuery(params, state.series);
+    if (!parsed.valid) return undefined;
+    query = parsed.query;
+    const href = creatorOwnerSeriesHref(query);
+    if (`${window.location.pathname}${window.location.search}` !== href) replaceOwnerHistory(href);
+    if (restoreSeriesSearchFocus) {
+      const search = root.querySelector<HTMLElement>('[data-series-search]');
+      if (search) window.requestAnimationFrame(() => search.focus());
+    }
+  }
   const selection = selectCreatorOwnerSeries(state.series, query);
   const listView = root.querySelector<HTMLElement>('[data-owner-series-list-view]');
   const chapterView = root.querySelector<HTMLElement>('[data-owner-series-chapters]');
@@ -2015,13 +2042,16 @@ function renderOwnerLinks(query = currentLinksQuery()) {
 
 function renderOwnerLinksAfterCollectionChange() {
   const params = new URL(window.location.href).searchParams;
-  const seriesFilters = params.getAll('serie');
-  const requestedSeries = seriesFilters.length === 1 ? seriesFilters[0] : undefined;
-  if (requestedSeries && requestedSeries !== 'todos'
-    && !state?.series.some(({ id }) => id === requestedSeries)) {
-    params.set('serie', 'todos');
-    const parsed = parseCreatorOwnerLinksQuery(params, state?.series ?? []);
-    if (parsed.valid) return updateLinksQuery(parsed.query, 'replace');
+  const currentView = params.get('vista');
+  if (currentView === 'enlaces' || currentView === null) {
+    const seriesFilters = params.getAll('serie');
+    const requestedSeries = seriesFilters.length === 1 ? seriesFilters[0] : undefined;
+    if (requestedSeries && requestedSeries !== 'todos'
+      && !state?.series.some(({ id }) => id === requestedSeries)) {
+      params.set('serie', 'todos');
+      const parsed = parseCreatorOwnerLinksQuery(params, state?.series ?? []);
+      if (parsed.valid) return updateLinksQuery(parsed.query, 'replace');
+    }
   }
   const current = currentLinksQuery();
   const effective = renderOwnerLinks(current);
@@ -2036,7 +2066,11 @@ function ownerLinkMatchesCurrentQuery(placementId: string): boolean {
     .some((link) => link.placementId === placementId);
 }
 
-function updateLinksQuery(query: CreatorOwnerLinksQuery, historyMode: 'push' | 'replace' = 'push') {
+function updateLinksQuery(
+  query: CreatorOwnerLinksQuery,
+  historyMode: 'push' | 'replace' = 'push',
+  restorePageFocus?: 'Anterior' | 'Siguiente',
+) {
   const effectiveQuery = renderOwnerLinks(query) ?? query;
   const href = creatorOwnerLinksHref(effectiveQuery, effectiveQuery.paginaEnlaces);
   if (historyMode === 'push') {
@@ -2050,6 +2084,11 @@ function updateLinksQuery(query: CreatorOwnerLinksQuery, historyMode: 'push' | '
       const control = field(filterForm, name);
       if (control) control.value = effectiveQuery[name as 'buscar' | 'serie' | 'directorio' | 'destacado' | 'orden'];
     }
+  }
+  if (restorePageFocus) {
+    const pageLinks = root?.querySelectorAll<HTMLAnchorElement>('[data-link-page]') ?? [];
+    const target = [...pageLinks].find((link) => link.textContent?.trim() === restorePageFocus) ?? pageLinks[0];
+    if (target) window.requestAnimationFrame(() => target.focus());
   }
   return effectiveQuery;
 }
@@ -2263,7 +2302,10 @@ function setFormFromProfile(form: HTMLFormElement, name: string, profile: Creato
   if (name === 'redes') {
     for (const { key } of SOCIALS) {
       const control = field(form, `social-${key}`);
-      if (control) control.value = profile.socials[key] ?? '';
+      if (control) {
+        control.value = profile.socials[key] ?? '';
+        control.setCustomValidity?.('');
+      }
     }
     const version = field(form, 'version');
     if (version) version.value = String(profile.version);
@@ -3710,6 +3752,7 @@ function adoptOwnerSnapshot(payload: CreatorEditorDTO, active?: HTMLFormElement)
   hydrateInactiveForms(active);
   const query = currentSeriesQuery();
   if (query) updateSeriesQuery(query, 'replace');
+  else renderOwnerSeries();
 }
 
 function seriesStatus(): HTMLElement | null {
@@ -3770,7 +3813,7 @@ async function reconcileConfirmedChapterMutation(
   restoreChapterFocus(focusPlacementId);
   const focus = returnFocus;
   if (focus?.isConnected) window.requestAnimationFrame(() => focus.focus());
-  announce(status, messages.complete, 'success');
+  announce(seriesStatus() ?? status, messages.complete, 'success');
   return true;
 }
 
@@ -3778,6 +3821,8 @@ async function retrySeriesReconcile() {
   if (!seriesReconcileReadPending) return;
   const status = seriesStatus();
   const retry = root?.querySelector<HTMLButtonElement>('[data-series-reconcile-retry]');
+  const selectedSeriesId = currentSeriesQuery()?.serie;
+  const retryHadFocus = Boolean(retry && document.activeElement === retry);
   if (retry) {
     retry.disabled = true;
     retry.textContent = seriesReconcileOutcome === 'confirmed' ? 'Consultando la lista…' : 'Comprobando la lista…';
@@ -3826,7 +3871,20 @@ async function retrySeriesReconcile() {
   const message = seriesReconcileOutcome === 'confirmed'
     ? 'La lista ya está actualizada.'
     : 'La lista está actualizada. Comprueba la pertenencia antes de continuar.';
-  announce(status, message, seriesReconcileOutcome === 'confirmed' ? 'success' : 'info');
+  announce(seriesStatus() ?? status, message, seriesReconcileOutcome === 'confirmed' ? 'success' : 'info');
+  const selectedSeriesWasRemoved = selectedSeriesId !== undefined
+    && !state?.series.some(({ id }) => id === selectedSeriesId);
+  const activeElement = document.activeElement;
+  const focusWasLostWithRetry = retryHadFocus && (
+    activeElement === document.body
+    || activeElement === retry
+    || (activeElement instanceof HTMLElement && Boolean(activeElement.closest('[data-owner-series-chapters]')))
+  );
+  const listView = root?.querySelector<HTMLElement>('[data-owner-series-list-view]');
+  const search = root?.querySelector<HTMLInputElement>('[data-series-search]');
+  if (selectedSeriesWasRemoved && focusWasLostWithRetry && search?.isConnected && listView && !listView.hidden) {
+    window.requestAnimationFrame(() => search.focus());
+  }
 }
 
 async function mutateChapterMembership(placementId: string, action: 'add' | 'remove') {
@@ -4930,20 +4988,16 @@ async function compareSavedVersion(form: HTMLFormElement, name: 'crear' | 'datos
       announceWrite(name, 'No se encontró una página para adoptar. Puedes corregir la dirección y volver a guardar.', 'info');
       return;
     }
-    if (!isProfile(payload.profile) || (state?.profile && payload.profile.id !== state.profile.id)
+    if (!isAdoptableOwnerData(payload) || (state?.profile && payload.profile.id !== state.profile.id)
       || (!state?.profile && name !== 'crear')) {
-      announceWrite(name, 'No pudimos confirmar que la versión guardada corresponde a esta página. Conservamos tu edición.', 'error');
+      announceWrite(name, 'La respuesta no contiene un estado completo de esta página. Conservamos tu edición para que vuelvas a comparar.', 'error');
       return;
     }
-    let ownerSnapshot: (CreatorEditorDTO & { profile: CreatorProfileDTO }) | undefined;
-    if (!state?.profile && name === 'crear') {
-      if (!isAdoptableOwnerData(payload)) {
-        announceWrite(name, 'La respuesta no contiene una página completa que podamos adoptar. Conservamos tu edición para que vuelvas a comparar.', 'error');
-        return;
-      }
-      ownerSnapshot = payload;
+    if (state?.profile && payload.profile.version < state.profile.version) {
+      announceWrite(name, 'La lectura devolvió una versión anterior a la que ya observaste. Conservamos tu edición y no adoptamos ese estado.', 'error');
+      return;
     }
-    showConflictComparison(form, payload.profile, name, ownerSnapshot);
+    showConflictComparison(form, payload.profile, name, payload);
     announceWrite(name, 'Compara los valores y elige expresamente si quieres adoptar la versión guardada.', 'info');
   } catch {
     if (isCurrent()) announceWrite(name, 'No pudimos conectar para leer la versión guardada. Tus cambios siguen aquí.', 'error');
@@ -4955,13 +5009,12 @@ function adoptSavedVersion(form: HTMLFormElement, name: 'crear' | 'datos' | 'red
     || conflictProfileContext.name !== name
     || !isActiveProfileFormContext(form, name, conflictProfileContext.contextRevision)) return;
   const adopted = conflictProfile;
+  const snapshot = conflictOwnerSnapshot;
+  if (!snapshot || !isAdoptableOwnerData(snapshot)
+    || snapshot.profile.id !== adopted.id || snapshot.profile.version !== adopted.version
+    || (state?.profile && (state.profile.id !== adopted.id || adopted.version < state.profile.version))) return;
   if (name === 'crear') {
-    if (state?.profile && state.profile.id !== adopted.id) return;
-    if (!state?.profile) {
-      const snapshot = conflictOwnerSnapshot;
-      if (!snapshot || snapshot.profile.id !== adopted.id) return;
-      adoptOwnerSnapshot(snapshot, form);
-    } else updateProfileState(adopted);
+    adoptOwnerSnapshot(snapshot, form);
     const displayName = field(form, 'displayName');
     const slug = field(form, 'slug');
     if (displayName) displayName.value = adopted.displayName;
@@ -4971,7 +5024,7 @@ function adoptSavedVersion(form: HTMLFormElement, name: 'crear' | 'datos' | 'red
     hydrateInactiveForms();
   } else {
     if (!state?.profile || state.profile.id !== adopted.id) return;
-    updateProfileState(adopted);
+    adoptOwnerSnapshot(snapshot, form);
     setFormFromProfile(form, name, adopted);
   }
   formState?.commit(capture(form));
@@ -5142,6 +5195,12 @@ function handleExitChoice(choice: 'save' | 'discard' | 'continue', event?: Event
   }
   if (choice === 'save') {
     if (!current) return;
+    const inlineCreate = current === createForm && current.closest('dialog') !== dialog;
+    if (inlineCreate) {
+      setHidden(exitPrompt, true);
+      if (dialog?.open) dialog.close();
+      current.querySelector<HTMLElement>('input:not([type="hidden"]), textarea')?.focus();
+    }
     if (!current.reportValidity()) return;
     if (!event) return;
     const action = profileFormActions.get(current);
@@ -5643,7 +5702,8 @@ if (root && state && csrfToken && dialog) {
     if (pageLink) {
       event.preventDefault();
       const parsed = parseCreatorOwnerLinksQuery(new URL(pageLink.href, window.location.href).searchParams, state?.series ?? []);
-      if (parsed.valid) updateLinksQuery(parsed.query);
+      const pageLabel = pageLink.textContent?.trim();
+      if (parsed.valid) updateLinksQuery(parsed.query, 'push', pageLabel === 'Anterior' ? 'Anterior' : 'Siguiente');
       return;
     }
     const editButton = target.closest<HTMLElement>('[data-owner-edit]');
@@ -5768,7 +5828,10 @@ if (root && state && csrfToken && dialog) {
           const response = await jsonRequest('/api/creador/perfil/publicar', 'POST', { version: profile.version });
           if (!response.ok) {
             if (response.status >= 500) requirePublicationCheck(profile);
-            else if (response.status === 409) announceWrite(undefined, statusMessage(409), 'error');
+            else if (response.status === 409) requirePublicationCheck(
+              profile,
+              'El perfil cambió antes de publicar. Comprueba el estado guardado para continuar con la versión actual.',
+            );
             else announceWrite(undefined, statusMessage(response.status), 'error');
             return;
           }

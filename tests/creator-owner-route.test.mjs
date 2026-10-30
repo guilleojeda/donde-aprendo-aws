@@ -156,6 +156,11 @@ test('la ruta Astro real abre la identidad propia, protege el HTML y sólo enlaz
   assert.match(text, /Editar datos/);
   assert.match(text, /Editar redes/);
   assert.match(text, /Editar foto/);
+  const backToSite = [...html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)]
+    .find(([, , contents]) => /Volver al sitio/i.test(visibleText(contents)));
+  assert.ok(backToSite, 'the owner shell keeps its public-site exit link');
+  assert.match(backToSite[1], /\bdata-owner-navigation(?:\s|=|$)/,
+    'the initial profile form routes the exit link through the owner dirty-form guard');
   assert.match(html, /<dialog\b/i, 'contextual forms use the approved dialog surface');
   assert.doesNotMatch(html, /<dialog\b[^>]*\bopen(?:\s|>|=)/i,
     'the ordinary profile view starts with contextual forms closed');

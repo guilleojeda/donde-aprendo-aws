@@ -283,6 +283,176 @@ test('una comparación tardía de A no aparece ni se adopta sobre la edición po
   assert.equal(writes(requests).length, 2, 'each explicit save sent once; compare remained read-only');
 });
 
+test('adoptar Datos usa el DTO completo actual y mantiene la corrección hasta la elección explícita', async () => {
+  const profile = {
+    id: 'creator-1', displayName: 'Ana original', slug: 'ana-original', version: 14,
+    published: false, hidden: false, city: '', country: '', bio: '', programs: [], socials: {},
+  };
+  const first = editableLink({ placementId: 'placement-a', resourceId: 'resource-a', title: 'A', position: 0 });
+  const second = editableLink({ placementId: 'placement-b', resourceId: 'resource-b', title: 'B', position: 1 });
+  const resources = [first, second].map((link) => ({
+    id: link.resourceId, title: link.title, url: link.url, description: link.description, version: link.resourceVersion,
+  }));
+  const surface = createOwnerLinksSurface({ profile, links: [first, second], editableResources: resources });
+  const conflict = surface.document.createElement('section');
+  const compare = surface.document.createElement('button');
+  compare.type = 'button';
+  compare.dataset.ownerCompare = '';
+  const comparison = surface.document.createElement('div');
+  comparison.dataset.ownerComparison = '';
+  comparison.hidden = true;
+  const adopt = surface.document.createElement('button');
+  adopt.type = 'button';
+  adopt.dataset.ownerAdopt = '';
+  adopt.textContent = 'Usar la versión guardada';
+  adopt.hidden = true;
+  conflict.dataset.ownerConflict = '';
+  conflict.append(compare, comparison, adopt);
+  surface.dataForm.append(conflict);
+
+  const remoteSeries = { id: 'series-remote', name: 'Serie remota', slug: 'serie-remota', description: '', version: 1 };
+  let profileWrites = 0;
+  const api = createLinksApi({ surface, override: (request, state) => {
+    if (request.method !== 'PUT' || request.path !== '/api/creador/perfil') return undefined;
+    profileWrites += 1;
+    const oldVersion = state.profile.version;
+    Object.assign(state.profile, { displayName: 'Nombre remoto', slug: 'ana-remota', version: oldVersion + 1 });
+    state.links.find(({ placementId }) => placementId === first.placementId).series = [
+      { seriesId: remoteSeries.id, position: 0 },
+    ];
+    const added = editableLink({
+      placementId: 'placement-c', resourceId: 'resource-c', title: 'C', position: -1,
+      series: [], resourceVersion: 1, placementVersion: state.profile.version,
+    });
+    state.links.unshift(added);
+    state.links.forEach((link, index) => { link.position = index; });
+    state.editableResources.push({
+      id: added.resourceId, title: added.title, url: added.url, description: added.description, version: added.resourceVersion,
+    });
+    surface.series = [remoteSeries];
+    return jsonResponse({ error: 'PROFILE_VERSION_CONFLICT' }, 409);
+  } });
+  const requests = await mountOwnerLinks({ surface, fetch: api.fetch });
+
+  await surface.root.querySelector('[data-owner-edit="datos"]').dispatch('click');
+  const displayName = surface.dataForm.elements.find(({ name }) => name === 'displayName');
+  const slug = surface.dataForm.elements.find(({ name }) => name === 'slug');
+  displayName.value = 'Corrección local';
+  await displayName.dispatch('input');
+  await surface.dataForm.dispatch('submit');
+  await settle();
+  await compare.dispatch('click');
+  await settle();
+  assert.equal(displayName.value, 'Corrección local', 'the correction remains until the explicit adoption choice');
+  await adopt.dispatch('click');
+
+  assert.equal(surface.root.dataset.profileVersion, '15');
+  assert.equal(displayName.value, 'Nombre remoto', 'explicit adoption replaces the active Datos unit with saved values');
+  assert.equal(slug.value, 'ana-remota', 'untouched fields advance to the values in the adopted profile');
+  assert.deepEqual(surface.table.querySelectorAll('[data-link-title]').map(({ textContent }) => textContent), ['C', 'A', 'B']);
+  assert.match(rowFor(surface, first.placementId).querySelector('[data-label="Series"]').textContent, /Serie remota/);
+
+  const navigation = surface.root.querySelector('a[data-owner-navigation]');
+  const guardedNavigation = await navigation.dispatch('click');
+  assert.equal(guardedNavigation.defaultPrevented, false, 'the explicitly adopted profile unit is clean');
+  const saves = writes(requests).filter(({ method, path }) => method === 'PUT' && path === '/api/creador/perfil');
+  assert.deepEqual(saves.map(({ status, body }) => ({ status, version: body.version, displayName: body.displayName, slug: body.slug })), [
+    { status: 409, version: 14, displayName: 'Corrección local', slug: 'ana-original' },
+  ], 'adopting the refreshed DTO does not replay the conflicted write');
+  assert.equal(profileWrites, 1);
+  assert.deepEqual(api.snapshot().links.map(({ title }) => title), ['C', 'A', 'B']);
+});
+
+test('la comparación de perfil rechaza un DTO incompleto o una versión anterior sin habilitar adopción', async () => {
+  const profile = {
+    id: 'creator-1', displayName: 'Ana original', slug: 'ana-original', version: 14,
+    published: false, hidden: false, city: '', country: '', bio: '', programs: [], socials: {},
+  };
+  const link = editableLink({ placementId: 'placement-a', resourceId: 'resource-a', title: 'A', position: 0 });
+  const resource = { id: link.resourceId, title: link.title, url: link.url, description: link.description, version: link.resourceVersion };
+
+  for (const variant of ['incomplete', 'older']) {
+    const surface = createOwnerLinksSurface({ profile, links: [link], editableResources: [resource] });
+    const conflict = surface.document.createElement('section');
+    const compare = surface.document.createElement('button');
+    compare.type = 'button'; compare.dataset.ownerCompare = '';
+    const comparison = surface.document.createElement('div');
+    comparison.dataset.ownerComparison = ''; comparison.hidden = true;
+    const adopt = surface.document.createElement('button');
+    adopt.type = 'button'; adopt.dataset.ownerAdopt = ''; adopt.hidden = true;
+    conflict.dataset.ownerConflict = '';
+    conflict.append(compare, comparison, adopt);
+    surface.dataForm.append(conflict);
+    const response = {
+      profile: { ...profile, version: variant === 'older' ? 13 : 15 },
+      links: variant === 'incomplete' ? [{ placementId: link.placementId }] : [link],
+      editableResources: [resource], claims: [], series: [],
+    };
+    const api = createLinksApi({ surface, override: (request) => {
+      if (request.method === 'PUT' && request.path === '/api/creador/perfil') return jsonResponse({ error: 'PROFILE_CONFLICT' }, 409);
+      if (request.method === 'GET' && request.path === '/api/creador/perfil') return jsonResponse(response);
+      return undefined;
+    } });
+    const requests = await mountOwnerLinks({ surface, fetch: api.fetch });
+    await surface.root.querySelector('[data-owner-edit="datos"]').dispatch('click');
+    const displayName = surface.dataForm.elements.find(({ name }) => name === 'displayName');
+    displayName.value = 'Corrección que se conserva';
+    await displayName.dispatch('input');
+    await surface.dataForm.dispatch('submit'); await settle();
+    await compare.dispatch('click'); await settle();
+    await adopt.dispatch('click');
+
+    assert.equal(adopt.hidden, true, `${variant} comparison never enables adoption`);
+    assert.equal(surface.root.dataset.profileVersion, '14');
+    assert.equal(displayName.value, 'Corrección que se conserva');
+    assert.equal(writes(requests).length, 1, 'comparison and rejected adoption issue no write');
+    assert.match(surface.pageStatus.textContent, variant === 'older' ? /versión anterior/i : /estado completo/i);
+  }
+});
+
+test('paginación conserva foco conectado en la primera, intermedia y última página; filtros no lo trasladan', async () => {
+  const links = Array.from({ length: 51 }, (_, index) => sharedLink({
+    resourceId: `resource-${index}`, placementId: `placement-${index}`, title: `Guía ${index}`,
+    url: `https://example.invalid/${index}`, position: index,
+  }));
+  const surface = createOwnerLinksSurface({ links });
+  const pager = surface.document.createElement('nav');
+  pager.dataset.linkPagination = '';
+  pager.append(surface.document.createElement('span'));
+  surface.root.querySelector('[data-owner-links]').append(pager);
+  const api = createLinksApi({ surface });
+  const requests = await mountOwnerLinks({ surface, fetch: api.fetch });
+
+  const pageLink = (label) => pager.querySelectorAll('[data-link-page]').find((link) => link.textContent === label);
+  for (const [label, expectedPage, nextLabel] of [
+    ['Siguiente', '2', 'Siguiente'],
+    ['Siguiente', '3', 'Anterior'],
+    ['Anterior', '2', 'Anterior'],
+    ['Anterior', '1', 'Siguiente'],
+  ]) {
+    const trigger = pageLink(label);
+    assert.ok(trigger, `${label} is available before paging to ${expectedPage}`);
+    trigger.focus();
+    await trigger.dispatch('click');
+    assert.equal(new URL(surface.window.location.href).searchParams.get('paginaEnlaces'), expectedPage);
+    assert.equal(surface.document.activeElement, pageLink(nextLabel));
+    assert.ok(surface.document.activeElement?.isConnected, 'focus lands on a connected page control');
+  }
+
+  const search = surface.searchInput;
+  search.focus();
+  search.value = 'Guía 1';
+  await search.dispatch('input');
+  await new Promise((resolve) => setTimeout(resolve, 140));
+  assert.equal(surface.document.activeElement, search, 'typing keeps focus in the search field');
+  const filter = surface.seriesSelect;
+  filter.focus();
+  filter.value = 'todos';
+  await filter.dispatch('change');
+  assert.equal(surface.document.activeElement, filter, 'a filter rerender does not move focus to pagination');
+  assert.equal(writes(requests).length, 0, 'paging and filtering do not write data');
+});
+
 for (const failure of [
   { name: '401', status: 401, body: { error: 'UNAUTHENTICATED' } },
   { name: 'CSRF', status: 403, body: { error: 'CSRF_REJECTED' } },

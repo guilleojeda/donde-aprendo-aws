@@ -502,6 +502,44 @@ test('an incompatible publish receipt offers an explicit refresh instead of clai
   assert.equal(writes(requests).filter(({ path }) => path === '/api/creador/perfil/publicar').length, 1);
 });
 
+test('a publication 409 exposes the saved-state check, blocks repeat posts, and allows a manual save after refresh', async () => {
+  const { runtime, data } = await draftRuntime();
+  const surface = createOwnerLinksSurface({ profile: data.profile, links: data.links, editableResources: data.editableResources, series: data.series });
+  const publicNodes = addPublicProfileNodes(surface, data.profile);
+  let reloads = 0;
+  surface.window.location.reload = () => { reloads += 1; };
+  const requests = await mountOwnerLinks({ surface, fetch: async (request, options) =>
+    runtime.fetchApi(request.url, runtimeRequestOptions(options), { session: 'creator-a' }) });
+
+  await ownerApi(runtime, '/api/creador/perfil/', { version: data.profile.version, bio: 'Actualización en otra pestaña.' });
+  await surface.publish.dispatch('click'); await settle(); await settle();
+
+  const savedAfterConflict = await (await ownerApi(runtime, '/api/creador/perfil/', undefined, 'GET')).json();
+  assert.equal(savedAfterConflict.profile.published, false, 'the stale publish was rejected without changing the saved draft');
+  assert.equal(surface.publish.hidden, true, 'the stale page cannot submit its old version again');
+  assert.equal(publicNodes.publishCheck.hidden, false, 'the existing explicit saved-state action becomes available');
+  assert.match(publicNodes.profileStatus.textContent, /cambió antes de publicar/i);
+  assert.equal(writes(requests).filter(({ path }) => path === '/api/creador/perfil/publicar').length, 1);
+
+  await surface.publish.dispatch('click'); await settle();
+  assert.equal(writes(requests).filter(({ path }) => path === '/api/creador/perfil/publicar').length, 1,
+    'another click never replays the stale publish request');
+  await publicNodes.publishCheck.dispatch('click'); await settle();
+  assert.equal(reloads, 1, 'the check replaces the document with a fresh owner snapshot');
+  assert.equal(writes(requests).filter(({ path }) => path === '/api/creador/perfil/publicar').length, 1,
+    'checking the saved state does not repeat publication');
+
+  const refreshed = createOwnerLinksSurface({ profile: savedAfterConflict.profile, links: savedAfterConflict.links,
+    editableResources: savedAfterConflict.editableResources, series: savedAfterConflict.series });
+  const refreshedRequests = await mountOwnerLinks({ surface: refreshed, fetch: async (request, options) =>
+    runtime.fetchApi(request.url, runtimeRequestOptions(options), { session: 'creator-a' }) });
+  await refreshed.publish.dispatch('click'); await settle(); await settle();
+  assert.equal(writes(refreshedRequests).filter(({ path }) => path === '/api/creador/perfil/publicar').length, 1,
+    'after inspection, the creator can manually publish from the current saved version');
+  const final = await (await ownerApi(runtime, '/api/creador/perfil/', undefined, 'GET')).json();
+  assert.equal(final.profile.published, true);
+});
+
 test('a 401 publish response uses session recovery; retry stays explicit after the same context returns', async () => {
   const { runtime, data } = await draftRuntime();
   const surface = createOwnerLinksSurface({ profile: data.profile, links: data.links, editableResources: data.editableResources, series: data.series });

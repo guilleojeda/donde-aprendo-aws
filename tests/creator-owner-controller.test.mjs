@@ -673,3 +673,208 @@ behaviorTest('salir de una corrección ofrece guardar, descartar o seguir; el sl
   assert.equal(new URL(oldAlias.redirectTo, SITE_ORIGIN).pathname, '/c/ana-nueva/');
   assert.equal(surface.controls.dialog.open, false);
 });
+
+behaviorTest('descartar Redes restaura valor y validación nativa de una URL guardada', async () => {
+  const runtime = await createCreatorOwnerRuntime();
+  runtime.setSession('creator-a');
+  const profile = await createServiceProfile(runtime);
+  const surface = ownerSurface({ profile });
+  surface.forms.redes.reportValidity = function reportValidity() {
+    return this.elements.every((control) => !control.validationMessage);
+  };
+  const requests = await mount({ runtime, surface });
+  const instagram = surface.controls.socialFields.find(({ name }) => name === 'social-instagram');
+
+  await surface.controls.editButtons[1].dispatch('click');
+  instagram.value = 'ftp://invalid.example.invalid/ana';
+  await instagram.dispatch('input');
+  await surface.forms.redes.dispatch('submit');
+  assert.match(instagram.validationMessage, /HTTP o HTTPS/);
+  await surface.controls.cancelButton.dispatch('click');
+  await surface.controls.exitDiscard.dispatch('click');
+  await surface.controls.editButtons[1].dispatch('click');
+
+  assert.equal(instagram.value, profile.socials.instagram);
+  assert.equal(instagram.validationMessage, '', 'restoring the saved URL clears its stale customError');
+  assert.equal(surface.forms.redes.reportValidity(), true);
+  await surface.forms.redes.dispatch('submit');
+  await settle();
+  assert.equal(mutations(requests).length, 1, 'a valid restored social URL can be submitted');
+  assert.equal(surface.controls.dialog.open, false);
+});
+
+behaviorTest('la salida al sitio guarda, descarta o conserva cambios del alta inicial sin perder el formulario ante un error', async () => {
+  async function initialPage(fetch) {
+    const runtime = await createCreatorOwnerRuntime();
+    runtime.setSession('creator-a');
+    const surface = ownerSurface();
+    const navigations = [];
+    surface.controls.internalNavigation.href = '/';
+    surface.window.location.assign = (href) => navigations.push(href);
+    const requests = await mount({ runtime, surface, fetch: fetch ? (pathname, options) => fetch(runtime, pathname, options) : undefined });
+    const [name, slug] = surface.controls.createFields;
+    name.value = 'Nombre inicial';
+    slug.value = 'nombre-inicial';
+    await name.dispatch('input');
+    await slug.dispatch('input');
+    const exit = await surface.controls.internalNavigation.dispatch('click');
+    assert.equal(exit.defaultPrevented, true, 'the public-site link waits for a choice when the first profile is dirty');
+    assert.equal(surface.controls.exitPrompt.hidden, false);
+    return { runtime, surface, navigations, requests, name, slug };
+  }
+
+  const continuing = await initialPage();
+  await continuing.surface.controls.exitContinue.dispatch('click');
+  assert.deepEqual(continuing.navigations, []);
+  assert.equal(continuing.name.value, 'Nombre inicial');
+  assert.equal(continuing.slug.value, 'nombre-inicial');
+
+  const discarding = await initialPage();
+  await discarding.surface.controls.exitDiscard.dispatch('click');
+  assert.deepEqual(discarding.navigations, ['/']);
+  assert.equal(discarding.name.value, '', 'discard explicitly clears the initial local correction');
+  assert.equal(discarding.slug.value, '');
+
+  const saving = await initialPage();
+  await saving.surface.controls.exitSave.dispatch('click');
+  await settle();
+  assert.deepEqual(saving.navigations, ['/'], 'successful creation completes the requested navigation');
+  const created = await saving.runtime.fetchApi('/api/creador/perfil/', {}, { session: 'creator-a' });
+  assert.equal((await created.json()).profile.displayName, 'Nombre inicial');
+
+  const failed = await initialPage(async (runtime, pathname, options) => {
+    if (pathname === '/api/creador/perfil' && options.method === 'PUT') {
+      return Response.json({ error: 'TEMPORARILY_UNAVAILABLE' }, { status: 503 });
+    }
+    return runtime.fetchApi(pathname, options);
+  });
+  await failed.surface.controls.exitSave.dispatch('click');
+  await settle();
+  assert.deepEqual(failed.navigations, [], 'a failed first save does not run the pending navigation');
+  assert.equal(failed.name.value, 'Nombre inicial');
+  assert.equal(failed.slug.value, 'nombre-inicial');
+  assert.match(failed.surface.controls.status.textContent, /No pudimos guardar/);
+  assert.equal(mutations(failed.requests).length, 1);
+});
+
+behaviorTest('Guardar y salir del alta inline libera el diálogo antes de validar y conserva el formulario tras un 503', async () => {
+  async function inlineCreatePage(fetch) {
+    const runtime = await createCreatorOwnerRuntime();
+    runtime.setSession('creator-a');
+    const surface = ownerSurface();
+    const form = surface.forms.create;
+    form.remove();
+    const panel = new SurfaceElement({ tagName: 'SECTION', dataset: { ownerCreatePanel: '' } });
+    panel.append(form);
+    surface.root.append(panel);
+    for (const element of [panel, ...panel.descendants()]) element.ownerDocument = surface.document;
+    surface.controls.internalNavigation.href = '/';
+    surface.controls.internalNavigation.setAttribute('href', '/');
+    surface.window.location.assign = (href) => surface.navigations.push(href);
+    surface.navigations = [];
+    const requests = await mount({ runtime, surface, fetch: fetch
+      ? (pathname, options) => fetch(runtime, pathname, options) : undefined });
+    return { runtime, surface, panel, form, requests };
+  }
+
+  const invalid = await inlineCreatePage();
+  const [invalidName, invalidSlug] = invalid.surface.controls.createFields;
+  invalidName.value = 'Ana inicial';
+  await invalidName.dispatch('input');
+  invalidSlug.value = 'a';
+  await invalidSlug.dispatch('input');
+  let dialogWasOpenDuringValidation;
+  invalid.form.reportValidity = () => {
+    dialogWasOpenDuringValidation = invalid.surface.controls.dialog.open;
+    if (invalidSlug.value.length < 3) {
+      invalidSlug.validationMessage = 'La dirección debe tener al menos 3 caracteres.';
+      invalidSlug.focus();
+      return false;
+    }
+    invalidSlug.validationMessage = '';
+    return true;
+  };
+  const invalidExit = await invalid.surface.controls.internalNavigation.dispatch('click');
+  assert.equal(invalidExit.defaultPrevented, true);
+  assert.equal(invalid.surface.controls.dialog.open, true);
+  await invalid.surface.controls.exitSave.dispatch('click');
+  await settle();
+  assert.equal(dialogWasOpenDuringValidation, false, 'native validation runs after the exit dialog closes');
+  assert.equal(invalid.surface.controls.dialog.open, false);
+  assert.equal(invalid.panel.hidden, false);
+  assert.equal(invalid.surface.document.activeElement, invalidSlug, 'the invalid inline field can receive focus');
+  assert.equal(invalidSlug.value, 'a');
+  assert.deepEqual(invalid.surface.navigations, [], 'invalid submission does not run the pending navigation');
+  assert.equal(mutations(invalid.requests).length, 0);
+
+  invalidSlug.value = 'ana-inicial';
+  await invalidSlug.dispatch('input');
+  await invalid.form.dispatch('submit');
+  await settle();
+  assert.deepEqual(invalid.surface.navigations, ['/'], 'the original exit runs after a later valid manual save');
+
+  for (const status of [409, 401]) {
+    const rejected = await inlineCreatePage(async () =>
+      Response.json({ error: status === 409 ? 'PROFILE_VERSION_CONFLICT' : 'UNAUTHENTICATED' }, { status }));
+    const [name, slug] = rejected.surface.controls.createFields;
+    name.value = `Nombre ${status}`;
+    await name.dispatch('input');
+    slug.value = `perfil-${status}`;
+    await slug.dispatch('input');
+    await rejected.surface.controls.internalNavigation.dispatch('click');
+    await rejected.surface.controls.exitSave.dispatch('click');
+    await settle(); await settle();
+    assert.equal(rejected.surface.controls.dialog.open, false, `HTTP ${status} does not strand the inline form behind the modal`);
+    assert.equal(rejected.panel.hidden, false);
+    assert.equal(name.value, `Nombre ${status}`);
+    assert.equal(slug.value, `perfil-${status}`);
+    assert.equal(rejected.surface.document.activeElement, name);
+    assert.equal(rejected.surface.controls.status.hidden, false, `HTTP ${status} remains visible on the owner page`);
+    assert.deepEqual(rejected.surface.navigations, []);
+    assert.equal(mutations(rejected.requests).length, 1);
+  }
+
+  let release;
+  let markStarted;
+  const started = new Promise((resolve) => { markStarted = resolve; });
+  const gate = new Promise((resolve) => { release = resolve; });
+  let failFirstWrite = true;
+  const failed = await inlineCreatePage(async (runtime, pathname, options) => {
+    if (pathname === '/api/creador/perfil' && options.method === 'PUT' && failFirstWrite) {
+      failFirstWrite = false;
+      markStarted();
+      await gate;
+      return Response.json({ error: 'TEMPORARILY_UNAVAILABLE' }, { status: 503 });
+    }
+    return runtime.fetchApi(pathname, options);
+  });
+  const [name, slug] = failed.surface.controls.createFields;
+  name.value = 'Nombre enviado';
+  await name.dispatch('input');
+  slug.value = 'nombre-enviado';
+  await slug.dispatch('input');
+  await failed.surface.controls.internalNavigation.dispatch('click');
+  const save = failed.surface.controls.exitSave.dispatch('click');
+  await started;
+  assert.equal(failed.surface.controls.dialog.open, false, 'the visible inline form is exposed while the save is pending');
+  assert.equal(failed.panel.hidden, false);
+  assert.equal(failed.surface.document.activeElement, name);
+
+  name.value = 'Corrección tardía';
+  await name.dispatch('input');
+  release();
+  await save;
+  await settle();
+  assert.equal(failed.surface.controls.dialog.open, false);
+  assert.equal(name.value, 'Corrección tardía');
+  assert.equal(slug.value, 'nombre-enviado');
+  assert.equal(failed.surface.document.activeElement, name);
+  assert.match(failed.surface.controls.status.textContent, /No pudimos guardar/);
+  assert.deepEqual(failed.surface.navigations, [], 'a failed save retains the pending exit without navigating');
+
+  await failed.form.dispatch('submit');
+  await settle();
+  const saved = await failed.runtime.fetchApi('/api/creador/perfil/', {}, { session: 'creator-a' });
+  assert.equal((await saved.json()).profile.displayName, 'Corrección tardía');
+  assert.deepEqual(failed.surface.navigations, ['/'], 'a successful retry completes the original exit');
+});

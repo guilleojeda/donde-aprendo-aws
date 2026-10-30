@@ -6,6 +6,7 @@ import {
   settle,
   writes,
 } from './fixtures/creator-owner-series-browser.mjs';
+import { SurfaceElement } from './fixtures/creator-owner-browser-dom.mjs';
 
 const profile = (overrides = {}) => ({
   id: 'creator-series-1', displayName: 'Ana Series', slug: 'ana-series', version: 14,
@@ -844,5 +845,173 @@ test('quitar la última coincidencia mantiene filtro/página y lleva el foco al 
   assert.equal(currentQuery.get('paginaCapitulos'), '1');
   assert.equal(surface.document.activeElement, surface.chapterSearch,
     'when the action row disappears from the active filter, focus returns to chapter search');
+});
+
+async function beginExternalSeriesDeletionRecovery() {
+  const deleted = series('deleted');
+  const many = [deleted, ...Array.from({ length: 26 }, (_, index) => series(`other-${index}`))];
+  const link = chapter(0, undefined);
+  let releaseRead;
+  let markReadStarted;
+  let holdRetryRead = false;
+  const readStarted = new Promise((resolve) => { markReadStarted = resolve; });
+  const readGate = new Promise((resolve) => { releaseRead = resolve; });
+  const { surface, requests } = await mountOwnerSeriesController({
+    profile: profile(), links: [link], series: many,
+    query: { buscarSeries: 'Ruta', paginaSeries: 2, serie: deleted.id, buscarCapitulos: 'Capítulo', paginaCapitulos: 1 },
+    override: async (request, state) => {
+      if (request.method === 'PUT' && request.path.endsWith(`/capitulos/${link.placementId}`)) {
+        state.series = state.series.filter(({ id }) => id !== deleted.id);
+        state.profile.version += 1;
+        return jsonResponse({ error: 'PROFILE_CONFLICT' }, 409);
+      }
+      if (holdRetryRead && request.method === 'GET' && request.path === '/api/creador/perfil') {
+        markReadStarted();
+        await readGate;
+      }
+      return undefined;
+    },
+  });
+  surface.reconcileRetry.remove();
+  surface.ownerSeries.append(surface.reconcileRetry);
+
+  await surface.chapterRegion.querySelector('[data-chapter-add]').dispatch('click');
+  await settle();
+  assert.equal(surface.reconcileRetry.closest('[data-owner-series-chapters]'), null,
+    'the recovery control matches the SSR common-area placement outside the chapter panel');
+  return {
+    surface,
+    requests,
+    async retryWithFocus() {
+      holdRetryRead = true;
+      surface.reconcileRetry.focus();
+      const pending = surface.reconcileRetry.dispatch('click');
+      await readStarted;
+      return { pending, releaseRead };
+    },
+  };
+}
+
+test('reconciliar una serie eliminada por otra pestaña vuelve a la lista Series y conserva su consulta, estado y foco perdido', async () => {
+  const { surface, requests, retryWithFocus } = await beginExternalSeriesDeletionRecovery();
+  const { pending, releaseRead } = await retryWithFocus();
+  const body = new SurfaceElement({ tagName: 'BODY' });
+  body.ownerDocument = surface.document;
+  surface.document.body = body;
+  surface.document.activeElement = body;
+  releaseRead();
+  await pending;
+  await settle();
+
+  const location = new URL(surface.window.location.href);
+  assert.equal(location.searchParams.get('vista'), 'series');
+  assert.equal(location.searchParams.has('serie'), false, 'a removed series is no longer selected in the URL');
+  assert.equal(location.searchParams.get('buscarSeries'), 'Ruta');
+  assert.equal(location.searchParams.get('paginaSeries'), '2');
+  assert.equal(location.searchParams.has('buscarCapitulos'), false, 'chapter search belongs to the deleted series');
+  assert.equal(surface.seriesListView.hidden, false);
+  assert.equal(surface.chapterRegion.hidden, true, 'the stale chapter panel is not left active');
+  assert.equal(surface.seriesSearch.value, 'Ruta');
+  assert.equal(surface.document.activeElement, surface.seriesSearch,
+    'when disabling the common-area retry leaves focus on BODY, recovery moves it to the current Series search');
+  assert.match(surface.seriesListView.querySelector('[data-series-write-status]').textContent, /lista está actualizada/i,
+    'recovery status remains visible in the list that is now shown');
+  const writesBeforeStaleAction = writes(requests).length;
+  await surface.chapterRegion.querySelector('[data-chapter-add]').dispatch('click');
+  await settle();
+  assert.equal(writes(requests).length, writesBeforeStaleAction, 'a stale hidden chapter action cannot write after normalization');
+});
+
+test('normalizar la serie eliminada no roba el foco si el usuario eligió otro control visible', async () => {
+  const { surface, retryWithFocus } = await beginExternalSeriesDeletionRecovery();
+  const { pending, releaseRead } = await retryWithFocus();
+  surface.seriesCreateOpen.focus();
+  releaseRead();
+  await pending;
+  await settle();
+  assert.equal(surface.seriesListView.hidden, false);
+  assert.equal(surface.document.activeElement, surface.seriesCreateOpen,
+    'focus stays on a connected visible control chosen while the owner read was pending');
+});
+
+test('si el borrado local termina después de navegar a sus capítulos, confirma en la lista Series actual', async () => {
+  const deleted = series('pending-delete', { name: 'Ruta 000 pendiente de borrar' });
+  const many = [deleted, ...Array.from({ length: 26 }, (_, index) => series(`other-${index}`))];
+  let releaseDelete;
+  let markDeleteStarted;
+  const deleteStarted = new Promise((resolve) => { markDeleteStarted = resolve; });
+  const deleteGate = new Promise((resolve) => { releaseDelete = resolve; });
+  const { surface } = await mountOwnerSeriesController({
+    profile: profile(), series: many,
+    override: async (request) => {
+      if (request.method === 'DELETE' && request.path.endsWith(`/series/${deleted.id}`)) {
+        markDeleteStarted();
+        await deleteGate;
+      }
+      return undefined;
+    },
+  });
+  surface.setConfirmResult(true);
+  const row = surface.seriesList.querySelectorAll('[data-owner-series-row]')
+    .find((candidate) => candidate.dataset.ownerSeriesRow === deleted.id);
+  assert.ok(row);
+  const deletion = row.querySelector('[data-series-delete]').dispatch('click');
+  await deleteStarted;
+  await row.querySelector('[data-series-chapters]').dispatch('click');
+  assert.equal(new URL(surface.window.location.href).searchParams.get('serie'), deleted.id,
+    'the chapter panel is opened while the confirmed delete is still pending');
+
+  releaseDelete();
+  await deletion;
+  await settle();
+  const location = new URL(surface.window.location.href);
+  assert.equal(location.searchParams.get('vista'), 'series');
+  assert.equal(location.searchParams.has('serie'), false);
+  assert.equal(surface.seriesListView.hidden, false);
+  assert.equal(surface.chapterRegion.hidden, true);
+  assert.match(surface.seriesListView.querySelector('[data-series-write-status]').textContent, /Serie eliminada/i);
+  assert.equal(surface.document.activeElement, surface.seriesSearch);
+});
+
+test('adoptar un DTO sin la serie seleccionada normaliza la vista Series sin cambiar a Enlaces', async () => {
+  const removed = series('adopted-away');
+  const link = chapter(0, removed.id);
+  const { surface, requests } = await mountOwnerSeriesController({
+    profile: profile(), links: [link], series: [removed], query: { serie: removed.id, buscarSeries: 'Ruta', paginaSeries: 1 },
+    override: (request, state) => {
+      if (request.method === 'PUT' && request.path === '/api/creador/perfil') {
+        state.series = [];
+        state.profile.version += 1;
+        return jsonResponse({ error: 'PROFILE_VERSION_CONFLICT' }, 409);
+      }
+      return undefined;
+    },
+  });
+  const conflict = surface.document.createElement('section');
+  const compare = surface.document.createElement('button');
+  compare.type = 'button'; compare.dataset.ownerCompare = '';
+  const comparison = surface.document.createElement('div');
+  comparison.dataset.ownerComparison = ''; comparison.hidden = true;
+  const adopt = surface.document.createElement('button');
+  adopt.type = 'button'; adopt.dataset.ownerAdopt = ''; adopt.hidden = true;
+  conflict.dataset.ownerConflict = '';
+  conflict.append(compare, comparison, adopt);
+  surface.dataForm.append(conflict);
+
+  await surface.root.querySelector('[data-owner-edit="datos"]').dispatch('click');
+  const name = surface.dataForm.elements.find(({ name }) => name === 'displayName');
+  name.value = 'Corrección local';
+  await name.dispatch('input');
+  await surface.dataForm.dispatch('submit'); await settle();
+  await compare.dispatch('click'); await settle();
+  await adopt.dispatch('click');
+
+  const location = new URL(surface.window.location.href);
+  assert.equal(location.searchParams.get('vista'), 'series');
+  assert.equal(location.searchParams.has('serie'), false);
+  assert.equal(surface.seriesListView.hidden, false);
+  assert.equal(surface.chapterRegion.hidden, true);
+  assert.equal(surface.root.dataset.profileVersion, '15');
+  assert.equal(writes(requests).length, 1, 'adoption itself does not replay the profile write');
 });
 
