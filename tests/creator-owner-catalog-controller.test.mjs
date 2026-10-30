@@ -715,3 +715,46 @@ test('la guardia común protege la referencia y ofrece guardar, descartar o segu
   assert.equal(referenceWrites(requests)[0].body.selectedForDirectory, false);
 });
 
+test('la paginación del catálogo conserva el foco en un botón disponible en ambos extremos', async () => {
+  const index = Array.from({ length: 51 }, (_, item) => catalogItem(item));
+  const selected = index[0];
+  const { surface, requests } = await mount({ index });
+  await openCatalog(surface, requests);
+  await selectCatalogItem(surface, selected.id);
+  const search = 'Guía de catálogo';
+  await submitCatalogSearch(surface, search);
+  assert.equal(surface.catalogPage.textContent, 'Página 1 de 3');
+
+  surface.catalogNext.focus();
+  await surface.catalogNext.dispatch('click');
+  assert.equal(surface.catalogPage.textContent, 'Página 2 de 3');
+  assert.equal(surface.document.activeElement, surface.catalogNext,
+    'the same-direction button remains the pertinent destination on an interior page');
+  assert.equal(surface.document.activeElement.disabled, false);
+
+  surface.catalogNext.focus();
+  await surface.catalogNext.dispatch('click');
+  assert.equal(surface.catalogPage.textContent, 'Página 3 de 3');
+  assert.equal(surface.document.activeElement, surface.catalogPrevious,
+    'reaching the last page moves focus to the available opposite-direction button');
+  assert.equal(surface.document.activeElement.disabled, false);
+
+  await surface.catalogPrevious.dispatch('click');
+  assert.equal(surface.catalogPage.textContent, 'Página 2 de 3');
+  assert.equal(surface.document.activeElement, surface.catalogPrevious);
+  assert.equal(surface.document.activeElement.disabled, false);
+
+  await surface.catalogPrevious.dispatch('click');
+  assert.equal(surface.catalogPage.textContent, 'Página 1 de 3');
+  assert.equal(surface.document.activeElement, surface.catalogNext,
+    'reaching the first page moves focus to the available opposite-direction button');
+  assert.equal(surface.document.activeElement.disabled, false);
+  assert.equal(surface.catalogSearch.value, search, 'the active catalog query is preserved across all pages');
+  const restoredSelection = rowFor(surface, selected.id)?.querySelector('[data-catalog-select]');
+  assert.ok(restoredSelection, 'returning to the selected result restores its selection control');
+  assert.equal(restoredSelection.checked, true,
+    'selection state survives paging and rerendering');
+  assert.equal(indexReads(requests).length, 1, 'paging and searching reuse the loaded public index');
+  assert.equal(writes(requests).length, 0, 'catalog paging does not create a reference or request');
+});
+

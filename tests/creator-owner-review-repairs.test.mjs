@@ -10,6 +10,7 @@ import {
   writes,
 } from './fixtures/creator-owner-links-browser.mjs';
 import { mountOwnerSeriesController } from './fixtures/creator-owner-series-browser.mjs';
+import { SurfaceElement } from './fixtures/creator-owner-browser-dom.mjs';
 
 const INDEX_STATE_KEY = 'creatorOwnerHistoryIndex';
 
@@ -593,4 +594,110 @@ test('Back y Forward pasan por Guardar, Descartar o Seguir y conservan el contex
   assert.equal(surface.window.history.entries.length, 3,
     'discard traverses the original Forward entry without changing stack length');
   assert.equal(api.state.series.find(({ id }) => id === 'series-a').description, 'Descripción inicial');
+});
+
+test('Comprobar foto adopta el DTO propietario completo con y sin recibo de carga', async (t) => {
+  for (const photoOutcome of ['conflict', 'acknowledged']) {
+    await t.test(photoOutcome, async () => {
+      const links = ['A', 'B', 'C'].map((title, index) => ({
+        placementId: `placement-${title}`,
+        resourceId: `resource-${title}`,
+        title,
+        url: `https://owner.example.invalid/${title}`,
+        description: '',
+        featured: false,
+        position: index,
+        selectedForDirectory: true,
+        hidden: false,
+        directoryApproval: 'approved',
+        resourceVersion: 1,
+        placementVersion: index + 1,
+        series: [],
+      }));
+      const editableResources = [{
+        id: 'resource-retained', title: 'Ficha anterior', url: 'https://owner.example.invalid/retained', description: '', version: 1,
+      }];
+      const surface = createOwnerLinksSurface({ links, editableResources });
+      const photoInput = new SurfaceElement({ tagName: 'INPUT', name: 'photo', type: 'file' });
+      const check = new SurfaceElement({ tagName: 'BUTTON', type: 'button', dataset: { ownerCheckPhoto: '' } });
+      check.hidden = true;
+      const status = new SurfaceElement({ dataset: { ownerFormStatus: 'foto' } });
+      const cancel = new SurfaceElement({ tagName: 'BUTTON', type: 'button', dataset: { ownerCancel: '' } });
+      const photoForm = new SurfaceElement({ tagName: 'FORM', dataset: { ownerForm: 'foto' }, lists: [photoInput, check, status, cancel] });
+      photoForm.hidden = true;
+      photoForm.elements = [photoInput, check, status, cancel];
+      for (const control of photoForm.elements) control.form = photoForm;
+      surface.dialog.append(photoForm);
+      surface.root.selectors['form[data-owner-form="foto"]'] = photoForm;
+      for (const element of [photoForm, ...photoForm.descendants()]) element.ownerDocument = surface.document;
+
+      const initial = {
+        profile: structuredClone(surface.profile),
+        links: structuredClone(links),
+        editableResources: structuredClone(editableResources),
+        claims: [],
+        series: [],
+      };
+      const latest = {
+        profile: {
+          ...initial.profile,
+          version: initial.profile.version + 1,
+          photo: { version: 'acknowledged-photo' },
+        },
+        links: [
+          { ...links[0], position: 0 },
+          { ...links[2], position: 1 },
+          { ...links[1], position: 2 },
+        ],
+        editableResources: [{ ...editableResources[0], title: 'Ficha actualizada', version: 2 }],
+        claims: [],
+        series: [{ id: 'remote-series', name: 'Serie remota', slug: 'serie-remota', version: 1 }],
+      };
+      const uploadId = 'acknowledged-photo';
+      const file = { type: 'image/png', size: 1, name: 'photo.png' };
+      let selectedFiles = [file];
+      Object.defineProperty(photoInput, 'files', { get: () => selectedFiles });
+      Object.defineProperty(photoInput, 'value', {
+        get: () => selectedFiles.length ? 'C:\\fakepath\\photo.png' : '',
+        set: (value) => { if (value === '') selectedFiles = []; },
+      });
+      const requests = await mountOwnerLinks({ surface, fetch: async (request) => {
+        if (request.path === '/api/creador/perfil') return jsonResponse(latest);
+        if (request.path === '/api/creador/foto/autorizar') {
+          return photoOutcome === 'conflict'
+            ? jsonResponse({ error: 'PROFILE_CONFLICT' }, 409)
+            : jsonResponse({ uploadId, post: { url: 'https://photo-upload.example.invalid/upload', fields: { key: 'photo-key' } } });
+        }
+        if (request.path === '/api/creador/foto/finalizar') return jsonResponse({ error: 'ACK_LOST' }, 503);
+        if (request.url.origin === 'https://photo-upload.example.invalid') return new Response(null, { status: 204 });
+        return jsonResponse({ error: 'NOT_FOUND' }, 404);
+      } });
+
+      await surface.root.querySelector('[data-owner-edit="foto"]').dispatch('click');
+      assert.equal(surface.dialog.open, true);
+      await photoForm.dispatch('submit');
+      await settle();
+      assert.equal(check.hidden, false, 'the conflict or lost acknowledgement offers an explicit status check');
+      await check.dispatch('click');
+      await settle();
+
+      assert.equal(surface.root.dataset.profileVersion, String(latest.profile.version));
+      assert.deepEqual(surface.table.querySelectorAll('[data-link-row]').map(({ dataset }) => dataset.linkRow), [
+        'placement-A', 'placement-C', 'placement-B',
+      ], 'the adopted link order matches the observed snapshot');
+      assert.equal(surface.availableResources[0].querySelector('strong').textContent, 'Ficha actualizada',
+        'the adopted editable-resource collection is refreshed');
+      assert.ok(surface.seriesSelect.querySelectorAll('option').some(({ value }) => value === 'remote-series'),
+        'the owner series collection is refreshed');
+      if (photoOutcome === 'conflict') {
+        assert.equal(photoInput.files[0], file, 'a rejected upload keeps the selected file');
+        assert.equal(check.hidden, false, 'the explicit recovery state remains available');
+      } else {
+        assert.equal(photoInput.files.length, 0, 'the acknowledged upload consumes only its own file');
+        assert.equal(check.hidden, true, 'the acknowledged recovery state is cleared');
+      }
+      assert.equal(writes(requests).filter(({ path }) => path === '/api/creador/foto/autorizar').length, 1,
+        'checking status does not replay photo authorization');
+    });
+  }
 });
