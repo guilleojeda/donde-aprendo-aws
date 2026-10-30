@@ -69,6 +69,35 @@ function oneWrite(requests, method, path) {
   return matching[0];
 }
 
+function installOwnerHistory(surface) {
+  const popstateListeners = [];
+  const entries = [{ url: surface.window.location.href, state: null }];
+  let index = 0;
+  const setCurrent = () => { surface.window.location.href = entries[index].url; };
+  const notify = () => {
+    setCurrent();
+    for (const listener of popstateListeners) listener({ type: 'popstate', state: entries[index].state });
+  };
+  surface.window.addEventListener = (type, listener) => {
+    if (type === 'popstate') popstateListeners.push(listener);
+  };
+  surface.window.history = {
+    get state() { return entries[index].state; },
+    pushState(state, _title, url) {
+      entries.splice(index + 1);
+      entries.push({ url: new URL(String(url), surface.window.location.href).href, state });
+      index++;
+      setCurrent();
+    },
+    replaceState(state, _title, url) {
+      entries[index] = { url: new URL(String(url), surface.window.location.href).href, state };
+      setCurrent();
+    },
+    back() { if (index > 0) { index--; notify(); } },
+    forward() { if (index < entries.length - 1) { index++; notify(); } },
+  };
+}
+
 test('el bundle real del controlador instala el handler que abre la edición contextual', async () => {
   const link = editableLink();
   const { surface } = await ownedScenario({ link });
@@ -416,10 +445,7 @@ test('paginación conserva foco conectado en la primera, intermedia y última p�
     url: `https://example.invalid/${index}`, position: index,
   }));
   const surface = createOwnerLinksSurface({ links });
-  const pager = surface.document.createElement('nav');
-  pager.dataset.linkPagination = '';
-  pager.append(surface.document.createElement('span'));
-  surface.root.querySelector('[data-owner-links]').append(pager);
+  const pager = surface.pager;
   const api = createLinksApi({ surface });
   const requests = await mountOwnerLinks({ surface, fetch: api.fetch });
 
@@ -453,6 +479,125 @@ test('paginación conserva foco conectado en la primera, intermedia y última p�
   assert.equal(writes(requests).length, 0, 'paging and filtering do not write data');
 });
 
+test('Atrás y Adelante restauran un paginador visible con 50 enlaces y conservan la búsqueda enfocada', async () => {
+  const links = Array.from({ length: 50 }, (_, index) => sharedLink({
+    resourceId: `resource-history-${index}`, placementId: `placement-history-${index}`,
+    title: `Guía ${index}`, url: `https://example.invalid/history-${index}`, position: index,
+  }));
+  const surface = createOwnerLinksSurface({ links });
+  installOwnerHistory(surface);
+  await mountOwnerLinks({ surface, fetch: createLinksApi({ surface }).fetch });
+
+  const pageLink = (label) => surface.pager.querySelectorAll('[data-link-page]')
+    .find((link) => link.textContent === label);
+  const next = pageLink('Siguiente');
+  assert.ok(next);
+  next.focus();
+  await next.dispatch('click');
+  assert.equal(new URL(surface.window.location.href).searchParams.get('paginaEnlaces'), '2');
+
+  pageLink('Anterior').focus();
+  surface.window.history.back();
+  assert.equal(new URL(surface.window.location.href).searchParams.get('paginaEnlaces'), '1');
+  assert.equal(surface.document.activeElement, pageLink('Siguiente'),
+    'when the focused previous-page link disappears, focus moves to the remaining pager action');
+  assert.ok(surface.document.activeElement.isConnected);
+
+  surface.searchInput.focus();
+  surface.window.history.forward();
+  assert.equal(new URL(surface.window.location.href).searchParams.get('paginaEnlaces'), '2');
+  assert.equal(surface.document.activeElement, surface.searchInput,
+    'history rerender keeps the search focus when that control remains visible');
+});
+
+test('Atrás y Adelante restauran el foco en los límites y en una página intermedia con 73 enlaces', async () => {
+  const links = Array.from({ length: 73 }, (_, index) => sharedLink({
+    resourceId: `resource-history-73-${index}`, placementId: `placement-history-73-${index}`,
+    title: `Guía ${index}`, url: `https://example.invalid/history-73-${index}`, position: index,
+  }));
+  const surface = createOwnerLinksSurface({ links });
+  installOwnerHistory(surface);
+  await mountOwnerLinks({ surface, fetch: createLinksApi({ surface }).fetch });
+
+  const pageLink = (label) => surface.pager.querySelectorAll('[data-link-page]')
+    .find((link) => link.textContent === label);
+  const goNext = async (expectedPage) => {
+    const link = pageLink('Siguiente');
+    assert.ok(link, `next-page link exists before page ${expectedPage}`);
+    link.focus();
+    await link.dispatch('click');
+    assert.equal(new URL(surface.window.location.href).searchParams.get('paginaEnlaces'), expectedPage);
+  };
+
+  await goNext('2');
+  await goNext('3');
+  assert.equal(surface.document.activeElement, pageLink('Anterior'));
+
+  surface.window.history.back();
+  assert.equal(new URL(surface.window.location.href).searchParams.get('paginaEnlaces'), '2');
+  assert.equal(surface.document.activeElement, pageLink('Anterior'), 'the middle page restores the same available action');
+  surface.window.history.back();
+  assert.equal(new URL(surface.window.location.href).searchParams.get('paginaEnlaces'), '1');
+  assert.equal(surface.document.activeElement, pageLink('Siguiente'), 'the first page uses its only pager action');
+  surface.window.history.forward();
+  assert.equal(new URL(surface.window.location.href).searchParams.get('paginaEnlaces'), '2');
+  assert.equal(surface.document.activeElement, pageLink('Siguiente'));
+  surface.window.history.forward();
+  assert.equal(new URL(surface.window.location.href).searchParams.get('paginaEnlaces'), '3');
+  assert.equal(surface.document.activeElement, pageLink('Anterior'), 'the last page falls back to its available previous action');
+});
+
+test('un filtro sin paginador conserva el foco y la consulta al recorrer historial', async () => {
+  const links = Array.from({ length: 50 }, (_, index) => sharedLink({
+    resourceId: `resource-history-filter-${index}`, placementId: `placement-history-filter-${index}`,
+    title: `Guía ${index}`, url: `https://example.invalid/history-filter-${index}`, position: index,
+    directoryApproval: index === 0 ? 'revoked' : 'pending',
+  }));
+  const surface = createOwnerLinksSurface({ links });
+  installOwnerHistory(surface);
+  await mountOwnerLinks({ surface, fetch: createLinksApi({ surface }).fetch });
+
+  const pageLink = (label) => surface.pager.querySelectorAll('[data-link-page]')
+    .find((link) => link.textContent === label);
+  const next = pageLink('Siguiente');
+  next.focus();
+  await next.dispatch('click');
+
+  const filters = new SurfaceElement({ tagName: 'FORM', dataset: { linkFilters: '' } });
+  const fields = [
+    new SurfaceElement({ tagName: 'INPUT', name: 'vista', value: 'enlaces' }),
+    new SurfaceElement({ tagName: 'INPUT', name: 'paginaEnlaces', value: '2' }),
+    surface.searchInput,
+    new SurfaceElement({ tagName: 'SELECT', name: 'serie', value: 'todos' }),
+    new SurfaceElement({ tagName: 'SELECT', name: 'directorio', value: 'todos' }),
+    new SurfaceElement({ tagName: 'SELECT', name: 'destacado', value: 'todos' }),
+    new SurfaceElement({ tagName: 'SELECT', name: 'orden', value: 'pagina' }),
+  ];
+  filters.elements = fields;
+  filters.append(...fields);
+  for (const field of fields) {
+    field.form = filters;
+    field.ownerDocument = surface.document;
+  }
+  surface.root.querySelector('[data-owner-links]').append(filters);
+  const directory = filters.querySelector('[name="directorio"]');
+  directory.value = 'revocados';
+  directory.focus();
+  await directory.dispatch('change');
+  assert.equal(new URL(surface.window.location.href).searchParams.get('directorio'), 'revocados');
+  assert.equal(surface.table.querySelectorAll('[data-link-row]').length, 1);
+
+  surface.window.history.back();
+  assert.equal(new URL(surface.window.location.href).searchParams.get('paginaEnlaces'), '2');
+  assert.equal(surface.document.activeElement, directory,
+    'a visible filter keeps focus while Back restores the full paginated collection');
+  surface.window.history.forward();
+  assert.equal(new URL(surface.window.location.href).searchParams.get('directorio'), 'revocados');
+  assert.equal(surface.pager.querySelectorAll('[data-link-page]').length, 0);
+  assert.equal(surface.document.activeElement, directory,
+    'the current filter keeps focus when Forward restores the one-result state without a pager');
+});
+
 for (const failure of [
   { name: '401', status: 401, body: { error: 'UNAUTHENTICATED' } },
   { name: 'CSRF', status: 403, body: { error: 'CSRF_REJECTED' } },
@@ -481,7 +626,7 @@ for (const failure of [
     await settle();
     const sessionChecks = requests.filter(({ method, path }) => method === 'GET' && path === '/api/creador/sesion');
     assert.equal(sessionChecks.length, 1);
-    assert.equal(sessionChecks[0].headers.get('x-creator-page-binding'), 'a'.repeat(64));
+    assert.equal(sessionChecks[0].headers.get('x-creator-page-binding'), surface.root.dataset.sessionBinding);
     assert.equal(writes(requests).length, 1, 'checking the session is a read and does not replay the edit');
     assert.match(surface.sessionStatus.textContent, /volver a guardar/i);
 

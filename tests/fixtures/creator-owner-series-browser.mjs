@@ -135,7 +135,7 @@ function createOwnerSeriesSurface({ profile, links = [], editableResources = [],
   const initial = surface.document.getElementById('creator-owner-data');
   initial.textContent = JSON.stringify({
     profile, links, editableResources, claims, series,
-    csrfToken: 'csrf-a', sessionBinding: 'a'.repeat(64),
+    csrfToken: 'csrf-a', sessionBinding: surface.root.dataset.sessionBinding,
   });
 
   const seriesRegion = new SurfaceElement({ dataset: { ownerSeries: '' } });

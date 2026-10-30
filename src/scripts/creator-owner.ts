@@ -28,6 +28,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function readOwnerSnapshot(): Promise<Response> {
+  return fetch('/api/creador/perfil/', {
+    method: 'GET', credentials: 'same-origin', cache: 'no-store',
+    headers: { 'x-creator-page-binding': root?.dataset.sessionBinding ?? '' },
+  });
+}
+
 function isSafeClaimUrl(value: string): boolean {
   if (!value || value.length > 2048) return false;
   try {
@@ -1364,6 +1371,27 @@ function ownerSeriesFocusIsVisible(target: HTMLElement | undefined): boolean {
   return false;
 }
 
+function ownerLinksFocusIsVisible(target: HTMLElement | undefined): boolean {
+  const ownerLinks = root?.querySelector<HTMLElement>('[data-owner-links]');
+  if (!target?.isConnected || !ownerLinks || target.closest('[data-owner-links]') !== ownerLinks) return false;
+  for (let ancestor: HTMLElement | null = target; ancestor; ancestor = ancestor.parentElement) {
+    if (ancestor.hidden || ancestor.getAttribute('aria-hidden') === 'true') return false;
+    if (ancestor === root) return true;
+  }
+  return false;
+}
+
+function restoreOwnerLinksFocusIfLost(target: HTMLElement | undefined, wasInOwnerLinks: boolean) {
+  const selectedView = new URL(window.location.href).searchParams.get('vista');
+  if (!wasInOwnerLinks || (selectedView && selectedView !== 'enlaces') || ownerLinksFocusIsVisible(target)) return;
+
+  const previousPageLabel = target?.closest('[data-link-page]')?.textContent?.trim();
+  const pageLinks = [...(root?.querySelectorAll<HTMLAnchorElement>('[data-link-page]') ?? [])];
+  const pagerTarget = pageLinks.find((link) => link.textContent?.trim() === previousPageLabel) ?? pageLinks[0];
+  if (pagerTarget?.isConnected) window.requestAnimationFrame(() => pagerTarget.focus());
+  else focusRestoredOwnerLocation();
+}
+
 function restoreOwnerSeriesFocusIfLost(
   target: HTMLElement | undefined,
   wasInOwnerSeries: boolean,
@@ -1403,6 +1431,9 @@ function completePendingOwnerHistoryNavigation() {
 
 function handleOwnerPopstate(event: PopStateEvent) {
   const focusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
+  const ownerLinks = root?.querySelector<HTMLElement>('[data-owner-links]');
+  const focusWasInOwnerLinks = Boolean(focusedElement && ownerLinks
+    && focusedElement.closest('[data-owner-links]') === ownerLinks);
   const ownerSeries = root?.querySelector<HTMLElement>('[data-owner-series]');
   const focusWasInOwnerSeries = Boolean(focusedElement && ownerSeries
     && focusedElement.closest('[data-owner-series]') === ownerSeries);
@@ -1426,15 +1457,21 @@ function handleOwnerPopstate(event: PopStateEvent) {
     return;
   }
   if (targetIndex === undefined) {
-    if (hasPendingEditorChanges) showExitPrompt(() => restoreLinksFromLocation());
+    if (hasPendingEditorChanges) showExitPrompt(() => {
+      restoreLinksFromLocation();
+      restoreOwnerLinksFocusIfLost(focusedElement, focusWasInOwnerLinks);
+      restoreOwnerSeriesFocusIfLost(focusedElement, focusWasInOwnerSeries, focusPaginationSelector);
+    });
     else {
       restoreLinksFromLocation();
+      restoreOwnerLinksFocusIfLost(focusedElement, focusWasInOwnerLinks);
       restoreOwnerSeriesFocusIfLost(focusedElement, focusWasInOwnerSeries, focusPaginationSelector);
     }
     return;
   }
   if (targetIndex === ownerHistoryIndex) {
     restoreLinksFromLocation();
+    restoreOwnerLinksFocusIfLost(focusedElement, focusWasInOwnerLinks);
     restoreOwnerSeriesFocusIfLost(focusedElement, focusWasInOwnerSeries, focusPaginationSelector);
     return;
   }
@@ -1469,6 +1506,7 @@ function handleOwnerPopstate(event: PopStateEvent) {
     focusOwnerLocationAfterHistory = false;
     focusRestoredOwnerLocation();
   } else {
+    restoreOwnerLinksFocusIfLost(focusedElement, focusWasInOwnerLinks);
     restoreOwnerSeriesFocusIfLost(focusedElement, focusWasInOwnerSeries, focusPaginationSelector);
   }
 }
@@ -2986,7 +3024,7 @@ async function compareSavedSeries(form: HTMLFormElement) {
   setHidden(form.querySelector('[data-owner-comparison]'), true);
   announce(statusFor('serie'), 'Consultando la serie guardada…', 'info');
   try {
-    const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
+    const response = await readOwnerSnapshot();
     if (response.status === 401) await sessionRecovery?.observeWriteResponse(response);
     if (!seriesComparisonIsCurrent(form, context.seriesId, revision, generation)) return;
     if (!response.ok) {
@@ -3298,7 +3336,7 @@ async function compareSavedChapterMove(form: HTMLFormElement) {
   setHidden(form.querySelector('[data-owner-comparison]'), true);
   announceWrite('mover-capitulo', 'Consultando el orden guardado…', 'info');
   try {
-    const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
+    const response = await readOwnerSnapshot();
     if (response.status === 401) await sessionRecovery?.observeWriteResponse(response);
     if (!chapterMoveIsCurrent(form, copy, revision, generation)) return;
     if (!response.ok) {
@@ -3398,7 +3436,7 @@ async function compareSavedMove(form: HTMLFormElement) {
   const generation = ++moveCompareGeneration;
   announceWrite('mover-enlace', 'Consultando el orden guardado…', 'info');
   try {
-    const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
+    const response = await readOwnerSnapshot();
     if (response.status === 401) await sessionRecovery?.observeWriteResponse(response);
     if (!moveComparisonIsCurrent(form, context.placementId, revision, generation)) return;
     if (!response.ok) {
@@ -3781,7 +3819,7 @@ async function reconcileOwnerData(canAdopt?: () => boolean): Promise<boolean> {
         && activeForm === undefined && activeEditor === undefined
         && !(formState?.hasPendingChanges() ?? false));
   try {
-    const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
+    const response = await readOwnerSnapshot();
     if (response.status === 401) await sessionRecovery?.observeWriteResponse(response);
     if (!response.ok) return false;
     const payload = await responsePayload(response);
@@ -4315,7 +4353,7 @@ async function compareCatalogProfile(form: HTMLFormElement) {
   const profileId = currentProfile.id;
   announceWrite('referencia', 'Consultando la versión guardada de tu página…', 'info');
   try {
-    const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
+    const response = await readOwnerSnapshot();
     if (generation !== catalogComparisonGeneration || activeEditor !== 'referencia' || activeForm !== form) return;
     if (response.status === 401) await sessionRecovery?.observeWriteResponse(response);
     if (generation !== catalogComparisonGeneration || activeEditor !== 'referencia' || activeForm !== form) return;
@@ -4592,7 +4630,7 @@ async function checkClaimHistory() {
   claimChecking = true;
   if (check) check.disabled = true;
   try {
-    const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
+    const response = await readOwnerSnapshot();
     if (response.status === 401) await sessionRecovery?.observeWriteResponse(response);
     if (!response.ok) {
       announceWrite('reclamacion', response.status === 401
@@ -4886,7 +4924,7 @@ async function compareSavedLink(form: HTMLFormElement) {
   const profileId = state.profile.id;
   announceWrite('enlace', 'Consultando la versión guardada…', 'info');
   try {
-    const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
+    const response = await readOwnerSnapshot();
     if (response.status === 401) await sessionRecovery?.observeWriteResponse(response);
     if (!linkComparisonIsCurrent(form, context, contextRevision, generation)) return;
     if (!response.ok) {
@@ -5023,11 +5061,22 @@ async function compareSavedVersion(form: HTMLFormElement, name: 'crear' | 'datos
     && isActiveProfileFormContext(form, name, contextRevision);
   announceWrite(name, 'Consultando la versión guardada…', 'info');
   try {
-    const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
+    const response = await readOwnerSnapshot();
     if (response.status === 401) await sessionRecovery?.observeWriteResponse(response);
     if (!isCurrent()) return;
     if (!response.ok) {
-      announceWrite(name, response.status === 401 ? sessionRecovery?.writeFailureMessage() ?? statusMessage(401) : 'No pudimos leer la versión guardada. Tus cambios siguen aquí; inténtalo de nuevo.', 'error');
+      if (response.status === 401) {
+        announceWrite(name, sessionRecovery?.writeFailureMessage() ?? statusMessage(401), 'error');
+        return;
+      }
+      const failure = response.status === 409 || response.status === 422 ? await responsePayload(response) : null;
+      if (!isCurrent()) return;
+      const message = failure?.error === 'SESSION_CONTEXT_CHANGED'
+        ? 'La cuenta o el rol activo no coinciden con esta página. Vuelve a la cuenta original para comparar; conservamos tu corrección.'
+        : failure?.error === 'INVALID_CONTEXT'
+          ? 'El contexto de esta página no es válido. Vuelve a abrirla desde la cuenta original; conservamos tu corrección.'
+          : 'No pudimos leer la versión guardada. Tus cambios siguen aquí; inténtalo de nuevo.';
+      announceWrite(name, message, 'error');
       return;
     }
     const payload = await responsePayload(response);
@@ -5104,7 +5153,7 @@ async function checkPhotoStatus(form: HTMLFormElement) {
   const checkButton = form.querySelector<HTMLButtonElement>('[data-owner-check-photo]');
   if (checkButton) checkButton.disabled = true;
   try {
-    const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
+    const response = await readOwnerSnapshot();
     if (response.status === 401) await sessionRecovery?.observeWriteResponse(response);
     if (!isCurrent()) return;
     const payload = response.ok ? await responsePayload(response) : null;

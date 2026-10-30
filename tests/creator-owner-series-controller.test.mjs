@@ -424,7 +424,7 @@ test('401 conserva el movimiento y permite reintentar manualmente tras confirmar
   await settle();
   const sessionCheck = requests.find(({ method, path }) => method === 'GET' && path === '/api/creador/sesion');
   assert.ok(sessionCheck);
-  assert.equal(sessionCheck.headers.get('x-creator-page-binding'), 'a'.repeat(64));
+  assert.equal(sessionCheck.headers.get('x-creator-page-binding'), surface.root.dataset.sessionBinding);
   assert.equal(moveCalls, 1);
   await submit(surface.moveForm);
   assert.equal(moveCalls, 2, 'only the manual save retries after the same account and role are confirmed');
@@ -673,7 +673,7 @@ test('401 de edición de serie conserva la corrección y sólo reintenta tras co
   await settle();
   const sessionCheck = requests.find(({ method, path }) => method === 'GET' && path === '/api/creador/sesion');
   assert.ok(sessionCheck);
-  assert.equal(sessionCheck.headers.get('x-creator-page-binding'), 'a'.repeat(64));
+  assert.equal(sessionCheck.headers.get('x-creator-page-binding'), surface.root.dataset.sessionBinding);
   assert.equal(patches, 1);
   await submit(surface.seriesForm);
   assert.equal(patches, 2, 'the creator manually retries after session recovery');

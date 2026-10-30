@@ -674,7 +674,7 @@ test('una respuesta 401 de referencia comprueba la misma sesión sin repetir la 
     'the owner checks the current session explicitly');
   await settle();
   const sessionCheck = requests.find(({ path, method }) => path === '/api/creador/sesion' && method === 'GET');
-  assert.equal(sessionCheck.headers.get('x-creator-page-binding'), 'a'.repeat(64),
+  assert.equal(sessionCheck.headers.get('x-creator-page-binding'), surface.root.dataset.sessionBinding,
     'recovery is bound to the same owner identity and role');
   assert.equal(referenceWrites(requests).length, 1, 'session recovery never silently replays the failed reference');
   assert.equal(checkbox.checked, true, 'the selection remains available for an explicit user retry');

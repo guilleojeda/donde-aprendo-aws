@@ -44,7 +44,7 @@ export function createCreatorOwnerCatalogSurface({
     claims: [],
     series,
     csrfToken: 'csrf-a',
-    sessionBinding: 'a'.repeat(64),
+    sessionBinding: root.dataset.sessionBinding,
   });
 
   const catalogOpen = new SurfaceElement({

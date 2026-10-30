@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { creatorPageSessionBinding } from '../src/lib/creator-session-context.mjs';
 import {
   catalogItem,
   claimCatalogRows,
@@ -16,7 +17,7 @@ import {
 
 const INDEX_PATH = '/catalog-selection.json';
 const CLAIM_PATH = '/api/creador/reclamaciones';
-const PRIVATE_BINDING = 'a'.repeat(64);
+const PRIVATE_BINDING = creatorPageSessionBinding({ accountId: 'private-account-a', isAdmin: false });
 
 function resource(index, overrides = {}) {
   return catalogItem(index, { tipo: 'content', ...overrides });
