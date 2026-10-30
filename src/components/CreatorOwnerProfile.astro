@@ -62,7 +62,7 @@ function safeSocialUrl(value: string | undefined): string | undefined {
 
 <div class="creator-owner" data-creator-owner data-owner-root data-csrf={csrfToken} data-session-binding={sessionBinding} data-public-origin={publicOrigin} data-profile-version={profile?.version}>
   <div class="creator-owner__account-bar">
-    <a class="creator-owner__back" href="/" aria-label="Volver al sitio">Volver al sitio</a>
+    <a class="creator-owner__back" data-owner-navigation href="/" aria-label="Volver al sitio">Volver al sitio</a>
     <details class="creator-owner__account-menu">
       <summary aria-label="Abrir menú de cuenta">
         <img class="creator-owner__avatar" src={photoPath} alt="" width="36" height="36" data-owner-avatar hidden={!photoPath} />
