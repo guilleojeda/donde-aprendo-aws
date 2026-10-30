@@ -141,6 +141,11 @@ function ownerSurface({ profile = null, initialData = {}, csrfToken = 'csrf-a', 
   });
   const document = {
     activeElement: null,
+    createElement(tagName) {
+      const element = new SurfaceElement({ tagName });
+      element.ownerDocument = document;
+      return element;
+    },
     querySelector(selector) {
       return selector === '[data-creator-owner]' || selector === '[data-owner-root]' ? root
         : selector === '#creator-owner-data' ? dataScript : null;
@@ -209,6 +214,68 @@ async function mount({ runtime, surface, fetch, session = 'creator-a' }) {
     queueMicrotask,
   });
   return requests;
+}
+
+function addCreateConflictControls(form) {
+  const compare = new SurfaceElement({ tagName: 'BUTTON', dataset: { ownerCompare: '' } });
+  const comparison = new SurfaceElement({ dataset: { ownerComparison: '' } });
+  const adopt = new SurfaceElement({ tagName: 'BUTTON', dataset: { ownerAdopt: '' } });
+  comparison.hidden = true;
+  adopt.hidden = true;
+  const conflict = new SurfaceElement({ dataset: { ownerConflict: '' }, lists: [compare, comparison, adopt] });
+  conflict.hidden = true;
+  form.append(conflict);
+  return { compare, comparison, adopt, conflict };
+}
+
+function addOwnerLinksView(surface) {
+  const rows = new SurfaceElement({ tagName: 'TBODY', dataset: { linkRows: '' } });
+  const table = new SurfaceElement({ tagName: 'TABLE', lists: [rows] });
+  const pager = new SurfaceElement({ tagName: 'NAV', dataset: { linkPagination: '' }, lists: [new SurfaceElement({ tagName: 'SPAN' })] });
+  const search = new SurfaceElement({ tagName: 'INPUT', name: 'buscar', dataset: { linkSearch: '' } });
+  const region = new SurfaceElement({ dataset: { ownerLinks: '' }, lists: [search, table, pager] });
+  surface.root.append(region);
+  for (const element of [search, rows, table, pager, ...pager.lists]) element.ownerDocument = surface.document;
+  return { region, rows, table, pager, search };
+}
+
+async function serviceJson(runtime, path, { session = 'creator-a', method = 'GET', body, headers = {} } = {}) {
+  const response = await runtime.fetchApi(path, {
+    method,
+    headers: {
+      ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+      ...(method === 'GET' ? {} : { 'x-csrf-token': session === 'creator-a' ? 'csrf-a' : `csrf-${session}` }),
+      ...headers,
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  }, { session });
+  return { response, payload: await response.clone().json().catch(() => null) };
+}
+
+async function createOwnerSnapshotWithLinkAndSeries(runtime) {
+  const profile = await createServiceProfile(runtime, {
+    displayName: 'Página A guardada', slug: 'pagina-a-guardada', bio: 'Datos guardados en otra pestaña.',
+  });
+  const added = await serviceJson(runtime, '/api/creador/enlaces/', {
+    method: 'POST', body: { title: 'Guía guardada de A', url: 'https://example.invalid/guia-a-guardada' },
+  });
+  assert.equal(added.response.status, 201);
+  const afterLink = await serviceJson(runtime, '/api/creador/perfil/');
+  assert.equal(afterLink.response.status, 200);
+  const createdSeries = await serviceJson(runtime, '/api/creador/series/', {
+    method: 'POST', body: {
+      name: 'Serie guardada de A', slug: 'serie-a-guardada', profileVersion: afterLink.payload.profile.version,
+    },
+  });
+  assert.equal(createdSeries.response.status, 201);
+  const chapter = await serviceJson(runtime,
+    `/api/creador/series/${createdSeries.payload.series.id}/capitulos/${added.payload.link.placementId}`,
+    { method: 'PUT', body: { profileVersion: createdSeries.payload.profileVersion } });
+  assert.equal(chapter.response.status, 200);
+  const snapshot = await serviceJson(runtime, '/api/creador/perfil/');
+  assert.equal(snapshot.response.status, 200);
+  assert.equal(snapshot.payload.profile.id, profile.id);
+  return snapshot.payload;
 }
 
 async function createServiceProfile(runtime, overrides = {}) {
@@ -486,6 +553,159 @@ behaviorTest('un conflicto conserva valores y versión observada hasta revisión
   assert.match(surface.controls.status.textContent, /cambió|revis|conflicto/i);
   assert.equal(writes.filter(({ path, method }) => path === '/api/creador/perfil' && method === 'PUT').length, 1,
     'a conflict neither replays the write nor hides a newly adopted version behind a second write');
+});
+
+behaviorTest('un alta inicial adopta el snapshot completo de la misma cuenta sin repetir escrituras', async () => {
+  const runtime = await createCreatorOwnerRuntime();
+  runtime.setSession('creator-a');
+  const surface = ownerSurface();
+  const conflict = addCreateConflictControls(surface.forms.create);
+  const linksView = addOwnerLinksView(surface);
+  let activeSession = 'creator-a';
+  const requests = await mount({ runtime, surface, fetch: async (pathname, options, request) => {
+    const response = await runtime.fetchApi(pathname, options, { session: activeSession });
+    request.responsePayload = await response.clone().json().catch(() => null);
+    return response;
+  } });
+
+  const [displayName, slug] = surface.controls.createFields;
+  displayName.value = 'Corrección local de A';
+  await displayName.dispatch('input');
+  slug.value = 'correccion-local-de-a';
+  await slug.dispatch('input');
+  const savedSnapshot = await createOwnerSnapshotWithLinkAndSeries(runtime);
+
+  await surface.forms.create.dispatch('submit');
+  await settle();
+  const createRequest = requests.find(({ path, method }) => path === '/api/creador/perfil' && method === 'PUT');
+  assert.equal(createRequest.status, 409, 'the initial tab encounters the other-tab profile creation');
+  assert.equal(displayName.value, 'Corrección local de A');
+  assert.equal(slug.value, 'correccion-local-de-a');
+
+  await conflict.compare.dispatch('click');
+  await settle();
+  const comparisonRequest = requests.find(({ path, method }) => path === '/api/creador/perfil' && method === 'GET');
+  assert.equal(comparisonRequest.headers.get('x-creator-page-binding'), surface.root.dataset.sessionBinding);
+  assert.equal(comparisonRequest.status, 200, 'the same original account and role can compare');
+  assert.deepEqual(Object.keys(comparisonRequest.responsePayload).sort(), ['claims', 'editableResources', 'links', 'profile', 'series']);
+  assert.equal(comparisonRequest.responsePayload.profile.id, savedSnapshot.profile.id);
+  assert.equal(comparisonRequest.responsePayload.links[0].series[0].seriesId, savedSnapshot.series[0].id);
+  assert.equal(conflict.adopt.hidden, false, 'a complete same-account snapshot enables explicit adoption');
+  assert.equal(displayName.value, 'Corrección local de A', 'comparison itself leaves the correction untouched');
+  assert.equal(mutations(requests).length, 1, 'comparison performs no replay or additional write');
+
+  await conflict.adopt.dispatch('click');
+  assert.equal(displayName.value, savedSnapshot.profile.displayName);
+  assert.equal(slug.value, savedSnapshot.profile.slug);
+  assert.equal(surface.root.dataset.profileVersion, String(savedSnapshot.profile.version));
+  const adoptedRow = linksView.rows.querySelector('[data-link-row]');
+  assert.ok(adoptedRow, 'adoption updates the live owner links from the same snapshot');
+  assert.equal(adoptedRow.querySelector('[data-link-title]').textContent, 'Guía guardada de A');
+  assert.equal(adoptedRow.querySelector('[data-label="Series"]').textContent, 'Serie guardada de A');
+  assert.equal(adoptedRow.querySelector('[data-link-edit]').textContent, 'Editar ficha',
+    'the adopted editable-resource references remain coherent with the link');
+  assert.equal(mutations(requests).length, 1, 'explicit adoption does not save or replay by itself');
+
+  await surface.controls.editButtons[0].dispatch('click');
+  const bio = surface.controls.dataFields.find((field) => field.name === 'bio');
+  assert.equal(bio.value, savedSnapshot.profile.bio, 'the regular profile editor continues from the adopted snapshot');
+  bio.value = 'Edición nueva después de adoptar.';
+  await bio.dispatch('input');
+  await surface.forms.datos.dispatch('submit');
+  await settle();
+  assert.equal(mutations(requests).length, 2, 'only the user-initiated follow-up edit adds a write');
+  const saved = await serviceJson(runtime, '/api/creador/perfil/');
+  assert.equal(saved.payload.profile.bio, 'Edición nueva después de adoptar.');
+});
+
+behaviorTest('el alta inicial rechaza comparar otra cuenta y un contexto malformado sin perder la corrección', async () => {
+  const runtime = await createCreatorOwnerRuntime();
+  runtime.setSession('creator-a');
+  runtime.setSession('creator-b');
+  const surface = ownerSurface();
+  const conflict = addCreateConflictControls(surface.forms.create);
+  let activeSession = 'creator-a';
+  const requests = await mount({ runtime, surface, fetch: async (pathname, options, request) => {
+    const response = await runtime.fetchApi(pathname, options, { session: activeSession });
+    request.responsePayload = await response.clone().json().catch(() => null);
+    return response;
+  } });
+
+  const [displayName, slug] = surface.controls.createFields;
+  displayName.value = 'Corrección privada de A';
+  await displayName.dispatch('input');
+  slug.value = 'correccion-privada-a';
+  await slug.dispatch('input');
+  await createServiceProfile(runtime, { displayName: 'Página privada de A', slug: 'pagina-privada-a' });
+  await surface.forms.create.dispatch('submit');
+  await settle();
+  assert.equal(requests.find(({ path, method }) => path === '/api/creador/perfil' && method === 'PUT').status, 409);
+
+  const otherProfile = await serviceJson(runtime, '/api/creador/perfil/', {
+    session: 'creator-b', method: 'PUT', body: { displayName: 'Página privada de B', slug: 'pagina-privada-b' },
+  });
+  assert.equal(otherProfile.response.status, 200);
+  activeSession = 'creator-b';
+  await conflict.compare.dispatch('click');
+  await settle();
+  const foreignComparison = requests.filter(({ path, method }) => path === '/api/creador/perfil' && method === 'GET').at(-1);
+  assert.equal(foreignComparison.status, 409);
+  assert.equal(foreignComparison.responsePayload.error, 'SESSION_CONTEXT_CHANGED');
+  assert.equal(JSON.stringify(foreignComparison.responsePayload).includes(otherProfile.payload.profile.id), false);
+  assert.equal(JSON.stringify(foreignComparison.responsePayload).includes('Página privada de B'), false);
+  assert.equal(conflict.adopt.hidden, true);
+  assert.match(surface.controls.status.textContent, /cuenta o el rol activo|cuenta original/i,
+    'the local message explains how to recover without revealing the other account');
+  assert.equal(displayName.value, 'Corrección privada de A');
+  assert.equal(slug.value, 'correccion-privada-a');
+  assert.equal(mutations(requests).length, 1, 'the foreign comparison cannot replay or save');
+
+  activeSession = 'creator-a';
+  surface.root.dataset.sessionBinding = 'malformed-context';
+  await conflict.compare.dispatch('click');
+  await settle();
+  const malformedComparison = requests.filter(({ path, method }) => path === '/api/creador/perfil' && method === 'GET').at(-1);
+  assert.equal(malformedComparison.status, 422);
+  assert.equal(malformedComparison.responsePayload.error, 'INVALID_CONTEXT');
+  assert.equal(conflict.adopt.hidden, true);
+  assert.match(surface.controls.status.textContent, /contexto.*no es válido|cuenta original/i);
+  assert.equal(displayName.value, 'Corrección privada de A');
+  assert.equal(slug.value, 'correccion-privada-a');
+  assert.equal(mutations(requests).length, 1);
+});
+
+test('el binding de lectura es opcional para clientes existentes y valida cuenta y rol cuando se envía', async () => {
+  const runtime = await createCreatorOwnerRuntime();
+  runtime.setSession('creator-a');
+  runtime.setSession('creator-b');
+  runtime.setSession('same-account-admin', {
+    principal: { state: 'authenticated', accountId: 'private-account-a', csrfToken: 'csrf-role', isAdmin: true },
+  });
+  const profile = await createServiceProfile(runtime);
+  const originalBinding = creatorPageSessionBinding({ accountId: 'private-account-a', isAdmin: false });
+
+  const legacy = await serviceJson(runtime, '/api/creador/perfil/');
+  assert.equal(legacy.response.status, 200, 'GETs without the optional marker keep their existing behavior');
+  assert.equal(legacy.payload.profile.id, profile.id);
+  const malformed = await serviceJson(runtime, '/api/creador/perfil/', { headers: { 'x-creator-page-binding': 'invalid' } });
+  assert.equal(malformed.response.status, 422);
+  assert.deepEqual(malformed.payload, { error: 'INVALID_CONTEXT', message: 'creator page context is invalid' });
+  const changedAccount = await serviceJson(runtime, '/api/creador/perfil/', {
+    session: 'creator-b', headers: { 'x-creator-page-binding': originalBinding },
+  });
+  assert.equal(changedAccount.response.status, 409);
+  assert.equal(changedAccount.payload.error, 'SESSION_CONTEXT_CHANGED');
+  assert.equal(Object.hasOwn(changedAccount.payload, 'profile'), false);
+  const changedRole = await serviceJson(runtime, '/api/creador/perfil/', {
+    session: 'same-account-admin', headers: { 'x-creator-page-binding': originalBinding },
+  });
+  assert.equal(changedRole.response.status, 409, 'the existing opaque binding includes the original role');
+  assert.equal(Object.hasOwn(changedRole.payload, 'profile'), false);
+  const boundSameAccount = await serviceJson(runtime, '/api/creador/perfil/', {
+    headers: { 'x-creator-page-binding': originalBinding },
+  });
+  assert.equal(boundSameAccount.response.status, 200);
+  assert.equal(boundSameAccount.payload.profile.id, profile.id);
 });
 
 behaviorTest('los cambios escritos durante el request quedan abiertos sin duplicar la escritura', async () => {

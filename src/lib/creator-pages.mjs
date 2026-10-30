@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { isCatalogResourceIdWithinLimit, projectPublicRecord, validateCatalogUrl } from './catalog.mjs';
 import { currentUrlKey } from './catalog-url.mjs';
+import { creatorPageSessionBinding, isCreatorPageSessionBinding } from './creator-session-context.mjs';
 
 const PROGRAMS = new Set(['User Group Leaders', 'Community Builders', 'Heroes']);
 const SOCIALS = new Set(['instagram', 'x', 'linkedin', 'awsBuilder', 'website']);
@@ -2870,7 +2871,18 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     }
 
     if (path === '/api/creador/perfil') {
-      if (request.method === 'GET') return jsonResponse(await creatorEditor(principal));
+      if (request.method === 'GET') {
+        const requestedBinding = request.headers.get('x-creator-page-binding');
+        if (requestedBinding !== null) {
+          if (!isCreatorPageSessionBinding(requestedBinding)) {
+            fail(422, 'INVALID_CONTEXT', 'creator page context is invalid');
+          }
+          if (requestedBinding !== creatorPageSessionBinding(principal)) {
+            fail(409, 'SESSION_CONTEXT_CHANGED', 'creator page session context changed');
+          }
+        }
+        return jsonResponse(await creatorEditor(principal));
+      }
       if (request.method === 'PUT') {
         requireWriteRequest(request, principal);
         const body = await parseRequestBody(request);

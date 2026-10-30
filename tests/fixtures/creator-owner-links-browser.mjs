@@ -1,9 +1,11 @@
 import { runInNewContext } from 'node:vm';
 import { createHash } from 'node:crypto';
 import { build } from 'esbuild';
+import { creatorPageSessionBinding } from '../../src/lib/creator-session-context.mjs';
 import { SurfaceElement as BrowserElement, SurfaceFormData as BrowserFormData } from './creator-owner-browser-dom.mjs';
 
 const SITE_ORIGIN = 'https://donde-aprendo.example.invalid';
+const DEFAULT_OWNER_SESSION_BINDING = creatorPageSessionBinding({ accountId: 'private-account-a', isAdmin: false });
 const controllerPath = new URL('../../src/scripts/creator-owner.ts', import.meta.url);
 let controllerBundlePromise;
 
@@ -109,6 +111,7 @@ export function createOwnerLinksSurface({ profile = defaultProfile(), links = []
   });
   const tableBody = new BrowserElement({ tagName: 'TBODY', dataset: { linkRows: '' }, lists: rowElements });
   const table = new BrowserElement({ tagName: 'TABLE', lists: [tableBody] });
+  const pager = new BrowserElement({ tagName: 'NAV', dataset: { linkPagination: '' }, lists: [new BrowserElement({ tagName: 'SPAN' })] });
   const searchInput = new BrowserElement({ tagName: 'INPUT', name: 'buscar', value: search, dataset: { linkSearch: '' } });
   const seriesSelect = new BrowserElement({ tagName: 'SELECT', name: 'serie', value: query.serie ?? 'todos' });
   const allSeriesOption = new BrowserElement({ tagName: 'OPTION', value: 'todos', textContent: 'Todas las series' });
@@ -159,9 +162,9 @@ export function createOwnerLinksSurface({ profile = defaultProfile(), links = []
   checkSession.hidden = true;
   const navigation = new BrowserElement({ tagName: 'A', dataset: { ownerNavigation: '' } });
   navigation.setAttribute('href', '/cuenta/?vista=estadisticas&periodo=30&pagina=1');
-  const linksRegion = new BrowserElement({ dataset: { ownerLinks: '' }, lists: [table, searchInput, seriesSelect, addOpen, addForm, retainedLinks] });
+  const linksRegion = new BrowserElement({ dataset: { ownerLinks: '' }, lists: [table, pager, searchInput, seriesSelect, addOpen, addForm, retainedLinks] });
   const root = new BrowserElement({ dataset: {
-    csrf: 'csrf-a', sessionBinding: 'a'.repeat(64), publicOrigin: SITE_ORIGIN, profileVersion: String(profile.version),
+    csrf: 'csrf-a', sessionBinding: DEFAULT_OWNER_SESSION_BINDING, publicOrigin: SITE_ORIGIN, profileVersion: String(profile.version),
   }, lists: [
     ...ownerButtons, publish, pageStatus, copyStatus, sessionShell, sessionStatus, signIn, checkSession,
     linksRegion, dialog, navigation,
@@ -169,7 +172,7 @@ export function createOwnerLinksSurface({ profile = defaultProfile(), links = []
   root.ownerDocument = document;
   for (const element of root.descendants()) element.ownerDocument = document;
   const initial = new BrowserElement({ textContent: JSON.stringify({
-    profile, links, editableResources, claims: [], series, csrfToken: 'csrf-a', sessionBinding: 'a'.repeat(64),
+    profile, links, editableResources, claims: [], series, csrfToken: 'csrf-a', sessionBinding: DEFAULT_OWNER_SESSION_BINDING,
   }) });
   const documentListeners = new Map();
   document.querySelector = (selector) => selector === '[data-creator-owner]' || selector === '[data-owner-root]' ? root
@@ -210,7 +213,7 @@ export function createOwnerLinksSurface({ profile = defaultProfile(), links = []
     metadataPanel, optionsPanel,
     linkCancel, linkSubmit, dataForm, exitPrompt, exitSave, exitDiscard, exitContinue,
     rows: rowElements, table, searchInput, seriesFilter, seriesSelect, addOpen, addForm, addFields, addStatus, availableResources,
-    retainedLinks,
+    retainedLinks, pager,
     publish, pageStatus, sessionShell, sessionStatus, signIn, checkSession,
     document, documentListeners, window, historyCalls, confirmCalls,
     setConfirmResult(value) { confirmResult = value; },
