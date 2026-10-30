@@ -550,9 +550,13 @@ test('la búsqueda de series actualiza la URL sin escribir y el historial restau
   assert.match(surface.window.location.search, /buscarSeries=Ruta/);
   assert.match(surface.window.location.search, /paginaSeries=1/,
     'Back restores the previous query after the repeated Apply was deduplicated');
+  assert.equal(surface.document.activeElement, surface.seriesSearch,
+    'restoring a still-visible series search does not move focus');
   surface.window.history.forward();
   assert.match(surface.window.location.search, /buscarSeries=sin-coincidencias/,
     'Forward restores the later query');
+  assert.equal(surface.document.activeElement, surface.seriesSearch,
+    'forward navigation keeps focus in the visible search field');
   assert.equal(writes(requests).length, 0);
 });
 
@@ -821,6 +825,254 @@ test('un slug ocupado conserva el campo y un recibo metadata incompatible no afi
     assert.equal(surface.seriesFormFields.description.value, 'Corrección pendiente');
     assert.doesNotMatch(surface.seriesFormStatus.textContent, /guardado|actualizado/i);
   });
+});
+
+test('una serie creada sin descripción confirma el no-op en el servidor y los PATCH conservan intención', async (t) => {
+  await t.test('alta vacía seguida de editar y guardar sin cambios', async () => {
+    const noOpReply = (request, current) => {
+      if (request.method !== 'PATCH' || request.body.version !== current.series[0]?.version
+        || request.body.profileVersion !== current.profile.version
+        || request.body.name !== current.series[0]?.name || request.body.slug !== current.series[0]?.slug
+        || Object.hasOwn(request.body, 'description')) return undefined;
+      return new Response(JSON.stringify({
+        series: { ...current.series[0] },
+        profileVersion: current.profile.version,
+        versionChanges: [],
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    };
+    const { surface, api, requests } = await mountOwnerSeriesController({ profile: profile(), series: [], override: noOpReply });
+    await surface.seriesCreateOpen.dispatch('click');
+    surface.seriesFormFields.name.value = 'Serie sin descripción';
+    surface.seriesFormFields.slug.value = 'serie-sin-descripcion';
+    await surface.seriesFormFields.name.dispatch('input');
+    await surface.seriesFormFields.slug.dispatch('input');
+    await submit(surface.seriesForm);
+
+    const created = api.state.series[0];
+    assert.equal(Object.hasOwn(created, 'description'), false,
+      'creating an empty optional description leaves it absent on the server');
+    const createCount = writes(requests).length;
+    await openEdit(surface, created.id);
+    await submit(surface.seriesForm);
+
+    assert.equal(writes(requests).length, createCount + 1, 'saving unchanged optional metadata still checks the server versions');
+    assert.deepEqual(writes(requests).at(-1).body, {
+      version: created.version,
+      profileVersion: 15,
+      name: created.name,
+      slug: created.slug,
+    }, 'the no-op sends unchanged required fields and omits the absent optional description');
+    assert.equal(api.state.profile.version, 15, 'the no-op does not advance the profile version');
+    assert.equal(api.state.series[0].version, 1, 'the no-op does not advance the series version');
+    assert.equal(Object.hasOwn(api.state.series[0], 'description'), false,
+      'the server no-op keeps the stored optional description absent');
+    assert.match(surface.seriesFormStatus.textContent, /Cambios guardados/i,
+      'a valid server receipt confirms the unchanged save');
+  });
+
+  await t.test('un campo description vacío presente también es un no-op', async () => {
+    const existing = series('description-empty-present', { description: '' });
+    const noOpReply = (request, current) => {
+      if (request.method !== 'PATCH' || request.body.version !== existing.version
+        || request.body.profileVersion !== current.profile.version
+        || request.body.name !== existing.name || request.body.slug !== existing.slug
+        || Object.hasOwn(request.body, 'description')) return undefined;
+      return new Response(JSON.stringify({
+        series: { ...current.series[0] }, profileVersion: current.profile.version, versionChanges: [],
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    };
+    const { surface, api, requests } = await mountOwnerSeriesController({ profile: profile(), series: [existing], override: noOpReply });
+    await openEdit(surface, existing.id);
+    await submit(surface.seriesForm);
+    assert.equal(writes(requests).length, 1, 'the unchanged PATCH confirms versions and the no-op receipt');
+    assert.deepEqual(writes(requests)[0].body, {
+      version: existing.version, profileVersion: 14, name: existing.name, slug: existing.slug,
+    });
+    assert.equal(api.state.profile.version, 14);
+    assert.equal(api.state.series[0].version, existing.version);
+    assert.equal(api.state.series[0].description, '');
+    assert.match(surface.seriesFormStatus.textContent, /Cambios guardados/i);
+  });
+
+  await t.test('PATCH conserva name y slug para CAS, omite descripción igual y permite borrarla', async () => {
+    const existing = series('metadata-intent', { name: 'Nombre actual', slug: 'nombre-actual', description: 'Descripción actual' });
+    const { surface, api, requests } = await mountOwnerSeriesController({ profile: profile(), series: [existing] });
+    await openEdit(surface, existing.id);
+    surface.seriesFormFields.name.value = 'Nombre nuevo';
+    surface.seriesFormFields.slug.value = 'nombre-nuevo';
+    surface.seriesFormFields.description.value = 'Descripción nueva';
+    await surface.seriesFormFields.name.dispatch('input');
+    await surface.seriesFormFields.slug.dispatch('input');
+    await surface.seriesFormFields.description.dispatch('input');
+    await submit(surface.seriesForm);
+
+    const rename = writes(requests).at(-1);
+    assert.deepEqual(rename.body, {
+      version: existing.version,
+      profileVersion: 14,
+      name: 'Nombre nuevo',
+      slug: 'nombre-nuevo',
+      description: 'Descripción nueva',
+    });
+    assert.equal(api.state.series[0].name, 'Nombre nuevo');
+    assert.equal(api.state.series[0].slug, 'nombre-nuevo');
+    assert.equal(api.state.series[0].description, 'Descripción nueva');
+
+    await openEdit(surface, existing.id);
+    surface.seriesFormFields.description.value = '';
+    await surface.seriesFormFields.description.dispatch('input');
+    await submit(surface.seriesForm);
+    const clearDescription = writes(requests).at(-1);
+    assert.deepEqual(clearDescription.body, {
+      version: existing.version + 1,
+      profileVersion: 15,
+      name: 'Nombre nuevo',
+      slug: 'nombre-nuevo',
+      description: '',
+    }, 'clearing an existing description remains an explicit write with the required fields for server validation');
+    assert.equal(api.state.series[0].description, '');
+    assert.equal(api.state.profile.version, 16);
+    assert.equal(api.state.series[0].version, existing.version + 2);
+  });
+
+  for (const racedVersion of ['profile', 'series']) {
+    await t.test(`un no-op con ${racedVersion} obsoleta llega al servidor y conserva el conflicto`, async () => {
+      const existing = series(`stale-empty-noop-${racedVersion}`, { description: '' });
+      let raced = false;
+      const override = (request, current) => {
+        if (request.method !== 'PATCH' || raced) return;
+        raced = true;
+        if (racedVersion === 'profile') current.profile.version += 1;
+        else current.series[0].version += 1;
+      };
+      const { surface, api, requests } = await mountOwnerSeriesController({ profile: profile(), series: [existing], override });
+      await openEdit(surface, existing.id);
+      await submit(surface.seriesForm);
+
+      assert.equal(writes(requests).length, 1, 'the unchanged edit is sent with its captured CAS versions');
+      assert.deepEqual(writes(requests)[0].body, {
+        version: existing.version, profileVersion: 14, name: existing.name, slug: existing.slug,
+      });
+      assert.equal(writes(requests)[0].status, 409, 'the server rejects the stale no-op instead of the client hiding the race');
+      assert.equal(api.state.profile.version, racedVersion === 'profile' ? 15 : 14);
+      assert.equal(api.state.series[0].version, existing.version + Number(racedVersion === 'series'));
+      assert.match(surface.seriesFormStatus.textContent, /cambió/i);
+    });
+  }
+});
+
+test('la paginación de Series y Capítulos conserva un destino de foco disponible; entrar y volver mantiene contexto', async () => {
+  const targetSeries = series('focus-00', { name: 'Ruta 00' });
+  const seriesList = Array.from({ length: 51 }, (_, index) => series(`focus-${String(index).padStart(2, '0')}`, {
+    name: `Ruta ${String(index).padStart(2, '0')}`,
+  }));
+  const links = Array.from({ length: 51 }, (_, index) => chapter(index, targetSeries.id));
+  const { surface, requests } = await mountOwnerSeriesController({
+    profile: profile(), links, series: seriesList,
+    query: { buscarSeries: 'Ruta', paginaSeries: '1' },
+  });
+  const pageLink = (nav, selector, label) => nav.querySelectorAll(selector)
+    .find((item) => item.textContent.trim() === label);
+  const activatePage = async (nav, selector, label, expectedFocus) => {
+    const active = pageLink(nav, selector, label);
+    assert.ok(active, `${label} is available before activation`);
+    active.focus();
+    await active.dispatch('click');
+    assert.ok(surface.document.activeElement?.isConnected, 'the resulting focus target remains connected');
+    assert.equal(surface.document.activeElement.textContent.trim(), expectedFocus,
+      `focus stays on ${expectedFocus} when the activated direction is or becomes unavailable`);
+  };
+
+  const seriesSelector = '[data-series-page]';
+  await activatePage(surface.seriesPagination, seriesSelector, 'Siguiente', 'Siguiente');
+  await activatePage(surface.seriesPagination, seriesSelector, 'Siguiente', 'Anterior');
+  await activatePage(surface.seriesPagination, seriesSelector, 'Anterior', 'Anterior');
+  await activatePage(surface.seriesPagination, seriesSelector, 'Anterior', 'Siguiente');
+  surface.window.history.back();
+  await settle();
+  assert.match(surface.window.location.search, /paginaSeries=2/);
+  assert.equal(surface.document.activeElement.textContent.trim(), 'Siguiente',
+    'browser Back keeps focus on the replacement pagination link');
+  surface.window.history.forward();
+  await settle();
+  assert.match(surface.window.location.search, /paginaSeries=1/);
+  assert.equal(surface.document.activeElement.textContent.trim(), 'Siguiente',
+    'browser Forward keeps focus on the connected pagination link');
+  assert.match(surface.window.location.search, /buscarSeries=Ruta/);
+  assert.match(surface.window.location.search, /paginaSeries=1/);
+
+  const chapterEntry = seriesRow(surface, targetSeries.id).querySelector('[data-series-chapters]');
+  chapterEntry.focus();
+  await chapterEntry.dispatch('click');
+  assert.equal(surface.document.activeElement, surface.chapterSearch,
+    'entering Chapters places focus in its search field');
+  assert.equal(new URLSearchParams(surface.window.location.search).get('buscarSeries'), 'Ruta',
+    'the list search remains part of the chapter context');
+  assert.equal(new URLSearchParams(surface.window.location.search).get('serie'), targetSeries.id);
+
+  const chapterSelector = '[data-series-chapter-page]';
+  await activatePage(surface.chapterPagination, chapterSelector, 'Siguiente', 'Siguiente');
+  await activatePage(surface.chapterPagination, chapterSelector, 'Siguiente', 'Anterior');
+  await activatePage(surface.chapterPagination, chapterSelector, 'Anterior', 'Anterior');
+  await activatePage(surface.chapterPagination, chapterSelector, 'Anterior', 'Siguiente');
+  const back = surface.chapterBack;
+  back.focus();
+  await back.dispatch('click');
+  assert.equal(surface.document.activeElement, surface.seriesSearch,
+    'returning to the list places focus in the series search field');
+  const returned = new URLSearchParams(surface.window.location.search);
+  assert.equal(returned.get('buscarSeries'), 'Ruta');
+  assert.equal(returned.get('paginaSeries'), '1');
+  assert.equal(returned.has('serie'), false);
+  assert.equal(writes(requests).length, 0, 'navigation changes only the URL and rendered collection');
+});
+
+test('el historial del navegador devuelve el foco al buscador visible al alternar lista y capítulos', async () => {
+  const seriesList = Array.from({ length: 51 }, (_, index) => series(`history-${String(index).padStart(2, '0')}`, {
+    name: `Ruta ${String(index).padStart(2, '0')}`,
+  }));
+  const targetSeries = seriesList[0];
+  const link = chapter(0, targetSeries.id, { title: 'Capítulo de historial' });
+  const { surface, requests } = await mountOwnerSeriesController({
+    profile: profile(), links: [link], series: seriesList,
+    query: { buscarSeries: 'Ruta', paginaSeries: '1' },
+  });
+  const listUrl = surface.window.location.href;
+  const entry = seriesRow(surface, targetSeries.id).querySelector('[data-series-chapters]');
+  entry.focus();
+  await entry.dispatch('click');
+  await settle();
+  assert.equal(surface.document.activeElement, surface.chapterSearch,
+    'opening Chapters focuses the search in its visible panel');
+  assert.equal(surface.seriesListView.hidden, true);
+  const chaptersUrl = surface.window.location.href;
+
+  surface.window.history.back = () => {
+    surface.window.location.href = listUrl;
+    surface.window.dispatchEvent({ type: 'popstate', state: { creatorOwnerHistoryIndex: 0 } });
+  };
+  surface.window.history.forward = () => {
+    surface.window.location.href = chaptersUrl;
+    surface.window.dispatchEvent({ type: 'popstate', state: { creatorOwnerHistoryIndex: 1 } });
+  };
+
+  surface.window.history.back();
+  await settle();
+  assert.equal(surface.seriesListView.hidden, false);
+  assert.equal(surface.chapterRegion.hidden, true);
+  assert.equal(surface.document.activeElement, surface.seriesSearch,
+    'Back moves focus out of the hidden chapter panel to the visible list search');
+  assert.equal(new URLSearchParams(surface.window.location.search).get('buscarSeries'), 'Ruta');
+  assert.equal(new URLSearchParams(surface.window.location.search).has('serie'), false);
+
+  surface.window.history.forward();
+  await settle();
+  assert.equal(surface.seriesListView.hidden, true);
+  assert.equal(surface.chapterRegion.hidden, false);
+  assert.equal(surface.document.activeElement, surface.chapterSearch,
+    'Forward moves focus out of the hidden list to the visible chapter search');
+  assert.equal(new URLSearchParams(surface.window.location.search).get('serie'), targetSeries.id);
+  assert.equal(writes(requests).length, 0, 'Back and Forward only restore the observed URL and view');
 });
 
 test('quitar la última coincidencia mantiene filtro/página y lleva el foco al buscador', async () => {

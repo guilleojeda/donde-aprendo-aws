@@ -1115,7 +1115,15 @@ function seriesElement<K extends keyof HTMLElementTagNameMap>(tag: K, text?: str
 
 function setSeriesPageLinks(nav: HTMLElement | null | undefined, attribute: 'seriesPage' | 'seriesChapterPage', query: CreatorOwnerSeriesQuery, page: number, pageCount: number) {
   if (!nav) return;
-  nav.querySelectorAll<HTMLAnchorElement>(`[data-${attribute.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}]`).forEach((item) => item.remove());
+  const dataAttribute = `data-${attribute.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}`;
+  const paginationSelector = attribute === 'seriesPage' ? '[data-series-pagination]' : '[data-chapter-pagination]';
+  const focusedPageLink = document.activeElement instanceof HTMLElement
+    && document.activeElement.closest(paginationSelector) === nav
+    && document.activeElement.hasAttribute(dataAttribute)
+    ? document.activeElement as HTMLAnchorElement
+    : undefined;
+  const focusedLabel = focusedPageLink?.textContent?.trim();
+  nav.querySelectorAll<HTMLAnchorElement>(`[${dataAttribute}]`).forEach((item) => item.remove());
   const add = (label: string, nextPage: number) => {
     const link = seriesElement('a', label);
     link.className = 'button button--outline';
@@ -1127,6 +1135,12 @@ function setSeriesPageLinks(nav: HTMLElement | null | undefined, attribute: 'ser
   if (page < pageCount) add('Siguiente', page + 1);
   const label = nav.querySelector<HTMLElement>('span');
   if (label) label.textContent = `Página ${page} de ${pageCount}`;
+  if (focusedPageLink) {
+    const replacement = [...nav.querySelectorAll<HTMLAnchorElement>(`[${dataAttribute}]`)]
+      .find((link) => link.textContent?.trim() === focusedLabel)
+      ?? nav.querySelector<HTMLAnchorElement>(`[${dataAttribute}]`);
+    if (replacement) window.requestAnimationFrame(() => replacement.focus());
+  }
 }
 
 function createOwnerSeriesRow(series: CreatorSeriesDTO, query: CreatorOwnerSeriesQuery): HTMLElement {
@@ -1340,6 +1354,32 @@ function focusRestoredOwnerLocation() {
   if (target) window.requestAnimationFrame(() => target.focus());
 }
 
+function ownerSeriesFocusIsVisible(target: HTMLElement | undefined): boolean {
+  const ownerSeries = root?.querySelector<HTMLElement>('[data-owner-series]');
+  if (!target?.isConnected || !ownerSeries || target.closest('[data-owner-series]') !== ownerSeries) return false;
+  for (let ancestor: HTMLElement | null = target; ancestor; ancestor = ancestor.parentElement) {
+    if (ancestor.hidden || ancestor.getAttribute('aria-hidden') === 'true') return false;
+    if (ancestor === root) return true;
+  }
+  return false;
+}
+
+function restoreOwnerSeriesFocusIfLost(
+  target: HTMLElement | undefined,
+  wasInOwnerSeries: boolean,
+  paginationSelector?: string,
+) {
+  if (!wasInOwnerSeries || ownerSeriesFocusIsVisible(target)) return;
+  if (paginationSelector) {
+    const pagination = root?.querySelector<HTMLElement>(paginationSelector);
+    const pageLinkSelector = paginationSelector === '[data-series-pagination]'
+      ? '[data-series-page]'
+      : '[data-series-chapter-page]';
+    if (pagination && ownerSeriesFocusIsVisible(pagination) && pagination.querySelector(pageLinkSelector)) return;
+  }
+  focusRestoredOwnerLocation();
+}
+
 function completePendingOwnerHistoryNavigation() {
   const navigation = pendingOwnerHistoryNavigation;
   if (!navigation) return;
@@ -1362,6 +1402,13 @@ function completePendingOwnerHistoryNavigation() {
 }
 
 function handleOwnerPopstate(event: PopStateEvent) {
+  const focusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
+  const ownerSeries = root?.querySelector<HTMLElement>('[data-owner-series]');
+  const focusWasInOwnerSeries = Boolean(focusedElement && ownerSeries
+    && focusedElement.closest('[data-owner-series]') === ownerSeries);
+  const focusPaginationSelector = focusedElement?.closest('[data-series-page]')
+    ? '[data-series-pagination]'
+    : focusedElement?.closest('[data-series-chapter-page]') ? '[data-chapter-pagination]' : undefined;
   const targetIndex = ownerHistoryIndexFrom(event?.state);
   const hasPendingEditorChanges = Boolean(dialog?.open && activeEditor && hasPendingChanges());
   if (targetIndex !== undefined && targetIndex === ownerHistoryRestoreIndex) {
@@ -1380,11 +1427,15 @@ function handleOwnerPopstate(event: PopStateEvent) {
   }
   if (targetIndex === undefined) {
     if (hasPendingEditorChanges) showExitPrompt(() => restoreLinksFromLocation());
-    else restoreLinksFromLocation();
+    else {
+      restoreLinksFromLocation();
+      restoreOwnerSeriesFocusIfLost(focusedElement, focusWasInOwnerSeries, focusPaginationSelector);
+    }
     return;
   }
   if (targetIndex === ownerHistoryIndex) {
     restoreLinksFromLocation();
+    restoreOwnerSeriesFocusIfLost(focusedElement, focusWasInOwnerSeries, focusPaginationSelector);
     return;
   }
 
@@ -1417,6 +1468,8 @@ function handleOwnerPopstate(event: PopStateEvent) {
   if (focusOwnerLocationAfterHistory) {
     focusOwnerLocationAfterHistory = false;
     focusRestoredOwnerLocation();
+  } else {
+    restoreOwnerSeriesFocusIfLost(focusedElement, focusWasInOwnerSeries, focusPaginationSelector);
   }
 }
 
@@ -2800,7 +2853,13 @@ async function saveSeriesForm(form: HTMLFormElement) {
     ? `/api/creador/series/${encodeURIComponent(existing.id)}`
     : '/api/creador/series';
   const body = existing
-    ? { version: existing.version, profileVersion: profile.version, name, slug, description }
+    ? {
+      version: existing.version,
+      profileVersion: profile.version,
+      name,
+      slug,
+      ...(description !== (existing.description ?? '') ? { description } : {}),
+    }
     : { name, slug, ...(description ? { description } : {}), profileVersion: profile.version };
   if (!existing) {
     activeSeriesCreateAttempt = {
@@ -5050,21 +5109,19 @@ async function checkPhotoStatus(form: HTMLFormElement) {
     if (!isCurrent()) return;
     const payload = response.ok ? await responsePayload(response) : null;
     if (!isCurrent()) return;
-    if (!payload || !isProfile(payload.profile) || payload.profile.id !== state?.profile?.id) {
+    if (!payload || !isAdoptableOwnerData(payload) || payload.profile.id !== state?.profile?.id) {
       announceWrite('foto', response.status === 401 ? sessionRecovery?.writeFailureMessage() ?? PHOTO_UNCONFIRMED : PHOTO_UNCONFIRMED, 'error');
       return;
     }
     const latest = payload.profile;
-    const currentVersion = state?.profile?.version;
     if (photoUploadId && String(latest.photo?.version) === photoUploadId) {
       const input = field(form, 'photo') as HTMLInputElement | null;
       const selectedFile = input?.files?.[0];
       const acknowledgedFile = photoUploadFile;
       photoUploadId = undefined;
       photoUploadFile = undefined;
-      updateProfileState(latest);
+      adoptOwnerSnapshot(payload, form);
       if (selectedFile && selectedFile !== acknowledgedFile) {
-        if (latest.version !== currentVersion) hydrateInactiveForms(form);
         setHidden(checkButton, true);
         announceWrite('foto', 'La carga anterior quedó guardada. Conservamos la imagen nueva que elegiste; guárdala para cambiarla.', 'info');
         return;
@@ -5076,8 +5133,7 @@ async function checkPhotoStatus(form: HTMLFormElement) {
       maybeExitAfterSave(!hasPendingChanges());
       return;
     }
-    updateProfileState(latest);
-    if (latest.version !== currentVersion) hydrateInactiveForms(form);
+    adoptOwnerSnapshot(payload, form);
     setHidden(checkButton, false);
     announceWrite('foto', 'La versión guardada ya está comprobada. La foto elegida sigue disponible; puedes iniciar una carga nueva si todavía quieres cambiarla.', 'info');
   } catch {
@@ -5525,7 +5581,10 @@ if (root && state && csrfToken && dialog) {
       if (direction === 'next') catalogPageNumber = Math.min(pageCount, catalogPageNumber + 1);
       renderCatalogResults();
       const focusTarget = catalogControl<HTMLButtonElement>(`[data-catalog-page="${direction}"]`);
-      focusTarget?.focus();
+      const availableFocusTarget = focusTarget && !focusTarget.disabled
+        ? focusTarget
+        : catalogControl<HTMLButtonElement>(`[data-catalog-page="${direction === 'next' ? 'previous' : 'next'}"]`);
+      if (availableFocusTarget && !availableFocusTarget.disabled) availableFocusTarget.focus();
       return;
     }
     const catalogCorrectionOpen = target.closest<HTMLButtonElement>('[data-catalog-correction-open]');
@@ -5578,15 +5637,22 @@ if (root && state && csrfToken && dialog) {
       const current = currentSeriesQuery();
       if (!seriesId || !current) return;
       const next = { ...current, serie: seriesId, buscarCapitulos: '', pertenencia: 'todos' as const, paginaCapitulos: 1 };
-      if (hasPendingChanges()) showExitPrompt(() => updateSeriesQuery(next), chapterNavigation);
-      else updateSeriesQuery(next);
+      const navigateToChapters = () => {
+        updateSeriesQuery(next);
+        focusRestoredOwnerLocation();
+      };
+      if (hasPendingChanges()) showExitPrompt(navigateToChapters, chapterNavigation);
+      else navigateToChapters();
       return;
     }
     const seriesPageLink = target.closest<HTMLAnchorElement>('[data-series-page], [data-series-chapter-page], [data-series-back]');
     if (seriesPageLink) {
       event.preventDefault();
       const parsed = parseCreatorOwnerSeriesQuery(new URL(seriesPageLink.href, window.location.href).searchParams, state?.series ?? []);
-      if (parsed.valid) updateSeriesQuery(parsed.query);
+      if (parsed.valid) {
+        updateSeriesQuery(parsed.query);
+        if (seriesPageLink.hasAttribute('data-series-back')) focusRestoredOwnerLocation();
+      }
       return;
     }
     const chapterMove = target.closest<HTMLElement>('[data-chapter-move]');
