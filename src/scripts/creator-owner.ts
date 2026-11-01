@@ -148,6 +148,7 @@ const placementIdByResource = new Map((state?.links ?? []).map(({ resourceId, pl
 const CATALOG_INDEX_PATH = '/catalog-selection.json';
 const CATALOG_TYPES = new Set(['content', 'source', 'community', 'event']);
 const OWNER_HISTORY_INDEX_KEY = 'creatorOwnerHistoryIndex';
+const OWNER_ACTIVE_WRITE_EXIT_MESSAGE = 'Estamos guardando la acción iniciada. Espera a que termine antes de salir.';
 
 const formState = root ? createCreatorFormState(root) : undefined;
 const writeGuard = root ? createCreatorWriteGuard(root) : undefined;
@@ -2574,7 +2575,7 @@ function hasPendingChanges(): boolean {
 
 function showExitPrompt(afterExit?: () => void, trigger?: HTMLElement) {
   if (writeGuard?.isActive()) {
-    announceWrite(activeEditor, 'Estamos guardando la acción iniciada. Espera a que termine antes de salir.', 'info');
+    announceWrite(activeEditor, OWNER_ACTIVE_WRITE_EXIT_MESSAGE, 'info');
     return;
   }
   if (afterExit !== undefined) {
@@ -5974,16 +5975,23 @@ if (root && state && csrfToken && dialog) {
       }
       void writeGuard?.run(event, async () => {
         ownerWriteRevision += 1;
-        const status = statusFor(undefined);
         try {
           const response = await jsonRequest('/api/creador/perfil/publicar', 'POST', { version: profile.version });
           if (!response.ok) {
-            if (response.status >= 500) requirePublicationCheck(profile);
-            else if (response.status === 409) requirePublicationCheck(
-              profile,
-              'El perfil cambió antes de publicar. Comprueba el estado guardado para continuar con la versión actual.',
-            );
-            else announceWrite(undefined, statusMessage(response.status), 'error');
+            if (response.status >= 500) {
+              requirePublicationCheck(profile);
+            } else if (response.status === 409) {
+              requirePublicationCheck(
+                profile,
+                'El perfil cambió antes de publicar. Comprueba el estado guardado para continuar con la versión actual.',
+              );
+            } else if (sessionRecovery?.blocksWrites()) {
+              const profileStatus = statusFor(undefined);
+              if (profileStatus?.textContent === OWNER_ACTIVE_WRITE_EXIT_MESSAGE) clearAnnouncement(profileStatus);
+              if (pageStatus?.textContent === OWNER_ACTIVE_WRITE_EXIT_MESSAGE) clearAnnouncement(pageStatus);
+            } else {
+              announceWrite(undefined, statusMessage(response.status), 'error');
+            }
             return;
           }
           const payload = await responsePayload(response);
@@ -5995,7 +6003,9 @@ if (root && state && csrfToken && dialog) {
           updateProfileState(payload.profile);
           clearRecoveryNotice();
           hydrateInactiveForms();
-          announce(status, payload.profile.hidden ? 'La página está publicada, pero sigue oculta por administración.' : 'Tu página ya está publicada y visible al público.', 'success');
+          announcePublicationStatus(payload.profile.hidden
+            ? 'La página está publicada, pero sigue oculta por administración.'
+            : 'Tu página ya está publicada y visible al público.', 'success');
         } catch {
           requirePublicationCheck(profile);
         }

@@ -116,6 +116,121 @@ test('una publicación activa guarda la salida por ancla, beforeunload y Atrás 
   }
 });
 
+test('una publicación confirmada retira el aviso de espera tras bloquear la salida por SiteHeader', async () => {
+  const profile = {
+    id: 'creator-1', displayName: 'Ana', slug: 'ana', version: 1, published: false, hidden: false,
+    city: '', country: '', bio: '', programs: [], socials: {},
+  };
+  const surface = createOwnerLinksSurface({ profile, search: 'actual' });
+  const profileStatus = new SurfaceElement({ dataset: { ownerProfileStatus: '' } });
+  surface.root.append(profileStatus);
+  const { link: headerLink } = addHeaderLink(surface, '/aprender/');
+  const assigned = [];
+  surface.window.location.assign = (href) => assigned.push(href);
+  let releasePublish;
+  const requests = await mountOwnerLinks({ surface, fetch: async (request) => {
+    if (request.method === 'POST' && request.path === '/api/creador/perfil/publicar') {
+      return new Promise((resolve) => { releasePublish = resolve; });
+    }
+    return Response.json({ error: 'UNAVAILABLE' }, { status: 503 });
+  } });
+
+  const successMessage = 'Tu página ya está publicada y visible al público.';
+  try {
+    await surface.publish.dispatch('click');
+    await waitFor(() => typeof releasePublish === 'function', 'the publication request did not start');
+
+    const headerClick = await headerLink.dispatch('click', { button: 0 });
+    assert.equal(headerClick.defaultPrevented, true, 'the owner keeps its context while publication is pending');
+    assert.equal(profileStatus.textContent, 'Estamos guardando la acción iniciada. Espera a que termine antes de salir.');
+    assert.equal(surface.pageStatus.textContent, profileStatus.textContent);
+    assert.deepEqual(assigned, [], 'the blocked SiteHeader destination is not queued for later navigation');
+
+    const publishedProfile = { ...profile, version: 2, published: true };
+    releasePublish(Response.json({
+      profile: publishedProfile,
+      versionChanges: [{ entity: 'profile', id: profile.id, before: profile.version, after: publishedProfile.version }],
+    }));
+    await waitFor(() => profileStatus.textContent === successMessage,
+      'the publication success message did not replace the pending-exit notice');
+
+    assert.equal(profileStatus.hidden, false, 'the final publication result remains visible in its owner status');
+    assert.equal(surface.pageStatus.hidden, true, 'the stale global wait status is cleared');
+    assert.equal(surface.pageStatus.textContent, '', 'the global status no longer contains the temporary wait text');
+    assert.equal(new URL(surface.window.location.href).pathname, '/cuenta/', 'the blocked navigation leaves the owner route active');
+    assert.equal(surface.root.getAttribute('data-profile-version'), '2');
+    assert.equal(writes(requests).length, 1, 'the blocked exit does not cancel or replay publication');
+    assert.deepEqual(assigned, []);
+  } finally {
+    releasePublish?.(Response.json({ error: 'UNAVAILABLE' }, { status: 503 }));
+    await settle();
+  }
+});
+
+test('la recuperación de sesión retira sólo el aviso de espera de una publicación en curso', async (t) => {
+  for (const outcome of [
+    { name: '401', status: 401, body: { error: 'SESSION_EXPIRED' }, message: /La sesión terminó/i },
+    { name: 'CSRF 403', status: 403, body: { error: 'CSRF_REJECTED' }, message: /La sesión cambió/i },
+    {
+      name: '401 preserves later status messages', status: 401, body: { error: 'SESSION_EXPIRED' }, message: /La sesión terminó/i,
+      laterProfileMessage: 'Comprueba la publicación antes de continuar.',
+      laterPageMessage: 'La página requiere una comprobación explícita.',
+    },
+  ]) {
+    await t.test(outcome.name, async () => {
+      const profile = {
+        id: 'creator-1', displayName: 'Ana', slug: 'ana', version: 1, published: false, hidden: false,
+        city: '', country: '', bio: '', programs: [], socials: {},
+      };
+      const surface = createOwnerLinksSurface({ profile });
+      const profileStatus = new SurfaceElement({ dataset: { ownerProfileStatus: '' } });
+      surface.root.append(profileStatus);
+      const { link: headerLink } = addHeaderLink(surface, '/aprender/');
+      const assigned = [];
+      surface.window.location.assign = (href) => assigned.push(href);
+      let releasePublish;
+      const requests = await mountOwnerLinks({ surface, fetch: async (request) => {
+        if (request.method === 'POST' && request.path === '/api/creador/perfil/publicar') {
+          return new Promise((resolve) => { releasePublish = resolve; });
+        }
+        return Response.json({ error: 'UNAVAILABLE' }, { status: 503 });
+      } });
+
+      try {
+        await surface.publish.dispatch('click');
+        await waitFor(() => typeof releasePublish === 'function', 'the publication request did not start');
+        const headerClick = await headerLink.dispatch('click', { button: 0 });
+        assert.equal(headerClick.defaultPrevented, true);
+        assert.equal(profileStatus.textContent, 'Estamos guardando la acción iniciada. Espera a que termine antes de salir.');
+
+        if (outcome.laterProfileMessage) {
+          profileStatus.textContent = outcome.laterProfileMessage;
+          surface.pageStatus.textContent = outcome.laterPageMessage;
+        }
+        releasePublish(Response.json(outcome.body, { status: outcome.status }));
+        await waitFor(() => !surface.sessionStatus.hidden, 'session recovery was not announced');
+
+        if (outcome.laterProfileMessage) {
+          assert.equal(profileStatus.textContent, outcome.laterProfileMessage, 'a newer owner status is preserved');
+          assert.equal(surface.pageStatus.textContent, outcome.laterPageMessage, 'a newer global status is preserved');
+        } else {
+          assert.equal(profileStatus.hidden, true, 'the obsolete profile wait is cleared');
+          assert.equal(profileStatus.textContent, '');
+          assert.equal(surface.pageStatus.hidden, true, 'the obsolete global wait is cleared');
+          assert.equal(surface.pageStatus.textContent, '');
+        }
+        assert.match(surface.sessionStatus.textContent, outcome.message, 'the session recovery message remains visible');
+        assert.equal(writes(requests).length, 1, 'session recovery never resends publication');
+        assert.deepEqual(assigned, []);
+        assert.equal(new URL(surface.window.location.href).pathname, '/cuenta/');
+      } finally {
+        releasePublish?.(Response.json({ error: 'UNAVAILABLE' }, { status: 503 }));
+        await settle();
+      }
+    });
+  }
+});
+
 test('SiteHeader captura el alta inicial con las tres opciones y Guardar completa la navegación pendiente', async () => {
   const surface = createOwnerLinksSurface({ profile: null });
   const { link: headerLink, menu: headerMenu } = addHeaderLink(surface, '/aprender/');
