@@ -208,6 +208,7 @@ let seriesSlugManuallyEdited = false;
 let seriesReconcileReadPending = false;
 type SeriesReconcileOutcome = 'confirmed' | 'uncertain' | 'conflict';
 let seriesReconcileOutcome: SeriesReconcileOutcome = 'confirmed';
+let seriesReconcileDeleteId: string | undefined;
 let manualSlug = false;
 let photoUploadId: string | undefined;
 let photoUploadFile: File | undefined;
@@ -426,7 +427,7 @@ async function runProfileFormAction(event: Event, action: ProfileFormAction) {
     await action(event);
   });
   if (event.target === catalogForm()) setCatalogSelectionLabel();
-  if (seriesReconcileReadPending) setChapterActionsUnavailable(true);
+  if (seriesReconcileReadPending) setSeriesMutationActionsUnavailable(true);
   if (!dialog?.open) runPendingExitAction();
 }
 
@@ -1262,6 +1263,7 @@ function renderOwnerSeries(query = currentSeriesQuery()): CreatorOwnerSeriesQuer
     seriesList.querySelectorAll<HTMLElement>('[data-owner-series-row]').forEach((row) => row.remove());
     for (const item of selection.rows) seriesList.append(createOwnerSeriesRow(item, selection.query));
   }
+  setSeriesMutationActionsUnavailable(seriesReconcileReadPending);
   setSeriesPageLinks(listView?.querySelector<HTMLElement>('[data-series-pagination]'), 'seriesPage', selection.query, selection.query.paginaSeries, selection.pageCount);
 
   const selectedSeries = state.series.find(({ id }) => id === query.serie);
@@ -1311,7 +1313,7 @@ function renderOwnerSeries(query = currentSeriesQuery()): CreatorOwnerSeriesQuer
     if (chapterList) {
       chapterList.querySelectorAll<HTMLElement>('[data-chapter-row]').forEach((row) => row.remove());
       for (const link of chapterSelection.rows) chapterList.append(createOwnerChapterRow(link, selectedSeries.id, completeOrder));
-      setChapterActionsUnavailable(seriesReconcileReadPending);
+      setSeriesMutationActionsUnavailable(seriesReconcileReadPending);
     }
     setSeriesPageLinks(chapterView.querySelector<HTMLElement>('[data-chapter-pagination]'), 'seriesChapterPage', chapterSelection.query, chapterSelection.query.paginaCapitulos, chapterSelection.pageCount);
     const selectedEdit = chapterView.querySelector<HTMLButtonElement>('[data-series-edit]');
@@ -1341,7 +1343,7 @@ function isSameTabNavigationClick(event: Event, anchor: HTMLAnchorElement): bool
   if (anchor.hasAttribute('download')) return false;
   const target = anchor.getAttribute('target');
   if (target && target.toLowerCase() !== '_self') return false;
-  const href = anchor.getAttribute('href');
+  const href = anchor.getAttribute('href') ?? anchor.href;
   if (!href) return false;
   let destination: URL;
   try {
@@ -1562,7 +1564,10 @@ function updateSeriesQuery(query: CreatorOwnerSeriesQuery, historyMode: 'push' |
 function restoreSeriesFromLocation() {
   if (!state || new URL(window.location.href).searchParams.get('vista') !== 'series') return false;
   const parsed = parseCreatorOwnerSeriesQuery(new URL(window.location.href).searchParams, state.series);
-  if (!parsed.valid) return true;
+  if (!parsed.valid) {
+    renderOwnerSeries();
+    return true;
+  }
   const effective = renderOwnerSeries(parsed.query);
   if (effective) {
     const href = creatorOwnerSeriesHref(effective);
@@ -3897,10 +3902,14 @@ function seriesStatus(): HTMLElement | null {
     : root?.querySelector<HTMLElement>('[data-owner-series-list-view] [data-series-write-status]') ?? null;
 }
 
-function setChapterActionsUnavailable(unavailable: boolean) {
-  const disabled = unavailable || seriesReconcileReadPending;
+function setSeriesMutationActionsUnavailable(unavailable: boolean) {
+  const chapterActionsUnavailable = unavailable || seriesReconcileReadPending;
+  const deletionCheckPending = seriesReconcileReadPending && seriesReconcileDeleteId !== undefined;
   root?.querySelectorAll<HTMLButtonElement>('[data-chapter-add], [data-chapter-remove], [data-chapter-move]').forEach((button) => {
-    button.disabled = disabled;
+    button.disabled = chapterActionsUnavailable;
+  });
+  root?.querySelectorAll<HTMLButtonElement>('[data-series-delete]').forEach((button) => {
+    button.disabled = deletionCheckPending;
   });
 }
 
@@ -3908,7 +3917,7 @@ function requireChapterStateCheck(status: HTMLElement | null, outcome: 'uncertai
   const retry = root?.querySelector<HTMLButtonElement>('[data-series-reconcile-retry]');
   seriesReconcileReadPending = true;
   seriesReconcileOutcome = outcome;
-  setChapterActionsUnavailable(true);
+  setSeriesMutationActionsUnavailable(true);
   if (retry) {
     retry.textContent = 'Comprobar la lista';
     retry.hidden = false;
@@ -3924,7 +3933,7 @@ async function reconcileConfirmedChapterMutation(
   const retry = root?.querySelector<HTMLButtonElement>('[data-series-reconcile-retry]');
   seriesReconcileReadPending = true;
   seriesReconcileOutcome = 'confirmed';
-  setChapterActionsUnavailable(true);
+  setSeriesMutationActionsUnavailable(true);
   if (retry) {
     retry.textContent = 'Volver a consultar la lista';
     retry.hidden = true;
@@ -3938,7 +3947,7 @@ async function reconcileConfirmedChapterMutation(
   }
   seriesReconcileReadPending = false;
   if (retry) retry.hidden = true;
-  setChapterActionsUnavailable(false);
+  setSeriesMutationActionsUnavailable(false);
   const query = currentSeriesQuery();
   if (query) {
     const effective = renderOwnerSeries(query);
@@ -3956,6 +3965,7 @@ async function retrySeriesReconcile() {
   const status = seriesStatus();
   const retry = root?.querySelector<HTMLButtonElement>('[data-series-reconcile-retry]');
   const selectedSeriesId = currentSeriesQuery()?.serie;
+  const deletedSeriesId = seriesReconcileDeleteId;
   const retryHadFocus = Boolean(retry && document.activeElement === retry);
   if (retry) {
     retry.disabled = true;
@@ -3977,7 +3987,7 @@ async function retrySeriesReconcile() {
   if (!reconciled) {
     if (!canAdopt()) {
       seriesReconcileReadPending = true;
-      setChapterActionsUnavailable(true);
+      setSeriesMutationActionsUnavailable(true);
       if (retry) {
         retry.disabled = false;
         retry.textContent = seriesReconcileOutcome === 'confirmed' ? 'Volver a consultar la lista' : 'Volver a comprobar la lista';
@@ -3995,17 +4005,26 @@ async function retrySeriesReconcile() {
     return;
   }
   seriesReconcileReadPending = false;
+  seriesReconcileDeleteId = undefined;
   if (retry) retry.hidden = true;
-  setChapterActionsUnavailable(false);
+  setSeriesMutationActionsUnavailable(false);
   const query = currentSeriesQuery();
   if (query) {
     const effective = renderOwnerSeries(query);
     if (effective) updateSeriesQuery(effective, 'replace');
   }
-  const message = seriesReconcileOutcome === 'confirmed'
-    ? 'La lista ya está actualizada.'
-    : 'La lista está actualizada. Comprueba la pertenencia antes de continuar.';
-  announce(seriesStatus() ?? status, message, seriesReconcileOutcome === 'confirmed' ? 'success' : 'info');
+  const deletedSeriesStillExists = deletedSeriesId
+    ? state?.series.some(({ id }) => id === deletedSeriesId) ?? false
+    : undefined;
+  const message = deletedSeriesStillExists === false
+    ? 'La lista actual no contiene esa serie. Sus enlaces y las demás series siguen en tu página.'
+    : deletedSeriesStillExists === true
+      ? 'La serie sigue en tu página. La lista está actualizada; puedes revisarla antes de decidir si vuelves a eliminarla.'
+      : seriesReconcileOutcome === 'confirmed'
+        ? 'La lista ya está actualizada.'
+        : 'La lista está actualizada. Comprueba la pertenencia antes de continuar.';
+  announce(seriesStatus() ?? status, message,
+    deletedSeriesStillExists === false || seriesReconcileOutcome === 'confirmed' ? 'success' : 'info');
   const selectedSeriesWasRemoved = selectedSeriesId !== undefined
     && !state?.series.some(({ id }) => id === selectedSeriesId);
   const activeElement = document.activeElement;
@@ -4014,10 +4033,8 @@ async function retrySeriesReconcile() {
     || activeElement === retry
     || (activeElement instanceof HTMLElement && Boolean(activeElement.closest('[data-owner-series-chapters]')))
   );
-  const listView = root?.querySelector<HTMLElement>('[data-owner-series-list-view]');
-  const search = root?.querySelector<HTMLInputElement>('[data-series-search]');
-  if (selectedSeriesWasRemoved && focusWasLostWithRetry && search?.isConnected && listView && !listView.hidden) {
-    window.requestAnimationFrame(() => search.focus());
+  if (focusWasLostWithRetry && (selectedSeriesWasRemoved || deletedSeriesId)) {
+    focusRestoredOwnerLocation();
   }
 }
 
@@ -4082,6 +4099,12 @@ async function mutateChapterMembership(placementId: string, action: 'add' | 'rem
   }
 }
 
+function requireDeleteStateCheck(seriesId: string, outcome: 'uncertain' | 'conflict', message: string) {
+  seriesReconcileDeleteId = seriesId;
+  announceWrite('serie', message, 'info');
+  requireChapterStateCheck(seriesStatus(), outcome, message);
+}
+
 async function deleteOwnerSeries(seriesId: string) {
   const ownerState = state;
   const profile = ownerState?.profile;
@@ -4093,6 +4116,14 @@ async function deleteOwnerSeries(seriesId: string) {
       version: series.version, profileVersion: profile.version,
     });
     if (!response.ok) {
+      if (response.status === 409) {
+        requireDeleteStateCheck(series.id, 'conflict', 'La serie cambió mientras se eliminaba. Comprueba la lista guardada antes de volver a intentarlo.');
+        return;
+      }
+      if (response.status >= 500) {
+        requireDeleteStateCheck(series.id, 'uncertain', 'No pudimos confirmar la eliminación. Comprueba la lista guardada antes de volver a intentarlo.');
+        return;
+      }
       announceWrite('serie', statusMessage(response.status), 'error');
       announce(seriesStatus(), statusMessage(response.status), 'error');
       return;
@@ -4101,8 +4132,7 @@ async function deleteOwnerSeries(seriesId: string) {
     if (response.status !== 204 || !changesEqual(changes, [
       { entity: 'profile', id: profile.id, before: profile.version, after: profile.version + 1 },
     ])) {
-      announceWrite('serie', 'No pudimos comprobar el recibo de eliminación. Conservamos la serie y sus controles.', 'error');
-      announce(seriesStatus(), 'No pudimos comprobar el recibo de eliminación. Conservamos la serie y sus controles.', 'error');
+      requireDeleteStateCheck(series.id, 'uncertain', 'No pudimos comprobar el recibo de eliminación. Comprueba la lista guardada antes de volver a intentarlo.');
       return;
     }
     ownerState.profile = { ...profile, version: profile.version + 1 };
@@ -4119,7 +4149,8 @@ async function deleteOwnerSeries(seriesId: string) {
     } else renderOwnerSeries(current);
     seriesReconcileReadPending = true;
     seriesReconcileOutcome = 'confirmed';
-    setChapterActionsUnavailable(true);
+    seriesReconcileDeleteId = undefined;
+    setSeriesMutationActionsUnavailable(true);
     const retry = root?.querySelector<HTMLButtonElement>('[data-series-reconcile-retry]');
     if (retry) {
       retry.textContent = 'Volver a consultar la lista';
@@ -4129,7 +4160,7 @@ async function deleteOwnerSeries(seriesId: string) {
     if (await reconcileOwnerData()) {
       seriesReconcileReadPending = false;
       if (retry) retry.hidden = true;
-      setChapterActionsUnavailable(false);
+      setSeriesMutationActionsUnavailable(false);
       announce(seriesStatus(), 'Serie eliminada. Tus enlaces, opciones y las otras series siguen en tu página.', 'success');
     } else {
       if (retry) retry.hidden = false;
@@ -4138,7 +4169,7 @@ async function deleteOwnerSeries(seriesId: string) {
     const search = root?.querySelector<HTMLElement>('[data-series-search]');
     if (search?.isConnected) window.requestAnimationFrame(() => search.focus());
   } catch {
-    announce(seriesStatus(), 'No pudimos confirmar la respuesta del servicio. La serie sigue en la lista; comprueba el estado antes de volver a intentarlo.', 'error');
+    requireDeleteStateCheck(series.id, 'uncertain', 'No pudimos confirmar la respuesta del servicio. Comprueba la lista guardada antes de volver a intentarlo.');
   }
 }
 
@@ -5631,11 +5662,28 @@ if (root && state && csrfToken && dialog) {
     if (claimDeselectButton) {
       event.preventDefault();
       const resourceId = claimDeselectButton.dataset.claimDeselect;
-      if (!resourceId || !claimSelection.delete(resourceId)) return;
+      if (!resourceId || !claimSelection.has(resourceId)) return;
+      const restoreSelectionFocus = document.activeElement === claimDeselectButton;
+      const selectionOrder = [...claimSelection.keys()];
+      const removedIndex = selectionOrder.indexOf(resourceId);
+      const nextFocusId = selectionOrder.slice(removedIndex + 1).find((id) => id !== resourceId)
+        ?? selectionOrder.slice(0, removedIndex).reverse().find((id) => id !== resourceId);
+      claimSelection.delete(resourceId);
       claimSelectionRevisions.set(resourceId, (claimSelectionRevisions.get(resourceId) ?? 0) + 1);
       claimStalePairs.delete(resourceId);
       setCatalogSelectionLabel();
       renderCatalogResults();
+      if (restoreSelectionFocus) {
+        const remainingRemove = nextFocusId
+          ? [...(catalogControl<HTMLUListElement>('[data-claim-selection]')
+            ?.querySelectorAll<HTMLButtonElement>('[data-claim-deselect]') ?? [])]
+            .find((button) => button.dataset.claimDeselect === nextFocusId)
+          : undefined;
+        const matchingCheckbox = [...(catalogControl<HTMLUListElement>('[data-catalog-results]')
+          ?.querySelectorAll<HTMLInputElement>('[data-catalog-select]') ?? [])]
+          .find((checkbox) => checkbox.closest<HTMLElement>('[data-catalog-row]')?.dataset.catalogRow === resourceId);
+        (remainingRemove ?? matchingCheckbox ?? catalogControl<HTMLInputElement>('[data-catalog-search]'))?.focus();
+      }
       return;
     }
     const claimCheckButton = target.closest<HTMLButtonElement>('[data-claim-check]');
@@ -5718,6 +5766,7 @@ if (root && state && csrfToken && dialog) {
     }
     const chapterNavigation = target.closest<HTMLAnchorElement>('[data-series-chapters]');
     if (chapterNavigation) {
+      if (!isSameTabNavigationClick(event, chapterNavigation)) return;
       event.preventDefault();
       const seriesId = chapterNavigation.dataset.seriesId;
       const current = currentSeriesQuery();
@@ -5733,6 +5782,7 @@ if (root && state && csrfToken && dialog) {
     }
     const seriesPageLink = target.closest<HTMLAnchorElement>('[data-series-page], [data-series-chapter-page], [data-series-back]');
     if (seriesPageLink) {
+      if (!isSameTabNavigationClick(event, seriesPageLink)) return;
       event.preventDefault();
       const parsed = parseCreatorOwnerSeriesQuery(new URL(seriesPageLink.href, window.location.href).searchParams, state?.series ?? []);
       if (parsed.valid) {
@@ -5775,6 +5825,7 @@ if (root && state && csrfToken && dialog) {
     const seriesDelete = target.closest<HTMLElement>('[data-series-delete]');
     if (seriesDelete) {
       event.preventDefault();
+      if (seriesReconcileReadPending && seriesReconcileDeleteId !== undefined) return;
       const id = seriesDelete.dataset.seriesId;
       if (!id) return;
       const action = () => { void runProfileFormAction(event, () => deleteOwnerSeries(id)); };
@@ -5852,6 +5903,7 @@ if (root && state && csrfToken && dialog) {
     }
     const pageLink = target.closest<HTMLAnchorElement>('[data-link-page]');
     if (pageLink) {
+      if (!isSameTabNavigationClick(event, pageLink)) return;
       event.preventDefault();
       const parsed = parseCreatorOwnerLinksQuery(new URL(pageLink.href, window.location.href).searchParams, state?.series ?? []);
       const pageLabel = pageLink.textContent?.trim();

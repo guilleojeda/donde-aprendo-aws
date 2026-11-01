@@ -1121,3 +1121,32 @@ test('retirar, editar la ficha retenida y reincorporar usan resourceId y la vers
   assert.equal(restored.position, 0);
   assert.deepEqual(restored.series, [], 're-adding a placement does not restore removed series chapters');
 });
+
+test('el paginador de Enlaces respeta Cmd/Ctrl/Shift y mantiene el clic normal', async () => {
+  const links = Array.from({ length: 26 }, (_, index) => editableLink({
+    placementId: `native-placement-${index}`,
+    resourceId: `native-resource-${index}`,
+    title: `Enlace ${index}`,
+    url: `https://native.example/${index}`,
+    position: index,
+  }));
+  const { surface } = await mountCase({ links, query: { paginaEnlaces: '1' } });
+  const next = surface.pager.querySelectorAll('[data-link-page]')
+    .find((link) => link.textContent === 'Siguiente');
+  assert.ok(next, 'the rendered list has a next-page anchor');
+
+  for (const modifier of [{ metaKey: true }, { ctrlKey: true }, { shiftKey: true }, { altKey: true }, { button: 1 }]) {
+    const href = surface.window.location.href;
+    const historyCallCount = surface.historyCalls.length;
+    const event = await next.dispatch('click', modifier);
+    assert.equal(event.defaultPrevented, false, 'modified and non-primary clicks remain native');
+    assert.equal(surface.window.location.href, href);
+    assert.equal(surface.historyCalls.length, historyCallCount);
+    assert.equal(surface.table.querySelectorAll('[data-link-row]').length, 25);
+  }
+
+  const ordinary = await next.dispatch('click');
+  assert.equal(ordinary.defaultPrevented, true, 'ordinary same-tab pagination remains enhanced');
+  assert.equal(new URL(surface.window.location.href).searchParams.get('paginaEnlaces'), '2');
+  assert.equal(surface.table.querySelectorAll('[data-link-row]').length, 1);
+});

@@ -538,10 +538,14 @@ function createSeriesApi(surface, { override } = {}) {
   return { fetch, snapshot, state, setSession };
 }
 
-export async function mountOwnerSeriesController({ profile, links = [], editableResources = [], claims = [], series = [], query = {}, override } = {}) {
+export async function mountOwnerSeriesController({ profile, links = [], editableResources = [], claims = [], series = [], query = {}, override, afterResponse } = {}) {
   const surface = createOwnerSeriesSurface({ profile, links, editableResources, claims, series, query });
   const api = createSeriesApi(surface, { override });
-  const requests = await mountOwnerLinks({ surface, fetch: api.fetch });
+  const fetch = async (request) => {
+    const response = await api.fetch(request);
+    return await afterResponse?.(request, response, api.state) ?? response;
+  };
+  const requests = await mountOwnerLinks({ surface, fetch });
   return { surface, api, requests, writes, settle };
 }
 

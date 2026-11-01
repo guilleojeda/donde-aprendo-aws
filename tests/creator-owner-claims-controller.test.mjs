@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { creatorPageSessionBinding } from '../src/lib/creator-session-context.mjs';
+import { SurfaceElement } from './fixtures/creator-owner-browser-dom.mjs';
 import {
   catalogItem,
   claimCatalogRows,
@@ -91,6 +92,14 @@ function assertNoVisibleIds(surface, ids) {
   }
   assert.doesNotMatch(controls, /resourceIds|sourceId|32\s*KiB|payload/i,
     'the request form does not ask for legacy IDs or payload limits');
+}
+
+function addClaimSelectionList(surface) {
+  const list = new SurfaceElement({ tagName: 'UL', dataset: { claimSelection: '' } });
+  list.hidden = true;
+  surface.catalogView.append(list);
+  list.ownerDocument = surface.document;
+  return list;
 }
 
 test('Solicitudes carga el índice común al montar y enriquece sólo con títulos públicos permitidos', async () => {
@@ -232,6 +241,76 @@ test('selección de solicitudes conserva recursos distintos con la misma URL al 
   assert.equal(byPath(requests, '/api/creador/enlaces', 'POST').length, 0,
     'requesting edit permission does not create a new link');
   assertNoVisibleIds(surface, ['cohost-record-a', 'cohost-record-b', 'resource-long-title']);
+});
+
+test('quitar una selección conserva el foco de teclado dentro de la tarea', async (t) => {
+  await t.test('enfoca la siguiente ficha seleccionada y no envía la solicitud', async () => {
+    const index = [resource(0), resource(1), resource(2)];
+    const surface = createCreatorOwnerClaimsSurface({ query: { vista: 'solicitudes' }, index });
+    const selection = addClaimSelectionList(surface);
+    const requests = await mountCreatorOwnerClaims({ surface });
+    await openClaims(surface);
+    for (const item of index) await selectResource(surface, item.id);
+
+    const removeSecond = [...selection.querySelectorAll('[data-claim-deselect]')]
+      .find((button) => button.dataset.claimDeselect === index[1].id);
+    removeSecond.focus();
+    await removeSecond.dispatch('click');
+
+    const remaining = [...selection.querySelectorAll('[data-claim-deselect]')];
+    assert.deepEqual(remaining.map(({ dataset }) => dataset.claimDeselect), [index[0].id, index[2].id]);
+    assert.equal(surface.document.activeElement, remaining[1], 'focus moves to the next visible remove control');
+    assert.equal(surface.dialog.open, true, 'removing a selection leaves the dialog open');
+    assert.equal(byPath(requests, CLAIM_PATH, 'POST').length, 0, 'removing a chip does not submit or write');
+    assert.equal(claimCatalogRows(surface)[0].querySelector('[data-catalog-select]').checked, true,
+      'other selections remain checked');
+  });
+
+  await t.test('enfoca la casilla cuando se quita la última selección y sigue visible', async () => {
+    const item = resource(0, { id: 'last-visible', title: 'Guía visible', url: 'https://catalog.example.invalid/visible' });
+    const surface = createCreatorOwnerClaimsSurface({ query: { vista: 'solicitudes' }, index: [item] });
+    const selection = addClaimSelectionList(surface);
+    const requests = await mountCreatorOwnerClaims({ surface });
+    await openClaims(surface);
+    await selectResource(surface, item.id);
+
+    const remove = selection.querySelector('[data-claim-deselect]');
+    remove.focus();
+    await remove.dispatch('click');
+    const checkbox = claimCatalogRows(surface)[0].querySelector('[data-catalog-select]');
+    assert.equal(checkbox.checked, false);
+    assert.equal(surface.document.activeElement, checkbox, 'focus returns to the matching visible checkbox');
+    assert.equal(surface.dialog.open, true);
+    assert.equal(byPath(requests, CLAIM_PATH, 'POST').length, 0);
+  });
+
+  for (const location of ['outside-search', 'outside-page']) {
+    await t.test(`enfoca el buscador cuando la última ficha queda ${location}`, async () => {
+      const index = Array.from({ length: 30 }, (_, itemIndex) => resource(itemIndex));
+      const item = index[0];
+      const surface = createCreatorOwnerClaimsSurface({ query: { vista: 'solicitudes' }, index });
+      const selection = addClaimSelectionList(surface);
+      const requests = await mountCreatorOwnerClaims({ surface });
+      await openClaims(surface);
+      await selectResource(surface, item.id);
+      if (location === 'outside-search') {
+        await submitCatalogSearch(surface, 'no coincide con ninguna ficha');
+      } else {
+        await surface.catalogNext.dispatch('click');
+      }
+      assert.equal(claimCatalogRows(surface).some((row) => rowResourceId(row) === item.id), false,
+        'the selected resource is not present in the rendered results');
+
+      const remove = selection.querySelector('[data-claim-deselect]');
+      remove.focus();
+      await remove.dispatch('click');
+      assert.equal(surface.document.activeElement, surface.catalogSearch,
+        'focus returns to the stable search control when the matching result is not visible');
+      assert.equal(selection.querySelector('[data-claim-deselect]'), null, 'the final chip is removed');
+      assert.equal(surface.dialog.open, true);
+      assert.equal(byPath(requests, CLAIM_PATH, 'POST').length, 0);
+    });
+  }
 });
 
 test('el fallo o formato inválido del índice no anuncia cero ni bloquea el envío por URL conocida', async (t) => {
