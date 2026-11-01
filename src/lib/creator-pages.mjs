@@ -390,105 +390,110 @@ function compareOrderPosition(leftPosition, leftId, rightPosition, rightId) {
 // The input group is already in canonical order. This calculation has no
 // storage, authorization, response, or transaction dependencies.
 function* placementMovePositionCandidates(placements, targetId, targetOrdinal) {
-  const group = [...placements];
-  const targetIndex = group.findIndex((placement) => placement.id === targetId);
-  if (targetIndex < 0 || !Number.isSafeInteger(targetOrdinal) || targetOrdinal < 1 || targetOrdinal > group.length) return;
+  const targetIndex = placements.findIndex((placement) => placement.id === targetId);
+  if (targetIndex < 0 || !Number.isSafeInteger(targetOrdinal) || targetOrdinal < 1 || targetOrdinal > placements.length) return;
 
-  const target = group[targetIndex];
-  const desired = group.filter((placement) => placement.id !== targetId);
+  const target = placements[targetIndex];
+  const desired = placements.filter((placement) => placement.id !== targetId);
   desired.splice(targetOrdinal - 1, 0, target);
   const targetDesiredIndex = targetOrdinal - 1;
-  const positionCandidates = (start, end) => {
-    const values = new Set([0, Number.MAX_SAFE_INTEGER, target.position]);
-    const addNear = (position) => {
-      values.add(position);
-      if (position > 0) values.add(position - 1);
-      if (position < Number.MAX_SAFE_INTEGER) values.add(position + 1);
-    };
-    for (let index = start; index <= end; index += 1) addNear(desired[index].position);
-    if (start > 0) addNear(desired[start - 1].position);
-    if (end + 1 < desired.length) addNear(desired[end + 1].position);
-    return [...values].filter((position) => Number.isSafeInteger(position) && position >= 0)
-      .sort((left, right) => left - right);
+  const rankSources = new Map();
+  const addRank = (position, index) => {
+    if (!rankSources.has(position)) rankSources.set(position, []);
+    if (index !== undefined) rankSources.get(position).push(index);
   };
+  for (let index = 0; index < desired.length; index += 1) {
+    const position = desired[index].position;
+    addRank(position, index);
+    if (position > 0) addRank(position - 1, index);
+    if (position < Number.MAX_SAFE_INTEGER) addRank(position + 1, index);
+  }
+  for (const position of [0, Number.MAX_SAFE_INTEGER, target.position]) addRank(position);
 
-  for (let length = 1; length <= desired.length; length += 1) {
-    const minimumStart = Math.max(0, targetDesiredIndex - length + 1);
-    const maximumStart = Math.min(targetDesiredIndex, desired.length - length);
-    for (let start = minimumStart; start <= maximumStart; start += 1) {
-      const end = start + length - 1;
-      const window = desired.slice(start, end + 1);
-      const windowTargetIndex = targetDesiredIndex - start;
-      for (const candidatePosition of positionCandidates(start, end)) {
-        const positions = window.map((placement) => placement.position);
-        positions[windowTargetIndex] = candidatePosition;
+  // A target rank determines the same outward adjustments in every window
+  // that contains them. Enumerate it once, stopping at the first unchanged
+  // neighbor: everything beyond that neighbor is already in canonical order.
+  // There are at most 3N + 3 ranks, each visiting at most N rows, rather than
+  // revisiting those rows for every overlapping window.
+  for (const [candidatePosition, sources] of rankSources) {
+    const leftChanges = [];
+    const rightChanges = [];
+    let start = targetDesiredIndex;
+    let end = targetDesiredIndex;
+    let nextPosition = candidatePosition;
+    let valid = true;
+    for (let index = targetDesiredIndex - 1; index >= 0; index -= 1) {
+      const current = desired[index];
+      const next = desired[index + 1];
+      if (compareOrderPosition(current.position, current.id, nextPosition, next.id) < 0) break;
+      const position = current.id.localeCompare(next.id) < 0 ? nextPosition : nextPosition - 1;
+      if (position < 0) { valid = false; break; }
+      leftChanges.push({ placementId: current.id, position });
+      start = index;
+      nextPosition = position;
+    }
+    if (!valid) continue;
+    let previousPosition = candidatePosition;
+    for (let index = targetDesiredIndex + 1; index < desired.length; index += 1) {
+      const previous = desired[index - 1];
+      const current = desired[index];
+      if (compareOrderPosition(previousPosition, previous.id, current.position, current.id) < 0) break;
+      const position = previous.id.localeCompare(current.id) < 0 ? previousPosition : previousPosition + 1;
+      if (!Number.isSafeInteger(position)) { valid = false; break; }
+      rightChanges.push({ placementId: current.id, position });
+      end = index;
+      previousPosition = position;
+    }
+    if (!valid) continue;
 
-        for (let index = windowTargetIndex + 1; index < window.length; index += 1) {
-          const previous = window[index - 1];
-          const current = window[index];
-          const previousPosition = positions[index - 1];
-          const currentPosition = positions[index];
-          if (compareOrderPosition(previousPosition, previous.id, currentPosition, current.id) < 0) continue;
-          if (previous.id.localeCompare(current.id) < 0) {
-            positions[index] = previousPosition;
-          } else if (previousPosition < Number.MAX_SAFE_INTEGER) {
-            positions[index] = previousPosition + 1;
-          } else {
-            positions[index] = undefined;
-            break;
-          }
+    // Retain the original window-first preference. A rank is available when
+    // its source is inside the window or immediately beside it; 0, MAX and
+    // the target's stored rank are available in every window. The earliest
+    // such window may contain many unchanged rows, so do not cap its length
+    // using the transaction's changed-item limit.
+    let windowStart = start;
+    let windowLength = end - start + 1;
+    if (candidatePosition !== 0 && candidatePosition !== Number.MAX_SAFE_INTEGER
+      && candidatePosition !== target.position) {
+      windowLength = Infinity;
+      for (const source of sources) {
+        const sourceStart = Math.min(start, source + 1);
+        const sourceEnd = Math.max(end, source - 1);
+        const length = sourceEnd - sourceStart + 1;
+        if (length < windowLength || (length === windowLength && sourceStart < windowStart)) {
+          windowStart = sourceStart;
+          windowLength = length;
         }
-        if (positions.some((position) => position === undefined)) continue;
-
-        for (let index = windowTargetIndex - 1; index >= 0; index -= 1) {
-          const current = window[index];
-          const next = window[index + 1];
-          const currentPosition = positions[index];
-          const nextPosition = positions[index + 1];
-          if (compareOrderPosition(currentPosition, current.id, nextPosition, next.id) < 0) continue;
-          if (current.id.localeCompare(next.id) < 0) {
-            positions[index] = nextPosition;
-          } else if (nextPosition > 0) {
-            positions[index] = nextPosition - 1;
-          } else {
-            positions[index] = undefined;
-            break;
-          }
-        }
-        if (positions.some((position) => position === undefined)) continue;
-
-        let ordered = true;
-        if (start > 0 && compareOrderPosition(
-          desired[start - 1].position, desired[start - 1].id, positions[0], window[0].id,
-        ) >= 0) ordered = false;
-        for (let index = 0; ordered && index < window.length; index += 1) {
-          if (!Number.isSafeInteger(positions[index]) || positions[index] < 0
-            || (index > 0 && compareOrderPosition(
-              positions[index - 1], window[index - 1].id, positions[index], window[index].id,
-            ) >= 0)) {
-            ordered = false;
-            break;
-          }
-        }
-        if (ordered && end + 1 < desired.length && compareOrderPosition(
-          positions.at(-1), window.at(-1).id, desired[end + 1].position, desired[end + 1].id,
-        ) >= 0) ordered = false;
-        if (!ordered) continue;
-
-        const positionChanges = [];
-        for (let index = 0; index < window.length; index += 1) {
-          if (positions[index] !== window[index].position) {
-            positionChanges.push({ placementId: window[index].id, position: positions[index] });
-          }
-        }
-        yield {
-          windowLength: length,
-          targetPosition: positions[windowTargetIndex],
-          positionChanges,
-        };
       }
     }
+    yield {
+      windowLength,
+      windowStart,
+      targetPosition: candidatePosition,
+      positionChanges: [
+        ...leftChanges.reverse(),
+        ...(candidatePosition === target.position ? [] : [{ placementId: target.id, position: candidatePosition }]),
+        ...rightChanges,
+      ],
+    };
   }
+}
+
+// Candidates no longer arrive window by window. Preserve that preference and
+// the existing physical-size/displacement tie breaks without sorting copies.
+function betterPlacementMoveCandidate(candidate, best) {
+  if (!best) return true;
+  for (const [left, right] of [
+    [candidate.windowLength, best.windowLength],
+    [candidate.positionChanges.length, best.positionChanges.length],
+    [candidate.candidateBytes, best.candidateBytes],
+    [candidate.targetDisplacement, best.targetDisplacement],
+    [candidate.windowStart, best.windowStart],
+    [candidate.targetPosition, best.targetPosition],
+  ]) {
+    if (left !== right) return left < right;
+  }
+  return false;
 }
 
 function sortLinks(links) {
@@ -1879,17 +1884,9 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     const findPlan = (position) => {
       let best = null;
       for (const candidate of placementMovePositionCandidates(group, id, position)) {
-        if (best && candidate.windowLength > best.windowLength) break;
+        if (best && candidate.windowLength > best.windowLength) continue;
         const evaluated = evaluateCandidate(candidate);
-        if (!evaluated) continue;
-        if (!best || evaluated.positionChanges.length < best.positionChanges.length
-          || (evaluated.positionChanges.length === best.positionChanges.length
-            && evaluated.candidateBytes < best.candidateBytes)
-          || (evaluated.positionChanges.length === best.positionChanges.length
-            && evaluated.candidateBytes === best.candidateBytes
-            && evaluated.targetDisplacement < best.targetDisplacement)) {
-          best = evaluated;
-        }
+        if (evaluated && betterPlacementMoveCandidate(evaluated, best)) best = evaluated;
       }
       return best;
     };
@@ -2120,17 +2117,9 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     const findPlan = (ordinal) => {
       let best = null;
       for (const candidate of placementMovePositionCandidates(members, placementId, ordinal)) {
-        if (best && candidate.windowLength > best.windowLength) break;
+        if (best && candidate.windowLength > best.windowLength) continue;
         const evaluated = evaluateCandidate(candidate);
-        if (!evaluated) continue;
-        if (!best || evaluated.positionChanges.length < best.positionChanges.length
-          || (evaluated.positionChanges.length === best.positionChanges.length
-            && evaluated.candidateBytes < best.candidateBytes)
-          || (evaluated.positionChanges.length === best.positionChanges.length
-            && evaluated.candidateBytes === best.candidateBytes
-            && evaluated.targetDisplacement < best.targetDisplacement)) {
-          best = evaluated;
-        }
+        if (evaluated && betterPlacementMoveCandidate(evaluated, best)) best = evaluated;
       }
       return best;
     };

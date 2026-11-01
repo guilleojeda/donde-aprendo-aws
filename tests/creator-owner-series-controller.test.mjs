@@ -784,6 +784,233 @@ test('un recibo inválido de borrado no elimina la serie ni afirma éxito', asyn
   assert.match(surface.pageStatus.textContent, /no pudimos|confirmar|recibo|error/i);
 });
 
+test('restaurar historial normaliza una serie eliminada y mantiene operables búsqueda y capítulos de otra serie', async () => {
+  const deleted = series('history-deleted');
+  const survivor = series('history-survivor');
+  const { surface, requests } = await mountOwnerSeriesController({
+    profile: profile(), series: [deleted, survivor], query: { buscarSeries: 'Ruta' },
+  });
+
+  await seriesRow(surface, deleted.id).querySelector('[data-series-chapters]').dispatch('click');
+  assert.equal(new URL(surface.window.location.href).searchParams.get('serie'), deleted.id);
+  await surface.chapterBack.dispatch('click');
+  assert.equal(new URL(surface.window.location.href).searchParams.has('serie'), false);
+
+  surface.setConfirmResult(true);
+  await seriesRow(surface, deleted.id).querySelector('[data-series-delete]').dispatch('click');
+  await settle();
+  assert.equal(seriesRow(surface, deleted.id), undefined, 'the real deletion removes the series from the owner state');
+
+  surface.window.history.back();
+  let location = new URL(surface.window.location.href);
+  assert.equal(location.searchParams.get('vista'), 'series');
+  assert.equal(location.searchParams.has('serie'), false, 'Back replaces the vanished selection with the series list query');
+  assert.equal(location.searchParams.get('buscarSeries'), 'Ruta');
+  assert.equal(surface.seriesListView.hidden, false);
+  assert.equal(surface.seriesSearch.value, 'Ruta');
+  assert.ok(seriesRow(surface, survivor.id), 'the surviving series remains actionable');
+
+  surface.window.history.forward();
+  surface.window.history.back();
+  location = new URL(surface.window.location.href);
+  assert.equal(location.searchParams.has('serie'), false, 'Forward/Back keep the normalized URL valid');
+  assert.equal(surface.seriesListView.hidden, false);
+
+  surface.seriesSearch.value = survivor.name;
+  await surface.seriesFilter.dispatch('submit');
+  assert.ok(seriesRow(surface, survivor.id), 'search still filters the surviving series');
+  const navigate = await seriesRow(surface, survivor.id).querySelector('[data-series-chapters]').dispatch('click');
+  assert.equal(navigate.defaultPrevented, true, 'an ordinary click still uses the owner history controller');
+  assert.equal(new URL(surface.window.location.href).searchParams.get('serie'), survivor.id);
+  assert.equal(surface.chapterRegion.hidden, false, 'the surviving series chapter view opens');
+  assert.equal(writes(requests).filter(({ method }) => method === 'DELETE').length, 1,
+    'history restoration and navigation do not repeat the deletion');
+});
+
+test('un DELETE incierto exige una lectura explícita ligada a la sesión y permite reintentar el GET fallido', async () => {
+  const removed = series('delete-uncertain');
+  const kept = series('delete-keep');
+  let failFirstRead = true;
+  const { surface, api, requests } = await mountOwnerSeriesController({
+    profile: profile(), series: [removed, kept], query: { buscarSeries: 'Ruta' },
+    afterResponse: (request, response) => {
+      if (request.method === 'DELETE') return new Response(null, { status: 204 });
+      if (request.method === 'GET' && request.path === '/api/creador/perfil' && failFirstRead) {
+        failFirstRead = false;
+        return jsonResponse({ error: 'TEMPORARY_READ_FAILURE' }, 503);
+      }
+      return undefined;
+    },
+  });
+  surface.setConfirmResult(true);
+  await seriesRow(surface, removed.id).querySelector('[data-series-delete]').dispatch('click');
+  await settle();
+
+  const profileReadCount = () => requests.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length;
+  assert.equal(api.state.series.some(({ id }) => id === removed.id), false, 'the owner service committed the deletion before its receipt was stripped');
+  assert.equal(seriesRow(surface, removed.id) !== undefined, true, 'the uncertain UI keeps its last observed list');
+  assert.equal(profileReadCount(), 0, 'an invalid receipt exposes a check without automatically reading or replaying DELETE');
+  assert.equal(surface.reconcileRetry.hidden, false);
+  assert.equal(surface.reconcileRetry.textContent, 'Comprobar la lista');
+  assert.equal(seriesRow(surface, kept.id).querySelector('[data-series-delete]').disabled, true,
+    'other destructive actions stay unavailable during the pending state check');
+
+  surface.reconcileRetry.focus();
+  await surface.reconcileRetry.dispatch('click');
+  await settle();
+  assert.equal(profileReadCount(), 1);
+  const firstRead = requests.find(({ method, path }) => method === 'GET' && path === '/api/creador/perfil');
+  assert.equal(firstRead.headers.get('x-creator-page-binding'), surface.root.dataset.sessionBinding,
+    'the explicit state check remains bound to the SSR account and role');
+  assert.equal(surface.reconcileRetry.hidden, false, 'a failed GET leaves the deliberate check retryable');
+  assert.ok(seriesRow(surface, removed.id), 'a failed GET does not adopt or discard the stale view');
+
+  surface.reconcileRetry.focus();
+  await surface.reconcileRetry.dispatch('click');
+  await settle();
+  assert.equal(profileReadCount(), 2);
+  assert.equal(writes(requests).filter(({ method }) => method === 'DELETE').length, 1,
+    'reconciliation never replays the destructive request');
+  assert.equal(seriesRow(surface, removed.id), undefined, 'the successful snapshot removes the committed series');
+  assert.ok(seriesRow(surface, kept.id));
+  assert.equal(surface.reconcileRetry.hidden, true);
+  assert.equal(seriesRow(surface, kept.id).querySelector('[data-series-delete]').disabled, false);
+  assert.match(surface.seriesListView.querySelector('[data-series-write-status]').textContent, /no contiene esa serie/i,
+    'the status describes only the state observed in the successful GET');
+  assert.equal(surface.document.activeElement, surface.seriesSearch,
+    'when the check control disappears, focus returns to the current series search');
+  assert.equal(new URL(surface.window.location.href).searchParams.get('buscarSeries'), 'Ruta');
+});
+
+test('un conflicto 409 comprueba el estado antes de habilitar un nuevo DELETE manual', async () => {
+  const existing = series('delete-conflict');
+  let deletes = 0;
+  const { surface, requests } = await mountOwnerSeriesController({
+    profile: profile(), series: [existing],
+    override: (request) => request.method === 'DELETE' && ++deletes === 1
+      ? jsonResponse({ error: 'PROFILE_CONFLICT' }, 409)
+      : undefined,
+  });
+  surface.setConfirmResult(true);
+  await seriesRow(surface, existing.id).querySelector('[data-series-delete]').dispatch('click');
+  await settle();
+  assert.equal(surface.reconcileRetry.hidden, false, '409 offers an explicit state check');
+  assert.equal(requests.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length, 0,
+    '409 does not trigger an automatic read or retry');
+  assert.equal(writes(requests).filter(({ method }) => method === 'DELETE').length, 1);
+
+  await surface.reconcileRetry.dispatch('click');
+  await settle();
+  assert.equal(seriesRow(surface, existing.id) !== undefined, true, 'the read shows that the series remains');
+  assert.match(surface.seriesListView.querySelector('[data-series-write-status]').textContent, /sigue en tu página/i);
+  assert.equal(writes(requests).filter(({ method }) => method === 'DELETE').length, 1);
+
+  await seriesRow(surface, existing.id).querySelector('[data-series-delete]').dispatch('click');
+  await settle();
+  assert.equal(writes(requests).filter(({ method }) => method === 'DELETE').length, 2,
+    'only a new user confirmation after the check sends another DELETE');
+  assert.equal(seriesRow(surface, existing.id), undefined);
+});
+
+test('pérdida de respuesta después del commit deja comprobar la lista sin repetir DELETE', async () => {
+  const removed = series('delete-lost-response');
+  const { surface, api, requests } = await mountOwnerSeriesController({
+    profile: profile(), series: [removed],
+    afterResponse: (request) => {
+      if (request.method === 'DELETE') throw new TypeError('connection lost after commit');
+      return undefined;
+    },
+  });
+  surface.setConfirmResult(true);
+  await seriesRow(surface, removed.id).querySelector('[data-series-delete]').dispatch('click');
+  await settle();
+  assert.equal(api.state.series.some(({ id }) => id === removed.id), false, 'the service committed before the response was lost');
+  assert.ok(seriesRow(surface, removed.id), 'the controller retains the last observed series until checked');
+  assert.equal(surface.reconcileRetry.hidden, false);
+  assert.equal(requests.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length, 0);
+
+  await surface.reconcileRetry.dispatch('click');
+  await settle();
+  assert.equal(seriesRow(surface, removed.id), undefined);
+  assert.equal(writes(requests).filter(({ method }) => method === 'DELETE').length, 1);
+  assert.match(surface.seriesListView.querySelector('[data-series-write-status]').textContent, /no contiene esa serie/i);
+});
+
+test('401 de eliminación conserva la recuperación de sesión y sólo reintenta con el CSRF renovado', async () => {
+  const existing = series('delete-session');
+  let deletes = 0;
+  const { surface, requests } = await mountOwnerSeriesController({
+    profile: profile(), series: [existing],
+    override: (request) => request.method === 'DELETE' && ++deletes === 1
+      ? jsonResponse({ error: 'UNAUTHENTICATED' }, 401)
+      : undefined,
+  });
+  surface.setConfirmResult(true);
+  await seriesRow(surface, existing.id).querySelector('[data-series-delete]').dispatch('click');
+  await settle();
+  assert.equal(deletes, 1);
+  assert.equal(surface.sessionShell.hidden, false, '401 uses existing session recovery');
+  assert.equal(surface.reconcileRetry.hidden, true, 'a definite 401 does not masquerade as an uncertain commit');
+
+  await surface.checkSession.dispatch('click');
+  await settle();
+  const sessionCheck = requests.find(({ method, path }) => method === 'GET' && path === '/api/creador/sesion');
+  assert.ok(sessionCheck);
+  assert.equal(sessionCheck.headers.get('x-creator-page-binding'), surface.root.dataset.sessionBinding);
+  assert.equal(deletes, 1, 'checking the session never replays the deletion');
+
+  await seriesRow(surface, existing.id).querySelector('[data-series-delete]').dispatch('click');
+  await settle();
+  assert.equal(deletes, 2, 'the user confirms a new deletion action after session recovery');
+  assert.equal(writes(requests).at(-1).headers.get('x-csrf-token'), 'csrf-refreshed');
+});
+
+test('los enlaces de Series y Capítulos respetan los clics modificados y conservan el clic normal', async (t) => {
+  async function assertNativeClick(surface, anchor, modifier, label) {
+    const href = surface.window.location.href;
+    const historyCallCount = surface.historyCalls.length;
+    const visibleSeries = !surface.seriesListView.hidden;
+    const visibleChapters = !surface.chapterRegion.hidden;
+    const event = await anchor.dispatch('click', modifier);
+    assert.equal(event.defaultPrevented, false, `${label} leaves the browser's native navigation unhandled`);
+    assert.equal(surface.window.location.href, href, `${label} does not change the current tab URL`);
+    assert.equal(surface.historyCalls.length, historyCallCount, `${label} does not mutate owner history`);
+    assert.equal(!surface.seriesListView.hidden, visibleSeries, `${label} does not mutate the visible series view`);
+    assert.equal(!surface.chapterRegion.hidden, visibleChapters, `${label} does not mutate the visible chapter view`);
+  }
+
+  await t.test('Gestionar capítulos y paginación de series', async () => {
+    const seriesList = Array.from({ length: 26 }, (_, index) => series(`native-series-${index}`));
+    const { surface } = await mountOwnerSeriesController({ profile: profile(), series: seriesList });
+    const manage = seriesRow(surface, seriesList[0].id).querySelector('[data-series-chapters]');
+    await assertNativeClick(surface, manage, { metaKey: true }, 'Cmd-click en Gestionar capítulos');
+    const cancelled = await manage.dispatch('click', { defaultPrevented: true });
+    assert.equal(cancelled.defaultPrevented, true, 'an earlier cancellation remains respected');
+    assert.equal(new URL(surface.window.location.href).searchParams.has('serie'), false);
+
+    const nextPage = surface.seriesPagination.querySelector('[data-series-page]');
+    await assertNativeClick(surface, nextPage, { ctrlKey: true }, 'Ctrl-click en la paginación de series');
+    const ordinary = await nextPage.dispatch('click');
+    assert.equal(ordinary.defaultPrevented, true, 'ordinary series pagination remains enhanced');
+    assert.equal(new URL(surface.window.location.href).searchParams.get('paginaSeries'), '2');
+  });
+
+  await t.test('paginación de capítulos y Volver a series', async () => {
+    const selected = series('native-chapters');
+    const links = Array.from({ length: 26 }, (_, index) => chapter(index, selected.id));
+    const { surface } = await mountOwnerSeriesController({
+      profile: profile(), links, series: [selected], query: { serie: selected.id },
+    });
+    const nextPage = surface.chapterPagination.querySelector('[data-series-chapter-page]');
+    await assertNativeClick(surface, nextPage, { shiftKey: true }, 'Shift-click en la paginación de capítulos');
+    const back = surface.chapterBack;
+    await assertNativeClick(surface, back, { altKey: true }, 'Alt-click en Volver a series');
+    const ordinary = await nextPage.dispatch('click');
+    assert.equal(ordinary.defaultPrevented, true, 'ordinary chapter pagination remains enhanced');
+    assert.equal(new URL(surface.window.location.href).searchParams.get('paginaCapitulos'), '2');
+  });
+});
+
 test('un slug ocupado conserva el campo y un recibo metadata incompatible no afirma guardado', async (t) => {
   await t.test('slug ocupado', async () => {
     const existing = series('slug-current');
