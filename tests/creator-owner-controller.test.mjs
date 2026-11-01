@@ -152,7 +152,11 @@ function ownerSurface({ profile = null, initialData = {}, csrfToken = 'csrf-a', 
     },
     querySelectorAll() { return []; },
     getElementById(id) { return id === 'creator-owner-data' ? dataScript : null; },
-    addEventListener(type, listener) { documentListeners.set(type, listener); },
+    addEventListener(type, listener) {
+      const listeners = documentListeners.get(type) ?? [];
+      listeners.push(listener);
+      documentListeners.set(type, listeners);
+    },
   };
   const documentListeners = new Map();
   document.listeners = documentListeners;

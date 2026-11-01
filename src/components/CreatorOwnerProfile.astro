@@ -71,7 +71,7 @@ function safeSocialUrl(value: string | undefined): string | undefined {
       </summary>
       <div class="creator-owner__account-popover">
         <p class="creator-owner__email">{accountEmail}</p>
-        {isAdmin && <a href="/cuenta/administracion/">Administración</a>}
+        {isAdmin && <a data-owner-navigation href="/cuenta/administracion/">Administración</a>}
         <AccountLogout csrfToken={logoutCsrfToken} />
       </div>
     </details>

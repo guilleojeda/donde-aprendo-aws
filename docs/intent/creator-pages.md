@@ -76,7 +76,7 @@ Mientras guarda, el texto sigue editable y sólo se confirma la captura enviada.
 
 Un conflicto de versión al publicar ofrece comprobar el estado guardado antes de continuar; no vuelve a enviar la versión anterior. Si no se puede confirmar una publicación, la interfaz comunica esa incertidumbre y ofrece comprobar el estado guardado antes de volver a publicar. Esa acción actualiza expresamente la página privada actual, sin repetir el envío; el SSR establece juntos la cuenta, los permisos y los datos vigentes. Una escritura activa o una corrección local conserva la guardia de salida.
 
-Durante el alta inicial, «Volver al sitio» ofrece esa misma salida con Guardar, Descartar o Seguir editando. Si falla el guardado o queda una corrección posterior, conserva el formulario y no continúa la navegación.
+Durante el alta inicial, «Volver al sitio», la navegación del encabezado y el acceso autorizado a Administración ofrecen esa misma salida con Guardar, Descartar o Seguir editando. Si falla el guardado o queda una corrección posterior, conserva el formulario y no continúa la navegación. Una escritura activa pide esperar sin encolar la salida ni repetir el envío. Los enlaces que abren otra pestaña, los clics modificados, las descargas y los saltos dentro del mismo documento conservan su comportamiento; no abandonan la edición actual.
 
 La misma guardia se aplica a Atrás y Adelante dentro del espacio del propietario. Mientras se decide, la URL y el contexto siguen correspondiendo al formulario abierto; aceptar la salida conserva las entradas reales del historial y restaura el foco en el destino.
 

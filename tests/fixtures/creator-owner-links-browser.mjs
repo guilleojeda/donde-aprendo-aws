@@ -41,9 +41,16 @@ export function createOwnerLinksSurface({ profile = defaultProfile(), links = []
     return element;
   };
   const ownerButtons = ['datos', 'redes', 'foto'].map((name) => new BrowserElement({ tagName: 'BUTTON', dataset: { ownerEdit: name } }));
+  const createFields = [control('displayName'), control('slug')];
+  const createStatus = new BrowserElement({ dataset: { ownerCreateStatus: '' } });
+  const createSubmit = new BrowserElement({ tagName: 'BUTTON', type: 'submit' });
+  const createForm = form([...createFields, createSubmit, createStatus], { ownerForm: 'crear' });
+  const createPanel = new BrowserElement({ dataset: { ownerCreatePanel: '' }, lists: [createForm] });
+  createPanel.hidden = Boolean(profile);
+  const initialCreateSurface = profile === null ? [createPanel] : [];
   const dataForm = form([
-    control('displayName', profile.displayName), control('slug', profile.slug),
-    control('version', String(profile.version), { type: 'hidden' }),
+    control('displayName', profile?.displayName ?? ''), control('slug', profile?.slug ?? ''),
+    control('version', String(profile?.version ?? 0), { type: 'hidden' }),
   ], { ownerForm: 'datos' });
   dataForm.hidden = true;
   const linkFields = [
@@ -162,12 +169,17 @@ export function createOwnerLinksSurface({ profile = defaultProfile(), links = []
   checkSession.hidden = true;
   const navigation = new BrowserElement({ tagName: 'A', dataset: { ownerNavigation: '' } });
   navigation.setAttribute('href', '/cuenta/?vista=estadisticas&periodo=30&pagina=1');
+  navigation.href = '/cuenta/?vista=estadisticas&periodo=30&pagina=1';
+  const adminNavigation = new BrowserElement({ tagName: 'A', dataset: { ownerNavigation: '' } });
+  adminNavigation.setAttribute('href', '/cuenta/administracion/');
+  adminNavigation.href = '/cuenta/administracion/';
   const linksRegion = new BrowserElement({ dataset: { ownerLinks: '' }, lists: [table, pager, searchInput, seriesSelect, addOpen, addForm, retainedLinks] });
   const root = new BrowserElement({ dataset: {
-    csrf: 'csrf-a', sessionBinding: DEFAULT_OWNER_SESSION_BINDING, publicOrigin: SITE_ORIGIN, profileVersion: String(profile.version),
+    csrf: 'csrf-a', sessionBinding: DEFAULT_OWNER_SESSION_BINDING, publicOrigin: SITE_ORIGIN, profileVersion: String(profile?.version ?? ''),
   }, lists: [
-    ...ownerButtons, publish, pageStatus, copyStatus, sessionShell, sessionStatus, signIn, checkSession,
+    ...ownerButtons, ...initialCreateSurface, publish, pageStatus, copyStatus, sessionShell, sessionStatus, signIn, checkSession,
     linksRegion, dialog, navigation,
+    adminNavigation,
   ] });
   root.ownerDocument = document;
   for (const element of root.descendants()) element.ownerDocument = document;
@@ -180,7 +192,11 @@ export function createOwnerLinksSurface({ profile = defaultProfile(), links = []
   document.querySelectorAll = (selector) => root.querySelectorAll(selector);
   document.getElementById = (id) => id === 'creator-owner-data' ? initial
     : root.descendants().find((element) => element.getAttribute('id') === id) ?? null;
-  document.addEventListener = (type, listener) => documentListeners.set(type, listener);
+  document.addEventListener = (type, listener) => {
+    const listeners = documentListeners.get(type) ?? [];
+    listeners.push(listener);
+    documentListeners.set(type, listeners);
+  };
   document.listeners = documentListeners;
   root.parentElement = document;
 
@@ -215,6 +231,7 @@ export function createOwnerLinksSurface({ profile = defaultProfile(), links = []
     rows: rowElements, table, searchInput, seriesFilter, seriesSelect, addOpen, addForm, addFields, addStatus, availableResources,
     retainedLinks, pager,
     publish, pageStatus, sessionShell, sessionStatus, signIn, checkSession,
+    createPanel, createForm, createFields, createStatus, createSubmit, navigation, adminNavigation,
     document, documentListeners, window, historyCalls, confirmCalls,
     setConfirmResult(value) { confirmResult = value; },
   };
