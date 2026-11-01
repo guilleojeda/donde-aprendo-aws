@@ -90,7 +90,14 @@ function surface() {
   slug.parentElement = create;
   create.parentElement = root;
   for (const choice of Object.values(choices)) choice.parentElement = root;
+  const documentListeners = new Map();
   const document = {
+    listeners: documentListeners,
+    addEventListener(type, listener) {
+      const listeners = documentListeners.get(type) ?? [];
+      listeners.push(listener);
+      documentListeners.set(type, listeners);
+    },
     querySelector(selector) {
       if (selector === '[data-creator-owner]') return root;
       if (selector === '#creator-owner-data') return { textContent: JSON.stringify({ profile: null, links: [], editableResources: [], claims: [], series: [] }) };
@@ -99,6 +106,7 @@ function surface() {
     querySelectorAll() { return [logout]; },
   };
   const destinations = [];
+  root.parentElement = document;
   const window = { location: { origin: ORIGIN, href: `${ORIGIN}/cuenta/`, assign: (value) => destinations.push(value) },
     addEventListener() {}, requestAnimationFrame: (callback) => callback() };
   return { token, button, status, logout, root, create, name, slug, dialog, exit, choices, check, document, window, destinations };

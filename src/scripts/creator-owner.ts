@@ -1332,6 +1332,41 @@ function ownerHistoryIndexFrom(value: unknown): number | undefined {
   return typeof index === 'number' && Number.isSafeInteger(index) && index >= 0 ? index : undefined;
 }
 
+function isSameTabNavigationClick(event: Event, anchor: HTMLAnchorElement): boolean {
+  if (event.defaultPrevented) return false;
+  const click = event as MouseEvent;
+  if ((typeof click.button === 'number' && click.button !== 0)
+    || click.metaKey || click.ctrlKey || click.shiftKey || click.altKey) return false;
+  if (anchor.hasAttribute('download')) return false;
+  const target = anchor.getAttribute('target');
+  if (target && target.toLowerCase() !== '_self') return false;
+  const href = anchor.getAttribute('href');
+  if (!href) return false;
+  let destination: URL;
+  try {
+    destination = new URL(href, window.location.href);
+  } catch {
+    return false;
+  }
+  if (!['http:', 'https:'].includes(destination.protocol)) return false;
+  const current = new URL(window.location.href);
+  const sameDocument = destination.origin === current.origin
+    && destination.pathname === current.pathname
+    && destination.search === current.search;
+  return !(sameDocument && href.includes('#'));
+}
+
+function guardOwnerNavigationClick(
+  event: Event,
+  anchor: HTMLAnchorElement,
+  returnFocusTarget: HTMLElement | null = anchor,
+) {
+  if (!isSameTabNavigationClick(event, anchor)) return;
+  if (!writeGuard?.isActive() && !hasPendingChanges()) return;
+  event.preventDefault();
+  showExitPrompt(() => window.location.assign(anchor.href), returnFocusTarget ?? undefined);
+}
+
 function initializeOwnerHistory() {
   if (typeof window.history?.replaceState !== 'function') {
     ownerHistoryIndex = 0;
@@ -1476,14 +1511,15 @@ function handleOwnerPopstate(event: PopStateEvent) {
     return;
   }
 
+  if (writeGuard?.isActive()) {
+    announceWrite(activeEditor, 'La escritura ya empezó. Espera a que termine antes de cambiar la vista.', 'info');
+    if (typeof window.history?.go !== 'function') return;
+    ownerHistoryRestoreIndex = ownerHistoryIndex;
+    window.history.go(ownerHistoryIndex - targetIndex);
+    return;
+  }
+
   if (hasPendingEditorChanges) {
-    if (writeGuard?.isActive()) {
-      announceWrite(activeEditor, 'La escritura ya empezó. Espera a que termine antes de cambiar la vista.', 'info');
-      if (typeof window.history?.go !== 'function') return;
-      ownerHistoryRestoreIndex = ownerHistoryIndex;
-      window.history.go(ownerHistoryIndex - targetIndex);
-      return;
-    }
     const fromIndex = ownerHistoryIndex;
     pendingOwnerHistoryNavigation = {
       fromIndex,
@@ -5982,10 +6018,7 @@ if (root && state && csrfToken && dialog) {
       return;
     }
     const navigation = target.closest<HTMLAnchorElement>('a[data-owner-navigation]');
-    if (navigation && hasPendingChanges()) {
-      event.preventDefault();
-      showExitPrompt(() => window.location.assign(navigation.href), navigation);
-    }
+    if (navigation) guardOwnerNavigationClick(event, navigation);
   });
 
   dialog.addEventListener('cancel', (event) => {
@@ -5996,10 +6029,21 @@ if (root && state && csrfToken && dialog) {
     if (event.target === dialog) requestClose();
   });
   window.addEventListener('beforeunload', (event) => {
-    if (!hasPendingChanges()) return;
+    if (!writeGuard?.isActive() && !hasPendingChanges()) return;
     event.preventDefault();
   });
   window.addEventListener('popstate', (event) => handleOwnerPopstate(event));
+  document.addEventListener('click', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const navigation = target.closest<HTMLAnchorElement>('a[href]');
+    if (!navigation || !navigation.closest('.site-header')) return;
+    const createForm = formFor('crear');
+    const returnFocusTarget = activeForm && activeForm === createForm
+      ? activeForm.querySelector<HTMLElement>('input:not([type="hidden"]), textarea')
+      : null;
+    guardOwnerNavigationClick(event, navigation, returnFocusTarget);
+  });
 
 } else if (root) {
   announce(pageStatus, 'No pudimos leer los datos de tu página. Recarga para volver a intentarlo.', 'error');

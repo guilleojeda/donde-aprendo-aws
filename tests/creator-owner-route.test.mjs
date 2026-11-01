@@ -449,6 +449,8 @@ test('la administración sólo aparece con el rol correspondiente y en la zona s
 
   const administrator = await render({ session: 'admin' });
   assert.match(administrator.html, /href="\/cuenta\/administracion\//);
+  assert.match(administrator.html, /<a\b[^>]*data-owner-navigation[^>]*href="\/cuenta\/administracion\//,
+    'the owner exit guard includes the authorized administration destination');
   const mainStart = administrator.html.indexOf('<main');
   const adminAction = administrator.html.indexOf('/cuenta/administracion/');
   assert.ok(mainStart >= 0 && adminAction >= 0 && adminAction < mainStart,
