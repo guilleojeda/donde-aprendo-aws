@@ -419,6 +419,49 @@ test('un DTO de perfil malformado produce error recuperable y no alta de perfil'
   assert.match(visibleText(invalidDto.html), /Reintentar|Inténtalo/i);
 });
 
+for (const contradiction of ['versión', 'título', 'presencia de descripción']) {
+  test(`la lectura SSR rechaza copias de recurso con ${contradiction} diferente y permite reintentar`, async () => {
+    await resetRuntime();
+    await createProfile();
+    const created = await api('/api/creador/enlaces/', {
+      title: 'Título guardado coherente',
+      url: 'https://example.com/owner-ssr-observation',
+      description: 'Descripción guardada',
+    }, { method: 'POST' });
+    const saved = await api('/api/creador/perfil/', undefined, { method: 'GET' });
+    const invalid = structuredClone(saved);
+    const editable = invalid.editableResources.find(({ id }) => id === created.link.resourceId);
+    assert.ok(editable);
+    assert.equal(editable.version, created.link.resourceVersion);
+    assert.equal(editable.title, created.link.title);
+    assert.equal(editable.description, 'Descripción guardada');
+    if (contradiction === 'versión') editable.version += 1;
+    else if (contradiction === 'título') editable.title = 'Otra observación del mismo recurso';
+    else delete editable.description;
+
+    let delivered = false;
+    runtime.overrideServiceResponse((request) => {
+      if (!delivered && request.method === 'GET'
+        && new URL(request.url).pathname.replace(/\/$/, '') === '/api/creador/perfil') {
+        delivered = true;
+        return Response.json(invalid);
+      }
+      return undefined;
+    });
+    const rejected = await render({ search: '?vista=enlaces' });
+    assert.equal(delivered, true, 'the real owner loader received the contradictory service response');
+    const retry = await render({ search: '?vista=enlaces' });
+    assert.equal(retry.response.status, 200, 'a subsequent coherent read can render the owner page');
+    assert.match(visibleText(retry.html), /Título guardado coherente/);
+    assert.deepEqual(await api('/api/creador/perfil/', undefined, { method: 'GET' }), saved,
+      'rejecting and retrying reads do not alter the saved profile, resources or placements');
+
+    assert.equal(rejected.response.status, 503, 'SSR does not embed contradictory copies as editable state');
+    assert.match(visibleText(rejected.html), /Reintentar|Inténtalo/i);
+    assert.doesNotMatch(visibleText(rejected.html), /Crear borrador|Crear mi página/);
+  });
+}
+
 test('una falla HTTP de lectura del perfil produce error recuperable y no alta de perfil', async () => {
   await resetRuntime();
   runtime.setSession('creator-a');

@@ -147,9 +147,13 @@ async function captureCreatorApi(page) {
   return {
     records,
     writes() { return records.filter(({ method }) => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)); },
-    async settle() { await Promise.all(records.map(({ settled }) => settled)); },
-    async stop() {
-      await this.settle();
+    async settle({ skipErrorBodies = false } = {}) {
+      await Promise.all(records
+        .filter(({ status }) => !(skipErrorBodies && typeof status === 'number' && status >= 400))
+        .map(({ settled }) => settled));
+    },
+    async stop(options) {
+      await this.settle(options);
       page.off('request', requestHandler);
       page.off('response', responseHandler);
     },
@@ -880,3 +884,967 @@ test('cincuenta enlaces se buscan por SSR sin JS y se consultan, paginan y edita
   await expect(page.locator('[data-owner-dialog]')).not.toBeVisible();
   await capture.stop();
 });
+
+function linkEditor(page) {
+  return page.locator('[data-owner-dialog] form[data-owner-form="enlace"]');
+}
+
+function receiptsFrom(record) {
+  return record.status === 204
+    ? JSON.parse(record.responseHeaders['creator-write-versions'] ?? '[]')
+    : record.responseBody?.versionChanges ?? [];
+}
+
+function sortedReceipts(changes) {
+  return [...changes].sort((left, right) => `${left.entity}:${left.id}`.localeCompare(`${right.entity}:${right.id}`));
+}
+
+async function openLinksView(page, fixture) {
+  await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
+  await expect(page.locator('[data-creator-owner]')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Enlaces', exact: true })).toBeVisible();
+}
+
+test('guardados canónicos: el PATCH de una ficha propia aplica el recibo canónico y conserva una corrección posterior', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const link = await addLink(fixture, cookie, { title: 'Título inicial', url: 'https://links.example/canonico' });
+  const beforeOwner = await fixture.rawOwner(cookie);
+  const beforeResource = await fixture.rawResource(link.resourceId);
+  const beforePlacement = await fixture.rawPlacement(cookie, link.placementId);
+  const capture = await captureCreatorApi(page);
+  await openLinksView(page, fixture);
+  const row = page.locator(`[data-link-row="${link.placementId}"]`);
+  await row.locator('[data-link-edit]').click();
+  const form = linkEditor(page);
+  await expect(form).toBeVisible();
+  await form.getByLabel('Título').fill('  Título canónico A  ');
+  await form.getByLabel('Descripción').fill('  Descripción canónica A  ');
+  await form.getByLabel('Destacar en tu página').check();
+  await form.getByLabel('Proponer al directorio').uncheck();
+
+  let signalCommit;
+  let releaseResponse;
+  const committed = new Promise((resolve) => { signalCommit = resolve; });
+  const responseGate = new Promise((resolve) => { releaseResponse = resolve; });
+  let actualCommit;
+  let committedResource;
+  let committedPlacement;
+  let committedOwner;
+  const editPath = `/api/creador/enlaces/${link.placementId}/editar`;
+  const holdCommittedResponse = async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname.replace(/\/$/u, '');
+    if (request.method() !== 'PATCH' || path !== editPath) {
+      await route.continue();
+      return;
+    }
+    const response = await route.fetch();
+    const payload = await response.json();
+    actualCommit = {
+      status: response.status(),
+      headers: response.headers(),
+      body: payload,
+      requestBody: JSON.parse(request.postData()),
+    };
+    signalCommit();
+    await responseGate;
+    await route.fulfill({ response, json: payload });
+  };
+  await page.route('**/api/creador/**', holdCommittedResponse);
+  let saveA;
+  try {
+    saveA = form.getByRole('button', { name: 'Guardar cambios' }).click();
+    await committed;
+    assert.equal(actualCommit.status, 200, 'the real owner service commits A before its response is held');
+    assert.equal(actualCommit.requestBody.profileVersion, beforeOwner.profile.version);
+    assert.equal(actualCommit.requestBody.placementVersion, link.placementVersion);
+    assert.equal(actualCommit.requestBody.resourceVersion, link.resourceVersion);
+    assert.equal(actualCommit.requestBody.title, 'Título canónico A', 'the browser trims title before the actual write');
+    assert.equal(actualCommit.requestBody.description, 'Descripción canónica A', 'the browser trims description before the actual write');
+    assert.equal(actualCommit.requestBody.featured, true);
+    assert.equal(actualCommit.requestBody.selectedForDirectory, false);
+    if (Object.hasOwn(actualCommit.requestBody, 'url')) assert.equal(actualCommit.requestBody.url, beforeResource.url);
+    committedResource = await fixture.rawResource(link.resourceId);
+    committedPlacement = await fixture.rawPlacement(cookie, link.placementId);
+    committedOwner = await fixture.rawOwner(cookie);
+    assert.deepEqual({
+      title: committedResource.title,
+      url: committedResource.url,
+      description: committedResource.description,
+      version: committedResource.version,
+    }, {
+      title: 'Título canónico A', url: 'https://links.example/canonico',
+      description: 'Descripción canónica A', version: beforeResource.version + 1,
+    }, 'raw resource storage matches the committed canonical metadata');
+    assert.deepEqual({
+      featured: committedPlacement.featured,
+      selectedForDirectory: committedPlacement.selectedForDirectory,
+      version: committedPlacement.version,
+    }, {
+      featured: true, selectedForDirectory: false, version: beforePlacement.version + 1,
+    }, 'raw placement storage matches the committed options and receipt');
+    assert.equal(committedOwner.profile.version, beforeOwner.profile.version + 1);
+    assert.deepEqual(sortedReceipts(actualCommit.body.versionChanges), sortedReceipts([
+      { entity: 'profile', id: beforeOwner.profile.id, before: beforeOwner.profile.version, after: beforeOwner.profile.version + 1 },
+      { entity: 'resource', id: link.resourceId, before: beforeResource.version, after: beforeResource.version + 1 },
+      { entity: 'placement', id: link.placementId, before: beforePlacement.version, after: beforePlacement.version + 1 },
+    ]), 'the genuine response receipts name exactly the persisted participants and bases');
+    assert.deepEqual({
+      title: actualCommit.body.link.title,
+      description: actualCommit.body.link.description,
+      resourceVersion: actualCommit.body.link.resourceVersion,
+      placementVersion: actualCommit.body.link.placementVersion,
+      featured: actualCommit.body.link.featured,
+      selectedForDirectory: actualCommit.body.link.selectedForDirectory,
+    }, {
+      title: committedResource.title,
+      description: committedResource.description,
+      resourceVersion: committedResource.version,
+      placementVersion: committedPlacement.version,
+      featured: committedPlacement.featured,
+      selectedForDirectory: committedPlacement.selectedForDirectory,
+    }, 'the command DTO reports the prepared effect stored by the real service');
+
+    await form.getByLabel('Título').fill('Título corregido B');
+    await form.getByLabel('Descripción').fill('Descripción corregida B');
+    releaseResponse();
+    await saveA;
+  } finally {
+    releaseResponse();
+    await page.unroute('**/api/creador/**', holdCommittedResponse).catch(() => {});
+    await saveA?.catch(() => {});
+  }
+
+  await capture.settle();
+  const firstPatch = capture.writes().find(({ method, path }) => method === 'PATCH' && path === editPath);
+  assert.equal(firstPatch.status, 200);
+  assert.deepEqual(sortedReceipts(receiptsFrom(firstPatch)), sortedReceipts([
+    { entity: 'profile', id: beforeOwner.profile.id, before: beforeOwner.profile.version, after: beforeOwner.profile.version + 1 },
+    { entity: 'resource', id: link.resourceId, before: beforeResource.version, after: beforeResource.version + 1 },
+    { entity: 'placement', id: link.placementId, before: beforePlacement.version, after: beforePlacement.version + 1 },
+  ]));
+  await expect(form.getByLabel('Título')).toHaveValue('Título corregido B');
+  await expect(form.getByLabel('Descripción')).toHaveValue('Descripción corregida B');
+  await expect(page.locator(`[data-link-row="${link.placementId}"] [data-link-title]`)).toHaveText('Título canónico A');
+
+  await form.getByRole('button', { name: 'Guardar cambios' }).click();
+  await capture.settle();
+  const patches = capture.writes().filter(({ method, path }) => method === 'PATCH' && path === editPath);
+  assert.equal(patches.length, 2, 'the browser sends A once and then the still-pending B once');
+  const secondPatch = patches[1];
+  assert.equal(secondPatch.body.profileVersion, committedOwner.profile.version,
+    'B consumes the profile version returned by A');
+  assert.equal(secondPatch.body.placementVersion, committedPlacement.version);
+  assert.equal(secondPatch.body.resourceVersion, committedResource.version,
+    'B consumes the resource version returned by A');
+  assert.equal(secondPatch.body.title, 'Título corregido B');
+  assert.equal(secondPatch.body.description, 'Descripción corregida B');
+  if (Object.hasOwn(secondPatch.body, 'featured')) assert.equal(secondPatch.body.featured, committedPlacement.featured);
+  if (Object.hasOwn(secondPatch.body, 'selectedForDirectory')) {
+    assert.equal(secondPatch.body.selectedForDirectory, committedPlacement.selectedForDirectory);
+  }
+  if (Object.hasOwn(secondPatch.body, 'url')) assert.equal(secondPatch.body.url, committedResource.url);
+  assert.equal(secondPatch.status, 200);
+  assert.deepEqual(sortedReceipts(receiptsFrom(secondPatch)), sortedReceipts([
+    { entity: 'profile', id: committedOwner.profile.id, before: committedOwner.profile.version, after: committedOwner.profile.version + 1 },
+    { entity: 'resource', id: link.resourceId, before: committedResource.version, after: committedResource.version + 1 },
+  ]), 'a metadata-only continuation leaves the placement version untouched');
+  const savedB = await fixture.rawResource(link.resourceId);
+  assert.deepEqual({ title: savedB.title, description: savedB.description, version: savedB.version }, {
+    title: 'Título corregido B', description: 'Descripción corregida B', version: committedResource.version + 1,
+  });
+
+  const rowAfterB = page.locator(`[data-link-row="${link.placementId}"]`);
+  await rowAfterB.locator('[data-link-edit]').click();
+  const optionsForm = linkEditor(page);
+  await optionsForm.getByLabel('Destacar en tu página').uncheck();
+  await optionsForm.getByRole('button', { name: 'Guardar cambios' }).click();
+  await capture.settle();
+  const allPatches = capture.writes().filter(({ method, path }) => method === 'PATCH' && path === editPath);
+  assert.equal(allPatches.length, 3);
+  const optionsOnly = allPatches[2];
+  assert.equal(optionsOnly.body.profileVersion, committedOwner.profile.version + 1);
+  assert.equal(optionsOnly.body.placementVersion, committedPlacement.version);
+  assert.equal(optionsOnly.body.resourceVersion, committedResource.version + 1);
+  assert.equal(optionsOnly.body.featured, false);
+  if (Object.hasOwn(optionsOnly.body, 'selectedForDirectory')) assert.equal(optionsOnly.body.selectedForDirectory, false);
+  for (const fieldName of ['title', 'url', 'description']) {
+    if (Object.hasOwn(optionsOnly.body, fieldName)) assert.equal(optionsOnly.body[fieldName], savedB[fieldName],
+      `any unchanged authorized ${fieldName} included by the options-only command matches the saved resource`);
+  }
+  assert.equal(optionsOnly.status, 200);
+  assert.deepEqual(sortedReceipts(receiptsFrom(optionsOnly)), sortedReceipts([
+    { entity: 'profile', id: committedOwner.profile.id, before: committedOwner.profile.version + 1, after: committedOwner.profile.version + 2 },
+    { entity: 'placement', id: link.placementId, before: committedPlacement.version, after: committedPlacement.version + 1 },
+  ]));
+  assert.deepEqual(await fixture.rawResource(link.resourceId), {
+    ...savedB,
+  }, 'the options-only write does not change raw resource metadata or version');
+  const finalPlacement = await fixture.rawPlacement(cookie, link.placementId);
+  assert.deepEqual({ featured: finalPlacement.featured, selectedForDirectory: finalPlacement.selectedForDirectory }, {
+    featured: false, selectedForDirectory: false,
+  });
+  await capture.stop();
+});
+
+test('guardados canónicos: guardar sin cambios una ficha propia retirada envía un PATCH y conserva la ausencia opcional', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const link = await addLink(fixture, cookie, { title: 'Ficha retirada', url: 'https://links.example/retirada-sin-description' });
+  const beforeRemoval = await fixture.rawOwner(cookie);
+  const removal = await api(fixture, cookie, `/api/creador/enlaces/${link.placementId}`, {
+    method: 'DELETE', body: { profileVersion: beforeRemoval.profile.version },
+  });
+  assert.equal(removal.response.status, 204);
+  assert.deepEqual(sortedReceipts(JSON.parse(removal.response.headers.get('creator-write-versions'))), sortedReceipts([
+    { entity: 'profile', id: beforeRemoval.profile.id, before: beforeRemoval.profile.version, after: beforeRemoval.profile.version + 1 },
+  ]), 'the real API removes the placement and retains only its profile receipt');
+  assert.equal(await fixture.rawPlacement(cookie, link.placementId), null);
+  const stored = await fixture.rawResource(link.resourceId);
+  const legacyWithoutDescription = { ...stored };
+  delete legacyWithoutDescription.description;
+  const seededLegacyRecord = await fixture.creatorStore.transact({
+    checks: [{ key: `resource:${link.resourceId}`, version: stored.version }],
+    puts: [{ key: `resource:${link.resourceId}`, value: legacyWithoutDescription }],
+  });
+  assert.equal(seededLegacyRecord, true,
+    'the fixture models a legacy missing optional field after the real API established ownership and removal');
+  const before = await fixture.rawResource(link.resourceId);
+  assert.equal(Object.hasOwn(before, 'description'), false);
+
+  const capture = await captureCreatorApi(page);
+  await openLinksView(page, fixture);
+  const editor = page.locator(`[data-retained-resource="${link.resourceId}"] [data-link-edit]`);
+  await expect(editor).toBeVisible();
+  await editor.click();
+  const form = linkEditor(page);
+  await expect(form.getByLabel('Título')).toHaveValue(before.title);
+  await expect(form.getByLabel('URL')).toHaveValue(before.url);
+  await expect(form.getByLabel('Descripción')).toHaveValue('');
+  await form.getByRole('button', { name: 'Guardar cambios' }).click();
+  await capture.settle();
+
+  const patches = capture.writes().filter(({ method, path }) => method === 'PATCH' && path === `/api/creador/recursos/${link.resourceId}`);
+  assert.equal(patches.length, 1, 'the unchanged form reaches the real retired-resource endpoint exactly once');
+  assert.equal(patches[0].body.version, before.version, 'the no-op carries the resource version observed by the editor');
+  assert.ok(Object.hasOwn(patches[0].body, 'title') || Object.hasOwn(patches[0].body, 'url'),
+    'the PATCH carries an unchanged editable field so the service can validate this no-op');
+  if (Object.hasOwn(patches[0].body, 'title')) assert.equal(patches[0].body.title, before.title);
+  if (Object.hasOwn(patches[0].body, 'url')) assert.equal(patches[0].body.url, before.url);
+  assert.equal(Object.hasOwn(patches[0].body, 'description'), false,
+    'unchanged absent description remains omitted');
+  assert.equal(patches[0].status, 200);
+  assert.deepEqual(patches[0].responseBody.versionChanges, []);
+  assert.equal(Object.hasOwn(patches[0].responseBody.resource, 'description'), false);
+  assert.deepEqual(await fixture.rawResource(link.resourceId), before,
+    'the real no-op receipt leaves raw metadata, optional-field presence and resource version unchanged');
+  await expect(form.locator('[data-owner-form-status="enlace"]')).toContainText(/Ficha guardada/i);
+  await expect(page.locator('[data-owner-dialog]')).not.toBeVisible();
+  await capture.stop();
+});
+
+test('guardados canónicos: un no-op de ficha retirada con base obsoleta llega al CAS real y conserva el formulario', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const link = await addLink(fixture, cookie, { title: 'Título guardado', url: 'https://links.example/retirada-obsoleta' });
+  const beforeRemoval = await fixture.rawOwner(cookie);
+  const removal = await api(fixture, cookie, `/api/creador/enlaces/${link.placementId}`, {
+    method: 'DELETE', body: { profileVersion: beforeRemoval.profile.version },
+  });
+  assert.equal(removal.response.status, 204);
+  const before = await fixture.rawResource(link.resourceId);
+
+  const capture = await captureCreatorApi(page);
+  await openLinksView(page, fixture);
+  await page.locator(`[data-retained-resource="${link.resourceId}"] [data-link-edit]`).click();
+  const form = linkEditor(page);
+  await expect(form).toBeVisible();
+  assert.equal(await form.getByLabel('Título').inputValue(), before.title);
+  const concurrent = await api(fixture, cookie, `/api/creador/recursos/${link.resourceId}`, {
+    method: 'PATCH', body: { title: 'Edición concurrente', version: before.version },
+  });
+  assert.equal(concurrent.response.status, 200, 'a separate real API write advances the retired resource while the browser keeps its old base');
+  assert.deepEqual(sortedReceipts(concurrent.body.versionChanges), sortedReceipts([
+    { entity: 'resource', id: link.resourceId, before: before.version, after: before.version + 1 },
+  ]));
+  const concurrentResource = await fixture.rawResource(link.resourceId);
+
+  await form.getByRole('button', { name: 'Guardar cambios' }).click();
+  const resourcePatchPath = `/api/creador/recursos/${link.resourceId}`;
+  await expect.poll(() => capture.writes().find(({ method, path }) => method === 'PATCH' && path === resourcePatchPath)?.status)
+    .toBe(409);
+  const patches = capture.writes().filter(({ method, path }) => method === 'PATCH' && path === resourcePatchPath);
+  assert.equal(patches.length, 1, 'the browser does not short-circuit the unchanged retired-resource Save');
+  assert.equal(patches[0].body.version, before.version);
+  assert.ok(Object.hasOwn(patches[0].body, 'title') || Object.hasOwn(patches[0].body, 'url'));
+  if (Object.hasOwn(patches[0].body, 'title')) assert.equal(patches[0].body.title, before.title);
+  if (Object.hasOwn(patches[0].body, 'url')) assert.equal(patches[0].body.url, before.url);
+  if (!Object.hasOwn(before, 'description')) {
+    assert.equal(Object.hasOwn(patches[0].body, 'description'), false,
+      'an unchanged absent description remains omitted by the stale no-op command');
+  } else if (Object.hasOwn(patches[0].body, 'description')) {
+    assert.equal(patches[0].body.description, before.description,
+      'an unchanged present description may be omitted or sent with its stored value');
+  }
+  assert.equal(patches[0].status, 409);
+  await expect(form.getByRole('heading', { name: 'El enlace cambió' })).toBeVisible();
+  await expect(form.getByLabel('Título')).toHaveValue(before.title,
+    'the stale no-op retains its observed draft instead of adopting the concurrent title');
+  await expect(form.getByLabel('URL')).toHaveValue(before.url);
+  assert.deepEqual(await fixture.rawResource(link.resourceId), concurrentResource,
+    'the stale browser PATCH changes no data after the independent resource commit');
+  await capture.stop({ skipErrorBodies: true });
+});
+
+test('guardados canónicos: agregar capítulo aplica DTO y recibos juntos aunque falle el GET posterior', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const targetSeries = await createSeries(fixture, cookie, { name: 'Serie objetivo', slug: 'serie-objetivo' });
+  const otherSeries = await createSeries(fixture, cookie, { name: 'Otra serie', slug: 'otra-serie' });
+  const link = await addLink(fixture, cookie, { title: 'Capítulo disponible', url: 'https://links.example/capitulo-disponible' });
+  await addChapter(fixture, cookie, otherSeries.id, link.placementId);
+  const beforeOwner = await fixture.rawOwner(cookie);
+  const beforePlacement = await fixture.rawPlacement(cookie, link.placementId);
+  const capture = await captureCreatorApi(page);
+  await openSeriesView(page, fixture, `&serie=${encodeURIComponent(targetSeries.id)}`);
+  const targetRow = page.locator(`[data-chapter-row="${link.placementId}"]`);
+  await expect(targetRow.locator('[data-chapter-add]')).toBeVisible();
+
+  let committedAdd;
+  let postWriteGetFailures = 0;
+  let postWriteGets = 0;
+  const failOnlyFirstPostWriteRead = async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname.replace(/\/$/u, '');
+    if (request.method() === 'PUT' && path === `/api/creador/series/${targetSeries.id}/capitulos/${link.placementId}`) {
+      const response = await route.fetch();
+      const rawBody = await response.text();
+      committedAdd = {
+        status: response.status(),
+        headers: response.headers(),
+        body: rawBody ? JSON.parse(rawBody) : null,
+      };
+      await route.fulfill({ response, body: rawBody });
+      return;
+    }
+    if (committedAdd?.status === 200 && request.method() === 'GET' && path === '/api/creador/perfil') {
+      postWriteGets += 1;
+      if (postWriteGetFailures === 0) {
+        postWriteGetFailures += 1;
+        const actualRead = await route.fetch();
+        assert.equal(actualRead.status(), 200, 'the owner GET reaches the real service before only its transport response is failed');
+        await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'TEST_POST_WRITE_READ_UNAVAILABLE' }) });
+        return;
+      }
+    }
+    await route.continue();
+  };
+  await page.route('**/api/creador/**', failOnlyFirstPostWriteRead);
+  try {
+    await targetRow.locator('[data-chapter-add]').click();
+    await expect(targetRow.locator('[data-chapter-remove]')).toBeVisible();
+    await expect(targetRow.locator('[data-chapter-add]')).toHaveCount(0);
+    await expect(targetRow.locator('[data-chapter-remove]')).toBeEnabled();
+    const committedOwner = await fixture.rawOwner(cookie);
+    const committedPlacement = await fixture.rawPlacement(cookie, link.placementId);
+    assert.equal(committedAdd.status, 200);
+    assert.equal(committedAdd.body.status, 200);
+    assert.equal(committedAdd.body.profileVersion, beforeOwner.profile.version + 1);
+    assert.deepEqual(sortedReceipts(committedAdd.body.versionChanges), sortedReceipts([
+      { entity: 'profile', id: beforeOwner.profile.id, before: beforeOwner.profile.version, after: beforeOwner.profile.version + 1 },
+      { entity: 'placement', id: link.placementId, before: beforePlacement.version, after: beforePlacement.version + 1 },
+    ]));
+    const canonicalTarget = committedAdd.body.links.find(({ placementId }) => placementId === link.placementId);
+    assert.ok(canonicalTarget, 'the chapter command returns the canonical affected placement');
+    assert.deepEqual(canonicalTarget.series.map(({ seriesId }) => seriesId).sort(), [targetSeries.id, otherSeries.id].sort());
+    assert.equal(canonicalTarget.series.find(({ seriesId }) => seriesId === targetSeries.id).position,
+      committedPlacement.series[targetSeries.id].position);
+    assert.equal(canonicalTarget.series.find(({ seriesId }) => seriesId === otherSeries.id).position,
+      beforePlacement.series[otherSeries.id].position);
+    assert.equal(canonicalTarget.placementVersion, committedPlacement.version);
+    assert.deepEqual(committedPlacement.series[otherSeries.id], beforePlacement.series[otherSeries.id],
+      'the pre-existing membership in the other series remains unchanged');
+    assert.equal(committedOwner.profile.version, beforeOwner.profile.version + 1);
+    await expect(page.locator('[data-owner-root]')).toHaveAttribute('data-profile-version', String(committedOwner.profile.version));
+    if (postWriteGets > 0) assert.equal(postWriteGetFailures, 1,
+      'only one actual post-write owner GET response is failed at the transport boundary');
+
+    await targetRow.locator('[data-chapter-remove]').click();
+    await expect(targetRow.locator('[data-chapter-add]')).toBeVisible();
+    await expect(targetRow.locator('[data-chapter-remove]')).toHaveCount(0);
+    await capture.settle();
+    const addWrite = capture.writes().find(({ method, path }) => method === 'PUT' && path === `/api/creador/series/${targetSeries.id}/capitulos/${link.placementId}`);
+    const removeWrite = capture.writes().find(({ method, path }) => method === 'DELETE' && path === `/api/creador/series/${targetSeries.id}/capitulos/${link.placementId}`);
+    assert.ok(addWrite);
+    assert.equal(addWrite.status, 200);
+    assert.ok(removeWrite, 'the next chapter command is sent from the applied add result without a page reload');
+    assert.equal(removeWrite.status, 204);
+    assert.deepEqual(sortedReceipts(receiptsFrom(removeWrite)), sortedReceipts([
+      { entity: 'profile', id: committedOwner.profile.id, before: committedOwner.profile.version, after: committedOwner.profile.version + 1 },
+      { entity: 'placement', id: link.placementId, before: committedPlacement.version, after: committedPlacement.version + 1 },
+    ]), 'the real 204 carries the profile and placement versions for membership removal');
+    const afterRemove = await fixture.rawPlacement(cookie, link.placementId);
+    assert.equal(Object.hasOwn(afterRemove.series ?? {}, targetSeries.id), false);
+    assert.deepEqual(afterRemove.series[otherSeries.id], beforePlacement.series[otherSeries.id],
+      'removing one membership preserves the placement in the other series');
+
+    const editSeriesButton = page.locator('[data-owner-series-chapters] [data-series-edit]');
+    await editSeriesButton.click();
+    const seriesEditForm = seriesForm(page);
+    await expect(seriesEditForm).toBeVisible();
+    await seriesEditForm.getByLabel(/Descripción/).fill('Guardado después de agregar y quitar');
+    await seriesEditForm.getByRole('button', { name: 'Guardar serie' }).click();
+    await capture.settle();
+    const seriesPatch = capture.writes().find(({ method, path }) => method === 'PATCH' && path === `/api/creador/series/${targetSeries.id}`);
+    assert.ok(seriesPatch);
+    assert.equal(seriesPatch.body.profileVersion, committedOwner.profile.version + 1,
+      'the following real series save consumes the profile version returned by the 204 removal');
+    assert.equal(seriesPatch.body.version, targetSeries.version);
+    assert.equal(seriesPatch.status, 200);
+    const afterSeriesSave = await fixture.rawOwner(cookie);
+    assert.equal(afterSeriesSave.profile.version, committedOwner.profile.version + 2);
+    assert.equal((await fixture.rawSeries(cookie, targetSeries.id)).description, 'Guardado después de agregar y quitar');
+    await capture.stop();
+  } finally {
+    await page.unroute('**/api/creador/**', failOnlyFirstPostWriteRead).catch(() => {});
+  }
+});
+
+for (const movementKind of ['link', 'chapter']) {
+  test(`guardados canónicos: el movimiento de ${movementKind === 'link' ? 'un enlace' : 'un capítulo'} aplica sólo sus posiciones observadas`, async ({ fixture, page }, testInfo) => {
+    const cookie = await loggedInOwner(fixture, page);
+    const series = movementKind === 'chapter'
+      ? await createSeries(fixture, cookie, { name: 'Serie del movimiento', slug: 'serie-del-movimiento' })
+      : undefined;
+    const otherSeries = movementKind === 'chapter'
+      ? await createSeries(fixture, cookie, { name: 'Serie independiente', slug: 'serie-independiente' })
+      : undefined;
+    const target = await addLink(fixture, cookie, { title: 'Título observado v1', url: 'https://links.example/movimiento-target' });
+    const neighbor = await addLink(fixture, cookie, { title: 'Vecino observado', url: 'https://links.example/movimiento-neighbor' });
+    if (series && otherSeries) {
+      await addChapter(fixture, cookie, series.id, target.placementId);
+      await addChapter(fixture, cookie, series.id, neighbor.placementId);
+      await addChapter(fixture, cookie, otherSeries.id, target.placementId);
+    }
+    const initialOwner = await fixture.rawOwner(cookie);
+    const initialTargetPlacement = await fixture.rawPlacement(cookie, target.placementId);
+    const initialNeighborPlacement = await fixture.rawPlacement(cookie, neighbor.placementId);
+    const initialTargetResource = await fixture.rawResource(target.resourceId);
+    assert.equal(initialTargetResource.version, target.resourceVersion);
+    const capture = await captureCreatorApi(page);
+    if (series) await openSeriesView(page, fixture, `&serie=${encodeURIComponent(series.id)}`);
+    else await openLinksView(page, fixture);
+    const initialRowSelector = movementKind === 'link'
+      ? `[data-link-row="${target.placementId}"]`
+      : `[data-chapter-row="${target.placementId}"]`;
+    await expect(page.locator(`${initialRowSelector} ${movementKind === 'link' ? '[data-link-title]' : 'h4'}`)).toHaveText('Título observado v1');
+
+    const external = await api(fixture, cookie, `/api/creador/recursos/${target.resourceId}`, {
+      method: 'PATCH', body: { title: 'Título externo v2', description: 'Descripción externa v2', version: initialTargetResource.version },
+    });
+    assert.equal(external.response.status, 200);
+    assert.deepEqual(sortedReceipts(external.body.versionChanges), sortedReceipts([
+      { entity: 'resource', id: target.resourceId, before: initialTargetResource.version, after: initialTargetResource.version + 1 },
+    ]), 'a separate real resource PATCH advances metadata after the browser loaded version 1');
+    const externalResource = await fixture.rawResource(target.resourceId);
+    assert.equal(externalResource.version, initialTargetResource.version + 1);
+
+    if (movementKind === 'link') {
+      const row = page.locator(`[data-link-row="${target.placementId}"]`);
+      await row.locator('[data-link-move]').click();
+      const moveForm = page.locator('[data-owner-dialog] form[data-owner-form="mover-enlace"]');
+      await moveForm.getByLabel('Posición dentro del grupo').fill('2');
+      await moveForm.getByRole('button', { name: 'Guardar posición' }).click();
+      await capture.settle();
+      const movePath = `/api/creador/enlaces/${target.placementId}/mover`;
+      const move = capture.writes().find(({ method, path }) => method === 'POST' && path === movePath);
+      assert.ok(move);
+      assert.deepEqual(move.body, {
+        profileVersion: initialOwner.profile.version,
+        placementVersion: initialTargetPlacement.version,
+        targetPosition: 2,
+      });
+      assert.equal(move.status, 200);
+      const moveTarget = move.responseBody.links.find(({ placementId }) => placementId === target.placementId);
+      assert.equal(moveTarget.title, externalResource.title);
+      assert.equal(moveTarget.resourceVersion, externalResource.version,
+        'the genuine move DTO contains the resource observation made after the page loaded');
+      const movedPlacement = await fixture.rawPlacement(cookie, target.placementId);
+      const movedNeighbor = await fixture.rawPlacement(cookie, neighbor.placementId);
+      const movedOwner = await fixture.rawOwner(cookie);
+      assert.equal(moveTarget.position, movedPlacement.position);
+      assert.equal(moveTarget.placementVersion, movedPlacement.version);
+      assert.notEqual(movedPlacement.position, initialTargetPlacement.position,
+        'the requested target moved to the other position in its group');
+      assert.deepEqual([
+        { id: target.placementId, position: movedPlacement.position },
+        { id: neighbor.placementId, position: movedNeighbor.position },
+      ].sort((left, right) => left.position - right.position || left.id.localeCompare(right.id)).map(({ id }) => id),
+      [neighbor.placementId, target.placementId], 'targetPosition 2 places the neighbor before the target');
+      const expectedMoveReceipts = [
+        { entity: 'profile', id: initialOwner.profile.id, before: initialOwner.profile.version, after: initialOwner.profile.version + 1 },
+        ...(movedPlacement.version === initialTargetPlacement.version
+          ? [] : [{ entity: 'placement', id: target.placementId, before: initialTargetPlacement.version, after: movedPlacement.version }]),
+        ...(movedNeighbor.version === initialNeighborPlacement.version
+          ? [] : [{ entity: 'placement', id: neighbor.placementId, before: initialNeighborPlacement.version, after: movedNeighbor.version }]),
+      ];
+      assert.equal(movedOwner.profile.version, initialOwner.profile.version + 1);
+      assert.deepEqual(sortedReceipts(receiptsFrom(move)), sortedReceipts(expectedMoveReceipts),
+        'the receipt participants match the placement records that actually changed');
+      await expect(page.locator(`[data-link-row="${target.placementId}"] [data-link-title]`)).toHaveText('Título observado v1',
+        'the browser applies the placement receipt without adopting newer resource metadata from the move DTO');
+
+      await page.locator(`[data-link-row="${target.placementId}"] [data-link-edit]`).click();
+      const form = linkEditor(page);
+      await expect(form.getByLabel('Título')).toHaveValue('Título observado v1');
+      const titleInput = form.locator('#owner-link-title');
+      await titleInput.fill('Corrección manual');
+      await form.getByRole('button', { name: 'Guardar cambios' }).click();
+      const staleEditPath = `/api/creador/enlaces/${target.placementId}/editar`;
+      await expect.poll(() => capture.writes().find(({ method, path }) => method === 'PATCH' && path === staleEditPath)?.status)
+        .toBe(409);
+      const stalePatch = capture.writes().find(({ method, path, status }) => method === 'PATCH'
+        && path === staleEditPath && status === 409);
+      assert.ok(stalePatch, 'the following manual metadata Save reaches the server with the original resource base and conflicts');
+      assert.equal(stalePatch.body.profileVersion, movedOwner.profile.version);
+      assert.equal(stalePatch.body.resourceVersion, initialTargetResource.version);
+      assert.equal(stalePatch.body.placementVersion, movedPlacement.version);
+
+      const conflictSection = form.locator('[data-link-conflict]');
+      const compareButton = conflictSection.locator('[data-owner-compare]');
+      assert.equal(await compareButton.count(), 1,
+        `the real 409 retains one compare control; conflict count ${await conflictSection.count()}`);
+      const beforeCompare = await conflictSection.evaluate((section) => ({
+        hidden: section.hidden,
+        ariaHidden: section.getAttribute('aria-hidden'),
+        formBusy: section.closest('form')?.getAttribute('aria-busy'),
+        buttons: [...section.querySelectorAll('button')].map((button) => ({
+          text: button.textContent?.trim(),
+          hidden: button.hidden,
+          disabled: button.disabled,
+          ariaDisabled: button.getAttribute('aria-disabled'),
+        })),
+      }));
+      await testInfo.attach('link-conflict-before-compare', {
+        body: JSON.stringify(beforeCompare, null, 2),
+        contentType: 'application/json',
+      });
+      await expect(form).not.toHaveAttribute('aria-busy', 'true');
+      await expect(conflictSection).toBeVisible();
+      await expect(compareButton).toBeEnabled();
+      await compareButton.click();
+      await expect(form.locator('[data-owner-comparison]')).toBeVisible();
+      await expect(form.locator('[data-owner-comparison]')).toContainText('Título externo v2');
+      await expect(form.locator('[data-owner-comparison]')).toContainText(/tu corrección.*Corrección manual/i,
+        'the comparison after the 409 shows that the unsaved metadata correction remains in the editor');
+      await form.locator('[data-owner-adopt]').click();
+      await expect(titleInput).toHaveValue('Título externo v2');
+      await titleInput.fill('Corrección manual');
+      await form.getByRole('button', { name: 'Guardar cambios' }).click();
+      const staleAndFinalPatches = () => capture.writes().filter(({ method, path }) => method === 'PATCH' && path === staleEditPath);
+      await expect.poll(() => staleAndFinalPatches().find(({ status }) => status === 200)?.status).toBe(200);
+      await capture.settle({ skipErrorBodies: true });
+      const updates = staleAndFinalPatches();
+      assert.equal(updates.length, 2, 'the stale request is not replayed; the manual correction is a distinct later command');
+      assert.equal(updates[0].status, 409);
+      assert.equal(updates[1].body.resourceVersion, externalResource.version,
+        'the explicit GET adoption installs the real resource version before the manual retry');
+      assert.equal(updates[1].body.profileVersion, movedOwner.profile.version);
+      assert.equal(updates[1].status, 200);
+      assert.deepEqual(sortedReceipts(receiptsFrom(updates[1])), sortedReceipts([
+        { entity: 'profile', id: movedOwner.profile.id, before: movedOwner.profile.version, after: movedOwner.profile.version + 1 },
+        { entity: 'resource', id: target.resourceId, before: externalResource.version, after: externalResource.version + 1 },
+      ]));
+      const saved = await fixture.rawResource(target.resourceId);
+      assert.deepEqual({ title: saved.title, description: saved.description, version: saved.version }, {
+        title: 'Corrección manual', description: 'Descripción externa v2', version: externalResource.version + 1,
+      });
+      assert.equal((await fixture.rawPlacement(cookie, target.placementId)).position, movedPlacement.position);
+      assert.equal(capture.writes().filter(({ method, path }) => method === 'POST' && path === movePath).length, 1,
+        'comparison, adoption and the later metadata Save do not replay the move');
+      await capture.stop({ skipErrorBodies: true });
+    } else {
+      const row = page.locator(`[data-chapter-row="${target.placementId}"]`);
+      await row.locator('[data-chapter-move]').click();
+      const moveForm = page.locator('[data-owner-dialog] form[data-owner-form="mover-capitulo"]');
+      await moveForm.getByLabel('Posición en esta serie').fill('2');
+      await moveForm.getByRole('button', { name: 'Guardar posición' }).click();
+      await capture.settle();
+      const movePath = `/api/creador/series/${series.id}/capitulos/${target.placementId}/mover`;
+      const move = capture.writes().find(({ method, path }) => method === 'POST' && path === movePath);
+      assert.ok(move);
+      assert.deepEqual(move.body, {
+        profileVersion: initialOwner.profile.version,
+        seriesVersion: series.version,
+        placementVersion: initialTargetPlacement.version,
+        targetPosition: 2,
+      });
+      assert.equal(move.status, 200);
+      const moveTarget = move.responseBody.links.find(({ placementId }) => placementId === target.placementId);
+      assert.equal(moveTarget.title, externalResource.title);
+      assert.equal(moveTarget.resourceVersion, externalResource.version,
+        'the genuine chapter-move DTO contains the resource observation made after the page loaded');
+      const movedPlacement = await fixture.rawPlacement(cookie, target.placementId);
+      const movedNeighbor = await fixture.rawPlacement(cookie, neighbor.placementId);
+      const movedOwner = await fixture.rawOwner(cookie);
+      assert.equal(movedPlacement.series[series.id].position,
+        moveTarget.series.find(({ seriesId }) => seriesId === series.id).position);
+      assert.deepEqual(movedPlacement.series[otherSeries.id], initialTargetPlacement.series[otherSeries.id],
+        'the target retains its membership and position in the independent series');
+      assert.equal(movedPlacement.featured, initialTargetPlacement.featured);
+      assert.equal(movedPlacement.selectedForDirectory, initialTargetPlacement.selectedForDirectory);
+      assert.notEqual(movedPlacement.series[series.id].position, initialTargetPlacement.series[series.id].position,
+        'the target moved to the requested ordinal in this series');
+      assert.deepEqual([
+        { id: target.placementId, position: movedPlacement.series[series.id].position },
+        { id: neighbor.placementId, position: movedNeighbor.series[series.id].position },
+      ].sort((left, right) => left.position - right.position || left.id.localeCompare(right.id)).map(({ id }) => id),
+      [neighbor.placementId, target.placementId], 'targetPosition 2 places the neighbor before the target in this series');
+      const expectedMoveReceipts = [
+        { entity: 'profile', id: initialOwner.profile.id, before: initialOwner.profile.version, after: initialOwner.profile.version + 1 },
+        ...(movedPlacement.version === initialTargetPlacement.version
+          ? [] : [{ entity: 'placement', id: target.placementId, before: initialTargetPlacement.version, after: movedPlacement.version }]),
+        ...(movedNeighbor.version === initialNeighborPlacement.version
+          ? [] : [{ entity: 'placement', id: neighbor.placementId, before: initialNeighborPlacement.version, after: movedNeighbor.version }]),
+      ];
+      assert.deepEqual(sortedReceipts(receiptsFrom(move)), sortedReceipts(expectedMoveReceipts),
+        'the receipt participants match the placement records that actually changed');
+      assert.equal(movedOwner.profile.version, initialOwner.profile.version + 1);
+      await expect(page.locator(`[data-chapter-row="${target.placementId}"] h4`)).toHaveText('Título observado v1',
+        'the chapter editor retains its resource metadata while applying only this series placement');
+
+      await page.locator(`[data-chapter-row="${target.placementId}"] [data-chapter-move]`).click();
+      const nextMoveForm = page.locator('[data-owner-dialog] form[data-owner-form="mover-capitulo"]');
+      await nextMoveForm.getByLabel('Posición en esta serie').fill('1');
+      await nextMoveForm.getByRole('button', { name: 'Guardar posición' }).click();
+      await capture.settle();
+      const moves = capture.writes().filter(({ method, path }) => method === 'POST' && path === movePath);
+      assert.equal(moves.length, 2, 'a second real chapter command continues without reloading the owner page');
+      assert.equal(moves[1].body.profileVersion, movedOwner.profile.version,
+        'the next chapter command consumes the profile version from the first move receipt');
+      assert.equal(moves[1].body.placementVersion, movedPlacement.version,
+        'the next chapter command consumes the target placement version from the first move receipt');
+      assert.equal(moves[1].status, 200);
+      const secondMoveOwner = await fixture.rawOwner(cookie);
+      const secondMoveTarget = await fixture.rawPlacement(cookie, target.placementId);
+      const secondMoveNeighbor = await fixture.rawPlacement(cookie, neighbor.placementId);
+      assert.equal(secondMoveOwner.profile.version, movedOwner.profile.version + 1);
+      assert.deepEqual([
+        { id: target.placementId, position: secondMoveTarget.series[series.id].position },
+        { id: neighbor.placementId, position: secondMoveNeighbor.series[series.id].position },
+      ].sort((left, right) => left.position - right.position || left.id.localeCompare(right.id)).map(({ id }) => id),
+      [target.placementId, neighbor.placementId], 'the next targetPosition 1 puts the target before the neighbor');
+      assert.equal((await fixture.rawResource(target.resourceId)).version, externalResource.version,
+        'chapter movement leaves the separately changed resource version alone');
+    }
+    if (movementKind !== 'link') await capture.stop();
+  });
+}
+
+for (const malformedReceipt of [
+  'un recibo de serie ajeno',
+  'un recibo de perfil duplicado',
+  'la falta del recibo de perfil',
+  'una versión del DTO incompatible con el recibo',
+]) {
+  test(`guardados canónicos: el perfil no adopta ${malformedReceipt} y permite comparar y guardar manualmente`, async ({ fixture, page }) => {
+    const cookie = await loggedInOwner(fixture, page);
+    const unrelatedSeries = malformedReceipt === 'un recibo de serie ajeno'
+      ? await createSeries(fixture, cookie, { name: 'Serie sin cambios', slug: 'serie-sin-cambios' })
+      : undefined;
+    const beforeOwner = await fixture.rawOwner(cookie);
+    const capture = await captureCreatorApi(page);
+    await page.goto(`${fixture.origin}/cuenta/`);
+    await expect(page.locator('[data-creator-owner]')).toBeVisible();
+    await page.getByRole('button', { name: 'Editar datos' }).click();
+    const form = page.locator('[data-owner-dialog] form[data-owner-form="datos"]');
+    await form.getByLabel('Ciudad').fill('Ciudad A comprometida');
+
+    let signalCommit;
+    let releaseResponse;
+    const committed = new Promise((resolve) => { signalCommit = resolve; });
+    const responseGate = new Promise((resolve) => { releaseResponse = resolve; });
+    let actualCommit;
+    const holdAndCorruptReceipt = async (route) => {
+      const request = route.request();
+      const path = new URL(request.url()).pathname.replace(/\/$/u, '');
+      if (request.method() !== 'PUT' || path !== '/api/creador/perfil') {
+        await route.continue();
+        return;
+      }
+      const response = await route.fetch();
+      const payload = await response.json();
+      const headers = response.headers();
+      const genuineReceipts = payload.versionChanges;
+      actualCommit = { status: response.status(), body: payload, headers, requestBody: JSON.parse(request.postData()), genuineReceipts };
+      signalCommit();
+      await responseGate;
+      const deliveredReceipts = [...genuineReceipts];
+      if (malformedReceipt === 'un recibo de serie ajeno') {
+        deliveredReceipts.push({ entity: 'series', id: unrelatedSeries.id, before: unrelatedSeries.version, after: unrelatedSeries.version + 1 });
+      } else if (malformedReceipt === 'un recibo de perfil duplicado') {
+        deliveredReceipts.push({ ...genuineReceipts[0] });
+      } else if (malformedReceipt === 'la falta del recibo de perfil') {
+        deliveredReceipts.splice(0, 1);
+      } else {
+        payload.profile = { ...payload.profile, version: payload.profile.version + 1 };
+      }
+      payload.versionChanges = deliveredReceipts;
+      await route.fulfill({ response, json: payload });
+    };
+    await page.route('**/api/creador/**', holdAndCorruptReceipt);
+    let save;
+    try {
+      save = form.getByRole('button', { name: 'Guardar datos' }).click();
+      await committed;
+      assert.equal(actualCommit.status, 200, 'the real profile service commits before only the acknowledgement is altered');
+      assert.deepEqual(sortedReceipts(actualCommit.genuineReceipts), sortedReceipts([
+        { entity: 'profile', id: beforeOwner.profile.id, before: beforeOwner.profile.version, after: beforeOwner.profile.version + 1 },
+      ]));
+      assert.equal((await fixture.rawOwner(cookie)).profile.city, 'Ciudad A comprometida');
+      await form.getByLabel('Ciudad').fill('Ciudad B pendiente');
+      releaseResponse();
+      await save;
+    } finally {
+      releaseResponse();
+      await page.unroute('**/api/creador/**', holdAndCorruptReceipt).catch(() => {});
+      await save?.catch(() => {});
+    }
+    await capture.settle();
+    const profileWrites = capture.writes().filter(({ method, path }) => method === 'PUT' && path === '/api/creador/perfil');
+    assert.equal(profileWrites.length, 1, 'the malformed successful acknowledgement does not replay the committed PUT');
+    assert.equal(profileWrites[0].status, 200);
+    const genuineProfileReceipt = {
+      entity: 'profile', id: beforeOwner.profile.id,
+      before: beforeOwner.profile.version, after: beforeOwner.profile.version + 1,
+    };
+    const malformedReceipts = malformedReceipt === 'un recibo de serie ajeno'
+      ? [
+        { entity: 'profile', id: beforeOwner.profile.id, before: beforeOwner.profile.version, after: beforeOwner.profile.version + 1 },
+        { entity: 'series', id: unrelatedSeries.id, before: unrelatedSeries.version, after: unrelatedSeries.version + 1 },
+      ]
+      : malformedReceipt === 'un recibo de perfil duplicado'
+        ? [
+        { entity: 'profile', id: beforeOwner.profile.id, before: beforeOwner.profile.version, after: beforeOwner.profile.version + 1 },
+        { entity: 'profile', id: beforeOwner.profile.id, before: beforeOwner.profile.version, after: beforeOwner.profile.version + 1 },
+        ]
+        : malformedReceipt === 'la falta del recibo de perfil' ? [] : [genuineProfileReceipt];
+    assert.deepEqual(sortedReceipts(receiptsFrom(profileWrites[0])), sortedReceipts(malformedReceipts),
+      'the browser receives the intended extra or duplicate receipt after the real profile commit');
+    if (malformedReceipt === 'una versión del DTO incompatible con el recibo') {
+      assert.equal(profileWrites[0].responseBody.profile.version, beforeOwner.profile.version + 2,
+        'the malformed profile DTO is one version ahead of the genuine receipt and persisted commit');
+    }
+    assert.equal(await page.locator('[data-owner-root]').getAttribute('data-profile-version'), String(beforeOwner.profile.version));
+    await expect(form.getByLabel('Ciudad')).toHaveValue('Ciudad B pendiente',
+      'the late correction remains in the form until the user makes an explicit comparison choice');
+    await expect(form.locator('[data-owner-conflict]')).toBeVisible();
+    await expect(form.locator('[data-owner-form-status="datos"]')).toContainText(/recibo de versión válido|no pudimos comprobar el recibo/i);
+    assert.equal(profileWrites[0].body.city, 'Ciudad A comprometida');
+
+    await form.locator('[data-owner-compare]').click();
+    await expect(form.locator('[data-owner-comparison]')).toBeVisible();
+    await expect(form.locator('[data-owner-comparison]')).toContainText('Ciudad A comprometida');
+    await expect(form.locator('[data-owner-comparison]')).toContainText('Ciudad B pendiente');
+    await form.locator('[data-owner-adopt]').click();
+    await expect(form.getByLabel('Ciudad')).toHaveValue('Ciudad A comprometida');
+    await expect(page.locator('[data-owner-root]')).toHaveAttribute('data-profile-version', String(beforeOwner.profile.version + 1));
+    await form.getByLabel('Ciudad').fill('Ciudad B pendiente');
+    await form.getByRole('button', { name: 'Guardar datos' }).click();
+    await capture.settle();
+    const finalWrites = capture.writes().filter(({ method, path }) => method === 'PUT' && path === '/api/creador/perfil');
+    assert.equal(finalWrites.length, 2, 'the next PUT is a distinct manual save after explicit GET adoption');
+    assert.equal(finalWrites[1].body.version, beforeOwner.profile.version + 1);
+    assert.equal(finalWrites[1].body.city, 'Ciudad B pendiente');
+    assert.equal(finalWrites[1].status, 200);
+    assert.deepEqual(sortedReceipts(receiptsFrom(finalWrites[1])), sortedReceipts([
+      { entity: 'profile', id: beforeOwner.profile.id, before: beforeOwner.profile.version + 1, after: beforeOwner.profile.version + 2 },
+    ]));
+    assert.deepEqual(capture.writes().map(({ method, path, status }) => ({ method, path, status })), [
+      { method: 'PUT', path: '/api/creador/perfil', status: 200 },
+      { method: 'PUT', path: '/api/creador/perfil', status: 200 },
+    ], 'there is no retry between malformed acknowledgement, comparison, adoption and manual save');
+    const finalOwner = await fixture.rawOwner(cookie);
+    assert.equal(finalOwner.profile.city, 'Ciudad B pendiente');
+    assert.equal(finalOwner.profile.version, beforeOwner.profile.version + 2);
+    if (unrelatedSeries) assert.equal((await fixture.rawSeries(cookie, unrelatedSeries.id)).version, unrelatedSeries.version,
+      'an unrelated known series named by the malformed receipt is not changed');
+    await capture.stop();
+  });
+}
+
+for (const inconsistentObservation of ['versión distinta', 'título distinto', 'presencia de descripción distinta']) {
+  test(`guardados canónicos: un GET con el mismo recurso y ${inconsistentObservation} se rechaza y permite reintentar`, async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const link = await addLink(fixture, cookie, { title: 'Título inicial', url: 'https://links.example/observacion-repetida' });
+  const initialOwner = await fixture.rawOwner(cookie);
+  const initialResource = await fixture.rawResource(link.resourceId);
+  const initialPlacement = await fixture.rawPlacement(cookie, link.placementId);
+  const capture = await captureCreatorApi(page);
+  await openLinksView(page, fixture);
+  await page.locator(`[data-link-row="${link.placementId}"] [data-link-edit]`).click();
+  const form = linkEditor(page);
+  await form.getByLabel('Título').fill('Título A confirmado');
+
+  let signalCommit;
+  let releaseAck;
+  const committed = new Promise((resolve) => { signalCommit = resolve; });
+  const ackGate = new Promise((resolve) => { releaseAck = resolve; });
+  let actualCommit;
+  let corruptNextLinkAck = true;
+  let corruptNextOwnerRead = true;
+  const corruptAckThenOneOwnerRead = async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname.replace(/\/$/u, '');
+    if (corruptNextLinkAck && request.method() === 'PATCH' && path === `/api/creador/enlaces/${link.placementId}/editar`) {
+      corruptNextLinkAck = false;
+      const response = await route.fetch();
+      const payload = await response.json();
+      const headers = response.headers();
+      const changes = payload.versionChanges;
+      const wrongBase = changes.map((change) => change.entity === 'resource' && change.id === link.resourceId
+        ? { ...change, before: change.before + 1, after: change.after + 1 }
+        : change);
+      actualCommit = { status: response.status(), payload, headers, changes, wrongBase };
+      signalCommit();
+      await ackGate;
+      payload.link = { ...payload.link, resourceVersion: payload.link.resourceVersion + 1 };
+      payload.versionChanges = wrongBase;
+      await route.fulfill({ response, json: payload });
+      return;
+    }
+    if (corruptNextOwnerRead && request.method() === 'GET' && path === '/api/creador/perfil') {
+      corruptNextOwnerRead = false;
+      const actual = await route.fetch();
+      assert.equal(actual.status(), 200);
+      const payload = await actual.json();
+      const linkedCopy = payload.links.find(({ resourceId }) => resourceId === link.resourceId);
+      const editableCopy = payload.editableResources.find(({ id }) => id === link.resourceId);
+      assert.ok(linkedCopy && editableCopy, 'the real owner response repeats this owned resource in both authorized projections');
+      if (inconsistentObservation === 'versión distinta') editableCopy.version += 1;
+      else if (inconsistentObservation === 'título distinto') editableCopy.title = 'Contradicción de transporte';
+      else {
+        assert.equal(Object.hasOwn(linkedCopy, 'description'), true);
+        assert.equal(editableCopy.description, linkedCopy.description);
+        delete editableCopy.description;
+      }
+      await route.fulfill({ response: actual, json: payload });
+      return;
+    }
+    await route.continue();
+  };
+  await page.route('**/api/creador/**', corruptAckThenOneOwnerRead);
+  let saveA;
+  let committedResource;
+  let committedOwner;
+  try {
+    saveA = form.getByRole('button', { name: 'Guardar cambios' }).click();
+    await committed;
+    assert.equal(actualCommit.status, 200, 'the real link service commits before the acknowledgement receipt base is changed');
+    assert.deepEqual(sortedReceipts(actualCommit.changes), sortedReceipts([
+      { entity: 'profile', id: initialOwner.profile.id, before: initialOwner.profile.version, after: initialOwner.profile.version + 1 },
+      { entity: 'resource', id: link.resourceId, before: initialResource.version, after: initialResource.version + 1 },
+    ]));
+    committedResource = await fixture.rawResource(link.resourceId);
+    committedOwner = await fixture.rawOwner(cookie);
+    assert.equal(committedResource.title, 'Título A confirmado');
+    assert.equal(committedResource.version, initialResource.version + 1);
+    assert.equal(committedOwner.profile.version, initialOwner.profile.version + 1);
+    await form.getByLabel('Título').fill('Corrección B pendiente');
+    releaseAck();
+    await saveA;
+  } finally {
+    releaseAck();
+    await saveA?.catch(() => {});
+  }
+  await capture.settle();
+  const patches = capture.writes().filter(({ method, path }) => method === 'PATCH' && path === `/api/creador/enlaces/${link.placementId}/editar`);
+  assert.equal(patches.length, 1, 'an invalid receipt is not replayed as another atomic link write');
+  assert.equal(patches[0].status, 200);
+  assert.deepEqual(sortedReceipts(receiptsFrom(patches[0])), sortedReceipts(actualCommit.wrongBase));
+  const deliveredResourceReceipt = actualCommit.wrongBase.find(({ entity, id }) => entity === 'resource' && id === link.resourceId);
+  assert.ok(deliveredResourceReceipt);
+  assert.equal(deliveredResourceReceipt.before, initialResource.version + 1,
+    'the delivered resource receipt starts one version beyond the command base');
+  assert.equal(deliveredResourceReceipt.after, deliveredResourceReceipt.before + 1,
+    'the delivered resource receipt still describes a coherent single-version transition');
+  assert.equal(patches[0].responseBody.link.resourceVersion, deliveredResourceReceipt.after,
+    'the delivered DTO version matches the receipt after value');
+  assert.equal(patches[0].body.resourceVersion, initialResource.version,
+    'the command still carries the original observed resource base');
+  await expect(form.locator('[data-link-conflict]')).toBeVisible();
+  await expect(form.getByLabel('Título')).toHaveValue('Corrección B pendiente');
+  await expect(page.locator('[data-owner-root]')).toHaveAttribute('data-profile-version', String(initialOwner.profile.version));
+
+  await form.locator('[data-owner-compare]').click();
+  const compareStatus = form.locator('[data-owner-form-status="enlace"]');
+  await expect(compareStatus).not.toContainText(/consultando la versión guardada/i);
+  const malformedReadRejected = await form.locator('[data-owner-comparison]').isHidden()
+    && await form.locator('[data-owner-adopt]').isHidden()
+    && /no pudimos confirmar|no pudimos leer|no pudimos conectar/i.test(await compareStatus.textContent() ?? '');
+  await expect(form.getByLabel('Título')).toHaveValue('Corrección B pendiente');
+  await expect(page.locator(`[data-link-row="${link.placementId}"] [data-link-title]`)).toHaveText('Título inicial');
+  await expect(page.locator('[data-owner-root]')).toHaveAttribute('data-profile-version', String(initialOwner.profile.version));
+  assert.deepEqual(await fixture.rawPlacement(cookie, link.placementId), initialPlacement,
+    'the malformed GET does not change the actual placement');
+  assert.equal((await fixture.rawResource(link.resourceId)).version, committedResource.version);
+
+  await form.locator('[data-owner-compare]').click();
+  await expect(form.locator('[data-owner-comparison]')).toBeVisible();
+  await expect(form.locator('[data-owner-comparison]')).toContainText('Título A confirmado');
+  await expect(form.locator('[data-owner-comparison]')).toContainText('Corrección B pendiente');
+  await form.locator('[data-owner-adopt]').click();
+  await expect(form.getByLabel('Título')).toHaveValue('Título A confirmado');
+  await expect(page.locator('[data-owner-root]')).toHaveAttribute('data-profile-version', String(committedOwner.profile.version));
+  await form.getByLabel('Título').fill('Corrección B pendiente');
+  await form.getByRole('button', { name: 'Guardar cambios' }).click();
+  await capture.settle();
+
+  const finalPatches = capture.writes().filter(({ method, path }) => method === 'PATCH' && path === `/api/creador/enlaces/${link.placementId}/editar`);
+  assert.equal(finalPatches.length, 2, 'one original command and one later manual correction are the only PATCH requests');
+  assert.equal(finalPatches[0].body.title, 'Título A confirmado');
+  assert.equal(finalPatches[1].body.title, 'Corrección B pendiente');
+  assert.equal(finalPatches[1].body.profileVersion, committedOwner.profile.version);
+  assert.equal(finalPatches[1].body.resourceVersion, committedResource.version);
+  assert.equal(finalPatches[1].body.placementVersion, initialPlacement.version);
+  assert.equal(finalPatches[1].status, 200);
+  assert.deepEqual(sortedReceipts(receiptsFrom(finalPatches[1])), sortedReceipts([
+    { entity: 'profile', id: committedOwner.profile.id, before: committedOwner.profile.version, after: committedOwner.profile.version + 1 },
+    { entity: 'resource', id: link.resourceId, before: committedResource.version, after: committedResource.version + 1 },
+  ]));
+  const ownerReads = capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil');
+  assert.equal(ownerReads.length, 2, 'the first malformed comparison is rejected and a second real GET supplies the explicit adoption');
+  const firstReadLink = ownerReads[0].responseBody.links.find(({ resourceId }) => resourceId === link.resourceId);
+  const firstReadEditable = ownerReads[0].responseBody.editableResources.find(({ id }) => id === link.resourceId);
+  const comparableObservation = (value, version) => ({
+    title: value.title, version,
+    ...(Object.hasOwn(value, 'description') ? { description: value.description } : {}),
+  });
+  assert.notDeepEqual(comparableObservation(firstReadLink, firstReadLink.resourceVersion), comparableObservation(firstReadEditable, firstReadEditable.version),
+    'the first comparison saw the contradictory transport copies');
+  if (inconsistentObservation === 'versión distinta') {
+    assert.equal(firstReadEditable.title, firstReadLink.title,
+      'the version-only mutation preserves the title in both real projections');
+    assert.equal(firstReadEditable.version, firstReadLink.resourceVersion + 1,
+      'only the editable projection version differs from the linked projection');
+  } else if (inconsistentObservation === 'título distinto') {
+    assert.equal(firstReadEditable.title, 'Contradicción de transporte');
+    assert.equal(firstReadEditable.version, firstReadLink.resourceVersion,
+      'the title-only mutation preserves the resource version in both real projections');
+  } else {
+    assert.equal(firstReadEditable.title, firstReadLink.title);
+    assert.equal(firstReadEditable.version, firstReadLink.resourceVersion);
+    assert.equal(Object.hasOwn(firstReadLink, 'description'), true);
+    assert.equal(Object.hasOwn(firstReadEditable, 'description'), false,
+      'only optional-field presence differs, with identical title and version');
+  }
+  const secondReadLink = ownerReads[1].responseBody.links.find(({ resourceId }) => resourceId === link.resourceId);
+  const secondReadEditable = ownerReads[1].responseBody.editableResources.find(({ id }) => id === link.resourceId);
+  assert.deepEqual({ title: secondReadLink.title, version: secondReadLink.resourceVersion }, { title: secondReadEditable.title, version: secondReadEditable.version },
+    'the retry reads consistent real projections before adoption');
+  const finalResource = await fixture.rawResource(link.resourceId);
+  assert.equal(finalResource.title, 'Corrección B pendiente');
+  assert.equal(finalResource.version, committedResource.version + 1);
+  assert.equal(malformedReadRejected, true,
+    'the contradictory repeated-resource observation is rejected without adopting it; the next valid comparison remains available');
+  await page.unroute('**/api/creador/**', corruptAckThenOneOwnerRead).catch(() => {});
+  await capture.stop();
+  });
+}

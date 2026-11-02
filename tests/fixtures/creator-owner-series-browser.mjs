@@ -470,7 +470,12 @@ function createSeriesApi(surface, { override } = {}) {
       if (request.body.profileVersion !== state.profile.version) return jsonResponse({ error: 'PROFILE_CONFLICT' }, 409);
       const membership = link.series.find((item) => item.seriesId === seriesId);
       if (request.method === 'PUT') {
-        if (membership) return jsonResponse({ status: 200, versionChanges: [] });
+        if (membership) return jsonResponse({
+          status: 200,
+          profileVersion: state.profile.version,
+          links: ownerDto(state).links.filter(({ placementId: id }) => id === placementId),
+          versionChanges: [],
+        });
         const beforeProfile = state.profile.version;
         const beforePlacement = link.placementVersion;
         const position = state.links.flatMap((candidate) => candidate.series)
@@ -479,10 +484,15 @@ function createSeriesApi(surface, { override } = {}) {
         link.series.push({ seriesId, position });
         link.placementVersion += 1;
         state.profile.version += 1;
-        return jsonResponse({ status: 200, versionChanges: [
-          receipt('profile', state.profile.id, beforeProfile, state.profile.version),
-          receipt('placement', link.placementId, beforePlacement, link.placementVersion),
-        ] });
+        return jsonResponse({
+          status: 200,
+          profileVersion: state.profile.version,
+          links: ownerDto(state).links.filter(({ placementId: id }) => id === placementId),
+          versionChanges: [
+            receipt('profile', state.profile.id, beforeProfile, state.profile.version),
+            receipt('placement', link.placementId, beforePlacement, link.placementVersion),
+          ],
+        });
       }
       if (request.method === 'DELETE') {
         if (!membership) return jsonResponse({ error: 'SERIES_MEMBERSHIP_NOT_FOUND' }, 404);
