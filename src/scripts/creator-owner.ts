@@ -1,7 +1,14 @@
 import type { CreatorCatalogSelectionDTO, CreatorClaimDTO, CreatorClaimResourceDTO, CreatorEditableResourceDTO, CreatorEditorDTO, CreatorLinkDTO, CreatorProfileDTO, CreatorProgram, CreatorSeriesDTO, CreatorSocial } from '../types/creators';
+import { creatorResourceProjectionsAgree } from '../lib/creator-resource-consistency';
+import { normalizeCreatorText } from '../lib/creator-values.mjs';
 import { createCreatorFormState, type FormValueSnapshot } from './creator-form-state';
 import { createCreatorSessionRecovery } from './creator-session-recovery';
-import { createCreatorWriteGuard, readCreatorVersionChanges, type CreatorVersionChange } from './creator-write-state';
+import {
+  createCreatorWriteGuard,
+  readCreatorVersionChanges,
+  validateCreatorOwnerReceipts,
+  type CreatorOwnerReceiptParticipant,
+} from './creator-write-state';
 import { creatorSeriesFailureMessage } from '../lib/creator-series-editor-errors';
 import {
   creatorOwnerLinksCountLabel,
@@ -75,6 +82,7 @@ function isCreatorClaim(value: unknown): value is CreatorClaimDTO {
 function isOwnerData(value: unknown): value is CreatorEditorDTO {
   return isRecord(value) && (value.profile === null || isProfile(value.profile))
     && Array.isArray(value.links) && Array.isArray(value.editableResources)
+    && creatorResourceProjectionsAgree(value.links, value.editableResources)
     && Array.isArray(value.claims) && value.claims.every(isCreatorClaim) && Array.isArray(value.series);
 }
 
@@ -1900,7 +1908,7 @@ function setChapterMoveDescription(form: HTMLFormElement, seriesId: string, plac
 }
 
 function openChapterMove(trigger: HTMLElement) {
-  if (seriesReconcileReadPending) return;
+  if (seriesReconcileReadPending && seriesReconcileOutcome !== 'confirmed') return;
   if (!state?.profile || !dialog) return;
   const seriesId = trigger.closest<HTMLElement>('[data-owner-series-chapters]')?.dataset.seriesId
     || currentSeriesQuery()?.serie;
@@ -2485,17 +2493,37 @@ function showConflict(form: HTMLFormElement | undefined, name: string | undefine
 }
 
 function validateReceipt(
-  payload: Record<string, unknown> | null,
   changes: Awaited<ReturnType<typeof readCreatorVersionChanges>>,
   current: CreatorProfileDTO | null,
   next: CreatorProfileDTO,
 ): boolean {
-  if (!payload || changes === null) return false;
+  if (changes === null) return false;
   if (current && current.id !== next.id) return false;
-  const matching = changes.find((change) => change.entity === 'profile' && change.id === next.id);
-  if (!current) return matching?.before === 0 && matching.after === next.version;
-  if (changes.length === 0) return next.version === current.version;
-  return matching?.before === current.version && matching.after === next.version;
+  const participants: CreatorOwnerReceiptParticipant[] = [current
+    ? { entity: 'profile', id: current.id, before: current.version, transition: 'increment' }
+    : { entity: 'profile', id: next.id, before: 0, transition: 'created-one', required: true }];
+  if (!validateCreatorOwnerReceipts(changes, participants)) return false;
+  const receipt = changes.find((change) => change.entity === 'profile' && change.id === next.id);
+  if (current && !receipt && !sameProfileSnapshot(current, next)) return false;
+  return next.version === (receipt?.after ?? current?.version);
+}
+
+function sameOptionalProfileField(
+  left: CreatorProfileDTO,
+  right: CreatorProfileDTO,
+  fieldName: 'city' | 'country' | 'bio' | 'photo',
+): boolean {
+  return Object.hasOwn(left, fieldName) === Object.hasOwn(right, fieldName)
+    && JSON.stringify(left[fieldName]) === JSON.stringify(right[fieldName]);
+}
+
+function sameProfileSnapshot(left: CreatorProfileDTO, right: CreatorProfileDTO): boolean {
+  return left.id === right.id && left.displayName === right.displayName && left.slug === right.slug
+    && sameOptionalProfileField(left, right, 'city') && sameOptionalProfileField(left, right, 'country')
+    && sameOptionalProfileField(left, right, 'bio') && sameOptionalProfileField(left, right, 'photo')
+    && JSON.stringify(left.programs) === JSON.stringify(right.programs)
+    && JSON.stringify(left.socials) === JSON.stringify(right.socials)
+    && left.published === right.published && left.hidden === right.hidden;
 }
 
 function hydrateInactiveForms(active?: HTMLFormElement) {
@@ -2741,7 +2769,7 @@ async function saveProfileForm(form: HTMLFormElement, name: 'crear' | 'datos' | 
   if (name === 'redes') {
     const socials: Partial<Record<CreatorSocial, string>> = {};
     for (const { key } of SOCIALS) {
-      const value = String(data.get(`social-${key}`) ?? '').trim();
+      const value = normalizeCreatorText(String(data.get(`social-${key}`) ?? ''));
       if (value) {
         try {
           const url = new URL(value);
@@ -2758,18 +2786,18 @@ async function saveProfileForm(form: HTMLFormElement, name: 'crear' | 'datos' | 
     body = { socials, ...(profile ? { version: profile.version } : {}) };
   } else if (name === 'datos') {
     body = {
-      displayName: String(data.get('displayName') ?? '').trim(),
-      slug: String(data.get('slug') ?? '').trim(),
-      city: String(data.get('city') ?? '').trim(),
-      country: String(data.get('country') ?? '').trim(),
+      displayName: normalizeCreatorText(String(data.get('displayName') ?? '')),
+      slug: normalizeCreatorText(String(data.get('slug') ?? '')),
+      city: normalizeCreatorText(String(data.get('city') ?? '')),
+      country: normalizeCreatorText(String(data.get('country') ?? '')),
       programs: data.getAll('programs').map(String),
-      bio: String(data.get('bio') ?? '').trim(),
+      bio: normalizeCreatorText(String(data.get('bio') ?? '')),
       ...(profile ? { version: profile.version } : {}),
     };
   } else {
     body = {
-      displayName: String(data.get('displayName') ?? '').trim(),
-      slug: String(data.get('slug') ?? '').trim(),
+      displayName: normalizeCreatorText(String(data.get('displayName') ?? '')),
+      slug: normalizeCreatorText(String(data.get('slug') ?? '')),
       ...(profile ? { version: profile.version } : {}),
     };
   }
@@ -2790,7 +2818,23 @@ async function saveProfileForm(form: HTMLFormElement, name: 'crear' | 'datos' | 
     }
     const next = payload.profile;
     const changes = await readCreatorVersionChanges(response);
-    if (!validateReceipt(payload, changes, profile, next)) {
+    const payloadMatches = (name === 'redes'
+      ? profile !== null && next.displayName === profile.displayName && next.slug === profile.slug
+      : next.displayName === body.displayName && next.slug === body.slug)
+      && (profile === null || (name === 'crear'
+        ? true
+        : name === 'datos'
+          ? next.city === body.city && next.country === body.country
+            && JSON.stringify(next.programs) === JSON.stringify(body.programs) && next.bio === body.bio
+            && JSON.stringify(next.socials) === JSON.stringify(profile.socials)
+            && JSON.stringify(next.photo) === JSON.stringify(profile.photo)
+            && next.published === profile.published && next.hidden === profile.hidden
+          : JSON.stringify(next.socials) === JSON.stringify(body.socials)
+            && next.city === profile.city && next.country === profile.country
+            && JSON.stringify(next.programs) === JSON.stringify(profile.programs) && next.bio === profile.bio
+            && JSON.stringify(next.photo) === JSON.stringify(profile.photo)
+            && next.published === profile.published && next.hidden === profile.hidden));
+    if (response.status !== 200 || !payloadMatches || !validateReceipt(changes, profile, next)) {
       setHidden(form.querySelector('[data-owner-conflict]'), false);
       const copy = form.querySelector<HTMLElement>('[data-owner-conflict-copy]');
       if (copy) copy.textContent = 'La solicitud respondió sin un recibo que podamos verificar. Compara el estado guardado antes de volver a intentar.';
@@ -2828,19 +2872,6 @@ async function saveProfileForm(form: HTMLFormElement, name: 'crear' | 'datos' | 
   } finally {
     form.removeAttribute('aria-busy');
   }
-}
-
-function changesEqual(
-  actual: Awaited<ReturnType<typeof readCreatorVersionChanges>>,
-  expected: CreatorVersionChange[],
-): boolean {
-  if (!actual || actual.length !== expected.length) return false;
-  const key = (change: { entity: string; id: string }) => `${change.entity}:${change.id}`;
-  const byKey = new Map(actual.map((change) => [key(change), change]));
-  return expected.every((change) => {
-    const observed = byKey.get(key(change));
-    return observed?.before === change.before && observed.after === change.after;
-  });
 }
 
 function updateSeriesState(next: CreatorSeriesDTO, profileVersion: number) {
@@ -2924,11 +2955,10 @@ async function saveSeriesForm(form: HTMLFormElement) {
   const submitted = capture(form);
   const values = new FormData(form);
   const submittedFields = seriesFormValues(form);
-  const name = String(values.get('name') ?? '').trim();
-  const slug = String(values.get('slug') ?? '').trim();
-  const description = String(values.get('description') ?? '').trim();
+  const name = normalizeCreatorText(String(values.get('name') ?? ''));
+  const slug = normalizeCreatorText(String(values.get('slug') ?? ''));
+  const description = normalizeCreatorText(String(values.get('description') ?? ''));
   if (!name || !slug) return;
-  const changed = !existing || name !== existing.name || slug !== existing.slug || description !== (existing.description ?? '');
   const path = existing
     ? `/api/creador/series/${encodeURIComponent(existing.id)}`
     : '/api/creador/series';
@@ -2982,17 +3012,37 @@ async function saveSeriesForm(form: HTMLFormElement) {
     const payload = await responsePayload(response);
     const changes = await readCreatorVersionChanges(response);
     const next = payload?.series;
-    const expected: CreatorVersionChange[] = changed
-      ? [
-        { entity: 'profile', id: profile.id, before: profile.version, after: profile.version + 1 },
-        { entity: 'series', id: existing?.id ?? (isRecord(next) && typeof next.id === 'string' ? next.id : ''), before: existing?.version ?? 0, after: (existing?.version ?? 0) + 1 },
-      ]
-      : [];
+    const seriesId = isRecord(next) && typeof next.id === 'string' ? next.id : '';
+    const profileParticipant: CreatorOwnerReceiptParticipant = {
+      entity: 'profile', id: profile.id, before: profile.version, transition: 'increment',
+      required: !existing,
+    };
+    const seriesParticipant: CreatorOwnerReceiptParticipant = {
+      entity: 'series', id: existing?.id ?? seriesId, before: existing?.version ?? 0,
+      transition: existing ? 'increment' : 'created-one', required: !existing,
+    };
+    const validReceipts = validateCreatorOwnerReceipts(changes, [profileParticipant, seriesParticipant]);
+    const seriesReceipt = changes?.find((change) => change.entity === 'series' && change.id === seriesId);
+    const profileReceipt = changes?.find((change) => change.entity === 'profile' && change.id === profile.id);
+    const expectedDescriptionIsPresent = existing && !Object.hasOwn(body, 'description')
+      ? Object.hasOwn(existing, 'description')
+      : Object.hasOwn(body, 'description');
+    const expectedDescription = existing && !Object.hasOwn(body, 'description')
+      ? existing.description
+      : body.description;
     const valid = payload !== null && isCreatorSeries(next)
-      && (existing ? next.id === existing.id && response.status === 200 : !state?.series.some(({ id }) => id === next.id) && next.version === 1 && response.status === 201)
-      && next.name === name && next.slug === slug && (next.description ?? '') === description
-      && next.version === (existing?.version ?? 0) + Number(changed)
-      && changesEqual(changes, expected);
+      && (existing ? next.id === existing.id && response.status === 200
+        : !state?.series.some(({ id }) => id === next.id) && response.status === 201)
+      && next.name === name && next.slug === slug
+      && Object.hasOwn(next, 'description') === expectedDescriptionIsPresent
+      && next.description === expectedDescription
+      && next.version === (seriesReceipt?.after ?? existing?.version ?? 0)
+      && payload.profileVersion === (profileReceipt?.after ?? profile.version)
+      && Boolean(seriesReceipt) === Boolean(profileReceipt)
+      && (!existing || seriesReceipt !== undefined || (next.name === existing.name && next.slug === existing.slug
+        && Object.hasOwn(next, 'description') === Object.hasOwn(existing, 'description')
+        && next.description === existing.description))
+      && validReceipts;
     if (!valid || !isCreatorSeries(next)) {
       if (!existing && activeSeriesCreateAttempt) activeSeriesCreateAttempt.outcome = 'uncertain';
       showSeriesConflict(form,
@@ -3000,7 +3050,7 @@ async function saveSeriesForm(form: HTMLFormElement) {
         'No pudimos comprobar el recibo. Conservamos tu edición y no la marcamos como guardada.');
       return;
     }
-    const profileVersion = profile.version + Number(changed);
+    const profileVersion = profileReceipt?.after ?? profile.version;
     if (!existing) {
       activeSeriesContext = { seriesId: next.id };
       activeSeriesCreateAttempt = undefined;
@@ -3216,7 +3266,7 @@ function showChapterMoveConflict(form: HTMLFormElement, message = 'El orden de e
 }
 
 async function saveChapterMoveForm(form: HTMLFormElement) {
-  if (seriesReconcileReadPending) {
+  if (seriesReconcileReadPending && seriesReconcileOutcome !== 'confirmed') {
     announceWrite('mover-capitulo', 'Comprueba la lista antes de mover otro capítulo.', 'info');
     return;
   }
@@ -3276,7 +3326,6 @@ async function saveChapterMoveForm(form: HTMLFormElement) {
     const raw = payload?.links;
     const candidates = Array.isArray(raw) && raw.every(isCreatorLink) ? raw : undefined;
     const byId = new Map((candidates ?? []).map((link) => [link.placementId, link]));
-    const changedCandidates: CreatorLinkDTO[] = [];
     let candidatesValid = candidates !== undefined && byId.size === candidates.length && byId.has(target.placementId);
     for (const candidate of byId.values()) {
       const current = state?.links.find(({ placementId }) => placementId === candidate.placementId);
@@ -3284,18 +3333,28 @@ async function saveChapterMoveForm(form: HTMLFormElement) {
       const nextMembership = candidate.series.find((item) => item.seriesId === series.id);
       const otherMembershipsBefore = current?.series.filter((item) => item.seriesId !== series.id) ?? [];
       const otherMembershipsAfter = candidate.series.filter((item) => item.seriesId !== series.id);
+      const placementReceipt = changes?.find((change) => change.entity === 'placement' && change.id === candidate.placementId);
       if (!current || !beforeMembership || !nextMembership || current.resourceId !== candidate.resourceId
         || JSON.stringify(otherMembershipsBefore) !== JSON.stringify(otherMembershipsAfter)
         || !Number.isSafeInteger(nextMembership.position) || nextMembership.position < 0
         || typeof current.placementVersion !== 'number' || !Number.isSafeInteger(current.placementVersion)
-        || candidate.placementVersion !== current.placementVersion + Number(nextMembership.position !== beforeMembership.position)) {
+        || (nextMembership.position !== beforeMembership.position && !placementReceipt)
+        || candidate.placementVersion !== (placementReceipt?.after ?? current.placementVersion)) {
         candidatesValid = false;
-        continue;
       }
-      if (nextMembership.position !== beforeMembership.position) changedCandidates.push(candidate);
     }
-    const expectedIds = new Set([target.placementId, ...changedCandidates.map(({ placementId }) => placementId)]);
-    candidatesValid = candidatesValid && byId.size === expectedIds.size && [...expectedIds].every((id) => byId.has(id));
+    const allowedReceipts: CreatorOwnerReceiptParticipant[] = [
+      { entity: 'profile', id: profile.id, before: profile.version, transition: 'increment' },
+      ...[...byId.keys()].flatMap((id) => {
+        const current = state?.links.find(({ placementId }) => placementId === id);
+        return current && typeof current.placementVersion === 'number'
+          ? [{ entity: 'placement' as const, id, before: current.placementVersion, transition: 'increment' as const }]
+          : [];
+      }),
+    ];
+    const receiptsValid = validateCreatorOwnerReceipts(changes, allowedReceipts);
+    const profileReceipt = changes?.find((change) => change.entity === 'profile' && change.id === profile.id);
+    const placementReceipts = changes?.filter((change) => change.entity === 'placement') ?? [];
     const resultingOrder = order.map((link) => {
       const candidate = byId.get(link.placementId);
       const current = link.series.find((item) => item.seriesId === series.id);
@@ -3303,18 +3362,11 @@ async function saveChapterMoveForm(form: HTMLFormElement) {
       return { link, position: candidateMembership?.position ?? current?.position ?? 0 };
     }).sort((left, right) => left.position - right.position || left.link.placementId.localeCompare(right.link.placementId));
     const resultingOrdinal = resultingOrder.findIndex(({ link }) => link.placementId === target.placementId) + 1;
-    const expectedChanges: CreatorVersionChange[] = [];
-    if (changedCandidates.length) {
-      expectedChanges.push({ entity: 'profile', id: profile.id, before: profile.version, after: profile.version + 1 });
-      for (const candidate of changedCandidates) {
-        const current = state?.links.find(({ placementId }) => placementId === candidate.placementId);
-        if (current?.placementVersion !== undefined) expectedChanges.push({ entity: 'placement', id: current.placementId, before: current.placementVersion, after: current.placementVersion + 1 });
-      }
-    }
     const nextTarget = byId.get(target.placementId);
     const targetMembership = nextTarget?.series.find((item) => item.seriesId === series.id);
     if (!payload || !Array.isArray(raw) || !nextTarget || !targetMembership || !candidatesValid
-      || resultingOrdinal !== requested || !changesEqual(changes, expectedChanges)) {
+      || resultingOrdinal !== requested || !receiptsValid
+      || Boolean(profileReceipt) !== (placementReceipts.length > 0)) {
       showChapterMoveConflict(form, 'La respuesta no coincide con el orden y las versiones observadas. Conservamos el destino y no adoptamos datos sin confirmar.');
       announceWrite('mover-capitulo', 'No pudimos comprobar el recibo del movimiento. Conservamos el destino para revisarlo antes de volver a guardar.', 'error');
       return;
@@ -3327,10 +3379,11 @@ async function saveChapterMoveForm(form: HTMLFormElement) {
       const seriesMemberships = candidateMembership
         ? current.series.map((item) => item.seriesId === series.id ? { ...item, position: candidateMembership.position } : item)
         : current.series;
-      return { ...current, series: seriesMemberships, placementVersion: candidate.placementVersion };
+      const receipt = changes?.find((change) => change.entity === 'placement' && change.id === current.placementId);
+      return { ...current, series: seriesMemberships, placementVersion: receipt?.after ?? current.placementVersion };
     });
-    const changed = changedCandidates.length > 0;
-    state!.profile = { ...profile, version: profile.version + Number(changed) };
+    const changed = placementReceipts.length > 0;
+    state!.profile = { ...profile, version: profileReceipt?.after ?? profile.version };
     root?.setAttribute('data-profile-version', String(state!.profile.version));
     const effective = renderOwnerSeries(currentSeriesQuery());
     if (effective) updateSeriesQuery(effective, 'replace');
@@ -3537,12 +3590,26 @@ function updateEditableResourceFromLink(next: CreatorLinkDTO) {
   // A reference DTO alone does not grant edit authority.
   if (resourceIndex < 0) return;
   const current = state.editableResources[resourceIndex];
+  const { description: _description, ...withoutDescription } = current;
   state.editableResources[resourceIndex] = {
-    ...current,
+    ...withoutDescription,
     title: next.title,
     url: next.url,
-    description: next.description ?? '',
+    ...(Object.hasOwn(next, 'description') ? { description: next.description } : {}),
     version: next.resourceVersion,
+  };
+}
+
+function keepEditableResourceObservation(next: CreatorLinkDTO): CreatorLinkDTO {
+  const resource = state?.editableResources.find(({ id }) => id === next.resourceId);
+  if (!resource) return next;
+  const { description: _description, ...withoutDescription } = next;
+  return {
+    ...withoutDescription,
+    title: resource.title,
+    url: resource.url,
+    ...(Object.hasOwn(resource, 'description') ? { description: resource.description } : {}),
+    resourceVersion: resource.version,
   };
 }
 
@@ -3576,9 +3643,9 @@ async function saveLinkForm(form: HTMLFormElement) {
   conflictLinkContextRevision = undefined;
   const snapshot = capture(form);
   const data = new FormData(form);
-  const title = String(data.get('title') ?? '').trim();
-  const url = String(data.get('url') ?? '').trim();
-  const description = String(data.get('description') ?? '').trim();
+  const title = normalizeCreatorText(String(data.get('title') ?? ''));
+  const url = normalizeCreatorText(String(data.get('url') ?? ''));
+  const description = normalizeCreatorText(String(data.get('description') ?? ''));
   if (!form.reportValidity()) return;
   form.setAttribute('aria-busy', 'true');
   try {
@@ -3588,16 +3655,14 @@ async function saveLinkForm(form: HTMLFormElement) {
         announceWrite('enlace', 'La ficha ya no está retirada. Actualiza la página antes de editarla.', 'error');
         return;
       }
-      const changed = title !== current.title || url !== current.url || description !== (current.description ?? '');
-      if (!changed) {
-        formState?.commit(snapshot);
-        announceWrite('enlace', 'No hay cambios en la ficha.', 'info');
-        maybeExitAfterSave(!hasPendingChanges());
-        return;
-      }
-      const response = await jsonRequest(`/api/creador/recursos/${encodeURIComponent(current.id)}`, 'PATCH', {
-        title, url, description, version: current.version,
-      });
+      const descriptionChanged = description !== (current.description ?? '');
+      const body = {
+        title,
+        url,
+        ...(descriptionChanged ? { description } : {}),
+        version: current.version,
+      };
+      const response = await jsonRequest(`/api/creador/recursos/${encodeURIComponent(current.id)}`, 'PATCH', body);
       if (!response.ok) {
         if (response.status === 409) showLinkConflict(form);
         else announceWrite('enlace', statusMessage(response.status), 'error');
@@ -3606,9 +3671,19 @@ async function saveLinkForm(form: HTMLFormElement) {
       const payload = await responsePayload(response);
       const changes = await readCreatorVersionChanges(response);
       const resource = payload?.resource;
-      if (!isEditableResource(resource) || resource.id !== current.id || changes === null
-        || resource.version !== current.version + 1
-        || !changesEqual(changes, [{ entity: 'resource', id: current.id, before: current.version, after: resource.version }])) {
+      const receiptValid = validateCreatorOwnerReceipts(changes, [
+        { entity: 'resource', id: current.id, before: current.version, transition: 'increment' },
+      ]);
+      const receipt = changes?.find((change) => change.entity === 'resource' && change.id === current.id);
+      const descriptionPresent = descriptionChanged || Object.hasOwn(current, 'description');
+      const expectedDescription = descriptionChanged ? description : current.description;
+      if (response.status !== 200 || !isEditableResource(resource) || resource.id !== current.id || !receiptValid
+        || resource.title !== title || resource.url !== url
+        || Object.hasOwn(resource, 'description') !== descriptionPresent || resource.description !== expectedDescription
+        || resource.version !== (receipt?.after ?? current.version)
+        || (!receipt && (resource.title !== current.title || resource.url !== current.url
+          || Object.hasOwn(resource, 'description') !== Object.hasOwn(current, 'description')
+          || resource.description !== current.description))) {
         showLinkConflict(form, 'La respuesta no trae una versión verificable de la ficha. Conservamos tu edición y no la marcamos como guardada.');
         announceWrite('enlace', 'No pudimos comprobar el recibo de la ficha. Conservamos tu edición para revisarla.', 'error');
         return;
@@ -3620,7 +3695,7 @@ async function saveLinkForm(form: HTMLFormElement) {
       if (unchanged) {
         setLinkFormValues(form, resource, 'resource');
         restoreLinkFocus(context);
-        announceWrite('enlace', 'Ficha guardada. Ya puedes volver a agregarla a tu página.', 'success');
+        announceWrite('enlace', 'Ficha guardada.', 'success');
       } else announceWrite('enlace', 'Ficha guardada. Conservamos la corrección que escribiste mientras se guardaba; revísala antes de seguir.', 'success');
       maybeExitAfterSave(unchanged);
       return;
@@ -3629,6 +3704,11 @@ async function saveLinkForm(form: HTMLFormElement) {
     const current = state.links.find(({ placementId }) => placementId === context.placementId);
     if (!current) {
       announceWrite('enlace', 'Este enlace ya no está en tu página. Actualiza la lista antes de guardarlo.', 'error');
+      return;
+    }
+    const profileAtSubmit = state.profile;
+    if (typeof current.placementVersion !== 'number' || !Number.isSafeInteger(current.placementVersion) || current.placementVersion < 0) {
+      announceWrite('enlace', 'Vuelve a abrir el enlace para cargar sus versiones actuales.', 'error');
       return;
     }
     const canEditMetadata = state.editableResources.some(({ id }) => id === current.resourceId);
@@ -3640,10 +3720,8 @@ async function saveLinkForm(form: HTMLFormElement) {
       if (url !== current.url) metadataChanges.url = url;
       if (description !== (current.description ?? '')) metadataChanges.description = description;
     }
-    const resourceChanged = Object.keys(metadataChanges).length > 0;
-    const placementChanged = featured !== current.featured || selectedForDirectory !== current.selectedForDirectory;
     const body: Record<string, unknown> = {
-      profileVersion: state.profile.version,
+      profileVersion: profileAtSubmit.version,
       placementVersion: current.placementVersion,
       resourceVersion: current.resourceVersion,
       ...metadataChanges,
@@ -3659,29 +3737,49 @@ async function saveLinkForm(form: HTMLFormElement) {
     const payload = await responsePayload(response);
     const changes = await readCreatorVersionChanges(response);
     const next = payload?.link;
-    const changed = resourceChanged || placementChanged;
-    const expected: Array<{ entity: 'profile' | 'resource' | 'placement'; id: string; before: number; after: number }> = [];
-    if (resourceChanged) expected.push({ entity: 'resource', id: current.resourceId, before: current.resourceVersion, after: current.resourceVersion + 1 });
-    if (placementChanged) expected.push({ entity: 'placement', id: current.placementId, before: current.placementVersion ?? -1, after: (current.placementVersion ?? -1) + 1 });
-    if (changed) expected.push({ entity: 'profile', id: state.profile.id, before: state.profile.version, after: state.profile.version + 1 });
-    const compatible = isCreatorLink(next)
+    const profileVersion = profileAtSubmit.version;
+    const placementVersion = current.placementVersion;
+    const allowedReceipts: CreatorOwnerReceiptParticipant[] = [
+      { entity: 'profile', id: profileAtSubmit.id, before: profileVersion, transition: 'increment' },
+      { entity: 'placement', id: current.placementId, before: placementVersion, transition: 'increment' },
+      ...(canEditMetadata ? [{ entity: 'resource' as const, id: current.resourceId, before: current.resourceVersion, transition: 'increment' as const }] : []),
+    ];
+    const receiptsValid = validateCreatorOwnerReceipts(changes, allowedReceipts);
+    const profileReceipt = changes?.find((change) => change.entity === 'profile' && change.id === profileAtSubmit.id);
+    const resourceReceipt = changes?.find((change) => change.entity === 'resource' && change.id === current.resourceId);
+    const placementReceipt = changes?.find((change) => change.entity === 'placement' && change.id === current.placementId);
+    const expectedTitle = Object.hasOwn(metadataChanges, 'title') ? metadataChanges.title : current.title;
+    const expectedUrl = Object.hasOwn(metadataChanges, 'url') ? metadataChanges.url : current.url;
+    const descriptionWasChanged = Object.hasOwn(metadataChanges, 'description');
+    const expectedDescriptionPresent = descriptionWasChanged || Object.hasOwn(current, 'description');
+    const expectedDescription = descriptionWasChanged ? metadataChanges.description : current.description;
+    const anyRecordReceipt = Boolean(resourceReceipt || placementReceipt);
+    const compatible = response.status === 200 && receiptsValid && Boolean(profileReceipt) === anyRecordReceipt
+      && isCreatorLink(next)
       && next.placementId === current.placementId && next.resourceId === current.resourceId
-      && next.title === (metadataChanges.title ?? current.title)
-      && next.url === (metadataChanges.url ?? current.url)
-      && (next.description ?? '') === (metadataChanges.description ?? current.description ?? '')
+      && next.title === expectedTitle
+      && next.url === expectedUrl
+      && Object.hasOwn(next, 'description') === expectedDescriptionPresent
+      && next.description === expectedDescription
       && next.featured === featured && next.selectedForDirectory === selectedForDirectory
-      && next.resourceVersion === current.resourceVersion + Number(resourceChanged)
-      && next.placementVersion === (current.placementVersion ?? -1) + Number(placementChanged)
+      && next.resourceVersion === (resourceReceipt?.after ?? current.resourceVersion)
+      && next.placementVersion === (placementReceipt?.after ?? placementVersion)
+      && (resourceReceipt !== undefined || (next.title === current.title && next.url === current.url
+        && Object.hasOwn(next, 'description') === Object.hasOwn(current, 'description')
+        && next.description === current.description))
+      && (placementReceipt !== undefined || (next.featured === current.featured
+        && next.selectedForDirectory === current.selectedForDirectory))
       && next.position === current.position && next.hidden === current.hidden
       && next.directoryApproval === current.directoryApproval
       && JSON.stringify(next.series) === JSON.stringify(current.series)
-      && changesEqual(changes, expected);
+      ;
     if (!payload || !compatible) {
       showLinkConflict(form, 'La respuesta no corresponde a las versiones observadas o a esta edición. Conservamos tu corrección y no adoptamos un estado que no pudimos comprobar.');
       announceWrite('enlace', 'No pudimos comprobar el recibo de versión del enlace. Conservamos tu edición para revisarla.', 'error');
       return;
     }
-    const nextProfileVersion = changed ? state.profile.version + 1 : state.profile.version;
+    const changed = Boolean(profileReceipt);
+    const nextProfileVersion = profileReceipt?.after ?? state.profile.version;
     updateLinkState(next, nextProfileVersion);
     const matchesCurrentQuery = ownerLinkMatchesCurrentQuery(next.placementId);
     clearRecoveryNotice();
@@ -3775,43 +3873,43 @@ async function saveMoveForm(form: HTMLFormElement) {
     const candidates = Array.isArray(rawLinks) && rawLinks.every(isCreatorLink) ? rawLinks : undefined;
     const byId = new Map((candidates ?? []).map((link) => [link.placementId, link]));
     const nextTarget = byId.get(target.placementId);
-    const changedCandidates = [...byId.values()].filter((candidate) => {
-      const current = ownerState.links.find(({ placementId }) => placementId === candidate.placementId);
-      return current && current.position !== candidate.position;
-    });
-    const candidateIdsExpected = new Set([target.placementId, ...changedCandidates.map(({ placementId }) => placementId)]);
+    const groupIds = new Set(group.map(({ placementId }) => placementId));
     const candidateSetMatches = candidates !== undefined && byId.size === candidates.length
-      && byId.size === candidateIdsExpected.size
-      && [...candidateIdsExpected].every((id) => byId.has(id));
+      && byId.has(target.placementId) && [...byId.keys()].every((id) => groupIds.has(id));
+    const allowedReceipts: CreatorOwnerReceiptParticipant[] = [
+      { entity: 'profile', id: profile.id, before: profile.version, transition: 'increment' },
+      ...[...byId.keys()].flatMap((id) => {
+        const current = ownerState.links.find(({ placementId }) => placementId === id);
+        return current && typeof current.placementVersion === 'number'
+          ? [{ entity: 'placement' as const, id, before: current.placementVersion, transition: 'increment' as const }]
+          : [];
+      }),
+    ];
+    const receiptsValid = validateCreatorOwnerReceipts(changes, allowedReceipts);
+    const profileReceipt = changes?.find((change) => change.entity === 'profile' && change.id === profile.id);
+    const placementReceipts = changes?.filter((change) => change.entity === 'placement') ?? [];
     const groupCandidatesValid = [...byId.values()].every((candidate) => {
       const current = ownerState.links.find(({ placementId }) => placementId === candidate.placementId);
+      const placementReceipt = changes?.find((change) => change.entity === 'placement' && change.id === candidate.placementId);
       return current !== undefined && typeof current.placementVersion === 'number'
         && Number.isSafeInteger(current.placementVersion) && current.placementVersion >= 0
         && candidate.resourceId === current.resourceId
         && candidate.featured === current.featured
         && candidate.position >= 0
+        && (candidate.position === current.position || placementReceipt !== undefined)
         && candidate.series.length === current.series.length
         && JSON.stringify(candidate.series) === JSON.stringify(current.series)
-        && candidate.placementVersion === current.placementVersion + Number(candidate.position !== current.position);
+        && candidate.placementVersion === (placementReceipt?.after ?? current.placementVersion);
     });
     const resultingGroup = group.map((link) => {
       const candidate = byId.get(link.placementId);
       return candidate ? { ...link, position: candidate.position } : link;
     }).sort((left, right) => left.position - right.position || left.placementId.localeCompare(right.placementId));
     const resultingOrdinal = resultingGroup.findIndex(({ placementId }) => placementId === target.placementId) + 1;
-    const expectedChanges: CreatorVersionChange[] = [];
-    if (changedCandidates.length) {
-      expectedChanges.push({ entity: 'profile', id: profile.id, before: profile.version, after: profile.version + 1 });
-      for (const candidate of changedCandidates) {
-        const current = ownerState.links.find(({ placementId }) => placementId === candidate.placementId);
-        if (current && typeof current.placementVersion === 'number') {
-          expectedChanges.push({ entity: 'placement', id: current.placementId, before: current.placementVersion, after: current.placementVersion + 1 });
-        }
-      }
-    }
     const valid = response.status === 200 && payload !== null && Array.isArray(rawLinks)
       && isCreatorLink(nextTarget) && candidateSetMatches && groupCandidatesValid
-      && resultingOrdinal === targetPosition && changesEqual(changes, expectedChanges);
+      && resultingOrdinal === targetPosition && receiptsValid
+      && Boolean(profileReceipt) === (placementReceipts.length > 0);
     if (!valid) {
       showMoveConflict(form, 'La respuesta no coincide con el orden o las versiones observadas. Conservamos el destino y no adoptamos datos sin confirmar.');
       announceWrite('mover-enlace', 'No pudimos comprobar el recibo del movimiento. Conservamos tu destino para revisarlo antes de volver a guardar.', 'error');
@@ -3825,7 +3923,7 @@ async function saveMoveForm(form: HTMLFormElement) {
         ? { ...current, position: candidate.position, placementVersion: candidate.placementVersion }
         : current;
     });
-    const nextProfileVersion = changedCandidates.length ? profile.version + 1 : profile.version;
+    const nextProfileVersion = profileReceipt?.after ?? profile.version;
     ownerState.profile = { ...profile, version: nextProfileVersion };
     root?.setAttribute('data-profile-version', String(nextProfileVersion));
     renderOwnerLinks();
@@ -3836,7 +3934,7 @@ async function saveMoveForm(form: HTMLFormElement) {
     clearRecoveryNotice();
     const unchanged = submitWasUnchanged(snapshot);
     if (unchanged) {
-      announceWrite('mover-enlace', changedCandidates.length ? 'Orden guardado.' : 'Ese enlace ya estaba en esa posición.', 'success');
+      announceWrite('mover-enlace', placementReceipts.length ? 'Orden guardado.' : 'Ese enlace ya estaba en esa posición.', 'success');
     } else announceWrite('mover-enlace', 'Orden guardado. Conservamos el destino que cambiaste mientras se guardaba; revísalo antes de volver a guardar.', 'success');
     maybeExitAfterSave(unchanged);
   } catch {
@@ -3853,9 +3951,10 @@ async function reconcileOwnerData(canAdopt?: () => boolean): Promise<boolean> {
   const editorAtReadStart = activeEditor;
   const addLinkFormAtReadStart = formAtReadStart?.dataset.ownerForm === 'alta-enlace'
     && editorAtReadStart === 'alta-enlace';
+  const catalogFormAtReadStart = formAtReadStart === catalogForm() && editorAtReadStart === 'referencia';
   const canAdoptCurrentContext = () => ownerEditorRevision === editorRevision
     && ownerWriteRevision === writeRevision
-    && (addLinkFormAtReadStart
+    && (addLinkFormAtReadStart || catalogFormAtReadStart
       ? activeForm === formAtReadStart && activeEditor === editorAtReadStart
       : formAtReadStart === undefined && editorAtReadStart === undefined
         && activeForm === undefined && activeEditor === undefined
@@ -3903,7 +4002,8 @@ function seriesStatus(): HTMLElement | null {
 }
 
 function setSeriesMutationActionsUnavailable(unavailable: boolean) {
-  const chapterActionsUnavailable = unavailable || seriesReconcileReadPending;
+  const chapterActionsUnavailable = seriesReconcileOutcome !== 'confirmed'
+    && (unavailable || seriesReconcileReadPending);
   const deletionCheckPending = seriesReconcileReadPending && seriesReconcileDeleteId !== undefined;
   root?.querySelectorAll<HTMLButtonElement>('[data-chapter-add], [data-chapter-remove], [data-chapter-move]').forEach((button) => {
     button.disabled = chapterActionsUnavailable;
@@ -3933,13 +4033,27 @@ async function reconcileConfirmedChapterMutation(
   const retry = root?.querySelector<HTMLButtonElement>('[data-series-reconcile-retry]');
   seriesReconcileReadPending = true;
   seriesReconcileOutcome = 'confirmed';
-  setSeriesMutationActionsUnavailable(true);
+  setSeriesMutationActionsUnavailable(false);
+  const visibleQuery = currentSeriesQuery();
+  if (visibleQuery) {
+    const effective = renderOwnerSeries(visibleQuery);
+    if (effective) updateSeriesQuery(effective, 'replace');
+  }
+  restoreChapterFocus(focusPlacementId);
+  const immediateFocus = returnFocus;
+  if (immediateFocus?.isConnected) window.requestAnimationFrame(() => immediateFocus.focus());
   if (retry) {
     retry.textContent = 'Volver a consultar la lista';
     retry.hidden = true;
   }
   announce(status, messages.pending, 'success');
+  const editorRevision = ownerEditorRevision;
+  const writeRevision = ownerWriteRevision;
   const reconciled = await reconcileOwnerData();
+  if (ownerEditorRevision !== editorRevision || ownerWriteRevision !== writeRevision) {
+    if (retry) retry.hidden = false;
+    return false;
+  }
   if (!reconciled) {
     if (retry) retry.hidden = false;
     announce(status, messages.unavailable, 'error');
@@ -4044,7 +4158,9 @@ async function mutateChapterMembership(placementId: string, action: 'add' | 'rem
   const profile = ownerState?.profile;
   const series = seriesById(query?.serie);
   const link = ownerState?.links.find(({ placementId: id }) => id === placementId);
-  if (!query || !profile || !series || !link || seriesReconcileReadPending) return;
+  if (!query || !profile || !series || !link
+    || (seriesReconcileReadPending && seriesReconcileOutcome !== 'confirmed')
+    || typeof link.placementVersion !== 'number' || !Number.isSafeInteger(link.placementVersion) || link.placementVersion < 0) return;
   const member = link.series.some(({ seriesId }) => seriesId === series.id);
   if ((action === 'add' && member) || (action === 'remove' && !member)) return;
   const status = seriesStatus();
@@ -4069,21 +4185,71 @@ async function mutateChapterMembership(placementId: string, action: 'add' | 'rem
     }
     const payload = response.status === 204 ? null : await responsePayload(response);
     const changes = await readCreatorVersionChanges(response);
-    const placementVersion = link.placementVersion;
-    const expected: CreatorVersionChange[] = placementVersion === undefined ? [] : [
-      { entity: 'profile', id: profile.id, before: profile.version, after: profile.version + 1 },
-      { entity: 'placement', id: link.placementId, before: placementVersion, after: placementVersion + 1 },
+    const isAdd = action === 'add';
+    const rawLinks = payload?.links;
+    const candidates = isAdd && Array.isArray(rawLinks) && rawLinks.every(isCreatorLink) ? rawLinks : undefined;
+    const byId = new Map((candidates ?? []).map((candidate) => [candidate.placementId, candidate]));
+    const profileReceipt = changes?.find((change) => change.entity === 'profile' && change.id === profile.id);
+    const placementReceipts = changes?.filter((change) => change.entity === 'placement') ?? [];
+    const allowedReceipts: CreatorOwnerReceiptParticipant[] = [
+      { entity: 'profile', id: profile.id, before: profile.version, transition: 'increment', required: isAdd ? false : true },
+      ...(isAdd
+        ? [...byId.keys()].flatMap((id) => {
+          const current = ownerState.links.find(({ placementId: currentId }) => currentId === id);
+          return current && typeof current.placementVersion === 'number'
+            ? [{ entity: 'placement' as const, id, before: current.placementVersion, transition: 'increment' as const }]
+            : [];
+        })
+        : [{ entity: 'placement' as const, id: link.placementId, before: link.placementVersion, transition: 'increment' as const, required: true }]),
     ];
-    const statusMatches = action === 'add' ? response.status === 200 && payload?.status === 200 : response.status === 204;
-    if (!statusMatches || placementVersion === undefined || !changesEqual(changes, expected)) {
+    let effectsValid = true;
+    for (const candidate of byId.values()) {
+      const current = ownerState.links.find(({ placementId: currentId }) => currentId === candidate.placementId);
+      const priorMembership = current?.series.find(({ seriesId }) => seriesId === series.id);
+      const nextMembership = candidate.series.find(({ seriesId }) => seriesId === series.id);
+      const otherMembershipsBefore = current?.series.filter(({ seriesId }) => seriesId !== series.id) ?? [];
+      const otherMembershipsAfter = candidate.series.filter(({ seriesId }) => seriesId !== series.id);
+      const receipt = changes?.find((change) => change.entity === 'placement' && change.id === candidate.placementId);
+      if (!current || current.resourceId !== candidate.resourceId
+        || JSON.stringify(otherMembershipsBefore) !== JSON.stringify(otherMembershipsAfter)
+        || (priorMembership?.position !== nextMembership?.position && !receipt)
+        || (candidate.placementVersion !== (receipt?.after ?? current.placementVersion))) effectsValid = false;
+      if (candidate.placementId === link.placementId && isAdd && !nextMembership) effectsValid = false;
+      if (candidate.placementId !== link.placementId && (!priorMembership || !nextMembership)) effectsValid = false;
+    }
+    const statusMatches = isAdd
+      ? response.status === 200 && payload?.status === 200 && payload.profileVersion === (profileReceipt?.after ?? profile.version)
+      : response.status === 204;
+    const profileReceiptMatches = isAdd
+      ? Boolean(profileReceipt) === (placementReceipts.length > 0)
+      : Boolean(profileReceipt);
+    if (!statusMatches || !validateCreatorOwnerReceipts(changes, allowedReceipts)
+      || !profileReceiptMatches || (isAdd && (!candidates || !byId.has(link.placementId) || !effectsValid))) {
       requireChapterStateCheck(status, 'uncertain', uncertainMessage);
       return;
     }
-    ownerState.profile = { ...profile, version: profile.version + 1 };
-    ownerState.links = ownerState.links.map((current) => current.placementId === link.placementId
-      ? { ...current, placementVersion: placementVersion + 1 }
-      : current);
-    root?.setAttribute('data-profile-version', String(profile.version + 1));
+    const nextProfileVersion = profileReceipt?.after ?? profile.version;
+    ownerState.profile = { ...profile, version: nextProfileVersion };
+    if (isAdd) {
+      const updates = new Map([...byId.values()].map((candidate) => [candidate.placementId, candidate]));
+      ownerState.links = ownerState.links.map((current) => {
+        const candidate = updates.get(current.placementId);
+        if (!candidate) return current;
+        const membership = candidate.series.find(({ seriesId }) => seriesId === series.id);
+        const seriesMemberships = membership
+          ? current.series.some(({ seriesId }) => seriesId === series.id)
+            ? current.series.map((item) => item.seriesId === series.id ? { ...item, position: membership.position } : item)
+            : [...current.series, { seriesId: series.id, position: membership.position }]
+          : current.series;
+        const receipt = changes?.find((change) => change.entity === 'placement' && change.id === current.placementId);
+        return { ...current, series: seriesMemberships, placementVersion: receipt?.after ?? current.placementVersion };
+      });
+    } else {
+      ownerState.links = ownerState.links.map((current) => current.placementId === link.placementId
+        ? { ...current, series: current.series.filter(({ seriesId }) => seriesId !== series.id), placementVersion: changes?.find((change) => change.entity === 'placement' && change.id === current.placementId)?.after ?? current.placementVersion }
+        : current);
+    }
+    root?.setAttribute('data-profile-version', String(nextProfileVersion));
     clearRecoveryNotice();
     const successMessage = action === 'add'
       ? `Se agregó «${link.title}» a ${series.name}.`
@@ -4129,19 +4295,21 @@ async function deleteOwnerSeries(seriesId: string) {
       return;
     }
     const changes = await readCreatorVersionChanges(response);
-    if (response.status !== 204 || !changesEqual(changes, [
-      { entity: 'profile', id: profile.id, before: profile.version, after: profile.version + 1 },
-    ])) {
+    const allowedReceipts: CreatorOwnerReceiptParticipant[] = [
+      { entity: 'profile', id: profile.id, before: profile.version, transition: 'increment', required: true },
+    ];
+    const profileReceipt = changes?.find((change) => change.entity === 'profile' && change.id === profile.id);
+    if (response.status !== 204 || !validateCreatorOwnerReceipts(changes, allowedReceipts) || !profileReceipt) {
       requireDeleteStateCheck(series.id, 'uncertain', 'No pudimos comprobar el recibo de eliminación. Comprueba la lista guardada antes de volver a intentarlo.');
       return;
     }
-    ownerState.profile = { ...profile, version: profile.version + 1 };
+    ownerState.profile = { ...profile, version: profileReceipt.after };
     ownerState.series = ownerState.series.filter(({ id }) => id !== series.id);
     ownerState.links = ownerState.links.map((link) => ({
       ...link,
       series: link.series.filter((membership) => membership.seriesId !== series.id),
     }));
-    root?.setAttribute('data-profile-version', String(profile.version + 1));
+    root?.setAttribute('data-profile-version', String(profileReceipt.after));
     clearRecoveryNotice();
     const current = currentSeriesQuery();
     if (current?.serie === series.id) {
@@ -4180,9 +4348,9 @@ async function saveAddedLink(form: HTMLFormElement) {
   }
   const snapshot = capture(form);
   const data = new FormData(form);
-  const title = String(data.get('title') ?? '').trim();
-  const url = String(data.get('url') ?? '').trim();
-  const description = String(data.get('description') ?? '').trim();
+  const title = normalizeCreatorText(String(data.get('title') ?? ''));
+  const url = normalizeCreatorText(String(data.get('url') ?? ''));
+  const description = normalizeCreatorText(String(data.get('description') ?? ''));
   const selectedForDirectory = Boolean((field(form, 'selectedForDirectory') as HTMLInputElement | null)?.checked);
   if (!form.reportValidity()) return;
   const draft = readAddedLinkDraft(form);
@@ -4214,6 +4382,11 @@ async function saveAddedLink(form: HTMLFormElement) {
         return;
       }
     }
+    const profileAtSubmit = state?.profile;
+    if (!profileAtSubmit) {
+      announceWrite('alta-enlace', 'La página ya no está disponible. Conservamos el formulario para volver a intentarlo.', 'error');
+      return;
+    }
     const response = await jsonRequest('/api/creador/enlaces', 'POST', { title, url, description, selectedForDirectory });
     if (!response.ok) {
       if (response.status >= 500) markAddedLinkUncertain(draft);
@@ -4229,7 +4402,8 @@ async function saveAddedLink(form: HTMLFormElement) {
     const link = payload.link;
     if (payload.created !== true) {
       const changes = await readCreatorVersionChanges(response);
-      if (response.status !== 200 || !changesEqual(changes, [])) {
+      if (response.status !== 200 || payload.created !== false
+        || payload.link.url !== url || !validateCreatorOwnerReceipts(changes, [])) {
         markAddedLinkUncertain(draft);
         announceWrite('alta-enlace', 'El servicio encontró una URL existente, pero no pudimos verificar su respuesta. Conservamos el formulario para revisar la lista.', 'error');
         return;
@@ -4290,46 +4464,50 @@ async function saveAddedLink(form: HTMLFormElement) {
       return;
     }
     const changes = await readCreatorVersionChanges(response);
-    const profile = state.profile;
-    const maxPosition = state.links.reduce((max, item) => Math.max(max, item.position), -1);
-    const resourceChange = changes?.find((change) => change.entity === 'resource' && change.id === link.resourceId);
-    const newResource = Boolean(resourceChange && resourceChange.before === 0 && resourceChange.after === link.resourceVersion);
-    const attachedResource = !resourceChange && link.url === url;
-    const commonChanges = [
-      { entity: 'profile' as const, id: profile.id, before: profile.version, after: profile.version + 1 },
-      { entity: 'placement' as const, id: link.placementId, before: 0, after: link.placementVersion ?? -1 },
-    ];
-    const expectedChanges = newResource && resourceChange
-      ? [...commonChanges.slice(0, 1), { entity: 'resource' as const, id: link.resourceId, before: 0, after: link.resourceVersion }, commonChanges[1]]
-      : commonChanges;
+    const profileReceipt = changes?.find((change) => change.entity === 'profile' && change.id === profileAtSubmit.id);
+    const placementReceipt = changes?.find((change) => change.entity === 'placement' && change.id === link.placementId);
+    const resourceReceipt = changes?.find((change) => change.entity === 'resource' && change.id === link.resourceId);
+    const newResource = Boolean(resourceReceipt);
     const validResourceShape = newResource
-      ? link.resourceVersion === 1 && link.title === title && link.description === description
-      : attachedResource;
-    const validReceipt = response.status === 201 && link.url === url && validResourceShape
+      ? link.title === title && link.url === url
+        && Object.hasOwn(link, 'description') && link.description === description
+      : link.url === url;
+    const validReceipt = response.status === 201 && link.position >= 0 && link.url === url && validResourceShape
       && link.selectedForDirectory === selectedForDirectory && link.featured === false
-      && link.series.length === 0 && link.position > maxPosition
+      && link.series.length === 0
+      && !state.links.some(({ placementId }) => placementId === link.placementId)
       && (!placementIdByResource.has(link.resourceId) || placementIdByResource.get(link.resourceId) === link.placementId)
-      && changesEqual(changes, expectedChanges);
+      && validateCreatorOwnerReceipts(changes, [
+        { entity: 'profile', id: profileAtSubmit.id, before: profileAtSubmit.version, transition: 'increment', required: true },
+        { entity: 'placement', id: link.placementId, before: 0, transition: 'created', required: true },
+        { entity: 'resource', id: link.resourceId, before: 0, transition: 'created-one' },
+      ])
+      && link.placementVersion === placementReceipt?.after
+      && placementReceipt?.after === profileReceipt?.after
+      && (!resourceReceipt || link.resourceVersion === resourceReceipt.after)
+      && profileReceipt?.after !== undefined;
     if (!validReceipt) {
       markAddedLinkUncertain(draft);
       announceWrite('alta-enlace', 'No pudimos comprobar el recibo del enlace. Conservamos el formulario para revisar el estado antes de volver a enviarlo.', 'error');
       return;
     }
-    state.links.push(link);
-    placementIdByResource.set(link.resourceId, link.placementId);
+    const appliedLink = resourceReceipt ? link : keepEditableResourceObservation(link);
+    state.links.push(appliedLink);
+    placementIdByResource.set(appliedLink.resourceId, appliedLink.placementId);
     if (newResource && !state.editableResources.some(({ id }) => id === link.resourceId)) {
-      state.editableResources.push({ id: link.resourceId, title: link.title, url: link.url, description: link.description ?? '', version: link.resourceVersion });
+      state.editableResources.push({ id: link.resourceId, title: link.title, url: link.url,
+        ...(Object.hasOwn(link, 'description') ? { description: link.description } : {}), version: link.resourceVersion });
     }
-    state.profile = { ...profile, version: profile.version + 1 };
+    state.profile = { ...profileAtSubmit, version: profileReceipt.after };
     root?.setAttribute('data-profile-version', String(state.profile.version));
     renderOwnerLinks();
-    const matchesCurrentQuery = ownerLinkMatchesCurrentQuery(link.placementId);
+      const matchesCurrentQuery = ownerLinkMatchesCurrentQuery(appliedLink.placementId);
     clearRecoveryNotice();
     const unchanged = submitWasUnchanged(snapshot);
     const visibility = `${state.profile.hidden
       ? ' La página sigue oculta por administración.'
       : !state.profile.published ? ' Se verá cuando tu página esté publicada.'
-        : link.hidden ? ' La ficha está oculta en la página pública.'
+        : appliedLink.hidden ? ' La ficha está oculta en la página pública.'
           : ' El enlace está visible en tu página pública.'}`;
     if (unchanged) {
       resetAddedLinkForm(form);
@@ -4341,7 +4519,7 @@ async function saveAddedLink(form: HTMLFormElement) {
       announceWrite('alta-enlace', `${result}${visibility}${filterMessage}`, 'success');
     } else {
       const filterMessage = matchesCurrentQuery ? '' : ' El enlace guardado no coincide con los filtros actuales.';
-      const continuation = continueAddedLinkInEditor(form, link, {
+      const continuation = continueAddedLinkInEditor(form, appliedLink, {
         title: String(field(form, 'title')?.value ?? ''),
         url: String(field(form, 'url')?.value ?? ''),
         description: String(field(form, 'description')?.value ?? ''),
@@ -4501,18 +4679,23 @@ function catalogReferenceReceiptIsValid(
   requestedForDirectory: boolean,
   profile: CreatorProfileDTO,
 ): payload is Record<string, unknown> & { link: CreatorLinkDTO } {
-  if (!payload || !isCreatorLink(payload.link) || payload.link.resourceId !== item.id
-    || payload.link.url !== item.url || payload.link.selectedForDirectory !== requestedForDirectory
-    || payload.link.featured || payload.link.series.length !== 0) return false;
-  const maximumPosition = state?.links.reduce((maximum, link) => Math.max(maximum, link.position), -1) ?? -1;
+  const link = payload?.link;
+  if (!payload || !isCreatorLink(link) || link.resourceId !== item.id
+    || link.url !== item.url || link.selectedForDirectory !== requestedForDirectory
+    || link.featured || link.series.length !== 0 || link.position < 0
+    || state?.links.some(({ resourceId }) => resourceId === item.id)) return false;
+  const profileReceipt = changes?.find((change) => change.entity === 'profile' && change.id === profile.id);
+  const placementReceipt = changes?.find((change) => change.entity === 'placement' && change.id === link.placementId);
   return response.status === 201 && payload.created === true
-    && !state?.links.some(({ resourceId }) => resourceId === item.id)
-    && payload.link.position > maximumPosition
-    && (!placementIdByResource.has(item.id) || placementIdByResource.get(item.id) === payload.link.placementId)
-    && changesEqual(changes, [
-      { entity: 'profile', id: profile.id, before: profile.version, after: profile.version + 1 },
-      { entity: 'placement', id: payload.link.placementId, before: 0, after: payload.link.placementVersion ?? -1 },
-    ]);
+    && !state?.links.some(({ placementId }) => placementId === link.placementId)
+    && (!placementIdByResource.has(item.id) || placementIdByResource.get(item.id) === link.placementId)
+    && validateCreatorOwnerReceipts(changes, [
+      { entity: 'profile', id: profile.id, before: profile.version, transition: 'increment', required: true },
+      { entity: 'placement', id: link.placementId, before: 0, transition: 'created', required: true },
+    ])
+    && link.placementVersion === placementReceipt?.after
+    && placementReceipt?.after === profileReceipt?.after
+    && profileReceipt?.after !== undefined;
 }
 
 function catalogDuplicateReceiptIsValid(
@@ -4521,7 +4704,7 @@ function catalogDuplicateReceiptIsValid(
   changes: Awaited<ReturnType<typeof readCreatorVersionChanges>>,
   item: CreatorCatalogSelectionDTO,
 ): payload is Record<string, unknown> & { link: CreatorLinkDTO } {
-  if (!payload || response.status !== 200 || payload.created !== false || !changesEqual(changes, [])
+  if (!payload || response.status !== 200 || payload.created !== false || !validateCreatorOwnerReceipts(changes, [])
     || !isCreatorLink(payload.link) || payload.link.resourceId !== item.id || payload.link.url !== item.url) return false;
   const existing = state?.links.find(({ resourceId }) => resourceId === item.id);
   return (!existing || existing.placementId === payload.link.placementId)
@@ -4612,7 +4795,7 @@ async function submitClaimForm(form: HTMLFormElement) {
     announceWrite('reclamacion', 'El contexto privado puede tener hasta 2000 caracteres.', 'error');
     return;
   }
-  const evidence = rawEvidence.trim() || undefined;
+  const evidence = normalizeCreatorText(rawEvidence) || undefined;
   const selectedResources = [...claimSelection.values()].map(({ resourceId, url }) => ({ resourceId, url }));
   const submitted = [...selectedResources, ...urls.map((url) => ({ url }))];
   if (submitted.length === 0) {
@@ -4798,13 +4981,15 @@ async function saveCatalogReference(form: HTMLFormElement) {
         showCatalogReceiptConflict(form);
         return;
       }
-      const link = payload.link;
-      const existingIndex = state.links.findIndex(({ resourceId }) => resourceId === item.id);
-      if (existingIndex >= 0) state.links[existingIndex] = link;
-      else state.links.push(link);
-      updateEditableResourceFromLink(link);
-      placementIdByResource.set(link.resourceId, link.placementId);
-      renderOwnerLinksAfterCollectionChange();
+      let existing = state.links.find(({ resourceId }) => resourceId === item.id);
+      if (!existing && await reconcileOwnerData()) {
+        existing = state?.links.find(({ resourceId }) => resourceId === item.id);
+      }
+      if (!existing || existing.placementId !== payload.link.placementId) {
+        showCatalogReceiptConflict(form);
+        return;
+      }
+      const link = existing;
       clearRecoveryNotice();
       formState?.commit(snapshot);
       catalogSelectionBaseline = submittedSelection;
@@ -4838,14 +5023,15 @@ async function saveCatalogReference(form: HTMLFormElement) {
       maybeExitAfterSave(unchanged);
       return;
     }
-    if (!catalogReferenceReceiptIsValid(response, payload, changes, item, requestedForDirectory, profile)) {
+    const profileReceipt = changes?.find((change) => change.entity === 'profile' && change.id === profile.id);
+    if (!catalogReferenceReceiptIsValid(response, payload, changes, item, requestedForDirectory, profile) || !profileReceipt) {
       showCatalogReceiptConflict(form);
       return;
     }
-    const link = payload.link;
+    const link = keepEditableResourceObservation(payload.link);
     state.links.push(link);
     placementIdByResource.set(link.resourceId, link.placementId);
-    state.profile = { ...profile, version: profile.version + 1 };
+    state.profile = { ...profile, version: profileReceipt.after };
     root?.setAttribute('data-profile-version', String(state.profile.version));
     renderOwnerLinksAfterCollectionChange();
     clearRecoveryNotice();
@@ -4903,6 +5089,7 @@ async function reincludeResource(resourceId: string, observedVersion: number) {
     announceWrite('enlace', 'La ficha cambió desde que se mostró esta opción. Actualiza la lista antes de reincorporarla.', 'error');
     return;
   }
+  const profileAtSubmit = state.profile;
   try {
     const response = await jsonRequest('/api/creador/enlaces', 'POST', { resourceId, resourceVersion: observedVersion });
     if (!response.ok) {
@@ -4916,28 +5103,40 @@ async function reincludeResource(resourceId: string, observedVersion: number) {
     }
     const link = payload.link;
     if (payload.created !== true) {
+      const changes = await readCreatorVersionChanges(response);
+      if (response.status !== 200 || payload.created !== false
+        || !validateCreatorOwnerReceipts(changes, []) || link.resourceId !== resourceId) {
+        announceWrite('enlace', 'No pudimos comprobar la respuesta duplicada. Conservamos la ficha; actualiza la lista antes de continuar.', 'error');
+        return;
+      }
       if (!await reconcileOwnerData()) announceWrite('enlace', 'El enlace ya está en tu página. No pudimos actualizar la lista; vuelve a seleccionar «Volver a agregar» cuando termines cualquier edición para comprobarla.', 'info');
       else announceWrite('enlace', 'El enlace ya estaba en tu página. No cambiamos sus opciones.', 'info');
       return;
     }
     const changes = await readCreatorVersionChanges(response);
-    const currentProfile = state.profile;
-    const maxPosition = state.links.reduce((max, item) => Math.max(max, item.position), -1);
+    const profileReceipt = changes?.find((change) => change.entity === 'profile' && change.id === profileAtSubmit.id);
+    const placementReceipt = changes?.find((change) => change.entity === 'placement' && change.id === link.placementId);
     const validReceipt = response.status === 201 && link.title === resource.title && link.url === resource.url
+      && Object.hasOwn(link, 'description') === Object.hasOwn(resource, 'description')
+      && link.description === resource.description
       && link.resourceVersion === observedVersion && link.featured === false && link.selectedForDirectory === true
-      && link.position > maxPosition && link.series.length === 0
+      && link.position >= 0 && link.series.length === 0
+      && !state.links.some(({ placementId }) => placementId === link.placementId)
       && (!placementIdByResource.has(resourceId) || placementIdByResource.get(resourceId) === link.placementId)
-      && changesEqual(changes, [
-        { entity: 'profile', id: currentProfile.id, before: currentProfile.version, after: currentProfile.version + 1 },
-        { entity: 'placement', id: link.placementId, before: 0, after: link.placementVersion ?? -1 },
-      ]);
-    if (!validReceipt) {
+      && validateCreatorOwnerReceipts(changes, [
+        { entity: 'profile', id: profileAtSubmit.id, before: profileAtSubmit.version, transition: 'increment', required: true },
+        { entity: 'placement', id: link.placementId, before: 0, transition: 'created', required: true },
+      ])
+      && link.placementVersion === placementReceipt?.after
+      && placementReceipt?.after === profileReceipt?.after
+      && profileReceipt?.after !== undefined;
+    if (!validReceipt || !profileReceipt) {
       announceWrite('enlace', 'No pudimos comprobar el recibo de reincorporación. Conservamos la ficha y no la marcamos como agregada.', 'error');
       return;
     }
     state.links.push(link);
     placementIdByResource.set(link.resourceId, link.placementId);
-    state.profile = { ...currentProfile, version: currentProfile.version + 1 };
+    state.profile = { ...profileAtSubmit, version: profileReceipt.after };
     root?.setAttribute('data-profile-version', String(state.profile.version));
     renderOwnerLinks();
     const matchesCurrentQuery = ownerLinkMatchesCurrentQuery(link.placementId);
@@ -4966,15 +5165,16 @@ async function removeOwnerLink(placementId: string) {
       return;
     }
     const changes = await readCreatorVersionChanges(response);
-    if (response.status !== 204 || !changesEqual(changes, [
-      { entity: 'profile', id: profile.id, before: profile.version, after: profile.version + 1 },
-    ])) {
+    const profileReceipt = changes?.find((change) => change.entity === 'profile' && change.id === profile.id);
+    if (response.status !== 204 || !validateCreatorOwnerReceipts(changes, [
+      { entity: 'profile', id: profile.id, before: profile.version, transition: 'increment', required: true },
+    ]) || !profileReceipt) {
       announceWrite('enlace', 'No pudimos comprobar que el enlace se quitó. Actualiza la lista antes de repetir la acción.', 'error');
       return;
     }
     state.links = state.links.filter((item) => item.placementId !== placementId);
-    state.profile = { ...profile, version: profile.version + 1 };
-    root?.setAttribute('data-profile-version', String(state.profile.version));
+    state.profile = { ...profile, version: profileReceipt.after };
+    root?.setAttribute('data-profile-version', String(profileReceipt.after));
     renderOwnerLinksAfterCollectionChange();
     window.requestAnimationFrame(() => root?.querySelector<HTMLElement>('[data-link-search]')?.focus());
     clearRecoveryNotice();
@@ -5322,7 +5522,9 @@ async function uploadPhoto(form: HTMLFormElement) {
     const changes = await readCreatorVersionChanges(finish);
     const photo = payload?.photo;
     const matching = changes?.find((change) => change.entity === 'profile' && change.id === profile.id);
-    if (!payload || !validPhoto(photo) || changes === null || matching?.before !== expectedVersion || matching.after !== expectedVersion + 1) {
+    if (finish.status !== 200 || !payload || !validPhoto(photo) || !validateCreatorOwnerReceipts(changes, [
+      { entity: 'profile', id: profile.id, before: expectedVersion, transition: 'increment', required: true },
+    ]) || matching?.before !== expectedVersion || matching.after !== expectedVersion + 1) {
       setHidden(form.querySelector('[data-owner-check-photo]'), false);
       announceWrite('foto', PHOTO_UNCONFIRMED, 'error');
       return;
@@ -5806,7 +6008,7 @@ if (root && state && csrfToken && dialog) {
     if (chapterAdd) {
       event.preventDefault();
       const placementId = chapterAdd.dataset.placementId || chapterAdd.closest<HTMLElement>('[data-chapter-row]')?.dataset.chapterRow;
-      if (!placementId || seriesReconcileReadPending) return;
+      if (!placementId || (seriesReconcileReadPending && seriesReconcileOutcome !== 'confirmed')) return;
       const action = () => { void runProfileFormAction(event, () => mutateChapterMembership(placementId, 'add')); };
       if (hasPendingChanges()) showExitPrompt(action, chapterAdd);
       else action();
@@ -5816,7 +6018,7 @@ if (root && state && csrfToken && dialog) {
     if (chapterRemove) {
       event.preventDefault();
       const placementId = chapterRemove.dataset.placementId || chapterRemove.closest<HTMLElement>('[data-chapter-row]')?.dataset.chapterRow;
-      if (!placementId || seriesReconcileReadPending) return;
+      if (!placementId || (seriesReconcileReadPending && seriesReconcileOutcome !== 'confirmed')) return;
       const action = () => { void runProfileFormAction(event, () => mutateChapterMembership(placementId, 'remove')); };
       if (hasPendingChanges()) showExitPrompt(action, chapterRemove);
       else action();
@@ -6048,14 +6250,22 @@ if (root && state && csrfToken && dialog) {
           }
           const payload = await responsePayload(response);
           const changes = await readCreatorVersionChanges(response);
-          if (!payload || !isProfile(payload.profile) || !validateReceipt(payload, changes, profile, payload.profile)) {
+          const published = payload?.profile;
+          if (response.status !== 200 || !isProfile(published) || !profile
+            || published.id !== profile.id || published.published !== true || published.hidden !== profile.hidden
+            || published.displayName !== profile.displayName || published.slug !== profile.slug
+            || published.city !== profile.city || published.country !== profile.country
+            || JSON.stringify(published.programs) !== JSON.stringify(profile.programs)
+            || published.bio !== profile.bio || JSON.stringify(published.socials) !== JSON.stringify(profile.socials)
+            || JSON.stringify(published.photo) !== JSON.stringify(profile.photo)
+            || !validateReceipt(changes, profile, published)) {
             requirePublicationCheck(profile);
             return;
           }
-          updateProfileState(payload.profile);
+          updateProfileState(published);
           clearRecoveryNotice();
           hydrateInactiveForms();
-          announcePublicationStatus(payload.profile.hidden
+          announcePublicationStatus(published.hidden
             ? 'La página está publicada, pero sigue oculta por administración.'
             : 'Tu página ya está publicada y visible al público.', 'success');
         } catch {

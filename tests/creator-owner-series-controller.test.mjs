@@ -183,10 +183,10 @@ test('PUT y DELETE de capítulo reconcilian el DTO completo y preservan otras pe
   assert.equal(addRequest.method, 'PUT');
   assert.equal(addRequest.path, `/api/creador/series/${main.id}/capitulos/${available.placementId}`);
   assert.deepEqual(addRequest.body, { profileVersion: 14 });
-  assert.ok(requests[1], 'the 200 without a link DTO is followed by one owner read');
+  assert.ok(requests[1], 'the confirmed chapter result is followed by an owner refresh');
   const profileReadAfterAdd = requests.find((request, index) => index > requests.indexOf(addRequest)
     && request.method === 'GET' && request.path === '/api/creador/perfil');
-  assert.ok(profileReadAfterAdd, 'the 200 without a link DTO is followed by one owner read');
+  assert.ok(profileReadAfterAdd, 'the confirmed chapter result is followed by an owner refresh');
   const attached = api.state.links.find(({ placementId }) => placementId === available.placementId);
   assert.ok(attached.series.some(({ seriesId }) => seriesId === main.id));
   assert.ok(attached.series.some(({ seriesId }) => seriesId === other.id), 'the existing series membership survives adding another');

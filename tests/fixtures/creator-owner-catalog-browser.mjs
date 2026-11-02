@@ -259,7 +259,7 @@ function defaultResponse(request, index, apiState, profileId) {
       hidden: false,
       directoryApproval: 'pending',
       resourceVersion: 1,
-      placementVersion: 1,
+      placementVersion: nextVersion,
       series: [],
     };
     apiState.profile = { ...apiState.profile, version: nextVersion };

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { isCatalogResourceIdWithinLimit, projectPublicRecord, validateCatalogUrl } from './catalog.mjs';
 import { currentUrlKey } from './catalog-url.mjs';
+import { normalizeCreatorText } from './creator-values.mjs';
 import { creatorPageSessionBinding, isCreatorPageSessionBinding } from './creator-session-context.mjs';
 
 const PROGRAMS = new Set(['User Group Leaders', 'Community Builders', 'Heroes']);
@@ -125,7 +126,7 @@ function textField(value, name, { optional = false } = {}) {
   if (typeof value !== 'string') fail(422, 'INVALID_FIELD', `${name} must be text`);
   const limit = name.startsWith('socials.') ? SOCIAL_FIELD_LIMIT : TEXT_FIELD_LIMITS.get(name);
   if (limit !== undefined && value.length > limit) fail(422, 'FIELD_TOO_LONG', `${name} must be at most ${limit} characters`);
-  return value.trim();
+  return normalizeCreatorText(value);
 }
 
 function validateTextLengths(value, path = '') {
@@ -978,17 +979,13 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     return resources;
   }
 
-  async function profileLinks(profileId, { includeHiddenResources = false, series = undefined, publicTags = false, profileSlug = '' } = {}) {
-    const currentSeries = series ?? await seriesForProfile(profileId);
-    const seriesById = new Map(currentSeries.map((item) => [item.id, item]));
+  function projectLinks(placements, resources, series, {
+    includeHiddenResources = false,
+    publicTags = false,
+    profileSlug = '',
+  } = {}) {
+    const seriesById = new Map(series.map((item) => [item.id, item]));
     const currentSeriesIds = new Set(seriesById.keys());
-    const placements = await getPlacements(profileId);
-    const resourceIds = [];
-    for (const placement of placements) {
-      if (typeof placement.resourceId !== 'string') fail(503, 'INVALID_PLACEMENT', 'placement resource ID is invalid');
-      resourceIds.push(placement.resourceId);
-    }
-    const resources = await resourcesById(resourceIds);
     const links = [];
     for (const placement of placements) {
       const resource = resources.get(placement.resourceId);
@@ -1004,19 +1001,58 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     return sortLinks(links);
   }
 
+  async function profileLinks(profileId, { includeHiddenResources = false, series = undefined, publicTags = false, profileSlug = '' } = {}) {
+    const currentSeries = series ?? await seriesForProfile(profileId);
+    const placements = await getPlacements(profileId);
+    const resourceIds = [];
+    for (const placement of placements) {
+      if (typeof placement.resourceId !== 'string') fail(503, 'INVALID_PLACEMENT', 'placement resource ID is invalid');
+      resourceIds.push(placement.resourceId);
+    }
+    const resources = await resourcesById(resourceIds);
+    return projectLinks(placements, resources, currentSeries, {
+      includeHiddenResources,
+      publicTags,
+      profileSlug,
+    });
+  }
+
+  async function prepareCanonicalLinks(placements, series) {
+    const resourceIds = [];
+    for (const placement of placements) {
+      if (typeof placement.resourceId !== 'string') fail(503, 'INVALID_PLACEMENT', 'placement resource ID is invalid');
+      resourceIds.push(placement.resourceId);
+    }
+    const resources = await resourcesById(resourceIds);
+    const seriesById = new Map(series.map((item) => [item.id, item]));
+    const currentSeriesIds = new Set(seriesById.keys());
+    return placements.map((placement) => linkDtoFromRecords(
+      placement,
+      resources.get(placement.resourceId),
+      seriesById,
+      currentSeriesIds,
+      { includeModerationState: true },
+    ));
+  }
+
   async function creatorEditor(principal) {
     const { profile } = await ownerProfile(principal);
     if (!profile) return { profile: null, links: [], editableResources: [], claims: [], series: [] };
     const series = await seriesForProfile(profile.id);
-    const links = await profileLinks(profile.id, { includeHiddenResources: true, series });
+    const placements = await getPlacements(profile.id);
     const editorRefs = await store.list(`editor:${profile.id}:`);
     const resourceIds = [];
+    for (const placement of placements) {
+      if (typeof placement.resourceId !== 'string') fail(503, 'INVALID_PLACEMENT', 'placement resource ID is invalid');
+      resourceIds.push(placement.resourceId);
+    }
     for (const row of editorRefs) {
       const reference = row.value;
       if (!reference || reference.profileId !== profile.id || typeof reference.resourceId !== 'string') fail(503, 'INVALID_EDITOR_REFERENCE', 'editor reference is malformed');
       resourceIds.push(reference.resourceId);
     }
     const resources = await resourcesById(resourceIds);
+    const links = projectLinks(placements, resources, series, { includeHiddenResources: true });
     const editableResources = [];
     for (const row of editorRefs) {
       const reference = row.value;
@@ -1298,7 +1334,13 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     const updatedPlacements = new Map();
     const targetMap = currentMap;
     if (operation === 'add' && hasMembership) {
-      if (!hadStaleReferences) return { status: 200 };
+      if (!hadStaleReferences) {
+        return {
+          status: 200,
+          profileVersion: profile.version,
+          links: await prepareCanonicalLinks([placement], allSeries),
+        };
+      }
       updatedPlacements.set(placementId, { ...placement, series: targetMap });
     } else if (operation === 'add') {
       const maxPosition = members.reduce((maximum, member) => Math.max(maximum, member.map[seriesId].position), -10);
@@ -1315,7 +1357,13 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       const index = members.findIndex((member) => member.placement.id === placementId);
       const neighborIndex = index + (body.direction === 'up' ? -1 : 1);
       if (neighborIndex < 0 || neighborIndex >= members.length) {
-        if (!hadStaleReferences) return { status: 200 };
+        if (!hadStaleReferences) {
+          return {
+            status: 200,
+            profileVersion: profile.version,
+            links: await prepareCanonicalLinks([placement], allSeries),
+          };
+        }
         updatedPlacements.set(placementId, { ...placement, series: targetMap });
       } else {
         const target = members[index];
@@ -1358,9 +1406,16 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       checks.push({ key: placementKey(profile.id, id), version: updated.version - 1 });
       puts.push({ key: placementKey(profile.id, id), value: updated });
     }
+    const canonicalResult = operation === 'remove'
+      ? {}
+      : {
+        profileVersion: updatedProfile.version,
+        links: await prepareCanonicalLinks([...updatedPlacements.values()], allSeries),
+      };
     if (!await store.transact({ checks, puts })) fail(409, 'SERIES_CONFLICT', 'profile, series, or chapter changed while saving');
     return {
       status: 200,
+      ...canonicalResult,
       versionChanges: versionChanges(
         versionChange('profile', profile.id, profile.version, updatedProfile.version),
         ...[...updatedPlacements.values()].map((updated) => versionChange('placement', updated.id, updated.version - 1, updated.version)),
@@ -1384,8 +1439,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     };
   }
 
-  async function buildLinkDto(placement) {
-    const resource = await store.get(`resource:${placement.resourceId}`);
+  function buildLinkDto(placement, resource) {
     if (!resource || resource.id !== placement.resourceId) fail(503, 'MISSING_RESOURCE', 'placement points to missing resource data');
     if (!isCatalogResource(resource)) fail(503, 'INVALID_RESOURCE', 'placement points to a non-resource catalog row');
     return publicLink(placement, resource, { includeModerationState: true });
@@ -1418,7 +1472,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         });
         if (!ok) fail(409, 'LINK_CONFLICT', 'link changed while checking the existing reference');
       }
-      return { link: await linkDtoBuilder(existing, resource), created: false, versionChanges: [] };
+      return { link: linkDtoBuilder(existing, resource), created: false, versionChanges: [] };
     }
 
     const placements = await getPlacements(profile.id);
@@ -1427,6 +1481,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       recordType: 'placement', id: stableId, profileId: profile.id, resourceId: resource.id,
       position: nextPlacementPosition(placements), featured: false, selectedForDirectory, version: updatedProfile.version,
     };
+    const link = linkDtoBuilder(placement, resource);
     const ok = await store.transact({
       checks: [
         { key: profileKey(profile.id), version: profile.version },
@@ -1442,13 +1497,13 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       if (returnExistingOnConflict) {
         const winner = await store.get(stablePlacementKey);
         if (winner?.id === stableId && winner.profileId === profile.id && winner.resourceId === resource.id) {
-          return { link: await linkDtoBuilder(winner, resource), created: false };
+          return { link: linkDtoBuilder(winner, resource), created: false };
         }
       }
       fail(409, 'LINK_CONFLICT', 'link changed while adding');
     }
     return {
-      link: await linkDtoBuilder(placement, resource), created: true,
+      link, created: true,
       versionChanges: versionChanges(
         versionChange('profile', profile.id, profile.version, updatedProfile.version),
         versionChange('placement', stableId, 0, placement.version),
@@ -1636,6 +1691,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       recordType: 'placement', id: stableId, profileId: profile.id, resourceId,
       position, featured: false, selectedForDirectory, version: updatedProfile.version,
     };
+    const link = buildLinkDto(placement, resource);
     const ok = await store.transact({
       checks: [
         { key, version: null },
@@ -1660,7 +1716,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       fail(409, 'URL_CONFLICT', 'URL or profile changed while adding');
     }
     return {
-      link: await buildLinkDto(placement), created: true,
+      link, created: true,
       versionChanges: versionChanges(
         versionChange('profile', profile.id, profile.version, updatedProfile.version),
         versionChange('resource', resourceId, 0, resource.version),
@@ -2209,7 +2265,8 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     if (Object.keys(changes).length === 0) fail(422, 'EMPTY_UPDATE', 'no placement fields were provided');
     const mutation = buildPlacementMutation(profile.id, placement, changes);
     if (!mutation.changed) {
-      return { link: await buildLinkDto(placement), versionChanges: [] };
+      const [link] = await prepareCanonicalLinks([placement], await seriesForProfile(profile.id));
+      return { link, links: [link], versionChanges: [] };
     }
 
     const checks = [
@@ -2217,11 +2274,12 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       ...mutation.checks,
     ];
     const puts = [...mutation.puts];
+    let neighborMutation;
     if (Object.hasOwn(changes, 'position') && changes.position !== placement.position) {
       const all = await getPlacements(profile.id);
       const other = all.find((item) => item.id !== id && item.position === changes.position && item.featured === placement.featured);
       if (other) {
-        const neighborMutation = buildPlacementMutation(profile.id, other, { position: placement.position });
+        neighborMutation = buildPlacementMutation(profile.id, other, { position: placement.position });
         checks.push(...neighborMutation.checks);
         puts.push(...neighborMutation.puts);
       }
@@ -2229,14 +2287,18 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     const updated = mutation.placement;
     const updatedProfile = { ...profile, version: nextVersion(profile.version, 'profile'), updatedAt: timestamp() };
     puts.push({ key: profileKey(profile.id), value: updatedProfile });
+    const responsePlacements = [updated, ...(neighborMutation?.changed ? [neighborMutation.placement] : [])];
+    const links = await prepareCanonicalLinks(responsePlacements, await seriesForProfile(profile.id));
     if (!await store.transact({ checks, puts })) fail(409, 'PLACEMENT_CONFLICT', 'placement changed while saving');
-    const neighbor = puts.find(({ key: putKey }) => putKey !== key && putKey.startsWith(`placement:${profile.id}:`))?.value;
     return {
-      link: await buildLinkDto(updated),
+      link: links.find((item) => item.placementId === id),
+      links,
       versionChanges: versionChanges(
         versionChange('profile', profile.id, profile.version, updatedProfile.version),
         versionChange('placement', id, mutation.before, updated.version),
-        neighbor ? versionChange('placement', neighbor.id, storedVersion(neighbor.version, 'placement', { legacyZero: true }) - 1, neighbor.version) : null,
+        neighborMutation?.changed
+          ? versionChange('placement', neighborMutation.placement.id, neighborMutation.before, neighborMutation.placement.version)
+          : null,
       ),
     };
   }

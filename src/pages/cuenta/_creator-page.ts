@@ -1,6 +1,7 @@
 import { getCreatorRuntime } from '../../lib/creator-runtime.mjs';
 import { creatorPageSessionBinding } from '../../lib/creator-session-context.mjs';
 import { selectAdminResources } from '../../lib/creator-admin-pagination.mjs';
+import { creatorResourceProjectionsAgree } from '../../lib/creator-resource-consistency';
 import type {
   CreatorClaimDTO,
   CreatorClaimResourceDTO,
@@ -249,6 +250,9 @@ function readEditorData(value: unknown): CreatorEditorDTO {
   const item = record(value);
   if (!item || !Array.isArray(item.links) || !Array.isArray(item.editableResources) || !Array.isArray(item.claims)) {
     throw new TypeError('No pudimos leer los datos del perfil.');
+  }
+  if (!creatorResourceProjectionsAgree(item.links, item.editableResources)) {
+    throw new TypeError('Las proyecciones del contenido no corresponden a la misma observación.');
   }
   const rawSeries = item.series === undefined ? [] : item.series;
   if (!Array.isArray(rawSeries)) throw new TypeError('La lista de series recibida no tiene un formato válido.');

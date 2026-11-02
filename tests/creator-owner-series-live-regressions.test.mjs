@@ -604,7 +604,7 @@ test('un recibo de pertenencia incompatible bloquea mutaciones y sólo reintenta
   let reads = 0;
   const { surface, api, requests } = await mountOwnerSeriesController({
     profile: profile(), links: [link], series: [targetSeries], query: { serie: targetSeries.id },
-    override: (request, state) => {
+    override: (request, state, snapshot) => {
       if (request.method === 'PUT' && request.path.endsWith(`/capitulos/${link.placementId}`)) {
         const serverLink = state.links[0];
         const beforeProfile = state.profile.version;
@@ -612,10 +612,15 @@ test('un recibo de pertenencia incompatible bloquea mutaciones y sólo reintenta
         state.profile.version += 1;
         serverLink.placementVersion += 1;
         serverLink.series.push({ seriesId: targetSeries.id, position: 0 });
-        return jsonResponse({ status: 200, versionChanges: [
-          { entity: 'profile', id: 'wrong-profile', before: beforeProfile, after: state.profile.version },
-          { entity: 'placement', id: 'wrong-placement', before: beforePlacement, after: serverLink.placementVersion },
-        ] });
+        return jsonResponse({
+          status: 200,
+          profileVersion: state.profile.version,
+          links: snapshot().links.filter(({ placementId }) => placementId === link.placementId),
+          versionChanges: [
+            { entity: 'profile', id: 'wrong-profile', before: beforeProfile, after: state.profile.version },
+            { entity: 'placement', id: 'wrong-placement', before: beforePlacement, after: serverLink.placementVersion },
+          ],
+        });
       }
       if (request.method === 'GET' && request.path === '/api/creador/perfil' && ++reads === 1) {
         return jsonResponse({ error: 'UNAVAILABLE' }, 503);

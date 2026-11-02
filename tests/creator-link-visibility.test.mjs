@@ -241,13 +241,12 @@ async function ownerAddStatus({ published = true, hidden = false, linkHidden = f
         placementId, resourceId, title: request.body.title, url: request.body.url,
         description: request.body.description ?? '', featured: false, position: 0,
         selectedForDirectory: request.body.selectedForDirectory ?? true, hidden: true,
-        directoryApproval: 'pending', resourceVersion: 1, placementVersion: 1, series: [],
+        directoryApproval: 'pending', resourceVersion: 1, placementVersion: state.profile.version + 1, series: [],
       },
       created: true,
       versionChanges: [
         { entity: 'profile', id: state.profile.id, before: state.profile.version, after: state.profile.version + 1 },
-        { entity: 'resource', id: resourceId, before: 0, after: 1 },
-        { entity: 'placement', id: placementId, before: 0, after: 1 },
+        { entity: 'placement', id: placementId, before: 0, after: state.profile.version + 1 },
       ],
     }, 201);
   } });
