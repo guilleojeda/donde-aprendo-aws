@@ -24,7 +24,8 @@
     "import:catalog": "node scripts/import-catalog.mjs",
     "import:meetup-communities": "node scripts/import-meetup-communities.mjs",
     "package:meetup-events": "python3 scripts/package-meetup-events.py",
-    "publish": "node scripts/publish.mjs"
+    "publish": "node scripts/publish.mjs",
+    "test:browser": "playwright test"
   },
   "dependencies": {
     "@aws-sdk/client-amplify": "3.1138.0",
@@ -44,6 +45,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "0.9.10",
+    "@playwright/test": "1.64.1",
     "@types/node": "24.13.6",
     "esbuild": "0.28.2",
     "typescript": "5.9.3",

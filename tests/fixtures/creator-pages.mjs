@@ -125,11 +125,12 @@ const principals = {
 export async function createCreatorPagesHarness(options = {}) {
   const createCreatorPagesService = await loadCreatorPagesFactory();
   const store = options.store ?? createDocumentStore();
+  const origin = options.origin ?? SITE_ORIGIN;
   let id = 0;
   let now = options.initialTime ?? Date.UTC(2026, 9, 23);
   const service = createCreatorPagesService({
     store,
-    origin: SITE_ORIGIN,
+    origin,
     now: options.now ?? (() => now),
     createId: options.createId ?? (() => `fixture-id-${++id}`),
     statistics: options.statistics,
@@ -138,6 +139,7 @@ export async function createCreatorPagesHarness(options = {}) {
   return {
     service,
     store,
+    origin,
     advanceTime(milliseconds) {
       now += milliseconds;
     },

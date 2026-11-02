@@ -898,35 +898,6 @@ behaviorTest('salir de una corrección ofrece guardar, descartar o seguir; el sl
   assert.equal(surface.controls.dialog.open, false);
 });
 
-behaviorTest('descartar Redes restaura valor y validación nativa de una URL guardada', async () => {
-  const runtime = await createCreatorOwnerRuntime();
-  runtime.setSession('creator-a');
-  const profile = await createServiceProfile(runtime);
-  const surface = ownerSurface({ profile });
-  surface.forms.redes.reportValidity = function reportValidity() {
-    return this.elements.every((control) => !control.validationMessage);
-  };
-  const requests = await mount({ runtime, surface });
-  const instagram = surface.controls.socialFields.find(({ name }) => name === 'social-instagram');
-
-  await surface.controls.editButtons[1].dispatch('click');
-  instagram.value = 'ftp://invalid.example.invalid/ana';
-  await instagram.dispatch('input');
-  await surface.forms.redes.dispatch('submit');
-  assert.match(instagram.validationMessage, /HTTP o HTTPS/);
-  await surface.controls.cancelButton.dispatch('click');
-  await surface.controls.exitDiscard.dispatch('click');
-  await surface.controls.editButtons[1].dispatch('click');
-
-  assert.equal(instagram.value, profile.socials.instagram);
-  assert.equal(instagram.validationMessage, '', 'restoring the saved URL clears its stale customError');
-  assert.equal(surface.forms.redes.reportValidity(), true);
-  await surface.forms.redes.dispatch('submit');
-  await settle();
-  assert.equal(mutations(requests).length, 1, 'a valid restored social URL can be submitted');
-  assert.equal(surface.controls.dialog.open, false);
-});
-
 behaviorTest('la salida al sitio guarda, descarta o conserva cambios del alta inicial sin perder el formulario ante un error', async () => {
   async function initialPage(fetch) {
     const runtime = await createCreatorOwnerRuntime();

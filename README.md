@@ -16,6 +16,17 @@ npm test
 CATALOG_FIXTURE=tests/fixtures/catalog.json PUBLIC_SUBMISSION_API_URL=https://api.example.invalid/submissions npm run dev
 ```
 
+### Browser acceptance
+
+After `npm ci`, install Chromium and run the browser suite locally:
+
+```sh
+npx playwright install chromium
+npm run test:browser
+```
+
+CI runs the same `npm run test:browser` command after installing Chromium and its Linux dependencies with `npx playwright install --with-deps chromium`. The suite starts the actual Astro development server over loopback HTTPS and exercises its rendered pages, scripts and routes with the real account and creator HTTP/domain services backed by in-memory stores. It uses the account/OIDC transport fixture while preserving the Secure/HttpOnly cookie and origin/CSRF checks. It requires no AWS credentials or live Cognito, Analytics or S3 access. This validates the development SSR application, not the built Amplify artifact; the build and hosting checks below remain separate. The suite closes its browser contexts and server and removes its temporary certificate and cache. Playwright writes its report to `playwright-report/creator-browser/` and failure traces/screenshots to `test-results/creator-browser/`; CI retains these directories for seven days when the job fails.
+
 `CATALOG_FIXTURE` deliberately selects synthetic local/CI data. It is never an automatic fallback for a missing table or a failed AWS read. To build the real directory, use your normal short-lived AWS session:
 
 ```sh
@@ -235,7 +246,7 @@ When a new public event field is added, update the DynamoDB scan allowlists in t
 
 ## Verification
 
-GitHub Actions runs `npm run check`, `npm test`, the Meetup sync unit tests, all three Lambda packaging commands, a packaged submission-handler smoke call against a local DynamoDB stub, and an explicitly selected fixture build. Amplify runs the site checks and builds from the live table. A successful fixture build does not prove that AWS access or live catalog publication works; verify the deployed directory, form, and database-change → fresh-build behavior as part of delivery.
+GitHub Actions runs `npm run check`, `npm test`, the Chromium browser acceptance suite, the Meetup sync unit tests, all three Lambda packaging commands, a packaged submission-handler smoke call against a local DynamoDB stub, and an explicitly selected fixture build. Browser failures retain Playwright's report, traces and screenshots as a seven-day artifact. Amplify runs the site checks and builds from the live table. A successful fixture build does not prove that AWS access or live catalog publication works; verify the deployed directory, form, and database-change → fresh-build behavior as part of delivery.
 
 See [directory behavior](docs/intent/directory.md), [creator page behavior](docs/intent/creator-pages.md), [account behavior](docs/intent/accounts.md), and [blog behavior](docs/intent/blog.md) for the content and publication rules.
 

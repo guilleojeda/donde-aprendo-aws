@@ -196,7 +196,7 @@ export async function loadPasswordResetFactory() {
   return module.createPasswordResetHandler;
 }
 
-export async function createAccountHarness({ now = Date.now, store = createAccountStore(), oidc = {} } = {}) {
+export async function createAccountHarness({ now = Date.now, store = createAccountStore(), oidc = {}, origin = ORIGIN } = {}) {
   const createAccountAuth = await loadAccountAuthFactory();
   const state = {
     issuedNonce: undefined,
@@ -205,6 +205,7 @@ export async function createAccountHarness({ now = Date.now, store = createAccou
     calls: [],
     now,
     oidc,
+    origin,
   };
   const discovery = {
     issuer: ISSUER,
@@ -236,7 +237,7 @@ export async function createAccountHarness({ now = Date.now, store = createAccou
       const parameters = await requestFormParameters(input, init);
       if (parameters.get('grant_type') !== 'authorization_code'
         || parameters.get('code') !== state.expectedCallbackCode
-        || parameters.get('redirect_uri') !== `${ORIGIN}/cuenta/callback/`
+        || parameters.get('redirect_uri') !== `${origin}/cuenta/callback/`
         || parameters.get('code_verifier') !== state.issuedAttempt?.codeVerifier) {
         return jsonResponse({ error: 'invalid_grant' }, 400);
       }
@@ -257,7 +258,7 @@ export async function createAccountHarness({ now = Date.now, store = createAccou
   }
 
   const auth = createAccountAuth({
-    origin: ORIGIN,
+    origin,
     issuer: ISSUER,
     clientId: CLIENT_ID,
     cognitoDomain: COGNITO_DOMAIN,
@@ -266,7 +267,7 @@ export async function createAccountHarness({ now = Date.now, store = createAccou
     now,
   });
 
-  return { auth, store, state, fetchOIDC };
+  return { auth, store, state, fetchOIDC, origin };
 }
 
 async function requestFormParameters(input, init) {
@@ -286,12 +287,12 @@ function jsonResponse(value, status = 200) {
   });
 }
 
-export function makeRequest(path, { method = 'GET', headers = {}, body } = {}) {
+export function makeRequest(path, { method = 'GET', headers = {}, body, origin = ORIGIN } = {}) {
   const normalizedHeaders = new Headers(headers);
   if (body !== undefined && !normalizedHeaders.has('content-type')) {
     normalizedHeaders.set('content-type', 'application/x-www-form-urlencoded');
   }
-  return new Request(new URL(path, ORIGIN), {
+  return new Request(new URL(path, origin), {
     method,
     headers: normalizedHeaders,
     ...(body !== undefined ? { body } : {}),
@@ -319,10 +320,10 @@ export function liveCookieHeader(response) {
     .join('; ');
 }
 
-export function location(response) {
+export function location(response, origin = ORIGIN) {
   const value = response.headers.get('location');
   assert.ok(value, 'expected redirect Location header');
-  return new URL(value, ORIGIN);
+  return new URL(value, origin);
 }
 
 export function assertPrivateNoStore(response) {
@@ -330,10 +331,10 @@ export function assertPrivateNoStore(response) {
   assert.match(response.headers.get('cache-control') ?? '', /no-store/i);
 }
 
-export function assertSafeFailureRedirect(response, state) {
+export function assertSafeFailureRedirect(response, state, origin = ORIGIN) {
   assert.equal(response.status, 303);
-  const target = location(response);
-  assert.equal(target.origin, ORIGIN);
+  const target = location(response, origin);
+  assert.equal(target.origin, origin);
   assert.equal(target.pathname, '/cuenta/');
   assert.equal(target.searchParams.get('estado'), state);
   assert.equal(target.searchParams.size, 1, 'failure redirect carries only its public state');
@@ -341,10 +342,10 @@ export function assertSafeFailureRedirect(response, state) {
 }
 
 export async function startLogin(harness, path = '/cuenta/ingresar/') {
-  const response = await harness.auth.handle(makeRequest(path));
+  const response = await harness.auth.handle(makeRequest(path, { origin: harness.origin }));
   assert.equal(response.status, 303);
   assertPrivateNoStore(response);
-  const authorize = location(response);
+  const authorize = location(response, harness.origin);
   harness.state.issuedNonce = authorize.searchParams.get('nonce') ?? undefined;
   harness.state.issuedAttempt = harness.state.issuedNonce
     ? [...harness.store.attempts.values()].find((attempt) => attempt.nonce === harness.state.issuedNonce)
@@ -364,12 +365,13 @@ export function callbackRequest(login, options = {}) {
   const state = Object.hasOwn(options, 'state') ? options.state : login.state;
   const { error } = options;
   login.harness.state.expectedCallbackCode = code;
-  const callback = new URL('/cuenta/callback/', ORIGIN);
+  const callback = new URL('/cuenta/callback/', login.harness.origin);
   if (code !== undefined) callback.searchParams.set('code', code);
   if (state !== undefined) callback.searchParams.set('state', state);
   if (error !== undefined) callback.searchParams.set('error', error);
   return makeRequest(`${callback.pathname}${callback.search}`, {
     headers: login.cookie ? { cookie: login.cookie } : {},
+    origin: login.harness.origin,
   });
 }
 
@@ -396,7 +398,7 @@ export async function completeLogin(harness, loginOptions = {}) {
   return { login, response, sessionCookie: sessionCookieFrom(response, harness.state.now) };
 }
 
-export function sessionRequest(sessionCookie, path = '/cuenta/') {
+export function sessionRequest(sessionCookie, path = '/cuenta/', origin = ORIGIN) {
   const pair = typeof sessionCookie === 'string' ? cookiePair(sessionCookie) : sessionCookie;
-  return makeRequest(path, { headers: pair ? { cookie: pair } : {} });
+  return makeRequest(path, { headers: pair ? { cookie: pair } : {}, origin });
 }
