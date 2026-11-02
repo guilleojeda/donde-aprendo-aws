@@ -257,8 +257,11 @@ test('un description vacío ya persistido es un no-op real sin cambio de versió
   await form.getByRole('button', { name: 'Guardar serie' }).click();
   await captured.settle();
 
-  const patch = captured.writes().find(({ method, path }) => method === 'PATCH' && path === `/api/creador/series/${created.id}`);
-  assert.ok(patch, `expected the real no-op PATCH; observed ${JSON.stringify(captured.records.map(({ method, path, status }) => ({ method, path, status })))}`);
+  const writes = captured.writes();
+  assert.equal(writes.length, 1, 'the unchanged edit sends exactly one browser write');
+  const patch = writes[0];
+  assert.equal(patch.method, 'PATCH');
+  assert.equal(patch.path, `/api/creador/series/${created.id}`);
   assert.deepEqual(patch.body, {
     version: created.version,
     profileVersion: beforeProfile.version,
@@ -352,6 +355,7 @@ async function submitStaleNoOp({ fixture, page, cookie, staleKind }) {
   let heldRequest;
   let responseStatus;
   let responseBody;
+  let concurrentSnapshot;
   const path = `/api/creador/series/${initial.id}`;
   const blocker = async (route) => {
     if (route.request().method() !== 'PATCH' || new URL(route.request().url()).pathname.replace(/\/$/u, '') !== path) {
@@ -397,6 +401,20 @@ async function submitStaleNoOp({ fixture, page, cookie, staleKind }) {
       });
     }
     assert.equal(concurrent.response.status, 200, 'the competing write uses the real service/API');
+    concurrentSnapshot = {
+      owner: await fixture.rawOwner(cookie),
+      series: await fixture.rawSeries(cookie, initial.id),
+    };
+    assert.equal(concurrentSnapshot.owner.profile.version, initialOwner.profile.version + 1,
+      'both real concurrent mutation paths advance the profile version exactly once');
+    if (staleKind === 'perfil') {
+      assert.equal(concurrentSnapshot.owner.profile.displayName, 'Nombre externo perfil');
+      assert.deepEqual(concurrentSnapshot.series, initialSeries,
+        'the competing profile update leaves the raw series record unchanged');
+    } else {
+      assert.equal(concurrentSnapshot.series.name, 'Nombre externo serie');
+      assert.equal(concurrentSnapshot.series.version, initialSeries.version + 1);
+    }
     releaseForward();
     await clickSave;
     await capture.settle();
@@ -423,12 +441,20 @@ async function submitStaleNoOp({ fixture, page, cookie, staleKind }) {
   await expect(form.locator('[data-owner-form-status="serie"]')).toContainText(/cambió/i);
   await expect(form.getByLabel(/Descripción/)).toHaveValue('Corrección local conservada');
 
-  const current = await fixture.rawOwner(cookie);
-  const currentSeries = await fixture.rawSeries(cookie, initial.id);
-  const profileVersion = current.profile.version;
+  const afterRejected = {
+    owner: await fixture.rawOwner(cookie),
+    series: await fixture.rawSeries(cookie, initial.id),
+  };
+  assert.deepEqual(afterRejected.owner, concurrentSnapshot.owner,
+    'the rejected browser request leaves the concurrent raw owner record unchanged');
+  assert.deepEqual(afterRejected.series, concurrentSnapshot.series,
+    'the rejected browser request leaves the concurrent raw series record unchanged');
+  const current = concurrentSnapshot.owner;
+  const currentSeries = concurrentSnapshot.series;
+  const profileVersion = concurrentSnapshot.owner.profile.version;
   if (staleKind === 'perfil') {
     assert.equal(current.profile.displayName, 'Nombre externo perfil');
-    assert.equal(currentSeries.version, initialSeries.version);
+    assert.deepEqual(currentSeries, initialSeries);
   } else {
     assert.equal(currentSeries.name, 'Nombre externo serie');
     assert.equal(currentSeries.version, initialSeries.version + 1);
@@ -448,10 +474,15 @@ async function submitStaleNoOp({ fixture, page, cookie, staleKind }) {
     assert.equal(isolatedResponse.status(), 409);
     assert.equal(isolatedBody?.error, 'SERIES_CONFLICT',
       'a separate real API request with the current profile version reaches the series-version CAS');
-    assert.deepEqual(await fixture.rawSeries(cookie, initial.id), currentSeries,
-      'the isolated stale series CAS leaves the concurrent saved values unchanged');
+    const afterIsolated = {
+      owner: await fixture.rawOwner(cookie),
+      series: await fixture.rawSeries(cookie, initial.id),
+    };
+    assert.deepEqual(afterIsolated.owner, concurrentSnapshot.owner,
+      'the isolated series conflict leaves the concurrent raw owner record unchanged');
+    assert.deepEqual(afterIsolated.series, concurrentSnapshot.series,
+      'the isolated series conflict leaves the concurrent raw series record unchanged');
   }
-  assert.deepEqual(await fixture.rawSeries(cookie, initial.id), currentSeries);
   const browserPatch = capture.writes().filter(({ method, path: requestPath }) => method === 'PATCH' && requestPath === path);
   assert.equal(browserPatch.length, 1, 'the browser sent exactly one stale no-op, with no shortcut or replay');
   assert.equal(browserPatch[0].status, 409);
@@ -646,8 +677,15 @@ test('el alta de serie comprometida puede comprobarse y continuar sin repetir el
   }
   await capture.settle();
   assert.equal(deliveredStatus, 503, 'the browser receives a lost/failed acknowledgement after the actual commit');
-  assert.equal(capture.writes().filter(({ method, path }) => method === 'POST' && path === '/api/creador/series').length, 1,
-    'the browser made exactly one creation request before the acknowledgement was lost');
+  const creationWrites = () => capture.writes()
+    .filter(({ method, path }) => method === 'POST' && path === '/api/creador/series')
+    .map(({ method, path, status, body }) => ({ method, path, status, body }));
+  const originalPost = {
+    name: 'Ruta enviada', slug: 'ruta-enviada', description: 'Descripción enviada', profileVersion: 1,
+  };
+  assert.deepEqual(creationWrites(), [{
+    method: 'POST', path: '/api/creador/series', status: 503, body: originalPost,
+  }], 'the browser observed exactly the one original POST and its lost acknowledgement');
   await expect(form.locator('[data-series-conflict]')).toBeVisible();
   await expect(form.getByLabel('Nombre de la serie')).toHaveValue('Corrección posterior');
   await expect(form.getByLabel('Dirección de la serie')).toHaveValue('ruta-corregida');
@@ -656,7 +694,10 @@ test('el alta de serie comprometida puede comprobarse y continuar sin repetir el
   await form.getByRole('button', { name: 'Guardar serie' }).click();
   await capture.settle();
   await expect(form.locator('[data-owner-form-status="serie"]')).toContainText(/no repetiremos|Compara el alta original/i);
-  assert.equal(committedWrite.body.slug, 'ruta-enviada');
+  assert.deepEqual(committedWrite.body, originalPost, 'the separately observed server commit used the original request body');
+  assert.deepEqual(creationWrites(), [{
+    method: 'POST', path: '/api/creador/series', status: 503, body: originalPost,
+  }], 'a second Save while the acknowledgement is uncertain does not replay the POST');
   assert.equal((await fixture.rawOwner(cookie)).profile.version, 2);
   assert.equal((await fixture.creatorStore.list('series:')).length, 1);
 
@@ -675,6 +716,9 @@ test('el alta de serie comprometida puede comprobarse y continuar sin repetir el
   await expect(form.getByLabel(/Descripción/)).toHaveValue('Descripción posterior');
   expect(new URL(page.url()).search).toBe('?vista=series&buscarSeries=ruta&paginaSeries=1');
   assert.equal((await fixture.creatorStore.list('series:')).length, 1, 'explicit adoption preserves one committed series');
+  assert.deepEqual(creationWrites(), [{
+    method: 'POST', path: '/api/creador/series', status: 503, body: originalPost,
+  }], 'comparison and adoption do not replay the creation request');
 
   await form.getByRole('button', { name: 'Guardar serie' }).click();
   await capture.settle();
@@ -688,6 +732,18 @@ test('el alta de serie comprometida puede comprobarse y continuar sin repetir el
     description: 'Descripción posterior',
   });
   assert.equal(update.status, 200);
+  assert.deepEqual(capture.writes().map(({ method, path, status, body }) => ({ method, path, status, body })), [
+    { method: 'POST', path: '/api/creador/series', status: 503, body: originalPost },
+    {
+      method: 'PATCH', path: `/api/creador/series/${committedSeries.id}`, status: 200,
+      body: {
+        version: 1, profileVersion: 2, name: 'Corrección posterior', slug: 'ruta-corregida',
+        description: 'Descripción posterior',
+      },
+    },
+  ], 'the browser sent one failed acknowledgement POST and one explicit later correction PATCH');
+  assert.equal(committedWrite.status, 201, 'the actual server committed the original POST before its response was replaced');
+  assert.deepEqual(committedWrite.body, originalPost);
   const stored = await fixture.rawSeries(cookie, committedSeries.id);
   assert.deepEqual({ name: stored.name, slug: stored.slug, description: stored.description, version: stored.version }, {
     name: 'Corrección posterior', slug: 'ruta-corregida', description: 'Descripción posterior', version: 2,
@@ -746,9 +802,14 @@ test('la primera página SSR autentica por cookie, crea un borrador y rechaza ot
 test('cincuenta enlaces se buscan por SSR sin JS y se consultan, paginan y editan en el navegador', async ({ fixture, page, browser }) => {
   const cookie = await loggedInOwner(fixture, page);
   const links = [];
+  const targetIndex = 37;
+  const selectiveQuery = 'BUSQUEDA-UNICA-LARGA-37';
+  const selectivePrefix = `Guía ${String(targetIndex).padStart(2, '0')} AWS ${selectiveQuery} `;
+  const selectiveTitle = `${selectivePrefix}${'X'.repeat(200 - selectivePrefix.length)}`;
+  assert.equal(selectiveTitle.length, 200, 'the selective result exercises the maximum accepted title length');
   for (let index = 0; index < 50; index += 1) {
     links.push(await addLink(fixture, cookie, {
-      title: `Guía ${String(index).padStart(2, '0')} AWS`,
+      title: index === targetIndex ? selectiveTitle : `Guía ${String(index).padStart(2, '0')} AWS`,
       url: `https://links.example/guia/${index}`,
     }));
   }
@@ -762,6 +823,12 @@ test('cincuenta enlaces se buscan por SSR sin JS y se consultan, paginan y edita
     await expect(noScriptPage.locator('[data-link-count]')).toHaveText(/50 coincidencias de 50 enlaces/);
     await expect(noScriptPage.locator('[data-link-row]').filter({ hasText: 'Guía 49 AWS' })).toHaveCount(1,
       'the actual SSR filter and second page cover all fifty links with JavaScript disabled');
+    const selectiveResponse = await noScriptPage.goto(`${fixture.origin}/cuenta/?vista=enlaces&buscar=${encodeURIComponent(selectiveQuery)}`);
+    assert.equal(selectiveResponse.status(), 200);
+    await expect(noScriptPage.locator('[data-link-count]')).toHaveText('1 coincidencia de 50 enlaces');
+    const selectiveRow = noScriptPage.locator(`[data-link-row="${links[targetIndex].placementId}"]`);
+    await expect(selectiveRow).toHaveCount(1, 'SSR selects the matching item that is beyond the unfiltered first page');
+    await expect(selectiveRow.locator('[data-link-title]')).toHaveText(selectiveTitle);
   } finally {
     await noScriptContext.close();
   }
@@ -769,6 +836,11 @@ test('cincuenta enlaces se buscan por SSR sin JS y se consultan, paginan y edita
   const capture = await captureCreatorApi(page);
   await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
   const search = page.locator('[data-link-search]');
+  await search.fill(selectiveQuery);
+  await expect(page.locator('[data-link-count]')).toHaveText('1 coincidencia de 50 enlaces');
+  const enhancedSelectiveRow = page.locator(`[data-link-row="${links[targetIndex].placementId}"]`);
+  await expect(enhancedSelectiveRow).toHaveCount(1, 'enhanced search selects the matching item beyond the unfiltered first page');
+  await expect(enhancedSelectiveRow.locator('[data-link-title]')).toHaveText(selectiveTitle);
   await search.fill('Guía');
   await expect(page.locator('[data-link-count]')).toHaveText(/50 coincidencias de 50 enlaces/);
   await expect(page.locator('[data-link-row]')).toHaveCount(25);
