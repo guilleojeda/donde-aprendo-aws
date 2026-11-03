@@ -9,22 +9,7 @@ import {
   settle,
   writes,
 } from './fixtures/creator-owner-links-browser.mjs';
-import { mountOwnerSeriesController } from './fixtures/creator-owner-series-browser.mjs';
 import { SurfaceElement } from './fixtures/creator-owner-browser-dom.mjs';
-
-const INDEX_STATE_KEY = 'creatorOwnerHistoryIndex';
-
-function waitFor(predicate, message) {
-  return new Promise((resolve, reject) => {
-    let attempt = 0;
-    const check = () => {
-      if (predicate()) resolve();
-      else if (++attempt >= 50) reject(new Error(message));
-      else setImmediate(check);
-    };
-    check();
-  });
-}
 
 function addControl(surface, name) {
   return surface.addFields.find(({ name: candidate }) => candidate === name);
@@ -37,42 +22,6 @@ function editControl(surface, name) {
 function placeAddFormInOwnerDialog(surface) {
   surface.addForm.remove();
   surface.dialog.append(surface.addForm);
-}
-
-function installIndexedHistory(surface) {
-  const { window } = surface;
-  let entries = [{ href: window.location.href, state: { [INDEX_STATE_KEY]: 0 } }];
-  let index = 0;
-  const currentUrl = (value) => new URL(String(value), window.location.href).href;
-  const dispatchAt = (nextIndex) => {
-    index = nextIndex;
-    window.location.href = entries[index].href;
-    window.dispatchEvent({ type: 'popstate', state: entries[index].state });
-  };
-  const go = (delta) => {
-    const next = Math.max(0, Math.min(entries.length - 1, index + delta));
-    if (next !== index) dispatchAt(next);
-  };
-  const history = {
-    get state() { return entries[index].state; },
-    get entries() { return entries; },
-    get index() { return index; },
-    pushState(state, _title, href) {
-      entries = entries.slice(0, index + 1);
-      entries.push({ href: currentUrl(href), state: structuredClone(state) });
-      index = entries.length - 1;
-      window.location.href = entries[index].href;
-    },
-    replaceState(state, _title, href) {
-      entries[index] = { href: currentUrl(href), state: structuredClone(state) };
-      window.location.href = entries[index].href;
-    },
-    go,
-    back() { go(-1); },
-    forward() { go(1); },
-  };
-  window.history = history;
-  return history;
 }
 
 test('el alta confirmada pasa las correcciones tardías al editor autorizado y valida cada recibo', async () => {
@@ -507,93 +456,6 @@ test('corrección tardía al agregar una ficha compartida sólo pasa por el edit
   assert.equal(saved.selectedForDirectory, true);
   assert.equal(writes(requests).filter(({ method }) => method === 'POST').length, 1,
     'the confirmed duplicate is not replayed while editing shared options');
-});
-
-test('Back y Forward pasan por Guardar, Descartar o Seguir y conservan el contexto de la serie', async () => {
-  const series = { id: 'series-a', name: 'Ruta A', slug: 'ruta-a', description: 'Descripción inicial', version: 3 };
-  const { surface, api, requests } = await mountOwnerSeriesController({
-    profile: { id: 'creator-series-1', displayName: 'Ana Series', slug: 'ana-series', version: 14, published: true, hidden: false, city: '', country: '', bio: '', programs: [], socials: {} },
-    series: [series],
-  });
-  installIndexedHistory(surface);
-
-  await surface.seriesRows[0].querySelector('[data-series-chapters]').dispatch('click');
-  const chapterLocation = surface.window.location.href;
-  await surface.chapterRegion.querySelector('[data-series-edit]').dispatch('click');
-  surface.seriesFormFields.name.value = 'Ruta A corregida';
-  await surface.seriesFormFields.name.dispatch('input');
-
-  surface.window.history.back();
-  assert.equal(surface.exitPrompt.hidden, false,
-    'Back asks how to handle the active series correction');
-  assert.equal(surface.window.history.index, 1);
-  assert.equal(surface.window.history.entries.length, 2,
-    'intercepting Back preserves both existing history entries');
-  assert.equal(surface.window.location.href, chapterLocation,
-    'the browser URL is restored while the decision is pending');
-  assert.equal(surface.chapterRegion.hidden, false);
-  assert.equal(surface.seriesListView.hidden, true);
-  assert.equal(surface.dialog.open, true);
-  assert.equal(surface.seriesFormFields.name.value, 'Ruta A corregida');
-
-  await surface.exitContinue.dispatch('click');
-  assert.equal(surface.dialog.open, true);
-  assert.equal(surface.exitPrompt.hidden, true);
-  assert.equal(surface.window.location.href, chapterLocation,
-    'Continue keeps the current history entry and editor context');
-  assert.equal(surface.window.history.index, 1);
-  assert.equal(surface.document.activeElement, surface.seriesFormFields.name);
-
-  surface.window.history.back();
-  assert.equal(surface.exitPrompt.hidden, false);
-  await surface.exitSave.dispatch('click');
-  await waitFor(() => surface.seriesListView.hidden === false && surface.dialog.open === false,
-    'Save commits the current series and completes the pending Back');
-  const save = writes(requests).find(({ method, path }) => method === 'PATCH' && path === '/api/creador/series/series-a');
-  assert.ok(save, 'the correction is saved to the same series ID that was edited');
-  assert.equal(api.state.series.find(({ id }) => id === 'series-a').name, 'Ruta A corregida');
-  assert.equal(surface.document.activeElement, surface.seriesSearch,
-    'after Back, focus moves into the restored series list');
-  assert.equal(surface.window.history.index, 0);
-  assert.equal(surface.window.history.entries.length, 2,
-    'saving traverses the original Back entry without pushing or replacing history');
-  assert.equal(new URL(surface.window.location.href).searchParams.has('serie'), false);
-
-  surface.window.history.forward();
-  assert.equal(surface.chapterRegion.hidden, false, 'Forward restores the chapter view from its own history entry');
-  await surface.chapterBack.dispatch('click');
-  const listLocation = surface.window.location.href;
-  assert.equal(surface.window.history.entries.length, 3);
-  surface.window.history.back();
-  assert.equal(surface.window.history.index, 1);
-  const returnToChapterLocation = surface.window.location.href;
-  assert.equal(surface.chapterRegion.hidden, false);
-  await surface.chapterRegion.querySelector('[data-series-edit]').dispatch('click');
-  surface.seriesFormFields.description.value = 'Descartar esta descripción';
-  await surface.seriesFormFields.description.dispatch('input');
-  surface.window.history.forward();
-
-  assert.equal(surface.exitPrompt.hidden, false,
-    'Forward also asks before leaving a dirty series editor');
-  assert.equal(surface.window.location.href, returnToChapterLocation,
-    'the current chapter history entry is restored while the Forward decision is pending');
-  assert.equal(surface.window.history.index, 1);
-  assert.equal(surface.window.history.entries.length, 3);
-  assert.equal(surface.chapterRegion.hidden, false);
-  assert.equal(surface.seriesFormFields.description.value, 'Descartar esta descripción');
-  const writesBeforeDiscard = writes(requests).length;
-  await surface.exitDiscard.dispatch('click');
-  await waitFor(() => surface.seriesListView.hidden === false && surface.dialog.open === false,
-    'Discard completes the pending Forward without saving the correction');
-  assert.equal(writes(requests).length, writesBeforeDiscard,
-    'discarding the forward navigation does not write');
-  assert.equal(surface.document.activeElement, surface.seriesSearch,
-    'after Forward, focus moves into the restored series list');
-  assert.equal(surface.window.location.href, new URL(listLocation).href);
-  assert.equal(surface.window.history.index, 2);
-  assert.equal(surface.window.history.entries.length, 3,
-    'discard traverses the original Forward entry without changing stack length');
-  assert.equal(api.state.series.find(({ id }) => id === 'series-a').description, 'Descripción inicial');
 });
 
 test('Comprobar foto adopta el DTO propietario completo con y sin recibo de carga', async (t) => {

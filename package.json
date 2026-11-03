@@ -28,6 +28,7 @@
     "test:browser": "playwright test"
   },
   "dependencies": {
+    "@astrojs/preact": "6.1.1",
     "@aws-sdk/client-amplify": "3.1138.0",
     "@aws-sdk/client-dynamodb": "3.1138.0",
     "@aws-sdk/client-s3": "3.1138.0",
@@ -40,6 +41,7 @@
     "csv-parse": "7.0.2",
     "google-auth-library": "11.3.1",
     "openid-client": "6.8.8",
+    "preact": "11.1.1",
     "sharp": "0.35.5",
     "twitter-text": "3.1.0"
   },

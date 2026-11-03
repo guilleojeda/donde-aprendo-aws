@@ -3,6 +3,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import SiteHeader from '../../components/SiteHeader.astro';
 import SiteFooter from '../../components/SiteFooter.astro';
 import CreatorOwnerProfile from '../../components/CreatorOwnerProfile.astro';
+import CreatorOwnerSeriesPage from '../../components/CreatorOwnerSeriesPage.astro';
 import { DEFAULT_CREATOR_OWNER_LINKS_QUERY, parseCreatorOwnerLinksQuery } from '../../lib/creator-owner-links';
 import { DEFAULT_CREATOR_OWNER_SERIES_QUERY, parseCreatorOwnerSeriesQuery } from '../../lib/creator-owner-series';
 import AccountLogout from '../../components/AccountLogout.astro';
@@ -143,7 +144,17 @@ const publicOrigin = import.meta.env.PUBLIC_SITE_ORIGIN || Astro.url.origin;
   <SiteHeader />
 
   {ownerIsReady && session.state === 'authenticated' && owner?.data && owner.principal.state === 'authenticated' && owner.principal.csrfToken && owner.principal.sessionBinding ? (
-    <CreatorOwnerProfile
+    ownerView === 'series' ? <CreatorOwnerSeriesPage
+      data={owner.data}
+      accountEmail={session.account.email}
+      logoutCsrfToken={session.csrfToken}
+      csrfToken={owner.principal.csrfToken}
+      sessionBinding={owner.principal.sessionBinding}
+      isAdmin={owner.principal.isAdmin}
+      publicOrigin={publicOrigin}
+      seriesQuery={ownerSeriesQuery}
+      seriesQueryError={ownerSeriesQueryError}
+    /> : <CreatorOwnerProfile
       data={owner.data}
       accountEmail={session.account.email}
       logoutCsrfToken={session.csrfToken}
@@ -154,8 +165,6 @@ const publicOrigin = import.meta.env.PUBLIC_SITE_ORIGIN || Astro.url.origin;
       view={ownerView}
       linksQuery={ownerLinksQuery}
       linksQueryError={ownerLinksQueryError}
-      seriesQuery={ownerSeriesQuery}
-      seriesQueryError={ownerSeriesQueryError}
       statistics={statistics}
     />
   ) : (

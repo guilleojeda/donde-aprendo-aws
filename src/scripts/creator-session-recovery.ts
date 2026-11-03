@@ -1,4 +1,9 @@
-type SessionResponse = { error?: unknown; csrfToken?: unknown };
+import {
+  classifyCreatorSessionCheck,
+  creatorSessionRecoveryReason,
+  isCreatorSessionBinding,
+  readCreatorSessionResponse,
+} from '../lib/creator-session-response';
 
 interface CreatorSessionRecoveryOptions {
   root: HTMLElement;
@@ -49,24 +54,11 @@ export function createCreatorSessionRecovery({ root, additionalRoot, isWriteActi
     });
   }
 
-  async function responseBody(response: Response): Promise<SessionResponse | null> {
-    try {
-      const value: unknown = await response.clone().json();
-      if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
-      return value as SessionResponse;
-    } catch {
-      return null;
-    }
-  }
-
   async function observeWriteResponse(response: Response): Promise<void> {
-    if (response.status === 401) {
-      showRecovery('expired');
-      return;
-    }
-    if (response.status === 403 && (await responseBody(response))?.error === 'CSRF_REJECTED') {
-      showRecovery('csrf');
-    }
+    if (response.status !== 401 && response.status !== 403) return;
+    const payload = response.status === 401 ? null : await readCreatorSessionResponse(response);
+    const reason = creatorSessionRecoveryReason(response.status, payload);
+    if (reason) showRecovery(reason);
   }
 
   async function checkSession() {
@@ -75,7 +67,7 @@ export function createCreatorSessionRecovery({ root, additionalRoot, isWriteActi
       announce('Espera a que termine la operación antes de comprobar la sesión. Tus cambios siguen aquí.');
       return;
     }
-    if (!binding || !/^[a-f0-9]{64}$/.test(binding)) {
+    if (!isCreatorSessionBinding(binding)) {
       announce('No pudimos comprobar el contexto de esta página. Tus cambios siguen aquí; vuelve a ingresar con la misma cuenta y abre una página nueva.');
       return;
     }
@@ -90,10 +82,10 @@ export function createCreatorSessionRecovery({ root, additionalRoot, isWriteActi
         cache: 'no-store',
         headers: { 'X-Creator-Page-Binding': binding },
       });
-      const payload = await responseBody(response);
-      if (response.status === 200 && response.ok
-        && typeof payload?.csrfToken === 'string' && payload.csrfToken.trim().length > 0) {
-        updateCsrf(payload.csrfToken);
+      const payload = await readCreatorSessionResponse(response);
+      const result = classifyCreatorSessionCheck(response.status, payload);
+      if (result.state === 'ready' && response.ok) {
+        updateCsrf(result.csrfToken);
         recoveryRequired = undefined;
         announce('Sesión comprobada. Tus cambios siguen aquí; puedes volver a guardar la acción que quieras completar.');
         signInLinks.forEach((signInLink) => { signInLink.hidden = true; });
@@ -101,13 +93,13 @@ export function createCreatorSessionRecovery({ root, additionalRoot, isWriteActi
         return;
       }
 
-      const message = response.status === 401
+      const message = result.state === 'expired'
         ? 'No hay una sesión activa. Ingresa con la misma cuenta en otra pestaña y vuelve a comprobarla.'
-        : response.status === 403 && payload?.error === 'ACCOUNT_DISABLED'
+        : result.state === 'disabled'
           ? 'Esta cuenta está desactivada. Contacta al equipo antes de volver a intentarlo.'
-          : response.status === 409 && payload?.error === 'SESSION_CONTEXT_CHANGED'
+          : result.state === 'context-changed'
             ? 'La sesión activa pertenece a otra cuenta o tiene otros permisos. Ingresa con la cuenta y los permisos originales antes de volver a guardar.'
-            : response.status === 422 && payload?.error === 'INVALID_CONTEXT'
+            : result.state === 'invalid-context'
               ? 'No pudimos comprobar el contexto de esta página. Abre una página nueva con la cuenta original.'
               : 'No pudimos comprobar la sesión. Inténtalo de nuevo.';
       announce(message);

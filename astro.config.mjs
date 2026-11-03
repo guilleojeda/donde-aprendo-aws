@@ -1,10 +1,11 @@
 import { defineConfig } from 'astro/config';
 import awsAmplify from 'astro-aws-amplify';
+import preact from '@astrojs/preact';
 import { allowedAmplifyDomains } from './src/lib/amplify-security.mjs';
 import { responsiveImagesIntegration } from './src/lib/responsive-images.mjs';
 
 export default defineConfig({
-  integrations: [responsiveImagesIntegration()],
+  integrations: [responsiveImagesIntegration(), preact()],
   adapter: awsAmplify({
     runtime: 'nodejs24.x',
     runtimeEnv: [
