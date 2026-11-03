@@ -147,7 +147,7 @@ test('alta propia con acuse perdido: comprueba la URL original y guarda después
     await submit?.catch(() => {});
   }
 
-  const check = page.getByRole('button', { name: 'Comprobar', exact: true });
+  const check = page.getByRole('button', { name: 'Comprobar si se agregó la URL original', exact: true });
   await expect(check, 'the first uncertain result must already expose a manual check').toBeVisible();
   await check.click();
   await expect(page.getByRole('button', { name: 'Continuar con el contenido guardado', exact: true })).toBeVisible();
@@ -169,7 +169,12 @@ test('alta propia con acuse perdido: comprueba la URL original y guarda después
     title: 'Título enviado A', url: attemptedUrl, description: 'Descripción enviada A', version: 1,
   });
   await expect(page.locator('[data-owner-dialog]')).toContainText('Título enviado A');
-  await expect(page.locator('[data-owner-dialog]')).toContainText('Corrección B escrita durante el envío');
+  await expect(form.getByLabel('Título', { exact: true })).toHaveValue('Corrección B escrita durante el envío');
+  await expect(form.getByLabel('URL', { exact: true })).toHaveValue(correctedUrl);
+  await expect(form.getByLabel(/Descripción/)).toHaveValue('Descripción B escrita durante el envío');
+  const comparison = page.locator('[data-owner-comparison]');
+  await expect(comparison).toContainText(`Resultado del intento original: ${attemptedUrl} · Título enviado A · ${attemptedUrl}`);
+  await expect(comparison).toContainText(`Tu corrección: ${correctedUrl}`);
 
   await page.getByRole('button', { name: 'Continuar con el contenido guardado', exact: true }).click();
   const recoveredRow = page.locator(`[data-link-row="${createdLink.placementId}"]`);
@@ -178,6 +183,10 @@ test('alta propia con acuse perdido: comprueba la URL original y guarda después
   await expect(editor.getByLabel('Título', { exact: true })).toHaveValue('Corrección B escrita durante el envío');
   await expect(editor.getByLabel(/Descripción/)).toHaveValue('Descripción B escrita durante el envío');
   await expect(editor.getByLabel('URL', { exact: true })).toHaveValue(correctedUrl);
+  const createLink = actualCreate.body.link;
+  const afterCreate = await fixture.rawOwner(cookie);
+  const afterCreateResource = await fixture.rawResource(createLink.resourceId);
+  const afterCreatePlacement = await fixture.rawPlacement(cookie, createLink.placementId);
   await editor.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
   await capture.settle();
 
@@ -185,10 +194,6 @@ test('alta propia con acuse perdido: comprueba la URL original y guarda después
   const editWrites = writesTo(capture, 'PATCH', `/api/creador/enlaces/${actualCreate.body.link.placementId}/editar`);
   assert.equal(createWrites.length, 1, 'the original link is never created a second time during recovery');
   assert.equal(editWrites.length, 1, 'the later correction is a distinct, explicit PATCH');
-  const createLink = actualCreate.body.link;
-  const afterCreate = await fixture.rawOwner(cookie);
-  const afterCreateResource = await fixture.rawResource(createLink.resourceId);
-  const afterCreatePlacement = await fixture.rawPlacement(cookie, createLink.placementId);
   assert.equal(editWrites[0].status, 200);
   assert.equal(editWrites[0].body.profileVersion, afterCreate.profile.version);
   assert.equal(editWrites[0].body.resourceVersion, afterCreateResource.version);
@@ -268,7 +273,7 @@ test('referencia compartida: guardar opciones no ofrece ni persiste autoridad so
 
   await page.getByRole('button', { name: 'Buscar en el catálogo', exact: true }).click();
   await expect(page.locator('[data-catalog-row="fixture-source"]')).toBeVisible();
-  await page.getByRole('checkbox', { name: 'Seleccionar Canal de ejemplo', exact: true }).check();
+  await page.getByRole('radio', { name: 'Seleccionar Canal de ejemplo', exact: true }).check();
   const referenceForm = page.locator('[data-owner-dialog] form[data-owner-form="referencia"]');
   await expect(referenceForm.getByLabel('Proponer al directorio')).toBeChecked();
   await referenceForm.getByLabel('Proponer al directorio').uncheck();
@@ -294,9 +299,12 @@ test('referencia compartida: guardar opciones no ofrece ni persiste autoridad so
 
   await row.getByRole('button', { name: 'Editar opciones', exact: true }).click();
   const editor = linkEditForm(page);
-  await expect(editor.getByLabel('Título', { exact: true })).toBeHidden();
-  await expect(editor.getByLabel('URL', { exact: true })).toBeHidden();
-  await expect(editor.getByLabel(/Descripción/)).toBeHidden();
+  await expect(editor.getByLabel('Título', { exact: true })).toBeDisabled();
+  await expect(editor.getByLabel('Título', { exact: true })).toHaveValue(shared.title);
+  await expect(editor.getByLabel('URL', { exact: true })).toBeDisabled();
+  await expect(editor.getByLabel('URL', { exact: true })).toHaveValue(shared.url);
+  await expect(editor.getByLabel(/Descripción/)).toBeDisabled();
+  await expect(editor.getByLabel(/Descripción/)).toHaveValue(shared.description ?? '');
   await editor.getByLabel('Destacar en tu página').check();
   const beforeOptions = await fixture.rawOwner(cookie);
   const placementBeforeOptions = await fixture.rawPlacement(cookie, referenced.placementId);
@@ -353,7 +361,7 @@ test('ficha retirada en conflicto: adoptar, reincorporar con esa versión y guar
   });
   assert.equal(concurrent.response.status, 200);
   const remotelySaved = await fixture.rawResource(link.resourceId);
-  const staleSave = editor.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
+  const staleSave = editor.getByRole('button', { name: 'Guardar ficha', exact: true }).click();
   const stalePath = `/api/creador/recursos/${link.resourceId}`;
   await expect.poll(() => writesTo(capture, 'PATCH', stalePath)[0]?.status).toBe(409);
   assert.equal(writesTo(capture, 'PATCH', stalePath).length, 1);
@@ -510,7 +518,7 @@ test('quitar confirmado y reincorporar rechazado: comprobar cada acción sin rep
 
   await page.locator(`[data-retained-resource="${link.resourceId}"]`)
     .getByRole('button', { name: 'Volver a agregar', exact: true }).click();
-  await expect(page.getByRole('row').filter({ hasText: link.title })).toHaveCount(1);
+  await expect(page.getByRole('row').filter({ hasText: latestResource.title })).toHaveCount(1);
   await capture.settle();
   const deletes = writesTo(capture, 'DELETE', `/api/creador/enlaces/${link.placementId}`);
   const posts = writesTo(capture, 'POST', '/api/creador/enlaces');
@@ -683,6 +691,91 @@ test('último enlace de la página 2: cancelar no escribe; quitar conserva la co
   await capture.stop();
 });
 
+test('editar fuera de la búsqueda guarda, conserva el contexto y devuelve el foco al buscador', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const target = await addLink(fixture, cookie, {
+    title: 'CASO-FILTRO enlace por corregir',
+    url: 'https://links.example/filtro-edicion-target',
+  });
+  const remainingMatch = await addLink(fixture, cookie, {
+    title: 'CASO-FILTRO enlace que sigue',
+    url: 'https://links.example/filtro-edicion-restante',
+  });
+  const unrelated = await addLink(fixture, cookie, {
+    title: 'Contenido sin coincidencia',
+    url: 'https://links.example/filtro-edicion-ajeno',
+  });
+  const ownerBefore = await fixture.rawOwner(cookie);
+  const targetBefore = await fixture.rawPlacement(cookie, target.placementId);
+  const resourceBefore = await fixture.rawResource(target.resourceId);
+  const searchTerm = 'CASO-FILTRO';
+  await page.goto(`${fixture.origin}/cuenta/?vista=enlaces&buscar=${encodeURIComponent(searchTerm)}&orden=titulo-desc`);
+  await expect(page.locator('[data-creator-owner]')).toBeVisible();
+  const initialUrl = new URL(page.url());
+  assert.equal(initialUrl.searchParams.get('buscar'), searchTerm);
+  assert.equal(initialUrl.searchParams.get('orden'), 'titulo-desc');
+  const search = page.getByRole('searchbox', { name: 'Buscar título, URL o serie' });
+  const targetRow = page.locator(`[data-link-row="${target.placementId}"]`);
+  await expect(targetRow).toBeVisible();
+  await expect(page.locator(`[data-link-row="${remainingMatch.placementId}"]`)).toBeVisible();
+  await expect(page.locator(`[data-link-row="${unrelated.placementId}"]`)).toHaveCount(0);
+  await expect(page.locator('[data-link-count-summary]')).toHaveText('2 coincidencias de 3 enlaces');
+
+  const capture = await captureCreatorApi(page);
+  await targetRow.locator('[data-link-edit]').click();
+  const editor = linkEditForm(page);
+  await expect(editor).toBeVisible();
+  const savedTitle = 'Enlace con título nuevo';
+  await editor.getByLabel('Título', { exact: true }).fill(savedTitle);
+  await editor.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
+  await capture.settle();
+
+  const editPath = `/api/creador/enlaces/${target.placementId}/editar`;
+  const edits = writesTo(capture, 'PATCH', editPath);
+  assert.equal(edits.length, 1, 'the filtered row is saved through one real owner PATCH');
+  assert.equal(edits[0].status, 200);
+  assert.equal(edits[0].body.profileVersion, ownerBefore.profile.version);
+  assert.equal(edits[0].body.placementVersion, targetBefore.version);
+  assert.equal(edits[0].body.resourceVersion, resourceBefore.version);
+  assert.equal(edits[0].body.title, savedTitle);
+  assert.equal((await fixture.rawResource(target.resourceId)).title, savedTitle,
+    'the new title is persisted on the same resource identity');
+  assert.equal((await fixture.rawOwner(cookie)).profile.version, ownerBefore.profile.version + 1);
+  assert.deepEqual(await fixture.rawPlacement(cookie, target.placementId), targetBefore,
+    'changing resource metadata does not alter the placement or its order');
+  await expect(page.locator(`[data-link-row="${target.placementId}"]`)).toHaveCount(0);
+  await expect(page.locator(`[data-link-row="${remainingMatch.placementId}"]`)).toBeVisible();
+  await expect(page.locator('[data-link-count-summary]')).toHaveText('1 coincidencia de 3 enlaces');
+  await expect(page.locator('[data-link-count-summary]')).toHaveAttribute('aria-live', 'polite');
+  await expect(page.locator('[data-owner-status]')).toContainText(/(?:ya no coincide|no coincide).*(?:búsqueda|filtro|resultados)|(?:fuera|dejó).*(?:búsqueda|filtro|resultados)/iu);
+  const updatedQuery = new URL(page.url()).searchParams;
+  assert.equal(updatedQuery.get('buscar'), searchTerm);
+  assert.equal(updatedQuery.get('orden'), 'titulo-desc');
+  assert.equal(updatedQuery.get('paginaEnlaces') ?? '1', '1');
+
+  await expect(page.locator('[data-owner-dialog]')).not.toBeVisible();
+  await expect(search).toBeFocused();
+  await search.press('ControlOrMeta+A');
+  await search.press('Backspace');
+  await expect(search).toHaveValue('');
+  await expect.poll(() => new URL(page.url()).searchParams.has('buscar')).toBe(false);
+  await expect(page.locator('[data-link-row]')).toHaveCount(3);
+  const clearedQuery = new URL(page.url()).searchParams;
+  assert.equal(clearedQuery.get('orden'), 'titulo-desc', 'keyboard-clearing search leaves the selected table order intact');
+  const savedRow = page.locator(`[data-link-row="${target.placementId}"]`);
+  await expect(savedRow).toBeVisible();
+  await expect(savedRow.locator('[data-link-title]')).toHaveText(savedTitle);
+  await savedRow.locator('[data-link-edit]').click();
+  const cleanEditor = linkEditForm(page);
+  await expect(cleanEditor).toBeVisible();
+  await expect(cleanEditor.getByLabel('Título', { exact: true })).toHaveValue(savedTitle);
+  await cleanEditor.getByRole('button', { name: 'Cancelar', exact: true }).click();
+  await expect(page.locator('[data-owner-dialog]')).not.toBeVisible();
+  assert.equal(writesTo(capture, 'PATCH', editPath).length, 1, 'reopening and cancelling the clean saved row sends no second PATCH');
+  assert.equal((await fixture.rawResource(target.resourceId)).title, savedTitle);
+  await capture.stop();
+});
+
 test('alta de URL compartida: conserva texto tardío hasta descartar y guarda opciones sólo por decisión manual', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   const shared = await seedSharedCatalogResource(fixture);
@@ -790,10 +883,7 @@ test('alta de URL compartida: conserva texto tardío hasta descartar y guarda op
   assert.equal(placementAfterAdd.selectedForDirectory, true,
     'the late opt-out was not applied to the committed placement');
   const exitPrompt = page.locator('[data-owner-exit-prompt]');
-  const reviewOptions = addForm.getByRole('button', { name: /^Revisar opciones del enlace/ });
-  await expect(reviewOptions).toBeVisible();
-
-  await reviewOptions.click();
+  await addForm.getByRole('button', { name: 'Cancelar', exact: true }).click();
   await expect(exitPrompt).toBeVisible();
   await exitPrompt.getByRole('button', { name: 'Seguir editando', exact: true }).click();
   await expect(exitPrompt).toBeHidden();
@@ -803,18 +893,26 @@ test('alta de URL compartida: conserva texto tardío hasta descartar y guarda op
   await expect(addForm.getByLabel(/Descripción/)).toHaveValue('Descripción tardía de la referencia');
   assert.equal(capture.writes().length, 1, 'continuing the guard leaves the submitted placement unchanged');
 
-  await reviewOptions.click();
+  await addForm.getByRole('button', { name: 'Cancelar', exact: true }).click();
   await expect(exitPrompt).toBeVisible();
   await exitPrompt.getByRole('button', { name: /^Descartar(?: cambios)?$/u }).click();
+  await expect(page.locator('[data-owner-dialog]')).not.toBeVisible();
+  assert.equal(capture.writes().length, 1, 'discard is local and never writes shared metadata or the late option');
+  assert.deepEqual(await fixture.rawResource(shared.id), shared);
+
+  await row.getByRole('button', { name: 'Editar opciones', exact: true }).click();
   const optionsForm = linkEditForm(page);
   await expect(optionsForm).toBeVisible();
   await expect(exitPrompt).toBeHidden();
-  await expect(optionsForm.getByLabel('Título', { exact: true })).toBeHidden();
-  await expect(optionsForm.getByLabel('URL', { exact: true })).toBeHidden();
-  await expect(optionsForm.getByLabel(/Descripción/)).toBeHidden();
+  await expect(optionsForm.getByLabel('Título', { exact: true })).toBeDisabled();
+  await expect(optionsForm.getByLabel('Título', { exact: true })).toHaveValue(shared.title);
+  await expect(optionsForm.getByLabel('URL', { exact: true })).toBeDisabled();
+  await expect(optionsForm.getByLabel('URL', { exact: true })).toHaveValue(shared.url);
+  await expect(optionsForm.getByLabel(/Descripción/)).toBeDisabled();
+  await expect(optionsForm.getByLabel(/Descripción/)).toHaveValue(shared.description ?? '');
   await expect(optionsForm.getByLabel('Proponer al directorio')).toBeChecked();
   await expect(optionsForm.getByLabel('Destacar en tu página')).not.toBeChecked();
-  assert.equal(capture.writes().length, 1, 'discard is local and never writes shared metadata or the late option');
+  assert.equal(capture.writes().length, 1, 'opening the options-only editor after discard adds no write');
   assert.deepEqual(await fixture.rawResource(shared.id), shared);
 
   await optionsForm.getByLabel('Destacar en tu página').check();
@@ -845,7 +943,6 @@ test('alta de URL compartida: conserva texto tardío hasta descartar y guarda op
   });
 
   const dialog = page.locator('[data-owner-dialog]');
-  if (await dialog.isVisible()) await optionsForm.getByRole('button', { name: 'Cancelar', exact: true }).click();
   await expect(dialog).not.toBeVisible();
   await row.getByRole('button', { name: 'Editar opciones', exact: true }).click();
   const reopenedOptions = linkEditForm(page);

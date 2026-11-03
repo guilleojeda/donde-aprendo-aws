@@ -367,7 +367,7 @@ test('la URL social inválida bloquea el envío y descartar restaura la validaci
   const owner = await fixture.rawOwner(cookie);
   assert.equal(owner.profile.version, 1, 'the real service confirms the unchanged social value without a version bump');
   assert.deepEqual(owner.profile.socials, { instagram: 'https://instagram.example.invalid/ana' });
-  await expect(page.locator('[data-owner-form-status="redes"]')).toContainText(/guardad|actualizad/i);
+  await expect(page.locator('[data-owner-status]')).toContainText(/cambios guardados/i);
   await expect(page.locator('[data-owner-dialog]')).not.toBeVisible();
   await capture.stop();
 });
@@ -925,14 +925,14 @@ test('guardados canónicos: guardar sin cambios una ficha propia retirada envía
 
   const capture = await captureCreatorApi(page);
   await openLinksView(page, fixture);
-  const editor = page.locator(`[data-retained-resource="${link.resourceId}"] [data-link-edit]`);
+  const editor = page.locator(`[data-retained-resource="${link.resourceId}"] [data-retained-edit]`);
   await expect(editor).toBeVisible();
   await editor.click();
   const form = linkEditor(page);
   await expect(form.getByLabel('Título')).toHaveValue(before.title);
   await expect(form.getByLabel('URL')).toHaveValue(before.url);
   await expect(form.getByLabel('Descripción')).toHaveValue('');
-  await form.getByRole('button', { name: 'Guardar cambios' }).click();
+  await form.getByRole('button', { name: 'Guardar ficha', exact: true }).click();
   await capture.settle();
 
   const patches = capture.writes().filter(({ method, path }) => method === 'PATCH' && path === `/api/creador/recursos/${link.resourceId}`);
@@ -949,7 +949,7 @@ test('guardados canónicos: guardar sin cambios una ficha propia retirada envía
   assert.equal(Object.hasOwn(patches[0].responseBody.resource, 'description'), false);
   assert.deepEqual(await fixture.rawResource(link.resourceId), before,
     'the real no-op receipt leaves raw metadata, optional-field presence and resource version unchanged');
-  await expect(form.locator('[data-owner-form-status="enlace"]')).toContainText(/Ficha guardada/i);
+  await expect(page.locator('[data-owner-status]')).toContainText(/cambios guardados/i);
   await expect(page.locator('[data-owner-dialog]')).not.toBeVisible();
   await capture.stop();
 });
@@ -966,7 +966,7 @@ test('guardados canónicos: un no-op de ficha retirada con base obsoleta llega a
 
   const capture = await captureCreatorApi(page);
   await openLinksView(page, fixture);
-  await page.locator(`[data-retained-resource="${link.resourceId}"] [data-link-edit]`).click();
+  await page.locator(`[data-retained-resource="${link.resourceId}"] [data-retained-edit]`).click();
   const form = linkEditor(page);
   await expect(form).toBeVisible();
   assert.equal(await form.getByLabel('Título').inputValue(), before.title);
@@ -979,7 +979,7 @@ test('guardados canónicos: un no-op de ficha retirada con base obsoleta llega a
   ]));
   const concurrentResource = await fixture.rawResource(link.resourceId);
 
-  await form.getByRole('button', { name: 'Guardar cambios' }).click();
+  await form.getByRole('button', { name: 'Guardar ficha', exact: true }).click();
   const resourcePatchPath = `/api/creador/recursos/${link.resourceId}`;
   await expect.poll(() => capture.writes().find(({ method, path }) => method === 'PATCH' && path === resourcePatchPath)?.status)
     .toBe(409);
@@ -997,7 +997,7 @@ test('guardados canónicos: un no-op de ficha retirada con base obsoleta llega a
       'an unchanged present description may be omitted or sent with its stored value');
   }
   assert.equal(patches[0].status, 409);
-  await expect(form.getByRole('heading', { name: 'El enlace cambió' })).toBeVisible();
+  await expect(form.getByRole('heading', { name: 'Compara con lo guardado', exact: true })).toBeVisible();
   await expect(form.getByLabel('Título')).toHaveValue(before.title,
     'the stale no-op retains its observed draft instead of adopting the concurrent title');
   await expect(form.getByLabel('URL')).toHaveValue(before.url);
@@ -1219,7 +1219,7 @@ for (const movementKind of ['link', 'chapter']) {
       assert.equal(stalePatch.body.resourceVersion, initialTargetResource.version);
       assert.equal(stalePatch.body.placementVersion, movedPlacement.version);
 
-      const conflictSection = form.locator('[data-link-conflict]');
+      const conflictSection = form.locator('[data-owner-conflict]');
       const compareButton = conflictSection.locator('[data-owner-compare]');
       assert.equal(await compareButton.count(), 1,
         `the real 409 retains one compare control; conflict count ${await conflictSection.count()}`);
@@ -1940,7 +1940,8 @@ for (const malformedReceipt of [
     await expect(form.getByLabel('Ciudad')).toHaveValue('Ciudad B pendiente',
       'the late correction remains in the form until the user makes an explicit comparison choice');
     await expect(form.locator('[data-owner-conflict]')).toBeVisible();
-    await expect(form.locator('[data-owner-form-status="datos"]')).toContainText(/recibo de versión válido|no pudimos comprobar el recibo/i);
+    await expect(form.locator('[data-owner-form-status="datos"]'))
+      .toContainText(/respuesta no coincide con los datos y recibos|no pudimos comprobar el recibo/i);
     assert.equal(profileWrites[0].body.city, 'Ciudad A comprometida');
 
     await form.locator('[data-owner-compare]').click();
@@ -2073,16 +2074,20 @@ for (const inconsistentObservation of ['versión distinta', 'título distinto', 
     'the delivered DTO version matches the receipt after value');
   assert.equal(patches[0].body.resourceVersion, initialResource.version,
     'the command still carries the original observed resource base');
-  await expect(form.locator('[data-link-conflict]')).toBeVisible();
+  await expect(form.locator('[data-owner-conflict]')).toBeVisible();
   await expect(form.getByLabel('Título')).toHaveValue('Corrección B pendiente');
   await expect(page.locator('[data-owner-root]')).toHaveAttribute('data-profile-version', String(initialOwner.profile.version));
 
-  await form.locator('[data-owner-compare]').click();
   const compareStatus = form.locator('[data-owner-form-status="enlace"]');
-  await expect(compareStatus).not.toContainText(/consultando la versión guardada/i);
+  const ownerReadCountBeforeCompare = capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length;
+  await form.locator('[data-owner-compare]').click();
+  await expect.poll(() => capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length)
+    .toBe(ownerReadCountBeforeCompare + 1);
+  await capture.settle();
+  await expect(compareStatus).toContainText(/La lectura no contiene un estado completo y coherente/i);
   const malformedReadRejected = await form.locator('[data-owner-comparison]').isHidden()
     && await form.locator('[data-owner-adopt]').isHidden()
-    && /no pudimos confirmar|no pudimos leer|no pudimos conectar/i.test(await compareStatus.textContent() ?? '');
+    && /La lectura no contiene un estado completo y coherente/i.test(await compareStatus.textContent() ?? '');
   await expect(form.getByLabel('Título')).toHaveValue('Corrección B pendiente');
   await expect(page.locator(`[data-link-row="${link.placementId}"] [data-link-title]`)).toHaveText('Título inicial');
   await expect(page.locator('[data-owner-root]')).toHaveAttribute('data-profile-version', String(initialOwner.profile.version));
@@ -2114,9 +2119,11 @@ for (const inconsistentObservation of ['versión distinta', 'título distinto', 
     { entity: 'resource', id: link.resourceId, before: committedResource.version, after: committedResource.version + 1 },
   ]));
   const ownerReads = capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil');
-  assert.equal(ownerReads.length, 2, 'the first malformed comparison is rejected and a second real GET supplies the explicit adoption');
-  const firstReadLink = ownerReads[0].responseBody.links.find(({ resourceId }) => resourceId === link.resourceId);
-  const firstReadEditable = ownerReads[0].responseBody.editableResources.find(({ id }) => id === link.resourceId);
+  const comparisonReads = ownerReads.slice(ownerReadCountBeforeCompare);
+  assert.equal(comparisonReads.length, 2,
+    'the first malformed comparison is rejected and a second real GET supplies the explicit adoption');
+  const firstReadLink = comparisonReads[0].responseBody.links.find(({ resourceId }) => resourceId === link.resourceId);
+  const firstReadEditable = comparisonReads[0].responseBody.editableResources.find(({ id }) => id === link.resourceId);
   const comparableObservation = (value, version) => ({
     title: value.title, version,
     ...(Object.hasOwn(value, 'description') ? { description: value.description } : {}),
@@ -2139,8 +2146,8 @@ for (const inconsistentObservation of ['versión distinta', 'título distinto', 
     assert.equal(Object.hasOwn(firstReadEditable, 'description'), false,
       'only optional-field presence differs, with identical title and version');
   }
-  const secondReadLink = ownerReads[1].responseBody.links.find(({ resourceId }) => resourceId === link.resourceId);
-  const secondReadEditable = ownerReads[1].responseBody.editableResources.find(({ id }) => id === link.resourceId);
+  const secondReadLink = comparisonReads[1].responseBody.links.find(({ resourceId }) => resourceId === link.resourceId);
+  const secondReadEditable = comparisonReads[1].responseBody.editableResources.find(({ id }) => id === link.resourceId);
   assert.deepEqual({ title: secondReadLink.title, version: secondReadLink.resourceVersion }, { title: secondReadEditable.title, version: secondReadEditable.version },
     'the retry reads consistent real projections before adoption');
   const finalResource = await fixture.rawResource(link.resourceId);

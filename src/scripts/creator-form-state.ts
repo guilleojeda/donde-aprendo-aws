@@ -34,10 +34,7 @@ function sameValue(left: ControlValue, right: ControlValue): boolean {
 
 function shouldTrack(control: EditableControl): boolean {
   const form = control.form;
-  if (form?.getAttribute('method')?.toLowerCase() === 'get') {
-    return control.matches('[data-featured], [data-directory]');
-  }
-  return true;
+  return form?.getAttribute('method')?.toLowerCase() !== 'get';
 }
 
 export function createCreatorFormState(root: ParentNode) {

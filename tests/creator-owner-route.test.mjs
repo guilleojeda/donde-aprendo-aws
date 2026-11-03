@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 import { transform } from '@astrojs/compiler-rs';
-import { experimental_AstroContainer } from 'astro/container';
+import { createCreatorOwnerAstroContainer } from './fixtures/creator-owner-astro-container.mjs';
 import { createCreatorOwnerRuntime, SITE_ORIGIN } from './fixtures/creator-owner-runtime.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -63,8 +63,17 @@ await build({
 
 const route = (await import(pathToFileURL(path.join(tempDir, 'owner.mjs')).href)).default;
 const editorRoute = (await import(pathToFileURL(path.join(tempDir, 'editor.mjs')).href)).default;
-const container = await experimental_AstroContainer.create({ astroConfig: { site: SITE_ORIGIN } });
+const container = await createCreatorOwnerAstroContainer({ astroConfig: { site: SITE_ORIGIN } });
 let runtime;
+
+function assertPrivate(response, html) {
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('cache-control') ?? '', /private.*no-store/i);
+  assert.equal(response.headers.get('referrer-policy'), 'no-referrer');
+  assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
+  assert.match(html, /<meta[^>]+name="robots"[^>]+noindex/i);
+  assert.doesNotMatch(html, /analytics\.js|gtag\(|google-analytics/i);
+}
 
 async function resetRuntime() {
   runtime = await createCreatorOwnerRuntime();
@@ -501,15 +510,17 @@ test('la administración sólo aparece con el rol correspondiente y en la zona s
   assert.doesNotMatch(visibleText(administrator.html), /Accede o crea una cuenta/);
 });
 
-test('la respuesta incierta de publicación tiene controles de estado confirmados por SSR', async () => {
+test('el SSR de borrador ofrece publicación y no presenta una comprobación pendiente', async () => {
   await resetRuntime();
   await createProfile();
   const { response, html } = await render();
   assert.equal(response.status, 200);
-  assert.match(html, /<div\b[^>]*data-owner-status[^>]*role="status"[^>]*aria-live="polite"[^>]*hidden/i,
-    'the owner shell retains its general status region');
-  assert.match(html, /<p\b[^>]*data-owner-profile-status[^>]*role="status"[^>]*aria-live="polite"/i,
-    'publication feedback can use the existing local profile status region');
-  assert.match(html, /<button\b[^>]*data-owner-publish-check[^>]*hidden[^>]*>Comprobar estado guardado<\/button>/,
-    'the explicit saved-state check is present but hidden in ordinary SSR');
+  assertPrivate(response, html);
+  const publishButton = html.match(/<button\b(?=[^>]*type="button")(?=[^>]*data-owner-publish)[^>]*>[\s\S]*?<\/button>/i)?.[0];
+  assert.ok(publishButton, 'the owner can choose to publish this draft from the actual SSR composition');
+  assert.match(visibleText(publishButton), /Publicar página/i);
+  assert.doesNotMatch(html, /data-owner-publish-check/,
+    'a saved-state check is shown only after a real publication attempt becomes uncertain');
+  assert.doesNotMatch(html, /data-owner-status/,
+    'SSR does not fabricate status feedback before an action has run');
 });

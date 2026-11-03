@@ -95,14 +95,14 @@ export function createCreatorWriteGuard(root: HTMLElement) {
   const originalDisabled = new WeakMap<WriteControl, boolean>();
 
   function applyDisabledState() {
-    root.querySelectorAll<WriteControl>('button, input[type="file"], input[data-busy-control], [data-featured], [data-directory], [data-creator-stale]').forEach((control) => {
+    root.querySelectorAll<WriteControl>('button, input[type="file"], input[data-busy-control], [data-creator-stale]').forEach((control) => {
       if (!originalDisabled.has(control)) originalDisabled.set(control, control.disabled);
       const has = (name: string) => control.hasAttribute?.(name) ?? false;
       control.disabled = originalDisabled.get(control) === true
         || has('data-creator-stale')
         || (active && (control.tagName === 'BUTTON'
           || (control.tagName === 'INPUT' && (control as HTMLInputElement).type === 'file')
-          || has('data-busy-control') || has('data-featured') || has('data-directory')));
+          || has('data-busy-control')));
     });
   }
 

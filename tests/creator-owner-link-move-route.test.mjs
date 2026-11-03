@@ -27,11 +27,14 @@ function rowsIn(html) {
   })).filter((row) => row.id !== undefined);
 }
 
-function moveForm(html) {
-  const matches = [...html.matchAll(/<form\b([^>]*)>([\s\S]*?)<\/form>/gi)]
-    .filter(([, attrs]) => /\bdata-owner-form="mover-enlace"/i.test(attrs));
-  assert.equal(matches.length, 1, 'all rows reuse one move form in the owner dialog');
-  return { attrs: matches[0][1], body: matches[0][2] };
+function assertMoveEditorIsDeferred(html) {
+  assert.equal((html.match(/<dialog\b[^>]*data-owner-dialog/gi) ?? []).length, 1,
+    'the move action uses the single shared owner dialog');
+  const dialog = html.match(/<dialog\b([^>]*)>/i)?.[1];
+  assert.ok(dialog);
+  assert.doesNotMatch(dialog, /\bopen(?:\s|>|=)/i, 'the shared dialog starts closed');
+  assert.doesNotMatch(html, /data-owner-form="mover-enlace"|name="targetPosition"/i,
+    'the move editor is created after the owner chooses a row');
 }
 
 function assertMoveActions(html, expectedRows) {
@@ -63,21 +66,18 @@ test('sin enlaces no hay movimiento; con 1, 50 y 58 enlaces cada fila SSR ofrece
   assertPrivate(empty.response, empty.html);
   assert.equal(rowsIn(empty.html).length, 0);
   assert.doesNotMatch(empty.html, /data-link-move(?:\s|=|>)/i);
-  assert.ok([...empty.html.matchAll(/<form\b[^>]*data-owner-form="mover-enlace"/gi)].length <= 1,
-    'the empty page cannot render duplicate move drafts');
+  assertMoveEditorIsDeferred(empty.html);
 
   const created = [await app.addLink({ index: 0, title: 'Una guía' })];
   const one = await app.render();
   assertPrivate(one.response, one.html);
   assertMoveActions(one.html, 1);
-  const oneForm = moveForm(one.html);
-  assert.match(oneForm.attrs, /\bhidden(?:\s|=|>)/i, 'the one move form starts closed');
-  assert.match(oneForm.body, /name="targetPosition"/i);
-  assert.match(visibleText(oneForm.body), /guardar|mover/i);
+  assertMoveEditorIsDeferred(one.html);
 
   for (let index = 1; index < 50; index += 1) {
     created.push(await app.addLink({ index, title: `Guía ${String(index + 1).padStart(2, '0')}` }));
   }
+  await app.api('/api/creador/perfil/publicar/', {}, { method: 'POST' });
   for (const index of [0, 2, 4]) await app.setFeatured(created[index], true);
   await app.hideResource(created[0].resourceId);
 
@@ -97,7 +97,7 @@ test('sin enlaces no hay movimiento; con 1, 50 y 58 enlaces cada fila SSR ofrece
   assert.equal(rowsIn(fiftyEight.html).length, 25);
   assertMoveActions(fiftyEight.html, 25);
   assert.match(visibleText(fiftyEight.html), /58\s+coincidencias? de 58 enlaces/i);
-  assert.equal(moveForm(fiftyEight.html).body.match(/name="targetPosition"/gi)?.length, 1);
+  assertMoveEditorIsDeferred(fiftyEight.html);
 });
 
 test('el acceso antiguo redirige a Solicitudes y conserva el orden administrado desde Tu página', async () => {

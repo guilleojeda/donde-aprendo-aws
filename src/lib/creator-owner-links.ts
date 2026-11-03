@@ -1,4 +1,4 @@
-import type { CreatorEditorDTO, CreatorLinkDTO, CreatorSeriesDTO } from '../types/creators';
+import type { CreatorLinkDTO, CreatorSeriesDTO } from '../types/creators';
 
 export const CREATOR_OWNER_LINK_PAGE_SIZE = 25;
 
@@ -180,20 +180,4 @@ export function creatorOwnerLinksCountLabel(totalMatches: number, totalLinks: nu
   const matches = totalMatches === 1 ? 'coincidencia' : 'coincidencias';
   const links = totalLinks === 1 ? 'enlace' : 'enlaces';
   return `${totalMatches} ${matches} de ${totalLinks} ${links}`;
-}
-
-export function creatorOwnerLinksQueryFromForm(form: HTMLFormElement, current: CreatorOwnerLinksQuery): CreatorOwnerLinksQuery {
-  const values = new FormData(form);
-  return {
-    buscar: String(values.get('buscar') ?? current.buscar),
-    serie: String(values.get('serie') ?? current.serie) || 'todos',
-    directorio: String(values.get('directorio') ?? current.directorio) as CreatorOwnerDirectoryFilter,
-    destacado: String(values.get('destacado') ?? current.destacado) as CreatorOwnerFeaturedFilter,
-    orden: String(values.get('orden') ?? current.orden) as CreatorOwnerLinkOrder,
-    paginaEnlaces: Number(values.get('paginaEnlaces') ?? current.paginaEnlaces),
-  };
-}
-
-export function creatorOwnerLinksFromEditor(data: CreatorEditorDTO): readonly CreatorLinkDTO[] {
-  return data.links;
 }

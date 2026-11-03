@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 import { transform } from '@astrojs/compiler-rs';
-import { experimental_AstroContainer } from 'astro/container';
+import { createCreatorOwnerAstroContainer } from './creator-owner-astro-container.mjs';
 import { createCreatorOwnerRuntime, SITE_ORIGIN } from './creator-owner-runtime.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -57,7 +57,7 @@ export async function createCreatorOwnerLinkMoveRouteHarness() {
 
   const ownerPage = (await import(pathToFileURL(path.join(tempDir, 'owner.mjs')).href)).default;
   const editorPage = (await import(pathToFileURL(path.join(tempDir, 'editor.mjs')).href)).default;
-  const container = await experimental_AstroContainer.create({ astroConfig: { site: SITE_ORIGIN } });
+  const container = await createCreatorOwnerAstroContainer({ astroConfig: { site: SITE_ORIGIN } });
   let runtime;
 
   async function resetRuntime() {

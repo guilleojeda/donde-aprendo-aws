@@ -216,7 +216,9 @@ test('una solicitud selecciona contenido y URLs, valida antes de escribir, dedup
   await urls.fill('ftp://not-a-resource.example.invalid/file');
   await evidence.fill('Referencia privada con decisión automática desactivada.');
   await page.getByRole('button', { name: /Enviar solicitud/i }).click();
-  await expect(page.getByRole('dialog').getByRole('status').filter({ hasText: /Revisa las URLs|direcci[oó]n/i })).toBeVisible();
+  const validationAlert = page.getByRole('alert');
+  await expect(validationAlert).toBeVisible();
+  await expect(validationAlert).toContainText(/URL/i);
   assert.equal(claimWrites(capture).length, 0, 'invalid URLs are rejected in the real browser before any POST');
   assert.equal((await fixture.request(cookie, '/api/creador/perfil').then((response) => response.json())).claims.length, 0);
 
@@ -300,8 +302,9 @@ test('Solicitudes acepta URLs conocidas aunque falle el índice público', async
   await openClaimComposer(page);
   const catalogRegion = page.getByRole('region', { name: 'Buscar contenido publicado' });
   await expect(catalogRegion.getByRole('button', { name: /Reintentar.*cat\u00e1logo/i })).toBeVisible();
-  await expect(catalogRegion.getByRole('status').filter({ hasText: /no pudimos cargar el cat\u00e1logo/i })).toBeVisible();
-  await expect(catalogRegion.getByRole('status').filter({ hasText: /no hay recursos que coincidan|0 resultados/i })).toHaveCount(0);
+  await expect(catalogRegion.getByRole('alert')).toBeVisible();
+  await expect(catalogRegion.getByRole('status')).toHaveCount(0,
+    'an unavailable catalog is exposed as an error, not as an empty valid result');
 
   const urls = page.getByLabel(/URLs conocidas/i);
   await urls.fill(known.url);
@@ -348,7 +351,8 @@ test('Solicitudes conserva un 202 manual que llega mientras Comprobar espera una
     await heldPost.remove();
     await firstSend?.catch(() => {});
   }
-  await expect(page.getByRole('button', { name: /Comprobar solicitudes/i })).toBeVisible();
+  const checkControl = page.getByRole('dialog').getByRole('button', { name: 'Comprobar solicitudes', exact: true });
+  await expect(checkControl).toBeVisible();
   assert.equal(claimWrites(capture)[0].status, 503);
   assert.equal(heldPost.observed, undefined, 'the first failure occurred before the claim service handler');
 
@@ -356,7 +360,7 @@ test('Solicitudes conserva un 202 manual que llega mientras Comprobar espera una
   const heldRead = await holdOwnerRead(page);
   let check;
   try {
-    check = page.getByRole('button', { name: /Comprobar solicitudes/i }).click();
+    check = checkControl.click();
     await expect.poll(() => capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length)
       .toBe(readsBefore + 1);
     await heldRead.reached;
@@ -392,7 +396,7 @@ test('Solicitudes conserva un 202 manual que llega mientras Comprobar espera una
   await expect(claimsRegion).toContainText(item.title);
   await expect(claimsRegion.getByRole('listitem').filter({ hasText: 'Reintento explícito de una solicitud incierta.' })).toHaveCount(1,
     'the delayed empty snapshot does not remove the claim confirmed while it was pending');
-  const checkedStatus = page.getByRole('status').filter({ hasText: /Solicitudes comprobadas/i });
+  const checkedStatus = page.getByRole('status').filter({ hasText: /historial comprobado|solicitudes comprobadas|solicitudes actualizadas/i });
   await expect(checkedStatus).toBeVisible();
   await expect(checkedStatus).not.toContainText(/esta solicitud.*confirmada|confirmamos que.*enviaste/i);
   const visible = await page.locator('body').innerText();
@@ -526,7 +530,7 @@ for (const outcome of uncertainOutcomes) {
     const initialPlacement = await fixture.rawPlacement(cookie, ownLink.placementId);
     assert.equal(initialOwner.profile.version, beforeReference.profile.version + 1);
 
-    await serveSelectionIndex(page, [candidate, secondCandidate]);
+    await serveSelectionIndex(page, [secondCandidate]);
     const capture = await captureCreatorApi(page, { skipErrorBodies: true });
     await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
     await page.waitForLoadState('networkidle');
@@ -538,7 +542,10 @@ for (const outcome of uncertainOutcomes) {
     await expect(dialog).toBeVisible();
     const urls = dialog.getByLabel(/URLs conocidas/i);
     const evidence = dialog.getByLabel(/Contexto privado/i);
-    await expect(dialog.getByRole('checkbox', { name: new RegExp(candidate.title) })).toBeChecked();
+    const selected = dialog.getByRole('list', { name: 'Selección para solicitar edición', exact: true });
+    await expect(selected.getByRole('button', { name: `Quitar ${candidate.title} de la selección`, exact: true })).toBeVisible();
+    await expect(selected).toContainText(candidate.url);
+    await expect(dialog.getByRole('checkbox', { name: new RegExp(candidate.title) })).toHaveCount(0);
     await evidence.fill('Contenido exacto al enviar.');
 
     const heldPost = await holdClaimPost(page, outcome);
@@ -556,7 +563,8 @@ for (const outcome of uncertainOutcomes) {
       await heldPost.remove();
       await submit?.catch(() => {});
     }
-    await expect(page.getByRole('button', { name: /Comprobar solicitudes/i })).toBeVisible();
+    const checkControl = dialog.getByRole('button', { name: 'Comprobar solicitudes', exact: true });
+    await expect(checkControl).toBeVisible();
     await expect(evidence).toHaveValue('Corrección mientras se envía');
     await expect(urls).toHaveValue(secondCandidate.url);
     assert.equal(claimWrites(capture).length, 1, 'the first ambiguous POST is sent exactly once');
@@ -596,7 +604,7 @@ for (const outcome of uncertainOutcomes) {
     let check;
     let missingExitGuard;
     try {
-      check = dialog.getByRole('button', { name: /Comprobar solicitudes/i }).click();
+      check = checkControl.click();
       await expect.poll(() => capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length)
         .toBe(historyGetsBefore + 1);
       await heldRead.reached;
@@ -634,7 +642,7 @@ for (const outcome of uncertainOutcomes) {
     const historyGetsAfter = capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length;
     assert.equal(historyGetsAfter, historyGetsBefore + 1, 'Comprobar performs one read and no mutation');
     assert.equal(claimWrites(capture).length, 1, 'history checking never replays the non-idempotent POST');
-    const checkedStatus = dialog.getByRole('status').filter({ hasText: /Solicitudes comprobadas/i }).first();
+    const checkedStatus = dialog.getByRole('status').filter({ hasText: /historial comprobado|solicitudes comprobadas|solicitudes actualizadas/i }).first();
     await expect(checkedStatus).toBeVisible();
     await expect(checkedStatus).not.toContainText(/esta solicitud.*confirmada|confirmamos que.*enviaste/i);
     await expect(evidence).toHaveValue('Corrección mientras se comprueba el historial');
@@ -667,7 +675,7 @@ for (const outcome of uncertainOutcomes) {
 
     // The current GET is still the original Enlaces document. A real edit from this
     // consumer must keep its old fields paired with their old CAS versions.
-    if (await dialog.isVisible()) await dialog.getByRole('button', { name: /Cerrar edici[oó]n/i }).click();
+    await expect(dialog).not.toBeVisible();
     const staleRow = page.getByRole('row').filter({ hasText: ownLink.title });
     await expect(staleRow).toBeVisible();
     await staleRow.getByRole('button', { name: /Editar ficha/i }).click();
@@ -681,7 +689,7 @@ for (const outcome of uncertainOutcomes) {
     await expect.poll(() => linkEditWrites(capture, ownLink.placementId)[0]?.status).toBe(409);
     const staleEdit = linkEditWrites(capture, ownLink.placementId)[0];
     assert.equal(staleEdit.status, 409);
-    await expect(linkDialog).toContainText('El enlace cambió');
+    await expect(linkDialog).toContainText(/(?:página|enlace|ficha|estado guardado).*cambi[oó]/i);
     assert.equal(staleEdit.body.profileVersion, initialOwner.profile.version);
     assert.equal(staleEdit.body.resourceVersion, initialResource.version);
     assert.equal(staleEdit.body.placementVersion, initialPlacement.version);

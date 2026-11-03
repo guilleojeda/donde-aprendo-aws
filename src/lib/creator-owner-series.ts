@@ -144,19 +144,3 @@ function seriesParams(query: CreatorOwnerSeriesQuery): URLSearchParams {
 export function creatorOwnerSeriesHref(query: CreatorOwnerSeriesQuery): string {
   return `/cuenta/?${seriesParams(query).toString()}`;
 }
-
-export function creatorOwnerSeriesQueryFromForm(
-  form: HTMLFormElement,
-  current: CreatorOwnerSeriesQuery,
-): CreatorOwnerSeriesQuery {
-  const values = new FormData(form);
-  return {
-    ...current,
-    buscarSeries: String(values.get('buscarSeries') ?? current.buscarSeries),
-    paginaSeries: Number(values.get('paginaSeries') ?? current.paginaSeries),
-    serie: String(values.get('serie') ?? current.serie),
-    buscarCapitulos: String(values.get('buscarCapitulos') ?? current.buscarCapitulos),
-    pertenencia: String(values.get('pertenencia') ?? current.pertenencia) as CreatorOwnerSeriesMembership,
-    paginaCapitulos: Number(values.get('paginaCapitulos') ?? current.paginaCapitulos),
-  };
-}

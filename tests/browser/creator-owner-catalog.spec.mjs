@@ -77,8 +77,8 @@ function catalogSearch(page) {
   return page.getByRole('dialog').getByRole('searchbox').first();
 }
 
-function catalogCheckbox(page, title) {
-  return page.getByRole('dialog').getByRole('checkbox', {
+function catalogRadio(page, title) {
+  return page.getByRole('dialog').getByRole('radio', {
     name: new RegExp(title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
   });
 }
@@ -155,27 +155,27 @@ test('el catálogo público carga con reintento y busca por título y URL entre 
   await expect(page.getByRole('button', { name: /Reintentar.*cat\u00e1logo/i })).toBeVisible();
   await expect(page.getByRole('status').filter({ hasText: /no pudimos leer el cat\u00e1logo/i })).toBeVisible();
   await expect(page.getByRole('status').filter({ hasText: /no hay recursos que coincidan/i })).toHaveCount(0);
-  await expect(page.getByRole('list', { name: 'Resultados del cat\u00e1logo' }).getByRole('checkbox')).toHaveCount(0);
+  await expect(page.getByRole('list', { name: 'Resultados del cat\u00e1logo' }).getByRole('radio')).toHaveCount(0);
   await page.getByRole('button', { name: /Reintentar.*cat\u00e1logo/i }).click();
-  await expect(catalogCheckbox(page, event.title)).toBeVisible();
+  await expect(catalogRadio(page, event.title)).toBeVisible();
   assert.equal(index.reads.length, 2, 'one failed public-index read and the explicit retry reached the provider boundary');
 
   const search = catalogSearch(page);
   await search.fill('aws-community-day');
   await search.press('Enter');
-  await expect(catalogCheckbox(page, event.title)).toBeVisible();
-  await expect(catalogCheckbox(page, community.title)).toHaveCount(0);
+  await expect(catalogRadio(page, event.title)).toBeVisible();
+  await expect(catalogRadio(page, community.title)).toHaveCount(0);
   await expect(page.getByRole('dialog')).toContainText(event.url);
 
   await search.fill('architecture');
   await search.press('Enter');
-  await expect(catalogCheckbox(page, community.title)).toBeVisible();
-  await expect(catalogCheckbox(page, event.title)).toHaveCount(0);
+  await expect(catalogRadio(page, community.title)).toBeVisible();
+  await expect(catalogRadio(page, event.title)).toHaveCount(0);
 
   await search.fill('no existe en el catálogo de prueba');
   await search.press('Enter');
-  await expect(page.getByRole('dialog').getByRole('status').filter({ hasText: /no hay recursos que coincidan/i })).toBeVisible();
-  await expect(page.getByRole('list', { name: 'Resultados del catálogo' }).getByRole('checkbox')).toHaveCount(0);
+  await expect(page.getByRole('dialog').locator('[data-catalog-count]')).toHaveText('0 resultados');
+  await expect(page.getByRole('list', { name: 'Resultados del catálogo' }).getByRole('radio')).toHaveCount(0);
   assert.deepEqual(linkWrites(capture), [], 'searches and a valid zero-result response do not write owner data');
   await capture.stop();
 });
@@ -206,7 +206,7 @@ test('referenciar contenido existente conserva la colocación; una referencia nu
   const search = catalogSearch(page);
   await search.fill(existing.url);
   await search.press('Enter');
-  await catalogCheckbox(page, existing.title).check();
+  await catalogRadio(page, existing.title).check();
   await expect(page.getByRole('dialog').getByRole('checkbox', { name: /proponer al directorio/i })).toBeChecked();
   await page.getByRole('button', { name: /Agregar a mi p\u00e1gina/i }).click();
   await expect(page.getByRole('status').filter({ hasText: /ya estaba en tu p\u00e1gina|conservamos su ficha/i }).first()).toBeVisible();
@@ -223,17 +223,12 @@ test('referenciar contenido existente conserva la colocación; una referencia nu
   // Open a fresh reference intent and use the server's catalog record, which is an event
   // whose actual registration URL is the URL carried through the published index.
   const dialog = page.getByRole('dialog');
-  if (await dialog.isVisible()) {
-    await dialog.getByRole('button', { name: /Cerrar edici\u00f3n/i }).click();
-    const exit = page.getByRole('alertdialog');
-    if (await exit.isVisible().catch(() => false)) await exit.getByRole('button', { name: /Descartar cambios/i }).click();
-    await expect(dialog).not.toBeVisible();
-  }
+  await expect(dialog).not.toBeVisible();
   await page.getByRole('button', { name: /Buscar en el cat\u00e1logo/i }).click();
   const freshSearch = dialog.getByRole('searchbox').first();
   await freshSearch.fill(shared.title);
   await freshSearch.press('Enter');
-  await catalogCheckbox(page, shared.title).check();
+  await catalogRadio(page, shared.title).check();
   const directory = dialog.getByRole('checkbox', { name: /proponer al directorio/i });
   await expect(directory).toBeChecked();
   await directory.uncheck();
@@ -292,7 +287,7 @@ test('un PROFILE_CONFLICT compara el perfil completo y permite reintentar manual
   const search = catalogSearch(page);
   await search.fill(item.title);
   await search.press('Enter');
-  await catalogCheckbox(page, item.title).check();
+  await catalogRadio(page, item.title).check();
   const directory = page.getByRole('dialog').getByRole('checkbox', { name: /proponer al directorio/i });
   await expect(directory).toBeChecked();
   await directory.uncheck();
@@ -324,14 +319,12 @@ test('un PROFILE_CONFLICT compara el perfil completo y permite reintentar manual
   await expect(compare).toBeVisible();
   await compare.click();
   await expect(page.getByRole('dialog')).toContainText('Nombre guardado en otra pestaña');
-  const adopt = page.getByRole('dialog').getByRole('button', {
-    name: /conservar.*selecci[oó]n|selecci[oó]n.*conservar|usar.*datos guardados|usar.*perfil guardado|usar.*versi[oó]n guardada/i,
-  });
+  const adopt = page.getByRole('dialog').getByRole('button', { name: 'Usar la página guardada', exact: true });
   await expect(adopt).toBeVisible();
   await adopt.click();
 
   await expect(page.getByRole('heading', { name: 'Nombre guardado en otra pestaña' })).toBeVisible();
-  await expect(catalogCheckbox(page, item.title)).toBeChecked();
+  await expect(catalogRadio(page, item.title)).toBeChecked();
   await expect(page.getByRole('dialog')).toContainText(item.url);
   await expect(directory).not.toBeChecked();
   assert.equal(linkWrites(capture).length, 1, 'reading and adopting the complete owner snapshot does not write');
@@ -373,7 +366,7 @@ test('un RESOURCE_CONFLICT exige actualizar el índice, revisar la URL actual y 
   const capture = await captureCreatorApi(page, { skipErrorBodies: true });
 
   await openOwnerCatalog(page, fixture);
-  await catalogCheckbox(page, oldItem.title).check();
+  await catalogRadio(page, oldItem.title).check();
   const initial = await fixture.rawOwner(cookie);
   await page.getByRole('button', { name: /Agregar a mi p\u00e1gina/i }).click();
   await expect.poll(() => linkWrites(capture).length).toBe(1);
@@ -388,17 +381,19 @@ test('un RESOURCE_CONFLICT exige actualizar el índice, revisar la URL actual y 
   });
   assert.equal(await fixture.rawPlacement(cookie, `placement-${oldItem.id}`), null);
   assert.equal((await fixture.rawOwner(cookie)).profile.version, initial.profile.version);
-  await expect(page.getByRole('button', { name: /Reintentar.*cat\u00e1logo/i })).toBeVisible();
-  await expect(page.getByRole('status').filter({ hasText: /URL observada.*cambi|actualiza.*cat\u00e1logo/i }).first()).toBeVisible();
+  await expect(page.getByRole('alert')).toBeVisible();
+  const refreshCatalog = page.getByRole('button', { name: 'Actualizar catálogo', exact: true });
+  await expect(refreshCatalog).toBeVisible();
   assert.equal(linkWrites(capture).length, 1, 'the rejected pair was not silently converted or resent');
 
   index.replace([currentItem]);
-  await page.getByRole('button', { name: /Reintentar.*cat\u00e1logo/i }).click();
+  await refreshCatalog.click();
   await expect(page.getByRole('dialog')).toContainText(currentItem.url);
-  await expect(catalogCheckbox(page, oldItem.title)).toBeChecked();
+  await expect(catalogRadio(page, oldItem.title)).not.toBeChecked();
   assert.equal(index.reads.length, 2, 'the updated public catalog is read only after the explicit retry');
   assert.equal(linkWrites(capture).length, 1, 'refreshing the index itself does not send a new reference');
 
+  await catalogRadio(page, currentItem.title).check();
   await page.getByRole('button', { name: /Agregar a mi p\u00e1gina/i }).click();
   await expect.poll(() => linkWrites(capture).length).toBe(2);
   await expect.poll(() => linkWrites(capture)[1]?.status).toBe(201);
@@ -436,7 +431,7 @@ for (const outcome of [
     await serveSelectionIndex(page, [item]);
     const capture = await captureCreatorApi(page, { skipErrorBodies: true });
     await openOwnerCatalog(page, fixture);
-    await catalogCheckbox(page, item.title).check();
+    await catalogRadio(page, item.title).check();
     const directory = page.getByRole('dialog').getByRole('checkbox', { name: /proponer al directorio/i });
     await expect(directory).toBeChecked();
     const before = await fixture.rawOwner(cookie);
@@ -489,41 +484,68 @@ for (const outcome of [
     if (outcome.commit) assert.equal(existing.selectedForDirectory, true);
     else assert.equal(afterCheck.profile.version, before.profile.version);
 
-    const adopt = page.getByRole('dialog').getByRole('button', {
-      name: /conservar.*selecci[oó]n|selecci[oó]n.*conservar|usar.*datos guardados|usar.*lista guardada|usar.*versi[oó]n guardada/i,
-    });
+    const adopt = page.getByRole('dialog').getByRole('button', { name: 'Usar la página guardada', exact: true });
     await expect(adopt).toBeVisible();
     await expect(page.getByRole('dialog')).toContainText(item.url);
     await adopt.click();
-    await expect(catalogCheckbox(page, item.title)).toBeChecked();
-    await expect(page.getByRole('dialog')).toContainText(item.url);
     await expect(directory).not.toBeChecked();
     assert.equal(linkWrites(capture).length, 1, 'adopting the complete owner snapshot performs no write');
 
     if (outcome.commit) {
-      const reviewOptions = page.getByRole('dialog').getByRole('button', { name: /Revisar opciones/i });
-      await expect(reviewOptions).toBeVisible();
-      await reviewOptions.click();
       const linkDialog = page.getByRole('dialog');
-      await expect(linkDialog).toContainText(/Editar opciones/i);
-      await expect(linkDialog.getByRole('checkbox', { name: /Proponer al directorio/i })).not.toBeChecked();
-      await linkDialog.getByRole('button', { name: /Guardar cambios/i }).click();
+      const optionsForm = linkDialog.locator('form[data-owner-form="enlace"]');
+      await expect(optionsForm).toBeVisible();
+      assert.equal(existing.resourceId, item.id);
+      assert.equal(existing.url, item.url);
+      const recoveredRow = page.locator(`[data-link-row="${existing.placementId}"]`);
+      await expect(recoveredRow).toBeVisible();
+      await expect(recoveredRow.locator('[data-link-title]')).toHaveText(item.title);
+      const recoveredTitle = optionsForm.getByLabel('Título', { exact: true });
+      const recoveredUrl = optionsForm.getByLabel('URL', { exact: true });
+      await expect(recoveredTitle).toHaveValue(item.title);
+      await expect(recoveredTitle).toBeDisabled();
+      await expect(recoveredUrl).toHaveValue(item.url);
+      await expect(recoveredUrl).toBeDisabled();
+      const directoryOption = optionsForm.getByRole('checkbox', { name: 'Proponer al directorio', exact: true });
+      await expect(directoryOption).not.toBeChecked();
+      assert.equal(placementOptionWrites(capture, existing.placementId).length, 0,
+        'adopting the recovered shared link does not automatically persist the late directory change');
+      assert.deepEqual(await fixture.rawResource(item.id), beforeResource,
+        'the recovered options editor keeps the shared resource unchanged before manual Save');
+
+      await optionsForm.getByRole('button', { name: /Guardar cambios/i }).click();
       await expect.poll(() => placementOptionWrites(capture, existing.placementId).length).toBe(1);
       await expect.poll(() => placementOptionWrites(capture, existing.placementId)[0]?.status).toBe(200);
       const optionPatch = placementOptionWrites(capture, existing.placementId)[0];
-      assert.equal(optionPatch.body.selectedForDirectory, false);
-      assert.equal(optionPatch.body.profileVersion, afterCheck.profile.version);
-      assert.equal(Object.hasOwn(optionPatch.body, 'title'), false);
+      assert.deepEqual(optionPatch.body, {
+        profileVersion: afterCheck.profile.version,
+        placementVersion: existing.placementVersion,
+        resourceVersion: existing.resourceVersion,
+        featured: existing.featured,
+        selectedForDirectory: false,
+      }, 'the explicit options PATCH consumes the recovered placement/resource/profile versions and corrected option');
+      for (const field of ['title', 'url', 'description']) {
+        assert.equal(Object.hasOwn(optionPatch.body, field), false,
+          `the options-only write cannot change shared ${field}`);
+      }
       assert.equal(linkWrites(capture).length, 1, 'continuing the postcommit correction updates options without another reference POST');
       const final = await fixture.request(cookie, '/api/creador/perfil').then((response) => response.json());
       const saved = final.links.find(({ resourceId }) => resourceId === item.id);
+      assert.equal(saved.placementId, existing.placementId);
+      assert.equal(saved.url, item.url);
       assert.equal(saved.selectedForDirectory, false);
       assert.equal(final.links.filter(({ resourceId }) => resourceId === item.id).length, 1);
       assert.equal(final.editableResources.some(({ id }) => id === item.id), false);
+      const savedPlacement = await fixture.rawPlacement(cookie, existing.placementId);
+      assert.equal(savedPlacement.resourceId, item.id);
+      assert.equal(savedPlacement.version, existing.placementVersion + 1);
+      assert.equal(savedPlacement.selectedForDirectory, false);
       assert.deepEqual(await fixture.rawResource(item.id), beforeResource,
         'neither reference recovery nor the options PATCH edits shared catalog metadata');
       assert.equal(final.profile.version, afterCheck.profile.version + 1);
     } else {
+      await expect(catalogRadio(page, item.title)).toBeChecked();
+      await expect(page.getByRole('dialog')).toContainText(item.url);
       await page.getByRole('button', { name: /Agregar a mi p\u00e1gina/i }).click();
       await expect.poll(() => linkWrites(capture).length).toBe(2);
       await expect.poll(() => linkWrites(capture)[1]?.status).toBe(201);

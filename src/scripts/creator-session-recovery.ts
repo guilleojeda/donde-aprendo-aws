@@ -7,19 +7,14 @@ import {
 
 interface CreatorSessionRecoveryOptions {
   root: HTMLElement;
-  additionalRoot?: HTMLElement;
   isWriteActive: () => boolean;
   updateCsrf: (csrfToken: string) => void;
 }
 
-export function createCreatorSessionRecovery({ root, additionalRoot, isWriteActive, updateCsrf }: CreatorSessionRecoveryOptions) {
+export function createCreatorSessionRecovery({ root, isWriteActive, updateCsrf }: CreatorSessionRecoveryOptions) {
   function matching<T extends HTMLElement>(selector: string): T[] {
-    const surfaces = additionalRoot && additionalRoot !== root ? [root, additionalRoot] : [root];
-    const elements = surfaces.flatMap((surface) => {
-      const element = surface.querySelector<T>(selector);
-      return element ? [element] : [];
-    });
-    return [...new Set(elements)];
+    const element = root.querySelector<T>(selector);
+    return element ? [element] : [];
   }
 
   const shells = matching<HTMLElement>('[data-session-recovery-shell]');

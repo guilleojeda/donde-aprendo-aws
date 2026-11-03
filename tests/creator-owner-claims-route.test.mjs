@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 import { transform } from '@astrojs/compiler-rs';
-import { experimental_AstroContainer } from 'astro/container';
+import { createCreatorOwnerAstroContainer } from './fixtures/creator-owner-astro-container.mjs';
 import { createCreatorOwnerRuntime, SITE_ORIGIN } from './fixtures/creator-owner-runtime.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -61,7 +61,7 @@ await build({
 });
 
 const ownerRoute = (await import(pathToFileURL(path.join(tempDir, 'owner.mjs')).href)).default;
-const container = await experimental_AstroContainer.create({ astroConfig: { site: SITE_ORIGIN } });
+const container = await createCreatorOwnerAstroContainer({ astroConfig: { site: SITE_ORIGIN } });
 let runtime;
 
 function claim({ id, resourceIds, resources, status = 'pending', evidence = 'Nota privada para revisión' } = {}) {
@@ -208,6 +208,15 @@ test('SSR de Solicitudes conserva el espacio privado, etiqueta lo que conoce y n
       evidence: 'Evidencia privada del propietario',
     }),
     claim({ id: 'claim-legacy', resourceIds: ['legacy-private-id'], resources: undefined, evidence: 'Evidencia legacy privada' }),
+    claim({
+      id: 'claim-partial',
+      resourceIds: ['resource-own', 'resource-private'],
+      resources: [
+        { resourceId: 'resource-own', url: 'https://owner.example.invalid/guia' },
+        { resourceId: 'resource-private', url: 'https://submitted.example.invalid/partial' },
+      ],
+      status: 'partial',
+    }),
   ] });
   await resetRuntime(data);
   runtime.serviceCalls.length = 0;
@@ -218,8 +227,6 @@ test('SSR de Solicitudes conserva el espacio privado, etiqueta lo que conoce y n
   assert.ok(claimsHtml, 'the requests view is rendered inside the owner experience');
   const claimsText = visibleText(claimsHtml);
   const ownerDialog = html.match(/<dialog\b(?=[^>]*data-owner-dialog)[^>]*>[\s\S]*?<\/dialog>/i)?.[0];
-  const claimFormMarkup = ownerDialog?.match(/<form\b(?=[^>]*data-owner-form="reclamacion")[^>]*>[\s\S]*?<\/form>/i)?.[0];
-  const claimFormText = claimFormMarkup?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ') ?? '';
   assert.equal(response.status, 200);
   assertPrivate(response, html);
   assert.match(text, /Tu página/);
@@ -229,6 +236,10 @@ test('SSR de Solicitudes conserva el espacio privado, etiqueta lo que conoce y n
   assert.match(claimsText, /Evidencia legacy privada/);
   assert.match(claimsText, /2026/);
   assert.match(claimsText, /pendiente/i);
+  const partialRecord = claimsHtml.match(/<li\b(?=[^>]*data-claim-record="claim-partial")[\s\S]*?<\/li>/i)?.[0];
+  assert.ok(partialRecord, 'the partial request remains visible in the SSR history');
+  const partialStatus = partialRecord.match(/<strong\b[^>]*data-claim-status[^>]*>([^<]+)<\/strong>/i)?.[1];
+  assert.equal(partialStatus, 'Parcialmente resuelta', 'SSR translates the internal partial status');
   assert.match(claimsText, /https:\/\/supplied\.example\.invalid\/known/);
   assert.doesNotMatch(claimsText, /resource-own|resource-public|resource-url|legacy-private-id/,
     'SSR never exposes claim IDs when it lacks an authorized title');
@@ -236,35 +247,13 @@ test('SSR de Solicitudes conserva el espacio privado, etiqueta lo que conoce y n
     'an owner link title and current URL take precedence over its older claim URL');
   assert.match(html, /href="\/cuenta\/\?vista=solicitudes"/,
     'requests stay linked from the owner navigation');
-  assert.match(claimsText, /Solicitar edición/i,
-    'the requests section has its own direct request action');
-  assert.ok(ownerDialog, 'claims reuse the contextual owner dialog');
+  assert.match(claimsHtml, /<button\b(?=[^>]*data-claim-open)[^>]*>Solicitar edición<\/button>/i,
+    'the SSR request history exposes its real action control');
+  assert.ok(ownerDialog, 'the owner keeps the shared contextual dialog in the server composition');
   assert.equal((html.match(/<dialog\b[^>]*data-owner-dialog/gi) ?? []).length, 1,
     'the page has one owner coordinator dialog');
-  assert.ok(claimFormMarkup, 'the claim form lives in the shared contextual owner dialog');
-  assert.match(claimFormMarkup, /<textarea\b(?=[^>]*data-claim-urls)[^>]*>/i,
-    'known resource URLs are entered in a multiline control inside the claim form');
-  assert.match(claimFormMarkup, /<button\b(?=[^>]*type="submit")[^>]*>/i,
-    'the claim form contains its submit action');
-  assert.match(claimFormMarkup, /<button\b(?=[^>]*type="button")(?=[^>]*data-owner-cancel)[^>]*>/i,
-    'the claim form contains its cancel action');
-  assert.match(ownerDialog, /data-catalog-search-form/i,
-    'the common catalog search is in the shared dialog');
-  assert.match(ownerDialog, /data-catalog-search(?:\s|=|>)/i);
-  assert.match(ownerDialog, /data-catalog-results/i);
-  assert.match(ownerDialog, /data-catalog-page="previous"/i);
-  assert.match(ownerDialog, /data-catalog-page="next"/i);
-  assert.match(ownerDialog, /data-catalog-page-label/i);
-  const urlsField = claimFormMarkup.match(/<textarea\b(?=[^>]*data-claim-urls)[^>]*>/i)?.[0];
-  assert.ok(urlsField, 'known resource URLs are entered in a multiline control');
-  assert.match(claimFormText, /una (?:URL )?por línea/i,
-    'the owner is told to enter one known URL per line');
-  const evidenceField = claimFormMarkup.match(/<textarea\b(?=[^>]*data-claim-evidence)[^>]*>/i)?.[0];
-  assert.ok(evidenceField, 'the owner can add optional private evidence');
-  assert.match(evidenceField, /\bmaxlength="2000"/i,
-    'private evidence remains capped at 2000 characters');
-  assert.match(claimFormText, /opcional/i);
-  assert.match(claimFormText, /privad/i);
+  assert.doesNotMatch(ownerDialog, /data-owner-form="reclamacion"|data-catalog-search-form/,
+    'catalog and claim controls are rendered when the owner opens their editor');
   assert.doesNotMatch(visibleFormControls(html), /name="(?:resourceIds|sourceId|resourceId)"/i,
     'no visible control asks the owner to enter internal IDs');
   assert.doesNotMatch(visibleFormControls(html), /32\s*KiB|payload|source ID|IDs exactos/i);
@@ -276,7 +265,7 @@ test('SSR de Solicitudes conserva el espacio privado, etiqueta lo que conoce y n
     'SSR does not scan/load the public index');
 });
 
-test('SSR desde Enlaces permite solicitar edición de una ficha compartida dentro del mismo modal', async () => {
+test('SSR desde Enlaces ofrece una acción de solicitud para una ficha compartida', async () => {
   await resetRuntime(ownerData());
   const { response, html } = await render({ search: '?vista=enlaces' });
   assert.equal(response.status, 200);
@@ -292,8 +281,9 @@ test('SSR desde Enlaces permite solicitar edición de una ficha compartida dentr
     'a resource the owner can already edit does not offer a request that will be denied');
   assert.match(sharedRow, /Guía compartida/);
   assert.doesNotMatch(visibleText(sharedRow), /resource-shared|placement-shared/);
-  assert.match(html, /data-owner-form="reclamacion"/i);
   assert.equal((html.match(/<dialog\b[^>]*data-owner-dialog/gi) ?? []).length, 1);
+  assert.doesNotMatch(html, /data-owner-form="reclamacion"/i,
+    'the request editor is created by the shared Preact dialog after the action is selected');
 });
 
 test('perfil borrador u oculto sigue gestionable desde Solicitudes y no ofrece una falsa página pública', async (t) => {

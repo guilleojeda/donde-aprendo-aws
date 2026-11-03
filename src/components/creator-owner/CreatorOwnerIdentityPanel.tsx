@@ -14,6 +14,7 @@ interface Props {
   state: CreatorOwnerState;
   children?: ComponentChildren;
   logout?: ComponentChildren;
+  showActivitySummary?: boolean;
   disabled: boolean;
   onOpenProfile(section: 'datos' | 'redes' | 'foto'): void;
   onCreateProfile(): void;
@@ -42,7 +43,16 @@ function socialLabel(value: string | undefined): string {
   return value ?? '—';
 }
 
-export default function CreatorOwnerIdentityPanel({ state, children, logout, disabled, onOpenProfile, onCreateProfile, onPublish, onActivityPeriod, onRetryActivity, onCreateProfileInput, onCheck, onCheckSession, onAdopt, onCopyLink, onRetryCreateProfile }: Props) {
+function OwnerSectionNavigation({ view, period }: { view: CreatorOwnerState['location']['view']; period: 7 | 30 }) {
+  return <nav class="creator-owner__link-tools" aria-label="Secciones de Tu página">
+    <a class="button button--outline" data-owner-navigation aria-current={view === 'series' ? 'page' : undefined} href="/cuenta/?vista=series">Series</a>
+    <a class="button button--outline" data-owner-navigation aria-current={view === 'enlaces' ? 'page' : undefined} href="/cuenta/?vista=enlaces">Enlaces</a>
+    <a class="button button--outline" data-owner-navigation aria-current={view === 'estadisticas' ? 'page' : undefined} href={`/cuenta/?vista=estadisticas&periodo=${period}&pagina=1`}>Estadísticas</a>
+    <a class="button button--outline" data-owner-navigation aria-current={view === 'solicitudes' ? 'page' : undefined} href="/cuenta/?vista=solicitudes">Solicitudes</a>
+  </nav>;
+}
+
+export default function CreatorOwnerIdentityPanel({ state, children, logout, showActivitySummary = true, disabled, onOpenProfile, onCreateProfile, onPublish, onActivityPeriod, onRetryActivity, onCreateProfileInput, onCheck, onCheckSession, onAdopt, onCopyLink, onRetryCreateProfile }: Props) {
   const profile = state.observed.profile;
   const photoPath = profile?.photo?.version !== undefined
     ? `/media/fotos/${encodeURIComponent(profile.id)}/${encodeURIComponent(String(profile.photo.version))}.webp`
@@ -54,6 +64,9 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, dis
   }
   const canReadActivity = Boolean(profile?.published);
   const activity = state.activity;
+  const activityStatus = activity.message ?? (activity.status === 'loading' || activity.status === 'idle' ? `Cargando estadísticas de los últimos ${activity.period} días…`
+    : activity.status === 'ready' ? activity.report?.freshness === 'stale' ? 'No pudimos actualizar; mostramos el informe anterior y conservamos sus fechas.' : 'Actividad actualizada.' : '');
+  const hasActivityWarning = Boolean(activity.report?.warnings.length);
   const formattedCount = (value: number | null | undefined) => value === null ? 'Datos limitados'
     : typeof value === 'number' ? new Intl.NumberFormat('es-AR').format(value) : '—';
   const formatDate = (value: string | undefined, withTime = false) => {
@@ -130,6 +143,15 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, dis
         </form>
       </section>}
 
+      {!profile && showActivitySummary && <section class="creator-owner__activity" data-owner-activity data-owner-profile-state="none" data-owner-creator-id=""
+        data-owner-activity-initial-period={activity.period} aria-labelledby="owner-activity-title">
+        <header class="creator-owner__section-heading">
+          <div><p class="creator-owner__eyebrow">Actividad</p><h2 id="owner-activity-title">Estadísticas de tu página</h2></div>
+        </header>
+        <p class="creator-owner__activity-empty" data-owner-activity-empty>La actividad empieza cuando publiques tu página.</p>
+      </section>}
+      {!profile && <OwnerSectionNavigation view={state.location.view} period={activity.period} />}
+
       {profile && <div class="creator-owner__profile" data-owner-profile>
         <section class="creator-owner__identity" aria-labelledby="owner-profile-name">
           <div class="creator-owner__identity-heading">
@@ -166,7 +188,7 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, dis
           {state.attempt.status === 'uncertain' && state.attempt.intent.kind === 'publish' && <button class="button button--outline" type="button" data-owner-publish-check onClick={onCheck}>Comprobar estado guardado</button>}
         </section>
 
-        <section class="creator-owner__activity" data-owner-activity data-owner-profile-state={profile.hidden ? 'hidden' : profile.published ? 'published' : 'draft'} data-owner-creator-id={profile.id}
+        {showActivitySummary && <section class="creator-owner__activity" data-owner-activity data-owner-profile-state={profile.hidden ? 'hidden' : profile.published ? 'published' : 'draft'} data-owner-creator-id={profile.id}
           data-owner-activity-initial-period={activity.period} aria-labelledby="owner-activity-title">
           <header class="creator-owner__section-heading">
             <div><p class="creator-owner__eyebrow">Actividad</p><h2 id="owner-activity-title">Estadísticas de tu página</h2></div>
@@ -178,6 +200,11 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, dis
               <div><span>Visitantes estimados</span><strong data-owner-activity-total="visitors">{formattedCount(activity.report?.totals.visitors)}</strong></div>
               <div><span>Clics en enlaces</span><strong data-owner-activity-total="clicks">{formattedCount(activity.report?.totals.clicks)}</strong></div>
             </div>
+            <div class="creator-owner__activity-feedback"><p data-owner-activity-status role="status" aria-live="polite">
+              {activityStatus}{hasActivityWarning && <span class="creator-owner__activity-warning" data-owner-activity-warning>Parte del detalle puede estar incompleto.</span>}
+            </p>
+              {activity.status === 'error' || activity.report?.freshness === 'stale' ? <button class="button button--outline" data-owner-activity-retry type="button" onClick={onRetryActivity}>Reintentar</button> : null}
+            </div>
             {activity.report && <div class="creator-owner__activity-context">
               <p><span>Período:</span> <time dateTime={activity.report.range.startDate}>{formatDate(activity.report.range.startDate)}</time> – <time dateTime={activity.report.range.endDate}>{formatDate(activity.report.range.endDate)}</time> <span>· Zona {activity.report.range.timeZone}</span></p>
               <p>Última actualización: <time dateTime={activity.report.updatedAt}>{formatDate(activity.report.updatedAt, true)}</time></p>
@@ -186,26 +213,15 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, dis
               <button type="button" data-owner-activity-period="7" aria-pressed={activity.period === 7} onClick={() => onActivityPeriod(7)}>7 días</button>
               <button type="button" data-owner-activity-period="30" aria-pressed={activity.period === 30} onClick={() => onActivityPeriod(30)}>30 días</button>
             </fieldset></div>
-            <div class="creator-owner__activity-feedback"><p data-owner-activity-status role="status" aria-live="polite">
-              {activity.message ?? (activity.status === 'loading' || activity.status === 'idle' ? `Cargando estadísticas de los últimos ${activity.period} días…`
-                : activity.status === 'ready' ? activity.report?.freshness === 'stale' ? 'No pudimos actualizar; mostramos el informe anterior y conservamos sus fechas.' : 'Actividad actualizada.' : '')}
-            </p>
-              {activity.status === 'error' || activity.report?.freshness === 'stale' ? <button class="button button--outline" data-owner-activity-retry type="button" onClick={onRetryActivity}>Reintentar</button> : null}
-            </div>
             <details class="creator-owner__activity-help">
               <summary>Sobre estas estadísticas</summary>
               <p>Las visitas y los clics reúnen tu página y tus series. Los visitantes son estimados y no identifican personas con exactitud.</p>
               <p>La captura empieza cuando se observa actividad; no reconstruye el período anterior. Los datos recientes pueden tardar en procesarse y algunas personas bloquean la medición.</p>
             </details>
           </div> : <p class="creator-owner__activity-empty" data-owner-activity-empty>La actividad empieza cuando publiques tu página.</p>}
-        </section>
+        </section>}
 
-        <nav class="creator-owner__link-tools" aria-label="Secciones de Tu página">
-          <a class="button button--outline" data-owner-navigation aria-current="page" href="/cuenta/?vista=series">Series</a>
-          <a class="button button--outline" data-owner-navigation href="/cuenta/?vista=enlaces">Enlaces</a>
-          <a class="button button--outline" data-owner-navigation href={`/cuenta/?vista=estadisticas&periodo=${activity.period}&pagina=1`}>Estadísticas</a>
-          <a class="button button--outline" data-owner-navigation href="/cuenta/?vista=solicitudes">Solicitudes</a>
-        </nav>
+        <OwnerSectionNavigation view={state.location.view} period={activity.period} />
 
         <section class="creator-owner__details" aria-labelledby="owner-details-title">
           <div class="creator-owner__section-heading"><div><p class="creator-owner__eyebrow">Tu identidad</p><h2 id="owner-details-title">Sobre ti</h2></div></div>

@@ -430,7 +430,7 @@ async function executeAdminScript(html, { fetchImpl, initialData } = {}) {
     '[data-admin-resource]': resourcesRows.map(({ row }) => row),
     '[data-admin-profile]': profileRows.map(({ row }) => row),
     'button:not([data-refresh-view]), [data-featured], [data-directory]': allControls.filter((control) => control !== refreshButton),
-    'button, input[type="file"], input[data-busy-control], [data-featured], [data-directory], [data-creator-stale]': allControls,
+    'button, input[type="file"], input[data-busy-control], [data-creator-stale]': allControls,
     '[data-creator-stale]': allControls.filter((control) => control.hasAttribute('data-creator-stale')),
   }[selector] ?? []);
   const initial = new TestElement();

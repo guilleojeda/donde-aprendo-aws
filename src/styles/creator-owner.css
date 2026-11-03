@@ -394,6 +394,12 @@
   color: var(--color-text-muted);
 }
 
+.creator-owner__claim-history-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .creator-owner__claim-resources li,
 .creator-owner__claim-evidence {
   overflow-wrap: anywhere;
@@ -640,6 +646,13 @@
   margin: 0;
   color: var(--color-text-muted);
   line-height: 1.5;
+}
+
+.creator-owner__activity-warning {
+  display: block;
+  margin-block-start: 4px;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
 }
 
 .creator-owner__activity-context p > span:first-child {

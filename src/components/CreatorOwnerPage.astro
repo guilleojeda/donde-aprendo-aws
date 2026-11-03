@@ -1,0 +1,51 @@
+---
+import type { CreatorEditorDTO } from '../types/creators';
+import type { CreatorStatisticsPageLoad } from '../pages/cuenta/_statistics-page';
+import { DEFAULT_CREATOR_OWNER_LINKS_QUERY, type CreatorOwnerLinksQuery } from '../lib/creator-owner-links';
+import { DEFAULT_CREATOR_OWNER_SERIES_QUERY, type CreatorOwnerSeriesQuery } from '../lib/creator-owner-series';
+import AccountLogout from './AccountLogout.astro';
+import CreatorStatistics from './CreatorStatistics.astro';
+import CreatorOwnerApp from './creator-owner/CreatorOwnerApp';
+
+interface Props {
+  data: CreatorEditorDTO;
+  accountEmail: string;
+  logoutCsrfToken: string;
+  csrfToken: string;
+  sessionBinding: string;
+  isAdmin: boolean;
+  publicOrigin: string;
+  view?: 'enlaces' | 'series' | 'solicitudes' | 'estadisticas';
+  linksQuery?: CreatorOwnerLinksQuery;
+  linksQueryError?: string;
+  seriesQuery?: CreatorOwnerSeriesQuery;
+  seriesQueryError?: string;
+  statistics?: CreatorStatisticsPageLoad;
+}
+
+const {
+  logoutCsrfToken,
+  statistics,
+  view = 'enlaces',
+  linksQuery = DEFAULT_CREATOR_OWNER_LINKS_QUERY,
+  seriesQuery = DEFAULT_CREATOR_OWNER_SERIES_QUERY,
+  ...owner
+} = Astro.props;
+const hasStatisticsDetail = Boolean(statistics
+  && statistics.state !== 'no-profile' && statistics.state !== 'not-published');
+---
+
+<CreatorOwnerApp
+  {...owner}
+  view={view}
+  linksQuery={linksQuery}
+  seriesQuery={seriesQuery}
+  initialStatisticsPeriod={statistics?.period ?? 30}
+  hasStatisticsDetail={hasStatisticsDetail}
+  client:load
+>
+  <AccountLogout slot="logout" csrfToken={logoutCsrfToken} />
+  <Fragment slot="statistics">
+    {hasStatisticsDetail && statistics && <CreatorStatistics result={statistics} />}
+  </Fragment>
+</CreatorOwnerApp>
