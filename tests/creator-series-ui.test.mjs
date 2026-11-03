@@ -6,13 +6,13 @@ import { runInNewContext } from 'node:vm';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 import { transform } from '@astrojs/compiler-rs';
-import { experimental_AstroContainer } from 'astro/container';
+import { createCreatorOwnerAstroContainer } from './fixtures/creator-owner-astro-container.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const scratchParent = path.join(root, '.work/creator-pages');
 await mkdir(scratchParent, { recursive: true });
 const tempDir = await mkdtemp(path.join(scratchParent, 'phase4-ui-render-'));
-const container = await experimental_AstroContainer.create();
+const container = await createCreatorOwnerAstroContainer();
 const componentPromises = new Map();
 let trackerSourcePromise;
 
@@ -263,8 +263,8 @@ test('la subpágina de serie escapa texto y rechaza destinos inseguros de conten
 });
 
 test('los slugs del perfil owner usan un patrón nativo válido y coherente con el servidor', async () => {
-  const ownerHtml = await render('src/components/CreatorOwnerProfile.astro', {
-    data: editorData(),
+  const ownerHtml = await render('src/components/CreatorOwnerPage.astro', {
+    data: editorData({ withProfile: false }),
     accountEmail: 'ana@example.invalid',
     logoutCsrfToken: 'logout-csrf',
     csrfToken: 'csrf-test-token',
@@ -272,11 +272,8 @@ test('los slugs del perfil owner usan un patrón nativo válido y coherente con 
     isAdmin: false,
     publicOrigin: 'https://dondeaprendoaws.com',
   });
-  const profileForms = [...ownerHtml.matchAll(/<form\b([^>]*)>([\s\S]*?)<\/form>/gi)]
-    .filter(([, attrs]) => /\bdata-owner-form="(?:crear|datos)"/i.test(attrs));
-  const ownerSlugs = profileForms.flatMap(([, , body]) =>
-    [...body.matchAll(/<input\b(?=[^>]*\bname="slug")[^>]*>/gi)].map(([tag]) => tag));
-  assert.equal(ownerSlugs.length, 2, 'the owner page has create and contextual profile slug inputs');
+  const ownerSlugs = [...ownerHtml.matchAll(/<input\b(?=[^>]*\bdata-owner-create-slug)[^>]*>/gi)].map(([tag]) => tag);
+  assert.equal(ownerSlugs.length, 1, 'the initial owner page renders the real create-profile slug input');
   assert.match(ownerHtml, /3–40 caracteres/);
   for (const tag of ownerSlugs) {
     assert.match(tag, /\bminlength="3"/);

@@ -25,6 +25,8 @@ export function analyticsReport(request, totals = { views: 5, visitors: 3, click
 export function createBrowserCreatorStatistics() {
   const values = new Map();
   const requests = [];
+  let currentNow = CREATOR_STATISTICS_NOW;
+  let providerResponder;
   const cache = {
     async get(key) {
       const value = values.get(JSON.stringify([key.profileId, key.period, key.page]));
@@ -37,22 +39,42 @@ export function createBrowserCreatorStatistics() {
   const reader = createGA4StatisticsReader({
     propertyId: '424203315',
     captureStartedAt: '2026-10-23T23:38:00Z',
-    now: () => CREATOR_STATISTICS_NOW,
+    now: () => currentNow,
     getAccessToken: async () => 'browser-fixture-access-token',
     fetch: async (_url, options) => {
       const body = JSON.parse(options.body);
       requests.push(structuredClone(body));
-      return Response.json({ reports: body.requests.map((request) => {
+      const payload = { reports: body.requests.map((request) => {
         const periodTotals = request.dateRanges?.[0]?.startDate === '6daysAgo'
           ? { views: 5, visitors: 3, clicks: 8 }
           : { views: 12, visitors: 6, clicks: 20 };
         return analyticsReport(request, periodTotals);
-      }) });
+      }) };
+      const response = await providerResponder?.({
+        body: structuredClone(body),
+        payload: structuredClone(payload),
+        call: requests.length,
+      });
+      if (response instanceof Response) return response;
+      return Response.json(response ?? payload);
     },
   });
   return {
-    service: createCachedCreatorStatistics({ reader, cache, now: () => CREATOR_STATISTICS_NOW }),
+    service: createCachedCreatorStatistics({ reader, cache, now: () => currentNow }),
     requests,
     cache,
+    advanceTime(milliseconds) {
+      if (!Number.isSafeInteger(milliseconds) || milliseconds <= 0) {
+        throw new TypeError('statistics fixture time must advance by a positive integer number of milliseconds');
+      }
+      currentNow += milliseconds;
+      return currentNow;
+    },
+    setProviderResponder(responder) {
+      if (responder !== undefined && typeof responder !== 'function') {
+        throw new TypeError('provider responder must be a function');
+      }
+      providerResponder = responder;
+    },
   };
 }

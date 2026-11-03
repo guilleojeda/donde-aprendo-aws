@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 import { transform } from '@astrojs/compiler-rs';
-import { experimental_AstroContainer } from 'astro/container';
+import { createCreatorOwnerAstroContainer } from './fixtures/creator-owner-astro-container.mjs';
 import { createOriginCheckMiddleware } from '../node_modules/astro/dist/core/app/origin-check.js';
 import {
   COGNITO_DOMAIN, ORIGIN, TEST_EMAIL, completeLogin, cookiePair,
@@ -18,7 +18,7 @@ await mkdir(scratchParent, { recursive: true });
 const tempDir = await mkdtemp(path.join(scratchParent, 'astro-test-'));
 const accountSource = path.join(root, 'src/pages/cuenta/index.astro');
 const logoutSource = path.join(root, 'src/pages/cuenta/salir/index.astro');
-const container = await experimental_AstroContainer.create({ astroConfig: { site: ORIGIN } });
+const container = await createCreatorOwnerAstroContainer({ astroConfig: { site: ORIGIN } });
 
 await build({
   entryPoints: { account: accountSource, logout: logoutSource, notFound: path.join(root, 'src/pages/404.astro') },

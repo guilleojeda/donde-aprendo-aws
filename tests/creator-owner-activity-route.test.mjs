@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 import { transform } from '@astrojs/compiler-rs';
-import { experimental_AstroContainer } from 'astro/container';
+import { createCreatorOwnerAstroContainer } from './fixtures/creator-owner-astro-container.mjs';
 import { parseCreatorStatisticsReady } from '../src/lib/creator-statistics-response.ts';
 import { createCreatorOwnerRuntime, SITE_ORIGIN } from './fixtures/creator-owner-runtime.mjs';
 import { activityReport } from './fixtures/creator-owner-activity.mjs';
@@ -59,7 +59,7 @@ await build({
 });
 const ownerRoute = (await import(pathToFileURL(path.join(tempDir, 'owner.mjs')).href)).default;
 const legacyRoute = (await import(pathToFileURL(path.join(tempDir, 'legacy.mjs')).href)).default;
-const container = await experimental_AstroContainer.create({ astroConfig: { site: SITE_ORIGIN } });
+const container = await createCreatorOwnerAstroContainer({ astroConfig: { site: SITE_ORIGIN } });
 let runtime;
 let reads;
 let serviceQueries;

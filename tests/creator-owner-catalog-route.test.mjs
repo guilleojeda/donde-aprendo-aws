@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 import { transform } from '@astrojs/compiler-rs';
-import { experimental_AstroContainer } from 'astro/container';
+import { createCreatorOwnerAstroContainer } from './fixtures/creator-owner-astro-container.mjs';
 import { createCreatorOwnerRuntime, SITE_ORIGIN } from './fixtures/creator-owner-runtime.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -61,7 +61,7 @@ await build({
 });
 
 const ownerRoute = (await import(pathToFileURL(path.join(tempDir, 'owner.mjs')).href)).default;
-const container = await experimental_AstroContainer.create({ astroConfig: { site: SITE_ORIGIN } });
+const container = await createCreatorOwnerAstroContainer({ astroConfig: { site: SITE_ORIGIN } });
 let runtime;
 
 async function resetRuntime() {
@@ -134,53 +134,26 @@ function assertPrivate(response, html) {
 }
 
 function assertCatalogSurface(html, text) {
-  assert.match(html, /<button\b(?=[^>]*type="button")(?=[^>]*data-catalog-open)/i,
-    'the normal owner page opens catalog search without submitting a form');
+  const catalogOpen = html.match(/<button\b(?=[^>]*type="button")(?=[^>]*data-catalog-open)[^>]*>[\s\S]*?<\/button>/i)?.[0];
+  assert.ok(catalogOpen, 'the owner page exposes a client action to open catalog search');
+  assert.match(visibleText(catalogOpen), /Buscar en el catálogo/i);
+  assert.match(html, /<button\b(?=[^>]*type="button")(?=[^>]*data-link-add-open)/i,
+    'normal URL creation remains available in the same owner view');
   const dialog = html.match(/<dialog\b(?=[^>]*data-owner-dialog)[^>]*>/i)?.[0];
   assert.ok(dialog, 'the owner dialog exists in the actual SSR output');
   assert.equal((html.match(/<dialog\b(?=[^>]*data-owner-dialog)/gi) ?? []).length, 1,
-    'catalog search is part of the one owner dialog');
+    'all owner editors share one dialog');
   assert.doesNotMatch(dialog, /\bopen(?:\s|=|>)/i, 'the owner dialog starts closed');
-  const referenceForm = html.match(/<form\b(?=[^>]*data-owner-form="referencia")[^>]*>/i)?.[0];
-  assert.ok(referenceForm,
-    'reference selection is a separate contextual form in the shared dialog');
-  assert.match(referenceForm, /\bhidden(?:\s|=|>)/i, 'catalog controls stay hidden until opened');
-  const referenceFormHtml = html.match(/<form\b(?=[^>]*data-owner-form="referencia")[\s\S]*?<\/form>/i)?.[0];
-  assert.ok(referenceFormHtml);
-  assert.match(referenceFormHtml, /data-owner-compare/, 'profile-version conflicts reuse the owner comparison control');
-  assert.match(referenceFormHtml, /<button\b(?=[^>]*type="button")(?=[^>]*data-owner-compare)/i);
-  assert.match(referenceFormHtml, /data-owner-adopt/, 'adopting a compared profile version remains an explicit choice');
-  assert.match(referenceFormHtml, /<button\b(?=[^>]*type="button")(?=[^>]*data-owner-adopt)/i);
-  assert.match(referenceFormHtml, /<button\b(?=[^>]*type="submit")(?=[^>]*data-catalog-reference)/i,
-    'the explicit reference action submits only the current selection');
-  assert.match(html, /<[a-z][a-z0-9-]*\b(?=[^>]*data-owner-catalog)(?=[^>]*\bhidden)[^>]*>/i,
-    'the lazy catalog surface is present but initially hidden');
-  assert.match(html, /<form\b(?=[^>]*data-catalog-search-form)/i, 'catalog search has its own query form');
-  assert.match(html, /<input\b(?=[^>]*type="search")(?=[^>]*data-catalog-search)/i,
-    'catalog search accepts title and URL queries');
-  assert.match(html, /data-catalog-results/, 'SSR includes the results container populated lazily by the controller');
-  assert.match(html, /data-catalog-count/, 'SSR provides a result count container');
-  assert.match(html, /data-catalog-empty/, 'SSR provides a distinct zero-result state');
-  assert.match(html, /<button\b(?=[^>]*type="button")(?=[^>]*data-catalog-page="previous")/i,
-    'the previous-page control does not submit either form');
-  assert.match(html, /<button\b(?=[^>]*type="button")(?=[^>]*data-catalog-page="next")/i,
-    'the next-page control does not submit either form');
-  assert.match(html, /data-catalog-page-label/, 'page state has a stable announcement target');
-  assert.match(html, /data-catalog-status[^>]*role="status"|role="status"[^>]*data-catalog-status/i);
-  assert.match(html, /<button\b(?=[^>]*type="button")(?=[^>]*data-catalog-retry)/i,
-    'index failure has an explicit retry control that does not submit reference data');
-  assert.match(text, /Buscar en el catálogo|Buscar en catálogo/i);
-  const directory = html.match(/<input\b(?=[^>]*data-catalog-directory)(?=[^>]*name="selectedForDirectory")(?=[^>]*type="checkbox")[^>]*>/i)?.[0];
-  assert.ok(directory, 'reference has an optional directory checkbox');
-  assert.match(directory, /\bchecked(?:\s|=|\/?>)/i, 'directory proposal is enabled by default');
-  assert.match(html, /data-link-add-form/, 'normal URL creation remains available next to search');
+  assert.doesNotMatch(html, /data-owner-form="referencia"|data-catalog-search-form|data-catalog-results/,
+    'catalog data and controls are created only when the owner opens the editor');
+  assert.match(text, /Buscar en el catálogo/i);
   assert.doesNotMatch(html, /<input\b[^>]*\bname="(?:resourceId|resourceIds|sourceId)"/i,
     'the creator never enters a resource/source ID');
   assert.doesNotMatch(text, /IDs exactos|source ID|hasta 32\s*KiB|32\s*KiB/i,
     'the creator UI does not expose legacy ID instructions or the request-size ceiling');
 }
 
-test('SSR de Tu página con perfil de cero enlaces entrega el diálogo de catálogo sin precargarlo', async () => {
+test('SSR de Tu página con perfil de cero enlaces ofrece catálogo sin precargar el índice', async () => {
   await resetRuntime();
   await createProfile();
   runtime.serviceCalls.length = 0;

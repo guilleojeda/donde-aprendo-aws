@@ -112,12 +112,17 @@ test('el nombre y el slug elegidos en la primera ficha sobreviven a la hidrataci
     await name.fill('Nombre elegido antes de cargar');
     await slug.fill('direccion-elegida');
     await expect(page.getByRole('button', { name: 'Crear borrador' })).toBeDisabled();
+    await expect(page.locator('astro-island')).toHaveAttribute('ssr', '');
+    const documentTimeOrigin = await page.evaluate(() => performance.timeOrigin);
 
     releaseScripts();
     await navigation;
+    await expect(page.locator('astro-island')).not.toHaveAttribute('ssr', '');
+    await expect(page.getByRole('button', { name: 'Crear borrador' })).toBeEnabled();
+    assert.equal(await page.evaluate(() => performance.timeOrigin), documentTimeOrigin,
+      'the test must observe hydration of the document whose SSR fields were edited');
     await expect(name).toHaveValue('Nombre elegido antes de cargar');
     await expect(slug).toHaveValue('direccion-elegida');
-    await expect(page.getByRole('button', { name: 'Crear borrador' })).toBeEnabled();
 
     await page.getByRole('button', { name: 'Crear borrador' }).click();
     await capture.settle();
@@ -164,8 +169,14 @@ test('la búsqueda sin aplicar sobrevive a la hidratación y la acción siguient
     await search.fill('pendiente');
     assert.equal(new URL(page.url()).searchParams.get('buscarSeries'), 'aplicada',
       'the typed query remains separate from the query that produced the SSR rows');
+    await expect(page.locator('astro-island')).toHaveAttribute('ssr', '');
+    const documentTimeOrigin = await page.evaluate(() => performance.timeOrigin);
     releaseListScripts();
     await listNavigation;
+    await expect(page.locator('astro-island')).not.toHaveAttribute('ssr', '');
+    await expect(page.getByRole('button', { name: 'Crear serie', exact: true })).toBeEnabled();
+    assert.equal(await page.evaluate(() => performance.timeOrigin), documentTimeOrigin,
+      'the pending query and the next action must belong to the edited SSR document');
     await expect(search).toHaveValue('pendiente');
     await expect(seriesRow(page, first.id)).toBeVisible();
     await expect(seriesRow(page, second.id)).toHaveCount(0);

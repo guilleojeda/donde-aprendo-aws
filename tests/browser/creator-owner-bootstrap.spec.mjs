@@ -53,11 +53,13 @@ test('Series hidrata una sola isla SSR Preact que posee la cabecera y los editor
     'the legacy controller is never loaded alongside the island');
 });
 
-test('la selección validada de vista decide el runtime y conserva los demás GET y la llegada sin perfil', async ({ fixture, page }) => {
+test('la vista validada usa la misma isla en todos los GET privados y en la llegada sin perfil', async ({ fixture, page }) => {
+  const scripts = [];
+  page.on('request', (request) => { if (request.resourceType() === 'script') scripts.push(new URL(request.url()).pathname); });
   await loggedInOwner(fixture, page, { profile: false });
   await page.goto(`${fixture.origin}/cuenta/`);
   await expect(page.getByRole('heading', { name: 'Prepara tu página', exact: true })).toBeVisible();
-  await expect(page.locator('astro-island')).toHaveCount(0);
+  await expect(page.locator('astro-island')).toHaveCount(1);
 
   const cookie = await fixture.login();
   await addCookie(page.context(), fixture, cookie);
@@ -72,11 +74,13 @@ test('la selección validada de vista decide el runtime y conserva los demás GE
     await page.goto(`${fixture.origin}/cuenta/${query ? `?${query}` : ''}`);
     await expect(page.getByRole('navigation', { name: 'Secciones de Tu página' })
       .getByRole('link', { name: selected, exact: true })).toHaveAttribute('aria-current', 'page');
-    await expect(page.locator('astro-island')).toHaveCount(0);
+    await expect(page.locator('astro-island')).toHaveCount(1);
   }
   await page.goto(`${fixture.origin}/cuenta/?vista=estadisticas&vista=series`);
   await expect(page.getByRole('heading', { name: 'Series', exact: true })).toBeVisible();
   await expect(page.locator('astro-island')).toHaveCount(1);
+  assert.ok(!scripts.some((pathname) => /[/]src[/]scripts[/]creator-owner(?:-activity)?[.]ts$/u.test(pathname)),
+    'no resolved owner view loads either retired imperative controller');
 });
 
 test('el HTML privado de Series escapa la identidad, ofrece navegación real y permite buscar sin JavaScript', async ({ fixture, page, browser }) => {

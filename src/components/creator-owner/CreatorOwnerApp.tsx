@@ -13,6 +13,8 @@ import { creatorSessionRecoveryReason, classifyCreatorSessionCheck, readCreatorS
 import { parseCreatorStatisticsReady } from '../../lib/creator-statistics-response';
 import { normalizeCreatorText } from '../../lib/creator-values.mjs';
 import { creatorOwnerSeriesHref, parseCreatorOwnerSeriesQuery, type CreatorOwnerSeriesMembership } from '../../lib/creator-owner-series';
+import { creatorOwnerLinksHref, creatorOwnerLinkGroup, parseCreatorOwnerLinksQuery, selectCreatorOwnerLinks, type CreatorOwnerLinksQuery } from '../../lib/creator-owner-links';
+import { parseCreatorOwnerCatalog } from '../../lib/creator-owner-catalog';
 import {
   createCreatorOwnerState,
   creatorOwnerDraftIsDirty,
@@ -21,10 +23,13 @@ import {
   type CreatorOwnerEditor,
   type CreatorOwnerListContext,
   type CreatorOwnerState,
+  type CreatorOwnerView,
 } from '../../lib/creator-owner-state';
 import CreatorOwnerEditorDialog from './CreatorOwnerEditorDialog';
 import CreatorOwnerIdentityPanel from './CreatorOwnerIdentityPanel';
 import CreatorOwnerSeriesPanel from './CreatorOwnerSeriesPanel';
+import CreatorOwnerLinksPanel from './CreatorOwnerLinksPanel';
+import CreatorOwnerClaimsPanel from './CreatorOwnerClaimsPanel';
 
 interface Props {
   data: CreatorEditorDTO;
@@ -33,8 +38,14 @@ interface Props {
   sessionBinding: string;
   isAdmin: boolean;
   publicOrigin: string;
+  view: CreatorOwnerView;
   seriesQuery: import('../../lib/creator-owner-series').CreatorOwnerSeriesQuery;
+  linksQuery: CreatorOwnerLinksQuery;
+  linksQueryError?: string;
   seriesQueryError?: string;
+  initialStatisticsPeriod?: 7 | 30;
+  hasStatisticsDetail?: boolean;
+  statistics?: ComponentChildren;
   logout?: ComponentChildren;
 }
 
@@ -46,6 +57,7 @@ function createInitialState(props: Props): CreatorOwnerState {
   let pendingSeriesSearch: string | undefined;
   let pendingChapterSearch: string | undefined;
   let pendingMembership: CreatorOwnerSeriesMembership | undefined;
+  let pendingLinksQuery: CreatorOwnerLinksQuery | undefined;
   if (typeof document !== 'undefined') {
     const name = document.querySelector<HTMLInputElement>('[data-owner-create-name]');
     const slug = document.querySelector<HTMLInputElement>('[data-owner-create-slug]');
@@ -58,6 +70,17 @@ function createInitialState(props: Props): CreatorOwnerState {
     if (chapterMembership && ['todos', 'incluidos', 'disponibles'].includes(chapterMembership.value)) {
       pendingMembership = chapterMembership.value as CreatorOwnerSeriesMembership;
     }
+    const search = document.querySelector<HTMLInputElement>('[data-link-search]');
+    const linkSeries = document.querySelector<HTMLSelectElement>('#owner-link-series');
+    const directory = document.querySelector<HTMLSelectElement>('#owner-link-directory');
+    const featured = document.querySelector<HTMLSelectElement>('#owner-link-featured');
+    const order = document.querySelector<HTMLSelectElement>('#owner-link-order');
+    if (search) pendingLinksQuery = { ...props.linksQuery, buscar: search.value };
+    if (linkSeries && directory && featured && order) pendingLinksQuery = {
+      ...(pendingLinksQuery ?? props.linksQuery), serie: linkSeries.value as CreatorOwnerLinksQuery['serie'],
+      directorio: directory.value as CreatorOwnerLinksQuery['directorio'], destacado: featured.value as CreatorOwnerLinksQuery['destacado'],
+      orden: order.value as CreatorOwnerLinksQuery['orden'],
+    };
   }
   return createCreatorOwnerState({
     data: props.data,
@@ -67,11 +90,16 @@ function createInitialState(props: Props): CreatorOwnerState {
     isAdmin: props.isAdmin,
     publicOrigin: props.publicOrigin,
     seriesQuery: props.seriesQuery,
+    view: props.view,
+    linksQuery: props.linksQuery,
     ...(props.seriesQueryError ? { seriesQueryError: props.seriesQueryError } : {}),
+    ...(props.linksQueryError ? { linksQueryError: props.linksQueryError } : {}),
+    ...(props.initialStatisticsPeriod ? { initialActivityPeriod: props.initialStatisticsPeriod } : {}),
     ...(initialCreate ? { initialCreate } : {}),
     ...(pendingSeriesSearch !== undefined ? { pendingSeriesSearch } : {}),
     ...(pendingChapterSearch !== undefined ? { pendingChapterSearch } : {}),
     ...(pendingMembership ? { pendingMembership } : {}),
+    ...(pendingLinksQuery ? { pendingLinksQuery } : {}),
   });
 }
 
@@ -131,9 +159,22 @@ function ownerIndex(state: unknown): number | undefined {
   return Number.isSafeInteger(value) && Number(value) >= 0 ? Number(value) : undefined;
 }
 
+function isSameDocumentFragmentTransition(previousHref: string, currentHref: string): boolean {
+  const previous = new URL(previousHref, currentHref);
+  const current = new URL(currentHref);
+  return previous.origin === current.origin && previous.pathname === current.pathname
+    && previous.search === current.search && previous.hash !== current.hash;
+}
+
 function ownerSeriesQueryWasValid(state: unknown): boolean | undefined {
   if (typeof state !== 'object' || state === null || Array.isArray(state)) return undefined;
   const value = (state as Record<string, unknown>).creatorOwnerSeriesQueryValid;
+  return typeof value === 'boolean' ? value : undefined;
+}
+
+function ownerLinksQueryWasValid(state: unknown): boolean | undefined {
+  if (typeof state !== 'object' || state === null || Array.isArray(state)) return undefined;
+  const value = (state as Record<string, unknown>).creatorOwnerLinksQueryValid;
   return typeof value === 'boolean' ? value : undefined;
 }
 
@@ -143,10 +184,10 @@ function navigationType(): PerformanceNavigationTiming['type'] | undefined {
   return entry ? (entry as PerformanceNavigationTiming).type : undefined;
 }
 
-function withOwnerHistoryState(state: unknown, index: number, seriesQueryValid: boolean): Record<string, unknown> {
+function withOwnerHistoryState(state: unknown, index: number, seriesQueryValid: boolean, linksQueryValid = true): Record<string, unknown> {
   return typeof state === 'object' && state !== null && !Array.isArray(state)
-    ? { ...(state as Record<string, unknown>), creatorOwnerIndex: index, creatorOwnerSeriesQueryValid: seriesQueryValid }
-    : { creatorOwnerIndex: index, creatorOwnerSeriesQueryValid: seriesQueryValid };
+    ? { ...(state as Record<string, unknown>), creatorOwnerIndex: index, creatorOwnerSeriesQueryValid: seriesQueryValid, creatorOwnerLinksQueryValid: linksQueryValid }
+    : { creatorOwnerIndex: index, creatorOwnerSeriesQueryValid: seriesQueryValid, creatorOwnerLinksQueryValid: linksQueryValid };
 }
 
 export default function CreatorOwnerApp(props: Props) {
@@ -156,11 +197,16 @@ export default function CreatorOwnerApp(props: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const historyIndexRef = useRef(0);
+  const historyHrefRef = useRef(typeof window === 'undefined' ? '' : window.location.href);
   const pendingHistoryRef = useRef<{ destinationIndex: number; currentIndex: number; href: string } | undefined>(undefined);
   const restoringHistoryIndexRef = useRef<number | undefined>(undefined);
   const allowedHistoryIndexRef = useRef<number | undefined>(undefined);
   const activityRequestSequenceRef = useRef(0);
   const activityStartedRef = useRef<{ key: string; sequence: number } | undefined>(undefined);
+  const linksSearchTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const catalogLoadRef = useRef<Promise<void> | undefined>(undefined);
+  const claimHistorySequenceRef = useRef(0);
+  const linksHydrationAppliedRef = useRef(false);
   const handledTransitionRef = useRef<string | undefined>(undefined);
   const previousEditorKeyRef = useRef<string | undefined>(undefined);
 
@@ -174,15 +220,19 @@ export default function CreatorOwnerApp(props: Props) {
     const historyState = window.history.state;
     const existingIndex = ownerIndex(historyState);
     const existingSeriesQueryValidity = ownerSeriesQueryWasValid(historyState);
-    const restoringManagedEntry = props.seriesQueryError === 'series' && navigationType() === 'back_forward'
+    const existingLinksQueryValidity = ownerLinksQueryWasValid(historyState);
+    const restoringManagedSeriesEntry = props.seriesQueryError === 'series' && navigationType() === 'back_forward'
       && existingIndex !== undefined && existingSeriesQueryValidity === true;
+    const restoringManagedLinksEntry = Boolean(props.linksQueryError) && navigationType() === 'back_forward'
+      && existingIndex !== undefined && existingLinksQueryValidity === true;
     historyIndexRef.current = existingIndex ?? 0;
-    if (existingIndex === undefined || existingSeriesQueryValidity === undefined) {
+    if (existingIndex === undefined || existingSeriesQueryValidity === undefined || existingLinksQueryValidity === undefined) {
       const nextState = withOwnerHistoryState(historyState, existingIndex ?? 0,
-        props.seriesQueryError ? restoringManagedEntry : true);
+        props.seriesQueryError ? restoringManagedSeriesEntry : true,
+        props.linksQueryError ? restoringManagedLinksEntry : true);
       window.history.replaceState(nextState, '', window.location.href);
     }
-    if (restoringManagedEntry) {
+    if (restoringManagedSeriesEntry) {
       const destination = new URL(window.location.href);
       destination.searchParams.delete('serie');
       destination.searchParams.delete('buscarCapitulos');
@@ -194,6 +244,17 @@ export default function CreatorOwnerApp(props: Props) {
         dispatch({ type: 'apply-query', query: parsed.query });
       }
     }
+    if (restoringManagedLinksEntry) {
+      const destination = new URL(window.location.href);
+      destination.searchParams.delete('serie');
+      const parsed = parseCreatorOwnerLinksQuery(destination.searchParams, stateRef.current.observed.series);
+      if (parsed.valid) {
+        const query = selectCreatorOwnerLinks(stateRef.current.observed.links, stateRef.current.observed.series, parsed.query).query;
+        window.history.replaceState(window.history.state, '', creatorOwnerLinksHref(query));
+        dispatch({ type: 'apply-links-query', query, focusSelector: '#owner-link-search' });
+      }
+    }
+    historyHrefRef.current = window.location.href;
 
     function blockForExit(transition?: CreatorOwnerState['location']['transition']): boolean {
       const latest = stateRef.current;
@@ -217,21 +278,62 @@ export default function CreatorOwnerApp(props: Props) {
       return target;
     }
 
-    function showSeriesHref(href: string, history: 'push' | 'replace' = 'push'): boolean {
+    function applyLocationFromHref(index: number) {
+      const url = new URL(window.location.href);
+      if (stateRef.current.location.view === 'series') {
+        const parsed = parseCreatorOwnerSeriesQuery(url.searchParams, stateRef.current.observed.series);
+        if (parsed.valid) dispatch({ type: 'apply-query', query: parsed.query });
+        else if (parsed.reason === 'series' && ownerSeriesQueryWasValid(window.history.state) === true) {
+          const normalized = { ...stateRef.current.location.query, serie: '', buscarCapitulos: '', pertenencia: 'todos' as const, paginaCapitulos: 1 };
+          window.history.replaceState(withOwnerHistoryState(window.history.state, index, true, true), '', creatorOwnerSeriesHref(normalized));
+          dispatch({ type: 'apply-query', query: normalized });
+        } else dispatch({ type: 'set-series-query-error', reason: 'series' });
+        historyHrefRef.current = window.location.href;
+        return;
+      }
+      if (stateRef.current.location.view === 'enlaces') {
+        const parsed = parseCreatorOwnerLinksQuery(url.searchParams, stateRef.current.observed.series);
+        if (parsed.valid) {
+          const focusSelector = parsed.query.paginaEnlaces !== stateRef.current.location.linksQuery.paginaEnlaces
+            ? '#owner-link-pagination' : '#owner-link-search';
+          dispatch({ type: 'apply-links-query', query: parsed.query, focusSelector });
+        }
+        else if (parsed.reason === 'series' && ownerLinksQueryWasValid(window.history.state) === true) {
+          url.searchParams.delete('serie');
+          const reparsed = parseCreatorOwnerLinksQuery(url.searchParams, stateRef.current.observed.series);
+          if (!reparsed.valid) {
+            dispatch({ type: 'set-links-query-error', reason: 'links' });
+            historyHrefRef.current = window.location.href;
+            return;
+          }
+          const normalized = selectCreatorOwnerLinks(stateRef.current.observed.links, stateRef.current.observed.series, reparsed.query).query;
+          window.history.replaceState(withOwnerHistoryState(window.history.state, index, true, true), '', creatorOwnerLinksHref(normalized));
+          dispatch({ type: 'apply-links-query', query: normalized, focusSelector: '#owner-link-search' });
+        } else dispatch({ type: 'set-links-query-error', reason: 'links' });
+        historyHrefRef.current = window.location.href;
+      }
+    }
+
+    function showOwnerHref(href: string, history: 'push' | 'replace' = 'push', focusSelector = '#owner-links-title'): boolean {
       const destination = new URL(href, window.location.href);
       if (destination.origin !== window.location.origin || destination.pathname !== '/cuenta/') return false;
-      const parsed = parseCreatorOwnerSeriesQuery(destination.searchParams, stateRef.current.observed.series);
-      if (!parsed.valid) return false;
+      const latest = stateRef.current;
+      const parsedSeries = latest.location.view === 'series' ? parseCreatorOwnerSeriesQuery(destination.searchParams, latest.observed.series) : undefined;
+      const parsedLinks = latest.location.view === 'enlaces' ? parseCreatorOwnerLinksQuery(destination.searchParams, latest.observed.series) : undefined;
+      if (parsedSeries && !parsedSeries.valid || parsedLinks && !parsedLinks.valid) return false;
+      if (!parsedSeries && !parsedLinks) return false;
       if (history === 'push') {
         const index = historyIndexRef.current + 1;
         const old = window.history.state;
-        const next = withOwnerHistoryState(old, index, true);
+        const next = withOwnerHistoryState(old, index, true, true);
         window.history.pushState(next, '', `${destination.pathname}${destination.search}${destination.hash}`);
         historyIndexRef.current = index;
       } else {
-        window.history.replaceState(withOwnerHistoryState(window.history.state, historyIndexRef.current, true), '', `${destination.pathname}${destination.search}${destination.hash}`);
+        window.history.replaceState(withOwnerHistoryState(window.history.state, historyIndexRef.current, true, true), '', `${destination.pathname}${destination.search}${destination.hash}`);
       }
-      dispatch({ type: 'apply-query', query: parsed.query });
+      historyHrefRef.current = window.location.href;
+      if (parsedSeries?.valid) dispatch({ type: 'apply-query', query: parsedSeries.query });
+      if (parsedLinks?.valid) dispatch({ type: 'apply-links-query', query: parsedLinks.query, focusSelector });
       return true;
     }
 
@@ -242,14 +344,17 @@ export default function CreatorOwnerApp(props: Props) {
       const url = new URL(href, window.location.href);
       if (url.origin === window.location.origin && url.pathname === window.location.pathname
         && url.search === window.location.search && url.hash) return;
-      const isSeriesGet = url.origin === window.location.origin && url.pathname === '/cuenta/'
-        && url.searchParams.getAll('vista').includes('series') && !url.searchParams.getAll('vista').includes('solicitudes');
-      if (isSeriesGet) {
+      const requestedView = url.searchParams.getAll('vista');
+      const sameOwnerView = url.origin === window.location.origin && url.pathname === '/cuenta/'
+        && requestedView.length <= 1 && (requestedView[0] ?? 'enlaces') === stateRef.current.location.view
+        && ['series', 'enlaces'].includes(stateRef.current.location.view);
+      if (sameOwnerView) {
         if (blockForExit({ href: `${url.pathname}${url.search}${url.hash}`, kind: 'anchor' })) {
           event.preventDefault();
           return;
         }
-        if (showSeriesHref(`${url.pathname}${url.search}${url.hash}`)) event.preventDefault();
+        const focusSelector = anchor.matches('[data-link-page]') ? '#owner-link-pagination' : '#owner-links-title';
+        if (showOwnerHref(`${url.pathname}${url.search}${url.hash}`, 'push', focusSelector)) event.preventDefault();
         return;
       }
       if (blockForExit({ href: url.href, kind: 'anchor' })) event.preventDefault();
@@ -262,13 +367,16 @@ export default function CreatorOwnerApp(props: Props) {
       if (form.method.toLowerCase() !== 'get') return;
       const target = queryFromForm(form);
       if (!target) return;
-      const isSeriesGet = target.pathname === '/cuenta/' && target.searchParams.getAll('vista').includes('series');
+      const requestedView = target.searchParams.getAll('vista');
+      const sameOwnerView = target.pathname === '/cuenta/' && requestedView.length <= 1
+        && (requestedView[0] ?? 'enlaces') === stateRef.current.location.view
+        && ['series', 'enlaces'].includes(stateRef.current.location.view);
       const transition = { href: `${target.pathname}${target.search}${target.hash}`, kind: 'form' as const };
       if (blockForExit(transition)) {
         event.preventDefault();
         return;
       }
-      if (isSeriesGet && showSeriesHref(transition.href)) event.preventDefault();
+      if (sameOwnerView && showOwnerHref(transition.href)) event.preventDefault();
     };
 
     const onLogout = (event: Event) => {
@@ -282,23 +390,20 @@ export default function CreatorOwnerApp(props: Props) {
       if (restoringHistoryIndexRef.current === targetIndex) {
         restoringHistoryIndexRef.current = undefined;
         historyIndexRef.current = targetIndex;
+        historyHrefRef.current = window.location.href;
         return;
       }
       if (allowedHistoryIndexRef.current === targetIndex) {
         allowedHistoryIndexRef.current = undefined;
         pendingHistoryRef.current = undefined;
         historyIndexRef.current = targetIndex;
-        const url = new URL(window.location.href);
-        const parsed = parseCreatorOwnerSeriesQuery(url.searchParams, stateRef.current.observed.series);
-        if (parsed.valid) dispatch({ type: 'apply-query', query: parsed.query });
-        else if (parsed.reason === 'series') {
-          if (ownerSeriesQueryWasValid(window.history.state) === true) {
-            const normalized = { ...stateRef.current.location.query, serie: '', buscarCapitulos: '', pertenencia: 'todos' as const, paginaCapitulos: 1 };
-            window.history.replaceState(withOwnerHistoryState(window.history.state, targetIndex, true), '', creatorOwnerSeriesHref(normalized));
-            dispatch({ type: 'apply-query', query: normalized });
-          } else dispatch({ type: 'set-series-query-error', reason: 'series' });
-        }
+        historyHrefRef.current = window.location.href;
+        applyLocationFromHref(targetIndex);
         dispatch({ type: 'set-transition' });
+        return;
+      }
+      if (isSameDocumentFragmentTransition(historyHrefRef.current, window.location.href)) {
+        historyHrefRef.current = window.location.href;
         return;
       }
       if (blockForExit({ href: window.location.href, kind: 'history', ...(destinationIndex !== undefined ? { historyIndex: destinationIndex } : {}) })) {
@@ -310,16 +415,8 @@ export default function CreatorOwnerApp(props: Props) {
         return;
       }
       historyIndexRef.current = targetIndex;
-      const url = new URL(window.location.href);
-      const parsed = parseCreatorOwnerSeriesQuery(url.searchParams, stateRef.current.observed.series);
-      if (parsed.valid) dispatch({ type: 'apply-query', query: parsed.query });
-      else if (parsed.reason === 'series') {
-        if (ownerSeriesQueryWasValid(window.history.state) === true) {
-          const normalized = { ...stateRef.current.location.query, serie: '', buscarCapitulos: '', pertenencia: 'todos' as const, paginaCapitulos: 1 };
-          window.history.replaceState(withOwnerHistoryState(window.history.state, targetIndex, true), '', creatorOwnerSeriesHref(normalized));
-          dispatch({ type: 'apply-query', query: normalized });
-        } else dispatch({ type: 'set-series-query-error', reason: 'series' });
-      }
+      historyHrefRef.current = window.location.href;
+      applyLocationFromHref(targetIndex);
     };
 
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -327,18 +424,21 @@ export default function CreatorOwnerApp(props: Props) {
       if (!isWriteActive(latest) && !shouldGuardExit(latest)) return;
       event.preventDefault();
     };
+    const onHashChange = () => { historyHrefRef.current = window.location.href; };
 
     const root = rootRef.current;
     root?.addEventListener('account:logout', onLogout);
     document.addEventListener('click', onClick);
     document.addEventListener('submit', onSubmit);
     window.addEventListener('popstate', onPopState);
+    window.addEventListener('hashchange', onHashChange);
     window.addEventListener('beforeunload', onBeforeUnload);
     return () => {
       root?.removeEventListener('account:logout', onLogout);
       document.removeEventListener('click', onClick);
       document.removeEventListener('submit', onSubmit);
       window.removeEventListener('popstate', onPopState);
+      window.removeEventListener('hashchange', onHashChange);
       window.removeEventListener('beforeunload', onBeforeUnload);
     };
   }, []);
@@ -378,8 +478,16 @@ export default function CreatorOwnerApp(props: Props) {
   useEffect(() => {
     const editorKey = state.editor?.key;
     if (previousEditorKeyRef.current && !editorKey && !state.location.transition) {
-      const destination = returnFocusRef.current
-        ?? rootRef.current?.querySelector<HTMLElement>('#owner-series-search, #owner-create-name');
+      const requested = returnFocusRef.current;
+      const fallback = stateRef.current.location.view === 'enlaces'
+        ? rootRef.current?.querySelector<HTMLElement>('#owner-link-search') ?? rootRef.current?.querySelector<HTMLElement>('#owner-links-title')
+        : stateRef.current.location.view === 'series'
+          ? rootRef.current?.querySelector<HTMLElement>('#owner-series-search') ?? rootRef.current?.querySelector<HTMLElement>('#owner-series-title')
+          : stateRef.current.location.view === 'solicitudes'
+            ? rootRef.current?.querySelector<HTMLElement>('[data-claim-section-open]')
+            : rootRef.current?.querySelector<HTMLElement>('#owner-activity-title')
+              ?? rootRef.current?.querySelector<HTMLElement>('#owner-profile-name, #owner-create-name');
+      const destination = requested?.isConnected ? requested : fallback;
       destination?.focus({ preventScroll: true });
       returnFocusRef.current = null;
     }
@@ -388,6 +496,10 @@ export default function CreatorOwnerApp(props: Props) {
 
   useEffect(() => {
     const key = `${currentProfile?.id ?? ''}:${currentProfile?.published ? 'published' : 'private'}:${state.activity.period}`;
+    if (props.view === 'estadisticas' && props.hasStatisticsDetail) {
+      activityRequestSequenceRef.current += 1;
+      return;
+    }
     if (!currentProfile?.published) {
       activityRequestSequenceRef.current += 1;
       return;
@@ -428,7 +540,7 @@ export default function CreatorOwnerApp(props: Props) {
           dispatch({ type: 'activity-failed', period, sequence, message: 'No pudimos cargar las estadísticas. Tu página sigue disponible; inténtalo de nuevo.' });
         }
       });
-  }, [currentProfile?.id, currentProfile?.published, state.activity.period, state.activity.sequence]);
+  }, [currentProfile?.id, currentProfile?.published, state.activity.period, state.activity.sequence, props.view, props.hasStatisticsDetail]);
 
   useEffect(() => {
     if (state.session.state !== 'ready') return;
@@ -437,7 +549,193 @@ export default function CreatorOwnerApp(props: Props) {
     if (logout && token && token.value !== state.session.csrfToken) token.value = state.session.csrfToken;
   }, [state.session]);
 
+  useEffect(() => () => {
+    if (linksSearchTimerRef.current) clearTimeout(linksSearchTimerRef.current);
+  }, []);
+
+  useEffect(() => {
+    if (state.location.view !== 'enlaces' || state.location.linksQueryError) return;
+    const parsed = parseCreatorOwnerLinksQuery(new URL(window.location.href).searchParams, state.observed.series);
+    if (!parsed.valid) return;
+    const effective = selectCreatorOwnerLinks(state.observed.links, state.observed.series, parsed.query).query;
+    const stateNeedsUpdate = JSON.stringify(effective) !== JSON.stringify(state.location.linksQuery);
+    const requestedPageWasClamped = parsed.query.paginaEnlaces !== effective.paginaEnlaces;
+    if (!stateNeedsUpdate && !requestedPageWasClamped) return;
+    if (requestedPageWasClamped) {
+      const href = creatorOwnerLinksHref(effective);
+      window.history.replaceState(withOwnerHistoryState(window.history.state, historyIndexRef.current, true, true), '', href);
+      historyHrefRef.current = window.location.href;
+    }
+    if (stateNeedsUpdate) dispatch({ type: 'apply-links-query', query: effective });
+  }, [state.location.view, state.location.linksQuery, state.location.linksQueryError, state.observed]);
+
   const setMessage = (text: string, kind: 'info' | 'success' | 'error' = 'info') => dispatch({ type: 'set-message', text, kind });
+
+  function navigateLinksQuery(query: CreatorOwnerLinksQuery, history: 'push' | 'replace', focusSelector = '#owner-links-title') {
+    const href = creatorOwnerLinksHref(query);
+    const currentHref = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (href !== currentHref) {
+      if (history === 'push') {
+        const index = historyIndexRef.current + 1;
+        window.history.pushState(withOwnerHistoryState(window.history.state, index, true, true), '', href);
+        historyIndexRef.current = index;
+      } else window.history.replaceState(withOwnerHistoryState(window.history.state, historyIndexRef.current, true, true), '', href);
+    }
+    historyHrefRef.current = window.location.href;
+    dispatch({ type: 'apply-links-query', query, focusSelector });
+  }
+
+  function onLinkSearch(value: string) {
+    dispatch({ type: 'set-links-pending-query', query: { buscar: value, paginaEnlaces: 1 } });
+    if (linksSearchTimerRef.current) clearTimeout(linksSearchTimerRef.current);
+    linksSearchTimerRef.current = setTimeout(() => {
+      linksSearchTimerRef.current = undefined;
+      const latest = stateRef.current.location.pendingLinksQuery;
+      navigateLinksQuery({ ...latest, buscar: value, paginaEnlaces: 1 }, 'replace', '#owner-link-search');
+    }, 120);
+  }
+
+  function onLinksQueryChange(query: CreatorOwnerLinksQuery, focusSelector: string) {
+    if (linksSearchTimerRef.current) { clearTimeout(linksSearchTimerRef.current); linksSearchTimerRef.current = undefined; }
+    dispatch({ type: 'set-links-pending-query', query });
+    navigateLinksQuery(query, 'push', focusSelector);
+  }
+
+  function onLinksQuerySubmit(query: CreatorOwnerLinksQuery) {
+    if (linksSearchTimerRef.current) { clearTimeout(linksSearchTimerRef.current); linksSearchTimerRef.current = undefined; }
+    dispatch({ type: 'set-links-pending-query', query });
+    navigateLinksQuery(query, 'push', '#owner-link-search');
+  }
+
+  useEffect(() => {
+    if (!state.runtimeReady || state.location.view !== 'enlaces' || state.location.linksQueryError || linksHydrationAppliedRef.current) return;
+    linksHydrationAppliedRef.current = true;
+    const pending = state.location.pendingLinksQuery;
+    const current = state.location.linksQuery;
+    const filtersChanged = pending.serie !== current.serie || pending.directorio !== current.directorio
+      || pending.destacado !== current.destacado || pending.orden !== current.orden;
+    if (filtersChanged) {
+      const focus = pending.serie !== current.serie ? '#owner-link-series'
+        : pending.directorio !== current.directorio ? '#owner-link-directory'
+          : pending.destacado !== current.destacado ? '#owner-link-featured' : '#owner-link-order';
+      onLinksQueryChange({ ...pending, paginaEnlaces: 1 }, focus);
+    } else if (pending.buscar !== current.buscar) onLinkSearch(pending.buscar);
+  }, [state.runtimeReady, state.location.view]);
+
+  async function loadCatalog(refresh = false) {
+    const latest = stateRef.current.catalog;
+    if (!refresh && latest.status === 'ready' && latest.entries && !latest.needsRefresh) return;
+    if (catalogLoadRef.current) return catalogLoadRef.current;
+    dispatch({ type: 'catalog-load-started' });
+    const request = (async () => {
+      try {
+        const response = await fetch('/catalog-selection.json', { method: 'GET', credentials: 'same-origin', cache: 'no-store', headers: { accept: 'application/json' } });
+        if (!response.ok) throw new Error('catalog-unavailable');
+        let raw: unknown;
+        try { raw = await response.json(); } catch { throw new Error('catalog-malformed'); }
+        const entries = parseCreatorOwnerCatalog(raw);
+        if (!entries) throw new Error('catalog-malformed');
+        const currentEditor = stateRef.current.editor;
+        let message: string | undefined;
+        if (currentEditor?.kind === 'reference' && currentEditor.selected) {
+          const refreshed = entries.find(({ id }) => id === currentEditor.selected?.id);
+          if (!refreshed || refreshed.url !== currentEditor.selected.url) {
+            dispatch({ type: 'update-reference-draft', selected: undefined });
+            message = refreshed
+              ? 'La URL de esa ficha cambió. Vuelve a seleccionarla para confirmar la dirección actual.'
+              : 'La ficha elegida ya no aparece en el catálogo. Selecciona otra antes de continuar.';
+          } else if (refreshed.title !== currentEditor.selected.title) dispatch({ type: 'update-reference-draft', selected: refreshed });
+        }
+        if (currentEditor?.kind === 'claim' && currentEditor.selected.length) {
+          const kept = currentEditor.selected.filter((selected) => {
+            const refreshed = entries.find(({ id }) => id === selected.resourceId);
+            if (!refreshed) {
+              const shared = stateRef.current.observed.links.find(({ resourceId, url }) => resourceId === selected.resourceId && url === selected.url);
+              return Boolean(shared && !stateRef.current.observed.editableResources.some(({ id }) => id === selected.resourceId));
+            }
+            return refreshed.url === selected.url;
+          }).map((selected) => {
+            const refreshed = entries.find(({ id }) => id === selected.resourceId);
+            return refreshed ? { resourceId: refreshed.id, url: refreshed.url, title: refreshed.title } : selected;
+          });
+          if (kept.length !== currentEditor.selected.length) {
+            dispatch({ type: 'update-claim-draft', value: { selected: kept } });
+            message = 'Quitamos de la selección las fichas cuya URL cambió. Actualiza y vuelve a elegir cada ficha vigente.';
+          }
+        }
+        dispatch({ type: 'catalog-load-ready', entries, ...(message ? { message } : {}) });
+        if (message) setMessage(message, 'info');
+      } catch (error) {
+        dispatch({ type: 'catalog-load-failed', message: error instanceof Error && error.message === 'catalog-malformed'
+          ? 'No pudimos leer el catálogo porque su formato no es válido. Puedes volver a intentarlo.'
+          : 'No pudimos cargar el catálogo. Puedes volver a intentarlo.' });
+      }
+    })();
+    const handled = request.finally(() => { if (catalogLoadRef.current === handled) catalogLoadRef.current = undefined; });
+    catalogLoadRef.current = handled;
+    return handled;
+  }
+
+  useEffect(() => {
+    if (props.view === 'solicitudes') void loadCatalog();
+  }, [props.view]);
+
+  async function refreshClaimHistory(options?: { intentId: string; checkId: string; profileId: string }) {
+    const latest = stateRef.current;
+    const expectedProfileId = options?.profileId ?? latest.observed.profile?.id;
+    const sequence = ++claimHistorySequenceRef.current;
+    dispatch({ type: 'claim-history-started', sequence });
+    const attemptIsCurrent = () => {
+      const current = stateRef.current;
+      return current.claimHistory.status === 'loading' && current.claimHistory.sequence === sequence
+        && current.observed.profile?.id === expectedProfileId && claimHistorySequenceRef.current === sequence;
+    };
+    try {
+      const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store',
+        headers: { 'x-creator-page-binding': latest.sessionBinding, accept: 'application/json' } });
+      const session = await readCreatorSessionResponse(response);
+      if (!attemptIsCurrent()) return false;
+      const recoveryReason = creatorSessionRecoveryReason(response.status, session);
+      if (recoveryReason) {
+        const message = loginRecoveryMessage(recoveryReason);
+        if (options) dispatch({ type: 'check-failed', intentId: options.intentId, checkId: options.checkId, message });
+        dispatch({ type: 'session-required', reason: recoveryReason, message });
+        dispatch({ type: 'claim-history-failed', sequence, message });
+        return false;
+      }
+      if (!response.ok) throw new Error(response.status === 403 ? 'claim-forbidden' : 'claim-unavailable');
+      const raw: unknown = await response.json();
+      if (!attemptIsCurrent()) return false;
+      if (!isAdoptableOwnerData(raw)) throw new Error('claim-malformed');
+      const snapshot = readCreatorEditorData(raw);
+      if (!expectedProfileId || snapshot.profile?.id !== expectedProfileId) throw new Error('claim-context');
+      dispatch({ type: 'claim-history-ready', sequence, claims: snapshot.claims, message: options
+        ? 'Solicitudes comprobadas. Este historial no permite identificar con certeza si el envío anterior fue registrado.'
+        : 'Solicitudes actualizadas. La lista no muestra datos de edición ajenos ni concede permisos.' });
+      if (options) dispatch({ type: 'claim-attempt-checked', intentId: options.intentId, checkId: options.checkId,
+        message: 'Historial comprobado. No permite identificar con certeza si este envío fue el que se registró. Conservamos el formulario; decide manualmente si volver a enviarlo.' });
+      return true;
+    } catch (error) {
+      if (!attemptIsCurrent()) return false;
+      const message = error instanceof Error && error.message === 'claim-context'
+        ? 'La respuesta de Solicitudes no corresponde a esta página. Conservamos el formulario.'
+        : error instanceof Error && error.message === 'claim-malformed'
+          ? 'La lectura no contiene un historial completo y válido. Conservamos el formulario.'
+          : error instanceof Error && error.message === 'claim-forbidden'
+            ? 'Esta cuenta no puede leer Solicitudes. Conservamos el formulario.'
+            : 'No pudimos comprobar Solicitudes. Conservamos el formulario para intentarlo más tarde.';
+      if (options) dispatch({ type: 'check-failed', intentId: options.intentId, checkId: options.checkId, message });
+      dispatch({ type: 'claim-history-failed', sequence, message });
+      return false;
+    }
+  }
+
+  async function checkClaimHistory() {
+    if (stateRef.current.claimHistory.status === 'loading') return;
+    await refreshClaimHistory();
+  }
+
+  function retryCatalog() { void loadCatalog(true); }
 
   function openProfileEditor(section: 'datos' | 'redes' | 'foto') {
     const profile = stateRef.current.observed.profile;
@@ -492,6 +790,96 @@ export default function CreatorOwnerApp(props: Props) {
     } });
   }
 
+  function openLinkEditor(placementId: string) {
+    const latest = stateRef.current;
+    const profile = latest.observed.profile;
+    const link = latest.observed.links.find(({ placementId: id }) => id === placementId);
+    if (!profile || !link || latest.session.state !== 'ready') return;
+    returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dispatch({ type: 'open-editor', editor: {
+      kind: 'link-placement', key: `link:${link.placementId}`, baseProfile: { ...profile },
+      baseLink: { ...link, series: link.series.map((membership) => ({ ...membership })) },
+      editable: latest.observed.editableResources.some(({ id }) => id === link.resourceId),
+      draft: { title: link.title, url: link.url, description: link.description ?? '', featured: link.featured, selectedForDirectory: link.selectedForDirectory },
+    } });
+  }
+
+  function openRetainedEditor(resourceId: string) {
+    const latest = stateRef.current;
+    const resource = latest.observed.editableResources.find(({ id }) => id === resourceId);
+    if (!resource || latest.observed.links.some(({ resourceId: id }) => id === resourceId) || latest.session.state !== 'ready') return;
+    returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dispatch({ type: 'open-editor', editor: { kind: 'link-resource', key: `resource:${resource.id}`, baseResource: { ...resource },
+      draft: { title: resource.title, url: resource.url, description: resource.description ?? '' } } });
+  }
+
+  function openAddLink() {
+    const profile = stateRef.current.observed.profile;
+    if (!profile || stateRef.current.session.state !== 'ready') return;
+    returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dispatch({ type: 'open-editor', editor: { kind: 'add-link', key: 'add-link', baseProfile: { ...profile },
+      draft: { title: '', url: '', description: '', featured: false, selectedForDirectory: true } } });
+  }
+
+  function openLinkMoveEditor(placementId: string) {
+    const latest = stateRef.current;
+    const profile = latest.observed.profile;
+    const link = latest.observed.links.find(({ placementId: id }) => id === placementId);
+    if (!profile || !link) return;
+    const order = creatorOwnerLinkGroup(latest.observed.links, link.featured);
+    const index = order.findIndex(({ placementId: id }) => id === placementId);
+    if (index < 0) return;
+    returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dispatch({ type: 'open-editor', editor: { kind: 'move-link', key: `move-link:${placementId}`, baseProfile: { ...profile },
+      baseLink: { ...link, series: link.series.map((membership) => ({ ...membership })) },
+      baseOrder: order.map(({ placementId: id }) => id), targetPosition: String(index + 1) } });
+  }
+
+  function openReferenceEditor() {
+    const profile = stateRef.current.observed.profile;
+    if (!profile || stateRef.current.session.state !== 'ready') return;
+    returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dispatch({ type: 'open-editor', editor: { kind: 'reference', key: 'reference', baseProfile: { ...profile }, selected: undefined, selectedForDirectory: true } });
+    void loadCatalog();
+  }
+
+  function openClaimEditor(placementId?: string) {
+    const latest = stateRef.current;
+    const profile = latest.observed.profile;
+    if (!profile || latest.session.state !== 'ready') {
+      setMessage('Primero prepara tu página para solicitar edición.', 'info');
+      return;
+    }
+    const link = placementId ? latest.observed.links.find(({ placementId: id }) => id === placementId) : undefined;
+    if (placementId && (!link || latest.observed.editableResources.some(({ id }) => id === link.resourceId))) {
+      setMessage('La ficha compartida cambió. Actualiza Enlaces antes de solicitar edición.', 'error');
+      return;
+    }
+    returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dispatch({ type: 'open-editor', editor: { kind: 'claim', key: 'claim', baseProfile: { ...profile },
+      selected: link ? [{ resourceId: link.resourceId, url: link.url, title: link.title }] : [], knownUrls: '', evidence: '' } });
+    void loadCatalog();
+  }
+
+  function removeOwnerLink(placementId: string) {
+    const latest = stateRef.current;
+    const link = latest.observed.links.find(({ placementId: id }) => id === placementId);
+    const own = latest.observed.editableResources.some(({ id }) => id === link?.resourceId);
+    const context = listContext('remove-link', undefined, placementId);
+    if (!link || !context) return;
+    const message = own
+      ? '¿Quieres quitar este enlace de tu página? La ficha propia se conservará para editarla o volver a agregarla después.'
+      : '¿Quieres quitar esta referencia de tu página? La ficha compartida no se edita ni se retira del catálogo.';
+    if (!window.confirm(message)) return;
+    void startCommand(creatorOwnerWriteIntent(nextId('remove-link'), context));
+  }
+
+  function reincludeResource(resourceId: string) {
+    const context = listContext('reinclude-resource', undefined, undefined, resourceId);
+    if (!context) return;
+    void startCommand(creatorOwnerWriteIntent(nextId('reinclude-resource'), context));
+  }
+
   function closeOrGuardEditor() {
     const latest = stateRef.current;
     if (isWriteActive(latest)) {
@@ -505,17 +893,20 @@ export default function CreatorOwnerApp(props: Props) {
     dispatch({ type: 'close-editor' });
   }
 
-  function listContext(operation: CreatorOwnerListContext['operation'], seriesId?: string, placementId?: string): CreatorOwnerListContext | undefined {
+  function listContext(operation: CreatorOwnerListContext['operation'], seriesId?: string, placementId?: string, resourceId?: string): CreatorOwnerListContext | undefined {
     const latest = stateRef.current;
     const profile = latest.observed.profile;
     if (!profile) return undefined;
     const series = seriesId ? latest.observed.series.find(({ id }) => id === seriesId) : undefined;
     const placement = placementId ? latest.observed.links.find(({ placementId: id }) => id === placementId) : undefined;
-    if (seriesId && !series || placementId && !placement) return undefined;
+    const resource = resourceId ? latest.observed.editableResources.find(({ id }) => id === resourceId) : undefined;
+    if (seriesId && !series || placementId && !placement || resourceId && !resource) return undefined;
+    if (operation === 'reinclude-resource' && (!resource || latest.observed.links.some(({ resourceId: id }) => id === resourceId))) return undefined;
     return {
       kind: 'list-command', key: `list:${operation}:${seriesId ?? ''}:${placementId ?? ''}`, operation,
       baseProfile: { ...profile }, ...(series ? { baseSeries: { ...series } } : {}),
       ...(placement ? { basePlacement: { ...placement, series: placement.series.map((item) => ({ ...item })) } } : {}),
+      ...(resource ? { baseResource: { ...resource } } : {}),
       ...(seriesId ? { seriesId } : {}), ...(placementId ? { placementId } : {}),
     };
   }
@@ -538,7 +929,32 @@ export default function CreatorOwnerApp(props: Props) {
 
   async function startCommand(intent: ReturnType<typeof creatorOwnerWriteIntent>) {
     const latest = stateRef.current;
-    if (latest.session.state !== 'ready' || isWriteActive(latest) || latest.attempt.status === 'checking') return;
+    const canSupersedeClaimCheck = latest.attempt.status === 'checking' && latest.attempt.intent.kind === 'claim'
+      && intent.kind === 'claim' && latest.attempt.intent.editorKey === intent.editorKey
+      && latest.editor?.kind === 'claim' && latest.editor.key === intent.editorKey;
+    if (latest.session.state !== 'ready' || isWriteActive(latest)
+      || latest.attempt.status === 'checking' && !canSupersedeClaimCheck) return;
+    if (intent.kind === 'reference' && intent.capture.kind === 'reference') {
+      const item = intent.capture.selected;
+      const current = latest.catalog.entries?.find(({ id, url }) => id === item?.id && url === item?.url);
+      if (!item || !current || latest.catalog.status !== 'ready' || latest.catalog.needsRefresh) {
+        setMessage('Elige una ficha vigente del catálogo antes de agregarla a tu página.', 'error');
+        return;
+      }
+    }
+    if (intent.kind === 'claim' && intent.capture.kind === 'claim') {
+      const shared = new Set(latest.observed.links.filter((link) => !latest.observed.editableResources.some(({ id }) => id === link.resourceId))
+        .map(({ resourceId, url }) => `${resourceId}\u0000${url}`));
+      const invalid = intent.capture.selected.some((selected) => {
+        if (shared.has(`${selected.resourceId}\u0000${selected.url}`)) return false;
+        return !latest.catalog.entries?.some(({ id, url }) => id === selected.resourceId && url === selected.url);
+      });
+      if (invalid || latest.catalog.needsRefresh && intent.capture.selected.length > 0) {
+        dispatch({ type: 'catalog-require-refresh', message: 'Actualiza el catálogo y vuelve a seleccionar las fichas cuyo destino pudo cambiar.' });
+        setMessage('Actualiza el catálogo y vuelve a seleccionar las fichas cuyo destino pudo cambiar.', 'error');
+        return;
+      }
+    }
     let request;
     try { request = prepareCreatorOwnerRequest(intent); }
     catch (error) {
@@ -562,12 +978,19 @@ export default function CreatorOwnerApp(props: Props) {
         return;
       }
       if (outcome.kind === 'uncertain' || outcome.kind === 'conflict') {
-        dispatch({ type: 'write-uncertain', intentId: intent.id, status: outcome.kind, message: outcome.message });
+        dispatch({ type: 'write-uncertain', intentId: intent.id, status: outcome.kind, message: outcome.message, ...(outcome.code ? { code: outcome.code } : {}) });
+        if ((intent.kind === 'reference' && ['RESOURCE_CONFLICT', 'STALE_RESOURCE_REFERENCE', 'LINK_CONFLICT'].includes(outcome.code ?? ''))
+          || (intent.kind === 'claim' && ['RESOURCE_CONFLICT', 'RESOURCE_URL_CONFLICT', 'STALE_RESOURCE_REFERENCE'].includes(outcome.code ?? ''))) {
+          dispatch({ type: 'catalog-require-refresh', message: 'Actualiza el catálogo y vuelve a seleccionar las fichas cuya URL pudo cambiar.' });
+        }
         return;
       }
       if (outcome.kind === 'rejected') {
         dispatch({ type: 'write-rejected', intentId: intent.id, message: outcome.message });
-        if (outcome.viablePosition !== undefined) dispatch({ type: 'set-move-suggestion', targetPosition: outcome.viablePosition });
+        if (outcome.viablePosition !== undefined) {
+          if (intent.kind === 'move-link') dispatch({ type: 'set-link-move-suggestion', targetPosition: outcome.viablePosition });
+          else dispatch({ type: 'set-move-suggestion', targetPosition: outcome.viablePosition });
+        }
         return;
       }
       const correction = creatorOwnerEditorChangedSince(intent.capture, stateRef.current.editor);
@@ -586,6 +1009,24 @@ export default function CreatorOwnerApp(props: Props) {
       return;
     }
     if (editor.kind === 'profile' && editor.section === 'redes' && !validateSocialUrls(editor)) return;
+    if (editor.kind === 'add-link') {
+      const duplicate = latest.observed.links.find(({ url }) => url === normalizeCreatorText(editor.draft.url));
+      if (duplicate) {
+        const editable = latest.observed.editableResources.some(({ id }) => id === duplicate.resourceId);
+        const lateSharedText = !editable && (editor.draft.title !== duplicate.title || editor.draft.url !== duplicate.url
+          || editor.draft.description !== (duplicate.description ?? ''));
+        dispatch({ type: 'open-editor', editor: { kind: 'link-placement', key: `link:${duplicate.placementId}`,
+          baseProfile: { ...editor.baseProfile }, baseLink: { ...duplicate, series: duplicate.series.map((item) => ({ ...item })) }, editable,
+          draft: { title: editable ? editor.draft.title : duplicate.title, url: editable ? editor.draft.url : duplicate.url,
+            description: editable ? editor.draft.description : duplicate.description ?? '', featured: duplicate.featured,
+            selectedForDirectory: editor.draft.selectedForDirectory },
+          ...(lateSharedText ? { sharedTextCorrection: { title: editor.draft.title, url: editor.draft.url, description: editor.draft.description } } : {}) } });
+        setMessage(editable
+          ? 'Esa URL ya está en tu página. Conservamos la corrección en la edición de la ficha para que la guardes.'
+          : 'Esa URL ya está en tu página. La ficha compartida conserva sus datos; revisa sólo las opciones que quieras cambiar.', 'info');
+        return;
+      }
+    }
     const intent = creatorOwnerWriteIntent(nextId(editor.kind), editor);
     void startCommand(intent);
   }
@@ -692,12 +1133,19 @@ export default function CreatorOwnerApp(props: Props) {
     if (isWriteActive(latest)) return;
     const checkId = nextId('check');
     dispatch({ type: 'begin-check', intentId: intent.id, checkId });
+    if (intent.kind === 'claim') {
+      const profileId = latest.observed.profile?.id;
+      if (profileId) await refreshClaimHistory({ intentId: intent.id, checkId, profileId });
+      return;
+    }
     const binding = latest.sessionBinding;
     const checkIsCurrent = () => {
       const current = stateRef.current;
       if (current.attempt.status !== 'checking' || current.attempt.intent.id !== intent.id || current.attempt.checkId !== checkId) return false;
       if (intent.capture.kind === 'list-command') {
-        return !current.editor && JSON.stringify(current.location.query) === JSON.stringify(latest.location.query);
+        return !current.editor && current.location.view === latest.location.view
+          && JSON.stringify(current.location.query) === JSON.stringify(latest.location.query)
+          && JSON.stringify(current.location.linksQuery) === JSON.stringify(latest.location.linksQuery);
       }
       return current.editor?.key === intent.editorKey && current.editor.kind === intent.capture.kind;
     };
@@ -729,7 +1177,7 @@ export default function CreatorOwnerApp(props: Props) {
       const raw: unknown = await response.json();
       const now = stateRef.current;
       if (!checkIsCurrent()) return;
-      if (!isCreatorOwnerSnapshot(raw)) {
+      if (!isAdoptableOwnerData(raw) || !isCreatorOwnerSnapshot(raw)) {
         dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: 'La lectura no contiene un estado completo y coherente de esta página. Conservamos tu edición.' });
         return;
       }
@@ -741,7 +1189,7 @@ export default function CreatorOwnerApp(props: Props) {
         return;
       }
       if (intent.kind === 'photo' && intent.capture.kind === 'photo') {
-        if (!isAdoptableOwnerData(raw) || snapshot.profile?.id !== intent.capture.base.id) {
+        if (snapshot.profile?.id !== intent.capture.base.id) {
           dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: 'No pudimos confirmar que la foto corresponda a esta página. Conservamos el archivo elegido.' });
           return;
         }
@@ -906,11 +1354,14 @@ export default function CreatorOwnerApp(props: Props) {
   const attempt = state.attempt;
   const listAttempt = 'intent' in attempt && attempt.intent.capture.kind === 'list-command' ? attempt.intent : undefined;
   const listAttemptState = listAttempt && (attempt.status === 'uncertain' || attempt.status === 'conflict' || attempt.status === 'checking');
+  const linkListAttempt = listAttempt && (listAttempt.kind === 'remove-link' || listAttempt.kind === 'reinclude-resource');
+  const showActivitySummary = !(props.view === 'estadisticas' && props.hasStatisticsDetail);
 
   return <div ref={rootRef}>
     <CreatorOwnerIdentityPanel
       state={state}
       logout={props.logout}
+      showActivitySummary={showActivitySummary}
       disabled={writeDisabled}
       onOpenProfile={openProfileEditor}
       onCreateProfile={createProfile}
@@ -924,16 +1375,16 @@ export default function CreatorOwnerApp(props: Props) {
       onCopyLink={copyLink}
       onRetryCreateProfile={retryCreateProfile}
     >
-      {listAttemptState && <section class="creator-owner__conflict" data-series-list-recovery>
-        <h3>{listAttempt.kind === 'delete-series' ? 'Comprobar eliminación' : listAttempt.kind === 'publish' ? 'Comprobar publicación' : 'Comprobar capítulos'}</h3>
+      {listAttemptState && <section class="creator-owner__conflict" data-series-list-recovery={linkListAttempt ? undefined : true} data-owner-list-recovery={linkListAttempt ? 'links' : 'series'}>
+        <h3>{listAttempt.kind === 'delete-series' ? 'Comprobar eliminación' : listAttempt.kind === 'publish' ? 'Comprobar publicación' : listAttempt.kind === 'remove-link' ? 'Comprobar que se quitó el enlace' : listAttempt.kind === 'reinclude-resource' ? 'Comprobar la reincorporación' : 'Comprobar capítulos'}</h3>
         <p>{attempt.status === 'checking' ? 'Consultando el estado guardado…' : attempt.message}</p>
         {attempt.status === 'uncertain' && attempt.comparison && <>
           <p>{attempt.comparison.message}</p>
-          {attempt.comparison.canAdopt && <button class="button button--outline" type="button" data-owner-adopt onClick={() => adoptComparison(attempt.comparison?.id ?? '')}>Usar la lista guardada</button>}
+          {attempt.comparison.canAdopt && !linkListAttempt && <button class="button button--outline" type="button" data-owner-adopt onClick={() => adoptComparison(attempt.comparison?.id ?? '')}>Usar la lista guardada</button>}
         </>}
         {(!('comparison' in attempt) || !attempt.comparison) && <button class="button button--outline" type="button" data-owner-compare data-series-reconcile-retry disabled={attempt.status === 'checking'} onClick={checkClick}>Comprobar</button>}
       </section>}
-      <CreatorOwnerSeriesPanel
+      {props.view === 'series' && <CreatorOwnerSeriesPanel
         state={state}
         disabled={writeDisabled}
         onSeriesSearch={(value) => dispatch({ type: 'set-series-search', value })}
@@ -945,7 +1396,25 @@ export default function CreatorOwnerApp(props: Props) {
         onAddChapter={(placementId) => mutateChapter(placementId, 'chapter-add')}
         onRemoveChapter={(placementId) => mutateChapter(placementId, 'chapter-remove')}
         onMoveChapter={openMoveEditor}
-      />
+      />}
+      {props.view === 'enlaces' && <CreatorOwnerLinksPanel
+        state={state}
+        disabled={writeDisabled}
+        onSearch={onLinkSearch}
+        onQueryChange={onLinksQueryChange}
+        onQuerySubmit={onLinksQuerySubmit}
+        onAdd={openAddLink}
+        onCatalog={openReferenceEditor}
+        onEditLink={openLinkEditor}
+        onClaim={openClaimEditor}
+        onMoveLink={openLinkMoveEditor}
+        onRemoveLink={removeOwnerLink}
+        onEditRetained={openRetainedEditor}
+        onReinclude={reincludeResource}
+      />}
+      {props.view === 'solicitudes' && <CreatorOwnerClaimsPanel state={state} disabled={writeDisabled}
+        onOpen={() => openClaimEditor()} onCheck={() => void checkClaimHistory()} onRetryCatalog={retryCatalog} />}
+      {props.view === 'estadisticas' && props.hasStatisticsDetail ? props.statistics : null}
     </CreatorOwnerIdentityPanel>
     <CreatorOwnerEditorDialog
       state={state}
@@ -954,6 +1423,14 @@ export default function CreatorOwnerApp(props: Props) {
       onUpdateSeries={updateSeriesDraft}
       onUpdateMove={(value) => dispatch({ type: 'update-move-draft', targetPosition: value })}
       onSetMoveSuggestion={(value) => dispatch({ type: 'set-move-suggestion', targetPosition: value })}
+      onUpdateLink={(value) => dispatch({ type: 'update-link-draft', value })}
+      onUpdateAddLink={(value) => dispatch({ type: 'update-add-link-draft', value })}
+      onUpdateMoveLink={(value) => dispatch({ type: 'update-move-link-draft', targetPosition: value })}
+      onUpdateReference={(value) => dispatch({ type: 'update-reference-draft', ...value })}
+      onUpdateClaim={(value) => dispatch({ type: 'update-claim-draft', value })}
+      onCatalogSearch={(value) => dispatch({ type: 'catalog-search', value })}
+      onCatalogPage={(value) => dispatch({ type: 'catalog-page', value })}
+      onCatalogRetry={retryCatalog}
       onSetPhoto={(file) => dispatch({ type: 'update-photo-file', file })}
       onSubmit={submitCurrentEditor}
       onRequestClose={closeOrGuardEditor}
@@ -961,6 +1438,7 @@ export default function CreatorOwnerApp(props: Props) {
       onAdopt={adoptComparison}
       onExit={resolveExit}
       onCheckSession={() => void checkSession()}
+      onCheckClaim={checkClick}
     />
   </div>;
 }
