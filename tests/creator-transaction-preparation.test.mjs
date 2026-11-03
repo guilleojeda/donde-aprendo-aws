@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { marshall } from '@aws-sdk/util-dynamodb';
 import {
   createDynamoMoveStore,
@@ -10,6 +11,137 @@ import {
 // move callers can stop page/image materialization before exceeding their cap.
 const ITEM_LIMIT = 400 * 1024;
 const TRANSACTION_LIMIT = 4 * 1024 * 1024;
+const RESERVATION_ROW_KEY = { id: '__url#reservation-row' };
+const RESERVATION_NAMES = {
+  '#rowKey': 'id',
+  '#revision': 'version',
+  '#kind': 'recordType',
+  '#literalUrl': 'url',
+  '#state': 'status',
+  '#singleResource': 'resourceId',
+  '#resourceList': 'resourceIds',
+};
+
+function reservationRow(overrides = {}) {
+  return {
+    ...RESERVATION_ROW_KEY,
+    recordType: 'urlReservation',
+    url: 'https://example.invalid/original',
+    status: 'reserved',
+    version: 1,
+    resourceId: 'resource-a',
+    ...overrides,
+  };
+}
+
+function reservationCondition(row, expected = {}) {
+  const fields = {
+    ':revision': 1,
+    ':kind': 'urlReservation',
+    ':literalUrl': 'https://example.invalid/original',
+    ':state': row.status,
+    ':singleResource': 'resource-a',
+    ':resourceList': ['resource-a'],
+    ...expected,
+  };
+  return {
+    ConditionExpression: 'attribute_exists(#rowKey) AND #revision = :revision AND #kind = :kind AND #literalUrl = :literalUrl AND #state = :state AND ((#singleResource = :singleResource AND attribute_not_exists(#resourceList)) OR (#resourceList = :resourceList AND attribute_not_exists(#singleResource)))',
+    ExpressionAttributeNames: RESERVATION_NAMES,
+    ExpressionAttributeValues: fields,
+  };
+}
+
+function sendReservationCondition(row, condition) {
+  const { mock } = createDynamoMoveStore();
+  const marker = { id: 'transaction-marker', value: 'must commit atomically' };
+  mock.seed('catalog-test', row);
+  const completion = mock.client.send(new TransactWriteCommand({
+    TransactItems: [
+      {
+        ConditionCheck: {
+          TableName: 'catalog-test',
+          Key: { id: row.id },
+          ...condition,
+        },
+      },
+      { Put: { TableName: 'catalog-test', Item: marker } },
+    ],
+  }));
+  return { mock, completion, marker };
+}
+
+async function assertAtomicConditionFailure(row, condition) {
+  const { mock, completion } = sendReservationCondition(row, condition);
+  await assert.rejects(completion, (error) => error.name === 'TransactionCanceledException');
+  assert.equal(mock.read('catalog-test', { id: 'transaction-marker' }), undefined,
+    'a failed reservation condition prevents the transaction Put from committing');
+  assert.equal(mock.transactions[0].actionCount, 2);
+}
+
+test('physical mock evaluates reservation content conditions and exact list observations', async () => {
+  const unique = reservationRow();
+  const uniqueCondition = reservationCondition(unique);
+  const uniqueResult = sendReservationCondition(unique, uniqueCondition);
+  await uniqueResult.completion;
+  assert.deepEqual(uniqueResult.mock.read('catalog-test', { id: 'transaction-marker' }), uniqueResult.marker,
+    'a matching unique reservation accepts a physical transaction');
+  assert.equal(uniqueResult.mock.calls.at(-1).name, 'TransactWriteCommand');
+
+  const collision = reservationRow({ status: 'collision', resourceIds: ['resource-a', 'resource-b'] });
+  delete collision.resourceId;
+  const collisionCondition = reservationCondition(collision, {
+    ':resourceList': ['resource-a', 'resource-b'],
+  });
+  const collisionResult = sendReservationCondition(collision, collisionCondition);
+  await collisionResult.completion;
+  assert.deepEqual(collisionResult.mock.read('catalog-test', { id: 'transaction-marker' }), collisionResult.marker,
+    'a matching collision reservation accepts an exact observed list');
+
+  await assertAtomicConditionFailure(unique, reservationCondition(unique, { ':literalUrl': 'https://example.invalid/changed' }));
+  await assertAtomicConditionFailure(unique, reservationCondition(unique, { ':state': 'released' }));
+  await assertAtomicConditionFailure(unique, reservationCondition(unique, { ':singleResource': 'resource-b' }));
+  await assertAtomicConditionFailure(collision, reservationCondition(collision, {
+    ':resourceList': ['resource-b', 'resource-a'],
+  }));
+  await assertAtomicConditionFailure(collision, reservationCondition(collision, {
+    ':resourceList': ['resource-a', 'resource-c'],
+  }));
+
+  const extraMembership = reservationRow({ resourceIds: ['resource-a'] });
+  await assertAtomicConditionFailure(extraMembership, reservationCondition(extraMembership));
+});
+
+test('physical mock treats absent attributes as absent and rejects unsupported or unbound conditions', async () => {
+  const absent = reservationRow();
+  const accepted = sendReservationCondition(absent, reservationCondition(absent));
+  await accepted.completion;
+  assert.deepEqual(accepted.mock.read('catalog-test', { id: 'transaction-marker' }), accepted.marker,
+    'attribute_not_exists succeeds when the reservation list is absent');
+
+  const nowPresent = reservationRow({ resourceIds: ['resource-a'] });
+  await assertAtomicConditionFailure(nowPresent, reservationCondition(nowPresent));
+
+  for (const condition of [
+    {
+      ConditionExpression: '#revision >= :revision',
+      ExpressionAttributeNames: { '#revision': 'version' },
+      ExpressionAttributeValues: { ':revision': 1 },
+    },
+    {
+      ConditionExpression: '#revision = :missing',
+      ExpressionAttributeNames: { '#revision': 'version' },
+    },
+    {
+      ConditionExpression: '#unbound = :revision',
+      ExpressionAttributeValues: { ':revision': 1 },
+    },
+  ]) {
+    const { mock, completion } = sendReservationCondition(absent, condition);
+    await assert.rejects(completion, /unsupported|unbound/);
+    assert.equal(mock.read('catalog-test', { id: 'transaction-marker' }), undefined,
+      'invalid condition syntax or bindings fail closed before any transaction write');
+  }
+});
 
 function requireObservationStore(store) {
   assert.equal(typeof store.observe, 'function', 'the store exposes a raw-image point observation');
