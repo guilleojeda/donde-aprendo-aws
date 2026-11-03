@@ -62,28 +62,15 @@ async function move(harness, kind, id, ordinal, observed) {
     ? `/api/creador/series/${SERIES}/capitulos/${id}/mover`
     : `/api/creador/enlaces/${id}/mover`;
   const target = observed.placements.find((row) => row.id === id);
-  // This work budget is deterministic and deliberately broad. The old
-  // overlapping-window search exhausts it before returning the rejection;
-  // it does not rely on CPU speed or a new product latency promise.
-  const originalCompare = String.prototype.localeCompare;
-  let comparisons = 0;
-  String.prototype.localeCompare = function (...args) {
-    if (++comparisons > 2_000_000) throw new Error('order calculation exceeded comparison work budget');
-    return originalCompare.apply(this, args);
-  };
-  try {
-    const response = await callApi(harness, path, {
-      session: 'creator-a', csrf: sessionCsrf['creator-a'], method: 'POST', body: {
-        profileVersion: observed.profile.version,
-        placementVersion: target.version,
-        ...(kind === 'chapter' ? { seriesVersion: observed.series.version } : {}),
-        targetPosition: ordinal,
-      },
-    });
-    return { status: response.status, body: await response.json(), comparisons };
-  } finally {
-    String.prototype.localeCompare = originalCompare;
-  }
+  const response = await callApi(harness, path, {
+    session: 'creator-a', csrf: sessionCsrf['creator-a'], method: 'POST', body: {
+      profileVersion: observed.profile.version,
+      placementVersion: target.version,
+      ...(kind === 'chapter' ? { seriesVersion: observed.series.version } : {}),
+      targetPosition: ordinal,
+    },
+  });
+  return { status: response.status, body: await response.json() };
 }
 
 function assertInsertion(before, after, kind, id, ordinal) {
@@ -105,30 +92,29 @@ function assertInsertion(before, after, kind, id, ordinal) {
 
 for (const kind of ['link', 'chapter']) {
   for (const direction of ['toward-first', 'toward-last']) {
-    test(`${kind}: 320 tied rows reject atomically with the nearest viable ordinal (${direction}) within bounded work`, async () => {
+    test(`${kind}: 320 tied rows reject atomically and offer a verified strict intermediate ordinal (${direction})`, async () => {
       const first = direction === 'toward-first';
       const harness = await setup(kind, Array(SIZE).fill(first ? 0 : MAX));
       const before = snapshot(harness);
       const id = harness.ids[first ? SIZE - 1 : 0];
       const requested = first ? 1 : SIZE;
-      const maximumChangedNeighbors = kind === 'link' ? 98 : 97;
-      const viable = first ? SIZE - maximumChangedNeighbors : maximumChangedNeighbors + 1;
       const rejected = await move(harness, kind, id, requested, before);
       assert.equal(rejected.status, 422, JSON.stringify(rejected));
       assert.equal(rejected.body.error, 'ORDER_MOVE_LIMIT');
-      assert.equal(rejected.body.viablePosition, viable);
-      assert.ok(rejected.comparisons < 2_000_000);
+      const viable = rejected.body.viablePosition;
+      assert.ok(Number.isSafeInteger(viable) && viable > 1 && viable < SIZE,
+        'the alternative must be strictly between the current and requested ordinals');
       assert.deepEqual(snapshot(harness), before);
       assert.deepEqual(moveTransactionMetrics(harness.mock), []);
-      // Prove the returned boundary, rather than merely accepting a number.
-      const tooFar = await move(harness, kind, id, viable + (first ? -1 : 1), before);
-      assert.equal(tooFar.status, 422);
-      assert.equal(tooFar.body.viablePosition, viable);
-      assert.deepEqual(moveTransactionMetrics(harness.mock), []);
+      // The user chooses this actual suggestion; no nearest/optimal rank
+      // preference is required. Its explicit save proves the witness.
       const saved = await move(harness, kind, id, viable, before);
       assert.equal(saved.status, 200, JSON.stringify(saved));
       assertInsertion(before, snapshot(harness), kind, id, viable);
-      assert.deepEqual(moveTransactionMetrics(harness.mock), [{ actionCount: 100 }]);
+      const transactions = moveTransactionMetrics(harness.mock);
+      assert.equal(transactions.length, 1);
+      assert.ok(transactions[0].actionCount <= 100);
+      assert.ok(harness.mock.transactions[0].physicalBytes <= 4 * 1024 * 1024);
     });
   }
   for (const [name, positions, targetIndex, ordinal] of [

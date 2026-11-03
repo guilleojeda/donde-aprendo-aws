@@ -22,16 +22,42 @@ function storageKey(value) {
 
 // DynamoDB stored-attribute accounting for the actual command images below.
 // This measures the request; it does not decide the move window or its oracle.
+function dynamoNumberPayloadBytes(value) {
+  const coefficient = String(value).toLowerCase().split('e')[0];
+  const significantDigits = coefficient.replace(/[^0-9]/g, '').replace(/^0+/, '').replace(/0+$/, '').length || 1;
+  return 1 + Math.ceil(significantDigits / 2);
+}
+
+function storedSetValueBytes(value, expectedKind) {
+  if (typeof value === 'string' && expectedKind === 'string') return Buffer.byteLength(value, 'utf8');
+  if ((typeof value === 'number' || typeof value === 'bigint') && expectedKind === 'number') {
+    if (typeof value === 'number' && !Number.isFinite(value)) throw new TypeError('unsupported test item value');
+    return dynamoNumberPayloadBytes(value);
+  }
+  if (value instanceof Uint8Array && expectedKind === 'binary') return value.byteLength;
+  throw new TypeError('unsupported test set value');
+}
+
 function storedValueBytes(value, name = '') {
   if (value === undefined) return 0;
   const nameBytes = Buffer.byteLength(name, 'utf8');
   if (typeof value === 'string') return nameBytes + Buffer.byteLength(value, 'utf8');
   if (typeof value === 'number' && Number.isFinite(value)) {
-    const coefficient = String(value).toLowerCase().split('e')[0];
-    const significantDigits = coefficient.replace(/[^0-9]/g, '').replace(/^0+/, '').replace(/0+$/, '').length || 1;
-    return nameBytes + 1 + Math.ceil(significantDigits / 2);
+    return nameBytes + dynamoNumberPayloadBytes(value);
   }
+  if (typeof value === 'bigint') return nameBytes + dynamoNumberPayloadBytes(value);
   if (typeof value === 'boolean' || value === null) return nameBytes + 1;
+  if (value instanceof Uint8Array) return nameBytes + value.byteLength;
+  if (value instanceof Set) {
+    const values = [...value].filter((item) => item !== undefined);
+    if (values.length === 0) throw new TypeError('unsupported empty DynamoDB set');
+    const first = values[0];
+    const expectedKind = typeof first === 'string' ? 'string'
+      : typeof first === 'number' || typeof first === 'bigint' ? 'number'
+        : first instanceof Uint8Array ? 'binary' : null;
+    if (!expectedKind) throw new TypeError('unsupported test set value');
+    return nameBytes + values.reduce((sum, item) => sum + storedSetValueBytes(item, expectedKind), 0);
+  }
   if (Array.isArray(value)) {
     return nameBytes + 3 + value.filter((item) => item !== undefined)
       .reduce((sum, item) => sum + 1 + storedValueBytes(item), 0);
@@ -83,7 +109,22 @@ function conditionalFailure() {
   });
 }
 
-function createMockClient() {
+function projectQueryItem(item, input) {
+  if (typeof input.ProjectionExpression !== 'string') return copy(item);
+  const names = input.ExpressionAttributeNames ?? {};
+  const fields = input.ProjectionExpression.split(',').map((field) => {
+    const token = field.trim();
+    return names[token] ?? token;
+  });
+  return Object.fromEntries(fields
+    .filter((field) => Object.hasOwn(item, field))
+    .map((field) => [field, copy(item[field])]));
+}
+
+function createMockClient({ projectionAware = false, queryPageSize } = {}) {
+  if (queryPageSize !== undefined && (!Number.isSafeInteger(queryPageSize) || queryPageSize < 1)) {
+    throw new TypeError('queryPageSize must be a positive safe integer');
+  }
   const tables = new Map(Object.values(TABLES).map((name) => [name, new Map()]));
   const calls = [];
   const transactions = [];
@@ -111,10 +152,17 @@ function createMockClient() {
       const values = input.ExpressionAttributeValues ?? {};
       const pk = values[':pk'];
       const skPrefix = values[':sk'];
-      const Items = [...(tables.get(input.TableName)?.values() ?? [])]
+      const cursorSk = input.ExclusiveStartKey?.sk;
+      const matching = [...(tables.get(input.TableName)?.values() ?? [])]
         .filter((item) => item.pk === pk && item.sk.startsWith(skPrefix))
-        .map(copy);
-      return { Items };
+        .filter((item) => cursorSk === undefined || item.sk.localeCompare(cursorSk) > 0)
+        .sort((left, right) => left.sk.localeCompare(right.sk));
+      const pageRows = queryPageSize === undefined ? matching : matching.slice(0, queryPageSize);
+      const Items = pageRows.map((item) => projectionAware ? projectQueryItem(item, input) : copy(item));
+      const LastEvaluatedKey = queryPageSize !== undefined && matching.length > queryPageSize
+        ? { pk, sk: pageRows.at(-1).sk }
+        : undefined;
+      return { Items, ...(LastEvaluatedKey ? { LastEvaluatedKey } : {}) };
     }
     if (name === 'BatchGetCommand') {
       const [table, request] = Object.entries(input.RequestItems)[0];
@@ -168,14 +216,14 @@ function createMockClient() {
   };
 }
 
-export function createDynamoMoveStore() {
-  const mock = createMockClient();
+export function createDynamoMoveStore(options = {}) {
+  const mock = createMockClient(options);
   const store = createCreatorStore({ ...TABLES, client: mock.client });
   return { mock, store };
 }
 
-export async function createDynamoMoveHarness() {
-  const { mock, store } = createDynamoMoveStore();
+export async function createDynamoMoveHarness(options = {}) {
+  const { mock, store } = createDynamoMoveStore(options);
   const harness = await createCreatorPagesHarness({ store });
   return { ...harness, mock, store };
 }

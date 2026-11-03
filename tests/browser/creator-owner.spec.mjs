@@ -106,14 +106,16 @@ async function addChapter(fixture, cookie, seriesId, placementId) {
   return result.body;
 }
 
-async function captureCreatorApi(page) {
+async function captureCreatorApi(page, { ignoreReads = false, skipErrorBodies = false } = {}) {
   const records = [];
   const pending = new Map();
   const requestHandler = (request) => {
     const pathname = new URL(request.url()).pathname;
     if (!pathname.startsWith('/api/creador/')) return;
+    if (ignoreReads && request.method() === 'GET') return;
     const rawRequestBody = request.postData();
     let settle;
+    let responseReceived;
     const record = {
       method: request.method(),
       url: request.url(),
@@ -121,10 +123,20 @@ async function captureCreatorApi(page) {
       body: rawRequestBody ? JSON.parse(rawRequestBody) : undefined,
       responseBody: undefined,
       settled: new Promise((resolve) => { settle = resolve; }),
+      responseObserved: new Promise((resolve) => { responseReceived = resolve; }),
+      markResponseObserved: () => responseReceived(),
     };
     record.finish = settle;
     records.push(record);
     pending.set(request, record);
+  };
+  const requestFailedHandler = (request) => {
+    const record = pending.get(request);
+    if (!record) return;
+    record.failed = request.failure()?.errorText ?? 'request failed';
+    record.markResponseObserved();
+    record.finish();
+    pending.delete(request);
   };
   const responseHandler = async (response) => {
     const request = response.request();
@@ -132,6 +144,12 @@ async function captureCreatorApi(page) {
     if (!record) return;
     record.status = response.status();
     record.responseHeaders = response.headers();
+    record.markResponseObserved();
+    if (skipErrorBodies && record.status >= 400) {
+      record.finish();
+      pending.delete(request);
+      return;
+    }
     const rawBody = await response.body().catch(() => Buffer.alloc(0));
     const rawResponseBody = rawBody.toString('utf8');
     try {
@@ -143,18 +161,28 @@ async function captureCreatorApi(page) {
     pending.delete(request);
   };
   page.on('request', requestHandler);
+  page.on('requestfailed', requestFailedHandler);
   page.on('response', responseHandler);
   return {
     records,
     writes() { return records.filter(({ method }) => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)); },
     async settle({ skipErrorBodies = false } = {}) {
-      await Promise.all(records
-        .filter(({ status }) => !(skipErrorBodies && typeof status === 'number' && status >= 400))
-        .map(({ settled }) => settled));
+      const captured = [...records];
+      if (!skipErrorBodies) {
+        await Promise.all(captured.map(({ settled }) => settled));
+        return;
+      }
+      await Promise.all(captured.map(async (record) => {
+        await record.responseObserved;
+        if (record.failed) return;
+        if (typeof record.status === 'number' && record.status >= 400) return;
+        await record.settled;
+      }));
     },
     async stop(options) {
       await this.settle(options);
       page.off('request', requestHandler);
+      page.off('requestfailed', requestFailedHandler);
       page.off('response', responseHandler);
     },
   };
@@ -1535,6 +1563,498 @@ for (const movementKind of ['link', 'chapter']) {
         'chapter movement leaves the separately changed resource version alone');
     }
     if (movementKind !== 'link') await capture.stop();
+  });
+}
+
+function physicalMovePosition(placement, movementKind, seriesId) {
+  return movementKind === 'link' ? placement.position : placement.series?.[seriesId]?.position;
+}
+
+function physicalMoveOrder(placements, movementKind, seriesId) {
+  return placements
+    .filter((placement) => movementKind === 'link' || Object.hasOwn(placement.series ?? {}, seriesId))
+    .sort((left, right) => physicalMovePosition(left, movementKind, seriesId)
+      - physicalMovePosition(right, movementKind, seriesId)
+      || left.id.localeCompare(right.id))
+    .map(({ id }) => id);
+}
+
+function orderAfterPhysicalMove(placements, movementKind, seriesId, targetId, targetPosition) {
+  const desired = physicalMoveOrder(placements, movementKind, seriesId);
+  const targetIndex = desired.indexOf(targetId);
+  assert.notEqual(targetIndex, -1, `the selected target ${targetId} is in the requested order scope`);
+  const [target] = desired.splice(targetIndex, 1);
+  desired.splice(targetPosition - 1, 0, target);
+  return desired;
+}
+
+async function rawMovementSnapshot(fixture, cookie, links, series) {
+  const owner = await fixture.rawOwner(cookie);
+  const placements = await Promise.all(links.map(({ placementId }) => fixture.rawPlacement(cookie, placementId)));
+  const resources = await Promise.all(links.map(({ resourceId }) => fixture.rawResource(resourceId)));
+  const storedSeries = await Promise.all(series.map(({ id }) => fixture.rawSeries(cookie, id)));
+  return {
+    profile: owner.profile,
+    placements: placements.sort((left, right) => left.id.localeCompare(right.id)),
+    resources: resources.sort((left, right) => left.id.localeCompare(right.id)),
+    series: storedSeries.sort((left, right) => left.id.localeCompare(right.id)),
+  };
+}
+
+function storeTransactionCalls(fixture) {
+  return fixture.creatorStore.calls.filter(({ operation }) => operation === 'transact');
+}
+
+async function publishOwnerForPublicOrder(fixture, cookie) {
+  const owner = await fixture.rawOwner(cookie);
+  const result = await api(fixture, cookie, '/api/creador/perfil/publicar', {
+    method: 'POST', body: { version: owner.profile.version },
+  });
+  assert.equal(result.response.status, 200, JSON.stringify(result.body));
+  return result.body.profile;
+}
+
+async function seedNativeMovementLinks(fixture, cookie, {
+  prefix,
+  count,
+  globalPosition,
+  primarySeries,
+  primarySeriesPosition,
+  extraMembership,
+  titleAtIndex,
+}) {
+  const profileId = (await fixture.rawOwner(cookie)).profile.id;
+  const checks = [];
+  const puts = [];
+  const links = [];
+  for (let index = 0; index < count; index += 1) {
+    const suffix = String(index).padStart(3, '0');
+    const resourceId = `resource-${prefix}-${suffix}`;
+    const placementId = `placement-${prefix}-${suffix}`;
+    const url = `https://links.example/${prefix}-${suffix}`;
+    const title = titleAtIndex?.(index) ?? `Límite ${suffix}`;
+    const series = primarySeries ? { [primarySeries.id]: { position: primarySeriesPosition(index) } } : {};
+    if (extraMembership?.index === index) {
+      series[extraMembership.seriesId] = { position: extraMembership.position };
+    }
+    const placement = {
+      recordType: 'placement', id: placementId, profileId, resourceId,
+      position: globalPosition(index), featured: false, selectedForDirectory: true,
+      ...(Object.keys(series).length ? { series } : {}), version: 1,
+    };
+    checks.push(
+      { key: `resource:${resourceId}`, version: null },
+      { key: `placement:${profileId}:${placementId}`, version: null },
+    );
+    puts.push(
+      { key: `resource:${resourceId}`, value: {
+        id: resourceId, title, url, description: '', version: 1,
+        published: false, hidden: false, approvalRevoked: false, directoryControl: 'editorial',
+      } },
+      { key: `placement:${profileId}:${placementId}`, value: placement },
+    );
+    links.push({ placementId, resourceId, title, url, resourceVersion: 1, placementVersion: 1 });
+  }
+  // This is an initial in-memory fixture image. The moves under test still use the real Astro HTTP and service path.
+  assert.equal(await fixture.creatorStore.transact({ checks, puts }), true,
+    `the ${count} placement/resource rows are seeded before the browser command`);
+  return links;
+}
+
+async function createThreeLinkMoveScenario(fixture, cookie, movementKind) {
+  const series = await createSeries(fixture, cookie, {
+    name: `Serie principal ${movementKind}`,
+    slug: `serie-principal-${movementKind}`,
+  });
+  const otherSeries = await createSeries(fixture, cookie, {
+    name: `Serie independiente ${movementKind}`,
+    slug: `serie-independiente-${movementKind}`,
+  });
+  const links = await seedNativeMovementLinks(fixture, cookie, {
+    prefix: `three-${movementKind}`,
+    count: 3,
+    globalPosition: (index) => index,
+    primarySeries: series,
+    primarySeriesPosition: (index) => index,
+    extraMembership: { index: 0, seriesId: otherSeries.id, position: 0 },
+    titleAtIndex: (index) => ['Destino inicial', 'Vecino uno', 'Vecino dos'][index],
+  });
+  await publishOwnerForPublicOrder(fixture, cookie);
+  return { links, series, otherSeries, target: links[0] };
+}
+
+for (const movementKind of ['link', 'chapter']) {
+  test(`orden factible: ${movementKind === 'link' ? 'un enlace' : 'un capítulo'} conserva una corrección mientras el cálculo no está disponible`, async ({ fixture, page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const cookie = await loggedInOwner(fixture, page);
+    const scenario = await createThreeLinkMoveScenario(fixture, cookie, movementKind);
+    const { links, series, target } = scenario;
+    const initial = await rawMovementSnapshot(fixture, cookie, links, [scenario.series, scenario.otherSeries]);
+    const initialOrder = physicalMoveOrder(initial.placements, movementKind, series.id);
+    assert.deepEqual(initialOrder, links.map(({ placementId }) => placementId),
+      'the three real links or memberships begin in their created order');
+    assert.equal(initialOrder[0], target.placementId, 'the selected placement begins at position one');
+    const capture = await captureCreatorApi(page, { ignoreReads: true, skipErrorBodies: true });
+    if (movementKind === 'chapter') {
+      await openSeriesView(page, fixture, `&serie=${encodeURIComponent(series.id)}`);
+    } else {
+      await openLinksView(page, fixture);
+    }
+    const row = page.locator(movementKind === 'link'
+      ? `[data-link-row="${target.placementId}"]`
+      : `[data-chapter-row="${target.placementId}"]`);
+    await expect(row).toBeVisible();
+    await row.locator(movementKind === 'link' ? '[data-link-move]' : '[data-chapter-move]').click();
+    const form = page.locator(`[data-owner-dialog] form[data-owner-form="${movementKind === 'link' ? 'mover-enlace' : 'mover-capitulo'}"]`);
+    const positionInput = form.getByLabel(movementKind === 'link' ? 'Posición dentro del grupo' : 'Posición en esta serie');
+    const saveButton = form.getByRole('button', { name: 'Guardar posición' });
+    const status = form.locator(`[data-owner-form-status="${movementKind === 'link' ? 'mover-enlace' : 'mover-capitulo'}"]`);
+    await expect(positionInput).toHaveValue('1');
+    await positionInput.fill('3');
+
+    const movePath = movementKind === 'link'
+      ? `/api/creador/enlaces/${target.placementId}/mover`
+      : `/api/creador/series/${series.id}/capitulos/${target.placementId}/mover`;
+    const transactionCountBefore = storeTransactionCalls(fixture).length;
+    let signalIntercept;
+    let releaseUnavailable;
+    const intercepted = new Promise((resolve) => { signalIntercept = resolve; });
+    const unavailableGate = new Promise((resolve) => { releaseUnavailable = resolve; });
+    let unavailableCount = 0;
+    const fulfillUnavailableBeforeHandler = async (route) => {
+      const request = route.request();
+      const path = new URL(request.url()).pathname.replace(/\/$/u, '');
+      if (!unavailableCount && request.method() === 'POST' && path === movePath) {
+        unavailableCount += 1;
+        signalIntercept(request);
+        await unavailableGate;
+        await route.fulfill({
+          status: 503,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: 'ORDER_MOVE_CALCULATION_UNAVAILABLE' }),
+        });
+        return;
+      }
+      await route.continue();
+    };
+    await page.route('**/api/creador/**', fulfillUnavailableBeforeHandler);
+    let firstSave;
+    try {
+      firstSave = saveButton.click();
+      const interceptedRequest = await intercepted;
+      assert.equal(interceptedRequest.method(), 'POST');
+      assert.equal(new URL(interceptedRequest.url()).pathname.replace(/\/$/u, ''), movePath);
+      const writeAtRequest = capture.writes().find(({ method, path }) => method === 'POST' && path === movePath);
+      assert.ok(writeAtRequest, 'the actual browser submits the requested move before the transport returns the unavailable result');
+      assert.equal(writeAtRequest.body.profileVersion, initial.profile.version);
+      assert.equal(writeAtRequest.body.placementVersion,
+        initial.placements.find(({ id }) => id === target.placementId).version);
+      assert.equal(writeAtRequest.body.targetPosition, 3,
+        'the intercepted request keeps the original target even as the user edits the open form');
+      if (movementKind === 'chapter') {
+        assert.equal(writeAtRequest.body.seriesVersion, initial.series.find(({ id }) => id === series.id).version);
+      }
+      await positionInput.fill('2');
+      releaseUnavailable();
+      await firstSave;
+    } finally {
+      releaseUnavailable();
+      await page.unroute('**/api/creador/**', fulfillUnavailableBeforeHandler).catch(() => {});
+      await firstSave?.catch(() => {});
+    }
+    await capture.settle({ skipErrorBodies: true });
+    const unavailableWrite = capture.writes().filter(({ method, path }) => method === 'POST' && path === movePath);
+    assert.equal(unavailableCount, 1);
+    assert.equal(unavailableWrite.length, 1,
+      'the unavailable calculation returns once without automatic replay');
+    assert.equal(unavailableWrite[0].status, 503);
+    await expect(form).toBeVisible();
+    await expect(positionInput).toHaveValue('2', 'the corrected local target survives the delayed unavailable response');
+    await expect(saveButton).toBeVisible();
+    await expect(saveButton).toBeEnabled();
+    await expect(form.locator(`[data-${movementKind === 'link' ? 'link' : 'chapter'}-move-suggestion-shell]`)).toBeHidden();
+    const unavailableStatus = await status.textContent() ?? '';
+    const explicitUnavailableCopy = /No pudimos calcular este movimiento/i.test(unavailableStatus);
+    assert.doesNotMatch(unavailableStatus, /orden guardado|movimiento guardado/i,
+      'an unavailable calculation is not shown as success');
+    assert.equal(storeTransactionCalls(fixture).length, transactionCountBefore,
+      'the synthetic 503 happened before the handler and caused no store transaction');
+    assert.deepEqual(await rawMovementSnapshot(fixture, cookie, links, [scenario.series, scenario.otherSeries]), initial,
+      'profile, versions, links, memberships, resources, and both series remain unchanged after the unavailable result');
+
+    await saveButton.click();
+    await capture.settle({ skipErrorBodies: true });
+    const moves = capture.writes().filter(({ method, path }) => method === 'POST' && path === movePath);
+    assert.equal(moves.length, 2, 'the user makes one distinct manual command after the unavailable response');
+    assert.equal(moves[1].body.profileVersion, initial.profile.version);
+    assert.equal(moves[1].body.placementVersion,
+      initial.placements.find(({ id }) => id === target.placementId).version);
+    assert.equal(moves[1].body.targetPosition, 2, 'the manual command uses the corrected target position');
+    if (movementKind === 'chapter') {
+      assert.equal(moves[1].body.seriesVersion, initial.series.find(({ id }) => id === series.id).version);
+    }
+    assert.equal(moves[1].status, 200, JSON.stringify(moves[1].responseBody));
+    assert.equal(storeTransactionCalls(fixture).length, transactionCountBefore + 1,
+      'the explicit retry creates one real transaction');
+
+    const after = await rawMovementSnapshot(fixture, cookie, links, [scenario.series, scenario.otherSeries]);
+    const expectedOrder = orderAfterPhysicalMove(initial.placements, movementKind, series.id, target.placementId, 2);
+    assert.deepEqual(physicalMoveOrder(after.placements, movementKind, series.id), expectedOrder,
+      'the real service applies the corrected insertion within the requested group');
+    const initialById = new Map(initial.placements.map((placement) => [placement.id, placement]));
+    const afterById = new Map(after.placements.map((placement) => [placement.id, placement]));
+    const changedPlacementIds = [];
+    for (const placement of initial.placements) {
+      const saved = afterById.get(placement.id);
+      const changed = physicalMovePosition(placement, movementKind, series.id)
+        !== physicalMovePosition(saved, movementKind, series.id);
+      if (changed) changedPlacementIds.push(placement.id);
+      const expected = structuredClone(placement);
+      if (movementKind === 'link') expected.position = saved.position;
+      else expected.series[series.id].position = saved.series[series.id].position;
+      if (changed) expected.version += 1;
+      assert.deepEqual(saved, expected,
+        `${placement.id} changes only the requested order field and advances its placement version iff that field changed`);
+    }
+    const profileUnversioned = ({ version, updatedAt, ...value }) => value;
+    assert.equal(after.profile.version, initial.profile.version + 1);
+    assert.deepEqual(profileUnversioned(after.profile), profileUnversioned(initial.profile));
+    assert.deepEqual(after.series, initial.series,
+      'moving link/chapter order does not modify either series metadata record');
+    assert.deepEqual(after.resources, initial.resources,
+      'movement leaves every resource and resource version unchanged');
+    assert.deepEqual(sortedReceipts(receiptsFrom(moves[1])), sortedReceipts([
+      { entity: 'profile', id: initial.profile.id, before: initial.profile.version, after: after.profile.version },
+      ...changedPlacementIds.map((id) => ({
+        entity: 'placement', id, before: initialById.get(id).version, after: afterById.get(id).version,
+      })),
+    ]), 'real receipts match every and only the raw order/version changes');
+    const responseIds = moves[1].responseBody.links.map(({ placementId }) => placementId).sort();
+    assert.deepEqual(responseIds, [...new Set([target.placementId, ...changedPlacementIds])].sort(),
+      'the successful command returns the target and its actual changed neighbors');
+    for (const link of moves[1].responseBody.links) {
+      const saved = afterById.get(link.placementId);
+      const resource = after.resources.find(({ id }) => id === saved.resourceId);
+      assert.equal(link.placementVersion, saved.version);
+      assert.equal(link.resourceVersion, resource.version);
+      assert.equal(link.title, resource.title);
+      assert.equal(link.featured, saved.featured);
+      assert.equal(link.selectedForDirectory, saved.selectedForDirectory);
+      if (movementKind === 'link') assert.equal(link.position, saved.position);
+      else assert.equal(link.series.find(({ seriesId }) => seriesId === series.id)?.position, saved.series[series.id].position);
+    }
+    if (movementKind === 'link') {
+      const publicProfile = await fixture.creatorRuntime.service.readPublicProfile('ana-browser');
+      assert.equal(publicProfile.status, 200);
+      assert.deepEqual(publicProfile.links.map(({ placementId }) => placementId), expectedOrder,
+        'the public profile projects the committed link insertion');
+      const publicOtherSeries = await fixture.creatorRuntime.service.readPublicSeries('ana-browser', scenario.otherSeries.slug);
+      assert.equal(publicOtherSeries.status, 200);
+      assert.deepEqual(publicOtherSeries.links.map(({ placementId }) => placementId), [target.placementId],
+        'the target keeps its independent series membership');
+    } else {
+      const publicSeries = await fixture.creatorRuntime.service.readPublicSeries('ana-browser', series.slug);
+      assert.equal(publicSeries.status, 200);
+      assert.deepEqual(publicSeries.links.map(({ placementId }) => placementId), expectedOrder,
+        'the public series projects the committed chapter insertion');
+      const publicOtherSeries = await fixture.creatorRuntime.service.readPublicSeries('ana-browser', scenario.otherSeries.slug);
+      assert.equal(publicOtherSeries.status, 200);
+      assert.deepEqual(publicOtherSeries.links.map(({ placementId }) => placementId), [target.placementId],
+        'the target keeps its independent series membership');
+    }
+    assert.equal(explicitUnavailableCopy, true,
+      'the user receives the dedicated no-write calculation-unavailable message');
+    await capture.stop({ skipErrorBodies: true });
+  });
+}
+
+async function createTiedBoundaryScenario(fixture, cookie, movementKind) {
+  const series = await createSeries(fixture, cookie, {
+    name: `Serie de frontera ${movementKind}`,
+    slug: `serie-frontera-${movementKind}`,
+  });
+  const otherSeries = await createSeries(fixture, cookie, {
+    name: `Serie ajena ${movementKind}`,
+    slug: `serie-ajena-${movementKind}`,
+  });
+  const links = await seedNativeMovementLinks(fixture, cookie, {
+    prefix: `frontera-${movementKind}`,
+    count: 101,
+    globalPosition: () => 0,
+    primarySeries: series,
+    primarySeriesPosition: (index) => movementKind === 'chapter' ? 0 : index,
+    ...(movementKind === 'chapter'
+      ? { extraMembership: { index: 100, seriesId: otherSeries.id, position: 7 } }
+      : {}),
+  });
+  const sortedLinks = [...links].sort((left, right) => left.placementId.localeCompare(right.placementId));
+  const target = sortedLinks.at(-1);
+  assert.ok(target);
+  await publishOwnerForPublicOrder(fixture, cookie);
+  return { links, target, series, otherSeries };
+}
+
+for (const movementKind of ['link', 'chapter']) {
+  test(`orden factible: ${movementKind === 'link' ? 'un enlace' : 'un capítulo'} propone y guarda una inserción intermedia en el límite de 101 filas`, async ({ fixture, page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const cookie = await loggedInOwner(fixture, page);
+    const scenario = await createTiedBoundaryScenario(fixture, cookie, movementKind);
+    const { links, target, series } = scenario;
+    const initial = await rawMovementSnapshot(fixture, cookie, links, [scenario.series, scenario.otherSeries]);
+    const initialOrder = physicalMoveOrder(initial.placements, movementKind, series.id);
+    const initialTargetOrdinal = initialOrder.indexOf(target.placementId) + 1;
+    assert.equal(initial.placements.length, 101, 'the application fixture has the approved 101-row boundary');
+    assert.equal(initialOrder.length, 101, 'all 101 rows participate in the selected order scope');
+    assert.equal(initialTargetOrdinal, 101, 'the tied final ID starts at the last ordinal');
+    assert.ok(initial.placements.every((placement) => placement.position === 0),
+      'all global positions begin tied at zero');
+    if (movementKind === 'chapter') {
+      assert.ok(initial.placements.every((placement) => placement.series[series.id]?.position === 0),
+        'all 101 chapter memberships begin tied at zero');
+    }
+    const capture = await captureCreatorApi(page, { ignoreReads: true, skipErrorBodies: true });
+    if (movementKind === 'link') {
+      await page.goto(`${fixture.origin}/cuenta/?vista=enlaces&paginaEnlaces=5`);
+      await expect(page.getByRole('heading', { name: 'Enlaces', exact: true })).toBeVisible();
+    } else {
+      await page.goto(`${fixture.origin}/cuenta/?vista=series&serie=${encodeURIComponent(series.id)}&buscarCapitulos=${encodeURIComponent(target.title)}&paginaCapitulos=1`);
+      await expect(page.getByRole('heading', { name: 'Series', exact: true })).toBeVisible();
+      await expect(page.locator('[data-series-context-name]')).toHaveText(series.name);
+    }
+    const row = page.locator(movementKind === 'link'
+      ? `[data-link-row="${target.placementId}"]`
+      : `[data-chapter-row="${target.placementId}"]`);
+    await expect(row).toBeVisible();
+    await row.locator(movementKind === 'link' ? '[data-link-move]' : '[data-chapter-move]').click();
+    const form = page.locator(`[data-owner-dialog] form[data-owner-form="${movementKind === 'link' ? 'mover-enlace' : 'mover-capitulo'}"]`);
+    const positionInput = form.getByLabel(movementKind === 'link' ? 'Posición dentro del grupo' : 'Posición en esta serie');
+    const saveButton = form.getByRole('button', { name: 'Guardar posición' });
+    const suggestion = form.locator(`[data-${movementKind === 'link' ? 'link' : 'chapter'}-move-suggestion]`);
+    const movePath = movementKind === 'link'
+      ? `/api/creador/enlaces/${target.placementId}/mover`
+      : `/api/creador/series/${series.id}/capitulos/${target.placementId}/mover`;
+    await expect(positionInput).toHaveValue('101');
+    const transactionCountBefore = storeTransactionCalls(fixture).length;
+    await positionInput.fill('1');
+    await saveButton.click();
+    await capture.settle({ skipErrorBodies: true });
+    const moves = capture.writes().filter(({ method, path }) => method === 'POST' && path === movePath);
+    assert.equal(moves.length, 1, 'the rejected boundary request is sent once');
+    assert.equal(moves[0].status, 422);
+    await expect(form.locator(`[data-owner-form-status="${movementKind === 'link' ? 'mover-enlace' : 'mover-capitulo'}"]`))
+      .toContainText(/Ese movimiento supera el límite/,
+        'the unmocked 422 follows the ORDER_MOVE_LIMIT UI branch');
+    assert.equal(moves[0].body.profileVersion, initial.profile.version);
+    assert.equal(moves[0].body.placementVersion,
+      initial.placements.find(({ id }) => id === target.placementId).version);
+    assert.equal(moves[0].body.targetPosition, 1);
+    if (movementKind === 'chapter') {
+      assert.equal(moves[0].body.seriesVersion, initial.series.find(({ id }) => id === series.id).version);
+    }
+    const viablePosition = Number(await suggestion.getAttribute('data-viable-position'));
+    assert.ok(Number.isSafeInteger(viablePosition) && viablePosition > 1 && viablePosition < initialTargetOrdinal,
+      'the real ORDER_MOVE_LIMIT response offers a strictly intermediate ordinal without requiring a nearest suggestion');
+    assert.equal(storeTransactionCalls(fixture).length, transactionCountBefore,
+      'the real 422 performs no store transaction');
+    assert.deepEqual(await rawMovementSnapshot(fixture, cookie, links, [scenario.series, scenario.otherSeries]), initial,
+      'all profile, series, placement, resource, membership, and option values remain unchanged after 422');
+    await expect(positionInput).toHaveValue('1', 'the original rejected target stays in the form until the user chooses the suggestion');
+    await expect(suggestion).toBeVisible();
+    await expect(suggestion).toContainText(`Usar posición intermedia ${viablePosition}`);
+    await suggestion.click();
+    await expect(positionInput).toHaveValue(String(viablePosition),
+      'the verified suggestion changes only the local destination');
+    await expect(saveButton).toBeEnabled();
+    assert.equal(capture.writes().filter(({ method, path }) => method === 'POST' && path === movePath).length, 1,
+      'choosing the suggestion does not send a write');
+    assert.equal(storeTransactionCalls(fixture).length, transactionCountBefore,
+      'choosing the suggestion does not transact or mutate storage');
+
+    await saveButton.click();
+    await capture.settle({ skipErrorBodies: true });
+    const finalMoves = capture.writes().filter(({ method, path }) => method === 'POST' && path === movePath);
+    assert.equal(finalMoves.length, 2, 'the next explicit Save is the only accepted second command');
+    assert.equal(finalMoves[1].status, 200, JSON.stringify(finalMoves[1].responseBody));
+    assert.equal(finalMoves[1].body.targetPosition, viablePosition);
+    assert.equal(finalMoves[1].body.profileVersion, initial.profile.version);
+    assert.equal(finalMoves[1].body.placementVersion, initial.placements.find(({ id }) => id === target.placementId).version);
+    if (movementKind === 'chapter') assert.equal(finalMoves[1].body.seriesVersion, initial.series.find(({ id }) => id === series.id).version);
+    const transactions = storeTransactionCalls(fixture).slice(transactionCountBefore);
+    assert.equal(transactions.length, 1, 'the successful move is one atomic store transaction');
+    const transaction = transactions[0].input;
+    const uniquePhysicalKeys = new Set([
+      ...transaction.checks.map(({ key }) => key),
+      ...transaction.puts.map(({ key }) => key),
+      ...transaction.deletes,
+    ]);
+    assert.ok(uniquePhysicalKeys.size <= 100,
+      `the single transaction addresses at most 100 distinct items; observed ${uniquePhysicalKeys.size}`);
+
+    const after = await rawMovementSnapshot(fixture, cookie, links, [scenario.series, scenario.otherSeries]);
+    const expectedOrder = orderAfterPhysicalMove(initial.placements, movementKind, series.id, target.placementId, viablePosition);
+    assert.deepEqual(physicalMoveOrder(after.placements, movementKind, series.id), expectedOrder,
+      'the stored order is the literal insertion at the ordinal the user explicitly chose');
+    const initialById = new Map(initial.placements.map((placement) => [placement.id, placement]));
+    const afterById = new Map(after.placements.map((placement) => [placement.id, placement]));
+    const changedPlacementIds = [];
+    for (const placement of initial.placements) {
+      const saved = afterById.get(placement.id);
+      const changed = physicalMovePosition(placement, movementKind, series.id)
+        !== physicalMovePosition(saved, movementKind, series.id);
+      if (changed) changedPlacementIds.push(placement.id);
+      const expected = structuredClone(placement);
+      if (movementKind === 'link') expected.position = saved.position;
+      else expected.series[series.id].position = saved.series[series.id].position;
+      if (changed) expected.version += 1;
+      assert.deepEqual(saved, expected,
+        `${placement.id} changes only the requested order field and advances its version iff that field changed`);
+    }
+    assert.equal(after.profile.version, initial.profile.version + 1);
+    const profileUnversioned = ({ version, updatedAt, ...value }) => value;
+    assert.deepEqual(profileUnversioned(after.profile), profileUnversioned(initial.profile));
+    assert.deepEqual(after.series, initial.series, 'series metadata and versions stay unchanged');
+    assert.deepEqual(after.resources, initial.resources, 'all resources and their versions stay unchanged');
+    assert.deepEqual(sortedReceipts(receiptsFrom(finalMoves[1])), sortedReceipts([
+      { entity: 'profile', id: initial.profile.id, before: initial.profile.version, after: after.profile.version },
+      ...changedPlacementIds.map((id) => ({
+        entity: 'placement', id, before: initialById.get(id).version, after: afterById.get(id).version,
+      })),
+    ]), 'the successful command receipts exactly match the raw participants and version changes');
+    const responseIds = finalMoves[1].responseBody.links.map(({ placementId }) => placementId).sort();
+    assert.deepEqual(responseIds, [...new Set([target.placementId, ...changedPlacementIds])].sort(),
+      'the response returns the target and only the actual changed neighbors');
+    for (const link of finalMoves[1].responseBody.links) {
+      const saved = afterById.get(link.placementId);
+      const resource = after.resources.find(({ id }) => id === saved.resourceId);
+      assert.equal(link.placementVersion, saved.version);
+      assert.equal(link.resourceVersion, resource.version);
+      assert.equal(link.title, resource.title);
+      assert.equal(link.featured, saved.featured);
+      assert.equal(link.selectedForDirectory, saved.selectedForDirectory);
+      if (movementKind === 'link') assert.equal(link.position, saved.position);
+      else assert.equal(link.series.find(({ seriesId }) => seriesId === series.id)?.position, saved.series[series.id].position);
+    }
+    if (movementKind === 'link') {
+      const publicProfile = await fixture.creatorRuntime.service.readPublicProfile('ana-browser');
+      assert.equal(publicProfile.status, 200);
+      assert.deepEqual(publicProfile.links.map(({ placementId }) => placementId), expectedOrder,
+        'the public profile projects the committed link insertion');
+      const publicUnrelatedSeries = await fixture.creatorRuntime.service.readPublicSeries('ana-browser', scenario.series.slug);
+      assert.equal(publicUnrelatedSeries.status, 200);
+      assert.deepEqual(publicUnrelatedSeries.links.map(({ placementId }) => placementId),
+        physicalMoveOrder(initial.placements, 'chapter', scenario.series.id),
+        'the unrelated series retains its membership order');
+    } else {
+      const publicSeries = await fixture.creatorRuntime.service.readPublicSeries('ana-browser', series.slug);
+      assert.equal(publicSeries.status, 200);
+      assert.deepEqual(publicSeries.links.map(({ placementId }) => placementId), expectedOrder,
+        'the public series projects the committed chapter insertion');
+      const publicOtherSeries = await fixture.creatorRuntime.service.readPublicSeries('ana-browser', scenario.otherSeries.slug);
+      assert.equal(publicOtherSeries.status, 200);
+      assert.deepEqual(publicOtherSeries.links.map(({ placementId }) => placementId), [target.placementId],
+        'the target keeps its independent membership and position');
+    }
+    await capture.stop({ skipErrorBodies: true });
   });
 }
 
