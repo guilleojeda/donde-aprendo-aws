@@ -497,7 +497,7 @@ test('Series: un recibo de versión incorrecto y una observación dañada no ree
   const corruptOnlyTheIntendedBoundaries = async (route) => {
     const request = route.request();
     const pathname = new URL(request.url()).pathname.replace(/\/$/u, '');
-    if (request.method() === 'PATCH' && pathname === path) {
+    if (request.method() === 'PATCH' && pathname === path && !actualCommit) {
       const response = await route.fetch();
       const payload = await response.json();
       actualCommit = { status: response.status(), payload, requestBody: JSON.parse(request.postData()) };
@@ -531,74 +531,75 @@ test('Series: un recibo de versión incorrecto y una observación dañada no ree
     acknowledgementGate.resolve();
     await save;
     await capture.settle({ skipErrorBodies: true });
+
+    assert.equal(actualCommit.status, 200, 'the real service commits before only the acknowledgement receipt is damaged');
+    assert.deepEqual(actualCommit.requestBody, {
+      version: beforeSeries.version, profileVersion: beforeOwner.profile.version, ...sent,
+    });
+    const persistedAtCommit = await fixture.rawSeries(cookie, initial.id);
+    const ownerAtCommit = await fixture.rawOwner(cookie);
+    assert.deepEqual({ name: persistedAtCommit.name, slug: persistedAtCommit.slug, description: persistedAtCommit.description }, sent);
+    assert.equal(persistedAtCommit.version, beforeSeries.version + 1);
+    assert.equal(ownerAtCommit.profile.version, beforeOwner.profile.version + 1);
+    assert.deepEqual(sortedReceipts(actualCommit.payload.versionChanges), sortedReceipts([
+      { entity: 'profile', id: beforeOwner.profile.id, before: beforeOwner.profile.version, after: beforeOwner.profile.version + 1 },
+      { entity: 'series', id: initial.id, before: beforeSeries.version, after: beforeSeries.version + 1 },
+    ]), 'the undamaged service receipt matches the actual persisted profile and series versions');
+    const patchWrites = writesFor(capture, 'PATCH', path);
+    assert.equal(patchWrites.length, 1);
+    assert.equal(patchWrites[0].status, 200);
+    assert.notDeepEqual(sortedReceipts(patchWrites[0].responseBody.versionChanges), sortedReceipts(actualCommit.payload.versionChanges));
+    await expect(form.locator('[data-owner-compare]'), 'an invalid first receipt must expose Comprobar immediately').toBeVisible();
+    await expect(form.getByLabel('Nombre de la serie')).toHaveValue(correction.name);
+    await expect(form.getByLabel('Dirección de la serie')).toHaveValue(correction.slug);
+    await expect(form.getByLabel(/Descripción/)).toHaveValue(correction.description);
+    await expect(form.locator('[data-owner-form-status="serie"]')).toContainText(/recibo|comprobar|confirmar/i);
+
+    await form.locator('[data-owner-compare]').click();
+    await expect(form.locator('[data-owner-compare]')).toBeVisible();
+    await expect(form.getByRole('button', { name: /Conservar mi corrección/ })).toBeHidden();
+    await expect(form.getByLabel('Nombre de la serie')).toHaveValue(correction.name);
+    await expect(form.getByLabel('Dirección de la serie')).toHaveValue(correction.slug);
+    await expect(form.getByLabel(/Descripción/)).toHaveValue(correction.description);
+    assert.equal(writesFor(capture, 'PATCH', path).length, 1, 'a damaged observation is rejected without replaying the write');
+    assert.equal(corruptedObservation, false, 'the first check consumed the deliberately malformed owner response');
+
+    await form.locator('[data-owner-compare]').click();
+    const comparison = form.locator('[data-owner-comparison]');
+    await expect(comparison).toBeVisible();
+    for (const value of Object.values(sent)) await expect(comparison).toContainText(value);
+    for (const value of Object.values(correction)) await expect(comparison).toContainText(value);
+    await expect(form.getByRole('button', { name: /Conservar mi corrección/ })).toBeVisible();
+    await form.getByRole('button', { name: /Conservar mi corrección/ }).click();
+    await expect(form.getByLabel('Nombre de la serie')).toHaveValue(correction.name);
+    await expect(form.getByLabel('Dirección de la serie')).toHaveValue(correction.slug);
+    await expect(form.getByLabel(/Descripción/)).toHaveValue(correction.description);
+    await form.getByRole('button', { name: 'Guardar serie' }).click();
+    await capture.settle({ skipErrorBodies: true });
+    const patches = writesFor(capture, 'PATCH', path);
+    assert.equal(patches.length, 2, 'the correction is saved once, manually, after a valid comparison');
+    assert.deepEqual(patches[1].body, {
+      version: beforeSeries.version + 1,
+      profileVersion: beforeOwner.profile.version + 1,
+      ...correction,
+    });
+    assert.equal(patches[1].status, 200);
+    const finalOwner = await fixture.rawOwner(cookie);
+    const finalSeries = await fixture.rawSeries(cookie, initial.id);
+    assert.deepEqual({ name: finalSeries.name, slug: finalSeries.slug, description: finalSeries.description }, correction,
+      'Conservar mi corrección keeps all three local fields rather than adopting remote name/slug with only a local description');
+    assert.equal(finalSeries.version, beforeSeries.version + 2);
+    assert.equal(finalOwner.profile.version, beforeOwner.profile.version + 2);
+    assert.deepEqual(sortedReceipts(patches[1].responseBody.versionChanges), sortedReceipts([
+      { entity: 'profile', id: beforeOwner.profile.id, before: beforeOwner.profile.version + 1, after: finalOwner.profile.version },
+      { entity: 'series', id: initial.id, before: beforeSeries.version + 1, after: finalSeries.version },
+    ]), 'the recovered correction receipt agrees with the raw profile and series versions');
+    await capture.stop({ skipErrorBodies: true });
   } finally {
     acknowledgementGate.resolve();
     await page.unroute('**/api/creador/**', corruptOnlyTheIntendedBoundaries).catch(() => {});
     await save?.catch(() => {});
   }
-
-  assert.equal(actualCommit.status, 200, 'the real service commits before only the acknowledgement receipt is damaged');
-  assert.deepEqual(actualCommit.requestBody, {
-    version: beforeSeries.version, profileVersion: beforeOwner.profile.version, ...sent,
-  });
-  const persistedAtCommit = await fixture.rawSeries(cookie, initial.id);
-  const ownerAtCommit = await fixture.rawOwner(cookie);
-  assert.deepEqual({ name: persistedAtCommit.name, slug: persistedAtCommit.slug, description: persistedAtCommit.description }, sent);
-  assert.equal(persistedAtCommit.version, beforeSeries.version + 1);
-  assert.equal(ownerAtCommit.profile.version, beforeOwner.profile.version + 1);
-  assert.deepEqual(sortedReceipts(actualCommit.payload.versionChanges), sortedReceipts([
-    { entity: 'profile', id: beforeOwner.profile.id, before: beforeOwner.profile.version, after: beforeOwner.profile.version + 1 },
-    { entity: 'series', id: initial.id, before: beforeSeries.version, after: beforeSeries.version + 1 },
-  ]), 'the undamaged service receipt matches the actual persisted profile and series versions');
-  const patchWrites = writesFor(capture, 'PATCH', path);
-  assert.equal(patchWrites.length, 1);
-  assert.equal(patchWrites[0].status, 200);
-  assert.notDeepEqual(sortedReceipts(patchWrites[0].responseBody.versionChanges), sortedReceipts(actualCommit.payload.versionChanges));
-  await expect(form.locator('[data-owner-compare]'), 'an invalid first receipt must expose Comprobar immediately').toBeVisible();
-  await expect(form.getByLabel('Nombre de la serie')).toHaveValue(correction.name);
-  await expect(form.getByLabel('Dirección de la serie')).toHaveValue(correction.slug);
-  await expect(form.getByLabel(/Descripción/)).toHaveValue(correction.description);
-  await expect(form.locator('[data-owner-form-status="serie"]')).toContainText(/recibo|comprobar|confirmar/i);
-
-  await form.locator('[data-owner-compare]').click();
-  await expect(form.locator('[data-owner-compare]')).toBeVisible();
-  await expect(form.getByRole('button', { name: /Conservar mi corrección/ })).toBeHidden();
-  await expect(form.getByLabel('Nombre de la serie')).toHaveValue(correction.name);
-  await expect(form.getByLabel('Dirección de la serie')).toHaveValue(correction.slug);
-  await expect(form.getByLabel(/Descripción/)).toHaveValue(correction.description);
-  assert.equal(writesFor(capture, 'PATCH', path).length, 1, 'a damaged observation is rejected without replaying the write');
-
-  await form.locator('[data-owner-compare]').click();
-  const comparison = form.locator('[data-owner-comparison]');
-  await expect(comparison).toBeVisible();
-  for (const value of Object.values(sent)) await expect(comparison).toContainText(value);
-  for (const value of Object.values(correction)) await expect(comparison).toContainText(value);
-  await expect(form.getByRole('button', { name: /Conservar mi corrección/ })).toBeVisible();
-  await form.getByRole('button', { name: /Conservar mi corrección/ }).click();
-  await expect(form.getByLabel('Nombre de la serie')).toHaveValue(correction.name);
-  await expect(form.getByLabel('Dirección de la serie')).toHaveValue(correction.slug);
-  await expect(form.getByLabel(/Descripción/)).toHaveValue(correction.description);
-  await form.getByRole('button', { name: 'Guardar serie' }).click();
-  await capture.settle({ skipErrorBodies: true });
-  const patches = writesFor(capture, 'PATCH', path);
-  assert.equal(patches.length, 2, 'the correction is saved once, manually, after a valid comparison');
-  assert.deepEqual(patches[1].body, {
-    version: beforeSeries.version + 1,
-    profileVersion: beforeOwner.profile.version + 1,
-    ...correction,
-  });
-  assert.equal(patches[1].status, 200);
-  const finalOwner = await fixture.rawOwner(cookie);
-  const finalSeries = await fixture.rawSeries(cookie, initial.id);
-  assert.deepEqual({ name: finalSeries.name, slug: finalSeries.slug, description: finalSeries.description }, correction,
-    'Conservar mi corrección keeps all three local fields rather than adopting remote name/slug with only a local description');
-  assert.equal(finalSeries.version, beforeSeries.version + 2);
-  assert.equal(finalOwner.profile.version, beforeOwner.profile.version + 2);
-  assert.deepEqual(sortedReceipts(patches[1].responseBody.versionChanges), sortedReceipts([
-    { entity: 'profile', id: beforeOwner.profile.id, before: beforeOwner.profile.version + 1, after: finalOwner.profile.version },
-    { entity: 'series', id: initial.id, before: beforeSeries.version + 1, after: finalSeries.version },
-  ]), 'the recovered correction receipt agrees with the raw profile and series versions');
-  await capture.stop({ skipErrorBodies: true });
 });
 
 async function seedSeriesChapters(fixture, cookie, seriesId, count, longTitleIndex) {
