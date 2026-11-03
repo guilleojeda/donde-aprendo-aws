@@ -530,6 +530,8 @@ test('la recuperación bloquea una cuenta distinta y conserva el formulario sin 
 
   const other = await installOtherAccount(page, fixture);
   await sessionCheck(page).click();
+  await capture.settle();
+  await expect(page.locator('[data-owner-dialog] [data-session-recovery-status]')).toContainText(/otra cuenta|otros permisos/i);
   await expect(form.getByLabel('Nombre visible')).toHaveValue('Corrección de cuenta original');
   await expect(form.getByRole('button', { name: 'Guardar datos' })).toBeDisabled();
   const otherPrincipal = await fixture.principal(other);

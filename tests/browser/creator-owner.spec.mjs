@@ -40,7 +40,8 @@ test('el no-op de una serie nueva omite su descripción ausente y confirma las v
   assert.deepEqual(patches[0].responseBody.versionChanges, [], 'the server returned its real no-op receipt');
   assert.deepEqual((await fixture.rawOwner(cookie)).profile, beforeProfile);
   assert.deepEqual(await fixture.rawSeries(cookie, created.id), beforeSeries);
-  await expect(form.locator('[data-owner-form-status="serie"]')).toContainText(/Cambios guardados/i);
+  await expect(page.locator('[data-owner-status]')).toBeVisible();
+  await expect(page.locator('[data-owner-status]')).toContainText(/Cambios guardados/i);
   await expect(page.locator('[data-owner-dialog]')).not.toBeVisible();
   await captured.stop();
 });
@@ -81,7 +82,8 @@ test('un description vacío ya persistido es un no-op real sin cambio de versió
   assert.deepEqual((await fixture.rawOwner(cookie)).profile, beforeProfile);
   assert.deepEqual(await fixture.rawSeries(cookie, created.id), beforeSeries,
     'the raw empty description attribute and both versions remain unchanged');
-  await expect(form.locator('[data-owner-form-status="serie"]')).toContainText(/Cambios guardados/i);
+  await expect(page.locator('[data-owner-status]')).toBeVisible();
+  await expect(page.locator('[data-owner-status]')).toContainText(/Cambios guardados/i);
   await captured.stop();
 });
 
