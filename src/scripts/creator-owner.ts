@@ -359,6 +359,12 @@ async function responsePayload(response: Response): Promise<Record<string, unkno
   }
 }
 
+async function isOrderMoveCalculationUnavailable(response: Response): Promise<boolean> {
+  if (response.status !== 503) return false;
+  const payload = await responsePayload(response);
+  return payload?.error === 'ORDER_MOVE_CALCULATION_UNAVAILABLE';
+}
+
 function clearUncertainPublication() {
   uncertainPublishIntent = undefined;
   const check = root?.querySelector<HTMLButtonElement>('[data-owner-publish-check]');
@@ -3318,6 +3324,8 @@ async function saveChapterMoveForm(form: HTMLFormElement) {
         announceWrite('mover-capitulo', payload?.error === 'ORDER_MOVE_LIMIT'
           ? 'Ese movimiento supera el límite de una operación. Conservamos tu destino; puedes elegir una posición intermedia y guardar de nuevo.'
           : statusMessage(422), 'error');
+      } else if (await isOrderMoveCalculationUnavailable(response)) {
+        announceWrite('mover-capitulo', 'No pudimos calcular este movimiento', 'error');
       } else announceWrite('mover-capitulo', statusMessage(response.status), 'error');
       return;
     }
@@ -3863,6 +3871,8 @@ async function saveMoveForm(form: HTMLFormElement) {
         announceWrite('mover-enlace', payload?.error === 'ORDER_MOVE_LIMIT'
           ? 'Ese movimiento supera el límite de una sola operación. Conservamos el destino solicitado; puedes elegir una posición intermedia y guardar de nuevo.'
           : statusMessage(422), 'error');
+      } else if (await isOrderMoveCalculationUnavailable(response)) {
+        announceWrite('mover-enlace', 'No pudimos calcular este movimiento', 'error');
       } else announceWrite('mover-enlace', statusMessage(response.status), 'error');
       return;
     }
