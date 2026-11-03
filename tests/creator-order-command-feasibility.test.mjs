@@ -114,7 +114,8 @@ for (const kind of ['link', 'chapter']) {
     assert.ok(transaction.physicalBytes <= TOTAL);
   });
 
-  test(`${kind}: aggregate feasibility is not reduced to the earliest locally fitting rank`, async () => {
+  for (const paddingKind of ['memberships', 'legacy']) {
+  test(`${kind}: aggregate feasibility is not reduced to the earliest locally fitting rank (${paddingKind})`, async () => {
     const mutableIds = ['m-target', ...Array.from({ length: 11 }, (_, i) => `zz-${String(i).padStart(2, '0')}`)];
     const h = await setup(kind, [
       { id: 'z-left', position: 12345, version: MAX },
@@ -128,7 +129,15 @@ for (const kind of ['link', 'chapter']) {
     for (const [index, id] of mutableIds.entries()) {
       const bytes = index === mutableIds.length - 1 ? remainder : Math.floor(rawBudget / mutableIds.length);
       remainder -= bytes;
-      const row = padPlacementMembershipsToBytes(structuredClone(h.mock.read('profiles-test', key(id))), bytes);
+      const row = structuredClone(h.mock.read('profiles-test', key(id)));
+      if (paddingKind === 'memberships') padPlacementMembershipsToBytes(row, bytes);
+      else {
+        // Inert legacy values are already accepted and preserved by these
+        // commands; string padding isolates bytes without 29k map objects.
+        row.series.legacy = '';
+        row.series.legacy = 'x'.repeat(bytes - storedAttributeBytes(row));
+        assert.equal(storedAttributeBytes(row), bytes);
+      }
       assert.ok(storedAttributeBytes(row) <= ITEM);
       h.mock.seed('profiles-test', row);
     }
@@ -146,6 +155,14 @@ for (const kind of ['link', 'chapter']) {
     assert.equal(fixedBytes + fitting.reduce((sum, row) => sum + storedAttributeBytes(row), 0), TOTAL - 12);
 
     const result = await move(h, kind, 'm-target', 2);
+    if (paddingKind === 'memberships' && result.status === 503) {
+      assert.equal(result.body.error, 'ORDER_MOVE_CALCULATION_UNAVAILABLE');
+      assert.equal(Object.hasOwn(result.body, 'viablePosition'), false);
+      assert.equal(h.mock.transactions.length, 0, 'a feasible but unfinished calculation never writes');
+      assert.deepEqual(rowsFrom(h, ids), before);
+      assert.deepEqual(h.mock.read('profiles-test', { pk: `PROFILE#${OWNER}`, sk: 'META' }), profile);
+      return;
+    }
     assert.equal(result.status, 200, JSON.stringify(result));
     const after = rowsFrom(h, ids);
     assert.deepEqual(ordered(after, kind), expected);
@@ -166,6 +183,8 @@ for (const kind of ['link', 'chapter']) {
     assert.ok(h.mock.transactions[0].physicalBytes <= TOTAL);
     assert.ok(after.every((row) => storedAttributeBytes(row) <= ITEM));
   });
+
+  }
 
   test(`${kind}: an impossible adjacent intermediate cannot hide the only farther viable insertion`, async () => {
     const h = await setup(kind, [

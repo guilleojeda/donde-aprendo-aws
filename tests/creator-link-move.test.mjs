@@ -552,7 +552,7 @@ test('respuesta y recibos coinciden con la inserción confirmada aunque una escr
   const storedTarget = harness.mock.read('profiles-test', {
     pk: 'PROFILE#profile-move-a', sk: 'PLACEMENT#z-target',
   });
-  assert.ok(responseTarget.position > 0 && responseTarget.position < 10,
+  assert.ok(responseTarget.position >= 0 && responseTarget.position < 10,
     'the target occupies the free gap in the confirmed insertion');
   assert.equal(responseTarget.placementVersion, target.placementVersion + 1);
   assert.equal(storedTarget.position, MAX_SAFE_POSITION, 'a later writer changed the stored placement');

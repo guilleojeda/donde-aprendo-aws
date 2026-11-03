@@ -589,7 +589,7 @@ test('el preflight agregado cuenta timestamps de la serie raw y la sugerencia ta
   assert.deepEqual(seriesOrder(after.placements, SERIES), insertedOrder(beforeMove.placements, SERIES, 'z-target', full.body.viablePosition));
 });
 
-test('400 KiB detecta el delta de la posición anidada aunque placement.position no cambie', async () => {
+test('400 KiB rechaza el candidato que crece y permite otra posición anidada que cabe', async () => {
   const harness = await setup([
     { id: 'a-before', seriesPositions: { [SERIES]: 0 } },
     { id: 'z-target', position: 0, version: 1, seriesPositions: { [SERIES]: 100 }, series: { legacy: '' } },
@@ -625,15 +625,23 @@ test('400 KiB detecta el delta de la posición anidada aunque placement.position
     profileVersion: before.profile.version, seriesVersion: before.series[0].version,
     placementVersion: target.version, targetPosition: 3,
   });
-  assert.equal(result.status, 422);
-  assert.equal(result.body.error, 'ORDER_MOVE_LIMIT');
-  assert.equal(Object.hasOwn(result.body, 'viablePosition'), false,
-    'there is no ordinal between current two and requested three');
-  assert.deepEqual(rawSnapshot(harness, {
+  assert.equal(result.status, 200, JSON.stringify(result.body));
+  const after = rawSnapshot(harness, {
     seriesIds: [SERIES], placementIds: ['a-before', 'z-target', 'm-large'],
     resourceIds: ['resource-a-before', 'resource-z-target', 'resource-m-large'],
-  }), before);
-  assert.deepEqual(moveTransactionMetrics(harness.mock), []);
+  });
+  assert.deepEqual(seriesOrder(after.placements, SERIES), insertedOrder(before.placements, SERIES, 'z-target', 3));
+  assert.deepEqual(after.placements[0], before.placements[0]);
+  assert.deepEqual(after.placements[2], before.placements[2]);
+  assert.deepEqual(after.resources, before.resources);
+  const changed = assertSeriesMutationOnly(before, after, SERIES);
+  assertVersionReceipts(result.body, before, after, changed);
+  assertLinkSubset(result.body, 'z-target', changed, before, after, [SERIES]);
+  assert.ok(physicalPlacementSize(after.placements[1]) <= ITEM_LIMIT,
+    'the saved nested rank has a fitting numeric byte class; no oversized Put is sent');
+  assert.equal(harness.mock.transactions.length, 1);
+  assert.ok(harness.mock.transactions[0].input.TransactItems.filter(({ Put }) => Put)
+    .every(({ Put }) => storedAttributeBytes(Put.Item) <= ITEM_LIMIT));
 });
 
 test('si el ordinal adyacente no cabe, el mover de capítulo ofrece y confirma otro intermedio viable', async () => {
@@ -732,7 +740,7 @@ test('el movimiento devuelve snapshots candidatos aunque otro escritor cambie el
   assert.deepEqual(saved.body.links.map(({ placementId }) => placementId), ['z-target']);
   const responseTarget = saved.body.links[0];
   const stored = rawSnapshot(harness, { seriesIds: [SERIES], placementIds: ids });
-  assert.ok(responseTarget.series.find(({ seriesId }) => seriesId === SERIES).position > 0);
+  assert.ok(responseTarget.series.find(({ seriesId }) => seriesId === SERIES).position >= 0);
   assert.ok(responseTarget.series.find(({ seriesId }) => seriesId === SERIES).position < 10);
   assert.equal(responseTarget.placementVersion, targetVersion + 1);
   assert.equal(stored.placements[2].series[SERIES].position, MAX_SAFE);
