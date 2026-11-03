@@ -216,8 +216,10 @@ for (const outcome of editOutcomes) {
     assert.deepEqual(patches[1].body, {
       version: observedSeries.version - 1,
       profileVersion: currentBase.profile.version - 1,
-      ...correction,
-    }, 'the complete local section is sent against the state actually compared');
+      name: correction.name,
+      slug: correction.slug,
+      ...(outcome.commit ? { description: correction.description } : {}),
+    }, 'the manual save preserves the complete local section without resending an unchanged optional description');
     assert.equal(patches[1].status, 200);
     const finalOwner = await fixture.rawOwner(cookie);
     const finalSeries = await fixture.rawSeries(cookie, initialSeries.id);
