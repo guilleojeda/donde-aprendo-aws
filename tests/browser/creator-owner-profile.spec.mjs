@@ -577,6 +577,8 @@ test('la misma cuenta con un rol distinto no hereda el contexto privado ni enví
     assert.notEqual(changedRole.isAdmin, initial.principal.isAdmin);
 
     await sessionCheck(page).click();
+    await capture.settle();
+    await expect(page.locator('[data-owner-dialog] [data-session-recovery-status]')).toContainText(/otros permisos/i);
     await expect(form.getByRole('button', { name: 'Guardar datos' })).toBeDisabled();
     await expect(form.getByLabel('Nombre visible')).toHaveValue('Corrección mientras cambia el rol');
     assert.deepEqual((await fixture.rawOwner(cookie)).profile, initial.profile,

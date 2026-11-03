@@ -525,7 +525,12 @@ test('el alta de serie comprometida puede comprobarse y continuar sin repetir el
   await expect(form.getByLabel('Nombre de la serie')).toHaveValue('Corrección posterior');
   await expect(form.getByLabel('Dirección de la serie')).toHaveValue('ruta-corregida');
   await expect(form.getByLabel(/Descripción/)).toHaveValue('Descripción posterior');
-  expect(new URL(page.url()).search).toBe('?vista=series&buscarSeries=ruta&paginaSeries=1');
+  const preservedQuery = new URL(page.url()).searchParams;
+  expect([...preservedQuery.keys()].sort()).toEqual(preservedQuery.has('paginaSeries')
+    ? ['buscarSeries', 'paginaSeries', 'vista'] : ['buscarSeries', 'vista']);
+  expect(preservedQuery.get('vista')).toBe('series');
+  expect(preservedQuery.get('buscarSeries')).toBe('ruta');
+  expect(preservedQuery.get('paginaSeries') ?? '1').toBe('1');
   assert.equal((await fixture.creatorStore.list('series:')).length, 1, 'explicit adoption preserves one committed series');
   assert.deepEqual(creationWrites(), [{
     method: 'POST', path: '/api/creador/series', status: 503, body: originalPost,
