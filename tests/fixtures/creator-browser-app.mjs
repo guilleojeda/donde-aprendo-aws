@@ -9,7 +9,10 @@ import { promisify } from 'node:util';
 import { createAccountHarness, createAccountStore, completeLogin, cookiePair } from './account-auth.mjs';
 import { bindCreatorBrowserRuntime, clearCreatorBrowserRuntime } from './creator-browser-runtime.mjs';
 import { createCreatorPagesHarness, createDocumentStore } from './creator-pages.mjs';
+import { createCreatorPhotoService } from '../../src/lib/creator-photos.mjs';
+import { createPhotoObjects } from './creator-photos.mjs';
 import { createCreatorHttpHandler } from '../../src/lib/creator-http.mjs';
+import { createBrowserCreatorStatistics } from './creator-statistics-ga4.mjs';
 
 const execFileAsync = promisify(execFile);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -111,18 +114,37 @@ export async function startCreatorBrowserApp() {
         const accountStore = createAccountStore();
         const accounts = await createAccountHarness({ store: accountStore, origin });
         const creatorStore = createDocumentStore();
+        const browserStatistics = createBrowserCreatorStatistics();
         const pages = await createCreatorPagesHarness({
           origin,
           store: creatorStore,
           authenticate: (request) => accounts.auth.getPrincipal(request),
+          statistics: browserStatistics.service,
+        });
+        const photoObjects = createPhotoObjects();
+        const photoPolicies = [];
+        let photoId = 0;
+        // Photo authorization/finalization remain real; only signing and S3 object transport are provided here.
+        const photos = createCreatorPhotoService({
+          store: creatorStore,
+          objects: photoObjects,
+          signPost: async (request) => {
+            photoPolicies.push(copy(request));
+            return {
+              url: 'https://creator-photos.example.invalid/',
+              fields: { key: request.key, policy: `browser-photo-policy-${photoPolicies.length}` },
+            };
+          },
+          now: () => Date.UTC(2026, 9, 23, 12),
+          createId: () => `browser-photo-${++photoId}`,
         });
         const creatorRuntime = {
           service: pages.service,
-          photos: undefined,
+          photos,
           auth: accounts.auth,
           handle: createCreatorHttpHandler({
             service: pages.service,
-            photos: undefined,
+            photos,
             auth: accounts.auth,
             store: creatorStore,
             origin,
@@ -134,6 +156,10 @@ export async function startCreatorBrowserApp() {
           accountHarness: accounts,
           accountStore,
           creatorStore,
+          statistics: browserStatistics,
+          photoObjects,
+          photoPolicies,
+          photos,
           creatorRuntime,
           async login() {
             const result = await completeLogin(accounts);

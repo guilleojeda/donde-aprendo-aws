@@ -3,6 +3,7 @@ import test from 'node:test';
 import { createGA4StatisticsReader } from '../src/lib/creator-statistics-ga4.mjs';
 import { createGA4TokenProvider } from '../src/lib/creator-statistics-token.mjs';
 import { callApi, createCreatorPagesHarness, sessionCsrf } from './fixtures/creator-pages.mjs';
+import { analyticsReport } from './fixtures/creator-statistics-ga4.mjs';
 
 const moduleResult = await import('../src/lib/creator-statistics.mjs').then(
   (value) => ({ value }),
@@ -89,25 +90,6 @@ function reportFor(input, now = INITIAL_NOW, overrides = {}) {
   };
 }
 
-function analyticsReport(request) {
-  const dimensions = request.dimensions?.map(({ name }) => name) ?? [];
-  const metrics = request.metrics.map(({ name }) => name);
-  const values = dimensions.length === 0
-    ? [[[], metrics.includes('totalUsers') ? [5, 3] : [8]]]
-    : [];
-  return {
-    dimensionHeaders: dimensions.map((name) => ({ name })),
-    metricHeaders: metrics.map((name) => ({ name, type: 'TYPE_INTEGER' })),
-    rows: values.map(([dimensionValues, metricValues]) => ({
-      dimensionValues: dimensionValues.map((value) => ({ value })),
-      metricValues: metricValues.map((value) => ({ value: String(value) })),
-    })),
-    rowCount: values.length,
-    metadata: { timeZone: 'America/Los_Angeles' },
-    propertyQuota: { tokensPerHour: { consumed: 1, remaining: 39_999 } },
-  };
-}
-
 function ga4Reader(tokenProvider, onFetch = () => {}) {
   return createGA4StatisticsReader({
     propertyId: '424203315',
@@ -117,7 +99,7 @@ function ga4Reader(tokenProvider, onFetch = () => {}) {
     fetch: async (_url, options) => {
       onFetch();
       const { requests } = JSON.parse(options.body);
-      return Response.json({ reports: requests.map(analyticsReport) });
+      return Response.json({ reports: requests.map((request) => analyticsReport(request)) });
     },
   });
 }

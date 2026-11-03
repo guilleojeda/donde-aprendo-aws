@@ -6,7 +6,6 @@ import {
   mountOwnerLinks,
   settle,
 } from './fixtures/creator-owner-links-browser.mjs';
-import { createOwnerSeriesSurface } from './fixtures/creator-owner-series-browser.mjs';
 import {
   createCreatorOwnerClaimsSurface,
   mountCreatorOwnerClaims,
@@ -73,126 +72,6 @@ function createInlineCreateSurface(surface = createOwnerLinksSurface()) {
   for (const element of panel.descendants()) element.ownerDocument = surface.document;
   return { ...surface, createPanel: panel, createForm: form, createName: displayName, createSlug: slug, createStatus: status, createConflict: conflict, createCompare: compare, createComparison: comparison, createAdopt: adopt };
 }
-
-test('una comprobación manual de series no avanza versiones detrás de una edición abierta', async () => {
-  const runtime = await createCreatorOwnerRuntime();
-  runtime.setSession('creator-a');
-  await api(runtime, '/api/creador/perfil/', { displayName: 'Ana original', slug: 'ana-original', bio: 'Original' });
-  const created = await (await api(runtime, '/api/creador/series/', {
-    name: 'Ruta original', slug: 'ruta-original', profileVersion: (await ownerDto(runtime)).profile.version,
-  }, 'POST')).json();
-  await api(runtime, '/api/creador/enlaces/', { title: 'Capítulo', url: 'https://example.com/chapter' }, 'POST');
-
-  const initial = await ownerDto(runtime);
-  const surface = createOwnerSeriesSurface({ ...initial, query: { serie: created.series.id } });
-  let failChapterWrite = true;
-  let resolveRetry;
-  let heldRead;
-  const requests = await mountOwnerLinks({ surface, fetch: async (request, options) => {
-    if (failChapterWrite && request.path.includes('/capitulos/') && request.method === 'PUT') {
-      failChapterWrite = false;
-      return Response.json({ error: 'UNAVAILABLE' }, { status: 503 });
-    }
-    if (request.path === '/api/creador/perfil' && request.method === 'GET') {
-      heldRead = await runtime.fetchApi(request.url, options);
-      return new Promise((resolve) => { resolveRetry = resolve; });
-    }
-    return runtime.fetchApi(request.url, options);
-  } });
-
-  await surface.chapterRows[0].querySelector('[data-chapter-add]').dispatch('click');
-  await settle();
-  await settle();
-  assert.equal(surface.reconcileRetry.hidden, false);
-
-  await api(runtime, `/api/creador/series/${created.series.id}/`, {
-    name: 'Ruta remota nueva', description: 'Descripción remota nueva',
-    version: created.series.version, profileVersion: initial.profile.version,
-  }, 'PATCH');
-  const remoteBefore = await ownerDto(runtime);
-
-  await surface.reconcileRetry.dispatch('click');
-  await settle();
-  assert.equal(typeof resolveRetry, 'function', 'the manual reconciliation GET is pending');
-  await surface.root.querySelector('[data-series-edit]').dispatch('click');
-  assert.equal(surface.seriesFormFields.name.value, 'Ruta original');
-  surface.seriesFormFields.description.value = 'Sólo quise cambiar descripción';
-  await surface.seriesFormFields.description.dispatch('input');
-
-  resolveRetry(heldRead);
-  await settle();
-  await settle();
-  await surface.seriesForm.dispatch('submit');
-  await settle();
-
-  const saved = await ownerDto(runtime);
-  const patch = requests.find(({ method, path }) => method === 'PATCH' && path === `/api/creador/series/${created.series.id}`);
-  assert.equal(patch.body.version, created.series.version, 'the active form keeps the version it observed');
-  assert.equal(patch.status, 409, 'the server rejects the stale form instead of accepting an old value');
-  assert.equal(saved.series[0].name, remoteBefore.series[0].name);
-  assert.equal(saved.series[0].description, remoteBefore.series[0].description);
-});
-
-test('una lectura manual vieja no resucita una serie borrada y permite volver a comprobar', async () => {
-  const runtime = await createCreatorOwnerRuntime();
-  runtime.setSession('creator-a');
-  await api(runtime, '/api/creador/perfil/', { displayName: 'Ana original', slug: 'ana-original' });
-  const created = await (await api(runtime, '/api/creador/series/', {
-    name: 'Ruta a eliminar', slug: 'ruta-eliminar', profileVersion: (await ownerDto(runtime)).profile.version,
-  }, 'POST')).json();
-  await api(runtime, '/api/creador/enlaces/', { title: 'Capítulo', url: 'https://example.com/chapter' }, 'POST');
-
-  const initial = await ownerDto(runtime);
-  const surface = createOwnerSeriesSurface({ ...initial, query: { serie: created.series.id } });
-  surface.setConfirmResult(true);
-  let failChapterWrite = true;
-  let holdFirstRead = true;
-  let resolveRetry;
-  let heldRead;
-  const requests = await mountOwnerLinks({ surface, fetch: async (request, options) => {
-    if (failChapterWrite && request.path.includes('/capitulos/') && request.method === 'PUT') {
-      failChapterWrite = false;
-      return Response.json({ error: 'UNAVAILABLE' }, { status: 503 });
-    }
-    if (holdFirstRead && request.path === '/api/creador/perfil' && request.method === 'GET') {
-      holdFirstRead = false;
-      heldRead = await runtime.fetchApi(request.url, options);
-      return new Promise((resolve) => { resolveRetry = resolve; });
-    }
-    return runtime.fetchApi(request.url, options);
-  } });
-
-  await surface.chapterRows[0].querySelector('[data-chapter-add]').dispatch('click');
-  await settle();
-  await settle();
-  assert.equal(surface.reconcileRetry.hidden, false);
-  await surface.reconcileRetry.dispatch('click');
-  await settle();
-  assert.equal(typeof resolveRetry, 'function');
-
-  await surface.chapterBack.dispatch('click');
-  assert.equal(surface.seriesListView.hidden, false);
-  await surface.seriesRows[0].querySelector('[data-series-delete]').dispatch('click');
-  await settle();
-  await settle();
-  await settle();
-  assert.equal((await ownerDto(runtime)).series.length, 0);
-  assert.equal(surface.seriesRows.length, 0, 'the confirmed delete initially updates the visible list');
-
-  resolveRetry(heldRead);
-  await settle();
-  await settle();
-  assert.equal(surface.seriesRows.length, 0, 'the older full snapshot cannot restore a series deleted after its read started');
-  assert.equal(surface.reconcileRetry.hidden, false, 'the rejected read leaves the explicit retry available');
-
-  await surface.reconcileRetry.dispatch('click');
-  await settle();
-  await settle();
-  assert.equal(surface.seriesRows.length, 0, 'a fresh explicit read adopts the current list');
-  assert.equal(surface.reconcileRetry.hidden, true);
-  assert.equal((await ownerDto(runtime)).series.length, 0);
-  assert.equal(requests.filter(({ path, method }) => path === `/api/creador/series/${created.series.id}` && method === 'DELETE').length, 1);
-});
 
 test('una respuesta tardía de foto no cambia la edición Datos abierta después de cancelar', async () => {
   const runtime = await createCreatorOwnerRuntime();
@@ -494,11 +373,16 @@ test('adoptar el primer perfil también carga su snapshot owner completo', async
     profileVersion: afterSeries.profile.version,
   }, 'PUT');
 
-  const seriesSurface = createOwnerSeriesSurface({ profile: {
-    id: 'placeholder', displayName: '', slug: '', version: 0,
-    published: false, hidden: false, city: '', country: '', bio: '', programs: [], socials: {},
-  } });
-  const surface = createInlineCreateSurface(seriesSurface);
+  const surface = createInlineCreateSurface(createOwnerLinksSurface({
+    profile: {
+      id: 'placeholder', displayName: '', slug: '', version: 0,
+      published: false, hidden: false, city: '', country: '', bio: '', programs: [], socials: {},
+    },
+    links: afterSeries.links,
+    editableResources: afterSeries.editableResources,
+    series: afterSeries.series,
+    query: { serie: remoteSeries.id },
+  }));
   surface.window.location.href = `https://dondeaprendo.example.invalid/cuenta/?vista=enlaces&serie=${encodeURIComponent(remoteSeries.id)}`;
   let reloads = 0;
   surface.window.location.reload = () => { reloads += 1; };

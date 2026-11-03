@@ -3,7 +3,6 @@ import { test } from 'node:test';
 import { createCreatorOwnerRuntime } from './fixtures/creator-owner-runtime.mjs';
 import { createOwnerLinksSurface, jsonResponse, sharedLink, stablePlacementId, mountOwnerLinks, settle } from './fixtures/creator-owner-links-browser.mjs';
 import { mountOwnerLinkMove } from './fixtures/creator-owner-link-move-browser.mjs';
-import { mountOwnerSeriesController } from './fixtures/creator-owner-series-browser.mjs';
 
 async function api(runtime, path, body, method = 'PUT') {
   const response = await runtime.fetchApi(path, {
@@ -115,44 +114,4 @@ test('a corrected URL uses the profile version adopted by the uncertain-attempt 
   assert.equal(saved.links.length, 1);
   assert.equal(saved.links[0].url, 'https://example.test/attempt-two');
   assert.equal(surface.addStatus.dataset.kind, 'success');
-});
-
-test('a series-delete receipt cannot advance placement versions that the DELETE does not change', async () => {
-  const seriesId = 'phase2-delete-series';
-  const link = sharedLink({
-    placementId: stablePlacementId('phase2-delete-placement'),
-    series: [{ seriesId, position: 10 }],
-    placementVersion: 9,
-  });
-  let deletionAttempted = false;
-  const { surface, requests } = await mountOwnerSeriesController({
-    profile: {
-      id: 'creator-1', displayName: 'Ana', slug: 'ana-delete-receipt', version: 14,
-      published: false, hidden: false, city: '', country: '', bio: '', programs: [], socials: {},
-    },
-    links: [link],
-    series: [{ id: seriesId, name: 'Ruta borrable', slug: 'ruta-borrable', description: 'Descripción', version: 3 }],
-    override: (request) => {
-      if (request.method === 'DELETE' && request.path === `/api/creador/series/${seriesId}`) {
-        deletionAttempted = true;
-        return new Response(null, { status: 204, headers: { 'Creator-Write-Versions': JSON.stringify([
-          { entity: 'profile', id: 'creator-1', before: 14, after: 15 },
-          { entity: 'placement', id: link.placementId, before: 9, after: 10 },
-        ]) } });
-      }
-      if (deletionAttempted && request.method === 'GET' && request.path === '/api/creador/perfil') {
-        return jsonResponse({ error: 'UNAVAILABLE' }, 503);
-      }
-      return undefined;
-    },
-  });
-
-  surface.setConfirmResult(true);
-  await surface.seriesList.querySelector('[data-series-delete]').dispatch('click');
-  await settle();
-
-  assert.equal(requests[0].status, 204);
-  assert.equal(surface.root.getAttribute('data-profile-version'), '14', 'the profile and placements are not adopted from an out-of-scope receipt');
-  assert.ok(surface.seriesList.querySelector('[data-owner-series-row]'), 'the series remains until the malformed receipt can be reconciled');
-  assert.equal(surface.reconcileRetry.hidden, false, 'the rejected acknowledgement requires a fresh owner snapshot');
 });

@@ -96,6 +96,14 @@ responden 405 con `Allow: GET`, sin redirección ni escritura. Las reglas de
 perfiles, enlaces compartidos, reclamaciones, fotos, analítica y selección para
 el directorio están en [páginas de creadores](creator-pages.md).
 
+El GET de Series usa una isla Preact con HTML de servidor para toda la edición
+del propietario, también al preparar una página todavía inexistente. La llegada
+por `/cuenta/` sigue siendo Enlaces. Las demás vistas usan documentos GET
+independientes; no se combinan ambos runtimes en una página. El formulario de
+cierre de sesión conserva su único controlador y envío POST dentro del menú
+de cuenta. La guardia de edición puede detener o reanudar ese envío, sin crear
+otro formulario ni sustituirlo al actualizar el perfil.
+
 `/cuenta/administracion/` sólo admite una sesión cuyo registro privado tenga
 `isAdmin: true`. El alta inicial de una persona administradora requiere una
 operación controlada sobre la cuenta ya existente, identificada por su

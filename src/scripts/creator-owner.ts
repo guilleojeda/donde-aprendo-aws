@@ -1,5 +1,12 @@
-import type { CreatorCatalogSelectionDTO, CreatorClaimDTO, CreatorClaimResourceDTO, CreatorEditableResourceDTO, CreatorEditorDTO, CreatorLinkDTO, CreatorProfileDTO, CreatorProgram, CreatorSeriesDTO, CreatorSocial } from '../types/creators';
-import { creatorResourceProjectionsAgree } from '../lib/creator-resource-consistency';
+import type { CreatorCatalogSelectionDTO, CreatorClaimDTO, CreatorClaimResourceDTO, CreatorEditableResourceDTO, CreatorEditorDTO, CreatorLinkDTO, CreatorProfileDTO, CreatorProgram, CreatorSocial } from '../types/creators';
+import {
+  isAdoptableOwnerData,
+  isCreatorLink,
+  isEditableResource,
+  isOwnerData,
+  isProfile,
+  isSafeClaimUrl,
+} from '../lib/creator-owner-data';
 import { normalizeCreatorText } from '../lib/creator-values.mjs';
 import { createCreatorFormState, type FormValueSnapshot } from './creator-form-state';
 import { createCreatorSessionRecovery } from './creator-session-recovery';
@@ -9,7 +16,6 @@ import {
   validateCreatorOwnerReceipts,
   type CreatorOwnerReceiptParticipant,
 } from './creator-write-state';
-import { creatorSeriesFailureMessage } from '../lib/creator-series-editor-errors';
 import {
   creatorOwnerLinksCountLabel,
   creatorOwnerLinkGroup,
@@ -20,16 +26,6 @@ import {
   selectCreatorOwnerLinks,
   type CreatorOwnerLinksQuery,
 } from '../lib/creator-owner-links';
-import {
-  creatorOwnerChapterOrder,
-  creatorOwnerSeriesHref,
-  creatorOwnerSeriesQueryFromForm,
-  DEFAULT_CREATOR_OWNER_SERIES_QUERY,
-  parseCreatorOwnerSeriesQuery,
-  selectCreatorOwnerChapters,
-  selectCreatorOwnerSeries,
-  type CreatorOwnerSeriesQuery,
-} from '../lib/creator-owner-series';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -40,105 +36,6 @@ function readOwnerSnapshot(): Promise<Response> {
     method: 'GET', credentials: 'same-origin', cache: 'no-store',
     headers: { 'x-creator-page-binding': root?.dataset.sessionBinding ?? '' },
   });
-}
-
-function isSafeClaimUrl(value: string): boolean {
-  if (!value || value.length > 2048) return false;
-  try {
-    const url = new URL(value);
-    return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password;
-  } catch {
-    return false;
-  }
-}
-
-function isProfile(value: unknown): value is CreatorProfileDTO {
-  return isRecord(value)
-    && typeof value.id === 'string' && value.id.length > 0
-    && typeof value.displayName === 'string' && typeof value.slug === 'string'
-    && Number.isSafeInteger(value.version) && Number(value.version) >= 0
-    && typeof value.published === 'boolean' && typeof value.hidden === 'boolean'
-    && Array.isArray(value.programs) && isRecord(value.socials);
-}
-
-function isCreatorClaim(value: unknown): value is CreatorClaimDTO {
-  if (!isRecord(value) || typeof value.id !== 'string' || value.id.length === 0
-    || !Array.isArray(value.resourceIds) || !value.resourceIds.every((id) => typeof id === 'string')) return false;
-  if (value.resources !== undefined) {
-    if (!Array.isArray(value.resources)) return false;
-    const observedIds = new Set<string>();
-    for (const candidate of value.resources) {
-      if (!isRecord(candidate) || Object.keys(candidate).sort().join(',') !== 'resourceId,url'
-        || typeof candidate.resourceId !== 'string' || !value.resourceIds.includes(candidate.resourceId)
-        || observedIds.has(candidate.resourceId) || typeof candidate.url !== 'string' || !isSafeClaimUrl(candidate.url)) return false;
-      observedIds.add(candidate.resourceId);
-    }
-  }
-  return (value.status === undefined || typeof value.status === 'string')
-    && (value.createdAt === undefined || (typeof value.createdAt === 'number' && Number.isFinite(value.createdAt)))
-    && (value.evidence === undefined || typeof value.evidence === 'string');
-}
-
-function isOwnerData(value: unknown): value is CreatorEditorDTO {
-  return isRecord(value) && (value.profile === null || isProfile(value.profile))
-    && Array.isArray(value.links) && Array.isArray(value.editableResources)
-    && creatorResourceProjectionsAgree(value.links, value.editableResources)
-    && Array.isArray(value.claims) && value.claims.every(isCreatorClaim) && Array.isArray(value.series);
-}
-
-function isCreatorLink(value: unknown): value is CreatorLinkDTO {
-  return isRecord(value)
-    && typeof value.placementId === 'string' && value.placementId.length > 0
-    && typeof value.resourceId === 'string' && value.resourceId.length > 0
-    && typeof value.title === 'string' && typeof value.url === 'string'
-    && typeof value.featured === 'boolean' && Number.isSafeInteger(value.position)
-    && typeof value.selectedForDirectory === 'boolean' && typeof value.hidden === 'boolean'
-    && typeof value.directoryApproval === 'string'
-    && Number.isSafeInteger(value.resourceVersion) && Number(value.resourceVersion) >= 0
-    && Number.isSafeInteger(value.placementVersion) && Number(value.placementVersion) >= 0
-    && Array.isArray(value.series) && value.series.every((membership) => isRecord(membership)
-      && typeof membership.seriesId === 'string' && membership.seriesId.length > 0
-      && Number.isSafeInteger(membership.position) && Number(membership.position) >= 0);
-}
-
-function isEditableResource(value: unknown): value is CreatorEditableResourceDTO {
-  return isRecord(value) && typeof value.id === 'string' && value.id.length > 0
-    && typeof value.title === 'string' && typeof value.url === 'string'
-    && Number.isSafeInteger(value.version) && Number(value.version) >= 0;
-}
-
-function isCreatorSeries(value: unknown): value is CreatorSeriesDTO {
-  return isRecord(value) && typeof value.id === 'string' && value.id.length > 0
-    && typeof value.name === 'string' && typeof value.slug === 'string'
-    && (value.description === undefined || typeof value.description === 'string')
-    && Number.isSafeInteger(value.version) && Number(value.version) >= 1;
-}
-
-function isAdoptableOwnerData(value: unknown): value is CreatorEditorDTO & { profile: CreatorProfileDTO } {
-  if (!isOwnerData(value) || !value.profile) return false;
-  const linkIds = new Set<string>();
-  const seriesIds = new Set<string>();
-  const resourceIds = new Set<string>();
-  const claimIds = new Set<string>();
-  for (const link of value.links) {
-    if (!isCreatorLink(link) || linkIds.has(link.placementId)) return false;
-    linkIds.add(link.placementId);
-  }
-  for (const item of value.series) {
-    if (!isCreatorSeries(item) || seriesIds.has(item.id)) return false;
-    seriesIds.add(item.id);
-  }
-  for (const resource of value.editableResources) {
-    if (!isEditableResource(resource) || resourceIds.has(resource.id)) return false;
-    resourceIds.add(resource.id);
-  }
-  for (const claim of value.claims) {
-    if (!isRecord(claim) || typeof claim.id !== 'string' || !claim.id
-      || claimIds.has(claim.id) || !Array.isArray(claim.resourceIds)
-      || !claim.resourceIds.every((id) => typeof id === 'string')) return false;
-    claimIds.add(claim.id);
-  }
-  return true;
 }
 
 const root = document.querySelector<HTMLElement>('[data-creator-owner]');
@@ -162,7 +59,7 @@ const formState = root ? createCreatorFormState(root) : undefined;
 const writeGuard = root ? createCreatorWriteGuard(root) : undefined;
 let csrfToken = root?.dataset.csrf;
 let activeForm: HTMLFormElement | undefined;
-let activeEditor: 'datos' | 'redes' | 'foto' | 'enlace' | 'alta-enlace' | 'referencia' | 'reclamacion' | 'mover-enlace' | 'serie' | 'mover-capitulo' | undefined;
+let activeEditor: 'datos' | 'redes' | 'foto' | 'enlace' | 'alta-enlace' | 'referencia' | 'reclamacion' | 'mover-enlace' | undefined;
 let returnFocus: HTMLElement | undefined;
 let pendingExitAction: (() => void) | undefined;
 let ownerHistoryIndex = 0;
@@ -192,31 +89,6 @@ let moveContextRevision = 0;
 let moveCompareGeneration = 0;
 let moveComparisonData: CreatorEditorDTO | undefined;
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
-let seriesSearchTimer: ReturnType<typeof setTimeout> | undefined;
-let activeSeriesContext: { seriesId?: string } | undefined;
-type SeriesCreateOutcome = 'conflict' | 'uncertain';
-type SeriesCreateAttempt = {
-  profileId: string;
-  profileVersion: number;
-  requestedSlug: string;
-  submitted: SeriesFormValues;
-  outcome?: SeriesCreateOutcome;
-};
-type SeriesFormValues = { name: string; slug: string; description: string };
-let activeSeriesCreateAttempt: SeriesCreateAttempt | undefined;
-let seriesContextRevision = 0;
-let seriesCompareGeneration = 0;
-let seriesComparisonData: CreatorEditorDTO | undefined;
-let seriesComparisonFormValues: SeriesFormValues | undefined;
-let activeChapterMoveContext: { seriesId: string; placementId: string } | undefined;
-let chapterMoveContextRevision = 0;
-let chapterMoveCompareGeneration = 0;
-let chapterMoveComparisonData: CreatorEditorDTO | undefined;
-let seriesSlugManuallyEdited = false;
-let seriesReconcileReadPending = false;
-type SeriesReconcileOutcome = 'confirmed' | 'uncertain' | 'conflict';
-let seriesReconcileOutcome: SeriesReconcileOutcome = 'confirmed';
-let seriesReconcileDeleteId: string | undefined;
 let manualSlug = false;
 let photoUploadId: string | undefined;
 let photoUploadFile: File | undefined;
@@ -441,7 +313,6 @@ async function runProfileFormAction(event: Event, action: ProfileFormAction) {
     await action(event);
   });
   if (event.target === catalogForm()) setCatalogSelectionLabel();
-  if (seriesReconcileReadPending) setSeriesMutationActionsUnavailable(true);
   if (!dialog?.open) runPendingExitAction();
 }
 
@@ -1085,20 +956,6 @@ function showDialogForm(form: HTMLFormElement, name: NonNullable<typeof activeEd
     moveComparisonData = undefined;
     activeMoveContext = undefined;
   }
-  if (name !== 'mover-capitulo') {
-    chapterMoveContextRevision += 1;
-    chapterMoveCompareGeneration += 1;
-    chapterMoveComparisonData = undefined;
-    activeChapterMoveContext = undefined;
-  }
-  if (name !== 'serie') {
-    seriesContextRevision += 1;
-    seriesCompareGeneration += 1;
-    seriesComparisonData = undefined;
-    seriesComparisonFormValues = undefined;
-    activeSeriesContext = undefined;
-    activeSeriesCreateAttempt = undefined;
-  }
   hideDialogForms();
   setHidden(catalogPanel(), name !== 'referencia' && name !== 'reclamacion');
   form.hidden = false;
@@ -1113,229 +970,6 @@ function showDialogForm(form: HTMLFormElement, name: NonNullable<typeof activeEd
     ? catalogControl<HTMLElement>('[data-catalog-search]')
     : form.querySelector<HTMLElement>('input:not([type="hidden"]), textarea, button');
   window.requestAnimationFrame(() => first?.focus?.());
-}
-
-function seriesForm(): HTMLFormElement | null {
-  return formFor('serie') ?? root?.querySelector<HTMLFormElement>('[data-series-form]') ?? null;
-}
-
-function chapterMoveForm(): HTMLFormElement | null {
-  return formFor('mover-capitulo') ?? root?.querySelector<HTMLFormElement>('[data-chapter-move-form]') ?? null;
-}
-
-function currentSeriesQuery(): CreatorOwnerSeriesQuery | undefined {
-  const params = new URL(window.location.href).searchParams;
-  if (params.get('vista') !== 'series') return undefined;
-  const parsed = parseCreatorOwnerSeriesQuery(params, state?.series ?? []);
-  return parsed.valid ? parsed.query : undefined;
-}
-
-function seriesElement<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string): HTMLElementTagNameMap[K] {
-  const node = document.createElement(tag);
-  if (text !== undefined) node.textContent = text;
-  return node;
-}
-
-function setSeriesPageLinks(nav: HTMLElement | null | undefined, attribute: 'seriesPage' | 'seriesChapterPage', query: CreatorOwnerSeriesQuery, page: number, pageCount: number) {
-  if (!nav) return;
-  const dataAttribute = `data-${attribute.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}`;
-  const paginationSelector = attribute === 'seriesPage' ? '[data-series-pagination]' : '[data-chapter-pagination]';
-  const focusedPageLink = document.activeElement instanceof HTMLElement
-    && document.activeElement.closest(paginationSelector) === nav
-    && document.activeElement.hasAttribute(dataAttribute)
-    ? document.activeElement as HTMLAnchorElement
-    : undefined;
-  const focusedLabel = focusedPageLink?.textContent?.trim();
-  nav.querySelectorAll<HTMLAnchorElement>(`[${dataAttribute}]`).forEach((item) => item.remove());
-  const add = (label: string, nextPage: number) => {
-    const link = seriesElement('a', label);
-    link.className = 'button button--outline';
-    link.dataset[attribute] = '';
-    link.href = creatorOwnerSeriesHref({ ...query, ...(attribute === 'seriesPage' ? { paginaSeries: nextPage } : { paginaCapitulos: nextPage }) });
-    nav.append(link);
-  };
-  if (page > 1) add('Anterior', page - 1);
-  if (page < pageCount) add('Siguiente', page + 1);
-  const label = nav.querySelector<HTMLElement>('span');
-  if (label) label.textContent = `Página ${page} de ${pageCount}`;
-  if (focusedPageLink) {
-    const replacement = [...nav.querySelectorAll<HTMLAnchorElement>(`[${dataAttribute}]`)]
-      .find((link) => link.textContent?.trim() === focusedLabel)
-      ?? nav.querySelector<HTMLAnchorElement>(`[${dataAttribute}]`);
-    if (replacement) window.requestAnimationFrame(() => replacement.focus());
-  }
-}
-
-function createOwnerSeriesRow(series: CreatorSeriesDTO, query: CreatorOwnerSeriesQuery): HTMLElement {
-  const row = seriesElement('li');
-  row.className = 'creator-owner__series-row';
-  row.id = series.id;
-  row.dataset.ownerSeriesRow = series.id;
-  row.dataset.seriesId = series.id;
-  const copy = seriesElement('div');
-  copy.className = 'creator-owner__series-copy';
-  const title = seriesElement('h3', series.name);
-  const slug = seriesElement('p', series.slug);
-  const count = state?.links.filter((link) => !link.hidden && link.series.some((membership) => membership.seriesId === series.id)).length ?? 0;
-  copy.append(title, slug, seriesElement('p', `${count} ${count === 1 ? 'capítulo visible' : 'capítulos visibles'}`));
-  const actions = seriesElement('div');
-  actions.className = 'creator-owner__series-actions';
-  const edit = seriesElement('button', 'Editar');
-  edit.type = 'button'; edit.className = 'button button--outline'; edit.dataset.seriesEdit = ''; edit.dataset.seriesId = series.id;
-  const chapters = seriesElement('a', 'Gestionar capítulos');
-  chapters.className = 'button button--outline'; chapters.dataset.seriesChapters = ''; chapters.dataset.seriesId = series.id;
-  chapters.href = creatorOwnerSeriesHref({ ...query, serie: series.id, buscarCapitulos: '', pertenencia: 'todos', paginaCapitulos: 1 });
-  const remove = seriesElement('button', 'Eliminar');
-  remove.type = 'button'; remove.className = 'button button--outline'; remove.dataset.seriesDelete = ''; remove.dataset.seriesId = series.id;
-  actions.append(edit, chapters, remove);
-  if (state?.profile?.published && !state.profile.hidden && count > 0) {
-    const publicLink = seriesElement('a', 'Abrir serie pública');
-    publicLink.className = 'button button--outline';
-    publicLink.href = `/c/${encodeURIComponent(state.profile.slug)}/series/${encodeURIComponent(series.slug)}/`;
-    actions.append(publicLink);
-  }
-  row.append(copy, actions);
-  return row;
-}
-
-function createOwnerChapterRow(link: CreatorLinkDTO, seriesId: string, completeOrder: CreatorLinkDTO[]): HTMLElement {
-  const row = seriesElement('li');
-  row.className = 'creator-owner__chapter';
-  row.dataset.chapterRow = link.placementId;
-  row.dataset.placementId = link.placementId;
-  const membership = link.series.find((item) => item.seriesId === seriesId);
-  const copy = seriesElement('div');
-  copy.className = 'creator-owner__chapter-copy';
-  copy.append(seriesElement('h4', link.title));
-  const url = seriesElement('a', link.url);
-  url.href = link.url; url.target = '_blank'; url.rel = 'noopener noreferrer';
-  copy.append(url);
-  if (membership) {
-    const ordinal = completeOrder.findIndex(({ placementId }) => placementId === link.placementId) + 1;
-    copy.append(seriesElement('p', `Incluido en la posición ${ordinal} de ${completeOrder.length}`));
-  } else copy.append(seriesElement('p', 'Disponible para agregar'));
-  if (link.hidden) copy.append(seriesElement('span', 'Oculto en catálogo'));
-  const actions = seriesElement('div');
-  actions.className = 'creator-owner__chapter-actions';
-  if (membership) {
-    const move = seriesElement('button', 'Mover capítulo');
-    move.type = 'button'; move.className = 'button button--outline'; move.dataset.chapterMove = ''; move.dataset.placementId = link.placementId;
-    const remove = seriesElement('button', 'Quitar capítulo');
-    remove.type = 'button'; remove.className = 'button button--outline'; remove.dataset.chapterRemove = ''; remove.dataset.placementId = link.placementId;
-    actions.append(move, remove);
-  } else {
-    const add = seriesElement('button', 'Agregar capítulo');
-    add.type = 'button'; add.className = 'button button--outline'; add.dataset.chapterAdd = ''; add.dataset.placementId = link.placementId;
-    actions.append(add);
-  }
-  row.append(copy, actions);
-  return row;
-}
-
-function renderOwnerSeries(query = currentSeriesQuery()): CreatorOwnerSeriesQuery | undefined {
-  if (!root || !state) return undefined;
-  if (!query) {
-    const params = new URL(window.location.href).searchParams;
-    const selectedIds = params.getAll('serie');
-    const selectedId = selectedIds.length === 1 ? selectedIds[0] : undefined;
-    const selectedSeriesStillExists = selectedId && state.series.some(({ id }) => id === selectedId);
-    if (params.get('vista') !== 'series' || !selectedId || selectedSeriesStillExists) return undefined;
-    const activeElement = document.activeElement;
-    const retryControl = root.querySelector('[data-series-reconcile-retry]');
-    const restoreSeriesSearchFocus = activeElement instanceof HTMLElement
-      && (activeElement === retryControl || Boolean(activeElement.closest('[data-owner-series-chapters]')));
-    params.delete('serie');
-    params.delete('buscarCapitulos');
-    params.delete('pertenencia');
-    params.delete('paginaCapitulos');
-    const parsed = parseCreatorOwnerSeriesQuery(params, state.series);
-    if (!parsed.valid) return undefined;
-    query = parsed.query;
-    const href = creatorOwnerSeriesHref(query);
-    if (`${window.location.pathname}${window.location.search}` !== href) replaceOwnerHistory(href);
-    if (restoreSeriesSearchFocus) {
-      const search = root.querySelector<HTMLElement>('[data-series-search]');
-      if (search) window.requestAnimationFrame(() => search.focus());
-    }
-  }
-  const selection = selectCreatorOwnerSeries(state.series, query);
-  const listView = root.querySelector<HTMLElement>('[data-owner-series-list-view]');
-  const chapterView = root.querySelector<HTMLElement>('[data-owner-series-chapters]');
-  const seriesList = listView?.querySelector<HTMLElement>('[data-owner-series-list]');
-  const seriesCount = listView?.querySelector<HTMLElement>('[data-series-count]');
-  const seriesSearch = listView?.querySelector<HTMLInputElement>('[data-series-search]');
-  const seriesPage = listView?.querySelector<HTMLInputElement>('[name="paginaSeries"]');
-  const seriesEmpty = listView?.querySelector<HTMLElement>('[data-series-empty]');
-  if (seriesSearch) seriesSearch.value = selection.query.buscarSeries;
-  if (seriesPage) seriesPage.value = String(selection.query.paginaSeries);
-  if (seriesCount) seriesCount.textContent = `${selection.totalMatches} ${selection.totalMatches === 1 ? 'serie' : 'series'}`;
-  if (seriesEmpty) {
-    seriesEmpty.textContent = selection.totalMatches ? 'No hay series en esta página.' : 'No hay series que coincidan con la búsqueda.';
-    setHidden(seriesEmpty, selection.rows.length > 0);
-  }
-  if (seriesList) {
-    seriesList.querySelectorAll<HTMLElement>('[data-owner-series-row]').forEach((row) => row.remove());
-    for (const item of selection.rows) seriesList.append(createOwnerSeriesRow(item, selection.query));
-  }
-  setSeriesMutationActionsUnavailable(seriesReconcileReadPending);
-  setSeriesPageLinks(listView?.querySelector<HTMLElement>('[data-series-pagination]'), 'seriesPage', selection.query, selection.query.paginaSeries, selection.pageCount);
-
-  const selectedSeries = state.series.find(({ id }) => id === query.serie);
-  const seriesMatches = Boolean(selectedSeries);
-  setHidden(listView, seriesMatches);
-  setHidden(chapterView, !seriesMatches);
-  if (seriesMatches && selectedSeries && chapterView) {
-    const contextName = chapterView.querySelector<HTMLElement>('[data-series-context-name]');
-    if (contextName) contextName.textContent = selectedSeries.name;
-    const back = chapterView.querySelector<HTMLAnchorElement>('[data-series-back]');
-    if (back) back.href = creatorOwnerSeriesHref({ ...query, serie: '', buscarCapitulos: '', pertenencia: 'todos', paginaCapitulos: 1 });
-    const publicLink = chapterView.querySelector<HTMLAnchorElement>('[data-series-public]');
-    const hasVisibleChapter = state.links.some((link) => !link.hidden
-      && link.series.some((membership) => membership.seriesId === selectedSeries.id));
-    const publicPath = state.profile?.published && !state.profile.hidden && hasVisibleChapter
-      ? `/c/${encodeURIComponent(state.profile.slug)}/series/${encodeURIComponent(selectedSeries.slug)}/`
-      : undefined;
-    if (publicLink) {
-      if (publicPath) publicLink.href = publicPath;
-      else publicLink.removeAttribute('href');
-      setHidden(publicLink, !publicPath);
-    }
-    const chapterSearch = chapterView.querySelector<HTMLInputElement>('[data-chapter-search]');
-    const membershipFilter = chapterView.querySelector<HTMLSelectElement>('[data-chapter-membership]');
-    const chapterSeries = chapterView.querySelector<HTMLInputElement>('[name="serie"]');
-    const chapterSeriesSearch = chapterView.querySelector<HTMLInputElement>('[name="buscarSeries"]');
-    const chapterSeriesPage = chapterView.querySelector<HTMLInputElement>('[name="paginaSeries"]');
-    const chapterPage = chapterView.querySelector<HTMLInputElement>('[name="paginaCapitulos"]');
-    if (chapterSearch) chapterSearch.value = query.buscarCapitulos;
-    if (membershipFilter) membershipFilter.value = query.pertenencia;
-    if (chapterSeries) chapterSeries.value = selectedSeries.id;
-    if (chapterSeriesSearch) chapterSeriesSearch.value = query.buscarSeries;
-    if (chapterSeriesPage) chapterSeriesPage.value = String(query.paginaSeries);
-    const chapterSelection = selectCreatorOwnerChapters(state, query);
-    if (chapterPage) chapterPage.value = String(chapterSelection.query.paginaCapitulos);
-    const chapterCount = chapterView.querySelector<HTMLElement>('[data-chapter-count]');
-    if (chapterCount) chapterCount.textContent = `${chapterSelection.totalMatches} ${chapterSelection.totalMatches === 1 ? 'coincidencia' : 'coincidencias'} de ${state.links.length} ${state.links.length === 1 ? 'enlace' : 'enlaces'}`;
-    const chapterSummary = chapterView.querySelector<HTMLElement>('[data-series-chapter-summary]');
-    if (chapterSummary) chapterSummary.textContent = `${chapterSelection.completeOrder.length} ${chapterSelection.completeOrder.length === 1 ? 'capítulo guardado' : 'capítulos guardados'} en el orden completo.`;
-    const chapterList = chapterView.querySelector<HTMLElement>('[data-chapter-rows]');
-    const completeOrder = chapterSelection.completeOrder;
-    const chapterEmpty = chapterView.querySelector<HTMLElement>('[data-chapter-empty]');
-    if (chapterEmpty) {
-      chapterEmpty.textContent = chapterSelection.totalMatches ? 'No hay enlaces en esta página.' : 'No hay enlaces que coincidan con esta búsqueda y pertenencia.';
-      setHidden(chapterEmpty, chapterSelection.rows.length > 0);
-    }
-    if (chapterList) {
-      chapterList.querySelectorAll<HTMLElement>('[data-chapter-row]').forEach((row) => row.remove());
-      for (const link of chapterSelection.rows) chapterList.append(createOwnerChapterRow(link, selectedSeries.id, completeOrder));
-      setSeriesMutationActionsUnavailable(seriesReconcileReadPending);
-    }
-    setSeriesPageLinks(chapterView.querySelector<HTMLElement>('[data-chapter-pagination]'), 'seriesChapterPage', chapterSelection.query, chapterSelection.query.paginaCapitulos, chapterSelection.pageCount);
-    const selectedEdit = chapterView.querySelector<HTMLButtonElement>('[data-series-edit]');
-    if (selectedEdit) selectedEdit.dataset.seriesId = selectedSeries.id;
-    const selectedEditLabel = selectedEdit;
-    if (selectedEditLabel) selectedEditLabel.textContent = `Editar ${selectedSeries.name}`;
-  }
-  return seriesMatches && selectedSeries ? selectCreatorOwnerChapters(state, query).query : selection.query;
 }
 
 function ownerHistoryState(index: number): Record<string, unknown> {
@@ -1405,22 +1039,8 @@ function replaceOwnerHistory(href: string) {
 }
 
 function focusRestoredOwnerLocation() {
-  const params = new URL(window.location.href).searchParams;
-  const selector = params.get('vista') === 'series'
-    ? params.get('serie') ? '[data-chapter-search]' : '[data-series-search]'
-    : '[data-link-search]';
-  const target = root?.querySelector<HTMLElement>(selector);
+  const target = root?.querySelector<HTMLElement>('[data-link-search]');
   if (target) window.requestAnimationFrame(() => target.focus());
-}
-
-function ownerSeriesFocusIsVisible(target: HTMLElement | undefined): boolean {
-  const ownerSeries = root?.querySelector<HTMLElement>('[data-owner-series]');
-  if (!target?.isConnected || !ownerSeries || target.closest('[data-owner-series]') !== ownerSeries) return false;
-  for (let ancestor: HTMLElement | null = target; ancestor; ancestor = ancestor.parentElement) {
-    if (ancestor.hidden || ancestor.getAttribute('aria-hidden') === 'true') return false;
-    if (ancestor === root) return true;
-  }
-  return false;
 }
 
 function ownerLinksFocusIsVisible(target: HTMLElement | undefined): boolean {
@@ -1442,22 +1062,6 @@ function restoreOwnerLinksFocusIfLost(target: HTMLElement | undefined, wasInOwne
   const pagerTarget = pageLinks.find((link) => link.textContent?.trim() === previousPageLabel) ?? pageLinks[0];
   if (pagerTarget?.isConnected) window.requestAnimationFrame(() => pagerTarget.focus());
   else focusRestoredOwnerLocation();
-}
-
-function restoreOwnerSeriesFocusIfLost(
-  target: HTMLElement | undefined,
-  wasInOwnerSeries: boolean,
-  paginationSelector?: string,
-) {
-  if (!wasInOwnerSeries || ownerSeriesFocusIsVisible(target)) return;
-  if (paginationSelector) {
-    const pagination = root?.querySelector<HTMLElement>(paginationSelector);
-    const pageLinkSelector = paginationSelector === '[data-series-pagination]'
-      ? '[data-series-page]'
-      : '[data-series-chapter-page]';
-    if (pagination && ownerSeriesFocusIsVisible(pagination) && pagination.querySelector(pageLinkSelector)) return;
-  }
-  focusRestoredOwnerLocation();
 }
 
 function completePendingOwnerHistoryNavigation() {
@@ -1486,12 +1090,6 @@ function handleOwnerPopstate(event: PopStateEvent) {
   const ownerLinks = root?.querySelector<HTMLElement>('[data-owner-links]');
   const focusWasInOwnerLinks = Boolean(focusedElement && ownerLinks
     && focusedElement.closest('[data-owner-links]') === ownerLinks);
-  const ownerSeries = root?.querySelector<HTMLElement>('[data-owner-series]');
-  const focusWasInOwnerSeries = Boolean(focusedElement && ownerSeries
-    && focusedElement.closest('[data-owner-series]') === ownerSeries);
-  const focusPaginationSelector = focusedElement?.closest('[data-series-page]')
-    ? '[data-series-pagination]'
-    : focusedElement?.closest('[data-series-chapter-page]') ? '[data-chapter-pagination]' : undefined;
   const targetIndex = ownerHistoryIndexFrom(event?.state);
   const hasPendingEditorChanges = Boolean(dialog?.open && activeEditor && hasPendingChanges());
   if (targetIndex !== undefined && targetIndex === ownerHistoryRestoreIndex) {
@@ -1512,19 +1110,16 @@ function handleOwnerPopstate(event: PopStateEvent) {
     if (hasPendingEditorChanges) showExitPrompt(() => {
       restoreLinksFromLocation();
       restoreOwnerLinksFocusIfLost(focusedElement, focusWasInOwnerLinks);
-      restoreOwnerSeriesFocusIfLost(focusedElement, focusWasInOwnerSeries, focusPaginationSelector);
     });
     else {
       restoreLinksFromLocation();
       restoreOwnerLinksFocusIfLost(focusedElement, focusWasInOwnerLinks);
-      restoreOwnerSeriesFocusIfLost(focusedElement, focusWasInOwnerSeries, focusPaginationSelector);
     }
     return;
   }
   if (targetIndex === ownerHistoryIndex) {
     restoreLinksFromLocation();
     restoreOwnerLinksFocusIfLost(focusedElement, focusWasInOwnerLinks);
-    restoreOwnerSeriesFocusIfLost(focusedElement, focusWasInOwnerSeries, focusPaginationSelector);
     return;
   }
 
@@ -1560,34 +1155,7 @@ function handleOwnerPopstate(event: PopStateEvent) {
     focusRestoredOwnerLocation();
   } else {
     restoreOwnerLinksFocusIfLost(focusedElement, focusWasInOwnerLinks);
-    restoreOwnerSeriesFocusIfLost(focusedElement, focusWasInOwnerSeries, focusPaginationSelector);
   }
-}
-
-function updateSeriesQuery(query: CreatorOwnerSeriesQuery, historyMode: 'push' | 'replace' = 'push') {
-  const effective = renderOwnerSeries(query) ?? query;
-  const href = creatorOwnerSeriesHref(effective);
-  const current = `${window.location.pathname}${window.location.search}`;
-  if (href !== current) {
-    if (historyMode === 'push') pushOwnerHistory(href);
-    else replaceOwnerHistory(href);
-  }
-  return effective;
-}
-
-function restoreSeriesFromLocation() {
-  if (!state || new URL(window.location.href).searchParams.get('vista') !== 'series') return false;
-  const parsed = parseCreatorOwnerSeriesQuery(new URL(window.location.href).searchParams, state.series);
-  if (!parsed.valid) {
-    renderOwnerSeries();
-    return true;
-  }
-  const effective = renderOwnerSeries(parsed.query);
-  if (effective) {
-    const href = creatorOwnerSeriesHref(effective);
-    if (`${window.location.pathname}${window.location.search}` !== href) replaceOwnerHistory(href);
-  }
-  return true;
 }
 
 function setLinkFormValues(
@@ -1822,125 +1390,6 @@ function openMoveContext(trigger: HTMLElement) {
   setMoveDescription(form, link);
   formState?.commit(capture(form));
   showDialogForm(form, 'mover-enlace', `Mover enlace: ${link.title}`, trigger);
-}
-
-function seriesById(id: string | undefined): CreatorSeriesDTO | undefined {
-  return id ? state?.series.find((item) => item.id === id) : undefined;
-}
-
-function setSeriesEditorIdentity(form: HTMLFormElement, item: CreatorSeriesDTO) {
-  const context = form.querySelector<HTMLElement>('[data-series-form-context]');
-  if (context) context.textContent = `Editando «${item.name}».`;
-  const title = root?.querySelector<HTMLElement>('[data-owner-dialog-title]');
-  if (title) title.textContent = `Editar serie: ${item.name}`;
-}
-
-function seriesFormValues(form: HTMLFormElement): SeriesFormValues {
-  return {
-    name: String(field(form, 'name')?.value ?? ''),
-    slug: String(field(form, 'slug')?.value ?? ''),
-    description: String(field(form, 'description')?.value ?? ''),
-  };
-}
-
-function sameSeriesFormValues(left: SeriesFormValues, right: SeriesFormValues): boolean {
-  return left.name === right.name && left.slug === right.slug && left.description === right.description;
-}
-
-function clearSeriesConflict(form: HTMLFormElement) {
-  seriesCompareGeneration += 1;
-  seriesComparisonData = undefined;
-  seriesComparisonFormValues = undefined;
-  const conflict = form.querySelector<HTMLElement>('[data-series-conflict]');
-  const title = conflict?.querySelector('h3');
-  if (title) title.textContent = 'La serie cambió';
-  setHidden(conflict, true);
-  const comparison = conflict?.querySelector<HTMLElement>('[data-owner-comparison]');
-  if (comparison) comparison.textContent = '';
-  setHidden(comparison, true);
-  setHidden(conflict?.querySelector('[data-owner-adopt]'), true);
-}
-
-function openSeriesEditor(trigger: HTMLElement, seriesId?: string) {
-  if (!state?.profile || !dialog) return;
-  const item = seriesById(seriesId);
-  if (seriesId && !item) return;
-  const form = seriesForm();
-  if (!form) return;
-  const name = field(form, 'name');
-  const slug = field(form, 'slug');
-  const description = field(form, 'description');
-  if (name) name.value = item?.name ?? '';
-  if (slug) slug.value = item?.slug ?? '';
-  if (description) description.value = item?.description ?? '';
-  activeLinkContext = undefined;
-  linkContextRevision += 1;
-  activeSeriesContext = item ? { seriesId: item.id } : {};
-  activeSeriesCreateAttempt = undefined;
-  seriesContextRevision += 1;
-  seriesSlugManuallyEdited = Boolean(item);
-  clearSeriesConflict(form);
-  const context = form.querySelector<HTMLElement>('[data-series-form-context]');
-  if (context) context.textContent = item ? `Editando «${item.name}».` : 'El nombre y la dirección de la serie se guardan juntos.';
-  clearAnnouncement(statusFor('serie'));
-  clearAnnouncement(pageStatus);
-  formState?.commit(capture(form));
-  showDialogForm(form, 'serie', item ? `Editar serie: ${item.name}` : 'Crear serie', trigger);
-}
-
-function setChapterMoveDescription(form: HTMLFormElement, seriesId: string, placementId: string) {
-  if (!state) return;
-  const target = state.links.find(({ placementId: id }) => id === placementId);
-  const series = seriesById(seriesId);
-  const input = field(form, 'targetPosition');
-  const context = form.querySelector<HTMLElement>('[data-chapter-move-context]');
-  if (!target || !series || !input || !context) return;
-  const order = creatorOwnerChapterOrder(state.links, seriesId);
-  const currentIndex = order.findIndex(({ placementId: id }) => id === placementId);
-  if (currentIndex < 0) return;
-  input.setAttribute('min', '1');
-  input.setAttribute('max', String(order.length));
-  const requested = Number(input.value);
-  if (!Number.isSafeInteger(requested) || requested < 1 || requested > order.length) {
-    context.textContent = `${series.name}: posición ${currentIndex + 1} de ${order.length}. Elige un ordinal de 1 a ${order.length}; se cuentan todos los capítulos, incluidos los ocultos.`;
-    return;
-  }
-  const withoutTarget = order.filter(({ placementId: id }) => id !== placementId);
-  const previous = withoutTarget[requested - 2];
-  const next = withoutTarget[requested - 1];
-  const neighbors = [previous ? `Después de «${previous.title}»` : 'Al inicio de la serie',
-    next ? `Antes de «${next.title}»` : 'Al final de la serie'];
-  context.textContent = `${series.name}: posición actual ${currentIndex + 1} de ${order.length}; destino ${requested} de ${order.length}. ${neighbors.join('. ')}.`;
-}
-
-function openChapterMove(trigger: HTMLElement) {
-  if (seriesReconcileReadPending && seriesReconcileOutcome !== 'confirmed') return;
-  if (!state?.profile || !dialog) return;
-  const seriesId = trigger.closest<HTMLElement>('[data-owner-series-chapters]')?.dataset.seriesId
-    || currentSeriesQuery()?.serie;
-  const placementId = trigger.dataset.placementId || trigger.closest<HTMLElement>('[data-chapter-row]')?.dataset.chapterRow;
-  const series = seriesById(seriesId);
-  const link = state.links.find(({ placementId: id }) => id === placementId);
-  const form = chapterMoveForm();
-  if (!series || !link || !form || !link.series.some((item) => item.seriesId === series.id)) return;
-  const order = creatorOwnerChapterOrder(state.links, series.id);
-  const index = order.findIndex(({ placementId: id }) => id === link.placementId);
-  if (index < 0) return;
-  activeChapterMoveContext = { seriesId: series.id, placementId: link.placementId };
-  chapterMoveContextRevision += 1;
-  chapterMoveCompareGeneration += 1;
-  chapterMoveComparisonData = undefined;
-  activeSeriesContext = undefined;
-  clearConflict(form);
-  const target = field(form, 'targetPosition');
-  if (target) target.value = String(index + 1);
-  setHidden(form.querySelector('[data-chapter-move-suggestion-shell]'), true);
-  const suggestion = form.querySelector<HTMLButtonElement>('[data-chapter-move-suggestion]');
-  if (suggestion) delete suggestion.dataset.viablePosition;
-  setChapterMoveDescription(form, series.id, link.placementId);
-  clearAnnouncement(statusFor('mover-capitulo'));
-  formState?.commit(capture(form));
-  showDialogForm(form, 'mover-capitulo', `Mover capítulo: ${link.title}`, trigger);
 }
 
 function openAddLink(trigger: HTMLElement) {
@@ -2241,7 +1690,6 @@ function updateLinksQuery(
 }
 
 function restoreLinksFromLocation() {
-  if (restoreSeriesFromLocation()) return;
   const parsed = parseCreatorOwnerLinksQuery(new URL(window.location.href).searchParams, state?.series ?? []);
   if (!parsed.valid) return;
   const effective = renderOwnerLinks(parsed.query);
@@ -2556,13 +2004,6 @@ function closeDialog({ navigate = true }: { navigate?: boolean } = {}) {
   moveContextRevision += 1;
   moveCompareGeneration += 1;
   moveComparisonData = undefined;
-  seriesContextRevision += 1;
-  seriesCompareGeneration += 1;
-  seriesComparisonData = undefined;
-  seriesComparisonFormValues = undefined;
-  chapterMoveContextRevision += 1;
-  chapterMoveCompareGeneration += 1;
-  chapterMoveComparisonData = undefined;
   catalogComparisonGeneration += 1;
   catalogComparisonData = undefined;
   activeCatalogCorrectionPlacementId = undefined;
@@ -2578,17 +2019,11 @@ function closeDialog({ navigate = true }: { navigate?: boolean } = {}) {
   activeEditor = undefined;
   activeLinkContext = undefined;
   activeMoveContext = undefined;
-  activeSeriesContext = undefined;
-  activeSeriesCreateAttempt = undefined;
-  activeChapterMoveContext = undefined;
   if (activeForm !== formFor('crear')) activeForm = undefined;
   clearConflict(undefined);
   const focus = returnFocus;
   returnFocus = undefined;
-  const seriesQuery = currentSeriesQuery();
-  const fallbackFocus = seriesQuery
-    ? root?.querySelector<HTMLElement>(seriesQuery.serie ? '[data-chapter-search]' : '[data-series-search]')
-    : root?.querySelector<HTMLElement>('[data-link-search]');
+  const fallbackFocus = root?.querySelector<HTMLElement>('[data-link-search]');
   if (focus && focus.isConnected) window.requestAnimationFrame(() => focus.focus());
   else if (fallbackFocus) window.requestAnimationFrame(() => fallbackFocus.focus());
   if (navigate) runPendingExitAction();
@@ -2682,23 +2117,6 @@ function resetForm(name: string, form: HTMLFormElement) {
     if (input && currentIndex >= 0) input.value = String(currentIndex + 1);
     if (target) setMoveDescription(form, target);
     setHidden(form.querySelector('[data-link-move-suggestion-shell]'), true);
-  } else if (name === 'serie') {
-    const item = seriesById(activeSeriesContext?.seriesId);
-    const nameInput = field(form, 'name');
-    const slug = field(form, 'slug');
-    const description = field(form, 'description');
-    if (nameInput) nameInput.value = item?.name ?? '';
-    if (slug) slug.value = item?.slug ?? '';
-    if (description) description.value = item?.description ?? '';
-    clearSeriesConflict(form);
-  } else if (name === 'mover-capitulo') {
-    const context = activeChapterMoveContext;
-    const order = context ? creatorOwnerChapterOrder(state?.links ?? [], context.seriesId) : [];
-    const currentIndex = context ? order.findIndex(({ placementId }) => placementId === context.placementId) : -1;
-    const target = field(form, 'targetPosition');
-    if (target && currentIndex >= 0) target.value = String(currentIndex + 1);
-    if (context) setChapterMoveDescription(form, context.seriesId, context.placementId);
-    setHidden(form.querySelector('[data-chapter-move-suggestion-shell]'), true);
   } else if (state?.profile) {
     setFormFromProfile(form, name, state.profile);
   }
@@ -2754,7 +2172,6 @@ function updateProfileState(profile: CreatorProfileDTO) {
   state.profile = profile;
   root?.setAttribute('data-profile-version', String(profile.version));
   updateProfileView();
-  renderOwnerSeries();
 }
 
 function maybeExitAfterSave(noPendingChanges: boolean) {
@@ -2878,624 +2295,6 @@ async function saveProfileForm(form: HTMLFormElement, name: 'crear' | 'datos' | 
   } finally {
     form.removeAttribute('aria-busy');
   }
-}
-
-function updateSeriesState(next: CreatorSeriesDTO, profileVersion: number) {
-  if (!state?.profile) return;
-  const exists = state.series.some(({ id }) => id === next.id);
-  state.series = exists
-    ? state.series.map((item) => item.id === next.id ? next : item)
-    : [...state.series, next];
-  state.profile = { ...state.profile, version: profileVersion };
-  root?.setAttribute('data-profile-version', String(profileVersion));
-  renderOwnerLinksAfterCollectionChange();
-  renderOwnerSeries();
-}
-
-function showSeriesConflict(
-  form: HTMLFormElement,
-  message = 'La serie cambió desde que abriste esta edición. Compara lo guardado con tu corrección antes de decidir cómo seguir.',
-  status = statusMessage(409),
-) {
-  const conflict = form.querySelector<HTMLElement>('[data-series-conflict]');
-  setHidden(conflict, false);
-  const title = conflict?.querySelector('h3');
-  if (title) title.textContent = activeSeriesContext?.seriesId ? 'La serie cambió' : 'Revisar el alta';
-  const copy = conflict?.querySelector<HTMLElement>('[data-owner-conflict-copy]');
-  if (copy) copy.textContent = message;
-  setHidden(conflict?.querySelector('[data-owner-comparison]'), true);
-  setHidden(conflict?.querySelector('[data-owner-adopt]'), true);
-  seriesComparisonData = undefined;
-  seriesComparisonFormValues = undefined;
-  announceWrite('serie', status, 'error');
-}
-
-async function saveSeriesForm(form: HTMLFormElement) {
-  const profile = state?.profile;
-  const context = activeSeriesContext;
-  const existing = seriesById(context?.seriesId);
-  if (!profile || !context) {
-    announceWrite('serie', 'Vuelve a abrir la serie para cargar sus versiones actuales.', 'error');
-    return;
-  }
-  if (context.seriesId && !existing) {
-    announceWrite('serie', 'La serie ya no está disponible. Actualiza la lista antes de crear o editar otra.', 'error');
-    return;
-  }
-  if (!context.seriesId && activeSeriesCreateAttempt) {
-    const conflict = form.querySelector<HTMLElement>('[data-series-conflict]');
-    const copy = conflict?.querySelector<HTMLElement>('[data-owner-conflict-copy]');
-    const previousComparison = seriesComparisonFormValues;
-    const currentValues = seriesFormValues(form);
-    const comparisonChanged = previousComparison !== undefined
-      && !sameSeriesFormValues(currentValues, previousComparison);
-    if (comparisonChanged) {
-      seriesComparisonData = undefined;
-      seriesComparisonFormValues = undefined;
-      setHidden(form.querySelector('[data-owner-comparison]'), true);
-      setHidden(form.querySelector('[data-owner-adopt]'), true);
-    }
-    const adopt = form.querySelector<HTMLButtonElement>('[data-owner-adopt]');
-    const cannotAdopt = Boolean(seriesComparisonData && adopt?.hidden);
-    setHidden(conflict, false);
-    const title = conflict?.querySelector('h3');
-    if (title) title.textContent = 'Revisar el alta';
-    if (copy && comparisonChanged) {
-      copy.textContent = 'Tus campos cambiaron después de la comparación. Compara de nuevo el alta original antes de decidir cómo seguir.';
-    } else if (copy && cannotAdopt) {
-      copy.textContent = 'No pudimos vincular el alta original a una serie actual. Conservamos tus campos; revisa la lista o descarta esta edición antes de iniciar otra.';
-    } else if (copy && !seriesComparisonData) {
-      copy.textContent = 'Compara el alta original con el estado guardado antes de volver a guardar. No repetiremos el alta desde estos campos.';
-    }
-    const message = comparisonChanged
-      ? 'Tus campos cambiaron después de la comparación. Vuelve a comparar antes de adoptar una versión.'
-      : cannotAdopt
-        ? 'No pudimos vincular el alta a una serie actual. Conservamos tus campos y no volveremos a enviarla.'
-        : seriesComparisonData
-          ? 'Adopta la versión que comparaste antes de guardar. El alta original no se volverá a enviar.'
-          : 'Compara el alta original antes de volver a guardar. No volveremos a enviarla.';
-    announceWrite('serie', message, 'info');
-    return;
-  }
-  if (!form.reportValidity()) return;
-  const submitted = capture(form);
-  const values = new FormData(form);
-  const submittedFields = seriesFormValues(form);
-  const name = normalizeCreatorText(String(values.get('name') ?? ''));
-  const slug = normalizeCreatorText(String(values.get('slug') ?? ''));
-  const description = normalizeCreatorText(String(values.get('description') ?? ''));
-  if (!name || !slug) return;
-  const path = existing
-    ? `/api/creador/series/${encodeURIComponent(existing.id)}`
-    : '/api/creador/series';
-  const body = existing
-    ? {
-      version: existing.version,
-      profileVersion: profile.version,
-      name,
-      slug,
-      ...(description !== (existing.description ?? '') ? { description } : {}),
-    }
-    : { name, slug, ...(description ? { description } : {}), profileVersion: profile.version };
-  if (!existing) {
-    activeSeriesCreateAttempt = {
-      profileId: profile.id,
-      profileVersion: profile.version,
-      requestedSlug: slug,
-      submitted: submittedFields,
-    };
-  }
-  form.setAttribute('aria-busy', 'true');
-  seriesCompareGeneration += 1;
-  seriesComparisonData = undefined;
-  seriesComparisonFormValues = undefined;
-  try {
-    const response = await jsonRequest(path, existing ? 'PATCH' : 'POST', body);
-    if (!response.ok) {
-      if (response.status === 409) {
-        const failure = await responsePayload(response);
-        if (failure?.error === 'SERIES_SLUG_TAKEN') {
-          activeSeriesCreateAttempt = undefined;
-          clearSeriesConflict(form);
-          announceWrite('serie', await creatorSeriesFailureMessage(response, statusMessage(response.status)), 'error');
-        } else {
-          if (!existing && activeSeriesCreateAttempt) activeSeriesCreateAttempt.outcome = 'conflict';
-          showSeriesConflict(form, existing
-            ? undefined
-            : 'La creación encontró un conflicto. Compara el estado actual y decide expresamente cómo seguir.');
-        }
-      } else if (!existing && (response.status === 408 || response.status >= 500)) {
-        if (activeSeriesCreateAttempt) activeSeriesCreateAttempt.outcome = 'uncertain';
-        showSeriesConflict(form,
-          'No pudimos confirmar si la serie se creó. Comprueba lo guardado antes de volver a intentar; no repetiremos el alta automáticamente.',
-          'No pudimos confirmar el alta. Compara el estado guardado antes de volver a intentar.');
-      } else {
-        if (!existing) activeSeriesCreateAttempt = undefined;
-        announceWrite('serie', statusMessage(response.status), 'error');
-      }
-      return;
-    }
-    const payload = await responsePayload(response);
-    const changes = await readCreatorVersionChanges(response);
-    const next = payload?.series;
-    const seriesId = isRecord(next) && typeof next.id === 'string' ? next.id : '';
-    const profileParticipant: CreatorOwnerReceiptParticipant = {
-      entity: 'profile', id: profile.id, before: profile.version, transition: 'increment',
-      required: !existing,
-    };
-    const seriesParticipant: CreatorOwnerReceiptParticipant = {
-      entity: 'series', id: existing?.id ?? seriesId, before: existing?.version ?? 0,
-      transition: existing ? 'increment' : 'created-one', required: !existing,
-    };
-    const validReceipts = validateCreatorOwnerReceipts(changes, [profileParticipant, seriesParticipant]);
-    const seriesReceipt = changes?.find((change) => change.entity === 'series' && change.id === seriesId);
-    const profileReceipt = changes?.find((change) => change.entity === 'profile' && change.id === profile.id);
-    const expectedDescriptionIsPresent = existing && !Object.hasOwn(body, 'description')
-      ? Object.hasOwn(existing, 'description')
-      : Object.hasOwn(body, 'description');
-    const expectedDescription = existing && !Object.hasOwn(body, 'description')
-      ? existing.description
-      : body.description;
-    const valid = payload !== null && isCreatorSeries(next)
-      && (existing ? next.id === existing.id && response.status === 200
-        : !state?.series.some(({ id }) => id === next.id) && response.status === 201)
-      && next.name === name && next.slug === slug
-      && Object.hasOwn(next, 'description') === expectedDescriptionIsPresent
-      && next.description === expectedDescription
-      && next.version === (seriesReceipt?.after ?? existing?.version ?? 0)
-      && payload.profileVersion === (profileReceipt?.after ?? profile.version)
-      && Boolean(seriesReceipt) === Boolean(profileReceipt)
-      && (!existing || seriesReceipt !== undefined || (next.name === existing.name && next.slug === existing.slug
-        && Object.hasOwn(next, 'description') === Object.hasOwn(existing, 'description')
-        && next.description === existing.description))
-      && validReceipts;
-    if (!valid || !isCreatorSeries(next)) {
-      if (!existing && activeSeriesCreateAttempt) activeSeriesCreateAttempt.outcome = 'uncertain';
-      showSeriesConflict(form,
-        'La respuesta no coincide con las versiones y los datos de esta serie. Conservamos tu edición para revisarla.',
-        'No pudimos comprobar el recibo. Conservamos tu edición y no la marcamos como guardada.');
-      return;
-    }
-    const profileVersion = profileReceipt?.after ?? profile.version;
-    if (!existing) {
-      activeSeriesContext = { seriesId: next.id };
-      activeSeriesCreateAttempt = undefined;
-      seriesContextRevision += 1;
-      seriesCompareGeneration += 1;
-      seriesComparisonData = undefined;
-      seriesComparisonFormValues = undefined;
-      setSeriesEditorIdentity(form, next);
-    }
-    updateSeriesState(next, profileVersion);
-    clearRecoveryNotice();
-    const unchanged = submitWasUnchanged(submitted);
-    if (unchanged) {
-      const nameField = field(form, 'name');
-      const slugField = field(form, 'slug');
-      const descriptionField = field(form, 'description');
-      if (nameField) nameField.value = next.name;
-      if (slugField) slugField.value = next.slug;
-      if (descriptionField) descriptionField.value = next.description ?? '';
-      formState?.commit(capture(form));
-      announceWrite('serie', existing ? 'Cambios guardados.' : 'Serie creada. Ya puedes agregarle capítulos.', 'success');
-    } else {
-      formState?.commit(submitted);
-      announceWrite('serie', `${existing ? 'Serie guardada.' : 'Serie creada.'} Conservamos la corrección que escribiste mientras se guardaba; revísala antes de volver a guardar.`, 'success');
-    }
-    maybeExitAfterSave(unchanged);
-  } catch {
-    if (!existing && activeSeriesCreateAttempt) {
-      activeSeriesCreateAttempt.outcome = 'uncertain';
-      showSeriesConflict(form,
-        'No pudimos confirmar si la serie se creó. Comprueba lo guardado antes de volver a intentar; no repetiremos el alta automáticamente.',
-        'No pudimos confirmar el alta. Compara el estado guardado antes de volver a intentar.');
-    } else {
-      announceWrite('serie', 'No pudimos confirmar la respuesta del servicio. La edición sigue abierta; comprueba el estado antes de volver a guardar.', 'error');
-    }
-  } finally {
-    form.removeAttribute('aria-busy');
-  }
-}
-
-function seriesComparisonIsCurrent(form: HTMLFormElement, seriesId: string | undefined, revision: number, generation: number): boolean {
-  return generation === seriesCompareGeneration && revision === seriesContextRevision
-    && activeForm === form && activeEditor === 'serie' && !form.hidden
-    && activeSeriesContext?.seriesId === seriesId;
-}
-
-function canAdoptSeriesCreateProfile(attempt: SeriesCreateAttempt, profile: CreatorProfileDTO): boolean {
-  return attempt.profileId === profile.id
-    && ((attempt.outcome === 'conflict' && profile.version > attempt.profileVersion)
-      || (attempt.outcome === 'uncertain' && profile.version === attempt.profileVersion));
-}
-
-async function compareSavedSeries(form: HTMLFormElement) {
-  if (!activeSeriesContext || !state?.profile) return;
-  const context = { ...activeSeriesContext };
-  const profileId = state.profile.id;
-  const createAttempt = !context.seriesId ? activeSeriesCreateAttempt : undefined;
-  const revision = seriesContextRevision;
-  const generation = ++seriesCompareGeneration;
-  seriesComparisonData = undefined;
-  seriesComparisonFormValues = undefined;
-  setHidden(form.querySelector('[data-owner-adopt]'), true);
-  setHidden(form.querySelector('[data-owner-comparison]'), true);
-  announce(statusFor('serie'), 'Consultando la serie guardada…', 'info');
-  try {
-    const response = await readOwnerSnapshot();
-    if (response.status === 401) await sessionRecovery?.observeWriteResponse(response);
-    if (!seriesComparisonIsCurrent(form, context.seriesId, revision, generation)) return;
-    if (!response.ok) {
-      announceWrite('serie', response.status === 401 ? sessionRecovery?.writeFailureMessage() ?? statusMessage(401) : 'No pudimos leer la serie guardada. Tu corrección sigue aquí.', 'error');
-      return;
-    }
-    const payload = await responsePayload(response);
-    if (!seriesComparisonIsCurrent(form, context.seriesId, revision, generation)) return;
-    if (!payload || !isAdoptableOwnerData(payload) || payload.profile.id !== profileId) {
-      announceWrite('serie', 'No pudimos confirmar que los datos guardados correspondan a esta página. Conservamos tu edición.', 'error');
-      return;
-    }
-    if (!context.seriesId && (!createAttempt || createAttempt.profileId !== profileId || !createAttempt.outcome)) {
-      announceWrite('serie', 'No pudimos identificar el alta que quieres comprobar. Conservamos tus campos y no adoptamos otra versión.', 'error');
-      return;
-    }
-    const matches = context.seriesId
-      ? payload.series.filter(({ id }) => id === context.seriesId)
-      : payload.series.filter(({ slug }) => slug === createAttempt?.requestedSlug);
-    if (matches.length > 1) {
-      announceWrite('serie', 'Hay más de una serie con la dirección enviada. Conservamos tus campos y no adoptamos una versión ambigua.', 'error');
-      return;
-    }
-    const saved = matches[0];
-    if (context.seriesId && !saved) {
-      announceWrite('serie', 'Esta serie ya no existe en la lista guardada. Conservamos los campos para que decidas cómo seguir.', 'error');
-      return;
-    }
-    const comparison = form.querySelector<HTMLElement>('[data-owner-comparison]');
-    const adopt = form.querySelector<HTMLButtonElement>('[data-owner-adopt]');
-    const comparedFields = seriesFormValues(form);
-    seriesComparisonFormValues = comparedFields;
-    let canAdoptProfileOnly = false;
-    if (comparison) {
-      if (saved) {
-        comparison.textContent = `Perfil guardado, versión ${payload.profile.version}. Serie guardada, versión ${saved.version}.\nNombre guardado: ${saved.name || '—'} | Tu corrección: ${comparedFields.name || '—'}\nDirección guardada: ${saved.slug || '—'} | Tu corrección: ${comparedFields.slug || '—'}\nDescripción guardada: ${saved.description || '—'} | Tu corrección: ${comparedFields.description || '—'}`;
-        if (adopt) adopt.textContent = 'Usar la versión guardada';
-      } else if (createAttempt && canAdoptSeriesCreateProfile(createAttempt, payload.profile)) {
-        canAdoptProfileOnly = true;
-        comparison.textContent = createAttempt.outcome === 'conflict'
-          ? `Perfil guardado, versión ${payload.profile.version}. No hay una serie activa con la dirección enviada «${createAttempt.requestedSlug}». Si se usó antes, esa dirección podría seguir reservada por un alias. Conservamos el nombre, la dirección y la descripción para un intento manual.`
-          : `Perfil guardado, versión ${payload.profile.version}. Esta comprobación no muestra una serie activa con la dirección enviada «${createAttempt.requestedSlug}» y el perfil sigue en la versión enviada. No vemos cambios que indiquen que el alta se guardó; conservamos tus campos para un intento manual.`;
-        if (adopt) adopt.textContent = 'Usar la versión actual del perfil';
-      } else if (createAttempt) {
-        if (payload.profile.version < createAttempt.profileVersion) {
-          comparison.textContent = `La lectura devolvió el perfil versión ${payload.profile.version}, anterior a la versión ${createAttempt.profileVersion} enviada. Conservamos tus campos y no adoptamos una versión posiblemente desactualizada.`;
-        } else if (createAttempt.outcome === 'conflict') {
-          comparison.textContent = `Perfil guardado, versión ${payload.profile.version}. El intento fue rechazado y no encontramos una serie activa con la dirección enviada «${createAttempt.requestedSlug}». Esa dirección aún podría estar reservada por un alias. Conservamos tus campos y no adoptamos una versión que no avance el perfil.`;
-        } else {
-          comparison.textContent = `Perfil guardado, versión ${payload.profile.version}. No encontramos una serie activa con la dirección inicial «${createAttempt.requestedSlug}». La serie pudo cambiar de dirección o eliminarse; las direcciones anteriores pueden seguir reservadas. Conservamos tus campos y no adoptamos un registro que no podemos identificar.`;
-        }
-        if (adopt) adopt.textContent = 'Usar la versión guardada';
-      }
-    }
-    setHidden(comparison, false);
-    setHidden(adopt, Boolean(!saved && !canAdoptProfileOnly));
-    seriesComparisonData = payload;
-    announceWrite('serie', saved || canAdoptProfileOnly
-      ? 'Compara los valores y elige expresamente qué versión quieres usar.'
-      : 'No podemos vincular con seguridad esta creación a una serie actual. Conservamos tus campos.', 'info');
-  } catch {
-    if (seriesComparisonIsCurrent(form, context.seriesId, revision, generation)) {
-      announceWrite('serie', 'No pudimos conectar para leer la serie guardada. Tu corrección sigue aquí.', 'error');
-    }
-  }
-}
-
-function adoptSavedSeries(form: HTMLFormElement) {
-  const context = activeSeriesContext;
-  const payload = seriesComparisonData;
-  if (!context || !payload || activeForm !== form || activeEditor !== 'serie' || form.hidden
-    || !isAdoptableOwnerData(payload) || !state?.profile || payload.profile.id !== state.profile.id) return;
-  const createAttempt = !context.seriesId ? activeSeriesCreateAttempt : undefined;
-  if (!context.seriesId && (!createAttempt || createAttempt.profileId !== payload.profile.id || !createAttempt.outcome)) return;
-  const matches = context.seriesId
-    ? payload.series.filter(({ id }) => id === context.seriesId)
-    : payload.series.filter(({ slug }) => slug === createAttempt?.requestedSlug);
-  if (matches.length > 1) return;
-  const saved = matches[0];
-  if (context.seriesId && !saved) return;
-  const canAdoptProfileOnly = Boolean(!context.seriesId && createAttempt
-    && canAdoptSeriesCreateProfile(createAttempt, payload.profile));
-  if (!saved && !canAdoptProfileOnly) return;
-  const name = field(form, 'name');
-  const slug = field(form, 'slug');
-  const description = field(form, 'description');
-  const currentFields = seriesFormValues(form);
-  if (!seriesComparisonFormValues
-    || !sameSeriesFormValues(currentFields, seriesComparisonFormValues)) {
-    seriesComparisonData = undefined;
-    seriesComparisonFormValues = undefined;
-    setHidden(form.querySelector('[data-owner-adopt]'), true);
-    announceWrite('serie', 'Tus campos cambiaron después de la comparación. Vuelve a comparar antes de adoptar una versión.', 'info');
-    return;
-  }
-  const current = seriesById(context.seriesId);
-  const localValues = currentFields;
-  if (saved) {
-    const comparisonBase = current ?? createAttempt?.submitted;
-    const localCorrections = {
-      name: comparisonBase && localValues.name !== comparisonBase.name ? localValues.name : undefined,
-      slug: comparisonBase && localValues.slug !== comparisonBase.slug ? localValues.slug : undefined,
-      description: comparisonBase && localValues.description !== (comparisonBase.description ?? '') ? localValues.description : undefined,
-    };
-    if (name) name.value = saved.name;
-    if (slug) slug.value = saved.slug;
-    if (description) description.value = saved.description ?? '';
-    formState?.commit(capture(form));
-    if (name && localCorrections.name !== undefined) name.value = localCorrections.name;
-    if (slug && localCorrections.slug !== undefined) slug.value = localCorrections.slug;
-    if (description && localCorrections.description !== undefined) description.value = localCorrections.description;
-    seriesSlugManuallyEdited = true;
-    setSeriesEditorIdentity(form, saved);
-    activeSeriesContext = { seriesId: saved.id };
-    activeSeriesCreateAttempt = undefined;
-    seriesContextRevision += 1;
-  } else {
-    activeSeriesCreateAttempt = undefined;
-  }
-  adoptOwnerSnapshot(payload, form);
-  clearSeriesConflict(form);
-  announceWrite('serie', 'Adoptaste expresamente la versión guardada. Tus campos siguen en el formulario para decidir qué guardar.', 'success');
-}
-
-function chapterMovePositionInput(form: HTMLFormElement): HTMLInputElement | null {
-  return form.querySelector<HTMLInputElement>('input[name="targetPosition"]');
-}
-
-function chapterMoveIsCurrent(form: HTMLFormElement, context: { seriesId: string; placementId: string }, revision: number, generation?: number): boolean {
-  return activeForm === form && activeEditor === 'mover-capitulo' && !form.hidden
-    && activeChapterMoveContext?.seriesId === context.seriesId
-    && activeChapterMoveContext.placementId === context.placementId
-    && revision === chapterMoveContextRevision
-    && (generation === undefined || generation === chapterMoveCompareGeneration);
-}
-
-function showChapterMoveConflict(form: HTMLFormElement, message = 'El orden de esta serie cambió desde que abriste el movimiento. Compara el estado guardado con tu destino antes de decidir cómo seguir.') {
-  const conflict = form.querySelector<HTMLElement>('[data-chapter-move-conflict]')
-    ?? form.querySelector<HTMLElement>('[data-owner-conflict]');
-  setHidden(conflict, false);
-  const copy = conflict?.querySelector<HTMLElement>('[data-owner-conflict-copy]');
-  if (copy) copy.textContent = message;
-  setHidden(conflict?.querySelector('[data-owner-comparison]'), true);
-  setHidden(conflict?.querySelector('[data-owner-adopt]'), true);
-  chapterMoveComparisonData = undefined;
-  announceWrite('mover-capitulo', statusMessage(409), 'error');
-}
-
-async function saveChapterMoveForm(form: HTMLFormElement) {
-  if (seriesReconcileReadPending && seriesReconcileOutcome !== 'confirmed') {
-    announceWrite('mover-capitulo', 'Comprueba la lista antes de mover otro capítulo.', 'info');
-    return;
-  }
-  const context = activeChapterMoveContext;
-  const profile = state?.profile;
-  const series = context ? seriesById(context.seriesId) : undefined;
-  const target = context ? state?.links.find(({ placementId }) => placementId === context.placementId) : undefined;
-  const input = chapterMovePositionInput(form);
-  const placementVersion = target?.placementVersion;
-  if (!context || !profile || !series || !target || !input || typeof placementVersion !== 'number'
-    || !Number.isSafeInteger(placementVersion) || placementVersion < 0
-    || !target.series.some((item) => item.seriesId === series.id)) {
-    announceWrite('mover-capitulo', 'Vuelve a abrir el capítulo para cargar la serie y sus versiones actuales.', 'error');
-    return;
-  }
-  const order = creatorOwnerChapterOrder(state?.links ?? [], series.id);
-  const requested = Number(input.value);
-  if (!form.reportValidity() || !Number.isSafeInteger(requested) || requested < 1 || requested > order.length) return;
-  const submitted = capture(form);
-  chapterMoveCompareGeneration += 1;
-  chapterMoveComparisonData = undefined;
-  setHidden(form.querySelector('[data-chapter-move-suggestion-shell]'), true);
-  form.setAttribute('aria-busy', 'true');
-  try {
-    const response = await jsonRequest(`/api/creador/series/${encodeURIComponent(series.id)}/capitulos/${encodeURIComponent(target.placementId)}/mover`, 'POST', {
-      profileVersion: profile.version,
-      seriesVersion: series.version,
-      placementVersion,
-      targetPosition: requested,
-    });
-    if (!chapterMoveIsCurrent(form, context, chapterMoveContextRevision)) return;
-    if (!response.ok) {
-      if (response.status === 409) showChapterMoveConflict(form);
-      else if (response.status === 422) {
-        const payload = await responsePayload(response);
-        const suggestionPosition = payload?.error === 'ORDER_MOVE_LIMIT' && Number.isSafeInteger(payload.viablePosition)
-          ? Number(payload.viablePosition) : undefined;
-        const currentIndex = order.findIndex(({ placementId }) => placementId === target.placementId);
-        const usable = suggestionPosition !== undefined && suggestionPosition >= 1 && suggestionPosition <= order.length
-          && suggestionPosition !== currentIndex + 1
-          && Math.abs(suggestionPosition - (currentIndex + 1)) < Math.abs(requested - (currentIndex + 1));
-        const shell = form.querySelector<HTMLElement>('[data-chapter-move-suggestion-shell]');
-        const suggestion = form.querySelector<HTMLButtonElement>('[data-chapter-move-suggestion]');
-        if (usable && suggestion && shell) {
-          suggestion.dataset.viablePosition = String(suggestionPosition);
-          suggestion.textContent = `Usar posición intermedia ${suggestionPosition}`;
-          setHidden(shell, false);
-        }
-        announceWrite('mover-capitulo', payload?.error === 'ORDER_MOVE_LIMIT'
-          ? 'Ese movimiento supera el límite de una operación. Conservamos tu destino; puedes elegir una posición intermedia y guardar de nuevo.'
-          : statusMessage(422), 'error');
-      } else if (await isOrderMoveCalculationUnavailable(response)) {
-        announceWrite('mover-capitulo', 'No pudimos calcular este movimiento', 'error');
-      } else announceWrite('mover-capitulo', statusMessage(response.status), 'error');
-      return;
-    }
-    const payload = await responsePayload(response);
-    const changes = await readCreatorVersionChanges(response);
-    const raw = payload?.links;
-    const candidates = Array.isArray(raw) && raw.every(isCreatorLink) ? raw : undefined;
-    const byId = new Map((candidates ?? []).map((link) => [link.placementId, link]));
-    let candidatesValid = candidates !== undefined && byId.size === candidates.length && byId.has(target.placementId);
-    for (const candidate of byId.values()) {
-      const current = state?.links.find(({ placementId }) => placementId === candidate.placementId);
-      const beforeMembership = current?.series.find((item) => item.seriesId === series.id);
-      const nextMembership = candidate.series.find((item) => item.seriesId === series.id);
-      const otherMembershipsBefore = current?.series.filter((item) => item.seriesId !== series.id) ?? [];
-      const otherMembershipsAfter = candidate.series.filter((item) => item.seriesId !== series.id);
-      const placementReceipt = changes?.find((change) => change.entity === 'placement' && change.id === candidate.placementId);
-      if (!current || !beforeMembership || !nextMembership || current.resourceId !== candidate.resourceId
-        || JSON.stringify(otherMembershipsBefore) !== JSON.stringify(otherMembershipsAfter)
-        || !Number.isSafeInteger(nextMembership.position) || nextMembership.position < 0
-        || typeof current.placementVersion !== 'number' || !Number.isSafeInteger(current.placementVersion)
-        || (nextMembership.position !== beforeMembership.position && !placementReceipt)
-        || candidate.placementVersion !== (placementReceipt?.after ?? current.placementVersion)) {
-        candidatesValid = false;
-      }
-    }
-    const allowedReceipts: CreatorOwnerReceiptParticipant[] = [
-      { entity: 'profile', id: profile.id, before: profile.version, transition: 'increment' },
-      ...[...byId.keys()].flatMap((id) => {
-        const current = state?.links.find(({ placementId }) => placementId === id);
-        return current && typeof current.placementVersion === 'number'
-          ? [{ entity: 'placement' as const, id, before: current.placementVersion, transition: 'increment' as const }]
-          : [];
-      }),
-    ];
-    const receiptsValid = validateCreatorOwnerReceipts(changes, allowedReceipts);
-    const profileReceipt = changes?.find((change) => change.entity === 'profile' && change.id === profile.id);
-    const placementReceipts = changes?.filter((change) => change.entity === 'placement') ?? [];
-    const resultingOrder = order.map((link) => {
-      const candidate = byId.get(link.placementId);
-      const current = link.series.find((item) => item.seriesId === series.id);
-      const candidateMembership = candidate?.series.find((item) => item.seriesId === series.id);
-      return { link, position: candidateMembership?.position ?? current?.position ?? 0 };
-    }).sort((left, right) => left.position - right.position || left.link.placementId.localeCompare(right.link.placementId));
-    const resultingOrdinal = resultingOrder.findIndex(({ link }) => link.placementId === target.placementId) + 1;
-    const nextTarget = byId.get(target.placementId);
-    const targetMembership = nextTarget?.series.find((item) => item.seriesId === series.id);
-    if (!payload || !Array.isArray(raw) || !nextTarget || !targetMembership || !candidatesValid
-      || resultingOrdinal !== requested || !receiptsValid
-      || Boolean(profileReceipt) !== (placementReceipts.length > 0)) {
-      showChapterMoveConflict(form, 'La respuesta no coincide con el orden y las versiones observadas. Conservamos el destino y no adoptamos datos sin confirmar.');
-      announceWrite('mover-capitulo', 'No pudimos comprobar el recibo del movimiento. Conservamos el destino para revisarlo antes de volver a guardar.', 'error');
-      return;
-    }
-    const updates = new Map([...byId.values()].map((candidate) => [candidate.placementId, candidate]));
-    state!.links = state!.links.map((current) => {
-      const candidate = updates.get(current.placementId);
-      if (!candidate) return current;
-      const candidateMembership = candidate.series.find((item) => item.seriesId === series.id);
-      const seriesMemberships = candidateMembership
-        ? current.series.map((item) => item.seriesId === series.id ? { ...item, position: candidateMembership.position } : item)
-        : current.series;
-      const receipt = changes?.find((change) => change.entity === 'placement' && change.id === current.placementId);
-      return { ...current, series: seriesMemberships, placementVersion: receipt?.after ?? current.placementVersion };
-    });
-    const changed = placementReceipts.length > 0;
-    state!.profile = { ...profile, version: profileReceipt?.after ?? profile.version };
-    root?.setAttribute('data-profile-version', String(state!.profile.version));
-    const effective = renderOwnerSeries(currentSeriesQuery());
-    if (effective) updateSeriesQuery(effective, 'replace');
-    const currentInputValue = input.value;
-    const unchanged = submitWasUnchanged(submitted);
-    if (unchanged) {
-      const currentOrder = creatorOwnerChapterOrder(state!.links, series.id);
-      const currentIndex = currentOrder.findIndex(({ placementId }) => placementId === target.placementId);
-      input.value = String(currentIndex + 1);
-      setChapterMoveDescription(form, series.id, target.placementId);
-      formState?.commit(capture(form));
-      announceWrite('mover-capitulo', changed ? 'Orden de capítulos guardado.' : 'Ese capítulo ya estaba en esa posición.', 'success');
-      restoreChapterFocus(target.placementId);
-    } else {
-      input.value = currentInputValue;
-      formState?.commit(submitted);
-      setChapterMoveDescription(form, series.id, target.placementId);
-      announceWrite('mover-capitulo', 'Orden guardado. Conservamos el destino que corregiste mientras se guardaba; revísalo antes de volver a guardar.', 'success');
-    }
-    clearRecoveryNotice();
-    maybeExitAfterSave(unchanged);
-  } catch {
-    announceWrite('mover-capitulo', 'No pudimos confirmar la respuesta del servicio. El destino sigue en el formulario; comprueba el orden antes de volver a guardar.', 'error');
-  } finally {
-    form.removeAttribute('aria-busy');
-  }
-}
-
-function restoreChapterFocus(placementId: string) {
-  const row = [...(root?.querySelectorAll<HTMLElement>('[data-chapter-row]') ?? [])]
-    .find((item) => item.dataset.chapterRow === placementId);
-  const trigger = row?.querySelector<HTMLElement>('[data-chapter-move]') ?? row?.querySelector<HTMLElement>('[data-chapter-add]');
-  returnFocus = trigger ?? root?.querySelector<HTMLElement>('[data-chapter-search]') ?? root?.querySelector<HTMLElement>('[data-series-search]') ?? undefined;
-}
-
-async function compareSavedChapterMove(form: HTMLFormElement) {
-  const context = activeChapterMoveContext;
-  const profileId = state?.profile?.id;
-  if (!context || !profileId) return;
-  const copy = { ...context };
-  const revision = chapterMoveContextRevision;
-  const generation = ++chapterMoveCompareGeneration;
-  chapterMoveComparisonData = undefined;
-  setHidden(form.querySelector('[data-owner-adopt]'), true);
-  setHidden(form.querySelector('[data-owner-comparison]'), true);
-  announceWrite('mover-capitulo', 'Consultando el orden guardado…', 'info');
-  try {
-    const response = await readOwnerSnapshot();
-    if (response.status === 401) await sessionRecovery?.observeWriteResponse(response);
-    if (!chapterMoveIsCurrent(form, copy, revision, generation)) return;
-    if (!response.ok) {
-      announceWrite('mover-capitulo', response.status === 401 ? sessionRecovery?.writeFailureMessage() ?? statusMessage(401) : 'No pudimos leer el orden guardado. Tu destino sigue aquí.', 'error');
-      return;
-    }
-    const payload = await responsePayload(response);
-    if (!chapterMoveIsCurrent(form, copy, revision, generation)) return;
-    if (!payload || !isAdoptableOwnerData(payload) || payload.profile.id !== profileId) {
-      announceWrite('mover-capitulo', 'No pudimos confirmar que el estado guardado corresponda a esta página. Conservamos tu destino.', 'error');
-      return;
-    }
-    const target = payload.links.find(({ placementId }) => placementId === copy.placementId);
-    const savedSeries = payload.series.find(({ id }) => id === copy.seriesId);
-    if (!target || !savedSeries || !target.series.some(({ seriesId }) => seriesId === copy.seriesId)) {
-      announceWrite('mover-capitulo', 'La serie o el capítulo ya no están disponibles para comparar. Conservamos tu destino.', 'error');
-      return;
-    }
-    const order = creatorOwnerChapterOrder(payload.links, copy.seriesId);
-    const ordinal = order.findIndex(({ placementId }) => placementId === copy.placementId) + 1;
-    const requested = chapterMovePositionInput(form)?.value ?? '';
-    const list = order.map((link, index) => `${index + 1}. ${link.title}${link.hidden ? ' (oculto)' : ''}`).join('\n');
-    const comparison = form.querySelector<HTMLElement>('[data-owner-comparison]');
-    if (comparison) comparison.textContent = `Serie guardada: ${savedSeries.name} (${order.length} capítulos).\nPosición guardada: ${ordinal}. Tu destino: ${requested || '—'}.\nOrden guardado:\n${list}`;
-    setHidden(comparison, false);
-    setHidden(form.querySelector('[data-owner-adopt]'), false);
-    chapterMoveComparisonData = payload;
-    announceWrite('mover-capitulo', 'Compara el orden y elige expresamente si quieres usar las versiones guardadas.', 'info');
-  } catch {
-    if (chapterMoveIsCurrent(form, copy, revision, generation)) announceWrite('mover-capitulo', 'No pudimos conectar para leer el orden guardado. Tu destino sigue aquí.', 'error');
-  }
-}
-
-function adoptSavedChapterMove(form: HTMLFormElement) {
-  const context = activeChapterMoveContext;
-  const payload = chapterMoveComparisonData;
-  const input = chapterMovePositionInput(form);
-  const requested = input?.value;
-  if (!context || !payload || !input || !isAdoptableOwnerData(payload) || !state?.profile
-    || activeForm !== form || activeEditor !== 'mover-capitulo' || form.hidden
-    || payload.profile.id !== state.profile.id
-    || !chapterMoveIsCurrent(form, context, chapterMoveContextRevision)) return;
-  const savedSeries = payload.series.find(({ id }) => id === context.seriesId);
-  if (!savedSeries || !payload.links.some(({ placementId, series }) => placementId === context.placementId
-    && series.some((item) => item.seriesId === context.seriesId))) return;
-  const savedOrder = creatorOwnerChapterOrder(payload.links, context.seriesId);
-  const savedOrdinal = savedOrder.findIndex(({ placementId }) => placementId === context.placementId) + 1;
-  if (savedOrdinal < 1) return;
-  adoptOwnerSnapshot(payload, form);
-  input.value = String(savedOrdinal);
-  formState?.commit(capture(form));
-  if (requested !== undefined) input.value = requested;
-  setChapterMoveDescription(form, context.seriesId, context.placementId);
-  clearConflict(form);
-  chapterMoveComparisonData = undefined;
-  announceWrite('mover-capitulo', 'Adoptaste expresamente el orden guardado. Tu destino sigue en el formulario para que decidas si quieres guardarlo.', 'success');
 }
 
 function showLinkConflict(form: HTMLFormElement, message = 'El enlace cambió desde que abriste esta edición. Compara lo guardado con tu corrección antes de decidir cómo seguir.') {
@@ -3983,7 +2782,6 @@ async function reconcileOwnerData(canAdopt?: () => boolean): Promise<boolean> {
     payload.links.forEach(({ resourceId, placementId }) => placementIdByResource.set(resourceId, placementId));
     updateProfileView();
     renderOwnerLinksAfterCollectionChange();
-    renderOwnerSeries();
     return true;
   } catch {
     return false;
@@ -3997,358 +2795,8 @@ function adoptOwnerSnapshot(payload: CreatorEditorDTO, active?: HTMLFormElement)
   payload.links.forEach(({ resourceId, placementId }) => placementIdByResource.set(resourceId, placementId));
   root?.setAttribute('data-profile-version', String(payload.profile.version));
   updateProfileView();
+  renderOwnerLinksAfterCollectionChange();
   hydrateInactiveForms(active);
-  const query = currentSeriesQuery();
-  if (query) updateSeriesQuery(query, 'replace');
-  else renderOwnerSeries();
-}
-
-function seriesStatus(): HTMLElement | null {
-  const selected = currentSeriesQuery()?.serie;
-  return selected
-    ? root?.querySelector<HTMLElement>('[data-owner-series-chapters] [data-series-write-status]')
-      ?? root?.querySelector<HTMLElement>('[data-owner-form-status="capitulo"]') ?? null
-    : root?.querySelector<HTMLElement>('[data-owner-series-list-view] [data-series-write-status]') ?? null;
-}
-
-function setSeriesMutationActionsUnavailable(unavailable: boolean) {
-  const chapterActionsUnavailable = seriesReconcileOutcome !== 'confirmed'
-    && (unavailable || seriesReconcileReadPending);
-  const deletionCheckPending = seriesReconcileReadPending && seriesReconcileDeleteId !== undefined;
-  root?.querySelectorAll<HTMLButtonElement>('[data-chapter-add], [data-chapter-remove], [data-chapter-move]').forEach((button) => {
-    button.disabled = chapterActionsUnavailable;
-  });
-  root?.querySelectorAll<HTMLButtonElement>('[data-series-delete]').forEach((button) => {
-    button.disabled = deletionCheckPending;
-  });
-}
-
-function requireChapterStateCheck(status: HTMLElement | null, outcome: 'uncertain' | 'conflict', message: string) {
-  const retry = root?.querySelector<HTMLButtonElement>('[data-series-reconcile-retry]');
-  seriesReconcileReadPending = true;
-  seriesReconcileOutcome = outcome;
-  setSeriesMutationActionsUnavailable(true);
-  if (retry) {
-    retry.textContent = 'Comprobar la lista';
-    retry.hidden = false;
-  }
-  announce(status, message, 'info');
-}
-
-async function reconcileConfirmedChapterMutation(
-  status: HTMLElement | null,
-  focusPlacementId: string,
-  messages: { pending: string; unavailable: string; complete: string },
-) {
-  const retry = root?.querySelector<HTMLButtonElement>('[data-series-reconcile-retry]');
-  seriesReconcileReadPending = true;
-  seriesReconcileOutcome = 'confirmed';
-  setSeriesMutationActionsUnavailable(false);
-  const visibleQuery = currentSeriesQuery();
-  if (visibleQuery) {
-    const effective = renderOwnerSeries(visibleQuery);
-    if (effective) updateSeriesQuery(effective, 'replace');
-  }
-  restoreChapterFocus(focusPlacementId);
-  const immediateFocus = returnFocus;
-  if (immediateFocus?.isConnected) window.requestAnimationFrame(() => immediateFocus.focus());
-  if (retry) {
-    retry.textContent = 'Volver a consultar la lista';
-    retry.hidden = true;
-  }
-  announce(status, messages.pending, 'success');
-  const editorRevision = ownerEditorRevision;
-  const writeRevision = ownerWriteRevision;
-  const reconciled = await reconcileOwnerData();
-  if (ownerEditorRevision !== editorRevision || ownerWriteRevision !== writeRevision) {
-    if (retry) retry.hidden = false;
-    return false;
-  }
-  if (!reconciled) {
-    if (retry) retry.hidden = false;
-    announce(status, messages.unavailable, 'error');
-    return false;
-  }
-  seriesReconcileReadPending = false;
-  if (retry) retry.hidden = true;
-  setSeriesMutationActionsUnavailable(false);
-  const query = currentSeriesQuery();
-  if (query) {
-    const effective = renderOwnerSeries(query);
-    if (effective) updateSeriesQuery(effective, 'replace');
-  }
-  restoreChapterFocus(focusPlacementId);
-  const focus = returnFocus;
-  if (focus?.isConnected) window.requestAnimationFrame(() => focus.focus());
-  announce(seriesStatus() ?? status, messages.complete, 'success');
-  return true;
-}
-
-async function retrySeriesReconcile() {
-  if (!seriesReconcileReadPending) return;
-  const status = seriesStatus();
-  const retry = root?.querySelector<HTMLButtonElement>('[data-series-reconcile-retry]');
-  const selectedSeriesId = currentSeriesQuery()?.serie;
-  const deletedSeriesId = seriesReconcileDeleteId;
-  const retryHadFocus = Boolean(retry && document.activeElement === retry);
-  if (retry) {
-    retry.disabled = true;
-    retry.textContent = seriesReconcileOutcome === 'confirmed' ? 'Consultando la lista…' : 'Comprobando la lista…';
-  }
-  announce(status, seriesReconcileOutcome === 'confirmed' ? 'Volviendo a consultar la lista…' : 'Comprobando la lista…', 'info');
-  const editorRevision = ownerEditorRevision;
-  const writeRevision = ownerWriteRevision;
-  const canAdopt = () => ownerEditorRevision === editorRevision
-    && activeForm === undefined && activeEditor === undefined
-    && !(formState?.hasPendingChanges() ?? false)
-    && ownerWriteRevision === writeRevision
-    && !(writeGuard?.isActive() ?? false);
-  const reconciled = await reconcileOwnerData(canAdopt);
-  if (retry) {
-    retry.disabled = false;
-    retry.textContent = seriesReconcileOutcome === 'confirmed' ? 'Volver a consultar la lista' : 'Volver a comprobar la lista';
-  }
-  if (!reconciled) {
-    if (!canAdopt()) {
-      seriesReconcileReadPending = true;
-      setSeriesMutationActionsUnavailable(true);
-      if (retry) {
-        retry.disabled = false;
-        retry.textContent = seriesReconcileOutcome === 'confirmed' ? 'Volver a consultar la lista' : 'Volver a comprobar la lista';
-        retry.hidden = false;
-      }
-      announce(status, 'No aplicamos esta lectura: hubo una edición o escritura mientras comprobábamos. Conservamos sus valores y versiones; vuelve a comprobar la lista.', 'info');
-      return;
-    }
-    const message = seriesReconcileOutcome === 'confirmed'
-      ? 'La lectura sigue sin estar disponible. El cambio anterior está confirmado; puedes volver a consultar.'
-      : seriesReconcileOutcome === 'conflict'
-        ? 'La lectura sigue sin estar disponible. No se pudo aplicar el cambio; vuelve a consultar antes de intentarlo de nuevo.'
-        : 'La lectura sigue sin estar disponible. No sabemos si el cambio se guardó; vuelve a consultar antes de intentarlo de nuevo.';
-    announce(status, message, 'error');
-    return;
-  }
-  seriesReconcileReadPending = false;
-  seriesReconcileDeleteId = undefined;
-  if (retry) retry.hidden = true;
-  setSeriesMutationActionsUnavailable(false);
-  const query = currentSeriesQuery();
-  if (query) {
-    const effective = renderOwnerSeries(query);
-    if (effective) updateSeriesQuery(effective, 'replace');
-  }
-  const deletedSeriesStillExists = deletedSeriesId
-    ? state?.series.some(({ id }) => id === deletedSeriesId) ?? false
-    : undefined;
-  const message = deletedSeriesStillExists === false
-    ? 'La lista actual no contiene esa serie. Sus enlaces y las demás series siguen en tu página.'
-    : deletedSeriesStillExists === true
-      ? 'La serie sigue en tu página. La lista está actualizada; puedes revisarla antes de decidir si vuelves a eliminarla.'
-      : seriesReconcileOutcome === 'confirmed'
-        ? 'La lista ya está actualizada.'
-        : 'La lista está actualizada. Comprueba la pertenencia antes de continuar.';
-  announce(seriesStatus() ?? status, message,
-    deletedSeriesStillExists === false || seriesReconcileOutcome === 'confirmed' ? 'success' : 'info');
-  const selectedSeriesWasRemoved = selectedSeriesId !== undefined
-    && !state?.series.some(({ id }) => id === selectedSeriesId);
-  const activeElement = document.activeElement;
-  const focusWasLostWithRetry = retryHadFocus && (
-    activeElement === document.body
-    || activeElement === retry
-    || (activeElement instanceof HTMLElement && Boolean(activeElement.closest('[data-owner-series-chapters]')))
-  );
-  if (focusWasLostWithRetry && (selectedSeriesWasRemoved || deletedSeriesId)) {
-    focusRestoredOwnerLocation();
-  }
-}
-
-async function mutateChapterMembership(placementId: string, action: 'add' | 'remove') {
-  const query = currentSeriesQuery();
-  const ownerState = state;
-  const profile = ownerState?.profile;
-  const series = seriesById(query?.serie);
-  const link = ownerState?.links.find(({ placementId: id }) => id === placementId);
-  if (!query || !profile || !series || !link
-    || (seriesReconcileReadPending && seriesReconcileOutcome !== 'confirmed')
-    || typeof link.placementVersion !== 'number' || !Number.isSafeInteger(link.placementVersion) || link.placementVersion < 0) return;
-  const member = link.series.some(({ seriesId }) => seriesId === series.id);
-  if ((action === 'add' && member) || (action === 'remove' && !member)) return;
-  const status = seriesStatus();
-  const method = action === 'add' ? 'PUT' : 'DELETE';
-  const actionDescription = action === 'add' ? `agregar «${link.title}» a ${series.name}` : `quitar «${link.title}» de ${series.name}`;
-  const uncertainMessage = `No pudimos confirmar si se pudo ${actionDescription}. Comprueba la lista antes de intentar otra acción.`;
-  const conflictMessage = `El estado cambió al intentar ${actionDescription}. Comprueba la lista antes de volver a intentarlo.`;
-  try {
-    const response = await jsonRequest(`/api/creador/series/${encodeURIComponent(series.id)}/capitulos/${encodeURIComponent(link.placementId)}`, method, { profileVersion: profile.version });
-    if (!response.ok) {
-      if (response.status === 409) {
-        requireChapterStateCheck(status, 'conflict', conflictMessage);
-        return;
-      }
-      if (response.status >= 500) {
-        requireChapterStateCheck(status, 'uncertain', uncertainMessage);
-        return;
-      }
-      announceWrite('mover-capitulo', statusMessage(response.status), 'error');
-      announce(status, statusMessage(response.status), 'error');
-      return;
-    }
-    const payload = response.status === 204 ? null : await responsePayload(response);
-    const changes = await readCreatorVersionChanges(response);
-    const isAdd = action === 'add';
-    const rawLinks = payload?.links;
-    const candidates = isAdd && Array.isArray(rawLinks) && rawLinks.every(isCreatorLink) ? rawLinks : undefined;
-    const byId = new Map((candidates ?? []).map((candidate) => [candidate.placementId, candidate]));
-    const profileReceipt = changes?.find((change) => change.entity === 'profile' && change.id === profile.id);
-    const placementReceipts = changes?.filter((change) => change.entity === 'placement') ?? [];
-    const allowedReceipts: CreatorOwnerReceiptParticipant[] = [
-      { entity: 'profile', id: profile.id, before: profile.version, transition: 'increment', required: isAdd ? false : true },
-      ...(isAdd
-        ? [...byId.keys()].flatMap((id) => {
-          const current = ownerState.links.find(({ placementId: currentId }) => currentId === id);
-          return current && typeof current.placementVersion === 'number'
-            ? [{ entity: 'placement' as const, id, before: current.placementVersion, transition: 'increment' as const }]
-            : [];
-        })
-        : [{ entity: 'placement' as const, id: link.placementId, before: link.placementVersion, transition: 'increment' as const, required: true }]),
-    ];
-    let effectsValid = true;
-    for (const candidate of byId.values()) {
-      const current = ownerState.links.find(({ placementId: currentId }) => currentId === candidate.placementId);
-      const priorMembership = current?.series.find(({ seriesId }) => seriesId === series.id);
-      const nextMembership = candidate.series.find(({ seriesId }) => seriesId === series.id);
-      const otherMembershipsBefore = current?.series.filter(({ seriesId }) => seriesId !== series.id) ?? [];
-      const otherMembershipsAfter = candidate.series.filter(({ seriesId }) => seriesId !== series.id);
-      const receipt = changes?.find((change) => change.entity === 'placement' && change.id === candidate.placementId);
-      if (!current || current.resourceId !== candidate.resourceId
-        || JSON.stringify(otherMembershipsBefore) !== JSON.stringify(otherMembershipsAfter)
-        || (priorMembership?.position !== nextMembership?.position && !receipt)
-        || (candidate.placementVersion !== (receipt?.after ?? current.placementVersion))) effectsValid = false;
-      if (candidate.placementId === link.placementId && isAdd && !nextMembership) effectsValid = false;
-      if (candidate.placementId !== link.placementId && (!priorMembership || !nextMembership)) effectsValid = false;
-    }
-    const statusMatches = isAdd
-      ? response.status === 200 && payload?.status === 200 && payload.profileVersion === (profileReceipt?.after ?? profile.version)
-      : response.status === 204;
-    const profileReceiptMatches = isAdd
-      ? Boolean(profileReceipt) === (placementReceipts.length > 0)
-      : Boolean(profileReceipt);
-    if (!statusMatches || !validateCreatorOwnerReceipts(changes, allowedReceipts)
-      || !profileReceiptMatches || (isAdd && (!candidates || !byId.has(link.placementId) || !effectsValid))) {
-      requireChapterStateCheck(status, 'uncertain', uncertainMessage);
-      return;
-    }
-    const nextProfileVersion = profileReceipt?.after ?? profile.version;
-    ownerState.profile = { ...profile, version: nextProfileVersion };
-    if (isAdd) {
-      const updates = new Map([...byId.values()].map((candidate) => [candidate.placementId, candidate]));
-      ownerState.links = ownerState.links.map((current) => {
-        const candidate = updates.get(current.placementId);
-        if (!candidate) return current;
-        const membership = candidate.series.find(({ seriesId }) => seriesId === series.id);
-        const seriesMemberships = membership
-          ? current.series.some(({ seriesId }) => seriesId === series.id)
-            ? current.series.map((item) => item.seriesId === series.id ? { ...item, position: membership.position } : item)
-            : [...current.series, { seriesId: series.id, position: membership.position }]
-          : current.series;
-        const receipt = changes?.find((change) => change.entity === 'placement' && change.id === current.placementId);
-        return { ...current, series: seriesMemberships, placementVersion: receipt?.after ?? current.placementVersion };
-      });
-    } else {
-      ownerState.links = ownerState.links.map((current) => current.placementId === link.placementId
-        ? { ...current, series: current.series.filter(({ seriesId }) => seriesId !== series.id), placementVersion: changes?.find((change) => change.entity === 'placement' && change.id === current.placementId)?.after ?? current.placementVersion }
-        : current);
-    }
-    root?.setAttribute('data-profile-version', String(nextProfileVersion));
-    clearRecoveryNotice();
-    const successMessage = action === 'add'
-      ? `Se agregó «${link.title}» a ${series.name}.`
-      : `Se quitó «${link.title}» de esta serie. El enlace permanece en tu página y en las demás series.`;
-    const result = await reconcileConfirmedChapterMutation(status, link.placementId, {
-      pending: `${successMessage} El cambio quedó confirmado; estamos actualizando la lista.`,
-      unavailable: `${successMessage} El cambio quedó confirmado, pero no pudimos actualizar la lista. Puedes volver a consultar sin repetirlo.`,
-      complete: successMessage,
-    });
-    if (!result) return;
-  } catch {
-    requireChapterStateCheck(status, 'uncertain', uncertainMessage);
-  }
-}
-
-function requireDeleteStateCheck(seriesId: string, outcome: 'uncertain' | 'conflict', message: string) {
-  seriesReconcileDeleteId = seriesId;
-  announceWrite('serie', message, 'info');
-  requireChapterStateCheck(seriesStatus(), outcome, message);
-}
-
-async function deleteOwnerSeries(seriesId: string) {
-  const ownerState = state;
-  const profile = ownerState?.profile;
-  const series = seriesById(seriesId);
-  if (!profile || !series) return;
-  if (!window.confirm(`¿Eliminar la serie «${series.name}»? Se conservarán los enlaces de tu página, sus opciones y las demás series.`)) return;
-  try {
-    const response = await jsonRequest(`/api/creador/series/${encodeURIComponent(series.id)}`, 'DELETE', {
-      version: series.version, profileVersion: profile.version,
-    });
-    if (!response.ok) {
-      if (response.status === 409) {
-        requireDeleteStateCheck(series.id, 'conflict', 'La serie cambió mientras se eliminaba. Comprueba la lista guardada antes de volver a intentarlo.');
-        return;
-      }
-      if (response.status >= 500) {
-        requireDeleteStateCheck(series.id, 'uncertain', 'No pudimos confirmar la eliminación. Comprueba la lista guardada antes de volver a intentarlo.');
-        return;
-      }
-      announceWrite('serie', statusMessage(response.status), 'error');
-      announce(seriesStatus(), statusMessage(response.status), 'error');
-      return;
-    }
-    const changes = await readCreatorVersionChanges(response);
-    const allowedReceipts: CreatorOwnerReceiptParticipant[] = [
-      { entity: 'profile', id: profile.id, before: profile.version, transition: 'increment', required: true },
-    ];
-    const profileReceipt = changes?.find((change) => change.entity === 'profile' && change.id === profile.id);
-    if (response.status !== 204 || !validateCreatorOwnerReceipts(changes, allowedReceipts) || !profileReceipt) {
-      requireDeleteStateCheck(series.id, 'uncertain', 'No pudimos comprobar el recibo de eliminación. Comprueba la lista guardada antes de volver a intentarlo.');
-      return;
-    }
-    ownerState.profile = { ...profile, version: profileReceipt.after };
-    ownerState.series = ownerState.series.filter(({ id }) => id !== series.id);
-    ownerState.links = ownerState.links.map((link) => ({
-      ...link,
-      series: link.series.filter((membership) => membership.seriesId !== series.id),
-    }));
-    root?.setAttribute('data-profile-version', String(profileReceipt.after));
-    clearRecoveryNotice();
-    const current = currentSeriesQuery();
-    if (current?.serie === series.id) {
-      updateSeriesQuery({ ...current, serie: '', buscarCapitulos: '', pertenencia: 'todos', paginaCapitulos: 1 }, 'replace');
-    } else renderOwnerSeries(current);
-    seriesReconcileReadPending = true;
-    seriesReconcileOutcome = 'confirmed';
-    seriesReconcileDeleteId = undefined;
-    setSeriesMutationActionsUnavailable(true);
-    const retry = root?.querySelector<HTMLButtonElement>('[data-series-reconcile-retry]');
-    if (retry) {
-      retry.textContent = 'Volver a consultar la lista';
-      retry.hidden = true;
-      retry.disabled = false;
-    }
-    if (await reconcileOwnerData()) {
-      seriesReconcileReadPending = false;
-      if (retry) retry.hidden = true;
-      setSeriesMutationActionsUnavailable(false);
-      announce(seriesStatus(), 'Serie eliminada. Tus enlaces, opciones y las otras series siguen en tu página.', 'success');
-    } else {
-      if (retry) retry.hidden = false;
-      announce(seriesStatus(), 'Serie eliminada. No pudimos actualizar la lista; puedes volver a consultarla antes de continuar.', 'info');
-    }
-    const search = root?.querySelector<HTMLElement>('[data-series-search]');
-    if (search?.isConnected) window.requestAnimationFrame(() => search.focus());
-  } catch {
-    requireDeleteStateCheck(series.id, 'uncertain', 'No pudimos confirmar la respuesta del servicio. Comprueba la lista guardada antes de volver a intentarlo.');
-  }
 }
 
 async function saveAddedLink(form: HTMLFormElement) {
@@ -5638,22 +4086,6 @@ if (root && state && csrfToken && dialog) {
       updateLinksQuery(query);
       return;
     }
-    if (navigation.hasAttribute('data-series-filters')) {
-      event.preventDefault();
-      const current = currentSeriesQuery() ?? DEFAULT_CREATOR_OWNER_SERIES_QUERY;
-      const query = creatorOwnerSeriesQueryFromForm(navigation, current);
-      query.paginaSeries = 1;
-      updateSeriesQuery(query);
-      return;
-    }
-    if (navigation.hasAttribute('data-series-chapter-filters')) {
-      event.preventDefault();
-      const current = currentSeriesQuery() ?? DEFAULT_CREATOR_OWNER_SERIES_QUERY;
-      const query = creatorOwnerSeriesQueryFromForm(navigation, current);
-      query.paginaCapitulos = 1;
-      updateSeriesQuery(query);
-      return;
-    }
     if (!navigation.hasAttribute('data-owner-navigation') || !hasPendingChanges()) return;
     event.preventDefault();
     const submitter = (event as SubmitEvent).submitter;
@@ -5737,23 +4169,6 @@ if (root && state && csrfToken && dialog) {
     });
   }
 
-  const ownerSeriesForm = seriesForm();
-  if (ownerSeriesForm) {
-    onWrite(ownerSeriesForm, async (event) => {
-      event.preventDefault();
-      activeForm = ownerSeriesForm;
-      await saveSeriesForm(ownerSeriesForm);
-    });
-  }
-  const ownerChapterMoveForm = chapterMoveForm();
-  if (ownerChapterMoveForm) {
-    onWrite(ownerChapterMoveForm, async (event) => {
-      event.preventDefault();
-      activeForm = ownerChapterMoveForm;
-      await saveChapterMoveForm(ownerChapterMoveForm);
-    });
-  }
-
   restoreLinksFromLocation();
   renderClaimHistory();
   if (root.querySelector('[data-owner-claims]')) void loadCatalog();
@@ -5776,26 +4191,6 @@ if (root && state && csrfToken && dialog) {
       }, 120);
       return;
     }
-    if (control.matches('[data-series-search]')) {
-      if (seriesSearchTimer) clearTimeout(seriesSearchTimer);
-      seriesSearchTimer = setTimeout(() => {
-        const query = currentSeriesQuery();
-        if (!query) return;
-        updateSeriesQuery({ ...query, buscarSeries: control.value, paginaSeries: 1 }, 'replace');
-        control.focus();
-      }, 120);
-      return;
-    }
-    if (control.matches('[data-chapter-search]')) {
-      if (seriesSearchTimer) clearTimeout(seriesSearchTimer);
-      seriesSearchTimer = setTimeout(() => {
-        const query = currentSeriesQuery();
-        if (!query) return;
-        updateSeriesQuery({ ...query, buscarCapitulos: control.value, paginaCapitulos: 1 }, 'replace');
-        control.focus();
-      }, 120);
-      return;
-    }
     const form = control.form;
     const name = form?.dataset.ownerForm;
     if (!form || !name) return;
@@ -5804,19 +4199,6 @@ if (root && state && csrfToken && dialog) {
       if (target) setMoveDescription(form, target);
       control.setCustomValidity?.('');
       return;
-    }
-    if (name === 'mover-capitulo' && control.name === 'targetPosition' && activeChapterMoveContext) {
-      setChapterMoveDescription(form, activeChapterMoveContext.seriesId, activeChapterMoveContext.placementId);
-      control.setCustomValidity?.('');
-      return;
-    }
-    if (name === 'serie') {
-      activeForm = form;
-      if (control.name === 'slug') seriesSlugManuallyEdited = true;
-      if (control.name === 'name' && !seriesSlugManuallyEdited) {
-        const slug = field(form, 'slug');
-        if (slug) slug.value = suggestedSlug(control.value);
-      }
     }
     if (name === 'crear') {
       activeForm = form;
@@ -5834,14 +4216,6 @@ if (root && state && csrfToken && dialog) {
     if (!(target instanceof HTMLElement) || target.tagName !== 'SELECT') return;
     const control = target as HTMLSelectElement;
     const filterForm = control.form;
-    if (filterForm?.hasAttribute('data-series-chapter-filters')) {
-      if (seriesSearchTimer) clearTimeout(seriesSearchTimer);
-      const current = currentSeriesQuery() ?? DEFAULT_CREATOR_OWNER_SERIES_QUERY;
-      const query = creatorOwnerSeriesQueryFromForm(filterForm, current);
-      query.paginaCapitulos = 1;
-      updateSeriesQuery(query);
-      return;
-    }
     if (!filterForm?.hasAttribute('data-link-filters')) return;
     if (searchTimer) clearTimeout(searchTimer);
     const query = creatorOwnerLinksQueryFromForm(filterForm, currentLinksQuery());
@@ -5937,112 +4311,6 @@ if (root && state && csrfToken && dialog) {
     if (catalogCorrectionOpen) {
       event.preventDefault();
       openCatalogCorrectionOptions(catalogCorrectionOpen);
-      return;
-    }
-    const chapterSuggestion = target.closest<HTMLButtonElement>('[data-chapter-move-suggestion]');
-    if (chapterSuggestion) {
-      event.preventDefault();
-      const form = chapterMoveForm();
-      const input = form && chapterMovePositionInput(form);
-      const requested = Number(chapterSuggestion.dataset.viablePosition);
-      const context = activeChapterMoveContext;
-      const order = context ? creatorOwnerChapterOrder(state?.links ?? [], context.seriesId) : [];
-      if (!form || !input || !context || activeEditor !== 'mover-capitulo'
-        || !Number.isSafeInteger(requested) || requested < 1 || requested > order.length) return;
-      input.value = String(requested);
-      input.setCustomValidity('');
-      setChapterMoveDescription(form, context.seriesId, context.placementId);
-      input.focus();
-      return;
-    }
-    const reconcileRetry = target.closest<HTMLButtonElement>('[data-series-reconcile-retry]');
-    if (reconcileRetry) {
-      event.preventDefault();
-      void retrySeriesReconcile();
-      return;
-    }
-    const seriesCreate = target.closest<HTMLElement>('[data-series-create-open]');
-    if (seriesCreate) {
-      event.preventDefault();
-      if (hasPendingChanges()) showExitPrompt(() => openSeriesEditor(seriesCreate), seriesCreate);
-      else openSeriesEditor(seriesCreate);
-      return;
-    }
-    const seriesEdit = target.closest<HTMLElement>('[data-series-edit]');
-    if (seriesEdit) {
-      event.preventDefault();
-      const seriesId = seriesEdit.dataset.seriesId;
-      if (hasPendingChanges()) showExitPrompt(() => openSeriesEditor(seriesEdit, seriesId), seriesEdit);
-      else openSeriesEditor(seriesEdit, seriesId);
-      return;
-    }
-    const chapterNavigation = target.closest<HTMLAnchorElement>('[data-series-chapters]');
-    if (chapterNavigation) {
-      if (!isSameTabNavigationClick(event, chapterNavigation)) return;
-      event.preventDefault();
-      const seriesId = chapterNavigation.dataset.seriesId;
-      const current = currentSeriesQuery();
-      if (!seriesId || !current) return;
-      const next = { ...current, serie: seriesId, buscarCapitulos: '', pertenencia: 'todos' as const, paginaCapitulos: 1 };
-      const navigateToChapters = () => {
-        updateSeriesQuery(next);
-        focusRestoredOwnerLocation();
-      };
-      if (hasPendingChanges()) showExitPrompt(navigateToChapters, chapterNavigation);
-      else navigateToChapters();
-      return;
-    }
-    const seriesPageLink = target.closest<HTMLAnchorElement>('[data-series-page], [data-series-chapter-page], [data-series-back]');
-    if (seriesPageLink) {
-      if (!isSameTabNavigationClick(event, seriesPageLink)) return;
-      event.preventDefault();
-      const parsed = parseCreatorOwnerSeriesQuery(new URL(seriesPageLink.href, window.location.href).searchParams, state?.series ?? []);
-      if (parsed.valid) {
-        updateSeriesQuery(parsed.query);
-        if (seriesPageLink.hasAttribute('data-series-back')) focusRestoredOwnerLocation();
-      }
-      return;
-    }
-    const chapterMove = target.closest<HTMLElement>('[data-chapter-move]');
-    if (chapterMove) {
-      event.preventDefault();
-      if (writeGuard?.isActive()) {
-        showExitPrompt(undefined, chapterMove);
-        return;
-      }
-      if (hasPendingChanges()) showExitPrompt(() => openChapterMove(chapterMove), chapterMove);
-      else openChapterMove(chapterMove);
-      return;
-    }
-    const chapterAdd = target.closest<HTMLElement>('[data-chapter-add]');
-    if (chapterAdd) {
-      event.preventDefault();
-      const placementId = chapterAdd.dataset.placementId || chapterAdd.closest<HTMLElement>('[data-chapter-row]')?.dataset.chapterRow;
-      if (!placementId || (seriesReconcileReadPending && seriesReconcileOutcome !== 'confirmed')) return;
-      const action = () => { void runProfileFormAction(event, () => mutateChapterMembership(placementId, 'add')); };
-      if (hasPendingChanges()) showExitPrompt(action, chapterAdd);
-      else action();
-      return;
-    }
-    const chapterRemove = target.closest<HTMLElement>('[data-chapter-remove]');
-    if (chapterRemove) {
-      event.preventDefault();
-      const placementId = chapterRemove.dataset.placementId || chapterRemove.closest<HTMLElement>('[data-chapter-row]')?.dataset.chapterRow;
-      if (!placementId || (seriesReconcileReadPending && seriesReconcileOutcome !== 'confirmed')) return;
-      const action = () => { void runProfileFormAction(event, () => mutateChapterMembership(placementId, 'remove')); };
-      if (hasPendingChanges()) showExitPrompt(action, chapterRemove);
-      else action();
-      return;
-    }
-    const seriesDelete = target.closest<HTMLElement>('[data-series-delete]');
-    if (seriesDelete) {
-      event.preventDefault();
-      if (seriesReconcileReadPending && seriesReconcileDeleteId !== undefined) return;
-      const id = seriesDelete.dataset.seriesId;
-      if (!id) return;
-      const action = () => { void runProfileFormAction(event, () => deleteOwnerSeries(id)); };
-      if (hasPendingChanges()) showExitPrompt(action, seriesDelete);
-      else action();
       return;
     }
     const moveSuggestion = target.closest<HTMLButtonElement>('[data-link-move-suggestion]');
@@ -6152,16 +4420,6 @@ if (root && state && csrfToken && dialog) {
       void compareCatalogProfile(activeForm);
       return;
     }
-    if (compareButton && activeForm && activeEditor === 'serie') {
-      event.preventDefault();
-      void compareSavedSeries(activeForm);
-      return;
-    }
-    if (compareButton && activeForm && activeEditor === 'mover-capitulo') {
-      event.preventDefault();
-      void compareSavedChapterMove(activeForm);
-      return;
-    }
     if (compareButton && activeForm && activeEditor === 'enlace') {
       event.preventDefault();
       void compareSavedLink(activeForm);
@@ -6181,16 +4439,6 @@ if (root && state && csrfToken && dialog) {
     if (adoptButton && activeForm && activeEditor === 'referencia') {
       event.preventDefault();
       adoptCatalogProfile(activeForm);
-      return;
-    }
-    if (adoptButton && activeForm && activeEditor === 'serie') {
-      event.preventDefault();
-      adoptSavedSeries(activeForm);
-      return;
-    }
-    if (adoptButton && activeForm && activeEditor === 'mover-capitulo') {
-      event.preventDefault();
-      adoptSavedChapterMove(activeForm);
       return;
     }
     if (adoptButton && activeForm && activeEditor === 'enlace') {

@@ -1,19 +1,8 @@
 import { getCreatorRuntime } from '../../lib/creator-runtime.mjs';
 import { creatorPageSessionBinding } from '../../lib/creator-session-context.mjs';
 import { selectAdminResources } from '../../lib/creator-admin-pagination.mjs';
-import { creatorResourceProjectionsAgree } from '../../lib/creator-resource-consistency';
-import type {
-  CreatorClaimDTO,
-  CreatorClaimResourceDTO,
-  CreatorEditableResourceDTO,
-  CreatorEditorDTO,
-  CreatorLinkDTO,
-  CreatorProfileDTO,
-  CreatorProgram,
-  CreatorSeriesDTO,
-  CreatorSeriesMembershipDTO,
-  CreatorSocial,
-} from '../../types/creators';
+import { readCreatorClaimResources, readCreatorEditorData } from '../../lib/creator-owner-data';
+import type { CreatorEditorDTO } from '../../types/creators';
 
 export type CreatorPrincipalState = 'authenticated' | 'anonymous' | 'disabled' | 'unavailable';
 
@@ -54,215 +43,10 @@ export interface CreatorAdminLoad {
   data?: CreatorAdminData;
 }
 
-const PROGRAMS = new Set<CreatorProgram>(['User Group Leaders', 'Community Builders', 'Heroes']);
-const SOCIALS = new Set<CreatorSocial>(['instagram', 'x', 'linkedin', 'awsBuilder', 'website']);
-
 function record(value: unknown): Record<string, unknown> | undefined {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? value as Record<string, unknown>
     : undefined;
-}
-
-function text(value: unknown): string | undefined {
-  return typeof value === 'string' ? value : undefined;
-}
-
-function finiteNumber(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
-}
-
-function nonEmptyText(value: unknown): string | undefined {
-  const result = text(value);
-  return result && result.length > 0 ? result : undefined;
-}
-
-function readProfile(value: unknown): CreatorProfileDTO | null {
-  if (value === null) return null;
-  const item = record(value);
-  if (!item) throw new TypeError('El perfil recibido no tiene un formato válido.');
-  const id = nonEmptyText(item.id);
-  const displayName = text(item.displayName);
-  const slug = text(item.slug);
-  const version = finiteNumber(item.version);
-  if (!id || displayName === undefined || slug === undefined || version === undefined
-    || typeof item.published !== 'boolean' || typeof item.hidden !== 'boolean') {
-    throw new TypeError('El perfil recibido no tiene un formato válido.');
-  }
-
-  const programs = Array.isArray(item.programs)
-    ? item.programs.filter((program): program is CreatorProgram => typeof program === 'string' && PROGRAMS.has(program as CreatorProgram))
-    : [];
-  const rawSocials = record(item.socials);
-  const socials: Partial<Record<CreatorSocial, string>> = {};
-  if (rawSocials) {
-    for (const [key, value] of Object.entries(rawSocials)) {
-      if (SOCIALS.has(key as CreatorSocial) && typeof value === 'string') socials[key as CreatorSocial] = value;
-    }
-  }
-  const rawPhoto = record(item.photo);
-  const photoVersion = rawPhoto?.version;
-  const photo = (typeof photoVersion === 'string' || typeof photoVersion === 'number')
-    ? {
-        version: photoVersion,
-        ...(typeof rawPhoto?.url === 'string' ? { url: rawPhoto.url } : {}),
-      }
-    : undefined;
-
-  return {
-    id,
-    displayName,
-    slug,
-    ...(typeof item.city === 'string' ? { city: item.city } : {}),
-    ...(typeof item.country === 'string' ? { country: item.country } : {}),
-    programs,
-    ...(typeof item.bio === 'string' ? { bio: item.bio } : {}),
-    socials,
-    ...(photo ? { photo } : {}),
-    published: item.published,
-    hidden: item.hidden,
-    version,
-  };
-}
-
-function readLink(value: unknown): CreatorLinkDTO {
-  const item = record(value);
-  if (!item) throw new TypeError('Un enlace recibido no tiene un formato válido.');
-  const placementId = nonEmptyText(item.placementId);
-  const resourceId = nonEmptyText(item.resourceId);
-  const title = text(item.title);
-  const url = text(item.url);
-  const position = finiteNumber(item.position);
-  const resourceVersion = finiteNumber(item.resourceVersion);
-  const rawSeries = item.series === undefined ? [] : item.series;
-  if (!placementId || !resourceId || title === undefined || url === undefined
-    || position === undefined || resourceVersion === undefined
-    || typeof item.featured !== 'boolean' || typeof item.selectedForDirectory !== 'boolean'
-    || typeof item.hidden !== 'boolean'
-    || !Array.isArray(rawSeries)) {
-    throw new TypeError('Un enlace recibido no tiene un formato válido.');
-  }
-  const series = rawSeries.map((value): CreatorSeriesMembershipDTO => {
-    const membership = record(value);
-    const seriesId = nonEmptyText(membership?.seriesId);
-    const seriesPosition = finiteNumber(membership?.position);
-    if (!seriesId || seriesPosition === undefined || seriesPosition < 0) {
-      throw new TypeError('Una pertenencia de serie recibida no tiene un formato válido.');
-    }
-    return { seriesId, position: seriesPosition };
-  });
-  if (new Set(series.map(({ seriesId }) => seriesId)).size !== series.length) {
-    throw new TypeError('Un enlace recibido repite su pertenencia a una serie.');
-  }
-  return {
-    placementId,
-    resourceId,
-    title,
-    url,
-    ...(typeof item.description === 'string' ? { description: item.description } : {}),
-    featured: item.featured,
-    position,
-    selectedForDirectory: item.selectedForDirectory,
-    hidden: item.hidden,
-    directoryApproval: text(item.directoryApproval) ?? 'pending',
-    resourceVersion,
-    ...(finiteNumber(item.placementVersion) !== undefined ? { placementVersion: finiteNumber(item.placementVersion) } : {}),
-    series,
-  };
-}
-
-function readSeries(value: unknown): CreatorSeriesDTO {
-  const item = record(value);
-  if (!item) throw new TypeError('Una serie recibida no tiene un formato válido.');
-  const id = nonEmptyText(item.id);
-  const name = text(item.name);
-  const slug = text(item.slug);
-  const version = finiteNumber(item.version);
-  if (!id || name === undefined || slug === undefined || version === undefined) {
-    throw new TypeError('Una serie recibida no tiene un formato válido.');
-  }
-  return {
-    id,
-    name,
-    slug,
-    ...(typeof item.description === 'string' ? { description: item.description } : {}),
-    version,
-  };
-}
-
-function readEditableResource(value: unknown): CreatorEditableResourceDTO {
-  const item = record(value);
-  if (!item) throw new TypeError('Un recurso editable recibido no tiene un formato válido.');
-  const id = nonEmptyText(item.id);
-  const title = text(item.title);
-  const url = text(item.url);
-  const version = finiteNumber(item.version);
-  if (!id || title === undefined || url === undefined || version === undefined) {
-    throw new TypeError('Un recurso editable recibido no tiene un formato válido.');
-  }
-  return { id, title, url, ...(typeof item.description === 'string' ? { description: item.description } : {}), version };
-}
-
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((item): item is string => typeof item === 'string');
-}
-
-function readClaimResources(value: unknown, resourceIds: unknown): CreatorClaimResourceDTO[] | undefined {
-  if (value === undefined) return undefined;
-  if (!Array.isArray(value) || !isStringArray(resourceIds) || value.length === 0 || value.length !== resourceIds.length) {
-    throw new TypeError('Los destinos de una solicitud recibida no tienen un formato válido.');
-  }
-  return value.map((candidate, index) => {
-    const item = record(candidate);
-    if (!item || Object.keys(item).length !== 2 || !Object.hasOwn(item, 'resourceId') || !Object.hasOwn(item, 'url')) {
-      throw new TypeError('Los destinos de una solicitud recibida no tienen un formato válido.');
-    }
-    const resourceId = nonEmptyText(item.resourceId);
-    const url = nonEmptyText(item.url);
-    if (!resourceId || resourceId !== resourceIds[index] || !url || url.length > 2048) {
-      throw new TypeError('Los destinos de una solicitud recibida no tienen un formato válido.');
-    }
-    return { resourceId, url };
-  });
-}
-
-function readClaim(value: unknown): CreatorClaimDTO {
-  const item = record(value);
-  if (!item) throw new TypeError('Una solicitud de vinculación recibida no tiene un formato válido.');
-  const id = nonEmptyText(item.id ?? item.claimId);
-  if (!id || !Array.isArray(item.resourceIds)) {
-    throw new TypeError('Una solicitud de vinculación recibida no tiene un formato válido.');
-  }
-  const resourceIds = item.resourceIds.filter((idValue): idValue is string => typeof idValue === 'string');
-  if (resourceIds.length !== item.resourceIds.length) throw new TypeError('Una solicitud de vinculación recibida no tiene un formato válido.');
-  const resources = readClaimResources(item.resources, resourceIds);
-  return {
-    id,
-    resourceIds,
-    ...(resources ? { resources } : {}),
-    ...(typeof item.sourceId === 'string' ? { sourceId: item.sourceId } : {}),
-    ...(typeof item.status === 'string' ? { status: item.status } : {}),
-    ...(finiteNumber(item.createdAt) !== undefined ? { createdAt: finiteNumber(item.createdAt) } : {}),
-    ...(typeof item.evidence === 'string' ? { evidence: item.evidence } : {}),
-  };
-}
-
-function readEditorData(value: unknown): CreatorEditorDTO {
-  const item = record(value);
-  if (!item || !Array.isArray(item.links) || !Array.isArray(item.editableResources) || !Array.isArray(item.claims)) {
-    throw new TypeError('No pudimos leer los datos del perfil.');
-  }
-  if (!creatorResourceProjectionsAgree(item.links, item.editableResources)) {
-    throw new TypeError('Las proyecciones del contenido no corresponden a la misma observación.');
-  }
-  const rawSeries = item.series === undefined ? [] : item.series;
-  if (!Array.isArray(rawSeries)) throw new TypeError('La lista de series recibida no tiene un formato válido.');
-  return {
-    profile: readProfile(item.profile),
-    links: item.links.map(readLink),
-    editableResources: item.editableResources.map(readEditableResource),
-    claims: item.claims.map(readClaim),
-    series: rawSeries.map(readSeries),
-  };
 }
 
 function listFrom(value: unknown, property: string): Record<string, unknown>[] {
@@ -307,7 +91,7 @@ function readAdminProfiles(value: unknown): CreatorAdminData['profiles'] {
 
 function readAdminClaims(value: unknown): CreatorAdminData['claims'] {
   return listFrom(value, 'claims').map((item) => {
-    const resources = readClaimResources(item.resources, item.resourceIds);
+    const resources = readCreatorClaimResources(item.resources, item.resourceIds);
     return {
       id: item.id ?? item.claimId,
       accountId: item.accountId,
@@ -386,7 +170,7 @@ export async function loadCreatorEditor(request: Request): Promise<CreatorEditor
   try {
     const response = await requestJson('/api/creador/perfil', request);
     if (response.status !== 200 || response.body === undefined) return { principal, status: response.status };
-    return { principal, status: 200, data: readEditorData(response.body) };
+    return { principal, status: 200, data: readCreatorEditorData(response.body) };
   } catch {
     return { principal, status: 503 };
   }
