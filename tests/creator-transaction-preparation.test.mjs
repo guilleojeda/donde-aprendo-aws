@@ -45,7 +45,7 @@ function seedRawPlacement(mock, {
 }
 
 function seedResourceAtSize(mock, id, bytes) {
-  const value = { id, title: 'Recurso', version: 1 };
+  const value = { id, title: 'Recurso', version: 1, padding: '' };
   value.padding = 'x'.repeat(bytes - storedAttributeBytes(value));
   assert.equal(storedAttributeBytes(value), bytes);
   mock.seed('catalog-test', value);
@@ -231,7 +231,7 @@ test('prepared raw CheckCondition sizing includes projected-away Binary and Set 
   assert.equal(await prepared.commit(), true);
   assertPreparedMetricsMatchRequest(prepared, mock, [observation]);
   assert.equal(mock.transactions[0].physicalBytes, expectedImageBytes);
-  assert.deepEqual(mock.read('profiles-test', placementKey('native-physical-values')), raw,
+  assert.deepEqual(mock.read('profiles-test', { pk: 'PROFILE#profile-a', sk: 'PLACEMENT#native-physical-values' }), raw,
     'a checks-only transaction leaves the physical binary/set values intact');
 });
 
