@@ -145,10 +145,11 @@ async function captureCreatorApi(page, { ignoreReads = false, skipErrorBodies = 
     const request = response.request();
     const record = pending.get(request);
     if (!record) return;
-    record.status = response.status();
+    const status = response.status();
     record.responseHeaders = response.headers();
-    record.markResponseObserved();
-    if (skipErrorBodies && record.status >= 400) {
+    if (skipErrorBodies && status >= 400) {
+      record.status = status;
+      record.markResponseObserved();
       record.finish();
       pending.delete(request);
       return;
@@ -160,6 +161,11 @@ async function captureCreatorApi(page, { ignoreReads = false, skipErrorBodies = 
     } catch {
       record.responseBody = undefined;
     }
+    // Publish status and settle only after the body has been read. Consumers
+    // poll status before inspecting responseBody, so publishing status first
+    // makes the capture appear complete while the async body read is pending.
+    record.status = status;
+    record.markResponseObserved();
     record.finish();
     pending.delete(request);
   };
