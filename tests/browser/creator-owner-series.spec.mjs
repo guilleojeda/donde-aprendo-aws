@@ -679,6 +679,10 @@ test('Series: 0, 1 y 50 capítulos conservan búsqueda, paginación, contexto y 
   const search = page.locator('[data-chapter-search]');
   await search.fill('BUSQUEDA-UNICA-LARGA-37');
   await expect(search).toBeFocused();
+  await expect(page).toHaveURL((url) => !url.searchParams.has('buscarCapitulos'),
+    'typing preserves the applied query until the search is confirmed');
+  await expect(page.locator('[data-chapter-count]')).toHaveText('50 coincidencias de 50 enlaces');
+  await page.getByRole('button', { name: 'Aplicar filtros' }).click();
   await expect(page.locator('[data-chapter-count]')).toHaveText('1 coincidencia de 50 enlaces');
   await expect(targetRow.locator('h4')).toHaveText(seeded.longTitle);
   await expect(page).toHaveURL(/buscarCapitulos=BUSQUEDA-UNICA-LARGA-37/u);
