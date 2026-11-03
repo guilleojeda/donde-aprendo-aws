@@ -653,8 +653,8 @@ test('la foto A se comprueba tras perder el acuse, conserva el archivo B y luego
     await route.continue();
   };
   await page.route('https://creator-photos.example.invalid/**', uploadThroughProvider);
-  await page.route('**/api/creador/foto/finalizar', loseFinalA);
-  await page.route('**/api/creador/perfil', failOneCheck);
+  await page.route('**/api/creador/foto/finalizar/', loseFinalA);
+  await page.route('**/api/creador/perfil/', failOneCheck);
   try {
     await openSeries(page, fixture);
     await page.getByRole('button', { name: 'Editar foto' }).click();
@@ -728,8 +728,8 @@ test('la foto A se comprueba tras perder el acuse, conserva el archivo B y luego
   } finally {
     finalizeGate.release();
     await page.unroute('https://creator-photos.example.invalid/**', uploadThroughProvider).catch(() => {});
-    await page.unroute('**/api/creador/foto/finalizar', loseFinalA).catch(() => {});
-    await page.unroute('**/api/creador/perfil', failOneCheck).catch(() => {});
+    await page.unroute('**/api/creador/foto/finalizar/', loseFinalA).catch(() => {});
+    await page.unroute('**/api/creador/perfil/', failOneCheck).catch(() => {});
     await capture.stop({ skipErrorBodies: true }).catch(() => {});
   }
 });
