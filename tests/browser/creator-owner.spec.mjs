@@ -501,20 +501,21 @@ test('el alta de serie comprometida puede comprobarse y continuar sin repetir el
   await expect(form.getByLabel('Dirección de la serie')).toHaveValue('ruta-corregida');
   await expect(form.getByLabel(/Descripción/)).toHaveValue('Descripción posterior');
 
-  await form.getByRole('button', { name: 'Guardar serie' }).click();
+  await expect(form.getByRole('button', { name: 'Guardar serie' })).toBeDisabled();
+  await expect(form.locator('[data-owner-compare]')).toBeVisible();
   await capture.settle();
-  await expect(form.locator('[data-owner-form-status="serie"]')).toContainText(/no repetiremos|Compara el alta original/i);
+  await expect(form.locator('[data-owner-form-status="serie"]')).toContainText(/comprobar|confirmar/i);
   assert.deepEqual(committedWrite.body, originalPost, 'the separately observed server commit used the original request body');
   assert.deepEqual(creationWrites(), [{
     method: 'POST', path: '/api/creador/series', status: 503, body: originalPost,
-  }], 'a second Save while the acknowledgement is uncertain does not replay the POST');
+  }], 'the first uncertain result offers Check without replaying the POST');
   assert.equal((await fixture.rawOwner(cookie)).profile.version, 2);
   assert.equal((await fixture.creatorStore.list('series:')).length, 1);
 
   await form.locator('[data-owner-compare]').click();
   const comparison = form.locator('[data-owner-comparison]');
   await expect(comparison).toBeVisible();
-  await expect(comparison).toContainText('Serie guardada, versión 1');
+  await expect(comparison).toContainText('Nombre guardado: Ruta enviada');
   await expect(comparison).toContainText('Dirección guardada: ruta-enviada');
   await expect(comparison).toContainText('Tu corrección: ruta-corregida');
   await expect(comparison).toContainText('Corrección posterior');
