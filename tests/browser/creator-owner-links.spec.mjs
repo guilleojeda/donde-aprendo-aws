@@ -646,12 +646,14 @@ test('último enlace de la página 2: cancelar no escribe; quitar conserva la co
   assert.deepEqual(remainingChapter.series[series.id],
     otherPlacementsBefore[0].series[series.id], 'the other chapter remains in its series');
 
+  // The capture settles the HTTP response, not the React effect that applies
+  // the canonical removal and clamps the visible query to the last page.
+  await expect(page.locator('[data-link-count]')).toHaveText('25 coincidencias de 25 enlaces');
+  await expect(page.locator('[data-link-row]')).toHaveCount(25);
   const queryAfterRemove = new URL(page.url()).searchParams;
   assert.equal(queryAfterRemove.get('buscar'), search);
   assert.equal(queryAfterRemove.get('orden'), 'titulo-asc');
   assert.equal(queryAfterRemove.get('paginaEnlaces'), '1', 'deleting the only last-page row clamps the page');
-  await expect(page.locator('[data-link-count]')).toHaveText('25 coincidencias de 25 enlaces');
-  await expect(page.locator('[data-link-row]')).toHaveCount(25);
   const searchBox = page.getByRole('searchbox', { name: 'Buscar título, URL o serie' });
   await expect(searchBox).toBeVisible();
   await expect(searchBox).toBeFocused();
