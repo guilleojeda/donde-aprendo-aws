@@ -336,3 +336,18 @@ test('when the selected Series disappeared, adoption clears only its chapter con
   const nextRequest = ownerCommands.prepareCreatorOwnerRequest(ownerCommands.creatorOwnerWriteIntent('next-surviving-series', nextContext));
   assert.equal(nextRequest.body.profileVersion, state.observed.profile.version);
 });
+
+test('a recovered Publish from Enlaces focuses its visible list search', () => {
+  const beforeData = makeData();
+  beforeData.profile.published = false;
+  const snapshot = makeData({ profileVersion: profile.version + 1 });
+  const begun = beginUncertainListCheck(
+    initialState(beforeData, { view: 'enlaces' }),
+    listContext('publish', beforeData),
+    'publish-from-links-focus',
+  );
+
+  const state = adoptSnapshot(begun.state, begun.intent, begun.checkId, snapshot);
+  assert.equal(state.location.focusAfterRender, '#owner-link-search',
+    'focus follows the active view instead of targeting the absent Series heading');
+});

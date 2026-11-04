@@ -8,7 +8,7 @@ import type {
   CreatorSeriesDTO,
 } from '../types/creators';
 import type { CreatorOwnerSeriesMembership, CreatorOwnerSeriesQuery } from './creator-owner-series';
-import { creatorOwnerChapterOrder } from './creator-owner-series';
+import { creatorOwnerChapterOrder, selectCreatorOwnerChapters, selectCreatorOwnerSeries } from './creator-owner-series';
 import { creatorOwnerLinkGroup, DEFAULT_CREATOR_OWNER_LINKS_QUERY, selectCreatorOwnerLinks } from './creator-owner-links';
 import type { CreatorOwnerLinksQuery } from './creator-owner-links';
 
@@ -591,6 +591,15 @@ function sameEditor(left: CreatorOwnerEditor | CreatorOwnerLinkEditor, right: Cr
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+function normalizeLinksQuery(
+  links: readonly CreatorLinkDTO[],
+  series: readonly CreatorSeriesDTO[],
+  query: CreatorOwnerLinksQuery,
+): CreatorOwnerLinksQuery {
+  const seriesExists = query.serie === 'todos' || series.some(({ id }) => id === query.serie);
+  return selectCreatorOwnerLinks(links, series, seriesExists ? query : { ...query, serie: 'todos' }).query;
+}
+
 export function creatorOwnerEditorChangedSince(capture: CreatorOwnerEditor | CreatorOwnerLinkEditor | CreatorOwnerListContext, current: CreatorOwnerEditor | CreatorOwnerLinkEditor | undefined): boolean {
   if (capture.kind === 'list-command') return false;
   if (!current || capture.key !== current.key || capture.kind !== current.kind) return true;
@@ -789,22 +798,29 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
       }
       const snapshot = copySnapshot(comparison.snapshot);
       if (!current && listOperation) {
-        const query = state.location.query;
-        const seriesStillExists = snapshot.series.some(({ id }) => id === query.serie);
-        const linkSelection = selectCreatorOwnerLinks(snapshot.links, snapshot.series, state.location.linksQuery);
+        const query = selectCreatorOwnerSeries(snapshot.series, state.location.query).query;
+        const seriesStillExists = Boolean(query.serie) && snapshot.series.some(({ id }) => id === query.serie);
+        const currentLinksQuery = normalizeLinksQuery(snapshot.links, snapshot.series, state.location.linksQuery);
+        const pendingLinksQuery = normalizeLinksQuery(snapshot.links, snapshot.series, state.location.pendingLinksQuery);
+        const currentQuery = seriesStillExists
+          ? selectCreatorOwnerChapters(snapshot, query).query
+          : { ...query, serie: '', buscarCapitulos: '', pertenencia: 'todos' as const, paginaCapitulos: 1 };
+        const focusAfterRender = state.location.view === 'enlaces'
+          ? state.location.linksQueryError ? '#contenido' : '#owner-link-search'
+          : state.location.view === 'series'
+            ? state.seriesQueryError ? '#contenido' : seriesStillExists ? '#owner-chapter-search' : '#owner-series-title'
+            : '#contenido';
         return {
           ...state,
           observed: snapshot,
           attempt: { status: 'confirmed', intentId: state.attempt.intent.id },
           message: { text: 'La lista guardada está actualizada. Revisa el resultado y decide si quieres iniciar otra acción.', kind: 'success' },
           location: { ...state.location,
-            query: { ...query, serie: seriesStillExists ? query.serie : '', paginaCapitulos: 1,
-              ...(seriesStillExists ? {} : { buscarCapitulos: '', pertenencia: 'todos' }) },
+            query: currentQuery,
             pendingChapterSearch: seriesStillExists ? state.location.pendingChapterSearch : '',
             pendingMembership: seriesStillExists ? state.location.pendingMembership : 'todos',
-            linksQuery: linkSelection.query, pendingLinksQuery: linkSelection.query,
-            focusAfterRender: state.attempt.intent.kind === 'remove-link' || state.attempt.intent.kind === 'reinclude-resource'
-              ? '#owner-link-search' : seriesStillExists ? '#owner-chapter-search' : '#owner-series-title' },
+            linksQuery: currentLinksQuery, pendingLinksQuery,
+            focusAfterRender },
         };
       }
       if (!current) return state;

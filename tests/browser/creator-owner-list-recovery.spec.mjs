@@ -28,6 +28,10 @@ function profileForm(page) {
   return page.locator('[data-owner-dialog] form[data-owner-form="datos"]');
 }
 
+function addLinkForm(page) {
+  return page.locator('[data-owner-dialog] form[data-owner-form="alta-enlace"]');
+}
+
 function writesTo(capture, method, path) {
   return capture.writes().filter((write) => write.method === method && write.path === path);
 }
@@ -778,3 +782,81 @@ for (const bodyOutcome of ['resolve', 'reject']) {
     }
   });
 }
+
+test('Publicar desde una consulta inicial inválida conserva el 400 hasta limpiar la URL y permite continuar', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const missingSeriesId = 'phase2-missing-links-series';
+  const response = await page.goto(`${fixture.origin}/cuenta/?vista=enlaces&serie=${missingSeriesId}`);
+  assert.equal(response?.status(), 400, 'the real SSR route rejects the initially missing Links series filter');
+  await expect(page.locator('[data-links-query-error]')).toBeVisible();
+  await expect(page.locator('[data-owner-publish]')).toBeVisible();
+  const historyBeforeCheck = await page.evaluate(() => history.state);
+  assert.equal(historyBeforeCheck.creatorOwnerLinksQueryValid, false,
+    'the initial history entry records that its query was invalid');
+
+  const capture = await captureCreatorApi(page, { ignoreReads: true, skipErrorBodies: true });
+  const transport = await installListTransport(page, {
+    writeMethod: 'POST', writePath: '/api/creador/perfil/publicar', readResponses: [{ kind: 'actual', hold: true }],
+  });
+  let publishClick;
+  let checkClick;
+  try {
+    publishClick = page.locator('[data-owner-publish]').click();
+    await transport.writeArrived.promise;
+    assert.equal(transport.actualWrite.status, 200, 'the real Publish request commits before its acknowledgement is dropped');
+    assert.equal((await fixture.rawOwner(cookie)).profile.published, true);
+    transport.writeGate.resolve();
+    await publishClick;
+    const recovery = page.locator('[data-owner-list-recovery]');
+    await expect(recovery).toBeVisible();
+
+    checkClick = recovery.getByRole('button', { name: 'Comprobar', exact: true }).click();
+    const actualRead = await transport.read(0).arrived.promise;
+    assert.equal(actualRead.status, 200);
+    assert.equal(actualRead.body.profile.published, true,
+      'the held recovery GET is the genuine post-Publish owner snapshot');
+    transport.read(0).gate.resolve();
+    await checkClick;
+
+    await expect(recovery).toHaveCount(0, 'the explicit check adopts the eligible list snapshot');
+    await expect(page.locator('[data-links-query-error]')).toBeVisible();
+    await expect(page.locator('#contenido'),
+      'a query-error view focuses its visible shared main region, not a hidden list control').toBeFocused();
+    assert.equal(new URL(page.url()).searchParams.get('serie'), missingSeriesId,
+      'adoption preserves the initially rejected query until the user clears it');
+    const historyAfterCheck = await page.evaluate(() => history.state);
+    assert.equal(historyAfterCheck.creatorOwnerLinksQueryValid, false,
+      'adoption keeps the original invalid-history marker');
+
+    await page.getByRole('link', { name: 'Limpiar búsqueda y filtros', exact: true }).click();
+    await expect(page.locator('[data-links-query-error]')).toHaveCount(0);
+    await expect(page.locator('[data-link-filters]')).toBeVisible();
+    await expect(page).toHaveURL((url) => url.searchParams.get('serie') === null);
+    const beforeManual = await fixture.rawOwner(cookie);
+    assert.equal(beforeManual.profile.published, true,
+      'the adopted snapshot retains the confirmed publication before the next action');
+
+    await page.getByRole('button', { name: 'Agregar enlace', exact: true }).click();
+    const form = addLinkForm(page);
+    await form.getByLabel('Título', { exact: true }).fill('Acción manual después de publicar');
+    await form.getByLabel('URL', { exact: true }).fill('https://phase2-list.example/manual-after-publish');
+    await form.getByRole('button', { name: 'Agregar enlace', exact: true }).click();
+    await expect.poll(() => writesTo(capture, 'POST', '/api/creador/enlaces')[0]?.status).toBe(201);
+    await capture.settle({ skipErrorBodies: true });
+    assert.equal(writesTo(capture, 'POST', '/api/creador/perfil/publicar').length, 1,
+      'checking never replays Publish');
+    assert.equal(writesTo(capture, 'POST', '/api/creador/enlaces').length, 1,
+      'the new link is a distinct explicit action');
+    const saved = await fixture.request(cookie, OWNER_PATH).then((fresh) => fresh.json());
+    assert.ok(saved.links.some(({ title, url }) => title === 'Acción manual después de publicar'
+      && url === 'https://phase2-list.example/manual-after-publish'));
+    assert.equal(saved.profile.version, beforeManual.profile.version + 1,
+      'the manual action persists after the adopted profile version');
+  } finally {
+    transport.writeGate.resolve();
+    transport.read(0).gate.resolve();
+    await Promise.all([publishClick?.catch(() => {}), checkClick?.catch(() => {})]);
+    await transport.close();
+    await capture.stop({ skipErrorBodies: true }).catch(() => {});
+  }
+});
