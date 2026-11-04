@@ -136,9 +136,9 @@ export interface CreatorOwnerComparison {
 
 export type CreatorOwnerSession =
   | { state: 'ready'; csrfToken: string }
-  | { state: 'recovery-required'; reason: 'expired' | 'csrf'; message: string }
-  | { state: 'checking'; reason: 'expired' | 'csrf'; message: string }
-  | { state: 'blocked'; reason: 'different-principal' | 'disabled' | 'invalid-context'; message: string };
+  | { state: 'recovery-required'; reason: 'expired' | 'csrf' | 'different-principal'; message: string }
+  | { state: 'checking'; reason: 'expired' | 'csrf' | 'different-principal'; message: string }
+  | { state: 'blocked'; reason: 'disabled' | 'invalid-context'; message: string };
 
 export type CreatorOwnerLocation = {
   view: CreatorOwnerView;
@@ -224,10 +224,10 @@ export type CreatorOwnerAction =
   | { type: 'check-failed'; intentId: string; checkId: string; message: string }
   | { type: 'check-compared'; intentId: string; checkId: string; comparison: CreatorOwnerComparison }
   | { type: 'adopt-comparison'; comparisonId: string }
-  | { type: 'session-required'; reason: 'expired' | 'csrf'; message: string }
+  | { type: 'session-required'; reason: 'expired' | 'csrf' | 'different-principal'; message: string }
   | { type: 'session-check-started' }
   | { type: 'session-renewed'; csrfToken: string }
-  | { type: 'session-blocked'; reason: 'different-principal' | 'disabled' | 'invalid-context'; message: string }
+  | { type: 'session-blocked'; reason: 'disabled' | 'invalid-context'; message: string }
   | { type: 'set-message'; text: string; kind?: 'info' | 'success' | 'error' }
   | { type: 'set-series-search'; value: string }
   | { type: 'set-chapter-search'; value: string }

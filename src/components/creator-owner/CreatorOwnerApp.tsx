@@ -1214,13 +1214,17 @@ export default function CreatorOwnerApp(props: Props) {
       }
       if (!response.ok) {
         const sessionState = classifyCreatorSessionCheck(response.status, payload);
-        if (sessionState.state === 'disabled' || sessionState.state === 'context-changed' || sessionState.state === 'invalid-context') {
-          const reason = sessionState.state === 'disabled' ? 'disabled' : sessionState.state === 'context-changed' ? 'different-principal' : 'invalid-context';
-          const message = sessionState.state === 'disabled' ? 'Esta cuenta está desactivada. Conservamos tus cambios.'
-            : sessionState.state === 'context-changed' ? 'La cuenta o el rol activo no coinciden con esta página. Vuelve a la cuenta original para comprobar; conservamos tus cambios.'
-              : 'El contexto de esta página no es válido. Abre una página nueva con la cuenta original.';
+        if (sessionState.state === 'context-changed') {
+          const message = 'La cuenta o el rol activo no coinciden con esta página. Vuelve a la cuenta original para comprobar; conservamos tus cambios.';
           dispatch({ type: 'check-failed', intentId: intent.id, checkId, message });
-          dispatch({ type: 'session-blocked', reason, message });
+          dispatch({ type: 'session-required', reason: 'different-principal', message });
+          return;
+        }
+        if (sessionState.state === 'disabled' || sessionState.state === 'invalid-context') {
+          const message = sessionState.state === 'disabled' ? 'Esta cuenta está desactivada. Conservamos tus cambios.'
+            : 'El contexto de esta página no es válido. Abre una página nueva con la cuenta original.';
+          dispatch({ type: 'check-failed', intentId: intent.id, checkId, message });
+          dispatch({ type: 'session-blocked', reason: sessionState.state, message });
           return;
         }
         dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: 'No pudimos leer el estado guardado. Conservamos tus cambios; puedes volver a comprobar.' });
@@ -1308,7 +1312,7 @@ export default function CreatorOwnerApp(props: Props) {
       } else if (result.state === 'disabled') {
         dispatch({ type: 'session-blocked', reason: 'disabled', message: 'Esta cuenta está desactivada. Conservamos tus cambios.' });
       } else if (result.state === 'context-changed') {
-        dispatch({ type: 'session-blocked', reason: 'different-principal', message: 'La sesión activa pertenece a otra cuenta o tiene otros permisos. Ingresa con la cuenta original antes de volver a guardar.' });
+        dispatch({ type: 'session-required', reason: 'different-principal', message: 'La sesión activa pertenece a otra cuenta o tiene otros permisos. Ingresa con la cuenta original antes de volver a guardar.' });
       } else if (result.state === 'invalid-context') {
         dispatch({ type: 'session-blocked', reason: 'invalid-context', message: 'No pudimos comprobar el contexto de esta página. Abre una página nueva con la cuenta original.' });
       } else {
