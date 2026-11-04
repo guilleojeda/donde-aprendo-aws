@@ -1043,7 +1043,8 @@ export default function CreatorOwnerApp(props: Props) {
       }
       const correction = creatorOwnerEditorChangedSince(intent.capture, stateRef.current.editor);
       dispatch({ type: 'write-confirmed', intentId: intent.id, effect: outcome.effect, correction });
-      if (!correction && intent.capture.kind !== 'list-command') dispatch({ type: 'close-editor' });
+      const referenceCompletionOwnedByReducer = intent.kind === 'reference' && intent.capture.kind === 'reference';
+      if (!correction && intent.capture.kind !== 'list-command' && !referenceCompletionOwnedByReducer) dispatch({ type: 'close-editor' });
     } catch {
       dispatch({ type: 'write-uncertain', intentId: intent.id, status: 'uncertain', message: 'No pudimos confirmar el resultado. Comprueba lo guardado antes de volver a intentar; no repetiremos la escritura.' });
     }

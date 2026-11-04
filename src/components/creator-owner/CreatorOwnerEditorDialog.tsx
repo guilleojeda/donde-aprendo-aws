@@ -113,10 +113,27 @@ function comparisonRows(
     const profileRows: Array<[string, string, string]> = data.profile?.id === editor.baseProfile.id
       ? [['Nombre visible', data.profile.displayName, editor.baseProfile.displayName], ['Dirección', data.profile.slug, editor.baseProfile.slug]]
       : [];
+    const submitted = intent?.kind === 'reference' && intent.capture.kind === 'reference' ? intent.capture.selected : undefined;
+    const recovered = comparison?.recoveredLinkId
+      ? data.links.find(({ placementId }) => placementId === comparison.recoveredLinkId) : undefined;
+    const original = submitted && recovered?.resourceId === submitted.id && recovered.url === submitted.url ? recovered : undefined;
+    const originalResult = original ? `Encontrada: ${original.title} · ${original.url}`
+      : submitted ? `No encontrada: ${submitted.title} · ${submitted.url}` : 'No se encontró la referencia original.';
+    const currentSelection = editor.selected ? `${editor.selected.title} · ${editor.selected.url}` : 'Sin selección';
+    const currentPlacement = editor.selected ? data.links.find(({ resourceId, url }) => resourceId === editor.selected?.id && url === editor.selected?.url) : undefined;
+    const currentIsSubmittedPair = Boolean(submitted && editor.selected
+      && submitted.id === editor.selected.id && submitted.url === editor.selected.url);
+    const currentPlacementState = currentPlacement
+      ? currentIsSubmittedPair ? 'La página guarda el par enviado con A.' : 'Ya estaba en tu página.'
+      : 'No aparece en la página guardada.';
+    const savedDirectoryOption = currentPlacement
+      ? currentPlacement.selectedForDirectory ? 'Sí' : 'No'
+      : 'Sin colocación guardada para esta selección.';
     return [
       ...profileRows,
-      ['Ficha del catálogo', editor.selected?.title ?? 'Sin selección', editor.selected?.url ?? '—'],
-      ['Propuesta al directorio', 'No cambia hasta guardar', editor.selectedForDirectory ? 'Sí' : 'No'],
+      ['Referencia enviada', originalResult, 'El resultado corresponde a la selección original.'],
+      ['Selección actual', currentPlacementState, currentSelection],
+      ['Propuesta al directorio', savedDirectoryOption, editor.selectedForDirectory ? 'Sí' : 'No'],
     ];
   }
   return [];
@@ -159,6 +176,9 @@ function comparisonSavedLabel(label: string): string {
     case 'Descripción': return 'Descripción guardada';
     case 'Posición guardada': return 'Posición guardada';
     case 'URL del intento': return 'Resultado del intento original';
+    case 'Referencia enviada': return 'Resultado de A';
+    case 'Selección actual': return 'Estado en la página guardada';
+    case 'Propuesta al directorio': return 'Opción guardada de la selección actual';
     default: return `Valor guardado (${label})`;
   }
 }
@@ -193,7 +213,8 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
       if (!dialog.open) dialog.showModal();
       if (prompt) dialog.querySelector<HTMLElement>('[data-owner-exit-save]')?.focus({ preventScroll: true });
       else if (editorIsDialog) {
-        const selector = editor?.kind === 'photo' ? 'input[type="file"]' : 'input:not([type="hidden"]), textarea';
+        const selector = editor?.kind === 'photo' ? 'input[type="file"]'
+          : editor?.kind === 'link-placement' && !editor.editable ? '#owner-link-directory-option' : 'input:not([type="hidden"]), textarea';
         dialog.querySelector<HTMLElement>(selector)?.focus({ preventScroll: true });
       }
     } else if (dialog.open) dialog.close();
@@ -317,7 +338,7 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
         <fieldset class="creator-owner__field creator-owner__link-fields" data-link-options>
           <legend>Opciones de tu página</legend>
           <label class="creator-owner__link-checkbox"><input type="checkbox" name="featured" checked={editor.draft.featured} onChange={(event) => onUpdateLink({ featured: event.currentTarget.checked })} /><span>Destacar en tu página</span></label>
-          <label class="creator-owner__link-checkbox"><input type="checkbox" name="selectedForDirectory" checked={editor.draft.selectedForDirectory} onChange={(event) => onUpdateLink({ selectedForDirectory: event.currentTarget.checked })} /><span>Proponer al directorio</span></label>
+          <label class="creator-owner__link-checkbox"><input id="owner-link-directory-option" type="checkbox" name="selectedForDirectory" checked={editor.draft.selectedForDirectory} onChange={(event) => onUpdateLink({ selectedForDirectory: event.currentTarget.checked })} /><span>Proponer al directorio</span></label>
           <details class="creator-owner__link-help"><summary>Sobre el directorio</summary><p>La propuesta requiere aprobación. Quitarla no quita el enlace de tu página; la actualización del directorio puede demorar.</p></details>
         </fieldset>
         <p class="creator-owner__status" data-owner-form-status="enlace" role="status" aria-live="polite">{statusText}</p>
