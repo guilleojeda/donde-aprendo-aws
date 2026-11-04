@@ -520,98 +520,111 @@ test('recuperar la misma sesión conserva el borrador y nunca repite la escritur
   await capture.stop();
 });
 
-test('la recuperación bloquea una cuenta distinta y conserva el formulario sin repetir la escritura', async ({ fixture, page }) => {
-  const cookie = await loggedInOwner(fixture, page);
-  const original = await fixture.rawOwner(cookie);
-  const capture = await captureCreatorApi(page);
-  await openSeries(page, fixture);
-  const form = await openDataEditor(page);
-  await form.getByLabel('Nombre visible').fill('Corrección de cuenta original');
+// The mismatch must remain recoverable in the original document. These cases
+// extend the existing blocked-account/role checks through the next real save.
+for (const mismatch of ['cuenta', 'rol']) {
+  test(`restaurar el contexto original (${mismatch}) conserva el editor y permite guardar manualmente`, async ({ fixture, page }) => {
+    const cookie = await loggedInOwner(fixture, page);
+    const original = await fixture.rawOwner(cookie);
+    const capture = await captureCreatorApi(page);
+    await openSeries(page, fixture);
+    const form = await openDataEditor(page);
+    const timeOrigin = await page.evaluate(() => performance.timeOrigin);
+    await form.getByLabel('Nombre visible').fill('Corrección de cuenta original');
+    const account = [...fixture.accountStore.accounts.values()].find((row) => row.identity.sub ===
+      [...fixture.accountStore.sessions.values()][0].identity.sub);
+    assert.ok(account);
 
-  const rejectChangedAccountWrite = async (route) => {
-    if (route.request().method() === 'PUT') {
-      await route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: 'AUTH_REQUIRED' }) });
-      return;
-    }
-    await route.continue();
-  };
-  await page.route('**/api/creador/perfil**', rejectChangedAccountWrite);
-  await form.getByRole('button', { name: 'Guardar datos' }).click();
-  await expect(sessionCheck(page)).toBeVisible();
-
-  const other = await installOtherAccount(page, fixture);
-  await sessionCheck(page).click();
-  await capture.settle();
-  await expect(page.locator('[data-owner-dialog] [data-session-recovery-status]')).toContainText(/otra cuenta|otros permisos/i);
-  await expect(form.getByLabel('Nombre visible')).toHaveValue('Corrección de cuenta original');
-  await expect(form.getByRole('button', { name: 'Guardar datos' })).toBeDisabled();
-  const otherPrincipal = await fixture.principal(other);
-  const otherOwner = await fixture.rawOwner(other);
-  assert.notEqual(otherPrincipal.accountId, original.principal.accountId);
-  assert.deepEqual((await fixture.rawOwner(cookie)).profile, original.profile);
-  assert.equal(otherOwner.principal.accountId, otherPrincipal.accountId);
-  assert.equal(otherOwner.owner ?? null, null,
-    'the second authenticated account has no owner record in the shared creator store');
-  assert.equal(otherOwner.profile, null,
-    'a different authenticated account cannot inherit the original account profile');
-  assert.equal(capture.writes().filter(({ method, path }) => method === 'PUT' && path === '/api/creador/perfil').length, 1,
-    'the changed account is blocked without replaying the rejected write');
-  const sessionRead = capture.records.find(({ method, path }) => method === 'GET' && path === '/api/creador/sesion');
-  assert.equal(sessionRead?.status, 409, 'the real session endpoint rejects a binding from another account');
-  await page.unroute('**/api/creador/perfil**', rejectChangedAccountWrite).catch(() => {});
-  await capture.stop();
-});
-
-test('la misma cuenta con un rol distinto no hereda el contexto privado ni envía el borrador', async ({ fixture, page }) => {
-  const cookie = await loggedInOwner(fixture, page);
-  const initial = await fixture.rawOwner(cookie);
-  const capture = await captureCreatorApi(page);
-  await openSeries(page, fixture);
-  const form = await openDataEditor(page);
-  await form.getByLabel('Nombre visible').fill('Corrección mientras cambia el rol');
-  const rejectBeforeHandler = async (route) => {
-    if (route.request().method() === 'PUT') {
-      await route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: 'AUTH_REQUIRED' }) });
-      return;
-    }
-    await route.continue();
-  };
-  await page.route('**/api/creador/**', rejectBeforeHandler);
-  try {
+    // Absence is an auth prerequisite; the actual application returns 401.
+    await page.context().clearCookies({ name: cookie.name });
     await form.getByRole('button', { name: 'Guardar datos' }).click();
     await expect(sessionCheck(page)).toBeVisible();
-    const [account] = [...fixture.accountStore.accounts.values()];
-    assert.ok(account, 'the account callback created the real session identity record');
-    fixture.accountStore.seedAccount({ ...account, isAdmin: true });
-    const changedRole = await fixture.principal(cookie);
-    assert.equal(changedRole.accountId, initial.principal.accountId);
-    assert.notEqual(changedRole.isAdmin, initial.principal.isAdmin);
-
+    let other;
+    if (mismatch === 'cuenta') other = await installOtherAccount(page, fixture);
+    else {
+      fixture.accountStore.seedAccount({ ...account, isAdmin: true });
+      await addCookie(page.context(), fixture, cookie);
+    }
     await sessionCheck(page).click();
     await capture.settle();
-    await expect(page.locator('[data-owner-dialog] [data-session-recovery-status]')).toContainText(/otros permisos/i);
+    const reads = capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/sesion');
+    assert.equal(reads[0]?.status, 409, 'the real bound session endpoint rejects the wrong account/role');
+    assert.equal(reads[0].responseBody.error, 'SESSION_CONTEXT_CHANGED');
+    assert.equal(Object.hasOwn(reads[0].responseBody, 'csrfToken'), false);
+    await expect(page.locator('[data-owner-dialog] [data-session-recovery-status]')).toContainText(/otra cuenta|otros permisos/i);
+    await expect(form.getByLabel('Nombre visible')).toHaveValue('Corrección de cuenta original');
     await expect(form.getByRole('button', { name: 'Guardar datos' })).toBeDisabled();
-    await expect(form.getByLabel('Nombre visible')).toHaveValue('Corrección mientras cambia el rol');
-    assert.deepEqual((await fixture.rawOwner(cookie)).profile, initial.profile,
-      'the account and profile records are unchanged while the authorization role differs from the page');
-    const sessionRead = capture.records.find(({ method, path }) => method === 'GET' && path === '/api/creador/sesion');
-    assert.equal(sessionRead?.status, 409, 'the real session endpoint rejects the same account under a different role');
-    assert.equal(capture.writes().filter(({ method, path }) => method === 'PUT' && path === '/api/creador/perfil').length, 1,
-      'role mismatch does not replay the profile write');
-  } finally {
-    await page.unroute('**/api/creador/**', rejectBeforeHandler).catch(() => {});
-  }
-  await capture.stop();
-});
+    assert.deepEqual((await fixture.rawOwner(cookie)).profile, original.profile);
+    if (other) {
+      const otherOwner = await fixture.rawOwner(other);
+      assert.notEqual(otherOwner.principal.accountId, original.principal.accountId);
+      assert.equal(otherOwner.owner ?? null, null);
+      assert.equal(otherOwner.profile, null, 'another account inherits no profile or private content');
+    } else {
+      const changedRole = await fixture.principal(cookie);
+      assert.equal(changedRole.accountId, original.principal.accountId);
+      assert.notEqual(changedRole.isAdmin, original.principal.isAdmin);
+    }
+    assert.equal(capture.writes().length, 1, 'mismatch does not replay the rejected PUT');
+    assert.equal(capture.writes()[0].status, 401);
 
-test('la foto A se comprueba tras perder el acuse, conserva el archivo B y luego guarda B con la base vigente', async ({ fixture, page }) => {
+    await expect(sessionCheck(page)).toBeEnabled();
+    await expect(page.locator('main [data-session-recovery-check]')).toBeEnabled();
+    // A repeated check under the wrong context remains safe and retryable.
+    await sessionCheck(page).click();
+    await capture.settle();
+    assert.equal(capture.records.filter(({ method, path, status }) => method === 'GET'
+      && path === '/api/creador/sesion' && status === 409).length, 2);
+    await expect(sessionCheck(page)).toBeEnabled();
+    if (mismatch === 'rol') fixture.accountStore.seedAccount(account);
+    const renewed = await fixture.login();
+    await addCookie(page.context(), fixture, renewed);
+    const ownerReadsBefore = capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length;
+    await sessionCheck(page).click();
+    await expect(sessionCheck(page)).toHaveCount(0);
+    await capture.settle();
+    const restored = capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/sesion').at(-1);
+    assert.equal(restored.status, 200);
+    const principal = await fixture.principal(renewed);
+    assert.equal(principal.accountId, original.principal.accountId);
+    assert.equal(principal.isAdmin, original.principal.isAdmin);
+    assert.equal(restored.responseBody.csrfToken, principal.csrfToken);
+    assert.notEqual(principal.csrfToken, original.principal.csrfToken);
+    await expect(page.locator('[data-account-logout] input[name="csrfToken"]')).toHaveValue(principal.csrfToken);
+    assert.equal(capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length, ownerReadsBefore,
+      'session checking does not read or adopt content');
+    assert.equal(capture.writes().length, 1, 'session restoration performs no write');
+    assert.deepEqual((await fixture.rawOwner(renewed)).profile, original.profile);
+    assert.equal(await page.evaluate(() => performance.timeOrigin), timeOrigin, 'the same edited document is retained');
+    await expect(form.getByLabel('Nombre visible')).toHaveValue('Corrección de cuenta original');
+    await expect(form.getByRole('button', { name: 'Guardar datos' })).toBeEnabled();
+    const savedRequest = page.waitForRequest((request) => request.method() === 'PUT'
+      && new URL(request.url()).pathname.replace(/\/$/u, '') === '/api/creador/perfil');
+    await form.getByRole('button', { name: 'Guardar datos' }).click();
+    assert.equal((await savedRequest).headers()['x-csrf-token'], principal.csrfToken);
+    await capture.settle();
+    assert.equal(capture.writes().length, 2);
+    assert.equal(capture.writes()[1].status, 200);
+    assert.equal(capture.writes()[1].body.version, original.profile.version);
+    const final = await fixture.rawOwner(renewed);
+    assert.equal(final.profile.displayName, 'Corrección de cuenta original');
+    assert.equal(final.profile.version, original.profile.version + 1);
+    const fresh = await api(fixture, renewed, '/api/creador/perfil');
+    assert.equal(fresh.response.status, 200);
+    assert.equal(fresh.body.profile.id, final.profile.id);
+    assert.equal(fresh.body.profile.version, final.profile.version);
+    assert.equal(fresh.body.profile.displayName, final.profile.displayName);
+    await capture.stop();
+  });
+}
+
+test('la foto A recupera la cuenta original, conserva el archivo B y luego guarda B con la base vigente', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   const initial = await fixture.rawOwner(cookie);
   const images = await rasterPhotoFixtures();
   const capture = await captureCreatorApi(page);
   const directUploads = [];
   const providerFailures = [];
-  let failNextProfileCheck = false;
   const finalizeGate = gate();
   let finalA;
   const uploadThroughProvider = async (route) => {
@@ -658,18 +671,8 @@ test('la foto A se comprueba tras perder el acuse, conserva el archivo B y luego
     }
     await route.continue();
   };
-  const failOneCheck = async (route) => {
-    if (failNextProfileCheck && route.request().method() === 'GET'
-      && new URL(route.request().url()).pathname.replace(/\/$/u, '') === '/api/creador/perfil') {
-      failNextProfileCheck = false;
-      await route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: 'AUTH_REQUIRED' }) });
-      return;
-    }
-    await route.continue();
-  };
   await page.route('https://creator-photos.example.invalid/**', uploadThroughProvider);
   await page.route('**/api/creador/foto/finalizar/', loseFinalA);
-  await page.route('**/api/creador/perfil/', failOneCheck);
   try {
     await openSeries(page, fixture);
     await page.getByRole('button', { name: 'Editar foto' }).click();
@@ -693,11 +696,31 @@ test('la foto A se comprueba tras perder el acuse, conserva el archivo B y luego
       { entity: 'profile', id: initial.profile.id, before: initial.profile.version, after: afterA.profile.version },
     ]);
 
-    failNextProfileCheck = true;
+    const chosenFile = await file.evaluateHandle((input) => input.files[0]);
+    const timeOrigin = await page.evaluate(() => performance.timeOrigin);
+    const other = await installOtherAccount(page, fixture);
     await form.getByRole('button', { name: /Comprobar.*foto|Comprobar.*estado/ }).click();
-    await expect(sessionCheck(page)).toBeVisible();
+    await capture.settle({ skipErrorBodies: true });
+    const mismatchRead = capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').at(-1);
+    assert.equal(mismatchRead.status, 409);
+    assert.equal(mismatchRead.responseBody.error, 'SESSION_CONTEXT_CHANGED');
+    assert.equal(Object.hasOwn(mismatchRead.responseBody, 'profile'), false);
+    assert.equal((await fixture.rawOwner(other)).profile, null);
+    await expect(form.getByRole('button', { name: 'Subir y guardar foto' })).toBeDisabled();
+    await expect(sessionCheck(page)).toBeEnabled();
+    const renewed = await fixture.login();
+    await addCookie(page.context(), fixture, renewed);
+    const writesBeforeSessionCheck = capture.writes().length;
+    const ownerReadsBeforeSessionCheck = capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length;
     await sessionCheck(page).click();
-    await expect(sessionCheck(page)).toBeHidden();
+    await expect(sessionCheck(page)).toHaveCount(0);
+    await capture.settle({ skipErrorBodies: true });
+    assert.equal(capture.writes().length, writesBeforeSessionCheck, 'session checking does not resume or restart an upload');
+    assert.equal(capture.records.filter(({ method, path }) => method === 'GET' && path === '/api/creador/perfil').length, ownerReadsBeforeSessionCheck);
+    assert.equal(await file.evaluate((input, selected) => input.files[0] === selected, chosenFile), true,
+      'the actual native File object survives mismatch and restoration');
+    assert.equal(await page.evaluate(() => performance.timeOrigin), timeOrigin);
+    await expect(form.getByRole('button', { name: 'Subir y guardar foto' })).toBeDisabled();
     await file.evaluate((input) => input.files?.[0]?.name).then((value) => assert.equal(value, 'foto-b.png'));
     await form.getByRole('button', { name: /Comprobar.*foto|Comprobar.*estado/ }).click();
     await expect.poll(() => file.evaluate((input) => input.files?.length ?? 0)).toBe(1);
@@ -744,7 +767,6 @@ test('la foto A se comprueba tras perder el acuse, conserva el archivo B y luego
     finalizeGate.release();
     await page.unroute('https://creator-photos.example.invalid/**', uploadThroughProvider).catch(() => {});
     await page.unroute('**/api/creador/foto/finalizar/', loseFinalA).catch(() => {});
-    await page.unroute('**/api/creador/perfil/', failOneCheck).catch(() => {});
     await capture.stop({ skipErrorBodies: true }).catch(() => {});
   }
 });

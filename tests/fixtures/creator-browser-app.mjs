@@ -100,7 +100,9 @@ export async function startCreatorBrowserApp() {
             return runtimeModulePaths.has(resolved) ? bridgePath : null;
           },
         }],
-        server: { https: { key, cert }, strictPort: true },
+        // Dev-server reloads are not product behavior and can replace the SSR
+        // document while a test deliberately holds its hydration scripts.
+        server: { https: { key, cert }, strictPort: true, hmr: false },
       },
     });
     if (server.address.address !== LOOPBACK || server.address.port !== port) {

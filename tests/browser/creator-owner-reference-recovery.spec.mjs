@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { seedResource } from '../fixtures/creator-pages.mjs';
+import { creatorPageSessionBinding } from '../../src/lib/creator-session-context.mjs';
 import {
-  test, expect, captureCreatorApi, loggedInOwner,
+  test, expect, captureCreatorApi, loggedInOwner, addCookie,
 } from '../fixtures/creator-browser-test.mjs';
 
 const OWNER_PATH = '/api/creador/perfil';
@@ -435,5 +436,98 @@ test('Referencia A recuperada continúa con una corrección manual de opciones y
     await transport.close();
     await capture.stop({ skipErrorBodies: true }).catch(() => {});
     await removeIndexRoute();
+  }
+});
+
+test('restaurar el rol original conserva B y exige comprobar A antes del siguiente envío manual', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const principalBefore = await fixture.principal(cookie);
+  const itemA = catalogEntry('session-reference-a', 'Referencia A de sesión', 'https://session.example/a');
+  const itemB = catalogEntry('session-reference-b', 'Referencia B de sesión', 'https://session.example/b');
+  await seedCatalogRecord(fixture, itemA);
+  await seedCatalogRecord(fixture, itemB);
+  const removeIndexRoute = await serveSelectionIndex(page, [itemA, itemB]);
+  await openLinksWithManagedHistory(page, fixture);
+  const timeOrigin = await page.evaluate(() => performance.timeOrigin);
+  const before = await freshOwner(fixture, cookie);
+  const account = [...fixture.accountStore.accounts.values()][0];
+  const capture = await captureCreatorApi(page);
+  const transport = await installReferenceTransport(page, { loseReferenceAcknowledgement: true });
+  let submit;
+  try {
+    await openCatalog(page);
+    const form = page.locator('[data-owner-form="referencia"]');
+    await catalogRadio(page, itemA).check();
+    submit = form.getByRole('button', { name: 'Agregar a mi página', exact: true }).click();
+    const committed = await transport.writeArrived.promise;
+    assert.equal(committed.status, 201);
+    await catalogRadio(page, itemB).check();
+    const directory = form.getByRole('checkbox', { name: 'Proponer al directorio', exact: true });
+    await directory.uncheck();
+    transport.writeGate.release();
+    await submit;
+    await expect(form.locator('[data-owner-compare]')).toBeEnabled();
+    const savedA = await freshOwner(fixture, cookie);
+    assert.equal(savedA.profile.version, before.profile.version + 1);
+    assert.equal(savedA.links.length, 1);
+    fixture.accountStore.seedAccount({ ...account, isAdmin: true });
+    await form.locator('[data-owner-compare]').click();
+    await capture.settle({ skipErrorBodies: true });
+    const rejected = capture.records.filter(({ method, path }) => method === 'GET' && path === OWNER_PATH).at(-1);
+    assert.equal(rejected.status, 409, 'the real owner GET detects the changed role');
+    assert.equal(rejected.responseBody.error, 'SESSION_CONTEXT_CHANGED');
+    assert.equal(Object.hasOwn(rejected.responseBody, 'profile'), false);
+    await expect(catalogRadio(page, itemB)).toBeChecked();
+    await expect(directory).not.toBeChecked();
+    await expect(form.getByRole('button', { name: 'Agregar a mi página', exact: true })).toBeDisabled();
+    const sessionCheck = page.locator('[data-owner-dialog] [data-session-recovery-check]');
+    await expect(sessionCheck).toBeEnabled();
+    // Returning to the original role and renewing the cookie is external auth
+    // setup. All session checking/content recovery/saving uses native UI.
+    fixture.accountStore.seedAccount(account);
+    const renewed = await fixture.login();
+    await addCookie(page.context(), fixture, renewed);
+    const ownerReads = capture.records.filter(({ method, path }) => method === 'GET' && path === OWNER_PATH).length;
+    const sessionRequest = page.waitForRequest((request) => request.method() === 'GET'
+      && new URL(request.url()).pathname.replace(/\/$/u, '') === '/api/creador/sesion');
+    await sessionCheck.click();
+    const checkedRequest = await sessionRequest;
+    assert.equal(checkedRequest.headers()['x-creator-page-binding'],
+      // The opaque marker is independently derived from the original authority.
+      creatorPageSessionBinding(principalBefore));
+    await expect(sessionCheck).toHaveCount(0);
+    await capture.settle({ skipErrorBodies: true });
+    assert.equal(capture.records.filter(({ method, path }) => method === 'GET' && path === OWNER_PATH).length, ownerReads,
+      'session restoration does not perform the separate content check');
+    assert.equal(referenceWrites(capture).length, 1);
+    assert.equal((await freshOwner(fixture, renewed)).profile.version, savedA.profile.version);
+    assert.equal(await page.evaluate(() => performance.timeOrigin), timeOrigin);
+    await expect(catalogRadio(page, itemB)).toBeChecked();
+    await expect(directory).not.toBeChecked();
+    await expect(form.getByRole('button', { name: 'Agregar a mi página', exact: true })).toBeDisabled();
+    await expect(form.locator('[data-owner-compare]')).toBeEnabled();
+    await form.locator('[data-owner-compare]').click();
+    await expect(form.locator('[data-owner-adopt]')).toBeEnabled();
+    assert.equal(referenceWrites(capture).length, 1, 'content comparison is also read-only');
+    await form.locator('[data-owner-adopt]').click();
+    await addManuallySelectedB(page, capture, itemB);
+    await capture.settle({ skipErrorBodies: true });
+    assert.deepEqual(referenceWrites(capture)[1].body, {
+      resourceId: itemB.id, url: itemB.url, profileVersion: savedA.profile.version, selectedForDirectory: false,
+    });
+    const final = await freshOwner(fixture, renewed);
+    assert.equal(final.profile.version, savedA.profile.version + 1);
+    assert.equal(final.links.filter(({ resourceId }) => resourceId === itemA.id).length, 1);
+    assert.equal(final.links.filter(({ resourceId }) => resourceId === itemB.id).length, 1);
+    assert.equal(final.links.find(({ resourceId }) => resourceId === itemB.id).selectedForDirectory, false);
+    assert.equal(final.editableResources.some(({ id }) => id === itemA.id || id === itemB.id), false);
+    assert.equal(referenceWrites(capture).length, 2, 'only the initial A and later manual B were sent');
+  } finally {
+    fixture.accountStore.seedAccount(account);
+    transport.writeGate.release();
+    await submit?.catch(() => {});
+    await transport.close();
+    await removeIndexRoute();
+    await capture.stop({ skipErrorBodies: true }).catch(() => {});
   }
 });
