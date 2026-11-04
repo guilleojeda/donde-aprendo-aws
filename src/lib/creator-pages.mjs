@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { isCatalogResourceIdWithinLimit, projectPublicRecord, validateCatalogUrl } from './catalog.mjs';
-import { currentUrlKey } from './catalog-url.mjs';
+import { currentUrlKey, currentUrlReservationId } from './catalog-url.mjs';
 import { normalizeCreatorText } from './creator-values.mjs';
 import { dynamoDbNumberSize } from './creator-dynamodb-size.mjs';
 import { createOrderCalculationBudget, OrderCalculationUnavailableError, solveIntegerOrder } from './creator-order.mjs';
@@ -561,6 +561,34 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     return value + 1;
   }
 
+  function isValidUrlReservation(reservation, url, { allowOverLimitUniqueId = false } = {}) {
+    if (!isRecord(reservation) || reservation.id !== currentUrlReservationId(url)
+      || reservation.recordType !== 'urlReservation' || reservation.url !== url
+      || !Number.isSafeInteger(reservation.version) || reservation.version < 0) return false;
+    if (reservation.status === 'reserved') {
+      const resourceIdIsValid = typeof reservation.resourceId === 'string' && reservation.resourceId.length > 0
+        && !reservation.resourceId.startsWith('__')
+        && (allowOverLimitUniqueId || isCatalogResourceIdWithinLimit(reservation.resourceId));
+      return resourceIdIsValid
+        && !Object.hasOwn(reservation, 'resourceIds');
+    }
+    if (reservation.status === 'collision') {
+      const ids = reservation.resourceIds;
+      return !Object.hasOwn(reservation, 'resourceId') && Array.isArray(ids) && ids.length >= 2
+        && ids.every((id) => isCatalogResourceIdWithinLimit(id) && !id.startsWith('__'))
+        && new Set(ids).size === ids.length;
+    }
+    return false;
+  }
+
+  function urlReservationCheck(key, reservation) {
+    return {
+      key,
+      version: storedVersion(reservation.version, 'resource', { legacyZero: true }),
+      expectedReservation: reservation,
+    };
+  }
+
   function assertAtomicLinkFields(body) {
     for (const field of Object.keys(body)) {
       if (PROTECTED_ATOMIC_LINK_FIELDS.has(field)) fail(400, 'FORBIDDEN_FIELD', `${field} is managed by the service`);
@@ -651,42 +679,69 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
 
     const nextKey = currentUrlKey(nextUrl);
     const reservation = await store.get(nextKey);
-    if (reservation && (reservation.url !== nextUrl || reservation.resourceId !== resource.id || reservation.status !== 'reserved')) {
-      fail(409, 'URL_TAKEN', 'another resource already uses this URL');
-    }
     const previousKey = currentUrlKey(oldUrl);
     const previousReservation = await store.get(previousKey);
-    if (!previousReservation || previousReservation.url !== oldUrl || previousReservation.resourceId !== resource.id) {
-      fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation is missing or inconsistent');
-    }
     if (nextKey === previousKey) fail(422, 'INVALID_URL', 'current URL could not be changed');
 
-    const nextReservationVersion = reservation
-      ? storedVersion(reservation.version, 'resource', { legacyZero: true })
-      : null;
-    const previousReservationVersion = storedVersion(previousReservation.version, 'resource', { legacyZero: true });
+    if (previousReservation && !isValidUrlReservation(previousReservation, oldUrl)) {
+      fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation is malformed');
+    }
+    if (reservation && !isValidUrlReservation(reservation, nextUrl)) {
+      fail(503, 'URL_INDEX_MISMATCH', 'destination URL reservation is malformed');
+    }
+    if (reservation && (reservation.status !== 'reserved' || reservation.resourceId !== resource.id)) {
+      fail(409, 'URL_TAKEN', 'another resource already uses this URL');
+    }
+
     const nextReservationRecord = {
-      id: `__url#${hash(nextUrl)}`,
+      id: currentUrlReservationId(nextUrl),
       recordType: 'urlReservation',
       url: nextUrl,
       status: 'reserved',
       resourceId: resource.id,
-      version: reservation ? nextVersion(nextReservationVersion, 'resource') : 1,
+      version: 1,
     };
+    const checks = [resourceCheck];
+    if (reservation) checks.push(urlReservationCheck(nextKey, reservation));
+    else checks.push({ key: nextKey, version: null });
+    const puts = [{ key, value: updated }, { key: nextKey, value: nextReservationRecord }];
+    const deletes = [];
+
+    if (!previousReservation) {
+      checks.push({ key: previousKey, version: null });
+    } else {
+      checks.push(urlReservationCheck(previousKey, previousReservation));
+      if (previousReservation.status === 'reserved') {
+        if (previousReservation.resourceId === resource.id) deletes.push(previousKey);
+      } else if (previousReservation.resourceIds.includes(resource.id)) {
+        const remainingIds = previousReservation.resourceIds.filter((id) => id !== resource.id).sort();
+        const remaining = remainingIds.length === 1
+          ? {
+            id: currentUrlReservationId(oldUrl),
+            recordType: 'urlReservation',
+            url: oldUrl,
+            status: 'reserved',
+            resourceId: remainingIds[0],
+            version: 1,
+          }
+          : {
+            id: currentUrlReservationId(oldUrl),
+            recordType: 'urlReservation',
+            url: oldUrl,
+            status: 'collision',
+            resourceIds: remainingIds,
+            version: 1,
+          };
+        puts.push({ key: previousKey, value: remaining });
+      }
+    }
     return {
       resource: updated,
       before,
       changed: true,
-      checks: [
-        resourceCheck,
-        { key: nextKey, version: nextReservationVersion },
-        { key: previousKey, version: previousReservationVersion },
-      ],
-      puts: [
-        { key, value: updated },
-        { key: nextKey, value: nextReservationRecord },
-      ],
-      deletes: [previousKey],
+      checks,
+      puts,
+      deletes,
     };
   }
 
@@ -1314,9 +1369,6 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
   async function attachExistingResource(profile, resource, {
     selectedForDirectory = true,
     checks = [],
-    returnExistingOnConflict = true,
-    checkExistingConditions = false,
-    linkDtoBuilder = buildLinkDto,
   } = {}) {
     if (!isCatalogResource(resource)) fail(503, 'INVALID_RESOURCE', 'a catalog control row cannot be attached as a resource');
     const stableId = placementId(profile.id, resource.id);
@@ -1326,19 +1378,23 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       if (existing.id !== stableId || existing.profileId !== profile.id || existing.resourceId !== resource.id) {
         fail(503, 'INVALID_PLACEMENT', 'existing placement does not match its resource');
       }
-      if (checkExistingConditions) {
-        const placementVersion = storedVersion(existing.version, 'placement', { legacyZero: true });
-        const ok = await store.transact({
-          checks: [
-            { key: profileKey(profile.id), version: storedVersion(profile.version, 'profile') },
-            ...checks,
-            { key: stablePlacementKey, version: placementVersion },
-          ],
-          puts: [],
-        });
-        if (!ok) fail(409, 'LINK_CONFLICT', 'link changed while checking the existing reference');
-      }
-      return { link: linkDtoBuilder(existing, resource), created: false, versionChanges: [] };
+      const currentSeries = await seriesForProfile(profile.id);
+      const seriesById = new Map(currentSeries.map((series) => [series.id, series]));
+      const currentSeriesIds = new Set(seriesById.keys());
+      const link = linkDtoFromRecords(existing, resource, seriesById, currentSeriesIds, {
+        includeModerationState: true,
+      });
+      const placementVersion = storedVersion(existing.version, 'placement', { legacyZero: true });
+      const ok = await store.transact({
+        checks: [
+          { key: profileKey(profile.id), version: storedVersion(profile.version, 'profile') },
+          ...checks,
+          { key: stablePlacementKey, version: placementVersion },
+        ],
+        puts: [],
+      });
+      if (!ok) fail(409, 'LINK_CONFLICT', 'link changed while checking the existing reference');
+      return { link, created: false, versionChanges: [] };
     }
 
     const placements = await getPlacements(profile.id);
@@ -1347,7 +1403,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       recordType: 'placement', id: stableId, profileId: profile.id, resourceId: resource.id,
       position: nextPlacementPosition(placements), featured: false, selectedForDirectory, version: updatedProfile.version,
     };
-    const link = linkDtoBuilder(placement, resource);
+    const link = buildLinkDto(placement, resource);
     const ok = await store.transact({
       checks: [
         { key: profileKey(profile.id), version: profile.version },
@@ -1360,12 +1416,6 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       ],
     });
     if (!ok) {
-      if (returnExistingOnConflict) {
-        const winner = await store.get(stablePlacementKey);
-        if (winner?.id === stableId && winner.profileId === profile.id && winner.resourceId === resource.id) {
-          return { link: linkDtoBuilder(winner, resource), created: false };
-        }
-      }
       fail(409, 'LINK_CONFLICT', 'link changed while adding');
     }
     return {
@@ -1411,20 +1461,11 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     } catch {
       fail(503, 'INVALID_RESOURCE', 'resource URL is malformed');
     }
-    const reservationKey = currentUrlKey(url);
-    const reservation = await store.get(reservationKey);
-    if (!reservation || reservation.recordType !== 'urlReservation' || reservation.status !== 'reserved'
-      || reservation.url !== url || reservation.resourceId !== resource.id
-      || !Number.isSafeInteger(reservation.version) || reservation.version < 0) {
-      fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation does not match the editable resource');
-    }
     return attachExistingResource(profile, resource, {
       checks: [
         { key: `resource:${resource.id}`, version: resourceVersion },
-        { key: reservationKey, version: reservation.version },
         { key: referenceKey, version: reference.version },
       ],
-      returnExistingOnConflict: false,
     });
   }
 
@@ -1467,35 +1508,22 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
 
     const reservationKey = currentUrlKey(url);
     const reservation = await store.get(reservationKey);
+    if (!reservation || !isValidUrlReservation(reservation, url)) {
+      fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation does not match the selected resource');
+    }
     if (reservation?.status === 'collision') {
       fail(409, 'URL_COLLISION', 'this URL needs administrative review');
     }
-    if (!reservation || reservation.recordType !== 'urlReservation' || reservation.status !== 'reserved'
-      || reservation.url !== url || reservation.resourceId !== resource.id) {
+    if (reservation.resourceId !== resource.id) {
       fail(503, 'URL_INDEX_MISMATCH', 'current URL reservation does not match the selected resource');
     }
-    const reservationVersion = storedVersion(reservation.version, 'resource');
-
-    const currentSeries = await seriesForProfile(profile.id);
-    const seriesById = new Map(currentSeries.map((series) => [series.id, series]));
-    const currentSeriesIds = new Set(seriesById.keys());
-    const linkDtoBuilder = (placement, currentResource) => linkDtoFromRecords(
-      placement,
-      currentResource,
-      seriesById,
-      currentSeriesIds,
-      { includeModerationState: true },
-    );
 
     return attachExistingResource(profile, resource, {
       selectedForDirectory,
       checks: [
         { key: resourceKey, version: resourceVersion },
-        { key: reservationKey, version: reservationVersion },
+        urlReservationCheck(reservationKey, reservation),
       ],
-      returnExistingOnConflict: false,
-      checkExistingConditions: true,
-      linkDtoBuilder,
     });
   }
 
@@ -1514,11 +1542,10 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     const key = currentUrlKey(url);
     const reservation = await store.get(key);
     if (reservation) {
-      if (reservation.url !== url) fail(503, 'URL_INDEX_MISMATCH', 'URL reservation hash points to a different URL');
-      if (reservation.status === 'collision') fail(409, 'URL_COLLISION', 'this URL needs administrative review');
-      if (reservation.status !== 'reserved' || typeof reservation.resourceId !== 'string' || !reservation.resourceId) {
-        fail(503, 'INVALID_URL_RESERVATION', 'URL reservation is malformed');
+      if (!isValidUrlReservation(reservation, url, { allowOverLimitUniqueId: true })) {
+        fail(503, 'URL_INDEX_MISMATCH', 'URL reservation is malformed');
       }
+      if (reservation.status === 'collision') fail(409, 'URL_COLLISION', 'this URL needs administrative review');
       requireCatalogResourceIdWithinLimit(reservation.resourceId);
       const resource = await store.get(`resource:${reservation.resourceId}`);
       if (!resource || resource.id !== reservation.resourceId || !isCatalogResource(resource) || currentResourceUrl(resource) !== url) {
@@ -1527,7 +1554,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       return attachExistingResource(profile, resource, {
         selectedForDirectory,
         checks: [
-          { key, version: reservation.version },
+          urlReservationCheck(key, reservation),
           { key: `resource:${resource.id}`, version: resource.version ?? 0 },
         ],
       });

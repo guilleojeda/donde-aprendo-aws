@@ -157,6 +157,40 @@ function physicalId(descriptor) {
   return `${descriptor.table}\u0000${JSON.stringify(descriptor.key)}`;
 }
 
+function expressionForExpectedReservation(descriptor, version, expected) {
+  if (descriptor.type !== 'urlReservation') throw new TypeError('expected reservation state requires a URL reservation key');
+  if (!expected || typeof expected !== 'object' || Array.isArray(expected)
+    || expected.id !== descriptor.id || expected.recordType !== 'urlReservation'
+    || typeof expected.url !== 'string' || typeof expected.status !== 'string'
+    || !Number.isSafeInteger(expected.version) || expected.version < 0
+    || expected.version !== version) {
+    throw new TypeError('invalid expected URL reservation state');
+  }
+
+  const names = {};
+  const values = {};
+  const predicates = [];
+  let index = 0;
+  for (const attribute of ['id', 'recordType', 'url', 'status', 'resourceId', 'resourceIds']) {
+    const nameToken = `#observed${index}`;
+    names[nameToken] = attribute;
+    if (Object.hasOwn(expected, attribute)) {
+      const valueToken = `:observed${index}`;
+      values[valueToken] = structuredClone(expected[attribute]);
+      predicates.push(`${nameToken} = ${valueToken}`);
+    } else {
+      predicates.push(`attribute_not_exists(${nameToken})`);
+    }
+    index += 1;
+  }
+  const versionCondition = expressionForCheck(descriptor, version);
+  return {
+    ConditionExpression: `(${versionCondition.ConditionExpression}) AND ${predicates.join(' AND ')}`,
+    ExpressionAttributeNames: { ...versionCondition.ExpressionAttributeNames, ...names },
+    ExpressionAttributeValues: { ...versionCondition.ExpressionAttributeValues, ...values },
+  };
+}
+
 function expressionForCheck(descriptor, version) {
   const keyAttribute = descriptor.table === 'catalog' ? '#id' : '#pk';
   const names = { [keyAttribute]: descriptor.table === 'catalog' ? 'id' : 'pk' };
@@ -557,7 +591,9 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
         descriptor,
         key: check.key,
         version: check.version,
-        expression: expressionForCheck(descriptor, check.version),
+        expression: Object.hasOwn(check, 'expectedReservation')
+          ? expressionForExpectedReservation(descriptor, check.version, check.expectedReservation)
+          : expressionForCheck(descriptor, check.version),
       };
       retainBudgetValue(budget, condition);
       conditions.set(id, condition);

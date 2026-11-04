@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 import { dynamoDbItemSize } from '../../src/lib/creator-dynamodb-size.mjs';
 import { creatorStoreInternals } from '../../src/lib/creator-store.mjs';
 
@@ -36,8 +37,9 @@ export const SITE_ORIGIN = 'https://dondeaprendoaws.com';
  * `x-csrf-token`. No test helper grants ownership, selection, eligibility,
  * editor rights, or slug uniqueness.
  *
- * The store is a generic document store. Its transaction method supplies only
- * atomic version checks and writes; it has no creator-page rules.
+ * The store is a generic document store. Its transaction method supplies
+ * atomic version/expected-reservation checks and writes; it has no creator-page
+ * ownership or URL-index rules.
  */
 export async function loadCreatorPagesFactory() {
   try {
@@ -101,6 +103,20 @@ export function createDocumentStore() {
     return Object.freeze(result);
   }
 
+  function reservationObservationMatches(key, current, expected, version) {
+    if (!current || !expected || typeof expected !== 'object' || Array.isArray(expected)) return false;
+    const descriptor = creatorStoreInternals.logicalKey(key);
+    if (descriptor.type !== 'urlReservation' || expected.version !== version) return false;
+    const physicalValue = { ...current, ...descriptor.key };
+    for (const attribute of ['id', 'recordType', 'url', 'status', 'resourceId', 'resourceIds']) {
+      const expectedHas = Object.hasOwn(expected, attribute);
+      const currentHas = Object.hasOwn(physicalValue, attribute) && physicalValue[attribute] !== undefined;
+      if (expectedHas !== currentHas) return false;
+      if (expectedHas && !isDeepStrictEqual(physicalValue[attribute], expected[attribute])) return false;
+    }
+    return true;
+  }
+
   const store = {
     calls,
     failNext(operation, error = new Error(`injected ${operation} failure`)) {
@@ -109,7 +125,13 @@ export function createDocumentStore() {
     async get(key) {
       before('get', { key });
       const value = documents.get(key);
-      return value === undefined ? null : copy({ ...value, version: value.version ?? 0 });
+      if (value === undefined) return null;
+      const descriptor = creatorStoreInternals.logicalKey(key);
+      return copy({
+        ...value,
+        ...(descriptor.type === 'urlReservation' ? descriptor.key : {}),
+        version: value.version ?? 0,
+      });
     },
     async list(prefix) {
       before('list', { prefix });
@@ -222,9 +244,12 @@ export function createDocumentStore() {
     },
     async transact({ checks = [], puts = [], deletes = [] }) {
       before('transact', { checks, puts, deletes });
-      for (const { key, version } of checks) {
+      for (const check of checks) {
+        const { key, version } = check;
         const current = documents.get(key);
         if (version === null ? current !== undefined : current === undefined || (current.version ?? 0) !== version) return false;
+        if (Object.hasOwn(check, 'expectedReservation')
+          && !reservationObservationMatches(key, current, check.expectedReservation, version)) return false;
       }
       for (const key of deletes) documents.delete(key);
       for (const { key, value } of puts) documents.set(key, copy(value));
