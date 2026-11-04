@@ -201,6 +201,7 @@ export default function CreatorOwnerApp(props: Props) {
   const pendingHistoryRef = useRef<{ destinationIndex: number; currentIndex: number; href: string } | undefined>(undefined);
   const restoringHistoryIndexRef = useRef<number | undefined>(undefined);
   const allowedHistoryIndexRef = useRef<number | undefined>(undefined);
+  const pendingComparisonLocationSyncRef = useRef<{ intentId: string; comparisonId: string } | undefined>(undefined);
   const activityRequestSequenceRef = useRef(0);
   const activityStartedRef = useRef<{ key: string; sequence: number } | undefined>(undefined);
   const linksSearchTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -337,6 +338,24 @@ export default function CreatorOwnerApp(props: Props) {
       return true;
     }
 
+    function isListDisplayQueryTransition(destination: URL): boolean {
+      const latest = stateRef.current;
+      const attempt = latest.attempt;
+      if (latest.editor || latest.location.prompt !== 'none' || latest.location.transition
+        || (attempt.status !== 'uncertain' && attempt.status !== 'conflict' && attempt.status !== 'checking')
+        || !('intent' in attempt) || attempt.intent.capture.kind !== 'list-command') return false;
+      if (destination.origin !== window.location.origin || destination.pathname !== '/cuenta/') return false;
+      const views = destination.searchParams.getAll('vista');
+      const targetView = views[0] ?? 'enlaces';
+      if (views.length > 1 || targetView !== latest.location.view) return false;
+      if (targetView === 'enlaces') return parseCreatorOwnerLinksQuery(destination.searchParams, latest.observed.series).valid;
+      if (targetView === 'series') {
+        const parsed = parseCreatorOwnerSeriesQuery(destination.searchParams, latest.observed.series);
+        return parsed.valid && parsed.query.serie === latest.location.query.serie;
+      }
+      return false;
+    }
+
     const onClick = (event: MouseEvent) => {
       const anchor = responseLink(event);
       if (!anchor || !isOrdinaryLinkClick(event, anchor)) return;
@@ -349,7 +368,7 @@ export default function CreatorOwnerApp(props: Props) {
         && requestedView.length <= 1 && (requestedView[0] ?? 'enlaces') === stateRef.current.location.view
         && ['series', 'enlaces'].includes(stateRef.current.location.view);
       if (sameOwnerView) {
-        if (blockForExit({ href: `${url.pathname}${url.search}${url.hash}`, kind: 'anchor' })) {
+        if (!isListDisplayQueryTransition(url) && blockForExit({ href: `${url.pathname}${url.search}${url.hash}`, kind: 'anchor' })) {
           event.preventDefault();
           return;
         }
@@ -372,7 +391,7 @@ export default function CreatorOwnerApp(props: Props) {
         && (requestedView[0] ?? 'enlaces') === stateRef.current.location.view
         && ['series', 'enlaces'].includes(stateRef.current.location.view);
       const transition = { href: `${target.pathname}${target.search}${target.hash}`, kind: 'form' as const };
-      if (blockForExit(transition)) {
+      if (!isListDisplayQueryTransition(target) && blockForExit(transition)) {
         event.preventDefault();
         return;
       }
@@ -404,6 +423,12 @@ export default function CreatorOwnerApp(props: Props) {
       }
       if (isSameDocumentFragmentTransition(historyHrefRef.current, window.location.href)) {
         historyHrefRef.current = window.location.href;
+        return;
+      }
+      if (isListDisplayQueryTransition(new URL(window.location.href))) {
+        historyIndexRef.current = targetIndex;
+        historyHrefRef.current = window.location.href;
+        applyLocationFromHref(targetIndex);
         return;
       }
       if (blockForExit({ href: window.location.href, kind: 'history', ...(destinationIndex !== undefined ? { historyIndex: destinationIndex } : {}) })) {
@@ -465,6 +490,29 @@ export default function CreatorOwnerApp(props: Props) {
     }
     window.location.assign(transition.href);
   }, [state.location.transition, state.location.prompt, state.editor, state.attempt.status]);
+
+  useEffect(() => {
+    const pending = pendingComparisonLocationSyncRef.current;
+    if (!pending) return;
+    if (state.attempt.status === 'confirmed' && state.attempt.intentId === pending.intentId) {
+      const href = state.location.view === 'series' && !state.seriesQueryError ? creatorOwnerSeriesHref(state.location.query)
+        : state.location.view === 'enlaces' && !state.location.linksQueryError ? creatorOwnerLinksHref(state.location.linksQuery) : undefined;
+      if (href) {
+        const destination = new URL(href, window.location.href);
+        destination.hash = window.location.hash;
+        window.history.replaceState(withOwnerHistoryState(window.history.state, historyIndexRef.current, true, true), '',
+          `${destination.pathname}${destination.search}${destination.hash}`);
+        historyHrefRef.current = window.location.href;
+      }
+      pendingComparisonLocationSyncRef.current = undefined;
+      return;
+    }
+    const attempt = state.attempt;
+    if ('intent' in attempt && attempt.intent.id === pending.intentId
+      && (attempt.status === 'checking' || attempt.status === 'uncertain' && attempt.comparison?.id === pending.comparisonId
+        && attempt.comparison.canAdopt)) return;
+    pendingComparisonLocationSyncRef.current = undefined;
+  }, [state.attempt, state.location.view, state.location.query, state.location.linksQuery]);
 
   useEffect(() => {
     const selector = state.location.focusAfterRender;
@@ -1139,13 +1187,16 @@ export default function CreatorOwnerApp(props: Props) {
       return;
     }
     const binding = latest.sessionBinding;
+    const boundView = latest.location.view;
+    const boundProfileId = latest.observed.profile?.id;
+    const boundSeriesId = latest.location.query.serie;
     const checkIsCurrent = () => {
       const current = stateRef.current;
       if (current.attempt.status !== 'checking' || current.attempt.intent.id !== intent.id || current.attempt.checkId !== checkId) return false;
+      if (current.sessionBinding !== binding || current.location.view !== boundView || current.observed.profile?.id !== boundProfileId) return false;
       if (intent.capture.kind === 'list-command') {
-        return !current.editor && current.location.view === latest.location.view
-          && JSON.stringify(current.location.query) === JSON.stringify(latest.location.query)
-          && JSON.stringify(current.location.linksQuery) === JSON.stringify(latest.location.linksQuery);
+        return !current.editor && current.attempt.intent.capture.kind === 'list-command'
+          && (boundView !== 'series' || current.location.query.serie === boundSeriesId);
       }
       return current.editor?.key === intent.editorKey && current.editor.kind === intent.capture.kind;
     };
@@ -1175,10 +1226,11 @@ export default function CreatorOwnerApp(props: Props) {
         return;
       }
       const raw: unknown = await response.json();
-      const now = stateRef.current;
       if (!checkIsCurrent()) return;
       if (!isAdoptableOwnerData(raw) || !isCreatorOwnerSnapshot(raw)) {
-        dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: 'La lectura no contiene un estado completo y coherente de esta página. Conservamos tu edición.' });
+        dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: intent.capture.kind === 'list-command'
+          ? 'La lectura no contiene un estado completo y coherente de esta página. Conservamos la lista; puedes volver a comprobar.'
+          : 'La lectura no contiene un estado completo y coherente de esta página. Conservamos tu edición.' });
         return;
       }
       const snapshot = readCreatorEditorData(raw);
@@ -1200,19 +1252,24 @@ export default function CreatorOwnerApp(props: Props) {
         if (uploaded && stateRef.current.editor?.kind === 'photo' && stateRef.current.editor.file === uploadedFile) dispatch({ type: 'close-editor' });
         return;
       }
-      const comparison = createCreatorOwnerComparison(intent, snapshot, now.editor);
+      const comparison = createCreatorOwnerComparison(intent, snapshot, current.editor);
       if (!comparison.canAdopt && intent.kind !== 'save-series') {
         comparison.message = intent.kind === 'chapter-move'
           ? 'El capítulo o la serie ya no están disponibles. Conservamos el destino para que decidas cómo seguir.'
           : 'La lectura no coincide con la página que abrió esta edición. Conservamos tus cambios.';
       }
-      dispatch({ type: 'check-compared', intentId: intent.id, checkId, comparison });
-      if (intent.capture.kind === 'list-command' && comparison.canAdopt) {
-        dispatch({ type: 'adopt-comparison', comparisonId: comparison.id });
+      if (intent.capture.kind === 'list-command') {
+        if (!comparison.canAdopt) {
+          dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: 'No pudimos confirmar el resultado con esta lista guardada. Conservamos la lista; puedes volver a comprobar.' });
+          return;
+        }
+        dispatch({ type: 'check-compared', intentId: intent.id, checkId, comparison });
+        adoptComparison(comparison.id, intent.id);
+        return;
       }
+      dispatch({ type: 'check-compared', intentId: intent.id, checkId, comparison });
     } catch {
-      const now = stateRef.current;
-      if (now.attempt.status === 'checking' && now.attempt.intent.id === intent.id && now.attempt.checkId === checkId) {
+      if (checkIsCurrent()) {
         dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: 'No pudimos conectar para leer el estado guardado. Tus cambios siguen aquí; puedes volver a comprobar.' });
       }
     }
@@ -1261,7 +1318,11 @@ export default function CreatorOwnerApp(props: Props) {
     }
   }
 
-  function adoptComparison(comparisonId: string) {
+  function adoptComparison(comparisonId: string, listIntentId?: string) {
+    const attempt = stateRef.current.attempt;
+    const recoverableListIntentId = listIntentId ?? (attempt.status === 'uncertain' && attempt.comparison?.id === comparisonId
+      && attempt.comparison.canAdopt && attempt.intent.capture.kind === 'list-command' ? attempt.intent.id : undefined);
+    if (recoverableListIntentId) pendingComparisonLocationSyncRef.current = { intentId: recoverableListIntentId, comparisonId };
     dispatch({ type: 'adopt-comparison', comparisonId });
   }
 
