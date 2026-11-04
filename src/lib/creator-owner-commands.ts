@@ -752,7 +752,9 @@ function compareLabel(intent: CreatorOwnerWriteIntent, foundSeries: CreatorSerie
   if (intent.kind === 'add-link') return recoveredLink
     ? `La URL original ya está en tu página como «${recoveredLink.title}». Puedes continuar desde el contenido guardado.`
     : 'La URL del intento original no está en tu página. Comprobamos el estado; puedes volver a agregarla manualmente.';
-  if (intent.kind === 'reference' && intent.capture.kind === 'reference') return 'Comprobamos la versión guardada de tu página. La selección del catálogo sigue disponible para un nuevo intento manual.';
+  if (intent.kind === 'reference' && intent.capture.kind === 'reference') return recoveredLink
+    ? 'La página guardada incluye la referencia enviada. La selección actual queda disponible para una decisión manual.'
+    : 'No encontramos la referencia enviada en la página guardada. La selección actual queda disponible para una decisión manual.';
   if (intent.kind === 'claim') return 'Actualizamos sólo el historial de solicitudes. El resultado no identifica de forma segura si este envío fue registrado.';
   return 'Compara los datos guardados con tu corrección y elige expresamente qué versión usar.';
 }

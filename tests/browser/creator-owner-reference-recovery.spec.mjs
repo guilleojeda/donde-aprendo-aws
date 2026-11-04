@@ -373,10 +373,15 @@ test('Referencia A recuperada continúa con una corrección manual de opciones y
     await expect(comparison).toBeVisible();
     await expect(comparison).toContainText(item.title);
     await expect(comparison).toContainText(item.url);
+    await expect(comparison).toContainText('Opción guardada de la selección actual: Sí | Tu corrección: No',
+      'the comparison separates the saved A directory option from the later unchecked choice');
     await referenceForm.locator('[data-owner-adopt]').click();
 
     const optionsForm = page.locator('[data-owner-dialog] form[data-owner-form="enlace"]');
     await expect(optionsForm).toBeVisible();
+    await expect(optionsForm.locator('[data-owner-form-status="enlace"]')).toContainText(
+      'Conservamos el cambio de propuesta para que lo guardes en opciones',
+      'the completion feedback identifies the option that remains unsaved');
     const title = optionsForm.getByLabel('Título', { exact: true });
     const url = optionsForm.getByLabel('URL', { exact: true });
     const option = optionsForm.getByRole('checkbox', { name: 'Proponer al directorio', exact: true });

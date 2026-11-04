@@ -452,6 +452,59 @@ function applyEffect(data: CreatorEditorDTO, effect: CreatorOwnerEffect): Creato
   }
 }
 
+type ReferenceCompletionSource = 'acknowledged' | 'adopted';
+
+interface CreatorOwnerReferenceCompletion {
+  editor: CreatorOwnerEditor | CreatorOwnerLinkEditor | undefined;
+  hasPendingIntent: boolean;
+  message: string;
+  focusAfterRender?: string;
+}
+
+function completeReference(
+  submitted: Extract<CreatorOwnerLinkEditor, { kind: 'reference' }>,
+  current: Extract<CreatorOwnerLinkEditor, { kind: 'reference' }>,
+  savedPlacement: CreatorLinkDTO | undefined,
+  profile: CreatorProfileDTO,
+  source: ReferenceCompletionSource,
+  created?: boolean,
+): CreatorOwnerReferenceCompletion {
+  const submittedSelection = submitted.selected;
+  const saved = submittedSelection && savedPlacement?.resourceId === submittedSelection.id
+    && savedPlacement.url === submittedSelection.url ? savedPlacement : undefined;
+  const sameSelection = Boolean(submittedSelection && current.selected
+    && current.selected.id === submittedSelection.id && current.selected.url === submittedSelection.url);
+  const keepFocusInPicker = source === 'adopted' ? { focusAfterRender: '#owner-catalog-search' } : {};
+
+  if (!saved) {
+    return { editor: { ...current, baseProfile: { ...profile } }, hasPendingIntent: true,
+      message: 'No encontramos la referencia enviada en la página guardada. Conservamos la selección para una acción manual.',
+      ...keepFocusInPicker };
+  }
+
+  if (sameSelection && current.selectedForDirectory !== submitted.selectedForDirectory) {
+    return { editor: { kind: 'link-placement', key: `link:${saved.placementId}`, baseProfile: { ...profile },
+      baseLink: { ...saved, series: saved.series.map((item) => ({ ...item })) }, editable: false,
+      draft: { ...linkDraft(saved), selectedForDirectory: current.selectedForDirectory } },
+    hasPendingIntent: true,
+    message: 'La referencia enviada está en tu página. Conservamos el cambio de propuesta para que lo guardes en opciones.',
+    focusAfterRender: '#owner-link-directory-option' };
+  }
+
+  if (sameSelection) {
+    const message = source === 'acknowledged' && created === false
+      ? 'Ese contenido ya estaba en tu página. No cambiamos su ficha, opciones, posición ni series.'
+      : source === 'acknowledged'
+        ? 'Contenido agregado a tu página. La ficha compartida conserva sus datos.'
+        : 'La página guardada incluye la referencia original. No repetimos la solicitud.';
+    return { editor: undefined, hasPendingIntent: false, message };
+  }
+
+  return { editor: { ...current, baseProfile: { ...profile } }, hasPendingIntent: true,
+    message: 'La página guardada incluye la referencia enviada. Conservamos la selección actual para una acción manual.',
+    ...keepFocusInPicker };
+}
+
 function editorAfterEffect(editor: CreatorOwnerEditor | CreatorOwnerLinkEditor | undefined, intent: CreatorOwnerWriteIntent, effect: CreatorOwnerEffect, correction: boolean, data: CreatorEditorDTO): CreatorOwnerEditor | CreatorOwnerLinkEditor | undefined {
   if (!editor || editor.key !== intent.editorKey) return editor;
   if (effect.kind === 'profile-updated') {
@@ -508,18 +561,6 @@ function editorAfterEffect(editor: CreatorOwnerEditor | CreatorOwnerLinkEditor |
     if (!correction) return undefined;
     if (editable) return { kind: 'link-placement', key: `link:${updated.placementId}`, baseProfile: data.profile ?? editor.baseProfile,
       baseLink: { ...updated }, editable: true, draft: { ...editor.draft } };
-    return { ...editor, baseProfile: data.profile ?? editor.baseProfile };
-  }
-  if (effect.kind === 'link-added' && editor.kind === 'reference' && editor.baseProfile.id === effect.profileId) {
-    if (!correction) return undefined;
-    const sent = intent.capture.kind === 'reference' ? intent.capture : undefined;
-    const savedLink = data.links.find(({ placementId }) => placementId === effect.link.placementId) ?? effect.link;
-    if (sent?.selected && editor.selected?.id === sent.selected.id
-      && editor.selectedForDirectory !== sent.selectedForDirectory) {
-      return { kind: 'link-placement', key: `link:${savedLink.placementId}`, baseProfile: data.profile ?? editor.baseProfile,
-        baseLink: { ...savedLink }, editable: false,
-        draft: { ...linkDraft(savedLink), selectedForDirectory: editor.selectedForDirectory } };
-    }
     return { ...editor, baseProfile: data.profile ?? editor.baseProfile };
   }
   if (effect.kind === 'claim-submitted' && editor.kind === 'claim') {
@@ -742,18 +783,28 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
       const intent = currentAttempt(state, action.intentId);
       if (!intent) return state;
       const observed = applyEffect(state.observed, action.effect);
-      const editor = editorAfterEffect(state.editor, intent, action.effect, action.correction, observed);
+      const referenceCapture = intent.kind === 'reference' && intent.capture.kind === 'reference' ? intent.capture : undefined;
+      const referenceEditor = state.editor?.kind === 'reference' && state.editor.key === intent.editorKey ? state.editor : undefined;
+      const referenceEffect = action.effect.kind === 'link-added' && action.effect.source === 'reference' ? action.effect : undefined;
+      const referenceCompletion = referenceCapture && referenceEditor
+        && referenceEffect?.profileId === referenceEditor.baseProfile.id && observed.profile
+        ? completeReference(referenceCapture, referenceEditor,
+          observed.links.find(({ placementId }) => placementId === referenceEffect.link.placementId) ?? referenceEffect.link,
+          observed.profile, 'acknowledged', referenceEffect.created)
+        : undefined;
+      const editor = referenceCompletion
+        ? referenceCompletion.editor : editorAfterEffect(state.editor, intent, action.effect, action.correction, observed);
       const linksQuery = selectCreatorOwnerLinks(observed.links, observed.series, state.location.linksQuery).query;
       const linkPlacementId = intent.kind === 'save-link' && intent.capture.kind === 'link-placement'
         ? intent.capture.baseLink.placementId : undefined;
       const updatedLinkNoLongerMatches = !action.correction && action.effect.kind === 'link-updated' && linkPlacementId !== undefined
         && !selectCreatorOwnerLinks(observed.links, observed.series, state.location.linksQuery).matches.some(({ placementId }) => placementId === linkPlacementId);
-      const confirmationMessage = action.correction ? 'Cambios guardados. Conservamos la corrección que escribiste mientras se guardaba.'
+      const confirmationMessage = referenceCompletion?.message ?? (action.correction ? 'Cambios guardados. Conservamos la corrección que escribiste mientras se guardaba.'
         : updatedLinkNoLongerMatches ? 'Cambios guardados. El enlace ya no coincide con la búsqueda o los filtros actuales.'
         : action.effect.kind === 'link-added' && !action.effect.created ? 'Ese contenido ya estaba en tu página. No cambiamos su ficha, opciones, posición ni series.'
           : action.effect.kind === 'link-added' && action.effect.source === 'reference' ? 'Contenido agregado a tu página. La ficha compartida conserva sus datos.'
             : action.effect.kind === 'link-added' && action.effect.source === 'reinclude' ? 'Ficha reincorporada. Sus capítulos anteriores no se restauran automáticamente.'
-              : action.effect.kind === 'link-added' ? 'Enlace agregado a tu página.' : 'Cambios guardados.';
+              : action.effect.kind === 'link-added' ? 'Enlace agregado a tu página.' : 'Cambios guardados.');
       return {
         ...state,
         observed,
@@ -762,10 +813,12 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
         message: { text: confirmationMessage, kind: 'success' },
         location: { ...state.location,
           ...(action.effect.kind === 'series-deleted' ? { query: { ...state.location.query, serie: '', buscarCapitulos: '', pertenencia: 'todos', paginaCapitulos: 1 }, pendingChapterSearch: '', pendingMembership: 'todos' as const } : {}),
-          ...(action.correction ? { transition: undefined, prompt: 'none' as const } : {}),
+          ...(referenceCompletion ? { transition: referenceCompletion.hasPendingIntent ? undefined : state.location.transition,
+            prompt: 'none' as const } : action.correction ? { transition: undefined, prompt: 'none' as const } : {}),
           ...(action.effect.kind === 'link-removed' || action.effect.kind === 'link-added' || action.effect.kind === 'link-updated'
             ? { linksQuery, pendingLinksQuery: linksQuery } : {}),
-          ...(action.effect.kind === 'series-deleted' ? { focusAfterRender: '#owner-series-title' }
+          ...(referenceCompletion ? { focusAfterRender: referenceCompletion.focusAfterRender }
+            : action.effect.kind === 'series-deleted' ? { focusAfterRender: '#owner-series-title' }
             : action.effect.kind === 'chapters-updated' || action.effect.kind === 'chapter-moved' ? { focusAfterRender: '#owner-chapter-search' }
               : action.effect.kind === 'link-removed' || action.effect.kind === 'link-added' || action.effect.kind === 'link-moved'
                 || updatedLinkNoLongerMatches ? { focusAfterRender: '#owner-link-search' } : {}) },
@@ -825,8 +878,18 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
       }
       if (!current) return state;
       const selectedSeriesStillExists = snapshot.series.some(({ id }) => id === state.location.query.serie);
+      const referenceCapture = state.attempt.intent.kind === 'reference' && state.attempt.intent.capture.kind === 'reference'
+        ? state.attempt.intent.capture : undefined;
+      const recoveredReference = comparison.recoveredLinkId
+        ? snapshot.links.find(({ placementId }) => placementId === comparison.recoveredLinkId) : undefined;
+      const referenceCompletion = current.kind === 'reference' && referenceCapture
+        && snapshot.profile?.id === current.baseProfile.id
+        ? completeReference(referenceCapture, current, recoveredReference, snapshot.profile, 'adopted')
+        : undefined;
       let editor: CreatorOwnerEditor | CreatorOwnerLinkEditor | undefined = current;
-      if (current.kind === 'create-profile') {
+      if (referenceCompletion) {
+        editor = referenceCompletion.editor;
+      } else if (current.kind === 'create-profile') {
         if (snapshot.profile) editor = undefined;
       } else if (current.kind === 'profile' && snapshot.profile && snapshot.profile.id === current.base.id) {
         editor = current.section === 'datos'
@@ -883,35 +946,28 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
               ...(lateOption ? { selectedForDirectory: current.draft.selectedForDirectory } : {}) },
             ...(!editable && lateText ? { sharedTextCorrection: { title: current.draft.title, url: current.draft.url, description: current.draft.description } } : {}) };
         }
-      } else if (current.kind === 'reference' && snapshot.profile?.id === current.baseProfile.id) {
-        const recovered = comparison.recoveredLinkId ? snapshot.links.find(({ placementId }) => placementId === comparison.recoveredLinkId) : undefined;
-        const sent = state.attempt.intent.capture.kind === 'reference' ? state.attempt.intent.capture : undefined;
-        if (recovered && sent?.selected && current.selected?.id === sent.selected.id
-          && current.selectedForDirectory !== sent.selectedForDirectory) {
-          editor = { kind: 'link-placement', key: `link:${recovered.placementId}`, baseProfile: { ...snapshot.profile }, baseLink: { ...recovered }, editable: false,
-            draft: { ...linkDraft(recovered), selectedForDirectory: current.selectedForDirectory } };
-        } else if (recovered) editor = undefined;
-        else editor = { ...current, baseProfile: { ...snapshot.profile } };
       }
+      const adoptionMessage = referenceCompletion?.message ?? (current.kind === 'series' && !current.baseSeries && !comparison.seriesId
+        ? 'Usaste la versión actual del perfil. No encontramos la serie original; conservamos el contenido para un nuevo intento manual.'
+        : current.kind === 'series' ? 'Usaste las versiones guardadas como base. Conservamos toda tu corrección; pulsa Guardar para enviarla.'
+          : current.kind === 'add-link' && !comparison.recoveredLinkId ? 'No encontramos la URL original en tu página. Usaste las versiones actuales como base; puedes volver a agregarla manualmente.'
+            : current.kind === 'add-link' ? 'Encontramos la URL del intento original. Revisa el contenido guardado y las correcciones antes de continuar.'
+              : current.kind === 'link-placement' || current.kind === 'link-resource' ? 'Usaste los datos guardados. Puedes iniciar otra corrección cuando quieras.'
+                : 'Usaste los datos guardados. Puedes iniciar otra corrección cuando quieras.');
       return {
         ...state, observed: snapshot, editor, attempt: { status: 'confirmed', intentId: state.attempt.intent.id },
-        message: { text: current.kind === 'series' && !current.baseSeries && !comparison.seriesId
-          ? 'Usaste la versión actual del perfil. No encontramos la serie original; conservamos el contenido para un nuevo intento manual.'
-          : current.kind === 'series' ? 'Usaste las versiones guardadas como base. Conservamos toda tu corrección; pulsa Guardar para enviarla.'
-            : current.kind === 'add-link' && !comparison.recoveredLinkId ? 'No encontramos la URL original en tu página. Usaste las versiones actuales como base; puedes volver a agregarla manualmente.'
-              : current.kind === 'add-link' ? 'Encontramos la URL del intento original. Revisa el contenido guardado y las correcciones antes de continuar.'
-                : current.kind === 'reference' && comparison.recoveredLinkId ? 'Encontramos la referencia del intento original. La página guardada está actualizada y no repetimos la solicitud.'
-                  : current.kind === 'reference' ? 'Usaste la versión guardada de tu página. Conservamos la ficha seleccionada; vuelve a agregarla manualmente cuando decidas.'
-                  : current.kind === 'link-placement' || current.kind === 'link-resource' ? 'Usaste los datos guardados. Puedes iniciar otra corrección cuando quieras.'
-                    : 'Usaste los datos guardados. Puedes iniciar otra corrección cuando quieras.', kind: 'success' },
+        message: { text: adoptionMessage, kind: 'success' },
         location: { ...state.location, query: { ...state.location.query, serie: selectedSeriesStillExists ? state.location.query.serie : '', paginaCapitulos: 1,
           ...(selectedSeriesStillExists ? {} : { buscarCapitulos: '', pertenencia: 'todos' }) },
           linksQuery: selectCreatorOwnerLinks(snapshot.links, snapshot.series, state.location.linksQuery).query,
           pendingLinksQuery: selectCreatorOwnerLinks(snapshot.links, snapshot.series, state.location.linksQuery).query,
           pendingChapterSearch: selectedSeriesStillExists ? state.location.pendingChapterSearch : '',
           pendingMembership: selectedSeriesStillExists ? state.location.pendingMembership : 'todos',
-          focusAfterRender: current.kind === 'series' && !snapshot.series.some(({ id }) => id === current.baseSeries?.id) ? '#owner-series-title'
-            : current.kind === 'link-placement' || current.kind === 'link-resource' || current.kind === 'move-link' || current.kind === 'add-link' ? '#owner-link-search' : undefined },
+          ...(referenceCompletion ? { transition: referenceCompletion.hasPendingIntent ? undefined : state.location.transition,
+            prompt: 'none' as const } : {}),
+          focusAfterRender: referenceCompletion ? referenceCompletion.focusAfterRender
+            : current.kind === 'series' && !snapshot.series.some(({ id }) => id === current.baseSeries?.id) ? '#owner-series-title'
+              : current.kind === 'link-placement' || current.kind === 'link-resource' || current.kind === 'move-link' || current.kind === 'add-link' ? '#owner-link-search' : undefined },
       };
     }
     case 'session-required':
