@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { test } from 'node:test';
 import { createCreatorStore } from '../src/lib/creator-store.mjs';
-import { currentUrlKey } from '../src/lib/catalog-url.mjs';
+import { currentUrlKey, currentUrlReservationId } from '../src/lib/catalog-url.mjs';
 
 const TABLES = {
   accountsTableName: 'accounts-test',
@@ -280,6 +280,66 @@ test('transactions merge CAS checks with writes and preserve absent, legacy-zero
   assert.equal(placementDelete.Delete.ExpressionAttributeValues[':version'], 4);
   assert.deepEqual(placementDelete.Delete.Key, { pk: 'PROFILE#creator-a', sk: 'PLACEMENT#p1' });
   for (const item of items) assertExpressionBindings(item.Put ?? item.Delete ?? item.ConditionCheck);
+});
+
+test('URL reservation CAS compares exact observed content and coalesces it with the write', async () => {
+  const { client, calls } = fakeClient(async () => ({}));
+  const store = createCreatorStore({ ...TABLES, client });
+  const url = 'https://example.com/shared?raw=%2f';
+  const key = currentUrlKey(url);
+  const expected = {
+    id: currentUrlReservationId(url),
+    recordType: 'urlReservation',
+    url,
+    status: 'collision',
+    resourceIds: ['resource-z', 'resource-a'],
+    version: 1,
+  };
+  const originalMembers = [...expected.resourceIds];
+  const pending = store.transact({
+    checks: [{ key, version: 1, expectedReservation: expected }],
+    puts: [{ key, value: { ...expected, resourceIds: ['resource-a', 'resource-z'], version: 1 } }],
+  });
+  expected.resourceIds.reverse();
+  assert.equal(await pending, true);
+
+  const { TransactItems: items } = calls[0].input;
+  assert.equal(items.length, 1, 'the row comparison is coalesced into the row Put');
+  const input = items[0].Put;
+  assert.ok(input);
+  assert.match(input.ConditionExpression, /attribute_exists\(#id\)/);
+  for (const field of ['id', 'recordType', 'url', 'status', 'resourceIds']) {
+    const name = Object.keys(input.ExpressionAttributeNames).find((token) => input.ExpressionAttributeNames[token] === field
+      && new RegExp(`${token}\\s*=\\s*(:[A-Za-z0-9_]+)`, 'u').test(input.ConditionExpression));
+    assert.ok(name, `${field} has a storage-condition alias`);
+    const equals = input.ConditionExpression.match(new RegExp(`${name}\\s*=\\s*(:[A-Za-z0-9_]+)`, 'u'));
+    assert.ok(equals, `${field} is compared by equality`);
+    const expectedValue = field === 'resourceIds' ? originalMembers : expected[field];
+    assert.deepEqual(input.ExpressionAttributeValues[equals[1]], expectedValue, `${field} uses the captured observation`);
+  }
+  const singularAlias = Object.keys(input.ExpressionAttributeNames)
+    .find((token) => input.ExpressionAttributeNames[token] === 'resourceId');
+  assert.ok(singularAlias && input.ConditionExpression.includes(`attribute_not_exists(${singularAlias})`),
+    'the absent unique owner field is part of the observed shape');
+  assert.equal(input.ExpressionAttributeValues[':version'], 1);
+  assertExpressionBindings(input);
+});
+
+test('expected reservation conditions reject other keys and mismatched versions before sending', async () => {
+  const { client, calls } = fakeClient(async () => ({}));
+  const store = createCreatorStore({ ...TABLES, client });
+  const url = 'https://example.com/observed';
+  const expectedReservation = {
+    id: currentUrlReservationId(url), recordType: 'urlReservation', url,
+    status: 'reserved', resourceId: 'resource-a', version: 4,
+  };
+  await assert.rejects(store.transact({
+    checks: [{ key: 'resource:resource-a', version: 4, expectedReservation }],
+  }), /expected reservation state requires a URL reservation key/);
+  await assert.rejects(store.transact({
+    checks: [{ key: currentUrlKey(url), version: 1, expectedReservation }],
+  }), /invalid expected URL reservation state/);
+  assert.equal(calls.length, 0);
 });
 
 test('expression validation rejects both unused aliases and placeholders without definitions', () => {

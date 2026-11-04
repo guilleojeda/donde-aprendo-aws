@@ -90,8 +90,9 @@ async function snapshot(harness, profileId) {
   };
 }
 
-function transactionCount(harness) {
-  return harness.store.calls.filter(({ operation }) => operation === 'transact').length;
+function writeTransactionCount(harness) {
+  return harness.store.calls.filter(({ operation, input }) => operation === 'transact'
+    && ((input.puts?.length ?? 0) > 0 || (input.deletes?.length ?? 0) > 0)).length;
 }
 
 async function expectOrderExhausted(response) {
@@ -113,12 +114,12 @@ async function fullPositionFixture(slug = 'order-boundary', position = MAX_POSIT
 test('new-resource append at an exhausted order is rejected before any write and keeps profile and series readable', async () => {
   const { harness, first } = await fullPositionFixture();
   const before = await snapshot(harness, (await editor(harness)).profile.id);
-  const writesBefore = transactionCount(harness);
+  const writesBefore = writeTransactionCount(harness);
 
   await expectOrderExhausted(await addNewLink(harness, 'https://example.com/order-new'));
 
   assert.deepEqual(await snapshot(harness, before.profile.id), before);
-  assert.equal(transactionCount(harness), writesBefore);
+  assert.equal(writeTransactionCount(harness), writesBefore);
   const { editor: current } = await expectPublishedProfileAndSeriesReadable(harness);
   assert.equal(current.links.find(({ placementId }) => placementId === first.placementId).position, MAX_POSITION);
 });
@@ -131,12 +132,12 @@ test('existing URL attachment at an exhausted order is rejected without changing
   });
   const profileId = (await editor(harness)).profile.id;
   const before = await snapshot(harness, profileId);
-  const writesBefore = transactionCount(harness);
+  const writesBefore = writeTransactionCount(harness);
 
   await expectOrderExhausted(await addNewLink(harness, 'https://example.com/order-existing'));
 
   assert.deepEqual(await snapshot(harness, profileId), before);
-  assert.equal(transactionCount(harness), writesBefore);
+  assert.equal(writeTransactionCount(harness), writesBefore);
   await expectPublishedProfileAndSeriesReadable(harness);
 });
 
@@ -159,14 +160,14 @@ test('re-adding a retained editable resource at an exhausted order is rejected b
   const retained = current.editableResources.find(({ id }) => id === target.resourceId);
   assert.ok(retained);
   const before = await snapshot(harness, current.profile.id);
-  const writesBefore = transactionCount(harness);
+  const writesBefore = writeTransactionCount(harness);
 
   await expectOrderExhausted(await api(harness, '/api/creador/enlaces', 'creator-a', {
     method: 'POST', body: { resourceId: target.resourceId, resourceVersion: retained.version },
   }));
 
   assert.deepEqual(await snapshot(harness, current.profile.id), before);
-  assert.equal(transactionCount(harness), writesBefore);
+  assert.equal(writeTransactionCount(harness), writesBefore);
   await expectPublishedProfileAndSeriesReadable(harness);
 });
 
@@ -182,14 +183,14 @@ test('admin claim append at an exhausted order is rejected without claiming or w
   assert.equal(claimResponse.status, 202);
   const profileId = (await editor(harness)).profile.id;
   const before = await snapshot(harness, profileId);
-  const writesBefore = transactionCount(harness);
+  const writesBefore = writeTransactionCount(harness);
 
   await expectOrderExhausted(await api(harness, '/api/admin/reclamaciones/vincular', 'admin', {
     method: 'POST', body: { accountId: 'private-account-a', resourceIds: ['legacy-at-exhaustion'] },
   }));
 
   assert.deepEqual(await snapshot(harness, profileId), before);
-  assert.equal(transactionCount(harness), writesBefore);
+  assert.equal(writeTransactionCount(harness), writesBefore);
   assert.equal((await harness.store.get('resource:legacy-at-exhaustion')).directoryControl, 'editorial');
   assert.equal(await harness.store.get(`editor:${profileId}:legacy-at-exhaustion`), null);
   await expectPublishedProfileAndSeriesReadable(harness);
@@ -264,7 +265,7 @@ test('the safe boundary append succeeds, and duplicate URL, re-add, and claim re
 
   const profileId = (await editor(harness)).profile.id;
   const before = await snapshot(harness, profileId);
-  const writesBefore = transactionCount(harness);
+  const writesBefore = writeTransactionCount(harness);
   const duplicateUrl = await addNewLink(harness, 'https://example.com/safe-order-second', 'Límite válido');
   assert.equal(duplicateUrl.status, 200);
   assert.equal((await responseJson(duplicateUrl)).link.position, MAX_POSITION);
@@ -281,7 +282,7 @@ test('the safe boundary append succeeds, and duplicate URL, re-add, and claim re
   assert.deepEqual(claimBody.linkedResourceIds, [second.resourceId]);
   assert.deepEqual(claimBody.versionChanges, []);
   assert.deepEqual(await snapshot(harness, profileId), before);
-  assert.equal(transactionCount(harness), writesBefore);
+  assert.equal(writeTransactionCount(harness), writesBefore);
   assert.ok(first.position < second.position);
 });
 
@@ -289,10 +290,10 @@ test('moving an exhausted placement back into range lets a normal append retry s
   const { harness, first } = await fullPositionFixture('retry-order');
   const profileId = (await editor(harness)).profile.id;
   const beforeRejectedAdd = await snapshot(harness, profileId);
-  const writesBeforeRejectedAdd = transactionCount(harness);
+  const writesBeforeRejectedAdd = writeTransactionCount(harness);
   await expectOrderExhausted(await addNewLink(harness, 'https://example.com/retry-order-second'));
   assert.deepEqual(await snapshot(harness, profileId), beforeRejectedAdd);
-  assert.equal(transactionCount(harness), writesBeforeRejectedAdd);
+  assert.equal(writeTransactionCount(harness), writesBeforeRejectedAdd);
 
   const repositioned = await setPosition(harness, first, 0);
   assert.equal(repositioned.position, 0);

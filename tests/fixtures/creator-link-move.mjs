@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 import { createCreatorStore } from '../../src/lib/creator-store.mjs';
 import { createCreatorPagesHarness } from './creator-pages.mjs';
 
@@ -84,22 +85,114 @@ function transactionImageBytes(actions, read) {
   }, 0);
 }
 
+// Evaluate the store's condition-expression subset and fail closed on unknown syntax.
+function parseConditionExpression(expression, names, values) {
+  const tokens = [];
+  const tokenPattern = /\s*(attribute_exists|attribute_not_exists|AND|OR)\b|\s*([#:][A-Za-z0-9_]+)|\s*([A-Za-z_][A-Za-z0-9_]*)|\s*(=)|\s*(\()|\s*(\))/gy;
+  let offset = 0;
+  while (offset < expression.length) {
+    tokenPattern.lastIndex = offset;
+    const match = tokenPattern.exec(expression);
+    if (!match) {
+      if (expression.slice(offset).trim() === '') break;
+      throw new TypeError(`unsupported DynamoDB condition expression near ${expression.slice(offset)}`);
+    }
+    offset = tokenPattern.lastIndex;
+    if (match[1]) tokens.push({ type: match[1] });
+    else if (match[2]) tokens.push({ type: match[2][0] === '#' ? 'name' : 'value', value: match[2] });
+    else if (match[3]) tokens.push({ type: 'attribute', value: match[3] });
+    else if (match[4]) tokens.push({ type: 'equals' });
+    else if (match[5]) tokens.push({ type: 'left' });
+    else if (match[6]) tokens.push({ type: 'right' });
+  }
+
+  let cursor = 0;
+  const peek = (type) => tokens[cursor]?.type === type;
+  const consume = (type) => {
+    if (!peek(type)) throw new TypeError(`unsupported DynamoDB condition expression: expected ${type}`);
+    return tokens[cursor++];
+  };
+  const readAttribute = () => {
+    const token = tokens[cursor++];
+    if (token?.type === 'name') {
+      if (!Object.hasOwn(names, token.value) || typeof names[token.value] !== 'string' || names[token.value] === '') {
+        throw new TypeError(`unbound DynamoDB expression name ${token.value}`);
+      }
+      return names[token.value];
+    }
+    if (token?.type === 'attribute') return token.value;
+    throw new TypeError('unsupported DynamoDB condition expression: expected an attribute name');
+  };
+
+  function parsePrimary() {
+    if (peek('left')) {
+      consume('left');
+      const expressionNode = parseOr();
+      consume('right');
+      return expressionNode;
+    }
+    if (peek('attribute_exists') || peek('attribute_not_exists')) {
+      const operator = tokens[cursor++].type;
+      consume('left');
+      const attribute = readAttribute();
+      consume('right');
+      return { type: operator, attribute };
+    }
+
+    const attribute = readAttribute();
+    consume('equals');
+    const token = consume('value').value;
+    if (!Object.hasOwn(values, token) || values[token] === undefined) {
+      throw new TypeError(`unbound DynamoDB expression value ${token}`);
+    }
+    return { type: 'equals', attribute, value: values[token] };
+  }
+
+  function parseAnd() {
+    let left = parsePrimary();
+    while (peek('AND')) {
+      consume('AND');
+      left = { type: 'AND', left, right: parsePrimary() };
+    }
+    return left;
+  }
+
+  function parseOr() {
+    let left = parseAnd();
+    while (peek('OR')) {
+      consume('OR');
+      left = { type: 'OR', left, right: parseAnd() };
+    }
+    return left;
+  }
+
+  const tree = parseOr();
+  if (cursor !== tokens.length) throw new TypeError('unsupported DynamoDB condition expression: trailing tokens');
+  return tree;
+}
+
+function evaluateCondition(node, current) {
+  if (node.type === 'AND') return evaluateCondition(node.left, current) && evaluateCondition(node.right, current);
+  if (node.type === 'OR') return evaluateCondition(node.left, current) || evaluateCondition(node.right, current);
+  const exists = current !== undefined && Object.hasOwn(current, node.attribute) && current[node.attribute] !== undefined;
+  if (node.type === 'attribute_exists') return exists;
+  if (node.type === 'attribute_not_exists') return !exists;
+  return exists && isDeepStrictEqual(current[node.attribute], node.value);
+}
+
 function conditionalMatches(action, current) {
   const input = action.Put ?? action.Delete ?? action.ConditionCheck;
   const expression = input?.ConditionExpression;
-  if (!expression) return true;
-  const names = input.ExpressionAttributeNames ?? {};
-  const values = input.ExpressionAttributeValues ?? {};
-  const keyAttribute = names['#pk'] ?? names['#id'];
-  if (expression.includes(`attribute_not_exists(${Object.keys(names).find((key) => names[key] === keyAttribute)})`)) {
-    return current === undefined;
+  if (expression === undefined) return true;
+  if (typeof expression !== 'string' || expression.trim() === '') {
+    throw new TypeError('unsupported DynamoDB condition expression: expression must be non-empty text');
   }
-  if (expression.includes(`attribute_exists(${Object.keys(names).find((key) => names[key] === keyAttribute)})`)
-    && current === undefined) return false;
-  if (expression.includes('#version = :version') && current?.version !== values[':version']) return false;
-  if (expression.includes('attribute_not_exists(#version) OR #version = :zero')
-    && current?.version !== undefined && current.version !== values[':zero']) return false;
-  return true;
+  const tree = parseConditionExpression(
+    expression,
+    input.ExpressionAttributeNames ?? {},
+    input.ExpressionAttributeValues ?? {},
+  );
+  return evaluateCondition(tree, current);
 }
 
 function conditionalFailure() {
