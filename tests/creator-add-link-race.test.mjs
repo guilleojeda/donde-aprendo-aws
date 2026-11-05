@@ -1,0 +1,159 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { currentUrlKey } from '../src/lib/catalog-url.mjs';
+import { callApi, responseJson, sessionCsrf } from './fixtures/creator-pages.mjs';
+import { createDynamoMoveHarness } from './fixtures/creator-link-move.mjs';
+
+const OWNER = '/api/creador/perfil';
+const URL = 'https://add-race.example/shared';
+const DESTINATION = 'https://add-race.example/moved';
+
+async function api(harness, session, method, path, body) {
+  const response = await callApi(harness, path, {
+    session,
+    csrf: sessionCsrf[session],
+    method,
+    ...(body === undefined ? {} : { body }),
+  });
+  return { status: response.status, body: response.status === 204 ? null : await responseJson(response) };
+}
+
+async function add(harness, session) {
+  return api(harness, session, 'POST', '/api/creador/enlaces', { title: session, url: URL });
+}
+
+async function owner(harness, session) {
+  const result = await api(harness, session, 'GET', OWNER);
+  assert.equal(result.status, 200);
+  return result.body;
+}
+
+async function moveResource(harness, session, resourceId) {
+  const current = await owner(harness, session);
+  const link = current.links.find(({ resourceId: id }) => id === resourceId);
+  assert.ok(link, `owner response includes placement for ${resourceId}`);
+  return api(harness, session, 'PATCH', `/api/creador/enlaces/${link.placementId}/editar`, {
+    url: DESTINATION,
+    profileVersion: current.profile.version,
+    placementVersion: link.placementVersion,
+    resourceVersion: link.resourceVersion,
+  });
+}
+
+async function setUp(harness) {
+  for (const session of ['creator-a', 'creator-b']) {
+    const response = await api(harness, session, 'PUT', OWNER, {
+      displayName: session,
+      slug: `add-race-${session}`,
+      socials: {},
+    });
+    assert.equal(response.status, 200, JSON.stringify(response.body));
+  }
+}
+
+async function state(harness, profileIds, resourceIds) {
+  const result = {
+    resources: {},
+    profiles: {},
+    placements: {},
+    editorReferences: {},
+    reservations: {
+      original: await harness.store.get(currentUrlKey(URL)),
+      destination: await harness.store.get(currentUrlKey(DESTINATION)),
+    },
+  };
+  for (const resourceId of resourceIds) {
+    result.resources[resourceId] = await harness.store.get(`resource:${resourceId}`);
+  }
+  for (const profileId of profileIds) {
+    result.profiles[profileId] = await harness.store.get(`profile:${profileId}`);
+    result.placements[profileId] = await harness.store.list(`placement:${profileId}:`);
+    result.editorReferences[profileId] = await harness.store.list(`editor:${profileId}:`);
+  }
+  return result;
+}
+
+test('a losing URL create conflicts if the observed winner moves before conditional reuse, then manual retry succeeds', async () => {
+  const harness = await createDynamoMoveHarness({ projectionAware: true });
+  await setUp(harness);
+  const ownerA = await owner(harness, 'creator-a');
+  const ownerB = await owner(harness, 'creator-b');
+  const profileIds = [ownerA.profile.id, ownerB.profile.id];
+  const key = currentUrlKey(URL);
+  let winner;
+  let attemptedResourceId;
+  let moved;
+  let stateAtConflict;
+  let moving = false;
+
+  harness.mock.raceBeforeNextTransaction(async ({ actions }) => {
+    const createdResource = actions
+      .map((action) => action.Put?.Item)
+      .find((item) => item?.url === URL && typeof item.id === 'string' && !item.id.startsWith('__'));
+    assert.ok(createdResource, 'the losing create transaction contains its new resource row');
+    attemptedResourceId = createdResource.id;
+    winner = await add(harness, 'creator-b');
+    assert.equal(winner.status, 201, JSON.stringify(winner.body));
+  });
+
+  const originalGet = harness.store.get;
+  harness.store.get = async (candidateKey) => {
+    const observed = await originalGet(candidateKey);
+    if (candidateKey !== key || !winner || moving
+      || observed?.resourceId !== winner.body.link.resourceId) return observed;
+
+    moving = true;
+    moved = await moveResource(harness, 'creator-b', winner.body.link.resourceId);
+    assert.equal(moved.status, 200, JSON.stringify(moved.body));
+    stateAtConflict = await state(harness, profileIds, [winner.body.link.resourceId, attemptedResourceId]);
+    return observed;
+  };
+
+  let losing;
+  try {
+    losing = await add(harness, 'creator-a');
+  } finally {
+    harness.store.get = originalGet;
+  }
+
+  assert.equal(losing.status, 409, JSON.stringify(losing.body));
+  assert.equal(losing.body.error, 'URL_CONFLICT');
+  assert.deepEqual(await state(harness, profileIds, [winner.body.link.resourceId, attemptedResourceId]), stateAtConflict,
+    'the rejected fallback writes no resource, placement, profile version, editor reference or reservation');
+
+  const retry = await add(harness, 'creator-a');
+  assert.equal(retry.status, 201, JSON.stringify(retry.body));
+  assert.notEqual(retry.body.link.resourceId, winner.body.link.resourceId);
+
+  const finalState = await state(harness, profileIds, [winner.body.link.resourceId, attemptedResourceId, retry.body.link.resourceId]);
+  assert.equal(finalState.resources[attemptedResourceId], null, 'the rejected attempt left no resource behind');
+  assert.ok(finalState.resources[retry.body.link.resourceId], 'the explicit retry persisted its resource');
+  assert.equal(finalState.reservations.original.resourceId, retry.body.link.resourceId);
+  assert.equal(finalState.reservations.destination.resourceId, winner.body.link.resourceId);
+  const finalOwnerA = await owner(harness, 'creator-a');
+  assert.deepEqual(finalOwnerA.links.map(({ resourceId }) => resourceId), [retry.body.link.resourceId]);
+  assert.deepEqual(finalOwnerA.editableResources.map(({ id }) => id), [retry.body.link.resourceId]);
+});
+
+test('a losing URL create conditionally reuses an unchanged concurrent winner', async () => {
+  const harness = await createDynamoMoveHarness({ projectionAware: true });
+  await setUp(harness);
+  let winner;
+  harness.mock.raceBeforeNextTransaction(async () => {
+    winner = await add(harness, 'creator-b');
+    assert.equal(winner.status, 201, JSON.stringify(winner.body));
+  });
+
+  const loser = await add(harness, 'creator-a');
+  assert.equal(loser.status, 201, JSON.stringify(loser.body));
+  assert.equal(loser.body.created, true, 'the winning resource is newly attached to the losing creator profile');
+  assert.equal(loser.body.link.resourceId, winner.body.link.resourceId);
+
+  const ownerA = await owner(harness, 'creator-a');
+  const ownerB = await owner(harness, 'creator-b');
+  assert.deepEqual(ownerA.links.map(({ resourceId }) => resourceId), [winner.body.link.resourceId]);
+  assert.deepEqual(ownerA.editableResources, [], 'cross-profile reuse does not grant edit authority');
+  assert.deepEqual(ownerB.editableResources.map(({ id }) => id), [winner.body.link.resourceId]);
+  assert.deepEqual(await harness.store.get(`resource:${winner.body.link.resourceId}`).then(Boolean), true,
+    'the concurrent winning resource remains persisted');
+});

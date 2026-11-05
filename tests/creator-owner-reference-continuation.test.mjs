@@ -118,6 +118,26 @@ function assertManualReference(state, selected, selectedForDirectory, version) {
   assert.equal(sending.attempt.intent.id, manual.id);
 }
 
+test('un refresco de catálogo tras el 409 tardío de A conserva el par vigente y la opción posterior de B', () => {
+  let { state, intent } = beginReference();
+  state = updateReference(state, { selected: B, selectedForDirectory: false });
+  state = ownerState.creatorOwnerReducer(state, { type: 'write-uncertain', intentId: intent.id, status: 'conflict',
+    code: 'RESOURCE_CONFLICT', message: 'Actualiza el catálogo y vuelve a seleccionar.' });
+  state = ownerState.creatorOwnerReducer(state, { type: 'catalog-require-refresh', message: 'Actualiza el catálogo.' });
+  state = ownerState.creatorOwnerReducer(state, { type: 'catalog-load-started' });
+  state = ownerState.creatorOwnerReducer(state, { type: 'catalog-load-ready', entries: [A, B] });
+
+  assert.deepEqual(state.editor.selected, B, 'a valid later selection is not cleared with rejected A');
+  assert.equal(state.editor.selectedForDirectory, false, 'B keeps the later directory choice');
+  assert.equal(state.attempt.status, 'idle', 'the rejected A no longer blocks a distinct valid manual selection');
+  assert.match(state.message.text, /no repetimos la solicitud anterior/u);
+  const manualIntent = commands.creatorOwnerWriteIntent('reference-manual-b', state.editor);
+  assert.deepEqual(commands.prepareCreatorOwnerRequest(manualIntent).body, {
+    resourceId: B.id, url: B.url, profileVersion: profile.version, selectedForDirectory: false,
+  });
+  assert.equal(ownerState.creatorOwnerReducer(state, { type: 'begin-write', intent: manualIntent }).attempt.status, 'sending');
+});
+
 for (const mode of ['acknowledged', 'recovered']) {
   test(`${mode} reference A preserves later B and its directory choice, cancelling the queued exit`, () => {
     let { state, intent } = beginReference();
@@ -248,6 +268,9 @@ test('changes after a reference comparison require another check before adoption
   state = ownerState.creatorOwnerReducer(state, { type: 'adopt-comparison', comparisonId: comparison.id });
   assert.equal(state.attempt.status, 'uncertain');
   assert.equal(state.attempt.comparison, undefined, 'the outdated comparison cannot authorize adoption');
+  assert.equal(state.attempt.message, 'Tus campos cambiaron después de la comparación. Vuelve a comprobar antes de adoptar.',
+    'the active attempt retains the reason so the open recovery dialog can show it');
+  assert.equal(state.location.focusAfterRender, '#owner-compare', 'the executable recheck receives focus in the open dialog');
   assert.equal(state.observed.profile.version, 10);
   assert.deepEqual(state.observed.links, []);
   assert.equal(state.editor.selected.id, B.id);
