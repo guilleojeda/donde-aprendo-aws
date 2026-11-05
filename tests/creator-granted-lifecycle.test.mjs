@@ -316,10 +316,49 @@ test('title-only and no-op edits do not repair an unrelated index', async () => 
   await remove(harness, resourceId);
   const current = await owner(harness);
   const retained = current.editableResources.find(({ id }) => id === resourceId);
+  const transactionsBeforeNoop = harness.mock.transactions.length;
   const noop = accepted(await edit(harness, resourceId, 'retired', { title: retained.title }), 200);
+  assert.equal(harness.mock.transactions.length, transactionsBeforeNoop + 1, 'a no-op still confirms the observed resource in DynamoDB');
+  assert.deepEqual(harness.mock.transactions.at(-1).input.TransactItems.map((item) => Object.keys(item)), [['ConditionCheck']]);
+  assert.deepEqual(harness.mock.transactions.at(-1).input.TransactItems[0].ConditionCheck.Key, { id: resourceId });
   assert.deepEqual(noop.versionChanges, []);
   assert.deepEqual(await harness.store.get(currentUrlKey(U)), unrelated);
   assert.deepEqual((await owner(harness)).profile, current.profile);
+});
+
+test('a retired unchanged PATCH conflicts with a concurrent edit, then a fresh stable-ID re-add persists the winner', async () => {
+  const { harness, resourceId } = await fixture(oldStates[0]);
+  const original = await remove(harness, resourceId);
+  const before = await snapshot(harness, resourceId);
+  const retained = before.a.editableResources.find(({ id }) => id === resourceId);
+  let winner;
+  harness.mock.raceBeforeNextTransaction(async () => {
+    winner = accepted(await edit(harness, resourceId, 'retired', { title: 'Concurrent winner' }), 200);
+  });
+
+  const stale = await api(harness, `/api/creador/recursos/${encodeURIComponent(resourceId)}`, {
+    version: retained.version, title: retained.title,
+  }, { method: 'PATCH' });
+  assert.equal(stale.status, 409, JSON.stringify(stale.body));
+  assert.ok(winner, 'the second real service edit committed after the no-op had read its resource');
+  const afterWinner = await snapshot(harness, resourceId);
+  assert.equal(afterWinner.resources[0].title, 'Concurrent winner');
+  assert.equal(afterWinner.resources[0].version, retained.version + 1);
+  assert.deepEqual(afterWinner.a.profile, before.a.profile, 'the retired no-op did not advance the profile');
+  assert.deepEqual(afterWinner.a.links, before.a.links, 'the retired no-op did not recreate a placement');
+  assert.deepEqual(afterWinner.resources.slice(1), before.resources.slice(1));
+  assert.deepEqual(afterWinner.urls, before.urls);
+
+  const freshOwner = await owner(harness);
+  const freshResource = freshOwner.editableResources.find(({ id }) => id === resourceId);
+  const readded = accepted(await api(harness, '/api/creador/enlaces', {
+    resourceId, resourceVersion: freshResource.version,
+  }), 201);
+  assert.equal(readded.link.resourceId, resourceId);
+  assert.equal(readded.link.placementId, original.placementId, 'manual re-add retains the stable placement identity');
+  assert.equal(readded.link.title, 'Concurrent winner');
+  assert.equal(readded.link.resourceVersion, freshResource.version);
+  assert.deepEqual((await owner(harness)).links.filter(({ resourceId: id }) => id === resourceId), [readded.link]);
 });
 
 test('two supported cohost departures at version 1 conflict, then a fresh manual edit leaves only the last cohost', async () => {

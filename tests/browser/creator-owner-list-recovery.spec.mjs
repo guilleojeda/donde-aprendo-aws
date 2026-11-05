@@ -42,6 +42,21 @@ async function openLinksView(page, fixture, query = '') {
   await expect(page.getByRole('heading', { name: 'Enlaces', exact: true })).toBeVisible();
 }
 
+async function prepareChapterList(fixture, page, { name = 'Audit series Alpha', slug = 'audit-series-alpha', linkTitle = 'Audit chapter' } = {}) {
+  const cookie = await loggedInOwner(fixture, page);
+  const series = await createSeries(fixture, cookie, { name, slug });
+  const target = await addLink(fixture, cookie, { title: linkTitle, url: `https://phase2-list-recovery.example/${slug}` });
+  await addChapter(fixture, cookie, series.id, target.placementId);
+  await openSeriesView(page, fixture, `&buscarSeries=${encodeURIComponent(name)}`);
+  await expect.poll(() => page.evaluate(() => history.state?.creatorOwnerIndex)).toBe(0,
+    'the browser has initialized the managed Series history entry');
+  const listHref = page.url();
+  const listIndex = await page.evaluate(() => history.state.creatorOwnerIndex);
+  await page.locator('[data-series-chapters]').click();
+  await expect(page.locator('[data-owner-series-chapters]')).toBeVisible();
+  return { cookie, series, target, listHref, listIndex };
+}
+
 async function signInOtherOwner(fixture) {
   const sub = 'phase2-list-wrong-owner';
   const email = 'phase2-other@example.invalid';
@@ -490,6 +505,8 @@ test('Series conserva la búsqueda, pertenencia y página de capítulos durante 
     await expect(contextPrompt).toBeVisible();
     await contextPrompt.getByRole('button', { name: 'Seguir editando', exact: true }).click();
     await expect(contextPrompt).toHaveCount(0);
+    await expect(page.locator('[data-owner-dialog][open]')).toHaveCount(0,
+      'wait for the native modal to close before interacting with the chapter filters');
     await expect(page).toHaveURL((url) => url.searchParams.get('serie') === series.id,
       'leaving the selected series remains guarded while the list check is pending');
     await filters.getByRole('searchbox', { name: 'Buscar en tus enlaces' }).fill('Phase2 capítulo');
@@ -1061,6 +1078,265 @@ test('Publicar desde una consulta inicial inválida conserva el 400 hasta limpia
       && url === 'https://phase2-list.example/manual-after-publish'));
     assert.equal(saved.profile.version, beforeManual.profile.version + 1,
       'the manual action persists after the adopted profile version');
+  } finally {
+    transport.writeGate.resolve();
+    transport.read(0).gate.resolve();
+    await Promise.all([publishClick?.catch(() => {}), checkClick?.catch(() => {})]);
+    await transport.close();
+    await capture.stop({ skipErrorBodies: true }).catch(() => {});
+  }
+});
+
+test('la adopción no reemplaza el destino de Back mientras se restaura la entrada protegida', async ({ fixture, page }) => {
+  const { cookie, series, target, listHref, listIndex } = await prepareChapterList(fixture, page, {
+    name: 'Audit series Back', slug: 'audit-series-back', linkTitle: 'Audit chapter Back',
+  });
+  const chapterHref = page.url();
+  const chapterIndex = await page.evaluate(() => history.state.creatorOwnerIndex);
+  const capture = await captureCreatorApi(page, { ignoreReads: true, skipErrorBodies: true });
+  const removePath = `/api/creador/series/${series.id}/capitulos/${target.placementId}`;
+  const addPath = removePath;
+  const transport = await installListTransport(page, {
+    writeMethod: 'DELETE', writePath: removePath, readResponses: [{ kind: 'actual', hold: true }],
+  });
+  let removeClick;
+  let checkClick;
+  try {
+    removeClick = page.locator(`[data-chapter-row="${target.placementId}"]`)
+      .getByRole('button', { name: 'Quitar capítulo', exact: true }).click();
+    await transport.writeArrived.promise;
+    assert.equal(transport.actualWrite.status, 204, 'the real chapter DELETE commits before its acknowledgement is dropped');
+    assert.equal((await fixture.rawPlacement(cookie, target.placementId)).series?.[series.id], undefined);
+    transport.writeGate.resolve();
+    await removeClick;
+
+    await page.evaluate(() => {
+      const nativeFetch = window.fetch.bind(window);
+      window.awaitingBrowserBack = false;
+      window.historyWrites = [];
+      window.fetch = async (...args) => {
+        const response = await nativeFetch(...args);
+        if (typeof args[0] === 'string' && new URL(args[0], window.location.href).pathname.replace(/\/$/u, '') === '/api/creador/perfil') {
+          const nativeJson = response.json.bind(response);
+          response.json = async () => {
+            const raw = await nativeJson();
+            window.awaitingBrowserBack = true;
+            await new Promise((resolve) => { window.releaseOwnerReadBody = resolve; });
+            return raw;
+          };
+        }
+        return response;
+      };
+      window.addEventListener('popstate', () => window.releaseOwnerReadBody?.(), { once: true });
+      const nativeGo = window.history.go.bind(window.history);
+      window.restoreGuardedHistory = undefined;
+      window.history.go = (delta) => { window.restoreGuardedHistory = () => nativeGo(delta); };
+      const nativeReplace = window.history.replaceState.bind(window.history);
+      window.history.replaceState = function (...args) {
+        window.historyWrites.push({ activeHref: window.location.href, activeIndex: window.history.state?.creatorOwnerIndex,
+          nextIndex: args[0]?.creatorOwnerIndex, href: String(args[2]) });
+        return nativeReplace(...args);
+      };
+    });
+
+    checkClick = page.locator('[data-owner-list-recovery]').getByRole('button', { name: 'Comprobar', exact: true }).click();
+    const actualRead = await transport.read(0).arrived.promise;
+    assert.equal(actualRead.status, 200);
+    assert.equal(actualRead.body.links.find(({ placementId }) => placementId === target.placementId)?.series.length, 0,
+      'the held GET is the actual post-delete owner snapshot');
+    transport.read(0).gate.resolve();
+    await page.waitForFunction(() => window.awaitingBrowserBack);
+
+    await page.evaluate(() => history.back());
+    const prompt = page.locator('[data-owner-exit-prompt]');
+    await expect(prompt).toBeVisible();
+    await expect(page).toHaveURL(listHref);
+    await page.waitForFunction(() => typeof window.restoreGuardedHistory === 'function');
+    await expect(page.locator('[data-owner-list-recovery]')).toHaveCount(0,
+      'the list snapshot is adopted while the guarded history restoration is still held');
+    assert.equal(page.url(), listHref, 'adoption leaves the browser on the guarded Back destination');
+    assert.equal(await page.evaluate(() => history.state.creatorOwnerIndex), listIndex,
+      'adoption does not replace the destination entry with the chapter entry index');
+    assert.deepEqual(await page.evaluate(() => window.historyWrites), [],
+      'the list adoption makes no replaceState write while the browser is on the guarded destination');
+
+    await page.evaluate(() => window.restoreGuardedHistory());
+    await expect(page).toHaveURL(chapterHref);
+    await expect.poll(() => page.evaluate(() => history.state.creatorOwnerIndex)).toBe(chapterIndex);
+    await prompt.getByRole('button', { name: 'Seguir editando', exact: true }).click();
+    await expect(page.locator('[data-owner-dialog][open]')).toHaveCount(0,
+      'the native exit dialog has closed before checking list focus');
+    const chapterSearch = page.locator('#owner-chapter-search');
+    await expect(chapterSearch).toBeFocused();
+
+    await page.evaluate(() => history.back());
+    await expect(page).toHaveURL(listHref);
+    await expect(page.locator('[data-owner-series-chapters]')).toBeHidden();
+    await expect(page.locator(`[data-owner-series-row="${series.id}"]`)).toBeVisible();
+    const beforeManual = await fixture.rawOwner(cookie);
+    await page.locator(`[data-owner-series-row="${series.id}"]`)
+      .getByRole('link', { name: 'Gestionar capítulos', exact: true }).click();
+    await expect(page).toHaveURL((url) => url.searchParams.get('serie') === series.id);
+    await page.locator(`[data-chapter-row="${target.placementId}"]`)
+      .getByRole('button', { name: 'Agregar capítulo', exact: true }).click();
+    await expect.poll(() => writesTo(capture, 'PUT', addPath)[0]?.status).toBe(200);
+    await capture.settle({ skipErrorBodies: true });
+    assert.equal(writesTo(capture, 'DELETE', removePath).length, 1, 'history recovery never replays the original chapter DELETE');
+    assert.equal(writesTo(capture, 'PUT', addPath).length, 1, 'the next chapter action is a distinct manual PUT');
+    assert.ok((await fixture.rawPlacement(cookie, target.placementId)).series[series.id],
+      'the manual chapter addition persists after recovery');
+    assert.equal((await fixture.rawOwner(cookie)).profile.version, beforeManual.profile.version + 1);
+  } finally {
+    transport.writeGate.resolve();
+    transport.read(0).gate.resolve();
+    await Promise.all([removeClick?.catch(() => {}), checkClick?.catch(() => {})]);
+    await transport.close();
+    await capture.stop({ skipErrorBodies: true }).catch(() => {});
+  }
+});
+
+test('la recuperación conserva el foco solicitado hasta cerrar el diálogo de salida', async ({ fixture, page }) => {
+  const { cookie, series, target } = await prepareChapterList(fixture, page, {
+    name: 'Audit series Focus', slug: 'audit-series-focus', linkTitle: 'Audit chapter Focus',
+  });
+  const capture = await captureCreatorApi(page, { ignoreReads: true, skipErrorBodies: true });
+  const removePath = `/api/creador/series/${series.id}/capitulos/${target.placementId}`;
+  const transport = await installListTransport(page, {
+    writeMethod: 'DELETE', writePath: removePath, readResponses: [{ kind: 'actual', hold: true }],
+  });
+  let removeClick;
+  let checkClick;
+  try {
+    removeClick = page.locator(`[data-chapter-row="${target.placementId}"]`)
+      .getByRole('button', { name: 'Quitar capítulo', exact: true }).click();
+    await transport.writeArrived.promise;
+    assert.equal(transport.actualWrite.status, 204);
+    transport.writeGate.resolve();
+    await removeClick;
+
+    checkClick = page.locator('[data-owner-list-recovery]').getByRole('button', { name: 'Comprobar', exact: true }).click();
+    assert.equal((await transport.read(0).arrived.promise).status, 200);
+    await page.locator('[data-series-back]').click();
+    const prompt = page.locator('[data-owner-exit-prompt]');
+    await expect(prompt).toBeVisible();
+    await expect(page.locator('[data-owner-dialog][open]')).toHaveCount(1,
+      'the exit prompt is held by the native modal dialog');
+    transport.read(0).gate.resolve();
+    await checkClick;
+    await expect(page.locator('[data-owner-list-recovery]')).toHaveCount(0,
+      'the actual owner snapshot is adopted while the exit prompt remains open');
+    await expect(prompt).toBeVisible();
+
+    await prompt.getByRole('button', { name: 'Seguir editando', exact: true }).click();
+    await expect(prompt).toHaveCount(0);
+    await expect(page.locator('[data-owner-dialog][open]')).toHaveCount(0,
+      'the native modal is closed before recovery focus is asserted');
+    const chapterSearch = page.locator('#owner-chapter-search');
+    await expect(chapterSearch).toBeFocused();
+    const focus = await chapterSearch.evaluate((input) => {
+      const rect = input.getBoundingClientRect();
+      return { top: Math.round(rect.top), bottom: Math.round(rect.bottom), viewport: innerHeight };
+    });
+    assert.ok(focus.top >= 0 && focus.bottom <= focus.viewport,
+      `the recovery destination is visible after the modal closes: ${JSON.stringify(focus)}`);
+
+    const beforeManual = await fixture.rawOwner(cookie);
+    const addPath = `/api/creador/series/${series.id}/capitulos/${target.placementId}`;
+    await page.locator(`[data-chapter-row="${target.placementId}"]`)
+      .getByRole('button', { name: 'Agregar capítulo', exact: true }).click();
+    await expect.poll(() => writesTo(capture, 'PUT', addPath)[0]?.status).toBe(200);
+    await capture.settle({ skipErrorBodies: true });
+    assert.equal(writesTo(capture, 'DELETE', removePath).length, 1, 'focus recovery never repeats the original DELETE');
+    assert.equal(writesTo(capture, 'PUT', addPath).length, 1, 'the next chapter action is a distinct manual PUT');
+    assert.ok((await fixture.rawPlacement(cookie, target.placementId)).series[series.id]);
+    assert.equal((await fixture.rawOwner(cookie)).profile.version, beforeManual.profile.version + 1);
+  } finally {
+    transport.writeGate.resolve();
+    transport.read(0).gate.resolve();
+    await Promise.all([removeClick?.catch(() => {}), checkClick?.catch(() => {})]);
+    await transport.close();
+    await capture.stop({ skipErrorBodies: true }).catch(() => {});
+  }
+});
+
+test('un historial de Series sin su serie conserva la búsqueda propia de esa entrada', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const removedSeries = await createSeries(fixture, cookie, { name: 'Audit series Alpha retirada', slug: 'audit-alpha-retirada' });
+  const alphaSurvivor = await createSeries(fixture, cookie, { name: 'Audit series Alpha superviviente', slug: 'audit-alpha-superviviente' });
+  await createSeries(fixture, cookie, { name: 'Audit series Beta superviviente', slug: 'audit-beta-superviviente' });
+  const target = await addLink(fixture, cookie, { title: 'Audit chapter retained', url: 'https://phase2-series-history.example/retained' });
+  await addChapter(fixture, cookie, removedSeries.id, target.placementId);
+  await openSeriesView(page, fixture, '&buscarSeries=Alpha');
+  await expect.poll(() => page.evaluate(() => history.state?.creatorOwnerIndex)).toBe(0,
+    'the browser has initialized the managed Series history entry');
+  const listIndex = await page.evaluate(() => history.state.creatorOwnerIndex);
+  await page.locator(`[data-owner-series-row="${removedSeries.id}"]`)
+    .getByRole('link', { name: 'Gestionar capítulos', exact: true }).click();
+  await expect(page).toHaveURL((url) => url.searchParams.get('serie') === removedSeries.id);
+  const staleChapterHref = page.url();
+  const staleChapterIndex = await page.evaluate(() => history.state.creatorOwnerIndex);
+  await page.locator('[data-series-back]').click();
+  await expect(page).toHaveURL((url) => url.searchParams.get('buscarSeries') === 'Alpha' && !url.searchParams.has('serie'));
+  await page.locator('#owner-series-search').fill('Beta');
+  await page.getByRole('button', { name: 'Aplicar búsqueda', exact: true }).click();
+  await expect(page).toHaveURL((url) => url.searchParams.get('buscarSeries') === 'Beta');
+
+  const capture = await captureCreatorApi(page, { ignoreReads: true, skipErrorBodies: true });
+  const publishPath = '/api/creador/perfil/publicar';
+  const transport = await installListTransport(page, {
+    writeMethod: 'POST', writePath: publishPath, readResponses: [{ kind: 'actual' }],
+  });
+  let publishClick;
+  let checkClick;
+  try {
+    publishClick = page.locator('[data-owner-publish]').click();
+    await transport.writeArrived.promise;
+    assert.equal(transport.actualWrite.status, 200, 'publication commits before its acknowledgement is dropped');
+    transport.writeGate.resolve();
+    await publishClick;
+    const beforeSeriesDelete = await fixture.rawOwner(cookie);
+    const deleted = await api(fixture, cookie, `/api/creador/series/${removedSeries.id}`, {
+      method: 'DELETE', body: { version: removedSeries.version, profileVersion: beforeSeriesDelete.profile.version },
+    });
+    assert.equal(deleted.response.status, 204, 'the real owner API removes the series used by the old chapter entry');
+
+    checkClick = page.locator('[data-owner-list-recovery]').getByRole('button', { name: 'Comprobar', exact: true }).click();
+    const actualRead = await transport.read(0).arrived.promise;
+    assert.equal(actualRead.status, 200);
+    assert.equal(actualRead.body.series.some(({ id }) => id === removedSeries.id), false,
+      'the held list GET observes that the old series no longer exists');
+    transport.read(0).gate.resolve();
+    await checkClick;
+    await expect(page.locator('[data-owner-list-recovery]')).toHaveCount(0,
+      'the deleted Series snapshot is adopted before traversing the old history entry');
+    await expect(page).toHaveURL((url) => url.searchParams.get('buscarSeries') === 'Beta');
+    await expect(page.locator(`[data-owner-series-row="${alphaSurvivor.id}"]`)).toHaveCount(0,
+      'the current Beta query remains active until the old history entry is selected');
+
+    await page.evaluate(() => history.go(-2));
+    await expect(page).toHaveURL((url) => url.searchParams.get('buscarSeries') === 'Alpha'
+      && !url.searchParams.has('serie') && !url.searchParams.has('buscarCapitulos')
+      && !url.searchParams.has('pertenencia') && !url.searchParams.has('paginaCapitulos'));
+    await expect.poll(() => page.evaluate(() => history.state.creatorOwnerIndex)).toBe(staleChapterIndex);
+    await expect(page.locator('#owner-series-search')).toHaveValue('Alpha');
+    await expect(page.locator(`[data-owner-series-row="${alphaSurvivor.id}"]`)).toBeVisible();
+    await expect(page.locator('[data-owner-series-chapters]')).toBeHidden();
+    assert.notEqual(listIndex, staleChapterIndex);
+    assert.notEqual(staleChapterHref, page.url(), 'the old chapter URL is replaced by its own normalized list query');
+
+    const beforeManual = await fixture.rawOwner(cookie);
+    const addPath = `/api/creador/series/${alphaSurvivor.id}/capitulos/${target.placementId}`;
+    await page.locator(`[data-owner-series-row="${alphaSurvivor.id}"]`)
+      .getByRole('link', { name: 'Gestionar capítulos', exact: true }).click();
+    await expect(page).toHaveURL((url) => url.searchParams.get('serie') === alphaSurvivor.id);
+    await page.locator(`[data-chapter-row="${target.placementId}"]`)
+      .getByRole('button', { name: 'Agregar capítulo', exact: true }).click();
+    await expect.poll(() => writesTo(capture, 'PUT', addPath)[0]?.status).toBe(200);
+    await capture.settle({ skipErrorBodies: true });
+    assert.equal(writesTo(capture, 'POST', publishPath).length, 1, 'history normalization never replays publication');
+    assert.equal(writesTo(capture, 'PUT', addPath).length, 1, 'the next series action is a separate manual chapter addition');
+    assert.ok((await fixture.rawPlacement(cookie, target.placementId)).series[alphaSurvivor.id]);
+    assert.equal((await fixture.rawOwner(cookie)).profile.version, beforeManual.profile.version + 1);
   } finally {
     transport.writeGate.resolve();
     transport.read(0).gate.resolve();

@@ -135,25 +135,52 @@ test('a losing URL create conflicts if the observed winner moves before conditio
   assert.deepEqual(finalOwnerA.editableResources.map(({ id }) => id), [retry.body.link.resourceId]);
 });
 
-test('a losing URL create conditionally reuses an unchanged concurrent winner', async () => {
-  const harness = await createDynamoMoveHarness({ projectionAware: true });
-  await setUp(harness);
-  let winner;
-  harness.mock.raceBeforeNextTransaction(async () => {
-    winner = await add(harness, 'creator-b');
-    assert.equal(winner.status, 201, JSON.stringify(winner.body));
+for (const cancellation of [
+  { name: 'conditional cancellation', isTransactionConflict: false },
+  { name: 'explicit TransactionConflict cancellation', isTransactionConflict: true },
+]) {
+  test(`a losing URL create conditionally reuses an unchanged concurrent winner after ${cancellation.name}`, async () => {
+    const harness = await createDynamoMoveHarness({ projectionAware: true });
+    await setUp(harness);
+    let winner;
+    let attemptedResourceId;
+    harness.mock.raceBeforeNextTransaction(async ({ actions }) => {
+      const attemptedResource = actions
+        .map((action) => action.Put?.Item)
+        .find((item) => item?.url === URL && typeof item.id === 'string' && !item.id.startsWith('__'));
+      assert.ok(attemptedResource, 'the losing request prepared a real resource create');
+      attemptedResourceId = attemptedResource.id;
+      winner = await add(harness, 'creator-b');
+      assert.equal(winner.status, 201, JSON.stringify(winner.body));
+      if (cancellation.isTransactionConflict) {
+        harness.mock.failNextTransaction(Object.assign(new Error('item contention'), {
+          name: 'TransactionCanceledException',
+          CancellationReasons: actions.map((_, index) => ({
+            Code: index === 0 ? 'TransactionConflict' : 'None',
+          })),
+        }));
+      }
+    });
+
+    const loser = await add(harness, 'creator-a');
+    assert.equal(loser.status, 201, JSON.stringify(loser.body));
+    assert.equal(loser.body.created, true, 'the winning resource is newly attached to the losing creator profile');
+    assert.equal(loser.body.link.resourceId, winner.body.link.resourceId);
+    assert.notEqual(attemptedResourceId, winner.body.link.resourceId,
+      'the rejected transaction’s candidate is not mistaken for the winning resource');
+
+    const ownerA = await owner(harness, 'creator-a');
+    const ownerB = await owner(harness, 'creator-b');
+    assert.deepEqual(ownerA.links.map(({ resourceId }) => resourceId), [winner.body.link.resourceId]);
+    assert.deepEqual(ownerA.editableResources, [], 'cross-profile reuse does not grant edit authority');
+    assert.deepEqual(ownerB.editableResources.map(({ id }) => id), [winner.body.link.resourceId]);
+    assert.equal(await harness.store.get(`resource:${attemptedResourceId}`), null,
+      'the cancelled losing transaction creates no second catalog resource');
+    assert.equal(await harness.store.get(`resource:${winner.body.link.resourceId}`).then(Boolean), true,
+      'the concurrent winning resource remains persisted');
+    assert.deepEqual((await harness.store.list(`editor:${ownerA.profile.id}:`)), [],
+      'reuse creates no resource edit reference for the other profile');
+    assert.deepEqual((await harness.store.list(`editor:${ownerB.profile.id}:`)).map(({ value }) => value.resourceId), [winner.body.link.resourceId],
+      'the existing winner retains its original editor authority');
   });
-
-  const loser = await add(harness, 'creator-a');
-  assert.equal(loser.status, 201, JSON.stringify(loser.body));
-  assert.equal(loser.body.created, true, 'the winning resource is newly attached to the losing creator profile');
-  assert.equal(loser.body.link.resourceId, winner.body.link.resourceId);
-
-  const ownerA = await owner(harness, 'creator-a');
-  const ownerB = await owner(harness, 'creator-b');
-  assert.deepEqual(ownerA.links.map(({ resourceId }) => resourceId), [winner.body.link.resourceId]);
-  assert.deepEqual(ownerA.editableResources, [], 'cross-profile reuse does not grant edit authority');
-  assert.deepEqual(ownerB.editableResources.map(({ id }) => id), [winner.body.link.resourceId]);
-  assert.deepEqual(await harness.store.get(`resource:${winner.body.link.resourceId}`).then(Boolean), true,
-    'the concurrent winning resource remains persisted');
-});
+}

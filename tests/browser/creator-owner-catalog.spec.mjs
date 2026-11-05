@@ -471,7 +471,19 @@ test('el 409 tardío de A conserva B y su opción durante la actualización ante
   });
   await seedCatalogRecord(fixture, currentA);
   await seedCatalogRecord(fixture, itemB);
-  const index = await serveSelectionIndex(page, [oldA, itemB]);
+  const refreshArrived = deferred();
+  const releaseRefresh = deferred();
+  let indexReads = 0;
+  await page.route('**/catalog-selection.json', async (route) => {
+    if (route.request().method() !== 'GET') return route.continue();
+    indexReads += 1;
+    if (indexReads === 2) {
+      refreshArrived.release();
+      await releaseRefresh.promise;
+    }
+    // The refreshed public index can still be behind the resource service.
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([oldA, itemB]) });
+  });
   const capture = await captureCreatorApi(page, { skipErrorBodies: true });
   const transport = await holdReferenceResponse(page);
   const resourceBeforeB = await fixture.rawResource(itemB.id);
@@ -504,13 +516,33 @@ test('el 409 tardío de A conserva B y su opción durante la actualización ante
     await expect(dialog.getByRole('button', { name: 'Actualizar catálogo', exact: true })).toBeVisible();
     assert.equal(linkWrites(capture).length, 1, 'the stale A request is not replayed');
 
-    index.replace([currentA, itemB]);
     await dialog.getByRole('button', { name: 'Actualizar catálogo', exact: true }).click();
+    await refreshArrived.promise;
+    const comparison = dialog.locator('[data-owner-comparison]');
+    const compare = dialog.locator('[data-owner-compare]');
+    const adopt = dialog.locator('[data-owner-adopt]');
+    await compare.click();
+    await expect(comparison).toBeVisible();
+    await expect(comparison).toContainText('No encontramos la referencia enviada');
+    await adopt.click();
+    await expect(comparison).toHaveCount(0);
+    assert.equal(linkWrites(capture).length, 1, 'adopting the missing A result does not repeat the stale request or submit B');
+
+    releaseRefresh.release();
+    await expect(dialog.locator('[data-catalog-index-status]')).toHaveText('2 resultados');
+    await expect(catalogRadio(page, oldA.title)).not.toBeChecked();
     await expect(catalogRadio(page, itemB.title)).toBeChecked();
     await expect(directory).not.toBeChecked();
     await expect(dialog.getByRole('button', { name: 'Agregar a mi página', exact: true })).toBeEnabled();
-    assert.equal(index.reads.length, 2, 'the explicit catalog refresh reads the updated index');
+    assert.equal(indexReads, 2, 'the explicit refresh reads the index after the comparison is adopted');
     assert.equal(linkWrites(capture).length, 1, 'refresh keeps B as intent without sending it');
+
+    // An old exact pair can remain in a lagging index. Trying it again must
+    // leave the later valid B selection and its directory option intact.
+    await catalogRadio(page, oldA.title).click();
+    await expect(catalogRadio(page, oldA.title)).not.toBeChecked();
+    await expect(catalogRadio(page, itemB.title)).toBeChecked();
+    await expect(directory).not.toBeChecked();
 
     await dialog.getByRole('button', { name: 'Agregar a mi página', exact: true }).click();
     await expect.poll(() => linkWrites(capture).length).toBe(2);
@@ -531,6 +563,7 @@ test('el 409 tardío de A conserva B y su opción durante la actualización ante
     assert.deepEqual(await fixture.rawResource(itemB.id), resourceBeforeB,
       'using B as a reference does not mutate shared catalog metadata');
   } finally {
+    releaseRefresh.release();
     transport.release();
     await staleSubmit?.catch(() => {});
     await transport.close();

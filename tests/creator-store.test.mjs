@@ -358,14 +358,40 @@ test('expression validation rejects both unused aliases and placeholders without
 test('transaction cancellation reports only conditional races as false and propagates operational failures', async () => {
   let nextError = Object.assign(new Error('conditional'), {
     name: 'TransactionCanceledException',
-    CancellationReasons: [{ Code: 'ConditionalCheckFailed' }],
+    CancellationReasons: [{ Code: 'ConditionalCheckFailed' }, { Code: 'None' }],
   });
-  const { client } = fakeClient(async () => { throw nextError; });
+  const { client, calls } = fakeClient(async () => { throw nextError; });
   const store = createCreatorStore({ ...TABLES, client });
   assert.equal(await store.transact({ checks: [{ key: 'profile:p1', version: null }] }), false);
+  assert.equal(commandName(calls[0]), 'TransactWriteCommand');
+  assert.equal(calls[0].input.TransactItems[0].ConditionCheck.TableName, TABLES.profilesTableName);
+
+  nextError = Object.assign(new Error('transaction conflict'), {
+    name: 'TransactionCanceledException',
+    CancellationReasons: [{ Code: 'None' }, { Code: 'TransactionConflict' }, { Code: 'None' }],
+  });
+  assert.equal(await store.transact({ checks: [{ key: 'profile:p1', version: null }] }), false,
+    'a definite item contention is returned to the service conflict/winner handling');
 
   nextError = Object.assign(new Error('capacity'), { name: 'TransactionCanceledException', CancellationReasons: [{ Code: 'ProvisionedThroughputExceeded' }] });
   await assert.rejects(store.transact({ checks: [{ key: 'profile:p1', version: null }] }), /capacity/);
+
+  for (const reason of ['ProvisionedThroughputExceeded', 'ValidationError']) {
+    nextError = Object.assign(new Error(`mixed ${reason}`), {
+      name: 'TransactionCanceledException',
+      CancellationReasons: [{ Code: 'TransactionConflict' }, { Code: reason }],
+    });
+    await assert.rejects(store.transact({ checks: [{ key: 'profile:p1', version: null }] }), new RegExp(`mixed ${reason}`));
+  }
+
+  nextError = Object.assign(new Error('ambiguous cancellation'), {
+    name: 'TransactionCanceledException',
+    CancellationReasons: [{ Code: 'TransactionConflict' }, {}],
+  });
+  await assert.rejects(store.transact({ checks: [{ key: 'profile:p1', version: null }] }), /ambiguous cancellation/);
+
+  nextError = Object.assign(new Error('uncertain cancellation'), { name: 'TransactionCanceledException' });
+  await assert.rejects(store.transact({ checks: [{ key: 'profile:p1', version: null }] }), /uncertain cancellation/);
 });
 
 test('transactions reject duplicate physical writes and more than 100 physical actions before sending', async () => {

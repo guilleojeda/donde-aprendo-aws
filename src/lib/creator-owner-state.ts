@@ -56,7 +56,7 @@ export type CreatorOwnerLinkEditor =
   | { kind: 'link-resource'; key: string; baseResource: CreatorEditableResourceDTO; draft: Pick<CreatorOwnerLinkDraft, 'title' | 'url' | 'description'> }
   | { kind: 'add-link'; key: 'add-link'; baseProfile: CreatorProfileDTO; draft: CreatorOwnerLinkDraft }
   | { kind: 'move-link'; key: string; baseProfile: CreatorProfileDTO; baseLink: CreatorLinkDTO; baseOrder: readonly string[]; targetPosition: string; suggestionPosition?: number }
-  | { kind: 'reference'; key: 'reference'; baseProfile: CreatorProfileDTO; selected?: CreatorCatalogSelectionDTO; selectedForDirectory: boolean }
+  | { kind: 'reference'; key: 'reference'; baseProfile: CreatorProfileDTO; selected?: CreatorCatalogSelectionDTO; selectedForDirectory: boolean; rejectedSelections?: Pick<CreatorCatalogSelectionDTO, 'id' | 'url'>[] }
   | { kind: 'claim'; key: 'claim'; baseProfile: CreatorProfileDTO; selected: CreatorOwnerClaimSelection[]; knownUrls: string; evidence: string };
 
 export type CreatorOwnerView = 'enlaces' | 'series' | 'solicitudes' | 'estadisticas';
@@ -277,7 +277,8 @@ function cloneEditor(editor: CreatorOwnerEditor | CreatorOwnerLinkEditor): Creat
     case 'link-resource': return { ...editor, baseResource: { ...editor.baseResource }, draft: { ...editor.draft } };
     case 'add-link': return { ...editor, baseProfile: { ...editor.baseProfile }, draft: { ...editor.draft } };
     case 'move-link': return { ...editor, baseProfile: { ...editor.baseProfile }, baseLink: { ...editor.baseLink, series: editor.baseLink.series.map((item) => ({ ...item })) }, baseOrder: [...editor.baseOrder] };
-    case 'reference': return { ...editor, baseProfile: { ...editor.baseProfile }, ...(editor.selected ? { selected: { ...editor.selected } } : {}) };
+    case 'reference': return { ...editor, baseProfile: { ...editor.baseProfile }, ...(editor.selected ? { selected: { ...editor.selected } } : {}),
+      ...(editor.rejectedSelections ? { rejectedSelections: editor.rejectedSelections.map((selection) => ({ ...selection })) } : {}) };
     case 'claim': return { ...editor, baseProfile: { ...editor.baseProfile }, selected: editor.selected.map((item) => ({ ...item })) };
   }
 }
@@ -479,9 +480,13 @@ function completeReference(
     : {};
 
   if (!saved) {
-    return { editor: { ...current, baseProfile: { ...profile } }, hasPendingIntent: true,
-      message: 'No encontramos la referencia enviada en la página guardada. Conservamos la selección para una acción manual.',
-      ...keepFocusInPicker };
+    const rejectedSelection = referenceSelectionWasRejected(current, current.selected);
+    const selected = rejectedSelection ? undefined : current.selected;
+    return { editor: { ...current, baseProfile: { ...profile }, ...(rejectedSelection ? { selected: undefined } : {}) }, hasPendingIntent: true,
+      message: rejectedSelection
+        ? 'No encontramos la referencia enviada en la página guardada. Esa dirección ya fue rechazada; elige una selección vigente para continuar.'
+        : 'No encontramos la referencia enviada en la página guardada. Conservamos la selección para una acción manual.',
+      ...(source === 'adopted' ? { focusAfterRender: selected ? '#owner-link-directory-option' : '#owner-catalog-search' } : {}) };
   }
 
   if (sameSelection && current.selectedForDirectory !== submitted.selectedForDirectory) {
@@ -631,7 +636,21 @@ function isCreatorOwnerProfileForIntent(snapshot: CreatorEditorDTO, intent: Crea
 function sameEditor(left: CreatorOwnerEditor | CreatorOwnerLinkEditor, right: CreatorOwnerEditor | CreatorOwnerLinkEditor): boolean {
   if (left.key !== right.key || left.kind !== right.kind) return false;
   if (left.kind === 'photo' && right.kind === 'photo') return left.file === right.file && left.uploadId === right.uploadId;
+  if (left.kind === 'reference' && right.kind === 'reference') {
+    return left.selectedForDirectory === right.selectedForDirectory
+      && left.selected?.id === right.selected?.id && left.selected?.url === right.selected?.url;
+  }
   return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function sameReferenceSelection(left: Pick<CreatorCatalogSelectionDTO, 'id' | 'url'> | undefined,
+  right: Pick<CreatorCatalogSelectionDTO, 'id' | 'url'> | undefined): boolean {
+  return Boolean(left && right && left.id === right.id && left.url === right.url);
+}
+
+function referenceSelectionWasRejected(editor: Extract<CreatorOwnerLinkEditor, { kind: 'reference' }>,
+  selected: Pick<CreatorCatalogSelectionDTO, 'id' | 'url'> | undefined): boolean {
+  return Boolean(selected && editor.rejectedSelections?.some((rejected) => sameReferenceSelection(rejected, selected)));
 }
 
 function normalizeLinksQuery(
@@ -691,6 +710,10 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
     case 'update-reference-draft':
       if (state.editor?.kind !== 'reference') return state;
       {
+        if (referenceSelectionWasRejected(state.editor, action.selected)) {
+          const message = 'Esa dirección ya fue rechazada por estar desactualizada. Elige una selección vigente del catálogo.';
+          return { ...state, message: { text: message, kind: 'info' } };
+        }
         const selectedIsCurrent = action.selected && state.catalog.status === 'ready' && !state.catalog.needsRefresh
           && state.catalog.entries?.some(({ id, url }) => id === action.selected?.id && url === action.selected.url);
         const resolvesResourceConflict = selectedIsCurrent && state.attempt.status === 'conflict'
@@ -715,15 +738,20 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
         && ['RESOURCE_CONFLICT', 'STALE_RESOURCE_REFERENCE'].includes(state.attempt.code ?? '')
         ? state.attempt.intent : undefined;
       const entries = action.entries.map((item) => ({ ...item }));
-      const referenceEditor = conflictedReference && state.editor?.kind === 'reference'
-        && state.editor.key === conflictedReference.editorKey ? state.editor : undefined;
+      const currentReferenceEditor = state.editor?.kind === 'reference' ? state.editor : undefined;
+      const referenceEditor = conflictedReference && currentReferenceEditor?.key === conflictedReference.editorKey
+        ? currentReferenceEditor : undefined;
       const submitted = conflictedReference?.capture.kind === 'reference' ? conflictedReference.capture.selected : undefined;
-      const selected = referenceEditor?.selected;
+      const selected = currentReferenceEditor?.selected;
       const selectionIsSubmitted = Boolean(selected && submitted && selected.id === submitted.id && selected.url === submitted.url);
       const selectionIsCurrent = Boolean(selected && entries.some(({ id, url }) => id === selected.id && url === selected.url));
-      const preserveLaterSelection = Boolean(referenceEditor && selected && !selectionIsSubmitted && selectionIsCurrent);
-      const editor = referenceEditor && !preserveLaterSelection ? { ...referenceEditor, selected: undefined } : state.editor;
+      const selectedWasRejected = Boolean(currentReferenceEditor && referenceSelectionWasRejected(currentReferenceEditor, selected));
+      const preserveLaterSelection = Boolean(referenceEditor && selected && !selectionIsSubmitted && selectionIsCurrent && !selectedWasRejected);
+      const clearReferenceSelection = selectedWasRejected || Boolean(referenceEditor && !preserveLaterSelection);
+      const editor = currentReferenceEditor && clearReferenceSelection
+        ? { ...currentReferenceEditor, selected: undefined } : state.editor;
       return { ...state, editor,
+        ...(selectedWasRejected ? { message: { text: 'La dirección rechazada sigue desactualizada. Conservamos cualquier otra selección y su opción.', kind: 'info' as const } } : {}),
         ...(preserveLaterSelection ? {
           attempt: { status: 'idle' as const },
           message: { text: 'La ficha vigente quedó seleccionada. Puedes agregarla manualmente; no repetimos la solicitud anterior.', kind: 'info' as const },
@@ -783,7 +811,14 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
     case 'write-uncertain': {
       const intent = currentAttempt(state, action.intentId);
       if (!intent) return state;
-      return { ...state, attempt: { status: action.status, intent, message: action.message, ...(action.code ? { code: action.code } : {}) }, message: { text: action.message, kind: 'error' }, location: { ...state.location, transition: undefined, prompt: 'none' } };
+      const rejected = action.status === 'conflict' && ['RESOURCE_CONFLICT', 'STALE_RESOURCE_REFERENCE'].includes(action.code ?? '')
+        && intent.kind === 'reference' && intent.capture.kind === 'reference' ? intent.capture.selected : undefined;
+      const currentReference = state.editor?.kind === 'reference' && state.editor.key === intent.editorKey ? state.editor : undefined;
+      const rejectedSelections = rejected && currentReference && !referenceSelectionWasRejected(currentReference, rejected)
+        ? [...(currentReference.rejectedSelections ?? []), { id: rejected.id, url: rejected.url }] : currentReference?.rejectedSelections;
+      const editor = currentReference && rejectedSelections
+        ? { ...currentReference, rejectedSelections } : state.editor;
+      return { ...state, editor, attempt: { status: action.status, intent, message: action.message, ...(action.code ? { code: action.code } : {}) }, message: { text: action.message, kind: 'error' }, location: { ...state.location, transition: undefined, prompt: 'none' } };
     }
     case 'write-rejected': {
       const intent = currentAttempt(state, action.intentId);

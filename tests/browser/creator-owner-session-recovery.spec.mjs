@@ -558,6 +558,358 @@ test('a delayed older disabled owner response cannot replace restored session re
   }
 });
 
+test('a complete null-profile comparison leaves initial creation available for an explicit retry', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page, { profile: false });
+  const account = [...fixture.accountStore.accounts.values()][0];
+  const writes = [];
+  page.on('request', (request) => {
+    if (request.method() === 'PUT' && pathOf(request) === '/api/creador/perfil') writes.push(request);
+  });
+  await page.goto(`${fixture.origin}/cuenta/?vista=series`);
+  await expect(page.locator('astro-island')).not.toHaveAttribute('ssr', '');
+  const originalDocument = await page.evaluateHandle(() => document);
+  const form = page.locator('[data-owner-form="crear"]');
+  const name = form.getByLabel('Nombre visible');
+  const slug = form.getByLabel('Dirección de tu página');
+  const create = form.getByRole('button', { name: 'Crear borrador' });
+  const compare = form.getByRole('button', { name: 'Comprobar', exact: true });
+  await name.fill('Conservamos este borrador');
+  await slug.fill('borrador-conservado');
+
+  fixture.creatorStore.failNext('transact');
+  const failedWrite = apiResponse(page, 'PUT', '/api/creador/perfil', 503);
+  await create.click();
+  await failedWrite;
+  assert.equal((await fixture.rawOwner(cookie)).profile, null);
+  await expect(compare).toBeEnabled();
+
+  fixture.accountStore.seedAccount({ ...account, isAdmin: !account.isAdmin });
+  const mismatch = apiResponse(page, 'GET', '/api/creador/perfil', 409);
+  await compare.click();
+  await mismatch;
+  await expect(page.locator('main [data-session-recovery-check]')).toBeEnabled();
+  await expect(create).toBeDisabled();
+
+  fixture.accountStore.seedAccount(account);
+  const restoredCookie = await fixture.login();
+  await addCookie(page.context(), fixture, restoredCookie);
+  const restoredResponse = apiResponse(page, 'GET', '/api/creador/sesion', 200);
+  await page.locator('main [data-session-recovery-check]').click();
+  const renewed = await restoredResponse;
+  const session = await renewed.json();
+  assert.equal(typeof session.csrfToken, 'string');
+  await expect(page.locator('[data-account-logout] input[name="csrfToken"]')).toHaveValue(session.csrfToken);
+  await expect(page.locator('main [data-session-recovery-check]')).toHaveCount(0);
+
+  const comparisonResponse = apiResponse(page, 'GET', '/api/creador/perfil', 200);
+  await compare.click();
+  const comparison = await comparisonResponse;
+  assert.deepEqual(await comparison.json(), { profile: null, links: [], editableResources: [], claims: [], series: [] });
+  await expect(name).toHaveValue('Conservamos este borrador');
+  await expect(slug).toHaveValue('borrador-conservado');
+  await expect(form.getByRole('button', { name: 'Volver a intentar crear borrador' })).toBeEnabled();
+  assert.equal(await page.evaluate((original) => document === original, originalDocument), true);
+  assert.equal(writes.length, 1);
+
+  const retry = form.getByRole('button', { name: 'Volver a intentar crear borrador' });
+  const manual = apiResponse(page, 'PUT', '/api/creador/perfil', 200);
+  await retry.click();
+  await manual;
+  assert.equal((await fixture.rawOwner(restoredCookie)).profile.slug, 'borrador-conservado');
+  assert.equal(writes.length, 2);
+});
+
+for (const scenario of [
+  { label: 'disabled account', status: 403, change: (account) => ({ ...account, active: false }) },
+  { label: 'changed role', status: 409, change: (account) => ({ ...account, isAdmin: !account.isAdmin }) },
+]) {
+  test(`an older ordinary claim-history ${scenario.label} response cannot override a later bound claim`, async ({ fixture, page }) => {
+    const cookie = await loggedInOwner(fixture, page);
+    const [resourceA, resourceB] = await setupCatalog(fixture, page, `claim-history-${scenario.status}`);
+    const account = [...fixture.accountStore.accounts.values()][0];
+    const capture = await captureCreatorApi(page, { ignoreReads: true });
+    const held = { arrived: deferred(), gate: deferred(), done: deferred() };
+    let holdFailure = false;
+    let heldFailure = false;
+    const transport = async (route) => {
+      const request = route.request();
+      if (request.method() === 'GET' && pathOf(request) === '/api/creador/perfil') {
+        const actual = await route.fetch();
+        if (holdFailure && actual.status() === scenario.status) {
+          holdFailure = false;
+          heldFailure = true;
+          held.status = actual.status();
+          held.body = await actual.json();
+          held.arrived.resolve();
+          try {
+            await held.gate.promise;
+            await route.fulfill({ response: actual, json: held.body });
+          } finally {
+            held.done.resolve();
+          }
+          return;
+        }
+        await route.fulfill({ response: actual });
+        return;
+      }
+      await route.continue();
+    };
+    await page.route('**/api/creador/**', transport);
+    try {
+      await page.goto(`${fixture.origin}/cuenta/?vista=solicitudes`);
+      await expect(page.locator('astro-island')).not.toHaveAttribute('ssr', '');
+      const binding = await page.locator('[data-session-binding]').getAttribute('data-session-binding');
+      assert.match(binding ?? '', /^[a-f0-9]{64}$/u);
+
+      fixture.accountStore.seedAccount(scenario.change(account));
+      holdFailure = true;
+      const oldRead = apiResponse(page, 'GET', '/api/creador/perfil', scenario.status);
+      await page.locator('[data-claim-history-refresh]').click();
+      await held.arrived.promise;
+      assert.equal(held.status, scenario.status);
+      assert.equal(held.body.error, scenario.status === 403 ? 'ACCOUNT_DISABLED' : 'SESSION_CONTEXT_CHANGED');
+      assert.equal(Object.hasOwn(held.body, 'profile'), false);
+
+      fixture.accountStore.seedAccount(account);
+      const firstDialog = page.locator('[data-claim-section-open]');
+      await firstDialog.click();
+      const form = page.locator('[data-owner-form="reclamacion"]');
+      await form.getByRole('checkbox', { name: `Solicitar edición de ${resourceA.title}`, exact: true }).check();
+      await form.getByLabel(/Contexto privado/iu).fill(`Fresh authorization after ${scenario.label}`);
+      const firstWrite = page.waitForResponse((response) => response.request().method() === 'POST'
+        && pathOf(response.request()) === '/api/creador/reclamaciones' && response.status() === 202);
+      await form.getByRole('button', { name: 'Enviar solicitud', exact: true }).click();
+      const saved = await firstWrite;
+      assert.equal(saved.request().headers()['x-creator-page-binding'], binding);
+      await expect(form).toHaveCount(0);
+
+      held.gate.resolve();
+      await held.done.promise;
+      await oldRead;
+      await waitForRender(page);
+      await expect(page.locator('main [data-session-recovery-check]')).toHaveCount(0);
+      await expect(page.locator('[data-claim-section-open]')).toBeEnabled();
+
+      await page.locator('[data-claim-section-open]').click();
+      const nextForm = page.locator('[data-owner-form="reclamacion"]');
+      await nextForm.getByRole('checkbox', { name: `Solicitar edición de ${resourceB.title}`, exact: true }).check();
+      await nextForm.getByLabel(/Contexto privado/iu).fill('Next manual claim after stale history failure');
+      const nextWrite = page.waitForResponse((response) => response.request().method() === 'POST'
+        && pathOf(response.request()) === '/api/creador/reclamaciones' && response.status() === 202);
+      await nextForm.getByRole('button', { name: 'Enviar solicitud', exact: true }).click();
+      const nextSaved = await nextWrite;
+      assert.equal(nextSaved.request().headers()['x-creator-page-binding'], binding);
+      const persistedResponse = await fixture.request(cookie, '/api/creador/perfil', {
+        headers: { 'x-creator-page-binding': binding },
+      });
+      assert.equal(persistedResponse.status, 200);
+      const persisted = await persistedResponse.json();
+      assert.ok(persisted.claims.some((claim) => claim.evidence === `Fresh authorization after ${scenario.label}`));
+      assert.ok(persisted.claims.some((claim) => claim.evidence === 'Next manual claim after stale history failure'));
+      assert.equal(saved.status(), 202);
+      assert.equal(nextSaved.status(), 202);
+      assert.equal(capture.writes().filter((item) => item.path === '/api/creador/reclamaciones').length, 2,
+        'the earlier history failure neither repeats nor blocks either explicit claim');
+    } finally {
+      fixture.accountStore.seedAccount(account);
+      held.gate.resolve();
+      if (heldFailure) await held.done.promise;
+      await page.unroute('**/api/creador/**', transport);
+      await capture.stop({ skipErrorBodies: true });
+    }
+  });
+}
+
+for (const scenario of [
+  { label: 'disabled account', status: 403, change: (account) => ({ ...account, active: false }) },
+  { label: 'changed role', status: 409, change: (account) => ({ ...account, isAdmin: !account.isAdmin }) },
+]) {
+  test(`a confirmed bound claim clears its older ${scenario.label} history classification`, async ({ fixture, page }) => {
+    const cookie = await loggedInOwner(fixture, page);
+    const [resourceA, resourceB] = await setupCatalog(fixture, page, `claim-history-pending-${scenario.status}`);
+    const account = [...fixture.accountStore.accounts.values()][0];
+    const capture = await captureCreatorApi(page, { ignoreReads: true });
+    const oldRead = { arrived: deferred(), gate: deferred(), done: deferred() };
+    const claimWrite = { arrived: deferred(), gate: deferred(), done: deferred() };
+    let holdFailure = false;
+    let heldFailure = false;
+    let holdClaimWrite = false;
+    let heldClaimWrite = false;
+    const transport = async (route) => {
+      const request = route.request();
+      const path = pathOf(request);
+      if (request.method() === 'GET' && path === '/api/creador/perfil') {
+        const actual = await route.fetch();
+        if (holdFailure && actual.status() === scenario.status) {
+          holdFailure = false;
+          heldFailure = true;
+          oldRead.status = actual.status();
+          oldRead.body = await actual.json();
+          oldRead.arrived.resolve();
+          try {
+            await oldRead.gate.promise;
+            await route.fulfill({ response: actual, json: oldRead.body });
+          } finally {
+            oldRead.done.resolve();
+          }
+          return;
+        }
+        await route.fulfill({ response: actual });
+        return;
+      }
+      if (request.method() === 'POST' && path === '/api/creador/reclamaciones' && holdClaimWrite) {
+        holdClaimWrite = false;
+        heldClaimWrite = true;
+        const actual = await route.fetch();
+        claimWrite.status = actual.status();
+        claimWrite.body = await actual.json();
+        claimWrite.arrived.resolve();
+        try {
+          await claimWrite.gate.promise;
+          await route.fulfill({ response: actual, json: claimWrite.body });
+        } finally {
+          claimWrite.done.resolve();
+        }
+        return;
+      }
+      await route.continue();
+    };
+    await page.route('**/api/creador/**', transport);
+    try {
+      await page.goto(`${fixture.origin}/cuenta/?vista=solicitudes`);
+      await expect(page.locator('astro-island')).not.toHaveAttribute('ssr', '');
+      const binding = await page.locator('[data-session-binding]').getAttribute('data-session-binding');
+      assert.match(binding ?? '', /^[a-f0-9]{64}$/u);
+
+      fixture.accountStore.seedAccount(scenario.change(account));
+      holdFailure = true;
+      const oldResponse = apiResponse(page, 'GET', '/api/creador/perfil', scenario.status);
+      await page.locator('[data-claim-history-refresh]').click();
+      await oldRead.arrived.promise;
+      assert.equal(oldRead.status, scenario.status);
+      assert.equal(oldRead.body.error, scenario.status === 403 ? 'ACCOUNT_DISABLED' : 'SESSION_CONTEXT_CHANGED');
+
+      fixture.accountStore.seedAccount(account);
+      await page.locator('[data-claim-section-open]').click();
+      const form = page.locator('[data-owner-form="reclamacion"]');
+      await form.getByRole('checkbox', { name: `Solicitar edición de ${resourceA.title}`, exact: true }).check();
+      await form.getByLabel(/Contexto privado/iu).fill(`Pending confirmation after ${scenario.label}`);
+      holdClaimWrite = true;
+      const firstWriteResponse = apiResponse(page, 'POST', '/api/creador/reclamaciones', 202);
+      await form.getByRole('button', { name: 'Enviar solicitud', exact: true }).click();
+      await claimWrite.arrived.promise;
+      assert.equal(claimWrite.status, 202);
+      assert.equal(claimWrite.body.claim.evidence, `Pending confirmation after ${scenario.label}`);
+
+      oldRead.gate.resolve();
+      await oldRead.done.promise;
+      await oldResponse;
+      await expect(page.locator('main [data-session-recovery-status]')).toContainText(
+        scenario.status === 403 ? 'Esta cuenta está desactivada.' : 'La cuenta o el rol activo no coinciden',
+      );
+      if (scenario.status === 403) await expect(page.locator('[data-session-recovery-check]')).toHaveCount(0);
+      else await expect(page.locator('main [data-session-recovery-check]')).toBeVisible();
+
+      claimWrite.gate.resolve();
+      const firstWrite = await firstWriteResponse;
+      await claimWrite.done.promise;
+      assert.equal(firstWrite.status(), 202);
+      await expect(page.locator('[data-session-recovery-shell]')).toHaveCount(0);
+      await expect(page.locator('[data-claim-section-open]')).toBeEnabled();
+
+      await page.locator('[data-claim-section-open]').click();
+      const nextForm = page.locator('[data-owner-form="reclamacion"]');
+      await nextForm.getByRole('checkbox', { name: `Solicitar edición de ${resourceB.title}`, exact: true }).check();
+      await nextForm.getByLabel(/Contexto privado/iu).fill('Next manual claim after confirmed authorization');
+      const nextWrite = page.waitForResponse((response) => response.request().method() === 'POST'
+        && pathOf(response.request()) === '/api/creador/reclamaciones' && response.status() === 202);
+      await nextForm.getByRole('button', { name: 'Enviar solicitud', exact: true }).click();
+      assert.equal((await nextWrite).status(), 202);
+      const persistedResponse = await fixture.request(cookie, '/api/creador/perfil', {
+        headers: { 'x-creator-page-binding': binding },
+      });
+      assert.equal(persistedResponse.status, 200);
+      const persisted = await persistedResponse.json();
+      assert.ok(persisted.claims.some((claim) => claim.evidence === `Pending confirmation after ${scenario.label}`));
+      assert.ok(persisted.claims.some((claim) => claim.evidence === 'Next manual claim after confirmed authorization'));
+      assert.equal(capture.writes().filter((item) => item.path === '/api/creador/reclamaciones').length, 2);
+    } finally {
+      fixture.accountStore.seedAccount(account);
+      oldRead.gate.resolve();
+      claimWrite.gate.resolve();
+      if (heldFailure) await oldRead.done.promise;
+      if (heldClaimWrite) await claimWrite.done.promise;
+      await page.unroute('**/api/creador/**', transport);
+      await capture.stop({ skipErrorBodies: true });
+    }
+  });
+}
+
+test('a bound claim rejected under the changed role remains blocked after an older history read returns', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const [resource] = await setupCatalog(fixture, page, 'claim-history-current-rejection');
+  const account = [...fixture.accountStore.accounts.values()][0];
+  const oldRead = { arrived: deferred(), gate: deferred(), done: deferred() };
+  let holdFailure = false;
+  let heldFailure = false;
+  const transport = async (route) => {
+    const request = route.request();
+    if (request.method() === 'GET' && pathOf(request) === '/api/creador/perfil') {
+      const actual = await route.fetch();
+      if (holdFailure && actual.status() === 409) {
+        holdFailure = false;
+        heldFailure = true;
+        oldRead.status = actual.status();
+        oldRead.body = await actual.json();
+        oldRead.arrived.resolve();
+        try {
+          await oldRead.gate.promise;
+          await route.fulfill({ response: actual, json: oldRead.body });
+        } finally {
+          oldRead.done.resolve();
+        }
+        return;
+      }
+      await route.fulfill({ response: actual });
+      return;
+    }
+    await route.continue();
+  };
+  await page.route('**/api/creador/**', transport);
+  try {
+    await page.goto(`${fixture.origin}/cuenta/?vista=solicitudes`);
+    await expect(page.locator('astro-island')).not.toHaveAttribute('ssr', '');
+    fixture.accountStore.seedAccount({ ...account, isAdmin: !account.isAdmin });
+    holdFailure = true;
+    const oldResponse = apiResponse(page, 'GET', '/api/creador/perfil', 409);
+    await page.locator('[data-claim-history-refresh]').click();
+    await oldRead.arrived.promise;
+
+    await page.locator('[data-claim-section-open]').click();
+    const form = page.locator('[data-owner-form="reclamacion"]');
+    await form.getByRole('checkbox', { name: `Solicitar edición de ${resource.title}`, exact: true }).check();
+    await form.getByLabel(/Contexto privado/iu).fill('This command must still be rejected');
+    const failedWrite = apiResponse(page, 'POST', '/api/creador/reclamaciones', 409);
+    await form.getByRole('button', { name: 'Enviar solicitud', exact: true }).click();
+    const response = await failedWrite;
+    const body = await response.json();
+    assert.equal(body.error, 'SESSION_CONTEXT_CHANGED');
+    assert.equal(Object.hasOwn(body, 'profile'), false);
+    await expect(page.locator('main [data-session-recovery-check]')).toBeEnabled();
+
+    oldRead.gate.resolve();
+    await oldRead.done.promise;
+    await oldResponse;
+    await expect(page.locator('main [data-session-recovery-check]')).toBeEnabled();
+    assert.equal((await fixture.request(cookie, '/api/creador/perfil')).status, 200);
+  } finally {
+    fixture.accountStore.seedAccount(account);
+    oldRead.gate.resolve();
+    if (heldFailure) await oldRead.done.promise;
+    await page.unroute('**/api/creador/**', transport);
+  }
+});
+
 test('a delayed old claim-history mismatch stays retryable after session renewal', async ({ fixture, page }) => {
   const initialCookie = await loggedInOwner(fixture, page);
   const [resource] = await setupCatalog(fixture, page, 'claim-history-session-order');

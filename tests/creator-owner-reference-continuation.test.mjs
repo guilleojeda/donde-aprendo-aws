@@ -138,6 +138,62 @@ test('un refresco de catálogo tras el 409 tardío de A conserva el par vigente 
   assert.equal(ownerState.creatorOwnerReducer(state, { type: 'begin-write', intent: manualIntent }).attempt.status, 'sending');
 });
 
+test('una carga tardía quita la selección exacta de A después de adoptar que no quedó guardada', () => {
+  let { state, intent } = beginReference();
+  state = ownerState.creatorOwnerReducer(state, { type: 'write-uncertain', intentId: intent.id, status: 'conflict',
+    code: 'RESOURCE_CONFLICT', message: 'La URL de A quedó desactualizada.' });
+  state = ownerState.creatorOwnerReducer(state, { type: 'begin-check', intentId: intent.id, checkId: 'check-stale-a-late-load' });
+  const snapshot = { profile: { ...profile, version: 10 }, links: [], editableResources: [], claims: [], series: [series] };
+  const comparison = commands.createCreatorOwnerComparison(intent, snapshot, state.editor);
+  state = ownerState.creatorOwnerReducer(state, { type: 'check-compared', intentId: intent.id, checkId: 'check-stale-a-late-load', comparison });
+  state = ownerState.creatorOwnerReducer(state, { type: 'adopt-comparison', comparisonId: comparison.id });
+  assert.equal(state.editor.selected, undefined, 'adoption does not leave the rejected pair ready to submit again');
+  assert.equal(state.location.focusAfterRender, '#owner-catalog-search', 'focus returns to an available picker control');
+
+  state = ownerState.creatorOwnerReducer(state, { type: 'catalog-load-ready', entries: [A, B] });
+  state = updateReference(state, { selected: A });
+  assert.equal(state.attempt.status, 'confirmed');
+  assert.equal(state.editor.selected, undefined, 'the lagging index cannot reactivate the rejected exact pair');
+  assert.equal(state.editor.selectedForDirectory, true, 'the independent directory choice remains intact');
+  assert.match(state.message.text, /dirección ya fue rechazada/u);
+  assert.throws(() => commands.prepareCreatorOwnerRequest(commands.creatorOwnerWriteIntent('stale-a-retry', state.editor)),
+    'the empty editor cannot prepare A again');
+});
+
+test('una etiqueta nueva no invalida la comparación, pero un par ID/URL nuevo sí', () => {
+  let { state, intent } = beginReference();
+  state = updateReference(state, { selected: B, selectedForDirectory: false });
+  state = ownerState.creatorOwnerReducer(state, { type: 'write-uncertain', intentId: intent.id, status: 'conflict',
+    code: 'RESOURCE_CONFLICT', message: 'La URL de A quedó desactualizada.' });
+  state = ownerState.creatorOwnerReducer(state, { type: 'begin-check', intentId: intent.id, checkId: 'check-label' });
+  const snapshot = { profile: { ...profile, version: 10 }, links: [], editableResources: [], claims: [], series: [series] };
+  const comparison = commands.createCreatorOwnerComparison(intent, snapshot, state.editor);
+  state = ownerState.creatorOwnerReducer(state, { type: 'check-compared', intentId: intent.id, checkId: 'check-label', comparison });
+  const relabeledB = { ...B, title: 'Lambda workshop (updated label)' };
+  state = ownerState.creatorOwnerReducer(state, { type: 'catalog-load-started' });
+  state = updateReference(state, { selected: relabeledB });
+  state = ownerState.creatorOwnerReducer(state, { type: 'catalog-load-ready', entries: [A, relabeledB] });
+  state = ownerState.creatorOwnerReducer(state, { type: 'adopt-comparison', comparisonId: comparison.id });
+  assert.equal(state.attempt.status, 'confirmed', 'the exact B pair and option are unchanged despite its display label');
+  assert.equal(state.editor.selected.title, relabeledB.title);
+  assert.equal(state.editor.selectedForDirectory, false);
+
+  let changed = beginReference();
+  changed.state = updateReference(changed.state, { selected: B, selectedForDirectory: false });
+  changed.state = ownerState.creatorOwnerReducer(changed.state, { type: 'write-uncertain', intentId: changed.intent.id, status: 'conflict',
+    code: 'RESOURCE_CONFLICT', message: 'La URL de A quedó desactualizada.' });
+  changed.state = ownerState.creatorOwnerReducer(changed.state, { type: 'begin-check', intentId: changed.intent.id, checkId: 'check-pair' });
+  const changedComparison = commands.createCreatorOwnerComparison(changed.intent, snapshot, changed.state.editor);
+  changed.state = ownerState.creatorOwnerReducer(changed.state, { type: 'check-compared', intentId: changed.intent.id, checkId: 'check-pair', comparison: changedComparison });
+  const changedPair = { ...B, url: `${B.url}?revision=2` };
+  changed.state = ownerState.creatorOwnerReducer(changed.state, { type: 'catalog-load-ready', entries: [A, changedPair] });
+  changed.state = updateReference(changed.state, { selected: changedPair });
+  changed.state = ownerState.creatorOwnerReducer(changed.state, { type: 'adopt-comparison', comparisonId: changedComparison.id });
+  assert.equal(changed.state.attempt.status, 'uncertain', 'a different literal URL invalidates the old comparison');
+  assert.equal(changed.state.attempt.comparison, undefined);
+  assert.equal(changed.state.editor.selected.url, changedPair.url);
+});
+
 for (const mode of ['acknowledged', 'recovered']) {
   test(`${mode} reference A preserves later B and its directory choice, cancelling the queued exit`, () => {
     let { state, intent } = beginReference();

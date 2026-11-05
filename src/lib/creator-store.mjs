@@ -147,10 +147,20 @@ function cleanItem(item) {
   return { ...value, version: value.version ?? 0 };
 }
 
-function conditionalCancel(error) {
+function conflictCancel(error) {
   if (error?.name !== 'TransactionCanceledException' && error?.Code !== 'TransactionCanceledException') return false;
   const reasons = error.CancellationReasons ?? error.cancellationReasons;
-  return Array.isArray(reasons) && reasons.some((reason) => reason?.Code === 'ConditionalCheckFailed');
+  if (!Array.isArray(reasons) || reasons.length === 0) return false;
+  let hasConflict = false;
+  for (const reason of reasons) {
+    if (reason?.Code === 'None') continue;
+    if (reason?.Code === 'ConditionalCheckFailed' || reason?.Code === 'TransactionConflict') {
+      hasConflict = true;
+      continue;
+    }
+    return false;
+  }
+  return hasConflict;
 }
 
 function physicalId(descriptor) {
@@ -692,7 +702,7 @@ export function createCreatorStore({ accountsTableName, profilesTableName, catal
       await documentClient.send(new TransactWriteCommand({ TransactItems: transactItems }));
       return true;
     } catch (error) {
-      if (conditionalCancel(error)) return false;
+      if (conflictCancel(error)) return false;
       throw error;
     }
   }
