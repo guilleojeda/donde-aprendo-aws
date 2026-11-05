@@ -207,6 +207,7 @@ export default function CreatorOwnerApp(props: Props) {
   const linksSearchTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const catalogLoadRef = useRef<Promise<void> | undefined>(undefined);
   const claimHistorySequenceRef = useRef(0);
+  const sessionCheckSequenceRef = useRef(0);
   const linksHydrationAppliedRef = useRef(false);
   const handledTransitionRef = useRef<string | undefined>(undefined);
   const previousEditorKeyRef = useRef<string | undefined>(undefined);
@@ -465,6 +466,7 @@ export default function CreatorOwnerApp(props: Props) {
       window.removeEventListener('popstate', onPopState);
       window.removeEventListener('hashchange', onHashChange);
       window.removeEventListener('beforeunload', onBeforeUnload);
+      sessionCheckSequenceRef.current += 1;
     };
   }, []);
 
@@ -731,18 +733,32 @@ export default function CreatorOwnerApp(props: Props) {
   async function refreshClaimHistory(options?: { intentId: string; checkId: string; profileId: string }) {
     const latest = stateRef.current;
     const expectedProfileId = options?.profileId ?? latest.observed.profile?.id;
+    const binding = latest.sessionBinding;
     const sequence = ++claimHistorySequenceRef.current;
     dispatch({ type: 'claim-history-started', sequence });
-    const attemptIsCurrent = () => {
+    const historyReadIsCurrent = () => {
       const current = stateRef.current;
       return current.claimHistory.status === 'loading' && current.claimHistory.sequence === sequence
-        && current.observed.profile?.id === expectedProfileId && claimHistorySequenceRef.current === sequence;
+        && current.observed.profile?.id === expectedProfileId && current.sessionBinding === binding
+        && claimHistorySequenceRef.current === sequence;
+    };
+    const checkIsCurrent = () => {
+      if (!options) return false;
+      const current = stateRef.current;
+      return historyReadIsCurrent() && current.attempt.status === 'checking'
+        && current.attempt.intent.id === options.intentId && current.attempt.checkId === options.checkId
+        && current.attempt.intent.kind === 'claim' && current.editor?.kind === 'claim'
+        && current.editor.key === current.attempt.intent.editorKey;
     };
     try {
       const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store',
-        headers: { 'x-creator-page-binding': latest.sessionBinding, accept: 'application/json' } });
+        headers: { 'x-creator-page-binding': binding, accept: 'application/json' } });
       const session = await readCreatorSessionResponse(response);
-      if (!attemptIsCurrent()) return false;
+      if (!historyReadIsCurrent()) return false;
+      if (!response.ok && options && !checkIsCurrent()) {
+        dispatch({ type: 'claim-history-failed', sequence, message: 'No pudimos actualizar Solicitudes con esta lectura. Puedes volver a intentarlo.' });
+        return false;
+      }
       const recoveryReason = creatorSessionRecoveryReason(response.status, session);
       if (recoveryReason) {
         const message = loginRecoveryMessage(recoveryReason);
@@ -751,20 +767,39 @@ export default function CreatorOwnerApp(props: Props) {
         dispatch({ type: 'claim-history-failed', sequence, message });
         return false;
       }
-      if (!response.ok) throw new Error(response.status === 403 ? 'claim-forbidden' : 'claim-unavailable');
+      if (!response.ok) {
+        const sessionState = classifyCreatorSessionCheck(response.status, session);
+        if (sessionState.state === 'context-changed') {
+          const message = 'La cuenta o el rol activo no coinciden con esta página. Vuelve a la cuenta original para comprobar; conservamos tus cambios.';
+          if (options) dispatch({ type: 'check-failed', intentId: options.intentId, checkId: options.checkId, message });
+          dispatch({ type: 'session-required', reason: 'different-principal', message });
+          dispatch({ type: 'claim-history-failed', sequence, message });
+          return false;
+        }
+        if (sessionState.state === 'disabled' || sessionState.state === 'invalid-context') {
+          const message = sessionState.state === 'disabled' ? 'Esta cuenta está desactivada. Conservamos tus cambios.'
+            : 'El contexto de esta página no es válido. Abre una página nueva con la cuenta original.';
+          if (options) dispatch({ type: 'check-failed', intentId: options.intentId, checkId: options.checkId, message });
+          dispatch({ type: 'session-blocked', reason: sessionState.state, message });
+          dispatch({ type: 'claim-history-failed', sequence, message });
+          return false;
+        }
+        throw new Error(response.status === 403 ? 'claim-forbidden' : 'claim-unavailable');
+      }
       const raw: unknown = await response.json();
-      if (!attemptIsCurrent()) return false;
+      if (!historyReadIsCurrent()) return false;
       if (!isAdoptableOwnerData(raw)) throw new Error('claim-malformed');
       const snapshot = readCreatorEditorData(raw);
       if (!expectedProfileId || snapshot.profile?.id !== expectedProfileId) throw new Error('claim-context');
+      const ownsCheck = checkIsCurrent();
       dispatch({ type: 'claim-history-ready', sequence, claims: snapshot.claims, message: options
         ? 'Solicitudes comprobadas. Este historial no permite identificar con certeza si el envío anterior fue registrado.'
         : 'Solicitudes actualizadas. La lista no muestra datos de edición ajenos ni concede permisos.' });
-      if (options) dispatch({ type: 'claim-attempt-checked', intentId: options.intentId, checkId: options.checkId,
+      if (options && ownsCheck) dispatch({ type: 'claim-attempt-checked', intentId: options.intentId, checkId: options.checkId,
         message: 'Historial comprobado. No permite identificar con certeza si este envío fue el que se registró. Conservamos el formulario; decide manualmente si volver a enviarlo.' });
       return true;
     } catch (error) {
-      if (!attemptIsCurrent()) return false;
+      if (!historyReadIsCurrent()) return false;
       const message = error instanceof Error && error.message === 'claim-context'
         ? 'La respuesta de Solicitudes no corresponde a esta página. Conservamos el formulario.'
         : error instanceof Error && error.message === 'claim-malformed'
@@ -772,7 +807,7 @@ export default function CreatorOwnerApp(props: Props) {
           : error instanceof Error && error.message === 'claim-forbidden'
             ? 'Esta cuenta no puede leer Solicitudes. Conservamos el formulario.'
             : 'No pudimos comprobar Solicitudes. Conservamos el formulario para intentarlo más tarde.';
-      if (options) dispatch({ type: 'check-failed', intentId: options.intentId, checkId: options.checkId, message });
+      if (options && checkIsCurrent()) dispatch({ type: 'check-failed', intentId: options.intentId, checkId: options.checkId, message });
       dispatch({ type: 'claim-history-failed', sequence, message });
       return false;
     }
@@ -1284,6 +1319,7 @@ export default function CreatorOwnerApp(props: Props) {
     const latest = stateRef.current;
     if (latest.session.state !== 'recovery-required') return;
     const recoveryReason = latest.session.reason;
+    const binding = latest.sessionBinding;
     if (isWriteActive(latest)) {
       setMessage('Espera a que termine la operación antes de comprobar la sesión. Tus cambios siguen aquí.', 'info');
       return;
@@ -1292,13 +1328,19 @@ export default function CreatorOwnerApp(props: Props) {
       dispatch({ type: 'session-blocked', reason: 'invalid-context', message: 'No pudimos comprobar el contexto de esta página. Ingresa con la cuenta original y vuelve a abrirla.' });
       return;
     }
+    const sequence = ++sessionCheckSequenceRef.current;
+    const checkIsCurrent = () => {
+      const current = stateRef.current;
+      return sessionCheckSequenceRef.current === sequence && current.sessionBinding === binding
+        && current.session.state === 'checking' && current.session.reason === recoveryReason;
+    };
     dispatch({ type: 'session-check-started' });
     try {
       const response = await fetch('/api/creador/sesion/', { method: 'GET', credentials: 'same-origin', cache: 'no-store',
-        headers: { 'x-creator-page-binding': latest.sessionBinding, accept: 'application/json' } });
+        headers: { 'x-creator-page-binding': binding, accept: 'application/json' } });
+      if (!checkIsCurrent()) return;
       const payload = await readCreatorSessionResponse(response);
-      const current = stateRef.current.session;
-      if (current.state !== 'checking' || current.reason !== recoveryReason) return;
+      if (!checkIsCurrent()) return;
       const result = classifyCreatorSessionCheck(response.status, payload);
       if (result.state === 'ready') {
         const logoutForm = document.querySelector<HTMLFormElement>('[data-account-logout]');
@@ -1319,7 +1361,7 @@ export default function CreatorOwnerApp(props: Props) {
         dispatch({ type: 'session-required', reason: recoveryReason, message: 'No pudimos comprobar la sesión. Inténtalo de nuevo; tus cambios siguen aquí.' });
       }
     } catch {
-      dispatch({ type: 'session-required', reason: recoveryReason, message: 'No pudimos conectar para comprobar la sesión. Tus cambios siguen aquí.' });
+      if (checkIsCurrent()) dispatch({ type: 'session-required', reason: recoveryReason, message: 'No pudimos conectar para comprobar la sesión. Tus cambios siguen aquí.' });
     }
   }
 
