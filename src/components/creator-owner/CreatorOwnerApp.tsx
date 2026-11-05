@@ -17,7 +17,7 @@ import {
 } from '../../lib/creator-session-response';
 import { parseCreatorStatisticsReady } from '../../lib/creator-statistics-response';
 import { normalizeCreatorText } from '../../lib/creator-values.mjs';
-import { creatorOwnerSeriesHref, parseCreatorOwnerSeriesQuery, type CreatorOwnerSeriesMembership } from '../../lib/creator-owner-series';
+import { creatorOwnerSeriesHref, parseCreatorOwnerSeriesQuery, selectCreatorOwnerSeries, type CreatorOwnerSeriesMembership } from '../../lib/creator-owner-series';
 import { creatorOwnerLinksHref, creatorOwnerLinkGroup, parseCreatorOwnerLinksQuery, selectCreatorOwnerLinks, type CreatorOwnerLinksQuery } from '../../lib/creator-owner-links';
 import { parseCreatorOwnerCatalog } from '../../lib/creator-owner-catalog';
 import {
@@ -215,6 +215,7 @@ export default function CreatorOwnerApp(props: Props) {
   const catalogLoadRef = useRef<Promise<void> | undefined>(undefined);
   const claimHistorySequenceRef = useRef(0);
   const sessionCheckSequenceRef = useRef(0);
+  const claimHistorySessionClassificationRef = useRef<{ historySequence: number; authorizationSequence: number } | undefined>(undefined);
   const linksHydrationAppliedRef = useRef(false);
   const handledTransitionRef = useRef<string | undefined>(undefined);
   const previousEditorKeyRef = useRef<string | undefined>(undefined);
@@ -224,6 +225,33 @@ export default function CreatorOwnerApp(props: Props) {
       clearTimeout(linksSearchTimerRef.current);
       linksSearchTimerRef.current = undefined;
     }
+  }
+
+  function syncPendingComparisonLocation() {
+    const pending = pendingComparisonLocationSyncRef.current;
+    if (!pending) return;
+    const attempt = stateRef.current.attempt;
+    if (attempt.status === 'confirmed' && attempt.intentId === pending.intentId) {
+      const activeIndex = ownerIndex(window.history.state);
+      if (restoringHistoryIndexRef.current !== undefined || activeIndex !== historyIndexRef.current) return;
+      const href = stateRef.current.location.view === 'series' && !stateRef.current.seriesQueryError
+        ? creatorOwnerSeriesHref(stateRef.current.location.query)
+        : stateRef.current.location.view === 'enlaces' && !stateRef.current.location.linksQueryError
+          ? creatorOwnerLinksHref(stateRef.current.location.linksQuery) : undefined;
+      if (href) {
+        const destination = new URL(href, window.location.href);
+        destination.hash = window.location.hash;
+        window.history.replaceState(withOwnerHistoryState(window.history.state, historyIndexRef.current, true, true), '',
+          `${destination.pathname}${destination.search}${destination.hash}`);
+        historyHrefRef.current = window.location.href;
+      }
+      pendingComparisonLocationSyncRef.current = undefined;
+      return;
+    }
+    if ('intent' in attempt && attempt.intent.id === pending.intentId
+      && (attempt.status === 'checking' || attempt.status === 'uncertain' && attempt.comparison?.id === pending.comparisonId
+        && attempt.comparison.canAdopt)) return;
+    pendingComparisonLocationSyncRef.current = undefined;
   }
 
   const currentProfile = state.observed.profile;
@@ -300,9 +328,16 @@ export default function CreatorOwnerApp(props: Props) {
         const parsed = parseCreatorOwnerSeriesQuery(url.searchParams, stateRef.current.observed.series);
         if (parsed.valid) dispatch({ type: 'apply-query', query: parsed.query });
         else if (parsed.reason === 'series' && ownerSeriesQueryWasValid(window.history.state) === true) {
-          const normalized = { ...stateRef.current.location.query, serie: '', buscarCapitulos: '', pertenencia: 'todos' as const, paginaCapitulos: 1 };
-          window.history.replaceState(withOwnerHistoryState(window.history.state, index, true, true), '', creatorOwnerSeriesHref(normalized));
-          dispatch({ type: 'apply-query', query: normalized });
+          url.searchParams.delete('serie');
+          url.searchParams.delete('buscarCapitulos');
+          url.searchParams.delete('pertenencia');
+          url.searchParams.delete('paginaCapitulos');
+          const reparsed = parseCreatorOwnerSeriesQuery(url.searchParams, stateRef.current.observed.series);
+          if (reparsed.valid) {
+            const normalized = selectCreatorOwnerSeries(stateRef.current.observed.series, reparsed.query).query;
+            window.history.replaceState(withOwnerHistoryState(window.history.state, index, true, true), '', creatorOwnerSeriesHref(normalized));
+            dispatch({ type: 'apply-query', query: normalized });
+          } else dispatch({ type: 'set-series-query-error', reason: 'series' });
         } else dispatch({ type: 'set-series-query-error', reason: 'series' });
         historyHrefRef.current = window.location.href;
         return;
@@ -427,6 +462,7 @@ export default function CreatorOwnerApp(props: Props) {
         restoringHistoryIndexRef.current = undefined;
         historyIndexRef.current = targetIndex;
         historyHrefRef.current = window.location.href;
+        syncPendingComparisonLocation();
         return;
       }
       if (allowedHistoryIndexRef.current === targetIndex) {
@@ -510,43 +546,42 @@ export default function CreatorOwnerApp(props: Props) {
   }, [state.location.transition, state.location.prompt, state.editor, state.attempt.status]);
 
   useLayoutEffect(() => {
-    const pending = pendingComparisonLocationSyncRef.current;
-    if (!pending) return;
-    if (state.attempt.status === 'confirmed' && state.attempt.intentId === pending.intentId) {
-      const href = state.location.view === 'series' && !state.seriesQueryError ? creatorOwnerSeriesHref(state.location.query)
-        : state.location.view === 'enlaces' && !state.location.linksQueryError ? creatorOwnerLinksHref(state.location.linksQuery) : undefined;
-      if (href) {
-        const destination = new URL(href, window.location.href);
-        destination.hash = window.location.hash;
-        window.history.replaceState(withOwnerHistoryState(window.history.state, historyIndexRef.current, true, true), '',
-          `${destination.pathname}${destination.search}${destination.hash}`);
-        historyHrefRef.current = window.location.href;
-      }
-      pendingComparisonLocationSyncRef.current = undefined;
-      return;
-    }
-    const attempt = state.attempt;
-    if ('intent' in attempt && attempt.intent.id === pending.intentId
-      && (attempt.status === 'checking' || attempt.status === 'uncertain' && attempt.comparison?.id === pending.comparisonId
-        && attempt.comparison.canAdopt)) return;
-    pendingComparisonLocationSyncRef.current = undefined;
-  }, [state.attempt, state.location.view, state.location.query, state.location.linksQuery]);
+    syncPendingComparisonLocation();
+  }, [state.attempt, state.location.view, state.location.query, state.location.linksQuery, state.location.prompt]);
 
   useEffect(() => {
     const selector = state.location.focusAfterRender;
     if (!selector) return;
     const root = rootRef.current;
     const target = root?.querySelector<HTMLElement>(selector);
-    target?.focus({ preventScroll: true });
-    const revealListRecoveryFocus = revealFocusAfterListAdoptionRef.current
-      && state.attempt.status === 'confirmed' && ['enlaces', 'series'].includes(state.location.view);
-    const revealDialogRecoveryFocus = Boolean(target?.closest('[data-owner-dialog]'));
-    if (target && (revealListRecoveryFocus || revealDialogRecoveryFocus)) {
-      target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+    if (!root || !target) {
+      dispatch({ type: 'clear-focus' });
+      return;
     }
-    if (revealListRecoveryFocus) revealFocusAfterListAdoptionRef.current = false;
-    dispatch({ type: 'clear-focus' });
-  }, [state.location.focusAfterRender, state.attempt]);
+    const focusTarget = () => {
+      const latestTarget = rootRef.current?.querySelector<HTMLElement>(selector);
+      if (!latestTarget) return;
+      const revealListRecoveryFocus = revealFocusAfterListAdoptionRef.current
+        && stateRef.current.attempt.status === 'confirmed' && ['enlaces', 'series'].includes(stateRef.current.location.view);
+      const revealDialogRecoveryFocus = Boolean(latestTarget.closest('[data-owner-dialog]'));
+      latestTarget.focus({ preventScroll: true });
+      if (revealListRecoveryFocus || revealDialogRecoveryFocus) {
+        latestTarget.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+      }
+      if (revealListRecoveryFocus) revealFocusAfterListAdoptionRef.current = false;
+      dispatch({ type: 'clear-focus' });
+    };
+    const openDialog = root.querySelector<HTMLDialogElement>('[data-owner-dialog][open]');
+    if (openDialog && !openDialog.contains(target)) {
+      const onClose = () => {
+        if (stateRef.current.location.focusAfterRender !== selector || stateRef.current.location.prompt !== 'none') return;
+        focusTarget();
+      };
+      openDialog.addEventListener('close', onClose, { once: true });
+      return () => openDialog.removeEventListener('close', onClose);
+    }
+    focusTarget();
+  }, [state.location.focusAfterRender, state.attempt, state.location.prompt]);
 
   useEffect(() => {
     const editorKey = state.editor?.key;
@@ -762,6 +797,9 @@ export default function CreatorOwnerApp(props: Props) {
     const sequence = ++claimHistorySequenceRef.current;
     dispatch({ type: 'claim-history-started', sequence });
     const mayClassifySession = () => sessionCheckSequenceRef.current === sessionCheckSequence;
+    const rememberSessionClassification = () => {
+      if (!options) claimHistorySessionClassificationRef.current = { historySequence: sequence, authorizationSequence: sessionCheckSequence };
+    };
     const historyReadIsCurrent = () => {
       const current = stateRef.current;
       return current.claimHistory.status === 'loading' && current.claimHistory.sequence === sequence
@@ -795,6 +833,7 @@ export default function CreatorOwnerApp(props: Props) {
       if (recoveryReason) {
         const message = loginRecoveryMessage(recoveryReason);
         if (options) dispatch({ type: 'check-failed', intentId: options.intentId, checkId: options.checkId, message });
+        rememberSessionClassification();
         dispatch({ type: 'session-required', reason: recoveryReason, message });
         dispatch({ type: 'claim-history-failed', sequence, message });
         return false;
@@ -804,6 +843,7 @@ export default function CreatorOwnerApp(props: Props) {
         if (sessionState.state === 'context-changed') {
           const message = 'La cuenta o el rol activo no coinciden con esta página. Vuelve a la cuenta original para comprobar; conservamos tus cambios.';
           if (options) dispatch({ type: 'check-failed', intentId: options.intentId, checkId: options.checkId, message });
+          rememberSessionClassification();
           dispatch({ type: 'session-required', reason: 'different-principal', message });
           dispatch({ type: 'claim-history-failed', sequence, message });
           return false;
@@ -812,6 +852,7 @@ export default function CreatorOwnerApp(props: Props) {
           const message = sessionState.state === 'disabled' ? 'Esta cuenta está desactivada. Conservamos tus cambios.'
             : 'El contexto de esta página no es válido. Abre una página nueva con la cuenta original.';
           if (options) dispatch({ type: 'check-failed', intentId: options.intentId, checkId: options.checkId, message });
+          rememberSessionClassification();
           dispatch({ type: 'session-blocked', reason: sessionState.state, message });
           dispatch({ type: 'claim-history-failed', sequence, message });
           return false;
@@ -1052,6 +1093,12 @@ export default function CreatorOwnerApp(props: Props) {
     if (intent.kind === 'reference' && intent.capture.kind === 'reference') {
       const item = intent.capture.selected;
       const current = latest.catalog.entries?.find(({ id, url }) => id === item?.id && url === item?.url);
+      const referenceEditor = latest.editor?.kind === 'reference' && latest.editor.key === intent.editorKey ? latest.editor : undefined;
+      const rejected = item && referenceEditor?.rejectedSelections?.some(({ id, url }) => id === item.id && url === item.url);
+      if (rejected) {
+        setMessage('Esa dirección ya fue rechazada por estar desactualizada. Elige una selección vigente del catálogo.', 'error');
+        return;
+      }
       if (!item || !current || latest.catalog.status !== 'ready' || latest.catalog.needsRefresh) {
         setMessage('Elige una ficha vigente del catálogo antes de agregarla a tu página.', 'error');
         return;
@@ -1076,6 +1123,8 @@ export default function CreatorOwnerApp(props: Props) {
       setMessage(error instanceof Error ? error.message : 'No pudimos preparar esta acción. Conservamos tus cambios.', 'error');
       return;
     }
+    const commandHistorySequence = claimHistorySequenceRef.current;
+    const commandAuthorizationSequence = sessionCheckSequenceRef.current;
     dispatch({ type: 'begin-write', intent });
     const token = latest.session.csrfToken;
     try {
@@ -1088,11 +1137,15 @@ export default function CreatorOwnerApp(props: Props) {
       });
       const outcome = await interpretCreatorOwnerResponse(response, intent, latest.observed);
       if (outcome.kind === 'session') {
+        sessionCheckSequenceRef.current += 1;
+        claimHistorySessionClassificationRef.current = undefined;
         dispatch({ type: 'write-rejected', intentId: intent.id, message: outcome.message });
         dispatch({ type: 'session-required', reason: outcome.reason, message: outcome.message });
         return;
       }
       if (outcome.kind === 'session-blocked') {
+        sessionCheckSequenceRef.current += 1;
+        claimHistorySessionClassificationRef.current = undefined;
         dispatch({ type: 'write-rejected', intentId: intent.id, message: outcome.message });
         dispatch({ type: 'session-blocked', reason: outcome.reason, message: outcome.message });
         return;
@@ -1112,6 +1165,18 @@ export default function CreatorOwnerApp(props: Props) {
           else dispatch({ type: 'set-move-suggestion', targetPosition: outcome.viablePosition });
         }
         return;
+      }
+      if (outcome.kind === 'confirmed') {
+        const olderHistoryFailure = claimHistorySessionClassificationRef.current;
+        const supersedesOlderHistoryFailure = olderHistoryFailure !== undefined
+          && olderHistoryFailure.historySequence <= commandHistorySequence
+          && olderHistoryFailure.authorizationSequence === commandAuthorizationSequence
+          && sessionCheckSequenceRef.current === commandAuthorizationSequence;
+        sessionCheckSequenceRef.current += 1;
+        if (supersedesOlderHistoryFailure) {
+          claimHistorySessionClassificationRef.current = undefined;
+          dispatch({ type: 'session-renewed', csrfToken: token });
+        }
       }
       const correction = creatorOwnerEditorChangedSince(intent.capture, stateRef.current.editor);
       dispatch({ type: 'write-confirmed', intentId: intent.id, effect: outcome.effect, correction });
@@ -1329,14 +1394,15 @@ export default function CreatorOwnerApp(props: Props) {
       }
       const raw: unknown = await response.json();
       if (!checkIsCurrent()) return;
-      if (!isAdoptableOwnerData(raw) || !isCreatorOwnerSnapshot(raw)) {
+      const current = stateRef.current;
+      if (!isCreatorOwnerSnapshot(raw) || (raw.profile === null && !(intent.kind === 'create-profile'
+        && intent.capture.kind === 'create-profile' && current.observed.profile === null))) {
         dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: intent.capture.kind === 'list-command'
           ? 'La lectura no contiene un estado completo y coherente de esta página. Conservamos la lista; puedes volver a comprobar.'
           : 'La lectura no contiene un estado completo y coherente de esta página. Conservamos tu edición.' });
         return;
       }
       const snapshot = readCreatorEditorData(raw);
-      const current = stateRef.current;
       if (current.observed.profile && snapshot.profile?.id === current.observed.profile.id
         && snapshot.profile.version < current.observed.profile.version) {
         dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: 'La lectura devolvió una versión anterior a la ya observada. Conservamos tus cambios y no adoptamos esa respuesta.' });

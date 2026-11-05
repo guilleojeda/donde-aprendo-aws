@@ -226,3 +226,157 @@ test('la autorización de foto rechaza el mismo cambio de rol, conserva el archi
     await capture.stop();
   }
 });
+
+test('la finalización de foto rechazada conserva la foto activa y el archivo hasta una nueva carga manual', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const emptyOwner = await fixture.rawOwner(cookie);
+  const account = originalAccount(fixture);
+  const images = await rasterPhotoFixtures();
+  const initialUpload = await fixture.photos.beginUpload({
+    profileId: emptyOwner.owner.profileId,
+    expectedVersion: emptyOwner.profile.version,
+  });
+  fixture.photoObjects.seed(initialUpload.post.fields.key, images.jpeg);
+  await fixture.photos.finalizeUpload({
+    profileId: emptyOwner.owner.profileId,
+    uploadId: initialUpload.uploadId,
+    expectedVersion: emptyOwner.profile.version,
+  });
+  const original = await fixture.rawOwner(cookie);
+  assert.equal(original.profile.photo.version, initialUpload.uploadId, 'the starting profile has an active, persisted photo');
+
+  const capture = await captureCreatorApi(page);
+  const boundRequests = bindBrowserRequests(page);
+  const providerUploads = [];
+  let storeCallsBeforeRejectedFinalize;
+  let principalAfterRoleFlip;
+  const providerHandler = async (route) => {
+    const request = route.request();
+    if (request.method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers: {
+        'access-control-allow-origin': fixture.origin,
+        'access-control-allow-methods': 'POST, OPTIONS',
+        'access-control-allow-headers': request.headers()['access-control-request-headers'] ?? '',
+      } });
+      return;
+    }
+    const payload = request.postDataBuffer() ?? Buffer.alloc(0);
+    assert.ok(payload.includes(images.png), 'both native PNG upload attempts send the selected file bytes');
+    const key = payload.toString('latin1').match(/Content-Disposition: form-data; name="key"\r\n\r\n([^\r\n]+)/iu)?.[1];
+    assert.ok(key, 'the direct upload uses the authorized object key');
+    fixture.photoObjects.seed(key, images.png);
+    providerUploads.push({ key, payload });
+    if (providerUploads.length === 1) {
+      fixture.accountStore.seedAccount({ ...account, isAdmin: !original.principal.isAdmin });
+      principalAfterRoleFlip = await fixture.principal(cookie);
+      assert.equal(principalAfterRoleFlip.accountId, original.principal.accountId);
+      assert.equal(principalAfterRoleFlip.csrfToken, original.principal.csrfToken);
+      assert.notEqual(principalAfterRoleFlip.isAdmin, original.principal.isAdmin);
+      storeCallsBeforeRejectedFinalize = fixture.creatorStore.calls.length;
+    }
+    await route.fulfill({ status: 204, headers: { 'access-control-allow-origin': fixture.origin } });
+  };
+  await page.route('https://creator-photos.example.invalid/**', providerHandler);
+  try {
+    await page.goto(`${fixture.origin}/cuenta/?vista=series`);
+    const documentTimeOrigin = await page.evaluate(() => performance.timeOrigin);
+    const documentHandle = await page.evaluateHandle(() => document);
+    await page.getByRole('button', { name: 'Editar foto' }).click();
+    const form = photoForm(page);
+    const file = form.getByLabel('Elegir una foto');
+    await file.setInputFiles({ name: 'foto-vinculada.png', mimeType: 'image/png', buffer: images.png });
+    const selectedFile = await file.evaluateHandle((input) => input.files[0]);
+
+    await form.getByRole('button', { name: 'Subir y guardar foto' }).click();
+    const rejected = await waitForStatus(capture, 'POST', '/api/creador/foto/finalizar', 0, 409);
+    await capture.settle();
+    assert.equal(providerUploads.length, 1, 'the provider accepted the upload before finalization was rejected');
+    assert.equal(principalAfterRoleFlip.isAdmin, !original.principal.isAdmin,
+      'the same account role changed after the provider stored the uploaded file');
+    assert.equal(rejected.responseBody.error, 'SESSION_CONTEXT_CHANGED');
+    assert.equal(Object.hasOwn(rejected.responseBody, 'csrfToken'), false);
+    assert.equal(Object.hasOwn(rejected.responseBody, 'profile'), false);
+    assert.equal(rejected.body.version, original.profile.version);
+    assert.equal(rejected.body.uploadId, 'browser-photo-2');
+    assert.equal(boundRequests.requests[0].headers['x-creator-page-binding'], creatorPageSessionBinding(original.principal));
+    assert.equal(fixture.creatorStore.calls.length, storeCallsBeforeRejectedFinalize,
+      'the mismatched finalization is rejected before profile storage is read or written');
+    const afterRejectedFinalize = await fixture.rawOwner(cookie);
+    assert.deepEqual(afterRejectedFinalize.profile, original.profile,
+      'the prior active photo and profile version are unchanged after rejection');
+    assert.equal(afterRejectedFinalize.profile.photo.version, original.profile.photo.version);
+    assert.equal(afterRejectedFinalize.profile.version, original.profile.version);
+    assert.equal(await file.evaluate((input, previous) => input.files[0] === previous, selectedFile), true,
+      'the exact native File remains the photo draft');
+    assert.equal(await page.evaluate((previous) => document === previous, documentHandle), true,
+      'recovery stays in the original document');
+    assert.equal(await page.evaluate(() => performance.timeOrigin), documentTimeOrigin);
+    await expect(sessionCheck(page)).toBeEnabled();
+    assert.equal(apiEntries(capture, 'POST', '/api/creador/foto/autorizar').length, 1);
+    assert.equal(apiEntries(capture, 'POST', '/api/creador/foto/finalizar').length, 1,
+      'the rejected finalization is not retried automatically');
+    assert.equal(fixture.photoPolicies.length, 2, 'one existing photo plus one attempted replacement were authorized');
+
+    fixture.accountStore.seedAccount(account);
+    const restored = await fixture.principal(cookie);
+    assert.equal(restored.accountId, original.principal.accountId);
+    assert.equal(restored.csrfToken, original.principal.csrfToken);
+    assert.equal(restored.isAdmin, original.principal.isAdmin, 'the original role is restored on the same cookie');
+    const writesBeforeSessionCheck = capture.writes().length;
+    const profileReadsBeforeSessionCheck = apiEntries(capture, 'GET', ownerPath).length;
+    const storeCallsBeforeSessionCheck = fixture.creatorStore.calls.length;
+    const objectCallsBeforeSessionCheck = fixture.photoObjects.calls.length;
+    const policiesBeforeSessionCheck = fixture.photoPolicies.length;
+    const uploadsBeforeSessionCheck = providerUploads.length;
+    const sessionChecksBefore = apiEntries(capture, 'GET', sessionPath).length;
+    await sessionCheck(page).click();
+    await expect(sessionCheck(page)).toHaveCount(0);
+    const restoredSession = await waitForStatus(capture, 'GET', sessionPath, sessionChecksBefore, 200);
+    await capture.settle();
+    assert.deepEqual(restoredSession.responseBody, { csrfToken: original.principal.csrfToken });
+    assert.equal(capture.writes().length, writesBeforeSessionCheck, 'session checking sends no owner write');
+    assert.equal(apiEntries(capture, 'GET', ownerPath).length, profileReadsBeforeSessionCheck,
+      'session checking does not read or adopt profile content');
+    assert.equal(fixture.creatorStore.calls.length, storeCallsBeforeSessionCheck);
+    assert.equal(fixture.photoObjects.calls.length, objectCallsBeforeSessionCheck,
+      'session checking does not read or transfer photo objects');
+    assert.equal(fixture.photoPolicies.length, policiesBeforeSessionCheck);
+    assert.equal(providerUploads.length, uploadsBeforeSessionCheck);
+    assert.equal(apiEntries(capture, 'POST', '/api/creador/foto/finalizar').length, 1,
+      'session checking does not replay finalization');
+    assert.equal(await file.evaluate((input, previous) => input.files[0] === previous, selectedFile), true);
+    assert.equal(await page.evaluate((previous) => document === previous, documentHandle), true);
+    assert.equal(await page.evaluate(() => performance.timeOrigin), documentTimeOrigin);
+    await expect(form.getByRole('button', { name: 'Subir y guardar foto' })).toBeEnabled();
+
+    await form.getByRole('button', { name: 'Subir y guardar foto' }).click();
+    const authorized = await waitForStatus(capture, 'POST', '/api/creador/foto/autorizar', 1, 200);
+    assert.equal(authorized.responseBody.uploadId, 'browser-photo-3', 'manual retry receives a fresh authorization');
+    const saved = await waitForStatus(capture, 'POST', '/api/creador/foto/finalizar', 1, 200);
+    await capture.settle();
+    assert.deepEqual(saved.responseBody.versionChanges, [
+      { entity: 'profile', id: original.profile.id, before: original.profile.version, after: original.profile.version + 1 },
+    ]);
+    const final = await fixture.rawOwner(cookie);
+    assert.equal(final.profile.version, original.profile.version + 1);
+    assert.equal(final.profile.photo.version, authorized.responseBody.uploadId);
+    assert.deepEqual(providerUploads.map(({ key }) => key), fixture.photoPolicies.slice(1).map(({ key }) => key),
+      'each browser upload uses a real authorization result');
+    assert.equal(providerUploads.length, 2, 'only the rejected upload and the later manual upload reached the provider');
+    assert.deepEqual(apiEntries(capture, 'POST', '/api/creador/foto/autorizar').map(({ status }) => status), [200, 200]);
+    assert.deepEqual(apiEntries(capture, 'POST', '/api/creador/foto/finalizar').map(({ status }) => status), [409, 200]);
+    assert.deepEqual(boundRequests.requests.map(({ headers }) => headers['x-creator-page-binding']),
+      Array(4).fill(creatorPageSessionBinding(original.principal)));
+    const storedPhoto = await fixture.photos.readPhoto({
+      profileId: original.owner.profileId,
+      version: final.profile.photo.version,
+    });
+    assert.equal(storedPhoto.contentType, 'image/webp');
+    assert.equal(storedPhoto.body.toString('ascii', 0, 4), 'RIFF', 'the manually uploaded replacement is readable from storage');
+  } finally {
+    fixture.accountStore.seedAccount(account);
+    boundRequests.stop();
+    await page.unroute('https://creator-photos.example.invalid/**', providerHandler).catch(() => {});
+    await capture.stop();
+  }
+});

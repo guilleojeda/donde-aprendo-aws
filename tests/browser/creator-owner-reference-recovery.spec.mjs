@@ -39,6 +39,91 @@ async function serveSelectionIndex(page, entries) {
   return () => page.unroute('**/catalog-selection.json', handler).catch(() => {});
 }
 
+test('un cambio de título en el catálogo no invalida una comparación de referencia de B', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const oldA = catalogEntry('phase7-stale-a', 'Referencia A vencida', 'https://phase7.example/a-old');
+  const currentA = { ...oldA, url: 'https://phase7.example/a-current' };
+  const itemB = catalogEntry('phase7-reference-b', 'Referencia B original', 'https://phase7.example/b');
+  const renamedB = { ...itemB, title: 'Referencia B con título actualizado' };
+  await seedCatalogRecord(fixture, currentA);
+  await seedCatalogRecord(fixture, itemB);
+  const resourceBeforeB = await fixture.rawResource(itemB.id);
+
+  const refreshArrived = deferred();
+  const releaseRefresh = deferred();
+  let indexReads = 0;
+  await page.route('**/catalog-selection.json', async (route) => {
+    if (route.request().method() !== 'GET') return route.continue();
+    indexReads += 1;
+    if (indexReads === 2) {
+      refreshArrived.release();
+      await releaseRefresh.promise;
+    }
+    const entries = indexReads === 1 ? [oldA, itemB] : [currentA, renamedB];
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(entries) });
+  });
+
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  const transport = await installReferenceTransport(page, { loseReferenceAcknowledgement: false });
+  let staleSubmit;
+  try {
+    await openLinksWithManagedHistory(page, fixture);
+    await openCatalog(page);
+    const dialog = page.getByRole('dialog');
+    const form = page.locator('[data-owner-form="referencia"]');
+    const directory = form.getByRole('checkbox', { name: 'Proponer al directorio', exact: true });
+    const before = await freshOwner(fixture, cookie);
+    await catalogRadio(page, oldA).check();
+    staleSubmit = form.getByRole('button', { name: 'Agregar a mi página', exact: true }).click();
+    const stale = await transport.writeArrived.promise;
+    assert.equal(stale.status, 409);
+    assert.equal(stale.body.error, 'RESOURCE_CONFLICT');
+    await catalogRadio(page, itemB).check();
+    await directory.uncheck();
+    transport.writeGate.release();
+    await staleSubmit;
+    await expect.poll(() => referenceWrites(capture).length).toBe(1);
+    await expect.poll(() => referenceWrites(capture)[0]?.status).toBe(409);
+    assert.equal(referenceWrites(capture)[0].body.url, oldA.url);
+
+    await dialog.getByRole('button', { name: 'Actualizar catálogo', exact: true }).click();
+    await refreshArrived.promise;
+
+    const comparison = form.locator('[data-owner-comparison]');
+    await form.locator('[data-owner-compare]').click();
+    await expect(comparison).toBeVisible();
+    await expect(comparison).toContainText(itemB.title);
+    await expect(comparison).toContainText(itemB.url);
+
+    releaseRefresh.release();
+    await expect(catalogRadio(page, renamedB)).toBeChecked();
+    await expect(directory).not.toBeChecked();
+    await expect(comparison).toBeVisible();
+    await form.locator('[data-owner-adopt]').click();
+    await expect(comparison).toHaveCount(0);
+    await expect(catalogRadio(page, renamedB)).toBeChecked();
+    await expect(directory).not.toBeChecked();
+    assert.equal(indexReads, 2);
+    assert.equal(referenceWrites(capture).length, 1,
+      'the label-only refresh does not replay A or send B during comparison adoption');
+
+    await addManuallySelectedB(page, capture, renamedB);
+    const saved = await freshOwner(fixture, cookie);
+    assert.equal(saved.profile.version, before.profile.version + 1);
+    assert.deepEqual(saved.links.map(({ resourceId, url, selectedForDirectory }) => ({ resourceId, url, selectedForDirectory })), [
+      { resourceId: itemB.id, url: itemB.url, selectedForDirectory: false },
+    ], 'only the explicitly submitted, exact B pair is persisted with its later directory choice');
+    assert.deepEqual(await fixture.rawResource(itemB.id), resourceBeforeB,
+      'the manually saved reference leaves the shared catalog resource unchanged');
+  } finally {
+    releaseRefresh.release();
+    transport.writeGate.release();
+    await staleSubmit?.catch(() => {});
+    await transport.close();
+    await capture.stop({ skipErrorBodies: true }).catch(() => {});
+  }
+});
+
 async function openLinksWithManagedHistory(page, fixture) {
   await page.goto(`${fixture.origin}/cuenta/?vista=enlaces`);
   await page.waitForLoadState('networkidle');

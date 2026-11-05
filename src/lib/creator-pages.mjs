@@ -2064,6 +2064,9 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     if (Object.keys(changedFields).length === 0) fail(422, 'EMPTY_UPDATE', 'no resource fields were provided');
     const mutation = await buildCreatorResourceMutation(resource, changedFields);
     if (!mutation.changed) {
+      if (!await store.transact({ checks: mutation.checks })) {
+        fail(409, 'RESOURCE_CONFLICT', 'resource changed while saving');
+      }
       return {
         resource: { id: resource.id, title: resource.title, url: currentResourceUrl(resource), description: resource.description, version: resourceVersion },
         versionChanges: [],
