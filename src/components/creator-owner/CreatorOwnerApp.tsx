@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useRef } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useReducer, useRef } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import type { CreatorEditorDTO } from '../../types/creators';
 import { readCreatorEditorData, isAdoptableOwnerData, isCreatorOwnerSnapshot } from '../../lib/creator-owner-data';
@@ -9,7 +9,12 @@ import {
   interpretCreatorOwnerResponse,
   prepareCreatorOwnerRequest,
 } from '../../lib/creator-owner-commands';
-import { creatorSessionRecoveryReason, classifyCreatorSessionCheck, readCreatorSessionResponse, isCreatorSessionBinding } from '../../lib/creator-session-response';
+import {
+  creatorSessionRecoveryReason,
+  classifyCreatorSessionCheck,
+  readCreatorSessionResponse,
+  isCreatorSessionBinding,
+} from '../../lib/creator-session-response';
 import { parseCreatorStatisticsReady } from '../../lib/creator-statistics-response';
 import { normalizeCreatorText } from '../../lib/creator-values.mjs';
 import { creatorOwnerSeriesHref, parseCreatorOwnerSeriesQuery, type CreatorOwnerSeriesMembership } from '../../lib/creator-owner-series';
@@ -51,6 +56,7 @@ interface Props {
 
 const PHOTO_LIMIT_BYTES = 15 * 1024 * 1024;
 const PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const STALE_CREATOR_READ_MESSAGE = 'La lectura empezó antes de la última comprobación de sesión. Vuelve a comprobar lo guardado; conservamos tus cambios.';
 
 function createInitialState(props: Props): CreatorOwnerState {
   let initialCreate: { displayName: string; slug: string } | undefined;
@@ -202,6 +208,7 @@ export default function CreatorOwnerApp(props: Props) {
   const restoringHistoryIndexRef = useRef<number | undefined>(undefined);
   const allowedHistoryIndexRef = useRef<number | undefined>(undefined);
   const pendingComparisonLocationSyncRef = useRef<{ intentId: string; comparisonId: string } | undefined>(undefined);
+  const revealFocusAfterListAdoptionRef = useRef(false);
   const activityRequestSequenceRef = useRef(0);
   const activityStartedRef = useRef<{ key: string; sequence: number } | undefined>(undefined);
   const linksSearchTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -211,6 +218,13 @@ export default function CreatorOwnerApp(props: Props) {
   const linksHydrationAppliedRef = useRef(false);
   const handledTransitionRef = useRef<string | undefined>(undefined);
   const previousEditorKeyRef = useRef<string | undefined>(undefined);
+
+  function cancelPendingLinksSearch() {
+    if (linksSearchTimerRef.current) {
+      clearTimeout(linksSearchTimerRef.current);
+      linksSearchTimerRef.current = undefined;
+    }
+  }
 
   const currentProfile = state.observed.profile;
   const writeDisabled = !state.runtimeReady || state.session.state !== 'ready'
@@ -294,6 +308,7 @@ export default function CreatorOwnerApp(props: Props) {
         return;
       }
       if (stateRef.current.location.view === 'enlaces') {
+        cancelPendingLinksSearch();
         const parsed = parseCreatorOwnerLinksQuery(url.searchParams, stateRef.current.observed.series);
         if (parsed.valid) {
           const focusSelector = parsed.query.paginaEnlaces !== stateRef.current.location.linksQuery.paginaEnlaces
@@ -324,6 +339,7 @@ export default function CreatorOwnerApp(props: Props) {
       const parsedLinks = latest.location.view === 'enlaces' ? parseCreatorOwnerLinksQuery(destination.searchParams, latest.observed.series) : undefined;
       if (parsedSeries && !parsedSeries.valid || parsedLinks && !parsedLinks.valid) return false;
       if (!parsedSeries && !parsedLinks) return false;
+      if (parsedLinks?.valid) cancelPendingLinksSearch();
       if (history === 'push') {
         const index = historyIndexRef.current + 1;
         const old = window.history.state;
@@ -493,7 +509,7 @@ export default function CreatorOwnerApp(props: Props) {
     window.location.assign(transition.href);
   }, [state.location.transition, state.location.prompt, state.editor, state.attempt.status]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const pending = pendingComparisonLocationSyncRef.current;
     if (!pending) return;
     if (state.attempt.status === 'confirmed' && state.attempt.intentId === pending.intentId) {
@@ -522,8 +538,15 @@ export default function CreatorOwnerApp(props: Props) {
     const root = rootRef.current;
     const target = root?.querySelector<HTMLElement>(selector);
     target?.focus({ preventScroll: true });
+    const revealListRecoveryFocus = revealFocusAfterListAdoptionRef.current
+      && state.attempt.status === 'confirmed' && ['enlaces', 'series'].includes(state.location.view);
+    const revealDialogRecoveryFocus = Boolean(target?.closest('[data-owner-dialog]'));
+    if (target && (revealListRecoveryFocus || revealDialogRecoveryFocus)) {
+      target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+    }
+    if (revealListRecoveryFocus) revealFocusAfterListAdoptionRef.current = false;
     dispatch({ type: 'clear-focus' });
-  }, [state.location.focusAfterRender]);
+  }, [state.location.focusAfterRender, state.attempt]);
 
   useEffect(() => {
     const editorKey = state.editor?.key;
@@ -622,6 +645,7 @@ export default function CreatorOwnerApp(props: Props) {
   const setMessage = (text: string, kind: 'info' | 'success' | 'error' = 'info') => dispatch({ type: 'set-message', text, kind });
 
   function navigateLinksQuery(query: CreatorOwnerLinksQuery, history: 'push' | 'replace', focusSelector = '#owner-links-title') {
+    cancelPendingLinksSearch();
     const href = creatorOwnerLinksHref(query);
     const currentHref = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     if (href !== currentHref) {
@@ -646,13 +670,13 @@ export default function CreatorOwnerApp(props: Props) {
   }
 
   function onLinksQueryChange(query: CreatorOwnerLinksQuery, focusSelector: string) {
-    if (linksSearchTimerRef.current) { clearTimeout(linksSearchTimerRef.current); linksSearchTimerRef.current = undefined; }
+    cancelPendingLinksSearch();
     dispatch({ type: 'set-links-pending-query', query });
     navigateLinksQuery(query, 'push', focusSelector);
   }
 
   function onLinksQuerySubmit(query: CreatorOwnerLinksQuery) {
-    if (linksSearchTimerRef.current) { clearTimeout(linksSearchTimerRef.current); linksSearchTimerRef.current = undefined; }
+    cancelPendingLinksSearch();
     dispatch({ type: 'set-links-pending-query', query });
     navigateLinksQuery(query, 'push', '#owner-link-search');
   }
@@ -734,8 +758,10 @@ export default function CreatorOwnerApp(props: Props) {
     const latest = stateRef.current;
     const expectedProfileId = options?.profileId ?? latest.observed.profile?.id;
     const binding = latest.sessionBinding;
+    const sessionCheckSequence = sessionCheckSequenceRef.current;
     const sequence = ++claimHistorySequenceRef.current;
     dispatch({ type: 'claim-history-started', sequence });
+    const mayClassifySession = () => sessionCheckSequenceRef.current === sessionCheckSequence;
     const historyReadIsCurrent = () => {
       const current = stateRef.current;
       return current.claimHistory.status === 'loading' && current.claimHistory.sequence === sequence
@@ -753,10 +779,16 @@ export default function CreatorOwnerApp(props: Props) {
     try {
       const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store',
         headers: { 'x-creator-page-binding': binding, accept: 'application/json' } });
-      const session = await readCreatorSessionResponse(response);
+      if (!historyReadIsCurrent()) return false;
+      const session = response.ok ? null : await readCreatorSessionResponse(response);
       if (!historyReadIsCurrent()) return false;
       if (!response.ok && options && !checkIsCurrent()) {
         dispatch({ type: 'claim-history-failed', sequence, message: 'No pudimos actualizar Solicitudes con esta lectura. Puedes volver a intentarlo.' });
+        return false;
+      }
+      if (!response.ok && !mayClassifySession()) {
+        if (options) dispatch({ type: 'check-failed', intentId: options.intentId, checkId: options.checkId, message: STALE_CREATOR_READ_MESSAGE });
+        dispatch({ type: 'claim-history-failed', sequence, message: STALE_CREATOR_READ_MESSAGE });
         return false;
       }
       const recoveryReason = creatorSessionRecoveryReason(response.status, session);
@@ -1060,6 +1092,11 @@ export default function CreatorOwnerApp(props: Props) {
         dispatch({ type: 'session-required', reason: outcome.reason, message: outcome.message });
         return;
       }
+      if (outcome.kind === 'session-blocked') {
+        dispatch({ type: 'write-rejected', intentId: intent.id, message: outcome.message });
+        dispatch({ type: 'session-blocked', reason: outcome.reason, message: outcome.message });
+        return;
+      }
       if (outcome.kind === 'uncertain' || outcome.kind === 'conflict') {
         dispatch({ type: 'write-uncertain', intentId: intent.id, status: outcome.kind, message: outcome.message, ...(outcome.code ? { code: outcome.code } : {}) });
         if ((intent.kind === 'reference' && ['RESOURCE_CONFLICT', 'STALE_RESOURCE_REFERENCE', 'LINK_CONFLICT'].includes(outcome.code ?? ''))
@@ -1135,6 +1172,19 @@ export default function CreatorOwnerApp(props: Props) {
         dispatch({ type: 'session-required', reason, message: loginRecoveryMessage(reason) });
         return true;
       }
+      const sessionState = classifyCreatorSessionCheck(response.status, payload);
+      if (sessionState.state === 'context-changed') {
+        const message = 'La cuenta o el rol activo no coincide con esta página. Comprueba la sesión; conservamos el archivo elegido.';
+        dispatch({ type: 'write-rejected', intentId: intent.id, message });
+        dispatch({ type: 'session-required', reason: 'different-principal', message });
+        return true;
+      }
+      if (sessionState.state === 'invalid-context') {
+        const message = 'El contexto de esta página no es válido. Conservamos el archivo elegido; abre una página nueva con la cuenta original.';
+        dispatch({ type: 'write-rejected', intentId: intent.id, message });
+        dispatch({ type: 'session-blocked', reason: 'invalid-context', message });
+        return true;
+      }
       if (response.status === 409) {
         dispatch({ type: 'write-uncertain', intentId: intent.id, status: 'conflict', message: 'El perfil cambió antes de iniciar la carga. Comprueba qué foto quedó activa antes de volver a cargar.' });
         return true;
@@ -1189,6 +1239,11 @@ export default function CreatorOwnerApp(props: Props) {
         dispatch({ type: 'session-required', reason: outcome.reason, message: outcome.message });
         return;
       }
+      if (outcome.kind === 'session-blocked') {
+        dispatch({ type: 'write-rejected', intentId: intent.id, message: outcome.message });
+        dispatch({ type: 'session-blocked', reason: outcome.reason, message: outcome.message });
+        return;
+      }
       if (outcome.kind === 'uncertain' || outcome.kind === 'conflict') {
         dispatch({ type: 'write-uncertain', intentId: intent.id, status: outcome.kind, message: outcome.message });
         return;
@@ -1216,6 +1271,7 @@ export default function CreatorOwnerApp(props: Props) {
     const intent = latest.attempt.intent;
     if (isWriteActive(latest)) return;
     const checkId = nextId('check');
+    const sessionCheckSequence = sessionCheckSequenceRef.current;
     dispatch({ type: 'begin-check', intentId: intent.id, checkId });
     if (intent.kind === 'claim') {
       const profileId = latest.observed.profile?.id;
@@ -1226,6 +1282,7 @@ export default function CreatorOwnerApp(props: Props) {
     const boundView = latest.location.view;
     const boundProfileId = latest.observed.profile?.id;
     const boundSeriesId = latest.location.query.serie;
+    const mayClassifySession = () => sessionCheckSequenceRef.current === sessionCheckSequence;
     const checkIsCurrent = () => {
       const current = stateRef.current;
       if (current.attempt.status !== 'checking' || current.attempt.intent.id !== intent.id || current.attempt.checkId !== checkId) return false;
@@ -1239,8 +1296,13 @@ export default function CreatorOwnerApp(props: Props) {
     try {
       const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store',
         headers: { 'x-creator-page-binding': binding, accept: 'application/json' } });
-      const payload = await readCreatorSessionResponse(response);
       if (!checkIsCurrent()) return;
+      const payload = response.ok ? null : await readCreatorSessionResponse(response);
+      if (!checkIsCurrent()) return;
+      if (!response.ok && !mayClassifySession()) {
+        dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: STALE_CREATOR_READ_MESSAGE });
+        return;
+      }
       const recoveryReason = creatorSessionRecoveryReason(response.status, payload);
       if (recoveryReason) {
         dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: loginRecoveryMessage(recoveryReason) });
@@ -1369,7 +1431,10 @@ export default function CreatorOwnerApp(props: Props) {
     const attempt = stateRef.current.attempt;
     const recoverableListIntentId = listIntentId ?? (attempt.status === 'uncertain' && attempt.comparison?.id === comparisonId
       && attempt.comparison.canAdopt && attempt.intent.capture.kind === 'list-command' ? attempt.intent.id : undefined);
-    if (recoverableListIntentId) pendingComparisonLocationSyncRef.current = { intentId: recoverableListIntentId, comparisonId };
+    if (recoverableListIntentId) {
+      pendingComparisonLocationSyncRef.current = { intentId: recoverableListIntentId, comparisonId };
+      revealFocusAfterListAdoptionRef.current = ['enlaces', 'series'].includes(stateRef.current.location.view);
+    }
     dispatch({ type: 'adopt-comparison', comparisonId });
   }
 

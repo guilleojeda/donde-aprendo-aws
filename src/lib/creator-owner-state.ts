@@ -474,7 +474,9 @@ function completeReference(
     && savedPlacement.url === submittedSelection.url ? savedPlacement : undefined;
   const sameSelection = Boolean(submittedSelection && current.selected
     && current.selected.id === submittedSelection.id && current.selected.url === submittedSelection.url);
-  const keepFocusInPicker = source === 'adopted' ? { focusAfterRender: '#owner-catalog-search' } : {};
+  const keepFocusInPicker = source === 'adopted'
+    ? { focusAfterRender: current.selected ? '#owner-link-directory-option' : '#owner-catalog-search' }
+    : {};
 
   if (!saved) {
     return { editor: { ...current, baseProfile: { ...profile } }, hasPendingIntent: true,
@@ -712,11 +714,21 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
         && state.attempt.intent.kind === 'reference'
         && ['RESOURCE_CONFLICT', 'STALE_RESOURCE_REFERENCE'].includes(state.attempt.code ?? '')
         ? state.attempt.intent : undefined;
-      const editor = conflictedReference && state.editor?.kind === 'reference'
-        && state.editor.key === conflictedReference.editorKey
-        ? { ...state.editor, selected: undefined } : state.editor;
+      const entries = action.entries.map((item) => ({ ...item }));
+      const referenceEditor = conflictedReference && state.editor?.kind === 'reference'
+        && state.editor.key === conflictedReference.editorKey ? state.editor : undefined;
+      const submitted = conflictedReference?.capture.kind === 'reference' ? conflictedReference.capture.selected : undefined;
+      const selected = referenceEditor?.selected;
+      const selectionIsSubmitted = Boolean(selected && submitted && selected.id === submitted.id && selected.url === submitted.url);
+      const selectionIsCurrent = Boolean(selected && entries.some(({ id, url }) => id === selected.id && url === selected.url));
+      const preserveLaterSelection = Boolean(referenceEditor && selected && !selectionIsSubmitted && selectionIsCurrent);
+      const editor = referenceEditor && !preserveLaterSelection ? { ...referenceEditor, selected: undefined } : state.editor;
       return { ...state, editor,
-        catalog: { ...state.catalog, status: 'ready', entries: action.entries.map((item) => ({ ...item })), needsRefresh: false, message: action.message } };
+        ...(preserveLaterSelection ? {
+          attempt: { status: 'idle' as const },
+          message: { text: 'La ficha vigente quedó seleccionada. Puedes agregarla manualmente; no repetimos la solicitud anterior.', kind: 'info' as const },
+        } : {}),
+        catalog: { ...state.catalog, status: 'ready', entries, needsRefresh: false, message: action.message } };
     }
     case 'catalog-load-failed': return { ...state, catalog: { ...state.catalog, status: 'error', message: action.message } };
     case 'catalog-search': return { ...state, catalog: { ...state.catalog, search: action.value, page: 1 } };
@@ -847,7 +859,9 @@ export function creatorOwnerReducer(state: CreatorOwnerState, action: CreatorOwn
       const hasEditor = current !== undefined;
       if (!hasEditor && !listOperation) return state;
       if (comparison.draftAtCompare && current && !sameEditor(comparison.draftAtCompare, current)) {
-        return { ...state, attempt: { ...state.attempt, comparison: undefined }, message: { text: 'Tus campos cambiaron después de la comparación. Vuelve a comprobar antes de adoptar.', kind: 'info' } };
+        const message = 'Tus campos cambiaron después de la comparación. Vuelve a comprobar antes de adoptar.';
+        return { ...state, attempt: { ...state.attempt, comparison: undefined, message }, message: { text: message, kind: 'info' },
+          location: { ...state.location, focusAfterRender: state.location.prompt === 'exit' ? '#owner-exit-compare' : '#owner-compare' } };
       }
       const snapshot = copySnapshot(comparison.snapshot);
       if (!current && listOperation) {

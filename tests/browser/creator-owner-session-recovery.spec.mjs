@@ -376,6 +376,442 @@ test('only the latest overlapping session check installs its token and permits t
   }
 });
 
+test('a delayed older disabled owner response cannot replace restored session readiness', async ({ fixture, page }) => {
+  const initialCookie = await loggedInOwner(fixture, page);
+  const [resourceA, resourceB] = await setupCatalog(fixture, page, 'session-owner-read-order');
+  const account = [...fixture.accountStore.accounts.values()][0];
+  const capture = await captureCreatorApi(page, { ignoreReads: true });
+  const mismatch = { arrived: deferred(), gate: deferred(), done: deferred() };
+  const renewal = { arrived: deferred(), gate: deferred(), done: deferred() };
+  const profileWrite = { arrived: deferred() };
+  let lostAcknowledgement = false;
+  let holdMismatch = false;
+  let holdProfileWrite = false;
+  let expectCurrentDisabled = false;
+  let currentDisabledBody;
+  const transport = async (route) => {
+    const request = route.request();
+    const path = pathOf(request);
+    if (request.method() === 'POST' && path === '/api/creador/referencias' && !lostAcknowledgement) {
+      lostAcknowledgement = true;
+      const actual = await route.fetch();
+      assert.equal(actual.status(), 201, 'the real reference handler commits A');
+      await route.fulfill({ response: actual, status: 503 });
+      return;
+    }
+    if (request.method() === 'PUT' && path === '/api/creador/perfil' && holdProfileWrite) {
+      const actual = await route.fetch();
+      assert.equal(actual.status(), 200, 'the real profile handler commits the uncertain draft');
+      profileWrite.arrived.resolve();
+      await route.abort('failed');
+      return;
+    }
+    if (request.method() === 'GET' && path === '/api/creador/perfil') {
+      const actual = await route.fetch();
+      if (holdMismatch && actual.status() === 403) {
+        holdMismatch = false;
+        mismatch.status = actual.status();
+        mismatch.body = await actual.json();
+        mismatch.arrived.resolve();
+        try {
+          await mismatch.gate.promise;
+          await route.fulfill({ response: actual, json: mismatch.body });
+        } finally {
+          mismatch.done.resolve();
+        }
+        return;
+      }
+      if (expectCurrentDisabled && actual.status() === 403) {
+        currentDisabledBody = await actual.json();
+        await route.fulfill({ response: actual, json: currentDisabledBody });
+        return;
+      }
+      await route.fulfill({ response: actual });
+      return;
+    }
+    if (request.method() === 'GET' && path === '/api/creador/sesion') {
+      const actual = await route.fetch();
+      const body = await actual.json();
+      if (actual.ok()) {
+        renewal.status = actual.status();
+        renewal.body = body;
+        renewal.arrived.resolve();
+        try {
+          await renewal.gate.promise;
+          await route.fulfill({ response: actual, json: body });
+        } finally {
+          renewal.done.resolve();
+        }
+        return;
+      }
+      await route.fulfill({ response: actual, json: body });
+      return;
+    }
+    await route.continue();
+  };
+  await page.route('**/api/creador/**', transport);
+  try {
+    await gotoLinks(page, fixture);
+    await page.getByRole('button', { name: /Buscar en el catálogo/i }).click();
+    const form = page.locator('[data-owner-form="referencia"]');
+    await form.getByRole('radio', { name: `Seleccionar ${resourceA.title}`, exact: true }).check();
+    await form.getByRole('button', { name: 'Agregar a mi página', exact: true }).click();
+    await latest(capture, 'POST', '/api/creador/referencias', 503);
+    await form.getByRole('radio', { name: `Seleccionar ${resourceB.title}`, exact: true }).check();
+    const directory = form.getByRole('checkbox', { name: 'Proponer al directorio', exact: true });
+    await directory.uncheck();
+
+    await page.context().clearCookies({ name: initialCookie.name });
+    const expiredRead = apiResponse(page, 'GET', '/api/creador/perfil', 401);
+    await form.locator('[data-owner-compare]').click();
+    await expiredRead;
+    await expect(sessionCheck(page)).toBeEnabled();
+
+    fixture.accountStore.seedAccount({ ...account, active: false });
+    await addCookie(page.context(), fixture, initialCookie);
+    holdMismatch = true;
+    const compare = form.locator('[data-owner-compare]');
+    await compare.click();
+    await mismatch.arrived.promise;
+    assert.equal(mismatch.status, 403);
+    assert.equal(mismatch.body.error, 'ACCOUNT_DISABLED');
+    assert.equal(Object.hasOwn(mismatch.body, 'profile'), false);
+
+    fixture.accountStore.seedAccount(account);
+    const restoredCookie = await fixture.login();
+    await addCookie(page.context(), fixture, restoredCookie);
+    const sessionRead = apiResponse(page, 'GET', '/api/creador/sesion', 200);
+    await sessionCheck(page).click();
+    await renewal.arrived.promise;
+    assert.equal(renewal.status, 200);
+    const delayedMismatch = apiResponse(page, 'GET', '/api/creador/perfil', 403);
+    mismatch.gate.resolve();
+    await mismatch.done.promise;
+    await delayedMismatch;
+    await waitForRender(page);
+    await expect(sessionCheck(page)).toBeVisible();
+    await expect(sessionCheck(page)).toBeDisabled();
+    await expect(compare).toBeEnabled();
+    await expect(form.locator('[data-owner-adopt]')).toHaveCount(0);
+    await expect(form.getByRole('radio', { name: `Seleccionar ${resourceB.title}`, exact: true })).toBeChecked();
+    await expect(directory).not.toBeChecked();
+    await expect(page.locator('[data-owner-dialog]')).not.toContainText('Esta cuenta está desactivada.');
+
+    renewal.gate.resolve();
+    await renewal.done.promise;
+    await sessionRead;
+    await expect(sessionCheck(page)).toHaveCount(0);
+    assert.equal(typeof renewal.body.csrfToken, 'string');
+    await expect(page.locator('[data-account-logout] input[name="csrfToken"]')).toHaveValue(renewal.body.csrfToken);
+    await waitForRender(page);
+    await expect(compare).toBeEnabled();
+    await expect(form.getByRole('radio', { name: `Seleccionar ${resourceB.title}`, exact: true })).toBeChecked();
+    await expect(directory).not.toBeChecked();
+    assert.equal(capture.records.filter((item) => item.method === 'POST' && item.path === '/api/creador/referencias').length, 1,
+      'session renewal and a delayed owner error do not repeat or adopt the reference');
+
+    const confirmedRead = apiResponse(page, 'GET', '/api/creador/perfil', 200);
+    await compare.click();
+    await confirmedRead;
+    await expect(form.locator('[data-owner-adopt]')).toBeEnabled();
+    await form.locator('[data-owner-adopt]').click();
+    await expect(form.getByRole('radio', { name: `Seleccionar ${resourceB.title}`, exact: true })).toBeChecked();
+    await expect(directory).not.toBeChecked();
+    await form.getByRole('button', { name: 'Agregar a mi página', exact: true }).click();
+    const manualWrite = await latest(capture, 'POST', '/api/creador/referencias', 201);
+    assert.deepEqual(manualWrite.body, {
+      resourceId: resourceB.id, url: resourceB.url, profileVersion: 2, selectedForDirectory: false,
+    });
+    const persistedResponse = await fixture.request(restoredCookie, '/api/creador/perfil');
+    assert.equal(persistedResponse.status, 200);
+    const persisted = await persistedResponse.json();
+    assert.equal(persisted.links.filter((link) => link.resourceId === resourceA.id).length, 1);
+    assert.equal(persisted.links.filter((link) => link.resourceId === resourceB.id).length, 1);
+    assert.equal(persisted.links.find((link) => link.resourceId === resourceB.id).selectedForDirectory, false);
+    assert.deepEqual(capture.records.filter((item) => item.method === 'POST' && item.path === '/api/creador/referencias')
+      .map((item) => item.status), [503, 201]);
+
+    await page.getByRole('button', { name: 'Editar datos', exact: true }).click();
+    const profileForm = page.locator('[data-owner-form="datos"]');
+    await profileForm.getByLabel('Nombre visible').fill('Current disabled response stays terminal');
+    holdProfileWrite = true;
+    await profileForm.getByRole('button', { name: 'Guardar datos' }).click();
+    await profileWrite.arrived.promise;
+    await expect(profileForm.locator('[data-owner-compare]')).toBeVisible();
+    fixture.accountStore.seedAccount({ ...account, active: false });
+    expectCurrentDisabled = true;
+    const currentDisabledRead = apiResponse(page, 'GET', '/api/creador/perfil', 403);
+    await profileForm.locator('[data-owner-compare]').click();
+    await currentDisabledRead;
+    await expect(page.locator('[data-owner-dialog] [data-session-recovery-status]')).toContainText('Esta cuenta está desactivada.');
+    assert.equal(currentDisabledBody?.error, 'ACCOUNT_DISABLED');
+    await expect(sessionCheck(page)).toHaveCount(0);
+    await expect(profileForm.getByRole('button', { name: 'Guardar datos' })).toBeDisabled();
+  } finally {
+    fixture.accountStore.seedAccount(account);
+    mismatch.gate.resolve();
+    renewal.gate.resolve();
+    if (mismatch.status !== undefined) await mismatch.done.promise;
+    if (renewal.status !== undefined) await renewal.done.promise;
+    await page.unroute('**/api/creador/**', transport);
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+
+test('a delayed old claim-history mismatch stays retryable after session renewal', async ({ fixture, page }) => {
+  const initialCookie = await loggedInOwner(fixture, page);
+  const [resource] = await setupCatalog(fixture, page, 'claim-history-session-order');
+  const account = [...fixture.accountStore.accounts.values()][0];
+  const capture = await captureCreatorApi(page, { ignoreReads: true });
+  const mismatch = { arrived: deferred(), gate: deferred(), done: deferred() };
+  let lostAcknowledgement = false;
+  let holdMismatch = false;
+  const transport = async (route) => {
+    const request = route.request();
+    const path = pathOf(request);
+    if (request.method() === 'POST' && path === '/api/creador/reclamaciones' && !lostAcknowledgement) {
+      lostAcknowledgement = true;
+      const actual = await route.fetch();
+      assert.equal(actual.status(), 202, 'the real claim handler commits the first request');
+      await route.fulfill({ response: actual, status: 503 });
+      return;
+    }
+    if (request.method() === 'GET' && path === '/api/creador/perfil') {
+      const actual = await route.fetch();
+      if (holdMismatch && actual.status() === 409) {
+        holdMismatch = false;
+        mismatch.status = actual.status();
+        mismatch.body = await actual.json();
+        mismatch.arrived.resolve();
+        try {
+          await mismatch.gate.promise;
+          await route.fulfill({ response: actual, json: mismatch.body });
+        } finally {
+          mismatch.done.resolve();
+        }
+        return;
+      }
+      await route.fulfill({ response: actual });
+      return;
+    }
+    await route.continue();
+  };
+  await page.route('**/api/creador/**', transport);
+  try {
+    await page.goto(`${fixture.origin}/cuenta/?vista=solicitudes`);
+    await expect(page.locator('astro-island')).not.toHaveAttribute('ssr', '');
+    await page.getByRole('button', { name: 'Solicitar edición', exact: true }).click();
+    const form = page.locator('[data-owner-form="reclamacion"]');
+    const evidence = form.getByLabel(/Contexto privado/i);
+    await form.getByRole('checkbox', { name: `Solicitar edición de ${resource.title}`, exact: true }).check();
+    await evidence.fill('First uncertain claim');
+    await form.getByRole('button', { name: /Enviar solicitud/i }).click();
+    await latest(capture, 'POST', '/api/creador/reclamaciones', 503);
+
+    await page.context().clearCookies({ name: initialCookie.name });
+    const expiredRead = apiResponse(page, 'GET', '/api/creador/perfil', 401);
+    await form.getByRole('button', { name: 'Comprobar solicitudes', exact: true }).click();
+    await expiredRead;
+    await expect(sessionCheck(page)).toBeEnabled();
+
+    fixture.accountStore.seedAccount({ ...account, isAdmin: !account.isAdmin });
+    const mismatchedCookie = await fixture.login();
+    await addCookie(page.context(), fixture, mismatchedCookie);
+    const checkAttempt = form.getByRole('button', { name: 'Comprobar solicitudes', exact: true });
+    holdMismatch = true;
+    await checkAttempt.click();
+    await mismatch.arrived.promise;
+    assert.equal(mismatch.status, 409);
+    assert.equal(mismatch.body.error, 'SESSION_CONTEXT_CHANGED');
+    assert.equal(Object.hasOwn(mismatch.body, 'profile'), false);
+
+    fixture.accountStore.seedAccount(account);
+    const restoredCookie = await fixture.login();
+    await addCookie(page.context(), fixture, restoredCookie);
+    const sessionRead = apiResponse(page, 'GET', '/api/creador/sesion', 200);
+    await sessionCheck(page).click();
+    await sessionRead;
+    await expect(sessionCheck(page)).toHaveCount(0);
+    await expect(checkAttempt).toBeDisabled();
+
+    const delayedMismatch = apiResponse(page, 'GET', '/api/creador/perfil', 409);
+    mismatch.gate.resolve();
+    await mismatch.done.promise;
+    await delayedMismatch;
+    await waitForRender(page);
+    await expect(sessionCheck(page)).toHaveCount(0);
+    await expect(checkAttempt).toBeEnabled();
+    await expect(evidence).toHaveValue('First uncertain claim');
+    assert.equal(capture.records.filter((item) => item.method === 'POST' && item.path === '/api/creador/reclamaciones').length, 1,
+      'session renewal and history failure do not replay the claim');
+
+    const historyRead = apiResponse(page, 'GET', '/api/creador/perfil', 200);
+    await checkAttempt.click();
+    await historyRead;
+    await expect(evidence).toHaveValue('First uncertain claim');
+    await evidence.fill('Manual claim after separate history check');
+    await form.getByRole('button', { name: /Enviar solicitud/i }).click();
+    await latest(capture, 'POST', '/api/creador/reclamaciones', 202);
+    const persistedResponse = await fixture.request(restoredCookie, '/api/creador/perfil');
+    assert.equal(persistedResponse.status, 200);
+    const persisted = await persistedResponse.json();
+    assert.equal(persisted.claims.filter((claim) => claim.resourceIds.includes(resource.id)).length, 2);
+    assert.ok(persisted.claims.some((claim) => claim.evidence === 'Manual claim after separate history check'));
+    assert.deepEqual(capture.records.filter((item) => item.method === 'POST' && item.path === '/api/creador/reclamaciones')
+      .map((item) => item.status), [503, 202]);
+  } finally {
+    fixture.accountStore.seedAccount(account);
+    mismatch.gate.resolve();
+    if (mismatch.status !== undefined) await mismatch.done.promise;
+    await page.unroute('**/api/creador/**', transport);
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+
+test('a later content mismatch can supersede an earlier successful session check', async ({ fixture, page }) => {
+  const initialCookie = await loggedInOwner(fixture, page);
+  const [resourceA, resourceB] = await setupCatalog(fixture, page, 'session-owner-read-reverse-order');
+  const account = [...fixture.accountStore.accounts.values()][0];
+  const capture = await captureCreatorApi(page, { ignoreReads: true });
+  const session = { arrived: deferred(), gate: deferred(), done: deferred() };
+  const mismatch = { arrived: deferred(), gate: deferred(), done: deferred() };
+  let lostAcknowledgement = false;
+  let holdSession = false;
+  let holdMismatch = false;
+  const transport = async (route) => {
+    const request = route.request();
+    const path = pathOf(request);
+    if (request.method() === 'POST' && path === '/api/creador/referencias' && !lostAcknowledgement) {
+      lostAcknowledgement = true;
+      const actual = await route.fetch();
+      assert.equal(actual.status(), 201, 'the real reference handler commits A');
+      await route.fulfill({ response: actual, status: 503 });
+      return;
+    }
+    if (request.method() === 'GET' && path === '/api/creador/perfil') {
+      const actual = await route.fetch();
+      if (holdMismatch && actual.status() === 409) {
+        holdMismatch = false;
+        mismatch.status = actual.status();
+        mismatch.body = await actual.json();
+        mismatch.arrived.resolve();
+        try {
+          await mismatch.gate.promise;
+          await route.fulfill({ response: actual, json: mismatch.body });
+        } finally {
+          mismatch.done.resolve();
+        }
+        return;
+      }
+      await route.fulfill({ response: actual });
+      return;
+    }
+    if (request.method() === 'GET' && path === '/api/creador/sesion') {
+      const actual = await route.fetch();
+      const body = await actual.json();
+      if (holdSession && actual.ok()) {
+        holdSession = false;
+        session.status = actual.status();
+        session.body = body;
+        session.arrived.resolve();
+        try {
+          await session.gate.promise;
+          await route.fulfill({ response: actual, json: body });
+        } finally {
+          session.done.resolve();
+        }
+        return;
+      }
+      await route.fulfill({ response: actual, json: body });
+      return;
+    }
+    await route.continue();
+  };
+  await page.route('**/api/creador/**', transport);
+  try {
+    await gotoLinks(page, fixture);
+    await page.getByRole('button', { name: /Buscar en el catálogo/i }).click();
+    const form = page.locator('[data-owner-form="referencia"]');
+    await form.getByRole('radio', { name: `Seleccionar ${resourceA.title}`, exact: true }).check();
+    await form.getByRole('button', { name: 'Agregar a mi página', exact: true }).click();
+    await latest(capture, 'POST', '/api/creador/referencias', 503);
+    await form.getByRole('radio', { name: `Seleccionar ${resourceB.title}`, exact: true }).check();
+
+    await page.context().clearCookies({ name: initialCookie.name });
+    const expiredRead = apiResponse(page, 'GET', '/api/creador/perfil', 401);
+    await form.locator('[data-owner-compare]').click();
+    await expiredRead;
+    await expect(sessionCheck(page)).toBeEnabled();
+
+    const checkedCookie = await fixture.login();
+    await addCookie(page.context(), fixture, checkedCookie);
+    holdSession = true;
+    await sessionCheck(page).click();
+    await session.arrived.promise;
+    assert.equal(session.status, 200);
+
+    fixture.accountStore.seedAccount({ ...account, isAdmin: !account.isAdmin });
+    holdMismatch = true;
+    const compare = form.locator('[data-owner-compare]');
+    await compare.click();
+    await mismatch.arrived.promise;
+    assert.equal(mismatch.status, 409);
+    assert.equal(mismatch.body.error, 'SESSION_CONTEXT_CHANGED');
+    assert.equal(Object.hasOwn(mismatch.body, 'profile'), false);
+
+    const delayedSession = apiResponse(page, 'GET', '/api/creador/sesion', 200);
+    session.gate.resolve();
+    await session.done.promise;
+    await delayedSession;
+    await expect(sessionCheck(page)).toHaveCount(0);
+    assert.equal(typeof session.body.csrfToken, 'string');
+    await expect(page.locator('[data-account-logout] input[name="csrfToken"]')).toHaveValue(session.body.csrfToken);
+    await expect(compare).toBeDisabled();
+
+    const delayedMismatch = apiResponse(page, 'GET', '/api/creador/perfil', 409);
+    mismatch.gate.resolve();
+    await mismatch.done.promise;
+    await delayedMismatch;
+    await waitForRender(page);
+    await expect(sessionCheck(page)).toBeEnabled();
+    await expect(compare).toBeEnabled();
+    await expect(form.getByRole('radio', { name: `Seleccionar ${resourceB.title}`, exact: true })).toBeChecked();
+    assert.equal(capture.records.filter((item) => item.method === 'POST' && item.path === '/api/creador/referencias').length, 1,
+      'the later mismatch stays retryable and neither check repeats A');
+
+    fixture.accountStore.seedAccount(account);
+    const renewedCookie = await fixture.login();
+    await addCookie(page.context(), fixture, renewedCookie);
+    const renewed = apiResponse(page, 'GET', '/api/creador/sesion', 200);
+    await sessionCheck(page).click();
+    await renewed;
+    await expect(sessionCheck(page)).toHaveCount(0);
+
+    const confirmedRead = apiResponse(page, 'GET', '/api/creador/perfil', 200);
+    await compare.click();
+    await confirmedRead;
+    await expect(form.locator('[data-owner-adopt]')).toBeEnabled();
+    await form.locator('[data-owner-adopt]').click();
+    await form.getByRole('button', { name: 'Agregar a mi página', exact: true }).click();
+    await latest(capture, 'POST', '/api/creador/referencias', 201);
+    const persistedResponse = await fixture.request(renewedCookie, '/api/creador/perfil');
+    assert.equal(persistedResponse.status, 200);
+    const persisted = await persistedResponse.json();
+    assert.equal(persisted.links.filter((link) => link.resourceId === resourceA.id).length, 1);
+    assert.equal(persisted.links.filter((link) => link.resourceId === resourceB.id).length, 1);
+    assert.deepEqual(capture.records.filter((item) => item.method === 'POST' && item.path === '/api/creador/referencias')
+      .map((item) => item.status), [503, 201]);
+  } finally {
+    fixture.accountStore.seedAccount(account);
+    session.gate.resolve();
+    mismatch.gate.resolve();
+    if (session.status !== undefined) await session.done.promise;
+    if (mismatch.status !== undefined) await mismatch.done.promise;
+    await page.unroute('**/api/creador/**', transport);
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+
 test('an obsolete session-check network failure cannot replace newer readiness', async ({ fixture, page }) => {
   const initialCookie = await loggedInOwner(fixture, page);
   const [resourceA, resourceB] = await setupCatalog(fixture, page, 'session-network-failure');

@@ -126,6 +126,45 @@ async function holdReferencePost(page, { commit }) {
   };
 }
 
+async function holdReferenceResponse(page) {
+  const gate = deferred();
+  let arrive;
+  const reached = new Promise((resolve) => { arrive = resolve; });
+  let actual;
+  let used = false;
+  let finished;
+  const done = new Promise((resolve) => { finished = resolve; });
+  const handler = async (route) => {
+    const request = route.request();
+    if (used || request.method() !== 'POST'
+      || new URL(request.url()).pathname.replace(/\/$/u, '') !== '/api/creador/referencias') {
+      await route.continue();
+      return;
+    }
+    used = true;
+    try {
+      const response = await route.fetch();
+      actual = { status: response.status(), body: await response.json() };
+      arrive(actual);
+      await gate.promise;
+      await route.fulfill({ response, json: actual.body });
+    } finally {
+      finished();
+    }
+  };
+  await page.route('**/api/creador/**', handler);
+  return {
+    reached,
+    get actual() { return actual; },
+    release: () => gate.release(),
+    async close() {
+      gate.release();
+      if (used) await done;
+      await page.unroute('**/api/creador/**', handler).catch(() => {});
+    },
+  };
+}
+
 test('el catálogo público carga con reintento y busca por título y URL entre tipos publicados', async ({ fixture, page }) => {
   await loggedInOwner(fixture, page);
   const community = catalogEntry({
@@ -413,6 +452,90 @@ test('un RESOURCE_CONFLICT exige actualizar el índice, revisar la URL actual y 
   assert.equal(dto.editableResources.some(({ id }) => id === currentItem.id), false);
   assert.equal(linkWrites(capture).length, 2, 'the confirmed retry is one write and the stale pair was never replayed');
   await capture.stop();
+});
+
+test('el 409 tardío de A conserva B y su opción durante la actualización antes de guardar B manualmente', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const oldA = catalogEntry({
+    id: 'phase5-catalog-delayed-stale-a',
+    title: 'Ficha A con destino viejo',
+    url: 'https://catalog.example.invalid/a-old',
+    tipo: 'event',
+  });
+  const currentA = { ...oldA, url: 'https://catalog.example.invalid/a-current' };
+  const itemB = catalogEntry({
+    id: 'phase5-catalog-delayed-b',
+    title: 'Ficha B pendiente válida',
+    url: 'https://catalog.example.invalid/b-current',
+    tipo: 'community',
+  });
+  await seedCatalogRecord(fixture, currentA);
+  await seedCatalogRecord(fixture, itemB);
+  const index = await serveSelectionIndex(page, [oldA, itemB]);
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  const transport = await holdReferenceResponse(page);
+  const resourceBeforeB = await fixture.rawResource(itemB.id);
+  let staleSubmit;
+
+  try {
+    await openOwnerCatalog(page, fixture);
+    const dialog = page.getByRole('dialog');
+    const form = page.locator('[data-owner-form="referencia"]');
+    const directory = form.getByRole('checkbox', { name: 'Proponer al directorio', exact: true });
+    const initial = await fixture.rawOwner(cookie);
+    await catalogRadio(page, oldA.title).check();
+
+    staleSubmit = page.getByRole('button', { name: 'Agregar a mi página', exact: true }).click();
+    const staleResponse = await transport.reached;
+    assert.equal(staleResponse.status, 409, 'A reaches the real reference handler and returns its stale-pair conflict');
+    assert.equal(staleResponse.body.error, 'RESOURCE_CONFLICT');
+    const ownerAfterRejectedAResponse = await fixture.request(cookie, '/api/creador/perfil');
+    assert.equal(ownerAfterRejectedAResponse.status, 200);
+    const ownerAfterRejectedA = await ownerAfterRejectedAResponse.json();
+    assert.equal(ownerAfterRejectedA.profile.version, initial.profile.version,
+      'the rejected A did not change the profile');
+    assert.equal(ownerAfterRejectedA.links.filter(({ resourceId }) => resourceId === oldA.id).length, 0,
+      'the rejected A did not create a placement');
+
+    await catalogRadio(page, itemB.title).check();
+    await directory.uncheck();
+    transport.release();
+    await staleSubmit;
+    await expect(dialog.getByRole('button', { name: 'Actualizar catálogo', exact: true })).toBeVisible();
+    assert.equal(linkWrites(capture).length, 1, 'the stale A request is not replayed');
+
+    index.replace([currentA, itemB]);
+    await dialog.getByRole('button', { name: 'Actualizar catálogo', exact: true }).click();
+    await expect(catalogRadio(page, itemB.title)).toBeChecked();
+    await expect(directory).not.toBeChecked();
+    await expect(dialog.getByRole('button', { name: 'Agregar a mi página', exact: true })).toBeEnabled();
+    assert.equal(index.reads.length, 2, 'the explicit catalog refresh reads the updated index');
+    assert.equal(linkWrites(capture).length, 1, 'refresh keeps B as intent without sending it');
+
+    await dialog.getByRole('button', { name: 'Agregar a mi página', exact: true }).click();
+    await expect.poll(() => linkWrites(capture).length).toBe(2);
+    await expect.poll(() => linkWrites(capture)[1]?.status).toBe(201);
+    assert.equal(linkWrites(capture)[1].body.resourceId, itemB.id);
+    assert.equal(linkWrites(capture)[1].body.url, itemB.url);
+    assert.equal(linkWrites(capture)[1].body.profileVersion, initial.profile.version);
+    assert.equal(linkWrites(capture)[1].body.selectedForDirectory, false);
+
+    const saved = await fixture.request(cookie, '/api/creador/perfil');
+    assert.equal(saved.status, 200);
+    const dto = await saved.json();
+    assert.equal(dto.profile.version, initial.profile.version + 1);
+    assert.equal(dto.links.filter(({ resourceId }) => resourceId === oldA.id).length, 0);
+    assert.deepEqual(dto.links.filter(({ resourceId }) => resourceId === itemB.id).map(({ url, selectedForDirectory }) => ({ url, selectedForDirectory })), [
+      { url: itemB.url, selectedForDirectory: false },
+    ], 'the next explicit save persists exactly the retained B pair and directory choice');
+    assert.deepEqual(await fixture.rawResource(itemB.id), resourceBeforeB,
+      'using B as a reference does not mutate shared catalog metadata');
+  } finally {
+    transport.release();
+    await staleSubmit?.catch(() => {});
+    await transport.close();
+    await capture.stop({ skipErrorBodies: true }).catch(() => {});
+  }
 });
 
 for (const outcome of [

@@ -254,6 +254,205 @@ test('Enlaces conserva la búsqueda y página elegidas durante una lectura real 
   }
 });
 
+test('Enlaces cancela búsquedas pendientes ante Back, Forward y paginación; la recuperación enfoca un control visible', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const links = [];
+  for (let index = 1; index <= 53; index += 1) {
+    links.push(await addLink(fixture, cookie, {
+      title: `Review navegación ${String(index).padStart(2, '0')}`,
+      url: `https://phase2-list-navigation.example/${index}`,
+    }));
+  }
+  const target = links[0];
+  await openLinksView(page, fixture, `&buscar=${encodeURIComponent('Review navegación')}`);
+  const capture = await captureCreatorApi(page, { ignoreReads: true, skipErrorBodies: true });
+  const removePath = `/api/creador/enlaces/${target.placementId}`;
+  const transport = await installListTransport(page, {
+    writeMethod: 'DELETE', writePath: removePath, readResponses: [{ kind: 'actual', hold: true }],
+  });
+  let removeClick;
+  let checkClick;
+  try {
+    page.once('dialog', (dialog) => dialog.accept());
+    removeClick = page.locator(`[data-link-row="${target.placementId}"]`)
+      .getByRole('button', { name: 'Quitar de tu página', exact: true }).click();
+    await transport.writeArrived.promise;
+    assert.equal(transport.actualWrite.status, 204, 'the actual DELETE commits before its acknowledgement is dropped');
+    assert.equal(await fixture.rawPlacement(cookie, target.placementId), null);
+    transport.writeGate.resolve();
+    await removeClick;
+    const recovery = page.locator('[data-owner-list-recovery="links"]');
+    await expect(recovery).toBeVisible();
+
+    checkClick = recovery.getByRole('button', { name: 'Comprobar', exact: true }).click();
+    const actualRead = await transport.read(0).arrived.promise;
+    assert.equal(actualRead.status, 200);
+    assert.equal(actualRead.body.links.some(({ placementId }) => placementId === target.placementId), false,
+      'the held GET is the real post-delete owner snapshot');
+
+    const savedSearch = 'Review navegación';
+    const search = page.locator('#owner-link-search');
+    const expectedPage = (pageNumber) => (url) => (url.searchParams.get('paginaEnlaces') ?? '1') === String(pageNumber)
+      && url.searchParams.get('buscar') === savedSearch;
+    await page.clock.install({ time: new Date() });
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
+
+    await page.locator('[data-link-page]').filter({ hasText: 'Siguiente' }).click();
+    await expect(page).toHaveURL(expectedPage(2));
+    const timeOrigin = await page.evaluate(() => performance.timeOrigin);
+
+    await search.fill('Búsqueda pendiente Back');
+    await page.evaluate(() => history.back());
+    await expect(page).toHaveURL(expectedPage(1));
+    await page.clock.runFor(140);
+    await expect(search).toHaveValue(savedSearch);
+    await expect(page).toHaveURL(expectedPage(1));
+
+    await search.fill('Búsqueda pendiente Forward');
+    await page.evaluate(() => history.forward());
+    await expect(page).toHaveURL(expectedPage(2));
+    await page.clock.runFor(140);
+    await expect(search).toHaveValue(savedSearch);
+    await expect(page).toHaveURL(expectedPage(2));
+
+    await search.fill('Búsqueda pendiente paginación');
+    await page.locator('[data-link-page]').filter({ hasText: 'Anterior' }).click();
+    await expect(page).toHaveURL(expectedPage(1));
+    await page.clock.runFor(140);
+    await expect(search).toHaveValue(savedSearch);
+    await expect(page).toHaveURL(expectedPage(1));
+    assert.equal(await page.evaluate(() => performance.timeOrigin), timeOrigin,
+      'Back, Forward and pagination keep the same owner document and pending list recovery');
+
+    await page.evaluate(() => document.querySelector('[data-link-page]').scrollIntoView({ block: 'center' }));
+    const scrollBeforeAdoption = await page.evaluate(() => scrollY);
+    await page.clock.resume();
+    transport.read(0).gate.resolve();
+    await checkClick;
+    await expect(recovery).toHaveCount(0, 'the explicit check adopts the complete saved list');
+    await expect(page).toHaveURL(expectedPage(1));
+    await expect(search).toHaveValue(savedSearch);
+    await expect(search).toBeFocused();
+    const focus = await page.evaluate(() => {
+      const rect = document.activeElement.getBoundingClientRect();
+      return { id: document.activeElement.id, top: Math.round(rect.top), bottom: Math.round(rect.bottom), viewport: innerHeight, scrollY };
+    });
+    assert.equal(focus.id, 'owner-link-search');
+    assert.ok(focus.top >= 0 && focus.bottom <= focus.viewport,
+      `recovery focus is visible after scrolling a long Links list: ${JSON.stringify(focus)}`);
+    assert.ok(scrollBeforeAdoption > 0, 'the recovery happened after scrolling down the long Links list');
+
+    const savedBeforeManual = await fixture.request(cookie, OWNER_PATH).then((response) => response.json());
+    const visibleId = await page.locator('[data-link-row]').first().getAttribute('data-link-row');
+    const visibleLink = savedBeforeManual.links.find(({ placementId }) => placementId === visibleId);
+    assert.ok(visibleLink);
+    await page.locator(`[data-link-row="${visibleId}"]`).getByRole('button', { name: 'Editar ficha', exact: true }).click();
+    const editor = linkEditForm(page);
+    await editor.getByLabel(/Descripción/).fill('Edición manual después de navegar y recuperar.');
+    await editor.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
+    await expect.poll(() => writesTo(capture, 'PATCH', `/api/creador/enlaces/${visibleId}/editar`)[0]?.status).toBe(200);
+    await capture.settle({ skipErrorBodies: true });
+    assert.equal(writesTo(capture, 'DELETE', removePath).length, 1, 'navigation and checking never replay the removed link');
+    assert.equal((await fixture.rawResource(visibleLink.resourceId)).description, 'Edición manual después de navegar y recuperar.');
+    assert.equal((await fixture.rawOwner(cookie)).profile.version, savedBeforeManual.profile.version + 1,
+      'a distinct manual save persists against the adopted profile version');
+  } finally {
+    transport.writeGate.resolve();
+    transport.read(0).gate.resolve();
+    await page.clock.resume().catch(() => {});
+    await removeClick?.catch(() => {});
+    await checkClick?.catch(() => {});
+    await transport.close();
+    await capture.stop({ skipErrorBodies: true }).catch(() => {});
+  }
+});
+
+test('Enlaces conserva el texto escrito si la búsqueda y la adopción terminan en orden inverso', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const links = [];
+  for (let index = 1; index <= 5; index += 1) {
+    links.push(await addLink(fixture, cookie, {
+      title: `Review next ${index}`,
+      url: `https://phase2-list-adoption.example/${index}`,
+    }));
+  }
+  const target = links[0];
+  await openLinksView(page, fixture, `&buscar=${encodeURIComponent('Review next')}`);
+  const capture = await captureCreatorApi(page, { ignoreReads: true, skipErrorBodies: true });
+  const removePath = `/api/creador/enlaces/${target.placementId}`;
+  const transport = await installListTransport(page, {
+    writeMethod: 'DELETE', writePath: removePath, readResponses: [{ kind: 'actual', hold: true }],
+  });
+  let removeClick;
+  let checkClick;
+  try {
+    await page.clock.install({ time: new Date() });
+    page.once('dialog', (dialog) => dialog.accept());
+    removeClick = page.locator(`[data-link-row="${target.placementId}"]`)
+      .getByRole('button', { name: 'Quitar de tu página', exact: true }).click();
+    await transport.writeArrived.promise;
+    assert.equal(transport.actualWrite.status, 204);
+    assert.equal(await fixture.rawPlacement(cookie, target.placementId), null);
+    transport.writeGate.resolve();
+    await removeClick;
+
+    const recovery = page.locator('[data-owner-list-recovery="links"]');
+    checkClick = recovery.getByRole('button', { name: 'Comprobar', exact: true }).click();
+    assert.equal((await transport.read(0).arrived.promise).status, 200);
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
+    const search = page.locator('#owner-link-search');
+    const pendingSearch = 'Review next 2';
+    await search.fill(pendingSearch);
+    await page.clock.runFor(119);
+    await expect(search).toHaveValue(pendingSearch);
+    await expect(page).toHaveURL((url) => url.searchParams.get('buscar') === 'Review next');
+
+    const replaceStateWrites = await page.evaluateHandle(() => {
+      const writes = [];
+      const replace = history.replaceState;
+      history.replaceState = function (...args) {
+        writes.push(String(args[2]));
+        return replace.apply(this, args);
+      };
+      return writes;
+    });
+    transport.read(0).gate.resolve();
+    await checkClick;
+    await expect(recovery).toHaveCount(0, 'the held actual snapshot is adopted by the explicit list check');
+    const inputAtAdoption = await search.inputValue();
+    assert.equal(inputAtAdoption, pendingSearch, 'adoption keeps the search text already entered before the timer commits');
+    await page.clock.runFor(150);
+    await expect(search).toHaveValue(pendingSearch);
+    await expect(page).toHaveURL((url) => url.searchParams.get('buscar') === pendingSearch);
+    const urlWrites = await replaceStateWrites.jsonValue();
+    assert.equal(new URL(urlWrites.at(-1), page.url()).searchParams.get('buscar'), pendingSearch,
+      'a delayed adoption effect cannot replace the newer URL after the debounce commits');
+    await page.clock.resume();
+
+    const savedBeforeManual = await fixture.request(cookie, OWNER_PATH).then((response) => response.json());
+    const visibleId = await page.locator('[data-link-row]').getAttribute('data-link-row');
+    assert.equal(visibleId, links[1].placementId, 'the final search shows the row selected by the still-current text');
+    await page.locator(`[data-link-row="${visibleId}"]`).getByRole('button', { name: 'Editar ficha', exact: true }).click();
+    const editor = linkEditForm(page);
+    await editor.getByLabel(/Descripción/).fill('Guardado manual después de conservar la búsqueda.');
+    await editor.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
+    await expect.poll(() => writesTo(capture, 'PATCH', `/api/creador/enlaces/${visibleId}/editar`)[0]?.status).toBe(200);
+    await capture.settle({ skipErrorBodies: true });
+    assert.equal(writesTo(capture, 'DELETE', removePath).length, 1, 'the recovery read does not replay the delete');
+    assert.equal((await fixture.rawResource(links[1].resourceId)).description, 'Guardado manual después de conservar la búsqueda.');
+    assert.equal((await fixture.rawOwner(cookie)).profile.version, savedBeforeManual.profile.version + 1,
+      'the explicit edit persists after adoption using the current profile version');
+  } finally {
+    transport.writeGate.resolve();
+    transport.read(0).gate.resolve();
+    await page.clock.resume().catch(() => {});
+    await removeClick?.catch(() => {});
+    await checkClick?.catch(() => {});
+    await transport.close();
+    await capture.stop({ skipErrorBodies: true }).catch(() => {});
+  }
+});
+
 test('Series conserva la búsqueda, pertenencia y página de capítulos durante la recuperación y permite el siguiente alta manual', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
   const series = await createSeries(fixture, cookie, { name: 'Ruta para filtrar capítulos', slug: 'ruta-filtros-capitulos' });
@@ -338,6 +537,8 @@ test('Series conserva la búsqueda, pertenencia y página de capítulos durante 
       'forward history restores the same page-two rows');
     assert.equal(await page.evaluate(() => performance.timeOrigin), timeOrigin);
 
+    await page.evaluate(() => document.querySelector('[data-series-chapter-page]').scrollIntoView({ block: 'center' }));
+    const scrollBeforeAdoption = await page.evaluate(() => scrollY);
     transport.read(0).gate.resolve();
     await checkClick;
     await expect(page.locator('[data-series-reconcile-retry]')).toHaveCount(0);
@@ -348,7 +549,15 @@ test('Series conserva la búsqueda, pertenencia y página de capítulos durante 
     await expect(chapterFilters(page).getByRole('searchbox', { name: 'Buscar en tus enlaces' }))
       .toHaveValue('Phase2 capítulo');
     await expect(chapterFilters(page).getByLabel('Pertenencia')).toHaveValue('disponibles');
-    await expect(chapterFilters(page).getByRole('searchbox', { name: 'Buscar en tus enlaces' })).toBeFocused();
+    const chapterSearch = chapterFilters(page).getByRole('searchbox', { name: 'Buscar en tus enlaces' });
+    await expect(chapterSearch).toBeFocused();
+    const focus = await chapterSearch.evaluate((input) => {
+      const rect = input.getBoundingClientRect();
+      return { top: Math.round(rect.top), bottom: Math.round(rect.bottom), viewport: innerHeight };
+    });
+    assert.ok(focus.top >= 0 && focus.bottom <= focus.viewport,
+      `chapter recovery focus is visible after scrolling: ${JSON.stringify(focus)}`);
+    assert.ok(scrollBeforeAdoption > 0, 'the chapter recovery happened after scrolling down the list');
     await expect(page.locator('[data-chapter-row]')).toHaveCount(4,
       'adoption preserves a still-valid chapter page instead of resetting it');
 

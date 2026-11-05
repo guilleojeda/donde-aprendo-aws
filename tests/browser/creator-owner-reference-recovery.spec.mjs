@@ -259,7 +259,13 @@ for (const outcome of [
         await form.locator('[data-owner-adopt]').click();
         await expect(form.locator('[data-owner-adopt]')).toHaveCount(0,
           'changing B after comparison invalidates that comparison instead of adopting it');
-        await expect(form.locator('[data-owner-compare]')).toBeEnabled();
+        const recheck = form.locator('[data-owner-compare]');
+        await expect(form).toContainText('Tus campos cambiaron después de la comparación. Vuelve a comprobar antes de adoptar.',
+          'the open reference dialog explains why the stale comparison cannot be adopted');
+        await expect(recheck).toBeVisible();
+        await expect(recheck).toBeEnabled();
+        await expect(recheck).toBeFocused();
+        await expect(recheck).toBeInViewport();
         await expect(catalogRadio(page, itemB)).toBeChecked();
         await expect(directory).toBeChecked();
         assert.equal(referenceWrites(capture).length, 1, 'invalidating a comparison performs no reference write');
@@ -335,6 +341,119 @@ for (const outcome of [
     }
   });
 }
+
+test('adoptar A devuelve el foco visible a B en un catálogo largo antes de su guardado manual', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const itemA = catalogEntry('phase6-reference-focus-a', 'Referencia A para foco visible', 'https://phase6.example/reference/focus/a');
+  const itemB = catalogEntry('phase6-reference-focus-b', 'Referencia B con foco visible', 'https://phase6.example/reference/focus/b');
+  const fillers = Array.from({ length: 73 }, (_, index) => catalogEntry(
+    `phase6-reference-focus-filler-${index}`,
+    `Opción larga ${String(index + 1).padStart(2, '0')}`,
+    `https://phase6.example/reference/filler/${index + 1}`,
+  ));
+  const entries = [itemA, ...fillers, itemB];
+  await seedCatalogRecord(fixture, itemA);
+  await seedCatalogRecord(fixture, itemB);
+  const removeIndexRoute = await serveSelectionIndex(page, entries);
+  await openLinksWithManagedHistory(page, fixture);
+  await openCatalog(page);
+  const dialog = page.getByRole('dialog');
+  const form = page.locator('[data-owner-form="referencia"]');
+  const directory = form.getByRole('checkbox', { name: 'Proponer al directorio', exact: true });
+  await catalogRadio(page, itemA).check();
+  const before = await fixture.rawOwner(cookie);
+  const resourceA = await fixture.rawResource(itemA.id);
+  const resourceB = await fixture.rawResource(itemB.id);
+  const capture = await captureCreatorApi(page, { ignoreReads: true, skipErrorBodies: true });
+  const transport = await installReferenceTransport(page, { loseReferenceAcknowledgement: true });
+  let submit;
+  let check;
+  let heldRead;
+
+  try {
+    submit = form.getByRole('button', { name: 'Agregar a mi página', exact: true }).click();
+    const committedA = await transport.writeArrived.promise;
+    assert.equal(committedA.status, 201, 'the actual reference handler commits A before its acknowledgement is lost');
+    transport.writeGate.release();
+    await submit;
+    await capture.settle({ skipErrorBodies: true });
+    assert.equal(referenceWrites(capture).length, 1);
+    assert.equal(referenceWrites(capture)[0].status, 503);
+
+    heldRead = transport.holdNextRead();
+    check = form.locator('[data-owner-compare]').click();
+    const observed = await heldRead.arrived.promise;
+    assert.equal(observed.status, 200);
+    assert.equal(observed.body.links.filter(({ resourceId }) => resourceId === itemA.id).length, 1,
+      'the comparison reads the actual saved A');
+
+    await page.locator('[data-catalog-page="next"]').click();
+    await page.locator('[data-catalog-page="next"]').click();
+    await expect(dialog.locator('[data-catalog-page-label]')).toHaveText('Página 3 de 3');
+    const pendingB = catalogRadio(page, itemB);
+    await pendingB.scrollIntoViewIfNeeded();
+    await pendingB.check();
+    await directory.uncheck();
+    const results = dialog.locator('[data-catalog-results]');
+    const scrolledBeforeAdoption = await results.evaluate((element) => element.scrollTop);
+    assert.ok(scrolledBeforeAdoption > 0, 'B was selected near the bottom of the long, internally scrolled catalog');
+    await page.locator('[data-catalog-page="previous"]').click();
+    await page.locator('[data-catalog-page="previous"]').click();
+    await expect(dialog.locator('[data-catalog-page-label]')).toHaveText('Página 1 de 3');
+    await expect(catalogRadio(page, itemB)).toHaveCount(0,
+      'the retained B is intentionally off-page when the saved A is adopted');
+
+    heldRead.gate.release();
+    await check;
+    await expect(form.locator('[data-owner-comparison]')).toBeVisible();
+    await form.locator('[data-owner-adopt]').click();
+    await expect(catalogRadio(page, itemB)).toHaveCount(0);
+    await expect(directory).toBeFocused();
+    await expect(directory).toBeVisible();
+    await expect(directory).toBeInViewport();
+    const visibleFocus = await directory.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return { active: document.activeElement === element, top: rect.top, bottom: rect.bottom, height: window.innerHeight };
+    });
+    assert.equal(visibleFocus.active, true);
+    assert.ok(visibleFocus.top >= 0 && visibleFocus.bottom <= visibleFocus.height,
+      'the retained directory choice stays inside the viewport after recovery adoption');
+    assert.equal(referenceWrites(capture).length, 1, 'adopting the saved A does not submit B');
+    await expect(directory).not.toBeChecked();
+
+    await page.locator('[data-catalog-page="next"]').click();
+    await page.locator('[data-catalog-page="next"]').click();
+    await expect(catalogRadio(page, itemB)).toBeChecked();
+    await directory.focus();
+    await addManuallySelectedB(page, capture, itemB);
+    await capture.settle({ skipErrorBodies: true });
+    const writes = referenceWrites(capture);
+    assert.equal(writes.length, 2);
+    assert.deepEqual(writes.map(({ body }) => body.resourceId), [itemA.id, itemB.id]);
+    assert.deepEqual(writes[1].body, {
+      resourceId: itemB.id,
+      url: itemB.url,
+      profileVersion: before.profile.version + 1,
+      selectedForDirectory: false,
+    });
+    const final = await freshOwner(fixture, cookie);
+    assert.equal(final.profile.version, before.profile.version + 2);
+    assert.equal(final.links.filter(({ resourceId }) => resourceId === itemA.id).length, 1);
+    assert.deepEqual(final.links.filter(({ resourceId }) => resourceId === itemB.id).map(({ url, selectedForDirectory }) => ({ url, selectedForDirectory })), [
+      { url: itemB.url, selectedForDirectory: false },
+    ]);
+    assert.deepEqual(await fixture.rawResource(itemA.id), resourceA);
+    assert.deepEqual(await fixture.rawResource(itemB.id), resourceB);
+  } finally {
+    transport.writeGate.release();
+    heldRead?.gate.release();
+    await submit?.catch(() => {});
+    await check?.catch(() => {});
+    await transport.close();
+    await capture.stop({ skipErrorBodies: true }).catch(() => {});
+    await removeIndexRoute();
+  }
+});
 
 test('Referencia A recuperada continúa con una corrección manual de opciones y enfoca el control habilitado', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);

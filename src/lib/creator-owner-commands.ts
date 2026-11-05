@@ -14,8 +14,8 @@ import {
   type CreatorOwnerReceiptParticipant,
 } from '../scripts/creator-write-state';
 import {
+  classifyCreatorSessionCheck,
   creatorSessionRecoveryReason,
-  readCreatorSessionResponse,
 } from './creator-session-response';
 import {
   type CreatorOwnerComparison,
@@ -40,7 +40,8 @@ export type CreatorOwnerCommandOutcome =
   | { kind: 'uncertain'; message: string; code?: string }
   | { kind: 'conflict'; message: string; code?: string }
   | { kind: 'rejected'; message: string; code?: string; viablePosition?: number }
-  | { kind: 'session'; reason: 'expired' | 'csrf'; message: string };
+  | { kind: 'session'; reason: 'expired' | 'csrf' | 'different-principal'; message: string }
+  | { kind: 'session-blocked'; reason: 'invalid-context'; message: string };
 
 export function creatorOwnerWriteIntent(id: string, capture: CreatorOwnerEditor | CreatorOwnerLinkEditor | CreatorOwnerListContext): CreatorOwnerWriteIntent {
   const kind: CreatorOwnerWriteIntent['kind'] = capture.kind === 'list-command'
@@ -667,10 +668,15 @@ export async function interpretCreatorOwnerResponse(
   observed: CreatorEditorDTO,
 ): Promise<CreatorOwnerCommandOutcome> {
   const payload = await responseObject(response);
-  const recoveryReason = creatorSessionRecoveryReason(response.status, await readCreatorSessionResponse(response));
+  const recoveryReason = creatorSessionRecoveryReason(response.status, payload ?? null);
   if (recoveryReason) return { kind: 'session', reason: recoveryReason, message: recoveryReason === 'expired'
     ? 'La sesión terminó. Ingresa con la misma cuenta en otra pestaña y comprueba la sesión antes de volver a guardar.'
     : 'La sesión cambió. Comprueba la sesión antes de volver a intentar; conservamos tus cambios.' };
+  const sessionCheck = classifyCreatorSessionCheck(response.status, payload ?? null);
+  if (sessionCheck.state === 'context-changed') return { kind: 'session', reason: 'different-principal',
+    message: 'La cuenta o el rol activo no coincide con esta página. Comprueba la sesión; conservamos tus cambios.' };
+  if (sessionCheck.state === 'invalid-context') return { kind: 'session-blocked', reason: 'invalid-context',
+    message: 'El contexto de esta página no es válido. Conservamos tus cambios; abre una página nueva con la cuenta original.' };
   if (!response.ok) {
     const code = payload?.error;
     if (response.status === 503 && code === 'ORDER_MOVE_CALCULATION_UNAVAILABLE') {
@@ -706,10 +712,15 @@ export async function interpretCreatorOwnerPhotoFinalize(
   uploadId: string,
 ): Promise<CreatorOwnerCommandOutcome> {
   const payload = await responseObject(response);
-  const recoveryReason = creatorSessionRecoveryReason(response.status, await readCreatorSessionResponse(response));
+  const recoveryReason = creatorSessionRecoveryReason(response.status, payload ?? null);
   if (recoveryReason) return { kind: 'session', reason: recoveryReason, message: recoveryReason === 'expired'
     ? 'La sesión terminó. Ingresa con la misma cuenta en otra pestaña y comprueba la sesión antes de volver a guardar.'
     : 'La sesión cambió. Comprueba la sesión antes de volver a intentar; conservamos el archivo elegido.' };
+  const sessionCheck = classifyCreatorSessionCheck(response.status, payload ?? null);
+  if (sessionCheck.state === 'context-changed') return { kind: 'session', reason: 'different-principal',
+    message: 'La cuenta o el rol activo no coincide con esta página. Comprueba la sesión; conservamos el archivo elegido.' };
+  if (sessionCheck.state === 'invalid-context') return { kind: 'session-blocked', reason: 'invalid-context',
+    message: 'El contexto de esta página no es válido. Conservamos el archivo elegido; abre una página nueva con la cuenta original.' };
   if (!response.ok) {
     if (response.status === 409) return { kind: 'conflict', message: 'El perfil cambió mientras se guardaba la foto. Comprueba cuál quedó activa antes de volver a cargar.' };
     if (response.status === 408 || response.status >= 500) return { kind: 'uncertain', message: 'No pudimos confirmar si la foto se guardó. Comprueba cuál quedó activa antes de volver a cargar.' };

@@ -1,4 +1,7 @@
-import { creatorPageSessionBinding, isCreatorPageSessionBinding } from './creator-session-context.mjs';
+import {
+  creatorPageSessionBinding,
+  creatorPageSessionBindingFailure,
+} from './creator-session-context.mjs';
 
 const PRIVATE_HEADERS = {
   'content-type': 'application/json; charset=utf-8',
@@ -43,12 +46,10 @@ async function creatorSessionContext(request, auth) {
   }
 
   const requestedBinding = request.headers.get('x-creator-page-binding');
-  if (!isCreatorPageSessionBinding(requestedBinding)) {
-    return sessionJson({ error: 'INVALID_CONTEXT' }, 422);
-  }
-  if (requestedBinding !== currentBinding) {
-    return sessionJson({ error: 'SESSION_CONTEXT_CHANGED' }, 409);
-  }
+  const bindingFailure = requestedBinding === null
+    ? { status: 422, error: 'INVALID_CONTEXT' }
+    : creatorPageSessionBindingFailure(requestedBinding, currentBinding);
+  if (bindingFailure) return sessionJson({ error: bindingFailure.error }, bindingFailure.status);
 
   return sessionJson({ csrfToken: principal.csrfToken });
 }
@@ -106,6 +107,11 @@ export function createCreatorHttpHandler({ service, photos, auth, store, origin 
       if (request.headers.get('origin') !== origin || request.headers.get('x-csrf-token') !== principal.csrfToken) {
         return json({ error: 'CSRF_REJECTED' }, 403);
       }
+      const requestedBinding = request.headers.get('x-creator-page-binding');
+      const bindingFailure = requestedBinding === null
+        ? undefined
+        : creatorPageSessionBindingFailure(requestedBinding, creatorPageSessionBinding(principal));
+      if (bindingFailure) return json({ error: bindingFailure.error }, bindingFailure.status);
       const body = await smallJson(request);
       const allowed = pathname.endsWith('/autorizar') ? ['version'] : ['version', 'uploadId'];
       if (!body || Object.keys(body).some((key) => !allowed.includes(key))

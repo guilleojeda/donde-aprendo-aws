@@ -1,10 +1,13 @@
 import { createHash } from 'node:crypto';
 import { isCatalogResourceIdWithinLimit, projectPublicRecord, validateCatalogUrl } from './catalog.mjs';
-import { currentUrlKey, currentUrlReservationId } from './catalog-url.mjs';
+import { currentUrlCollision, currentUrlKey, currentUrlReservation, currentUrlReservationId } from './catalog-url.mjs';
 import { normalizeCreatorText } from './creator-values.mjs';
 import { dynamoDbNumberSize } from './creator-dynamodb-size.mjs';
 import { createOrderCalculationBudget, OrderCalculationUnavailableError, solveIntegerOrder } from './creator-order.mjs';
-import { creatorPageSessionBinding, isCreatorPageSessionBinding } from './creator-session-context.mjs';
+import {
+  creatorPageSessionBinding,
+  creatorPageSessionBindingFailure,
+} from './creator-session-context.mjs';
 
 const PROGRAMS = new Set(['User Group Leaders', 'Community Builders', 'Heroes']);
 const SOCIALS = new Set(['instagram', 'x', 'linkedin', 'awsBuilder', 'website']);
@@ -527,6 +530,16 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     if (request.headers.get('origin') !== origin || request.headers.get('x-csrf-token') !== principal.csrfToken) {
       fail(403, 'CSRF_REJECTED', 'request origin or CSRF token is invalid');
     }
+    if (new URL(request.url).pathname.startsWith('/api/creador/')) {
+      const requestedBinding = request.headers.get('x-creator-page-binding');
+      const bindingFailure = requestedBinding === null
+        ? undefined
+        : creatorPageSessionBindingFailure(requestedBinding, creatorPageSessionBinding(principal));
+      if (bindingFailure) {
+        fail(bindingFailure.status, bindingFailure.error, bindingFailure.error === 'INVALID_CONTEXT'
+          ? 'creator page context is invalid' : 'creator page session context changed');
+      }
+    }
   }
 
   function requireMethod(request, method) {
@@ -693,14 +706,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       fail(409, 'URL_TAKEN', 'another resource already uses this URL');
     }
 
-    const nextReservationRecord = {
-      id: currentUrlReservationId(nextUrl),
-      recordType: 'urlReservation',
-      url: nextUrl,
-      status: 'reserved',
-      resourceId: resource.id,
-      version: 1,
-    };
+    const nextReservationRecord = currentUrlReservation(nextUrl, resource.id);
     const checks = [resourceCheck];
     if (reservation) checks.push(urlReservationCheck(nextKey, reservation));
     else checks.push({ key: nextKey, version: null });
@@ -714,24 +720,10 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
       if (previousReservation.status === 'reserved') {
         if (previousReservation.resourceId === resource.id) deletes.push(previousKey);
       } else if (previousReservation.resourceIds.includes(resource.id)) {
-        const remainingIds = previousReservation.resourceIds.filter((id) => id !== resource.id).sort();
+        const remainingIds = previousReservation.resourceIds.filter((id) => id !== resource.id);
         const remaining = remainingIds.length === 1
-          ? {
-            id: currentUrlReservationId(oldUrl),
-            recordType: 'urlReservation',
-            url: oldUrl,
-            status: 'reserved',
-            resourceId: remainingIds[0],
-            version: 1,
-          }
-          : {
-            id: currentUrlReservationId(oldUrl),
-            recordType: 'urlReservation',
-            url: oldUrl,
-            status: 'collision',
-            resourceIds: remainingIds,
-            version: 1,
-          };
+          ? currentUrlReservation(oldUrl, remainingIds[0])
+          : currentUrlCollision(oldUrl, remainingIds);
         puts.push({ key: previousKey, value: remaining });
       }
     }
@@ -1427,6 +1419,42 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     };
   }
 
+  async function attachReservedUrl(profile, url, reservation, {
+    selectedForDirectory = true,
+    onStaleObservation = 'unavailable',
+  } = {}) {
+    const failStaleObservation = () => {
+      if (onStaleObservation === 'conflict') {
+        fail(409, 'URL_CONFLICT', 'URL or profile changed while adding');
+      }
+      fail(503, 'URL_INDEX_MISMATCH', 'URL reservation is malformed or no longer matches its resource');
+    };
+    if (!isValidUrlReservation(reservation, url, { allowOverLimitUniqueId: true })) {
+      failStaleObservation();
+    }
+    if (reservation.status === 'collision') {
+      if (onStaleObservation === 'conflict') {
+        fail(409, 'URL_CONFLICT', 'URL or profile changed while adding');
+      }
+      fail(409, 'URL_COLLISION', 'this URL needs administrative review');
+    }
+
+    requireCatalogResourceIdWithinLimit(reservation.resourceId);
+    const resource = await store.get(`resource:${reservation.resourceId}`);
+    if (!resource || resource.id !== reservation.resourceId || !isCatalogResource(resource)
+      || currentResourceUrl(resource) !== url) {
+      failStaleObservation();
+    }
+    const key = currentUrlKey(url);
+    return attachExistingResource(profile, resource, {
+      selectedForDirectory,
+      checks: [
+        urlReservationCheck(key, reservation),
+        { key: `resource:${resource.id}`, version: resource.version ?? 0 },
+      ],
+    });
+  }
+
   async function readdEditableResource(principal, body) {
     for (const field of Object.keys(body)) {
       if (field !== 'resourceId' && field !== 'resourceVersion') {
@@ -1542,22 +1570,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     const key = currentUrlKey(url);
     const reservation = await store.get(key);
     if (reservation) {
-      if (!isValidUrlReservation(reservation, url, { allowOverLimitUniqueId: true })) {
-        fail(503, 'URL_INDEX_MISMATCH', 'URL reservation is malformed');
-      }
-      if (reservation.status === 'collision') fail(409, 'URL_COLLISION', 'this URL needs administrative review');
-      requireCatalogResourceIdWithinLimit(reservation.resourceId);
-      const resource = await store.get(`resource:${reservation.resourceId}`);
-      if (!resource || resource.id !== reservation.resourceId || !isCatalogResource(resource) || currentResourceUrl(resource) !== url) {
-        fail(503, 'URL_INDEX_MISMATCH', 'URL reservation does not match the current resource');
-      }
-      return attachExistingResource(profile, resource, {
-        selectedForDirectory,
-        checks: [
-          urlReservationCheck(key, reservation),
-          { key: `resource:${resource.id}`, version: resource.version ?? 0 },
-        ],
-      });
+      return attachReservedUrl(profile, url, reservation, { selectedForDirectory });
     }
 
     const resourceId = `resource-${newId()}`;
@@ -1594,7 +1607,7 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
         { key: editorKey(profile.id, resourceId), version: null },
       ],
       puts: [
-        { key, value: { id: `__url#${hash(url)}`, recordType: 'urlReservation', url, status: 'reserved', resourceId, version: 1 } },
+        { key, value: currentUrlReservation(url, resourceId) },
         { key: `resource:${resourceId}`, value: resource },
         { key: profileKey(profile.id), value: updatedProfile },
         { key: placementKey(profile.id, stableId), value: placement },
@@ -1603,10 +1616,13 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     });
     if (!ok) {
       const latestReservation = await store.get(key);
-      if (latestReservation?.url === url && latestReservation.status === 'reserved' && typeof latestReservation.resourceId === 'string') {
-        return addLink(principal, body);
+      if (!latestReservation) {
+        fail(409, 'URL_CONFLICT', 'URL or profile changed while adding');
       }
-      fail(409, 'URL_CONFLICT', 'URL or profile changed while adding');
+      return attachReservedUrl(profile, url, latestReservation, {
+        selectedForDirectory,
+        onStaleObservation: 'conflict',
+      });
     }
     return {
       link, created: true,
@@ -2628,13 +2644,12 @@ export function createCreatorPagesService({ store, authenticate, origin, now = D
     if (path === '/api/creador/perfil') {
       if (request.method === 'GET') {
         const requestedBinding = request.headers.get('x-creator-page-binding');
-        if (requestedBinding !== null) {
-          if (!isCreatorPageSessionBinding(requestedBinding)) {
-            fail(422, 'INVALID_CONTEXT', 'creator page context is invalid');
-          }
-          if (requestedBinding !== creatorPageSessionBinding(principal)) {
-            fail(409, 'SESSION_CONTEXT_CHANGED', 'creator page session context changed');
-          }
+        const bindingFailure = requestedBinding === null
+          ? undefined
+          : creatorPageSessionBindingFailure(requestedBinding, creatorPageSessionBinding(principal));
+        if (bindingFailure) {
+          fail(bindingFailure.status, bindingFailure.error, bindingFailure.error === 'INVALID_CONTEXT'
+            ? 'creator page context is invalid' : 'creator page session context changed');
         }
         return jsonResponse(await creatorEditor(principal));
       }

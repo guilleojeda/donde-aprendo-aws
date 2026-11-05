@@ -124,6 +124,8 @@ test('session response parsing clones JSON and classifies recovery without chang
   assert.equal(sessionResponse.creatorSessionRecoveryReason(403, { error: 'ACCOUNT_DISABLED' }), undefined);
   assert.deepEqual(sessionResponse.classifyCreatorSessionCheck(409, { error: 'SESSION_CONTEXT_CHANGED' }), { state: 'context-changed' });
   assert.deepEqual(sessionResponse.classifyCreatorSessionCheck(422, { error: 'INVALID_CONTEXT' }), { state: 'invalid-context' });
+  assert.deepEqual(sessionResponse.classifyCreatorSessionCheck(409, { error: 'PROFILE_CONFLICT' }), { state: 'unavailable' });
+  assert.deepEqual(sessionResponse.classifyCreatorSessionCheck(422, { error: 'INVALID_PHOTO' }), { state: 'unavailable' });
   assert.deepEqual(sessionResponse.classifyCreatorSessionCheck(403, { error: 'ACCOUNT_DISABLED' }), { state: 'disabled' });
   assert.deepEqual(sessionResponse.classifyCreatorSessionCheck(503, null), { state: 'unavailable' });
 });

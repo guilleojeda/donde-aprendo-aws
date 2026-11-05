@@ -384,7 +384,7 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
         <p>Busca por título o URL y agrega una ficha existente. Esto crea una referencia; no concede permiso para editarla.</p>
         <CatalogPicker state={state} mode="reference" selected={editor.selected ? [editor.selected.id] : []} onSearch={onCatalogSearch} onPage={onCatalogPage} onRetry={onCatalogRetry}
           onSelect={(item, checked) => onUpdateReference({ selected: checked ? item : undefined })} />
-        {editor.selected && <label class="creator-owner__link-checkbox creator-owner__catalog-directory"><input type="checkbox" name="selectedForDirectory" checked={editor.selectedForDirectory} onChange={(event) => onUpdateReference({ selectedForDirectory: event.currentTarget.checked })} /><span>Proponer al directorio</span></label>}
+        {editor.selected && <label class="creator-owner__link-checkbox creator-owner__catalog-directory"><input id="owner-link-directory-option" type="checkbox" name="selectedForDirectory" checked={editor.selectedForDirectory} onChange={(event) => onUpdateReference({ selectedForDirectory: event.currentTarget.checked })} /><span>Proponer al directorio</span></label>}
         {editor.selected && <details class="creator-owner__link-help"><summary>Sobre el directorio</summary><p>La propuesta requiere aprobación. Agregar una referencia no concede permiso para editar la ficha compartida.</p></details>}
         <p class="creator-owner__status" data-catalog-status role="status" aria-live="polite">{statusText || state.catalog.message}</p>
         {attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict' || checking) && <Recovery state={state} editor={editor} rows={rows} canAdopt={canAdopt} onCheck={onCheck} onAdopt={onAdopt} />}
@@ -417,7 +417,7 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
             onClick={() => onAdopt(state.attempt.status === 'uncertain' ? state.attempt.comparison?.id ?? '' : '')}>
             {promptListAttempt ? 'Usar la lista guardada' : editor ? adoptLabel(editor) : 'Usar los datos guardados'}
           </button>}
-          {(state.attempt.status === 'uncertain' || state.attempt.status === 'conflict') && !state.attempt.comparison && <button class="button button--outline" type="button" data-owner-compare onClick={onCheck}>{editor ? recoveryActionLabel(editor, state.attempt.status) : 'Comprobar'}</button>}
+          {(state.attempt.status === 'uncertain' || state.attempt.status === 'conflict') && !state.attempt.comparison && <button id="owner-exit-compare" class="button button--outline" type="button" data-owner-compare onClick={onCheck}>{editor ? recoveryActionLabel(editor, state.attempt.status) : 'Comprobar'}</button>}
           {state.attempt.status === 'checking' && <p role="status" aria-live="polite">Comprobando…</p>}
         </section>}
         <div class="creator-owner__dialog-actions">
@@ -456,7 +456,7 @@ function Recovery({ state, editor, rows, canAdopt, onCheck, onAdopt }: {
       {canAdopt && <button class="button button--outline" type="button" data-owner-adopt onClick={() => onAdopt(comparison.id)}>{comparisonActionLabel}</button>}
       <button class="button button--outline" type="button" data-owner-compare onClick={onCheck}>Comparar con lo guardado</button>
     </>}
-    {!comparison && <button class="button button--outline" type="button" data-owner-compare disabled={attempt.status === 'checking'} onClick={onCheck}>{attempt.status === 'checking' ? 'Comprobando…' : recoveryActionLabel(editor, attempt.status)}</button>}
+    {!comparison && <button id="owner-compare" class="button button--outline" type="button" data-owner-compare disabled={attempt.status === 'checking'} onClick={onCheck}>{attempt.status === 'checking' ? 'Comprobando…' : recoveryActionLabel(editor, attempt.status)}</button>}
   </section>;
 }
 
@@ -496,7 +496,8 @@ function CatalogPicker({ state, mode, selected, onSearch, onPage, onRetry, onSel
       <ul class="creator-owner__catalog-results" data-catalog-results aria-label="Resultados del catálogo" tabIndex={-1} ref={resultsRef}>
         {rows.map((item) => <li class="creator-owner__catalog-row" data-catalog-row={item.id} key={item.id}>
           <label><input type={mode === 'reference' ? 'radio' : 'checkbox'} name={mode === 'reference' ? 'catalogReference' : undefined}
-            data-catalog-select data-resource-id={item.id} checked={selected.includes(item.id)} aria-label={`${mode === 'claim' ? 'Solicitar edición de' : 'Seleccionar'} ${item.title}`}
+            data-catalog-select data-resource-id={item.id} checked={selected.includes(item.id)}
+            aria-label={`${mode === 'claim' ? 'Solicitar edición de' : 'Seleccionar'} ${item.title}`}
             onChange={(event) => onSelect(item, event.currentTarget.checked)} />
             <span class="creator-owner__catalog-item"><strong>{item.title}</strong><span>{item.url}</span></span>
           </label>
