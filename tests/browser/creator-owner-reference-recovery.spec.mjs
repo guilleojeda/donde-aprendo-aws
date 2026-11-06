@@ -1246,8 +1246,13 @@ test('retirar y reincorporar tras una referencia confirmada usa la versión vige
   }
 });
 
-for (const removalTiming of ['before the request', 'during the transaction']) {
-  test(`reference options removed ${removalTiming} compare, then permit a separate manual reference`, async ({ fixture, page }) => {
+for (const { removalTiming, guarded } of [
+  { removalTiming: 'before the request', guarded: false },
+  { removalTiming: 'before the request', guarded: true },
+  { removalTiming: 'during the transaction', guarded: false },
+  { removalTiming: 'during the transaction', guarded: true },
+]) {
+  test(`reference options removed ${removalTiming} permit a separate manual reference (${guarded ? 'guarded Back' : 'editor'})`, async ({ fixture, page }) => {
     const cookie = await loggedInOwner(fixture, page);
     const itemA = catalogEntry('phase9-removed-reference-a', 'Referencia A retirada', 'https://phase9.example/removed/a');
     const itemB = catalogEntry('phase9-manual-reference-b', 'Referencia B manual', 'https://phase9.example/manual/b');
@@ -1304,11 +1309,19 @@ for (const removalTiming of ['before the request', 'during the transaction']) {
       const afterRemoval = await freshOwner(fixture, cookie);
       assert.equal(afterRemoval.profile.version, initial.profile.version + 1);
       assert.equal(afterRemoval.links.some(({ resourceId }) => resourceId === itemA.id), false);
-      await expect(options.locator('[data-owner-compare]')).toBeVisible();
-      await options.locator('[data-owner-compare]').click();
-      await expect(options.locator('[data-owner-comparison]')).toContainText('La colocación ya no está en tu página');
-      await expect(options.locator('[data-owner-adopt]')).toBeEnabled();
-      await options.locator('[data-owner-adopt]').click();
+      const originalUrl = page.url();
+      const pendingBack = guarded ? page.goBack() : undefined;
+      const exit = page.locator('[data-owner-exit-prompt]');
+      const recovery = guarded ? exit : options;
+      await expect(recovery.locator('[data-owner-compare]')).toBeVisible();
+      await recovery.locator('[data-owner-compare]').click();
+      await expect(recovery).toContainText('La colocación ya no está en tu página');
+      await expect(recovery.locator('[data-owner-adopt]')).toBeEnabled();
+      await recovery.locator('[data-owner-adopt]').click();
+      await pendingBack;
+      await expect(exit).toHaveCount(0);
+      await expect(page).toHaveURL(originalUrl);
+      assert.deepEqual(await freshOwner(fixture, cookie), afterRemoval, 'adoption leaves the removed placement absent');
 
       const nextReference = page.locator('[data-owner-dialog] form[data-owner-form="referencia"]');
       await expect(nextReference).toBeVisible();
@@ -1334,6 +1347,7 @@ for (const removalTiming of ['before the request', 'during the transaction']) {
       assert.equal(final.editableResources.some(({ id }) => id === itemA.id), true,
         'the saved removal preserves the exact existing edit authority');
       assert.equal(referenceWrites(capture).length, 2, 'only the original no-op and the separately chosen B reference were submitted');
+      await expect(page).toHaveURL(originalUrl);
     } finally {
       store.transact = transact;
       transport.writeGate.release();

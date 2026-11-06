@@ -32,6 +32,7 @@ import {
   type CreatorOwnerSessionPolicyState,
   type CreatorOwnerEditor,
   type CreatorOwnerListContext,
+  type CreatorOwnerLocation,
   type CreatorOwnerState,
   type CreatorOwnerView,
 } from '../../lib/creator-owner-state';
@@ -207,7 +208,8 @@ export default function CreatorOwnerApp(props: Props) {
   const claimHistorySequenceRef = useRef(0);
   const sessionPolicyRef = useRef<CreatorOwnerSessionPolicyState>({ session: state.session, sessionEvidence: state.sessionEvidence });
   const sessionOperationIdRef = useRef(0);
-  const initialCreateInvalidFocusRef = useRef(false);
+  // requestSubmit dispatches submit synchronously, and only after native validation.
+  const exitSubmitTransitionRef = useRef<CreatorOwnerLocation['transition']>(undefined);
   const linksHydrationAppliedRef = useRef(false);
   const handledTransitionRef = useRef<string | undefined>(undefined);
   const previousEditorKeyRef = useRef<string | undefined>(undefined);
@@ -322,14 +324,23 @@ export default function CreatorOwnerApp(props: Props) {
     const { query, linksQuery } = stateRef.current.location;
     if (destination.view === 'enlaces') return linkFocus ?? (destination.query.paginaEnlaces !== linksQuery.paginaEnlaces
       ? '#owner-link-pagination' : '#owner-link-search');
-    if (!destination.query.serie) return '#owner-series-search';
-    return destination.query.serie === query.serie ? '#owner-chapter-search' : '#owner-series-chapters-title';
+    if (!destination.query.serie) return destination.query.paginaSeries !== query.paginaSeries
+      ? '[data-series-page]:last-of-type' : '#owner-series-search';
+    if (destination.query.serie !== query.serie) return '#owner-series-chapters-title';
+    return destination.query.paginaCapitulos !== query.paginaCapitulos
+      ? '[data-series-chapter-page]:last-of-type' : '#owner-chapter-search';
   }
 
-  function navigateOwner(url: URL, kind: 'anchor' | 'form', linkFocus?: string): boolean {
-    const destination = resolveDestination(url);
-    if (!isListDisplayQueryTransition(destination) && blockForExit({ href: url.href, kind })) return true;
-    return destination ? commitDestination(destination, 'push', queryFocus(destination, linkFocus)) : false;
+  function navigateOwner(url: URL, kind: 'anchor' | 'form', linkFocus?: string,
+    options: { preserveNativeSkip?: boolean } = {}): boolean {
+    const target = new URL(url.href);
+    const keepNativeSkipEntry = kind === 'form' && options.preserveNativeSkip === true && hasNativeSkipFocus()
+      && target.origin === window.location.origin && target.pathname === window.location.pathname;
+    if (keepNativeSkipEntry) target.hash = window.location.hash;
+    const destination = resolveDestination(target);
+    if (!isListDisplayQueryTransition(destination) && blockForExit({ href: target.href, kind })) return true;
+    return destination ? commitDestination(destination, keepNativeSkipEntry ? 'replace' : 'push',
+      keepNativeSkipEntry ? undefined : queryFocus(destination, linkFocus)) : false;
   }
 
   const currentProfile = state.observed.profile;
@@ -391,6 +402,7 @@ export default function CreatorOwnerApp(props: Props) {
         handledTransitionRef.current = undefined;
       }
       const fragmentOnly = isSameDocumentFragmentTransition(historyHrefRef.current, href);
+      const nativeSkipDestination = new URL(href).hash === '#contenido';
       if (!allowed && !fragmentOnly && !isListDisplayQueryTransition(destination)) {
         const currentIndex = historyIndexRef.current;
         // Only two indexed entries give us a known traversal distance.
@@ -401,7 +413,9 @@ export default function CreatorOwnerApp(props: Props) {
           return;
         }
       }
-      commitDestination(destination, 'traverse', !fragmentOnly && destination ? queryFocus(destination) : undefined, fragmentOnly);
+      const focus = fragmentOnly || !destination ? undefined
+        : nativeSkipDestination ? '#contenido' : queryFocus(destination);
+      commitDestination(destination, 'traverse', focus, fragmentOnly);
       if (fragmentOnly) settlePendingLinksSearch();
       if (allowed) dispatch({ type: 'set-transition' });
     };
@@ -490,7 +504,11 @@ export default function CreatorOwnerApp(props: Props) {
       }
       const revealDialogRecoveryFocus = Boolean(latestTarget.closest('[data-owner-dialog]'));
       latestTarget.focus({ preventScroll: true });
-      if (revealListRecoveryFocus || revealDialogRecoveryFocus) {
+      const revealPagerFocus = selector === '#owner-link-pagination'
+        || selector === '[data-series-page]:last-of-type'
+        || selector === '[data-series-chapter-page]:last-of-type';
+      const revealNativeSkipFocus = selector === '#contenido';
+      if (revealListRecoveryFocus || revealDialogRecoveryFocus || revealPagerFocus || revealNativeSkipFocus) {
         latestTarget.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
       }
       if (revealListRecoveryFocus) revealFocusAfterListAdoptionRef.current = false;
@@ -507,29 +525,6 @@ export default function CreatorOwnerApp(props: Props) {
     }
     focusTarget();
   }, [state.location.focusAfterRender, state.attempt, state.location.prompt]);
-
-  useEffect(() => {
-    if (!initialCreateInvalidFocusRef.current || state.location.prompt !== 'none' || state.editor?.kind !== 'create-profile') return;
-    const form = rootRef.current?.querySelector<HTMLFormElement>('[data-owner-form="crear"]');
-    const invalid = form?.querySelector<HTMLElement>(':invalid');
-    if (!form || !invalid) {
-      initialCreateInvalidFocusRef.current = false;
-      return;
-    }
-    initialCreateInvalidFocusRef.current = false;
-    const focusInvalid = () => {
-      if (stateRef.current.location.prompt !== 'none' || stateRef.current.editor?.kind !== 'create-profile'
-        || !invalid.isConnected || form.checkValidity()) return;
-      invalid.focus({ preventScroll: true });
-      form.reportValidity();
-    };
-    const dialog = rootRef.current?.querySelector<HTMLDialogElement>('[data-owner-dialog]');
-    if (dialog?.open) {
-      dialog.addEventListener('close', focusInvalid, { once: true });
-      return () => dialog.removeEventListener('close', focusInvalid);
-    }
-    focusInvalid();
-  }, [state.location.prompt, state.editor?.key]);
 
   useEffect(() => {
     const editorKey = state.editor?.key;
@@ -633,9 +628,10 @@ export default function CreatorOwnerApp(props: Props) {
     }, 120);
   }
 
-  function onLinksQueryChange(query: CreatorOwnerLinksQuery, focusSelector: string) {
+  function onLinksQueryChange(query: CreatorOwnerLinksQuery, focusSelector: string,
+    options: { preserveNativeSkip?: boolean } = {}) {
     const url = new URL(creatorOwnerLinksHref(query), window.location.href);
-    navigateOwner(url, 'form', focusSelector);
+    navigateOwner(url, 'form', focusSelector, options);
   }
 
   function onLinksQuerySubmit(query: CreatorOwnerLinksQuery) {
@@ -653,7 +649,7 @@ export default function CreatorOwnerApp(props: Props) {
       const focus = pending.serie !== current.serie ? '#owner-link-series'
         : pending.directorio !== current.directorio ? '#owner-link-directory'
           : pending.destacado !== current.destacado ? '#owner-link-featured' : '#owner-link-order';
-      onLinksQueryChange({ ...pending, paginaEnlaces: 1 }, focus);
+      onLinksQueryChange({ ...pending, paginaEnlaces: 1 }, focus, { preserveNativeSkip: true });
     } else if (pending.buscar !== current.buscar) onLinkSearch(pending.buscar);
   }, [state.runtimeReady, state.location.view]);
 
@@ -737,6 +733,17 @@ export default function CreatorOwnerApp(props: Props) {
         && current.attempt.intent.kind === 'claim' && current.editor?.kind === 'claim'
         && current.editor.key === current.attempt.intent.editorKey;
     };
+    const failWithSessionEvidence = (
+      outcome: 'recoverable' | 'terminal',
+      reason: 'expired' | 'csrf' | 'different-principal' | 'disabled' | 'invalid-context',
+      message: string,
+    ) => {
+      const accepted = recordSessionEvidence({ type: 'session-evidence', operationId, source: evidenceSource, outcome, reason, message });
+      const feedback = accepted ? message : STALE_CREATOR_READ_MESSAGE;
+      if (options) dispatch({ type: 'check-failed', intentId: options.intentId, checkId: options.checkId, message: feedback });
+      dispatch({ type: 'claim-history-failed', sequence, message: feedback, ...(accepted ? { sessionDerived: true } : {}) });
+      return false;
+    };
     try {
       const response = await fetch('/api/creador/perfil/', { method: 'GET', credentials: 'same-origin', cache: 'no-store',
         headers: { 'x-creator-page-binding': binding, accept: 'application/json' } });
@@ -750,44 +757,18 @@ export default function CreatorOwnerApp(props: Props) {
       const recoveryReason = creatorSessionRecoveryReason(response.status, session);
       if (recoveryReason) {
         const message = loginRecoveryMessage(recoveryReason);
-        if (options) dispatch({ type: 'check-failed', intentId: options.intentId, checkId: options.checkId, message });
-        const currentEvidence = recordSessionEvidence({ type: 'session-evidence', operationId, source: evidenceSource, outcome: 'recoverable', reason: recoveryReason, message });
-        if (!currentEvidence) {
-          if (options) dispatch({ type: 'check-failed', intentId: options.intentId, checkId: options.checkId, message: STALE_CREATOR_READ_MESSAGE });
-          dispatch({ type: 'claim-history-failed', sequence, message: STALE_CREATOR_READ_MESSAGE });
-          return false;
-        }
-        dispatch({ type: 'claim-history-failed', sequence, message, sessionDerived: true });
-        return false;
+        return failWithSessionEvidence('recoverable', recoveryReason, message);
       }
       if (!response.ok) {
         const sessionState = classifyCreatorSessionCheck(response.status, session);
         if (sessionState.state === 'context-changed') {
           const message = 'La cuenta o el rol activo no coinciden con esta página. Vuelve a la cuenta original para comprobar; conservamos tus cambios.';
-          if (options) dispatch({ type: 'check-failed', intentId: options.intentId, checkId: options.checkId, message });
-          const currentEvidence = recordSessionEvidence({ type: 'session-evidence', operationId, source: evidenceSource, outcome: 'recoverable', reason: 'different-principal', message });
-          if (!currentEvidence) {
-            if (options) dispatch({ type: 'check-failed', intentId: options.intentId, checkId: options.checkId, message: STALE_CREATOR_READ_MESSAGE });
-            dispatch({ type: 'claim-history-failed', sequence, message: STALE_CREATOR_READ_MESSAGE });
-            return false;
-          }
-          dispatch({ type: 'claim-history-failed', sequence, message, sessionDerived: true });
-          return false;
+          return failWithSessionEvidence('recoverable', 'different-principal', message);
         }
         if (sessionState.state === 'disabled' || sessionState.state === 'invalid-context') {
           const message = sessionState.state === 'disabled' ? 'Esta cuenta está desactivada. Conservamos tus cambios.'
             : 'El contexto de esta página no es válido. Abre una página nueva con la cuenta original.';
-          if (options) dispatch({ type: 'check-failed', intentId: options.intentId, checkId: options.checkId, message });
-          const currentEvidence = recordSessionEvidence({ type: 'session-evidence', operationId, source: evidenceSource,
-            outcome: sessionState.state === 'disabled' && !options ? 'recoverable' : 'terminal',
-            reason: sessionState.state, message });
-          if (!currentEvidence) {
-            if (options) dispatch({ type: 'check-failed', intentId: options.intentId, checkId: options.checkId, message: STALE_CREATOR_READ_MESSAGE });
-            dispatch({ type: 'claim-history-failed', sequence, message: STALE_CREATOR_READ_MESSAGE });
-            return false;
-          }
-          dispatch({ type: 'claim-history-failed', sequence, message, sessionDerived: true });
-          return false;
+          return failWithSessionEvidence(sessionState.state === 'disabled' && !options ? 'recoverable' : 'terminal', sessionState.state, message);
         }
         throw new Error(response.status === 403 ? 'claim-forbidden' : 'claim-unavailable');
       }
@@ -1072,7 +1053,7 @@ export default function CreatorOwnerApp(props: Props) {
     }
     const commandHistorySequence = claimHistorySequenceRef.current;
     const operationId = nextSessionOperationId();
-    dispatch({ type: 'begin-write', intent });
+    dispatch({ type: 'begin-write', intent, exitTransition: exitSubmitTransitionRef.current });
     const token = latest.session.csrfToken;
     try {
       const response = await fetch(request.path, {
@@ -1147,7 +1128,7 @@ export default function CreatorOwnerApp(props: Props) {
     const commandHistorySequence = claimHistorySequenceRef.current;
     let operationId = nextSessionOperationId();
     const intent = creatorOwnerWriteIntent(nextId('photo'), editor);
-    dispatch({ type: 'begin-write', intent });
+    dispatch({ type: 'begin-write', intent, exitTransition: exitSubmitTransitionRef.current });
     let finalizationRequested = false;
     const headers = { accept: 'application/json', 'content-type': 'application/json', 'x-csrf-token': latest.session.csrfToken, 'x-creator-page-binding': latest.sessionBinding };
     const classifyAuthorizationFailure = async (response: Response) => {
@@ -1284,6 +1265,7 @@ export default function CreatorOwnerApp(props: Props) {
       if (recoveryReason) {
         const message = loginRecoveryMessage(recoveryReason);
         const accepted = recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound', outcome: 'recoverable', reason: recoveryReason, message });
+        if (accepted) clearSessionDerivedClaimHistory(historySequence);
         dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: accepted ? message : STALE_CREATOR_READ_MESSAGE });
         return;
       }
@@ -1292,6 +1274,7 @@ export default function CreatorOwnerApp(props: Props) {
         if (sessionState.state === 'context-changed') {
           const message = 'La cuenta o el rol activo no coinciden con esta página. Vuelve a la cuenta original para comprobar; conservamos tus cambios.';
           const accepted = recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound', outcome: 'recoverable', reason: 'different-principal', message });
+          if (accepted) clearSessionDerivedClaimHistory(historySequence);
           dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: accepted ? message : STALE_CREATOR_READ_MESSAGE });
           return;
         }
@@ -1299,6 +1282,7 @@ export default function CreatorOwnerApp(props: Props) {
           const message = sessionState.state === 'disabled' ? 'Esta cuenta está desactivada. Conservamos tus cambios.'
             : 'El contexto de esta página no es válido. Abre una página nueva con la cuenta original.';
           const accepted = recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound', outcome: 'terminal', reason: sessionState.state, message });
+          if (accepted) clearSessionDerivedClaimHistory(historySequence);
           dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: accepted ? message : STALE_CREATOR_READ_MESSAGE });
           return;
         }
@@ -1497,28 +1481,24 @@ export default function CreatorOwnerApp(props: Props) {
       if (!latest.location.transition) queueMicrotask(() => returnFocusRef.current?.focus({ preventScroll: true }));
       return;
     }
-    if (latest.editor?.kind === 'create-profile') {
-      const form = rootRef.current?.querySelector<HTMLFormElement>('[data-owner-form="crear"]');
-      if (form && !form.checkValidity()) {
-        initialCreateInvalidFocusRef.current = true;
-        dispatch({ type: 'resolve-transition', action: 'continue' });
-        return;
-      }
-    }
-    dispatch({ type: 'resolve-transition', action: 'save' });
-    if (!latest.editor || latest.editor.kind === 'create-profile') {
-      if (latest.editor?.kind === 'create-profile') createProfile();
-      return;
-    }
-    if (latest.editor.kind === 'photo') {
-      void startPhotoUpload(latest.editor);
-      return;
-    }
-    const editorKey = latest.editor.key;
+    const editor = latest.editor;
+    const transition = latest.location.transition;
+    dispatch({ type: 'resolve-transition', action: 'continue' });
+    if (!editor) return;
     window.requestAnimationFrame(() => {
       const current = stateRef.current;
-      if (current.editor?.key !== editorKey || current.location.prompt !== 'none') return;
-      rootRef.current?.querySelector<HTMLFormElement>('[data-owner-dialog] form[data-owner-form]:not([hidden])')?.requestSubmit();
+      if (current.editor !== editor || current.location.prompt !== 'none') return;
+      const selector = editor.kind === 'create-profile' ? '[data-owner-form="crear"]'
+        : '[data-owner-dialog] form[data-owner-form]:not([hidden])';
+      const form = rootRef.current?.querySelector<HTMLFormElement>(selector);
+      const submitter = form?.querySelector<HTMLButtonElement>('button[type="submit"]:enabled');
+      if (!form || !submitter) return;
+      exitSubmitTransitionRef.current = transition;
+      try {
+        form.requestSubmit(submitter);
+      } finally {
+        exitSubmitTransitionRef.current = undefined;
+      }
     });
   }
 

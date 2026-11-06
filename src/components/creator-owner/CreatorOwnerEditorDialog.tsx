@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'preact/hooks';
+import { useLayoutEffect, useRef } from 'preact/hooks';
 import type { CreatorCatalogSelectionDTO, CreatorEditorDTO, CreatorProfileDTO } from '../../types/creators';
 import { normalizeCreatorText } from '../../lib/creator-values.mjs';
 import type { CreatorOwnerAttempt, CreatorOwnerComparison, CreatorOwnerEditor, CreatorOwnerLinkDraft, CreatorOwnerLinkEditor, CreatorOwnerState, CreatorOwnerWriteIntent } from '../../lib/creator-owner-state';
@@ -192,7 +192,9 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
   const canResubmitClaimWhileChecking = editor?.kind === 'claim' && state.attempt.status === 'checking'
     && state.attempt.intent.kind === 'claim' && state.attempt.intent.editorKey === editor.key;
   const addDraftHasNoOptionsToSave = editor?.kind === 'link-placement' && editor.pendingAddDraft
-    && !editor.editable && !editor.pendingDirectoryOptionDecision;
+    && !editor.editable && !editor.pendingDirectoryOptionDecision
+    && editor.draft.selectedForDirectory === editor.baseLink.selectedForDirectory
+    && editor.draft.featured === editor.baseLink.featured;
   const canWrite = state.runtimeReady && state.session.state === 'ready'
     && state.attempt.status !== 'sending' && (state.attempt.status !== 'checking' || canResubmitClaimWhileChecking)
     && !(attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict'))
@@ -207,7 +209,7 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
                 : editor.kind === 'move-link' ? 'Mover enlace'
                   : editor.kind === 'reference' ? 'Buscar en el catálogo' : 'Solicitar edición';
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
     if (shouldOpenDialog) {
@@ -441,9 +443,7 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
         </section>}
         <div class="creator-owner__dialog-actions">
           {editor && <button class="button button--dark" type="button" data-owner-exit-save disabled={!canWrite} onClick={() => onExit('save')}>
-            {editor.kind === 'link-placement' && editor.pendingAddDraft
-              ? editor.pendingDirectoryOptionDecision ? 'Guardar opciones y volver al borrador' : 'Guardar y salir'
-              : 'Guardar y salir'}
+            {editor.kind === 'link-placement' && editor.pendingAddDraft ? 'Guardar opciones y volver al borrador' : 'Guardar y salir'}
           </button>}
           <button class="button button--outline" type="button" data-owner-exit-discard disabled={state.attempt.status === 'sending'} onClick={() => onExit('discard')}>Descartar cambios</button>
           <button class="button button--outline" type="button" data-owner-exit-continue onClick={() => onExit('continue')}>Seguir editando</button>

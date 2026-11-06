@@ -123,3 +123,131 @@ test('native save and exit validates required fields without persisting an inval
     await capture.stop({ skipErrorBodies: true });
   }
 });
+
+test('a rejected exit save leaves an ordinary valid Add in the same document', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const before = (await api(fixture, cookie, ownerPath)).body;
+  await openOwner(fixture, page);
+  const previousUrl = page.url();
+  await page.locator('#owner-link-order').selectOption('titulo-desc');
+  await expect(page).toHaveURL((url) => url.searchParams.get('orden') === 'titulo-desc');
+  const originalUrl = page.url();
+  const timeOrigin = await page.evaluate(() => performance.timeOrigin);
+  const capture = await captureCreatorApi(page);
+  try {
+    const opener = name(page, 'Agregar enlace');
+    await opener.focus();
+    await opener.press('Enter');
+    const add = form(page, 'alta-enlace');
+    await add.getByLabel('Título', { exact: true }).fill('Independent manual Add');
+    const url = add.getByLabel('URL', { exact: true });
+    await url.fill('invalid');
+    await name(add, 'Agregar enlace').click();
+    await expect(url).toBeFocused();
+
+    const pendingBack = page.goBack();
+    const prompt = dialog(page).locator('[data-owner-exit-prompt]');
+    await expect(prompt).toBeVisible();
+    await name(prompt, 'Guardar y salir').click();
+    await pendingBack;
+    await expect(prompt).toHaveCount(0);
+    await expect(url).toBeFocused();
+    assert.equal(capture.writes().length, 0);
+    assert.deepEqual((await api(fixture, cookie, ownerPath)).body, before);
+
+    const newUrl = 'https://shared-review.example/after-invalid-exit';
+    await url.fill(newUrl);
+    const manual = page.waitForResponse((response) => response.request().method() === 'POST'
+      && pathOf(response.request()) === linksPath && response.status() === 201);
+    await name(add, 'Agregar enlace').click();
+    assert.equal((await manual).request().postDataJSON().url, newUrl);
+    const after = (await api(fixture, cookie, ownerPath)).body;
+    assert.equal(after.profile.version, before.profile.version + 1);
+    assert.equal(after.links.find((link) => link.url === newUrl)?.title, 'Independent manual Add');
+    await expect(dialog(page)).toHaveCount(0);
+    await expect(opener).toBeFocused();
+    await expect(page).toHaveURL(originalUrl);
+    assert.equal(await page.evaluate(() => performance.timeOrigin), timeOrigin);
+    assert.equal(capture.writes().length, 1);
+
+    await name(page, 'Agregar enlace').click();
+    const exitUrl = 'https://shared-review.example/accepted-exit';
+    await add.getByLabel('Título', { exact: true }).fill('Save with an explicit exit');
+    await url.fill(exitUrl);
+    const validBack = page.goBack();
+    await expect(prompt).toBeVisible();
+    const valid = page.waitForResponse((response) => response.request().method() === 'POST'
+      && pathOf(response.request()) === linksPath && response.status() === 201);
+    await name(prompt, 'Guardar y salir').click();
+    assert.equal((await valid).request().postDataJSON().url, exitUrl);
+    await validBack;
+    await expect(page).toHaveURL(previousUrl);
+    assert.equal(await page.evaluate(() => performance.timeOrigin), timeOrigin);
+    const afterExit = (await api(fixture, cookie, ownerPath)).body;
+    assert.equal(afterExit.profile.version, before.profile.version + 2);
+    assert.equal(afterExit.links.find((link) => link.url === exitUrl)?.title, 'Save with an explicit exit');
+    assert.equal(capture.writes().length, 2);
+  } finally {
+    await capture.stop({ skipErrorBodies: true });
+  }
+});
+
+test('a recovered shared card accepts a new options edit independently of its Add draft', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const shared = { id: 'shared-review-equal-choice', title: 'Saved shared card', url: 'https://shared-review.example/equal-choice',
+    description: 'Catalog description', kind: 'source', format: 'Canal de YouTube', category: 'Canal de YouTube',
+    published: true, directoryControl: 'editorial', version: 4, order: 1 };
+  await seedResource(fixture.creatorStore, shared);
+  const placed = await api(fixture, cookie, linksPath, {
+    method: 'POST', body: { title: shared.title, url: shared.url, description: shared.description, selectedForDirectory: true },
+  });
+  assert.equal(placed.response.status, 201);
+  const before = (await api(fixture, cookie, ownerPath)).body;
+  const originalResource = await fixture.rawResource(shared.id);
+  await openOwner(fixture, page);
+  const capture = await captureCreatorApi(page, { skipErrorBodies: true });
+  let duplicate;
+  const drop = async (route) => {
+    if (route.request().method() !== 'POST' || duplicate) return route.continue();
+    const response = await route.fetch();
+    duplicate = { status: response.status(), body: await response.json() };
+    await route.abort('failed');
+  };
+  await page.route('**/api/creador/enlaces/', drop);
+  try {
+    await name(page, 'Agregar enlace').click();
+    const add = form(page, 'alta-enlace');
+    await add.getByLabel('Título', { exact: true }).fill('Independent draft title');
+    await add.getByLabel('URL', { exact: true }).fill(shared.url);
+    await add.getByLabel(/Descripción/u).fill('Independent draft description');
+    await expect(option(add)).toBeChecked();
+    await name(add, 'Agregar enlace').click();
+    await name(add, 'Comprobar si se agregó la URL original').click();
+    assert.equal(duplicate.status, 200);
+    assert.equal(duplicate.body.created, false);
+    assert.deepEqual(duplicate.body.versionChanges, []);
+    await name(add, 'Abrir ficha guardada: ' + shared.title).click();
+
+    const saved = form(page, 'enlace');
+    await expect(option(saved)).toBeChecked();
+    await option(saved).uncheck();
+    await expect(name(saved, 'Guardar cambios')).toBeEnabled();
+    const manual = page.waitForResponse((response) => response.request().method() === 'PATCH'
+      && pathOf(response.request()) === linksPath + '/' + placed.body.link.placementId + '/editar');
+    await name(saved, 'Guardar cambios').click();
+    assert.equal((await manual).status(), 200);
+    await expect(add.getByLabel('Título', { exact: true })).toHaveValue('Independent draft title');
+    await expect(add.getByLabel('URL', { exact: true })).toHaveValue(shared.url);
+    await expect(add.getByLabel(/Descripción/u)).toHaveValue('Independent draft description');
+    await expect(option(add)).toBeChecked();
+    const after = (await api(fixture, cookie, ownerPath)).body;
+    assert.equal(after.profile.version, before.profile.version + 1);
+    assert.deepEqual(after.links.map(({ placementId, selectedForDirectory }) => ({ placementId, selectedForDirectory })),
+      [{ placementId: placed.body.link.placementId, selectedForDirectory: false }]);
+    assert.deepEqual(await fixture.rawResource(shared.id), originalResource);
+    assert.deepEqual(capture.writes().map(({ method }) => method), ['POST', 'PATCH']);
+  } finally {
+    await page.unroute('**/api/creador/enlaces/', drop);
+    await capture.stop({ skipErrorBodies: true });
+  }
+});

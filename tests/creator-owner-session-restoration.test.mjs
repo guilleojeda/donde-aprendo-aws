@@ -213,26 +213,34 @@ test('one session evidence policy separates provisional history denials from ter
   }
 
   const historyDenied = evidence(initialState(), 'history', 'recoverable', { reason: 'disabled', message });
-  assert.equal(historyDenied.session.state, 'advisory', 'ordinary Solicitudes evidence pauses writes without claiming terminal authority');
-  assert.equal(historyDenied.sessionEvidence.latestBoundOperationId, 0, 'an advisory history result does not own bound authority');
+  assert.equal(historyDenied.session.state, 'recovery-required', 'ordinary Solicitudes evidence blocks writes but leaves explicit session checking available');
+  assert.equal(historyDenied.session.reason, 'disabled', 'the ordinary response remains distinct from terminal bound denial');
+  assert.equal(historyDenied.sessionEvidence.latestBoundOperationId, 0, 'history evidence does not claim a successful bound read');
+  const historyCheck = reduce(historyDenied, { type: 'session-check-started', operationId: nextOperationId(historyDenied), checkId: 'history-check' });
+  assert.equal(historyCheck.session.state, 'checking', 'the ordinary denial permits an explicit bound session check');
   const newerMismatch = evidence(historyDenied, 'bound', 'recoverable', { operationId: 2, reason: 'different-principal', message: 'Later bound mismatch' });
   assert.equal(newerMismatch.session.state, 'recovery-required');
   assert.equal(newerMismatch.session.reason, 'different-principal', 'a newer bound 409 enables explicit restoration');
 
   const newerRead = evidence(historyDenied, 'bound', 'read-confirmed', { operationId: 2, message: 'Bound read confirmed' });
-  assert.equal(newerRead.session.state, 'recovery-required', 'a profile GET clears the advisory but does not infer a CSRF token');
+  assert.equal(newerRead.session.state, 'recovery-required', 'a profile GET does not infer a CSRF token');
   assert.equal(newerRead.session.reason, 'check-required');
+  assert.equal(newerRead.session.message, 'La lectura confirmó esta página. Comprueba la sesión para habilitar cambios.');
   assert.equal(newerRead.sessionEvidence.latestBoundOperationId, 2, 'a newer bound 200 makes the old history result obsolete');
 
   const olderHistoryAfterBound = reduce(newerMismatch, { type: 'session-evidence', operationId: 1, source: 'history', outcome: 'recoverable', reason: 'disabled', message });
   assert.equal(olderHistoryAfterBound.session.reason, 'different-principal', 'both response delivery orders preserve newer bound evidence');
+  assert.strictEqual(olderHistoryAfterBound, newerMismatch, 'older session feedback has no authority after a newer bound result');
+  const olderMismatchAfterBound = reduce(newerRead, { type: 'session-evidence', operationId: 1, source: 'history', outcome: 'recoverable', reason: 'different-principal', message: 'Old role warning' });
+  assert.strictEqual(olderMismatchAfterBound, newerRead);
+  assert.equal(olderMismatchAfterBound.session.reason, 'check-required', 'an older 409 cannot replace the explicit-check state');
   const confirmedWrite = evidence(historyDenied, 'bound', 'write-confirmed', { operationId: 2, csrfToken: 'csrf-original', message: 'Write confirmed' });
   assert.equal(confirmedWrite.session.state, 'ready', 'a real write may finish with its already validated token');
   assert.equal(confirmedWrite.session.csrfToken, 'csrf-original');
 
-  const advisoryView = await render('CreatorOwnerIdentityPanel', identityProps(historyDenied));
-  assert.equal(recoveryButton(advisoryView), undefined, 'the advisory hold offers no session check before newer bound evidence');
-  assert.doesNotMatch(advisoryView, /Abrir una página nueva/u, 'the advisory hold is not presented as terminal');
+  const recoverableView = await render('CreatorOwnerIdentityPanel', identityProps(historyDenied));
+  assert.ok(recoveryButton(recoverableView), 'ordinary history denial exposes the existing session-check control');
+  assert.doesNotMatch(recoverableView, /Abrir una página nueva/u, 'ordinary history denial does not become terminal');
 
   const checking = enterRecoverableMismatch(profileEditorState());
   assert.equal(checking.session.state, 'checking');

@@ -105,7 +105,7 @@ export default function CreatorOwnerIdentityPanel({ state, children, logout, sho
       {state.message && <p class={`creator-owner__status${state.message.kind === 'error' ? ' creator-owner__status--error' : ''}`} data-owner-status role={state.message.kind === 'error' ? 'alert' : 'status'} aria-live="polite">{state.message.text}</p>}
       {state.session.state !== 'ready' && <section class="creator-owner__status" data-session-recovery-shell>
         <p data-session-recovery-status role="status" aria-live="polite">{state.session.message}</p>
-        {state.session.state === 'advisory' ? null : state.session.state === 'recovery-required' || state.session.state === 'checking'
+        {state.session.state === 'recovery-required' || state.session.state === 'checking'
           ? <>
             <a class="button button--outline" data-session-recovery-sign-in href="/cuenta/ingresar/" target="_blank" rel="noopener noreferrer">Ingresar en otra pestaña</a>
             <button class="button button--outline" type="button" data-session-recovery-check disabled={state.session.state === 'checking'} onClick={onCheckSession}>Comprobar sesión</button>

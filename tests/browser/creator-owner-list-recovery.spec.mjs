@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {
-  test, expect, api, addLink, addChapter, createSeries, createProfile, captureCreatorApi, loggedInOwner, openSeriesView,
+  test, expect, api, addCookie, addLink, addChapter, createSeries, createProfile, captureCreatorApi, loggedInOwner, openSeriesView,
 } from '../fixtures/creator-browser-test.mjs';
 import { completeLogin, cookiePair, makeAccount, makeIdentity } from '../fixtures/account-auth.mjs';
 
@@ -213,7 +213,9 @@ test('Enlaces conserva la búsqueda y página elegidas durante una lectura real 
     const timeOrigin = await page.evaluate(() => performance.timeOrigin);
     const nextPage = page.locator('[data-link-page]').filter({ hasText: 'Siguiente' });
     await expect(nextPage).toBeVisible();
-    await nextPage.click();
+    await nextPage.scrollIntoViewIfNeeded();
+    await nextPage.focus();
+    await nextPage.press('Enter');
     await expect(page.locator('[data-owner-exit-prompt]')).toHaveCount(0,
       'a page change is display navigation within the current list recovery');
     assert.equal(await page.evaluate(() => performance.timeOrigin), timeOrigin,
@@ -222,6 +224,9 @@ test('Enlaces conserva la búsqueda y página elegidas durante una lectura real 
       && url.searchParams.get('serie') === removedSeries.id);
     await expect(page.locator('[data-link-row]')).toHaveCount(2,
       'the pending list still has two visible rows on its second page before recovery adoption');
+    await expect(page.locator('#owner-link-pagination')).toBeFocused();
+    await expect(page.locator('#owner-link-pagination')).toBeInViewport({ ratio: 1 },
+      'Links pagination also retains a visible focus target when the selected page is shorter');
 
     transport.read(0).gate.resolve();
     await checkClick;
@@ -470,7 +475,7 @@ test('Series conserva la búsqueda, pertenencia y página de capítulos durante 
   const cookie = await loggedInOwner(fixture, page);
   const series = await createSeries(fixture, cookie, { name: 'Ruta para filtrar capítulos', slug: 'ruta-filtros-capitulos' });
   const links = [];
-  for (let index = 1; index <= 30; index += 1) {
+  for (let index = 1; index <= 51; index += 1) {
     links.push(await addLink(fixture, cookie, {
       title: `Phase2 capítulo ${String(index).padStart(2, '0')}`,
       url: `https://phase2-chapters.example/${index}`,
@@ -521,12 +526,18 @@ test('Series conserva la búsqueda, pertenencia y página de capítulos durante 
 
     const nextPage = page.locator('[data-series-chapter-page]').filter({ hasText: 'Siguiente' });
     await expect(nextPage).toBeVisible();
-    await nextPage.click();
+    await nextPage.scrollIntoViewIfNeeded();
+    await nextPage.focus();
+    await nextPage.press('Enter');
     await expect(page.locator('[data-owner-exit-prompt]')).toHaveCount(0,
       'chapter pagination within the same series remains usable while checking');
     await expect(page).toHaveURL((url) => url.searchParams.get('paginaCapitulos') === '2');
-    await expect(page.locator('[data-chapter-row]')).toHaveCount(5,
-      'the still-unadopted browser snapshot shows all 30 links as available');
+    await expect(page.locator('[data-chapter-row]')).toHaveCount(25,
+      'the still-unadopted browser snapshot shows all 51 links as available');
+    const chapterPagerAction = page.locator('[data-series-chapter-page]:last-of-type');
+    await expect(chapterPagerAction).toBeFocused();
+    await expect(chapterPagerAction).toBeInViewport({ ratio: 1 },
+      'keyboard pagination keeps focus on the visible chapter pager before adopting the held recovery response');
 
     const pageTwoIds = await page.locator('[data-chapter-row]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-placement-id')));
     await page.goBack();
@@ -547,7 +558,7 @@ test('Series conserva la búsqueda, pertenencia y página de capítulos durante 
       && url.searchParams.get('paginaCapitulos') === '2');
     await expect(page.locator('[data-owner-exit-prompt]')).toHaveCount(0,
       'native forward navigation restores page two without prompting');
-    await expect(page.locator('[data-chapter-row]')).toHaveCount(5);
+    await expect(page.locator('[data-chapter-row]')).toHaveCount(25);
     assert.deepEqual(await page.locator('[data-chapter-row]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-placement-id'))), pageTwoIds,
       'forward history restores the same page-two rows');
     assert.equal(await page.evaluate(() => performance.timeOrigin), timeOrigin);
@@ -573,7 +584,7 @@ test('Series conserva la búsqueda, pertenencia y página de capítulos durante 
     assert.ok(focus.top >= 0 && focus.bottom <= focus.viewport,
       `chapter recovery focus is visible after scrolling: ${JSON.stringify(focus)}`);
     assert.ok(scrollBeforeAdoption > 0, 'the chapter recovery happened after scrolling down the list');
-    await expect(page.locator('[data-chapter-row]')).toHaveCount(4,
+    await expect(page.locator('[data-chapter-row]')).toHaveCount(25,
       'adoption preserves a still-valid chapter page instead of resetting it');
 
     const freshBeforeManual = await fixture.request(cookie, '/api/creador/perfil').then((response) => response.json());
@@ -597,6 +608,29 @@ test('Series conserva la búsqueda, pertenencia y página de capítulos durante 
     await transport.close();
     await capture.stop({ skipErrorBodies: true }).catch(() => {});
   }
+});
+
+test('Series list pagination keeps keyboard focus on a visible pager action', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  for (let index = 1; index <= 26; index += 1) {
+    await createSeries(fixture, cookie, {
+      name: `Pager series ${String(index).padStart(2, '0')}`,
+      slug: `pager-series-${String(index).padStart(2, '0')}`,
+    });
+  }
+  await openSeriesView(page, fixture);
+  await expect(page.locator('[data-owner-series-row]')).toHaveCount(25);
+  const nextPage = page.locator('[data-series-page]').filter({ hasText: 'Siguiente' });
+  await nextPage.scrollIntoViewIfNeeded();
+  await nextPage.focus();
+  await nextPage.press('Enter');
+  await expect(page).toHaveURL((url) => url.searchParams.get('paginaSeries') === '2');
+  await expect(page.locator('[data-owner-series-row]')).toHaveCount(1);
+  const pagerAction = page.locator('[data-series-page]:last-of-type');
+  await expect(pagerAction).toHaveText('Anterior');
+  await expect(pagerAction).toBeFocused();
+  await expect(pagerAction).toBeInViewport({ ratio: 1 },
+    'the shorter final Series page leaves focus on its visible previous-page action');
 });
 
 test('Series limpia el contexto eliminado después de recuperar la lista y permite gestionar una serie superviviente', async ({ fixture, page }) => {
@@ -2274,5 +2308,149 @@ test('native keyboard skip before hydration preserves physical entries and guard
     release.resolve();
     await navigation.catch(() => {});
     await page.unroute('**/*', blockScripts);
+  }
+});
+
+test('pre-hydration Links sort keeps the later native skip entry, focus, and traversal', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const link = await addLink(fixture, cookie, { title: 'Pre-hydration ordering', url: 'https://early-owner-sort.example/item' });
+  const original = `${fixture.origin}/cuenta/?vista=enlaces`;
+  const requested = deferred();
+  const release = deferred();
+  const hydrationMismatches = [];
+  const captureHydrationMismatch = (message) => {
+    if (message.type() === 'error' && message.text().includes('Expected a DOM node')) hydrationMismatches.push(message.text());
+  };
+  page.on('console', captureHydrationMismatch);
+  const blockScripts = async (route) => {
+    if (route.request().resourceType() === 'script') {
+      requested.resolve();
+      await release.promise;
+    }
+    await route.continue();
+  };
+  await page.route('**/*', blockScripts);
+  const navigation = page.goto(original, { waitUntil: 'load' });
+  let capture;
+  try {
+    await requested.promise;
+    await expect(page.locator('astro-island[ssr]')).toHaveCount(1);
+    await expect(page.locator('.creator-owner__filter-note')).toHaveCount(0,
+      'an uncommitted pre-hydration sort does not change the SSR-rendered tree');
+    const historyBeforeSkip = await page.evaluate(() => history.length);
+    await page.locator('#owner-link-order').selectOption('titulo-desc');
+    await expect(page).toHaveURL(original, 'the unhydrated GET control keeps its query pending');
+    await page.getByRole('link', { name: 'Saltar al contenido' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(`${original}#contenido`);
+    await expect(page.locator('#contenido')).toBeFocused();
+    const skipEntry = await page.evaluate(() => ({ index: history.state?.creatorOwnerIndex, length: history.length }));
+    assert.equal(skipEntry.index, 1, 'the native skip owns the next physical slot before hydration');
+    assert.equal(skipEntry.length, historyBeforeSkip + 1);
+
+    release.resolve();
+    await navigation;
+    await expect(page.locator('astro-island[ssr]')).toHaveCount(0);
+    await expect(page).toHaveURL((url) => url.searchParams.get('orden') === 'titulo-desc' && url.hash === '#contenido');
+    await expect(page.locator('#owner-link-order')).toHaveValue('titulo-desc');
+    await expect(page.locator('.creator-owner__filter-note')).toContainText('El orden de consulta sólo organiza esta tabla');
+    await expect(page.locator('#contenido')).toBeFocused();
+    assert.deepEqual(hydrationMismatches, [], 'the pre-hydration control value does not change the SSR structure before hydration');
+    assert.deepEqual(await page.evaluate(() => ({ index: history.state?.creatorOwnerIndex, length: history.length })), skipEntry,
+      'the earlier sort updates the native skip entry without adding a slot or replacing its owner index');
+    const timeOrigin = await page.evaluate(() => performance.timeOrigin);
+
+    await page.goBack();
+    await expect(page).toHaveURL(original);
+    await expect(page.locator('#owner-link-order')).toHaveValue('pagina');
+    assert.equal(await page.evaluate(() => history.state?.creatorOwnerIndex), 0);
+    await page.goForward();
+    await expect(page).toHaveURL((url) => url.searchParams.get('orden') === 'titulo-desc' && url.hash === '#contenido');
+    await expect(page.locator('#contenido')).toBeFocused();
+    assert.deepEqual(await page.evaluate(() => ({ index: history.state?.creatorOwnerIndex, length: history.length })), skipEntry,
+      'Forward restores the same sorted native skip slot');
+    assert.equal(await page.evaluate(() => performance.timeOrigin), timeOrigin,
+      'query and fragment traversal stays in the hydrated owner document');
+
+    capture = await captureCreatorApi(page, { ignoreReads: true, skipErrorBodies: true });
+    const description = 'Manual save after pre-hydration history reconciliation.';
+    await page.locator(`[data-link-row="${link.placementId}"]`).getByRole('button', { name: 'Editar ficha', exact: true }).click();
+    const editor = linkEditForm(page);
+    await editor.getByLabel(/Descripción/).fill(description);
+    await editor.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
+    await expect.poll(async () => (await fixture.rawResource(link.resourceId)).description).toBe(description);
+    await capture.settle({ skipErrorBodies: true });
+    assert.equal(writesTo(capture, 'PATCH', `/api/creador/enlaces/${link.placementId}/editar`).length, 1,
+      'the next manual edit is a separate persisted write');
+    assert.equal(capture.writes().filter(({ method }) => method !== 'PATCH').length, 0,
+      'hydration, native skip, and history traversal do not submit writes');
+  } finally {
+    release.resolve();
+    await navigation.catch(() => {});
+    await capture?.stop({ skipErrorBodies: true }).catch(() => {});
+    await page.unroute('**/*', blockScripts);
+    page.off('console', captureHydrationMismatch);
+  }
+});
+
+test('discarding a list check makes its held session error body obsolete', async ({ fixture, page }) => {
+  const { cookie, series, target, listHref } = await prepareChapterList(fixture, page);
+  const other = await signInOtherOwner(fixture);
+  const path = `/api/creador/series/${series.id}/capitulos/${target.placementId}`;
+  const capture = await captureCreatorApi(page, { ignoreReads: true, skipErrorBodies: true });
+  const blockWrite = async (route) => {
+    if (route.request().method() === 'DELETE' && new URL(route.request().url()).pathname.replace(/\/$/u, '') === path) {
+      await route.abort('failed');
+    } else await route.continue();
+  };
+  await page.route('**/api/creador/**', blockWrite);
+  try {
+    await page.locator(`[data-chapter-row="${target.placementId}"] [data-chapter-remove]`).click();
+    await page.evaluate(() => {
+      const nativeFetch = window.fetch.bind(window);
+      window.fetch = async (...args) => {
+        const response = await nativeFetch(...args);
+        if (new URL(args[0], location.href).pathname === '/api/creador/perfil/' && response.status === 409) {
+          const clone = response.clone();
+          const cloneJson = clone.json.bind(clone);
+          clone.json = async () => {
+            window.phase2ReadBody = await cloneJson();
+            await new Promise((resolve) => { window.phase2ReleaseBody = resolve; });
+            return window.phase2ReadBody;
+          };
+          response.clone = () => clone;
+        }
+        return response;
+      };
+    });
+    await addCookie(page.context(), fixture, { name: other.pair.slice(0, other.pair.indexOf('=')), value: other.pair.slice(other.pair.indexOf('=') + 1) });
+    await page.getByRole('button', { name: 'Comprobar', exact: true }).click();
+    await page.waitForFunction(() => window.phase2ReadBody?.error === 'SESSION_CONTEXT_CHANGED');
+    await addCookie(page.context(), fixture, cookie);
+    await page.evaluate(() => history.back());
+    const prompt = page.locator('[data-owner-exit-prompt]');
+    await expect(prompt).toBeVisible();
+    await prompt.getByRole('button', { name: 'Descartar cambios', exact: true }).click();
+    await expect(page).toHaveURL(listHref);
+    await page.locator('[data-owner-series-list-view] [data-series-edit]').click();
+    const form = page.locator('[data-owner-dialog] form[data-owner-form="serie"]');
+    const draft = 'New explicit series draft';
+    await form.locator('input[name="name"]').fill(draft);
+
+    await page.evaluate(() => window.phase2ReleaseBody());
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await expect(page.locator('[data-session-recovery-shell]')).toHaveCount(0,
+      'the response whose body arrives after discard cannot replace the new editor session state');
+    await expect(form.getByRole('button', { name: 'Guardar serie', exact: true })).toBeEnabled();
+    await form.getByRole('button', { name: 'Guardar serie', exact: true }).click();
+    await expect.poll(async () => (await fixture.rawSeries(cookie, series.id))?.name).toBe(draft);
+    await capture.settle({ skipErrorBodies: true });
+    assert.equal(writesTo(capture, 'DELETE', path).length, 1, 'the abandoned list command is never replayed');
+    assert.equal(writesTo(capture, 'PATCH', `/api/creador/series/${series.id}`).length, 1,
+      'the replacement editor performs one separate persisted save with the restored session');
+  } finally {
+    await page.evaluate(() => window.phase2ReleaseBody?.()).catch(() => {});
+    await page.unroute('**/api/creador/**', blockWrite).catch(() => {});
+    await capture.stop({ skipErrorBodies: true }).catch(() => {});
   }
 });

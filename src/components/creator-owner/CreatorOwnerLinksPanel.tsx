@@ -26,7 +26,8 @@ export default function CreatorOwnerLinksPanel({ state, disabled, onSearch, onQu
   const activeResourceIds = new Set(data.links.map(({ resourceId }) => resourceId));
   const retained = data.editableResources.filter(({ id }) => !activeResourceIds.has(id));
   const selectedCount = selection.totalMatches;
-  const showFilterNote = pending.serie !== 'todos' || pending.directorio !== 'todos' || pending.destacado !== 'todos' || pending.orden !== 'pagina';
+  const showFilterNote = selection.query.serie !== 'todos' || selection.query.directorio !== 'todos'
+    || selection.query.destacado !== 'todos' || selection.query.orden !== 'pagina';
 
   function submit(event: SubmitEvent) {
     event.preventDefault();
