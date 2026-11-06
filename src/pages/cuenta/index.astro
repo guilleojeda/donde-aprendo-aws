@@ -3,6 +3,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import SiteHeader from '../../components/SiteHeader.astro';
 import SiteFooter from '../../components/SiteFooter.astro';
 import CreatorOwnerPage from '../../components/CreatorOwnerPage.astro';
+import ownerHistoryBootstrap from '../../scripts/creator-owner-history.js?raw';
 import { DEFAULT_CREATOR_OWNER_LINKS_QUERY, parseCreatorOwnerLinksQuery } from '../../lib/creator-owner-links';
 import { DEFAULT_CREATOR_OWNER_SERIES_QUERY, parseCreatorOwnerSeriesQuery } from '../../lib/creator-owner-series';
 import AccountLogout from '../../components/AccountLogout.astro';
@@ -140,6 +141,10 @@ const publicOrigin = import.meta.env.PUBLIC_SITE_ORIGIN || Astro.url.origin;
   nofollow
   analytics={false}
 >
+  <Fragment slot="head">
+    {ownerIsReady && <script is:inline data-series-valid={String(!ownerSeriesQueryError)}
+      data-links-valid={String(!ownerLinksQueryError)} set:html={ownerHistoryBootstrap}></script>}
+  </Fragment>
   <SiteHeader />
 
   {ownerIsReady && session.state === 'authenticated' && owner?.data && owner.principal.state === 'authenticated' && owner.principal.csrfToken && owner.principal.sessionBinding ? (

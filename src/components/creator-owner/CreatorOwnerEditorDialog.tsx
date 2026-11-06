@@ -191,9 +191,12 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
   const checking = attemptMatches && state.attempt.status === 'checking';
   const canResubmitClaimWhileChecking = editor?.kind === 'claim' && state.attempt.status === 'checking'
     && state.attempt.intent.kind === 'claim' && state.attempt.intent.editorKey === editor.key;
+  const addDraftHasNoOptionsToSave = editor?.kind === 'link-placement' && editor.pendingAddDraft
+    && !editor.editable && !editor.pendingDirectoryOptionDecision;
   const canWrite = state.runtimeReady && state.session.state === 'ready'
     && state.attempt.status !== 'sending' && (state.attempt.status !== 'checking' || canResubmitClaimWhileChecking)
-    && !(attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict'));
+    && !(attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict'))
+    && !addDraftHasNoOptionsToSave;
   const dialogTitle = !editor ? 'Tu página' : editor.kind === 'create-profile' ? 'Prepara tu página' : editor.kind === 'profile' ? editor.section === 'datos' ? 'Editar datos' : 'Editar redes'
     : editor.kind === 'photo' ? 'Editar foto'
       : editor.kind === 'series' ? editor.baseSeries ? 'Editar serie' : 'Crear serie'
@@ -227,6 +230,9 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
   const promptListAttempt = !editor && 'intent' in state.attempt && state.attempt.intent.capture.kind === 'list-command';
   const promptRecoveryMatches = promptListAttempt || Boolean(editor && attemptMatches);
   const promptRecovery = promptRecoveryMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict' || state.attempt.status === 'checking');
+  const addDraftTextDiffers = editor?.kind === 'link-placement' && editor.pendingAddDraft
+    && (editor.pendingAddDraft.title !== editor.baseLink.title || editor.pendingAddDraft.url !== editor.baseLink.url
+      || editor.pendingAddDraft.description !== (editor.baseLink.description ?? ''));
   const moveContext = editor?.kind === 'move-chapter'
     ? `En «${editor.baseSeries.name}», «${state.observed.links.find(({ placementId }) => placementId === editor.placementId)?.title ?? 'Capítulo'}» ocupa la posición actual ${editor.baseOrder.indexOf(editor.placementId) + 1} de ${editor.baseOrder.length}.` : '';
 
@@ -327,7 +333,13 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
         <p class="creator-owner__form-context">{editor.optionsOnly ? 'Estás editando las opciones de este enlace en tu página.'
           : editor.editable ? 'Esta ficha es tuya: los cambios del contenido y las opciones de la página se guardan juntos.'
             : 'Esta ficha es compartida. Puedes editar sus opciones; su título, URL y descripción siguen a cargo de quien la administra.'}</p>
-        {editor.sharedTextCorrection && <p class="creator-owner__status" data-link-add-shared-correction role="status">Conservamos aparte el texto de tu borrador. Aquí puedes guardar las opciones de la ficha compartida.</p>}
+        {editor.pendingAddDraft && <p class="creator-owner__status" data-link-add-shared-correction role="status">
+          {editor.editable && addDraftTextDiffers
+            ? 'Conservamos aparte el borrador del alta. Aquí puedes guardar cambios de la ficha que elegiste.'
+            : editor.editable
+              ? 'Conservamos aparte el borrador del alta mientras revisas los cambios de esta ficha.'
+              : 'Conservamos aparte el borrador del alta. Aquí puedes guardar sólo las opciones de esta ficha compartida.'}
+        </p>}
         <fieldset class="creator-owner__field creator-owner__link-fields" data-link-metadata-fields disabled={!editor.editable}>
           <legend>Ficha del contenido</legend>
           {editor.editable && <details class="creator-owner__link-help"><summary>Sobre esta ficha</summary><p>El título, la URL y la descripción también se muestran a quienes referencian esta ficha.</p></details>}
@@ -345,8 +357,10 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
         {attemptMatches && (state.attempt.status === 'uncertain' || state.attempt.status === 'conflict' || checking) && <Recovery state={state} editor={editor} rows={rows} canAdopt={canAdopt} onCheck={onCheck} onAdopt={onAdopt} />}
         <div class="creator-owner__dialog-actions">
           <button class="button button--dark" type="submit" disabled={!canWrite}>Guardar cambios</button>
-          {editor.sharedTextCorrection && <button class="button button--outline" type="button"
-            disabled={state.attempt.status !== 'confirmed' && state.attempt.status !== 'idle'} onClick={onResumeSharedAdd}>Volver al borrador sin guardar las opciones</button>}
+          {editor.pendingAddDraft && <button class="button button--outline" type="button"
+            disabled={state.attempt.status !== 'confirmed' && state.attempt.status !== 'idle'} onClick={onResumeSharedAdd}>
+            {editor.pendingDirectoryOptionDecision ? 'Volver al borrador sin guardar las opciones' : 'Volver al borrador del alta'}
+          </button>}
           <button class="button button--outline" type="button" data-owner-cancel onClick={onRequestClose}>Cancelar</button>
         </div>
       </form>}
@@ -427,7 +441,9 @@ export default function CreatorOwnerEditorDialog({ state, onUpdateProfile, onUpd
         </section>}
         <div class="creator-owner__dialog-actions">
           {editor && <button class="button button--dark" type="button" data-owner-exit-save disabled={!canWrite} onClick={() => onExit('save')}>
-            {editor.kind === 'link-placement' && editor.sharedTextCorrection ? 'Guardar opciones y volver al borrador' : 'Guardar y salir'}
+            {editor.kind === 'link-placement' && editor.pendingAddDraft
+              ? editor.pendingDirectoryOptionDecision ? 'Guardar opciones y volver al borrador' : 'Guardar y salir'
+              : 'Guardar y salir'}
           </button>}
           <button class="button button--outline" type="button" data-owner-exit-discard disabled={state.attempt.status === 'sending'} onClick={() => onExit('discard')}>Descartar cambios</button>
           <button class="button button--outline" type="button" data-owner-exit-continue onClick={() => onExit('continue')}>Seguir editando</button>

@@ -95,6 +95,7 @@ const articleSchema = publishedTimestamp && canonical && imageUrl
     <style is:inline id="site-theme-light" set:html={lightTheme}></style>
     <style is:inline id="site-theme-dark" media="(prefers-color-scheme: dark)" set:html={darkTheme}></style>
     <script is:inline id="site-theme-controller" set:html={themeController}></script>
+    <slot name="head" />
   </head>
   <body>
     <a class="skip-link" href="#contenido">Saltar al contenido</a>

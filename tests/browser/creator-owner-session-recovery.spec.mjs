@@ -1630,23 +1630,38 @@ test('an initial retry stays disabled until the bound session is restored', asyn
   }
 });
 
-test('restoring the owner session clears an older rendered history error through the manual save', async ({ fixture, page }) => {
+test('a provisional Solicitudes denial yields to a bound read, then an explicit session check permits the manual save', async ({ fixture, page }) => {
   const cookie = await loggedInOwner(fixture, page);
+  const originalProfile = (await fixture.rawOwner(cookie)).profile;
   const account = [...fixture.accountStore.accounts.values()][0];
   const history = { arrived: deferred(), release: deferred() };
+  const boundRead = { arrived: deferred(), release: deferred(), done: deferred() };
   const failedWrite = { arrived: deferred(), release: deferred() };
   let writes = 0;
   let holdHistory = true;
+  let holdBoundRead = false;
+  let boundReadStarted = false;
   const interceptProfile = async (route) => {
     const method = route.request().method();
     if (method === 'GET' && holdHistory) {
       holdHistory = false;
       const actual = await route.fetch();
-      assert.equal(actual.status(), 409);
-      assert.equal((await actual.json()).error, 'SESSION_CONTEXT_CHANGED');
+      assert.equal(actual.status(), 403);
+      assert.equal((await actual.json()).error, 'ACCOUNT_DISABLED');
       history.arrived.resolve();
       await history.release.promise;
       await route.fulfill({ response: actual });
+    } else if (method === 'GET' && holdBoundRead) {
+      holdBoundRead = false;
+      const actual = await route.fetch();
+      assert.equal(actual.status(), 200);
+      boundRead.arrived.resolve();
+      try {
+        await boundRead.release.promise;
+        await route.fulfill({ response: actual });
+      } finally {
+        boundRead.done.resolve();
+      }
     } else if (method === 'PUT' && ++writes === 1) {
       const actual = await route.fetch();
       assert.equal(actual.status(), 503);
@@ -1660,7 +1675,7 @@ test('restoring the owner session clears an older rendered history error through
   await expect(page.locator('astro-island')).not.toHaveAttribute('ssr', '');
   await page.route('**/api/creador/perfil/', interceptProfile);
   try {
-    fixture.accountStore.seedAccount({ ...account, isAdmin: !account.isAdmin });
+    fixture.accountStore.seedAccount({ ...account, active: false });
     await page.getByRole('button', { name: 'Actualizar solicitudes' }).click();
     await history.arrived.promise;
     fixture.accountStore.seedAccount(account);
@@ -1673,20 +1688,32 @@ test('restoring the owner session clears an older rendered history error through
     await save.click();
     await failedWrite.arrived.promise;
 
-    const staleAlert = page.locator('[data-claim-index-status]').filter({ hasText: 'La cuenta o el rol activo no coinciden' });
     history.release.resolve();
-    await expect(staleAlert).toBeVisible();
+    await expect(page.locator('[data-owner-dialog][open] [data-session-recovery-status]')).toContainText('Esta cuenta está desactivada.');
+    await expect(sessionCheck(page)).toHaveCount(0, 'an ordinary history 403 is advisory until newer bound evidence arrives');
     failedWrite.release.resolve();
+    await expect(sessionCheck(page)).toHaveCount(0);
+
+    holdBoundRead = true;
+    boundReadStarted = true;
+    const content = apiResponse(page, 'GET', '/api/creador/perfil', 200);
+    await form.locator('[data-owner-compare]').click();
+    await boundRead.arrived.promise;
+    await expect(sessionCheck(page)).toHaveCount(0, 'a bound GET 200 does not infer or renew the CSRF token');
+    boundRead.release.resolve();
+    assert.equal((await (await content).json()).profile.displayName, originalProfile.displayName);
+    await boundRead.done.promise;
     await expect(sessionCheck(page)).toBeEnabled();
+    await expect(page.locator('[data-owner-dialog][open] [data-session-recovery-status]')).toContainText('Comprueba la sesión');
 
     const restoredSession = apiResponse(page, 'GET', '/api/creador/sesion', 200);
     await sessionCheck(page).click();
-    await restoredSession;
-    const content = apiResponse(page, 'GET', '/api/creador/perfil', 200);
-    await form.locator('[data-owner-compare]').click();
-    assert.equal((await (await content).json()).profile.displayName, 'Ana Browser');
+    const sessionRead = await restoredSession;
+    const freshToken = (await sessionRead.json()).csrfToken;
+    assert.equal(typeof freshToken, 'string');
+    await expect(page.locator('[data-account-logout] input[name="csrfToken"]')).toHaveValue(freshToken);
     await form.locator('[data-owner-adopt]').click();
-    assert.equal(writes, 1, 'session renewal and content adoption send no write');
+    assert.equal(writes, 1, 'bound evidence, explicit session checking, and adoption send no write');
     await name.fill('Manual save after the restored session');
     const saved = apiResponse(page, 'PUT', '/api/creador/perfil', 200);
     await save.click();
@@ -1694,11 +1721,13 @@ test('restoring the owner session clears an older rendered history error through
     await expect(page.locator('[data-owner-dialog][open]')).toHaveCount(0);
     assert.equal((await fixture.rawOwner(cookie)).profile.displayName, 'Manual save after the restored session');
     assert.equal(writes, 2);
-    await expect(staleAlert).toHaveCount(0);
+    assert.equal((await fixture.rawOwner(cookie)).profile.version, originalProfile.version + 1, 'only the later manual save changes the profile version');
   } finally {
     fixture.accountStore.seedAccount(account);
     history.release.resolve();
+    boundRead.release.resolve();
     failedWrite.release.resolve();
+    if (boundReadStarted) await boundRead.done.promise;
     await page.unroute('**/api/creador/perfil/', interceptProfile);
   }
 });

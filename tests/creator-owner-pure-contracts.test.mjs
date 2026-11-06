@@ -91,6 +91,22 @@ test('strict owner snapshots require coherent unique entities and support a null
   assert.equal(ownerData.isOwnerData(noProfile), true);
 });
 
+test('claim versions are validated when present while legacy versionless claims remain accepted', () => {
+  const legacy = ownerSnapshot({ claims: [{ id: 'claim-legacy', resourceIds: ['resource-1'], status: 'pending' }] });
+  assert.equal(ownerData.isCreatorOwnerSnapshot(legacy), true);
+  assert.deepEqual(ownerData.readCreatorEditorData(legacy).claims, legacy.claims);
+
+  const versioned = ownerSnapshot({ claims: [{ id: 'claim-versioned', resourceIds: ['resource-1'], status: 'resolved', version: 4 }] });
+  assert.equal(ownerData.isCreatorOwnerSnapshot(versioned), true);
+  assert.deepEqual(ownerData.readCreatorEditorData(versioned).claims, versioned.claims);
+
+  for (const version of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, '4']) {
+    const malformed = ownerSnapshot({ claims: [{ id: 'claim-malformed', resourceIds: ['resource-1'], version }] });
+    assert.equal(ownerData.isCreatorOwnerSnapshot(malformed), false, `reject claim version ${String(version)}`);
+    assert.throws(() => ownerData.readCreatorEditorData(malformed), TypeError);
+  }
+});
+
 test('legacy owner guard stays shallow while strict adoption validates the complete raw shape', () => {
   const raw = ownerSnapshot({
     profile: { ...ownerSnapshot().profile, programs: ['invalid'] },

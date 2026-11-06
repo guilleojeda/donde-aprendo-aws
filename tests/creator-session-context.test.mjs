@@ -129,14 +129,16 @@ test('session endpoint rejects account and role changes without disclosing the n
   const originalBinding = creatorPageSessionBinding(f.state.principal);
   for (const principal of [
     { ...f.state.principal, accountId: 'account-b', csrfToken: 'csrf-account-b' },
+    { state: 'disabled', accountId: 'account-b', isAdmin: false },
     { ...f.state.principal, isAdmin: true, csrfToken: 'csrf-admin' },
+    { state: 'disabled', accountId: 'account-a', isAdmin: true },
   ]) {
     f.state.principal = principal;
     const response = await f.handle(f.request({ headers: { 'x-creator-page-binding': originalBinding } }));
     assert.equal(response.status, 409);
     assert.deepEqual(await responseBody(response), { error: 'SESSION_CONTEXT_CHANGED' });
   }
-  assert.equal(f.calls.auth, 2);
+  assert.equal(f.calls.auth, 4);
   assert.equal(f.calls.service, 0);
   assert.equal(f.calls.store, 0);
 });
@@ -146,7 +148,8 @@ test('session endpoint maps expired, disabled, unavailable and malformed princip
   const marker = creatorPageSessionBinding(f.state.principal);
   const cases = [
     [{ state: 'anonymous' }, 401, 'AUTH_REQUIRED'],
-    [{ state: 'disabled' }, 403, 'ACCOUNT_DISABLED'],
+    [{ state: 'disabled', accountId: 'account-a', isAdmin: false }, 403, 'ACCOUNT_DISABLED'],
+    [{ state: 'disabled' }, 503, 'AUTH_UNAVAILABLE'],
     [{ state: 'unavailable' }, 503, 'AUTH_UNAVAILABLE'],
     [{ state: 'authenticated', accountId: 'account-a', csrfToken: '', isAdmin: false }, 503, 'AUTH_UNAVAILABLE'],
     [{ state: 'authenticated', accountId: 'account-a', csrfToken: '  ', isAdmin: false }, 503, 'AUTH_UNAVAILABLE'],
@@ -211,6 +214,14 @@ test('SSR loaders expose only the opaque session binding and reject malformed au
   assert.equal(Object.hasOwn(result.principal, 'accountId'), false);
   assert.equal(JSON.stringify(result.principal).includes('private-creator-id'), false);
   assert.deepEqual(profileReads, ['/api/creador/perfil']);
+
+  state.principal = { state: 'disabled', accountId: 'private-disabled-account', isAdmin: true };
+  const disabledPage = await page.loadCreatorEditor(request);
+  assert.equal(disabledPage.status, 403);
+  assert.equal(Object.hasOwn(disabledPage.principal, 'accountId'), false);
+  assert.equal(JSON.stringify(disabledPage.principal).includes('private-disabled-account'), false,
+    'server-only disabled identity never enters the SSR page props');
+  assert.deepEqual(profileReads, ['/api/creador/perfil'], 'a disabled principal never reaches the owner content route');
 
   for (const malformed of [
     { state: 'authenticated', csrfToken: 'csrf', isAdmin: false },

@@ -1,6 +1,5 @@
 import {
-  creatorPageSessionBinding,
-  creatorPageSessionBindingFailure,
+  creatorPageSessionBindingFailureForRequest,
 } from './creator-session-context.mjs';
 
 const PRIVATE_HEADERS = {
@@ -37,19 +36,17 @@ async function creatorSessionContext(request, auth) {
   }
 
   if (principal?.state === 'anonymous') return sessionJson({ error: 'AUTH_REQUIRED' }, 401);
-  if (principal?.state === 'disabled') return sessionJson({ error: 'ACCOUNT_DISABLED' }, 403);
-  if (principal?.state !== 'authenticated') return sessionJson({ error: 'AUTH_UNAVAILABLE' }, 503);
+  if (principal?.state !== 'authenticated' && principal?.state !== 'disabled') return sessionJson({ error: 'AUTH_UNAVAILABLE' }, 503);
 
-  const currentBinding = creatorPageSessionBinding(principal);
-  if (!currentBinding || typeof principal.csrfToken !== 'string' || principal.csrfToken.trim().length === 0) {
+  if (principal.state === 'authenticated'
+    && (typeof principal.csrfToken !== 'string' || principal.csrfToken.trim().length === 0)) {
     return sessionJson({ error: 'AUTH_UNAVAILABLE' }, 503);
   }
 
   const requestedBinding = request.headers.get('x-creator-page-binding');
-  const bindingFailure = requestedBinding === null
-    ? { status: 422, error: 'INVALID_CONTEXT' }
-    : creatorPageSessionBindingFailure(requestedBinding, currentBinding);
+  const bindingFailure = creatorPageSessionBindingFailureForRequest(requestedBinding, principal, { required: true });
   if (bindingFailure) return sessionJson({ error: bindingFailure.error }, bindingFailure.status);
+  if (principal.state === 'disabled') return sessionJson({ error: 'ACCOUNT_DISABLED' }, 403);
 
   return sessionJson({ csrfToken: principal.csrfToken });
 }
@@ -101,16 +98,17 @@ export function createCreatorHttpHandler({ service, photos, auth, store, origin 
     try {
       const principal = await auth.getPrincipal(request);
       if (principal.state === 'anonymous') return json({ error: 'AUTH_REQUIRED' }, 401);
-      if (principal.state === 'disabled') return json({ error: 'ACCOUNT_DISABLED' }, 403);
+      if (principal.state === 'disabled') {
+        const bindingFailure = creatorPageSessionBindingFailureForRequest(request.headers.get('x-creator-page-binding'), principal);
+        return json({ error: bindingFailure?.error ?? 'ACCOUNT_DISABLED' }, bindingFailure?.status ?? 403);
+      }
       if (principal.state !== 'authenticated' || typeof principal.accountId !== 'string'
         || typeof principal.csrfToken !== 'string') return json({ error: 'AUTH_UNAVAILABLE' }, 503);
       if (request.headers.get('origin') !== origin || request.headers.get('x-csrf-token') !== principal.csrfToken) {
         return json({ error: 'CSRF_REJECTED' }, 403);
       }
       const requestedBinding = request.headers.get('x-creator-page-binding');
-      const bindingFailure = requestedBinding === null
-        ? undefined
-        : creatorPageSessionBindingFailure(requestedBinding, creatorPageSessionBinding(principal));
+      const bindingFailure = creatorPageSessionBindingFailureForRequest(requestedBinding, principal);
       if (bindingFailure) return json({ error: bindingFailure.error }, bindingFailure.status);
       const body = await smallJson(request);
       const allowed = pathname.endsWith('/autorizar') ? ['version'] : ['version', 'uploadId'];

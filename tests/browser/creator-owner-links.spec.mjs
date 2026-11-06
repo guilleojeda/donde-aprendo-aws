@@ -56,12 +56,12 @@ test('un duplicado compartido con acuse perdido conserva el texto del alta al ab
     await expect(edit.getByLabel('Descripción', { exact: false })).toHaveValue(shared.description);
     await expect(edit.getByLabel('URL', { exact: true })).toHaveValue(shared.url);
     await expect(edit.getByLabel('Título', { exact: true })).toBeDisabled();
-    await expect(edit.getByRole('button', { name: 'Volver al borrador sin guardar las opciones', exact: true })).toBeVisible();
+    await expect(edit.getByRole('button', { name: 'Volver al borrador del alta', exact: true })).toBeVisible();
     assert.equal(capture.writes().length, 1, 'opening the explicitly chosen placement does not write the retained Add text');
     assert.deepEqual((await api(fixture, cookie, '/api/creador/perfil')).body, before.body,
       'opening the saved shared placement leaves the owner state unchanged');
 
-    await edit.getByRole('button', { name: 'Volver al borrador sin guardar las opciones', exact: true }).click();
+    await edit.getByRole('button', { name: 'Volver al borrador del alta', exact: true }).click();
     await expect(add.getByLabel('Título', { exact: true })).toHaveValue('Texto enviado que no fue confirmado');
     await expect(add.getByLabel(/Descripción/)).toHaveValue('Descripción enviada que no fue confirmada');
     const newUrl = 'https://links.example/recovered-shared-draft';
@@ -163,6 +163,80 @@ test('una carrera de retiro no restaura la ficha compartida y continúa con el a
     release?.();
     fixture.creatorStore.transact = transact;
     await page.unroute('**/api/creador/enlaces/', duplicateHandler).catch(() => {});
+    await capture.stop({ skipErrorBodies: true }).catch(() => {});
+  }
+});
+
+test('a pre-read missing shared Add placement adopts the new profile version before the next manual Add', async ({ fixture, page }) => {
+  const cookie = await loggedInOwner(fixture, page);
+  const shared = await seedSharedCatalogResource(fixture, {
+    id: 'review-shared-missing-before-read', title: 'Shared guide before read',
+    url: 'https://links.example/shared-missing-before-read', description: 'Saved shared description',
+  });
+  const placed = await api(fixture, cookie, '/api/creador/enlaces', {
+    method: 'POST', body: { title: shared.title, url: shared.url, description: shared.description, selectedForDirectory: false },
+  });
+  assert.equal(placed.response.status, 201);
+  const initial = await api(fixture, cookie, '/api/creador/perfil');
+  const resourceBefore = await fixture.rawResource(shared.id);
+  await openLinksView(page, fixture);
+  const capture = await captureCreatorApi(page);
+  try {
+    await page.getByRole('button', { name: 'Agregar enlace', exact: true }).click();
+    const add = addLinkForm(page);
+    await add.getByLabel('Título', { exact: true }).fill(shared.title);
+    await add.getByLabel('URL', { exact: true }).fill(shared.url);
+    await add.getByLabel(/Descripción/).fill(shared.description);
+    await expect(add.getByLabel('Proponer al directorio')).toBeChecked();
+    await add.getByRole('button', { name: 'Agregar enlace', exact: true }).click();
+    await expect.poll(() => writesTo(capture, 'POST', '/api/creador/enlaces')[0]?.status).toBe(200);
+    assert.equal(writesTo(capture, 'POST', '/api/creador/enlaces')[0].responseBody.created, false);
+
+    const options = linkEditForm(page);
+    await expect(options).toBeVisible();
+    await expect(options.getByRole('checkbox', { name: 'Proponer al directorio', exact: true })).toBeChecked();
+    await expect(options.getByRole('button', { name: 'Volver al borrador sin guardar las opciones', exact: true })).toBeVisible();
+    const removed = await api(fixture, cookie, `/api/creador/enlaces/${placed.body.link.placementId}`, {
+      method: 'DELETE', body: { profileVersion: initial.body.profile.version },
+    });
+    assert.equal(removed.response.status, 204);
+    const afterRemoval = await api(fixture, cookie, '/api/creador/perfil');
+    assert.equal(afterRemoval.body.profile.version, initial.body.profile.version + 1);
+    assert.equal(afterRemoval.body.links.some(({ resourceId }) => resourceId === shared.id), false);
+
+    await options.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
+    const patch = writesTo(capture, 'PATCH', `/api/creador/enlaces/${placed.body.link.placementId}/editar`);
+    await expect.poll(() => patch[0]?.status).toBe(404);
+    assert.equal(patch[0].responseBody.error, 'PLACEMENT_NOT_FOUND');
+    await options.locator('[data-owner-compare]').click();
+    await expect(options.locator('[data-owner-comparison]')).toContainText('La colocación ya no está en tu página');
+    await options.locator('[data-owner-adopt]').click();
+
+    await expect(add).toBeVisible();
+    await expect(add.getByLabel('Título', { exact: true })).toHaveValue(shared.title);
+    await expect(add.getByLabel('URL', { exact: true })).toHaveValue(shared.url);
+    await expect(add.getByLabel(/Descripción/)).toHaveValue(shared.description);
+    await expect(add.getByLabel('Proponer al directorio')).toBeChecked();
+    assert.deepEqual((await api(fixture, cookie, '/api/creador/perfil')).body.links, [],
+      'adopting the removal does not restore the shared placement');
+
+    const newUrl = 'https://links.example/next-manual-add-after-404';
+    await add.getByLabel('URL', { exact: true }).fill(newUrl);
+    await add.getByRole('button', { name: 'Agregar enlace', exact: true }).click();
+    await expect.poll(() => writesTo(capture, 'POST', '/api/creador/enlaces')[1]?.status).toBe(201);
+    const manualAdd = writesTo(capture, 'POST', '/api/creador/enlaces')[1];
+    assert.equal(manualAdd.body.profileVersion, afterRemoval.body.profile.version,
+      'the manual Add sends the profile version adopted from the 404 comparison');
+    const final = await api(fixture, cookie, '/api/creador/perfil');
+    assert.equal(final.body.links.length, 1);
+    assert.deepEqual(final.body.links.map(({ title, url, description, selectedForDirectory }) => ({ title, url, description, selectedForDirectory })), [
+      { title: shared.title, url: newUrl, description: shared.description, selectedForDirectory: true },
+    ]);
+    assert.deepEqual(await fixture.rawResource(shared.id), resourceBefore, 'shared metadata remains unchanged');
+    assert.equal(writesTo(capture, 'POST', '/api/creador/enlaces').length, 2,
+      'the duplicate no-op is not replayed after the manual Add');
+    assert.equal(patch.length, 1, 'the missing options PATCH is compared and never replayed');
+  } finally {
     await capture.stop({ skipErrorBodies: true }).catch(() => {});
   }
 });
@@ -272,6 +346,7 @@ test('alta propia con acuse perdido: comprueba la URL original y guarda después
       url: attemptedUrl,
       description: 'Descripción enviada A',
       selectedForDirectory: true,
+      profileVersion: before.profile.version,
     });
 
     const createdLink = actualCreate.body.link;
@@ -991,7 +1066,7 @@ test('alta de URL compartida: conserva texto tardío hasta descartar y guarda op
     await committed;
     assert.equal(actualAdd.status, 201, 'the real service creates only this creator’s placement while reusing the shared resource');
     assert.equal(actualAdd.body.created, true);
-    assert.deepEqual(actualAdd.requestBody, submitted);
+    assert.deepEqual(actualAdd.requestBody, { ...submitted, profileVersion: ownerBefore.profile.version });
     assert.equal(actualAdd.body.link.resourceId, shared.id);
     assert.equal(actualAdd.body.link.title, shared.title, 'the response keeps canonical shared metadata');
     assert.equal(actualAdd.body.link.url, shared.url);
@@ -1021,7 +1096,7 @@ test('alta de URL compartida: conserva texto tardío hasta descartar y guarda op
   const link = actualAdd.body.link;
   const addWrites = writesTo(capture, 'POST', createPath);
   assert.equal(addWrites.length, 1, 'the real response is applied without a replay');
-  assert.deepEqual(addWrites[0].body, submitted);
+  assert.deepEqual(addWrites[0].body, { ...submitted, profileVersion: ownerBefore.profile.version });
   assert.equal(writesTo(capture, 'PATCH', `/api/creador/enlaces/${link.placementId}/editar`).length, 0,
     'late metadata and the late opt-out do not trigger automatic writes');
   assert.equal(writesTo(capture, 'PATCH', `/api/creador/recursos/${shared.id}`).length, 0);

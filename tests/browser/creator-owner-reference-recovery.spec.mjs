@@ -1245,3 +1245,102 @@ test('retirar y reincorporar tras una referencia confirmada usa la versión vige
     await removeIndexRoute();
   }
 });
+
+for (const removalTiming of ['before the request', 'during the transaction']) {
+  test(`reference options removed ${removalTiming} compare, then permit a separate manual reference`, async ({ fixture, page }) => {
+    const cookie = await loggedInOwner(fixture, page);
+    const itemA = catalogEntry('phase9-removed-reference-a', 'Referencia A retirada', 'https://phase9.example/removed/a');
+    const itemB = catalogEntry('phase9-manual-reference-b', 'Referencia B manual', 'https://phase9.example/manual/b');
+    await seedCatalogRecord(fixture, itemA);
+    await seedCatalogRecord(fixture, itemB);
+    await grantReferenceEditorship(fixture, cookie, itemA);
+    const initial = await freshOwner(fixture, cookie);
+    const placement = initial.links.find(({ resourceId }) => resourceId === itemA.id);
+    assert.ok(placement, 'the granted resource has its original exact placement');
+    const resourceBefore = await fixture.rawResource(itemA.id);
+
+    const removeIndexRoute = await serveSelectionIndex(page, [itemA, itemB]);
+    const capture = await captureCreatorApi(page);
+    const transport = await installReferenceTransport(page, { loseReferenceAcknowledgement: false });
+    let submit;
+    let removed;
+    const store = fixture.creatorStore;
+    const transact = store.transact;
+    const removePlacement = () => fixture.request(cookie, `/api/creador/enlaces/${placement.placementId}`, {
+      method: 'DELETE', body: { profileVersion: initial.profile.version },
+    });
+    try {
+      await openLinksWithManagedHistory(page, fixture);
+      await openCatalog(page);
+      const reference = page.locator('[data-owner-form="referencia"]');
+      await catalogRadio(page, itemA).check();
+      submit = reference.getByRole('button', { name: 'Agregar a mi página', exact: true }).click();
+      const actual = await transport.writeArrived.promise;
+      assert.equal(actual.status, 200);
+      assert.equal(actual.body.created, false, 'the original reference is an actual no-op');
+      assert.equal(actual.body.link.placementId, placement.placementId);
+      await reference.getByRole('checkbox', { name: 'Proponer al directorio', exact: true }).uncheck();
+      transport.writeGate.release();
+      await submit;
+
+      const options = page.locator('[data-owner-dialog] form[data-owner-form="enlace"]');
+      await expect(options).toBeVisible();
+      const duringTransaction = removalTiming === 'during the transaction';
+      if (duringTransaction) {
+        store.transact = async function (command, ...args) {
+          if (!removed && command.puts?.some(({ value }) => value.recordType === 'placement' && value.id === placement.placementId)) {
+            removed = await removePlacement();
+          }
+          return transact.call(this, command, ...args);
+        };
+      } else {
+        removed = await removePlacement();
+      }
+      await options.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
+      await expect.poll(() => optionWrites(capture, placement.placementId)[0]?.status).toBe(duringTransaction ? 409 : 404);
+      assert.equal(optionWrites(capture, placement.placementId)[0].responseBody.error,
+        duringTransaction ? 'LINK_CONFLICT' : 'PLACEMENT_NOT_FOUND');
+      assert.equal(removed?.status, 204, 'the real removal wins before the options write');
+      const afterRemoval = await freshOwner(fixture, cookie);
+      assert.equal(afterRemoval.profile.version, initial.profile.version + 1);
+      assert.equal(afterRemoval.links.some(({ resourceId }) => resourceId === itemA.id), false);
+      await expect(options.locator('[data-owner-compare]')).toBeVisible();
+      await options.locator('[data-owner-compare]').click();
+      await expect(options.locator('[data-owner-comparison]')).toContainText('La colocación ya no está en tu página');
+      await expect(options.locator('[data-owner-adopt]')).toBeEnabled();
+      await options.locator('[data-owner-adopt]').click();
+
+      const nextReference = page.locator('[data-owner-dialog] form[data-owner-form="referencia"]');
+      await expect(nextReference).toBeVisible();
+      await expect(catalogRadio(page, itemA)).toBeChecked();
+      const directory = nextReference.getByRole('checkbox', { name: 'Proponer al directorio', exact: true });
+      await expect(directory).not.toBeChecked();
+      assert.equal(referenceWrites(capture).length, 1, 'comparison and adoption do not replay the old reference');
+      assert.equal(optionWrites(capture, placement.placementId).length, 1, 'the missing options PATCH is not retried');
+
+      await catalogRadio(page, itemB).check();
+      const manual = page.waitForResponse((response) => response.request().method() === 'POST'
+        && new URL(response.url()).pathname.replace(/\/$/u, '') === REFERENCE_PATH && response.status() === 201);
+      await nextReference.getByRole('button', { name: 'Agregar a mi página', exact: true }).click();
+      const savedB = await manual;
+      assert.equal(savedB.request().postDataJSON().resourceId, itemB.id);
+      assert.equal(savedB.request().postDataJSON().profileVersion, afterRemoval.profile.version);
+
+      const final = await freshOwner(fixture, cookie);
+      assert.deepEqual(final.links.map(({ resourceId, url, selectedForDirectory }) => ({ resourceId, url, selectedForDirectory })), [
+        { resourceId: itemB.id, url: itemB.url, selectedForDirectory: false },
+      ]);
+      assert.deepEqual(await fixture.rawResource(itemA.id), resourceBefore, 'the removed reference does not alter shared metadata');
+      assert.equal(final.editableResources.some(({ id }) => id === itemA.id), true,
+        'the saved removal preserves the exact existing edit authority');
+      assert.equal(referenceWrites(capture).length, 2, 'only the original no-op and the separately chosen B reference were submitted');
+    } finally {
+      store.transact = transact;
+      transport.writeGate.release();
+      await submit?.catch(() => {});
+      await transport.close();
+      await capture.stop({ skipErrorBodies: true }).catch(() => {});
+      await removeIndexRoute();
+    }
+  });
+}

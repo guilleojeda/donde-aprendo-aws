@@ -18,14 +18,18 @@ import {
 } from '../../lib/creator-session-response';
 import { parseCreatorStatisticsReady } from '../../lib/creator-statistics-response';
 import { normalizeCreatorText } from '../../lib/creator-values.mjs';
-import { creatorOwnerSeriesHref, parseCreatorOwnerSeriesQuery, selectCreatorOwnerChapters, selectCreatorOwnerSeries, type CreatorOwnerSeriesMembership } from '../../lib/creator-owner-series';
-import { creatorOwnerLinksHref, creatorOwnerLinkGroup, parseCreatorOwnerLinksQuery, selectCreatorOwnerLinks, type CreatorOwnerLinksQuery } from '../../lib/creator-owner-links';
+import type { CreatorOwnerSeriesMembership } from '../../lib/creator-owner-series';
+import { normalizeOwnerSeriesQuery, resolveOwnerDestination, type OwnerDestination } from '../../lib/creator-owner-navigation';
+import { creatorOwnerLinksHref, creatorOwnerLinkGroup, type CreatorOwnerLinksQuery } from '../../lib/creator-owner-links';
 import { parseCreatorOwnerCatalog } from '../../lib/creator-owner-catalog';
 import {
   createCreatorOwnerState,
   creatorOwnerDraftIsDirty,
   creatorOwnerEditorChangedSince,
   creatorOwnerReducer,
+  reduceCreatorOwnerSessionPolicy,
+  type CreatorOwnerSessionPolicyAction,
+  type CreatorOwnerSessionPolicyState,
   type CreatorOwnerEditor,
   type CreatorOwnerListContext,
   type CreatorOwnerState,
@@ -90,7 +94,7 @@ function createInitialState(props: Props): CreatorOwnerState {
     };
   }
   const initialSeriesQuery = props.view === 'series' && !props.seriesQueryError
-    ? normalizeSeriesQuery(props.data, props.seriesQuery) : props.seriesQuery;
+    ? normalizeOwnerSeriesQuery(props.data, props.seriesQuery) : props.seriesQuery;
   return createCreatorOwnerState({
     data: props.data,
     accountEmail: props.accountEmail,
@@ -110,12 +114,6 @@ function createInitialState(props: Props): CreatorOwnerState {
     ...(pendingMembership ? { pendingMembership } : {}),
     ...(pendingLinksQuery ? { pendingLinksQuery } : {}),
   });
-}
-
-function normalizeSeriesQuery(data: Pick<CreatorEditorDTO, 'links' | 'series'>, query: import('../../lib/creator-owner-series').CreatorOwnerSeriesQuery) {
-  const seriesQuery = selectCreatorOwnerSeries(data.series, query).query;
-  return seriesQuery.serie && data.series.some(({ id }) => id === seriesQuery.serie)
-    ? selectCreatorOwnerChapters(data, seriesQuery).query : seriesQuery;
 }
 
 function nextId(prefix: string): string {
@@ -181,35 +179,14 @@ function isSameDocumentFragmentTransition(previousHref: string, currentHref: str
     && previous.search === current.search && previous.hash !== current.hash;
 }
 
-function ownerSeriesQueryWasValid(state: unknown): boolean | undefined {
-  if (typeof state !== 'object' || state === null || Array.isArray(state)) return undefined;
-  const value = (state as Record<string, unknown>).creatorOwnerSeriesQueryValid;
-  return typeof value === 'boolean' ? value : undefined;
+function hasNativeSkipFocus(): boolean {
+  return window.location.hash === '#contenido' && document.activeElement?.id === 'contenido';
 }
 
-function ownerLinksQueryWasValid(state: unknown): boolean | undefined {
-  if (typeof state !== 'object' || state === null || Array.isArray(state)) return undefined;
-  const value = (state as Record<string, unknown>).creatorOwnerLinksQueryValid;
-  return typeof value === 'boolean' ? value : undefined;
-}
-
-function navigationType(): PerformanceNavigationTiming['type'] | undefined {
-  if (typeof performance === 'undefined') return undefined;
-  const entry = performance.getEntriesByType('navigation')[0];
-  return entry ? (entry as PerformanceNavigationTiming).type : undefined;
-}
-
-function withOwnerHistoryState(state: unknown, index: number, seriesQueryValid: boolean, linksQueryValid = true): Record<string, unknown> {
-  return typeof state === 'object' && state !== null && !Array.isArray(state)
-    ? { ...(state as Record<string, unknown>), creatorOwnerIndex: index, creatorOwnerSeriesQueryValid: seriesQueryValid, creatorOwnerLinksQueryValid: linksQueryValid }
-    : { creatorOwnerIndex: index, creatorOwnerSeriesQueryValid: seriesQueryValid, creatorOwnerLinksQueryValid: linksQueryValid };
-}
-
-function replaceOwnerHistoryHref(href: string, index: number): void {
-  const destination = new URL(href, window.location.href);
-  destination.hash = window.location.hash;
-  window.history.replaceState(withOwnerHistoryState(window.history.state, index, true, true), '',
-    `${destination.pathname}${destination.search}${destination.hash}`);
+function ownerQueryWasValid(state: unknown, view: 'enlaces' | 'series'): boolean {
+  if (typeof state !== 'object' || state === null) return false;
+  const key = view === 'series' ? 'creatorOwnerSeriesQueryValid' : 'creatorOwnerLinksQueryValid';
+  return (state as Record<string, unknown>)[key] === true;
 }
 
 export default function CreatorOwnerApp(props: Props) {
@@ -218,62 +195,141 @@ export default function CreatorOwnerApp(props: Props) {
   stateRef.current = state;
   const rootRef = useRef<HTMLDivElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
-  const historyIndexRef = useRef(0);
+  const historyIndexRef = useRef<number | undefined>(undefined);
   const historyHrefRef = useRef(typeof window === 'undefined' ? '' : window.location.href);
-  const pendingHistoryRef = useRef<{ destinationIndex: number; currentIndex: number; href: string } | undefined>(undefined);
   const restoringHistoryIndexRef = useRef<number | undefined>(undefined);
   const allowedHistoryIndexRef = useRef<number | undefined>(undefined);
-  const pendingComparisonLocationSyncRef = useRef<{ intentId: string; comparisonId: string } | undefined>(undefined);
   const revealFocusAfterListAdoptionRef = useRef(false);
   const activityRequestSequenceRef = useRef(0);
   const activityStartedRef = useRef<{ key: string; sequence: number } | undefined>(undefined);
   const linksSearchTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const catalogLoadRef = useRef<Promise<void> | undefined>(undefined);
   const claimHistorySequenceRef = useRef(0);
-  const sessionCheckSequenceRef = useRef(0);
-  const claimHistoryAuthorizationSequenceRef = useRef(0);
-  const claimHistorySessionClassificationRef = useRef<{ historySequence: number; authorizationSequence: number } | undefined>(undefined);
+  const sessionPolicyRef = useRef<CreatorOwnerSessionPolicyState>({ session: state.session, sessionEvidence: state.sessionEvidence });
+  const sessionOperationIdRef = useRef(0);
   const initialCreateInvalidFocusRef = useRef(false);
   const linksHydrationAppliedRef = useRef(false);
   const handledTransitionRef = useRef<string | undefined>(undefined);
   const previousEditorKeyRef = useRef<string | undefined>(undefined);
 
+  function queueSessionPolicyAction(action: CreatorOwnerSessionPolicyAction): boolean {
+    const previous = sessionPolicyRef.current;
+    const next = reduceCreatorOwnerSessionPolicy(previous, action);
+    sessionPolicyRef.current = { session: next.session, sessionEvidence: next.sessionEvidence };
+    dispatch(action);
+    return next.accepted;
+  }
+
+  function recordSessionEvidence(action: Extract<CreatorOwnerSessionPolicyAction, { type: 'session-evidence' }>): boolean {
+    return queueSessionPolicyAction(action);
+  }
+
+  function nextSessionOperationId(): number {
+    sessionOperationIdRef.current += 1;
+    return sessionOperationIdRef.current;
+  }
+
   function cancelPendingLinksSearch() {
-    if (linksSearchTimerRef.current) {
+    if (linksSearchTimerRef.current !== undefined) {
       clearTimeout(linksSearchTimerRef.current);
       linksSearchTimerRef.current = undefined;
     }
   }
 
   function ownsCurrentHistoryEntry(): boolean {
-    return restoringHistoryIndexRef.current === undefined
+    return restoringHistoryIndexRef.current === undefined && historyIndexRef.current !== undefined
       && ownerIndex(window.history.state) === historyIndexRef.current;
   }
 
-  function syncPendingComparisonLocation() {
-    const pending = pendingComparisonLocationSyncRef.current;
-    if (!pending) return;
-    const attempt = stateRef.current.attempt;
-    if (attempt.status === 'confirmed' && attempt.intentId === pending.intentId) {
-      if (!ownsCurrentHistoryEntry()) return;
-      const href = stateRef.current.location.view === 'series' && !stateRef.current.seriesQueryError
-        ? creatorOwnerSeriesHref(stateRef.current.location.query)
-        : stateRef.current.location.view === 'enlaces' && !stateRef.current.location.linksQueryError
-          ? creatorOwnerLinksHref(stateRef.current.location.linksQuery) : undefined;
-      if (href) {
-        const destination = new URL(href, window.location.href);
-        destination.hash = window.location.hash;
-        window.history.replaceState(withOwnerHistoryState(window.history.state, historyIndexRef.current, true, true), '',
-          `${destination.pathname}${destination.search}${destination.hash}`);
-        historyHrefRef.current = window.location.href;
-      }
-      pendingComparisonLocationSyncRef.current = undefined;
-      return;
+  function resolveDestination(url: URL, entry?: unknown): OwnerDestination | undefined {
+    const latest = stateRef.current;
+    const { view } = latest.location;
+    if (url.origin !== window.location.origin || url.pathname !== '/cuenta/'
+      || (view !== 'series' && view !== 'enlaces')) return undefined;
+    const views = url.searchParams.getAll('vista');
+    if (views.length > 1 || (views[0] ?? 'enlaces') !== view) return undefined;
+    return resolveOwnerDestination(url, view, latest.observed, ownerQueryWasValid(entry, view));
+  }
+
+  function isListDisplayQueryTransition(destination?: OwnerDestination): boolean {
+    const latest = stateRef.current;
+    const attempt = latest.attempt;
+    return Boolean(destination && 'query' in destination && !latest.editor && latest.location.prompt === 'none'
+      && !latest.location.transition && hasUnresolvedAttempt(latest)
+      && 'intent' in attempt && attempt.intent.capture.kind === 'list-command'
+      && (destination.view === 'enlaces' || destination.query.serie === latest.location.query.serie));
+  }
+
+  function blockForExit(transition: NonNullable<CreatorOwnerState['location']['transition']>): boolean {
+    const latest = stateRef.current;
+    if (isWriteActive(latest)) {
+      dispatch({ type: 'set-message', text: 'Estamos guardando la acción iniciada. Espera a que termine antes de salir.', kind: 'info' });
+      return true;
     }
-    if ('intent' in attempt && attempt.intent.id === pending.intentId
-      && (attempt.status === 'checking' || attempt.status === 'uncertain' && attempt.comparison?.id === pending.comparisonId
-        && attempt.comparison.canAdopt)) return;
-    pendingComparisonLocationSyncRef.current = undefined;
+    if (!shouldGuardExit(latest)) return false;
+    dispatch({ type: 'set-transition', transition });
+    dispatch({ type: 'set-prompt', prompt: 'exit' });
+    return true;
+  }
+
+  function commitDestination(destination: OwnerDestination | undefined, mode: 'push' | 'replace' | 'traverse' | 'reconcile',
+    focusSelector?: string, preservePending = false): boolean {
+    const index = ownerIndex(window.history.state);
+    if (mode !== 'traverse' && (!destination || !ownsCurrentHistoryEntry() || index === undefined)) return false;
+    if (mode === 'push' && destination && 'error' in destination) return false;
+    const currentHref = window.location.href;
+    if (destination && index !== undefined && destination.href !== currentHref) {
+      const nextIndex = mode === 'push' ? index + 1 : index;
+      const entry = { ...window.history.state, creatorOwnerIndex: nextIndex,
+        creatorOwnerSeriesQueryValid: destination.view !== 'series' || 'query' in destination,
+        creatorOwnerLinksQueryValid: destination.view !== 'enlaces' || 'query' in destination };
+      if (mode === 'push') window.history.pushState(entry, '', destination.href);
+      else window.history.replaceState(entry, '', destination.href);
+    }
+    historyIndexRef.current = ownerIndex(window.history.state);
+    historyHrefRef.current = window.location.href;
+    if (!destination) return false;
+
+    const latest = stateRef.current.location;
+    if (!preservePending) cancelPendingLinksSearch();
+    if ('error' in destination) {
+      if (destination.view === 'enlaces') dispatch({ type: 'set-links-query-error', reason: 'links' });
+      else dispatch({ type: 'set-series-query-error', reason: 'series' });
+      return true;
+    }
+    if (destination.view === 'enlaces') {
+      if (!preservePending || latest.linksQueryError || JSON.stringify(destination.query) !== JSON.stringify(latest.linksQuery)) {
+        dispatch({ type: 'apply-links-query', query: destination.query, focusSelector, preservePending: preservePending && !latest.linksQueryError });
+      }
+    } else if (!preservePending || stateRef.current.seriesQueryError || JSON.stringify(destination.query) !== JSON.stringify(latest.query)) {
+      dispatch({ type: 'apply-query', query: destination.query, focusSelector, preservePending: preservePending && !stateRef.current.seriesQueryError });
+    }
+    return true;
+  }
+
+  function reconcileCurrentLocation() {
+    if (!ownsCurrentHistoryEntry()) return;
+    const destination = resolveDestination(new URL(window.location.href), window.history.state);
+    const latest = stateRef.current;
+    const restoringQuery = destination && 'query' in destination
+      && (destination.view === 'enlaces' ? latest.location.linksQueryError : latest.seriesQueryError);
+    const focus = restoringQuery && !hasNativeSkipFocus() ? queryFocus(destination, '#owner-link-search') : undefined;
+    commitDestination(destination, 'reconcile', focus, true);
+  }
+
+  function queryFocus(destination: OwnerDestination, linkFocus?: string): string | undefined {
+    if ('error' in destination) return undefined;
+    const { query, linksQuery } = stateRef.current.location;
+    if (destination.view === 'enlaces') return linkFocus ?? (destination.query.paginaEnlaces !== linksQuery.paginaEnlaces
+      ? '#owner-link-pagination' : '#owner-link-search');
+    if (!destination.query.serie) return '#owner-series-search';
+    return destination.query.serie === query.serie ? '#owner-chapter-search' : '#owner-series-chapters-title';
+  }
+
+  function navigateOwner(url: URL, kind: 'anchor' | 'form', linkFocus?: string): boolean {
+    const destination = resolveDestination(url);
+    if (!isListDisplayQueryTransition(destination) && blockForExit({ href: url.href, kind })) return true;
+    return destination ? commitDestination(destination, 'push', queryFocus(destination, linkFocus)) : false;
   }
 
   const currentProfile = state.observed.profile;
@@ -281,299 +337,84 @@ export default function CreatorOwnerApp(props: Props) {
     || state.attempt.status === 'sending' || state.attempt.status === 'checking'
     || state.attempt.status === 'uncertain' || state.attempt.status === 'conflict';
 
-  useEffect(() => {
-    dispatch({ type: 'runtime-ready' });
-    const historyState = window.history.state;
-    const existingIndex = ownerIndex(historyState);
-    const existingSeriesQueryValidity = ownerSeriesQueryWasValid(historyState);
-    const existingLinksQueryValidity = ownerLinksQueryWasValid(historyState);
-    const restoringManagedSeriesEntry = props.seriesQueryError === 'series' && navigationType() === 'back_forward'
-      && existingIndex !== undefined && existingSeriesQueryValidity === true;
-    const restoringManagedLinksEntry = Boolean(props.linksQueryError) && navigationType() === 'back_forward'
-      && existingIndex !== undefined && existingLinksQueryValidity === true;
-    historyIndexRef.current = existingIndex ?? 0;
-    if (existingIndex === undefined || existingSeriesQueryValidity === undefined || existingLinksQueryValidity === undefined) {
-      const nextState = withOwnerHistoryState(historyState, existingIndex ?? 0,
-        props.seriesQueryError ? restoringManagedSeriesEntry : true,
-        props.linksQueryError ? restoringManagedLinksEntry : true);
-      window.history.replaceState(nextState, '', window.location.href);
-    }
-    if (restoringManagedSeriesEntry) {
-      const destination = new URL(window.location.href);
-      destination.searchParams.delete('serie');
-      destination.searchParams.delete('buscarCapitulos');
-      destination.searchParams.delete('pertenencia');
-      destination.searchParams.delete('paginaCapitulos');
-      const parsed = parseCreatorOwnerSeriesQuery(destination.searchParams, stateRef.current.observed.series);
-      if (parsed.valid) {
-        const query = normalizeSeriesQuery(stateRef.current.observed, parsed.query);
-        replaceOwnerHistoryHref(creatorOwnerSeriesHref(query), historyIndexRef.current);
-        dispatch({ type: 'apply-query', query });
-      }
-    }
-    if (restoringManagedLinksEntry) {
-      const destination = new URL(window.location.href);
-      destination.searchParams.delete('serie');
-      const parsed = parseCreatorOwnerLinksQuery(destination.searchParams, stateRef.current.observed.series);
-      if (parsed.valid) {
-        const query = selectCreatorOwnerLinks(stateRef.current.observed.links, stateRef.current.observed.series, parsed.query).query;
-        replaceOwnerHistoryHref(creatorOwnerLinksHref(query), historyIndexRef.current);
-        dispatch({ type: 'apply-links-query', query, focusSelector: '#owner-link-search' });
-      }
-    }
-    if (props.view === 'series' && !props.seriesQueryError) {
-      const parsed = parseCreatorOwnerSeriesQuery(new URL(window.location.href).searchParams, stateRef.current.observed.series);
-      if (parsed.valid) {
-        const normalized = normalizeSeriesQuery(stateRef.current.observed, parsed.query);
-        if (normalized.paginaSeries !== parsed.query.paginaSeries || normalized.paginaCapitulos !== parsed.query.paginaCapitulos) {
-          replaceOwnerHistoryHref(creatorOwnerSeriesHref(normalized), historyIndexRef.current);
-        }
-        if (JSON.stringify(normalized) !== JSON.stringify(stateRef.current.location.query)) dispatch({ type: 'apply-query', query: normalized });
-      }
-    }
+  useLayoutEffect(() => {
+    historyIndexRef.current = ownerIndex(window.history.state);
     historyHrefRef.current = window.location.href;
-
-    function blockForExit(transition?: CreatorOwnerState['location']['transition']): boolean {
-      const latest = stateRef.current;
-      if (isWriteActive(latest)) {
-        dispatch({ type: 'set-message', text: 'Estamos guardando la acción iniciada. Espera a que termine antes de salir.', kind: 'info' });
-        return true;
-      }
-      if (!shouldGuardExit(latest)) return false;
-      if (transition) dispatch({ type: 'set-transition', transition });
-      dispatch({ type: 'set-prompt', prompt: 'exit' });
-      return true;
-    }
-
-    function queryFromForm(form: HTMLFormElement): URL | undefined {
-      const target = new URL(form.action || window.location.href, window.location.href);
-      target.search = '';
-      const data = new FormData(form);
-      for (const [key, value] of data.entries()) {
-        if (typeof value === 'string') target.searchParams.append(key, value);
-      }
-      return target;
-    }
-
-    function applyLocationFromHref(index: number) {
-      if (!ownsCurrentHistoryEntry()) return;
-      const url = new URL(window.location.href);
-      if (stateRef.current.location.view === 'series') {
-        const parsed = parseCreatorOwnerSeriesQuery(url.searchParams, stateRef.current.observed.series);
-        if (parsed.valid) {
-          const normalized = normalizeSeriesQuery(stateRef.current.observed, parsed.query);
-          if (normalized.paginaSeries !== parsed.query.paginaSeries || normalized.paginaCapitulos !== parsed.query.paginaCapitulos) {
-            replaceOwnerHistoryHref(creatorOwnerSeriesHref(normalized), index);
-          }
-          dispatch({ type: 'apply-query', query: normalized });
-        } else if (parsed.reason === 'series' && ownerSeriesQueryWasValid(window.history.state) === true) {
-          url.searchParams.delete('serie');
-          url.searchParams.delete('buscarCapitulos');
-          url.searchParams.delete('pertenencia');
-          url.searchParams.delete('paginaCapitulos');
-          const reparsed = parseCreatorOwnerSeriesQuery(url.searchParams, stateRef.current.observed.series);
-          if (reparsed.valid) {
-            const normalized = normalizeSeriesQuery(stateRef.current.observed, reparsed.query);
-            replaceOwnerHistoryHref(creatorOwnerSeriesHref(normalized), index);
-            dispatch({ type: 'apply-query', query: normalized });
-          } else dispatch({ type: 'set-series-query-error', reason: 'series' });
-        } else dispatch({ type: 'set-series-query-error', reason: 'series' });
-        historyHrefRef.current = window.location.href;
-        return;
-      }
-      if (stateRef.current.location.view === 'enlaces') {
-        cancelPendingLinksSearch();
-        const parsed = parseCreatorOwnerLinksQuery(url.searchParams, stateRef.current.observed.series);
-        if (parsed.valid) {
-          const normalized = selectCreatorOwnerLinks(stateRef.current.observed.links, stateRef.current.observed.series, parsed.query).query;
-          if (normalized.paginaEnlaces !== parsed.query.paginaEnlaces) {
-            replaceOwnerHistoryHref(creatorOwnerLinksHref(normalized), index);
-          }
-          const focusSelector = parsed.query.paginaEnlaces !== stateRef.current.location.linksQuery.paginaEnlaces
-            ? '#owner-link-pagination' : '#owner-link-search';
-          dispatch({ type: 'apply-links-query', query: normalized, focusSelector });
-        }
-        else if (parsed.reason === 'series' && ownerLinksQueryWasValid(window.history.state) === true) {
-          url.searchParams.delete('serie');
-          const reparsed = parseCreatorOwnerLinksQuery(url.searchParams, stateRef.current.observed.series);
-          if (!reparsed.valid) {
-            dispatch({ type: 'set-links-query-error', reason: 'links' });
-            historyHrefRef.current = window.location.href;
-            return;
-          }
-          const normalized = selectCreatorOwnerLinks(stateRef.current.observed.links, stateRef.current.observed.series, reparsed.query).query;
-          replaceOwnerHistoryHref(creatorOwnerLinksHref(normalized), index);
-          dispatch({ type: 'apply-links-query', query: normalized, focusSelector: '#owner-link-search' });
-        } else dispatch({ type: 'set-links-query-error', reason: 'links' });
-        historyHrefRef.current = window.location.href;
-      }
-    }
-
-    function showOwnerHref(href: string, history: 'push' | 'replace' = 'push', focusSelector = '#owner-links-title'): boolean {
-      const destination = new URL(href, window.location.href);
-      if (destination.origin !== window.location.origin || destination.pathname !== '/cuenta/') return false;
-      const latest = stateRef.current;
-      const parsedSeries = latest.location.view === 'series' ? parseCreatorOwnerSeriesQuery(destination.searchParams, latest.observed.series) : undefined;
-      const parsedLinks = latest.location.view === 'enlaces' ? parseCreatorOwnerLinksQuery(destination.searchParams, latest.observed.series) : undefined;
-      if (parsedSeries && !parsedSeries.valid || parsedLinks && !parsedLinks.valid) return false;
-      if (!parsedSeries && !parsedLinks) return false;
-      if (!ownsCurrentHistoryEntry()) return false;
-      if (parsedLinks?.valid) cancelPendingLinksSearch();
-      if (history === 'push') {
-        const index = historyIndexRef.current + 1;
-        const old = window.history.state;
-        const next = withOwnerHistoryState(old, index, true, true);
-        window.history.pushState(next, '', `${destination.pathname}${destination.search}${destination.hash}`);
-        historyIndexRef.current = index;
-      } else {
-        window.history.replaceState(withOwnerHistoryState(window.history.state, historyIndexRef.current, true, true), '', `${destination.pathname}${destination.search}${destination.hash}`);
-      }
-      historyHrefRef.current = window.location.href;
-      if (parsedSeries?.valid) dispatch({ type: 'apply-query', query: parsedSeries.query });
-      if (parsedLinks?.valid) dispatch({ type: 'apply-links-query', query: parsedLinks.query, focusSelector });
-      return true;
-    }
-
-    function isListDisplayQueryTransition(destination: URL): boolean {
-      const latest = stateRef.current;
-      const attempt = latest.attempt;
-      if (latest.editor || latest.location.prompt !== 'none' || latest.location.transition
-        || (attempt.status !== 'uncertain' && attempt.status !== 'conflict' && attempt.status !== 'checking')
-        || !('intent' in attempt) || attempt.intent.capture.kind !== 'list-command') return false;
-      if (destination.origin !== window.location.origin || destination.pathname !== '/cuenta/') return false;
-      const views = destination.searchParams.getAll('vista');
-      const targetView = views[0] ?? 'enlaces';
-      if (views.length > 1 || targetView !== latest.location.view) return false;
-      if (targetView === 'enlaces') return parseCreatorOwnerLinksQuery(destination.searchParams, latest.observed.series).valid;
-      if (targetView === 'series') {
-        const parsed = parseCreatorOwnerSeriesQuery(destination.searchParams, latest.observed.series);
-        return parsed.valid && parsed.query.serie === latest.location.query.serie;
-      }
-      return false;
-    }
+    dispatch({ type: 'runtime-ready' });
 
     const onClick = (event: MouseEvent) => {
       const anchor = responseLink(event);
       if (!anchor || !isOrdinaryLinkClick(event, anchor)) return;
-      const href = anchor.href;
-      const url = new URL(href, window.location.href);
-      if (url.origin === window.location.origin && url.pathname === window.location.pathname
-        && url.search === window.location.search && url.hash) return;
-      const requestedView = url.searchParams.getAll('vista');
-      const sameOwnerView = url.origin === window.location.origin && url.pathname === '/cuenta/'
-        && requestedView.length <= 1 && (requestedView[0] ?? 'enlaces') === stateRef.current.location.view
-        && ['series', 'enlaces'].includes(stateRef.current.location.view);
-      if (sameOwnerView) {
-        if (!isListDisplayQueryTransition(url) && blockForExit({ href: `${url.pathname}${url.search}${url.hash}`, kind: 'anchor' })) {
-          event.preventDefault();
-          return;
-        }
-        const focusSelector = anchor.matches('[data-link-page]') ? '#owner-link-pagination' : '#owner-links-title';
-        if (showOwnerHref(`${url.pathname}${url.search}${url.hash}`, 'push', focusSelector)) event.preventDefault();
-        return;
-      }
-      if (blockForExit({ href: url.href, kind: 'anchor' })) event.preventDefault();
+      const url = new URL(anchor.href);
+      const current = new URL(window.location.href);
+      if (url.hash && url.origin === current.origin && url.pathname === current.pathname && url.search === current.search) return;
+      const focusSelector = anchor.matches('[data-link-page]') ? '#owner-link-pagination' : '#owner-links-title';
+      if (navigateOwner(url, 'anchor', focusSelector)) event.preventDefault();
     };
 
     const onSubmit = (event: SubmitEvent) => {
       if (event.defaultPrevented || !(event.target instanceof HTMLFormElement)) return;
       const form = event.target;
-      if (form.matches('[data-account-logout], [data-owner-form]')) return;
-      if (form.method.toLowerCase() !== 'get') return;
-      const target = queryFromForm(form);
-      if (!target) return;
-      const requestedView = target.searchParams.getAll('vista');
-      const sameOwnerView = target.pathname === '/cuenta/' && requestedView.length <= 1
-        && (requestedView[0] ?? 'enlaces') === stateRef.current.location.view
-        && ['series', 'enlaces'].includes(stateRef.current.location.view);
-      const transition = { href: `${target.pathname}${target.search}${target.hash}`, kind: 'form' as const };
-      if (!isListDisplayQueryTransition(target) && blockForExit(transition)) {
-        event.preventDefault();
-        return;
+      if (form.matches('[data-account-logout], [data-owner-form]') || form.method.toLowerCase() !== 'get'
+        || (form.target && form.target.toLowerCase() !== '_self')) return;
+      const target = new URL(form.action || window.location.href);
+      target.search = '';
+      for (const [key, value] of new FormData(form)) {
+        if (typeof value === 'string') target.searchParams.append(key, value);
       }
-      if (sameOwnerView && showOwnerHref(transition.href)) event.preventDefault();
+      if (navigateOwner(target, 'form', '#owner-links-title')) event.preventDefault();
     };
 
     const onLogout = (event: Event) => {
-      if (event.defaultPrevented) return;
-      if (blockForExit({ href: '/cuenta/salir/', kind: 'logout' })) event.preventDefault();
+      if (!event.defaultPrevented && blockForExit({ href: '/cuenta/salir/', kind: 'logout' })) event.preventDefault();
     };
 
-    function ownNativeFragmentEntry(currentHref: string) {
-      if (!isSameDocumentFragmentTransition(historyHrefRef.current, currentHref)) return;
-      // Native fragment pushes arrive without an owner state; traversals to an
-      // observed fragment retain its stamped index.
-      const currentHistoryState = window.history.state;
-      const current = stateRef.current;
-      const destinationIndex = ownerIndex(currentHistoryState) ?? historyIndexRef.current + 1;
-      if (ownerIndex(currentHistoryState) !== destinationIndex) {
-        window.history.replaceState(withOwnerHistoryState(currentHistoryState, destinationIndex,
-          ownerSeriesQueryWasValid(currentHistoryState) ?? !current.seriesQueryError,
-          ownerLinksQueryWasValid(currentHistoryState) ?? !current.location.linksQueryError), '', currentHref);
-      }
-      historyIndexRef.current = destinationIndex;
-    }
-
     const onPopState = () => {
-      const destinationIndex = ownerIndex(window.history.state);
-      const targetIndex = destinationIndex ?? Math.max(0, historyIndexRef.current - 1);
-      if (restoringHistoryIndexRef.current === targetIndex) {
+      const index = ownerIndex(window.history.state);
+      const href = window.location.href;
+      if (index !== undefined && restoringHistoryIndexRef.current === index) {
         restoringHistoryIndexRef.current = undefined;
-        historyIndexRef.current = targetIndex;
-        historyHrefRef.current = window.location.href;
-        syncPendingComparisonLocation();
+        historyHrefRef.current = href;
+        reconcileCurrentLocation();
+        settlePendingLinksSearch();
         const latest = stateRef.current;
-        if (latest.location.view === 'enlaces' && !latest.location.linksQueryError
-          && JSON.stringify(latest.location.pendingLinksQuery) !== JSON.stringify(latest.location.linksQuery)) {
-          navigateLinksQuery(latest.location.pendingLinksQuery, 'replace', '#owner-link-search');
+        if (latest.location.transition?.kind === 'history' && latest.location.prompt === 'none' && !latest.editor && !isWriteActive(latest)) {
+          resumeHistoryTransition(latest.location.transition.historyIndex);
         }
         return;
       }
-      if (allowedHistoryIndexRef.current === targetIndex) {
+      if (index === historyIndexRef.current && href === historyHrefRef.current) return;
+      const destination = resolveDestination(new URL(href), window.history.state);
+      const allowed = index !== undefined && allowedHistoryIndexRef.current === index;
+      if (allowed) {
         allowedHistoryIndexRef.current = undefined;
-        pendingHistoryRef.current = undefined;
         handledTransitionRef.current = undefined;
-        historyIndexRef.current = targetIndex;
-        historyHrefRef.current = window.location.href;
-        applyLocationFromHref(targetIndex);
-        dispatch({ type: 'set-transition' });
-        return;
       }
-      // Repeating a native fragment link can emit popstate without a new entry.
-      if (destinationIndex === historyIndexRef.current && window.location.href === historyHrefRef.current) return;
-      if (isSameDocumentFragmentTransition(historyHrefRef.current, window.location.href)) {
-        ownNativeFragmentEntry(window.location.href);
-        historyHrefRef.current = window.location.href;
-        return;
-      }
-      if (isListDisplayQueryTransition(new URL(window.location.href))) {
-        historyIndexRef.current = targetIndex;
-        historyHrefRef.current = window.location.href;
-        applyLocationFromHref(targetIndex);
-        return;
-      }
-      if (blockForExit({ href: window.location.href, kind: 'history', ...(destinationIndex !== undefined ? { historyIndex: destinationIndex } : {}) })) {
-        if (destinationIndex !== undefined) {
-          pendingHistoryRef.current = { destinationIndex, currentIndex: historyIndexRef.current, href: window.location.href };
-          restoringHistoryIndexRef.current = historyIndexRef.current;
-          window.history.go(historyIndexRef.current - destinationIndex);
+      const fragmentOnly = isSameDocumentFragmentTransition(historyHrefRef.current, href);
+      if (!allowed && !fragmentOnly && !isListDisplayQueryTransition(destination)) {
+        const currentIndex = historyIndexRef.current;
+        // Only two indexed entries give us a known traversal distance.
+        if (currentIndex !== undefined && index !== undefined && currentIndex !== index
+          && blockForExit({ href, kind: 'history', historyIndex: index })) {
+          restoringHistoryIndexRef.current = currentIndex;
+          window.history.go(currentIndex - index);
+          return;
         }
-        return;
       }
-      historyIndexRef.current = targetIndex;
-      historyHrefRef.current = window.location.href;
-      applyLocationFromHref(targetIndex);
+      commitDestination(destination, 'traverse', !fragmentOnly && destination ? queryFocus(destination) : undefined, fragmentOnly);
+      if (fragmentOnly) settlePendingLinksSearch();
+      if (allowed) dispatch({ type: 'set-transition' });
     };
 
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
       const latest = stateRef.current;
-      if (!isWriteActive(latest) && !shouldGuardExit(latest)) return;
-      event.preventDefault();
+      if (isWriteActive(latest) || shouldGuardExit(latest)) event.preventDefault();
     };
     const onHashChange = () => {
-      const currentHref = window.location.href;
-      ownNativeFragmentEntry(currentHref);
-      historyHrefRef.current = currentHref;
+      // Some engines report a native fragment via hashchange without popstate.
+      const href = window.location.href;
+      if (isSameDocumentFragmentTransition(historyHrefRef.current, href)
+        || (href === historyHrefRef.current && historyIndexRef.current === undefined)) onPopState();
     };
 
     const root = rootRef.current;
@@ -590,36 +431,42 @@ export default function CreatorOwnerApp(props: Props) {
       window.removeEventListener('popstate', onPopState);
       window.removeEventListener('hashchange', onHashChange);
       window.removeEventListener('beforeunload', onBeforeUnload);
-      sessionCheckSequenceRef.current += 1;
     };
   }, []);
 
+  function resumeHistoryTransition(destinationIndex?: number): boolean {
+    const currentIndex = historyIndexRef.current;
+    if (!ownsCurrentHistoryEntry() || currentIndex === undefined || destinationIndex === undefined || currentIndex === destinationIndex
+      || allowedHistoryIndexRef.current === destinationIndex) return false;
+    allowedHistoryIndexRef.current = destinationIndex;
+    window.history.go(destinationIndex - currentIndex);
+    return true;
+  }
+
   useEffect(() => {
     const transition = state.location.transition;
-    if (!transition || state.location.prompt !== 'none' || state.editor || isWriteActive(state)) return;
-    const key = `${transition.kind}:${transition.href}:${transition.historyIndex ?? ''}`;
-    if (handledTransitionRef.current === key) return;
-    handledTransitionRef.current = key;
-    if (transition.kind === 'history') {
-      const pending = pendingHistoryRef.current;
-      if (!pending) return;
-      const distance = pending.destinationIndex - historyIndexRef.current;
-      if (distance === 0) return;
-      allowedHistoryIndexRef.current = pending.destinationIndex;
-      window.history.go(distance);
+    if (!transition) {
+      handledTransitionRef.current = undefined;
       return;
     }
+    if (state.location.prompt !== 'none' || state.editor || isWriteActive(state)) return;
+    const key = `${transition.kind}:${transition.href}:${transition.historyIndex ?? ''}`;
+    if (handledTransitionRef.current === key) return;
+    if (transition.kind === 'history') {
+      if (resumeHistoryTransition(transition.historyIndex)) handledTransitionRef.current = key;
+      return;
+    }
+    handledTransitionRef.current = key;
     if (transition.kind === 'logout') {
-      const form = document.querySelector<HTMLFormElement>('[data-account-logout]');
-      form?.requestSubmit();
+      document.querySelector<HTMLFormElement>('[data-account-logout]')?.requestSubmit();
       return;
     }
     window.location.assign(transition.href);
   }, [state.location.transition, state.location.prompt, state.editor, state.attempt.status]);
 
   useLayoutEffect(() => {
-    syncPendingComparisonLocation();
-  }, [state.attempt, state.location.view, state.location.query, state.location.linksQuery, state.location.prompt]);
+    reconcileCurrentLocation();
+  }, [state.observed]);
 
   useEffect(() => {
     const selector = state.location.focusAfterRender;
@@ -627,6 +474,7 @@ export default function CreatorOwnerApp(props: Props) {
     const root = rootRef.current;
     const target = root?.querySelector<HTMLElement>(selector);
     if (!root || !target) {
+      revealFocusAfterListAdoptionRef.current = false;
       dispatch({ type: 'clear-focus' });
       return;
     }
@@ -635,6 +483,11 @@ export default function CreatorOwnerApp(props: Props) {
       if (!latestTarget) return;
       const revealListRecoveryFocus = revealFocusAfterListAdoptionRef.current
         && stateRef.current.attempt.status === 'confirmed' && ['enlaces', 'series'].includes(stateRef.current.location.view);
+      if (revealListRecoveryFocus && hasNativeSkipFocus()) {
+        revealFocusAfterListAdoptionRef.current = false;
+        dispatch({ type: 'clear-focus' });
+        return;
+      }
       const revealDialogRecoveryFocus = Boolean(latestTarget.closest('[data-owner-dialog]'));
       latestTarget.focus({ preventScroll: true });
       if (revealListRecoveryFocus || revealDialogRecoveryFocus) {
@@ -756,60 +609,37 @@ export default function CreatorOwnerApp(props: Props) {
     if (linksSearchTimerRef.current) clearTimeout(linksSearchTimerRef.current);
   }, []);
 
-  useEffect(() => {
-    if (state.location.view !== 'enlaces' || state.location.linksQueryError) return;
-    if (!ownsCurrentHistoryEntry()) return;
-    const parsed = parseCreatorOwnerLinksQuery(new URL(window.location.href).searchParams, state.observed.series);
-    if (!parsed.valid) return;
-    const effective = selectCreatorOwnerLinks(state.observed.links, state.observed.series, parsed.query).query;
-    const stateNeedsUpdate = JSON.stringify(effective) !== JSON.stringify(state.location.linksQuery);
-    const requestedPageWasClamped = parsed.query.paginaEnlaces !== effective.paginaEnlaces;
-    if (!stateNeedsUpdate && !requestedPageWasClamped) return;
-    if (requestedPageWasClamped) {
-      replaceOwnerHistoryHref(creatorOwnerLinksHref(effective), historyIndexRef.current);
-      historyHrefRef.current = window.location.href;
-    }
-    if (stateNeedsUpdate) dispatch({ type: 'apply-links-query', query: effective });
-  }, [state.location.view, state.location.linksQuery, state.location.linksQueryError, state.observed]);
-
   const setMessage = (text: string, kind: 'info' | 'success' | 'error' = 'info') => dispatch({ type: 'set-message', text, kind });
 
-  function navigateLinksQuery(query: CreatorOwnerLinksQuery, history: 'push' | 'replace', focusSelector = '#owner-links-title') {
+  function applyLinksSearch() {
     if (!ownsCurrentHistoryEntry()) return;
-    cancelPendingLinksSearch();
-    const href = creatorOwnerLinksHref(query);
-    const currentHref = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    if (href !== currentHref) {
-      if (history === 'push') {
-        const index = historyIndexRef.current + 1;
-        window.history.pushState(withOwnerHistoryState(window.history.state, index, true, true), '', href);
-        historyIndexRef.current = index;
-      } else window.history.replaceState(withOwnerHistoryState(window.history.state, historyIndexRef.current, true, true), '', href);
-    }
-    historyHrefRef.current = window.location.href;
-    dispatch({ type: 'apply-links-query', query, focusSelector });
+    const url = new URL(creatorOwnerLinksHref(stateRef.current.location.pendingLinksQuery), window.location.href);
+    url.hash = window.location.hash;
+    commitDestination(resolveDestination(url), 'replace');
+  }
+
+  function settlePendingLinksSearch() {
+    const { view, linksQuery, pendingLinksQuery, linksQueryError } = stateRef.current.location;
+    if (view === 'enlaces' && !linksQueryError && linksSearchTimerRef.current === undefined
+      && JSON.stringify(pendingLinksQuery) !== JSON.stringify(linksQuery)) applyLinksSearch();
   }
 
   function onLinkSearch(value: string) {
     dispatch({ type: 'set-links-pending-query', query: { buscar: value, paginaEnlaces: 1 } });
-    if (linksSearchTimerRef.current) clearTimeout(linksSearchTimerRef.current);
+    cancelPendingLinksSearch();
     linksSearchTimerRef.current = setTimeout(() => {
       linksSearchTimerRef.current = undefined;
-      const latest = stateRef.current.location.pendingLinksQuery;
-      navigateLinksQuery({ ...latest, buscar: value, paginaEnlaces: 1 }, 'replace', '#owner-link-search');
+      applyLinksSearch();
     }, 120);
   }
 
   function onLinksQueryChange(query: CreatorOwnerLinksQuery, focusSelector: string) {
-    cancelPendingLinksSearch();
-    dispatch({ type: 'set-links-pending-query', query });
-    navigateLinksQuery(query, 'push', focusSelector);
+    const url = new URL(creatorOwnerLinksHref(query), window.location.href);
+    navigateOwner(url, 'form', focusSelector);
   }
 
   function onLinksQuerySubmit(query: CreatorOwnerLinksQuery) {
-    cancelPendingLinksSearch();
-    dispatch({ type: 'set-links-pending-query', query });
-    navigateLinksQuery(query, 'push', '#owner-link-search');
+    onLinksQueryChange(query, '#owner-link-search');
   }
 
   useEffect(() => {
@@ -889,15 +719,10 @@ export default function CreatorOwnerApp(props: Props) {
     const latest = stateRef.current;
     const expectedProfileId = options?.profileId ?? latest.observed.profile?.id;
     const binding = latest.sessionBinding;
-    const authorizationSequence = claimHistoryAuthorizationSequenceRef.current;
-    const sessionCheckSequence = sessionCheckSequenceRef.current;
+    const operationId = nextSessionOperationId();
+    const evidenceSource = options ? 'bound' : 'history';
     const sequence = ++claimHistorySequenceRef.current;
     dispatch({ type: 'claim-history-started', sequence });
-    const mayClassifySession = () => claimHistoryAuthorizationSequenceRef.current === authorizationSequence
-      && sessionCheckSequenceRef.current === sessionCheckSequence;
-    const rememberSessionClassification = () => {
-      if (!options) claimHistorySessionClassificationRef.current = { historySequence: sequence, authorizationSequence };
-    };
     const historyReadIsCurrent = () => {
       const current = stateRef.current;
       return current.claimHistory.status === 'loading' && current.claimHistory.sequence === sequence
@@ -922,18 +747,15 @@ export default function CreatorOwnerApp(props: Props) {
         dispatch({ type: 'claim-history-failed', sequence, message: 'No pudimos actualizar Solicitudes con esta lectura. Puedes volver a intentarlo.' });
         return false;
       }
-      if (!response.ok && !mayClassifySession()) {
-        if (options) dispatch({ type: 'check-failed', intentId: options.intentId, checkId: options.checkId, message: STALE_CREATOR_READ_MESSAGE });
-        dispatch({ type: 'claim-history-failed', sequence, message: STALE_CREATOR_READ_MESSAGE });
-        return false;
-      }
       const recoveryReason = creatorSessionRecoveryReason(response.status, session);
       if (recoveryReason) {
         const message = loginRecoveryMessage(recoveryReason);
         if (options) dispatch({ type: 'check-failed', intentId: options.intentId, checkId: options.checkId, message });
-        if (stateRef.current.session.state !== 'blocked') {
-          rememberSessionClassification();
-          dispatch({ type: 'session-required', reason: recoveryReason, message });
+        const currentEvidence = recordSessionEvidence({ type: 'session-evidence', operationId, source: evidenceSource, outcome: 'recoverable', reason: recoveryReason, message });
+        if (!currentEvidence) {
+          if (options) dispatch({ type: 'check-failed', intentId: options.intentId, checkId: options.checkId, message: STALE_CREATOR_READ_MESSAGE });
+          dispatch({ type: 'claim-history-failed', sequence, message: STALE_CREATOR_READ_MESSAGE });
+          return false;
         }
         dispatch({ type: 'claim-history-failed', sequence, message, sessionDerived: true });
         return false;
@@ -943,9 +765,11 @@ export default function CreatorOwnerApp(props: Props) {
         if (sessionState.state === 'context-changed') {
           const message = 'La cuenta o el rol activo no coinciden con esta página. Vuelve a la cuenta original para comprobar; conservamos tus cambios.';
           if (options) dispatch({ type: 'check-failed', intentId: options.intentId, checkId: options.checkId, message });
-          if (stateRef.current.session.state !== 'blocked') {
-            rememberSessionClassification();
-            dispatch({ type: 'session-required', reason: 'different-principal', message });
+          const currentEvidence = recordSessionEvidence({ type: 'session-evidence', operationId, source: evidenceSource, outcome: 'recoverable', reason: 'different-principal', message });
+          if (!currentEvidence) {
+            if (options) dispatch({ type: 'check-failed', intentId: options.intentId, checkId: options.checkId, message: STALE_CREATOR_READ_MESSAGE });
+            dispatch({ type: 'claim-history-failed', sequence, message: STALE_CREATOR_READ_MESSAGE });
+            return false;
           }
           dispatch({ type: 'claim-history-failed', sequence, message, sessionDerived: true });
           return false;
@@ -953,11 +777,15 @@ export default function CreatorOwnerApp(props: Props) {
         if (sessionState.state === 'disabled' || sessionState.state === 'invalid-context') {
           const message = sessionState.state === 'disabled' ? 'Esta cuenta está desactivada. Conservamos tus cambios.'
             : 'El contexto de esta página no es válido. Abre una página nueva con la cuenta original.';
-          if (options) {
-            invalidateOlderSessionClassifications();
-            dispatch({ type: 'check-failed', intentId: options.intentId, checkId: options.checkId, message });
-          } else rememberSessionClassification();
-          dispatch({ type: 'session-blocked', reason: sessionState.state, message, ...(!options ? { ordinaryHistory: true } : {}) });
+          if (options) dispatch({ type: 'check-failed', intentId: options.intentId, checkId: options.checkId, message });
+          const currentEvidence = recordSessionEvidence({ type: 'session-evidence', operationId, source: evidenceSource,
+            outcome: sessionState.state === 'disabled' && !options ? 'recoverable' : 'terminal',
+            reason: sessionState.state, message });
+          if (!currentEvidence) {
+            if (options) dispatch({ type: 'check-failed', intentId: options.intentId, checkId: options.checkId, message: STALE_CREATOR_READ_MESSAGE });
+            dispatch({ type: 'claim-history-failed', sequence, message: STALE_CREATOR_READ_MESSAGE });
+            return false;
+          }
           dispatch({ type: 'claim-history-failed', sequence, message, sessionDerived: true });
           return false;
         }
@@ -968,6 +796,8 @@ export default function CreatorOwnerApp(props: Props) {
       if (!isAdoptableOwnerData(raw)) throw new Error('claim-malformed');
       const snapshot = readCreatorEditorData(raw);
       if (!expectedProfileId || snapshot.profile?.id !== expectedProfileId) throw new Error('claim-context');
+      recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound', outcome: 'read-confirmed',
+        message: 'La lectura confirmó esta página. Comprueba la sesión para habilitar cambios.' });
       const ownsCheck = checkIsCurrent();
       dispatch({ type: 'claim-history-ready', sequence, claims: snapshot.claims, message: options
         ? 'Solicitudes comprobadas. Este historial no permite identificar con certeza si el envío anterior fue registrado.'
@@ -1175,37 +1005,14 @@ export default function CreatorOwnerApp(props: Props) {
     };
   }
 
-  function invalidateOlderSessionClassifications() {
-    sessionCheckSequenceRef.current += 1;
-    claimHistoryAuthorizationSequenceRef.current += 1;
-    claimHistorySessionClassificationRef.current = undefined;
-  }
-
-  function invalidateOlderClaimHistoryClassifications() {
-    claimHistoryAuthorizationSequenceRef.current += 1;
-    claimHistorySessionClassificationRef.current = undefined;
-  }
-
   function clearSessionDerivedClaimHistory(throughSequence: number) {
     dispatch({ type: 'claim-history-session-cleared', sequence: throughSequence });
-    const classification = claimHistorySessionClassificationRef.current;
-    if (classification && classification.historySequence <= throughSequence) {
-      claimHistorySessionClassificationRef.current = undefined;
-    }
   }
 
-  function confirmBoundWrite(commandHistorySequence: number, commandAuthorizationSequence: number, csrfToken: string) {
-    const olderHistoryFailure = claimHistorySessionClassificationRef.current;
-    const supersedesOlderHistoryFailure = olderHistoryFailure !== undefined
-      && olderHistoryFailure.historySequence <= commandHistorySequence
-      && olderHistoryFailure.authorizationSequence === commandAuthorizationSequence
-      && claimHistoryAuthorizationSequenceRef.current === commandAuthorizationSequence;
-    sessionCheckSequenceRef.current += 1;
-    claimHistoryAuthorizationSequenceRef.current += 1;
-    if (supersedesOlderHistoryFailure) {
-      dispatch({ type: 'session-renewed', csrfToken });
-    }
-    clearSessionDerivedClaimHistory(commandHistorySequence);
+  function confirmBoundWrite(commandHistorySequence: number, operationId: number, csrfToken: string) {
+    const accepted = recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound', outcome: 'write-confirmed',
+      csrfToken, message: 'La escritura confirmó la sesión ligada.' });
+    if (accepted) clearSessionDerivedClaimHistory(commandHistorySequence);
   }
 
   function validateSocialUrls(editor: Extract<CreatorOwnerEditor, { kind: 'profile'; section: 'redes' }>): boolean {
@@ -1264,7 +1071,7 @@ export default function CreatorOwnerApp(props: Props) {
       return;
     }
     const commandHistorySequence = claimHistorySequenceRef.current;
-    const commandAuthorizationSequence = claimHistoryAuthorizationSequenceRef.current;
+    const operationId = nextSessionOperationId();
     dispatch({ type: 'begin-write', intent });
     const token = latest.session.csrfToken;
     try {
@@ -1277,15 +1084,13 @@ export default function CreatorOwnerApp(props: Props) {
       });
       const outcome = await interpretCreatorOwnerResponse(response, intent, latest.observed);
       if (outcome.kind === 'session') {
-        invalidateOlderSessionClassifications();
         dispatch({ type: 'write-rejected', intentId: intent.id, message: outcome.message });
-        dispatch({ type: 'session-required', reason: outcome.reason, message: outcome.message });
+        recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound', outcome: 'recoverable', reason: outcome.reason, message: outcome.message });
         return;
       }
       if (outcome.kind === 'session-blocked') {
-        invalidateOlderSessionClassifications();
         dispatch({ type: 'write-rejected', intentId: intent.id, message: outcome.message });
-        dispatch({ type: 'session-blocked', reason: outcome.reason, message: outcome.message });
+        recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound', outcome: 'terminal', reason: outcome.reason, message: outcome.message });
         return;
       }
       if (outcome.kind === 'uncertain' || outcome.kind === 'conflict') {
@@ -1305,13 +1110,13 @@ export default function CreatorOwnerApp(props: Props) {
         return;
       }
       if (outcome.kind === 'confirmed') {
-        confirmBoundWrite(commandHistorySequence, commandAuthorizationSequence, token);
+        confirmBoundWrite(commandHistorySequence, operationId, token);
       }
       const correction = creatorOwnerEditorChangedSince(intent.capture, stateRef.current.editor);
       dispatch({ type: 'write-confirmed', intentId: intent.id, effect: outcome.effect, correction });
       const referenceCompletionOwnedByReducer = intent.kind === 'reference' && intent.capture.kind === 'reference';
       const confirmedUrlDuplicate = outcome.effect.kind === 'link-added' && outcome.effect.source === 'url' && !outcome.effect.created;
-      const retainsSharedAdd = intent.capture.kind === 'link-placement' && Boolean(intent.capture.sharedTextCorrection);
+      const retainsSharedAdd = intent.capture.kind === 'link-placement' && Boolean(intent.capture.pendingAddDraft);
       if (!correction && intent.capture.kind !== 'list-command' && !referenceCompletionOwnedByReducer
         && !confirmedUrlDuplicate && !retainsSharedAdd) dispatch({ type: 'close-editor' });
     } catch {
@@ -1340,7 +1145,7 @@ export default function CreatorOwnerApp(props: Props) {
       return;
     }
     const commandHistorySequence = claimHistorySequenceRef.current;
-    const commandAuthorizationSequence = claimHistoryAuthorizationSequenceRef.current;
+    let operationId = nextSessionOperationId();
     const intent = creatorOwnerWriteIntent(nextId('photo'), editor);
     dispatch({ type: 'begin-write', intent });
     let finalizationRequested = false;
@@ -1349,15 +1154,13 @@ export default function CreatorOwnerApp(props: Props) {
       const payload = await readCreatorSessionResponse(response);
       const sessionOutcome = classifyCreatorOwnerWriteSessionFailure(response.status, payload, 'photo');
       if (sessionOutcome?.kind === 'session') {
-        invalidateOlderSessionClassifications();
         dispatch({ type: 'write-rejected', intentId: intent.id, message: sessionOutcome.message });
-        dispatch({ type: 'session-required', reason: sessionOutcome.reason, message: sessionOutcome.message });
+        recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound', outcome: 'recoverable', reason: sessionOutcome.reason, message: sessionOutcome.message });
         return true;
       }
       if (sessionOutcome?.kind === 'session-blocked') {
-        invalidateOlderSessionClassifications();
         dispatch({ type: 'write-rejected', intentId: intent.id, message: sessionOutcome.message });
-        dispatch({ type: 'session-blocked', reason: sessionOutcome.reason, message: sessionOutcome.message });
+        recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound', outcome: 'terminal', reason: sessionOutcome.reason, message: sessionOutcome.message });
         return true;
       }
       if (response.status === 409) {
@@ -1395,7 +1198,7 @@ export default function CreatorOwnerApp(props: Props) {
         dispatch({ type: 'write-uncertain', intentId: intent.id, status: 'uncertain', message: 'No pudimos validar el destino de la carga. Comprueba qué foto quedó activa.' });
         return;
       }
-      confirmBoundWrite(commandHistorySequence, commandAuthorizationSequence, latest.session.csrfToken);
+      confirmBoundWrite(commandHistorySequence, operationId, latest.session.csrfToken);
       const form = new FormData();
       for (const [key, value] of Object.entries(fields)) if (typeof value === 'string') form.append(key, value);
       form.append('file', file);
@@ -1407,19 +1210,18 @@ export default function CreatorOwnerApp(props: Props) {
       }
       dispatch({ type: 'photo-upload-started', intentId: intent.id, uploadId, file });
       finalizationRequested = true;
+      operationId = nextSessionOperationId();
       const finish = await fetch('/api/creador/foto/finalizar/', { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers,
         body: JSON.stringify({ uploadId, version: editor.base.version }) });
       const outcome = await interpretCreatorOwnerPhotoFinalize(finish, intent, uploadId);
       if (outcome.kind === 'session') {
-        invalidateOlderSessionClassifications();
         dispatch({ type: 'write-rejected', intentId: intent.id, message: outcome.message });
-        dispatch({ type: 'session-required', reason: outcome.reason, message: outcome.message });
+        recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound', outcome: 'recoverable', reason: outcome.reason, message: outcome.message });
         return;
       }
       if (outcome.kind === 'session-blocked') {
-        invalidateOlderSessionClassifications();
         dispatch({ type: 'write-rejected', intentId: intent.id, message: outcome.message });
-        dispatch({ type: 'session-blocked', reason: outcome.reason, message: outcome.message });
+        recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound', outcome: 'terminal', reason: outcome.reason, message: outcome.message });
         return;
       }
       if (outcome.kind === 'uncertain' || outcome.kind === 'conflict') {
@@ -1430,7 +1232,7 @@ export default function CreatorOwnerApp(props: Props) {
         dispatch({ type: 'write-rejected', intentId: intent.id, message: outcome.message });
         return;
       }
-      confirmBoundWrite(commandHistorySequence, commandAuthorizationSequence, latest.session.csrfToken);
+      confirmBoundWrite(commandHistorySequence, operationId, latest.session.csrfToken);
       const current = stateRef.current.editor;
       const correction = current?.kind === 'photo' && current.file !== undefined && current.file !== file;
       dispatch({ type: 'write-confirmed', intentId: intent.id, effect: outcome.effect, correction });
@@ -1449,14 +1251,7 @@ export default function CreatorOwnerApp(props: Props) {
     if (latest.attempt.status !== 'uncertain' && latest.attempt.status !== 'conflict') return;
     const intent = latest.attempt.intent;
     if (isWriteActive(latest)) return;
-    // A bound comparison/check is newer than an ordinary Solicitudes refresh.
-    // Its session result must remain authoritative if the older response is
-    // delivered later, including after the account is reactivated. Keep the
-    // independent session-check sequence intact so an already-running session
-    // renewal is not cancelled by a content check.
-    invalidateOlderClaimHistoryClassifications();
     const checkId = nextId('check');
-    const sessionCheckSequence = sessionCheckSequenceRef.current;
     const historySequence = claimHistorySequenceRef.current;
     dispatch({ type: 'begin-check', intentId: intent.id, checkId });
     if (intent.kind === 'claim') {
@@ -1468,7 +1263,7 @@ export default function CreatorOwnerApp(props: Props) {
     const boundView = latest.location.view;
     const boundProfileId = latest.observed.profile?.id;
     const boundSeriesId = latest.location.query.serie;
-    const mayClassifySession = () => sessionCheckSequenceRef.current === sessionCheckSequence;
+    const operationId = nextSessionOperationId();
     const checkIsCurrent = () => {
       const current = stateRef.current;
       if (current.attempt.status !== 'checking' || current.attempt.intent.id !== intent.id || current.attempt.checkId !== checkId) return false;
@@ -1485,35 +1280,26 @@ export default function CreatorOwnerApp(props: Props) {
       if (!checkIsCurrent()) return;
       const payload = response.ok ? null : await readCreatorSessionResponse(response);
       if (!checkIsCurrent()) return;
-      if (!response.ok && !mayClassifySession()) {
-        dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: STALE_CREATOR_READ_MESSAGE });
-        return;
-      }
       const recoveryReason = creatorSessionRecoveryReason(response.status, payload);
       if (recoveryReason) {
         const message = loginRecoveryMessage(recoveryReason);
-        dispatch({ type: 'check-failed', intentId: intent.id, checkId, message });
-        if (stateRef.current.session.state !== 'blocked') {
-          dispatch({ type: 'session-required', reason: recoveryReason, message });
-        }
+        const accepted = recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound', outcome: 'recoverable', reason: recoveryReason, message });
+        dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: accepted ? message : STALE_CREATOR_READ_MESSAGE });
         return;
       }
       if (!response.ok) {
         const sessionState = classifyCreatorSessionCheck(response.status, payload);
         if (sessionState.state === 'context-changed') {
           const message = 'La cuenta o el rol activo no coinciden con esta página. Vuelve a la cuenta original para comprobar; conservamos tus cambios.';
-          dispatch({ type: 'check-failed', intentId: intent.id, checkId, message });
-          if (stateRef.current.session.state !== 'blocked') {
-            dispatch({ type: 'session-required', reason: 'different-principal', message });
-          }
+          const accepted = recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound', outcome: 'recoverable', reason: 'different-principal', message });
+          dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: accepted ? message : STALE_CREATOR_READ_MESSAGE });
           return;
         }
         if (sessionState.state === 'disabled' || sessionState.state === 'invalid-context') {
           const message = sessionState.state === 'disabled' ? 'Esta cuenta está desactivada. Conservamos tus cambios.'
             : 'El contexto de esta página no es válido. Abre una página nueva con la cuenta original.';
-          invalidateOlderSessionClassifications();
-          dispatch({ type: 'check-failed', intentId: intent.id, checkId, message });
-          dispatch({ type: 'session-blocked', reason: sessionState.state, message });
+          const accepted = recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound', outcome: 'terminal', reason: sessionState.state, message });
+          dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: accepted ? message : STALE_CREATOR_READ_MESSAGE });
           return;
         }
         dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: 'No pudimos leer el estado guardado. Conservamos tus cambios; puedes volver a comprobar.' });
@@ -1530,12 +1316,18 @@ export default function CreatorOwnerApp(props: Props) {
         return;
       }
       const snapshot = readCreatorEditorData(raw);
+      if (boundProfileId && snapshot.profile?.id !== boundProfileId) {
+        dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: 'La lectura no corresponde al perfil que abrió esta página. Conservamos tus cambios.' });
+        return;
+      }
       if (current.observed.profile && snapshot.profile?.id === current.observed.profile.id
         && snapshot.profile.version < current.observed.profile.version) {
         dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: 'La lectura devolvió una versión anterior a la ya observada. Conservamos tus cambios y no adoptamos esa respuesta.' });
         return;
       }
-      clearSessionDerivedClaimHistory(historySequence);
+      const sessionEvidenceAccepted = recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound', outcome: 'read-confirmed',
+        message: 'La lectura confirmó esta página. Comprueba la sesión para habilitar cambios.' });
+      if (sessionEvidenceAccepted) clearSessionDerivedClaimHistory(historySequence);
       if (intent.kind === 'photo' && intent.capture.kind === 'photo') {
         if (snapshot.profile?.id !== intent.capture.base.id) {
           dispatch({ type: 'check-failed', intentId: intent.id, checkId, message: 'No pudimos confirmar que la foto corresponda a esta página. Conservamos el archivo elegido.' });
@@ -1580,18 +1372,19 @@ export default function CreatorOwnerApp(props: Props) {
       setMessage('Espera a que termine la operación antes de comprobar la sesión. Tus cambios siguen aquí.', 'info');
       return;
     }
+    const operationId = nextSessionOperationId();
+    const checkId = nextId('session-check');
     if (!isCreatorSessionBinding(latest.sessionBinding)) {
-      dispatch({ type: 'session-blocked', reason: 'invalid-context', message: 'No pudimos comprobar el contexto de esta página. Ingresa con la cuenta original y vuelve a abrirla.' });
+      recordSessionEvidence({ type: 'session-evidence', operationId, source: 'bound', outcome: 'terminal', reason: 'invalid-context',
+        message: 'No pudimos comprobar el contexto de esta página. Ingresa con la cuenta original y vuelve a abrirla.' });
       return;
     }
     const historySequence = claimHistorySequenceRef.current;
-    const sequence = ++sessionCheckSequenceRef.current;
     const checkIsCurrent = () => {
       const current = stateRef.current;
-      return sessionCheckSequenceRef.current === sequence && current.sessionBinding === binding
-        && current.session.state === 'checking' && current.session.reason === recoveryReason;
+      return current.sessionBinding === binding && current.session.state === 'checking' && current.session.checkId === checkId;
     };
-    dispatch({ type: 'session-check-started' });
+    if (!queueSessionPolicyAction({ type: 'session-check-started', operationId, checkId })) return;
     try {
       const response = await fetch('/api/creador/sesion/', { method: 'GET', credentials: 'same-origin', cache: 'no-store',
         headers: { 'x-creator-page-binding': binding, accept: 'application/json' } });
@@ -1600,26 +1393,34 @@ export default function CreatorOwnerApp(props: Props) {
       if (!checkIsCurrent()) return;
       const result = classifyCreatorSessionCheck(response.status, payload);
       if (result.state === 'ready') {
+        const accepted = recordSessionEvidence({ type: 'session-evidence', operationId, source: 'session-check', checkId, outcome: 'renewed',
+          csrfToken: result.csrfToken, message: 'Sesión comprobada.' });
+        if (!accepted) return;
         const logoutForm = document.querySelector<HTMLFormElement>('[data-account-logout]');
         const tokenInput = logoutForm?.querySelector<HTMLInputElement>('input[name="csrfToken"]');
         if (tokenInput) tokenInput.value = result.csrfToken;
-        dispatch({ type: 'session-renewed', csrfToken: result.csrfToken });
         clearSessionDerivedClaimHistory(historySequence);
         return;
       }
       if (result.state === 'expired') {
-        dispatch({ type: 'session-required', reason: 'expired', message: 'No hay una sesión activa. Ingresa con la misma cuenta en otra pestaña y vuelve a comprobarla.' });
+        recordSessionEvidence({ type: 'session-evidence', operationId, source: 'session-check', checkId, outcome: 'recoverable', reason: 'expired',
+          message: 'No hay una sesión activa. Ingresa con la misma cuenta en otra pestaña y vuelve a comprobarla.' });
       } else if (result.state === 'disabled') {
-        dispatch({ type: 'session-blocked', reason: 'disabled', message: 'Esta cuenta está desactivada. Conservamos tus cambios.' });
+        recordSessionEvidence({ type: 'session-evidence', operationId, source: 'session-check', checkId, outcome: 'terminal', reason: 'disabled',
+          message: 'Esta cuenta está desactivada. Conservamos tus cambios.' });
       } else if (result.state === 'context-changed') {
-        dispatch({ type: 'session-required', reason: 'different-principal', message: 'La sesión activa pertenece a otra cuenta o tiene otros permisos. Ingresa con la cuenta original antes de volver a guardar.' });
+        recordSessionEvidence({ type: 'session-evidence', operationId, source: 'session-check', checkId, outcome: 'recoverable', reason: 'different-principal',
+          message: 'La sesión activa pertenece a otra cuenta o tiene otros permisos. Ingresa con la cuenta original antes de volver a guardar.' });
       } else if (result.state === 'invalid-context') {
-        dispatch({ type: 'session-blocked', reason: 'invalid-context', message: 'No pudimos comprobar el contexto de esta página. Abre una página nueva con la cuenta original.' });
+        recordSessionEvidence({ type: 'session-evidence', operationId, source: 'session-check', checkId, outcome: 'terminal', reason: 'invalid-context',
+          message: 'No pudimos comprobar el contexto de esta página. Abre una página nueva con la cuenta original.' });
       } else {
-        dispatch({ type: 'session-required', reason: recoveryReason, message: 'No pudimos comprobar la sesión. Inténtalo de nuevo; tus cambios siguen aquí.' });
+        recordSessionEvidence({ type: 'session-evidence', operationId, source: 'session-check', checkId, outcome: 'recoverable', reason: recoveryReason,
+          message: 'No pudimos comprobar la sesión. Inténtalo de nuevo; tus cambios siguen aquí.' });
       }
     } catch {
-      if (checkIsCurrent()) dispatch({ type: 'session-required', reason: recoveryReason, message: 'No pudimos conectar para comprobar la sesión. Tus cambios siguen aquí.' });
+      if (checkIsCurrent()) recordSessionEvidence({ type: 'session-evidence', operationId, source: 'session-check', checkId, outcome: 'recoverable', reason: recoveryReason,
+        message: 'No pudimos conectar para comprobar la sesión. Tus cambios siguen aquí.' });
     }
   }
 
@@ -1628,7 +1429,6 @@ export default function CreatorOwnerApp(props: Props) {
     const recoverableListIntentId = listIntentId ?? (attempt.status === 'uncertain' && attempt.comparison?.id === comparisonId
       && attempt.comparison.canAdopt && attempt.intent.capture.kind === 'list-command' ? attempt.intent.id : undefined);
     if (recoverableListIntentId) {
-      pendingComparisonLocationSyncRef.current = { intentId: recoverableListIntentId, comparisonId };
       revealFocusAfterListAdoptionRef.current = ['enlaces', 'series'].includes(stateRef.current.location.view);
     }
     dispatch({ type: 'adopt-comparison', comparisonId });
@@ -1710,8 +1510,16 @@ export default function CreatorOwnerApp(props: Props) {
       if (latest.editor?.kind === 'create-profile') createProfile();
       return;
     }
-    if (latest.editor.kind === 'photo') void startPhotoUpload(latest.editor);
-    else submitCurrentEditor();
+    if (latest.editor.kind === 'photo') {
+      void startPhotoUpload(latest.editor);
+      return;
+    }
+    const editorKey = latest.editor.key;
+    window.requestAnimationFrame(() => {
+      const current = stateRef.current;
+      if (current.editor?.key !== editorKey || current.location.prompt !== 'none') return;
+      rootRef.current?.querySelector<HTMLFormElement>('[data-owner-dialog] form[data-owner-form]:not([hidden])')?.requestSubmit();
+    });
   }
 
   function copyLink(url: string) {
